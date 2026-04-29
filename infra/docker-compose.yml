@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgis/postgis:16-3.5
+    container_name: surimap-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-surimap}
+      POSTGRES_USER: ${POSTGRES_USER:-surimap}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-surimap}
+    ports:
+      - "5432:5432"
+    volumes:
+      - surimap-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-surimap} -d ${POSTGRES_DB:-surimap}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  surimap-postgres-data:
+

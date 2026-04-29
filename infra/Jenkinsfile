@@ -1,0 +1,113 @@
+pipeline {
+    agent any
+
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+    }
+
+    environment {
+        FRONTEND_IMAGE = 'suri-map-frontend:develop'
+        BACKEND_IMAGE = 'suri-map-backend:develop'
+        COMPOSE_FILE = 'infrastructure/docker/docker-compose.runtime.yml'
+        ENV_FILE = '.env.runtime'
+        FRONTEND_HOST_PORT = '3000'
+        BACKEND_HOST_PORT = '8081'
+        POSTGRES_HOST_PORT = '5432'
+        POSTGRES_DB = 'suri_map'
+        POSTGRES_USER = 'suri_map_user'
+        POSTGRES_PASSWORD = credentials('suri-map-postgres-password')
+        SPRING_JPA_HIBERNATE_DDL_AUTO = 'update'
+    }
+
+    stages {
+        stage('Checkout Info') {
+            steps {
+                sh 'git branch --show-current || true'
+                sh 'git rev-parse --short HEAD || true'
+                sh 'git log -1 --pretty=%s || true'
+            }
+        }
+
+        stage('Build Runtime Images') {
+            parallel {
+                stage('Frontend Image') {
+                    steps {
+                        sh '''
+                            docker build \
+                              -t ${FRONTEND_IMAGE} \
+                              -f frontend/Dockerfile \
+                              frontend
+                        '''
+                    }
+                }
+
+                stage('Backend Image') {
+                    steps {
+                        sh '''
+                            docker build \
+                              -t ${BACKEND_IMAGE} \
+                              -f backend/Dockerfile \
+                              backend
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('Deploy Runtime') {
+            steps {
+                writeFile file: env.ENV_FILE, text: """
+FRONTEND_IMAGE=${env.FRONTEND_IMAGE}
+BACKEND_IMAGE=${env.BACKEND_IMAGE}
+FRONTEND_HOST_PORT=${env.FRONTEND_HOST_PORT}
+BACKEND_HOST_PORT=${env.BACKEND_HOST_PORT}
+POSTGRES_HOST_PORT=${env.POSTGRES_HOST_PORT}
+POSTGRES_DB=${env.POSTGRES_DB}
+POSTGRES_USER=${env.POSTGRES_USER}
+POSTGRES_PASSWORD=${env.POSTGRES_PASSWORD}
+SPRING_JPA_HIBERNATE_DDL_AUTO=${env.SPRING_JPA_HIBERNATE_DDL_AUTO}
+""".trim() + "\n"
+
+                sh '''
+                    docker compose \
+                      --env-file ${ENV_FILE} \
+                      -f ${COMPOSE_FILE} \
+                      up -d postgis backend frontend
+                '''
+            }
+        }
+
+        stage('Verify Runtime') {
+            steps {
+                sh '''
+                    if curl -fsS http://127.0.0.1:${FRONTEND_HOST_PORT}/ >/dev/null; then
+                      echo "frontend_health=ready"
+                    else
+                      echo "frontend_health=failed"
+                      docker logs --tail=200 suri-map-frontend || true
+                      exit 1
+                    fi
+
+                    for i in $(seq 1 60); do
+                      if curl -fsS http://127.0.0.1:${BACKEND_HOST_PORT}/actuator/health >/dev/null; then
+                        echo "backend_health=ready"
+                        exit 0
+                      fi
+                      sleep 2
+                    done
+
+                    echo "backend_health=timeout"
+                    docker logs --tail=200 suri-map-backend || true
+                    exit 1
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            sh 'rm -f ${ENV_FILE}'
+        }
+    }
+}

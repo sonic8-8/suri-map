@@ -1,0 +1,82 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+*.iml
+
+# Local environment
+.env
+.env.*
+!.env.example
+!.env.*.example
+.codex
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Frontend / Node
+node_modules/
+dist/
+dist-ssr/
+coverage/
+.vite/
+.eslintcache
+*.tsbuildinfo
+
+# Gradle / JVM
+.gradle/
+build/
+out/
+bin/
+*.class
+
+# Spring Boot
+application-local.yml
+application-local.yaml
+backend/src/main/resources/application-local.yml
+backend/src/main/resources/application-local.yaml
+
+# Android
+android/local.properties
+android/.gradle/
+android/**/build/
+android/captures/
+android/.cxx/
+android/.externalNativeBuild/
+android/.kotlin/
+android/app/release/
+android/app/debug/
+android/app/*.apk
+android/app/*.aab
+android/app/*.ap_
+android/app/*.idsig
+android/app/google-services.json
+
+# Signing keys / secrets
+*.jks
+*.keystore
+*.p12
+*.pem
+*.key
+
+# Docker / infra runtime data
+infra/**/.env
+infra/**/data/
+infra/**/volumes/
+docker-compose.override.yml
+infra/docker-compose.override.yml
+
+# Test / tool caches
+.pytest_cache/
+.nyc_output/
+.scannerwork/
+.sonar/
