@@ -54,7 +54,7 @@
     "included": [
       "incident bootstrap 중 OP1 내부/system 자동 생성",
       "OP2 이후 Web 현장 지휘관 수동 생성과 active OP 전환",
-      "OP 생성 사유 SHIFT_CHANGE, RESEARCH, NEW_AREA, OTHER 기록",
+      "OP 생성 사유 SHIFT_CHANGE, RE_SEARCH, NEW_AREA, OTHER 기록",
       "OP 수준 담당 배정 op_assignment 생성·조회",
       "OP/경로/구역 단위 handover_memo 생성·조회",
       "OP·경로·마커·구역 상태·메모 기반 AI 수색 이력 요약 생성과 fallback 저장",
@@ -186,7 +186,7 @@
             "name": "reason",
             "type": "VARCHAR(24)",
             "nullable": false,
-            "note": "BOOTSTRAP|SHIFT_CHANGE|RESEARCH|NEW_AREA|OTHER"
+            "note": "BOOTSTRAP|SHIFT_CHANGE|RE_SEARCH|NEW_AREA|OTHER"
           },
           {
             "name": "reason_memo",
@@ -612,7 +612,7 @@
               "type": "string",
               "enum": [
                 "SHIFT_CHANGE",
-                "RESEARCH",
+                "RE_SEARCH",
                 "NEW_AREA",
                 "OTHER"
               ]
@@ -2176,7 +2176,7 @@
         "sequenceNo": "integer",
         "startedAt": "date-time",
         "endedAt": "nullable date-time",
-        "reason": "BOOTSTRAP|SHIFT_CHANGE|RESEARCH|NEW_AREA|OTHER",
+        "reason": "BOOTSTRAP|SHIFT_CHANGE|RE_SEARCH|NEW_AREA|OTHER",
         "version": "integer"
       },
       "visibility": "S3-1 current OP guard, S3-2 op_toggle/op_history, S7 manifest builder"

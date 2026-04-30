@@ -168,9 +168,9 @@
   - 관련 FR: FR-03, FR-28
   - 지원 FR: FR-22 through local close/purge cleanup
   - 선행 task: L1-T06, L2-T08
-  - 구현 산출물: local close/purge state policy, post-close requeue rejection, incident-scoped SSE/FCM subscription release test, ack-only deletion, tombstone retention tests
+  - 구현 산출물: local close/purge state policy, post-close requeue rejection, incident-scoped local cleanup test, ack-only deletion, tombstone retention tests
   - 예상 작업량: 2d
-  - 완료 기준: pre-close pending row, post-close requeue rejection, incident-scoped SSE/FCM 구독 해제, ack-only deletion, tombstone retention, package/cache cleanup 순서가 S1-3 handoff와 일치한다.
+  - 완료 기준: pre-close pending row, post-close requeue rejection, incident-scoped local cleanup, ack-only deletion, tombstone retention, package/cache cleanup 순서가 S1-3 handoff와 일치한다.
 
 ## Phase 4
 
