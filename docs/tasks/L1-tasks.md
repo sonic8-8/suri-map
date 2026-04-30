@@ -29,7 +29,7 @@
   - 관련 FR: FR-01, FR-21, FR-22
   - 구현 산출물: 배정 사건 fixture, membership fixture, missing person cache seed, OP/marker/path/memo seed 연결값
   - 예상 작업량: 1d
-  - 완료 기준: `spec/harness-scenarios.md`의 실종팀 단독 사건과 지구대/파출소 초동 사건 seed가 모든 Lane에서 같은 incident, membership, marker, path, OP, memo, device ID로 사용 가능하다.
+  - 완료 기준: `spec/harness-scenarios.md`의 지구대/파출소 초동 사건 seed와 실종팀 인계·지원 부대 배정 membership이 모든 Lane에서 같은 incident, membership, marker, path, OP, memo, device ID로 사용 가능하다.
 
 ## Phase 0
 

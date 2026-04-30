@@ -207,9 +207,9 @@
   - 필수 참조: `spec/harness-scenarios.md §2 SC-02`, `spec/harness-scenarios.md §6 mock FCM dispatcher`, `spec/specs/S5.json`
   - 연관 Spec: S1-1, S1-2, S4
   - 시나리오: SC-02
-  - 구현 산출물: support assignment FCM recipient fixture, `FcmDispatcher.send` mock capture test, payload/recipient/eventId/version failure injection test
+  - 구현 산출물: `INCIDENT_MEMBERSHIP_CHANGED` 기반 support assignment FCM recipient fixture, `FcmDispatcher.send` mock capture test, PII 없는 payload/recipient/eventId/version failure injection test
   - 예상 작업량: 1d
-  - 완료 기준: 지원 부대 배정 후 등록 단말로 가는 FCM payload/recipient/eventId/version이 mock dispatcher에 capture되고, mock 미수신 실패 주입이 red test로 검증된다.
+  - 완료 기준: 지원 부대 배정 후 신규 배정된 `TEAM_PHONE`/`PATROL_CAR_PHONE` 단말로 가는 FCM payload/recipient/eventId/version이 mock dispatcher에 capture되고, 지휘 계정 deviceId 제외와 mock 미수신 실패 주입이 red test로 검증된다.
 
 - [ ] L5-T09C 마커·사진·알림 시연 스모크 절차 작성
   - 담당 Spec: S5

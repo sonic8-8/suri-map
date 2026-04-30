@@ -1176,7 +1176,7 @@
         },
         {
           "name": "MembershipView",
-          "responsibility": "accounts, commanders, notificationTargets(incidentId,targetPolicy) read contract 제공. targetPolicy는 S5 알림 정책 입력이며 지원 요청은 지휘 계정 우선, 실종자 발견은 사건 배정 계정 전체를 반환한다."
+          "responsibility": "accounts, commanders, notificationTargets(incidentId,targetPolicy) read contract 제공. targetPolicy는 S5 알림 정책 입력이며 지원 요청은 지휘 계정 우선, 실종자 발견은 사건 배정 계정 전체, 지원 부대 배정 알림은 신규 배정된 TEAM/PATROL_CAR 계정을 반환한다."
         }
       ]
     },
@@ -1370,9 +1370,9 @@
       "fr_refs": [
         "FR-01"
       ],
-      "given": "SC-08 지원 요청과 실종자 발견 알림 fixture가 MembershipView.notificationTargets(incidentId,targetPolicy)를 호출한다.",
-      "when": "targetPolicy가 SUPPORT_REQUEST와 PERSON_FOUND로 각각 전달된다.",
-      "then": "SUPPORT_REQUEST는 실종팀 지휘 계정과 incident membership role 기준 현장 지휘관 계정을 우선 반환하고, PERSON_FOUND는 사건 배정 계정·단말 전체를 반환한다. 반환 대상은 id/status/version 이벤트 수렴과 함께 검증된다.",
+      "given": "SC-02 지원 부대 배정 알림과 SC-08 지원 요청·실종자 발견 알림 fixture가 MembershipView.notificationTargets(incidentId,targetPolicy)를 호출한다.",
+      "when": "targetPolicy가 SUPPORT_ASSIGNMENT, SUPPORT_REQUEST, PERSON_FOUND로 각각 전달된다.",
+      "then": "SUPPORT_ASSIGNMENT는 신규 배정된 TEAM/PATROL_CAR 계정만 반환하고, SUPPORT_REQUEST는 실종팀 지휘 계정과 incident membership role 기준 현장 지휘관 계정을 우선 반환하고, PERSON_FOUND는 사건 배정 계정·단말 전체를 반환한다. 반환 대상은 id/status/version 이벤트 수렴과 함께 검증된다.",
       "priority": "high"
     },
     {
@@ -1448,7 +1448,7 @@
       {
         "name": "MembershipHandoverAndSupportAssignmentPreserveOp1Evidence",
         "framework": "JUnit 5 + Testcontainers(PostgreSQL)",
-        "scenario": "SC-02 fixture에서 실종팀 인계와 지원 부대 배정은 기존 OP1 path/marker/memo seed ID를 보존하고, mem-precinct-* 및 mem-solo-* 기존 active rows는 유지하며, mem-precinct-alpha-*, mem-precinct-support-*, mem-solo-support-* 기대 membership rows를 추가하고, MembershipView와 INCIDENT_MEMBERSHIP_CHANGED payload가 같은 id/status/version으로 수렴해야 한다."
+        "scenario": "SC-02 fixture에서 실종팀 인계와 지원 부대 배정은 기존 OP1 path/marker/memo seed ID를 보존하고, 인계 전 mem-precinct-* active rows를 유지하며, 인계 후 mem-precinct-alpha-* 기대 membership rows와 지원 배정 후 mem-precinct-support-* 기대 membership rows를 추가하고, MembershipView와 INCIDENT_MEMBERSHIP_CHANGED payload가 같은 id/status/version으로 수렴해야 한다."
       },
       {
         "name": "UnassignedReadAndWriteGuards",
@@ -1458,7 +1458,7 @@
       {
         "name": "NotificationTargetsApplyTargetPolicy",
         "framework": "JUnit 5",
-        "scenario": "MembershipView.notificationTargets(incidentId,targetPolicy)는 SUPPORT_REQUEST에서 지휘 계정 우선, PERSON_FOUND에서 사건 배정 계정·단말 전체를 반환하고 S5 fixture가 대상 누락을 실패로 판정한다."
+        "scenario": "MembershipView.notificationTargets(incidentId,targetPolicy)는 SUPPORT_ASSIGNMENT에서 신규 배정된 TEAM/PATROL_CAR 계정, SUPPORT_REQUEST에서 지휘 계정 우선, PERSON_FOUND에서 사건 배정 계정·단말 전체를 반환하고 S5 fixture가 대상 누락을 실패로 판정한다."
       },
       {
         "name": "CloseIncidentBlocksWritesDeletesPrivateCacheAndPublishesClosed",
