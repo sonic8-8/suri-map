@@ -761,7 +761,7 @@
         "FR-10",
         "FR-17"
       ],
-      "given": "SUPPORT_REQUEST_CREATED, PERSON_FOUND, INCIDENT_CLOSED event가 FCM data message dispatch 대상이다.",
+      "given": "SUPPORT_REQUEST_CREATED, PERSON_FOUND, INCIDENT_MEMBERSHIP_CHANGED, INCIDENT_CLOSED event가 FCM data message dispatch 대상이다.",
       "when": "EventFanout.dispatch가 실행된다.",
       "then": "S4는 S5 NotificationRecipientResolver.resolve(event)와 NotificationPayloadFactory.from(event) 또는 incident close recipient fixture로 recipients/payload를 받은 뒤 FcmDispatcher port와 S3-2 BoardSnapshotProjector.apply(ProjectorTrigger)를 호출하되 payload/recipient 계산과 snapshot assembly는 수행하지 않는다.",
       "priority": "critical"
