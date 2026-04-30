@@ -1,0 +1,1810 @@
+{
+  "$schema": "../_template.schema.json",
+  "spec_info": {
+    "id": "S1-2",
+    "name": "Account, Device & RBAC",
+    "owner": "2",
+    "character": "cross_cutting",
+    "created": "2026-04-28",
+    "updated": "2026-04-28"
+  },
+  "context_refs": {
+    "prd": [
+      "§3.1 주요 사용자",
+      "§6.1 Account / Device",
+      "§7.1 FR-01 사건/계정/권한",
+      "§7.2 FR-02 Device 위치·경로",
+      "§7.5 FR-25 운용 중 업무폰 궤도 강조",
+      "§7.5 FR-24 단말 최신성",
+      "§8.4 인증/권한"
+    ],
+    "architecture": [
+      "§3.2 오프라인 우선 스택",
+      "§5.4 인증/세션",
+      "§6.2 핵심 엔티티",
+      "§7.3 알림 발송 정책"
+    ],
+    "adr": [
+      "ADR-0005",
+      "ADR-0025",
+      "ADR-0026",
+      "ADR-0031"
+    ],
+    "boundaries": "spec/boundaries.md §3 S1-2, §4.1, §4.4, §4.6, §7, §8",
+    "harness": [
+      "SC-01 배정 사건 가져오기·초동 활성화",
+      "SC-02 실종팀 인계·지원 부대 배정",
+      "SC-03 사건 오프라인 패키지 사전 적재",
+      "SC-04 지도 기준 범위·구역 분할·할당",
+      "SC-05 수색 세션·Device GPS 경로",
+      "SC-06 현장 마커 생성",
+      "SC-07 통신 단절 중 로컬 기록",
+      "SC-08 지원 요청·실종자 발견 알림",
+      "SC-09 통신 복구·동기화",
+      "SC-10 구역 완료·새 OP 열기",
+      "SC-11 인수인계·OP 비교·AI 요약",
+      "SC-12 사건 종료·캐시 파기"
+    ]
+  },
+  "scope": {
+    "included": [
+      "팀 계정, 순찰차 계정, 지휘 계정 저장·조회",
+      "계정 소속, 계정 유형, 역할 set 관리",
+      "소속, 계정 유형, 역할, 사건 membership/context를 결합한 Channel / Role Matrix 정책 제공",
+      "폴리폰 Device 등록 상태와 팀 업무폰, 순찰차 업무폰 Device 유형 관리. 지휘 계정 deviceId는 웹 지휘·membership fixture 식별자로만 다루고 Android 앱 단말 subtype으로 공개하지 않는다.",
+      "앱·웹 세션 생성과 종료",
+      "SecurityContext 생성",
+      "채널 guard, 역할 guard, 사건 접근 guard, Device guard annotation과 API guard alias 제공",
+      "FCM token 등록·무효화",
+      "Device heartbeat 저장과 heartbeat write 성공 시 DEVICE_HEARTBEAT_UPDATED 이벤트 발행",
+      "S3-2가 stale/lost를 파생할 수 있는 DeviceFreshnessQuery.byIncident DTO fixture 제공.",
+      "하네스용 account/device fixture 기준 제공"
+    ],
+    "excluded": [
+      {
+        "item": "외부 가입, 계정 복구, 비밀번호 재설정 화면",
+        "owner": "S1-2",
+        "reason": "MVP 범위 밖이며 계정 발급은 운영자 일괄 관리 전제다."
+      },
+      {
+        "item": "부대·팀 편제 관리 UI",
+        "owner": "Out of scope / seed fixture",
+        "reason": "Unit/Team 편제 관리 UI는 MVP 범위 밖이다. 하네스는 seed fixture를 참조하고 S1-2는 account가 참조만 한다."
+      },
+      {
+        "item": "사건 membership row 작성",
+        "owner": "S1-1",
+        "reason": "S1-2는 incident_membership을 읽어 guard를 판정한다."
+      },
+      {
+        "item": "OP assignment 작성",
+        "owner": "S8",
+        "reason": "S1-2는 Device assignment guard를 위해 OP assignment를 소비만 한다."
+      },
+      {
+        "item": "FCM recipient 계산과 notification payload 생성",
+        "owner": "S5",
+        "reason": "S1-2는 token 저장소만 제공하고 알림 대상 정책은 소유하지 않는다."
+      },
+      {
+        "item": "SSE, event outbox, fanout orchestration",
+        "owner": "S4",
+        "reason": "S1-2는 DEVICE_HEARTBEAT_UPDATED 발행 요청만 생성한다."
+      },
+      {
+        "item": "상황판 shell, device_freshness slot-scoped renderer, 위치 점 렌더링, stale/lost 시각화",
+        "owner": "S3-2",
+        "reason": "S1-2는 Device freshness DTO fixture만 제공한다. Query 이름을 public provides로 확정하려면 boundaries.md 갱신이 필요하며, S3-2가 board slot 수렴과 렌더링을 소유한다."
+      }
+    ]
+  },
+  "fr_mapping": [
+    {
+      "id": "FR-01",
+      "summary": "사건 단위 접근 권한",
+      "handling": "SecurityContext, @RequireIncidentAccess, @RequireRole, @RequireChannel이 S1-1 incident_membership과 accountType/affiliation/roles를 조합해 boundaries.md §4.6 Channel / Role Matrix 권한을 판정한다."
+    },
+    {
+      "id": "FR-02",
+      "summary": "Device 기준 위치·경로 기록 전제",
+      "handling": "앱 쓰기 API에 @RequireDevice, @RequireDeviceRegistered, @RequireDeviceAssigned를 제공해 경로·마커 write가 등록·배정된 Device 기준으로만 수행되게 한다."
+    },
+    {
+      "id": "FR-24",
+      "summary": "단말 통신 품질·최신성 인코딩",
+      "handling": "POST /devices/{deviceId}/heartbeat가 lastHeartbeatAt, lastSyncAt, sequence, version을 갱신하고 ONLINE heartbeat event만 발행한다. S3-2는 Device freshness DTO의 lastHeartbeatAt 기준으로 STALE/LOST를 파생한다."
+    },
+    {
+      "id": "FR-25",
+      "summary": "운용 중 Device 궤도 강조",
+      "handling": "SecurityContext.deviceId와 DeviceQuery.byAccount가 앱·상황판에서 현재 운용 Device를 식별할 수 있게 한다."
+    }
+  ],
+  "domain_model": {
+    "entities": [
+      {
+        "name": "account",
+        "owner_spec": "S1-2",
+        "description": "팀 계정, 순찰차 계정, 지휘 계정을 나타내는 운영 계정.",
+        "fields": [
+          {
+            "name": "id",
+            "type": "UUID",
+            "nullable": false,
+            "pk": true
+          },
+          {
+            "name": "account_code",
+            "type": "VARCHAR(80)",
+            "nullable": false,
+            "unique": true
+          },
+          {
+            "name": "display_name",
+            "type": "VARCHAR(120)",
+            "nullable": false
+          },
+          {
+            "name": "account_type",
+            "type": "VARCHAR(24)",
+            "nullable": false,
+            "note": "TEAM|PATROL_CAR|COMMAND"
+          },
+          {
+            "name": "affiliation",
+            "type": "VARCHAR(32)",
+            "nullable": false,
+            "note": "MISSING_TEAM|SUPPORT_UNIT|LOCAL_POLICE"
+          },
+          {
+            "name": "roles",
+            "type": "TEXT[]",
+            "nullable": false,
+            "note": "MISSING_TEAM_COMMANDER|FIELD_COMMANDER|MEMBER"
+          },
+          {
+            "name": "unit_id",
+            "type": "UUID",
+            "nullable": true,
+            "note": "S1-1 seed unit reference"
+          },
+          {
+            "name": "team_id",
+            "type": "UUID",
+            "nullable": true,
+            "note": "S1-1 seed team reference"
+          },
+          {
+            "name": "password_hash",
+            "type": "TEXT",
+            "nullable": false
+          },
+          {
+            "name": "status",
+            "type": "VARCHAR(24)",
+            "nullable": false,
+            "note": "ACTIVE|DISABLED"
+          },
+          {
+            "name": "created_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": false
+          },
+          {
+            "name": "updated_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": false
+          }
+        ],
+        "indexes": [
+          {
+            "name": "ux_account_code",
+            "columns": [
+              "account_code"
+            ]
+          },
+          {
+            "name": "idx_account_affiliation_type",
+            "columns": [
+              "affiliation",
+              "account_type"
+            ]
+          },
+          {
+            "name": "idx_account_team",
+            "columns": [
+              "team_id"
+            ]
+          }
+        ],
+        "spatial": {
+          "enabled": false,
+          "type": "POINT",
+          "srid": 4326
+        }
+      },
+      {
+        "name": "account_session",
+        "owner_spec": "S1-2",
+        "description": "앱 또는 웹 로그인 세션. 앱 세션은 Device를 포함한다.",
+        "fields": [
+          {
+            "name": "id",
+            "type": "UUID",
+            "nullable": false,
+            "pk": true
+          },
+          {
+            "name": "account_id",
+            "type": "UUID",
+            "nullable": false
+          },
+          {
+            "name": "channel",
+            "type": "VARCHAR(16)",
+            "nullable": false,
+            "note": "APP|WEB|INTERNAL"
+          },
+          {
+            "name": "device_id",
+            "type": "UUID",
+            "nullable": true
+          },
+          {
+            "name": "status",
+            "type": "VARCHAR(24)",
+            "nullable": false,
+            "note": "ACTIVE|EXPIRED|REVOKED"
+          },
+          {
+            "name": "issued_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": false
+          },
+          {
+            "name": "expires_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": false
+          },
+          {
+            "name": "revoked_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": true
+          },
+          {
+            "name": "last_seen_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": true
+          }
+        ],
+        "indexes": [
+          {
+            "name": "idx_account_session_account_status",
+            "columns": [
+              "account_id",
+              "status"
+            ]
+          },
+          {
+            "name": "idx_account_session_device_status",
+            "columns": [
+              "device_id",
+              "status"
+            ]
+          }
+        ],
+        "spatial": {
+          "enabled": false,
+          "type": "POINT",
+          "srid": 4326
+        }
+      },
+      {
+        "name": "device",
+        "owner_spec": "S1-2",
+        "description": "팀 업무폰 또는 순찰차 업무폰으로 운용되는 폴리폰 단말. 경로 기록 주체는 TEAM_PHONE/PATROL_CAR_PHONE으로 제한한다.",
+        "fields": [
+          {
+            "name": "id",
+            "type": "UUID",
+            "nullable": false,
+            "pk": true
+          },
+          {
+            "name": "device_code",
+            "type": "VARCHAR(80)",
+            "nullable": false,
+            "unique": true
+          },
+          {
+            "name": "display_name",
+            "type": "VARCHAR(120)",
+            "nullable": false
+          },
+          {
+            "name": "device_type",
+            "type": "VARCHAR(24)",
+            "nullable": false,
+            "note": "TEAM_PHONE|PATROL_CAR_PHONE. COMMAND_PHONE은 기준 문서의 public Device subtype이 아니며 지휘 계정 deviceId는 웹 지휘·membership fixture 식별자로만 사용한다."
+          },
+          {
+            "name": "account_id",
+            "type": "UUID",
+            "nullable": false,
+            "note": "S1-2 account.id. DeviceQuery.byAccount(accountId)의 직접 연결 기준"
+          },
+          {
+            "name": "affiliation",
+            "type": "VARCHAR(32)",
+            "nullable": false,
+            "note": "MISSING_TEAM|SUPPORT_UNIT|LOCAL_POLICE"
+          },
+          {
+            "name": "unit_id",
+            "type": "UUID",
+            "nullable": true,
+            "note": "S1-1 seed unit reference"
+          },
+          {
+            "name": "team_id",
+            "type": "UUID",
+            "nullable": true,
+            "note": "S1-1 seed team reference"
+          },
+          {
+            "name": "patrol_car_code",
+            "type": "VARCHAR(80)",
+            "nullable": true
+          },
+          {
+            "name": "registered",
+            "type": "BOOLEAN",
+            "nullable": false
+          },
+          {
+            "name": "last_heartbeat_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": true
+          },
+          {
+            "name": "last_sync_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": true
+          },
+          {
+            "name": "connectivity_status",
+            "type": "VARCHAR(24)",
+            "nullable": false,
+            "note": "UNKNOWN|ONLINE. 서버 저장 상태는 heartbeat 수신 여부만 나타낸다. STALE|LOST는 DeviceFreshnessQuery가 last_heartbeat_at 기준으로 파생하고 Android OFFLINE|RECOVERING은 로컬 네트워크 표시 상태다."
+          },
+          {
+            "name": "sequence",
+            "type": "BIGINT",
+            "nullable": false
+          },
+          {
+            "name": "version",
+            "type": "BIGINT",
+            "nullable": false,
+            "note": "REST response, DEVICE_HEARTBEAT_UPDATED payload, outbox/SSE, board snapshot 수렴 비교용 entity version"
+          },
+          {
+            "name": "created_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": false
+          },
+          {
+            "name": "updated_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": false
+          }
+        ],
+        "indexes": [
+          {
+            "name": "ux_device_code",
+            "columns": [
+              "device_code"
+            ]
+          },
+          {
+            "name": "idx_device_account_registered",
+            "columns": [
+              "account_id",
+              "registered"
+            ]
+          },
+          {
+            "name": "idx_device_team",
+            "columns": [
+              "team_id"
+            ]
+          },
+          {
+            "name": "idx_device_freshness",
+            "columns": [
+              "connectivity_status",
+              "last_heartbeat_at"
+            ]
+          }
+        ],
+        "spatial": {
+          "enabled": false,
+          "type": "POINT",
+          "srid": 4326
+        }
+      },
+      {
+        "name": "fcm_token",
+        "owner_spec": "S1-2",
+        "description": "앱 Device별 FCM token 저장소. 알림 대상 계산은 S5가 수행한다.",
+        "fields": [
+          {
+            "name": "id",
+            "type": "UUID",
+            "nullable": false,
+            "pk": true
+          },
+          {
+            "name": "account_id",
+            "type": "UUID",
+            "nullable": false
+          },
+          {
+            "name": "device_id",
+            "type": "UUID",
+            "nullable": false
+          },
+          {
+            "name": "app_instance_id",
+            "type": "VARCHAR(120)",
+            "nullable": false
+          },
+          {
+            "name": "token_hash",
+            "type": "VARCHAR(128)",
+            "nullable": false,
+            "note": "dedupe와 log-safe 식별 전용. 실제 FCM 전송에는 사용하지 않는다."
+          },
+          {
+            "name": "encrypted_token",
+            "type": "TEXT",
+            "nullable": false,
+            "note": "실제 FCM 전송에 필요한 token ciphertext. 원문 token은 로그와 API 응답에 노출하지 않는다."
+          },
+          {
+            "name": "status",
+            "type": "VARCHAR(24)",
+            "nullable": false,
+            "note": "ACTIVE|REVOKED"
+          },
+          {
+            "name": "created_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": false
+          },
+          {
+            "name": "last_seen_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": false
+          },
+          {
+            "name": "revoked_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": true
+          },
+          {
+            "name": "version",
+            "type": "BIGINT",
+            "nullable": false,
+            "note": "POST /fcm/tokens response와 notification delivery fixture의 version 수렴 비교용"
+          }
+        ],
+        "indexes": [
+          {
+            "name": "ux_fcm_token_device_instance_active",
+            "columns": [
+              "device_id",
+              "app_instance_id"
+            ],
+            "unique": true,
+            "where": "status = 'ACTIVE'",
+            "note": "revoked 이력 row와 active row가 공존할 수 있게 active partial unique로 제한한다. 같은 device_id/app_instance_id로 새 ACTIVE token을 등록하면 기존 ACTIVE row는 REVOKED로 전환한 뒤 새 row만 ACTIVE로 유지한다."
+          },
+          {
+            "name": "idx_fcm_token_account_status",
+            "columns": [
+              "account_id",
+              "status"
+            ]
+          },
+          {
+            "name": "idx_fcm_token_hash_status",
+            "columns": [
+              "token_hash",
+              "status"
+            ],
+            "note": "token_hash는 중복 식별과 감사 로그 correlation용이며 전송 material이 아니다."
+          }
+        ],
+        "spatial": {
+          "enabled": false,
+          "type": "POINT",
+          "srid": 4326
+        }
+      }
+    ],
+    "state_machines": [
+      {
+        "entity": "account_session",
+        "field": "status",
+        "states": [
+          "ACTIVE",
+          "EXPIRED",
+          "REVOKED"
+        ],
+        "transitions": [
+          {
+            "from": "ACTIVE",
+            "to": "EXPIRED",
+            "trigger": "session ttl reached",
+            "guard": "server time >= expires_at"
+          },
+          {
+            "from": "ACTIVE",
+            "to": "REVOKED",
+            "trigger": "POST /auth/logout",
+            "guard": "same account or internal system caller"
+          }
+        ]
+      },
+      {
+        "entity": "device",
+        "field": "connectivity_status",
+        "states": [
+          "UNKNOWN",
+          "ONLINE"
+        ],
+        "transitions": [
+          {
+            "from": "UNKNOWN",
+            "to": "ONLINE",
+            "trigger": "heartbeat received",
+            "guard": "registered=true"
+          },
+          {
+            "from": "ONLINE",
+            "to": "ONLINE",
+            "trigger": "heartbeat received",
+            "guard": "registered=true and sequence is newer"
+          }
+        ]
+      },
+      {
+        "entity": "fcm_token",
+        "field": "status",
+        "states": [
+          "ACTIVE",
+          "REVOKED"
+        ],
+        "transitions": [
+          {
+            "from": "ACTIVE",
+            "to": "REVOKED",
+            "trigger": "POST /auth/logout or token rotation",
+            "guard": "matching account_id and device_id"
+          }
+        ]
+      }
+    ],
+    "flyway_migrations": [
+      "V20260428_010__s1_2_account_device_rbac.sql"
+    ]
+  },
+  "api_contracts": {
+    "provided": [
+      {
+        "method": "POST",
+        "path": "/auth/login",
+        "summary": "앱 또는 웹 세션을 생성하고 SecurityContext를 반환한다.",
+        "auth": "public-session: @RequireChannel(APP,WEB). 앱 Device binding은 API Index 기준 guard가 아니며, deviceCode가 제공되면 post-login/session binding으로 검증한다.",
+        "idempotent": false,
+        "required_headers": [
+          "X-Client-Channel"
+        ],
+        "request_schema": {
+          "type": "object",
+          "required": [
+            "accountCode",
+            "password",
+            "channel"
+          ],
+          "properties": {
+            "accountCode": {
+              "type": "string"
+            },
+            "password": {
+              "type": "string"
+            },
+            "channel": {
+              "type": "string",
+              "enum": [
+                "APP",
+                "WEB"
+              ]
+            },
+            "deviceCode": {
+              "type": "string",
+              "nullable": true
+            }
+          }
+        },
+        "response_schema": {
+          "200": {
+            "type": "object",
+            "required": [
+              "sessionId",
+              "accessToken",
+              "securityContext"
+            ],
+            "properties": {
+              "sessionId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "accessToken": {
+                "type": "string"
+              },
+              "securityContext": {
+                "$ref": "#/service_contracts/security_context"
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "code": 403,
+            "case": "channel_not_allowed",
+            "body": {
+              "error": "channel_not_allowed"
+            }
+          }
+        ]
+      },
+      {
+        "method": "POST",
+        "path": "/auth/logout",
+        "summary": "현재 세션을 REVOKED로 전환하고 앱 세션이면 active FCM token을 무효화한다.",
+        "auth": "@RequireChannel(APP,WEB)",
+        "idempotent": false,
+        "required_headers": [
+          "Authorization",
+          "X-Client-Channel"
+        ],
+        "request_schema": {
+          "type": "object",
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "response_schema": {
+          "200": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "REVOKED"
+                ]
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "code": 403,
+            "case": "channel_not_allowed",
+            "body": {
+              "error": "channel_not_allowed"
+            }
+          }
+        ]
+      },
+      {
+        "method": "POST",
+        "path": "/fcm/tokens",
+        "summary": "인증된 앱 Device의 FCM token을 저장한다.",
+        "auth": "guard alias app-device: @RequireChannel(APP), @RequireDevice, @RequireDeviceRegistered, @RequireDeviceAssigned. incident/op context 없는 호출도 S1-1 active incident_membership에 연결되지 않은 Device는 device_not_assigned로 거부한다. command account deviceId는 Android FCM recipient 계약에 포함하지 않는다.",
+        "idempotent": false,
+        "required_headers": [
+          "Authorization",
+          "X-Client-Channel",
+          "X-Device-Id"
+        ],
+        "request_schema": {
+          "type": "object",
+          "required": [
+            "appInstanceId",
+            "token"
+          ],
+          "properties": {
+            "appInstanceId": {
+              "type": "string"
+            },
+            "token": {
+              "type": "string"
+            }
+          }
+        },
+        "response_schema": {
+          "200": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "ACTIVE"
+                ]
+              },
+              "version": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "code": 400,
+            "case": "device_required",
+            "body": {
+              "error": "device_required"
+            }
+          },
+          {
+            "code": 403,
+            "case": "channel_not_allowed",
+            "body": {
+              "error": "channel_not_allowed"
+            }
+          },
+          {
+            "code": 403,
+            "case": "device_not_registered",
+            "body": {
+              "error": "device_not_registered"
+            }
+          },
+          {
+            "code": 403,
+            "case": "device_not_assigned",
+            "body": {
+              "error": "device_not_assigned"
+            }
+          }
+        ]
+      },
+      {
+        "method": "POST",
+        "path": "/devices/{deviceId}/heartbeat",
+        "summary": "앱 Device의 마지막 heartbeat와 동기화 시각을 갱신한다.",
+        "auth": "guard alias app-device: @RequireChannel(APP), @RequireDevice, @RequireDeviceRegistered, @RequireDeviceAssigned. API Index상 write-common이 아니므로 closed incident를 public API error로 확정하지 않는다.",
+        "idempotent": false,
+        "required_headers": [
+          "Authorization",
+          "X-Client-Channel",
+          "X-Device-Id"
+        ],
+        "request_schema": {
+          "type": "object",
+          "required": [
+            "clientTs",
+            "sequence"
+          ],
+          "properties": {
+            "clientTs": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "lastSyncAt": {
+              "type": "string",
+              "format": "date-time",
+              "nullable": true
+            },
+            "sequence": {
+              "type": "integer"
+            },
+            "batteryPercent": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100,
+              "nullable": true
+            }
+          }
+        },
+        "response_schema": {
+          "200": {
+            "type": "object",
+            "required": [
+              "id",
+              "status",
+              "version",
+              "deviceId",
+              "sequence"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "ONLINE"
+                ]
+              },
+              "version": {
+                "type": "integer"
+              },
+              "deviceId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "sequence": {
+                "type": "integer"
+              },
+              "lastHeartbeatAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "lastSyncAt": {
+                "type": "string",
+                "format": "date-time",
+                "nullable": true
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "code": 400,
+            "case": "device_required",
+            "body": {
+              "error": "device_required"
+            }
+          },
+          {
+            "code": 403,
+            "case": "channel_not_allowed",
+            "body": {
+              "error": "channel_not_allowed"
+            }
+          },
+          {
+            "code": 403,
+            "case": "device_not_registered",
+            "body": {
+              "error": "device_not_registered"
+            }
+          },
+          {
+            "code": 403,
+            "case": "device_not_assigned",
+            "body": {
+              "error": "device_not_assigned"
+            }
+          }
+        ]
+      }
+    ],
+    "consumed": [
+      {
+        "from_spec": "S1-1",
+        "interface": "IncidentAccessResolver",
+        "usage": "@RequireIncidentAccess와 @RequireDeviceAssigned가 S1-1 incident_membership의 ACTIVE accountId를 판정할 때 사용한다."
+      },
+      {
+        "from_spec": "S1-1",
+        "interface": "MembershipView.accounts(incidentId)",
+        "usage": "사건 배정 운영 accountId와 현장 지휘관 role 후보 조회"
+      },
+      {
+        "from_spec": "S4",
+        "interface": "EventHub.publish(event)",
+        "usage": "DEVICE_HEARTBEAT_UPDATED payload와 PublishRequest 생성·검증까지만 책임지고 EventHub.publish에 전달한다. event_outbox row 저장과 fanout orchestration은 S4 소유다."
+      }
+    ],
+    "events_published": [
+      {
+        "type": "DEVICE_HEARTBEAT_UPDATED",
+        "trigger": "POST /devices/{deviceId}/heartbeat domain write commit",
+        "payload_schema": {
+          "type": "object",
+          "required": [
+            "id",
+            "status",
+            "version",
+            "deviceId",
+            "sequence",
+            "lastHeartbeatAt"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "ONLINE"
+              ]
+            },
+            "version": {
+              "type": "integer"
+            },
+            "deviceId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "sequence": {
+              "type": "integer"
+            },
+            "lastHeartbeatAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "lastSyncAt": {
+              "type": "string",
+              "format": "date-time",
+              "nullable": true
+            }
+          }
+        },
+        "subscribers": [
+          "S3-2"
+        ]
+      }
+    ],
+    "events_subscribed": [
+      {
+        "type": "INCIDENT_MEMBERSHIP_CHANGED",
+        "from_spec": "S1-1",
+        "handler": "incident access guard cache를 무효화한다."
+      }
+    ]
+  },
+  "service_contracts": {
+    "security_context": {
+      "type": "object",
+      "required": [
+        "accountId",
+        "accountType",
+        "affiliation",
+        "roles",
+        "channel"
+      ],
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "accountType": {
+          "type": "string",
+          "enum": [
+            "TEAM",
+            "PATROL_CAR",
+            "COMMAND"
+          ]
+        },
+        "affiliation": {
+          "type": "string",
+          "enum": [
+            "MISSING_TEAM",
+            "SUPPORT_UNIT",
+            "LOCAL_POLICE"
+          ]
+        },
+        "roles": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "MISSING_TEAM_COMMANDER",
+              "FIELD_COMMANDER",
+              "MEMBER"
+            ]
+          }
+        },
+        "channel": {
+          "type": "string",
+          "enum": [
+            "APP",
+            "WEB",
+            "INTERNAL"
+          ]
+        },
+        "deviceId": {
+          "type": "string",
+          "format": "uuid",
+          "nullable": true
+        }
+      }
+    },
+    "role_matrix_policies": [
+      {
+        "feature": "사건 가져오기",
+        "allows": "WEB channel and (MISSING_TEAM COMMAND account with MISSING_TEAM_COMMANDER role or LOCAL_POLICE COMMAND account with FIELD_COMMANDER role), matching S1-1 import auth.",
+        "denies": "APP channel, SUPPORT_UNIT FIELD_COMMANDER, TEAM/PATROL_CAR accounts, and command accounts with no seed/mock assignment."
+      },
+      {
+        "feature": "사건 종료",
+        "allows": "WEB channel, ACTIVE incident membership, and 실종팀 지휘 role.",
+        "denies": "SUPPORT_UNIT FIELD_COMMANDER, LOCAL_POLICE FIELD_COMMANDER, TEAM/PATROL_CAR accounts, and non-members."
+      },
+      {
+        "feature": "지원 부대 배정",
+        "allows": "WEB channel, ACTIVE incident membership, and 실종팀 지휘 role.",
+        "denies": "SUPPORT_UNIT FIELD_COMMANDER, LOCAL_POLICE FIELD_COMMANDER, TEAM/PATROL_CAR accounts, and non-members."
+      },
+      {
+        "feature": "지도/구역/OP/AI 지휘 write",
+        "allows": "WEB channel, ACTIVE incident membership, and 현장 지휘관 role.",
+        "denies": "TEAM/PATROL_CAR accounts, command accounts that are incident members but not incident commanders, and APP channel."
+      },
+      {
+        "feature": "사건 조회",
+        "allows": "APP or WEB channel and ACTIVE incident membership for the account.",
+        "denies": "accounts not present in incident_membership ACTIVE rows."
+      }
+    ],
+    "provided_annotations": [
+      {
+        "name": "@RequireIncidentAccess",
+        "failure_codes": [
+          "incident_access_denied",
+          "team_not_assigned"
+        ],
+        "rule": "SecurityContext.accountId가 S1-1 incident_membership ACTIVE row의 운영 accountId에 포함되어야 한다."
+      },
+      {
+        "name": "@RequireRole",
+        "failure_codes": [
+          "role_denied"
+        ],
+        "rule": "boundaries.md §4.6 Channel / Role Matrix의 필요 역할을 account.roles, account.affiliation, account.account_type, S1-1 incident_membership membership_role/context로 함께 판정한다. FIELD_COMMANDER role만으로는 충분하지 않으며 현장 지휘관 write는 사건별 commander membership context도 확인해야 한다. 사건 종료와 지원 부대 배정은 실종팀 지휘 역할만 허용하고, 지도/구역/OP/AI 요약 생성은 현장 지휘관 역할을 허용한다."
+      },
+      {
+        "name": "@RequireChannel",
+        "failure_codes": [
+          "channel_not_allowed"
+        ],
+        "rule": "SecurityContext.channel 또는 X-Client-Channel이 API 허용 채널과 일치해야 한다."
+      },
+      {
+        "name": "@RequireDevice",
+        "failure_codes": [
+          "device_required"
+        ],
+        "rule": "APP 요청은 SecurityContext.deviceId와 X-Device-Id를 모두 가져야 하며 값이 같아야 한다. 경로의 deviceId가 있으면 그 값도 같은 Device여야 한다."
+      },
+      {
+        "name": "@RequireDeviceRegistered",
+        "failure_codes": [
+          "device_not_registered"
+        ],
+        "rule": "device.registered=true인 S1-2 소유 Device여야 한다. 등록 가능 여부는 status 계열 별도 필드가 아니라 registered로 판정한다."
+      },
+      {
+        "name": "@RequireDeviceAssigned",
+        "failure_codes": [
+          "device_not_assigned"
+        ],
+        "rule": "Device.account_id가 SecurityContext.accountId와 같아야 하고, S1-1 active incident_membership 기준으로 사건 배정 계정에 연결된 Device여야 한다. incident-scoped domain API의 incident/op/current OP 검증은 해당 API owner의 incident-read와 @RequireCurrentOp가 담당하며, S1-2는 S8 AssignmentQuery를 소비하지 않는다."
+      }
+    ],
+    "api_guard_aliases": [
+      {
+        "alias": "web-incident-import-command",
+        "guards_in_order": [
+          "@RequireChannel(WEB)",
+          "@RequireRole(MISSING_TEAM_COMMANDER or LOCAL_POLICE FIELD_COMMANDER with COMMAND account)"
+        ],
+        "failure_precedence": [
+          "channel_not_allowed",
+          "role_denied"
+        ],
+        "rule": "S1-1 기준과 동일하게 MISSING_TEAM 지휘 또는 LOCAL_POLICE 지휘만 사건 import를 허용한다. SUPPORT_UNIT FIELD_COMMANDER는 role_denied다."
+      },
+      {
+        "alias": "web-incident-close-command",
+        "guards_in_order": [
+          "@RequireChannel(WEB)",
+          "@RequireOpenIncident",
+          "@RequireIncidentAccess",
+          "@RequireRole(MISSING_TEAM_COMMANDER)"
+        ],
+        "failure_precedence": [
+          "channel_not_allowed",
+          "incident_bootstrapping",
+          "incident_closed",
+          "incident_access_denied",
+          "team_not_assigned",
+          "role_denied"
+        ]
+      },
+      {
+        "alias": "web-support-assign-command",
+        "guards_in_order": [
+          "@RequireChannel(WEB)",
+          "@RequireOpenIncident",
+          "@RequireIncidentAccess",
+          "@RequireRole(MISSING_TEAM_COMMANDER)"
+        ],
+        "failure_precedence": [
+          "channel_not_allowed",
+          "incident_bootstrapping",
+          "incident_closed",
+          "incident_access_denied",
+          "team_not_assigned",
+          "role_denied"
+        ]
+      },
+      {
+        "alias": "web-field-command-write",
+        "guards_in_order": [
+          "@RequireChannel(WEB)",
+          "@RequireOpenIncident",
+          "@RequireIncidentAccess",
+          "@RequireRole(FIELD_COMMANDER)"
+        ],
+        "failure_precedence": [
+          "channel_not_allowed",
+          "incident_bootstrapping",
+          "incident_closed",
+          "incident_access_denied",
+          "team_not_assigned",
+          "role_denied"
+        ]
+      },
+      {
+        "alias": "app-device",
+        "guards_in_order": [
+          "@RequireChannel(APP)",
+          "@RequireDevice",
+          "@RequireDeviceRegistered",
+          "@RequireDeviceAssigned"
+        ],
+        "failure_precedence": [
+          "channel_not_allowed",
+          "device_required",
+          "device_not_registered",
+          "device_not_assigned"
+        ]
+      }
+    ],
+    "provided_queries": [
+      {
+        "name": "DeviceQuery.byAccount(accountId)",
+        "classification": "internal_helper",
+        "returns": "device.account_id = accountId AND registered=true인 Device 목록. boundaries.md provides에 없는 public contract가 아니며, account_session.device_id는 현재 로그인 세션의 active Device 선택에만 사용한다."
+      },
+      {
+        "name": "RolePolicyQuery.forIncident(incidentId, accountId)",
+        "classification": "internal_helper",
+        "returns": "boundaries.md §4.6 Channel / Role Matrix 기준의 화면 CTA 표시 가능 여부와 deny reason. boundaries.md provides에 없는 public contract가 아니며, 웹 CTA 노출은 이 DTO를 사용할 수 있지만 최종 write API에서도 같은 @RequireRole/@RequireChannel guard를 다시 평가한다."
+      },
+      {
+        "name": "DeviceFreshnessQuery.byIncident(incidentId)",
+        "classification": "cross_spec_public_provides",
+        "returns": "S3-2 projector가 소비하는 DTO fixture 목록: deviceId, accountId, accountType, affiliation, deviceType, incidentId, optional opId, lastHeartbeatAt, lastSyncAt, sequence, version, derivedFreshness. derivedFreshness는 now-lastHeartbeatAt < 60s ONLINE, 60s 이상 STALE, 5분 이상 LOST로 계산하며 DEVICE_HEARTBEAT_UPDATED 없이도 snapshot 재계산으로 수렴해야 한다."
+      },
+      {
+        "name": "FcmTokenQuery.activeByDevice(deviceId)",
+        "classification": "cross_spec_internal_provides",
+        "returns": "S5 NotificationRecipientResolver/FcmDispatcher adapter가 서버 내부에서 소비할 active token 참조: id, deviceId, appInstanceId, encrypted_token, token_hash, status, version. token_hash만으로 전송하지 않는다."
+      }
+    ]
+  },
+  "three_stack_deliverables": {
+    "backend": {
+      "language": "Java (JDK 17)",
+      "framework": "Spring Boot 3.x",
+      "package": "com.surimap.security",
+      "modules": [
+        {
+          "name": "AuthController",
+          "responsibility": "login/logout API"
+        },
+        {
+          "name": "DeviceController",
+          "responsibility": "heartbeat API"
+        },
+        {
+          "name": "FcmTokenController",
+          "responsibility": "FCM token 등록 API"
+        },
+        {
+          "name": "SecurityContextResolver",
+          "responsibility": "Authorization token과 channel/device header를 SecurityContext로 변환"
+        },
+        {
+          "name": "IncidentAccessGuard",
+          "responsibility": "@RequireIncidentAccess 판정"
+        },
+        {
+          "name": "RolePolicyEvaluator",
+          "responsibility": "boundaries.md §4.6 Channel / Role Matrix 정책 판정"
+        },
+        {
+          "name": "ApiGuardAliasRegistry",
+          "responsibility": "API별 guard alias와 실패 precedence 고정"
+        },
+        {
+          "name": "DeviceAssignmentGuard",
+          "responsibility": "@RequireDeviceAssigned 판정"
+        },
+        {
+          "name": "AccountRepository",
+          "responsibility": "account/session persistence"
+        },
+        {
+          "name": "DeviceRepository",
+          "responsibility": "device/fcm token persistence"
+        }
+      ]
+    },
+    "web": {
+      "language": "TypeScript",
+      "framework": "React 18+ SPA",
+      "routes": [
+        {
+          "path": "/login",
+          "component": "LoginPage"
+        }
+      ],
+      "components": [
+        {
+          "name": "LoginPage",
+          "responsibility": "웹 지휘 계정 로그인과 실패 사유 표시"
+        },
+        {
+          "name": "RequireIncidentAccessBoundary",
+          "responsibility": "403 incident/team/role/channel 실패를 화면 상태로 분기"
+        },
+        {
+          "name": "CommandRoleGate",
+          "responsibility": "S1-2 role policy DTO를 사용해 지휘 CTA 노출 가능 여부를 S3-2/S1-1 화면에 전달"
+        }
+      ],
+      "state_management": "React Query + lightweight auth store",
+      "map_layers": []
+    },
+    "android": {
+      "language": "Kotlin",
+      "min_sdk": 31,
+      "target_sdk": 34,
+      "package": "kr.surimap.security",
+      "screens": [
+        {
+          "name": "AppLoginScreen",
+          "responsibility": "팀 계정 또는 순찰차 계정 로그인"
+        },
+        {
+          "name": "DeviceBindingStatusBanner",
+          "responsibility": "등록·배정되지 않은 Device 상태 표시"
+        }
+      ],
+      "room_entities": [
+        {
+          "name": "LocalAccountSessionEntity",
+          "note": "장기 로그인 세션 캐시"
+        },
+        {
+          "name": "LocalDeviceEntity",
+          "note": "현재 Device와 heartbeat 상태 캐시"
+        },
+        {
+          "name": "LocalFcmTokenEntity",
+          "note": "FCM token registration 상태 캐시"
+        }
+      ],
+      "sync_flow": "HeartbeatWorker가 POST /devices/{deviceId}/heartbeat를 주기적으로 호출한다. 실패/복구 중 Android local deviceConnectivity는 OFFLINE -> RECOVERING -> ONLINE으로 표시할 수 있지만, 서버 device.connectivity_status에는 UNKNOWN|ONLINE만 저장한다."
+    }
+  },
+  "dependencies": {
+    "spec_dependencies": [
+      {
+        "spec": "S1-1",
+        "contract": "incident_membership, MembershipView.accounts, IncidentAccessResolver",
+        "stub_strategy": "seed account/device/incident fixture로 ACTIVE membership row를 고정한다.",
+        "replaced_by_real_at": "S1-1 JSON 통과 후"
+      },
+      {
+        "spec": "S4",
+        "contract": "EventHub.publish, BaseEvent envelope",
+        "stub_strategy": "mock event outbox에 DEVICE_HEARTBEAT_UPDATED row를 적재한다.",
+        "replaced_by_real_at": "S4 JSON 통과 후"
+      },
+      {
+        "spec": "S3-2",
+        "contract": "device_freshness slot",
+        "stub_strategy": "DeviceFreshnessQuery.byIncident DTO fixture를 board snapshot projector가 소비하게 한다.",
+        "replaced_by_real_at": "S3-2 JSON 통과 후"
+      }
+    ],
+    "infra_dependencies": [
+      "PostgreSQL",
+      "FCM token storage",
+      "Spring Security filter chain"
+    ]
+  },
+  "acceptance_criteria": [
+    {
+      "id": "AC-S1-2-01",
+      "fr_refs": [
+        "FR-01"
+      ],
+      "given": "ACTIVE account와 registered Device fixture가 존재한다.",
+      "when": "앱 또는 웹에서 POST /auth/login을 호출한다.",
+      "then": "public-session guard 기준으로 SecurityContext.accountId, accountType, affiliation, roles, channel이 채워진 세션이 생성된다. 앱 deviceCode 검증은 post-login/session binding으로 처리하며 API Index 변경 전까지 login public guard로 확정하지 않는다.",
+      "priority": "critical"
+    },
+    {
+      "id": "AC-S1-2-02",
+      "fr_refs": [
+        "FR-01"
+      ],
+      "given": "사건 membership에 없는 account가 사건 상세 또는 상황판 snapshot을 조회한다.",
+      "when": "@RequireIncidentAccess가 실행된다.",
+      "then": "403 team_not_assigned 또는 incident_access_denied를 반환하고 사건 내용은 렌더링되지 않는다.",
+      "priority": "critical"
+    },
+    {
+      "id": "AC-S1-2-03",
+      "fr_refs": [
+        "FR-01"
+      ],
+      "given": "boundaries.md §4.6 필요 역할을 갖지 못한 팀 계정, 순찰차 계정, 또는 incident commander가 아닌 지휘 계정이 웹 지휘 API를 호출한다.",
+      "when": "@RequireRole이 role_matrix_policies를 평가한다.",
+      "then": "403 role_denied를 반환하고 지휘 계정 전용 CTA는 노출되지 않는다.",
+      "priority": "critical"
+    },
+    {
+      "id": "AC-S1-2-04",
+      "fr_refs": [
+        "FR-02"
+      ],
+      "given": "앱 전용 Device API에 Device header가 없거나 세션의 deviceId와 다르다.",
+      "when": "@RequireDevice가 실행된다.",
+      "then": "400 device_required를 반환하고 domain row를 생성하지 않는다.",
+      "priority": "critical"
+    },
+    {
+      "id": "AC-S1-2-05",
+      "fr_refs": [
+        "FR-02"
+      ],
+      "given": "미등록 Device가 package, path, marker, heartbeat write를 호출한다.",
+      "when": "@RequireDeviceRegistered가 실행된다.",
+      "then": "403 device_not_registered를 반환하고 앱은 서버 반영 완료 상태로 전환하지 않는다.",
+      "priority": "critical"
+    },
+    {
+      "id": "AC-S1-2-06",
+      "fr_refs": [
+        "FR-02"
+      ],
+      "given": "등록됐지만 incident-scoped API의 사건 또는 현재 OP에 배정되지 않은 Device가 write를 호출한다.",
+      "when": "@RequireDeviceAssigned가 실행된다.",
+      "then": "403 device_not_assigned를 반환하고 FCM token, heartbeat, 경로·마커·패키지 상태 등 app-device row가 갱신되지 않는다. heartbeat는 closed/open 사건 guard를 public error로 확정하지 않는다.",
+      "priority": "critical"
+    },
+    {
+      "id": "AC-S1-2-07",
+      "fr_refs": [
+        "FR-24"
+      ],
+      "given": "사건 배정 Device가 온라인 상태다.",
+      "when": "POST /devices/{deviceId}/heartbeat를 호출한다.",
+      "then": "device.last_heartbeat_at, last_sync_at, sequence, version이 갱신되고 DEVICE_HEARTBEAT_UPDATED payload의 id/status/version/deviceId/sequence가 REST response 및 board freshness snapshot과 수렴한다.",
+      "priority": "high"
+    },
+    {
+      "id": "AC-S1-2-08",
+      "fr_refs": [
+        "FR-24"
+      ],
+      "given": "heartbeat가 60초 이상 또는 5분 이상 갱신되지 않는다.",
+      "when": "S3-2 projector가 DeviceFreshnessQuery.byIncident(incidentId)를 다시 읽는다.",
+      "then": "device row와 DEVICE_HEARTBEAT_UPDATED event 없이도 DTO의 derivedFreshness가 각각 STALE 또는 LOST로 계산되고 board snapshot이 수렴한다.",
+      "priority": "high"
+    },
+    {
+      "id": "AC-S1-2-09",
+      "fr_refs": [
+        "FR-25"
+      ],
+      "given": "앱이 로그인된 계정과 현재 Device를 가진다.",
+      "when": "S3-1 또는 S3-2가 현재 운용 Device를 조회한다.",
+      "then": "SecurityContext.deviceId와 DeviceQuery.byAccount 결과로 현재 Device 경로를 강조할 수 있다.",
+      "priority": "high"
+    },
+    {
+      "id": "AC-S1-2-10",
+      "fr_refs": [
+        "FR-01"
+      ],
+      "given": "인증된 앱 Device가 FCM token을 등록한다.",
+      "when": "POST /fcm/tokens를 호출한다.",
+      "then": "active token row에는 encrypted_token, token_hash, version이 저장되고 token_hash는 dedupe/log-safe 식별에만 쓰인다. notification recipient 계산 권한은 S5에 남는다.",
+      "priority": "medium"
+    },
+    {
+      "id": "AC-S1-2-11",
+      "fr_refs": [
+        "FR-01"
+      ],
+      "given": "SUPPORT_UNIT 또는 LOCAL_POLICE 지휘 계정이 사건 commander membership을 갖고 있다.",
+      "when": "사건 종료 또는 지원 부대 배정 API가 web-incident-close-command 또는 web-support-assign-command alias로 평가된다.",
+      "then": "현장 지휘관 권한은 허용될 수 있어도 사건 종료와 지원 부대 배정은 403 role_denied이고 종료·지원배정 CTA는 노출되지 않는다.",
+      "priority": "critical"
+    },
+    {
+      "id": "AC-S1-2-12",
+      "fr_refs": [
+        "FR-01",
+        "FR-02",
+        "FR-24"
+      ],
+      "given": "같은 요청이 channel, device, registration, assignment 조건을 둘 이상 위반한다.",
+      "when": "api_guard_aliases의 guard chain이 실행된다.",
+      "then": "alias별 failure_precedence 순서의 첫 오류만 반환되고 domain row와 event outbox는 변경되지 않는다.",
+      "priority": "critical"
+    },
+    {
+      "id": "AC-S1-2-13",
+      "fr_refs": [
+        "FR-01"
+      ],
+      "given": "SUPPORT_UNIT FIELD_COMMANDER, MISSING_TEAM 지휘 계정, LOCAL_POLICE 지휘 계정 fixture가 존재한다.",
+      "when": "web-incident-import-command alias가 평가된다.",
+      "then": "MISSING_TEAM 지휘 또는 LOCAL_POLICE 지휘만 통과하고 SUPPORT_UNIT FIELD_COMMANDER는 role_denied로 차단된다.",
+      "priority": "critical"
+    },
+    {
+      "id": "AC-S1-2-14",
+      "fr_refs": [
+        "FR-24"
+      ],
+      "given": "incident가 CLOSED이고 DeviceFreshnessQuery fixture에 마지막 위치/heartbeat가 남아 있다.",
+      "when": "S3-2 board freshness display가 사건 scoped snapshot을 만든다.",
+      "then": "heartbeat API의 incident_closed error를 public contract로 요구하지 않고, closed incident board에는 단말 위치/freshness 점을 표시하지 않는다.",
+      "priority": "high"
+    },
+    {
+      "id": "AC-S1-2-15",
+      "fr_refs": [
+        "FR-01"
+      ],
+      "given": "SC-02/SC-08 harness fixture가 mock FCM recipient를 TEAM_PHONE/PATROL_CAR_PHONE 계열 단말로 고정하고 지휘 계정 deviceId는 웹 지휘·membership fixture 식별자로만 둔다.",
+      "when": "S1-2 public enum과 FCM token 계약을 검증한다.",
+      "then": "COMMAND_PHONE을 public device_type enum으로 되살리지 않고, command account deviceId는 Android FCM recipient로 등록·검증하지 않는다.",
+      "priority": "high"
+    }
+  ],
+  "edge_cases": [
+    "동일 account가 앱과 웹에 동시에 로그인해도 채널별 SecurityContext가 분리된다.",
+    "동일 account의 앱 세션이 복수 Device에서 활성화되면 운영 전 확정 전까지 multi-session allowed로 두고 heartbeat가 최신 Device freshness를 결정한다.",
+    "웹 채널에서 app-device API를 직접 호출하면 channel_not_allowed가 device guard보다 먼저 반환된다.",
+    "APP 요청에서 deviceId header와 세션 deviceId가 다르면 device_required로 처리한다.",
+    "Device heartbeat sequence가 낮은 요청은 최신 row를 과거 상태로 되돌리지 않는다.",
+    "지휘 계정 앱 단말은 public Device subtype으로 고정하지 않는다. 경로 생성 주체와 Android FCM recipient는 TEAM_PHONE 또는 PATROL_CAR_PHONE뿐이며, 지휘 계정 deviceId는 웹 지휘·membership fixture 식별자에 머문다.",
+    "STALE/LOST는 저장 상태나 이벤트가 아니라 lastHeartbeatAt 기반 read-time 파생값이므로 별도 event outbox row를 만들지 않는다.",
+    "Android OFFLINE/RECOVERING은 로컬 네트워크·재시도 표시 상태이며 서버 device.connectivity_status에 저장하지 않는다.",
+    "heartbeat request는 incidentId/opId를 public scope hint로 받지 않는다. API Index 기준 heartbeat에는 write-common이 없으므로 closed incident 차단 error를 S1-2 public API로 확정하지 않고, closed incident board에서 freshness/위치 표시를 숨기는 것으로 수렴한다."
+  ],
+  "error_handling": {
+    "channel_not_allowed": "클라이언트는 해당 기능을 현재 채널에서 사용할 수 없다는 실패 상태를 표시하고 domain 재시도를 하지 않는다.",
+    "role_denied": "웹은 지휘 CTA를 숨기거나 disabled 상태로 유지하고 실패 toast에 역할 부족을 표시한다.",
+    "team_not_assigned": "앱·웹은 사건 내용을 렌더링하지 않고 사건 목록으로 복귀할 수 있는 상태를 표시한다.",
+    "device_required": "앱은 Device 바인딩 오류를 표시하고 path/marker/package write를 시작하지 않는다.",
+    "device_not_registered": "앱은 단말 등록 필요 상태를 표시하고 로컬 데이터를 서버 반영 완료로 바꾸지 않는다.",
+    "device_not_assigned": "앱은 사건 배정 Device 불일치 상태를 표시하고 실패 항목을 재시도 대기와 구분한다.",
+    "incident_access_denied": "앱·웹은 사건 상세와 권한 있는 화면 상태를 노출하지 않고 사건 목록 또는 권한 없음 상태로 이동한다."
+  },
+  "non_functional_requirements": {
+    "performance": [
+      "Security guard 판정은 일반 API 요청에서 추가 DB 왕복 2회 이하를 목표로 한다.",
+      "DeviceFreshnessQuery.byIncident는 S3-2 board snapshot p95 < 2s 목표를 방해하지 않아야 한다."
+    ],
+    "security": [
+      "세션 token은 accountId, channel, optional deviceId를 위변조 불가능한 형태로 포함한다.",
+      "FCM token 원문은 로그에 남기지 않는다. encrypted_token/token_ciphertext 계열 저장값만 실제 전송 material로 쓰고 token_hash는 중복 식별과 log-safe correlation에만 사용한다.",
+      "INTERNAL channel은 일반 앱·웹 요청 header로 획득할 수 없다."
+    ],
+    "observability": [
+      "login success/failure count",
+      "guard denial count by error code",
+      "device heartbeat accepted/rejected count",
+      "active app session count by affiliation/accountType"
+    ]
+  },
+  "tdd_red_tests": {
+    "backend": [
+      {
+        "name": "loginCreatesSecurityContextForAppDevice",
+        "framework": "JUnit 5",
+        "scenario": "앱 로그인 성공 시 accountType, affiliation, roles, channel, deviceId가 포함된 SecurityContext를 반환한다."
+      },
+      {
+        "name": "loginFollowsPublicSessionGuardOnly",
+        "framework": "JUnit 5",
+        "scenario": "POST /auth/login은 API Index public-session 기준으로 channel_not_allowed만 catalog public guard error로 검증하고, device_required/device_not_registered 및 catalog 밖 auth failure code를 login guard error로 확정하지 않는다."
+      },
+      {
+        "name": "postLoginDeviceBindingDoesNotDriftApiIndex",
+        "framework": "JUnit 5",
+        "scenario": "deviceCode가 제공된 APP login은 세션 binding 검증으로만 처리하며, API Index가 바뀌기 전까지 device_not_registered를 login public guard error로 노출하지 않는다."
+      },
+      {
+        "name": "disabledOrInvalidLoginIsRejected",
+        "framework": "JUnit 5",
+        "scenario": "DISABLED account 또는 잘못된 password/accountCode는 account_session row를 만들지 않는다. public error code 매핑은 Error Catalog 결정 전까지 S1-2 JSON public errors에 노출하지 않는다."
+      },
+      {
+        "name": "deviceHeaderMustMatchSessionDevice",
+        "framework": "JUnit 5",
+        "scenario": "Authorization 세션의 deviceId와 X-Device-Id 또는 path deviceId가 다르면 device_required를 반환하고 FCM token/heartbeat row를 갱신하지 않는다."
+      },
+      {
+        "name": "unassignedDeviceCannotWritePathMarkerPackage",
+        "framework": "JUnit 5",
+        "scenario": "미배정 Device가 app-device API를 호출하면 device_not_assigned를 반환하고 domain row를 만들지 않는다."
+      },
+      {
+        "name": "heartbeatPublishesDeviceHeartbeatUpdated",
+        "framework": "JUnit 5",
+        "scenario": "heartbeat 성공 후 device row, event outbox payload, response의 id/status/version/deviceId/sequence가 일치한다."
+      },
+      {
+        "name": "deviceAndFcmVersionConvergeWithHarnessPayloads",
+        "framework": "JUnit 5",
+        "scenario": "device.version과 fcm_token.version이 REST 응답, mock event/outbox 또는 mock FCM dispatcher fixture의 id/status/version 비교 기준과 수렴한다."
+      },
+      {
+        "name": "fcmTokenStoresEncryptedMaterialForDelivery",
+        "framework": "JUnit 5",
+        "scenario": "POST /fcm/tokens는 encrypted_token과 token_hash를 저장하고 FcmTokenQuery 내부 helper는 encrypted_token을 dispatcher에 제공하지만 API 응답과 로그에는 원문 token 또는 ciphertext를 노출하지 않는다."
+      },
+      {
+        "name": "fcmTokenRotationRevokesPreviousActiveToken",
+        "framework": "JUnit 5",
+        "scenario": "동일 deviceId/appInstanceId로 POST /fcm/tokens를 재호출하면 기존 ACTIVE fcm_token row는 REVOKED로 전환되고 새 row만 ACTIVE로 남으며, 응답과 FcmTokenQuery fixture의 id/status/version이 새 ACTIVE row와 수렴한다."
+      },
+      {
+        "name": "fcmTokenActiveUniquenessPreventsDuplicateActiveRows",
+        "framework": "JUnit 5",
+        "scenario": "동시 token 등록 또는 repository 직접 삽입으로 같은 device_id/app_instance_id ACTIVE row가 2건 생기려 하면 ux_fcm_token_device_instance_active 제약 또는 서비스 수렴 로직이 중복 ACTIVE를 막고 최종 ACTIVE row를 1건으로 유지한다."
+      },
+      {
+        "name": "heartbeatLowerSequenceIsIgnored",
+        "framework": "JUnit 5",
+        "scenario": "현재 device.sequence보다 낮은 heartbeat 요청은 200으로 처리하되 last_heartbeat_at, last_sync_at, sequence, DEVICE_HEARTBEAT_UPDATED를 갱신하지 않는다."
+      },
+      {
+        "name": "webCannotCallAppDeviceApis",
+        "framework": "JUnit 5",
+        "scenario": "WEB channel이 heartbeat 또는 FCM token API를 호출하면 channel_not_allowed를 반환한다."
+      },
+      {
+        "name": "supportAndLocalCommandersCannotCloseOrSupportAssign",
+        "framework": "JUnit 5",
+        "scenario": "acct-support-cmd와 acct-precinct-cmd가 ACTIVE incident commander membership을 가져도 사건 종료/지원 부대 배정은 403 role_denied이고 incident row, membership row, event outbox를 변경하지 않는다."
+      },
+      {
+        "name": "supportUnitFieldCommanderCannotImportIncident",
+        "framework": "JUnit 5",
+        "scenario": "web-incident-import-command는 MISSING_TEAM 지휘 또는 LOCAL_POLICE 지휘만 허용하고 SUPPORT_UNIT FIELD_COMMANDER는 role_denied로 차단한다."
+      },
+      {
+        "name": "fieldCommandWriteRequiresCommandAccountAndCommanderContext",
+        "framework": "JUnit 5",
+        "scenario": "TEAM/PATROL_CAR account 또는 incident commander가 아닌 COMMAND account가 현장 지휘관 write API guard alias를 통과하지 못하고 role_denied를 반환한다."
+      },
+      {
+        "name": "appDeviceGuardPrecedenceForHeartbeat",
+        "framework": "JUnit 5",
+        "scenario": "heartbeat 요청이 WEB channel, missing device, unregistered device, device assignment mismatch를 동시에 포함할 때 app-device failure_precedence의 첫 오류만 반환한다."
+      },
+      {
+        "name": "commandAppDeviceSubtypeIsNotPublicContract",
+        "framework": "JUnit 5",
+        "scenario": "COMMAND 계정 앱 단말 fixture는 public device_type enum으로 고정하지 않고, TEAM_PHONE/PATROL_CAR_PHONE만 경로 주체로 통과한다."
+      },
+      {
+        "name": "commandFcmRecipientsExcludeCommanderDevices",
+        "framework": "JUnit 5",
+        "scenario": "SC-02/SC-08 mock FCM recipient가 TEAM_PHONE/PATROL_CAR_PHONE 계열 단말만 포함하고 command account deviceId를 Android FCM recipient로 등록하지 않음을 검증한다."
+      },
+      {
+        "name": "staleLostAreDerivedWithoutHeartbeatEvent",
+        "framework": "JUnit 5",
+        "scenario": "last_heartbeat_at이 60초/5분 기준을 넘으면 DeviceFreshnessQuery DTO는 STALE/LOST를 반환하지만 device row 상태 전환과 DEVICE_HEARTBEAT_UPDATED PublishRequest는 생성하지 않는다."
+      },
+      {
+        "name": "closedIncidentHeartbeatDoesNotBecomePublicWriteCommonError",
+        "framework": "JUnit 5",
+        "scenario": "heartbeat에 closed incidentId가 포함되어도 S1-2 public error로 incident_closed를 확정하지 않고, S3-2 closed incident board fixture에서 freshness/위치 표시가 숨겨지는지만 검증한다."
+      }
+    ],
+    "web": [
+      {
+        "name": "commanderLoginAndRoleDeniedStates",
+        "framework": "Vitest + React Testing Library",
+        "scenario": "권한 없는 계정은 지휘 CTA를 보지 못하고 role_denied 응답을 화면 실패 상태로 표시한다."
+      },
+      {
+        "name": "nonCommandAccountsDoNotSeeCommandCtas",
+        "framework": "Vitest + React Testing Library",
+        "scenario": "TEAM/PATROL_CAR 계정은 사건 종료, 지원 부대 배정, 지도 기준 범위 조정, 구역 완료, OP 생성 CTA를 렌더링하지 않고 직접 실행 시 role_denied 상태를 표시한다."
+      },
+      {
+        "name": "supportAndLocalCommandersSeeOnlyFieldCommandCtas",
+        "framework": "Vitest + React Testing Library",
+        "scenario": "SUPPORT_UNIT/LOCAL_POLICE FIELD_COMMANDER는 현장 지휘 CTA만 보고 사건 종료/지원 부대 배정 CTA는 보지 못한다."
+      },
+      {
+        "name": "supportUnitCommanderDoesNotSeeIncidentImportCta",
+        "framework": "Vitest + React Testing Library",
+        "scenario": "SUPPORT_UNIT FIELD_COMMANDER는 사건 가져오기 CTA를 보지 못하고 직접 호출 실패 시 role_denied 상태를 표시한다."
+      },
+      {
+        "name": "deviceFreshnessDtoConvergesStaleAndLostInBoard",
+        "framework": "Vitest + React Testing Library",
+        "scenario": "S1-2 DeviceFreshnessQuery fixture의 lastHeartbeatAt만 시간이 경과해도 S3-2 board snapshot mock은 STALE/LOST derivedFreshness로 수렴하고 S1-2 renderer 없이 표시 데이터를 받는다."
+      },
+      {
+        "name": "closedIncidentBoardHidesDeviceFreshness",
+        "framework": "Vitest + React Testing Library",
+        "scenario": "CLOSED incident snapshot에서는 남아 있는 heartbeat/freshness fixture가 있어도 단말 위치 점과 freshness 표시를 렌더링하지 않는다."
+      }
+    ],
+    "android": [
+      {
+        "name": "appLoginPersistsDeviceSession",
+        "framework": "JUnit5 + Robolectric",
+        "scenario": "앱 로그인 성공 후 LocalAccountSessionEntity와 LocalDeviceEntity가 저장된다."
+      },
+      {
+        "name": "deviceGuardFailureBlocksSearchStart",
+        "framework": "JUnit5 + Robolectric",
+        "scenario": "device_not_registered 또는 device_not_assigned 응답 시 수색 시작 화면이 기록 중 상태로 전환되지 않는다."
+      },
+      {
+        "name": "heartbeatWorkerRecoversConnectivity",
+        "framework": "JUnit5 + Robolectric",
+        "scenario": "heartbeat 실패 후 Android local OFFLINE 상태를 표시하다가 복구 첫 성공 시 RECOVERING을 거쳐 ONLINE으로 전환하되 서버 connectivity_status에는 OFFLINE/RECOVERING을 쓰지 않는다."
+      }
+    ]
+  },
+  "harness_constraints": {
+    "preconditions": [
+      "S1-1 seed membership fixture가 ACTIVE row를 제공해야 한다.",
+      "S4 BaseEvent envelope는 eventId, incidentId, type, schemaVersion, serverTs, payload를 포함해야 한다.",
+      "하네스 account/device fixture는 spec/harness-scenarios.md §6 값을 우선 사용한다."
+    ],
+    "fixture_role_alias_mapping": [
+      {
+        "harness_alias": "COMMANDER",
+        "account_type": "COMMAND",
+        "roles": [
+          "MISSING_TEAM_COMMANDER",
+          "FIELD_COMMANDER"
+        ],
+        "rule": "MISSING_TEAM 지휘 계정은 두 역할을 모두 갖고, LOCAL_POLICE 또는 SUPPORT_UNIT 지휘 계정은 FIELD_COMMANDER를 기본 역할로 갖는다. 지휘 계정 앱 단말 subtype은 public 계약으로 고정하지 않는다."
+      },
+      {
+        "harness_alias": "TEAM",
+        "account_type": "TEAM",
+        "roles": [
+          "MEMBER"
+        ],
+        "device_type": "TEAM_PHONE",
+        "rule": "팀 업무폰 계정은 MEMBER 역할과 TEAM account_type을 갖는다."
+      },
+      {
+        "harness_alias": "PATROL",
+        "account_type": "PATROL_CAR",
+        "roles": [
+          "MEMBER"
+        ],
+        "device_type": "PATROL_CAR_PHONE",
+        "rule": "순찰차 업무폰 계정은 MEMBER 역할과 PATROL_CAR account_type을 갖는다."
+      }
+    ],
+    "forbidden": [
+      "외부 가입·셀프 계정 관리 UI 추가 금지",
+      "S1-2가 incident_membership row를 직접 생성하거나 수정하는 것 금지",
+      "S1-2가 notification recipient policy를 소유하는 것 금지",
+      "S1-2가 board shell 또는 route layout을 직접 수정하는 것 금지",
+      "APP/WEB 요청이 INTERNAL channel을 선택할 수 있게 하는 것 금지",
+      "COMMAND_PHONE을 기준 문서 변경 없이 public device_type enum으로 추가하는 것 금지"
+    ],
+    "required_reviews": [
+      "role enum 변경 시 S1-1, S2, S5, S8 owner LGTM",
+      "guard annotation 추가 시 API Index와 boundaries.md §8 갱신. role matrix policy 또는 api_guard_alias 변경 시 관련 API owner와 S1-1 owner LGTM",
+      "DEVICE_HEARTBEAT_UPDATED payload 변경 시 S3-2, S4 owner LGTM",
+      "POST /auth/login에 device_required/device_not_registered를 public guard error로 추가하려면 API Index public-session 기준 변경 review가 필요하다.",
+      "RolePolicyQuery를 public provides로 승격하려면 boundaries.md provides 갱신과 소비 Spec owner LGTM이 필요하다."
+    ]
+  },
+  "open_issues": [
+    {
+      "id": "OI-S1-2-01",
+      "issue": "fixture alias COMMANDER|TEAM|PATROL은 harness_constraints.fixture_role_alias_mapping 기준으로 고정한다. 추가 직책 세분화가 필요하면 L2와 운영 측이 별도 role 확장을 결정한다.",
+      "owner": "L2 + 운영 측",
+      "deadline": "1주차",
+      "related_gap": "PRD §11 오픈 이슈 4"
+    },
+    {
+      "id": "OI-S1-2-02",
+      "issue": "동일 채널 중복 로그인 정책은 운영 전 확정 전까지 same account multi-session allowed, device heartbeat wins로 둔다.",
+      "owner": "L2",
+      "deadline": "Spec 단계",
+      "related_gap": "architecture.md §5.4"
+    },
+    {
+      "id": "OI-S1-2-03",
+      "issue": "폴리폰의 GMS/FCM 수신 가능성 확인 필요",
+      "owner": "L2 + L5",
+      "deadline": "1주차",
+      "related_gap": "ADR-0005"
+    },
+    {
+      "id": "OI-S1-2-05",
+      "issue": "POST /auth/login의 앱 Device binding을 public API guard로 확정할지, post-login/session binding으로 유지할지 API Index 기준 수정이 필요하다. 기준 변경 전에는 device_required/device_not_registered를 login public error로 추가하지 않는다.",
+      "owner": "L2",
+      "deadline": "Spec 단계",
+      "related_gap": "API Index public-session drift"
+    },
+    {
+      "id": "OI-S1-2-06",
+      "issue": "heartbeat request는 incidentId/opId를 public scope hint로 받지 않는다. 단, closed incident에서 기존 heartbeat/freshness를 어떻게 숨길지는 API Index 기준에서 write-common이 아니므로 incident_closed public error로 확정하지 않고 board closed incident freshness/위치 숨김으로 처리한다.",
+      "owner": "L2 + L6",
+      "deadline": "1주차",
+      "related_gap": "heartbeat incident scope"
+    }
+  ],
+  "status_management": {
+    "current_phase": "constructor_revised_after_tester_feedback",
+    "completed_phases": [
+      "context_collection",
+      "draft_authoring",
+      "tester_feedback_resolution"
+    ],
+    "error_logs": [],
+    "last_updated": "2026-04-28"
+  },
+  "change_log": [
+    {
+      "date": "2026-04-28",
+      "change": "S1-2 Account, Device & RBAC 초안 작성",
+      "reason": "Spec JSON 작성 순서상 공통 권한·Device 계약 선행 필요"
+    },
+    {
+      "date": "2026-04-28",
+      "change": "Tester 1차 피드백에 따라 boundary API path, Device guard 입력, Account-Device linkage, FCM/heartbeat idempotency, role fixture alias, login token required, 누락 red test를 정리",
+      "reason": "F-S1-2-01..12 및 C-S1-2-01..08 해소"
+    },
+    {
+      "date": "2026-04-28",
+      "change": "복원된 boundaries.md 기준에 맞춰 독자 RBAC 확장을 제거하고 @RequireRole/@RequireChannel 및 app-device guard alias 기준으로 재정렬",
+      "reason": "기준 문서 수정 금지 원칙에 따라 S1-2 tester finding을 JSON 쪽에서 해소"
+    }
+  ]
+}

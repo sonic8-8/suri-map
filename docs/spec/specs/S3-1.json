@@ -1,0 +1,2462 @@
+{
+  "$schema": "../_template.schema.json",
+  "spec_info": {
+    "id": "S3-1",
+    "name": "Device Path Collection",
+    "owner": "4",
+    "character": "domain_plus_foundation",
+    "created": "2026-04-28",
+    "updated": "2026-04-28"
+  },
+  "context_refs": {
+    "prd": [
+      "§1.4 팀 업무폰/순찰차 업무폰 기준 자동 GPS 기록",
+      "§5.1 시범 시나리오 5 수색 시작 및 GPS 기록",
+      "§6.1 SearchPath / SearchSession",
+      "§7.2 FR-02 Device 위치·경로",
+      "§7.2 FR-04 팀별·차량/도보 구간별 경로",
+      "§7.2 FR-25 운용 중 업무폰 궤도 강조",
+      "§7.7 FR-33 차량·도보 구간",
+      "§7.7 FR-34 수색 세션",
+      "§7.7 FR-35 순찰차 경로 레이어"
+    ],
+    "architecture": [
+      "§3.1 Android 앱 역할",
+      "§3.3 동기화 흐름",
+      "§5.1 백엔드 책임",
+      "§6.2 핵심 엔티티",
+      "§6.3 공간 데이터"
+    ],
+    "adr": [
+      "ADR-0012",
+      "ADR-0020",
+      "ADR-0025",
+      "ADR-0029",
+      "ADR-0035"
+    ],
+    "boundaries": "spec/boundaries.md §3 S3-1, §4.1.1, §4.2, §4.4, §4.6, §7",
+    "harness": [
+      "SC-02 실종팀 인계·지원 부대 배정 (OP1 path evidence read-only)",
+      "SC-05 수색 세션·Device GPS 경로",
+      "SC-07 통신 단절 중 로컬 기록",
+      "SC-09 통신 복구·동기화",
+      "SC-11 인수인계·OP 비교·AI 요약",
+      "SC-12 사건 종료·캐시 파기"
+    ]
+  },
+  "scope": {
+    "included": [
+      "현재 OP와 현재 Device 기준 search_session 시작·일시정지·재개·종료",
+      "앱이 보낸 GPS batch를 search_path LineString과 path_segment로 누적",
+      "GPS 속도 기반 VEHICLE|FOOT|UNKNOWN segment 자동 분리",
+      "웹 상황판에서 이미 저장된 path_segment.type만 수동 보정",
+      "PATH_APPENDED, SEARCH_SESSION_STARTED, SEARCH_SESSION_ENDED, PATH_SEGMENT_UPDATED 이벤트 payload 발행 요청",
+      "GET /search-paths 및 PathQuery.byIncident/byOp/byDevice read model 제공",
+      "Device 기준 현재 운용 궤도 강조에 필요한 deviceId, sessionId, opId, sequence 제공"
+    ],
+    "excluded": [
+      {
+        "item": "개인 사용자 위치 추적",
+        "owner": "S3-1",
+        "reason": "경로 주체는 사람 또는 개인 계정이 아니라 S1-2 Device다."
+      },
+      {
+        "item": "Android local store, Outbox, WorkManager, idempotency 구현",
+        "owner": "S6",
+        "reason": "S3-1은 서버 도메인 write 계약과 path read model만 소유하고 S6 동기화 기반을 소비한다."
+      },
+      {
+        "item": "경로 batch 생성·전송 UI 외의 Web path 생성",
+        "owner": "S3-1",
+        "reason": "App만 session/path batch를 생성할 수 있고 Web은 segment type patch만 허용된다."
+      },
+      {
+        "item": "지도 기준 범위와 수색 구역 Polygon 관리",
+        "owner": "S2",
+        "reason": "S3-1은 MapBoundaryQuery를 validation input으로만 소비한다."
+      },
+      {
+        "item": "상황판 shell, path slot 렌더링, OP 비교 화면",
+        "owner": "S3-2",
+        "reason": "S3-1은 PathQuery와 이벤트 payload를 제공한다."
+      },
+      {
+        "item": "OP 생성, current OP 전환, 인수인계 메모",
+        "owner": "S8",
+        "reason": "S3-1은 current OP를 소비하고 path context만 제공한다."
+      }
+    ]
+  },
+  "fr_mapping": [
+    {
+      "id": "FR-02",
+      "summary": "사건에 배정된 팀 업무폰/순찰차 업무폰의 위치·이동 경로를 자동 기록한다.",
+      "handling": "POST /search-sessions와 POST /search-paths/batch가 S1-2 deviceId를 경로 주체로 저장하고 accountId는 조작 주체로만 기록한다."
+    },
+    {
+      "id": "FR-04",
+      "summary": "팀별·차량/도보 구간별 이동 경로를 지도에서 구분한다.",
+      "handling": "path_segment.segment_type을 VEHICLE, FOOT, UNKNOWN으로 유지하고 PATH_APPENDED/PATH_SEGMENT_UPDATED payload와 PathQuery에 포함한다."
+    },
+    {
+      "id": "FR-25",
+      "summary": "운용 중 팀 업무폰/순찰차 업무폰 궤도를 즉시 구분한다.",
+      "handling": "현재 Device의 active session과 path summary를 deviceId 기준으로 반환해 앱과 S3-2가 강조 렌더링할 수 있게 한다."
+    },
+    {
+      "id": "FR-33",
+      "summary": "Device 기준 수색 경로와 차량·도보 자동 분리",
+      "handling": "하네스 speed/accuracy/skew/distance 기준을 만족하는 accepted point가 3개 이상 지속된 경우에만 segment split을 만들고 불확실하거나 GPS 튐이 의심되면 UNKNOWN으로 보존한다."
+    },
+    {
+      "id": "FR-34",
+      "summary": "수색 경로 기록을 사건·OP에 연결된 세션 단위로 관리한다.",
+      "handling": "search_session state machine이 ACTIVE, PAUSED, ENDED를 명시하고 pause/resume 경계는 pathPart로 분리해 LineString 연결에서 제외한다."
+    },
+    {
+      "id": "FR-35",
+      "summary": "초동 대응 또는 차량 수색 중인 순찰차 이동 경로를 수색 히스토리로 표시한다.",
+      "handling": "S1-2 device_type=PATROL_CAR_PHONE인 path와 VEHICLE segment를 PathQuery에서 구분 가능하게 제공한다."
+    }
+  ],
+  "domain_model": {
+    "entities": [
+      {
+        "name": "search_session",
+        "owner_spec": "S3-1",
+        "description": "Device가 현재 OP에서 수색 시작부터 종료까지 만든 서버 권위 세션.",
+        "fields": [
+          {
+            "name": "id",
+            "type": "UUID",
+            "nullable": false,
+            "pk": true
+          },
+          {
+            "name": "incident_id",
+            "type": "UUID",
+            "nullable": false
+          },
+          {
+            "name": "op_id",
+            "type": "UUID",
+            "nullable": false
+          },
+          {
+            "name": "device_id",
+            "type": "UUID",
+            "nullable": false,
+            "note": "S1-2 Device. path subject"
+          },
+          {
+            "name": "started_by_account_id",
+            "type": "UUID",
+            "nullable": false
+          },
+          {
+            "name": "ended_by_account_id",
+            "type": "UUID",
+            "nullable": true
+          },
+          {
+            "name": "status",
+            "type": "VARCHAR(24)",
+            "nullable": false,
+            "note": "ACTIVE|PAUSED|ENDED"
+          },
+          {
+            "name": "started_client_ts",
+            "type": "TIMESTAMPTZ",
+            "nullable": false
+          },
+          {
+            "name": "ended_client_ts",
+            "type": "TIMESTAMPTZ",
+            "nullable": true
+          },
+          {
+            "name": "client_ts",
+            "type": "TIMESTAMPTZ",
+            "nullable": false,
+            "note": "ADR-0012"
+          },
+          {
+            "name": "server_ts",
+            "type": "TIMESTAMPTZ",
+            "nullable": false,
+            "note": "ADR-0012"
+          },
+          {
+            "name": "clock_offset_ms",
+            "type": "BIGINT",
+            "nullable": true,
+            "note": "ADR-0012"
+          },
+          {
+            "name": "version",
+            "type": "BIGINT",
+            "nullable": false
+          },
+          {
+            "name": "sequence",
+            "type": "BIGINT",
+            "nullable": false
+          }
+        ],
+        "indexes": [
+          {
+            "name": "idx_search_session_incident_op",
+            "columns": [
+              "incident_id",
+              "op_id"
+            ]
+          },
+          {
+            "name": "idx_search_session_device_status",
+            "columns": [
+              "device_id",
+              "status"
+            ]
+          },
+          {
+            "name": "ux_search_session_incident_op_device_non_ended",
+            "columns": [
+              "incident_id",
+              "op_id",
+              "device_id"
+            ],
+            "unique": true,
+            "where": "status IN ('ACTIVE','PAUSED')",
+            "note": "같은 incident/op/device에 대해 non-ended session은 1개만 허용한다."
+          }
+        ],
+        "spatial": {
+          "enabled": false,
+          "type": "POINT",
+          "srid": 4326
+        }
+      },
+      {
+        "name": "search_path",
+        "owner_spec": "S3-1",
+        "description": "Device 기준 수색 경로. 앱 batch LineString을 pause/resume part별로 누적하며 전체 표시 geometry는 part 기반 MultiLineString으로 관리한다.",
+        "fields": [
+          {
+            "name": "id",
+            "type": "UUID",
+            "nullable": false,
+            "pk": true
+          },
+          {
+            "name": "incident_id",
+            "type": "UUID",
+            "nullable": false
+          },
+          {
+            "name": "op_id",
+            "type": "UUID",
+            "nullable": false
+          },
+          {
+            "name": "session_id",
+            "type": "UUID",
+            "nullable": false
+          },
+          {
+            "name": "device_id",
+            "type": "UUID",
+            "nullable": false,
+            "note": "S1-2 Device. path subject"
+          },
+          {
+            "name": "operator_account_id",
+            "type": "UUID",
+            "nullable": false,
+            "note": "operation account, not path subject"
+          },
+          {
+            "name": "geometry",
+            "type": "GEOMETRY(MultiLineString,4326)",
+            "nullable": false,
+            "note": "canonical original part geometry collection, EPSG:4326 lon/lat, precision 6 decimals; each part is a LineString and storage never connects pause/resume gaps"
+          },
+          {
+            "name": "original_geometry_hash",
+            "type": "VARCHAR(64)",
+            "nullable": false,
+            "note": "sha256 of canonical unsimplified parts_json geometry plus ordered pointId list; stable for SC-11 read-only evidence"
+          },
+          {
+            "name": "point_count",
+            "type": "INTEGER",
+            "nullable": false
+          },
+          {
+            "name": "part_count",
+            "type": "INTEGER",
+            "nullable": false,
+            "note": "pause/resume no-bridge rendering parts"
+          },
+          {
+            "name": "parts_json",
+            "type": "JSONB",
+            "nullable": false,
+            "note": "ordered parts [{partIndex, geometry: canonical GeoJSON LineString, startIndex, endIndex, startPointId, endPointId, bridgeFromPrevious:false}]. PathQuery.parts is derived from this field and never reconstructs a bridged LineString across pause/resume."
+          },
+          {
+            "name": "point_ids",
+            "type": "JSONB",
+            "nullable": false,
+            "note": "ordered server-preserved pointId list, including gps-precinct-001..008 fixture IDs"
+          },
+          {
+            "name": "last_client_ts",
+            "type": "TIMESTAMPTZ",
+            "nullable": false
+          },
+          {
+            "name": "client_ts",
+            "type": "TIMESTAMPTZ",
+            "nullable": false,
+            "note": "ADR-0012"
+          },
+          {
+            "name": "server_ts",
+            "type": "TIMESTAMPTZ",
+            "nullable": false,
+            "note": "ADR-0012"
+          },
+          {
+            "name": "clock_offset_ms",
+            "type": "BIGINT",
+            "nullable": true,
+            "note": "ADR-0012"
+          },
+          {
+            "name": "status",
+            "type": "VARCHAR(24)",
+            "nullable": false,
+            "note": "ACTIVE|ENDED|PURGED"
+          },
+          {
+            "name": "version",
+            "type": "BIGINT",
+            "nullable": false
+          },
+          {
+            "name": "sequence",
+            "type": "BIGINT",
+            "nullable": false
+          }
+        ],
+        "indexes": [
+          {
+            "name": "idx_search_path_incident_op",
+            "columns": [
+              "incident_id",
+              "op_id"
+            ]
+          },
+          {
+            "name": "idx_search_path_device_session",
+            "columns": [
+              "device_id",
+              "session_id"
+            ]
+          },
+          {
+            "name": "idx_search_path_last_client_ts",
+            "columns": [
+              "last_client_ts"
+            ]
+          }
+        ],
+        "spatial": {
+          "enabled": true,
+          "type": "MULTILINESTRING",
+          "srid": 4326
+        }
+      },
+      {
+        "name": "path_segment",
+        "owner_spec": "S3-1",
+        "description": "search_path의 차량·도보·UNKNOWN 구간. 자동 분류와 Web 수동 보정 이력을 보유한다.",
+        "fields": [
+          {
+            "name": "id",
+            "type": "UUID",
+            "nullable": false,
+            "pk": true
+          },
+          {
+            "name": "path_id",
+            "type": "UUID",
+            "nullable": false
+          },
+          {
+            "name": "incident_id",
+            "type": "UUID",
+            "nullable": false
+          },
+          {
+            "name": "op_id",
+            "type": "UUID",
+            "nullable": false
+          },
+          {
+            "name": "device_id",
+            "type": "UUID",
+            "nullable": false
+          },
+          {
+            "name": "segment_type",
+            "type": "VARCHAR(16)",
+            "nullable": false,
+            "note": "VEHICLE|FOOT|UNKNOWN"
+          },
+          {
+            "name": "classification_source",
+            "type": "VARCHAR(16)",
+            "nullable": false,
+            "note": "AUTO|WEB_PATCH"
+          },
+          {
+            "name": "start_index",
+            "type": "INTEGER",
+            "nullable": false
+          },
+          {
+            "name": "end_index",
+            "type": "INTEGER",
+            "nullable": false
+          },
+          {
+            "name": "start_point_id",
+            "type": "VARCHAR(96)",
+            "nullable": false
+          },
+          {
+            "name": "end_point_id",
+            "type": "VARCHAR(96)",
+            "nullable": false
+          },
+          {
+            "name": "part_index",
+            "type": "INTEGER",
+            "nullable": false,
+            "note": "segments from different parts must not be rendered as a connected bridge"
+          },
+          {
+            "name": "geometry",
+            "type": "GEOMETRY(LineString,4326)",
+            "nullable": false,
+            "note": "canonical unsimplified segment geometry"
+          },
+          {
+            "name": "original_geometry_hash",
+            "type": "VARCHAR(64)",
+            "nullable": false
+          },
+          {
+            "name": "status",
+            "type": "VARCHAR(24)",
+            "nullable": false,
+            "note": "ACTIVE|ENDED|PURGED"
+          },
+          {
+            "name": "patched_by_account_id",
+            "type": "UUID",
+            "nullable": true
+          },
+          {
+            "name": "patched_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": true
+          },
+          {
+            "name": "client_ts",
+            "type": "TIMESTAMPTZ",
+            "nullable": false,
+            "note": "ADR-0012"
+          },
+          {
+            "name": "server_ts",
+            "type": "TIMESTAMPTZ",
+            "nullable": false,
+            "note": "ADR-0012"
+          },
+          {
+            "name": "clock_offset_ms",
+            "type": "BIGINT",
+            "nullable": true,
+            "note": "ADR-0012"
+          },
+          {
+            "name": "version",
+            "type": "BIGINT",
+            "nullable": false
+          },
+          {
+            "name": "sequence",
+            "type": "BIGINT",
+            "nullable": false
+          }
+        ],
+        "indexes": [
+          {
+            "name": "idx_path_segment_path",
+            "columns": [
+              "path_id",
+              "start_index"
+            ]
+          },
+          {
+            "name": "idx_path_segment_incident_op",
+            "columns": [
+              "incident_id",
+              "op_id"
+            ]
+          },
+          {
+            "name": "idx_path_segment_device_type",
+            "columns": [
+              "device_id",
+              "segment_type"
+            ]
+          }
+        ],
+        "spatial": {
+          "enabled": true,
+          "type": "LINESTRING",
+          "srid": 4326
+        }
+      }
+    ],
+    "state_machines": [
+      {
+        "entity": "search_session",
+        "field": "status",
+        "states": [
+          "ACTIVE",
+          "PAUSED",
+          "ENDED"
+        ],
+        "transitions": [
+          {
+            "from": "ACTIVE",
+            "to": "PAUSED",
+            "trigger": "PATCH /search-sessions/{sessionId} pause",
+            "guard": "same incident, same Device, current OP"
+          },
+          {
+            "from": "PAUSED",
+            "to": "ACTIVE",
+            "trigger": "PATCH /search-sessions/{sessionId} resume",
+            "guard": "same incident, same Device, current OP"
+          },
+          {
+            "from": "ACTIVE",
+            "to": "ENDED",
+            "trigger": "PATCH /search-sessions/{sessionId} end",
+            "guard": "same incident, same Device, current OP"
+          },
+          {
+            "from": "PAUSED",
+            "to": "ENDED",
+            "trigger": "PATCH /search-sessions/{sessionId} end",
+            "guard": "same incident, same Device, current OP"
+          }
+        ]
+      }
+    ],
+    "flyway_migrations": [
+      "V20260428_431__create_search_session.sql",
+      "V20260428_432__create_search_path.sql",
+      "V20260428_433__create_path_segment.sql"
+    ]
+  },
+  "api_contracts": {
+    "provided": [
+      {
+        "method": "POST",
+        "path": "/search-sessions",
+        "summary": "현재 incident/current OP/current Device 기준 수색 세션을 시작한다.",
+        "auth": "guard aliases app-device + incident-read + write-common + @RequireCurrentOp",
+        "idempotent": true,
+        "required_headers": [
+          "Authorization",
+          "Idempotency-Key",
+          "X-Device-Id"
+        ],
+        "request_schema": {
+          "type": "object",
+          "required": [
+            "incidentId",
+            "opId",
+            "clientTs"
+          ],
+          "properties": {
+            "incidentId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "opId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "clientTs": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "clockOffsetMs": {
+              "type": "integer"
+            }
+          }
+        },
+        "response_schema": {
+          "201": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "incidentId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "opId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "deviceId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "ACTIVE"
+                ]
+              },
+              "version": {
+                "type": "integer"
+              },
+              "sequence": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "code": 403,
+            "case": "channel_not_allowed",
+            "body": "{\"error\": \"channel_not_allowed\"}"
+          },
+          {
+            "code": 400,
+            "case": "device_required",
+            "body": "{\"error\": \"device_required\"}"
+          },
+          {
+            "code": 403,
+            "case": "device_not_registered",
+            "body": "{\"error\": \"device_not_registered\"}"
+          },
+          {
+            "code": 403,
+            "case": "device_not_assigned",
+            "body": "{\"error\": \"device_not_assigned\"}"
+          },
+          {
+            "code": 403,
+            "case": "incident_access_denied",
+            "body": "{\"error\": \"incident_access_denied\"}"
+          },
+          {
+            "code": 403,
+            "case": "team_not_assigned",
+            "body": "{\"error\": \"team_not_assigned\"}"
+          },
+          {
+            "code": 409,
+            "case": "incident_bootstrapping",
+            "body": "{\"error\": \"incident_bootstrapping\"}"
+          },
+          {
+            "code": 409,
+            "case": "incident_closed",
+            "body": "{\"error\": \"incident_closed\"}"
+          },
+          {
+            "code": 409,
+            "case": "idempotency_mismatch",
+            "body": "{\"error\": \"idempotency_mismatch\"}"
+          },
+          {
+            "code": 409,
+            "case": "write_conflict",
+            "body": "{\"error\": \"write_conflict\"}"
+          },
+          {
+            "code": 409,
+            "case": "op_required",
+            "body": "{\"error\": \"op_required\"}"
+          },
+          {
+            "code": 409,
+            "case": "op_mismatch",
+            "body": "{\"error\": \"op_mismatch\"}"
+          }
+        ]
+      },
+      {
+        "method": "PATCH",
+        "path": "/search-sessions/{sessionId}",
+        "summary": "수색 세션을 일시정지, 재개, 종료한다.",
+        "auth": "guard aliases app-device + incident-read + write-common + @RequireCurrentOp",
+        "idempotent": true,
+        "required_headers": [
+          "Authorization",
+          "Idempotency-Key",
+          "X-Device-Id"
+        ],
+        "request_schema": {
+          "type": "object",
+          "required": [
+            "action",
+            "clientTs"
+          ],
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "PAUSE",
+                "RESUME",
+                "END"
+              ]
+            },
+            "clientTs": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "clockOffsetMs": {
+              "type": "integer"
+            }
+          }
+        },
+        "response_schema": {
+          "200": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "ACTIVE",
+                  "PAUSED",
+                  "ENDED"
+                ]
+              },
+              "version": {
+                "type": "integer"
+              },
+              "sequence": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "code": 403,
+            "case": "channel_not_allowed",
+            "body": "{\"error\": \"channel_not_allowed\"}"
+          },
+          {
+            "code": 400,
+            "case": "device_required",
+            "body": "{\"error\": \"device_required\"}"
+          },
+          {
+            "code": 403,
+            "case": "device_not_registered",
+            "body": "{\"error\": \"device_not_registered\"}"
+          },
+          {
+            "code": 403,
+            "case": "device_not_assigned",
+            "body": "{\"error\": \"device_not_assigned\"}"
+          },
+          {
+            "code": 403,
+            "case": "incident_access_denied",
+            "body": "{\"error\": \"incident_access_denied\"}"
+          },
+          {
+            "code": 403,
+            "case": "team_not_assigned",
+            "body": "{\"error\": \"team_not_assigned\"}"
+          },
+          {
+            "code": 409,
+            "case": "incident_bootstrapping",
+            "body": "{\"error\": \"incident_bootstrapping\"}"
+          },
+          {
+            "code": 409,
+            "case": "incident_closed",
+            "body": "{\"error\": \"incident_closed\"}"
+          },
+          {
+            "code": 409,
+            "case": "idempotency_mismatch",
+            "body": "{\"error\": \"idempotency_mismatch\"}"
+          },
+          {
+            "code": 409,
+            "case": "write_conflict",
+            "body": "{\"error\": \"write_conflict\"}"
+          },
+          {
+            "code": 409,
+            "case": "op_required",
+            "body": "{\"error\": \"op_required\"}"
+          },
+          {
+            "code": 409,
+            "case": "op_mismatch",
+            "body": "{\"error\": \"op_mismatch\"}"
+          }
+        ]
+      },
+      {
+        "method": "POST",
+        "path": "/search-paths/batch",
+        "summary": "앱이 수집한 GPS 포인트 batch를 Device path에 append한다.",
+        "auth": "guard aliases app-device + incident-read + write-common + @RequireCurrentOp",
+        "idempotent": true,
+        "required_headers": [
+          "Authorization",
+          "Idempotency-Key",
+          "X-Device-Id"
+        ],
+        "request_schema": {
+          "type": "object",
+          "required": [
+            "incidentId",
+            "opId",
+            "sessionId",
+            "points"
+          ],
+          "properties": {
+            "incidentId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "opId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "sessionId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "points": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 120,
+              "items": {
+                "type": "object",
+                "required": [
+                  "pointId",
+                  "lon",
+                  "lat",
+                  "clientTs"
+                ],
+                "properties": {
+                  "pointId": {
+                    "type": "string",
+                    "description": "client stable point id; harness preserves gps-precinct-001..008"
+                  },
+                  "lon": {
+                    "type": "number"
+                  },
+                  "lat": {
+                    "type": "number"
+                  },
+                  "speedMps": {
+                    "type": "number"
+                  },
+                  "accuracyM": {
+                    "type": "number"
+                  },
+                  "horizontalAccuracyM": {
+                    "type": "number"
+                  },
+                  "clientTs": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                }
+              }
+            },
+            "clockOffsetMs": {
+              "type": "integer"
+            }
+          }
+        },
+        "validation_rules": [
+          "points는 2..120개여야 하며 pointId는 batch 안에서 중복될 수 없다.",
+          "clientTs는 수집 순서대로 strict monotonic increase여야 한다.",
+          "좌표는 LineString EPSG:4326 [lon, lat]이며 lon=-180..180, lat=-90..90, canonical precision은 소수 6자리다.",
+          "연속 중복점은 canonicalization 단계에서 제거하되 제거 후 accepted point가 2개 미만이면 batch 전체를 거부한다.",
+          "좌표 bbox는 하네스 envelope와 active MapBoundaryQuery.of(incidentId) 안에 있어야 한다.",
+          "horizontalAccuracyM > 50, timestampSkewSec > 30, speedMps < 0 또는 > 45, 5초 간 거리 > 200m인 point는 low-quality로 분류해 서버 path geometry에서 제외하고 response/event/query excludedPoints에 노출한다.",
+          "좌표 누락/null/NaN, CRS 불일치, LineString type 불일치, point count/order/monotonic clientTs/maxItems/minItems 위반은 structural geometry failure로 batch 전체를 invalid_geometry로 거부한다."
+        ],
+        "response_schema": {
+          "200": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "status": {
+                "type": "string"
+              },
+              "opId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "deviceId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "pointCount": {
+                "type": "integer"
+              },
+              "acceptedPointCount": {
+                "type": "integer"
+              },
+              "excludedPointCount": {
+                "type": "integer"
+              },
+              "excludedPoints": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "pointId": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string",
+                      "enum": [
+                        "LOW_ACCURACY",
+                        "CLOCK_SKEW",
+                        "INVALID_SPEED",
+                        "DISTANCE_JUMP"
+                      ]
+                    }
+                  }
+                }
+              },
+              "originalGeometryHash": {
+                "type": "string"
+              },
+              "parts": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "partIndex": {
+                      "type": "integer"
+                    },
+                    "startPointId": {
+                      "type": "string"
+                    },
+                    "endPointId": {
+                      "type": "string"
+                    },
+                    "bridgeFromPrevious": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    }
+                  }
+                }
+              },
+              "segments": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "segmentType": {
+                      "type": "string",
+                      "enum": [
+                        "VEHICLE",
+                        "FOOT",
+                        "UNKNOWN"
+                      ]
+                    },
+                    "startIndex": {
+                      "type": "integer"
+                    },
+                    "endIndex": {
+                      "type": "integer"
+                    },
+                    "startPointId": {
+                      "type": "string"
+                    },
+                    "endPointId": {
+                      "type": "string"
+                    },
+                    "partIndex": {
+                      "type": "integer"
+                    },
+                    "version": {
+                      "type": "integer"
+                    },
+                    "sequence": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              },
+              "version": {
+                "type": "integer"
+              },
+              "sequence": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "code": 400,
+            "case": "invalid_geometry",
+            "body": "{\"error\": \"invalid_geometry\"}"
+          },
+          {
+            "code": 409,
+            "case": "clock_skew_exceeded",
+            "body": "{\"error\": \"clock_skew_exceeded\"}"
+          },
+          {
+            "code": 403,
+            "case": "channel_not_allowed",
+            "body": "{\"error\": \"channel_not_allowed\"}"
+          },
+          {
+            "code": 400,
+            "case": "device_required",
+            "body": "{\"error\": \"device_required\"}"
+          },
+          {
+            "code": 403,
+            "case": "device_not_registered",
+            "body": "{\"error\": \"device_not_registered\"}"
+          },
+          {
+            "code": 403,
+            "case": "device_not_assigned",
+            "body": "{\"error\": \"device_not_assigned\"}"
+          },
+          {
+            "code": 403,
+            "case": "incident_access_denied",
+            "body": "{\"error\": \"incident_access_denied\"}"
+          },
+          {
+            "code": 403,
+            "case": "team_not_assigned",
+            "body": "{\"error\": \"team_not_assigned\"}"
+          },
+          {
+            "code": 409,
+            "case": "incident_bootstrapping",
+            "body": "{\"error\": \"incident_bootstrapping\"}"
+          },
+          {
+            "code": 409,
+            "case": "incident_closed",
+            "body": "{\"error\": \"incident_closed\"}"
+          },
+          {
+            "code": 409,
+            "case": "idempotency_mismatch",
+            "body": "{\"error\": \"idempotency_mismatch\"}"
+          },
+          {
+            "code": 409,
+            "case": "write_conflict",
+            "body": "{\"error\": \"write_conflict\"}"
+          },
+          {
+            "code": 409,
+            "case": "op_required",
+            "body": "{\"error\": \"op_required\"}"
+          },
+          {
+            "code": 409,
+            "case": "op_mismatch",
+            "body": "{\"error\": \"op_mismatch\"}"
+          }
+        ]
+      },
+      {
+        "method": "GET",
+        "path": "/search-paths",
+        "summary": "incident/op/device 필터로 path와 segment read model을 조회한다.",
+        "auth": "guard aliases public-session + incident-read + @RecordLocationAccess",
+        "idempotent": false,
+        "required_headers": [
+          "Authorization"
+        ],
+        "request_schema": {
+          "type": "object",
+          "properties": {
+            "incidentId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "opId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "deviceId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "ACTIVE",
+                "ENDED"
+              ]
+            },
+            "segmentType": {
+              "type": "string",
+              "enum": [
+                "VEHICLE",
+                "FOOT",
+                "UNKNOWN"
+              ]
+            },
+            "includeGeometry": {
+              "type": "boolean",
+              "default": true
+            },
+            "geometryMode": {
+              "type": "string",
+              "enum": [
+                "ORIGINAL",
+                "RENDER_SIMPLIFIED"
+              ],
+              "default": "RENDER_SIMPLIFIED"
+            },
+            "sinceVersion": {
+              "type": "integer"
+            },
+            "limit": {
+              "type": "integer",
+              "default": 500
+            },
+            "sort": {
+              "type": "string",
+              "enum": [
+                "clientTsAsc",
+                "sequenceAsc"
+              ],
+              "default": "sequenceAsc"
+            }
+          }
+        },
+        "response_schema": {
+          "200": {
+            "type": "object",
+            "properties": {
+              "paths": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "status",
+                    "version",
+                    "sequence",
+                    "incidentId",
+                    "opId",
+                    "sessionId",
+                    "deviceId",
+                    "deviceType",
+                    "originalGeometryHash",
+                    "parts",
+                    "segments"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "ACTIVE",
+                        "ENDED",
+                        "PURGED"
+                      ]
+                    },
+                    "version": {
+                      "type": "integer"
+                    },
+                    "sequence": {
+                      "type": "integer"
+                    },
+                    "incidentId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "opId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "sessionId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "deviceId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "deviceType": {
+                      "type": "string"
+                    },
+                    "geometryMode": {
+                      "type": "string"
+                    },
+                    "geometry": {
+                      "type": "object",
+                      "description": "GeoJSON LineString or MultiLineString split by parts; ORIGINAL returns canonical unsimplified geometry, RENDER_SIMPLIFIED returns render-only simplified geometry."
+                    },
+                    "originalGeometryHash": {
+                      "type": "string"
+                    },
+                    "renderGeometryHash": {
+                      "type": "string"
+                    },
+                    "parts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "partIndex": {
+                            "type": "integer"
+                          },
+                          "startPointId": {
+                            "type": "string"
+                          },
+                          "endPointId": {
+                            "type": "string"
+                          },
+                          "startIndex": {
+                            "type": "integer"
+                          },
+                          "endIndex": {
+                            "type": "integer"
+                          },
+                          "bridgeFromPrevious": {
+                            "type": "boolean",
+                            "enum": [
+                              false
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "segments": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "status",
+                          "version",
+                          "sequence",
+                          "segmentType",
+                          "startIndex",
+                          "endIndex",
+                          "startPointId",
+                          "endPointId",
+                          "partIndex"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "ACTIVE",
+                              "ENDED",
+                              "PURGED"
+                            ]
+                          },
+                          "version": {
+                            "type": "integer"
+                          },
+                          "sequence": {
+                            "type": "integer"
+                          },
+                          "segmentType": {
+                            "type": "string",
+                            "enum": [
+                              "VEHICLE",
+                              "FOOT",
+                              "UNKNOWN"
+                            ]
+                          },
+                          "classificationSource": {
+                            "type": "string"
+                          },
+                          "startIndex": {
+                            "type": "integer"
+                          },
+                          "endIndex": {
+                            "type": "integer"
+                          },
+                          "startPointId": {
+                            "type": "string"
+                          },
+                          "endPointId": {
+                            "type": "string"
+                          },
+                          "partIndex": {
+                            "type": "integer"
+                          },
+                          "originalGeometryHash": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "excludedPoints": {
+                      "type": "array"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "code": 403,
+            "case": "channel_not_allowed",
+            "body": "{\"error\": \"channel_not_allowed\"}"
+          },
+          {
+            "code": 403,
+            "case": "incident_access_denied",
+            "body": "{\"error\": \"incident_access_denied\"}"
+          },
+          {
+            "code": 403,
+            "case": "team_not_assigned",
+            "body": "{\"error\": \"team_not_assigned\"}"
+          }
+        ]
+      },
+      {
+        "method": "PATCH",
+        "path": "/path-segments/{segmentId}",
+        "summary": "웹 상황판에서 path segment type만 VEHICLE|FOOT|UNKNOWN으로 보정한다.",
+        "auth": "guard aliases web-command + incident-read + write-common",
+        "idempotent": true,
+        "required_headers": [
+          "Authorization",
+          "Idempotency-Key"
+        ],
+        "request_schema": {
+          "type": "object",
+          "required": [
+            "segmentType"
+          ],
+          "properties": {
+            "segmentType": {
+              "type": "string",
+              "enum": [
+                "VEHICLE",
+                "FOOT",
+                "UNKNOWN"
+              ]
+            },
+            "reason": {
+              "type": "string"
+            }
+          }
+        },
+        "response_schema": {
+          "200": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "segmentType": {
+                "type": "string",
+                "enum": [
+                  "VEHICLE",
+                  "FOOT",
+                  "UNKNOWN"
+                ]
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "ACTIVE",
+                  "ENDED",
+                  "PURGED"
+                ]
+              },
+              "classificationSource": {
+                "type": "string",
+                "enum": [
+                  "WEB_PATCH"
+                ]
+              },
+              "opId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "deviceId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "startIndex": {
+                "type": "integer"
+              },
+              "endIndex": {
+                "type": "integer"
+              },
+              "startPointId": {
+                "type": "string"
+              },
+              "endPointId": {
+                "type": "string"
+              },
+              "partIndex": {
+                "type": "integer"
+              },
+              "originalGeometryHash": {
+                "type": "string"
+              },
+              "version": {
+                "type": "integer"
+              },
+              "sequence": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "code": 403,
+            "case": "channel_not_allowed",
+            "body": "{\"error\": \"channel_not_allowed\"}"
+          },
+          {
+            "code": 403,
+            "case": "role_denied",
+            "body": "{\"error\": \"role_denied\"}"
+          },
+          {
+            "code": 403,
+            "case": "incident_access_denied",
+            "body": "{\"error\": \"incident_access_denied\"}"
+          },
+          {
+            "code": 403,
+            "case": "team_not_assigned",
+            "body": "{\"error\": \"team_not_assigned\"}"
+          },
+          {
+            "code": 409,
+            "case": "incident_bootstrapping",
+            "body": "{\"error\": \"incident_bootstrapping\"}"
+          },
+          {
+            "code": 409,
+            "case": "incident_closed",
+            "body": "{\"error\": \"incident_closed\"}"
+          },
+          {
+            "code": 409,
+            "case": "idempotency_mismatch",
+            "body": "{\"error\": \"idempotency_mismatch\"}"
+          },
+          {
+            "code": 409,
+            "case": "write_conflict",
+            "body": "{\"error\": \"write_conflict\"}"
+          }
+        ]
+      }
+    ],
+    "consumed": [
+      {
+        "from_spec": "S1-2",
+        "interface": "SecurityContext.deviceId, @RequireDeviceRegistered, @RequireDeviceAssigned",
+        "usage": "모든 app session/path write에서 path subject Device를 확정한다."
+      },
+      {
+        "from_spec": "S6",
+        "interface": "SyncClient.enqueue(writeOperation), @IdempotentWrite, POST /sync/clock",
+        "usage": "Android write enqueue, replay 중복 제거, client/server time 병기를 위해 소비한다."
+      },
+      {
+        "from_spec": "S8",
+        "interface": "OperationalPeriodQuery.current(incidentId), @RequireCurrentOp",
+        "usage": "search_session과 search_path가 현재 OP에만 쓰이도록 검증한다."
+      },
+      {
+        "from_spec": "S2",
+        "interface": "MapBoundaryQuery.of(incidentId)",
+        "usage": "GPS batch 좌표가 active map boundary 밖으로 명백히 이탈한 경우 invalid_geometry 판정에 사용한다."
+      },
+      {
+        "from_spec": "S4",
+        "interface": "EventHub.publish(PublishRequest.*)",
+        "usage": "S3-1은 SEARCH_SESSION/PATH 이벤트 payload와 PublishRequest 생성 요청까지만 책임진다. S4가 outbox 저장, fanout, replay orchestration을 소유한다."
+      }
+    ],
+    "events_published": [
+      {
+        "type": "SEARCH_SESSION_STARTED",
+        "trigger": "search_session ACTIVE row commit",
+        "payload_schema": {
+          "type": "object",
+          "required": [
+            "id",
+            "status",
+            "version",
+            "opId",
+            "deviceId",
+            "sequence"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "status": {
+              "type": "string"
+            },
+            "version": {
+              "type": "integer"
+            },
+            "opId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "deviceId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "sequence": {
+              "type": "integer"
+            },
+            "clientTs": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "serverTs": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "clockOffsetMs": {
+              "type": "integer"
+            }
+          }
+        },
+        "subscribers": [
+          "S3-2"
+        ]
+      },
+      {
+        "type": "SEARCH_SESSION_ENDED",
+        "trigger": "search_session ENDED transition commit",
+        "payload_schema": {
+          "type": "object",
+          "required": [
+            "id",
+            "status",
+            "version",
+            "opId",
+            "deviceId",
+            "sequence"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "status": {
+              "type": "string"
+            },
+            "version": {
+              "type": "integer"
+            },
+            "opId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "deviceId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "sequence": {
+              "type": "integer"
+            }
+          }
+        },
+        "subscribers": [
+          "S3-2",
+          "S8"
+        ]
+      },
+      {
+        "type": "PATH_APPENDED",
+        "trigger": "search_path LineString append commit",
+        "payload_schema": {
+          "type": "object",
+          "required": [
+            "id",
+            "status",
+            "version",
+            "opId",
+            "deviceId",
+            "sequence"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "status": {
+              "type": "string"
+            },
+            "version": {
+              "type": "integer"
+            },
+            "opId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "deviceId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "sequence": {
+              "type": "integer"
+            },
+            "segmentTypes": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "VEHICLE",
+                  "FOOT",
+                  "UNKNOWN"
+                ]
+              }
+            },
+            "originalGeometryHash": {
+              "type": "string"
+            },
+            "parts": {
+              "type": "array"
+            },
+            "excludedPoints": {
+              "type": "array"
+            }
+          }
+        },
+        "subscribers": [
+          "S3-2"
+        ]
+      },
+      {
+        "type": "PATH_SEGMENT_UPDATED",
+        "trigger": "Web path segment type patch commit",
+        "payload_schema": {
+          "type": "object",
+          "required": [
+            "id",
+            "status",
+            "version",
+            "opId",
+            "deviceId",
+            "sequence"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "status": {
+              "type": "string"
+            },
+            "version": {
+              "type": "integer"
+            },
+            "opId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "deviceId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "sequence": {
+              "type": "integer"
+            },
+            "segmentType": {
+              "type": "string",
+              "enum": [
+                "VEHICLE",
+                "FOOT",
+                "UNKNOWN"
+              ]
+            },
+            "originalGeometryHash": {
+              "type": "string"
+            },
+            "startPointId": {
+              "type": "string"
+            },
+            "endPointId": {
+              "type": "string"
+            },
+            "partIndex": {
+              "type": "integer"
+            }
+          }
+        },
+        "subscribers": [
+          "S3-2",
+          "S8"
+        ]
+      }
+    ],
+    "events_subscribed": [
+      {
+        "type": "OP_TRANSITIONED",
+        "from_spec": "S8",
+        "handler": "active session write는 새 current OP와 payload opId가 불일치하면 op_mismatch로 차단한다."
+      }
+    ]
+  },
+  "provided_contracts": {
+    "queries": [
+      {
+        "name": "PathQuery.byIncident(incidentId, filters)",
+        "source": "S3-1 read model over search_path/path_segment",
+        "filters": {
+          "opId": "optional UUID",
+          "deviceId": "optional UUID",
+          "status": "optional ACTIVE|ENDED, default both excluding PURGED",
+          "segmentType": "optional VEHICLE|FOOT|UNKNOWN",
+          "sinceVersion": "optional BIGINT for incremental board refresh",
+          "includeGeometry": "boolean default true",
+          "geometryMode": "ORIGINAL|RENDER_SIMPLIFIED default RENDER_SIMPLIFIED",
+          "limit": "default 500"
+        },
+        "visibility": "caller must pass incident-read/team assignment guard; @RecordLocationAccess applies to read-only evidence access",
+        "sort": "sequence ASC, then path.id ASC, segment.startIndex ASC",
+        "response_shape": "PathQueryResult{paths:[{id,status,version,sequence,incidentId,opId,sessionId,deviceId,deviceType,pointCount,acceptedPointCount,excludedPointCount,originalGeometryHash,renderGeometryHash,geometryMode,parts:[{partIndex,startIndex,endIndex,startPointId,endPointId,bridgeFromPrevious=false}],segments:[{id,status,version,sequence,segmentType,classificationSource,startIndex,endIndex,startPointId,endPointId,partIndex,originalGeometryHash}],excludedPoints:[{pointId,reason,clientTs}]}]}",
+        "mock_consumers": [
+          "S3-2 path slot",
+          "S8 OP history/handover context",
+          "SC-11 read-only evidence"
+        ]
+      },
+      {
+        "name": "PathQuery.byOp(opId, filters)",
+        "source": "same response_shape as byIncident, narrowed to one OP",
+        "filters": {
+          "incidentId": "required guard context",
+          "deviceId": "optional UUID",
+          "status": "optional ACTIVE|ENDED",
+          "segmentType": "optional VEHICLE|FOOT|UNKNOWN",
+          "geometryMode": "ORIGINAL|RENDER_SIMPLIFIED"
+        },
+        "visibility": "only incident members with OP visibility can read; OP comparison uses read-only ORIGINAL hash and render-simplified geometry",
+        "sort": "sequence ASC, then clientTs ASC"
+      },
+      {
+        "name": "PathQuery.byDevice(deviceId, filters)",
+        "source": "same response_shape as byIncident, narrowed to one Device",
+        "filters": {
+          "incidentId": "required UUID",
+          "opId": "optional UUID",
+          "activeOnly": "boolean default false",
+          "geometryMode": "ORIGINAL|RENDER_SIMPLIFIED"
+        },
+        "visibility": "App may read current Device active path; Web board may read assigned incident devices through incident-read guard",
+        "sort": "sequence ASC, then path.id ASC"
+      }
+    ],
+    "geometry_policy": {
+      "original_storage": "search_path.geometry stores canonical unsimplified MultiLineString derived from ordered parts_json, and each part geometry remains an individual LineString. path_segment.geometry stores canonical unsimplified LineString. All geometry uses EPSG:4326 lon/lat with 6 decimal precision.",
+      "hash": "originalGeometryHash is sha256 over ordered parts_json canonical geometry plus ordered pointId list and must not change for read-only SC-11 evidence.",
+      "rendering": "S3-2 may request RENDER_SIMPLIFIED geometry for performance, but simplification is response-only and renderGeometryHash never replaces originalGeometryHash.",
+      "no_bridge": "pause/resume creates a new partIndex. Query parts always set bridgeFromPrevious=false, and board rendering must draw separate LineStrings rather than connecting the gap."
+    },
+    "classification_policy": {
+      "VEHICLE": "VEHICLE when at least 3 consecutive accepted points have speedMps >= 5.0 and pass accuracy/skew/distance criteria.",
+      "FOOT": "FOOT when at least 3 consecutive accepted points have 0.5 <= speedMps <= 2.5 and pass accuracy/skew/distance criteria.",
+      "UNKNOWN": "UNKNOWN for short runs, stationary ambiguity, mixed speed, low-quality adjacency, or criteria uncertainty.",
+      "harness_fixture": "gps-path-normal-001 must produce seg-precinct-vehicle-001 VEHICLE startIndex=0 endIndex=3 startPointId=gps-precinct-001 endPointId=gps-precinct-004 and seg-precinct-foot-001 FOOT startIndex=4 endIndex=7 startPointId=gps-precinct-005 endPointId=gps-precinct-008."
+    },
+    "quality_policy": {
+      "low_quality_criteria": [
+        "horizontalAccuracyM > 50",
+        "timestampSkewSec > 30",
+        "speedMps < 0 or speedMps > 45",
+        "distance over 200m between 5-second samples"
+      ],
+      "server_effect": "low-quality points are stored as excluded point evidence but are not appended to server path geometry or path_segment geometry; structural null/NaN/missing coordinates reject the batch.",
+      "app_ux": "Android foreground location service exposes low-quality and excluded counts to screen/control/overlay props and does not mark excluded points as server-synced path.",
+      "board_ux": "PathQuery and PATH_APPENDED expose excludedPoints so S3-2 can show low-quality/excluded badges without drawing them as covered search path."
+    },
+    "purge_hook": {
+      "name": "PathPurgeHook.purgeIncidentPaths(incidentId, purgeRunId, closedAt, purgeDeadlineTs)",
+      "caller": "S1-3 Retention & Operational Records",
+      "input": {
+        "incidentId": "UUID",
+        "purgeRunId": "UUID",
+        "closedAt": "TIMESTAMPTZ",
+        "purgeDeadlineTs": "TIMESTAMPTZ"
+      },
+      "output": {
+        "status": "SUCCEEDED|WAITING_FOR_SYNC|FAILED_RETRYABLE",
+        "purgedCount": "number of S3-1 path/session/segment rows purged or tombstoned",
+        "retainedCount": "number of rows retained because purge is waiting or retryable",
+        "errorCode": "nullable catalog error or internal retry code"
+      },
+      "idempotency": "same incidentId+purgeRunId may be retried and must return stable counts after the first successful purge"
+    }
+  },
+  "three_stack_deliverables": {
+    "backend": {
+      "language": "Java (JDK 17)",
+      "framework": "Spring Boot 3.x",
+      "package": "com.surimap.path",
+      "modules": [
+        {
+          "name": "SearchSessionController",
+          "responsibility": "session start/pause/resume/end REST contract"
+        },
+        {
+          "name": "SearchPathController",
+          "responsibility": "path batch append and path query REST contract"
+        },
+        {
+          "name": "PathSegmentController",
+          "responsibility": "Web-only segment type patch contract"
+        },
+        {
+          "name": "SearchPathService",
+          "responsibility": "Device subject validation, LineString append, segment classification, event publish request"
+        },
+        {
+          "name": "SearchPathRepository",
+          "responsibility": "PostGIS search_path/path_segment persistence and read model queries"
+        },
+        {
+          "name": "PathQuery",
+          "responsibility": "byIncident/byOp/byDevice source contract for S3-2, S8, SC-11 mocks"
+        },
+        {
+          "name": "PathPurgeHookAdapter",
+          "responsibility": "S1-3 purge hook contract returning {status,purgedCount,retainedCount,errorCode}"
+        }
+      ]
+    },
+    "web": {
+      "language": "TypeScript",
+      "framework": "React 18+ SPA",
+      "routes": [
+        {
+          "path": "/incidents/:incidentId/board",
+          "component": "S3-2 owned shell consumes PathLayerSlot"
+        }
+      ],
+      "components": [
+        {
+          "name": "PathSegmentCorrectionPanel",
+          "responsibility": "Web-only segment type correction UI delivered as S3-2 slot-scoped component"
+        }
+      ],
+      "state_management": "React Query for path query/mutation cache",
+      "map_layers": [
+        {
+          "id": "path",
+          "source_spec": "S3-1",
+          "type": "feature"
+        },
+        {
+          "id": "path_segment_vehicle",
+          "source_spec": "S3-1",
+          "type": "feature"
+        },
+        {
+          "id": "path_segment_foot",
+          "source_spec": "S3-1",
+          "type": "feature"
+        },
+        {
+          "id": "path_segment_unknown",
+          "source_spec": "S3-1",
+          "type": "feature"
+        }
+      ]
+    },
+    "android": {
+      "language": "Kotlin",
+      "min_sdk": 31,
+      "target_sdk": 34,
+      "package": "kr.surimap.path",
+      "foreground_services": [
+        {
+          "name": "SearchPathForegroundLocationService",
+          "responsibility": "5초 주기 GPS sample 수집, 품질 판정, screen/control/overlay props 갱신, S6 SyncClient에 writeOperation 전달"
+        }
+      ],
+      "screens": [
+        {
+          "name": "SearchSessionControls",
+          "responsibility": "수색 시작, 일시정지, 재개, 종료 상태 표시와 조작; server id/status/version/sequence ack 반영"
+        },
+        {
+          "name": "ActiveDevicePathOverlay",
+          "responsibility": "현재 Device 궤도 강조, no-bridge part 렌더링, low-quality/excluded point 표시 props 제공"
+        }
+      ],
+      "write_operation_shapes": [
+        {
+          "operation": "START_SESSION",
+          "shape": "POST /search-sessions body {incidentId,opId,clientTs,clockOffsetMs}"
+        },
+        {
+          "operation": "PATCH_SESSION",
+          "shape": "PATCH /search-sessions/{sessionId} body {action,clientTs,clockOffsetMs}"
+        },
+        {
+          "operation": "APPEND_PATH_BATCH",
+          "shape": "POST /search-paths/batch body {incidentId,opId,sessionId,points:[{pointId,lon,lat,speedMps,horizontalAccuracyM,clientTs}],clockOffsetMs}"
+        }
+      ],
+      "local_storage_boundary": "S3-1 does not define Room entities, local queue tables, sync state tables, or retry state; S6 owns local store/Outbox/WorkManager/idempotency.",
+      "sync_flow": "S6 SyncClient.enqueue(writeOperation) 경유로 POST /search-sessions, PATCH /search-sessions/{sessionId}, POST /search-paths/batch 수행"
+    }
+  },
+  "dependencies": {
+    "spec_dependencies": [
+      {
+        "spec": "S1-1",
+        "contract": "incident lifecycle OPEN/CLOSED/BOOTSTRAPPING and incident access baseline",
+        "stub_strategy": "OPEN incident fixture, CLOSED incident fixture, and incident_bootstrapping fixture for write guard tests.",
+        "replaced_by_real_at": "S1-1 incident lifecycle PASS"
+      },
+      {
+        "spec": "S1-2",
+        "contract": "SecurityContext, Device guard, device_type/account/device fixture",
+        "stub_strategy": "L4 harness uses fixed Device fixture with TEAM_PHONE and PATROL_CAR_PHONE cases.",
+        "replaced_by_real_at": "S1-2 auth/device guard PASS"
+      },
+      {
+        "spec": "S6",
+        "contract": "SyncClient enqueue, idempotency middleware, Outbox replay shape",
+        "stub_strategy": "Use in-memory SyncClient that records write_operation and replays once.",
+        "replaced_by_real_at": "S6 outbox/idempotency contract PASS"
+      },
+      {
+        "spec": "S8",
+        "contract": "OperationalPeriodQuery.current and @RequireCurrentOp",
+        "stub_strategy": "Fixture current OP per incident.",
+        "replaced_by_real_at": "S8 OP bootstrap/current OP PASS"
+      },
+      {
+        "spec": "S4",
+        "contract": "EventHub.publish and event envelope",
+        "stub_strategy": "Mock event sink asserting payload common fields.",
+        "replaced_by_real_at": "S4 event outbox/replay PASS"
+      },
+      {
+        "spec": "S2",
+        "contract": "MapBoundaryQuery.of(incidentId)",
+        "stub_strategy": "Static polygon envelope fixture for geometry guard tests.",
+        "replaced_by_real_at": "S2 map boundary query PASS"
+      }
+    ],
+    "infra_dependencies": [
+      "PostgreSQL + PostGIS",
+      "Spring Boot 3.x",
+      "MapLibre Native Android",
+      "Android fused location provider",
+      "S4 EventHub"
+    ]
+  },
+  "acceptance_criteria": [
+    {
+      "id": "AC-S3-1-01",
+      "fr_refs": [
+        "FR-02",
+        "FR-34"
+      ],
+      "given": "사건 OPEN, current OP 존재, 앱 세션에 등록·배정된 Device가 연결됨",
+      "when": "앱이 수색 시작을 호출한다",
+      "then": "search_session은 current OP와 Device 기준 ACTIVE로 생성되고 SEARCH_SESSION_STARTED가 같은 id/opId/deviceId/version/sequence를 포함해 발행된다.",
+      "priority": "critical"
+    },
+    {
+      "id": "AC-S3-1-01A",
+      "fr_refs": [
+        "FR-34"
+      ],
+      "given": "앱 사용자가 수색 시작 CTA를 누른 직후 search_session 시작 요청이 pending 상태다.",
+      "when": "사용자가 시작 CTA를 다시 탭하거나 시작 요청이 실패한다.",
+      "then": "pending 중 CTA는 로딩·비활성 상태이고 중복 탭은 같은 Idempotency-Key 흐름으로 억제된다. 실패 시 앱은 시작 전 상태와 실패 사유, 재시도 CTA를 표시하며 search_session은 중복 생성되지 않는다.",
+      "priority": "high"
+    },
+    {
+      "id": "AC-S3-1-02",
+      "fr_refs": [
+        "FR-02",
+        "FR-33"
+      ],
+      "given": "ACTIVE search_session과 10초 GPS batch가 있다",
+      "when": "앱이 POST /search-paths/batch를 전송한다",
+      "then": "search_path LineString이 EPSG:4326 lon/lat 순서로 append되고 path subject는 account가 아니라 Device로 저장된다.",
+      "priority": "critical"
+    },
+    {
+      "id": "AC-S3-1-03",
+      "fr_refs": [
+        "FR-04",
+        "FR-33",
+        "FR-35"
+      ],
+      "given": "GPS batch에 지속적인 속도 변화가 포함된다",
+      "when": "batch append가 성공한다",
+      "then": "path_segment는 VEHICLE, FOOT, UNKNOWN 중 하나로 생성되고 gps-path-normal-001 fixture는 하네스 segment index/pointId를 보존한다.",
+      "priority": "high"
+    },
+    {
+      "id": "AC-S3-1-04",
+      "fr_refs": [
+        "FR-34"
+      ],
+      "given": "세션이 PAUSED 상태다",
+      "when": "GPS batch가 들어오거나 resume 이후 새 batch가 들어온다",
+      "then": "pause 중 좌표는 서버 path LineString에 이어붙지 않고 resume 이후 구간은 새 partIndex/segment boundary로 분리되어 PathQuery와 board에서 no-bridge가 검증된다.",
+      "priority": "high"
+    },
+    {
+      "id": "AC-S3-1-05",
+      "fr_refs": [
+        "FR-04",
+        "FR-33"
+      ],
+      "given": "웹 상황판 사용자가 path segment를 선택했다",
+      "when": "PATCH /path-segments/{segmentId}로 segmentType만 보정한다",
+      "then": "classificationSource는 WEB_PATCH가 되고 PATH_SEGMENT_UPDATED가 발행되며 Web은 path/session/batch 생성 API를 호출할 수 없다.",
+      "priority": "critical"
+    },
+    {
+      "id": "AC-S3-1-06",
+      "fr_refs": [
+        "FR-25",
+        "FR-35"
+      ],
+      "given": "팀 업무폰과 순찰차 업무폰 경로가 같은 OP에 있다",
+      "when": "GET /search-paths를 조회한다",
+      "then": "응답은 deviceId, deviceType, sessionId, opId, status, version, sequence, segmentType, originalGeometryHash를 포함해 앱과 S3-2가 운용 중 Device와 순찰차 경로를 구분할 수 있다.",
+      "priority": "high"
+    },
+    {
+      "id": "AC-S3-1-07",
+      "fr_refs": [
+        "FR-02",
+        "FR-33"
+      ],
+      "given": "GPS 품질 저하 fixture가 horizontalAccuracyM, timestamp skew, 비정상 speed, 거리 jump 중 하나를 포함한다",
+      "when": "앱이 POST /search-paths/batch를 전송한다",
+      "then": "서버는 저품질 point를 path/segment geometry에서 제외하고 excludedPoints로 응답·이벤트·PathQuery에 노출하며 앱과 상황판은 저품질/제외 상태를 표시한다.",
+      "priority": "high"
+    },
+    {
+      "id": "AC-S3-1-08",
+      "fr_refs": [
+        "FR-34"
+      ],
+      "given": "사건 종료 purge_run이 S1-3에서 실행 중이다",
+      "when": "S1-3이 PathPurgeHook.purgeIncidentPaths(incidentId, purgeRunId, closedAt, purgeDeadlineTs)를 호출한다",
+      "then": "S3-1은 {status,purgedCount,retainedCount,errorCode}를 반환하고 같은 purgeRunId 재시도는 멱등 결과를 유지한다.",
+      "priority": "critical"
+    },
+    {
+      "id": "AC-S3-1-09",
+      "fr_refs": [
+        "FR-04",
+        "FR-25"
+      ],
+      "given": "POST /search-paths/batch 또는 PATCH /path-segments/{segmentId} 응답이 id/status/version/sequence를 반환했지만 S3-2 board snapshot이 아직 해당 version/sequence 이상으로 수렴하지 않았다.",
+      "when": "상황판 path slot이 snapshot을 렌더링한다.",
+      "then": "path slot은 PENDING_PROJECTION 또는 stale 상태를 표시하고, snapshot이 응답 version/sequence 이상으로 갱신되면 같은 id/status/version/sequence로 수렴한다.",
+      "priority": "high"
+    }
+  ],
+  "edge_cases": [
+    "같은 Device가 이미 ACTIVE session을 가진 상태에서 새 session 시작 요청",
+    "Outbox replay로 같은 batch가 중복 도착",
+    "오프라인 중 OP가 전환된 뒤 이전 OP payload가 복구 전송됨",
+    "GPS 포인트가 1개 이하이거나 120개 초과라 LineString batch 기준을 만족하지 못함",
+    "지도 기준 범위 밖 좌표 또는 위경도 순서 오류",
+    "순찰차 업무폰이 저속 정차와 도보 이동 속도 사이를 반복해 UNKNOWN 처리되는 경우",
+    "pause/resume 후 서로 다른 partIndex가 이어붙어 보이는 no-bridge 회귀",
+    "incident close 이후 늦게 도착한 path batch",
+    "Web이 segment type 외 geometry나 session 상태를 patch하려는 경우"
+  ],
+  "error_handling": {
+    "invalid_geometry": "Path batch geometry, point count/order, coordinate range, CRS, precision, maxItems/minItems, monotonic clientTs, and boundary containment failures use catalog error invalid_geometry.",
+    "low_quality_point": "품질 저하 point는 서버 path geometry에 승격하지 않고 excludedPoints로 응답·이벤트·PathQuery에 반영한다. 좌표 null/NaN 등 structural failure는 batch 전체 invalid_geometry다.",
+    "pending_projection": "S3-1 write는 성공했지만 board snapshot version/sequence가 REST 응답보다 낮으면 path slot은 PENDING_PROJECTION 또는 stale 상태를 표시하고 수렴 후 해제한다.",
+    "op_mismatch": "앱은 현재 OP 재조회가 필요하다는 로컬 경고를 표시하고 해당 writeOperation은 자동 재전송하지 않는다.",
+    "write_conflict": "앱은 서버 session 상태를 재조회하고 로컬 세션 CTA를 서버 상태에 맞춘다.",
+    "idempotency_mismatch": "같은 key 다른 body는 재전송 중단, S6 미전송 큐에 최종 실패로 표시한다.",
+    "incident_closed": "앱은 기록 중 상태를 종료하고 S6 purge flow로 넘긴다."
+  },
+  "non_functional_requirements": {
+    "performance": [
+      "GPS 수집은 5초, 서버 전송은 10초 batch를 기준으로 한다.",
+      "POST /search-paths/batch는 요청당 최대 120 points를 넘지 않는다.",
+      "PATH_APPENDED commit 후 S4/S3-2 수렴 전까지 REST 응답은 version과 sequence를 반환해야 한다.",
+      "GET /search-paths는 incidentId+opId 필터 기준 MVP fixture 규모에서 p95 1초 이내를 목표로 한다."
+    ],
+    "security": [
+      "위치 조회 GET /search-paths는 @RecordLocationAccess 적용 대상이다.",
+      "App session/path write에는 @RequireDeviceRegistered와 @RequireDeviceAssigned가 필수다.",
+      "Web은 path segment type correction만 허용하고 session/path batch 생성은 403 channel_not_allowed로 거부한다."
+    ],
+    "observability": [
+      "path_batch_append_total, path_batch_rejected_total, path_segment_auto_split_total, path_segment_web_patch_total 메트릭을 노출한다.",
+      "PATH_APPENDED payload에는 id, status, version, opId, deviceId, sequence 공통 필드를 포함한다.",
+      "GPS batch rejection은 incidentId, deviceId, sessionId, reason을 구조화 로그로 남긴다.",
+      "low_quality_point_excluded_total과 path_part_no_bridge_total 메트릭을 노출한다."
+    ]
+  },
+  "harness_fixtures": {
+    "gps_path_normal_001": {
+      "fixtureId": "gps-path-normal-001",
+      "pathId": "path-precinct-mixed-001",
+      "deviceId": "dev-precinct-car-01",
+      "points": [
+        {
+          "pointId": "gps-precinct-001",
+          "clientTs": "2026-04-28T09:00:00+09:00",
+          "lon": 126.956,
+          "lat": 37.57,
+          "speedMps": 13.5
+        },
+        {
+          "pointId": "gps-precinct-002",
+          "clientTs": "2026-04-28T09:00:05+09:00",
+          "lon": 126.95665,
+          "lat": 37.57018,
+          "speedMps": 12.8
+        },
+        {
+          "pointId": "gps-precinct-003",
+          "clientTs": "2026-04-28T09:00:10+09:00",
+          "lon": 126.9573,
+          "lat": 37.57036,
+          "speedMps": 11.9
+        },
+        {
+          "pointId": "gps-precinct-004",
+          "clientTs": "2026-04-28T09:00:15+09:00",
+          "lon": 126.95785,
+          "lat": 37.57054,
+          "speedMps": 9.8
+        },
+        {
+          "pointId": "gps-precinct-005",
+          "clientTs": "2026-04-28T09:00:20+09:00",
+          "lon": 126.958,
+          "lat": 37.5707,
+          "speedMps": 1.6
+        },
+        {
+          "pointId": "gps-precinct-006",
+          "clientTs": "2026-04-28T09:00:25+09:00",
+          "lon": 126.95808,
+          "lat": 37.57088,
+          "speedMps": 1.3
+        },
+        {
+          "pointId": "gps-precinct-007",
+          "clientTs": "2026-04-28T09:00:30+09:00",
+          "lon": 126.95816,
+          "lat": 37.57105,
+          "speedMps": 1.1
+        },
+        {
+          "pointId": "gps-precinct-008",
+          "clientTs": "2026-04-28T09:00:35+09:00",
+          "lon": 126.95825,
+          "lat": 37.57122,
+          "speedMps": 1.4
+        }
+      ],
+      "expectedSegments": [
+        {
+          "segmentId": "seg-precinct-vehicle-001",
+          "segmentType": "VEHICLE",
+          "startIndex": 0,
+          "endIndex": 3,
+          "startPointId": "gps-precinct-001",
+          "endPointId": "gps-precinct-004"
+        },
+        {
+          "segmentId": "seg-precinct-foot-001",
+          "segmentType": "FOOT",
+          "startIndex": 4,
+          "endIndex": 7,
+          "startPointId": "gps-precinct-005",
+          "endPointId": "gps-precinct-008"
+        }
+      ]
+    },
+    "batch_limits": {
+      "minItems": 2,
+      "maxItems": 120,
+      "publicError": "invalid_geometry"
+    },
+    "quality_degraded": {
+      "criteria": [
+        "horizontalAccuracyM > 50",
+        "timestampSkewSec > 30",
+        "speedMps < 0 or > 45",
+        "distance > 200m between 5-second samples",
+        "lon/lat missing, null, or NaN"
+      ],
+      "expected": "non-structural quality failures appear in excludedPoints and are not drawn as path; structural coordinate failures reject the batch with invalid_geometry"
+    },
+    "pause_no_bridge": {
+      "expected": "resume creates a new partIndex and PathQuery.parts bridgeFromPrevious=false"
+    },
+    "stale_version_sequence": {
+      "expected": "mock board ignores event payloads below current version or sequence"
+    },
+    "read_only_geometry_hash": {
+      "expected": "SC-11 evidence uses originalGeometryHash from ordered parts_json canonical geometry plus ordered pointId list"
+    }
+  },
+  "tdd_red_tests": {
+    "backend": [
+      {
+        "name": "SearchSessionStartsForCurrentDeviceAndOpTest",
+        "framework": "JUnit 5 + Testcontainers(PostGIS)",
+        "scenario": "앱 Device가 session 시작 시 search_session row와 SEARCH_SESSION_STARTED payload가 같은 opId/deviceId를 가진다."
+      },
+      {
+        "name": "PathBatchAppendsLineStringAndSegmentsTest",
+        "framework": "JUnit 5 + Testcontainers(PostGIS)",
+        "scenario": "gps-path-normal-001 fixture의 gps-precinct-001..008 pointId가 보존되고 VEHICLE segment startIndex=0/endIndex=3/startPointId=gps-precinct-001/endPointId=gps-precinct-004 및 FOOT segment startIndex=4/endIndex=7/startPointId=gps-precinct-005/endPointId=gps-precinct-008이 생성된다."
+      },
+      {
+        "name": "PathBatchValidationHarnessFixtureTest",
+        "framework": "JUnit 5 + MockMvc",
+        "scenario": "points minItems=2, maxItems=120, clientTs strict monotonic, EPSG:4326 lon/lat, precision 6 decimals, envelope/boundary containment, 연속 중복점 제거를 검증하고 실패 시 신규 public code 없이 invalid_geometry로 응답한다."
+      },
+      {
+        "name": "PathBatchMax120UsesInvalidGeometryTest",
+        "framework": "JUnit 5 + MockMvc",
+        "scenario": "121개 point fixture는 public response로 invalid_geometry를 반환하고 search_path/path_segment row와 PublishRequest를 생성하지 않는다."
+      },
+      {
+        "name": "GpsQualityDegradedExcludedPointTest",
+        "framework": "JUnit 5 + Testcontainers(PostGIS)",
+        "scenario": "horizontalAccuracyM > 50, timestampSkewSec > 30, speedMps < 0 또는 > 45, 5초 간 거리 > 200m fixture point는 path/segment geometry에 들어가지 않고 excludedPoints response/event/query에 남는다."
+      },
+      {
+        "name": "PauseResumeCreatesNoBridgePartTest",
+        "framework": "JUnit 5 + Testcontainers(PostGIS)",
+        "scenario": "PAUSE 후 RESUME batch는 새 partIndex로 저장되고 PathQuery.parts bridgeFromPrevious=false라 board mock이 두 LineString을 이어 그리지 않는다."
+      },
+      {
+        "name": "StaleVersionSequenceIgnoredByProjectionContractTest",
+        "framework": "JUnit 5 + MockMvc",
+        "scenario": "PATH_APPENDED/PATH_SEGMENT_UPDATED payload의 낮은 version 또는 sequence는 mock board snapshot을 갱신하지 않고 REST response id/status/version과 event id/status/version이 일치해야 한다."
+      },
+      {
+        "name": "ReadOnlyEvidenceOriginalGeometryHashTest",
+        "framework": "JUnit 5 + Testcontainers(PostGIS)",
+        "scenario": "SC-11 read-only PathQuery ORIGINAL과 RENDER_SIMPLIFIED 응답 모두 originalGeometryHash가 ordered parts_json canonical geometry와 ordered pointId 기준으로 불변이다."
+      },
+      {
+        "name": "PathQueryMockContractTest",
+        "framework": "JUnit 5",
+        "scenario": "PathQuery.byIncident/byOp/byDevice mock은 filters, visibility, sort, id/status/version/sequence, parts, segments, originalGeometryHash, excludedPoints response shape를 S3-2/S8/SC-11 소비자에게 제공한다."
+      },
+      {
+        "name": "PathPurgeHookMockContractTest",
+        "framework": "JUnit 5",
+        "scenario": "PathPurgeHook.purgeIncidentPaths(incidentId,purgeRunId,closedAt,purgeDeadlineTs)는 {status,purgedCount,retainedCount,errorCode}를 반환하고 같은 purgeRunId 재호출은 멱등이다."
+      },
+      {
+        "name": "ActiveSessionPartialUniqueTest",
+        "framework": "JUnit 5 + Testcontainers(PostgreSQL)",
+        "scenario": "같은 incident/op/device에 ACTIVE 또는 PAUSED session이 이미 있으면 새 non-ended session 시작은 write_conflict이며 ENDED 이후에는 새 session이 가능하다."
+      },
+      {
+        "name": "DuplicateOutboxReplayDoesNotDuplicatePointsTest",
+        "framework": "JUnit 5 + Testcontainers(PostGIS)",
+        "scenario": "같은 Idempotency-Key와 bodyHash replay는 point_count와 sequence를 중복 증가시키지 않는다."
+      },
+      {
+        "name": "WebCanOnlyPatchSegmentTypeTest",
+        "framework": "JUnit 5 + MockMvc",
+        "scenario": "Web은 PATCH /path-segments/{segmentId}만 성공하고 POST /search-paths/batch는 channel_not_allowed로 실패한다."
+      },
+      {
+        "name": "PathBatchRejectsOpMismatchAfterOfflineRecoveryTest",
+        "framework": "JUnit 5 + MockMvc",
+        "scenario": "오프라인 중 OP 전환 뒤 이전 OP batch replay는 op_mismatch를 반환하고 기존 path를 변경하지 않는다."
+      },
+      {
+        "name": "S3PathWritesRejectedAfterIncidentClosedTest",
+        "framework": "JUnit 5 + MockMvc",
+        "scenario": "incident CLOSED 이후 POST /search-sessions, PATCH /search-sessions/{sessionId}, POST /search-paths/batch, PATCH /path-segments/{segmentId}는 incident_closed로 실패하고 search_session/search_path/path_segment row와 PublishRequest를 생성하지 않는다."
+      },
+      {
+        "name": "S3AppDeviceGuardRejectsUnregisteredOrUnassignedDeviceTest",
+        "framework": "JUnit 5 + MockMvc",
+        "scenario": "미등록 Device 또는 사건/OP에 배정되지 않은 Device가 POST /search-sessions 또는 POST /search-paths/batch를 호출하면 device_not_registered/device_not_assigned로 실패하고 session/path/segment row와 PublishRequest를 생성하지 않는다."
+      },
+      {
+        "name": "S3PublishRequestFailureDoesNotCommitPathRowsTest",
+        "framework": "JUnit 5 + Mockito",
+        "scenario": "S4 EventHub.publish mock이 SEARCH_SESSION_STARTED/PATH_APPENDED/PATH_SEGMENT_UPDATED PublishRequest에서 실패하면 해당 domain row commit도 실패하고 response는 재시도 가능한 저장 실패 상태로 닫힌다."
+      }
+    ],
+    "web": [
+      {
+        "name": "PathSegmentCorrectionPanelTest",
+        "framework": "Playwright | Vitest + RTL",
+        "scenario": "상황판 path slot에서 segment type을 VEHICLE에서 FOOT으로 보정하면 mutation payload는 segmentType만 포함하고 REST/event/read model은 id/status/version으로 수렴한다."
+      },
+      {
+        "name": "PathLayerDeviceSubjectRenderingTest",
+        "framework": "Playwright",
+        "scenario": "팀 업무폰과 순찰차 업무폰 path가 deviceId/deviceType/segmentType별 스타일로 구분되고 pause no-bridge part와 low-quality/excluded badge가 표시된다."
+      },
+      {
+        "name": "S3PathWritePendingProjectionWhenBoardSnapshotLags",
+        "framework": "Vitest + RTL + mock board snapshot projector",
+        "scenario": "path batch append 또는 segment patch 응답 version/sequence보다 board snapshot이 낮거나 path row가 누락되면 path slot은 PENDING_PROJECTION 또는 stale 상태를 표시하고, snapshot이 응답 version/sequence 이상으로 갱신되면 같은 id/status/version/sequence로 수렴한다."
+      }
+    ],
+    "android": [
+      {
+        "name": "SearchSessionControlsStateTest",
+        "framework": "JUnit5 + Robolectric",
+        "scenario": "수색 시작, 일시정지, 재개, 종료 CTA가 local session state와 server ack 상태에 맞게 전환된다."
+      },
+      {
+        "name": "SearchSessionStartPendingDisablesCtaAndSuppressesDuplicateTap",
+        "framework": "JUnit5 + Robolectric",
+        "scenario": "수색 시작 요청 pending 중 시작 CTA는 로딩·비활성 상태이고 중복 탭은 같은 Idempotency-Key 흐름으로 억제된다. 실패 주입 시 앱은 시작 전 상태, 실패 사유, 재시도 CTA를 표시하고 search_session 중복 생성 신호를 만들지 않는다."
+      },
+      {
+        "name": "GpsBatchEnqueueUsesCurrentDeviceTest",
+        "framework": "JUnit5 + Robolectric",
+        "scenario": "GPS batch writeOperation은 accountId가 아니라 current deviceId를 path subject로 포함하고 pointId/clientTs/lon/lat/speedMps/horizontalAccuracyM shape를 S6 SyncClient에 전달한다."
+      },
+      {
+        "name": "ForegroundLocationQualityPropsTest",
+        "framework": "JUnit5 + Robolectric",
+        "scenario": "foreground location service는 GPS 품질 저하 fixture를 low-quality/excluded props로 노출하고 S3-1 자체 Room entity나 Outbox state를 생성하지 않는다."
+      }
+    ]
+  },
+  "harness_constraints": {
+    "preconditions": [
+      "JDK 17 + Spring Boot 3.x (ADR-0013)",
+      "Kotlin + MapLibre Native (ADR-0004 개정, ADR-0013)",
+      "React 18+ SPA + TypeScript (ADR-0014)",
+      "GPS 수집 5초 / 서버 전송 10초 batch 기준",
+      "모든 path write 요청은 Idempotency-Key 헤더 필수",
+      "모든 이벤트는 client_ts/server_ts/clock_offset_ms 3필드 병기 (ADR-0012)",
+      "path subject는 S1-2 Device이며 SearchSession은 current OP에 귀속",
+      "SC-05 S3-1 fixture IDs are fixed: incidentId=inc-precinct-first-001, opId=op-precinct-001-op1, deviceId=dev-precinct-car-01, sessionId=sess-precinct-car-001, pathId=path-precinct-mixed-001, vehicleSegmentId=seg-precinct-vehicle-001, footSegmentId=seg-precinct-foot-001",
+      "SC-05 S3-1 event/snapshot fixture IDs are fixed: searchSessionStartedEventId=evt-s3-session-started-001 sequence=501 version=1, pathAppendedEventId=evt-s3-path-appended-001 sequence=502 version=2, pathSegmentUpdatedEventId=evt-s3-segment-updated-001 sequence=503 version=3, boardSnapshotRowId=board-path-precinct-mixed-001 and expected snapshot version/sequence is REST response version/sequence or higher"
+    ],
+    "forbidden": [
+      "개인 사용자 GPS subject 모델 추가 금지",
+      "Web에서 search_session 또는 search_path batch 생성 금지",
+      "S3-1에서 Android Outbox/WorkManager/idempotency 자체 구현 금지",
+      "S3-1에서 S2 map_boundary/search_area row 직접 쓰기 금지",
+      "자동 누락 구역 판단 또는 다음 수색 구역 추천 금지",
+      "다른 Spec 엔티티 직접 쓰기 금지"
+    ],
+    "required_reviews": [
+      "path event payload 변경 시 S3-2, S4, S6, S8 LGTM",
+      "write_operation shape 변경 시 S6 LGTM",
+      "Device guard 변경 시 S1-2 LGTM",
+      "current OP guard 변경 시 S8 LGTM"
+    ]
+  },
+  "open_issues": [],
+  "status_management": {
+    "current_phase": "phase_1_draft",
+    "completed_phases": [
+      "template_sections_filled"
+    ],
+    "error_logs": [],
+    "last_updated": "2026-04-28"
+  },
+  "change_log": [
+    {
+      "date": "2026-04-28",
+      "change": "Tester blocker JSON 보정",
+      "reason": "PathQuery/PathPurgeHook, 하네스 GPS fixture, uppercase segment enum, no-bridge path part, GPS quality, original geometry hash, S4/S6 ownership boundary를 S3-1 계약에 반영"
+    },
+    {
+      "date": "2026-04-28",
+      "change": "Phase 1 draft 작성",
+      "reason": "S3-1 Device Path Collection spec JSON 초안 생성"
+    }
+  ]
+}

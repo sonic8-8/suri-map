@@ -123,7 +123,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 4. 앱 전용 쓰기 API는 Web 요청을 `403 channel_not_allowed`로 거부한다.
 5. Web 전용 지휘 API는 앱 요청을 `403 channel_not_allowed`로 거부한다.
 6. System/internal caller 전용 API 또는 system 보조 write path를 앱·웹이 직접 호출하면 `403 channel_not_allowed`로 거부한다.
-7. 이벤트 발행은 domain transaction commit 이후 S4 `event_outbox`를 통해 수행한다.
+7. 이벤트 발행 요청은 domain transaction 안에서 S4 `event_outbox`로 stage하고, commit 이후 fanout은 S4 `EventFanout`이 수행한다.
 8. S3-2 상황판 shell/slot 규칙은 §9.2 기준 적용.
 9. 자동 판단 금지 원칙을 깨는 신규 API, 배치, UI 문구는 PRD/ADR 재검토 없이는 추가하지 않는다.
 
@@ -240,6 +240,8 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 - `@RequireDevice`
 - `@RequireDeviceRegistered`
 - `@RequireDeviceAssigned`
+- `DeviceFreshnessQuery.byIncident(incidentId)`
+- `FcmTokenQuery.activeByDevice(deviceId)`
 - `DEVICE_HEARTBEAT_UPDATED`
 - `events/device_heartbeat.payload.schema.json` for `DEVICE_HEARTBEAT_UPDATED`
 - `PublishRequest.DEVICE_HEARTBEAT_UPDATED`
@@ -572,7 +574,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 - S3-2 shell/slot 소유권과 납품 규칙은 `spec/boundaries.md §9.2 Board Shell Slots` 기준 적용.
 - S4 `EventFanout`이 board projector trigger를 orchestration하고, S3-2는 trigger 이후 projection 적용, snapshot read model 조회, 화면 렌더링 구현만 소유한다.
 - `BoardSnapshotProjector`는 mockable port다. 외부 연동 없이 fixture projector로 대체할 수 있어야 한다.
-- `last_sync_ts` 경과는 위치 점 색·외곽선·라벨로 표시한다. 별도 알림은 만들지 않는다.
+- `lastHeartbeatAt`/`lastSyncAt` 경과는 위치 점 색·외곽선·라벨로 표시한다. 별도 알림은 만들지 않는다.
 - 운용 중 Device 경로는 현재 세션의 `deviceId` 기준으로 강조한다.
 - 초기 뷰포트 fallback 순서: map boundary → 최근 활동 위치 → 기본 지역.
 - FR-09는 필터 기능이 아니라 최신 수색 현황의 기록 시각 표시를 의미한다. OP/팀/마커/구간 필터는 S3-2 display-only UX로만 취급한다.
@@ -620,7 +622,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 
 **acceptance_hints**
 
-- `EventHub.publish(event)` writes through `event_outbox` after domain commit and preserves the `BaseEvent` envelope.
+- `EventHub.publish(PublishRequest)` stages `event_outbox` inside the caller domain transaction and preserves the `BaseEvent` envelope. Commit 이후 전송·재시도는 `EventFanout.dispatch`/worker가 수행한다.
 - `GET /events?incidentId={incidentId}` authenticates incident access, supports Last-Event-ID replay, and deduplicates by `eventId`.
 - `EventFanout.dispatch` owns SSE delivery, FCM delivery port calls, board projector triggers, retries, and failure injection points.
 - `INCIDENT_PURGED` removes replay data for the incident and prevents later SSE replay from old logs.
@@ -1016,9 +1018,9 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 3. channel guard
 4. idempotency key reserve
 5. domain table write
-6. S4 `event_outbox` write
+6. S4 `EventHub.publish(PublishRequest)` 호출과 `event_outbox` stage
 7. transaction commit
-8. `EventHub.publish`
+8. `EventFanout.dispatch`/worker fanout
 9. idempotency response cache
 
 ### 4.4 Event Catalog
@@ -1027,7 +1029,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 |---|---|---|
 | `INCIDENT_CREATED` | S1-1 | S8, S3-2 |
 | `INCIDENT_MEMBERSHIP_CHANGED` | S1-1 | S1-2, S3-2, S5 |
-| `INCIDENT_CLOSED` | S1-1 | S1-3, S3-2, S6, S7 |
+| `INCIDENT_CLOSED` | S1-1 | S1-3, S3-2, S6, S7, S4 EventFanout -> S5 `FcmDispatcher` |
 | `INCIDENT_PURGED` | S1-3 | S4, S6, S7 |
 | `DEVICE_HEARTBEAT_UPDATED` | S1-2 | S3-2 |
 | `MAP_BOUNDARY_CHANGED` | S2 | S3-2, S7 |
@@ -1081,7 +1083,7 @@ Event payload는 REST response DTO, S6 `write_operation.schema.json`, S4 outbox/
 2. 신규 쓰기 차단
 3. 실종자 운영 캐시와 사진 pointer 제거
 4. 단말에 local purge 대상 표시
-5. Outbox flush 또는 timeout
+5. 단말 Outbox flush/requeue 중지. ACKED 항목만 purge 대상으로 삼고, 미ACK 항목은 closed final 상태 또는 sanitized tombstone으로 전이
 6. 경로 좌표와 로컬 사건 패키지 파기
 7. S1-3가 `INCIDENT_PURGED` 발행
 
@@ -1226,7 +1228,7 @@ Guard shorthand:
 | `GET /search-paths` | S3-1 | 앱, 웹, S3-2, S8 | HTTPS | `public-session`, `incident-read`, `@RecordLocationAccess` | - |
 | `PATCH /path-segments/{segmentId}` | S3-1 | 웹 | HTTPS | `web-command`, `incident-read`, `write-common` | - |
 | `GET /incidents/{incidentId}/board/snapshot` | S3-2 | 웹 | HTTPS | `public-session`, `incident-read`, `@RecordLocationAccess` | - |
-| `GET /events?incidentId={incidentId}` | S4 | 앱, 웹, S3-2 | SSE/HTTPS | `public-session`, `incident-read` | `internal-caller`: event fanout replay |
+| `GET /events?incidentId={incidentId}` | S4 | 웹, S3-2 | SSE/HTTPS | `public-session`, `incident-read`, `@RequireChannel(WEB)` | `internal-caller`: event fanout replay |
 | `POST /markers` | S5 | 앱 | HTTPS | `app-device`, `incident-read`, `write-common`, `@RequireCurrentOp` | `internal-caller`: outbox replay |
 | `PATCH /markers/{markerId}` | S5 | 앱, 웹 | HTTPS | `field-or-web-write`, `incident-read`, `write-common`, S5 marker policy | `internal-caller`: outbox replay |
 | `DELETE /markers/{markerId}` | S5 | 앱, 웹 | HTTPS | `field-or-web-write`, `incident-read`, `write-common`, S5 marker policy | `internal-caller`: outbox replay |
@@ -1289,7 +1291,7 @@ Guard shorthand:
 | `map_boundary` | S2 | S3-2 | `MapBoundaryQuery.of` | 지도 기준 범위 표시 |
 | `area` | S2 | S3-2 | `AreaQuery.byIncident`, `AreaQuery.byOp` | 구역 폴리곤·상태 표시 |
 | `path` | S3-1 | S3-2 | `PathQuery.byIncident`, `PathQuery.byOp` | Device 경로·구간 표시 |
-| `device_freshness` | S1-2 | S3-2 | Device heartbeat | 위치 점 최신성 표시 |
+| `device_freshness` | S1-2 | S3-2 | `DeviceFreshnessQuery.byIncident` | 위치 점 최신성 표시 |
 | `marker` | S5 | S3-2 | `MarkerQuery.byIncident` | 마커 레이어 |
 | `toast` | S5 | S3-2 | `SUPPORT_REQUEST_CREATED`, `PERSON_FOUND` | 지원 요청·발견 알림 |
 | `package_badge` | S7 | S3-2 | `PackageStatusQuery.byIncident` | 오프라인 패키지 상태 |
@@ -1331,14 +1333,14 @@ S3-2는 shell routing, page layout, slot mounting, shared state wiring의 owner�
 | Scenario | involved Specs | API/Event | S3-2 slot | provider -> consumer |
 |---|---|---|---|---|
 | SC-01 배정 사건 가져오기·초동 활성화 | S1-1, S1-2, S4, S5, S8 | `POST /incidents/import-from-seed`, `POST /incidents/{incidentId}/memberships`, `INCIDENT_CREATED`, `INCIDENT_MEMBERSHIP_CHANGED`, `OP_TRANSITIONED(from=null)` | - | S1-1 seed/import -> S8 OP1 bootstrap -> S4 `EventFanout`; S1-1 membership -> S1-2 access guard; S5 `ReferenceMarkerSeed.createForIncident(incidentId, seedMarkers)` |
-| SC-02 실종팀 인계·지원 부대 배정 | S1-1, S1-2, S3-1, S3-2, S4, S5, S8 | `POST /incidents/{incidentId}/memberships`, `POST /incidents/{incidentId}/commanders`, `POST /operational-periods/{opId}/assignments`, `GET /search-paths`, `GET /handover-memos`, `INCIDENT_MEMBERSHIP_CHANGED`, `OP_ASSIGNMENT_CHANGED` | `path`, `marker`, `handover_status`, `op_history` | S1-1/S8 membership·assignment -> S4 `EventFanout` -> S3-2 handover/status slots, S5 `FcmDispatcher` adapter 호출; S3-1 provides `GET /search-paths`/path read model -> S3-2 consumes OP1 path as read-only evidence; S5 marker read model -> S3-2 consumes marker state as read-only evidence; S8 provides `GET /handover-memos`/handover memo read model -> S3-2 consumes in `handover_status`/`op_history` |
+| SC-02 실종팀 인계·지원 부대 배정 | S1-1, S1-2, S3-1, S3-2, S4, S5, S8 | `POST /incidents/{incidentId}/memberships`, `POST /incidents/{incidentId}/commanders`, `POST /operational-periods/{opId}/assignments`, `GET /search-paths`, `GET /handover-memos`, `INCIDENT_MEMBERSHIP_CHANGED`, `OP_ASSIGNMENT_CHANGED` | `path`, `marker`, `handover_status`, `op_history` | S1-1/S8 membership·assignment -> S4 `EventFanout` -> S3-2 handover/status slots, S1-2 `FcmTokenQuery.activeByDevice(deviceId)` -> S5 resolver/`FcmDispatcher` adapter 호출; S3-1 provides `GET /search-paths`/path read model -> S3-2 consumes OP1 path as read-only evidence; S5 marker read model -> S3-2 consumes marker state as read-only evidence; S8 provides `GET /handover-memos`/handover memo read model -> S3-2 consumes in `handover_status`/`op_history` |
 | SC-03 사건 오프라인 패키지 사전 적재 | S7, S1-1, S1-2, S2, S5, S8, S4, S3-2 | §7 `GET /incidents/{incidentId}/offline-package/manifest`, `POST /incidents/{incidentId}/offline-package/status`, §4.4 `PACKAGE_STATUS_CHANGED` | §9.2 `package_badge` | S2 boundary, S5 `ReferenceMarkerSeed.createForIncident(incidentId, seedMarkers)`, S8 OP context -> S7 manifest/status; S7 `PackageStatusQuery`/`PACKAGE_STATUS_CHANGED` -> S3-2 `package_badge` |
 | SC-04 지도 기준 범위·구역 분할·할당 | S2, S8, S1-1, S1-2, S4, S7 | `POST /incidents/{incidentId}/map-boundary`, `POST /search-areas`, `POST /search-areas/{areaId}/split`, `POST /operational-periods/{opId}/assignments`, `MAP_BOUNDARY_CHANGED`, `AREA_CREATED`, `OP_ASSIGNMENT_CHANGED` | `map_boundary`, `area` | S2 geometry + S8 assignment -> S4 `EventFanout` -> S3-2 map/area slots, S7 package builder |
 | SC-05 수색 세션·Device GPS 경로 | S3-1, S1-2, S6, S8, S4, S2 | `POST /search-sessions`, `POST /search-paths/batch`, `PATCH /path-segments/{segmentId}`, `SEARCH_SESSION_STARTED`, `PATH_APPENDED`, `PATH_SEGMENT_UPDATED`, `MapBoundaryQuery.of(incidentId)` | `path`, `device_freshness` | S3-1 owns `search_path`/`path_segment` and applies `spec/boundaries.md §4.1.1 Common Geometry Rule`; S2 provides `MapBoundaryQuery.of(incidentId)` as validation input only; path writes through S6 Outbox -> S4 `EventFanout` -> S3-2 path slot, S8 current OP context |
 | SC-06 현장 마커 생성 | S5, S1-2, S6, S8, S4, S2 | `POST /markers`, `POST /markers/{markerId}/photos/presign`, `POST /markers/{markerId}/photos/{photoId}/finalize`, `MARKER_CREATED`, `MARKER_UPDATED`, `MapBoundaryQuery.of(incidentId)` | `marker` | S5 owns `marker`/`photo` and applies `spec/boundaries.md §4.1.1 Common Geometry Rule` to marker location; S2 provides `MapBoundaryQuery.of(incidentId)` as validation input only; marker/photo writes through S6 Outbox -> S4 `EventFanout` -> S3-2 marker slot, S8 OP context |
 | SC-07 통신 단절 중 로컬 기록 | S6, S1-2, S3-1, S5, S7 | `POST /sync/outbox/requeue`, local Outbox rows for `POST /search-paths/batch` and `POST /markers`, package availability from S7 manifest | - | S6 local store/Outbox -> S3-1/S5 pending writes after recovery, S7 offline package -> app local renderer |
-| SC-08 지원 요청·실종자 발견 알림 | S5, S1-1, S1-2, S4, S6, S8 | `POST /markers`, `SUPPORT_REQUEST_CREATED`, `PERSON_FOUND`, fixture `FcmDispatcher` | `marker`, `toast` | S5 marker/notification payload through S6 Outbox -> S4 `EventFanout` -> S3-2 marker/toast and S5 `FcmDispatcher` adapter -> app banner |
+| SC-08 지원 요청·실종자 발견 알림 | S5, S1-1, S1-2, S4, S6, S8 | `POST /markers`, `SUPPORT_REQUEST_CREATED`, `PERSON_FOUND`, fixture `FcmDispatcher` | `marker`, `toast` | S5 marker/notification payload through S6 Outbox -> S4 `EventFanout` -> S3-2 marker/toast; S1-2 `FcmTokenQuery.activeByDevice(deviceId)` -> S5 resolver/`FcmDispatcher` adapter -> app banner |
 | SC-09 통신 복구·동기화 | S6, S3-1, S5, S1-2, S3-2, S4, S7 | `POST /sync/outbox/requeue`, `POST /search-paths/batch`, `POST /markers`, `GET /events?incidentId={incidentId}`, `PATH_APPENDED`, `MARKER_CREATED`, `PACKAGE_STATUS_CHANGED` | `marker`, `path`, `device_freshness` | S6 Outbox flush -> S3-1/S5/S7 server rows -> S4 replay/dedupe -> S3-2 recovered board state |
 | SC-10 구역 완료·새 OP 열기 | S2, S8, S1-2, S4, S1-1 | `PATCH /search-areas/{areaId}/state`, `POST /operational-periods`, `POST /handover-memos`, `AREA_STATE_CHANGED`, `OP_TRANSITIONED`, `HANDOVER_MEMO_CREATED` | `area`, `op_toggle`, `op_history`, `handover_memo`, `handover_status` | S2 area state + S8 OP/handover writes -> S4 `EventFanout` -> S3-2 area/op_history/handover_status/handover_memo display, S1-1 open-incident guard |
 | SC-11 인수인계·OP 비교·AI 요약 | S3-2, S1-2, S8, S3-1, S2, S5, S4, S1-1 | `GET /incidents/{incidentId}/board/snapshot`, `GET /search-paths`, `GET /handover-memos`, `POST /operational-periods/{opId}/ai-summary`, `HANDOVER_MEMO_CREATED`, `AI_SUMMARY_READY` | `op_toggle`, `handover_memo`, `ai_summary` | S3-1/S2/S5 evidence + S8 handover/summary -> S4 `EventFanout` -> S3-2 comparison and summary slots, S1-1/S1-2 access guard |
-| SC-12 사건 종료·캐시 파기 | S1-1, S1-2, S1-3, S6, S7, S4, S3-1, S3-2, S5 | §7 `POST /incidents/{incidentId}/close`, `GET /events?incidentId={incidentId}` unsubscribe/replay stop, §4.4 `INCIDENT_CLOSED`, `INCIDENT_PURGED`, local package purge, FCM incident topic unsubscribe | §9.2 `incident_terminal`, `package_badge` | S1-1 close -> S1-3 purge orchestration -> S6/S7 purge hooks -> sanitized terminal/tombstone status -> S3-2 `incident_terminal`; S4 carries `INCIDENT_CLOSED`/`INCIDENT_PURGED` fanout, while S6/S7 handle cache/package removal and app SSE/FCM unsubscribe |
+| SC-12 사건 종료·캐시 파기 | S1-1, S1-2, S1-3, S6, S7, S4, S3-1, S3-2, S5 | §7 `POST /incidents/{incidentId}/close`, `GET /events?incidentId={incidentId}` web unsubscribe/replay stop, §4.4 `INCIDENT_CLOSED`, `INCIDENT_PURGED`, local package purge, FCM incident topic unsubscribe | §9.2 `incident_terminal`, `package_badge` | S1-1 close -> S1-3 purge orchestration -> S6/S7 purge hooks -> sanitized terminal/tombstone status -> S3-2 `incident_terminal`; S4 carries `INCIDENT_CLOSED`/`INCIDENT_PURGED` fanout, while S6/S7 handle cache/package removal and app FCM unsubscribe |

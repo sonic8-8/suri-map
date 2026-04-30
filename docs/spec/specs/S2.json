@@ -1,0 +1,2163 @@
+{
+  "$schema": "../_template.schema.json",
+  "spec_info": {
+    "id": "S2",
+    "name": "Map Boundary & Search Area",
+    "owner": "3",
+    "character": "domain",
+    "created": "2026-04-28",
+    "updated": "2026-04-28"
+  },
+  "context_refs": {
+    "prd": [
+      "§5.1 SC-04 지도 기준 범위·구역 분할·할당",
+      "§5.1 SC-10 구역 완료·새 OP 열기",
+      "§6.2 SearchArea",
+      "§7.2 FR-05 이동 경로와 수색 완료 구역 표시",
+      "§7.2 FR-06 웹 상황판 구역 완료 처리",
+      "§7.2 FR-07 수색 구역 상태 표시 및 자동 누락 판단 금지",
+      "§7.2 FR-12 새 OP 후 재확인 구역 지정",
+      "§7.2 FR-13 구역 상태와 수색 횟수",
+      "§7.4 FR-23 자동 사각지대 하이라이트 제외"
+    ],
+    "architecture": [
+      "§4.2 Web 상황판",
+      "§5.1 백엔드 책임",
+      "§6.2 핵심 엔티티",
+      "§6.3 Incident membership vs OP assignment",
+      "§7.1 보안/권한"
+    ],
+    "adr": [
+      "ADR-0002",
+      "ADR-0026",
+      "ADR-0027",
+      "ADR-0028",
+      "ADR-0029"
+    ],
+    "boundaries": "spec/boundaries.md §3 S2 · Map Boundary & Search Area",
+    "harness": [
+      "SC-03 사건 오프라인 패키지 사전 적재 (manifest boundary source)",
+      "SC-04 지도 기준 범위·구역 분할·할당",
+      "SC-05 수색 세션·Device GPS 경로 (MapBoundaryQuery validation input only)",
+      "SC-06 현장 마커 생성 (MapBoundaryQuery validation input only)",
+      "SC-10 구역 완료·새 OP 열기",
+      "SC-11 인수인계·OP 비교·AI 요약"
+    ]
+  },
+  "scope": {
+    "included": [
+      "사건별 active map_boundary 생성·수정·조회",
+      "search_area Polygon 생성·수정·분할",
+      "search_area 상태 변경과 search_area_history 기록",
+      "Web 상황판 현장 지휘관의 지도 기준 범위·구역 geometry write",
+      "MapBoundaryQuery.of(incidentId), AreaQuery.byIncident, AreaQuery.byOp 제공",
+      "MAP_BOUNDARY_CHANGED, AREA_CREATED, AREA_STATE_CHANGED 이벤트 payload 생성 요청",
+      "S7 offline package manifest가 소비할 map_boundary revision/query 계약 제공",
+      "S3-2 map_boundary slot 및 area slot에 납품할 slot-scoped renderer 계약"
+    ],
+    "excluded": [
+      {
+        "item": "OP 생성과 active OP 전환",
+        "owner": "S8",
+        "reason": "S2는 current OP를 조회·검증에 소비하지만 OP lifecycle을 변경하지 않는다."
+      },
+      {
+        "item": "op_assignment 생성·수정",
+        "owner": "S8",
+        "reason": "구역 Polygon과 구역 상태는 S2, OP별 담당 배정은 S8 소유다."
+      },
+      {
+        "item": "자동 수색 누락 확정 또는 다음 투입 구역 자동 지시",
+        "owner": "none",
+        "reason": "PRD/ADR 기준 금지. S2는 완료 구역과 상태 이력을 제공할 뿐 blindspot/missing-area 판단을 하지 않는다."
+      },
+      {
+        "item": "접근 곤란 지형 상태",
+        "owner": "S5",
+        "reason": "접근 곤란은 search_area 상태가 아니라 지형 상태 marker로 표현한다."
+      },
+      {
+        "item": "상황판 shell routing/layout/global store",
+        "owner": "S3-2",
+        "reason": "S2는 slot-scoped renderer와 source contract만 납품한다."
+      },
+      {
+        "item": "오프라인 package manifest 생성",
+        "owner": "S7",
+        "reason": "S2는 boundary/area query만 제공하고 manifest 조립은 S7이 수행한다."
+      }
+    ]
+  },
+  "fr_mapping": [
+    {
+      "id": "FR-05",
+      "summary": "이동 경로와 수색 완료 구역을 별도로 표시한다.",
+      "handling": "search_area Polygon과 상태를 경로 LineString과 분리된 read model 및 board slot으로 제공한다."
+    },
+    {
+      "id": "FR-06",
+      "summary": "현장 지휘관이 무전 보고를 바탕으로 구역 완료 여부를 반영한다.",
+      "handling": "Web 전용 PATCH /search-areas/{areaId}/state로 상태 전이를 기록하고 처리 계정·시각·OP·메모를 history에 남긴다."
+    },
+    {
+      "id": "FR-07",
+      "summary": "생성된 수색 구역의 진행 상태를 시각적으로 파악할 수 있다.",
+      "handling": "ASSIGNED, SEARCHING, FIRST_SEARCH_COMPLETED, RECHECK_REQUIRED, RECHECKING, RECHECK_COMPLETED 상태를 AreaQuery와 area slot에 노출한다."
+    },
+    {
+      "id": "FR-12",
+      "summary": "새 OP 후 재확인 구역·마커·메모를 지정하고 수색 인원을 배정한다.",
+      "handling": "S2는 새 OP에서 사용할 수색 구역 생성·상태 변경만 담당하고 담당 인원 배정은 S8 op_assignment로 위임한다."
+    },
+    {
+      "id": "FR-13",
+      "summary": "구역별 수색 상태와 수색 횟수를 함께 관리/표현한다.",
+      "handling": "search_area.search_count와 search_area_history를 상태 변경 시 갱신해 구역 상세에서 표시할 수 있게 한다."
+    },
+    {
+      "id": "FR-23",
+      "summary": "시스템은 자동으로 확인 누락 구역을 판단하지 않는다.",
+      "handling": "S2 API와 이벤트는 사람이 입력한 boundary/area/state만 저장하며 blindspot, missing_area, recommended_area 필드를 만들지 않는다."
+    }
+  ],
+  "domain_model": {
+    "entities": [
+      {
+        "name": "map_boundary",
+        "owner_spec": "S2",
+        "description": "사건 지도 기준 범위. 도심·외곽·논밭·하천·산악을 모두 포괄하는 사건별 active Polygon이다.",
+        "fields": [
+          {
+            "name": "id",
+            "type": "UUID",
+            "nullable": false,
+            "pk": true
+          },
+          {
+            "name": "incident_id",
+            "type": "UUID",
+            "nullable": false
+          },
+          {
+            "name": "geometry",
+            "type": "GEOMETRY(POLYGON,4326)",
+            "nullable": false
+          },
+          {
+            "name": "status",
+            "type": "VARCHAR(24)",
+            "nullable": false,
+            "note": "ACTIVE|SUPERSEDED"
+          },
+          {
+            "name": "version",
+            "type": "BIGINT",
+            "nullable": false
+          },
+          {
+            "name": "created_by_account_id",
+            "type": "UUID",
+            "nullable": false
+          },
+          {
+            "name": "client_ts",
+            "type": "TIMESTAMPTZ",
+            "nullable": false,
+            "note": "ADR-0012"
+          },
+          {
+            "name": "server_ts",
+            "type": "TIMESTAMPTZ",
+            "nullable": false,
+            "note": "ADR-0012"
+          },
+          {
+            "name": "clock_offset_ms",
+            "type": "BIGINT",
+            "nullable": true,
+            "note": "ADR-0012"
+          },
+          {
+            "name": "created_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": false
+          },
+          {
+            "name": "updated_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": false
+          }
+        ],
+        "indexes": [
+          {
+            "name": "ux_map_boundary_one_active_per_incident",
+            "columns": [
+              "incident_id"
+            ],
+            "unique": true,
+            "where": "status = 'ACTIVE'",
+            "note": "사건별 ACTIVE boundary는 하나만 허용한다. SUPERSEDED 이력은 같은 incident_id로 여러 row를 보존할 수 있어야 한다."
+          },
+          {
+            "name": "idx_map_boundary_geom",
+            "columns": [
+              "geometry"
+            ],
+            "type": "GIST"
+          }
+        ],
+        "spatial": {
+          "enabled": true,
+          "type": "POLYGON",
+          "srid": 4326
+        }
+      },
+      {
+        "name": "search_area",
+        "owner_spec": "S2",
+        "description": "수색 구역의 현재 Polygon, 현재 상태, 누적 수색 횟수. 담당 팀·계정은 S8 op_assignment에서 관리한다.",
+        "fields": [
+          {
+            "name": "id",
+            "type": "UUID",
+            "nullable": false,
+            "pk": true
+          },
+          {
+            "name": "incident_id",
+            "type": "UUID",
+            "nullable": false
+          },
+          {
+            "name": "created_op_id",
+            "type": "UUID",
+            "nullable": false
+          },
+          {
+            "name": "parent_area_id",
+            "type": "UUID",
+            "nullable": true,
+            "note": "split child만 parent area를 참조한다. parent row는 geometry를 원본 그대로 보존하고 ARCHIVED 상태로 남긴다."
+          },
+          {
+            "name": "split_group_id",
+            "type": "UUID",
+            "nullable": true,
+            "note": "한 split 요청에서 생성된 children과 archived parent를 묶는 식별자"
+          },
+          {
+            "name": "geometry",
+            "type": "GEOMETRY(POLYGON,4326)",
+            "nullable": false
+          },
+          {
+            "name": "state",
+            "type": "VARCHAR(32)",
+            "nullable": false,
+            "note": "ASSIGNED|SEARCHING|FIRST_SEARCH_COMPLETED|RECHECK_REQUIRED|RECHECKING|RECHECK_COMPLETED|ARCHIVED"
+          },
+          {
+            "name": "search_count",
+            "type": "INTEGER",
+            "nullable": false
+          },
+          {
+            "name": "version",
+            "type": "BIGINT",
+            "nullable": false
+          },
+          {
+            "name": "created_by_account_id",
+            "type": "UUID",
+            "nullable": false
+          },
+          {
+            "name": "client_ts",
+            "type": "TIMESTAMPTZ",
+            "nullable": false,
+            "note": "ADR-0012"
+          },
+          {
+            "name": "server_ts",
+            "type": "TIMESTAMPTZ",
+            "nullable": false,
+            "note": "ADR-0012"
+          },
+          {
+            "name": "clock_offset_ms",
+            "type": "BIGINT",
+            "nullable": true,
+            "note": "ADR-0012"
+          },
+          {
+            "name": "created_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": false
+          },
+          {
+            "name": "updated_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": false
+          }
+        ],
+        "indexes": [
+          {
+            "name": "idx_search_area_incident_state",
+            "columns": [
+              "incident_id",
+              "state"
+            ]
+          },
+          {
+            "name": "idx_search_area_created_op",
+            "columns": [
+              "created_op_id"
+            ]
+          },
+          {
+            "name": "idx_search_area_parent",
+            "columns": [
+              "parent_area_id"
+            ]
+          },
+          {
+            "name": "idx_search_area_geom",
+            "columns": [
+              "geometry"
+            ],
+            "type": "GIST"
+          }
+        ],
+        "spatial": {
+          "enabled": true,
+          "type": "POLYGON",
+          "srid": 4326
+        }
+      },
+      {
+        "name": "search_area_history",
+        "owner_spec": "S2",
+        "description": "구역 상태와 geometry 변경의 OP별 이력. 완료 처리 계정, 처리 시각, 이전/다음 상태와 memo를 보존한다.",
+        "fields": [
+          {
+            "name": "id",
+            "type": "UUID",
+            "nullable": false,
+            "pk": true
+          },
+          {
+            "name": "area_id",
+            "type": "UUID",
+            "nullable": false
+          },
+          {
+            "name": "incident_id",
+            "type": "UUID",
+            "nullable": false
+          },
+          {
+            "name": "op_id",
+            "type": "UUID",
+            "nullable": false
+          },
+          {
+            "name": "event_type",
+            "type": "VARCHAR(32)",
+            "nullable": false,
+            "note": "CREATED|GEOMETRY_UPDATED|SPLIT_FROM_PARENT|STATE_CHANGED"
+          },
+          {
+            "name": "previous_state",
+            "type": "VARCHAR(32)",
+            "nullable": true
+          },
+          {
+            "name": "next_state",
+            "type": "VARCHAR(32)",
+            "nullable": false
+          },
+          {
+            "name": "previous_geometry",
+            "type": "GEOMETRY(POLYGON,4326)",
+            "nullable": true
+          },
+          {
+            "name": "next_geometry",
+            "type": "GEOMETRY(POLYGON,4326)",
+            "nullable": false
+          },
+          {
+            "name": "memo",
+            "type": "TEXT",
+            "nullable": true
+          },
+          {
+            "name": "changed_by_account_id",
+            "type": "UUID",
+            "nullable": false
+          },
+          {
+            "name": "changed_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": false
+          }
+        ],
+        "indexes": [
+          {
+            "name": "idx_search_area_history_area",
+            "columns": [
+              "area_id",
+              "changed_at"
+            ]
+          },
+          {
+            "name": "idx_search_area_history_op",
+            "columns": [
+              "op_id",
+              "changed_at"
+            ]
+          }
+        ],
+        "spatial": {
+          "enabled": true,
+          "type": "POLYGON",
+          "srid": 4326
+        }
+      }
+    ],
+    "state_machines": [
+      {
+        "entity": "search_area",
+        "field": "state",
+        "states": [
+          "ASSIGNED",
+          "SEARCHING",
+          "FIRST_SEARCH_COMPLETED",
+          "RECHECK_REQUIRED",
+          "RECHECKING",
+          "RECHECK_COMPLETED",
+          "ARCHIVED"
+        ],
+        "transitions": [
+          {
+            "from": "ASSIGNED",
+            "to": "SEARCHING",
+            "trigger": "현장 지휘관이 구역 수색 시작 상태로 변경",
+            "guard": "Web channel, commander role, current OP exists"
+          },
+          {
+            "from": "SEARCHING",
+            "to": "FIRST_SEARCH_COMPLETED",
+            "trigger": "현장 지휘관이 1차 완료 처리",
+            "guard": "memo optional, history row required"
+          },
+          {
+            "from": "FIRST_SEARCH_COMPLETED",
+            "to": "RECHECK_REQUIRED",
+            "trigger": "현장 지휘관이 재수색 필요로 판단",
+            "guard": "manual decision only; no automatic blindspot decision"
+          },
+          {
+            "from": "RECHECK_REQUIRED",
+            "to": "RECHECKING",
+            "trigger": "현장 지휘관이 재수색 시작 상태로 변경",
+            "guard": "current OP exists"
+          },
+          {
+            "from": "RECHECKING",
+            "to": "RECHECK_COMPLETED",
+            "trigger": "현장 지휘관이 재수색 완료 처리",
+            "guard": "search_count increments"
+          },
+          {
+            "from": "ASSIGNED",
+            "to": "ARCHIVED",
+            "trigger": "split 성공 시 parent area lifecycle 종료",
+            "guard": "parent geometry is preserved, child areas are created as ASSIGNED, split history and AREA_STATE_CHANGED/AREA_CREATED publish requests are required"
+          },
+          {
+            "from": "FIRST_SEARCH_COMPLETED",
+            "to": "ARCHIVED",
+            "trigger": "재수색 없이 종결",
+            "guard": "incident remains OPEN; no active assignment depends on area"
+          },
+          {
+            "from": "RECHECK_COMPLETED",
+            "to": "ARCHIVED",
+            "trigger": "재수색 완료 후 종결",
+            "guard": "incident remains OPEN; no active assignment depends on area"
+          }
+        ]
+      }
+    ],
+    "flyway_migrations": [
+      "V10__create_map_boundary.sql",
+      "V11__create_search_area.sql",
+      "V12__create_search_area_history.sql"
+    ]
+  },
+  "api_contracts": {
+    "provided": [
+      {
+        "method": "POST",
+        "path": "/incidents/{incidentId}/map-boundary",
+        "summary": "사건 지도 기준 범위 생성",
+        "auth": "guard aliases web-command + incident-read + write-common",
+        "idempotent": true,
+        "required_headers": [
+          "Authorization",
+          "Idempotency-Key"
+        ],
+        "request_schema": {
+          "type": "object",
+          "required": [
+            "geometry",
+            "clientTs"
+          ],
+          "properties": {
+            "geometry": {
+              "type": "object",
+              "description": "GeoJSON Polygon, EPSG:4326 lon/lat"
+            },
+            "clientTs": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        },
+        "response_schema": {
+          "201": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "incidentId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "ACTIVE"
+                ]
+              },
+              "version": {
+                "type": "integer"
+              },
+              "geometry": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "code": 400,
+            "case": "invalid_geometry",
+            "body": "{\"error\": \"invalid_geometry\"}"
+          },
+          {
+            "code": 403,
+            "case": "channel_not_allowed",
+            "body": "{\"error\": \"channel_not_allowed\"}"
+          },
+          {
+            "code": 403,
+            "case": "role_denied",
+            "body": "{\"error\": \"role_denied\"}"
+          },
+          {
+            "code": 403,
+            "case": "incident_access_denied",
+            "body": "{\"error\": \"incident_access_denied\"}"
+          },
+          {
+            "code": 403,
+            "case": "team_not_assigned",
+            "body": "{\"error\": \"team_not_assigned\"}"
+          },
+          {
+            "code": 409,
+            "case": "incident_bootstrapping",
+            "body": "{\"error\": \"incident_bootstrapping\"}"
+          },
+          {
+            "code": 409,
+            "case": "incident_closed",
+            "body": "{\"error\": \"incident_closed\"}"
+          },
+          {
+            "code": 409,
+            "case": "idempotency_mismatch",
+            "body": "{\"error\": \"idempotency_mismatch\"}"
+          },
+          {
+            "code": 409,
+            "case": "write_conflict",
+            "body": "{\"error\": \"write_conflict\"}"
+          }
+        ]
+      },
+      {
+        "method": "PATCH",
+        "path": "/incidents/{incidentId}/map-boundary",
+        "summary": "사건 지도 기준 범위 수정",
+        "auth": "guard aliases web-command + incident-read + write-common",
+        "idempotent": true,
+        "required_headers": [
+          "Authorization",
+          "Idempotency-Key"
+        ],
+        "request_schema": {
+          "type": "object",
+          "required": [
+            "geometry",
+            "expectedVersion",
+            "clientTs"
+          ],
+          "properties": {
+            "geometry": {
+              "type": "object",
+              "description": "GeoJSON Polygon, EPSG:4326 lon/lat"
+            },
+            "expectedVersion": {
+              "type": "integer"
+            },
+            "clientTs": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        },
+        "response_schema": {
+          "200": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "ACTIVE"
+                ]
+              },
+              "version": {
+                "type": "integer"
+              },
+              "geometry": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "code": 400,
+            "case": "invalid_geometry",
+            "body": "{\"error\": \"invalid_geometry\"}"
+          },
+          {
+            "code": 403,
+            "case": "channel_not_allowed",
+            "body": "{\"error\": \"channel_not_allowed\"}"
+          },
+          {
+            "code": 403,
+            "case": "role_denied",
+            "body": "{\"error\": \"role_denied\"}"
+          },
+          {
+            "code": 403,
+            "case": "incident_access_denied",
+            "body": "{\"error\": \"incident_access_denied\"}"
+          },
+          {
+            "code": 403,
+            "case": "team_not_assigned",
+            "body": "{\"error\": \"team_not_assigned\"}"
+          },
+          {
+            "code": 409,
+            "case": "incident_bootstrapping",
+            "body": "{\"error\": \"incident_bootstrapping\"}"
+          },
+          {
+            "code": 409,
+            "case": "incident_closed",
+            "body": "{\"error\": \"incident_closed\"}"
+          },
+          {
+            "code": 409,
+            "case": "idempotency_mismatch",
+            "body": "{\"error\": \"idempotency_mismatch\"}"
+          },
+          {
+            "code": 409,
+            "case": "write_conflict",
+            "body": "{\"error\": \"write_conflict\"}"
+          }
+        ]
+      },
+      {
+        "method": "GET",
+        "path": "/incidents/{incidentId}/map-boundary",
+        "summary": "사건 active 지도 기준 범위 조회",
+        "auth": "guard aliases public-session + incident-read",
+        "idempotent": false,
+        "required_headers": [
+          "Authorization"
+        ],
+        "request_schema": {
+          "type": "object",
+          "properties": {}
+        },
+        "response_schema": {
+          "200": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "incidentId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "geometry": {
+                "type": "object"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "ACTIVE"
+                ]
+              },
+              "version": {
+                "type": "integer"
+              }
+            }
+          },
+          "409": {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "string",
+                "enum": [
+                  "map_boundary_required"
+                ]
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "code": 403,
+            "case": "channel_not_allowed",
+            "body": "{\"error\": \"channel_not_allowed\"}"
+          },
+          {
+            "code": 403,
+            "case": "incident_access_denied",
+            "body": "{\"error\": \"incident_access_denied\"}"
+          },
+          {
+            "code": 403,
+            "case": "team_not_assigned",
+            "body": "{\"error\": \"team_not_assigned\"}"
+          },
+          {
+            "code": 409,
+            "case": "map_boundary_required",
+            "body": "{\"error\": \"map_boundary_required\"}"
+          }
+        ]
+      },
+      {
+        "method": "POST",
+        "path": "/search-areas",
+        "summary": "수색 구역 생성",
+        "auth": "guard aliases web-command + incident-read + write-common",
+        "idempotent": true,
+        "required_headers": [
+          "Authorization",
+          "Idempotency-Key"
+        ],
+        "request_schema": {
+          "type": "object",
+          "required": [
+            "incidentId",
+            "opId",
+            "geometry",
+            "clientTs"
+          ],
+          "properties": {
+            "incidentId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "opId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "geometry": {
+              "type": "object",
+              "description": "GeoJSON Polygon fully inside active map_boundary"
+            },
+            "memo": {
+              "type": "string"
+            },
+            "clientTs": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        },
+        "response_schema": {
+          "201": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "incidentId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "opId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "state": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "description": "search_area.state의 public DTO alias. REST/event/board 공통 비교 필드는 status를 사용한다."
+              },
+              "searchCount": {
+                "type": "integer"
+              },
+              "version": {
+                "type": "integer"
+              },
+              "geometry": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "code": 400,
+            "case": "invalid_geometry",
+            "body": "{\"error\": \"invalid_geometry\"}"
+          },
+          {
+            "code": 409,
+            "case": "map_boundary_required",
+            "body": "{\"error\": \"map_boundary_required\"}"
+          },
+          {
+            "code": 409,
+            "case": "area_state_conflict",
+            "body": "{\"error\": \"area_state_conflict\"}"
+          },
+          {
+            "code": 403,
+            "case": "channel_not_allowed",
+            "body": "{\"error\": \"channel_not_allowed\"}"
+          },
+          {
+            "code": 403,
+            "case": "role_denied",
+            "body": "{\"error\": \"role_denied\"}"
+          },
+          {
+            "code": 403,
+            "case": "incident_access_denied",
+            "body": "{\"error\": \"incident_access_denied\"}"
+          },
+          {
+            "code": 403,
+            "case": "team_not_assigned",
+            "body": "{\"error\": \"team_not_assigned\"}"
+          },
+          {
+            "code": 409,
+            "case": "incident_bootstrapping",
+            "body": "{\"error\": \"incident_bootstrapping\"}"
+          },
+          {
+            "code": 409,
+            "case": "incident_closed",
+            "body": "{\"error\": \"incident_closed\"}"
+          },
+          {
+            "code": 409,
+            "case": "idempotency_mismatch",
+            "body": "{\"error\": \"idempotency_mismatch\"}"
+          },
+          {
+            "code": 409,
+            "case": "write_conflict",
+            "body": "{\"error\": \"write_conflict\"}"
+          }
+        ]
+      },
+      {
+        "method": "PATCH",
+        "path": "/search-areas/{areaId}",
+        "summary": "수색 구역 geometry·memo 보정",
+        "auth": "guard aliases web-command + incident-read + write-common",
+        "idempotent": true,
+        "required_headers": [
+          "Authorization",
+          "Idempotency-Key"
+        ],
+        "request_schema": {
+          "type": "object",
+          "required": [
+            "opId",
+            "geometry",
+            "expectedVersion",
+            "clientTs"
+          ],
+          "properties": {
+            "opId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "geometry": {
+              "type": "object",
+              "description": "GeoJSON Polygon fully inside active map_boundary"
+            },
+            "memo": {
+              "type": "string"
+            },
+            "expectedVersion": {
+              "type": "integer"
+            },
+            "clientTs": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        },
+        "response_schema": {
+          "200": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "incidentId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "opId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "state": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "description": "search_area.state의 public DTO alias. REST/event/board 공통 비교 필드는 status를 사용한다."
+              },
+              "searchCount": {
+                "type": "integer"
+              },
+              "version": {
+                "type": "integer"
+              },
+              "geometry": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "code": 400,
+            "case": "invalid_geometry",
+            "body": "{\"error\": \"invalid_geometry\"}"
+          },
+          {
+            "code": 409,
+            "case": "map_boundary_required",
+            "body": "{\"error\": \"map_boundary_required\"}"
+          },
+          {
+            "code": 409,
+            "case": "area_state_conflict",
+            "body": "{\"error\": \"area_state_conflict\"}"
+          },
+          {
+            "code": 403,
+            "case": "channel_not_allowed",
+            "body": "{\"error\": \"channel_not_allowed\"}"
+          },
+          {
+            "code": 403,
+            "case": "role_denied",
+            "body": "{\"error\": \"role_denied\"}"
+          },
+          {
+            "code": 403,
+            "case": "incident_access_denied",
+            "body": "{\"error\": \"incident_access_denied\"}"
+          },
+          {
+            "code": 403,
+            "case": "team_not_assigned",
+            "body": "{\"error\": \"team_not_assigned\"}"
+          },
+          {
+            "code": 409,
+            "case": "incident_bootstrapping",
+            "body": "{\"error\": \"incident_bootstrapping\"}"
+          },
+          {
+            "code": 409,
+            "case": "incident_closed",
+            "body": "{\"error\": \"incident_closed\"}"
+          },
+          {
+            "code": 409,
+            "case": "idempotency_mismatch",
+            "body": "{\"error\": \"idempotency_mismatch\"}"
+          },
+          {
+            "code": 409,
+            "case": "write_conflict",
+            "body": "{\"error\": \"write_conflict\"}"
+          }
+        ]
+      },
+      {
+        "method": "POST",
+        "path": "/search-areas/{areaId}/split",
+        "summary": "수색 구역 분할",
+        "auth": "guard aliases web-command + incident-read + write-common",
+        "idempotent": true,
+        "required_headers": [
+          "Authorization",
+          "Idempotency-Key"
+        ],
+        "request_schema": {
+          "type": "object",
+          "required": [
+            "opId",
+            "children",
+            "expectedVersion",
+            "clientTs"
+          ],
+          "properties": {
+            "opId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "children": {
+              "type": "array",
+              "minItems": 2,
+              "items": {
+                "type": "object",
+                "description": "GeoJSON Polygon child area"
+              }
+            },
+            "memo": {
+              "type": "string"
+            },
+            "expectedVersion": {
+              "type": "integer",
+              "description": "parent area version. 불일치하면 409 write_conflict"
+            },
+            "clientTs": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        },
+        "response_schema": {
+          "200": {
+            "type": "object",
+            "properties": {
+              "parentAreaId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "parent": {
+                "type": "object",
+                "description": "ARCHIVED로 전이된 parent. geometry는 split 전 원본 canonical geometry를 그대로 반환한다.",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "ARCHIVED"
+                    ]
+                  },
+                  "version": {
+                    "type": "integer"
+                  },
+                  "geometry": {
+                    "type": "object"
+                  }
+                }
+              },
+              "createdAreaIds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "children": {
+                "type": "array",
+                "description": "새로 생성된 child search_area 목록. 각 child는 ASSIGNED 상태와 searchCount 0으로 시작한다.",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "parentAreaId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "ASSIGNED"
+                      ]
+                    },
+                    "searchCount": {
+                      "type": "integer"
+                    },
+                    "version": {
+                      "type": "integer"
+                    },
+                    "geometry": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "code": 400,
+            "case": "invalid_geometry",
+            "body": "{\"error\": \"invalid_geometry\"}"
+          },
+          {
+            "code": 409,
+            "case": "map_boundary_required",
+            "body": "{\"error\": \"map_boundary_required\"}"
+          },
+          {
+            "code": 409,
+            "case": "area_state_conflict",
+            "body": "{\"error\": \"area_state_conflict\"}"
+          },
+          {
+            "code": 403,
+            "case": "channel_not_allowed",
+            "body": "{\"error\": \"channel_not_allowed\"}"
+          },
+          {
+            "code": 403,
+            "case": "role_denied",
+            "body": "{\"error\": \"role_denied\"}"
+          },
+          {
+            "code": 403,
+            "case": "incident_access_denied",
+            "body": "{\"error\": \"incident_access_denied\"}"
+          },
+          {
+            "code": 403,
+            "case": "team_not_assigned",
+            "body": "{\"error\": \"team_not_assigned\"}"
+          },
+          {
+            "code": 409,
+            "case": "incident_bootstrapping",
+            "body": "{\"error\": \"incident_bootstrapping\"}"
+          },
+          {
+            "code": 409,
+            "case": "incident_closed",
+            "body": "{\"error\": \"incident_closed\"}"
+          },
+          {
+            "code": 409,
+            "case": "idempotency_mismatch",
+            "body": "{\"error\": \"idempotency_mismatch\"}"
+          },
+          {
+            "code": 409,
+            "case": "write_conflict",
+            "body": "{\"error\": \"write_conflict\"}"
+          }
+        ]
+      },
+      {
+        "method": "PATCH",
+        "path": "/search-areas/{areaId}/state",
+        "summary": "수색 구역 상태 변경",
+        "auth": "guard aliases web-command + incident-read + write-common",
+        "idempotent": true,
+        "required_headers": [
+          "Authorization",
+          "Idempotency-Key"
+        ],
+        "request_schema": {
+          "type": "object",
+          "required": [
+            "opId",
+            "nextState",
+            "clientTs"
+          ],
+          "properties": {
+            "opId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "nextState": {
+              "type": "string",
+              "enum": [
+                "SEARCHING",
+                "FIRST_SEARCH_COMPLETED",
+                "RECHECK_REQUIRED",
+                "RECHECKING",
+                "RECHECK_COMPLETED",
+                "ARCHIVED"
+              ]
+            },
+            "memo": {
+              "type": "string"
+            },
+            "clientTs": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        },
+        "response_schema": {
+          "200": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "state": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "description": "search_area.state의 public DTO alias. REST/event/board 공통 비교 필드는 status를 사용한다."
+              },
+              "searchCount": {
+                "type": "integer"
+              },
+              "version": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "code": 400,
+            "case": "invalid_geometry",
+            "body": "{\"error\": \"invalid_geometry\"}"
+          },
+          {
+            "code": 409,
+            "case": "map_boundary_required",
+            "body": "{\"error\": \"map_boundary_required\"}"
+          },
+          {
+            "code": 409,
+            "case": "area_state_conflict",
+            "body": "{\"error\": \"area_state_conflict\"}"
+          },
+          {
+            "code": 403,
+            "case": "channel_not_allowed",
+            "body": "{\"error\": \"channel_not_allowed\"}"
+          },
+          {
+            "code": 403,
+            "case": "role_denied",
+            "body": "{\"error\": \"role_denied\"}"
+          },
+          {
+            "code": 403,
+            "case": "incident_access_denied",
+            "body": "{\"error\": \"incident_access_denied\"}"
+          },
+          {
+            "code": 403,
+            "case": "team_not_assigned",
+            "body": "{\"error\": \"team_not_assigned\"}"
+          },
+          {
+            "code": 409,
+            "case": "incident_bootstrapping",
+            "body": "{\"error\": \"incident_bootstrapping\"}"
+          },
+          {
+            "code": 409,
+            "case": "incident_closed",
+            "body": "{\"error\": \"incident_closed\"}"
+          },
+          {
+            "code": 409,
+            "case": "idempotency_mismatch",
+            "body": "{\"error\": \"idempotency_mismatch\"}"
+          },
+          {
+            "code": 409,
+            "case": "write_conflict",
+            "body": "{\"error\": \"write_conflict\"}"
+          }
+        ]
+      }
+    ],
+    "consumed": [
+      {
+        "from_spec": "S1-1",
+        "interface": "IncidentAccessResolver + incident lifecycle guard",
+        "usage": "모든 write에서 incident OPEN 여부와 사건 접근 가능 여부를 확인한다."
+      },
+      {
+        "from_spec": "S1-2",
+        "interface": "@RequireIncidentAccess, @RequireRole, @RequireChannel",
+        "usage": "Web 현장 지휘관만 boundary/area write를 수행하게 제한한다."
+      },
+      {
+        "from_spec": "S4",
+        "interface": "EventHub.publish(PublishRequest.*)",
+        "usage": "S2는 MAP_BOUNDARY_CHANGED, AREA_CREATED, AREA_STATE_CHANGED payload와 PublishRequest를 생성·검증하고 EventHub.publish를 요청한다. event_outbox row와 fanout orchestration은 S4 소유다."
+      },
+      {
+        "from_spec": "S6",
+        "interface": "@IdempotentWrite and IdempotentWrite.reserveAndReplay",
+        "usage": "Web write의 중복 저장과 body mismatch를 방지한다."
+      },
+      {
+        "from_spec": "S8",
+        "interface": "OperationalPeriodQuery.current(incidentId), AssignmentQuery.byOp(opId)",
+        "usage": "search_area 생성·상태 변경이 current OP 맥락에서 수행되는지 확인하고 area query를 OP별로 필터링한다."
+      }
+    ],
+    "events_published": [
+      {
+        "type": "MAP_BOUNDARY_CHANGED",
+        "trigger": "active map_boundary 생성 또는 수정 commit 이후",
+        "payload_schema": {
+          "type": "object",
+          "required": [
+            "id",
+            "incidentId",
+            "status",
+            "version",
+            "geometry",
+            "serverTs"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "incidentId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "status": {
+              "type": "string",
+              "description": "map_boundary.status. REST/event/board 비교는 id/status/version을 사용한다."
+            },
+            "version": {
+              "type": "integer"
+            },
+            "geometry": {
+              "type": "object"
+            },
+            "serverTs": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        },
+        "subscribers": [
+          "S3-2",
+          "S7"
+        ]
+      },
+      {
+        "type": "AREA_CREATED",
+        "trigger": "search_area 생성 또는 split child 생성 commit 이후",
+        "payload_schema": {
+          "type": "object",
+          "required": [
+            "id",
+            "incidentId",
+            "opId",
+            "status",
+            "version",
+            "geometry"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "incidentId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "opId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "status": {
+              "type": "string",
+              "description": "search_area.state의 event alias. persisted field는 search_area.state이며 outbox/SSE/board 비교는 status를 사용한다."
+            },
+            "version": {
+              "type": "integer"
+            },
+            "geometry": {
+              "type": "object"
+            }
+          }
+        },
+        "subscribers": [
+          "S3-2",
+          "S7"
+        ]
+      },
+      {
+        "type": "AREA_STATE_CHANGED",
+        "trigger": "search_area state/history commit 이후",
+        "payload_schema": {
+          "type": "object",
+          "required": [
+            "id",
+            "incidentId",
+            "opId",
+            "status",
+            "version",
+            "previousState",
+            "nextState"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "incidentId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "opId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "status": {
+              "type": "string"
+            },
+            "version": {
+              "type": "integer"
+            },
+            "previousState": {
+              "type": "string"
+            },
+            "nextState": {
+              "type": "string"
+            }
+          }
+        },
+        "subscribers": [
+          "S3-2",
+          "S8"
+        ]
+      }
+    ],
+    "events_subscribed": []
+  },
+  "three_stack_deliverables": {
+    "backend": {
+      "language": "Java (JDK 17)",
+      "framework": "Spring Boot 3.x",
+      "package": "com.surimap.maparea",
+      "modules": [
+        {
+          "name": "MapBoundaryController",
+          "responsibility": "map_boundary REST contract, Web-only authorization, response DTO"
+        },
+        {
+          "name": "SearchAreaController",
+          "responsibility": "search_area create/update/split/state REST contract"
+        },
+        {
+          "name": "GeometryValidationService",
+          "responsibility": "EPSG:4326 lon/lat Polygon validation, 6-decimal canonicalization, fixture bbox/min-area checks, boundary containment checks"
+        },
+        {
+          "name": "MapBoundaryService",
+          "responsibility": "one active boundary per incident and MAP_BOUNDARY_CHANGED publish request"
+        },
+        {
+          "name": "SearchAreaService",
+          "responsibility": "area lifecycle, split, state transitions, history row persistence"
+        },
+        {
+          "name": "MapAreaRepository",
+          "responsibility": "PostGIS persistence, ACTIVE partial unique boundary index, MapBoundaryQuery/AreaQuery source methods"
+        }
+      ]
+    },
+    "web": {
+      "language": "TypeScript",
+      "framework": "React 18+ SPA",
+      "ownership_boundary": "S2는 S3-2 상황판 route/layout/global store를 생성하거나 수정하지 않는다. S2 web 산출물은 S3-2가 mount하는 slot-scoped renderer, component, source contract로 제한한다.",
+      "components": [
+        {
+          "name": "MapBoundarySlot",
+          "responsibility": "active boundary display and commander edit affordance inside S3-2 slot"
+        },
+        {
+          "name": "SearchAreaSlot",
+          "responsibility": "area Polygon display, state color, select/split/edit actions inside S3-2 slot"
+        },
+        {
+          "name": "GeometryDraftToolbar",
+          "responsibility": "draw/edit validation feedback, save retry, draft retention on failure"
+        }
+      ],
+      "state_management": "React Query for S2 source reads inside slot boundary only; S3-2 shell owns route, layout, shared board state, projection merge",
+      "slot_props_contracts": [
+        {
+          "slot": "map_boundary",
+          "props": [
+            "incidentId",
+            "boundary",
+            "version",
+            "status",
+            "readonly",
+            "onDraftSave"
+          ],
+          "source": "MapBoundaryQuery.of(incidentId)"
+        },
+        {
+          "slot": "area",
+          "props": [
+            "incidentId",
+            "opId",
+            "areas",
+            "filters",
+            "sort",
+            "readonly",
+            "onStateChange",
+            "onSplit"
+          ],
+          "source": "AreaQuery.byIncident(incidentId, filters) or AreaQuery.byOp(opId, filters)"
+        }
+      ],
+      "map_layers": [
+        {
+          "id": "map_boundary_active",
+          "source_spec": "S2",
+          "type": "feature"
+        },
+        {
+          "id": "search_area_state",
+          "source_spec": "S2",
+          "type": "feature"
+        }
+      ]
+    },
+    "android": {
+      "language": "Kotlin",
+      "min_sdk": 31,
+      "target_sdk": 34,
+      "package": "kr.surimap.maparea",
+      "screens": [
+        {
+          "name": "IncidentMapAreaOverlay",
+          "responsibility": "offline package로 받은 boundary/area read-only 표시"
+        }
+      ],
+      "read_only_overlay_props": [
+        {
+          "name": "mapBoundary",
+          "source": "S7/S6-owned local package/cache mirror",
+          "ownership": "S2 defines renderer props only; local persistence is owned by S7/S6"
+        },
+        {
+          "name": "searchAreas",
+          "source": "S7/S6-owned local package/cache mirror",
+          "ownership": "S2 defines renderer props only; local persistence is owned by S7/S6"
+        }
+      ],
+      "sync_flow": "Android는 S2 write API를 호출하지 않는다. S7 package/S6 sync가 소유한 local cache에서 받은 read-only geometry props를 렌더링한다."
+    }
+  },
+  "dependencies": {
+    "spec_dependencies": [
+      {
+        "spec": "S1-1",
+        "contract": "incident OPEN/CLOSED lifecycle and IncidentAccessResolver",
+        "stub_strategy": "OPEN incident fixture, CLOSED incident fixture, incident_bootstrapping fixture",
+        "replaced_by_real_at": "SC-04 통합 전"
+      },
+      {
+        "spec": "S1-2",
+        "contract": "FIELD_COMMANDER role, channel WEB, incident access guard",
+        "stub_strategy": "commander account, member account, app channel request fixture",
+        "replaced_by_real_at": "Lane L2 auth fixture freeze"
+      },
+      {
+        "spec": "S4",
+        "contract": "EventHub.publish and event envelope/outbox",
+        "stub_strategy": "in-memory PublishRequest collector with payload schema checks",
+        "replaced_by_real_at": "S4 event hub integration"
+      },
+      {
+        "spec": "S6",
+        "contract": "Idempotent write reservation and replay",
+        "stub_strategy": "body hash based duplicate key fixture",
+        "replaced_by_real_at": "S6 idempotency contract freeze"
+      },
+      {
+        "spec": "S8",
+        "contract": "current OP query and OP assignment read model",
+        "stub_strategy": "active OP fixture plus assignment fixture; no assignment writes in S2",
+        "replaced_by_real_at": "S8 OP query implementation"
+      },
+      {
+        "spec": "S3-2",
+        "contract": "map_boundary and area board slot mounting",
+        "stub_strategy": "slot props snapshot tests",
+        "replaced_by_real_at": "S3-2 board shell merge"
+      },
+      {
+        "spec": "S7",
+        "contract": "package manifest consumes MapBoundaryQuery and AreaQuery",
+        "stub_strategy": "manifest builder mock verifies stale-on-boundary-change",
+        "replaced_by_real_at": "SC-03 package integration"
+      }
+    ],
+    "infra_dependencies": [
+      "PostgreSQL + PostGIS",
+      "MapLibre GL JS",
+      "SSE via S4",
+      "tileserver-gl via S7"
+    ]
+  },
+  "acceptance_criteria": [
+    {
+      "id": "AC-S2-01",
+      "fr_refs": [
+        "FR-07",
+        "FR-23"
+      ],
+      "given": "사건이 OPEN이고 현장 지휘관이 Web 상황판에 접속했다.",
+      "when": "유효한 Polygon으로 map_boundary를 생성하거나 수정한다.",
+      "then": "사건별 active boundary가 1개만 유지되고 MAP_BOUNDARY_CHANGED가 발행되며 search_area와 op_assignment는 자동 생성·수정되지 않는다.",
+      "priority": "critical"
+    },
+    {
+      "id": "AC-S2-02",
+      "fr_refs": [
+        "FR-07",
+        "FR-13"
+      ],
+      "given": "active map_boundary와 current OP가 존재한다.",
+      "when": "현장 지휘관이 boundary 내부의 유효한 Polygon으로 search_area를 생성한다.",
+      "then": "search_area와 search_area_history가 생성되고 AREA_CREATED가 발행되며 구역은 ASSIGNED 상태와 search_count 0으로 조회된다.",
+      "priority": "critical"
+    },
+    {
+      "id": "AC-S2-03",
+      "fr_refs": [
+        "FR-06",
+        "FR-13"
+      ],
+      "given": "수색 구역이 SEARCHING 상태다.",
+      "when": "현장 지휘관이 Web에서 FIRST_SEARCH_COMPLETED로 변경한다.",
+      "then": "상태, search_count, history(previous/next state, OP, account, time, memo)가 저장되고 AREA_STATE_CHANGED가 발행된다.",
+      "priority": "critical"
+    },
+    {
+      "id": "AC-S2-04",
+      "fr_refs": [
+        "FR-07"
+      ],
+      "given": "앱 채널 또는 현장 지휘관이 아닌 계정이다.",
+      "when": "boundary/area write API를 호출한다.",
+      "then": "앱 채널은 channel_not_allowed, 권한 부족은 role_denied로 실패하고 domain row와 outbox는 변경되지 않는다.",
+      "priority": "critical"
+    },
+    {
+      "id": "AC-S2-05",
+      "fr_refs": [
+        "FR-23"
+      ],
+      "given": "경로와 완료 구역 사이에 공간상 빈틈이 있다.",
+      "when": "AreaQuery 또는 board area slot이 데이터를 렌더링한다.",
+      "then": "시스템은 누락 구역을 자동 확정하거나 추천 구역을 만들지 않고 사람이 입력한 구역·상태만 표시한다.",
+      "priority": "high"
+    },
+    {
+      "id": "AC-S2-06",
+      "fr_refs": [
+        "FR-05",
+        "FR-07"
+      ],
+      "given": "S3-2/S7/S3-1/S5가 S2 구현 없이 contract mock을 사용한다.",
+      "when": "MapBoundaryQuery.of(incidentId), AreaQuery.byIncident(incidentId, filters), AreaQuery.byOp(opId, filters)를 호출한다.",
+      "then": "응답은 id/status/version/canonical geometry/bbox와 필터·정렬 기준을 동일하게 제공하고 consumer mock은 동일 fixture로 통과한다.",
+      "priority": "critical"
+    },
+    {
+      "id": "AC-S2-07",
+      "fr_refs": [
+        "FR-07"
+      ],
+      "given": "ASSIGNED parent search_area와 유효한 split child Polygon들이 있다.",
+      "when": "현장 지휘관이 split API를 성공시킨다.",
+      "then": "parent는 원본 geometry를 보존한 ARCHIVED 상태가 되고 children은 ASSIGNED로 생성되며 history, AREA_STATE_CHANGED, AREA_CREATED, version 수렴이 모두 기록된다.",
+      "priority": "critical"
+    },
+    {
+      "id": "AC-S2-08",
+      "fr_refs": [
+        "FR-07"
+      ],
+      "given": "하네스 geometry fixture를 사용한다.",
+      "when": "boundary/area write 또는 query canonicalization을 수행한다.",
+      "then": "EPSG:4326 lon/lat, bbox 126.900000/37.500000/127.080000/37.620000, 최소 400m2, precision 6자리, ring closure, 연속 중복점 제거, zero-area/self-intersection/empty ring rejection 규칙을 적용한다.",
+      "priority": "critical"
+    },
+    {
+      "id": "AC-S2-09",
+      "fr_refs": [
+        "FR-06",
+        "FR-13"
+      ],
+      "given": "search_area 상태 write가 성공했다.",
+      "when": "REST 응답, event outbox, SSE payload, board snapshot row를 비교한다.",
+      "then": "persisted field는 search_area.state이고 public DTO/event/board의 status는 state alias로 동일한 id/status/version을 제공한다.",
+      "priority": "critical"
+    },
+    {
+      "id": "AC-S2-10",
+      "fr_refs": [
+        "FR-06",
+        "FR-23"
+      ],
+      "given": "현장 지휘관이 map_boundary 또는 search_area 저장 CTA를 누른다.",
+      "when": "S2 write 요청이 진행 중이다.",
+      "then": "저장 CTA는 로딩·비활성 상태가 되고 중복 클릭은 같은 Idempotency-Key로 재사용되며 boundary/area row와 PublishRequest는 중복 생성되지 않는다.",
+      "priority": "high"
+    },
+    {
+      "id": "AC-S2-11",
+      "fr_refs": [
+        "FR-13"
+      ],
+      "given": "현장 지휘관이 search_area split child Polygon을 편집 중이다.",
+      "when": "child Polygon이 parent 밖이거나 서로 겹쳐 invalid_geometry로 실패한다.",
+      "then": "기존 parent/child row는 변경되지 않고 split draft는 유지되며 실패 사유와 재시도 CTA를 표시한다.",
+      "priority": "high"
+    },
+    {
+      "id": "AC-S2-12",
+      "fr_refs": [
+        "FR-07",
+        "FR-23"
+      ],
+      "given": "S2 write REST 응답이 id/status/version을 반환했지만 S3-2 board snapshot이 아직 해당 version 이상으로 수렴하지 않았다.",
+      "when": "상황판 map_boundary/area slot이 snapshot을 렌더링한다.",
+      "then": "slot은 PENDING_PROJECTION 또는 stale 상태를 표시하고, snapshot이 REST 응답 version 이상으로 갱신되면 같은 id/status/version으로 수렴한다.",
+      "priority": "high"
+    }
+  ],
+  "edge_cases": [
+    "GeoJSON 좌표가 lat/lon 순서로 들어와 bbox가 하네스 기준 envelope(126.900000,37.500000,127.080000,37.620000)를 벗어나는 경우 invalid_geometry로 거부한다.",
+    "Polygon ring이 닫히지 않았거나 자기 교차, 빈 ring, 0면적, 400m2 미만인 경우 invalid_geometry로 거부한다.",
+    "좌표 precision은 소수 6자리 canonical 값을 기준으로 하며, 연속 중복점 제거와 ring closure 이후에도 유효하지 않으면 invalid_geometry로 거부한다.",
+    "search_area 생성 요청이 active map_boundary 밖에 있거나 경계와 겹치지 않는 경우 invalid_geometry로 거부한다.",
+    "active map_boundary가 없으면 GET /incidents/{incidentId}/map-boundary와 area write 모두 409 map_boundary_required를 반환하고 404로 응답하지 않는다.",
+    "split child Polygon 합집합이 parent를 벗어나거나 child끼리 겹치는 경우 invalid_geometry로 거부하고 parent 상태·version·geometry를 변경하지 않는다.",
+    "split 성공 후 parent ARCHIVED row는 원본 geometry를 보존하고 child rows만 ASSIGNED로 생성된다.",
+    "map_boundary SUPERSEDED 이력은 여러 row를 허용하며 ACTIVE partial unique index만 사건별 중복 ACTIVE를 막는다.",
+    "같은 Idempotency-Key로 다른 geometry body를 재전송하면 idempotency_mismatch로 거부한다.",
+    "incident CLOSED 이후 모든 S2 write는 incident_closed로 거부한다.",
+    "SC-10의 COMPLETED 표현은 UI wording일 뿐 persisted search_area.state 또는 event status로 저장하지 않는다."
+  ],
+  "error_handling": {
+    "invalid_geometry": "웹은 실패 사유를 표시하고 사용자가 그리던 draft geometry를 유지해 재시도할 수 있게 한다.",
+    "map_boundary_required": "GET boundary와 area write 모두 409로 처리한다. 구역 생성·분할 UI는 boundary 설정 CTA로 유도하고 area write를 보내지 않는다.",
+    "area_state_conflict": "현재 상태를 다시 조회하고 충돌한 상태 전이 버튼을 비활성화한다.",
+    "pending_projection": "S2 write는 성공했지만 board snapshot version이 REST 응답 version보다 낮으면 slot은 PENDING_PROJECTION 또는 stale 상태를 표시하고 수렴 후 해제한다.",
+    "channel_not_allowed": "앱에서는 S2 write UI를 노출하지 않고 서버도 403을 반환한다.",
+    "role_denied": "웹은 지휘관 전용 CTA를 숨기고 직접 호출은 403으로 실패시킨다.",
+    "write_conflict": "웹은 최신 geometry를 재조회하고 사용자의 draft와 충돌을 비교할 수 있게 한다."
+  },
+  "non_functional_requirements": {
+    "performance": [
+      "incident board 초기 조회에서 active map_boundary와 visible search_area 목록은 일반 하네스 fixture 기준 500ms 이내 반환한다.",
+      "S3-2 board snapshot projector는 S2 write REST response version 이상으로 수렴해야 한다.",
+      "PostGIS spatial index를 사용해 viewport bbox 필터링을 지원한다."
+    ],
+    "security": [
+      "모든 write는 incident access, FIELD_COMMANDER role, WEB channel을 서버에서 검증한다.",
+      "S2는 다른 Spec 소유 entity를 직접 write하지 않는다.",
+      "좌표·상태 변경 이력은 accountId와 server_ts를 남긴다."
+    ],
+    "observability": [
+      "map_boundary_write_total, search_area_write_total, invalid_geometry_total, area_state_conflict_total 메트릭을 노출한다.",
+      "PublishRequest 생성·검증 또는 EventHub.publish 요청 실패는 domain write commit과 분리하지 않고 transaction rule에 따라 실패로 처리한다. event_outbox row와 fanout orchestration은 S4 소유다."
+    ]
+  },
+  "tdd_red_tests": {
+    "backend": [
+      {
+        "name": "MapBoundaryWritePublishesEventWithoutAreaMutationTest",
+        "framework": "JUnit 5 + Testcontainers(PostGIS)",
+        "scenario": "map_boundary 변경 성공 시 boundary row와 MAP_BOUNDARY_CHANGED만 생기고 search_area/op_assignment row는 변경되지 않는다."
+      },
+      {
+        "name": "SearchAreaGeometryValidationTest",
+        "framework": "JUnit 5 + Testcontainers(PostGIS)",
+        "scenario": "자기 교차, 미폐합 ring, boundary 밖 Polygon은 invalid_geometry이고 PublishRequest가 생성되지 않는다."
+      },
+      {
+        "name": "SearchAreaStateHistoryTest",
+        "framework": "JUnit 5 + Testcontainers(PostGIS)",
+        "scenario": "SEARCHING에서 FIRST_SEARCH_COMPLETED 전이 시 search_count와 history가 갱신되고 AREA_STATE_CHANGED가 발행된다."
+      },
+      {
+        "name": "NoAutomaticBlindspotDecisionTest",
+        "framework": "JUnit 5",
+        "scenario": "완료 구역과 경로 사이의 빈 공간이 있어도 S2 서비스는 missing_area/recommended_area 결과를 생성하지 않는다."
+      },
+      {
+        "name": "S2QuerySourceContractFixtureTest",
+        "framework": "JUnit 5",
+        "scenario": "MapBoundaryQuery.of, AreaQuery.byIncident, AreaQuery.byOp mock fixture가 id/status/version/canonical geometry, filters, sorting을 고정 shape로 반환한다."
+      },
+      {
+        "name": "MapBoundaryActivePartialUniqueIndexTest",
+        "framework": "JUnit 5 + Testcontainers(PostGIS)",
+        "scenario": "같은 incident의 ACTIVE boundary 중복은 막고 SUPERSEDED boundary 이력 여러 건은 허용한다."
+      },
+      {
+        "name": "SearchAreaSplitLifecycleTest",
+        "framework": "JUnit 5 + Testcontainers(PostGIS)",
+        "scenario": "split 성공 시 parent는 원본 geometry를 보존한 ARCHIVED, children은 ASSIGNED이며 history/event/version이 id/status/version 기준으로 수렴한다."
+      },
+      {
+        "name": "SearchAreaStatusAliasConvergenceTest",
+        "framework": "JUnit 5",
+        "scenario": "state write REST 응답, outbox, SSE payload, board fixture가 persisted state의 public alias인 status와 version을 동일하게 노출한다."
+      },
+      {
+        "name": "S2WriteRejectedWhenIncidentNotOpen",
+        "framework": "JUnit 5 + Testcontainers(PostGIS)",
+        "scenario": "incident가 CLOSED 또는 BOOTSTRAPPING이면 map_boundary/search_area/search_area_history row와 PublishRequest를 생성하지 않고 각각 incident_closed 또는 incident_bootstrapping 409로 실패한다."
+      },
+      {
+        "name": "S2IdempotencyMismatchRejectsChangedGeometryBody",
+        "framework": "JUnit 5 + Testcontainers(PostGIS)",
+        "scenario": "같은 Idempotency-Key로 다른 geometry body를 재전송하면 idempotency_mismatch로 거부하고 기존 map_boundary/search_area version과 PublishRequest 수를 변경하지 않는다."
+      },
+      {
+        "name": "S2PublishRequestFailureDoesNotCommitDomainRows",
+        "framework": "JUnit 5 + Mockito",
+        "scenario": "S4 EventHub.publish mock이 실패하면 map_boundary/search_area/search_area_history domain row commit도 실패하고, 응답은 재시도 가능한 저장 실패 상태로 닫힌다."
+      }
+    ],
+    "web": [
+      {
+        "name": "BoundaryDraftRetainedOnInvalidGeometry",
+        "framework": "Playwright | Vitest + RTL",
+        "scenario": "invalid_geometry 응답 후 오류 사유가 표시되고 사용자가 그리던 boundary draft가 사라지지 않는다."
+      },
+      {
+        "name": "MapBoundaryOrAreaSaveDisablesCtaAndPreventsDuplicateSubmit",
+        "framework": "Playwright | Vitest + RTL",
+        "scenario": "map_boundary/search_area 저장 요청 중 CTA는 로딩·비활성 상태가 되고 중복 클릭은 같은 Idempotency-Key로 재사용되어 boundary/area row와 PublishRequest가 중복 생성되지 않는다."
+      },
+      {
+        "name": "SearchAreaSplitFailureRetainsDraftAndExistingArea",
+        "framework": "Playwright | Vitest + RTL",
+        "scenario": "split child overlap/outside/invalid 실패 시 기존 parent/children row는 유지되고 split draft, 실패 사유, 재시도 CTA가 화면에 남는다."
+      },
+      {
+        "name": "AreaStateControlsRespectRoleAndChannel",
+        "framework": "Playwright | Vitest + RTL",
+        "scenario": "현장 지휘관이 아닌 계정에는 구역 완료 CTA가 보이지 않고 직접 호출 실패 상태가 표시된다."
+      },
+      {
+        "name": "S2BoardSlotPropsConvergeWithoutShellOwnership",
+        "framework": "Vitest + RTL",
+        "scenario": "S2 map_boundary/area slot renderer는 S3-2 shell route/layout/global store 없이 slot props만으로 id/status/version/geometry를 렌더링한다."
+      },
+      {
+        "name": "S2WritePendingProjectionWhenBoardSnapshotLags",
+        "framework": "Vitest + RTL + mock board snapshot projector",
+        "scenario": "S2 write 응답 version보다 board snapshot version이 낮거나 row가 누락되면 map_boundary/area slot은 PENDING_PROJECTION 또는 stale 상태를 표시하고, snapshot이 REST 응답 version 이상으로 갱신되면 같은 id/status/version으로 수렴한다."
+      },
+      {
+        "name": "PackageManifestStaleOnBoundaryChangeContract",
+        "framework": "Vitest contract test",
+        "scenario": "MAP_BOUNDARY_CHANGED 이후 S7 manifest mock은 MapBoundaryQuery version 상승을 stale package로 판정하고 search_area row는 변경되지 않는다."
+      }
+    ],
+    "android": [
+      {
+        "name": "AreaOverlayIsReadOnly",
+        "framework": "JUnit5 + Robolectric | Instrumentation",
+        "scenario": "오프라인 패키지로 받은 boundary/area는 지도에 표시되지만 앱에서 S2 write 요청은 enqueue되지 않는다."
+      }
+    ]
+  },
+  "harness_constraints": {
+    "preconditions": [
+      "JDK 17 + Spring Boot 3.x (ADR-0013)",
+      "React 18+ SPA + TypeScript (ADR-0014)",
+      "Kotlin + MapLibre Native (ADR-0004 개정, ADR-0013)",
+      "PostgreSQL + PostGIS extension enabled (ADR-0002)",
+      "S1-2 FIELD_COMMANDER/Web channel auth fixture available",
+      "S8 current OP fixture available",
+      "모든 쓰기 요청은 Idempotency-Key 헤더 필수",
+      "모든 이벤트는 S4 event envelope와 ADR-0012 시간 필드를 따른다",
+      "하네스 geometry fixture는 EPSG:4326, lon/lat, bbox 126.900000/37.500000/127.080000/37.620000, minimum polygon area 400m2, coordinate precision 6 decimals를 사용한다",
+      "S3-2/S7/S3-1/S5 contract mock은 MapBoundaryQuery.of와 AreaQuery.* 응답의 id/status/version/canonical geometry를 동일하게 비교한다",
+      "SC-04 S2 fixture IDs are fixed: incidentId=inc-precinct-first-001, boundaryId=mb-precinct-001-v1, supersededBoundaryId=mb-precinct-001-v0, areaId=area-precinct-a1, splitChildAreaIds=area-precinct-a1-1/area-precinct-a1-2, historyId=area-hist-precinct-a1-001",
+      "SC-04 S2 event/snapshot fixture IDs are fixed: boundaryEventId=evt-s2-boundary-001 sequence=401 version=2, areaCreatedEventId=evt-s2-area-created-001 sequence=402 version=1, areaStateEventId=evt-s2-area-state-001 sequence=403 version=3, boardSnapshotRowIds=board-map-boundary-inc-precinct-first-001/board-area-precinct-a1 and expected snapshot version is REST response version or higher"
+    ],
+    "forbidden": [
+      "자동 blindspot/missing-area 확정 또는 다음 수색 구역 추천 구현 금지",
+      "S8 op_assignment 직접 write 금지",
+      "S3-2 shell route/layout/global store 직접 수정 금지",
+      "Android 앱에서 boundary/area write UI 또는 API 호출 금지",
+      "접근 곤란을 search_area 상태로 추가 금지",
+      "Mapbox SDK 사용 금지"
+    ],
+    "required_reviews": [
+      "geometry canonicalization 규칙 변경 시 S2, S3-1, S5, S7 LGTM",
+      "event payload 변경 시 S2, S3-2, S4, S7 LGTM",
+      "search_area state enum 변경 시 S2, S8, S3-2 LGTM"
+    ]
+  },
+  "open_issues": [],
+  "status_management": {
+    "current_phase": "phase1_draft",
+    "completed_phases": [
+      "template_sections_filled"
+    ],
+    "error_logs": [],
+    "last_updated": "2026-04-28"
+  },
+  "change_log": [
+    {
+      "date": "2026-04-28",
+      "change": "Phase 1 draft 작성",
+      "reason": "S2 소유권, API, 도메인 모델, 하네스 red test 초안 생성"
+    },
+    {
+      "date": "2026-04-28",
+      "change": "Tester blocker 반영: S2 query/source contract, 409 map_boundary_required, geometry fixture rules, split lifecycle, status alias convergence, S3-2/S7/S6 ownership boundaries 확정",
+      "reason": "SC-04/SC-10 및 공통 하네스 red test 수렴 기준 보정"
+    }
+  ],
+  "service_contracts": {
+    "query_source_contracts": {
+      "MapBoundaryQuery.of(incidentId)": {
+        "consumers": [
+          "S3-2 board projection and map_boundary slot",
+          "S7 offline-package manifest stale/tile bbox calculation",
+          "S3-1 path validation mock",
+          "S5 marker validation mock"
+        ],
+        "source": "active map_boundary row where incident_id = incidentId and status = ACTIVE",
+        "not_found": "409 map_boundary_required",
+        "response_shape": {
+          "id": "UUID",
+          "incidentId": "UUID",
+          "status": "ACTIVE",
+          "version": "BIGINT",
+          "geometry": "Canonical GeoJSON Polygon",
+          "bbox": [
+            "minLon",
+            "minLat",
+            "maxLon",
+            "maxLat"
+          ],
+          "updatedAt": "TIMESTAMPTZ"
+        },
+        "canonical_geometry": "EPSG:4326 GeoJSON Polygon, [lon, lat], closed rings, consecutive duplicate points removed, 6 decimal places, valid non-self-intersecting non-empty polygon.",
+        "sorting": "single active row; no collection sorting"
+      },
+      "AreaQuery.byIncident(incidentId, filters)": {
+        "consumers": [
+          "S3-2 area slot and board projection",
+          "S7 offline-package manifest",
+          "S8 OP comparison read flow"
+        ],
+        "source": "search_area rows for incident_id = incidentId",
+        "filters": {
+          "status": "optional array; aliases search_area.state",
+          "includeArchived": "default false; ARCHIVED parents are excluded unless true",
+          "opId": "optional created_op_id filter",
+          "bbox": "optional EPSG:4326 viewport bbox intersection filter",
+          "minVersion": "optional lower-bound version filter for projector catch-up",
+          "updatedAfter": "optional server timestamp cursor"
+        },
+        "sorting": [
+          "created_op_id ASC",
+          "state ASC",
+          "created_at ASC",
+          "id ASC"
+        ],
+        "response_shape": {
+          "incidentId": "UUID",
+          "sourceVersion": "max search_area.version in result",
+          "areas": [
+            {
+              "id": "UUID",
+              "incidentId": "UUID",
+              "opId": "created_op_id UUID",
+              "parentAreaId": "UUID|null",
+              "state": "persisted search_area.state",
+              "status": "public alias equal to state",
+              "searchCount": "INTEGER",
+              "version": "BIGINT",
+              "geometry": "Canonical GeoJSON Polygon",
+              "bbox": "EPSG:4326 bbox",
+              "updatedAt": "TIMESTAMPTZ"
+            }
+          ]
+        },
+        "canonical_geometry": "Every area geometry uses the shared S2 canonical geometry rules."
+      },
+      "AreaQuery.byOp(opId, filters)": {
+        "consumers": [
+          "S3-2 OP board filters",
+          "S7 package manifest assigned-area mocks",
+          "S8 handover/OP comparison"
+        ],
+        "source": "search_area rows with created_op_id = opId plus optional areaIds supplied by S8 AssignmentQuery; S2 does not expose or mutate op_assignment fields.",
+        "filters": {
+          "status": "optional array; aliases search_area.state",
+          "includeArchived": "default false",
+          "bbox": "optional EPSG:4326 viewport bbox intersection filter",
+          "minVersion": "optional lower-bound version filter"
+        },
+        "sorting": [
+          "state ASC",
+          "created_at ASC",
+          "id ASC"
+        ],
+        "response_shape": "Same area object shape as AreaQuery.byIncident with opId fixed to the requested OP context.",
+        "version_rule": "Each returned row carries its own version; collection sourceVersion is the max returned version. Board/projector stale checks compare REST response/event/board rows using id, status, version."
+      }
+    },
+    "geometry_validation_rules": {
+      "crs": "EPSG:4326 only",
+      "coordinate_order": "[lon, lat]",
+      "fixture_bbox": {
+        "minLon": 126.9,
+        "minLat": 37.5,
+        "maxLon": 127.08,
+        "maxLat": 37.62
+      },
+      "minimum_polygon_area_m2": 400,
+      "coordinate_precision_decimals": 6,
+      "normalization": [
+        "round coordinates to 6 decimals",
+        "remove consecutive duplicate points before validation",
+        "require ring closure after normalization"
+      ],
+      "rejections": [
+        "non-Polygon geometry for boundary/area writes",
+        "coordinates outside fixture bbox or invalid lon/lat range",
+        "empty ring",
+        "unclosed ring",
+        "zero-area polygon",
+        "polygon under 400m2",
+        "self-intersection",
+        "canonicalization result that still violates precision or validity rules"
+      ]
+    },
+    "split_lifecycle": {
+      "decision": "split 성공 시 parent search_area는 ARCHIVED로 전이하고 geometry는 split 전 원본 canonical geometry를 보존한다. children은 parent_area_id와 split_group_id를 가진 새 search_area로 생성되며 ASSIGNED, search_count 0으로 시작한다.",
+      "history": [
+        "parent: STATE_CHANGED history row previous_state -> ARCHIVED with previous_geometry and next_geometry both equal to original parent geometry",
+        "each child: SPLIT_FROM_PARENT history row with previous_state null, next_state ASSIGNED, next_geometry child canonical geometry"
+      ],
+      "events": [
+        "AREA_STATE_CHANGED for archived parent with status ARCHIVED and incremented parent version",
+        "AREA_CREATED for each child with status ASSIGNED and version 1"
+      ],
+      "versioning": "parent version increments exactly once in the split transaction; each child starts at version 1. The split REST response, event outbox, SSE payload, and board area rows must converge on id/status/version."
+    },
+    "state_api_status_convergence": {
+      "persisted_field": "search_area.state",
+      "public_alias": "status",
+      "rule": "REST DTOs and S2 events include status equal to search_area.state so SC-10 and common red tests can compare REST response, mock event outbox, SSE payload, and board snapshot using id/status/version.",
+      "board_projection_fields": [
+        "id",
+        "incidentId",
+        "opId",
+        "status",
+        "version",
+        "geometry"
+      ]
+    },
+    "search_area_state_aliases": {
+      "persisted_states": [
+        "ASSIGNED",
+        "SEARCHING",
+        "FIRST_SEARCH_COMPLETED",
+        "RECHECK_REQUIRED",
+        "RECHECKING",
+        "RECHECK_COMPLETED",
+        "ARCHIVED"
+      ],
+      "dto_aliases": [
+        {
+          "alias": "COMPLETED",
+          "maps_to": [
+            "FIRST_SEARCH_COMPLETED",
+            "RECHECK_COMPLETED"
+          ],
+          "usage": "harness/UI wording only; not stored as search_area.state and not emitted as nextState"
+        }
+      ],
+      "automatic_decision_policy": "S2 never derives COMPLETED, RECHECK_REQUIRED, missing_area, blindspot, or recommended_area from path coverage. Every state transition is an explicit Web commander write."
+    }
+  }
+}

@@ -1,0 +1,2571 @@
+{
+  "$schema": "../_template.schema.json",
+  "spec_info": {
+    "id": "S3-2",
+    "name": "Situation Board Shell & Projection",
+    "owner": "6",
+    "character": "domain_plus_foundation",
+    "created": "2026-04-28",
+    "updated": "2026-04-28"
+  },
+  "context_refs": {
+    "prd": [
+      "§4.1 MVP 범위 포함: 웹 상황판의 팀별 경로/구역/마커 시각화, OP별 경로 비교, 단말 최신성 표시",
+      "§5.1 시범 시나리오 5 수색 시작 및 GPS 기록",
+      "§5.1 시범 시나리오 9 통신 복구",
+      "§5.1 시범 시나리오 11 인수인계 / 다음 투입 구역 판단",
+      "§5.1 시범 시나리오 12 사건 종료"
+    ],
+      "architecture": [
+        "§1.2 상위 컴포넌트: Web 상황판 + MapLibre GL JS + SSE",
+        "§4 Web 상황판 아키텍처",
+        "§4.2 기술 스택",
+        "§4.3 데이터 흐름"
+      ],
+    "adr": [
+      "ADR-0004",
+      "ADR-0005",
+      "ADR-0026",
+      "ADR-0027",
+      "ADR-0028",
+      "ADR-0029",
+      "ADR-0035"
+    ],
+    "boundaries": "spec/boundaries.md §3 S3-2, §9.1 Event Envelope, §9.2 Board Shell Slots, §10 Harness Mapping",
+    "harness": [
+      "SC-02 실종팀 인계·지원 부대 배정",
+      "SC-03 사건 오프라인 패키지 사전 적재",
+      "SC-04 지도 기준 범위·구역 분할·할당",
+      "SC-05 수색 세션·Device GPS 경로",
+      "SC-06 현장 마커 생성",
+      "SC-08 지원 요청·실종자 발견 알림",
+      "SC-09 통신 복구·동기화",
+      "SC-10 구역 완료·새 OP 열기",
+      "SC-11 인수인계·OP 비교·AI 요약",
+      "SC-12 사건 종료·캐시 파기"
+    ]
+  },
+  "scope": {
+    "included": [
+      "웹 상황판 route, layout, MapLibre root, shared state wiring",
+      "board shell slot registry와 slot mounting/final merge",
+      "board projection 및 snapshot read model",
+      "SSE 수신 이벤트의 eventId dedupe, stale event 방어, snapshot convergence 처리",
+      "OP 비교 화면과 OP별 레이어 토글",
+      "단말 최신성 색·외곽선·라벨 인코딩",
+      "오프라인 패키지 미완료 경고 badge slot",
+      "incident terminal/tombstone read-only slot",
+      "MarkerDetailPanel의 상황판 layout ownership. 실제 marker edit/delete mutation 실행은 S5 API 호출 경계로 위임"
+    ],
+    "excluded": [
+      {
+        "item": "도메인 write API와 도메인 row 생성·수정",
+        "owner": "S1-1/S2/S3-1/S5/S7/S8",
+        "reason": "S3-2는 상황판 shell/projection/read model owner이며 source-of-truth domain write를 소유하지 않는다."
+      },
+      {
+        "item": "SSE endpoint, Last-Event-ID replay log, event fanout orchestration",
+        "owner": "S4",
+        "reason": "S3-2는 S4 stream을 소비하고 projector trigger 이후 projection 적용만 소유한다."
+      },
+      {
+        "item": "타일 서버, manifest/status 저장",
+        "owner": "S7",
+        "reason": "S3-2는 package_badge와 MapLibre style 소비자다."
+      },
+      {
+        "item": "FCM payload/recipient 계산 및 전송",
+        "owner": "S5/S4",
+        "reason": "상황판 toast 표시만 소유한다."
+      },
+      {
+        "item": "자동 수색 누락 확정 또는 다음 구역 지시",
+        "owner": "none",
+        "reason": "PRD/ADR의 자동 판단 금지 원칙에 따라 MVP 범위가 아니다."
+      }
+    ]
+  },
+  "fr_mapping": [
+    {
+      "id": "FR-04",
+      "summary": "경로와 주요 변경사항을 상황판에 실시간 반영한다.",
+      "handling": "S4 SSE stream과 BoardSnapshotProjector를 소비해 path/marker/area/op/package/device freshness slot을 수렴시킨다."
+    },
+    {
+      "id": "FR-05",
+      "summary": "지도 기준 범위와 수색 범위를 상황판에 표시한다.",
+      "handling": "S2 MapBoundaryQuery와 AreaQuery 결과를 read-only slot으로 렌더링한다."
+    },
+    {
+      "id": "FR-07",
+      "summary": "구역 상태를 표시한다.",
+      "handling": "AREA_STATE_CHANGED와 snapshot area row를 반영하되 구역 완료 write는 S2 소유로 둔다."
+    },
+    {
+      "id": "FR-08",
+      "summary": "팀·단말별 수색 현황을 한눈에 구분한다.",
+      "handling": "membership/device/team metadata를 board style registry에 매핑해 source row 변경 없이 표현 계층에서만 적용한다."
+    },
+    {
+      "id": "FR-09",
+      "summary": "최신 수색 현황의 기록 시각을 확인할 수 있게 표시한다.",
+      "handling": "path/search session record time, device record status, lastHeartbeatAt/lastSyncAt 경과를 board snapshot에 표시한다. OP/팀/마커/구간 필터는 FR-09 원의미가 아니라 display-only UX로만 둔다."
+    },
+    {
+      "id": "FR-11",
+      "summary": "OP별 레이어를 선택하고 이전 OP와 현재 OP를 비교한다.",
+      "handling": "S8 OP/assignment/handover, S3-1 path/segment, S5 marker source를 opId 기준으로 병합해 선택된 OP만 표시하고 source row는 변경하지 않는다."
+    },
+    {
+      "id": "FR-16",
+      "summary": "지형 상태 레이어를 표시한다.",
+      "handling": "S5 marker type 중 terrain/status 계열을 별도 layer style로 렌더링한다."
+    },
+    {
+      "id": "FR-18",
+      "summary": "분산된 수색 정보를 공용 상황판 한 화면에서 정리해 본다.",
+      "handling": "team/device, path, area, marker, missing person, package, OP slots를 BoardAssembler에서 병합한다. toast slot은 FR-10/FR-17 및 알림 NFR의 표현 요소로만 취급한다."
+    },
+    {
+      "id": "FR-19",
+      "summary": "오프라인 지도 준비 상태를 상황판에서 확인한다.",
+      "handling": "S7 PackageStatusQuery와 PACKAGE_STATUS_CHANGED를 package_badge slot으로 표시한다."
+    },
+    {
+      "id": "FR-23",
+      "summary": "자동 누락 확정이나 다음 구역 지시 없이 OP 경로·구역·마커 증거를 함께 보여준다.",
+      "handling": "S3-2는 path/area/marker/op slots를 병합해 사람이 판단할 근거를 렌더링하되 missing_area, recommended_area, auto_blindspot slot이나 CTA를 생성하지 않는다."
+    },
+    {
+      "id": "FR-24",
+      "summary": "단말 최신성을 표시한다.",
+      "handling": "S1-2 DeviceFreshnessQuery의 lastHeartbeatAt/lastSyncAt 경과를 normal/stale/lost와 elapsed label로 인코딩한다."
+    },
+    {
+      "id": "FR-25",
+      "summary": "운용 중 Device 궤도를 강조한다.",
+      "handling": "현재 세션 deviceId와 선택 deviceId를 기준으로 path slot style을 강조한다."
+    },
+    {
+      "id": "FR-26",
+      "summary": "단순 지도 보기 모드를 제공한다.",
+      "handling": "비핵심 overlay를 숨기는 board-level display preset을 제공한다."
+    },
+    {
+      "id": "FR-27",
+      "summary": "초기 뷰포트를 최적화한다.",
+      "handling": "map_boundary, 최근 활동 위치, 기본 지역 순으로 viewport fallback을 적용한다."
+    },
+    {
+      "id": "FR-35",
+      "summary": "순찰차 경로 레이어를 표시한다.",
+      "handling": "S3-1 path와 S1-2 device type을 결합해 patrol car layer style을 분리한다."
+    },
+    {
+      "id": "FR-37",
+      "summary": "인수인계 메모를 OP·구역·경로 맥락과 함께 보여준다.",
+      "handling": "S8 HandoverMemoQuery와 op_history/handover_memo slots를 결합한다."
+    },
+    {
+      "id": "FR-39",
+      "summary": "AI 수색 이력 요약을 표시한다.",
+      "handling": "S8 AiSummaryQuery 결과를 ai_summary slot에 표시하며 누락 확정·다음 구역 지시 문구를 차단한다."
+    }
+  ],
+  "domain_model": {
+    "entities": [
+      {
+        "name": "board_snapshot",
+        "owner_spec": "S3-2",
+        "description": "상황판 조회용 materialized read model. Source domain row를 복제한 projection이며 authoritative write source가 아니다.",
+        "fields": [
+          {
+            "name": "incident_id",
+            "type": "UUID",
+            "nullable": false,
+            "pk": true
+          },
+          {
+            "name": "snapshot_version",
+            "type": "BIGINT",
+            "nullable": false
+          },
+          {
+            "name": "latest_event_id",
+            "type": "UUID",
+            "nullable": true
+          },
+          {
+            "name": "latest_event_server_ts",
+            "type": "TIMESTAMPTZ",
+            "nullable": true
+          },
+          {
+            "name": "active_op_id",
+            "type": "UUID",
+            "nullable": true
+          },
+          {
+            "name": "payload",
+            "type": "JSONB",
+            "nullable": false,
+            "note": "BoardDTO serialized by board.schema.json"
+          },
+          {
+            "name": "geometry_hash",
+            "type": "VARCHAR(128)",
+            "nullable": true
+          },
+          {
+            "name": "source_versions",
+            "type": "JSONB",
+            "nullable": false,
+            "note": "Per §9.2 slot row latest id/status/version/sequence/sourceSpec/sourceHash/latestEventId used to compare REST response, SSE payload, and board snapshot row."
+          },
+          {
+            "name": "source_hashes",
+            "type": "JSONB",
+            "nullable": false,
+            "note": "Per §9.2 slot row canonical source hash and geometry hash used by convergence and OP comparison immutability tests."
+          },
+          {
+            "name": "projected_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": false
+          }
+        ],
+        "indexes": [
+          {
+            "name": "idx_board_snapshot_latest_event",
+            "columns": [
+              "latest_event_id"
+            ]
+          },
+          {
+            "name": "idx_board_snapshot_projected_at",
+            "columns": [
+              "projected_at"
+            ]
+          }
+        ],
+        "spatial": {
+          "enabled": false,
+          "type": "POINT",
+          "srid": 4326
+        },
+        "visibility": "internal read-model",
+        "entity_kind": "projection/read-model, not source-of-truth domain entity",
+        "public_contract": "exposed only through BoardDTO snapshot; direct table contract is internal to S3-2 projector"
+      },
+      {
+        "name": "board_event_application",
+        "owner_spec": "S3-2",
+        "description": "Projector idempotency ledger. eventId 중복 적용과 slot/source/entity별 stale event 회귀를 방지한다.",
+        "fields": [
+          {
+            "name": "event_id",
+            "type": "UUID",
+            "nullable": false,
+            "pk": true
+          },
+          {
+            "name": "incident_id",
+            "type": "UUID",
+            "nullable": false
+          },
+          {
+            "name": "event_type",
+            "type": "VARCHAR(64)",
+            "nullable": false
+          },
+          {
+            "name": "slot",
+            "type": "VARCHAR(64)",
+            "nullable": false,
+            "note": "spec/boundaries.md §9.2 slot name. Unknown slot is rejected before projection."
+          },
+          {
+            "name": "source_spec",
+            "type": "VARCHAR(16)",
+            "nullable": false,
+            "note": "Owner spec of the projected row, e.g. S2, S3-1, S5, S8."
+          },
+          {
+            "name": "entity_id",
+            "type": "UUID",
+            "nullable": true
+          },
+          {
+            "name": "entity_status",
+            "type": "VARCHAR(64)",
+            "nullable": true
+          },
+          {
+            "name": "entity_version",
+            "type": "BIGINT",
+            "nullable": true
+          },
+          {
+            "name": "sequence",
+            "type": "BIGINT",
+            "nullable": true
+          },
+          {
+            "name": "source_hash",
+            "type": "VARCHAR(128)",
+            "nullable": true,
+            "note": "Canonical hash of the event source row used to guard stale overwrite across slot/source rows."
+          },
+          {
+            "name": "apply_status",
+            "type": "VARCHAR(32)",
+            "nullable": false,
+            "note": "APPLIED|DUPLICATE|STALE|SNAPSHOT_REQUIRED|FAILED_RETRYABLE"
+          },
+          {
+            "name": "server_ts",
+            "type": "TIMESTAMPTZ",
+            "nullable": false
+          },
+          {
+            "name": "applied_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": false
+          }
+        ],
+        "indexes": [
+          {
+            "name": "idx_board_event_application_incident",
+            "columns": [
+              "incident_id",
+              "server_ts"
+            ]
+          },
+          {
+            "name": "idx_board_event_application_entity",
+            "columns": [
+              "incident_id",
+              "slot",
+              "source_spec",
+              "entity_id",
+              "entity_status",
+              "entity_version",
+              "sequence"
+            ]
+          },
+          {
+            "name": "idx_board_event_application_source_hash",
+            "columns": [
+              "incident_id",
+              "slot",
+              "source_spec",
+              "source_hash"
+            ]
+          }
+        ],
+        "spatial": {
+          "enabled": false,
+          "type": "POINT",
+          "srid": 4326
+        },
+        "visibility": "internal read-model",
+        "entity_kind": "projection/read-model, not source-of-truth domain entity",
+        "public_contract": "exposed only through BoardDTO snapshot; direct table contract is internal to S3-2 projector"
+      },
+      {
+        "name": "board_projection_cursor",
+        "owner_spec": "S3-2",
+        "description": "S4 event stream 처리 위치와 snapshot 재조회 필요 상태를 저장한다.",
+        "fields": [
+          {
+            "name": "incident_id",
+            "type": "UUID",
+            "nullable": false,
+            "pk": true
+          },
+          {
+            "name": "last_applied_event_id",
+            "type": "UUID",
+            "nullable": true
+          },
+          {
+            "name": "last_applied_server_ts",
+            "type": "TIMESTAMPTZ",
+            "nullable": true
+          },
+          {
+            "name": "needs_snapshot_reload",
+            "type": "BOOLEAN",
+            "nullable": false
+          },
+          {
+            "name": "reload_reason",
+            "type": "VARCHAR(64)",
+            "nullable": true
+          },
+          {
+            "name": "updated_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": false
+          }
+        ],
+        "indexes": [
+          {
+            "name": "idx_board_projection_cursor_reload",
+            "columns": [
+              "needs_snapshot_reload"
+            ]
+          }
+        ],
+        "spatial": {
+          "enabled": false,
+          "type": "POINT",
+          "srid": 4326
+        },
+        "visibility": "internal read-model",
+        "entity_kind": "projection/read-model, not source-of-truth domain entity",
+        "public_contract": "exposed only through BoardDTO snapshot; direct table contract is internal to S3-2 projector"
+      }
+    ],
+    "state_machines": [
+      {
+        "entity": "board_event_application",
+        "field": "apply_status",
+        "states": [
+          "APPLIED",
+          "DUPLICATE",
+          "STALE",
+          "SNAPSHOT_REQUIRED",
+          "FAILED_RETRYABLE"
+        ],
+        "transitions": [
+          {
+            "from": "FAILED_RETRYABLE",
+            "to": "APPLIED",
+            "trigger": "projector retry succeeds",
+            "guard": "eventId not already applied and slot/sourceSpec/entityId/status/version/sequence/sourceHash is equal to or newer than the current slot row"
+          },
+          {
+            "from": "FAILED_RETRYABLE",
+            "to": "SNAPSHOT_REQUIRED",
+            "trigger": "event gap or stale replay cannot be repaired incrementally",
+            "guard": "S4 returned gone_snapshot_required or projector detects missing predecessor"
+          }
+        ]
+      },
+      {
+        "entity": "board_event_application",
+        "field": "slot_source_entity_cursor",
+        "states": [
+          "CURRENT",
+          "STALE_REJECTED"
+        ],
+        "transitions": [
+          {
+            "from": "CURRENT",
+            "to": "CURRENT",
+            "trigger": "event source row is newer for the same slot/sourceSpec/entityId/status cursor",
+            "guard": "Apply only when version is greater than the stored row version, or version is equal and sequence is greater than the stored row sequence. sourceHash must match the canonical source row for that id/status/version/sequence."
+          },
+          {
+            "from": "CURRENT",
+            "to": "STALE_REJECTED",
+            "trigger": "event is older than the current slot row",
+            "guard": "A stale event for one slot/source/entityId/status/version/sequence/sourceHash must not overwrite another slot row or another sourceSpec row."
+          }
+        ]
+      },
+      {
+        "entity": "board_projection_cursor",
+        "field": "needs_snapshot_reload",
+        "states": [
+          "STREAMING",
+          "SNAPSHOT_REQUIRED",
+          "RELOADING",
+          "FAILED_RETRYABLE"
+        ],
+        "transitions": [
+          {
+            "from": "STREAMING",
+            "to": "SNAPSHOT_REQUIRED",
+            "trigger": "S4 returns gone_snapshot_required, projector detects replay gap, or board_event_application reaches SNAPSHOT_REQUIRED",
+            "guard": "Set needs_snapshot_reload=true and reload_reason=GONE_SNAPSHOT_REQUIRED|REPLAY_GAP|MISSING_PREDECESSOR without advancing last_applied_event_id."
+          },
+          {
+            "from": "SNAPSHOT_REQUIRED",
+            "to": "RELOADING",
+            "trigger": "BoardAssembler reload starts from GET /incidents/{incidentId}/board/snapshot",
+            "guard": "Keep needs_snapshot_reload=true until snapshotVersion and every row-level slot cursor are rebuilt from source contracts."
+          },
+          {
+            "from": "RELOADING",
+            "to": "STREAMING",
+            "trigger": "snapshot reload succeeds and BoardDTO row-level cursors converge",
+            "guard": "Set needs_snapshot_reload=false, reload_reason=null, last_applied_event_id to the latest applied/reloaded event cursor, and last_applied_server_ts to the latest projected server timestamp."
+          },
+          {
+            "from": "RELOADING",
+            "to": "FAILED_RETRYABLE",
+            "trigger": "snapshot reload fails",
+            "guard": "Keep needs_snapshot_reload=true, preserve last_applied_event_id/last_applied_server_ts, set reload_reason=RELOAD_FAILED, and expose retryable reconnect state."
+          },
+          {
+            "from": "FAILED_RETRYABLE",
+            "to": "RELOADING",
+            "trigger": "reload retry starts",
+            "guard": "Retry must not apply buffered stale events before snapshot reload succeeds."
+          }
+        ]
+      }
+    ],
+    "flyway_migrations": [
+      "V20260428_632__create_board_snapshot_read_model.sql"
+    ]
+  },
+  "api_contracts": {
+    "provided": [
+      {
+        "method": "GET",
+        "path": "/incidents/{incidentId}/board/snapshot",
+        "summary": "상황판 shell 초기 렌더와 SSE 복구용 snapshot read model 조회",
+        "auth": "@RequireChannel(WEB), @RequireIncidentAccess, @RecordLocationAccess",
+        "idempotent": true,
+        "required_headers": [
+          "Authorization"
+        ],
+        "request_schema": {
+          "type": "object",
+          "properties": {
+            "opIds": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "includeSlots": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "sinceVersion": {
+              "type": "integer"
+            }
+          }
+        },
+        "response_schema": {
+          "200": {
+            "type": "object",
+            "required": [
+              "incidentId",
+              "snapshotVersion",
+              "serverTs",
+              "slots",
+              "sourceVersions",
+              "sourceHashes",
+              "slotSources"
+            ],
+            "properties": {
+              "incidentId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "snapshotVersion": {
+                "type": "integer"
+              },
+              "serverTs": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "activeOpId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "selectedOpIds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "slots": {
+                "type": "object",
+                "required": [
+                  "map_boundary",
+                  "area",
+                  "path",
+                  "device_freshness",
+                  "marker",
+                  "toast",
+                  "package_badge",
+                  "op_toggle",
+                  "op_history",
+                  "handover_memo",
+                  "handover_status",
+                  "ai_summary",
+                  "incident_terminal"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "map_boundary": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "status",
+                      "version",
+                      "sequence",
+                      "sourceSpec",
+                      "sourceHash",
+                      "latestEventId",
+                      "geometry",
+                      "geometryHash"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "version": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "sequence": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "sourceSpec": {
+                        "type": "string",
+                        "enum": [
+                          "S2"
+                        ]
+                      },
+                      "sourceHash": {
+                        "type": "string"
+                      },
+                      "latestEventId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "geometry": {
+                        "type": "object",
+                        "description": "Canonical EPSG:4326 Polygon from S2."
+                      },
+                      "geometryHash": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "area": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "status",
+                        "version",
+                        "sequence",
+                        "sourceSpec",
+                        "sourceHash",
+                        "latestEventId",
+                        "opId",
+                        "geometry",
+                        "geometryHash"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "sequence": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "sourceSpec": {
+                          "type": "string",
+                          "enum": [
+                            "S2"
+                          ]
+                        },
+                        "sourceHash": {
+                          "type": "string"
+                        },
+                        "latestEventId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "opId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "geometry": {
+                          "type": "object",
+                          "description": "Canonical EPSG:4326 Polygon from S2."
+                        },
+                        "geometryHash": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  },
+                  "path": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "status",
+                        "version",
+                        "sequence",
+                        "sourceSpec",
+                        "sourceHash",
+                        "latestEventId",
+                        "opId",
+                        "deviceId",
+                        "geometry",
+                        "geometryHash"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "sequence": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "sourceSpec": {
+                          "type": "string",
+                          "enum": [
+                            "S3-1"
+                          ]
+                        },
+                        "sourceHash": {
+                          "type": "string"
+                        },
+                        "latestEventId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "opId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "deviceId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "geometry": {
+                          "type": "object",
+                          "description": "Canonical source LineString; render simplification is display-only."
+                        },
+                        "geometryHash": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  },
+                  "device_freshness": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "status",
+                        "version",
+                        "sequence",
+                        "sourceSpec",
+                        "sourceHash",
+                        "latestEventId",
+                        "deviceId",
+                        "freshness",
+                        "lastHeartbeatAt",
+                        "lastSyncAt",
+                        "elapsedSeconds"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "sequence": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "sourceSpec": {
+                          "type": "string",
+                          "enum": [
+                            "S1-2"
+                          ]
+                        },
+                        "sourceHash": {
+                          "type": "string"
+                        },
+                        "latestEventId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "deviceId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "freshness": {
+                          "type": "string",
+                          "enum": [
+                            "normal",
+                            "stale",
+                            "lost"
+                          ]
+                        },
+                        "lastHeartbeatAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "lastSyncAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "elapsedSeconds": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "elapsedLabel": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  },
+                  "marker": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "status",
+                        "version",
+                        "sequence",
+                        "sourceSpec",
+                        "sourceHash",
+                        "latestEventId",
+                        "opId",
+                        "geometry",
+                        "geometryHash"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "sequence": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "sourceSpec": {
+                          "type": "string",
+                          "enum": [
+                            "S5"
+                          ]
+                        },
+                        "sourceHash": {
+                          "type": "string"
+                        },
+                        "latestEventId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "opId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "geometry": {
+                          "type": "object",
+                          "description": "Canonical source Point from S5."
+                        },
+                        "geometryHash": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  },
+                  "toast": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "status",
+                        "version",
+                        "sequence",
+                        "sourceSpec",
+                        "sourceHash",
+                        "latestEventId",
+                        "markerId"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "sequence": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "sourceSpec": {
+                          "type": "string",
+                          "enum": [
+                            "S5"
+                          ]
+                        },
+                        "sourceHash": {
+                          "type": "string"
+                        },
+                        "latestEventId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "markerId": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      }
+                    }
+                  },
+                  "package_badge": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "status",
+                        "version",
+                        "sequence",
+                        "sourceSpec",
+                        "sourceHash",
+                        "latestEventId",
+                        "deviceId"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "sequence": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "sourceSpec": {
+                          "type": "string",
+                          "enum": [
+                            "S7"
+                          ]
+                        },
+                        "sourceHash": {
+                          "type": "string"
+                        },
+                        "latestEventId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "deviceId": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      }
+                    }
+                  },
+                  "op_toggle": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "status",
+                        "version",
+                        "sequence",
+                        "sourceSpec",
+                        "sourceHash",
+                        "latestEventId"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "sequence": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "sourceSpec": {
+                          "type": "string",
+                          "enum": [
+                            "S8"
+                          ]
+                        },
+                        "sourceHash": {
+                          "type": "string"
+                        },
+                        "latestEventId": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      }
+                    }
+                  },
+                  "op_history": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "status",
+                        "version",
+                        "sequence",
+                        "sourceSpec",
+                        "sourceHash",
+                        "latestEventId"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "sequence": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "sourceSpec": {
+                          "type": "string",
+                          "enum": [
+                            "S8"
+                          ]
+                        },
+                        "sourceHash": {
+                          "type": "string"
+                        },
+                        "latestEventId": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      }
+                    }
+                  },
+                  "handover_memo": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "status",
+                        "version",
+                        "sequence",
+                        "sourceSpec",
+                        "sourceHash",
+                        "latestEventId",
+                        "opId"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "sequence": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "sourceSpec": {
+                          "type": "string",
+                          "enum": [
+                            "S8"
+                          ]
+                        },
+                        "sourceHash": {
+                          "type": "string"
+                        },
+                        "latestEventId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "opId": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      }
+                    }
+                  },
+                  "handover_status": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "status",
+                      "version",
+                      "sequence",
+                      "sourceSpec",
+                      "sourceHash",
+                      "latestEventId"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "version": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "sequence": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "sourceSpec": {
+                        "type": "string",
+                        "enum": [
+                          "S8"
+                        ]
+                      },
+                      "sourceHash": {
+                        "type": "string"
+                      },
+                      "latestEventId": {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    }
+                  },
+                  "ai_summary": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "status",
+                        "version",
+                        "sequence",
+                        "sourceSpec",
+                        "sourceHash",
+                        "latestEventId",
+                        "opId",
+                        "summaryText"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "sequence": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "sourceSpec": {
+                          "type": "string",
+                          "enum": [
+                            "S8"
+                          ]
+                        },
+                        "sourceHash": {
+                          "type": "string"
+                        },
+                        "latestEventId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "opId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "summaryText": {
+                          "type": "string",
+                          "description": "Must not contain automatic missing-area confirmation, risk judgment, or next-area direction."
+                        }
+                      }
+                    }
+                  },
+                  "incident_terminal": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "id",
+                      "status",
+                      "version",
+                      "sequence",
+                      "sourceSpec",
+                      "sourceHash",
+                      "latestEventId",
+                      "incidentId",
+                      "terminalStatus",
+                      "closedStatus",
+                      "writeDisabledReason",
+                      "localPurgeState"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "version": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "sequence": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "sourceSpec": {
+                        "type": "string",
+                        "enum": [
+                          "S1-1",
+                          "S1-3"
+                        ]
+                      },
+                      "sourceHash": {
+                        "type": "string"
+                      },
+                      "latestEventId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "incidentId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "terminalStatus": {
+                        "type": "string",
+                        "enum": [
+                          "OPEN",
+                          "CLOSED",
+                          "PURGE_PENDING",
+                          "PURGED"
+                        ]
+                      },
+                      "closedStatus": {
+                        "type": "string",
+                        "enum": [
+                          "not_closed",
+                          "closed",
+                          "purge_pending",
+                          "purged"
+                        ]
+                      },
+                      "closedAt": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "format": "date-time",
+                        "description": "null for OPEN/not_closed snapshots; required non-null only when terminalStatus is CLOSED, PURGE_PENDING, or PURGED."
+                      },
+                      "writeDisabledReason": {
+                        "type": "string",
+                        "enum": [
+                          "none",
+                          "incident_closed",
+                          "purged"
+                        ]
+                      },
+                      "localPurgeState": {
+                        "type": "string",
+                        "enum": [
+                          "not_started",
+                          "queued",
+                          "in_progress",
+                          "completed",
+                          "failed_retryable"
+                        ]
+                      }
+                    }
+                  }
+                }
+              },
+              "sourceVersions": {
+                "type": "object",
+                "description": "Per slot arrays keyed by §9.2 slot name. Each row mirrors the slot row cursor so REST response id/status/version can be compared with SSE payload and board snapshot row.",
+                "required": [
+                  "map_boundary",
+                  "area",
+                  "path",
+                  "device_freshness",
+                  "marker",
+                  "toast",
+                  "package_badge",
+                  "op_toggle",
+                  "op_history",
+                  "handover_memo",
+                  "handover_status",
+                  "ai_summary",
+                  "incident_terminal"
+                ],
+                "propertyNames": {
+                  "enum": [
+                    "map_boundary",
+                    "area",
+                    "path",
+                    "device_freshness",
+                    "marker",
+                    "toast",
+                    "package_badge",
+                    "op_toggle",
+                    "op_history",
+                    "handover_memo",
+                    "handover_status",
+                    "ai_summary",
+                    "incident_terminal"
+                  ]
+                },
+                "additionalProperties": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "status",
+                      "version",
+                      "sequence",
+                      "sourceSpec",
+                      "sourceHash",
+                      "latestEventId"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "version": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "sequence": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "sourceSpec": {
+                        "type": "string"
+                      },
+                      "sourceHash": {
+                        "type": "string"
+                      },
+                      "latestEventId": {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    }
+                  }
+                }
+              },
+              "geometryHash": {
+                "type": "string",
+                "description": "Hash of canonical source geometry rows. OP comparison and render simplification must not change this value."
+              },
+              "sourceHashes": {
+                "type": "object",
+                "description": "Per slot arrays keyed by §9.2 slot name. Hashes are row-level, not aggregate-only.",
+                "required": [
+                  "map_boundary",
+                  "area",
+                  "path",
+                  "device_freshness",
+                  "marker",
+                  "toast",
+                  "package_badge",
+                  "op_toggle",
+                  "op_history",
+                  "handover_memo",
+                  "handover_status",
+                  "ai_summary",
+                  "incident_terminal"
+                ],
+                "propertyNames": {
+                  "enum": [
+                    "map_boundary",
+                    "area",
+                    "path",
+                    "device_freshness",
+                    "marker",
+                    "toast",
+                    "package_badge",
+                    "op_toggle",
+                    "op_history",
+                    "handover_memo",
+                    "handover_status",
+                    "ai_summary",
+                    "incident_terminal"
+                  ]
+                },
+                "additionalProperties": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "status",
+                      "version",
+                      "sequence",
+                      "sourceSpec",
+                      "sourceHash",
+                      "latestEventId"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "version": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "sequence": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "sourceSpec": {
+                        "type": "string"
+                      },
+                      "sourceHash": {
+                        "type": "string"
+                      },
+                      "latestEventId": {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    }
+                  }
+                }
+              },
+              "slotSources": {
+                "type": "object",
+                "description": "Slot별 row-level source cursor. Aggregate-only sourceVersions/sourceHashes are insufficient; every slot row must be comparable by id/status/version/sequence/sourceSpec/sourceHash/latestEventId.",
+                "required": [
+                  "map_boundary",
+                  "area",
+                  "path",
+                  "device_freshness",
+                  "marker",
+                  "toast",
+                  "package_badge",
+                  "op_toggle",
+                  "op_history",
+                  "handover_memo",
+                  "handover_status",
+                  "ai_summary",
+                  "incident_terminal"
+                ],
+                "propertyNames": {
+                  "enum": [
+                    "map_boundary",
+                    "area",
+                    "path",
+                    "device_freshness",
+                    "marker",
+                    "toast",
+                    "package_badge",
+                    "op_toggle",
+                    "op_history",
+                    "handover_memo",
+                    "handover_status",
+                    "ai_summary",
+                    "incident_terminal"
+                  ]
+                },
+                "additionalProperties": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "status",
+                      "version",
+                      "sequence",
+                      "sourceSpec",
+                      "sourceHash",
+                      "latestEventId"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "version": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "sequence": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "sourceSpec": {
+                        "type": "string"
+                      },
+                      "sourceHash": {
+                        "type": "string"
+                      },
+                      "latestEventId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "entityId": {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "code": 403,
+            "case": "channel_not_allowed",
+            "body": "{\"error\": \"channel_not_allowed\"}"
+          },
+          {
+            "code": 403,
+            "case": "incident_access_denied",
+            "body": "{\"error\": \"incident_access_denied\"}"
+          },
+          {
+            "code": 403,
+            "case": "team_not_assigned",
+            "body": "{\"error\": \"team_not_assigned\"}"
+          },
+          {
+            "code": 409,
+            "case": "gone_snapshot_required",
+            "body": "{\"error\": \"gone_snapshot_required\"}"
+          }
+        ]
+      }
+    ],
+    "projector_ports": {
+      "provided_by_s3_2": {
+        "name": "BoardSnapshotProjector.apply(ProjectorTrigger)",
+        "input": {
+          "required": [
+            "eventId",
+            "incidentId",
+            "eventType",
+            "serverTs",
+            "sseSequence",
+            "slot",
+            "sourceSpec",
+            "entityId",
+            "status",
+            "version",
+            "sequence",
+            "sourceHash",
+            "payload"
+          ],
+          "notes": [
+            "slot must be one of spec/boundaries.md §9.2.",
+            "id/status/version from the source write response and SSE payload must be preserved for the projected slot row.",
+            "sourceHash is the canonical row hash before any board display filtering or render simplification."
+          ]
+        },
+        "output": {
+          "required": [
+            "eventId",
+            "incidentId",
+            "slot",
+            "sourceSpec",
+            "entityId",
+            "status",
+            "version",
+            "sequence",
+            "sourceHash",
+            "applyStatus",
+            "snapshotVersion"
+          ],
+          "applyStatus": [
+            "APPLIED",
+            "DUPLICATE",
+            "STALE",
+            "SNAPSHOT_REQUIRED",
+            "FAILED_RETRYABLE"
+          ]
+        },
+        "ownership": "S3-2 owns projection application after the trigger, board_snapshot read model lookup, BoardDTO assembly, and rendering convergence."
+      },
+      "consumed_from_s4": {
+        "name": "EventFanout projector trigger orchestration",
+        "owner": "S4",
+        "boundary": "S4 owns SSE endpoint, Last-Event-ID replay, event_outbox/sse_event_log, and trigger orchestration. S3-2 must not publish or fan out events; it only applies ProjectorTrigger input after S4 orchestration."
+      }
+    },
+    "consumed": [
+      {
+        "from_spec": "S1-1",
+        "interface": "IncidentTerminalSnapshot.closed(incidentId)",
+        "usage": "incident_terminal slot에서 종료 상태와 write disabled reason을 read-only로 표시한다."
+      },
+      {
+        "from_spec": "S1-3",
+        "interface": "IncidentTombstoneSnapshot.byIncident(incidentId)",
+        "usage": "종료 후 sanitized tombstone만 상황판에 표시한다."
+      },
+      {
+        "from_spec": "S1-2",
+        "interface": "Device heartbeat",
+        "usage": "device_freshness slot에서 60초 이후 stale, 5분 이후 lost 상태를 계산한다."
+      },
+      {
+        "from_spec": "S2",
+        "interface": "MapBoundaryQuery.of, AreaQuery.byIncident, AreaQuery.byOp",
+        "usage": "map_boundary와 area slots를 구성한다."
+      },
+      {
+        "from_spec": "S3-1",
+        "interface": "PathQuery.byIncident, PathQuery.byOp",
+        "usage": "path slot, OP 비교, 순찰차/도보/차량 구간 표시를 구성한다."
+      },
+      {
+        "from_spec": "S4",
+        "interface": "GET /events?incidentId={incidentId}, BaseEvent envelope, SSE id line sequence, EventFanout projector trigger orchestration",
+        "usage": "S4가 ProjectorTrigger를 orchestrate한다. S3-2는 trigger 이후 BoardSnapshotProjector.apply input을 받아 APPLIED|DUPLICATE|STALE|SNAPSHOT_REQUIRED|FAILED_RETRYABLE 결과로 read model을 갱신하거나 snapshot reload를 요구한다."
+      },
+      {
+        "from_spec": "S5",
+        "interface": "MarkerQuery.byIncident, SUPPORT_REQUEST_CREATED, PERSON_FOUND",
+        "usage": "marker slot, marker detail panel, toast slot을 구성한다."
+      },
+      {
+        "from_spec": "S7",
+        "interface": "PackageStatusQuery.byIncident, tile server health",
+        "usage": "package_badge slot과 지도 base layer 상태 표시를 구성한다."
+      },
+      {
+        "from_spec": "S8",
+        "interface": "OperationalPeriodQuery.list, HandoverMemoQuery.byContext, HandoverStatusSnapshot.byIncident, AiSummaryQuery.byOp",
+        "usage": "op_toggle, op_history, handover_memo, handover_status, ai_summary slots를 구성한다."
+      }
+    ],
+    "events_published": [],
+    "events_subscribed": [
+      {
+        "type": "INCIDENT_CREATED",
+        "from_spec": "S1-1",
+        "handler": "incident shell entry와 base board snapshot을 생성 또는 갱신한다."
+      },
+      {
+        "type": "INCIDENT_MEMBERSHIP_CHANGED",
+        "from_spec": "S1-1",
+        "handler": "team/device 목록과 style mapping을 재계산한다."
+      },
+      {
+        "type": "INCIDENT_CLOSED",
+        "from_spec": "S1-1",
+        "handler": "incident_terminal slot을 활성화하고 실시간 위치·개인정보 slot을 sanitized 상태로 전환한다."
+      },
+      {
+        "type": "DEVICE_HEARTBEAT_UPDATED",
+        "from_spec": "S1-2",
+        "handler": "device_freshness slot을 갱신한다."
+      },
+      {
+        "type": "MAP_BOUNDARY_CHANGED",
+        "from_spec": "S2",
+        "handler": "map_boundary slot과 viewport fallback 기준을 갱신한다."
+      },
+      {
+        "type": "AREA_CREATED",
+        "from_spec": "S2",
+        "handler": "area slot에 canonical geometry를 반영한다."
+      },
+      {
+        "type": "AREA_STATE_CHANGED",
+        "from_spec": "S2",
+        "handler": "area status/version을 갱신하되 자동 누락 판단을 생성하지 않는다."
+      },
+      {
+        "type": "SEARCH_SESSION_STARTED",
+        "from_spec": "S3-1",
+        "handler": "운용 중 Device path 강조 기준을 갱신한다."
+      },
+      {
+        "type": "SEARCH_SESSION_ENDED",
+        "from_spec": "S3-1",
+        "handler": "현재 세션 강조를 종료 상태로 전환한다."
+      },
+      {
+        "type": "PATH_APPENDED",
+        "from_spec": "S3-1",
+        "handler": "path slot에 version/sequence가 더 최신인 경우만 반영한다."
+      },
+      {
+        "type": "PATH_SEGMENT_UPDATED",
+        "from_spec": "S3-1",
+        "handler": "차량·도보 구간 style을 갱신한다."
+      },
+      {
+        "type": "MARKER_CREATED",
+        "from_spec": "S5",
+        "handler": "marker slot에 Point를 추가한다."
+      },
+      {
+        "type": "MARKER_UPDATED",
+        "from_spec": "S5",
+        "handler": "marker slot과 detail panel source row를 갱신한다."
+      },
+      {
+        "type": "MARKER_DELETED",
+        "from_spec": "S5",
+        "handler": "marker slot에서 삭제 상태를 반영한다."
+      },
+      {
+        "type": "SUPPORT_REQUEST_CREATED",
+        "from_spec": "S5",
+        "handler": "marker slot과 toast slot을 갱신한다."
+      },
+      {
+        "type": "PERSON_FOUND",
+        "from_spec": "S5",
+        "handler": "발견 marker 강조와 toast slot을 갱신한다."
+      },
+      {
+        "type": "PACKAGE_STATUS_CHANGED",
+        "from_spec": "S7",
+        "handler": "package_badge slot을 갱신한다."
+      },
+      {
+        "type": "OP_TRANSITIONED",
+        "from_spec": "S8",
+        "handler": "active OP, op_toggle, op_history, comparison defaults를 갱신한다."
+      },
+      {
+        "type": "OP_ASSIGNMENT_CHANGED",
+        "from_spec": "S8",
+        "handler": "op_history와 team assignment 표시를 갱신한다."
+      },
+      {
+        "type": "HANDOVER_MEMO_CREATED",
+        "from_spec": "S8",
+        "handler": "handover_memo와 handover_status slots를 갱신한다."
+      },
+      {
+        "type": "AI_SUMMARY_READY",
+        "from_spec": "S8",
+        "handler": "ai_summary slot을 갱신한다."
+      }
+    ]
+  },
+  "three_stack_deliverables": {
+    "backend": {
+      "language": "Java (JDK 17)",
+      "framework": "Spring Boot 3.x",
+      "package": "com.surimap.board",
+      "modules": [
+        {
+          "name": "BoardSnapshotController",
+          "responsibility": "GET /incidents/{incidentId}/board/snapshot 제공"
+        },
+        {
+          "name": "BoardAssembler",
+          "responsibility": "source query 결과를 BoardDTO slot 구조로 병합"
+        },
+        {
+          "name": "BoardSnapshotProjector",
+          "responsibility": "S4 EventFanout trigger 이후 ProjectorTrigger input을 적용하고 eventId dedupe, slot/source/entity cursor, stale event guard로 read model 갱신"
+        },
+        {
+          "name": "BoardProjectionRepository",
+          "responsibility": "board_snapshot, board_event_application, board_projection_cursor 저장·조회"
+        },
+        {
+          "name": "BoardSlotRegistry",
+          "responsibility": "spec/boundaries.md §9.2 slot 이름, source contract, props shape 고정"
+        }
+      ]
+    },
+    "web": {
+      "language": "TypeScript",
+      "framework": "React 18+ SPA",
+      "routes": [
+        {
+          "path": "/incidents/:incidentId/board",
+          "component": "SituationBoardPage"
+        }
+      ],
+      "components": [
+        {
+          "name": "SituationBoardShell",
+          "responsibility": "route layout, toolbar, side panels, slot mounting, error boundary"
+        },
+        {
+          "name": "BoardMapRoot",
+          "responsibility": "MapLibre GL JS root와 S7 style URL 연결"
+        },
+        {
+          "name": "BoardSlotHost",
+          "responsibility": "slot-scoped renderer를 registry 순서대로 mount"
+        },
+        {
+          "name": "OpComparisonPanel",
+          "responsibility": "OP1/OP2 등 다중 OP layer toggle, legend, selected/current/completed OP 구분. OP 비교 필터와 render simplification은 source geometry/status/version을 변경하지 않는 display-only state"
+        },
+        {
+          "name": "DeviceFreshnessLayer",
+          "responsibility": "lastHeartbeatAt/lastSyncAt 기반 normal/stale/lost 위치 점과 elapsed label 표시"
+        },
+        {
+          "name": "PackageBadgeLayer",
+          "responsibility": "미완료·stale·failed package badge 표시"
+        },
+        {
+          "name": "IncidentTerminalPanel",
+          "responsibility": "incidentId, terminalStatus/closedStatus, closedAt, writeDisabledReason, localPurgeState만 표시하는 sanitized closed/tombstone read-only 상태와 재구독 차단"
+        },
+        {
+          "name": "MarkerDetailPanel",
+          "responsibility": "S5 marker detail/edit/delete panel을 shell layout 안에 배치한다. S3-2는 layout과 query binding만 소유하고 edit/delete mutation은 S5 API 호출로만 수행한다."
+        }
+      ],
+      "state_management": "React Query for snapshot fetch, EventSource reducer for SSE, Zustand for board display state",
+      "map_layers": [
+        {
+          "id": "base_osm_tiles",
+          "source_spec": "S7",
+          "type": "base"
+        },
+        {
+          "id": "map_boundary",
+          "source_spec": "S2",
+          "type": "overlay"
+        },
+        {
+          "id": "search_area",
+          "source_spec": "S2",
+          "type": "feature"
+        },
+        {
+          "id": "device_path",
+          "source_spec": "S3-1",
+          "type": "feature"
+        },
+        {
+          "id": "patrol_car_path",
+          "source_spec": "S3-1",
+          "type": "feature"
+        },
+        {
+          "id": "device_freshness",
+          "source_spec": "S1-2",
+          "type": "feature"
+        },
+        {
+          "id": "marker",
+          "source_spec": "S5",
+          "type": "feature"
+        },
+        {
+          "id": "package_badge",
+          "source_spec": "S7",
+          "type": "overlay"
+        },
+        {
+          "id": "op_comparison_highlight",
+          "source_spec": "S8",
+          "type": "overlay"
+        }
+      ]
+    },
+    "android": {
+      "language": "Kotlin",
+      "min_sdk": 31,
+      "target_sdk": 34,
+      "package": "kr.surimap.board",
+      "screens": [],
+      "room_entities": [],
+      "sync_flow": "S3-2는 Android 현장 입력 UI를 제공하지 않는다. Android는 S7 package status와 S4/FCM/S6 계약을 통해 간접 연동한다."
+    }
+  },
+  "dependencies": {
+    "spec_dependencies": [
+      {
+        "spec": "S1-1",
+        "contract": "incident lifecycle, membership, terminal snapshot",
+        "stub_strategy": "incident OPEN/CLOSED fixture와 membership list fixture",
+        "replaced_by_real_at": "S1-1 incident import/lifecycle contract PASS"
+      },
+      {
+        "spec": "S1-2",
+        "contract": "SecurityContext, incident access guard, Device heartbeat",
+        "stub_strategy": "seed account/device heartbeat fixture with normal/stale/lost cases",
+        "replaced_by_real_at": "S1-2 auth/device heartbeat contract PASS"
+      },
+      {
+        "spec": "S2",
+        "contract": "MapBoundaryQuery, AreaQuery",
+        "stub_strategy": "canonical Polygon fixture with area state versions",
+        "replaced_by_real_at": "S2 geometry and area state harness PASS"
+      },
+      {
+        "spec": "S3-1",
+        "contract": "PathQuery and segment type versions",
+        "stub_strategy": "mixed patrol car/foot path fixture with sequence rollback cases",
+        "replaced_by_real_at": "S3-1 path/session harness PASS"
+      },
+      {
+        "spec": "S4",
+        "contract": "SSE BaseEvent, Last-Event-ID replay, gone_snapshot_required",
+        "stub_strategy": "mock EventSource stream with duplicate, stale, out-of-order, replay gap events",
+        "replaced_by_real_at": "S4 event hub replay harness PASS"
+      },
+      {
+        "spec": "S5",
+        "contract": "MarkerQuery, notification events",
+        "stub_strategy": "marker and toast event fixtures with eventId duplication",
+        "replaced_by_real_at": "S5 marker/photo/notification harness PASS"
+      },
+      {
+        "spec": "S7",
+        "contract": "PackageStatusQuery and MapLibre style URL",
+        "stub_strategy": "package READY/PARTIAL/STALE/FAILED device fixture and local tile style fixture",
+        "replaced_by_real_at": "S7 offline package harness PASS"
+      },
+      {
+        "spec": "S8",
+        "contract": "OperationalPeriodQuery, HandoverMemoQuery, AiSummaryQuery",
+        "stub_strategy": "OP1/OP2 comparison fixture with handover and AI summary failure cases",
+        "replaced_by_real_at": "S8 OP/handover harness PASS"
+      }
+    ],
+    "infra_dependencies": [
+      "PostgreSQL + JSONB read model",
+      "MapLibre GL JS",
+      "tileserver-gl through S7 /tiles only",
+      "S4 SSE EventSource endpoint"
+    ]
+  },
+  "acceptance_criteria": [
+    {
+      "id": "AC-S3-2-01",
+      "fr_refs": [
+        "FR-04"
+      ],
+      "given": "S4 SSE stream sends duplicate PATH_APPENDED with the same eventId",
+      "when": "SituationBoardShell applies the stream",
+      "then": "path row, toast row, map layer, and board_event_application contain only one applied effect for that eventId",
+      "priority": "critical"
+    },
+    {
+      "id": "AC-S3-2-02",
+      "fr_refs": [
+        "FR-04"
+      ],
+      "given": "board snapshot already has entity version 5",
+      "when": "SSE delivers version 4 or lower sequence event",
+      "then": "projector marks the event STALE and the visible board does not regress",
+      "priority": "critical"
+    },
+    {
+      "id": "AC-S3-2-03",
+      "fr_refs": [
+        "FR-04"
+      ],
+      "given": "Last-Event-ID replay is too old or projector detects an event gap",
+      "when": "S4 returns gone_snapshot_required or cursor marks needs_snapshot_reload",
+      "then": "web reloads GET /board/snapshot and converges to the latest snapshot without duplicate UI elements",
+      "priority": "critical"
+    },
+    {
+      "id": "AC-S3-2-04",
+      "fr_refs": [
+        "FR-37",
+        "FR-39"
+      ],
+      "given": "OP1 and OP2 have paths, markers, completed areas, handover memos, and AI summary",
+      "when": "field commander opens OP comparison",
+      "then": "selected OP, current OP, completed OP, original geometry hash, memo links, and summary source links are visible without domain writes; original geometry row and board snapshot geometryHash remain unchanged before and after comparison",
+      "priority": "critical"
+    },
+    {
+      "id": "AC-S3-2-05",
+      "fr_refs": [
+        "FR-24"
+      ],
+      "given": "Device heartbeat timestamps are recent, older than 60 seconds, and older than 5 minutes",
+      "when": "board snapshot renders device_freshness slot",
+      "then": "location dots show normal, stale, and lost states with elapsed-time labels and no separate alert",
+      "priority": "high"
+    },
+    {
+      "id": "AC-S3-2-06",
+      "fr_refs": [
+        "FR-19"
+      ],
+      "given": "S7 package status includes READY, PARTIAL, STALE, and FAILED devices",
+      "when": "board renders package_badge slot",
+      "then": "incomplete or stale devices are visible in team/device list and map badge, while READY devices clear the warning",
+      "priority": "high"
+    },
+    {
+      "id": "AC-S3-2-06A",
+      "fr_refs": [
+        "FR-24"
+      ],
+      "given": "incident_terminal slot indicates CLOSED/PURGE_PENDING/PURGED and DeviceFreshnessQuery still has heartbeat/location rows.",
+      "when": "board snapshot renders closed incident tombstone.",
+      "then": "device_freshness slot returns an empty row set or is not rendered, and the board does not show latest device location, freshness dot, elapsed heartbeat label, or live-location style.",
+      "priority": "critical"
+    },
+    {
+      "id": "AC-S3-2-07",
+      "fr_refs": [
+        "FR-05",
+        "FR-26",
+        "FR-25",
+        "FR-35"
+      ],
+      "given": "current session device, patrol car path, foot path, and marker fixtures exist",
+      "when": "user toggles simple map mode and device/path filters",
+      "then": "display style changes only in board state and source rows, outbox rows, and SSE events are unchanged",
+      "priority": "high"
+    },
+    {
+      "id": "AC-S3-2-08",
+      "fr_refs": [
+        "FR-10",
+        "FR-17"
+      ],
+      "given": "SUPPORT_REQUEST_CREATED and PERSON_FOUND events arrive twice with the same eventId",
+      "when": "toast slot renders alerts",
+      "then": "each alert is shown once and links back to the matching marker row",
+      "priority": "high"
+    },
+    {
+      "id": "AC-S3-2-09",
+      "fr_refs": [
+        "FR-04"
+      ],
+      "given": "incident is closed and terminal/tombstone snapshot is available",
+      "when": "user opens the board or receives INCIDENT_CLOSED",
+      "then": "incident_terminal slot exposes only incidentId, terminalStatus/closedStatus, closedAt, writeDisabledReason, and localPurgeState with id/status/version/sequence/sourceSpec/sourceHash/latestEventId; realtime location, missing person PII, package reload, and stream resubscribe controls are absent",
+      "priority": "critical"
+    },
+    {
+      "id": "AC-S3-2-10",
+      "fr_refs": [
+        "FR-04",
+        "FR-05",
+        "FR-07",
+        "FR-11",
+        "FR-19",
+        "FR-24",
+        "FR-37",
+        "FR-39"
+      ],
+      "given": "BoardAssembler builds every spec/boundaries.md §9.2 slot",
+      "when": "GET /incidents/{incidentId}/board/snapshot returns BoardDTO",
+      "then": "each slot row validates id/status/version/sequence/sourceSpec/sourceHash/latestEventId and slotSources/sourceVersions/sourceHashes provide row-level comparison data, not aggregate-only values",
+      "priority": "critical"
+    },
+    {
+      "id": "AC-S3-2-11",
+      "fr_refs": [
+        "FR-04"
+      ],
+      "given": "REST source write response and SSE payload contain the same id/status/version for a source row",
+      "when": "S4 EventFanout triggers BoardSnapshotProjector.apply",
+      "then": "S3-2 stores APPLIED only for the matching slot/sourceSpec/entityId/status/version/sequence/sourceHash and a stale event cannot overwrite another slot or source row",
+      "priority": "critical"
+    },
+    {
+      "id": "AC-S3-2-12",
+      "fr_refs": [
+        "FR-11",
+        "FR-23",
+        "FR-39"
+      ],
+      "given": "AI summary text or OP comparison UI state proposes missing-area confirmation, risk judgment, next-area direction, or source mutation",
+      "when": "board renders ai_summary or applies OP comparison filters",
+      "then": "forbidden AI summary text is blocked and OP comparison filters remain display-only without changing source geometry/status/version",
+      "priority": "critical"
+    }
+  ],
+  "edge_cases": [
+    "SSE reconnect receives out-of-order events across different slots",
+    "snapshot fetch succeeds but one source slot fixture is temporarily unavailable",
+    "OP comparison includes a closed OP with purged location-sensitive fields",
+    "package_badge event arrives before package status query is refreshed",
+    "heartbeat continues after incident close but board must not show fresh location for closed incident",
+    "MapLibre style loads but tile endpoint returns tile_unavailable",
+    "AI summary is unavailable while handover memo and OP comparison remain usable"
+  ],
+  "error_handling": {
+    "gone_snapshot_required": "Show transient reconnect state, refetch board snapshot, clear event replay buffer after convergence.",
+    "team_not_assigned": "Render access-denied shell without OP/path/marker/memo details.",
+    "channel_not_allowed": "Block non-web board snapshot access and return API error without rendering source data.",
+    "tile_unavailable": "Keep operational overlays visible where possible and show map base layer unavailable state with retry.",
+    "summary_unavailable": "Keep OP comparison and handover memo visible; show AI summary retry affordance owned by S8 action.",
+    "stale_event": "Record STALE in board_event_application and keep current slot state unchanged.",
+    "duplicate_event": "Record DUPLICATE in board_event_application and do not create duplicate row or UI element."
+  },
+  "non_functional_requirements": {
+    "performance": [
+      "GET /board/snapshot p95 target is under 2 seconds for harness fixture size.",
+      "SSE event application should update the visible slot within 3 seconds in online harness.",
+      "OP comparison toggles must not refetch unchanged domain rows when board snapshot already contains selected OP data."
+    ],
+    "security": [
+      "Board snapshot requires web channel, incident access, and location access recording for location-bearing slots.",
+      "Closed incident snapshot must expose only sanitized terminal/tombstone fields allowed by S1-1/S1-3.",
+      "S3-2 must not expose internal purge_run, location_access_log, event_outbox, or notification_delivery internals."
+    ],
+    "observability": [
+      "Expose projector metrics for applied, duplicate, stale, failed, and snapshot_required event counts.",
+      "Log snapshot convergence failures with incidentId, lastEventId, snapshotVersion, and reloadReason.",
+      "Expose board snapshot latency and slot assembly latency per slot."
+    ]
+  },
+  "tdd_red_tests": {
+    "backend": [
+      {
+        "name": "board_snapshot_rejects_unassigned_account",
+        "framework": "JUnit 5 + Spring MVC Test",
+        "scenario": "미배정 계정이 GET /board/snapshot 호출 시 403 team_not_assigned and no BoardDTO source details."
+      },
+      {
+        "name": "projector_deduplicates_event_id",
+        "framework": "JUnit 5 + Testcontainers(PostgreSQL)",
+        "scenario": "same eventId delivered twice results in one slot mutation and DUPLICATE ledger row."
+      },
+      {
+        "name": "projector_ignores_stale_entity_version",
+        "framework": "JUnit 5 + Testcontainers(PostgreSQL)",
+        "scenario": "entity version lower than snapshot sourceVersion is marked STALE and snapshot payload remains unchanged."
+      },
+      {
+        "name": "snapshot_converges_after_replay_gap",
+        "framework": "JUnit 5 + Spring MVC Test",
+        "scenario": "gone_snapshot_required triggers full assembler reload and snapshotVersion advances to latest event version."
+      },
+      {
+        "name": "board_schema_validates_all_section_9_2_slots",
+        "framework": "JUnit 5 + JSON Schema contract test",
+        "scenario": "Mock BoardDTO fixture contains every spec/boundaries.md §9.2 slot and each row validates id/status/version/sequence/sourceSpec/sourceHash/latestEventId with row-level slotSources/sourceVersions/sourceHashes."
+      },
+      {
+        "name": "board_schema_rejects_unknown_slot",
+        "framework": "JUnit 5 + JSON Schema contract test",
+        "scenario": "BoardDTO fixture with an unknown slot key is rejected and BoardSlotRegistry refuses to mount it."
+      },
+      {
+        "name": "source_write_response_converges_to_board_rows_by_slot",
+        "framework": "JUnit 5 + Testcontainers(PostgreSQL)",
+        "scenario": "SC-04 map_boundary/area, SC-05 path/device_freshness, SC-06 marker, SC-08 toast/marker, SC-10 area/op/handover, SC-11 OP comparison/ai_summary, and SC-12 incident_terminal fixtures converge from source write response id/status/version through SSE payload to board snapshot row at the same or higher version."
+      },
+      {
+        "name": "projector_trigger_delay_keeps_stale_snapshot_failed",
+        "framework": "JUnit 5 + Spring MVC Test",
+        "scenario": "REST write commits and S4 trigger is delayed or fails; GET /board/snapshot that still returns a lower slot row version is treated as stale and the red test fails until projector convergence or SNAPSHOT_REQUIRED reload succeeds."
+      },
+      {
+        "name": "projector_ledger_is_scoped_by_slot_source_entity",
+        "framework": "JUnit 5 + Testcontainers(PostgreSQL)",
+        "scenario": "A stale event with the same entityId but older status/version/sequence/sourceHash for one slot/sourceSpec cannot overwrite another slot/sourceSpec row."
+      },
+      {
+        "name": "op_comparison_preserves_original_geometry_hash",
+        "framework": "JUnit 5 + Spring MVC Test",
+        "scenario": "SC-11 OP comparison before/after reads preserve source geometry rows and board snapshot geometryHash; render simplification output is not written to source geometry/status/version."
+      },
+      {
+        "name": "incident_terminal_snapshot_is_sanitized",
+        "framework": "JUnit 5 + Spring MVC Test",
+        "scenario": "closed incident BoardDTO contains incident_terminal with only incidentId, terminalStatus/closedStatus, closedAt, writeDisabledReason, localPurgeState, and row cursor fields; no missing person PII, live path, package reload, or stream resubscribe hint."
+      },
+      {
+        "name": "closed_incident_hides_device_freshness_slot",
+        "framework": "JUnit 5 + Spring MVC Test",
+        "scenario": "closed incident BoardDTO has incident_terminal CLOSED/PURGE_PENDING/PURGED and either empty device_freshness rows or no rendered device_freshness slot; latest device location, freshness dot, elapsed heartbeat label, and live-location style are absent even if heartbeat rows exist."
+      }
+    ],
+    "web": [
+      {
+        "name": "situation_board_mounts_registered_slots_only",
+        "framework": "Vitest + React Testing Library",
+        "scenario": "BoardSlotHost mounts every §9.2 slot from registry and rejects unknown slot injection."
+      },
+      {
+        "name": "op_comparison_does_not_mutate_source_geometry",
+        "framework": "Playwright",
+        "scenario": "Toggling OP1/OP2 changes visible styles but no write API, outbox fixture, new SSE event, source geometry/status/version change, or board geometryHash change is observed."
+      },
+      {
+        "name": "ai_summary_blocks_automatic_judgment_text",
+        "framework": "Vitest + React Testing Library",
+        "scenario": "SC-11 AI summary fixture containing missing-area confirmation, risk judgment, or next-area direction is blocked while OP comparison remains usable."
+      },
+      {
+        "name": "device_freshness_renders_normal_stale_lost",
+        "framework": "Vitest + React Testing Library",
+        "scenario": "heartbeat ages render expected color class, outline, and elapsed label."
+      },
+      {
+        "name": "closed_board_does_not_render_freshness_or_live_location",
+        "framework": "Vitest + React Testing Library",
+        "scenario": "terminal/tombstone BoardDTO renders incident_terminal only and does not render device freshness dots, elapsed heartbeat labels, latest location marker, or live-location styling."
+      },
+      {
+        "name": "package_badge_shows_incomplete_devices",
+        "framework": "Playwright",
+        "scenario": "PARTIAL/STALE/FAILED statuses render badges on map and device list; READY removes warning."
+      },
+      {
+        "name": "duplicate_toast_event_is_rendered_once",
+        "framework": "Vitest + React Testing Library",
+        "scenario": "duplicate SUPPORT_REQUEST_CREATED eventId does not create duplicate toast or marker highlight."
+      }
+    ],
+    "android": [
+      {
+        "name": "no_android_board_owner_surface",
+        "framework": "Static contract test",
+        "scenario": "S3-2 declares no Android write screen or Room entity; Android board-related state is consumed through S7/S6/S4 contracts."
+      }
+    ]
+  },
+  "harness_fixtures": {
+    "board_snapshot_base": {
+      "incidentId": "inc-precinct-first-001",
+      "boardSnapshotId": "bs-inc-precinct-first-001-v1200",
+      "snapshotVersion": 1200,
+      "serverTs": "2026-04-28T10:30:00+09:00",
+      "expected": "Every slot row below must appear in BoardDTO.slotSources/sourceVersions/sourceHashes with id/status/version/sequence/sourceSpec/sourceHash/latestEventId and BoardDTO snapshotVersion >= the row version."
+    },
+    "slot_rows": [
+      {
+        "slot": "map_boundary",
+        "sourceSpec": "S2",
+        "sourceResponseId": "mb-precinct-001-v1",
+        "boardRowId": "board-map-boundary-inc-precinct-first-001",
+        "status": "ACTIVE",
+        "version": 2,
+        "sequence": 401,
+        "latestEventId": "evt-s2-boundary-001",
+        "sourceHash": "hash-s2-boundary-v2"
+      },
+      {
+        "slot": "area",
+        "sourceSpec": "S2",
+        "sourceResponseId": "area-precinct-a1",
+        "boardRowId": "board-area-precinct-a1",
+        "status": "ASSIGNED",
+        "version": 1,
+        "sequence": 402,
+        "latestEventId": "evt-s2-area-created-001",
+        "sourceHash": "hash-s2-area-a1-v1"
+      },
+      {
+        "slot": "path",
+        "sourceSpec": "S3-1",
+        "sourceResponseId": "path-precinct-mixed-001",
+        "boardRowId": "board-path-precinct-mixed-001",
+        "status": "ACTIVE",
+        "version": 2,
+        "sequence": 502,
+        "latestEventId": "evt-s3-path-appended-001",
+        "sourceHash": "hash-s3-path-mixed-v2"
+      },
+      {
+        "slot": "device_freshness",
+        "sourceSpec": "S1-2",
+        "sourceResponseId": "dev-precinct-car-01",
+        "boardRowId": "board-device-freshness-dev-precinct-car-01",
+        "status": "ONLINE",
+        "version": 4,
+        "sequence": 504,
+        "latestEventId": "evt-s1-2-heartbeat-001",
+        "sourceHash": "hash-s1-2-dev-precinct-car-v4"
+      },
+      {
+        "slot": "marker",
+        "sourceSpec": "S5",
+        "sourceResponseId": "mk-precinct-clue-001",
+        "boardRowId": "board-marker-mk-precinct-clue-001",
+        "status": "ACTIVE",
+        "version": 1,
+        "sequence": 601,
+        "latestEventId": "evt-s5-marker-created-001",
+        "sourceHash": "hash-s5-marker-clue-v1"
+      },
+      {
+        "slot": "toast",
+        "sourceSpec": "S5",
+        "sourceResponseId": "support-request-precinct-001",
+        "boardRowId": "board-toast-support-request-precinct-001",
+        "status": "VISIBLE",
+        "version": 1,
+        "sequence": 602,
+        "latestEventId": "evt-s5-support-request-001",
+        "sourceHash": "hash-s5-toast-support-v1"
+      },
+      {
+        "slot": "package_badge",
+        "sourceSpec": "S7",
+        "sourceResponseId": "pkg-inc-precinct-first-001",
+        "boardRowId": "board-package-inc-precinct-first-001",
+        "status": "STALE",
+        "version": 3,
+        "sequence": 701,
+        "latestEventId": "evt-s7-package-status-001",
+        "sourceHash": "hash-s7-package-v3"
+      },
+      {
+        "slot": "op_toggle",
+        "sourceSpec": "S8",
+        "sourceResponseId": "op-precinct-001-op1",
+        "boardRowId": "board-op-toggle-op-precinct-001-op1",
+        "status": "ACTIVE",
+        "version": 1,
+        "sequence": 801,
+        "latestEventId": "evt-s8-op-transition-001",
+        "sourceHash": "hash-s8-op1-v1"
+      },
+      {
+        "slot": "op_history",
+        "sourceSpec": "S8",
+        "sourceResponseId": "op-precinct-001-op2",
+        "boardRowId": "board-op-history-op-precinct-001-op2",
+        "status": "OPENED",
+        "version": 2,
+        "sequence": 802,
+        "latestEventId": "evt-s8-op-transition-001",
+        "sourceHash": "hash-s8-op2-v2"
+      },
+      {
+        "slot": "handover_memo",
+        "sourceSpec": "S8",
+        "sourceResponseId": "memo-precinct-handover-001",
+        "boardRowId": "board-handover-memo-precinct-001",
+        "status": "ACTIVE",
+        "version": 1,
+        "sequence": 803,
+        "latestEventId": "evt-s8-handover-created-001",
+        "sourceHash": "hash-s8-handover-memo-v1"
+      },
+      {
+        "slot": "handover_status",
+        "sourceSpec": "S8",
+        "sourceResponseId": "handover-status-inc-precinct-first-001",
+        "boardRowId": "board-handover-status-inc-precinct-first-001",
+        "status": "READY",
+        "version": 2,
+        "sequence": 804,
+        "latestEventId": "evt-s8-handover-created-001",
+        "sourceHash": "hash-s8-handover-status-v2"
+      },
+      {
+        "slot": "ai_summary",
+        "sourceSpec": "S8",
+        "sourceResponseId": "ai-summary-op-precinct-001-op2",
+        "boardRowId": "board-ai-summary-op-precinct-001-op2",
+        "status": "READY",
+        "version": 1,
+        "sequence": 805,
+        "latestEventId": "evt-s8-ai-summary-ready-001",
+        "sourceHash": "hash-s8-ai-summary-v1"
+      },
+      {
+        "slot": "incident_terminal",
+        "sourceSpec": "S1-1",
+        "sourceResponseId": "inc-precinct-first-001",
+        "boardRowId": "board-incident-terminal-inc-precinct-first-001",
+        "status": "CLOSED",
+        "version": 9,
+        "sequence": 901,
+        "latestEventId": "evt-s1-1-incident-closed-001",
+        "sourceHash": "hash-s1-terminal-v9",
+        "tombstoneSourceSpec": "S1-3",
+        "tombstoneResponseId": "tombstone-inc-precinct-first-001"
+      }
+    ],
+    "projection_failure_fixtures": {
+      "duplicate_event": {
+        "eventId": "evt-s5-support-request-001",
+        "slot": "toast",
+        "entityId": "support-request-precinct-001",
+        "expectedLedgerStatus": "DUPLICATE",
+        "expectedBoardRowCount": 1
+      },
+      "stale_lower_version": {
+        "eventId": "evt-s3-path-appended-stale-001",
+        "slot": "path",
+        "entityId": "path-precinct-mixed-001",
+        "version": 1,
+        "sequence": 501,
+        "currentVersion": 2,
+        "currentSequence": 502,
+        "expectedLedgerStatus": "STALE"
+      },
+      "missing_predecessor": {
+        "eventId": "evt-s3-path-appended-gap-003",
+        "slot": "path",
+        "entityId": "path-precinct-mixed-001",
+        "sequence": 505,
+        "cursorLastSequence": 502,
+        "expectedLedgerStatus": "SNAPSHOT_REQUIRED",
+        "expectedReloadReason": "MISSING_PREDECESSOR"
+      },
+      "gone_snapshot_required": {
+        "lastEventId": "evt-s4-gap-before-800",
+        "sseResponse": "409 gone_snapshot_required",
+        "expectedCursorState": "SNAPSHOT_REQUIRED",
+        "expectedReloadReason": "GONE_SNAPSHOT_REQUIRED"
+      },
+      "delayed_projector_trigger": {
+        "eventId": "evt-s2-area-state-001",
+        "slot": "area",
+        "entityId": "area-precinct-a1",
+        "sourceResponseVersion": 3,
+        "sourceResponseSequence": 403,
+        "staleSnapshotVersion": 2,
+        "expectedUiState": "PENDING_PROJECTION",
+        "expectedAfterReload": "BoardDTO row version >= 3 and sequence >= 403"
+      }
+    }
+  },
+  "harness_constraints": {
+    "scenario_refs": [
+      "SC-02",
+      "SC-03",
+      "SC-04",
+      "SC-05",
+      "SC-06",
+      "SC-08",
+      "SC-09",
+      "SC-10",
+      "SC-11",
+      "SC-12"
+    ],
+    "preconditions": [
+      "React 18+ SPA + TypeScript (ADR-0014)",
+      "MapLibre GL JS uses only S7 /tiles style and tile endpoints",
+      "S4 BaseEvent includes eventId, incidentId, type, schemaVersion, serverTs, payload; replay ordering uses the SSE id line sequence",
+      "All source payload roots use common id/status/version fields where applicable",
+      "Board shell slots match spec/boundaries.md §9.2 exactly",
+      "BoardDTO, board.schema.json, slotSources, sourceVersions, and sourceHashes use row-level id/status/version/sequence/sourceSpec/sourceHash/latestEventId for every slot row",
+      "S3-2 owns map_boundary and area slot convergence for SC-04 after S2/S8 writes are emitted through S4"
+    ],
+    "forbidden": [
+      "S3-2 domain write API 추가 금지",
+      "S3-2에서 event_outbox, sse_event_log, FCM fanout 직접 소유 금지",
+      "Slot component가 shell routing, page layout, global store 직접 수정 금지",
+      "OP 비교 또는 필터 조작으로 source geometry/status/version 변경 금지",
+      "자동 누락 확정, 위험도 판단, 다음 구역 지시 문구 금지",
+      "AI summary slot에 자동 누락 확정, 위험도 판단, 다음 구역 지시 문구 렌더링 금지",
+      "incident_terminal slot에 PII, live location, package reload, stream resubscribe 노출 금지",
+      "외부 tile host 직접 접근 금지"
+    ],
+    "required_reviews": [
+      "board.schema.json 또는 slot props 변경 시 S3-2, source owner, S4 LGTM",
+      "SSE envelope 변경 시 S4 LGTM",
+      "MapLibre style URL 또는 attribution 표시 변경 시 S7 LGTM",
+      "incident_terminal 노출 필드 변경 시 S1-1/S1-3 LGTM",
+      "OP comparison geometryHash/original preservation 정책 변경 시 S3-2/S3-1/S2/S5 LGTM",
+      "BoardSnapshotProjector trigger input/output/status 변경 시 S3-2/S4 LGTM"
+    ]
+  },
+  "open_issues": [],
+  "status_management": {
+    "current_phase": "phase1_draft",
+    "completed_phases": [
+      "template_sections_populated"
+    ],
+    "error_logs": [],
+    "last_updated": "2026-04-28"
+  },
+  "change_log": [
+    {
+      "date": "2026-04-28",
+      "change": "Phase 1 draft 작성",
+      "reason": "S3-2 Situation Board Shell & Projection spec JSON 초기화"
+    }
+  ]
+}
