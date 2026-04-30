@@ -21,6 +21,9 @@
 - OP/인수인계: OP별 경로·마커·구역 상태·메모·AI 요약 (ADR-0029)
 - 실제 112/실종프로파일링 직접 연동 없음: mock·seed 사건 가져오기 (ADR-0030)
 - ADR 문서 구조: 현재 구현 기준과 archive 분리 (ADR-0032)
+- Persistence Layer: MyBatis 단일 채택 (ADR-0033)
+- AI Summary Provider: OpenAI API + Template fallback (ADR-0034)
+- 잔여 기술 선택: Spring MVC+SseEmitter, Kotlin DSL, npm/Vite, React Router, TanStack Query+Zustand, MinIO dev adapter (ADR-0035)
 
 ## Archive Index
 
@@ -338,8 +341,8 @@ WebSocket은 MVP 범위 외.
 
 ### 검토 필요 항목
 
-- 빌드 도구 (Gradle Kotlin DSL vs Groovy DSL) — 후속 결정
-- 프론트 패키지 매니저 (npm / yarn / pnpm) — 후속 결정
+- 빌드 도구 (Gradle Kotlin DSL vs Groovy DSL) — ADR-0035에서 Kotlin DSL로 확정
+- 프론트 패키지 매니저 (npm / yarn / pnpm) — ADR-0035에서 npm으로 확정
 
 ---
 
@@ -373,8 +376,8 @@ WebSocket은 MVP 범위 외.
 
 ### 검토 필요 항목
 
-- 라우터 선택 (React Router) — Spec 단계
-- 상태 관리 (Redux Toolkit / Zustand / React Query 중) — Spec 단계
+- 라우터 선택 — ADR-0035에서 React Router로 확정
+- 상태 관리 — ADR-0035에서 TanStack Query(React Query) + Zustand로 확정
 
 ---
 
@@ -686,3 +689,101 @@ PRD v3 반영으로 대체된 ADR이 많아지면서 `adr.md` 하나에 현재 �
 - **+** 구현자가 현재 기준만 빠르게 읽을 수 있다.
 - **+** 과거 의사결정 기록은 유지된다.
 - **−** ADR 번호 순서와 파일 내 위치가 완전히 일치하지 않으므로 archive index 관리가 필요하다.
+
+---
+
+## ADR-0033. Persistence Layer로 MyBatis 단일 채택
+
+- **Status**: Accepted
+- **Date**: 2026-04-30
+
+### Context
+
+Suri-Map은 PostgreSQL + PostGIS를 핵심 저장소로 사용한다. 지도 기준 범위, 수색 구역, 수색 경로, 경로 구간, 마커는 LineString/Polygon/Point 계열 geometry를 저장하고, 상황판과 오프라인 패키지는 bbox, OP별 필터, board projection/read model 쿼리를 반복적으로 사용한다.
+
+5주 MVP에서 JPA + Hibernate Spatial을 도입하면 공간 타입 매핑, native query 혼용, lazy loading/transaction 경계, projection 쿼리 복잡도가 동시에 발생한다. JPA와 MyBatis를 섞는 하이브리드도 단순 CRUD에는 편하지만 6명이 수직 슬라이스로 개발하는 조건에서는 mapper/entity/repository 규칙이 이중화된다.
+
+### Decision
+
+- 백엔드 persistence layer는 MyBatis 단일로 구현한다.
+- MVP 범위에서는 Spring Data JPA/Hibernate ORM을 도입하지 않는다.
+- SQL은 mapper interface + XML mapper를 기본으로 관리한다. 복잡한 PostGIS 쿼리, board read model, outbox/idempotency 조회는 명시적 SQL로 작성한다.
+- Flyway가 schema 변경의 기준이며, MyBatis mapper는 Flyway schema와 `spec/specs/*.json`의 entity 계약을 따라간다.
+- PostGIS geometry는 공용 TypeHandler로 매핑한다. 도메인 내부 표현은 JTS Geometry 또는 명시적 GeoJSON DTO로 제한하고, API/board/package 계약에서는 spec의 GeoJSON shape를 유지한다.
+- Service layer transaction은 Spring `@Transactional`을 사용한다. domain row와 publish request/outbox 관련 처리는 같은 transaction 경계 안에서 명시적으로 검증한다.
+- Mapper 패키지는 Spec 또는 수직 슬라이스 단위로 나누되, 다른 Spec 소유 table을 직접 write하지 않는다.
+
+### Consequences
+
+- **+** PostGIS 함수, bbox 필터, spatial index 사용, board projection 쿼리를 SQL로 직접 제어할 수 있다.
+- **+** persistence 기술이 하나로 고정되어 6명 병렬 개발 시 리뷰 기준이 단순해진다.
+- **+** JPA/Hibernate Spatial 학습과 native query 혼용 비용을 피한다.
+- **+** outbox, idempotency, projection read model처럼 명시적 SQL이 필요한 경계와 잘 맞는다.
+- **−** 단순 CRUD도 mapper/XML을 작성해야 하므로 boilerplate가 늘어난다.
+- **−** 객체 그래프 자동 추적이 없으므로 service layer에서 write 순서와 transaction 경계를 명확히 관리해야 한다.
+- **−** geometry TypeHandler와 mapper test 기반을 Phase -1에서 먼저 안정화해야 한다.
+
+---
+
+## ADR-0034. AI Summary Provider로 OpenAI API 채택
+
+- **Status**: Accepted
+- **Date**: 2026-04-30
+
+### Context
+
+Suri-Map MVP는 평가 포인트상 실제 AI 기능을 최소 1개 이상 포함해야 한다. PRD v3에서 남은 AI 범위는 수색 보고서 자동 작성이 아니라 OP 기반 수색 이력 요약(FR-39)이며, FR-23에 따라 누락 구역 확정, 다음 수색 구역 추천, 위험도 판단은 금지된다.
+
+단순 템플릿 요약만으로는 AI 기능 구현으로 보기 어렵다. 반대로 AI 출력이 지휘 판단을 대체하거나 공개 API 계약을 흔들면 기존 Spec과 시나리오 계약이 불안정해진다.
+
+### Decision
+
+- S8 AI Summary MVP의 기본 provider는 **OpenAI API**로 한다.
+- 백엔드는 `AiSummaryPort`를 두고 `OpenAiSummaryAdapter`를 기본 구현으로 사용한다.
+- OpenAI 응답은 Structured Outputs 또는 동등한 JSON schema 검증 방식으로 제한한다.
+- OpenAI 호출 실패, timeout, schema validation 실패, 금지 문구 검출 시 `TemplateSummaryAdapter` fallback 또는 `summary_unavailable`로 처리한다.
+- AI summary input은 Suri-Map 내부 OP/path/marker/area/handover memo 기록에서 만든 최소화된 source snapshot으로 제한한다.
+- AI summary output은 저장 전 guard를 통과해야 하며, 추천·누락 확정·위험도 판단·다음 구역 지시 표현은 저장하지 않는다.
+- OpenAI API key와 model명은 환경 변수 또는 secret으로 주입하고 코드·fixture·로그에 남기지 않는다.
+- 공개 REST response, `AI_SUMMARY_READY` event payload, board `ai_summary` slot 계약은 S8 Spec을 유지한다. Provider 정보는 필요한 경우 내부 로그·메트릭·운영 evidence로만 다룬다.
+
+### Consequences
+
+- **+** MVP에서 실제 외부 AI 호출 기반 happy path를 구현할 수 있다.
+- **+** `AiSummaryPort` 경계 덕분에 OpenAI 장애나 비용 이슈가 있어도 template fallback과 mock adapter로 테스트 가능하다.
+- **+** Structured output과 guard를 통해 FR-23 금지 판단을 저장 전에 차단할 수 있다.
+- **−** OpenAI API key 발급, 사용량 제한, timeout/retry 정책, 네트워크 장애 처리가 필요하다.
+- **−** 시연 환경에서 외부망/API quota 문제가 있으면 fallback 시연만 남을 수 있으므로 happy path evidence를 사전에 확보해야 한다.
+
+---
+
+## ADR-0035. 잔여 런타임·프론트·개발 어댑터 기술 선택 확정
+
+- **Status**: Accepted
+- **Date**: 2026-04-30
+
+### Context
+
+ADR-0013과 ADR-0014는 큰 축인 JDK 17, Spring Boot 3.x, Kotlin Android, React SPA를 확정했지만 Gradle DSL, 프론트 패키지 매니저, router/state management, SSE 구현 방식, 개발용 object storage adapter가 후속 결정으로 남아 있었다.
+
+팀원 대부분이 npm 경험만 있고, 5주 MVP에서는 기술 선택을 줄여야 한다. S4 SSE는 WebFlux 도입 근거가 없고, S5 사진 업로드는 운영 S3와 같은 계약을 개발 단계에서도 재현할 수 있어야 한다.
+
+### Decision
+
+- Backend web stack은 Spring MVC 중심으로 구현한다.
+- SSE endpoint는 Spring MVC `SseEmitter` 기반으로 구현하고 WebFlux는 MVP 범위에서 도입하지 않는다.
+- Gradle DSL은 Kotlin DSL로 통일한다.
+- Frontend package manager는 npm으로 통일하고, build tool은 Vite를 사용한다.
+- Web router는 React Router를 사용한다.
+- Web server state는 TanStack Query(React Query), board display/client state는 Zustand를 사용한다.
+- 개발·하네스 object storage adapter는 MinIO(S3-compatible)를 기본으로 하고, harness는 mock object storage/presigned upload fixture를 사용한다. 운영 배포는 S3-compatible port를 통해 S3로 전환한다.
+- Android public baseline은 AGP 8.13.x, minSdk 31, targetSdk 34를 유지하고, 테스트는 Robolectric + real-device smoke를 기준으로 한다.
+
+### Consequences
+
+- **+** 팀 경험과 현재 Spec의 React Query/Zustand 전제를 맞춘다.
+- **+** SSE 구현이 Spring MVC 하나로 고정되어 S4 테스트와 bootstrap 기준이 단순해진다.
+- **+** MinIO를 통해 운영 S3와 같은 presigned/object key 계약을 개발 환경에서 검증할 수 있다.
+- **−** WebFlux 기반 backpressure/리액티브 스트림은 MVP에서 사용하지 않는다.
+- **−** pnpm/yarn의 workspace 성능 이점은 포기한다.
+- **−** Android compileSdk/AGP 세부 patch version은 로컬 SDK 설치 가능성에 맞춰 bootstrap에서 검증해야 한다.

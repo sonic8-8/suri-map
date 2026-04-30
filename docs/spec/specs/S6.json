@@ -1,0 +1,1880 @@
+{
+  "$schema": "../_template.schema.json",
+  "spec_info": {
+    "id": "S6",
+    "name": "Offline Sync & Local Warnings",
+    "owner": "4",
+    "character": "cross_cutting",
+    "created": "2026-04-28",
+    "updated": "2026-04-28"
+  },
+  "context_refs": {
+    "prd": [
+      "§1.4 통신 불안정을 전제로 한 오프라인 저장 + 복구 동기화",
+      "§2.2 오프라인 30분 후 통신 복구 시 경로 포인트 유실 0건",
+      "§5.1 시범 시나리오 7 통신 단절",
+      "§5.1 시범 시나리오 9 통신 복구",
+      "§5.1 시범 시나리오 12 사건 종료",
+      "§7.2 FR-03 오프라인 기록",
+      "§7.6 FR-28 미전송 큐",
+      "§7.6 FR-29 로컬 경고"
+    ],
+    "architecture": [
+      "§1 핵심 원칙",
+      "§3.2 오프라인 우선 스택",
+      "§3.3 동기화 흐름",
+      "§3.4 충돌 정책",
+      "§3.5 오프라인 UX 보강",
+      "§8.1 위치·경로 좌표 파기"
+    ],
+    "adr": [
+      "ADR-0003",
+      "ADR-0012",
+      "ADR-0020",
+      "ADR-0028",
+      "ADR-0035"
+    ],
+    "boundaries": "spec/boundaries.md §3 S6, §4.1, §4.3, §4.5, §6, §7, §8",
+    "harness": [
+      "SC-05 수색 세션·Device GPS 경로",
+      "SC-06 현장 마커 생성",
+      "SC-07 통신 단절 중 로컬 기록",
+      "SC-08 지원 요청·실종자 발견 알림",
+      "SC-09 통신 복구·동기화",
+      "SC-12 사건 종료·캐시 파기"
+    ]
+  },
+  "scope": {
+    "included": [
+      "Android Room/SQLite local store contract for pending field writes",
+      "Android Outbox row schema, retry state, WorkManager flush policy",
+      "SyncClient.enqueue(writeOperation) shared client API",
+      "Server-side @IdempotentWrite middleware and idempotency response replay",
+      "POST /sync/clock for client_ts/server_ts/clock_offset_ms calibration",
+      "POST /sync/outbox/requeue for local scheduler retry diagnostics",
+      "Deterministic close/purge policy for pre-close Outbox rows, post-close requeue rejection, retained tombstones, and ack-only local deletion",
+      "Idempotency response replay cache fields on sync_event, including replay DTO body/status/content type/schema version/entity identity",
+      "Replay ordering keys, dependency groups, retry/backoff constants, final failure matrix, and deterministic harness mode",
+      "미전송 큐 dashboard state and sync progress model",
+      "GPS 중단, 배터리 저하, 지도 미다운로드, 장시간 오프라인 local warning monitor",
+      "incident close/purge 수신 시 local flush, local delete, package/cache purge hook orchestration input"
+    ],
+    "excluded": [
+      {
+        "item": "search_session, search_path, path_segment domain CRUD",
+        "owner": "S3-1",
+        "reason": "S6는 path writeOperation을 큐잉·재전송할 뿐 도메인 row를 소유하지 않는다."
+      },
+      {
+        "item": "marker, photo, notification domain CRUD",
+        "owner": "S5",
+        "reason": "S6는 marker/photo writeOperation replay 기반만 제공한다."
+      },
+      {
+        "item": "offline_package_manifest/status와 tile download",
+        "owner": "S7",
+        "reason": "S6는 S7 package status를 local warning input으로 소비한다."
+      },
+      {
+        "item": "SSE fanout, event_outbox, replay log",
+        "owner": "S4",
+        "reason": "S6 Outbox는 Android/server write retry boundary이며 realtime fanout owner가 아니다."
+      },
+      {
+        "item": "FCM adapter와 notification recipient/payload 계산",
+        "owner": "S5",
+        "reason": "S6는 local sync warning과 write retry만 소유한다."
+      },
+      {
+        "item": "사건 종료와 purge run authoritative orchestration",
+        "owner": "S1-3",
+        "reason": "S6는 LocalSyncPurgeHook을 제공하고 local side effect를 수행한다."
+      }
+    ]
+  },
+  "fr_mapping": [
+    {
+      "id": "FR-03",
+      "summary": "통신 단절 시 단말에서 위치·마커를 유지하고, 복구 후 동기화한다.",
+      "handling": "Room local store에 먼저 저장하고 OutboxRow를 생성한 뒤 WorkManager가 네트워크 복구 시 idempotency key로 replay한다."
+    },
+    {
+      "id": "FR-28",
+      "summary": "현장 사용자가 미전송 기록 상태와 동기화 진행 상황을 확인한다.",
+      "handling": "Outbox status, attemptCount, userSafeFailureCategory, pending item count/type summary를 Android 미전송 큐 dashboard state로 제공하고 raw lastError는 internal diagnostic으로만 보관한다."
+    },
+    {
+      "id": "FR-29",
+      "summary": "서버 연결 없이 GPS 중단, 배터리 저하, 지도 미다운로드 상황을 로컬 경고한다.",
+      "handling": "LocalWarningMonitor가 GPS provider, battery state, S7 package availability, network age를 local-only signal로 감지한다."
+    }
+  ],
+  "sync_contracts": {
+    "write_operation_schema": {
+      "required_fields": [
+        "operationId",
+        "incidentId",
+        "deviceId",
+        "dependencyGroup",
+        "sequence",
+        "method",
+        "endpoint",
+        "payload",
+        "bodyHash",
+        "idempotencyKey",
+        "clientTs",
+        "clockOffsetMs",
+        "clockSyncedAt"
+      ],
+      "optional_fields": [
+        "opId",
+        "entityId",
+        "entityType",
+        "parentOperationId"
+      ],
+      "clock_policy": {
+        "maxAllowedSkewMs": 30000,
+        "staleClockSyncAfterMs": 300000,
+        "enqueue_rule": "clockOffsetMs와 clockSyncedAt이 없거나 clockSyncedAt이 5분보다 오래됐으면 POST /sync/clock 성공 전 SENDING 전이를 금지한다.",
+        "server_rule": "domain write의 clientTs + clockOffsetMs가 server receive time 기준 30초를 초과해 벗어나면 409 clock_skew_exceeded를 반환하고 row는 FAILED_RETRYABLE로 남긴다."
+      }
+    },
+    "outbox_status_mapping": {
+      "s6_statuses": [
+        "PENDING",
+        "SENDING",
+        "ACKED",
+        "FAILED_RETRYABLE",
+        "FAILED_FINAL",
+        "PURGED"
+      ],
+      "android_harness_terms": [
+        {
+          "harness_status": "PENDING_LOCAL",
+          "maps_to": "PENDING",
+          "meaning": "Room domain draft and Outbox row are durable locally, but network/backoff/clock/package dependency prevents send eligibility."
+        },
+        {
+          "harness_status": "PENDING_SEND",
+          "maps_to": "PENDING",
+          "meaning": "Outbox row is eligible for the next flush because dependencyGroup predecessors are ACKED and nextAttemptAt is due."
+        },
+        {
+          "harness_status": "SENDING",
+          "maps_to": "SENDING",
+          "meaning": "WorkManager owns an in-flight HTTP attempt for this operation."
+        },
+        {
+          "harness_status": "SYNCED",
+          "maps_to": "ACKED",
+          "meaning": "Server accepted or replayed the write and local serverAckTs is recorded."
+        },
+        {
+          "harness_status": "FAILED",
+          "maps_to": "FAILED_RETRYABLE|FAILED_FINAL",
+          "meaning": "Dashboard must display the specific S6 status and userSafeFailureCategory; raw lastError remains internal/local diagnostic only."
+        },
+        {
+          "harness_status": "PURGED",
+          "maps_to": "PURGED",
+          "meaning": "ACKED row and local mirrored payload were removed by local retention cleanup or INCIDENT_PURGED."
+        }
+      ]
+    },
+    "ordering_policy": {
+      "replay_order_key": [
+        "incidentId",
+        "deviceId",
+        "dependencyGroupPriority",
+        "sequence",
+        "operationId"
+      ],
+      "dependency_groups": [
+        {
+          "name": "SESSION",
+          "priority": 10,
+          "blocks": [
+            "PATH"
+          ],
+          "examples": [
+            "POST /search-sessions",
+            "PATCH /search-sessions/{sessionId}"
+          ]
+        },
+        {
+          "name": "PATH",
+          "priority": 20,
+          "blocks": [],
+          "examples": [
+            "POST /search-paths/batch"
+          ]
+        },
+        {
+          "name": "MARKER",
+          "priority": 30,
+          "blocks": [
+            "PHOTO"
+          ],
+          "examples": [
+            "POST /markers",
+            "PATCH /markers/{markerId}",
+            "DELETE /markers/{markerId}"
+          ]
+        },
+        {
+          "name": "PHOTO",
+          "priority": 40,
+          "blocks": [],
+          "examples": [
+            "POST /markers/{markerId}/photos/{photoId}/finalize"
+          ]
+        },
+        {
+          "name": "PACKAGE_STATUS",
+          "priority": 50,
+          "blocks": [],
+          "examples": [
+            "POST /incidents/{incidentId}/offline-package/status"
+          ]
+        }
+      ],
+      "partial_failure_rule": "A retryable failure blocks only rows in the same dependency chain that name the failed operation as parentOperationId or depend on its group predecessor; unrelated groups continue flushing in replay_order_key order.",
+      "sequence_rule": "sequence is monotonic per incidentId+deviceId and never reused after ACKED or FAILED_FINAL."
+    },
+    "retry_policy": {
+      "baseDelayMs": 10000,
+      "multiplier": 2.0,
+      "maxDelayMs": 300000,
+      "jitter": {
+        "production": "Apply +/-20% deterministic jitter from stable hash(operationId, attemptCount).",
+        "harness": "Set jitter to 0ms when X-Suri-Harness-Deterministic: true or build flavor HARNESS is active."
+      },
+      "finalThreshold": {
+        "maxAttempts": 8,
+        "maxElapsedMs": 86400000,
+        "rule": "Row becomes FAILED_FINAL when maxAttempts is reached or firstAttemptAt is older than 24h, except retryAfter from 429 may extend nextAttemptAt but not maxAttempts."
+      },
+      "retryable_errors": [
+        "network_unavailable",
+        "low_connectivity_timeout",
+        "http_408",
+        "http_429",
+        "http_500",
+        "http_502",
+        "http_503",
+        "http_504",
+        "clock_skew_exceeded_after_resync"
+      ],
+      "final_errors": [
+        "invalid_payload",
+        "body_hash_mismatch",
+        "idempotency_mismatch",
+        "device_not_registered",
+        "device_not_assigned",
+        "channel_not_allowed",
+        "role_denied",
+        "write_conflict",
+        "operation_dependency_missing",
+        "post_close_requeue_rejected"
+      ]
+    },
+    "close_purge_policy": {
+      "close_cutoff": "INCIDENT_CLOSED.serverTs is the cutoff for distinguishing pre-close local rows from post-close attempts.",
+      "pre_close_row": "A row enqueued before the device processes INCIDENT_CLOSED may run one close-drain flush if it was eligible or already in-flight before close processing. After that, manual requeue is blocked; any unacked remainder stays visible as LOCAL_DELETE_PENDING for S1-3 purge accounting.",
+      "post_close_requeue": "Rows created after close processing, rows with adjusted clientTs > close_cutoff, and manual requeue attempts for closed incidents are not sent to domain endpoints; they transition to FAILED_FINAL with internal lastError=post_close_requeue_rejected while public API responses use incident_closed.",
+      "purge_rule": "Local purge transitions ACKED rows and their local mirrored payloads to PURGED only. It does not silently delete unacked field data.",
+      "retained_row_visibility": "Remaining FAILED_RETRYABLE/FAILED_FINAL rows stay visible in the 미전송 큐 with LOCAL_DELETE_PENDING until S1-3 retention policy explicitly resolves them."
+    },
+    "idempotency_replay_policy": {
+      "cache_key": [
+        "idempotencyKey",
+        "bodyHash"
+      ],
+      "retentionWindowMs": 86400000,
+      "response_cache_required_fields": [
+        "responseStatus",
+        "responseBodyJson",
+        "responseContentType",
+        "responseSchemaVersion",
+        "entityId",
+        "entityStatus",
+        "entityVersion",
+        "entitySequence"
+      ],
+      "domain_committed_cache_missing_recovery": "If sync_event is COMMITTED but responseBodyJson is missing, S6 calls the owning domain replay recovery port by endpoint+operationId+entityId. If the owner returns a DTO with matching entityVersion/entitySequence, S6 fills the response cache and returns 200/201 with replayRecovered=true; otherwise the client receives 409 write_conflict and keeps FAILED_RETRYABLE."
+    },
+    "local_warning_thresholds": {
+      "GPS_STOPPED": {
+        "raise_after_ms": 15000,
+        "clear_after_consecutive_fixes": 2,
+        "clear_max_fix_age_ms": 10000
+      },
+      "BATTERY_LOW": {
+        "raise_below_percent": 20,
+        "raise_when_not_charging": true,
+        "clear_at_or_above_percent": 25
+      },
+      "PACKAGE_MISSING": {
+        "raise_when": "S7 package status is MISSING, STALE, EXPIRED, or any required item failed",
+        "clear_when": "S7 package status is COMPLETE for the active manifestVersion"
+      },
+      "OFFLINE_RECORDING": {
+        "raise_after_ms": 60000,
+        "clear_after_successful_sync": true
+      },
+      "OUTBOX_BACKLOG": {
+        "raise_when_pending_count_greater_than": 10,
+        "clear_when_pending_count_at_or_below": 3
+      },
+      "LOCAL_DELETE_PENDING": {
+        "raise_when": "incident closed or purged and retained rows exist",
+        "clear_when": "no retained rows remain for incidentId"
+      }
+    },
+    "public_error_boundary": {
+      "rule": "android_outbox_row.last_error and retry_policy final_errors are internal/local classification values. Public REST error bodies must use boundaries.md §4.1 catalog codes only."
+    },
+    "failure_display_policy": {
+      "rawLastErrorVisibility": "internal/local diagnostics only",
+      "userSafeCategories": {
+        "CLOCK_RESYNC_REQUIRED": "clock_skew_exceeded or stale clock sync; show /sync/clock retry CTA",
+        "NON_RETRYABLE_CONFLICT": "idempotency_mismatch, invalid_payload, body_hash_mismatch, write_conflict; stop automatic retry and ask user review",
+        "DEVICE_ACCESS_REQUIRED": "device_required, device_not_registered, device_not_assigned; show device/session repair guidance",
+        "CLOSED_NO_RETRY": "incident_closed or post_close_requeue_rejected; mark final failure with no retry CTA",
+        "RETRYABLE_NETWORK": "network_unavailable, timeout, 408/429/5xx; show nextAttemptAt and retry count"
+      }
+    }
+  },
+  "domain_model": {
+    "entities": [
+      {
+        "name": "sync_event",
+        "owner_spec": "S6",
+        "description": "서버 idempotency reserve/cache와 Android ack 추적을 연결하는 동기화 이벤트 기록.",
+        "fields": [
+          {
+            "name": "id",
+            "type": "UUID",
+            "nullable": false,
+            "pk": true
+          },
+          {
+            "name": "operation_id",
+            "type": "UUID",
+            "nullable": true,
+            "note": "Android Outbox operationId when request came from SyncClient. Null for WEB/INTERNAL write-common requests handled only by @IdempotentWrite."
+          },
+          {
+            "name": "incident_id",
+            "type": "UUID",
+            "nullable": true
+          },
+          {
+            "name": "device_id",
+            "type": "UUID",
+            "nullable": true,
+            "note": "Required for APP/Outbox writes. Null for WEB/INTERNAL write-common requests."
+          },
+          {
+            "name": "idempotency_key",
+            "type": "VARCHAR(120)",
+            "nullable": false
+          },
+          {
+            "name": "body_hash",
+            "type": "VARCHAR(128)",
+            "nullable": false
+          },
+          {
+            "name": "endpoint",
+            "type": "VARCHAR(255)",
+            "nullable": false
+          },
+          {
+            "name": "method",
+            "type": "VARCHAR(12)",
+            "nullable": false
+          },
+          {
+            "name": "status",
+            "type": "VARCHAR(32)",
+            "nullable": false,
+            "note": "RESERVED|COMMITTED|REPLAYED|RECOVERED_REPLAY|MISMATCH|COMMITTED_RESPONSE_MISSING|EXPIRED|PURGED"
+          },
+          {
+            "name": "response_status",
+            "type": "INTEGER",
+            "nullable": true
+          },
+          {
+            "name": "response_body_json",
+            "type": "JSONB",
+            "nullable": true,
+            "note": "Full replay DTO body for idempotent response replay; secrets/photos are represented by owner DTO references only."
+          },
+          {
+            "name": "response_content_type",
+            "type": "VARCHAR(80)",
+            "nullable": true,
+            "note": "Usually application/json"
+          },
+          {
+            "name": "response_schema_version",
+            "type": "VARCHAR(32)",
+            "nullable": true,
+            "note": "DTO schema version returned by owning domain endpoint."
+          },
+          {
+            "name": "response_body_hash",
+            "type": "VARCHAR(128)",
+            "nullable": true
+          },
+          {
+            "name": "entity_type",
+            "type": "VARCHAR(64)",
+            "nullable": true
+          },
+          {
+            "name": "entity_id",
+            "type": "UUID",
+            "nullable": true
+          },
+          {
+            "name": "entity_status",
+            "type": "VARCHAR(64)",
+            "nullable": true
+          },
+          {
+            "name": "entity_version",
+            "type": "BIGINT",
+            "nullable": true
+          },
+          {
+            "name": "entity_sequence",
+            "type": "BIGINT",
+            "nullable": true
+          },
+          {
+            "name": "replay_recovered",
+            "type": "BOOLEAN",
+            "nullable": false,
+            "default": false
+          },
+          {
+            "name": "client_ts",
+            "type": "TIMESTAMPTZ",
+            "nullable": false,
+            "note": "ADR-0012"
+          },
+          {
+            "name": "server_ts",
+            "type": "TIMESTAMPTZ",
+            "nullable": false,
+            "note": "ADR-0012"
+          },
+          {
+            "name": "clock_offset_ms",
+            "type": "BIGINT",
+            "nullable": true,
+            "note": "ADR-0012"
+          },
+          {
+            "name": "acked_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": true
+          },
+          {
+            "name": "expires_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": false
+          }
+        ],
+        "indexes": [
+          {
+            "name": "ux_sync_event_idempotency_key",
+            "columns": [
+              "idempotency_key"
+            ]
+          },
+          {
+            "name": "idx_sync_event_device_status",
+            "columns": [
+              "device_id",
+              "status"
+            ]
+          },
+          {
+            "name": "idx_sync_event_incident",
+            "columns": [
+              "incident_id"
+            ]
+          }
+        ],
+        "spatial": {
+          "enabled": false,
+          "type": "POINT",
+          "srid": 4326
+        },
+        "visibility": "internal/local sync contract",
+        "entity_kind": "server idempotency/internal sync record"
+      }
+    ],
+    "local_schemas": [
+      {
+        "name": "android_outbox_row",
+        "owner_spec": "S6",
+        "description": "Android Room local Outbox contract. Server DB entity가 아니라 local schema 계약이다.",
+        "fields": [
+          {
+            "name": "outbox_id",
+            "type": "UUID",
+            "nullable": false,
+            "pk": true
+          },
+          {
+            "name": "operation_id",
+            "type": "UUID",
+            "nullable": false
+          },
+          {
+            "name": "incident_id",
+            "type": "UUID",
+            "nullable": true
+          },
+          {
+            "name": "op_id",
+            "type": "UUID",
+            "nullable": true
+          },
+          {
+            "name": "device_id",
+            "type": "UUID",
+            "nullable": false
+          },
+          {
+            "name": "dependency_group",
+            "type": "VARCHAR(32)",
+            "nullable": false,
+            "note": "SESSION|PATH|MARKER|PHOTO|PACKAGE_STATUS"
+          },
+          {
+            "name": "parent_operation_id",
+            "type": "UUID",
+            "nullable": true,
+            "note": "Blocks dependent replay until parent is ACKED."
+          },
+          {
+            "name": "sequence",
+            "type": "BIGINT",
+            "nullable": false
+          },
+          {
+            "name": "method",
+            "type": "VARCHAR(12)",
+            "nullable": false
+          },
+          {
+            "name": "endpoint",
+            "type": "VARCHAR(255)",
+            "nullable": false
+          },
+          {
+            "name": "payload_json",
+            "type": "TEXT",
+            "nullable": false
+          },
+          {
+            "name": "body_hash",
+            "type": "VARCHAR(128)",
+            "nullable": false
+          },
+          {
+            "name": "idempotency_key",
+            "type": "VARCHAR(120)",
+            "nullable": false
+          },
+          {
+            "name": "status",
+            "type": "VARCHAR(32)",
+            "nullable": false,
+            "note": "PENDING|SENDING|ACKED|FAILED_RETRYABLE|FAILED_FINAL|PURGED"
+          },
+          {
+            "name": "local_mirror_status",
+            "type": "VARCHAR(24)",
+            "nullable": false,
+            "note": "Harness/UI term: PENDING_LOCAL|PENDING_SEND|SENDING|SYNCED|FAILED|PURGED"
+          },
+          {
+            "name": "attempt_count",
+            "type": "INTEGER",
+            "nullable": false
+          },
+          {
+            "name": "first_attempt_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": true
+          },
+          {
+            "name": "next_attempt_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": true
+          },
+          {
+            "name": "client_ts",
+            "type": "TIMESTAMPTZ",
+            "nullable": false
+          },
+          {
+            "name": "clock_offset_ms",
+            "type": "BIGINT",
+            "nullable": false
+          },
+          {
+            "name": "clock_synced_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": false
+          },
+          {
+            "name": "server_ack_ts",
+            "type": "TIMESTAMPTZ",
+            "nullable": true
+          },
+          {
+            "name": "incident_closed_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": true
+          },
+          {
+            "name": "last_error",
+            "type": "TEXT",
+            "nullable": true,
+            "note": "Internal/local lastError string for diagnostics; not a public API error code. Server API responses use catalog error field only."
+          }
+        ],
+        "indexes": [
+          {
+            "name": "idx_android_outbox_status_next_attempt",
+            "columns": [
+              "status",
+              "next_attempt_at"
+            ]
+          },
+          {
+            "name": "idx_android_outbox_replay_order",
+            "columns": [
+              "incident_id",
+              "device_id",
+              "dependency_group",
+              "sequence"
+            ]
+          },
+          {
+            "name": "idx_android_outbox_incident_device",
+            "columns": [
+              "incident_id",
+              "device_id"
+            ]
+          },
+          {
+            "name": "ux_android_outbox_idempotency_key",
+            "columns": [
+              "idempotency_key"
+            ]
+          }
+        ],
+        "spatial": {
+          "enabled": false,
+          "type": "POINT",
+          "srid": 4326
+        },
+        "visibility": "internal/local sync contract",
+        "entity_kind": "Android local table"
+      },
+      {
+        "name": "android_sync_status",
+        "owner_spec": "S6",
+        "description": "Android local sync dashboard summary materialized from Outbox and warning signals.",
+        "fields": [
+          {
+            "name": "device_id",
+            "type": "UUID",
+            "nullable": false,
+            "pk": true
+          },
+          {
+            "name": "incident_id",
+            "type": "UUID",
+            "nullable": true
+          },
+          {
+            "name": "pending_count",
+            "type": "INTEGER",
+            "nullable": false
+          },
+          {
+            "name": "retryable_count",
+            "type": "INTEGER",
+            "nullable": false
+          },
+          {
+            "name": "final_failed_count",
+            "type": "INTEGER",
+            "nullable": false
+          },
+          {
+            "name": "last_successful_sync_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": true
+          },
+          {
+            "name": "offline_since",
+            "type": "TIMESTAMPTZ",
+            "nullable": true
+          },
+          {
+            "name": "warning_codes",
+            "type": "TEXT[]",
+            "nullable": false,
+            "note": "GPS_STOPPED|BATTERY_LOW|PACKAGE_MISSING|OFFLINE_RECORDING|OUTBOX_BACKLOG|LOCAL_DELETE_PENDING"
+          }
+        ],
+        "indexes": [
+          {
+            "name": "idx_android_sync_status_incident",
+            "columns": [
+              "incident_id"
+            ]
+          }
+        ],
+        "spatial": {
+          "enabled": false,
+          "type": "POINT",
+          "srid": 4326
+        },
+        "visibility": "internal/local sync contract",
+        "entity_kind": "Android local read model"
+      }
+    ],
+    "state_machines": [
+      {
+        "entity": "android_outbox_row",
+        "field": "status",
+        "states": [
+          "PENDING",
+          "SENDING",
+          "ACKED",
+          "FAILED_RETRYABLE",
+          "FAILED_FINAL",
+          "PURGED"
+        ],
+        "transitions": [
+          {
+            "from": "PENDING",
+            "to": "SENDING",
+            "trigger": "WorkManager starts flush",
+            "guard": "network available, nextAttemptAt due, dependency predecessors ACKED, clockSyncedAt fresh, and row is not post-close; pre-close rows may enter one close-drain flush"
+          },
+          {
+            "from": "SENDING",
+            "to": "ACKED",
+            "trigger": "server 2xx or idempotent replay response",
+            "guard": "response body matches operation"
+          },
+          {
+            "from": "SENDING",
+            "to": "FAILED_RETRYABLE",
+            "trigger": "network timeout, 408, 429, 5xx, low connectivity, retryable domain failure, response cache missing",
+            "guard": "attemptCount below 8 and firstAttemptAt within 24h"
+          },
+          {
+            "from": "FAILED_RETRYABLE",
+            "to": "PENDING",
+            "trigger": "nextAttemptAt reached or POST /sync/outbox/requeue",
+            "guard": "operation not purged"
+          },
+          {
+            "from": "SENDING",
+            "to": "FAILED_FINAL",
+            "trigger": "idempotency_mismatch, invalid payload, op_mismatch, device_not_registered, device_not_assigned",
+            "guard": "automatic replay would be unsafe"
+          },
+          {
+            "from": "PENDING",
+            "to": "FAILED_FINAL",
+            "trigger": "post-close requeue or enqueue rejected",
+            "guard": "row was created after close event processing or manual requeue is attempted after close; pre-close eligible rows use close-drain flush first"
+          },
+          {
+            "from": "FAILED_RETRYABLE",
+            "to": "FAILED_FINAL",
+            "trigger": "manual/user requeue after incident close",
+            "guard": "row is not pre-close eligible"
+          },
+          {
+            "from": "ACKED",
+            "to": "PURGED",
+            "trigger": "local retention cleanup or INCIDENT_PURGED",
+            "guard": "serverAckTs recorded"
+          },
+          {
+            "from": "FAILED_FINAL",
+            "to": "PURGED",
+            "trigger": "S1-3 explicit retained-row resolution",
+            "guard": "retention policy permits deleting rejected retained tombstone"
+          }
+        ]
+      },
+      {
+        "entity": "sync_event",
+        "field": "status",
+        "states": [
+          "RESERVED",
+          "COMMITTED",
+          "REPLAYED",
+          "RECOVERED_REPLAY",
+          "MISMATCH",
+          "COMMITTED_RESPONSE_MISSING",
+          "EXPIRED",
+          "PURGED"
+        ],
+        "transitions": [
+          {
+            "from": "RESERVED",
+            "to": "COMMITTED",
+            "trigger": "domain write transaction commit",
+            "guard": "bodyHash matches reservation"
+          },
+          {
+            "from": "COMMITTED",
+            "to": "REPLAYED",
+            "trigger": "same idempotencyKey/bodyHash replay",
+            "guard": "cached response available"
+          },
+          {
+            "from": "COMMITTED",
+            "to": "COMMITTED_RESPONSE_MISSING",
+            "trigger": "same idempotencyKey/bodyHash replay",
+            "guard": "domain commit exists but responseBodyJson is missing"
+          },
+          {
+            "from": "COMMITTED_RESPONSE_MISSING",
+            "to": "RECOVERED_REPLAY",
+            "trigger": "owner domain replay recovery returns matching DTO",
+            "guard": "entityVersion and entitySequence match sync_event"
+          },
+          {
+            "from": "COMMITTED_RESPONSE_MISSING",
+            "to": "EXPIRED",
+            "trigger": "owner domain replay recovery cannot reconstruct DTO before retention expires",
+            "guard": "manual investigation required"
+          },
+          {
+            "from": "RESERVED",
+            "to": "MISMATCH",
+            "trigger": "same idempotencyKey different bodyHash",
+            "guard": "reservation exists"
+          },
+          {
+            "from": "COMMITTED",
+            "to": "EXPIRED",
+            "trigger": "idempotency retention elapsed",
+            "guard": "incident not active or retention window elapsed"
+          },
+          {
+            "from": "COMMITTED",
+            "to": "PURGED",
+            "trigger": "INCIDENT_PURGED",
+            "guard": "incident purge run owns cleanup"
+          }
+        ]
+      }
+    ],
+    "flyway_migrations": [
+      "V20260428_641__create_sync_event.sql",
+      "AndroidRoom_20260428_641__create_outbox_and_sync_status"
+    ]
+  },
+  "api_contracts": {
+    "provided": [
+      {
+        "method": "POST",
+        "path": "/sync/clock",
+        "summary": "단말 clientTs와 serverTs 차이를 계산해 이후 writeOperation에 clockOffsetMs를 포함하게 한다.",
+        "auth": "@RequireChannel(APP) + @RequireDevice + @RequireDeviceRegistered + @RequireDeviceAssigned(incidentId)",
+        "idempotent": false,
+        "required_headers": [
+          "Authorization",
+          "X-Device-Id"
+        ],
+        "request_schema": {
+          "type": "object",
+          "required": [
+            "incidentId",
+            "clientTs"
+          ],
+          "properties": {
+            "incidentId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "clientTs": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        },
+        "response_schema": {
+          "200": {
+            "type": "object",
+            "properties": {
+              "clientTs": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "serverTs": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "clockOffsetMs": {
+                "type": "integer"
+              },
+              "clockSyncedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "maxAllowedSkewMs": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "code": 403,
+            "case": "channel_not_allowed",
+            "body": "{ \"error\": \"channel_not_allowed\" }"
+          },
+          {
+            "code": 400,
+            "case": "device_required",
+            "body": "{ \"error\": \"device_required\" }"
+          },
+          {
+            "code": 403,
+            "case": "device_not_registered",
+            "body": "{ \"error\": \"device_not_registered\" }"
+          },
+          {
+            "code": 403,
+            "case": "device_not_assigned",
+            "body": "{ \"error\": \"device_not_assigned\" }"
+          },
+          {
+            "code": 409,
+            "case": "clock_skew_exceeded",
+            "body": "{ \"error\": \"clock_skew_exceeded\" }"
+          }
+        ]
+      },
+      {
+        "method": "POST",
+        "path": "/sync/outbox/requeue",
+        "summary": "앱 local retry scheduler가 retryable Outbox operation을 재큐잉한 사실을 서버 진단 로그와 동기화한다.",
+        "auth": "@RequireChannel(APP) + @RequireDevice + @RequireDeviceRegistered + @RequireDeviceAssigned(incidentId)",
+        "idempotent": true,
+        "required_headers": [
+          "Authorization",
+          "X-Device-Id"
+        ],
+        "request_schema": {
+          "type": "object",
+          "required": [
+            "operationId",
+            "incidentId",
+            "reason",
+            "clientTs",
+            "clockOffsetMs",
+            "clockSyncedAt"
+          ],
+          "properties": {
+            "operationId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "incidentId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "reason": {
+              "type": "string",
+              "enum": [
+                "NETWORK_RESTORED",
+                "USER_RETRY",
+                "WORKER_BACKOFF_DUE",
+                "PARTIAL_FAILURE",
+                "RESPONSE_CACHE_RECOVERY"
+              ]
+            },
+            "clientTs": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "clockOffsetMs": {
+              "type": "integer"
+            },
+            "clockSyncedAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "attemptCount": {
+              "type": "integer"
+            }
+          }
+        },
+        "response_schema": {
+          "202": {
+            "type": "object",
+            "properties": {
+              "operationId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "accepted": {
+                "type": "boolean"
+              },
+              "serverTs": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "code": 403,
+            "case": "channel_not_allowed",
+            "body": "{ \"error\": \"channel_not_allowed\" }"
+          },
+          {
+            "code": 400,
+            "case": "device_required",
+            "body": "{ \"error\": \"device_required\" }"
+          },
+          {
+            "code": 403,
+            "case": "device_not_registered",
+            "body": "{ \"error\": \"device_not_registered\" }"
+          },
+          {
+            "code": 403,
+            "case": "device_not_assigned",
+            "body": "{ \"error\": \"device_not_assigned\" }"
+          },
+          {
+            "code": 409,
+            "case": "incident_closed",
+            "body": "{ \"error\": \"incident_closed\", \"outboxStatus\": \"FAILED_FINAL\" }"
+          }
+        ]
+      }
+    ],
+    "consumed": [
+      {
+        "from_spec": "S1-2",
+        "interface": "SecurityContext.channel, SecurityContext.deviceId, @RequireDevice, @RequireDeviceRegistered, @RequireDeviceAssigned(incidentId), auth session",
+        "usage": "Outbox operation과 sync_event를 Device 단위로 묶고 /sync/clock 및 /sync/outbox/requeue를 app-device guard로 보호한다."
+      },
+      {
+        "from_spec": "S3-1",
+        "interface": "POST /search-sessions, PATCH /search-sessions/{sessionId}, POST /search-paths/batch",
+        "usage": "path/session writeOperation endpoint로 큐잉·replay한다."
+      },
+      {
+        "from_spec": "S5",
+        "interface": "POST /markers, marker photo write operations",
+        "usage": "offline marker/photo writeOperation endpoint로 큐잉·replay한다."
+      },
+      {
+        "from_spec": "S7",
+        "interface": "POST /incidents/{incidentId}/offline-package/status, offline package local availability, PACKAGE_STATUS_CHANGED",
+        "usage": "package status writeOperation을 큐잉·replay하고 지도 미다운로드/PACKAGE_MISSING local warning input으로 소비한다."
+      },
+      {
+        "from_spec": "S1-1",
+        "interface": "INCIDENT_CLOSED",
+        "usage": "신규 local write 차단, flush 우선 실행, local delete pending 표시를 시작한다."
+      },
+      {
+        "from_spec": "S1-3",
+        "interface": "INCIDENT_PURGED and purgeRunId",
+        "usage": "LocalSyncPurgeHook.purgeIncidentLocalSync를 실행해 ack 완료 local rows를 삭제한다."
+      }
+    ],
+    "events_published": [],
+    "events_subscribed": [
+      {
+        "type": "INCIDENT_CLOSED",
+        "from_spec": "S1-1",
+        "handler": "해당 incident의 신규 Outbox enqueue를 막고 close_cutoff를 기록한다. pre-close row는 즉시 flush 대상으로 유지하고 post-close requeue는 FAILED_FINAL로 전환하며 local delete pending warning을 표시한다."
+      },
+      {
+        "type": "INCIDENT_PURGED",
+        "from_spec": "S1-3",
+        "handler": "ACKED Outbox/local cache만 삭제하고 purge result를 PURGED로 기록한다. 실패·미전송·FAILED_FINAL 항목은 보존 경고로 남긴다."
+      }
+    ]
+  },
+  "three_stack_deliverables": {
+    "backend": {
+      "language": "Java (JDK 17)",
+      "framework": "Spring Boot 3.x",
+      "package": "com.surimap.sync",
+      "modules": [
+        {
+          "name": "SyncClockController",
+          "responsibility": "POST /sync/clock server time calibration"
+        },
+        {
+          "name": "OutboxRequeueController",
+          "responsibility": "POST /sync/outbox/requeue diagnostic/accepted contract"
+        },
+        {
+          "name": "IdempotentWriteInterceptor",
+          "responsibility": "reserve/replay/mismatch handling for domain writes"
+        },
+        {
+          "name": "SyncEventRepository",
+          "responsibility": "sync_event reservation, response cache fields, replay recovery state, purge cleanup"
+        },
+        {
+          "name": "IdempotentReplayRecoveryPort",
+          "responsibility": "owner domain DTO recovery when domain commit exists but response cache is missing"
+        },
+        {
+          "name": "LocalSyncPurgeHookAdapter",
+          "responsibility": "S1-3 purge orchestration hook implementation"
+        }
+      ]
+    },
+    "web": {
+      "language": "TypeScript",
+      "framework": "React 18+ SPA",
+      "routes": [],
+      "components": [
+        {
+          "name": "None",
+          "responsibility": "S6 has no direct Web UI; S3-2 consumes S7 package badge and S1-2 freshness instead."
+        }
+      ],
+      "state_management": "Not applicable",
+      "map_layers": []
+    },
+    "android": {
+      "language": "Kotlin",
+      "min_sdk": 31,
+      "target_sdk": 34,
+      "package": "kr.surimap.sync",
+      "screens": [
+        {
+          "name": "OutboxDashboard",
+          "responsibility": "미전송 항목 수·종류·재시도 상태와 복구 중 진행률 표시"
+        },
+        {
+          "name": "LocalWarningBanner",
+          "responsibility": "GPS 중단, 배터리 저하, 지도 미다운로드, 오프라인 기록 중, 로컬 삭제 대기 경고 표시"
+        }
+      ],
+      "room_entities": [
+        {
+          "name": "OutboxEntity",
+          "note": "OutboxRow contract local implementation"
+        },
+        {
+          "name": "SyncStatusEntity",
+          "note": "pending counts and warning codes materialized state"
+        },
+        {
+          "name": "LocalWriteDraftEntity",
+          "note": "S3-1/S5/S7 write payload draft references before ack"
+        }
+      ],
+      "sync_flow": "Local write -> Room transaction with clockOffsetMs/clockSyncedAt -> OutboxEntity PENDING(PENDING_LOCAL/PENDING_SEND mirror) -> WorkManager replay_order_key flush -> @IdempotentWrite server write/replay -> ACKED, FAILED_RETRYABLE, or FAILED_FINAL"
+    }
+  },
+  "dependencies": {
+    "spec_dependencies": [
+      {
+        "spec": "S1-1",
+        "contract": "incident lifecycle, INCIDENT_CLOSED event, and closed incident write guard",
+        "stub_strategy": "OPEN/CLOSED incident fixtures and INCIDENT_CLOSED event fixture for close-drain and local delete tests.",
+        "replaced_by_real_at": "S1-1 close/lifecycle PASS"
+      },
+      {
+        "spec": "S1-2",
+        "contract": "Device auth/session guard and deviceId fixture",
+        "stub_strategy": "Fixed registered Device fixture and rejected unregistered Device case.",
+        "replaced_by_real_at": "S1-2 auth/device guard PASS"
+      },
+      {
+        "spec": "S3-1",
+        "contract": "path/session writeOperation endpoints, response common fields, and IdempotentReplayRecoveryPort DTO reconstruction",
+        "stub_strategy": "Mock path endpoint returns id/status/version/sequence and supports duplicate replay and committed-cache-missing recovery.",
+        "replaced_by_real_at": "S3-1 path batch PASS"
+      },
+      {
+        "spec": "S5",
+        "contract": "marker/photo writeOperation endpoints and replay recovery DTO by operationId/entityId",
+        "stub_strategy": "Mock marker endpoint for SC-07/SC-09 mixed queue tests, including MARKER->PHOTO dependency blocking.",
+        "replaced_by_real_at": "S5 marker/photo PASS"
+      },
+      {
+        "spec": "S7",
+        "contract": "package availability/status for local PACKAGE_MISSING warning and offline-package/status replay DTO",
+        "stub_strategy": "Local fake PackageAvailabilityStore with complete, missing, stale cases plus package status writeOperation replay fixture.",
+        "replaced_by_real_at": "S7 package status PASS"
+      },
+      {
+        "spec": "S1-3",
+        "contract": "purgeRunId and INCIDENT_PURGED local cleanup trigger",
+        "stub_strategy": "Mock purge event invokes LocalSyncPurgeHook directly.",
+        "replaced_by_real_at": "S1-3 purge orchestration PASS"
+      }
+    ],
+    "infra_dependencies": [
+      "Android Room/SQLite",
+      "Android WorkManager",
+      "Android connectivity manager",
+      "Android battery and location provider APIs",
+      "Spring Boot interceptor/filter chain",
+      "PostgreSQL"
+    ]
+  },
+  "acceptance_criteria": [
+    {
+      "id": "AC-S6-01",
+      "fr_refs": [
+        "FR-03"
+      ],
+      "given": "사건 배정 Device가 30분 이상 오프라인이고 GPS/path와 marker writes가 발생한다",
+      "when": "네트워크가 복구되어 WorkManager flush가 실행된다",
+      "then": "Outbox의 모든 pending operation이 순서대로 replay되고 경로 포인트 유실 없이 ACKED 또는 명확한 retry/final failure 상태가 된다.",
+      "priority": "critical"
+    },
+    {
+      "id": "AC-S6-02",
+      "fr_refs": [
+        "FR-03"
+      ],
+      "given": "같은 operation이 동일 Idempotency-Key와 bodyHash로 두 번 replay된다",
+      "when": "서버 @IdempotentWrite가 요청을 처리한다",
+      "then": "기존 응답을 replay하고 S3-1/S5/S7 domain row가 중복 생성되지 않는다.",
+      "priority": "critical"
+    },
+    {
+      "id": "AC-S6-03",
+      "fr_refs": [
+        "FR-03",
+        "FR-28"
+      ],
+      "given": "Outbox flush 중 일부 operation은 성공하고 일부는 low connectivity timeout으로 실패한다",
+      "when": "flush cycle이 끝난다",
+      "then": "성공 항목만 ACKED로 삭제 가능 상태가 되고 실패 항목만 FAILED_RETRYABLE로 남으며 dashboard가 partial failure와 retry count를 표시한다.",
+      "priority": "critical"
+    },
+    {
+      "id": "AC-S6-04",
+      "fr_refs": [
+        "FR-28"
+      ],
+      "given": "미전송 queue에 path, marker, package status operation이 섞여 있다",
+      "when": "앱이 미전송 큐 dashboard를 연다",
+      "then": "항목 수, 종류, attemptCount, nextAttemptAt, userSafeFailureCategory, 통신 복구 시 진행률이 표시된다. raw lastError는 내부/local diagnostic에만 남긴다.",
+      "priority": "high"
+    },
+    {
+      "id": "AC-S6-05",
+      "fr_refs": [
+        "FR-29"
+      ],
+      "given": "서버 연결이 없는 상태에서 GPS provider 중단, 배터리 저하, package missing signal 중 하나가 발생한다",
+      "when": "LocalWarningMonitor가 local signal을 평가한다",
+      "then": "서버 호출 없이 앱 배너 또는 토스트로 해당 경고가 표시된다.",
+      "priority": "high"
+    },
+    {
+      "id": "AC-S6-06",
+      "fr_refs": [
+        "FR-03",
+        "FR-29"
+      ],
+      "given": "INCIDENT_CLOSED 또는 INCIDENT_PURGED가 도착하고 local Outbox에 acked와 pending row가 섞여 있다",
+      "when": "LocalSyncPurgeHook이 실행된다",
+      "then": "close-drain 대상 pre-close row는 먼저 flush하고, acked row와 acked local cache만 삭제하며 남은 pending/unacked row는 local delete pending warning으로 표시하고 S1-3에는 retainedCount와 WAITING_FOR_SYNC를 반환한다.",
+      "priority": "critical"
+    },
+    {
+      "id": "AC-S6-07",
+      "fr_refs": [
+        "FR-03"
+      ],
+      "given": "S7 fixture가 PACKAGE_STATUS_CHANGED 또는 offline-package/status writeOperation을 제공하고 같은 operation이 동일 idempotencyKey/bodyHash로 replay된다",
+      "when": "WorkManager가 package status row를 재전송하거나 서버가 기존 sync_event를 replay한다",
+      "then": "S7 package status 응답 DTO의 status, manifestVersion, entityVersion이 responseBodyJson에 캐시되어 동일하게 replay되고 PACKAGE_STATUS_CHANGED가 중복 발행되지 않는다.",
+      "priority": "critical"
+    },
+    {
+      "id": "AC-S6-08",
+      "fr_refs": [
+        "FR-03",
+        "FR-28"
+      ],
+      "given": "INCIDENT_CLOSED 수신 전 생성된 pre-close row와 close 이후 사용자가 만든 post-close requeue row가 같은 incident에 존재한다",
+      "when": "close_cutoff 기준으로 Outbox flush와 /sync/outbox/requeue가 실행된다",
+      "then": "pre-close row만 replay 대상이 되고 post-close row는 FAILED_FINAL이 되며 purge는 ACKED row만 PURGED로 전환한다.",
+      "priority": "critical"
+    },
+    {
+      "id": "AC-S6-09",
+      "fr_refs": [
+        "FR-03"
+      ],
+      "given": "sync_event는 COMMITTED지만 responseBodyJson이 누락되어 있고 owning domain fixture는 entityId/entityVersion/entitySequence로 DTO를 재구성할 수 있다",
+      "when": "동일 idempotencyKey/bodyHash replay가 들어온다",
+      "then": "S6가 owner replay recovery port로 response cache를 복구하고 RECOVERED_REPLAY 상태와 replayRecovered=true 응답을 반환한다.",
+      "priority": "critical"
+    },
+    {
+      "id": "AC-S6-10",
+      "fr_refs": [
+        "FR-28"
+      ],
+      "given": "SESSION, PATH, MARKER, PHOTO, PACKAGE_STATUS dependencyGroup rows가 섞여 있고 MARKER parent operation이 retryable failure가 된다",
+      "when": "flush cycle이 계속된다",
+      "then": "해당 MARKER에 의존하는 PHOTO만 대기하고 PATH와 PACKAGE_STATUS는 replay_order_key 순서대로 계속 처리된다.",
+      "priority": "high"
+    },
+    {
+      "id": "AC-S6-11",
+      "fr_refs": [
+        "FR-29"
+      ],
+      "given": "GPS, battery, package, offline age, backlog warning signals가 threshold를 넘었다가 clear condition을 만족한다",
+      "when": "LocalWarningMonitor가 같은 local signals를 재평가한다",
+      "then": "각 warning은 local_warning_thresholds의 raise/clear 조건으로만 켜지고 꺼지며 서버 연결 여부에 의존하지 않는다.",
+      "priority": "high"
+    },
+    {
+      "id": "AC-S6-12",
+      "fr_refs": [
+        "FR-28"
+      ],
+      "given": "Outbox row가 clock skew, idempotency mismatch, device guard failure, post-close requeue, retryable network failure 중 하나로 실패한다.",
+      "when": "OutboxDashboard가 해당 row를 렌더링한다.",
+      "then": "앱은 CLOCK_RESYNC_REQUIRED, NON_RETRYABLE_CONFLICT, DEVICE_ACCESS_REQUIRED, CLOSED_NO_RETRY, RETRYABLE_NETWORK 중 하나의 user-safe category와 재시도 가능 여부를 표시하고 raw lastError 문자열은 노출하지 않는다.",
+      "priority": "critical"
+    },
+    {
+      "id": "AC-S6-13",
+      "fr_refs": [
+        "FR-03"
+      ],
+      "given": "SC-05 path, SC-06 marker/photo, SC-08 notification marker, SC-09 package status writeOperation fixture가 Outbox에 적재되어 있다.",
+      "when": "WorkManager replay가 성공하고 mock S4/S3-2 probe가 수신된다.",
+      "then": "operationId, owner REST response id/status/version, sequence를 노출하는 owner/event의 sequence, S4 eventId/payload, S3-2 snapshot probe가 harness_fixtures의 같은 기대값으로 수렴해야 한다.",
+      "priority": "critical"
+    }
+  ],
+  "edge_cases": [
+    "30분 이상 오프라인 후 100개 이상의 path batch replay",
+    "같은 idempotencyKey에 다른 bodyHash가 들어오는 duplicate replay",
+    "flush 중 앱 프로세스 종료 후 WorkManager 재시작",
+    "부분 성공 뒤 low connectivity로 중간 operation만 timeout",
+    "서버 2xx 응답은 받았지만 ACK local update 전에 앱이 종료됨",
+    "clock skew가 허용치를 넘어서 domain write가 거부됨",
+    "incident close 이후 pending write가 남아 있는 장기 미가동 단말 복귀",
+    "사용자가 앱 데이터를 수동 삭제한 뒤 서버가 이미 ack한 데이터만 authoritative로 남는 경우",
+    "domain commit은 성공했지만 sync_event.response_body_json write 전에 장애가 발생한 replay",
+    "INCIDENT_CLOSED 처리 전 생성된 pre-close row와 처리 후 생성된 post-close row가 같은 flush cycle에 섞인 경우",
+    "MARKER parent 실패로 PHOTO dependency만 대기하고 PATH/PACKAGE_STATUS는 계속 진행해야 하는 partial failure",
+    "S7 package status replay 중 PACKAGE_STATUS_CHANGED event 중복 발행 위험"
+  ],
+  "error_handling": {
+    "network_unavailable": "Outbox row를 PENDING 또는 FAILED_RETRYABLE로 유지하고 baseDelayMs=10000, multiplier=2.0, maxDelayMs=300000 backoff를 적용한다.",
+    "low_connectivity_timeout": "현재 flush cycle의 성공 항목만 ACKED 처리하고 실패 항목은 nextAttemptAt을 deterministic retry policy로 갱신한다.",
+    "idempotency_mismatch": "자동 재전송을 중단하고 FAILED_FINAL로 표시하며 사용자가 미전송 큐에서 실패 사유를 볼 수 있게 한다.",
+    "clock_skew_exceeded": "POST /sync/clock 재실행을 유도하고 해당 operation은 재보정 전 SENDING으로 올리지 않는다.",
+    "write_conflict": "sync_event가 COMMITTED인데 responseBodyJson이 없으면 owner replay recovery port를 먼저 호출하고 실패 시 409 write_conflict로 FAILED_RETRYABLE 유지한다.",
+    "incident_closed": "새 enqueue를 차단한다. pre-close row는 replay 대상, post-close requeue는 FAILED_FINAL로 전환하고 local delete pending 상태로 표시한다.",
+    "device_required": "X-Device-Id 없는 APP sync 요청은 400 device_required로 거부하고 Outbox row는 FAILED_FINAL로 전환하지 않고 앱 설정/세션 복구 안내를 표시한다.",
+    "device_not_assigned": "등록됐지만 incident에 배정되지 않은 Device의 sync API는 403 device_not_assigned로 거부하고 해당 incident rows는 FAILED_FINAL로 표시한다.",
+    "purge_delete_failed": "삭제 실패 row는 local warning으로 표시하고 WorkManager가 재시도한다."
+  },
+  "non_functional_requirements": {
+    "performance": [
+      "30분 오프라인 후 복구 시 하네스 기준 경로 포인트 유실 0건을 검증한다.",
+      "WorkManager flush는 네트워크 복구 감지 후 base 10초, multiplier 2.0, cap 5분, maxAttempts 8 지수 backoff 정책을 시작하며 중복 operation 생성 없이 재개 가능해야 한다.",
+      "HARNESS deterministic mode에서는 jitter 0ms와 고정 replay_order_key로 retry 시각과 처리 순서를 테스트 가능하게 만든다.",
+      "Outbox dashboard summary는 local DB만으로 즉시 표시되어야 한다."
+    ],
+    "security": [
+      "Outbox payload는 Device 세션 범위의 사건 데이터만 보관하며 incident purge 후 acked local rows를 삭제한다.",
+      "idempotency response cache는 bodyHash mismatch를 409로 차단한다.",
+      "sync clock/requeue API는 APP channel, X-Device-Id, registered Device, incident assigned Device guard를 모두 요구한다.",
+      "post-close requeue는 domain endpoint로 전달하지 않고 FAILED_FINAL로 보존해 종료 사건에 새 쓰기가 반영되지 않게 한다."
+    ],
+    "observability": [
+      "outbox_pending_count, outbox_flush_success_total, outbox_flush_retry_total, idempotency_replay_total, idempotency_mismatch_total 메트릭을 노출한다.",
+      "LocalWarningMonitor warning code 전환은 deviceId, incidentId, warningCode, sourceSignal을 구조화 로그로 남긴다.",
+      "partial failure flush는 operationId별 status transition trace를 남긴다."
+    ]
+  },
+  "tdd_red_tests": {
+    "backend": [
+      {
+        "name": "IdempotentWriteReplaysSameBodyTest",
+        "framework": "JUnit 5 + MockMvc",
+        "scenario": "동일 Idempotency-Key/bodyHash 요청은 기존 response를 replay하고 domain handler를 두 번 호출하지 않는다."
+      },
+      {
+        "name": "IdempotentWriteRejectsDifferentBodyHashTest",
+        "framework": "JUnit 5 + MockMvc",
+        "scenario": "동일 key에 다른 bodyHash가 오면 idempotency_mismatch를 반환한다."
+      },
+      {
+        "name": "SyncClockReturnsOffsetFieldsTest",
+        "framework": "JUnit 5 + MockMvc",
+        "scenario": "POST /sync/clock 응답은 app-device guard 통과 후 clientTs, serverTs, clockOffsetMs, clockSyncedAt, maxAllowedSkewMs를 포함한다."
+      },
+      {
+        "name": "SyncApiRequiresAssignedAppDeviceTest",
+        "framework": "JUnit 5 + MockMvc",
+        "scenario": "/sync/clock과 /sync/outbox/requeue는 WEB channel, missing X-Device-Id, unregistered Device, unassigned Device를 각각 channel_not_allowed/device_required/device_not_registered/device_not_assigned로 거부한다."
+      },
+      {
+        "name": "CommittedMissingResponseCacheRecoveryTest",
+        "framework": "JUnit 5 + MockMvc",
+        "scenario": "sync_event COMMITTED 상태에서 responseBodyJson이 없으면 owner recovery port로 DTO를 복구하고 RECOVERED_REPLAY로 replay한다."
+      },
+      {
+        "name": "PackageStatusReplayUsesS7FixtureTest",
+        "framework": "JUnit 5 + MockMvc",
+        "scenario": "S7 offline-package/status writeOperation은 responseBodyJson에 status/manifestVersion/entityVersion을 저장하고 동일 replay에서 PACKAGE_STATUS_CHANGED를 중복 발행하지 않는다."
+      },
+      {
+        "name": "ClosedIncidentPreCloseVsPostClosePolicyTest",
+        "framework": "JUnit 5 + MockMvc",
+        "scenario": "pre-close Outbox row는 replay 허용, post-close requeue는 FAILED_FINAL로 거부하고 purge는 ACKED row만 삭제한다."
+      },
+      {
+        "name": "PurgeHookKeepsUnackedRowsTest",
+        "framework": "JUnit 5",
+        "scenario": "INCIDENT_PURGED 처리 중 acked row만 cleanup되고 unacked row는 purge warning 대상에 남는다."
+      }
+    ],
+    "web": [
+      {
+        "name": "NoDirectWebSurfaceTest",
+        "framework": "Vitest + RTL",
+        "scenario": "S6는 Web route/component를 생성하지 않고 상황판 package/freshness 표시는 S3-2/S7/S1-2 계약에 맡긴다."
+      }
+    ],
+    "android": [
+      {
+        "name": "ThirtyMinuteOfflinePathReplayTest",
+        "framework": "JUnit5 + Robolectric",
+        "scenario": "30분 오프라인 동안 쌓인 GPS/path Outbox rows가 복구 후 모두 ACKED되고 local point count가 서버 ack count와 일치한다."
+      },
+      {
+        "name": "PartialFailureKeepsOnlyFailedRowsTest",
+        "framework": "JUnit5 + Robolectric",
+        "scenario": "flush 중 1,2번 operation은 성공하고 3번은 timeout이면 1,2번은 ACKED, 3번만 FAILED_RETRYABLE로 남고 같은 dependency chain의 dependent row만 대기한다."
+      },
+      {
+        "name": "DeterministicBackoffPolicyTest",
+        "framework": "JUnit5 + Robolectric",
+        "scenario": "HARNESS deterministic mode에서 retry delay는 10s, 20s, 40s 순서로 증가하고 cap 300s와 maxAttempts 8을 적용하며 jitter는 0ms다."
+      },
+      {
+        "name": "ClockFieldsRequiredBeforeSendTest",
+        "framework": "JUnit5 + Robolectric",
+        "scenario": "clockOffsetMs/clockSyncedAt이 없거나 5분보다 오래된 Outbox row는 /sync/clock 성공 전 SENDING으로 전이하지 않는다."
+      },
+      {
+        "name": "LocalWarningsWorkWithoutNetworkTest",
+        "framework": "JUnit5 + Robolectric",
+        "scenario": "네트워크 없는 상태에서도 GPS_STOPPED, BATTERY_LOW, PACKAGE_MISSING warning이 local threshold로 표시되고 clear condition 충족 시 해제된다."
+      },
+      {
+        "name": "PackageStatusOutboxReplayTest",
+        "framework": "JUnit5 + Robolectric",
+        "scenario": "S7 fixture의 package status writeOperation이 PACKAGE_STATUS dependencyGroup으로 큐잉되고 동일 replay 후 ACKED와 SYNCED mirror status로 전환된다."
+      },
+      {
+        "name": "OutboxFailureCategoryUxTest",
+        "framework": "JUnit5 + Robolectric",
+        "scenario": "clock skew, idempotency mismatch, device_not_assigned, incident_closed, network timeout row가 각각 CLOCK_RESYNC_REQUIRED, NON_RETRYABLE_CONFLICT, DEVICE_ACCESS_REQUIRED, CLOSED_NO_RETRY, RETRYABLE_NETWORK로 표시되고 raw lastError는 화면에 노출되지 않는다."
+      },
+      {
+        "name": "OutboxReplayConvergenceProbeTest",
+        "framework": "JUnit5 + Robolectric",
+        "scenario": "path, marker/photo, support notification, package status Outbox fixture가 replay되면 mock owner response, S4 event probe, S3-2 snapshot probe가 operationId->id/status/version 및 노출 가능한 sequence 기대값으로 수렴한다."
+      },
+      {
+        "name": "IncidentCloseFlushThenLocalDeleteTest",
+        "framework": "JUnit5 + Robolectric",
+        "scenario": "incident close 수신 시 flush가 먼저 예약되고 acked local rows만 삭제된다."
+      }
+    ]
+  },
+  "harness_fixtures": {
+    "sc05_path_replay": {
+      "operationId": "op-outbox-path-001",
+      "outboxId": "outbox-path-001",
+      "idempotencyKey": "idem-path-001",
+      "bodyHash": "sha256:path-normal-001",
+      "incidentId": "inc-precinct-first-001",
+      "deviceId": "dev-precinct-car-01",
+      "dependencyGroup": "PATH",
+      "sequence": 502,
+      "endpoint": "POST /search-paths/batch",
+      "expectedOwnerResponse": {
+        "id": "path-precinct-mixed-001",
+        "status": "ACTIVE",
+        "version": 2,
+        "sequence": 502
+      },
+      "expectedS4Event": {
+        "eventId": "evt-s3-path-appended-001",
+        "type": "PATH_APPENDED",
+        "payloadId": "path-precinct-mixed-001",
+        "payloadStatus": "ACTIVE",
+        "payloadVersion": 2,
+        "sequence": 502
+      },
+      "expectedBoardProbe": {
+        "slot": "path",
+        "id": "path-precinct-mixed-001",
+        "status": "ACTIVE",
+        "minimumVersion": 2,
+        "sequence": 502
+      }
+    },
+    "sc06_marker_photo_replay": {
+      "incidentId": "inc-precinct-first-001",
+      "deviceId": "dev-precinct-phone-01",
+      "operations": [
+        {
+          "operationId": "op-outbox-marker-001",
+          "outboxId": "outbox-marker-001",
+          "idempotencyKey": "idem-marker-001",
+          "bodyHash": "sha256:marker-clue-001",
+          "dependencyGroup": "MARKER",
+          "sequence": 601,
+          "method": "POST",
+          "endpoint": "POST /markers"
+        },
+        {
+          "operationId": "op-outbox-photo-001",
+          "outboxId": "outbox-photo-001",
+          "idempotencyKey": "idem-photo-finalize-001",
+          "bodyHash": "sha256:photo-finalize-clue-001",
+          "dependencyGroup": "PHOTO",
+          "parentOperationId": "op-outbox-marker-001",
+          "sequence": 602,
+          "method": "POST",
+          "endpoint": "POST /markers/{markerId}/photos/{photoId}/finalize"
+        }
+      ],
+      "markerId": "mk-precinct-clue-001",
+      "photoId": "photo-precinct-clue-001",
+      "expectedOwnerResponse": {
+        "markerId": "mk-precinct-clue-001",
+        "markerStatus": "UPDATED",
+        "markerVersion": 2,
+        "photoId": "photo-precinct-clue-001",
+        "photoStatus": "FINALIZED",
+        "photoVersion": 2
+      },
+      "expectedS4Event": {
+        "eventId": "evt-s5-marker-updated-photo-001",
+        "type": "MARKER_UPDATED",
+        "payloadId": "mk-precinct-clue-001",
+        "payloadStatus": "UPDATED",
+        "payloadVersion": 2,
+        "photoDelta": {
+          "photoId": "photo-precinct-clue-001",
+          "status": "FINALIZED",
+          "version": 2
+        },
+        "photoDeltaVersion": 2
+      },
+      "expectedBoardProbe": {
+        "slot": "marker",
+        "id": "mk-precinct-clue-001",
+        "status": "UPDATED",
+        "version": 2,
+        "photoId": "photo-precinct-clue-001",
+        "photoStatus": "FINALIZED",
+        "photoVersion": 2
+      }
+    },
+    "sc08_notification_marker_replay": {
+      "operationId": "op-outbox-support-001",
+      "outboxId": "outbox-support-001",
+      "idempotencyKey": "idem-support-001",
+      "bodyHash": "sha256:support-marker-001",
+      "incidentId": "inc-precinct-first-001",
+      "deviceId": "dev-precinct-phone-01",
+      "dependencyGroup": "MARKER",
+      "sequence": 801,
+      "markerId": "mk-precinct-support-001",
+      "notificationDeliveryId": "notif-precinct-support-001",
+      "expectedOwnerResponse": {
+        "id": "mk-precinct-support-001",
+        "status": "ACTIVE",
+        "version": 1
+      },
+      "expectedS4Event": {
+        "eventId": "evt-s5-support-request-001",
+        "type": "SUPPORT_REQUEST_CREATED",
+        "payloadId": "notif-precinct-support-001",
+        "payloadStatus": "READY_FOR_FANOUT",
+        "payloadVersion": 1,
+        "markerId": "mk-precinct-support-001"
+      },
+      "expectedBoardProbe": {
+        "slots": [
+          "marker",
+          "toast"
+        ],
+        "marker": {
+          "id": "mk-precinct-support-001",
+          "status": "ACTIVE",
+          "version": 1
+        },
+        "toast": {
+          "id": "notif-precinct-support-001",
+          "status": "READY_FOR_FANOUT",
+          "version": 1
+        },
+        "minimumVersion": 1
+      }
+    },
+    "sc09_package_status_replay": {
+      "operationId": "op-outbox-package-001",
+      "outboxId": "outbox-package-001",
+      "idempotencyKey": "idem-package-001",
+      "bodyHash": "sha256:package-status-ready-001",
+      "incidentId": "inc-precinct-first-001",
+      "deviceId": "dev-precinct-phone-01",
+      "dependencyGroup": "PACKAGE_STATUS",
+      "sequence": 901,
+      "expectedOwnerResponse": {
+        "id": "pkg-status-precinct-001",
+        "status": "READY",
+        "version": 3,
+        "manifestRevision": 1,
+        "manifestVersion": "tile-manifest-inc-precinct-001-v1",
+        "readyForOfflineUse": true
+      },
+      "expectedS4Event": {
+        "eventId": "evt-s7-package-status-001",
+        "type": "PACKAGE_STATUS_CHANGED",
+        "payloadId": "pkg-status-precinct-001",
+        "payloadStatus": "READY",
+        "payloadVersion": 3,
+        "sequence": 901
+      },
+      "expectedBoardProbe": {
+        "slot": "package_badge",
+        "id": "pkg-status-precinct-001",
+        "status": "READY",
+        "minimumVersion": 3,
+        "sequence": 901
+      }
+    },
+    "sc12_close_requeue": {
+      "preCloseOperationId": "op-outbox-preclose-path-001",
+      "postCloseOperationId": "op-outbox-postclose-marker-001",
+      "incidentId": "inc-precinct-closed-001",
+      "closeCutoff": "2026-04-28T12:00:00+09:00",
+      "expectedPreClose": "close-drain-once",
+      "expectedPostClose": "FAILED_FINAL",
+      "expectedUserCategory": "CLOSED_NO_RETRY",
+      "expectedPurgeHookStatus": "WAITING_FOR_SYNC"
+    },
+    "failure_category_rows": [
+      {
+        "operationId": "op-fail-clock-001",
+        "lastError": "clock_skew_exceeded",
+        "userSafeFailureCategory": "CLOCK_RESYNC_REQUIRED",
+        "retryable": true
+      },
+      {
+        "operationId": "op-fail-idem-001",
+        "lastError": "idempotency_mismatch",
+        "userSafeFailureCategory": "NON_RETRYABLE_CONFLICT",
+        "retryable": false
+      },
+      {
+        "operationId": "op-fail-device-001",
+        "lastError": "device_not_assigned",
+        "userSafeFailureCategory": "DEVICE_ACCESS_REQUIRED",
+        "retryable": false
+      },
+      {
+        "operationId": "op-fail-closed-001",
+        "lastError": "post_close_requeue_rejected",
+        "userSafeFailureCategory": "CLOSED_NO_RETRY",
+        "retryable": false
+      },
+      {
+        "operationId": "op-fail-network-001",
+        "lastError": "low_connectivity_timeout",
+        "userSafeFailureCategory": "RETRYABLE_NETWORK",
+        "retryable": true
+      }
+    ]
+  },
+  "harness_constraints": {
+    "preconditions": [
+      "JDK 17 + Spring Boot 3.x (ADR-0013)",
+      "Kotlin + MapLibre Native (ADR-0004 개정, ADR-0013)",
+      "Android Room/SQLite + WorkManager 사용",
+      "모든 domain writeOperation은 Idempotency-Key와 bodyHash를 포함",
+      "모든 writeOperation은 operationId, incidentId, deviceId, dependencyGroup, sequence, opId, clientTs, clockOffsetMs, clockSyncedAt를 포함 가능한 동일 shape 사용",
+      "clock sync는 client_ts/server_ts/clock_offset_ms/clock_synced_at 필드 병기 기준",
+      "HARNESS deterministic mode는 retry jitter 0ms와 fixed replay order를 사용"
+    ],
+    "forbidden": [
+      "S6에서 path/marker/package domain CRUD 직접 구현 금지",
+      "S6에서 지도 타일 다운로드 또는 manifest/status 소유 금지",
+      "S6에서 SSE fanout 또는 FCM delivery orchestration 구현 금지",
+      "서버 ack 전 local write draft를 삭제하는 동작 금지",
+      "partial failure 때 전체 queue를 성공 또는 실패로 일괄 처리 금지",
+      "incident purge 시 unacked local data를 조용히 삭제 금지"
+    ],
+    "required_reviews": [
+      "write_operation.schema.json 변경 시 S3-1, S5, S7 LGTM",
+      "idempotency middleware error code 변경 시 모든 domain write owner LGTM",
+      "purge/local delete hook 변경 시 S1-1, S1-3, S7 LGTM",
+      "local warning package signal 변경 시 S7 LGTM"
+    ]
+  },
+  "service_contracts": {
+    "SyncClient.enqueue(writeOperation)": {
+      "owner": "S6",
+      "consumers": [
+        "S3-1 Android path/session writes",
+        "S5 Android marker/photo writes",
+        "S7 Android package status writes"
+      ],
+      "input_schema": "write_operation.schema.json",
+      "output": {
+        "outboxId": "uuid",
+        "operationId": "uuid",
+        "status": "PENDING",
+        "harnessStatus": "PENDING_LOCAL|PENDING_SEND"
+      },
+      "rule": "Creates Android local Outbox row only. Domain row creation remains with the endpoint owner after replay."
+    },
+    "@IdempotentWrite": {
+      "owner": "S6",
+      "consumers": [
+        "S1-1",
+        "S2",
+        "S3-1",
+        "S5",
+        "S7",
+        "S8"
+      ],
+      "provided_port": "IdempotentWrite.reserveAndReplay(idempotencyKey, bodyHash)",
+      "failure_codes": [
+        "idempotency_mismatch",
+        "write_conflict"
+      ],
+      "rule": "Domain write APIs that declare write-common use this middleware. /sync/outbox/requeue is not a write-common API and does not require Idempotency-Key."
+    },
+    "OutboxReplay.flushPending(deviceId, incidentId)": {
+      "owner": "S6",
+      "consumer": "Android WorkManager",
+      "input": {
+        "deviceId": "uuid",
+        "incidentId": "uuid"
+      },
+      "output": "ACKED|FAILED_RETRYABLE|FAILED_FINAL transitions on android_outbox_row",
+      "rule": "Flushes eligible local rows by replay_order_key and calls owner domain endpoints without taking domain ownership."
+    },
+    "OutboxRequeue.requeue(operationId, reason)": {
+      "owner": "S6",
+      "consumer": "Android local retry scheduler",
+      "input": {
+        "operationId": "uuid",
+        "reason": "NETWORK_RESTORED|USER_RETRY|WORKER_BACKOFF_DUE|PARTIAL_FAILURE|RESPONSE_CACHE_RECOVERY"
+      },
+      "output": "PENDING row made eligible or 202 diagnostic accepted response",
+      "rule": "Local scheduler contract and /sync/outbox/requeue diagnostic API share operationId/reason but do not expose @IdempotentWrite."
+    },
+    "LocalSyncPurgeHook.purgeIncidentLocalSync": {
+      "owner": "S6",
+      "consumer": "S1-3 PurgeCoordinator",
+      "signature": "purgeIncidentLocalSync(incidentId, purgeRunId, closedAt, purgeDeadlineTs)",
+      "input": {
+        "incidentId": "uuid",
+        "purgeRunId": "uuid",
+        "closedAt": "date-time",
+        "purgeDeadlineTs": "date-time"
+      },
+      "output": {
+        "status": "SUCCEEDED|WAITING_FOR_SYNC|FAILED_RETRYABLE",
+        "purgedCount": "integer",
+        "retainedCount": "integer",
+        "errorCode": "string nullable"
+      },
+      "rule": "ACKED local rows may be purged. retainedCount > 0 returns WAITING_FOR_SYNC while local sync can still clear rows, and delete/retry failures return FAILED_RETRYABLE. Unacked/FAILED_FINAL rows remain visible with LOCAL_DELETE_PENDING until retention policy resolves them."
+    },
+    "provided_schemas": {
+      "write_operation.schema.json": "operationId, incidentId, deviceId, sequence, opId, idempotencyKey, clientTs, bodyHash, endpoint, method, payload",
+      "sync_status.schema.json": "pending counts, warning codes, last successful sync and local delete pending state",
+      "sync_event.schema.json": "server idempotency reservation, replay response cache and recovery state"
+    }
+  },
+  "open_issues": [
+    {
+      "id": "OI-S6-01",
+      "issue": "S1-3 법무/운영 retention 결정 전까지 FAILED_FINAL 및 unacked retained row의 최종 삭제 시점은 S6 단독으로 확정할 수 없다.",
+      "owner": "4",
+      "deadline": "2주차",
+      "related_gap": "privacy purge vs offline recovery"
+    },
+    {
+      "id": "OI-S6-02",
+      "issue": "IdempotentReplayRecoveryPort의 실제 DTO 재구성 구현은 S3-1, S5, S7 owner가 각 endpoint별로 제공해야 한다.",
+      "owner": "4",
+      "deadline": "1주차",
+      "related_gap": "cross-spec recovery fixture integration"
+    }
+  ],
+  "status_management": {
+    "current_phase": "phase_4_constructor_updated",
+    "completed_phases": [
+      "template_sections_filled",
+      "s6_tester_findings_addressed"
+    ],
+    "error_logs": [],
+    "last_updated": "2026-04-28"
+  },
+  "change_log": [
+    {
+      "date": "2026-04-28",
+      "change": "Phase 1 draft 작성",
+      "reason": "S6 Offline Sync & Local Warnings spec JSON 초안 생성"
+    },
+    {
+      "date": "2026-04-28",
+      "change": "Phase 4 tester findings 반영",
+      "reason": "close/purge 정책, idempotent replay cache, app-device guards, retry/backoff, clock fields, warning thresholds, package status replay, ordering/dependency rules 명시"
+    }
+  ]
+}

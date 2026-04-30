@@ -76,6 +76,7 @@ flowchart LR
     E -->|/grafana| Gf[Grafana]
     S --> P[(PostgreSQL + PostGIS)]
     S --> O[(S3)]
+    S --> AI[OpenAI API]
     S --> M[SSE]
     M --> U
     S --> FCM[FCM]
@@ -119,14 +120,16 @@ flowchart LR
 | `spring-boot` | mock/seed 사건 가져오기, 도메인 API, 동기화 API, SSE 엔드포인트 |
 | `tileserver-gl` | 자체 타일 서버 (OSM + OpenMapTiles). Android/Web 공통 베이스맵 제공, 사건별 지도 기준 범위 타일 소스 |
 | `postgres` (PostGIS 확장) | 영속 볼륨 + 백업 전략 |
+| `minio` (dev profile) | 개발·하네스용 S3-compatible object storage. 운영은 S3 전환 |
 | `jenkins` | CI/CD 파이프라인 |
 | `sonarqube` | 정적 분석 + Quality Gate |
 | `prometheus` + `grafana` + `loki` | 메트릭/로그 관찰 |
 
 ### 2.3 외부 의존
 
-- **S3**: 단서 사진, 첨부 파일 저장 (SSE-KMS, presigned URL TTL 15분)
+- **S3 / MinIO**: 단서 사진, 첨부 파일 저장. 운영은 S3(SSE-KMS, presigned URL TTL 15분), 개발·하네스는 MinIO(S3-compatible)와 mock object storage fixture 사용
 - **FCM (Firebase Cloud Messaging)**: 서버 → Android 푸시 채널
+- **OpenAI API**: OP 기반 AI 수색 이력 요약의 MVP 기본 provider. Structured Outputs 또는 동등한 JSON schema 검증을 사용하고, 실패 시 템플릿 fallback으로 전환 (ADR-0034)
 - **112/실종프로파일링 mock·seed**: MVP/시연용 사건 및 실종자 기본 정보 원천. 실제 경찰 시스템 직접 연동은 MVP 범위 외 (ADR-0030)
 
 ### 2.4 배포 원칙
@@ -164,6 +167,8 @@ Android 앱은 **서버에 띄우는 대상이 아니라** 현장 폴리폰에 �
 - **사건 오프라인 패키지 사전 적재** (FR-31, ADR-0028): 사건 메타·실종자·OP·담당 구역·초기 마커·지도 기준 범위·타일을 단일 다운로드 흐름으로 적재
 
 ### 3.2 오프라인 우선 스택
+
+Android toolchain은 Kotlin + Gradle Kotlin DSL + AGP 8.13.x, minSdk 31, targetSdk 34를 기준으로 하며, 로컬 동작 검증은 Robolectric과 real-device smoke를 병행한다 (ADR-0035).
 
 | 컴포넌트 | 역할 |
 |---|---|
@@ -239,6 +244,7 @@ Android 앱은 **서버에 띄우는 대상이 아니라** 현장 폴리폰에 �
 ### 4.2 기술 스택
 
 - React 18+ SPA (TypeScript) — ADR-0014
+- npm + Vite build, React Router, TanStack Query(React Query) + Zustand — ADR-0035
 - MapLibre GL JS (자체 타일 서버 `/tiles` 사용)
 - EventSource (SSE) 기반 실시간 반영
 
@@ -247,7 +253,7 @@ Android 앱은 **서버에 띄우는 대상이 아니라** 현장 폴리폰에 �
 - 초기 로딩: REST API로 사건 데이터 + 지도 기준 범위 + active OP/OP 리스트 + 경로·마커·구역·메모 요약 취득
 - 실시간 변화: SSE 스트림으로 팀/순찰차 위치, 마커, 구역 상태, OP 전환, 메모, 알림 이벤트 수신
 - OP 비교: 선택한 OP들의 세션·경로·마커·구역 이력을 중첩 표시
-- 단말 상태: 단말 위치 점에 `last_sync_ts` 메타를 병기하여 경과 시간으로 시각 인코딩 (FR-24)
+- 단말 상태: 단말 위치 점에 `lastHeartbeatAt`/`lastSyncAt` 메타를 병기하여 경과 시간으로 시각 인코딩 (FR-24)
 - 오프라인 우선 구조는 적용하지 않음 (데스크톱 브라우저 전제)
 
 ## 5. 백엔드 (Spring Boot)
@@ -259,7 +265,7 @@ Android 앱은 **서버에 띄우는 대상이 아니라** 현장 폴리폰에 �
 - 사건 종료 lifecycle 관리 — 종료는 terminal 처리, 사용자 재오픈 UI/API 없음 (ADR-0022)
 - 동기화 API (idempotency 처리 포함)
 - GPS raw point 수신, 경로/구간 저장, 차량/도보 자동 분류 및 수동 보정 API
-- OP 기반 AI 수색 이력 요약 생성 및 템플릿 fallback
+- OpenAI API adapter 기반 OP 수색 이력 요약 생성 및 템플릿 fallback (ADR-0034)
 - SSE 엔드포인트 (상황판용)
 - FCM 발송 (지원 요청 / 실종자 발견 강조 알림)
 - 주요 도메인 이력 및 운영 로그 기록
@@ -268,8 +274,9 @@ Android 앱은 **서버에 띄우는 대상이 아니라** 현장 폴리폰에 �
 
 ### 5.2 API 경계
 
-- `REST API (JSON)` — 단말·웹 공통 진입
-- `SSE` — 서버 → 웹 상황판 단방향 스트림
+- `REST API (JSON)` — 단말·웹 공통 진입. Spring MVC 기반
+- `SSE` — 서버 → 웹 상황판 단방향 스트림. Spring MVC `SseEmitter` 기반
+- Backend/Android Gradle build script는 Kotlin DSL(`build.gradle.kts`, `settings.gradle.kts`)로 통일 (ADR-0035)
 - **WebSocket은 MVP 범위 외** (SSE로 충분)
 
 ### 5.3 모듈 경계 원칙
@@ -295,6 +302,11 @@ Android 앱은 **서버에 띄우는 대상이 아니라** 현장 폴리폰에 �
 - **PostgreSQL + PostGIS 확장**
   - 근거: 이동 경로(LineString)와 수색 완료 구역(Polygon)을 다른 공간 객체로 다뤄야 함
   - 경로·구역·마커 저장, OP별 공간 조회, 지도 렌더링 범위 필터링에 공간 연산 필요
+- **MyBatis 단일 persistence layer** (ADR-0033)
+  - PostGIS geometry, bbox 필터, board projection/read model, outbox/idempotency 조회를 명시적 SQL로 관리
+  - Mapper interface + XML mapper를 기본으로 사용하고, Flyway schema와 spec entity 계약을 기준으로 mapper를 작성
+  - PostGIS geometry는 공용 TypeHandler를 통해 JTS Geometry 또는 명시적 GeoJSON DTO로 변환
+  - MVP 범위에서는 Spring Data JPA/Hibernate ORM을 도입하지 않음
 - **Redis는 MVP에서 도입하지 않음** (상세는 ADR)
 
 ### 6.2 핵심 엔티티
@@ -344,7 +356,16 @@ Android 앱은 **서버에 띄우는 대상이 아니라** 현장 폴리폰에 �
 - **사진 업로드는 앱 마커 생성 흐름에서만 허용** (FR-20, ADR-0026). 웹 상황판에서는 사진 업로드 불가 (조회만)
 - 사진 제약: 최대 10장/단서, 10MB/파일, 2048px 장변 리사이징, JPEG 85%
 - EXIF: 원본은 보존, 리사이징 사본은 제거
-- **AWS 권한 미확보 개발 단계 대응**: 구현은 S3 기준으로 진행하되, 권한 확보 전까지는 로컬 디스크 저장을 개발용 fallback으로 유지. 운영 배포 전 S3로 전환
+- **개발 단계 대응**: 구현은 S3-compatible port 기준으로 진행하고, 개발·하네스에서는 MinIO와 mock object storage fixture를 사용한다. 운영 배포 전 S3 bucket/권한/암호화 정책을 검증한다.
+
+### 6.5 AI Summary Provider
+
+- S8 AI summary는 `AiSummaryPort`를 통해 호출한다.
+- MVP 기본 구현은 `OpenAiSummaryAdapter`이며, OpenAI API 응답은 Structured Outputs 또는 동등한 JSON schema 검증을 통과해야 한다.
+- OpenAI 호출 실패, timeout, schema validation 실패, 금지 문구 검출 시 `TemplateSummaryAdapter` fallback 또는 `summary_unavailable`로 처리한다.
+- OpenAI로 전달하는 입력은 OP/path/marker/area/handover memo에서 만든 최소화된 source snapshot으로 제한한다.
+- 추천, 누락 확정, 위험도 판단, 다음 구역 지시 표현은 저장 전 guard에서 차단한다.
+- API key와 model명은 secret/env로 주입하며 코드, fixture, 로그, board UI에 노출하지 않는다.
 
 ## 7. 실시간 반영 채널
 
@@ -368,9 +389,9 @@ Android 앱은 **서버에 띄우는 대상이 아니라** 현장 폴리폰에 �
 - **지원 요청 수신자**: 실종팀 간부 + 현장 지휘관 우선
 - **실종자 발견 수신자**: 해당 사건에 배정된 계정/단말 전원
 - **채널 조합**:
-  - 웹 상황판 포그라운드: SSE 이벤트 (`event: alert.support_request`, `event: alert.person_found`) → 토스트 + 인앱 배너로 표출
-  - Android 포그라운드: 동일 SSE 대체 경로 없으므로 FCM 데이터 메시지 기반 인앱 배너
-  - Android 백그라운드: FCM notification 푸시 (OS 레벨 알림 보장)
+  - 웹 상황판 포그라운드: SSE BaseEvent type `SUPPORT_REQUEST_CREATED`, `PERSON_FOUND` → 토스트 + 인앱 배너로 표출
+  - Android 포그라운드: FCM data message 수신 후 앱이 인앱 배너를 로컬 생성
+  - Android 백그라운드: FCM data message 수신 후 앱이 OS notification을 로컬 생성
 - **실종자 발견 이벤트**는 별도 이벤트 타입으로 구분하여 클라이언트가 강조 UI(색·소리)를 분리 적용
 - **범위 외**: 알림 읽음 상태 관리, 재발송 ACK (PRD §8.3)
 
@@ -392,12 +413,12 @@ Android 앱은 **서버에 띄우는 대상이 아니라** 현장 폴리폰에 �
 **단말 로컬 삭제 트리거** (책임 주체: Android 앱)
 - **원칙: 서버 동기화 완료 확인이 선행되지 않은 데이터는 삭제하지 않는다** (PRD §8.5)
 - 개별 이벤트 단위: 서버로부터 `sync_event.acked_at` 응답 수신 후 해당 로컬 행 삭제
-- 사건 종료 시 (서버가 FCM 데이터 메시지로 `event: incident.closed` 브로드캐스트):
-  1. 앱은 먼저 미전송 Outbox를 **flush 시도** (WorkManager 즉시 실행)
-  2. flush 성공한 항목만 로컬에서 삭제
-  3. flush 실패·오프라인으로 미전송된 항목은 **로컬에 보존**, 다음 온라인 복구 시 재전송 후 ack 기반 삭제
-  4. 서버 ack가 확인된 영역부터 점진적으로 오프라인 패키지·실종자 캐시 삭제
-- 단말 장기 미가동 후 복귀: 앱 재기동·재로그인 직후 서버에서 배정 상태·사건 상태를 재확인. 미전송 Outbox 존재 시 flush 선행 → ack 확인된 것만 삭제
+- 사건 종료 시 (서버가 FCM data message로 BaseEvent type `INCIDENT_CLOSED` 브로드캐스트):
+  1. 앱은 사건을 `closed` 또는 `purging` 상태로 고정하고 새 Outbox flush/requeue를 시작하지 않는다.
+  2. 이미 서버 ack가 확인된 항목만 로컬에서 삭제한다.
+  3. 미ACK Outbox 항목은 재전송하지 않고 `incident_closed` final 상태 또는 sanitized tombstone으로 전이한다.
+  4. 서버 ack가 확인된 영역과 실종자 캐시·오프라인 패키지는 purge 대상으로 표시한다.
+- 단말 장기 미가동 후 복귀: 앱 재기동·재로그인 직후 서버에서 배정 상태·사건 상태를 재확인한다. 사건이 이미 종료됐다면 미전송 Outbox는 재전송하지 않고 closed final 상태로 전이한다.
 - 삭제 실패·flush 실패 재시도는 WorkManager가 담당하며, 3회 이상 실패 시 로컬 자체 경고(FR-29)로 사용자 알림. **사용자가 수동으로 앱을 지워도 서버는 이미 ack한 데이터만 권위 있는 기록으로 간주**
 
 ### 8.2 운영 로그 / 접속기록
@@ -476,7 +497,7 @@ Android 앱은 **서버에 띄우는 대상이 아니라** 현장 폴리폰에 �
 - [ ] mock 위치와 실제 GPS를 섞는 시연 방식
 - [ ] 112/실종프로파일링 mock·seed 데이터 필드 확정
 - [ ] 지도 기준 범위 기본값과 오프라인 타일 용량 산정
-- [ ] AI 수색 이력 요약 품질 기준과 템플릿 fallback 문구
+- [ ] OpenAI API key 발급, 사용량 제한, 운영 secret 등록 경로
 - [ ] S3 접근 권한 확보 경로 (경찰 측 AWS 계정 정책)
 - [ ] `pg_dump` / 볼륨 백업 / 스냅샷 주기
 - [ ] Jenkins / Grafana / SonarQube 관리 경로의 인증과 접근 제어
@@ -508,3 +529,6 @@ Android 앱은 **서버에 띄우는 대상이 아니라** 현장 폴리폰에 �
 18. 웹 상황판은 공개 도메인 기반 데스크톱 브라우저로 제공 (ADR-0023)
 19. 112/실종프로파일링 mock·seed 사건 가져오기 (ADR-0030)
 20. ADR 본문과 archive 분리 (ADR-0032)
+21. Persistence Layer는 MyBatis 단일 채택 (ADR-0033)
+22. AI Summary provider는 OpenAI API + template fallback (ADR-0034)
+23. 런타임·프론트·개발 어댑터 잔여 기술 선택 확정 (ADR-0035)

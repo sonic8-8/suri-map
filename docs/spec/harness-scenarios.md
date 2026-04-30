@@ -151,7 +151,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   - "사건에 배정된 팀 계정 또는 순찰차 계정이 지원 부대 배정 write를 호출하면 `403 role_denied`를 응답하고 지휘 계정 전용 CTA가 노출되지 않는다"
   - "웹 또는 앱 채널이 system/mock seed 인계 처리 API를 직접 호출하면 `403 channel_not_allowed`"
   - "system/mock seed 인계 fixture 반영 없이 웹 지원 부대 배정만 호출해도 실종팀 인계 완료 상태로 표시되지 않는다"
-- **board_merge**: `handover_status` slot + `op_history` slot
+- **board_merge**: `path` slot + `marker` slot + `handover_status` slot + `op_history` slot
 - **notes**: 부대·팀 편제 관리 UI는 MVP 범위가 아니다. 실종팀 인계와 지원 부대 배정 모두 시드 데이터 기반 membership 갱신으로 검증한다.
 
 ---
@@ -283,7 +283,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   - "사건에 배정된 팀 계정 또는 순찰차 계정이라도 현재 Device가 해당 사건/OP에 배정되지 않았으면 경로 write는 `403 device_not_assigned`를 응답한다"
   - "상황판에서 차량·도보 구간 수동 보정 중에는 저장 CTA가 로딩·비활성 상태가 되고 실패 시 기존 구간 스타일을 유지한다"
   - "수색 세션 생성, 경로 배치 추가, 구간 수동 보정 write는 §0.3 공통 red test에 따라 REST 응답 id/status/version, outbox, SSE payload, board snapshot path row가 같은 세션·경로·구간 상태를 말하고 snapshot version이 수렴해야 한다"
-- **board_merge**: `path` slot + 단말 최신성 렌더링
+- **board_merge**: `path` slot + `device_freshness` slot
 - **notes**: 경로 기록 주체는 팀 업무폰 또는 순찰차 업무폰이다. 근무 교대와 지구대/파출소 초동 수색은 OP·세션·Device 단위로 구분한다.
 
 ---
@@ -372,7 +372,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   1. 지원 요청은 `SUPPORT_REQUEST_CREATED`, 실종자 발견은 `PERSON_FOUND`를 발행한다.
   2. 지원 요청은 실종팀 지휘 계정과 현장 지휘관 역할 계정에 우선 알림을 보낸다.
   3. 실종자 발견은 사건 배정 계정·단말 전체에 강조 알림을 보낸다.
-  4. 웹 토스트, 앱 인앱 배너, 앱 백그라운드 FCM notification이 동작한다.
+  4. 웹 토스트, 앱 인앱 배너, 앱 백그라운드 OS notification은 같은 FCM data message를 기반으로 동작한다.
   5. 지원 요청과 실종자 발견은 색·문구·우선순위가 구분되고, 같은 이벤트의 반복 알림은 중복 노출되지 않는다.
 - **involved_specs**: S5, S1-1, S1-2, S4, S6, S8
 - **involved_apis**:
@@ -389,12 +389,12 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   - "지원 요청 또는 실종자 발견 마커 생성 실패 시 앱은 실패 사유와 재시도 CTA를 표시한다"
   - "오프라인 생성 항목은 수신 알림으로 표시하지 않고, 생성 단말 화면에서 `알림 전송 대기/pending` 상태로 표시한다"
   - "복구 후 전파 완료 시 pending 배지가 해제되고 전파 완료 피드백으로 바뀐다"
-  - "지원 요청 알림은 웹 토스트·앱 배너·FCM notification에서 생성 계정/팀, Device 이름 또는 유형, OP, 마커 유형, 위치 요약을 함께 표시한다"
+  - "지원 요청 알림은 웹 토스트·앱 배너·FCM data message 기반 백그라운드 OS notification에서 생성 계정/팀, Device 이름 또는 유형, OP, 마커 유형, 위치 요약을 함께 표시한다"
   - "실종자 발견 알림은 지원 요청과 다른 중요도·문구뿐 아니라 생성 출처 계정/Device/OP를 표시한다"
   - "지구대/파출소 순찰차 업무폰과 팀 업무폰이 각각 생성한 알림은 같은 사건·OP 안에서도 서로 다른 출처로 구분된다"
   - "동일 이벤트를 재수신해도 같은 화면에 중복 토스트·배너가 쌓이지 않는다"
   - "웹에서 지원 요청 또는 실종자 발견 마커 생성 API를 호출하면 `403 channel_not_allowed`"
-  - "앱 백그라운드에서도 FCM notification이 도달한다"
+  - "앱 백그라운드에서도 FCM data message가 도달하고 Android가 OS notification을 로컬 생성한다"
   - "지원 요청·실종자 발견 마커 write는 §0.3 공통 red test에 따라 REST 응답 id/status/version, outbox, SSE payload, FCM payload, board snapshot marker/toast row가 같은 알림 상태를 말하고 snapshot version이 수렴해야 한다"
 - **board_merge**: `marker` slot + `toast` slot
 - **notes**: 드론·경찰견은 실제 출동 요청·승인·장비 연동이 아니라 요청 위치 기록 마커에 한정한다.
@@ -434,7 +434,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   - "웹에서 `POST /sync/clock`, `POST /devices/{deviceId}/heartbeat`, Outbox flush/requeue write를 직접 호출하면 `403 channel_not_allowed`"
   - "미등록 Device가 `POST /devices/{deviceId}/heartbeat` 또는 Outbox의 package/status·path·marker/photo write를 전송하면 `403 device_not_registered`를 응답하고 큐 항목은 완료 처리되지 않는다"
   - "등록됐지만 해당 사건/OP에 배정되지 않은 Device가 heartbeat 또는 Outbox의 package/status·path·marker/photo write를 전송하면 `403 device_not_assigned`를 응답하고 앱은 권한 실패 항목을 재시도 대기와 구분해 표시한다"
-- **board_merge**: 단말 최신성 렌더링 + `marker`/`path` slot 이벤트 재수신
+- **board_merge**: `marker` slot + `path` slot + `device_freshness` slot 이벤트 재수신
 - **notes**: `client_ts`, `server_ts`, `clock_offset_ms`를 함께 저장한다. 충돌 판정은 서버 수신 시각 기준이다.
 
 ---
@@ -475,7 +475,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   - "SC-10 실행 로그가 radio_report_received → commander_decision_recorded → area_completed/op_transitioned/handover_saved 순서로 남는다"
   - "완료 구역 상태 변경은 지도 색상, 구역 목록, 최근 변경 피드백에 동시에 반영된다"
   - "구역 완료, OP 전환, 인수인계 메모 write는 §0.3 공통 red test에 따라 REST 응답 id/status/version, outbox, SSE payload, board snapshot area/op/handover row가 같은 완료·현재 OP·메모 상태를 말하고 snapshot version이 수렴해야 한다"
-- **board_merge**: `area` slot + `op_toggle` slot
+- **board_merge**: `area` slot + `op_toggle` slot + `op_history` slot + `handover_memo` slot + `handover_status` slot
 - **notes**: 구역 완료는 공식 수색 기록 확정이 아니라 상황 공유용 운영 상태다.
 
 ---
@@ -540,7 +540,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   - local package purge
   - Outbox flush/requeue closed guard
   - FCM incident topic unsubscribe
-  - SSE incident stream unsubscribe
+  - web SSE incident stream unsubscribe
 - **e2e_red_test**:
   - "사건 종료 확인 다이얼로그는 삭제 대상과 재오픈 불가를 표시하고 승인 전에는 사건을 닫지 않는다"
   - "사건 종료 승인 후 종료 처리 중에는 CTA가 로딩·비활성 상태가 되고 중복 승인해도 종료 요청이 중복 처리되지 않는다"
@@ -555,7 +555,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   - "`INCIDENT_CLOSED` 수신 후 앱은 사건을 `closed` 또는 `purging` 상태로 고정하고 Outbox flush/requeue를 거부한다"
   - "`INCIDENT_CLOSED` 수신 후 실패 주입으로 Outbox에 미전송 항목이 남아 있어도 앱은 재전송을 시작하지 않고 closed error 상태로 표시한다"
   - "`INCIDENT_CLOSED` 수신 후 오프라인 패키지, 지도 타일, manifest는 삭제되거나 무효화되어 오프라인 지도로 재진입할 수 없다"
-  - "`INCIDENT_CLOSED` 수신 후 앱은 FCM incident topic과 SSE incident stream 구독을 해제하고 이후 같은 사건의 실시간 이벤트를 수신·렌더링하지 않는다"
+  - "`INCIDENT_CLOSED` 수신 후 앱은 FCM incident topic 구독을 해제하고, 웹 상황판은 SSE incident stream을 닫아 이후 같은 사건의 실시간 이벤트를 수신·렌더링하지 않는다"
   - "단말 동기화 완료 후 로컬 사건 패키지가 제거된다"
   - "단말 동기화 완료 후 지도 타일과 manifest가 제거되거나 만료 상태로 무효화된다"
   - "단말 동기화 완료 후 로컬 경로가 제거된다"
@@ -568,7 +568,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   - "위치정보 접근 기록과 운영 기록 같은 내부 보존 기록은 사용자 UI, 앱 캐시, 오프라인 패키지, 상황판 조회 응답에 노출되지 않는다"
   - "사용자 삭제 대상인 개인정보·위치·사진·오프라인 패키지와 내부 보존 대상인 운영 기록은 서로 다른 저장소/fixture로 검증되고 사용자 삭제 처리로 내부 보존 기록이 사용자 조회 가능 상태가 되지 않는다"
   - "사건 종료 write는 §0.3 공통 red test에 따라 REST 응답 id/status/version, outbox, SSE payload, board snapshot incident row가 같은 terminal/closed 상태를 말하고 snapshot version이 수렴해야 한다"
-- **board_merge**: `incident_terminal` slot + tombstone snapshot 조회
+- **board_merge**: `incident_terminal` slot + `package_badge` slot + tombstone snapshot 조회
 - **notes**: 운영 로그·접속기록은 사용자 화면 기능이 아니다. 내부 보존은 UI·export 요구가 아니라 사용자 UI, 앱 캐시, 오프라인 패키지, 상황판 조회에 노출되지 않는다는 검증 대상으로만 다룬다. 사건 종료 시나리오의 검증 대상은 개인정보 캐시와 단말 로컬 데이터 파기다.
 
 ---

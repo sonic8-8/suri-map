@@ -112,7 +112,7 @@
 - 백엔드 형식: `[BE] type(scope): 설명 (Jira 티켓번호)`
 - 프론트엔드 형식: `[FE] type(scope): 설명 (Jira 티켓번호)`
 - Android 형식: `[ANDROID] type(scope): 설명 (Jira 티켓번호)`
-- 공통 문서 형식: `[DOCS] type(scope): 설명 (Jira 티켓번호)`
+- 공통 문서 형식: `[Docs] type(scope): 설명 (Jira 티켓번호)`
 - type 목록: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`
 
 ## 도메인 용어 사전
