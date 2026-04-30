@@ -57,6 +57,7 @@
       "마커 위치와 사진 위치 필드의 geometry validation",
       "S3-compatible presigned upload 계약과 photo finalize",
       "지원 요청과 실종자 발견 marker-derived notification event 생성",
+      "지원 부대 배정 FCM recipient/payload fixture",
       "NotificationRecipientResolver와 NotificationPayloadFactory",
       "FcmDispatcher adapter와 하네스 mock dispatcher",
       "MarkerQuery.byIncident read contract"
@@ -1607,7 +1608,7 @@
       {
         "type": "INCIDENT_MEMBERSHIP_CHANGED",
         "from_spec": "S1-1",
-        "handler": "notification target cache를 무효화하고 다음 recipient 계산 시 MembershipView를 재조회한다."
+        "handler": "notification target cache를 무효화하고, S4 EventFanout이 호출하는 resolver/payload factory가 신규 배정된 지원 부대 TEAM_PHONE/PATROL_CAR_PHONE 단말 recipient와 PII 없는 사건 배정 FCM payload를 반환한다. 이 배정 알림은 notification_delivery row를 만들지 않는다."
       }
     ]
   },
@@ -1842,6 +1843,16 @@
       "priority": "critical"
     },
     {
+      "id": "AC-S5-06A",
+      "fr_refs": [
+        "FR-01"
+      ],
+      "given": "지원 부대 membership이 새로 추가되어 INCIDENT_MEMBERSHIP_CHANGED가 fanout 대상이 됐다.",
+      "when": "S4 EventFanout이 S5 NotificationRecipientResolver와 NotificationPayloadFactory를 호출한다.",
+      "then": "신규 배정된 지원 부대의 TEAM_PHONE/PATROL_CAR_PHONE 단말 recipient와 PII 없는 사건 배정 FCM payload가 반환되고, notification_delivery row는 생성되지 않는다.",
+      "priority": "critical"
+    },
+    {
       "id": "AC-S5-07",
       "fr_refs": [
         "FR-30"
@@ -2032,7 +2043,7 @@
       {
         "name": "NotificationBannerPayloadTest",
         "framework": "JUnit5 + Robolectric",
-        "scenario": "FCM data message payload가 지원 요청과 실종자 발견 배너를 서로 다른 강조 상태로 렌더링한다."
+        "scenario": "FCM data message payload가 사건 배정, 지원 요청, 실종자 발견 배너를 서로 다른 강조 상태로 렌더링한다."
       }
     ]
   },
@@ -2066,6 +2077,34 @@
         "photoId": "photo-precinct-clue-001",
         "photoStatus": "FINALIZED",
         "photoVersion": 2
+      }
+    },
+    "sc02_support_assignment_notification": {
+      "incidentId": "inc-precinct-first-001",
+      "eventId": "evt-s1-membership-support-assigned-001",
+      "membershipVersion": 2,
+      "recipientPolicy": "NEWLY_ASSIGNED_SUPPORT_DEVICES",
+      "recipientAccountIds": [
+        "acct-support-car",
+        "acct-support-team"
+      ],
+      "recipientDeviceIds": [
+        "dev-support-car-01",
+        "dev-support-phone-01"
+      ],
+      "excludedDeviceIds": [
+        "dev-support-cmd-phone-01"
+      ],
+      "expectedFcmRecipients": [
+        "fcm:dev-support-car-01",
+        "fcm:dev-support-phone-01"
+      ],
+      "expectedPayload": {
+        "type": "INCIDENT_MEMBERSHIP_CHANGED",
+        "incidentId": "inc-precinct-first-001",
+        "status": "ACTIVE",
+        "version": 2,
+        "pii": false
       }
     },
     "sc08_support_request_notification": {
@@ -2174,7 +2213,7 @@
       "eventOutboxMissing": "fail if marker/photo/notification row commits without S4 PublishRequest capture",
       "sseMissing": "fail if eventId is not observed by mock SSE client",
       "boardNotUpdated": "fail if mock board snapshot marker/toast row version is lower than REST response version",
-      "fcmMockMissing": "fail if SUPPORT_REQUEST_CREATED or PERSON_FOUND has recipients but mock FcmDispatcher has no matching eventId payload record"
+      "fcmMockMissing": "fail if INCIDENT_MEMBERSHIP_CHANGED, SUPPORT_REQUEST_CREATED, or PERSON_FOUND has recipients but mock FcmDispatcher has no matching eventId payload record"
     }
   },
   "harness_constraints": {

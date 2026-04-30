@@ -75,7 +75,7 @@
   - 필수 참조: `spec/specs/S2.json`, `spec/boundaries.md §4.1.1`, `spec/harness-scenarios.md §2 SC-04`
   - 연관 Spec: S1-2, S4, S8, S3-2
   - 시나리오: SC-04
-  - 관련 FR: FR-06, FR-07
+  - 관련 FR: FR-07, FR-12
   - 구현 산출물: search_area create/update APIs, `AREA_CREATED` PublishRequest contract test, invalid geometry rejection tests, area query DTO, board slot source fixture
   - 예상 작업량: 1d
   - 완료 기준: 유효한 polygon은 area를 생성/수정하고, `AREA_CREATED`는 안정적인 id/status/version/opId를 포함하며, invalid geometry는 공통 규칙으로 실패하고 board 소비자는 안정적인 query DTO를 받는다.
@@ -106,7 +106,7 @@
   - 필수 참조: `spec/specs/S2.json`, `spec/specs/S8.json`, `spec/boundaries.md §10 SC-10`
   - 연관 Spec: S8, S4, S3-2
   - 시나리오: SC-10
-  - 관련 FR: FR-06, FR-07, FR-12, FR-13
+  - 관련 FR: FR-06, FR-07, FR-13
   - 구현 산출물: area state transition API, search_area_history write path, `AREA_STATE_CHANGED` publish request, history/count tests
   - 예상 작업량: 2d
   - 완료 기준: 상태 전이가 previous/next state, OP, account, time, memo, count/history를 기록하고 `AREA_STATE_CHANGED`를 발행한다.
