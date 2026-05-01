@@ -9,7 +9,7 @@ pipeline {
     environment {
         FRONTEND_IMAGE = 'suri-map-frontend:develop'
         BACKEND_IMAGE = 'suri-map-backend:develop'
-        COMPOSE_FILE = 'infrastructure/docker/docker-compose.runtime.yml'
+        COMPOSE_FILE = 'infra/docker/docker-compose.runtime.yml'
         ENV_FILE = '.env.runtime'
         FRONTEND_HOST_PORT = '3000'
         BACKEND_HOST_PORT = '8081'
@@ -81,25 +81,37 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=${env.SPRING_JPA_HIBERNATE_DDL_AUTO}
         stage('Verify Runtime') {
             steps {
                 sh '''
-                    if curl -fsS http://127.0.0.1:${FRONTEND_HOST_PORT}/ >/dev/null; then
-                      echo "frontend_health=ready"
-                    else
-                      echo "frontend_health=failed"
-                      docker logs --tail=200 suri-map-frontend || true
-                      exit 1
-                    fi
-
-                    for i in $(seq 1 60); do
-                      if curl -fsS http://127.0.0.1:${BACKEND_HOST_PORT}/actuator/health >/dev/null; then
-                        echo "backend_health=ready"
-                        exit 0
+                    frontend_ready=false
+                    for i in $(seq 1 30); do
+                      if docker exec suri-map-frontend wget -qO- http://127.0.0.1/ >/dev/null; then
+                        echo "frontend_health=ready"
+                        frontend_ready=true
+                        break
                       fi
                       sleep 2
                     done
 
-                    echo "backend_health=timeout"
-                    docker logs --tail=200 suri-map-backend || true
-                    exit 1
+                    if [ "${frontend_ready}" != "true" ]; then
+                      echo "frontend_health=timeout"
+                      docker logs --tail=200 suri-map-frontend || true
+                      exit 1
+                    fi
+
+                    backend_ready=false
+                    for i in $(seq 1 60); do
+                      if docker exec suri-map-frontend wget -qO- http://backend:8080/api/health >/dev/null; then
+                        echo "backend_health=ready"
+                        backend_ready=true
+                        break
+                      fi
+                      sleep 2
+                    done
+
+                    if [ "${backend_ready}" != "true" ]; then
+                      echo "backend_health=timeout"
+                      docker logs --tail=200 suri-map-backend || true
+                      exit 1
+                    fi
                 '''
             }
         }
