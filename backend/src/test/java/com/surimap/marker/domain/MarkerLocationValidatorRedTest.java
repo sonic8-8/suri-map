@@ -4,6 +4,7 @@ import com.surimap.marker.domain.exception.InvalidGeometryException;
 import com.surimap.marker.domain.fixture.MarkerGeometryFixtures;
 import com.surimap.marker.domain.port.MapBoundaryQueryPort;
 import com.surimap.marker.domain.port.MarkerLocationValidator;
+import com.surimap.marker.domain.service.MarkerLocationValidatorImpl;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -20,9 +21,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 /**
- * 마커 위치 검증 red test.
+ * 마커 위치 검증 테스트.
  *
- * 이 테스트는 MarkerLocationValidator 구현체가 없으므로 전부 실패한다(red).
+ * MarkerLocationValidatorImpl 구현체와 연결하여 green 전환.
  * 구현체를 작성하면 green으로 전환된다.
  *
  * SC-06 harness red test 기준:
@@ -50,9 +51,7 @@ class MarkerLocationValidatorRedTest {
     private final MapBoundaryQueryPort emptyBoundaryQuery =
             incidentId -> Optional.empty();
 
-    // ── TODO: 구현체 주입 후 이 줄만 교체하면 green 전환 ──
-    // private final MarkerLocationValidator validator = new MarkerLocationValidatorImpl(stubBoundaryQuery);
-    private final MarkerLocationValidator validator = null; // RED: 구현체 없음
+    private final MarkerLocationValidator validator = new MarkerLocationValidatorImpl(stubBoundaryQuery);
 
     // ══════════════════════════════════════════════════════
     // 정상 케이스
@@ -145,10 +144,8 @@ class MarkerLocationValidatorRedTest {
     @DisplayName("map_boundary 부재")
     class NoBoundary {
 
-        // boundary가 없는 stub 사용
-        // private final MarkerLocationValidator noBoundaryValidator =
-        //         new MarkerLocationValidatorImpl(emptyBoundaryQuery);
-        private final MarkerLocationValidator noBoundaryValidator = null; // RED
+        private final MarkerLocationValidator noBoundaryValidator =
+                new MarkerLocationValidatorImpl(emptyBoundaryQuery);
 
         @Test
         @DisplayName("active boundary 없으면 → invalid_geometry")
