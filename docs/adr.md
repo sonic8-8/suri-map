@@ -17,32 +17,16 @@
 ## 현재 구현 기준 요약
 
 - MVP 계정 모델: 팀 계정·순찰차 계정·지휘 계정 (ADR-0031)
-- 경로 주체: 개인이 아니라 팀 업무폰/순찰차 업무폰 `Device` (ADR-0025)
-- OP/인수인계: OP별 경로·마커·구역 상태·메모·AI 요약 (ADR-0029)
-- 실제 112/실종프로파일링 직접 연동 없음: mock·seed 사건 가져오기 (ADR-0030)
+- 경로 주체: 개인이 아니라 팀 업무폰/순찰차 업무폰 `police_phone` (ADR-0025)
+- OP/인수인계: OP별 경로·마커·구역 상태·메모·수색 이력 요약 (ADR-0029)
+- 112/mock·seed polling/import 기반 사건·지원 배정 반영, 내부 지원 배정 workflow 없음 (ADR-0030)
+- Refresh token은 PostgreSQL `refresh_token`에 저장하고 Redis는 사용하지 않음 (ADR-0006)
+- 별도 board DB 없이 원본 테이블 기반 API assembly + SSE refetch 신호 사용 (ADR-0033)
+- 서버와 Android 동기화 경계는 UUID 식별자를 기본으로 사용 (ADR-0036)
 - ADR 문서 구조: 현재 구현 기준과 archive 분리 (ADR-0032)
 - Persistence Layer: MyBatis 단일 채택 (ADR-0033)
-- AI Summary Provider: OpenAI API + Template fallback (ADR-0034)
+- Search History Summary Provider: OpenAI API + FAILED 상태 처리 (ADR-0034)
 - 잔여 기술 선택: Spring MVC+SseEmitter, Kotlin DSL, npm/Vite, React Router, TanStack Query+Zustand, MinIO dev adapter (ADR-0035)
-
-## Archive Index
-
-대체·폐기된 ADR 상세 기록은 [adr-archive.md](./adr-archive.md)에 보관한다.
-
-| ADR | Archive 사유 | 대체 ADR |
-|---|---|---|
-| ADR-0008 | 계정 모델 이원화 폐기 | ADR-0015, ADR-0031 |
-| ADR-0009 | 현장 지휘관 앱 주 조작 모델 폐기 | ADR-0016, ADR-0026 |
-| ADR-0010 | ADR 단일 파일 관리 폐기 | ADR-0032 |
-| ADR-0011 | 산악 프리셋 중심 타일 전략 폐기 | ADR-0024 |
-| ADR-0015 | 개인 계정 중심 모델 폐기 | ADR-0031 |
-| ADR-0016 | PRD2 지휘 권한 모델 폐기 | ADR-0026 |
-| ADR-0017 | PRD2 채널 경계 폐기 | ADR-0026 |
-| ADR-0018 | 자동 사각지대 하이라이트 폐기 | ADR-0027 |
-| ADR-0019 | PRD2 오프라인 패키지 폐기 | ADR-0028 |
-| ADR-0021 | PRD2 OP 모델 폐기 | ADR-0029 |
-
----
 
 ## ADR-0001. 단일 EC2 + Docker Compose 배포
 
@@ -161,7 +145,7 @@ Android 앱에서 다음 스택 조합 채택:
 - **−** MapLibre Native Android의 오프라인 관리 성숙도가 Mapbox보다 다소 낮음 (초기 개발 비용)
 - **−** 타일 서버 컨테이너 운영 부담 (EC2 리소스·모니터링)
 - **−** 산림청 등산로 등 오버레이 레이어 파이프라인을 직접 구성해야 함
-- 구체적 타일 소스·지도 기준 범위 전략은 ADR-0024 참조
+- 구체적 타일 소스·전체 수색 구역 전략은 ADR-0024 참조
 
 ---
 
@@ -210,6 +194,7 @@ WebSocket은 MVP 범위 외.
 ### Decision
 
 - MVP에서는 Redis를 도입하지 않는다
+- Refresh token은 PostgreSQL `refresh_token` 테이블에 저장하고 Redis를 토큰 저장소로 사용하지 않는다.
 
 ### 도입 검토 시점
 
@@ -415,7 +400,7 @@ WebSocket은 MVP 범위 외.
 
 ---
 
-## ADR-0022. 사건 종료는 terminal, 실종자 정보 원본은 112에 두고 Suri-Map은 운영 캐시만 유지
+## ADR-0022. 사건 종료는 terminal, 실종자 정보 원본은 112에 두고 Suri-Map은 운영 도메인 데이터만 유지
 
 - **Status**: Accepted
 - **Date**: 2026-04-23
@@ -428,7 +413,7 @@ WebSocket은 MVP 범위 외.
 
 ### Decision
 
-- Suri-Map은 실종자 개인정보/사진을 **운영 캐시**로만 저장한다. 장기 보존의 원본 시스템은 112 계열 시스템이다
+- Suri-Map은 실종자 개인정보/사진을 **운영 도메인 데이터**로만 저장한다. 장기 보존의 원본 시스템은 112 계열 시스템이다
 - 사건 종료 시 실종자 개인정보/사진은 Suri-Map의 active DB, API 응답, 단말 오프라인 패키지에서 즉시 제거한다
 - 사건 종료는 **terminal** 상태로 본다. 사용자 대상 재오픈 UI/API는 제공하지 않는다
 - 종료 후에도 비식별 사건 메타, 구역/마커/OP 이력, 운영 기록, 위치정보 접근기록은 각 보존 정책에 따라 유지할 수 있다
@@ -472,7 +457,7 @@ WebSocket은 MVP 범위 외.
 
 ---
 
-## ADR-0024. 수색 범위 확장과 사건별 지도 기준 범위
+## ADR-0024. 수색 범위 확장과 사건별 전체 수색 구역
 
 - **Status**: Accepted
 - **Date**: 2026-04-27
@@ -485,18 +470,18 @@ PRD v3는 산악 중심 제품 정의를 도심·도심 외곽·논밭·하천·
 ### Decision
 
 - MapLibre Android/Web + 자체 `tileserver-gl` 선택은 유지한다.
-- 오프라인 타일 다운로드 기준을 산 프리셋에서 **사건별 지도 기준 범위**로 바꾼다.
-- 지도 기준 범위는 자동 누락 판단 기준이 아니라 초기 뷰포트, 오프라인 패키지, 구역 작성의 기준으로만 사용한다.
+- 오프라인 타일 다운로드 기준을 산 프리셋에서 **사건별 전체 수색 구역**로 바꾼다.
+- 전체 수색 구역은 자동 누락 판단 기준이 아니라 초기 뷰포트, 오프라인 패키지, 구역 작성의 기준으로만 사용한다.
 - 등산로·임도 등 환경별 보조 레이어는 후속 데이터셋 확보 여부에 따라 붙인다.
 
 ### Consequences
 
 - **+** 도심·외곽·하천·산악을 같은 지도 패키지 구조로 처리한다.
-- **−** 지도 기준 범위가 넓거나 부정확하면 타일 용량·누락 문제가 생긴다.
+- **−** 전체 수색 구역이 넓거나 부정확하면 타일 용량·누락 문제가 생긴다.
 
 ---
 
-## ADR-0025. 경로 주체는 Device, 조작 주체는 운영 계정
+## ADR-0025. 경로 주체는 PolicePhone, 조작 주체는 운영 계정
 
 - **Status**: Accepted
 - **Date**: 2026-04-27
@@ -507,9 +492,9 @@ PRD v3는 산악 중심 제품 정의를 도심·도심 외곽·논밭·하천·
 
 ### Decision
 
-- 수색 경로의 주체는 개인이 아니라 `Device`다.
-- `Device`는 팀 업무폰 또는 순찰차 업무폰으로 구분한다.
-- 경로는 사건·OP·수색 세션·Device에 귀속한다.
+- 수색 경로의 주체는 개인이 아니라 `police_phone`다.
+- `police_phone`는 팀 업무폰 또는 순찰차 업무폰으로 구분한다.
+- 경로는 사건·OP·`police_phone`에 귀속하며 `search_path` 상태로 시작·일시정지·재개·종료를 표현한다.
 - 마커·메모·구역·OP 등 조작 주체는 개인이 아니라 팀 계정·순찰차 계정·지휘 계정으로 기록한다.
 
 ### Consequences
@@ -533,8 +518,8 @@ PRD v3는 지구대/파출소 팀장 또는 당직자를 현장 지휘관 범위
 ### Decision
 
 - 현장 지휘관은 사건당 N명이며 실종팀 간부, 지원 부서 간부, 지구대/파출소 팀장 또는 당직자를 포함한다.
-- 웹 전용: 사건 가져오기/종료, 지원 부대 배정, 지휘관 지정, 지도 기준 범위, 구역 분할·할당·완료, 새 OP, 차량/도보 구간 보정.
-- 앱 전용: 수색 세션, GPS 기록, 현장 마커 생성, 사진 첨부.
+- 웹 전용: 사건 가져오기/종료, 전체 수색 구역, 구역 분할·할당·완료, 새 OP, 차량/도보 구간 보정.
+- 앱 전용: 수색 경로, GPS 기록, 현장 마커 생성, 사진 첨부.
 - 앱+웹 공통: 사건 조회, 마커 조회·수정·삭제(권한 범위), OP/경로/구역 인수인계 메모 작성.
 - 서버는 역할과 클라이언트 출처를 함께 검증한다.
 
@@ -559,7 +544,7 @@ PRD v3는 확인 누락 확정과 다음 구역 추천을 금지한다. 자동 �
 ### Decision
 
 - MVP에서 PostGIS 기반 자동 사각지대 하이라이트를 구현하지 않는다.
-- 상황판은 OP별 경로, 완료 구역, 재확인 마커, 메모, AI 요약을 함께 보여주고 판단은 사람이 한다.
+- 상황판은 OP별 경로, 완료 구역, NOTE 마커, 메모, 수색 이력 요약을 함께 보여주고 판단은 사람이 한다.
 - PostGIS는 공간 저장·조회·렌더링 범위 필터링에 계속 사용한다.
 
 ### Consequences
@@ -582,9 +567,9 @@ PRD v3는 확인 누락 확정과 다음 구역 추천을 금지한다. 자동 �
 
 ### Decision
 
-- 패키지는 사건 메타, 실종자 정보, OP, 담당 구역, 초기 기준점 마커, 지도 기준 범위와 타일, 단말/팀/순찰차 식별 정보를 포함한다.
+- 패키지는 사건 메타, 실종자 정보, OP, 담당 구역, 초기 기준점 마커, 전체 수색 구역과 타일, `police_phone` 식별 정보를 포함한다.
 - 적재 진행률과 실패 재시도를 제공하고, 미완료 상태는 상황판에 경고 배지로 보고한다.
-- 사건 종료 시 동기화 ack를 확인한 뒤 로컬 패키지와 실종자 캐시를 삭제한다.
+- 사건 종료 시 동기화 ack를 확인한 뒤 로컬 패키지와 실종자 로컬 데이터를 삭제한다.
 
 ### Consequences
 
@@ -593,7 +578,7 @@ PRD v3는 확인 누락 확정과 다음 구역 추천을 금지한다. 자동 �
 
 ---
 
-## ADR-0029. OP 기반 인수인계와 AI 요약
+## ADR-0029. OP 기반 인수인계와 수색 이력 요약
 
 - **Status**: Accepted
 - **Date**: 2026-04-27
@@ -606,33 +591,34 @@ PRD v3에서 OP는 재수색 차수뿐 아니라 근무 교대와 인수인계�
 ### Decision
 
 - 사건 가져오기 시 OP1을 자동 생성하고, OP2 이후는 웹에서 사유와 함께 수동 생성한다.
-- OP 생성 사유는 `재수색`, `근무 교대`, `새 구역 배정`, `기타`로 제한한다.
-- 수색 세션, 경로, 마커, 구역 이력, 배정, 인수인계 메모, AI 요약은 OP에 귀속한다.
-- AI 요약은 내부 기록만 입력으로 사용하고, 누락 확정·다음 구역 지시·위험도 판단을 하지 않는다.
-- AI 실패 시 템플릿 요약으로 대체한다.
+- OP 생성 사유는 `RE_SEARCH`, `AREA_CHANGED`, `OTHER`로 제한한다. OP1 자동 생성에는 `INITIAL`을 사용하고, 근무 교대는 `duty_shift`로 별도 기록한다.
+- `search_path`, 마커, 구역 이력, 수색 구역 배정, 인수인계 메모, 수색 이력 요약은 OP에 귀속한다.
+- 수색 이력 요약은 내부 기록만 입력으로 사용하고, 누락 확정·다음 구역 지시·위험도 판단을 하지 않는다.
+- 요약 생성 실패 시 `generation_status = FAILED`로 남기고 대체 요약 문장을 저장하지 않는다. UI는 실패 안내, 재시도, 원본 기록 확인을 제공한다.
 
 ### Consequences
 
 - **+** 인수인계 문제를 OP 단위로 다룰 수 있다.
 - **+** AI 기능을 판단 자동화가 아닌 기록 요약으로 제한한다.
-- **−** OP 전환, 세션, 메모, 요약의 생명주기를 일관되게 설계해야 한다.
+- **−** OP 전환, 근무 구간, 경로, 메모, 요약의 생명주기를 일관되게 설계해야 한다.
 
 ---
 
-## ADR-0030. 112/실종프로파일링 mock·seed 사건 가져오기
+## ADR-0030. 112/mock·seed polling/import 기반 사건·배정 반영
 
 - **Status**: Accepted
 - **Date**: 2026-04-27
 
 ### Context
 
-MVP는 실제 경찰 내부망·112·실종프로파일링시스템과 직접 연동하지 않는다. 다만 제품 흐름은 사용자가 사건을 직접 생성하는 것이 아니라 배정 사건을 가져오는 구조여야 한다.
+MVP는 실제 경찰 내부망·112·실종프로파일링시스템과 직접 연동하지 않는다. 다만 제품 흐름은 사용자가 사건을 직접 생성하거나 Suri-Map 내부에서 지원 부대를 배정하는 것이 아니라, 112 계열 배정 결과를 polling/import로 반영하는 구조여야 한다.
 
 ### Decision
 
-- MVP는 mock API 또는 seed adapter로 사건 가져오기를 구현한다.
+- MVP는 mock API 또는 seed adapter로 사건과 지원 배정 polling/import를 구현한다.
 - 백엔드는 실제 연동 가능성을 위해 `ExternalIncidentAdapter` 경계를 둔다.
-- 사건 가져오기 성공 시 내부 사건, 실종자 캐시, 접근 권한, 초기 기준점 마커, OP1을 생성한다.
+- 사건 가져오기 성공 시 내부 사건, `missing_person`, `incident_assignment`, 초기 기준점 마커, OP1을 생성한다.
+- 지원 부대 배정은 Suri-Map public/admin write API가 아니라 112/mock polling/import 결과로 `incident_assignment`에 반영한다.
 
 ### Consequences
 
@@ -662,7 +648,7 @@ ADR-0015는 개인 계정 기반 책임 추적을 채택했지만, PRD v3의 실
 ### Consequences
 
 - **+** 공유 폴리폰 교대 사용 흐름이 단순해진다.
-- **+** 경로 주체(Device)와 로그인 계정(팀/순찰차)이 자연스럽게 맞는다.
+- **+** 경로 주체(PolicePhone)와 로그인 계정(팀/순찰차)이 자연스럽게 맞는다.
 - **−** 누가 실제로 버튼을 눌렀는지 개인 단위로 식별할 수 없다.
 
 ---
@@ -681,7 +667,7 @@ PRD v3 반영으로 대체된 ADR이 많아지면서 `adr.md` 하나에 현재 �
 
 - `adr.md`에는 현재 구현 기준인 `Accepted` ADR만 상세히 유지한다.
 - 대체·폐기된 ADR 상세 기록은 `adr-archive.md`에 보관한다.
-- `adr.md` 상단에는 archive index를 두어 어떤 ADR이 어디로 대체됐는지 빠르게 확인한다.
+- `adr-archive.md` 상단에는 archive index를 두어 어떤 ADR이 어디로 대체됐는지 빠르게 확인한다.
 - 파일명은 날짜 없는 신규 문서에 한해 하이픈 기반 `kebab-case`를 기본으로 한다.
 
 ### Consequences
@@ -699,33 +685,33 @@ PRD v3 반영으로 대체된 ADR이 많아지면서 `adr.md` 하나에 현재 �
 
 ### Context
 
-Suri-Map은 PostgreSQL + PostGIS를 핵심 저장소로 사용한다. 지도 기준 범위, 수색 구역, 수색 경로, 경로 구간, 마커는 LineString/Polygon/Point 계열 geometry를 저장하고, 상황판과 오프라인 패키지는 bbox, OP별 필터, board projection/read model 쿼리를 반복적으로 사용한다.
+Suri-Map은 PostgreSQL + PostGIS를 핵심 저장소로 사용한다. 전체 수색 구역, 수색 구역, 수색 경로, 경로 구간, 마커는 LineString/Polygon/Point 계열 geometry를 저장하고, 상황판과 오프라인 패키지는 bbox, OP별 필터, board API assembly/source query 쿼리를 반복적으로 사용한다.
 
-5주 MVP에서 JPA + Hibernate Spatial을 도입하면 공간 타입 매핑, native query 혼용, lazy loading/transaction 경계, projection 쿼리 복잡도가 동시에 발생한다. JPA와 MyBatis를 섞는 하이브리드도 단순 CRUD에는 편하지만 6명이 수직 슬라이스로 개발하는 조건에서는 mapper/entity/repository 규칙이 이중화된다.
+5주 MVP에서 JPA + Hibernate Spatial을 도입하면 공간 타입 매핑, native query 혼용, lazy loading/transaction 경계, 조회 DTO 쿼리 복잡도가 동시에 발생한다. JPA와 MyBatis를 섞는 하이브리드도 단순 CRUD에는 편하지만 6명이 수직 슬라이스로 개발하는 조건에서는 mapper/entity/repository 규칙이 이중화된다.
 
 ### Decision
 
 - 백엔드 persistence layer는 MyBatis 단일로 구현한다.
 - MVP 범위에서는 Spring Data JPA/Hibernate ORM을 도입하지 않는다.
-- SQL은 mapper interface + XML mapper를 기본으로 관리한다. 복잡한 PostGIS 쿼리, board read model, outbox/idempotency 조회는 명시적 SQL로 작성한다.
+- SQL은 mapper interface + XML mapper를 기본으로 관리한다. 복잡한 PostGIS 쿼리, board API assembly source query, `event_dispatch_job`, `idempotency_record` 조회는 명시적 SQL로 작성한다.
 - Flyway가 schema 변경의 기준이며, MyBatis mapper는 Flyway schema와 `spec/specs/*.json`의 entity 계약을 따라간다.
 - PostGIS geometry는 공용 TypeHandler로 매핑한다. 도메인 내부 표현은 JTS Geometry 또는 명시적 GeoJSON DTO로 제한하고, API/board/package 계약에서는 spec의 GeoJSON shape를 유지한다.
-- Service layer transaction은 Spring `@Transactional`을 사용한다. domain row와 publish request/outbox 관련 처리는 같은 transaction 경계 안에서 명시적으로 검증한다.
+- Service layer transaction은 Spring `@Transactional`을 사용한다. domain row와 `event_dispatch_job` 생성 처리는 같은 transaction 경계 안에서 명시적으로 검증한다.
 - Mapper 패키지는 Spec 또는 수직 슬라이스 단위로 나누되, 다른 Spec 소유 table을 직접 write하지 않는다.
 
 ### Consequences
 
-- **+** PostGIS 함수, bbox 필터, spatial index 사용, board projection 쿼리를 SQL로 직접 제어할 수 있다.
+- **+** PostGIS 함수, bbox 필터, spatial index 사용, board API assembly 쿼리를 SQL로 직접 제어할 수 있다.
 - **+** persistence 기술이 하나로 고정되어 6명 병렬 개발 시 리뷰 기준이 단순해진다.
 - **+** JPA/Hibernate Spatial 학습과 native query 혼용 비용을 피한다.
-- **+** outbox, idempotency, projection read model처럼 명시적 SQL이 필요한 경계와 잘 맞는다.
+- **+** `event_dispatch_job`, `idempotency_record`, API assembly source query처럼 명시적 SQL이 필요한 경계와 잘 맞는다.
 - **−** 단순 CRUD도 mapper/XML을 작성해야 하므로 boilerplate가 늘어난다.
 - **−** 객체 그래프 자동 추적이 없으므로 service layer에서 write 순서와 transaction 경계를 명확히 관리해야 한다.
 - **−** geometry TypeHandler와 mapper test 기반을 Phase -1에서 먼저 안정화해야 한다.
 
 ---
 
-## ADR-0034. AI Summary Provider로 OpenAI API 채택
+## ADR-0034. Search History Summary Provider로 OpenAI API 채택
 
 - **Status**: Accepted
 - **Date**: 2026-04-30
@@ -734,26 +720,26 @@ Suri-Map은 PostgreSQL + PostGIS를 핵심 저장소로 사용한다. 지도 기
 
 Suri-Map MVP는 평가 포인트상 실제 AI 기능을 최소 1개 이상 포함해야 한다. PRD v3에서 남은 AI 범위는 수색 보고서 자동 작성이 아니라 OP 기반 수색 이력 요약(FR-39)이며, FR-23에 따라 누락 구역 확정, 다음 수색 구역 추천, 위험도 판단은 금지된다.
 
-단순 템플릿 요약만으로는 AI 기능 구현으로 보기 어렵다. 반대로 AI 출력이 지휘 판단을 대체하거나 공개 API 계약을 흔들면 기존 Spec과 시나리오 계약이 불안정해진다.
+단순 규칙 기반 요약만으로는 AI 기능 구현으로 보기 어렵다. 반대로 AI 출력이 지휘 판단을 대체하거나 공개 API 계약을 흔들면 기존 Spec과 시나리오 계약이 불안정해진다.
 
 ### Decision
 
-- S8 AI Summary MVP의 기본 provider는 **OpenAI API**로 한다.
-- 백엔드는 `AiSummaryPort`를 두고 `OpenAiSummaryAdapter`를 기본 구현으로 사용한다.
+- S8 `search_history_summary` MVP의 기본 provider는 **OpenAI API**로 한다.
+- 백엔드는 `SearchHistorySummaryPort`를 두고 `OpenAiSearchHistorySummaryAdapter`를 기본 구현으로 사용한다.
 - OpenAI 응답은 Structured Outputs 또는 동등한 JSON schema 검증 방식으로 제한한다.
-- OpenAI 호출 실패, timeout, schema validation 실패, 금지 문구 검출 시 `TemplateSummaryAdapter` fallback 또는 `summary_unavailable`로 처리한다.
-- AI summary input은 Suri-Map 내부 OP/path/marker/area/handover memo 기록에서 만든 최소화된 source snapshot으로 제한한다.
-- AI summary output은 저장 전 guard를 통과해야 하며, 추천·누락 확정·위험도 판단·다음 구역 지시 표현은 저장하지 않는다.
+- OpenAI 호출 실패, timeout, schema validation 실패, 금지 문구 검출 시 `generation_status = FAILED`로 남기고 `content`를 저장하지 않는다. 공개 조회는 `summary_unavailable` 상태와 재시도 가능 여부만 노출한다.
+- `search_history_summary` input은 Suri-Map 내부 OP/path/marker/area/handover memo 기록에서 만든 최소화된 source bundle로 제한한다.
+- `search_history_summary` output은 저장 전 guard를 통과해야 하며, 추천·누락 확정·위험도 판단·다음 구역 지시 표현은 저장하지 않는다.
 - OpenAI API key와 model명은 환경 변수 또는 secret으로 주입하고 코드·fixture·로그에 남기지 않는다.
-- 공개 REST response, `AI_SUMMARY_READY` event payload, board `ai_summary` slot 계약은 S8 Spec을 유지한다. Provider 정보는 필요한 경우 내부 로그·메트릭·운영 evidence로만 다룬다.
+- 공개 REST response, `SEARCH_HISTORY_SUMMARY_CHANGED` event payload, board `search_history_summary` slot 계약은 S8 Spec을 유지한다. Provider 정보는 필요한 경우 내부 로그·메트릭·운영 evidence로만 다룬다.
 
 ### Consequences
 
 - **+** MVP에서 실제 외부 AI 호출 기반 happy path를 구현할 수 있다.
-- **+** `AiSummaryPort` 경계 덕분에 OpenAI 장애나 비용 이슈가 있어도 template fallback과 mock adapter로 테스트 가능하다.
+- **+** `SearchHistorySummaryPort` 경계 덕분에 OpenAI happy path와 실패 경로를 mock adapter로 테스트할 수 있다.
 - **+** Structured output과 guard를 통해 FR-23 금지 판단을 저장 전에 차단할 수 있다.
 - **−** OpenAI API key 발급, 사용량 제한, timeout/retry 정책, 네트워크 장애 처리가 필요하다.
-- **−** 시연 환경에서 외부망/API quota 문제가 있으면 fallback 시연만 남을 수 있으므로 happy path evidence를 사전에 확보해야 한다.
+- **−** 시연 환경에서 외부망/API quota 문제가 있으면 요약은 실패 상태로 남으므로 happy path evidence를 사전에 확보해야 한다.
 
 ---
 
@@ -777,7 +763,7 @@ ADR-0013과 ADR-0014는 큰 축인 JDK 17, Spring Boot 3.x, Kotlin Android, Reac
 - Web router는 React Router를 사용한다.
 - Web server state는 TanStack Query(React Query), board display/client state는 Zustand를 사용한다.
 - 개발·하네스 object storage adapter는 MinIO(S3-compatible)를 기본으로 하고, harness는 mock object storage/presigned upload fixture를 사용한다. 운영 배포는 S3-compatible port를 통해 S3로 전환한다.
-- Android public baseline은 AGP 8.13.x, minSdk 31, targetSdk 34를 유지하고, 테스트는 Robolectric + real-device smoke를 기준으로 한다.
+- Android public baseline은 AGP 8.13.x, minSdk 31, targetSdk 34를 유지하고, 테스트는 Robolectric + real hardware smoke를 기준으로 한다.
 
 ### Consequences
 
@@ -787,3 +773,27 @@ ADR-0013과 ADR-0014는 큰 축인 JDK 17, Spring Boot 3.x, Kotlin Android, Reac
 - **−** WebFlux 기반 backpressure/리액티브 스트림은 MVP에서 사용하지 않는다.
 - **−** pnpm/yarn의 workspace 성능 이점은 포기한다.
 - **−** Android compileSdk/AGP 세부 patch version은 로컬 SDK 설치 가능성에 맞춰 bootstrap에서 검증해야 한다.
+
+---
+
+## ADR-0036. 서버·Android 동기화 경계 UUID 식별자 전략
+
+- **Status**: Accepted
+- **Date**: 2026-04-27
+
+### Context
+
+Android는 오프라인 상태에서 경로, 마커, 사진 업로드 요청을 먼저 로컬에 기록하고 네트워크 복구 후 재전송한다. 서버 auto-increment ID만 사용하면 로컬 임시 ID와 서버 ID 매핑, 재전송 중복 처리, harness fixture 병합이 복잡해진다.
+
+### Decision
+
+- 백엔드 공개 API, Android Room 로컬 DB, Outbox 동기화 경계의 주 식별자는 UUID를 기본으로 사용한다.
+- 서버는 UUID를 authoritative identifier로 저장하고, Android는 오프라인 생성 시 UUID를 먼저 발급한다.
+- 멱등성은 resource UUID와 `Idempotency-Key`를 함께 사용해 동일 요청 재전송을 같은 결과로 수렴시킨다.
+- 외부 112/mock 사건 키는 별도 external key로 보존하고, 내부 도메인 식별자와 혼용하지 않는다.
+
+### Consequences
+
+- **+** 오프라인 생성, 재전송, 병합 fixture를 같은 식별자 체계로 검증할 수 있다.
+- **+** 서버 ID 매핑 테이블 없이 Android 로컬 상태와 서버 응답을 맞출 수 있다.
+- **−** UUID 정렬성과 index locality를 고려해 생성 전략과 DB index를 설계해야 한다.

@@ -6,14 +6,14 @@
 
 - marker domain, marker photos, marker read/update/delete
 - Android marker bottom sheet input
-- S3 presigned photo upload/finalize contract
+- S3 upload URL photo upload/attach contract
 - support request/person found notification payload and recipient calculation
 - FCM dispatcher adapter boundary
 
 ## 외부 계약
 
-- Consumes L2/S1-2 auth/device/FCM token fixture.
-- Consumes L3/S2 map boundary validation and L3/S8 OP context.
+- Consumes L2/S1-2 auth/policePhone/FCM token fixture.
+- Consumes L3/S2 overall_search_area validation and L3/S8 OP context.
 - Writes through L4/S6 outbox when offline app input is used.
 - Publishes through L2/S4 event contract.
 - Provides marker read model, marker events, and initial marker seed to L1/L6.
@@ -22,19 +22,19 @@
 
 - [ ] L5-B01A 모의 파일 저장소와 사진 실패 고정 데이터 준비
   - 담당 Spec: S5
-  - 필수 참조: `architecture.md §6.4`, `adr.md ADR-0035`, `spec/specs/S5.json`, `spec/harness-scenarios.md §6 mock object storage/presigned upload fixture`
+  - 필수 참조: `architecture.md §6.4`, `adr.md ADR-0035`, `spec/specs/S5.json`, `spec/harness-scenarios.md §6 mock object storage/upload URL upload fixture`
   - 연관 Spec: S6
   - 시나리오: SC-06
   - 구현 산출물: MinIO dev adapter smoke fixture, mock object storage, photo failure fixtures, object key fixture
   - 예상 작업량: 1d
-  - 완료 기준: presign/finalize API behavior를 구현하지 않은 상태에서 external S3 호출 없이 MinIO-compatible object key 규칙, mock object storage, photo failure fixture가 실행된다.
+  - 완료 기준: upload-url/attach API behavior를 구현하지 않은 상태에서 external S3 호출 없이 MinIO-compatible object key 규칙, mock object storage, photo failure fixture가 실행된다.
 
 - [ ] L5-B01B FCM 발송 모의체와 수신자 캡처 준비
   - 담당 Spec: S5
   - 필수 참조: `spec/specs/S5.json`, `spec/harness-scenarios.md §6 mock FCM recipient`
   - 연관 Spec: S1-2, S4
   - 시나리오: SC-08
-  - 구현 산출물: FCM dispatcher mock, recipient capture store, notification delivery fixture
+  - 구현 산출물: FCM dispatcher mock, recipient capture store, marker_notification fixture
   - 예상 작업량: 1d
   - 완료 기준: external FCM 호출 없이 mock notification dispatch가 recipient와 payload를 기록한다.
 
@@ -45,7 +45,7 @@
   - 필수 참조: `spec/specs/S5.json`, `spec/boundaries.md §4.1.1`, `spec/specs/S8.json`
   - 연관 Spec: S2, S8
   - 시나리오: SC-06
-  - 구현 산출물: marker geometry red tests, OP binding failure fixture, incident/op/device/account context fixture
+  - 구현 산출물: marker geometry red tests, OP binding failure fixture, incident/op/police_phone/account context fixture
   - 예상 작업량: 1d
   - 완료 기준: domain validator 구현 전에 marker location과 OP binding 기대 조건이 failing test 또는 fixture로 고정된다.
 
@@ -65,9 +65,9 @@
   - 필수 참조: `spec/specs/S5.json`, `spec/boundaries.md §4.1.1`, `spec/specs/S8.json`
   - 연관 Spec: S2, S8
   - 시나리오: SC-06
-  - 구현 산출물: marker geometry validator, OP binding policy, incident/op/device/account context tests
+  - 구현 산출물: marker geometry validator, OP binding policy, incident/op/police_phone/account context tests
   - 예상 작업량: 1d
-  - 완료 기준: marker location이 공통 geometry rule을 따르고 marker record가 기대 incident/op/device/account context를 포함한다.
+  - 완료 기준: marker location이 공통 geometry rule을 따르고 marker record가 기대 incident/op/police_phone/account context를 포함한다.
 
 - [ ] L5-T01A 마커 생성 API와 생성 이벤트 구현
   - 담당 Spec: S5
@@ -100,13 +100,13 @@
 
 - [ ] L5-T04A 사진 업로드 서명·완료 API 구현
   - 담당 Spec: S5
-  - 필수 참조: `spec/specs/S5.json`, `spec/harness-scenarios.md §6 mock object storage/presigned upload fixture`
+  - 필수 참조: `spec/specs/S5.json`, `spec/harness-scenarios.md §6 mock object storage/upload URL upload fixture`
   - 연관 Spec: S1-2, S6
   - 시나리오: SC-06
   - 관련 FR: FR-20
-  - 구현 산출물: photo presign API, photo finalize API, object storage mock integration, `MARKER_UPDATED.photoDelta` PublishRequest contract test, orphan/mismatched photo rejection tests
+  - 구현 산출물: photo upload URL API, photo attach API, object storage mock integration, `MARKER_UPDATED.photoDelta` PublishRequest contract test, orphan/mismatched photo rejection tests
   - 예상 작업량: 1d
-  - 완료 기준: photo presign/finalize가 기대 상태를 지원하고, `MARKER_UPDATED.photoDelta`가 안정적인 photoId/status/version을 포함하며, orphan 또는 mismatched marker photo는 거부된다.
+  - 완료 기준: photo upload-url/attach가 기대 상태를 지원하고, `MARKER_UPDATED.photoDelta`가 안정적인 photoId/status/version을 포함하며, orphan 또는 mismatched marker photo는 거부된다.
 
 ## Phase 2
 
@@ -118,7 +118,7 @@
   - 관련 FR: FR-10, FR-15, FR-16
   - 구현 산출물: marker update/delete APIs, `MARKER_UPDATED` and `MARKER_DELETED` PublishRequest contract tests, authorization/version/audit tests, S3-2 detail panel API contract
   - 예상 작업량: 1d
-  - 완료 기준: 권한 있는 update/delete가 audit/version semantics를 보존하고, 안정적인 id/status/version/opId/deviceId를 가진 `MARKER_UPDATED` 또는 `MARKER_DELETED`를 발행하며, S3-2 marker detail panel은 domain policy를 소유하지 않고 S5 API를 호출한다.
+  - 완료 기준: 권한 있는 update/delete가 audit/version semantics를 보존하고, 안정적인 id/status/version/opId/policePhoneId를 가진 `MARKER_UPDATED` 또는 `MARKER_DELETED`를 발행하며, S3-2 marker detail panel은 domain policy를 소유하지 않고 S5 API를 호출한다.
 
 - [ ] L5-T08 상황판·OP 이력용 마커 조회 모델 구현
   - 담당 Spec: S5
@@ -128,29 +128,29 @@
   - 관련 FR: FR-11, FR-15, FR-16
   - 구현 산출물: `MarkerQuery.byIncident`, marker read DTO, OP/context filter tests, board/OP evidence fixture
   - 예상 작업량: 1d
-  - 완료 기준: marker query가 board와 OP evidence 소비자에게 id/status/version/opId/deviceId/type/location 필드를 일관되게 노출한다.
+  - 완료 기준: marker query가 board와 OP evidence 소비자에게 id/status/version/opId/policePhoneId/type/location 필드를 일관되게 노출한다.
 
 ## Phase 3
 
 - [ ] L5-T04B 사진 업로드 중복·오프라인 재시도 검증 구현
   - 담당 Spec: S5
-  - 필수 참조: `spec/specs/S5.json`, `spec/specs/S6.json`, `spec/harness-scenarios.md §6 mock object storage/presigned upload fixture`
+  - 필수 참조: `spec/specs/S5.json`, `spec/specs/S6.json`, `spec/harness-scenarios.md §6 mock object storage/upload URL upload fixture`
   - 연관 Spec: S6
   - 시나리오: SC-06, SC-09
   - 관련 FR: FR-20
-  - 구현 산출물: duplicate photo finalize tests, offline retry fixture, object key idempotency evidence
+  - 구현 산출물: duplicate photo attach tests, offline retry fixture, object key idempotency evidence
   - 예상 작업량: 1d
-  - 완료 기준: duplicate finalize와 offline retry가 duplicate marker photo 또는 orphan object reference를 만들지 않는다.
+  - 완료 기준: duplicate attach와 offline retry가 duplicate marker photo 또는 orphan object reference를 만들지 않는다.
 
 - [ ] L5-T06A 지원 요청 마커 정책과 수신자 계산 구현
   - 담당 Spec: S5
-  - 필수 참조: `spec/specs/S5.json`, `spec/harness-scenarios.md §2 SC-08`, `spec/harness-scenarios.md §6 mock event outbox`
+  - 필수 참조: `spec/specs/S5.json`, `spec/harness-scenarios.md §2 SC-08`, `spec/harness-scenarios.md §6 mock event_dispatch_job`
   - 연관 Spec: S1-1, S1-2, S4, S6, S3-2
   - 시나리오: SC-08
   - 관련 FR: FR-17
   - 구현 산출물: support request marker policy, notification payload factory, recipient resolver, `SUPPORT_REQUEST_CREATED` PublishRequest contract test, duplicate-safe event flow test
   - 예상 작업량: 1d
-  - 완료 기준: support request marker가 기대 notification payload와 recipient를 만들고, 안정적인 id/status/version/opId/deviceId를 가진 duplicate-safe `SUPPORT_REQUEST_CREATED`를 발행한다.
+  - 완료 기준: support request marker가 기대 notification payload와 recipient를 만들고, 안정적인 id/status/version/opId/policePhoneId를 가진 duplicate-safe `SUPPORT_REQUEST_CREATED`를 발행한다.
 
 - [ ] L5-T06B 지원 요청 FCM 발송과 상황판 알림 토스트 수렴 검증
   - 담당 Spec: S5
@@ -158,7 +158,7 @@
   - 연관 Spec: S1-2, S4, S3-2
   - 시나리오: SC-08
   - 관련 FR: FR-17
-  - 구현 산출물: mock FCM dispatch test, board toast fixture, notification delivery evidence
+  - 구현 산출물: mock FCM dispatch test, board toast fixture, marker_notification evidence
   - 예상 작업량: 1d
   - 완료 기준: support request notification dispatch가 mock FCM에 capture되고 기대 board toast evidence로 수렴한다.
 
@@ -170,7 +170,7 @@
   - 관련 FR: FR-10
   - 구현 산출물: person-found marker policy, high-priority notification payload, `PERSON_FOUND` PublishRequest contract test, mock FCM dispatch test, unsupported external push guard
   - 예상 작업량: 1d
-  - 완료 기준: person found marker가 high priority notification flow를 따르고, 안정적인 id/status/version/opId/deviceId를 가진 `PERSON_FOUND`를 발행하며, 지원하지 않는 external push infrastructure를 노출하지 않는다.
+  - 완료 기준: person found marker가 high priority notification flow를 따르고, 안정적인 id/status/version/opId/policePhoneId를 가진 `PERSON_FOUND`를 발행하며, 지원하지 않는 external push infrastructure를 노출하지 않는다.
 
 - [ ] L5-T04C 사건 종료 후 마커·사진 쓰기 차단과 삭제 후크 계약 구현
   - 담당 Spec: S5
@@ -189,16 +189,16 @@
   - 필수 참조: `spec/specs/S5.json`, `spec/harness-scenarios.md §2 SC-06`
   - 연관 Spec: S1-2, S2, S4, S6, S8, S3-2
   - 시나리오: SC-06
-  - 구현 산출물: marker/photo harness runner, geometry/current OP/outbox/event mocks, marker/photo red tests, board marker projection evidence
+  - 구현 산출물: marker/photo harness runner, geometry/current OP/outbox/event mocks, marker/photo red tests, board marker API convergence evidence
   - 예상 작업량: 1d
-  - 완료 기준: marker/photo red test가 auth, geometry, current OP, outbox, event, board projection mock contract로 통과한다.
+  - 완료 기준: marker/photo red test가 auth, geometry, current OP, outbox, event, board API assembly mock contract로 통과한다.
 
 - [ ] L5-T09B SC-08 알림 하네스 작성
   - 담당 Spec: S5
   - 필수 참조: `spec/specs/S5.json`, `spec/harness-scenarios.md §2 SC-08`
   - 연관 Spec: S1-1, S1-2, S4, S6, S3-2
   - 시나리오: SC-08
-  - 구현 산출물: notification harness runner, FCM recipient mocks, support/person-found red tests, board toast projection evidence
+  - 구현 산출물: notification harness runner, FCM recipient mocks, support/person-found red tests, board toast API convergence evidence
   - 예상 작업량: 1d
   - 완료 기준: support request와 person-found notification red test가 auth, event, FCM, board toast mock contract로 통과한다.
 
@@ -207,9 +207,9 @@
   - 필수 참조: `spec/harness-scenarios.md §2 SC-02`, `spec/harness-scenarios.md §6 mock FCM dispatcher`, `spec/specs/S5.json`
   - 연관 Spec: S1-1, S1-2, S4
   - 시나리오: SC-02
-  - 구현 산출물: `INCIDENT_MEMBERSHIP_CHANGED` 기반 support assignment FCM recipient fixture, `FcmDispatcher.send` mock capture test, PII 없는 payload/recipient/eventId/version failure injection test
+  - 구현 산출물: `INCIDENT_ASSIGNMENT_CHANGED` 기반 112/mock support assignment FCM recipient fixture, `FcmDispatcher.send` mock capture test, PII 없는 payload/recipient/eventId/version failure injection test
   - 예상 작업량: 1d
-  - 완료 기준: 지원 부대 배정 후 신규 배정된 `TEAM_PHONE`/`PATROL_CAR_PHONE` 단말로 가는 FCM payload/recipient/eventId/version이 mock dispatcher에 capture되고, 지휘 계정 deviceId 제외와 mock 미수신 실패 주입이 red test로 검증된다.
+  - 완료 기준: 112/mock 지원 배정 후 신규 배정 계정이 운용 중인 활성 policePhoneId로 가는 FCM payload/recipient/eventId/version이 mock dispatcher에 capture되고, 지휘 계정 policePhoneId 제외와 mock 미수신 실패 주입이 red test로 검증된다.
 
 - [ ] L5-T09C 마커·사진·알림 시연 스모크 절차 작성
   - 담당 Spec: S5
