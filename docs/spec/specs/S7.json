@@ -43,11 +43,11 @@
       "GET /tiles/{style}/{z}/{x}/{y}.pbf",
       "GET /tiles/styles/{styleId}.json",
       "offline_package_manifest 생성·조회",
-      "offline_package_status 수신·조회",
-      "사건 메타, 실종자 운영 캐시, OP, 담당 구역, 초기 마커, 지도 기준 범위, 지도 타일을 포함하는 단일 패키지 계약",
-      "map_boundary 변경에 따른 manifest revision 증가와 stale package 표시",
-      "PACKAGE_STATUS_CHANGED 이벤트 발행",
-      "S3-2 package_badge slot이 소비할 PackageStatusQuery.byIncident",
+      "offline_package_installation 수신·조회",
+      "사건 메타, 실종자 도메인 데이터, OP, 담당 구역, 초기 마커, 지도 기준 범위, 지도 타일을 포함하는 단일 패키지 계약",
+      "overall_search_area 변경에 따른 manifest revision 증가와 stale package 표시",
+      "OFFLINE_PACKAGE_INSTALLATION_CHANGED 이벤트 발행",
+      "S3-2 package_badge slot이 소비할 OfflinePackageInstallationQuery.byIncident",
       "사건 종료/purge 시 package manifest/status 및 로컬 패키지 파기 hook"
     ],
     "excluded": [
@@ -59,7 +59,7 @@
       {
         "item": "지도 기준 범위와 수색 구역 geometry write",
         "owner": "S2",
-        "reason": "S7은 MapBoundaryQuery와 assigned area query 결과를 소비해 tile coverage와 package payload를 만든다."
+        "reason": "S7은 SearchAreaQuery와 assigned area query 결과를 소비해 tile coverage와 package payload를 만든다."
       },
       {
         "item": "OP 생성, OP assignment write, 인수인계 메모",
@@ -69,12 +69,12 @@
       {
         "item": "Android local warning monitor",
         "owner": "S6",
-        "reason": "S7 package status는 입력 source이며 로컬 경고 UI와 retry scheduler는 S6 소유다."
+        "reason": "S7 package installation는 입력 source이며 로컬 경고 UI와 retry scheduler는 S6 소유다."
       },
       {
         "item": "상황판 shell 및 badge rendering",
         "owner": "S3-2",
-        "reason": "S7은 PackageStatusQuery와 이벤트를 제공하고 S3-2가 package_badge slot에 표시한다."
+        "reason": "S7은 OfflinePackageInstallationQuery와 이벤트를 제공하고 S3-2가 package_badge slot에 표시한다."
       },
       {
         "item": "외부 tile host 연동",
@@ -92,17 +92,17 @@
     {
       "id": "FR-21",
       "summary": "사건 화면에서 실종자 기본 정보를 오프라인에서도 확인할 수 있게 한다.",
-      "handling": "manifest는 missing person cache와 사진 참조를 포함해 사건 배정 단말의 오프라인 사건 화면에서 조회 가능하게 한다. tile/style endpoint는 FR-19/FR-31 구현 계약으로 다룬다."
+      "handling": "manifest는 missing person data와 사진 참조를 포함해 사건 배정 단말의 오프라인 사건 화면에서 조회 가능하게 한다. tile/style endpoint는 FR-19/FR-31 구현 계약으로 다룬다."
     },
     {
       "id": "FR-29",
       "summary": "지도 미다운로드 로컬 경고를 표시한다.",
-      "handling": "S7은 package status와 manifest item status를 제공하고 S6 LocalWarningMonitor가 앱 경고로 표시한다."
+      "handling": "S7은 package installation와 manifest item status를 제공하고 S6 LocalWarningMonitor가 앱 경고로 표시한다."
     },
     {
       "id": "FR-31",
       "summary": "사건 오프라인 패키지를 사전 적재한다.",
-      "handling": "패키지는 타일 단독이 아니라 incident metadata, missing person cache, OP, assigned areas, initial markers, map boundary, tile references를 포함하며, map_boundary revision 변경 시 offline_package_status를 STALE로 수렴시키고 재다운로드 대상을 분리한다."
+      "handling": "패키지는 타일 단독이 아니라 incident metadata, missing person data, OP, assigned areas, initial markers, overall_search_area, tile references를 포함하며, overall_search_area revision 변경 시 offline_package_installation를 STALE로 수렴시키고 재다운로드 대상을 분리한다."
     }
   ],
   "domain_model": {
@@ -124,28 +124,33 @@
             "nullable": false
           },
           {
-            "name": "manifest_revision",
-            "type": "BIGINT",
+            "name": "manifest_version",
+            "type": "INTEGER",
             "nullable": false
           },
           {
-            "name": "map_boundary_id",
-            "type": "UUID",
-            "nullable": true
-          },
-          {
-            "name": "map_boundary_version",
-            "type": "BIGINT",
-            "nullable": true
-          },
-          {
-            "name": "active_op_id",
+            "name": "operational_period_id",
             "type": "UUID",
             "nullable": false
           },
           {
-            "name": "package_hash",
-            "type": "VARCHAR(128)",
+            "name": "overall_search_area_id",
+            "type": "UUID",
+            "nullable": false
+          },
+          {
+            "name": "overall_search_area_version",
+            "type": "BIGINT",
+            "nullable": false
+          },
+          {
+            "name": "manifest_hash",
+            "type": "CHAR(64)",
+            "nullable": false
+          },
+          {
+            "name": "manifest_format_version",
+            "type": "INTEGER",
             "nullable": false
           },
           {
@@ -154,10 +159,9 @@
             "nullable": false
           },
           {
-            "name": "payload",
+            "name": "manifest_payload",
             "type": "JSONB",
-            "nullable": false,
-            "note": "incident metadata, missing person cache, OP, assigned areas, initial markers, map boundary, tile_items"
+            "nullable": false
           },
           {
             "name": "created_at",
@@ -167,17 +171,17 @@
         ],
         "indexes": [
           {
-            "name": "ux_offline_package_manifest_incident_revision",
+            "name": "ux_offline_package_manifest_incident_version",
             "columns": [
               "incident_id",
-              "manifest_revision"
+              "manifest_version"
             ]
           },
           {
-            "name": "idx_offline_package_manifest_boundary",
+            "name": "idx_offline_package_manifest_overall_area",
             "columns": [
-              "incident_id",
-              "map_boundary_version"
+              "overall_search_area_id",
+              "overall_search_area_version"
             ]
           }
         ],
@@ -188,9 +192,9 @@
         }
       },
       {
-        "name": "offline_package_status",
+        "name": "offline_package_installation",
         "owner_spec": "S7",
-        "description": "Device별 사건 오프라인 패키지 적재 상태. 상황판 package_badge와 앱 로컬 경고 입력 source다.",
+        "description": "PolicePhone별 사건 오프라인 패키지 적재 상태. 상황판 package_badge와 앱 로컬 경고 입력 source다.",
         "fields": [
           {
             "name": "id",
@@ -199,29 +203,19 @@
             "pk": true
           },
           {
-            "name": "incident_id",
+            "name": "offline_package_manifest_id",
             "type": "UUID",
             "nullable": false
           },
           {
-            "name": "device_id",
+            "name": "police_phone_id",
             "type": "UUID",
             "nullable": false
           },
           {
-            "name": "account_id",
+            "name": "last_reported_by_account_id",
             "type": "UUID",
-            "nullable": false
-          },
-          {
-            "name": "manifest_id",
-            "type": "UUID",
-            "nullable": false
-          },
-          {
-            "name": "manifest_revision",
-            "type": "BIGINT",
-            "nullable": false
+            "nullable": true
           },
           {
             "name": "status",
@@ -230,81 +224,63 @@
             "note": "NOT_STARTED|DOWNLOADING|PARTIAL|READY|STALE|FAILED|PURGED"
           },
           {
-            "name": "ready_for_offline_use",
-            "type": "BOOLEAN",
-            "nullable": false
-          },
-          {
-            "name": "total_items",
+            "name": "total_item_count",
             "type": "INTEGER",
             "nullable": false
           },
           {
-            "name": "completed_items",
+            "name": "completed_item_count",
             "type": "INTEGER",
             "nullable": false
           },
           {
-            "name": "failed_items",
+            "name": "failed_item_count",
             "type": "INTEGER",
             "nullable": false
           },
           {
             "name": "failed_item_keys",
-            "type": "JSONB",
-            "nullable": false
-          },
-          {
-            "name": "last_error",
-            "type": "VARCHAR(128)",
+            "type": "TEXT[]",
             "nullable": true
           },
           {
-            "name": "sequence",
-            "type": "BIGINT",
-            "nullable": false
+            "name": "last_error_code",
+            "type": "VARCHAR(80)",
+            "nullable": true
           },
           {
-            "name": "client_ts",
+            "name": "last_reported_at",
             "type": "TIMESTAMPTZ",
-            "nullable": false
-          },
-          {
-            "name": "server_ts",
-            "type": "TIMESTAMPTZ",
-            "nullable": false
-          },
-          {
-            "name": "clock_offset_ms",
-            "type": "BIGINT",
             "nullable": true
           },
           {
             "name": "version",
             "type": "BIGINT",
             "nullable": false
+          },
+          {
+            "name": "created_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": false
+          },
+          {
+            "name": "updated_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": false
           }
         ],
         "indexes": [
           {
-            "name": "ux_offline_package_status_incident_device",
+            "name": "ux_offline_package_installation_manifest_phone",
             "columns": [
-              "incident_id",
-              "device_id"
+              "offline_package_manifest_id",
+              "police_phone_id"
             ]
           },
           {
-            "name": "idx_offline_package_status_incident_status",
+            "name": "idx_offline_package_installation_status",
             "columns": [
-              "incident_id",
               "status"
-            ]
-          },
-          {
-            "name": "idx_offline_package_status_manifest",
-            "columns": [
-              "manifest_id",
-              "manifest_revision"
             ]
           }
         ],
@@ -317,7 +293,7 @@
     ],
     "state_machines": [
       {
-        "entity": "offline_package_status",
+        "entity": "offline_package_installation",
         "field": "status",
         "states": [
           "NOT_STARTED",
@@ -333,55 +309,55 @@
             "from": "NOT_STARTED",
             "to": "DOWNLOADING",
             "trigger": "app starts package download and reports first progress",
-            "guard": "incident is OPEN and device is assigned"
+            "guard": "incident is OPEN and PolicePhone is assigned"
           },
           {
             "from": "DOWNLOADING",
             "to": "PARTIAL",
             "trigger": "one or more manifest items fail but retry remains possible",
-            "guard": "completed_items > 0 and failed_items > 0"
+            "guard": "completed_item_count > 0 and failed_item_count > 0"
           },
           {
             "from": "DOWNLOADING",
             "to": "READY",
             "trigger": "all manifest items complete",
-            "guard": "completed_items == total_items and failed_items == 0 and manifest is current"
+            "guard": "completed_item_count == total_item_count and failed_item_count == 0 and manifest is current"
           },
           {
             "from": "PARTIAL",
             "to": "READY",
             "trigger": "failed item retry succeeds",
-            "guard": "failed_items == 0 and manifest is current"
+            "guard": "failed_item_count == 0 and manifest is current"
           },
           {
             "from": "READY",
             "to": "STALE",
-            "trigger": "map boundary or manifest revision changes",
-            "guard": "status manifest_revision < latest manifest_revision"
+            "trigger": "overall_search_area or manifest revision changes",
+            "guard": "status manifest_version < latest manifest_version"
           },
           {
             "from": "PARTIAL",
             "to": "STALE",
-            "trigger": "map boundary or manifest revision changes before failed item retry completes",
-            "guard": "status manifest_revision < latest manifest_revision"
+            "trigger": "overall_search_area or manifest revision changes before failed item retry completes",
+            "guard": "status manifest_version < latest manifest_version"
           },
           {
             "from": "DOWNLOADING",
             "to": "STALE",
-            "trigger": "map boundary or manifest revision changes during active download",
-            "guard": "status manifest_revision < latest manifest_revision"
+            "trigger": "overall_search_area or manifest revision changes during active download",
+            "guard": "status manifest_version < latest manifest_version"
           },
           {
             "from": "DOWNLOADING",
             "to": "FAILED",
             "trigger": "non-retryable manifest, authorization, or tile error",
-            "guard": "ready_for_offline_use is false"
+            "guard": " is false"
           },
           {
             "from": "STALE",
             "to": "READY",
-            "trigger": "device downloads current manifest revision",
-            "guard": "manifest_revision == latest manifest_revision and all items complete"
+            "trigger": "PolicePhone downloads current manifest revision",
+            "guard": "manifest_version == latest manifest_version and all items complete"
           },
           {
             "from": "NOT_STARTED",
@@ -439,7 +415,7 @@
           "Authorization"
         ],
         "conditional_headers": [
-          "X-Device-Id required when channel is APP"
+          "X-PolicePhone-Id required when channel is APP"
         ],
         "request_schema": {
           "type": "object",
@@ -542,7 +518,7 @@
         "method": "GET",
         "path": "/incidents/{incidentId}/offline-package/manifest",
         "summary": "사건 오프라인 패키지 manifest 조회",
-        "auth": "guard aliases public-session + incident-read; APP package fetch additionally requires @RequireDevice, @RequireDeviceRegistered, @RequireDeviceAssigned",
+        "auth": "guard aliases public-session + incident-read; APP package fetch additionally requires @RequirePolicePhone, @RequirePolicePhoneRegistered, @RequirePolicePhoneAssigned",
         "idempotent": true,
         "required_headers": [
           "Authorization"
@@ -550,7 +526,7 @@
         "request_schema": {
           "type": "object",
           "properties": {
-            "deviceId": {
+            "policePhoneId": {
               "type": "string",
               "format": "uuid"
             },
@@ -565,7 +541,7 @@
             "required": [
               "manifestId",
               "incidentId",
-              "manifestRevision",
+              "manifestVersion",
               "expiresAt",
               "packageItems"
             ],
@@ -578,7 +554,7 @@
                 "type": "string",
                 "format": "uuid"
               },
-              "manifestRevision": {
+              "manifestVersion": {
                 "type": "integer"
               },
               "expiresAt": {
@@ -591,7 +567,7 @@
               "incident": {
                 "type": "object"
               },
-              "missingPersonCache": {
+              "missingPerson": {
                 "type": "object"
               },
               "operationalPeriods": {
@@ -603,7 +579,7 @@
               "initialMarkers": {
                 "type": "array"
               },
-              "mapBoundary": {
+              "overallSearchArea": {
                 "type": "object"
               },
               "tileItems": {
@@ -666,7 +642,7 @@
                         "OP_LIST",
                         "ASSIGNED_AREA",
                         "INITIAL_MARKER",
-                        "MAP_BOUNDARY",
+                        "OVERALL_SEARCH_AREA",
                         "TILE"
                       ]
                     },
@@ -739,23 +715,23 @@
           },
           {
             "code": 400,
-            "case": "device_required",
-            "body": "{\"error\": \"device_required\"}"
+            "case": "police_phone_required",
+            "body": "{\"error\": \"police_phone_required\"}"
           },
           {
             "code": 403,
-            "case": "device_not_registered",
-            "body": "{\"error\": \"device_not_registered\"}"
+            "case": "police_phone_not_registered",
+            "body": "{\"error\": \"police_phone_not_registered\"}"
           },
           {
             "code": 403,
-            "case": "device_not_assigned",
-            "body": "{\"error\": \"device_not_assigned\"}"
+            "case": "police_phone_not_assigned",
+            "body": "{\"error\": \"police_phone_not_assigned\"}"
           },
           {
             "code": 409,
-            "case": "map_boundary_required",
-            "body": "{\"error\": \"map_boundary_required\"}"
+            "case": "overall_search_area_required",
+            "body": "{\"error\": \"overall_search_area_required\"}"
           },
           {
             "code": 503,
@@ -766,30 +742,30 @@
       },
       {
         "method": "POST",
-        "path": "/incidents/{incidentId}/offline-package/status",
-        "summary": "Device별 오프라인 패키지 다운로드 진행률·완료·실패 상태 보고",
-        "auth": "guard aliases app-device + incident-read + write-common",
+        "path": "/incidents/{incidentId}/offline-package/installations",
+        "summary": "PolicePhone별 오프라인 패키지 다운로드 진행률·완료·실패 상태 보고",
+        "auth": "guard aliases app-police-phone + incident-read + write-common",
         "idempotent": true,
         "required_headers": [
           "Authorization",
           "Idempotency-Key",
-          "X-Device-Id"
+          "X-PolicePhone-Id"
         ],
         "request_schema": {
           "type": "object",
           "required": [
-            "deviceId",
+            "policePhoneId",
             "manifestId",
-            "manifestRevision",
+            "manifestVersion",
             "status",
             "totalItems",
             "completedItems",
             "failedItems",
-            "sequence",
+            "version",
             "clientTs"
           ],
           "properties": {
-            "deviceId": {
+            "policePhoneId": {
               "type": "string",
               "format": "uuid"
             },
@@ -797,7 +773,7 @@
               "type": "string",
               "format": "uuid"
             },
-            "manifestRevision": {
+            "manifestVersion": {
               "type": "integer"
             },
             "status": {
@@ -852,7 +828,7 @@
               "id",
               "status",
               "version",
-              "manifestRevision",
+              "manifestVersion",
               "readyForOfflineUse"
             ],
             "properties": {
@@ -866,7 +842,7 @@
               "version": {
                 "type": "integer"
               },
-              "manifestRevision": {
+              "manifestVersion": {
                 "type": "integer"
               },
               "readyForOfflineUse": {
@@ -892,18 +868,18 @@
           },
           {
             "code": 400,
-            "case": "device_required",
-            "body": "{\"error\": \"device_required\"}"
+            "case": "police_phone_required",
+            "body": "{\"error\": \"police_phone_required\"}"
           },
           {
             "code": 403,
-            "case": "device_not_registered",
-            "body": "{\"error\": \"device_not_registered\"}"
+            "case": "police_phone_not_registered",
+            "body": "{\"error\": \"police_phone_not_registered\"}"
           },
           {
             "code": 403,
-            "case": "device_not_assigned",
-            "body": "{\"error\": \"device_not_assigned\"}"
+            "case": "police_phone_not_assigned",
+            "body": "{\"error\": \"police_phone_not_assigned\"}"
           },
           {
             "code": 403,
@@ -914,11 +890,6 @@
             "code": 403,
             "case": "team_not_assigned",
             "body": "{\"error\": \"team_not_assigned\"}"
-          },
-          {
-            "code": 409,
-            "case": "incident_bootstrapping",
-            "body": "{\"error\": \"incident_bootstrapping\"}"
           },
           {
             "code": 409,
@@ -941,23 +912,23 @@
     "consumed": [
       {
         "from_spec": "S1-1",
-        "interface": "incident, missing_person_cache, IncidentTerminalSnapshot.closed",
-        "usage": "manifest incident metadata와 missing person cache 포함, closed incident package write 차단."
+        "interface": "incident, missing_person, IncidentTerminalSnapshot.closed",
+        "usage": "manifest incident metadata와 missing person data 포함, closed incident package write 차단."
       },
       {
         "from_spec": "S1-2",
-        "interface": "@RequireDeviceRegistered, @RequireDeviceAssigned, account/device metadata",
-        "usage": "manifest app fetch와 status write의 device authorization, device별 status key."
+        "interface": "@RequirePolicePhoneRegistered, @RequirePolicePhoneAssigned, account/policePhone metadata",
+        "usage": "manifest app fetch와 status write의 policePhone authorization, policePhone별 status key."
       },
       {
         "from_spec": "S2",
-        "interface": "MapBoundaryQuery.of, AreaQuery.byOp",
-        "usage": "tile coverage, map boundary package item, assigned areas package item 생성."
+        "interface": "SearchAreaQuery.overallOf, SearchAreaQuery.byOp",
+        "usage": "tile coverage, overall_search_area package item, assigned areas package item 생성."
       },
       {
         "from_spec": "S4",
         "interface": "EventHub.publish",
-        "usage": "offline_package_status commit 후 S7이 PublishRequest.PACKAGE_STATUS_CHANGED를 생성해 EventHub.publish(PublishRequest...)를 호출한다. event_outbox row 적재와 fanout은 S4 소유다."
+        "usage": "offline_package_installation commit 후 S7이 PublishRequest.OFFLINE_PACKAGE_INSTALLATION_CHANGED를 생성해 EventHub.publish(PublishRequest...)를 호출한다. event_dispatch_job row 적재와 fanout은 S4 소유다."
       },
       {
         "from_spec": "S5",
@@ -977,18 +948,18 @@
     ],
     "events_published": [
       {
-        "type": "PACKAGE_STATUS_CHANGED",
-        "trigger": "offline_package_status row commit after app status report or manifest revision staleness update",
+        "type": "OFFLINE_PACKAGE_INSTALLATION_CHANGED",
+        "trigger": "offline_package_installation row commit after app status report or manifest revision staleness update",
         "payload_schema": {
           "type": "object",
           "required": [
             "id",
             "status",
             "version",
-            "deviceId",
-            "sequence",
+            "policePhoneId",
+            "version",
             "incidentId",
-            "manifestRevision"
+            "manifestVersion"
           ],
           "properties": {
             "id": {
@@ -999,7 +970,7 @@
               "type": "string",
               "format": "uuid"
             },
-            "deviceId": {
+            "policePhoneId": {
               "type": "string",
               "format": "uuid"
             },
@@ -1012,7 +983,7 @@
             "sequence": {
               "type": "integer"
             },
-            "manifestRevision": {
+            "manifestVersion": {
               "type": "integer"
             },
             "readyForOfflineUse": {
@@ -1044,12 +1015,12 @@
     ],
     "events_subscribed": [
       {
-        "type": "MAP_BOUNDARY_CHANGED",
+        "type": "SEARCH_AREA_CHANGED",
         "from_spec": "S2",
         "handler": "manifest revision을 증가시키고 기존 READY/PARTIAL status를 STALE로 표시한다."
       },
       {
-        "type": "AREA_CREATED",
+        "type": "SEARCH_AREA_CHANGED",
         "from_spec": "S2",
         "handler": "assigned area package item 후보를 최신화한다."
       },
@@ -1059,9 +1030,9 @@
         "handler": "current OP package item을 최신화하고 필요 시 manifest revision을 증가시킨다."
       },
       {
-        "type": "OP_ASSIGNMENT_CHANGED",
+        "type": "SEARCH_AREA_ASSIGNMENT_CHANGED",
         "from_spec": "S8",
-        "handler": "device/team별 assigned area item을 최신화하고 status 재적재 필요 여부를 계산한다."
+        "handler": "PolicePhone/team별 assigned area item을 최신화하고 status 재적재 필요 여부를 계산한다."
       },
       {
         "type": "INCIDENT_CLOSED",
@@ -1087,19 +1058,19 @@
         },
         {
           "name": "OfflinePackageController",
-          "responsibility": "manifest 조회와 package status write API 제공"
+          "responsibility": "manifest 조회와 package installation write API 제공"
         },
         {
           "name": "OfflinePackageManifestService",
-          "responsibility": "incident context + map boundary + tile coverage manifest 생성"
+          "responsibility": "incident context + overall_search_area + tile coverage manifest 생성"
         },
         {
           "name": "OfflinePackageStatusService",
-          "responsibility": "Device별 status state machine, stale transition, PACKAGE_STATUS_CHANGED 발행"
+          "responsibility": "PolicePhone별 status state machine, stale transition, OFFLINE_PACKAGE_INSTALLATION_CHANGED 발행"
         },
         {
           "name": "TileCoverageCalculator",
-          "responsibility": "map_boundary bbox와 zoom policy에서 tile item 목록 계산"
+          "responsibility": "overall_search_area bbox와 zoom policy에서 tile item 목록 계산"
         },
         {
           "name": "PackagePurgeHook",
@@ -1121,7 +1092,7 @@
           "responsibility": "S3-2가 tile server health를 표시할 수 있는 read-only props 제공"
         }
       ],
-      "state_management": "S3-2 React Query/SSE state consumes PackageStatusQuery; S7 owns no shell store",
+      "state_management": "S3-2 React Query/SSE state consumes OfflinePackageInstallationQuery; S7 owns no shell store",
       "map_layers": [
         {
           "id": "osm_openmaptiles_base",
@@ -1152,7 +1123,7 @@
         },
         {
           "name": "OfflinePackageItemEntity",
-          "note": "incident/meta/person/op/area/marker/boundary/tile item별 download state"
+          "note": "incident/meta/person/op/area/marker/overall_search_area/tile item별 download state"
         },
         {
           "name": "OfflinePackageStatusEntity",
@@ -1166,26 +1137,26 @@
     "spec_dependencies": [
       {
         "spec": "S1-1",
-        "contract": "incident detail, missing_person_cache, incident lifecycle guard",
-        "stub_strategy": "OPEN incident fixture with missing person cache and CLOSED fixture",
+        "contract": "incident detail, missing_person, incident lifecycle guard",
+        "stub_strategy": "OPEN incident fixture with missing person data and CLOSED fixture",
         "replaced_by_real_at": "S1-1 import/lifecycle harness PASS"
       },
       {
         "spec": "S1-2",
-        "contract": "device registration/assignment guard and account/device metadata",
-        "stub_strategy": "registered, unregistered, unassigned, precinct patrol car device fixtures",
-        "replaced_by_real_at": "S1-2 device/RBAC harness PASS"
+        "contract": "PolicePhone registration/assignment guard and account/policePhone metadata",
+        "stub_strategy": "registered, unregistered, unassigned, precinct patrol car policePhone fixtures",
+        "replaced_by_real_at": "S1-2 PolicePhone/RBAC harness PASS"
       },
       {
         "spec": "S2",
-        "contract": "MapBoundaryQuery.of and AreaQuery/assigned area read model",
-        "stub_strategy": "canonical map_boundary polygon and no-assigned-area precinct fixture",
-        "replaced_by_real_at": "S2 boundary/area harness PASS"
+        "contract": "SearchAreaQuery.overallOf and SearchAreaQuery/assigned area read model",
+        "stub_strategy": "canonical overall_search_area polygon and no-assigned-area precinct fixture",
+        "replaced_by_real_at": "S2 overall_search_area/area harness PASS"
       },
       {
         "spec": "S4",
-        "contract": "EventHub.publish and PACKAGE_STATUS_CHANGED envelope",
-        "stub_strategy": "mock event outbox and S3-2 package_badge consumer fixture",
+        "contract": "EventHub.publish and OFFLINE_PACKAGE_INSTALLATION_CHANGED envelope",
+        "stub_strategy": "mock event_dispatch_job and S3-2 package_badge consumer fixture",
         "replaced_by_real_at": "S4 event hub harness PASS"
       },
       {
@@ -1197,7 +1168,7 @@
       {
         "spec": "S6",
         "contract": "SyncClient.enqueue, @IdempotentWrite, Outbox retry",
-        "stub_strategy": "local outbox fixture with partial package status replay",
+        "stub_strategy": "local outbox fixture with partial package installation replay",
         "replaced_by_real_at": "S6 outbox/idempotency harness PASS"
       },
       {
@@ -1239,9 +1210,9 @@
       "fr_refs": [
         "FR-31"
       ],
-      "given": "incident OPEN with missing person cache, OP1, map boundary, initial markers, and optional assigned areas",
-      "when": "assigned app device requests offline package manifest",
-      "then": "manifest includes incident metadata, missing person cache, OP, assigned areas when present, initial markers, map boundary, and tileItems in one package contract",
+      "given": "incident OPEN with missing person data, OP1, overall_search_area, initial markers, and optional assigned areas",
+      "when": "assigned app PolicePhone requests offline package manifest",
+      "then": "manifest includes incident metadata, missing person data, OP, assigned areas when present, initial markers, overall_search_area, and tileItems in one package contract",
       "priority": "critical"
     },
     {
@@ -1250,8 +1221,8 @@
         "FR-31"
       ],
       "given": "local police patrol car account has no assigned area yet",
-      "when": "device requests manifest for OP1",
-      "then": "manifest still includes OP1, map boundary, initial markers, device identity context, and tileItems so patrol/foot search can start",
+      "when": "PolicePhone requests manifest for OP1",
+      "then": "manifest still includes OP1, overall_search_area, initial markers, PolicePhone identity context, and tileItems so patrol/foot search can start",
       "priority": "critical"
     },
     {
@@ -1261,7 +1232,7 @@
       ],
       "given": "package download partially fails on tile and marker items",
       "when": "app reports PARTIAL status",
-      "then": "status remains not ready for offline use, failed item keys are preserved, and PACKAGE_STATUS_CHANGED is published",
+      "then": "status remains not ready for offline use, failed item keys are preserved, and OFFLINE_PACKAGE_INSTALLATION_CHANGED is published",
       "priority": "critical"
     },
     {
@@ -1269,9 +1240,9 @@
       "fr_refs": [
         "FR-31"
       ],
-      "given": "device has READY package for manifest revision 3",
-      "when": "MAP_BOUNDARY_CHANGED creates manifest revision 4",
-      "then": "old device status becomes STALE and S3-2 package_badge can show re-download required",
+      "given": "PolicePhone has READY package for manifest revision 3",
+      "when": "SEARCH_AREA_CHANGED creates manifest revision 4",
+      "then": "old PolicePhone status becomes STALE and S3-2 package_badge can show re-download required",
       "priority": "critical"
     },
     {
@@ -1300,8 +1271,8 @@
         "FR-31"
       ],
       "given": "manifest expires before status report completes",
-      "when": "device posts READY for expired manifest",
-      "then": "API rejects with write_conflict and app must not show ready_for_offline_use",
+      "when": "PolicePhone posts READY for expired manifest",
+      "then": "API rejects with write_conflict and app must not show ",
       "priority": "high"
     },
     {
@@ -1309,7 +1280,7 @@
       "fr_refs": [
         "FR-31"
       ],
-      "given": "web channel calls POST /offline-package/status",
+      "given": "web channel calls POST /offline-package/installations",
       "when": "request is authorized as web user",
       "then": "API returns 403 channel_not_allowed and no status/event row is written",
       "priority": "high"
@@ -1319,9 +1290,9 @@
       "fr_refs": [
         "FR-31"
       ],
-      "given": "unregistered or unassigned device requests manifest or posts status",
+      "given": "unregistered or unassigned PolicePhone requests manifest or posts status",
       "when": "request reaches S7 API",
-      "then": "API returns device_not_registered or device_not_assigned and no local ready state is created",
+      "then": "API returns police_phone_not_registered or police_phone_not_assigned and no local ready state is created",
       "priority": "critical"
     },
     {
@@ -1330,7 +1301,7 @@
         "FR-31"
       ],
       "given": "incident is closed",
-      "when": "device posts package status or requests new manifest",
+      "when": "PolicePhone posts package installation or requests new manifest",
       "then": "write is rejected with incident_closed or read returns sanitized unavailable state, and PackagePurgeHook marks local package purge target",
       "priority": "critical"
     },
@@ -1339,9 +1310,9 @@
       "fr_refs": [
         "FR-31"
       ],
-      "given": "SC-09 package status write is replayed through S6 Outbox and S7 commits offline_package_status",
-      "when": "S7 publishes PACKAGE_STATUS_CHANGED and S3-2 package_badge projection consumes it",
-      "then": "owner response, S4 event probe, PackageStatusQuery.byIncident, and S3-2 package_badge probe converge on the same id/status/version/sequence/manifestRevision from harness_fixtures.sc09_package_status_convergence",
+      "given": "SC-09 package installation write is replayed through S6 Outbox and S7 commits offline_package_installation",
+      "when": "S7 publishes OFFLINE_PACKAGE_INSTALLATION_CHANGED and S3-2 package_badge API assembly consumes it",
+      "then": "owner response, S4 event probe, OfflinePackageInstallationQuery.byIncident, and S3-2 package_badge probe converge on the same id/status/version/manifestVersion from harness_fixtures.sc09_package_status_convergence",
       "priority": "critical"
     },
     {
@@ -1349,48 +1320,48 @@
       "fr_refs": [
         "FR-31"
       ],
-      "given": "SC-03 manifest download is running or SC-09 package status replay is waiting for S6 Outbox",
+      "given": "SC-03 manifest download is running or SC-09 package installation replay is waiting for S6 Outbox",
       "when": "the app package panel or board package_badge is rendered",
-      "then": "download CTA is disabled with DOWNLOADING progress, status write shows PENDING_SYNC until ACKED, and package_badge shows PENDING_PROJECTION until the snapshot reaches the expected version/sequence",
+      "then": "download CTA is disabled with DOWNLOADING progress, status write shows PENDING_SYNC until ACKED, and package_badge shows STALE_REFETCH until the board response reaches the expected version/version",
       "priority": "critical"
     }
   ],
   "edge_cases": [
     "Manifest has no assignedAreas because 초동 순찰차 수색 starts before area split",
-    "Map boundary exists but tile coverage calculation exceeds harness maximum tile count",
+    "Overall search area exists but tile coverage calculation exceeds harness maximum tile count",
     "Tile server is reachable for style JSON but a subset of pbf tiles returns 404/503",
-    "Device retries status with same Idempotency-Key and identical body",
-    "Device retries status with same Idempotency-Key but different body",
+    "PolicePhone retries status with same Idempotency-Key and identical body",
+    "PolicePhone retries status with same Idempotency-Key but different body",
     "OP_TRANSITIONED occurs while package download is in progress",
-    "INCIDENT_CLOSED arrives while device is offline with partially downloaded package",
+    "INCIDENT_CLOSED arrives while PolicePhone is offline with partially downloaded package",
     "OSM attribution is missing from style metadata",
     "Style JSON includes external tile URL"
   ],
   "error_handling": {
     "tile_unavailable": "Manifest fetch or tile/style endpoint returns 503; app keeps completed items and allows failed item retry.",
-    "write_conflict": "Reject READY/PARTIAL status for old or expired manifest and require manifest refresh before ready_for_offline_use.",
-    "map_boundary_required": "Manifest fetch fails until S2 provides active map_boundary; app shows package unavailable instead of tile-only fallback.",
-    "device_not_registered": "Reject manifest/status request and prevent local package save.",
-    "device_not_assigned": "Reject manifest/status request and show authorization failure distinct from retryable network failure.",
-    "channel_not_allowed": "Reject web status writes; web may only read package status through S3-2 package_badge path.",
+    "write_conflict": "Reject READY/PARTIAL status for old or expired manifest and require manifest refresh before .",
+    "overall_search_area_required": "Manifest fetch fails until S2 provides active overall_search_area; app shows package unavailable instead of tile-only 대체 표시.",
+    "police_phone_not_registered": "Reject manifest/status request and prevent local package save.",
+    "police_phone_not_assigned": "Reject manifest/status request and show authorization failure distinct from retryable network failure.",
+    "channel_not_allowed": "Reject web status writes; web may only read package installation through S3-2 package_badge path.",
     "incident_closed": "Reject new status writes and expose purge-required local package state.",
     "idempotency_mismatch": "Return 409 and keep previous status response cached; do not publish a second event."
   },
   "non_functional_requirements": {
     "performance": [
-      "Manifest generation should use cached tile coverage per incident/map_boundary revision where possible.",
-      "Status write should publish PACKAGE_STATUS_CHANGED within the common event convergence target.",
+      "Manifest generation should use cached tile coverage per incident/overall_search_area revision where possible.",
+      "Status write should publish OFFLINE_PACKAGE_INSTALLATION_CHANGED within the common event convergence target.",
       "Tile endpoints must support repeated Android retry without changing package item checksum."
     ],
     "security": [
       "Manifest and tile/style endpoints require authenticated APP or WEB channel in harness.",
-      "App manifest/status access requires registered and assigned Device.",
-      "Manifest must not include internal purge_run, location_access_log, event_outbox, or notification_delivery details.",
+      "App manifest/status access requires registered and assigned PolicePhone.",
+      "Manifest must not include internal incident_data_purge, location_data_access_audit, event_dispatch_job, or marker_notification details.",
       "Closed incident manifest must not expose missing person PII or package re-download links."
     ],
     "observability": [
       "Expose manifest generation count and latency by incidentId/revision.",
-      "Expose package status counts by status and incident.",
+      "Expose package installation counts by status and incident.",
       "Expose tile_unavailable count by style/z/x/y and tileserver health."
     ],
     "licensing": [
@@ -1403,17 +1374,17 @@
       {
         "name": "manifest_contains_full_incident_package_not_tile_only",
         "framework": "JUnit 5 + Spring MVC Test",
-        "scenario": "GET manifest returns incident, missingPersonCache, operationalPeriods, assignedAreas, initialMarkers, mapBoundary, and tileItems."
+        "scenario": "GET manifest returns incident, missingPerson, operationalPeriods, assignedAreas, initialMarkers, overallSearchArea, and tileItems."
       },
       {
         "name": "precinct_manifest_allows_no_assigned_area",
         "framework": "JUnit 5 + Spring MVC Test",
-        "scenario": "Local police patrol car device receives OP1, map boundary, initial markers, and tileItems even when assignedAreas is empty."
+        "scenario": "Local police patrol car PolicePhone receives OP1, overall_search_area, initial markers, and tileItems even when assignedAreas is empty."
       },
       {
         "name": "mock_tile_catalog_manifest_fixture",
         "framework": "JUnit 5",
-        "scenario": "MockTileCatalog returns SC-03 fixed tile keys, local blob URIs, checksums, byte sizes, and failure keys manifest-expired/manifest-boundary-stale/tile-404/tile-timeout/tile-checksum-mismatch/tile-corrupt-blob for manifest generation."
+        "scenario": "MockTileCatalog returns SC-03 fixed tile keys, local blob URIs, checksums, byte sizes, and failure keys manifest-expired/manifest-overall-area-stale/tile-404/tile-timeout/tile-checksum-mismatch/tile-corrupt-blob for manifest generation."
       },
       {
         "name": "tile_coverage_limit_enforced",
@@ -1421,19 +1392,19 @@
         "scenario": "TileCoverageCalculator uses zoom 15..16 and rejects coverage above maxTileItems=8 with tile_unavailable instead of generating an unbounded manifest."
       },
       {
-        "name": "map_boundary_change_marks_ready_package_stale",
+        "name": "overall_search_area_change_marks_ready_package_stale",
         "framework": "JUnit 5 + Testcontainers(PostgreSQL)",
-        "scenario": "MAP_BOUNDARY_CHANGED increments manifestRevision and converts existing READY status to STALE with PACKAGE_STATUS_CHANGED."
+        "scenario": "SEARCH_AREA_CHANGED increments manifestVersion and converts existing READY status to STALE with OFFLINE_PACKAGE_INSTALLATION_CHANGED."
       },
       {
         "name": "package_status_event_board_convergence_fixture",
         "framework": "JUnit 5 + Spring MVC Test",
-        "scenario": "SC-09 status write returns pkg-status-precinct-001 READY version 3 and publishes evt-s7-package-status-001 with sequence 901; PackageStatusQuery.byIncident and mock board probe match the same id/status/version/sequence/manifestRevision."
+        "scenario": "SC-09 status write returns pkg-status-precinct-001 READY version 3 and publishes evt-s7-package-status-001 with version 901; OfflinePackageInstallationQuery.byIncident and mock board probe match the same id/status/version/manifestVersion."
       },
       {
-        "name": "status_write_requires_app_device",
+        "name": "status_write_requires_app_PolicePhone",
         "framework": "JUnit 5 + Spring MVC Test",
-        "scenario": "WEB status write returns channel_not_allowed; unregistered/unassigned APP device returns matching device error."
+        "scenario": "WEB status write returns channel_not_allowed; unregistered/unassigned APP PolicePhone returns matching PolicePhone error."
       },
       {
         "name": "expired_manifest_ready_status_rejected",
@@ -1455,7 +1426,7 @@
       {
         "name": "package_badge_contract_fixture",
         "framework": "Vitest + TypeScript type test",
-        "scenario": "PackageStatusQuery fixture exposes READY/PARTIAL/STALE/FAILED plus fixed id/status/version/sequence/manifestRevision and PENDING_PROJECTION state required by S3-2 package_badge slot."
+        "scenario": "OfflinePackageInstallationQuery fixture exposes READY/PARTIAL/STALE/FAILED plus fixed id/status/version/manifestVersion and STALE_REFETCH state required by S3-2 package_badge slot."
       },
       {
         "name": "maplibre_style_uses_local_tiles",
@@ -1467,7 +1438,7 @@
       {
         "name": "package_download_progress_lists_all_item_types",
         "framework": "JUnit5 + Robolectric",
-        "scenario": "Download UI shows incident meta, missing person, OP, assigned area, marker, map boundary, and tile progress groups."
+        "scenario": "Download UI shows incident meta, missing person, OP, assigned area, marker, overall_search_area, and tile progress groups."
       },
       {
         "name": "manifest_download_cta_disabled_while_pending",
@@ -1477,17 +1448,17 @@
       {
         "name": "package_status_outbox_pending_until_ack",
         "framework": "JUnit5 + Robolectric",
-        "scenario": "During SC-09 S6 replay, package status row renders PENDING_SYNC until ACKED and does not show ready_for_offline_use before the owner response is cached."
+        "scenario": "During SC-09 S6 replay, package installation row renders PENDING_SYNC until ACKED and does not show  before the owner response is cached."
       },
       {
-        "name": "partial_retry_skips_completed_items",
+        "name": "partial_retry_skips_completed_item_count",
         "framework": "JUnit5 + Robolectric",
         "scenario": "After PARTIAL status, retry enqueues only failed item keys and preserves completed item cache."
       },
       {
         "name": "stale_manifest_blocks_ready_state",
         "framework": "JUnit5 + Robolectric",
-        "scenario": "write_conflict response prevents ready_for_offline_use and shows re-download required."
+        "scenario": "write_conflict response prevents  and shows re-download required."
       },
       {
         "name": "incident_closed_purges_local_package",
@@ -1499,9 +1470,9 @@
   "harness_fixtures": {
     "sc03_manifest_download_pending": {
       "incidentId": "inc-precinct-first-001",
-      "deviceId": "dev-precinct-phone-01",
+      "policePhoneId": "dev-precinct-phone-01",
       "manifestId": "tile-manifest-inc-precinct-001-v1",
-      "manifestRevision": 1,
+      "manifestVersion": 1,
       "status": "DOWNLOADING",
       "disabledControls": [
         "downloadOfflinePackage",
@@ -1513,7 +1484,7 @@
         "OP_LIST",
         "ASSIGNED_AREA",
         "INITIAL_MARKER",
-        "MAP_BOUNDARY",
+        "OVERALL_SEARCH_AREA",
         "TILE"
       ],
       "retryEnabledWhen": [
@@ -1524,7 +1495,7 @@
     "tile_manifest_fixture": {
       "manifestId": "tile-manifest-inc-precinct-001-v1",
       "styleId": "osm-local",
-      "boundaryHash": "boundary-hash-precinct-v1",
+      "overallAreaHash": "overall_search_area-hash-precinct-v1",
       "blobUriTemplate": "local://tiles/inc-precinct-first-001/{z}/{x}/{y}.pbf",
       "tileKeyRange": {
         "minZ": 15,
@@ -1574,11 +1545,11 @@
           "error": "manifest_expired",
           "retryable": true
         },
-        "manifest-boundary-stale": {
+        "manifest-overall-area-stale": {
           "manifestId": "tile-manifest-inc-precinct-001-v1",
-          "boundaryHash": "boundary-hash-precinct-v0",
-          "expectedBoundaryHash": "boundary-hash-precinct-v1",
-          "error": "manifest_boundary_stale",
+          "overallAreaHash": "overall_search_area-hash-precinct-v0",
+          "expectedOverallAreaHash": "overall_search_area-hash-precinct-v1",
+          "error": "manifest_overall_area_stale",
           "retryable": true
         },
         "tile-404": {
@@ -1610,34 +1581,34 @@
       "idempotencyKey": "idem-package-001",
       "bodyHash": "sha256:package-status-ready-001",
       "incidentId": "inc-precinct-first-001",
-      "deviceId": "dev-precinct-phone-01",
+      "policePhoneId": "dev-precinct-phone-01",
       "manifestId": "tile-manifest-inc-precinct-001-v1",
-      "manifestRevision": 1,
+      "manifestVersion": 1,
       "sequence": 901,
       "pendingLocalState": "PENDING_SYNC",
       "expectedOwnerResponse": {
         "id": "pkg-status-precinct-001",
         "status": "READY",
         "version": 3,
-        "manifestRevision": 1,
+        "manifestVersion": 1,
         "readyForOfflineUse": true
       },
       "expectedS4Event": {
         "eventId": "evt-s7-package-status-001",
-        "type": "PACKAGE_STATUS_CHANGED",
+        "type": "OFFLINE_PACKAGE_INSTALLATION_CHANGED",
         "payloadId": "pkg-status-precinct-001",
         "payloadStatus": "READY",
         "payloadVersion": 3,
         "sequence": 901,
-        "manifestRevision": 1
+        "manifestVersion": 1
       },
       "expectedPackageStatusQuery": {
-        "method": "PackageStatusQuery.byIncident",
+        "method": "OfflinePackageInstallationQuery.byIncident",
         "id": "pkg-status-precinct-001",
         "status": "READY",
         "version": 3,
         "sequence": 901,
-        "manifestRevision": 1
+        "manifestVersion": 1
       },
       "expectedBoardProbe": {
         "slot": "package_badge",
@@ -1645,8 +1616,8 @@
         "status": "READY",
         "minimumVersion": 3,
         "sequence": 901,
-        "manifestRevision": 1,
-        "preConvergenceState": "PENDING_PROJECTION"
+        "manifestVersion": 1,
+        "preConvergenceState": "STALE_REFETCH"
       }
     }
   },
@@ -1662,7 +1633,7 @@
       "Kotlin + MapLibre Native Android (ADR-0004)",
       "React + MapLibre GL JS consumes S7 style endpoints",
       "tileserver-gl is reachable only through local /tiles route",
-      "S2 provides active map_boundary before full package READY can be reached",
+      "S2 provides active overall_search_area before full package READY can be reached",
       "S4 event envelope uses eventId, incidentId, type, schemaVersion, serverTs, payload",
       "S6 idempotency and Outbox contract is available for status writes"
     ],
@@ -1677,7 +1648,7 @@
     "forbidden": [
       "외부 tile host URL 사용 금지",
       "Mapbox SDK 또는 Mapbox-hosted tile URL 사용 금지",
-      "타일 단독 manifest 금지: incident metadata, missing person cache, OP, areas, initial markers, map boundary를 함께 포함해야 함",
+      "타일 단독 manifest 금지: incident metadata, missing person data, OP, areas, initial markers, overall_search_area를 함께 포함해야 함",
       "S7에서 local warning monitor UI 직접 구현 금지",
       "S7에서 S3-2 shell/package_badge UI 직접 수정 금지",
       "Closed incident의 missing person PII 또는 package re-download URL 노출 금지"
@@ -1726,7 +1697,7 @@
         "OP_LIST",
         "ASSIGNED_AREA",
         "INITIAL_MARKER",
-        "MAP_BOUNDARY",
+        "OVERALL_SEARCH_AREA",
         "TILE"
       ],
       "requiredPerItem": [
@@ -1751,7 +1722,7 @@
         "OP_LIST",
         "ASSIGNED_AREA",
         "INITIAL_MARKER",
-        "MAP_BOUNDARY",
+        "OVERALL_SEARCH_AREA",
         "TILE"
       ],
       "checksum": {
@@ -1762,7 +1733,7 @@
       "manifestHash": {
         "algorithm": "SHA-256",
         "format": "sha256:<lowercase-hex-64>",
-        "scope": "stable ordered packageItems array plus manifestRevision"
+        "scope": "stable ordered packageItems array plus manifestVersion"
       }
     },
     "tile_style_config": {
@@ -1798,7 +1769,7 @@
         "purgedStatusCount": "integer",
         "errorCode": "nullable string"
       },
-      "rule": "Delete or tombstone S7-owned offline_package_manifest/offline_package_status data for the incident idempotently; do not delete S6 local rows or S3-2 board snapshots."
+      "rule": "Delete or tombstone S7-owned offline_package_manifest/offline_package_installation data for the incident idempotently; do not delete S6 local rows or S3-2 board APIs."
     }
   }
 }
