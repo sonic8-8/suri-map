@@ -63,6 +63,19 @@ class GeometryValidatorTest {
     }
 
     @Test
+    void 반올림_후_bbox_경계값이면_valid다() {
+        List<BigDecimal> point = List.of(
+                new BigDecimal("127.0800004"),
+                new BigDecimal("37.5712004")
+        );
+
+        List<BigDecimal> result = validator.validateAndCanonicalizePoint(point);
+
+        assertThat(result.get(0)).isEqualByComparingTo("127.080000");
+        assertThat(result.get(1)).isEqualByComparingTo("37.571200");
+    }
+
+    @Test
     void null_point는_invalid_geometry다() {
         assertThatThrownBy(() -> validator.validateAndCanonicalizePoint(null))
                 .isInstanceOf(InvalidGeometryException.class)
