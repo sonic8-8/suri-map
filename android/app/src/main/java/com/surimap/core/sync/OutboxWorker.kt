@@ -10,6 +10,7 @@ class OutboxWorker(
 ) : CoroutineWorker(appContext, workerParameters) {
 
     override suspend fun doWork(): Result {
+        // L4-B01 baseline keeps the worker deterministic for test harness setup.
         return Result.success()
     }
 }
