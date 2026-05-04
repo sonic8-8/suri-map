@@ -1,0 +1,4 @@
+# datasource는 PostgresContainerTestSupport의 @DynamicPropertySource로 주입된다
+logging:
+  level:
+    com.surimap: DEBUG

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c ' *)",
+      "Bash(chmod +x gradlew)",
+      "Bash(./gradlew compileJava --no-daemon -q)"
+    ]
+  }
+}
