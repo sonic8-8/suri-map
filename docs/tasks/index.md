@@ -156,7 +156,7 @@ MR 제목은 commit 제목과 같은 형식을 사용한다. MR 설명에는 Jir
 | Backend runtime과 migration runner | L2 | Spring Boot base, PostgreSQL migration runner, MyBatis configuration, auth/event/purge test skeleton |
 | 공간 DB와 geometry fixture | L3 | PostGIS extension 전제 확인, MyBatis geometry TypeHandler 검증, canonical overall_search_area/area fixture |
 | Android runtime과 offline local test harness | L4 | Android project base, Room/WorkManager deterministic test harness |
-| Object storage와 FCM mock adapter | L5 | MinIO-compatible dev adapter, mock object storage/upload URL endpoint, FCM dispatcher fixture |
+| Object storage와 FCM mock adapter | L5 | MinIO-compatible dev adapter, mock object storage/upload URL(presigned URL for upload) endpoint, FCM dispatcher fixture |
 | Web, MapLibre, tileserver, compose entrypoint | L6 | React/MapLibre base, local `/tiles` route, Docker Compose service map |
 | Seed/demo incident data | L1 | 모든 Lane이 사용할 수 있는 mock·seed incident import data |
 

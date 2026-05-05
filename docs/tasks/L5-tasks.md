@@ -6,7 +6,7 @@
 
 - marker domain, marker photos, marker read/update/delete
 - Android marker bottom sheet input
-- S3 upload URL photo upload/attach contract
+- 업로드용 S3-compatible presigned URL 발급, object storage upload, photo attach contract
 - support request/person found notification payload and recipient calculation
 - FCM dispatcher adapter boundary
 
@@ -22,7 +22,7 @@
 
 - [ ] L5-B01A 모의 파일 저장소와 사진 실패 고정 데이터 준비
   - 담당 Spec: S5
-  - 필수 참조: `architecture.md §6.4`, `adr.md ADR-0035`, `spec/specs/S5.json`, `spec/harness-scenarios.md §6 mock object storage/upload URL upload fixture`
+  - 필수 참조: `architecture.md §6.4`, `adr.md ADR-0035`, `spec/specs/S5.json`, `spec/harness-scenarios.md §6 mock object storage/upload URL fixture`
   - 연관 Spec: S6
   - 시나리오: SC-06
   - 구현 산출물: MinIO dev adapter smoke fixture, mock object storage, photo failure fixtures, object key fixture
@@ -100,13 +100,13 @@
 
 - [ ] L5-T04A 사진 업로드 서명·완료 API 구현
   - 담당 Spec: S5
-  - 필수 참조: `spec/specs/S5.json`, `spec/harness-scenarios.md §6 mock object storage/upload URL upload fixture`
+  - 필수 참조: `spec/specs/S5.json`, `spec/harness-scenarios.md §6 mock object storage/upload URL fixture`
   - 연관 Spec: S1-2, S6
   - 시나리오: SC-06
   - 관련 FR: FR-20
-  - 구현 산출물: photo upload URL API, photo attach API, object storage mock integration, `MARKER_UPDATED.photoDelta` PublishRequest contract test, orphan/mismatched photo rejection tests
+  - 구현 산출물: photo 업로드용 presigned URL 발급 API, photo attach API, object storage mock integration, `MARKER_UPDATED.photoDelta` PublishRequest contract test, orphan/mismatched photo rejection tests
   - 예상 작업량: 1d
-  - 완료 기준: photo upload-url/attach가 기대 상태를 지원하고, `MARKER_UPDATED.photoDelta`가 안정적인 photoId/status/version을 포함하며, orphan 또는 mismatched marker photo는 거부된다.
+  - 완료 기준: photo upload-url/attach가 presigned URL 기반 업로드 기대 상태를 지원하고, `MARKER_UPDATED.photoDelta`가 안정적인 photoId/status/version을 포함하며, orphan 또는 mismatched marker photo는 거부된다.
 
 ## Phase 2
 
@@ -134,7 +134,7 @@
 
 - [ ] L5-T04B 사진 업로드 중복·오프라인 재시도 검증 구현
   - 담당 Spec: S5
-  - 필수 참조: `spec/specs/S5.json`, `spec/specs/S6.json`, `spec/harness-scenarios.md §6 mock object storage/upload URL upload fixture`
+  - 필수 참조: `spec/specs/S5.json`, `spec/specs/S6.json`, `spec/harness-scenarios.md §6 mock object storage/upload URL fixture`
   - 연관 Spec: S6
   - 시나리오: SC-06, SC-09
   - 관련 FR: FR-20

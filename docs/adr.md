@@ -762,7 +762,7 @@ ADR-0013과 ADR-0014는 큰 축인 JDK 17, Spring Boot 3.x, Kotlin Android, Reac
 - Frontend package manager는 npm으로 통일하고, build tool은 Vite를 사용한다.
 - Web router는 React Router를 사용한다.
 - Web server state는 TanStack Query(React Query), board display/client state는 Zustand를 사용한다.
-- 개발·하네스 object storage adapter는 MinIO(S3-compatible)를 기본으로 하고, harness는 mock object storage/upload URL fixture를 사용한다. 운영 배포는 S3-compatible port를 통해 S3로 전환한다.
+- 개발·하네스 object storage adapter는 MinIO(S3-compatible)를 기본으로 하고, harness는 mock object storage/upload URL(presigned URL for upload) fixture를 사용한다. 운영 배포는 S3-compatible port를 통해 S3로 전환한다.
 - Android public baseline은 AGP 8.13.x, minSdk 31, targetSdk 34를 유지하고, 테스트는 Robolectric + real hardware smoke를 기준으로 한다.
 
 ### Consequences

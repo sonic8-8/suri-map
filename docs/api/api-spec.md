@@ -57,7 +57,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 | `search-areas/{searchAreaId}` status 변경 | 별도 `/state` 또는 `/status` endpoint를 만들지 않고 `PATCH /api/search-areas/{searchAreaId}` body로 처리한다. |
 | `search-paths/batch` | REST만 보면 `/api/search-paths/{searchPathId}/points`도 후보지만, S3-1/S6/harness가 `APPEND_PATH_BATCH`와 request path를 기준으로 outbox replay를 맞추고 있어 유지한다. |
 | `incidents/{incidentId}/events` | S4 SSE endpoint는 incident 하위 events resource로 둔다. `events/stream`은 만들지 않는다. |
-| `photos/upload-url`, `photos/{photoId}/attach` | S5 upload URL/attach 용어를 유지한다. harness의 `presign`/`finalize` 표현은 stale 표현으로 정리한다. |
+| `photos/upload-url`, `photos/{photoId}/attach` | API 용어는 upload URL/attach로 유지한다. 여기서 `uploadUrl`은 S3-compatible object storage presigned URL for upload다. harness의 `presign`/`finalize` 표현은 endpoint 이름으로 쓰지 않는다. |
 | `sync/outbox/requeue` | Android local Outbox 진단·재큐잉 동기화 endpoint로 유지한다. `sync-requeue-requests` resource를 만들지 않는다. |
 | `offline-package/manifest`, `offline-package/installations` | S7 offline package 하위 resource로 유지한다. flat `offline-package-manifest` 형태로 바꾸지 않는다. |
 
@@ -374,7 +374,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Request: `contentType`, `sizeBytes`, optional `checksumSha256`
 - Response: `201 {photoId, uploadUrl, expiresAt, maxSizeBytes, version}`
 - Errors: `photo_limit_exceeded`, `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`
-- Note: harness의 `presign` 표현은 이 endpoint로 정리한다.
+- Note: response의 `uploadUrl`은 S3/MinIO-compatible presigned URL for upload다. API endpoint 이름은 storage 구현 용어인 `presign`이 아니라 클라이언트 동작인 `upload-url`로 둔다.
 
 #### POST `/api/markers/{markerId}/photos/{photoId}/attach`
 
@@ -387,7 +387,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Request: `sizeBytes`, `contentType`, optional `width`, `height`, `checksumSha256`
 - Response: `200 {photoId, status, version, markerId, markerVersion}`
 - Errors: `photo_limit_exceeded`, `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`
-- Note: harness의 `finalize` 표현은 이 endpoint로 정리한다.
+- Note: object storage 업로드 완료 후 photo row를 marker에 연결·확정하는 단계다. API endpoint 이름은 `finalize`가 아니라 `attach`로 둔다.
 
 ### 4.7 Sync / Offline
 
