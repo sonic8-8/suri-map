@@ -75,7 +75,7 @@
   - 연관 Spec: S1-2, S2, S6, S8, S4
   - 시나리오: SC-06
   - 관련 FR: FR-10, FR-14, FR-15, FR-16, FR-30
-  - 구현 산출물: `POST /markers`, marker create red tests, `MARKER_CREATED` publish request
+  - 구현 산출물: `POST /api/markers`, marker create red tests, `MARKER_CREATED` publish request
   - 예상 작업량: 1d
   - 완료 기준: app-only marker 생성이 필수 필드를 저장하고 type/location/source를 검증하며 `MARKER_CREATED`를 발행한다.
 

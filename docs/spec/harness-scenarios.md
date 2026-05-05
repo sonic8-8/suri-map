@@ -203,11 +203,10 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   4. 배정 계정과 단말에 담당 구역이 공유된다.
 - **involved_specs**: S2, S8, S1-1, S1-2, S4, S7
 - **involved_apis**:
-  - `POST /incidents/{incidentId}/search-areas/overall`
-  - `PATCH /incidents/{incidentId}/search-areas/overall`
   - `POST /search-areas`
-  - `POST /search-areas/{areaId}/split`
-  - `POST /search-areas/{areaId}/assignments`
+  - `PATCH /search-areas/{searchAreaId}`
+  - `POST /search-areas/{searchAreaId}/split`
+  - `POST /search-areas/{searchAreaId}/assignments`
 - **e2e_red_test**:
   - "전체 수색 구역 조정 후 오프라인 패키지 manifest의 타일 범위가 갱신된다"
   - "`overall_search_area` 변경은 타일/manifest stale만 갱신하고 `search_area` row, state, `search_area_assignment`를 생성하거나 변경하지 않는다"
@@ -255,7 +254,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
 - **involved_apis**:
   - `POST /search-paths`
   - `POST /search-paths/batch`
-  - `PATCH /search-path-segments/{segmentId}`
+  - `PATCH /search-path-segments/{searchPathSegmentId}`
   - `PATH_APPENDED`
   - `SEARCH_PATH_SEGMENT_UPDATED`
 - **e2e_red_test**:
@@ -276,7 +275,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   - "GPS 권한 거부 또는 위치 품질 저하 시 앱은 기록 불가/품질 저하 경고를 표시한다"
   - "지구대/파출소 순찰차 계정이 폴리폰으로 시작한 OP1 경로는 `account_type=PATROL_CAR`와 `movement_type=VEHICLE` 기준으로 차량 구간 스타일로 표시된다"
   - "지구대/파출소 팀 업무폰으로 이어서 시작한 OP1 경로는 같은 사건·OP 아래 별도 PolicePhone 경로로 저장된다"
-  - "앱에서 `PATCH /search-path-segments/{segmentId}`를 호출하면 `403 channel_not_allowed`"
+  - "앱에서 `PATCH /search-path-segments/{searchPathSegmentId}`를 호출하면 `403 channel_not_allowed`"
   - "웹에서 `POST /search-paths` 또는 `POST /search-paths/batch`를 호출하면 `403 channel_not_allowed`"
   - "미등록 PolicePhone이 `POST /search-paths` 또는 `POST /search-paths/batch`를 호출하면 `403 police_phone_not_registered`를 응답하고 경로가 생성되지 않는다"
   - "등록됐지만 해당 사건/OP에 배정되지 않은 PolicePhone이 `POST /search-paths` 또는 `POST /search-paths/batch`를 호출하면 `403 police_phone_not_assigned`를 응답하고 앱은 기록 중 상태로 전환하지 않는다"
@@ -296,14 +295,14 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   1. `marker`가 현재 OP와 현재 PolicePhone, 로그인 계정 기준으로 생성된다.
   2. 위치·시간·작성 계정은 자동 입력되고 필요 시 위치 수동 조정이 가능하다.
   3. `MARKER_CREATED` 발행 후 상황판과 다른 단말에 반영된다.
-  4. 사진 첨부 시 presign, S3 업로드, finalize 흐름으로 저장된다.
+  4. 사진 첨부 시 upload URL 발급, object storage 업로드, attach 흐름으로 저장된다.
   5. 오프라인 상태에서는 Outbox에 저장되고 복구 후 전송된다.
   6. 앱은 유형 선택만으로 즉시 저장 가능한 최소 입력 흐름을 제공하고, 오프라인 저장 항목은 pending 상태로 지도에 표시한다.
 - **involved_specs**: S5, S1-2, S6, S8, S4, S2
 - **involved_apis**:
   - `POST /markers`
-  - `POST /markers/{markerId}/photos/presign`
-  - `POST /markers/{markerId}/photos/{photoId}/finalize`
+  - `POST /markers/{markerId}/photos/upload-url`
+  - `POST /markers/{markerId}/photos/{photoId}/attach`
   - `MARKER_CREATED`
 - **e2e_red_test**:
   - "앱에서 마커 생성 후 온라인 기준 3초 안에 상황판에 렌더링된다"
@@ -319,15 +318,15 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   - "온라인 마커 저장 성공 후 생성한 앱은 저장 완료 피드백을 표시하고 바텀시트를 닫거나 생성된 마커 상세로 전환한다"
   - "사진 없는 기본 마커 저장 실패 시 앱은 실패 사유와 마커 저장 재시도 CTA를 표시하고 입력 draft를 유지한다"
   - "오프라인 상태에서 만든 마커는 앱 지도에 pending 배지로 즉시 표시되고 복구 후 pending이 해제된다"
-  - "사진 presign, upload, finalize 단계 실패 시 앱은 실패 단계와 사유를 표시하고 업로드 재시도 CTA를 제공한다"
+  - "사진 upload URL 발급, upload, attach 단계 실패 시 앱은 실패 단계와 사유를 표시하고 업로드 재시도 CTA를 제공한다"
   - "위치 수동 조정은 선택 동작이며 기본 저장 흐름을 막지 않는다"
   - "웹에서 현장 마커 생성 API를 호출하면 `403 channel_not_allowed`"
-  - "웹에서 `POST /markers/{markerId}/photos/presign` 또는 `POST /markers/{markerId}/photos/{photoId}/finalize`를 직접 호출하면 `403 channel_not_allowed`"
-  - "미등록 PolicePhone이 `POST /markers`, 사진 presign, 사진 finalize를 호출하면 `403 police_phone_not_registered`를 응답하고 마커·사진이 생성되지 않는다"
-  - "등록됐지만 해당 사건/OP에 배정되지 않은 PolicePhone이 `POST /markers`, 사진 presign, 사진 finalize를 호출하면 `403 police_phone_not_assigned`를 응답하고 앱은 pending 마커를 서버 반영 완료로 바꾸지 않는다"
+  - "웹에서 `POST /markers/{markerId}/photos/upload-url` 또는 `POST /markers/{markerId}/photos/{photoId}/attach`를 직접 호출하면 `403 channel_not_allowed`"
+  - "미등록 PolicePhone이 `POST /markers`, 사진 upload URL 발급, 사진 attach를 호출하면 `403 police_phone_not_registered`를 응답하고 마커·사진이 생성되지 않는다"
+  - "등록됐지만 해당 사건/OP에 배정되지 않은 PolicePhone이 `POST /markers`, 사진 upload URL 발급, 사진 attach를 호출하면 `403 police_phone_not_assigned`를 응답하고 앱은 pending 마커를 서버 반영 완료로 바꾸지 않는다"
   - "사건에 배정된 팀 계정 또는 순찰차 계정이라도 현재 PolicePhone이 해당 사건/OP에 배정되지 않았으면 마커·사진 write는 `403 police_phone_not_assigned`를 응답한다"
   - "사진 10장 또는 10MB 초과 업로드는 거부된다"
-  - "마커 생성과 사진 finalize write는 §0.3 공통 red test에 따라 REST 응답 id/status/version, `event_dispatch_job`, SSE payload, board response marker/photo row가 같은 마커·사진 상태를 말하고 board response version이 수렴해야 한다"
+  - "마커 생성과 사진 attach write는 §0.3 공통 red test에 따라 REST 응답 id/status/version, `event_dispatch_job`, SSE payload, board response marker/photo row가 같은 마커·사진 상태를 말하고 board response version이 수렴해야 한다"
 - **board_merge**: `marker` slot
 - **notes**: 현장 마커 생성은 앱 전용이다. 웹은 초기 기준 마커와 마커 조회·수정 UI를 별도 권한으로 다룬다.
 
@@ -421,7 +420,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   - 기존 domain write API 재사용
 - **e2e_red_test**:
   - "30분 오프라인 후 복구 시 경로 포인트·마커·사진 첨부·지원 요청·실종자 발견 알림 유실 0건"
-  - "동일 idempotency key Outbox 항목 재전송 시 마커·경로·사진 finalize·알림 이벤트 중복 생성 0건"
+  - "동일 idempotency key Outbox 항목 재전송 시 마커·경로·사진 attach·알림 이벤트 중복 생성 0건"
   - "복구 동기화 진행 중 앱 화면은 미전송 큐 수량이 줄어드는 과정을 표시한다"
   - "복구 성공 후 앱과 상황판은 `미전송 0`, pending 해제, 복구 완료 상태를 표시한다"
   - "복구 성공 후 패키지 manifest가 최신이면 패키지 상태 정상으로 표시되고, manifest 만료 또는 전체 수색 구역 변경이 있으면 재적재 필요 상태로 구분된다"
@@ -452,7 +451,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   6. 상황판은 현재 OP와 완료된 이전 OP를 배지·레이어 토글·완료 상태 색상으로 구분한다.
 - **involved_specs**: S2, S8, S1-2, S4, S1-1
 - **involved_apis**:
-  - `PATCH /search-areas/{areaId}/state`
+  - `PATCH /search-areas/{searchAreaId}`
   - `POST /operational-periods`
   - `POST /handover-memos`
   - `SEARCH_AREA_CHANGED`
@@ -495,7 +494,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
 - **involved_apis**:
   - `GET /incidents/{incidentId}/board`
   - `POST /handover-memos`
-  - `POST /operational-periods/{opId}/search-history-summaries`
+  - `POST /operational-periods/{operationalPeriodId}/search-history-summaries`
   - `SEARCH_HISTORY_SUMMARY_CHANGED`
 - **e2e_red_test**:
   - "OP1과 OP2 경로를 동시에 표시하고 토글할 수 있다"
@@ -549,7 +548,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   - "사건 종료 성공 후 웹 화면은 종료 완료 상태와 후속 쓰기 불가 상태를 표시한다"
   - "사건 종료 실패 시 웹 화면은 실패 사유와 재시도 CTA를 표시한다"
   - "사건 종료 후 missing_person 도메인 데이터 조회는 `404` 또는 마스킹 응답"
-  - "종료 후 경로 시작·재개, 경로 batch, 마커 사진 finalize, package installation, Outbox 재전송은 `409 incident_closed` 또는 명시된 closed error를 응답하고 서버 상태와 Outbox를 변경하지 않는다"
+  - "종료 후 경로 시작·재개, 경로 batch, 마커 사진 attach, package installation, Outbox 재전송은 `409 incident_closed` 또는 명시된 closed error를 응답하고 서버 상태와 Outbox를 변경하지 않는다"
   - "종료 후 domain write API와 sync write API를 직접 호출해도 경로·마커·사진·패키지 상태·경로 상태가 새로 생성되거나 갱신되지 않는다"
   - "종료 후 heartbeat 성공·실패 여부와 무관하게 사건 상세·상황판·tombstone 응답은 단말 최신 위치와 freshness 점을 재노출하지 않는다"
   - "`INCIDENT_CLOSED` 수신 후 앱은 사건을 `closed` 또는 `purging` 상태로 고정하고 Outbox flush/requeue를 거부한다"
@@ -678,7 +677,7 @@ red test는 아래 fixture를 조합해 작성할 수 있어야 한다.
 | 하네스 geometry/GPS 기준 좌표 | SC-04, SC-05, SC-06 | 기준 지도 envelope는 EPSG:4326 bbox `minLon=126.900000`, `minLat=37.500000`, `maxLon=127.080000`, `maxLat=37.620000`이다. 최소 Polygon 면적은 `400m2`이고 좌표 precision은 소수 6자리 canonical 값을 기준으로 한다. 정상 `overall_search_area` fixture는 `[[126.948000,37.565000],[126.968000,37.565000],[126.968000,37.579000],[126.948000,37.579000],[126.948000,37.565000]]`, 정상 `search_area` fixture는 `[[126.952000,37.568000],[126.961000,37.568000],[126.961000,37.575000],[126.952000,37.575000],[126.952000,37.568000]]`, 정상 marker fixture는 `[126.956500,37.571200]`를 쓴다. 실패 좌표 fixture는 `coord-outside-envelope=[127.200000,37.571200]`, `coord-latlon-swapped=[37.571200,126.956500]`, `polygon-unclosed`, `polygon-self-intersecting`, `polygon-too-small-under-400m2`, `point-null-nan`, `precision-over-6dp=[126.9565007,37.5712007]`로 고정하고 SC-04/05/06 geometry red test가 이 이름을 참조한다 |
 | mock tile catalog/server 또는 local tile fixture | SC-03, SC-04 | 외부 지도 타일 네트워크를 사용하지 않는다. 하네스는 `tileManifestId=tile-manifest-inc-precinct-001-v1`, tile key 범위 `z=15..16`, `x=27925..27960`, `y=12680..12720`, blob URI `local://tiles/inc-precinct-first-001/{z}/{x}/{y}.pbf`를 제공한다. manifest는 사건 메타, overall area hash `overall-area-hash-precinct-v1`, tile key 목록, blob sha256, byte size를 포함하고 blob fixture는 local file 또는 in-memory blob만 허용한다. 실패 주입 키는 `manifest-expired`, `manifest-overall-area-stale`, `tile-404`, `tile-timeout`, `tile-checksum-mismatch`, `tile-corrupt-blob`이며 SC-03 항목별 재시도·미완료 red test와 SC-04 전체 수색 구역 변경 후 stale manifest red test가 이 fixture를 참조한다. `*.tile.openstreetmap.org`, `*.mapbox.com`, `*.googleapis.com` 등 외부 tile host 호출이 관찰되면 red test 실패다 |
 | mock network 상태 | SC-03, SC-07, SC-09 | 외부 지도/S3/FCM/112 네트워크를 사용하지 않고 하네스 endpoint별 실패·복구 스크립트로 온라인, 장시간 오프라인, 부분 복구, 중복 재전송을 재현한다. `net-script-manifest-001`은 `GET /incidents/{incidentId}/offline-package/manifest`에 대해 1단계 `200 manifest v1` 수신 후 local storage `offlinePackage.manifestId=tile-manifest-inc-precinct-001-v1`, `status=MANIFEST_READY`를 기대하고, 2단계 `503 network_offline` 또는 timeout에서는 `status=MANIFEST_FAILED_RETRYABLE`, Outbox 변경 없음, 3단계 복구 `200 same manifest`에서는 이미 받은 manifest hash를 재사용해 `status=MANIFEST_READY`로 돌아가야 한다. `net-script-tile-blob-001`은 `local://tiles/inc-precinct-first-001/{z}/{x}/{y}.pbf` blob fetch에 대해 성공 tile은 local storage `tileCache[{tileKey}].state=READY`, 실패 주입 `tile-timeout/tile-404/tile-checksum-mismatch`는 해당 tile만 `FAILED_RETRYABLE` 또는 `FAILED_CORRUPT`로 남기고 package 전체는 `READY`가 아니어야 하며, 복구 후 같은 tile key만 재시도해 `tileCache`가 `READY`로 수렴해야 한다. `net-script-domain-write-001`은 `POST /search-paths/batch`, `POST /markers` 같은 domain write가 온라인이면 서버 commit + Outbox enqueue + local mirror `SYNCED`가 되고, 오프라인 실패 시 local storage row는 `PENDING_LOCAL`, Outbox row는 `outbox-path-001/outbox-marker-001` `PENDING_SEND`로 남으며 서버 row와 board response는 생성되지 않아야 한다. 지원 요청도 `POST /markers`의 `SUPPORT_REQUEST` marker write로만 재현한다. `net-script-heartbeat-001`은 `POST /police-phones/{policePhoneId}/heartbeat` 또는 동등 heartbeat ping이 온라인이면 local storage `policePhoneConnectivity=ONLINE`, `lastHeartbeatAt` 갱신, 오프라인이면 `policePhoneConnectivity=OFFLINE`, `lastHeartbeatAt` 보존, 복구 첫 성공이면 `RECOVERING`을 거쳐 `ONLINE`으로 전이되어야 한다. `net-script-outbox-flush-001`은 SC-09 복구 시 Outbox `PENDING_SEND` row를 `SENDING -> ACKED`로 전이하고 local mirror를 `SYNCED`로 바꾸며, 부분 복구 `domain write 200 + SSE delayed`에서는 Outbox는 `ACKED`지만 board response는 `STALE_REFETCH`, 중복 재전송은 같은 idempotency key 기준 서버 row 1건과 event_dispatch_job row 1건만 남아야 한다. SC-03은 manifest/tile 스크립트, SC-07은 domain write/heartbeat 스크립트, SC-09는 outbox flush/부분 복구/중복 재전송 스크립트를 참조한다 |
-| mock object storage/presigned upload fixture | SC-06 | 실제 S3를 사용하지 않고 `mock://object-storage/suri-map-harness`와 presigned URL `http://127.0.0.1:18080/mock-upload/{photoId}`만 쓴다. 성공 fixture는 사진 `0장`, `1장`, `10장`, 파일 크기 `1_048_576 bytes`, `10_485_760 bytes`를 포함하고, 실패 fixture는 `11장`, `10_485_761 bytes`, `presign-denied`, `upload-timeout`, `upload-500`, `checksum-mismatch`, `finalize-missing-blob`, `finalize-duplicate`를 포함한다. presign/upload/finalize 각 단계는 성공·실패를 독립 주입할 수 있어야 하며, finalize 성공 시 photo row, event_dispatch_job, SSE, board response의 `photoId/status/version`이 일치해야 한다. 외부 `s3.amazonaws.com` 또는 실제 bucket endpoint 호출이 관찰되면 SC-06 red test 실패다 |
+| mock object storage/upload URL fixture | SC-06 | 실제 S3를 사용하지 않고 `mock://object-storage/suri-map-harness`와 upload URL `http://127.0.0.1:18080/mock-upload/{photoId}`만 쓴다. 성공 fixture는 사진 `0장`, `1장`, `10장`, 파일 크기 `1_048_576 bytes`, `10_485_760 bytes`를 포함하고, 실패 fixture는 `11장`, `10_485_761 bytes`, `upload-url-denied`, `upload-timeout`, `upload-500`, `checksum-mismatch`, `attach-missing-blob`, `attach-duplicate`를 포함한다. upload URL 발급/upload/attach 각 단계는 성공·실패를 독립 주입할 수 있어야 하며, attach 성공 시 photo row, event_dispatch_job, SSE, board response의 `photoId/status/version`이 일치해야 한다. 외부 `s3.amazonaws.com` 또는 실제 bucket endpoint 호출이 관찰되면 SC-06 red test 실패다 |
 | mock event_dispatch_job | SC-05, SC-06, SC-08, SC-10, SC-11, SC-12 | REST DB commit 이후 event_dispatch_job row의 `eventId`, entity `id`, `status`, `version`, payload를 검증하고 미적재 실패 주입을 재현 |
 | mock SSE client | SC-05, SC-06, SC-08, SC-09, SC-10, SC-11, SC-12 | event_dispatch_job 기반 SSE payload의 `eventId`, entity `id`, `status`, `version`, `sequence`를 검증하고 event_dispatch_job 적재 + SSE 미송신 실패, `Last-Event-ID` replay, duplicate delivery, reordered payload 주입을 재현 |
 | mock board API refetch/assembly | SC-02, SC-03, SC-04, SC-05, SC-06, SC-08, SC-09, SC-10, SC-11, SC-12 | board response row가 write 응답 `version` 이상으로 수렴하는지 검증하고 board 미갱신·stale board response 실패 주입을 재현한다. 동일 `eventId` 재처리 시 중복 row 0건이어야 하며 낮은 `version` 또는 `sequence` event는 기존 최신 board response를 변경하지 않아야 한다 |

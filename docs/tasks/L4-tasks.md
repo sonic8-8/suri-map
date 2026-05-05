@@ -44,7 +44,7 @@
   - 필수 참조: `spec/specs/S6.json`, `spec/harness-scenarios.md §6 mock network 상태`
   - 연관 Spec: S1-2, S4
   - 시나리오: SC-07, SC-09
-  - 구현 산출물: `POST /sync/clock` contract test, client/server time offset fixture, time skew red tests
+  - 구현 산출물: `POST /api/sync/clock` contract test, client/server time offset fixture, time skew red tests
   - 예상 작업량: 1d
   - 완료 기준: endpoint behavior를 구현하지 않은 상태에서 sync clock 기대 조건이 failing contract test로 고정된다.
 
@@ -84,9 +84,9 @@
   - 연관 Spec: S2, S8, S4, S3-2
   - 시나리오: SC-05, SC-09
   - 관련 FR: FR-02, FR-04, FR-25
-  - 구현 산출물: `POST /search-paths/batch`, search_path/search_path_segment persistence, `GET /search-paths`, `PATH_APPENDED` publish request tests
+  - 구현 산출물: `POST /api/search-paths/batch`, search_path/search_path_segment persistence, `GET /api/search-paths`, `PATH_APPENDED` publish request tests
   - 예상 작업량: 2d
-  - 완료 기준: 유효한 batch가 id/status/version를 가진 LineString/path point를 append하고, `GET /search-paths`가 incident/OP/police_phone filter 결과를 반환한다.
+  - 완료 기준: 유효한 batch가 id/status/version를 가진 LineString/path point를 append하고, `GET /api/search-paths`가 incident/OP/police_phone filter 결과를 반환한다.
 
 ## Phase 2
 
@@ -127,7 +127,7 @@
   - 필수 참조: `spec/specs/S6.json`, `spec/harness-scenarios.md §6 mock network 상태`
   - 연관 Spec: S1-2, S4
   - 시나리오: SC-07, SC-09
-  - 구현 산출물: `POST /sync/clock`, client/server time offset record, time skew tests
+  - 구현 산출물: `POST /api/sync/clock`, client/server time offset record, time skew tests
   - 예상 작업량: 1d
   - 완료 기준: client/server time offset이 기록되고 owner endpoint를 우회하지 않은 채 offline retry logic에 노출된다.
 

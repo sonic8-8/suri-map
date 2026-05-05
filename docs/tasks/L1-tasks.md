@@ -51,9 +51,9 @@
   - 연관 Spec: S1-2, S4, S5, S8
   - 시나리오: SC-01
   - 관련 FR: FR-01
-  - 구현 산출물: `POST /incidents/import`, incident/incident_assignment/missing_person/OP1 write path, `INCIDENT_CREATED` publish request, OP1 자동 생성 rollback test
+  - 구현 산출물: `POST /api/incidents/import`, incident/incident_assignment/missing_person/OP1 write path, `INCIDENT_CREATED` publish request, OP1 자동 생성 rollback test
   - 예상 작업량: 2d
-  - 완료 기준: `POST /incidents/import`가 중복 row 없이 incident, missing_person, incident_assignment, OP1, `INCIDENT_CREATED`를 생성하고 실패 시 전체 rollback한다.
+  - 완료 기준: `POST /api/incidents/import`가 중복 row 없이 incident, missing_person, incident_assignment, OP1, `INCIDENT_CREATED`를 생성하고 실패 시 전체 rollback한다.
 
 - [ ] L1-T03 실종자 도메인 데이터와 소비 계약 구현
   - 담당 Spec: S1-1

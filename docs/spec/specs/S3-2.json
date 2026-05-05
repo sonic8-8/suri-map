@@ -1361,7 +1361,7 @@
       },
       {
         "from_spec": "S4",
-        "interface": "GET /events?incidentId={incidentId}, BaseEvent envelope, SSE id line sequence, EventFanout refetch trigger orchestration",
+        "interface": "GET /incidents/{incidentId}/events, BaseEvent envelope, SSE id line sequence, EventFanout refetch trigger orchestration",
         "usage": "S4가 RefetchSignal를 orchestrate한다. S3-2는 trigger 이후 BoardAssembler.refetch input을 받아 APPLIED|DUPLICATE|STALE|REFETCH_REQUIRED|FAILED_RETRYABLE 결과로 board response를 조립하거나 board response reload를 요구한다."
       },
       {

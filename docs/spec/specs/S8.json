@@ -55,11 +55,11 @@
       "incident import 중 OP1 내부/system 자동 생성",
       "OP2 이후 Web 현장 지휘관 수동 생성과 active OP 전환",
       "OP 생성 사유 INITIAL, RE_SEARCH, AREA_CHANGED, OTHER 기록",
-      "OP 수준 담당 배정 search_area_assignment 생성·조회",
+      "OP 수준 담당 배정 조회와 OP 히스토리 맥락 제공",
       "OP/경로/구역 단위 handover_memo 생성·조회",
       "OP·경로·마커·구역 상태·메모 기반 수색 이력 요약 생성과 실패 상태 관리",
-      "OperationalPeriodQuery, AssignmentQuery, HandoverMemoQuery, HandoverStatusSnapshot, SearchHistorySummaryQuery 제공",
-      "OP_TRANSITIONED, SEARCH_AREA_ASSIGNMENT_CHANGED, HANDOVER_MEMO_CREATED, SEARCH_HISTORY_SUMMARY_CHANGED 이벤트 payload 생성 요청",
+      "OperationalPeriodQuery, HandoverMemoQuery, HandoverStatusSnapshot, SearchHistorySummaryQuery 제공",
+      "OP_TRANSITIONED, HANDOVER_MEMO_CREATED, SEARCH_HISTORY_SUMMARY_CHANGED 이벤트 payload 생성 요청",
       "S3-2 op_toggle, op_history, handover_memo, handover_status, search_history_summary slot source contract 납품"
     ],
     "excluded": [
@@ -114,7 +114,7 @@
     {
       "id": "FR-13",
       "summary": "구역별 수색 상태와 수색 횟수를 함께 관리/표현한다.",
-      "handling": "S8은 S2 area state를 변경하지 않고 search_area_assignment와 OP history에서 해당 구역의 OP별 담당 맥락을 제공한다."
+      "handling": "S8은 S2 area state와 search_area_assignment를 변경하지 않고 S2 SearchAreaAssignmentQuery와 OP history에서 해당 구역의 OP별 담당 맥락을 제공한다."
     },
     {
       "id": "FR-15",
@@ -491,7 +491,6 @@
     ],
     "flyway_migrations": [
       "V20260428_801__create_operational_period.sql",
-      "V20260428_802__create_search_area_assignment.sql",
       "V20260428_803__create_handover_memo.sql",
       "V20260428_804__create_search_history_summary.sql"
     ]
@@ -654,6 +653,318 @@
                       "type": "integer"
                     }
                   }
+                }
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "code": 403,
+            "case": "channel_not_allowed",
+            "body": "{\"error\": \"channel_not_allowed\"}"
+          },
+          {
+            "code": 403,
+            "case": "incident_access_denied",
+            "body": "{\"error\": \"incident_access_denied\"}"
+          },
+          {
+            "code": 403,
+            "case": "team_not_assigned",
+            "body": "{\"error\": \"team_not_assigned\"}"
+          }
+        ]
+      },
+      {
+        "method": "POST",
+        "path": "/duty-shifts",
+        "summary": "현재 OP 기준 근무 구간을 시작한다.",
+        "auth": "guard aliases app-police-phone + incident-read + write-common + @RequireCurrentOp",
+        "idempotent": true,
+        "required_headers": [
+          "Authorization",
+          "Idempotency-Key",
+          "X-PolicePhone-Id"
+        ],
+        "request_schema": {
+          "type": "object",
+          "required": [
+            "incidentId",
+            "opId",
+            "policePhoneId",
+            "clientTs"
+          ],
+          "properties": {
+            "incidentId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "opId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "policePhoneId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "clientTs": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        },
+        "response_schema": {
+          "201": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "incidentId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "opId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "policePhoneId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "ACTIVE"
+                ]
+              },
+              "version": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "code": 403,
+            "case": "channel_not_allowed",
+            "body": "{\"error\": \"channel_not_allowed\"}"
+          },
+          {
+            "code": 400,
+            "case": "police_phone_required",
+            "body": "{\"error\": \"police_phone_required\"}"
+          },
+          {
+            "code": 403,
+            "case": "police_phone_not_registered",
+            "body": "{\"error\": \"police_phone_not_registered\"}"
+          },
+          {
+            "code": 403,
+            "case": "police_phone_not_assigned",
+            "body": "{\"error\": \"police_phone_not_assigned\"}"
+          },
+          {
+            "code": 403,
+            "case": "incident_access_denied",
+            "body": "{\"error\": \"incident_access_denied\"}"
+          },
+          {
+            "code": 403,
+            "case": "team_not_assigned",
+            "body": "{\"error\": \"team_not_assigned\"}"
+          },
+          {
+            "code": 409,
+            "case": "incident_closed",
+            "body": "{\"error\": \"incident_closed\"}"
+          },
+          {
+            "code": 409,
+            "case": "idempotency_mismatch",
+            "body": "{\"error\": \"idempotency_mismatch\"}"
+          },
+          {
+            "code": 409,
+            "case": "write_conflict",
+            "body": "{\"error\": \"write_conflict\"}"
+          },
+          {
+            "code": 409,
+            "case": "op_required",
+            "body": "{\"error\": \"op_required\"}"
+          },
+          {
+            "code": 409,
+            "case": "op_mismatch",
+            "body": "{\"error\": \"op_mismatch\"}"
+          }
+        ]
+      },
+      {
+        "method": "PATCH",
+        "path": "/duty-shifts/{dutyShiftId}",
+        "summary": "근무 구간을 종료하거나 metadata를 보정한다.",
+        "auth": "guard aliases app-police-phone + incident-read + write-common + @RequireCurrentOp",
+        "idempotent": true,
+        "required_headers": [
+          "Authorization",
+          "Idempotency-Key",
+          "X-PolicePhone-Id"
+        ],
+        "request_schema": {
+          "type": "object",
+          "required": [
+            "action",
+            "clientTs"
+          ],
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "END"
+              ]
+            },
+            "memo": {
+              "type": "string"
+            },
+            "clientTs": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        },
+        "response_schema": {
+          "200": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "ACTIVE",
+                  "ENDED"
+                ]
+              },
+              "version": {
+                "type": "integer"
+              },
+              "endedAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "code": 403,
+            "case": "channel_not_allowed",
+            "body": "{\"error\": \"channel_not_allowed\"}"
+          },
+          {
+            "code": 400,
+            "case": "police_phone_required",
+            "body": "{\"error\": \"police_phone_required\"}"
+          },
+          {
+            "code": 403,
+            "case": "police_phone_not_registered",
+            "body": "{\"error\": \"police_phone_not_registered\"}"
+          },
+          {
+            "code": 403,
+            "case": "police_phone_not_assigned",
+            "body": "{\"error\": \"police_phone_not_assigned\"}"
+          },
+          {
+            "code": 403,
+            "case": "incident_access_denied",
+            "body": "{\"error\": \"incident_access_denied\"}"
+          },
+          {
+            "code": 403,
+            "case": "team_not_assigned",
+            "body": "{\"error\": \"team_not_assigned\"}"
+          },
+          {
+            "code": 409,
+            "case": "incident_closed",
+            "body": "{\"error\": \"incident_closed\"}"
+          },
+          {
+            "code": 409,
+            "case": "idempotency_mismatch",
+            "body": "{\"error\": \"idempotency_mismatch\"}"
+          },
+          {
+            "code": 409,
+            "case": "write_conflict",
+            "body": "{\"error\": \"write_conflict\"}"
+          },
+          {
+            "code": 409,
+            "case": "op_required",
+            "body": "{\"error\": \"op_required\"}"
+          },
+          {
+            "code": 409,
+            "case": "op_mismatch",
+            "body": "{\"error\": \"op_mismatch\"}"
+          }
+        ]
+      },
+      {
+        "method": "GET",
+        "path": "/duty-shifts",
+        "summary": "사건/OP/PolicePhone/account/status 필터로 근무 구간을 조회한다.",
+        "auth": "guard aliases public-session + incident-read",
+        "idempotent": false,
+        "required_headers": [
+          "Authorization"
+        ],
+        "request_schema": {
+          "type": "object",
+          "properties": {
+            "incidentId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "opId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "policePhoneId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "accountId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "ACTIVE",
+                "ENDED"
+              ]
+            }
+          }
+        },
+        "response_schema": {
+          "200": {
+            "type": "object",
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object"
                 }
               }
             }
@@ -875,7 +1186,7 @@
       },
       {
         "method": "POST",
-        "path": "/operational-periods/{opId}/search-history-summaries",
+        "path": "/operational-periods/{operationalPeriodId}/search-history-summaries",
         "summary": "OP 수색 이력 요약 생성",
         "auth": "guard aliases web-command + incident-read + write-common",
         "idempotent": true,
@@ -898,7 +1209,7 @@
               "type": "string",
               "enum": [
                 "OP",
-                "SESSION"
+                "DUTY_SHIFT"
               ]
             },
             "scopeId": {
@@ -989,12 +1300,12 @@
       {
         "from_spec": "S1-2",
         "interface": "@RequireIncidentAccess, @RequireRole, @RequireChannel, SecurityContext account/channel/PolicePhone",
-        "usage": "OP/assignment/search history summary는 Web 지휘 권한, handover memo는 APP/WEB 사건 배정 계정 권한을 검증한다."
+        "usage": "OP/duty shift/search history summary는 Web 지휘 권한, handover memo는 APP/WEB 사건 배정 계정 권한을 검증한다."
       },
       {
         "from_spec": "S2",
-        "interface": "SearchAreaQuery.byOp, SearchAreaQuery.byIncident",
-        "usage": "assignment 대상 search_area 존재 검증과 search history summary의 완료 구역 input 수집에 사용한다."
+        "interface": "SearchAreaQuery.byOp, SearchAreaQuery.byIncident, SearchAreaAssignmentQuery.byOp",
+        "usage": "OP별 담당 배정 조회와 search history summary의 완료 구역 input 수집에 사용한다."
       },
       {
         "from_spec": "S3-1",
@@ -1009,7 +1320,7 @@
       {
         "from_spec": "S4",
         "interface": "EventHub.publish(PublishRequest.*)",
-        "usage": "S8은 OP_TRANSITIONED, SEARCH_AREA_ASSIGNMENT_CHANGED, HANDOVER_MEMO_CREATED, SEARCH_HISTORY_SUMMARY_CHANGED PublishRequest를 생성해 EventHub.publish(PublishRequest...)를 호출한다. event_dispatch_job row 적재와 fanout은 S4 소유다."
+        "usage": "S8은 OP_TRANSITIONED, HANDOVER_MEMO_CREATED, SEARCH_HISTORY_SUMMARY_CHANGED PublishRequest를 생성해 EventHub.publish(PublishRequest...)를 호출한다. event_dispatch_job row 적재와 fanout은 S4 소유다."
       }
     ],
     "events_published": [
@@ -1065,58 +1376,6 @@
         },
         "subscribers": [
           "S3-1",
-          "S3-2",
-          "S7"
-        ]
-      },
-      {
-        "type": "SEARCH_AREA_ASSIGNMENT_CHANGED",
-        "trigger": "search_area_assignment 생성·대체·취소 commit 이후",
-        "payload_schema": {
-          "type": "object",
-          "required": [
-            "id",
-            "incidentId",
-            "opId",
-            "status",
-            "version"
-          ],
-          "properties": {
-            "id": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "incidentId": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "opId": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "searchAreaId": {
-              "type": [
-                "string",
-                "null"
-              ],
-              "format": "uuid"
-            },
-            "policePhoneId": {
-              "type": [
-                "string",
-                "null"
-              ],
-              "format": "uuid"
-            },
-            "status": {
-              "type": "string"
-            },
-            "version": {
-              "type": "integer"
-            }
-          }
-        },
-        "subscribers": [
           "S3-2",
           "S7"
         ]
@@ -1465,9 +1724,9 @@
         "FR-11",
         "FR-12"
       ],
-      "given": "current OP와 S2 search_area가 존재한다.",
-      "when": "현장 지휘관이 팀 업무폰 또는 순찰차 업무폰을 구역에 배정한다.",
-      "then": "search_area_assignment가 생성되고 AssignmentQuery.byOp와 SEARCH_AREA_ASSIGNMENT_CHANGED payload가 같은 id/status/version/opId를 노출한다.",
+      "given": "current OP와 S2 search_area_assignment가 존재한다.",
+      "when": "OP history 또는 search history summary가 담당 배정 맥락을 조회한다.",
+      "then": "S2 SearchAreaAssignmentQuery.byOp가 제공한 id/status/version/opId를 그대로 사용하고 S8은 search_area_assignment를 변경하거나 assignment event를 발행하지 않는다.",
       "priority": "critical"
     },
     {
@@ -1579,14 +1838,14 @@
       "search history summary 생성은 비동기 처리 가능하되 READY/FAILED 결과 상태가 UI에서 관찰 가능해야 한다."
     ],
     "security": [
-      "OP2+ 생성, assignment, search history summary는 Web 현장 지휘관 전용이다.",
+      "OP2+ 생성, duty shift, search history summary는 Web 현장 지휘관 전용이다.",
       "handover memo는 사건 배정 계정의 APP/WEB 채널에서만 허용한다.",
       "search history summary input은 Suri-Map 내부 OP/path/marker/area/memo 기록으로 제한한다.",
       "OpenAI API 호출에는 최소화된 source board response만 전달하고 source prompt, API key, model secret, raw location stream 전체를 저장하거나 화면에 노출하지 않는다.",
       "search history summary output에서 추천, 누락 확정, 위험도 판단 표현을 저장 전에 차단한다."
     ],
     "observability": [
-      "op_transition_total, search_area_assignment_changed_total, handover_memo_created_total, search_history_summary_ready_total, search_history_summary_failed_total, search_history_summary_openai_call_total, search_history_summary_guard_block_total 메트릭을 노출한다.",
+      "op_transition_total, handover_memo_created_total, search_history_summary_ready_total, search_history_summary_failed_total, search_history_summary_openai_call_total, search_history_summary_guard_block_total 메트릭을 노출한다.",
       "OP1 자동 생성 failure는 incidentId 기준으로 추적 가능해야 한다.",
       "OpenAI adapter latency와 failure reason을 기록한다."
     ]
@@ -1606,7 +1865,7 @@
       {
         "name": "OpAssignmentDoesNotMutateSearchAreaTest",
         "framework": "JUnit 5",
-        "scenario": "assignment 생성은 search_area_assignment와 SEARCH_AREA_ASSIGNMENT_CHANGED만 만들고 S2 search_area geometry/state를 변경하지 않는다."
+        "scenario": "S8 OP history는 S2 SearchAreaAssignmentQuery.byOp 결과를 read-only로 사용하며 search_area_assignment, SEARCH_AREA_ASSIGNMENT_CHANGED, S2 search_area geometry/state를 직접 변경하지 않는다."
       },
       {
         "name": "HandoverMemoSupportsAppAndWebTest",
@@ -1864,9 +2123,9 @@
       },
       "coveredEndpoints": [
         "POST /operational-periods",
-        "POST /search-areas/{areaId}/assignments",
+        "POST /search-areas/{searchAreaId}/assignments",
         "POST /handover-memos",
-        "POST /operational-periods/{opId}/search-history-summaries"
+        "POST /operational-periods/{operationalPeriodId}/search-history-summaries"
       ]
     }
   },
@@ -1967,7 +2226,7 @@
         "S7 offline package manifest"
       ]
     },
-    "AssignmentQuery.byOp": {
+    "OpAssignmentSnapshot.byOp": {
       "input": [
         "opId"
       ],
