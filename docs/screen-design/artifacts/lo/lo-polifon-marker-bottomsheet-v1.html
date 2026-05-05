@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>Low-fi · Polifon 마커 생성 바텀시트 v1</title>
+<style>
+  /*
+    Low-fi · Polifon 마커 생성 바텀시트 v1 (Hero 3/3)
+    - 412×892 viewport
+    - KRDS-Ops Polifon variant (다크)
+    - FR-30 엄지 중심 바텀시트, 5종 마커 한 화면 표출 (스크롤 없음)
+    - 마커 생성은 모든 폴리폰 계정 동등 (PRD §8.4)
+    - 수색 중 지도 (lo-polifon-search-map-v1.html)에서 [마커 생성] CTA → 이 시트 push
+  */
+  html, body { margin: 0; padding: 0; }
+  * { box-sizing: border-box; font-family: Pretendard, "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; }
+  body { background: #999; padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .label-meta { font-size: 12px; color: #1d1d1d; max-width: 412px; line-height: 1.5; }
+
+  .device { width: 412px; height: 892px; background: #0B0F19; color: #fff; display: grid; grid-template-rows: 32px 1fr 24px; position: relative; overflow: hidden; }
+
+  /* status bar (수색 중 지도와 동일) */
+  .status-bar { background: #0B0F19; padding: 0 16px; display: flex; align-items: center; font-size: 12px; font-weight: 600; color: #E5E7EB; gap: 8px; }
+  .status-bar .right { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 11px; }
+  .status-bar .signal-bars { display: inline-flex; gap: 1px; align-items: flex-end; }
+  .status-bar .signal-bars i { width: 3px; background: #E5E7EB; display: inline-block; }
+  .status-bar .signal-bars i:nth-child(1) { height: 3px; }
+  .status-bar .signal-bars i:nth-child(2) { height: 5px; }
+  .status-bar .signal-bars i:nth-child(3) { height: 7px; }
+  .status-bar .signal-bars i:nth-child(4) { height: 9px; }
+  .status-bar .battery { display: inline-flex; align-items: center; gap: 3px; }
+  .status-bar .battery .body { width: 22px; height: 11px; border: 1.2px solid #E5E7EB; border-radius: 1.5px; padding: 1px; display: inline-block; }
+  .status-bar .battery .fill { display: block; height: 100%; background: #E5E7EB; border-radius: 0.5px; }
+
+  /* === 배경: 지도가 dimmed로 살짝 보임 (바텀시트 펼친 상태) === */
+  .behind-map { position: relative; background: #1A2433; overflow: hidden; }
+  .behind-map::before { content: ''; position: absolute; inset: 0; background:
+    linear-gradient(transparent 50%, rgba(255,255,255,0.03) 50%) 0 0 / 100% 60px,
+    linear-gradient(90deg, transparent 50%, rgba(255,255,255,0.03) 50%) 0 0 / 60px 100%; pointer-events: none; }
+  .behind-map .scrim { position: absolute; inset: 0; background: rgba(0,0,0,0.35); }
+  .behind-map .map-mock-label { position: absolute; left: 50%; top: 70px; transform: translateX(-50%); font-size: 11px; color: rgba(255,255,255,0.5); }
+  /* 자기 위치 점 (현재 GPS — 마커 위치) */
+  .pin { position: absolute; left: 50%; top: 100px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .pin .ring { width: 32px; height: 32px; border-radius: 50%; border: 2px solid #22D3EE; box-shadow: 0 0 0 4px rgba(34,211,238,0.2); display: flex; align-items: center; justify-content: center; }
+  .pin .ring .dot { width: 12px; height: 12px; border-radius: 50%; background: #22D3EE; }
+  .pin .gps-label { font-size: 10px; color: #fff; background: rgba(0,0,0,0.5); padding: 2px 6px; border-radius: 4px; border: 1px solid #22D3EE; }
+
+  /* === Bottom Sheet === */
+  .sheet { position: absolute; left: 0; right: 0; bottom: 0; background: #111827; border-top-left-radius: 20px; border-top-right-radius: 20px; box-shadow: 0 -8px 24px rgba(0,0,0,0.5); padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 12px; max-height: 640px; overflow-y: auto; }
+  .sheet .grab { width: 48px; height: 4px; background: #3B4453; border-radius: 2px; align-self: center; }
+  .sheet-header { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; }
+  .sheet-header .title { font-size: 17px; font-weight: 800; color: #fff; }
+  .sheet-header .sub { font-size: 11px; color: #9CA3AF; margin-top: 2px; }
+  .sheet-header .close { background: transparent; border: 1px solid #3B4453; color: #E5E7EB; padding: 6px 12px; font-size: 12px; border-radius: 8px; font-family: inherit; cursor: pointer; }
+
+  /* === Step 1: 마커 유형 5종 한 화면 (스크롤 없음, FR-30) === */
+  .marker-types { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .marker-types .type-btn { background: #1F2937; border: 1.5px solid #3B4453; border-radius: 12px; padding: 14px 10px; display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; min-height: 84px; color: #E5E7EB; font-family: inherit; }
+  .marker-types .type-btn.selected { border-color: #22C55E; background: rgba(34,197,94,0.12); }
+  .marker-types .type-btn.full { grid-column: 1 / -1; }
+  .marker-types .type-btn .icon { width: 36px; height: 36px; border: 1.5px solid currentColor; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+  .marker-types .type-btn svg { width: 22px; height: 22px; }
+  .marker-types .type-btn .name { font-size: 13px; font-weight: 700; }
+
+  /* SUPPORT_REQUEST sub-type expand */
+  .sub-types { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding-left: 4px; padding-right: 4px; }
+  .sub-types .sub-btn { background: #1F2937; border: 1.5px solid #3B4453; border-radius: 10px; padding: 10px 8px; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; color: #E5E7EB; font-family: inherit; min-height: 72px; }
+  .sub-types .sub-btn.selected { border-color: #22C55E; background: rgba(34,197,94,0.12); }
+  .sub-types .sub-btn svg { width: 22px; height: 22px; }
+  .sub-types .sub-btn .name { font-size: 12px; font-weight: 700; }
+
+  /* === Step 2 (선택 입력): 메모 + 사진 === */
+  .input-group { display: flex; flex-direction: column; gap: 6px; }
+  .input-group label { font-size: 12px; color: #9CA3AF; }
+  .input-group .memo { background: #1F2937; border: 1.5px solid #3B4453; border-radius: 10px; padding: 10px 12px; color: #fff; font-family: inherit; font-size: 14px; min-height: 56px; }
+  .input-group .photo-row { display: flex; gap: 8px; align-items: center; }
+  .input-group .photo-btn { background: #1F2937; border: 1.5px solid #3B4453; border-radius: 10px; padding: 12px 14px; color: #E5E7EB; font-size: 13px; font-family: inherit; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; height: 48px; }
+  .input-group .photo-count { font-size: 11px; color: #9CA3AF; }
+
+  /* === Auto-fill 정보 (위치/시각/계정) === */
+  .auto-info { background: #0B0F19; border: 1px solid #2A3240; border-radius: 10px; padding: 8px 10px; font-size: 11px; color: #9CA3AF; line-height: 1.5; }
+  .auto-info b { color: #E5E7EB; font-weight: 600; }
+
+  /* === Bottom CTA: 저장 / 취소 === */
+  .cta-row { display: grid; grid-template-columns: auto 1fr; gap: 10px; padding-top: 4px; }
+  .cta { height: 56px; border-radius: 14px; font-family: inherit; font-weight: 800; font-size: 17px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+  .cta.cancel { background: transparent; color: #E5E7EB; border: 1.5px solid #3B4453; padding: 0 24px; }
+  .cta.save { background: #22C55E; color: #0B0F19; border: 0; }
+  .cta.save:disabled { background: #2A3240; color: #6B7280; }
+
+  /* gesture pill */
+  .gesture-bar { background: #0B0F19; display: flex; align-items: center; justify-content: center; }
+  .gesture-bar .pill { width: 130px; height: 4px; background: #6B7280; border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none;">
+  <symbol id="ic-clue" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6"/><line x1="15.5" y1="15.5" x2="20" y2="20"/></symbol>
+  <symbol id="ic-found" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3"/><path d="M3 21v-1a6 6 0 0 1 12 0v1"/><path d="M16 13l2 2 4-4"/></symbol>
+  <symbol id="ic-field" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 19l5-9 4 7 3-5 6 7z"/><circle cx="8" cy="7" r="1.5" fill="currentColor"/></symbol>
+  <symbol id="ic-drone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="6" height="6" rx="1"/><line x1="9" y1="9" x2="5" y2="5"/><line x1="15" y1="9" x2="19" y2="5"/><line x1="9" y1="15" x2="5" y2="19"/><line x1="15" y1="15" x2="19" y2="19"/><circle cx="5" cy="5" r="1.5"/><circle cx="19" cy="5" r="1.5"/><circle cx="5" cy="19" r="1.5"/><circle cx="19" cy="19" r="1.5"/></symbol>
+  <symbol id="ic-dog" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6l3 4v8h3v-3h2v3h3v-7l3-3-1-3-3 2h-6z"/><circle cx="9" cy="13" r="0.6" fill="currentColor"/><circle cx="15" cy="13" r="0.6" fill="currentColor"/></symbol>
+  <symbol id="ic-hand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11V5a1.5 1.5 0 0 1 3 0v6"/><path d="M12 11V4a1.5 1.5 0 0 1 3 0v7"/><path d="M15 11V6a1.5 1.5 0 0 1 3 0v8a6 6 0 0 1-12 0V9a1.5 1.5 0 0 1 3 0v2"/></symbol>
+  <symbol id="ic-note" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h10l4 4v12H5z"/><path d="M15 4v4h4"/><line x1="8" y1="13" x2="15" y2="13"/><line x1="8" y1="16" x2="13" y2="16"/></symbol>
+  <symbol id="ic-camera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><circle cx="12" cy="12.5" r="3.5"/><path d="M8 6l1.5-2h5L16 6"/></symbol>
+</svg>
+
+<div class="label-meta">
+  <b>Polifon 마커 생성 바텀시트 v1</b> — 412×892 · default state · KRDS-Ops Polifon (다크).
+  수색 중 지도에서 [마커 생성] CTA → 이 시트 push.
+  검수용 메타·variant·self-review는 <code>lo-polifon-marker-bottomsheet-v1-review.html</code>.
+</div>
+
+<div class="device">
+
+  <!-- status bar -->
+  <div class="status-bar">
+    <span>14:24</span>
+    <span class="right">
+      <span class="signal-bars"><i></i><i></i><i></i><i></i></span>
+      <span style="font-weight:700;">GPS</span>
+      <span style="font-weight:700;">LTE</span>
+      <span class="battery">
+        <span class="body"><span class="fill" style="width:78%;"></span></span>
+        <span style="font-weight:700;">78%</span>
+      </span>
+    </span>
+  </div>
+
+  <!-- 배경 지도 (dimmed) + 자기 위치 핀 -->
+  <div class="behind-map">
+    <div class="scrim"></div>
+    <div class="map-mock-label">[지도 — dimmed]</div>
+    <div class="pin">
+      <div class="ring"><div class="dot"></div></div>
+      <div class="gps-label">현재 위치 (자동)</div>
+    </div>
+
+    <!-- bottom sheet -->
+    <div class="sheet">
+      <div class="grab"></div>
+
+      <div class="sheet-header">
+        <div>
+          <div class="title">마커 생성</div>
+          <div class="sub">유형을 선택하면 즉시 저장됩니다 (FR-15)</div>
+        </div>
+        <button class="close">취소</button>
+      </div>
+
+      <!-- 자동 입력 정보 -->
+      <div class="auto-info">
+        <b>위치</b> 35.1631° N, 126.9134° E (자동) · <b>시각</b> 14:24 (자동)<br>
+        <b>작성</b> 기동대 1부대 A팀 폴리폰 · 기동대 1부대 A팀 계정
+      </div>
+
+      <!-- 마커 유형 5종 (한 화면, 스크롤 없음, FR-30) -->
+      <div class="marker-types">
+        <button class="type-btn">
+          <span class="icon"><svg><use href="#ic-clue"/></svg></span>
+          <span class="name">단서</span>
+        </button>
+        <button class="type-btn selected">
+          <span class="icon"><svg><use href="#ic-found"/></svg></span>
+          <span class="name">실종자 발견</span>
+        </button>
+        <button class="type-btn">
+          <span class="icon"><svg><use href="#ic-field"/></svg></span>
+          <span class="name">지형</span>
+        </button>
+        <button class="type-btn">
+          <span class="icon"><svg><use href="#ic-hand"/></svg></span>
+          <span class="name">지원 요청 ↓</span>
+        </button>
+        <button class="type-btn full">
+          <span class="icon"><svg><use href="#ic-note"/></svg></span>
+          <span class="name">운영 메모</span>
+        </button>
+      </div>
+
+      <!-- SUPPORT_REQUEST 선택 시 sub-type expand (예시로 항상 표시) -->
+      <div>
+        <div style="font-size:11px; color:#9CA3AF; margin-bottom:6px;">지원 요청 유형 (선택 시 표시)</div>
+        <div class="sub-types">
+          <button class="sub-btn">
+            <svg><use href="#ic-drone"/></svg>
+            <span class="name">드론</span>
+          </button>
+          <button class="sub-btn">
+            <svg><use href="#ic-dog"/></svg>
+            <span class="name">경찰견</span>
+          </button>
+          <button class="sub-btn">
+            <svg><use href="#ic-hand"/></svg>
+            <span class="name">기타 지원</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 메모 (선택 입력) -->
+      <div class="input-group">
+        <label>메모 (선택)</label>
+        <div class="memo">의류 발견. 검정 패딩, 회색 운동화.</div>
+      </div>
+
+      <!-- 사진 (선택 입력, 마커당 최대 10장 — FR-20) -->
+      <div class="input-group">
+        <label>사진 (선택, 최대 10장)</label>
+        <div class="photo-row">
+          <button class="photo-btn">
+            <svg style="width:18px;height:18px;"><use href="#ic-camera"/></svg>
+            촬영
+          </button>
+          <button class="photo-btn">
+            앨범
+          </button>
+          <span class="photo-count">2 / 10</span>
+        </div>
+      </div>
+
+      <!-- 저장 / 취소 -->
+      <div class="cta-row">
+        <button class="cta cancel">취소</button>
+        <button class="cta save">저장</button>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="gesture-bar"><span class="pill"></span></div>
+
+</div>
+
+</body>
+</html>

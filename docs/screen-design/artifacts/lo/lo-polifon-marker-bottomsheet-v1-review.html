@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>Review · Polifon 마커 생성 바텀시트 v1</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: Pretendard, "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; }
+  body { background: #e0e0e0; padding: 24px; color: #1d1d1d; line-height: 1.5; }
+  .container { max-width: 1280px; margin: 0 auto; }
+  h1 { font-size: 20px; margin-bottom: 8px; }
+  h2 { font-size: 15px; margin: 32px 0 12px; padding-bottom: 6px; border-bottom: 1px solid #999; }
+  p, li { font-size: 12px; }
+  dl { display: grid; grid-template-columns: 140px 1fr; gap: 4px 12px; margin-bottom: 16px; }
+  dt { color: #666; font-size: 12px; }
+  dd { font-size: 12px; }
+  ul { padding-left: 20px; }
+  .meta-card { background: #fff; padding: 16px; border: 1px solid #999; }
+  .link { color: #0066cc; text-decoration: underline; }
+  .checklist { background: #fff; padding: 16px; border: 1px solid #999; font-size: 12px; line-height: 1.7; }
+  .badge { display: inline-block; padding: 1px 6px; font-size: 10px; border: 1px solid #333; }
+  .badge.fixed { background: #e5f4ec; }
+  .badge.note { background: #e8f0ff; }
+  .variant-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .variant-card { background: #fff; border: 1px solid #999; padding: 16px; }
+  .variant-mock { border: 1px solid #ccc; min-height: 140px; padding: 12px; font-size: 11px; display: flex; flex-direction: column; gap: 6px; background: #f7f7f7; }
+  .variant-mock .banner { padding: 6px 10px; border: 1px solid #333; background: #fff; font-size: 10px; font-weight: bold; }
+  .variant-mock .banner.warn { border-style: dashed; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>Review · Polifon 마커 생성 바텀시트 v1 (Hero 3/3)</h1>
+
+<div class="meta-card">
+  <dl>
+    <dt>Main canvas</dt>
+    <dd><a class="link" href="./lo-polifon-marker-bottomsheet-v1.html">lo-polifon-marker-bottomsheet-v1.html</a> (412×892, KRDS-Ops Polifon)</dd>
+    <dt>연결 SC</dt><dd>SC-06 (현장 마커 생성) · SC-08 (지원 요청·발견 알림)</dd>
+    <dt>관련 FR</dt><dd>FR-10 (5종 마커) · FR-14 (GPS 자동) · FR-15 (시간/주체/유형 자동) · FR-17 (지원 요청 sub-type) · FR-20 (사진 첨부) · FR-30 (엄지 중심 바텀시트)</dd>
+    <dt>주 사용자</dt><dd>모든 폴리폰 계정 (PRD §8.4 — 마커 생성은 모든 계정 동등)</dd>
+    <dt>Hero 3개</dt>
+    <dd>
+      1. <a class="link" href="./lo-web-situation-board-main-v1.3.html">웹 사건 상황판 메인 v1.3</a><br>
+      2. <a class="link" href="./lo-polifon-search-map-v1.html">폴리폰 수색 중 지도 v1</a><br>
+      3. <b>폴리폰 마커 생성 바텀시트 v1</b> (이 화면)
+    </dd>
+  </dl>
+</div>
+
+<h2>화면 구성</h2>
+
+<table style="width:100%; border-collapse:collapse; font-size:11px; background:#fff;">
+  <thead><tr style="background:#f0f0f0;"><th style="border:1px solid #999;padding:6px;width:140px;text-align:left;">영역</th><th style="border:1px solid #999;padding:6px;text-align:left;">역할</th></tr></thead>
+  <tbody>
+    <tr><td style="border:1px solid #999;padding:6px;">status bar (32px)</td><td style="border:1px solid #999;padding:6px;">OS 시간/GPS/LTE/배터리 (수색 중 지도와 동일)</td></tr>
+    <tr><td style="border:1px solid #999;padding:6px;">배경 지도 (dimmed)</td><td style="border:1px solid #999;padding:6px;">시트 펼침 시 지도 dim + 자기 위치 핀 강조 (어디 마커 찍히는지 시각 확인)</td></tr>
+    <tr><td style="border:1px solid #999;padding:6px;">바텀시트 헤더</td><td style="border:1px solid #999;padding:6px;">제목 "마커 생성" + 부가 안내 + [취소]</td></tr>
+    <tr><td style="border:1px solid #999;padding:6px;">자동 입력 정보 카드</td><td style="border:1px solid #999;padding:6px;">위치(GPS 자동), 시각(자동), 작성자(폴리폰 + 계정 자동) — FR-15</td></tr>
+    <tr><td style="border:1px solid #999;padding:6px;">마커 유형 5종 grid</td><td style="border:1px solid #999;padding:6px;">2×3 + 마지막 full-width = 5개. 한 화면 스크롤 없음 (FR-30, dense-tokens §1.2). 각 버튼 84px height</td></tr>
+    <tr><td style="border:1px solid #999;padding:6px;">SUPPORT sub-type</td><td style="border:1px solid #999;padding:6px;">3종 (드론/경찰견/기타). 지원 요청 선택 시 expand (현재는 항상 표시 mock)</td></tr>
+    <tr><td style="border:1px solid #999;padding:6px;">메모 (선택)</td><td style="border:1px solid #999;padding:6px;">텍스트 입력. 56px min-height</td></tr>
+    <tr><td style="border:1px solid #999;padding:6px;">사진 (선택)</td><td style="border:1px solid #999;padding:6px;">[촬영] [앨범] + 카운트 (n/10) — FR-20</td></tr>
+    <tr><td style="border:1px solid #999;padding:6px;">CTA: [취소][저장]</td><td style="border:1px solid #999;padding:6px;">저장 56px 강조 (thumb zone)</td></tr>
+  </tbody>
+</table>
+
+<h2>핵심 디자인 결정</h2>
+
+<div class="checklist">
+  <ul>
+    <li><b>유형 선택만으로 저장 가능</b> (FR-15): 메모/사진은 선택. 한 손 빠른 입력.</li>
+    <li><b>5종 마커 한 화면</b> (FR-30, dense-tokens §1.2): 2×2 + full-width 1개. 스크롤 없음.</li>
+    <li><b>지원 요청 sub-type 별도</b> (FR-17): 단일 마커 보지 않고 sub-type 직접 선택. 지도에서 즉시 식별.</li>
+    <li><b>자동 입력 시각화</b>: 위치/시각/작성자가 자동임을 명시. 사용자가 입력 안 해도 됨을 인지.</li>
+    <li><b>thumb zone 100%</b>: 저장 버튼 시트 가장 아래 + 56px. 모든 type-btn 84px (장갑 56px 이상).</li>
+    <li><b>다크 base</b>: 수색 중 지도와 일관. 야외 가시성.</li>
+    <li><b>아이콘 = web v1.3과 동일 7종</b>: 공통 시각 시스템.</li>
+    <li><b>배경 지도 dimmed + 핀 강조</b>: 어디 마커 찍히는지 시트 위에서도 확인 가능.</li>
+  </ul>
+</div>
+
+<h2>anti-patterns 검수</h2>
+
+<div class="checklist">
+  <ul>
+    <li><span class="badge fixed">PASS</span> §1.6.3 마커 생성 모든 계정 동등</li>
+    <li><span class="badge fixed">PASS</span> §1.6.10 마커 카테고리·라벨 일치</li>
+    <li><span class="badge fixed">PASS</span> §1.6.11 아이콘 + 라벨 (각 type-btn에 둘 다)</li>
+    <li><span class="badge fixed">PASS</span> §3.1 색맹 친화 (아이콘 모양 + 라벨)</li>
+    <li><span class="badge fixed">PASS</span> §4.1 primary CTA thumb zone</li>
+    <li><span class="badge fixed">PASS</span> §4.2 destructive 아님 (저장이 destructive 아님)</li>
+    <li><span class="badge fixed">PASS</span> §4.3 모달 위 status bar 가리지 않음 (시트는 status bar 아래에서 시작)</li>
+    <li><span class="badge fixed">PASS</span> §4.4 한국어 본문 14px+ (시트 본문 13~17px)</li>
+    <li><span class="badge note">메모</span> §4.5 오프라인 표출 — variant에서 별도</li>
+    <li><span class="badge fixed">PASS</span> §6.1 toast 명시적 dismiss (이 화면은 시트 자체가 명시적 dismiss)</li>
+  </ul>
+</div>
+
+<h2>상태 variant (요약)</h2>
+
+<div class="variant-grid">
+  <div class="variant-card">
+    <h3>default (현재)</h3>
+    <p style="font-size:11px;color:#333;">유형 선택 (실종자 발견 selected) + 메모 입력 중 + 사진 2장.</p>
+    <div class="variant-mock"><div class="banner">main canvas 참조</div></div>
+  </div>
+  <div class="variant-card">
+    <h3>유형 미선택</h3>
+    <p style="font-size:11px;color:#333;">[저장] 비활성. 안내 문구 "유형을 선택하세요".</p>
+    <div class="variant-mock">
+      <div class="banner">5종 모두 outline (selected 없음)</div>
+      <div class="banner warn">[저장 비활성]</div>
+    </div>
+  </div>
+  <div class="variant-card">
+    <h3>지원 요청 선택 → sub-type expand</h3>
+    <p style="font-size:11px;color:#333;">"지원 요청 ↓" 클릭 시 sub-type 3종 강조. sub-type 선택 후 저장 가능.</p>
+    <div class="variant-mock">
+      <div class="banner">[지원 요청 selected] → 아래 [드론][경찰견][기타]</div>
+      <div class="banner">sub-type 미선택이면 [저장 비활성]</div>
+    </div>
+  </div>
+  <div class="variant-card">
+    <h3>저장 중</h3>
+    <p style="font-size:11px;color:#333;">[저장] 비활성 + 스피너. 모든 입력 disabled.</p>
+    <div class="variant-mock">
+      <div class="banner">[저장 ⌛ 처리 중]</div>
+    </div>
+  </div>
+  <div class="variant-card">
+    <h3>오프라인 저장</h3>
+    <p style="font-size:11px;color:#333;">정상 동작 (로컬 저장 + outbox). 저장 후 toast "오프라인 저장됨. 연결 시 자동 전송".</p>
+    <div class="variant-mock">
+      <div class="banner warn">시트 상단: ⚠ 오프라인 — 로컬 저장됨</div>
+      <div class="banner">저장 후 토스트 + 시트 닫힘</div>
+    </div>
+  </div>
+  <div class="variant-card">
+    <h3>저장 실패</h3>
+    <p style="font-size:11px;color:#333;">시트 상단 inline 에러. 입력 유지 + [다시 시도].</p>
+    <div class="variant-mock">
+      <div class="banner warn">"저장 실패. 다시 시도하세요."</div>
+      <div class="banner">입력 모두 유지</div>
+    </div>
+  </div>
+  <div class="variant-card">
+    <h3>사진 업로드 실패 (FR-20)</h3>
+    <p style="font-size:11px;color:#333;">마커 자체는 저장 OK, 사진만 outbox로 재시도. UI에 "사진 업로드 대기" 표시.</p>
+    <div class="variant-mock">
+      <div class="banner">마커 저장됨, 사진 1/2 업로드 대기</div>
+    </div>
+  </div>
+  <div class="variant-card">
+    <h3>10장 초과 시도</h3>
+    <p style="font-size:11px;color:#333;">[촬영]/[앨범] 비활성 + tooltip "최대 10장".</p>
+    <div class="variant-mock">
+      <div class="banner">사진 카운트: 10 / 10</div>
+      <div class="banner warn">[촬영 비활성] [앨범 비활성]</div>
+    </div>
+  </div>
+</div>
+
+<h2>v1 검토 필요</h2>
+
+<div class="checklist">
+  <ul>
+    <li><b>지원 요청 expand 인터랙션</b>: 현재 mock은 항상 표시. 실제는 "지원 요청" type-btn 탭 → sub-type 영역 expand 애니메이션 high-fi에서 결정.</li>
+    <li><b>실종자 발견 강조</b>: PERSON_FOUND는 destructive 아니지만 영향이 큼 (사건 종료 가능성). confirm 다이얼로그 추가 검토.</li>
+    <li><b>위치 수동 조정</b> (FR-14): 자동 위치가 부정확한 경우 사용자가 지도에서 핀 드래그. 이 시트에서 [위치 조정] 버튼 추가? 또는 시트 닫고 지도에서?</li>
+    <li><b>메모 음성 입력</b>: 야외·장갑 환경에서 키보드 입력 어려움. 음성 입력 토글 v2.</li>
+    <li><b>저장 후 흐름</b>: 시트 닫힘 → 지도 복귀 + toast "마커 저장됨". 토스트 위치/지속 결정 필요.</li>
+    <li><b>사진 thumbnail 표시</b>: 현재 mock은 카운트만. 실제는 첨부된 사진 썸네일 grid 표시 (지웠던 자리 + 추가 버튼).</li>
+    <li><b>type-btn 글자 길이</b>: "실종자 발견"이 가장 김. high-fi에서 폰트 크기·줄바꿈 확인.</li>
+    <li><b>SUPPORT_REQUEST sub-type "기타 지원" 라벨</b>: 너무 모호. 실제 운영에서 어떤 케이스인지 확인 필요.</li>
+  </ul>
+</div>
+
+<h2>Hero 3개 완성 — 다음 단계</h2>
+
+<div class="checklist">
+  <p><b>Hero 검증 영역 커버 매트릭스</b></p>
+  <table style="width:100%; border-collapse:collapse; font-size:11px;">
+    <thead><tr style="background:#f0f0f0;"><th style="border:1px solid #999;padding:6px;text-align:left;">검증 영역</th><th style="border:1px solid #999;padding:6px;text-align:left;">담당 Hero</th><th style="border:1px solid #999;padding:6px;text-align:left;">상태</th></tr></thead>
+    <tbody>
+      <tr><td style="border:1px solid #999;padding:6px;">정보 dense dashboard (web)</td><td style="border:1px solid #999;padding:6px;">사건 상황판 메인</td><td style="border:1px solid #999;padding:6px;"><span class="badge fixed">PASS</span></td></tr>
+      <tr><td style="border:1px solid #999;padding:6px;">Rugged field UI (폴리폰)</td><td style="border:1px solid #999;padding:6px;">수색 중 지도</td><td style="border:1px solid #999;padding:6px;"><span class="badge fixed">PASS</span></td></tr>
+      <tr><td style="border:1px solid #999;padding:6px;">빠른 입력 (바텀시트)</td><td style="border:1px solid #999;padding:6px;">마커 생성 바텀시트</td><td style="border:1px solid #999;padding:6px;"><span class="badge fixed">PASS</span></td></tr>
+      <tr><td style="border:1px solid #999;padding:6px;">상태 분기 (default/loading/empty/error/permission/offline/partial/stale/incident_closed)</td><td style="border:1px solid #999;padding:6px;">3개 review의 variant 섹션</td><td style="border:1px solid #999;padding:6px;"><span class="badge fixed">PASS</span></td></tr>
+      <tr><td style="border:1px solid #999;padding:6px;">공통 컴포넌트 (마커 7종, 구역 3계층, OP/DutyShift, 폴리폰 freshness, 권한 차등)</td><td style="border:1px solid #999;padding:6px;">3개 모두</td><td style="border:1px solid #999;padding:6px;"><span class="badge fixed">PASS</span></td></tr>
+    </tbody>
+  </table>
+
+  <p style="margin-top:12px;"><b>다음</b>: 나머지 13개 화면은 Hero 3개 패턴 재사용. <code>wireflow.md</code>로 한 화면당 5-10줄 IA·핵심 행동·상태·권한·재사용 컴포넌트만 적음. iteration 없이 1회만.</p>
+</div>
+
+</div>
+</body>
+</html>

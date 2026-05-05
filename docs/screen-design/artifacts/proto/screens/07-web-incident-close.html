@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>Step 7 · Web 사건 종료</title>
+<script src="../state.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: Pretendard, "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; }
+  html, body { height: 100%; }
+  body { background: #F8F8F8; color: #1d1d1d; padding: 0; }
+
+  .header { background: #fff; border-bottom: 1px solid #D8D8D8; padding: 0 24px; height: 64px; display: flex; align-items: center; gap: 16px; }
+  .header .logo { width: 40px; height: 40px; border: 1px solid #246BEB; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #246BEB; font-size: 12px; }
+  .header .title { font-size: 17px; font-weight: 700; flex: 1; }
+  .header .back { background: transparent; border: 1px solid #D8D8D8; padding: 8px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; font-family: inherit; }
+
+  .container { max-width: 720px; margin: 32px auto; padding: 0 24px; }
+
+  .panel { background: #fff; border: 1px solid #D8D8D8; border-radius: 8px; padding: 28px; margin-bottom: 16px; }
+  .panel h2 { font-size: 17px; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid #eee; }
+
+  .summary { display: grid; grid-template-columns: 140px 1fr; gap: 8px 16px; font-size: 14px; }
+  .summary dt { color: #555; }
+  .summary dd { color: #1d1d1d; }
+
+  .warn-box { background: #FCE9E9; border: 1px solid #D63A3A; padding: 14px 16px; border-radius: 6px; margin: 24px 0; font-size: 13px; color: #1d1d1d; }
+  .warn-box b { color: #D63A3A; }
+
+  .close-btn { background: #D63A3A; color: #fff; border: 0; padding: 14px 32px; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit; }
+  .close-btn:hover { background: #B22F2F; }
+
+  /* confirm modal */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 100; }
+  .modal-overlay.show { display: flex; }
+  .modal { background: #fff; border-radius: 12px; width: 440px; padding: 24px; }
+  .modal h3 { font-size: 17px; margin-bottom: 12px; color: #D63A3A; }
+  .modal p { font-size: 14px; line-height: 1.6; color: #1d1d1d; margin-bottom: 16px; }
+  .modal input { width: 100%; padding: 10px 12px; border: 1.5px solid #717171; border-radius: 6px; font-size: 14px; font-family: inherit; margin-bottom: 16px; }
+  .modal-cta { display: flex; gap: 10px; }
+  .modal-cta button { flex: 1; padding: 12px; border-radius: 6px; font-family: inherit; font-weight: 700; cursor: pointer; font-size: 14px; }
+  .btn-cancel { background: transparent; border: 1px solid #D8D8D8; }
+  .btn-confirm { background: #D63A3A; color: #fff; border: 0; }
+  .btn-confirm:disabled { background: #d8d8d8; cursor: not-allowed; }
+
+  /* tombstone view */
+  .tombstone { background: #f0f0f0; border: 1px solid #999; padding: 24px; border-radius: 8px; }
+  .tombstone .stamp { display: inline-block; padding: 4px 12px; background: #999; color: #fff; font-size: 11px; font-weight: 700; border-radius: 4px; letter-spacing: 0.5px; margin-bottom: 16px; }
+  .purge-list { list-style: none; padding: 0; margin: 16px 0; }
+  .purge-list li { padding: 8px 0; font-size: 13px; display: flex; align-items: center; gap: 8px; border-bottom: 1px dashed #ccc; }
+  .purge-list li:last-child { border-bottom: 0; }
+  .purge-list .check { color: #1F8754; font-weight: 700; }
+  .purge-list .pending { color: #E8881A; }
+
+  .demo-hint { position: fixed; bottom: 16px; right: 16px; max-width: 320px; background: #FCF1E2; border: 1px solid #E8881A; padding: 10px 14px; font-size: 12px; border-radius: 6px; }
+  .demo-hint b { color: #E8881A; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">SM</div>
+  <div class="title" id="hTitle">사건 종료</div>
+  <button class="back" onclick="location.href='../../lo/lo-web-situation-board-main-v1.3.html'">← 상황판으로</button>
+</div>
+
+<div class="container" id="container">
+  <!-- rendered by JS -->
+</div>
+
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal">
+    <h3>⚠ 사건 종료 확인</h3>
+    <p>정말 사건 <b id="modalIncId"></b>를 종료하시겠습니까?<br>이 작업은 <b>되돌릴 수 없습니다</b>.</p>
+    <p style="font-size:12px; color:#666;">실종자 이름을 입력하여 확인:</p>
+    <input type="text" id="confirmInput" placeholder="실종자 이름" oninput="checkConfirm()">
+    <div class="modal-cta">
+      <button class="btn-cancel" onclick="closeConfirm()">취소</button>
+      <button class="btn-confirm" id="confirmBtn" disabled onclick="doClose()">종료</button>
+    </div>
+  </div>
+</div>
+
+<div class="demo-hint" id="hint">
+  <b>시연 가이드:</b> [사건 종료] 클릭 → 모달에서 실종자명 입력 → [종료] → tombstone 확인
+</div>
+
+<script>
+  renderProtoBar(7, 7, null);
+
+  const s = getState();
+  const inc = (s.importedIncidents || []).find(i => i.id === s.activeIncidentId)
+            || s.importedIncidents?.[0]
+            || { id: '#2001', missing: '정OO', location: '광주 남구' };
+
+  function render() {
+    const s2 = getState();
+    const closed = s2.closed;
+    document.getElementById('hTitle').textContent = closed
+      ? `사건 ${inc.id} (종료됨)`
+      : `사건 ${inc.id} · 사건 종료`;
+
+    if (!closed) {
+      document.getElementById('container').innerHTML = `
+        <div class="panel">
+          <h2>사건 요약</h2>
+          <dl class="summary">
+            <dt>사건 ID</dt><dd>${inc.id}</dd>
+            <dt>실종자</dt><dd>${inc.missing}</dd>
+            <dt>위치</dt><dd>${inc.location}</dd>
+            <dt>시작</dt><dd>2026-04-30 09:12</dd>
+            <dt>현재 OP</dt><dd>3차 · 재수색</dd>
+            <dt>참여 폴리폰</dt><dd>12대</dd>
+            <dt>마커</dt><dd>47개 (단서 21 · 발견 0 · 지형 5 · 지원요청 8 · NOTE 13)</dd>
+          </dl>
+
+          <div class="warn-box">
+            ⚠ <b>주의:</b> 사건 종료는 <b>terminal</b>입니다. 재오픈 불가.<br>
+            종료 시 실종자 개인정보·사진·위치 좌표가 즉시 파기됩니다 (FR-22, ADR-0022).
+          </div>
+
+          <div style="text-align:center; margin-top:24px;">
+            <button class="close-btn" onclick="openConfirm()">⚠ 사건 종료</button>
+          </div>
+        </div>
+      `;
+      document.getElementById('hint').style.display = 'block';
+    } else {
+      document.getElementById('container').innerHTML = `
+        <div class="tombstone">
+          <span class="stamp">⊘ 종료됨</span>
+          <h2 style="font-size:19px; margin-bottom:6px;">사건 ${inc.id}</h2>
+
+          <dl class="summary" style="margin-top:16px;">
+            <dt>종료 시각</dt><dd>${new Date().toISOString().replace('T', ' ').slice(0, 19)}</dd>
+            <dt>종료자</dt><dd>${s2.account?.name || '김 간부'} (실종팀)</dd>
+            <dt>운영 기간</dt><dd>5일</dd>
+            <dt>OP 차수</dt><dd>3차</dd>
+            <dt>참여 폴리폰</dt><dd>12대 (비식별)</dd>
+            <dt>마커 건수</dt><dd>47건 (비식별 메타만)</dd>
+          </dl>
+
+          <h3 style="font-size:14px; margin-top:24px; margin-bottom:8px;">파기 진행</h3>
+          <ul class="purge-list">
+            <li><span class="check">✓</span> 실종자 개인정보 (이름·사진·인상착의) 제거</li>
+            <li><span class="check">✓</span> 폴리폰 위치 좌표 파기 (동기화 ack 후)</li>
+            <li><span class="pending">▰▰░</span> 단말 로컬 정리 진행 중 (10/12 완료)</li>
+            <li><span class="check">✓</span> 오프라인 패키지 삭제</li>
+            <li><span class="check">✓</span> 위치정보 접근 로그 보존 (위치정보법 6개월)</li>
+          </ul>
+
+          <div class="warn-box" style="background:#f0f0f0; border-color:#999; color:#555; margin-top:20px;">
+            ⓘ 재오픈 UI 없음 (관리자 운영 절차만 — ADR-0022).<br>
+            장기 보존 원본은 112 계열 시스템에서 관리됩니다.
+          </div>
+        </div>
+
+        <div style="text-align:center; margin-top:24px;">
+          <a href="../index.html" style="color:#246BEB; text-decoration:underline; font-size:14px;">시연 종료 — 진입점으로 돌아가기</a>
+        </div>
+      `;
+      document.getElementById('hint').innerHTML = '<b>시연 완료:</b> sanitized tombstone이 표시됩니다. 실종자명·사진·위치는 모두 제거되었습니다 (anti-patterns §1.6.7.1).';
+    }
+  }
+
+  function openConfirm() {
+    document.getElementById('modalIncId').textContent = inc.id;
+    document.getElementById('confirmInput').value = '';
+    document.getElementById('confirmBtn').disabled = true;
+    document.getElementById('confirmModal').classList.add('show');
+  }
+
+  function closeConfirm() {
+    document.getElementById('confirmModal').classList.remove('show');
+  }
+
+  function checkConfirm() {
+    const v = document.getElementById('confirmInput').value.trim();
+    document.getElementById('confirmBtn').disabled = v !== inc.missing.split(' ')[0];
+  }
+
+  function doClose() {
+    const s2 = getState();
+    s2.closed = true;
+    s2.step = 7;
+    saveState(s2);
+    closeConfirm();
+    render();
+  }
+
+  render();
+</script>
+</body>
+</html>

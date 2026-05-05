@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>Step 5 · Hero 3 마커 생성 바텀시트</title>
+<script src="../state.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; margin: 0; }
+  body { font-family: Pretendard, sans-serif; background: #999; display: flex; align-items: center; justify-content: center; padding: 20px; gap: 20px; }
+  .frame-wrap { width: 412px; height: 892px; position: relative; }
+  .frame { width: 100%; height: 100%; border: 0; display: block; border-radius: 24px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+
+  .save-btn-overlay {
+    position: absolute; bottom: 50px; left: 14px; right: 14px;
+    padding: 18px; background: #22C55E; color: #0B0F19;
+    border: 0; border-radius: 14px; font-family: Pretendard, sans-serif;
+    font-weight: 800; font-size: 17px; cursor: pointer;
+    box-shadow: 0 4px 12px rgba(34,197,94,0.4);
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes pulse { 50% { box-shadow: 0 4px 24px rgba(34,197,94,0.7); } }
+
+  .overlay { width: 320px; background: #fff; border: 1px solid #D8D8D8; padding: 20px; border-radius: 8px; font-family: Pretendard, sans-serif; }
+  .overlay .badge { display: inline-block; padding: 2px 8px; background: #246BEB; color: #fff; font-size: 10px; font-weight: 800; border-radius: 4px; margin-bottom: 8px; letter-spacing: 0.5px; }
+  .overlay h2 { font-size: 16px; margin-bottom: 8px; }
+  .overlay p { font-size: 13px; line-height: 1.6; color: #555; margin-bottom: 12px; }
+  .overlay p b { color: #1d1d1d; }
+
+  .toast { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #22C55E; color: #0B0F19; padding: 24px 32px; border-radius: 12px; font-weight: 800; font-size: 16px; box-shadow: 0 12px 32px rgba(0,0,0,0.3); display: none; z-index: 10000; }
+</style>
+</head>
+<body>
+
+<div class="overlay">
+  <span class="badge">Step 5 / 7 · 마커 생성</span>
+  <h2>마커 생성 바텀시트 (Hero 3)</h2>
+  <p>
+    <b>현재 화면:</b> "실종자 발견"이 selected 상태.<br>
+    <b>액션:</b> 폴리폰 화면 위에 표시된 <b>[저장 →]</b> 큰 버튼을 클릭하면
+    마커가 저장되고 상황판으로 이동합니다.
+  </p>
+  <p style="font-size:12px; color:#999;">
+    실제 운영에서는 sheet 안 [저장] 버튼이 동작합니다.
+    시연용으로 외부 [저장] 오버레이를 추가했습니다.
+  </p>
+
+  <div style="margin-top:16px; padding-top:12px; border-top:1px solid #eee; font-size:11px; color:#999;">
+    오른쪽: <code>lo-polifon-marker-bottomsheet-v1.html</code> (Hero 3 그대로)
+  </div>
+</div>
+
+<div class="frame-wrap">
+  <iframe class="frame" src="../../lo/lo-polifon-marker-bottomsheet-v1.html"></iframe>
+  <button class="save-btn-overlay" onclick="onSave()">저장 → 상황판으로</button>
+</div>
+
+<div class="toast" id="toast">✓ 마커 저장됨 — 상황판에 반영 중...</div>
+
+<script>
+  renderProtoBar(5, 7, './06-hero1-with-marker.html');
+
+  function onSave() {
+    const s = getState();
+    s.markers = [...(s.markers || []), {
+      id: 'mk-' + Date.now(),
+      type: 'PERSON_FOUND',
+      label: '실종자 발견',
+      lat: 35.16312,
+      lng: 126.91348,
+      memo: '의류 발견. 검정 패딩, 회색 운동화.',
+      photos: 2,
+      createdAt: new Date().toISOString(),
+      author: 'mt-1-team-A',
+    }];
+    s.step = 6;
+    saveState(s);
+
+    const toast = document.getElementById('toast');
+    toast.style.display = 'block';
+    setTimeout(() => location.href = './06-hero1-with-marker.html', 1500);
+  }
+</script>
+</body>
+</html>

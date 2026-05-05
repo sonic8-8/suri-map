@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>Colors — Semantic</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin:0; padding:24px; background:#fff; }
+  .row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .swatch { height: 100px; border-radius: 8px; padding: 14px; display:flex; flex-direction:column; justify-content:space-between; font-family: var(--gov-font-body); color:#fff; }
+  .swatch .name { font-weight: 700; font-size: 14px; }
+  .swatch .hex { font-size: 11px; opacity: 0.9; font-family: var(--gov-font-mono); }
+  .swatch .desc { font-size: 11px; opacity: 0.85; }
+</style></head>
+<body>
+<div class="row">
+  <div class="swatch" style="background:#246BEB"><span class="name">Info / Link</span><span class="desc">primary blue</span><span class="hex">#246BEB</span></div>
+  <div class="swatch" style="background:#24825A"><span class="name">Success</span><span class="desc">완료 / 정상</span><span class="hex">#24825A</span></div>
+  <div class="swatch" style="background:#CF944C"><span class="name">Warning</span><span class="desc">주의 / 경고</span><span class="hex">#CF944C</span></div>
+  <div class="swatch" style="background:#CF4949"><span class="name">Danger</span><span class="desc">오류 / 마감</span><span class="hex">#CF4949</span></div>
+</div>
+</body></html>

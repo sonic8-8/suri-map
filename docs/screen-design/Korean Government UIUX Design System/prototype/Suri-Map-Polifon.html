@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<title>Suri-Map · Polifon 현장 단말 프로토타입</title>
+<meta name="viewport" content="width=1280"/>
+<link rel="stylesheet" href="../colors_and_type.css"/>
+<style>
+  html, body { margin: 0; padding: 0; background: #0B0F19; color: #E5E7EB;
+    font-family: 'Pretendard GOV', 'Pretendard', 'Noto Sans KR', sans-serif;
+    -webkit-font-smoothing: antialiased; }
+  * { box-sizing: border-box; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #2A3240; border-radius: 999px; }
+  @keyframes sm-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+</style>
+</head>
+<body>
+
+<!-- Tweaks defaults -->
+<script>
+  window.SM_TWEAKS = /*EDITMODE-BEGIN*/{
+    "screen": "search",
+    "communication": "online",
+    "battery": 84,
+    "showAllScreens": true
+  }/*EDITMODE-END*/;
+</script>
+
+<!-- React + Babel -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<!-- Data + map kit -->
+<script src="data.js"></script>
+<script type="text/babel" src="naver-map-ui.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="polifon-app.jsx"></script>
+
+<div id="root"></div>
+
+<script type="text/babel">
+function App() {
+  const { PoliFrame, ScreenHome, ScreenSearch, ScreenMarker, ScreenQueue, P, FONT } = window.SM_POLI_APP;
+  const [tweaks, setTweak] = window.useTweaks(window.SM_TWEAKS);
+  const online = tweaks.communication === 'online';
+  const battery = tweaks.battery;
+
+  // Single device: navigate
+  const [page, setPage] = React.useState('home'); // home | search | marker | queue
+  const [markerType, setMarkerType] = React.useState('CLUE');
+
+  const goMarker = (k) => { setMarkerType(k || 'CLUE'); setPage('marker'); };
+  const setOnline = () => setTweak('communication', online ? 'offline' : 'online');
+
+  const renderScreen = (which) => {
+    const props = { online, onMenu: () => setPage('queue') };
+    if (which === 'home')   return <ScreenHome   online={online} onOpenIncident={() => setPage('search')}/>;
+    if (which === 'search') return <ScreenSearch online={online} onMarker={goMarker} onQueue={() => setPage('queue')} onMenu={() => setPage('queue')}/>;
+    if (which === 'marker') return <ScreenMarker online={online} initialType={markerType} onClose={() => setPage('search')} onSave={() => setPage('search')}/>;
+    if (which === 'queue')  return <ScreenQueue  online={online} onClose={() => setPage('search')} onToggleOnline={setOnline}/>;
+  };
+
+  // Layout: optionally show all 4 screens side-by-side, OR one focused device
+  const allScreens = tweaks.showAllScreens;
+
+  return (
+    <div style={{ minHeight: '100vh', padding: '40px 32px 80px', background: '#0B0F19' }}>
+      {/* Header */}
+      <div style={{ maxWidth: 1700, margin: '0 auto 28px' }}>
+        <div style={{ fontSize: 12, fontWeight: 800, color: P.rugged, letterSpacing: 2, marginBottom: 6 }}>SURI-MAP · 현장 단말 프로토타입</div>
+        <div style={{ fontSize: 28, fontWeight: 800, color: '#fff' }}>폴리폰 (Polifon)</div>
+        <div style={{ fontSize: 14, color: '#9CA3AF', marginTop: 6, lineHeight: 1.6, maxWidth: 720 }}>
+          경찰 업무폰 · 러기드 안드로이드. 야외 가시성 우선의 다크 UI, 큰 탭 타깃, 오프라인 큐 자동 동기화.
+          {allScreens ? ' 4개 주요 화면을 나란히 표시합니다.' : ' 단일 단말로 화면을 전환하며 시연합니다.'}
+        </div>
+      </div>
+
+      {allScreens ? (
+        <div style={{
+          display: 'grid', gridTemplateColumns: 'repeat(4, max-content)',
+          gap: 32, justifyContent: 'center',
+        }}>
+          <PoliFrame label="① 홈 — 활성 사건" online={online} batteryPct={battery}>
+            <ScreenHome online={online} onOpenIncident={() => {}}/>
+          </PoliFrame>
+          <PoliFrame label="② 수색 — 시작/일시정지/종료" online={online} batteryPct={battery}>
+            <ScreenSearch online={online} onMarker={() => {}} onQueue={() => {}} onMenu={() => {}}/>
+          </PoliFrame>
+          <PoliFrame label="③ 마커 등록 — 단서·NOTE" online={online} batteryPct={battery}>
+            <ScreenMarker online={online} initialType="CLUE" onClose={() => {}} onSave={() => {}}/>
+          </PoliFrame>
+          <PoliFrame label="④ 미전송 큐 — 오프라인 동기화" online={online} batteryPct={battery}>
+            <ScreenQueue online={online} onClose={() => {}} onToggleOnline={setOnline}/>
+          </PoliFrame>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <PoliFrame label={`현재: ${ {home:'홈', search:'수색', marker:'마커 등록', queue:'미전송 큐'}[page] }`}
+            online={online} batteryPct={battery}>
+            {renderScreen(page)}
+          </PoliFrame>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Root() {
+  const { TweaksPanel, TweakSection, TweakRadio, TweakSlider } = window;
+  const [tweaks, setTweak] = window.useTweaks(window.SM_TWEAKS);
+  return (
+    <>
+      <App/>
+      <TweaksPanel title="현장 단말 Tweaks">
+        <TweakSection title="화면 / Screen">
+          <TweakRadio label="레이아웃" value={tweaks.showAllScreens ? 'all' : 'one'}
+            onChange={(v) => setTweak('showAllScreens', v === 'all')}
+            options={[{value:'all', label:'4 화면'}, {value:'one', label:'단일'}]}/>
+        </TweakSection>
+        <TweakSection title="단말 상태">
+          <TweakRadio label="통신" value={tweaks.communication}
+            onChange={(v) => setTweak('communication', v)}
+            options={[{value:'online', label:'온라인'}, {value:'offline', label:'오프라인'}]}/>
+          <TweakSlider label="배터리" value={tweaks.battery} min={5} max={100} step={1}
+            onChange={(v) => setTweak('battery', v)} suffix="%"/>
+        </TweakSection>
+      </TweaksPanel>
+    </>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<Root/>);
+</script>
+
+</body>
+</html>

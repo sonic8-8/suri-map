@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<title>Suri-Map · 지휘부 웹 프로토타입</title>
+<meta name="viewport" content="width=1440"/>
+<link rel="stylesheet" href="../colors_and_type.css"/>
+<style>
+  html, body { margin: 0; padding: 0; background: #EDF1F5; color: #1D1D1D;
+    font-family: 'Pretendard GOV', 'Pretendard', 'Noto Sans KR', sans-serif;
+    -webkit-font-smoothing: antialiased; }
+  * { box-sizing: border-box; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #D8D8D8; border-radius: 999px; }
+  ::-webkit-scrollbar-thumb:hover { background: #C6C6C6; }
+  @keyframes sm-pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.55; transform: scale(1.06); } }
+  @keyframes ripple { 0% { transform: scale(0.8); opacity: 0.7; } 100% { transform: scale(2); opacity: 0; } }
+</style>
+</head>
+<body>
+
+<!-- Tweaks defaults -->
+<script>
+  window.SM_TWEAKS = /*EDITMODE-BEGIN*/{
+    "user": "실종팀 1팀장 박OO",
+    "opActive": "OP2",
+    "showOP1": true,
+    "showOP2": true,
+    "communication": "online"
+  }/*EDITMODE-END*/;
+</script>
+
+<!-- React + Babel -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<!-- Data -->
+<script src="data.js"></script>
+
+<!-- Design system + map kit -->
+<script type="text/babel" src="krds-ui.jsx"></script>
+<script type="text/babel" src="naver-map-ui.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+
+<!-- Web prototype shell + screens -->
+<script type="text/babel" src="web-shell.jsx"></script>
+<script type="text/babel" src="web-screen-situation.jsx"></script>
+<script type="text/babel" src="web-screens-misc.jsx"></script>
+
+<div id="root"></div>
+
+<script type="text/babel">
+function App() {
+  const T = window.KRDS.T;
+  const S = window.SM_WEB_SCREENS;
+  const [tweaks, setTweak] = window.useTweaks(window.SM_TWEAKS);
+  const [page, setPage] = React.useState('situation');
+
+  React.useEffect(() => {
+    const fromHash = () => {
+      const h = window.location.hash.replace('#','');
+      if (h) setPage(h);
+    };
+    fromHash();
+    window.addEventListener('hashchange', fromHash);
+    return () => window.removeEventListener('hashchange', fromHash);
+  }, []);
+
+  const navigate = (p) => {
+    setPage(p);
+    window.history.replaceState(null, '', `#${p}`);
+    window.scrollTo(0, 0);
+  };
+
+  const opFilter = [tweaks.showOP1 && 'OP1', tweaks.showOP2 && 'OP2'].filter(Boolean);
+
+  const sharedProps = {
+    user: tweaks.user, onNavigate: navigate,
+    opFilter, onlineState: tweaks.communication,
+  };
+
+  return (
+    <>
+      {page === 'situation' && <S.SituationBoard {...sharedProps}/>}
+      {page === 'list'      && <S.IncidentList   {...sharedProps}/>}
+      {page === 'areas'     && <S.AreaDivider    {...sharedProps}/>}
+      {page === 'compare'   && <S.OPCompare      {...sharedProps}/>}
+      {page === 'handover'  && <S.Handover       {...sharedProps}/>}
+      {page === 'admin'     && <S.Admin          {...sharedProps}/>}
+
+      <window.TweaksPanel title="Tweaks">
+        <window.TweakSection title="역할">
+          <window.TweakSelect tweakKey="user" label="현재 사용자" value={tweaks.user} onChange={(v) => setTweak('user', v)} options={[
+            { value: '실종팀 1팀장 박OO', label: '실종팀 1팀장 박OO (지휘관)' },
+            { value: '매화지구대 이OO',   label: '매화지구대 이OO (현장)' },
+            { value: '서장 김OO',         label: '서장 김OO (관전)' },
+          ]}/>
+        </window.TweakSection>
+        <window.TweakSection title="OP 표시">
+          <window.TweakToggle label="OP 1차" value={tweaks.showOP1} onChange={(v) => setTweak('showOP1', v)}/>
+          <window.TweakToggle label="OP 2차 (현재 진행)" value={tweaks.showOP2} onChange={(v) => setTweak('showOP2', v)}/>
+        </window.TweakSection>
+        <window.TweakSection title="이동">
+          {[
+            ['situation','상황판'],
+            ['list','사건 목록'],
+            ['areas','구역 분할'],
+            ['compare','OP 비교'],
+            ['handover','인수인계'],
+            ['admin','단말 관리'],
+          ].map(([k,l]) => (
+            <button key={k} onClick={() => navigate(k)} style={{
+              display: 'block', width: '100%', textAlign: 'left',
+              padding: '8px 10px', marginBottom: 4, borderRadius: 6,
+              background: page === k ? '#EFF5FF' : 'transparent',
+              border: `1px solid ${page === k ? '#246BEB' : '#E4E4E4'}`,
+              color: page === k ? '#246BEB' : '#2D2D2D',
+              fontFamily: 'inherit', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+            }}>{l}</button>
+          ))}
+        </window.TweakSection>
+      </window.TweaksPanel>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+
+</body>
+</html>

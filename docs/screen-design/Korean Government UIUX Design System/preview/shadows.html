@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>Shadows</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin:0; padding:32px; background: #F8F8F8; font-family: var(--gov-font-body); color: var(--gov-fg-1); }
+  .row { display:flex; gap: 28px; align-items: center; }
+  .tile { display:flex; flex-direction:column; align-items:center; gap: 10px; }
+  .box { width: 120px; height: 70px; background: #fff; border-radius: 8px; }
+  .lab { font-family: var(--gov-font-mono); font-size: 11px; color: var(--gov-fg-3); }
+</style></head>
+<body>
+<div class="row">
+  <div class="tile"><div class="box" style="border:1px solid var(--gov-border-2)"></div><span class="lab">none / border</span></div>
+  <div class="tile"><div class="box" style="box-shadow: var(--gov-shadow-1)"></div><span class="lab">shadow-1</span></div>
+  <div class="tile"><div class="box" style="box-shadow: var(--gov-shadow-2)"></div><span class="lab">shadow-2</span></div>
+  <div class="tile"><div class="box" style="box-shadow: var(--gov-shadow-3)"></div><span class="lab">shadow-3</span></div>
+</div>
+</body></html>
