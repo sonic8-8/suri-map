@@ -198,7 +198,7 @@
           ],
           "examples": [
             "POST /search-paths",
-            "PATCH /search-paths/{pathId}"
+            "PATCH /search-paths/{searchPathId}"
           ]
         },
         {
@@ -226,7 +226,7 @@
           "priority": 40,
           "blocks": [],
           "examples": [
-            "POST /markers/{markerId}/photos/{photoId}/finalize"
+            "POST /markers/{markerId}/photos/{photoId}/attach"
           ]
         },
         {
@@ -1053,7 +1053,7 @@
       },
       {
         "from_spec": "S3-1",
-        "interface": "POST /search-paths, PATCH /search-paths/{pathId}, POST /search-paths/batch",
+        "interface": "POST /search-paths, PATCH /search-paths/{searchPathId}, POST /search-paths/batch",
         "usage": "path writeOperation request_path로 큐잉·replay한다."
       },
       {
@@ -1543,13 +1543,13 @@
         {
           "operationId": "op-outbox-photo-001",
           "outboxId": "outbox-photo-001",
-          "idempotencyKey": "idem-photo-finalize-001",
-          "bodyHash": "sha256:photo-finalize-clue-001",
+          "idempotencyKey": "idem-photo-attach-001",
+          "bodyHash": "sha256:photo-attach-clue-001",
           "dependencyGroup": "PHOTO",
           "parentOperationId": "op-outbox-marker-001",
           "sequence": 602,
           "method": "POST",
-          "endpoint": "POST /markers/{markerId}/photos/{photoId}/finalize"
+          "endpoint": "POST /markers/{markerId}/photos/{photoId}/attach"
         }
       ],
       "markerId": "mk-precinct-clue-001",

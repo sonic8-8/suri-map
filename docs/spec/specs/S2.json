@@ -49,9 +49,11 @@
       "사건별 active overall_search_area 생성·수정·조회",
       "search_area Polygon 생성·수정·분할",
       "search_area 상태 변경과 search_area_history 기록",
+      "search_area_assignment 생성·대체·취소와 담당 계정 배정 이력 기록",
       "Web 상황판 현장 지휘관의 지도 기준 범위·구역 geometry write",
       "SearchAreaQuery.overallOf(incidentId), SearchAreaQuery.byIncident, SearchAreaQuery.byOp 제공",
-      "SEARCH_AREA_CHANGED, SEARCH_AREA_CHANGED, SEARCH_AREA_CHANGED 이벤트 payload 생성 요청",
+      "SearchAreaAssignmentQuery.byArea(searchAreaId), SearchAreaAssignmentQuery.byOp(opId) 제공",
+      "SEARCH_AREA_CHANGED, SEARCH_AREA_ASSIGNMENT_CHANGED 이벤트 payload 생성 요청",
       "S7 offline package manifest가 소비할 overall_search_area revision/query 계약 제공",
       "S3-2 overall_search_area slot 및 area slot에 납품할 slot-scoped renderer 계약"
     ],
@@ -60,11 +62,6 @@
         "item": "OP 생성과 active OP 전환",
         "owner": "S8",
         "reason": "S2는 current OP를 조회·검증에 소비하지만 OP lifecycle을 변경하지 않는다."
-      },
-      {
-        "item": "search_area_assignment 생성·수정",
-        "owner": "S8",
-        "reason": "구역 Polygon과 구역 상태는 S2, OP별 담당 배정은 S8 소유다."
       },
       {
         "item": "자동 수색 누락 확정 또는 다음 투입 구역 자동 지시",
@@ -97,7 +94,7 @@
     {
       "id": "FR-06",
       "summary": "현장 지휘관이 무전 보고를 바탕으로 구역 완료 여부를 반영한다.",
-      "handling": "Web 전용 PATCH /search-areas/{areaId}/state로 상태 전이를 기록하고 처리 계정·시각·OP·메모를 history에 남긴다."
+      "handling": "Web 전용 PATCH /search-areas/{searchAreaId}로 상태 전이를 기록하고 처리 계정·시각·OP·메모를 history에 남긴다."
     },
     {
       "id": "FR-07",
@@ -107,7 +104,7 @@
     {
       "id": "FR-12",
       "summary": "새 OP 후 재확인 구역·마커·메모를 지정하고 수색 인원을 배정한다.",
-      "handling": "S2는 새 OP에서 사용할 수색 구역 생성·상태 변경만 담당하고 담당 인원 배정은 S8 search_area_assignment로 위임한다."
+      "handling": "S2는 새 OP에서 사용할 수색 구역 생성·상태 변경과 search_area_assignment 담당 인원 배정을 처리하고, S8은 current OP 맥락을 제공한다."
     },
     {
       "id": "FR-13",
@@ -413,17 +410,17 @@
       }
     ],
     "flyway_migrations": [
-      "V10__create_overall_search_area.sql",
-      "V11__create_search_area.sql",
-      "V12__create_search_area_history.sql"
+      "V10__create_search_area.sql",
+      "V11__create_search_area_history.sql",
+      "V12__create_search_area_assignment.sql"
     ]
   },
   "api_contracts": {
     "provided": [
       {
         "method": "POST",
-        "path": "/incidents/{incidentId}/search-areas/overall",
-        "summary": "사건 지도 기준 범위 생성",
+        "path": "/search-areas",
+        "summary": "수색 구역 생성. areaLevel=OVERALL이면 사건 지도 기준 범위를 생성하고 UNIT|TEAM이면 OP 하위 수색 구역을 생성한다.",
         "auth": "guard aliases web-command + incident-read + write-common",
         "idempotent": true,
         "required_headers": [
@@ -433,13 +430,35 @@
         "request_schema": {
           "type": "object",
           "required": [
+            "incidentId",
+            "areaLevel",
             "geometry",
             "clientTs"
           ],
           "properties": {
+            "incidentId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "opId": {
+              "type": "string",
+              "format": "uuid",
+              "description": "UNIT|TEAM area 생성 시 필수. OVERALL area는 incident 기준 active row로 관리한다."
+            },
+            "areaLevel": {
+              "type": "string",
+              "enum": [
+                "OVERALL",
+                "UNIT",
+                "TEAM"
+              ]
+            },
             "geometry": {
               "type": "object",
-              "description": "GeoJSON Polygon, EPSG:4326 lon/lat"
+              "description": "GeoJSON Polygon. UNIT|TEAM은 active OVERALL search_area 내부여야 한다."
+            },
+            "memo": {
+              "type": "string"
             },
             "clientTs": {
               "type": "string",
@@ -459,114 +478,35 @@
                 "type": "string",
                 "format": "uuid"
               },
-              "status": {
-                "type": "string",
-                "enum": [
-                  "ACTIVE"
-                ]
-              },
-              "version": {
-                "type": "integer"
-              },
-              "geometry": {
-                "type": "object"
-              }
-            }
-          }
-        },
-        "errors": [
-          {
-            "code": 400,
-            "case": "invalid_geometry",
-            "body": "{\"error\": \"invalid_geometry\"}"
-          },
-          {
-            "code": 403,
-            "case": "channel_not_allowed",
-            "body": "{\"error\": \"channel_not_allowed\"}"
-          },
-          {
-            "code": 403,
-            "case": "role_denied",
-            "body": "{\"error\": \"role_denied\"}"
-          },
-          {
-            "code": 403,
-            "case": "incident_access_denied",
-            "body": "{\"error\": \"incident_access_denied\"}"
-          },
-          {
-            "code": 403,
-            "case": "team_not_assigned",
-            "body": "{\"error\": \"team_not_assigned\"}"
-          },
-          {
-            "code": 409,
-            "case": "incident_closed",
-            "body": "{\"error\": \"incident_closed\"}"
-          },
-          {
-            "code": 409,
-            "case": "idempotency_mismatch",
-            "body": "{\"error\": \"idempotency_mismatch\"}"
-          },
-          {
-            "code": 409,
-            "case": "write_conflict",
-            "body": "{\"error\": \"write_conflict\"}"
-          }
-        ]
-      },
-      {
-        "method": "PATCH",
-        "path": "/incidents/{incidentId}/search-areas/overall",
-        "summary": "사건 지도 기준 범위 수정",
-        "auth": "guard aliases web-command + incident-read + write-common",
-        "idempotent": true,
-        "required_headers": [
-          "Authorization",
-          "Idempotency-Key"
-        ],
-        "request_schema": {
-          "type": "object",
-          "required": [
-            "geometry",
-            "expectedVersion",
-            "clientTs"
-          ],
-          "properties": {
-            "geometry": {
-              "type": "object",
-              "description": "GeoJSON Polygon, EPSG:4326 lon/lat"
-            },
-            "expectedVersion": {
-              "type": "integer"
-            },
-            "clientTs": {
-              "type": "string",
-              "format": "date-time"
-            }
-          }
-        },
-        "response_schema": {
-          "200": {
-            "type": "object",
-            "properties": {
-              "id": {
+              "opId": {
                 "type": "string",
                 "format": "uuid"
               },
               "status": {
                 "type": "string",
                 "enum": [
-                  "ACTIVE"
+                  "ACTIVE",
+                  "COMPLETED",
+                  "CANCELLED"
                 ]
+              },
+              "historyCount": {
+                "type": "integer",
+                "description": "search_area_history 기반 산출값"
               },
               "version": {
                 "type": "integer"
               },
               "geometry": {
                 "type": "object"
+              },
+              "areaLevel": {
+                "type": "string",
+                "enum": [
+                  "OVERALL",
+                  "UNIT",
+                  "TEAM"
+                ]
               }
             }
           }
@@ -576,6 +516,16 @@
             "code": 400,
             "case": "invalid_geometry",
             "body": "{\"error\": \"invalid_geometry\"}"
+          },
+          {
+            "code": 409,
+            "case": "overall_search_area_required",
+            "body": "{\"error\": \"overall_search_area_required\"}"
+          },
+          {
+            "code": 409,
+            "case": "area_state_conflict",
+            "body": "{\"error\": \"area_state_conflict\"}"
           },
           {
             "code": 403,
@@ -616,8 +566,8 @@
       },
       {
         "method": "GET",
-        "path": "/incidents/{incidentId}/search-areas/overall",
-        "summary": "사건 active 지도 기준 범위 조회",
+        "path": "/search-areas",
+        "summary": "사건/OP/areaLevel/status 필터 기반 수색 구역 조회. active 전체 수색 구역 조회는 areaLevel=OVERALL&status=ACTIVE를 사용한다.",
         "auth": "guard aliases public-session + incident-read",
         "idempotent": false,
         "required_headers": [
@@ -625,7 +575,35 @@
         ],
         "request_schema": {
           "type": "object",
-          "properties": {}
+          "required": [
+            "incidentId"
+          ],
+          "properties": {
+            "incidentId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "opId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "areaLevel": {
+              "type": "string",
+              "enum": [
+                "OVERALL",
+                "UNIT",
+                "TEAM"
+              ]
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "ACTIVE",
+                "COMPLETED",
+                "CANCELLED"
+              ]
+            }
+          }
         },
         "response_schema": {
           "200": {
@@ -689,139 +667,9 @@
         ]
       },
       {
-        "method": "POST",
-        "path": "/search-areas",
-        "summary": "수색 구역 생성",
-        "auth": "guard aliases web-command + incident-read + write-common",
-        "idempotent": true,
-        "required_headers": [
-          "Authorization",
-          "Idempotency-Key"
-        ],
-        "request_schema": {
-          "type": "object",
-          "required": [
-            "incidentId",
-            "opId",
-            "geometry",
-            "clientTs"
-          ],
-          "properties": {
-            "incidentId": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "opId": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "geometry": {
-              "type": "object",
-              "description": "GeoJSON Polygon fully inside active overall_search_area"
-            },
-            "memo": {
-              "type": "string"
-            },
-            "clientTs": {
-              "type": "string",
-              "format": "date-time"
-            }
-          }
-        },
-        "response_schema": {
-          "201": {
-            "type": "object",
-            "properties": {
-              "id": {
-                "type": "string",
-                "format": "uuid"
-              },
-              "incidentId": {
-                "type": "string",
-                "format": "uuid"
-              },
-              "opId": {
-                "type": "string",
-                "format": "uuid"
-              },
-              "status": {
-                "type": "string",
-                "enum": [
-                  "ACTIVE",
-                  "COMPLETED",
-                  "CANCELLED"
-                ]
-              },
-              "historyCount": {
-                "type": "integer",
-                "description": "search_area_history 기반 산출값"
-              },
-              "version": {
-                "type": "integer"
-              },
-              "geometry": {
-                "type": "object"
-              }
-            }
-          }
-        },
-        "errors": [
-          {
-            "code": 400,
-            "case": "invalid_geometry",
-            "body": "{\"error\": \"invalid_geometry\"}"
-          },
-          {
-            "code": 409,
-            "case": "overall_search_area_required",
-            "body": "{\"error\": \"overall_search_area_required\"}"
-          },
-          {
-            "code": 409,
-            "case": "area_state_conflict",
-            "body": "{\"error\": \"area_state_conflict\"}"
-          },
-          {
-            "code": 403,
-            "case": "channel_not_allowed",
-            "body": "{\"error\": \"channel_not_allowed\"}"
-          },
-          {
-            "code": 403,
-            "case": "role_denied",
-            "body": "{\"error\": \"role_denied\"}"
-          },
-          {
-            "code": 403,
-            "case": "incident_access_denied",
-            "body": "{\"error\": \"incident_access_denied\"}"
-          },
-          {
-            "code": 403,
-            "case": "team_not_assigned",
-            "body": "{\"error\": \"team_not_assigned\"}"
-          },
-          {
-            "code": 409,
-            "case": "incident_closed",
-            "body": "{\"error\": \"incident_closed\"}"
-          },
-          {
-            "code": 409,
-            "case": "idempotency_mismatch",
-            "body": "{\"error\": \"idempotency_mismatch\"}"
-          },
-          {
-            "code": 409,
-            "case": "write_conflict",
-            "body": "{\"error\": \"write_conflict\"}"
-          }
-        ]
-      },
-      {
         "method": "PATCH",
-        "path": "/search-areas/{areaId}",
-        "summary": "수색 구역 geometry·memo 보정",
+        "path": "/search-areas/{searchAreaId}",
+        "summary": "수색 구역 geometry·memo·status 보정",
         "auth": "guard aliases web-command + incident-read + write-common",
         "idempotent": true,
         "required_headers": [
@@ -831,25 +679,33 @@
         "request_schema": {
           "type": "object",
           "required": [
-            "opId",
-            "geometry",
-            "expectedVersion",
             "clientTs"
           ],
           "properties": {
             "opId": {
               "type": "string",
-              "format": "uuid"
+              "format": "uuid",
+              "description": "UNIT|TEAM area 변경 또는 상태 변경 시 필수"
             },
             "geometry": {
               "type": "object",
-              "description": "GeoJSON Polygon fully inside active overall_search_area"
+              "description": "GeoJSON Polygon. 제공 시 geometry/memo 보정으로 처리한다."
             },
             "memo": {
               "type": "string"
             },
             "expectedVersion": {
-              "type": "integer"
+              "type": "integer",
+              "description": "geometry/memo 보정 시 권장. 불일치하면 409 write_conflict"
+            },
+            "nextStatus": {
+              "type": "string",
+              "enum": [
+                "ACTIVE",
+                "COMPLETED",
+                "CANCELLED"
+              ],
+              "description": "제공 시 status 변경으로 처리하고 search_area_history를 남긴다."
             },
             "clientTs": {
               "type": "string",
@@ -949,7 +805,7 @@
       },
       {
         "method": "POST",
-        "path": "/search-areas/{areaId}/split",
+        "path": "/search-areas/{searchAreaId}/split",
         "summary": "수색 구역 분할",
         "auth": "guard aliases web-command + incident-read + write-common",
         "idempotent": true,
@@ -1114,9 +970,9 @@
         ]
       },
       {
-        "method": "PATCH",
-        "path": "/search-areas/{areaId}/status",
-        "summary": "수색 구역 상태 변경",
+        "method": "POST",
+        "path": "/search-areas/{searchAreaId}/assignments",
+        "summary": "수색 구역을 현재 OP 기준 담당 계정에 배정한다.",
         "auth": "guard aliases web-command + incident-read + write-common",
         "idempotent": true,
         "required_headers": [
@@ -1126,14 +982,27 @@
         "request_schema": {
           "type": "object",
           "required": [
+            "incidentId",
             "opId",
-            "nextStatus",
+            "assigneeAccountIds",
             "clientTs"
           ],
           "properties": {
+            "incidentId": {
+              "type": "string",
+              "format": "uuid"
+            },
             "opId": {
               "type": "string",
               "format": "uuid"
+            },
+            "assigneeAccountIds": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
             },
             "memo": {
               "type": "string"
@@ -1141,36 +1010,27 @@
             "clientTs": {
               "type": "string",
               "format": "date-time"
-            },
-            "nextStatus": {
-              "type": "string",
-              "enum": [
-                "ACTIVE",
-                "COMPLETED",
-                "CANCELLED"
-              ]
             }
           }
         },
         "response_schema": {
-          "200": {
+          "201": {
             "type": "object",
             "properties": {
-              "id": {
+              "searchAreaId": {
                 "type": "string",
                 "format": "uuid"
               },
-              "status": {
+              "opId": {
                 "type": "string",
-                "enum": [
-                  "ACTIVE",
-                  "COMPLETED",
-                  "CANCELLED"
-                ]
+                "format": "uuid"
               },
-              "historyCount": {
-                "type": "integer",
-                "description": "search_area_history 기반 산출값"
+              "assignmentIds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                }
               },
               "version": {
                 "type": "integer"
@@ -1179,21 +1039,6 @@
           }
         },
         "errors": [
-          {
-            "code": 400,
-            "case": "invalid_geometry",
-            "body": "{\"error\": \"invalid_geometry\"}"
-          },
-          {
-            "code": 409,
-            "case": "overall_search_area_required",
-            "body": "{\"error\": \"overall_search_area_required\"}"
-          },
-          {
-            "code": 409,
-            "case": "area_state_conflict",
-            "body": "{\"error\": \"area_state_conflict\"}"
-          },
           {
             "code": 403,
             "case": "channel_not_allowed",
@@ -1246,7 +1091,7 @@
       {
         "from_spec": "S4",
         "interface": "EventHub.publish(PublishRequest.*)",
-        "usage": "S2는 SEARCH_AREA_CHANGED, SEARCH_AREA_CHANGED, SEARCH_AREA_CHANGED payload와 PublishRequest를 생성·검증하고 EventHub.publish를 요청한다. event_dispatch_job row와 fanout orchestration은 S4 소유다."
+        "usage": "S2는 SEARCH_AREA_CHANGED, SEARCH_AREA_ASSIGNMENT_CHANGED payload와 PublishRequest를 생성·검증하고 EventHub.publish를 요청한다. event_dispatch_job row와 fanout orchestration은 S4 소유다."
       },
       {
         "from_spec": "S6",
@@ -1255,8 +1100,8 @@
       },
       {
         "from_spec": "S8",
-        "interface": "OperationalPeriodQuery.current(incidentId), AssignmentQuery.byOp(opId)",
-        "usage": "search_area 생성·상태 변경이 current OP 맥락에서 수행되는지 확인하고 area query를 OP별로 필터링한다."
+        "interface": "OperationalPeriodQuery.current(incidentId)",
+        "usage": "search_area 생성·상태 변경과 담당 배정이 current OP 맥락에서 수행되는지 확인한다."
       }
     ],
     "events_published": [
@@ -1391,6 +1236,62 @@
           "S3-2",
           "S8"
         ]
+      },
+      {
+        "type": "SEARCH_AREA_ASSIGNMENT_CHANGED",
+        "trigger": "search_area_assignment 생성·대체·취소 commit 이후",
+        "payload_schema": {
+          "type": "object",
+          "required": [
+            "id",
+            "incidentId",
+            "opId",
+            "searchAreaId",
+            "status",
+            "version",
+            "serverTs"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "incidentId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "opId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "searchAreaId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "assignedAccountIds": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "status": {
+              "type": "string"
+            },
+            "version": {
+              "type": "integer"
+            },
+            "serverTs": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        },
+        "subscribers": [
+          "S3-2",
+          "S7",
+          "S8"
+        ]
       }
     ],
     "events_subscribed": []
@@ -1410,6 +1311,10 @@
           "responsibility": "search_area create/update/split/state REST contract"
         },
         {
+          "name": "SearchAreaAssignmentController",
+          "responsibility": "search_area_assignment create/replace REST contract"
+        },
+        {
           "name": "GeometryValidationService",
           "responsibility": "EPSG:4326 lon/lat Polygon validation, 6-decimal canonicalization, fixture bbox/min-area checks, overall_search_area containment checks"
         },
@@ -1422,8 +1327,12 @@
           "responsibility": "area lifecycle, split, state transitions, history row persistence"
         },
         {
+          "name": "SearchAreaAssignmentService",
+          "responsibility": "current OP 기준 담당 계정 배정, assignment history state, SEARCH_AREA_ASSIGNMENT_CHANGED publish request"
+        },
+        {
           "name": "MapAreaRepository",
-          "responsibility": "PostGIS persistence, ACTIVE partial unique overall_search_area index, SearchAreaQuery/SearchAreaQuery source methods"
+          "responsibility": "PostGIS persistence, ACTIVE partial unique overall_search_area index, SearchAreaQuery/SearchAreaAssignmentQuery source methods"
         }
       ]
     },
@@ -1541,8 +1450,8 @@
       },
       {
         "spec": "S8",
-        "contract": "current OP query and OP assignment read model",
-        "stub_strategy": "active OP fixture plus assignment fixture; no assignment writes in S2",
+        "contract": "current OP query",
+        "stub_strategy": "active OP fixture; assignment writes stay in S2",
         "replaced_by_real_at": "S8 OP query implementation"
       },
       {
@@ -1637,7 +1546,7 @@
       ],
       "given": "ACTIVE parent search_area와 유효한 split child Polygon들이 있다.",
       "when": "현장 지휘관이 split API를 성공시킨다.",
-      "then": "parent는 원본 geometry를 보존한 CANCELLED 상태가 되고 children은 ACTIVE로 생성되며 history, SEARCH_AREA_CHANGED, SEARCH_AREA_CHANGED, version 수렴이 모두 기록된다.",
+      "then": "parent는 원본 geometry를 보존한 CANCELLED 상태가 되고 children은 ACTIVE로 생성되며 history, SEARCH_AREA_CHANGED, version 수렴이 모두 기록된다.",
       "priority": "critical"
     },
     {
@@ -1699,7 +1608,7 @@
     "Polygon ring이 닫히지 않았거나 자기 교차, 빈 ring, 0면적, 400m2 미만인 경우 invalid_geometry로 거부한다.",
     "좌표 precision은 소수 6자리 canonical 값을 기준으로 하며, 연속 중복점 제거와 ring closure 이후에도 유효하지 않으면 invalid_geometry로 거부한다.",
     "search_area 생성 요청이 active overall_search_area 밖에 있거나 경계와 겹치지 않는 경우 invalid_geometry로 거부한다.",
-    "active overall_search_area가 없으면 GET /incidents/{incidentId}/search-areas/overall와 area write 모두 409 overall_search_area_required를 반환하고 404로 응답하지 않는다.",
+    "active overall_search_area가 없으면 GET /search-areas?incidentId={incidentId}&areaLevel=OVERALL&status=ACTIVE와 area write 모두 409 overall_search_area_required를 반환하고 404로 응답하지 않는다.",
     "split child Polygon 합집합이 parent를 벗어나거나 child끼리 겹치는 경우 invalid_geometry로 거부하고 parent 상태·version·geometry를 변경하지 않는다.",
     "split 성공 후 parent CANCELLED row는 원본 geometry를 보존하고 child rows만 ACTIVE로 생성된다.",
     "overall_search_area SUPERSEDED 이력은 여러 row를 허용하며 ACTIVE partial unique index만 사건별 중복 ACTIVE를 막는다.",
@@ -1852,7 +1761,7 @@
     ],
     "forbidden": [
       "자동 blindspot/missing-area 확정 또는 다음 수색 구역 추천 구현 금지",
-      "S8 search_area_assignment 직접 write 금지",
+      "S8 owner 파일에서 search_area_assignment 직접 write 구현 금지",
       "S3-2 shell route/layout/global store 직접 수정 금지",
       "Android 앱에서 overall_search_area/area write UI 또는 API 호출 금지",
       "접근 곤란을 search_area 상태로 추가 금지",
@@ -1960,7 +1869,7 @@
           "S7 package manifest assigned-area mocks",
           "S8 handover/OP comparison"
         ],
-        "source": "search_area rows with operational_period_id = opId plus optional areaIds supplied by S8 AssignmentQuery; S2 does not expose or mutate search_area_assignment fields.",
+        "source": "search_area rows with operational_period_id = opId plus optional areaIds supplied by SearchAreaAssignmentQuery.byOp(opId).",
         "filters": {
           "status": "optional array; aliases search_area.status",
           "bbox": "optional EPSG:4326 viewport bbox intersection filter",

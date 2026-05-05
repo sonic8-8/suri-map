@@ -942,7 +942,7 @@
       },
       {
         "from_spec": "S8",
-        "interface": "OperationalPeriodQuery.list/current, AssignmentQuery.byOp",
+        "interface": "OperationalPeriodQuery.list/current, SearchAreaAssignmentQuery.byOp",
         "usage": "OP 목록, current OP, 담당 구역 assignment를 manifest에 포함."
       }
     ],
