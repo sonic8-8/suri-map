@@ -649,7 +649,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 - `marker`
 - `photo`
 - `marker_notification`
-- S3-compatible presigned upload URL 발급과 object storage upload
+- 업로드용 S3-compatible presigned URL 발급과 object storage upload
 - notification payload/recipient 계산
 - `FcmDispatcher` adapter 구현
 - Android marker bottom sheet
@@ -705,7 +705,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 **acceptance_hints**
 
 - `POST /markers` accepts app-channel marker writes with current OP, assigned PolicePhone, idempotency, and valid marker location.
-- Photo upload-url API returns a S3/MinIO-compatible presigned upload URL. Photo attach API confirms uploaded object metadata and links it to the marker while keeping official evidence storage out of scope.
+- Photo upload-url API returns a S3/MinIO-compatible presigned URL for upload. Photo attach API confirms uploaded object metadata and links it to the marker while keeping official evidence storage out of scope.
 - Marker create/update/delete publishes the matching `PublishRequest.*` contract and updates `MarkerQuery.byIncident`.
 - `NotificationRecipientResolver` and `NotificationPayloadFactory` produce marker-derived delivery rows or assignment FCM payload input without owning fanout orchestration.
 
@@ -1001,7 +1001,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 | 경로 서버 전송 | 10초 batch |
 | 단말 stale 표시 | 60초 이후 stale, 5분 이후 lost |
 | 사진 제한 | 마커당 10장, 파일당 10MB |
-| upload URL(presigned URL) TTL | 15분 |
+| upload URL(presigned URL for upload) TTL | 15분 |
 | 위치정보 접근기록 | 최소 6개월, 실제 운영 전 법무 확인 |
 | 업무폰·순찰차 위치·경로 좌표 | 사건 종료 후 동기화 완료 확인 뒤 파기 |
 | SSAFY 시연·개발 데이터 | 복구 확인용 24시간 soft delete 후 파기 |
@@ -1159,7 +1159,7 @@ Event payload는 REST response DTO, S6 `write_operation.schema.json`, S4 event_d
 | FR-17 지원 요청 | S5 | request marker + notification |
 | FR-18 공용 상황판 reference view | S3-2 | team/path/area/marker/missing person integrated view |
 | FR-19 오프라인 지도 | S7 | tiles + package |
-| FR-20 사진 업로드 | S5 | S3-compatible presigned upload URL |
+| FR-20 사진 업로드 | S5 | S3-compatible presigned URL for upload |
 | FR-21 실종자 기본 정보 | S1-1/S7 | missing_person + offline package |
 | FR-22 개인정보 파기 | S1-1/S1-3 | close/purge |
 | FR-23 자동 누락 판단 금지 | S2/S3-2/S8 | OP 경로·완료 구역·NOTE 메모로 사람 판단 보조 |

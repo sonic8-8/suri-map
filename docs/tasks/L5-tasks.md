@@ -6,7 +6,7 @@
 
 - marker domain, marker photos, marker read/update/delete
 - Android marker bottom sheet input
-- S3-compatible presigned upload URL 발급, object storage upload, photo attach contract
+- 업로드용 S3-compatible presigned URL 발급, object storage upload, photo attach contract
 - support request/person found notification payload and recipient calculation
 - FCM dispatcher adapter boundary
 
@@ -104,7 +104,7 @@
   - 연관 Spec: S1-2, S6
   - 시나리오: SC-06
   - 관련 FR: FR-20
-  - 구현 산출물: photo presigned upload URL 발급 API, photo attach API, object storage mock integration, `MARKER_UPDATED.photoDelta` PublishRequest contract test, orphan/mismatched photo rejection tests
+  - 구현 산출물: photo 업로드용 presigned URL 발급 API, photo attach API, object storage mock integration, `MARKER_UPDATED.photoDelta` PublishRequest contract test, orphan/mismatched photo rejection tests
   - 예상 작업량: 1d
   - 완료 기준: photo upload-url/attach가 presigned URL 기반 업로드 기대 상태를 지원하고, `MARKER_UPDATED.photoDelta`가 안정적인 photoId/status/version을 포함하며, orphan 또는 mismatched marker photo는 거부된다.
 
