@@ -7,6 +7,7 @@ import { SituationBoardRightPanel } from '../components/rightPanel/SituationBoar
 
 export function SituationBoardPage() {
   const [isLeftPanelCollapsed, setIsLeftPanelCollapsed] = useState(false);
+  const [isRightPanelCollapsed, setIsRightPanelCollapsed] = useState(false);
 
   return (
     <main className="situation-board-page">
@@ -17,7 +18,10 @@ export function SituationBoardPage() {
           onToggleCollapsed={() => setIsLeftPanelCollapsed((currentState) => !currentState)}
         />
         <SituationBoardMap />
-        <SituationBoardRightPanel />
+        <SituationBoardRightPanel
+          isCollapsed={isRightPanelCollapsed}
+          onToggleCollapsed={() => setIsRightPanelCollapsed((currentState) => !currentState)}
+        />
       </div>
     </main>
   );

@@ -1,0 +1,205 @@
+/* 수색 구역 배정 구조를 OVERALL > UNIT > TEAM 순서로 보여주는 트리. */
+.tree {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* 전체 수색 구역 루트 노드. */
+.rootNode {
+  display: grid;
+  gap: 8px;
+  padding: 9px 10px;
+  border: 1px solid color-mix(in srgb, var(--suri-board-primary-hi) 42%, var(--suri-board-border));
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--suri-board-panel-surface) 78%, var(--suri-board-primary-soft));
+}
+
+/* 노드 안의 이름/메타와 상태 배지를 양쪽으로 배치하는 공통 행. */
+.nodeRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* 노드의 기본 텍스트 묶음. */
+.nodeText {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.nodeName {
+  overflow: hidden;
+  color: var(--suri-board-fg-primary);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nodeMeta {
+  overflow: hidden;
+  color: var(--suri-board-fg-muted);
+  font-size: 12px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 활성/완료 같은 상태를 작게 고정 표시한다. */
+.stateBadge {
+  min-width: 34px;
+  padding: 2px 6px;
+  border: 1px solid var(--suri-board-border);
+  border-radius: 999px;
+  color: var(--suri-board-fg-secondary);
+  background: var(--suri-board-panel-bg);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.stateActive {
+  border-color: var(--suri-board-success);
+  color: var(--suri-board-success);
+}
+
+.stateCompleted {
+  border-color: var(--suri-board-fg-muted);
+  color: var(--suri-board-fg-muted);
+}
+
+/* UNIT 노드를 루트 아래에 들여쓰기해서 계층을 보여준다. */
+.unitList {
+  display: grid;
+  gap: 6px;
+  margin-left: 6px;
+  padding-left: 10px;
+  border-left: 1px solid var(--suri-board-border);
+}
+
+.unitNode {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--suri-board-border);
+  border-radius: 4px;
+  background: var(--suri-board-panel-surface);
+}
+
+/* UNIT 헤더는 자식 팀 목록을 접고 펼치는 버튼 역할을 한다. */
+.unitToggle {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 7px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+}
+
+.unitStaticRow {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 7px;
+  min-width: 0;
+}
+
+.unitToggle:hover .toggleIcon {
+  border-color: var(--suri-board-primary-hi);
+  color: var(--suri-board-primary-hi);
+}
+
+.toggleIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  border: 1px solid var(--suri-board-border);
+  border-radius: 4px;
+  color: var(--suri-board-fg-secondary);
+  background: var(--suri-board-panel-bg);
+}
+
+.toggleIcon svg {
+  transition: transform 120ms ease;
+}
+
+.unitToggle[aria-expanded="false"] .toggleIcon svg {
+  transform: rotate(-90deg);
+}
+
+/* 단일 운용 UNIT은 접기 버튼 자리를 유지하되 실제 토글은 숨긴다. */
+.togglePlaceholder {
+  width: 18px;
+  height: 18px;
+}
+
+/* TEAM/폴리폰 자식 목록. */
+.teamList {
+  display: grid;
+  gap: 4px;
+  margin-left: 18px;
+  padding-left: 9px;
+  border-left: 1px dashed var(--suri-board-border);
+}
+
+/* 접힌 UNIT은 팀/폴리폰 자식 목록만 숨긴다. */
+.teamList[hidden] {
+  display: none;
+}
+
+.teamNode {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 6px;
+  padding: 6px 7px;
+  border: 1px solid var(--suri-board-border);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--suri-board-panel-surface) 76%, var(--suri-board-panel-bg));
+}
+
+.teamCompleted {
+  background:
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 4px,
+      color-mix(in srgb, var(--suri-board-fg-muted) 12%, transparent) 4px,
+      color-mix(in srgb, var(--suri-board-fg-muted) 12%, transparent) 6px
+    ),
+    color-mix(in srgb, var(--suri-board-panel-surface) 76%, var(--suri-board-panel-bg));
+}
+
+.teamName {
+  overflow: hidden;
+  color: var(--suri-board-fg-primary);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.teamMeta {
+  overflow: hidden;
+  color: var(--suri-board-fg-muted);
+  font-size: 11px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

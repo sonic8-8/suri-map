@@ -1,21 +1,17 @@
 import type { ReactNode } from 'react';
-import { useId } from 'react';
+import { CollapsiblePanelSection } from '../leftPanel/CollapsiblePanelSection';
 
 type RightPanelSectionProps = {
   title: string;
   children: ReactNode;
   className?: string;
+  defaultExpanded?: boolean;
 };
 
-export function RightPanelSection({ title, children, className }: RightPanelSectionProps) {
-  const headingId = useId();
-
+export function RightPanelSection({ title, children, className, defaultExpanded = true }: RightPanelSectionProps) {
   return (
-    <section className={`right-panel-section${className ? ` ${className}` : ''}`} aria-labelledby={headingId}>
-      <div className="right-panel-section-heading">
-        <h2 id={headingId}>{title}</h2>
-      </div>
-      <div className="right-panel-section-content">{children}</div>
-    </section>
+    <CollapsiblePanelSection title={title} className={`right-panel-section${className ? ` ${className}` : ''}`} defaultExpanded={defaultExpanded}>
+      {children}
+    </CollapsiblePanelSection>
   );
 }

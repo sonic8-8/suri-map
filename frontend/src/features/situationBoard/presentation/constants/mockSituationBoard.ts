@@ -109,6 +109,87 @@ export const searchAreas = [
   { id: 'patrol', name: '광주 북구 지구대', meta: 'UNIT · 단일 운용' },
 ];
 
+export const searchAreaTree = {
+  id: 'overall',
+  name: '전체 수색 구역',
+  meta: '실종팀 간부 · 14:25 갱신',
+  state: '활성',
+  units: [
+    {
+      id: 'unit-1',
+      name: '기동대 1부대',
+      meta: '분할자: 실종팀 간부 · 13:50 · 4팀',
+      state: '활성',
+      teams: [
+        {
+          id: 'unit-1-team-a',
+          label: '팀 A',
+          phone: '기동대 1부대 A팀 폴리폰',
+          meta: '경로 기록 중 · 1분 전 동기화',
+          state: '활성',
+        },
+        {
+          id: 'unit-1-team-b',
+          label: '팀 B',
+          phone: '기동대 1부대 B팀 폴리폰',
+          meta: '경로 기록 중 · 방금 동기화',
+          state: '활성',
+        },
+        {
+          id: 'unit-1-team-c',
+          label: '팀 C',
+          phone: '기동대 1부대 C팀 폴리폰',
+          meta: '완료 · 14:02 (기동대장)',
+          state: '완료',
+        },
+        {
+          id: 'unit-1-team-d',
+          label: '팀 D',
+          phone: '기동대 1부대 D팀 폴리폰',
+          meta: '12분 전 동기화',
+          state: '활성',
+        },
+      ],
+    },
+    {
+      id: 'unit-2',
+      name: '기동대 2부대',
+      meta: '분할자: 실종팀 간부 · 13:55 · 3팀',
+      state: '활성',
+      teams: [
+        {
+          id: 'unit-2-team-a',
+          label: '팀 A',
+          phone: '기동대 2부대 A팀 폴리폰',
+          meta: '경로 기록 중 · 3분 전 동기화',
+          state: '활성',
+        },
+        {
+          id: 'unit-2-team-b',
+          label: '팀 B',
+          phone: '기동대 2부대 B팀 폴리폰',
+          meta: '경로 기록 중 · 4분 전 동기화',
+          state: '활성',
+        },
+        {
+          id: 'unit-2-team-c',
+          label: '팀 C',
+          phone: '기동대 2부대 C팀 폴리폰',
+          meta: '대기 · 최근 갱신 5분 전',
+          state: '활성',
+        },
+      ],
+    },
+    {
+      id: 'patrol',
+      name: '광주 북구 지구대',
+      meta: '단일 운용 (팀 분할 없음)',
+      state: '활성',
+      teams: [],
+    },
+  ],
+} as const;
+
 export const recentMarkers = [
   { id: 'marker-clue', type: '단서', summary: '기동대 1부대 A팀 · 14:31' },
   { id: 'marker-found', type: '발견', summary: '실종팀 폴리폰 · 14:20' },
