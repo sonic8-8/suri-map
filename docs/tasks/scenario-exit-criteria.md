@@ -6,18 +6,30 @@
 
 6번 담당자는 테스트를 구현하지 않는다. 이 문서는 `harness-scenarios.md`의 `given/when/then`, `involved_apis`, `e2e_red_test`, `board_merge`를 기준으로 각 SC의 종료 조건, 검증 유형, 필요 데이터/fixture/mock, 선행 필요 작업, 충돌/결정 필요, 금지/주의를 정리한다.
 
-전달 문서의 제출 기준 경로는 `docs/tasks/scenario-exit-criteria.md`다. 현재 로컬 검토 워크스페이스는 `docs/` 트리 대신 `기획문서/`, `tasks/`, `specs/`가 루트에 풀린 구조이므로 이 작업본은 `scenario-exit-criteria.md`에서 관리한다. 실제 `docs/` 트리가 있는 브랜치에 반영할 때는 같은 내용을 `docs/tasks/scenario-exit-criteria.md`로 배치한다.
+저장소 루트는 `/mnt/c/Users/SSAFY/kimeunseo/C106/S14P31C106`이며, 이 문서의 기준 경로는 모두 저장소 루트 기준 상대 경로로 적는다. 제출/관리 경로는 `docs/tasks/scenario-exit-criteria.md`다.
 
 ## 1. 기준 문서와 적용 원칙
 
-- 제출 기준 경로: `docs/spec/harness-scenarios.md`, `docs/spec/boundaries.md`, `docs/spec/specs/*.json`, `docs/tasks/L1-tasks.md` ~ `docs/tasks/L6-tasks.md`, `docs/tasks/review-guide.md`, `docs/api/api-spec.md`
-- 현재 로컬 검토 기준: `기획문서/harness-scenarios.md`, `기획문서/boundaries.md`, `specs/*.json`, `tasks/L1-tasks.md` ~ `tasks/L6-tasks.md`, `기획문서/api-spec.md`
-- 전달 문서가 요구한 `docs/tasks/review-guide.md`는 현재 로컬 워크스페이스에 대응 파일이 없어 직접 대조하지 못했다. 실제 `docs/` 트리 반영 전 Scenario Coverage Trace와 Fixture Exactness 기준 재대조가 필요하다.
-- 배경 기준: `기획문서/prd.md`, `기획문서/architecture.md`, `기획문서/adr.md`
-- API path는 `docs/api/api-spec.md`의 로컬 대응 문서인 `기획문서/api-spec.md` 기준으로 canonical `/api` path를 판정한다. source spec path가 필요한 경우 public canonical path와 별도로 적는다.
+- 1차 기준: `docs/spec/harness-scenarios.md`, `docs/spec/boundaries.md`, `docs/spec/specs/*.json`
+- API 기준: `docs/api/api-spec.md`
+- Lane task 기준: `docs/tasks/index.md`, `docs/tasks/L1-tasks.md` ~ `docs/tasks/L6-tasks.md`
+- 리뷰 기준: `docs/tasks/review-guide.md`
+- 배경 기준: `docs/prd.md`, `docs/architecture.md`, `docs/adr.md`
+- API path는 `docs/api/api-spec.md` 기준으로 canonical `/api` path를 판정한다. source spec path가 필요한 경우 public canonical path와 별도로 적는다.
 - 기준 문서에 없는 ID, API, fixture 값, task ID는 새로 만들지 않고 `확인 필요`로 둔다.
 - 실제 테스트 코드, fixture loader, product API, DB schema, event payload를 이 문서에서 구현하거나 수정하지 않는다.
 - 피드백 문서의 backend smoke test 실패, Testcontainers 설정, MR 분리 여부는 backend skeleton 작업 범위다. 이 문서에서는 6번 산출물의 경로/기준 문서/API 판정 문제만 반영한다.
+
+## 1.1 Review Guide 반영 기준
+
+`docs/tasks/review-guide.md`의 검증 루프 중 이 문서에는 아래 관점을 직접 적용한다.
+
+- Source Fidelity: 각 SC의 API, event, entity, error, board slot은 1차 기준 문서 또는 API 기준 문서에 있는 이름만 사용한다.
+- Lane Ownership: 검증 유형의 담당/소유자는 구현 책임과 mock/fixture 소비 책임을 구분한다. 다른 Lane 산출물이 필요하면 선행 필요 작업 또는 Lane 소유 fixture/mock으로 표시한다.
+- Harness Executability: 종료 조건은 통합 테스트, E2E, mock contract, screenshot/log/MR evidence 중 하나로 증명 가능해야 한다.
+- Scenario Coverage Trace: SC-01~SC-12의 `then`, `involved_apis`, `e2e_red_test`, `board_merge`, mock fixture가 검증 유형과 task ID로 닫혀야 한다.
+- Fixture Exactness: fixture ID, status enum, event name, error code, DTO field, tile range/URL은 문자열 단위로 기준 문서와 일치해야 한다. 충돌하거나 기준 문서에 없으면 임의 확정하지 않고 `확인 필요`로 남긴다.
+- Documentation Hygiene: 링크와 경로는 저장소 루트 기준 `docs/...` 상대 경로만 사용한다.
 
 ## 2. 테스트 유형 정의
 
@@ -700,11 +712,16 @@
 
 - SC-01~SC-12가 모두 문서에 있다.
 - 각 SC에 종료 조건이 있다.
+- 각 종료 조건은 자동 test, E2E, mock contract, 통합 리허설 evidence 중 하나로 증명 가능하다.
 - 각 종료 조건에 테스트 유형이 매핑되어 있다.
 - 관련 Lane과 가능한 task ID가 표시되어 있다.
+- `docs/spec/harness-scenarios.md`의 `then`, `involved_apis`, `e2e_red_test`, `board_merge`가 각 SC의 검증 유형 또는 통합 리허설 항목으로 추적된다.
 - 필요한 데이터/fixture/mock이 `공통 데이터`, `공통 loader`, `mock 112 소유`, `Lane 소유 fixture/mock`, `확인 필요`로 구분되어 있다.
+- fixture ID, account/policePhone/team ID, status enum, event name, error code, DTO field, tile URL/URI는 기준 문서와 문자열 단위로 일치해야 한다.
 - 선행 필요 작업이 정리되어 있다.
 - 충돌/결정 필요 항목이 정리되어 있다.
 - 금지/주의가 정리되어 있다.
+- 다른 Lane 소유 API, entity, event, board slot, domain write를 6번 문서의 구현 범위로 가져오지 않는다.
+- 문서 링크와 경로는 저장소 루트 기준 `docs/...` 상대 경로를 사용한다.
 - 기준 문서에 없는 값은 새로 만들지 않고 `확인 필요`로 남겼다.
 - 테스트 코드, fixture loader, product API 변경은 포함하지 않았다.
