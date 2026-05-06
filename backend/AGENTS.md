@@ -161,6 +161,5 @@ SearchPathResponse start(
 
 ## Commit
 
-- 백엔드 형식: `[BE] type(scope): 설명 (Jira 티켓번호)`
-- 공통 문서 형식: `[Docs] type(scope): 설명 (Jira 티켓번호)`
-- type 목록: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`
+- 커밋 메시지와 area tag는 `../docs/tasks/index.md`를 따른다.
+- Backend 단독 변경은 `[BE]`, Backend와 다른 영역을 함께 바꾸면 `[BE/FE/Android/Infra]`처럼 slash 구분 area tag를 사용한다.

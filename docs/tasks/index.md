@@ -104,6 +104,8 @@ Angular-style Conventional Commits에 area tag와 Jira issue suffix를 붙인다
 
 `[Area] type(scope): 한글 요약 (<JIRA-KEY>)`
 
+scope는 Angular-style Conventional Commits처럼 영향받는 domain/module/package를 적는다. 특정 domain으로 좁히기 어려운 전역 style 또는 tooling 변경은 scope를 생략할 수 있다.
+
 허용 area tag:
 
 | Tag | 사용할 때 |
@@ -114,13 +116,13 @@ Angular-style Conventional Commits에 area tag와 Jira issue suffix를 붙인다
 | `[Infra]` | Docker, CI/CD, 배포, tile server 운영, observability |
 | `[Docs]` | ADR, architecture, spec, task, workflow 문서 |
 
-하나의 MR이 실제로 여러 runtime area를 건드리면 제목 앞에 `[BE][FE][Android][Infra]` 순서로 여러 tag를 붙인다. 순수 문서·계약 변경은 `[Docs]` 하나만 사용한다.
+하나의 MR이 실제로 여러 runtime area를 건드리면 제목 앞에 `[BE/FE/Android/Infra]`처럼 하나의 대괄호 안에 `/`로 area를 구분하고, 순서는 `BE`, `FE`, `Android`, `Infra`, `Docs`를 따른다. 순수 문서·계약 변경은 `[Docs]` 하나만 사용한다.
 
 계약 또는 문서 변경은 별도 `[Contract]`, `[Spec]` tag를 만들지 않고 `[Docs]`를 사용한다. 실제 Docker, CI/CD, 배포, observability 설정 변경은 `[Infra]`를 사용한다.
 
 허용 type:
 
-`feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `ci`, `build`
+`feat`, `fix`, `refactor`, `style`, `test`, `docs`, `chore`, `ci`, `build`
 
 허용 scope:
 
@@ -132,8 +134,9 @@ Angular-style Conventional Commits에 area tag와 Jira issue suffix를 붙인다
 - `[FE] fix(board): 단말 최신성 표시 상태 정렬 (SURI-124)`
 - `[Android] test(sync): 오프라인 재전송 하네스 추가 (SURI-125)`
 - `[Infra] chore(tiles): 로컬 타일 서버 설정 정리 (SURI-126)`
-- `[BE][FE] refactor(contract): BaseEvent 스키마 필드명 정렬 (SURI-127)`
+- `[BE/FE] refactor(contract): BaseEvent 스키마 필드명 정렬 (SURI-127)`
 - `[Docs] docs(tasks): Lane 작업 규칙 보강 (SURI-128)`
+- `[BE/FE/Android] style: lint 기준 스타일 정리 (SURI-129)`
 
 MR 제목은 commit 제목과 같은 형식을 사용한다. MR 설명에는 Jira key, 완료한 task ID, 수정한 기준 문서, 검증 명령/결과, 영향받는 Lane을 적는다. `spec/boundaries.md` 또는 `spec/harness-scenarios.md` 수정이 필요하면 편집 전에 보고하고, 승인된 변경 내용을 MR에 남긴다.
 

@@ -70,8 +70,9 @@ Lane task ID를 인자로 받아 사이클 시작 묶음을 자동화한다.
   - 단일: `[BE]`, `[FE]` 등
   - 여러 area 혼합: `[BE/FE/Android/Infra]` 슬래시 구분 (팀 컨벤션 — index.md 본문 표기 `[BE][FE]` 대신 슬래시 통일)
   - 순수 문서·계약 변경은 `[Docs]` 하나
-- **type**: `feat` `fix` `refactor` `test` `docs` `chore` `ci` `build`
+- **type**: `feat` `fix` `refactor` `style` `test` `docs` `chore` `ci` `build`
 - **scope**: `incident` `auth` `police_phone` `retention` `event` `overall_search_area` `area` `path` `sync` `marker` `photo` `notification` `board` `package` `tiles` `op` `handover` `search_history_summary` `contract` `infra` `docs`
+  - scope 는 domain/module/package 자리다. 특정 domain 으로 좁히기 어려운 전역 style 또는 tooling 변경은 scope 를 비울 수 있다.
 
 ---
 
@@ -92,7 +93,7 @@ Lane task ID를 인자로 받아 사이클 시작 묶음을 자동화한다.
    - `T` + Phase 1~3 + "구현/추가" → `feat`
    - `I` (integration test) → `test`
    - `D` (demo/rehearsal) → `chore`
-7. commit scope 추론. 담당 Spec + 제목 → 화이트리스트 매칭.
+7. commit scope 추론. 담당 Spec + 제목 → 화이트리스트 매칭. 전역 style/tooling 변경은 빈 scope 허용.
 8. 브랜치 prefix derive. `feat` → `feature/`, `fix` → `fix/`, 그 외 default `feature/`.
 9. 슬러그 derive. 제목 → kebab-case (의미 기반 영문화).
 10. 티켓 description 합성. **`[배경]` + `[목표]` 두 섹션만** 작성한다. 그 외 메타(구현 범위·필수 참조·시나리오·FR·완료 기준 등)는 task 문서에 이미 있어 Jira 본문 중복을 피한다.
@@ -198,8 +199,8 @@ Task 제목: <task 헤더>
   "title": "배정 사건·소속·실종자 도메인 데이터 시드 데이터 준비",
   "ticket_type": "작업",
   "area_tag": "BE | FE | Android | Infra | Docs (단일 또는 슬래시 결합, 예: 'BE' 또는 'BE/FE')",
-  "commit_type": "feat | fix | refactor | test | docs | chore | ci | build",
-  "commit_scope": "incident",
+  "commit_type": "feat | fix | refactor | style | test | docs | chore | ci | build",
+  "commit_scope": "incident 또는 빈 문자열",
   "task_file": "docs/tasks/L1-tasks.md",
   "created_at": "2026-05-06T..."
 }

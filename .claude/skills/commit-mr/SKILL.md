@@ -59,11 +59,13 @@ argument-hint: "L1-T01"
 
 ### type
 
-`feat` `fix` `refactor` `test` `docs` `chore` `ci` `build`
+`feat` `fix` `refactor` `style` `test` `docs` `chore` `ci` `build`
 
-### scope (21개)
+### scope
 
 `incident` `auth` `police_phone` `retention` `event` `overall_search_area` `area` `path` `sync` `marker` `photo` `notification` `board` `package` `tiles` `op` `handover` `search_history_summary` `contract` `infra` `docs`
+
+scope 는 domain/module/package 자리다. 특정 domain 으로 좁히기 어려운 전역 style 또는 tooling 변경은 scope 를 생략할 수 있다.
 
 ### MR Label 매핑 (GitLab 정식 라벨명)
 
@@ -94,13 +96,13 @@ argument-hint: "L1-T01"
    - **`.claude/scratch/` 아래 파일은 변경 목록 표시·커밋 후보에서 항상 제외**.
    - 의도와 무관해 보이는 변경(다른 영역 파일) 있으면 사용자에게 확인.
 4. 커밋 메시지 LLM 작성. 단일 또는 분리(파일별 의미 단위) 결정.
-   - 형식: `[<area_tag>] <commit_type>(<commit_scope>): <한글 요약> (<jira_key>)`
+   - 형식: `[<area_tag>] <commit_type>(<commit_scope>): <한글 요약> (<jira_key>)`, scope 생략 시 `[<area_tag>] <commit_type>: <한글 요약> (<jira_key>)`
    - **화이트리스트 검증 강제**: scratch 의 `area_tag` / `commit_type` / `commit_scope` 를 본문 `Whitelists` 인용과 매칭. 매칭 실패 시 `docs/tasks/index.md` 를 Read 도구로 fresh 조회 후 재매칭. 그래도 실패하면 `Failure / Ambiguity Format`.
    - area 결합 표기: `[BE/FE]` 처럼 슬래시 구분 (팀 컨벤션).
    - 본문에는 `왜 / 어떻게` 를 짧게 정리.
 5. **PAUSE**: 작성한 모든 커밋 메시지를 한 번에 출력하고 사용자 confirm 대기.
    - 커밋이 N개면 N개 모두 번호(`커밋 1/N`, `커밋 2/N` …)와 함께 **한 번에** 보여준다. 하나씩 묻지 않는다.
-   - 출력 형식 예시 (반드시 `[<area_tag>] <type>(<scope>): <한글> (<jira_key>)` 컨벤션 준수):
+   - 출력 형식 예시 (scope 가 있으면 `[<area_tag>] <type>(<scope>): <한글> (<jira_key>)`, scope 가 없으면 `[<area_tag>] <type>: <한글> (<jira_key>)` 컨벤션 준수):
 
      **단일 area 예시 (scratch.area_tag = "BE"):**
      ```
@@ -165,8 +167,8 @@ argument-hint: "L1-T01"
 
 ## Commit Message Rules
 
-- 형식: `[<area_tag>] <commit_type>(<commit_scope>): <한글 요약> (<jira_key>)`
-- area_tag, commit_type, commit_scope, jira_key 는 scratch 에서 가져오되 **반드시 Whitelists 와 매칭 검증** 후 사용. 미매칭이면 fresh 조회 → 그래도 실패면 사용자 확인.
+- 형식: `[<area_tag>] <commit_type>(<commit_scope>): <한글 요약> (<jira_key>)`, scope 생략 시 `[<area_tag>] <commit_type>: <한글 요약> (<jira_key>)`
+- area_tag, commit_type, jira_key 는 scratch 에서 가져오되 **반드시 Whitelists 와 매칭 검증** 후 사용. commit_scope 가 있으면 scope whitelist 와 매칭하고, 비어 있으면 전역 style/tooling 변경인지 확인한다. 미매칭이면 fresh 조회 → 그래도 실패면 사용자 확인.
 - area_tag 결합: 슬래시 구분 (`[BE/FE]`).
 - 한글 요약은 git diff 기반 LLM 작성. 명사형 어미 권장 ("정정", "추가", "구현").
 - 본문은 짧게 `왜 / 어떻게`. 마크다운 list 형식.
