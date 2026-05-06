@@ -16,6 +16,20 @@ services:
       timeout: 5s
       retries: 5
 
+  mock-112:
+    build: ../mock-112
+    container_name: mock-112
+    ports:
+      - "18112:18112"
+    environment:
+      SERVER_PORT: 18112
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:18112/mock-112/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
 volumes:
   surimap-postgres-data:
+
 
