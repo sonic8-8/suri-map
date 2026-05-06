@@ -1,0 +1,23 @@
+/* MapLibre 지도가 패널 사이 남은 영역을 꽉 채우는 표면. */
+.surface {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: #f7f7f7;
+}
+
+/* MapLibre가 주입하는 캔버스를 지도 표면 전체에 고정한다. */
+.canvas {
+  position: absolute;
+  inset: 0;
+}
+
+@media (max-width: 860px) {
+  /* 모바일 폭에서는 지도 표면이 너무 낮아지지 않도록 최소 높이를 둔다. */
+  .surface {
+    min-height: 420px;
+  }
+}

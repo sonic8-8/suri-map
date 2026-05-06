@@ -1,0 +1,7 @@
+/* 상황판 지도 영역이 그리드의 단일 지도 칸을 안정적으로 채우도록 한다. */
+.map {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+  min-height: 0;
+}

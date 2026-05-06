@@ -1,0 +1,22 @@
+/* 지도 캔버스와 지도 위 오버레이 컨트롤을 담는 최상위 래퍼. */
+.layout {
+  position: relative;
+  display: block;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+}
+
+/* MapLibre 캔버스, 컨트롤, 범례가 같은 좌표계를 공유하는 기준 컨테이너. */
+.canvasShell {
+  position: relative;
+  height: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 860px) {
+  /* 좁은 화면에서도 지도 셸이 한 칸 레이아웃을 유지하도록 한다. */
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}

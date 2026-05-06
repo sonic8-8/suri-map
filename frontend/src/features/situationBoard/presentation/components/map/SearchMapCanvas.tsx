@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import maplibregl, { type StyleSpecification } from 'maplibre-gl';
 import { getVWorldApiKey } from '../../../../../shared/config';
+import styles from './SearchMapCanvas.module.css';
 
 const GWANGJU_CENTER: [number, number] = [126.8526, 35.1595];
 const V_WORLD_TILE_SIZE = 256;
@@ -61,8 +62,8 @@ export function SearchMapCanvas({ onMapReady }: SearchMapCanvasProps) {
   }, [onMapReady]);
 
   return (
-    <div className="map-surface" aria-label="수색 지도">
-      <div ref={mapContainerRef} className="maplibre-canvas" />
+    <div className={styles.surface} aria-label="수색 지도">
+      <div ref={mapContainerRef} className={styles.canvas} />
     </div>
   );
 }
