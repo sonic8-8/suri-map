@@ -55,24 +55,26 @@ Lane task ID를 인자로 받아 사이클 시작 묶음을 자동화한다.
 | 4 | 브랜치 슬러그 | 제목 → kebab-case |
 | 5 | 작업 내용 | 구현 산출물 그대로 |
 | 6 | area tag | 산출물 텍스트 + Lane 기본 영역 분석 |
-| 7 | commit scope | 담당 Spec + 제목 → 화이트리스트 매칭 |
+| 7 | commit scope | 담당 Spec + 제목 → scope 원칙 기반 후보 |
 | 8 | 제목 한국어 표현 | 보통 = 티켓 제목 |
 | Derived | commit type | task 접두어 + Phase + 동사 |
 | Derived | 브랜치 prefix | `docs/tasks/index.md` 브랜치 규칙과 작업 목적 → 일반 개발은 `feature/`, 릴리즈 전 버그 수정은 `fix/`, 운영 hotfix는 `hotfix/` |
 
 8개 모두 추론하여 scratch에 저장한다 (commit-mr 가 다시 추론하지 않도록).
 
-### Whitelists (`docs/tasks/index.md` §커밋 및 MR 규칙 인용)
+### Commit Rule Snapshot (`docs/tasks/index.md` §커밋 및 MR 규칙 인용)
 
-권위는 `docs/tasks/index.md` §커밋 및 MR 규칙. 아래 목록은 예시 스냅샷이다. **실행 시 항상 `docs/tasks/index.md` 를 fresh 조회해 area/type/scope 를 검증**한다 (그래도 실패하면 `Failure / Ambiguity Format` 으로 사용자 확인).
+권위는 `docs/tasks/index.md` §커밋 및 MR 규칙. 아래 목록은 예시 스냅샷이다. **실행 시 항상 `docs/tasks/index.md` 를 fresh 조회해 area/type whitelist 와 scope 원칙을 검증**한다 (그래도 실패하면 `Failure / Ambiguity Format` 으로 사용자 확인).
 
 - **area_tag** (커밋·MR 제목용): `BE` `FE` `Android` `Infra`
   - 단일: `[BE]`, `[FE]` 등
   - 여러 area 혼합: `[BE/FE/Android/Infra]` 슬래시 구분
   - 문서·계약 변경은 별도 `Docs` area 를 쓰지 않고 영향을 받는 runtime/infra area 만 표시한다. 특정 runtime/infra 에 직접 귀속되지 않는 공통 문서·workflow·agent tooling 변경은 area tag 를 생략한다.
 - **type**: `feat` `fix` `refactor` `style` `test` `docs` `chore` `ci` `build`
-- **scope**: `incident` `auth` `police_phone` `retention` `event` `overall_search_area` `area` `path` `sync` `marker` `photo` `notification` `board` `package` `tiles` `op` `handover` `search_history_summary` `contract`
-  - scope 는 domain/module/package 자리다. area tag(`BE`, `FE`, `Android`, `Infra`)를 scope 에 반복하지 않는다. 문서 정리, agent/workflow/tooling, guardrail처럼 특정 제품 domain/module/package 로 좁히기 어려운 변경은 scope 를 비울 수 있다.
+- **scope**: optional. 고정 whitelist 로 관리하지 않는다. 영향받는 제품 domain/module/package 가 명확할 때만 붙인다.
+  - area tag(`BE`, `FE`, `Android`, `Infra`)를 scope 에 반복하지 않는다.
+  - 문서 정리, agent/workflow/tooling, guardrail, repo-wide style 변경은 scope 를 비운다.
+  - 어느 scope 가 맞는지 설명이 필요할 정도로 애매하면 scope 를 비운다.
 
 ---
 
@@ -82,7 +84,7 @@ Lane task ID를 인자로 받아 사이클 시작 묶음을 자동화한다.
 2. Lane → Spec/owner 범위는 `docs/spec/boundaries.md §1`, `§1.1`, `§1.2`를 기준으로 확인한다. `docs/tasks/index.md`의 Lane 표는 task 파일 인덱스로만 사용하고 소유권 기준으로 격상하지 않는다.
 3. Lane → task 파일은 `docs/tasks/L<n>-tasks.md`를 직접 매핑한다. 예: `L1` → `docs/tasks/L1-tasks.md`.
 4. task 파일에서 `$task-id` 헤더 블록 추출. Phase 위치도 기록.
-5. 화이트리스트 매칭. `docs/tasks/index.md` 를 Read 도구로 직접 읽어 §커밋 및 MR 규칙 표를 **fresh 추출** 후 area/type/scope 를 매칭한다. 그래도 실패하면 `Failure / Ambiguity Format`.
+5. 커밋 규칙 매칭. `docs/tasks/index.md` 를 Read 도구로 직접 읽어 §커밋 및 MR 규칙을 **fresh 추출** 후 area/type whitelist 와 scope 원칙을 매칭한다. 그래도 실패하면 `Failure / Ambiguity Format`.
 6. area tag 추론. 산출물 키워드:
    - `API` / `DTO` / `publish request` / `Spring` / `repository` → `[BE]`
    - `Room` / `Outbox` / `WorkManager` / `Android` → `[Android]`
@@ -94,7 +96,7 @@ Lane task ID를 인자로 받아 사이클 시작 묶음을 자동화한다.
    - `T` + Phase 1~3 + "구현/추가" → `feat`
    - `I` (integration test) → `test`
    - `D` (demo/rehearsal) → `chore`
-8. commit scope 추론. 담당 Spec + 제목 → 화이트리스트 매칭. 문서 정리, agent/workflow/tooling, guardrail처럼 특정 제품 domain/module/package 로 좁히기 어려운 변경은 빈 scope 허용.
+8. commit scope 추론. 담당 Spec + 제목 → scope 원칙 기반 후보 도출. 제품 domain/module/package 가 명확할 때만 scope 를 채우고, 문서 정리, agent/workflow/tooling, guardrail처럼 특정 제품 domain/module/package 로 좁히기 어려운 변경은 빈 scope 허용.
 9. 브랜치 prefix derive. `docs/tasks/index.md` 브랜치 규칙을 fresh 확인한다. 일반 Lane 개발 task는 `feature/`를 기본으로, 릴리즈 전 버그 수정은 `fix/`, 운영 hotfix는 `hotfix/`를 사용한다. `release/`는 Jira task branch가 아니라 릴리즈 branch 자체라 자동 생성 대상에서 제외한다.
 10. 슬러그 derive. 제목 → kebab-case (의미 기반 영문화).
 11. 티켓 description 합성. Jira 티켓만 보고도 Lane task와 기준 문서를 역추적할 수 있도록 task ID, task 파일, Phase, 담당 Spec, 구현 산출물, 완료 기준, 필수 참조를 포함한다. 담당 Spec이 2개 이상이면 커밋 scope 후보도 함께 표시하고 사용자 confirm 을 받는다.
@@ -250,7 +252,7 @@ Inference required
 - 인자 미입력 또는 정규식 `L\d+-[A-Z]\d+[A-Z]?` 불일치
 - task ID 가 task 파일에 없음
 - area tag 추론 모호 (산출물에 BE+Android 혼재 등)
-- scope 화이트리스트 매칭 실패
+- scope 원칙 적용 실패
 - 담당 Spec 이 2개 이상인데 commit scope 를 하나로 확정할 근거가 부족함
 - working tree 무관 변경(tracked/untracked, stash 여부 확인용)
 - `acli` / `glab` 명령 실패

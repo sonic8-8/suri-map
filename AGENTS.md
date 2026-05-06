@@ -72,7 +72,7 @@
 
 ## Git / Jira / MR
 
-브랜치, 커밋 메시지(`[Area] type[(scope)]: 한글 요약 (<JIRA-KEY>)` 또는 area 생략형), MR 제목·설명, area tag, scope 목록은 `docs/tasks/index.md`를 따른다.
+브랜치, 커밋 메시지(`[Area] type[(scope)]: 한글 요약 (<JIRA-KEY>)` 또는 area 생략형), MR 제목·설명, area tag, scope 원칙은 `docs/tasks/index.md`를 따른다.
 
 ## 자동화 가드레일
 

@@ -47,9 +47,9 @@ argument-hint: "L1-T01"
 
 ---
 
-## Whitelists (`docs/tasks/index.md` §커밋 및 MR 규칙 인용)
+## Commit Rule Snapshot (`docs/tasks/index.md` §커밋 및 MR 규칙 인용)
 
-권위는 `docs/tasks/index.md` §커밋 및 MR 규칙. 아래 목록은 예시 스냅샷이다. **실행 시 항상 `docs/tasks/index.md` 를 fresh 조회해 area/type/scope 를 검증**한다 (그래도 실패하면 `Failure / Ambiguity Format`).
+권위는 `docs/tasks/index.md` §커밋 및 MR 규칙. 아래 목록은 예시 스냅샷이다. **실행 시 항상 `docs/tasks/index.md` 를 fresh 조회해 area/type whitelist 와 scope 원칙을 검증**한다 (그래도 실패하면 `Failure / Ambiguity Format`).
 
 ### area_tag (제목용)
 
@@ -63,9 +63,7 @@ argument-hint: "L1-T01"
 
 ### scope
 
-`incident` `auth` `police_phone` `retention` `event` `overall_search_area` `area` `path` `sync` `marker` `photo` `notification` `board` `package` `tiles` `op` `handover` `search_history_summary` `contract`
-
-scope 는 domain/module/package 자리다. area tag(`BE`, `FE`, `Android`, `Infra`)를 scope 에 반복하지 않는다. 문서 정리, agent/workflow/tooling, guardrail처럼 특정 제품 domain/module/package 로 좁히기 어려운 변경은 scope 를 생략한다.
+scope 는 optional 이며 고정 whitelist 로 관리하지 않는다. 영향받는 제품 domain/module/package 가 명확할 때만 붙인다. area tag(`BE`, `FE`, `Android`, `Infra`)를 scope 에 반복하지 않는다. 문서 정리, agent/workflow/tooling, guardrail, repo-wide style 변경은 scope 를 생략한다. 어느 scope 가 맞는지 설명이 필요할 정도로 애매하면 생략한다.
 
 ### MR Label 매핑 (GitLab 정식 라벨명)
 
@@ -96,7 +94,7 @@ scope 는 domain/module/package 자리다. area tag(`BE`, `FE`, `Android`, `Infr
    - 의도와 무관해 보이는 변경(다른 영역 파일) 있으면 사용자에게 확인.
 4. 커밋 메시지 LLM 작성. 단일 또는 분리(파일별 의미 단위) 결정.
    - 형식: area가 있으면 `[<area_tag>] <commit_type>(<commit_scope>): <한글 요약> (<jira_key>)`, area가 없으면 `<commit_type>(<commit_scope>): <한글 요약> (<jira_key>)`. scope 생략도 같은 방식으로 처리한다.
-   - **화이트리스트 검증 강제**: 각 커밋 제목의 area_tag / commit_type / commit_scope 를 `docs/tasks/index.md` fresh 조회 결과와 매칭한다. scratch 의 값은 기본 후보일 뿐이며, 커밋을 여러 개로 쪼개면 커밋별 type/scope 를 각각 검증한다. 그래도 실패하면 `Failure / Ambiguity Format`.
+   - **규칙 검증 강제**: 각 커밋 제목의 area_tag / commit_type 은 `docs/tasks/index.md` fresh 조회 결과와 매칭하고, commit_scope 는 scope 원칙에 맞는지 확인한다. scratch 의 값은 기본 후보일 뿐이며, 커밋을 여러 개로 쪼개면 커밋별 type/scope 를 각각 검증한다. 그래도 실패하면 `Failure / Ambiguity Format`.
    - area 결합 표기: `[BE/FE]` 처럼 슬래시 구분 (팀 컨벤션).
    - 본문에는 `왜 / 어떻게` 를 짧게 정리.
 5. **PAUSE**: 작성한 모든 커밋 메시지를 한 번에 출력하고 사용자 confirm 대기.
@@ -120,7 +118,7 @@ scope 는 domain/module/package 자리다. area tag(`BE`, `FE`, `Android`, `Infr
 
      **결합 area 예시 (scratch.area_tag = "BE/FE"):**
      ```
-     커밋 1/2: [BE/FE] refactor(contract): BaseEvent 스키마 필드명 정렬 (S14P31C106-NN)
+     커밋 1/2: [BE/FE] refactor: BaseEvent 스키마 필드명 정렬 (S14P31C106-NN)
        파일: backend/.../BaseEvent.java, frontend/.../baseEvent.ts
        본문: ...
      ```
@@ -169,7 +167,7 @@ scope 는 domain/module/package 자리다. area tag(`BE`, `FE`, `Android`, `Infr
 ## Commit Message Rules
 
 - 형식: area가 있으면 `[<area_tag>] <commit_type>(<commit_scope>): <한글 요약> (<jira_key>)`, area가 없으면 `<commit_type>(<commit_scope>): <한글 요약> (<jira_key>)`. scope 생략도 같은 방식으로 처리한다.
-- area_tag 가 있으면 제목 앞에 `[<area_tag>]`를 붙이고, 빈 문자열이면 area prefix 를 생략한다. jira_key 는 scratch 에서 가져온다. commit_type/commit_scope 는 scratch 후보를 기본값으로 삼되, 실제 diff 기준으로 커밋별 제목을 작성하고 **반드시 `docs/tasks/index.md` fresh 조회 결과와 매칭 검증**한다. commit_scope 가 있으면 scope whitelist 와 매칭하고, 비어 있으면 문서 정리, agent/workflow/tooling, guardrail처럼 특정 제품 domain/module/package 로 좁히기 어려운 변경인지 확인한다. 미매칭이면 사용자 확인.
+- area_tag 가 있으면 제목 앞에 `[<area_tag>]`를 붙이고, 빈 문자열이면 area prefix 를 생략한다. jira_key 는 scratch 에서 가져온다. commit_type/commit_scope 는 scratch 후보를 기본값으로 삼되, 실제 diff 기준으로 커밋별 제목을 작성하고 **반드시 `docs/tasks/index.md` fresh 조회 결과와 매칭 검증**한다. commit_scope 가 있으면 실제 제품 domain/module/package 가 명확한지 확인하고, 비어 있으면 문서 정리, agent/workflow/tooling, guardrail처럼 특정 제품 domain/module/package 로 좁히기 어려운 변경인지 확인한다. 미매칭이면 사용자 확인.
 - area_tag 결합: 슬래시 구분 (`[BE/FE]`).
 - 한글 요약은 git diff 기반 LLM 작성. 명사형 어미 권장 ("정정", "추가", "구현").
 - 본문은 짧게 `왜 / 어떻게`. 마크다운 list 형식.
@@ -242,7 +240,7 @@ Inference required
 - 변경 파일 영역이 scratch.area_tag 와 명백히 어긋남
 - `git push` 실패 (충돌, 권한 등)
 - `glab mr create` 실패
-- area_tag / commit_type / commit_scope 가 Whitelists 에 매칭 실패 (fresh 조회 후에도)
+- area_tag / commit_type 이 whitelist 에 매칭 실패하거나, commit_scope 가 scope 원칙에 맞지 않음 (fresh 조회 후에도)
 - MR Label 매핑 실패 (`glab label list` fresh 조회 후에도)
 
 ---
