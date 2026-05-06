@@ -1,0 +1,105 @@
+/* 최근 마커를 최신 활동이 위로 쌓이는 알림 피드 형태로 보여준다. */
+.feed {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* 하나의 마커/활동 이벤트 카드. */
+.feedItem {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--suri-board-border);
+  border-radius: 4px;
+  color: var(--suri-board-fg-primary);
+  background: var(--suri-board-panel-surface);
+}
+
+/* 알림 피드의 신규 이벤트 감각을 주는 작은 상태점. */
+.eventDot {
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  border-radius: 999px;
+  background: var(--suri-board-primary-hi);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--suri-board-primary-hi) 14%, transparent);
+}
+
+.itemBody {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.titleRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.itemTitle {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eventTime {
+  color: var(--suri-board-fg-muted);
+  font-size: 12px;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.itemSummary {
+  overflow: hidden;
+  margin: 0;
+  color: var(--suri-board-fg-muted);
+  font-size: 13px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.typeBadge {
+  min-width: 42px;
+  padding: 3px 7px;
+  border: 1px solid var(--suri-board-border);
+  border-radius: 999px;
+  color: var(--suri-board-fg-secondary);
+  background: var(--suri-board-panel-bg);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.typeClue {
+  border-color: color-mix(in srgb, var(--suri-board-primary-hi) 68%, var(--suri-board-border));
+  color: var(--suri-board-primary-hi);
+  background: color-mix(in srgb, var(--suri-board-primary-soft) 54%, var(--suri-board-panel-bg));
+}
+
+.typeFound {
+  border-color: color-mix(in srgb, #ff8f7a 68%, var(--suri-board-border));
+  color: #ffb09f;
+  background: color-mix(in srgb, #4b1e20 48%, var(--suri-board-panel-bg));
+}
+
+.typeSupport {
+  border-color: color-mix(in srgb, #d9b45f 68%, var(--suri-board-border));
+  color: #f2cc72;
+  background: color-mix(in srgb, #3a2b13 56%, var(--suri-board-panel-bg));
+}

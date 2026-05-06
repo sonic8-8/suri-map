@@ -106,7 +106,7 @@ export const searchAreas = [
   { id: 'overall', name: '전체 수색 구역', meta: 'OVERALL · 14:25 갱신' },
   { id: 'unit-1', name: '기동대 1부대', meta: 'UNIT · 팀 구역 4개' },
   { id: 'unit-2', name: '기동대 2부대', meta: 'UNIT · 팀 구역 3개' },
-  { id: 'patrol', name: '광주 북구 지구대', meta: 'UNIT · 단일 운용' },
+  { id: 'patrol-phone', name: '광주 북구 지구대 폴리폰', meta: '경로 기록 중 · 3분 전 동기화' },
 ];
 
 export const searchAreaTree = {
@@ -183,17 +183,46 @@ export const searchAreaTree = {
     {
       id: 'patrol',
       name: '광주 북구 지구대',
-      meta: '단일 운용 (팀 분할 없음)',
+      meta: '지구대 구역 · 1개 폴리폰',
       state: '활성',
-      teams: [],
+      teams: [
+        {
+          id: 'patrol-phone',
+          label: '폴리폰',
+          phone: '광주 북구 지구대 폴리폰',
+          meta: '경로 기록 중 · 3분 전 동기화',
+          state: '활성',
+        },
+      ],
     },
   ],
 } as const;
 
 export const recentMarkers = [
-  { id: 'marker-clue', type: '단서', summary: '기동대 1부대 A팀 · 14:31' },
-  { id: 'marker-found', type: '발견', summary: '실종팀 폴리폰 · 14:20' },
-  { id: 'marker-support', type: '지원 요청', summary: '지구대 팀 · 14:12' },
+  {
+    id: 'marker-support',
+    eventType: '지원 요청',
+    title: '지원 요청 마커 추가',
+    summary: '지구대 팀 · 드론 지원 요청',
+    occurredAt: '2026-05-04T14:12:00+09:00',
+    timeLabel: '14:12',
+  },
+  {
+    id: 'marker-clue',
+    eventType: '단서',
+    title: '단서 마커 추가',
+    summary: '기동대 1부대 A팀 · 북측 능선',
+    occurredAt: '2026-05-04T14:31:00+09:00',
+    timeLabel: '14:31',
+  },
+  {
+    id: 'marker-found',
+    eventType: '발견',
+    title: '발견 마커 등록',
+    summary: '실종팀 폴리폰 · 폐가 인근 확인',
+    occurredAt: '2026-05-04T14:20:00+09:00',
+    timeLabel: '14:20',
+  },
 ];
 
 export const legendItems = [

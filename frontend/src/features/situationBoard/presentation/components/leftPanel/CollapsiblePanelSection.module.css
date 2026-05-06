@@ -21,55 +21,17 @@
 .section h2 {
   margin: 0;
   color: var(--suri-board-fg-secondary);
-  font-size: 14px;
+  font-size: 17px;
   font-weight: 700;
   line-height: 1.35;
 }
 
-/* 제목과 접기 버튼을 양쪽으로 배치하는 헤더 행. */
+/* 섹션 제목 행. */
 .heading {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
   min-width: 0;
-}
-
-/* 섹션을 접고 펼치는 작은 토글 버튼. */
-.toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 30px;
-  flex: 0 0 auto;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  color: var(--suri-board-fg-secondary);
-  background: transparent;
-}
-
-/* 토글 버튼 hover 상태. */
-.toggle:hover {
-  border-color: var(--suri-board-border);
-  color: var(--suri-board-fg-primary);
-  background: var(--suri-board-option-default-bg);
-}
-
-/* 토글 버튼 키보드 포커스 상태. */
-.toggle:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--suri-board-primary-hi) 72%, transparent);
-  outline-offset: 2px;
-}
-
-/* 접힘/펼침에 따라 화살표를 부드럽게 회전시킨다. */
-.toggle svg {
-  transition: transform 120ms ease;
-}
-
-/* 접힌 상태에서는 화살표를 위쪽으로 돌린다. */
-.toggle[aria-expanded="false"] svg {
-  transform: rotate(-90deg);
 }
 
 /* 섹션 본문 컨테이너. */

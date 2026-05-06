@@ -5,8 +5,9 @@
   bottom: 0;
   left: 0;
   z-index: 15;
-  width: 280px;
-  min-width: 280px;
+  --left-panel-width: 360px;
+  width: var(--left-panel-width);
+  min-width: var(--left-panel-width);
   min-height: 0;
   padding: 0;
   border-right: 1px solid var(--suri-board-border);
@@ -23,13 +24,50 @@
   transform: translateX(-100%);
 }
 
+/* 좌측 패널 본문 오른쪽 상단에 놓는 텍스트형 패널 접기 버튼. */
+.panelCollapseButton {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 18;
+  padding: 0;
+  border: 0;
+  color: var(--suri-board-fg-secondary);
+  background: transparent;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+/* 접기 버튼 hover 상태. */
+.panelCollapseButton:hover {
+  color: var(--suri-board-primary-hi);
+}
+
+/* 접기 버튼 키보드 포커스 상태. */
+.panelCollapseButton:focus-visible {
+  outline: 2px solid var(--suri-board-primary-hi);
+  outline-offset: 2px;
+}
+
 /* 패널 내부 본문: 상단 여백과 내부 스크롤 영역을 분리한다. */
 .content {
   position: relative;
   height: 100%;
   min-height: 0;
-  padding: 25px 2px 12px 12px;
+  padding: 42px 2px 12px 12px;
   overflow: hidden;
+}
+
+/* 좌측 패널 페이지 전환 컨테이너: 탭 전환 시 각 페이지 내부 상태를 유지한다. */
+.page {
+  height: 100%;
+  min-height: 0;
+}
+
+.page[hidden] {
+  display: none;
 }
 
 /* 좌측 패널 전용 세로 스크롤 영역. */
@@ -72,17 +110,23 @@
   background: var(--suri-board-left-scrollbar-thumb-hover);
 }
 
-/* 패널을 접고 펼치는 손잡이 버튼. */
-.collapseToggle {
+/* 좌측 패널 페이지 인덱스 탭 묶음. 패널이 접혀도 지도 위에 남아 클릭 가능하다. */
+.indexTabs {
   position: absolute;
   z-index: 20;
   top: 42px;
-  right: -31px;
+  right: -37px;
+  display: grid;
+  gap: 0;
+}
+
+/* 패널 페이지를 선택하거나 현재 페이지를 접고 펼치는 손잡이 버튼. */
+.indexTab {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 58px;
+  width: 38px;
+  height: 68px;
   padding: 0;
   border: 1px solid var(--suri-board-border);
   border-left: 1px solid var(--suri-board-panel-surface);
@@ -96,17 +140,39 @@
   box-shadow:
     4px 0 12px rgb(0 0 0 / 22%),
     inset 1px 0 0 color-mix(in srgb, var(--suri-board-primary-hi) 24%, transparent);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+}
+
+.indexTab + .indexTab {
+  margin-top: -1px;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.indexTab:has(+ .indexTab) {
+  border-bottom-right-radius: 0;
 }
 
 /* 접기/펼치기 손잡이 hover 상태. */
-.collapseToggle:hover {
+.indexTab:hover {
   border-color: var(--suri-board-primary-hi);
   color: var(--suri-board-fg-primary);
   background: var(--suri-board-panel-muted-bg);
 }
 
+/* 현재 선택된 좌측 패널 페이지 탭. */
+.indexTabActive {
+  border-color: color-mix(in srgb, var(--suri-board-primary-hi) 74%, var(--suri-board-border));
+  color: var(--suri-board-primary-hi);
+  background: color-mix(in srgb, var(--suri-board-primary-soft) 64%, var(--suri-board-panel-surface));
+}
+
 /* 키보드 포커스가 들어왔을 때 손잡이를 강조한다. */
-.collapseToggle:focus-visible {
+.indexTab:focus-visible {
   outline: 2px solid var(--suri-board-primary-hi);
   outline-offset: 2px;
 }

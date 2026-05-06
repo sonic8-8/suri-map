@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 
 import { searchAreaTree } from '../../constants/mockSituationBoard';
-import { RightPanelSection } from './RightPanelSection';
+import { CollapsiblePanelSection } from '../leftPanel/CollapsiblePanelSection';
 import styles from './SearchAreaTree.module.css';
 
 function getStateClassName(state: string) {
@@ -17,6 +17,10 @@ function getStateClassName(state: string) {
   return styles.stateBadge;
 }
 
+function shouldShowParentState(state: string) {
+  return state !== '활성';
+}
+
 export function SearchAreaTree() {
   const [collapsedUnitIds, setCollapsedUnitIds] = useState<string[]>([]);
 
@@ -27,7 +31,7 @@ export function SearchAreaTree() {
   };
 
   return (
-    <RightPanelSection title="수색 구역 (계층)">
+    <CollapsiblePanelSection title="수색 구역 (계층)">
       <div className={styles.tree}>
         <div className={styles.rootNode}>
           <div className={styles.nodeRow}>
@@ -35,7 +39,9 @@ export function SearchAreaTree() {
               <strong className={styles.nodeName}>{searchAreaTree.name}</strong>
               <span className={styles.nodeMeta}>{searchAreaTree.meta}</span>
             </div>
-            <span className={getStateClassName(searchAreaTree.state)}>{searchAreaTree.state}</span>
+            {shouldShowParentState(searchAreaTree.state) ? (
+              <span className={getStateClassName(searchAreaTree.state)}>{searchAreaTree.state}</span>
+            ) : null}
           </div>
           <div className={styles.unitList}>
             {searchAreaTree.units.map((unit) => {
@@ -58,7 +64,9 @@ export function SearchAreaTree() {
                         <strong className={styles.nodeName}>{unit.name}</strong>
                         <span className={styles.nodeMeta}>{unit.meta}</span>
                       </span>
-                      <span className={getStateClassName(unit.state)}>{unit.state}</span>
+                      {shouldShowParentState(unit.state) ? (
+                        <span className={getStateClassName(unit.state)}>{unit.state}</span>
+                      ) : null}
                     </button>
                   ) : (
                     <div className={styles.unitStaticRow}>
@@ -67,7 +75,9 @@ export function SearchAreaTree() {
                         <strong className={styles.nodeName}>{unit.name}</strong>
                         <span className={styles.nodeMeta}>{unit.meta}</span>
                       </span>
-                      <span className={getStateClassName(unit.state)}>{unit.state}</span>
+                      {shouldShowParentState(unit.state) ? (
+                        <span className={getStateClassName(unit.state)}>{unit.state}</span>
+                      ) : null}
                     </div>
                   )}
                   {hasTeams ? (
@@ -94,6 +104,6 @@ export function SearchAreaTree() {
           </div>
         </div>
       </div>
-    </RightPanelSection>
+    </CollapsiblePanelSection>
   );
 }
