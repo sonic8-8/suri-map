@@ -75,6 +75,8 @@ if [ -z "$changed_files" ]; then
   exit 0
 fi
 
+python3 .agents/scripts/check-fixture-contract.py
+
 if printf '%s\n' "$changed_files" | grep -q '^frontend/'; then
   if [ "$FULL" = "1" ]; then
     has_npm_script typecheck && run_limited "frontend typecheck" bash -lc 'cd frontend && npm run typecheck'

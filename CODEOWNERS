@@ -21,7 +21,6 @@
 
 [Guardrails][1]
 /CODEOWNERS @chlwlstj15 @kkkks9203 @answerme0622 @namyunseo85 @eolzzang99 @seaung13
-/.gitlab-ci.yml @seaung13
 /.gitlab/merge_request_templates/ @chlwlstj15 @kkkks9203 @answerme0622 @namyunseo85 @eolzzang99 @seaung13
 /.agents/ @chlwlstj15 @kkkks9203 @answerme0622 @namyunseo85 @eolzzang99 @seaung13
 /.claude/ @chlwlstj15 @kkkks9203 @answerme0622 @namyunseo85 @eolzzang99 @seaung13

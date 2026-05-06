@@ -76,4 +76,4 @@
 
 ## 자동화 가드레일
 
-컨벤션 위반 검증은 lint, CI, CODEOWNERS, agent hook이 담당한다. hook/CI/CODEOWNERS 도입은 별도 가드레일 작업에서 진행한다.
+컨벤션 위반 검증은 로컬 lint/format/test 명령, CODEOWNERS, MR template, agent hook이 담당한다. GitLab CI는 runner가 안정화될 때까지 사용하지 않는다.
