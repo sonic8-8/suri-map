@@ -1,0 +1,22 @@
+:root {
+    /* Foreground */
+    --color-fg-primary: #1D1D1D;
+    --color-fg-secondary: #555555;
+    --color-fg-muted: #8E8E8E;
+
+    /* Background */
+    --color-bg-page: #F8F8F8;
+    --color-bg-surface: #FFFFFF;
+    --color-bg-subtle: #EDF1F5;
+
+    /* Border */
+    --color-border-default: #E4E4E4;
+    --color-border-strong: #C6C6C6;
+
+    /* Primary */
+    --color-primary: #246BEB;
+    --color-primary-hover: #1D56BC;
+    --color-primary-pressed: #144091;
+    --color-primary-soft: #EFF5FF;
+    --color-primary-soft-strong: #D3E1FB;
+}
