@@ -1,5 +1,5 @@
 import { recentMarkers } from '../../constants/mockSituationBoard';
-import { CollapsiblePanelSection } from '../leftPanel/CollapsiblePanelSection';
+import { CollapsiblePanelSection } from './CollapsiblePanelSection';
 import styles from './RecentMarkerList.module.css';
 
 function getEventTypeClassName(eventType: string) {

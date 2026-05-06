@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 
 import { searchAreaTree } from '../../constants/mockSituationBoard';
-import { CollapsiblePanelSection } from '../leftPanel/CollapsiblePanelSection';
+import { CollapsiblePanelSection } from './CollapsiblePanelSection';
 import styles from './SearchAreaTree.module.css';
 
 function getStateClassName(state: string) {

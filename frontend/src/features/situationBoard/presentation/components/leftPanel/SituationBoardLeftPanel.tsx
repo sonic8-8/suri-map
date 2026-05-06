@@ -1,51 +1,23 @@
-import { useState } from 'react';
-
+import { useLeftPanelPages } from '../../hooks/useLeftPanelPages';
 import { LayerTogglePanel } from './LayerTogglePanel';
 import { MarkerTypeFilter } from './MarkerTypeFilter';
 import { OperationalPeriodSelector } from './OperationalPeriodSelector';
+import { RecentMarkerList } from './RecentMarkerList';
+import { SearchAreaTree } from './SearchAreaTree';
 import { ViewModeSwitch } from './ViewModeSwitch';
-import { RecentMarkerList } from '../rightPanel/RecentMarkerList';
-import { SearchAreaTree } from '../rightPanel/SearchAreaTree';
 import styles from './SituationBoardLeftPanel.module.css';
-
-type LeftPanelPage = 'filter' | 'area' | 'marker';
 
 type SituationBoardLeftPanelProps = {
   isCollapsed: boolean;
   onToggleCollapsed: () => void;
 };
 
-function getIndexTabAriaLabel(page: LeftPanelPage, activePage: LeftPanelPage, isCollapsed: boolean) {
-  const labelByPage: Record<LeftPanelPage, string> = {
-    filter: '필터',
-    area: '구역',
-    marker: '마커',
-  };
-  const label = labelByPage[page];
-
-  if (activePage !== page) {
-    return `${label} 패널 보기`;
-  }
-
-  return `${label} 패널 ${isCollapsed ? '펼치기' : '접기'}`;
-}
-
 // 좌측 패널은 OP, 레이어, 마커, 보기 모드를 한 덩어리로 묶어 보여준다.
 export function SituationBoardLeftPanel({ isCollapsed, onToggleCollapsed }: SituationBoardLeftPanelProps) {
-  const [activePage, setActivePage] = useState<LeftPanelPage>('filter');
-
-  const handleIndexTabClick = (page: LeftPanelPage) => {
-    if (activePage === page) {
-      onToggleCollapsed();
-      return;
-    }
-
-    setActivePage(page);
-
-    if (isCollapsed) {
-      onToggleCollapsed();
-    }
-  };
+  const { activePage, getIndexTabAriaLabel, handleIndexTabClick } = useLeftPanelPages({
+    isCollapsed,
+    onToggleCollapsed,
+  });
 
   return (
     <aside
@@ -66,7 +38,7 @@ export function SituationBoardLeftPanel({ isCollapsed, onToggleCollapsed }: Situ
         <button
           type="button"
           className={`${styles.indexTab}${activePage === 'filter' ? ` ${styles.indexTabActive}` : ''}`}
-          aria-label={getIndexTabAriaLabel('filter', activePage, isCollapsed)}
+          aria-label={getIndexTabAriaLabel('filter')}
           aria-pressed={activePage === 'filter'}
           aria-expanded={activePage === 'filter' ? !isCollapsed : undefined}
           onClick={() => handleIndexTabClick('filter')}
@@ -76,7 +48,7 @@ export function SituationBoardLeftPanel({ isCollapsed, onToggleCollapsed }: Situ
         <button
           type="button"
           className={`${styles.indexTab}${activePage === 'area' ? ` ${styles.indexTabActive}` : ''}`}
-          aria-label={getIndexTabAriaLabel('area', activePage, isCollapsed)}
+          aria-label={getIndexTabAriaLabel('area')}
           aria-pressed={activePage === 'area'}
           aria-expanded={activePage === 'area' ? !isCollapsed : undefined}
           onClick={() => handleIndexTabClick('area')}
@@ -86,7 +58,7 @@ export function SituationBoardLeftPanel({ isCollapsed, onToggleCollapsed }: Situ
         <button
           type="button"
           className={`${styles.indexTab}${activePage === 'marker' ? ` ${styles.indexTabActive}` : ''}`}
-          aria-label={getIndexTabAriaLabel('marker', activePage, isCollapsed)}
+          aria-label={getIndexTabAriaLabel('marker')}
           aria-pressed={activePage === 'marker'}
           aria-expanded={activePage === 'marker' ? !isCollapsed : undefined}
           onClick={() => handleIndexTabClick('marker')}
