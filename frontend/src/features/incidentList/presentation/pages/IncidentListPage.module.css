@@ -1,0 +1,660 @@
+/* 페이지 전체는 body 스크롤을 열지 않고 내부 목록 영역만 스크롤한다. */
+.page {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  height: 100%;
+  overflow: hidden;
+  color: var(--suri-board-fg-primary);
+  background: var(--suri-board-page-bg);
+}
+
+/* 상황판 Header와 같은 2단 헤더 구조를 사건 목록 화면에도 맞춰 사용한다. */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  border-bottom: 0;
+  background: var(--suri-board-page-bg);
+}
+
+/* 첫 번째 헤더 줄: 뒤로가기, 화면 탭, 사용자/브랜드 메타를 배치한다. */
+.productNav {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: var(--suri-board-header-top-height);
+  flex-shrink: 0;
+  gap: 8px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--suri-board-border);
+  background: color-mix(in srgb, var(--suri-board-panel-bg) 95%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+/* 상황판으로 돌아가는 좌측 보조 네비게이션 버튼. */
+.backButton {
+  position: relative;
+  z-index: 1;
+  min-height: 40px;
+  padding: 0 90px 0 0;
+  border: 0;
+  border-right: 1px solid var(--suri-board-border);
+  border-radius: 0;
+  color: var(--suri-board-fg-primary);
+  background: transparent;
+  font-size: var(--suri-board-header-back-font-size);
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.backButton:hover {
+  color: var(--suri-board-fg-primary);
+}
+
+.backButton:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--suri-board-primary-hi) 72%, transparent);
+  outline-offset: 3px;
+}
+
+/* 상단 중앙의 화면 이동 탭 묶음. */
+.navTabs {
+  position: absolute;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  transform: translateX(-50%);
+}
+
+/* 현재 화면 탭과 상황판 이동 탭의 기본 버튼 스타일. */
+.navButton {
+  min-height: var(--suri-board-header-nav-button-height);
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--suri-board-fg-secondary);
+  background: transparent;
+  font-size: var(--suri-board-header-nav-font-size);
+  font-weight: var(--suri-board-header-nav-font-weight);
+  white-space: nowrap;
+}
+
+.navButton:hover {
+  color: var(--suri-board-fg-primary);
+  background: var(--suri-board-panel-surface);
+}
+
+.navButtonActive {
+  border-color: color-mix(in srgb, var(--suri-board-primary) 40%, transparent);
+  color: var(--suri-board-primary-hi);
+  background: var(--suri-board-primary-soft);
+}
+
+/* 우측 사용자, mock 시각, 브랜드 정보를 담는 메타 영역. */
+.meta {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--suri-board-fg-muted);
+  font-size: var(--suri-board-header-meta-font-size);
+  white-space: nowrap;
+}
+
+.meta b {
+  color: var(--suri-board-fg-primary);
+  font-weight: 700;
+}
+
+.metaDivider {
+  width: 1px;
+  height: 20px;
+  background: var(--suri-board-border);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--suri-board-fg-primary);
+  font-size: var(--suri-board-header-brand-font-size);
+  font-weight: 800;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.brand svg {
+  flex: 0 0 auto;
+  color: var(--suri-board-fg-primary);
+}
+
+.brandMark {
+  fill: var(--suri-board-primary);
+}
+
+/* 두 번째 헤더 줄: 사건 목록의 집계와 주요 액션을 보여준다. */
+.listContextBar {
+  display: flex;
+  align-items: center;
+  min-height: 64px;
+  flex-shrink: 0;
+  gap: 16px;
+  padding: 0 20px;
+  border-bottom: 1px solid #c1d6ec;
+  background:
+    linear-gradient(180deg, #b4c3d3 0%, #dae3ee 100%),
+    #c3cfdd;
+}
+
+/* 화면 제목과 LIST 아바타를 묶는 왼쪽 컨텍스트 영역. */
+.listContextMain {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.listContextTitle {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.listContextMetrics span {
+  color: var(--color-fg-muted);
+  font-size: 12px;
+}
+
+.listContextTitle strong {
+  overflow: hidden;
+  color: var(--color-fg-primary);
+  font-size: 20px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.listContextDivider {
+  width: 1px;
+  height: 32px;
+  flex: 0 0 auto;
+  background: #9fb0c2;
+}
+
+/* 전체/진행/종료 같은 사건 집계 메트릭 영역. */
+.listContextMetrics {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  min-width: 0;
+  color: var(--color-fg-secondary);
+  font-size: 14px;
+}
+
+.listContextMetrics > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.listContextMetrics strong {
+  overflow: hidden;
+  color: var(--color-fg-primary);
+  font-size: 14px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 헤더 우측 주요 액션 영역. */
+.listContextActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* 레이어 선택 버튼의 선택 상태 효과를 차용한 사건 가져오기 CTA. */
+.importButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 20px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 52%, var(--color-border-default));
+  border-radius: 8px;
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 24%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--color-primary) 12%, transparent);
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.importButton:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 64%, var(--color-border-default));
+  color: var(--color-fg-primary);
+  background: color-mix(in srgb, var(--color-primary-soft) 74%, #f8f8f8);
+}
+
+.importButton:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 42%, transparent);
+  outline-offset: 3px;
+}
+
+/* 카드 목록 위 필터와 현재 표시 범위를 담는 툴바. */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 54px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--color-border-default);
+  background: #f4f6f8;
+}
+
+/* 상태 필터 칩 묶음. */
+.filterGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* 전체/진행 중/인계 대기/종료 필터 버튼. */
+.filterChip {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 999px;
+  color: var(--color-fg-secondary);
+  background: var(--color-bg-surface);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.filterChip:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 34%, var(--color-border-default));
+  color: var(--color-fg-primary);
+}
+
+.filterChipActive {
+  border-color: color-mix(in srgb, var(--color-primary) 52%, var(--color-border-default));
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+/* 툴바와 페이지네이션에서 공통으로 쓰는 보조 수치 표시. */
+.toolbarMeta,
+.paginationSummary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  color: var(--color-fg-muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.toolbarMeta b,
+.paginationSummary b {
+  color: var(--color-fg-primary);
+}
+
+.toolbarDivider {
+  width: 1px;
+  height: 16px;
+  background: var(--color-border-default);
+}
+
+/* 카드 목록만 독립적으로 스크롤되도록 하는 본문 영역. */
+.content {
+  min-height: 0;
+  overflow: auto;
+  background: #f4f6f8;
+  scrollbar-color: var(--suri-board-left-scrollbar-thumb) var(--suri-board-left-scrollbar-track);
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+.content::-webkit-scrollbar {
+  width: 10px;
+}
+
+.content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.content::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--suri-board-left-scrollbar-thumb);
+  background-clip: content-box;
+}
+
+/* 목록 내용의 최대 폭과 상하 여백을 제한한다. */
+.contentInner {
+  display: grid;
+  gap: 16px;
+  width: min(1440px, 100%);
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* 사건 카드는 넓은 화면에서 4열 dense dashboard 그리드로 배치한다. */
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+/* 개별 사건 카드. 표 대신 반복 카드로 핵심 사건 정보를 스캔하게 한다. */
+.card {
+  display: grid;
+  gap: 14px;
+  min-height: 214px;
+  padding: 14px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 8px;
+  color: var(--color-fg-primary);
+  background: var(--color-bg-surface);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 6%);
+}
+
+.card:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 24%, var(--color-border-default));
+  background: #fafafa;
+}
+
+/* 카드 상단의 사건명/위치와 상태 배지를 양쪽에 배치한다. */
+.cardHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.cardIdentity {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+/* 사건 번호는 긴 ID가 넘치지 않도록 monospace 한 줄로 고정한다. */
+.cardId {
+  overflow: hidden;
+  color: var(--color-fg-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardTitle {
+  overflow: hidden;
+  margin: 0;
+  color: var(--color-fg-primary);
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardLocation {
+  overflow: hidden;
+  color: var(--color-fg-secondary);
+  font-size: 13px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 사건 상태 배지의 공통 골격. 색은 상태별 class에서 부여한다. */
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 62px;
+  min-height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.statusActive {
+  border-color: color-mix(in srgb, var(--suri-board-success) 38%, var(--color-border-default));
+  color: var(--suri-board-success);
+  background: color-mix(in srgb, var(--suri-board-success) 10%, #ffffff);
+}
+
+.statusWaiting {
+  border-color: color-mix(in srgb, var(--krds-ops-warning) 42%, var(--color-border-default));
+  color: #b86b00;
+  background: color-mix(in srgb, var(--krds-ops-warning) 14%, #ffffff);
+}
+
+.statusClosed {
+  border-color: color-mix(in srgb, var(--color-border-strong) 58%, var(--color-border-default));
+  color: var(--color-fg-muted);
+  background: #f8f8f8;
+}
+
+/* 카드 하단 메타 정보는 라벨/값 2열 구조로 압축한다. */
+.cardMetaGrid {
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border-default);
+}
+
+.metaRow {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.metaRow span {
+  color: var(--color-fg-muted);
+  font-size: 12px;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.metaRow strong {
+  overflow: hidden;
+  color: var(--color-fg-secondary);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 필터 결과가 없을 때 표시하는 빈 상태. */
+.emptyState {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  min-height: 320px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 8px;
+  color: var(--color-fg-muted);
+  background: var(--color-bg-surface);
+  text-align: center;
+}
+
+.emptyState strong {
+  color: var(--color-fg-primary);
+  font-size: 16px;
+}
+
+.emptyState span {
+  font-size: 13px;
+}
+
+/* offset 기반 페이지 번호를 조작하는 하단 컨트롤. */
+.paginationBar {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  min-height: 54px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 8px;
+  background: #f8f8f8;
+}
+
+.paginationControls,
+.pageNumberGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.paginationControls {
+  grid-column: 2;
+  justify-self: center;
+}
+
+.paginationSummary {
+  grid-column: 3;
+  justify-self: end;
+  text-align: right;
+}
+
+/* 이전/다음, 번호 버튼의 공통 크기와 톤. */
+.pageNumberButton,
+.paginationButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 6px;
+  color: var(--color-fg-secondary);
+  background: var(--color-bg-surface);
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.paginationButton {
+  min-width: 54px;
+}
+
+.pageNumberButton:hover,
+.paginationButton:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--color-primary) 34%, var(--color-border-default));
+  color: var(--color-fg-primary);
+}
+
+.pageNumberButtonActive {
+  border-color: color-mix(in srgb, var(--color-primary) 52%, var(--color-border-default));
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.paginationButton:disabled {
+  color: var(--color-fg-muted);
+  background: color-mix(in srgb, var(--color-bg-surface) 72%, var(--color-bg-subtle));
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+/* 데스크톱 폭이 줄어들 때 카드 열 수와 헤더 메타 노출을 조정한다. */
+@media (max-width: 1240px) {
+  .cardGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .meta {
+    display: none;
+  }
+}
+
+/* 태블릿 폭에서는 헤더 중앙 탭을 일반 흐름으로 돌리고 카드 2열로 낮춘다. */
+@media (max-width: 960px) {
+  .productNav {
+    justify-content: space-between;
+  }
+
+  .backButton {
+    padding-right: 20px;
+  }
+
+  .navTabs {
+    position: static;
+    transform: none;
+  }
+
+  .listContextMetrics {
+    display: none;
+  }
+
+  .toolbar,
+  .paginationBar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .toolbarMeta,
+  .paginationSummary,
+  .paginationControls {
+    margin-left: 0;
+  }
+
+  .cardGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* 모바일 폭에서는 카드 1열과 wrap 가능한 조작 영역으로 전환한다. */
+@media (max-width: 640px) {
+  .contentInner {
+    padding: 12px;
+  }
+
+  .filterGroup,
+  .paginationControls {
+    flex-wrap: wrap;
+  }
+
+  .cardGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .listContextBar {
+    gap: 10px;
+    padding: 10px 12px;
+  }
+
+  .listContextDivider,
+  .listContextActions {
+    display: none;
+  }
+}

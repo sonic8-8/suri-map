@@ -1,5 +1,9 @@
 import styles from './SituationBoardHeader.module.css';
 
+type SituationBoardHeaderProps = {
+  onOpenIncidentList: () => void;
+};
+
 const productNavigationLabels = [
   '상황판',
   'OP 비교',
@@ -9,13 +13,13 @@ const productNavigationLabels = [
 ];
 
 // 헤더는 상단 화면 이동, 사건 요약, 현재 운용 상태를 한 줄기로 묶는다.
-export function SituationBoardHeader() {
+export function SituationBoardHeader({ onOpenIncidentList }: SituationBoardHeaderProps) {
   return (
     <header className={styles.header}>
       {/* 상단 화면 이동과 브랜드/메타 정보를 담는 첫 번째 줄. */}
       <nav className={styles.productNav} aria-label="Suri-Map 주요 화면">
         {/* 사건 목록으로 돌아가는 보조 네비게이션. */}
-        <button type="button" className={styles.backButton}>
+        <button type="button" className={styles.backButton} onClick={onOpenIncidentList}>
           ← 사건 목록
         </button>
         {/* 현재 화면과 관련 화면을 가로 탭처럼 보여준다. */}
