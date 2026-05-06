@@ -6,6 +6,6 @@ import androidx.room.RoomDatabase
 @Database(
     entities = [OutboxEntity::class],
     version = 1,
-    exportSchema = false,
+    exportSchema = false
 )
 abstract class SuriMapDatabase : RoomDatabase()

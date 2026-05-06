@@ -72,8 +72,8 @@
 
 ## Git / Jira / MR
 
-브랜치, 커밋 메시지(`[Area] type(scope): 한글 요약 (<JIRA-KEY>)`), MR 제목·설명, area tag, scope 목록은 `docs/tasks/index.md`를 따른다.
+브랜치, 커밋 메시지(`[Area] type[(scope)]: 한글 요약 (<JIRA-KEY>)` 또는 area 생략형), MR 제목·설명, area tag, scope 목록은 `docs/tasks/index.md`를 따른다.
 
 ## 자동화 가드레일
 
-컨벤션 위반 검증은 lint, CI, CODEOWNERS, agent hook이 담당한다. hook/CI/CODEOWNERS 도입은 별도 가드레일 작업에서 진행한다.
+컨벤션 위반 검증은 로컬 lint/format/test 명령, CODEOWNERS, MR template, agent hook이 담당한다. GitLab CI는 runner가 안정화될 때까지 사용하지 않는다.
