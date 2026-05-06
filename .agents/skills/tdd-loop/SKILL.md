@@ -16,7 +16,7 @@ Use this skill when a Suri-Map implementation, guardrail, or documentation task 
 5. Read only the relevant source-of-truth docs from root `AGENTS.md`.
 6. Before edits, state the intended file set and why it is in scope.
 
-For Jira, branch, MR, label, milestone, assignee, and reviewer operations, follow `.agents/workflows/jira-gitlab-flow.md`.
+For Jira ticket creation and branch setup, use `ticket-branch` when available. For commit, push, and MR creation, use `commit-mr` when available. `.agents/workflows/jira-gitlab-flow.md` is the policy fallback for fields those skills cannot set automatically.
 
 ## Loop
 

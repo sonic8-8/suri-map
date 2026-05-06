@@ -32,14 +32,23 @@ DESC_FILE=""
 LABEL=""
 ASSIGNEE="@me"
 
+require_value() {
+  local opt="$1"
+  local value="${2-}"
+  if [[ -z "$value" || "$value" == --* ]]; then
+    echo "missing value for $opt" >&2
+    exit 64
+  fi
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --source)    SOURCE="$2"; shift 2 ;;
-    --target)    TARGET="$2"; shift 2 ;;
-    --title)     TITLE="$2"; shift 2 ;;
-    --desc-file) DESC_FILE="$2"; shift 2 ;;
-    --label)     LABEL="$2"; shift 2 ;;
-    --assignee)  ASSIGNEE="$2"; shift 2 ;;
+    --source)    require_value "$1" "${2-}"; SOURCE="$2"; shift 2 ;;
+    --target)    require_value "$1" "${2-}"; TARGET="$2"; shift 2 ;;
+    --title)     require_value "$1" "${2-}"; TITLE="$2"; shift 2 ;;
+    --desc-file) require_value "$1" "${2-}"; DESC_FILE="$2"; shift 2 ;;
+    --label)     require_value "$1" "${2-}"; LABEL="$2"; shift 2 ;;
+    --assignee)  require_value "$1" "${2-}"; ASSIGNEE="$2"; shift 2 ;;
     *) echo "unknown arg: $1" >&2; exit 1 ;;
   esac
 done
@@ -55,6 +64,27 @@ if [[ ! -f "$DESC_FILE" ]]; then
 fi
 
 DESCRIPTION=$(cat "$DESC_FILE")
+
+# 재시도 안전장치: 같은 source/target의 열린 MR이 이미 있으면 새 MR을 만들지 않는다.
+EXISTING_JSON=$(glab mr list \
+  --source-branch "$SOURCE" \
+  --target-branch "$TARGET" \
+  --output json \
+  --per-page 1 2>/dev/null || true)
+EXISTING_URL=$(printf '%s' "$EXISTING_JSON" | python3 -c '
+import json, sys
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    data = []
+if isinstance(data, list) and data:
+    mr = data[0]
+    print(mr.get("web_url") or mr.get("webUrl") or mr.get("url") or "")
+')
+if [[ -n "$EXISTING_URL" ]]; then
+  printf '%s\n' "$EXISTING_URL"
+  exit 0
+fi
 
 # --label 콤마 split → 각각 별도 --label 플래그 배열로 변환
 LABEL_ARGS=()

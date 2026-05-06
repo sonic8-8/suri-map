@@ -19,6 +19,8 @@ Thumbs.db
 !.codex/hooks.json
 !.codex/hooks/
 !.codex/hooks/**
+.agents/scratch/
+.claude/scratch/
 .claude/settings.local.json
 
 # Logs

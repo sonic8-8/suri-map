@@ -4,13 +4,18 @@
 
 ## 기준 문서
 
-- `spec/boundaries.md`
-- `spec/harness-scenarios.md`
-- `spec/specs/*.json`
+계약 충돌은 관심사별 단일 출처를 따른다. 이 문서는 Lane/Phase, branch, commit, MR, task 체크 기준을 다루며 API/DB 계약을 재정의하지 않는다.
 
-Lane task 정합성의 1차 기준은 위 3개 spec 문서다. `prd.md`, `architecture.md`, `adr.md`는 배경 문서로 참고하되, tasks를 확정할 때 public API, event, entity, error, annotation, board slot, SC red test, fixture 값은 `spec/boundaries.md`, `spec/harness-scenarios.md`, `spec/specs/*.json`를 우선한다.
+| 관심사 | 우선 기준 |
+|---|---|
+| Public HTTP URL, request/response, error | `docs/api/api-spec.md` |
+| Spec/Lane 소유권, entity/event/slot, channel/role matrix | `docs/spec/boundaries.md` |
+| 하네스 SC, fixture ID, e2e red test | `docs/spec/harness-scenarios.md` |
+| Spec별 owns/provides/consumes 실행 계약 | `docs/spec/specs/*.json` |
+| DB 엔티티·관계·컬럼 의미 | `docs/db-design/db-design-readable.md` |
+| Lane/Phase, 브랜치, 커밋, MR 규칙 | `docs/tasks/index.md` |
 
-과거 단일 마스터 초안과 파생 뷰/노트는 혼선을 줄이기 위해 제거했다. 기준 문서에 없는 public API, event, entity, error, annotation, board slot은 task로 만들지 않는다. 기준 문서 수정이 필요하면 먼저 보고한다.
+`prd.md`, `architecture.md`, `adr.md`는 배경 문서로 참고한다. 기준 문서에 없는 public API, event, entity, error, annotation, board slot은 task로 만들지 않는다. 기준 문서 수정이 필요하면 먼저 보고한다.
 
 ## 운영 보조 문서
 
@@ -86,6 +91,8 @@ Jira/GitLab 작업 도구는 `acli`와 `glab`을 전제로 한다. 이 문서는
 ## 브랜치 규칙
 
 Git Flow branch prefix를 사용한다.
+
+일반 개발 task는 `develop`을 base branch와 MR target으로 사용한다. 릴리즈 branch와 운영 hotfix는 해당 릴리즈/운영 기준 branch를 명시한 뒤 진행한다.
 
 | 목적 | 형식 | 예시 |
 |---|---|---|

@@ -21,13 +21,22 @@ SUMMARY=""
 DESC_FILE=""
 ASSIGNEE="@me"
 
+require_value() {
+  local opt="$1"
+  local value="${2-}"
+  if [[ -z "$value" || "$value" == --* ]]; then
+    echo "missing value for $opt" >&2
+    exit 64
+  fi
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --project)   PROJECT="$2"; shift 2 ;;
-    --type)      TYPE="$2"; shift 2 ;;
-    --summary)   SUMMARY="$2"; shift 2 ;;
-    --desc-file) DESC_FILE="$2"; shift 2 ;;
-    --assignee)  ASSIGNEE="$2"; shift 2 ;;
+    --project)   require_value "$1" "${2-}"; PROJECT="$2"; shift 2 ;;
+    --type)      require_value "$1" "${2-}"; TYPE="$2"; shift 2 ;;
+    --summary)   require_value "$1" "${2-}"; SUMMARY="$2"; shift 2 ;;
+    --desc-file) require_value "$1" "${2-}"; DESC_FILE="$2"; shift 2 ;;
+    --assignee)  require_value "$1" "${2-}"; ASSIGNEE="$2"; shift 2 ;;
     *) echo "unknown arg: $1" >&2; exit 1 ;;
   esac
 done
@@ -64,9 +73,11 @@ try:
 except Exception as e:
     sys.stderr.write(f"json parse failed: {e}\n")
     sys.exit(2)
-') || {
+') || KEY=""
+
+if [[ -z "$KEY" ]]; then
   # fallback: search 로 가장 최근 발급한 티켓 조회
-  echo "primary key parse failed, falling back to search..." >&2
+  echo "primary key parse returned empty, falling back to search..." >&2
   SEARCH_RESPONSE=$(acli jira workitem search \
     --jql "project = $PROJECT AND summary ~ \"$SUMMARY\" ORDER BY created DESC" \
     --limit 1 --json 2>&1) || {
@@ -75,7 +86,7 @@ except Exception as e:
       exit 1
     }
   KEY=$(printf '%s' "$SEARCH_RESPONSE" | grep -m1 -oE '"key":\s*"'"$PROJECT"'-[0-9]+"' | grep -oE "$PROJECT-[0-9]+" || true)
-}
+fi
 
 if [[ -z "$KEY" ]]; then
   echo "could not parse issue key" >&2
