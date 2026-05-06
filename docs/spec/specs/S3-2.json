@@ -2,7 +2,7 @@
   "$schema": "../_template.schema.json",
   "spec_info": {
     "id": "S3-2",
-    "name": "Situation Board Shell & Projection",
+    "name": "Situation Board Shell & API Assembly",
     "owner": "6",
     "character": "domain_plus_foundation",
     "created": "2026-04-28",
@@ -16,12 +16,12 @@
       "§5.1 시범 시나리오 11 인수인계 / 다음 투입 구역 판단",
       "§5.1 시범 시나리오 12 사건 종료"
     ],
-      "architecture": [
-        "§1.2 상위 컴포넌트: Web 상황판 + MapLibre GL JS + SSE",
-        "§4 Web 상황판 아키텍처",
-        "§4.2 기술 스택",
-        "§4.3 데이터 흐름"
-      ],
+    "architecture": [
+      "§1.2 상위 컴포넌트: Web 상황판 + MapLibre GL JS + SSE",
+      "§4 Web 상황판 아키텍처",
+      "§4.2 기술 스택",
+      "§4.3 데이터 흐름"
+    ],
     "adr": [
       "ADR-0004",
       "ADR-0005",
@@ -36,12 +36,12 @@
       "SC-02 실종팀 인계·지원 부대 배정",
       "SC-03 사건 오프라인 패키지 사전 적재",
       "SC-04 지도 기준 범위·구역 분할·할당",
-      "SC-05 수색 세션·Device GPS 경로",
+      "SC-05 수색 경로·PolicePhone GPS 경로",
       "SC-06 현장 마커 생성",
       "SC-08 지원 요청·실종자 발견 알림",
       "SC-09 통신 복구·동기화",
       "SC-10 구역 완료·새 OP 열기",
-      "SC-11 인수인계·OP 비교·AI 요약",
+      "SC-11 인수인계·OP 비교·수색 이력 요약",
       "SC-12 사건 종료·캐시 파기"
     ]
   },
@@ -49,8 +49,8 @@
     "included": [
       "웹 상황판 route, layout, MapLibre root, shared state wiring",
       "board shell slot registry와 slot mounting/final merge",
-      "board projection 및 snapshot read model",
-      "SSE 수신 이벤트의 eventId dedupe, stale event 방어, snapshot convergence 처리",
+      "board API assembly 및 board response DTO",
+      "SSE 수신 이벤트의 eventId dedupe, stale event 방어, board response convergence 처리",
       "OP 비교 화면과 OP별 레이어 토글",
       "단말 최신성 색·외곽선·라벨 인코딩",
       "오프라인 패키지 미완료 경고 badge slot",
@@ -61,12 +61,12 @@
       {
         "item": "도메인 write API와 도메인 row 생성·수정",
         "owner": "S1-1/S2/S3-1/S5/S7/S8",
-        "reason": "S3-2는 상황판 shell/projection/read model owner이며 source-of-truth domain write를 소유하지 않는다."
+        "reason": "S3-2는 상황판 shell/API assembly owner이며 source-of-truth domain write를 소유하지 않는다."
       },
       {
         "item": "SSE endpoint, Last-Event-ID replay log, event fanout orchestration",
         "owner": "S4",
-        "reason": "S3-2는 S4 stream을 소비하고 projector trigger 이후 projection 적용만 소유한다."
+        "reason": "S3-2는 S4 stream을 소비하고 refetch trigger 이후 API assembly 적용만 소유한다."
       },
       {
         "item": "타일 서버, manifest/status 저장",
@@ -89,32 +89,32 @@
     {
       "id": "FR-04",
       "summary": "경로와 주요 변경사항을 상황판에 실시간 반영한다.",
-      "handling": "S4 SSE stream과 BoardSnapshotProjector를 소비해 path/marker/area/op/package/device freshness slot을 수렴시킨다."
+      "handling": "S4 SSE stream과 BoardAssembler를 소비해 path/marker/area/op/package/PolicePhone freshness slot을 수렴시킨다."
     },
     {
       "id": "FR-05",
       "summary": "지도 기준 범위와 수색 범위를 상황판에 표시한다.",
-      "handling": "S2 MapBoundaryQuery와 AreaQuery 결과를 read-only slot으로 렌더링한다."
+      "handling": "S2 SearchAreaQuery와 SearchAreaQuery 결과를 read-only slot으로 렌더링한다."
     },
     {
       "id": "FR-07",
       "summary": "구역 상태를 표시한다.",
-      "handling": "AREA_STATE_CHANGED와 snapshot area row를 반영하되 구역 완료 write는 S2 소유로 둔다."
+      "handling": "SEARCH_AREA_CHANGED와 board response area row를 반영하되 구역 완료 write는 S2 소유로 둔다."
     },
     {
       "id": "FR-08",
       "summary": "팀·단말별 수색 현황을 한눈에 구분한다.",
-      "handling": "membership/device/team metadata를 board style registry에 매핑해 source row 변경 없이 표현 계층에서만 적용한다."
+      "handling": "incident_assignment/search_area_assignment/team metadata를 board style registry에 매핑해 source row 변경 없이 표현 계층에서만 적용한다."
     },
     {
       "id": "FR-09",
       "summary": "최신 수색 현황의 기록 시각을 확인할 수 있게 표시한다.",
-      "handling": "path/search session record time, device record status, lastHeartbeatAt/lastSyncAt 경과를 board snapshot에 표시한다. OP/팀/마커/구간 필터는 FR-09 원의미가 아니라 display-only UX로만 둔다."
+      "handling": "search path record time, PolicePhone record status, lastHeartbeatAt/lastSyncAt 경과를 board API에 표시한다. OP/팀/마커/구간 필터는 FR-09 원의미가 아니라 display-only UX로만 둔다."
     },
     {
       "id": "FR-11",
       "summary": "OP별 레이어를 선택하고 이전 OP와 현재 OP를 비교한다.",
-      "handling": "S8 OP/assignment/handover, S3-1 path/segment, S5 marker source를 opId 기준으로 병합해 선택된 OP만 표시하고 source row는 변경하지 않는다."
+      "handling": "S8 OP/duty shift/handover, S3-1 path/segment, S5 marker source를 opId 기준으로 병합해 선택된 OP만 표시하고 source row는 변경하지 않는다."
     },
     {
       "id": "FR-16",
@@ -124,12 +124,12 @@
     {
       "id": "FR-18",
       "summary": "분산된 수색 정보를 공용 상황판 한 화면에서 정리해 본다.",
-      "handling": "team/device, path, area, marker, missing person, package, OP slots를 BoardAssembler에서 병합한다. toast slot은 FR-10/FR-17 및 알림 NFR의 표현 요소로만 취급한다."
+      "handling": "team/PolicePhone, path, area, marker, missing person, package, OP slots를 BoardAssembler에서 병합한다. toast slot은 FR-10/FR-17 및 알림 NFR의 표현 요소로만 취급한다."
     },
     {
       "id": "FR-19",
       "summary": "오프라인 지도 준비 상태를 상황판에서 확인한다.",
-      "handling": "S7 PackageStatusQuery와 PACKAGE_STATUS_CHANGED를 package_badge slot으로 표시한다."
+      "handling": "S7 OfflinePackageInstallationQuery와 OFFLINE_PACKAGE_INSTALLATION_CHANGED를 package_badge slot으로 표시한다."
     },
     {
       "id": "FR-23",
@@ -139,12 +139,12 @@
     {
       "id": "FR-24",
       "summary": "단말 최신성을 표시한다.",
-      "handling": "S1-2 DeviceFreshnessQuery의 lastHeartbeatAt/lastSyncAt 경과를 normal/stale/lost와 elapsed label로 인코딩한다."
+      "handling": "S1-2 PolicePhoneFreshnessQuery의 lastHeartbeatAt/lastSyncAt 경과를 normal/stale/lost와 elapsed label로 인코딩한다."
     },
     {
       "id": "FR-25",
-      "summary": "운용 중 Device 궤도를 강조한다.",
-      "handling": "현재 세션 deviceId와 선택 deviceId를 기준으로 path slot style을 강조한다."
+      "summary": "운용 중 PolicePhone 궤도를 강조한다.",
+      "handling": "현재 세션 policePhoneId와 선택 policePhoneId를 기준으로 path slot style을 강조한다."
     },
     {
       "id": "FR-26",
@@ -154,12 +154,12 @@
     {
       "id": "FR-27",
       "summary": "초기 뷰포트를 최적화한다.",
-      "handling": "map_boundary, 최근 활동 위치, 기본 지역 순으로 viewport fallback을 적용한다."
+      "handling": "overall_search_area, 최근 활동 위치, 기본 지역 순으로 viewport 대체 순서을 적용한다."
     },
     {
       "id": "FR-35",
       "summary": "순찰차 경로 레이어를 표시한다.",
-      "handling": "S3-1 path와 S1-2 device type을 결합해 patrol car layer style을 분리한다."
+      "handling": "S3-1 path와 S1-2 PolicePhone type을 결합해 patrol car layer style을 분리한다."
     },
     {
       "id": "FR-37",
@@ -168,366 +168,21 @@
     },
     {
       "id": "FR-39",
-      "summary": "AI 수색 이력 요약을 표시한다.",
-      "handling": "S8 AiSummaryQuery 결과를 ai_summary slot에 표시하며 누락 확정·다음 구역 지시 문구를 차단한다."
+      "summary": "수색 이력 요약을 표시한다.",
+      "handling": "S8 SearchHistorySummaryQuery 결과를 search_history_summary slot에 표시하며 누락 확정·다음 구역 지시 문구를 차단한다."
     }
   ],
   "domain_model": {
-    "entities": [
-      {
-        "name": "board_snapshot",
-        "owner_spec": "S3-2",
-        "description": "상황판 조회용 materialized read model. Source domain row를 복제한 projection이며 authoritative write source가 아니다.",
-        "fields": [
-          {
-            "name": "incident_id",
-            "type": "UUID",
-            "nullable": false,
-            "pk": true
-          },
-          {
-            "name": "snapshot_version",
-            "type": "BIGINT",
-            "nullable": false
-          },
-          {
-            "name": "latest_event_id",
-            "type": "UUID",
-            "nullable": true
-          },
-          {
-            "name": "latest_event_server_ts",
-            "type": "TIMESTAMPTZ",
-            "nullable": true
-          },
-          {
-            "name": "active_op_id",
-            "type": "UUID",
-            "nullable": true
-          },
-          {
-            "name": "payload",
-            "type": "JSONB",
-            "nullable": false,
-            "note": "BoardDTO serialized by board.schema.json"
-          },
-          {
-            "name": "geometry_hash",
-            "type": "VARCHAR(128)",
-            "nullable": true
-          },
-          {
-            "name": "source_versions",
-            "type": "JSONB",
-            "nullable": false,
-            "note": "Per §9.2 slot row latest id/status/version/sequence/sourceSpec/sourceHash/latestEventId used to compare REST response, SSE payload, and board snapshot row."
-          },
-          {
-            "name": "source_hashes",
-            "type": "JSONB",
-            "nullable": false,
-            "note": "Per §9.2 slot row canonical source hash and geometry hash used by convergence and OP comparison immutability tests."
-          },
-          {
-            "name": "projected_at",
-            "type": "TIMESTAMPTZ",
-            "nullable": false
-          }
-        ],
-        "indexes": [
-          {
-            "name": "idx_board_snapshot_latest_event",
-            "columns": [
-              "latest_event_id"
-            ]
-          },
-          {
-            "name": "idx_board_snapshot_projected_at",
-            "columns": [
-              "projected_at"
-            ]
-          }
-        ],
-        "spatial": {
-          "enabled": false,
-          "type": "POINT",
-          "srid": 4326
-        },
-        "visibility": "internal read-model",
-        "entity_kind": "projection/read-model, not source-of-truth domain entity",
-        "public_contract": "exposed only through BoardDTO snapshot; direct table contract is internal to S3-2 projector"
-      },
-      {
-        "name": "board_event_application",
-        "owner_spec": "S3-2",
-        "description": "Projector idempotency ledger. eventId 중복 적용과 slot/source/entity별 stale event 회귀를 방지한다.",
-        "fields": [
-          {
-            "name": "event_id",
-            "type": "UUID",
-            "nullable": false,
-            "pk": true
-          },
-          {
-            "name": "incident_id",
-            "type": "UUID",
-            "nullable": false
-          },
-          {
-            "name": "event_type",
-            "type": "VARCHAR(64)",
-            "nullable": false
-          },
-          {
-            "name": "slot",
-            "type": "VARCHAR(64)",
-            "nullable": false,
-            "note": "spec/boundaries.md §9.2 slot name. Unknown slot is rejected before projection."
-          },
-          {
-            "name": "source_spec",
-            "type": "VARCHAR(16)",
-            "nullable": false,
-            "note": "Owner spec of the projected row, e.g. S2, S3-1, S5, S8."
-          },
-          {
-            "name": "entity_id",
-            "type": "UUID",
-            "nullable": true
-          },
-          {
-            "name": "entity_status",
-            "type": "VARCHAR(64)",
-            "nullable": true
-          },
-          {
-            "name": "entity_version",
-            "type": "BIGINT",
-            "nullable": true
-          },
-          {
-            "name": "sequence",
-            "type": "BIGINT",
-            "nullable": true
-          },
-          {
-            "name": "source_hash",
-            "type": "VARCHAR(128)",
-            "nullable": true,
-            "note": "Canonical hash of the event source row used to guard stale overwrite across slot/source rows."
-          },
-          {
-            "name": "apply_status",
-            "type": "VARCHAR(32)",
-            "nullable": false,
-            "note": "APPLIED|DUPLICATE|STALE|SNAPSHOT_REQUIRED|FAILED_RETRYABLE"
-          },
-          {
-            "name": "server_ts",
-            "type": "TIMESTAMPTZ",
-            "nullable": false
-          },
-          {
-            "name": "applied_at",
-            "type": "TIMESTAMPTZ",
-            "nullable": false
-          }
-        ],
-        "indexes": [
-          {
-            "name": "idx_board_event_application_incident",
-            "columns": [
-              "incident_id",
-              "server_ts"
-            ]
-          },
-          {
-            "name": "idx_board_event_application_entity",
-            "columns": [
-              "incident_id",
-              "slot",
-              "source_spec",
-              "entity_id",
-              "entity_status",
-              "entity_version",
-              "sequence"
-            ]
-          },
-          {
-            "name": "idx_board_event_application_source_hash",
-            "columns": [
-              "incident_id",
-              "slot",
-              "source_spec",
-              "source_hash"
-            ]
-          }
-        ],
-        "spatial": {
-          "enabled": false,
-          "type": "POINT",
-          "srid": 4326
-        },
-        "visibility": "internal read-model",
-        "entity_kind": "projection/read-model, not source-of-truth domain entity",
-        "public_contract": "exposed only through BoardDTO snapshot; direct table contract is internal to S3-2 projector"
-      },
-      {
-        "name": "board_projection_cursor",
-        "owner_spec": "S3-2",
-        "description": "S4 event stream 처리 위치와 snapshot 재조회 필요 상태를 저장한다.",
-        "fields": [
-          {
-            "name": "incident_id",
-            "type": "UUID",
-            "nullable": false,
-            "pk": true
-          },
-          {
-            "name": "last_applied_event_id",
-            "type": "UUID",
-            "nullable": true
-          },
-          {
-            "name": "last_applied_server_ts",
-            "type": "TIMESTAMPTZ",
-            "nullable": true
-          },
-          {
-            "name": "needs_snapshot_reload",
-            "type": "BOOLEAN",
-            "nullable": false
-          },
-          {
-            "name": "reload_reason",
-            "type": "VARCHAR(64)",
-            "nullable": true
-          },
-          {
-            "name": "updated_at",
-            "type": "TIMESTAMPTZ",
-            "nullable": false
-          }
-        ],
-        "indexes": [
-          {
-            "name": "idx_board_projection_cursor_reload",
-            "columns": [
-              "needs_snapshot_reload"
-            ]
-          }
-        ],
-        "spatial": {
-          "enabled": false,
-          "type": "POINT",
-          "srid": 4326
-        },
-        "visibility": "internal read-model",
-        "entity_kind": "projection/read-model, not source-of-truth domain entity",
-        "public_contract": "exposed only through BoardDTO snapshot; direct table contract is internal to S3-2 projector"
-      }
-    ],
-    "state_machines": [
-      {
-        "entity": "board_event_application",
-        "field": "apply_status",
-        "states": [
-          "APPLIED",
-          "DUPLICATE",
-          "STALE",
-          "SNAPSHOT_REQUIRED",
-          "FAILED_RETRYABLE"
-        ],
-        "transitions": [
-          {
-            "from": "FAILED_RETRYABLE",
-            "to": "APPLIED",
-            "trigger": "projector retry succeeds",
-            "guard": "eventId not already applied and slot/sourceSpec/entityId/status/version/sequence/sourceHash is equal to or newer than the current slot row"
-          },
-          {
-            "from": "FAILED_RETRYABLE",
-            "to": "SNAPSHOT_REQUIRED",
-            "trigger": "event gap or stale replay cannot be repaired incrementally",
-            "guard": "S4 returned gone_snapshot_required or projector detects missing predecessor"
-          }
-        ]
-      },
-      {
-        "entity": "board_event_application",
-        "field": "slot_source_entity_cursor",
-        "states": [
-          "CURRENT",
-          "STALE_REJECTED"
-        ],
-        "transitions": [
-          {
-            "from": "CURRENT",
-            "to": "CURRENT",
-            "trigger": "event source row is newer for the same slot/sourceSpec/entityId/status cursor",
-            "guard": "Apply only when version is greater than the stored row version, or version is equal and sequence is greater than the stored row sequence. sourceHash must match the canonical source row for that id/status/version/sequence."
-          },
-          {
-            "from": "CURRENT",
-            "to": "STALE_REJECTED",
-            "trigger": "event is older than the current slot row",
-            "guard": "A stale event for one slot/source/entityId/status/version/sequence/sourceHash must not overwrite another slot row or another sourceSpec row."
-          }
-        ]
-      },
-      {
-        "entity": "board_projection_cursor",
-        "field": "needs_snapshot_reload",
-        "states": [
-          "STREAMING",
-          "SNAPSHOT_REQUIRED",
-          "RELOADING",
-          "FAILED_RETRYABLE"
-        ],
-        "transitions": [
-          {
-            "from": "STREAMING",
-            "to": "SNAPSHOT_REQUIRED",
-            "trigger": "S4 returns gone_snapshot_required, projector detects replay gap, or board_event_application reaches SNAPSHOT_REQUIRED",
-            "guard": "Set needs_snapshot_reload=true and reload_reason=GONE_SNAPSHOT_REQUIRED|REPLAY_GAP|MISSING_PREDECESSOR without advancing last_applied_event_id."
-          },
-          {
-            "from": "SNAPSHOT_REQUIRED",
-            "to": "RELOADING",
-            "trigger": "BoardAssembler reload starts from GET /incidents/{incidentId}/board/snapshot",
-            "guard": "Keep needs_snapshot_reload=true until snapshotVersion and every row-level slot cursor are rebuilt from source contracts."
-          },
-          {
-            "from": "RELOADING",
-            "to": "STREAMING",
-            "trigger": "snapshot reload succeeds and BoardDTO row-level cursors converge",
-            "guard": "Set needs_snapshot_reload=false, reload_reason=null, last_applied_event_id to the latest applied/reloaded event cursor, and last_applied_server_ts to the latest projected server timestamp."
-          },
-          {
-            "from": "RELOADING",
-            "to": "FAILED_RETRYABLE",
-            "trigger": "snapshot reload fails",
-            "guard": "Keep needs_snapshot_reload=true, preserve last_applied_event_id/last_applied_server_ts, set reload_reason=RELOAD_FAILED, and expose retryable reconnect state."
-          },
-          {
-            "from": "FAILED_RETRYABLE",
-            "to": "RELOADING",
-            "trigger": "reload retry starts",
-            "guard": "Retry must not apply buffered stale events before snapshot reload succeeds."
-          }
-        ]
-      }
-    ],
-    "flyway_migrations": [
-      "V20260428_632__create_board_snapshot_read_model.sql"
-    ]
+    "entities": [],
+    "state_machines": [],
+    "flyway_migrations": []
   },
   "api_contracts": {
     "provided": [
       {
         "method": "GET",
-        "path": "/incidents/{incidentId}/board/snapshot",
-        "summary": "상황판 shell 초기 렌더와 SSE 복구용 snapshot read model 조회",
+        "path": "/incidents/{incidentId}/board",
+        "summary": "상황판 shell 초기 렌더와 SSE 복구용 source query assembly",
         "auth": "@RequireChannel(WEB), @RequireIncidentAccess, @RecordLocationAccess",
         "idempotent": true,
         "required_headers": [
@@ -559,7 +214,7 @@
             "type": "object",
             "required": [
               "incidentId",
-              "snapshotVersion",
+              "boardResponseVersion",
               "serverTs",
               "slots",
               "sourceVersions",
@@ -571,7 +226,7 @@
                 "type": "string",
                 "format": "uuid"
               },
-              "snapshotVersion": {
+              "boardResponseVersion": {
                 "type": "integer"
               },
               "serverTs": {
@@ -592,10 +247,10 @@
               "slots": {
                 "type": "object",
                 "required": [
-                  "map_boundary",
+                  "overall_search_area",
                   "area",
                   "path",
-                  "device_freshness",
+                  "police_phone_freshness",
                   "marker",
                   "toast",
                   "package_badge",
@@ -603,12 +258,12 @@
                   "op_history",
                   "handover_memo",
                   "handover_status",
-                  "ai_summary",
+                  "search_history_summary",
                   "incident_terminal"
                 ],
                 "additionalProperties": false,
                 "properties": {
-                  "map_boundary": {
+                  "overall_search_area": {
                     "type": "object",
                     "required": [
                       "id",
@@ -731,7 +386,7 @@
                         "sourceHash",
                         "latestEventId",
                         "opId",
-                        "deviceId",
+                        "policePhoneId",
                         "geometry",
                         "geometryHash"
                       ],
@@ -768,7 +423,7 @@
                           "type": "string",
                           "format": "uuid"
                         },
-                        "deviceId": {
+                        "policePhoneId": {
                           "type": "string",
                           "format": "uuid"
                         },
@@ -782,7 +437,7 @@
                       }
                     }
                   },
-                  "device_freshness": {
+                  "police_phone_freshness": {
                     "type": "array",
                     "items": {
                       "type": "object",
@@ -794,7 +449,7 @@
                         "sourceSpec",
                         "sourceHash",
                         "latestEventId",
-                        "deviceId",
+                        "policePhoneId",
                         "freshness",
                         "lastHeartbeatAt",
                         "lastSyncAt",
@@ -829,7 +484,7 @@
                           "type": "string",
                           "format": "uuid"
                         },
-                        "deviceId": {
+                        "policePhoneId": {
                           "type": "string",
                           "format": "uuid"
                         },
@@ -980,7 +635,7 @@
                         "sourceSpec",
                         "sourceHash",
                         "latestEventId",
-                        "deviceId"
+                        "policePhoneId"
                       ],
                       "properties": {
                         "id": {
@@ -1011,7 +666,7 @@
                           "type": "string",
                           "format": "uuid"
                         },
-                        "deviceId": {
+                        "policePhoneId": {
                           "type": "string",
                           "format": "uuid"
                         }
@@ -1200,7 +855,7 @@
                       }
                     }
                   },
-                  "ai_summary": {
+                  "search_history_summary": {
                     "type": "array",
                     "items": {
                       "type": "object",
@@ -1330,7 +985,7 @@
                           "null"
                         ],
                         "format": "date-time",
-                        "description": "null for OPEN/not_closed snapshots; required non-null only when terminalStatus is CLOSED, PURGE_PENDING, or PURGED."
+                        "description": "null for OPEN/not_closed board responses; required non-null only when terminalStatus is CLOSED, PURGE_PENDING, or PURGED."
                       },
                       "writeDisabledReason": {
                         "type": "string",
@@ -1356,12 +1011,12 @@
               },
               "sourceVersions": {
                 "type": "object",
-                "description": "Per slot arrays keyed by §9.2 slot name. Each row mirrors the slot row cursor so REST response id/status/version can be compared with SSE payload and board snapshot row.",
+                "description": "Per slot arrays keyed by §9.2 slot name. Each row mirrors the slot row cursor so REST response id/status/version can be compared with SSE payload and board API row.",
                 "required": [
-                  "map_boundary",
+                  "overall_search_area",
                   "area",
                   "path",
-                  "device_freshness",
+                  "police_phone_freshness",
                   "marker",
                   "toast",
                   "package_badge",
@@ -1369,15 +1024,15 @@
                   "op_history",
                   "handover_memo",
                   "handover_status",
-                  "ai_summary",
+                  "search_history_summary",
                   "incident_terminal"
                 ],
                 "propertyNames": {
                   "enum": [
-                    "map_boundary",
+                    "overall_search_area",
                     "area",
                     "path",
-                    "device_freshness",
+                    "police_phone_freshness",
                     "marker",
                     "toast",
                     "package_badge",
@@ -1385,7 +1040,7 @@
                     "op_history",
                     "handover_memo",
                     "handover_status",
-                    "ai_summary",
+                    "search_history_summary",
                     "incident_terminal"
                   ]
                 },
@@ -1440,10 +1095,10 @@
                 "type": "object",
                 "description": "Per slot arrays keyed by §9.2 slot name. Hashes are row-level, not aggregate-only.",
                 "required": [
-                  "map_boundary",
+                  "overall_search_area",
                   "area",
                   "path",
-                  "device_freshness",
+                  "police_phone_freshness",
                   "marker",
                   "toast",
                   "package_badge",
@@ -1451,15 +1106,15 @@
                   "op_history",
                   "handover_memo",
                   "handover_status",
-                  "ai_summary",
+                  "search_history_summary",
                   "incident_terminal"
                 ],
                 "propertyNames": {
                   "enum": [
-                    "map_boundary",
+                    "overall_search_area",
                     "area",
                     "path",
-                    "device_freshness",
+                    "police_phone_freshness",
                     "marker",
                     "toast",
                     "package_badge",
@@ -1467,7 +1122,7 @@
                     "op_history",
                     "handover_memo",
                     "handover_status",
-                    "ai_summary",
+                    "search_history_summary",
                     "incident_terminal"
                   ]
                 },
@@ -1518,10 +1173,10 @@
                 "type": "object",
                 "description": "Slot별 row-level source cursor. Aggregate-only sourceVersions/sourceHashes are insufficient; every slot row must be comparable by id/status/version/sequence/sourceSpec/sourceHash/latestEventId.",
                 "required": [
-                  "map_boundary",
+                  "overall_search_area",
                   "area",
                   "path",
-                  "device_freshness",
+                  "police_phone_freshness",
                   "marker",
                   "toast",
                   "package_badge",
@@ -1529,15 +1184,15 @@
                   "op_history",
                   "handover_memo",
                   "handover_status",
-                  "ai_summary",
+                  "search_history_summary",
                   "incident_terminal"
                 ],
                 "propertyNames": {
                   "enum": [
-                    "map_boundary",
+                    "overall_search_area",
                     "area",
                     "path",
-                    "device_freshness",
+                    "police_phone_freshness",
                     "marker",
                     "toast",
                     "package_badge",
@@ -1545,7 +1200,7 @@
                     "op_history",
                     "handover_memo",
                     "handover_status",
-                    "ai_summary",
+                    "search_history_summary",
                     "incident_terminal"
                   ]
                 },
@@ -1617,15 +1272,15 @@
           },
           {
             "code": 409,
-            "case": "gone_snapshot_required",
-            "body": "{\"error\": \"gone_snapshot_required\"}"
+            "case": "gone_refetch_required",
+            "body": "{\"error\": \"gone_refetch_required\"}"
           }
         ]
       }
     ],
-    "projector_ports": {
+    "refetch_ports": {
       "provided_by_s3_2": {
-        "name": "BoardSnapshotProjector.apply(ProjectorTrigger)",
+        "name": "BoardAssembler.refetch(RefetchSignal)",
         "input": {
           "required": [
             "eventId",
@@ -1660,22 +1315,22 @@
             "sequence",
             "sourceHash",
             "applyStatus",
-            "snapshotVersion"
+            "boardResponseVersion"
           ],
           "applyStatus": [
             "APPLIED",
             "DUPLICATE",
             "STALE",
-            "SNAPSHOT_REQUIRED",
+            "REFETCH_REQUIRED",
             "FAILED_RETRYABLE"
           ]
         },
-        "ownership": "S3-2 owns projection application after the trigger, board_snapshot read model lookup, BoardDTO assembly, and rendering convergence."
+        "ownership": "S3-2 owns API assembly application after the trigger, board API source query lookup, BoardDTO assembly, and rendering convergence."
       },
       "consumed_from_s4": {
-        "name": "EventFanout projector trigger orchestration",
+        "name": "EventFanout refetch trigger orchestration",
         "owner": "S4",
-        "boundary": "S4 owns SSE endpoint, Last-Event-ID replay, event_outbox/sse_event_log, and trigger orchestration. S3-2 must not publish or fan out events; it only applies ProjectorTrigger input after S4 orchestration."
+        "overall_search_area": "S4 owns SSE endpoint, Last-Event-ID replay, event_dispatch_job/sse_replay_event, and trigger orchestration. S3-2 must not publish or fan out events; it only applies RefetchSignal input after S4 orchestration."
       }
     },
     "consumed": [
@@ -1691,13 +1346,13 @@
       },
       {
         "from_spec": "S1-2",
-        "interface": "Device heartbeat",
-        "usage": "device_freshness slot에서 60초 이후 stale, 5분 이후 lost 상태를 계산한다."
+        "interface": "PolicePhone heartbeat",
+        "usage": "police_phone_freshness slot에서 60초 이후 stale, 5분 이후 lost 상태를 계산한다."
       },
       {
         "from_spec": "S2",
-        "interface": "MapBoundaryQuery.of, AreaQuery.byIncident, AreaQuery.byOp",
-        "usage": "map_boundary와 area slots를 구성한다."
+        "interface": "SearchAreaQuery.overallOf, SearchAreaQuery.byIncident, SearchAreaQuery.byOp",
+        "usage": "overall_search_area와 area slots를 구성한다."
       },
       {
         "from_spec": "S3-1",
@@ -1706,8 +1361,8 @@
       },
       {
         "from_spec": "S4",
-        "interface": "GET /events?incidentId={incidentId}, BaseEvent envelope, SSE id line sequence, EventFanout projector trigger orchestration",
-        "usage": "S4가 ProjectorTrigger를 orchestrate한다. S3-2는 trigger 이후 BoardSnapshotProjector.apply input을 받아 APPLIED|DUPLICATE|STALE|SNAPSHOT_REQUIRED|FAILED_RETRYABLE 결과로 read model을 갱신하거나 snapshot reload를 요구한다."
+        "interface": "GET /events?incidentId={incidentId}, BaseEvent envelope, SSE id line sequence, EventFanout refetch trigger orchestration",
+        "usage": "S4가 RefetchSignal를 orchestrate한다. S3-2는 trigger 이후 BoardAssembler.refetch input을 받아 APPLIED|DUPLICATE|STALE|REFETCH_REQUIRED|FAILED_RETRYABLE 결과로 board response를 조립하거나 board response reload를 요구한다."
       },
       {
         "from_spec": "S5",
@@ -1716,13 +1371,13 @@
       },
       {
         "from_spec": "S7",
-        "interface": "PackageStatusQuery.byIncident, tile server health",
+        "interface": "OfflinePackageInstallationQuery.byIncident, tile server health",
         "usage": "package_badge slot과 지도 base layer 상태 표시를 구성한다."
       },
       {
         "from_spec": "S8",
-        "interface": "OperationalPeriodQuery.list, HandoverMemoQuery.byContext, HandoverStatusSnapshot.byIncident, AiSummaryQuery.byOp",
-        "usage": "op_toggle, op_history, handover_memo, handover_status, ai_summary slots를 구성한다."
+        "interface": "OperationalPeriodQuery.list, HandoverMemoQuery.byContext, HandoverStatusSnapshot.byIncident, SearchHistorySummaryQuery.byOp",
+        "usage": "op_toggle, op_history, handover_memo, handover_status, search_history_summary slots를 구성한다."
       }
     ],
     "events_published": [],
@@ -1730,12 +1385,12 @@
       {
         "type": "INCIDENT_CREATED",
         "from_spec": "S1-1",
-        "handler": "incident shell entry와 base board snapshot을 생성 또는 갱신한다."
+        "handler": "incident shell entry와 base board API을 생성 또는 갱신한다."
       },
       {
-        "type": "INCIDENT_MEMBERSHIP_CHANGED",
+        "type": "INCIDENT_ASSIGNMENT_CHANGED",
         "from_spec": "S1-1",
-        "handler": "team/device 목록과 style mapping을 재계산한다."
+        "handler": "team/PolicePhone 목록과 style mapping을 재계산한다."
       },
       {
         "type": "INCIDENT_CLOSED",
@@ -1743,32 +1398,32 @@
         "handler": "incident_terminal slot을 활성화하고 실시간 위치·개인정보 slot을 sanitized 상태로 전환한다."
       },
       {
-        "type": "DEVICE_HEARTBEAT_UPDATED",
+        "type": "POLICE_PHONE_HEARTBEAT_UPDATED",
         "from_spec": "S1-2",
-        "handler": "device_freshness slot을 갱신한다."
+        "handler": "police_phone_freshness slot을 갱신한다."
       },
       {
-        "type": "MAP_BOUNDARY_CHANGED",
+        "type": "SEARCH_AREA_CHANGED",
         "from_spec": "S2",
-        "handler": "map_boundary slot과 viewport fallback 기준을 갱신한다."
+        "handler": "overall_search_area slot과 viewport 대체 순서 기준을 갱신한다."
       },
       {
-        "type": "AREA_CREATED",
+        "type": "SEARCH_AREA_CHANGED",
         "from_spec": "S2",
         "handler": "area slot에 canonical geometry를 반영한다."
       },
       {
-        "type": "AREA_STATE_CHANGED",
+        "type": "SEARCH_AREA_CHANGED",
         "from_spec": "S2",
         "handler": "area status/version을 갱신하되 자동 누락 판단을 생성하지 않는다."
       },
       {
-        "type": "SEARCH_SESSION_STARTED",
+        "type": "SEARCH_PATH_STARTED",
         "from_spec": "S3-1",
-        "handler": "운용 중 Device path 강조 기준을 갱신한다."
+        "handler": "운용 중 PolicePhone path 강조 기준을 갱신한다."
       },
       {
-        "type": "SEARCH_SESSION_ENDED",
+        "type": "SEARCH_PATH_ENDED",
         "from_spec": "S3-1",
         "handler": "현재 세션 강조를 종료 상태로 전환한다."
       },
@@ -1778,7 +1433,7 @@
         "handler": "path slot에 version/sequence가 더 최신인 경우만 반영한다."
       },
       {
-        "type": "PATH_SEGMENT_UPDATED",
+        "type": "SEARCH_PATH_SEGMENT_UPDATED",
         "from_spec": "S3-1",
         "handler": "차량·도보 구간 style을 갱신한다."
       },
@@ -1808,7 +1463,7 @@
         "handler": "발견 marker 강조와 toast slot을 갱신한다."
       },
       {
-        "type": "PACKAGE_STATUS_CHANGED",
+        "type": "OFFLINE_PACKAGE_INSTALLATION_CHANGED",
         "from_spec": "S7",
         "handler": "package_badge slot을 갱신한다."
       },
@@ -1818,7 +1473,7 @@
         "handler": "active OP, op_toggle, op_history, comparison defaults를 갱신한다."
       },
       {
-        "type": "OP_ASSIGNMENT_CHANGED",
+        "type": "SEARCH_AREA_ASSIGNMENT_CHANGED",
         "from_spec": "S8",
         "handler": "op_history와 team assignment 표시를 갱신한다."
       },
@@ -1828,9 +1483,9 @@
         "handler": "handover_memo와 handover_status slots를 갱신한다."
       },
       {
-        "type": "AI_SUMMARY_READY",
+        "type": "SEARCH_HISTORY_SUMMARY_CHANGED",
         "from_spec": "S8",
-        "handler": "ai_summary slot을 갱신한다."
+        "handler": "search_history_summary slot을 갱신한다."
       }
     ]
   },
@@ -1841,20 +1496,20 @@
       "package": "com.surimap.board",
       "modules": [
         {
-          "name": "BoardSnapshotController",
-          "responsibility": "GET /incidents/{incidentId}/board/snapshot 제공"
+          "name": "BoardController",
+          "responsibility": "GET /incidents/{incidentId}/board 제공"
         },
         {
           "name": "BoardAssembler",
-          "responsibility": "source query 결과를 BoardDTO slot 구조로 병합"
+          "responsibility": "source query 결과를 BoardDTO slot 구조로 조립"
         },
         {
-          "name": "BoardSnapshotProjector",
-          "responsibility": "S4 EventFanout trigger 이후 ProjectorTrigger input을 적용하고 eventId dedupe, slot/source/entity cursor, stale event guard로 read model 갱신"
+          "name": "BoardAssembler",
+          "responsibility": "S4 EventFanout trigger 이후 RefetchSignal input을 받아 eventId dedupe, slot/source/entity cursor, stale event guard로 BoardDTO를 재조립"
         },
         {
-          "name": "BoardProjectionRepository",
-          "responsibility": "board_snapshot, board_event_application, board_projection_cursor 저장·조회"
+          "name": "BoardApiAssemblyProbe",
+          "responsibility": "board API assembly probe와 source cursor 조회"
         },
         {
           "name": "BoardSlotRegistry",
@@ -1889,7 +1544,7 @@
           "responsibility": "OP1/OP2 등 다중 OP layer toggle, legend, selected/current/completed OP 구분. OP 비교 필터와 render simplification은 source geometry/status/version을 변경하지 않는 display-only state"
         },
         {
-          "name": "DeviceFreshnessLayer",
+          "name": "PolicePhoneFreshnessLayer",
           "responsibility": "lastHeartbeatAt/lastSyncAt 기반 normal/stale/lost 위치 점과 elapsed label 표시"
         },
         {
@@ -1905,7 +1560,7 @@
           "responsibility": "S5 marker detail/edit/delete panel을 shell layout 안에 배치한다. S3-2는 layout과 query binding만 소유하고 edit/delete mutation은 S5 API 호출로만 수행한다."
         }
       ],
-      "state_management": "React Query for snapshot fetch, EventSource reducer for SSE, Zustand for board display state",
+      "state_management": "React Query for board response fetch, EventSource reducer for SSE, Zustand for board display state",
       "map_layers": [
         {
           "id": "base_osm_tiles",
@@ -1913,7 +1568,7 @@
           "type": "base"
         },
         {
-          "id": "map_boundary",
+          "id": "overall_search_area",
           "source_spec": "S2",
           "type": "overlay"
         },
@@ -1923,7 +1578,7 @@
           "type": "feature"
         },
         {
-          "id": "device_path",
+          "id": "police_phone_path",
           "source_spec": "S3-1",
           "type": "feature"
         },
@@ -1933,7 +1588,7 @@
           "type": "feature"
         },
         {
-          "id": "device_freshness",
+          "id": "police_phone_freshness",
           "source_spec": "S1-2",
           "type": "feature"
         },
@@ -1961,26 +1616,26 @@
       "package": "kr.surimap.board",
       "screens": [],
       "room_entities": [],
-      "sync_flow": "S3-2는 Android 현장 입력 UI를 제공하지 않는다. Android는 S7 package status와 S4/FCM/S6 계약을 통해 간접 연동한다."
+      "sync_flow": "S3-2는 Android 현장 입력 UI를 제공하지 않는다. Android는 S7 package installation와 S4/FCM/S6 계약을 통해 간접 연동한다."
     }
   },
   "dependencies": {
     "spec_dependencies": [
       {
         "spec": "S1-1",
-        "contract": "incident lifecycle, membership, terminal snapshot",
-        "stub_strategy": "incident OPEN/CLOSED fixture와 membership list fixture",
+        "contract": "incident lifecycle, incident_assignment, terminal board response",
+        "stub_strategy": "incident OPEN/CLOSED fixture와 incident_assignment list fixture",
         "replaced_by_real_at": "S1-1 incident import/lifecycle contract PASS"
       },
       {
         "spec": "S1-2",
-        "contract": "SecurityContext, incident access guard, Device heartbeat",
-        "stub_strategy": "seed account/device heartbeat fixture with normal/stale/lost cases",
-        "replaced_by_real_at": "S1-2 auth/device heartbeat contract PASS"
+        "contract": "SecurityContext, incident access guard, PolicePhone heartbeat",
+        "stub_strategy": "seed account/policePhone heartbeat fixture with normal/stale/lost cases",
+        "replaced_by_real_at": "S1-2 auth/PolicePhone heartbeat contract PASS"
       },
       {
         "spec": "S2",
-        "contract": "MapBoundaryQuery, AreaQuery",
+        "contract": "SearchAreaQuery, SearchAreaQuery",
         "stub_strategy": "canonical Polygon fixture with area state versions",
         "replaced_by_real_at": "S2 geometry and area state harness PASS"
       },
@@ -1988,11 +1643,11 @@
         "spec": "S3-1",
         "contract": "PathQuery and segment type versions",
         "stub_strategy": "mixed patrol car/foot path fixture with sequence rollback cases",
-        "replaced_by_real_at": "S3-1 path/session harness PASS"
+        "replaced_by_real_at": "S3-1 path harness PASS"
       },
       {
         "spec": "S4",
-        "contract": "SSE BaseEvent, Last-Event-ID replay, gone_snapshot_required",
+        "contract": "SSE BaseEvent, Last-Event-ID replay, gone_refetch_required",
         "stub_strategy": "mock EventSource stream with duplicate, stale, out-of-order, replay gap events",
         "replaced_by_real_at": "S4 event hub replay harness PASS"
       },
@@ -2004,19 +1659,19 @@
       },
       {
         "spec": "S7",
-        "contract": "PackageStatusQuery and MapLibre style URL",
-        "stub_strategy": "package READY/PARTIAL/STALE/FAILED device fixture and local tile style fixture",
+        "contract": "OfflinePackageInstallationQuery and MapLibre style URL",
+        "stub_strategy": "package READY/PARTIAL/STALE/FAILED policePhone fixture and local tile style fixture",
         "replaced_by_real_at": "S7 offline package harness PASS"
       },
       {
         "spec": "S8",
-        "contract": "OperationalPeriodQuery, HandoverMemoQuery, AiSummaryQuery",
-        "stub_strategy": "OP1/OP2 comparison fixture with handover and AI summary failure cases",
+        "contract": "OperationalPeriodQuery, HandoverMemoQuery, SearchHistorySummaryQuery",
+        "stub_strategy": "OP1/OP2 comparison fixture with handover and search history summary failure cases",
         "replaced_by_real_at": "S8 OP/handover harness PASS"
       }
     ],
     "infra_dependencies": [
-      "PostgreSQL + JSONB read model",
+      "Source table query assembly + BoardDTO",
       "MapLibre GL JS",
       "tileserver-gl through S7 /tiles only",
       "S4 SSE EventSource endpoint"
@@ -2030,7 +1685,7 @@
       ],
       "given": "S4 SSE stream sends duplicate PATH_APPENDED with the same eventId",
       "when": "SituationBoardShell applies the stream",
-      "then": "path row, toast row, map layer, and board_event_application contain only one applied effect for that eventId",
+      "then": "path row, toast row, map layer, and board_refetch_probe contain only one applied effect for that eventId",
       "priority": "critical"
     },
     {
@@ -2038,9 +1693,9 @@
       "fr_refs": [
         "FR-04"
       ],
-      "given": "board snapshot already has entity version 5",
+      "given": "board API already has entity version 5",
       "when": "SSE delivers version 4 or lower sequence event",
-      "then": "projector marks the event STALE and the visible board does not regress",
+      "then": "refetch marks the event STALE and the visible board does not regress",
       "priority": "critical"
     },
     {
@@ -2048,9 +1703,9 @@
       "fr_refs": [
         "FR-04"
       ],
-      "given": "Last-Event-ID replay is too old or projector detects an event gap",
-      "when": "S4 returns gone_snapshot_required or cursor marks needs_snapshot_reload",
-      "then": "web reloads GET /board/snapshot and converges to the latest snapshot without duplicate UI elements",
+      "given": "Last-Event-ID replay is too old or refetch detects an event gap",
+      "when": "S4 returns gone_refetch_required or cursor marks needs_board response_reload",
+      "then": "web reloads GET /board and converges to the latest board response without duplicate UI elements",
       "priority": "critical"
     },
     {
@@ -2059,9 +1714,9 @@
         "FR-37",
         "FR-39"
       ],
-      "given": "OP1 and OP2 have paths, markers, completed areas, handover memos, and AI summary",
+      "given": "OP1 and OP2 have paths, markers, completed areas, handover memos, and search history summary",
       "when": "field commander opens OP comparison",
-      "then": "selected OP, current OP, completed OP, original geometry hash, memo links, and summary source links are visible without domain writes; original geometry row and board snapshot geometryHash remain unchanged before and after comparison",
+      "then": "selected OP, current OP, completed OP, original geometry hash, memo links, and summary source links are visible without domain writes; original geometry row and board API geometryHash remain unchanged before and after comparison",
       "priority": "critical"
     },
     {
@@ -2069,8 +1724,8 @@
       "fr_refs": [
         "FR-24"
       ],
-      "given": "Device heartbeat timestamps are recent, older than 60 seconds, and older than 5 minutes",
-      "when": "board snapshot renders device_freshness slot",
+      "given": "PolicePhone heartbeat timestamps are recent, older than 60 seconds, and older than 5 minutes",
+      "when": "board API assembles police_phone_freshness slot",
       "then": "location dots show normal, stale, and lost states with elapsed-time labels and no separate alert",
       "priority": "high"
     },
@@ -2079,9 +1734,9 @@
       "fr_refs": [
         "FR-19"
       ],
-      "given": "S7 package status includes READY, PARTIAL, STALE, and FAILED devices",
-      "when": "board renders package_badge slot",
-      "then": "incomplete or stale devices are visible in team/device list and map badge, while READY devices clear the warning",
+      "given": "S7 package installation includes READY, PARTIAL, STALE, and FAILED PolicePhones",
+      "when": "board assembles package_badge slot",
+      "then": "incomplete or stale PolicePhones are visible in team/PolicePhone list and map badge, while READY PolicePhones clear the warning",
       "priority": "high"
     },
     {
@@ -2089,9 +1744,9 @@
       "fr_refs": [
         "FR-24"
       ],
-      "given": "incident_terminal slot indicates CLOSED/PURGE_PENDING/PURGED and DeviceFreshnessQuery still has heartbeat/location rows.",
-      "when": "board snapshot renders closed incident tombstone.",
-      "then": "device_freshness slot returns an empty row set or is not rendered, and the board does not show latest device location, freshness dot, elapsed heartbeat label, or live-location style.",
+      "given": "incident_terminal slot indicates CLOSED/PURGE_PENDING/PURGED and PolicePhoneFreshnessQuery still has heartbeat/location rows.",
+      "when": "board API assembles closed incident tombstone.",
+      "then": "police_phone_freshness slot returns an empty row set or is not rendered, and the board does not show latest PolicePhone location, freshness dot, elapsed heartbeat label, or live-location style.",
       "priority": "critical"
     },
     {
@@ -2102,8 +1757,8 @@
         "FR-25",
         "FR-35"
       ],
-      "given": "current session device, patrol car path, foot path, and marker fixtures exist",
-      "when": "user toggles simple map mode and device/path filters",
+      "given": "current PolicePhone, patrol car path, foot path, and marker fixtures exist",
+      "when": "user toggles simple map mode and PolicePhone/path filters",
       "then": "display style changes only in board state and source rows, outbox rows, and SSE events are unchanged",
       "priority": "high"
     },
@@ -2123,7 +1778,7 @@
       "fr_refs": [
         "FR-04"
       ],
-      "given": "incident is closed and terminal/tombstone snapshot is available",
+      "given": "incident is closed and terminal/tombstone board response is available",
       "when": "user opens the board or receives INCIDENT_CLOSED",
       "then": "incident_terminal slot exposes only incidentId, terminalStatus/closedStatus, closedAt, writeDisabledReason, and localPurgeState with id/status/version/sequence/sourceSpec/sourceHash/latestEventId; realtime location, missing person PII, package reload, and stream resubscribe controls are absent",
       "priority": "critical"
@@ -2140,8 +1795,8 @@
         "FR-37",
         "FR-39"
       ],
-      "given": "BoardAssembler builds every spec/boundaries.md §9.2 slot",
-      "when": "GET /incidents/{incidentId}/board/snapshot returns BoardDTO",
+      "given": "BoardAssembler assembles every spec/boundaries.md §9.2 slot",
+      "when": "GET /incidents/{incidentId}/board returns BoardDTO",
       "then": "each slot row validates id/status/version/sequence/sourceSpec/sourceHash/latestEventId and slotSources/sourceVersions/sourceHashes provide row-level comparison data, not aggregate-only values",
       "priority": "critical"
     },
@@ -2151,7 +1806,7 @@
         "FR-04"
       ],
       "given": "REST source write response and SSE payload contain the same id/status/version for a source row",
-      "when": "S4 EventFanout triggers BoardSnapshotProjector.apply",
+      "when": "S4 EventFanout triggers BoardAssembler.refetch",
       "then": "S3-2 stores APPLIED only for the matching slot/sourceSpec/entityId/status/version/sequence/sourceHash and a stale event cannot overwrite another slot or source row",
       "priority": "critical"
     },
@@ -2162,68 +1817,68 @@
         "FR-23",
         "FR-39"
       ],
-      "given": "AI summary text or OP comparison UI state proposes missing-area confirmation, risk judgment, next-area direction, or source mutation",
-      "when": "board renders ai_summary or applies OP comparison filters",
-      "then": "forbidden AI summary text is blocked and OP comparison filters remain display-only without changing source geometry/status/version",
+      "given": "search history summary text or OP comparison UI state proposes missing-area confirmation, risk judgment, next-area direction, or source mutation",
+      "when": "board assembles search_history_summary or applies OP comparison filters",
+      "then": "forbidden search history summary text is blocked and OP comparison filters remain display-only without changing source geometry/status/version",
       "priority": "critical"
     }
   ],
   "edge_cases": [
     "SSE reconnect receives out-of-order events across different slots",
-    "snapshot fetch succeeds but one source slot fixture is temporarily unavailable",
+    "board response fetch succeeds but one source slot fixture is temporarily unavailable",
     "OP comparison includes a closed OP with purged location-sensitive fields",
-    "package_badge event arrives before package status query is refreshed",
+    "package_badge event arrives before package installation query is refreshed",
     "heartbeat continues after incident close but board must not show fresh location for closed incident",
     "MapLibre style loads but tile endpoint returns tile_unavailable",
-    "AI summary is unavailable while handover memo and OP comparison remain usable"
+    "search history summary is unavailable while handover memo and OP comparison remain usable"
   ],
   "error_handling": {
-    "gone_snapshot_required": "Show transient reconnect state, refetch board snapshot, clear event replay buffer after convergence.",
+    "gone_refetch_required": "Show transient reconnect state, refetch board API, clear event replay buffer after convergence.",
     "team_not_assigned": "Render access-denied shell without OP/path/marker/memo details.",
-    "channel_not_allowed": "Block non-web board snapshot access and return API error without rendering source data.",
+    "channel_not_allowed": "Block non-web board API access and return API error without rendering source data.",
     "tile_unavailable": "Keep operational overlays visible where possible and show map base layer unavailable state with retry.",
-    "summary_unavailable": "Keep OP comparison and handover memo visible; show AI summary retry affordance owned by S8 action.",
-    "stale_event": "Record STALE in board_event_application and keep current slot state unchanged.",
-    "duplicate_event": "Record DUPLICATE in board_event_application and do not create duplicate row or UI element."
+    "summary_unavailable": "Keep OP comparison and handover memo visible; show search history summary retry affordance owned by S8 action.",
+    "stale_event": "Return STALE in the board refetch result and keep current slot state unchanged.",
+    "duplicate_event": "Return DUPLICATE in the board refetch result and do not create duplicate row or UI element."
   },
   "non_functional_requirements": {
     "performance": [
-      "GET /board/snapshot p95 target is under 2 seconds for harness fixture size.",
+      "GET /board p95 target is under 2 seconds for harness fixture size.",
       "SSE event application should update the visible slot within 3 seconds in online harness.",
-      "OP comparison toggles must not refetch unchanged domain rows when board snapshot already contains selected OP data."
+      "OP comparison toggles must not refetch unchanged domain rows when board API already contains selected OP data."
     ],
     "security": [
-      "Board snapshot requires web channel, incident access, and location access recording for location-bearing slots.",
-      "Closed incident snapshot must expose only sanitized terminal/tombstone fields allowed by S1-1/S1-3.",
-      "S3-2 must not expose internal purge_run, location_access_log, event_outbox, or notification_delivery internals."
+      "Board board response requires web channel, incident access, and location access recording for location-bearing slots.",
+      "Closed incident board response must expose only sanitized terminal/tombstone fields allowed by S1-1/S1-3.",
+      "S3-2 must not expose internal incident_data_purge, location_data_access_audit, event_dispatch_job, or marker_notification internals."
     ],
     "observability": [
-      "Expose projector metrics for applied, duplicate, stale, failed, and snapshot_required event counts.",
-      "Log snapshot convergence failures with incidentId, lastEventId, snapshotVersion, and reloadReason.",
-      "Expose board snapshot latency and slot assembly latency per slot."
+      "Expose refetch metrics for applied, duplicate, stale, failed, and board response_required event counts.",
+      "Log board response convergence failures with incidentId, lastEventId, boardResponseVersion, and reloadReason.",
+      "Expose board API latency and slot assembly latency per slot."
     ]
   },
   "tdd_red_tests": {
     "backend": [
       {
-        "name": "board_snapshot_rejects_unassigned_account",
+        "name": "board_api_rejects_unassigned_account",
         "framework": "JUnit 5 + Spring MVC Test",
-        "scenario": "미배정 계정이 GET /board/snapshot 호출 시 403 team_not_assigned and no BoardDTO source details."
+        "scenario": "미배정 계정이 GET /board 호출 시 403 team_not_assigned and no BoardDTO source details."
       },
       {
-        "name": "projector_deduplicates_event_id",
+        "name": "refetch_deduplicates_event_id",
         "framework": "JUnit 5 + Testcontainers(PostgreSQL)",
         "scenario": "same eventId delivered twice results in one slot mutation and DUPLICATE ledger row."
       },
       {
-        "name": "projector_ignores_stale_entity_version",
+        "name": "refetch_ignores_stale_entity_version",
         "framework": "JUnit 5 + Testcontainers(PostgreSQL)",
-        "scenario": "entity version lower than snapshot sourceVersion is marked STALE and snapshot payload remains unchanged."
+        "scenario": "entity version lower than board response sourceVersion is marked STALE and board response payload remains unchanged."
       },
       {
-        "name": "snapshot_converges_after_replay_gap",
+        "name": "board_response_converges_after_replay_gap",
         "framework": "JUnit 5 + Spring MVC Test",
-        "scenario": "gone_snapshot_required triggers full assembler reload and snapshotVersion advances to latest event version."
+        "scenario": "gone_refetch_required triggers full assembler reload and boardResponseVersion advances to latest event version."
       },
       {
         "name": "board_schema_validates_all_section_9_2_slots",
@@ -2238,32 +1893,32 @@
       {
         "name": "source_write_response_converges_to_board_rows_by_slot",
         "framework": "JUnit 5 + Testcontainers(PostgreSQL)",
-        "scenario": "SC-04 map_boundary/area, SC-05 path/device_freshness, SC-06 marker, SC-08 toast/marker, SC-10 area/op/handover, SC-11 OP comparison/ai_summary, and SC-12 incident_terminal fixtures converge from source write response id/status/version through SSE payload to board snapshot row at the same or higher version."
+        "scenario": "SC-04 overall_search_area/area, SC-05 path/police_phone_freshness, SC-06 marker, SC-08 toast/marker, SC-10 area/op/handover, SC-11 OP comparison/search_history_summary, and SC-12 incident_terminal fixtures converge from source write response id/status/version through SSE payload to board API row at the same or higher version."
       },
       {
-        "name": "projector_trigger_delay_keeps_stale_snapshot_failed",
+        "name": "refetch_trigger_delay_keeps_stale_board_response_failed",
         "framework": "JUnit 5 + Spring MVC Test",
-        "scenario": "REST write commits and S4 trigger is delayed or fails; GET /board/snapshot that still returns a lower slot row version is treated as stale and the red test fails until projector convergence or SNAPSHOT_REQUIRED reload succeeds."
+        "scenario": "REST write commits and S4 trigger is delayed or fails; GET /board that still returns a lower slot row version is treated as stale and the red test fails until refetch convergence or REFETCH_REQUIRED reload succeeds."
       },
       {
-        "name": "projector_ledger_is_scoped_by_slot_source_entity",
+        "name": "refetch_ledger_is_scoped_by_slot_source_entity",
         "framework": "JUnit 5 + Testcontainers(PostgreSQL)",
         "scenario": "A stale event with the same entityId but older status/version/sequence/sourceHash for one slot/sourceSpec cannot overwrite another slot/sourceSpec row."
       },
       {
         "name": "op_comparison_preserves_original_geometry_hash",
         "framework": "JUnit 5 + Spring MVC Test",
-        "scenario": "SC-11 OP comparison before/after reads preserve source geometry rows and board snapshot geometryHash; render simplification output is not written to source geometry/status/version."
+        "scenario": "SC-11 OP comparison before/after reads preserve source geometry rows and board API geometryHash; render simplification output is not written to source geometry/status/version."
       },
       {
-        "name": "incident_terminal_snapshot_is_sanitized",
+        "name": "incident_terminal_board_response_is_sanitized",
         "framework": "JUnit 5 + Spring MVC Test",
         "scenario": "closed incident BoardDTO contains incident_terminal with only incidentId, terminalStatus/closedStatus, closedAt, writeDisabledReason, localPurgeState, and row cursor fields; no missing person PII, live path, package reload, or stream resubscribe hint."
       },
       {
-        "name": "closed_incident_hides_device_freshness_slot",
+        "name": "closed_incident_hides_police_phone_freshness_slot",
         "framework": "JUnit 5 + Spring MVC Test",
-        "scenario": "closed incident BoardDTO has incident_terminal CLOSED/PURGE_PENDING/PURGED and either empty device_freshness rows or no rendered device_freshness slot; latest device location, freshness dot, elapsed heartbeat label, and live-location style are absent even if heartbeat rows exist."
+        "scenario": "closed incident BoardDTO has incident_terminal CLOSED/PURGE_PENDING/PURGED and either empty police_phone_freshness rows or no rendered police_phone_freshness slot; latest PolicePhone location, freshness dot, elapsed heartbeat label, and live-location style are absent even if heartbeat rows exist."
       }
     ],
     "web": [
@@ -2278,24 +1933,24 @@
         "scenario": "Toggling OP1/OP2 changes visible styles but no write API, outbox fixture, new SSE event, source geometry/status/version change, or board geometryHash change is observed."
       },
       {
-        "name": "ai_summary_blocks_automatic_judgment_text",
+        "name": "search_history_summary_blocks_automatic_judgment_text",
         "framework": "Vitest + React Testing Library",
-        "scenario": "SC-11 AI summary fixture containing missing-area confirmation, risk judgment, or next-area direction is blocked while OP comparison remains usable."
+        "scenario": "SC-11 search history summary fixture containing missing-area confirmation, risk judgment, or next-area direction is blocked while OP comparison remains usable."
       },
       {
-        "name": "device_freshness_renders_normal_stale_lost",
+        "name": "police_phone_freshness_renders_normal_stale_lost",
         "framework": "Vitest + React Testing Library",
         "scenario": "heartbeat ages render expected color class, outline, and elapsed label."
       },
       {
         "name": "closed_board_does_not_render_freshness_or_live_location",
         "framework": "Vitest + React Testing Library",
-        "scenario": "terminal/tombstone BoardDTO renders incident_terminal only and does not render device freshness dots, elapsed heartbeat labels, latest location marker, or live-location styling."
+        "scenario": "terminal/tombstone BoardDTO renders incident_terminal only and does not render PolicePhone freshness dots, elapsed heartbeat labels, latest location marker, or live-location styling."
       },
       {
-        "name": "package_badge_shows_incomplete_devices",
+        "name": "package_badge_shows_incomplete_PolicePhones",
         "framework": "Playwright",
-        "scenario": "PARTIAL/STALE/FAILED statuses render badges on map and device list; READY removes warning."
+        "scenario": "PARTIAL/STALE/FAILED statuses render badges on map and PolicePhone list; READY removes warning."
       },
       {
         "name": "duplicate_toast_event_is_rendered_once",
@@ -2312,24 +1967,24 @@
     ]
   },
   "harness_fixtures": {
-    "board_snapshot_base": {
+    "board_api_base": {
       "incidentId": "inc-precinct-first-001",
-      "boardSnapshotId": "bs-inc-precinct-first-001-v1200",
-      "snapshotVersion": 1200,
+      "boardResponseId": "bs-inc-precinct-first-001-v1200",
+      "boardResponseVersion": 1200,
       "serverTs": "2026-04-28T10:30:00+09:00",
-      "expected": "Every slot row below must appear in BoardDTO.slotSources/sourceVersions/sourceHashes with id/status/version/sequence/sourceSpec/sourceHash/latestEventId and BoardDTO snapshotVersion >= the row version."
+      "expected": "Every slot row below must appear in BoardDTO.slotSources/sourceVersions/sourceHashes with id/status/version/sequence/sourceSpec/sourceHash/latestEventId and BoardDTO boardResponseVersion >= the row version."
     },
     "slot_rows": [
       {
-        "slot": "map_boundary",
+        "slot": "overall_search_area",
         "sourceSpec": "S2",
-        "sourceResponseId": "mb-precinct-001-v1",
-        "boardRowId": "board-map-boundary-inc-precinct-first-001",
+        "sourceResponseId": "osa-precinct-001-v1",
+        "boardRowId": "board-overall-search-area-inc-precinct-first-001",
         "status": "ACTIVE",
         "version": 2,
         "sequence": 401,
-        "latestEventId": "evt-s2-boundary-001",
-        "sourceHash": "hash-s2-boundary-v2"
+        "latestEventId": "evt-s2-overall-area-001",
+        "sourceHash": "hash-s2-overall-area-v2"
       },
       {
         "slot": "area",
@@ -2354,10 +2009,10 @@
         "sourceHash": "hash-s3-path-mixed-v2"
       },
       {
-        "slot": "device_freshness",
+        "slot": "police_phone_freshness",
         "sourceSpec": "S1-2",
         "sourceResponseId": "dev-precinct-car-01",
-        "boardRowId": "board-device-freshness-dev-precinct-car-01",
+        "boardRowId": "board-PolicePhone-freshness-dev-precinct-car-01",
         "status": "ONLINE",
         "version": 4,
         "sequence": 504,
@@ -2442,7 +2097,7 @@
         "sourceHash": "hash-s8-handover-status-v2"
       },
       {
-        "slot": "ai_summary",
+        "slot": "search_history_summary",
         "sourceSpec": "S8",
         "sourceResponseId": "ai-summary-op-precinct-001-op2",
         "boardRowId": "board-ai-summary-op-precinct-001-op2",
@@ -2466,7 +2121,7 @@
         "tombstoneResponseId": "tombstone-inc-precinct-first-001"
       }
     ],
-    "projection_failure_fixtures": {
+    "api_assembly_failure_fixtures": {
       "duplicate_event": {
         "eventId": "evt-s5-support-request-001",
         "slot": "toast",
@@ -2490,23 +2145,23 @@
         "entityId": "path-precinct-mixed-001",
         "sequence": 505,
         "cursorLastSequence": 502,
-        "expectedLedgerStatus": "SNAPSHOT_REQUIRED",
+        "expectedLedgerStatus": "REFETCH_REQUIRED",
         "expectedReloadReason": "MISSING_PREDECESSOR"
       },
-      "gone_snapshot_required": {
+      "gone_refetch_required": {
         "lastEventId": "evt-s4-gap-before-800",
-        "sseResponse": "409 gone_snapshot_required",
-        "expectedCursorState": "SNAPSHOT_REQUIRED",
-        "expectedReloadReason": "GONE_SNAPSHOT_REQUIRED"
+        "sseResponse": "409 gone_refetch_required",
+        "expectedCursorState": "REFETCH_REQUIRED",
+        "expectedReloadReason": "GONE_REFETCH_REQUIRED"
       },
-      "delayed_projector_trigger": {
+      "delayed_refetch_trigger": {
         "eventId": "evt-s2-area-state-001",
         "slot": "area",
         "entityId": "area-precinct-a1",
         "sourceResponseVersion": 3,
         "sourceResponseSequence": 403,
-        "staleSnapshotVersion": 2,
-        "expectedUiState": "PENDING_PROJECTION",
+        "staleResponseVersion": 2,
+        "expectedUiState": "STALE_REFETCH",
         "expectedAfterReload": "BoardDTO row version >= 3 and sequence >= 403"
       }
     }
@@ -2531,15 +2186,15 @@
       "All source payload roots use common id/status/version fields where applicable",
       "Board shell slots match spec/boundaries.md §9.2 exactly",
       "BoardDTO, board.schema.json, slotSources, sourceVersions, and sourceHashes use row-level id/status/version/sequence/sourceSpec/sourceHash/latestEventId for every slot row",
-      "S3-2 owns map_boundary and area slot convergence for SC-04 after S2/S8 writes are emitted through S4"
+      "S3-2 owns overall_search_area and area slot convergence for SC-04 after S2/S8 writes are emitted through S4"
     ],
     "forbidden": [
       "S3-2 domain write API 추가 금지",
-      "S3-2에서 event_outbox, sse_event_log, FCM fanout 직접 소유 금지",
+      "S3-2에서 event_dispatch_job, sse_replay_event, FCM fanout 직접 소유 금지",
       "Slot component가 shell routing, page layout, global store 직접 수정 금지",
       "OP 비교 또는 필터 조작으로 source geometry/status/version 변경 금지",
       "자동 누락 확정, 위험도 판단, 다음 구역 지시 문구 금지",
-      "AI summary slot에 자동 누락 확정, 위험도 판단, 다음 구역 지시 문구 렌더링 금지",
+      "search history summary slot에 자동 누락 확정, 위험도 판단, 다음 구역 지시 문구 렌더링 금지",
       "incident_terminal slot에 PII, live location, package reload, stream resubscribe 노출 금지",
       "외부 tile host 직접 접근 금지"
     ],
@@ -2549,7 +2204,7 @@
       "MapLibre style URL 또는 attribution 표시 변경 시 S7 LGTM",
       "incident_terminal 노출 필드 변경 시 S1-1/S1-3 LGTM",
       "OP comparison geometryHash/original preservation 정책 변경 시 S3-2/S3-1/S2/S5 LGTM",
-      "BoardSnapshotProjector trigger input/output/status 변경 시 S3-2/S4 LGTM"
+      "BoardAssembler trigger input/output/status 변경 시 S3-2/S4 LGTM"
     ]
   },
   "open_issues": [],
@@ -2565,7 +2220,7 @@
     {
       "date": "2026-04-28",
       "change": "Phase 1 draft 작성",
-      "reason": "S3-2 Situation Board Shell & Projection spec JSON 초기화"
+      "reason": "S3-2 Situation Board Shell & API Assembly spec JSON 초기화"
     }
   ]
 }

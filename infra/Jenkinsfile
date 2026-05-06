@@ -1,3 +1,46 @@
+import groovy.json.JsonOutput
+
+def notifyMattermost(String status) {
+    if (!env.GITHUB_DISPATCH_REPOSITORY?.trim()) {
+        echo "Mattermost notification skipped: GITHUB_DISPATCH_REPOSITORY is not configured."
+        return
+    }
+
+    try {
+        def commitMessage = sh(script: 'git log -1 --pretty=%s', returnStdout: true).trim()
+
+        def payload = JsonOutput.toJson([
+            event_type: env.GITHUB_DISPATCH_EVENT_TYPE,
+            client_payload: [
+                status: status,
+                job_name: env.JOB_NAME,
+                build_number: env.BUILD_NUMBER,
+                build_url: env.BUILD_URL,
+                git_branch: env.GIT_BRANCH ?: '',
+                git_commit: env.GIT_COMMIT ?: '',
+                commit_message: commitMessage,
+                failed_stage: env.FAILED_STAGE ?: ''
+            ]
+        ])
+
+        writeFile file: '.github-dispatch-payload.json', text: payload + '\n'
+
+        withCredentials([string(credentialsId: 'suri-map-github-dispatch-token', variable: 'GITHUB_DISPATCH_TOKEN')]) {
+            sh '''
+                curl -fsS -X POST \
+                  -H "Authorization: Bearer ${GITHUB_DISPATCH_TOKEN}" \
+                  -H "Accept: application/vnd.github+json" \
+                  -H "Content-Type: application/json" \
+                  -H "X-GitHub-Api-Version: 2022-11-28" \
+                  "https://api.github.com/repos/${GITHUB_DISPATCH_REPOSITORY}/dispatches" \
+                  --data @.github-dispatch-payload.json
+            '''
+        }
+    } catch (Exception e) {
+        echo "Mattermost notification failed: ${e.message}"
+    }
+}
+
 pipeline {
     agent any
 
@@ -18,11 +61,17 @@ pipeline {
         POSTGRES_USER = 'suri_map_user'
         POSTGRES_PASSWORD = credentials('suri-map-postgres-password')
         SPRING_JPA_HIBERNATE_DDL_AUTO = 'update'
+        GITHUB_DISPATCH_REPOSITORY = 'Choi-jinseo/mattermost-reminder-bot'
+        GITHUB_DISPATCH_EVENT_TYPE = 'suri_map_ci'
     }
 
     stages {
         stage('Checkout Info') {
             steps {
+                script {
+                    env.FAILED_STAGE = 'Checkout Info'
+                }
+
                 sh 'git branch --show-current || true'
                 sh 'git rev-parse --short HEAD || true'
                 sh 'git log -1 --pretty=%s || true'
@@ -33,6 +82,10 @@ pipeline {
             parallel {
                 stage('Frontend Image') {
                     steps {
+                        script {
+                            env.FAILED_STAGE = 'Build Runtime Images'
+                        }
+
                         sh '''
                             docker build \
                               -t ${FRONTEND_IMAGE} \
@@ -44,6 +97,10 @@ pipeline {
 
                 stage('Backend Image') {
                     steps {
+                        script {
+                            env.FAILED_STAGE = 'Build Runtime Images'
+                        }
+
                         sh '''
                             docker build \
                               -t ${BACKEND_IMAGE} \
@@ -57,6 +114,10 @@ pipeline {
 
         stage('Deploy Runtime') {
             steps {
+                script {
+                    env.FAILED_STAGE = 'Deploy Runtime'
+                }
+
                 writeFile file: env.ENV_FILE, text: """
 FRONTEND_IMAGE=${env.FRONTEND_IMAGE}
 BACKEND_IMAGE=${env.BACKEND_IMAGE}
@@ -80,6 +141,10 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=${env.SPRING_JPA_HIBERNATE_DDL_AUTO}
 
         stage('Verify Runtime') {
             steps {
+                script {
+                    env.FAILED_STAGE = 'Verify Runtime Startup'
+                }
+
                 sh '''
                     frontend_ready=false
                     for i in $(seq 1 30); do
@@ -118,8 +183,21 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=${env.SPRING_JPA_HIBERNATE_DDL_AUTO}
     }
 
     post {
+        success {
+            script {
+                env.FAILED_STAGE = ''
+                notifyMattermost('SUCCESS')
+            }
+        }
+
+        failure {
+            script {
+                notifyMattermost('FAILURE')
+            }
+        }
+
         always {
-            sh 'rm -f ${ENV_FILE}'
+            sh 'rm -f ${ENV_FILE} .github-dispatch-payload.json'
         }
     }
 }
