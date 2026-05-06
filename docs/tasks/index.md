@@ -115,7 +115,7 @@ Angular-style Conventional Commits에 필요한 경우 runtime area tag와 Jira 
 
 `type[(scope)]: 한글 요약 (<JIRA-KEY>)`
 
-scope는 Angular Convention의 scope처럼 영향받는 domain/module/package 이름만 적는다. area tag(`BE`, `FE`, `Android`, `Infra`)를 scope에 반복하지 않는다. 문서 정리, agent/workflow/tooling, guardrail처럼 특정 제품 domain/module/package로 좁히기 어려운 변경은 scope를 생략한다.
+scope는 optional이다. Angular Convention의 scope처럼 영향받는 제품 domain/module/package가 명확할 때만 적는다. area tag(`BE`, `FE`, `Android`, `Infra`)를 scope에 반복하지 않는다.
 
 허용 area tag:
 
@@ -128,15 +128,18 @@ scope는 Angular Convention의 scope처럼 영향받는 domain/module/package �
 
 하나의 MR이 실제로 여러 runtime area를 건드리면 제목 앞에 `[BE/FE/Android/Infra]`처럼 하나의 대괄호 안에 `/`로 area를 구분하고, 순서는 `BE`, `FE`, `Android`, `Infra`를 따른다. 실제로 영향받지 않는 area는 넣지 않는다. 문서·계약 변경도 별도 `[Docs]` tag를 쓰지 않고, 영향을 받는 runtime/infra area만 표시한다. 특정 runtime/infra에 직접 귀속되지 않는 공통 문서·workflow·agent tooling 변경은 area tag를 생략한다.
 
-계약 변경은 별도 `[Contract]`, `[Spec]`, `[Docs]` tag를 만들지 않고 관련 runtime area tag와 `contract` scope로 표시한다. 실제 Docker, CI/CD, 배포, observability 설정 변경만 `[Infra]`를 사용한다. `[Infra]`를 공통 문서·agent tooling의 fallback으로 쓰지 않는다.
+계약 변경은 별도 `[Contract]`, `[Spec]`, `[Docs]` tag를 만들지 않고 영향을 받는 runtime/infra area만 표시한다. scope는 영향받는 제품 domain/module/package가 명확할 때만 붙이고, cross-domain contract/schema 정렬처럼 특정 모듈로 좁히기 어려우면 생략한다. 실제 Docker, CI/CD, 배포, observability 설정 변경만 `[Infra]`를 사용한다. `[Infra]`를 공통 문서·agent tooling의 fallback으로 쓰지 않는다.
 
 허용 type:
 
 `feat`, `fix`, `refactor`, `style`, `test`, `docs`, `chore`, `ci`, `build`
 
-허용 scope:
+Scope 원칙:
 
-`incident`, `auth`, `police_phone`, `retention`, `event`, `overall_search_area`, `area`, `path`, `sync`, `marker`, `photo`, `notification`, `board`, `package`, `tiles`, `op`, `handover`, `search_history_summary`, `contract`
+- scope는 고정 whitelist로 관리하지 않는다.
+- 제품 domain/module/package가 명확할 때만 붙인다.
+- 문서 정리, agent/workflow/tooling, guardrail, repo-wide style 변경은 scope를 생략한다.
+- 어느 scope가 맞는지 설명이 필요할 정도로 애매하면 생략한다.
 
 예시:
 
@@ -144,7 +147,7 @@ scope는 Angular Convention의 scope처럼 영향받는 domain/module/package �
 - `[FE] fix(board): 단말 최신성 표시 상태 정렬 (SURI-124)`
 - `[Android] test(sync): 오프라인 재전송 하네스 추가 (SURI-125)`
 - `[Infra] chore(tiles): 로컬 타일 서버 설정 정리 (SURI-126)`
-- `[BE/FE] refactor(contract): BaseEvent 스키마 필드명 정렬 (SURI-127)`
+- `[BE/FE] refactor: BaseEvent 스키마 필드명 정렬 (SURI-127)`
 - `docs: Lane 작업 규칙 보강 (SURI-128)`
 - `[BE/FE/Android] style: lint 기준 스타일 정리 (SURI-129)`
 - `chore: Codex/Claude 공유 작업 스킬 추가 (SURI-130)`
