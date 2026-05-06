@@ -49,7 +49,7 @@
       "BaseEvent envelope 및 events/_base.schema.json",
       "domain transaction 안에서 적재되는 event_dispatch_job 저장소와 commit 이후 dispatch loop",
       "sse_replay_event 저장소와 Last-Event-ID replay",
-      "GET /events?incidentId={incidentId} SSE endpoint for API Index consumers",
+      "GET /incidents/{incidentId}/events SSE endpoint for API Index consumers",
       "EventHub.publish(event) public port",
       "EventFanout.dispatch(eventDispatchJob) orchestration",
       "SSE id line sequence, BaseEvent envelope format과 replay ordering semantics",
@@ -82,7 +82,7 @@
       {
         "item": "Android 상시 EventSource client와 Android 화면의 SSE 직접 의존",
         "owner": "S5/S6",
-        "reason": "API Index는 웹/S3-2만 GET /events consumer로 열어두며, Android 제품 구현은 FCM data message와 REST/Outbox 복구 경로를 사용한다. S4는 endpoint 계약만 제공하고 Android 화면 로직은 소유하지 않는다."
+        "reason": "API Index는 웹/S3-2만 GET /incidents/{incidentId}/events consumer로 열어두며, Android 제품 구현은 FCM data message와 REST/Outbox 복구 경로를 사용한다. S4는 endpoint 계약만 제공하고 Android 화면 로직은 소유하지 않는다."
       },
       {
         "item": "board API 재조회와 board response DTO",
@@ -569,7 +569,7 @@
     "provided": [
       {
         "method": "GET",
-        "path": "/events?incidentId={incidentId}",
+        "path": "/incidents/{incidentId}/events",
         "summary": "API Index의 웹·S3-2 consumer가 사용할 수 있는 사건별 SSE stream 연결과 Last-Event-ID replay",
         "auth": "guard aliases public-session + incident-read + @RequireChannel(WEB)",
         "idempotent": true,
@@ -673,7 +673,7 @@
       "modules": [
         {
           "name": "EventStreamController",
-          "responsibility": "GET /events SSE 연결, Last-Event-ID replay, 권한 실패 stream 종료"
+          "responsibility": "GET /incidents/{incidentId}/events SSE 연결, Last-Event-ID replay, 권한 실패 stream 종료"
         },
         {
           "name": "EventHub",
@@ -723,7 +723,7 @@
       "screens": [
         {
           "name": "FcmEventContractProbe",
-          "responsibility": "S4가 요구하는 FCM data message eventId/incidentId/type/payload subset contract fixture. 실제 Android observer/dedupe 구현은 S5/S6가 소유하며 GET /events 또는 EventSource를 사용하지 않는다."
+          "responsibility": "S4가 요구하는 FCM data message eventId/incidentId/type/payload subset contract fixture. 실제 Android observer/dedupe 구현은 S5/S6가 소유하며 GET /incidents/{incidentId}/events 또는 EventSource를 사용하지 않는다."
         }
       ],
       "room_entities": [
@@ -782,7 +782,7 @@
         "FR-04",
         "FR-10"
       ],
-      "given": "웹/S3-2 SSE 클라이언트가 사건 접근권을 가진 WEB 세션으로 GET /events에 연결했다.",
+      "given": "웹/S3-2 SSE 클라이언트가 사건 접근권을 가진 WEB 세션으로 GET /incidents/{incidentId}/events에 연결했다.",
       "when": "새 event_dispatch_job row가 dispatch된다.",
       "then": "S4는 먼저 sse_replay_event에 eventId를 1회 append하고 incident-scoped replay_sequence를 배정한 뒤, SSE stream에 id=replay_sequence와 boundaries.md §9.1 BaseEvent envelope(data.eventId=eventId)를 ascending replay_sequence로 전송한다.",
       "priority": "critical"
@@ -866,7 +866,7 @@
         "FR-18"
       ],
       "given": "사건이 CLOSED 또는 PURGED 상태다.",
-      "when": "Web client가 GET /events로 신규 연결 또는 Last-Event-ID 재연결을 시도한다.",
+      "when": "Web client가 GET /incidents/{incidentId}/events로 신규 연결 또는 Last-Event-ID 재연결을 시도한다.",
       "then": "CLOSED but not purged 사건은 보존된 replay_sequence가 있으면 INCIDENT_CLOSED까지 replay한 뒤 stream을 정상 종료하고, terminal replay_sequence 이후 신규 live stream은 새 public error 없이 live tail을 열지 않고 정상 종료한다. PURGED 또는 replay data가 제거된 사건은 409 gone_refetch_required를 반환하며 sse_replay_event envelope payload는 남아 있지 않아야 한다.",
       "priority": "critical"
     },
@@ -903,7 +903,7 @@
     "NotificationRecipientResolver가 빈 recipients를 반환하면 FCM dispatch를 skip하고 SSE_REPLAY/LIVE_SSE는 계속 진행한다.",
     "CLOSED incident의 Last-Event-ID가 terminal replay_sequence보다 작으면 INCIDENT_CLOSED까지 replay하고 stream을 닫는다.",
     "PURGED incident의 Last-Event-ID replay 요청은 409 gone_refetch_required로 처리한다.",
-    "Android APP channel이 GET /events를 호출하면 channel_not_allowed로 거부하고, Android 제품 구현은 FCM data message path를 사용하며 상시 EventSource client를 만들지 않는다."
+    "Android APP channel이 GET /incidents/{incidentId}/events를 호출하면 channel_not_allowed로 거부하고, Android 제품 구현은 FCM data message path를 사용하며 상시 EventSource client를 만들지 않는다."
   ],
   "error_handling": {
     "incident_access_denied": "SSE 연결을 열지 않고 403을 반환한다.",
@@ -919,7 +919,7 @@
       "Last-Event-ID replay는 사건별 sequence index를 사용해 최근 event를 순서대로 반환한다."
     ],
     "security": [
-      "GET /events는 @RequireIncidentAccess를 통과한 WEB session만 허용한다.",
+      "GET /incidents/{incidentId}/events는 @RequireIncidentAccess를 통과한 WEB session만 허용한다.",
       "Android 제품 구현은 S5 FCM data message와 S6 REST/Outbox sync 결과를 소비하며 상시 EventSource client를 만들지 않는다.",
       "event payload에는 payload owner schema에 없는 개인정보 필드를 S4가 추가하지 않는다."
     ],
@@ -949,7 +949,7 @@
       {
         "name": "EventStreamAuthorizationGuardTest",
         "framework": "JUnit 5 + Spring MVC Test + SseEmitter test",
-        "scenario": "GET /events는 WEB public-session과 incident-read guard를 통과해야 하며 channel_not_allowed, incident_access_denied, expired session stream termination을 각각 fixture로 검증한다."
+        "scenario": "GET /incidents/{incidentId}/events는 WEB public-session과 incident-read guard를 통과해야 하며 channel_not_allowed, incident_access_denied, expired session stream termination을 각각 fixture로 검증한다."
       },
       {
         "name": "GoneRefetchRequiredWhenReplayMissingTest",
@@ -989,7 +989,7 @@
       {
         "name": "AndroidDoesNotUseEventSourceTest",
         "framework": "JUnit 5 + Spring MVC Test + SseEmitter test",
-        "scenario": "APP channel session은 GET /events에서 channel_not_allowed로 거부되고 Android 제품 client는 EventSource를 만들지 않고 FCM data message/REST sync path를 사용한다."
+        "scenario": "APP channel session은 GET /incidents/{incidentId}/events에서 channel_not_allowed로 거부되고 Android 제품 client는 EventSource를 만들지 않고 FCM data message/REST sync path를 사용한다."
       }
     ],
     "web": [
@@ -1008,7 +1008,7 @@
       {
         "name": "FcmDataMessageEventIdDedupeTest",
         "framework": "JUnit5 + Robolectric",
-        "scenario": "동일 FCM data message eventId를 다시 받아도 local state에 중복 적용하지 않고 GET /events 또는 EventSource client를 생성하지 않는다."
+        "scenario": "동일 FCM data message eventId를 다시 받아도 local state에 중복 적용하지 않고 GET /incidents/{incidentId}/events 또는 EventSource client를 생성하지 않는다."
       }
     ]
   },
@@ -1138,7 +1138,7 @@
       "Kotlin + MapLibre Native (ADR-0004 개정, ADR-0013)",
       "모든 이벤트는 BaseEvent envelope를 사용한다 (boundaries.md §9.1)",
       "SSE id line은 sse_replay_event.replay_sequence, envelope.eventId는 idempotency UUID로 고정하며 envelope shape는 boundaries.md §9.1을 벗어나지 않는다.",
-      "Android 제품 client는 FCM data message path를 사용한다. GET /events 권한 계약은 boundaries.md §7을 따른다.",
+      "Android 제품 client는 FCM data message path를 사용한다. GET /incidents/{incidentId}/events 권한 계약은 boundaries.md §7을 따른다.",
       "도메인 payload 변경은 payload owner, S3-2, S4 LGTM이 필요하다.",
       "S4 failure injection fixture는 SC-05, SC-06, SC-08, SC-09 공통 red test에서 사용한다.",
       "SSE_ENVELOPE_DELIVERED는 observability/harness probe로만 사용하고 domain event catalog에 등록하지 않는다."

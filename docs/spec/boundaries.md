@@ -360,20 +360,18 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 - `search_area`
 - `search_area_assignment`
 - `search_area_history`
-- `POST /incidents/{incidentId}/search-areas/overall`
-- `GET /incidents/{incidentId}/search-areas/overall`
 - `POST /search-areas`
-- `PATCH /search-areas/{areaId}`
-- `POST /search-areas/{areaId}/split`
-- `POST /search-areas/{areaId}/assignments`
-- `PATCH /search-areas/{areaId}/state`
+- `GET /search-areas?incidentId={incidentId}&areaLevel=OVERALL&status=ACTIVE`
+- `PATCH /search-areas/{searchAreaId}`
+- `POST /search-areas/{searchAreaId}/split`
+- `POST /search-areas/{searchAreaId}/assignments`
 
 **provides**
 
 - `SearchAreaQuery.overallOf(incidentId)`
 - `SearchAreaQuery.byIncident(incidentId, filters)`
 - `SearchAreaQuery.byOp(opId, filters)`
-- `SearchAreaAssignmentQuery.byArea(areaId)`
+- `SearchAreaAssignmentQuery.byArea(searchAreaId)`
 - `SEARCH_AREA_CHANGED`
 - `SEARCH_AREA_ASSIGNMENT_CHANGED`
 - `events/search_area.payload.schema.json` for `SEARCH_AREA_CHANGED`
@@ -436,10 +434,10 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 - `search_path_segment`
 - Android foreground location service
 - `POST /search-paths`
-- `PATCH /search-paths/{pathId}`
+- `PATCH /search-paths/{searchPathId}`
 - `POST /search-paths/batch`
 - `GET /search-paths`
-- `PATCH /search-path-segments/{segmentId}`
+- `PATCH /search-path-segments/{searchPathSegmentId}`
 
 **provides**
 
@@ -485,7 +483,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 - Search path start/end APIs require app channel, assigned PolicePhone, open incident, idempotency key, and current OP/current DutyShift.
 - `POST /search-paths/batch` records PolicePhone-based path points with `accountId`, `policePhoneId`, `opId`, and timestamps.
 - Path writes publish the matching `PublishRequest.*` contract and can be replayed from S6 Outbox without duplication.
-- `PATCH /search-path-segments/{segmentId}` applies only the allowed channel policy and emits `SEARCH_PATH_SEGMENT_UPDATED`.
+- `PATCH /search-path-segments/{searchPathSegmentId}` applies only the allowed channel policy and emits `SEARCH_PATH_SEGMENT_UPDATED`.
 
 **excluded**
 
@@ -594,7 +592,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 
 - `EventHub.publish(event)`
 - `EventFanout.dispatch(eventDispatchJob)`
-- `GET /events?incidentId={incidentId}`
+- `GET /incidents/{incidentId}/events`
 - `BaseEvent`
 - `event_dispatch_job.schema.json`
 - `sse_replay_event.schema.json`
@@ -619,7 +617,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 **acceptance_hints**
 
 - `EventHub.publish(PublishRequest)` stages `event_dispatch_job` inside the caller domain transaction and preserves the `BaseEvent` envelope. Commit 이후 전송·재시도는 `EventFanout.dispatch`/worker가 수행한다.
-- `GET /events?incidentId={incidentId}` authenticates incident access, supports Last-Event-ID replay, and deduplicates by `eventId`.
+- `GET /incidents/{incidentId}/events` authenticates incident access, supports Last-Event-ID replay, and deduplicates by `eventId`.
 - `EventFanout.dispatch` owns SSE refetch signal delivery, FCM delivery port calls, target retries, and failure injection points.
 - `INCIDENT_PURGED` removes replay data for the incident and prevents later SSE replay from old logs.
 
@@ -651,7 +649,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 - `marker`
 - `photo`
 - `marker_notification`
-- S3 upload URL upload
+- 업로드용 S3-compatible presigned URL 발급과 object storage upload
 - notification payload/recipient 계산
 - `FcmDispatcher` adapter 구현
 - Android marker bottom sheet
@@ -707,7 +705,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 **acceptance_hints**
 
 - `POST /markers` accepts app-channel marker writes with current OP, assigned PolicePhone, idempotency, and valid marker location.
-- Photo upload-url/attach APIs enforce count, size, and TTL limits while keeping official evidence storage out of scope.
+- Photo upload-url API returns a S3/MinIO-compatible presigned URL for upload. Photo attach API confirms uploaded object metadata and links it to the marker while keeping official evidence storage out of scope.
 - Marker create/update/delete publishes the matching `PublishRequest.*` contract and updates `MarkerQuery.byIncident`.
 - `NotificationRecipientResolver` and `NotificationPayloadFactory` produce marker-derived delivery rows or assignment FCM payload input without owning fanout orchestration.
 
@@ -891,7 +889,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 - `GET /duty-shifts`
 - `POST /handover-memos`
 - `GET /handover-memos`
-- `POST /operational-periods/{opId}/search-history-summaries`
+- `POST /operational-periods/{operationalPeriodId}/search-history-summaries`
 
 **provides**
 
@@ -1003,7 +1001,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 | 경로 서버 전송 | 10초 batch |
 | 단말 stale 표시 | 60초 이후 stale, 5분 이후 lost |
 | 사진 제한 | 마커당 10장, 파일당 10MB |
-| upload URL TTL | 15분 |
+| upload URL(presigned URL for upload) TTL | 15분 |
 | 위치정보 접근기록 | 최소 6개월, 실제 운영 전 법무 확인 |
 | 업무폰·순찰차 위치·경로 좌표 | 사건 종료 후 동기화 완료 확인 뒤 파기 |
 | SSAFY 시연·개발 데이터 | 복구 확인용 24시간 soft delete 후 파기 |
@@ -1161,7 +1159,7 @@ Event payload는 REST response DTO, S6 `write_operation.schema.json`, S4 event_d
 | FR-17 지원 요청 | S5 | request marker + notification |
 | FR-18 공용 상황판 reference view | S3-2 | team/path/area/marker/missing person integrated view |
 | FR-19 오프라인 지도 | S7 | tiles + package |
-| FR-20 사진 업로드 | S5 | S3 upload URL |
+| FR-20 사진 업로드 | S5 | S3-compatible presigned URL for upload |
 | FR-21 실종자 기본 정보 | S1-1/S7 | missing_person + offline package |
 | FR-22 개인정보 파기 | S1-1/S1-3 | close/purge |
 | FR-23 자동 누락 판단 금지 | S2/S3-2/S8 | OP 경로·완료 구역·NOTE 메모로 사람 판단 보조 |
@@ -1206,20 +1204,18 @@ Guard shorthand:
 | `GET /incidents` | S1-1 | 앱, 웹, S3-2 | HTTPS | `public-session` | - |
 | `GET /incidents/{incidentId}` | S1-1 | 앱, 웹, S3-2 | HTTPS | `public-session`, `incident-read` | - |
 | `POST /incidents/{incidentId}/close` | S1-1 | 웹 | HTTPS | `web-command`, `incident-read`, `write-common` | `internal-caller`: purge orchestration trigger |
-| `POST /incidents/{incidentId}/search-areas/overall` | S2 | 웹 | HTTPS | `web-command`, `incident-read`, `write-common` | - |
-| `GET /incidents/{incidentId}/search-areas/overall` | S2 | 앱, 웹, S3-2, S7 | HTTPS | `public-session`, `incident-read` | - |
 | `POST /search-areas` | S2 | 웹 | HTTPS | `web-command`, `incident-read`, `write-common` | - |
-| `PATCH /search-areas/{areaId}` | S2 | 웹 | HTTPS | `web-command`, `incident-read`, `write-common` | - |
-| `POST /search-areas/{areaId}/split` | S2 | 웹 | HTTPS | `web-command`, `incident-read`, `write-common` | - |
-| `POST /search-areas/{areaId}/assignments` | S2 | 웹 | HTTPS | `web-command`, `incident-read`, `write-common` | - |
-| `PATCH /search-areas/{areaId}/state` | S2 | 웹 | HTTPS | `web-command`, `incident-read`, `write-common` | - |
+| `GET /search-areas?incidentId={incidentId}&areaLevel=OVERALL&status=ACTIVE` | S2 | 앱, 웹, S3-2, S7 | HTTPS | `public-session`, `incident-read` | - |
+| `PATCH /search-areas/{searchAreaId}` | S2 | 웹 | HTTPS | `web-command`, `incident-read`, `write-common` | - |
+| `POST /search-areas/{searchAreaId}/split` | S2 | 웹 | HTTPS | `web-command`, `incident-read`, `write-common` | - |
+| `POST /search-areas/{searchAreaId}/assignments` | S2 | 웹 | HTTPS | `web-command`, `incident-read`, `write-common` | - |
 | `POST /search-paths` | S3-1 | 앱 | HTTPS | `app-police-phone`, `incident-read`, `write-common`, `@RequireCurrentOp` | `internal-caller`: outbox replay |
-| `PATCH /search-paths/{pathId}` | S3-1 | 앱 | HTTPS | `app-police-phone`, `incident-read`, `write-common`, `@RequireCurrentOp` | `internal-caller`: outbox replay |
+| `PATCH /search-paths/{searchPathId}` | S3-1 | 앱 | HTTPS | `app-police-phone`, `incident-read`, `write-common`, `@RequireCurrentOp` | `internal-caller`: outbox replay |
 | `POST /search-paths/batch` | S3-1 | 앱 | HTTPS | `app-police-phone`, `incident-read`, `write-common`, `@RequireCurrentOp` | `internal-caller`: outbox replay |
 | `GET /search-paths` | S3-1 | 앱, 웹, S3-2, S8 | HTTPS | `public-session`, `incident-read`, `@RecordLocationAccess` | - |
-| `PATCH /search-path-segments/{segmentId}` | S3-1 | 웹 | HTTPS | `web-command`, `incident-read`, `write-common` | - |
+| `PATCH /search-path-segments/{searchPathSegmentId}` | S3-1 | 웹 | HTTPS | `web-command`, `incident-read`, `write-common` | - |
 | `GET /incidents/{incidentId}/board` | S3-2 | 웹 | HTTPS | `public-session`, `incident-read`, `@RecordLocationAccess` | - |
-| `GET /events?incidentId={incidentId}` | S4 | 웹, S3-2 | SSE/HTTPS | `public-session`, `incident-read`, `@RequireChannel(WEB)` | `internal-caller`: event fanout replay |
+| `GET /incidents/{incidentId}/events` | S4 | 웹, S3-2 | SSE/HTTPS | `public-session`, `incident-read`, `@RequireChannel(WEB)` | `internal-caller`: event fanout replay |
 | `POST /markers` | S5 | 앱 | HTTPS | `app-police-phone`, `incident-read`, `write-common`, `@RequireCurrentOp` | `internal-caller`: outbox replay |
 | `PATCH /markers/{markerId}` | S5 | 앱, 웹 | HTTPS | `field-or-web-write`, `incident-read`, `write-common`, S5 marker policy | `internal-caller`: outbox replay |
 | `DELETE /markers/{markerId}` | S5 | 앱, 웹 | HTTPS | `field-or-web-write`, `incident-read`, `write-common`, S5 marker policy | `internal-caller`: outbox replay |
@@ -1238,7 +1234,7 @@ Guard shorthand:
 | `GET /duty-shifts` | S8 | 앱, 웹, S3-2 | HTTPS | `public-session`, `incident-read` | - |
 | `POST /handover-memos` | S8 | 앱, 웹 | HTTPS | `field-or-web-write`, `incident-read`, `write-common` | - |
 | `GET /handover-memos` | S8 | 웹, S3-2 | HTTPS | `public-session`, `incident-read` | - |
-| `POST /operational-periods/{opId}/search-history-summaries` | S8 | 웹 | HTTPS | `web-command`, `incident-read`, `write-common` | `internal-caller`: summary worker |
+| `POST /operational-periods/{operationalPeriodId}/search-history-summaries` | S8 | 웹 | HTTPS | `web-command`, `incident-read`, `write-common` | `internal-caller`: summary worker |
 
 ---
 
@@ -1327,12 +1323,12 @@ S3-2는 shell routing, page layout, slot mounting, shared state wiring의 owner�
 | SC-01 배정 사건 가져오기·초동 활성화 | S1-1, S1-2, S4, S5, S8 | `POST /incidents/import`, `INCIDENT_CREATED`, `INCIDENT_ASSIGNMENT_CHANGED`, `OP_TRANSITIONED(from=null)` | - | S1-1 mock 112 import -> `incident_assignment` 반영 -> S8 OP1 자동 생성 -> S4 `EventFanout`; S1-1 assignment -> S1-2 access guard; S5 `ReferenceMarkerSeed.createForIncident(incidentId, seedMarkers)` |
 | SC-02 실종팀 인계·지원 부대 배정 | S1-1, S1-2, S3-1, S3-2, S4, S5, S8 | 112/mock polling import, `GET /search-paths`, `GET /handover-memos`, `INCIDENT_ASSIGNMENT_CHANGED` | `path`, `marker`, `handover_status`, `op_history` | S1-1 `incident_assignment` 반영 -> S4 `EventFanout` -> S3-2 handover/status slots; `INCIDENT_ASSIGNMENT_CHANGED` fanout은 S1-2 `FcmTokenQuery.activeByPolicePhone(policePhoneId)`와 S5 resolver/payload factory/`FcmDispatcher` adapter를 통해 신규 배정 계정이 운용 중인 활성 `policePhoneId`에 PII 없는 배정 FCM을 보낸다 |
 | SC-03 사건 오프라인 패키지 사전 적재 | S7, S1-1, S1-2, S2, S5, S8, S4, S3-2 | §7 `GET /incidents/{incidentId}/offline-package/manifest`, `POST /incidents/{incidentId}/offline-package/installations`, §4.4 `OFFLINE_PACKAGE_INSTALLATION_CHANGED` | §9.2 `package_badge` | S2 overall area, S5 `ReferenceMarkerSeed.createForIncident(incidentId, seedMarkers)`, S8 OP/duty shift context -> S7 manifest/installation; S7 `OfflinePackageInstallationQuery`/`OFFLINE_PACKAGE_INSTALLATION_CHANGED` -> S3-2 `package_badge` |
-| SC-04 지도 기준 범위·구역 분할·할당 | S2, S8, S1-1, S1-2, S4, S7 | `POST /incidents/{incidentId}/search-areas/overall`, `POST /search-areas`, `POST /search-areas/{areaId}/split`, `POST /search-areas/{areaId}/assignments`, `SEARCH_AREA_CHANGED`, `SEARCH_AREA_ASSIGNMENT_CHANGED` | `overall_search_area`, `area` | S2 geometry + search area assignment -> S4 `EventFanout` -> S3-2 map/area slots, S7 package builder |
-| SC-05 수색 경로·PolicePhone GPS 경로 | S3-1, S1-2, S6, S8, S4, S2 | `POST /search-paths`, `POST /search-paths/batch`, `PATCH /search-path-segments/{segmentId}`, `SEARCH_PATH_STARTED`, `PATH_APPENDED`, `SEARCH_PATH_SEGMENT_UPDATED`, `SearchAreaQuery.overallOf(incidentId)` | `path`, `police_phone_freshness` | S3-1 owns `search_path`/`search_path_segment` and applies `spec/boundaries.md §4.1.1 Common Geometry Rule`; S2 provides `SearchAreaQuery.overallOf(incidentId)` as validation input only; path writes through S6 Outbox -> S4 `EventFanout` -> S3-2 path slot, S8 current OP/duty shift context |
+| SC-04 지도 기준 범위·구역 분할·할당 | S2, S8, S1-1, S1-2, S4, S7 | `POST /search-areas`, `PATCH /search-areas/{searchAreaId}`, `POST /search-areas/{searchAreaId}/split`, `POST /search-areas/{searchAreaId}/assignments`, `SEARCH_AREA_CHANGED`, `SEARCH_AREA_ASSIGNMENT_CHANGED` | `overall_search_area`, `area` | S2 geometry + search area assignment -> S4 `EventFanout` -> S3-2 map/area slots, S7 package builder |
+| SC-05 수색 경로·PolicePhone GPS 경로 | S3-1, S1-2, S6, S8, S4, S2 | `POST /search-paths`, `POST /search-paths/batch`, `PATCH /search-path-segments/{searchPathSegmentId}`, `SEARCH_PATH_STARTED`, `PATH_APPENDED`, `SEARCH_PATH_SEGMENT_UPDATED`, `SearchAreaQuery.overallOf(incidentId)` | `path`, `police_phone_freshness` | S3-1 owns `search_path`/`search_path_segment` and applies `spec/boundaries.md §4.1.1 Common Geometry Rule`; S2 provides `SearchAreaQuery.overallOf(incidentId)` as validation input only; path writes through S6 Outbox -> S4 `EventFanout` -> S3-2 path slot, S8 current OP/duty shift context |
 | SC-06 현장 마커 생성 | S5, S1-2, S6, S8, S4, S2 | `POST /markers`, `POST /markers/{markerId}/photos/upload-url`, `POST /markers/{markerId}/photos/{photoId}/attach`, `MARKER_CREATED`, `MARKER_UPDATED`, `SearchAreaQuery.overallOf(incidentId)` | `marker` | S5 owns `marker`/`photo` and applies `spec/boundaries.md §4.1.1 Common Geometry Rule` to marker location; S2 provides `SearchAreaQuery.overallOf(incidentId)` as validation input only; marker/photo writes through S6 Outbox -> S4 `EventFanout` -> S3-2 marker slot, S8 OP context |
 | SC-07 통신 단절 중 로컬 기록 | S6, S1-2, S3-1, S5, S7 | `POST /sync/outbox/requeue`, local Outbox rows for `POST /search-paths/batch` and `POST /markers`, package availability from S7 manifest | - | S6 local store/Outbox -> S3-1/S5 pending writes after recovery, S7 offline package -> app local renderer |
 | SC-08 지원 요청·실종자 발견 알림 | S5, S1-1, S1-2, S4, S6, S8 | `POST /markers`, `SUPPORT_REQUEST_CREATED`, `PERSON_FOUND`, fixture `FcmDispatcher` | `marker`, `toast` | S5 marker/notification payload through S6 Outbox -> S4 `EventFanout` -> S3-2 marker/toast; S1-2 `FcmTokenQuery.activeByPolicePhone(policePhoneId)` -> S5 resolver/`FcmDispatcher` adapter -> app banner |
-| SC-09 통신 복구·동기화 | S6, S3-1, S5, S1-2, S3-2, S4, S7 | `POST /sync/outbox/requeue`, `POST /search-paths/batch`, `POST /markers`, `GET /events?incidentId={incidentId}`, `PATH_APPENDED`, `MARKER_CREATED`, `OFFLINE_PACKAGE_INSTALLATION_CHANGED` | `marker`, `path`, `police_phone_freshness` | S6 Outbox flush -> S3-1/S5/S7 server rows -> S4 replay/dedupe -> S3-2 recovered board state |
-| SC-10 구역 완료·새 OP 열기 | S2, S8, S1-2, S4, S1-1 | `PATCH /search-areas/{areaId}/state`, `POST /operational-periods`, `POST /handover-memos`, `SEARCH_AREA_CHANGED`, `OP_TRANSITIONED`, `HANDOVER_MEMO_CREATED` | `area`, `op_toggle`, `op_history`, `handover_memo`, `handover_status` | S2 area state + S8 OP/handover writes -> S4 `EventFanout` -> S3-2 area/op_history/handover_status/handover_memo display, S1-1 open-incident guard |
-| SC-11 인수인계·OP 비교·수색 이력 요약 | S3-2, S1-2, S8, S3-1, S2, S5, S4, S1-1 | `GET /incidents/{incidentId}/board`, `GET /search-paths`, `GET /handover-memos`, `POST /operational-periods/{opId}/search-history-summaries`, `HANDOVER_MEMO_CREATED`, `SEARCH_HISTORY_SUMMARY_CHANGED` | `op_toggle`, `handover_memo`, `search_history_summary` | S3-1/S2/S5 evidence + S8 handover/summary -> S4 `EventFanout` refetch signal -> S3-2 comparison and summary slots, S1-1/S1-2 access guard |
-| SC-12 사건 종료·도메인 데이터 파기 | S1-1, S1-2, S1-3, S6, S7, S4, S3-1, S3-2, S5 | §7 `POST /incidents/{incidentId}/close`, `GET /events?incidentId={incidentId}` web unsubscribe/replay stop, §4.4 `INCIDENT_CLOSED`, `INCIDENT_PURGED`, local package purge, app local close cleanup | §9.2 `incident_terminal`, `package_badge` | S1-1 close -> S1-3 purge orchestration -> S6/S7 purge hooks -> sanitized terminal/tombstone status -> S3-2 `incident_terminal`; S4 carries `INCIDENT_CLOSED`/`INCIDENT_PURGED` fanout, while S6/S7 handle local/package removal and app local close cleanup |
+| SC-09 통신 복구·동기화 | S6, S3-1, S5, S1-2, S3-2, S4, S7 | `POST /sync/outbox/requeue`, `POST /search-paths/batch`, `POST /markers`, `GET /incidents/{incidentId}/events`, `PATH_APPENDED`, `MARKER_CREATED`, `OFFLINE_PACKAGE_INSTALLATION_CHANGED` | `marker`, `path`, `police_phone_freshness` | S6 Outbox flush -> S3-1/S5/S7 server rows -> S4 replay/dedupe -> S3-2 recovered board state |
+| SC-10 구역 완료·새 OP 열기 | S2, S8, S1-2, S4, S1-1 | `PATCH /search-areas/{searchAreaId}`, `POST /operational-periods`, `POST /handover-memos`, `SEARCH_AREA_CHANGED`, `OP_TRANSITIONED`, `HANDOVER_MEMO_CREATED` | `area`, `op_toggle`, `op_history`, `handover_memo`, `handover_status` | S2 area state + S8 OP/handover writes -> S4 `EventFanout` -> S3-2 area/op_history/handover_status/handover_memo display, S1-1 open-incident guard |
+| SC-11 인수인계·OP 비교·수색 이력 요약 | S3-2, S1-2, S8, S3-1, S2, S5, S4, S1-1 | `GET /incidents/{incidentId}/board`, `GET /search-paths`, `GET /handover-memos`, `POST /operational-periods/{operationalPeriodId}/search-history-summaries`, `HANDOVER_MEMO_CREATED`, `SEARCH_HISTORY_SUMMARY_CHANGED` | `op_toggle`, `handover_memo`, `search_history_summary` | S3-1/S2/S5 evidence + S8 handover/summary -> S4 `EventFanout` refetch signal -> S3-2 comparison and summary slots, S1-1/S1-2 access guard |
+| SC-12 사건 종료·도메인 데이터 파기 | S1-1, S1-2, S1-3, S6, S7, S4, S3-1, S3-2, S5 | §7 `POST /incidents/{incidentId}/close`, `GET /incidents/{incidentId}/events` web unsubscribe/replay stop, §4.4 `INCIDENT_CLOSED`, `INCIDENT_PURGED`, local package purge, app local close cleanup | §9.2 `incident_terminal`, `package_badge` | S1-1 close -> S1-3 purge orchestration -> S6/S7 purge hooks -> sanitized terminal/tombstone status -> S3-2 `incident_terminal`; S4 carries `INCIDENT_CLOSED`/`INCIDENT_PURGED` fanout, while S6/S7 handle local/package removal and app local close cleanup |

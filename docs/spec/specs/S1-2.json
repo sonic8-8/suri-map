@@ -995,7 +995,7 @@
         "failure_codes": [
           "police_phone_not_assigned"
         ],
-        "rule": "PolicePhone.account_id가 SecurityContext.accountId와 같아야 하고, S1-1 active incident_assignment 기준으로 사건 배정 계정에 연결된 PolicePhone여야 한다. incident-scoped domain API의 incident/op/current OP 검증은 해당 API owner의 incident-read와 @RequireCurrentOp가 담당하며, S1-2는 S8 AssignmentQuery를 소비하지 않는다."
+        "rule": "PolicePhone.account_id가 SecurityContext.accountId와 같아야 하고, S1-1 active incident_assignment 기준으로 사건 배정 계정에 연결된 PolicePhone여야 한다. incident-scoped domain API의 incident/op/current OP 검증은 해당 API owner의 incident-read와 @RequireCurrentOp가 담당하며, S1-2는 S2 SearchAreaAssignmentQuery를 소비하지 않는다."
       }
     ],
     "api_guard_aliases": [

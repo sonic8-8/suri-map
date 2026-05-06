@@ -270,7 +270,7 @@
           {
             "from": "RECORDING",
             "to": "ENDED",
-            "trigger": "PATCH /search-paths/{pathId} END",
+            "trigger": "PATCH /search-paths/{searchPathId} END",
             "guard": "same incident, same PolicePhone, current OP"
           }
         ]
@@ -412,7 +412,7 @@
       },
       {
         "method": "PATCH",
-        "path": "/search-paths/{pathId}",
+        "path": "/search-paths/{searchPathId}",
         "summary": "수색 경로를 종료한다.",
         "auth": "guard aliases app-police-phone + incident-read + write-common + @RequireCurrentOp",
         "idempotent": true,
@@ -996,7 +996,7 @@
       },
       {
         "method": "PATCH",
-        "path": "/search-path-segments/{segmentId}",
+        "path": "/search-path-segments/{searchPathSegmentId}",
         "summary": "웹 상황판에서 path movement type만 VEHICLE|FOOT|UNKNOWN으로 보정한다.",
         "auth": "guard aliases web-command + incident-read + write-common",
         "idempotent": true,
@@ -1538,7 +1538,7 @@
         },
         {
           "operation": "PATCH_SESSION",
-          "shape": "PATCH /search-paths/{pathId} body {action,clientTs,clockOffsetMs}"
+          "shape": "PATCH /search-paths/{searchPathId} body {action,clientTs,clockOffsetMs}"
         },
         {
           "operation": "APPEND_PATH_BATCH",
@@ -1546,7 +1546,7 @@
         }
       ],
       "local_storage_boundary": "S3-1 does not define Room entities, local queue tables, sync state tables, or retry state; S6 owns local store/Outbox/WorkManager/idempotency.",
-      "sync_flow": "S6 SyncClient.enqueue(writeOperation) 경유로 POST /search-paths, PATCH /search-paths/{pathId}, POST /search-paths/batch 수행"
+      "sync_flow": "S6 SyncClient.enqueue(writeOperation) 경유로 POST /search-paths, PATCH /search-paths/{searchPathId}, POST /search-paths/batch 수행"
     }
   },
   "dependencies": {
@@ -1658,7 +1658,7 @@
         "FR-33"
       ],
       "given": "웹 상황판 사용자가 path segment를 선택했다",
-      "when": "PATCH /search-path-segments/{segmentId}로 movementType만 보정한다",
+      "when": "PATCH /search-path-segments/{searchPathSegmentId}로 movementType만 보정한다",
       "then": "movementTypeSource는 MANUAL가 되고 SEARCH_PATH_SEGMENT_UPDATED가 발행되며 Web은 path/batch 생성 API를 호출할 수 없다.",
       "priority": "critical"
     },
@@ -1700,7 +1700,7 @@
         "FR-04",
         "FR-25"
       ],
-      "given": "POST /search-paths/batch 또는 PATCH /search-path-segments/{segmentId} 응답이 id/status/version를 반환했지만 S3-2 board API이 아직 해당 version 이상으로 수렴하지 않았다.",
+      "given": "POST /search-paths/batch 또는 PATCH /search-path-segments/{searchPathSegmentId} 응답이 id/status/version를 반환했지만 S3-2 board API이 아직 해당 version 이상으로 수렴하지 않았다.",
       "when": "상황판 path slot이 board response을 렌더링한다.",
       "then": "path slot은 STALE_REFETCH 또는 stale 상태를 표시하고, board response이 응답 version 이상으로 갱신되면 같은 id/status/version로 수렴한다.",
       "priority": "high"
@@ -1909,7 +1909,7 @@
       {
         "name": "WebCanOnlyPatchMovementTypeTest",
         "framework": "JUnit 5 + MockMvc",
-        "scenario": "Web은 PATCH /search-path-segments/{segmentId}만 성공하고 POST /search-paths/batch는 channel_not_allowed로 실패한다."
+        "scenario": "Web은 PATCH /search-path-segments/{searchPathSegmentId}만 성공하고 POST /search-paths/batch는 channel_not_allowed로 실패한다."
       },
       {
         "name": "PathBatchRejectsOpMismatchAfterOfflineRecoveryTest",
@@ -1919,7 +1919,7 @@
       {
         "name": "S3PathWritesRejectedAfterIncidentClosedTest",
         "framework": "JUnit 5 + MockMvc",
-        "scenario": "incident CLOSED 이후 POST /search-paths, PATCH /search-paths/{pathId}, POST /search-paths/batch, PATCH /search-path-segments/{segmentId}는 incident_closed로 실패하고 search_path/search_path_segment row와 PublishRequest를 생성하지 않는다."
+        "scenario": "incident CLOSED 이후 POST /search-paths, PATCH /search-paths/{searchPathId}, POST /search-paths/batch, PATCH /search-path-segments/{searchPathSegmentId}는 incident_closed로 실패하고 search_path/search_path_segment row와 PublishRequest를 생성하지 않는다."
       },
       {
         "name": "S3AppPolicePhoneGuardRejectsUnregisteredOrUnassignedPolicePhoneTest",

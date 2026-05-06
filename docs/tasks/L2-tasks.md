@@ -93,7 +93,7 @@
   - 연관 Spec: S3-1, S6, S7, S3-2
   - 시나리오: SC-03, SC-05, SC-07, SC-09
   - 관련 FR: FR-02, FR-24, FR-25
-  - 구현 산출물: police_phone assignment fixture state, assignment guard/service, `POST /police-phones/{policePhoneId}/heartbeat` write path, `POLICE_PHONE_HEARTBEAT_UPDATED` publish request, PolicePhoneFreshnessQuery fixture
+  - 구현 산출물: police_phone assignment fixture state, assignment guard/service, `POST /api/police-phones/{policePhoneId}/heartbeat` write path, `POLICE_PHONE_HEARTBEAT_UPDATED` publish request, PolicePhoneFreshnessQuery fixture
   - 예상 작업량: 2d
   - 완료 기준: 배정된 police_phone fixture는 package 조회와 현장 기록 write가 가능하고, 미배정 police_phone는 assignment guard로 실패하며, 새 public police_phone registration API 없이 heartbeat가 police_phone_freshness DTO에 반영된다.
 
@@ -127,9 +127,9 @@
   - 연관 Spec: S1-1, S1-2, S1-3, S2, S3-1, S5, S6, S7, S8, S3-2
   - 시나리오: SC-05, SC-06, SC-08, SC-09, SC-10, SC-11, SC-12
   - 관련 FR: FR-04, FR-10, FR-18, FR-24
-  - 구현 산출물: Spring MVC `SseEmitter` 기반 `GET /events` SSE endpoint, `sse_replay_event`, Last-Event-ID replay tests
+  - 구현 산출물: Spring MVC `SseEmitter` 기반 `GET /api/incidents/{incidentId}/events` SSE endpoint, `sse_replay_event`, Last-Event-ID replay tests
   - 예상 작업량: 1d
-  - 완료 기준: `GET /events?incidentId=...`가 Web/S3-2 consumer에 대해 live send와 `sse_replay_event` 기반 Last-Event-ID replay를 지원하고, Android APP channel은 SSE consumer가 아니다.
+  - 완료 기준: `GET /api/incidents/{incidentId}/events`가 Web/S3-2 consumer에 대해 live send와 `sse_replay_event` 기반 Last-Event-ID replay를 지원하고, Android APP channel은 SSE consumer가 아니다.
 
 ## Phase 3
 

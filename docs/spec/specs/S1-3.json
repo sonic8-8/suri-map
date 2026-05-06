@@ -62,7 +62,7 @@
         "reason": "S1-3은 PathPurgeHook을 호출할 뿐 경로 domain 소유자가 아니다."
       },
       {
-        "item": "마커·사진 domain row 작성과 presigned 업로드",
+        "item": "마커·사진 domain row 작성과 upload URL 업로드",
         "owner": "S5",
         "reason": "S1-3은 MarkerPhotoPurgeHook을 호출할 뿐 마커/사진 domain 소유자가 아니다."
       },

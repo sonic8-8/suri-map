@@ -4,13 +4,18 @@
 
 ## 기준 문서
 
-- `spec/boundaries.md`
-- `spec/harness-scenarios.md`
-- `spec/specs/*.json`
+계약 충돌은 관심사별 단일 출처를 따른다. 이 문서는 Lane/Phase, branch, commit, MR, task 체크 기준을 다루며 API/DB 계약을 재정의하지 않는다.
 
-Lane task 정합성의 1차 기준은 위 3개 spec 문서다. `prd.md`, `architecture.md`, `adr.md`는 배경 문서로 참고하되, tasks를 확정할 때 public API, event, entity, error, annotation, board slot, SC red test, fixture 값은 `spec/boundaries.md`, `spec/harness-scenarios.md`, `spec/specs/*.json`를 우선한다.
+| 관심사 | 우선 기준 |
+|---|---|
+| Public HTTP URL, request/response, error | `docs/api/api-spec.md` |
+| Spec/Lane 소유권, entity/event/slot, channel/role matrix | `docs/spec/boundaries.md` |
+| 하네스 SC, fixture ID, e2e red test | `docs/spec/harness-scenarios.md` |
+| Spec별 owns/provides/consumes 실행 계약 | `docs/spec/specs/*.json` |
+| DB 엔티티·관계·컬럼 의미 | `docs/db-design/db-design-readable.md` |
+| Lane/Phase, 브랜치, 커밋, MR 규칙 | `docs/tasks/index.md` |
 
-과거 단일 마스터 초안과 파생 뷰/노트는 혼선을 줄이기 위해 제거했다. 기준 문서에 없는 public API, event, entity, error, annotation, board slot은 task로 만들지 않는다. 기준 문서 수정이 필요하면 먼저 보고한다.
+`prd.md`, `architecture.md`, `adr.md`는 배경 문서로 참고한다. 기준 문서에 없는 public API, event, entity, error, annotation, board slot은 task로 만들지 않는다. 기준 문서 수정이 필요하면 먼저 보고한다.
 
 ## 운영 보조 문서
 
@@ -87,6 +92,8 @@ Jira/GitLab 작업 도구는 `acli`와 `glab`을 전제로 한다. 이 문서는
 
 Git Flow branch prefix를 사용한다.
 
+일반 개발 task는 `develop`을 base branch와 MR target으로 사용한다. 릴리즈 branch와 운영 hotfix는 해당 릴리즈/운영 기준 branch를 명시한 뒤 진행한다.
+
 | 목적 | 형식 | 예시 |
 |---|---|---|
 | 기능 개발 | `feature/<JIRA-KEY>-<scope-slug>` | `feature/SURI-123-incident-import` |
@@ -98,11 +105,17 @@ Git Flow branch prefix를 사용한다.
 
 ## 커밋 및 MR 규칙
 
-Angular-style Conventional Commits에 area tag와 Jira issue suffix를 붙인다.
+Angular-style Conventional Commits에 필요한 경우 runtime area tag와 Jira issue suffix를 붙인다.
 
 형식:
 
-`[Area] type(scope): 한글 요약 (<JIRA-KEY>)`
+`[Area] type[(scope)]: 한글 요약 (<JIRA-KEY>)`
+
+또는 직접 영향받는 runtime/infra area가 없으면:
+
+`type[(scope)]: 한글 요약 (<JIRA-KEY>)`
+
+scope는 optional이다. Angular Convention의 scope처럼 영향받는 제품 domain/module/package가 명확할 때만 적는다. area tag(`BE`, `FE`, `Android`, `Infra`)를 scope에 반복하지 않는다.
 
 허용 area tag:
 
@@ -112,19 +125,21 @@ Angular-style Conventional Commits에 area tag와 Jira issue suffix를 붙인다
 | `[FE]` | Web 상황판, React, Web MapLibre UI |
 | `[Android]` | Android app, Room/Outbox/WorkManager, MapLibre Native |
 | `[Infra]` | Docker, CI/CD, 배포, tile server 운영, observability |
-| `[Docs]` | ADR, architecture, spec, task, workflow 문서 |
 
-하나의 MR이 실제로 여러 runtime area를 건드리면 제목 앞에 `[BE][FE][Android][Infra]` 순서로 여러 tag를 붙인다. 순수 문서·계약 변경은 `[Docs]` 하나만 사용한다.
+하나의 MR이 실제로 여러 runtime area를 건드리면 제목 앞에 `[BE/FE/Android/Infra]`처럼 하나의 대괄호 안에 `/`로 area를 구분하고, 순서는 `BE`, `FE`, `Android`, `Infra`를 따른다. 실제로 영향받지 않는 area는 넣지 않는다. 문서·계약 변경도 별도 `[Docs]` tag를 쓰지 않고, 영향을 받는 runtime/infra area만 표시한다. 특정 runtime/infra에 직접 귀속되지 않는 공통 문서·workflow·agent tooling 변경은 area tag를 생략한다.
 
-계약 또는 문서 변경은 별도 `[Contract]`, `[Spec]` tag를 만들지 않고 `[Docs]`를 사용한다. 실제 Docker, CI/CD, 배포, observability 설정 변경은 `[Infra]`를 사용한다.
+계약 변경은 별도 `[Contract]`, `[Spec]`, `[Docs]` tag를 만들지 않고 영향을 받는 runtime/infra area만 표시한다. scope는 영향받는 제품 domain/module/package가 명확할 때만 붙이고, cross-domain contract/schema 정렬처럼 특정 모듈로 좁히기 어려우면 생략한다. 실제 Docker, CI/CD, 배포, observability 설정 변경만 `[Infra]`를 사용한다. `[Infra]`를 공통 문서·agent tooling의 fallback으로 쓰지 않는다.
 
 허용 type:
 
-`feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `ci`, `build`
+`feat`, `fix`, `refactor`, `style`, `test`, `docs`, `chore`, `ci`, `build`
 
-허용 scope:
+Scope 원칙:
 
-`incident`, `auth`, `police_phone`, `retention`, `event`, `overall_search_area`, `area`, `path`, `sync`, `marker`, `photo`, `notification`, `board`, `package`, `tiles`, `op`, `handover`, `search_history_summary`, `contract`, `infra`, `docs`
+- scope는 고정 whitelist로 관리하지 않는다.
+- 제품 domain/module/package가 명확할 때만 붙인다.
+- 문서 정리, agent/workflow/tooling, guardrail, repo-wide style 변경은 scope를 생략한다.
+- 어느 scope가 맞는지 설명이 필요할 정도로 애매하면 생략한다.
 
 예시:
 
@@ -132,8 +147,10 @@ Angular-style Conventional Commits에 area tag와 Jira issue suffix를 붙인다
 - `[FE] fix(board): 단말 최신성 표시 상태 정렬 (SURI-124)`
 - `[Android] test(sync): 오프라인 재전송 하네스 추가 (SURI-125)`
 - `[Infra] chore(tiles): 로컬 타일 서버 설정 정리 (SURI-126)`
-- `[BE][FE] refactor(contract): BaseEvent 스키마 필드명 정렬 (SURI-127)`
-- `[Docs] docs(tasks): Lane 작업 규칙 보강 (SURI-128)`
+- `[BE/FE] refactor: BaseEvent 스키마 필드명 정렬 (SURI-127)`
+- `docs: Lane 작업 규칙 보강 (SURI-128)`
+- `[BE/FE/Android] style: lint 기준 스타일 정리 (SURI-129)`
+- `chore: Codex/Claude 공유 작업 스킬 추가 (SURI-130)`
 
 MR 제목은 commit 제목과 같은 형식을 사용한다. MR 설명에는 Jira key, 완료한 task ID, 수정한 기준 문서, 검증 명령/결과, 영향받는 Lane을 적는다. `spec/boundaries.md` 또는 `spec/harness-scenarios.md` 수정이 필요하면 편집 전에 보고하고, 승인된 변경 내용을 MR에 남긴다.
 
@@ -156,7 +173,7 @@ MR 제목은 commit 제목과 같은 형식을 사용한다. MR 설명에는 Jir
 | Backend runtime과 migration runner | L2 | Spring Boot base, PostgreSQL migration runner, MyBatis configuration, auth/event/purge test skeleton |
 | 공간 DB와 geometry fixture | L3 | PostGIS extension 전제 확인, MyBatis geometry TypeHandler 검증, canonical overall_search_area/area fixture |
 | Android runtime과 offline local test harness | L4 | Android project base, Room/WorkManager deterministic test harness |
-| Object storage와 FCM mock adapter | L5 | MinIO-compatible dev adapter, mock object storage/presign endpoint, FCM dispatcher fixture |
+| Object storage와 FCM mock adapter | L5 | MinIO-compatible dev adapter, mock object storage/upload URL(presigned URL for upload) endpoint, FCM dispatcher fixture |
 | Web, MapLibre, tileserver, compose entrypoint | L6 | React/MapLibre base, local `/tiles` route, Docker Compose service map |
 | Seed/demo incident data | L1 | 모든 Lane이 사용할 수 있는 mock·seed incident import data |
 
