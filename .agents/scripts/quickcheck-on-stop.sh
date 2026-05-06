@@ -94,9 +94,9 @@ fi
 if printf '%s\n' "$changed_files" | grep -q '^backend/'; then
   if [ "$FULL" = "1" ]; then
     run_gradle_limited "backend test" bash -lc 'cd backend && ./gradlew --no-daemon test'
-  elif has_gradle_token backend/build.gradle.kts "spotless"; then
+  elif has_gradle_token backend/build.gradle "spotless"; then
     run_gradle_limited "backend spotlessCheck" bash -lc 'cd backend && ./gradlew --no-daemon spotlessCheck'
-  elif has_gradle_token backend/build.gradle.kts "checkstyle"; then
+  elif has_gradle_token backend/build.gradle "checkstyle"; then
     run_gradle_limited "backend checkstyle" bash -lc 'cd backend && ./gradlew --no-daemon checkstyleMain checkstyleTest'
   else
     echo "backend lint not configured; skipped full Gradle check" >&2

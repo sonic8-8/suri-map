@@ -79,7 +79,7 @@ if [ "${#frontend_eslint_files[@]}" -gt 0 ]; then
 fi
 
 if [ "$backend_changed" -eq 1 ]; then
-  if [ "${AGENT_FORMAT_BROAD:-0}" = "1" ] && has_gradle_token backend/build.gradle.kts "spotless"; then
+  if [ "${AGENT_FORMAT_BROAD:-0}" = "1" ] && has_gradle_token backend/build.gradle "spotless"; then
     (cd backend && ./gradlew --no-daemon spotlessApply)
   else
     echo "backend broad formatter skipped; run AGENT_FORMAT_BROAD=1 $0 <file> or ./gradlew spotlessApply explicitly" >&2
