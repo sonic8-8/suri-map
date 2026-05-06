@@ -10,7 +10,7 @@ Suri-Map Spring Boot API 전용 규칙이다. 저장소 공통 규칙은 `../AGE
 | Spec/Lane ownership | `../docs/spec/boundaries.md` |
 | DB entity 의미 | `../docs/db-design/db-design-readable.md` |
 | Persistence 결정 | `../docs/adr.md` ADR-0033 |
-| Current stack | `build.gradle.kts` |
+| Current stack | `build.gradle` |
 
 ## 현재 스택
 
