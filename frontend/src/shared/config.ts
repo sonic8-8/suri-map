@@ -3,4 +3,3 @@
 export function getVWorldApiKey() {
   return __V_WORLD_API_KEY__;
 }
-

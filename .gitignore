@@ -14,7 +14,15 @@ Thumbs.db
 .env.*
 !.env.example
 !.env.*.example
-.codex
+.codex/*
+!.codex/
+!.codex/config.toml
+!.codex/hooks.json
+!.codex/hooks/
+!.codex/hooks/**
+.agents/scratch/
+.claude/scratch/
+.claude/settings.local.json
 
 # Logs
 *.log
@@ -77,6 +85,8 @@ docker-compose.override.yml
 infra/docker-compose.override.yml
 
 # Test / tool caches
+__pycache__/
+*.py[cod]
 .pytest_cache/
 .nyc_output/
 .scannerwork/
