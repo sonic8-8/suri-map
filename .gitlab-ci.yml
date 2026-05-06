@@ -1,0 +1,48 @@
+stages:
+  - lint
+
+default:
+  interruptible: true
+
+backend:lint:
+  stage: lint
+  image: eclipse-temurin:17-jdk
+  cache:
+    key: backend-gradle
+    paths:
+      - .gradle/
+  variables:
+    GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle"
+  script:
+    - cd backend
+    - bash ./gradlew check
+
+frontend:lint:
+  stage: lint
+  image: node:22
+  cache:
+    key:
+      files:
+        - frontend/package-lock.json
+    paths:
+      - frontend/.npm/
+  script:
+    - cd frontend
+    - npm ci --cache .npm --prefer-offline
+    - npm run lint
+    - npm run format:check
+    - npm run typecheck
+    - npm run build
+
+android:lint:
+  stage: lint
+  image: ghcr.io/cirruslabs/android-sdk:36
+  cache:
+    key: android-gradle
+    paths:
+      - .gradle/
+  variables:
+    GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle"
+  script:
+    - cd android
+    - bash ./gradlew ktlintCheck :app:assembleDebug
