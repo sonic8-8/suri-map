@@ -6,7 +6,7 @@
 
 6번 담당자는 테스트를 구현하지 않는다. 이 문서는 `harness-scenarios.md`의 `given/when/then`, `involved_apis`, `e2e_red_test`, `board_merge`를 기준으로 각 SC의 종료 조건, 검증 유형, 필요 데이터/fixture/mock, 선행 필요 작업, 충돌/결정 필요, 금지/주의를 정리한다.
 
-저장소 루트는 `/mnt/c/Users/SSAFY/kimeunseo/C106/S14P31C106`이며, 이 문서의 기준 경로는 모두 저장소 루트 기준 상대 경로로 적는다. 제출/관리 경로는 `docs/tasks/scenario-exit-criteria.md`다.
+이 문서의 기준 경로는 저장소 루트 기준 상대 경로로 적는다. 제출/관리 경로는 `docs/tasks/scenario-exit-criteria.md`다.
 
 ## 1. 기준 문서와 적용 원칙
 
@@ -18,7 +18,6 @@
 - API path는 `docs/api/api-spec.md` 기준으로 canonical `/api` path를 판정한다. source spec path가 필요한 경우 public canonical path와 별도로 적는다.
 - 기준 문서에 없는 ID, API, fixture 값, task ID는 새로 만들지 않고 `확인 필요`로 둔다.
 - 실제 테스트 코드, fixture loader, product API, DB schema, event payload를 이 문서에서 구현하거나 수정하지 않는다.
-- 피드백 문서의 backend smoke test 실패, Testcontainers 설정, MR 분리 여부는 backend skeleton 작업 범위다. 이 문서에서는 6번 산출물의 경로/기준 문서/API 판정 문제만 반영한다.
 
 ## 1.1 Review Guide 반영 기준
 
@@ -708,7 +707,26 @@
 
 ---
 
-## 4. 완료 기준
+## 4. 결정 필요 요약
+
+| 우선순위 | 관련 SC | owner | 막히는 검증 유형 | 결정 필요 |
+|---|---|---|---|---|
+| 높음 | SC-01 | 4번 + L1 + 5번 | Mock contract, Backend 통합, Web E2E | mock 112 source incident payload, `sourceIncidentId` 조회 실패 처리, Web import CTA owner |
+| 높음 | SC-02 | 4번 + L1/L2 | Backend 통합, Mock contract | assignment 중복 기준 컬럼/키, mock 112 인계 처리 API의 canonical error payload |
+| 높음 | SC-03 | Android owner + L4/L6 | Android UI 자동화, Web E2E | Android UI 자동화 owner와 package 진행률/실패/지도 미다운로드 UI 기준 |
+| 높음 | SC-07 | Android owner + L4/L6 | Android 통합/E2E, Android UI 자동화 | offline package status report를 Outbox로 보낼지 별도 report로 처리할지, Android UI 자동화 도구 |
+| 높음 | SC-08 | Android owner + L5 | Android UI 자동화, Mock contract | background notification local 생성 책임, 지원 요청 위치 요약 format |
+| 높음 | SC-09 | L4 + L6 | Android 통합/E2E, Web E2E | 권한 실패 Outbox status와 stale package/복구 완료 UI 동시 표시 기준 |
+| 중간 | SC-04 | L3 + L6 | Backend 통합, Web E2E | overall/general search area 모델 공용 시 board slot/response field naming, invalid geometry error detail |
+| 중간 | SC-05 | L4 | Backend 통합, Android 통합/E2E | low-quality GPS를 저장 제외로 볼지 excluded row로 남길지 |
+| 중간 | SC-06 | L5 + L6 | Android 통합/E2E, Web E2E | Web marker 조회/수정/삭제 정책, offline 사진 임시 파일 경로/수명 |
+| 중간 | SC-10 | L3 | Backend 통합, 통합 리허설 | mock radio report가 product entity인지 harness-only log인지 |
+| 중간 | SC-11 | L3 + L6 | Backend 통합, Web E2E, Mock contract | summary provider를 mock 기준으로 검증할지, handover memo input field, summary CTA unlock guard |
+| 중간 | SC-12 | L1 + L2 + L4/L6 | Backend 통합, Android 통합/E2E, Web E2E | 24시간 soft delete 시간 이동 fixture, missing_person 종료 후 응답 방식, terminal response freshness 노출 금지 기준 |
+
+---
+
+## 5. 완료 기준
 
 - SC-01~SC-12가 모두 문서에 있다.
 - 각 SC에 종료 조건이 있다.
