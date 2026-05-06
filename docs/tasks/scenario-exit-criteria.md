@@ -6,15 +6,18 @@
 
 6번 담당자는 테스트를 구현하지 않는다. 이 문서는 `harness-scenarios.md`의 `given/when/then`, `involved_apis`, `e2e_red_test`, `board_merge`를 기준으로 각 SC의 종료 조건, 검증 유형, 필요 데이터/fixture/mock, 선행 필요 작업, 충돌/결정 필요, 금지/주의를 정리한다.
 
-현재 저장소에는 전달 문서의 `docs/tasks` 경로가 없고 실제 task 문서는 `tasks/`에 있으므로, 최종 산출물 경로는 `tasks/scenario-exit-criteria.md`로 둔다.
+전달 문서의 제출 기준 경로는 `docs/tasks/scenario-exit-criteria.md`다. 현재 로컬 검토 워크스페이스는 `docs/` 트리 대신 `기획문서/`, `tasks/`, `specs/`가 루트에 풀린 구조이므로 이 작업본은 `scenario-exit-criteria.md`에서 관리한다. 실제 `docs/` 트리가 있는 브랜치에 반영할 때는 같은 내용을 `docs/tasks/scenario-exit-criteria.md`로 배치한다.
 
 ## 1. 기준 문서와 적용 원칙
 
-- 1차 기준: `기획문서/harness-scenarios.md`, `기획문서/boundaries.md`, `specs/*.json`, `tasks/L1-tasks.md` ~ `tasks/L6-tasks.md`
+- 제출 기준 경로: `docs/spec/harness-scenarios.md`, `docs/spec/boundaries.md`, `docs/spec/specs/*.json`, `docs/tasks/L1-tasks.md` ~ `docs/tasks/L6-tasks.md`, `docs/tasks/review-guide.md`, `docs/api/api-spec.md`
+- 현재 로컬 검토 기준: `기획문서/harness-scenarios.md`, `기획문서/boundaries.md`, `specs/*.json`, `tasks/L1-tasks.md` ~ `tasks/L6-tasks.md`, `기획문서/api-spec.md`
+- 전달 문서가 요구한 `docs/tasks/review-guide.md`는 현재 로컬 워크스페이스에 대응 파일이 없어 직접 대조하지 못했다. 실제 `docs/` 트리 반영 전 Scenario Coverage Trace와 Fixture Exactness 기준 재대조가 필요하다.
 - 배경 기준: `기획문서/prd.md`, `기획문서/architecture.md`, `기획문서/adr.md`
-- API path는 task 문서에 명시된 canonical `/api` path를 우선 사용한다. 현재 저장소에는 `docs/api/api-spec.md`가 없으므로 최종 API spec 대조는 `확인 필요`로 남긴다.
+- API path는 `docs/api/api-spec.md`의 로컬 대응 문서인 `기획문서/api-spec.md` 기준으로 canonical `/api` path를 판정한다. source spec path가 필요한 경우 public canonical path와 별도로 적는다.
 - 기준 문서에 없는 ID, API, fixture 값, task ID는 새로 만들지 않고 `확인 필요`로 둔다.
 - 실제 테스트 코드, fixture loader, product API, DB schema, event payload를 이 문서에서 구현하거나 수정하지 않는다.
+- 피드백 문서의 backend smoke test 실패, Testcontainers 설정, MR 분리 여부는 backend skeleton 작업 범위다. 이 문서에서는 6번 산출물의 경로/기준 문서/API 판정 문제만 반영한다.
 
 ## 2. 테스트 유형 정의
 
@@ -83,7 +86,7 @@
 
 ### 충돌/결정 필요
 
-- 현재 저장소에 `docs/api/api-spec.md`가 없어 `/api` canonical path 최종 대조 필요
+- API spec 기준 public canonical path는 `POST /api/incidents/import`로 확정됨
 - mock 112 원천 payload 최종 shape 미정
 - 없는 sourceIncidentId를 public error로 볼지 fixture preflight 실패로 볼지 결정 필요
 
@@ -158,7 +161,7 @@
 - 앱은 항목별 진행률, 실패 항목명, 실패 항목 재시도 CTA를 표시한다.
 - 전체 성공 시 package installation 상태가 서버에 보고되고 `OFFLINE_PACKAGE_INSTALLATION_CHANGED`가 발행된다.
 - 상황판 `package_badge`는 미완료 단말 경고를 표시하고, 완료 후 해제된다.
-- 담당 구역이 없는 지구대/파출소 순찰차 계정도 OP1, 전체 수색 구역, 초기 기준 마커, 단말 식별 정보를 받아 초동 수색 준비가 가능하다.
+- 담당 구역이 없는 지구대/파출소 순찰차 계정도 `assignedAreas=[]`와 함께 OP1, 전체 수색 구역, 초기 기준 마커, 단말 식별 정보를 받아 초동 수색 준비가 가능하다.
 
 ### 검증 유형
 
@@ -193,9 +196,10 @@
 
 ### 충돌/결정 필요
 
-- 전달 문서의 `docs/api/api-spec.md`가 없어 manifest/report canonical response shape 확인 필요
-- 담당 구역이 없는 순찰차 계정 manifest에서 `assignedArea`를 null로 둘지 빈 배열로 둘지 결정 필요
-- stale package 판정 기준이 S2 overall area version인지 manifest revision인지 최종 확인 필요
+- API spec 기준 manifest/report path는 `GET /api/incidents/{incidentId}/offline-package/manifest`, `POST /api/incidents/{incidentId}/offline-package/installations`로 확정됨
+- manifest response의 큰 구조는 API spec에 있으나 missingPerson/package allowlist의 최종 field 단위는 fixture catalog와 대조 필요
+- API/S7 기준 담당 구역이 없는 순찰차 계정 manifest는 단수 `assignedArea`나 null이 아니라 `assignedAreas=[]`로 판정함
+- S7 기준 stale package는 `manifest_version < latest manifest_version`으로 판정하고, overall area 변경은 최신 manifest revision 증가 입력으로 취급함
 
 ### 금지/주의
 
@@ -246,8 +250,9 @@
 
 ### 충돌/결정 필요
 
-- `POST /api/search-areas/{searchAreaId}/split` canonical path 최종 확인 필요
-- 전체 수색 구역과 수색 구역을 같은 table `search_area(area_level=OVERALL|...)`로 둘 때 API response naming 기준 확인 필요
+- API spec 기준 split path는 `POST /api/search-areas/{searchAreaId}/split`로 확정됨
+- 전체 수색 구역은 별도 resource가 아니라 `POST /api/search-areas` body `areaLevel=OVERALL`, 조회는 `GET /api/search-areas?incidentId={incidentId}&areaLevel=OVERALL&status=ACTIVE`로 확정됨
+- 전체 수색 구역과 일반 수색 구역을 같은 `search_area(area_level=OVERALL|...)` 모델로 둘 때 board slot naming과 response field naming 일치 확인 필요
 - invalid geometry error payload의 detail code 수준 확인 필요
 
 ### 금지/주의
@@ -301,8 +306,8 @@
 
 ### 충돌/결정 필요
 
-- 수색 시작 API canonical path가 `POST /api/search-paths`인지 task/API spec 최종 확인 필요
-- 수동 보정 API `PATCH /api/search-path-segments/{id}`의 web-only guard error shape 확인 필요
+- API spec 기준 수색 시작 path는 `POST /api/search-paths`, batch append path는 `POST /api/search-paths/batch`로 확정됨
+- API spec 기준 수동 보정 path는 `PATCH /api/search-path-segments/{searchPathSegmentId}`이고 web-command guard/error catalog가 정리됨
 - low-quality GPS를 저장 제외로 볼지 별도 excluded row로 남길지 최종 확인 필요
 
 ### 금지/주의
@@ -319,7 +324,7 @@
 
 - 앱 바텀시트에서 마커 유형 선택만으로 현재 위치, 시간, 계정, PolicePhone, OP 기준 marker가 생성된다.
 - 온라인 기준 생성 후 3초 안에 상황판 `marker` slot에 표시된다.
-- 사진이 있으면 upload-url 발급, object storage upload, attach가 단계별로 성공/실패 처리된다.
+- 사진이 있으면 upload-url 발급, object storage upload, attach가 단계별로 성공/실패 처리되고, attach 성공은 `MARKER_UPDATED.photoDelta`로 board marker 수렴 기준을 제공한다.
 - 오프라인 생성은 앱 지도와 큐에 pending으로 표시되고, 복구 후 pending이 해제된다.
 - invalid Point, 웹 생성, 미등록/미배정 PolicePhone, 사진 제한 초과는 row/event/board를 변경하지 않는다.
 
@@ -331,7 +336,7 @@
 | Android UI 자동화 | 바텀시트 입력, 유형 원탭 저장, 저장 중/완료/실패 재시도 UI 검증 | L5/S5 + Android owner | L5-T01B |
 | Backend 통합 테스트 | photo upload-url, upload, attach, duplicate/orphan rejection 검증 | L5/S5 | L5-B01A, L5-T04A, L5-T04B |
 | Android 통합/E2E 테스트 | offline marker/photo pending, Outbox 연동, 복구 후 pending 해제 검증 | L4/S6 + L5/S5 | L4-T05A, L4-T05B, L5-T04B |
-| Mock contract 테스트 | `MARKER_CREATED`/photo event, SSE, board marker 수렴 검증 | L2/S4 + L6/S3-2 | L2-T06, L2-T07A, L6-T10B |
+| Mock contract 테스트 | `MARKER_CREATED`, `MARKER_UPDATED.photoDelta`, SSE, board marker 수렴 검증 | L2/S4 + L6/S3-2 | L2-T06, L2-T07A, L6-T10B |
 | Web E2E 테스트 | marker slot 표시와 source-owner immutability 검증 | L6/S3-2 | L6-T03B |
 | 통합 리허설 | SC-06 marker/photo 하네스와 board evidence 수집 | L5 중심 | L1-D01B, L5-D01 |
 
@@ -355,7 +360,7 @@
 
 ### 충돌/결정 필요
 
-- 사진 attach 성공 시 `MARKER_CREATED`와 `MARKER_UPDATED.photoDelta` 중 어떤 event로 board 수렴을 검증할지 확인 필요
+- 사진 attach 성공은 별도 photo event가 아니라 `MARKER_UPDATED.photoDelta.photoId/status/version`과 parent `marker.version` 증가로 board 수렴을 검증함
 - Web의 마커 조회/수정/삭제 정책과 현장 마커 생성 금지 경계 확인 필요
 - offline 상태에서 사진 임시 파일 경로/수명 기준 확인 필요
 
@@ -460,7 +465,7 @@
 ### 충돌/결정 필요
 
 - Android background notification local 생성 책임이 앱 UI task에 있는지 L5 contract에 있는지 확인 필요
-- 중복 이벤트 dedupe 기준을 eventId 단독으로 볼지 entity version까지 포함할지 확인 필요
+- S4 기준 중복 toast/banner/notification dedupe는 `eventId`로 수행하고, entity `id/status/version`은 수렴 비교 필드로 사용함
 - 지원 요청 위치 요약 format 확인 필요
 
 ### 금지/주의
@@ -513,7 +518,7 @@
 
 ### 충돌/결정 필요
 
-- 전달 문서 예시의 `/api/sync/outbox/requeue`가 실제 product API인지 harness diagnostic API인지 확인 필요
+- API spec 기준 `POST /api/sync/outbox/requeue`는 Android local Outbox 진단·재큐잉 동기화 endpoint로 유지됨
 - 권한 실패 Outbox 항목을 재시도 대기와 어떻게 구분할지 status 값 확인 필요
 - stale package와 복구 완료 UI를 동시에 표시하는 최종 UX 기준 확인 필요
 
@@ -567,8 +572,8 @@
 
 ### 충돌/결정 필요
 
-- `OTHER` 사유와 인수인계 메모 동시 저장 API transaction 경계 확인 필요
-- 앱에서 handover memo 저장은 허용되지만 OP 생성/구역 완료는 금지되는 guard matrix 확인 필요
+- S8 기준 `reason=OTHER`는 `reasonMemo`가 필수이며, `handoverMemo`는 OP 전환 transaction 안에서 선택 저장된다. `handoverMemo`는 `reasonMemo`를 대체하지 않는다.
+- guard matrix는 OP 생성/구역 완료는 WEB 지휘 command만 허용하고, handover memo write는 사건 배정 계정의 APP/WEB 채널에서 허용하는 기준으로 검증함
 - 무전 보고 seed가 product entity인지 harness-only log인지 확인 필요
 
 ### 금지/주의
