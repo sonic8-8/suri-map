@@ -17,7 +17,7 @@
 
 ## MR
 
-1. 커밋 메시지는 `[Area] type[(scope)]: 한글 요약 (<JIRA-KEY>)` 형식을 쓴다. scope 생략은 `docs/tasks/index.md`의 전역 style/tooling 예외일 때만 허용한다.
+1. 커밋 메시지는 `docs/tasks/index.md`의 area tag, type, optional scope, Jira suffix 규칙을 따른다. 문서 정리, agent/workflow/tooling, guardrail처럼 특정 제품 domain/module/package로 좁히기 어려운 변경은 scope를 생략한다.
 2. MR 제목은 커밋 제목과 같은 형식으로 둔다.
 3. MR 설명에는 Jira key, 완료한 task, 검증 명령/결과, 영향 Lane, 수정한 기준 문서를 적는다.
 4. 자동화가 가능하면 `commit-mr` skill로 confirm 후 commit, push, MR 생성을 처리한다.

@@ -49,7 +49,7 @@ Lane task ID를 인자로 받아 사이클 시작 묶음을 자동화한다.
 
 | # | 입력값 | 추론 출처 |
 |---|---|---|
-| 1 | 티켓 제목 | `[<area_tag>] <task 블록 헤더>` (예: `[BE] 배정 사건·소속·실종자 도메인 데이터 시드 데이터 준비`). 결합 area 시 `[BE/FE]` 슬래시 구분. type/scope 는 Jira 제목에 포함하지 않는다 (커밋·MR 제목에만) |
+| 1 | 티켓 제목 | area가 있으면 `[<area_tag>] <task 블록 헤더>` (예: `[BE] 배정 사건·소속·실종자 도메인 데이터 시드 데이터 준비`). 결합 area 시 `[BE/FE]` 슬래시 구분. 직접 영향받는 runtime/infra area가 없으면 area tag를 생략한다. type/scope 는 Jira 제목에 포함하지 않는다 (커밋·MR 제목에만) |
 | 2 | 티켓 타입 | default `작업` |
 | 3 | 티켓 설명 | task ID, task 파일, Phase, 담당 Spec, 구현 산출물, 완료 기준, 필수 참조를 요약한다. 기준 문서 위치를 남겨 Jira와 Lane task를 추적 가능하게 만든다 |
 | 4 | 브랜치 슬러그 | 제목 → kebab-case |
@@ -66,13 +66,13 @@ Lane task ID를 인자로 받아 사이클 시작 묶음을 자동화한다.
 
 권위는 `docs/tasks/index.md` §커밋 및 MR 규칙. 아래 목록은 예시 스냅샷이다. **실행 시 항상 `docs/tasks/index.md` 를 fresh 조회해 area/type/scope 를 검증**한다 (그래도 실패하면 `Failure / Ambiguity Format` 으로 사용자 확인).
 
-- **area_tag** (커밋·MR 제목용): `BE` `FE` `Android` `Infra` `Docs`
+- **area_tag** (커밋·MR 제목용): `BE` `FE` `Android` `Infra`
   - 단일: `[BE]`, `[FE]` 등
-  - 여러 area 혼합: `[BE/FE/Android/Infra]` 슬래시 구분 (팀 컨벤션 — index.md 본문 표기 `[BE][FE]` 대신 슬래시 통일)
-  - 순수 문서·계약 변경은 `[Docs]` 하나
+  - 여러 area 혼합: `[BE/FE/Android/Infra]` 슬래시 구분
+  - 문서·계약 변경은 별도 `Docs` area 를 쓰지 않고 영향을 받는 runtime/infra area 만 표시한다. 특정 runtime/infra 에 직접 귀속되지 않는 공통 문서·workflow·agent tooling 변경은 area tag 를 생략한다.
 - **type**: `feat` `fix` `refactor` `style` `test` `docs` `chore` `ci` `build`
-- **scope**: `incident` `auth` `police_phone` `retention` `event` `overall_search_area` `area` `path` `sync` `marker` `photo` `notification` `board` `package` `tiles` `op` `handover` `search_history_summary` `contract` `infra` `docs`
-  - scope 는 domain/module/package 자리다. 특정 domain 으로 좁히기 어려운 전역 style 또는 tooling 변경은 scope 를 비울 수 있다.
+- **scope**: `incident` `auth` `police_phone` `retention` `event` `overall_search_area` `area` `path` `sync` `marker` `photo` `notification` `board` `package` `tiles` `op` `handover` `search_history_summary` `contract`
+  - scope 는 domain/module/package 자리다. area tag(`BE`, `FE`, `Android`, `Infra`)를 scope 에 반복하지 않는다. 문서 정리, agent/workflow/tooling, guardrail처럼 특정 제품 domain/module/package 로 좁히기 어려운 변경은 scope 를 비울 수 있다.
 
 ---
 
@@ -88,13 +88,13 @@ Lane task ID를 인자로 받아 사이클 시작 묶음을 자동화한다.
    - `Room` / `Outbox` / `WorkManager` / `Android` → `[Android]`
    - `React` / `MapLibre` / `board slot` / `상황판` → `[FE]`
    - `Docker` / `Compose` / `Jenkins` / `tile server` / `observability` → `[Infra]`
-   - 순수 문서·계약 변경 → `[Docs]`
+   - 특정 runtime/infra 에 직접 귀속되지 않는 공통 문서·workflow·agent tooling 변경 → area tag 생략
 7. commit type 추론.
    - `B` 접두어 (bootstrap/seed) → `chore` 또는 `feat`
    - `T` + Phase 1~3 + "구현/추가" → `feat`
    - `I` (integration test) → `test`
    - `D` (demo/rehearsal) → `chore`
-8. commit scope 추론. 담당 Spec + 제목 → 화이트리스트 매칭. 전역 style/tooling 변경은 빈 scope 허용.
+8. commit scope 추론. 담당 Spec + 제목 → 화이트리스트 매칭. 문서 정리, agent/workflow/tooling, guardrail처럼 특정 제품 domain/module/package 로 좁히기 어려운 변경은 빈 scope 허용.
 9. 브랜치 prefix derive. `docs/tasks/index.md` 브랜치 규칙을 fresh 확인한다. 일반 Lane 개발 task는 `feature/`를 기본으로, 릴리즈 전 버그 수정은 `fix/`, 운영 hotfix는 `hotfix/`를 사용한다. `release/`는 Jira task branch가 아니라 릴리즈 branch 자체라 자동 생성 대상에서 제외한다.
 10. 슬러그 derive. 제목 → kebab-case (의미 기반 영문화).
 11. 티켓 description 합성. Jira 티켓만 보고도 Lane task와 기준 문서를 역추적할 수 있도록 task ID, task 파일, Phase, 담당 Spec, 구현 산출물, 완료 기준, 필수 참조를 포함한다. 담당 Spec이 2개 이상이면 커밋 scope 후보도 함께 표시하고 사용자 confirm 을 받는다.
@@ -134,11 +134,11 @@ Lane task ID를 인자로 받아 사이클 시작 묶음을 자동화한다.
    JIRA_KEY=$(.agents/skills/ticket-branch/scripts/ticket-create.sh \
      --project S14P31C106 \
      --type "<2번 ticket type>" \
-     --summary "[<area_tag>] <task 제목>" \
+     --summary "<Jira 티켓 제목>" \
      --desc-file /tmp/ticket-branch-desc.txt \
      --assignee "@me")
    ```
-   - `--summary` 는 반드시 `[<area_tag>] <task 제목>` 형식 (예: `[BE] 배정 사건·소속·실종자 도메인 데이터 시드 데이터 준비`).
+   - `--summary` 는 area가 있으면 `[<area_tag>] <task 제목>` 형식 (예: `[BE] 배정 사건·소속·실종자 도메인 데이터 시드 데이터 준비`), area가 없으면 `<task 제목>` 형식.
    - 결합 area: `[BE/FE]` 슬래시 구분.
    - type/scope 는 Jira 제목에 포함하지 않는다 (그 둘은 커밋·MR 제목에만 사용).
    - stdout 으로 발급된 issue key (예: `S14P31C106-77`) 가 출력된다. 실패 시 stderr 로그를 사용자에게 보고하고 중단.
@@ -177,7 +177,7 @@ Task 제목: <task 헤더>
   브랜치 prefix:   <derived>
   슬러그:          <4>
   최종 브랜치:     <prefix>(JIRA-KEY 발급 후)-<슬러그>
-  Jira 티켓 제목:  [<area_tag>] <8>
+  Jira 티켓 제목:  <area가 있으면 [<area_tag>] <8>, 없으면 <8>>
 
 티켓 description:
   [Task]
@@ -219,7 +219,7 @@ Task 제목: <task 헤더>
   "slug": "incident-fixture-seed",
   "title": "배정 사건·소속·실종자 도메인 데이터 시드 데이터 준비",
   "ticket_type": "작업",
-  "area_tag": "BE | FE | Android | Infra | Docs (단일 또는 슬래시 결합, 예: 'BE' 또는 'BE/FE')",
+  "area_tag": "BE | FE | Android | Infra | '' (단일 또는 슬래시 결합, 예: 'BE' 또는 'BE/FE')",
   "commit_type": "feat | fix | refactor | style | test | docs | chore | ci | build",
   "commit_scope": "incident 또는 빈 문자열",
   "commit_scope_candidates": ["incident"],
@@ -228,7 +228,7 @@ Task 제목: <task 헤더>
 }
 ```
 
-`area_tag` 는 대괄호 없이 약어로만 저장 (예: `BE`, 결합 시 `BE/FE`). 커밋·MR 제목엔 `[BE]` 형식으로 사용. GitLab MR Label 은 `commit-mr` SKILL 에서 매핑 테이블(`⌨️ BE` 등 정식 라벨명)을 적용해 변환한다.
+`area_tag` 는 대괄호 없이 약어로만 저장 (예: `BE`, 결합 시 `BE/FE`). area가 없으면 빈 문자열로 저장한다. 커밋·MR 제목엔 area가 있을 때만 `[BE]` 형식으로 사용. GitLab MR Label 은 `commit-mr` SKILL 에서 매핑 테이블(`⌨️ BE` 등 정식 라벨명)을 적용해 변환한다.
 
 ---
 

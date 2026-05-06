@@ -7,7 +7,7 @@
 #     --target <ref> \
 #     --title "<title>" \
 #     --desc-file <path> \
-#     --label "<label-or-csv>" \
+#     [--label "<label-or-csv>"] \
 #     [--assignee "@me"]
 #
 # --label : 단일 라벨 또는 콤마 구분 결합. 예: "⌨️ BE" 또는 "⌨️ BE,🖥️ FE"
@@ -53,8 +53,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ -z "$SOURCE" || -z "$TITLE" || -z "$DESC_FILE" || -z "$LABEL" ]]; then
-  echo "usage: $0 --source <branch> --target <ref> --title <title> --desc-file <path> --label <label> [--assignee @me]" >&2
+if [[ -z "$SOURCE" || -z "$TITLE" || -z "$DESC_FILE" ]]; then
+  echo "usage: $0 --source <branch> --target <ref> --title <title> --desc-file <path> [--label <label>] [--assignee @me]" >&2
   exit 1
 fi
 

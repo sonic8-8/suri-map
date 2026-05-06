@@ -26,7 +26,7 @@
 - [ ] 서비스 테스트를 Mockito로 작성하거나 유지했다면, `@SpringBootTest` 대신 선택한 이유를 MR 설명에 적었다.
 - [ ] 새 domain 패키지를 추가했다면, 관련 Entity/Repository/Enum을 같은 도메인 패키지에 두고 기술별 폴더로 나누지 않았다.
 - [ ] 클래스명이 `Controller`, `Service`, `Repository`, `Request`, `Response`, `Client`, `Config`, `Test` 규칙을 따른다.
-- [ ] 커밋 메시지가 `docs/tasks/index.md`의 `[Area] type(scope): 설명 (<JIRA-KEY>)` 형식을 따른다.
+- [ ] 커밋 메시지가 `docs/tasks/index.md`의 area tag, type, optional scope, Jira suffix 규칙을 따른다.
 
 ## 프론트엔드 / Android 리뷰 체크리스트
 - [ ] Web은 지휘 상황판, Android는 현장 입력이라는 채널 경계를 지켰다.

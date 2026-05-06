@@ -105,13 +105,17 @@ Git Flow branch prefix를 사용한다.
 
 ## 커밋 및 MR 규칙
 
-Angular-style Conventional Commits에 area tag와 Jira issue suffix를 붙인다.
+Angular-style Conventional Commits에 필요한 경우 runtime area tag와 Jira issue suffix를 붙인다.
 
 형식:
 
-`[Area] type(scope): 한글 요약 (<JIRA-KEY>)`
+`[Area] type[(scope)]: 한글 요약 (<JIRA-KEY>)`
 
-scope는 Angular-style Conventional Commits처럼 영향받는 domain/module/package를 적는다. 특정 domain으로 좁히기 어려운 전역 style 또는 tooling 변경은 scope를 생략할 수 있다.
+또는 직접 영향받는 runtime/infra area가 없으면:
+
+`type[(scope)]: 한글 요약 (<JIRA-KEY>)`
+
+scope는 Angular Convention의 scope처럼 영향받는 domain/module/package 이름만 적는다. area tag(`BE`, `FE`, `Android`, `Infra`)를 scope에 반복하지 않는다. 문서 정리, agent/workflow/tooling, guardrail처럼 특정 제품 domain/module/package로 좁히기 어려운 변경은 scope를 생략한다.
 
 허용 area tag:
 
@@ -121,11 +125,10 @@ scope는 Angular-style Conventional Commits처럼 영향받는 domain/module/pac
 | `[FE]` | Web 상황판, React, Web MapLibre UI |
 | `[Android]` | Android app, Room/Outbox/WorkManager, MapLibre Native |
 | `[Infra]` | Docker, CI/CD, 배포, tile server 운영, observability |
-| `[Docs]` | ADR, architecture, spec, task, workflow 문서 |
 
-하나의 MR이 실제로 여러 runtime area를 건드리면 제목 앞에 `[BE/FE/Android/Infra]`처럼 하나의 대괄호 안에 `/`로 area를 구분하고, 순서는 `BE`, `FE`, `Android`, `Infra`, `Docs`를 따른다. 순수 문서·계약 변경은 `[Docs]` 하나만 사용한다.
+하나의 MR이 실제로 여러 runtime area를 건드리면 제목 앞에 `[BE/FE/Android/Infra]`처럼 하나의 대괄호 안에 `/`로 area를 구분하고, 순서는 `BE`, `FE`, `Android`, `Infra`를 따른다. 실제로 영향받지 않는 area는 넣지 않는다. 문서·계약 변경도 별도 `[Docs]` tag를 쓰지 않고, 영향을 받는 runtime/infra area만 표시한다. 특정 runtime/infra에 직접 귀속되지 않는 공통 문서·workflow·agent tooling 변경은 area tag를 생략한다.
 
-계약 또는 문서 변경은 별도 `[Contract]`, `[Spec]` tag를 만들지 않고 `[Docs]`를 사용한다. 실제 Docker, CI/CD, 배포, observability 설정 변경은 `[Infra]`를 사용한다.
+계약 변경은 별도 `[Contract]`, `[Spec]`, `[Docs]` tag를 만들지 않고 관련 runtime area tag와 `contract` scope로 표시한다. 실제 Docker, CI/CD, 배포, observability 설정 변경만 `[Infra]`를 사용한다. `[Infra]`를 공통 문서·agent tooling의 fallback으로 쓰지 않는다.
 
 허용 type:
 
@@ -133,7 +136,7 @@ scope는 Angular-style Conventional Commits처럼 영향받는 domain/module/pac
 
 허용 scope:
 
-`incident`, `auth`, `police_phone`, `retention`, `event`, `overall_search_area`, `area`, `path`, `sync`, `marker`, `photo`, `notification`, `board`, `package`, `tiles`, `op`, `handover`, `search_history_summary`, `contract`, `infra`, `docs`
+`incident`, `auth`, `police_phone`, `retention`, `event`, `overall_search_area`, `area`, `path`, `sync`, `marker`, `photo`, `notification`, `board`, `package`, `tiles`, `op`, `handover`, `search_history_summary`, `contract`
 
 예시:
 
@@ -142,8 +145,9 @@ scope는 Angular-style Conventional Commits처럼 영향받는 domain/module/pac
 - `[Android] test(sync): 오프라인 재전송 하네스 추가 (SURI-125)`
 - `[Infra] chore(tiles): 로컬 타일 서버 설정 정리 (SURI-126)`
 - `[BE/FE] refactor(contract): BaseEvent 스키마 필드명 정렬 (SURI-127)`
-- `[Docs] docs(tasks): Lane 작업 규칙 보강 (SURI-128)`
+- `docs: Lane 작업 규칙 보강 (SURI-128)`
 - `[BE/FE/Android] style: lint 기준 스타일 정리 (SURI-129)`
+- `chore: Codex/Claude 공유 작업 스킬 추가 (SURI-130)`
 
 MR 제목은 commit 제목과 같은 형식을 사용한다. MR 설명에는 Jira key, 완료한 task ID, 수정한 기준 문서, 검증 명령/결과, 영향받는 Lane을 적는다. `spec/boundaries.md` 또는 `spec/harness-scenarios.md` 수정이 필요하면 편집 전에 보고하고, 승인된 변경 내용을 MR에 남긴다.
 
