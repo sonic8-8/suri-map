@@ -12,4 +12,4 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = 'suri-map-backend'
+rootProject.name = "suri-map-backend"
