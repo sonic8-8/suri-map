@@ -1,0 +1,6 @@
+/* 레이어 토글 버튼들이 줄바꿈되는 배치. */
+.toggleList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}

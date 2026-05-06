@@ -1,0 +1,27 @@
+/* 폴리폰 목록만 스크롤되도록 감싸는 내부 스크롤 영역. */
+.scrollFrame {
+  max-height: 220px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+  scrollbar-color: var(--suri-board-left-scrollbar-thumb) var(--suri-board-left-scrollbar-track);
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+.scrollFrame::-webkit-scrollbar {
+  width: 4px;
+}
+
+.scrollFrame::-webkit-scrollbar-track {
+  background: var(--suri-board-left-scrollbar-track);
+}
+
+.scrollFrame::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: var(--suri-board-left-scrollbar-thumb);
+}
+
+.scrollFrame::-webkit-scrollbar-thumb:hover {
+  background: var(--suri-board-left-scrollbar-thumb-hover);
+}

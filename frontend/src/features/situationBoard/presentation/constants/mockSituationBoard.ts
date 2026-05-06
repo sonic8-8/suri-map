@@ -1,16 +1,82 @@
-export const incidentSummary = {
-  code: '[사건 ID]',
-  missingPerson: '[실종자 이름] · 60대 여',
-  lastSeen: '광주 북구 ○○ · 13:20',
-  commanders: '실종팀 간부 · 기동대장 · 지구대 팀장',
-};
-
-export const headerActions = ['인수인계 메모', '수색 이력 요약', '구역 편집', '사건 목록'];
-
 export const operationalPeriods = [
-  { id: 'op-3', label: 'OP 3차', meta: '현재 OP · 진행 중', time: '14:20-' },
-  { id: 'op-2', label: 'OP 2차', meta: '비교 선택됨', time: '11:40-14:18' },
-  { id: 'op-1', label: 'OP 1차', meta: '종료', time: '09:12-11:35' },
+  { id: 'op-8', label: '8차', reason: '재수색', meta: '진행중', state: 'current', startDate: '05.04', startTime: '20:10' },
+  {
+    id: 'op-7',
+    label: '7차',
+    reason: '수색 범위 변경',
+    meta: '종료',
+    state: 'ended',
+    startDate: '05.04',
+    startTime: '18:45',
+    endDate: '05.04',
+    endTime: '20:02',
+  },
+  {
+    id: 'op-6',
+    label: '6차',
+    reason: '재수색',
+    meta: '종료',
+    state: 'ended',
+    startDate: '05.04',
+    startTime: '17:25',
+    endDate: '05.04',
+    endTime: '18:38',
+  },
+  {
+    id: 'op-5',
+    label: '5차',
+    reason: '재수색',
+    meta: '종료',
+    state: 'ended',
+    startDate: '05.04',
+    startTime: '17:20',
+    endDate: '05.04',
+    endTime: '17:23',
+  },
+  {
+    id: 'op-4',
+    label: '4차',
+    reason: '수색 범위 변경',
+    meta: '종료',
+    state: 'ended',
+    startDate: '05.04',
+    startTime: '15:40',
+    endDate: '05.04',
+    endTime: '17:18',
+  },
+  {
+    id: 'op-3',
+    label: '3차',
+    reason: '재수색',
+    meta: '종료',
+    state: 'ended',
+    startDate: '05.04',
+    startTime: '14:20',
+    endDate: '05.04',
+    endTime: '15:35',
+  },
+  {
+    id: 'op-2',
+    label: '2차',
+    reason: '수색 범위 변경',
+    meta: '종료',
+    state: 'ended',
+    startDate: '05.04',
+    startTime: '11:40',
+    endDate: '05.04',
+    endTime: '14:18',
+  },
+  {
+    id: 'op-1',
+    label: '1차',
+    reason: '초기',
+    meta: '종료',
+    state: 'ended',
+    startDate: '05.04',
+    startTime: '09:12',
+    endDate: '05.04',
+    endTime: '11:35',
+  },
 ];
 
 export const layerOptions = ['차량 구간', '도보 구간', '전체 수색 구역', '부대 구역', '팀 구역', '마커 라벨', '지형 마커'];
@@ -20,15 +86,14 @@ export const markerTypes = [
   { label: '발견', icon: 'found' },
   { label: '지형', icon: 'field' },
   { label: '운영 메모', icon: 'note' },
+  { label: '지원 요청', icon: 'hand' },
 ] as const;
 
 export const supportMarkerTypes = [
   { label: '드론', icon: 'drone' },
   { label: '경찰견', icon: 'dog' },
-  { label: '기타 지원', icon: 'support' },
+  { label: '기타', icon: 'hand' },
 ] as const;
-
-export const navigationLinks = ['구역 편집 / 분할 / 할당', 'OP 비교 / 인수인계', '차량·도보 보정', '오프라인 패키지 상태'];
 
 export const devices = [
   { id: 'device-commander', name: '실종팀 폴리폰', meta: '실종팀 간부 · 운용 중', freshness: '방금' },
@@ -50,11 +115,23 @@ export const recentMarkers = [
   { id: 'marker-support', type: '지원 요청', summary: '지구대 팀 · 14:12' },
 ];
 
-export const visibleLayers = ['팀 경로', '구역', '마커', 'OP 이력'];
-
 export const legendItems = [
-  { label: '전체 수색 구역', className: 'legend-swatch overall' },
-  { label: '팀 경로', className: 'legend-swatch route' },
-  { label: '운용 중인 폴리폰', className: 'legend-swatch device' },
-  { label: '마커', className: 'legend-swatch marker' },
+  { label: '전체 수색 구역 (OVERALL)', className: 'legend-swatch area-overall' },
+  { label: '부대 구역 (UNIT) · 실종팀이 분할', className: 'legend-swatch area-unit' },
+  { label: '팀 구역 (TEAM) · 부대장이 분할', className: 'legend-swatch area-team' },
+  { label: '팀 구역 · 완료 처리', className: 'legend-swatch area-completed' },
+  { label: '차량 구간', className: 'legend-swatch route-vehicle' },
+  { label: '도보 구간', className: 'legend-swatch route-walk' },
+  { label: '운용 중인 폴리폰', className: 'legend-swatch device-active' },
+  { label: '비교 OP 경로', className: 'legend-swatch route-compare' },
+  { label: '정상 (60초 이내 동기화)', className: 'legend-swatch device-normal' },
+  { label: '1분 이상 미동기', className: 'legend-swatch device-stale' },
+  { label: '5분 이상 위치 끊김', className: 'legend-swatch device-lost' },
+  { label: '단서', className: 'legend-swatch marker-clue' },
+  { label: '발견', className: 'legend-swatch marker-found' },
+  { label: '지형', className: 'legend-swatch marker-field' },
+  { label: '드론', className: 'legend-swatch marker-drone' },
+  { label: '경찰견', className: 'legend-swatch marker-dog' },
+  { label: '기타 지원', className: 'legend-swatch marker-support' },
+  { label: '메모', className: 'legend-swatch marker-note' },
 ];

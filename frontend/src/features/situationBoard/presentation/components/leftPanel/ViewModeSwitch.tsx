@@ -1,15 +1,33 @@
+import { useState } from 'react';
+import { CollapsiblePanelSection } from './CollapsiblePanelSection';
+import { LeftPanelOptionButton } from './LeftPanelOptionButton';
+import styles from './ViewModeSwitch.module.css';
+
+const viewModes = ['전체', '단순 보기'] as const;
+type ViewMode = (typeof viewModes)[number];
+
+// 좌측 패널 하단의 보기 모드 전환 버튼 묶음.
 export function ViewModeSwitch() {
+  const [selectedViewMode, setSelectedViewMode] = useState<ViewMode>('전체');
+
   return (
-    <section className="left-panel-section" aria-labelledby="view-mode-title">
-      <h2 id="view-mode-title">보기 모드</h2>
-      <div className="view-mode-switch" role="group" aria-label="보기 모드">
-        <button type="button" className="view-mode-option active">
-          전체
-        </button>
-        <button type="button" className="view-mode-option">
-          단순 보기
-        </button>
+    <CollapsiblePanelSection title="보기 모드">
+      {/* 현재 선택된 보기 모드는 로컬 상태로만 표시한다. */}
+      <div className={styles.viewModeSwitch} role="group" aria-label="보기 모드">
+        {viewModes.map((mode) => {
+          const isSelected = selectedViewMode === mode;
+
+          return (
+            <LeftPanelOptionButton
+              key={mode}
+              label={mode}
+              selected={isSelected}
+              variant="text"
+              onClick={() => setSelectedViewMode(mode)}
+            />
+          );
+        })}
       </div>
-    </section>
+    </CollapsiblePanelSection>
   );
 }

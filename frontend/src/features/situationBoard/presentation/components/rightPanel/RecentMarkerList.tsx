@@ -1,9 +1,9 @@
 import { recentMarkers } from '../../constants/mockSituationBoard';
+import { RightPanelSection } from './RightPanelSection';
 
 export function RecentMarkerList() {
   return (
-    <section className="right-panel-section" aria-labelledby="recent-marker-title">
-      <h2 id="recent-marker-title">최근 마커</h2>
+    <RightPanelSection title="최근 마커">
       <div className="right-panel-list">
         {recentMarkers.map((marker) => (
           <article key={marker.id} className="recent-marker-row">
@@ -12,6 +12,6 @@ export function RecentMarkerList() {
           </article>
         ))}
       </div>
-    </section>
+    </RightPanelSection>
   );
 }

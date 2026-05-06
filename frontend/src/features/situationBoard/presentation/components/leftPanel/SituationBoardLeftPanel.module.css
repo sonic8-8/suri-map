@@ -1,0 +1,112 @@
+/* 좌측 패널 전체 래퍼: 고정 폭과 접기/펼치기 애니메이션을 담당한다. */
+.panel {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 15;
+  width: 280px;
+  min-width: 280px;
+  min-height: 0;
+  padding: 0;
+  border-right: 1px solid var(--suri-board-border);
+  border-radius: 0 8px 8px 0;
+  background: var(--suri-board-panel-bg);
+  box-shadow: 6px 0 18px rgb(0 0 0 / 18%);
+  transform: translateX(0);
+  transition: transform 180ms ease;
+}
+
+/* 좌측 패널이 접혔을 때 화면 밖으로 밀어내는 상태. */
+.panelCollapsed {
+  padding: 0;
+  transform: translateX(-100%);
+}
+
+/* 패널 내부 본문: 상단 여백과 내부 스크롤 영역을 분리한다. */
+.content {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  padding: 25px 2px 12px 12px;
+  overflow: hidden;
+}
+
+/* 좌측 패널 전용 세로 스크롤 영역. */
+.scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  height: 100%;
+  min-height: 0;
+  padding-right: 5px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-color: var(--suri-board-left-scrollbar-thumb) var(--suri-board-left-scrollbar-track);
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+/* 좌측 패널 스크롤바 너비. */
+.scroll::-webkit-scrollbar {
+  width: 10px;
+}
+
+/* 좌측 패널 스크롤바 트랙. */
+.scroll::-webkit-scrollbar-track {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* 좌측 패널 스크롤바 thumb. */
+.scroll::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--suri-board-left-scrollbar-thumb);
+  background-clip: content-box;
+}
+
+/* 좌측 패널 스크롤바 hover 상태. */
+.scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--suri-board-left-scrollbar-thumb-hover);
+}
+
+/* 패널을 접고 펼치는 손잡이 버튼. */
+.collapseToggle {
+  position: absolute;
+  z-index: 20;
+  top: 42px;
+  right: -31px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 58px;
+  padding: 0;
+  border: 1px solid var(--suri-board-border);
+  border-left: 1px solid var(--suri-board-panel-surface);
+  border-radius: 0 10px 10px 0;
+  color: var(--suri-board-fg-primary);
+  background: linear-gradient(
+    90deg,
+    var(--suri-board-panel-surface),
+    color-mix(in srgb, var(--suri-board-panel-muted-bg) 82%, var(--suri-board-panel-surface))
+  );
+  box-shadow:
+    4px 0 12px rgb(0 0 0 / 22%),
+    inset 1px 0 0 color-mix(in srgb, var(--suri-board-primary-hi) 24%, transparent);
+}
+
+/* 접기/펼치기 손잡이 hover 상태. */
+.collapseToggle:hover {
+  border-color: var(--suri-board-primary-hi);
+  color: var(--suri-board-fg-primary);
+  background: var(--suri-board-panel-muted-bg);
+}
+
+/* 키보드 포커스가 들어왔을 때 손잡이를 강조한다. */
+.collapseToggle:focus-visible {
+  outline: 2px solid var(--suri-board-primary-hi);
+  outline-offset: 2px;
+}
