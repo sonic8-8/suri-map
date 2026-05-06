@@ -8,6 +8,7 @@ import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 @Configuration
 public class SecurityConfig {
@@ -17,7 +18,10 @@ public class SecurityConfig {
     return http.csrf(csrf -> csrf.disable())
         .authorizeHttpRequests(
             auth ->
-                auth.requestMatchers("/health", "/actuator/health", "/actuator/prometheus")
+                auth.requestMatchers(
+                        AntPathRequestMatcher.antMatcher("/health"),
+                        AntPathRequestMatcher.antMatcher("/actuator/health"),
+                        AntPathRequestMatcher.antMatcher("/actuator/prometheus"))
                     .permitAll()
                     .anyRequest()
                     .authenticated())
