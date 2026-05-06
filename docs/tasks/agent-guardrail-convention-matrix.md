@@ -23,3 +23,37 @@
 - GitLab CI는 runner 대기 때문에 merge 병목이 되므로 현재 가드레일에서 제외한다. 재도입 시에는 path-based job으로만 추가한다.
 - `quickcheck-on-stop.sh`는 빠른 smoke check다. 전체 플랫폼 검증이 필요하면 `AGENT_QUICKCHECK_FULL=1`로 실행하거나 AGENTS.md의 명령을 직접 실행한다.
 - Codex/Claude hook payload는 런타임별 adapter 계약이다. CLI version이나 hook matcher를 바꾸면 stdin sample을 확인한 뒤 parser를 갱신한다.
+
+## Q8 Outcome Contract 검증 기록
+
+검증 범위는 현재 도입된 공통 core script와 Codex/Claude hook wrapper의 동일 outcome이다. 모델별 자연어 출력 동일성은 검증 대상이 아니며, exit code와 guardrail decision이 같은지를 본다.
+
+| 항목 | 검증 결과 | 증거 |
+|---|---|---|
+| 기대 파일 생성·수정 여부 | PASS | 현재 검증 대상인 hook wrapper 입력에서는 파일 생성이 기대되지 않는다. no-op post-edit 입력에서 Codex/Claude 모두 파일 변경 없음 |
+| 금지 파일 미수정 | PASS | 검증 전후 `git status --short`에서 기존 untracked 피드백 문서 외 새 변경 없음 |
+| 테스트 exit code 일치 | PASS | Codex/Claude `pre_tool_use_guard.py`, `post_edit_format.py`, `stop_quickcheck.py` wrapper 모두 동일 입력에서 `rc=0` |
+| destructive command 차단 | PASS | `git reset --hard` payload에 대해 Codex/Claude wrapper 모두 `permissionDecision=deny` 반환 |
+| fixture ID 변경 감지 | PASS | `python3 .agents/scripts/check-fixture-contract.py` `rc=0`; 변경 없음 기준 통과 |
+| quickcheck smoke | PASS | `bash .agents/scripts/quickcheck-on-stop.sh` `rc=0` |
+| RED/GREEN/VERIFY 단계 보존 | PASS | `.agents/workflows/tdd-loop-flow.md`와 `.agents/skills/tdd-loop/SKILL.md`가 RED -> GREEN -> VERIFY -> REVIEW 순서를 단일 shared workflow로 고정 |
+| diff 책임 범위 | PASS | `.agents/workflows/jira-gitlab-flow.md`가 Jira/TODO/Lane task 범위 제한과 커밋 전 `git status --short` 확인을 요구 |
+| escalate 조건 동일 | PASS | Codex/Claude wrapper는 공통 `.agents/scripts/`를 호출하며, tool별 차이는 hook 응답 포맷 변환에만 둔다 |
+| owner 침범 없음 | PASS | 검증 실행 중 제품 코드, spec, fixture 파일 변경 없음. owner review는 CODEOWNERS와 MR template에서 최종 확인 |
+
+실행 명령:
+
+```bash
+printf '%s' '{"tool_input":{"cmd":"git status --short"}}' | .codex/hooks/pre_tool_use_guard.py
+printf '%s' '{"tool_input":{"cmd":"git status --short"}}' | .claude/hooks/pre_tool_use_guard.py
+printf '%s' '{"tool_input":{"cmd":"git reset --hard"}}' | .codex/hooks/pre_tool_use_guard.py
+printf '%s' '{"tool_input":{"cmd":"git reset --hard"}}' | .claude/hooks/pre_tool_use_guard.py
+printf '%s' '{}' | .codex/hooks/post_edit_format.py
+printf '%s' '{}' | .claude/hooks/post_edit_format.py
+AGENT_QUICKCHECK_SKIP=1 .codex/hooks/stop_quickcheck.py
+AGENT_QUICKCHECK_SKIP=1 .claude/hooks/stop_quickcheck.py
+python3 .agents/scripts/check-fixture-contract.py
+bash .agents/scripts/quickcheck-on-stop.sh
+```
+
+Hook 미사용자는 현재 GitLab CI가 아닌 MR template 검증 기록과 CODEOWNERS review로 같은 최종 게이트를 통과한다. GitLab CI 재도입은 runner 병목이 해소된 뒤 path-based job으로 별도 진행한다.
