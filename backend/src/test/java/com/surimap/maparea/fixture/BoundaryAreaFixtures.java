@@ -4,152 +4,128 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * S2 map_boundary/search_area fixture IDs, 상태, 이벤트 모음.
+ * S2 overall_search_area/search_area fixture IDs, 상태, 이벤트 모음.
  *
- * <p>기준 문서: docs/spec/specs/S2.json harness constraints.</p>
+ * <p>기준 문서: docs/spec/specs/S2.json harness_constraints.
  */
 public final class BoundaryAreaFixtures {
 
-    // TODO: S2 production enum이 생기면 상태, 이력 이벤트 타입, 발행 이벤트 타입 문자열을 enum 또는 wireValue() 기준으로 교체한다.
+  // TODO: S2 production enum이 생기면 상태, 이력 이벤트 타입, 발행 이벤트 타입 문자열을 enum 또는 wireValue() 기준으로 교체한다.
 
-    /** 문서에 적힌 사람이 읽기 쉬운 SC-04 incident alias. 실제 DB ID는 UUID를 사용한다. */
-    public static final String INCIDENT_ALIAS = "inc-precinct-first-001";
+  /** 문서에 적힌 사람이 읽기 쉬운 SC-04 incident alias. 실제 DB ID는 UUID를 사용한다. */
+  public static final String INCIDENT_ALIAS = "inc-precinct-first-001";
 
-    /** SC-04 시나리오에서 사용하는 고정 incident UUID. */
-    public static final UUID INCIDENT_ID = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001");
+  /** SC-04 시나리오에서 사용하는 고정 incident UUID. */
+  public static final UUID INCIDENT_ID = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001");
 
-    /* --- SC-04 지도 경계/수색 구역/이력 고정 ID (S2.json line 1958) --- */
-    public static final String BOUNDARY_ALIAS = "mb-precinct-001-v1";
-    public static final UUID BOUNDARY_ID = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0001");
-    public static final UUID SUPERSEDED_BOUNDARY_ID = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0000");
-    public static final String AREA_ALIAS = "area-precinct-a1";
-    public static final UUID AREA_ID = UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccc0001");
-    public static final String OP1_ALIAS = "op-precinct-001-op1";
-    public static final UUID OP1_ID = UUID.fromString("88888888-8888-8888-8888-888888880001");
-    public static final String OP2_ALIAS = "op-precinct-001-op2";
-    public static final UUID OP2_ID = UUID.fromString("88888888-8888-8888-8888-888888880002");
-    public static final List<UUID> SPLIT_CHILD_AREA_IDS = List.of(
-            UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccc0011"),
-            UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccc0012")
-    );
-    public static final UUID HISTORY_ID = UUID.fromString("dddddddd-dddd-dddd-dddd-dddddddd0001");
+  /* --- SC-04 overall_search_area/search_area/이력 고정 ID (S2.json harness_constraints) --- */
+  public static final String OVERALL_AREA_ALIAS = "osa-precinct-001-v1";
+  public static final UUID OVERALL_AREA_ID =
+      UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0001");
+  public static final String SUPERSEDED_OVERALL_AREA_ALIAS = "osa-precinct-001-v0";
+  public static final UUID SUPERSEDED_OVERALL_AREA_ID =
+      UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0000");
+  public static final String AREA_ALIAS = "area-precinct-a1";
+  public static final UUID AREA_ID = UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccc0001");
+  public static final String OP1_ALIAS = "op-precinct-001-op1";
+  public static final UUID OP1_ID = UUID.fromString("88888888-8888-8888-8888-888888880001");
+  public static final String OP2_ALIAS = "op-precinct-001-op2";
+  public static final UUID OP2_ID = UUID.fromString("88888888-8888-8888-8888-888888880002");
+  public static final List<String> SPLIT_CHILD_AREA_ALIASES =
+      List.of("area-precinct-a1-1", "area-precinct-a1-2");
+  public static final List<UUID> SPLIT_CHILD_AREA_IDS =
+      List.of(
+          UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccc0011"),
+          UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccc0012"));
+  public static final String HISTORY_ALIAS = "area-hist-precinct-a1-001";
+  public static final UUID HISTORY_ID = UUID.fromString("dddddddd-dddd-dddd-dddd-dddddddd0001");
 
-    /* --- SC-04 이벤트/스냅샷 고정 ID와 version (S2.json line 1959) --- */
-    public static final String BOUNDARY_EVENT_ID = "evt-s2-boundary-001";
-    public static final long BOUNDARY_EVENT_SEQUENCE = 401L;
-    public static final long BOUNDARY_VERSION = 2L;
+  /* --- SC-04 이벤트/스냅샷 고정 ID와 version (S2.json harness_constraints) --- */
+  public static final String OVERALL_AREA_EVENT_ID = "evt-s2-overall-area-001";
+  public static final long OVERALL_AREA_EVENT_SEQUENCE = 401L;
+  public static final long OVERALL_AREA_VERSION = 2L;
 
-    public static final String AREA_CREATED_EVENT_ID = "evt-s2-area-created-001";
-    public static final long AREA_CREATED_EVENT_SEQUENCE = 402L;
-    public static final long AREA_CREATED_VERSION = 1L;
+  public static final String AREA_CREATED_EVENT_ID = "evt-s2-area-created-001";
+  public static final long AREA_CREATED_EVENT_SEQUENCE = 402L;
+  public static final long AREA_CREATED_VERSION = 1L;
 
-    public static final String AREA_STATE_EVENT_ID = "evt-s2-area-state-001";
-    public static final long AREA_STATE_EVENT_SEQUENCE = 403L;
-    public static final long AREA_STATE_VERSION = 3L;
+  public static final String AREA_STATE_EVENT_ID = "evt-s2-area-state-001";
+  public static final long AREA_STATE_EVENT_SEQUENCE = 403L;
+  public static final long AREA_STATE_VERSION = 3L;
 
-    public static final String BOARD_MAP_BOUNDARY_ROW_ID = "board-map-boundary-inc-precinct-first-001";
-    public static final String BOARD_AREA_ROW_ID = "board-area-precinct-a1";
+  public static final String BOARD_OVERALL_SEARCH_AREA_ROW_ID =
+      "board-overall-search-area-inc-precinct-first-001";
+  public static final String BOARD_AREA_ROW_ID = "board-area-precinct-a1";
 
-    /** 지도 경계(map_boundary)의 저장 상태. */
-    public static final List<String> MAP_BOUNDARY_STATUSES = List.of("ACTIVE", "SUPERSEDED");
+  /** search_area.status에 실제 저장되는 상태 enum (S2.json entity). */
+  public static final List<String> SEARCH_AREA_STATUSES =
+      List.of("ACTIVE", "COMPLETED", "CANCELLED");
 
-    /** 수색 구역(search_area.state)에 실제 저장되는 상태 enum. */
-    public static final List<String> SEARCH_AREA_PERSISTED_STATES = List.of(
-            "ASSIGNED",
-            "SEARCHING",
-            "FIRST_SEARCH_COMPLETED",
-            "RECHECK_REQUIRED",
-            "RECHECKING",
-            "RECHECK_COMPLETED",
-            "ARCHIVED"
-    );
+  /** search_area_history.change_type에 남기는 이벤트 종류 (S2.json entity). */
+  public static final List<String> SEARCH_AREA_HISTORY_CHANGE_TYPES =
+      List.of("CREATED", "GEOMETRY_UPDATED", "STATUS_CHANGED", "SPLIT");
 
-    /** 수색 구역 이력(search_area_history.event_type)에 남기는 이벤트 종류. */
-    public static final List<String> SEARCH_AREA_HISTORY_EVENT_TYPES = List.of(
-            "CREATED",
-            "GEOMETRY_UPDATED",
-            "SPLIT_FROM_PARENT",
-            "STATE_CHANGED"
-    );
+  /* --- split lifecycle (S2.json) --- */
 
-    /* --- DTO alias policy (S2.json line 2140-2160) --- */
+  /** split 후 원본 구역(parent)은 CANCELLED 상태가 된다. */
+  public static final String SPLIT_PARENT_NEXT_STATUS = "CANCELLED";
 
-    /** UI/harness에서만 쓰는 완료 상태 alias. DB에는 저장하지 않는다. */
-    public static final String COMPLETED_ALIAS = "COMPLETED";
-    public static final List<String> COMPLETED_ALIAS_MAPS_TO = List.of(
-            "FIRST_SEARCH_COMPLETED",
-            "RECHECK_COMPLETED"
-    );
+  /** split 후 새 구역(child)은 ACTIVE 상태로 시작한다. */
+  public static final String SPLIT_CHILD_INITIAL_STATUS = "ACTIVE";
 
-    /* --- state_api_status_convergence (S2.json line 2127-2138) --- */
+  public static final long SPLIT_CHILD_INITIAL_VERSION = 1L;
 
-    /** DB 저장 상태 필드와 API 공개 alias 필드가 분리되어 있는지 확인하는 기준. */
-    public static final String PERSISTED_STATE_FIELD = "search_area.state";
-    public static final String PUBLIC_ALIAS_FIELD = "status";
+  private BoundaryAreaFixtures() {}
 
-    /* --- split_lifecycle (S2.json line 2115-2126) --- */
+  /* --- Factory methods (record types for grouped data) --- */
 
-    /** split 후 원본 구역(parent)은 보관 상태가 되고, 새 구역(child)은 ASSIGNED로 시작한다. */
-    public static final String SPLIT_PARENT_NEXT_STATE = "ARCHIVED";
-    public static final String SPLIT_CHILD_INITIAL_STATE = "ASSIGNED";
-    public static final long SPLIT_CHILD_INITIAL_SEARCH_COUNT = 0L;
-    public static final long SPLIT_CHILD_INITIAL_VERSION = 1L;
+  /** overall_search_area가 교체됐음을 알리는 SC-04 이벤트 envelope (SEARCH_AREA_CHANGED). */
+  public static ExpectedEventEnvelope overallSearchAreaChangedEvent() {
+    return new ExpectedEventEnvelope(
+        OVERALL_AREA_EVENT_ID,
+        "SEARCH_AREA_CHANGED",
+        OVERALL_AREA_EVENT_SEQUENCE,
+        OVERALL_AREA_ID,
+        "ACTIVE",
+        OVERALL_AREA_VERSION,
+        null);
+  }
 
-    private BoundaryAreaFixtures() {}
+  /** 수색 구역이 ACTIVE 상태로 생성됐음을 알리는 SC-04 이벤트 envelope (SEARCH_AREA_CHANGED). */
+  public static ExpectedEventEnvelope areaCreatedEvent() {
+    return new ExpectedEventEnvelope(
+        AREA_CREATED_EVENT_ID,
+        "SEARCH_AREA_CHANGED",
+        AREA_CREATED_EVENT_SEQUENCE,
+        AREA_ID,
+        "ACTIVE",
+        AREA_CREATED_VERSION,
+        OP1_ID);
+  }
 
-    /* --- Factory methods (record types for grouped data) --- */
+  /** split 후 원본 수색 구역이 CANCELLED로 닫혔음을 알리는 SC-04 이벤트 envelope (SEARCH_AREA_CHANGED). */
+  public static ExpectedEventEnvelope areaCancelledAfterSplitEvent() {
+    return new ExpectedEventEnvelope(
+        AREA_STATE_EVENT_ID,
+        "SEARCH_AREA_CHANGED",
+        AREA_STATE_EVENT_SEQUENCE,
+        AREA_ID,
+        "CANCELLED",
+        AREA_STATE_VERSION,
+        OP1_ID);
+  }
 
-    /** 지도 경계가 ACTIVE 버전으로 교체됐음을 알리는 SC-04 이벤트 envelope. */
-    public static ExpectedEventEnvelope mapBoundaryChangedEvent() {
-        return new ExpectedEventEnvelope(
-                BOUNDARY_EVENT_ID,
-                "MAP_BOUNDARY_CHANGED",
-                BOUNDARY_EVENT_SEQUENCE,
-                BOUNDARY_ID,
-                "ACTIVE",
-                BOUNDARY_VERSION,
-                null
-        );
-    }
-
-    /** 수색 구역이 ASSIGNED 상태로 생성됐음을 알리는 SC-04 이벤트 envelope. */
-    public static ExpectedEventEnvelope areaCreatedEvent() {
-        return new ExpectedEventEnvelope(
-                AREA_CREATED_EVENT_ID,
-                "AREA_CREATED",
-                AREA_CREATED_EVENT_SEQUENCE,
-                AREA_ID,
-                "ASSIGNED",
-                AREA_CREATED_VERSION,
-                OP1_ID
-        );
-    }
-
-    /** split 후 원본 수색 구역이 ARCHIVED로 닫혔음을 알리는 SC-04 이벤트 envelope. */
-    public static ExpectedEventEnvelope areaArchivedAfterSplitEvent() {
-        return new ExpectedEventEnvelope(
-                AREA_STATE_EVENT_ID,
-                "AREA_STATE_CHANGED",
-                AREA_STATE_EVENT_SEQUENCE,
-                AREA_ID,
-                "ARCHIVED",
-                AREA_STATE_VERSION,
-                OP1_ID
-        );
-    }
-
-    /**
-     * S2 이벤트 발행 결과를 테스트에서 비교하기 위한 읽기 모델.
-     *
-     * <p>S4 EventHub.publish PublishRequest의 id/status/version 수렴 비교 기준.</p>
-     */
-    public record ExpectedEventEnvelope(
-            String eventId,
-            String type,
-            long sequence,
-            UUID payloadId,
-            String payloadStatus,
-            long payloadVersion,
-            UUID opId
-    ) {}
+  /**
+   * S2 이벤트 발행 결과를 테스트에서 비교하기 위한 읽기 모델.
+   *
+   * <p>S4 EventHub.publish PublishRequest의 id/status/version 수렴 비교 기준.
+   */
+  public record ExpectedEventEnvelope(
+      String eventId,
+      String type,
+      long sequence,
+      UUID payloadId,
+      String payloadStatus,
+      long payloadVersion,
+      UUID opId) {}
 }

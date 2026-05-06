@@ -16,12 +16,12 @@
 
 - `GeometryFixtures.java`
   - 주요 상수: `CRS`, `COORDINATE_ORDER`, `FIXTURE_BBOX_*`, `MINIMUM_POLYGON_AREA_M2`, `COORDINATE_PRECISION_DECIMALS`
-  - 주요 메서드: `validMapBoundaryRing()`, `validSearchAreaRing()`, `referenceMarkerPoint()`, `invalidCoordOutsideEnvelope()`, `invalidCoordLatLonSwapped()`, `overPrecisionPoint()`, `validMapBoundaryPolygon()`, `validSearchAreaPolygon()`
+  - 주요 메서드: `validOverallSearchAreaRing()`, `validSearchAreaRing()`, `referenceMarkerPoint()`, `invalidCoordOutsideEnvelope()`, `invalidCoordLatLonSwapped()`, `overPrecisionPoint()`, `validOverallSearchAreaPolygon()`, `validSearchAreaPolygon()`
   - 용도: S2 geometry 검증에서 쓰는 기준 좌표와 실패 좌표를 제공
 
 - `BoundaryAreaFixtures.java`
-  - 주요 상수: `INCIDENT_ALIAS`, `INCIDENT_ID`, `BOUNDARY_ALIAS`, `BOUNDARY_ID`, `AREA_ALIAS`, `AREA_ID`, `OP1_ALIAS`, `OP1_ID`, `OP2_ALIAS`, `OP2_ID`, `HISTORY_ID`, `MAP_BOUNDARY_STATUSES`, `SEARCH_AREA_PERSISTED_STATES`, `SEARCH_AREA_HISTORY_EVENT_TYPES`
-  - 주요 메서드: `mapBoundaryChangedEvent()`, `areaCreatedEvent()`, `areaArchivedAfterSplitEvent()`
+  - 주요 상수: `INCIDENT_ALIAS`, `INCIDENT_ID`, `OVERALL_AREA_ALIAS`, `OVERALL_AREA_ID`, `AREA_ALIAS`, `AREA_ID`, `OP1_ALIAS`, `OP1_ID`, `OP2_ALIAS`, `OP2_ID`, `HISTORY_ID`, `SEARCH_AREA_STATUSES`, `SEARCH_AREA_HISTORY_CHANGE_TYPES`
+  - 주요 메서드: `overallSearchAreaChangedEvent()`, `areaCreatedEvent()`, `areaCancelledAfterSplitEvent()`
   - 용도: boundary/area 상태와 SC-04 이벤트 envelope fixture 제공
 
 - `SpatialSqlFixtures.java`
@@ -32,7 +32,7 @@
 ### `fixturetest/`
 
 - `GeometryFixtureExactnessTest.java`
-  - 주요 검증 메서드: `geometry_policy_fixture_값을_고정한다()`, `map_boundary_fixture_exactness를_검증한다()`, `search_area_fixture_exactness를_검증한다()`, `shared_marker와_invalid_coordinate_fixture를_고정한다()`
+  - 주요 검증 메서드: `geometry_policy_fixture_값을_고정한다()`, `overall_search_area_fixture_exactness를_검증한다()`, `search_area_fixture_exactness를_검증한다()`, `shared_marker와_invalid_coordinate_fixture를_고정한다()`
   - 용도: geometry fixture가 문서 계약과 어긋나면 바로 실패하게 만드는 exactness 테스트
 
 ### `geometry/policy/`
