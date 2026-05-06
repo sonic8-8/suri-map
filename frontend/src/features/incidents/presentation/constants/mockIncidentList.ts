@@ -1,4 +1,4 @@
-import type { IncidentCard, IncidentFilter } from '../types/incidentList';
+import type { IncidentCard, IncidentFilter } from '../../domain/entities/Incident';
 
 export const INCIDENT_FILTERS: IncidentFilter[] = ['전체', '진행 중', '인계 대기', '종료'];
 

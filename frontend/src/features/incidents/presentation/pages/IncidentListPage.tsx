@@ -1,11 +1,16 @@
 import { useEffect, useState } from 'react';
 
+import { IncidentImportCompleteDialog } from '../../../incidentImport/presentation/components/IncidentImportCompleteDialog';
+import { IncidentImportModal } from '../../../incidentImport/presentation/components/IncidentImportModal';
+import type { IncidentFilter, IncidentStatus } from '../../domain/entities/Incident';
 import { INCIDENT_FILTERS, INCIDENT_LIST_PAGE_SIZE, mockIncidentList } from '../constants/mockIncidentList';
-import type { IncidentFilter, IncidentStatus } from '../types/incidentList';
 import styles from './IncidentListPage.module.css';
+
+const INITIAL_IMPORTED_INCIDENT_IDS = ['INC-2026-0506-001', 'INC-2026-0505-004'];
 
 type IncidentListPageProps = {
   onOpenSituationBoard: () => void;
+  onOpenLogin: () => void;
 };
 
 function getStatusToneClassName(status: IncidentStatus) {
@@ -20,12 +25,17 @@ function getStatusToneClassName(status: IncidentStatus) {
   return styles.statusClosed;
 }
 
-export function IncidentListPage({ onOpenSituationBoard }: IncidentListPageProps) {
+export function IncidentListPage({ onOpenLogin }: IncidentListPageProps) {
   const [filter, setFilter] = useState<IncidentFilter>('전체');
   const [pageNumber, setPageNumber] = useState(1);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importedIncidentIds, setImportedIncidentIds] = useState<string[]>(INITIAL_IMPORTED_INCIDENT_IDS);
+  const [importCompleteIncidentId, setImportCompleteIncidentId] = useState<string | null>(null);
 
+  const importedIncidentIdSet = new Set(importedIncidentIds);
+  const importedIncidents = mockIncidentList.filter((incident) => importedIncidentIdSet.has(incident.id));
   const filteredIncidents =
-    filter === '전체' ? mockIncidentList : mockIncidentList.filter((incident) => incident.status === filter);
+    filter === '전체' ? importedIncidents : importedIncidents.filter((incident) => incident.status === filter);
 
   const totalPages = Math.max(1, Math.ceil(filteredIncidents.length / INCIDENT_LIST_PAGE_SIZE));
   const activePage = Math.min(pageNumber, totalPages);
@@ -33,12 +43,12 @@ export function IncidentListPage({ onOpenSituationBoard }: IncidentListPageProps
   const visibleIncidents = filteredIncidents.slice(pageStartIndex, pageStartIndex + INCIDENT_LIST_PAGE_SIZE);
   const pageStartNumber = filteredIncidents.length === 0 ? 0 : pageStartIndex + 1;
   const pageEndNumber = Math.min(pageStartIndex + INCIDENT_LIST_PAGE_SIZE, filteredIncidents.length);
-  const statusSummary = mockIncidentList.reduce(
+  const importedStatusSummary = importedIncidents.reduce(
     (summary, incident) => {
       summary[incident.status] += 1;
       return summary;
     },
-    { '진행 중': 0, '인계 대기': 0, '종료': 0 },
+    { '진행 중': 0, '인계 대기': 0, 종료: 0 },
   );
 
   useEffect(() => {
@@ -51,16 +61,24 @@ export function IncidentListPage({ onOpenSituationBoard }: IncidentListPageProps
     <main className={styles.page}>
       <header className={styles.header}>
         <nav className={styles.productNav} aria-label="사건 목록 주요 화면">
-          <button type="button" className={styles.backButton} onClick={onOpenSituationBoard}>
-            ← 상황판
-          </button>
-          <div className={styles.navTabs} role="list" aria-label="상단 화면 이동">
-            <button type="button" className={`${styles.navButton} ${styles.navButtonActive}`} aria-current="page">
-              사건 목록
-            </button>
-            <button type="button" className={styles.navButton} onClick={onOpenSituationBoard}>
-              상황판
-            </button>
+          <div className={styles.brand}>
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+              <path
+                className={styles.brandMark}
+                d="M11 1.5 L19.5 5 V11 C19.5 15.5 16 19.3 11 20.5 C6 19.3 2.5 15.5 2.5 11 V5 Z"
+              />
+              <path
+                d="M11 6.5 a4.5 4.5 0 1 0 0 9 a4.5 4.5 0 1 0 0 -9 z M11 9 v3.5 M11 14 v.1"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                fill="none"
+              />
+            </svg>
+            <div>Suri-Map</div>
+          </div>
+          <div className={styles.headerCenterTitle} aria-current="page">
+            사건 목록
           </div>
           <div className={styles.meta}>
             <span>
@@ -69,22 +87,9 @@ export function IncidentListPage({ onOpenSituationBoard }: IncidentListPageProps
             <span className={styles.metaDivider} aria-hidden="true" />
             <span>2026-05-06 09:42 KST · mock</span>
             <span className={styles.metaDivider} aria-hidden="true" />
-            <div className={styles.brand}>
-              <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
-                <path
-                  className={styles.brandMark}
-                  d="M11 1.5 L19.5 5 V11 C19.5 15.5 16 19.3 11 20.5 C6 19.3 2.5 15.5 2.5 11 V5 Z"
-                />
-                <path
-                  d="M11 6.5 a4.5 4.5 0 1 0 0 9 a4.5 4.5 0 1 0 0 -9 z M11 9 v3.5 M11 14 v.1"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  fill="none"
-                />
-              </svg>
-              <div>Suri-Map</div>
-            </div>
+            <button type="button" className={styles.logoutButton} onClick={onOpenLogin}>
+              로그아웃
+            </button>
           </div>
         </nav>
 
@@ -97,20 +102,20 @@ export function IncidentListPage({ onOpenSituationBoard }: IncidentListPageProps
           <span className={styles.listContextDivider} aria-hidden="true" />
           <div className={styles.listContextMetrics}>
             <div>
-              <span>전체 사건</span>
-              <strong>{mockIncidentList.length}건</strong>
+              <span>가져온 사건</span>
+              <strong>{importedIncidents.length}건</strong>
             </div>
             <div>
               <span>진행 중</span>
-              <strong>{statusSummary['진행 중']}건</strong>
+              <strong>{importedStatusSummary['진행 중']}건</strong>
             </div>
             <div>
               <span>종료 / 인계 대기</span>
-              <strong>{statusSummary['종료'] + statusSummary['인계 대기']}건</strong>
+              <strong>{importedStatusSummary['종료'] + importedStatusSummary['인계 대기']}건</strong>
             </div>
           </div>
           <div className={styles.listContextActions}>
-            <button type="button" className={styles.importButton}>
+            <button type="button" className={styles.importButton} onClick={() => setIsImportModalOpen(true)}>
               사건 가져오기
             </button>
           </div>
@@ -134,33 +139,32 @@ export function IncidentListPage({ onOpenSituationBoard }: IncidentListPageProps
             </button>
           ))}
         </div>
-        <div className={styles.toolbarMeta}>
-          <span>
-            현재 표시: <b>{filteredIncidents.length}건</b>
-          </span>
-          <span className={styles.toolbarDivider} aria-hidden="true" />
-          <span>
-            표시 범위: <b>{pageStartNumber === 0 ? '0' : `${pageStartNumber}-${pageEndNumber}`}건</b>
-          </span>
-        </div>
       </section>
 
       <section className={styles.content} aria-label="사건 카드 목록">
         <div className={styles.contentInner}>
           {visibleIncidents.length === 0 ? (
             <div className={styles.emptyState}>
-              <strong>표시할 사건이 없습니다</strong>
-              <span>선택한 상태 필터에 맞는 사건이 없습니다. 다른 필터를 선택하세요.</span>
+              <strong>{importedIncidents.length === 0 ? '아직 가져온 사건이 없습니다' : '표시할 사건이 없습니다'}</strong>
+              <span>
+                {importedIncidents.length === 0
+                  ? '사건 가져오기 버튼을 눌러 mock 112 배정 후보를 확인하세요.'
+                  : '선택한 상태 필터에 맞는 사건이 없습니다. 다른 필터를 선택하세요.'}
+              </span>
             </div>
           ) : (
             <div className={styles.cardGrid}>
               {visibleIncidents.map((incident) => (
-                <article key={incident.id} className={styles.card}>
+                <article
+                  key={incident.id}
+                  className={`${styles.card}${incident.status === '종료' ? ` ${styles.cardClosed}` : ''}`}
+                >
                   <div className={styles.cardHeader}>
                     <div className={styles.cardIdentity}>
                       <div className={styles.cardId}>{incident.id}</div>
                       <h2 className={styles.cardTitle}>{incident.title}</h2>
                       <div className={styles.cardLocation}>{incident.location}</div>
+                      <span className={styles.importedBadge}>내가 가져온</span>
                     </div>
                     <div className={`${styles.statusBadge} ${getStatusToneClassName(incident.status)}`}>
                       {incident.status}
@@ -235,6 +239,27 @@ export function IncidentListPage({ onOpenSituationBoard }: IncidentListPageProps
           </footer>
         </div>
       </section>
+
+      {isImportModalOpen ? (
+        <IncidentImportModal
+          incidents={mockIncidentList}
+          importedIncidentIds={importedIncidentIdSet}
+          onClose={() => setIsImportModalOpen(false)}
+          onImportIncident={(incidentId) => {
+            setImportedIncidentIds((currentIds) => [...currentIds, incidentId]);
+            setFilter('전체');
+            setPageNumber(1);
+            setImportCompleteIncidentId(incidentId);
+          }}
+        />
+      ) : null}
+
+      {importCompleteIncidentId ? (
+        <IncidentImportCompleteDialog
+          incidentId={importCompleteIncidentId}
+          onConfirm={() => setImportCompleteIncidentId(null)}
+        />
+      ) : null}
     </main>
   );
 }

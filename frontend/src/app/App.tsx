@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
-import { IncidentListPage } from '../features/incidentList/presentation/pages/IncidentListPage';
+import { IncidentListPage } from '../features/incidents/presentation/pages/IncidentListPage';
+import { LoginPage } from '../features/login/presentation/pages/LoginPage';
 import { SituationBoardPage } from '../features/situationBoard/presentation/pages/SituationBoardPage';
 import { ROUTES } from './routes';
 
@@ -28,7 +29,16 @@ export function App() {
   };
 
   if (pathname === ROUTES.incidentList) {
-    return <IncidentListPage onOpenSituationBoard={() => navigate(ROUTES.home)} />;
+    return (
+      <IncidentListPage
+        onOpenSituationBoard={() => navigate(ROUTES.home)}
+        onOpenLogin={() => navigate(ROUTES.login)}
+      />
+    );
+  }
+
+  if (pathname === ROUTES.login) {
+    return <LoginPage onLoginSuccess={() => navigate(ROUTES.incidentList)} />;
   }
 
   return <SituationBoardPage onOpenIncidentList={() => navigate(ROUTES.incidentList)} />;

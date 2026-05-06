@@ -33,65 +33,15 @@
   backdrop-filter: blur(8px);
 }
 
-/* 상황판으로 돌아가는 좌측 보조 네비게이션 버튼. */
-.backButton {
-  position: relative;
-  z-index: 1;
-  min-height: 40px;
-  padding: 0 90px 0 0;
-  border: 0;
-  border-right: 1px solid var(--suri-board-border);
-  border-radius: 0;
-  color: var(--suri-board-fg-primary);
-  background: transparent;
-  font-size: var(--suri-board-header-back-font-size);
-  font-weight: 600;
-  line-height: 1.2;
-  white-space: nowrap;
-}
-
-.backButton:hover {
-  color: var(--suri-board-fg-primary);
-}
-
-.backButton:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--suri-board-primary-hi) 72%, transparent);
-  outline-offset: 3px;
-}
-
-/* 상단 중앙의 화면 이동 탭 묶음. */
-.navTabs {
+.headerCenterTitle {
   position: absolute;
   left: 50%;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  transform: translateX(-50%);
-}
-
-/* 현재 화면 탭과 상황판 이동 탭의 기본 버튼 스타일. */
-.navButton {
-  min-height: var(--suri-board-header-nav-button-height);
-  padding: 0 14px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  color: var(--suri-board-fg-secondary);
-  background: transparent;
-  font-size: var(--suri-board-header-nav-font-size);
-  font-weight: var(--suri-board-header-nav-font-weight);
-  white-space: nowrap;
-}
-
-.navButton:hover {
   color: var(--suri-board-fg-primary);
-  background: var(--suri-board-panel-surface);
-}
-
-.navButtonActive {
-  border-color: color-mix(in srgb, var(--suri-board-primary) 40%, transparent);
-  color: var(--suri-board-primary-hi);
-  background: var(--suri-board-primary-soft);
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+  transform: translateX(-50%);
 }
 
 /* 우측 사용자, mock 시각, 브랜드 정보를 담는 메타 영역. */
@@ -122,21 +72,47 @@
 .brand {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   color: var(--suri-board-fg-primary);
-  font-size: var(--suri-board-header-brand-font-size);
-  font-weight: 800;
+  font-size: 20px;
+  font-weight: 900;
   letter-spacing: 0;
   white-space: nowrap;
 }
 
 .brand svg {
   flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
   color: var(--suri-board-fg-primary);
 }
 
 .brandMark {
   fill: var(--suri-board-primary);
+}
+
+.logoutButton {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--suri-board-fg-muted) 34%, transparent);
+  border-radius: 6px;
+  color: var(--suri-board-fg-secondary);
+  background: color-mix(in srgb, var(--suri-board-panel-surface) 42%, transparent);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.logoutButton:hover {
+  border-color: color-mix(in srgb, var(--suri-board-primary-hi) 42%, var(--suri-board-fg-muted));
+  color: var(--suri-board-fg-primary);
+  background: var(--suri-board-panel-surface);
+}
+
+.logoutButton:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--suri-board-primary-hi) 64%, transparent);
+  outline-offset: 2px;
 }
 
 /* 두 번째 헤더 줄: 사건 목록의 집계와 주요 액션을 보여준다. */
@@ -227,15 +203,15 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 42px;
-  padding: 0 20px;
-  border: 1px solid color-mix(in srgb, var(--color-primary) 52%, var(--color-border-default));
-  border-radius: 8px;
-  color: var(--color-primary);
-  background: var(--color-primary-soft);
+  min-height: 44px;
+  padding: 0 22px;
+  border: 1px solid #4f7198;
+  border-radius: 7px;
+  color: var(--suri-board-fg-primary);
+  background: linear-gradient(180deg, #37628e 0%, #2b537c 56%, #21466d 100%);
   box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 24%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--color-primary) 12%, transparent);
+    inset 0 1px 0 rgb(255 255 255 / 18%),
+    0 2px 7px rgb(21 47 76 / 26%);
   font-size: 15px;
   font-weight: 900;
   line-height: 1.2;
@@ -243,17 +219,20 @@
 }
 
 .importButton:hover {
-  border-color: color-mix(in srgb, var(--color-primary) 64%, var(--color-border-default));
-  color: var(--color-fg-primary);
-  background: color-mix(in srgb, var(--color-primary-soft) 74%, #f8f8f8);
+  border-color: #6687ad;
+  color: #ffffff;
+  background: linear-gradient(180deg, #426f9d 0%, #335f8b 56%, #28517b 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 22%),
+    0 3px 9px rgb(21 47 76 / 32%);
 }
 
 .importButton:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--color-primary) 42%, transparent);
+  outline: 2px solid color-mix(in srgb, var(--suri-board-primary-hi) 64%, transparent);
   outline-offset: 3px;
 }
 
-/* 카드 목록 위 필터와 현재 표시 범위를 담는 툴바. */
+/* 카드 목록 위 상태 필터를 담는 툴바. */
 .toolbar {
   display: flex;
   align-items: center;
@@ -276,28 +255,28 @@
 .filterChip {
   min-height: 32px;
   padding: 0 12px;
-  border: 1px solid var(--color-border-default);
+  border: 1px solid color-mix(in srgb, var(--color-border-default) 82%, var(--color-border-strong));
   border-radius: 999px;
   color: var(--color-fg-secondary);
-  background: var(--color-bg-surface);
+  background: color-mix(in srgb, var(--color-bg-surface) 76%, #f4f6f8);
   font-size: 13px;
   font-weight: 700;
   white-space: nowrap;
 }
 
 .filterChip:hover {
-  border-color: color-mix(in srgb, var(--color-primary) 34%, var(--color-border-default));
+  border-color: var(--color-border-strong);
   color: var(--color-fg-primary);
+  background: var(--color-bg-surface);
 }
 
 .filterChipActive {
-  border-color: color-mix(in srgb, var(--color-primary) 52%, var(--color-border-default));
-  color: var(--color-primary);
-  background: var(--color-primary-soft);
+  border-color: color-mix(in srgb, #4f7198 56%, var(--color-border-default));
+  color: var(--color-fg-primary);
+  background: color-mix(in srgb, #dfe8f2 72%, var(--color-bg-surface));
 }
 
-/* 툴바와 페이지네이션에서 공통으로 쓰는 보조 수치 표시. */
-.toolbarMeta,
+/* 페이지네이션에서 쓰는 보조 수치 표시. */
 .paginationSummary {
   display: flex;
   align-items: center;
@@ -308,7 +287,6 @@
   white-space: nowrap;
 }
 
-.toolbarMeta b,
 .paginationSummary b {
   color: var(--color-fg-primary);
 }
@@ -378,6 +356,36 @@
   background: #fafafa;
 }
 
+.cardClosed {
+  border-color: color-mix(in srgb, var(--color-border-strong) 70%, var(--color-border-default));
+  color: color-mix(in srgb, var(--color-fg-secondary) 72%, var(--color-fg-muted));
+  background: #e7ebf0;
+  box-shadow: none;
+  opacity: 0.78;
+}
+
+.cardClosed:hover {
+  border-color: var(--color-border-strong);
+  background: #e2e7ed;
+}
+
+.cardClosed .cardTitle,
+.cardClosed .cardLocation,
+.cardClosed .metaRow strong {
+  color: color-mix(in srgb, var(--color-fg-secondary) 72%, var(--color-fg-muted));
+}
+
+.cardClosed .cardId,
+.cardClosed .metaRow span {
+  color: var(--color-fg-muted);
+}
+
+.cardClosed .importedBadge {
+  border-color: color-mix(in srgb, var(--color-border-strong) 72%, var(--color-border-default));
+  color: var(--color-fg-muted);
+  background: color-mix(in srgb, #eef1f4 72%, #dfe4ea);
+}
+
 /* 카드 상단의 사건명/위치와 상태 배지를 양쪽에 배치한다. */
 .cardHeader {
   display: grid;
@@ -422,6 +430,19 @@
   font-size: 13px;
   line-height: 1.35;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.importedBadge {
+  justify-self: start;
+  padding: 3px 8px;
+  border: 1px solid color-mix(in srgb, #4f7198 42%, var(--color-border-default));
+  border-radius: 4px;
+  color: #315474;
+  background: color-mix(in srgb, #dfe8f2 72%, var(--color-bg-surface));
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.2;
   white-space: nowrap;
 }
 
@@ -522,9 +543,9 @@
   gap: 12px;
   min-height: 54px;
   padding: 10px 12px;
-  border: 1px solid var(--color-border-default);
-  border-radius: 8px;
-  background: #f8f8f8;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .paginationControls,
@@ -554,10 +575,10 @@
   min-width: 32px;
   height: 32px;
   padding: 0 10px;
-  border: 1px solid var(--color-border-default);
+  border: 1px solid color-mix(in srgb, var(--color-border-default) 82%, var(--color-border-strong));
   border-radius: 6px;
   color: var(--color-fg-secondary);
-  background: var(--color-bg-surface);
+  background: color-mix(in srgb, var(--color-bg-surface) 76%, #f4f6f8);
   font-size: 13px;
   font-weight: 800;
   white-space: nowrap;
@@ -569,14 +590,15 @@
 
 .pageNumberButton:hover,
 .paginationButton:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--color-primary) 34%, var(--color-border-default));
+  border-color: var(--color-border-strong);
   color: var(--color-fg-primary);
+  background: var(--color-bg-surface);
 }
 
 .pageNumberButtonActive {
-  border-color: color-mix(in srgb, var(--color-primary) 52%, var(--color-border-default));
-  color: var(--color-primary);
-  background: var(--color-primary-soft);
+  border-color: color-mix(in srgb, #4f7198 56%, var(--color-border-default));
+  color: var(--color-fg-primary);
+  background: color-mix(in srgb, #dfe8f2 72%, var(--color-bg-surface));
 }
 
 .paginationButton:disabled {
@@ -603,11 +625,7 @@
     justify-content: space-between;
   }
 
-  .backButton {
-    padding-right: 20px;
-  }
-
-  .navTabs {
+  .headerCenterTitle {
     position: static;
     transform: none;
   }
@@ -622,7 +640,6 @@
     flex-direction: column;
   }
 
-  .toolbarMeta,
   .paginationSummary,
   .paginationControls {
     margin-left: 0;

@@ -1,0 +1,245 @@
+.modalOverlay {
+  position: fixed;
+  z-index: 80;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(4 13 24 / 62%);
+}
+
+.importModal {
+  display: flex;
+  flex-direction: column;
+  width: min(520px, 100%);
+  max-height: min(720px, calc(100vh - 48px));
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--suri-board-primary-hi) 28%, var(--suri-board-border));
+  border-radius: 10px;
+  color: var(--color-fg-primary);
+  background: var(--color-bg-surface);
+  box-shadow: 0 24px 60px rgb(0 0 0 / 34%);
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 0 18px 0 20px;
+  border-bottom: 1px solid var(--color-border-default);
+  background: #f7f9fb;
+}
+
+.modalHeader h2 {
+  margin: 0;
+  color: var(--color-fg-primary);
+  font-size: 17px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.modalCloseButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-left: auto;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--color-fg-secondary);
+  background: transparent;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.modalCloseButton:hover {
+  border-color: var(--color-border-default);
+  color: var(--color-fg-primary);
+  background: var(--color-bg-surface);
+}
+
+.modalCloseButton:focus-visible,
+.modalImportButton:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--suri-board-primary-hi) 64%, transparent);
+  outline-offset: 2px;
+}
+
+.modalBody {
+  min-height: 0;
+  overflow: auto;
+  padding: 6px 0;
+  scrollbar-color: var(--suri-board-left-scrollbar-thumb) transparent;
+  scrollbar-width: thin;
+}
+
+.modalRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  border-bottom: 1px solid #eef1f4;
+}
+
+.modalRow:last-child {
+  border-bottom: 0;
+}
+
+.modalIncidentInfo {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.modalIncidentId {
+  overflow: hidden;
+  color: var(--color-fg-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modalIncidentTitle {
+  overflow: hidden;
+  color: var(--color-fg-primary);
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modalIncidentMeta {
+  overflow: hidden;
+  color: var(--color-fg-secondary);
+  font-size: 12px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modalImportButton {
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid #4f7198;
+  border-radius: 6px;
+  color: #ffffff;
+  background: linear-gradient(180deg, #37628e 0%, #2b537c 56%, #21466d 100%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 18%);
+  font-size: 13px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.modalImportButton:hover {
+  border-color: #6687ad;
+  background: linear-gradient(180deg, #426f9d 0%, #335f8b 56%, #28517b 100%);
+}
+
+.modalImportedLabel {
+  padding: 0 2px;
+  color: #1f8754;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.modalFooter {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--color-border-default);
+  color: var(--color-fg-muted);
+  background: #f7f9fb;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.confirmOverlay {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(4 13 24 / 24%);
+}
+
+.confirmDialog {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  width: min(420px, 100%);
+  padding: 20px;
+  border: 1px solid color-mix(in srgb, var(--suri-board-success) 32%, var(--color-border-default));
+  border-radius: 10px;
+  color: var(--color-fg-primary);
+  background: var(--color-bg-surface);
+  box-shadow: 0 20px 48px rgb(0 0 0 / 30%);
+}
+
+.confirmIcon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid color-mix(in srgb, var(--suri-board-success) 42%, transparent);
+  border-radius: 999px;
+  color: #ffffff;
+  background: linear-gradient(180deg, #3aa66b 0%, #247d50 100%);
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.confirmContent {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.confirmContent h2 {
+  margin: 0;
+  color: var(--color-fg-primary);
+  font-size: 17px;
+  font-weight: 900;
+  line-height: 1.25;
+}
+
+.confirmContent p {
+  margin: 0;
+  color: var(--color-fg-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.confirmButton {
+  grid-column: 1 / -1;
+  justify-self: end;
+  min-height: 36px;
+  padding: 0 18px;
+  border: 1px solid #4f7198;
+  border-radius: 6px;
+  color: #ffffff;
+  background: linear-gradient(180deg, #37628e 0%, #2b537c 56%, #21466d 100%);
+  font-size: 13px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.confirmButton:hover {
+  border-color: #6687ad;
+  background: linear-gradient(180deg, #426f9d 0%, #335f8b 56%, #28517b 100%);
+}
+
+.confirmButton:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--suri-board-primary-hi) 64%, transparent);
+  outline-offset: 2px;
+}
