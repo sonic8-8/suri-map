@@ -1,0 +1,75 @@
+# Suri-Map CODEOWNERS
+#
+# Lane owners:
+# L1 최진서 @chlwlstj15
+# L2 김은서 @kkkks9203
+# L3 김희수 @answerme0622
+# L4 남윤서 @namyunseo85
+# L5 김대원 @eolzzang99
+# L6 이승환 @seaung13
+#
+# GitLab evaluates matching rules per section. Multiple owners on one rule
+# are candidates for that section, not "all owners must approve".
+
+[Contracts][6] @chlwlstj15 @kkkks9203 @answerme0622 @namyunseo85 @eolzzang99 @seaung13
+/AGENTS.md
+/backend/AGENTS.md
+/frontend/AGENTS.md
+/android/AGENTS.md
+/docs/spec/boundaries.md
+/docs/spec/harness-scenarios.md
+
+[Guardrails][1]
+/CODEOWNERS @chlwlstj15 @kkkks9203 @answerme0622 @namyunseo85 @eolzzang99 @seaung13
+/.gitlab-ci.yml @seaung13
+/.gitlab/merge_request_templates/ @chlwlstj15 @kkkks9203 @answerme0622 @namyunseo85 @eolzzang99 @seaung13
+/.agents/ @chlwlstj15 @kkkks9203 @answerme0622 @namyunseo85 @eolzzang99 @seaung13
+/.claude/ @chlwlstj15 @kkkks9203 @answerme0622 @namyunseo85 @eolzzang99 @seaung13
+/.codex/ @chlwlstj15 @kkkks9203 @answerme0622 @namyunseo85 @eolzzang99 @seaung13
+/docs/tasks/ @seaung13
+/docs/tasks/index.md @chlwlstj15 @kkkks9203 @answerme0622 @namyunseo85 @eolzzang99 @seaung13
+
+[Specs][1]
+/docs/spec/specs/S1-1.json @chlwlstj15
+/docs/spec/specs/S1-2.json @kkkks9203
+/docs/spec/specs/S1-3.json @kkkks9203
+/docs/spec/specs/S2.json @answerme0622
+/docs/spec/specs/S3-1.json @namyunseo85
+/docs/spec/specs/S3-2.json @seaung13
+/docs/spec/specs/S4.json @kkkks9203
+/docs/spec/specs/S5.json @eolzzang99
+/docs/spec/specs/S6.json @namyunseo85
+/docs/spec/specs/S7.json @seaung13
+/docs/spec/specs/S8.json @answerme0622
+
+[Backend][1]
+/backend/ @chlwlstj15 @kkkks9203 @answerme0622 @namyunseo85 @eolzzang99 @seaung13
+/backend/src/**/com/surimap/incident/ @chlwlstj15
+/backend/src/**/com/surimap/external/ @chlwlstj15
+/backend/src/**/com/surimap/account/ @kkkks9203
+/backend/src/**/com/surimap/event/ @kkkks9203
+/backend/src/**/com/surimap/searcharea/ @answerme0622
+/backend/src/**/com/surimap/op/ @answerme0622
+/backend/src/**/com/surimap/path/ @namyunseo85
+/backend/src/**/com/surimap/sync/ @namyunseo85
+/backend/src/**/com/surimap/marker/ @eolzzang99
+/backend/src/**/com/surimap/notification/ @eolzzang99
+/backend/src/**/com/surimap/board/ @seaung13
+/backend/src/**/com/surimap/offline/ @seaung13
+/backend/src/**/com/surimap/common/ @chlwlstj15 @kkkks9203 @answerme0622 @namyunseo85 @eolzzang99 @seaung13
+/backend/src/**/com/surimap/config/ @chlwlstj15 @kkkks9203 @answerme0622 @namyunseo85 @eolzzang99 @seaung13
+
+[Frontend][1]
+/frontend/ @seaung13
+/frontend/src/shared/ @chlwlstj15 @kkkks9203 @answerme0622 @namyunseo85 @eolzzang99 @seaung13
+/frontend/src/features/map/ @seaung13
+
+[Android][1]
+/android/ @namyunseo85 @seaung13
+/android/app/src/main/java/com/surimap/core/ @namyunseo85 @seaung13
+/android/app/src/main/java/com/surimap/core/location/ @namyunseo85
+/android/app/src/main/java/com/surimap/core/sync/ @namyunseo85
+
+[Infra][1]
+/infra/ @seaung13
+/mock-112/ @chlwlstj15 @seaung13
