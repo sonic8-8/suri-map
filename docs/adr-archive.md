@@ -14,10 +14,29 @@
 
 ---
 
+## Archive Index
+
+| ADR | Archive 사유 | 대체 ADR |
+|---|---|---|
+| ADR-0008 | 계정 모델 이원화 폐기 | ADR-0015, ADR-0031 |
+| ADR-0009 | 현장 지휘관 앱 주 조작 모델 폐기 | ADR-0016, ADR-0026 |
+| ADR-0010 | ADR 단일 파일 관리 폐기 | ADR-0032 |
+| ADR-0011 | 산악 프리셋 중심 타일 전략 폐기 | ADR-0024 |
+| ADR-0015 | 개인 계정 중심 모델 폐기 | ADR-0031 |
+| ADR-0016 | PRD2 지휘 권한 모델 폐기 | ADR-0026 |
+| ADR-0017 | PRD2 채널 경계 폐기 | ADR-0026 |
+| ADR-0018 | 자동 사각지대 하이라이트 폐기 | ADR-0027 |
+| ADR-0019 | PRD2 오프라인 패키지 폐기 | ADR-0028 |
+| ADR-0021 | PRD2 OP 모델 폐기 | ADR-0029 |
+
+---
+
 ## ADR-0008. 계정 모델 이원화 (개인 / 팀)
 
 - **Status**: Superseded by ADR-0015, then ADR-0031
 - **Date**: 2026-04-21
+
+> Current note (2026-05-04): 아래 원문은 과거 계정 모델 기록이다. 현재 구현 기준은 운영 주체 `account`, 경로·FCM·오프라인 패키지 주체 `police_phone`, PostgreSQL 저장 `refresh_token`을 분리한다.
 
 ### Context
 
@@ -45,6 +64,8 @@
 
 - **Status**: Superseded by ADR-0016, then ADR-0026
 - **Date**: 2026-04-21
+
+> Current note (2026-05-04): 아래 원문은 과거 앱 중심 지휘 모델 기록이다. 현재 구현 기준은 웹 상황판이 구역·OP·인수인계 조작을 담당하고, 폴리폰 앱은 GPS 경로·마커·사진·오프라인 동기화에 집중한다.
 
 ### Context
 
@@ -140,6 +161,8 @@
 - **Date**: 2026-04-23
 - **Supersedes**: ADR-0008
 
+> Current note (2026-05-04): 아래 원문은 과거 개인 계정 중심 결정이다. 현재 구현 기준은 팀/순찰차/지휘 `account`와 업무폰 `police_phone`을 분리하고, refresh token은 PostgreSQL `refresh_token`에 저장한다.
+
 ### Context
 
 - PRD2에서는 개인 책임과 감사 추적을 우선해 개인 계정 중심 모델을 검토했다.
@@ -162,6 +185,8 @@
 - **Status**: Superseded by ADR-0026
 - **Date**: 2026-04-23
 - **Supersedes**: ADR-0009
+
+> Current note (2026-05-04): 아래 원문은 과거 지휘 권한 모델이다. 현재 구현 기준은 내부 지원 배정 API를 제공하지 않고, 사건·지원 배정은 112/mock polling/import 결과로 `incident_assignment`에 반영한다.
 
 ### Context
 
@@ -193,6 +218,8 @@
 
 - **Status**: Superseded by ADR-0026
 - **Date**: 2026-04-23
+
+> Current note (2026-05-04): 아래 원문은 과거 채널 경계 기록이다. 현재 구현 기준은 AOI/map boundary 별도 엔티티와 내부 부대 배정 workflow를 사용하지 않으며, 전체/부대/팀 구역은 `search_area`와 `search_area_assignment`로 관리한다.
 
 ### Context
 
@@ -272,6 +299,8 @@
 - **Status**: Superseded by ADR-0028
 - **Date**: 2026-04-23
 
+> Current note (2026-05-04): 아래 원문은 과거 결정이다. 현재 구현 기준은 `offline_package_manifest`, `offline_package_installation`, `incident_assignment`, `search_area(area_level=OVERALL|UNIT|TEAM)`를 사용하며 `incident_membership`, `op_assignment`, AOI/map boundary 별도 엔티티를 사용하지 않는다.
+
 ### Context
 
 - PRD2 FR-31, §5.1 3단계에서 사건 진입 시 오프라인 운용에 필요한 항목을 **단일 흐름으로 사전 적재**해야 한다고 명시
@@ -311,6 +340,8 @@
 
 - **Status**: Superseded by ADR-0029
 - **Date**: 2026-04-23
+
+> Current note (2026-05-04): 아래 원문은 과거 OP 모델 기록이다. 현재 구현 기준은 사건 배정 `incident_assignment`, 구역 배정 `search_area_assignment`, 근무 교대 `duty_shift`를 분리하며 `incident_membership`과 `op_assignment`를 사용하지 않는다.
 
 ### Context
 

@@ -35,26 +35,26 @@
       "SC-02 실종팀 인계·지원 부대 배정",
       "SC-03 사건 오프라인 패키지 사전 적재",
       "SC-04 지도 기준 범위·구역 분할·할당",
-      "SC-05 수색 세션·Device GPS 경로",
+      "SC-05 수색 경로·PolicePhone GPS 경로",
       "SC-06 현장 마커 생성",
       "SC-08 지원 요청·실종자 발견 알림",
       "SC-09 통신 복구·동기화",
       "SC-10 구역 완료·새 OP 열기",
-      "SC-11 인수인계·OP 비교·AI 요약",
+      "SC-11 인수인계·OP 비교·수색 이력 요약",
       "SC-12 사건 종료·캐시 파기"
     ]
   },
   "scope": {
     "included": [
       "BaseEvent envelope 및 events/_base.schema.json",
-      "domain transaction 안에서 적재되는 event_outbox 저장소와 commit 이후 dispatch loop",
-      "sse_event_log 저장소와 Last-Event-ID replay",
-      "GET /events?incidentId={incidentId} SSE endpoint for API Index consumers",
+      "domain transaction 안에서 적재되는 event_dispatch_job 저장소와 commit 이후 dispatch loop",
+      "sse_replay_event 저장소와 Last-Event-ID replay",
+      "GET /incidents/{incidentId}/events SSE endpoint for API Index consumers",
       "EventHub.publish(event) public port",
-      "EventFanout.dispatch(outboxRow) orchestration",
+      "EventFanout.dispatch(eventDispatchJob) orchestration",
       "SSE id line sequence, BaseEvent envelope format과 replay ordering semantics",
-      "durable SSE log, live SSE send, board projection, FCM 호출의 fanout status/attempt/idempotency",
-      "SSE delivery, board projector trigger, NotificationRecipientResolver/NotificationPayloadFactory 및 FcmDispatcher port call 순서와 재시도 정책",
+      "SSE_REPLAY, LIVE_SSE, FCM 호출의 fanout status/attempt/idempotency",
+      "SSE delivery, board refetch trigger, NotificationRecipientResolver/NotificationPayloadFactory 및 FcmDispatcher port call 순서와 재시도 정책",
       "fanout 실패 주입 지점과 하네스 fixture",
       "INCIDENT_PURGED 수신 시 사건별 replay data 제거"
     ],
@@ -67,7 +67,7 @@
       {
         "item": "도메인 transaction commit 자체",
         "owner": "각 domain spec",
-        "reason": "S4는 commit 이후 outbox row dispatch를 소유한다."
+        "reason": "S4는 commit 이후 event_dispatch_job row dispatch를 소유한다."
       },
       {
         "item": "notification payload와 recipient 계산",
@@ -82,12 +82,12 @@
       {
         "item": "Android 상시 EventSource client와 Android 화면의 SSE 직접 의존",
         "owner": "S5/S6",
-        "reason": "API Index는 웹/S3-2만 GET /events consumer로 열어두며, Android 제품 구현은 FCM data message와 REST/Outbox 복구 경로를 사용한다. S4는 endpoint 계약만 제공하고 Android 화면 로직은 소유하지 않는다."
+        "reason": "API Index는 웹/S3-2만 GET /incidents/{incidentId}/events consumer로 열어두며, Android 제품 구현은 FCM data message와 REST/Outbox 복구 경로를 사용한다. S4는 endpoint 계약만 제공하고 Android 화면 로직은 소유하지 않는다."
       },
       {
-        "item": "board snapshot assembly와 snapshot read model",
+        "item": "board API 재조회와 board response DTO",
         "owner": "S3-2",
-        "reason": "S4는 BoardSnapshotProjector.apply(ProjectorTrigger)를 orchestration하고 snapshot assembly는 수행하지 않는다."
+        "reason": "S4는 SSE refetch signal를 orchestration하고 board response assembly는 수행하지 않는다."
       }
     ]
   },
@@ -95,7 +95,7 @@
     {
       "id": "FR-04",
       "summary": "위치와 수색 현황은 온라인 기준 실시간으로 상황판에 반영된다.",
-      "handling": "PATH_APPENDED 등 domain event를 event_outbox에서 읽어 SSE와 board projector trigger로 전달한다."
+      "handling": "PATH_APPENDED 등 domain event를 event_dispatch_job에서 읽어 SSE와 board refetch trigger로 전달한다."
     },
     {
       "id": "FR-10",
@@ -105,18 +105,18 @@
     {
       "id": "FR-18",
       "summary": "공용 상황판 reference view가 실시간 이벤트로 최신 상태를 유지한다.",
-      "handling": "domain event fanout 중 웹 SSE와 board projector trigger를 수행한다. 지원 요청/실종자 발견 알림은 FR-10/FR-17 및 알림 NFR의 이벤트로 취급한다."
+      "handling": "domain event fanout 중 웹 SSE와 board refetch trigger를 수행한다. 지원 요청/실종자 발견 알림은 FR-10/FR-17 및 알림 NFR의 이벤트로 취급한다."
     },
     {
       "id": "FR-24",
       "summary": "단말 최신성이 상황판에 반영된다.",
-      "handling": "DEVICE_HEARTBEAT_UPDATED event를 ordering과 dedupe가 가능한 SSE/replay log로 전달한다."
+      "handling": "POLICE_PHONE_HEARTBEAT_UPDATED event를 ordering과 dedupe가 가능한 SSE/replay log로 전달한다."
     }
   ],
   "domain_model": {
     "entities": [
       {
-        "name": "event_outbox",
+        "name": "event_dispatch_job",
         "owner_spec": "S4",
         "description": "domain write transaction 안에서 domain row와 함께 원자적으로 적재되고, commit 이후 fanout 대상이 되는 event envelope 저장소.",
         "fields": [
@@ -138,12 +138,12 @@
             "nullable": false
           },
           {
-            "name": "type",
-            "type": "VARCHAR(80)",
+            "name": "event_type",
+            "type": "VARCHAR(64)",
             "nullable": false
           },
           {
-            "name": "schema_version",
+            "name": "payload_format_version",
             "type": "INTEGER",
             "nullable": false
           },
@@ -153,28 +153,173 @@
             "nullable": false
           },
           {
-            "name": "domain_ref_type",
-            "type": "VARCHAR(80)",
-            "nullable": false,
-            "note": "publisher-owned aggregate/table name used by atomicity harness checks"
+            "name": "source_entity_type",
+            "type": "VARCHAR(32)",
+            "nullable": false
           },
           {
-            "name": "domain_ref_id",
+            "name": "source_entity_id",
+            "type": "UUID",
+            "nullable": false
+          },
+          {
+            "name": "occurred_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": false
+          },
+          {
+            "name": "dispatch_status",
+            "type": "VARCHAR(32)",
+            "nullable": false,
+            "note": "PENDING|DISPATCHING|COMPLETED|PARTIALLY_FAILED|FAILED|PURGED"
+          },
+          {
+            "name": "created_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": false
+          },
+          {
+            "name": "updated_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": false
+          }
+        ],
+        "indexes": [
+          {
+            "name": "ux_event_dispatch_job_event_id",
+            "columns": [
+              "event_id"
+            ],
+            "unique": true
+          },
+          {
+            "name": "idx_event_dispatch_job_dispatch",
+            "columns": [
+              "dispatch_status",
+              "created_at"
+            ]
+          },
+          {
+            "name": "idx_event_dispatch_job_incident_occurred",
+            "columns": [
+              "incident_id",
+              "occurred_at"
+            ]
+          }
+        ],
+        "spatial": {
+          "enabled": false,
+          "type": "POINT",
+          "srid": 4326
+        }
+      },
+      {
+        "name": "sse_replay_event",
+        "owner_spec": "S4",
+        "description": "SSE replay와 Last-Event-ID 복구를 위한 사건별 event log.",
+        "fields": [
+          {
+            "name": "id",
             "type": "UUID",
             "nullable": false,
-            "note": "publisher-owned domain row id referenced by the event payload root id"
+            "pk": true
           },
           {
-            "name": "server_ts",
+            "name": "event_dispatch_job_id",
+            "type": "UUID",
+            "nullable": false
+          },
+          {
+            "name": "incident_id",
+            "type": "UUID",
+            "nullable": false
+          },
+          {
+            "name": "replay_sequence",
+            "type": "BIGINT",
+            "nullable": false
+          },
+          {
+            "name": "envelope",
+            "type": "JSONB",
+            "nullable": false
+          },
+          {
+            "name": "replay_status",
+            "type": "VARCHAR(32)",
+            "nullable": false,
+            "note": "ACTIVE|PURGED"
+          },
+          {
+            "name": "created_at",
             "type": "TIMESTAMPTZ",
-            "nullable": false,
-            "note": "ADR-0012"
+            "nullable": false
           },
           {
-            "name": "status",
-            "type": "VARCHAR(24)",
+            "name": "purged_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": true
+          }
+        ],
+        "indexes": [
+          {
+            "name": "ux_sse_replay_event_job",
+            "columns": [
+              "event_dispatch_job_id"
+            ],
+            "unique": true
+          },
+          {
+            "name": "ux_sse_replay_event_incident_replay_sequence",
+            "columns": [
+              "incident_id",
+              "replay_sequence"
+            ],
+            "unique": true
+          }
+        ],
+        "spatial": {
+          "enabled": false,
+          "type": "POINT",
+          "srid": 4326
+        }
+      },
+      {
+        "name": "event_dispatch_target",
+        "owner_spec": "S4",
+        "description": "event_dispatch_job의 SSE/FCM target별 전파 상태.",
+        "fields": [
+          {
+            "name": "id",
+            "type": "UUID",
             "nullable": false,
-            "note": "PENDING|DISPATCHING|DISPATCHED|PARTIAL_FAILED|FAILED|PURGED aggregate status"
+            "pk": true
+          },
+          {
+            "name": "event_dispatch_job_id",
+            "type": "UUID",
+            "nullable": false
+          },
+          {
+            "name": "target_type",
+            "type": "VARCHAR(32)",
+            "nullable": false,
+            "note": "SSE_REPLAY|LIVE_SSE|FCM"
+          },
+          {
+            "name": "target_identifier",
+            "type": "TEXT",
+            "nullable": false
+          },
+          {
+            "name": "is_required",
+            "type": "BOOLEAN",
+            "nullable": false
+          },
+          {
+            "name": "dispatch_status",
+            "type": "VARCHAR(32)",
+            "nullable": false
           },
           {
             "name": "attempt_count",
@@ -182,13 +327,23 @@
             "nullable": false
           },
           {
-            "name": "next_attempt_at",
+            "name": "next_retry_at",
             "type": "TIMESTAMPTZ",
             "nullable": true
           },
           {
-            "name": "last_error",
-            "type": "TEXT",
+            "name": "last_error_code",
+            "type": "VARCHAR(80)",
+            "nullable": true
+          },
+          {
+            "name": "last_attempted_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": true
+          },
+          {
+            "name": "completed_at",
+            "type": "TIMESTAMPTZ",
             "nullable": true
           },
           {
@@ -204,99 +359,11 @@
         ],
         "indexes": [
           {
-            "name": "ux_event_outbox_event_id",
+            "name": "ux_event_dispatch_target",
             "columns": [
-              "event_id"
-            ]
-          },
-          {
-            "name": "idx_event_outbox_dispatch",
-            "columns": [
-              "status",
-              "next_attempt_at",
-              "created_at"
-            ]
-          },
-          {
-            "name": "idx_event_outbox_incident_server_ts",
-            "columns": [
-              "incident_id",
-              "server_ts"
-            ]
-          }
-        ],
-        "spatial": {
-          "enabled": false,
-          "type": "POINT",
-          "srid": 4326
-        }
-      },
-      {
-        "name": "sse_event_log",
-        "owner_spec": "S4",
-        "description": "SSE replay와 Last-Event-ID 복구를 위한 사건별 event log.",
-        "fields": [
-          {
-            "name": "event_id",
-            "type": "UUID",
-            "nullable": false,
-            "pk": true
-          },
-          {
-            "name": "incident_id",
-            "type": "UUID",
-            "nullable": false
-          },
-          {
-            "name": "sequence",
-            "type": "BIGINT",
-            "nullable": false
-          },
-          {
-            "name": "type",
-            "type": "VARCHAR(80)",
-            "nullable": false
-          },
-          {
-            "name": "schema_version",
-            "type": "INTEGER",
-            "nullable": false
-          },
-          {
-            "name": "envelope",
-            "type": "JSONB",
-            "nullable": false
-          },
-          {
-            "name": "server_ts",
-            "type": "TIMESTAMPTZ",
-            "nullable": false
-          },
-          {
-            "name": "status",
-            "type": "VARCHAR(16)",
-            "nullable": false,
-            "note": "ACTIVE|PURGED"
-          },
-          {
-            "name": "purged_at",
-            "type": "TIMESTAMPTZ",
-            "nullable": true
-          }
-        ],
-        "indexes": [
-          {
-            "name": "ux_sse_event_log_incident_sequence",
-            "columns": [
-              "incident_id",
-              "sequence"
-            ]
-          },
-          {
-            "name": "idx_sse_event_log_incident_server_ts",
-            "columns": [
-              "incident_id",
-              "server_ts"
+              "event_dispatch_job_id",
+              "target_type",
+              "target_identifier"
             ]
           }
         ],
@@ -309,7 +376,7 @@
     ],
     "state_machines": [
       {
-        "entity": "event_outbox",
+        "entity": "event_dispatch_job",
         "field": "status",
         "states": [
           "PENDING",
@@ -330,25 +397,25 @@
             "from": "DISPATCHING",
             "to": "DISPATCHED",
             "trigger": "all required fanout deliveries are completed or skipped",
-            "guard": "all fanout_attempt rows for same event_id are SUCCEEDED or SKIPPED"
+            "guard": "all event_dispatch_target rows for same event_id are SUCCEEDED or SKIPPED"
           },
           {
             "from": "DISPATCHING",
             "to": "PARTIAL_FAILED",
             "trigger": "one or more retryable target rows fail",
-            "guard": "at least one fanout_attempt row is RETRYING and no required target is FAILED"
+            "guard": "at least one event_dispatch_target row is RETRYING and no required target is FAILED"
           },
           {
             "from": "DISPATCHING",
             "to": "FAILED",
             "trigger": "one or more required target rows reach FAILED without retryable recovery",
-            "guard": "at least one fanout_attempt row for same event_id is FAILED"
+            "guard": "at least one event_dispatch_target row for same event_id is FAILED"
           },
           {
             "from": "PARTIAL_FAILED",
             "to": "DISPATCHING",
             "trigger": "retryable target backoff elapsed",
-            "guard": "one or more fanout_attempt rows are due and parent row still belongs to non-purged incident"
+            "guard": "one or more event_dispatch_target rows are due and parent row still belongs to non-purged incident"
           },
           {
             "from": "PARTIAL_FAILED",
@@ -389,7 +456,7 @@
         ]
       },
       {
-        "entity": "sse_event_log",
+        "entity": "sse_replay_event",
         "field": "status",
         "states": [
           "ACTIVE",
@@ -405,7 +472,7 @@
         ]
       },
       {
-        "entity": "fanout_attempt",
+        "entity": "event_dispatch_target",
         "field": "status",
         "states": [
           "PENDING",
@@ -421,13 +488,13 @@
             "from": "PENDING",
             "to": "DISPATCHING",
             "trigger": "target worker claims event_id + target_type + target_key",
-            "guard": "unique fanout_attempt row exists and parent event_outbox is not PURGED"
+            "guard": "unique event_dispatch_target row exists and parent event_dispatch_job is not PURGED"
           },
           {
             "from": "DISPATCHING",
             "to": "SUCCEEDED",
             "trigger": "target call completed",
-            "guard": "DURABLE_SSE_LOG appended sequence once; LIVE_SSE write completed; BOARD_PROJECTION returned APPLIED|DUPLICATE|STALE|SNAPSHOT_REQUIRED; FCM dispatcher accepted the target"
+            "guard": "SSE_REPLAY row appended once; LIVE_SSE write completed; FCM dispatcher accepted the target when recipients exist"
           },
           {
             "from": "DISPATCHING",
@@ -439,13 +506,13 @@
             "from": "DISPATCHING",
             "to": "RETRYING",
             "trigger": "retryable target failure",
-            "guard": "target_type is BOARD_PROJECTION or FCM and retry budget remains"
+            "guard": "target_type is FCM and retry budget remains"
           },
           {
             "from": "RETRYING",
             "to": "DISPATCHING",
             "trigger": "next_attempt_at elapsed",
-            "guard": "parent event_outbox is PARTIAL_FAILED and incident is not purged"
+            "guard": "parent event_dispatch_job is PARTIAL_FAILED and incident is not purged"
           },
           {
             "from": "DISPATCHING",
@@ -493,16 +560,16 @@
       }
     ],
     "flyway_migrations": [
-      "V20__create_event_outbox.sql",
-      "V21__create_sse_event_log.sql",
-      "V22__create_fanout_attempt.sql"
+      "V20__create_event_dispatch_job.sql",
+      "V21__create_sse_replay_event.sql",
+      "V22__create_event_dispatch_target.sql"
     ]
   },
   "api_contracts": {
     "provided": [
       {
         "method": "GET",
-        "path": "/events?incidentId={incidentId}",
+        "path": "/incidents/{incidentId}/events",
         "summary": "API Index의 웹·S3-2 consumer가 사용할 수 있는 사건별 SSE stream 연결과 Last-Event-ID replay",
         "auth": "guard aliases public-session + incident-read + @RequireChannel(WEB)",
         "idempotent": true,
@@ -524,7 +591,7 @@
             },
             "lastEventId": {
               "type": "string",
-              "description": "SSE id line value. Decimal incident-scoped sequence, not eventId."
+              "description": "SSE id line value. Decimal incident-scoped replay_sequence, not eventId."
             }
           }
         },
@@ -532,7 +599,7 @@
           "200": {
             "type": "text/event-stream",
             "sse_format": {
-              "id": "decimal incident-scoped sequence from sse_event_log.sequence; Last-Event-ID is this sequence, not eventId",
+              "id": "decimal incident-scoped replay_sequence from sse_replay_event.replay_sequence; Last-Event-ID is this sequence, not eventId",
               "event": "domain event type exactly as BaseEvent.type; consumers route by data.type and dedupe by data.eventId",
               "data": "serialized event_envelope JSON"
             },
@@ -540,12 +607,12 @@
               "eventId": "uuid",
               "incidentId": "uuid",
               "type": "string",
-              "schemaVersion": 1,
-              "serverTs": "date-time",
+              "payloadFormatVersion": 1,
+              "occurredAt": "date-time",
               "payload": {}
             },
-            "ordering": "S4 appends sse_event_log once per eventId, assigns incident-scoped monotonically increasing sequence at append time, sends live and replay events by SSE id line ascending sequence, and clients/projectors dedupe by eventId while detecting sequence gaps. The serialized event_envelope stays compatible with boundaries.md §9.1 and does not add top-level sequence.",
-            "closed_replay_policy": "CLOSED but not purged: replay retained events up to INCIDENT_CLOSED when Last-Event-ID is before terminal sequence, then close stream. If Last-Event-ID is at or after terminal sequence, or a new live stream starts after terminal sequence, S4 opens no live tail and closes the stream normally without a new public error. PURGED or missing replay data returns gone_snapshot_required."
+            "ordering": "S4 appends sse_replay_event once per eventId, assigns incident-scoped monotonically increasing sequence at append time, sends live and replay events by SSE id line ascending replay_sequence, and clients/refetchs dedupe by eventId while detecting replay_sequence gaps. The serialized event_envelope stays compatible with boundaries.md §9.1 and does not add top-level sequence.",
+            "closed_replay_policy": "CLOSED but not purged: replay retained events up to INCIDENT_CLOSED when Last-Event-ID is before terminal replay_sequence, then close stream. If Last-Event-ID is at or after terminal replay_sequence, or a new live stream starts after terminal replay_sequence, S4 opens no live tail and closes the stream normally without a new public error. PURGED or missing replay data returns gone_refetch_required."
           }
         },
         "errors": [
@@ -566,8 +633,8 @@
           },
           {
             "code": 409,
-            "case": "gone_snapshot_required",
-            "body": "{\"error\": \"gone_snapshot_required\"}"
+            "case": "gone_refetch_required",
+            "body": "{\"error\": \"gone_refetch_required\"}"
           }
         ]
       }
@@ -577,11 +644,6 @@
         "from_spec": "S1-2",
         "interface": "SecurityContext + @RequireIncidentAccess",
         "usage": "SSE 연결 권한과 사건 접근권 확인"
-      },
-      {
-        "from_spec": "S3-2",
-        "interface": "BoardSnapshotProjector.apply(ProjectorTrigger)",
-        "usage": "fanout 중 board projection 갱신을 요청한다. input은 eventId, incidentId, sequence, type, schemaVersion, payload.id/status/version/opId/deviceId, serverTs이며 output은 {eventId, incidentId, appliedSequence, snapshotVersion, status: APPLIED|DUPLICATE|STALE|SNAPSHOT_REQUIRED|FAILED_RETRYABLE}. snapshot 조립은 S3-2가 수행한다."
       },
       {
         "from_spec": "S5",
@@ -599,7 +661,7 @@
       {
         "type": "INCIDENT_PURGED",
         "from_spec": "S1-3",
-        "handler": "해당 incident_id의 event_outbox pending/retry row와 sse_event_log replay data를 purge 처리한다."
+        "handler": "해당 incident_id의 event_dispatch_job pending/retry row와 sse_replay_event replay data를 purge 처리한다."
       }
     ]
   },
@@ -611,22 +673,22 @@
       "modules": [
         {
           "name": "EventStreamController",
-          "responsibility": "GET /events SSE 연결, Last-Event-ID replay, 권한 실패 stream 종료"
+          "responsibility": "GET /incidents/{incidentId}/events SSE 연결, Last-Event-ID replay, 권한 실패 stream 종료"
         },
         {
           "name": "EventHub",
-          "responsibility": "caller domain transaction 안에서 PublishRequest를 BaseEvent envelope와 event_outbox row로 저장하는 public port"
+          "responsibility": "caller domain transaction 안에서 PublishRequest를 BaseEvent envelope와 event_dispatch_job row로 저장하는 public port"
         },
         {
           "name": "EventFanoutWorker",
-          "responsibility": "outbox row claim, dispatch, retry, failure injection 처리"
+          "responsibility": "event_dispatch_job row claim, dispatch, retry, failure injection 처리"
         },
         {
           "name": "SseEventLogRepository",
           "responsibility": "사건별 replay log append/query/purge"
         },
         {
-          "name": "EventOutboxRepository",
+          "name": "EventDispatchJobRepository",
           "responsibility": "dispatch 상태 전이와 중복 eventId 방지"
         },
         {
@@ -647,7 +709,7 @@
       "components": [
         {
           "name": "EventSourceClient",
-          "responsibility": "SSE 연결, Last-Event-ID 저장, eventId dedupe, gone_snapshot_required 시 snapshot reload 요청"
+          "responsibility": "SSE 연결, Last-Event-ID 저장, eventId dedupe, gone_refetch_required 시 board response reload 요청"
         }
       ],
       "state_management": "S3-2 board store consumes idempotent events",
@@ -661,13 +723,13 @@
       "screens": [
         {
           "name": "FcmEventContractProbe",
-          "responsibility": "S4가 요구하는 FCM data message eventId/incidentId/type/payload subset contract fixture. 실제 Android observer/dedupe 구현은 S5/S6가 소유하며 GET /events 또는 EventSource를 사용하지 않는다."
+          "responsibility": "S4가 요구하는 FCM data message eventId/incidentId/type/payload subset contract fixture. 실제 Android observer/dedupe 구현은 S5/S6가 소유하며 GET /incidents/{incidentId}/events 또는 EventSource를 사용하지 않는다."
         }
       ],
       "room_entities": [
         {
           "name": "AppliedPushEvent",
-          "note": "FCM data message eventId별 dedupe 저장. SSE sequence는 Android local cursor로 저장하지 않는다."
+          "note": "FCM data message eventId별 dedupe 저장. SSE replay_sequence는 Android local cursor로 저장하지 않는다."
         }
       ],
       "sync_flow": "S6 Outbox flush 이후 server eventId를 받아 중복 적용을 막고, 서버발 알림은 S5 FCM data message path로만 반영한다."
@@ -680,12 +742,6 @@
         "contract": "SecurityContext, @RequireChannel(APP,WEB), @RequireIncidentAccess",
         "stub_strategy": "SSE harness에서 incident access fixture와 expired session fixture를 제공한다.",
         "replaced_by_real_at": "S1-2 auth/guard PASS"
-      },
-      {
-        "spec": "S3-2",
-        "contract": "BoardSnapshotProjector.apply(ProjectorTrigger)",
-        "stub_strategy": "projector trigger call log를 fixture로 대체하고 eventId/version 수렴을 검증한다.",
-        "replaced_by_real_at": "S3-2 board projection PASS"
       },
       {
         "spec": "S5",
@@ -717,7 +773,7 @@
       ],
       "given": "domain spec이 domain row와 PublishRequest를 같은 transaction에서 생성한다.",
       "when": "EventHub.publish가 caller transaction 안에서 호출되고 transaction commit이 성공한다.",
-      "then": "domain row, event_outbox row, BaseEvent envelope가 같은 eventId, incidentId, type, schemaVersion, serverTs, domain_ref_id, payload.id/status/version을 원자적으로 보존한다.",
+      "then": "domain row, event_dispatch_job row, BaseEvent envelope가 같은 eventId, incidentId, type, payloadFormatVersion, occurredAt, sourceEntityId, payload.id/status/version을 원자적으로 보존한다.",
       "priority": "critical"
     },
     {
@@ -726,9 +782,9 @@
         "FR-04",
         "FR-10"
       ],
-      "given": "웹/S3-2 SSE 클라이언트가 사건 접근권을 가진 WEB 세션으로 GET /events에 연결했다.",
-      "when": "새 event_outbox row가 dispatch된다.",
-      "then": "S4는 먼저 sse_event_log에 eventId를 1회 append하고 incident-scoped sequence를 배정한 뒤, SSE stream에 id=sequence와 boundaries.md §9.1 BaseEvent envelope(data.eventId=eventId)를 ascending sequence로 전송한다.",
+      "given": "웹/S3-2 SSE 클라이언트가 사건 접근권을 가진 WEB 세션으로 GET /incidents/{incidentId}/events에 연결했다.",
+      "when": "새 event_dispatch_job row가 dispatch된다.",
+      "then": "S4는 먼저 sse_replay_event에 eventId를 1회 append하고 incident-scoped replay_sequence를 배정한 뒤, SSE stream에 id=replay_sequence와 boundaries.md §9.1 BaseEvent envelope(data.eventId=eventId)를 ascending replay_sequence로 전송한다.",
       "priority": "critical"
     },
     {
@@ -740,7 +796,7 @@
       ],
       "given": "SSE 클라이언트가 Last-Event-ID를 포함해 재연결한다.",
       "when": "해당 sequence 이후 log가 보존되어 있다.",
-      "then": "S4는 Last-Event-ID를 sequence cursor로 해석하고 그보다 큰 envelope를 sse_event_log sequence 순서대로 replay한다. 소비자는 eventId로 dedupe하고 sequence gap을 발견하면 snapshot reload로 복구한다.",
+      "then": "S4는 Last-Event-ID를 replay_sequence cursor로 해석하고 그보다 큰 envelope를 sse_replay_event replay_sequence 순서대로 replay한다. 소비자는 eventId로 dedupe하고 replay_sequence gap을 발견하면 board response reload로 복구한다.",
       "priority": "high"
     },
     {
@@ -752,7 +808,7 @@
       ],
       "given": "Last-Event-ID가 purge 또는 보존기간 초과로 replay 불가능하다.",
       "when": "SSE 클라이언트가 재연결을 시도한다.",
-      "then": "S4는 409 gone_snapshot_required를 반환하고 S3-2 소비자는 board snapshot 재조회로 복구한다.",
+      "then": "S4는 409 gone_refetch_required를 반환하고 S3-2 소비자는 board API 재조회로 복구한다.",
       "priority": "high"
     },
     {
@@ -761,9 +817,9 @@
         "FR-10",
         "FR-17"
       ],
-      "given": "SUPPORT_REQUEST_CREATED, PERSON_FOUND, INCIDENT_MEMBERSHIP_CHANGED, INCIDENT_CLOSED event가 FCM data message dispatch 대상이다.",
+      "given": "SUPPORT_REQUEST_CREATED, PERSON_FOUND, INCIDENT_ASSIGNMENT_CHANGED, INCIDENT_CLOSED event가 FCM data message dispatch 대상이다.",
       "when": "EventFanout.dispatch가 실행된다.",
-      "then": "S4는 S5 NotificationRecipientResolver.resolve(event)와 NotificationPayloadFactory.from(event) 또는 incident close recipient fixture로 recipients/payload를 받은 뒤 FcmDispatcher port와 S3-2 BoardSnapshotProjector.apply(ProjectorTrigger)를 호출하되 payload/recipient 계산과 snapshot assembly는 수행하지 않는다.",
+      "then": "S4는 S5 NotificationRecipientResolver.resolve(event)와 NotificationPayloadFactory.from(event) 또는 incident close recipient fixture로 recipients/payload를 받은 뒤 FcmDispatcher port와 S3-2 SSE refetch signal를 호출하되 payload/recipient 계산과 board response assembly는 수행하지 않는다.",
       "priority": "critical"
     },
     {
@@ -786,8 +842,8 @@
         "FR-18"
       ],
       "given": "domain write transaction 안에서 EventHub.publish(PublishRequest)가 호출된다.",
-      "when": "event_outbox insert 또는 envelope validation이 실패한다.",
-      "then": "S4는 caller transaction을 rollback-only로 만들고 REST write는 실패해야 한다. 하네스는 domain row만 있고 event_outbox가 없는 상태, event_outbox만 있고 domain row가 없는 상태, publish 실패 후 caller transaction이 commit된 상태를 모두 atomicity 위반으로 실패 처리한다.",
+      "when": "event_dispatch_job insert 또는 envelope validation이 실패한다.",
+      "then": "S4는 caller transaction을 rollback-only로 만들고 REST write는 실패해야 한다. 하네스는 domain row만 있고 event_dispatch_job가 없는 상태, event_dispatch_job만 있고 domain row가 없는 상태, publish 실패 후 caller transaction이 commit된 상태를 모두 atomicity 위반으로 실패 처리한다.",
       "priority": "critical"
     },
     {
@@ -797,21 +853,9 @@
         "FR-10",
         "FR-18"
       ],
-      "given": "동일 eventId에 대해 durable SSE log append, live SSE delivery, board projection, FCM dispatch가 일부 성공하고 일부 실패했다.",
-      "when": "BOARD_PROJECTION 또는 FCM 호출만 retry된다.",
-      "then": "이미 성공한 LIVE_SSE fanout_attempt는 재실행하지 않고, DURABLE_SSE_LOG fanout_attempt의 동일 eventId append도 반복하지 않는다. fanout_attempt는 eventId, target_type, target_key unique key로 idempotent하게 처리된다.",
-      "priority": "critical"
-    },
-    {
-      "id": "AC-S4-09",
-      "fr_refs": [
-        "FR-04",
-        "FR-10",
-        "FR-18"
-      ],
-      "given": "BoardSnapshotProjector.apply(ProjectorTrigger)가 호출된다.",
-      "when": "projector가 APPLIED, DUPLICATE, STALE, SNAPSHOT_REQUIRED, FAILED_RETRYABLE 중 하나를 반환한다.",
-      "then": "APPLIED/DUPLICATE는 success, STALE은 no-regression 결과로 기록하고, SNAPSHOT_REQUIRED는 snapshot reload 필요 상태로 기록하며, FAILED_RETRYABLE은 backoff retry 대상으로 기록한다. projector input/output에는 eventId, SSE delivery sequence, payload.id/status/version이 포함되어 snapshot convergence red test가 비교할 수 있어야 한다.",
+      "given": "동일 eventId에 대해 SSE_REPLAY append, LIVE_SSE delivery, FCM dispatch가 일부 성공하고 일부 실패했다.",
+      "when": "FCM target만 retry된다. SSE_REPLAY는 append-once이고 LIVE_SSE는 durable replay로 복구한다.",
+      "then": "이미 성공한 LIVE_SSE event_dispatch_target는 재실행하지 않고, SSE_REPLAY event_dispatch_target의 동일 eventId append도 반복하지 않는다. event_dispatch_target는 eventId, target_type, target_key unique key로 idempotent하게 처리된다.",
       "priority": "critical"
     },
     {
@@ -822,8 +866,8 @@
         "FR-18"
       ],
       "given": "사건이 CLOSED 또는 PURGED 상태다.",
-      "when": "Web client가 GET /events로 신규 연결 또는 Last-Event-ID 재연결을 시도한다.",
-      "then": "CLOSED but not purged 사건은 보존된 sequence가 있으면 INCIDENT_CLOSED까지 replay한 뒤 stream을 정상 종료하고, terminal sequence 이후 신규 live stream은 새 public error 없이 live tail을 열지 않고 정상 종료한다. PURGED 또는 replay data가 제거된 사건은 409 gone_snapshot_required를 반환하며 sse_event_log envelope payload는 남아 있지 않아야 한다.",
+      "when": "Web client가 GET /incidents/{incidentId}/events로 신규 연결 또는 Last-Event-ID 재연결을 시도한다.",
+      "then": "CLOSED but not purged 사건은 보존된 replay_sequence가 있으면 INCIDENT_CLOSED까지 replay한 뒤 stream을 정상 종료하고, terminal replay_sequence 이후 신규 live stream은 새 public error 없이 live tail을 열지 않고 정상 종료한다. PURGED 또는 replay data가 제거된 사건은 409 gone_refetch_required를 반환하며 sse_replay_event envelope payload는 남아 있지 않아야 한다.",
       "priority": "critical"
     },
     {
@@ -834,7 +878,7 @@
       ],
       "given": "SC-08 SUPPORT_REQUEST_CREATED 또는 PERSON_FOUND fanout에서 S5 NotificationRecipientResolver가 빈 recipients를 반환한다.",
       "when": "EventFanout.dispatch가 실행된다.",
-      "then": "S4는 FCM target fanout_attempt를 SKIPPED로 기록하고 사용자-facing 실패를 만들지 않는다. DURABLE_SSE_LOG와 BOARD_PROJECTION fanout_attempt는 계속 진행되어 board/toast 수렴을 검증할 수 있어야 하며, 내부 fanout_attempt status는 UI나 event payload에 노출하지 않는다.",
+      "then": "S4는 FCM target event_dispatch_target를 SKIPPED로 기록하고 사용자-facing 실패를 만들지 않는다. SSE_REPLAY와 LIVE_SSE event_dispatch_target는 계속 진행되어 board/toast 수렴을 검증할 수 있어야 하며, 내부 event_dispatch_target status는 UI나 event payload에 노출하지 않는다.",
       "priority": "high"
     },
     {
@@ -845,107 +889,107 @@
         "FR-18"
       ],
       "given": "SC-09에서 S6 Outbox replay가 domain write를 commit하고 payload owner가 operationId/idempotencyKey와 payload.id/status/version을 포함한 PublishRequest를 생성한다.",
-      "when": "S4가 해당 event를 outbox, SSE replay log, BoardSnapshotProjector.apply(ProjectorTrigger), FCM path로 dispatch한다.",
-      "then": "event_outbox.event_id, BaseEvent.eventId, sse_event_log.sequence, ProjectorTrigger.sequence, payload.id/status/version이 같은 fixture 값으로 비교 가능해야 한다. S3-2 mock board row는 같은 eventId와 같거나 더 높은 version으로 수렴하고, Android FCM data path는 eventId dedupe만 사용하며 SSE sequence를 local cursor로 저장하지 않는다.",
+      "when": "S4가 해당 event를 event_dispatch_job, SSE_REPLAY, LIVE_SSE, FCM path로 dispatch한다.",
+      "then": "event_dispatch_job.event_id, BaseEvent.eventId, sse_replay_event.replay_sequence, payload.id/status/version이 같은 fixture 값으로 비교 가능해야 한다. S3-2는 SSE refetch signal을 받은 뒤 board API를 재조회해 같은 eventId와 같거나 더 높은 version으로 수렴하고, Android FCM data path는 eventId dedupe만 사용하며 SSE replay_sequence를 local cursor로 저장하지 않는다.",
       "priority": "critical"
     }
   ],
   "edge_cases": [
     "SSE 연결 중 권한이 만료되면 stream을 종료하고 재인증을 요구한다.",
     "동일 eventId row가 중복 적재되면 unique constraint로 거부하고 중복 fanout하지 않는다.",
-    "sse_event_log append는 성공했지만 live SSE client가 끊겨 있으면 live delivery는 재시도하지 않고 replay로 복구한다.",
-    "live SSE delivery는 성공했지만 board projector trigger가 실패하면 board projection만 retry 대상이며 live SSE는 재송신하지 않는다.",
+    "sse_replay_event append는 성공했지만 live SSE client가 끊겨 있으면 live delivery는 재시도하지 않고 replay로 복구한다.",
+    null,
     "FcmDispatcher 실패는 FCM dispatch retry 상태로 기록하되 S5 adapter 내부 구현을 변경하지 않는다.",
-    "NotificationRecipientResolver가 빈 recipients를 반환하면 FCM dispatch를 skip하고 SSE/board projection은 계속 진행한다.",
-    "CLOSED incident의 Last-Event-ID가 terminal sequence보다 작으면 INCIDENT_CLOSED까지 replay하고 stream을 닫는다.",
-    "PURGED incident의 Last-Event-ID replay 요청은 409 gone_snapshot_required로 처리한다.",
-    "Android APP channel이 GET /events를 호출하면 channel_not_allowed로 거부하고, Android 제품 구현은 FCM data message path를 사용하며 상시 EventSource client를 만들지 않는다."
+    "NotificationRecipientResolver가 빈 recipients를 반환하면 FCM dispatch를 skip하고 SSE_REPLAY/LIVE_SSE는 계속 진행한다.",
+    "CLOSED incident의 Last-Event-ID가 terminal replay_sequence보다 작으면 INCIDENT_CLOSED까지 replay하고 stream을 닫는다.",
+    "PURGED incident의 Last-Event-ID replay 요청은 409 gone_refetch_required로 처리한다.",
+    "Android APP channel이 GET /incidents/{incidentId}/events를 호출하면 channel_not_allowed로 거부하고, Android 제품 구현은 FCM data message path를 사용하며 상시 EventSource client를 만들지 않는다."
   ],
   "error_handling": {
     "incident_access_denied": "SSE 연결을 열지 않고 403을 반환한다.",
     "channel_not_allowed": "WEB 외 caller는 403을 반환한다.",
-    "terminal_stream_closed": "terminal sequence 이후 신규 SSE live stream은 새 event를 보내지 않고 정상 종료한다. terminal event replay가 필요한 Last-Event-ID는 INCIDENT_CLOSED까지 replay 후 stream을 정상 종료한다.",
-    "gone_snapshot_required": "409와 함께 snapshot 재조회 필요 상태를 반환한다.",
-    "fanout_target_failed": "fanout_attempt.attempt_count를 증가시키고 BOARD_PROJECTION/FCM target은 대상별 backoff 후 retry한다. LIVE_SSE 실패는 RETRYING으로 전이하지 않고 SKIPPED 또는 FAILED로 닫으며 durable replay로 복구해 중복 live send를 방지한다. 하네스에서는 fanout failure injection으로 관측한다.",
+    "terminal_stream_closed": "terminal replay_sequence 이후 신규 SSE live stream은 새 event를 보내지 않고 정상 종료한다. terminal event replay가 필요한 Last-Event-ID는 INCIDENT_CLOSED까지 replay 후 stream을 정상 종료한다.",
+    "gone_refetch_required": "409와 함께 board response 재조회 필요 상태를 반환한다.",
+    "fanout_target_failed": "event_dispatch_target.attempt_count를 증가시키고 FCM target은 대상별 backoff 후 retry한다. LIVE_SSE 실패는 RETRYING으로 전이하지 않고 SKIPPED 또는 FAILED로 닫으며 durable replay로 복구해 중복 live send를 방지한다. 하네스에서는 fanout failure injection으로 관측한다.",
     "event_schema_unknown": "dispatch를 FAILED로 전이하고 payload owner review가 필요한 error log를 남긴다."
   },
   "non_functional_requirements": {
     "performance": [
-      "온라인 기준 마커/구역/path 변화는 3초 이내 SSE와 board projector trigger까지 도달한다.",
+      "온라인 기준 마커/구역/path 변화는 3초 이내 SSE와 board refetch trigger까지 도달한다.",
       "Last-Event-ID replay는 사건별 sequence index를 사용해 최근 event를 순서대로 반환한다."
     ],
     "security": [
-      "GET /events는 @RequireIncidentAccess를 통과한 WEB session만 허용한다.",
+      "GET /incidents/{incidentId}/events는 @RequireIncidentAccess를 통과한 WEB session만 허용한다.",
       "Android 제품 구현은 S5 FCM data message와 S6 REST/Outbox sync 결과를 소비하며 상시 EventSource client를 만들지 않는다.",
       "event payload에는 payload owner schema에 없는 개인정보 필드를 S4가 추가하지 않는다."
     ],
     "observability": [
-      "event_outbox_pending_total, fanout_attempt_pending_total{target_type,status}, event_fanout_failures_total{target_type}, sse_connections_active, sse_replay_required_total metric을 노출한다.",
+      "event_dispatch_job_pending_total, event_dispatch_target_pending_total{target_type,status}, event_fanout_failures_total{target_type}, sse_connections_active, sse_replay_required_total metric을 노출한다.",
       "SSE_ENVELOPE_DELIVERED는 domain event가 아니라 observability/harness probe로만 기록하며 events_published catalog에 포함하지 않는다.",
-      "failure injection은 outbox 적재 후 durable log append 실패, live SSE 미송신, NotificationRecipientResolver/NotificationPayloadFactory 실패, FcmDispatcher 실패, board projector trigger 실패/지연을 구분해 기록한다."
+      "failure injection은 event_dispatch_job 적재 후 durable log append 실패, live SSE 미송신, NotificationRecipientResolver/NotificationPayloadFactory 실패, FcmDispatcher 실패, board refetch trigger 실패/지연을 구분해 기록한다."
     ]
   },
   "tdd_red_tests": {
     "backend": [
       {
-        "name": "EventHubPublishPersistsOutboxEnvelopeTest",
+        "name": "EventHubPublishPersistsDispatchJobEnvelopeTest",
         "framework": "JUnit 5 + Testcontainers(PostgreSQL)",
-        "scenario": "PublishRequest 수신 시 BaseEvent envelope와 event_outbox row가 같은 eventId/type/schemaVersion/domain_ref_id/payload.id/status/version을 가진다."
+        "scenario": "PublishRequest 수신 시 BaseEvent envelope와 event_dispatch_job row가 같은 eventId/type/payloadFormatVersion/sourceEntityId/payload.id/status/version을 가진다."
       },
       {
         "name": "EventHubPublishAtomicRollbackTest",
         "framework": "JUnit 5 + Testcontainers(PostgreSQL)",
-        "scenario": "event_outbox insert 또는 envelope validation 실패를 주입하면 caller domain transaction이 rollback되어 domain row만 남거나 outbox만 남는 상태가 없어야 한다."
+        "scenario": "event_dispatch_job insert 또는 envelope validation 실패를 주입하면 caller domain transaction이 rollback되어 domain row만 남거나 event_dispatch_job만 남는 상태가 없어야 한다."
       },
       {
         "name": "SseSequenceEnvelopeReplayTest",
         "framework": "JUnit 5 + Spring MVC Test + SseEmitter test",
-        "scenario": "SSE id line은 incident-scoped sequence이고 envelope는 boundaries.md §9.1 BaseEvent shape를 유지하며 Last-Event-ID 이후 event만 sequence 순서대로 replay하고 이미 적용한 eventId는 중복 전송하지 않는다."
+        "scenario": "SSE id line은 incident-scoped replay_sequence이고 envelope는 boundaries.md §9.1 BaseEvent shape를 유지하며 Last-Event-ID 이후 event만 replay_sequence 순서대로 replay하고 이미 적용한 eventId는 중복 전송하지 않는다."
       },
       {
         "name": "EventStreamAuthorizationGuardTest",
         "framework": "JUnit 5 + Spring MVC Test + SseEmitter test",
-        "scenario": "GET /events는 WEB public-session과 incident-read guard를 통과해야 하며 channel_not_allowed, incident_access_denied, expired session stream termination을 각각 fixture로 검증한다."
+        "scenario": "GET /incidents/{incidentId}/events는 WEB public-session과 incident-read guard를 통과해야 하며 channel_not_allowed, incident_access_denied, expired session stream termination을 각각 fixture로 검증한다."
       },
       {
-        "name": "GoneSnapshotRequiredWhenReplayMissingTest",
+        "name": "GoneRefetchRequiredWhenReplayMissingTest",
         "framework": "JUnit 5 + Testcontainers(PostgreSQL)",
-        "scenario": "요청한 Last-Event-ID가 sse_event_log에 없으면 409 gone_snapshot_required를 반환한다."
+        "scenario": "요청한 Last-Event-ID가 sse_replay_event에 없으면 409 gone_refetch_required를 반환한다."
       },
       {
         "name": "ClosedAndPurgedStreamBehaviorTest",
         "framework": "JUnit 5 + Spring MVC Test + SseEmitter test",
-        "scenario": "CLOSED 사건은 terminal event까지 replay 후 stream을 닫고 terminal 이후 신규 stream은 새 event 없이 정상 종료하며, PURGED 또는 replay data 제거 사건은 409 gone_snapshot_required를 반환한다."
+        "scenario": "CLOSED 사건은 terminal event까지 replay 후 stream을 닫고 terminal 이후 신규 stream은 새 event 없이 정상 종료하며, PURGED 또는 replay data 제거 사건은 409 gone_refetch_required를 반환한다."
       },
       {
         "name": "FanoutTargetFailureInjectionTest",
         "framework": "JUnit 5",
-        "scenario": "durable SSE log 실패, live SSE 미송신, NotificationRecipientResolver/NotificationPayloadFactory 실패, FcmDispatcher 실패, BoardSnapshotProjector 지연을 각각 주입하면 fanout 대상별 retry/skip/failure 상태와 metric이 분리된다."
+        "scenario": "durable SSE log 실패, live SSE 미송신, NotificationRecipientResolver/NotificationPayloadFactory 실패, FcmDispatcher 실패, SSE refetch signal 지연을 각각 주입하면 fanout 대상별 retry/skip/failure 상태와 metric이 분리된다."
       },
       {
         "name": "FanoutRetryDoesNotDuplicateLiveSseTest",
         "framework": "JUnit 5 + Spring MVC Test + SseEmitter test",
-        "scenario": "BOARD_PROJECTION 또는 FCM target만 retry될 때 이미 성공한 LIVE_SSE target과 DURABLE_SSE_LOG target은 재실행되지 않는다."
+        "scenario": "FCM target만 retry될 때 이미 성공한 LIVE_SSE target과 SSE_REPLAY target은 재실행되지 않는다."
       },
       {
         "name": "EmptyFcmRecipientsSkipDoesNotBlockRealtimeFanoutTest",
         "framework": "JUnit 5",
-        "scenario": "SC-08 fixture에서 NotificationRecipientResolver가 빈 recipients를 반환하면 FCM fanout_attempt는 SKIPPED가 되고 사용자-facing 실패 없이 SSE log와 BoardSnapshotProjector.apply는 같은 eventId로 계속 성공한다."
+        "scenario": "SC-08 fixture에서 NotificationRecipientResolver가 빈 recipients를 반환하면 FCM event_dispatch_target는 SKIPPED가 되고 사용자-facing 실패 없이 SSE_REPLAY/LIVE_SSE는 같은 eventId로 계속 성공한다."
       },
       {
         "name": "OutboxReplayEventConvergenceTraceTest",
         "framework": "JUnit 5 + Testcontainers(PostgreSQL)",
-        "scenario": "SC-09 S6 Outbox replay로 생성된 domain write fixture가 event_outbox, sse_event_log.sequence, ProjectorTrigger, mock BoardDTO probe에서 같은 eventId와 payload.id/status/version으로 수렴한다."
+        "scenario": "SC-09 S6 Outbox replay로 생성된 domain write fixture가 event_dispatch_job, sse_replay_event.replay_sequence, SSE refetch signal, mock BoardDTO probe에서 같은 eventId와 payload.id/status/version으로 수렴한다."
       },
       {
         "name": "IncidentPurgedRemovesReplayDataTest",
         "framework": "JUnit 5 + Testcontainers(PostgreSQL)",
-        "scenario": "INCIDENT_PURGED 수신 후 동일 incident의 event_outbox 상태와 sse_event_log row가 purge 처리된다."
+        "scenario": "INCIDENT_PURGED 수신 후 동일 incident의 event_dispatch_job 상태와 sse_replay_event row가 purge 처리된다."
       },
       {
         "name": "AndroidDoesNotUseEventSourceTest",
         "framework": "JUnit 5 + Spring MVC Test + SseEmitter test",
-        "scenario": "APP channel session은 GET /events에서 channel_not_allowed로 거부되고 Android 제품 client는 EventSource를 만들지 않고 FCM data message/REST sync path를 사용한다."
+        "scenario": "APP channel session은 GET /incidents/{incidentId}/events에서 channel_not_allowed로 거부되고 Android 제품 client는 EventSource를 만들지 않고 FCM data message/REST sync path를 사용한다."
       }
     ],
     "web": [
@@ -955,16 +999,16 @@
         "scenario": "동일 eventId가 두 번 도착해도 board store apply는 한 번만 호출된다."
       },
       {
-        "name": "EventSourceSnapshotFallbackTest",
+        "name": "EventSourceRefetchRecoveryTest",
         "framework": "Playwright",
-        "scenario": "409 gone_snapshot_required 수신 시 S3-2 snapshot reload가 호출되고 stale UI를 그대로 유지하지 않는다."
+        "scenario": "409 gone_refetch_required 수신 시 S3-2 board response reload가 호출되고 stale UI를 그대로 유지하지 않는다."
       }
     ],
     "android": [
       {
         "name": "FcmDataMessageEventIdDedupeTest",
         "framework": "JUnit5 + Robolectric",
-        "scenario": "동일 FCM data message eventId를 다시 받아도 local state에 중복 적용하지 않고 GET /events 또는 EventSource client를 생성하지 않는다."
+        "scenario": "동일 FCM data message eventId를 다시 받아도 local state에 중복 적용하지 않고 GET /incidents/{incidentId}/events 또는 EventSource client를 생성하지 않는다."
       }
     ]
   },
@@ -981,13 +1025,8 @@
       "resolverRecipients": [],
       "expectedFanoutAttempts": [
         {
-          "targetType": "DURABLE_SSE_LOG",
+          "targetType": "SSE_REPLAY",
           "targetKey": "incident:10000000-0000-4000-8000-000000000001",
-          "status": "SUCCEEDED"
-        },
-        {
-          "targetType": "BOARD_PROJECTION",
-          "targetKey": "board:10000000-0000-4000-8000-000000000001",
           "status": "SUCCEEDED"
         },
         {
@@ -996,7 +1035,7 @@
           "status": "SKIPPED"
         }
       ],
-      "uiExpectation": "No user-facing notification failure is shown; board/toast convergence is verified through S3-2 mock projector output only."
+      "uiExpectation": "No user-facing notification failure is shown; board/toast convergence is verified through S3-2 mock refetch output only."
     },
     "sc09_outbox_replay_convergence": {
       "incidentId": "10000000-0000-4000-8000-000000000001",
@@ -1007,15 +1046,15 @@
       "type": "PATH_APPENDED",
       "payload": {
         "id": "30000000-0000-4000-8000-000000000501",
-        "status": "ACTIVE",
+        "status": "RECORDING",
         "version": 7
       },
-      "expectedProjectorTrigger": {
+      "expectedRefetchSignal": {
         "eventId": "40000000-0000-4000-8000-000000000901",
         "incidentId": "10000000-0000-4000-8000-000000000001",
-        "sequence": 901,
+        "replaySequence": 901,
         "payloadId": "30000000-0000-4000-8000-000000000501",
-        "payloadStatus": "ACTIVE",
+        "payloadStatus": "RECORDING",
         "payloadVersion": 7
       },
       "expectedBoardProbe": {
@@ -1030,22 +1069,22 @@
       "firstSequence": 701,
       "duplicatePublishAttempt": 2,
       "expected": {
-        "eventOutboxRows": 1,
+        "eventDispatchJobRows": 1,
         "sseEventLogRows": 1,
         "fanoutAttemptUniqueKeys": [
-          "40000000-0000-4000-8000-000000000701:DURABLE_SSE_LOG:incident:10000000-0000-4000-8000-000000000001",
-          "40000000-0000-4000-8000-000000000701:BOARD_PROJECTION:board:10000000-0000-4000-8000-000000000001"
+          "40000000-0000-4000-8000-000000000701:SSE_REPLAY:incident:10000000-0000-4000-8000-000000000001",
+          "40000000-0000-4000-8000-000000000701:LIVE_SSE:incident:10000000-0000-4000-8000-000000000001"
         ]
       }
     },
-    "replay_gap_snapshot_required": {
+    "replay_gap_refetch_required": {
       "incidentId": "10000000-0000-4000-8000-000000000001",
       "lastEventId": "44",
       "missingSequence": 45,
       "nextRetainedSequence": 46,
       "expectedHttpStatus": 409,
-      "expectedError": "gone_snapshot_required",
-      "expectedS3Action": "snapshot_reload"
+      "expectedError": "gone_refetch_required",
+      "expectedS3Action": "board response_reload"
     },
     "closed_and_purged_stream": {
       "closedIncident": {
@@ -1060,7 +1099,7 @@
         "incidentId": "10000000-0000-4000-8000-000000000013",
         "lastEventId": "1301",
         "expectedHttpStatus": 409,
-        "expectedError": "gone_snapshot_required",
+        "expectedError": "gone_refetch_required",
         "expectedReplayRows": 0
       }
     },
@@ -1070,7 +1109,7 @@
       "sseSequence": 808,
       "targets": [
         {
-          "targetType": "DURABLE_SSE_LOG",
+          "targetType": "SSE_REPLAY",
           "targetKey": "incident:10000000-0000-4000-8000-000000000001",
           "injectedFailure": "none",
           "expectedStatus": "SUCCEEDED"
@@ -1080,13 +1119,6 @@
           "targetKey": "connection:sc08-web-01",
           "injectedFailure": "client_disconnect",
           "expectedStatus": "SKIPPED"
-        },
-        {
-          "targetType": "BOARD_PROJECTION",
-          "targetKey": "board:10000000-0000-4000-8000-000000000001",
-          "injectedFailure": "projector_timeout_once",
-          "expectedStatus": "RETRYING",
-          "expectedNextStatusAfterRetry": "SUCCEEDED"
         },
         {
           "targetType": "FCM",
@@ -1105,8 +1137,8 @@
       "React 18+ SPA + TypeScript (ADR-0014)",
       "Kotlin + MapLibre Native (ADR-0004 개정, ADR-0013)",
       "모든 이벤트는 BaseEvent envelope를 사용한다 (boundaries.md §9.1)",
-      "SSE id line은 sse_event_log.sequence, envelope.eventId는 idempotency UUID로 고정하며 envelope shape는 boundaries.md §9.1을 벗어나지 않는다.",
-      "Android 제품 client는 FCM data message path를 사용한다. GET /events 권한 계약은 boundaries.md §7을 따른다.",
+      "SSE id line은 sse_replay_event.replay_sequence, envelope.eventId는 idempotency UUID로 고정하며 envelope shape는 boundaries.md §9.1을 벗어나지 않는다.",
+      "Android 제품 client는 FCM data message path를 사용한다. GET /incidents/{incidentId}/events 권한 계약은 boundaries.md §7을 따른다.",
       "도메인 payload 변경은 payload owner, S3-2, S4 LGTM이 필요하다.",
       "S4 failure injection fixture는 SC-05, SC-06, SC-08, SC-09 공통 red test에서 사용한다.",
       "SSE_ENVELOPE_DELIVERED는 observability/harness probe로만 사용하고 domain event catalog에 등록하지 않는다."
@@ -1114,7 +1146,7 @@
     "forbidden": [
       "Domain payload 필드 추가·삭제를 S4에서 수행 금지",
       "FCM adapter 구현 또는 외부 FCM 호출 구현 금지",
-      "Board snapshot assembly 구현 금지",
+      "Board board response assembly 구현 금지",
       "Domain table write transaction ownership 침범 금지",
       "Android 화면 로직을 S4에서 구현하거나 상시 EventSource 의존으로 설계 금지",
       "WebSocket으로 실시간 채널 변경 금지",
@@ -1122,7 +1154,7 @@
     ],
     "required_reviews": [
       "events/_base.schema.json 변경 시 전체 Lane LGTM",
-      "Event Catalog type/schemaVersion 변경 시 payload owner + S3-2 + S4 LGTM",
+      "Event Catalog type/payloadFormatVersion 변경 시 payload owner + S3-2 + S4 LGTM",
       "EventFanout target 순서 또는 retry 정책 변경 시 S3-2/S5/S6 영향 검토"
     ]
   },
@@ -1149,18 +1181,17 @@
     }
   ],
   "service_contracts": {
-    "fanout_attempt_boundary": {
+    "event_dispatch_target_boundary": {
       "owner": "S4",
-      "storage": "fanout_attempt",
+      "storage": "event_dispatch_target",
       "unique_key": [
-        "event_id",
+        "event_dispatch_job_id",
         "target_type",
-        "target_key"
+        "target_identifier"
       ],
       "target_types": [
-        "DURABLE_SSE_LOG",
+        "SSE_REPLAY",
         "LIVE_SSE",
-        "BOARD_PROJECTION",
         "FCM"
       ],
       "statuses": [
@@ -1172,7 +1203,7 @@
         "SKIPPED",
         "PURGED"
       ],
-      "rule": "Fanout target attempt status is stored under S4 `fanout_attempt` internals and must not be reused as S5 notification_delivery.status. LIVE_SSE is never retried; DURABLE_SSE_LOG is append-once per eventId; BOARD_PROJECTION/FCM may retry by target_key."
+      "rule": "Fanout target attempt status is stored under S4 `event_dispatch_target` internals and must not be reused as S5 marker_notification.status. LIVE_SSE is never retried; SSE_REPLAY is append-once per eventId; FCM may retry by target_key."
     }
   }
 }

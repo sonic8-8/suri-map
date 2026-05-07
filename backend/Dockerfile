@@ -3,7 +3,7 @@ FROM gradle:8.14.3-jdk17 AS base
 WORKDIR /workspace
 ENV GRADLE_USER_HOME=/home/gradle/.gradle
 
-COPY gradlew build.gradle.kts settings.gradle.kts ./
+COPY gradlew build.gradle settings.gradle ./
 COPY gradle ./gradle
 RUN chmod +x ./gradlew
 RUN ./gradlew --no-daemon --build-cache help
@@ -25,4 +25,3 @@ COPY --from=builder /workspace/build/libs/*.jar app.jar
 EXPOSE 8080
 
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]
-
