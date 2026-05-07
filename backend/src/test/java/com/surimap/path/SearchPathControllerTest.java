@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.surimap.support.auth.GuardPortTestStubs;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -22,7 +23,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(SearchPathController.class)
 @AutoConfigureMockMvc(addFilters = false)
-@Import(SearchPathExceptionHandler.class)
+@Import({SearchPathExceptionHandler.class, GuardPortTestStubs.class})
 class SearchPathControllerTest {
 
   @Autowired private MockMvc mockMvc;

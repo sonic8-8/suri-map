@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.surimap.marker.repository.MarkerMapper">
+    <resultMap id="markerRecordMap" type="com.surimap.marker.repository.MarkerRecord">
+        <id property="id" column="id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="incidentId" column="incident_id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="operationalPeriodId" column="operational_period_id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="dutyShiftId" column="duty_shift_id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="markerType" column="marker_type"/>
+        <result property="supportRequestType" column="support_request_type"/>
+        <result property="location" column="location" typeHandler="com.surimap.config.mybatis.JtsGeometryTypeHandler"/>
+        <result property="memo" column="memo"/>
+        <result property="occurredAt" column="occurred_at"/>
+        <result property="createdByAccountId" column="created_by_account_id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="policePhoneId" column="police_phone_id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="markerSource" column="marker_source"/>
+        <result property="status" column="status"/>
+        <result property="version" column="version"/>
+    </resultMap>
+
+    <resultMap id="markerPhotoSummaryRowMap" type="com.surimap.marker.repository.MarkerPhotoSummaryRow">
+        <constructor>
+            <arg column="marker_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="photo_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="status" javaType="java.lang.String"/>
+            <arg column="version" javaType="long"/>
+            <arg column="content_type" javaType="java.lang.String"/>
+            <arg column="size_bytes" javaType="long"/>
+            <arg column="attached_at" javaType="java.time.Instant"/>
+        </constructor>
+    </resultMap>
+
+    <insert id="insertSeed">
+        INSERT INTO marker (
+            id,
+            incident_id,
+            operational_period_id,
+            duty_shift_id,
+            marker_type,
+            support_request_type,
+            location,
+            memo,
+            occurred_at,
+            created_by_account_id,
+            police_phone_id,
+            marker_source,
+            status,
+            version,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            #{record.id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{record.incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{record.operationalPeriodId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{record.dutyShiftId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{record.markerType},
+            #{record.supportRequestType},
+            ST_GeomFromEWKT(#{record.location, typeHandler=com.surimap.config.mybatis.JtsGeometryTypeHandler}),
+            #{record.memo},
+            #{record.occurredAt},
+            #{record.createdByAccountId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{record.policePhoneId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{record.markerSource},
+            #{record.status},
+            #{record.version},
+            NOW(),
+            NOW()
+        )
+        ON CONFLICT (id) DO NOTHING
+    </insert>
+
+    <insert id="insertCreate">
+        INSERT INTO marker (
+            id,
+            incident_id,
+            operational_period_id,
+            duty_shift_id,
+            marker_type,
+            support_request_type,
+            location,
+            memo,
+            occurred_at,
+            created_by_account_id,
+            police_phone_id,
+            marker_source,
+            status,
+            version,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            #{record.id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{record.incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{record.operationalPeriodId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{record.dutyShiftId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{record.markerType},
+            #{record.supportRequestType},
+            ST_GeomFromEWKT(#{record.location, typeHandler=com.surimap.config.mybatis.JtsGeometryTypeHandler}),
+            #{record.memo},
+            #{record.occurredAt},
+            #{record.createdByAccountId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{record.policePhoneId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{record.markerSource},
+            #{record.status},
+            #{record.version},
+            NOW(),
+            NOW()
+        )
+    </insert>
+
+    <select id="findByIds" resultMap="markerRecordMap">
+        SELECT
+            id,
+            incident_id,
+            operational_period_id,
+            duty_shift_id,
+            marker_type,
+            support_request_type,
+            ST_AsEWKT(location) AS location,
+            memo,
+            occurred_at,
+            created_by_account_id,
+            police_phone_id,
+            marker_source,
+            status,
+            version
+        FROM marker
+        WHERE id IN
+        <foreach collection="markerIds" item="markerId" open="(" separator="," close=")">
+            #{markerId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+        </foreach>
+    </select>
+
+    <select id="findById" resultMap="markerRecordMap">
+        SELECT
+            id,
+            incident_id,
+            operational_period_id,
+            duty_shift_id,
+            marker_type,
+            support_request_type,
+            ST_AsEWKT(location) AS location,
+            memo,
+            occurred_at,
+            created_by_account_id,
+            police_phone_id,
+            marker_source,
+            status,
+            version
+        FROM marker
+        WHERE id = #{markerId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+    </select>
+
+    <select id="findByIncident" resultMap="markerRecordMap">
+        SELECT
+            id,
+            incident_id,
+            operational_period_id,
+            duty_shift_id,
+            marker_type,
+            support_request_type,
+            ST_AsEWKT(location) AS location,
+            memo,
+            occurred_at,
+            created_by_account_id,
+            police_phone_id,
+            marker_source,
+            status,
+            version
+        FROM marker
+        WHERE incident_id = #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+        <if test="filters.opId != null">
+          AND operational_period_id = #{filters.opId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+        </if>
+        <if test="filters.type != null">
+          AND marker_type = #{filters.type}
+        </if>
+        <choose>
+          <when test="filters.status != null">
+            AND status = #{filters.status}
+          </when>
+          <otherwise>
+            AND status IN ('ACTIVE', 'UPDATED')
+          </otherwise>
+        </choose>
+        ORDER BY occurred_at ASC, id ASC
+    </select>
+
+    <select id="findAttachedPhotoSummariesByMarkerIds" resultMap="markerPhotoSummaryRowMap">
+        SELECT
+            marker_id,
+            id AS photo_id,
+            status,
+            version,
+            content_type,
+            size_bytes,
+            attached_at
+        FROM photo
+        WHERE marker_id IN
+        <foreach collection="markerIds" item="markerId" open="(" separator="," close=")">
+            #{markerId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+        </foreach>
+          AND status = 'ATTACHED'
+        ORDER BY marker_id ASC, attached_at ASC, id ASC
+    </select>
+
+    <update id="updateMarker">
+        UPDATE marker
+        SET
+            marker_type = #{record.markerType},
+            location = ST_GeomFromEWKT(#{record.location, typeHandler=com.surimap.config.mybatis.JtsGeometryTypeHandler}),
+            memo = #{record.memo},
+            status = #{record.status},
+            version = #{record.version},
+            updated_at = NOW()
+        WHERE id = #{record.id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND version = #{record.expectedVersion}
+          AND status &lt;&gt; 'DELETED'
+    </update>
+
+    <update id="deleteMarker">
+        UPDATE marker
+        SET
+            status = #{record.status},
+            version = #{record.version},
+            updated_at = NOW()
+        WHERE id = #{record.id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND version = #{record.expectedVersion}
+          AND status &lt;&gt; 'DELETED'
+    </update>
+</mapper>

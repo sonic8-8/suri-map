@@ -9,5 +9,6 @@ import java.util.UUID;
  */
 public interface InitialOperationalPeriodCreator {
 
+  /** 사건 import 직후 OP1을 만든다. 실패하면 호출자인 L1 import가 전체 rollback한다. */
   InitialOperationalPeriodResult createOp1(UUID incidentId);
 }
