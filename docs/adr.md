@@ -26,7 +26,7 @@
 - ADR 문서 구조: 현재 구현 기준과 archive 분리 (ADR-0032)
 - Persistence Layer: MyBatis 단일 채택 (ADR-0033)
 - Search History Summary Provider: OpenAI API + FAILED 상태 처리 (ADR-0034)
-- 잔여 기술 선택: Spring MVC+SseEmitter, Kotlin DSL, npm/Vite, React Router, TanStack Query+Zustand, MinIO dev adapter (ADR-0035)
+- 잔여 기술 선택: Spring MVC+SseEmitter, Backend Groovy DSL/Android Kotlin DSL, npm/Vite, React Router, TanStack Query+Zustand, MinIO dev adapter (ADR-0035)
 
 ## ADR-0001. 단일 EC2 + Docker Compose 배포
 
@@ -326,7 +326,7 @@ WebSocket은 MVP 범위 외.
 
 ### 검토 필요 항목
 
-- 빌드 도구 (Gradle Kotlin DSL vs Groovy DSL) — ADR-0035에서 Kotlin DSL로 확정
+- 빌드 도구 (Backend Groovy DSL, Android Kotlin DSL) — ADR-0035에서 확정
 - 프론트 패키지 매니저 (npm / yarn / pnpm) — ADR-0035에서 npm으로 확정
 
 ---
@@ -758,7 +758,8 @@ ADR-0013과 ADR-0014는 큰 축인 JDK 17, Spring Boot 3.x, Kotlin Android, Reac
 
 - Backend web stack은 Spring MVC 중심으로 구현한다.
 - SSE endpoint는 Spring MVC `SseEmitter` 기반으로 구현하고 WebFlux는 MVP 범위에서 도입하지 않는다.
-- Gradle DSL은 Kotlin DSL로 통일한다.
+- Backend Gradle DSL은 Groovy DSL(`build.gradle`, `settings.gradle`)로 확정한다.
+- Android Gradle DSL은 Kotlin DSL(`build.gradle.kts`, `settings.gradle.kts`)로 유지한다.
 - Frontend package manager는 npm으로 통일하고, build tool은 Vite를 사용한다.
 - Web router는 React Router를 사용한다.
 - Web server state는 TanStack Query(React Query), board display/client state는 Zustand를 사용한다.
