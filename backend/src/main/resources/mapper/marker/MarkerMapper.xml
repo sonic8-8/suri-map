@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.surimap.marker.repository.MarkerMapper">
+    <resultMap id="markerRecordMap" type="com.surimap.marker.repository.MarkerRecord">
+        <id property="id" column="id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="operationalPeriodId" column="operational_period_id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="dutyShiftId" column="duty_shift_id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="markerType" column="marker_type"/>
+        <result property="supportRequestType" column="support_request_type"/>
+        <result property="location" column="location" typeHandler="com.surimap.config.mybatis.JtsGeometryTypeHandler"/>
+        <result property="memo" column="memo"/>
+        <result property="occurredAt" column="occurred_at"/>
+        <result property="createdByAccountId" column="created_by_account_id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="policePhoneId" column="police_phone_id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="markerSource" column="marker_source"/>
+        <result property="status" column="status"/>
+        <result property="version" column="version"/>
+    </resultMap>
+
+    <insert id="insertSeed">
+        INSERT INTO marker (
+            id,
+            operational_period_id,
+            duty_shift_id,
+            marker_type,
+            support_request_type,
+            location,
+            memo,
+            occurred_at,
+            created_by_account_id,
+            police_phone_id,
+            marker_source,
+            status,
+            version,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            #{record.id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{record.operationalPeriodId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{record.dutyShiftId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{record.markerType},
+            #{record.supportRequestType},
+            ST_GeomFromEWKT(#{record.location, typeHandler=com.surimap.config.mybatis.JtsGeometryTypeHandler}),
+            #{record.memo},
+            #{record.occurredAt},
+            #{record.createdByAccountId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{record.policePhoneId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{record.markerSource},
+            #{record.status},
+            #{record.version},
+            NOW(),
+            NOW()
+        )
+        ON CONFLICT (id) DO NOTHING
+    </insert>
+
+    <select id="findByIds" resultMap="markerRecordMap">
+        SELECT
+            id,
+            operational_period_id,
+            duty_shift_id,
+            marker_type,
+            support_request_type,
+            ST_AsEWKT(location) AS location,
+            memo,
+            occurred_at,
+            created_by_account_id,
+            police_phone_id,
+            marker_source,
+            status,
+            version
+        FROM marker
+        WHERE id IN
+        <foreach collection="markerIds" item="markerId" open="(" separator="," close=")">
+            #{markerId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+        </foreach>
+    </select>
+</mapper>

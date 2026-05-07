@@ -9,13 +9,14 @@ import org.apache.ibatis.type.JdbcType;
 import org.apache.ibatis.type.MappedJdbcTypes;
 import org.apache.ibatis.type.MappedTypes;
 import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKTReader;
 import org.locationtech.jts.io.WKTWriter;
 
 /** PostGIS geometry 값을 JTS Geometry로 변환하는 MyBatis TypeHandler. */
-@MappedTypes({Geometry.class, Polygon.class})
+@MappedTypes({Geometry.class, Point.class, Polygon.class})
 @MappedJdbcTypes(JdbcType.VARCHAR)
 public class JtsGeometryTypeHandler extends BaseTypeHandler<Geometry> {
 
