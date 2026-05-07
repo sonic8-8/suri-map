@@ -15,6 +15,34 @@
   inset: 0;
 }
 
+.coordinatePanel {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 2;
+  display: grid;
+  gap: 4px;
+  min-width: 174px;
+  padding: 10px 12px;
+  border: 1px solid rgba(15, 23, 42, 0.16);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.14);
+  color: #172033;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+  pointer-events: none;
+}
+
+.coordinatePopup {
+  color: #172033;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+  white-space: nowrap;
+}
+
 @media (max-width: 860px) {
   /* 모바일 폭에서는 지도 표면이 너무 낮아지지 않도록 최소 높이를 둔다. */
   .surface {

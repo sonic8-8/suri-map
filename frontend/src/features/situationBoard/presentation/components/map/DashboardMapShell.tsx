@@ -5,7 +5,12 @@ import { MapLegend } from './MapLegend';
 import { SearchMapCanvas } from './SearchMapCanvas';
 import styles from './DashboardMapShell.module.css';
 
-export function DashboardMapShell() {
+type DashboardMapShellProps = {
+  selectedSearchAreaId: string | null;
+  onSelectSearchArea: (searchAreaId: string) => void;
+};
+
+export function DashboardMapShell({ selectedSearchAreaId, onSelectSearchArea }: DashboardMapShellProps) {
   const mapRef = useRef<maplibregl.Map | null>(null);
 
   const handleMapReady = useCallback((map: maplibregl.Map | null) => {
@@ -24,7 +29,11 @@ export function DashboardMapShell() {
     <div className={styles.layout}>
       <div className={styles.canvasShell}>
         <MapControls onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} />
-        <SearchMapCanvas onMapReady={handleMapReady} />
+        <SearchMapCanvas
+          onMapReady={handleMapReady}
+          selectedSearchAreaId={selectedSearchAreaId}
+          onSelectSearchArea={onSelectSearchArea}
+        />
         <MapLegend />
       </div>
     </div>

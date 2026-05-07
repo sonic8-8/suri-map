@@ -103,10 +103,10 @@ export const devices = [
 ];
 
 export const searchAreas = [
-  { id: 'overall', name: '전체 수색 구역', meta: 'OVERALL · 14:25 갱신' },
-  { id: 'unit-1', name: '기동대 1부대', meta: 'UNIT · 팀 구역 4개' },
-  { id: 'unit-2', name: '기동대 2부대', meta: 'UNIT · 팀 구역 3개' },
-  { id: 'patrol-phone', name: '광주 북구 지구대 폴리폰', meta: '경로 기록 중 · 3분 전 동기화' },
+  { id: 'overall', name: '전체 수색 구역', meta: 'OVERALL · 14:25 갱신', colorToken: 'areaOverall' },
+  { id: 'unit-1', name: '기동대 1부대', meta: 'UNIT · 팀 구역 4개', colorToken: 'areaUnit1' },
+  { id: 'unit-2', name: '기동대 2부대', meta: 'UNIT · 팀 구역 3개', colorToken: 'areaUnit2' },
+  { id: 'patrol-phone', name: '광주 북구 지구대 폴리폰', meta: '경로 기록 중 · 3분 전 동기화', colorToken: 'phoneTeamH' },
 ];
 
 export const searchAreaTree = {
@@ -114,12 +114,14 @@ export const searchAreaTree = {
   name: '전체 수색 구역',
   meta: '실종팀 간부 · 14:25 갱신',
   state: '활성',
+  colorToken: 'areaOverall',
   units: [
     {
       id: 'unit-1',
       name: '기동대 1부대',
       meta: '분할자: 실종팀 간부 · 13:50 · 4팀',
       state: '활성',
+      colorToken: 'areaUnit1',
       teams: [
         {
           id: 'unit-1-team-a',
@@ -127,6 +129,7 @@ export const searchAreaTree = {
           phone: '기동대 1부대 A팀 폴리폰',
           meta: '경로 기록 중 · 1분 전 동기화',
           state: '활성',
+          colorToken: 'phoneTeamA',
         },
         {
           id: 'unit-1-team-b',
@@ -134,6 +137,7 @@ export const searchAreaTree = {
           phone: '기동대 1부대 B팀 폴리폰',
           meta: '경로 기록 중 · 방금 동기화',
           state: '활성',
+          colorToken: 'phoneTeamB',
         },
         {
           id: 'unit-1-team-c',
@@ -141,6 +145,7 @@ export const searchAreaTree = {
           phone: '기동대 1부대 C팀 폴리폰',
           meta: '완료 · 14:02 (기동대장)',
           state: '완료',
+          colorToken: 'phoneTeamC',
         },
         {
           id: 'unit-1-team-d',
@@ -148,6 +153,7 @@ export const searchAreaTree = {
           phone: '기동대 1부대 D팀 폴리폰',
           meta: '12분 전 동기화',
           state: '활성',
+          colorToken: 'phoneTeamD',
         },
       ],
     },
@@ -156,6 +162,7 @@ export const searchAreaTree = {
       name: '기동대 2부대',
       meta: '분할자: 실종팀 간부 · 13:55 · 3팀',
       state: '활성',
+      colorToken: 'areaUnit2',
       teams: [
         {
           id: 'unit-2-team-a',
@@ -163,6 +170,7 @@ export const searchAreaTree = {
           phone: '기동대 2부대 A팀 폴리폰',
           meta: '경로 기록 중 · 3분 전 동기화',
           state: '활성',
+          colorToken: 'phoneTeamE',
         },
         {
           id: 'unit-2-team-b',
@@ -170,6 +178,7 @@ export const searchAreaTree = {
           phone: '기동대 2부대 B팀 폴리폰',
           meta: '경로 기록 중 · 4분 전 동기화',
           state: '활성',
+          colorToken: 'phoneTeamF',
         },
         {
           id: 'unit-2-team-c',
@@ -177,26 +186,274 @@ export const searchAreaTree = {
           phone: '기동대 2부대 C팀 폴리폰',
           meta: '대기 · 최근 갱신 5분 전',
           state: '활성',
+          colorToken: 'phoneTeamG',
         },
       ],
     },
     {
-      id: 'patrol',
-      name: '광주 북구 지구대',
-      meta: '지구대 구역 · 1개 폴리폰',
+      id: 'patrol-phone',
+      name: '광주 북구 지구대 폴리폰',
+      meta: '경로 기록 중 · 3분 전 동기화',
       state: '활성',
-      teams: [
-        {
-          id: 'patrol-phone',
-          label: '폴리폰',
-          phone: '광주 북구 지구대 폴리폰',
-          meta: '경로 기록 중 · 3분 전 동기화',
-          state: '활성',
-        },
-      ],
+      colorToken: 'phoneTeamH',
+      teams: [],
     },
   ],
 } as const;
+
+export const searchAreaResponses = [
+  {
+    id: 'overall',
+    incidentId: 'incident-gwangsan-001',
+    status: 'ACTIVE',
+    version: 8,
+    geometry: {
+      type: 'Polygon',
+      coordinates: [
+        [
+          [126.7752, 35.1279],
+          [126.8078, 35.1279],
+          [126.8078, 35.1488],
+          [126.7752, 35.1488],
+          [126.7752, 35.1279],
+        ],
+      ],
+    },
+    areaLevel: 'OVERALL',
+    colorToken: 'areaOverall',
+    historyCount: 1,
+  },
+  {
+    id: 'unit-1',
+    incidentId: 'incident-gwangsan-001',
+    opId: 'op-8',
+    status: 'ACTIVE',
+    version: 4,
+    geometry: {
+      type: 'Polygon',
+      coordinates: [
+        [
+          [126.7768, 35.1292],
+          [126.7913, 35.1292],
+          [126.7913, 35.1474],
+          [126.7768, 35.1474],
+          [126.7768, 35.1292],
+        ],
+      ],
+    },
+    areaLevel: 'UNIT',
+    colorToken: 'areaUnit1',
+    parentSearchAreaId: 'overall',
+    historyCount: 1,
+  },
+  {
+    id: 'unit-1-team-a',
+    incidentId: 'incident-gwangsan-001',
+    opId: 'op-8',
+    status: 'ACTIVE',
+    version: 3,
+    geometry: {
+      type: 'Polygon',
+      coordinates: [
+        [
+          [126.7776, 35.1303],
+          [126.7841, 35.1303],
+          [126.7841, 35.1381],
+          [126.7776, 35.1381],
+          [126.7776, 35.1303],
+        ],
+      ],
+    },
+    areaLevel: 'TEAM',
+    colorToken: 'phoneTeamA',
+    parentSearchAreaId: 'unit-1',
+    historyCount: 1,
+  },
+  {
+    id: 'unit-1-team-b',
+    incidentId: 'incident-gwangsan-001',
+    opId: 'op-8',
+    status: 'ACTIVE',
+    version: 3,
+    geometry: {
+      type: 'Polygon',
+      coordinates: [
+        [
+          [126.7845, 35.1303],
+          [126.7904, 35.1303],
+          [126.7904, 35.1381],
+          [126.7845, 35.1381],
+          [126.7845, 35.1303],
+        ],
+      ],
+    },
+    areaLevel: 'TEAM',
+    colorToken: 'phoneTeamB',
+    parentSearchAreaId: 'unit-1',
+    historyCount: 1,
+  },
+  {
+    id: 'unit-1-team-c',
+    incidentId: 'incident-gwangsan-001',
+    opId: 'op-8',
+    status: 'COMPLETED',
+    version: 5,
+    geometry: {
+      type: 'Polygon',
+      coordinates: [
+        [
+          [126.7776, 35.1386],
+          [126.7841, 35.1386],
+          [126.7841, 35.1464],
+          [126.7776, 35.1464],
+          [126.7776, 35.1386],
+        ],
+      ],
+    },
+    areaLevel: 'TEAM',
+    colorToken: 'phoneTeamC',
+    parentSearchAreaId: 'unit-1',
+    historyCount: 2,
+  },
+  {
+    id: 'unit-1-team-d',
+    incidentId: 'incident-gwangsan-001',
+    opId: 'op-8',
+    status: 'ACTIVE',
+    version: 3,
+    geometry: {
+      type: 'Polygon',
+      coordinates: [
+        [
+          [126.7845, 35.1386],
+          [126.7904, 35.1386],
+          [126.7904, 35.1464],
+          [126.7845, 35.1464],
+          [126.7845, 35.1386],
+        ],
+      ],
+    },
+    areaLevel: 'TEAM',
+    colorToken: 'phoneTeamD',
+    parentSearchAreaId: 'unit-1',
+    historyCount: 1,
+  },
+  {
+    id: 'unit-2',
+    incidentId: 'incident-gwangsan-001',
+    opId: 'op-8',
+    status: 'ACTIVE',
+    version: 4,
+    geometry: {
+      type: 'Polygon',
+      coordinates: [
+        [
+          [126.7923, 35.1292],
+          [126.8062, 35.1292],
+          [126.8062, 35.1474],
+          [126.7923, 35.1474],
+          [126.7923, 35.1292],
+        ],
+      ],
+    },
+    areaLevel: 'UNIT',
+    colorToken: 'areaUnit2',
+    parentSearchAreaId: 'overall',
+    historyCount: 1,
+  },
+  {
+    id: 'unit-2-team-a',
+    incidentId: 'incident-gwangsan-001',
+    opId: 'op-8',
+    status: 'ACTIVE',
+    version: 3,
+    geometry: {
+      type: 'Polygon',
+      coordinates: [
+        [
+          [126.7931, 35.1303],
+          [126.7990, 35.1303],
+          [126.7990, 35.1370],
+          [126.7931, 35.1370],
+          [126.7931, 35.1303],
+        ],
+      ],
+    },
+    areaLevel: 'TEAM',
+    colorToken: 'phoneTeamE',
+    parentSearchAreaId: 'unit-2',
+    historyCount: 1,
+  },
+  {
+    id: 'unit-2-team-b',
+    incidentId: 'incident-gwangsan-001',
+    opId: 'op-8',
+    status: 'ACTIVE',
+    version: 3,
+    geometry: {
+      type: 'Polygon',
+      coordinates: [
+        [
+          [126.7994, 35.1303],
+          [126.8054, 35.1303],
+          [126.8054, 35.1370],
+          [126.7994, 35.1370],
+          [126.7994, 35.1303],
+        ],
+      ],
+    },
+    areaLevel: 'TEAM',
+    colorToken: 'phoneTeamF',
+    parentSearchAreaId: 'unit-2',
+    historyCount: 1,
+  },
+  {
+    id: 'unit-2-team-c',
+    incidentId: 'incident-gwangsan-001',
+    opId: 'op-8',
+    status: 'ACTIVE',
+    version: 3,
+    geometry: {
+      type: 'Polygon',
+      coordinates: [
+        [
+          [126.7931, 35.1375],
+          [126.8054, 35.1375],
+          [126.8054, 35.1464],
+          [126.7931, 35.1464],
+          [126.7931, 35.1375],
+        ],
+      ],
+    },
+    areaLevel: 'TEAM',
+    colorToken: 'phoneTeamG',
+    parentSearchAreaId: 'unit-2',
+    historyCount: 1,
+  },
+  {
+    id: 'patrol-phone',
+    incidentId: 'incident-gwangsan-001',
+    opId: 'op-8',
+    status: 'ACTIVE',
+    version: 2,
+    geometry: {
+      type: 'Polygon',
+      coordinates: [
+        [
+          [126.7760, 35.1281],
+          [126.8070, 35.1281],
+          [126.8070, 35.1290],
+          [126.7760, 35.1290],
+          [126.7760, 35.1281],
+        ],
+      ],
+    },
+    areaLevel: 'UNIT',
+    colorToken: 'phoneTeamH',
+    parentSearchAreaId: 'overall',
+    historyCount: 1,
+  },
+] as const;
 
 export const recentMarkers = [
   {

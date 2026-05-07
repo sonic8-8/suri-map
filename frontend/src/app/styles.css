@@ -72,6 +72,18 @@
   --suri-board-legend-marker-found: var(--krds-ops-emphasis);
   --suri-board-legend-marker-field: var(--krds-ops-success);
   --suri-board-legend-marker-support: var(--krds-ops-warning);
+  --area-overall: #0057ff;
+  --area-unit-1: #8a00ff;
+  --area-unit-2: #00b894;
+  --area-unit-police: #ff2d1f;
+  --phone-team-a: #00a2ff;
+  --phone-team-b: #ff7a00;
+  --phone-team-c: #00d12f;
+  --phone-team-d: #b000ff;
+  --phone-team-e: #00d5ff;
+  --phone-team-f: #ff1493;
+  --phone-team-g: #ffc400;
+  --phone-team-h: #ff003d;
 
   color: var(--krds-ops-fg-primary);
   background: var(--suri-board-page-bg);
