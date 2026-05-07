@@ -237,9 +237,9 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 - `@RequireIncidentAccess`
 - `@RequireRole`
 - `@RequireChannel`
-- `@RequirePolicePhone`
-- `@RequirePolicePhoneRegistered`
-- `@RequirePolicePhoneAssigned`
+- `@RequireDevice`
+- `@RequireDeviceRegistered`
+- `@RequireDeviceAssigned`
 - `DeviceFreshnessQuery.byIncident(incidentId)`
 - `FcmTokenQuery.activeByDevice(deviceId)`
 - `DEVICE_HEARTBEAT_UPDATED`
@@ -469,7 +469,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 **consumes**
 
 - S1-1: incident lifecycle, membership
-- S1-2: PolicePhone, `@RequirePolicePhone`, `@RequireChannel`, `spec/boundaries.md §4.6 Channel / Role Matrix` 수색 세션·경로 행
+- S1-2: Device, `@RequireDevice`, `@RequireChannel`, `spec/boundaries.md §4.6 Channel / Role Matrix` 수색 세션·경로 행
 - S4: `EventHub.publish`
 - S6: `SyncClient.enqueue(writeOperation)`, `@IdempotentWrite`, `IdempotentWrite`, `POST /sync/clock`
 - S8: current OP
@@ -977,9 +977,9 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 | `team_not_assigned` | 팀 계정이 사건·OP·구역 배정 대상이 아님 | 403 |
 | `role_denied` | 필요한 역할 없음 | 403 |
 | `channel_not_allowed` | 허용되지 않은 채널의 API 호출 또는 쓰기 | 403 |
-| `police_phone_required` | PolicePhone이 필요한 앱 요청에 PolicePhone 없음 | 400 |
-| `police_phone_not_registered` | 등록되지 않았거나 세션과 연결되지 않은 PolicePhone | 403 |
-| `police_phone_not_assigned` | PolicePhone이 사건·팀·OP 배정에 연결되지 않음 | 403 |
+| `device_required` | Device가 필요한 앱 요청에 Device 없음 | 400 |
+| `device_not_registered` | 등록되지 않았거나 세션과 연결되지 않은 Device | 403 |
+| `device_not_assigned` | Device가 사건·팀·OP 배정에 연결되지 않음 | 403 |
 | `op_required` | current OP가 없음 | 409 |
 | `op_mismatch` | payload OP와 서버 current OP 불일치 | 409 |
 | `area_state_conflict` | 구역 상태 전이 불가 | 409 |
@@ -1199,8 +1199,8 @@ Guard shorthand:
 - `public-session`: `@RequireChannel(APP,WEB)` -> `channel_not_allowed`
 - `incident-read`: `@RequireIncidentAccess` -> `incident_access_denied`, `team_not_assigned`
 - `web-command`: `@RequireChannel(WEB)`, `@RequireRole` -> `channel_not_allowed`, `role_denied`
-- `app-police-phone`: `@RequireChannel(APP)`, `@RequirePolicePhone`, `@RequirePolicePhoneRegistered`, `@RequirePolicePhoneAssigned` -> `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`
-- `field-or-web-write`: `@RequireChannel(APP,WEB)`, APP 요청의 `@RequirePolicePhone`, `@RequirePolicePhoneRegistered`, `@RequirePolicePhoneAssigned` -> `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`
+- `app-device`: `@RequireChannel(APP)`, `@RequireDevice`, `@RequireDeviceRegistered`, `@RequireDeviceAssigned` -> `channel_not_allowed`, `device_required`, `device_not_registered`, `device_not_assigned`
+- `field-or-web-write`: `@RequireChannel(APP,WEB)`, APP 요청의 `@RequireDevice`, `@RequireDeviceRegistered`, `@RequireDeviceAssigned` -> `channel_not_allowed`, `device_required`, `device_not_registered`, `device_not_assigned`
 - `write-common`: `@RequireOpenIncident`, `@IdempotentWrite` -> `incident_bootstrapping`, `incident_closed`, `idempotency_mismatch`, `write_conflict`
 - `internal-caller`: `@RequireChannel(INTERNAL)` -> `channel_not_allowed`
 
@@ -1208,8 +1208,8 @@ Guard shorthand:
 |---|---|---|---|---|---|
 | `POST /auth/login` | S1-2 | 앱, 웹 | HTTPS | `public-session` | - |
 | `POST /auth/logout` | S1-2 | 앱, 웹 | HTTPS | `public-session` | - |
-| `POST /fcm/tokens` | S1-2 | 앱 | HTTPS | `app-police-phone` | - |
-| `POST /devices/{deviceId}/heartbeat` | S1-2 | 앱 | HTTPS | `app-police-phone` | - |
+| `POST /fcm/tokens` | S1-2 | 앱 | HTTPS | `app-device` | - |
+| `POST /devices/{deviceId}/heartbeat` | S1-2 | 앱 | HTTPS | `app-device` | - |
 | `POST /incidents/import-from-seed` | S1-1 | 웹 지휘 계정 | HTTPS | `web-command` | `internal-caller`: seed/mock bootstrap |
 | `GET /incidents` | S1-1 | 앱, 웹, S3-2 | HTTPS | `public-session` | - |
 | `GET /incidents/{incidentId}` | S1-1 | 앱, 웹, S3-2 | HTTPS | `public-session`, `incident-read` | - |
@@ -1223,23 +1223,23 @@ Guard shorthand:
 | `PATCH /search-areas/{areaId}` | S2 | 웹 | HTTPS | `web-command`, `incident-read`, `write-common` | - |
 | `POST /search-areas/{areaId}/split` | S2 | 웹 | HTTPS | `web-command`, `incident-read`, `write-common` | - |
 | `PATCH /search-areas/{areaId}/state` | S2 | 웹 | HTTPS | `web-command`, `incident-read`, `write-common` | - |
-| `POST /search-sessions` | S3-1 | 앱 | HTTPS | `app-police-phone`, `incident-read`, `write-common`, `@RequireCurrentOp` | `internal-caller`: outbox replay |
-| `PATCH /search-sessions/{sessionId}` | S3-1 | 앱 | HTTPS | `app-police-phone`, `incident-read`, `write-common`, `@RequireCurrentOp` | `internal-caller`: outbox replay |
-| `POST /search-paths/batch` | S3-1 | 앱 | HTTPS | `app-police-phone`, `incident-read`, `write-common`, `@RequireCurrentOp` | `internal-caller`: outbox replay |
+| `POST /search-sessions` | S3-1 | 앱 | HTTPS | `app-device`, `incident-read`, `write-common`, `@RequireCurrentOp` | `internal-caller`: outbox replay |
+| `PATCH /search-sessions/{sessionId}` | S3-1 | 앱 | HTTPS | `app-device`, `incident-read`, `write-common`, `@RequireCurrentOp` | `internal-caller`: outbox replay |
+| `POST /search-paths/batch` | S3-1 | 앱 | HTTPS | `app-device`, `incident-read`, `write-common`, `@RequireCurrentOp` | `internal-caller`: outbox replay |
 | `GET /search-paths` | S3-1 | 앱, 웹, S3-2, S8 | HTTPS | `public-session`, `incident-read`, `@RecordLocationAccess` | - |
 | `PATCH /path-segments/{segmentId}` | S3-1 | 웹 | HTTPS | `web-command`, `incident-read`, `write-common` | - |
 | `GET /incidents/{incidentId}/board/snapshot` | S3-2 | 웹 | HTTPS | `public-session`, `incident-read`, `@RecordLocationAccess` | - |
 | `GET /events?incidentId={incidentId}` | S4 | 웹, S3-2 | SSE/HTTPS | `public-session`, `incident-read`, `@RequireChannel(WEB)` | `internal-caller`: event fanout replay |
-| `POST /markers` | S5 | 앱 | HTTPS | `app-police-phone`, `incident-read`, `write-common`, `@RequireCurrentOp` | `internal-caller`: outbox replay |
+| `POST /markers` | S5 | 앱 | HTTPS | `app-device`, `incident-read`, `write-common`, `@RequireCurrentOp` | `internal-caller`: outbox replay |
 | `PATCH /markers/{markerId}` | S5 | 앱, 웹 | HTTPS | `field-or-web-write`, `incident-read`, `write-common`, S5 marker policy | `internal-caller`: outbox replay |
 | `DELETE /markers/{markerId}` | S5 | 앱, 웹 | HTTPS | `field-or-web-write`, `incident-read`, `write-common`, S5 marker policy | `internal-caller`: outbox replay |
-| `POST /markers/{markerId}/photos/presign` | S5 | 앱 | HTTPS | `app-police-phone`, `incident-read`, `write-common` | - |
-| `POST /markers/{markerId}/photos/{photoId}/finalize` | S5 | 앱 | HTTPS | `app-police-phone`, `incident-read`, `write-common` | `internal-caller`: outbox replay |
-| `POST /sync/clock` | S6 | 앱 | HTTPS | `app-police-phone` | - |
-| `POST /sync/outbox/requeue` | S6 | 앱 local retry scheduler | HTTPS | `app-police-phone` | - |
+| `POST /markers/{markerId}/photos/presign` | S5 | 앱 | HTTPS | `app-device`, `incident-read`, `write-common` | - |
+| `POST /markers/{markerId}/photos/{photoId}/finalize` | S5 | 앱 | HTTPS | `app-device`, `incident-read`, `write-common` | `internal-caller`: outbox replay |
+| `POST /sync/clock` | S6 | 앱 | HTTPS | `app-device` | - |
+| `POST /sync/outbox/requeue` | S6 | 앱 local retry scheduler | HTTPS | `app-device` | - |
 | `GET /tiles/{style}/{z}/{x}/{y}.pbf` | S7 | 앱, 웹 MapLibre | tile HTTPS | `public-session` | - |
 | `GET /tiles/styles/{styleId}.json` | S7 | 앱, 웹 MapLibre | tile HTTPS | `public-session` | - |
-| `GET /incidents/{incidentId}/offline-package/manifest` | S7 | 앱, S3-2 | HTTPS | `public-session`, `incident-read`; 앱 package fetch는 `@RequirePolicePhone`, `@RequirePolicePhoneRegistered`, `@RequirePolicePhoneAssigned` -> `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned` | - |
+| `GET /incidents/{incidentId}/offline-package/manifest` | S7 | 앱, S3-2 | HTTPS | `public-session`, `incident-read`; 앱 package fetch는 `@RequireDevice`, `@RequireDeviceRegistered`, `@RequireDeviceAssigned` -> `device_required`, `device_not_registered`, `device_not_assigned` | - |
 | `POST /incidents/{incidentId}/offline-package/installations` | S7 | 앱 | HTTPS | `app-police-phone`, `incident-read`, `write-common` | `internal-caller`: outbox replay |
 | `POST /operational-periods` | S8 | 웹 | HTTPS | `web-command`, `incident-read`, `write-common` | `internal-caller`: OP bootstrap |
 | `GET /incidents/{incidentId}/operational-periods` | S8 | 앱, 웹, S3-2, S7 | HTTPS | `public-session`, `incident-read` | - |
@@ -1257,9 +1257,9 @@ Guard shorthand:
 | `@RequireIncidentAccess` | S1-2 | `incident_access_denied`, `team_not_assigned` | 사건 배정 팀 계정 확인 |
 | `@RequireRole` | S1-2 | `role_denied` | 역할 확인 |
 | `@RequireChannel` | S1-2 | `channel_not_allowed` | APP/WEB/INTERNAL 허용 채널 확인 |
-| `@RequirePolicePhone` | S1-2 | `police_phone_required` | 앱 요청의 PolicePhone 식별자 확인 |
-| `@RequirePolicePhoneRegistered` | S1-2 | `police_phone_not_registered` | 등록된 업무폰·순찰차 PolicePhone 확인 |
-| `@RequirePolicePhoneAssigned` | S1-2 | `police_phone_not_assigned` | 사건·팀·OP 배정과 PolicePhone 연결 확인 |
+| `@RequireDevice` | S1-2 | `device_required` | 앱 요청의 Device 식별자 확인 |
+| `@RequireDeviceRegistered` | S1-2 | `device_not_registered` | 등록된 업무폰·순찰차 Device 확인 |
+| `@RequireDeviceAssigned` | S1-2 | `device_not_assigned` | 사건·팀·OP 배정과 Device 연결 확인 |
 | `@RequireOpenIncident` | S1-1 | `incident_bootstrapping`, `incident_closed` | 사건 OPEN 상태 확인 |
 | `@RequireCurrentOp` | S8 | `op_required`, `op_mismatch` | current OP 확인 |
 | `@IdempotentWrite` | S6 | `idempotency_mismatch`, `write_conflict` | idempotency key 처리 |
