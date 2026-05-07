@@ -1,13 +1,11 @@
-# L5-03 · 인증 계약서 — L5가 소비하는 S1-2 / S4 계약
+# L5-03 · 인증·이벤트 소비 계약
 
-상태: 초안. 담당: L5. 소비 대상: S1-2 (Account, Device & RBAC), S4 (Realtime Event Hub).
+상태: 초안. 담당: L5. 소비 대상: S1-2 (Account, PolicePhone & RBAC), S4 (Realtime Event Hub).
 
 ## 1. 목적
 
-L5 (Marker / Photo / Notification) 구현 시 L2 팀이 제공하는 인증·권한·이벤트 계약을 정리한다.
-이 문서는 L5가 **소비만 하는** 계약이며, L5가 직접 구현하지 않는다.
-
----
+L5 (Marker / Photo / Notification) 구현 시 L2/L3 Lane이 제공하는 인증·권한·이벤트 계약을 정리한다.
+이 문서는 L5가 **소비만 하는** 계약이며, S1-2/S4 소유 구현을 L5 범위로 가져오지 않는다.
 
 ## 2. SecurityContext
 
@@ -20,48 +18,45 @@ L5 API는 S1-2가 제공하는 `SecurityContext`를 전제로 한다.
   "affiliation": "MISSING_TEAM | SUPPORT_UNIT | LOCAL_POLICE",
   "roles": ["MISSING_TEAM_COMMANDER", "FIELD_COMMANDER", "MEMBER"],
   "channel": "APP | WEB | INTERNAL",
-  "deviceId": "uuid | null"
+  "policePhoneId": "uuid | null"
 }
 ```
 
-### 2.1 L5에서 사용하는 Guard Annotation
+## 3. L5 Guard 조합
 
 | Annotation | 실패 코드 | L5 사용처 |
 |---|---|---|
-| `@RequireChannel(APP)` | `channel_not_allowed` | `POST /markers`, photo presign/finalize |
-| `@RequireDevice` | `device_required` | marker/photo write |
-| `@RequireDeviceRegistered` | `device_not_registered` | marker/photo write |
-| `@RequireDeviceAssigned` | `device_not_assigned` | marker/photo write |
+| `@RequireChannel(APP)` | `channel_not_allowed` | `POST /api/markers`, photo upload-url/attach |
+| `@RequirePolicePhone` | `police_phone_required` | marker/photo app write |
+| `@RequirePolicePhoneRegistered` | `police_phone_not_registered` | marker/photo app write |
+| `@RequirePolicePhoneAssigned` | `police_phone_not_assigned` | marker/photo app write |
 | `@RequireIncidentAccess` | `incident_access_denied`, `team_not_assigned` | 모든 L5 API |
 | `@RequireCurrentOp` | `op_required`, `op_mismatch` | marker 생성 시 OP 연결 |
-| `@IdempotentWrite` | `idempotency_mismatch` | marker 생성 |
+| `@IdempotentWrite` | `idempotency_mismatch` | domain write, photo attach replay |
 
-### 2.2 L5 API Guard 조합
-
-```
-POST /markers
+```text
+POST /api/markers
   = @RequireChannel(APP)
-  + @RequireDevice
-  + @RequireDeviceRegistered
-  + @RequireDeviceAssigned
+  + @RequirePolicePhone
+  + @RequirePolicePhoneRegistered
+  + @RequirePolicePhoneAssigned
   + @RequireIncidentAccess
   + @RequireCurrentOp
   + @IdempotentWrite
 
-POST /markers/{markerId}/photos/presign
-POST /markers/{markerId}/photos/{photoId}/finalize
+POST /api/markers/{markerId}/photos/upload-url
+POST /api/markers/{markerId}/photos/{photoId}/attach
   = @RequireChannel(APP)
-  + @RequireDevice
-  + @RequireDeviceRegistered
-  + @RequireDeviceAssigned
+  + @RequirePolicePhone
+  + @RequirePolicePhoneRegistered
+  + @RequirePolicePhoneAssigned
   + @RequireIncidentAccess
+  + @IdempotentWrite
 ```
 
----
+## 4. Account / PolicePhone / FCM Fixture
 
-## 3. Account / Device / FCM Token Fixture
-
-### 3.1 Account Fixture (S1-2 소유)
+### 4.1 Account Fixture (S1-2 소유)
 
 | Fixture Alias | accountId | accountType | affiliation | roles |
 |---|---|---|---|---|
@@ -74,68 +69,54 @@ POST /markers/{markerId}/photos/{photoId}/finalize
 | 지원 부대 팀 | `acct-support-team` | TEAM | SUPPORT_UNIT | MEMBER |
 | 지원 부대 순찰차 | `acct-support-car` | PATROL_CAR | SUPPORT_UNIT | MEMBER |
 
-### 3.2 Device Fixture (S1-2 소유)
+### 4.2 PolicePhone Fixture (S1-2 소유)
 
-| Fixture ID | deviceType | accountId | FCM 수신 대상 |
+`dev-*` 값은 하네스의 `policePhoneId` fixture ID다. `COMMANDER`, `TEAM`, `PATROL`은 fixture alias일 뿐 public enum으로 추가하지 않는다.
+
+| policePhoneId | accountId | FCM 수신 대상 | 비고 |
 |---|---|---|---|
-| `dev-precinct-cmd-phone-01` | — | `acct-precinct-cmd` | ✗ (지휘 계정) |
-| `dev-precinct-phone-01` | TEAM_PHONE | `acct-precinct-team` | ✓ |
-| `dev-precinct-car-01` | PATROL_CAR_PHONE | `acct-precinct-car` | ✓ |
-| `dev-alpha-cmd-phone-01` | — | `acct-cmd-alpha` | ✗ (지휘 계정) |
-| `dev-alpha-phone-01` | TEAM_PHONE | `acct-team-alpha` | ✓ |
-| `dev-support-cmd-phone-01` | — | `acct-support-cmd` | ✗ (지휘 계정) |
-| `dev-support-phone-01` | TEAM_PHONE | `acct-support-team` | ✓ |
-| `dev-support-car-01` | PATROL_CAR_PHONE | `acct-support-car` | ✓ |
+| `dev-precinct-cmd-phone-01` | `acct-precinct-cmd` | 아니오 | 웹 지휘·incident_assignment 식별자 |
+| `dev-precinct-phone-01` | `acct-precinct-team` | 예 | 초동 팀 PolicePhone |
+| `dev-precinct-car-01` | `acct-precinct-car` | 예 | 초동 순찰차 PolicePhone |
+| `dev-alpha-cmd-phone-01` | `acct-cmd-alpha` | 아니오 | 웹 지휘·incident_assignment 식별자 |
+| `dev-alpha-phone-01` | `acct-team-alpha` | 예 | 실종팀 PolicePhone |
+| `dev-support-cmd-phone-01` | `acct-support-cmd` | 아니오 | 웹 지휘·incident_assignment 식별자 |
+| `dev-support-phone-01` | `acct-support-team` | 예 | 지원 부대 팀 PolicePhone |
+| `dev-support-car-01` | `acct-support-car` | 예 | 지원 부대 순찰차 PolicePhone |
 
-> **주의**: 지휘 계정 `deviceId`는 웹 지휘·membership fixture 식별자로만 사용하며 Android FCM recipient로 고정하지 않는다.
+### 4.3 FCM Token Query (S1-2 소유, L5 소비)
 
-### 3.3 FCM Token Query DTO
-
-L5 `NotificationRecipientResolver`가 S1-2에서 소비하는 FCM token 조회 계약:
+L5 `NotificationRecipientResolver`는 recipient account/policePhone 목록을 S5 정책으로 계산한 뒤, S1-2가 제공하는 token 조회 계약만 소비한다.
 
 ```java
-// S1-2가 제공하는 port
-public interface FcmTokenQueryPort {
-    /**
-     * 사건 배정 계정 중 ACTIVE FCM token을 가진 Device 목록 반환.
-     * 지휘 계정 deviceId는 제외한다.
-     */
-    List<FcmRecipient> findActiveRecipients(UUID incidentId);
-    
-    /**
-     * 특정 정책 기반 수신자 조회.
-     * COMMANDERS_AND_FIELD_COMMANDERS: 지휘 계정 + 현장 지휘관
-     * ALL_INCIDENT_ASSIGNED: 사건 배정 전체 TEAM_PHONE/PATROL_CAR_PHONE
-     */
-    List<FcmRecipient> findByPolicy(UUID incidentId, RecipientPolicy policy);
+public interface FcmTokenQuery {
+    Optional<FcmTokenRef> activeByPolicePhone(String policePhoneId);
 }
 ```
 
 ```json
-// FcmRecipient DTO
 {
-  "accountId": "uuid",
-  "deviceId": "uuid",
-  "deviceType": "TEAM_PHONE | PATROL_CAR_PHONE",
-  "encryptedToken": "string"
+  "id": "uuid",
+  "policePhoneId": "dev-alpha-phone-01",
+  "appInstanceId": "string",
+  "tokenCiphertext": "encrypted-token",
+  "tokenHash": "log-safe-hash",
+  "status": "ACTIVE",
+  "version": 1
 }
 ```
 
-### 3.4 FCM Recipient Fixture
+### 4.4 FCM Recipient Fixture (S5 소유 정책, S1-2 token 소비)
 
-| 시나리오 | recipient_policy | 기대 수신 Device |
-|---|---|---|
-| 지원 요청 알림 (SC-08) | `COMMANDERS_AND_FIELD_COMMANDERS` | `dev-precinct-phone-01`, `dev-alpha-phone-01` (지휘관 역할 Device만) |
-| 실종자 발견 알림 (SC-08) | `ALL_INCIDENT_ASSIGNED` | 사건 배정 전체 `TEAM_PHONE`/`PATROL_CAR_PHONE` |
-| 지원 배정 알림 (SC-02) | 신규 배정 단말 | `dev-support-phone-01`, `dev-support-car-01` |
+| 시나리오 | recipientPolicy | recipientAccountIds | recipientPolicePhoneIds | expectedFcmRecipients | 제외 |
+|---|---|---|---|---|---|
+| 지원 부대 배정 알림 (SC-02) | `NEWLY_ASSIGNED_SUPPORT_DEVICES` | `acct-support-car`, `acct-support-team` | `dev-support-car-01`, `dev-support-phone-01` | `fcm:dev-support-car-01`, `fcm:dev-support-phone-01` | `dev-support-cmd-phone-01` |
+| 지원 요청 알림 (SC-08) | `COMMANDERS_AND_FIELD_COMMANDERS` | `acct-cmd-alpha`, `acct-support-cmd`, `acct-support-car`, `acct-support-team` | `dev-alpha-phone-01`, `dev-support-car-01`, `dev-support-phone-01` | `fcm:dev-alpha-phone-01`, `fcm:dev-support-car-01`, `fcm:dev-support-phone-01` | command account policePhone |
+| 실종자 발견 알림 (SC-08) | `ALL_INCIDENT_ASSIGNED` | `acct-precinct-cmd`, `acct-precinct-car`, `acct-precinct-team`, `acct-cmd-alpha`, `acct-team-alpha`, `acct-support-cmd`, `acct-support-car`, `acct-support-team` | `dev-precinct-car-01`, `dev-precinct-phone-01`, `dev-alpha-phone-01`, `dev-support-car-01`, `dev-support-phone-01` | `fcm:dev-alpha-phone-01`, `fcm:dev-support-car-01`, `fcm:dev-support-phone-01` | command account policePhone |
 
----
+## 5. Event Envelope 계약 (S4 소유)
 
-## 4. Event Envelope 계약 (S4 소유)
-
-### 4.1 BaseEvent Envelope
-
-S4가 정의하는 공통 이벤트 포맷. L5는 `payload` 필드만 소유한다.
+S4가 정의하는 공통 이벤트 포맷이다. L5는 `payload` 필드와 PublishRequest 생성만 소유하고, fanout/retry/SSE replay는 S4가 소유한다.
 
 ```json
 {
@@ -144,86 +125,43 @@ S4가 정의하는 공통 이벤트 포맷. L5는 `payload` 필드만 소유한�
   "type": "MARKER_CREATED | MARKER_UPDATED | MARKER_DELETED | SUPPORT_REQUEST_CREATED | PERSON_FOUND",
   "schemaVersion": 1,
   "serverTs": "2026-04-28T09:00:00+09:00",
-  "payload": { }
+  "payload": {}
 }
 ```
 
-### 4.2 L5가 발행하는 PublishRequest 이벤트 목록
-
-| Event Type | Trigger | Payload Owner |
+| Event Type | Trigger | Payload 비교 필드 |
 |---|---|---|
-| `MARKER_CREATED` | `POST /markers` 성공 | S5 |
-| `MARKER_UPDATED` | `PATCH /markers/{markerId}`, photo finalize | S5 |
-| `MARKER_DELETED` | `DELETE /markers/{markerId}` | S5 |
-| `SUPPORT_REQUEST_CREATED` | SUPPORT_REQUEST 마커 생성 | S5 |
-| `PERSON_FOUND` | PERSON_FOUND 마커 생성 | S5 |
+| `MARKER_CREATED` | `POST /api/markers` 성공 | `id`, `status`, `version`, `opId`, `policePhoneId` |
+| `MARKER_UPDATED` | `PATCH /api/markers/{markerId}` 또는 `POST /api/markers/{markerId}/photos/{photoId}/attach` 성공 | `id`, `status`, `version`, `opId`, `policePhoneId`, optional `photoDelta.photoId/status/version` |
+| `MARKER_DELETED` | `DELETE /api/markers/{markerId}` 성공 | `id`, `status`, `version`, `opId`, `policePhoneId` |
+| `SUPPORT_REQUEST_CREATED` | SUPPORT_REQUEST marker 생성 후 recipient/payload 계산 완료 | `id`, `status`, `version`, `opId`, `policePhoneId`, `recipientPolicy` |
+| `PERSON_FOUND` | PERSON_FOUND marker 생성 후 recipient/payload 계산 완료 | `id`, `status`, `version`, `opId`, `policePhoneId`, `recipientPolicy` |
 
-### 4.3 EventHub.publish 사용법
+Photo attach는 별도 photo event를 만들지 않는다. attach 성공 시 parent marker version이 증가하고 기존 `MARKER_UPDATED` payload의 `photoDelta.photoId/status/version`으로 REST response, event_dispatch_job/SSE, board marker slot이 수렴해야 한다.
 
-```java
-// L5 domain service에서 사용하는 방식
-@Transactional
-public MarkerResponse createMarker(MarkerCreateCommand cmd) {
-    Marker marker = markerRepository.save(/* ... */);
-    
-    // S4 EventHub port에 PublishRequest 전달
-    eventHub.publish(PublishRequest.builder()
-        .eventId(UUID.randomUUID())
-        .incidentId(cmd.getIncidentId())
-        .type("MARKER_CREATED")
-        .schemaVersion(1)
-        .domainRefType("marker")
-        .domainRefId(marker.getId())
-        .payload(markerPayload)
-        .build());
-    
-    return toResponse(marker);
-}
-```
-
-> **핵심 규칙**: `EventHub.publish`는 caller transaction 안에서 호출해야 하며, domain row와 event_outbox row가 같은 transaction에서 원자적으로 저장된다.
-
-### 4.4 PublishRequest DTO
-
-```json
-{
-  "eventId": "uuid",
-  "incidentId": "uuid",
-  "type": "string",
-  "schemaVersion": 1,
-  "domainRefType": "marker | photo | notification_delivery",
-  "domainRefId": "uuid",
-  "payload": { }
-}
-```
-
----
-
-## 5. 필수 헤더 규칙
+## 6. 필수 헤더 규칙
 
 | 헤더 | 용도 | L5 write API 필수 여부 |
 |---|---|---|
-| `Authorization` | Bearer token | ✓ |
-| `X-Client-Channel` | APP / WEB 채널 식별 | ✓ |
-| `X-Device-Id` | Device 식별 | ✓ (APP 채널) |
-| `Idempotency-Key` | 중복 쓰기 방지 | ✓ (POST /markers) |
+| `Authorization` | Bearer token | 예 |
+| `X-Client-Channel` | APP / WEB 채널 식별 | 예 |
+| `X-PolicePhone-Id` | APP PolicePhone 식별 | APP write에서 예 |
+| `Idempotency-Key` | 중복 쓰기 방지 | domain write와 photo attach에서 예 |
 
----
-
-## 6. 에러 코드 매트릭스
-
-L5 API에서 발생 가능한 S1-2 기원 에러:
+## 7. 에러 코드 매트릭스
 
 | HTTP | Error Code | 원인 |
 |---|---|---|
-| 400 | `device_required` | APP 채널인데 X-Device-Id 누락 |
+| 400 | `invalid_geometry` | marker/photo 위치 geometry 실패 |
+| 400 | `police_phone_required` | APP 요청에 PolicePhone 식별자 누락 |
 | 403 | `channel_not_allowed` | WEB에서 앱 전용 API 호출 |
-| 403 | `device_not_registered` | 미등록 Device |
-| 403 | `device_not_assigned` | 해당 사건/OP 미배정 Device |
+| 403 | `police_phone_not_registered` | 미등록 PolicePhone |
+| 403 | `police_phone_not_assigned` | 해당 사건/OP 미배정 PolicePhone |
 | 403 | `incident_access_denied` | 사건 접근 권한 없음 |
 | 403 | `team_not_assigned` | 팀 미배정 |
-| 409 | `incident_bootstrapping` | 사건 OPEN 전 write 시도 |
 | 409 | `incident_closed` | 종료된 사건 write 시도 |
 | 409 | `idempotency_mismatch` | 다른 body로 같은 key 재사용 |
+| 409 | `write_conflict` | version 충돌 |
 | 409 | `op_required` | 현재 active OP 없음 |
-| 409 | `op_mismatch` | 요청 opId ≠ 현재 active OP |
+| 409 | `op_mismatch` | 요청 `opId`와 서버 current OP 불일치 |
+| 413 | `photo_limit_exceeded` | 사진 수량 또는 파일 크기 제한 초과 |

@@ -128,12 +128,12 @@ Phase 1~3 task는 `구현 산출물`에 별도로 쓰여 있지 않더라도 [ag
 - [ ] `spec/harness-scenarios.md`의 SC-01~SC-12 `then` 항목이 하나 이상의 task `구현 산출물` 또는 `완료 기준`으로 닫힌다.
 - [ ] 각 SC의 `involved_apis`와 event가 담당 Lane task에 존재하고, 통합 task의 `선행 task`에 필요한 blocker가 드러난다.
 - [ ] 각 SC의 `e2e_red_test`가 domain task, harness task, integration task, demo/evidence gate 중 하나에 매핑된다.
-- [ ] 각 SC의 `board_merge` slot은 S3-2 task와 통합 task에서 snapshot/SSE 수렴 evidence로 확인된다.
-- [ ] SC final PASS에 필요한 FCM, SSE, outbox, board snapshot, mock fixture 실패 주입이 누락되지 않는다.
+- [ ] 각 SC의 `board_merge` slot은 S3-2 task와 통합 task에서 board API/SSE 수렴 evidence로 확인된다.
+- [ ] SC final PASS에 필요한 FCM, SSE, Android Outbox, board API response, mock fixture 실패 주입이 누락되지 않는다.
 
 ### Fixture Exactness
 
-- [ ] fixture ID, account/device/team ID, event name, payload field, error code가 기준 문서와 문자열 단위로 일치한다.
+- [ ] fixture ID, account/police_phone/team ID, event name, payload field, error code가 기준 문서와 문자열 단위로 일치한다.
 - [ ] 상태 enum은 `spec/specs/*.json` 또는 `spec/harness-scenarios.md`에 있는 값을 그대로 사용한다.
 - [ ] tile manifest ID, zoom range, tile URL/URI, object storage URI, mock endpoint 값이 기준 문서와 일치한다.
 - [ ] 기준 문서끼리 값이 충돌하면 tasks에서 임의로 선택하지 않고 사용자에게 충돌 내용과 선택지를 보고한다.

@@ -1,35 +1,23 @@
-# L5-06 · 수색차수 조회 DTO 확정 — L5가 소비하는 S8 OP 계약
+# L5-06 · Current OP 조회 계약
 
 상태: 초안. 담당: L5. 소비 대상: S8 (Operational Period & Handover).
 
 ## 1. 목적
 
 L5 마커 생성 시 현재 OP(수색차수)를 확인하기 위해 S8/L3가 제공하는 OP 조회 계약을 정리한다.
-마커는 반드시 현재 active OP에 귀속되어야 한다.
-
----
+마커는 반드시 서버 current OP에 귀속되어야 한다.
 
 ## 2. Current OP Query 계약
 
-### 2.1 OperationalPeriodQueryPort (S8 소유)
+### 2.1 OperationalPeriodQuery (S8 소유)
 
 ```java
-public interface OperationalPeriodQueryPort {
-    /**
-     * 사건의 현재 ACTIVE OP를 반환한다.
-     * ACTIVE OP가 없으면 Optional.empty().
-     */
-    Optional<OperationalPeriodDto> findCurrentOp(UUID incidentId);
-    
-    /**
-     * 특정 OP를 ID로 조회한다.
-     */
-    Optional<OperationalPeriodDto> findById(UUID opId);
-    
-    /**
-     * 사건의 전체 OP 목록을 sequence_no 순으로 반환한다.
-     */
-    List<OperationalPeriodDto> listByIncident(UUID incidentId);
+public interface OperationalPeriodQuery {
+    Optional<OperationalPeriodDto> findCurrentOp(String incidentId);
+
+    Optional<OperationalPeriodDto> findById(String opId);
+
+    List<OperationalPeriodDto> listByIncident(String incidentId);
 }
 ```
 
@@ -37,31 +25,26 @@ public interface OperationalPeriodQueryPort {
 
 ```json
 {
-  "id": "uuid",
-  "incidentId": "uuid",
-  "sequenceNo": 1,
-  "status": "ACTIVE | CLOSED",
-  "reason": "BOOTSTRAP | SHIFT_CHANGE | RE_SEARCH | NEW_AREA | OTHER",
+  "id": "op-precinct-001-op1",
+  "incidentId": "inc-precinct-first-001",
+  "sequenceNumber": 1,
+  "status": "ACTIVE | ENDED",
+  "reason": "INITIAL | RE_SEARCH | AREA_CHANGED | OTHER",
   "reasonMemo": "string | null",
   "openedByAccountId": "uuid | null",
   "openedByChannel": "SYSTEM | WEB",
   "openedAt": "2026-04-28T09:00:00+09:00",
-  "closedAt": "2026-04-28T18:00:00+09:00 | null",
-  "version": 1,
-  "clientTs": "2026-04-28T09:00:00+09:00",
-  "serverTs": "2026-04-28T09:00:00+09:00",
-  "clockOffsetMs": 0
+  "endedAt": "2026-04-28T18:00:00+09:00 | null",
+  "version": 1
 }
 ```
-
----
 
 ## 3. Current OP 조회 API (S8 소유, L5 소비)
 
 ### 3.1 Request
 
-```
-GET /incidents/{incidentId}/operational-periods
+```http
+GET /api/incidents/{incidentId}/operational-periods
 Authorization: Bearer {token}
 ```
 
@@ -73,9 +56,9 @@ Authorization: Bearer {token}
   "items": [
     {
       "id": "op-precinct-001-op1",
-      "sequenceNo": 1,
+      "sequenceNumber": 1,
       "status": "ACTIVE",
-      "reason": "BOOTSTRAP",
+      "reason": "INITIAL",
       "version": 1
     }
   ]
@@ -90,78 +73,67 @@ Authorization: Bearer {token}
 | 403 | `incident_access_denied` | 사건 접근 불가 |
 | 403 | `team_not_assigned` | 팀 미배정 |
 
----
-
 ## 4. L5에서의 OP 사용 방식
 
-### 4.1 마커 생성 시 OP 바인딩
-
+```text
+1. `POST /api/markers` request body의 `opId`는 필수다.
+2. `@RequireCurrentOp`가 request `opId`와 서버 current OP가 같은지 검증한다.
+3. current OP가 없으면 `409 op_required`를 반환한다.
+4. request `opId`와 서버 current OP가 다르면 `409 op_mismatch`를 반환한다.
+5. L5는 OP 생성, OP 전환, OP assignment write를 소유하지 않는다.
 ```
-1. 요청의 opId가 필수 (POST /markers request body)
-2. @RequireCurrentOp가 opId == 현재 active OP인지 검증
-3. 불일치 시 409 op_mismatch 반환
-4. active OP가 없으면 409 op_required 반환
-```
 
-### 4.2 마커 entity의 OP 참조
+## 5. 마커 entity의 OP 참조
 
-```java
-// marker 테이블
-marker.op_id = currentOp.id   // UUID, NOT NULL
+```text
+marker.operational_period_id = currentOp.id
 marker.incident_id = currentOp.incidentId
 ```
 
-### 4.3 마커 조회 시 OP 필터
+## 6. MarkerQuery OP 필터
 
 ```java
-// MarkerQuery.byIncident - OP별 필터 지원
-public interface MarkerQueryPort {
-    List<MarkerDto> findByIncident(UUID incidentId, UUID opId);  // opId nullable → 전체
-    List<MarkerDto> findByIncident(UUID incidentId);              // 사건 전체
+public interface MarkerQuery {
+    List<MarkerDto> byIncident(String incidentId, MarkerFilters filters);
 }
 ```
 
----
+`filters.opId`가 있으면 OP별 marker evidence를 반환하고, 없으면 사건 전체 marker를 반환한다. S3-2 board와 S8 OP history는 같은 `id/status/version/opId/policePhoneId` 필드를 비교한다.
 
-## 5. OP Fixture (하네스 기준값)
+## 7. OP Fixture (하네스 기준값)
 
-| Fixture ID | incidentId | sequenceNo | status | reason |
+| Fixture ID | incidentId | sequenceNumber | status | reason |
 |---|---|---|---|---|
-| `op-precinct-001-op1` | `inc-precinct-first-001` | 1 | ACTIVE | BOOTSTRAP |
-| `op-precinct-001-op2` | `inc-precinct-first-001` | 2 | ACTIVE | SHIFT_CHANGE |
+| `op-precinct-001-op1` | `inc-precinct-first-001` | 1 | ACTIVE | INITIAL |
+| `op-precinct-001-op2` | `inc-precinct-first-001` | 2 | ACTIVE | RE_SEARCH 또는 AREA_CHANGED |
 
-### 5.1 OP Fixture 예제 JSON
+### 7.1 OP Fixture 예제 JSON
 
 ```json
 {
   "id": "op-precinct-001-op1",
   "incidentId": "inc-precinct-first-001",
-  "sequenceNo": 1,
+  "sequenceNumber": 1,
   "status": "ACTIVE",
-  "reason": "BOOTSTRAP",
+  "reason": "INITIAL",
   "reasonMemo": null,
   "openedByAccountId": null,
   "openedByChannel": "SYSTEM",
   "openedAt": "2026-04-28T09:00:00+09:00",
-  "closedAt": null,
-  "version": 1,
-  "clientTs": "2026-04-28T09:00:00+09:00",
-  "serverTs": "2026-04-28T09:00:00+09:00",
-  "clockOffsetMs": 0
+  "endedAt": null,
+  "version": 1
 }
 ```
 
----
-
-## 6. L5 마커 생성 시 OP 검증 흐름
+## 8. L5 마커 생성 시 OP 검증 흐름
 
 ```mermaid
 flowchart TD
-    A["POST /markers {opId}"] --> B{"currentOp 존재?"}
+    A["POST /api/markers {opId}"] --> B{"current OP 존재?"}
     B -- No --> ERR1["409 op_required"]
     B -- Yes --> C{"request.opId == currentOp.id?"}
     C -- No --> ERR2["409 op_mismatch"]
-    C -- Yes --> D["✓ OP 바인딩 성공"]
-    D --> E["marker.op_id = currentOp.id"]
+    C -- Yes --> D["OP 바인딩 성공"]
+    D --> E["marker.operational_period_id = currentOp.id"]
     E --> F["geometry 검증 진행"]
 ```

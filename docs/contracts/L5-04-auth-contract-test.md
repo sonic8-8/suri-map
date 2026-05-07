@@ -1,237 +1,183 @@
-# L5-04 · 인증 계약 검증 테스트 — Fixture 동작 검증 & 타 팀 공유 예제
+# L5-04 · L5 소비 계약 검증 예시
 
 상태: 초안. 담당: L5.
 
 ## 1. 목적
 
-L5-03 인증 계약서에 정의된 fixture를 실제 코드로 검증하고, 타 팀이 L5 API를 소비할 때 참고할 예제를 제공한다.
+L5-03, L5-05, L5-06에 정리한 소비 계약을 RED test 또는 fixture assertion으로 고정할 때 확인할 문자열 기준을 정리한다.
+기준 문서에 없는 public API, fixture ID, event name, error code를 이 문서에서 새로 만들지 않는다.
 
----
+## 2. PolicePhone Guard 검증
 
-## 2. SecurityContext Fixture 검증
-
-### 2.1 앱 채널 마커 생성 — 정상 흐름
+### 2.1 앱 채널 마커 생성 정상 흐름
 
 ```java
 @Test
-@DisplayName("앱 채널 팀 계정이 마커를 생성할 수 있다")
-void appChannel_teamAccount_canCreateMarker() {
-    // given
+@DisplayName("APP 채널의 배정 PolicePhone이 /api/markers를 호출하면 marker가 생성된다")
+void appChannel_assignedPolicePhone_canCreateMarker() {
     SecurityContext ctx = SecurityContext.builder()
-        .accountId(UUID.fromString("acct-precinct-team"))
+        .accountId("acct-precinct-team")
         .accountType(AccountType.TEAM)
         .affiliation(Affiliation.LOCAL_POLICE)
         .roles(List.of(Role.MEMBER))
         .channel(Channel.APP)
-        .deviceId(UUID.fromString("dev-precinct-phone-01"))
+        .policePhoneId("dev-precinct-phone-01")
         .build();
 
     MarkerCreateRequest request = MarkerCreateRequest.builder()
-        .incidentId(UUID.fromString("inc-precinct-first-001"))
-        .opId(UUID.fromString("op-precinct-001-op1"))
+        .incidentId("inc-precinct-first-001")
+        .opId("op-precinct-001-op1")
         .type(MarkerType.CLUE)
         .location(new GeoJsonPoint(126.956500, 37.571200))
-        .clientTs(Instant.parse("2026-04-28T09:05:00Z"))
+        .clientTs(Instant.parse("2026-04-28T09:05:00+09:00"))
         .build();
 
-    // when
     MarkerResponse response = markerService.create(ctx, request);
 
-    // then
-    assertThat(response.getId()).isNotNull();
     assertThat(response.getStatus()).isEqualTo("ACTIVE");
     assertThat(response.getVersion()).isEqualTo(1L);
-    assertThat(response.getOpId()).isEqualTo(request.getOpId());
-    assertThat(response.getDeviceId()).isEqualTo(ctx.getDeviceId());
+    assertThat(response.getOpId()).isEqualTo("op-precinct-001-op1");
+    assertThat(response.getPolicePhoneId()).isEqualTo("dev-precinct-phone-01");
 }
 ```
 
-### 2.2 웹 채널 마커 생성 — 거부
+### 2.2 웹 채널 마커 생성 거부
 
 ```java
 @Test
-@DisplayName("웹 채널에서 마커 생성 시 channel_not_allowed")
+@DisplayName("WEB 채널에서 /api/markers 호출 시 channel_not_allowed")
 void webChannel_markerCreate_rejected() {
-    // given
     SecurityContext ctx = SecurityContext.builder()
-        .accountId(UUID.fromString("acct-cmd-alpha"))
+        .accountId("acct-cmd-alpha")
         .accountType(AccountType.COMMAND)
         .affiliation(Affiliation.MISSING_TEAM)
         .roles(List.of(Role.MISSING_TEAM_COMMANDER))
         .channel(Channel.WEB)
-        .deviceId(null)
+        .policePhoneId(null)
         .build();
 
-    // when & then
     assertThatThrownBy(() -> markerService.create(ctx, anyRequest))
         .isInstanceOf(ChannelNotAllowedException.class)
         .hasFieldOrPropertyWithValue("errorCode", "channel_not_allowed");
 }
 ```
 
-### 2.3 미등록 Device — 거부
+### 2.3 미등록 PolicePhone 거부
 
 ```java
 @Test
-@DisplayName("미등록 Device로 마커 생성 시 device_not_registered")
-void unregisteredDevice_markerCreate_rejected() {
-    // given: device.registered = false
+@DisplayName("미등록 PolicePhone으로 마커 생성 시 police_phone_not_registered")
+void unregisteredPolicePhone_markerCreate_rejected() {
     SecurityContext ctx = SecurityContext.builder()
-        .accountId(UUID.fromString("acct-precinct-team"))
+        .accountId("acct-precinct-team")
         .channel(Channel.APP)
-        .deviceId(UUID.fromString("dev-unregistered-001"))
+        .policePhoneId("dev-unregistered-001")
         .build();
 
-    // when & then
     assertThatThrownBy(() -> markerService.create(ctx, anyRequest))
-        .isInstanceOf(DeviceNotRegisteredException.class)
-        .hasFieldOrPropertyWithValue("errorCode", "device_not_registered");
+        .isInstanceOf(PolicePhoneNotRegisteredException.class)
+        .hasFieldOrPropertyWithValue("errorCode", "police_phone_not_registered");
 }
 ```
 
-### 2.4 미배정 Device — 거부
+### 2.4 미배정 PolicePhone 거부
 
 ```java
 @Test
-@DisplayName("사건 미배정 Device로 마커 생성 시 device_not_assigned")
-void unassignedDevice_markerCreate_rejected() {
-    // given: device는 등록됐지만 해당 사건/OP에 배정되지 않음
+@DisplayName("사건/OP 미배정 PolicePhone으로 마커 생성 시 police_phone_not_assigned")
+void unassignedPolicePhone_markerCreate_rejected() {
     SecurityContext ctx = SecurityContext.builder()
-        .accountId(UUID.fromString("acct-precinct-team"))
+        .accountId("acct-precinct-team")
         .channel(Channel.APP)
-        .deviceId(UUID.fromString("dev-other-team-phone-01"))
+        .policePhoneId("dev-not-assigned-001")
         .build();
 
-    // when & then
     assertThatThrownBy(() -> markerService.create(ctx, anyRequest))
-        .isInstanceOf(DeviceNotAssignedException.class)
-        .hasFieldOrPropertyWithValue("errorCode", "device_not_assigned");
+        .isInstanceOf(PolicePhoneNotAssignedException.class)
+        .hasFieldOrPropertyWithValue("errorCode", "police_phone_not_assigned");
 }
 ```
-
----
 
 ## 3. OP 계약 검증
 
-### 3.1 OP 존재 시 마커 생성
-
 ```java
 @Test
-@DisplayName("현재 active OP가 있으면 마커가 해당 OP에 귀속된다")
+@DisplayName("현재 active OP가 있으면 marker.opId는 current OP와 같다")
 void activeOp_markerBindsToOp() {
-    // given
-    UUID opId = UUID.fromString("op-precinct-001-op1");
-    // mock: operationalPeriodQueryPort.findCurrentOp() returns OP1
-    
-    // when
+    String opId = "op-precinct-001-op1";
+
     MarkerResponse response = markerService.create(validCtx, requestWithOp(opId));
-    
-    // then
+
     assertThat(response.getOpId()).isEqualTo(opId);
 }
 ```
-
-### 3.2 OP 없을 때 거부
 
 ```java
 @Test
 @DisplayName("active OP가 없으면 op_required")
 void noActiveOp_markerCreate_rejected() {
-    // given: mock returns empty
-    
-    // when & then
     assertThatThrownBy(() -> markerService.create(validCtx, anyRequest))
         .isInstanceOf(OpRequiredException.class)
         .hasFieldOrPropertyWithValue("errorCode", "op_required");
 }
 ```
 
-### 3.3 OP 불일치 시 거부
-
 ```java
 @Test
-@DisplayName("요청 opId와 현재 active OP가 다르면 op_mismatch")
+@DisplayName("요청 opId와 서버 current OP가 다르면 op_mismatch")
 void opMismatch_markerCreate_rejected() {
-    // given: currentOp = OP2, request.opId = OP1
-    UUID currentOpId = UUID.fromString("op-precinct-001-op2");
-    UUID requestOpId = UUID.fromString("op-precinct-001-op1");
-    
-    // when & then
-    assertThatThrownBy(() -> markerService.create(validCtx, requestWithOp(requestOpId)))
+    assertThatThrownBy(() -> markerService.create(validCtx, requestWithOp("op-precinct-001-op1")))
         .isInstanceOf(OpMismatchException.class)
         .hasFieldOrPropertyWithValue("errorCode", "op_mismatch");
 }
 ```
 
----
-
 ## 4. Geometry 계약 검증
-
-### 4.1 정상 좌표 마커 생성
 
 ```java
 @Test
-@DisplayName("map_boundary 내 정상 좌표 마커 생성 성공")
-void validPoint_insideBoundary_success() {
-    // given: 하네스 기준 좌표
+@DisplayName("overall_search_area 내부 정상 marker Point는 통과한다")
+void validPoint_insideOverallSearchArea_success() {
     GeoJsonPoint location = new GeoJsonPoint(126.956500, 37.571200);
-    
-    // when
+
     MarkerResponse response = markerService.create(validCtx, requestWithLocation(location));
-    
-    // then
+
     assertThat(response.getId()).isNotNull();
 }
 ```
 
-### 4.2 map_boundary 밖 좌표 거부
-
 ```java
 @Test
-@DisplayName("map_boundary 밖 좌표는 invalid_geometry")
-void outsideBoundary_rejected() {
-    // given: coord-outside-envelope fixture
+@DisplayName("overall_search_area 밖 좌표는 invalid_geometry")
+void outsideOverallSearchArea_rejected() {
     GeoJsonPoint location = new GeoJsonPoint(127.200000, 37.571200);
-    
-    // when & then
+
     assertThatThrownBy(() -> markerService.create(validCtx, requestWithLocation(location)))
         .isInstanceOf(InvalidGeometryException.class)
         .hasFieldOrPropertyWithValue("errorCode", "invalid_geometry");
 }
 ```
 
-### 4.3 lon/lat 뒤바뀐 좌표 거부
-
 ```java
 @Test
 @DisplayName("lon/lat가 뒤바뀌면 invalid_geometry")
 void swappedLatLon_rejected() {
-    // given: coord-latlon-swapped fixture
     GeoJsonPoint location = new GeoJsonPoint(37.571200, 126.956500);
-    
-    // when & then
+
     assertThatThrownBy(() -> markerService.create(validCtx, requestWithLocation(location)))
-        .isInstanceOf(InvalidGeometryException.class);
+        .isInstanceOf(InvalidGeometryException.class)
+        .hasFieldOrPropertyWithValue("errorCode", "invalid_geometry");
 }
 ```
 
----
-
-## 5. Event Envelope 계약 검증
-
-### 5.1 마커 생성 시 PublishRequest 발행 확인
+## 5. Marker Event 계약 검증
 
 ```java
 @Test
 @DisplayName("마커 생성 시 MARKER_CREATED PublishRequest가 발행된다")
 void markerCreate_publishesEvent() {
-    // given
-    MockEventHub mockEventHub = new MockEventHub();
-    
-    // when
     MarkerResponse response = markerService.create(validCtx, validRequest);
-    
-    // then
+
     PublishRequest publishedEvent = mockEventHub.getLastPublished();
     assertThat(publishedEvent.getType()).isEqualTo("MARKER_CREATED");
     assertThat(publishedEvent.getIncidentId()).isEqualTo(validRequest.getIncidentId());
@@ -241,136 +187,145 @@ void markerCreate_publishesEvent() {
 }
 ```
 
-### 5.2 마커 생성 시 Event Payload 검증
-
 ```java
 @Test
-@DisplayName("MARKER_CREATED payload에 id/status/version/opId/deviceId가 포함된다")
+@DisplayName("MARKER_CREATED payload에는 id/status/version/opId/policePhoneId가 포함된다")
 void markerCreated_payloadContainsRequiredFields() {
-    // given
-    MockEventHub mockEventHub = new MockEventHub();
-    
-    // when
-    MarkerResponse response = markerService.create(validCtx, validRequest);
-    
-    // then
+    markerService.create(validCtx, validRequest);
+
     Map<String, Object> payload = mockEventHub.getLastPublished().getPayload();
-    assertThat(payload).containsKeys("id", "status", "version", "opId", "deviceId", "type", "location");
-    assertThat(payload.get("id")).isEqualTo(response.getId().toString());
-    assertThat(payload.get("status")).isEqualTo("ACTIVE");
-    assertThat(payload.get("version")).isEqualTo(1);
+    assertThat(payload).containsKeys("id", "status", "version", "opId", "policePhoneId", "type", "location");
 }
 ```
 
----
-
-## 6. FCM Recipient 계약 검증
-
-### 6.1 지원 요청 수신자 계산
+## 6. Photo upload-url/attach 계약 검증
 
 ```java
 @Test
-@DisplayName("지원 요청 알림은 지휘 계정과 현장 지휘관에게 전달된다")
-void supportRequest_recipientIsCommandersOnly() {
-    // given: SUPPORT_REQUEST marker 생성
-    
-    // when
+@DisplayName("사진 upload-url은 mock object storage uploadUrl을 반환한다")
+void photoUploadUrl_usesMockObjectStorage() {
+    PhotoUploadUrlResponse response = photoService.createUploadUrl(
+        "mk-precinct-clue-001",
+        new PhotoUploadUrlRequest("image/jpeg", 1_048_576, "sha256")
+    );
+
+    assertThat(response.getPhotoId()).isEqualTo("photo-precinct-clue-001");
+    assertThat(response.getUploadUrl()).startsWith("http://127.0.0.1:18080/mock-upload/");
+    assertThat(response.getMaxSizeBytes()).isEqualTo(10_485_760);
+}
+```
+
+```java
+@Test
+@DisplayName("사진 attach 성공은 MARKER_UPDATED.photoDelta로 수렴한다")
+void photoAttach_publishesMarkerUpdatedPhotoDelta() {
+    PhotoAttachResponse response = photoService.attach(
+        "mk-precinct-clue-001",
+        "photo-precinct-clue-001",
+        validAttachRequest
+    );
+
+    PublishRequest event = mockEventHub.getLastPublished();
+    assertThat(response.getStatus()).isEqualTo("ATTACHED");
+    assertThat(response.getMarkerVersion()).isEqualTo(2L);
+    assertThat(event.getType()).isEqualTo("MARKER_UPDATED");
+    assertThat(event.getPayload()).containsEntry("id", "mk-precinct-clue-001");
+    assertThat(event.getPayload()).extracting("photoDelta.photoId").isEqualTo("photo-precinct-clue-001");
+    assertThat(event.getPayload()).extracting("photoDelta.status").isEqualTo("ATTACHED");
+    assertThat(event.getPayload()).extracting("photoDelta.version").isEqualTo(2);
+}
+```
+
+Mock object storage fixture는 `mock://object-storage/suri-map-harness`와 `http://127.0.0.1:18080/mock-upload/{photoId}`만 사용한다. 외부 `s3.amazonaws.com` 또는 실제 bucket endpoint 호출이 관찰되면 SC-06 RED 실패다.
+
+## 7. FCM Recipient 계약 검증
+
+```java
+@Test
+@DisplayName("SC-08 지원 요청 알림은 canonical mock FCM recipient에만 전달된다")
+void supportRequest_recipientMatchesFixture() {
     NotificationDelivery delivery = notificationService.createDelivery(supportRequestMarker);
-    
-    // then
+
     assertThat(delivery.getRecipientPolicy()).isEqualTo("COMMANDERS_AND_FIELD_COMMANDERS");
-    assertThat(delivery.getRecipientDeviceIds())
-        .contains(UUID.fromString("dev-precinct-phone-01"))
-        .contains(UUID.fromString("dev-alpha-phone-01"))
-        .doesNotContain(UUID.fromString("dev-precinct-cmd-phone-01"));  // 지휘 계정 제외
+    assertThat(delivery.getRecipientPolicePhoneIds())
+        .containsExactlyInAnyOrder("dev-alpha-phone-01", "dev-support-car-01", "dev-support-phone-01");
+    assertThat(mockFcmDispatcher.getRecipients("evt-s5-support-request-001"))
+        .containsExactlyInAnyOrder("fcm:dev-alpha-phone-01", "fcm:dev-support-car-01", "fcm:dev-support-phone-01");
 }
 ```
-
-### 6.2 실종자 발견 수신자 계산
 
 ```java
 @Test
-@DisplayName("실종자 발견 알림은 사건 배정 전체 단말에 전달된다")
-void personFound_recipientIsAllAssigned() {
-    // given: PERSON_FOUND marker 생성
-    
-    // when
+@DisplayName("SC-08 실종자 발견 알림은 marker/toast/FCM payload id/status/version을 맞춘다")
+void personFound_payloadConverges() {
     NotificationDelivery delivery = notificationService.createDelivery(personFoundMarker);
-    
-    // then
+
     assertThat(delivery.getRecipientPolicy()).isEqualTo("ALL_INCIDENT_ASSIGNED");
-    assertThat(delivery.getRecipientDeviceIds())
-        .contains(UUID.fromString("dev-precinct-phone-01"))
-        .contains(UUID.fromString("dev-precinct-car-01"))
-        .contains(UUID.fromString("dev-alpha-phone-01"))
-        .contains(UUID.fromString("dev-support-phone-01"))
-        .contains(UUID.fromString("dev-support-car-01"));
+    assertThat(delivery.getRecipientPolicePhoneIds())
+        .contains("dev-precinct-car-01", "dev-precinct-phone-01", "dev-alpha-phone-01", "dev-support-car-01", "dev-support-phone-01");
+    assertThat(mockFcmDispatcher.getRecipients("evt-s5-person-found-001"))
+        .containsExactlyInAnyOrder("fcm:dev-alpha-phone-01", "fcm:dev-support-car-01", "fcm:dev-support-phone-01");
 }
 ```
 
----
+## 8. 타 팀 공유 가이드
 
-## 7. 타 팀 공유 가이드
+### 8.1 L2 팀 (인증·이벤트)
 
-### 7.1 L2 팀 (인증·이벤트)
+L5가 소비하는 S1-2/S4 계약:
 
-L5가 필요로 하는 S1-2 port:
-- `SecurityContext` — 이미 제공 중
-- `FcmTokenQueryPort.findActiveRecipients(incidentId)` — **L5가 소비**, L2 구현 필요
-- `FcmTokenQueryPort.findByPolicy(incidentId, policy)` — **L5가 소비**, L2 구현 필요
-- `EventHub.publish(PublishRequest)` — **L5가 소비**, L2 구현 필요
+- `SecurityContext`
+- `FcmTokenQuery.activeByPolicePhone(policePhoneId)`
+- `EventHub.publish(PublishRequest)`
+- `EventFanout -> FcmDispatcher.send(recipients, payload)` 호출 경계
 
-### 7.2 L3 팀 (지도·OP)
+### 8.2 L3 팀 (지도·OP)
 
-L5가 필요로 하는 S2/S8 port:
-- `MapBoundaryQueryPort.findActive(incidentId)` — **L5가 소비**, L3 구현 필요
-- `OperationalPeriodQueryPort.findCurrentOp(incidentId)` — **L5가 소비**, L3 구현 필요
+L5가 소비하는 S2/S8 계약:
 
-### 7.3 Mock 사용 예시
+- `SearchAreaQuery.overallOf(incidentId)`
+- `OperationalPeriodQuery.findCurrentOp(incidentId)`
 
-L2/L3 실구현 전까지 L5는 mock으로 대체:
+### 8.3 Mock 사용 예시
 
 ```java
-// MockMapBoundaryQuery — L5 테스트용
-public class MockMapBoundaryQuery implements MapBoundaryQueryPort {
-    private static final Geometry HARNESS_BOUNDARY = createPolygon(
+public class MockSearchAreaQuery implements SearchAreaQuery {
+    private static final Geometry HARNESS_OVERALL_SEARCH_AREA = createPolygon(
         new double[]{126.948000, 37.565000},
         new double[]{126.968000, 37.565000},
         new double[]{126.968000, 37.579000},
         new double[]{126.948000, 37.579000},
         new double[]{126.948000, 37.565000}
     );
-    
+
     @Override
-    public Optional<MapBoundary> findActive(UUID incidentId) {
-        return Optional.of(new MapBoundary(
-            UUID.fromString("mb-harness-001"),
+    public Optional<OverallSearchAreaResult> overallOf(String incidentId) {
+        return Optional.of(new OverallSearchAreaResult(
+            "osa-precinct-001-v1",
             incidentId,
-            HARNESS_BOUNDARY,
             "ACTIVE",
-            1L
+            1L,
+            HARNESS_OVERALL_SEARCH_AREA
         ));
     }
 }
 ```
 
 ```java
-// MockOperationalPeriodQuery — L5 테스트용
-public class MockOperationalPeriodQuery implements OperationalPeriodQueryPort {
+public class MockOperationalPeriodQuery implements OperationalPeriodQuery {
     @Override
-    public Optional<OperationalPeriodDto> findCurrentOp(UUID incidentId) {
+    public Optional<OperationalPeriodDto> findCurrentOp(String incidentId) {
         return Optional.of(new OperationalPeriodDto(
-            UUID.fromString("op-precinct-001-op1"),
+            "op-precinct-001-op1",
             incidentId,
             1,
             "ACTIVE",
-            "BOOTSTRAP",
-            null, null, "SYSTEM",
-            Instant.parse("2026-04-28T00:00:00Z"),
-            null, 1L,
-            Instant.parse("2026-04-28T00:00:00Z"),
-            Instant.parse("2026-04-28T00:00:00Z"),
-            null
+            "INITIAL",
+            null,
+            "SYSTEM",
+            Instant.parse("2026-04-28T09:00:00+09:00"),
+            null,
+            1L
         ));
     }
 }
