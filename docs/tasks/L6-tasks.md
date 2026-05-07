@@ -103,7 +103,7 @@
   - 예상 작업량: 1d
   - 완료 기준: source owner data를 변경하지 않고 police_phone freshness slot과 shared stale/loading/failure state가 표시된다.
 
-- [ ] L6-T08A 로컬 타일·스타일 API 구현
+- [x] L6-T08A 로컬 타일·스타일 API 구현
   - 담당 Spec: S7
   - 필수 참조: `spec/specs/S7.json`, `spec/harness-scenarios.md §6 mock tile catalog/server`, `adr.md ADR-0004`
   - 연관 Spec: S3-2
