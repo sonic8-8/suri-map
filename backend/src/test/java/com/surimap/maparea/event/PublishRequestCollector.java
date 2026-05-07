@@ -33,6 +33,18 @@ public class PublishRequestCollector implements SearchAreaEventPublisher {
   }
 
   /**
+   * 지정한 이벤트 타입으로 발행된 PublishRequest 목록을 반환한다.
+   *
+   * @param eventType 조회할 이벤트 타입
+   * @return eventType이 일치하는 발행 요청 목록
+   */
+  public List<SearchAreaEventPublisher.PublishRequest> publishedByType(String eventType) {
+    return collected.stream()
+        .filter(r -> eventType.equals(r.eventType()))
+        .collect(Collectors.toList());
+  }
+
+  /**
    * 발행 요청에 포함된 변경 테이블 목록을 반환한다.
    *
    * @return 발행된 mutatedTable 값 목록 (순서 보장)
