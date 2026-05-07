@@ -8,7 +8,7 @@ import java.util.stream.IntStream;
 final class GpsPathValidationFixtures {
 
     static final String NORMAL_PATH_ID = "path-precinct-mixed-001";
-    static final String NORMAL_DEVICE_ID = "dev-precinct-car-01";
+    static final String NORMAL_POLICE_PHONE_ID = "dev-precinct-car-01";
     static final String VEHICLE_SEGMENT_ID = "seg-precinct-vehicle-001";
     static final String FOOT_SEGMENT_ID = "seg-precinct-foot-001";
 
@@ -34,8 +34,8 @@ final class GpsPathValidationFixtures {
                     .mapToObj(index -> point(
                             "gps-over-limit-%03d".formatted(index),
                             "2026-04-28T09:%02d:%02d+09:00".formatted((index - 1) / 12, ((index - 1) % 12) * 5),
-                            "126.956000",
-                            "37.570000",
+                            "126.%06d".formatted(956000 + index - 1),
+                            "37.%06d".formatted(570000 + index - 1),
                             2.0,
                             5
                     ))
@@ -96,34 +96,65 @@ final class GpsPathValidationFixtures {
 
     static final QualityFailureFixture LOW_ACCURACY = new QualityFailureFixture(
             "gps-low-quality-accuracy-001",
-            point("gps-quality-accuracy-001", "2026-04-28T09:10:00+09:00", "126.956000", "37.570000", 3.0, 51),
+            QualityFailureReason.LOW_ACCURACY,
+            List.of(point("gps-quality-accuracy-001", "2026-04-28T09:10:00+09:00", "126.956000", "37.570000", 3.0, 51)),
+            OffsetDateTime.parse("2026-04-28T09:10:00+09:00"),
             "horizontalAccuracyM > 50",
             BigDecimal.valueOf(51),
-            BigDecimal.valueOf(GpsPathValidationCriteria.MAX_HORIZONTAL_ACCURACY_METERS)
+            BigDecimal.valueOf(GpsPathValidationCriteria.MAX_HORIZONTAL_ACCURACY_METERS),
+            ViolationDirection.ABOVE_MAX,
+            "excludedPoints"
     );
 
     static final QualityFailureFixture TIMESTAMP_SKEW = new QualityFailureFixture(
             "gps-low-quality-skew-001",
-            point("gps-quality-skew-001", "2026-04-28T09:10:35+09:00", "126.956100", "37.570100", 3.0, 5),
+            QualityFailureReason.CLOCK_SKEW,
+            List.of(point("gps-quality-skew-001", "2026-04-28T09:10:35+09:00", "126.956100", "37.570100", 3.0, 5)),
+            OffsetDateTime.parse("2026-04-28T09:10:00+09:00"),
             "timestampSkewSec > 30",
             BigDecimal.valueOf(35),
-            BigDecimal.valueOf(GpsPathValidationCriteria.MAX_TIMESTAMP_SKEW_SECONDS)
+            BigDecimal.valueOf(GpsPathValidationCriteria.MAX_TIMESTAMP_SKEW_SECONDS),
+            ViolationDirection.ABOVE_MAX,
+            "excludedPoints"
     );
 
-    static final QualityFailureFixture INVALID_SPEED = new QualityFailureFixture(
-            "gps-low-quality-speed-001",
-            point("gps-quality-speed-001", "2026-04-28T09:10:10+09:00", "126.956200", "37.570200", 46.0, 5),
-            "speedMps < 0 or > 45",
+    static final QualityFailureFixture NEGATIVE_SPEED = new QualityFailureFixture(
+            "gps-low-quality-speed-negative-001",
+            QualityFailureReason.INVALID_SPEED,
+            List.of(point("gps-quality-speed-negative-001", "2026-04-28T09:10:10+09:00", "126.956200", "37.570200", -1.0, 5)),
+            OffsetDateTime.parse("2026-04-28T09:10:10+09:00"),
+            "speedMps < 0",
+            BigDecimal.valueOf(-1.0),
+            BigDecimal.ZERO,
+            ViolationDirection.BELOW_MIN,
+            "excludedPoints"
+    );
+
+    static final QualityFailureFixture EXCESSIVE_SPEED = new QualityFailureFixture(
+            "gps-low-quality-speed-over-001",
+            QualityFailureReason.INVALID_SPEED,
+            List.of(point("gps-quality-speed-over-001", "2026-04-28T09:10:10+09:00", "126.956200", "37.570200", 46.0, 5)),
+            OffsetDateTime.parse("2026-04-28T09:10:10+09:00"),
+            "speedMps > 45",
             BigDecimal.valueOf(46),
-            BigDecimal.valueOf(GpsPathValidationCriteria.MAX_SPEED_METERS_PER_SECOND)
+            BigDecimal.valueOf(GpsPathValidationCriteria.MAX_SPEED_METERS_PER_SECOND),
+            ViolationDirection.ABOVE_MAX,
+            "excludedPoints"
     );
 
     static final QualityFailureFixture DISTANCE_JUMP = new QualityFailureFixture(
             "gps-low-quality-jump-001",
-            point("gps-quality-jump-001", "2026-04-28T09:10:15+09:00", "126.960500", "37.575500", 3.0, 5),
-            "distance > 200m within 5 seconds",
+            QualityFailureReason.DISTANCE_JUMP,
+            List.of(
+                    point("gps-quality-jump-prev-001", "2026-04-28T09:10:10+09:00", "126.956200", "37.570200", 3.0, 5),
+                    point("gps-quality-jump-001", "2026-04-28T09:10:15+09:00", "126.958810", "37.570200", 3.0, 5)
+            ),
+            OffsetDateTime.parse("2026-04-28T09:10:15+09:00"),
+            "distance > 200m between 5-second samples",
             BigDecimal.valueOf(230),
-            BigDecimal.valueOf(GpsPathValidationCriteria.MAX_DISTANCE_JUMP_METERS_PER_FIVE_SECONDS)
+            BigDecimal.valueOf(GpsPathValidationCriteria.MAX_DISTANCE_JUMP_METERS_PER_FIVE_SECONDS),
+            ViolationDirection.ABOVE_MAX,
+            "excludedPoints"
     );
 
     static final List<StructuralFailureFixture> STRUCTURAL_FAILURE_FIXTURES = List.of(
@@ -138,7 +169,8 @@ final class GpsPathValidationFixtures {
     static final List<QualityFailureFixture> QUALITY_FAILURE_FIXTURES = List.of(
             LOW_ACCURACY,
             TIMESTAMP_SKEW,
-            INVALID_SPEED,
+            NEGATIVE_SPEED,
+            EXCESSIVE_SPEED,
             DISTANCE_JUMP
     );
 
@@ -197,10 +229,35 @@ final class GpsPathValidationFixtures {
 
     record QualityFailureFixture(
             String name,
-            GpsPointFixture point,
+            QualityFailureReason expectedReason,
+            List<GpsPointFixture> points,
+            OffsetDateTime serverReceivedAt,
             String rule,
             BigDecimal measuredValue,
-            BigDecimal threshold
+            BigDecimal threshold,
+            ViolationDirection violationDirection,
+            String expectedDisposition
     ) {
+        QualityFailureFixture {
+            if (points.isEmpty()) {
+                throw new IllegalArgumentException("points must not be empty");
+            }
+        }
+
+        GpsPointFixture point() {
+            return points.get(points.size() - 1);
+        }
+    }
+
+    enum ViolationDirection {
+        BELOW_MIN,
+        ABOVE_MAX
+    }
+
+    enum QualityFailureReason {
+        LOW_ACCURACY,
+        CLOCK_SKEW,
+        INVALID_SPEED,
+        DISTANCE_JUMP
     }
 }
