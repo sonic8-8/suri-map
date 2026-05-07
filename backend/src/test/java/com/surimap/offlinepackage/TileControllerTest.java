@@ -30,7 +30,6 @@ import com.surimap.offlinepackage.service.TileService;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -56,9 +55,8 @@ class TileControllerTest {
   private static final MediaType APPLICATION_X_PROTOBUF =
       MediaType.valueOf("application/x-protobuf");
   private static final byte[] LOCAL_TILE_BYTES = repeatedBytes(0xaa, 18_432);
-  private static final UUID ACCOUNT_ID = UUID.fromString("00000000-0000-0000-0000-000000000701");
-  private static final UUID POLICE_PHONE_ID =
-      UUID.fromString("00000000-0000-0000-0000-000000000702");
+  private static final String ACCOUNT_ID = "acct-precinct-team";
+  private static final String POLICE_PHONE_ID = "dev-precinct-phone-01";
 
   @Autowired private MockMvc mockMvc;
 
@@ -220,7 +218,7 @@ class TileControllerTest {
         : OrganizationType.MISSING_TEAM;
   }
 
-  private static UUID policePhoneId(Channel channel) {
+  private static String policePhoneId(Channel channel) {
     return channel == Channel.APP ? POLICE_PHONE_ID : null;
   }
 
