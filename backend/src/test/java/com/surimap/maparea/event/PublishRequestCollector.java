@@ -1,6 +1,8 @@
 package com.surimap.maparea.event;
 
+import com.surimap.maparea.event.SearchAreaEventPublisher.StateTransitionPublishRequest;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -15,10 +17,26 @@ import java.util.stream.Collectors;
 public class PublishRequestCollector implements SearchAreaEventPublisher {
 
   private final List<SearchAreaEventPublisher.PublishRequest> collected = new ArrayList<>();
+  private final List<StateTransitionPublishRequest> stateTransitions = new ArrayList<>();
 
   @Override
   public void publish(SearchAreaEventPublisher.PublishRequest request) {
     collected.add(request);
+  }
+
+  @Override
+  public void publish(StateTransitionPublishRequest request) {
+    stateTransitions.add(request);
+    SearchAreaEventPublisher.super.publish(request);
+  }
+
+  /**
+   * 상태 전이 이벤트 발행 요청 목록을 반환한다.
+   *
+   * @return 상태 전이 발행 요청 목록
+   */
+  public List<StateTransitionPublishRequest> collected() {
+    return Collections.unmodifiableList(stateTransitions);
   }
 
   /**
@@ -87,6 +105,7 @@ public class PublishRequestCollector implements SearchAreaEventPublisher {
   /** 수집된 데이터를 초기화한다. */
   public void clear() {
     collected.clear();
+    stateTransitions.clear();
   }
 
   /**

@@ -25,6 +25,8 @@ public final class OperationalPeriodFixtures {
   public static final String CURRENT_OP_ALIAS = "op-precinct-001-op1";
 
   public static final UUID CURRENT_OP_ID = UUID.fromString("88888888-8888-8888-8888-888888880001");
+  public static final String OP1_ALIAS = CURRENT_OP_ALIAS;
+  public static final UUID OP1_ID = CURRENT_OP_ID;
   public static final String CURRENT_OP_STATUS = "ACTIVE";
   public static final int CURRENT_OP_SEQUENCE_NO = 1;
   public static final Instant CURRENT_OP_STARTED_AT = Instant.parse("2026-04-28T00:00:00Z");

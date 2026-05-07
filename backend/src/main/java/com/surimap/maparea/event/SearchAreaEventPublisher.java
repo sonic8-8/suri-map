@@ -1,5 +1,7 @@
 package com.surimap.maparea.event;
 
+import java.util.UUID;
+
 /**
  * S2 수색 구역 이벤트 발행 포트.
  *
@@ -21,6 +23,15 @@ public interface SearchAreaEventPublisher {
   void publish(PublishRequest request);
 
   /**
+   * 상태 전이 이벤트를 generic PublishRequest로 발행한다.
+   *
+   * @param request 상태 전이 발행 요청
+   */
+  default void publish(StateTransitionPublishRequest request) {
+    publish(new PublishRequest(request.type(), "search_area", request));
+  }
+
+  /**
    * S2 이벤트 발행 요청.
    *
    * @param eventType 이벤트 타입 (예: SEARCH_AREA_CHANGED)
@@ -28,4 +39,26 @@ public interface SearchAreaEventPublisher {
    * @param payload 이벤트 payload
    */
   record PublishRequest(String eventType, String mutatedTable, Object payload) {}
+
+  /**
+   * S2 상태 전이 이벤트 발행 요청.
+   *
+   * @param type 이벤트 타입
+   * @param id 수색 구역 ID
+   * @param incidentId 사건 ID
+   * @param opId OP ID
+   * @param status 현재 상태
+   * @param version 변경 후 버전
+   * @param previousState 이전 상태
+   * @param nextState 다음 상태
+   */
+  record StateTransitionPublishRequest(
+      String type,
+      UUID id,
+      UUID incidentId,
+      UUID opId,
+      String status,
+      long version,
+      String previousState,
+      String nextState) {}
 }
