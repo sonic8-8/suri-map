@@ -2,7 +2,6 @@ package com.surimap.support.auth;
 
 import com.surimap.common.auth.SuriMapAuthentication;
 import java.util.Arrays;
-import java.util.UUID;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -17,12 +16,11 @@ public class WithMockAccountFactory implements WithSecurityContextFactory<WithMo
             .map(role -> new SimpleGrantedAuthority(role.name()))
             .toList();
 
-    UUID policePhoneId =
-        annotation.policePhoneId().isBlank() ? null : UUID.fromString(annotation.policePhoneId());
+    String policePhoneId = annotation.policePhoneId().isBlank() ? null : annotation.policePhoneId();
 
     var auth =
         new SuriMapAuthentication(
-            UUID.fromString(annotation.accountId()),
+            annotation.accountId(),
             annotation.accountType(),
             annotation.organizationType(),
             annotation.channel(),

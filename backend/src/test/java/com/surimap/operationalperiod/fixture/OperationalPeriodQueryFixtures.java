@@ -9,6 +9,6 @@ public final class OperationalPeriodQueryFixtures {
 
   /** current(incidentId) / list(incidentId) mock 결과 — OP1 ACTIVE row. */
   public static OperationalPeriodRow currentOp1() {
-    return OperationalPeriodFixtures.currentOp1();
+    return OperationalPeriodFixtures.currentOpListRow();
   }
 }

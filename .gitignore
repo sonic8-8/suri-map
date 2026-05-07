@@ -91,3 +91,6 @@ __pycache__/
 .nyc_output/
 .scannerwork/
 .sonar/
+
+# Personal planning notes
+TODO.md

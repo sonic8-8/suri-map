@@ -1,5 +1,6 @@
 package com.surimap.marker.photo.service;
 
+import com.surimap.marker.photo.ObjectKeyGenerator;
 import com.surimap.marker.photo.domain.MarkerPhoto;
 import com.surimap.marker.photo.domain.PhotoMarkerContext;
 import com.surimap.marker.photo.domain.PhotoStatus;
@@ -43,6 +44,7 @@ public class PhotoService {
   private final PhotoWriteGuardPort photoWriteGuardPort;
   private final PhotoEventPublisher photoEventPublisher;
   private final Clock clock;
+  private final ObjectKeyGenerator objectKeyGenerator = new ObjectKeyGenerator();
 
   @Autowired
   public PhotoService(
@@ -77,9 +79,18 @@ public class PhotoService {
 
     UUID photoId = UUID.randomUUID();
     Instant expiresAt = clock.instant().plus(UPLOAD_URL_TTL);
-    String objectKey = objectKey(markerContext.incidentId(), markerId, photoId);
+    String objectKey =
+        objectKeyGenerator.generate(
+            markerContext.incidentId(), markerId, photoId, request.contentType());
     String uploadUrl =
-        storagePort.generateUploadUrl(objectKey, request.contentType(), request.sizeBytes());
+        storagePort
+            .generatePresignedUrl(
+                objectKey,
+                request.contentType(),
+                request.sizeBytes(),
+                request.checksumSha256(),
+                UPLOAD_URL_TTL)
+            .uploadUrl();
     MarkerPhoto photo =
         new MarkerPhoto(
             photoId,
@@ -107,8 +118,8 @@ public class PhotoService {
         photoRepository.findById(photoId).orElseThrow(() -> conflict("write_conflict"));
     requireAttachableMarker(markerId, photo);
     requireOpenUploadUrl(photo);
-    requireMatchingMetadata(photo, request);
-    requireUploadedObject(photo);
+    ObjectStoragePort.ObjectMetadata objectMetadata = requireUploadedObject(photo);
+    requireMatchingMetadata(photo, request, objectMetadata);
 
     photo.attach(clock.instant(), request.width(), request.height());
     photoRepository.save(photo);
@@ -166,27 +177,41 @@ public class PhotoService {
     }
   }
 
-  private void requireMatchingMetadata(MarkerPhoto photo, PhotoAttachRequest request) {
-    boolean checksumMatches =
-        photo.checksumSha256() == null
-            || Objects.equals(photo.checksumSha256(), request.checksumSha256());
+  private void requireMatchingMetadata(
+      MarkerPhoto photo,
+      PhotoAttachRequest request,
+      ObjectStoragePort.ObjectMetadata objectMetadata) {
     if (photo.sizeBytes() != request.sizeBytes()
         || !photo.contentType().equals(request.contentType())
-        || !checksumMatches) {
+        || !checksumMatches(
+            photo.checksumSha256(), request.checksumSha256(), objectMetadata.checksumSha256())
+        || !metadataMatches(photo, objectMetadata)) {
       photo.fail();
       photoRepository.save(photo);
       throw conflict("write_conflict");
     }
   }
 
-  private void requireUploadedObject(MarkerPhoto photo) {
-    if (!storagePort.exists(photo.objectKey())) {
-      throw conflict("write_conflict");
-    }
+  private boolean metadataMatches(
+      MarkerPhoto photo, ObjectStoragePort.ObjectMetadata objectMetadata) {
+    return photo.objectKey().equals(objectMetadata.objectKey())
+        && photo.contentType().equals(objectMetadata.contentType())
+        && photo.sizeBytes() == objectMetadata.sizeBytes();
   }
 
-  private String objectKey(UUID incidentId, UUID markerId, UUID photoId) {
-    return incidentId + "/" + markerId + "/" + photoId;
+  private boolean checksumMatches(String expected, String requested, String uploaded) {
+    if (expected != null
+        && (!Objects.equals(expected, requested) || !Objects.equals(expected, uploaded))) {
+      return false;
+    }
+    if (requested != null || uploaded != null) {
+      return Objects.equals(requested, uploaded);
+    }
+    return true;
+  }
+
+  private ObjectStoragePort.ObjectMetadata requireUploadedObject(MarkerPhoto photo) {
+    return storagePort.headObject(photo.objectKey()).orElseThrow(() -> conflict("write_conflict"));
   }
 
   private PublishRequest publishRequest(

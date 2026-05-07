@@ -52,6 +52,7 @@ pipeline {
     environment {
         FRONTEND_IMAGE = 'suri-map-frontend:develop'
         BACKEND_IMAGE = 'suri-map-backend:develop'
+        BACKEND_TEST_ARTIFACT_DIR = 'ci-artifacts/backend-test'
         COMPOSE_FILE = 'infra/docker/docker-compose.runtime.yml'
         ENV_FILE = '.env.runtime'
         FRONTEND_HOST_PORT = '3000'
@@ -75,6 +76,46 @@ pipeline {
                 sh 'git branch --show-current || true'
                 sh 'git rev-parse --short HEAD || true'
                 sh 'git log -1 --pretty=%s || true'
+            }
+        }
+
+        stage('Backend Test CI') {
+            steps {
+                script {
+                    env.FAILED_STAGE = 'Backend Test CI'
+                }
+
+                sh '''
+                    rm -rf "${BACKEND_TEST_ARTIFACT_DIR}"
+                    mkdir -p \
+                      "${BACKEND_TEST_ARTIFACT_DIR}/coverage" \
+                      "${BACKEND_TEST_ARTIFACT_DIR}/sonar"
+
+                    cat > "${BACKEND_TEST_ARTIFACT_DIR}/coverage/README.txt" <<'EOF'
+Coverage gate placeholder for L2-B04.
+Real coverage report wiring is tracked by the L2 release quality gate tasks.
+EOF
+
+                    cat > "${BACKEND_TEST_ARTIFACT_DIR}/sonar/README.txt" <<'EOF'
+SonarQube gate placeholder for L2-B04.
+Real SonarQube quality gate wiring is tracked by the L2 release quality gate tasks.
+EOF
+                '''
+
+                dir('backend') {
+                    sh './gradlew test'
+                }
+            }
+
+            post {
+                always {
+                    junit allowEmptyResults: true, testResults: 'backend/build/test-results/test/**/*.xml'
+                    archiveArtifacts(
+                        allowEmptyArchive: true,
+                        artifacts: 'ci-artifacts/backend-test/**,backend/build/reports/tests/test/**,backend/build/test-results/test/**/*.xml',
+                        fingerprint: true
+                    )
+                }
             }
         }
 
@@ -198,6 +239,7 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=${env.SPRING_JPA_HIBERNATE_DDL_AUTO}
 
         always {
             sh 'rm -f ${ENV_FILE} .github-dispatch-payload.json'
+            sh 'rm -rf ci-artifacts'
         }
     }
 }

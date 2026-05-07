@@ -11,6 +11,7 @@ import com.surimap.marker.photo.dto.PhotoAttachResult;
 import com.surimap.marker.photo.dto.PhotoUploadUrlRequest;
 import com.surimap.marker.photo.dto.PhotoUploadUrlResponse;
 import com.surimap.marker.photo.exception.PhotoApiException;
+import com.surimap.marker.photo.port.ObjectStoragePort;
 import com.surimap.marker.photo.port.PhotoEventPublisher;
 import com.surimap.marker.photo.port.PhotoWriteGuardPort;
 import com.surimap.marker.photo.security.SuriMapAuthentication;
@@ -25,6 +26,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -83,21 +86,17 @@ class PhotoServiceTest {
           photoService.createUploadUrl(MARKER_ID, request, requestContext);
 
       assertThat(response.photoId()).isNotNull();
-      assertThat(response.uploadUrl())
-          .isEqualTo(
-              "http://127.0.0.1:18080/mock-upload/"
-                  + INCIDENT_ID
-                  + "/"
-                  + MARKER_ID
-                  + "/"
-                  + response.photoId());
       assertThat(response.expiresAt()).isEqualTo(NOW.plus(Duration.ofMinutes(15)));
       assertThat(response.maxSizeBytes()).isEqualTo(10_485_760L);
       assertThat(response.version()).isEqualTo(1L);
+      String expectedObjectKey =
+          "markers/" + INCIDENT_ID + "/" + MARKER_ID + "/" + response.photoId() + ".jpg";
       assertThat(repository.findById(response.photoId()))
           .get()
           .extracting("objectKey")
-          .isEqualTo(INCIDENT_ID + "/" + MARKER_ID + "/" + response.photoId());
+          .isEqualTo(expectedObjectKey);
+      assertThat(response.uploadUrl())
+          .isEqualTo("http://127.0.0.1:18080/mock-upload/" + expectedObjectKey);
     }
 
     @Test
@@ -253,7 +252,7 @@ class PhotoServiceTest {
               MARKER_ID,
               new PhotoUploadUrlRequest("image/jpeg", 1_048_576L, "sha256:fixture"),
               requestContext);
-      storage.simulateUpload(INCIDENT_ID + "/" + MARKER_ID + "/" + upload.photoId());
+      storage.simulateUpload(pendingObjectKey(upload.photoId()));
 
       PhotoAttachResult result =
           photoService.attach(
@@ -308,7 +307,7 @@ class PhotoServiceTest {
       guard.allow(
           new PhotoMarkerContext(
               INCIDENT_ID, OTHER_MARKER_ID, OP_ID, POLICE_PHONE_ID, "UPDATED", 1L));
-      storage.simulateUpload(INCIDENT_ID + "/" + MARKER_ID + "/" + upload.photoId());
+      storage.simulateUpload(pendingObjectKey(upload.photoId()));
 
       assertThatThrownBy(
               () ->
@@ -329,7 +328,7 @@ class PhotoServiceTest {
       var upload =
           photoService.createUploadUrl(
               MARKER_ID, new PhotoUploadUrlRequest("image/jpeg", 1_048_576L, null), requestContext);
-      storage.simulateUpload(INCIDENT_ID + "/" + MARKER_ID + "/" + upload.photoId());
+      storage.simulateUpload(pendingObjectKey(upload.photoId()));
       guard.fail(MARKER_ID, "incident_closed", HttpStatus.CONFLICT);
 
       assertThatThrownBy(
@@ -351,7 +350,7 @@ class PhotoServiceTest {
       var upload =
           photoService.createUploadUrl(
               MARKER_ID, new PhotoUploadUrlRequest("image/jpeg", 1_048_576L, null), requestContext);
-      storage.simulateUpload(INCIDENT_ID + "/" + MARKER_ID + "/" + upload.photoId());
+      storage.simulateUpload(pendingObjectKey(upload.photoId()));
       guard.useCurrentOp(null);
 
       assertThatThrownBy(
@@ -377,7 +376,7 @@ class PhotoServiceTest {
       var upload =
           photoService.createUploadUrl(
               MARKER_ID, new PhotoUploadUrlRequest("image/jpeg", 1_048_576L, null), requestContext);
-      storage.simulateUpload(INCIDENT_ID + "/" + MARKER_ID + "/" + upload.photoId());
+      storage.simulateUpload(pendingObjectKey(upload.photoId()));
       photoService.attach(
           MARKER_ID,
           upload.photoId(),
@@ -395,6 +394,12 @@ class PhotoServiceTest {
           .extracting("error")
           .isEqualTo("write_conflict");
       assertThat(eventPublisher.published()).hasSize(1);
+      assertThat(repository.countByMarkerIdAndStatusIn(MARKER_ID, Set.of(PhotoStatus.ATTACHED)))
+          .isEqualTo(1);
+      assertThat(repository.findById(upload.photoId()))
+          .get()
+          .extracting("objectKey")
+          .isEqualTo("markers/" + INCIDENT_ID + "/" + MARKER_ID + "/" + upload.photoId() + ".jpg");
     }
 
     @Test
@@ -403,7 +408,7 @@ class PhotoServiceTest {
       var upload =
           photoService.createUploadUrl(
               MARKER_ID, new PhotoUploadUrlRequest("image/jpeg", 1_048_576L, null), requestContext);
-      storage.simulateUpload(INCIDENT_ID + "/" + MARKER_ID + "/" + upload.photoId());
+      storage.simulateUpload(pendingObjectKey(upload.photoId()));
       clock.advance(Duration.ofMinutes(16));
 
       assertThatThrownBy(
@@ -432,7 +437,7 @@ class PhotoServiceTest {
               MARKER_ID,
               new PhotoUploadUrlRequest("image/jpeg", 1_048_576L, "sha256:expected"),
               requestContext);
-      storage.simulateUpload(INCIDENT_ID + "/" + MARKER_ID + "/" + upload.photoId());
+      storage.simulateUpload(pendingObjectKey(upload.photoId()));
 
       assertThatThrownBy(
               () ->
@@ -478,7 +483,7 @@ class PhotoServiceTest {
       var upload =
           photoService.createUploadUrl(
               MARKER_ID, new PhotoUploadUrlRequest("image/jpeg", 1_048_576L, null), requestContext);
-      storage.simulateUpload(INCIDENT_ID + "/" + MARKER_ID + "/" + upload.photoId());
+      storage.simulateUpload(pendingObjectKey(upload.photoId()));
 
       assertThatThrownBy(
               () ->
@@ -492,6 +497,118 @@ class PhotoServiceTest {
           .isEqualTo("photo_limit_exceeded");
       assertThat(eventPublisher.published()).isEmpty();
     }
+
+    @Test
+    @DisplayName("object storage metadata가 photo row와 다르면 attach는 실패하고 event를 발행하지 않는다")
+    void objectStorageMetadataMismatchRejectedWithoutPublish() {
+      var metadataAwareStorage = new MetadataAwareObjectStorage();
+      var service =
+          new PhotoService(metadataAwareStorage, repository, guard, eventPublisher, clock);
+      var upload =
+          service.createUploadUrl(
+              MARKER_ID,
+              new PhotoUploadUrlRequest("image/jpeg", 1_048_576L, "sha256:expected"),
+              requestContext);
+      String objectKey = pendingObjectKey(upload.photoId());
+      metadataAwareStorage.simulateUpload(objectKey, "image/png", 10_485_760L, "sha256:different");
+
+      assertThatThrownBy(
+              () ->
+                  service.attach(
+                      MARKER_ID,
+                      upload.photoId(),
+                      new PhotoAttachRequest(
+                          1_048_576L, "image/jpeg", null, null, "sha256:expected"),
+                      requestContext))
+          .isInstanceOf(PhotoApiException.class)
+          .extracting("error")
+          .isEqualTo("write_conflict");
+
+      assertThat(repository.findById(upload.photoId()))
+          .get()
+          .extracting("status")
+          .isEqualTo(PhotoStatus.FAILED);
+      assertThat(repository.countByMarkerIdAndStatusIn(MARKER_ID, Set.of(PhotoStatus.ATTACHED)))
+          .isZero();
+      assertThat(eventPublisher.published()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("row checksum이 없어도 attach 요청과 object checksum이 다르면 실패한다")
+    void requestAndObjectChecksumMismatchRejectedWhenRowChecksumIsNull() {
+      var metadataAwareStorage = new MetadataAwareObjectStorage();
+      var service =
+          new PhotoService(metadataAwareStorage, repository, guard, eventPublisher, clock);
+      var upload =
+          service.createUploadUrl(
+              MARKER_ID, new PhotoUploadUrlRequest("image/jpeg", 1_048_576L, null), requestContext);
+      String objectKey = pendingObjectKey(upload.photoId());
+      metadataAwareStorage.simulateUpload(objectKey, "image/jpeg", 1_048_576L, "sha256:uploaded");
+
+      assertThatThrownBy(
+              () ->
+                  service.attach(
+                      MARKER_ID,
+                      upload.photoId(),
+                      new PhotoAttachRequest(1_048_576L, "image/jpeg", null, null, "sha256:client"),
+                      requestContext))
+          .isInstanceOf(PhotoApiException.class)
+          .extracting("error")
+          .isEqualTo("write_conflict");
+
+      assertThat(repository.findById(upload.photoId()))
+          .get()
+          .extracting("status")
+          .isEqualTo(PhotoStatus.FAILED);
+      assertThat(eventPublisher.published()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("offline retry는 missing object 후 같은 pending row/objectKey로 1회만 attach한다")
+    void offlineRetryAfterMissingObjectReusesPendingObjectKeyAndAttachesOnce() {
+      var upload =
+          photoService.createUploadUrl(
+              MARKER_ID,
+              new PhotoUploadUrlRequest("image/jpeg", 1_048_576L, "sha256:fixture"),
+              requestContext);
+      String objectKeyBeforeRetry = pendingObjectKey(upload.photoId());
+
+      assertThatThrownBy(
+              () ->
+                  photoService.attach(
+                      MARKER_ID,
+                      upload.photoId(),
+                      new PhotoAttachRequest(
+                          1_048_576L, "image/jpeg", null, null, "sha256:fixture"),
+                      requestContext))
+          .isInstanceOf(PhotoApiException.class)
+          .extracting("error")
+          .isEqualTo("write_conflict");
+      assertThat(repository.findById(upload.photoId()))
+          .get()
+          .extracting("status", "objectKey")
+          .containsExactly(PhotoStatus.PENDING_UPLOAD, objectKeyBeforeRetry);
+      assertThat(eventPublisher.published()).isEmpty();
+
+      storage.simulateUpload(objectKeyBeforeRetry);
+      photoService.attach(
+          MARKER_ID,
+          upload.photoId(),
+          new PhotoAttachRequest(1_048_576L, "image/jpeg", null, null, "sha256:fixture"),
+          requestContext);
+
+      assertThat(repository.findById(upload.photoId()))
+          .get()
+          .extracting("status", "objectKey")
+          .containsExactly(PhotoStatus.ATTACHED, objectKeyBeforeRetry);
+      assertThat(repository.countByMarkerIdAndStatusIn(MARKER_ID, Set.of(PhotoStatus.ATTACHED)))
+          .isEqualTo(1);
+      assertThat(eventPublisher.published()).hasSize(1);
+    }
+  }
+
+  private String pendingObjectKey(UUID photoId) {
+    return repository.findById(photoId).orElseThrow().objectKey();
   }
 
   private static final class FakePhotoWriteGuard implements PhotoWriteGuardPort {
@@ -553,6 +670,47 @@ class PhotoServiceTest {
 
     List<com.surimap.marker.photo.dto.PublishRequest> published() {
       return published;
+    }
+  }
+
+  private static final class MetadataAwareObjectStorage implements ObjectStoragePort {
+
+    private static final String MOCK_BASE_URL = "http://127.0.0.1:18080/mock-upload/";
+
+    private final Map<String, ObjectMetadata> uploaded = new HashMap<>();
+
+    @Override
+    public PresignedUploadResult generatePresignedUrl(
+        String objectKey, String contentType, long sizeBytes, String checksumSha256, Duration ttl) {
+      return new PresignedUploadResult(
+          MOCK_BASE_URL + objectKey,
+          objectKey,
+          "mock://object-storage/suri-map-harness",
+          Instant.now().plus(ttl),
+          sizeBytes,
+          contentType,
+          checksumSha256);
+    }
+
+    @Override
+    public String generateUploadUrl(String objectKey, String contentType, long sizeBytes) {
+      return MOCK_BASE_URL + objectKey;
+    }
+
+    @Override
+    public Optional<ObjectMetadata> headObject(String objectKey) {
+      return Optional.ofNullable(uploaded.get(objectKey));
+    }
+
+    @Override
+    public void deleteObject(String objectKey) {
+      uploaded.remove(objectKey);
+    }
+
+    void simulateUpload(
+        String objectKey, String contentType, long sizeBytes, String checksumSha256) {
+      uploaded.put(
+          objectKey, new ObjectMetadata(objectKey, contentType, sizeBytes, checksumSha256));
     }
   }
 

@@ -19,11 +19,13 @@ public class MockObjectStorageAdapter implements ObjectStoragePort {
   private static final String MOCK_BASE_URL = "http://127.0.0.1:18080/mock-upload/";
   private static final String MOCK_STORAGE_URI = "mock://object-storage/suri-map-harness";
 
-  private final Map<String, Boolean> uploaded = new ConcurrentHashMap<>();
+  private final Map<String, ObjectMetadata> issued = new ConcurrentHashMap<>();
+  private final Map<String, ObjectMetadata> uploaded = new ConcurrentHashMap<>();
 
   @Override
   public PresignedUploadResult generatePresignedUrl(
       String objectKey, String contentType, long sizeBytes, String checksumSha256, Duration ttl) {
+    issued.put(objectKey, new ObjectMetadata(objectKey, contentType, sizeBytes, checksumSha256));
     return new PresignedUploadResult(
         generateUploadUrl(objectKey, contentType, sizeBytes),
         objectKey,
@@ -41,15 +43,12 @@ public class MockObjectStorageAdapter implements ObjectStoragePort {
 
   @Override
   public boolean exists(String objectKey) {
-    return uploaded.getOrDefault(objectKey, false);
+    return uploaded.containsKey(objectKey);
   }
 
   @Override
   public Optional<ObjectMetadata> headObject(String objectKey) {
-    if (!exists(objectKey)) {
-      return Optional.empty();
-    }
-    return Optional.of(new ObjectMetadata(objectKey, "application/octet-stream", 0L, null));
+    return Optional.ofNullable(uploaded.get(objectKey));
   }
 
   @Override
@@ -63,10 +62,14 @@ public class MockObjectStorageAdapter implements ObjectStoragePort {
   }
 
   public void simulateUpload(String objectKey) {
-    uploaded.put(objectKey, true);
+    ObjectMetadata metadata =
+        issued.getOrDefault(
+            objectKey, new ObjectMetadata(objectKey, "application/octet-stream", 0L, null));
+    uploaded.put(objectKey, metadata);
   }
 
   public void clear() {
+    issued.clear();
     uploaded.clear();
   }
 }
