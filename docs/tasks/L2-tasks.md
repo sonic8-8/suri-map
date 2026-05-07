@@ -23,9 +23,9 @@
   - 필수 참조: `architecture.md §2`, `architecture.md §5`, `architecture.md §6.1`, `adr.md ADR-0001`, `adr.md ADR-0013`, `adr.md ADR-0033`, `adr.md ADR-0035`
   - 연관 Lane: All backend-consuming lanes
   - 시나리오: SC-01 through SC-12
-  - 구현 산출물: Spring Boot base, Gradle Kotlin DSL build scripts, PostgreSQL migration runner, MyBatis configuration, mapper scan/package convention, base test profile, 빈 domain module wiring
+  - 구현 산출물: Spring Boot base, Gradle Groovy DSL build scripts, PostgreSQL migration runner, MyBatis configuration, mapper scan/package convention, base test profile, 빈 domain module wiring
   - 예상 작업량: 1d
-  - 완료 기준: domain behavior를 만들지 않은 상태에서 Spring Boot app, Gradle Kotlin DSL build, PostgreSQL migration runner, MyBatis mapper scan이 test profile로 기동된다.
+  - 완료 기준: domain behavior를 만들지 않은 상태에서 Spring Boot app, Gradle Groovy DSL build, PostgreSQL migration runner, MyBatis mapper scan이 test profile로 기동된다.
 
 - [ ] L2-B02 인증 필터 테스트 기반 준비
   - 담당 Spec: S1-2

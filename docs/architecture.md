@@ -276,7 +276,7 @@ Android toolchain은 Kotlin + Gradle Kotlin DSL + AGP 8.13.x, minSdk 31, targetS
 
 - `REST API (JSON)` — 단말·웹 공통 진입. Spring MVC 기반
 - `SSE` — 서버 → 웹 상황판 단방향 스트림. Spring MVC `SseEmitter` 기반
-- Backend/Android Gradle build script는 Kotlin DSL(`build.gradle.kts`, `settings.gradle.kts`)로 통일 (ADR-0035)
+- Backend Gradle build script는 Groovy DSL(`build.gradle`, `settings.gradle`)로, Android Gradle build script는 Kotlin DSL(`build.gradle.kts`, `settings.gradle.kts`)로 유지 (ADR-0035)
 - **WebSocket은 MVP 범위 외** (SSE로 충분)
 
 ### 5.3 모듈 경계 원칙
