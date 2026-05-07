@@ -11,13 +11,16 @@ import com.surimap.domain.path.port.PolicePhoneGuard;
 import com.surimap.domain.path.port.SearchPathEventPublisher;
 import com.surimap.operationalperiod.query.OperationalPeriodQuery;
 import com.surimap.operationalperiod.query.OperationalPeriodRow;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class AppSearchPathCommandService {
 
   private final OperationalPeriodQuery opQuery;
   private final PolicePhoneGuard policePhoneGuard;
   private final SearchPathEventPublisher eventPublisher;
+  private final Map<UUID, SearchPath> activePaths = new ConcurrentHashMap<>();
 
   public AppSearchPathCommandService(
       OperationalPeriodQuery opQuery,
@@ -57,11 +60,28 @@ public class AppSearchPathCommandService {
             path.policePhoneId(),
             path.status(),
             path.version()));
+    activePaths.put(path.id(), path);
 
     return path;
   }
 
+  public SearchPath end(
+      UUID searchPathId, UUID policePhoneId, EndSearchPathServiceRequest request) {
+    SearchPath current = activePaths.get(searchPathId);
+    if (current == null) {
+      throw new SearchPathGuardException("write_conflict");
+    }
+    if (!current.policePhoneId().equals(policePhoneId)) {
+      throw new SearchPathGuardException("police_phone_not_assigned");
+    }
+    policePhoneGuard.requireAssigned(policePhoneId, current.opId());
+    return end(current, request);
+  }
+
   public SearchPath end(SearchPath current, EndSearchPathServiceRequest request) {
+    if (current.status() == SearchPathStatus.ENDED) {
+      throw new SearchPathGuardException("write_conflict");
+    }
     SearchPath ended =
         new SearchPath(
             current.id(),
@@ -81,6 +101,7 @@ public class AppSearchPathCommandService {
             ended.policePhoneId(),
             ended.status(),
             ended.version()));
+    activePaths.put(ended.id(), ended);
 
     return ended;
   }
