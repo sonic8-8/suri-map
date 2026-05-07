@@ -1,63 +1,137 @@
 package com.surimap.maparea.event;
 
+import com.surimap.maparea.event.SearchAreaEventPublisher.StateTransitionPublishRequest;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
- * S4 EventHub.publish in-memory stub.
+ * SearchAreaEventPublisher 테스트 더블.
  *
- * <p>S2.json §dependencies S4 stub_strategy: "in-memory PublishRequest collector with payload
- * schema checks".
+ * <p>실제 EventHub.publish 없이 발행된 이벤트를 메모리에 수집해 테스트에서 검증한다.
  *
- * <p>publish 호출 시 event type과 mutated table 목록, payload field name을 기록한다. RED 테스트는 이 기록을 검증한다.
+ * <p>기준 문서: docs/spec/specs/S2.json events_published.
  */
-public final class PublishRequestCollector implements SearchAreaEventPublisher {
+public class PublishRequestCollector implements SearchAreaEventPublisher {
 
-  private final List<String> publishedTypes = new ArrayList<>();
-  private final Set<String> mutatedTables = new HashSet<>();
-  private final Set<String> publishedPayloadFieldNames = new HashSet<>();
+  private final List<SearchAreaEventPublisher.PublishRequest> collected = new ArrayList<>();
+  private final List<StateTransitionPublishRequest> stateTransitions = new ArrayList<>();
+  private final Set<String> recordedMutatedTables = new LinkedHashSet<>();
 
-  /**
-   * SEARCH_AREA_CHANGED 또는 SEARCH_AREA_ASSIGNMENT_CHANGED publish 요청을 기록한다.
-   *
-   * @param eventType 이벤트 타입 문자열 (예: "SEARCH_AREA_CHANGED")
-   * @param payloadFieldNames 이벤트 payload에 포함된 field name 목록
-   */
-  public void publish(String eventType, Set<String> payloadFieldNames) {
-    publishedTypes.add(eventType);
-    publishedPayloadFieldNames.addAll(payloadFieldNames);
+  @Override
+  public void publish(SearchAreaEventPublisher.PublishRequest request) {
+    collected.add(request);
+    if (request.mutatedTable() != null) {
+      recordedMutatedTables.add(request.mutatedTable());
+    }
   }
 
-  /**
-   * domain write 시 영향 받은 테이블 이름을 기록한다.
-   *
-   * @param tableName 영향 받은 테이블 이름
-   */
+  @Override
+  public void publish(StateTransitionPublishRequest request) {
+    stateTransitions.add(request);
+    SearchAreaEventPublisher.super.publish(request);
+  }
+
+  @Override
   public void recordMutatedTable(String tableName) {
-    mutatedTables.add(tableName);
+    recordedMutatedTables.add(tableName);
   }
 
-  /** publish된 이벤트 타입 목록을 반환한다 (순서 보존). */
+  /**
+   * 상태 전이 이벤트 발행 요청 목록을 반환한다.
+   *
+   * @return 상태 전이 발행 요청 목록
+   */
+  public List<StateTransitionPublishRequest> collected() {
+    return Collections.unmodifiableList(stateTransitions);
+  }
+
+  /**
+   * 발행된 이벤트 타입 목록을 반환한다.
+   *
+   * @return 발행된 eventType 값 목록 (순서 보장)
+   */
   public List<String> publishedTypes() {
-    return List.copyOf(publishedTypes);
+    return collected.stream()
+        .map(SearchAreaEventPublisher.PublishRequest::eventType)
+        .collect(Collectors.toList());
   }
 
-  /** domain write가 발생한 테이블 이름 집합을 반환한다. */
-  public Set<String> mutatedTables() {
-    return Set.copyOf(mutatedTables);
+  /**
+   * 지정한 이벤트 타입으로 발행된 PublishRequest 목록을 반환한다.
+   *
+   * @param eventType 조회할 이벤트 타입
+   * @return eventType이 일치하는 발행 요청 목록
+   */
+  public List<SearchAreaEventPublisher.PublishRequest> publishedByType(String eventType) {
+    return collected.stream()
+        .filter(r -> eventType.equals(r.eventType()))
+        .collect(Collectors.toList());
   }
 
-  /** publish된 모든 payload field name 집합을 반환한다. */
+  /**
+   * 발행 요청에 포함된 변경 테이블 목록을 반환한다.
+   *
+   * @return 발행된 mutatedTable 값 목록 (순서 보장)
+   */
+  public List<String> mutatedTables() {
+    List<String> tables =
+        collected.stream()
+            .map(SearchAreaEventPublisher.PublishRequest::mutatedTable)
+            .filter(java.util.Objects::nonNull)
+            .collect(Collectors.toList());
+    tables.addAll(recordedMutatedTables);
+    return tables.stream().distinct().collect(Collectors.toList());
+  }
+
+  /**
+   * 발행된 payload의 필드명 집합을 반환한다.
+   *
+   * <p>payload가 record, Map, Set이면 field 이름 또는 key/value 집합을 반환한다.
+   *
+   * @return payload field name 집합
+   */
   public Set<String> publishedPayloadFieldNames() {
-    return Set.copyOf(publishedPayloadFieldNames);
+    return collected.stream()
+        .flatMap(
+            r -> {
+              Object payload = r.payload();
+              if (payload == null) {
+                return java.util.stream.Stream.empty();
+              }
+              if (payload instanceof java.util.Map<?, ?> map) {
+                return map.keySet().stream().map(Object::toString);
+              }
+              if (payload instanceof java.util.Set<?> set) {
+                return set.stream().map(Object::toString);
+              }
+              java.lang.reflect.RecordComponent[] components =
+                  payload.getClass().getRecordComponents();
+              if (components == null) {
+                return java.util.stream.Stream.empty();
+              }
+              return java.util.Arrays.stream(components)
+                  .map(java.lang.reflect.RecordComponent::getName);
+            })
+        .collect(Collectors.toSet());
   }
 
-  /** 수집된 상태를 초기화한다. */
+  /** 수집된 데이터를 초기화한다. */
   public void clear() {
-    publishedTypes.clear();
-    mutatedTables.clear();
-    publishedPayloadFieldNames.clear();
+    collected.clear();
+    stateTransitions.clear();
+    recordedMutatedTables.clear();
+  }
+
+  /**
+   * 수집된 이벤트가 없는지 확인한다.
+   *
+   * @return 수집된 이벤트가 없으면 true
+   */
+  public boolean isEmpty() {
+    return collected.isEmpty() && stateTransitions.isEmpty() && recordedMutatedTables.isEmpty();
   }
 }

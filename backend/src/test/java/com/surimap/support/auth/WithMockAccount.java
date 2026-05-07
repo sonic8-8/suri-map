@@ -22,7 +22,7 @@ public @interface WithMockAccount {
 
   Channel channel() default Channel.APP;
 
-  String accountId() default "00000000-0000-0000-0000-000000000001";
+  String accountId() default "acct-precinct-team";
 
   String policePhoneId() default "";
 

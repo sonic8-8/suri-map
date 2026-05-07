@@ -83,7 +83,7 @@
   - 예상 작업량: 1d
   - 완료 기준: overall_search_area/area slot이 source owner를 변경하지 않고 S2 source data를 렌더링하며 관찰 가능한 loading/failure state를 노출한다.
 
-- [ ] L6-T03B 경로·마커 slot 구현
+- [x] L6-T03B 경로·마커 slot 구현
   - 담당 Spec: S3-2
   - 필수 참조: `spec/specs/S3-2.json`, `spec/boundaries.md §9.2`, `spec/boundaries.md §10`
   - 연관 Spec: S3-1, S5
@@ -93,7 +93,7 @@
   - 예상 작업량: 1d
   - 완료 기준: path/marker slot이 source owner를 변경하지 않고 source data를 렌더링하며 관찰 가능한 loading/failure state를 노출한다.
 
-- [ ] L6-T03C 단말 최신성 슬롯과 공통 지연 상태 검증
+- [x] L6-T03C 단말 최신성 슬롯과 공통 지연 상태 검증
   - 담당 Spec: S3-2
   - 필수 참조: `spec/specs/S3-2.json`, `spec/boundaries.md §9.2`, `spec/boundaries.md §10`
   - 연관 Spec: S1-2, S4
@@ -103,7 +103,7 @@
   - 예상 작업량: 1d
   - 완료 기준: source owner data를 변경하지 않고 police_phone freshness slot과 shared stale/loading/failure state가 표시된다.
 
-- [ ] L6-T08A 로컬 타일·스타일 API 구현
+- [x] L6-T08A 로컬 타일·스타일 API 구현
   - 담당 Spec: S7
   - 필수 참조: `spec/specs/S7.json`, `spec/harness-scenarios.md §6 mock tile catalog/server`, `adr.md ADR-0004`
   - 연관 Spec: S3-2
@@ -113,7 +113,7 @@
   - 예상 작업량: 1d
   - 완료 기준: `/tiles`와 style endpoint가 local tile fixture를 사용하고 external tile host를 요구하지 않는다.
 
-- [ ] L6-T08B MapLibre 로컬 스타일·저작자 표시·외부 타일 서버 차단 구현
+- [x] L6-T08B MapLibre 로컬 스타일·저작자 표시·외부 타일 서버 차단 구현
   - 담당 Spec: S7
   - 필수 참조: `spec/specs/S7.json`, `spec/harness-scenarios.md §6 mock tile catalog/server`, `adr.md ADR-0004`
   - 연관 Spec: S3-2
@@ -125,7 +125,7 @@
 
 ## Phase 2
 
-- [ ] L6-T02A 상황판 board API 조립 모델 구현
+- [x] L6-T02A 상황판 board API 조립 모델 구현
   - 담당 Spec: S3-2
   - 필수 참조: `spec/specs/S3-2.json`, `spec/specs/S4.json`, `spec/harness-scenarios.md §0.3`, `spec/harness-scenarios.md §6 mock board API refetch/assembly`
   - 연관 Spec: S1-1, S1-2, S1-3, S2, S3-1, S4, S5, S6, S7, S8
@@ -134,7 +134,7 @@
   - 예상 작업량: 1d
   - 완료 기준: source owner data를 변경하지 않고 owner response version에서 BoardDTO row를 조립할 수 있다.
 
-- [ ] L6-T02B eventId 중복 제거와 오래된 refetch 차단 구현
+- [x] L6-T02B eventId 중복 제거와 오래된 refetch 차단 구현
   - 담당 Spec: S3-2
   - 필수 참조: `spec/specs/S3-2.json`, `spec/specs/S4.json`, `spec/harness-scenarios.md §0.3`
   - 연관 Spec: S4

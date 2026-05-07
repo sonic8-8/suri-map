@@ -1,11 +1,10 @@
 package com.surimap.operationalperiod;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.surimap.operationalperiod.fixture.CurrentOpGuardFixtures;
+import com.surimap.operationalperiod.fixture.CurrentOpGuardFixtures.CurrentOpGuardDecision;
 import com.surimap.operationalperiod.fixture.OperationalPeriodFixtures;
-import com.surimap.operationalperiod.query.OperationalPeriodRow;
-import com.surimap.operationalperiod.testdouble.CurrentOpGuardException;
 import com.surimap.operationalperiod.testdouble.CurrentOpGuardMock;
 import com.surimap.operationalperiod.testdouble.OperationalPeriodQueryMock;
 import java.util.UUID;
@@ -27,39 +26,34 @@ class CurrentOpGuardMockContractTest {
   void current_op가_없으면_op_required로_실패한다() {
     UUID unknownIncidentId = UUID.randomUUID();
 
-    assertThatThrownBy(
-            () -> guard.requireCurrent(unknownIncidentId, OperationalPeriodFixtures.OP1_ID))
-        .isInstanceOfSatisfying(
-            CurrentOpGuardException.class,
-            error -> {
-              assertThat(error.errorCode()).isEqualTo("op_required");
-              assertThat(error.httpStatus()).isEqualTo(409);
-            });
+    CurrentOpGuardDecision decision =
+        guard.requireCurrentOp(unknownIncidentId, OperationalPeriodFixtures.CURRENT_OP_ID);
+
+    assertThat(decision.allowed()).isFalse();
+    assertThat(decision.error()).isEqualTo(CurrentOpGuardFixtures.OP_REQUIRED_ERROR);
+    assertThat(decision.status()).isEqualTo(409);
   }
 
   @Test
   @DisplayName("payload OP와 서버 current OP가 다르면 409 op_mismatch로 실패한다")
   void payload_op와_current_op가_다르면_op_mismatch로_실패한다() {
-    assertThatThrownBy(
-            () ->
-                guard.requireCurrent(
-                    OperationalPeriodFixtures.INCIDENT_ID, OperationalPeriodFixtures.OP2_ID))
-        .isInstanceOfSatisfying(
-            CurrentOpGuardException.class,
-            error -> {
-              assertThat(error.errorCode()).isEqualTo("op_mismatch");
-              assertThat(error.httpStatus()).isEqualTo(409);
-            });
+    CurrentOpGuardDecision decision =
+        guard.requireCurrentOp(
+            OperationalPeriodFixtures.INCIDENT_ID, OperationalPeriodFixtures.NEW_OP_ID);
+
+    assertThat(decision.allowed()).isFalse();
+    assertThat(decision.error()).isEqualTo(CurrentOpGuardFixtures.OP_MISMATCH_ERROR);
+    assertThat(decision.status()).isEqualTo(409);
   }
 
   @Test
-  @DisplayName("payload OP가 current OP와 같으면 current row를 반환한다")
-  void payload_op가_current_op와_같으면_current_row를_반환한다() {
-    OperationalPeriodRow row =
-        guard.requireCurrent(
-            OperationalPeriodFixtures.INCIDENT_ID, OperationalPeriodFixtures.OP1_ID);
+  @DisplayName("payload OP가 current OP와 같으면 allowed decision을 반환한다")
+  void payload_op가_current_op와_같으면_allowed_decision을_반환한다() {
+    CurrentOpGuardDecision decision =
+        guard.requireCurrentOp(
+            OperationalPeriodFixtures.INCIDENT_ID, OperationalPeriodFixtures.CURRENT_OP_ID);
 
-    assertThat(row.opId()).isEqualTo(OperationalPeriodFixtures.OP1_ID);
-    assertThat(row.status()).isEqualTo("ACTIVE");
+    assertThat(decision.allowed()).isTrue();
+    assertThat(decision.currentOpId()).isEqualTo(OperationalPeriodFixtures.CURRENT_OP_ID);
   }
 }
