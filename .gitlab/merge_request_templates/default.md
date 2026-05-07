@@ -2,10 +2,15 @@
 <!-- 이 MR에서 변경한 내용을 간단히 설명해주세요 -->
 
 ## 관련 Jira 티켓
-<!-- HOME-XXX -->
+<!-- <JIRA-KEY> -->
 
 ## 작성자 확인
-- [ ] 백엔드 변경 사항에 대해 `./gradlew test`를 실행했다.
+- [ ] 변경한 플랫폼의 AGENTS.md 검증 명령을 실행했다.
+- [ ] AGENTS.md와 가까운 플랫폼별 AGENTS.md 규칙을 확인했다.
+- [ ] 수정한 기준 문서를 MR 설명에 적었다.
+- [ ] 기준 문서에 없는 public API, entity, event, error, fixture ID, board slot을 새로 만들지 않았다.
+- [ ] Lane owner 경계를 넘는 변경은 CODEOWNERS 또는 owner LGTM 경로로 확인했다.
+- [ ] 검증 명령과 결과를 MR 설명에 적었다.
 
 ## 백엔드 리뷰 체크리스트
 - [ ] 변경한 일반 JSON 성공 응답이 공통 `ApiResponse`를 사용한다.
@@ -21,4 +26,11 @@
 - [ ] 서비스 테스트를 Mockito로 작성하거나 유지했다면, `@SpringBootTest` 대신 선택한 이유를 MR 설명에 적었다.
 - [ ] 새 domain 패키지를 추가했다면, 관련 Entity/Repository/Enum을 같은 도메인 패키지에 두고 기술별 폴더로 나누지 않았다.
 - [ ] 클래스명이 `Controller`, `Service`, `Repository`, `Request`, `Response`, `Client`, `Config`, `Test` 규칙을 따른다.
-- [ ] 커밋 메시지가 `[BE] type(scope): 설명 (Jira 티켓번호)` 형식을 따른다.
+- [ ] 커밋 메시지가 `docs/tasks/index.md`의 area tag, type, optional scope, Jira suffix 규칙을 따른다.
+
+## 프론트엔드 / Android 리뷰 체크리스트
+- [ ] Web은 지휘 상황판, Android는 현장 입력이라는 채널 경계를 지켰다.
+- [ ] API path, request/response, error body는 `docs/api/api-spec.md`를 기준으로 했다.
+- [ ] fixture ID와 하네스 시나리오 값은 `docs/spec/harness-scenarios.md`를 그대로 사용했다.
+- [ ] frontend 변경 시 `npm run typecheck`와 `npm run build`를 확인했다.
+- [ ] Android 변경 시 `./gradlew :app:assembleDebug`와 필요한 test 명령을 확인했다.

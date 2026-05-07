@@ -2,7 +2,7 @@
   "$schema": "../_template.schema.json",
   "spec_info": {
     "id": "S1-1",
-    "name": "Incident Import & Membership",
+    "name": "Incident Import & Assignment",
     "owner": "1",
     "character": "domain",
     "created": "2026-04-24",
@@ -37,77 +37,77 @@
       "SC-02 실종팀 인계·지원 부대 배정",
       "SC-03 사건 오프라인 패키지 사전 적재",
       "SC-04 지도 기준 범위·구역 분할·할당 (incident-read/write guard 경유)",
-      "SC-08 지원 요청·실종자 발견 알림 (MembershipView.notificationTargets 경유)",
+      "SC-08 지원 요청·실종자 발견 알림 (IncidentAssignmentView.notificationTargets 경유)",
       "SC-10 구역 완료·새 OP 열기 (open incident guard 경유)",
-      "SC-11 인수인계·OP 비교·AI 요약 (incident access guard 경유)",
+      "SC-11 인수인계·OP 비교·수색 이력 요약 (incident access guard 경유)",
       "SC-12 사건 종료·캐시 파기"
     ]
   },
   "scope": {
     "included": [
-      "112/실종프로파일링 mock·seed 배정 사건 가져오기",
-      "ExternalIncidentAdapter 경계와 seed/mock adapter fixture",
+      "mock 112 배정 사건 가져오기",
+      "Mock112IncidentAdapter 경계와 fixture",
       "incident lifecycle 상태 전이",
-      "missing_person_cache 운영 캐시 저장·조회·종료 즉시 hard delete",
-      "incident_membership account_id 기반 참여 계정 관리",
-      "현장 지휘관 계정 지정과 command account 후보 반영",
+      "missing_person 도메인 데이터 저장·조회·종료 즉시 hard delete",
+      "incident_assignment account_id 기반 참여 계정 관리",
+      "112/mock 배정 기준 현장 지휘관 역할 반영",
       "사건 목록·상세 read DTO",
-      "사건 종료 terminal 처리, missing_person_cache 즉시 제거, 신규 write 차단",
-      "INCIDENT_CREATED, INCIDENT_MEMBERSHIP_CHANGED, INCIDENT_CLOSED 이벤트 payload 발행 요청"
+      "사건 종료 terminal 처리, missing_person 즉시 제거, 신규 write 차단",
+      "INCIDENT_CREATED, INCIDENT_ASSIGNMENT_CHANGED, INCIDENT_CLOSED 이벤트 payload 발행 요청"
     ],
     "excluded": [
       {
         "item": "실제 112/실종프로파일링 직접 연동",
         "owner": "S1-1",
-        "reason": "MVP/시연은 mock·seed adapter로만 검증하고 실제 연동은 adapter 교체 후속 범위다."
+        "reason": "MVP/시연은 mock 112 adapter로만 검증하고 실제 연동은 adapter 교체 후속 범위다."
       },
       {
-        "item": "개인 사용자 식별자 기반 membership",
+        "item": "개인 사용자 식별자 기반 incident_assignment",
         "owner": "S1-2",
         "reason": "PRD v3와 ADR-0031 기준은 팀/순찰차/지휘 account_id 운영 계정이다."
       },
       {
-        "item": "계정 발급, 로그인, 세션, Device 등록, RBAC guard 구현",
+        "item": "계정 발급, 로그인, 세션, PolicePhone 등록, RBAC guard 구현",
         "owner": "S1-2",
         "reason": "S1-1은 SecurityContext와 guard annotation을 소비한다."
       },
       {
         "item": "부대·팀 편제 관리 UI",
         "owner": "S1-2",
-        "reason": "MVP 계정과 조직 매핑은 seed fixture이며 self-service 관리 UI는 범위 밖이다."
+        "reason": "MVP 계정과 조직 매핑은 mock 112 fixture이며 self-service 관리 UI는 범위 밖이다."
       },
       {
         "item": "지도 기준 범위, 수색 구역, 폐기된 전용 범위·자동 누락 판단·지형 전용 preset",
         "owner": "S2",
-        "reason": "현재 기준 지도 범위는 map_boundary이며 S1-1 incident에는 전용 preset 필드를 두지 않는다."
+        "reason": "현재 기준 지도 범위는 overall_search_area이며 S1-1 incident에는 전용 preset 필드를 두지 않는다."
       },
       {
         "item": "현장 경로, 마커, 사진, 오프라인 패키지 작성",
         "owner": "S3-1/S5/S7",
-        "reason": "S1-1은 사건·실종자·membership read source만 제공한다."
+        "reason": "S1-1은 사건·실종자·incident_assignment read source만 제공한다."
       },
       {
         "item": "파기 오케스트레이션과 위치정보 접근기록 저장",
         "owner": "S1-3",
-        "reason": "S1-1은 terminal close, missing_person_cache 즉시 제거, INCIDENT_CLOSED 발행, terminal snapshot 제공까지만 수행하고 purge run은 S1-3이 INCIDENT_CLOSED 소비자로 주도한다."
+        "reason": "S1-1은 terminal close, missing_person 즉시 제거, INCIDENT_CLOSED 발행, terminal board response 제공까지만 수행하고 purge run은 S1-3이 INCIDENT_CLOSED 소비자로 주도한다."
       }
     ]
   },
   "fr_mapping": [
     {
       "id": "FR-01",
-      "summary": "mock·seed 배정 사건을 사건 단위로 가져오고 접근 권한을 구성한다.",
-      "handling": "POST /incidents/import-from-seed가 incident, missing_person_cache, incident_membership을 만들고 OP1 bootstrap을 위해 INCIDENT_CREATED를 발행한다."
+      "summary": "mock 112 배정 사건을 사건 단위로 가져오고 접근 권한을 구성한다.",
+      "handling": "POST /incidents/import가 incident, missing_person, incident_assignment, OP1을 같은 트랜잭션에서 만들고 INCIDENT_CREATED를 stage한다."
     },
     {
       "id": "FR-21",
       "summary": "사건 화면에서 실종자 기본 정보를 확인한다.",
-      "handling": "사건 진행 중에만 missing_person_cache를 incident 상세, board/package 소비자 DTO에 제공한다."
+      "handling": "사건 진행 중에만 missing_person를 incident 상세, board/package 소비자 DTO에 제공한다."
     },
     {
       "id": "FR-22",
       "summary": "사건 종료 시 실종자 사진 및 개인정보는 Suri-Map active DB·API 응답·단말 패키지에서 제거된다.",
-      "handling": "POST /incidents/{incidentId}/close가 terminal 상태와 write 차단을 만들고 missing_person_cache row와 사진 pointer를 active DB에서 즉시 hard delete한 뒤 INCIDENT_CLOSED와 terminal snapshot을 제공한다. 단말·좌표 purge orchestration은 S1-3이 INCIDENT_CLOSED를 별도 소비해 수행한다."
+      "handling": "POST /incidents/{incidentId}/close가 terminal 상태와 write 차단을 만들고 missing_person row와 사진 pointer를 active DB에서 즉시 hard delete한 뒤 INCIDENT_CLOSED와 terminal board response을 제공한다. 단말·좌표 purge orchestration은 S1-3이 INCIDENT_CLOSED를 별도 소비해 수행한다."
     }
   ],
   "domain_model": {
@@ -115,7 +115,7 @@
       {
         "name": "incident",
         "owner_spec": "S1-1",
-        "description": "mock·seed에서 가져온 실종 신고 1건의 내부 운영 사건.",
+        "description": "mock 112 데이터셋에서 가져온 실종 신고 1건의 내부 운영 사건.",
         "fields": [
           {
             "name": "id",
@@ -124,16 +124,10 @@
             "pk": true
           },
           {
-            "name": "seed_source",
-            "type": "VARCHAR(32)",
-            "nullable": false,
-            "note": "MOCK_112|MOCK_PROFILE|SEED_FIXTURE"
-          },
-          {
-            "name": "external_incident_ref",
+            "name": "source_incident_id",
             "type": "VARCHAR(80)",
             "nullable": false,
-            "note": "mock·seed 원천 식별자. 실제 112 직접 연동 ID가 아니다."
+            "note": "mock 112 데이터셋 안에서 유일한 원천 사건 ID. Suri-Map 내부 UUID인 incident.id와 구분한다."
           },
           {
             "name": "title",
@@ -144,7 +138,7 @@
             "name": "status",
             "type": "VARCHAR(32)",
             "nullable": false,
-            "note": "CREATING|BOOTSTRAPPING|OPEN|CLOSED"
+            "note": "OPEN|CLOSED"
           },
           {
             "name": "opened_at",
@@ -180,13 +174,12 @@
         ],
         "indexes": [
           {
-            "name": "ux_incident_seed_ref",
+            "name": "ux_incident_source_incident_id",
             "columns": [
-              "seed_source",
-              "external_incident_ref"
+              "source_incident_id"
             ],
             "unique": true,
-            "note": "동일 seed_source/external_incident_ref는 하나의 incident만 허용한다. 동시 import 재시도는 기존 incident replay 또는 write_conflict로 수렴해야 한다."
+            "note": "동일 source_incident_id는 하나의 incident만 허용한다. 동시 import 재시도는 기존 incident replay 또는 write_conflict로 수렴해야 한다."
           },
           {
             "name": "idx_incident_status",
@@ -202,9 +195,9 @@
         }
       },
       {
-        "name": "missing_person_cache",
+        "name": "missing_person",
         "owner_spec": "S1-1",
-        "description": "실종자 기본 정보의 운영 캐시. 사건 종료 트랜잭션에서 row와 photo_object_key pointer를 hard delete해 active DB, user-facing DTO, offline package 입력에서 PII가 즉시 제거된다.",
+        "description": "실종자 기본 정보의 도메인 데이터. 사건 종료 트랜잭션에서 row와 photo_object_key pointer를 hard delete해 active DB, user-facing DTO, offline package 입력에서 PII가 즉시 제거된다.",
         "fields": [
           {
             "name": "incident_id",
@@ -238,11 +231,6 @@
             "nullable": true
           },
           {
-            "name": "registered_at",
-            "type": "TIMESTAMPTZ",
-            "nullable": true
-          },
-          {
             "name": "imported_at",
             "type": "TIMESTAMPTZ",
             "nullable": false
@@ -256,7 +244,7 @@
         }
       },
       {
-        "name": "incident_membership",
+        "name": "incident_assignment",
         "owner_spec": "S1-1",
         "description": "사건에 접근 가능한 운영 계정 관계. 개인 사용자 식별자가 아니라 S1-2 account_id 기준이다.",
         "fields": [
@@ -278,43 +266,10 @@
             "note": "S1-2 account.id"
           },
           {
-            "name": "account_type",
-            "type": "VARCHAR(24)",
-            "nullable": false,
-            "note": "TEAM|PATROL_CAR|COMMAND snapshot"
-          },
-          {
-            "name": "affiliation",
+            "name": "incident_role",
             "type": "VARCHAR(32)",
             "nullable": false,
-            "note": "MISSING_TEAM|SUPPORT_UNIT|LOCAL_POLICE snapshot"
-          },
-          {
-            "name": "unit_id",
-            "type": "UUID",
-            "nullable": true
-          },
-          {
-            "name": "team_id",
-            "type": "UUID",
-            "nullable": true
-          },
-          {
-            "name": "membership_role",
-            "type": "VARCHAR(32)",
-            "nullable": false,
-            "note": "ASSIGNED|FIELD_COMMANDER|INCIDENT_COMMANDER. S1-1 내부 incident membership role이며 S1-2 role enum이 아니다. SecurityContext의 S1-2 role/accountType/affiliation을 사건 시점에 매핑한 snapshot으로만 사용한다."
-          },
-          {
-            "name": "source",
-            "type": "VARCHAR(32)",
-            "nullable": false,
-            "note": "SEED_IMPORT|HANDOVER_SEED|WEB_COMMAND"
-          },
-          {
-            "name": "assigned_by_account_id",
-            "type": "UUID",
-            "nullable": true
+            "note": "MEMBER|FIELD_COMMANDER|INCIDENT_COMMANDER"
           },
           {
             "name": "assigned_at",
@@ -327,14 +282,19 @@
             "nullable": true
           },
           {
-            "name": "version",
-            "type": "BIGINT",
+            "name": "created_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": false
+          },
+          {
+            "name": "updated_at",
+            "type": "TIMESTAMPTZ",
             "nullable": false
           }
         ],
         "indexes": [
           {
-            "name": "ux_incident_membership_active_account",
+            "name": "ux_incident_assignment_active_account",
             "columns": [
               "incident_id",
               "account_id"
@@ -343,14 +303,14 @@
             "postgres": "UNIQUE (incident_id, account_id) WHERE revoked_at IS NULL"
           },
           {
-            "name": "idx_incident_membership_incident_role",
+            "name": "idx_incident_assignment_incident_role",
             "columns": [
               "incident_id",
-              "membership_role"
+              "incident_role"
             ]
           },
           {
-            "name": "idx_incident_membership_account",
+            "name": "idx_incident_assignment_account",
             "columns": [
               "account_id"
             ]
@@ -368,24 +328,10 @@
         "entity": "incident",
         "field": "status",
         "states": [
-          "CREATING",
-          "BOOTSTRAPPING",
           "OPEN",
           "CLOSED"
         ],
         "transitions": [
-          {
-            "from": "CREATING",
-            "to": "BOOTSTRAPPING",
-            "trigger": "seed import domain rows committed and INCIDENT_CREATED publish request staged",
-            "guard": "incident, missing_person_cache, initial membership rows are valid"
-          },
-          {
-            "from": "BOOTSTRAPPING",
-            "to": "OPEN",
-            "trigger": "S8 OP1 bootstrap completion observed",
-            "guard": "active OP1 exists for incident"
-          },
           {
             "from": "OPEN",
             "to": "CLOSED",
@@ -396,16 +342,16 @@
       }
     ],
     "flyway_migrations": [
-      "V20260428_001__s1_1_incident_import_membership.sql"
+      "V20260428_001__s1_1_incident_import_assignment.sql"
     ]
   },
   "api_contracts": {
     "provided": [
       {
         "method": "POST",
-        "path": "/incidents/import-from-seed",
-        "summary": "mock·seed 배정 사건을 내부 사건으로 가져오고 초기 membership을 구성한다. 요청자는 request body가 아니라 SecurityContext.accountId에서만 결정한다.",
-        "auth": "@RequireChannel(WEB) + (@RequireRole(MISSING_TEAM_COMMANDER) 또는 SecurityContext.accountType=COMMAND AND SecurityContext.affiliation=LOCAL_POLICE AND @RequireRole(FIELD_COMMANDER)) 또는 @RequireChannel(INTERNAL) for seed bootstrap. SUPPORT_UNIT FIELD_COMMANDER는 import 권한이 없다.",
+        "path": "/incidents/import",
+        "summary": "mock 112 배정 사건을 내부 사건으로 가져오고 초기 incident_assignment와 OP1을 같은 트랜잭션에서 구성한다. 요청자는 request body가 아니라 SecurityContext.accountId에서만 결정한다.",
+        "auth": "@RequireChannel(WEB) + (@RequireRole(MISSING_TEAM_COMMANDER) 또는 SecurityContext.accountType=COMMAND AND SecurityContext.organizationType=POLICE_SUBSTATION AND @RequireRole(FIELD_COMMANDER)). SUPPORT_UNIT FIELD_COMMANDER는 import 권한이 없다.",
         "idempotent": true,
         "required_headers": [
           "Authorization",
@@ -415,20 +361,12 @@
         "request_schema": {
           "type": "object",
           "required": [
-            "seedSource",
-            "externalIncidentRef"
+            "sourceIncidentId"
           ],
           "properties": {
-            "seedSource": {
+            "sourceIncidentId": {
               "type": "string",
-              "enum": [
-                "MOCK_112",
-                "MOCK_PROFILE",
-                "SEED_FIXTURE"
-              ]
-            },
-            "externalIncidentRef": {
-              "type": "string"
+              "description": "mock 112 데이터셋 안에서 유일한 원천 사건 ID. incident.source_incident_id로 저장한다."
             }
           }
         },
@@ -445,7 +383,7 @@
               "id": {
                 "type": "string",
                 "format": "uuid",
-                "description": "incident.id. 공통 REST/event/outbox/board 수렴 비교의 우선 필드다."
+                "description": "incident.id. 공통 REST/event/event_dispatch_job/board 수렴 비교의 우선 필드다."
               },
               "incidentId": {
                 "type": "string",
@@ -455,14 +393,13 @@
               "status": {
                 "type": "string",
                 "enum": [
-                  "BOOTSTRAPPING",
                   "OPEN"
                 ]
               },
               "version": {
                 "type": "integer"
               },
-              "membershipAccountIds": {
+              "assignmentAccountIds": {
                 "type": "array",
                 "items": {
                   "type": "string",
@@ -511,7 +448,6 @@
             "status": {
               "type": "string",
               "enum": [
-                "BOOTSTRAPPING",
                 "OPEN",
                 "CLOSED"
               ]
@@ -565,7 +501,7 @@
       {
         "method": "GET",
         "path": "/incidents/{incidentId}",
-        "summary": "사건 상세, 실종자 운영 캐시, account-based membership 요약을 반환한다.",
+        "summary": "사건 상세, 실종자 도메인 데이터, account-based incident_assignment 요약을 반환한다.",
         "auth": "@RequireChannel(APP,WEB) + @RequireIncidentAccess",
         "idempotent": true,
         "required_headers": [
@@ -611,7 +547,7 @@
                 ],
                 "description": "CLOSED 후에는 null 또는 제거된 상태로 반환한다."
               },
-              "memberships": {
+              "assignments": {
                 "type": "array",
                 "items": {
                   "type": "object",
@@ -620,7 +556,7 @@
                       "type": "string",
                       "format": "uuid"
                     },
-                    "membershipRole": {
+                    "incidentRole": {
                       "type": "string"
                     }
                   }
@@ -649,239 +585,8 @@
       },
       {
         "method": "POST",
-        "path": "/incidents/{incidentId}/memberships",
-        "summary": "실종팀 인계 또는 지원 부대 배정으로 사건 참여 account_id 목록을 갱신한다.",
-        "auth": "guard aliases web-command + incident-read + write-common + @RequireOpenIncident + @RequireRole(MISSING_TEAM_COMMANDER) 또는 @RequireChannel(INTERNAL) for seed handover",
-        "idempotent": true,
-        "required_headers": [
-          "Authorization",
-          "Idempotency-Key",
-          "X-Client-Channel"
-        ],
-        "request_schema": {
-          "type": "object",
-          "required": [
-            "accountIds",
-            "source"
-          ],
-          "properties": {
-            "accountIds": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "format": "uuid"
-              }
-            },
-            "source": {
-              "type": "string",
-              "enum": [
-                "HANDOVER_SEED",
-                "WEB_COMMAND"
-              ]
-            },
-            "membershipRole": {
-              "type": "string",
-              "enum": [
-                "ASSIGNED",
-                "FIELD_COMMANDER",
-                "INCIDENT_COMMANDER"
-              ]
-            }
-          }
-        },
-        "response_schema": {
-          "200": {
-            "type": "object",
-            "required": [
-              "id",
-              "incidentId",
-              "status",
-              "version"
-            ],
-            "properties": {
-              "id": {
-                "type": "string",
-                "format": "uuid",
-                "description": "incident.id. incidentId와 같은 UUID이며 공통 수렴 비교는 id를 우선한다."
-              },
-              "incidentId": {
-                "type": "string",
-                "format": "uuid",
-                "description": "id와 같은 UUID를 담는 호환 alias다."
-              },
-              "status": {
-                "type": "string"
-              },
-              "version": {
-                "type": "integer"
-              },
-              "activeAccountIds": {
-                "type": "array",
-                "items": {
-                  "type": "string",
-                  "format": "uuid"
-                }
-              }
-            }
-          }
-        },
-        "errors": [
-          {
-            "code": 403,
-            "case": "channel_not_allowed",
-            "body": "{\"error\": \"channel_not_allowed\"}"
-          },
-          {
-            "code": 403,
-            "case": "role_denied",
-            "body": "{\"error\": \"role_denied\"}"
-          },
-          {
-            "code": 403,
-            "case": "incident_access_denied",
-            "body": "{\"error\": \"incident_access_denied\"}"
-          },
-          {
-            "code": 403,
-            "case": "team_not_assigned",
-            "body": "{\"error\": \"team_not_assigned\"}"
-          },
-          {
-            "code": 409,
-            "case": "incident_bootstrapping",
-            "body": "{\"error\": \"incident_bootstrapping\"}"
-          },
-          {
-            "code": 409,
-            "case": "incident_closed",
-            "body": "{\"error\": \"incident_closed\"}"
-          },
-          {
-            "code": 409,
-            "case": "idempotency_mismatch",
-            "body": "{\"error\": \"idempotency_mismatch\"}"
-          },
-          {
-            "code": 409,
-            "case": "write_conflict",
-            "body": "{\"error\": \"write_conflict\"}"
-          }
-        ]
-      },
-      {
-        "method": "POST",
-        "path": "/incidents/{incidentId}/commanders",
-        "summary": "사건별 현장 지휘관 account_id를 추가하거나 교체한다.",
-        "auth": "guard aliases web-command + incident-read + write-common + @RequireOpenIncident + @RequireRole(MISSING_TEAM_COMMANDER)",
-        "idempotent": true,
-        "required_headers": [
-          "Authorization",
-          "Idempotency-Key",
-          "X-Client-Channel"
-        ],
-        "request_schema": {
-          "type": "object",
-          "required": [
-            "accountId",
-            "commandAction"
-          ],
-          "properties": {
-            "accountId": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "commandAction": {
-              "type": "string",
-              "enum": [
-                "ADD",
-                "REMOVE"
-              ]
-            }
-          }
-        },
-        "response_schema": {
-          "200": {
-            "type": "object",
-            "required": [
-              "id",
-              "incidentId",
-              "status",
-              "version"
-            ],
-            "properties": {
-              "id": {
-                "type": "string",
-                "format": "uuid",
-                "description": "incident.id. incidentId와 같은 UUID이며 공통 수렴 비교는 id를 우선한다."
-              },
-              "incidentId": {
-                "type": "string",
-                "format": "uuid",
-                "description": "id와 같은 UUID를 담는 호환 alias다."
-              },
-              "status": {
-                "type": "string"
-              },
-              "version": {
-                "type": "integer"
-              },
-              "commanderAccountIds": {
-                "type": "array",
-                "items": {
-                  "type": "string",
-                  "format": "uuid"
-                }
-              }
-            }
-          }
-        },
-        "errors": [
-          {
-            "code": 403,
-            "case": "channel_not_allowed",
-            "body": "{\"error\": \"channel_not_allowed\"}"
-          },
-          {
-            "code": 403,
-            "case": "role_denied",
-            "body": "{\"error\": \"role_denied\"}"
-          },
-          {
-            "code": 403,
-            "case": "incident_access_denied",
-            "body": "{\"error\": \"incident_access_denied\"}"
-          },
-          {
-            "code": 403,
-            "case": "team_not_assigned",
-            "body": "{\"error\": \"team_not_assigned\"}"
-          },
-          {
-            "code": 409,
-            "case": "incident_bootstrapping",
-            "body": "{\"error\": \"incident_bootstrapping\"}"
-          },
-          {
-            "code": 409,
-            "case": "incident_closed",
-            "body": "{\"error\": \"incident_closed\"}"
-          },
-          {
-            "code": 409,
-            "case": "idempotency_mismatch",
-            "body": "{\"error\": \"idempotency_mismatch\"}"
-          },
-          {
-            "code": 409,
-            "case": "write_conflict",
-            "body": "{\"error\": \"write_conflict\"}"
-          }
-        ]
-      },
-      {
-        "method": "POST",
         "path": "/incidents/{incidentId}/close",
-        "summary": "사건을 terminal CLOSED로 전환하고 missing_person_cache를 즉시 hard delete한 뒤 INCIDENT_CLOSED와 terminal snapshot을 제공한다.",
+        "summary": "사건을 terminal CLOSED로 전환하고 missing_person를 즉시 hard delete한 뒤 INCIDENT_CLOSED와 terminal board response을 제공한다.",
         "auth": "guard aliases web-command + incident-read + write-common + @RequireOpenIncident + @RequireRole(MISSING_TEAM_COMMANDER)",
         "idempotent": true,
         "required_headers": [
@@ -976,11 +681,6 @@
           },
           {
             "code": 409,
-            "case": "incident_bootstrapping",
-            "body": "{\"error\": \"incident_bootstrapping\"}"
-          },
-          {
-            "code": 409,
             "case": "incident_closed",
             "body": "{\"error\": \"incident_closed\"}"
           },
@@ -1000,42 +700,42 @@
     "consumed": [
       {
         "from_spec": "S1-2",
-        "interface": "SecurityContext.accountId/accountType/affiliation/roles/channel, @RequireIncidentAccess, @RequireRole, @RequireChannel",
-        "usage": "incident 조회·쓰기 권한과 account_id 기반 membership 변경 권한 판단"
+        "interface": "SecurityContext.accountId/accountType/organizationType/authorities/channel, @RequireIncidentAccess, @RequireRole, @RequireChannel",
+        "usage": "incident 조회·쓰기 권한과 account_id 기반 incident_assignment 변경 권한 판단"
       },
       {
         "from_spec": "S4",
         "interface": "EventHub.publish(PublishRequest.*)",
-        "usage": "INCIDENT_CREATED, INCIDENT_MEMBERSHIP_CHANGED, INCIDENT_CLOSED payload와 PublishRequest 생성·검증까지만 책임지고 EventHub.publish에 전달한다. event_outbox row 저장과 fanout orchestration은 S4 소유다."
+        "usage": "INCIDENT_CREATED, INCIDENT_ASSIGNMENT_CHANGED, INCIDENT_CLOSED payload와 PublishRequest 생성·검증까지만 책임지고 EventHub.publish에 전달한다. event_dispatch_job row 저장과 fanout orchestration은 S4 소유다."
       },
       {
         "from_spec": "S5",
         "interface": "ReferenceMarkerSeed.createForIncident(incidentId, seedMarkers)",
-        "usage": "seed 사건의 마지막 확인 위치와 신고자 진술 위치를 초기 기준 마커로 생성"
+        "usage": "mock 112 사건의 마지막 확인 위치와 신고자 진술 위치를 초기 기준 마커로 생성"
       },
       {
         "from_spec": "S8",
-        "interface": "OP1 bootstrap completion",
-        "usage": "사건을 BOOTSTRAPPING에서 OPEN으로 전환하는 완료 신호"
+        "interface": "InitialOperationalPeriodCreator.createOp1(incidentId)",
+        "usage": "사건 import 트랜잭션 안에서 OP1을 생성한다. OP1 생성 실패 시 incident, missing_person, incident_assignment, event staging 전체를 rollback한다."
       },
       {
         "from_spec": "S1-3",
         "interface": "INCIDENT_CLOSED consumer for purge orchestration",
-        "usage": "S1-1은 close 후 INCIDENT_CLOSED와 terminal snapshot만 제공하고, S1-3가 Event Catalog 소비자로 purge orchestration을 수행한다. S1-1은 S1-3 coordinator를 직접 호출하지 않는다."
+        "usage": "S1-1은 close 후 INCIDENT_CLOSED와 terminal board response만 제공하고, S1-3가 Event Catalog 소비자로 purge orchestration을 수행한다. S1-1은 S1-3 coordinator를 직접 호출하지 않는다."
       }
     ],
     "events_published": [
       {
         "type": "INCIDENT_CREATED",
-        "trigger": "seed import domain transaction commit",
+        "trigger": "mock 112 import domain transaction commit",
         "payload_schema": {
           "type": "object",
-          "description": "Import event. Payload root id는 incident.id이며 REST 응답·outbox·board snapshot 수렴 비교의 우선 필드다.",
+          "description": "Import event. Payload root id는 incident.id이며 REST 응답·event_dispatch_job·board API 수렴 비교의 우선 필드다.",
           "required": [
             "id",
             "status",
             "version",
-            "seedSource"
+            "sourceIncidentId"
           ],
           "properties": {
             "id": {
@@ -1048,15 +748,15 @@
             "version": {
               "type": "integer"
             },
-            "seedSource": {
-              "type": "string"
-            },
             "memberAccountIds": {
               "type": "array",
               "items": {
                 "type": "string",
                 "format": "uuid"
               }
+            },
+            "sourceIncidentId": {
+              "type": "string"
             }
           }
         },
@@ -1066,11 +766,11 @@
         ]
       },
       {
-        "type": "INCIDENT_MEMBERSHIP_CHANGED",
-        "trigger": "membership or commander account set changes",
+        "type": "INCIDENT_ASSIGNMENT_CHANGED",
+        "trigger": "112/mock polling/import updates incident_assignment rows",
         "payload_schema": {
           "type": "object",
-          "description": "Membership change event. Payload root id는 incident.id이며 REST 응답·outbox·board snapshot 수렴 비교의 우선 필드다.",
+          "description": "Incident assignment change event. Payload root id는 incident.id이며 REST 응답·event_dispatch_job·board API 수렴 비교의 우선 필드다.",
           "required": [
             "id",
             "status",
@@ -1156,26 +856,26 @@
       "modules": [
         {
           "name": "IncidentImportController",
-          "responsibility": "seed import, incident list/detail, close endpoints"
+          "responsibility": "mock 112 import, incident list/detail, close endpoints"
         },
         {
           "name": "IncidentImportService",
-          "responsibility": "ExternalIncidentAdapter 호출, lifecycle 전이, initial membership 구성"
+          "responsibility": "ExternalIncidentAdapter 호출, lifecycle 전이, initial incident_assignment 구성"
         },
         {
-          "name": "IncidentMembershipService",
-          "responsibility": "account_id 기반 membership과 commander set 변경"
+          "name": "IncidentAssignmentImportService",
+          "responsibility": "112/mock polling/import 결과를 account_id 기반 incident_assignment로 upsert"
         },
         {
           "name": "IncidentRepository",
-          "responsibility": "incident 영속화와 close 트랜잭션 내 missing_person_cache hard delete"
+          "responsibility": "incident 영속화와 close 트랜잭션 내 missing_person hard delete"
         },
         {
-          "name": "IncidentMembershipRepository",
-          "responsibility": "incident_membership 조회·upsert"
+          "name": "IncidentAssignmentRepository",
+          "responsibility": "incident_assignment 조회·upsert"
         },
         {
-          "name": "MembershipView",
+          "name": "IncidentAssignmentView",
           "responsibility": "accounts, commanders, notificationTargets(incidentId,targetPolicy) read contract 제공. targetPolicy는 S5 알림 정책 입력이며 지원 요청은 지휘 계정 우선, 실종자 발견은 사건 배정 계정 전체, 지원 부대 배정 알림은 신규 배정된 TEAM/PATROL_CAR 계정을 반환한다."
         }
       ]
@@ -1190,7 +890,7 @@
         },
         {
           "path": "/incidents/import",
-          "component": "SeedIncidentImportPanel"
+          "component": "IncidentImportPanel"
         },
         {
           "path": "/incidents/:incidentId",
@@ -1199,16 +899,16 @@
       ],
       "components": [
         {
-          "name": "SeedIncidentImportPanel",
+          "name": "IncidentImportPanel",
           "responsibility": "배정 사건 가져오기 진행·중복 방지·실패 재시도 표시"
         },
         {
-          "name": "IncidentMembershipPanel",
-          "responsibility": "실종팀 인계, 지원 부대 배정, commander account 표시"
+          "name": "IncidentAssignmentStatusPanel",
+          "responsibility": "112/mock에서 반영된 실종팀 인계, 지원 부대 배정, incident commander account 표시"
         },
         {
           "name": "IncidentCloseDialog",
-          "responsibility": "종료 전 삭제 대상(missing_person_cache, photo pointer, user-facing PII cache)과 재오픈 불가를 명시하고, 사용자가 confirmPersonalDataRemoval=true로 승인하기 전에는 close command를 보내지 않으며, 승인 후 즉시 개인정보 제거 완료 상태와 terminal snapshot을 표시"
+          "responsibility": "종료 전 삭제 대상(missing_person, photo pointer, user-facing PII cache)과 재오픈 불가를 명시하고, 사용자가 confirmPersonalDataRemoval=true로 승인하기 전에는 close command를 보내지 않으며, 승인 후 즉시 개인정보 제거 완료 상태와 terminal board response을 표시"
         }
       ],
       "state_management": "React Query",
@@ -1226,7 +926,7 @@
         },
         {
           "name": "IncidentSummaryScreen",
-          "responsibility": "사건 메타와 실종자 운영 캐시 요약 표시"
+          "responsibility": "사건 메타와 실종자 도메인 데이터 요약 표시"
         }
       ],
       "room_entities": [
@@ -1242,38 +942,38 @@
     "spec_dependencies": [
       {
         "spec": "S1-2",
-        "contract": "SecurityContext, account/device fixture, role/channel guards",
+        "contract": "SecurityContext, account/policePhone fixture, role/channel guards",
         "stub_strategy": "Lane L1 harness는 seed account_id 목록과 fake SecurityContext를 사용한다.",
         "replaced_by_real_at": "S1-2 auth fixture 동결 후"
       },
       {
         "spec": "S4",
-        "contract": "EventHub.publish and event envelope/outbox",
-        "stub_strategy": "PublishRequest capture mock, mock event outbox, mock SSE client를 함께 사용해 eventId, payload id/status/version, outbox 미적재, SSE 미송신 실패 주입을 검증한다.",
-        "replaced_by_real_at": "S4 outbox + SSE harness 준비 후"
+        "contract": "EventHub.publish and event envelope/event_dispatch_job",
+        "stub_strategy": "PublishRequest capture mock, mock event_dispatch_job, mock SSE client를 함께 사용해 eventId, payload id/status/version, event_dispatch_job 미적재, SSE 미송신 실패 주입을 검증한다.",
+        "replaced_by_real_at": "S4 event_dispatch_job + SSE harness 준비 후"
       },
       {
         "spec": "S3-2",
-        "contract": "mock board snapshot projector and BoardDTO slot convergence",
-        "stub_strategy": "S3-2 mock board snapshot projector가 source write 응답 id/status/version 이상으로 수렴하는지 검증하고 stale snapshot/미갱신 실패를 주입한다.",
-        "replaced_by_real_at": "S3-2 board projection PASS"
+        "contract": "mock board API refetch and BoardDTO slot convergence",
+        "stub_strategy": "S3-2 mock board API refetch가 source write 응답 id/status/version 이상으로 수렴하는지 검증하고 stale board response/미갱신 실패를 주입한다.",
+        "replaced_by_real_at": "S3-2 board API assembly PASS"
       },
       {
         "spec": "S5",
         "contract": "ReferenceMarkerSeed.createForIncident",
-        "stub_strategy": "seed marker count와 incidentId를 capture하는 no-op adapter를 사용한다.",
+        "stub_strategy": "mock 112 marker count와 incidentId를 capture하는 no-op adapter를 사용한다.",
         "replaced_by_real_at": "S5 marker fixture 준비 후"
       },
       {
         "spec": "S8",
-        "contract": "OP1 bootstrap completion",
-        "stub_strategy": "OP1 created fixture로 BOOTSTRAPPING -> OPEN 전이를 검증한다.",
-        "replaced_by_real_at": "S8 OP bootstrap 구현 후"
+        "contract": "OP1 automatic creation",
+        "stub_strategy": "OP1 creation fixture로 import transaction success/rollback을 검증한다.",
+        "replaced_by_real_at": "S8 OP1 자동 생성 구현 후"
       },
       {
         "spec": "S1-3",
         "contract": "INCIDENT_CLOSED consumer for purge orchestration",
-        "stub_strategy": "S1-1 harness는 S1-3 coordinator를 직접 호출하지 않고 INCIDENT_CLOSED payload와 terminal snapshot만 검증한다. S1-3 purge orchestration은 별도 consumer harness에서 검증한다.",
+        "stub_strategy": "S1-1 harness는 S1-3 coordinator를 직접 호출하지 않고 INCIDENT_CLOSED payload와 terminal board response만 검증한다. S1-3 purge orchestration은 별도 consumer harness에서 검증한다.",
         "replaced_by_real_at": "S1-3 purge orchestration harness 준비 후"
       }
     ],
@@ -1289,9 +989,9 @@
       "fr_refs": [
         "FR-01"
       ],
-      "given": "실종팀 지휘 계정 또는 지구대/파출소 지휘 계정이 WEB 채널로 로그인했고 seed 원천에 배정 사건이 있다.",
-      "when": "POST /incidents/import-from-seed를 호출한다.",
-      "then": "incident, missing_person_cache, incident_membership이 생성되고 INCIDENT_CREATED 발행 후 S8 OP1 bootstrap completion이 확인되면 사건 상태가 OPEN이 된다. import 응답, event payload, board snapshot 비교 필드는 id/status/version으로 수렴한다.",
+      "given": "실종팀 지휘 계정 또는 지구대/파출소 지휘 계정이 WEB 채널로 로그인했고 mock 112 원천에 배정 사건이 있다.",
+      "when": "POST /incidents/import를 호출한다.",
+      "then": "incident, missing_person, incident_assignment, OP1이 같은 트랜잭션에서 생성되고 사건 상태는 OPEN으로 응답된다. import 응답, event payload, board API 비교 필드는 id/status/version으로 수렴한다.",
       "priority": "critical"
     },
     {
@@ -1299,9 +999,9 @@
       "fr_refs": [
         "FR-01"
       ],
-      "given": "같은 seedSource와 externalIncidentRef로 import가 이미 완료됐다.",
-      "when": "같은 Idempotency-Key 또는 동일 seed ref로 다시 가져오기를 호출한다.",
-      "then": "사건, OP, membership, initial marker가 중복 생성되지 않는다. 같은 Idempotency-Key와 같은 body는 기존 id/status/version 응답을 replay하고, 같은 key의 다른 body는 idempotency_mismatch로 거부하며, 동일 seed ref 중복은 기존 사건 재사용 또는 write_conflict로 처리한다.",
+      "given": "같은 sourceIncidentId로 import가 이미 완료됐다.",
+      "when": "같은 Idempotency-Key 또는 동일 sourceIncidentId로 다시 가져오기를 호출한다.",
+      "then": "사건, OP, incident_assignment, initial marker가 중복 생성되지 않는다. 같은 Idempotency-Key와 같은 body는 기존 id/status/version 응답을 replay하고, 같은 key의 다른 body는 idempotency_mismatch로 거부하며, 동일 sourceIncidentId 중복은 기존 사건 재사용 또는 write_conflict로 처리한다.",
       "priority": "critical"
     },
     {
@@ -1309,9 +1009,9 @@
       "fr_refs": [
         "FR-01"
       ],
-      "given": "지구대/파출소 초동 사건이 OPEN이고 실종팀 인계 seed fixture가 도착했다.",
-      "when": "system/mock seed 경로로 실종팀 지휘·팀 account_id를 membership에 추가한다.",
-      "then": "기존 지구대/파출소 account membership은 유지되고 실종팀 계정도 같은 incident와 OP1 기록에 접근한다.",
+      "given": "지구대/파출소 초동 사건이 OPEN이고 실종팀 인계 mock 112 fixture가 도착했다.",
+      "when": "mock 112 import 경로로 실종팀 지휘·팀 account_id를 incident_assignment에 추가한다.",
+      "then": "기존 지구대/파출소 account incident_assignment는 유지되고 실종팀 계정도 같은 incident와 OP1 기록에 접근한다.",
       "priority": "high"
     },
     {
@@ -1319,9 +1019,9 @@
       "fr_refs": [
         "FR-01"
       ],
-      "given": "사건이 OPEN이고 실종팀 지휘 계정이 WEB 채널로 접속했다.",
-      "when": "지원 부대 account_id 목록을 POST /incidents/{incidentId}/memberships로 배정한다.",
-      "then": "MembershipView.accounts와 MembershipView.notificationTargets(incidentId,targetPolicy)가 targetPolicy별 대상 계정으로 갱신되고 INCIDENT_MEMBERSHIP_CHANGED가 id/status/version을 포함해 발행된다.",
+      "given": "mock 112 원천에 지원 부대 추가 배정 결과가 도착했다.",
+      "when": "Suri-Map polling/import 경로가 incident_assignment를 갱신한다.",
+      "then": "IncidentAssignmentView.accounts와 notificationTargets가 신규 배정 계정으로 갱신되고 INCIDENT_ASSIGNMENT_CHANGED가 id/status/version을 포함해 발행된다.",
       "priority": "high"
     },
     {
@@ -1331,7 +1031,7 @@
       ],
       "given": "사건이 OPEN이고 실종팀 지휘 계정이 WEB 채널로 접속했다.",
       "when": "사용자가 종료 확인 다이얼로그에서 삭제 대상과 재오픈 불가 고지를 확인하고 confirmPersonalDataRemoval=true로 승인한 뒤 POST /incidents/{incidentId}/close를 호출한다.",
-      "then": "승인 전에는 close command가 실행되지 않는다. 승인 후 사건은 CLOSED terminal 상태가 되고 모든 후속 domain write는 incident_closed로 거부된다. missing_person_cache row와 photo pointer는 active DB에서 즉시 hard delete되고, close 응답·INCIDENT_CLOSED payload·terminal snapshot은 id/status/version/closedAt을 포함하며 PII를 포함하지 않는다.",
+      "then": "승인 전에는 close command가 실행되지 않는다. 승인 후 사건은 CLOSED terminal 상태가 되고 모든 후속 domain write는 incident_closed로 거부된다. missing_person row와 photo pointer는 active DB에서 즉시 hard delete되고, close 응답·INCIDENT_CLOSED payload·terminal board response은 id/status/version/closedAt을 포함하며 PII를 포함하지 않는다.",
       "priority": "critical"
     },
     {
@@ -1340,9 +1040,9 @@
         "FR-21",
         "FR-22"
       ],
-      "given": "사건 종료 후 실종자 운영 캐시 제거가 반영됐다.",
+      "given": "사건 종료 후 실종자 도메인 데이터 제거가 반영됐다.",
       "when": "GET /incidents/{incidentId} 또는 offline package 소비 DTO를 요청한다.",
-      "then": "missing_person_cache row가 active DB에 남아 있지 않고 실종자 이름, 사진, 인상착의, 마지막 목격 위치 등 개인정보 필드는 user-facing 응답·Android local summary·offline package 입력에 포함되지 않는다.",
+      "then": "missing_person row가 active DB에 남아 있지 않고 실종자 이름, 사진, 인상착의, 마지막 목격 위치 등 개인정보 필드는 user-facing 응답·Android local summary·offline package 입력에 포함되지 않는다.",
       "priority": "critical"
     },
     {
@@ -1350,9 +1050,9 @@
       "fr_refs": [
         "FR-01"
       ],
-      "given": "지원부대 FIELD_COMMANDER, 미배정 팀/순찰차 계정, APP 채널, 동일 Idempotency-Key 다른 body, 중복 seed ref fixture가 준비됐다.",
-      "when": "사건 import, 사건 상세 조회, membership/commander write를 각각 호출한다.",
-      "then": "지원부대 FIELD_COMMANDER import는 role_denied, 미배정 read는 team_not_assigned 또는 incident_access_denied, APP 채널 web-command는 channel_not_allowed, idempotency body mismatch는 idempotency_mismatch, duplicate seed ref는 중복 사건·OP·membership 없이 기존 응답 replay 또는 write_conflict로 처리된다.",
+      "given": "지원부대 FIELD_COMMANDER, 미배정 팀/순찰차 계정, APP 채널, 동일 Idempotency-Key 다른 body, 중복 sourceIncidentId fixture가 준비됐다.",
+      "when": "사건 import, 사건 상세 조회, Suri-Map public assignment/commander mutation API 부재를 각각 검증한다.",
+      "then": "지원부대 FIELD_COMMANDER import는 role_denied, 미배정 read는 team_not_assigned 또는 incident_access_denied, APP 채널 web-command는 channel_not_allowed, idempotency body mismatch는 idempotency_mismatch, duplicate sourceIncidentId는 중복 사건·OP·incident_assignment 없이 기존 응답 replay 또는 write_conflict로 처리된다. 지원 부대 배정이나 commander 변경은 Suri-Map public/admin API로 제공하지 않는다.",
       "priority": "critical"
     },
     {
@@ -1360,9 +1060,9 @@
       "fr_refs": [
         "FR-01"
       ],
-      "given": "INCIDENT_CREATED는 발행됐지만 S8 OP1 bootstrap completion이 실패하거나 bootstrap timeout을 넘겼다.",
-      "when": "사건 상태와 OPEN 전 dependent write를 확인한다.",
-      "then": "incident는 BOOTSTRAPPING에 머물고 S1-1은 OPEN 전이를 수행하지 않으며, dependent write는 incident_bootstrapping으로 거부되고 bootstrap failure/timeout metric이 기록된다.",
+      "given": "mock 112 import 중 OP1 자동 생성이 실패한다.",
+      "when": "POST /incidents/import를 호출한다.",
+      "then": "incident, missing_person, incident_assignment, OP1, INCIDENT_CREATED staging은 모두 rollback되고 incident row를 남기지 않는다. 사용자는 import 실패 응답을 받고, 재시도 시 같은 sourceIncidentId로 다시 import할 수 있다.",
       "priority": "critical"
     },
     {
@@ -1370,9 +1070,9 @@
       "fr_refs": [
         "FR-01"
       ],
-      "given": "SC-02 지원 부대 배정 알림과 SC-08 지원 요청·실종자 발견 알림 fixture가 MembershipView.notificationTargets(incidentId,targetPolicy)를 호출한다.",
+      "given": "SC-02 지원 부대 배정 알림과 SC-08 지원 요청·실종자 발견 알림 fixture가 IncidentAssignmentView.notificationTargets(incidentId,targetPolicy)를 호출한다.",
       "when": "targetPolicy가 SUPPORT_ASSIGNMENT, SUPPORT_REQUEST, PERSON_FOUND로 각각 전달된다.",
-      "then": "SUPPORT_ASSIGNMENT는 신규 배정된 TEAM/PATROL_CAR 계정만 반환하고, SUPPORT_REQUEST는 실종팀 지휘 계정과 incident membership role 기준 현장 지휘관 계정을 우선 반환하고, PERSON_FOUND는 사건 배정 계정·단말 전체를 반환한다. 반환 대상은 id/status/version 이벤트 수렴과 함께 검증된다.",
+      "then": "SUPPORT_ASSIGNMENT는 신규 배정된 TEAM/PATROL_CAR 계정만 반환하고, SUPPORT_REQUEST는 실종팀 지휘 계정과 incident_assignment incident_role 기준 현장 지휘관 계정을 우선 반환하고, PERSON_FOUND는 사건 배정 계정·단말 전체를 반환한다. 반환 대상은 id/status/version 이벤트 수렴과 함께 검증된다.",
       "priority": "high"
     },
     {
@@ -1381,49 +1081,48 @@
         "FR-01",
         "FR-22"
       ],
-      "given": "SC-01/02/08/12 write가 성공했거나 실패 주입 fixture가 event_outbox, SSE fanout, board projector 중 하나를 누락 또는 stale version으로 만든다.",
-      "when": "REST 응답, event_outbox row, SSE payload, board snapshot을 비교한다.",
-      "then": "성공 경로는 모두 같은 id/status/version을 가진다. outbox 미적재, SSE 미송신, board snapshot 미갱신 또는 낮은 version은 red test 실패로 판정한다.",
+      "given": "SC-01/02/08/12 write가 성공했거나 실패 주입 fixture가 event_dispatch_job, SSE fanout, board refetch 중 하나를 누락 또는 stale version으로 만든다.",
+      "when": "REST 응답, event_dispatch_job row, SSE payload, board API을 비교한다.",
+      "then": "성공 경로는 모두 같은 id/status/version을 가진다. event_dispatch_job 미적재, SSE 미송신, board API 미갱신 또는 낮은 version은 red test 실패로 판정한다.",
       "priority": "critical"
     }
   ],
   "edge_cases": [
-    "OP1 bootstrap이 실패하거나 timeout 되면 incident는 BOOTSTRAPPING로 남고 OPEN 전 쓰기는 incident_bootstrapping으로 거부된다.",
-    "WEB이 아닌 채널에서 사건 가져오기, membership 변경, close를 호출하면 channel_not_allowed를 반환한다.",
-    "SUPPORT_UNIT FIELD_COMMANDER가 사건 가져오기를 호출하면 role_denied를 반환하고, 지구대/파출소 지휘 권한은 SecurityContext.affiliation=LOCAL_POLICE인 COMMAND account에만 허용한다.",
-    "지휘 role이 없는 팀 계정 또는 순찰차 계정이 membership 변경이나 close를 호출하면 role_denied를 반환한다.",
-    "closed incident에 membership이나 commander 변경을 시도하면 incident_closed를 반환한다.",
-    "seed fixture에 개인 사용자 식별자만 있고 account_id 매핑이 없거나 seed ref가 fixture catalog에 없으면 public error로 노출하지 않고 internal seed fixture validation 오류로 기록한다.",
-    "event_outbox 적재, SSE fanout, board snapshot projector 중 하나라도 id/status/version 수렴에 실패하면 write 성공 red test는 실패해야 한다."
+    "OP1 자동 생성이 실패하면 incident, missing_person, incident_assignment, OP1, event staging 전체를 rollback하고 incident row를 남기지 않는다.",
+    "WEB이 아닌 채널에서 사건 가져오기 또는 close를 호출하면 channel_not_allowed를 반환한다.",
+    "SUPPORT_UNIT FIELD_COMMANDER가 사건 가져오기를 호출하면 role_denied를 반환하고, 지구대/파출소 지휘 권한은 SecurityContext.organizationType=POLICE_SUBSTATION인 COMMAND account에만 허용한다.",
+    "지휘 role이 없는 팀 계정 또는 순찰차 계정이 close를 호출하면 role_denied를 반환한다.",
+    "closed incident에 112/mock polling/import가 도착하면 incident_closed로 기록하고 incident_assignment를 변경하지 않는다.",
+    "mock 112 fixture에 개인 사용자 식별자만 있고 account_id 매핑이 없거나 sourceIncidentId가 mock 112 catalog에 없으면 public error로 노출하지 않고 internal mock 112 validation 오류로 기록한다.",
+    "event_dispatch_job 적재, SSE fanout, board API refetch 중 하나라도 id/status/version 수렴에 실패하면 write 성공 red test는 실패해야 한다."
   ],
   "error_handling": {
-    "incident_bootstrapping": "OPEN 전 dependent write는 409로 거부하고 화면은 OP1 생성 대기 또는 실패 상태를 표시한다.",
     "incident_closed": "terminal close 이후 write는 409로 거부하고 앱·웹은 닫힌 사건/파기 진행 상태로 전환한다.",
     "channel_not_allowed": "허용되지 않은 APP/WEB/INTERNAL 호출은 403으로 거부하고, GET /incidents/{incidentId}도 APP/WEB 외 채널을 거부한다.",
-    "role_denied": "권한 없는 계정에는 membership 후보와 close CTA를 노출하지 않고 서버도 403으로 방어한다.",
+    "role_denied": "권한 없는 계정에는 close CTA를 노출하지 않고 서버도 403으로 방어한다. 지원 배정 후보/변경 CTA는 어떤 계정에도 노출하지 않는다.",
     "idempotency_mismatch": "동일 key 다른 body는 409로 거부하고 중복 클릭 방지 UI를 유지한다."
   },
   "non_functional_requirements": {
     "performance": [
-      "seed import API는 하네스 fixture 기준 p95 2초 이내에 domain commit과 event publish request staging을 완료한다.",
-      "GET /incidents는 account_id membership filter를 사용해 하네스 100개 사건 fixture에서 p95 500ms 이내 응답을 목표로 한다."
+      "mock 112 import API는 하네스 fixture 기준 p95 2초 이내에 incident, missing_person, incident_assignment, OP1 생성과 event publish request staging을 완료한다.",
+      "GET /incidents는 account incident_assignment filter를 사용해 하네스 100개 사건 fixture에서 p95 500ms 이내 응답을 목표로 한다."
     ],
     "security": [
-      "membership은 account_id 기준으로만 저장하며 개인 사용자 또는 개인 생성자 필드를 만들지 않는다.",
-      "실종자 운영 캐시는 사건 종료 트랜잭션에서 hard delete되어 user-facing DTO, active DB 조회, Android package 입력에서 제거되어야 한다.",
+      "incident_assignment는 account_id 기준으로만 저장하며 개인 사용자 또는 개인 생성자 필드를 만들지 않는다.",
+      "실종자 도메인 데이터는 사건 종료 트랜잭션에서 hard delete되어 user-facing DTO, active DB 조회, Android package 입력에서 제거되어야 한다.",
       "사건 import는 실종팀 지휘 계정 또는 지구대/파출소 지휘 계정으로 제한하고 SUPPORT_UNIT FIELD_COMMANDER에는 열지 않는다. 사건 close는 WEB 실종팀 지휘 계정으로 제한한다."
     ],
     "observability": [
-      "import success/failure, bootstrap timeout, membership changed, close requested 카운터를 노출한다.",
-      "seed fixture 오류는 개인정보 원문을 로그에 남기지 않고 seed ref와 validation code만 기록한다."
+      "import success/failure, OP1 자동 생성 실패, incident_assignment changed, close requested 카운터를 노출한다.",
+      "mock 112 fixture 오류는 개인정보 원문을 로그에 남기지 않고 sourceIncidentId와 validation code만 기록한다."
     ]
   },
   "tdd_red_tests": {
     "backend": [
       {
-        "name": "SeedImportCreatesIncidentCacheMembershipAndPublishesCreated",
+        "name": "IncidentImportCreatesIncidentAssignmentAndPublishesCreated",
         "framework": "JUnit 5 + Testcontainers(PostgreSQL)",
-        "scenario": "WEB 실종팀 지휘 또는 LOCAL_POLICE COMMAND 계정이 seed 사건을 가져오면 incident/missing_person_cache/account_id membership이 생성되고 import 응답과 INCIDENT_CREATED payload가 같은 id/status/version을 가진다."
+        "scenario": "WEB 실종팀 지휘 또는 POLICE_SUBSTATION COMMAND 계정이 mock 112 사건을 가져오면 incident/missing_person/account incident_assignment이 생성되고 import 응답과 INCIDENT_CREATED payload가 같은 id/status/version을 가진다."
       },
       {
         "name": "ImportRejectsSupportFieldCommanderAndBodyRequestedBy",
@@ -1431,24 +1130,24 @@
         "scenario": "SUPPORT_UNIT FIELD_COMMANDER의 import는 role_denied가 되고 public request body의 requestedByAccountId는 허용되지 않으며 actor는 SecurityContext.accountId에서만 결정된다."
       },
       {
-        "name": "ImportIdempotencyAndDuplicateSeedRefDoNotDuplicateBootstrap",
+        "name": "ImportIdempotencyAndDuplicateSourceIncidentIdDoesNotDuplicateIncident",
         "framework": "JUnit 5 + Testcontainers(PostgreSQL)",
-        "scenario": "같은 Idempotency-Key 같은 body는 기존 id/status/version 응답을 replay하고, 같은 key 다른 body는 idempotency_mismatch, 동일 seed ref 재호출은 사건·OP·membership·initial marker 중복 없이 기존 사건 재사용 또는 write_conflict로 끝난다."
+        "scenario": "같은 Idempotency-Key 같은 body는 기존 id/status/version 응답을 replay하고, 같은 key 다른 body는 idempotency_mismatch, 동일 sourceIncidentId 재호출은 사건·OP·incident_assignment·initial marker 중복 없이 기존 사건 재사용 또는 write_conflict로 끝난다."
       },
       {
-        "name": "Op1BootstrapCompletionOpensBootstrappingIncident",
+        "name": "ImportRollsBackWhenOp1CreationFails",
         "framework": "JUnit 5",
-        "scenario": "S8 OP1 bootstrap completion이 확인되면 S1-1이 BOOTSTRAPPING -> OPEN 전이를 수행하고, completion 실패 또는 timeout이면 BOOTSTRAPPING에 남아 dependent write가 incident_bootstrapping으로 거부된다."
+        "scenario": "OP1 자동 생성 실패를 주입하면 incident, missing_person, incident_assignment, OP1, INCIDENT_CREATED staging이 모두 rollback되고 incident row가 남지 않는다."
       },
       {
-        "name": "IncidentMembershipUsesAccountIdOnly",
+        "name": "IncidentAssignmentUsesAccountIdOnly",
         "framework": "JUnit 5",
-        "scenario": "membership 생성 요청과 schema 검증에서 개인 사용자 식별자 필드는 허용되지 않고 PostgreSQL partial unique (incident_id, account_id) WHERE revoked_at IS NULL 제약이 적용된다."
+        "scenario": "incident_assignment 생성 요청과 schema 검증에서 개인 사용자 식별자 필드는 허용되지 않고 PostgreSQL partial unique (incident_id, account_id) WHERE revoked_at IS NULL 제약이 적용된다."
       },
       {
-        "name": "MembershipHandoverAndSupportAssignmentPreserveOp1Evidence",
+        "name": "AssignmentImportHandoverAndSupportPreserveOp1Evidence",
         "framework": "JUnit 5 + Testcontainers(PostgreSQL)",
-        "scenario": "SC-02 fixture에서 실종팀 인계와 지원 부대 배정은 기존 OP1 path/marker/memo seed ID를 보존하고, 인계 전 mem-precinct-* active rows를 유지하며, 인계 후 mem-precinct-alpha-* 기대 membership rows와 지원 배정 후 mem-precinct-support-* 기대 membership rows를 추가하고, MembershipView와 INCIDENT_MEMBERSHIP_CHANGED payload가 같은 id/status/version으로 수렴해야 한다."
+        "scenario": "SC-02 fixture에서 실종팀 인계와 지원 부대 배정은 기존 OP1 path/marker/memo seed ID를 보존하고, 인계 전 mem-precinct-* active rows를 유지하며, 인계 후 mem-precinct-alpha-* 기대 incident_assignment rows와 지원 배정 후 mem-precinct-support-* 기대 incident_assignment rows를 추가하고, IncidentAssignmentView와 INCIDENT_ASSIGNMENT_CHANGED payload가 같은 id/status/version으로 수렴해야 한다."
       },
       {
         "name": "UnassignedReadAndWriteGuards",
@@ -1458,65 +1157,65 @@
       {
         "name": "NotificationTargetsApplyTargetPolicy",
         "framework": "JUnit 5",
-        "scenario": "MembershipView.notificationTargets(incidentId,targetPolicy)는 SUPPORT_ASSIGNMENT에서 신규 배정된 TEAM/PATROL_CAR 계정, SUPPORT_REQUEST에서 지휘 계정 우선, PERSON_FOUND에서 사건 배정 계정·단말 전체를 반환하고 S5 fixture가 대상 누락을 실패로 판정한다."
+        "scenario": "IncidentAssignmentView.notificationTargets(incidentId,targetPolicy)는 SUPPORT_ASSIGNMENT에서 신규 배정된 TEAM/PATROL_CAR 계정, SUPPORT_REQUEST에서 지휘 계정 우선, PERSON_FOUND에서 사건 배정 계정·단말 전체를 반환하고 S5 fixture가 대상 누락을 실패로 판정한다."
       },
       {
         "name": "CloseIncidentBlocksWritesDeletesPrivateCacheAndPublishesClosed",
         "framework": "JUnit 5 + MockK/Mockito",
-        "scenario": "close 후 membership write는 incident_closed가 되고 missing_person_cache row와 photo pointer는 active DB에서 hard delete되며 close 응답, INCIDENT_CLOSED payload, terminal snapshot은 같은 id/status/version/closedAt을 갖고 PII를 포함하지 않는다."
+        "scenario": "close 후 112/mock polling/import 기반 incident_assignment 갱신은 incident_closed가 되고 missing_person row와 photo pointer는 active DB에서 hard delete되며 close 응답, INCIDENT_CLOSED payload, terminal board response은 같은 id/status/version/closedAt을 갖고 PII를 포함하지 않는다."
       },
       {
         "name": "WriteConvergenceFailureInjectionFailsHarness",
         "framework": "JUnit 5 + Testcontainers(PostgreSQL)",
-        "scenario": "SC-01/02/08/12 write 성공 뒤 mock event outbox 미적재, mock SSE client 미송신, S3-2 mock board snapshot projector 미갱신 또는 stale version을 주입하면 REST 응답 id/status/version과 수렴하지 않아 red test가 실패한다."
+        "scenario": "SC-01/02/08/12 write 성공 뒤 mock event_dispatch_job 미적재, mock SSE client 미송신, S3-2 mock board API refetch 미갱신 또는 stale version을 주입하면 REST 응답 id/status/version과 수렴하지 않아 red test가 실패한다."
       }
     ],
     "web": [
       {
-        "name": "ImportButtonDisablesDuringBootstrap",
+        "name": "ImportButtonDisablesDuringImport",
         "framework": "Playwright",
-        "scenario": "가져오기 클릭 중 버튼은 로딩·비활성 상태이며 중복 클릭해도 사건과 OP가 중복 생성되지 않고 OP1 bootstrap 실패/timeout이면 재시도 가능 실패 상태를 표시한다."
+        "scenario": "가져오기 클릭 중 버튼은 로딩·비활성 상태이며 중복 클릭해도 사건과 OP가 중복 생성되지 않고 import 실패 시 재시도 가능 실패 상태를 표시한다."
       },
       {
         "name": "UnassignedAccountCannotRenderIncidentDetail",
         "framework": "Playwright",
-        "scenario": "미배정 팀 계정 또는 타 팀 계정이 사건 상세와 지원 배정 화면에 접근하면 403 상태를 표시하고 실종자 정보, membership 후보, 지원 배정 CTA를 렌더링하지 않는다."
+        "scenario": "미배정 팀 계정 또는 타 팀 계정이 사건 상세와 지원 배정 반영 상태 화면에 접근하면 403 상태를 표시하고 실종자 정보, 지원 배정 후보, 지원 배정 변경 CTA를 렌더링하지 않는다."
       },
       {
-        "name": "MembershipAssignmentShowsAccountBasedResult",
+        "name": "IncidentAssignmentShowsAccountBasedResult",
         "framework": "Vitest + RTL",
-        "scenario": "지원 부대 배정 결과는 팀/순찰차/지휘 account display name과 S1-1 내부 membership_role로 표시하고 개인 사용자 필드나 S1-2 role enum처럼 보이는 값을 표시하지 않는다."
+        "scenario": "지원 부대 배정 결과는 112/mock에서 반영된 팀/순찰차/지휘 account display name과 S1-1 `incident_role`로 표시하고 개인 사용자 필드나 S1-2 role enum처럼 보이는 값을 표시하지 않는다."
       },
       {
         "name": "ClosedIncidentHidesMissingPersonPrivateFields",
         "framework": "Playwright",
-        "scenario": "종료 확인 다이얼로그는 삭제 대상과 재오픈 불가를 표시하고 confirmPersonalDataRemoval 승인 전에는 close 요청을 보내지 않는다. 승인 후 상세 화면은 terminal snapshot의 id/status/version/closedAt/writeDisabledReason만 표시하고 실종자 개인정보 필드를 렌더링하지 않으며 close 응답 version과 board snapshot version 수렴을 확인한다."
+        "scenario": "종료 확인 다이얼로그는 삭제 대상과 재오픈 불가를 표시하고 confirmPersonalDataRemoval 승인 전에는 close 요청을 보내지 않는다. 승인 후 상세 화면은 terminal board response의 id/status/version/closedAt/writeDisabledReason만 표시하고 실종자 개인정보 필드를 렌더링하지 않으며 close 응답 version과 board API version 수렴을 확인한다."
       }
     ],
     "android": [
       {
         "name": "IncidentSummaryReadsAssignedAccountIncidents",
         "framework": "JUnit5 + Robolectric",
-        "scenario": "팀 계정 또는 순찰차 계정으로 로그인하면 account_id membership이 있는 사건만 목록에 나타난다."
+        "scenario": "팀 계정 또는 순찰차 계정으로 로그인하면 account incident_assignment이 있는 사건만 목록에 나타난다."
       },
       {
         "name": "LocalIncidentSummaryRemovesPrivateCacheOnClose",
         "framework": "JUnit5 + Robolectric",
-        "scenario": "INCIDENT_CLOSED 후 로컬 사건 요약에서 실종자 개인정보가 즉시 제거되고 닫힌 사건 terminal snapshot 상태가 id/status/version 기준으로 표시된다."
+        "scenario": "INCIDENT_CLOSED 후 로컬 사건 요약에서 실종자 개인정보가 즉시 제거되고 닫힌 사건 terminal board response 상태가 id/status/version 기준으로 표시된다."
       }
     ]
   },
   "harness_constraints": {
     "preconditions": [
-      "S1-2 seed account/device fixture가 팀 계정, 순찰차 계정, 지휘 계정을 포함한다.",
-      "S4 PublishRequest capture mock, mock event outbox, mock SSE client가 eventId와 id/status/version 공통 필드를 검증하고 미적재·미송신 실패를 주입할 수 있어야 한다.",
-      "S3-2 mock board snapshot projector가 REST 응답 version 이상 수렴, board 미갱신, stale snapshot 실패를 주입할 수 있어야 한다.",
-      "S8 OP1 bootstrap fixture가 completion 상태를 제공할 수 있어야 한다.",
-      "S5 ReferenceMarkerSeed mock이 seed marker 생성 요청을 capture할 수 있어야 한다."
+      "S1-2 seed account/policePhone fixture가 팀 계정, 순찰차 계정, 지휘 계정을 포함한다.",
+      "S4 PublishRequest capture mock, mock event_dispatch_job, mock SSE client가 eventId와 id/status/version 공통 필드를 검증하고 미적재·미송신 실패를 주입할 수 있어야 한다.",
+      "S3-2 mock board API refetch가 REST 응답 version 이상 수렴, board 미갱신, stale board response 실패를 주입할 수 있어야 한다.",
+      "S8 OP1 자동 생성 fixture가 success/failure 상태를 제공할 수 있어야 한다.",
+      "S5 ReferenceMarkerSeed mock이 mock 112 marker 생성 요청을 capture할 수 있어야 한다."
     ],
     "forbidden": [
       "실제 112/실종프로파일링 네트워크 연동 구현",
-      "incident 또는 membership schema에 개인 사용자·개인 생성자·전용 지도 preset 필드 추가",
+      "incident 또는 incident_assignment schema에 개인 사용자·개인 생성자·전용 지도 preset 필드 추가",
       "폐기된 전용 범위, 자동 누락 판단, 지형 전용 preset 개념을 S1-1 DTO나 schema에 포함",
       "앱 채널에서 사건 가져오기, 지원 부대 배정, 사건 종료 write 허용",
       "사건 종료 후 실종자 개인정보를 user-facing 응답이나 Android package에 포함"
@@ -1525,31 +1224,31 @@
       "S1-2 owner LGTM: SecurityContext, account fixture, role/channel guard 변경",
       "S4 owner LGTM: INCIDENT_* event payload 변경",
       "S5 owner LGTM: 초기 기준 마커 seed payload 변경",
-      "S8 owner LGTM: OP1 bootstrap handshake 변경",
+      "S8 owner LGTM: OP1 자동 생성 호출/rollback 계약 변경",
       "S1-3 owner LGTM: close/purge handoff 변경"
     ]
   },
   "open_issues": [
     {
       "id": "OI-S1-1-01",
-      "issue": "mock·seed 사건 데이터 필드와 account/device 매핑 fixture의 최종 형식 확정 필요",
+      "issue": "mock 112 사건 데이터 필드와 account/policePhone 매핑 fixture의 최종 형식 확정 필요",
       "owner": "L1 + L2",
       "deadline": "1주차",
-      "related_gap": "PRD §11.1 112/실종프로파일링 mock·seed 데이터 명세"
+      "related_gap": "PRD §11.1 mock 112 데이터 명세"
     },
     {
       "id": "OI-S1-1-02",
-      "issue": "실종팀 인계 seed fixture가 system-only API인지 import adapter 재실행인지 하네스 경로 확정 필요",
+      "issue": "실종팀 인계 fixture가 system-only import adapter 재실행인지 하네스 경로 확정 필요",
       "owner": "L1",
       "deadline": "Spec 단계",
-      "related_gap": "SC-02 system/mock seed 인계 fixture 처리"
+      "related_gap": "SC-02 mock 112 인계 fixture 처리"
     },
     {
       "id": "OI-S1-1-04",
-      "issue": "catalog 밖 public error seed_not_found는 S1-1 public API error로 쓰지 않는다. 없는 seed ref와 fixture catalog 누락은 internal seed fixture validation 오류 및 하네스 preflight 실패로 처리할지, catalog에 정식 public error를 추가할지 별도 결정이 필요하다.",
+      "issue": "catalog 밖 public error source_incident_not_found는 S1-1 public API error로 쓰지 않는다. 없는 sourceIncidentId와 mock 112 catalog 누락은 internal fixture validation 오류 및 하네스 preflight 실패로 처리할지, catalog에 정식 public error를 추가할지 별도 결정이 필요하다.",
       "owner": "L1",
       "deadline": "Spec 단계",
-      "related_gap": "mock·seed fixture validation"
+      "related_gap": "mock 112 fixture validation"
     }
   ],
   "status_management": {
@@ -1561,8 +1260,8 @@
   "change_log": [
     {
       "date": "2026-04-28",
-      "change": "PRD v3와 boundaries.md 기준으로 Incident Import & Membership 초안을 재정렬",
-      "reason": "개인 사용자와 지도 preset 중심 stale draft를 팀/순찰차/지휘 account_id와 mock·seed import 모델로 교체"
+      "change": "PRD v3와 boundaries.md 기준으로 Incident Import & Assignment 초안을 재정렬",
+      "reason": "개인 사용자와 지도 preset 중심 stale draft를 팀/순찰차/지휘 account_id와 mock 112 import 모델로 교체"
     }
   ]
 }
