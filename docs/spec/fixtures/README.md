@@ -4,6 +4,13 @@
 
 이 디렉터리는 Lane 전용 테스트 코드나 mock adapter를 두지 않는다. 기준 문서에 이미 있는 fixture ID와 payload만 모으고, 미정 값은 `확인 필요`로 남긴다.
 
+## Source Of Truth
+
+- fixture의 **기준값**은 `docs/spec/fixtures/common-fixtures.json`을 source of truth로 둔다.
+- backend, android, frontend, harness는 lane 전용 fixture 코드를 따로 만들 수 있지만, fixture ID, eventId, outboxId, idempotencyKey, status, payload 기대값은 이 디렉터리의 공통 값을 그대로 따라야 한다.
+- lane 전용 테스트 fixture는 이 값을 재표현하거나 소비할 수는 있어도, 새로운 기준값을 만들면 안 된다.
+- 문서에 없는 값은 lane 코드에서 임의로 보충하지 말고 `pending-confirmation.json` 또는 spec owner 확인으로 올린다.
+
 ## 파일 구성
 
 - `common-fixtures.json`: 확정된 공통 fixture 실행 데이터 세트
@@ -51,6 +58,7 @@
 - frontend/e2e는 Playwright fixture source로 이 JSON을 읽고, lane 전용 probe/mock adapter만 따로 구현한다.
 - 공통 fixture는 외부 네트워크를 호출하지 않는다.
 - lane 전용 loader가 필요해도 이 디렉터리의 JSON 구조와 fixture ID를 바꾸지 않는다.
+- lane 전용 loader는 `common-fixtures.json`의 값을 우선 사용하고, lane 내부 record/class로 감쌀 때도 ID와 canonical 문자열을 바꾸지 않는다.
 
 ## Reset / Cleanup
 

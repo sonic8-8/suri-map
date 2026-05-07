@@ -80,7 +80,8 @@
     ],
     "noExternalNetwork": true,
     "resetBeforeLoad": true,
-    "canonicalApiPrefix": "/api"
+    "canonicalApiPrefix": "/api",
+    "sourceOfTruth": "Lane-specific fixture code may exist, but canonical IDs, statuses, event names, outbox keys, and payload expectations must match this file."
   },
   "confirmed": {
     "incidentSeed": {
@@ -340,6 +341,66 @@
         "online": "ONLINE",
         "offline": "OFFLINE",
         "recovering": "RECOVERING"
+      }
+    },
+    "outboxSharedRules": {
+      "s6Statuses": [
+        "PENDING",
+        "SENDING",
+        "ACKED",
+        "FAILED_RETRYABLE",
+        "FAILED_FINAL",
+        "PURGED"
+      ],
+      "harnessStatuses": [
+        "PENDING_LOCAL",
+        "PENDING_SEND",
+        "SENDING",
+        "SYNCED",
+        "FAILED",
+        "PURGED"
+      ],
+      "statusMapping": {
+        "PENDING_LOCAL": "PENDING",
+        "PENDING_SEND": "PENDING",
+        "SENDING": "SENDING",
+        "SYNCED": "ACKED",
+        "FAILED": "FAILED_RETRYABLE|FAILED_FINAL",
+        "PURGED": "PURGED"
+      },
+      "clockRules": {
+        "maxAllowedSkewMs": 30000,
+        "staleClockSyncAfterMs": 300000,
+        "enqueueRule": "clockOffsetMs와 clockSyncedAt이 없거나 5분보다 오래됐으면 /api/sync/clock 성공 전 SENDING 전이를 금지한다.",
+        "serverRule": "domain write의 clientTs + clockOffsetMs가 server receive time 기준 30초를 초과해 벗어나면 409 clock_skew_exceeded를 반환하고 row는 FAILED_RETRYABLE로 남긴다."
+      },
+      "failureDisplayPolicy": {
+        "CLOCK_RESYNC_REQUIRED": [
+          "clock_skew_exceeded",
+          "stale_clock_sync"
+        ],
+        "NON_RETRYABLE_CONFLICT": [
+          "idempotency_mismatch",
+          "invalid_payload",
+          "request_body_hash_mismatch",
+          "write_conflict"
+        ],
+        "DEVICE_ACCESS_REQUIRED": [
+          "police_phone_required",
+          "police_phone_not_registered",
+          "police_phone_not_assigned"
+        ],
+        "CLOSED_NO_RETRY": [
+          "incident_closed",
+          "post_close_requeue_rejected"
+        ],
+        "RETRYABLE_NETWORK": [
+          "network_unavailable",
+          "timeout",
+          "http_408",
+          "http_429",
+          "http_500"
+        ]
       }
     },
     "outboxReplay": {
