@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 /**
  * mock 112 서버를 주기적으로 polling하여 새 사건과 배정 변경을 감지한다.
  *
- * <p>mock112.enabled=true, dev profile에서만 활성화된다. Suri-Map이 직접 사건을 생성하지 않고, polling으로 감지만 한다.
+ * <p>mock112.enabled=true 일 때 활성화된다. Suri-Map이 직접 사건을 생성하지 않고, polling으로 감지만 한다.
  */
 @Component
 @ConditionalOnProperty(name = "mock112.enabled", havingValue = "true")
