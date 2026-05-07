@@ -14,7 +14,6 @@ import com.surimap.common.health.HealthController;
 import com.surimap.config.SecurityConfig;
 import com.surimap.support.auth.WithMockAccount;
 import java.util.List;
-import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -53,16 +52,16 @@ class SecurityFilterBaselineTest {
       channel = Channel.APP,
       accountType = AccountType.TEAM,
       organizationType = OrganizationType.MISSING_TEAM,
-      policePhoneId = "00000000-0000-0000-0000-000000000101")
+      policePhoneId = "dev-precinct-phone-01")
   void mockAppAccountCarriesTypedSecurityContext() throws Exception {
     mockMvc
         .perform(get("/api/auth-harness/context"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.accountId").value("00000000-0000-0000-0000-000000000001"))
+        .andExpect(jsonPath("$.accountId").value("acct-precinct-team"))
         .andExpect(jsonPath("$.accountType").value("TEAM"))
         .andExpect(jsonPath("$.organizationType").value("MISSING_TEAM"))
         .andExpect(jsonPath("$.channel").value("APP"))
-        .andExpect(jsonPath("$.policePhoneId").value("00000000-0000-0000-0000-000000000101"))
+        .andExpect(jsonPath("$.policePhoneId").value("dev-precinct-phone-01"))
         .andExpect(jsonPath("$.authorities[0]").value("MEMBER"));
   }
 
@@ -151,10 +150,10 @@ class SecurityFilterBaselineTest {
   }
 
   record AuthHarnessResponse(
-      UUID accountId,
+      String accountId,
       AccountType accountType,
       OrganizationType organizationType,
       Channel channel,
-      UUID policePhoneId,
+      String policePhoneId,
       List<String> authorities) {}
 }
