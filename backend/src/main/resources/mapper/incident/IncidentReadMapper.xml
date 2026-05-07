@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.surimap.incident.repository.IncidentReadMapper">
+    <resultMap id="listRowMap" type="com.surimap.incident.repository.IncidentReadRows$ListRow">
+        <id property="id" column="id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="title" column="title"/>
+        <result property="status" column="status"/>
+        <result property="version" column="version"/>
+        <result property="closedAt" column="closed_at"/>
+    </resultMap>
+
+    <resultMap id="detailRowMap" type="com.surimap.incident.repository.IncidentReadRows$DetailRow">
+        <id property="id" column="id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="status" column="status"/>
+        <result property="version" column="version"/>
+    </resultMap>
+
+    <resultMap id="missingPersonRowMap" type="com.surimap.incident.repository.IncidentReadRows$MissingPersonRow">
+        <id property="incidentId" column="incident_id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="displayName" column="display_name"/>
+        <result property="photoObjectKey" column="photo_object_key"/>
+        <result property="appearanceText" column="appearance_text"/>
+        <result property="lastSeenLocationText" column="last_seen_location_text"/>
+        <result property="lastSeenAt" column="last_seen_at"/>
+    </resultMap>
+
+    <resultMap id="assignmentRowMap" type="com.surimap.incident.repository.IncidentReadRows$AssignmentRow">
+        <result property="accountId" column="account_id"/>
+        <result property="incidentRole" column="incident_role"/>
+    </resultMap>
+
+    <select id="findActiveListByAccountId" resultMap="listRowMap">
+        <!-- L1-T05A는 active DTO만 다루므로 OPEN 사건과 해제되지 않은 배정만 노출한다. -->
+        SELECT
+            i.id,
+            i.title,
+            i.status,
+            i.version,
+            i.closed_at
+        FROM "incident" i
+        INNER JOIN incident_assignment ia
+            ON ia.incident_id = i.id
+           AND ia.revoked_at IS NULL
+        WHERE ia.account_id = #{accountId}
+          AND i.status = 'OPEN'
+        <if test="status != null and status != ''">
+          AND UPPER(#{status}) = 'OPEN'
+        </if>
+        ORDER BY i.opened_at DESC, i.id ASC
+    </select>
+
+    <select id="findActiveDetailByIncidentIdAndAccountId" resultMap="detailRowMap">
+        <!-- 상세 row는 active 사건과 현재 계정의 active 배정이 동시에 맞을 때만 반환한다. -->
+        SELECT
+            i.id,
+            i.status,
+            i.version
+        FROM "incident" i
+        INNER JOIN incident_assignment ia
+            ON ia.incident_id = i.id
+           AND ia.revoked_at IS NULL
+        WHERE i.id = #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND ia.account_id = #{accountId}
+          AND i.status = 'OPEN'
+        LIMIT 1
+    </select>
+
+    <select id="countActiveIncidentById" resultType="int">
+        <!-- 404와 incident_access_denied를 구분하기 위한 active 사건 존재 확인. -->
+        SELECT COUNT(*)
+        FROM "incident"
+        WHERE id = #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND status = 'OPEN'
+    </select>
+
+    <select id="countActiveAssignmentsByAccountId" resultType="int">
+        <!-- @RequireIncidentAccess port가 계정 단위 active assignment 보유 여부를 확인할 때 사용한다. -->
+        SELECT COUNT(*)
+        FROM incident_assignment
+        WHERE account_id = #{accountId}
+          AND revoked_at IS NULL
+    </select>
+
+    <select id="findMissingPersonByIncidentId" resultMap="missingPersonRowMap">
+        SELECT
+            incident_id,
+            display_name,
+            photo_object_key,
+            appearance_text,
+            last_seen_location_text,
+            last_seen_at
+        FROM missing_person
+        WHERE incident_id = #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+    </select>
+
+    <select id="findActiveAssignmentsByIncidentId" resultMap="assignmentRowMap">
+        SELECT
+            account_id,
+            incident_role
+        FROM incident_assignment
+        WHERE incident_id = #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND revoked_at IS NULL
+        ORDER BY assigned_at ASC, account_id ASC
+    </select>
+</mapper>
