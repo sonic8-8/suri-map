@@ -10,6 +10,8 @@ import java.util.UUID;
  * <p>EventHub.publish PublishRequest 생성 시 payload로 사용한다.
  */
 public record SearchAreaAssignmentChangedEvent(
+    String eventId,
+    long sequence,
     String type,
     UUID id,
     UUID incidentId,
