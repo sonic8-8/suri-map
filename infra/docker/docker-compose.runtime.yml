@@ -5,8 +5,20 @@ services:
     image: ${FRONTEND_IMAGE:-suri-map-frontend:develop}
     container_name: suri-map-frontend
     restart: unless-stopped
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+      VITE_TILE_BASE_URL: ${VITE_TILE_BASE_URL:-/tiles}
     ports:
       - "127.0.0.1:${FRONTEND_HOST_PORT:-3000}:80"
+    networks:
+      - web_net
+
+  tileserver-gl:
+    image: ${TILESERVER_IMAGE:-maptiler/tileserver-gl:latest}
+    container_name: suri-map-tileserver-gl
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${TILESERVER_HOST_PORT:-8082}:8080"
     networks:
       - web_net
 
@@ -61,4 +73,3 @@ networks:
   web_net:
   db_net:
     internal: true
-

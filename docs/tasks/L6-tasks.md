@@ -20,7 +20,7 @@
 
 ## Phase -1
 
-- [ ] L6-B01 웹 상황판 MapLibre 실행 기반 준비
+- [x] L6-B01 웹 상황판 MapLibre 실행 기반 준비
   - 담당 Spec: S3-2, S7
   - 필수 참조: `architecture.md §2`, `architecture.md §4`, `adr.md ADR-0035`, `spec/specs/S3-2.json`, `spec/specs/S7.json`
   - 연관 Lane: All lanes

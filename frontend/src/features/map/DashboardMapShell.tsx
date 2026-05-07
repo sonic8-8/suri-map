@@ -1,8 +1,13 @@
 import { Layers, LocateFixed, Map, Maximize2, Minus, Plus } from 'lucide-react';
+import { boardLayerLabels, type BoardLayerKey, useBoardDisplayStore } from '../board/model/boardDisplayStore';
+import { BoardMapRoot } from './BoardMapRoot';
 
-const visibleLayers = ['팀 경로', '구역', '마커', 'OP 이력'];
+const boardLayerKeys = Object.keys(boardLayerLabels) as BoardLayerKey[];
 
 export function DashboardMapShell() {
+  const visibleLayers = useBoardDisplayStore((state) => state.visibleLayers);
+  const toggleLayer = useBoardDisplayStore((state) => state.toggleLayer);
+
   return (
     <div className="map-layout">
       <div className="map-toolbar" aria-label="지도 도구">
@@ -21,6 +26,7 @@ export function DashboardMapShell() {
       </div>
 
       <div className="map-surface" aria-label="수색 지도">
+        <BoardMapRoot />
         <div className="map-grid" />
         <div className="route-line route-line-a" />
         <div className="route-line route-line-b" />
@@ -38,10 +44,10 @@ export function DashboardMapShell() {
           <Layers size={18} aria-hidden="true" />
           <strong>레이어</strong>
         </div>
-        {visibleLayers.map((layer) => (
+        {boardLayerKeys.map((layer) => (
           <label key={layer} className="layer-row">
-            <input type="checkbox" defaultChecked />
-            <span>{layer}</span>
+            <input type="checkbox" checked={visibleLayers[layer]} onChange={() => toggleLayer(layer)} />
+            <span>{boardLayerLabels[layer]}</span>
           </label>
         ))}
       </aside>

@@ -207,9 +207,15 @@ button {
   background: #e7ece8;
 }
 
+.map-root {
+  position: absolute;
+  inset: 0;
+}
+
 .map-grid {
   position: absolute;
   inset: 0;
+  pointer-events: none;
   background-image:
     linear-gradient(rgb(23 32 38 / 8%) 1px, transparent 1px),
     linear-gradient(90deg, rgb(23 32 38 / 8%) 1px, transparent 1px);
@@ -218,8 +224,10 @@ button {
 
 .route-line {
   position: absolute;
+  z-index: 1;
   height: 4px;
   border-radius: 999px;
+  pointer-events: none;
   transform-origin: left center;
 }
 
@@ -241,10 +249,12 @@ button {
 
 .marker {
   position: absolute;
+  z-index: 1;
   width: 16px;
   height: 16px;
   border: 3px solid #ffffff;
   border-radius: 50%;
+  pointer-events: none;
   box-shadow: 0 8px 20px rgb(23 32 38 / 18%);
 }
 
@@ -268,6 +278,7 @@ button {
 
 .map-empty-state {
   position: absolute;
+  z-index: 1;
   left: 20px;
   bottom: 20px;
   display: inline-flex;
@@ -317,6 +328,12 @@ button {
   min-height: 34px;
   color: #34433d;
   font-size: 14px;
+}
+
+.layer-row input {
+  width: 16px;
+  height: 16px;
+  accent-color: #1f6f5f;
 }
 
 @media (max-width: 860px) {
