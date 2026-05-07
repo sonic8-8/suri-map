@@ -5,6 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
 
@@ -29,6 +30,7 @@ public final class BoardRefetchGuard {
     Set<BoardEventApplicationKey> appliedEvents = currentEventApplications(currentRequest);
     List<BoardRefetchLedgerEntry> ledger = new ArrayList<>();
     long boardResponseVersion = currentRequest.boardResponseVersion();
+    BoardRefetchSignal convergenceSignal = null;
 
     for (BoardRefetchSignal signal : refetchSignals) {
       BoardSlotRegistry.requireKnown(signal.slot());
@@ -46,15 +48,16 @@ public final class BoardRefetchGuard {
         rowsByKey.put(rowKey, incoming);
         appliedEvents.add(eventKey);
         boardResponseVersion = Math.max(boardResponseVersion, signal.version());
+        convergenceSignal = signal;
       }
       ledger.add(
           BoardRefetchLedgerEntry.forRow(
               signal, applyStatus, reloadReason, previous, boardResponseVersion));
     }
 
-    return new BoardRefetchResult(
-        assembler.assemble(copyRequest(currentRequest, rowsByKey.values().stream().toList())),
-        ledger);
+    BoardDTO board =
+        assembler.assemble(copyRequest(currentRequest, rowsByKey.values().stream().toList()));
+    return new BoardRefetchResult(board, ledger, convergenceProbe(board, convergenceSignal));
   }
 
   public BoardRefetchResult goneRefetchRequired(
@@ -67,6 +70,30 @@ public final class BoardRefetchGuard {
         List.of(
             BoardRefetchLedgerEntry.goneRefetchRequired(
                 currentRequest.incidentId(), lastEventId, currentRequest.boardResponseVersion())));
+  }
+
+  public BoardAssemblyLagState observeAssemblyLag(
+      BoardAssemblyRequest currentRequest, BoardRefetchSignal signal) {
+    Objects.requireNonNull(currentRequest, "currentRequest must not be null");
+    Objects.requireNonNull(signal, "signal must not be null");
+    BoardSlotRegistry.requireKnown(signal.slot());
+
+    BoardSourceRow staleRow = currentRowsByKey(currentRequest).get(BoardRowKey.from(signal));
+    long staleVersion = staleRow == null ? -1 : staleRow.version();
+    long staleSequence = staleRow == null ? -1 : staleRow.sequence();
+    boolean lags = staleVersion < signal.version() || staleSequence < signal.sequence();
+
+    return new BoardAssemblyLagState(
+        lags ? BoardAssemblyLagState.STALE_REFETCH : BoardAssemblyLagState.CURRENT,
+        signal.eventId(),
+        signal.slot(),
+        signal.sourceSpec(),
+        signal.entityId(),
+        signal.version(),
+        signal.sequence(),
+        staleVersion,
+        staleSequence,
+        reloadAssertion(signal));
   }
 
   private static Map<BoardRowKey, BoardSourceRow> currentRowsByKey(
@@ -123,6 +150,38 @@ public final class BoardRefetchGuard {
         signal.eventId(),
         signal.sourceHash(),
         signal.payload());
+  }
+
+  private static BoardRefetchConvergenceProbe convergenceProbe(
+      BoardDTO board, BoardRefetchSignal signal) {
+    if (signal == null) {
+      return null;
+    }
+    BoardSlotRow boardRow = findBoardRow(board, signal);
+    return new BoardRefetchConvergenceProbe(
+        signal.eventId(),
+        signal.slot(),
+        signal.sourceSpec(),
+        signal.entityId(),
+        signal.version(),
+        signal.sequence(),
+        boardRow == null ? -1 : boardRow.version(),
+        boardRow == null ? -1 : boardRow.sequence(),
+        boardRow != null
+            && boardRow.version() >= signal.version()
+            && boardRow.sequence() >= signal.sequence());
+  }
+
+  private static BoardSlotRow findBoardRow(BoardDTO board, BoardRefetchSignal signal) {
+    try {
+      return board.slotRow(signal.slot(), signal.entityId());
+    } catch (NoSuchElementException ignored) {
+      return null;
+    }
+  }
+
+  private static String reloadAssertion(BoardRefetchSignal signal) {
+    return "BoardDTO row version >= " + signal.version() + " and sequence >= " + signal.sequence();
   }
 
   private static BoardAssemblyRequest copyRequest(
