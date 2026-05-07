@@ -19,6 +19,7 @@ import com.surimap.marker.exception.MarkerApiException;
 import com.surimap.marker.photo.security.SuriMapAuthentication;
 import com.surimap.marker.repository.MarkerCreateRecord;
 import com.surimap.marker.repository.MarkerRecord;
+import com.surimap.marker.repository.MarkerSeedRecord;
 import com.surimap.marker.seed.support.InMemoryMarkerRepository;
 import com.surimap.marker.service.MarkerMutationContext;
 import com.surimap.marker.service.MarkerRequestContext;
@@ -41,6 +42,8 @@ import org.springframework.http.HttpStatus;
 class MarkerUpdateDeleteServiceTest {
 
   private static final UUID MARKER_ID = UUID.fromString("55555555-5555-5555-5555-555555550072");
+  private static final UUID MOCK_SEED_MARKER_ID =
+      UUID.fromString("55555555-5555-5555-5555-555555550172");
   private static final UUID ACCOUNT_ID = UUID.fromString("11111111-1111-1111-1111-111111110072");
   private static final UUID POLICE_PHONE_ID =
       UUID.fromString("22222222-2222-2222-2222-222222220072");
@@ -84,6 +87,85 @@ class MarkerUpdateDeleteServiceTest {
             MarkerSource.APP,
             MarkerStatus.ACTIVE,
             1L));
+  }
+
+  @Test
+  @DisplayName("WEB PATCH는 context와 row의 policePhoneId가 null이어도 허용하고 payload에 null을 보존한다")
+  void webUpdateAllowsNullPolicePhoneAndPublishesNullWhenRowHasNoPolicePhone() {
+    insertMockSeedMarkerWithNullPolicePhone();
+    guard.mutationPolicePhoneId = null;
+    MarkerRequestContext webContext =
+        new MarkerRequestContext(
+            new SuriMapAuthentication(ACCOUNT_ID, "WEB", null), "idem-web-update-null-phone-001");
+
+    MarkerMutationResult result =
+        service.update(
+            MOCK_SEED_MARKER_ID,
+            new MarkerUpdateRequest(1L, null, "web corrected seed marker", "NOTE"),
+            webContext);
+
+    assertThat(result.response().id()).isEqualTo(MOCK_SEED_MARKER_ID);
+    assertThat(result.response().status()).isEqualTo("UPDATED");
+    assertThat(result.response().version()).isEqualTo(2L);
+
+    MarkerRecord row = markerRepository.findById(MOCK_SEED_MARKER_ID).orElseThrow();
+    assertThat(row.getPolicePhoneId()).isNull();
+    assertThat(row.getStatus()).isEqualTo(MarkerStatus.UPDATED.name());
+    assertThat(row.getMemo()).isEqualTo("web corrected seed marker");
+
+    MarkerPublishRequest published = eventPublisher.published().get(0);
+    assertThat(published.type()).isEqualTo("MARKER_UPDATED");
+    assertThat(published.payload().id()).isEqualTo(MOCK_SEED_MARKER_ID);
+    assertThat(published.payload().policePhoneId()).isNull();
+    assertThat(published.payload().status()).isEqualTo("UPDATED");
+    assertThat(published.payload().version()).isEqualTo(2L);
+  }
+
+  @Test
+  @DisplayName("WEB DELETE는 context와 row의 policePhoneId가 null이어도 허용하고 payload에 null을 보존한다")
+  void webDeleteAllowsNullPolicePhoneAndPublishesNullWhenRowHasNoPolicePhone() {
+    insertMockSeedMarkerWithNullPolicePhone();
+    guard.mutationPolicePhoneId = null;
+    MarkerRequestContext webContext =
+        new MarkerRequestContext(
+            new SuriMapAuthentication(ACCOUNT_ID, "WEB", null), "idem-web-delete-null-phone-001");
+
+    MarkerMutationResult result =
+        service.delete(
+            MOCK_SEED_MARKER_ID, new MarkerDeleteRequest(1L, "seed cleanup"), webContext);
+
+    assertThat(result.response().id()).isEqualTo(MOCK_SEED_MARKER_ID);
+    assertThat(result.response().status()).isEqualTo("DELETED");
+    assertThat(result.response().version()).isEqualTo(2L);
+
+    MarkerRecord row = markerRepository.findById(MOCK_SEED_MARKER_ID).orElseThrow();
+    assertThat(row.getPolicePhoneId()).isNull();
+    assertThat(row.getStatus()).isEqualTo(MarkerStatus.DELETED.name());
+
+    MarkerPublishRequest published = eventPublisher.published().get(0);
+    assertThat(published.type()).isEqualTo("MARKER_DELETED");
+    assertThat(published.payload().id()).isEqualTo(MOCK_SEED_MARKER_ID);
+    assertThat(published.payload().policePhoneId()).isNull();
+    assertThat(published.payload().status()).isEqualTo("DELETED");
+    assertThat(published.payload().version()).isEqualTo(2L);
+  }
+
+  @Test
+  @DisplayName("PATCH memo가 2000자를 넘으면 row/event를 변경하지 않고 거부한다")
+  void updateRejectsMemoLongerThanTwoThousandCharactersWithoutMutatingRowOrEvent() {
+    String tooLongMemo = "m".repeat(2001);
+
+    assertThatThrownBy(
+            () ->
+                service.update(
+                    MARKER_ID, new MarkerUpdateRequest(1L, null, tooLongMemo, null), appContext))
+        .isInstanceOf(MarkerApiException.class);
+
+    MarkerRecord row = markerRepository.records().get(0);
+    assertThat(row.getStatus()).isEqualTo(MarkerStatus.ACTIVE.name());
+    assertThat(row.getVersion()).isEqualTo(1L);
+    assertThat(row.getMemo()).isEqualTo("initial clue");
+    assertThat(eventPublisher.published()).isEmpty();
   }
 
   @Test
@@ -194,6 +276,27 @@ class MarkerUpdateDeleteServiceTest {
     }
   }
 
+  private void insertMockSeedMarkerWithNullPolicePhone() {
+    markerRepository.insertSeed(
+        new MarkerSeedRecord(
+            INCIDENT_ID,
+            MOCK_SEED_MARKER_ID,
+            OP1_ID,
+            null,
+            MarkerType.FIELD_CONDITION,
+            null,
+            new MarkerGeoJsonPoint(
+                    "Point", List.of(new BigDecimal("126.956600"), new BigDecimal("37.571300")))
+                .toPoint(),
+            "initial seeded marker",
+            CLIENT_TS,
+            ACCOUNT_ID,
+            null,
+            MarkerSource.MOCK_SEED,
+            MarkerStatus.ACTIVE,
+            1L));
+  }
+
   private static final class CapturingMarkerEventPublisher
       implements com.surimap.marker.port.MarkerEventPublisher {
 
@@ -213,6 +316,7 @@ class MarkerUpdateDeleteServiceTest {
       implements com.surimap.marker.port.MarkerWriteGuardPort {
 
     private MarkerApiException error;
+    private UUID mutationPolicePhoneId = POLICE_PHONE_ID;
 
     @Override
     public void requireCreateAccess(UUID incidentId, UUID opId, MarkerRequestContext context) {}
@@ -222,7 +326,7 @@ class MarkerUpdateDeleteServiceTest {
       if (error != null) {
         throw error;
       }
-      return new MarkerMutationContext(INCIDENT_ID, markerId, OP1_ID, POLICE_PHONE_ID);
+      return new MarkerMutationContext(INCIDENT_ID, markerId, OP1_ID, mutationPolicePhoneId);
     }
 
     @Override
@@ -230,7 +334,7 @@ class MarkerUpdateDeleteServiceTest {
       if (error != null) {
         throw error;
       }
-      return new MarkerMutationContext(INCIDENT_ID, markerId, OP1_ID, POLICE_PHONE_ID);
+      return new MarkerMutationContext(INCIDENT_ID, markerId, OP1_ID, mutationPolicePhoneId);
     }
   }
 }

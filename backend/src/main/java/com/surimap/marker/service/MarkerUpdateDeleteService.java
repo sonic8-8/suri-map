@@ -30,6 +30,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class MarkerUpdateDeleteService {
 
+  private static final int MAX_MEMO_LENGTH = 2000;
+
   private final MarkerRepository markerRepository;
   private final MarkerLocationValidator markerLocationValidator;
   private final MarkerWriteGuardPort markerWriteGuardPort;
@@ -78,7 +80,7 @@ public class MarkerUpdateDeleteService {
 
     MarkerType markerType = nextMarkerType(current, request.type());
     MarkerGeoJsonPoint location = nextLocation(mutationContext.incidentId(), current, request);
-    String memo = request.memo() == null ? current.getMemo() : request.memo();
+    String memo = nextMemo(current, request.memo());
     long nextVersion = current.getVersion() + 1L;
 
     int updated =
@@ -207,6 +209,16 @@ public class MarkerUpdateDeleteService {
     return canonicalLocation;
   }
 
+  private String nextMemo(MarkerRecord current, String requestedMemo) {
+    if (requestedMemo == null) {
+      return current.getMemo();
+    }
+    if (requestedMemo.length() > MAX_MEMO_LENGTH) {
+      throw conflict("write_conflict");
+    }
+    return requestedMemo;
+  }
+
   private void requireSingleRowUpdated(int updated) {
     if (updated != 1) {
       throw conflict("write_conflict");
@@ -217,7 +229,6 @@ public class MarkerUpdateDeleteService {
     if (mutationContext == null
         || mutationContext.incidentId() == null
         || mutationContext.opId() == null
-        || mutationContext.policePhoneId() == null
         || !markerId.equals(mutationContext.markerId())) {
       throw conflict("write_conflict");
     }
