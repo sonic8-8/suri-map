@@ -2,24 +2,23 @@ package com.surimap.common.auth;
 
 import java.util.Collection;
 import java.util.Objects;
-import java.util.UUID;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
 
 public class SuriMapAuthentication extends AbstractAuthenticationToken {
 
-  private final UUID accountId;
+  private final String accountId;
   private final AccountType accountType;
   private final OrganizationType organizationType;
   private final Channel channel;
-  private final UUID policePhoneId;
+  private final String policePhoneId;
 
   public SuriMapAuthentication(
-      UUID accountId,
+      String accountId,
       AccountType accountType,
       OrganizationType organizationType,
       Channel channel,
-      UUID policePhoneId,
+      String policePhoneId,
       Collection<? extends GrantedAuthority> authorities) {
     super(authorities);
     this.accountId = Objects.requireNonNull(accountId, "accountId must not be null");
@@ -38,10 +37,10 @@ public class SuriMapAuthentication extends AbstractAuthenticationToken {
 
   @Override
   public Object getPrincipal() {
-    return accountId.toString();
+    return accountId;
   }
 
-  public UUID getAccountId() {
+  public String getAccountId() {
     return accountId;
   }
 
@@ -57,7 +56,7 @@ public class SuriMapAuthentication extends AbstractAuthenticationToken {
     return channel;
   }
 
-  public UUID getPolicePhoneId() {
+  public String getPolicePhoneId() {
     return policePhoneId;
   }
 }

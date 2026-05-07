@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.surimap.marker.notification.repository.MarkerNotificationMapper">
+    <insert id="insertIfAbsent">
+        INSERT INTO marker_notification (
+            id,
+            marker_id,
+            notification_type,
+            recipient_rule,
+            recipient_account_ids,
+            recipient_police_phone_ids,
+            notification_payload,
+            status,
+            version,
+            created_at
+        )
+        VALUES (
+            #{record.id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{record.markerId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{record.notificationType},
+            #{record.recipientRule},
+            <choose>
+                <when test="record.recipientAccountIds != null and record.recipientAccountIds.size > 0">
+                    ARRAY[
+                    <foreach collection="record.recipientAccountIds" item="accountId" separator=",">
+                        #{accountId}
+                    </foreach>
+                    ]::text[]
+                </when>
+                <otherwise>ARRAY[]::text[]</otherwise>
+            </choose>,
+            <choose>
+                <when test="record.recipientPolicePhoneIds != null and record.recipientPolicePhoneIds.size > 0">
+                    ARRAY[
+                    <foreach collection="record.recipientPolicePhoneIds" item="policePhoneId" separator=",">
+                        #{policePhoneId}
+                    </foreach>
+                    ]::text[]
+                </when>
+                <otherwise>ARRAY[]::text[]</otherwise>
+            </choose>,
+            CAST(#{record.notificationPayloadJson} AS jsonb),
+            #{record.status},
+            #{record.version},
+            #{record.createdAt}
+        )
+        ON CONFLICT (marker_id) DO NOTHING
+    </insert>
+</mapper>

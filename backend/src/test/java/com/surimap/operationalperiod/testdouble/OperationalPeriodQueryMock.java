@@ -2,6 +2,7 @@ package com.surimap.operationalperiod.testdouble;
 
 import com.surimap.operationalperiod.fixture.OperationalPeriodFixtures;
 import com.surimap.operationalperiod.fixture.OperationalPeriodQueryFixtures;
+import com.surimap.operationalperiod.query.CurrentOpResult;
 import com.surimap.operationalperiod.query.OperationalPeriodQuery;
 import com.surimap.operationalperiod.query.OperationalPeriodRow;
 import java.util.List;
@@ -12,9 +13,9 @@ import java.util.UUID;
 public final class OperationalPeriodQueryMock implements OperationalPeriodQuery {
 
   @Override
-  public Optional<OperationalPeriodRow> current(UUID incidentId) {
+  public Optional<CurrentOpResult> current(UUID incidentId) {
     if (OperationalPeriodFixtures.INCIDENT_ID.equals(incidentId)) {
-      return Optional.of(OperationalPeriodQueryFixtures.currentOp1());
+      return Optional.of(OperationalPeriodFixtures.currentOpResult(incidentId));
     }
     return Optional.empty();
   }
