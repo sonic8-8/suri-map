@@ -1,5 +1,6 @@
 CREATE TABLE IF NOT EXISTS marker (
     id UUID PRIMARY KEY,
+    incident_id UUID NOT NULL,
     operational_period_id UUID NOT NULL,
     duty_shift_id UUID,
     marker_type VARCHAR(40) NOT NULL,
@@ -24,6 +25,9 @@ CREATE TABLE IF NOT EXISTS marker (
     CONSTRAINT chk_marker_status CHECK (status IN ('ACTIVE', 'UPDATED', 'DELETED')),
     CONSTRAINT chk_marker_version_positive CHECK (version > 0)
 );
+
+CREATE INDEX IF NOT EXISTS idx_marker_incident_status_occurred
+    ON marker (incident_id, status, occurred_at);
 
 CREATE INDEX IF NOT EXISTS idx_marker_op_status
     ON marker (operational_period_id, status);

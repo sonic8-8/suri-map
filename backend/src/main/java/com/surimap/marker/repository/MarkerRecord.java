@@ -4,6 +4,7 @@ import com.surimap.marker.domain.MarkerSource;
 import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.domain.MarkerSupportRequestType;
 import com.surimap.marker.domain.MarkerType;
+import com.surimap.marker.query.MarkerPhotoSummary;
 import com.surimap.marker.query.MarkerView;
 import java.time.Instant;
 import java.util.List;
@@ -14,6 +15,7 @@ import org.locationtech.jts.geom.Point;
 public class MarkerRecord {
 
   private UUID id;
+  private UUID incidentId;
   private UUID operationalPeriodId;
   private UUID dutyShiftId;
   private String markerType;
@@ -30,6 +32,7 @@ public class MarkerRecord {
   public static MarkerRecord fromSeedRecord(MarkerSeedRecord record) {
     MarkerRecord marker = new MarkerRecord();
     marker.setId(record.id());
+    marker.setIncidentId(record.incidentId());
     marker.setOperationalPeriodId(record.operationalPeriodId());
     marker.setDutyShiftId(record.dutyShiftId());
     marker.setMarkerType(record.markerType().name());
@@ -49,6 +52,7 @@ public class MarkerRecord {
   public static MarkerRecord fromCreateRecord(MarkerCreateRecord record) {
     MarkerRecord marker = new MarkerRecord();
     marker.setId(record.id());
+    marker.setIncidentId(record.incidentId());
     marker.setOperationalPeriodId(record.operationalPeriodId());
     marker.setDutyShiftId(record.dutyShiftId());
     marker.setMarkerType(record.markerType().name());
@@ -83,12 +87,38 @@ public class MarkerRecord {
         List.of());
   }
 
+  public MarkerView toView(List<MarkerPhotoSummary> photoSummary) {
+    return new MarkerView(
+        id,
+        incidentId,
+        operationalPeriodId,
+        createdByAccountId,
+        policePhoneId,
+        MarkerType.valueOf(markerType),
+        supportRequestType == null ? null : MarkerSupportRequestType.valueOf(supportRequestType),
+        MarkerSource.valueOf(markerSource),
+        MarkerStatus.valueOf(status),
+        version,
+        location,
+        memo,
+        occurredAt,
+        photoSummary);
+  }
+
   public UUID getId() {
     return id;
   }
 
   public void setId(UUID id) {
     this.id = id;
+  }
+
+  public UUID getIncidentId() {
+    return incidentId;
+  }
+
+  public void setIncidentId(UUID incidentId) {
+    this.incidentId = incidentId;
   }
 
   public UUID getOperationalPeriodId() {

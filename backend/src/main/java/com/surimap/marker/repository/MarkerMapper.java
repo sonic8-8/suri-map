@@ -1,5 +1,6 @@
 package com.surimap.marker.repository;
 
+import com.surimap.marker.query.MarkerQueryFilters;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -26,4 +27,10 @@ public interface MarkerMapper extends MarkerRepository {
 
   @Override
   int deleteMarker(@Param("record") MarkerDeleteRecord record);
+
+  List<MarkerRecord> findByIncident(
+      @Param("incidentId") UUID incidentId, @Param("filters") MarkerQueryFilters filters);
+
+  List<MarkerPhotoSummaryRow> findAttachedPhotoSummariesByMarkerIds(
+      @Param("markerIds") List<UUID> markerIds);
 }

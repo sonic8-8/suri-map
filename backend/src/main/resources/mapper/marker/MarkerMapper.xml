@@ -6,6 +6,7 @@
 <mapper namespace="com.surimap.marker.repository.MarkerMapper">
     <resultMap id="markerRecordMap" type="com.surimap.marker.repository.MarkerRecord">
         <id property="id" column="id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="incidentId" column="incident_id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
         <result property="operationalPeriodId" column="operational_period_id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
         <result property="dutyShiftId" column="duty_shift_id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
         <result property="markerType" column="marker_type"/>
@@ -20,9 +21,22 @@
         <result property="version" column="version"/>
     </resultMap>
 
+    <resultMap id="markerPhotoSummaryRowMap" type="com.surimap.marker.repository.MarkerPhotoSummaryRow">
+        <constructor>
+            <arg column="marker_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="photo_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="status" javaType="java.lang.String"/>
+            <arg column="version" javaType="long"/>
+            <arg column="content_type" javaType="java.lang.String"/>
+            <arg column="size_bytes" javaType="long"/>
+            <arg column="attached_at" javaType="java.time.Instant"/>
+        </constructor>
+    </resultMap>
+
     <insert id="insertSeed">
         INSERT INTO marker (
             id,
+            incident_id,
             operational_period_id,
             duty_shift_id,
             marker_type,
@@ -40,6 +54,7 @@
         )
         VALUES (
             #{record.id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{record.incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
             #{record.operationalPeriodId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
             #{record.dutyShiftId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
             #{record.markerType},
@@ -61,6 +76,7 @@
     <insert id="insertCreate">
         INSERT INTO marker (
             id,
+            incident_id,
             operational_period_id,
             duty_shift_id,
             marker_type,
@@ -78,6 +94,7 @@
         )
         VALUES (
             #{record.id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{record.incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
             #{record.operationalPeriodId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
             #{record.dutyShiftId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
             #{record.markerType},
@@ -98,6 +115,7 @@
     <select id="findByIds" resultMap="markerRecordMap">
         SELECT
             id,
+            incident_id,
             operational_period_id,
             duty_shift_id,
             marker_type,
@@ -120,6 +138,7 @@
     <select id="findById" resultMap="markerRecordMap">
         SELECT
             id,
+            incident_id,
             operational_period_id,
             duty_shift_id,
             marker_type,
@@ -134,6 +153,59 @@
             version
         FROM marker
         WHERE id = #{markerId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+    </select>
+
+    <select id="findByIncident" resultMap="markerRecordMap">
+        SELECT
+            id,
+            incident_id,
+            operational_period_id,
+            duty_shift_id,
+            marker_type,
+            support_request_type,
+            ST_AsEWKT(location) AS location,
+            memo,
+            occurred_at,
+            created_by_account_id,
+            police_phone_id,
+            marker_source,
+            status,
+            version
+        FROM marker
+        WHERE incident_id = #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+        <if test="filters.opId != null">
+          AND operational_period_id = #{filters.opId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+        </if>
+        <if test="filters.type != null">
+          AND marker_type = #{filters.type}
+        </if>
+        <choose>
+          <when test="filters.status != null">
+            AND status = #{filters.status}
+          </when>
+          <otherwise>
+            AND status IN ('ACTIVE', 'UPDATED')
+          </otherwise>
+        </choose>
+        ORDER BY occurred_at ASC, id ASC
+    </select>
+
+    <select id="findAttachedPhotoSummariesByMarkerIds" resultMap="markerPhotoSummaryRowMap">
+        SELECT
+            marker_id,
+            id AS photo_id,
+            status,
+            version,
+            content_type,
+            size_bytes,
+            attached_at
+        FROM photo
+        WHERE marker_id IN
+        <foreach collection="markerIds" item="markerId" open="(" separator="," close=")">
+            #{markerId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+        </foreach>
+          AND status = 'ATTACHED'
+        ORDER BY marker_id ASC, attached_at ASC, id ASC
     </select>
 
     <update id="updateMarker">
