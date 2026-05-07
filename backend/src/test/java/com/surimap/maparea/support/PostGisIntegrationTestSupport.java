@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -18,6 +19,7 @@ import org.testcontainers.utility.DockerImageName;
 @SpringBootTest
 @ActiveProfiles("test")
 @Tag("integration")
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @Testcontainers(disabledWithoutDocker = true)
 public abstract class PostGisIntegrationTestSupport {
 
@@ -36,8 +38,10 @@ public abstract class PostGisIntegrationTestSupport {
   @DynamicPropertySource
   static void registerDataSourceProperties(DynamicPropertyRegistry registry) {
     registry.add("spring.datasource.url", POSTGIS::getJdbcUrl);
+    registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
     registry.add("spring.datasource.username", POSTGIS::getUsername);
     registry.add("spring.datasource.password", POSTGIS::getPassword);
+    registry.add("spring.flyway.locations", () -> "classpath:db/migration");
   }
 
   @BeforeEach

@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.surimap.marker.photo.repository.PhotoMapper">
+    <resultMap id="photoRecordMap" type="com.surimap.marker.photo.repository.PhotoRecord">
+        <id property="id" column="id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="markerId" column="marker_id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="objectKey" column="object_key"/>
+        <result property="status" column="status"/>
+        <result property="attachedAt" column="attached_at"/>
+        <result property="contentType" column="content_type"/>
+        <result property="sizeBytes" column="size_bytes"/>
+        <result property="width" column="width"/>
+        <result property="height" column="height"/>
+        <result property="checksumSha256" column="checksum_sha256"/>
+        <result property="uploadUrlExpiresAt" column="upload_url_expires_at"/>
+        <result property="version" column="version"/>
+    </resultMap>
+
+    <insert id="upsert">
+        INSERT INTO photo (
+            id,
+            marker_id,
+            object_key,
+            status,
+            attached_at,
+            content_type,
+            size_bytes,
+            width,
+            height,
+            checksum_sha256,
+            upload_url_expires_at,
+            version,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            #{id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{markerId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{objectKey},
+            #{status},
+            #{attachedAt},
+            #{contentType},
+            #{sizeBytes},
+            #{width},
+            #{height},
+            #{checksumSha256},
+            #{uploadUrlExpiresAt},
+            #{version},
+            NOW(),
+            NOW()
+        )
+        ON CONFLICT (id) DO UPDATE SET
+            status = EXCLUDED.status,
+            attached_at = EXCLUDED.attached_at,
+            width = EXCLUDED.width,
+            height = EXCLUDED.height,
+            version = EXCLUDED.version,
+            updated_at = NOW()
+    </insert>
+
+    <select id="findById" resultMap="photoRecordMap">
+        SELECT
+            id,
+            marker_id,
+            object_key,
+            status,
+            attached_at,
+            content_type,
+            size_bytes,
+            width,
+            height,
+            checksum_sha256,
+            upload_url_expires_at,
+            version
+        FROM photo
+        WHERE id = #{photoId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+    </select>
+
+    <select id="countByMarkerIdAndStatusIn" resultType="long">
+        SELECT COUNT(*)
+        FROM photo
+        WHERE marker_id = #{markerId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND status IN
+          <foreach collection="statuses" item="status" open="(" separator="," close=")">
+              #{status}
+          </foreach>
+    </select>
+</mapper>
