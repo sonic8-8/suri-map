@@ -2,7 +2,7 @@ import { Layers, MapPin, RadioTower, Route, ShieldCheck } from 'lucide-react';
 import { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { getApiBaseUrl } from '../../../shared/config';
-import { DashboardMapShell } from '../../map/DashboardMapShell';
+import { DashboardMapShell } from '../components/DashboardMapShell';
 import { useBoardDisplayStore } from '../model/boardDisplayStore';
 
 export function SituationBoardPage() {

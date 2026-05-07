@@ -3,3 +3,7 @@
 export function getVWorldApiKey() {
   return __V_WORLD_API_KEY__;
 }
+
+export function getApiBaseUrl() {
+  return import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api';
+}
