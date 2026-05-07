@@ -3,7 +3,7 @@ package com.surimap.operationalperiod.testdouble;
 import com.surimap.operationalperiod.command.InitialOperationalPeriodCreator;
 import com.surimap.operationalperiod.command.InitialOperationalPeriodResult;
 import com.surimap.operationalperiod.fixture.OperationalPeriodFixtures;
-import com.surimap.operationalperiod.fixture.OperationalPeriodFixtures.ExpectedOpTransitionEvent;
+import com.surimap.operationalperiod.fixture.OperationalPeriodFixtures.OpTransitionedEvent;
 import com.surimap.operationalperiod.query.OperationalPeriodRow;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -17,7 +17,7 @@ public final class InitialOperationalPeriodCreatorMock implements InitialOperati
 
   private final Map<UUID, OperationalPeriodRow> createdRows = new LinkedHashMap<>();
   private final Map<UUID, RuntimeException> creationFailures = new LinkedHashMap<>();
-  private final List<ExpectedOpTransitionEvent> publishedEvents = new ArrayList<>();
+  private final List<OpTransitionedEvent> publishedEvents = new ArrayList<>();
 
   @Override
   public InitialOperationalPeriodResult createOp1(UUID incidentId) {
@@ -32,8 +32,19 @@ public final class InitialOperationalPeriodCreatorMock implements InitialOperati
         createdRows.computeIfAbsent(
             incidentId,
             ignored -> {
-              publishedEvents.add(OperationalPeriodFixtures.op1TransitionedEvent());
-              return OperationalPeriodFixtures.currentOp1();
+              publishedEvents.add(
+                  new OpTransitionedEvent(
+                      UUID.randomUUID(),
+                      "OP_TRANSITIONED",
+                      OperationalPeriodFixtures.CURRENT_OP_ID,
+                      OperationalPeriodFixtures.INCIDENT_ID,
+                      OperationalPeriodFixtures.CURRENT_OP_ID,
+                      OperationalPeriodFixtures.CURRENT_OP_STATUS,
+                      OperationalPeriodFixtures.CURRENT_OP_VERSION,
+                      OperationalPeriodFixtures.CURRENT_OP_SEQUENCE_NO,
+                      null,
+                      OperationalPeriodFixtures.CURRENT_OP_ID));
+              return OperationalPeriodFixtures.currentOpListRow();
             });
     return new InitialOperationalPeriodResult(row);
   }
@@ -49,7 +60,7 @@ public final class InitialOperationalPeriodCreatorMock implements InitialOperati
     return List.copyOf(createdRows.values());
   }
 
-  public List<ExpectedOpTransitionEvent> publishedEvents() {
+  public List<OpTransitionedEvent> publishedEvents() {
     return List.copyOf(publishedEvents);
   }
 }

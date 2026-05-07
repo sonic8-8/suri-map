@@ -1,69 +1,173 @@
 package com.surimap.operationalperiod.fixture;
 
-import com.surimap.maparea.fixture.BoundaryAreaFixtures;
+import com.surimap.operationalperiod.query.CurrentOpResult;
 import com.surimap.operationalperiod.query.OperationalPeriodRow;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-/** S8 OP/current OP fixture IDs, 상태, 이벤트 모음. */
+/**
+ * S8 operational_period 공통 fixture.
+ *
+ * <p>OP1 current OP, OP2 전환 후 상태, OperationalPeriodQuery row shape에서 공유한다.
+ */
 public final class OperationalPeriodFixtures {
 
+  // TODO: S8 production enum이 생기면 OP 상태, OP reason, 이벤트 타입 문자열을 enum 또는 wireValue() 기준으로 교체한다.
+
+  /** 문서에 적힌 사람이 읽기 쉬운 incident alias. 실제 DB ID는 UUID를 사용한다. */
   public static final String INCIDENT_ALIAS = "inc-precinct-first-001";
-  public static final UUID INCIDENT_ID = BoundaryAreaFixtures.INCIDENT_ID;
 
-  public static final String OP1_ALIAS = "op-precinct-001-op1";
-  public static final UUID OP1_ID = BoundaryAreaFixtures.OP1_ID;
-  public static final String OP2_ALIAS = "op-precinct-001-op2";
-  public static final UUID OP2_ID = BoundaryAreaFixtures.OP2_ID;
+  /** SC-10/SC-11 시나리오에서 사용하는 고정 incident UUID. */
+  public static final UUID INCIDENT_ID = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001");
 
-  public static final Instant OP1_STARTED_AT = Instant.parse("2026-04-28T00:00:00Z");
+  /** bootstrap으로 자동 생성된 OP1 기대 상태. */
+  public static final String CURRENT_OP_ALIAS = "op-precinct-001-op1";
 
-  /**
-   * S8.json harness_fixtures.current_op_consumer_contract.forbiddenS8Writes 값.
-   *
-   * <p>source-of-truth에 search_path가 중복 기재되어 있어 exactness fixture도 그대로 보존한다.
-   */
-  public static final List<String> FORBIDDEN_CURRENT_OP_CONSUMER_WRITES =
-      List.of(
-          "offline_package_manifest",
-          "offline_package_installation",
-          "search_path",
-          "search_path",
-          "search_path_segment",
-          "marker",
-          "photo",
-          "marker_notification");
+  public static final UUID CURRENT_OP_ID = UUID.fromString("88888888-8888-8888-8888-888888880001");
+  public static final String CURRENT_OP_STATUS = "ACTIVE";
+  public static final int CURRENT_OP_SEQUENCE_NO = 1;
+  public static final Instant CURRENT_OP_STARTED_AT = Instant.parse("2026-04-28T00:00:00Z");
+  public static final Instant CURRENT_OP_ENDED_AT = null;
+  public static final String CURRENT_OP_REASON = "INITIAL";
+  public static final long CURRENT_OP_VERSION = 1L;
+
+  /** OP 전환 후 닫힌 이전 OP1 기대 상태. */
+  public static final UUID PREVIOUS_OP_ID = CURRENT_OP_ID;
+
+  public static final String PREVIOUS_OP_STATUS = "ENDED";
+  public static final int PREVIOUS_OP_SEQUENCE_NO = 1;
+  public static final Instant PREVIOUS_OP_STARTED_AT = CURRENT_OP_STARTED_AT;
+  public static final Instant PREVIOUS_OP_ENDED_AT = Instant.parse("2026-04-28T09:00:00Z");
+  public static final String PREVIOUS_OP_REASON = CURRENT_OP_REASON;
+  public static final long PREVIOUS_OP_VERSION = 2L;
+
+  /** OP 전환으로 새로 활성화된 OP2 기대 상태. */
+  public static final String NEW_OP_ALIAS = "op-precinct-001-op2";
+
+  public static final UUID NEW_OP_ID = UUID.fromString("88888888-8888-8888-8888-888888880002");
+  public static final String NEW_OP_STATUS = "ACTIVE";
+  public static final int NEW_OP_SEQUENCE_NO = 2;
+  public static final Instant NEW_OP_STARTED_AT = PREVIOUS_OP_ENDED_AT;
+  public static final Instant NEW_OP_ENDED_AT = null;
+  public static final String NEW_OP_REASON = "RE_SEARCH";
+  public static final long NEW_OP_VERSION = 1L;
+
+  /** operational_period.reason에 실제 저장될 수 있는 값. */
+  public static final List<String> OP_REASON_PERSISTED =
+      List.of("INITIAL", "RE_SEARCH", "AREA_CHANGED", "OTHER");
+
+  /** OP2 이상 수동 생성 시 허용되는 reason. INITIAL은 OP1 자동 생성 전용이다. */
+  public static final List<String> OP_REASON_MANUAL_CREATE =
+      List.of("RE_SEARCH", "AREA_CHANGED", "OTHER");
+
+  /** operational_period.status에 실제 저장될 수 있는 값. */
+  public static final List<String> OP_STATUSES = List.of("ACTIVE", "ENDED");
 
   private OperationalPeriodFixtures() {}
-
-  public static OperationalPeriodRow currentOp1() {
-    return new OperationalPeriodRow(
-        OP1_ID, INCIDENT_ID, "ACTIVE", 1, OP1_STARTED_AT, null, "INITIAL", 1L);
-  }
-
-  public static ExpectedOpTransitionEvent op1TransitionedEvent() {
-    return new ExpectedOpTransitionEvent(
-        "OP_TRANSITIONED", INCIDENT_ID, OP1_ID, OP1_ID, "ACTIVE", 1L, 1, null, OP1_ID);
-  }
 
   public static RuntimeException op1CreationFailure() {
     return new IllegalStateException("op1_creation_failed");
   }
 
-  /**
-   * S8 OP_TRANSITIONED 이벤트 payload를 테스트에서 비교하기 위한 읽기 모델.
-   *
-   * <p>S4 EventHub.publish PublishRequest의 id/status/version/opId 수렴 비교 기준.
-   */
-  public record ExpectedOpTransitionEvent(
-      String type,
-      UUID incidentId,
-      UUID payloadId,
+  /** bootstrap으로 자동 생성된 현재 OP1 기대값. */
+  public static OpRow currentOp() {
+    return new OpRow(
+        CURRENT_OP_ID,
+        INCIDENT_ID,
+        CURRENT_OP_STATUS,
+        CURRENT_OP_SEQUENCE_NO,
+        CURRENT_OP_STARTED_AT,
+        CURRENT_OP_ENDED_AT,
+        CURRENT_OP_REASON,
+        CURRENT_OP_VERSION);
+  }
+
+  /** bootstrap 이후 OperationalPeriodQuery.current가 반환해야 하는 현재 OP1 DTO. */
+  public static CurrentOpResult currentOpResult() {
+    return currentOpResult(INCIDENT_ID);
+  }
+
+  /** bootstrap 이후 지정 incident에 대해 OperationalPeriodQuery.current가 반환해야 하는 현재 OP1 DTO. */
+  public static CurrentOpResult currentOpResult(UUID incidentId) {
+    OpRow currentOp = currentOp();
+    return new CurrentOpResult(
+        currentOp.opId(),
+        incidentId,
+        currentOp.status(),
+        currentOp.sequenceNo(),
+        currentOp.startedAt(),
+        currentOp.endedAt(),
+        currentOp.reason(),
+        currentOp.version());
+  }
+
+  /** OperationalPeriodQuery.list가 반환해야 하는 OP1 row fixture. */
+  public static OperationalPeriodRow currentOpListRow() {
+    return currentOpListRow(INCIDENT_ID);
+  }
+
+  /** 지정 incident에 대해 OperationalPeriodQuery.list가 반환해야 하는 OP1 row fixture. */
+  public static OperationalPeriodRow currentOpListRow(UUID incidentId) {
+    OpRow currentOp = currentOp();
+    return new OperationalPeriodRow(
+        currentOp.opId(),
+        incidentId,
+        currentOp.status(),
+        currentOp.sequenceNo(),
+        currentOp.startedAt(),
+        currentOp.endedAt(),
+        currentOp.reason(),
+        currentOp.version());
+  }
+
+  /** SC-10 전환 후 ENDED/version=2가 된 이전 OP1 기대값. */
+  public static OpRow previousOpAfterTransition() {
+    return new OpRow(
+        PREVIOUS_OP_ID,
+        INCIDENT_ID,
+        PREVIOUS_OP_STATUS,
+        PREVIOUS_OP_SEQUENCE_NO,
+        PREVIOUS_OP_STARTED_AT,
+        PREVIOUS_OP_ENDED_AT,
+        PREVIOUS_OP_REASON,
+        PREVIOUS_OP_VERSION);
+  }
+
+  /** SC-10 전환 후 ACTIVE/version=1로 생성된 새 OP2 기대값. */
+  public static OpRow newOpAfterTransition() {
+    return new OpRow(
+        NEW_OP_ID,
+        INCIDENT_ID,
+        NEW_OP_STATUS,
+        NEW_OP_SEQUENCE_NO,
+        NEW_OP_STARTED_AT,
+        NEW_OP_ENDED_AT,
+        NEW_OP_REASON,
+        NEW_OP_VERSION);
+  }
+
+  /** OP 조회/전환 결과 비교 모델. */
+  public record OpRow(
       UUID opId,
-      String payloadStatus,
-      long payloadVersion,
-      int sequenceNumber,
+      UUID incidentId,
+      String status,
+      int sequenceNo,
+      Instant startedAt,
+      Instant endedAt,
+      String reason,
+      long version) {}
+
+  /** OP_TRANSITIONED PublishRequest payload 비교 모델 (S8.json events_published[].payload_schema). */
+  public record OpTransitionedEvent(
+      UUID eventId,
+      String type,
+      UUID id,
+      UUID incidentId,
+      UUID opId,
+      String status,
+      long version,
+      int sequenceNo,
       UUID fromOpId,
       UUID toOpId) {}
 }

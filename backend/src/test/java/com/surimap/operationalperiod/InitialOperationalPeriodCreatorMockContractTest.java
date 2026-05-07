@@ -5,7 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.surimap.operationalperiod.command.InitialOperationalPeriodResult;
 import com.surimap.operationalperiod.fixture.OperationalPeriodFixtures;
-import com.surimap.operationalperiod.fixture.OperationalPeriodFixtures.ExpectedOpTransitionEvent;
+import com.surimap.operationalperiod.fixture.OperationalPeriodFixtures.OpTransitionedEvent;
 import com.surimap.operationalperiod.query.OperationalPeriodRow;
 import com.surimap.operationalperiod.testdouble.InitialOperationalPeriodCreatorMock;
 import java.util.UUID;
@@ -28,11 +28,11 @@ class InitialOperationalPeriodCreatorMockContractTest {
     InitialOperationalPeriodResult result = mock.createOp1(OperationalPeriodFixtures.INCIDENT_ID);
 
     OperationalPeriodRow row = result.operationalPeriod();
-    assertThat(row.opId()).isEqualTo(OperationalPeriodFixtures.OP1_ID);
+    assertThat(row.opId()).isEqualTo(OperationalPeriodFixtures.CURRENT_OP_ID);
     assertThat(row.incidentId()).isEqualTo(OperationalPeriodFixtures.INCIDENT_ID);
     assertThat(row.status()).isEqualTo("ACTIVE");
     assertThat(row.reason()).isEqualTo("INITIAL");
-    assertThat(row.sequenceNumber()).isEqualTo(1);
+    assertThat(row.sequenceNo()).isEqualTo(1);
     assertThat(row.version()).isEqualTo(1L);
   }
 
@@ -45,9 +45,9 @@ class InitialOperationalPeriodCreatorMockContractTest {
     InitialOperationalPeriodResult second = mock.createOp1(OperationalPeriodFixtures.INCIDENT_ID);
 
     assertThat(second.operationalPeriod()).isEqualTo(first.operationalPeriod());
-    assertThat(mock.createdRows()).containsExactly(OperationalPeriodFixtures.currentOp1());
-    assertThat(mock.publishedEvents())
-        .containsExactly(OperationalPeriodFixtures.op1TransitionedEvent());
+    assertThat(mock.createdRows()).containsExactly(OperationalPeriodFixtures.currentOpListRow());
+    assertThat(mock.publishedEvents()).hasSize(1);
+    assertThat(mock.publishedEvents().get(0).type()).isEqualTo("OP_TRANSITIONED");
   }
 
   @Test
@@ -57,16 +57,16 @@ class InitialOperationalPeriodCreatorMockContractTest {
 
     mock.createOp1(OperationalPeriodFixtures.INCIDENT_ID);
 
-    ExpectedOpTransitionEvent event = mock.publishedEvents().get(0);
+    OpTransitionedEvent event = mock.publishedEvents().get(0);
     assertThat(event.type()).isEqualTo("OP_TRANSITIONED");
     assertThat(event.incidentId()).isEqualTo(OperationalPeriodFixtures.INCIDENT_ID);
-    assertThat(event.payloadId()).isEqualTo(OperationalPeriodFixtures.OP1_ID);
-    assertThat(event.opId()).isEqualTo(OperationalPeriodFixtures.OP1_ID);
+    assertThat(event.id()).isEqualTo(OperationalPeriodFixtures.CURRENT_OP_ID);
+    assertThat(event.opId()).isEqualTo(OperationalPeriodFixtures.CURRENT_OP_ID);
     assertThat(event.fromOpId()).isNull();
-    assertThat(event.toOpId()).isEqualTo(OperationalPeriodFixtures.OP1_ID);
-    assertThat(event.payloadStatus()).isEqualTo("ACTIVE");
-    assertThat(event.payloadVersion()).isEqualTo(1L);
-    assertThat(event.sequenceNumber()).isEqualTo(1);
+    assertThat(event.toOpId()).isEqualTo(OperationalPeriodFixtures.CURRENT_OP_ID);
+    assertThat(event.status()).isEqualTo("ACTIVE");
+    assertThat(event.version()).isEqualTo(1L);
+    assertThat(event.sequenceNo()).isEqualTo(1);
   }
 
   @Test

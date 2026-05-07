@@ -3,12 +3,12 @@ package com.surimap.operationalperiod.query;
 import java.time.Instant;
 import java.util.UUID;
 
-/** OperationalPeriodQuery.list 응답 row shape (S8.json §service_contracts). */
-public record OperationalPeriodRow(
+/** OperationalPeriodQuery.current 응답 shape (S8.json §service_contracts). */
+public record CurrentOpResult(
     UUID opId,
     UUID incidentId,
     String status,
-    int sequenceNo, // 수색차수 번호
+    int sequenceNo,
     Instant startedAt,
     Instant endedAt,
     String reason,
