@@ -9,7 +9,8 @@ spring:
     enabled: true
 
 mybatis:
-  mapper-locations: classpath:mapper/**/*.xml
+  mapper-locations: classpath*:mapper/**/*.xml
+  type-handlers-package: com.surimap.config.mybatis
   configuration:
     map-underscore-to-camel-case: true
     default-fetch-size: 100
