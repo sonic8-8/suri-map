@@ -63,7 +63,7 @@
   - 예상 작업량: 1d
   - 완료 기준: board route, layout, MapLibre root, shared state가 S3-2 소유로 구현되고 source owner data를 변경하지 않는다.
 
-- [ ] L6-T01C 상황판 슬롯 등록부와 마운트 규칙 구현
+- [x] L6-T01C 상황판 슬롯 등록부와 마운트 규칙 구현
   - 담당 Spec: S3-2
   - 필수 참조: `spec/specs/S3-2.json`, `spec/boundaries.md §9.2`, `spec/harness-scenarios.md §0.1`
   - 연관 Spec: S1-1, S1-2, S1-3, S2, S3-1, S4, S5, S6, S7, S8
