@@ -73,7 +73,7 @@
   - 예상 작업량: 1d
   - 완료 기준: 모든 feature Lane이 `spec/boundaries.md §9.2`의 slot-scoped renderer만 mount하고, final merge 소유권은 S3-2에 남는다.
 
-- [ ] L6-T03A 전체 수색 구역·수색 구역 slot 구현
+- [x] L6-T03A 전체 수색 구역·수색 구역 slot 구현
   - 담당 Spec: S3-2
   - 필수 참조: `spec/specs/S3-2.json`, `spec/boundaries.md §9.2`, `spec/boundaries.md §10`
   - 연관 Spec: S2
@@ -83,7 +83,7 @@
   - 예상 작업량: 1d
   - 완료 기준: overall_search_area/area slot이 source owner를 변경하지 않고 S2 source data를 렌더링하며 관찰 가능한 loading/failure state를 노출한다.
 
-- [ ] L6-T03B 경로·마커 slot 구현
+- [x] L6-T03B 경로·마커 slot 구현
   - 담당 Spec: S3-2
   - 필수 참조: `spec/specs/S3-2.json`, `spec/boundaries.md §9.2`, `spec/boundaries.md §10`
   - 연관 Spec: S3-1, S5
