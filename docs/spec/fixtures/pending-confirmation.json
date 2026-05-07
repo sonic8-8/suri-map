@@ -1,0 +1,47 @@
+{
+  "meta": {
+    "version": "2026-05-06",
+    "sourceDocs": [
+      "docs/spec/specs/S1-1.json",
+      "docs/spec/harness-scenarios.md"
+    ],
+    "notes": "Do not invent these values. Resolve with owner confirmation first."
+  },
+  "pendingConfirmation": [
+    {
+      "key": "mock112.sourceIncidentId",
+      "status": "CONFIRMATION_REQUIRED",
+      "owner": "mock 112 / S1-1",
+      "blockingScenarios": ["SC-01", "SC-02", "SC-12"],
+      "reason": "sourceIncidentId actual value is not fixed in the current spec set."
+    },
+    {
+      "key": "mock112.missingPersonPayload",
+      "status": "CONFIRMATION_REQUIRED",
+      "owner": "mock 112 / S1-1",
+      "blockingScenarios": ["SC-01", "SC-12"],
+      "reason": "Name, gender, age, appearance, last seen position, and reporter statement are not fixed for the shared fixture."
+    },
+    {
+      "key": "mock112.assignmentPayloadShape",
+      "status": "CONFIRMATION_REQUIRED",
+      "owner": "mock 112 / S1-1",
+      "blockingScenarios": ["SC-01", "SC-02", "SC-10", "SC-12"],
+      "reason": "Import-side assignment payload shape and account/policePhone mapping are still open."
+    },
+    {
+      "key": "sc02.handoverFixtureHandling",
+      "status": "CONFIRMATION_REQUIRED",
+      "owner": "S1-1/S8",
+      "blockingScenarios": ["SC-02"],
+      "reason": "SC-02 handover fixture processing is listed as an open issue."
+    },
+    {
+      "key": "mock112.missingSourceIncidentErrorHandling",
+      "status": "CONFIRMATION_REQUIRED",
+      "owner": "S1-1",
+      "blockingScenarios": ["SC-01"],
+      "reason": "It is not settled whether missing sourceIncidentId should be a public error or a fixture preflight failure."
+    }
+  ]
+}

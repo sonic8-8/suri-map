@@ -1,0 +1,521 @@
+{
+  "meta": {
+    "version": "2026-05-06",
+    "sourceDocs": [
+      "docs/spec/harness-scenarios.md",
+      "docs/spec/specs/S3-1.json",
+      "docs/spec/specs/S3-2.json",
+      "docs/spec/specs/S4.json",
+      "docs/spec/specs/S5.json",
+      "docs/spec/specs/S6.json",
+      "docs/spec/specs/S7.json",
+      "docs/spec/specs/S8.json",
+      "docs/api/api-spec.md"
+    ],
+    "notes": "Existing spec fixture values only. Unresolved values stay in pending-confirmation.json."
+  },
+  "catalogIndex": [
+    {
+      "fixtureId": "inc-precinct-first-001",
+      "group": "incidentSeed",
+      "usesScenarios": ["SC-01", "SC-02", "SC-10", "SC-12"],
+      "usesLanes": ["L1", "L2", "L3", "L4", "L5", "L6"]
+    },
+    {
+      "fixtureId": "gps-path-normal-001",
+      "group": "gpsPath",
+      "usesScenarios": ["SC-05", "SC-07", "SC-09", "SC-11"],
+      "usesLanes": ["L3", "L4", "L6"]
+    },
+    {
+      "fixtureId": "tile-manifest-inc-precinct-001-v1",
+      "group": "tileManifest",
+      "usesScenarios": ["SC-03", "SC-04", "SC-09"],
+      "usesLanes": ["L4", "L6"]
+    },
+    {
+      "fixtureId": "outbox-path-001",
+      "group": "outboxReplay",
+      "usesScenarios": ["SC-05", "SC-09"],
+      "usesLanes": ["L4", "L6"]
+    },
+    {
+      "fixtureId": "outbox-package-001",
+      "group": "outboxReplay",
+      "usesScenarios": ["SC-09"],
+      "usesLanes": ["L4", "L6"]
+    },
+    {
+      "fixtureId": "bs-inc-precinct-first-001-v1200",
+      "group": "boardAssembly",
+      "usesScenarios": ["SC-02", "SC-03", "SC-05", "SC-06", "SC-08", "SC-09", "SC-10", "SC-11", "SC-12"],
+      "usesLanes": ["L2", "L3", "L5", "L6"]
+    },
+    {
+      "fixtureId": "rr-precinct-001",
+      "group": "commandFlow",
+      "usesScenarios": ["SC-10"],
+      "usesLanes": ["L1", "L3", "L6"]
+    },
+    {
+      "fixtureId": "memo-precinct-op2-001",
+      "group": "searchHistorySummary",
+      "usesScenarios": ["SC-11"],
+      "usesLanes": ["L3", "L6"]
+    }
+  ],
+  "usageRules": {
+    "loadOrder": [
+      "incidentSeed",
+      "gpsPath",
+      "geometryReference",
+      "tileManifest",
+      "networkScripts",
+      "outboxReplay",
+      "markerAndNotification",
+      "boardAssembly",
+      "commandFlow",
+      "opTransition",
+      "searchHistorySummary"
+    ],
+    "noExternalNetwork": true,
+    "resetBeforeLoad": true,
+    "canonicalApiPrefix": "/api"
+  },
+  "confirmed": {
+    "incidentSeed": {
+      "fixtureId": "inc-precinct-first-001",
+      "incidentId": "inc-precinct-first-001",
+      "currentOpId": "op-precinct-001-op1",
+      "nextOpId": "op-precinct-001-op2",
+      "teams": [
+        "team-precinct-jongno",
+        "team-missing-alpha",
+        "team-support-bravo"
+      ],
+      "accountIds": [
+        "acct-precinct-cmd",
+        "acct-precinct-car",
+        "acct-precinct-team",
+        "acct-cmd-alpha",
+        "acct-team-alpha",
+        "acct-support-cmd",
+        "acct-support-car",
+        "acct-support-team"
+      ],
+      "policePhoneIds": [
+        "dev-precinct-cmd-phone-01",
+        "dev-precinct-car-01",
+        "dev-precinct-phone-01",
+        "dev-alpha-cmd-phone-01",
+        "dev-alpha-phone-01",
+        "dev-support-cmd-phone-01",
+        "dev-support-car-01",
+        "dev-support-phone-01"
+      ],
+      "seedIds": {
+        "markerId": "mk-precinct-clue-001",
+        "pathVehicleId": "path-precinct-car-001",
+        "pathFootId": "path-precinct-foot-001",
+        "memoId": "memo-precinct-handover-001"
+      },
+      "expectedIncidentAssignments": {
+        "beforeHandover": [
+          "ia-precinct-cmd-001",
+          "ia-precinct-car-001",
+          "ia-precinct-team-001"
+        ],
+        "afterHandoverAdded": [
+          "ia-precinct-alpha-cmd-001",
+          "ia-precinct-alpha-team-001"
+        ],
+        "afterSupportAdded": [
+          "ia-precinct-support-cmd-001",
+          "ia-precinct-support-car-001",
+          "ia-precinct-support-team-001"
+        ]
+      },
+      "fcmRecipients": [
+        "fcm:dev-alpha-phone-01",
+        "fcm:dev-support-car-01",
+        "fcm:dev-support-phone-01"
+      ]
+    },
+    "accountAliases": {
+      "acct-precinct-cmd": {
+        "aliasType": "COMMANDER",
+        "accountType": "COMMAND"
+      },
+      "acct-support-cmd": {
+        "aliasType": "COMMANDER",
+        "accountType": "COMMAND"
+      },
+      "acct-precinct-team": {
+        "aliasType": "TEAM",
+        "accountType": "TEAM"
+      },
+      "acct-support-team": {
+        "aliasType": "TEAM",
+        "accountType": "TEAM"
+      },
+      "acct-precinct-car": {
+        "aliasType": "PATROL",
+        "accountType": "PATROL_CAR"
+      },
+      "acct-support-car": {
+        "aliasType": "PATROL",
+        "accountType": "PATROL_CAR"
+      },
+      "validRoles": [
+        "MISSING_TEAM_COMMANDER",
+        "FIELD_COMMANDER",
+        "MEMBER"
+      ]
+    },
+    "gpsPath": {
+      "fixtureId": "gps-path-normal-001",
+      "pathId": "path-precinct-mixed-001",
+      "policePhoneId": "dev-precinct-car-01",
+      "batchLimits": {
+        "minItems": 2,
+        "maxItems": 120,
+        "publicError": "invalid_geometry"
+      },
+      "points": [
+        {
+          "pointId": "gps-precinct-001",
+          "clientTs": "2026-04-28T09:00:00+09:00",
+          "lon": 126.956,
+          "lat": 37.57,
+          "speedMps": 13.5
+        },
+        {
+          "pointId": "gps-precinct-002",
+          "clientTs": "2026-04-28T09:00:05+09:00",
+          "lon": 126.95665,
+          "lat": 37.57018,
+          "speedMps": 12.8
+        },
+        {
+          "pointId": "gps-precinct-003",
+          "clientTs": "2026-04-28T09:00:10+09:00",
+          "lon": 126.9573,
+          "lat": 37.57036,
+          "speedMps": 11.9
+        },
+        {
+          "pointId": "gps-precinct-004",
+          "clientTs": "2026-04-28T09:00:15+09:00",
+          "lon": 126.95785,
+          "lat": 37.57054,
+          "speedMps": 9.8
+        },
+        {
+          "pointId": "gps-precinct-005",
+          "clientTs": "2026-04-28T09:00:20+09:00",
+          "lon": 126.958,
+          "lat": 37.5707,
+          "speedMps": 1.6
+        },
+        {
+          "pointId": "gps-precinct-006",
+          "clientTs": "2026-04-28T09:00:25+09:00",
+          "lon": 126.95808,
+          "lat": 37.57088,
+          "speedMps": 1.3
+        },
+        {
+          "pointId": "gps-precinct-007",
+          "clientTs": "2026-04-28T09:00:30+09:00",
+          "lon": 126.95816,
+          "lat": 37.57105,
+          "speedMps": 1.1
+        },
+        {
+          "pointId": "gps-precinct-008",
+          "clientTs": "2026-04-28T09:00:35+09:00",
+          "lon": 126.95825,
+          "lat": 37.57122,
+          "speedMps": 1.4
+        }
+      ],
+      "expectedSegments": [
+        {
+          "segmentId": "seg-precinct-vehicle-001",
+          "movementType": "VEHICLE",
+          "startIndex": 0,
+          "endIndex": 3,
+          "startPointId": "gps-precinct-001",
+          "endPointId": "gps-precinct-004"
+        },
+        {
+          "segmentId": "seg-precinct-foot-001",
+          "movementType": "FOOT",
+          "startIndex": 4,
+          "endIndex": 7,
+          "startPointId": "gps-precinct-005",
+          "endPointId": "gps-precinct-008"
+        }
+      ],
+      "qualityDegradedCriteria": [
+        "horizontalAccuracyM > 50",
+        "timestampSkewSec > 30",
+        "speedMps < 0 or > 45",
+        "distance > 200m between 5-second samples",
+        "lon/lat missing, null, or NaN"
+      ]
+    },
+    "geometryReference": {
+      "envelope": {
+        "minLon": 126.9,
+        "minLat": 37.5,
+        "maxLon": 127.08,
+        "maxLat": 37.62
+      },
+      "minimumPolygonAreaM2": 400,
+      "precisionDecimals": 6,
+      "overallSearchArea": [
+        [126.948, 37.565],
+        [126.968, 37.565],
+        [126.968, 37.579],
+        [126.948, 37.579],
+        [126.948, 37.565]
+      ],
+      "searchArea": [
+        [126.952, 37.568],
+        [126.961, 37.568],
+        [126.961, 37.575],
+        [126.952, 37.575],
+        [126.952, 37.568]
+      ],
+      "markerPoint": [126.9565, 37.5712],
+      "failureCoordinates": {
+        "coord-outside-envelope": [127.2, 37.5712],
+        "coord-latlon-swapped": [37.5712, 126.9565],
+        "precision-over-6dp": [126.9565007, 37.5712007]
+      },
+      "failureKeys": [
+        "polygon-unclosed",
+        "polygon-self-intersecting",
+        "polygon-too-small-under-400m2",
+        "point-null-nan"
+      ]
+    },
+    "tileManifest": {
+      "fixtureId": "tile-manifest-inc-precinct-001-v1",
+      "manifestId": "tile-manifest-inc-precinct-001-v1",
+      "styleId": "osm-local",
+      "overallAreaHash": "overall_search_area-hash-precinct-v1",
+      "blobUriTemplate": "local://tiles/inc-precinct-first-001/{z}/{x}/{y}.pbf",
+      "tileKeyRange": {
+        "minZ": 15,
+        "maxZ": 16,
+        "minX": 27925,
+        "maxX": 27960,
+        "minY": 12680,
+        "maxY": 12720
+      },
+      "failureKeys": [
+        "manifest-expired",
+        "manifest-overall-area-stale",
+        "tile-404",
+        "tile-timeout",
+        "tile-checksum-mismatch",
+        "tile-corrupt-blob"
+      ]
+    },
+    "networkScripts": {
+      "manifestScriptId": "net-script-manifest-001",
+      "tileBlobScriptId": "net-script-tile-blob-001",
+      "domainWriteScriptId": "net-script-domain-write-001",
+      "heartbeatScriptId": "net-script-heartbeat-001",
+      "outboxFlushScriptId": "net-script-outbox-flush-001",
+      "domainWriteExpectations": {
+        "onlineSuccessLocalMirrorStatus": "SYNCED",
+        "offlineFailureLocalStatus": "PENDING_LOCAL",
+        "offlineFailureOutboxStatus": "PENDING_SEND",
+        "partialRecoveryBoardState": "STALE_REFETCH"
+      },
+      "heartbeatExpectations": {
+        "online": "ONLINE",
+        "offline": "OFFLINE",
+        "recovering": "RECOVERING"
+      }
+    },
+    "outboxReplay": {
+      "sc05PathReplay": {
+        "operationId": "op-outbox-path-001",
+        "outboxId": "outbox-path-001",
+        "idempotencyKey": "idem-path-001",
+        "bodyHash": "sha256:path-normal-001",
+        "incidentId": "inc-precinct-first-001",
+        "policePhoneId": "dev-precinct-car-01",
+        "dependencyGroup": "PATH",
+        "sequence": 502,
+        "endpoint": "POST /search-paths/batch",
+        "expectedEventId": "evt-s3-path-appended-001"
+      },
+      "sc06MarkerPhotoReplay": {
+        "markerOperationId": "op-outbox-marker-001",
+        "markerOutboxId": "outbox-marker-001",
+        "markerIdempotencyKey": "idem-marker-001",
+        "photoOperationId": "op-outbox-photo-001",
+        "photoOutboxId": "outbox-photo-001",
+        "photoIdempotencyKey": "idem-photo-attach-001",
+        "markerId": "mk-precinct-clue-001",
+        "photoId": "photo-precinct-clue-001",
+        "expectedEventId": "evt-s5-marker-updated-photo-001"
+      },
+      "sc08NotificationReplay": {
+        "operationId": "op-outbox-support-001",
+        "outboxId": "outbox-support-001",
+        "idempotencyKey": "idem-support-001",
+        "markerId": "mk-precinct-support-001",
+        "notificationDeliveryId": "notif-precinct-support-001",
+        "expectedEventId": "evt-s5-support-request-001"
+      },
+      "sc09PackageReplay": {
+        "operationId": "op-outbox-package-001",
+        "outboxId": "outbox-package-001",
+        "idempotencyKey": "idem-package-001",
+        "bodyHash": "sha256:package-status-ready-001",
+        "incidentId": "inc-precinct-first-001",
+        "policePhoneId": "dev-precinct-phone-01",
+        "dependencyGroup": "PACKAGE_INSTALLATION",
+        "sequence": 901,
+        "expectedEventId": "evt-s7-package-status-001"
+      }
+    },
+    "markerAndNotification": {
+      "markerPhotoAttach": {
+        "markerId": "mk-precinct-clue-001",
+        "photoId": "photo-precinct-clue-001",
+        "eventId": "evt-s5-marker-updated-photo-001",
+        "markerVersionAfter": 2,
+        "photoVersionAfter": 2
+      },
+      "supportRequestNotification": {
+        "markerId": "mk-precinct-support-001",
+        "notificationDeliveryId": "notif-precinct-support-001",
+        "eventId": "evt-s5-support-request-001",
+        "expectedFcmRecipients": [
+          "fcm:dev-alpha-phone-01",
+          "fcm:dev-support-car-01",
+          "fcm:dev-support-phone-01"
+        ]
+      }
+    },
+    "boardAssembly": {
+      "boardResponseId": "bs-inc-precinct-first-001-v1200",
+      "boardResponseVersion": 1200,
+      "serverTs": "2026-04-28T10:30:00+09:00",
+      "slotRows": [
+        {
+          "slot": "path",
+          "boardRowId": "board-path-precinct-mixed-001",
+          "sourceResponseId": "path-precinct-mixed-001",
+          "status": "ACTIVE",
+          "version": 2,
+          "sequence": 502,
+          "latestEventId": "evt-s3-path-appended-001"
+        },
+        {
+          "slot": "marker",
+          "boardRowId": "board-marker-mk-precinct-clue-001",
+          "sourceResponseId": "mk-precinct-clue-001",
+          "status": "ACTIVE",
+          "version": 1,
+          "sequence": 601,
+          "latestEventId": "evt-s5-marker-created-001"
+        },
+        {
+          "slot": "toast",
+          "boardRowId": "board-toast-support-request-precinct-001",
+          "sourceResponseId": "support-request-precinct-001",
+          "status": "VISIBLE",
+          "version": 1,
+          "sequence": 602,
+          "latestEventId": "evt-s5-support-request-001"
+        },
+        {
+          "slot": "package_badge",
+          "boardRowId": "board-package-inc-precinct-first-001",
+          "sourceResponseId": "pkg-inc-precinct-first-001",
+          "status": "STALE",
+          "version": 3,
+          "sequence": 701,
+          "latestEventId": "evt-s7-package-status-001"
+        },
+        {
+          "slot": "op_history",
+          "boardRowId": "board-op-history-op-precinct-001-op2",
+          "sourceResponseId": "op-precinct-001-op2",
+          "status": "OPENED",
+          "version": 2,
+          "sequence": 802,
+          "latestEventId": "evt-s8-op-transition-001"
+        },
+        {
+          "slot": "incident_terminal",
+          "boardRowId": "board-incident-terminal-inc-precinct-first-001",
+          "sourceResponseId": "inc-precinct-first-001",
+          "status": "CLOSED",
+          "version": 9,
+          "sequence": 901,
+          "latestEventId": "evt-s1-1-incident-closed-001"
+        }
+      ],
+      "apiAssemblyFailures": {
+        "duplicateEventId": "evt-s5-support-request-001",
+        "staleEventId": "evt-s3-path-appended-stale-001",
+        "missingPredecessorEventId": "evt-s3-path-appended-gap-003",
+        "goneRefetchRequiredError": "gone_refetch_required"
+      }
+    },
+    "commandFlow": {
+      "radioReportId": "rr-precinct-001",
+      "incidentId": "inc-precinct-first-001",
+      "opId": "op-precinct-001-op1",
+      "areaId": "area-precinct-a1",
+      "reportedBy": "acct-precinct-cmd",
+      "message": "1구역 수색 완료, 북측 미확인 동선 존재",
+      "receivedAt": "2026-04-28T10:15:00+09:00",
+      "decisionId": "dec-op-transition-001",
+      "decision": "COMPLETE_AREA_AND_OPEN_NEXT_OP",
+      "nextOpId": "op-precinct-001-op2",
+      "handoverMemoId": "memo-precinct-handover-001",
+      "expectedExecutionSequence": [
+        "radio_report_received",
+        "commander_decision_recorded",
+        "area_completed",
+        "op_transitioned",
+        "handover_saved",
+        "board_api_refetched"
+      ]
+    },
+    "opTransition": {
+      "currentOp": {
+        "opId": "op-precinct-001-op1",
+        "status": "ACTIVE",
+        "version": 1,
+        "sequenceNumber": 1
+      },
+      "newOp": {
+        "opId": "op-precinct-001-op2",
+        "status": "ACTIVE",
+        "version": 1,
+        "sequenceNumber": 2
+      },
+      "expectedEventId": "evt-s8-op-transitioned-001"
+    },
+    "searchHistorySummary": {
+      "memoId": "memo-precinct-op2-001",
+      "summaryId": "summary-precinct-op2-001",
+      "handoverEventId": "evt-s8-handover-memo-001",
+      "summaryEventId": "evt-s8-ai-summary-001",
+      "displayStatus": "UNAVAILABLE",
+      "adapterFailure": "timeout",
+      "forbiddenPhraseResponse": "다음 구역 추천: 북쪽으로 이동. 위험도 높음."
+    }
+  }
+}
