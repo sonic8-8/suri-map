@@ -113,7 +113,7 @@
   - 예상 작업량: 1d
   - 완료 기준: `/tiles`와 style endpoint가 local tile fixture를 사용하고 external tile host를 요구하지 않는다.
 
-- [ ] L6-T08B MapLibre 로컬 스타일·저작자 표시·외부 타일 서버 차단 구현
+- [x] L6-T08B MapLibre 로컬 스타일·저작자 표시·외부 타일 서버 차단 구현
   - 담당 Spec: S7
   - 필수 참조: `spec/specs/S7.json`, `spec/harness-scenarios.md §6 mock tile catalog/server`, `adr.md ADR-0004`
   - 연관 Spec: S3-2
