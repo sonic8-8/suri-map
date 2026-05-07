@@ -71,9 +71,10 @@ class GpsPathValidatorTest {
   void accuracy저하면_excludedPoints로_분류한다() {
     var fixture = GpsPathValidationFixtures.LOW_ACCURACY;
 
-    var result = validator.validateBatch(toPoints(fixture.points()), fixture.serverReceivedAt());
+    var result =
+        validator.validateBatch(withValidLeadPoint(toPoints(fixture.points())), fixture.serverReceivedAt());
 
-    assertThat(result.acceptedPoints()).isEmpty();
+    assertThat(result.acceptedPoints()).hasSize(1);
     assertThat(result.excludedPoints()).singleElement().satisfies(ex -> assertThat(ex.reason()).isEqualTo(QualityReason.LOW_ACCURACY));
   }
 
@@ -81,9 +82,10 @@ class GpsPathValidatorTest {
   void clockSkew초과면_excludedPoints로_분류한다() {
     var fixture = GpsPathValidationFixtures.TIMESTAMP_SKEW;
 
-    var result = validator.validateBatch(toPoints(fixture.points()), fixture.serverReceivedAt());
+    var result =
+        validator.validateBatch(withValidLeadPoint(toPoints(fixture.points())), fixture.serverReceivedAt());
 
-    assertThat(result.acceptedPoints()).isEmpty();
+    assertThat(result.acceptedPoints()).hasSize(1);
     assertThat(result.excludedPoints()).singleElement().satisfies(ex -> assertThat(ex.reason()).isEqualTo(QualityReason.CLOCK_SKEW));
   }
 
@@ -92,8 +94,10 @@ class GpsPathValidatorTest {
     var negative = GpsPathValidationFixtures.NEGATIVE_SPEED;
     var over = GpsPathValidationFixtures.EXCESSIVE_SPEED;
 
-    var negativeResult = validator.validateBatch(toPoints(negative.points()), negative.serverReceivedAt());
-    var overResult = validator.validateBatch(toPoints(over.points()), over.serverReceivedAt());
+    var negativeResult =
+        validator.validateBatch(withValidLeadPoint(toPoints(negative.points())), negative.serverReceivedAt());
+    var overResult =
+        validator.validateBatch(withValidLeadPoint(toPoints(over.points())), over.serverReceivedAt());
 
     assertThat(negativeResult.excludedPoints()).singleElement().satisfies(ex -> assertThat(ex.reason()).isEqualTo(QualityReason.INVALID_SPEED));
     assertThat(overResult.excludedPoints()).singleElement().satisfies(ex -> assertThat(ex.reason()).isEqualTo(QualityReason.INVALID_SPEED));
@@ -107,6 +111,47 @@ class GpsPathValidatorTest {
 
     assertThat(result.acceptedPoints()).hasSize(1);
     assertThat(result.excludedPoints()).singleElement().satisfies(ex -> assertThat(ex.reason()).isEqualTo(QualityReason.DISTANCE_JUMP));
+  }
+
+  @Test
+  void 포인트가_1개면_invalid_geometry다() {
+    var singlePoint = List.of(toPoints(GpsPathValidationFixtures.LOW_ACCURACY.points()).get(0));
+    assertThatThrownBy(() -> validator.validateBatch(singlePoint, now()))
+        .isInstanceOf(InvalidGpsPathBatchException.class)
+        .hasMessageContaining("points minItems=2");
+  }
+
+  @Test
+  void pointId중복이면_invalid_geometry다() {
+    var points = toPoints(GpsPathValidationFixtures.NORMAL_POINTS);
+    var duplicated =
+        List.of(
+            points.get(0),
+            new GpsPathPoint(
+                points.get(0).pointId(),
+                points.get(1).clientTs(),
+                points.get(1).lon(),
+                points.get(1).lat(),
+                points.get(1).speedMps(),
+                points.get(1).horizontalAccuracyM()));
+
+    assertThatThrownBy(() -> validator.validateBatch(duplicated, now()))
+        .isInstanceOf(InvalidGpsPathBatchException.class)
+        .hasMessageContaining("pointId must be unique");
+  }
+
+  @Test
+  void activeOverallSearchArea밖이면_invalid_geometry다() {
+    var activeArea = new GpsPathValidationCriteria.GeoEnvelope(126.955000, 37.569000, 126.957000, 37.570300);
+
+    assertThatThrownBy(
+            () ->
+                validator.validateBatch(
+                    toPoints(GpsPathValidationFixtures.NORMAL_POINTS),
+                    OffsetDateTime.parse("2026-04-28T09:00:20+09:00"),
+                    activeArea))
+        .isInstanceOf(InvalidGpsPathBatchException.class)
+        .hasMessageContaining("point outside active overall_search_area");
   }
 
   @Test
@@ -148,5 +193,20 @@ class GpsPathValidatorTest {
 
   private static OffsetDateTime now() {
     return OffsetDateTime.parse("2026-04-28T09:10:00+09:00");
+  }
+
+  private static List<GpsPathPoint> withValidLeadPoint(List<GpsPathPoint> points) {
+    var first = points.get(0);
+    var lead =
+        new GpsPathPoint(
+            "gps-valid-lead-001",
+            first.clientTs().minusSeconds(5),
+            first.lon(),
+            first.lat(),
+            first.speedMps().compareTo(java.math.BigDecimal.ZERO) < 0
+                ? java.math.BigDecimal.ONE
+                : first.speedMps().min(java.math.BigDecimal.valueOf(10)),
+            5);
+    return List.of(lead, first);
   }
 }

@@ -6,13 +6,22 @@ import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class GpsPathValidator {
 
   public GpsPathValidationResult validateBatch(
       List<GpsPathPoint> points, OffsetDateTime serverReceivedAt) {
-    validateStructural(points);
+    return validateBatch(points, serverReceivedAt, GpsPathValidationCriteria.HARNESS_ENVELOPE);
+  }
+
+  public GpsPathValidationResult validateBatch(
+      List<GpsPathPoint> points,
+      OffsetDateTime serverReceivedAt,
+      GpsPathValidationCriteria.GeoEnvelope activeOverallAreaEnvelope) {
+    validateStructural(points, activeOverallAreaEnvelope);
 
     List<GpsPathPoint> accepted = new ArrayList<>();
     List<GpsPathValidationResult.ExcludedPoint> excluded = new ArrayList<>();
@@ -30,9 +39,10 @@ public class GpsPathValidator {
     return new GpsPathValidationResult(List.copyOf(accepted), List.copyOf(excluded));
   }
 
-  private void validateStructural(List<GpsPathPoint> points) {
-    if (points == null || points.isEmpty()) {
-      throw new InvalidGpsPathBatchException("at least one point is required");
+  private void validateStructural(
+      List<GpsPathPoint> points, GpsPathValidationCriteria.GeoEnvelope activeOverallAreaEnvelope) {
+    if (points == null || points.size() < GpsPathValidationCriteria.MIN_POINTS_PER_BATCH) {
+      throw new InvalidGpsPathBatchException("points minItems=2");
     }
     if (points.size() > GpsPathValidationCriteria.MAX_POINTS_PER_BATCH) {
       throw new InvalidGpsPathBatchException("points maxItems=120");
@@ -46,12 +56,20 @@ public class GpsPathValidator {
       }
     }
 
+    Set<String> uniquePointIds = new HashSet<>();
     for (GpsPathPoint point : points) {
-      validateCoordinate(point.lon(), point.lat());
+      if (point.pointId() == null || point.pointId().isBlank()) {
+        throw new InvalidGpsPathBatchException("pointId is required");
+      }
+      if (!uniquePointIds.add(point.pointId())) {
+        throw new InvalidGpsPathBatchException("pointId must be unique");
+      }
+      validateCoordinate(point.lon(), point.lat(), activeOverallAreaEnvelope);
     }
   }
 
-  private void validateCoordinate(BigDecimal lon, BigDecimal lat) {
+  private void validateCoordinate(
+      BigDecimal lon, BigDecimal lat, GpsPathValidationCriteria.GeoEnvelope activeOverallAreaEnvelope) {
     if (lon == null || lat == null) {
       throw new InvalidGpsPathBatchException("null or NaN coordinate is a structural failure");
     }
@@ -83,6 +101,15 @@ public class GpsPathValidator {
             && canonicalLat.compareTo(BigDecimal.valueOf(envelope.maxLat())) <= 0;
     if (!inEnvelope) {
       throw new InvalidGpsPathBatchException("point outside harness envelope");
+    }
+
+    boolean inActiveOverallArea =
+        canonicalLon.compareTo(BigDecimal.valueOf(activeOverallAreaEnvelope.minLon())) >= 0
+            && canonicalLon.compareTo(BigDecimal.valueOf(activeOverallAreaEnvelope.maxLon())) <= 0
+            && canonicalLat.compareTo(BigDecimal.valueOf(activeOverallAreaEnvelope.minLat())) >= 0
+            && canonicalLat.compareTo(BigDecimal.valueOf(activeOverallAreaEnvelope.maxLat())) <= 0;
+    if (!inActiveOverallArea) {
+      throw new InvalidGpsPathBatchException("point outside active overall_search_area");
     }
   }
 
