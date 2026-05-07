@@ -22,13 +22,13 @@ class BackendBootstrapContractTest {
   @Autowired private BootstrapMapper bootstrapMapper;
 
   @Test
-  void usesGradleKotlinDslBuildScripts() {
+  void usesGradleGroovyDslBuildScripts() {
     var projectDir = Path.of("").toAbsolutePath();
 
-    assertThat(projectDir.resolve("build.gradle.kts")).exists();
-    assertThat(projectDir.resolve("settings.gradle.kts")).exists();
-    assertThat(projectDir.resolve("build.gradle")).doesNotExist();
-    assertThat(projectDir.resolve("settings.gradle")).doesNotExist();
+    assertThat(projectDir.resolve("build.gradle")).exists();
+    assertThat(projectDir.resolve("settings.gradle")).exists();
+    assertThat(projectDir.resolve("build.gradle.kts")).doesNotExist();
+    assertThat(projectDir.resolve("settings.gradle.kts")).doesNotExist();
   }
 
   @Test
