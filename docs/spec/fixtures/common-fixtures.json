@@ -3,6 +3,11 @@
     "version": "2026-05-06",
     "sourceDocs": [
       "docs/spec/harness-scenarios.md",
+      "docs/spec/boundaries.md",
+      "docs/spec/specs/S1-1.json",
+      "docs/spec/specs/S1-2.json",
+      "docs/spec/specs/S1-3.json",
+      "docs/spec/specs/S2.json",
       "docs/spec/specs/S3-1.json",
       "docs/spec/specs/S3-2.json",
       "docs/spec/specs/S4.json",
@@ -10,56 +15,198 @@
       "docs/spec/specs/S6.json",
       "docs/spec/specs/S7.json",
       "docs/spec/specs/S8.json",
-      "docs/api/api-spec.md"
+      "docs/api/api-spec.md",
+      "docs/db-design/db-design-readable.md",
+      "docs/tasks/mock-112-demo-guidance.md"
     ],
-    "notes": "Existing spec fixture values only. Unresolved values stay in pending-confirmation.json."
+    "notes": "Existing spec fixture values only. Unresolved or cross-spec conflicting values stay in pending-confirmation.json.",
+    "sourceCoverage": {
+      "S1-1": "confirmed incident seed IDs plus pending mock112 payload and fixture-validation decisions",
+      "S1-2": "confirmed police_phone freshness board fixture and account/policePhone aliases",
+      "S1-3": "confirmed tombstone reference used by board terminal fixture",
+      "S2": "confirmed overall_search_area and area board fixtures",
+      "S3-1": "confirmed gps path fixture, path replay references, and remaining path guard fixtures",
+      "S3-2": "confirmed board response rows and board assembly failure fixtures",
+      "S4": "confirmed event IDs plus fanout, replay-gap, dedupe, and closed-stream fixtures",
+      "S5": "confirmed marker/photo/notification fixtures and SC-06 attach expectations",
+      "S6": "confirmed path replay, terminal-state fixtures, and shared outbox rules; SC-09 package replay remains pending",
+      "S7": "confirmed tile IDs, manifest download pending fixture, and board package badge row; overallAreaHash and SC-09 replay remain pending",
+      "S8": "confirmed current-op contract, OP/search-history IDs, idempotent replay fixtures, and source-owned domain fixtures; board projection event IDs stay separated inside boardAssembly"
+    }
   },
   "catalogIndex": [
     {
       "fixtureId": "inc-precinct-first-001",
       "group": "incidentSeed",
+      "ownerPath": "incidentSeed.fixtureId",
       "usesScenarios": ["SC-01", "SC-02", "SC-10", "SC-12"],
       "usesLanes": ["L1", "L2", "L3", "L4", "L5", "L6"]
     },
     {
+      "fixtureId": "op-precinct-001-op1",
+      "group": "opTransition",
+      "ownerPath": "opTransition.currentOp.opId",
+      "usesScenarios": ["SC-01", "SC-05", "SC-07", "SC-10"],
+      "usesLanes": ["L1", "L3", "L4", "L5", "L6"]
+    },
+    {
+      "fixtureId": "op-precinct-001-op2",
+      "group": "opTransition",
+      "ownerPath": "opTransition.newOp.opId",
+      "usesScenarios": ["SC-10", "SC-11"],
+      "usesLanes": ["L1", "L3", "L6"]
+    },
+    {
       "fixtureId": "gps-path-normal-001",
       "group": "gpsPath",
+      "ownerPath": "gpsPath.fixtureId",
       "usesScenarios": ["SC-05", "SC-07", "SC-09", "SC-11"],
       "usesLanes": ["L3", "L4", "L6"]
     },
     {
       "fixtureId": "tile-manifest-inc-precinct-001-v1",
       "group": "tileManifest",
+      "ownerPath": "tileManifest.fixtureId",
       "usesScenarios": ["SC-03", "SC-04", "SC-09"],
       "usesLanes": ["L4", "L6"]
     },
     {
+      "fixtureId": "net-script-manifest-001",
+      "group": "networkScripts",
+      "ownerPath": "networkScripts.manifestScriptId",
+      "usesScenarios": ["SC-03"],
+      "usesLanes": ["L4", "L6"]
+    },
+    {
+      "fixtureId": "net-script-tile-blob-001",
+      "group": "networkScripts",
+      "ownerPath": "networkScripts.tileBlobScriptId",
+      "usesScenarios": ["SC-03", "SC-04"],
+      "usesLanes": ["L4", "L6"]
+    },
+    {
+      "fixtureId": "net-script-domain-write-001",
+      "group": "networkScripts",
+      "ownerPath": "networkScripts.domainWriteScriptId",
+      "usesScenarios": ["SC-07", "SC-09"],
+      "usesLanes": ["L4", "L5", "L6"]
+    },
+    {
+      "fixtureId": "net-script-heartbeat-001",
+      "group": "networkScripts",
+      "ownerPath": "networkScripts.heartbeatScriptId",
+      "usesScenarios": ["SC-07"],
+      "usesLanes": ["L2", "L4", "L6"]
+    },
+    {
+      "fixtureId": "net-script-outbox-flush-001",
+      "group": "networkScripts",
+      "ownerPath": "networkScripts.outboxFlushScriptId",
+      "usesScenarios": ["SC-09"],
+      "usesLanes": ["L2", "L4", "L6"]
+    },
+    {
       "fixtureId": "outbox-path-001",
       "group": "outboxReplay",
+      "ownerPath": "outboxReplay.sc05PathReplay.outboxId",
       "usesScenarios": ["SC-05", "SC-09"],
       "usesLanes": ["L4", "L6"]
     },
     {
-      "fixtureId": "outbox-package-001",
+      "fixtureId": "outbox-marker-001",
       "group": "outboxReplay",
-      "usesScenarios": ["SC-09"],
+      "ownerPath": "outboxReplay.sc06MarkerPhotoReplay.markerOutboxId",
+      "usesScenarios": ["SC-06", "SC-09"],
       "usesLanes": ["L4", "L6"]
+    },
+    {
+      "fixtureId": "outbox-photo-001",
+      "group": "outboxReplay",
+      "ownerPath": "outboxReplay.sc06MarkerPhotoReplay.photoOutboxId",
+      "usesScenarios": ["SC-06", "SC-09"],
+      "usesLanes": ["L4", "L6"]
+    },
+    {
+      "fixtureId": "mk-precinct-clue-001",
+      "group": "markerAndNotification",
+      "ownerPath": "incidentSeed.seedIds.markerId",
+      "usesScenarios": ["SC-01", "SC-06", "SC-10"],
+      "usesLanes": ["L1", "L5", "L6"]
+    },
+    {
+      "fixtureId": "photo-precinct-clue-001",
+      "group": "objectStorageUpload",
+      "ownerPath": "objectStorageUpload.photoId",
+      "usesScenarios": ["SC-06"],
+      "usesLanes": ["L5", "L6"]
+    },
+    {
+      "fixtureId": "evt-s1-assignment-support-assigned-001",
+      "group": "eventRegistry",
+      "ownerPath": "eventRegistry.supportAssignmentNotification.eventId",
+      "usesScenarios": ["SC-02"],
+      "usesLanes": ["L2", "L5", "L6"]
+    },
+    {
+      "fixtureId": "evt-s3-path-appended-001",
+      "group": "eventRegistry",
+      "ownerPath": "eventRegistry.pathAppended.eventId",
+      "usesScenarios": ["SC-05", "SC-09"],
+      "usesLanes": ["L2", "L4", "L6"]
+    },
+    {
+      "fixtureId": "evt-s5-marker-updated-photo-001",
+      "group": "eventRegistry",
+      "ownerPath": "eventRegistry.markerPhotoAttached.eventId",
+      "usesScenarios": ["SC-06", "SC-09"],
+      "usesLanes": ["L2", "L5", "L6"]
+    },
+    {
+      "fixtureId": "evt-s5-support-request-001",
+      "group": "eventRegistry",
+      "ownerPath": "eventRegistry.supportRequestNotification.eventId",
+      "usesScenarios": ["SC-08"],
+      "usesLanes": ["L2", "L5", "L6"]
+    },
+    {
+      "fixtureId": "evt-s5-person-found-001",
+      "group": "eventRegistry",
+      "ownerPath": "eventRegistry.personFoundNotification.eventId",
+      "usesScenarios": ["SC-08"],
+      "usesLanes": ["L2", "L5", "L6"]
     },
     {
       "fixtureId": "bs-inc-precinct-first-001-v1200",
       "group": "boardAssembly",
+      "ownerPath": "boardAssembly.boardResponseId",
       "usesScenarios": ["SC-02", "SC-03", "SC-05", "SC-06", "SC-08", "SC-09", "SC-10", "SC-11", "SC-12"],
       "usesLanes": ["L2", "L3", "L5", "L6"]
     },
     {
       "fixtureId": "rr-precinct-001",
       "group": "commandFlow",
+      "ownerPath": "commandFlow.radioReportId",
+      "usesScenarios": ["SC-10"],
+      "usesLanes": ["L1", "L3", "L6"]
+    },
+    {
+      "fixtureId": "memo-precinct-handover-001",
+      "group": "commandFlow",
+      "ownerPath": "incidentSeed.seedIds.memoId",
       "usesScenarios": ["SC-10"],
       "usesLanes": ["L1", "L3", "L6"]
     },
     {
       "fixtureId": "memo-precinct-op2-001",
       "group": "searchHistorySummary",
+      "ownerPath": "searchHistorySummary.memoId",
+      "usesScenarios": ["SC-11"],
+      "usesLanes": ["L3", "L6"]
+    },
+    {
+      "fixtureId": "summary-precinct-op2-001",
+      "group": "searchHistorySummary",
+      "ownerPath": "searchHistorySummary.summaryId",
       "usesScenarios": ["SC-11"],
       "usesLanes": ["L3", "L6"]
     }
@@ -68,11 +215,17 @@
     "loadOrder": [
       "incidentSeed",
       "gpsPath",
+      "pathGuardFixtures",
       "geometryReference",
       "tileManifest",
+      "offlinePackageUi",
       "networkScripts",
       "outboxReplay",
+      "terminalStateRules",
+      "objectStorageUpload",
       "markerAndNotification",
+      "eventRegistry",
+      "eventFanout",
       "boardAssembly",
       "commandFlow",
       "opTransition",
@@ -80,8 +233,7 @@
     ],
     "noExternalNetwork": true,
     "resetBeforeLoad": true,
-    "canonicalApiPrefix": "/api",
-    "sourceOfTruth": "Lane-specific fixture code may exist, but canonical IDs, statuses, event names, outbox keys, and payload expectations must match this file."
+    "sourceOfTruth": "Only confirmed values in this file are canonical. pending-confirmation.json keeps unresolved cross-spec conflicts. boardAssembly.latestEventId stays source-owned to S3-2 board fixtures, while S8 owner fixtures keep their own domain-event expectations in separate fields."
   },
   "confirmed": {
     "incidentSeed": {
@@ -266,6 +418,17 @@
         "lon/lat missing, null, or NaN"
       ]
     },
+    "pathGuardFixtures": {
+      "readOnlyGeometryHash": {
+        "expected": "SC-11 evidence uses canonical LineString geometry and SearchPath.version"
+      },
+      "staleVersion": {
+        "expected": "mock board ignores event payloads below current version"
+      },
+      "restartNoBridge": {
+        "expected": "recording restart creates a new search_path and board does not bridge separate LineStrings"
+      }
+    },
     "geometryReference": {
       "envelope": {
         "minLon": 126.9,
@@ -306,7 +469,6 @@
       "fixtureId": "tile-manifest-inc-precinct-001-v1",
       "manifestId": "tile-manifest-inc-precinct-001-v1",
       "styleId": "osm-local",
-      "overallAreaHash": "overall_search_area-hash-precinct-v1",
       "blobUriTemplate": "local://tiles/inc-precinct-first-001/{z}/{x}/{y}.pbf",
       "tileKeyRange": {
         "minZ": 15,
@@ -325,12 +487,43 @@
         "tile-corrupt-blob"
       ]
     },
+    "offlinePackageUi": {
+      "manifestDownloadPending": {
+        "incidentId": "inc-precinct-first-001",
+        "policePhoneId": "dev-precinct-phone-01",
+        "manifestId": "tile-manifest-inc-precinct-001-v1",
+        "manifestVersion": 1,
+        "status": "DOWNLOADING",
+        "disabledControls": [
+          "downloadOfflinePackage",
+          "markReadyForOfflineUse"
+        ],
+        "visibleProgressGroups": [
+          "INCIDENT_META",
+          "MISSING_PERSON_CACHE",
+          "OP_LIST",
+          "ASSIGNED_AREA",
+          "INITIAL_MARKER",
+          "OVERALL_SEARCH_AREA",
+          "TILE"
+        ],
+        "retryEnabledWhen": [
+          "tile_unavailable",
+          "PARTIAL"
+        ]
+      }
+    },
     "networkScripts": {
       "manifestScriptId": "net-script-manifest-001",
       "tileBlobScriptId": "net-script-tile-blob-001",
       "domainWriteScriptId": "net-script-domain-write-001",
       "heartbeatScriptId": "net-script-heartbeat-001",
       "outboxFlushScriptId": "net-script-outbox-flush-001",
+      "tileCacheStates": {
+        "ready": "READY",
+        "failedRetryable": "FAILED_RETRYABLE",
+        "failedCorrupt": "FAILED_CORRUPT"
+      },
       "domainWriteExpectations": {
         "onlineSuccessLocalMirrorStatus": "SYNCED",
         "offlineFailureLocalStatus": "PENDING_LOCAL",
@@ -413,7 +606,8 @@
         "policePhoneId": "dev-precinct-car-01",
         "dependencyGroup": "PATH",
         "sequence": 502,
-        "endpoint": "POST /search-paths/batch",
+        "sourceSpecEndpoint": "POST /search-paths/batch",
+        "canonicalApiEndpoint": "POST /api/search-paths/batch",
         "expectedEventId": "evt-s3-path-appended-001"
       },
       "sc06MarkerPhotoReplay": {
@@ -427,24 +621,77 @@
         "photoId": "photo-precinct-clue-001",
         "expectedEventId": "evt-s5-marker-updated-photo-001"
       },
-      "sc08NotificationReplay": {
+      "sc08SupportRequestReplay": {
         "operationId": "op-outbox-support-001",
         "outboxId": "outbox-support-001",
         "idempotencyKey": "idem-support-001",
         "markerId": "mk-precinct-support-001",
         "notificationDeliveryId": "notif-precinct-support-001",
         "expectedEventId": "evt-s5-support-request-001"
+      }
+    },
+    "terminalStateRules": {
+      "sc12CloseRequeue": {
+        "preCloseOperationId": "op-outbox-preclose-path-001",
+        "postCloseOperationId": "op-outbox-postclose-marker-001",
+        "incidentId": "inc-precinct-closed-001",
+        "closeCutoff": "2026-04-28T12:00:00+09:00",
+        "expectedPreClose": "close-drain-once",
+        "expectedPostClose": "FAILED_FINAL",
+        "expectedUserCategory": "CLOSED_NO_RETRY",
+        "expectedPurgeHookStatus": "WAITING_FOR_SYNC"
       },
-      "sc09PackageReplay": {
-        "operationId": "op-outbox-package-001",
-        "outboxId": "outbox-package-001",
-        "idempotencyKey": "idem-package-001",
-        "bodyHash": "sha256:package-status-ready-001",
-        "incidentId": "inc-precinct-first-001",
-        "policePhoneId": "dev-precinct-phone-01",
-        "dependencyGroup": "PACKAGE_INSTALLATION",
-        "sequence": 901,
-        "expectedEventId": "evt-s7-package-status-001"
+      "failureCategoryRows": [
+        {
+          "operationId": "op-fail-clock-001",
+          "lastError": "clock_skew_exceeded",
+          "userSafeFailureCategory": "CLOCK_RESYNC_REQUIRED",
+          "retryable": true
+        },
+        {
+          "operationId": "op-fail-idem-001",
+          "lastError": "idempotency_mismatch",
+          "userSafeFailureCategory": "NON_RETRYABLE_CONFLICT",
+          "retryable": false
+        },
+        {
+          "operationId": "op-fail-PolicePhone-001",
+          "lastError": "police_phone_not_assigned",
+          "userSafeFailureCategory": "DEVICE_ACCESS_REQUIRED",
+          "retryable": false
+        },
+        {
+          "operationId": "op-fail-closed-001",
+          "lastError": "post_close_requeue_rejected",
+          "userSafeFailureCategory": "CLOSED_NO_RETRY",
+          "retryable": false
+        }
+      ]
+    },
+    "objectStorageUpload": {
+      "photoId": "photo-precinct-clue-001",
+      "storageBaseUri": "mock://object-storage/suri-map-harness",
+      "uploadUrlTemplate": "http://127.0.0.1:18080/mock-upload/{photoId}",
+      "successFixtures": {
+        "photoCounts": [0, 1, 10],
+        "fileSizesBytes": [1048576, 10485760]
+      },
+      "failureFixtures": {
+        "photoCount": 11,
+        "fileSizeBytes": 10485761,
+        "failureKeys": [
+          "upload-url-denied",
+          "upload-timeout",
+          "upload-500",
+          "checksum-mismatch",
+          "attach-missing-blob",
+          "attach-duplicate"
+        ]
+      },
+      "expectedAttachOutcome": {
+        "eventId": "evt-s5-marker-updated-photo-001",
+        "photoStatus": "ATTACHED",
+        "photoVersion": 2
       }
     },
     "markerAndNotification": {
@@ -455,75 +702,478 @@
         "markerVersionAfter": 2,
         "photoVersionAfter": 2
       },
+      "supportAssignmentNotification": {
+        "incidentId": "inc-precinct-first-001",
+        "eventId": "evt-s1-assignment-support-assigned-001",
+        "assignmentVersion": 2,
+        "recipientPolicy": "NEWLY_ASSIGNED_SUPPORT_DEVICES",
+        "recipientAccountIds": [
+          "acct-support-car",
+          "acct-support-team"
+        ],
+        "recipientPolicePhoneIds": [
+          "dev-support-car-01",
+          "dev-support-phone-01"
+        ],
+        "excludedPolicePhoneIds": [
+          "dev-support-cmd-phone-01"
+        ],
+        "expectedFcmRecipients": [
+          "fcm:dev-support-car-01",
+          "fcm:dev-support-phone-01"
+        ],
+        "expectedPayload": {
+          "type": "INCIDENT_ASSIGNMENT_CHANGED",
+          "incidentId": "inc-precinct-first-001",
+          "status": "ACTIVE",
+          "version": 2,
+          "pii": false
+        }
+      },
       "supportRequestNotification": {
+        "incidentId": "inc-precinct-first-001",
+        "opId": "op-precinct-001-op1",
+        "policePhoneId": "dev-precinct-phone-01",
+        "accountId": "acct-precinct-team",
         "markerId": "mk-precinct-support-001",
         "notificationDeliveryId": "notif-precinct-support-001",
         "eventId": "evt-s5-support-request-001",
+        "markerStatus": "ACTIVE",
+        "markerVersion": 1,
+        "recipientPolicy": "COMMANDERS_AND_FIELD_COMMANDERS",
+        "recipientAccountIds": [
+          "acct-cmd-alpha",
+          "acct-support-cmd",
+          "acct-support-car",
+          "acct-support-team"
+        ],
+        "recipientPolicePhoneIds": [
+          "dev-alpha-phone-01",
+          "dev-support-car-01",
+          "dev-support-phone-01"
+        ],
         "expectedFcmRecipients": [
           "fcm:dev-alpha-phone-01",
           "fcm:dev-support-car-01",
           "fcm:dev-support-phone-01"
+        ],
+        "expectedToast": {
+          "slot": "toast",
+          "type": "SUPPORT_REQUEST_CREATED",
+          "id": "notif-precinct-support-001",
+          "status": "SNAPSHOT_CREATED",
+          "version": 1
+        }
+      },
+      "personFoundNotification": {
+        "incidentId": "inc-precinct-first-001",
+        "opId": "op-precinct-001-op1",
+        "policePhoneId": "dev-precinct-phone-01",
+        "accountId": "acct-precinct-team",
+        "markerId": "mk-precinct-person-found-001",
+        "notificationDeliveryId": "notif-precinct-person-found-001",
+        "eventId": "evt-s5-person-found-001",
+        "markerStatus": "ACTIVE",
+        "markerVersion": 1,
+        "recipientPolicy": "ALL_INCIDENT_ASSIGNED",
+        "recipientAccountIds": [
+          "acct-precinct-cmd",
+          "acct-precinct-car",
+          "acct-precinct-team",
+          "acct-cmd-alpha",
+          "acct-team-alpha",
+          "acct-support-cmd",
+          "acct-support-car",
+          "acct-support-team"
+        ],
+        "recipientPolicePhoneIds": [
+          "dev-precinct-car-01",
+          "dev-precinct-phone-01",
+          "dev-alpha-phone-01",
+          "dev-support-car-01",
+          "dev-support-phone-01"
+        ],
+        "expectedFcmRecipients": [
+          "fcm:dev-alpha-phone-01",
+          "fcm:dev-support-car-01",
+          "fcm:dev-support-phone-01"
+        ],
+        "expectedToast": {
+          "slot": "toast",
+          "type": "PERSON_FOUND",
+          "id": "notif-precinct-person-found-001",
+          "status": "SNAPSHOT_CREATED",
+          "version": 1
+        }
+      }
+    },
+    "eventRegistry": {
+      "overallSearchAreaCreated": {
+        "eventId": "evt-s2-overall-area-001",
+        "ownerSpec": "S2"
+      },
+      "searchAreaCreated": {
+        "eventId": "evt-s2-area-created-001",
+        "ownerSpec": "S2"
+      },
+      "pathAppended": {
+        "eventId": "evt-s3-path-appended-001",
+        "ownerSpec": "S3-1/S3-2"
+      },
+      "policePhoneHeartbeat": {
+        "eventId": "evt-s1-2-heartbeat-001",
+        "ownerSpec": "S1-2/S3-2"
+      },
+      "markerCreated": {
+        "eventId": "evt-s5-marker-created-001",
+        "ownerSpec": "S5/S3-2"
+      },
+      "markerPhotoAttached": {
+        "eventId": "evt-s5-marker-updated-photo-001",
+        "ownerSpec": "S5"
+      },
+      "supportAssignmentNotification": {
+        "eventId": "evt-s1-assignment-support-assigned-001",
+        "ownerSpec": "S5"
+      },
+      "supportRequestNotification": {
+        "eventId": "evt-s5-support-request-001",
+        "ownerSpec": "S5"
+      },
+      "personFoundNotification": {
+        "eventId": "evt-s5-person-found-001",
+        "ownerSpec": "S5"
+      },
+      "packageStatusBoardProjection": {
+        "eventId": "evt-s7-package-status-001",
+        "ownerSpec": "S7/S3-2"
+      },
+      "opTransitionBoardProjection": {
+        "eventId": "evt-s8-op-transition-001",
+        "ownerSpec": "S3-2"
+      },
+      "handoverCreatedBoardProjection": {
+        "eventId": "evt-s8-handover-created-001",
+        "ownerSpec": "S3-2"
+      },
+      "searchHistorySummaryBoardProjection": {
+        "eventId": "evt-s8-ai-summary-ready-001",
+        "ownerSpec": "S3-2"
+      },
+      "opTransitionDomainEvent": {
+        "eventId": "evt-s8-op-transitioned-001",
+        "ownerSpec": "S8"
+      },
+      "handoverMemoDomainEvent": {
+        "eventId": "evt-s8-handover-memo-001",
+        "ownerSpec": "S8"
+      },
+      "searchHistorySummaryDomainEvent": {
+        "eventId": "evt-s8-ai-summary-001",
+        "ownerSpec": "S8"
+      },
+      "incidentClosed": {
+        "eventId": "evt-s1-1-incident-closed-001",
+        "ownerSpec": "S1-1/S3-2"
+      },
+      "eventFanoutEmptyRecipient": {
+        "eventId": "40000000-0000-4000-8000-000000000811",
+        "ownerSpec": "S4"
+      },
+      "eventFanoutOutboxReplay": {
+        "eventId": "40000000-0000-4000-8000-000000000901",
+        "ownerSpec": "S4"
+      },
+      "eventFanoutDuplicatePublish": {
+        "eventId": "40000000-0000-4000-8000-000000000701",
+        "ownerSpec": "S4"
+      },
+      "eventFanoutTerminalClosed": {
+        "eventId": "40000000-0000-4000-8000-000000001212",
+        "ownerSpec": "S4"
+      },
+      "eventFanoutFailureInjection": {
+        "eventId": "40000000-0000-4000-8000-000000000808",
+        "ownerSpec": "S4"
+      }
+    },
+    "eventFanout": {
+      "sc08EmptyFcmRecipientSkip": {
+        "incidentId": "10000000-0000-4000-8000-000000000001",
+        "eventId": "40000000-0000-4000-8000-000000000811",
+        "type": "SUPPORT_REQUEST_CREATED",
+        "payload": {
+          "id": "50000000-0000-4000-8000-000000000801",
+          "status": "REQUESTED",
+          "version": 1
+        },
+        "resolverRecipients": [],
+        "expectedFanoutAttempts": [
+          {
+            "targetType": "SSE_REPLAY",
+            "targetKey": "incident:10000000-0000-4000-8000-000000000001",
+            "status": "SUCCEEDED"
+          },
+          {
+            "targetType": "FCM",
+            "targetKey": "fcm:none",
+            "status": "SKIPPED"
+          }
+        ],
+        "uiExpectation": "No user-facing notification failure is shown; board/toast convergence is verified through S3-2 mock refetch output only."
+      },
+      "sc09OutboxReplayConvergence": {
+        "incidentId": "10000000-0000-4000-8000-000000000001",
+        "operationId": "60000000-0000-4000-8000-000000000901",
+        "idempotencyKey": "idem-sc09-path-001",
+        "eventId": "40000000-0000-4000-8000-000000000901",
+        "sseSequence": 901,
+        "type": "PATH_APPENDED",
+        "payload": {
+          "id": "30000000-0000-4000-8000-000000000501",
+          "status": "RECORDING",
+          "version": 7
+        },
+        "expectedRefetchSignal": {
+          "eventId": "40000000-0000-4000-8000-000000000901",
+          "incidentId": "10000000-0000-4000-8000-000000000001",
+          "replaySequence": 901,
+          "payloadId": "30000000-0000-4000-8000-000000000501",
+          "payloadStatus": "RECORDING",
+          "payloadVersion": 7
+        },
+        "expectedBoardProbe": {
+          "slot": "path",
+          "latestEventId": "40000000-0000-4000-8000-000000000901",
+          "minimumVersion": 7
+        }
+      },
+      "duplicateEventDedupe": {
+        "incidentId": "10000000-0000-4000-8000-000000000001",
+        "eventId": "40000000-0000-4000-8000-000000000701",
+        "firstSequence": 701,
+        "duplicatePublishAttempt": 2,
+        "expected": {
+          "eventDispatchJobRows": 1,
+          "sseEventLogRows": 1,
+          "fanoutAttemptUniqueKeys": [
+            "40000000-0000-4000-8000-000000000701:SSE_REPLAY:incident:10000000-0000-4000-8000-000000000001",
+            "40000000-0000-4000-8000-000000000701:LIVE_SSE:incident:10000000-0000-4000-8000-000000000001"
+          ]
+        }
+      },
+      "replayGapRefetchRequired": {
+        "incidentId": "10000000-0000-4000-8000-000000000001",
+        "lastEventId": "44",
+        "missingSequence": 45,
+        "nextRetainedSequence": 46,
+        "expectedHttpStatus": 409,
+        "expectedError": "gone_refetch_required",
+        "expectedS3Action": "board response_reload"
+      },
+      "closedAndPurgedStream": {
+        "closedIncident": {
+          "incidentId": "10000000-0000-4000-8000-000000000012",
+          "terminalEventId": "40000000-0000-4000-8000-000000001212",
+          "terminalSequence": 1212,
+          "lastEventIdBeforeTerminal": "1211",
+          "expectedReplayEndEvent": "INCIDENT_CLOSED",
+          "expectedStreamEnd": "normal_close"
+        },
+        "purgedIncident": {
+          "incidentId": "10000000-0000-4000-8000-000000000013",
+          "lastEventId": "1301",
+          "expectedHttpStatus": 409,
+          "expectedError": "gone_refetch_required",
+          "expectedReplayRows": 0
+        }
+      },
+      "fanoutFailureInjection": {
+        "incidentId": "10000000-0000-4000-8000-000000000001",
+        "eventId": "40000000-0000-4000-8000-000000000808",
+        "sseSequence": 808,
+        "targets": [
+          {
+            "targetType": "SSE_REPLAY",
+            "targetKey": "incident:10000000-0000-4000-8000-000000000001",
+            "injectedFailure": "none",
+            "expectedStatus": "SUCCEEDED"
+          },
+          {
+            "targetType": "LIVE_SSE",
+            "targetKey": "connection:sc08-web-01",
+            "injectedFailure": "client_disconnect",
+            "expectedStatus": "SKIPPED"
+          },
+          {
+            "targetType": "FCM",
+            "targetKey": "fcm:account:20000000-0000-4000-8000-000000000201",
+            "injectedFailure": "dispatcher_transient_failure",
+            "expectedStatus": "RETRYING",
+            "expectedNextStatusAfterRetry": "SUCCEEDED"
+          }
         ]
       }
     },
+    "ownerReferences": {
+      "overallSearchAreaResponseId": "osa-precinct-001-v1",
+      "areaId": "area-precinct-a1",
+      "supportRequestResponseId": "support-request-precinct-001",
+      "packageBadgeResponseId": "pkg-inc-precinct-first-001",
+      "handoverStatusResponseId": "handover-status-inc-precinct-first-001",
+      "boardSearchHistorySummaryResponseId": "ai-summary-op-precinct-001-op2",
+      "terminalTombstoneResponseId": "tombstone-inc-precinct-first-001"
+    },
     "boardAssembly": {
+      "fixtureId": "bs-inc-precinct-first-001-v1200",
       "boardResponseId": "bs-inc-precinct-first-001-v1200",
       "boardResponseVersion": 1200,
       "serverTs": "2026-04-28T10:30:00+09:00",
       "slotRows": [
         {
+          "slot": "overall_search_area",
+          "sourceSpec": "S2",
+          "sourceResponseId": "osa-precinct-001-v1",
+          "boardRowId": "board-overall-search-area-inc-precinct-first-001",
+          "status": "ACTIVE",
+          "version": 2,
+          "sequence": 401,
+          "latestEventId": "evt-s2-overall-area-001",
+          "sourceHash": "hash-s2-overall-area-v2"
+        },
+        {
+          "slot": "area",
+          "sourceSpec": "S2",
+          "sourceResponseId": "area-precinct-a1",
+          "boardRowId": "board-area-precinct-a1",
+          "status": "ASSIGNED",
+          "version": 1,
+          "sequence": 402,
+          "latestEventId": "evt-s2-area-created-001",
+          "sourceHash": "hash-s2-area-a1-v1"
+        },
+        {
           "slot": "path",
-          "boardRowId": "board-path-precinct-mixed-001",
+          "sourceSpec": "S3-1",
           "sourceResponseId": "path-precinct-mixed-001",
+          "boardRowId": "board-path-precinct-mixed-001",
           "status": "ACTIVE",
           "version": 2,
           "sequence": 502,
-          "latestEventId": "evt-s3-path-appended-001"
+          "latestEventId": "evt-s3-path-appended-001",
+          "sourceHash": "hash-s3-path-mixed-v2"
+        },
+        {
+          "slot": "police_phone_freshness",
+          "sourceSpec": "S1-2",
+          "sourceResponseId": "dev-precinct-car-01",
+          "boardRowId": "board-PolicePhone-freshness-dev-precinct-car-01",
+          "status": "ONLINE",
+          "version": 4,
+          "sequence": 504,
+          "latestEventId": "evt-s1-2-heartbeat-001",
+          "sourceHash": "hash-s1-2-dev-precinct-car-v4"
         },
         {
           "slot": "marker",
-          "boardRowId": "board-marker-mk-precinct-clue-001",
+          "sourceSpec": "S5",
           "sourceResponseId": "mk-precinct-clue-001",
+          "boardRowId": "board-marker-mk-precinct-clue-001",
           "status": "ACTIVE",
           "version": 1,
           "sequence": 601,
-          "latestEventId": "evt-s5-marker-created-001"
+          "latestEventId": "evt-s5-marker-created-001",
+          "sourceHash": "hash-s5-marker-clue-v1"
         },
         {
           "slot": "toast",
-          "boardRowId": "board-toast-support-request-precinct-001",
+          "sourceSpec": "S5",
           "sourceResponseId": "support-request-precinct-001",
+          "boardRowId": "board-toast-support-request-precinct-001",
           "status": "VISIBLE",
           "version": 1,
           "sequence": 602,
-          "latestEventId": "evt-s5-support-request-001"
+          "latestEventId": "evt-s5-support-request-001",
+          "sourceHash": "hash-s5-toast-support-v1"
         },
         {
           "slot": "package_badge",
-          "boardRowId": "board-package-inc-precinct-first-001",
+          "sourceSpec": "S7",
           "sourceResponseId": "pkg-inc-precinct-first-001",
+          "boardRowId": "board-package-inc-precinct-first-001",
           "status": "STALE",
           "version": 3,
           "sequence": 701,
-          "latestEventId": "evt-s7-package-status-001"
+          "latestEventId": "evt-s7-package-status-001",
+          "sourceHash": "hash-s7-package-v3"
+        },
+        {
+          "slot": "op_toggle",
+          "sourceSpec": "S8",
+          "sourceResponseId": "op-precinct-001-op1",
+          "boardRowId": "board-op-toggle-op-precinct-001-op1",
+          "status": "ACTIVE",
+          "version": 1,
+          "sequence": 801,
+          "latestEventId": "evt-s8-op-transition-001",
+          "sourceHash": "hash-s8-op1-v1"
         },
         {
           "slot": "op_history",
-          "boardRowId": "board-op-history-op-precinct-001-op2",
+          "sourceSpec": "S8",
           "sourceResponseId": "op-precinct-001-op2",
+          "boardRowId": "board-op-history-op-precinct-001-op2",
           "status": "OPENED",
           "version": 2,
           "sequence": 802,
-          "latestEventId": "evt-s8-op-transition-001"
+          "latestEventId": "evt-s8-op-transition-001",
+          "sourceHash": "hash-s8-op2-v2"
+        },
+        {
+          "slot": "handover_memo",
+          "sourceSpec": "S8",
+          "sourceResponseId": "memo-precinct-handover-001",
+          "boardRowId": "board-handover-memo-precinct-001",
+          "status": "ACTIVE",
+          "version": 1,
+          "sequence": 803,
+          "latestEventId": "evt-s8-handover-created-001",
+          "sourceHash": "hash-s8-handover-memo-v1"
+        },
+        {
+          "slot": "handover_status",
+          "sourceSpec": "S8",
+          "sourceResponseId": "handover-status-inc-precinct-first-001",
+          "boardRowId": "board-handover-status-inc-precinct-first-001",
+          "status": "READY",
+          "version": 2,
+          "sequence": 804,
+          "latestEventId": "evt-s8-handover-created-001",
+          "sourceHash": "hash-s8-handover-status-v2"
+        },
+        {
+          "slot": "search_history_summary",
+          "sourceSpec": "S8",
+          "sourceResponseId": "ai-summary-op-precinct-001-op2",
+          "boardRowId": "board-ai-summary-op-precinct-001-op2",
+          "status": "READY",
+          "version": 1,
+          "sequence": 805,
+          "latestEventId": "evt-s8-ai-summary-ready-001",
+          "sourceHash": "hash-s8-ai-summary-v1"
         },
         {
           "slot": "incident_terminal",
-          "boardRowId": "board-incident-terminal-inc-precinct-first-001",
+          "sourceSpec": "S1-1",
           "sourceResponseId": "inc-precinct-first-001",
+          "boardRowId": "board-incident-terminal-inc-precinct-first-001",
           "status": "CLOSED",
           "version": 9,
           "sequence": 901,
-          "latestEventId": "evt-s1-1-incident-closed-001"
+          "latestEventId": "evt-s1-1-incident-closed-001",
+          "sourceHash": "hash-s1-terminal-v9",
+          "tombstoneSourceSpec": "S1-3",
+          "tombstoneResponseId": "tombstone-inc-precinct-first-001"
         }
       ],
       "apiAssemblyFailures": {
@@ -555,6 +1205,30 @@
       ]
     },
     "opTransition": {
+      "currentOpConsumerContract": {
+        "incidentId": "inc-precinct-first-001",
+        "currentOp": {
+          "opId": "op-precinct-001-op1",
+          "status": "ACTIVE",
+          "version": 1,
+          "sequenceNumber": 1
+        },
+        "consumers": [
+          "S7 offline manifest builder",
+          "S3-1 search path write",
+          "S5 marker/support/person write"
+        ],
+        "forbiddenS8Writes": [
+          "offline_package_manifest",
+          "offline_package_installation",
+          "search_path",
+          "search_path",
+          "search_path_segment",
+          "marker",
+          "photo",
+          "marker_notification"
+        ]
+      },
       "currentOp": {
         "opId": "op-precinct-001-op1",
         "status": "ACTIVE",
@@ -567,16 +1241,105 @@
         "version": 1,
         "sequenceNumber": 2
       },
-      "expectedEventId": "evt-s8-op-transitioned-001"
+      "expectedRestResponse": {
+        "id": "op-precinct-001-op2",
+        "status": "ACTIVE",
+        "version": 1,
+        "sequenceNumber": 2
+      },
+      "expectedBoardProbe": {
+        "slots": [
+          "op_toggle",
+          "op_history",
+          "handover_status"
+        ],
+        "id": "op-precinct-001-op2",
+        "status": "ACTIVE",
+        "version": 1,
+        "opId": "op-precinct-001-op2",
+        "handoverStatus": "NEEDS_MEMO",
+        "preConvergenceState": "STALE_REFETCH"
+      },
+      "idempotentWriteReplay": {
+        "sameBodyReplay": {
+          "idempotencyKey": "idem-s8-op-transition-001",
+          "bodyHash": "sha256:s8-op-transition-content-001",
+          "endpoint": "POST /operational-periods",
+          "expectedResponseId": "op-precinct-001-op2",
+          "expectedStatus": "ACTIVE",
+          "expectedVersion": 1,
+          "expectedPublishRequestCount": 1
+        },
+        "mismatch": {
+          "idempotencyKey": "idem-s8-op-transition-001",
+          "originalBodyHash": "sha256:s8-op-transition-content-001",
+          "changedBodyHash": "sha256:s8-op-transition-content-002",
+          "expectedError": "idempotency_mismatch",
+          "expectedNewRowCount": 0,
+          "expectedNewPublishRequestCount": 0
+        },
+        "coveredEndpoints": [
+          "POST /operational-periods",
+          "POST /search-areas/{searchAreaId}/assignments",
+          "POST /handover-memos",
+          "POST /operational-periods/{operationalPeriodId}/search-history-summaries"
+        ]
+      }
     },
     "searchHistorySummary": {
       "memoId": "memo-precinct-op2-001",
       "summaryId": "summary-precinct-op2-001",
-      "handoverEventId": "evt-s8-handover-memo-001",
-      "summaryEventId": "evt-s8-ai-summary-001",
-      "displayStatus": "UNAVAILABLE",
-      "adapterFailure": "timeout",
-      "forbiddenPhraseResponse": "다음 구역 추천: 북쪽으로 이동. 위험도 높음."
+      "expectedRestResponse": {
+        "summaryId": "summary-precinct-op2-001",
+        "status": "FAILED",
+        "displayStatus": "UNAVAILABLE",
+        "version": 1,
+        "retryCta": "요약 다시 생성",
+        "sourcePromptVisible": false
+      },
+      "expectedS4Events": {
+        "handoverMemoCreated": {
+          "eventId": "evt-s8-handover-memo-001",
+          "type": "HANDOVER_MEMO_CREATED",
+          "payloadId": "memo-precinct-op2-001",
+          "payloadStatus": "ACTIVE",
+          "payloadVersion": 1,
+          "opId": "op-precinct-001-op2"
+        },
+        "aiSummaryReady": {
+          "eventId": "evt-s8-ai-summary-001",
+          "type": "SEARCH_HISTORY_SUMMARY_CHANGED",
+          "payloadId": "summary-precinct-op2-001",
+          "payloadStatus": "FAILED",
+          "payloadVersion": 1,
+          "opId": "op-precinct-001-op2"
+        }
+      },
+      "adapterResponses": {
+        "success": {
+          "status": "READY",
+          "summaryText": "OP2 동안 수색한 경로, 주요 마커, 인수인계 메모를 시간순으로 요약했습니다."
+        },
+        "adapterFailure": {
+          "provider": "OpenAiSearchHistorySummaryAdapter",
+          "throws": "timeout",
+          "expectedStatus": "FAILED",
+          "displayStatus": "UNAVAILABLE"
+        }
+      },
+      "negativeOnlyInputs": {
+        "forbiddenPhraseResponse": {
+          "summaryText": "다음 구역 추천: 북쪽으로 이동. 위험도 높음.",
+          "expectedAction": "reject-and-failed",
+          "expectedStoredStatus": "FAILED",
+          "expectedDisplayStatus": "UNAVAILABLE",
+          "displayRecommendationHidden": true
+        },
+        "lowQualityResponse": {
+          "summaryText": "",
+          "expectedAction": "failure"
+        }
+      }
     }
   }
 }
