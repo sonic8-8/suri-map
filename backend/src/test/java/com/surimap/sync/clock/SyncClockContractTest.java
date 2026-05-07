@@ -38,11 +38,11 @@ class SyncClockContractTest {
   }
 
   @Test
-  @DisplayName("POST /sync/clock는 client/server clock offset contract를 반환한다")
+  @DisplayName("POST /api/sync/clock는 client/server clock offset contract를 반환한다")
   void post_sync_clock_returns_clock_offset_contract() throws Exception {
     mockMvc
         .perform(
-            post("/sync/clock")
+            post("/api/sync/clock")
                 .contentType(MediaType.APPLICATION_JSON)
                 .header("Authorization", "Bearer test-token")
                 .header("X-Device-Id", SyncClockContractFixtures.DEVICE_ID)
@@ -57,11 +57,11 @@ class SyncClockContractTest {
   }
 
   @Test
-  @DisplayName("POST /sync/clock는 clock skew 초과 시 409 clock_skew_exceeded를 반환한다")
+  @DisplayName("POST /api/sync/clock는 clock skew 초과 시 409 clock_skew_exceeded를 반환한다")
   void post_sync_clock_rejects_clock_skew_exceeded() throws Exception {
     mockMvc
         .perform(
-            post("/sync/clock")
+            post("/api/sync/clock")
                 .contentType(MediaType.APPLICATION_JSON)
                 .header("Authorization", "Bearer test-token")
                 .header("X-Device-Id", SyncClockContractFixtures.DEVICE_ID)
