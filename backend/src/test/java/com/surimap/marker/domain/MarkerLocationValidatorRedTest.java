@@ -1,9 +1,27 @@
 package com.surimap.marker.domain;
 
+import static com.surimap.marker.domain.fixture.MarkerGeometryFixtures.ACCOUNT_ALIAS;
+import static com.surimap.marker.domain.fixture.MarkerGeometryFixtures.ENVELOPE_MAX_LAT;
+import static com.surimap.marker.domain.fixture.MarkerGeometryFixtures.ENVELOPE_MAX_LON;
+import static com.surimap.marker.domain.fixture.MarkerGeometryFixtures.ENVELOPE_MIN_LAT;
+import static com.surimap.marker.domain.fixture.MarkerGeometryFixtures.ENVELOPE_MIN_LON;
+import static com.surimap.marker.domain.fixture.MarkerGeometryFixtures.INCIDENT_ALIAS;
+import static com.surimap.marker.domain.fixture.MarkerGeometryFixtures.INCIDENT_ID;
+import static com.surimap.marker.domain.fixture.MarkerGeometryFixtures.LAT_LON_SWAPPED;
+import static com.surimap.marker.domain.fixture.MarkerGeometryFixtures.MARKER_ALIAS;
+import static com.surimap.marker.domain.fixture.MarkerGeometryFixtures.NAN_POINT;
+import static com.surimap.marker.domain.fixture.MarkerGeometryFixtures.OP1_ALIAS;
+import static com.surimap.marker.domain.fixture.MarkerGeometryFixtures.OUTSIDE_ENVELOPE;
+import static com.surimap.marker.domain.fixture.MarkerGeometryFixtures.POLICE_PHONE_ALIAS;
+import static com.surimap.marker.domain.fixture.MarkerGeometryFixtures.PRECISION_OVER_6DP;
+import static com.surimap.marker.domain.fixture.MarkerGeometryFixtures.VALID_MARKER_POINT;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+
+import com.surimap.maparea.testdouble.SearchAreaQueryMock;
 import com.surimap.marker.domain.exception.InvalidGeometryException;
-import com.surimap.marker.domain.fixture.MarkerGeometryFixtures;
-import com.surimap.marker.domain.port.MapBoundaryQueryPort;
-import com.surimap.marker.domain.port.MarkerLocationValidator;
+import com.surimap.marker.domain.validation.MarkerLocationValidator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -12,168 +30,139 @@ import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.PrecisionModel;
 
-import java.util.Optional;
-import java.util.UUID;
-
-import static com.surimap.marker.domain.fixture.MarkerGeometryFixtures.*;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-
-/**
- * 마커 위치 검증 red test.
- *
- * 이 테스트는 MarkerLocationValidator 구현체가 없으므로 전부 실패한다(red).
- * 구현체를 작성하면 green으로 전환된다.
- *
- * SC-06 harness red test 기준:
- * - marker Point가 map_boundary 밖이면 400 invalid_geometry
- * - Point type이 아니면 400 invalid_geometry
- * - null/NaN 좌표 거부
- * - precision 6자리 정규화 후 재검증
- *
- * @see docs/contracts/L5-05-geometry-spec.md
- */
-@DisplayName("마커 위치 검증 red test")
+/** L5-T03A marker.location과 SearchAreaQuery.overallOf 연결 red test. */
+@DisplayName("L5-T03A marker.location 검증 red test")
 class MarkerLocationValidatorRedTest {
 
-    private static final GeometryFactory GF =
-            new GeometryFactory(new PrecisionModel(PrecisionModel.FLOATING), 4326);
+  private static final GeometryFactory GF =
+      new GeometryFactory(new PrecisionModel(PrecisionModel.FLOATING), 4326);
 
-    /**
-     * 테스트용 stub: boundary 내부 포함 여부만 판정한다.
-     * 실제 구현은 PostGIS ST_Contains를 사용한다.
-     */
-    private final MapBoundaryQueryPort stubBoundaryQuery =
-            incidentId -> Optional.of(HARNESS_BOUNDARY);
+  private final MarkerLocationValidator validator =
+      new MarkerLocationValidator(new SearchAreaQueryMock());
 
-    /** boundary가 없는 stub */
-    private final MapBoundaryQueryPort emptyBoundaryQuery =
-            incidentId -> Optional.empty();
+  @Nested
+  @DisplayName("fixture exactness")
+  class FixtureExactness {
 
-    // ── TODO: 구현체 주입 후 이 줄만 교체하면 green 전환 ──
-    // private final MarkerLocationValidator validator = new MarkerLocationValidatorImpl(stubBoundaryQuery);
-    private final MarkerLocationValidator validator = null; // RED: 구현체 없음
-
-    // ══════════════════════════════════════════════════════
-    // 정상 케이스
-    // ══════════════════════════════════════════════════════
-
-    @Nested
-    @DisplayName("정상 좌표")
-    class ValidCases {
-
-        @Test
-        @DisplayName("map_boundary 내 정상 좌표 → 검증 통과")
-        void validPoint_insideBoundary_passes() {
-            assertDoesNotThrow(() ->
-                    validator.validate(INCIDENT_ID, VALID_MARKER_POINT));
-        }
-
-        @Test
-        @DisplayName("boundary 경계선 위 좌표 → 검증 통과")
-        void pointOnBoundaryEdge_passes() {
-            Point edgePoint = GF.createPoint(new Coordinate(126.948000, 37.570000));
-            assertDoesNotThrow(() ->
-                    validator.validate(INCIDENT_ID, edgePoint));
-        }
+    @Test
+    @DisplayName("SC-06 marker context fixture alias를 보존한다")
+    void sc06_marker_context_fixture_alias를_보존한다() {
+      assertThat(INCIDENT_ALIAS).isEqualTo("inc-precinct-first-001");
+      assertThat(OP1_ALIAS).isEqualTo("op-precinct-001-op1");
+      assertThat(POLICE_PHONE_ALIAS).isEqualTo("dev-precinct-phone-01");
+      assertThat(ACCOUNT_ALIAS).isEqualTo("acct-precinct-team");
+      assertThat(MARKER_ALIAS).isEqualTo("mk-precinct-clue-001");
     }
 
-    // ══════════════════════════════════════════════════════
-    // 실패 케이스
-    // ══════════════════════════════════════════════════════
-
-    @Nested
-    @DisplayName("좌표 검증 실패")
-    class InvalidCases {
-
-        @Test
-        @DisplayName("map_boundary 밖 좌표 → invalid_geometry")
-        void outsideBoundary_rejected() {
-            assertThatThrownBy(() ->
-                    validator.validate(INCIDENT_ID, OUTSIDE_ENVELOPE))
-                    .isInstanceOf(InvalidGeometryException.class);
-        }
-
-        @Test
-        @DisplayName("lon/lat 뒤바뀐 좌표 → invalid_geometry")
-        void swappedLatLon_rejected() {
-            assertThatThrownBy(() ->
-                    validator.validate(INCIDENT_ID, LATLON_SWAPPED))
-                    .isInstanceOf(InvalidGeometryException.class);
-        }
-
-        @Test
-        @DisplayName("NaN 좌표 → invalid_geometry")
-        void nanCoordinate_rejected() {
-            assertThatThrownBy(() ->
-                    validator.validate(INCIDENT_ID, NAN_POINT))
-                    .isInstanceOf(InvalidGeometryException.class);
-        }
-
-        @Test
-        @DisplayName("null 좌표 → invalid_geometry")
-        void nullPoint_rejected() {
-            assertThatThrownBy(() ->
-                    validator.validate(INCIDENT_ID, null))
-                    .isInstanceOf(InvalidGeometryException.class);
-        }
-
-        @Test
-        @DisplayName("경도 범위 초과 (>180) → invalid_geometry")
-        void longitudeOutOfRange_rejected() {
-            Point outOfRange = GF.createPoint(new Coordinate(181.0, 37.571200));
-            assertThatThrownBy(() ->
-                    validator.validate(INCIDENT_ID, outOfRange))
-                    .isInstanceOf(InvalidGeometryException.class);
-        }
-
-        @Test
-        @DisplayName("위도 범위 초과 (>90) → invalid_geometry")
-        void latitudeOutOfRange_rejected() {
-            Point outOfRange = GF.createPoint(new Coordinate(126.956500, 91.0));
-            assertThatThrownBy(() ->
-                    validator.validate(INCIDENT_ID, outOfRange))
-                    .isInstanceOf(InvalidGeometryException.class);
-        }
+    @Test
+    @DisplayName("하네스 marker 좌표 fixture를 문자열 단위로 고정한다")
+    void harness_marker_coordinate_fixture를_고정한다() {
+      assertThat(VALID_MARKER_POINT.getX()).isEqualTo(126.956500);
+      assertThat(VALID_MARKER_POINT.getY()).isEqualTo(37.571200);
+      assertThat(OUTSIDE_ENVELOPE.getX()).isEqualTo(127.200000);
+      assertThat(OUTSIDE_ENVELOPE.getY()).isEqualTo(37.571200);
+      assertThat(LAT_LON_SWAPPED.getX()).isEqualTo(37.571200);
+      assertThat(LAT_LON_SWAPPED.getY()).isEqualTo(126.956500);
+      assertThat(PRECISION_OVER_6DP.getX()).isEqualTo(126.9565007);
+      assertThat(PRECISION_OVER_6DP.getY()).isEqualTo(37.5712007);
     }
 
-    // ══════════════════════════════════════════════════════
-    // Boundary 없음
-    // ══════════════════════════════════════════════════════
+    @Test
+    @DisplayName("하네스 envelope를 보존한다")
+    void harness_envelope를_보존한다() {
+      assertThat(ENVELOPE_MIN_LON).isEqualTo(126.900000);
+      assertThat(ENVELOPE_MIN_LAT).isEqualTo(37.500000);
+      assertThat(ENVELOPE_MAX_LON).isEqualTo(127.080000);
+      assertThat(ENVELOPE_MAX_LAT).isEqualTo(37.620000);
+    }
+  }
 
-    @Nested
-    @DisplayName("map_boundary 부재")
-    class NoBoundary {
+  @Nested
+  @DisplayName("valid marker.location")
+  class ValidLocation {
 
-        // boundary가 없는 stub 사용
-        // private final MarkerLocationValidator noBoundaryValidator =
-        //         new MarkerLocationValidatorImpl(emptyBoundaryQuery);
-        private final MarkerLocationValidator noBoundaryValidator = null; // RED
-
-        @Test
-        @DisplayName("active boundary 없으면 → invalid_geometry")
-        void noBoundary_rejected() {
-            assertThatThrownBy(() ->
-                    noBoundaryValidator.validate(INCIDENT_ID, VALID_MARKER_POINT))
-                    .isInstanceOf(InvalidGeometryException.class);
-        }
+    @Test
+    @DisplayName("overall_search_area 내부 Point는 통과한다")
+    void overall_search_area_내부_point는_통과한다() {
+      assertDoesNotThrow(() -> validator.validate(INCIDENT_ID, VALID_MARKER_POINT));
     }
 
-    // ══════════════════════════════════════════════════════
-    // Precision 정규화
-    // ══════════════════════════════════════════════════════
-
-    @Nested
-    @DisplayName("precision 정규화")
-    class PrecisionNormalization {
-
-        @Test
-        @DisplayName("7자리 좌표 → 6자리 truncate 후 boundary 내부이면 통과")
-        void precisionOver6dp_normalizedAndPasses() {
-            // 126.9565007 → 126.956500, 37.5712007 → 37.571200
-            // 정규화 후 VALID_MARKER_POINT와 동일 → boundary 내부
-            assertDoesNotThrow(() ->
-                    validator.validate(INCIDENT_ID, PRECISION_OVER_6DP));
-        }
+    @Test
+    @DisplayName("7자리 좌표는 6자리 canonical coordinate로 정규화한 뒤 통과한다")
+    void precision_over_6dp는_정규화_후_통과한다() {
+      assertDoesNotThrow(() -> validator.validate(INCIDENT_ID, PRECISION_OVER_6DP));
     }
+  }
+
+  @Nested
+  @DisplayName("invalid marker.location")
+  class InvalidLocation {
+
+    @Test
+    @DisplayName("overall_search_area 밖 좌표는 invalid_geometry다")
+    void outside_overall_search_area는_invalid_geometry다() {
+      assertThatThrownBy(() -> validator.validate(INCIDENT_ID, OUTSIDE_ENVELOPE))
+          .isInstanceOfSatisfying(
+              InvalidGeometryException.class,
+              ex -> assertThat(ex.errorCode()).isEqualTo("invalid_geometry"));
+    }
+
+    @Test
+    @DisplayName("lat/lon 순서가 뒤집힌 좌표는 invalid_geometry다")
+    void lat_lon_순서가_뒤집힌_좌표는_invalid_geometry다() {
+      assertThatThrownBy(() -> validator.validate(INCIDENT_ID, LAT_LON_SWAPPED))
+          .isInstanceOfSatisfying(
+              InvalidGeometryException.class,
+              ex -> assertThat(ex.errorCode()).isEqualTo("invalid_geometry"));
+    }
+
+    @Test
+    @DisplayName("NaN 좌표는 invalid_geometry다")
+    void nan_coordinate는_invalid_geometry다() {
+      assertThatThrownBy(() -> validator.validate(INCIDENT_ID, NAN_POINT))
+          .isInstanceOfSatisfying(
+              InvalidGeometryException.class,
+              ex -> assertThat(ex.errorCode()).isEqualTo("invalid_geometry"));
+    }
+
+    @Test
+    @DisplayName("null Point는 invalid_geometry다")
+    void null_point는_invalid_geometry다() {
+      assertThatThrownBy(() -> validator.validate(INCIDENT_ID, null))
+          .isInstanceOfSatisfying(
+              InvalidGeometryException.class,
+              ex -> assertThat(ex.errorCode()).isEqualTo("invalid_geometry"));
+    }
+
+    @Test
+    @DisplayName("경도 범위 초과 좌표는 invalid_geometry다")
+    void longitude_range_초과는_invalid_geometry다() {
+      Point outOfRange = GF.createPoint(new Coordinate(181.0, 37.571200));
+
+      assertThatThrownBy(() -> validator.validate(INCIDENT_ID, outOfRange))
+          .isInstanceOfSatisfying(
+              InvalidGeometryException.class,
+              ex -> assertThat(ex.errorCode()).isEqualTo("invalid_geometry"));
+    }
+
+    @Test
+    @DisplayName("위도 범위 초과 좌표는 invalid_geometry다")
+    void latitude_range_초과는_invalid_geometry다() {
+      Point outOfRange = GF.createPoint(new Coordinate(126.956500, 91.0));
+
+      assertThatThrownBy(() -> validator.validate(INCIDENT_ID, outOfRange))
+          .isInstanceOfSatisfying(
+              InvalidGeometryException.class,
+              ex -> assertThat(ex.errorCode()).isEqualTo("invalid_geometry"));
+    }
+
+    @Test
+    @DisplayName("active overall_search_area가 없으면 invalid_geometry다")
+    void active_overall_search_area가_없으면_invalid_geometry다() {
+      assertThatThrownBy(() -> validator.validate(java.util.UUID.randomUUID(), VALID_MARKER_POINT))
+          .isInstanceOfSatisfying(
+              InvalidGeometryException.class,
+              ex -> assertThat(ex.errorCode()).isEqualTo("invalid_geometry"));
+    }
+  }
 }
