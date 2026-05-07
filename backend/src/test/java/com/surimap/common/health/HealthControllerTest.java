@@ -6,12 +6,11 @@ import org.junit.jupiter.api.Test;
 
 class HealthControllerTest {
 
-    @Test
-    void healthReturnsUpStatus() {
-        var response = new HealthController().health();
+  @Test
+  void healthReturnsUpStatus() {
+    var response = new HealthController().health();
 
-        assertThat(response.status()).isEqualTo("UP");
-        assertThat(response.service()).isEqualTo("suri-map-api");
-    }
+    assertThat(response.status()).isEqualTo("UP");
+    assertThat(response.service()).isEqualTo("suri-map-api");
+  }
 }
-

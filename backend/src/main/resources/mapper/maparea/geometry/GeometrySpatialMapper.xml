@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.surimap.maparea.geometry.validation.mapper.GeometrySpatialMapper">
+    <!-- Polygon 면적이 최소 기준 이상인지 검사한다. -->
+    <select id="isAreaAtLeastM2" resultType="boolean">
+        SELECT ST_Area(ST_GeomFromText(#{polygonWkt}, 4326)::geography) >= #{minimumAreaM2}
+    </select>
+
+    <!-- ST_Covers는 부모 외곽선에 자식 외곽선이 닿거나 겹쳐도 포함으로 본다. -->
+    <select id="covers" resultType="boolean">
+        SELECT ST_Covers(
+            ST_GeomFromText(#{parentPolygonWkt}, 4326),
+            ST_GeomFromText(#{childPolygonWkt}, 4326)
+        )
+    </select>
+
+    <!-- 교집합 면적이 0보다 큰 경우만 겹침으로 본다. 외곽선만 맞닿는 경우는 허용한다. -->
+    <select id="overlapsByArea" resultType="boolean">
+        SELECT ST_Area(
+            ST_Intersection(
+                ST_GeomFromText(#{firstPolygonWkt}, 4326),
+                ST_GeomFromText(#{secondPolygonWkt}, 4326)
+            )::geography
+        ) > 0
+    </select>
+</mapper>
