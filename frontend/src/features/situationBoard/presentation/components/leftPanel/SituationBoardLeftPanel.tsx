@@ -10,10 +10,11 @@ import styles from './SituationBoardLeftPanel.module.css';
 type SituationBoardLeftPanelProps = {
   isCollapsed: boolean;
   onToggleCollapsed: () => void;
+  onSelectSearchArea: (searchAreaId: string) => void;
 };
 
 // 좌측 패널은 OP, 레이어, 마커, 보기 모드를 한 덩어리로 묶어 보여준다.
-export function SituationBoardLeftPanel({ isCollapsed, onToggleCollapsed }: SituationBoardLeftPanelProps) {
+export function SituationBoardLeftPanel({ isCollapsed, onToggleCollapsed, onSelectSearchArea }: SituationBoardLeftPanelProps) {
   const { activePage, getIndexTabAriaLabel, handleIndexTabClick } = useLeftPanelPages({
     isCollapsed,
     onToggleCollapsed,
@@ -78,7 +79,7 @@ export function SituationBoardLeftPanel({ isCollapsed, onToggleCollapsed }: Situ
         </div>
         <div className={styles.page} hidden={activePage !== 'area'}>
           <div className={styles.scroll}>
-            <SearchAreaTree />
+            <SearchAreaTree onSelectSearchArea={onSelectSearchArea} />
           </div>
         </div>
         <div className={styles.page} hidden={activePage !== 'marker'}>

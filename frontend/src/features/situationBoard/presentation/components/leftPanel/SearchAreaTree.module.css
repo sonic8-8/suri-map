@@ -4,31 +4,16 @@
   flex-direction: column;
   gap: 6px;
   min-width: 0;
-  --area-tree-root-border: color-mix(in srgb, var(--suri-board-primary-hi) 72%, var(--suri-board-border));
-  --area-tree-root-bg: color-mix(in srgb, var(--suri-board-primary-soft) 64%, var(--suri-board-panel-surface));
-  --area-tree-root-accent: var(--suri-board-primary-hi);
-  --area-tree-unit-border: color-mix(in srgb, #58d2c9 58%, var(--suri-board-border));
-  --area-tree-unit-bg: color-mix(in srgb, #123f46 54%, var(--suri-board-panel-surface));
-  --area-tree-unit-accent: #58d2c9;
-  --area-tree-team-border: color-mix(in srgb, #d9b45f 52%, var(--suri-board-border));
-  --area-tree-team-bg: color-mix(in srgb, #332b19 50%, var(--suri-board-panel-bg));
-  --area-tree-team-accent: #d9b45f;
+  --area-identity-color: var(--area-overall);
+  --area-box-text: #07111f;
+  --area-box-meta: #3d4c5f;
   --area-tree-completed-bg: color-mix(in srgb, var(--suri-board-fg-muted) 16%, var(--suri-board-panel-bg));
-  --area-tree-toggle-bg: color-mix(in srgb, #050b13 86%, var(--area-tree-unit-accent));
-  --area-tree-toggle-border: color-mix(in srgb, #050b13 58%, var(--area-tree-unit-accent));
-  --area-tree-toggle-fg: color-mix(in srgb, var(--area-tree-unit-accent) 72%, var(--suri-board-fg-primary));
 }
 
 /* 전체 수색 구역 루트 노드. */
 .rootNode {
   display: grid;
-  gap: 8px;
-  padding: 9px 10px;
-  border: 1px solid var(--area-tree-root-border);
-  border-left: 3px solid var(--area-tree-root-accent);
-  border-radius: 4px;
-  background: var(--area-tree-root-bg);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--area-tree-root-accent) 16%, transparent);
+  gap: 18px;
 }
 
 /* 노드 안의 이름/메타와 상태 배지를 양쪽으로 배치하는 공통 행. */
@@ -38,6 +23,13 @@
   align-items: start;
   gap: 8px;
   min-width: 0;
+  padding: 8px 9px;
+  border: 1px solid color-mix(in srgb, var(--area-identity-color) 44%, #d7e0ec);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--area-identity-color) 10%, #f8fbff);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 72%),
+    0 1px 0 rgb(0 0 0 / 8%);
 }
 
 /* 노드의 기본 텍스트 묶음. */
@@ -49,7 +41,9 @@
 
 .nodeName {
   overflow: hidden;
-  color: var(--suri-board-fg-primary);
+  padding-left: 9px;
+  border-left: 6px solid var(--area-identity-color);
+  color: var(--area-box-text);
   font-size: 14px;
   font-weight: 700;
   line-height: 1.35;
@@ -59,7 +53,8 @@
 
 .nodeMeta {
   overflow: hidden;
-  color: var(--suri-board-fg-muted);
+  padding-left: 15px;
+  color: var(--area-box-meta);
   font-size: 13px;
   line-height: 1.35;
   text-overflow: ellipsis;
@@ -96,75 +91,99 @@
 /* UNIT 노드를 루트 아래에 들여쓰기해서 계층을 보여준다. */
 .unitList {
   display: grid;
-  gap: 6px;
-  margin-left: 6px;
-  padding-left: 10px;
-  border-left: 1px solid color-mix(in srgb, var(--area-tree-unit-accent) 46%, var(--suri-board-border));
+  gap: 18px;
+  margin-left: 0;
+  padding-left: 0;
+  position: relative;
+}
+
+.areaRowButton {
+  cursor: pointer;
+}
+
+.areaRowButton:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--area-identity-color) 78%, #ffffff);
+  outline-offset: 2px;
+}
+
+.areaRowButton:hover {
+  border-color: color-mix(in srgb, var(--area-identity-color) 64%, #b9c7d8);
+  background: color-mix(in srgb, var(--area-identity-color) 14%, #ffffff);
 }
 
 .unitNode {
   display: grid;
-  gap: 6px;
-  padding: 8px;
-  border: 1px solid var(--area-tree-unit-border);
-  border-left: 3px solid var(--area-tree-unit-accent);
-  border-radius: 4px;
-  background: var(--area-tree-unit-bg);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--area-tree-unit-accent) 12%, transparent);
+  gap: 12px;
+  position: relative;
 }
 
 /* UNIT 헤더는 자식 팀 목록을 접고 펼치는 버튼 역할을 한다. */
 .unitToggle {
   display: grid;
-  grid-template-columns: 18px minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
   gap: 7px;
   width: 100%;
-  padding: 0;
-  border: 0;
+  padding: 8px 9px;
+  border: 1px solid color-mix(in srgb, var(--area-identity-color) 40%, #d7e0ec);
+  border-radius: 4px;
   color: inherit;
-  background: transparent;
+  background: color-mix(in srgb, var(--area-identity-color) 9%, #f8fbff);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 70%),
+    0 1px 0 rgb(0 0 0 / 8%);
   text-align: left;
 }
 
 .unitStaticRow {
   display: grid;
-  grid-template-columns: 18px minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
   gap: 7px;
   min-width: 0;
+  padding: 8px 9px;
+  border: 1px solid color-mix(in srgb, var(--area-identity-color) 40%, #d7e0ec);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--area-identity-color) 9%, #f8fbff);
 }
 
-.unitToggle:hover .toggleIcon {
-  border-color: color-mix(in srgb, #050b13 42%, var(--area-tree-unit-accent));
-  color: var(--suri-board-fg-primary);
-  background: color-mix(in srgb, #050b13 74%, var(--area-tree-unit-accent));
-}
-
-.toggleIcon {
+.toggleButton {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 18px;
   height: 18px;
-  margin-top: 1px;
-  border: 1px solid var(--area-tree-toggle-border);
-  border-radius: 4px;
-  color: var(--area-tree-toggle-fg);
-  background: var(--area-tree-toggle-bg);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--suri-board-fg-primary) 7%, transparent);
+  margin-top: 0;
+  padding: 0;
+  border: 0;
+  color: color-mix(in srgb, var(--area-identity-color) 64%, #07111f);
+  background: transparent;
 }
 
-.toggleIcon svg {
+.toggleButton:hover {
+  color: color-mix(in srgb, var(--area-identity-color) 82%, #050b13);
+}
+
+.toggleButton:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--area-identity-color) 72%, #ffffff);
+  outline-offset: 2px;
+}
+
+.toggleButton svg {
   transition: transform 120ms ease;
 }
 
-.unitToggle[aria-expanded="false"] .toggleIcon svg {
-  transform: rotate(-90deg);
+.unitToggle[aria-expanded="false"] .toggleButton svg {
+  transform: rotate(0deg);
+}
+
+.unitToggle[aria-expanded="true"] .toggleButton svg {
+  transform: rotate(90deg);
 }
 
 /* 자식 항목이 없는 UNIT은 접기 버튼 자리를 유지하되 실제 토글은 숨긴다. */
 .togglePlaceholder {
+  display: none;
   width: 18px;
   height: 18px;
 }
@@ -172,10 +191,20 @@
 /* TEAM/폴리폰 자식 목록. */
 .teamList {
   display: grid;
-  gap: 4px;
-  margin-left: 18px;
-  padding-left: 9px;
-  border-left: 1px dashed color-mix(in srgb, var(--area-tree-team-accent) 50%, var(--suri-board-border));
+  gap: 10px;
+  margin-left: 0;
+  padding-left: 28px;
+  position: relative;
+}
+
+.teamList::before {
+  position: absolute;
+  top: -12px;
+  bottom: 18px;
+  left: 9px;
+  width: 1px;
+  background: color-mix(in srgb, var(--suri-board-fg-muted) 62%, var(--suri-board-border));
+  content: "";
 }
 
 /* 접힌 UNIT은 팀/폴리폰 자식 목록만 숨긴다. */
@@ -188,11 +217,25 @@
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
   gap: 6px;
+  position: relative;
+  z-index: 1;
   padding: 6px 7px;
-  border: 1px solid var(--area-tree-team-border);
-  border-left: 3px solid var(--area-tree-team-accent);
+  border: 1px solid color-mix(in srgb, var(--area-identity-color) 36%, #d7e0ec);
+  border-left: 1px solid color-mix(in srgb, var(--area-identity-color) 36%, #d7e0ec);
   border-radius: 4px;
-  background: var(--area-tree-team-bg);
+  background: color-mix(in srgb, var(--area-identity-color) 8%, #fbfdff);
+  background-clip: padding-box;
+}
+
+.teamNode::before {
+  position: absolute;
+  top: 18px;
+  left: -19px;
+  z-index: -1;
+  width: 17px;
+  height: 1px;
+  background: color-mix(in srgb, var(--suri-board-fg-muted) 62%, var(--suri-board-border));
+  content: "";
 }
 
 .teamCompleted {
@@ -204,12 +247,14 @@
       color-mix(in srgb, var(--suri-board-fg-muted) 12%, transparent) 4px,
       color-mix(in srgb, var(--suri-board-fg-muted) 12%, transparent) 6px
     ),
-    color-mix(in srgb, var(--area-tree-completed-bg) 72%, var(--area-tree-team-bg));
+    color-mix(in srgb, #e7ecf3 68%, color-mix(in srgb, var(--area-identity-color) 8%, #fbfdff));
 }
 
 .teamName {
   overflow: hidden;
-  color: var(--suri-board-fg-primary);
+  padding-left: 9px;
+  border-left: 6px solid var(--area-identity-color);
+  color: var(--area-box-text);
   font-size: 14px;
   font-weight: 600;
   line-height: 1.35;
@@ -219,7 +264,8 @@
 
 .teamMeta {
   overflow: hidden;
-  color: var(--suri-board-fg-muted);
+  padding-left: 15px;
+  color: var(--area-box-meta);
   font-size: 13px;
   line-height: 1.35;
   text-overflow: ellipsis;

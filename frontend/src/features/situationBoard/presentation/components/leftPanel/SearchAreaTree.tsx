@@ -1,9 +1,20 @@
-import { useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { type CSSProperties, type KeyboardEvent, type MouseEvent, useState } from 'react';
+import { ChevronRight } from 'lucide-react';
 
+import { areaColorTokens, type AreaColorToken } from '../../constants/areaColorTokens';
 import { searchAreaTree } from '../../constants/mockSituationBoard';
 import { CollapsiblePanelSection } from './CollapsiblePanelSection';
 import styles from './SearchAreaTree.module.css';
+
+type AreaIdentityColorStyle = CSSProperties & {
+  '--area-identity-color': string;
+};
+
+function getAreaIdentityColorStyle(colorToken: AreaColorToken): AreaIdentityColorStyle {
+  return {
+    '--area-identity-color': `var(${areaColorTokens[colorToken].cssVariable})`,
+  };
+}
 
 function getStateClassName(state: string) {
   if (state === '완료') {
@@ -21,10 +32,24 @@ function shouldShowParentState(state: string) {
   return state !== '활성';
 }
 
-export function SearchAreaTree() {
+type SearchAreaTreeProps = {
+  onSelectSearchArea: (searchAreaId: string) => void;
+};
+
+function handleAreaRowKeyDown(event: KeyboardEvent<HTMLElement>, searchAreaId: string, onSelectSearchArea: (searchAreaId: string) => void) {
+  if (event.key !== 'Enter' && event.key !== ' ') {
+    return;
+  }
+
+  event.preventDefault();
+  onSelectSearchArea(searchAreaId);
+}
+
+export function SearchAreaTree({ onSelectSearchArea }: SearchAreaTreeProps) {
   const [collapsedUnitIds, setCollapsedUnitIds] = useState<string[]>([]);
 
-  const toggleUnit = (unitId: string) => {
+  const toggleUnit = (unitId: string, event?: MouseEvent<HTMLButtonElement>) => {
+    event?.stopPropagation();
     setCollapsedUnitIds((currentIds) =>
       currentIds.includes(unitId) ? currentIds.filter((currentId) => currentId !== unitId) : [...currentIds, unitId],
     );
@@ -33,8 +58,14 @@ export function SearchAreaTree() {
   return (
     <CollapsiblePanelSection title="수색 구역 (계층)">
       <div className={styles.tree}>
-        <div className={styles.rootNode}>
-          <div className={styles.nodeRow}>
+        <div className={styles.rootNode} style={getAreaIdentityColorStyle(searchAreaTree.colorToken)}>
+          <div
+            className={`${styles.nodeRow} ${styles.areaRowButton}`}
+            role="button"
+            tabIndex={0}
+            onClick={() => onSelectSearchArea(searchAreaTree.id)}
+            onKeyDown={(event) => handleAreaRowKeyDown(event, searchAreaTree.id, onSelectSearchArea)}
+          >
             <div className={styles.nodeText}>
               <strong className={styles.nodeName}>{searchAreaTree.name}</strong>
               <span className={styles.nodeMeta}>{searchAreaTree.meta}</span>
@@ -49,27 +80,38 @@ export function SearchAreaTree() {
               const hasTeams = unit.teams.length > 0;
 
               return (
-                <div key={unit.id} className={styles.unitNode}>
+                <div key={unit.id} className={styles.unitNode} style={getAreaIdentityColorStyle(unit.colorToken)}>
                   {hasTeams ? (
-                    <button
-                      type="button"
+                    <div
                       className={styles.unitToggle}
                       aria-expanded={!isCollapsed}
-                      onClick={() => toggleUnit(unit.id)}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => onSelectSearchArea(unit.id)}
+                      onKeyDown={(event) => handleAreaRowKeyDown(event, unit.id, onSelectSearchArea)}
                     >
-                      <span className={styles.toggleIcon} aria-hidden="true">
-                        <ChevronDown size={14} />
-                      </span>
                       <span className={styles.nodeText}>
                         <strong className={styles.nodeName}>{unit.name}</strong>
                         <span className={styles.nodeMeta}>{unit.meta}</span>
                       </span>
-                      {shouldShowParentState(unit.state) ? (
-                        <span className={getStateClassName(unit.state)}>{unit.state}</span>
-                      ) : null}
-                    </button>
+                      <button
+                        type="button"
+                        className={styles.toggleButton}
+                        aria-label={`${unit.name} ${isCollapsed ? '펼치기' : '접기'}`}
+                        aria-expanded={!isCollapsed}
+                        onClick={(event) => toggleUnit(unit.id, event)}
+                      >
+                        <ChevronRight size={16} strokeWidth={2.4} />
+                      </button>
+                    </div>
                   ) : (
-                    <div className={styles.unitStaticRow}>
+                    <div
+                      className={`${styles.unitStaticRow} ${styles.areaRowButton}`}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => onSelectSearchArea(unit.id)}
+                      onKeyDown={(event) => handleAreaRowKeyDown(event, unit.id, onSelectSearchArea)}
+                    >
                       <span className={styles.togglePlaceholder} aria-hidden="true" />
                       <span className={styles.nodeText}>
                         <strong className={styles.nodeName}>{unit.name}</strong>
@@ -85,12 +127,15 @@ export function SearchAreaTree() {
                       {unit.teams.map((team) => (
                         <div
                           key={team.id}
-                          className={`${styles.teamNode}${team.state === '완료' ? ` ${styles.teamCompleted}` : ''}`}
+                          className={`${styles.teamNode} ${styles.areaRowButton}${team.state === '완료' ? ` ${styles.teamCompleted}` : ''}`}
+                          style={getAreaIdentityColorStyle(team.colorToken)}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => onSelectSearchArea(team.id)}
+                          onKeyDown={(event) => handleAreaRowKeyDown(event, team.id, onSelectSearchArea)}
                         >
                           <span className={styles.nodeText}>
-                            <strong className={styles.teamName}>
-                              {team.label} · {team.phone}
-                            </strong>
+                            <strong className={styles.teamName}>{team.phone}</strong>
                             <span className={styles.teamMeta}>{team.meta}</span>
                           </span>
                           <span className={getStateClassName(team.state)}>{team.state}</span>
