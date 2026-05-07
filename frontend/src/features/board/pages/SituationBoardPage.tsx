@@ -1,16 +1,9 @@
-import { Activity, AlertTriangle, Layers, MapPin, RadioTower, Route, ShieldCheck } from 'lucide-react';
-import { useEffect, type ReactNode } from 'react';
+import { Layers, MapPin, RadioTower, Route, ShieldCheck } from 'lucide-react';
+import { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { getApiBaseUrl } from '../../../shared/config';
 import { DashboardMapShell } from '../../map/DashboardMapShell';
 import { useBoardDisplayStore } from '../model/boardDisplayStore';
-
-const activeIncident = {
-  title: '반포 한강공원 일대',
-  operationPeriod: 'OP 1차',
-  teamsOnline: 4,
-  pendingSyncCount: 7,
-};
 
 export function SituationBoardPage() {
   const { incidentId = 'inc-precinct-first-001' } = useParams();
@@ -29,18 +22,8 @@ export function SituationBoardPage() {
         </div>
 
         <section className="incident-card" aria-label="현재 사건">
-          <span className="eyebrow">진행 중</span>
-          <h1>{activeIncident.title}</h1>
-          <p>{incidentId}</p>
-          <div className="status-grid">
-            <StatusItem icon={<RadioTower size={18} />} label="온라인 단말" value={`${activeIncident.teamsOnline}대`} />
-            <StatusItem icon={<Activity size={18} />} label="현재 차수" value={activeIncident.operationPeriod} />
-            <StatusItem
-              icon={<AlertTriangle size={18} />}
-              label="미전송 큐"
-              value={`${activeIncident.pendingSyncCount}건`}
-            />
-          </div>
+          <span className="eyebrow">Incident</span>
+          <h1>{incidentId}</h1>
         </section>
 
         <nav className="tool-list" aria-label="상황판 메뉴">
@@ -78,15 +61,5 @@ export function SituationBoardPage() {
         <DashboardMapShell />
       </section>
     </main>
-  );
-}
-
-function StatusItem({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
-  return (
-    <div className="status-item">
-      <span className="status-icon">{icon}</span>
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
   );
 }

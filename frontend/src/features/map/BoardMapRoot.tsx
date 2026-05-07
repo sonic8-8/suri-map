@@ -1,20 +1,8 @@
-import maplibregl, { type StyleSpecification } from 'maplibre-gl';
+import maplibregl from 'maplibre-gl';
 import { useEffect, useRef } from 'react';
 import { useBoardDisplayStore } from '../board/model/boardDisplayStore';
 
-const bootstrapMapStyle: StyleSpecification = {
-  version: 8,
-  sources: {},
-  layers: [
-    {
-      id: 'board-bootstrap-background',
-      type: 'background',
-      paint: {
-        'background-color': '#e5ebe7',
-      },
-    },
-  ],
-};
+const boardMapStyleUrl = '/tiles/styles/osm-local.json';
 
 export function BoardMapRoot() {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
@@ -28,7 +16,7 @@ export function BoardMapRoot() {
 
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
-      style: bootstrapMapStyle,
+      style: boardMapStyleUrl,
       center: [126.9565, 37.5712],
       zoom: 13,
       attributionControl: false,
