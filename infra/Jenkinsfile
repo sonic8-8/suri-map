@@ -146,7 +146,7 @@ EOF
                             docker build \
                               -t ${BACKEND_IMAGE} \
                               -f backend/Dockerfile \
-                              backend
+                              .
                         '''
                     }
                 }
