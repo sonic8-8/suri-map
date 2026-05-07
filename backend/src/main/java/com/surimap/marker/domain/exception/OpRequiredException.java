@@ -7,23 +7,20 @@ package com.surimap.marker.domain.exception;
  */
 public class OpRequiredException extends RuntimeException {
 
-  private final String errorCode;
+  private final String errorCode = "op_required";
 
-  /**
-   * OpRequiredException을 생성한다.
-   *
-   * @param message 실패 사유 메시지
-   */
-  public OpRequiredException(String message) {
-    super(message);
-    this.errorCode = "op_required";
+  public OpRequiredException() {
+    super("op_required");
   }
 
-  /**
-   * API error code를 반환한다.
-   *
-   * @return op_required
-   */
+  public OpRequiredException(String message) {
+    super(message);
+  }
+
+  public String getErrorCode() {
+    return errorCode;
+  }
+
   public String errorCode() {
     return errorCode;
   }

@@ -14,14 +14,14 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import com.surimap.marker.domain.exception.OpMismatchException;
 import com.surimap.marker.domain.exception.OpRequiredException;
 import com.surimap.marker.domain.port.OperationalPeriodQueryPort;
-import com.surimap.marker.domain.validation.MarkerOpBindingValidator;
+import com.surimap.marker.domain.service.MarkerOpBindingValidator;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-/** L5-T03A marker create current OP binding red test. */
-@DisplayName("L5-T03A marker OP binding red test")
+/** L5-T03A marker create current OP binding test. */
+@DisplayName("L5-T03A marker OP binding test")
 class MarkerOpBindingRedTest {
 
   private final OperationalPeriodQueryPort currentOp1Query = incidentId -> Optional.of(OP1_ID);
@@ -52,6 +52,7 @@ class MarkerOpBindingRedTest {
       MarkerOpBindingValidator validator = new MarkerOpBindingValidator(currentOp1Query);
 
       assertDoesNotThrow(() -> validator.validate(INCIDENT_ID, OP1_ID));
+      assertThat(validator.validate(INCIDENT_ID, OP1_ID)).isEqualTo(OP1_ID);
     }
   }
 
@@ -65,6 +66,16 @@ class MarkerOpBindingRedTest {
       MarkerOpBindingValidator validator = new MarkerOpBindingValidator(noCurrentOpQuery);
 
       assertThatThrownBy(() -> validator.validate(INCIDENT_ID, OP1_ID))
+          .isInstanceOfSatisfying(
+              OpRequiredException.class, ex -> assertThat(ex.errorCode()).isEqualTo("op_required"));
+    }
+
+    @Test
+    @DisplayName("request.opId가 null이면 op_required다")
+    void request_opId가_null이면_op_required다() {
+      MarkerOpBindingValidator validator = new MarkerOpBindingValidator(currentOp1Query);
+
+      assertThatThrownBy(() -> validator.validate(INCIDENT_ID, null))
           .isInstanceOfSatisfying(
               OpRequiredException.class, ex -> assertThat(ex.errorCode()).isEqualTo("op_required"));
     }

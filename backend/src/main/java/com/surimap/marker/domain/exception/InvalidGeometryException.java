@@ -7,33 +7,30 @@ package com.surimap.marker.domain.exception;
  */
 public class InvalidGeometryException extends RuntimeException {
 
-  private final String errorCode;
+  private final String errorCode = "invalid_geometry";
+  private final String detail;
 
-  /**
-   * InvalidGeometryException을 생성한다.
-   *
-   * @param message 실패 사유 메시지
-   */
-  public InvalidGeometryException(String message) {
-    super(message);
-    this.errorCode = "invalid_geometry";
+  public InvalidGeometryException(String detail) {
+    super("invalid_geometry: " + detail);
+    this.detail = detail;
   }
 
-  /**
-   * API error code를 반환한다.
-   *
-   * @return invalid_geometry
-   */
+  public String getErrorCode() {
+    return errorCode;
+  }
+
   public String errorCode() {
     return errorCode;
   }
 
-  /**
-   * invalid_geometry 예외를 생성한다.
-   *
-   * @param message 실패 사유 메시지
-   * @return InvalidGeometryException
-   */
+  public String getDetail() {
+    return detail;
+  }
+
+  public String detail() {
+    return detail;
+  }
+
   public static InvalidGeometryException invalidGeometry(String message) {
     return new InvalidGeometryException(message);
   }

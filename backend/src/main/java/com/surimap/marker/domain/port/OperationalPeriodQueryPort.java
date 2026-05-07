@@ -11,10 +11,10 @@ import java.util.UUID;
 public interface OperationalPeriodQueryPort {
 
   /**
-   * 사건의 현재 OP ID를 반환한다.
+   * 사건의 현재 ACTIVE OP ID를 반환한다.
    *
    * @param incidentId 사건 ID
-   * @return current OP ID, 없으면 empty
+   * @return 현재 active OP ID, 없으면 empty
    */
   Optional<UUID> findCurrentOpId(UUID incidentId);
 }
