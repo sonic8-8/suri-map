@@ -102,9 +102,14 @@ Real SonarQube quality gate wiring is tracked by the L2 release quality gate tas
 EOF
                 '''
 
-                dir('backend') {
-                    sh './gradlew test'
-                }
+                sh '''
+                    docker run --rm \
+                      -v "$PWD:/workspace" \
+                      -v "$HOME/.gradle:/home/gradle/.gradle" \
+                      -w /workspace/backend \
+                      gradle:8.14.3-jdk17 \
+                      ./gradlew test
+                '''
             }
 
             post {
