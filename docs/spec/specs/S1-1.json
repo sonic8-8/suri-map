@@ -1228,36 +1228,19 @@
       "S1-3 owner LGTM: close/purge handoff 변경"
     ]
   },
-  "open_issues": [
-    {
-      "id": "OI-S1-1-01",
-      "issue": "mock 112 사건 데이터 필드와 account/policePhone 매핑 fixture의 최종 형식 확정 필요",
-      "owner": "L1 + L2",
-      "deadline": "1주차",
-      "related_gap": "PRD §11.1 mock 112 데이터 명세"
-    },
-    {
-      "id": "OI-S1-1-02",
-      "issue": "실종팀 인계 fixture가 system-only import adapter 재실행인지 하네스 경로 확정 필요",
-      "owner": "L1",
-      "deadline": "Spec 단계",
-      "related_gap": "SC-02 mock 112 인계 fixture 처리"
-    },
-    {
-      "id": "OI-S1-1-04",
-      "issue": "catalog 밖 public error source_incident_not_found는 S1-1 public API error로 쓰지 않는다. 없는 sourceIncidentId와 mock 112 catalog 누락은 internal fixture validation 오류 및 하네스 preflight 실패로 처리할지, catalog에 정식 public error를 추가할지 별도 결정이 필요하다.",
-      "owner": "L1",
-      "deadline": "Spec 단계",
-      "related_gap": "mock 112 fixture validation"
-    }
-  ],
+  "open_issues": [],
   "status_management": {
     "current_phase": "draft",
     "completed_phases": [],
     "error_logs": [],
-    "last_updated": "2026-04-28"
+    "last_updated": "2026-05-07"
   },
   "change_log": [
+    {
+      "date": "2026-05-07",
+      "change": "mock 112 sourceIncident payload, account assignment mapping, SC-02 handover import replay, missing sourceIncident preflight failure 결정을 fixture catalog 기준으로 closure",
+      "reason": "docs/tasks/mock-112-demo-guidance.md와 docs/spec/fixtures/common-fixtures.json의 confirmed.mock112SourceContract를 canonical mock 112 fixture로 채택"
+    },
     {
       "date": "2026-04-28",
       "change": "PRD v3와 boundaries.md 기준으로 Incident Import & Assignment 초안을 재정렬",

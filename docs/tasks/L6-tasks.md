@@ -20,7 +20,7 @@
 
 ## Phase -1
 
-- [ ] L6-B01 웹 상황판 MapLibre 실행 기반 준비
+- [x] L6-B01 웹 상황판 MapLibre 실행 기반 준비
   - 담당 Spec: S3-2, S7
   - 필수 참조: `architecture.md §2`, `architecture.md §4`, `adr.md ADR-0035`, `spec/specs/S3-2.json`, `spec/specs/S7.json`
   - 연관 Lane: All lanes
@@ -31,7 +31,7 @@
 
 ## Phase 0
 
-- [ ] L6-T01B 상황판 슬롯 등록부 계약과 마운트 실패 테스트 작성
+- [x] L6-T01B 상황판 슬롯 등록부 계약과 마운트 실패 테스트 작성
   - 담당 Spec: S3-2
   - 필수 참조: `spec/specs/S3-2.json`, `spec/boundaries.md §9.2`, `spec/harness-scenarios.md §0.1`
   - 연관 Spec: S1-1, S1-2, S1-3, S2, S3-1, S4, S5, S6, S7, S8
@@ -41,7 +41,7 @@
   - 예상 작업량: 1d
   - 완료 기준: board shell 구현 전에 slot mounting 기대 조건이 failing test 또는 fixture로 고정된다.
 
-- [ ] L6-T05 오프라인 패키지 목록 계약 fixture 작성
+- [x] L6-T05 오프라인 패키지 목록 계약 fixture 작성
   - 담당 Spec: S7
   - 필수 참조: `spec/specs/S7.json`, `spec/harness-scenarios.md §2 SC-03`, `spec/harness-scenarios.md §6 mock tile catalog/server`
   - 연관 Spec: S1-1, S1-2, S2, S5, S8
@@ -49,11 +49,11 @@
   - 관련 FR: FR-21, FR-31
   - 구현 산출물: offline_package_manifest contract fixture, manifest fixture builder, missing_person/OP/area/marker/overall_search_area/tile item contract tests, SC-03 tile fixture exactness tests
   - 예상 작업량: 1d
-  - 완료 기준: real package API 구현 전에 Phase 0 fixture가 incident metadata, missing_person, OP, assigned area, initial marker, overall_search_area, tile reference, police_phone context를 담고, tile fixture는 `tile-manifest-inc-precinct-001-v1`, zoom `15..16`, `local://tiles/inc-precinct-first-001/{z}/{x}/{y}.pbf` 기준으로 검증된다.
+  - 완료 기준: real package API 구현 전에 Phase 0 fixture가 incident metadata, missing_person, OP, assigned area, initial marker, overall_search_area, tile reference, police_phone context를 담고, tile fixture는 `tile-manifest-inc-precinct-001`, zoom `15..16`, `local://tiles/inc-precinct-first-001/{z}/{x}/{y}.pbf` 기준으로 검증된다.
 
 ## Phase 1
 
-- [ ] L6-T01A 상황판 경로·레이아웃·MapLibre 루트 구현
+- [x] L6-T01A 상황판 경로·레이아웃·MapLibre 루트 구현
   - 담당 Spec: S3-2
   - 필수 참조: `spec/specs/S3-2.json`, `spec/boundaries.md §9.2`, `spec/harness-scenarios.md §0.1`
   - 연관 Spec: S1-1, S1-2, S1-3, S2, S3-1, S4, S5, S6, S7, S8
@@ -63,7 +63,7 @@
   - 예상 작업량: 1d
   - 완료 기준: board route, layout, MapLibre root, shared state가 S3-2 소유로 구현되고 source owner data를 변경하지 않는다.
 
-- [ ] L6-T01C 상황판 슬롯 등록부와 마운트 규칙 구현
+- [x] L6-T01C 상황판 슬롯 등록부와 마운트 규칙 구현
   - 담당 Spec: S3-2
   - 필수 참조: `spec/specs/S3-2.json`, `spec/boundaries.md §9.2`, `spec/harness-scenarios.md §0.1`
   - 연관 Spec: S1-1, S1-2, S1-3, S2, S3-1, S4, S5, S6, S7, S8

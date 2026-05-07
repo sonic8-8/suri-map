@@ -3,9 +3,9 @@
   "title": "종로구 인왕산 실종 신고",
   "openedAt": "2026-04-28T09:00:00+09:00",
   "missingPerson": {
-    "displayName": "홍길동",
+    "displayName": "가상 실종자 001",
     "photoObjectKey": "mock-112/missing-person/mock-112-incident-001.jpg",
-    "appearanceText": "남색 점퍼, 회색 등산화, 키 175cm",
+    "appearanceText": "남색 점퍼, 회색 등산화",
     "lastSeenLocationText": "인왕산 북측 산책로 입구",
     "lastSeenAt": "2026-04-28T08:30:00+09:00"
   },
@@ -32,31 +32,24 @@
   "seedMarkers": [
     {
       "type": "CLUE",
-      "source": "MOCK_112",
+      "source": "MOCK_SEED",
       "memo": "신고자 진술 위치",
       "lon": 126.9565,
       "lat": 37.5712
-    },
-    {
-      "type": "CLUE",
-      "source": "MOCK_112",
-      "memo": "마지막 목격 위치 (산책로 입구 CCTV)",
-      "lon": 126.9558,
-      "lat": 37.5708
     }
   ],
   "handoverAssignments": [
     {
-      "externalAssignmentKey": "mock-112-incident-001:missing-cmd-alpha",
+      "externalAssignmentKey": "mock-112-incident-001:cmd-alpha",
       "accountId": "acct-cmd-alpha",
-      "incidentRole": "MISSING_TEAM_COMMANDER",
-      "assignedAt": "2026-04-28T10:00:00+09:00"
+      "incidentRole": "INCIDENT_COMMANDER",
+      "assignedAt": "2026-04-28T10:30:00+09:00"
     },
     {
-      "externalAssignmentKey": "mock-112-incident-001:missing-team-alpha",
+      "externalAssignmentKey": "mock-112-incident-001:team-alpha",
       "accountId": "acct-team-alpha",
       "incidentRole": "MEMBER",
-      "assignedAt": "2026-04-28T10:00:00+09:00"
+      "assignedAt": "2026-04-28T10:30:00+09:00"
     }
   ],
   "supportAssignments": [
@@ -64,19 +57,19 @@
       "externalAssignmentKey": "mock-112-incident-001:support-cmd",
       "accountId": "acct-support-cmd",
       "incidentRole": "FIELD_COMMANDER",
-      "assignedAt": "2026-04-28T10:30:00+09:00"
+      "assignedAt": "2026-04-28T11:00:00+09:00"
     },
     {
       "externalAssignmentKey": "mock-112-incident-001:support-car",
       "accountId": "acct-support-car",
       "incidentRole": "MEMBER",
-      "assignedAt": "2026-04-28T10:30:00+09:00"
+      "assignedAt": "2026-04-28T11:00:00+09:00"
     },
     {
       "externalAssignmentKey": "mock-112-incident-001:support-team",
       "accountId": "acct-support-team",
       "incidentRole": "MEMBER",
-      "assignedAt": "2026-04-28T10:30:00+09:00"
+      "assignedAt": "2026-04-28T11:00:00+09:00"
     }
   ]
 }

@@ -1756,7 +1756,7 @@
       "모든 이벤트는 S4 event envelope와 ADR-0012 시간 필드를 따른다",
       "하네스 geometry fixture는 EPSG:4326, lon/lat, bbox 126.900000/37.500000/127.080000/37.620000, minimum polygon area 400m2, coordinate precision 6 decimals를 사용한다",
       "S3-2/S7/S3-1/S5 contract mock은 SearchAreaQuery.overallOf와 SearchAreaQuery.* 응답의 id/status/version/canonical geometry를 동일하게 비교한다",
-      "SC-04 S2 fixture IDs are fixed: incidentId=inc-precinct-first-001, overallAreaId=osa-precinct-001-v1, supersededOverallAreaId=osa-precinct-001-v0, areaId=area-precinct-a1, splitChildAreaIds=area-precinct-a1-1/area-precinct-a1-2, historyId=area-hist-precinct-a1-001",
+      "SC-04 S2 fixture IDs are fixed: incidentId=inc-precinct-first-001, overallAreaId=osa-precinct-001, supersededOverallAreaId=osa-precinct-001-superseded, areaId=area-precinct-a1, splitChildAreaIds=area-precinct-a1-1/area-precinct-a1-2, historyId=area-hist-precinct-a1-001",
       "SC-04 S2 event/board response fixture IDs are fixed: overallAreaEventId=evt-s2-overall-area-001 sequence=401 version=2, areaCreatedEventId=evt-s2-area-created-001 sequence=402 version=1, areaStateEventId=evt-s2-area-state-001 sequence=403 version=3, boardResponseRowIds=board-overall-search-area-inc-precinct-first-001/board-area-precinct-a1 and expected board response version is REST response version or higher"
     ],
     "forbidden": [

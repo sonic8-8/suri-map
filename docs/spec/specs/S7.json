@@ -829,7 +829,8 @@
               "status",
               "version",
               "manifestVersion",
-              "readyForOfflineUse"
+              "readyForOfflineUse",
+              "serverTs"
             ],
             "properties": {
               "id": {
@@ -1272,7 +1273,7 @@
       ],
       "given": "manifest expires before status report completes",
       "when": "PolicePhone posts READY for expired manifest",
-      "then": "API rejects with write_conflict and app must not show ",
+      "then": "API rejects with write_conflict and app must not show READY/offline-use-ready state",
       "priority": "high"
     },
     {
@@ -1280,7 +1281,7 @@
       "fr_refs": [
         "FR-31"
       ],
-      "given": "web channel calls POST /offline-package/installations",
+      "given": "web channel calls POST /incidents/{incidentId}/offline-package/installations",
       "when": "request is authorized as web user",
       "then": "API returns 403 channel_not_allowed and no status/event row is written",
       "priority": "high"
@@ -1322,7 +1323,7 @@
       ],
       "given": "SC-03 manifest download is running or SC-09 package installation replay is waiting for S6 Outbox",
       "when": "the app package panel or board package_badge is rendered",
-      "then": "download CTA is disabled with DOWNLOADING progress, status write shows PENDING_SYNC until ACKED, and package_badge shows STALE_REFETCH until the board response reaches the expected version/version",
+      "then": "download CTA is disabled with DOWNLOADING progress, status write shows PENDING_SYNC until ACKED, and package_badge shows STALE_REFETCH until the board response reaches the expected version/sequence",
       "priority": "critical"
     }
   ],
@@ -1339,7 +1340,7 @@
   ],
   "error_handling": {
     "tile_unavailable": "Manifest fetch or tile/style endpoint returns 503; app keeps completed items and allows failed item retry.",
-    "write_conflict": "Reject READY/PARTIAL status for old or expired manifest and require manifest refresh before .",
+    "write_conflict": "Reject READY/PARTIAL status for old or expired manifest and require manifest refresh before package can be marked READY.",
     "overall_search_area_required": "Manifest fetch fails until S2 provides active overall_search_area; app shows package unavailable instead of tile-only 대체 표시.",
     "police_phone_not_registered": "Reject manifest/status request and prevent local package save.",
     "police_phone_not_assigned": "Reject manifest/status request and show authorization failure distinct from retryable network failure.",
@@ -1399,7 +1400,7 @@
       {
         "name": "package_status_event_board_convergence_fixture",
         "framework": "JUnit 5 + Spring MVC Test",
-        "scenario": "SC-09 status write returns pkg-status-precinct-001 READY version 3 and publishes evt-s7-package-status-001 with version 901; OfflinePackageInstallationQuery.byIncident and mock board probe match the same id/status/version/manifestVersion."
+        "scenario": "SC-09 status write returns pkg-status-precinct-001 READY version 3 and publishes evt-s7-package-status-001 with sequence 901; OfflinePackageInstallationQuery.byIncident and mock board probe match the same id/status/version/manifestVersion."
       },
       {
         "name": "status_write_requires_app_PolicePhone",
@@ -1448,7 +1449,7 @@
       {
         "name": "package_status_outbox_pending_until_ack",
         "framework": "JUnit5 + Robolectric",
-        "scenario": "During SC-09 S6 replay, package installation row renders PENDING_SYNC until ACKED and does not show  before the owner response is cached."
+        "scenario": "During SC-09 S6 replay, package installation row renders PENDING_SYNC until ACKED and does not show READY before the owner response is cached."
       },
       {
         "name": "partial_retry_skips_completed_item_count",
@@ -1458,7 +1459,7 @@
       {
         "name": "stale_manifest_blocks_ready_state",
         "framework": "JUnit5 + Robolectric",
-        "scenario": "write_conflict response prevents  and shows re-download required."
+        "scenario": "write_conflict response prevents READY/offline-use-ready state and shows re-download required."
       },
       {
         "name": "incident_closed_purges_local_package",
@@ -1471,7 +1472,7 @@
     "sc03_manifest_download_pending": {
       "incidentId": "inc-precinct-first-001",
       "policePhoneId": "dev-precinct-phone-01",
-      "manifestId": "tile-manifest-inc-precinct-001-v1",
+      "manifestId": "tile-manifest-inc-precinct-001",
       "manifestVersion": 1,
       "status": "DOWNLOADING",
       "disabledControls": [
@@ -1493,9 +1494,9 @@
       ]
     },
     "tile_manifest_fixture": {
-      "manifestId": "tile-manifest-inc-precinct-001-v1",
+      "manifestId": "tile-manifest-inc-precinct-001",
       "styleId": "osm-local",
-      "overallAreaHash": "overall_search_area-hash-precinct-v1",
+      "overallAreaHash": "overall-area-hash-precinct-current",
       "blobUriTemplate": "local://tiles/inc-precinct-first-001/{z}/{x}/{y}.pbf",
       "tileKeyRange": {
         "minZ": 15,
@@ -1541,14 +1542,14 @@
       ],
       "failureKeys": {
         "manifest-expired": {
-          "manifestId": "tile-manifest-inc-precinct-001-v1",
+          "manifestId": "tile-manifest-inc-precinct-001",
           "error": "manifest_expired",
           "retryable": true
         },
         "manifest-overall-area-stale": {
-          "manifestId": "tile-manifest-inc-precinct-001-v1",
-          "overallAreaHash": "overall_search_area-hash-precinct-v0",
-          "expectedOverallAreaHash": "overall_search_area-hash-precinct-v1",
+          "manifestId": "tile-manifest-inc-precinct-001",
+          "overallAreaHash": "overall-area-hash-precinct-stale",
+          "expectedOverallAreaHash": "overall-area-hash-precinct-current",
           "error": "manifest_overall_area_stale",
           "retryable": true
         },
@@ -1582,7 +1583,7 @@
       "bodyHash": "sha256:package-status-ready-001",
       "incidentId": "inc-precinct-first-001",
       "policePhoneId": "dev-precinct-phone-01",
-      "manifestId": "tile-manifest-inc-precinct-001-v1",
+      "manifestId": "tile-manifest-inc-precinct-001",
       "manifestVersion": 1,
       "sequence": 901,
       "pendingLocalState": "PENDING_SYNC",
