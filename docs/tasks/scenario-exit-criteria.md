@@ -190,7 +190,7 @@
 
 | 항목 | 구분 | 필요 이유 | 담당 |
 |---|---|---|---|
-| `tile-manifest-inc-precinct-001-v1` | 공통 데이터 | tile manifest 기준 ID | 5번 |
+| `tile-manifest-inc-precinct-001` | 공통 데이터 | tile manifest 기준 ID | 5번 |
 | local tile blob catalog | Lane 소유 fixture/mock | 외부 tile host 없이 tile cache 검증 | L6 |
 | manifest/tile network script | Lane 소유 fixture/mock | timeout, 404, checksum mismatch, corrupt blob 주입 | L6/L4 |
 | missing_person/package allowlist fixture | 공통 데이터 | package에 포함 가능한 개인정보 필드 제한 | 5번 + L1 확인 |

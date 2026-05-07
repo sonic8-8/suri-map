@@ -1969,7 +1969,7 @@
   "harness_fixtures": {
     "board_api_base": {
       "incidentId": "inc-precinct-first-001",
-      "boardResponseId": "bs-inc-precinct-first-001-v1200",
+      "boardResponseId": "bs-inc-precinct-first-001",
       "boardResponseVersion": 1200,
       "serverTs": "2026-04-28T10:30:00+09:00",
       "expected": "Every slot row below must appear in BoardDTO.slotSources/sourceVersions/sourceHashes with id/status/version/sequence/sourceSpec/sourceHash/latestEventId and BoardDTO boardResponseVersion >= the row version."
@@ -1978,13 +1978,13 @@
       {
         "slot": "overall_search_area",
         "sourceSpec": "S2",
-        "sourceResponseId": "osa-precinct-001-v1",
+        "sourceResponseId": "osa-precinct-001",
         "boardRowId": "board-overall-search-area-inc-precinct-first-001",
         "status": "ACTIVE",
         "version": 2,
         "sequence": 401,
         "latestEventId": "evt-s2-overall-area-001",
-        "sourceHash": "hash-s2-overall-area-v2"
+        "sourceHash": "hash-s2-overall-area-current"
       },
       {
         "slot": "area",
@@ -1995,7 +1995,7 @@
         "version": 1,
         "sequence": 402,
         "latestEventId": "evt-s2-area-created-001",
-        "sourceHash": "hash-s2-area-a1-v1"
+        "sourceHash": "hash-s2-area-a1-current"
       },
       {
         "slot": "path",
@@ -2006,7 +2006,7 @@
         "version": 2,
         "sequence": 502,
         "latestEventId": "evt-s3-path-appended-001",
-        "sourceHash": "hash-s3-path-mixed-v2"
+        "sourceHash": "hash-s3-path-mixed-current"
       },
       {
         "slot": "police_phone_freshness",
@@ -2017,7 +2017,7 @@
         "version": 4,
         "sequence": 504,
         "latestEventId": "evt-s1-2-heartbeat-001",
-        "sourceHash": "hash-s1-2-dev-precinct-car-v4"
+        "sourceHash": "hash-s1-2-dev-precinct-car-current"
       },
       {
         "slot": "marker",
@@ -2028,7 +2028,7 @@
         "version": 1,
         "sequence": 601,
         "latestEventId": "evt-s5-marker-created-001",
-        "sourceHash": "hash-s5-marker-clue-v1"
+        "sourceHash": "hash-s5-marker-clue-current"
       },
       {
         "slot": "toast",
@@ -2039,7 +2039,7 @@
         "version": 1,
         "sequence": 602,
         "latestEventId": "evt-s5-support-request-001",
-        "sourceHash": "hash-s5-toast-support-v1"
+        "sourceHash": "hash-s5-toast-support-current"
       },
       {
         "slot": "package_badge",
@@ -2049,8 +2049,8 @@
         "status": "STALE",
         "version": 3,
         "sequence": 701,
-        "latestEventId": "evt-s7-package-status-001",
-        "sourceHash": "hash-s7-package-v3"
+        "latestEventId": "evt-s7-package-stale-001",
+        "sourceHash": "hash-s7-package-current"
       },
       {
         "slot": "op_toggle",
@@ -2061,7 +2061,7 @@
         "version": 1,
         "sequence": 801,
         "latestEventId": "evt-s8-op-transition-001",
-        "sourceHash": "hash-s8-op1-v1"
+        "sourceHash": "hash-s8-op1-current"
       },
       {
         "slot": "op_history",
@@ -2072,7 +2072,7 @@
         "version": 2,
         "sequence": 802,
         "latestEventId": "evt-s8-op-transition-001",
-        "sourceHash": "hash-s8-op2-v2"
+        "sourceHash": "hash-s8-op2-current"
       },
       {
         "slot": "handover_memo",
@@ -2083,7 +2083,7 @@
         "version": 1,
         "sequence": 803,
         "latestEventId": "evt-s8-handover-created-001",
-        "sourceHash": "hash-s8-handover-memo-v1"
+        "sourceHash": "hash-s8-handover-memo-current"
       },
       {
         "slot": "handover_status",
@@ -2094,7 +2094,7 @@
         "version": 2,
         "sequence": 804,
         "latestEventId": "evt-s8-handover-created-001",
-        "sourceHash": "hash-s8-handover-status-v2"
+        "sourceHash": "hash-s8-handover-status-current"
       },
       {
         "slot": "search_history_summary",
@@ -2105,7 +2105,7 @@
         "version": 1,
         "sequence": 805,
         "latestEventId": "evt-s8-ai-summary-ready-001",
-        "sourceHash": "hash-s8-ai-summary-v1"
+        "sourceHash": "hash-s8-ai-summary-current"
       },
       {
         "slot": "incident_terminal",
@@ -2116,7 +2116,7 @@
         "version": 9,
         "sequence": 901,
         "latestEventId": "evt-s1-1-incident-closed-001",
-        "sourceHash": "hash-s1-terminal-v9",
+        "sourceHash": "hash-s1-terminal-current",
         "tombstoneSourceSpec": "S1-3",
         "tombstoneResponseId": "tombstone-inc-precinct-first-001"
       }

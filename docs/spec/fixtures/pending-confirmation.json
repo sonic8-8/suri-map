@@ -1,71 +1,9 @@
 {
   "meta": {
-    "version": "2026-05-06",
-    "sourceDocs": [
-      "docs/spec/harness-scenarios.md",
-      "docs/spec/specs/S1-1.json",
-      "docs/spec/specs/S3-2.json",
-      "docs/spec/specs/S6.json",
-      "docs/spec/specs/S7.json"
-    ],
-    "notes": "Do not invent these values. Resolve with owner confirmation first."
+    "revisionDate": "2026-05-07",
+    "sourceDocs": [],
+    "implementationReferences": [],
+    "notes": "No pending confirmation items remain. SC-09 package_badge coverage is now reflected in docs/spec/boundaries.md and docs/spec/harness-scenarios.md."
   },
-  "pendingConfirmation": [
-    {
-      "key": "mock112.sourceIncidentId",
-      "status": "CONFIRMATION_REQUIRED",
-      "owner": "mock 112 / S1-1",
-      "blockingScenarios": ["SC-01", "SC-02", "SC-12"],
-      "reason": "sourceIncidentId actual value is not fixed in the current spec set.",
-      "forbiddenConfirmedKeyFragments": ["sourceIncidentId"]
-    },
-    {
-      "key": "mock112.missingPersonPayload",
-      "status": "CONFIRMATION_REQUIRED",
-      "owner": "mock 112 / S1-1",
-      "blockingScenarios": ["SC-01", "SC-12"],
-      "reason": "Name, gender, age, appearance, last seen position, and reporter statement are not fixed for the shared fixture.",
-      "forbiddenConfirmedKeyFragments": ["missingPersonPayload", "lastSeenPosition", "reporterStatement"]
-    },
-    {
-      "key": "mock112.assignmentPayloadShape",
-      "status": "CONFIRMATION_REQUIRED",
-      "owner": "mock 112 / S1-1",
-      "blockingScenarios": ["SC-01", "SC-02", "SC-10", "SC-12"],
-      "reason": "Import-side assignment payload shape and account/policePhone mapping are still open.",
-      "forbiddenConfirmedKeyFragments": ["assignmentPayloadShape"]
-    },
-    {
-      "key": "sc02.handoverFixtureHandling",
-      "status": "CONFIRMATION_REQUIRED",
-      "owner": "S1-1/S8",
-      "blockingScenarios": ["SC-02"],
-      "reason": "SC-02 handover fixture processing is listed as an open issue.",
-      "forbiddenConfirmedKeyFragments": ["handoverFixtureHandling"]
-    },
-    {
-      "key": "mock112.missingSourceIncidentErrorHandling",
-      "status": "CONFIRMATION_REQUIRED",
-      "owner": "S1-1",
-      "blockingScenarios": ["SC-01"],
-      "reason": "It is not settled whether missing sourceIncidentId should be a public error or a fixture preflight failure.",
-      "forbiddenConfirmedKeyFragments": ["missingSourceIncidentErrorHandling"]
-    },
-    {
-      "key": "tileManifest.overallAreaHash",
-      "status": "CONFIRMATION_REQUIRED",
-      "owner": "S7 + harness",
-      "blockingScenarios": ["SC-03", "SC-04"],
-      "reason": "harness-scenarios.md uses overall-area-hash-precinct-v1 while S7.json uses overall_search_area-hash-precinct-v1.",
-      "forbiddenConfirmedKeyFragments": ["overallAreaHash"]
-    },
-    {
-      "key": "sc09.packageReplayCanonicalization",
-      "status": "CONFIRMATION_REQUIRED",
-      "owner": "S6 + S7 + S3-2",
-      "blockingScenarios": ["SC-09"],
-      "reason": "S6, S7, and S3-2 disagree on package replay bodyHash, payloadId, and expected eventId, so the shared replay fixture cannot be canonized yet.",
-      "forbiddenConfirmedKeyFragments": ["sc09PackageReplay", "outbox-package-001"]
-    }
-  ]
+  "pendingConfirmation": []
 }

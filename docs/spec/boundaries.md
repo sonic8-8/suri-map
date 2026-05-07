@@ -822,7 +822,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 **provides**
 
 - `OfflinePackageManifest`
-- `PackageStatusQuery.byIncident(incidentId)`
+- `OfflinePackageInstallationQuery.byIncident(incidentId)`
 - `OFFLINE_PACKAGE_INSTALLATION_CHANGED`
 - `events/offline_package_installation.payload.schema.json` for `OFFLINE_PACKAGE_INSTALLATION_CHANGED`
 - `PublishRequest.OFFLINE_PACKAGE_INSTALLATION_CHANGED`
@@ -854,7 +854,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 
 - Manifest fetch returns incident metadata, missing person data, OP, assigned areas, initial markers, overall search area, and tile references as one package contract.
 - Package status writes require app PolicePhone authorization and publish `OFFLINE_PACKAGE_INSTALLATION_CHANGED`.
-- Overall search area changes increase manifest revision and make stale package installation status observable through `PackageStatusQuery.byIncident`.
+- Overall search area changes increase manifest revision and make stale package installation status observable through `OfflinePackageInstallationQuery.byIncident`.
 - Tile and style endpoints keep OSM attribution available to app and Web MapLibre consumers.
 
 **excluded**
@@ -1328,7 +1328,7 @@ S3-2는 shell routing, page layout, slot mounting, shared state wiring의 owner�
 | SC-06 현장 마커 생성 | S5, S1-2, S6, S8, S4, S2 | `POST /markers`, `POST /markers/{markerId}/photos/upload-url`, `POST /markers/{markerId}/photos/{photoId}/attach`, `MARKER_CREATED`, `MARKER_UPDATED`, `SearchAreaQuery.overallOf(incidentId)` | `marker` | S5 owns `marker`/`photo` and applies `spec/boundaries.md §4.1.1 Common Geometry Rule` to marker location; S2 provides `SearchAreaQuery.overallOf(incidentId)` as validation input only; marker/photo writes through S6 Outbox -> S4 `EventFanout` -> S3-2 marker slot, S8 OP context |
 | SC-07 통신 단절 중 로컬 기록 | S6, S1-2, S3-1, S5, S7 | `POST /sync/outbox/requeue`, local Outbox rows for `POST /search-paths/batch` and `POST /markers`, package availability from S7 manifest | - | S6 local store/Outbox -> S3-1/S5 pending writes after recovery, S7 offline package -> app local renderer |
 | SC-08 지원 요청·실종자 발견 알림 | S5, S1-1, S1-2, S4, S6, S8 | `POST /markers`, `SUPPORT_REQUEST_CREATED`, `PERSON_FOUND`, fixture `FcmDispatcher` | `marker`, `toast` | S5 marker/notification payload through S6 Outbox -> S4 `EventFanout` -> S3-2 marker/toast; S1-2 `FcmTokenQuery.activeByPolicePhone(policePhoneId)` -> S5 resolver/`FcmDispatcher` adapter -> app banner |
-| SC-09 통신 복구·동기화 | S6, S3-1, S5, S1-2, S3-2, S4, S7 | `POST /sync/outbox/requeue`, `POST /search-paths/batch`, `POST /markers`, `GET /incidents/{incidentId}/events`, `PATH_APPENDED`, `MARKER_CREATED`, `OFFLINE_PACKAGE_INSTALLATION_CHANGED` | `marker`, `path`, `police_phone_freshness` | S6 Outbox flush -> S3-1/S5/S7 server rows -> S4 replay/dedupe -> S3-2 recovered board state |
+| SC-09 통신 복구·동기화 | S6, S3-1, S5, S1-2, S3-2, S4, S7 | `POST /sync/outbox/requeue`, `POST /search-paths/batch`, `POST /markers`, `POST /incidents/{incidentId}/offline-package/installations`, `GET /incidents/{incidentId}/events`, `PATH_APPENDED`, `MARKER_CREATED`, `OFFLINE_PACKAGE_INSTALLATION_CHANGED` | `marker`, `path`, `police_phone_freshness`, `package_badge` | S6 Outbox flush -> S3-1/S5/S7 server rows -> S4 replay/dedupe -> S3-2 recovered board state including `package_badge` |
 | SC-10 구역 완료·새 OP 열기 | S2, S8, S1-2, S4, S1-1 | `PATCH /search-areas/{searchAreaId}`, `POST /operational-periods`, `POST /handover-memos`, `SEARCH_AREA_CHANGED`, `OP_TRANSITIONED`, `HANDOVER_MEMO_CREATED` | `area`, `op_toggle`, `op_history`, `handover_memo`, `handover_status` | S2 area state + S8 OP/handover writes -> S4 `EventFanout` -> S3-2 area/op_history/handover_status/handover_memo display, S1-1 open-incident guard |
 | SC-11 인수인계·OP 비교·수색 이력 요약 | S3-2, S1-2, S8, S3-1, S2, S5, S4, S1-1 | `GET /incidents/{incidentId}/board`, `GET /search-paths`, `GET /handover-memos`, `POST /operational-periods/{operationalPeriodId}/search-history-summaries`, `HANDOVER_MEMO_CREATED`, `SEARCH_HISTORY_SUMMARY_CHANGED` | `op_toggle`, `handover_memo`, `search_history_summary` | S3-1/S2/S5 evidence + S8 handover/summary -> S4 `EventFanout` refetch signal -> S3-2 comparison and summary slots, S1-1/S1-2 access guard |
 | SC-12 사건 종료·도메인 데이터 파기 | S1-1, S1-2, S1-3, S6, S7, S4, S3-1, S3-2, S5 | §7 `POST /incidents/{incidentId}/close`, `GET /incidents/{incidentId}/events` web unsubscribe/replay stop, §4.4 `INCIDENT_CLOSED`, `INCIDENT_PURGED`, local package purge, app local close cleanup | §9.2 `incident_terminal`, `package_badge` | S1-1 close -> S1-3 purge orchestration -> S6/S7 purge hooks -> sanitized terminal/tombstone status -> S3-2 `incident_terminal`; S4 carries `INCIDENT_CLOSED`/`INCIDENT_PURGED` fanout, while S6/S7 handle local/package removal and app local close cleanup |
