@@ -134,7 +134,7 @@
   - 예상 작업량: 1d
   - 완료 기준: source owner data를 변경하지 않고 owner response version에서 BoardDTO row를 조립할 수 있다.
 
-- [ ] L6-T02B eventId 중복 제거와 오래된 refetch 차단 구현
+- [x] L6-T02B eventId 중복 제거와 오래된 refetch 차단 구현
   - 담당 Spec: S3-2
   - 필수 참조: `spec/specs/S3-2.json`, `spec/specs/S4.json`, `spec/harness-scenarios.md §0.3`
   - 연관 Spec: S4
