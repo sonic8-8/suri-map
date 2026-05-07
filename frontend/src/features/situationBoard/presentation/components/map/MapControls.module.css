@@ -27,6 +27,21 @@
   background: linear-gradient(180deg, #163967 0%, #12335f 55%, #0f2c53 100%);
 }
 
+.button:hover {
+  background: linear-gradient(180deg, #1f4779 0%, #173e70 55%, #12335f 100%);
+}
+
+.button:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+.buttonActive {
+  border-color: #8fc0ff;
+  color: #ffffff;
+  background: linear-gradient(180deg, #245f9d 0%, #1e548c 55%, #174778 100%);
+}
+
 /* 버튼 크기에 맞춰 아이콘도 함께 키운다. */
 .button svg {
   width: 22px;

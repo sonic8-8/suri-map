@@ -93,8 +93,18 @@
   display: grid;
   gap: 18px;
   margin-left: 0;
-  padding-left: 0;
+  padding-left: 28px;
   position: relative;
+}
+
+.unitList::before {
+  position: absolute;
+  top: -18px;
+  bottom: 18px;
+  left: 9px;
+  width: 1px;
+  background: color-mix(in srgb, var(--suri-board-fg-muted) 62%, var(--suri-board-border));
+  content: "";
 }
 
 .areaRowButton {
@@ -115,6 +125,16 @@
   display: grid;
   gap: 12px;
   position: relative;
+}
+
+.unitNode::before {
+  position: absolute;
+  top: 20px;
+  left: -19px;
+  width: 17px;
+  height: 1px;
+  background: color-mix(in srgb, var(--suri-board-fg-muted) 62%, var(--suri-board-border));
+  content: "";
 }
 
 /* UNIT 헤더는 자식 팀 목록을 접고 펼치는 버튼 역할을 한다. */

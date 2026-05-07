@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { legendItems } from '../../constants/mockSituationBoard';
 import styles from './MapLegend.module.css';
 
@@ -23,17 +25,34 @@ const legendSwatchClassNames: Record<string, string> = {
 };
 
 export function MapLegend() {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const handleToggleCollapsed = () => {
+    setIsCollapsed((currentState) => !currentState);
+  };
+
   return (
-    <section className={styles.legend} aria-labelledby="map-legend-title">
-      <h2 id="map-legend-title">범례</h2>
-      <div className={styles.list}>
-        {legendItems.map((item) => (
-          <div key={item.label} className={styles.row}>
-            <span className={legendSwatchClassNames[item.className] ?? styles.swatch} aria-hidden="true" />
-            <span>{item.label}</span>
-          </div>
-        ))}
-      </div>
+    <section className={`${styles.legend}${isCollapsed ? ` ${styles.collapsed}` : ''}`} aria-labelledby="map-legend-title">
+      <button
+        type="button"
+        className={styles.toggle}
+        aria-controls="map-legend-list"
+        aria-expanded={!isCollapsed}
+        onClick={handleToggleCollapsed}
+      >
+        <h2 id="map-legend-title">범례</h2>
+        <ChevronDown size={16} aria-hidden="true" />
+      </button>
+      {!isCollapsed ? (
+        <div id="map-legend-list" className={styles.list}>
+          {legendItems.map((item) => (
+            <div key={item.label} className={styles.row}>
+              <span className={legendSwatchClassNames[item.className] ?? styles.swatch} aria-hidden="true" />
+              <span>{item.label}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }

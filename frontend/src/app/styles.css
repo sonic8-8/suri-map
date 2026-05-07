@@ -187,6 +187,10 @@ button {
   background: var(--suri-board-page-bg);
 }
 
+.situation-board-page.map-expanded {
+  grid-template-rows: minmax(0, 1fr);
+}
+
 .situation-board-shell {
   position: relative;
   display: grid;

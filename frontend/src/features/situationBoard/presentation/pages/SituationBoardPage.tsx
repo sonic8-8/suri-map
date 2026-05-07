@@ -10,21 +10,32 @@ type SituationBoardPageProps = {
 
 export function SituationBoardPage({ onOpenIncidentList }: SituationBoardPageProps) {
   const { isLeftPanelCollapsed, shellClassName, toggleLeftPanelCollapsed } = useSituationBoardShell();
+  const [isMapExpanded, setIsMapExpanded] = useState(false);
   const [selectedSearchAreaId, setSelectedSearchAreaId] = useState<string | null>(null);
   const toggleSelectedSearchArea = (searchAreaId: string) => {
     setSelectedSearchAreaId((currentSearchAreaId) => (currentSearchAreaId === searchAreaId ? null : searchAreaId));
   };
+  const toggleMapExpanded = () => {
+    setIsMapExpanded((currentState) => !currentState);
+  };
 
   return (
-    <main className="situation-board-page">
-      <SituationBoardHeader onOpenIncidentList={onOpenIncidentList} />
+    <main className={`situation-board-page${isMapExpanded ? ' map-expanded' : ''}`}>
+      {isMapExpanded ? null : <SituationBoardHeader onOpenIncidentList={onOpenIncidentList} />}
       <div className={shellClassName}>
-        <SituationBoardLeftPanel
-          isCollapsed={isLeftPanelCollapsed}
-          onToggleCollapsed={toggleLeftPanelCollapsed}
+        {isMapExpanded ? null : (
+          <SituationBoardLeftPanel
+            isCollapsed={isLeftPanelCollapsed}
+            onToggleCollapsed={toggleLeftPanelCollapsed}
+            onSelectSearchArea={toggleSelectedSearchArea}
+          />
+        )}
+        <SituationBoardMap
+          isMapExpanded={isMapExpanded}
           onSelectSearchArea={toggleSelectedSearchArea}
+          onToggleMapExpanded={toggleMapExpanded}
+          selectedSearchAreaId={selectedSearchAreaId}
         />
-        <SituationBoardMap selectedSearchAreaId={selectedSearchAreaId} onSelectSearchArea={toggleSelectedSearchArea} />
       </div>
     </main>
   );

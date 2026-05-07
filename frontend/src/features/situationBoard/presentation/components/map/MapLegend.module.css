@@ -2,7 +2,7 @@
 .legend {
   position: absolute;
   z-index: 2;
-  left: 16px;
+  right: 16px;
   bottom: 16px;
   display: grid;
   gap: 8px;
@@ -14,6 +14,44 @@
 }
 
 /* 범례 제목. */
+.collapsed {
+  max-width: none;
+  padding: 0;
+}
+
+.toggle {
+  display: flex;
+  min-width: 92px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--krds-ops-fg-primary);
+  cursor: pointer;
+}
+
+.toggle svg {
+  flex: 0 0 auto;
+  transition: transform 140ms ease;
+}
+
+.toggle[aria-expanded="false"] svg {
+  transform: rotate(180deg);
+}
+
+.collapsed .toggle {
+  position: relative;
+  justify-content: center;
+  padding: 8px;
+}
+
+.collapsed .toggle svg {
+  position: absolute;
+  right: 8px;
+}
+
 .legend h2 {
   margin: 0;
   color: var(--krds-ops-fg-primary);

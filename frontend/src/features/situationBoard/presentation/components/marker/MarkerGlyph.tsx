@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import styles from './MarkerGlyph.module.css';
 
-type MarkerGlyphName = 'clue' | 'dog' | 'drone' | 'field' | 'found' | 'hand' | 'note';
+export type MarkerGlyphName = 'clue' | 'dog' | 'drone' | 'field' | 'found' | 'hand' | 'note';
 
 interface MarkerGlyphProps {
   name: MarkerGlyphName;

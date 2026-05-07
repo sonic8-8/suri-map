@@ -15,32 +15,74 @@
   inset: 0;
 }
 
-.coordinatePanel {
+.routeEditorPanel {
   position: absolute;
-  top: 16px;
-  left: 16px;
-  z-index: 2;
+  right: 16px;
+  bottom: 16px;
+  z-index: 3;
   display: grid;
-  gap: 4px;
-  min-width: 174px;
-  padding: 10px 12px;
-  border: 1px solid rgba(15, 23, 42, 0.16);
+  gap: 10px;
+  width: min(360px, calc(100% - 32px));
+  max-height: min(420px, calc(100% - 32px));
+  padding: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.18);
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.14);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
   color: #172033;
   font-size: 12px;
-  font-weight: 700;
-  line-height: 1.45;
-  pointer-events: none;
+  pointer-events: auto;
 }
 
-.coordinatePopup {
+.routeEditorHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-weight: 700;
+}
+
+.routeEditorHeader span {
+  color: #526071;
+  font-weight: 600;
+}
+
+.routeEditorCoordinates {
+  min-height: 76px;
+  max-height: 220px;
+  margin: 0;
+  padding: 8px;
+  overflow: auto;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 4px;
+  background: #f8fafc;
+  color: #172033;
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.routeEditorActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.routeEditorActions button {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid rgba(15, 23, 42, 0.18);
+  border-radius: 4px;
+  background: #ffffff;
   color: #172033;
   font-size: 12px;
   font-weight: 700;
-  line-height: 1.45;
-  white-space: nowrap;
+  cursor: pointer;
+}
+
+.routeEditorActions button:hover {
+  background: #edf6f8;
 }
 
 @media (max-width: 860px) {
