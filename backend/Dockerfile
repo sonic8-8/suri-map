@@ -3,13 +3,14 @@ FROM gradle:8.14.3-jdk17 AS base
 WORKDIR /workspace
 ENV GRADLE_USER_HOME=/home/gradle/.gradle
 
-COPY gradlew build.gradle settings.gradle ./
-COPY gradle ./gradle
+COPY backend/gradlew backend/build.gradle backend/settings.gradle ./
+COPY backend/gradle ./gradle
 RUN chmod +x ./gradlew
 RUN ./gradlew --no-daemon --build-cache help
 
 FROM base AS source
-COPY src ./src
+COPY backend/src ./src
+COPY docs /docs
 
 FROM source AS tester
 RUN ./gradlew --no-daemon --build-cache test
