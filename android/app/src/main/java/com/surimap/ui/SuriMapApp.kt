@@ -24,25 +24,26 @@ import androidx.compose.ui.unit.dp
 fun SuriMapApp() {
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background,
+        color = MaterialTheme.colorScheme.background
     ) {
         Column(
-            modifier = Modifier
+            modifier =
+            Modifier
                 .fillMaxSize()
                 .padding(20.dp),
-            verticalArrangement = Arrangement.SpaceBetween,
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
             Column {
                 Text(
                     text = "Suri-Map",
                     style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "반포 한강공원 일대",
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(20.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -52,18 +53,18 @@ fun SuriMapApp() {
             }
 
             Column(
-                modifier = Modifier
+                modifier =
+                Modifier
                     .fillMaxWidth()
                     .background(
                         color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                        shape = MaterialTheme.shapes.medium,
-                    )
-                    .padding(16.dp),
+                        shape = MaterialTheme.shapes.medium
+                    ).padding(16.dp)
             ) {
                 Text(
                     text = "수색 세션",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -79,4 +80,3 @@ fun SuriMapApp() {
         }
     }
 }
-

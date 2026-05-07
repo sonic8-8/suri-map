@@ -4,13 +4,18 @@
 
 ## 기준 문서
 
-- `spec/boundaries.md`
-- `spec/harness-scenarios.md`
-- `spec/specs/*.json`
+계약 충돌은 관심사별 단일 출처를 따른다. 이 문서는 Lane/Phase, branch, commit, MR, task 체크 기준을 다루며 API/DB 계약을 재정의하지 않는다.
 
-Lane task 정합성의 1차 기준은 위 3개 spec 문서다. `prd.md`, `architecture.md`, `adr.md`는 배경 문서로 참고하되, tasks를 확정할 때 public API, event, entity, error, annotation, board slot, SC red test, fixture 값은 `spec/boundaries.md`, `spec/harness-scenarios.md`, `spec/specs/*.json`를 우선한다.
+| 관심사 | 우선 기준 |
+|---|---|
+| Public HTTP URL, request/response, error | `docs/api/api-spec.md` |
+| Spec/Lane 소유권, entity/event/slot, channel/role matrix | `docs/spec/boundaries.md` |
+| 하네스 SC, fixture ID, e2e red test | `docs/spec/harness-scenarios.md` |
+| Spec별 owns/provides/consumes 실행 계약 | `docs/spec/specs/*.json` |
+| DB 엔티티·관계·컬럼 의미 | `docs/db-design/db-design-readable.md` |
+| Lane/Phase, 브랜치, 커밋, MR 규칙 | `docs/tasks/index.md` |
 
-과거 단일 마스터 초안과 파생 뷰/노트는 혼선을 줄이기 위해 제거했다. 기준 문서에 없는 public API, event, entity, error, annotation, board slot은 task로 만들지 않는다. 기준 문서 수정이 필요하면 먼저 보고한다.
+`prd.md`, `architecture.md`, `adr.md`는 배경 문서로 참고한다. 기준 문서에 없는 public API, event, entity, error, annotation, board slot은 task로 만들지 않는다. 기준 문서 수정이 필요하면 먼저 보고한다.
 
 ## 운영 보조 문서
 
@@ -22,7 +27,7 @@ Lane task 정합성의 1차 기준은 위 3개 spec 문서다. `prd.md`, `archit
 | Lane | 파일 | 담당 Spec | 주요 하네스 |
 |---|---|---|---|
 | L1 | [L1-tasks.md](./L1-tasks.md) | S1-1 | SC-01, SC-02, SC-12 |
-| L2 | [L2-tasks.md](./L2-tasks.md) | S1-2, S1-3, S4 | auth/device, event hub, purge |
+| L2 | [L2-tasks.md](./L2-tasks.md) | S1-2, S1-3, S4 | auth/policePhone, event hub, purge |
 | L3 | [L3-tasks.md](./L3-tasks.md) | S2, S8 | SC-04, SC-10, SC-11 backend |
 | L4 | [L4-tasks.md](./L4-tasks.md) | S3-1, S6 | SC-05, SC-07, SC-09 |
 | L5 | [L5-tasks.md](./L5-tasks.md) | S5 | SC-06, SC-08 |
@@ -87,6 +92,8 @@ Jira/GitLab 작업 도구는 `acli`와 `glab`을 전제로 한다. 이 문서는
 
 Git Flow branch prefix를 사용한다.
 
+일반 개발 task는 `develop`을 base branch와 MR target으로 사용한다. 릴리즈 branch와 운영 hotfix는 해당 릴리즈/운영 기준 branch를 명시한 뒤 진행한다.
+
 | 목적 | 형식 | 예시 |
 |---|---|---|
 | 기능 개발 | `feature/<JIRA-KEY>-<scope-slug>` | `feature/SURI-123-incident-import` |
@@ -98,11 +105,17 @@ Git Flow branch prefix를 사용한다.
 
 ## 커밋 및 MR 규칙
 
-Angular-style Conventional Commits에 area tag와 Jira issue suffix를 붙인다.
+Angular-style Conventional Commits에 필요한 경우 runtime area tag와 Jira issue suffix를 붙인다.
 
 형식:
 
-`[Area] type(scope): 한글 요약 (<JIRA-KEY>)`
+`[Area] type[(scope)]: 한글 요약 (<JIRA-KEY>)`
+
+또는 직접 영향받는 runtime/infra area가 없으면:
+
+`type[(scope)]: 한글 요약 (<JIRA-KEY>)`
+
+scope는 optional이다. Angular Convention의 scope처럼 영향받는 제품 domain/module/package가 명확할 때만 적는다. area tag(`BE`, `FE`, `Android`, `Infra`)를 scope에 반복하지 않는다.
 
 허용 area tag:
 
@@ -112,19 +125,21 @@ Angular-style Conventional Commits에 area tag와 Jira issue suffix를 붙인다
 | `[FE]` | Web 상황판, React, Web MapLibre UI |
 | `[Android]` | Android app, Room/Outbox/WorkManager, MapLibre Native |
 | `[Infra]` | Docker, CI/CD, 배포, tile server 운영, observability |
-| `[Docs]` | ADR, architecture, spec, task, workflow 문서 |
 
-하나의 MR이 실제로 여러 runtime area를 건드리면 제목 앞에 `[BE][FE][Android][Infra]` 순서로 여러 tag를 붙인다. 순수 문서·계약 변경은 `[Docs]` 하나만 사용한다.
+하나의 MR이 실제로 여러 runtime area를 건드리면 제목 앞에 `[BE/FE/Android/Infra]`처럼 하나의 대괄호 안에 `/`로 area를 구분하고, 순서는 `BE`, `FE`, `Android`, `Infra`를 따른다. 실제로 영향받지 않는 area는 넣지 않는다. 문서·계약 변경도 별도 `[Docs]` tag를 쓰지 않고, 영향을 받는 runtime/infra area만 표시한다. 특정 runtime/infra에 직접 귀속되지 않는 공통 문서·workflow·agent tooling 변경은 area tag를 생략한다.
 
-계약 또는 문서 변경은 별도 `[Contract]`, `[Spec]` tag를 만들지 않고 `[Docs]`를 사용한다. 실제 Docker, CI/CD, 배포, observability 설정 변경은 `[Infra]`를 사용한다.
+계약 변경은 별도 `[Contract]`, `[Spec]`, `[Docs]` tag를 만들지 않고 영향을 받는 runtime/infra area만 표시한다. scope는 영향받는 제품 domain/module/package가 명확할 때만 붙이고, cross-domain contract/schema 정렬처럼 특정 모듈로 좁히기 어려우면 생략한다. 실제 Docker, CI/CD, 배포, observability 설정 변경만 `[Infra]`를 사용한다. `[Infra]`를 공통 문서·agent tooling의 fallback으로 쓰지 않는다.
 
 허용 type:
 
-`feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `ci`, `build`
+`feat`, `fix`, `refactor`, `style`, `test`, `docs`, `chore`, `ci`, `build`
 
-허용 scope:
+Scope 원칙:
 
-`incident`, `auth`, `device`, `retention`, `event`, `boundary`, `area`, `path`, `sync`, `marker`, `photo`, `notification`, `board`, `package`, `tiles`, `op`, `handover`, `ai`, `contract`, `infra`, `docs`
+- scope는 고정 whitelist로 관리하지 않는다.
+- 제품 domain/module/package가 명확할 때만 붙인다.
+- 문서 정리, agent/workflow/tooling, guardrail, repo-wide style 변경은 scope를 생략한다.
+- 어느 scope가 맞는지 설명이 필요할 정도로 애매하면 생략한다.
 
 예시:
 
@@ -132,8 +147,10 @@ Angular-style Conventional Commits에 area tag와 Jira issue suffix를 붙인다
 - `[FE] fix(board): 단말 최신성 표시 상태 정렬 (SURI-124)`
 - `[Android] test(sync): 오프라인 재전송 하네스 추가 (SURI-125)`
 - `[Infra] chore(tiles): 로컬 타일 서버 설정 정리 (SURI-126)`
-- `[BE][FE] refactor(contract): BaseEvent 스키마 필드명 정렬 (SURI-127)`
-- `[Docs] docs(tasks): Lane 작업 규칙 보강 (SURI-128)`
+- `[BE/FE] refactor: BaseEvent 스키마 필드명 정렬 (SURI-127)`
+- `docs: Lane 작업 규칙 보강 (SURI-128)`
+- `[BE/FE/Android] style: lint 기준 스타일 정리 (SURI-129)`
+- `chore: Codex/Claude 공유 작업 스킬 추가 (SURI-130)`
 
 MR 제목은 commit 제목과 같은 형식을 사용한다. MR 설명에는 Jira key, 완료한 task ID, 수정한 기준 문서, 검증 명령/결과, 영향받는 Lane을 적는다. `spec/boundaries.md` 또는 `spec/harness-scenarios.md` 수정이 필요하면 편집 전에 보고하고, 승인된 변경 내용을 MR에 남긴다.
 
@@ -143,7 +160,7 @@ MR 제목은 commit 제목과 같은 형식을 사용한다. MR 설명에는 Jir
 |---|---|---|
 | Phase -1 | 프로젝트 부트스트랩 | 개발 서버, DB, 앱/웹/백엔드 기본 실행, CI skeleton, local tile/mock infra처럼 모든 Lane을 막는 실행 기반을 먼저 만든다. |
 | Phase 0 | 계약·fixture·red test 골격 | 다른 Lane 없이 mock으로 실패 테스트를 먼저 만들 수 있어야 한다. |
-| Phase 1 | 최소 happy path | 가장 작은 end-to-end 흐름을 통과시키되 예외·재시도·projection lag는 아직 최소화한다. |
+| Phase 1 | 최소 happy path | 가장 작은 end-to-end 흐름을 통과시키되 예외·재시도·board API refetch lag는 아직 최소화한다. |
 | Phase 2 | 도메인 완성도 | 권한, 상태 전이, 버전, 이력, idempotency 등 핵심 규칙을 붙인다. |
 | Phase 3 | 통합·오프라인·종료·실패 경로 | S4 event, S3-2 board, S6 offline, purge/stale/failure injection을 붙인다. |
 | Phase 4 | Lane 하네스 closure | Lane 단독 PASS 후 관련 SC 최종 PASS blocker를 제거한다. |
@@ -154,9 +171,9 @@ MR 제목은 commit 제목과 같은 형식을 사용한다. MR 설명에는 Jir
 | 영역 | 담당 | 기대 산출물 |
 |---|---|---|
 | Backend runtime과 migration runner | L2 | Spring Boot base, PostgreSQL migration runner, MyBatis configuration, auth/event/purge test skeleton |
-| 공간 DB와 geometry fixture | L3 | PostGIS extension 전제 확인, MyBatis geometry TypeHandler 검증, canonical boundary/area fixture |
+| 공간 DB와 geometry fixture | L3 | PostGIS extension 전제 확인, MyBatis geometry TypeHandler 검증, canonical overall_search_area/area fixture |
 | Android runtime과 offline local test harness | L4 | Android project base, Room/WorkManager deterministic test harness |
-| Object storage와 FCM mock adapter | L5 | MinIO-compatible dev adapter, mock object storage/presign endpoint, FCM dispatcher fixture |
+| Object storage와 FCM mock adapter | L5 | MinIO-compatible dev adapter, mock object storage/upload URL(presigned URL for upload) endpoint, FCM dispatcher fixture |
 | Web, MapLibre, tileserver, compose entrypoint | L6 | React/MapLibre base, local `/tiles` route, Docker Compose service map |
 | Seed/demo incident data | L1 | 모든 Lane이 사용할 수 있는 mock·seed incident import data |
 
@@ -166,10 +183,10 @@ MR 제목은 commit 제목과 같은 형식을 사용한다. MR 설명에는 Jir
 
 | 선행 task | 완료 후 시작 가능한 Phase 0 | 비고 |
 |---|---|---|
-| `L1-B01` | L1 Phase 0, L3/L5/L6의 incident fixture 소비 test | 공용 mock·seed incident ID와 membership seed가 고정되어야 한다. |
+| `L1-B01` | L1 Phase 0, L3/L5/L6의 incident fixture 소비 test | 공용 mock·seed incident ID와 incident_assignment seed가 고정되어야 한다. |
 | `L2-B01` | L1/L2/L3/L5 backend Phase 0 | Spring Boot test profile, migration runner, MyBatis mapper scan이 준비되어야 backend red test를 안정적으로 실행한다. |
 | `L2-B02` | 모든 backend API guard red test | auth/security filter baseline이 없으면 각 Lane은 L2 mock guard로만 시작한다. |
-| `L2-B03A` | 모든 event-producing Phase 0 | real outbox 전에는 mock publish hook으로 event RED test를 시작한다. |
+| `L2-B03A` | 모든 event-producing Phase 0 | real event_dispatch_job 전에는 mock publish hook으로 event RED test를 시작한다. |
 | `L2-B03B` | L1/L4/L5/L6 close/purge Phase 0 | real purge 전에는 mock purge hook registry로 SC-12 RED test를 시작한다. |
 | `L3-B01` | L3 Phase 0, L4/L5 geometry validation RED test, L6 package/board geometry fixture | PostGIS geometry mapping과 canonical bbox/polygon fixture가 준비되어야 geometry exactness를 맞출 수 있다. |
 | `L4-B01` | L4 Phase 0, Android local/offline RED test | Android runtime 없이 backend-only mock으로 시작한 task는 Android evidence 전까지 완료하지 않는다. |
@@ -191,36 +208,36 @@ MR 제목은 commit 제목과 같은 형식을 사용한다. MR 설명에는 Jir
 
 | 계약 | 담당 | 막는 범위 |
 |---|---|---|
-| Account/Device/Auth fixture | L2/S1-2 | 전체 Lane |
+| Account/PolicePhone/Auth fixture | L2/S1-2 | 전체 Lane |
 | Event envelope, EventHub, SSE replay | L2/S4 | 모든 write/event path |
-| Geometry fixture, `MapBoundaryQuery` | L3/S2 | L4 path, L5 marker, L6 package/board |
+| Geometry fixture, `SearchAreaQuery.overallOf` | L3/S2 | L4 path, L5 marker, L6 package/board |
 | OP query/current OP | L3/S8 | L1 bootstrap, L4 path, L5 marker, L6 package/board |
 | Idempotency/outbox contract | L4/S6 | L3/S2/S8, L5/S5, L6/S7 app writes |
-| Board slot registry and snapshot convergence | L6/S3-2 | SC-02 ~ SC-12 board merge |
+| Board slot registry and board API convergence | L6/S3-2 | SC-02 ~ SC-12 board merge |
 
 ## SC 통합 책임
 
 | SC | 통합 담당 | 협업 Lane | 필요한 Board Merge |
 |---|---|---|---|
 | SC-01 배정 사건 가져오기·초동 활성화 | L1 | L2, L3, L5 | - |
-| SC-02 실종팀 인계·지원 부대 배정 | L1 | L2, L3, L4, L5, L6 | `path`, `marker`, `handover_status`, `op_history` |
+| SC-02 실종팀 인계·112/mock 지원 배정 | L1 | L2, L3, L4, L5, L6 | `path`, `marker`, `handover_status`, `op_history` |
 | SC-03 사건 오프라인 패키지 사전 적재 | L6 | L1, L2, L3, L5 | `package_badge` |
-| SC-04 지도 기준 범위·구역 분할·할당 | L3 | L1, L2, L6 | `map_boundary`, `area` |
-| SC-05 수색 세션·Device GPS 경로 | L4 | L2, L3, L6 | `path`, `device_freshness` |
+| SC-04 전체 수색 구역·구역 분할·할당 | L3 | L1, L2, L6 | `overall_search_area`, `area` |
+| SC-05 수색 경로·PolicePhone GPS 경로 | L4 | L2, L3, L6 | `path`, `police_phone_freshness` |
 | SC-06 현장 마커 생성 | L5 | L2, L3, L4, L6 | `marker` |
 | SC-07 통신 단절 중 로컬 기록 | L4 | L2, L5, L6 | - |
 | SC-08 지원 요청·실종자 발견 알림 | L5 | L1, L2, L3, L4, L6 | `marker`, `toast` |
-| SC-09 통신 복구·동기화 | L4 | L2, L5, L6 | `path`, `marker`, `device_freshness` |
+| SC-09 통신 복구·동기화 | L4 | L2, L5, L6 | `path`, `marker`, `police_phone_freshness` |
 | SC-10 구역 완료·새 OP 열기 | L3 | L1, L2, L6 | `area`, `op_toggle`, `op_history`, `handover_memo`, `handover_status` |
-| SC-11 인수인계·OP 비교·AI 요약 | L6 | L1, L2, L3, L4, L5 | `op_toggle`, `handover_memo`, `ai_summary` |
-| SC-12 사건 종료·캐시 파기 | L1 | L2, L4, L5, L6 | `incident_terminal`, `package_badge` |
+| SC-11 인수인계·OP 비교·수색 이력 요약 | L6 | L1, L2, L3, L4, L5 | `op_toggle`, `handover_memo`, `search_history_summary` |
+| SC-12 사건 종료·데이터 파기 | L1 | L2, L4, L5, L6 | `incident_terminal`, `package_badge` |
 
 ## 공통 규칙
 
 - Lane 담당자는 자기 Lane의 implementation, fixture, mock adapter, red test를 책임진다.
 - 다른 Lane 구현은 `provides` 계약 mock/fixture로 대체할 수 있어야 한다.
 - 다른 Lane의 entity, API, event payload, board shell 파일을 수정하려면 해당 담당자의 LGTM이 필요하다.
-- S4 event envelope/outbox/SSE 계약은 L2가 실구현 담당이다. Domain Spec은 event payload와 publish request만 책임진다.
+- S4 event envelope/event_dispatch_job/SSE 계약은 L2가 실구현 담당이다. Domain Spec은 event payload와 publish request만 책임진다.
 - S3-2 board shell, routing, layout, slot mounting, shared state, final merge는 L6/S3-2가 단독 소유한다.
 - Lane task의 `관련 FR`은 반드시 담당 Spec에 mapping된 FR을 뜻한다. 다른 Spec의 FR을 지원만 하는 경우에는 담당 범위를 넓히지 말고 `지원 FR`로 적는다.
 - `FR-23`은 독립 기능 task가 아니다. 자동 누락 확정, 다음 구역 추천, 위험도 판단 금지 조건으로 S2/S3-2/S8 task에 붙인다.
