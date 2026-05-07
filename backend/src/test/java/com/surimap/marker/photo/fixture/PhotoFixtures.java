@@ -68,8 +68,8 @@ public final class PhotoFixtures {
         PHOTO_ID_1,
         MARKER_ID,
         INCIDENT_ID,
-        JPEG_CONTENT_TYPE,
-        VALID_SIZE_BYTES,
+        jpegMetadata(VALID_SIZE_BYTES, CHECKSUM_SHA256),
+        null,
         STATUS_PENDING_UPLOAD,
         Instant.now().plusSeconds(900), // TTL 15분
         null);
@@ -82,17 +82,27 @@ public final class PhotoFixtures {
 
   /** upload는 완료됐지만 attach 전인 mock 관찰용 context. */
   public static PhotoContext uploadedPhoto() {
-    return pendingUploadPhoto();
-  }
-
-  /** ATTACHED 상태의 photo context. 업로드 완료 후 metadata 검증이 통과된 최종 상태. */
-  public static PhotoContext attachedPhoto() {
+    var metadata = jpegMetadata(VALID_SIZE_BYTES, CHECKSUM_SHA256);
     return new PhotoContext(
         PHOTO_ID_1,
         MARKER_ID,
         INCIDENT_ID,
-        JPEG_CONTENT_TYPE,
-        VALID_SIZE_BYTES,
+        metadata,
+        metadata,
+        STATUS_PENDING_UPLOAD,
+        Instant.now().plusSeconds(900),
+        null);
+  }
+
+  /** ATTACHED 상태의 photo context. 업로드 완료 후 metadata 검증이 통과된 최종 상태. */
+  public static PhotoContext attachedPhoto() {
+    var metadata = jpegMetadata(VALID_SIZE_BYTES, CHECKSUM_SHA256);
+    return new PhotoContext(
+        PHOTO_ID_1,
+        MARKER_ID,
+        INCIDENT_ID,
+        metadata,
+        metadata,
         STATUS_ATTACHED,
         null,
         Instant.now());
@@ -109,8 +119,8 @@ public final class PhotoFixtures {
         PHOTO_ID_1,
         MARKER_ID,
         INCIDENT_ID,
-        JPEG_CONTENT_TYPE,
-        VALID_SIZE_BYTES,
+        jpegMetadata(VALID_SIZE_BYTES, CHECKSUM_SHA256),
+        null,
         STATUS_FAILED,
         Instant.now().minusSeconds(60), // 이미 만료
         null);
@@ -122,8 +132,8 @@ public final class PhotoFixtures {
         PHOTO_ID_2,
         MARKER_ID,
         INCIDENT_ID,
-        JPEG_CONTENT_TYPE,
-        OVERSIZED_BYTES, // 제한 초과
+        jpegMetadata(VALID_SIZE_BYTES, CHECKSUM_SHA256),
+        jpegMetadata(OVERSIZED_BYTES, CHECKSUM_SHA256),
         STATUS_FAILED,
         Instant.now().plusSeconds(600),
         null);
@@ -135,20 +145,40 @@ public final class PhotoFixtures {
         PHOTO_ID_2,
         MARKER_ID,
         INCIDENT_ID,
-        PNG_CONTENT_TYPE,
-        VALID_SIZE_BYTES, // upload URL은 JPEG인데 PNG로 업로드
+        jpegMetadata(VALID_SIZE_BYTES, CHECKSUM_SHA256),
+        new PhotoMetadata(PNG_CONTENT_TYPE, VALID_SIZE_BYTES, CHECKSUM_SHA256),
         STATUS_FAILED,
         Instant.now().plusSeconds(600),
         null);
   }
+
+  /** FAILED: checksum 불일치 photo context. upload URL 발급 시 기대한 checksum과 실제 업로드 checksum이 다름. */
+  public static PhotoContext failedPhoto_checksumMismatch() {
+    return new PhotoContext(
+        PHOTO_ID_2,
+        MARKER_ID,
+        INCIDENT_ID,
+        jpegMetadata(FIXTURE_ONE_MB_BYTES, CHECKSUM_SHA256),
+        jpegMetadata(FIXTURE_ONE_MB_BYTES, CHECKSUM_MISMATCH_SHA256),
+        STATUS_FAILED,
+        Instant.now().plusSeconds(600),
+        null);
+  }
+
+  private static PhotoMetadata jpegMetadata(long sizeBytes, String checksumSha256) {
+    return new PhotoMetadata(JPEG_CONTENT_TYPE, sizeBytes, checksumSha256);
+  }
+
+  /** upload URL 발급 기대값 또는 실제 업로드 관찰값을 표현하는 photo metadata fixture. */
+  public record PhotoMetadata(String contentType, long sizeBytes, String checksumSha256) {}
 
   /** Photo lifecycle에서 사용하는 불변 context 객체. */
   public record PhotoContext(
       UUID photoId,
       UUID markerId,
       UUID incidentId,
-      String contentType,
-      long sizeBytes,
+      PhotoMetadata expectedMetadata,
+      PhotoMetadata actualUploadMetadata,
       String status,
       Instant uploadUrlExpiresAt,
       Instant attachedAt) {}

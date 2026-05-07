@@ -75,6 +75,69 @@ class MockObjectStorageTest {
   }
 
   @Test
+  void failedPhotoFixturesSeparateExpectedMetadataFromActualUploadMetadata() {
+    var sizeMismatch = PhotoFixtures.failedPhoto_sizeMismatch();
+    assertThat(sizeMismatch.expectedMetadata().contentType())
+        .isEqualTo(PhotoFixtures.JPEG_CONTENT_TYPE);
+    assertThat(sizeMismatch.expectedMetadata().sizeBytes())
+        .isEqualTo(PhotoFixtures.VALID_SIZE_BYTES);
+    assertThat(sizeMismatch.expectedMetadata().checksumSha256())
+        .isEqualTo(PhotoFixtures.CHECKSUM_SHA256);
+    assertThat(sizeMismatch.actualUploadMetadata().contentType())
+        .isEqualTo(PhotoFixtures.JPEG_CONTENT_TYPE);
+    assertThat(sizeMismatch.actualUploadMetadata().sizeBytes())
+        .isEqualTo(PhotoFixtures.OVERSIZED_BYTES);
+    assertThat(sizeMismatch.actualUploadMetadata().checksumSha256())
+        .isEqualTo(PhotoFixtures.CHECKSUM_SHA256);
+
+    var contentTypeMismatch = PhotoFixtures.failedPhoto_contentTypeMismatch();
+    assertThat(contentTypeMismatch.expectedMetadata().contentType())
+        .isEqualTo(PhotoFixtures.JPEG_CONTENT_TYPE);
+    assertThat(contentTypeMismatch.actualUploadMetadata().contentType())
+        .isEqualTo(PhotoFixtures.PNG_CONTENT_TYPE);
+    assertThat(contentTypeMismatch.expectedMetadata().sizeBytes())
+        .isEqualTo(contentTypeMismatch.actualUploadMetadata().sizeBytes());
+    assertThat(contentTypeMismatch.expectedMetadata().checksumSha256())
+        .isEqualTo(contentTypeMismatch.actualUploadMetadata().checksumSha256());
+
+    var checksumMismatch = PhotoFixtures.failedPhoto_checksumMismatch();
+    assertThat(checksumMismatch.expectedMetadata().checksumSha256())
+        .isEqualTo(PhotoFixtures.CHECKSUM_SHA256);
+    assertThat(checksumMismatch.actualUploadMetadata().checksumSha256())
+        .isEqualTo(PhotoFixtures.CHECKSUM_MISMATCH_SHA256);
+    assertThat(checksumMismatch.expectedMetadata().contentType())
+        .isEqualTo(checksumMismatch.actualUploadMetadata().contentType());
+    assertThat(checksumMismatch.expectedMetadata().sizeBytes())
+        .isEqualTo(checksumMismatch.actualUploadMetadata().sizeBytes());
+  }
+
+  @Test
+  void contentTypeMismatchFixtureRecreatesJpegPresignThenPngUpload() {
+    var photo = PhotoFixtures.failedPhoto_contentTypeMismatch();
+    var expected = photo.expectedMetadata();
+    var actual = photo.actualUploadMetadata();
+    String objectKey =
+        keyGenerator.generate(
+            photo.incidentId(), photo.markerId(), photo.photoId(), expected.contentType());
+
+    var result =
+        storage.generatePresignedUrl(
+            objectKey,
+            expected.contentType(),
+            expected.sizeBytes(),
+            expected.checksumSha256(),
+            Duration.ofMinutes(15));
+    storage.simulateUpload(
+        objectKey, actual.contentType(), actual.sizeBytes(), actual.checksumSha256());
+
+    assertThat(result.contentType()).isEqualTo(PhotoFixtures.JPEG_CONTENT_TYPE);
+    assertThat(objectKey).endsWith(".jpg");
+    var metadata = storage.headObject(objectKey);
+    assertThat(metadata).isPresent();
+    assertThat(metadata.get().contentType()).isEqualTo(PhotoFixtures.PNG_CONTENT_TYPE);
+  }
+
+  @Test
   void uploadUrlReturnsCanonicalUploadUrlAndExpiresAt() {
     String objectKey =
         keyGenerator.generate(
@@ -378,34 +441,36 @@ class MockObjectStorageTest {
   void photoFixturesAreUsableWithMockStorage() {
     // PhotoFixtures의 값들이 mock storage에서 정상 동작하는지 통합 검증
     var photo = PhotoFixtures.pendingUploadPhoto();
+    var expected = photo.expectedMetadata();
     String objectKey =
         keyGenerator.generate(
-            photo.incidentId(), photo.markerId(), photo.photoId(), photo.contentType());
+            photo.incidentId(), photo.markerId(), photo.photoId(), expected.contentType());
 
     // upload URL 발급
     var result =
         storage.generatePresignedUrl(
-            objectKey, photo.contentType(), photo.sizeBytes(), Duration.ofMinutes(15));
+            objectKey, expected.contentType(), expected.sizeBytes(), Duration.ofMinutes(15));
     assertThat(result.uploadUrl()).isNotBlank();
 
     // upload
-    storage.simulateUpload(objectKey, photo.contentType(), photo.sizeBytes());
+    storage.simulateUpload(objectKey, expected.contentType(), expected.sizeBytes());
 
     // head → 확인
     var metadata = storage.headObject(objectKey);
     assertThat(metadata).isPresent();
-    assertThat(metadata.get().sizeBytes()).isEqualTo(photo.sizeBytes());
+    assertThat(metadata.get().sizeBytes()).isEqualTo(expected.sizeBytes());
   }
 
   @Test
   void failedPhotoFixture_ttlExpiredScenario() {
     var photo = PhotoFixtures.failedPhoto_ttlExpired();
+    var expected = photo.expectedMetadata();
     String objectKey =
         keyGenerator.generate(
-            photo.incidentId(), photo.markerId(), photo.photoId(), photo.contentType());
+            photo.incidentId(), photo.markerId(), photo.photoId(), expected.contentType());
 
     storage.generatePresignedUrl(
-        objectKey, photo.contentType(), photo.sizeBytes(), Duration.ofMinutes(15));
+        objectKey, expected.contentType(), expected.sizeBytes(), Duration.ofMinutes(15));
     storage.simulateExpiry(objectKey);
 
     // TTL 만료 확인
