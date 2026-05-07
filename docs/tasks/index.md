@@ -227,7 +227,7 @@ MR 제목은 commit 제목과 같은 형식을 사용한다. MR 설명에는 Jir
 | SC-06 현장 마커 생성 | L5 | L2, L3, L4, L6 | `marker` |
 | SC-07 통신 단절 중 로컬 기록 | L4 | L2, L5, L6 | - |
 | SC-08 지원 요청·실종자 발견 알림 | L5 | L1, L2, L3, L4, L6 | `marker`, `toast` |
-| SC-09 통신 복구·동기화 | L4 | L2, L5, L6 | `path`, `marker`, `police_phone_freshness` |
+| SC-09 통신 복구·동기화 | L4 | L2, L5, L6 | `path`, `marker`, `police_phone_freshness`, `package_badge` |
 | SC-10 구역 완료·새 OP 열기 | L3 | L1, L2, L6 | `area`, `op_toggle`, `op_history`, `handover_memo`, `handover_status` |
 | SC-11 인수인계·OP 비교·수색 이력 요약 | L6 | L1, L2, L3, L4, L5 | `op_toggle`, `handover_memo`, `search_history_summary` |
 | SC-12 사건 종료·데이터 파기 | L1 | L2, L4, L5, L6 | `incident_terminal`, `package_badge` |

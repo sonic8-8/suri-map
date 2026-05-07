@@ -234,7 +234,7 @@
           "priority": 50,
           "blocks": [],
           "examples": [
-            "POST /incidents/{incidentId}/offline-package/status"
+            "POST /incidents/{incidentId}/offline-package/installations"
           ]
         }
       ],
@@ -267,10 +267,10 @@
       ],
       "final_errors": [
         "invalid_payload",
-        "body_hash_mismatch",
+        "request_body_hash_mismatch",
         "idempotency_mismatch",
-        "device_not_registered",
-        "device_not_assigned",
+        "police_phone_not_registered",
+        "police_phone_not_assigned",
         "channel_not_allowed",
         "role_denied",
         "write_conflict",
@@ -338,8 +338,8 @@
       "rawLastErrorVisibility": "internal/local diagnostics only",
       "userSafeCategories": {
         "CLOCK_RESYNC_REQUIRED": "clock_skew_exceeded or stale clock sync; show /sync/clock retry CTA",
-        "NON_RETRYABLE_CONFLICT": "idempotency_mismatch, invalid_payload, body_hash_mismatch, write_conflict; stop automatic retry and ask user review",
-        "DEVICE_ACCESS_REQUIRED": "device_required, device_not_registered, device_not_assigned; show device/session repair guidance",
+        "NON_RETRYABLE_CONFLICT": "idempotency_mismatch, invalid_payload, request_body_hash_mismatch, write_conflict; stop automatic retry and ask user review",
+        "DEVICE_ACCESS_REQUIRED": "police_phone_required, police_phone_not_registered, police_phone_not_assigned; show PolicePhone/session repair guidance",
         "CLOSED_NO_RETRY": "incident_closed or post_close_requeue_rejected; mark final failure with no retry CTA",
         "RETRYABLE_NETWORK": "network_unavailable, timeout, 408/429/5xx; show nextAttemptAt and retry count"
       }
@@ -1097,8 +1097,8 @@
       },
       {
         "from_spec": "S7",
-        "interface": "POST /incidents/{incidentId}/offline-package/status, offline package local availability, PACKAGE_STATUS_CHANGED",
-        "usage": "package status writeOperation을 큐잉·replay하고 지도 미다운로드/PACKAGE_MISSING local warning input으로 소비한다."
+        "interface": "POST /incidents/{incidentId}/offline-package/installations, offline package local availability, OFFLINE_PACKAGE_INSTALLATION_CHANGED",
+        "usage": "package installation writeOperation을 큐잉·replay하고 지도 미다운로드/PACKAGE_MISSING local warning input으로 소비한다."
       },
       {
         "from_spec": "S1-1",
@@ -1230,9 +1230,9 @@
       },
       {
         "spec": "S7",
-        "contract": "package availability/status for local PACKAGE_MISSING warning and offline-package/status replay DTO",
-        "stub_strategy": "Local fake PackageAvailabilityStore with complete, missing, stale cases plus package status writeOperation replay fixture.",
-        "replaced_by_real_at": "S7 package status PASS"
+        "contract": "package availability/idempotency_status for local PACKAGE_MISSING warning and POST /incidents/{incidentId}/offline-package/installations replay DTO",
+        "stub_strategy": "Local fake PackageAvailabilityStore with complete, missing, stale cases plus package installation writeOperation replay fixture.",
+        "replaced_by_real_at": "S7 package installation PASS"
       },
       {
         "spec": "S1-3",
@@ -1318,9 +1318,9 @@
       "fr_refs": [
         "FR-03"
       ],
-      "given": "S7 fixture가 PACKAGE_STATUS_CHANGED 또는 offline-package/status writeOperation을 제공하고 같은 operation이 동일 idempotencyKey/bodyHash로 replay된다",
-      "when": "WorkManager가 package status row를 재전송하거나 서버가 기존 sync_event를 replay한다",
-      "then": "S7 package status 응답 DTO의 status, manifestVersion, entityVersion이 responseBodyJson에 캐시되어 동일하게 replay되고 PACKAGE_STATUS_CHANGED가 중복 발행되지 않는다.",
+      "given": "S7 fixture가 OFFLINE_PACKAGE_INSTALLATION_CHANGED 또는 POST /incidents/{incidentId}/offline-package/installations writeOperation을 제공하고 같은 operation이 동일 idempotencyKey/requestBodyHash로 replay된다",
+      "when": "WorkManager가 package installation row를 재전송하거나 서버가 기존 idempotency_record를 replay한다",
+      "then": "S7 package installation 응답 DTO의 idempotency_status, manifestVersion, entityVersion이 responseBodyJson에 캐시되어 동일하게 replay되고 OFFLINE_PACKAGE_INSTALLATION_CHANGED가 중복 발행되지 않는다.",
       "priority": "critical"
     },
     {
@@ -1397,7 +1397,7 @@
     "domain commit은 성공했지만 sync_event.response_body_json write 전에 장애가 발생한 replay",
     "INCIDENT_CLOSED 처리 전 생성된 pre-close row와 처리 후 생성된 post-close row가 같은 flush cycle에 섞인 경우",
     "MARKER parent 실패로 PHOTO dependency만 대기하고 PATH/PACKAGE_STATUS는 계속 진행해야 하는 partial failure",
-    "S7 package status replay 중 PACKAGE_STATUS_CHANGED event 중복 발행 위험"
+    "S7 package installation replay 중 OFFLINE_PACKAGE_INSTALLATION_CHANGED event 중복 발행 위험"
   ],
   "error_handling": {
     "network_unavailable": "Outbox row를 PENDING 또는 FAILED_RETRYABLE로 유지하고 baseDelayMs=10000, multiplier=2.0, maxDelayMs=300000 backoff를 적용한다.",
@@ -1459,7 +1459,7 @@
       {
         "name": "PackageStatusReplayUsesS7FixtureTest",
         "framework": "JUnit 5 + MockMvc",
-        "scenario": "S7 offline-package/status writeOperation은 responseBodyJson에 status/manifestVersion/entityVersion을 저장하고 동일 replay에서 PACKAGE_STATUS_CHANGED를 중복 발행하지 않는다."
+        "scenario": "S7 POST /incidents/{incidentId}/offline-package/installations writeOperation은 responseBodyJson에 idempotency_status/manifestVersion/entityVersion을 저장하고 동일 replay에서 OFFLINE_PACKAGE_INSTALLATION_CHANGED를 중복 발행하지 않는다."
       },
       {
         "name": "ClosedIncidentPreCloseVsPostClosePolicyTest",
@@ -1577,13 +1577,13 @@
         {
           "operationId": "op-outbox-photo-001",
           "outboxId": "outbox-photo-001",
-          "idempotencyKey": "idem-photo-finalize-001",
-          "bodyHash": "sha256:photo-finalize-clue-001",
+          "idempotencyKey": "idem-photo-attach-001",
+          "bodyHash": "sha256:photo-attach-clue-001",
           "dependencyGroup": "PHOTO",
           "parentOperationId": "op-outbox-marker-001",
           "sequence": 602,
           "method": "POST",
-          "endpoint": "POST /markers/{markerId}/photos/{photoId}/finalize"
+          "endpoint": "POST /markers/{markerId}/photos/{photoId}/attach"
         }
       ],
       "markerId": "mk-precinct-clue-001",
@@ -1674,24 +1674,26 @@
         "id": "pkg-status-precinct-001",
         "status": "READY",
         "version": 3,
-        "manifestRevision": 1,
-        "manifestVersion": "tile-manifest-inc-precinct-001-v1",
+        "manifestVersion": 1,
         "readyForOfflineUse": true
       },
       "expectedS4Event": {
         "eventId": "evt-s7-package-status-001",
-        "type": "PACKAGE_STATUS_CHANGED",
+        "type": "OFFLINE_PACKAGE_INSTALLATION_CHANGED",
         "payloadId": "pkg-status-precinct-001",
         "payloadStatus": "READY",
         "payloadVersion": 3,
-        "sequence": 901
+        "sequence": 901,
+        "manifestVersion": 1
       },
       "expectedBoardProbe": {
         "slot": "package_badge",
         "id": "pkg-status-precinct-001",
         "status": "READY",
         "minimumVersion": 3,
-        "sequence": 901
+        "sequence": 901,
+        "manifestVersion": 1,
+        "preConvergenceState": "STALE_REFETCH"
       }
     },
     "sc12_close_requeue": {
@@ -1718,8 +1720,8 @@
         "retryable": false
       },
       {
-        "operationId": "op-fail-device-001",
-        "lastError": "device_not_assigned",
+        "operationId": "op-fail-PolicePhone-001",
+        "lastError": "police_phone_not_assigned",
         "userSafeFailureCategory": "DEVICE_ACCESS_REQUIRED",
         "retryable": false
       },

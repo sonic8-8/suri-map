@@ -49,7 +49,7 @@
   - 관련 FR: FR-21, FR-31
   - 구현 산출물: offline_package_manifest contract fixture, manifest fixture builder, missing_person/OP/area/marker/overall_search_area/tile item contract tests, SC-03 tile fixture exactness tests
   - 예상 작업량: 1d
-  - 완료 기준: real package API 구현 전에 Phase 0 fixture가 incident metadata, missing_person, OP, assigned area, initial marker, overall_search_area, tile reference, police_phone context를 담고, tile fixture는 `tile-manifest-inc-precinct-001-v1`, zoom `15..16`, `local://tiles/inc-precinct-first-001/{z}/{x}/{y}.pbf` 기준으로 검증된다.
+  - 완료 기준: real package API 구현 전에 Phase 0 fixture가 incident metadata, missing_person, OP, assigned area, initial marker, overall_search_area, tile reference, police_phone context를 담고, tile fixture는 `tile-manifest-inc-precinct-001`, zoom `15..16`, `local://tiles/inc-precinct-first-001/{z}/{x}/{y}.pbf` 기준으로 검증된다.
 
 ## Phase 1
 
