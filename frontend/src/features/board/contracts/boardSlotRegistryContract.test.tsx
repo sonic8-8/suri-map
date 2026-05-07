@@ -1,5 +1,5 @@
 import { render, screen, within } from '@testing-library/react';
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import { createElement, type ComponentType, type ReactNode } from 'react';
 import {
   s3_2BoardSlotRegistryContract,
@@ -123,7 +123,7 @@ type BoardSlotRow = BoardSlotCursor & {
 };
 
 type BoardSlotHostProps = {
-  readonly registry: typeof s3_2BoardSlotRegistryContract;
+  readonly registry: readonly BoardSlotRegistryEntry[];
   readonly rows: readonly BoardSlotRow[];
   readonly renderers: Partial<Record<BoardSlotName, ComponentType<{ readonly row: BoardSlotRow }>>>;
 };
@@ -150,7 +150,7 @@ describe('S3-2 board slot registry contract', () => {
     }
   });
 
-  test.fails('situation_board_mounts_registered_slots_only', async () => {
+  test('situation_board_mounts_registered_slots_only', async () => {
     const BoardSlotHost = await loadFutureBoardSlotHost();
     const rows = createRowsFor(section9_2Slots);
     const renderers = createRenderers();
@@ -181,9 +181,23 @@ describe('S3-2 board slot registry contract', () => {
     expect(() =>
       render(createElement(BoardSlotHost, { registry: s3_2BoardSlotRegistryContract, rows: rogueRows, renderers })),
     ).toThrow(/rogue_unknown_slot/);
+
+    const rogueRegistry = [
+      ...s3_2BoardSlotRegistryContract,
+      {
+        slot: 'rogue_unknown_slot',
+        featureOwner: 'rogue',
+        mountedBy: 'S3-2',
+        sourceContract: 'rogue',
+        purpose: 'rogue',
+      },
+    ] as const satisfies readonly BoardSlotRegistryEntry[];
+    expect(() => render(createElement(BoardSlotHost, { registry: rogueRegistry, rows, renderers }))).toThrow(
+      /spec\/boundaries\.md §9\.2/,
+    );
   });
 
-  test.fails('slot_scoped_renderer_failure_is_contained', async () => {
+  test('slot_scoped_renderer_failure_is_contained', async () => {
     const BoardSlotHost = await loadFutureBoardSlotHost();
     const rows = createRowsFor(section9_2Slots);
     const renderers = {
@@ -193,12 +207,18 @@ describe('S3-2 board slot registry contract', () => {
       },
     };
 
-    render(createElement(BoardSlotHost, { registry: s3_2BoardSlotRegistryContract, rows, renderers }));
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
-    expect(screen.getByTestId('slot-failure-marker')).toHaveTextContent('marker renderer failed');
-    expect(screen.getByTestId('slot-overall_search_area')).toBeInTheDocument();
-    expect(screen.getByTestId('slot-path')).toBeInTheDocument();
-    expect(screen.getByTestId('slot-incident_terminal')).toBeInTheDocument();
+    try {
+      render(createElement(BoardSlotHost, { registry: s3_2BoardSlotRegistryContract, rows, renderers }));
+
+      expect(screen.getByTestId('slot-failure-marker')).toHaveTextContent('marker renderer failed');
+      expect(screen.getByTestId('slot-overall_search_area')).toBeInTheDocument();
+      expect(screen.getByTestId('slot-path')).toBeInTheDocument();
+      expect(screen.getByTestId('slot-incident_terminal')).toBeInTheDocument();
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 });
 
@@ -213,12 +233,12 @@ function createBoardSlotRow(slot: string, index: number): BoardSlotRow {
     status: 'ACTIVE',
     version: 100 + index,
     sequence: 900 + index,
-    sourceSpec: `source-spec-${slot}`,
+    sourceSpec: `owner-spec-${slot}`,
     sourceHash: `hash-${slot}`,
     latestEventId: `evt-${slot}`,
-    slotSources: [`source-spec-${slot}`],
-    sourceVersions: { [`source-spec-${slot}`]: 100 + index },
-    sourceHashes: { [`source-spec-${slot}`]: `hash-${slot}` },
+    slotSources: [`slot-source-${slot}`],
+    sourceVersions: { [`slot-source-${slot}`]: 100 + index },
+    sourceHashes: { [`slot-source-${slot}`]: `hash-${slot}` },
   };
 }
 
