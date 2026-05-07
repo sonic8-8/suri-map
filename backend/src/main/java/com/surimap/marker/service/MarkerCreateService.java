@@ -15,6 +15,8 @@ import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.dto.MarkerPublishRequest;
 import com.surimap.marker.dto.MarkerPublishRequestPayload;
 import com.surimap.marker.exception.MarkerApiException;
+import com.surimap.marker.notification.service.MarkerNotificationContext;
+import com.surimap.marker.notification.service.MarkerNotificationService;
 import com.surimap.marker.port.MarkerEventPublisher;
 import com.surimap.marker.port.MarkerWriteGuardPort;
 import com.surimap.marker.repository.MarkerCreateRecord;
@@ -40,6 +42,7 @@ public class MarkerCreateService {
   private final MarkerOpBindingValidator markerOpBindingValidator;
   private final MarkerWriteGuardPort markerWriteGuardPort;
   private final MarkerEventPublisher markerEventPublisher;
+  private final MarkerNotificationService markerNotificationService;
   private final Clock clock;
   private final Supplier<UUID> markerIdSupplier;
 
@@ -49,13 +52,15 @@ public class MarkerCreateService {
       MarkerLocationValidator markerLocationValidator,
       MarkerOpBindingValidator markerOpBindingValidator,
       MarkerWriteGuardPort markerWriteGuardPort,
-      MarkerEventPublisher markerEventPublisher) {
+      MarkerEventPublisher markerEventPublisher,
+      MarkerNotificationService markerNotificationService) {
     this(
         markerRepository,
         markerLocationValidator,
         markerOpBindingValidator,
         markerWriteGuardPort,
         markerEventPublisher,
+        markerNotificationService,
         Clock.systemUTC(),
         UUID::randomUUID);
   }
@@ -68,11 +73,32 @@ public class MarkerCreateService {
       MarkerEventPublisher markerEventPublisher,
       Clock clock,
       Supplier<UUID> markerIdSupplier) {
+    this(
+        markerRepository,
+        markerLocationValidator,
+        markerOpBindingValidator,
+        markerWriteGuardPort,
+        markerEventPublisher,
+        null,
+        clock,
+        markerIdSupplier);
+  }
+
+  public MarkerCreateService(
+      MarkerRepository markerRepository,
+      MarkerLocationValidator markerLocationValidator,
+      MarkerOpBindingValidator markerOpBindingValidator,
+      MarkerWriteGuardPort markerWriteGuardPort,
+      MarkerEventPublisher markerEventPublisher,
+      MarkerNotificationService markerNotificationService,
+      Clock clock,
+      Supplier<UUID> markerIdSupplier) {
     this.markerRepository = Objects.requireNonNull(markerRepository);
     this.markerLocationValidator = Objects.requireNonNull(markerLocationValidator);
     this.markerOpBindingValidator = Objects.requireNonNull(markerOpBindingValidator);
     this.markerWriteGuardPort = Objects.requireNonNull(markerWriteGuardPort);
     this.markerEventPublisher = Objects.requireNonNull(markerEventPublisher);
+    this.markerNotificationService = markerNotificationService;
     this.clock = Objects.requireNonNull(clock);
     this.markerIdSupplier = Objects.requireNonNull(markerIdSupplier);
   }
@@ -134,7 +160,38 @@ public class MarkerCreateService {
                 request.clientTs(),
                 serverTs));
     markerEventPublisher.publish(publishRequest);
+    publishNotificationIfNeeded(
+        markerId,
+        request.incidentId(),
+        opId,
+        context,
+        markerType,
+        supportRequestType,
+        canonicalLocation);
     return new MarkerCreateResult(response, publishRequest);
+  }
+
+  private void publishNotificationIfNeeded(
+      UUID markerId,
+      UUID incidentId,
+      UUID opId,
+      MarkerRequestContext context,
+      MarkerType markerType,
+      MarkerSupportRequestType supportRequestType,
+      MarkerGeoJsonPoint location) {
+    if (markerNotificationService == null) {
+      return;
+    }
+    markerNotificationService.publishIfNeeded(
+        new MarkerNotificationContext(
+            markerId,
+            incidentId,
+            opId,
+            context.authentication().policePhoneId(),
+            markerType,
+            supportRequestType,
+            location,
+            INITIAL_VERSION));
   }
 
   private void requireRequest(MarkerCreateRequest request) {

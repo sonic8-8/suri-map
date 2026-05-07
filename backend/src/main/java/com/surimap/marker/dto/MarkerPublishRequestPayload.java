@@ -13,4 +13,5 @@ public record MarkerPublishRequestPayload(
     String type,
     MarkerGeoJsonPoint location,
     Instant clientTs,
-    Instant serverTs) {}
+    Instant serverTs)
+    implements MarkerPublishPayload {}
