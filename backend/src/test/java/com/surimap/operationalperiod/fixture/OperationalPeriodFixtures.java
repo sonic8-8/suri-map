@@ -30,6 +30,7 @@ public final class OperationalPeriodFixtures {
   public static final String CURRENT_OP_STATUS = "ACTIVE";
   public static final int CURRENT_OP_SEQUENCE_NO = 1;
   public static final Instant CURRENT_OP_STARTED_AT = Instant.parse("2026-04-28T00:00:00Z");
+  public static final Instant OP1_STARTED_AT = CURRENT_OP_STARTED_AT;
   public static final Instant CURRENT_OP_ENDED_AT = null;
   public static final String CURRENT_OP_REASON = "INITIAL";
   public static final long CURRENT_OP_VERSION = 1L;
@@ -48,6 +49,8 @@ public final class OperationalPeriodFixtures {
   public static final String NEW_OP_ALIAS = "op-precinct-001-op2";
 
   public static final UUID NEW_OP_ID = UUID.fromString("88888888-8888-8888-8888-888888880002");
+  public static final String OP2_ALIAS = NEW_OP_ALIAS;
+  public static final UUID OP2_ID = NEW_OP_ID;
   public static final String NEW_OP_STATUS = "ACTIVE";
   public static final int NEW_OP_SEQUENCE_NO = 2;
   public static final Instant NEW_OP_STARTED_AT = PREVIOUS_OP_ENDED_AT;
@@ -149,6 +152,52 @@ public final class OperationalPeriodFixtures {
         NEW_OP_VERSION);
   }
 
+  /** OP2+ 전환 후 ENDED 상태가 된 OP1 row. */
+  public static OperationalPeriodRow endedOp1() {
+    OpRow previous = previousOpAfterTransition();
+    return new OperationalPeriodRow(
+        previous.opId(),
+        previous.incidentId(),
+        previous.status(),
+        previous.sequenceNo(),
+        previous.startedAt(),
+        previous.endedAt(),
+        previous.reason(),
+        previous.version());
+  }
+
+  /** OP2 ACTIVE row. */
+  public static OperationalPeriodRow activeOp2(String reason) {
+    OpRow next = newOpAfterTransition();
+    return new OperationalPeriodRow(
+        next.opId(),
+        next.incidentId(),
+        next.status(),
+        next.sequenceNo(),
+        next.startedAt(),
+        next.endedAt(),
+        reason,
+        next.version());
+  }
+
+  /**
+   * OP2+ 전환 이벤트 (S8.json §harness_fixtures.sc10_op_transition_convergence.expectedS4Event).
+   *
+   * <p>fromOpId=OP1, toOpId=OP2.
+   */
+  public static ExpectedOpTransitionEvent op2TransitionedEvent() {
+    return new ExpectedOpTransitionEvent(
+        "OP_TRANSITIONED",
+        INCIDENT_ID,
+        NEW_OP_ID,
+        NEW_OP_ID,
+        NEW_OP_STATUS,
+        NEW_OP_VERSION,
+        NEW_OP_SEQUENCE_NO,
+        PREVIOUS_OP_ID,
+        NEW_OP_ID);
+  }
+
   /** OP 조회/전환 결과 비교 모델. */
   public record OpRow(
       UUID opId,
@@ -158,7 +207,28 @@ public final class OperationalPeriodFixtures {
       Instant startedAt,
       Instant endedAt,
       String reason,
-      long version) {}
+      long version) {
+
+    public int sequenceNumber() {
+      return sequenceNo;
+    }
+  }
+
+  /**
+   * S8 OP_TRANSITIONED 이벤트 payload를 테스트에서 비교하기 위한 읽기 모델.
+   *
+   * <p>S4 EventHub.publish PublishRequest의 id/status/version/opId 수렴 비교 기준.
+   */
+  public record ExpectedOpTransitionEvent(
+      String type,
+      UUID incidentId,
+      UUID payloadId,
+      UUID opId,
+      String payloadStatus,
+      long payloadVersion,
+      int sequenceNumber,
+      UUID fromOpId,
+      UUID toOpId) {}
 
   /** OP_TRANSITIONED PublishRequest payload 비교 모델 (S8.json events_published[].payload_schema). */
   public record OpTransitionedEvent(
