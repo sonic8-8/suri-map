@@ -1,4 +1,24 @@
 services:
+  frontend:
+    image: node:22-alpine
+    container_name: surimap-frontend
+    working_dir: /workspace/frontend
+    command: sh -c "npm ci && npm run dev -- --host 0.0.0.0"
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080/api}
+      VITE_TILE_BASE_URL: ${VITE_TILE_BASE_URL:-http://localhost:8082}
+    ports:
+      - "5173:5173"
+    volumes:
+      - ../frontend:/workspace/frontend
+      - surimap-frontend-node-modules:/workspace/frontend/node_modules
+
+  tileserver-gl:
+    image: maptiler/tileserver-gl:latest
+    container_name: surimap-tileserver-gl
+    ports:
+      - "8082:8080"
+
   postgres:
     image: postgis/postgis:16-3.5
     container_name: surimap-postgres
@@ -30,4 +50,5 @@ services:
       retries: 3
 
 volumes:
+  surimap-frontend-node-modules:
   surimap-postgres-data:
