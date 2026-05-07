@@ -1,91 +1,114 @@
 package com.surimap.marker.domain.service;
 
+import com.surimap.maparea.geometry.geojson.GeoJsonPolygon;
+import com.surimap.maparea.query.SearchAreaQuery;
 import com.surimap.marker.domain.exception.InvalidGeometryException;
-import com.surimap.marker.domain.port.MapBoundaryQueryPort;
 import com.surimap.marker.domain.port.MarkerLocationValidator;
-import org.locationtech.jts.geom.Coordinate;
-import org.locationtech.jts.geom.Geometry;
-import org.locationtech.jts.geom.Point;
-
-import java.util.Optional;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.Polygon;
+import org.locationtech.jts.geom.PrecisionModel;
 
 /**
  * 마커 위치 검증 구현체.
  *
- * 검증 순서:
- * 1. null 체크
- * 2. 좌표 유효성 (NaN, 범위)
- * 3. precision 6자리 정규화
- * 4. map_boundary 내 포함 확인
+ * <p>검증 순서: 1. null/empty/SRID 체크 2. 좌표 유효성 (NaN, range) 3. precision 6자리 canonical 정규화 4.
+ * SearchAreaQuery.overallOf 기반 overall_search_area 포함 확인
  *
- * @see docs/contracts/L5-05-geometry-spec.md
+ * @see docs/spec/specs/S5.json
+ * @see docs/spec/boundaries.md
  */
 public class MarkerLocationValidatorImpl implements MarkerLocationValidator {
 
-    private static final int PRECISION_DIGITS = 6;
-    private static final double PRECISION_FACTOR = Math.pow(10, PRECISION_DIGITS);
+  private static final int SRID = 4326;
+  private static final int PRECISION_DIGITS = 6;
+  private static final GeometryFactory GEOMETRY_FACTORY =
+      new GeometryFactory(new PrecisionModel(PrecisionModel.FLOATING), SRID);
 
-    private final MapBoundaryQueryPort boundaryQuery;
+  private final SearchAreaQuery searchAreaQuery;
 
-    public MarkerLocationValidatorImpl(MapBoundaryQueryPort boundaryQuery) {
-        this.boundaryQuery = boundaryQuery;
+  public MarkerLocationValidatorImpl(SearchAreaQuery searchAreaQuery) {
+    this.searchAreaQuery = Objects.requireNonNull(searchAreaQuery, "searchAreaQuery");
+  }
+
+  @Override
+  public void validate(UUID incidentId, Point location) {
+    if (location == null || location.isEmpty()) {
+      throw new InvalidGeometryException("location is null or empty");
+    }
+    if (location.getSRID() != SRID) {
+      throw new InvalidGeometryException("location SRID must be 4326");
     }
 
-    @Override
-    public void validate(UUID incidentId, Point location) {
-        // 1. null 체크
-        if (location == null) {
-            throw new InvalidGeometryException("location is null");
-        }
-
-        Coordinate coord = location.getCoordinate();
-
-        // 2. NaN 체크
-        if (Double.isNaN(coord.x) || Double.isNaN(coord.y)) {
-            throw new InvalidGeometryException("coordinates contain NaN");
-        }
-
-        double lon = coord.x;
-        double lat = coord.y;
-
-        // 3. 경도/위도 범위 검증
-        if (lon < -180.0 || lon > 180.0) {
-            throw new InvalidGeometryException("longitude out of range: " + lon);
-        }
-        if (lat < -90.0 || lat > 90.0) {
-            throw new InvalidGeometryException("latitude out of range: " + lat);
-        }
-
-        // 4. lon/lat 뒤바뀜 감지 (lat 자리에 경도 범위 값이 있는 경우)
-        if (lat > 90.0 || lat < -90.0) {
-            throw new InvalidGeometryException("possible lat/lon swap detected");
-        }
-
-        // 5. precision 6자리 정규화
-        double normalizedLon = truncate(lon);
-        double normalizedLat = truncate(lat);
-
-        // 6. map_boundary 내 포함 확인
-        Optional<Geometry> boundary = boundaryQuery.findActiveBoundary(incidentId);
-        if (boundary.isEmpty()) {
-            throw new InvalidGeometryException("no active map_boundary for incident");
-        }
-
-        Point normalizedPoint = location.getFactory().createPoint(
-                new Coordinate(normalizedLon, normalizedLat));
-        normalizedPoint.setSRID(4326);
-
-        if (!boundary.get().covers(normalizedPoint)) {
-            throw new InvalidGeometryException(
-                    "point [" + normalizedLon + ", " + normalizedLat + "] outside map_boundary");
-        }
+    Coordinate coord = location.getCoordinate();
+    if (coord == null) {
+      throw new InvalidGeometryException("coordinates are empty");
     }
 
-    /**
-     * 소수점 6자리 truncate (반올림 아님).
-     */
-    private static double truncate(double value) {
-        return Math.floor(value * PRECISION_FACTOR) / PRECISION_FACTOR;
+    if (!Double.isFinite(coord.x) || !Double.isFinite(coord.y)) {
+      throw new InvalidGeometryException("coordinates must be finite numbers");
     }
+
+    double lon = coord.x;
+    double lat = coord.y;
+
+    if (lon < -180.0 || lon > 180.0) {
+      throw new InvalidGeometryException("longitude out of range: " + lon);
+    }
+    if (lat < -90.0 || lat > 90.0) {
+      throw new InvalidGeometryException("latitude out of range: " + lat);
+    }
+
+    double normalizedLon = canonical(lon);
+    double normalizedLat = canonical(lat);
+
+    Point normalizedPoint =
+        GEOMETRY_FACTORY.createPoint(new Coordinate(normalizedLon, normalizedLat));
+    normalizedPoint.setSRID(4326);
+
+    Polygon overallSearchArea =
+        searchAreaQuery
+            .overallOf(incidentId)
+            .map(result -> toPolygon(result.geometry()))
+            .orElseThrow(
+                () -> new InvalidGeometryException("active overall_search_area is required"));
+
+    if (!overallSearchArea.covers(normalizedPoint)) {
+      throw new InvalidGeometryException(
+          "point [" + normalizedLon + ", " + normalizedLat + "] outside overall_search_area");
+    }
+  }
+
+  private static Polygon toPolygon(GeoJsonPolygon geoJsonPolygon) {
+    if (geoJsonPolygon == null
+        || !"Polygon".equals(geoJsonPolygon.type())
+        || geoJsonPolygon.outerRing() == null
+        || geoJsonPolygon.outerRing().isEmpty()) {
+      throw new InvalidGeometryException("overall_search_area geometry is invalid");
+    }
+
+    List<List<BigDecimal>> outerRing = geoJsonPolygon.outerRing();
+    Coordinate[] coordinates = new Coordinate[outerRing.size()];
+    for (int index = 0; index < outerRing.size(); index++) {
+      List<BigDecimal> point = outerRing.get(index);
+      if (point == null || point.size() != 2) {
+        throw new InvalidGeometryException("overall_search_area coordinate is invalid");
+      }
+      coordinates[index] = new Coordinate(point.get(0).doubleValue(), point.get(1).doubleValue());
+    }
+
+    Polygon polygon = GEOMETRY_FACTORY.createPolygon(coordinates);
+    polygon.setSRID(SRID);
+    return polygon;
+  }
+
+  private static double canonical(double value) {
+    return BigDecimal.valueOf(value).setScale(PRECISION_DIGITS, RoundingMode.HALF_UP).doubleValue();
+  }
 }
