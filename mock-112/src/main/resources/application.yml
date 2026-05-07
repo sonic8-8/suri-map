@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: mock-112
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+
+server:
+  port: ${SERVER_PORT:18112}
+
+logging:
+  level:
+    com.mock112: DEBUG

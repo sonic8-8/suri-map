@@ -5,17 +5,11 @@ interface SyncClient {
 }
 
 interface OutboxReplay {
-    suspend fun flushPending(
-        deviceId: String,
-        incidentId: String,
-    )
+    suspend fun flushPending(policePhoneId: String, incidentId: String)
 }
 
 interface OutboxRequeue {
-    suspend fun requeue(
-        operationId: String,
-        reason: String,
-    )
+    suspend fun requeue(operationId: String, reason: String)
 }
 
 interface LocalSyncPurgeHook {
@@ -23,6 +17,6 @@ interface LocalSyncPurgeHook {
         incidentId: String,
         purgeRunId: String,
         closedAt: String,
-        purgeDeadlineTs: String,
+        purgeDeadlineTs: String
     )
 }

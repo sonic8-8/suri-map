@@ -7,7 +7,7 @@ enum class DependencyGroup {
     PATH,
     MARKER,
     PHOTO,
-    PACKAGE_STATUS,
+    PACKAGE_INSTALLATION
 }
 
 enum class OutboxStatus {
@@ -16,7 +16,7 @@ enum class OutboxStatus {
     ACKED,
     FAILED_RETRYABLE,
     FAILED_FINAL,
-    PURGED,
+    PURGED
 }
 
 enum class HarnessSyncStatus {
@@ -25,13 +25,13 @@ enum class HarnessSyncStatus {
     SENDING,
     SYNCED,
     FAILED,
-    PURGED,
+    PURGED
 }
 
 data class LocalWriteOperation(
     val operationId: String,
     val incidentId: String,
-    val deviceId: String,
+    val policePhoneId: String,
     val dependencyGroup: DependencyGroup,
     val sequence: Long,
     val method: String,
@@ -45,12 +45,12 @@ data class LocalWriteOperation(
     val opId: String? = null,
     val entityId: String? = null,
     val entityType: String? = null,
-    val parentOperationId: String? = null,
+    val parentOperationId: String? = null
 )
 
 data class EnqueueResult(
     val outboxId: String,
     val operationId: String,
     val status: OutboxStatus,
-    val harnessStatus: HarnessSyncStatus,
+    val harnessStatus: HarnessSyncStatus
 )

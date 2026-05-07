@@ -7,10 +7,10 @@ import androidx.room.RoomDatabase
     entities = [
         OutboxEntity::class,
         SyncStatusEntity::class,
-        LocalWriteDraftEntity::class,
+        LocalWriteDraftEntity::class
     ],
     version = 1,
-    exportSchema = true,
+    exportSchema = true
 )
 abstract class SuriMapDatabase : RoomDatabase() {
     abstract fun outboxDao(): OutboxDao

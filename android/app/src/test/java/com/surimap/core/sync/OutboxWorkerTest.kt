@@ -11,9 +11,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.robolectric.annotation.Config
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
@@ -34,7 +34,7 @@ class OutboxWorkerTest {
     @Test
     fun outboxWorkerReturnsSuccessInHarnessBaseline() = runBlocking {
         val worker = TestListenableWorkerBuilder<OutboxWorker>(
-            RuntimeEnvironment.getApplication(),
+            RuntimeEnvironment.getApplication()
         ).build()
 
         assertEquals(ListenableWorker.Result.success(), worker.doWork())

@@ -9,8 +9,8 @@ import androidx.room.PrimaryKey
     indices = [
         Index(value = ["incidentId"]),
         Index(value = ["operationId"], unique = true),
-        Index(value = ["entityType", "entityId"]),
-    ],
+        Index(value = ["entityType", "entityId"])
+    ]
 )
 data class LocalWriteDraftEntity(
     @PrimaryKey val draftId: String,
@@ -20,5 +20,5 @@ data class LocalWriteDraftEntity(
     val entityId: String? = null,
     val payload: String,
     val createdAtMillis: Long,
-    val updatedAtMillis: Long,
+    val updatedAtMillis: Long
 )

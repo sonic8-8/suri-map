@@ -3,7 +3,7 @@ package com.surimap.testing
 enum class NetworkTransport {
     NONE,
     CELLULAR,
-    WIFI,
+    WIFI
 }
 
 data class NetworkStateFixture(
@@ -11,7 +11,7 @@ data class NetworkStateFixture(
     val isConnected: Boolean,
     val isValidated: Boolean,
     val isMetered: Boolean,
-    val transport: NetworkTransport,
+    val transport: NetworkTransport
 )
 
 object NetworkStateFixtures {
@@ -20,7 +20,7 @@ object NetworkStateFixtures {
         isConnected = false,
         isValidated = false,
         isMetered = false,
-        transport = NetworkTransport.NONE,
+        transport = NetworkTransport.NONE
     )
 
     val restoredCellular = NetworkStateFixture(
@@ -28,7 +28,7 @@ object NetworkStateFixtures {
         isConnected = true,
         isValidated = true,
         isMetered = true,
-        transport = NetworkTransport.CELLULAR,
+        transport = NetworkTransport.CELLULAR
     )
 
     val restoredWifi = NetworkStateFixture(
@@ -36,6 +36,6 @@ object NetworkStateFixtures {
         isConnected = true,
         isValidated = true,
         isMetered = false,
-        transport = NetworkTransport.WIFI,
+        transport = NetworkTransport.WIFI
     )
 }
