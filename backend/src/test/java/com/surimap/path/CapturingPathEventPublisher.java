@@ -1,0 +1,17 @@
+package com.surimap.path;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class CapturingPathEventPublisher implements PathEventPublisher {
+  private final List<PathAppendedPublishRequest> published = new ArrayList<>();
+
+  @Override
+  public void publishPathAppended(PathAppendedPublishRequest request) {
+    published.add(request);
+  }
+
+  public List<PathAppendedPublishRequest> published() {
+    return List.copyOf(published);
+  }
+}

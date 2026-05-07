@@ -13,6 +13,7 @@ import com.surimap.app.service.path.AppSearchPathCommandService;
 import com.surimap.domain.path.SearchPath;
 import com.surimap.domain.path.SearchPathStatus;
 import com.surimap.domain.path.exception.SearchPathGuardException;
+import com.surimap.support.auth.GuardPortTestStubs;
 import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -26,7 +27,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(PathController.class)
 @AutoConfigureMockMvc(addFilters = false)
-@Import(PathExceptionHandler.class)
+@Import({PathExceptionHandler.class, GuardPortTestStubs.class})
 @DisplayName("L4-T01 search_path lifecycle API contract")
 class PathControllerTest {
 

@@ -9,7 +9,9 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.springframework.stereotype.Component;
 
+@Component
 public class GpsPathValidator {
 
   public GpsPathValidationResult validateBatch(
@@ -47,7 +49,8 @@ public class GpsPathValidator {
     if (points.size() > GpsPathValidationCriteria.MAX_POINTS_PER_BATCH) {
       throw new InvalidGpsPathBatchException("points maxItems=120");
     }
-    if (!points.equals(points.stream().sorted(Comparator.comparing(GpsPathPoint::clientTs)).toList())) {
+    if (!points.equals(
+        points.stream().sorted(Comparator.comparing(GpsPathPoint::clientTs)).toList())) {
       throw new InvalidGpsPathBatchException("clientTs strict monotonic");
     }
     for (int i = 1; i < points.size(); i++) {
@@ -69,7 +72,9 @@ public class GpsPathValidator {
   }
 
   private void validateCoordinate(
-      BigDecimal lon, BigDecimal lat, GpsPathValidationCriteria.GeoEnvelope activeOverallAreaEnvelope) {
+      BigDecimal lon,
+      BigDecimal lat,
+      GpsPathValidationCriteria.GeoEnvelope activeOverallAreaEnvelope) {
     if (lon == null || lat == null) {
       throw new InvalidGpsPathBatchException("null or NaN coordinate is a structural failure");
     }
@@ -135,7 +140,8 @@ public class GpsPathValidator {
 
     if (!accepted.isEmpty()) {
       GpsPathPoint previousAccepted = accepted.get(accepted.size() - 1);
-      long sampleSeconds = Duration.between(previousAccepted.clientTs(), point.clientTs()).getSeconds();
+      long sampleSeconds =
+          Duration.between(previousAccepted.clientTs(), point.clientTs()).getSeconds();
       if (sampleSeconds == 5) {
         double distanceMeters = distanceMeters(previousAccepted, point);
         if (distanceMeters > GpsPathValidationCriteria.MAX_DISTANCE_JUMP_METERS_PER_FIVE_SECONDS) {
