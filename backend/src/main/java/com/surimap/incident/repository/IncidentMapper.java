@@ -20,6 +20,8 @@ public interface IncidentMapper {
   Optional<IncidentRecord> findBySourceIncidentId(
       @Param("sourceIncidentId") String sourceIncidentId);
 
+  Optional<IncidentRecord> findByIncidentId(@Param("incidentId") UUID incidentId);
+
   Optional<IncidentImportIdempotencyRecord> findImportIdempotencyRecord(
       @Param("idempotencyKey") String idempotencyKey,
       @Param("requestPath") String requestPath,

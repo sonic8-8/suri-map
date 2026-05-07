@@ -258,6 +258,38 @@ class IncidentImportApiRedTest {
       channel = Channel.WEB,
       accountId = "11111111-1111-1111-1111-111111110001",
       roles = {Role.FIELD_COMMANDER})
+  @DisplayName("CLOSED 사건의 같은 sourceIncidentId import 재호출은 incident_closed로 거부한다")
+  void closedSourceIncidentImportRejectedWithIncidentClosed() throws Exception {
+    givenClosedIncident(SOURCE_INCIDENT_ID);
+
+    mockMvc
+        .perform(importRequest(SOURCE_INCIDENT_ID, "idem-l1-t02-closed-import"))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.error", is("incident_closed")));
+
+    assertThat(count("\"incident\"", "source_incident_id = ?", SOURCE_INCIDENT_ID)).isEqualTo(1);
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT status FROM \"incident\" WHERE id = ?", String.class, INCIDENT_ID.toString()))
+        .isEqualTo("CLOSED");
+    assertThat(count("incident_assignment", "1 = 1")).isZero();
+    assertThat(count("operational_period", "1 = 1")).isZero();
+    assertThat(count("event_dispatch_job", "1 = 1")).isZero();
+    assertThat(count("idempotency_record", "1 = 1")).isZero();
+    verifyNoInteractions(
+        externalIncidentAdapter,
+        initialOperationalPeriodCreator,
+        referenceMarkerSeed,
+        incidentEventPublisher);
+  }
+
+  @Test
+  @WithMockAccount(
+      accountType = AccountType.COMMAND,
+      organizationType = OrganizationType.POLICE_SUBSTATION,
+      channel = Channel.WEB,
+      accountId = "11111111-1111-1111-1111-111111110001",
+      roles = {Role.FIELD_COMMANDER})
   @DisplayName("같은 Idempotency-Key의 다른 body는 idempotency_mismatch로 거부한다")
   void sameIdempotencyKeyWithDifferentBodyRejected() throws Exception {
     givenMock112Incident(SOURCE_INCIDENT_ID);
@@ -397,6 +429,24 @@ class IncidentImportApiRedTest {
                         OffsetDateTime.parse("2026-04-28T00:00:00Z"))),
                 List.of(
                     new ExternalSeedMarker("CLUE", "MOCK_SEED", "신고자 진술 위치", 126.9565, 37.5712))));
+  }
+
+  private void givenClosedIncident(String sourceIncidentId) {
+    jdbc.update(
+        """
+        INSERT INTO "incident" (
+          id, source_incident_id, title, status, opened_at, closed_at,
+          closed_by_account_id, version, created_at, updated_at
+        ) VALUES (?, ?, ?, 'CLOSED', ?, ?, ?, 3, ?, ?)
+        """,
+        INCIDENT_ID.toString(),
+        sourceIncidentId,
+        "인왕산 북측 산책로 실종 신고",
+        Instant.parse("2026-04-28T00:00:00Z"),
+        Instant.parse("2026-04-28T03:00:00Z"),
+        ACCOUNT_PRECINCT_COMMANDER.toString(),
+        Instant.parse("2026-04-28T00:00:00Z"),
+        Instant.parse("2026-04-28T03:00:00Z"));
   }
 
   private void givenOp1CreatorWritesOp1() {
