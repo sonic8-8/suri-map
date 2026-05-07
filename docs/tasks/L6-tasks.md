@@ -41,7 +41,7 @@
   - 예상 작업량: 1d
   - 완료 기준: board shell 구현 전에 slot mounting 기대 조건이 failing test 또는 fixture로 고정된다.
 
-- [ ] L6-T05 오프라인 패키지 목록 계약 fixture 작성
+- [x] L6-T05 오프라인 패키지 목록 계약 fixture 작성
   - 담당 Spec: S7
   - 필수 참조: `spec/specs/S7.json`, `spec/harness-scenarios.md §2 SC-03`, `spec/harness-scenarios.md §6 mock tile catalog/server`
   - 연관 Spec: S1-1, S1-2, S2, S5, S8
