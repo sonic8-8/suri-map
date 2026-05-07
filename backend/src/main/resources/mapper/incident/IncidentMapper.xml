@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.surimap.incident.repository.IncidentMapper">
+    <resultMap id="incidentRecordMap" type="com.surimap.incident.domain.IncidentRecord">
+        <id property="id" column="id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="sourceIncidentId" column="source_incident_id"/>
+        <result property="title" column="title"/>
+        <result property="status" column="status"/>
+        <result property="openedAt" column="opened_at"/>
+        <result property="closedAt" column="closed_at"/>
+        <result property="closedByAccountId" column="closed_by_account_id"
+                typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="version" column="version"/>
+    </resultMap>
+
+    <resultMap id="idempotencyRecordMap" type="com.surimap.incident.domain.IncidentImportIdempotencyRecord">
+        <id property="id" column="id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="idempotencyKey" column="idempotency_key"/>
+        <result property="requestBodyHash" column="request_body_hash"/>
+        <result property="requestPath" column="request_path"/>
+        <result property="requestMethod" column="request_method"/>
+        <result property="idempotencyStatus" column="idempotency_status"/>
+        <result property="resultEntityId" column="result_entity_id"
+                typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="resultEntityStatus" column="result_entity_status"/>
+        <result property="resultEntityVersion" column="result_entity_version"/>
+    </resultMap>
+
+    <select id="findBySourceIncidentId" resultMap="incidentRecordMap">
+        SELECT
+            id,
+            source_incident_id,
+            title,
+            status,
+            opened_at,
+            closed_at,
+            closed_by_account_id,
+            version
+        FROM "incident"
+        WHERE source_incident_id = #{sourceIncidentId}
+    </select>
+
+    <select id="findImportIdempotencyRecord" resultMap="idempotencyRecordMap">
+        SELECT
+            id,
+            idempotency_key,
+            request_body_hash,
+            request_path,
+            request_method,
+            idempotency_status,
+            result_entity_id,
+            result_entity_status,
+            result_entity_version
+        FROM idempotency_record
+        WHERE idempotency_key = #{idempotencyKey}
+          AND request_path = #{requestPath}
+          AND request_method = #{requestMethod}
+    </select>
+
+    <insert id="insertImportIdempotencyRecord">
+        INSERT INTO idempotency_record (
+            id,
+            idempotency_key,
+            request_body_hash,
+            request_path,
+            request_method,
+            idempotency_status,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            #{id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{idempotencyKey},
+            #{requestBodyHash},
+            #{requestPath},
+            #{requestMethod},
+            #{idempotencyStatus},
+            #{now},
+            #{now}
+        )
+    </insert>
+
+    <update id="completeImportIdempotencyRecord">
+        UPDATE idempotency_record
+        SET
+            idempotency_status = 'COMPLETED',
+            incident_id = #{resultEntityId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            response_status_code = #{responseStatusCode},
+            response_body_json = #{responseBodyJson},
+            response_body_format_version = 1,
+            result_entity_type = 'incident',
+            result_entity_id = #{resultEntityId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            result_entity_status = #{resultEntityStatus},
+            result_entity_version = #{resultEntityVersion},
+            updated_at = #{now}
+        WHERE idempotency_key = #{idempotencyKey}
+          AND request_path = #{requestPath}
+          AND request_method = #{requestMethod}
+    </update>
+
+    <insert id="insertIncident">
+        INSERT INTO "incident" (
+            id,
+            source_incident_id,
+            title,
+            status,
+            opened_at,
+            closed_at,
+            closed_by_account_id,
+            version,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            #{id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{sourceIncidentId},
+            #{title},
+            #{status},
+            #{openedAt},
+            NULL,
+            NULL,
+            #{version},
+            #{now},
+            #{now}
+        )
+    </insert>
+
+    <insert id="insertMissingPerson">
+        INSERT INTO missing_person (
+            incident_id,
+            display_name,
+            photo_object_key,
+            appearance_text,
+            last_seen_location_text,
+            last_seen_at,
+            imported_at
+        )
+        VALUES (
+            #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{displayName},
+            #{photoObjectKey},
+            #{appearanceText},
+            #{lastSeenLocationText},
+            #{lastSeenAt},
+            #{importedAt}
+        )
+    </insert>
+
+    <insert id="insertIncidentAssignment">
+        INSERT INTO incident_assignment (
+            id,
+            incident_id,
+            account_id,
+            incident_role,
+            assigned_at,
+            revoked_at,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            #{id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{accountId},
+            #{incidentRole},
+            #{assignedAt},
+            NULL,
+            #{now},
+            #{now}
+        )
+    </insert>
+
+    <select id="findActiveAssignmentAccountIds" resultType="string">
+        SELECT account_id
+        FROM incident_assignment
+        WHERE incident_id = #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND revoked_at IS NULL
+        ORDER BY assigned_at ASC, account_id ASC
+    </select>
+</mapper>
