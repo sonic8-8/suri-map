@@ -9,7 +9,8 @@ spring:
     enabled: true
 
 mybatis:
-  mapper-locations: classpath:mapper/**/*.xml
+  mapper-locations: classpath*:mapper/**/*.xml
+  type-handlers-package: com.surimap.config.mybatis
   configuration:
     map-underscore-to-camel-case: true
     default-fetch-size: 100
@@ -35,5 +36,3 @@ mock112:
   base-url: ${MOCK_112_BASE_URL:http://localhost:18112}
   polling:
     interval-ms: ${MOCK_112_POLLING_INTERVAL:5000}
-
-

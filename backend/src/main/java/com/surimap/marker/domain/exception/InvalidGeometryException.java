@@ -1,6 +1,10 @@
 package com.surimap.marker.domain.exception;
 
-/** geometry 검증 실패 시 던지는 예외. HTTP 400, error code: "invalid_geometry" */
+/**
+ * S5 marker.location 검증 실패를 표현하는 예외다.
+ *
+ * <p>API 응답에서는 400 invalid_geometry로 매핑한다.
+ */
 public class InvalidGeometryException extends RuntimeException {
 
   private final String errorCode = "invalid_geometry";
@@ -15,7 +19,19 @@ public class InvalidGeometryException extends RuntimeException {
     return errorCode;
   }
 
+  public String errorCode() {
+    return errorCode;
+  }
+
   public String getDetail() {
     return detail;
+  }
+
+  public String detail() {
+    return detail;
+  }
+
+  public static InvalidGeometryException invalidGeometry(String message) {
+    return new InvalidGeometryException(message);
   }
 }

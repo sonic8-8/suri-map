@@ -1,6 +1,10 @@
 package com.surimap.marker.domain.exception;
 
-/** 현재 OP가 없는 marker write를 409 op_required로 매핑하기 위한 예외다. */
+/**
+ * 사건에 current OP가 없을 때 쓰는 예외다.
+ *
+ * <p>API 응답에서는 409 op_required로 매핑한다.
+ */
 public class OpRequiredException extends RuntimeException {
 
   private final String errorCode = "op_required";
@@ -9,7 +13,15 @@ public class OpRequiredException extends RuntimeException {
     super("op_required");
   }
 
+  public OpRequiredException(String message) {
+    super(message);
+  }
+
   public String getErrorCode() {
+    return errorCode;
+  }
+
+  public String errorCode() {
     return errorCode;
   }
 }
