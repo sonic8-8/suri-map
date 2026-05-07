@@ -93,7 +93,7 @@
   - 예상 작업량: 1d
   - 완료 기준: path/marker slot이 source owner를 변경하지 않고 source data를 렌더링하며 관찰 가능한 loading/failure state를 노출한다.
 
-- [ ] L6-T03C 단말 최신성 슬롯과 공통 지연 상태 검증
+- [x] L6-T03C 단말 최신성 슬롯과 공통 지연 상태 검증
   - 담당 Spec: S3-2
   - 필수 참조: `spec/specs/S3-2.json`, `spec/boundaries.md §9.2`, `spec/boundaries.md §10`
   - 연관 Spec: S1-2, S4
