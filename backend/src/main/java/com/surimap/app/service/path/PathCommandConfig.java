@@ -4,11 +4,12 @@ import com.surimap.domain.path.SearchPathPublishRequest;
 import com.surimap.domain.path.exception.SearchPathGuardException;
 import com.surimap.domain.path.port.PolicePhoneGuard;
 import com.surimap.domain.path.port.SearchPathEventPublisher;
+import com.surimap.operationalperiod.query.CurrentOpResult;
 import com.surimap.operationalperiod.query.OperationalPeriodQuery;
 import com.surimap.operationalperiod.query.OperationalPeriodRow;
 import java.time.Instant;
-import java.util.Map;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -22,7 +23,7 @@ import org.springframework.core.annotation.Order;
 public class PathCommandConfig {
 
   private static final String EVENT_SCHEMA_VERSION = "1";
-  private final Map<UUID, OperationalPeriodRow> inMemoryCurrentOps = new ConcurrentHashMap<>();
+  private final Map<UUID, CurrentOpResult> inMemoryCurrentOps = new ConcurrentHashMap<>();
 
   @Bean
   AppSearchPathCommandService appSearchPathCommandService(
@@ -38,12 +39,12 @@ public class PathCommandConfig {
   OperationalPeriodQuery operationalPeriodQuery() {
     return new OperationalPeriodQuery() {
       @Override
-      public Optional<OperationalPeriodRow> current(UUID incidentId) {
-        OperationalPeriodRow row =
+      public Optional<CurrentOpResult> current(UUID incidentId) {
+        CurrentOpResult row =
             inMemoryCurrentOps.computeIfAbsent(
                 incidentId,
                 key ->
-                    new OperationalPeriodRow(
+                    new CurrentOpResult(
                         stableUuid(key, "current-op"),
                         key,
                         "ACTIVE",
@@ -57,7 +58,9 @@ public class PathCommandConfig {
 
       @Override
       public List<OperationalPeriodRow> list(UUID incidentId) {
-        return current(incidentId).map(List::of).orElse(List.of());
+        return current(incidentId)
+            .map(row -> List.of(toOperationalPeriodRow(row)))
+            .orElse(List.of());
       }
     };
   }
@@ -96,5 +99,17 @@ public class PathCommandConfig {
 
   private static UUID stableUuid(UUID key, String namespace) {
     return UUID.nameUUIDFromBytes((namespace + ":" + key).getBytes());
+  }
+
+  private static OperationalPeriodRow toOperationalPeriodRow(CurrentOpResult row) {
+    return new OperationalPeriodRow(
+        row.opId(),
+        row.incidentId(),
+        row.status(),
+        row.sequenceNo(),
+        row.startedAt(),
+        row.endedAt(),
+        row.reason(),
+        row.version());
   }
 }

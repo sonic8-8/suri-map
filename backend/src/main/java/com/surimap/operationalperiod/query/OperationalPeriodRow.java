@@ -12,4 +12,9 @@ public record OperationalPeriodRow(
     Instant startedAt,
     Instant endedAt,
     String reason,
-    long version) {}
+    long version) {
+
+  public int sequenceNumber() {
+    return sequenceNo;
+  }
+}

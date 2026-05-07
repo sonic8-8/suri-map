@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
- * mock 112 배정 변경을 감지하여 incident_assignment에 반영한다.
+ * mock 112 배정 변경을 감지한다.
  *
  * <p>중복 처리: externalAssignmentKey 기준. 실제 DB write는 IncidentImportService(또는 해당 서비스)를 통해 수행된다. 현재는
  * 감지·로깅만 수행하고, DB 연동은 L1-T04에서 완성한다.

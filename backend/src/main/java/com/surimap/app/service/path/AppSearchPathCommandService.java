@@ -9,8 +9,8 @@ import com.surimap.domain.path.SearchPathStatus;
 import com.surimap.domain.path.exception.SearchPathGuardException;
 import com.surimap.domain.path.port.PolicePhoneGuard;
 import com.surimap.domain.path.port.SearchPathEventPublisher;
+import com.surimap.operationalperiod.query.CurrentOpResult;
 import com.surimap.operationalperiod.query.OperationalPeriodQuery;
-import com.surimap.operationalperiod.query.OperationalPeriodRow;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,7 +32,7 @@ public class AppSearchPathCommandService {
   }
 
   public SearchPath start(StartSearchPathServiceRequest request) {
-    OperationalPeriodRow currentOp =
+    CurrentOpResult currentOp =
         opQuery
             .current(request.incidentId())
             .orElseThrow(() -> new SearchPathGuardException("op_required"));

@@ -375,15 +375,11 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 - `MapBoundaryQuery.of(incidentId)`
 - `AreaQuery.byIncident(incidentId, filters)`
 - `AreaQuery.byOp(opId, filters)`
-- `MAP_BOUNDARY_CHANGED`
-- `AREA_CREATED`
-- `AREA_STATE_CHANGED`
-- `events/map_boundary.payload.schema.json` for `MAP_BOUNDARY_CHANGED`
-- `events/search_area.payload.schema.json` for `AREA_CREATED`, `AREA_STATE_CHANGED`
-- `PublishRequest.MAP_BOUNDARY_CHANGED`
-- `PublishRequest.AREA_CREATED`
-- `PublishRequest.AREA_STATE_CHANGED`
-- `map_boundary.schema.json`
+- `SEARCH_AREA_CHANGED`
+- `SEARCH_AREA_ASSIGNMENT_CHANGED`
+- `events/search_area.payload.schema.json` for `SEARCH_AREA_CHANGED`, `SEARCH_AREA_ASSIGNMENT_CHANGED`
+- `PublishRequest.SEARCH_AREA_CHANGED`
+- `PublishRequest.SEARCH_AREA_ASSIGNMENT_CHANGED`
 - `search_area.schema.json`
 - `search_area_history.schema.json`
 
@@ -1033,9 +1029,8 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 | `INCIDENT_CLOSED` | S1-1 | S1-3, S3-2, S6, S7, S4 EventFanout -> S5 `FcmDispatcher` |
 | `INCIDENT_PURGED` | S1-3 | S4, S6, S7 |
 | `DEVICE_HEARTBEAT_UPDATED` | S1-2 | S3-2 |
-| `MAP_BOUNDARY_CHANGED` | S2 | S3-2, S7 |
-| `AREA_CREATED` | S2 | S3-2, S7 |
-| `AREA_STATE_CHANGED` | S2 | S3-2, S8 |
+| `SEARCH_AREA_CHANGED` | S2 | S3-2, S7 |
+| `SEARCH_AREA_ASSIGNMENT_CHANGED` | S2 | S3-2, S7 |
 | `SEARCH_SESSION_STARTED` | S3-1 | S3-2 |
 | `SEARCH_SESSION_ENDED` | S3-1 | S3-2, S8 |
 | `PATH_APPENDED` | S3-1 | S3-2 |
@@ -1060,9 +1055,8 @@ Event payload는 REST response DTO, S6 `write_operation.schema.json`, S4 outbox/
 | `INCIDENT_CLOSED` | `events/incident_terminal.payload.schema.json` | 1 | `id`, `status`, `version` |
 | `INCIDENT_PURGED` | `events/incident_purge.payload.schema.json` | 1 | `id`, `status`, `version` |
 | `DEVICE_HEARTBEAT_UPDATED` | `events/device_heartbeat.payload.schema.json` | 1 | `id`, `status`, `version`, `deviceId`, `sequence` |
-| `MAP_BOUNDARY_CHANGED` | `events/map_boundary.payload.schema.json` | 1 | `id`, `status`, `version` |
-| `AREA_CREATED` | `events/search_area.payload.schema.json` | 1 | `id`, `status`, `version`, `opId` |
-| `AREA_STATE_CHANGED` | `events/search_area.payload.schema.json` | 1 | `id`, `status`, `version`, `opId` |
+| `SEARCH_AREA_CHANGED` | `events/search_area.payload.schema.json` | 1 | `id`, `incidentId`, `status`, `version`, `geometry`, `serverTs` |
+| `SEARCH_AREA_ASSIGNMENT_CHANGED` | `events/search_area.payload.schema.json` | 1 | `id`, `incidentId`, `status`, `version` |
 | `SEARCH_SESSION_STARTED` | `events/search_session.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `deviceId`, `sequence` |
 | `SEARCH_SESSION_ENDED` | `events/search_session.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `deviceId`, `sequence` |
 | `PATH_APPENDED` | `events/search_path.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `deviceId`, `sequence` |

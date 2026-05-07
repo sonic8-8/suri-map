@@ -1,5 +1,8 @@
 package com.surimap.maparea.event;
 
+import java.util.Set;
+import java.util.UUID;
+
 /**
  * S2 수색 구역 이벤트 발행 포트.
  *
@@ -21,6 +24,35 @@ public interface SearchAreaEventPublisher {
   void publish(PublishRequest request);
 
   /**
+   * payload field-name set만 검증하는 RED test용 publish adapter.
+   *
+   * @param eventType 이벤트 타입
+   * @param payloadFieldNames payload field name 집합
+   */
+  default void publish(String eventType, Set<String> payloadFieldNames) {
+    publish(new PublishRequest(eventType, null, payloadFieldNames));
+  }
+
+  /**
+   * domain write 시 영향 받은 테이블 이름을 기록한다.
+   *
+   * <p>Production EventHub adapter는 PublishRequest.mutatedTable을 사용한다. 테스트 collector는 이 method를
+   * override해 legacy RED test의 mutated table probe를 지원한다.
+   *
+   * @param tableName 영향 받은 테이블 이름
+   */
+  default void recordMutatedTable(String tableName) {}
+
+  /**
+   * 상태 전이 이벤트를 generic PublishRequest로 발행한다.
+   *
+   * @param request 상태 전이 발행 요청
+   */
+  default void publish(StateTransitionPublishRequest request) {
+    publish(new PublishRequest(request.type(), "search_area", request));
+  }
+
+  /**
    * S2 이벤트 발행 요청.
    *
    * @param eventType 이벤트 타입 (예: SEARCH_AREA_CHANGED)
@@ -28,4 +60,26 @@ public interface SearchAreaEventPublisher {
    * @param payload 이벤트 payload
    */
   record PublishRequest(String eventType, String mutatedTable, Object payload) {}
+
+  /**
+   * S2 상태 전이 이벤트 발행 요청.
+   *
+   * @param type 이벤트 타입
+   * @param id 수색 구역 ID
+   * @param incidentId 사건 ID
+   * @param opId OP ID
+   * @param status 현재 상태
+   * @param version 변경 후 버전
+   * @param previousState 이전 상태
+   * @param nextState 다음 상태
+   */
+  record StateTransitionPublishRequest(
+      String type,
+      UUID id,
+      UUID incidentId,
+      UUID opId,
+      String status,
+      long version,
+      String previousState,
+      String nextState) {}
 }

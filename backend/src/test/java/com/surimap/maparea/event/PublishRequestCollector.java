@@ -1,6 +1,9 @@
 package com.surimap.maparea.event;
 
+import com.surimap.maparea.event.SearchAreaEventPublisher.StateTransitionPublishRequest;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -15,10 +18,35 @@ import java.util.stream.Collectors;
 public class PublishRequestCollector implements SearchAreaEventPublisher {
 
   private final List<SearchAreaEventPublisher.PublishRequest> collected = new ArrayList<>();
+  private final List<StateTransitionPublishRequest> stateTransitions = new ArrayList<>();
+  private final Set<String> recordedMutatedTables = new LinkedHashSet<>();
 
   @Override
   public void publish(SearchAreaEventPublisher.PublishRequest request) {
     collected.add(request);
+    if (request.mutatedTable() != null) {
+      recordedMutatedTables.add(request.mutatedTable());
+    }
+  }
+
+  @Override
+  public void publish(StateTransitionPublishRequest request) {
+    stateTransitions.add(request);
+    SearchAreaEventPublisher.super.publish(request);
+  }
+
+  @Override
+  public void recordMutatedTable(String tableName) {
+    recordedMutatedTables.add(tableName);
+  }
+
+  /**
+   * 상태 전이 이벤트 발행 요청 목록을 반환한다.
+   *
+   * @return 상태 전이 발행 요청 목록
+   */
+  public List<StateTransitionPublishRequest> collected() {
+    return Collections.unmodifiableList(stateTransitions);
   }
 
   /**
@@ -50,15 +78,19 @@ public class PublishRequestCollector implements SearchAreaEventPublisher {
    * @return 발행된 mutatedTable 값 목록 (순서 보장)
    */
   public List<String> mutatedTables() {
-    return collected.stream()
-        .map(SearchAreaEventPublisher.PublishRequest::mutatedTable)
-        .collect(Collectors.toList());
+    List<String> tables =
+        collected.stream()
+            .map(SearchAreaEventPublisher.PublishRequest::mutatedTable)
+            .filter(java.util.Objects::nonNull)
+            .collect(Collectors.toList());
+    tables.addAll(recordedMutatedTables);
+    return tables.stream().distinct().collect(Collectors.toList());
   }
 
   /**
    * 발행된 payload의 필드명 집합을 반환한다.
    *
-   * <p>payload가 record 또는 Map이면 field 이름 또는 key 집합을 반환한다.
+   * <p>payload가 record, Map, Set이면 field 이름 또는 key/value 집합을 반환한다.
    *
    * @return payload field name 집합
    */
@@ -72,6 +104,9 @@ public class PublishRequestCollector implements SearchAreaEventPublisher {
               }
               if (payload instanceof java.util.Map<?, ?> map) {
                 return map.keySet().stream().map(Object::toString);
+              }
+              if (payload instanceof java.util.Set<?> set) {
+                return set.stream().map(Object::toString);
               }
               java.lang.reflect.RecordComponent[] components =
                   payload.getClass().getRecordComponents();
@@ -87,6 +122,8 @@ public class PublishRequestCollector implements SearchAreaEventPublisher {
   /** 수집된 데이터를 초기화한다. */
   public void clear() {
     collected.clear();
+    stateTransitions.clear();
+    recordedMutatedTables.clear();
   }
 
   /**
@@ -95,6 +132,6 @@ public class PublishRequestCollector implements SearchAreaEventPublisher {
    * @return 수집된 이벤트가 없으면 true
    */
   public boolean isEmpty() {
-    return collected.isEmpty();
+    return collected.isEmpty() && stateTransitions.isEmpty() && recordedMutatedTables.isEmpty();
   }
 }

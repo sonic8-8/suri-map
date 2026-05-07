@@ -9,12 +9,12 @@ import java.util.List;
  */
 public interface ExternalIncidentAdapter {
 
-  /** READY 상태(아직 import 안 된) 사건 목록을 조회한다. */
+  /** polling 대상인 READY 상태 사건 목록을 조회한다. */
   List<ExternalIncident> fetchReadyIncidents();
 
-  /** 특정 사건의 상세 정보를 조회한다. */
+  /** import 요청의 sourceIncidentId에 해당하는 외부 사건 상세를 조회한다. */
   ExternalIncident fetchIncident(String sourceIncidentId);
 
-  /** 사건을 IMPORTED로 마킹한다 (import 완료 통보). */
+  /** 외부 원천 시스템에 import 완료를 통보한다. */
   void markImported(String sourceIncidentId);
 }
