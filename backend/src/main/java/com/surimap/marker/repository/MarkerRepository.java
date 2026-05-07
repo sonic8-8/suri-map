@@ -7,5 +7,7 @@ public interface MarkerRepository {
 
   void insertSeed(MarkerSeedRecord record);
 
+  void insertCreate(MarkerCreateRecord record);
+
   List<MarkerRecord> findByIds(List<UUID> markerIds);
 }

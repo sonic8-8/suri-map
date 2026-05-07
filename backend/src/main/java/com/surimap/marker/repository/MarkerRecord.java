@@ -46,6 +46,25 @@ public class MarkerRecord {
     return marker;
   }
 
+  public static MarkerRecord fromCreateRecord(MarkerCreateRecord record) {
+    MarkerRecord marker = new MarkerRecord();
+    marker.setId(record.id());
+    marker.setOperationalPeriodId(record.operationalPeriodId());
+    marker.setDutyShiftId(record.dutyShiftId());
+    marker.setMarkerType(record.markerType().name());
+    marker.setSupportRequestType(
+        record.supportRequestType() == null ? null : record.supportRequestType().name());
+    marker.setLocation(record.location());
+    marker.setMemo(record.memo());
+    marker.setOccurredAt(record.occurredAt());
+    marker.setCreatedByAccountId(record.createdByAccountId());
+    marker.setPolicePhoneId(record.policePhoneId());
+    marker.setMarkerSource(record.markerSource().name());
+    marker.setStatus(record.status().name());
+    marker.setVersion(record.version());
+    return marker;
+  }
+
   public MarkerView toView(UUID incidentId) {
     return new MarkerView(
         id,

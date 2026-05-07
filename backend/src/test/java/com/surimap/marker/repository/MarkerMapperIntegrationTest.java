@@ -6,8 +6,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
 import com.surimap.marker.domain.MarkerSource;
 import com.surimap.marker.domain.MarkerStatus;
+import com.surimap.marker.domain.MarkerType;
+import com.surimap.marker.domain.fixture.MarkerGeometryFixtures;
 import com.surimap.marker.seed.fixture.MarkerSeedFixtures;
+import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -18,6 +22,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 @DisplayName("L5-T05B marker mapper integration")
 @Tag("integration")
 class MarkerMapperIntegrationTest extends PostGisIntegrationTestSupport {
+
+  private static final UUID CREATE_MARKER_ID =
+      UUID.fromString("55555555-5555-5555-5555-555555550071");
+  private static final UUID CREATE_ACCOUNT_ID =
+      UUID.fromString("11111111-1111-1111-1111-111111110071");
+  private static final UUID CREATE_POLICE_PHONE_ID =
+      UUID.fromString("22222222-2222-2222-2222-222222220071");
+  private static final Instant CLIENT_TS = Instant.parse("2026-04-28T00:05:00Z");
 
   @Autowired private MarkerMapper markerMapper;
 
@@ -71,5 +83,43 @@ class MarkerMapperIntegrationTest extends PostGisIntegrationTestSupport {
     assertThat(record.getLocation()).isNotNull();
     assertThat(record.getLocation().getSRID()).isEqualTo(4326);
     assertThat(record.getLocation().getGeometryType()).isEqualTo("Point");
+  }
+
+  @Test
+  @DisplayName("APP marker create row는 필수 context와 Point를 저장한다")
+  void app_marker_create_row는_필수_context와_point를_저장한다() {
+    markerMapper.insertCreate(
+        new MarkerCreateRecord(
+            MarkerGeometryFixtures.INCIDENT_ID,
+            CREATE_MARKER_ID,
+            MarkerGeometryFixtures.OP1_ID,
+            null,
+            MarkerType.CLUE,
+            null,
+            MarkerGeometryFixtures.VALID_MARKER_POINT,
+            "S14P31C106-71 field clue",
+            CLIENT_TS,
+            CREATE_ACCOUNT_ID,
+            CREATE_POLICE_PHONE_ID,
+            MarkerSource.APP,
+            MarkerStatus.ACTIVE,
+            1L));
+
+    List<MarkerRecord> records = markerMapper.findByIds(List.of(CREATE_MARKER_ID));
+
+    assertThat(records).hasSize(1);
+    MarkerRecord record = records.get(0);
+    assertThat(record.getId()).isEqualTo(CREATE_MARKER_ID);
+    assertThat(record.getOperationalPeriodId()).isEqualTo(MarkerGeometryFixtures.OP1_ID);
+    assertThat(record.getMarkerType()).isEqualTo(MarkerType.CLUE.name());
+    assertThat(record.getMarkerSource()).isEqualTo(MarkerSource.APP.name());
+    assertThat(record.getStatus()).isEqualTo(MarkerStatus.ACTIVE.name());
+    assertThat(record.getVersion()).isEqualTo(1L);
+    assertThat(record.getCreatedByAccountId()).isEqualTo(CREATE_ACCOUNT_ID);
+    assertThat(record.getPolicePhoneId()).isEqualTo(CREATE_POLICE_PHONE_ID);
+    assertThat(record.getOccurredAt()).isEqualTo(CLIENT_TS);
+    assertThat(record.getLocation().getSRID()).isEqualTo(4326);
+    assertThat(record.getLocation().getX()).isEqualTo(126.956500);
+    assertThat(record.getLocation().getY()).isEqualTo(37.571200);
   }
 }

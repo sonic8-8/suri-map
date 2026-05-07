@@ -58,6 +58,43 @@
         ON CONFLICT (id) DO NOTHING
     </insert>
 
+    <insert id="insertCreate">
+        INSERT INTO marker (
+            id,
+            operational_period_id,
+            duty_shift_id,
+            marker_type,
+            support_request_type,
+            location,
+            memo,
+            occurred_at,
+            created_by_account_id,
+            police_phone_id,
+            marker_source,
+            status,
+            version,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            #{record.id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{record.operationalPeriodId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{record.dutyShiftId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{record.markerType},
+            #{record.supportRequestType},
+            ST_GeomFromEWKT(#{record.location, typeHandler=com.surimap.config.mybatis.JtsGeometryTypeHandler}),
+            #{record.memo},
+            #{record.occurredAt},
+            #{record.createdByAccountId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{record.policePhoneId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{record.markerSource},
+            #{record.status},
+            #{record.version},
+            NOW(),
+            NOW()
+        )
+    </insert>
+
     <select id="findByIds" resultMap="markerRecordMap">
         SELECT
             id,

@@ -1,5 +1,6 @@
 package com.surimap.marker.seed.support;
 
+import com.surimap.marker.repository.MarkerCreateRecord;
 import com.surimap.marker.repository.MarkerRecord;
 import com.surimap.marker.repository.MarkerRepository;
 import com.surimap.marker.repository.MarkerSeedRecord;
@@ -17,6 +18,11 @@ public final class InMemoryMarkerRepository implements MarkerRepository {
   @Override
   public void insertSeed(MarkerSeedRecord record) {
     records.putIfAbsent(record.id(), MarkerRecord.fromSeedRecord(record));
+  }
+
+  @Override
+  public void insertCreate(MarkerCreateRecord record) {
+    records.put(record.id(), MarkerRecord.fromCreateRecord(record));
   }
 
   @Override

@@ -12,5 +12,8 @@ public interface MarkerMapper extends MarkerRepository {
   void insertSeed(@Param("record") MarkerSeedRecord record);
 
   @Override
+  void insertCreate(@Param("record") MarkerCreateRecord record);
+
+  @Override
   List<MarkerRecord> findByIds(@Param("markerIds") List<UUID> markerIds);
 }
