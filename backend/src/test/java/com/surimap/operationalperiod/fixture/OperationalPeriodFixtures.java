@@ -51,6 +51,28 @@ public final class OperationalPeriodFixtures {
     return new IllegalStateException("op1_creation_failed");
   }
 
+  /** OP2+ 전환 후 ENDED 상태가 된 OP1 row (S8.json §harness_fixtures.sc10_op_transition_convergence). */
+  public static OperationalPeriodRow endedOp1() {
+    return new OperationalPeriodRow(
+        OP1_ID, INCIDENT_ID, "ENDED", 1, OP1_STARTED_AT, Instant.parse("2026-04-28T06:00:00Z"), "INITIAL", 2L);
+  }
+
+  /** OP2 ACTIVE row (S8.json §harness_fixtures.sc10_op_transition_convergence.newOp). */
+  public static OperationalPeriodRow activeOp2(String reason) {
+    return new OperationalPeriodRow(
+        OP2_ID, INCIDENT_ID, "ACTIVE", 2, Instant.parse("2026-04-28T06:00:00Z"), null, reason, 1L);
+  }
+
+  /**
+   * OP2+ 전환 이벤트 (S8.json §harness_fixtures.sc10_op_transition_convergence.expectedS4Event).
+   *
+   * <p>fromOpId=OP1, toOpId=OP2.
+   */
+  public static ExpectedOpTransitionEvent op2TransitionedEvent() {
+    return new ExpectedOpTransitionEvent(
+        "OP_TRANSITIONED", INCIDENT_ID, OP2_ID, OP2_ID, "ACTIVE", 1L, 2, OP1_ID, OP2_ID);
+  }
+
   /**
    * S8 OP_TRANSITIONED 이벤트 payload를 테스트에서 비교하기 위한 읽기 모델.
    *
