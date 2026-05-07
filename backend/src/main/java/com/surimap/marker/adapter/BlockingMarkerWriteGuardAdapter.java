@@ -2,6 +2,7 @@ package com.surimap.marker.adapter;
 
 import com.surimap.marker.exception.MarkerApiException;
 import com.surimap.marker.port.MarkerWriteGuardPort;
+import com.surimap.marker.service.MarkerMutationContext;
 import com.surimap.marker.service.MarkerRequestContext;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -17,6 +18,16 @@ public class BlockingMarkerWriteGuardAdapter implements MarkerWriteGuardPort {
 
   @Override
   public void requireCreateAccess(UUID incidentId, UUID opId, MarkerRequestContext context) {
+    throw new MarkerApiException("incident_access_denied", HttpStatus.FORBIDDEN);
+  }
+
+  @Override
+  public MarkerMutationContext requireUpdateAccess(UUID markerId, MarkerRequestContext context) {
+    throw new MarkerApiException("incident_access_denied", HttpStatus.FORBIDDEN);
+  }
+
+  @Override
+  public MarkerMutationContext requireDeleteAccess(UUID markerId, MarkerRequestContext context) {
     throw new MarkerApiException("incident_access_denied", HttpStatus.FORBIDDEN);
   }
 }

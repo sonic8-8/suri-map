@@ -122,4 +122,79 @@ class MarkerMapperIntegrationTest extends PostGisIntegrationTestSupport {
     assertThat(record.getLocation().getX()).isEqualTo(126.956500);
     assertThat(record.getLocation().getY()).isEqualTo(37.571200);
   }
+
+  @Test
+  @DisplayName("marker update는 expected version이 맞을 때 UPDATED와 version+1을 저장한다")
+  void marker_update는_expected_version이_맞을_때_updated와_version_1을_저장한다() {
+    insertCreateMarker();
+
+    int updated =
+        markerMapper.updateMarker(
+            new MarkerUpdateRecord(
+                CREATE_MARKER_ID,
+                1L,
+                MarkerType.NOTE,
+                MarkerGeometryFixtures.VALID_MARKER_POINT,
+                "mapper updated memo",
+                MarkerStatus.UPDATED,
+                2L));
+
+    assertThat(updated).isEqualTo(1);
+    MarkerRecord record = markerMapper.findById(CREATE_MARKER_ID).orElseThrow();
+    assertThat(record.getMarkerType()).isEqualTo(MarkerType.NOTE.name());
+    assertThat(record.getMemo()).isEqualTo("mapper updated memo");
+    assertThat(record.getStatus()).isEqualTo(MarkerStatus.UPDATED.name());
+    assertThat(record.getVersion()).isEqualTo(2L);
+
+    int staleUpdate =
+        markerMapper.updateMarker(
+            new MarkerUpdateRecord(
+                CREATE_MARKER_ID,
+                1L,
+                MarkerType.CLUE,
+                MarkerGeometryFixtures.VALID_MARKER_POINT,
+                "stale update",
+                MarkerStatus.UPDATED,
+                2L));
+    assertThat(staleUpdate).isZero();
+  }
+
+  @Test
+  @DisplayName("marker delete는 expected version이 맞을 때 DELETED와 version+1을 저장한다")
+  void marker_delete는_expected_version이_맞을_때_deleted와_version_1을_저장한다() {
+    insertCreateMarker();
+
+    int deleted =
+        markerMapper.deleteMarker(
+            new MarkerDeleteRecord(CREATE_MARKER_ID, 1L, MarkerStatus.DELETED, 2L));
+
+    assertThat(deleted).isEqualTo(1);
+    MarkerRecord record = markerMapper.findById(CREATE_MARKER_ID).orElseThrow();
+    assertThat(record.getStatus()).isEqualTo(MarkerStatus.DELETED.name());
+    assertThat(record.getVersion()).isEqualTo(2L);
+
+    int repeatedDelete =
+        markerMapper.deleteMarker(
+            new MarkerDeleteRecord(CREATE_MARKER_ID, 2L, MarkerStatus.DELETED, 3L));
+    assertThat(repeatedDelete).isZero();
+  }
+
+  private void insertCreateMarker() {
+    markerMapper.insertCreate(
+        new MarkerCreateRecord(
+            MarkerGeometryFixtures.INCIDENT_ID,
+            CREATE_MARKER_ID,
+            MarkerGeometryFixtures.OP1_ID,
+            null,
+            MarkerType.CLUE,
+            null,
+            MarkerGeometryFixtures.VALID_MARKER_POINT,
+            "S14P31C106-71 field clue",
+            CLIENT_TS,
+            CREATE_ACCOUNT_ID,
+            CREATE_POLICE_PHONE_ID,
+            MarkerSource.APP,
+            MarkerStatus.ACTIVE,
+            1L));
+  }
 }

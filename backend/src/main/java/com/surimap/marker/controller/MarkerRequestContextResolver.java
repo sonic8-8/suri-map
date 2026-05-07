@@ -30,8 +30,34 @@ public class MarkerRequestContextResolver {
     return new MarkerRequestContext(authentication, idempotencyKey);
   }
 
+  public MarkerRequestContext resolveFieldOrWebWrite(
+      String authorization, String channel, String policePhoneId, String idempotencyKey) {
+    requireFieldOrWebWriteChannel(channel);
+    requireIdempotencyKey(idempotencyKey);
+    requireAuthorization(authorization);
+
+    UUID headerPolicePhoneId = null;
+    if ("APP".equals(channel)) {
+      headerPolicePhoneId = parsePolicePhoneId(policePhoneId);
+    }
+    SuriMapAuthentication authentication = authenticationResolver.resolve(authorization, channel);
+    requireMatchingChannel(authentication, channel);
+    if ("APP".equals(channel)) {
+      requireMatchingPolicePhone(authentication, headerPolicePhoneId);
+    }
+
+    return new MarkerRequestContext(authentication, idempotencyKey);
+  }
+
   private void requireAppChannel(String channel) {
     if ("APP".equals(channel)) {
+      return;
+    }
+    throw new MarkerApiException("channel_not_allowed", HttpStatus.FORBIDDEN);
+  }
+
+  private void requireFieldOrWebWriteChannel(String channel) {
+    if ("APP".equals(channel) || "WEB".equals(channel)) {
       return;
     }
     throw new MarkerApiException("channel_not_allowed", HttpStatus.FORBIDDEN);
@@ -71,5 +97,12 @@ public class MarkerRequestContextResolver {
       return;
     }
     throw new MarkerApiException("police_phone_not_registered", HttpStatus.FORBIDDEN);
+  }
+
+  private void requireMatchingChannel(SuriMapAuthentication authentication, String channel) {
+    if (channel.equals(authentication.channel())) {
+      return;
+    }
+    throw new MarkerApiException("channel_not_allowed", HttpStatus.FORBIDDEN);
   }
 }

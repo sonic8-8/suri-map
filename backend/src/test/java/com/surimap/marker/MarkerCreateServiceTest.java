@@ -21,6 +21,7 @@ import com.surimap.marker.photo.security.SuriMapAuthentication;
 import com.surimap.marker.repository.MarkerRecord;
 import com.surimap.marker.seed.support.InMemoryMarkerRepository;
 import com.surimap.marker.service.MarkerCreateService;
+import com.surimap.marker.service.MarkerMutationContext;
 import com.surimap.marker.service.MarkerRequestContext;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -241,6 +242,16 @@ class MarkerCreateServiceTest {
         throw new MarkerApiException(
             "channel_not_allowed", org.springframework.http.HttpStatus.FORBIDDEN);
       }
+    }
+
+    @Override
+    public MarkerMutationContext requireUpdateAccess(UUID markerId, MarkerRequestContext context) {
+      throw new UnsupportedOperationException("create tests do not exercise marker update access");
+    }
+
+    @Override
+    public MarkerMutationContext requireDeleteAccess(UUID markerId, MarkerRequestContext context) {
+      throw new UnsupportedOperationException("create tests do not exercise marker delete access");
     }
   }
 }

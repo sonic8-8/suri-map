@@ -116,4 +116,48 @@
             #{markerId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
         </foreach>
     </select>
+
+    <select id="findById" resultMap="markerRecordMap">
+        SELECT
+            id,
+            operational_period_id,
+            duty_shift_id,
+            marker_type,
+            support_request_type,
+            ST_AsEWKT(location) AS location,
+            memo,
+            occurred_at,
+            created_by_account_id,
+            police_phone_id,
+            marker_source,
+            status,
+            version
+        FROM marker
+        WHERE id = #{markerId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+    </select>
+
+    <update id="updateMarker">
+        UPDATE marker
+        SET
+            marker_type = #{record.markerType},
+            location = ST_GeomFromEWKT(#{record.location, typeHandler=com.surimap.config.mybatis.JtsGeometryTypeHandler}),
+            memo = #{record.memo},
+            status = #{record.status},
+            version = #{record.version},
+            updated_at = NOW()
+        WHERE id = #{record.id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND version = #{record.expectedVersion}
+          AND status &lt;&gt; 'DELETED'
+    </update>
+
+    <update id="deleteMarker">
+        UPDATE marker
+        SET
+            status = #{record.status},
+            version = #{record.version},
+            updated_at = NOW()
+        WHERE id = #{record.id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND version = #{record.expectedVersion}
+          AND status &lt;&gt; 'DELETED'
+    </update>
 </mapper>
