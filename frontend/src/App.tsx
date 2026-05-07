@@ -27,7 +27,11 @@ export function App() {
           <div className="status-grid">
             <StatusItem icon={<RadioTower size={18} />} label="온라인 단말" value={`${activeIncident.teamsOnline}대`} />
             <StatusItem icon={<Activity size={18} />} label="현재 차수" value={activeIncident.operationPeriod} />
-            <StatusItem icon={<AlertTriangle size={18} />} label="미전송 큐" value={`${activeIncident.pendingSyncCount}건`} />
+            <StatusItem
+              icon={<AlertTriangle size={18} />}
+              label="미전송 큐"
+              value={`${activeIncident.pendingSyncCount}건`}
+            />
           </div>
         </section>
 
@@ -57,7 +61,9 @@ export function App() {
             <button type="button" className="icon-button" title="실시간 상태">
               <RadioTower size={18} aria-hidden="true" />
             </button>
-            <button type="button" className="primary-button">새로고침</button>
+            <button type="button" className="primary-button">
+              새로고침
+            </button>
           </div>
         </header>
 

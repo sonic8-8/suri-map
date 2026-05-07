@@ -2,7 +2,7 @@
   "$schema": "../_template.schema.json",
   "spec_info": {
     "id": "S8",
-    "name": "Operational Period & Handover",
+    "name": "Operational Period, Duty Shift & Handover",
     "owner": "3",
     "character": "domain",
     "created": "2026-04-28",
@@ -14,21 +14,21 @@
       "§5.1 SC-01 배정 사건 가져오기·초동 활성화",
       "§5.1 SC-04 지도 기준 범위·구역 분할·할당",
       "§5.1 SC-10 구역 완료·새 OP 열기",
-      "§5.1 SC-11 인수인계·OP 비교·AI 요약",
+      "§5.1 SC-11 인수인계·OP 비교·수색 이력 요약",
       "§6.1 OperationPeriod, HandoverMemo",
       "§7.2 FR-11 OP별 트랙·어사인먼트·마커·메모 비교",
       "§7.2 FR-12 새 OP 생성과 사유 기록",
       "§7.7 FR-32 OP 히스토리 레이어",
       "§7.7 FR-37 OP/경로/구역 인수인계 메모",
-      "§7.7 FR-39 AI 수색 이력 자동 요약"
+      "§7.7 FR-39 수색 이력 자동 요약"
     ],
     "architecture": [
       "§2 핵심 원칙 OP 기반 인수인계",
       "§4.2 Web 상황판",
       "§5.1 백엔드 책임",
       "§6.2 핵심 엔티티",
-      "§6.3 Incident membership vs OP assignment",
-      "§6.5 AI Summary Provider"
+      "§6.3 Incident assignment vs duty shift",
+      "§6.5 Search History Summary Provider"
     ],
     "adr": [
       "ADR-0026",
@@ -43,28 +43,28 @@
       "SC-02 실종팀 인계·지원 부대 배정",
       "SC-03 사건 오프라인 패키지 사전 적재",
       "SC-04 지도 기준 범위·구역 분할·할당",
-      "SC-05 수색 세션·Device GPS 경로 (current OP context 경유)",
+      "SC-05 수색 경로·PolicePhone GPS 경로 (current OP context 경유)",
       "SC-06 현장 마커 생성 (current OP context 경유)",
       "SC-08 지원 요청·실종자 발견 알림 (current OP context 경유)",
       "SC-10 구역 완료·새 OP 열기",
-      "SC-11 인수인계·OP 비교·AI 요약"
+      "SC-11 인수인계·OP 비교·수색 이력 요약"
     ]
   },
   "scope": {
     "included": [
-      "incident bootstrap 중 OP1 내부/system 자동 생성",
+      "incident import 중 OP1 내부/system 자동 생성",
       "OP2 이후 Web 현장 지휘관 수동 생성과 active OP 전환",
-      "OP 생성 사유 SHIFT_CHANGE, RE_SEARCH, NEW_AREA, OTHER 기록",
-      "OP 수준 담당 배정 op_assignment 생성·조회",
+      "OP 생성 사유 INITIAL, RE_SEARCH, AREA_CHANGED, OTHER 기록",
+      "OP 수준 담당 배정 조회와 OP 히스토리 맥락 제공",
       "OP/경로/구역 단위 handover_memo 생성·조회",
-      "OP·경로·마커·구역 상태·메모 기반 AI 수색 이력 요약 생성과 fallback 저장",
-      "OperationalPeriodQuery, AssignmentQuery, HandoverMemoQuery, HandoverStatusSnapshot, AiSummaryQuery 제공",
-      "OP_TRANSITIONED, OP_ASSIGNMENT_CHANGED, HANDOVER_MEMO_CREATED, AI_SUMMARY_READY 이벤트 payload 생성 요청",
-      "S3-2 op_toggle, op_history, handover_memo, handover_status, ai_summary slot source contract 납품"
+      "OP·경로·마커·구역 상태·메모 기반 수색 이력 요약 생성과 실패 상태 관리",
+      "OperationalPeriodQuery, HandoverMemoQuery, HandoverStatusSnapshot, SearchHistorySummaryQuery 제공",
+      "OP_TRANSITIONED, HANDOVER_MEMO_CREATED, SEARCH_HISTORY_SUMMARY_CHANGED 이벤트 payload 생성 요청",
+      "S3-2 op_toggle, op_history, handover_memo, handover_status, search_history_summary slot source contract 납품"
     ],
     "excluded": [
       {
-        "item": "map_boundary와 search_area geometry write",
+        "item": "overall_search_area와 search_area geometry write",
         "owner": "S2",
         "reason": "S8은 area ID를 assignment/memo context로 참조하지만 geometry를 변경하지 않는다."
       },
@@ -81,12 +81,12 @@
       {
         "item": "마커·사진 생성 및 알림 delivery",
         "owner": "S5",
-        "reason": "S8은 marker summary input만 AI 요약과 OP 비교에 사용한다."
+        "reason": "S8은 marker summary input만 수색 이력 요약과 OP 비교에 사용한다."
       },
       {
         "item": "자동 수색 구역 추천, 누락 확정, 위험도 판단",
         "owner": "none",
-        "reason": "AI summary는 이력 요약만 수행하며 recommendations를 생성하지 않는다."
+        "reason": "search history summary는 이력 요약만 수행하며 recommendations를 생성하지 않는다."
       },
       {
         "item": "수색 보고서 AI 초안, 과거 사례/RAG 위험 구역 조회, 무전 음성 인식",
@@ -114,7 +114,7 @@
     {
       "id": "FR-13",
       "summary": "구역별 수색 상태와 수색 횟수를 함께 관리/표현한다.",
-      "handling": "S8은 S2 area state를 변경하지 않고 op_assignment와 OP history에서 해당 구역의 OP별 담당 맥락을 제공한다."
+      "handling": "S8은 S2 area state와 search_area_assignment를 변경하지 않고 S2 SearchAreaAssignmentQuery와 OP history에서 해당 구역의 OP별 담당 맥락을 제공한다."
     },
     {
       "id": "FR-15",
@@ -123,18 +123,18 @@
     },
     {
       "id": "FR-23",
-      "summary": "OP 히스토리와 AI 요약은 자동 누락 확정이나 다음 구역 추천을 하지 않는다.",
-      "handling": "S8은 OP별 경로·마커·완료 구역·메모 evidence를 묶어 제공하되 누락 확정, 추천 구역, 위험도 판단 필드를 생성하지 않고 AI summary에도 금지 문구를 적용한다."
+      "summary": "OP 히스토리와 수색 이력 요약은 자동 누락 확정이나 다음 구역 추천을 하지 않는다.",
+      "handling": "S8은 OP별 경로·마커·완료 구역·메모 evidence를 묶어 제공하되 누락 확정, 추천 구역, 위험도 판단 필드를 생성하지 않고 search history summary에도 금지 문구를 적용한다."
     },
     {
       "id": "FR-32",
       "summary": "OP 단위로 경로·마커·완료 구역·메모를 묶는 히스토리 레이어를 제공한다.",
-      "handling": "operational_period를 사건 내 sequence로 관리하고 OP1 bootstrap, OP2+ 수동 전환, OP별 read model을 제공한다."
+      "handling": "operational_period를 사건 내 sequence로 관리하고 OP1 자동 생성, OP2+ 수동 전환, OP별 read model을 제공한다."
     },
     {
       "id": "FR-34",
-      "summary": "수색 세션은 현재 active OP에 귀속된다.",
-      "handling": "S8은 @RequireCurrentOp와 OperationalPeriodQuery를 제공해 S3-1 search_session이 current OP 없이 시작되거나 다른 OP로 기록되지 않게 한다."
+      "summary": "수색 경로은 현재 active OP에 귀속된다.",
+      "handling": "S8은 @RequireCurrentOp와 OperationalPeriodQuery를 제공해 S3-1 search_path이 current OP 없이 시작되거나 다른 OP로 기록되지 않게 한다."
     },
     {
       "id": "FR-35",
@@ -149,7 +149,7 @@
     {
       "id": "FR-39",
       "summary": "OP·경로·마커·구역 상태·인수인계 메모 기반으로 수색 이력을 짧게 요약한다.",
-      "handling": "AI summary는 내부 기록 기반 history summary만 생성하고 실패 시 템플릿 요약으로 대체한다."
+      "handling": "search history summary는 내부 기록 기반 history summary만 생성하고 실패 시 generation_status=FAILED로 남기며 대체 요약 문장을 저장하지 않는다."
     }
   ],
   "domain_model": {
@@ -171,22 +171,22 @@
             "nullable": false
           },
           {
-            "name": "sequence_no",
+            "name": "sequence_number",
             "type": "INTEGER",
             "nullable": false,
-            "note": "OP1, OP2..."
+            "note": "incident 안의 OP 번호"
           },
           {
             "name": "status",
             "type": "VARCHAR(24)",
             "nullable": false,
-            "note": "ACTIVE|CLOSED"
+            "note": "ACTIVE|ENDED"
           },
           {
             "name": "reason",
-            "type": "VARCHAR(24)",
+            "type": "VARCHAR(32)",
             "nullable": false,
-            "note": "BOOTSTRAP|SHIFT_CHANGE|RE_SEARCH|NEW_AREA|OTHER"
+            "note": "INITIAL|RE_SEARCH|AREA_CHANGED|OTHER"
           },
           {
             "name": "reason_memo",
@@ -194,24 +194,23 @@
             "nullable": true
           },
           {
-            "name": "opened_by_account_id",
+            "name": "started_by_account_id",
             "type": "UUID",
             "nullable": true,
-            "note": "OP1 bootstrap은 system 내부 생성이므로 nullable"
+            "note": "OP1 자동 생성은 system 내부 생성이므로 nullable"
           },
           {
-            "name": "opened_by_channel",
-            "type": "VARCHAR(16)",
-            "nullable": false,
-            "note": "SYSTEM|WEB"
+            "name": "ended_by_account_id",
+            "type": "UUID",
+            "nullable": true
           },
           {
-            "name": "opened_at",
+            "name": "started_at",
             "type": "TIMESTAMPTZ",
             "nullable": false
           },
           {
-            "name": "closed_at",
+            "name": "ended_at",
             "type": "TIMESTAMPTZ",
             "nullable": true
           },
@@ -221,22 +220,14 @@
             "nullable": false
           },
           {
-            "name": "client_ts",
+            "name": "created_at",
             "type": "TIMESTAMPTZ",
-            "nullable": false,
-            "note": "ADR-0012"
+            "nullable": false
           },
           {
-            "name": "server_ts",
+            "name": "updated_at",
             "type": "TIMESTAMPTZ",
-            "nullable": false,
-            "note": "ADR-0012"
-          },
-          {
-            "name": "clock_offset_ms",
-            "type": "BIGINT",
-            "nullable": true,
-            "note": "ADR-0012"
+            "nullable": false
           }
         ],
         "indexes": [
@@ -244,15 +235,15 @@
             "name": "ux_operational_period_incident_sequence",
             "columns": [
               "incident_id",
-              "sequence_no"
+              "sequence_number"
             ]
           },
           {
             "name": "ux_operational_period_one_active",
             "columns": [
-              "incident_id",
-              "status"
-            ]
+              "incident_id"
+            ],
+            "partial": "status = 'ACTIVE'"
           }
         ],
         "spatial": {
@@ -262,9 +253,9 @@
         }
       },
       {
-        "name": "op_assignment",
+        "name": "duty_shift",
         "owner_spec": "S8",
-        "description": "특정 OP에서 어떤 팀·계정·Device가 어떤 search_area를 맡는지 기록한다. incident membership과 분리된다.",
+        "description": "특정 사건 배정 계정이 특정 폴리폰을 인수해 근무한 구간.",
         "fields": [
           {
             "name": "id",
@@ -273,91 +264,48 @@
             "pk": true
           },
           {
-            "name": "op_id",
+            "name": "operational_period_id",
             "type": "UUID",
             "nullable": false
           },
           {
-            "name": "incident_id",
+            "name": "incident_assignment_id",
             "type": "UUID",
             "nullable": false
           },
           {
-            "name": "search_area_id",
+            "name": "police_phone_id",
             "type": "UUID",
-            "nullable": true,
-            "note": "초동 순찰처럼 담당 구역이 아직 없으면 nullable"
-          },
-          {
-            "name": "account_id",
-            "type": "UUID",
-            "nullable": true
-          },
-          {
-            "name": "team_id",
-            "type": "UUID",
-            "nullable": true
-          },
-          {
-            "name": "device_id",
-            "type": "UUID",
-            "nullable": true,
-            "note": "팀 업무폰 또는 순찰차 업무폰"
-          },
-          {
-            "name": "assignment_type",
-            "type": "VARCHAR(24)",
-            "nullable": false,
-            "note": "TEAM_PHONE|PATROL_CAR_PHONE"
+            "nullable": false
           },
           {
             "name": "status",
             "type": "VARCHAR(24)",
             "nullable": false,
-            "note": "ACTIVE|REPLACED|CANCELLED"
+            "note": "ACTIVE|ENDED"
           },
           {
-            "name": "assigned_by_account_id",
-            "type": "UUID",
-            "nullable": false
-          },
-          {
-            "name": "assigned_at",
+            "name": "started_at",
             "type": "TIMESTAMPTZ",
             "nullable": false
           },
           {
-            "name": "memo",
-            "type": "TEXT",
+            "name": "ended_at",
+            "type": "TIMESTAMPTZ",
             "nullable": true
           },
           {
-            "name": "version",
-            "type": "BIGINT",
+            "name": "created_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": false
+          },
+          {
+            "name": "updated_at",
+            "type": "TIMESTAMPTZ",
             "nullable": false
           }
         ],
-        "indexes": [
-          {
-            "name": "idx_op_assignment_op",
-            "columns": [
-              "op_id",
-              "status"
-            ]
-          },
-          {
-            "name": "idx_op_assignment_area",
-            "columns": [
-              "search_area_id"
-            ]
-          },
-          {
-            "name": "idx_op_assignment_device",
-            "columns": [
-              "device_id"
-            ]
-          }
-        ],
+        "indexes": [],
         "spatial": {
           "enabled": false,
           "type": "POINT",
@@ -367,7 +315,7 @@
       {
         "name": "handover_memo",
         "owner_spec": "S8",
-        "description": "OP, path, area 단위 정성 인수인계 메모. 앱과 Web 모두 작성할 수 있다.",
+        "description": "OP, duty shift, path, area, marker 단위 정성 인수인계 메모. 앱과 Web 모두 작성할 수 있다.",
         "fields": [
           {
             "name": "id",
@@ -376,29 +324,23 @@
             "pk": true
           },
           {
-            "name": "incident_id",
+            "name": "operational_period_id",
             "type": "UUID",
             "nullable": false
           },
           {
-            "name": "op_id",
-            "type": "UUID",
-            "nullable": false
-          },
-          {
-            "name": "target_type",
-            "type": "VARCHAR(16)",
+            "name": "memo_target_type",
+            "type": "VARCHAR(32)",
             "nullable": false,
-            "note": "OP|PATH|AREA"
+            "note": "OPERATIONAL_PERIOD|DUTY_SHIFT|SEARCH_PATH|SEARCH_AREA|MARKER"
           },
           {
-            "name": "target_id",
+            "name": "memo_target_id",
             "type": "UUID",
-            "nullable": true,
-            "note": "target_type=OP이면 op_id와 같거나 null 허용"
+            "nullable": false
           },
           {
-            "name": "body",
+            "name": "content",
             "type": "TEXT",
             "nullable": false
           },
@@ -408,54 +350,28 @@
             "nullable": false
           },
           {
-            "name": "created_by_device_id",
+            "name": "duty_shift_id",
             "type": "UUID",
             "nullable": true
           },
           {
-            "name": "created_by_channel",
-            "type": "VARCHAR(16)",
-            "nullable": false,
-            "note": "APP|WEB"
-          },
-          {
-            "name": "version",
-            "type": "BIGINT",
+            "name": "created_at",
+            "type": "TIMESTAMPTZ",
             "nullable": false
           },
           {
-            "name": "client_ts",
+            "name": "updated_at",
             "type": "TIMESTAMPTZ",
-            "nullable": false,
-            "note": "ADR-0012"
-          },
-          {
-            "name": "server_ts",
-            "type": "TIMESTAMPTZ",
-            "nullable": false,
-            "note": "ADR-0012"
-          },
-          {
-            "name": "clock_offset_ms",
-            "type": "BIGINT",
-            "nullable": true,
-            "note": "ADR-0012"
+            "nullable": false
           }
         ],
         "indexes": [
           {
             "name": "idx_handover_memo_op_target",
             "columns": [
-              "op_id",
-              "target_type",
-              "target_id"
-            ]
-          },
-          {
-            "name": "idx_handover_memo_incident_time",
-            "columns": [
-              "incident_id",
-              "server_ts"
+              "operational_period_id",
+              "memo_target_type",
+              "memo_target_id"
             ]
           }
         ],
@@ -466,9 +382,9 @@
         }
       },
       {
-        "name": "ai_summary",
+        "name": "search_history_summary",
         "owner_spec": "S8",
-        "description": "OP 또는 세션 기준 수색 이력 요약. 내부 기록만 입력으로 사용하며 추천·판단을 포함하지 않는다.",
+        "description": "OP 또는 근무 구간 기준 수색 이력 요약. 내부 기록만 입력으로 사용하며 추천·판단을 포함하지 않는다.",
         "fields": [
           {
             "name": "id",
@@ -477,51 +393,47 @@
             "pk": true
           },
           {
-            "name": "incident_id",
+            "name": "operational_period_id",
             "type": "UUID",
             "nullable": false
           },
           {
-            "name": "op_id",
+            "name": "duty_shift_id",
             "type": "UUID",
-            "nullable": false
+            "nullable": true,
+            "note": "null이면 OP 전체 요약"
           },
           {
-            "name": "scope_type",
-            "type": "VARCHAR(16)",
+            "name": "generation_status",
+            "type": "VARCHAR(24)",
             "nullable": false,
-            "note": "OP|SESSION"
+            "note": "GENERATING|READY|FAILED"
           },
           {
-            "name": "scope_id",
-            "type": "UUID",
-            "nullable": true
-          },
-          {
-            "name": "summary_text",
+            "name": "content",
             "type": "TEXT",
+            "nullable": true,
+            "note": "READY일 때만 필수; FAILED일 때 저장하지 않음"
+          },
+          {
+            "name": "source_data_hash",
+            "type": "CHAR(64)",
             "nullable": false
           },
           {
-            "name": "source_snapshot_hash",
-            "type": "VARCHAR(64)",
-            "nullable": false
-          },
-          {
-            "name": "generator",
-            "type": "VARCHAR(24)",
-            "nullable": false,
-            "note": "AI|TEMPLATE_FALLBACK"
-          },
-          {
-            "name": "quality_status",
-            "type": "VARCHAR(24)",
-            "nullable": false,
-            "note": "READY|FALLBACK|FAILED; UI/query may map FAILED to displayStatus=UNAVAILABLE"
-          },
-          {
-            "name": "created_by_account_id",
+            "name": "requested_by_account_id",
             "type": "UUID",
+            "nullable": false
+          },
+          {
+            "name": "generated_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": true,
+            "note": "READY일 때 필수"
+          },
+          {
+            "name": "version",
+            "type": "BIGINT",
             "nullable": false
           },
           {
@@ -530,25 +442,25 @@
             "nullable": false
           },
           {
-            "name": "version",
-            "type": "BIGINT",
+            "name": "updated_at",
+            "type": "TIMESTAMPTZ",
             "nullable": false
           }
         ],
         "indexes": [
           {
-            "name": "idx_ai_summary_op",
+            "name": "idx_search_history_summary_op",
             "columns": [
-              "op_id",
+              "operational_period_id",
               "created_at"
             ]
           },
           {
-            "name": "ux_ai_summary_scope_hash",
+            "name": "ux_search_history_summary_scope_hash",
             "columns": [
-              "scope_type",
-              "scope_id",
-              "source_snapshot_hash"
+              "operational_period_id",
+              "duty_shift_id",
+              "source_data_hash"
             ]
           }
         ],
@@ -565,23 +477,22 @@
         "field": "status",
         "states": [
           "ACTIVE",
-          "CLOSED"
+          "ENDED"
         ],
         "transitions": [
           {
             "from": "ACTIVE",
-            "to": "CLOSED",
+            "to": "ENDED",
             "trigger": "새 OP 생성 또는 사건 종료",
-            "guard": "같은 incident에 새 active OP를 만들기 전 기존 active OP를 닫는다."
+            "guard": "exactly one ACTIVE OP per incident"
           }
         ]
       }
     ],
     "flyway_migrations": [
       "V20260428_801__create_operational_period.sql",
-      "V20260428_802__create_op_assignment.sql",
       "V20260428_803__create_handover_memo.sql",
-      "V20260428_804__create_ai_summary.sql"
+      "V20260428_804__create_search_history_summary.sql"
     ]
   },
   "api_contracts": {
@@ -611,9 +522,8 @@
             "reason": {
               "type": "string",
               "enum": [
-                "SHIFT_CHANGE",
                 "RE_SEARCH",
-                "NEW_AREA",
+                "AREA_CHANGED",
                 "OTHER"
               ]
             },
@@ -643,9 +553,6 @@
                 "type": "string",
                 "format": "uuid"
               },
-              "sequenceNo": {
-                "type": "integer"
-              },
               "status": {
                 "type": "string",
                 "enum": [
@@ -656,6 +563,9 @@
                 "type": "string"
               },
               "version": {
+                "type": "integer"
+              },
+              "sequenceNumber": {
                 "type": "integer"
               }
             }
@@ -681,11 +591,6 @@
             "code": 403,
             "case": "team_not_assigned",
             "body": "{\"error\": \"team_not_assigned\"}"
-          },
-          {
-            "code": 409,
-            "case": "incident_bootstrapping",
-            "body": "{\"error\": \"incident_bootstrapping\"}"
           },
           {
             "code": 409,
@@ -734,14 +639,18 @@
                       "type": "string",
                       "format": "uuid"
                     },
-                    "sequenceNo": {
-                      "type": "integer"
-                    },
                     "status": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "ACTIVE",
+                        "ENDED"
+                      ]
                     },
                     "reason": {
                       "type": "string"
+                    },
+                    "sequenceNumber": {
+                      "type": "integer"
                     }
                   }
                 }
@@ -769,143 +678,21 @@
       },
       {
         "method": "POST",
-        "path": "/operational-periods/{opId}/assignments",
-        "summary": "OP 담당 구역·팀·Device 배정 생성",
-        "auth": "guard aliases web-command + incident-read + write-common",
+        "path": "/duty-shifts",
+        "summary": "현재 OP 기준 근무 구간을 시작한다.",
+        "auth": "guard aliases app-police-phone + incident-read + write-common + @RequireCurrentOp",
         "idempotent": true,
         "required_headers": [
           "Authorization",
-          "Idempotency-Key"
-        ],
-        "request_schema": {
-          "type": "object",
-          "required": [
-            "incidentId",
-            "assignmentType",
-            "clientTs"
-          ],
-          "properties": {
-            "incidentId": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "searchAreaId": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "accountId": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "teamId": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "deviceId": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "assignmentType": {
-              "type": "string",
-              "enum": [
-                "TEAM_PHONE",
-                "PATROL_CAR_PHONE"
-              ]
-            },
-            "memo": {
-              "type": "string"
-            },
-            "clientTs": {
-              "type": "string",
-              "format": "date-time"
-            }
-          }
-        },
-        "response_schema": {
-          "201": {
-            "type": "object",
-            "properties": {
-              "id": {
-                "type": "string",
-                "format": "uuid"
-              },
-              "opId": {
-                "type": "string",
-                "format": "uuid"
-              },
-              "searchAreaId": {
-                "type": "string",
-                "format": "uuid"
-              },
-              "status": {
-                "type": "string"
-              },
-              "version": {
-                "type": "integer"
-              }
-            }
-          }
-        },
-        "errors": [
-          {
-            "code": 403,
-            "case": "channel_not_allowed",
-            "body": "{\"error\": \"channel_not_allowed\"}"
-          },
-          {
-            "code": 403,
-            "case": "role_denied",
-            "body": "{\"error\": \"role_denied\"}"
-          },
-          {
-            "code": 403,
-            "case": "incident_access_denied",
-            "body": "{\"error\": \"incident_access_denied\"}"
-          },
-          {
-            "code": 403,
-            "case": "team_not_assigned",
-            "body": "{\"error\": \"team_not_assigned\"}"
-          },
-          {
-            "code": 409,
-            "case": "incident_bootstrapping",
-            "body": "{\"error\": \"incident_bootstrapping\"}"
-          },
-          {
-            "code": 409,
-            "case": "incident_closed",
-            "body": "{\"error\": \"incident_closed\"}"
-          },
-          {
-            "code": 409,
-            "case": "idempotency_mismatch",
-            "body": "{\"error\": \"idempotency_mismatch\"}"
-          },
-          {
-            "code": 409,
-            "case": "write_conflict",
-            "body": "{\"error\": \"write_conflict\"}"
-          }
-        ]
-      },
-      {
-        "method": "POST",
-        "path": "/handover-memos",
-        "summary": "OP/경로/구역 단위 인수인계 메모 작성",
-        "auth": "guard aliases field-or-web-write + incident-read + write-common",
-        "idempotent": true,
-        "required_headers": [
-          "Authorization",
-          "Idempotency-Key"
+          "Idempotency-Key",
+          "X-PolicePhone-Id"
         ],
         "request_schema": {
           "type": "object",
           "required": [
             "incidentId",
             "opId",
-            "targetType",
-            "body",
+            "policePhoneId",
             "clientTs"
           ],
           "properties": {
@@ -917,22 +704,9 @@
               "type": "string",
               "format": "uuid"
             },
-            "targetType": {
-              "type": "string",
-              "enum": [
-                "OP",
-                "PATH",
-                "AREA"
-              ]
-            },
-            "targetId": {
+            "policePhoneId": {
               "type": "string",
               "format": "uuid"
-            },
-            "body": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 4000
             },
             "clientTs": {
               "type": "string",
@@ -948,16 +722,23 @@
                 "type": "string",
                 "format": "uuid"
               },
+              "incidentId": {
+                "type": "string",
+                "format": "uuid"
+              },
               "opId": {
                 "type": "string",
                 "format": "uuid"
               },
-              "targetType": {
-                "type": "string"
-              },
-              "targetId": {
+              "policePhoneId": {
                 "type": "string",
                 "format": "uuid"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "ACTIVE"
+                ]
               },
               "version": {
                 "type": "integer"
@@ -973,18 +754,18 @@
           },
           {
             "code": 400,
-            "case": "device_required",
-            "body": "{\"error\": \"device_required\"}"
+            "case": "police_phone_required",
+            "body": "{\"error\": \"police_phone_required\"}"
           },
           {
             "code": 403,
-            "case": "device_not_registered",
-            "body": "{\"error\": \"device_not_registered\"}"
+            "case": "police_phone_not_registered",
+            "body": "{\"error\": \"police_phone_not_registered\"}"
           },
           {
             "code": 403,
-            "case": "device_not_assigned",
-            "body": "{\"error\": \"device_not_assigned\"}"
+            "case": "police_phone_not_assigned",
+            "body": "{\"error\": \"police_phone_not_assigned\"}"
           },
           {
             "code": 403,
@@ -998,8 +779,323 @@
           },
           {
             "code": 409,
-            "case": "incident_bootstrapping",
-            "body": "{\"error\": \"incident_bootstrapping\"}"
+            "case": "incident_closed",
+            "body": "{\"error\": \"incident_closed\"}"
+          },
+          {
+            "code": 409,
+            "case": "idempotency_mismatch",
+            "body": "{\"error\": \"idempotency_mismatch\"}"
+          },
+          {
+            "code": 409,
+            "case": "write_conflict",
+            "body": "{\"error\": \"write_conflict\"}"
+          },
+          {
+            "code": 409,
+            "case": "op_required",
+            "body": "{\"error\": \"op_required\"}"
+          },
+          {
+            "code": 409,
+            "case": "op_mismatch",
+            "body": "{\"error\": \"op_mismatch\"}"
+          }
+        ]
+      },
+      {
+        "method": "PATCH",
+        "path": "/duty-shifts/{dutyShiftId}",
+        "summary": "근무 구간을 종료하거나 metadata를 보정한다.",
+        "auth": "guard aliases app-police-phone + incident-read + write-common + @RequireCurrentOp",
+        "idempotent": true,
+        "required_headers": [
+          "Authorization",
+          "Idempotency-Key",
+          "X-PolicePhone-Id"
+        ],
+        "request_schema": {
+          "type": "object",
+          "required": [
+            "action",
+            "clientTs"
+          ],
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "END"
+              ]
+            },
+            "memo": {
+              "type": "string"
+            },
+            "clientTs": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        },
+        "response_schema": {
+          "200": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "ACTIVE",
+                  "ENDED"
+                ]
+              },
+              "version": {
+                "type": "integer"
+              },
+              "endedAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "code": 403,
+            "case": "channel_not_allowed",
+            "body": "{\"error\": \"channel_not_allowed\"}"
+          },
+          {
+            "code": 400,
+            "case": "police_phone_required",
+            "body": "{\"error\": \"police_phone_required\"}"
+          },
+          {
+            "code": 403,
+            "case": "police_phone_not_registered",
+            "body": "{\"error\": \"police_phone_not_registered\"}"
+          },
+          {
+            "code": 403,
+            "case": "police_phone_not_assigned",
+            "body": "{\"error\": \"police_phone_not_assigned\"}"
+          },
+          {
+            "code": 403,
+            "case": "incident_access_denied",
+            "body": "{\"error\": \"incident_access_denied\"}"
+          },
+          {
+            "code": 403,
+            "case": "team_not_assigned",
+            "body": "{\"error\": \"team_not_assigned\"}"
+          },
+          {
+            "code": 409,
+            "case": "incident_closed",
+            "body": "{\"error\": \"incident_closed\"}"
+          },
+          {
+            "code": 409,
+            "case": "idempotency_mismatch",
+            "body": "{\"error\": \"idempotency_mismatch\"}"
+          },
+          {
+            "code": 409,
+            "case": "write_conflict",
+            "body": "{\"error\": \"write_conflict\"}"
+          },
+          {
+            "code": 409,
+            "case": "op_required",
+            "body": "{\"error\": \"op_required\"}"
+          },
+          {
+            "code": 409,
+            "case": "op_mismatch",
+            "body": "{\"error\": \"op_mismatch\"}"
+          }
+        ]
+      },
+      {
+        "method": "GET",
+        "path": "/duty-shifts",
+        "summary": "사건/OP/PolicePhone/account/status 필터로 근무 구간을 조회한다.",
+        "auth": "guard aliases public-session + incident-read",
+        "idempotent": false,
+        "required_headers": [
+          "Authorization"
+        ],
+        "request_schema": {
+          "type": "object",
+          "properties": {
+            "incidentId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "opId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "policePhoneId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "accountId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "ACTIVE",
+                "ENDED"
+              ]
+            }
+          }
+        },
+        "response_schema": {
+          "200": {
+            "type": "object",
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "code": 403,
+            "case": "channel_not_allowed",
+            "body": "{\"error\": \"channel_not_allowed\"}"
+          },
+          {
+            "code": 403,
+            "case": "incident_access_denied",
+            "body": "{\"error\": \"incident_access_denied\"}"
+          },
+          {
+            "code": 403,
+            "case": "team_not_assigned",
+            "body": "{\"error\": \"team_not_assigned\"}"
+          }
+        ]
+      },
+      {
+        "method": "POST",
+        "path": "/handover-memos",
+        "summary": "OP/근무 구간/경로/구역/마커 단위 인수인계 메모 작성",
+        "auth": "guard aliases field-or-web-write + incident-read + write-common",
+        "idempotent": true,
+        "required_headers": [
+          "Authorization",
+          "Idempotency-Key"
+        ],
+        "request_schema": {
+          "type": "object",
+          "required": [
+            "incidentId",
+            "opId",
+            "memoTargetType",
+            "content",
+            "clientTs"
+          ],
+          "properties": {
+            "incidentId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "opId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "clientTs": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "memoTargetType": {
+              "type": "string",
+              "enum": [
+                "OPERATIONAL_PERIOD",
+                "DUTY_SHIFT",
+                "SEARCH_PATH",
+                "SEARCH_AREA",
+                "MARKER"
+              ]
+            },
+            "memoTargetId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "content": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000
+            }
+          }
+        },
+        "response_schema": {
+          "201": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "opId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "version": {
+                "type": "integer"
+              },
+              "memoTargetType": {
+                "type": "string"
+              },
+              "memoTargetId": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "code": 403,
+            "case": "channel_not_allowed",
+            "body": "{\"error\": \"channel_not_allowed\"}"
+          },
+          {
+            "code": 400,
+            "case": "police_phone_required",
+            "body": "{\"error\": \"police_phone_required\"}"
+          },
+          {
+            "code": 403,
+            "case": "police_phone_not_registered",
+            "body": "{\"error\": \"police_phone_not_registered\"}"
+          },
+          {
+            "code": 403,
+            "case": "police_phone_not_assigned",
+            "body": "{\"error\": \"police_phone_not_assigned\"}"
+          },
+          {
+            "code": 403,
+            "case": "incident_access_denied",
+            "body": "{\"error\": \"incident_access_denied\"}"
+          },
+          {
+            "code": 403,
+            "case": "team_not_assigned",
+            "body": "{\"error\": \"team_not_assigned\"}"
           },
           {
             "code": 409,
@@ -1018,7 +1114,7 @@
           }
         ],
         "conditional_headers": [
-          "X-Device-Id required when channel is APP"
+          "X-PolicePhone-Id required when channel is APP"
         ]
       },
       {
@@ -1041,15 +1137,17 @@
               "type": "string",
               "format": "uuid"
             },
-            "targetType": {
+            "memoTargetType": {
               "type": "string",
               "enum": [
-                "OP",
-                "PATH",
-                "AREA"
+                "OPERATIONAL_PERIOD",
+                "DUTY_SHIFT",
+                "SEARCH_PATH",
+                "SEARCH_AREA",
+                "MARKER"
               ]
             },
-            "targetId": {
+            "memoTargetId": {
               "type": "string",
               "format": "uuid"
             }
@@ -1088,7 +1186,7 @@
       },
       {
         "method": "POST",
-        "path": "/operational-periods/{opId}/ai-summary",
+        "path": "/operational-periods/{operationalPeriodId}/search-history-summaries",
         "summary": "OP 수색 이력 요약 생성",
         "auth": "guard aliases web-command + incident-read + write-common",
         "idempotent": true,
@@ -1100,7 +1198,6 @@
           "type": "object",
           "required": [
             "incidentId",
-            "scopeType",
             "clientTs"
           ],
           "properties": {
@@ -1112,7 +1209,7 @@
               "type": "string",
               "enum": [
                 "OP",
-                "SESSION"
+                "DUTY_SHIFT"
               ]
             },
             "scopeId": {
@@ -1122,6 +1219,11 @@
             "clientTs": {
               "type": "string",
               "format": "date-time"
+            },
+            "dutyShiftId": {
+              "type": "string",
+              "format": "uuid",
+              "description": "null/omitted이면 OP-wide summary"
             }
           }
         },
@@ -1136,9 +1238,7 @@
               "status": {
                 "type": "string",
                 "enum": [
-                  "READY",
-                  "FALLBACK",
-                  "FAILED"
+                  "GENERATING"
                 ]
               },
               "version": {
@@ -1175,11 +1275,6 @@
           },
           {
             "code": 409,
-            "case": "incident_bootstrapping",
-            "body": "{\"error\": \"incident_bootstrapping\"}"
-          },
-          {
-            "code": 409,
             "case": "incident_closed",
             "body": "{\"error\": \"incident_closed\"}"
           },
@@ -1199,39 +1294,39 @@
     "consumed": [
       {
         "from_spec": "S1-1",
-        "interface": "incident lifecycle, incident membership, INCIDENT_CREATED",
-        "usage": "OP1 bootstrap, OPEN/CLOSED guard, incident access checks에 사용한다."
+        "interface": "incident lifecycle, incident_assignment, InitialOperationalPeriodCreator.createOp1 caller",
+        "usage": "S1-1 import transaction에서 OP1 자동 생성 호출을 받고, OPEN/CLOSED guard와 incident access checks에 사용한다."
       },
       {
         "from_spec": "S1-2",
-        "interface": "@RequireIncidentAccess, @RequireRole, @RequireChannel, SecurityContext account/channel/device",
-        "usage": "OP/assignment/AI summary는 Web 지휘 권한, handover memo는 APP/WEB 사건 배정 계정 권한을 검증한다."
+        "interface": "@RequireIncidentAccess, @RequireRole, @RequireChannel, SecurityContext account/channel/PolicePhone",
+        "usage": "OP/duty shift/search history summary는 Web 지휘 권한, handover memo는 APP/WEB 사건 배정 계정 권한을 검증한다."
       },
       {
         "from_spec": "S2",
-        "interface": "AreaQuery.byOp, AreaQuery.byIncident",
-        "usage": "assignment 대상 search_area 존재 검증과 AI summary의 완료 구역 input 수집에 사용한다."
+        "interface": "SearchAreaQuery.byOp, SearchAreaQuery.byIncident, SearchAreaAssignmentQuery.byOp",
+        "usage": "OP별 담당 배정 조회와 search history summary의 완료 구역 input 수집에 사용한다."
       },
       {
         "from_spec": "S3-1",
         "interface": "PathQuery.byOp, SearchSessionSummary.byOp",
-        "usage": "OP 비교와 AI summary의 경로·차량/도보 구간 input 수집에 사용한다."
+        "usage": "OP 비교와 search history summary의 경로·차량/도보 구간 input 수집에 사용한다."
       },
       {
         "from_spec": "S5",
         "interface": "MarkerQuery.byIncident, MarkerQuery.byOp",
-        "usage": "OP별 marker evidence와 AI summary input 수집에 사용한다."
+        "usage": "OP별 marker evidence와 search history summary input 수집에 사용한다."
       },
       {
         "from_spec": "S4",
         "interface": "EventHub.publish(PublishRequest.*)",
-        "usage": "S8은 OP_TRANSITIONED, OP_ASSIGNMENT_CHANGED, HANDOVER_MEMO_CREATED, AI_SUMMARY_READY PublishRequest를 생성해 EventHub.publish(PublishRequest...)를 호출한다. event_outbox row 적재와 fanout은 S4 소유다."
+        "usage": "S8은 OP_TRANSITIONED, HANDOVER_MEMO_CREATED, SEARCH_HISTORY_SUMMARY_CHANGED PublishRequest를 생성해 EventHub.publish(PublishRequest...)를 호출한다. event_dispatch_job row 적재와 fanout은 S4 소유다."
       }
     ],
     "events_published": [
       {
         "type": "OP_TRANSITIONED",
-        "trigger": "OP1 bootstrap 또는 OP2+ active 전환 commit 이후",
+        "trigger": "OP1 자동 생성 또는 OP2+ active 전환 commit 이후",
         "payload_schema": {
           "type": "object",
           "required": [
@@ -1240,7 +1335,7 @@
             "opId",
             "status",
             "version",
-            "sequenceNo",
+            "sequenceNumber",
             "fromOpId",
             "toOpId"
           ],
@@ -1263,9 +1358,6 @@
             "version": {
               "type": "integer"
             },
-            "sequenceNo": {
-              "type": "integer"
-            },
             "fromOpId": {
               "type": [
                 "string",
@@ -1276,63 +1368,14 @@
             "toOpId": {
               "type": "string",
               "format": "uuid"
-            }
-          }
-        },
-        "subscribers": [
-          "S3-1",
-          "S3-2",
-          "S7"
-        ]
-      },
-      {
-        "type": "OP_ASSIGNMENT_CHANGED",
-        "trigger": "op_assignment 생성·대체·취소 commit 이후",
-        "payload_schema": {
-          "type": "object",
-          "required": [
-            "id",
-            "incidentId",
-            "opId",
-            "status",
-            "version"
-          ],
-          "properties": {
-            "id": {
-              "type": "string",
-              "format": "uuid"
             },
-            "incidentId": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "opId": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "searchAreaId": {
-              "type": [
-                "string",
-                "null"
-              ],
-              "format": "uuid"
-            },
-            "deviceId": {
-              "type": [
-                "string",
-                "null"
-              ],
-              "format": "uuid"
-            },
-            "status": {
-              "type": "string"
-            },
-            "version": {
+            "sequenceNumber": {
               "type": "integer"
             }
           }
         },
         "subscribers": [
+          "S3-1",
           "S3-2",
           "S7"
         ]
@@ -1386,8 +1429,8 @@
         ]
       },
       {
-        "type": "AI_SUMMARY_READY",
-        "trigger": "ai_summary READY 또는 FALLBACK 저장 이후",
+        "type": "SEARCH_HISTORY_SUMMARY_CHANGED",
+        "trigger": "search_history_summary READY 또는 FAILED 상태 저장 이후",
         "payload_schema": {
           "type": "object",
           "required": [
@@ -1395,9 +1438,7 @@
             "incidentId",
             "opId",
             "status",
-            "version",
-            "qualityStatus",
-            "generator"
+            "version"
           ],
           "properties": {
             "id": {
@@ -1413,16 +1454,11 @@
               "format": "uuid"
             },
             "status": {
-              "type": "string"
+              "type": "string",
+              "description": "READY 또는 FAILED"
             },
             "version": {
               "type": "integer"
-            },
-            "qualityStatus": {
-              "type": "string"
-            },
-            "generator": {
-              "type": "string"
             }
           }
         },
@@ -1433,34 +1469,29 @@
     ],
     "events_subscribed": [
       {
-        "type": "INCIDENT_CREATED",
-        "from_spec": "S1-1",
-        "handler": "system/internal OP1 bootstrap을 수행하고 OP_TRANSITIONED(from=null,to=OP1)를 발행한다."
-      },
-      {
-        "type": "AREA_STATE_CHANGED",
+        "type": "SEARCH_AREA_CHANGED",
         "from_spec": "S2",
-        "handler": "handover status와 AI summary source snapshot input을 최신화한다. S8은 area state를 직접 변경하지 않는다."
+        "handler": "handover status와 search history summary source board response input을 최신화한다. S8은 area state를 직접 변경하지 않는다."
       },
       {
-        "type": "SEARCH_SESSION_ENDED",
+        "type": "SEARCH_PATH_ENDED",
         "from_spec": "S3-1",
-        "handler": "AI summary와 handover status의 path/session input으로 사용한다."
+        "handler": "search history summary와 handover status의 path input으로 사용한다."
       },
       {
-        "type": "PATH_SEGMENT_UPDATED",
+        "type": "SEARCH_PATH_SEGMENT_UPDATED",
         "from_spec": "S3-1",
-        "handler": "OP별 구간/경로 summary와 AI summary source snapshot input을 최신화한다."
+        "handler": "OP별 구간/경로 summary와 search history summary source board response input을 최신화한다."
       },
       {
         "type": "MARKER_CREATED",
         "from_spec": "S5",
-        "handler": "AI summary input과 OP history evidence로 사용한다."
+        "handler": "search history summary input과 OP history evidence로 사용한다."
       },
       {
         "type": "MARKER_UPDATED",
         "from_spec": "S5",
-        "handler": "OP별 marker evidence와 AI summary source snapshot input을 최신화한다."
+        "handler": "OP별 marker evidence와 search history summary source board response input을 최신화한다."
       }
     ]
   },
@@ -1475,8 +1506,8 @@
           "responsibility": "OP list/query and OP2+ manual creation REST contract"
         },
         {
-          "name": "OperationalPeriodBootstrapHandler",
-          "responsibility": "INCIDENT_CREATED를 받아 system/internal OP1 생성"
+          "name": "InitialOperationalPeriodCreationService",
+          "responsibility": "S1-1 import transaction에서 호출되어 system/internal OP1 생성"
         },
         {
           "name": "OpAssignmentController",
@@ -1487,28 +1518,24 @@
           "responsibility": "APP/WEB handover memo create/query contract"
         },
         {
-          "name": "AiSummaryController",
-          "responsibility": "AI summary generation trigger and response contract"
+          "name": "SearchHistorySummaryController",
+          "responsibility": "search history summary generation trigger and response contract"
         },
         {
-          "name": "AiSummaryPort",
-          "responsibility": "AI summary provider boundary for OpenAI and fallback adapters"
+          "name": "SearchHistorySummaryPort",
+          "responsibility": "OpenAI provider port for search_history_summary generation using overall_search_area context"
         },
         {
-          "name": "OpenAiSummaryAdapter",
+          "name": "OpenAiSearchHistorySummaryAdapter",
           "responsibility": "MVP primary provider using OpenAI API structured output with timeout, schema validation, and failure mapping"
-        },
-        {
-          "name": "TemplateSummaryAdapter",
-          "responsibility": "deterministic fallback summary when OpenAI is unavailable, invalid, or blocked"
         },
         {
           "name": "ForbiddenSummaryGuard",
           "responsibility": "blocks recommendation, missing-area conclusion, risk judgment, and next-area instruction before persistence"
         },
         {
-          "name": "AiSummaryService",
-          "responsibility": "internal history input aggregation, OpenAI provider orchestration, guard enforcement, template fallback"
+          "name": "SearchHistorySummaryService",
+          "responsibility": "internal history input aggregation, OpenAI provider orchestration, guard enforcement, FAILED status handling"
         },
         {
           "name": "OperationalPeriodRepository",
@@ -1543,7 +1570,7 @@
           "responsibility": "handover readiness/completion status for current incident"
         },
         {
-          "name": "AiSummarySlot",
+          "name": "SearchHistorySummarySlot",
           "responsibility": "history summary display with original evidence links; no recommendation UI"
         },
         {
@@ -1554,7 +1581,7 @@
       "state_management": "React Query for server state; S3-2 shell owns board comparison state",
       "map_layers": [
         {
-          "id": "op_filter_projection",
+          "id": "op_filter_api_assembly",
           "source_spec": "S8",
           "type": "overlay"
         }
@@ -1568,7 +1595,7 @@
       "screens": [
         {
           "name": "OpContextHeader",
-          "responsibility": "현재 OP와 업무폰/순찰차 수색 세션 맥락 표시"
+          "responsibility": "현재 OP와 업무폰/순찰차 수색 경로 맥락 표시"
         },
         {
           "name": "HandoverMemoSheet",
@@ -1589,33 +1616,33 @@
           "note": "S6 SyncClient.enqueue로 서버 반영"
         }
       ],
-      "sync_flow": "handover memo write만 S6 SyncClient.enqueue(...) 경유. OP 생성, assignment, AI summary는 Android에서 호출하지 않는다."
+      "sync_flow": "handover memo write만 S6 SyncClient.enqueue(...) 경유. OP 생성, assignment, search history summary는 Android에서 호출하지 않는다."
     }
   },
   "dependencies": {
     "spec_dependencies": [
       {
         "spec": "S1-1",
-        "contract": "incident lifecycle, INCIDENT_CREATED bootstrap event, incident membership",
-        "stub_strategy": "INCIDENT_CREATED fixture, OPEN/CLOSED incident fixture",
-        "replaced_by_real_at": "SC-01 bootstrap 통합"
+        "contract": "incident lifecycle, OP1 자동 생성 call, incident_assignment",
+        "stub_strategy": "S1-1 import transaction fixture, OPEN/CLOSED incident fixture",
+        "replaced_by_real_at": "SC-01 import 통합"
       },
       {
         "spec": "S1-2",
-        "contract": "FIELD_COMMANDER role, APP/WEB channel, account/device SecurityContext",
+        "contract": "FIELD_COMMANDER role, APP/WEB channel, account/policePhone SecurityContext",
         "stub_strategy": "commander, team phone, patrol car, member account fixtures",
         "replaced_by_real_at": "Lane L2 auth fixture freeze"
       },
       {
         "spec": "S2",
-        "contract": "AreaQuery.byIncident/byOp and search_area identity",
+        "contract": "SearchAreaQuery.byIncident/byOp and search_area identity",
         "stub_strategy": "area fixture with states and history; no S8 geometry write",
         "replaced_by_real_at": "SC-04 S2/S8 integration"
       },
       {
         "spec": "S3-1",
         "contract": "PathQuery.byOp and SearchSessionSummary.byOp",
-        "stub_strategy": "path/session summary fixture with team phone and patrol car devices",
+        "stub_strategy": "path summary fixture with team phone and patrol car PolicePhones",
         "replaced_by_real_at": "SC-05 path integration"
       },
       {
@@ -1626,7 +1653,7 @@
       },
       {
         "spec": "S4",
-        "contract": "EventHub.publish and event envelope/outbox",
+        "contract": "EventHub.publish and event envelope/event_dispatch_job",
         "stub_strategy": "in-memory PublishRequest collector with payload schema checks",
         "replaced_by_real_at": "S4 event hub integration"
       },
@@ -1638,24 +1665,24 @@
       },
       {
         "spec": "S3-2",
-        "contract": "op_toggle, op_history, handover_memo, handover_status, ai_summary slots",
-        "stub_strategy": "slot props snapshot tests",
+        "contract": "op_toggle, op_history, handover_memo, handover_status, search_history_summary slots",
+        "stub_strategy": "slot props board response tests",
         "replaced_by_real_at": "S3-2 board shell merge"
       }
     ],
     "infra_dependencies": [
       "PostgreSQL",
       "SSE via S4",
-      "OpenAI API for MVP AI summary provider",
-      "TemplateSummaryAdapter fallback",
+      "OpenAI API for MVP search history summary provider",
+      "OpenAI failure handling",
       "React Query",
       "Android WorkManager via S6"
     ],
     "test_doubles": [
       {
-        "name": "MockAiSummaryAdapter",
-        "replaces": "OpenAiSummaryAdapter",
-        "provides": "success, adapter failure, forbidden phrase, and low-quality response fixtures from harness_fixtures.mock_ai_summary_adapter"
+        "name": "MockSearchHistorySummaryAdapter",
+        "replaces": "OpenAiSearchHistorySummaryAdapter",
+        "provides": "success, adapter failure, forbidden phrase, and low-quality response fixtures from harness_fixtures.mock_search_history_summary_adapter"
       },
       {
         "name": "FailingEventHubPublisher",
@@ -1663,9 +1690,9 @@
         "provides": "PublishRequest failure injection before domain commit"
       },
       {
-        "name": "BoardProjectionLagProbe",
-        "replaces": "S3-2 board snapshot during S8 slot tests",
-        "provides": "PENDING_PROJECTION until slot version reaches expected fixture version"
+        "name": "BoardRefetchLagProbe",
+        "replaces": "S3-2 board API during S8 slot tests",
+        "provides": "STALE_REFETCH until slot version reaches expected fixture version"
       }
     ]
   },
@@ -1675,9 +1702,9 @@
       "fr_refs": [
         "FR-32"
       ],
-      "given": "S1-1 INCIDENT_CREATED가 commit 이후 발행됐다.",
-      "when": "S8 bootstrap handler가 이벤트를 처리한다.",
-      "then": "OP1이 SYSTEM channel로 한 번만 생성되고 OP_TRANSITIONED(from=null,to=OP1)가 발행되며 incident OPEN 전이에 필요한 current OP query가 가능하다.",
+      "given": "S1-1 import transaction에서 OP1 자동 생성 호출이 들어왔다.",
+      "when": "S8 InitialOperationalPeriodCreationService가 요청을 처리한다.",
+      "then": "OP1이 SYSTEM channel로 한 번만 생성되고 OP_TRANSITIONED(from=null,to=OP1)가 publish request로 stage되며 current OP query가 가능하다.",
       "priority": "critical"
     },
     {
@@ -1688,7 +1715,7 @@
       ],
       "given": "사건 OPEN, active OP가 존재하고 Web 현장 지휘관이 접속했다.",
       "when": "허용된 reason으로 새 OP를 생성한다.",
-      "then": "이전 OP는 CLOSED, 새 OP는 ACTIVE가 되고 sequenceNo가 증가하며 OP_TRANSITIONED와 optional handover memo가 저장된다.",
+      "then": "이전 OP는 ENDED, 새 OP는 ACTIVE가 되고 sequenceNumber가 증가하며 OP_TRANSITIONED와 optional handover memo가 저장된다.",
       "priority": "critical"
     },
     {
@@ -1697,9 +1724,9 @@
         "FR-11",
         "FR-12"
       ],
-      "given": "current OP와 S2 search_area가 존재한다.",
-      "when": "현장 지휘관이 팀 업무폰 또는 순찰차 업무폰을 구역에 배정한다.",
-      "then": "op_assignment가 생성되고 AssignmentQuery.byOp와 OP_ASSIGNMENT_CHANGED payload가 같은 id/status/version/opId를 노출한다.",
+      "given": "current OP와 S2 search_area_assignment가 존재한다.",
+      "when": "OP history 또는 search history summary가 담당 배정 맥락을 조회한다.",
+      "then": "S2 SearchAreaAssignmentQuery.byOp가 제공한 id/status/version/opId를 그대로 사용하고 S8은 search_area_assignment를 변경하거나 assignment event를 발행하지 않는다.",
       "priority": "critical"
     },
     {
@@ -1709,7 +1736,7 @@
       ],
       "given": "사건 배정 계정이 APP 또는 WEB에서 current OP에 있다.",
       "when": "OP/path/area 대상 인수인계 메모를 작성한다.",
-      "then": "handover_memo가 작성 계정·채널·Device·OP와 함께 저장되고 HANDOVER_MEMO_CREATED가 발행된다.",
+      "then": "handover_memo가 작성 계정·채널·PolicePhone·OP와 함께 저장되고 HANDOVER_MEMO_CREATED가 발행된다.",
       "priority": "high"
     },
     {
@@ -1718,7 +1745,7 @@
         "FR-39"
       ],
       "given": "OP에 경로, 마커, 구역 상태, 인수인계 메모가 존재한다.",
-      "when": "현장 지휘관이 AI summary 생성을 요청한다.",
+      "when": "현장 지휘관이 search history summary 생성을 요청한다.",
       "then": "OpenAI structured output provider가 수색 시간, 수색한 일대, 차량·도보 구간, 주요 마커·메모 중심의 history summary를 반환하고, 저장된 요약은 추천·누락 확정·위험도 판단 문구를 포함하지 않는다.",
       "priority": "critical"
     },
@@ -1729,7 +1756,7 @@
       ],
       "given": "OpenAI adapter 호출이 실패하거나 품질 기준에 미달한다.",
       "when": "요약 생성 요청이 완료된다.",
-      "then": "템플릿 fallback summary가 저장되거나 summary_unavailable을 반환하더라도 수동 메모와 OP 비교 화면은 계속 동작한다.",
+      "then": "요약 생성이 FAILED로 저장되어 summary_unavailable을 반환하더라도 수동 메모와 OP 비교 화면은 계속 동작한다.",
       "priority": "high"
     },
     {
@@ -1738,8 +1765,8 @@
         "FR-34"
       ],
       "given": "SC-03/05/06/08 owner flows need current OP context",
-      "when": "S7 manifest builder, S3-1 path/session write, and S5 marker/notification write consume OperationalPeriodQuery.current/list",
-      "then": "they receive the same current opId/sequenceNo/version fixture and S8 does not mutate S7 package, S3-1 path/session, or S5 marker/notification rows.",
+      "when": "S7 manifest builder, S3-1 path write, and S5 marker/notification write consume OperationalPeriodQuery.current/list",
+      "then": "they receive the same current opId/sequenceNumber/version fixture and S8 does not mutate S7 package, S3-1 path, or S5 marker/notification rows.",
       "priority": "critical"
     },
     {
@@ -1749,9 +1776,9 @@
         "FR-37",
         "FR-39"
       ],
-      "given": "SC-10 OP transition and SC-11 handover memo/AI summary writes succeed",
+      "given": "SC-10 OP transition and SC-11 handover memo/search history summary writes succeed",
       "when": "S4 event probes and S3-2 slot probes consume the resulting events and queries",
-      "then": "REST response, OP_TRANSITIONED, HANDOVER_MEMO_CREATED, AI_SUMMARY_READY, query result, and board slot probe converge on the fixed id/status/version/opId values in harness_fixtures.",
+      "then": "REST response, OP_TRANSITIONED, HANDOVER_MEMO_CREATED, SEARCH_HISTORY_SUMMARY_CHANGED, query result, and board slot probe converge on the fixed id/status/version/opId values in harness_fixtures.",
       "priority": "critical"
     },
     {
@@ -1760,76 +1787,75 @@
         "FR-37",
         "FR-39"
       ],
-      "given": "new OP is created without handoverMemo or AI summary falls back",
-      "when": "S3-2 renders handover_status and ai_summary slots before and after projection",
-      "then": "handover_status shows NEEDS_MEMO without blocking OP transition, PENDING_PROJECTION is visible until slot version catches up, AI fallback shows the approved fallback text and retry CTA without source prompt or recommendation text.",
+      "given": "new OP is created without handoverMemo or search history summary falls back",
+      "when": "S3-2 renders handover_status and search_history_summary slots before and after API assembly",
+      "then": "handover_status shows NEEDS_MEMO without blocking OP transition, STALE_REFETCH is visible until slot version catches up, AI summary failure shows UNAVAILABLE status and retry CTA without source prompt or recommendation text.",
       "priority": "critical"
     }
   ],
   "domain_policies": {
     "op_transition": {
-      "previousActiveOp": "automatically CLOSED in the same transaction before the new OP becomes ACTIVE",
-      "newOpActivation": "OP2+ manual creation creates the next sequenceNo and sets exactly one ACTIVE OP per incident",
+      "previousActiveOp": "automatically ENDED in the same transaction before the new OP becomes ACTIVE",
+      "newOpActivation": "OP2+ manual creation creates the next sequenceNumber and sets exactly one ACTIVE OP per incident",
       "handoverMemoRequired": false,
       "handoverMemoPolicy": "handoverMemo is optional for OP transition; when omitted, no HANDOVER_MEMO_CREATED event is emitted and HandoverStatusSnapshot may expose NEEDS_MEMO without blocking the transition",
       "otherReasonRule": "reason=OTHER still requires reasonMemo; handoverMemo does not substitute for reasonMemo"
     },
-    "ai_summary_quality": {
+    "search_history_summary_quality": {
       "primaryProvider": "OpenAI API",
       "structuredOutputRequired": true,
-      "fallbackAdapter": "TemplateSummaryAdapter",
-      "sourceSnapshotPolicy": "send minimized OP/path/marker/area/handover memo summary snapshot only; do not send unrelated PII, full raw location stream, or source prompt to clients",
+      "sourceSnapshotPolicy": "send minimized OP/path/marker/area/handover memo summary board response only; do not send unrelated PII, full raw location stream, or source prompt to clients",
       "disallowedPhrases": [
         "다음 구역 추천",
         "누락 확정",
         "위험도 높음",
         "자동 판단"
       ],
-      "fallbackSummaryText": "현재 OP의 경로, 마커, 구역 상태, 인수인계 메모를 기준으로 요약을 생성하지 못했습니다. 원본 기록을 확인해 수동으로 인수인계를 이어가세요.",
       "displayStatusOnFailure": "UNAVAILABLE",
       "retryCta": "요약 다시 생성",
-      "sourcePromptVisible": false
+      "sourcePromptVisible": false,
+      "failurePolicy": "OpenAI 호출 실패, timeout, schema validation 실패, 금지 문구 검출 시 generation_status=FAILED로 저장하고 content를 저장하지 않는다."
     }
   },
   "edge_cases": [
-    "OP1 bootstrap 이벤트가 중복 전달되어도 incident당 sequenceNo=1 OP는 하나만 생성된다.",
+    "OP1 자동 생성 호출이 중복되어도 incident당 sequenceNumber=1 OP는 하나만 생성된다.",
     "OP2+ 생성 요청 reason이 OTHER인데 reasonMemo와 handoverMemo가 모두 없으면 domain validation으로 거부하되 catalog 밖 public error code를 추가하지 않는다. 표준 field validation error가 필요하면 open issue로 처리한다.",
-    "앱 채널에서 OP 생성, assignment, AI summary API를 직접 호출하면 channel_not_allowed로 거부한다.",
+    "앱 채널에서 OP 생성, assignment, search history summary API를 직접 호출하면 channel_not_allowed로 거부한다.",
     "handover memo targetType=AREA인데 S2에 해당 area가 없거나 incident/op가 다르면 domain validation으로 거부하되 catalog 밖 public error code를 추가하지 않는다.",
-    "초동 대응 순찰차는 담당 search_area가 없어도 OP1 assignment 또는 device context를 가질 수 있다.",
-    "AI summary source snapshot이 이전 요청과 같으면 idempotency replay 또는 기존 summary 재사용을 허용한다."
+    "초동 대응 순찰차는 담당 search_area가 없어도 OP1 assignment 또는 PolicePhone context를 가질 수 있다.",
+    "search history summary source board response이 이전 요청과 같으면 idempotency replay 또는 기존 summary 재사용을 허용한다."
   ],
   "error_handling": {
-    "role_denied": "새 OP, assignment, AI summary CTA를 숨기고 직접 호출은 403으로 실패시킨다.",
-    "channel_not_allowed": "앱에서는 OP 생성·assignment·AI summary UI를 노출하지 않고 서버도 403을 반환한다.",
+    "role_denied": "새 OP, assignment, search history summary CTA를 숨기고 직접 호출은 403으로 실패시킨다.",
+    "channel_not_allowed": "앱에서는 OP 생성·assignment·search history summary UI를 노출하지 않고 서버도 403을 반환한다.",
     "summary_unavailable": "웹은 원본 경로·마커·메모와 수동 인수인계 메모를 계속 표시하고 요약 재시도 CTA를 제공한다.",
-    "idempotency_mismatch": "같은 key의 다른 body 재전송을 충돌로 표시하고 새 요청 생성을 유도한다."
+    "idempotency_mismatch": "같은 key의 다른 content 재전송을 충돌로 표시하고 새 요청 생성을 유도한다."
   },
   "non_functional_requirements": {
     "performance": [
       "OP list와 current OP query는 board 초기 로딩에서 300ms 이내 반환하는 것을 하네스 목표로 한다.",
-      "OP transition 후 S3-2 board snapshot은 REST response version 이상으로 수렴해야 한다.",
-      "AI summary 생성은 비동기 처리 가능하되 fallback 포함 결과 상태가 UI에서 관찰 가능해야 한다."
+      "OP transition 후 S3-2 board API은 REST response version 이상으로 수렴해야 한다.",
+      "search history summary 생성은 비동기 처리 가능하되 READY/FAILED 결과 상태가 UI에서 관찰 가능해야 한다."
     ],
     "security": [
-      "OP2+ 생성, assignment, AI summary는 Web 현장 지휘관 전용이다.",
+      "OP2+ 생성, duty shift, search history summary는 Web 현장 지휘관 전용이다.",
       "handover memo는 사건 배정 계정의 APP/WEB 채널에서만 허용한다.",
-      "AI summary input은 Suri-Map 내부 OP/path/marker/area/memo 기록으로 제한한다.",
-      "OpenAI API 호출에는 최소화된 source snapshot만 전달하고 source prompt, API key, model secret, raw location stream 전체를 저장하거나 화면에 노출하지 않는다.",
-      "AI summary output에서 추천, 누락 확정, 위험도 판단 표현을 저장 전에 차단한다."
+      "search history summary input은 Suri-Map 내부 OP/path/marker/area/memo 기록으로 제한한다.",
+      "OpenAI API 호출에는 최소화된 source board response만 전달하고 source prompt, API key, model secret, raw location stream 전체를 저장하거나 화면에 노출하지 않는다.",
+      "search history summary output에서 추천, 누락 확정, 위험도 판단 표현을 저장 전에 차단한다."
     ],
     "observability": [
-      "op_transition_total, op_assignment_changed_total, handover_memo_created_total, ai_summary_ready_total, ai_summary_openai_call_total, ai_summary_fallback_total, ai_summary_guard_block_total 메트릭을 노출한다.",
-      "OP1 bootstrap retry와 failure는 incidentId 기준으로 추적 가능해야 한다.",
-      "OpenAI adapter latency와 fallback reason을 기록한다."
+      "op_transition_total, handover_memo_created_total, search_history_summary_ready_total, search_history_summary_failed_total, search_history_summary_openai_call_total, search_history_summary_guard_block_total 메트릭을 노출한다.",
+      "OP1 자동 생성 failure는 incidentId 기준으로 추적 가능해야 한다.",
+      "OpenAI adapter latency와 failure reason을 기록한다."
     ]
   },
   "tdd_red_tests": {
     "backend": [
       {
-        "name": "Op1BootstrapIsInternalAndIdempotentTest",
+        "name": "Op1AutoCreationIsInternalAndIdempotentTest",
         "framework": "JUnit 5",
-        "scenario": "INCIDENT_CREATED 중복 처리 시 OP1은 하나만 생성되고 OP_TRANSITIONED(from=null)가 한 번만 publish request로 남는다."
+        "scenario": "S1-1 import transaction에서 OP1 자동 생성 호출이 중복되어도 OP1은 하나만 생성되고 OP_TRANSITIONED(from=null)가 한 번만 publish request로 남는다."
       },
       {
         "name": "ManualOpCreationRequiresWebCommanderTest",
@@ -1839,22 +1865,22 @@
       {
         "name": "OpAssignmentDoesNotMutateSearchAreaTest",
         "framework": "JUnit 5",
-        "scenario": "assignment 생성은 op_assignment와 OP_ASSIGNMENT_CHANGED만 만들고 S2 search_area geometry/state를 변경하지 않는다."
+        "scenario": "S8 OP history는 S2 SearchAreaAssignmentQuery.byOp 결과를 read-only로 사용하며 search_area_assignment, SEARCH_AREA_ASSIGNMENT_CHANGED, S2 search_area geometry/state를 직접 변경하지 않는다."
       },
       {
         "name": "HandoverMemoSupportsAppAndWebTest",
         "framework": "JUnit 5",
-        "scenario": "APP 팀 업무폰과 WEB 지휘 계정 모두 OP/path/area 메모를 저장할 수 있고 account/channel/device가 기록된다."
+        "scenario": "APP 팀 업무폰과 WEB 지휘 계정 모두 OP/path/area 메모를 저장할 수 있고 account/channel/PolicePhone이 기록된다."
       },
       {
-        "name": "AiSummaryContainsNoRecommendationTest",
+        "name": "SearchHistorySummaryContainsNoRecommendationTest",
         "framework": "JUnit 5",
-        "scenario": "OpenAI adapter가 schema valid 응답을 반환해도 추천·누락 확정 문구가 있으면 저장 전 차단하고 template fallback 또는 summary_unavailable로 처리한다."
+        "scenario": "OpenAI adapter가 schema valid 응답을 반환해도 추천·누락 확정 문구가 있으면 저장 전 차단하고 generation_status=FAILED 및 summary_unavailable로 처리한다."
       },
       {
         "name": "CurrentOpConsumersDoNotMutateOwnerDomainsTest",
         "framework": "JUnit 5",
-        "scenario": "S7 manifest, S3-1 path/session, S5 marker/support fixtures consume the same OperationalPeriodQuery.current/list opId/version and S8 mocks assert no package/path/marker domain writes occur."
+        "scenario": "S7 manifest, S3-1 path, S5 marker/support fixtures consume the same OperationalPeriodQuery.current/list opId/version and S8 mocks assert no package/path/marker domain writes occur."
       },
       {
         "name": "OpHandoverAiBoardConvergenceFixtureTest",
@@ -1864,12 +1890,12 @@
       {
         "name": "S8PublishRequestFailureDoesNotCommitRowsTest",
         "framework": "JUnit 5",
-        "scenario": "FailingEventHubPublisher makes OP transition, assignment, handover memo, or AI summary write fail before commit so domain rows and PublishRequest capture are both absent."
+        "scenario": "FailingEventHubPublisher makes OP transition, assignment, handover memo, or search history summary write fail before commit so domain rows and PublishRequest capture are both absent."
       },
       {
         "name": "S8IdempotentWriteReplayAndMismatchTest",
         "framework": "JUnit 5",
-        "scenario": "For OP creation, assignment, handover memo, and AI summary POST paths, same Idempotency-Key with same body replays the cached response and same key with changed body returns idempotency_mismatch without new rows or PublishRequest."
+        "scenario": "For OP creation, assignment, handover memo, and search history summary POST paths, same Idempotency-Key with same content replays the cached response and same key with changed body returns idempotency_mismatch without new rows or PublishRequest."
       }
     ],
     "web": [
@@ -1879,24 +1905,24 @@
         "scenario": "새 OP 생성 dialog는 reason을 요구하고 OTHER 선택 시 memo 없이는 저장 CTA를 비활성화한다."
       },
       {
-        "name": "AiSummaryShowsEvidenceWithoutRecommendation",
+        "name": "SearchHistorySummaryShowsEvidenceWithoutRecommendation",
         "framework": "Playwright | Vitest + RTL",
-        "scenario": "AI summary slot은 원본 경로·마커·메모 링크와 이력 요약만 표시하고 다음 구역 추천 UI를 표시하지 않는다."
+        "scenario": "search history summary slot은 원본 경로·마커·메모 링크와 이력 요약만 표시하고 다음 구역 추천 UI를 표시하지 않는다."
       },
       {
-        "name": "HandoverStatusNeedsMemoAndPendingProjection",
+        "name": "HandoverStatusNeedsMemoAndPendingRefetch",
         "framework": "Vitest + RTL",
-        "scenario": "OP transition without handover memo renders handover_status=NEEDS_MEMO and PENDING_PROJECTION until board slot version reaches the fixture version."
+        "scenario": "OP transition without handover memo renders handover_status=NEEDS_MEMO and STALE_REFETCH until board slot version reaches the fixture version."
       },
       {
-        "name": "AiSummaryFallbackShowsRetryWithoutPromptLeak",
+        "name": "SearchHistorySummaryFailureShowsRetryWithoutPromptLeak",
         "framework": "Vitest + RTL",
-        "scenario": "AI fallback renders the approved fallback text, UNAVAILABLE display status, and retry CTA without source prompt, recommendation, missing-area conclusion, or risk wording."
+        "scenario": "AI summary failure renders UNAVAILABLE display status and retry CTA without source prompt, recommendation, missing-area conclusion, or risk wording."
       },
       {
-        "name": "BoardProjectionLagShowsPendingSlots",
+        "name": "BoardRefetchLagShowsPendingSlots",
         "framework": "Vitest + RTL",
-        "scenario": "BoardProjectionLagProbe keeps op/history/handover/summary slots in PENDING_PROJECTION until their fixture versions are reached."
+        "scenario": "BoardRefetchLagProbe keeps op/history/handover/summary slots in STALE_REFETCH until their fixture versions are reached."
       }
     ],
     "android": [
@@ -1908,7 +1934,7 @@
       {
         "name": "AndroidCannotCreateOperationalPeriod",
         "framework": "JUnit5 + Robolectric | Instrumentation",
-        "scenario": "앱에는 OP 생성/assignment/AI summary write flow가 없고 해당 요청이 enqueue되지 않는다."
+        "scenario": "앱에는 OP 생성/assignment/search history summary write flow가 없고 해당 요청이 enqueue되지 않는다."
       }
     ]
   },
@@ -1918,44 +1944,44 @@
       "currentOp": {
         "opId": "op-precinct-001-op1",
         "status": "ACTIVE",
-        "sequenceNo": 1,
-        "version": 1
+        "version": 1,
+        "sequenceNumber": 1
       },
       "consumers": [
         "S7 offline manifest builder",
-        "S3-1 search session/path write",
+        "S3-1 search path write",
         "S5 marker/support/person write"
       ],
       "forbiddenS8Writes": [
         "offline_package_manifest",
-        "offline_package_status",
-        "search_session",
+        "offline_package_installation",
         "search_path",
-        "path_segment",
+        "search_path",
+        "search_path_segment",
         "marker",
         "photo",
-        "notification_delivery"
+        "marker_notification"
       ]
     },
     "sc10_op_transition_convergence": {
       "incidentId": "inc-precinct-first-001",
       "previousOp": {
         "opId": "op-precinct-001-op1",
-        "status": "CLOSED",
-        "sequenceNo": 1,
-        "version": 2
+        "status": "ENDED",
+        "version": 2,
+        "sequenceNumber": 1
       },
       "newOp": {
         "opId": "op-precinct-001-op2",
         "status": "ACTIVE",
-        "sequenceNo": 2,
-        "version": 1
+        "version": 1,
+        "sequenceNumber": 2
       },
       "expectedRestResponse": {
         "id": "op-precinct-001-op2",
         "status": "ACTIVE",
         "version": 1,
-        "sequenceNo": 2
+        "sequenceNumber": 2
       },
       "expectedS4Event": {
         "eventId": "evt-s8-op-transitioned-001",
@@ -1976,7 +2002,7 @@
         "version": 1,
         "opId": "op-precinct-001-op2",
         "handoverStatus": "NEEDS_MEMO",
-        "preConvergenceState": "PENDING_PROJECTION"
+        "preConvergenceState": "STALE_REFETCH"
       }
     },
     "sc11_handover_ai_convergence": {
@@ -1990,11 +2016,10 @@
       },
       "aiSummary": {
         "summaryId": "summary-precinct-op2-001",
-        "status": "FALLBACK",
+        "status": "FAILED",
         "displayStatus": "UNAVAILABLE",
         "version": 1,
         "eventId": "evt-s8-ai-summary-001",
-        "fallbackSummaryText": "현재 OP의 경로, 마커, 구역 상태, 인수인계 메모를 기준으로 요약을 생성하지 못했습니다. 원본 기록을 확인해 수동으로 인수인계를 이어가세요.",
         "retryCta": "요약 다시 생성",
         "sourcePromptVisible": false
       },
@@ -2009,9 +2034,9 @@
         },
         "aiSummaryReady": {
           "eventId": "evt-s8-ai-summary-001",
-          "type": "AI_SUMMARY_READY",
+          "type": "SEARCH_HISTORY_SUMMARY_CHANGED",
           "payloadId": "summary-precinct-op2-001",
-          "payloadStatus": "FALLBACK",
+          "payloadStatus": "FAILED",
           "payloadVersion": 1,
           "opId": "op-precinct-001-op2"
         }
@@ -2023,9 +2048,9 @@
           "version": 1,
           "opId": "op-precinct-001-op2"
         },
-        "AiSummaryQuery.byOp": {
+        "SearchHistorySummaryQuery.byOp": {
           "summaryId": "summary-precinct-op2-001",
-          "status": "FALLBACK",
+          "status": "FAILED",
           "displayStatus": "UNAVAILABLE",
           "version": 1,
           "opId": "op-precinct-001-op2"
@@ -2035,7 +2060,7 @@
         "slots": [
           "handover_memo",
           "handover_status",
-          "ai_summary"
+          "search_history_summary"
         ],
         "opId": "op-precinct-001-op2",
         "handoverMemoSlot": {
@@ -2049,40 +2074,39 @@
         },
         "aiSummarySlot": {
           "id": "summary-precinct-op2-001",
-          "status": "FALLBACK",
+          "status": "FAILED",
           "displayStatus": "UNAVAILABLE",
           "version": 1
         },
-        "preConvergenceState": "PENDING_PROJECTION"
+        "preConvergenceState": "STALE_REFETCH"
       }
     },
-    "mock_ai_summary_adapter": {
+    "mock_search_history_summary_adapter": {
       "success": {
-        "provider": "OpenAiSummaryAdapter",
+        "provider": "OpenAiSearchHistorySummaryAdapter",
         "schemaValid": true,
         "status": "READY",
-        "summaryText": "OP2 동안 수색한 경로, 주요 마커, 인수인계 메모를 시간순으로 요약했습니다.",
-        "qualityStatus": "READY"
+        "summaryText": "OP2 동안 수색한 경로, 주요 마커, 인수인계 메모를 시간순으로 요약했습니다."
       },
       "adapterFailure": {
-        "provider": "OpenAiSummaryAdapter",
+        "provider": "OpenAiSearchHistorySummaryAdapter",
         "throws": "timeout",
-        "expectedStatus": "FALLBACK",
+        "expectedStatus": "FAILED",
         "displayStatus": "UNAVAILABLE"
       },
       "forbiddenPhraseResponse": {
         "summaryText": "다음 구역 추천: 북쪽으로 이동. 위험도 높음.",
-        "expectedAction": "reject-and-fallback"
+        "expectedAction": "reject-and-failed"
       },
       "lowQualityResponse": {
         "summaryText": "",
-        "expectedAction": "fallback"
+        "expectedAction": "failure"
       }
     },
     "s8_idempotent_write_replay": {
       "sameBodyReplay": {
         "idempotencyKey": "idem-s8-op-transition-001",
-        "bodyHash": "sha256:s8-op-transition-body-001",
+        "bodyHash": "sha256:s8-op-transition-content-001",
         "endpoint": "POST /operational-periods",
         "expectedResponseId": "op-precinct-001-op2",
         "expectedStatus": "ACTIVE",
@@ -2091,17 +2115,17 @@
       },
       "mismatch": {
         "idempotencyKey": "idem-s8-op-transition-001",
-        "originalBodyHash": "sha256:s8-op-transition-body-001",
-        "changedBodyHash": "sha256:s8-op-transition-body-002",
+        "originalBodyHash": "sha256:s8-op-transition-content-001",
+        "changedBodyHash": "sha256:s8-op-transition-content-002",
         "expectedError": "idempotency_mismatch",
         "expectedNewRowCount": 0,
         "expectedNewPublishRequestCount": 0
       },
       "coveredEndpoints": [
         "POST /operational-periods",
-        "POST /operational-periods/{opId}/assignments",
+        "POST /search-areas/{searchAreaId}/assignments",
         "POST /handover-memos",
-        "POST /operational-periods/{opId}/ai-summary"
+        "POST /operational-periods/{operationalPeriodId}/search-history-summaries"
       ]
     }
   },
@@ -2110,26 +2134,26 @@
       "JDK 17 + Spring Boot 3.x (ADR-0013)",
       "React 18+ SPA + TypeScript (ADR-0014)",
       "Kotlin + MapLibre Native (ADR-0004 개정, ADR-0013)",
-      "S1-1 INCIDENT_CREATED fixture and OPEN incident fixture available",
-      "S1-2 account/device/channel fixtures use team account, patrol car account, command account language",
-      "S2 AreaQuery fixture available for assignment and summary input",
-      "S3-1 path/session summary fixture and S5 marker fixture available for summary input",
+      "S1-1 import transaction fixture and OPEN incident fixture available",
+      "S1-2 account/policePhone/channel fixtures use team account, patrol car account, command account language",
+      "S2 SearchAreaQuery fixture available for assignment and summary input",
+      "S3-1 path summary fixture and S5 marker fixture available for summary input",
       "모든 쓰기 요청은 Idempotency-Key 헤더 필수",
       "모든 이벤트는 S4 event envelope와 ADR-0012 시간 필드를 따른다"
     ],
     "forbidden": [
       "OP1을 웹 또는 앱 사용자가 직접 생성하는 API 공개 금지",
       "OP2+ 자동 생성 금지",
-      "AI summary에 추천, 누락 확정, 위험도 판단, 다음 구역 지시 포함 금지",
+      "search history summary에 추천, 누락 확정, 위험도 판단, 다음 구역 지시 포함 금지",
       "S2 search_area geometry/state 직접 write 금지",
       "S3-2 shell route/layout/global store 직접 수정 금지",
-      "Android에서 OP 생성, assignment, AI summary write 호출 금지",
+      "Android에서 OP 생성, assignment, search history summary write 호출 금지",
       "무전 음성 인식 또는 보고서 초안 생성으로 scope 확장 금지"
     ],
     "required_reviews": [
       "OP reason enum 변경 시 S8, S3-2, S1-2 LGTM",
       "assignment payload 변경 시 S8, S2, S7, S3-2 LGTM",
-      "AI summary input/output schema 변경 시 S8, S3-1, S2, S5, S3-2 LGTM",
+      "search history summary input/output schema 변경 시 S8, S3-1, S2, S5, S3-2 LGTM",
       "event payload 변경 시 S8, S3-2, S4 LGTM"
     ]
   },
@@ -2143,7 +2167,7 @@
     },
     {
       "id": "OI-S8-04",
-      "issue": "OP reason/body 등 일반 field validation 실패를 표현할 표준 public error code가 필요하면 boundaries.md §4.1 catalog 변경이 필요하다.",
+      "issue": "OP reason/content 등 일반 field validation 실패를 표현할 표준 public error code가 필요하면 boundaries.md §4.1 catalog 변경이 필요하다.",
       "owner": "S8 + S1-2/S6",
       "deadline": "Spec 단계",
       "related_gap": "request-validation-error-catalog"
@@ -2161,7 +2185,7 @@
     {
       "date": "2026-04-28",
       "change": "Phase 1 draft 작성",
-      "reason": "S8 소유권, OP/assignment/handover/AI summary 계약, 하네스 red test 초안 생성"
+      "reason": "S8 소유권, OP/assignment/handover/search history summary 계약, 하네스 red test 초안 생성"
     }
   ],
   "service_contracts": {
@@ -2172,12 +2196,12 @@
       "output": {
         "opId": "string",
         "incidentId": "string",
-        "status": "ACTIVE|CLOSED",
-        "sequenceNo": "integer",
+        "status": "ACTIVE|ENDED",
         "startedAt": "date-time",
         "endedAt": "nullable date-time",
-        "reason": "BOOTSTRAP|SHIFT_CHANGE|RE_SEARCH|NEW_AREA|OTHER",
-        "version": "integer"
+        "reason": "INITIAL|RE_SEARCH|AREA_CHANGED|OTHER",
+        "version": "integer",
+        "sequenceNumber": "integer"
       },
       "visibility": "S3-1 current OP guard, S3-2 op_toggle/op_history, S7 manifest builder"
     },
@@ -2185,12 +2209,12 @@
       "input": [
         "incidentId"
       ],
-      "output": "OperationalPeriodRow[] sorted by sequenceNo ASC",
+      "output": "OperationalPeriodRow[] sorted by sequenceNumber ASC",
       "rowShape": [
         "opId",
         "incidentId",
         "status",
-        "sequenceNo",
+        "sequenceNumber",
         "startedAt",
         "endedAt",
         "reason",
@@ -2202,7 +2226,7 @@
         "S7 offline package manifest"
       ]
     },
-    "AssignmentQuery.byOp": {
+    "OpAssignmentSnapshot.byOp": {
       "input": [
         "opId"
       ],
@@ -2214,7 +2238,7 @@
         "areaId",
         "teamId",
         "accountId",
-        "deviceId",
+        "policePhoneId",
         "status",
         "version"
       ],
@@ -2237,7 +2261,7 @@
         "opId",
         "targetType",
         "targetId",
-        "body",
+        "content",
         "createdByAccountId",
         "createdAt",
         "version"
@@ -2264,7 +2288,7 @@
         "S3-2 handover_status"
       ]
     },
-    "AiSummaryQuery.byOp": {
+    "SearchHistorySummaryQuery.byOp": {
       "input": [
         "opId"
       ],
@@ -2272,8 +2296,8 @@
         "summaryId": "string",
         "incidentId": "string",
         "opId": "string",
-        "status": "READY|FALLBACK|FAILED",
-        "displayStatus": "READY|FALLBACK|UNAVAILABLE",
+        "status": "GENERATING|READY|FAILED",
+        "displayStatus": "READY|UNAVAILABLE",
         "summaryText": "string",
         "sourceSnapshotHash": "string",
         "generatedAt": "date-time",
@@ -2281,7 +2305,7 @@
         "policy": "summary only; no recommendation, no missing-area conclusion, no risk score"
       },
       "slotConsumers": [
-        "S3-2 ai_summary"
+        "S3-2 search_history_summary"
       ]
     }
   }
