@@ -13,7 +13,9 @@ public class WithMockAccountFactory implements WithSecurityContextFactory<WithMo
   @Override
   public SecurityContext createSecurityContext(WithMockAccount annotation) {
     var authorities =
-        Arrays.stream(annotation.authorities()).map(SimpleGrantedAuthority::new).toList();
+        Arrays.stream(annotation.roles())
+            .map(role -> new SimpleGrantedAuthority(role.name()))
+            .toList();
 
     UUID policePhoneId =
         annotation.policePhoneId().isBlank() ? null : UUID.fromString(annotation.policePhoneId());
@@ -22,6 +24,7 @@ public class WithMockAccountFactory implements WithSecurityContextFactory<WithMo
         new SuriMapAuthentication(
             UUID.fromString(annotation.accountId()),
             annotation.accountType(),
+            annotation.organizationType(),
             annotation.channel(),
             policePhoneId,
             authorities);
