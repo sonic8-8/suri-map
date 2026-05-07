@@ -88,31 +88,6 @@ button {
   text-transform: uppercase;
 }
 
-.status-grid {
-  display: grid;
-  gap: 8px;
-}
-
-.status-item {
-  display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-  min-height: 34px;
-  color: #d8e5df;
-  font-size: 13px;
-}
-
-.status-icon {
-  display: inline-flex;
-  color: #9fd3c0;
-}
-
-.status-item strong {
-  color: #ffffff;
-  font-size: 13px;
-}
-
 .tool-list {
   display: grid;
   gap: 6px;
@@ -220,60 +195,6 @@ button {
     linear-gradient(rgb(23 32 38 / 8%) 1px, transparent 1px),
     linear-gradient(90deg, rgb(23 32 38 / 8%) 1px, transparent 1px);
   background-size: 44px 44px;
-}
-
-.route-line {
-  position: absolute;
-  z-index: 1;
-  height: 4px;
-  border-radius: 999px;
-  pointer-events: none;
-  transform-origin: left center;
-}
-
-.route-line-a {
-  top: 42%;
-  left: 18%;
-  width: 44%;
-  background: #1677c8;
-  transform: rotate(16deg);
-}
-
-.route-line-b {
-  top: 58%;
-  left: 30%;
-  width: 32%;
-  background: #cf6d25;
-  transform: rotate(-28deg);
-}
-
-.marker {
-  position: absolute;
-  z-index: 1;
-  width: 16px;
-  height: 16px;
-  border: 3px solid #ffffff;
-  border-radius: 50%;
-  pointer-events: none;
-  box-shadow: 0 8px 20px rgb(23 32 38 / 18%);
-}
-
-.marker-a {
-  top: 38%;
-  left: 30%;
-  background: #1677c8;
-}
-
-.marker-b {
-  top: 54%;
-  left: 51%;
-  background: #cf6d25;
-}
-
-.marker-c {
-  top: 45%;
-  left: 68%;
-  background: #c53f46;
 }
 
 .map-empty-state {

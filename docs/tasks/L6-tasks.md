@@ -53,7 +53,7 @@
 
 ## Phase 1
 
-- [ ] L6-T01A 상황판 경로·레이아웃·MapLibre 루트 구현
+- [x] L6-T01A 상황판 경로·레이아웃·MapLibre 루트 구현
   - 담당 Spec: S3-2
   - 필수 참조: `spec/specs/S3-2.json`, `spec/boundaries.md §9.2`, `spec/harness-scenarios.md §0.1`
   - 연관 Spec: S1-1, S1-2, S1-3, S2, S3-1, S4, S5, S6, S7, S8

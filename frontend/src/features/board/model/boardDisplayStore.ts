@@ -32,11 +32,11 @@ const initialVisibleLayers: BoardLayerState = {
 
 export const useBoardDisplayStore = create<BoardDisplayState>((set) => ({
   incidentId: 'inc-precinct-first-001',
-  selectedOpIds: ['op-precinct-001-op1'],
+  selectedOpIds: [],
   visibleLayers: initialVisibleLayers,
   viewMode: 'standard',
   setIncidentId: (incidentId) => set({ incidentId }),
-  setSelectedOpIds: (selectedOpIds) => set({ selectedOpIds }),
+  setSelectedOpIds: (selectedOpIds) => set({ selectedOpIds: [...selectedOpIds] }),
   setViewMode: (viewMode) => set({ viewMode }),
   toggleLayer: (layer) =>
     set((state) => ({
