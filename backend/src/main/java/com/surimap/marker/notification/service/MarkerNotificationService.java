@@ -62,20 +62,19 @@ public class MarkerNotificationService {
 
   public Optional<MarkerPublishRequest> publishIfNeeded(MarkerNotificationContext context) {
     Objects.requireNonNull(context, "context must not be null");
-    if (context.markerType() != MarkerType.SUPPORT_REQUEST) {
-      return Optional.empty();
-    }
-    return publishSupportRequest(context);
+    return notificationTypeFor(context.markerType())
+        .flatMap(notificationType -> publishMarkerNotification(context, notificationType));
   }
 
-  private Optional<MarkerPublishRequest> publishSupportRequest(MarkerNotificationContext context) {
-    NotificationType notificationType = NotificationType.SUPPORT_REQUEST_CREATED;
+  private Optional<MarkerPublishRequest> publishMarkerNotification(
+      MarkerNotificationContext context, NotificationType notificationType) {
     NotificationRecipients recipients =
         recipientResolver.resolve(context.incidentId(), notificationType);
     UUID notificationId = notificationIdFactory.apply(context);
     Instant createdAt = clock.instant();
     MarkerNotificationPublishRequestPayload payload =
-        payloadFactory.supportRequestPayload(
+        payloadFactory.markerNotificationPayload(
+            notificationType,
             notificationId,
             context,
             recipients,
@@ -101,5 +100,13 @@ public class MarkerNotificationService {
         new MarkerPublishRequest(notificationType.name(), payload);
     markerEventPublisher.publish(publishRequest);
     return Optional.of(publishRequest);
+  }
+
+  private Optional<NotificationType> notificationTypeFor(MarkerType markerType) {
+    return switch (markerType) {
+      case SUPPORT_REQUEST -> Optional.of(NotificationType.SUPPORT_REQUEST_CREATED);
+      case PERSON_FOUND -> Optional.of(NotificationType.PERSON_FOUND);
+      default -> Optional.empty();
+    };
   }
 }

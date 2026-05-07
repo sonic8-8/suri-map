@@ -20,9 +20,9 @@ public class SupportRequestNotificationDispatchService {
     Objects.requireNonNull(eventId, "eventId must not be null");
     Objects.requireNonNull(recipients, "recipients must not be null");
     Objects.requireNonNull(payload, "payload must not be null");
-    validateSupportRequest(payload);
+    validateMarkerNotification(payload);
 
-    BoardToastEvidence evidence = BoardToastEvidence.fromSupportRequest(eventId, payload);
+    BoardToastEvidence evidence = BoardToastEvidence.fromNotificationPayload(eventId, payload);
     DispatchResult result = fcmDispatcher.send(recipients, payload, eventId);
     if (!result.isFullySuccessful()) {
       throw new IllegalStateException("FCM dispatch failed for eventId " + eventId);
@@ -30,11 +30,11 @@ public class SupportRequestNotificationDispatchService {
     return evidence;
   }
 
-  private void validateSupportRequest(Map<String, Object> payload) {
+  private void validateMarkerNotification(Map<String, Object> payload) {
     Object type = payload.get("type");
-    String expectedType = NotificationType.SUPPORT_REQUEST_CREATED.name();
-    if (!expectedType.equals(type)) {
-      throw new IllegalArgumentException("payload.type must be " + expectedType);
+    if (!NotificationType.SUPPORT_REQUEST_CREATED.name().equals(type)
+        && !NotificationType.PERSON_FOUND.name().equals(type)) {
+      throw new IllegalArgumentException("payload.type must be marker notification type");
     }
   }
 }

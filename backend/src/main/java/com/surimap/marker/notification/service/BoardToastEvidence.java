@@ -18,6 +18,11 @@ public record BoardToastEvidence(
   private static final String SLOT = "toast";
 
   public static BoardToastEvidence fromSupportRequest(String eventId, Map<String, Object> payload) {
+    return fromNotificationPayload(eventId, payload);
+  }
+
+  public static BoardToastEvidence fromNotificationPayload(
+      String eventId, Map<String, Object> payload) {
     Objects.requireNonNull(eventId, "eventId must not be null");
     Objects.requireNonNull(payload, "payload must not be null");
     return new BoardToastEvidence(

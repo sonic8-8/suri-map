@@ -28,6 +28,23 @@ public class NotificationPayloadFactory {
       NotificationRecipients recipients,
       MarkerNotificationStatus status,
       long notificationVersion) {
+    return markerNotificationPayload(
+        NotificationType.SUPPORT_REQUEST_CREATED,
+        notificationId,
+        context,
+        recipients,
+        status,
+        notificationVersion);
+  }
+
+  public MarkerNotificationPublishRequestPayload markerNotificationPayload(
+      NotificationType notificationType,
+      UUID notificationId,
+      MarkerNotificationContext context,
+      NotificationRecipients recipients,
+      MarkerNotificationStatus status,
+      long notificationVersion) {
+    Objects.requireNonNull(notificationType, "notificationType must not be null");
     Objects.requireNonNull(notificationId, "notificationId must not be null");
     Objects.requireNonNull(context, "context must not be null");
     Objects.requireNonNull(recipients, "recipients must not be null");
@@ -40,7 +57,7 @@ public class NotificationPayloadFactory {
         context.policePhoneId(),
         status.name(),
         notificationVersion,
-        NotificationType.SUPPORT_REQUEST_CREATED.name(),
+        notificationType.name(),
         recipients.policy().name(),
         recipients.accountIds(),
         recipients.policePhoneIds(),
