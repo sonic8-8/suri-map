@@ -38,12 +38,11 @@ public final class OfflinePackageManifestFixtureBuilder {
   private MissingPerson missingPerson =
       new MissingPerson(
           OfflinePackageManifestFixtures.INCIDENT_ID,
-          "mp-precinct-first-001",
-          OfflinePackageManifestFixtures.MOCK_112_SOURCE_INCIDENT_ID,
           "가상 실종자 001",
-          "MALE",
-          8,
-          "인왕산 북측 산책로 입구");
+          null,
+          "남색 점퍼, 회색 등산화",
+          "인왕산 북측 산책로 입구",
+          java.time.OffsetDateTime.parse("2026-04-28T08:30:00+09:00"));
   private List<OperationalPeriod> operationalPeriods =
       List.of(
           new OperationalPeriod(

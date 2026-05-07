@@ -18,6 +18,35 @@ import org.junit.jupiter.api.Test;
 class OfflinePackageManifestContractTest {
 
   private static final Pattern SHA256_HEX = Pattern.compile("^sha256:[0-9a-f]{64}$");
+  private static final List<String> S1_1_ALLOWED_MISSING_PERSON_FIELDS =
+      List.of(
+          "incidentId",
+          "displayName",
+          "photoObjectKey",
+          "appearanceText",
+          "lastSeenLocationText",
+          "lastSeenAt");
+  private static final List<String> FORBIDDEN_MISSING_PERSON_FIELDS =
+      List.of(
+          "importedAt",
+          "sourceFixture",
+          "missingPersonId",
+          "name",
+          "sex",
+          "gender",
+          "age",
+          "lastSeenSummary",
+          "residentRegistrationNumber",
+          "rrn",
+          "socialSecurityNumber",
+          "phone",
+          "phoneNumber",
+          "mobilePhone",
+          "contactNumber",
+          "address",
+          "homeAddress",
+          "roadAddress",
+          "detailAddress");
 
   @Test
   @DisplayName("manifest root identity and PolicePhone context follow SC-03 handoff")
@@ -38,7 +67,7 @@ class OfflinePackageManifestContractTest {
   }
 
   @Test
-  @DisplayName("manifest includes current incident metadata and mock 112 missingPerson")
+  @DisplayName("manifest는 현재 사건 메타데이터와 실종자 기본 정보를 포함한다")
   void manifest_includes_incident_metadata_and_missing_person() {
     OfflinePackageManifest manifest = OfflinePackageManifestFixtures.manifest();
 
@@ -48,10 +77,21 @@ class OfflinePackageManifestContractTest {
     assertThat(manifest.incident().sourceFixture()).isEqualTo("mock-112-incident-001");
 
     assertThat(manifest.missingPerson().incidentId()).isEqualTo("inc-precinct-first-001");
-    assertThat(manifest.missingPerson().sourceFixture()).isEqualTo("mock-112-incident-001");
-    assertThat(manifest.missingPerson().missingPersonId()).isEqualTo("mp-precinct-first-001");
-    assertThat(manifest.missingPerson().name()).isEqualTo("가상 실종자 001");
+    assertThat(manifest.missingPerson().displayName()).isEqualTo("가상 실종자 001");
+    assertThat(manifest.missingPerson().appearanceText()).isEqualTo("남색 점퍼, 회색 등산화");
+    assertThat(manifest.missingPerson().lastSeenLocationText()).isEqualTo("인왕산 북측 산책로 입구");
     assertThat(manifestFields()).contains("missingPerson").doesNotContain("missingPersonCache");
+  }
+
+  @Test
+  @DisplayName("manifest missingPerson은 S1-1 허용 필드만 소비한다")
+  void manifest_missing_person_consumes_only_s1_1_allowlist() {
+    OfflinePackageManifest manifest = OfflinePackageManifestFixtures.manifest();
+
+    assertThat(manifest.missingPerson().incidentId()).isEqualTo("inc-precinct-first-001");
+    assertThat(missingPersonFields())
+        .containsExactlyInAnyOrderElementsOf(S1_1_ALLOWED_MISSING_PERSON_FIELDS)
+        .doesNotContainAnyElementsOf(FORBIDDEN_MISSING_PERSON_FIELDS);
   }
 
   @Test
@@ -139,6 +179,12 @@ class OfflinePackageManifestContractTest {
   private static List<String> policePhoneContextFields() {
     return Arrays.stream(
             OfflinePackageManifestFixtures.PolicePhoneContext.class.getRecordComponents())
+        .map(RecordComponent::getName)
+        .toList();
+  }
+
+  private static List<String> missingPersonFields() {
+    return Arrays.stream(OfflinePackageManifestFixtures.MissingPerson.class.getRecordComponents())
         .map(RecordComponent::getName)
         .toList();
   }
