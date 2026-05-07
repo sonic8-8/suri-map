@@ -7,4 +7,3 @@ interface LocationRecorder {
 
     fun stop()
 }
-

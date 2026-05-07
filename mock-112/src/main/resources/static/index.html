@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>mock 112 관제 시스템</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1>🚔 mock 112 관제 시스템 <span class="badge">시뮬레이터</span></h1>
+            <div class="header-status">
+                <span id="statusReady" class="status-pill ready">READY: 0</span>
+                <span id="statusImported" class="status-pill imported">IMPORTED: 0</span>
+                <span id="serverStatus" class="status-pill server">● 연결 중</span>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <!-- 좌측: 빠른 액션 -->
+        <aside class="sidebar">
+            <section class="card">
+                <h2>⚡ 빠른 실행</h2>
+                <button id="btnSeedPrecinct" class="btn btn-primary btn-full" onclick="seedPrecinctFirst()">
+                    🏢 지구대 초동 시나리오 Seed
+                </button>
+                <button id="btnReset" class="btn btn-danger btn-full" onclick="resetAll()">
+                    🔄 전체 초기화
+                </button>
+            </section>
+
+            <section class="card">
+                <h2>📊 상태 요약</h2>
+                <div id="healthInfo" class="health-info">
+                    <p>서버 확인 중...</p>
+                </div>
+            </section>
+
+            <section class="card">
+                <h2>ℹ️ 안내</h2>
+                <p class="hint">이 화면은 <strong>외부 112 시스템 시뮬레이터</strong>입니다.</p>
+                <p class="hint">Suri-Map에서 사건을 직접 만드는 기능이 아닙니다.</p>
+                <p class="hint">시나리오 Seed → Suri-Map polling 감지 → 웹에서 가져오기</p>
+            </section>
+        </aside>
+
+        <!-- 우측: 메인 영역 -->
+        <div class="main-content">
+            <!-- 사건 등록 폼 -->
+            <section class="card">
+                <h2>📝 사건 등록</h2>
+                <form id="incidentForm" onsubmit="createIncident(event)">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>sourceIncidentId</label>
+                            <input type="text" id="inputSourceId" required
+                                   placeholder="mock-112-incident-002">
+                        </div>
+                        <div class="form-group">
+                            <label>사건 제목</label>
+                            <input type="text" id="inputTitle" required
+                                   placeholder="OO구 OO산 실종 신고">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>실종자 이름</label>
+                            <input type="text" id="inputPersonName" placeholder="이름">
+                        </div>
+                        <div class="form-group">
+                            <label>인상착의</label>
+                            <input type="text" id="inputAppearance" placeholder="남색 점퍼, 등산화">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group full">
+                            <label>마지막 목격 위치</label>
+                            <input type="text" id="inputLastSeen" placeholder="OO산 북측 산책로 입구">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">등록</button>
+                </form>
+            </section>
+
+            <!-- 사건 목록 -->
+            <section class="card">
+                <h2>📋 등록 사건 목록</h2>
+                <div id="incidentList" class="incident-list">
+                    <p class="empty-state">등록된 사건이 없습니다. 시나리오 Seed를 실행하세요.</p>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- 토스트 알림 -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>

@@ -44,18 +44,18 @@
       "SC-07 통신 단절 중 로컬 기록",
       "SC-08 지원 요청·실종자 발견 알림",
       "SC-09 통신 복구·동기화",
-      "SC-11 인수인계·OP 비교·AI 요약",
+      "SC-11 인수인계·OP 비교·수색 이력 요약",
       "SC-12 사건 종료·캐시 파기"
     ]
   },
   "scope": {
     "included": [
-      "marker, photo, notification_delivery 저장소",
+      "marker, photo, marker_notification 저장소",
       "현장 마커 생성 API와 앱 바텀시트 입력 흐름",
       "마커 수정·삭제 domain policy와 event 발행 요청",
       "초기 기준점 마커 seed 생성 port",
       "마커 위치와 사진 위치 필드의 geometry validation",
-      "S3-compatible presigned upload 계약과 photo finalize",
+      "업로드용 S3-compatible presigned URL 발급, object storage upload, photo attach 계약",
       "지원 요청과 실종자 발견 marker-derived notification event 생성",
       "지원 부대 배정 FCM recipient/payload fixture",
       "NotificationRecipientResolver와 NotificationPayloadFactory",
@@ -79,9 +79,9 @@
         "reason": "S5는 marker slot source contract와 domain write API만 제공한다."
       },
       {
-        "item": "board snapshot assembly",
+        "item": "board API assembly",
         "owner": "S3-2",
-        "reason": "S5 MarkerQuery를 소비해 snapshot을 조립하는 책임은 S3-2다."
+        "reason": "S5 MarkerQuery를 소비해 board response을 조립하는 책임은 S3-2다."
       },
       {
         "item": "Outbox, idempotency, local warning 자체 구현",
@@ -109,32 +109,32 @@
     {
       "id": "FR-11",
       "summary": "OP별 레이어 선택·비교에 필요한 마커 source contract를 제공한다.",
-      "handling": "MarkerQuery.byIncident와 marker event payload가 S3-2 marker slot, marker detail panel, S8 OP history에서 같은 id/status/version/opId/deviceId를 사용하게 한다."
+      "handling": "MarkerQuery.byIncident와 marker event payload가 S3-2 marker slot, marker detail panel, S8 OP history에서 같은 id/status/version/opId/policePhoneId를 사용하게 한다."
     },
     {
       "id": "FR-14",
       "summary": "단서 또는 실종자 발견 위치를 GPS 기반으로 기록하고 공유한다.",
-      "handling": "marker.location Point를 현재 GPS 또는 앱 수동 조정 좌표로 저장하고 S2 MapBoundaryQuery를 입력으로 검증한다."
+      "handling": "marker.location Point를 현재 GPS 또는 앱 수동 조정 좌표로 저장하고 S2 SearchAreaQuery를 입력으로 검증한다."
     },
     {
       "id": "FR-15",
       "summary": "마커에 시간, 보고 주체, 출처, 유형, 메모를 기록한다.",
-      "handling": "marker에 incidentId, opId, accountId, deviceId, type, source, memo, clientTs/serverTs/clockOffsetMs를 저장한다."
+      "handling": "marker에 incidentId, opId, accountId, policePhoneId, type, source, memo, clientTs/serverTs/clockOffsetMs를 저장한다."
     },
     {
       "id": "FR-16",
       "summary": "접근 곤란 지형을 별도 레이어로 표시한다.",
-      "handling": "TERRAIN marker type과 MarkerQuery filter를 제공하고 상황판 slot은 S3-2가 렌더링한다."
+      "handling": "FIELD_CONDITION marker type과 MarkerQuery filter를 제공하고 상황판 slot은 S3-2가 렌더링한다."
     },
     {
       "id": "FR-17",
       "summary": "지원 요청 위치를 별도 레이어와 알림으로 공유한다.",
-      "handling": "SUPPORT_REQUEST marker 생성 시 notification_delivery row와 SUPPORT_REQUEST_CREATED PublishRequest를 생성한다."
+      "handling": "SUPPORT_REQUEST marker 생성 시 marker_notification row와 SUPPORT_REQUEST_CREATED PublishRequest를 생성한다."
     },
     {
       "id": "FR-20",
       "summary": "현장 마커에 사진을 첨부할 수 있다.",
-      "handling": "presigned upload와 finalize 계약으로 마커당 10장, 파일당 10MB, TTL 15분 제한을 강제한다."
+      "handling": "업로드용 presigned URL 발급, object storage upload, attach 계약으로 마커당 10장, 파일당 10MB, TTL 15분 제한을 강제한다."
     },
     {
       "id": "FR-30",
@@ -147,7 +147,7 @@
       {
         "name": "marker",
         "owner_spec": "S5",
-        "description": "OP에 귀속되는 현장 마커. 단서, 실종자 발견, 지형 상태, 지원 요청, 재확인 필요, 수색 제외/확인 완료를 표현한다.",
+        "description": "OP에 귀속되는 현장 마커. 단서, 실종자 발견, 지형 상태, 지원 요청, NOTE를 표현한다.",
         "fields": [
           {
             "name": "id",
@@ -156,48 +156,31 @@
             "pk": true
           },
           {
-            "name": "incident_id",
+            "name": "operational_period_id",
             "type": "UUID",
             "nullable": false
           },
           {
-            "name": "op_id",
-            "type": "UUID",
-            "nullable": false
-          },
-          {
-            "name": "account_id",
-            "type": "UUID",
-            "nullable": false
-          },
-          {
-            "name": "device_id",
+            "name": "duty_shift_id",
             "type": "UUID",
             "nullable": true
           },
           {
-            "name": "type",
+            "name": "marker_type",
             "type": "VARCHAR(40)",
             "nullable": false,
-            "note": "CLUE|PERSON_FOUND|TERRAIN|SUPPORT_REQUEST|RECHECK_REQUIRED|SEARCH_EXCLUDED|CONFIRMED_CLEAR|REFERENCE"
+            "note": "CLUE|PERSON_FOUND|FIELD_CONDITION|SUPPORT_REQUEST|NOTE"
           },
           {
             "name": "support_request_type",
             "type": "VARCHAR(40)",
             "nullable": true,
-            "note": "ENTRY_SUPPORT|ADDITIONAL_PERSONNEL|DRONE_RECORD|DOG_RECORD|OTHER"
+            "note": "DRONE|POLICE_DOG|OTHER"
           },
           {
-            "name": "source",
-            "type": "VARCHAR(32)",
-            "nullable": false,
-            "note": "APP_USER|SYSTEM_SEED|WEB_REFERENCE_ADJUSTMENT"
-          },
-          {
-            "name": "status",
-            "type": "VARCHAR(24)",
-            "nullable": false,
-            "note": "ACTIVE|UPDATED|DELETED"
+            "name": "location",
+            "type": "GEOMETRY(Point,4326)",
+            "nullable": false
           },
           {
             "name": "memo",
@@ -205,37 +188,36 @@
             "nullable": true
           },
           {
-            "name": "location",
-            "type": "GEOGRAPHY(Point,4326)",
+            "name": "occurred_at",
+            "type": "TIMESTAMPTZ",
             "nullable": false
           },
           {
-            "name": "location_label",
-            "type": "VARCHAR(255)",
+            "name": "created_by_account_id",
+            "type": "UUID",
+            "nullable": false
+          },
+          {
+            "name": "police_phone_id",
+            "type": "UUID",
             "nullable": true
+          },
+          {
+            "name": "marker_source",
+            "type": "VARCHAR(32)",
+            "nullable": false,
+            "note": "APP|WEB|MOCK_SEED|SYSTEM"
+          },
+          {
+            "name": "status",
+            "type": "VARCHAR(24)",
+            "nullable": false,
+            "note": "ACTIVE|DELETED"
           },
           {
             "name": "version",
             "type": "BIGINT",
             "nullable": false
-          },
-          {
-            "name": "client_ts",
-            "type": "TIMESTAMPTZ",
-            "nullable": false,
-            "note": "ADR-0012"
-          },
-          {
-            "name": "server_ts",
-            "type": "TIMESTAMPTZ",
-            "nullable": false,
-            "note": "ADR-0012"
-          },
-          {
-            "name": "clock_offset_ms",
-            "type": "BIGINT",
-            "nullable": true,
-            "note": "ADR-0012"
           },
           {
             "name": "created_at",
@@ -246,33 +228,26 @@
             "name": "updated_at",
             "type": "TIMESTAMPTZ",
             "nullable": false
-          },
-          {
-            "name": "deleted_at",
-            "type": "TIMESTAMPTZ",
-            "nullable": true
           }
         ],
         "indexes": [
           {
-            "name": "idx_marker_incident_op_status",
+            "name": "idx_marker_op_status",
             "columns": [
-              "incident_id",
-              "op_id",
+              "operational_period_id",
               "status"
             ]
           },
           {
-            "name": "idx_marker_incident_type",
+            "name": "idx_marker_type",
             "columns": [
-              "incident_id",
-              "type"
+              "marker_type"
             ]
           },
           {
-            "name": "idx_marker_device",
+            "name": "idx_marker_police_phone",
             "columns": [
-              "device_id"
+              "police_phone_id"
             ]
           },
           {
@@ -305,26 +280,21 @@
             "nullable": false
           },
           {
-            "name": "incident_id",
-            "type": "UUID",
-            "nullable": false
-          },
-          {
             "name": "object_key",
             "type": "TEXT",
-            "nullable": false
+            "nullable": false,
+            "unique": true
           },
           {
             "name": "status",
             "type": "VARCHAR(24)",
             "nullable": false,
-            "note": "PRESIGNED|UPLOADED|FINALIZED|FAILED|DELETED"
+            "note": "PENDING_UPLOAD|ATTACHED|FAILED|DELETED"
           },
           {
-            "name": "version",
-            "type": "BIGINT",
-            "nullable": false,
-            "note": "photo lifecycle version used by finalize response and MARKER_UPDATED photoDelta"
+            "name": "attached_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": true
           },
           {
             "name": "content_type",
@@ -347,8 +317,8 @@
             "nullable": true
           },
           {
-            "name": "sha256",
-            "type": "VARCHAR(64)",
+            "name": "checksum_sha256",
+            "type": "CHAR(64)",
             "nullable": true
           },
           {
@@ -357,9 +327,14 @@
             "nullable": true
           },
           {
-            "name": "presigned_expires_at",
+            "name": "upload_url_expires_at",
             "type": "TIMESTAMPTZ",
             "nullable": true
+          },
+          {
+            "name": "version",
+            "type": "BIGINT",
+            "nullable": false
           },
           {
             "name": "created_at",
@@ -367,9 +342,9 @@
             "nullable": false
           },
           {
-            "name": "finalized_at",
+            "name": "updated_at",
             "type": "TIMESTAMPTZ",
-            "nullable": true
+            "nullable": false
           },
           {
             "name": "deleted_at",
@@ -386,12 +361,6 @@
             ]
           },
           {
-            "name": "idx_photo_incident",
-            "columns": [
-              "incident_id"
-            ]
-          },
-          {
             "name": "ux_photo_object_key",
             "columns": [
               "object_key"
@@ -405,9 +374,9 @@
         }
       },
       {
-        "name": "notification_delivery",
+        "name": "marker_notification",
         "owner_spec": "S5",
-        "description": "지원 요청과 실종자 발견 marker에서 파생된 알림 의도/recipient/payload 기록. S4 fanout attempt 상태와 분리한다.",
+        "description": "지원 요청과 실종자 발견 marker에서 파생된 알림 recipient/payload 스냅샷. 실제 SSE/FCM 전파 상태는 S4 event_dispatch_target이 소유한다.",
         "fields": [
           {
             "name": "id",
@@ -416,23 +385,19 @@
             "pk": true
           },
           {
-            "name": "incident_id",
-            "type": "UUID",
-            "nullable": false
-          },
-          {
             "name": "marker_id",
             "type": "UUID",
-            "nullable": false
+            "nullable": false,
+            "unique": true
           },
           {
-            "name": "event_type",
+            "name": "notification_type",
             "type": "VARCHAR(80)",
             "nullable": false,
             "note": "SUPPORT_REQUEST_CREATED|PERSON_FOUND"
           },
           {
-            "name": "recipient_policy",
+            "name": "recipient_rule",
             "type": "VARCHAR(60)",
             "nullable": false,
             "note": "COMMANDERS_AND_FIELD_COMMANDERS|ALL_INCIDENT_ASSIGNED"
@@ -443,55 +408,33 @@
             "nullable": false
           },
           {
-            "name": "recipient_device_ids",
+            "name": "recipient_police_phone_ids",
             "type": "UUID[]",
             "nullable": false
           },
           {
-            "name": "payload",
+            "name": "notification_payload",
             "type": "JSONB",
-            "nullable": false
-          },
-          {
-            "name": "status",
-            "type": "VARCHAR(24)",
-            "nullable": false,
-            "note": "PENDING|READY_FOR_FANOUT|CANCELLED. FCM/SSE/board target attempt status is owned by S4 EventFanout."
-          },
-          {
-            "name": "version",
-            "type": "BIGINT",
             "nullable": false
           },
           {
             "name": "created_at",
             "type": "TIMESTAMPTZ",
             "nullable": false
-          },
-          {
-            "name": "updated_at",
-            "type": "TIMESTAMPTZ",
-            "nullable": false
           }
         ],
         "indexes": [
           {
-            "name": "idx_notification_delivery_incident_status",
-            "columns": [
-              "incident_id",
-              "status"
-            ]
-          },
-          {
-            "name": "idx_notification_delivery_marker",
+            "name": "ux_marker_notification_marker",
             "columns": [
               "marker_id"
-            ]
+            ],
+            "unique": true
           },
           {
-            "name": "idx_notification_delivery_event_type",
+            "name": "idx_marker_notification_type",
             "columns": [
-              "event_type"
+              "notification_type"
             ]
           }
         ],
@@ -521,8 +464,8 @@
           {
             "from": "ACTIVE",
             "to": "UPDATED",
-            "trigger": "POST /markers/{markerId}/photos/{photoId}/finalize",
-            "guard": "photo finalize succeeds; marker.version increments and MARKER_UPDATED.photoDelta is emitted"
+            "trigger": "POST /markers/{markerId}/photos/{photoId}/attach",
+            "guard": "photo attach succeeds; marker.version increments and MARKER_UPDATED.photoDelta is emitted"
           },
           {
             "from": "UPDATED",
@@ -533,8 +476,8 @@
           {
             "from": "UPDATED",
             "to": "UPDATED",
-            "trigger": "POST /markers/{markerId}/photos/{photoId}/finalize",
-            "guard": "photo finalize succeeds; marker.version increments and MARKER_UPDATED.photoDelta is emitted"
+            "trigger": "POST /markers/{markerId}/photos/{photoId}/attach",
+            "guard": "photo attach succeeds; marker.version increments and MARKER_UPDATED.photoDelta is emitted"
           },
           {
             "from": "ACTIVE",
@@ -554,59 +497,26 @@
         "entity": "photo",
         "field": "status",
         "states": [
-          "PRESIGNED",
-          "UPLOADED",
-          "FINALIZED",
+          "PENDING_UPLOAD",
+          "ATTACHED",
           "FAILED",
           "DELETED"
         ],
         "transitions": [
           {
-            "from": "PRESIGNED",
-            "to": "UPLOADED",
-            "trigger": "object storage upload observed by finalize request",
-            "guard": "TTL not expired and object metadata matches"
+            "from": "PENDING_UPLOAD",
+            "to": "ATTACHED",
+            "trigger": "object upload verified and photo attached"
           },
           {
-            "from": "UPLOADED",
-            "to": "FINALIZED",
-            "trigger": "POST /markers/{markerId}/photos/{photoId}/finalize",
-            "guard": "size/contentType/hash constraints pass; photo.version and parent marker.version increment; MARKER_UPDATED carries photoDelta"
-          },
-          {
-            "from": "PRESIGNED",
+            "from": "PENDING_UPLOAD",
             "to": "FAILED",
-            "trigger": "TTL elapsed without finalize",
-            "guard": "presigned_expires_at < server time; finalize returns 409 write_conflict and app requests a new presign"
+            "trigger": "upload URL expires or object metadata mismatch"
           },
           {
-            "from": "FINALIZED",
+            "from": "ATTACHED",
             "to": "DELETED",
-            "trigger": "marker deleted or purge hook",
-            "guard": "same incident_id"
-          }
-        ]
-      },
-      {
-        "entity": "notification_delivery",
-        "field": "status",
-        "states": [
-          "PENDING",
-          "READY_FOR_FANOUT",
-          "CANCELLED"
-        ],
-        "transitions": [
-          {
-            "from": "PENDING",
-            "to": "READY_FOR_FANOUT",
-            "trigger": "recipient and payload calculation complete",
-            "guard": "recipient policy resolved; empty recipients are still a payload condition, not a fanout attempt state"
-          },
-          {
-            "from": "PENDING",
-            "to": "CANCELLED",
-            "trigger": "marker deleted before fanout",
-            "guard": "same marker_id"
+            "trigger": "incident purge or marker delete"
           }
         ]
       }
@@ -614,7 +524,7 @@
     "flyway_migrations": [
       "V20260428_501__create_marker.sql",
       "V20260428_502__create_photo.sql",
-      "V20260428_503__create_notification_delivery.sql"
+      "V20260428_503__create_marker_notification.sql"
     ]
   },
   "api_contracts": {
@@ -623,12 +533,12 @@
         "method": "POST",
         "path": "/markers",
         "summary": "앱 전용 현장 마커 생성",
-        "auth": "@RequireChannel(APP) + @RequireDevice + @RequireDeviceRegistered + @RequireDeviceAssigned + @RequireIncidentAccess + @RequireCurrentOp + @IdempotentWrite",
+        "auth": "@RequireChannel(APP) + @RequirePolicePhone + @RequirePolicePhoneRegistered + @RequirePolicePhoneAssigned + @RequireIncidentAccess + @RequireCurrentOp + @IdempotentWrite",
         "idempotent": true,
         "required_headers": [
           "Authorization",
           "Idempotency-Key",
-          "X-Device-Id"
+          "X-PolicePhone-Id"
         ],
         "request_schema": {
           "type": "object",
@@ -653,20 +563,20 @@
               "enum": [
                 "CLUE",
                 "PERSON_FOUND",
-                "TERRAIN",
+                "FIELD_CONDITION",
                 "SUPPORT_REQUEST",
-                "RECHECK_REQUIRED",
-                "SEARCH_EXCLUDED",
-                "CONFIRMED_CLEAR"
+                "NOTE",
+                "NOTE",
+                "NOTE"
               ]
             },
             "supportRequestType": {
               "type": "string",
               "enum": [
-                "ENTRY_SUPPORT",
-                "ADDITIONAL_PERSONNEL",
-                "DRONE_RECORD",
-                "DOG_RECORD",
+                "OTHER",
+                "OTHER",
+                "DRONE",
+                "POLICE_DOG",
                 "OTHER"
               ]
             },
@@ -720,7 +630,7 @@
                 "type": "string",
                 "format": "uuid"
               },
-              "deviceId": {
+              "policePhoneId": {
                 "type": "string",
                 "format": "uuid"
               },
@@ -746,18 +656,18 @@
           },
           {
             "code": 400,
-            "case": "device_required",
-            "body": "{\"error\": \"device_required\"}"
+            "case": "police_phone_required",
+            "body": "{\"error\": \"police_phone_required\"}"
           },
           {
             "code": 403,
-            "case": "device_not_registered",
-            "body": "{\"error\": \"device_not_registered\"}"
+            "case": "police_phone_not_registered",
+            "body": "{\"error\": \"police_phone_not_registered\"}"
           },
           {
             "code": 403,
-            "case": "device_not_assigned",
-            "body": "{\"error\": \"device_not_assigned\"}"
+            "case": "police_phone_not_assigned",
+            "body": "{\"error\": \"police_phone_not_assigned\"}"
           },
           {
             "code": 403,
@@ -768,11 +678,6 @@
             "code": 403,
             "case": "team_not_assigned",
             "body": "{\"error\": \"team_not_assigned\"}"
-          },
-          {
-            "code": 409,
-            "case": "incident_bootstrapping",
-            "body": "{\"error\": \"incident_bootstrapping\"}"
           },
           {
             "code": 409,
@@ -812,7 +717,7 @@
           "Idempotency-Key"
         ],
         "conditional_headers": [
-          "X-Device-Id required when channel is APP"
+          "X-PolicePhone-Id required when channel is APP"
         ],
         "request_schema": {
           "type": "object",
@@ -870,18 +775,18 @@
           },
           {
             "code": 400,
-            "case": "device_required",
-            "body": "{\"error\": \"device_required\"}"
+            "case": "police_phone_required",
+            "body": "{\"error\": \"police_phone_required\"}"
           },
           {
             "code": 403,
-            "case": "device_not_registered",
-            "body": "{\"error\": \"device_not_registered\"}"
+            "case": "police_phone_not_registered",
+            "body": "{\"error\": \"police_phone_not_registered\"}"
           },
           {
             "code": 403,
-            "case": "device_not_assigned",
-            "body": "{\"error\": \"device_not_assigned\"}"
+            "case": "police_phone_not_assigned",
+            "body": "{\"error\": \"police_phone_not_assigned\"}"
           },
           {
             "code": 403,
@@ -892,11 +797,6 @@
             "code": 403,
             "case": "team_not_assigned",
             "body": "{\"error\": \"team_not_assigned\"}"
-          },
-          {
-            "code": 409,
-            "case": "incident_bootstrapping",
-            "body": "{\"error\": \"incident_bootstrapping\"}"
           },
           {
             "code": 409,
@@ -926,7 +826,7 @@
           "Idempotency-Key"
         ],
         "conditional_headers": [
-          "X-Device-Id required when channel is APP"
+          "X-PolicePhone-Id required when channel is APP"
         ],
         "request_schema": {
           "type": "object",
@@ -973,18 +873,18 @@
           },
           {
             "code": 400,
-            "case": "device_required",
-            "body": "{\"error\": \"device_required\"}"
+            "case": "police_phone_required",
+            "body": "{\"error\": \"police_phone_required\"}"
           },
           {
             "code": 403,
-            "case": "device_not_registered",
-            "body": "{\"error\": \"device_not_registered\"}"
+            "case": "police_phone_not_registered",
+            "body": "{\"error\": \"police_phone_not_registered\"}"
           },
           {
             "code": 403,
-            "case": "device_not_assigned",
-            "body": "{\"error\": \"device_not_assigned\"}"
+            "case": "police_phone_not_assigned",
+            "body": "{\"error\": \"police_phone_not_assigned\"}"
           },
           {
             "code": 403,
@@ -995,11 +895,6 @@
             "code": 403,
             "case": "team_not_assigned",
             "body": "{\"error\": \"team_not_assigned\"}"
-          },
-          {
-            "code": 409,
-            "case": "incident_bootstrapping",
-            "body": "{\"error\": \"incident_bootstrapping\"}"
           },
           {
             "code": 409,
@@ -1020,14 +915,14 @@
       },
       {
         "method": "POST",
-        "path": "/markers/{markerId}/photos/presign",
-        "summary": "앱 마커 사진 업로드용 presigned URL 발급",
-        "auth": "guard aliases app-device + incident-read + write-common",
+        "path": "/markers/{markerId}/photos/upload-url",
+        "summary": "앱 마커 사진 업로드용 upload URL 발급",
+        "auth": "guard aliases app-police-phone + incident-read + write-common",
         "idempotent": true,
         "required_headers": [
           "Authorization",
           "Idempotency-Key",
-          "X-Device-Id"
+          "X-PolicePhone-Id"
         ],
         "request_schema": {
           "type": "object",
@@ -1048,7 +943,7 @@
               "type": "integer",
               "maximum": 10485760
             },
-            "sha256": {
+            "checksumSha256": {
               "type": "string"
             }
           }
@@ -1073,7 +968,7 @@
               },
               "version": {
                 "type": "integer",
-                "description": "initial photo version for PRESIGNED row"
+                "description": "initial photo version for PENDING_UPLOAD row"
               }
             }
           }
@@ -1091,18 +986,18 @@
           },
           {
             "code": 400,
-            "case": "device_required",
-            "body": "{\"error\": \"device_required\"}"
+            "case": "police_phone_required",
+            "body": "{\"error\": \"police_phone_required\"}"
           },
           {
             "code": 403,
-            "case": "device_not_registered",
-            "body": "{\"error\": \"device_not_registered\"}"
+            "case": "police_phone_not_registered",
+            "body": "{\"error\": \"police_phone_not_registered\"}"
           },
           {
             "code": 403,
-            "case": "device_not_assigned",
-            "body": "{\"error\": \"device_not_assigned\"}"
+            "case": "police_phone_not_assigned",
+            "body": "{\"error\": \"police_phone_not_assigned\"}"
           },
           {
             "code": 403,
@@ -1113,11 +1008,6 @@
             "code": 403,
             "case": "team_not_assigned",
             "body": "{\"error\": \"team_not_assigned\"}"
-          },
-          {
-            "code": 409,
-            "case": "incident_bootstrapping",
-            "body": "{\"error\": \"incident_bootstrapping\"}"
           },
           {
             "code": 409,
@@ -1138,14 +1028,14 @@
       },
       {
         "method": "POST",
-        "path": "/markers/{markerId}/photos/{photoId}/finalize",
+        "path": "/markers/{markerId}/photos/{photoId}/attach",
         "summary": "업로드 완료 사진 metadata 검증과 marker photo 연결 확정",
-        "auth": "guard aliases app-device + incident-read + write-common",
+        "auth": "guard aliases app-police-phone + incident-read + write-common",
         "idempotent": true,
         "required_headers": [
           "Authorization",
           "Idempotency-Key",
-          "X-Device-Id"
+          "X-PolicePhone-Id"
         ],
         "request_schema": {
           "type": "object",
@@ -1166,7 +1056,7 @@
             "height": {
               "type": "integer"
             },
-            "sha256": {
+            "checksumSha256": {
               "type": "string"
             }
           }
@@ -1181,7 +1071,7 @@
               },
               "status": {
                 "type": "string",
-                "const": "FINALIZED"
+                "const": "ATTACHED"
               },
               "version": {
                 "type": "integer"
@@ -1192,7 +1082,7 @@
               },
               "markerVersion": {
                 "type": "integer",
-                "description": "parent marker version after photo finalize MARKER_UPDATED"
+                "description": "parent marker version after photo attach MARKER_UPDATED"
               }
             }
           }
@@ -1210,18 +1100,18 @@
           },
           {
             "code": 400,
-            "case": "device_required",
-            "body": "{\"error\": \"device_required\"}"
+            "case": "police_phone_required",
+            "body": "{\"error\": \"police_phone_required\"}"
           },
           {
             "code": 403,
-            "case": "device_not_registered",
-            "body": "{\"error\": \"device_not_registered\"}"
+            "case": "police_phone_not_registered",
+            "body": "{\"error\": \"police_phone_not_registered\"}"
           },
           {
             "code": 403,
-            "case": "device_not_assigned",
-            "body": "{\"error\": \"device_not_assigned\"}"
+            "case": "police_phone_not_assigned",
+            "body": "{\"error\": \"police_phone_not_assigned\"}"
           },
           {
             "code": 403,
@@ -1232,11 +1122,6 @@
             "code": 403,
             "case": "team_not_assigned",
             "body": "{\"error\": \"team_not_assigned\"}"
-          },
-          {
-            "code": 409,
-            "case": "incident_bootstrapping",
-            "body": "{\"error\": \"incident_bootstrapping\"}"
           },
           {
             "code": 409,
@@ -1259,23 +1144,23 @@
     "consumed": [
       {
         "from_spec": "S1-1",
-        "interface": "MembershipView.notificationTargets(incidentId, targetPolicy)",
+        "interface": "IncidentAssignmentView.notificationTargets(incidentId, targetPolicy)",
         "usage": "지원 요청과 실종자 발견 알림 recipient 계산"
       },
       {
         "from_spec": "S1-2",
-        "interface": "SecurityContext, @RequireChannel, @RequireDevice, FcmTokenQuery.activeByDevice(deviceId)",
-        "usage": "앱 전용 마커 생성, Device 기준 작성자 기록, FCM token 조회"
+        "interface": "SecurityContext, @RequireChannel, @RequirePolicePhone, FcmTokenQuery.activeByPolicePhone(policePhoneId)",
+        "usage": "앱 전용 마커 생성, PolicePhone 기준 작성자 기록, FCM token 조회"
       },
       {
         "from_spec": "S2",
-        "interface": "MapBoundaryQuery.of(incidentId)",
+        "interface": "SearchAreaQuery.overallOf(incidentId)",
         "usage": "marker.location이 현재 지도 기준 범위 안에 있는지 검증하는 입력으로만 사용"
       },
       {
         "from_spec": "S4",
         "interface": "EventHub.publish(PublishRequest.*)",
-        "usage": "marker/notification domain write transaction 안에서 S5-owned PublishRequest를 S4 event_outbox로 적재한다. NotificationRecipientResolver, NotificationPayloadFactory, FcmDispatcher는 S5가 제공하고 S4 EventFanout이 호출하는 포트다."
+        "usage": "marker/notification domain write transaction 안에서 S5-owned PublishRequest를 S4 event_dispatch_job로 적재한다. NotificationRecipientResolver, NotificationPayloadFactory, FcmDispatcher는 S5가 제공하고 S4 EventFanout이 호출하는 포트다."
       },
       {
         "from_spec": "S6",
@@ -1298,7 +1183,7 @@
             "id",
             "incidentId",
             "opId",
-            "deviceId",
+            "policePhoneId",
             "status",
             "version",
             "type",
@@ -1319,7 +1204,7 @@
               "type": "string",
               "format": "uuid"
             },
-            "deviceId": {
+            "policePhoneId": {
               "type": "string",
               "format": "uuid"
             },
@@ -1352,14 +1237,14 @@
       },
       {
         "type": "MARKER_UPDATED",
-        "trigger": "PATCH /markers/{markerId} 또는 photo finalize 성공 후 domain transaction commit",
+        "trigger": "PATCH /markers/{markerId} 또는 photo attach 성공 후 domain transaction commit",
         "payload_schema": {
           "type": "object",
           "required": [
             "id",
             "incidentId",
             "opId",
-            "deviceId",
+            "policePhoneId",
             "status",
             "version"
           ],
@@ -1376,7 +1261,7 @@
               "type": "string",
               "format": "uuid"
             },
-            "deviceId": {
+            "policePhoneId": {
               "type": "string",
               "format": "uuid"
             },
@@ -1388,7 +1273,7 @@
             },
             "photoDelta": {
               "type": "object",
-              "description": "Present only when photo finalize changes marker photo summary; delivered through existing MARKER_UPDATED event instead of a separate photo event.",
+              "description": "Present only when photo attach changes marker photo summary; delivered through existing MARKER_UPDATED event instead of a separate photo event.",
               "properties": {
                 "photoId": {
                   "type": "string",
@@ -1396,7 +1281,7 @@
                 },
                 "status": {
                   "type": "string",
-                  "const": "FINALIZED"
+                  "const": "ATTACHED"
                 },
                 "version": {
                   "type": "integer"
@@ -1404,7 +1289,7 @@
               }
             }
           },
-          "comparison_contract": "Marker field updates compare id/status/version/opId/deviceId. Photo finalize uses photoDelta.photoId/status/version inside the existing MARKER_UPDATED payload and increments parent marker version."
+          "comparison_contract": "Marker field updates compare id/status/version/opId/policePhoneId. Photo attach uses photoDelta.photoId/status/version inside the existing MARKER_UPDATED payload and increments parent marker version."
         },
         "subscribers": [
           "S3-2 marker slot",
@@ -1420,7 +1305,7 @@
             "id",
             "incidentId",
             "opId",
-            "deviceId",
+            "policePhoneId",
             "status",
             "version"
           ],
@@ -1437,7 +1322,7 @@
               "type": "string",
               "format": "uuid"
             },
-            "deviceId": {
+            "policePhoneId": {
               "type": "string",
               "format": "uuid"
             },
@@ -1463,7 +1348,7 @@
             "markerId",
             "incidentId",
             "opId",
-            "deviceId",
+            "policePhoneId",
             "status",
             "version",
             "recipientPolicy"
@@ -1472,7 +1357,7 @@
             "id": {
               "type": "string",
               "format": "uuid",
-              "description": "notification_delivery id"
+              "description": "marker_notification id"
             },
             "markerId": {
               "type": "string",
@@ -1486,13 +1371,13 @@
               "type": "string",
               "format": "uuid"
             },
-            "deviceId": {
+            "policePhoneId": {
               "type": "string",
               "format": "uuid"
             },
             "status": {
               "type": "string",
-              "description": "notification_delivery status, not S4 fanout attempt status"
+              "description": "marker_notification snapshot, not S4 fanout attempt status"
             },
             "version": {
               "type": "integer"
@@ -1507,7 +1392,7 @@
                 "format": "uuid"
               }
             },
-            "recipientDeviceIds": {
+            "recipientPolicePhoneIds": {
               "type": "array",
               "items": {
                 "type": "string",
@@ -1521,7 +1406,7 @@
               "type": "string"
             }
           },
-          "comparison_contract": "REST marker/notification response, S4 outbox/SSE payload, S3-2 board/toast row, and FCM data payload compare id/status/version/opId/deviceId plus markerId/incidentId."
+          "comparison_contract": "REST marker/notification response, S4 event_dispatch_job/SSE payload, S3-2 board/toast row, and FCM data payload compare id/status/version/opId/policePhoneId plus markerId/incidentId."
         },
         "subscribers": [
           "S3-2 toast slot",
@@ -1538,7 +1423,7 @@
             "markerId",
             "incidentId",
             "opId",
-            "deviceId",
+            "policePhoneId",
             "status",
             "version",
             "recipientPolicy"
@@ -1547,7 +1432,7 @@
             "id": {
               "type": "string",
               "format": "uuid",
-              "description": "notification_delivery id"
+              "description": "marker_notification id"
             },
             "markerId": {
               "type": "string",
@@ -1561,13 +1446,13 @@
               "type": "string",
               "format": "uuid"
             },
-            "deviceId": {
+            "policePhoneId": {
               "type": "string",
               "format": "uuid"
             },
             "status": {
               "type": "string",
-              "description": "notification_delivery status, not S4 fanout attempt status"
+              "description": "marker_notification snapshot, not S4 fanout attempt status"
             },
             "version": {
               "type": "integer"
@@ -1582,7 +1467,7 @@
                 "format": "uuid"
               }
             },
-            "recipientDeviceIds": {
+            "recipientPolicePhoneIds": {
               "type": "array",
               "items": {
                 "type": "string",
@@ -1596,7 +1481,7 @@
               "type": "string"
             }
           },
-          "comparison_contract": "REST marker/notification response, S4 outbox/SSE payload, S3-2 board/toast row, and FCM data payload compare id/status/version/opId/deviceId plus markerId/incidentId."
+          "comparison_contract": "REST marker/notification response, S4 event_dispatch_job/SSE payload, S3-2 board/toast row, and FCM data payload compare id/status/version/opId/policePhoneId plus markerId/incidentId."
         },
         "subscribers": [
           "S3-2 toast slot",
@@ -1606,9 +1491,9 @@
     ],
     "events_subscribed": [
       {
-        "type": "INCIDENT_MEMBERSHIP_CHANGED",
+        "type": "INCIDENT_ASSIGNMENT_CHANGED",
         "from_spec": "S1-1",
-        "handler": "notification target cache를 무효화하고, S4 EventFanout이 호출하는 resolver/payload factory가 신규 배정된 지원 부대 TEAM_PHONE/PATROL_CAR_PHONE 단말 recipient와 PII 없는 사건 배정 FCM payload를 반환한다. 이 배정 알림은 notification_delivery row를 만들지 않는다."
+        "handler": "notification target cache를 무효화하고, S4 EventFanout이 호출하는 resolver/payload factory가 신규 배정 계정이 운용 중인 활성 policePhoneId recipient와 PII 없는 사건 배정 FCM payload를 반환한다. 이 배정 알림은 marker_notification row를 만들지 않는다."
       }
     ]
   },
@@ -1632,15 +1517,15 @@
         },
         {
           "name": "PhotoController",
-          "responsibility": "presign/finalize API와 사진 제한 검증"
+          "responsibility": "업로드용 presigned URL 발급/attach API와 사진 제한 검증"
         },
         {
           "name": "PhotoRepository",
-          "responsibility": "photo metadata, object_key uniqueness, version, TTL/FAILED/FINALIZED 상태 전이"
+          "responsibility": "photo metadata, object_key uniqueness, version, TTL/FAILED/ATTACHED 상태 전이"
         },
         {
           "name": "NotificationDeliveryRepository",
-          "responsibility": "notification_delivery row, recipient arrays, payload JSON, READY_FOR_FANOUT/CANCELLED 상태 전이"
+          "responsibility": "marker_notification row, recipient arrays, payload JSON, SNAPSHOT_CREATED/CANCELLED 상태 전이"
         },
         {
           "name": "NotificationRecipientResolver",
@@ -1656,7 +1541,7 @@
         },
         {
           "name": "MarkerMigrationVerification",
-          "responsibility": "marker/photo/notification_delivery DDL, indexes, FK-like constraints, version columns, PostGIS indexes를 Flyway/Testcontainers로 검증"
+          "responsibility": "marker/photo/marker_notification DDL, indexes, FK-like constraints, version columns, PostGIS indexes를 Flyway/Testcontainers로 검증"
         }
       ]
     },
@@ -1724,31 +1609,31 @@
         },
         {
           "name": "LocalPhotoUploadEntity",
-          "note": "사진 업로드 실패 시 임시 파일과 presign/finalize 상태 보관"
+          "note": "사진 업로드 실패 시 임시 파일과 업로드용 presigned URL/attach 상태 보관"
         }
       ],
-      "sync_flow": "S6 SyncClient.enqueue(POST /markers, photo finalize) 경유로 쓰기 수행"
+      "sync_flow": "S6 SyncClient.enqueue(POST /markers, photo attach) 경유로 쓰기 수행"
     }
   },
   "dependencies": {
     "spec_dependencies": [
       {
         "spec": "S1-1",
-        "contract": "MembershipView.notificationTargets, ReferenceMarkerSeed caller",
-        "stub_strategy": "incident membership fixture와 seed marker fixture를 제공한다.",
-        "replaced_by_real_at": "S1-1 membership/import PASS"
+        "contract": "IncidentAssignmentView.notificationTargets, ReferenceMarkerSeed caller",
+        "stub_strategy": "incident_assignment fixture와 seed marker fixture를 제공한다.",
+        "replaced_by_real_at": "S1-1 incident_assignment/import PASS"
       },
       {
         "spec": "S1-2",
-        "contract": "SecurityContext, Device guard, FCM token query",
-        "stub_strategy": "team/patrol/command account와 registered/unregistered device fixture를 제공한다.",
-        "replaced_by_real_at": "S1-2 auth/device PASS"
+        "contract": "SecurityContext, PolicePhone guard, FCM token query",
+        "stub_strategy": "team/patrol/command account와 registered/unregistered policePhone fixture를 제공한다.",
+        "replaced_by_real_at": "S1-2 auth/PolicePhone PASS"
       },
       {
         "spec": "S2",
-        "contract": "MapBoundaryQuery.of(incidentId)",
-        "stub_strategy": "valid boundary와 out-of-bound Point fixture를 제공한다.",
-        "replaced_by_real_at": "S2 map boundary PASS"
+        "contract": "SearchAreaQuery.overallOf(incidentId)",
+        "stub_strategy": "valid overall_search_area와 out-of-bound Point fixture를 제공한다.",
+        "replaced_by_real_at": "S2 overall_search_area PASS"
       },
       {
         "spec": "S4",
@@ -1771,7 +1656,7 @@
     ],
     "infra_dependencies": [
       "PostgreSQL + PostGIS",
-      "S3-compatible object storage with presigned URLs; dev/harness use MinIO-compatible adapter and mock object storage fixture",
+      "S3-compatible object storage with upload URLs; dev/harness use MinIO-compatible adapter and mock object storage fixture",
       "FCM SDK behind FcmDispatcher adapter",
       "Android Room/SQLite",
       "WorkManager"
@@ -1785,9 +1670,9 @@
         "FR-14",
         "FR-15"
       ],
-      "given": "사건 OPEN, current OP 존재, 사건 배정 앱 Device 세션이다.",
+      "given": "사건 OPEN, current OP 존재, 사건 배정 앱 PolicePhone 세션이다.",
       "when": "앱이 POST /markers를 호출한다.",
-      "then": "marker row가 current OP/account/device 기준으로 생성되고 MARKER_CREATED PublishRequest가 같은 id/status/version/opId/deviceId를 포함한다.",
+      "then": "marker row가 current OP/account/policePhone 기준으로 생성되고 MARKER_CREATED PublishRequest가 같은 id/status/version/opId/policePhoneId를 포함한다.",
       "priority": "critical"
     },
     {
@@ -1797,7 +1682,7 @@
       ],
       "given": "웹 세션이 현장 마커 생성 API를 호출한다.",
       "when": "POST /markers 요청이 들어온다.",
-      "then": "403 channel_not_allowed를 반환하고 marker/outbox/notification_delivery row를 생성하지 않는다.",
+      "then": "403 channel_not_allowed를 반환하고 marker/outbox/marker_notification row를 생성하지 않는다.",
       "priority": "critical"
     },
     {
@@ -1807,7 +1692,7 @@
         "FR-16",
         "FR-17"
       ],
-      "given": "marker.location이 빈 Point, SRID 불일치, map_boundary 밖 좌표 중 하나다.",
+      "given": "marker.location이 빈 Point, SRID 불일치, overall_search_area 밖 좌표 중 하나다.",
       "when": "앱이 marker 생성을 시도한다.",
       "then": "400 invalid_geometry를 반환하고 앱 draft는 유지되며 server row는 생성되지 않는다.",
       "priority": "high"
@@ -1818,8 +1703,8 @@
         "FR-20"
       ],
       "given": "마커당 사진 10장 또는 파일당 10MB 제한을 초과한다.",
-      "when": "presign 또는 finalize 요청이 들어온다.",
-      "then": "413 photo_limit_exceeded를 반환하고 presigned URL 또는 finalized photo를 추가하지 않는다.",
+      "when": "업로드용 presigned URL 발급 또는 attach 요청이 들어온다.",
+      "then": "413 photo_limit_exceeded를 반환하고 upload URL 또는 attached photo를 추가하지 않는다.",
       "priority": "high"
     },
     {
@@ -1829,7 +1714,7 @@
       ],
       "given": "SUPPORT_REQUEST marker가 생성됐다.",
       "when": "notification payload/recipient 계산이 수행된다.",
-      "then": "실종팀 지휘 계정과 현장 지휘관 역할 계정 우선 recipient로 notification_delivery row와 SUPPORT_REQUEST_CREATED PublishRequest가 생성된다.",
+      "then": "실종팀 지휘 계정과 현장 지휘관 역할 계정 우선 recipient로 marker_notification row와 SUPPORT_REQUEST_CREATED PublishRequest가 생성된다.",
       "priority": "critical"
     },
     {
@@ -1839,7 +1724,7 @@
       ],
       "given": "PERSON_FOUND marker가 생성됐다.",
       "when": "notification payload/recipient 계산이 수행된다.",
-      "then": "사건 배정 계정·단말 전체 대상으로 notification_delivery row와 PERSON_FOUND PublishRequest가 생성된다.",
+      "then": "사건 배정 계정·단말 전체 대상으로 marker_notification row와 PERSON_FOUND PublishRequest가 생성된다.",
       "priority": "critical"
     },
     {
@@ -1847,9 +1732,9 @@
       "fr_refs": [
         "FR-01"
       ],
-      "given": "지원 부대 membership이 새로 추가되어 INCIDENT_MEMBERSHIP_CHANGED가 fanout 대상이 됐다.",
+      "given": "지원 부대 incident_assignment가 112/mock polling/import로 새로 추가되어 INCIDENT_ASSIGNMENT_CHANGED가 fanout 대상이 됐다.",
       "when": "S4 EventFanout이 S5 NotificationRecipientResolver와 NotificationPayloadFactory를 호출한다.",
-      "then": "신규 배정된 지원 부대의 TEAM_PHONE/PATROL_CAR_PHONE 단말 recipient와 PII 없는 사건 배정 FCM payload가 반환되고, notification_delivery row는 생성되지 않는다.",
+      "then": "신규 배정 계정이 운용 중인 활성 policePhoneId recipient와 PII 없는 사건 배정 FCM payload가 반환되고, marker_notification row는 생성되지 않는다.",
       "priority": "critical"
     },
     {
@@ -1867,9 +1752,9 @@
       "fr_refs": [
         "FR-20"
       ],
-      "given": "앱이 presigned URL로 사진 업로드를 완료했고 marker가 OPEN incident/current OP에 속한다.",
-      "when": "POST /markers/{markerId}/photos/{photoId}/finalize가 성공한다.",
-      "then": "photo row는 FINALIZED와 증가한 version을 갖고, parent marker.version이 증가하며, S5는 별도 photo event를 만들지 않고 MARKER_UPDATED PublishRequest의 photoDelta.photoId/status/version으로 REST response, S4 outbox/SSE, S3-2 marker slot이 수렴하게 한다. Android LocalPhotoUploadEntity는 finalize pending을 해제하고 바텀시트 사진 상태를 완료로 표시한다.",
+      "given": "앱이 upload URL로 사진 업로드를 완료했고 marker가 OPEN incident/current OP에 속한다.",
+      "when": "POST /markers/{markerId}/photos/{photoId}/attach가 성공한다.",
+      "then": "photo row는 ATTACHED와 증가한 version을 갖고, parent marker.version이 증가하며, S5는 별도 photo event를 만들지 않고 MARKER_UPDATED PublishRequest의 photoDelta.photoId/status/version으로 REST response, S4 event_dispatch_job/SSE, S3-2 marker slot이 수렴하게 한다. Android LocalPhotoUploadEntity는 attach pending을 해제하고 바텀시트 사진 상태를 완료로 표시한다.",
       "priority": "critical"
     },
     {
@@ -1881,7 +1766,7 @@
       ],
       "given": "SC-08에서 앱이 오프라인 상태로 SUPPORT_REQUEST 또는 PERSON_FOUND marker를 로컬 저장한다.",
       "when": "서버 ACK와 S4 fanout이 아직 없다.",
-      "then": "앱은 marker를 pending으로 표시하고 알림 전송 대기 상태를 보여주지만, 수신 알림 배너처럼 표시하지 않는다. notification_delivery row, SUPPORT_REQUEST_CREATED/PERSON_FOUND PublishRequest, FCM payload는 서버 replay 성공 전 생성되지 않는다. SC-09 복구 후 같은 marker id/status/version으로 pending이 해제되고 전파 완료 상태로 바뀐다.",
+      "then": "앱은 marker를 pending으로 표시하고 알림 전송 대기 상태를 보여주지만, 수신 알림 배너처럼 표시하지 않는다. marker_notification row, SUPPORT_REQUEST_CREATED/PERSON_FOUND PublishRequest, FCM payload는 서버 replay 성공 전 생성되지 않는다. SC-09 복구 후 같은 marker id/status/version으로 pending이 해제되고 전파 완료 상태로 바뀐다.",
       "priority": "critical"
     },
     {
@@ -1891,8 +1776,8 @@
         "FR-20"
       ],
       "given": "사건이 CLOSED 상태이거나 S6가 post-close marker/photo write를 replay한다.",
-      "when": "POST/PATCH/DELETE /markers 또는 photo finalize가 호출된다.",
-      "then": "S5는 409 incident_closed를 반환하고 marker/photo/notification_delivery row와 PublishRequest를 생성하거나 변경하지 않는다. Outbox row의 최종 표시와 local purge는 S6/S1-3 경계가 처리하고, S5는 내부 notification/fanout 상태를 UI에 노출하지 않는다.",
+      "when": "POST/PATCH/DELETE /markers 또는 photo attach가 호출된다.",
+      "then": "S5는 409 incident_closed를 반환하고 marker/photo/marker_notification row와 PublishRequest를 생성하거나 변경하지 않는다. Outbox row의 최종 표시와 local purge는 S6/S1-3 경계가 처리하고, S5는 내부 notification/fanout 상태를 UI에 노출하지 않는다.",
       "priority": "critical"
     },
     {
@@ -1903,14 +1788,14 @@
       ],
       "given": "앱 pending marker의 opId가 현재 OP와 다르다.",
       "when": "S6 replay 또는 온라인 write가 S5 marker API에 도달한다.",
-      "then": "S5는 409 op_mismatch를 반환하고 server marker/outbox/notification_delivery row를 만들지 않는다. 앱은 current OP 재동기화를 요청하고 pending marker를 자동 재귀속하지 않은 재검토 상태로 유지한다.",
+      "then": "S5는 409 op_mismatch를 반환하고 server marker/outbox/marker_notification row를 만들지 않는다. 앱은 current OP 재동기화를 요청하고 pending marker를 자동 재귀속하지 않은 재검토 상태로 유지한다.",
       "priority": "high"
     }
   ],
   "edge_cases": [
     "지원 요청 marker에서 supportRequestType이 없으면 catalog 밖 field-validation error를 public error로 추가하지 않는다. supportRequestType 누락은 marker draft validation으로 차단하고 표준 public error가 필요하면 open issue로 남긴다.",
     "PERSON_FOUND marker는 삭제되더라도 이미 발행된 알림 event를 S5가 회수하지 않는다.",
-    "photo presign 후 TTL 15분이 지나 finalize하면 photo row를 FAILED로 전이하고 409 write_conflict를 반환한다. 앱은 기존 object key를 재사용하지 않고 새 presign을 요청한다.",
+    "photo upload URL 후 TTL 15분이 지나 attach하면 photo row를 FAILED로 전이하고 409 write_conflict를 반환한다. 앱은 기존 object key를 재사용하지 않고 새 upload URL을 요청한다.",
     "같은 Idempotency-Key로 다른 marker body를 재전송하면 S6 idempotency_mismatch를 그대로 반환한다.",
     "초기 기준점 marker는 system/mock seed source이며 앱 현장 생성 정책과 구분한다.",
     "마커 수정·삭제는 S3-2 panel layout에서 호출될 수 있지만 domain policy와 API owner는 S5다."
@@ -1918,11 +1803,11 @@
   "error_handling": {
     "invalid_geometry": "앱 draft를 유지하고 좌표 오류 상태를 표시한다. server row와 PublishRequest는 생성하지 않는다.",
     "photo_limit_exceeded": "사진 선택 목록에서 초과 항목을 실패로 표시하고 성공한 항목은 재업로드하지 않는다.",
-    "write_conflict": "photo finalize에서 presigned URL TTL이 만료됐거나 object metadata가 불일치하면 photo row를 FAILED로 닫고 앱이 새 presign을 요청하게 한다.",
+    "write_conflict": "photo attach에서 upload URL TTL이 만료됐거나 object metadata가 불일치하면 photo row를 FAILED로 닫고 앱이 새 upload URL을 요청하게 한다.",
     "channel_not_allowed": "현장 마커 생성은 앱 전용임을 API 오류로 반환한다. 웹 shell 문구는 S3-2가 소유한다.",
     "op_mismatch": "앱은 current OP 재동기화를 요청하고 pending marker를 재검토 상태로 둔다.",
     "incident_closed": "종료 사건에는 marker/photo/notification write를 허용하지 않고 local purge 흐름은 S6/S7와 연동한다.",
-    "fcm_dispatch_failure_internal": "S4가 retry/failure를 orchestration한다. S5는 FcmDispatcher adapter 결과를 반환하고 notification_delivery.status를 fanout attempt 상태로 전이하지 않는다."
+    "fcm_dispatch_failure_internal": "S4가 retry/failure를 orchestration한다. S5는 FcmDispatcher adapter 결과를 반환하고 event_dispatch_target.dispatch_status를 fanout attempt 상태로 전이하지 않는다."
   },
   "non_functional_requirements": {
     "performance": [
@@ -1930,13 +1815,13 @@
       "MarkerQuery.byIncident는 incidentId/opId/type/status filter로 상황판 marker slot에 필요한 데이터를 p95 1초 이내 반환하는 것을 목표로 한다."
     ],
     "security": [
-      "POST /markers와 photo upload는 APP channel과 registered/assigned Device를 요구한다.",
-      "사진 object key는 incidentId/markerId 기반 namespace를 사용하고 presigned URL TTL은 15분이다.",
+      "POST /markers와 photo upload는 APP channel과 registered/assigned PolicePhone를 요구한다.",
+      "사진 object key는 incidentId/markerId 기반 namespace를 사용하고 upload URL TTL은 15분이다.",
       "지원 요청은 실제 외부 출동 요청이 아니며 외부 장비 API credential을 보관하지 않는다."
     ],
     "observability": [
-      "marker_created_total, marker_invalid_geometry_total, photo_finalize_failed_total, notification_delivery_ready_total, fcm_dispatch_port_failed_total metric을 노출한다.",
-      "mock FcmDispatcher는 eventId, recipient account/device, payload id/status/version/opId/deviceId를 기록한다."
+      "marker_created_total, marker_invalid_geometry_total, photo_attach_failed_total, marker_notification_ready_total, fcm_dispatch_port_failed_total metric을 노출한다.",
+      "mock FcmDispatcher는 eventId, recipient account/policePhone, payload id/status/version/opId/policePhoneId를 기록한다."
     ]
   },
   "tdd_red_tests": {
@@ -1944,27 +1829,27 @@
       {
         "name": "CreateMarkerAppOnlyCurrentOpTest",
         "framework": "JUnit 5 + Testcontainers(PostGIS)",
-        "scenario": "앱 Device가 POST /markers를 호출하면 marker row와 MARKER_CREATED PublishRequest가 생성되고 웹 요청은 403 channel_not_allowed다."
+        "scenario": "앱 PolicePhone가 POST /markers를 호출하면 marker row와 MARKER_CREATED PublishRequest가 생성되고 웹 요청은 403 channel_not_allowed다."
       },
       {
-        "name": "PhotoApiDeviceGuardTest",
+        "name": "PhotoApiPolicePhoneGuardTest",
         "framework": "JUnit 5 + Spring MVC test",
-        "scenario": "photo presign/finalize는 APP channel과 registered/assigned Device만 허용하며 WEB, 미등록 Device, 미배정 Device는 channel_not_allowed/device_not_registered/device_not_assigned로 실패하고 photo row를 완료 상태로 바꾸지 않는다."
+        "scenario": "photo 업로드용 presigned URL 발급/attach는 APP channel과 registered/assigned PolicePhone만 허용하며 WEB, 미등록 PolicePhone, 미배정 PolicePhone는 channel_not_allowed/police_phone_not_registered/police_phone_not_assigned로 실패하고 photo row를 완료 상태로 바꾸지 않는다."
       },
       {
         "name": "MarkerGeometryValidationTest",
         "framework": "JUnit 5 + Testcontainers(PostGIS)",
-        "scenario": "map_boundary 밖 Point와 잘못된 geometry type은 invalid_geometry로 거부되고 row/outbox가 생성되지 않는다."
+        "scenario": "overall_search_area 밖 Point와 잘못된 geometry type은 invalid_geometry로 거부되고 row/outbox가 생성되지 않는다."
       },
       {
-        "name": "PhotoPresignLimitAndFinalizeTest",
+        "name": "PhotoUploadUrlLimitAndAttachTest",
         "framework": "JUnit 5",
-        "scenario": "마커당 10장, 파일당 10MB, TTL 15분 제한을 presign/finalize 양쪽에서 검증하고 finalize 성공 시 photo.version, marker.version, MARKER_UPDATED.photoDelta.photoId/status/version이 같은 값으로 수렴한다."
+        "scenario": "마커당 10장, 파일당 10MB, TTL 15분 제한을 업로드용 presigned URL 발급/attach 양쪽에서 검증하고 attach 성공 시 photo.version, marker.version, MARKER_UPDATED.photoDelta.photoId/status/version이 같은 값으로 수렴한다."
       },
       {
         "name": "SupportRequestNotificationContractTest",
         "framework": "JUnit 5",
-        "scenario": "지원 요청 marker 생성 시 지휘 라인 recipient, notification_delivery row, SUPPORT_REQUEST_CREATED payload가 같은 marker id/version을 가진다."
+        "scenario": "지원 요청 marker 생성 시 지휘 라인 recipient, marker_notification row, SUPPORT_REQUEST_CREATED payload가 같은 marker id/version을 가진다."
       },
       {
         "name": "PersonFoundNotificationContractTest",
@@ -1979,22 +1864,22 @@
       {
         "name": "ClosedIncidentMarkerPhotoGuardTest",
         "framework": "JUnit 5 + Testcontainers(PostGIS)",
-        "scenario": "CLOSED 사건에서 marker create/update/delete 또는 photo finalize가 호출되면 409 incident_closed를 반환하고 marker/photo/notification_delivery/outbox row를 생성하거나 변경하지 않는다."
+        "scenario": "CLOSED 사건에서 marker create/update/delete 또는 photo attach가 호출되면 409 incident_closed를 반환하고 marker/photo/marker_notification/outbox row를 생성하거나 변경하지 않는다."
       },
       {
         "name": "OpMismatchMarkerReplayGuardTest",
         "framework": "JUnit 5 + Testcontainers(PostGIS)",
-        "scenario": "pending marker의 opId가 current OP와 다르면 409 op_mismatch를 반환하고 server marker/outbox/notification_delivery row를 만들지 않는다."
+        "scenario": "pending marker의 opId가 current OP와 다르면 409 op_mismatch를 반환하고 server marker/outbox/marker_notification row를 만들지 않는다."
       },
       {
         "name": "MarkerRealtimeConvergenceFailureInjectionTest",
         "framework": "JUnit 5",
-        "scenario": "SC-06/SC-08 marker/photo/notification write에서 mock event outbox 미적재, SSE 미송신, board projector 미갱신, FCM mock 미수신을 각각 주입하면 하네스가 같은 markerId/photoId/eventId/version 비교 실패로 판정한다."
+        "scenario": "SC-06/SC-08 marker/photo/notification write에서 mock event_dispatch_job 미적재, SSE 미송신, board refetch 미갱신, FCM mock 미수신을 각각 주입하면 하네스가 같은 markerId/photoId/eventId/version 비교 실패로 판정한다."
       },
       {
         "name": "MarkerSchemaMigrationVerificationTest",
         "framework": "JUnit 5 + Testcontainers(PostGIS)",
-        "scenario": "marker/photo/notification_delivery migration이 version columns, object_key unique index, spatial index, incident/status indexes, required non-null columns를 생성하는지 검증한다."
+        "scenario": "marker/photo/marker_notification migration이 version columns, object_key unique index, spatial index, incident/status indexes, required non-null columns를 생성하는지 검증한다."
       }
     ],
     "web": [
@@ -2011,7 +1896,7 @@
       {
         "name": "MarkerSlotPhotoDeltaConvergenceTest",
         "framework": "Vitest + RTL",
-        "scenario": "MARKER_UPDATED.photoDelta.photoId/status/version과 MarkerQuery.photoSummary가 같은 finalized photo를 가리키면 S3-2 marker slot source가 사진 배지를 완료 상태로 갱신한다."
+        "scenario": "MARKER_UPDATED.photoDelta.photoId/status/version과 MarkerQuery.photoSummary가 같은 attached photo를 가리키면 S3-2 marker slot source가 사진 배지를 완료 상태로 갱신한다."
       }
     ],
     "android": [
@@ -2023,12 +1908,12 @@
       {
         "name": "PhotoUploadTemporaryFileRetryTest",
         "framework": "JUnit5 + Robolectric",
-        "scenario": "사진 업로드 실패 시 임시 파일과 finalize pending 상태가 유지되고 복구 후 재전송된다."
+        "scenario": "사진 업로드 실패 시 임시 파일과 attach pending 상태가 유지되고 복구 후 재전송된다."
       },
       {
-        "name": "PhotoFinalizePendingClearsTest",
+        "name": "PhotoAttachPendingClearsTest",
         "framework": "JUnit5 + Robolectric",
-        "scenario": "photo finalize 성공 응답의 photoId/status/version과 markerVersion을 받으면 LocalPhotoUploadEntity finalize pending이 해제되고 바텀시트 사진 상태가 완료로 바뀐다."
+        "scenario": "photo attach 성공 응답의 photoId/status/version과 markerVersion을 받으면 LocalPhotoUploadEntity attach pending이 해제되고 바텀시트 사진 상태가 완료로 바뀐다."
       },
       {
         "name": "OfflineSupportNotificationPendingUxTest",
@@ -2048,10 +1933,10 @@
     ]
   },
   "harness_fixtures": {
-    "sc06_marker_photo_finalize": {
+    "sc06_marker_photo_attach": {
       "incidentId": "inc-precinct-first-001",
       "opId": "op-precinct-001-op1",
-      "deviceId": "dev-precinct-phone-01",
+      "policePhoneId": "dev-precinct-phone-01",
       "accountId": "acct-precinct-team",
       "markerId": "mk-precinct-clue-001",
       "photoId": "photo-precinct-clue-001",
@@ -2067,7 +1952,7 @@
         "version": 2,
         "photoDelta": {
           "photoId": "photo-precinct-clue-001",
-          "status": "FINALIZED",
+          "status": "ATTACHED",
           "version": 2
         }
       },
@@ -2075,24 +1960,24 @@
         "slot": "marker",
         "latestEventId": "evt-s5-marker-updated-photo-001",
         "photoId": "photo-precinct-clue-001",
-        "photoStatus": "FINALIZED",
+        "photoStatus": "ATTACHED",
         "photoVersion": 2
       }
     },
     "sc02_support_assignment_notification": {
       "incidentId": "inc-precinct-first-001",
-      "eventId": "evt-s1-membership-support-assigned-001",
-      "membershipVersion": 2,
+      "eventId": "evt-s1-assignment-support-assigned-001",
+      "assignmentVersion": 2,
       "recipientPolicy": "NEWLY_ASSIGNED_SUPPORT_DEVICES",
       "recipientAccountIds": [
         "acct-support-car",
         "acct-support-team"
       ],
-      "recipientDeviceIds": [
+      "recipientPolicePhoneIds": [
         "dev-support-car-01",
         "dev-support-phone-01"
       ],
-      "excludedDeviceIds": [
+      "excludedPolicePhoneIds": [
         "dev-support-cmd-phone-01"
       ],
       "expectedFcmRecipients": [
@@ -2100,7 +1985,7 @@
         "fcm:dev-support-phone-01"
       ],
       "expectedPayload": {
-        "type": "INCIDENT_MEMBERSHIP_CHANGED",
+        "type": "INCIDENT_ASSIGNMENT_CHANGED",
         "incidentId": "inc-precinct-first-001",
         "status": "ACTIVE",
         "version": 2,
@@ -2110,7 +1995,7 @@
     "sc08_support_request_notification": {
       "incidentId": "inc-precinct-first-001",
       "opId": "op-precinct-001-op1",
-      "deviceId": "dev-precinct-phone-01",
+      "policePhoneId": "dev-precinct-phone-01",
       "accountId": "acct-precinct-team",
       "markerId": "mk-precinct-support-001",
       "notificationDeliveryId": "notif-precinct-support-001",
@@ -2124,7 +2009,7 @@
         "acct-support-car",
         "acct-support-team"
       ],
-      "recipientDeviceIds": [
+      "recipientPolicePhoneIds": [
         "dev-alpha-phone-01",
         "dev-support-car-01",
         "dev-support-phone-01"
@@ -2138,14 +2023,14 @@
         "slot": "toast",
         "type": "SUPPORT_REQUEST_CREATED",
         "id": "notif-precinct-support-001",
-        "status": "READY_FOR_FANOUT",
+        "status": "SNAPSHOT_CREATED",
         "version": 1
       }
     },
     "sc08_person_found_notification": {
       "incidentId": "inc-precinct-first-001",
       "opId": "op-precinct-001-op1",
-      "deviceId": "dev-precinct-phone-01",
+      "policePhoneId": "dev-precinct-phone-01",
       "accountId": "acct-precinct-team",
       "markerId": "mk-precinct-person-found-001",
       "notificationDeliveryId": "notif-precinct-person-found-001",
@@ -2163,7 +2048,7 @@
         "acct-support-car",
         "acct-support-team"
       ],
-      "recipientDeviceIds": [
+      "recipientPolicePhoneIds": [
         "dev-precinct-car-01",
         "dev-precinct-phone-01",
         "dev-alpha-phone-01",
@@ -2179,22 +2064,22 @@
         "slot": "toast",
         "type": "PERSON_FOUND",
         "id": "notif-precinct-person-found-001",
-        "status": "READY_FOR_FANOUT",
+        "status": "SNAPSHOT_CREATED",
         "version": 1
       }
     },
     "guard_failure_fixtures": {
-      "webPhotoPresign": {
+      "webPhotoUploadUrl": {
         "channel": "WEB",
         "expectedError": "channel_not_allowed"
       },
       "unregisteredDevice": {
-        "deviceId": "dev-unregistered-001",
-        "expectedError": "device_not_registered"
+        "policePhoneId": "dev-unregistered-001",
+        "expectedError": "police_phone_not_registered"
       },
       "unassignedDevice": {
-        "deviceId": "dev-not-assigned-001",
-        "expectedError": "device_not_assigned"
+        "policePhoneId": "dev-not-assigned-001",
+        "expectedError": "police_phone_not_assigned"
       },
       "opMismatch": {
         "markerId": "mk-precinct-op-mismatch-001",
@@ -2210,10 +2095,10 @@
       }
     },
     "convergence_failure_injection": {
-      "eventOutboxMissing": "fail if marker/photo/notification row commits without S4 PublishRequest capture",
+      "eventDispatchJobMissing": "fail if marker/photo/notification row commits without S4 PublishRequest capture",
       "sseMissing": "fail if eventId is not observed by mock SSE client",
-      "boardNotUpdated": "fail if mock board snapshot marker/toast row version is lower than REST response version",
-      "fcmMockMissing": "fail if INCIDENT_MEMBERSHIP_CHANGED, SUPPORT_REQUEST_CREATED, or PERSON_FOUND has recipients but mock FcmDispatcher has no matching eventId payload record"
+      "boardNotUpdated": "fail if mock board API marker/toast row version is lower than REST response version",
+      "fcmMockMissing": "fail if INCIDENT_ASSIGNMENT_CHANGED, SUPPORT_REQUEST_CREATED, or PERSON_FOUND has recipients but mock FcmDispatcher has no matching eventId payload record"
     }
   },
   "harness_constraints": {
@@ -2224,12 +2109,12 @@
       "모든 쓰기 요청은 Idempotency-Key 헤더 필수 (S6 계약)",
       "marker row는 client_ts/server_ts/clock_offset_ms를 저장한다. 이벤트 payload는 Event Catalog schema가 선언한 비교 필드를 따르고, timestamp/clock offset을 임의로 추가하지 않는다.",
       "S5 marker/photo writes는 S6 local Outbox와 복구 동기화 red test를 통과해야 한다.",
-      "S4 fanout과 S3-2 board snapshot은 mock/fixture로 대체 가능해야 한다."
+      "S4 fanout과 S3-2 board API은 mock/fixture로 대체 가능해야 한다."
     ],
     "forbidden": [
       "웹에서 현장 마커 생성 허용 금지",
       "S5에서 SSE fanout 순서, retry, replay 구현 금지",
-      "S5에서 board snapshot assembly 또는 shell layout 구현 금지",
+      "S5에서 board API assembly 또는 shell layout 구현 금지",
       "S5에서 Outbox/idempotency 자체 구현 금지",
       "하네스에서 외부 FCM 실제 발송 성공을 PASS 조건으로 삼는 것 금지",
       "지원 요청 marker를 실제 드론·경찰견 출동 API로 연결 금지"
@@ -2237,7 +2122,7 @@
     "required_reviews": [
       "marker type enum 변경 시 S3-2/S6/S8 LGTM",
       "notification payload/recipient 정책 변경 시 S1-1/S1-2/S4 LGTM",
-      "photo limit 또는 presigned TTL 변경 시 architecture/boundaries 갱신",
+      "photo limit 또는 upload URL TTL 변경 시 architecture/boundaries 갱신",
       "marker detail/edit/delete panel 요구 변경 시 S3-2 LGTM"
     ]
   },
@@ -2258,7 +2143,7 @@
     },
     {
       "id": "OI-S5-03",
-      "issue": "FCM unavailable 환경에서 mock dispatcher와 운영 fallback의 차이를 ADR 또는 architecture에 명확히 남길지 결정해야 한다.",
+      "issue": "FCM unavailable 환경에서 mock dispatcher와 운영 대체 처리의 차이를 ADR 또는 architecture에 명확히 남길지 결정해야 한다.",
       "owner": "5",
       "deadline": "2주차",
       "related_gap": "fcm-runtime-risk"
@@ -2290,7 +2175,7 @@
         "incidentId": "uuid",
         "opId": "uuid",
         "accountId": "uuid",
-        "deviceId": "uuid nullable for SYSTEM_SEED or WEB_REFERENCE_ADJUSTMENT",
+        "policePhoneId": "uuid nullable for MOCK_SEED or WEB_NOTE_ADJUSTMENT",
         "type": "marker type",
         "status": "ACTIVE|UPDATED",
         "version": "marker version",
@@ -2299,19 +2184,19 @@
         "photoSummary": [
           {
             "photoId": "uuid",
-            "status": "FINALIZED",
+            "status": "ATTACHED",
             "version": "photo version",
             "contentType": "string",
             "sizeBytes": "integer",
-            "finalizedAt": "date-time"
+            "attachedAt": "date-time"
           }
         ]
       },
       "rules": [
         "DELETED markers are excluded unless the caller explicitly requests history.",
-        "photoSummary includes FINALIZED photos only and is sorted by finalizedAt ascending.",
-        "MARKER_UPDATED.photoDelta.photoId/status/version must be reconstructable from photoSummary after snapshot reload.",
-        "S3-2 assembles board snapshot; S5 only provides this source query shape."
+        "photoSummary includes ATTACHED photos only and is sorted by attachedAt ascending.",
+        "MARKER_UPDATED.photoDelta.photoId/status/version must be reconstructable from photoSummary after board response reload.",
+        "S3-2 assembles board API; S5 only provides this source query shape."
       ]
     }
   },

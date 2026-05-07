@@ -15,7 +15,7 @@
       "§11.1 법무·정책 확인 필요 항목"
     ],
     "architecture": [
-      "§6.2 핵심 엔티티 location_access_log",
+      "§6.2 핵심 엔티티 location_data_access_audit",
       "§8.1 데이터 보존",
       "§8.2 운영 로그 / 접속기록"
     ],
@@ -32,12 +32,12 @@
   "scope": {
     "included": [
       "INCIDENT_CLOSED 이후 purge orchestration",
-      "purge_run internal/system-only 상태 기록",
+      "incident_data_purge internal/system-only 상태 기록",
       "업무폰·순찰차 위치·경로 좌표 파기 hook 조정",
       "S6/S7 로컬 sync·offline package 파기 hook 조정",
-      "위치정보 접근기록 location_access_log internal/system-only 저장",
+      "위치정보 접근기록 location_data_access_audit internal/system-only 저장",
       "운영 로그 sink 연동을 위한 internal append contract",
-      "sanitized incident tombstone snapshot 제공",
+      "sanitized incident tombstone board response 제공",
       "INCIDENT_PURGED 이벤트 payload 발행 요청"
     ],
     "excluded": [
@@ -52,7 +52,7 @@
         "reason": "S1-3은 INCIDENT_CLOSED 이후 purge orchestration을 담당한다."
       },
       {
-        "item": "실종자 운영 캐시 active DTO",
+        "item": "실종자 도메인 데이터 active DTO",
         "owner": "S1-1",
         "reason": "S1-3은 파기 조정과 tombstone만 담당하고 실종자 정보 read model을 제공하지 않는다."
       },
@@ -62,14 +62,14 @@
         "reason": "S1-3은 PathPurgeHook을 호출할 뿐 경로 domain 소유자가 아니다."
       },
       {
-        "item": "마커·사진 domain row 작성과 presigned 업로드",
+        "item": "마커·사진 domain row 작성과 upload URL 업로드",
         "owner": "S5",
         "reason": "S1-3은 MarkerPhotoPurgeHook을 호출할 뿐 마커/사진 domain 소유자가 아니다."
       },
       {
         "item": "상황판 shell, 운영 기록 탭, retention admin screen",
         "owner": "S3-2",
-        "reason": "S1-3 데이터는 internal/system-only이고 S3-2 board snapshot에 상세를 노출하지 않는다."
+        "reason": "S1-3 데이터는 internal/system-only이고 S3-2 board API에 상세를 노출하지 않는다."
       }
     ]
   },
@@ -77,23 +77,23 @@
     {
       "id": "FR-22",
       "summary": "사건 종료 시 실종자 개인정보와 위치/경로 좌표 파기 흐름이 시작된다.",
-      "handling": "INCIDENT_CLOSED를 수신하면 purge_run을 만들고 S1-1/S3-1/S5/S6/S7 hooks를 idempotent하게 실행한 뒤 모든 hook 성공 후 INCIDENT_PURGED를 발행한다."
+      "handling": "INCIDENT_CLOSED를 수신하면 incident_data_purge을 만들고 S1-1/S3-1/S5/S6/S7 hooks를 idempotent하게 실행한 뒤 모든 hook 성공 후 INCIDENT_PURGED를 발행한다."
     },
     {
       "id": "PRD-8.5",
       "summary": "업무폰·순찰차 위치·경로 좌표는 종료 후 동기화 완료 확인 뒤 파기하고, 개발/시연 데이터는 24시간 soft delete 후 파기한다.",
-      "handling": "purgeDeadlineTs와 hook별 retainedCount/purgedCount를 purge_run에 기록하고 법무 검토 전까지 개발/시연 24시간 유예 정책을 명시한다."
+      "handling": "purgeDeadlineTs와 hook별 retainedCount/purgedCount를 incident_data_purge에 기록하고 법무 검토 전까지 개발/시연 24시간 유예 정책을 명시한다."
     },
     {
       "id": "PRD-8.7",
       "summary": "운영 로그와 접속기록은 MVP 사용자 화면 요구사항이 아니다.",
-      "handling": "location_access_log, purge_run, operational log sink를 internal/system-only contract로 제한하고 user-facing DTO, Android cache, board snapshot에 포함하지 않는다."
+      "handling": "location_data_access_audit, incident_data_purge, operational log sink를 internal/system-only contract로 제한하고 user-facing DTO, Android cache, board API에 포함하지 않는다."
     }
   ],
   "domain_model": {
     "entities": [
       {
-        "name": "purge_run",
+        "name": "incident_data_purge",
         "owner_spec": "S1-3",
         "description": "사건 종료 후 파기 hook 실행 상태를 추적하는 internal/system-only 레코드.",
         "fields": [
@@ -112,7 +112,7 @@
             "name": "status",
             "type": "VARCHAR(32)",
             "nullable": false,
-            "note": "PENDING|RUNNING|WAITING_FOR_SYNC|FAILED_RETRYABLE|COMPLETED"
+            "note": "PENDING|WAITING_FOR_SYNC|COMPLETED|FAILED"
           },
           {
             "name": "closed_at",
@@ -120,46 +120,18 @@
             "nullable": false
           },
           {
-            "name": "purge_deadline_ts",
+            "name": "purge_due_at",
             "type": "TIMESTAMPTZ",
             "nullable": false
-          },
-          {
-            "name": "version",
-            "type": "BIGINT",
-            "nullable": false,
-            "note": "INCIDENT_PURGED.payload.version의 단일 출처. purge_run 생성 시 1부터 시작하고 final publish transaction에서 tombstone/version과 함께 증가시킨다."
-          },
-          {
-            "name": "environment_policy",
-            "type": "VARCHAR(32)",
-            "nullable": false,
-            "note": "PRODUCTION_IMMEDIATE|DEMO_24H_SOFT_DELETE"
-          },
-          {
-            "name": "attempt_count",
-            "type": "INTEGER",
-            "nullable": false
-          },
-          {
-            "name": "last_error_code",
-            "type": "VARCHAR(80)",
-            "nullable": true
-          },
-          {
-            "name": "hook_results_json",
-            "type": "JSONB",
-            "nullable": false,
-            "note": "purge_run.schema.json 내부 detail 구조. hookName+specId를 idempotency key로 사용하고 status는 PENDING|RUNNING|SUCCEEDED|WAITING_FOR_SYNC|FAILED_RETRYABLE|SKIPPED 중 하나다. purgedCount/retainedCount/errorCode/startedAt/finishedAt을 담되 별도 Entity Ownership으로 선언하지 않는다."
-          },
-          {
-            "name": "started_at",
-            "type": "TIMESTAMPTZ",
-            "nullable": true
           },
           {
             "name": "completed_at",
             "type": "TIMESTAMPTZ",
+            "nullable": true
+          },
+          {
+            "name": "last_error_code",
+            "type": "VARCHAR(80)",
             "nullable": true
           },
           {
@@ -175,18 +147,18 @@
         ],
         "indexes": [
           {
-            "name": "ux_purge_run_incident",
+            "name": "idx_incident_data_purge_status_due",
+            "columns": [
+              "status",
+              "purge_due_at"
+            ]
+          },
+          {
+            "name": "ux_incident_data_purge_incident",
             "columns": [
               "incident_id"
             ],
             "unique": true
-          },
-          {
-            "name": "idx_purge_run_status_deadline",
-            "columns": [
-              "status",
-              "purge_deadline_ts"
-            ]
           }
         ],
         "spatial": {
@@ -198,7 +170,7 @@
         "entity_kind": "internal/system-only"
       },
       {
-        "name": "location_access_log",
+        "name": "location_data_access_audit",
         "owner_spec": "S1-3",
         "description": "위치정보 조회 접근기록. internal/system-only이며 최소 6개월 보관 기준을 가진다.",
         "fields": [
@@ -216,65 +188,46 @@
           {
             "name": "account_id",
             "type": "UUID",
-            "nullable": false,
-            "note": "S1-2 account.id"
-          },
-          {
-            "name": "device_id",
-            "type": "UUID",
-            "nullable": true,
-            "note": "앱 위치 조회인 경우 S1-2 device.id"
-          },
-          {
-            "name": "channel",
-            "type": "VARCHAR(16)",
-            "nullable": false,
-            "note": "APP|WEB|INTERNAL. LocationAccessRecorder request 입력값이 아니라 S1-2 SecurityContext/AuthContext에서 파생한다."
-          },
-          {
-            "name": "purpose",
-            "type": "VARCHAR(80)",
             "nullable": false
           },
           {
-            "name": "resource_type",
-            "type": "VARCHAR(80)",
-            "nullable": false
-          },
-          {
-            "name": "resource_id",
+            "name": "police_phone_id",
             "type": "UUID",
             "nullable": true
           },
           {
-            "name": "server_ts",
+            "name": "access_channel",
+            "type": "VARCHAR(16)",
+            "nullable": false,
+            "note": "APP|WEB"
+          },
+          {
+            "name": "access_purpose",
+            "type": "VARCHAR(32)",
+            "nullable": false,
+            "note": "BOARD_VIEW|INCIDENT_DETAIL|PATH_REVIEW|OFFLINE_PACKAGE"
+          },
+          {
+            "name": "accessed_at",
             "type": "TIMESTAMPTZ",
             "nullable": false
           },
           {
             "name": "retention_until",
             "type": "TIMESTAMPTZ",
-            "nullable": false,
-            "note": "server_ts + 최소 6개월 이상이어야 하며 incident purge와 함께 단축하거나 삭제하지 않는다."
+            "nullable": false
           }
         ],
         "indexes": [
           {
-            "name": "idx_location_access_log_incident_ts",
+            "name": "idx_location_data_access_audit_incident_time",
             "columns": [
               "incident_id",
-              "server_ts"
+              "accessed_at"
             ]
           },
           {
-            "name": "idx_location_access_log_account_ts",
-            "columns": [
-              "account_id",
-              "server_ts"
-            ]
-          },
-          {
-            "name": "idx_location_access_log_retention",
+            "name": "idx_location_data_access_audit_retention",
             "columns": [
               "retention_until"
             ]
@@ -291,7 +244,7 @@
     ],
     "state_machines": [
       {
-        "entity": "purge_run",
+        "entity": "incident_data_purge",
         "field": "status",
         "states": [
           "PENDING",
@@ -323,7 +276,7 @@
             "from": "RUNNING",
             "to": "FAILED_RETRYABLE",
             "trigger": "any hook returns retryable failure",
-            "guard": "attempt_count below retry limit"
+            "guard": " below retry limit"
           },
           {
             "from": "FAILED_RETRYABLE",
@@ -331,12 +284,12 @@
             "trigger": "retry scheduler",
             "guard": "backoff elapsed"
           },
-                    {
-                      "from": "RUNNING",
-                      "to": "COMPLETED",
-                      "trigger": "all registered hooks succeed",
-                      "guard": "S1-1 private cache removed and S3-1 PathPurgeHook, S5 MarkerPhotoPurgeHook, S6 LocalSyncPurgeHook, S7 PackagePurgeHook all returned status=SUCCEEDED"
-                    }
+          {
+            "from": "RUNNING",
+            "to": "COMPLETED",
+            "trigger": "all registered hooks succeed",
+            "guard": "S1-1 private cache removed and S3-1 PathPurgeHook, S5 MarkerPhotoPurgeHook, S6 LocalSyncPurgeHook, S7 PackagePurgeHook all returned status=SUCCEEDED"
+          }
         ]
       }
     ],
@@ -349,7 +302,7 @@
       {
         "method": "INTERNAL",
         "path": "PurgeCoordinator.closeIncident(incidentId)",
-        "summary": "S1-1 close 이후 purge_run을 생성하거나 기존 run을 재사용한다.",
+        "summary": "S1-1 close 이후 incident_data_purge을 생성하거나 기존 run을 재사용한다.",
         "auth": "@RequireChannel(INTERNAL)",
         "idempotent": true,
         "required_headers": [
@@ -396,7 +349,7 @@
               },
               "version": {
                 "type": "integer",
-                "description": "purge_run.version"
+                "description": "incident_data_purge.version"
               }
             }
           }
@@ -413,7 +366,7 @@
             "body": "{\"error\": \"write_conflict\"}"
           }
         ],
-        "internal_state_notes": "If incident is not terminal CLOSED, keep purge_run unchanged and record internal last_error_code; public error remains write_conflict if surfaced through an internal harness boundary."
+        "internal_state_notes": "If incident is not terminal CLOSED, keep incident_data_purge unchanged and record internal last_error_code; public error remains write_conflict if surfaced through an internal harness overall_search_area."
       },
       {
         "method": "INTERNAL",
@@ -473,11 +426,11 @@
             "body": "{\"error\": \"write_conflict\"}"
           }
         ],
-        "internal_state_notes": "WAITING_FOR_SYNC and FAILED_RETRYABLE are purge_run statuses/last_error_code values, not public API error codes."
+        "internal_state_notes": "WAITING_FOR_SYNC and FAILED_RETRYABLE are incident_data_purge statuses/last_error_code values, not public API error codes."
       },
       {
         "method": "INTERNAL",
-        "path": "LocationAccessRecorder.record(accountId, incidentId, purpose, serverTs)",
+        "path": "LocationAccessRecorder.record(accountId, incidentId, access_purpose, serverTs)",
         "summary": "위치정보 조회 접근기록을 internal/system-only로 저장한다.",
         "auth": "@RecordLocationAccess 또는 @RequireChannel(INTERNAL)",
         "idempotent": false,
@@ -489,7 +442,7 @@
           "required": [
             "accountId",
             "incidentId",
-            "purpose",
+            "access_purpose",
             "resourceType",
             "serverTs"
           ],
@@ -502,7 +455,7 @@
               "type": "string",
               "format": "uuid"
             },
-            "deviceId": {
+            "policePhoneId": {
               "type": [
                 "string",
                 "null"
@@ -544,13 +497,13 @@
           }
         },
         "errors": [],
-        "internal_state_notes": "channel is derived from S1-2 SecurityContext/AuthContext and is not accepted as request input. retention_until must be computed as serverTs plus at least six months. Missing purpose is rejected by internal argument validation and must not be exposed as a catalog/public API error unless boundaries.md adds one."
+        "internal_state_notes": "access_channel is derived from S1-2 SecurityContext/AuthContext and is not accepted as request input. retention_until must be computed as serverTs plus at least six months. Missing access_purpose is rejected by internal argument validation and must not be exposed as a catalog/public API error unless boundaries.md adds one."
       },
       {
         "method": "INTERNAL",
         "path": "IncidentTombstoneSnapshot.byIncident(incidentId)",
         "summary": "사용자 DTO에 포함 가능한 sanitized terminal summary만 반환한다.",
-        "auth": "@RequireChannel(INTERNAL) or S1-1/S3-2 server-side projection",
+        "auth": "@RequireChannel(INTERNAL) or S1-1/S3-2 server-side API assembly",
         "idempotent": true,
         "required_headers": [
           "X-Internal-Caller"
@@ -599,13 +552,13 @@
           }
         },
         "errors": [],
-        "internal_state_notes": "Backing tombstone projection metadata uses purge_run.version for convergence with INCIDENT_PURGED and RetentionPurgeStatus, but the sanitized user-facing tombstone fields remain limited to boundaries.md §3 allowed fields."
+        "internal_state_notes": "Backing tombstone API assembly metadata uses incident_data_purge.version for convergence with INCIDENT_PURGED and RetentionPurgeStatus, but the sanitized user-facing tombstone fields remain limited to boundaries.md §3 allowed fields."
       },
       {
         "method": "INTERNAL",
         "path": "RetentionPurgeStatus.byIncident(incidentId)",
-        "summary": "S3-2 등 서버-side projection이 INCIDENT_PURGED를 직접 구독하지 않고 조회하는 internal/system-only purge 상태를 반환한다.",
-        "auth": "@RequireChannel(INTERNAL) or server-side projection only",
+        "summary": "S3-2 등 서버-side API assembly이 INCIDENT_PURGED를 직접 구독하지 않고 조회하는 internal/system-only purge 상태를 반환한다.",
+        "auth": "@RequireChannel(INTERNAL) or server-side API assembly only",
         "idempotent": true,
         "visibility": "internal/system-only",
         "required_headers": [
@@ -654,7 +607,7 @@
               },
               "version": {
                 "type": "integer",
-                "description": "purge_run.version"
+                "description": "incident_data_purge.version"
               },
               "localPurgeState": {
                 "type": "string",
@@ -677,7 +630,7 @@
       {
         "from_spec": "S1-1",
         "interface": "incident close state, IncidentTerminalSnapshot.closed(incidentId), INCIDENT_CLOSED",
-        "usage": "purge_run 생성 전 사건이 CLOSED terminal인지 확인"
+        "usage": "incident_data_purge 생성 전 사건이 CLOSED terminal인지 확인"
       },
       {
         "from_spec": "S3-1",
@@ -702,13 +655,13 @@
       {
         "from_spec": "S4",
         "interface": "EventHub.publish(PublishRequest.INCIDENT_PURGED)",
-        "usage": "모든 hook 성공 후 purge_run final transaction 안에서 INCIDENT_PURGED outbox row를 적재하고 commit 이후 fanout 대상으로 만든다."
+        "usage": "모든 hook 성공 후 incident_data_purge final transaction 안에서 INCIDENT_PURGED outbox row를 적재하고 commit 이후 fanout 대상으로 만든다."
       }
     ],
     "events_published": [
       {
         "type": "INCIDENT_PURGED",
-        "trigger": "all purge hooks succeeded for purge_run",
+        "trigger": "all purge hooks succeeded for incident_data_purge",
         "payload_schema": {
           "type": "object",
           "required": [
@@ -732,7 +685,7 @@
             },
             "version": {
               "type": "integer",
-              "description": "purge_run.version; event payload, tombstone backing projection metadata, RetentionPurgeStatus가 같은 값을 사용한다."
+              "description": "incident_data_purge.version; event payload, tombstone backing API assembly metadata, RetentionPurgeStatus가 같은 값을 사용한다."
             },
             "purgeRunId": {
               "type": "string",
@@ -756,7 +709,7 @@
       {
         "type": "INCIDENT_CLOSED",
         "from_spec": "S1-1",
-        "handler": "create or resume purge_run and schedule purge hooks"
+        "handler": "create or resume incident_data_purge and schedule purge hooks"
       }
     ]
   },
@@ -772,11 +725,11 @@
         },
         {
           "name": "PurgeRunRepository",
-          "responsibility": "purge_run persistence including hook_results_json internal detail"
+          "responsibility": "incident_data_purge persistence including  internal detail"
         },
         {
           "name": "LocationAccessRecorder",
-          "responsibility": "location_access_log append-only write"
+          "responsibility": "location_data_access_audit append-only write"
         },
         {
           "name": "OperationalLogSink",
@@ -788,7 +741,7 @@
         },
         {
           "name": "RetentionPurgeStatus",
-          "responsibility": "internal/system-only purge status read contract for server-side projections"
+          "responsibility": "internal/system-only purge status read contract for server-side API assemblys"
         },
         {
           "name": "RetentionScheduler",
@@ -843,7 +796,7 @@
       {
         "spec": "S7",
         "contract": "PackagePurgeHook.purgeIncidentPackage(incidentId, purgeRunId, closedAt, purgeDeadlineTs) -> {status,purgedCount,retainedCount,errorCode}",
-        "stub_strategy": "offline package status fake with retainedCount and local purge state",
+        "stub_strategy": "offline package installation fake with retainedCount and local purge state",
         "replaced_by_real_at": "S7 package purge implementation"
       },
       {
@@ -866,9 +819,9 @@
       "fr_refs": [
         "FR-22"
       ],
-      "given": "S1-1이 INCIDENT_CLOSED를 발행했고 incident terminal snapshot이 CLOSED다.",
+      "given": "S1-1이 INCIDENT_CLOSED를 발행했고 incident terminal board response이 CLOSED다.",
       "when": "PurgeCoordinator.closeIncident가 실행된다.",
-      "then": "하나의 purge_run이 생성되고 purgeDeadlineTs, environmentPolicy, PENDING/RUNNING 상태가 internal record로 저장된다.",
+      "then": "하나의 incident_data_purge이 생성되고 purgeDeadlineTs, environmentPolicy, PENDING/RUNNING 상태가 internal record로 저장된다.",
       "priority": "critical"
     },
     {
@@ -877,9 +830,9 @@
         "FR-22",
         "PRD-8.5"
       ],
-      "given": "purge_run이 RUNNING이고 S3-1 PathPurgeHook, S5 MarkerPhotoPurgeHook, S6 LocalSyncPurgeHook, S7 PackagePurgeHook이 모두 status=SUCCEEDED를 반환한다.",
+      "given": "incident_data_purge이 RUNNING이고 S3-1 PathPurgeHook, S5 MarkerPhotoPurgeHook, S6 LocalSyncPurgeHook, S7 PackagePurgeHook이 모두 status=SUCCEEDED를 반환한다.",
       "when": "PurgeCoordinator.purgeIncident가 완료된다.",
-      "then": "purge_run은 COMPLETED가 되고 purge_run.version을 출처로 하는 INCIDENT_PURGED가 한 번만 발행된다.",
+      "then": "incident_data_purge은 COMPLETED가 되고 incident_data_purge.version을 출처로 하는 INCIDENT_PURGED가 한 번만 발행된다.",
       "priority": "critical"
     },
     {
@@ -890,7 +843,7 @@
       ],
       "given": "S6 또는 S7 hook이 미전송 outbox 또는 미삭제 local package를 보고한다.",
       "when": "purge job이 hook 결과를 수집한다.",
-      "then": "purge_run은 WAITING_FOR_SYNC 또는 FAILED_RETRYABLE로 남고 INCIDENT_PURGED는 발행되지 않는다.",
+      "then": "incident_data_purge은 WAITING_FOR_SYNC 또는 FAILED_RETRYABLE로 남고 INCIDENT_PURGED는 발행되지 않는다.",
       "priority": "critical"
     },
     {
@@ -900,7 +853,7 @@
       ],
       "given": "위치정보를 조회하는 board, package, path read contract가 실행된다.",
       "when": "LocationAccessRecorder.record가 호출된다.",
-      "then": "account_id, incident_id, SecurityContext에서 파생한 channel, purpose, server_ts, server_ts + 최소 6개월인 retention_until이 location_access_log에 저장되고 user-facing DTO에는 접근기록 상세가 포함되지 않는다.",
+      "then": "account_id, incident_id, SecurityContext에서 파생한 access_channel, access_purpose, accessed_at, accessed_at + 최소 6개월인 retention_until이 location_data_access_audit에 저장되고 user-facing DTO에는 접근기록 상세가 포함되지 않는다.",
       "priority": "high"
     },
     {
@@ -918,9 +871,9 @@
       "fr_refs": [
         "PRD-8.7"
       ],
-      "given": "S3-2 board snapshot 또는 Android offline package DTO가 생성된다.",
+      "given": "S3-2 board API 또는 Android offline package DTO가 생성된다.",
       "when": "retention/purge internal records가 존재한다.",
-      "then": "purge_run detail, location_access_log detail, operational log sink metadata는 사용자 화면·앱 캐시·offline package에 노출되지 않는다.",
+      "then": "incident_data_purge detail, location_data_access_audit detail, operational log sink metadata는 사용자 화면·앱 캐시·offline package에 노출되지 않는다.",
       "priority": "critical"
     },
     {
@@ -930,36 +883,36 @@
       ],
       "given": "같은 INCIDENT_CLOSED event가 replay되거나 purge worker가 재시도된다.",
       "when": "closeIncident와 purgeIncident가 반복 실행된다.",
-      "then": "purge_run과 hook_results_json 내부 detail은 idempotent하게 재사용되고 partial hook 성공 결과와 INCIDENT_PURGED가 중복 생성되지 않으며 event/tombstone/status 조회 version이 수렴한다.",
+      "then": "incident_data_purge과  내부 detail은 idempotent하게 재사용되고 partial hook 성공 결과와 INCIDENT_PURGED가 중복 생성되지 않으며 event/tombstone/status 조회 version이 수렴한다.",
       "priority": "high"
     }
   ],
   "edge_cases": [
-    "S1-1 close는 성공했지만 purge_run 생성 전 worker가 중단되면 INCIDENT_CLOSED replay 또는 scheduler가 purge_run을 생성해야 한다.",
+    "S1-1 close는 성공했지만 incident_data_purge 생성 전 worker가 중단되면 INCIDENT_CLOSED replay 또는 scheduler가 incident_data_purge을 생성해야 한다.",
     "일부 hook만 성공하고 다른 hook이 실패하면 성공 step은 재사용하고 실패 step만 retry한다.",
     "미전송 outbox가 법무 검토 전 24시간 유예를 초과하면 failed/retryable 상태와 operational log를 남기되 사용자 UI에 세부를 노출하지 않는다.",
     "위치정보 접근기록 자체는 최소 6개월 보관 대상이므로 incident purge와 함께 삭제하지 않는다.",
     "INTERNAL caller가 아닌 앱·웹 직접 호출은 모든 retention internal contract에서 channel_not_allowed로 거부한다."
   ],
   "error_handling": {
-    "purge_hook_failed": "purge_run.hook_results_json 내부 detail에 error_code를 남기고 INCIDENT_PURGED 발행을 보류한다.",
-    "location_access_log_write_failed": "위치정보를 포함하는 read path에서는 fail-closed로 처리한다. 위치 payload를 반환하지 않고 generic 5xx/일시 실패 UX와 재시도 CTA로 닫으며, 접근기록 상세나 retention 내부 상태는 사용자에게 노출하지 않는다.",
+    "purge_hook_failed": "incident_data_purge. 내부 detail에 error_code를 남기고 INCIDENT_PURGED 발행을 보류한다.",
+    "location_data_access_audit_write_failed": "위치정보를 포함하는 read path에서는 fail-closed로 처리한다. 위치 payload를 반환하지 않고 generic 5xx/일시 실패 UX와 재시도 CTA로 닫으며, 접근기록 상세나 retention 내부 상태는 사용자에게 노출하지 않는다.",
     "channel_not_allowed": "앱·웹이 internal retention contract를 직접 호출하면 403으로 거부하고 운영 로그에 event_key만 기록한다.",
     "waiting_for_sync_internal_state": "미전송 outbox 또는 local package ack 대기 상태로 두고 backoff retry를 예약한다."
   },
   "non_functional_requirements": {
     "performance": [
-      "purge_run scheduler는 due run을 1분 이내에 집어 처리하는 것을 목표로 한다.",
+      "incident_data_purge scheduler는 due run을 1분 이내에 집어 처리하는 것을 목표로 한다.",
       "LocationAccessRecorder.record는 위치 read path에 과도한 지연을 주지 않도록 p95 50ms 이내 append를 목표로 한다."
     ],
     "security": [
-      "purge_run, purge_run hook_results_json 내부 detail, location_access_log, operational log sink는 internal/system-only이며 사용자 화면 DTO, Android Room, offline package manifest, S3-2 board snapshot에 포함하지 않는다.",
-      "location_access_log는 account_id 기준으로 기록하고 개인 사용자 식별자를 요구하지 않는다.",
-      "location_access_log.channel은 요청 body가 아니라 S1-2 SecurityContext/AuthContext에서 파생하고, retention_until은 server_ts + 최소 6개월 이상으로 계산한다.",
+      "incident_data_purge, incident_data_purge  내부 detail, location_data_access_audit, operational log sink는 internal/system-only이며 사용자 화면 DTO, Android Room, offline package manifest, S3-2 board API에 포함하지 않는다.",
+      "location_data_access_audit는 account_id 기준으로 기록하고 개인 사용자 식별자를 요구하지 않는다.",
+      "location_data_access_audit.access_channel은 요청 body가 아니라 S1-2 SecurityContext/AuthContext에서 파생하고, retention_until은 accessed_at + 최소 6개월 이상으로 계산한다.",
       "실종자 개인정보 원문이나 좌표 배열을 operational log sink metadata에 저장하지 않는다."
     ],
     "observability": [
-      "purge_run status별 count, hook failure count, waiting_for_sync age, location_access_log append failure count metric을 노출한다.",
+      "incident_data_purge status별 count, hook failure count, waiting_for_sync age, location_data_access_audit append failure count metric을 노출한다.",
       "INCIDENT_PURGED 발행 전후 payload id/status/version/purgeRunId를 structured log로 남긴다."
     ]
   },
@@ -968,7 +921,7 @@
       {
         "name": "ClosedIncidentCreatesSinglePurgeRun",
         "framework": "JUnit 5 + Testcontainers(PostgreSQL)",
-        "scenario": "동일 incidentId/version의 duplicate INCIDENT_CLOSED replay가 두 번 이상 들어와도 incident_id당 purge_run은 하나만 생성되고 purge_run.version은 중복 증가하지 않는다."
+        "scenario": "동일 incidentId/version의 duplicate INCIDENT_CLOSED replay가 두 번 이상 들어와도 incident_id당 incident_data_purge은 하나만 생성되고 incident_data_purge.version은 중복 증가하지 않는다."
       },
       {
         "name": "IncidentPurgedPublishedOnlyAfterAllHooksSucceed",
@@ -983,17 +936,17 @@
       {
         "name": "WaitingForSyncHookResumesAfterLocalAck",
         "framework": "JUnit 5 + Mockito",
-        "scenario": "S6/S7 hook이 retainedCount > 0과 WAITING_FOR_SYNC를 반환하면 purge_run은 WAITING_FOR_SYNC로 남고 INCIDENT_PURGED를 발행하지 않는다. 이후 local sync/package ack cleared fixture로 재시도하면 기존 성공 hook은 재호출하지 않고 대기 hook만 재개해 COMPLETED와 INCIDENT_PURGED publish로 수렴한다."
+        "scenario": "S6/S7 hook이 retainedCount > 0과 WAITING_FOR_SYNC를 반환하면 incident_data_purge은 WAITING_FOR_SYNC로 남고 INCIDENT_PURGED를 발행하지 않는다. 이후 local sync/package ack cleared fixture로 재시도하면 기존 성공 hook은 재호출하지 않고 대기 hook만 재개해 COMPLETED와 INCIDENT_PURGED publish로 수렴한다."
       },
       {
         "name": "DuplicateIncidentPurgedIsNotPublished",
         "framework": "JUnit 5 + Testcontainers(PostgreSQL)",
-        "scenario": "COMPLETED purge_run을 scheduler와 event replay가 동시에 처리해도 INCIDENT_PURGED outbox row는 incidentId/purgeRunId/version 기준으로 하나만 생성된다."
+        "scenario": "COMPLETED incident_data_purge을 scheduler와 event replay가 동시에 처리해도 INCIDENT_PURGED outbox row는 incidentId/purgeRunId/version 기준으로 하나만 생성된다."
       },
       {
         "name": "PurgeVersionConvergesAcrossEventAndStatus",
         "framework": "JUnit 5",
-        "scenario": "purge_run.version이 INCIDENT_PURGED.payload.version, RetentionPurgeStatus.byIncident 응답, tombstone backing projection metadata에서 같은 값으로 관측된다."
+        "scenario": "incident_data_purge.version이 INCIDENT_PURGED.payload.version, RetentionPurgeStatus.byIncident 응답, tombstone backing API assembly metadata에서 같은 값으로 관측된다."
       },
       {
         "name": "TombstoneLocalPurgeStateUsesFixedEnum",
@@ -1003,7 +956,7 @@
       {
         "name": "LocationAccessRetentionUntilMinimumSixMonths",
         "framework": "JUnit 5",
-        "scenario": "LocationAccessRecorder.record는 channel을 SecurityContext에서 파생하고 retention_until을 serverTs + 최소 6개월 이상으로 저장한다."
+        "scenario": "LocationAccessRecorder.record는 access_channel을 SecurityContext에서 파생하고 retention_until을 serverTs + 최소 6개월 이상으로 저장한다."
       },
       {
         "name": "LocationAccessRecorderFailureFailsClosedWithoutLocationPayload",
@@ -1013,7 +966,7 @@
       {
         "name": "InternalRetentionContractsRejectAppAndWebCallers",
         "framework": "JUnit 5",
-        "scenario": "APP/WEB 또는 일반 요청이 PurgeCoordinator.closeIncident, PurgeCoordinator.purgeIncident, RetentionPurgeStatus.byIncident, LocationAccessRecorder.record internal boundary를 직접 호출하면 channel_not_allowed로 거부되고 purge_run, location_access_log, INCIDENT_PURGED outbox row가 생성되지 않는다."
+        "scenario": "APP/WEB 또는 일반 요청이 PurgeCoordinator.closeIncident, PurgeCoordinator.purgeIncident, RetentionPurgeStatus.byIncident, LocationAccessRecorder.record internal overall_search_area를 직접 호출하면 channel_not_allowed로 거부되고 incident_data_purge, location_data_access_audit, INCIDENT_PURGED outbox row가 생성되지 않는다."
       },
       {
         "name": "LocationAccessRecordIsInternalOnly",
@@ -1025,7 +978,7 @@
       {
         "name": "NoRetentionUserFacingRoutes",
         "framework": "Vitest + route manifest test",
-        "scenario": "web route registry에 purge_run, location_access_log, operational log 조회 화면이 없다."
+        "scenario": "web route registry에 incident_data_purge, location_data_access_audit, operational log 조회 화면이 없다."
       },
       {
         "name": "ClosedIncidentShowsOnlySanitizedTombstone",
@@ -1037,7 +990,7 @@
       {
         "name": "IncidentPurgedEventClearsLocalPackageWithoutShowingRetentionDetails",
         "framework": "JUnit5 + Robolectric",
-        "scenario": "INCIDENT_PURGED 수신 시 S6/S7 로컬 상태는 삭제 대상으로 전환되지만 purge_run detail 화면이나 캐시는 생성되지 않는다."
+        "scenario": "INCIDENT_PURGED 수신 시 S6/S7 로컬 상태는 삭제 대상으로 전환되지만 incident_data_purge detail 화면이나 캐시는 생성되지 않는다."
       }
     ]
   },
@@ -1049,17 +1002,17 @@
       "Location read APIs can call @RecordLocationAccess or LocationAccessRecorder in tests."
     ],
     "forbidden": [
-      "purge_run, purge_run hook detail, location_access_log, operational log sink 사용자 조회 UI 생성",
-      "S3-2 board snapshot, Android offline package, user-facing incident DTO에 retention internal detail 포함",
+      "incident_data_purge, incident_data_purge hook detail, location_data_access_audit, operational log sink 사용자 조회 UI 생성",
+      "S3-2 board API, Android offline package, user-facing incident DTO에 retention internal detail 포함",
       "개인 사용자 식별자를 위치정보 접근기록의 필수 주체로 사용",
       "hook 실패 상태에서 INCIDENT_PURGED 발행",
       "실종자 개인정보 원문 또는 좌표 배열을 operational log metadata에 저장"
     ],
     "required_reviews": [
-      "S1-1 owner LGTM: close event and terminal snapshot contract 변경",
+      "S1-1 owner LGTM: close event and terminal board response contract 변경",
       "S3-1/S5/S6/S7 owner LGTM: purge hook signature 변경",
       "S4 owner LGTM: INCIDENT_PURGED payload 변경",
-      "S3-2 owner LGTM: sanitized tombstone projection 필드 변경",
+      "S3-2 owner LGTM: sanitized tombstone API assembly 필드 변경",
       "S3-2 owner review: S3-2가 INCIDENT_PURGED direct subscriber가 필요하면 boundaries.md §4.4 Event Catalog 변경 PR 선행",
       "새 retention/purge public error code가 필요하면 boundaries.md §4.1 catalog 변경 PR 선행"
     ]
@@ -1083,7 +1036,7 @@
       "id": "OI-S1-3-05",
       "issue": "S3-2가 INCIDENT_PURGED를 직접 소비해야 한다는 요구가 생기면 boundaries.md §4.4 Event Catalog에 S3-2 direct subscriber를 추가하는 기준 문서 변경이 선행되어야 한다. 현재 JSON은 S3-2를 IncidentTombstoneSnapshot.byIncident/RetentionPurgeStatus.byIncident 조회 source로만 정렬한다.",
       "owner": "S3-2/S4/L2",
-      "deadline": "S3-2 projection 구현 전",
+      "deadline": "S3-2 API assembly 구현 전",
       "related_gap": "INCIDENT_PURGED direct subscriber 범위"
     }
   ],
