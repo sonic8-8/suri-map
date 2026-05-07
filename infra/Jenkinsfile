@@ -52,6 +52,7 @@ pipeline {
     environment {
         FRONTEND_IMAGE = 'suri-map-frontend:develop'
         BACKEND_IMAGE = 'suri-map-backend:develop'
+        BACKEND_TEST_IMAGE = 'suri-map-backend-test:develop'
         BACKEND_TEST_ARTIFACT_DIR = 'ci-artifacts/backend-test'
         COMPOSE_FILE = 'infra/docker/docker-compose.runtime.yml'
         ENV_FILE = '.env.runtime'
@@ -102,9 +103,29 @@ Real SonarQube quality gate wiring is tracked by the L2 release quality gate tas
 EOF
                 '''
 
-                dir('backend') {
-                    sh './gradlew test'
-                }
+                sh '''
+                    rm -rf \
+                      backend/build/reports/tests/test \
+                      backend/build/test-results/test
+
+                    docker build \
+                      --target tester \
+                      -t ${BACKEND_TEST_IMAGE} \
+                      -f backend/Dockerfile \
+                      .
+
+                    test_container=$(docker create ${BACKEND_TEST_IMAGE})
+                    trap 'docker rm -f "${test_container}" >/dev/null 2>&1 || true' EXIT
+
+                    mkdir -p \
+                      backend/build/reports/tests \
+                      backend/build/test-results
+
+                    docker cp "${test_container}:/workspace/build/reports/tests/test" \
+                      backend/build/reports/tests/
+                    docker cp "${test_container}:/workspace/build/test-results/test" \
+                      backend/build/test-results/
+                '''
             }
 
             post {
@@ -146,7 +167,7 @@ EOF
                             docker build \
                               -t ${BACKEND_IMAGE} \
                               -f backend/Dockerfile \
-                              backend
+                              .
                         '''
                     }
                 }
