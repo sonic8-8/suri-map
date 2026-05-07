@@ -29,13 +29,13 @@ public final class OperationalPeriodFixtures {
   public static final int CURRENT_OP_SEQUENCE_NO = 1;
   public static final Instant CURRENT_OP_STARTED_AT = Instant.parse("2026-04-28T00:00:00Z");
   public static final Instant CURRENT_OP_ENDED_AT = null;
-  public static final String CURRENT_OP_REASON = "BOOTSTRAP";
+  public static final String CURRENT_OP_REASON = "INITIAL";
   public static final long CURRENT_OP_VERSION = 1L;
 
   /** OP 전환 후 닫힌 이전 OP1 기대 상태. */
   public static final UUID PREVIOUS_OP_ID = CURRENT_OP_ID;
 
-  public static final String PREVIOUS_OP_STATUS = "CLOSED";
+  public static final String PREVIOUS_OP_STATUS = "ENDED";
   public static final int PREVIOUS_OP_SEQUENCE_NO = 1;
   public static final Instant PREVIOUS_OP_STARTED_AT = CURRENT_OP_STARTED_AT;
   public static final Instant PREVIOUS_OP_ENDED_AT = Instant.parse("2026-04-28T09:00:00Z");
@@ -50,21 +50,25 @@ public final class OperationalPeriodFixtures {
   public static final int NEW_OP_SEQUENCE_NO = 2;
   public static final Instant NEW_OP_STARTED_AT = PREVIOUS_OP_ENDED_AT;
   public static final Instant NEW_OP_ENDED_AT = null;
-  public static final String NEW_OP_REASON = "SHIFT_CHANGE";
+  public static final String NEW_OP_REASON = "RE_SEARCH";
   public static final long NEW_OP_VERSION = 1L;
 
   /** operational_period.reason에 실제 저장될 수 있는 값. */
   public static final List<String> OP_REASON_PERSISTED =
-      List.of("BOOTSTRAP", "SHIFT_CHANGE", "RE_SEARCH", "NEW_AREA", "OTHER");
+      List.of("INITIAL", "RE_SEARCH", "AREA_CHANGED", "OTHER");
 
-  /** OP2 이상 수동 생성 시 허용되는 reason. BOOTSTRAP은 OP1 자동 생성 전용이다. */
+  /** OP2 이상 수동 생성 시 허용되는 reason. INITIAL은 OP1 자동 생성 전용이다. */
   public static final List<String> OP_REASON_MANUAL_CREATE =
-      List.of("SHIFT_CHANGE", "RE_SEARCH", "NEW_AREA", "OTHER");
+      List.of("RE_SEARCH", "AREA_CHANGED", "OTHER");
 
   /** operational_period.status에 실제 저장될 수 있는 값. */
-  public static final List<String> OP_STATUSES = List.of("ACTIVE", "CLOSED");
+  public static final List<String> OP_STATUSES = List.of("ACTIVE", "ENDED");
 
   private OperationalPeriodFixtures() {}
+
+  public static RuntimeException op1CreationFailure() {
+    return new IllegalStateException("op1_creation_failed");
+  }
 
   /** bootstrap으로 자동 생성된 현재 OP1 기대값. */
   public static OpRow currentOp() {
@@ -117,7 +121,7 @@ public final class OperationalPeriodFixtures {
         currentOp.version());
   }
 
-  /** SC-10 전환 후 CLOSED/version=2가 된 이전 OP1 기대값. */
+  /** SC-10 전환 후 ENDED/version=2가 된 이전 OP1 기대값. */
   public static OpRow previousOpAfterTransition() {
     return new OpRow(
         PREVIOUS_OP_ID,

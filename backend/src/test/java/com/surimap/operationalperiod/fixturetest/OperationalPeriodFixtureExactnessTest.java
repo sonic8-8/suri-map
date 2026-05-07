@@ -29,17 +29,17 @@ class OperationalPeriodFixtureExactnessTest {
     assertThat(OperationalPeriodFixtures.CURRENT_OP_STATUS).isEqualTo("ACTIVE");
     assertThat(OperationalPeriodFixtures.CURRENT_OP_SEQUENCE_NO).isEqualTo(1);
     assertThat(OperationalPeriodFixtures.CURRENT_OP_VERSION).isEqualTo(1L);
-    assertThat(OperationalPeriodFixtures.CURRENT_OP_REASON).isEqualTo("BOOTSTRAP");
+    assertThat(OperationalPeriodFixtures.CURRENT_OP_REASON).isEqualTo("INITIAL");
 
     assertThat(OperationalPeriodFixtures.NEW_OP_ALIAS).isEqualTo("op-precinct-001-op2");
     assertThat(OperationalPeriodFixtures.NEW_OP_SEQUENCE_NO).isEqualTo(2);
-    assertThat(OperationalPeriodFixtures.NEW_OP_REASON).isEqualTo("SHIFT_CHANGE");
+    assertThat(OperationalPeriodFixtures.NEW_OP_REASON).isEqualTo("RE_SEARCH");
 
-    assertThat(OperationalPeriodFixtures.OP_STATUSES).containsExactly("ACTIVE", "CLOSED");
+    assertThat(OperationalPeriodFixtures.OP_STATUSES).containsExactly("ACTIVE", "ENDED");
     assertThat(OperationalPeriodFixtures.OP_REASON_PERSISTED)
-        .containsExactly("BOOTSTRAP", "SHIFT_CHANGE", "RE_SEARCH", "NEW_AREA", "OTHER");
+        .containsExactly("INITIAL", "RE_SEARCH", "AREA_CHANGED", "OTHER");
     assertThat(OperationalPeriodFixtures.OP_REASON_MANUAL_CREATE)
-        .containsExactly("SHIFT_CHANGE", "RE_SEARCH", "NEW_AREA", "OTHER");
+        .containsExactly("RE_SEARCH", "AREA_CHANGED", "OTHER");
   }
 
   @Test
