@@ -1,5 +1,6 @@
 package com.surimap.maparea.event;
 
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -21,6 +22,26 @@ public interface SearchAreaEventPublisher {
    * @param request 발행할 이벤트 요청 정보
    */
   void publish(PublishRequest request);
+
+  /**
+   * payload field-name set만 검증하는 RED test용 publish adapter.
+   *
+   * @param eventType 이벤트 타입
+   * @param payloadFieldNames payload field name 집합
+   */
+  default void publish(String eventType, Set<String> payloadFieldNames) {
+    publish(new PublishRequest(eventType, null, payloadFieldNames));
+  }
+
+  /**
+   * domain write 시 영향 받은 테이블 이름을 기록한다.
+   *
+   * <p>Production EventHub adapter는 PublishRequest.mutatedTable을 사용한다. 테스트 collector는 이 method를
+   * override해 legacy RED test의 mutated table probe를 지원한다.
+   *
+   * @param tableName 영향 받은 테이블 이름
+   */
+  default void recordMutatedTable(String tableName) {}
 
   /**
    * 상태 전이 이벤트를 generic PublishRequest로 발행한다.

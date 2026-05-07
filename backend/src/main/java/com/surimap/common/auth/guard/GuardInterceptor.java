@@ -13,6 +13,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.UUID;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.method.HandlerMethod;
@@ -94,11 +95,11 @@ public class GuardInterceptor implements HandlerInterceptor {
       }
 
       if (requireRegistered != null && auth.getPolicePhoneId() != null) {
-        policePhoneValidationPort.checkRegistered(auth.getPolicePhoneId());
+        policePhoneValidationPort.checkRegistered(parsePolicePhoneId(auth));
       }
 
       if (requireAssigned != null && auth.getPolicePhoneId() != null) {
-        policePhoneValidationPort.checkAssigned(auth.getPolicePhoneId());
+        policePhoneValidationPort.checkAssigned(parsePolicePhoneId(auth));
       }
     }
 
@@ -137,6 +138,14 @@ public class GuardInterceptor implements HandlerInterceptor {
 
   private void enforcePolicePhonePresent(SuriMapAuthentication auth) {
     if (auth.getPolicePhoneId() == null) {
+      throw new PolicePhoneRequiredException();
+    }
+  }
+
+  private UUID parsePolicePhoneId(SuriMapAuthentication auth) {
+    try {
+      return UUID.fromString(auth.getPolicePhoneId());
+    } catch (IllegalArgumentException e) {
       throw new PolicePhoneRequiredException();
     }
   }

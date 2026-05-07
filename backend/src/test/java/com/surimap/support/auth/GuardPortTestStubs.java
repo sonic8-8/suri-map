@@ -65,15 +65,15 @@ public class GuardPortTestStubs {
 
   static final class StubIncidentAccessPort implements IncidentAccessPort {
 
-    private static final long UNASSIGNED_TEAM_LEAST_BITS =
-        UUID.fromString("00000000-0000-0000-0000-000000000098").getLeastSignificantBits();
+    private static final String UNASSIGNED_TEAM_ACCOUNT_ID =
+        "00000000-0000-0000-0000-000000000098";
 
     @Override
     public void checkAccess(SuriMapAuthentication auth) {
       if (auth.getOrganizationType() != OrganizationType.MISSING_TEAM) {
         throw new IncidentAccessDeniedException();
       }
-      if (auth.getAccountId().getLeastSignificantBits() == UNASSIGNED_TEAM_LEAST_BITS) {
+      if (UNASSIGNED_TEAM_ACCOUNT_ID.equals(auth.getAccountId())) {
         throw new TeamNotAssignedException();
       }
     }
