@@ -143,7 +143,7 @@
   - 예상 작업량: 1d
   - 완료 기준: duplicate/stale event는 무시되고 더 최신 owner version만 board API response를 갱신한다.
 
-- [ ] L6-T02C SSE refetch 수렴과 API 조립 지연 관측 검증 구현
+- [x] L6-T02C SSE refetch 수렴과 API 조립 지연 관측 검증 구현
   - 담당 Spec: S3-2
   - 필수 참조: `spec/specs/S3-2.json`, `spec/specs/S4.json`, `spec/harness-scenarios.md §0.3`, `spec/harness-scenarios.md §6 mock board API refetch/assembly`
   - 연관 Spec: S4
@@ -152,7 +152,7 @@
   - 예상 작업량: 1d
   - 완료 기준: SSE event 이후 board API response가 수렴하고, 수렴이 지연될 때 board API assembly lag state를 관찰할 수 있다.
 
-- [ ] L6-T06A offline_package_installation API·이벤트·조회 구현
+- [x] L6-T06A offline_package_installation API·이벤트·조회 구현
   - 담당 Spec: S7
   - 필수 참조: `spec/specs/S7.json`, `spec/specs/S6.json`, `spec/specs/S3-2.json`
   - 연관 Spec: S1-2, S4, S3-2, S6
