@@ -174,7 +174,7 @@
 
 ## Phase 3
 
-- [ ] L6-T04A OP 비교·이력·인수인계 slot 구현
+- [x] L6-T04A OP 비교·이력·인수인계 slot 구현
   - 담당 Spec: S3-2
   - 필수 참조: `spec/specs/S3-2.json`, `spec/specs/S8.json`, `spec/boundaries.md §6 FR-23`, `spec/harness-scenarios.md §2 SC-11`
   - 연관 Spec: S8, S3-1, S2, S5, S4
