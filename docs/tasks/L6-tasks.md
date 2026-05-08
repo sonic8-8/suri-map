@@ -185,7 +185,7 @@
   - 예상 작업량: 1d
   - 완료 기준: S8 source data를 변경하지 않고 OP toggle/history와 handover slot이 source evidence와 unavailable state를 표시한다.
 
-- [ ] L6-T04B 수색 이력 요약 대체 표시와 FR-23 금지 행동 버튼 차단 구현
+- [x] L6-T04B 수색 이력 요약 대체 표시와 FR-23 금지 행동 버튼 차단 구현
   - 담당 Spec: S3-2
   - 필수 참조: `spec/specs/S3-2.json`, `spec/specs/S8.json`, `spec/boundaries.md §6 FR-23`, `spec/harness-scenarios.md §2 SC-11`, `adr.md ADR-0034`
   - 연관 Spec: S8, S3-1, S2, S5, S4
