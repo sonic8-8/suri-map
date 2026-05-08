@@ -69,8 +69,8 @@ import org.springframework.test.web.servlet.MockMvc;
       "DELETE FROM missing_person",
       "DELETE FROM \"incident\""
     })
-@DisplayName("L1-T01 POST /api/incidents/import RED")
-class IncidentImportApiRedTest {
+@DisplayName("L1-T01 POST /api/incidents/import 계약")
+class IncidentImportApiContractTest {
 
   private static final String SOURCE_INCIDENT_ID = "mock-112-incident-001";
   private static final UUID INCIDENT_ID = BoundaryAreaFixtures.INCIDENT_ID;
@@ -270,7 +270,9 @@ class IncidentImportApiRedTest {
     assertThat(count("\"incident\"", "source_incident_id = ?", SOURCE_INCIDENT_ID)).isEqualTo(1);
     assertThat(
             jdbc.queryForObject(
-                "SELECT status FROM \"incident\" WHERE id = ?", String.class, INCIDENT_ID.toString()))
+                "SELECT status FROM \"incident\" WHERE id = ?",
+                String.class,
+                INCIDENT_ID.toString()))
         .isEqualTo("CLOSED");
     assertThat(count("incident_assignment", "1 = 1")).isZero();
     assertThat(count("operational_period", "1 = 1")).isZero();

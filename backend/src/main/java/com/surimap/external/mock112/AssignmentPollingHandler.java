@@ -1,6 +1,8 @@
 package com.surimap.external.mock112;
 
 import com.surimap.external.ExternalAssignment;
+import com.surimap.incident.service.IncidentAssignmentImportService;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -22,6 +24,12 @@ public class AssignmentPollingHandler {
   /** 이미 처리된 externalAssignmentKey를 추적. 서버 재시작 시 초기화되므로 DB 기반 중복 체크가 최종 방어선. */
   private final Set<String> processedKeys = ConcurrentHashMap.newKeySet();
 
+  private final IncidentAssignmentImportService incidentAssignmentImportService;
+
+  public AssignmentPollingHandler(IncidentAssignmentImportService incidentAssignmentImportService) {
+    this.incidentAssignmentImportService = incidentAssignmentImportService;
+  }
+
   /**
    * 배정 변경을 처리한다.
    *
@@ -30,9 +38,10 @@ public class AssignmentPollingHandler {
    */
   public void handleAssignmentChanges(
       String sourceIncidentId, List<ExternalAssignment> assignments) {
+    List<ExternalAssignment> candidates = new ArrayList<>();
     for (ExternalAssignment assignment : assignments) {
-      String key = assignment.externalAssignmentKey();
-      if (processedKeys.add(key)) {
+      String key = assignmentKey(assignment);
+      if (!processedKeys.contains(key)) {
         // 새로 감지된 배정
         log.info(
             "새 배정 감지: incident={}, account={}, role={}, key={}",
@@ -40,22 +49,43 @@ public class AssignmentPollingHandler {
             assignment.accountId(),
             assignment.incidentRole(),
             key);
-
-        // TODO(L1-T04): 여기서 실제 incident_assignment INSERT +
-        //   INCIDENT_ASSIGNMENT_CHANGED 이벤트 발행을 수행한다.
-        //   현재는 감지·로깅만 수행.
+        candidates.add(assignment);
       }
     }
+    incidentAssignmentImportService
+        .importAssignmentChanges(sourceIncidentId, candidates)
+        .ifPresentOrElse(
+            result -> {
+              for (ExternalAssignment assignment : candidates) {
+                processedKeys.add(assignmentKey(assignment));
+              }
+              log.info(
+                  "incident_assignment 반영 완료: incident={}, changedAccounts={}, version={}",
+                  sourceIncidentId,
+                  result.changedAccountIds(),
+                  result.version());
+            },
+            () -> {
+              for (ExternalAssignment assignment : candidates) {
+                processedKeys.add(assignmentKey(assignment));
+              }
+            });
   }
 
   /** 특정 사건의 초기 배정을 일괄 등록한다 (import 시 사용). */
   public void registerInitialAssignments(List<ExternalAssignment> assignments) {
     for (ExternalAssignment a : assignments) {
-      processedKeys.add(a.externalAssignmentKey());
+      processedKeys.add(assignmentKey(a));
     }
   }
 
   public void reset() {
     processedKeys.clear();
+  }
+
+  private String assignmentKey(ExternalAssignment assignment) {
+    return assignment.externalAssignmentKey() == null
+        ? assignment.accountId()
+        : assignment.externalAssignmentKey();
   }
 }

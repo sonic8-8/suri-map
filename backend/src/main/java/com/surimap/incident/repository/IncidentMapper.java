@@ -74,6 +74,16 @@ public interface IncidentMapper {
       @Param("assignedAt") Instant assignedAt,
       @Param("now") Instant now);
 
+  int insertIncidentAssignmentIfAbsent(
+      @Param("id") UUID id,
+      @Param("incidentId") UUID incidentId,
+      @Param("accountId") String accountId,
+      @Param("incidentRole") String incidentRole,
+      @Param("assignedAt") Instant assignedAt,
+      @Param("now") Instant now);
+
+  void incrementIncidentVersion(@Param("incidentId") UUID incidentId, @Param("now") Instant now);
+
   List<String> findActiveAssignmentAccountIds(@Param("incidentId") UUID incidentId);
 
   Optional<MissingPersonRecord> findMissingPersonByIncidentId(@Param("incidentId") UUID incidentId);
