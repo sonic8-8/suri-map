@@ -178,7 +178,7 @@
 
 ## Phase 4
 
-- [ ] L2-T09A 인증·단말 모의 계약 하네스 작성
+- [x] L2-T09A 인증·단말 모의 계약 하네스 작성
   - 담당 Spec: S1-2
   - 필수 참조: `spec/specs/S1-2.json`, `spec/harness-scenarios.md §6`, `spec/boundaries.md §7`
   - 연관 Lane: All lanes
