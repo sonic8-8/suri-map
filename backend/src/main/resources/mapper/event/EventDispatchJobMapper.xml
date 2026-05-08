@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.surimap.eventhub.adapter.EventDispatchJobMapper">
+
+    <!-- S4.json §domain_model.entities[0]: event_dispatch_job outbox INSERT -->
+    <!-- AC-S4-01: caller domain transaction 안에서 원자적으로 보존된다. -->
+    <!-- dispatch_status: DEFAULT 'PENDING' (DDL 기본값 사용) -->
+    <insert id="insert" parameterType="com.surimap.eventhub.adapter.EventDispatchJobRow">
+        INSERT INTO event_dispatch_job (
+            event_id,
+            incident_id,
+            event_type,
+            payload_format_version,
+            payload,
+            source_entity_type,
+            source_entity_id,
+            occurred_at
+        )
+        VALUES (
+            #{eventId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{eventType},
+            #{payloadFormatVersion},
+            #{payloadJson}::jsonb,
+            #{sourceEntityType},
+            #{sourceEntityId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{occurredAt}
+        )
+    </insert>
+
+</mapper>
