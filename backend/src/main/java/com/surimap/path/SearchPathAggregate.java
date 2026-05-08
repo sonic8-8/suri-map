@@ -3,6 +3,7 @@ package com.surimap.path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.time.OffsetDateTime;
 
 public class SearchPathAggregate {
 
@@ -79,5 +80,29 @@ public class SearchPathAggregate {
 
   public void bumpVersion() {
     version += 1L;
+  }
+
+  public SearchPathSegment correctSegment(
+      String segmentId, MovementType movementType, UUID correctedByAccountId, OffsetDateTime correctedAt) {
+    for (int i = 0; i < segments.size(); i++) {
+      SearchPathSegment current = segments.get(i);
+      if (current.id().equals(segmentId)) {
+        SearchPathSegment corrected =
+            new SearchPathSegment(
+                current.id(),
+                current.version() + 1L,
+                movementType,
+                MovementTypeSource.MANUAL,
+                current.startIndex(),
+                current.endIndex(),
+                current.startPointId(),
+                current.endPointId(),
+                correctedByAccountId,
+                correctedAt);
+        segments.set(i, corrected);
+        return corrected;
+      }
+    }
+    throw new SearchPathApiException("write_conflict");
   }
 }

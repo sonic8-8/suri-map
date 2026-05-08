@@ -6,4 +6,7 @@ import org.springframework.stereotype.Component;
 public class NoopPathEventPublisher implements PathEventPublisher {
   @Override
   public void publishPathAppended(PathAppendedPublishRequest request) {}
+
+  @Override
+  public void publishSegmentUpdated(SearchPathSegmentUpdatedPublishRequest request) {}
 }
