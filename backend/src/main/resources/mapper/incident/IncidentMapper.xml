@@ -53,6 +53,20 @@
         WHERE source_incident_id = #{sourceIncidentId}
     </select>
 
+    <select id="findByIncidentId" resultMap="incidentRecordMap">
+        SELECT
+            id,
+            source_incident_id,
+            title,
+            status,
+            opened_at,
+            closed_at,
+            closed_by_account_id,
+            version
+        FROM "incident"
+        WHERE id = #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+    </select>
+
     <select id="findImportIdempotencyRecord" resultMap="idempotencyRecordMap">
         SELECT
             id,

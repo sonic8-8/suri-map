@@ -12,6 +12,7 @@ import com.surimap.incident.event.IncidentCreatedEvent;
 import com.surimap.incident.event.IncidentEventPublisher;
 import com.surimap.incident.exception.IncidentApiException;
 import com.surimap.incident.exception.IncidentImportDependencyException;
+import com.surimap.incident.lifecycle.IncidentLifecycleGuard;
 import com.surimap.incident.repository.IncidentMapper;
 import com.surimap.marker.domain.port.ReferenceMarkerSeed;
 import com.surimap.marker.domain.port.ReferenceMarkerSeed.SeedMarker;
@@ -57,6 +58,7 @@ public class IncidentImportService {
   private final InitialOperationalPeriodCreator initialOperationalPeriodCreator;
   private final ReferenceMarkerSeed referenceMarkerSeed;
   private final IncidentEventPublisher incidentEventPublisher;
+  private final IncidentLifecycleGuard incidentLifecycleGuard;
   private final IncidentMapper incidentMapper;
   private final Clock clock;
 
@@ -66,6 +68,7 @@ public class IncidentImportService {
       InitialOperationalPeriodCreator initialOperationalPeriodCreator,
       ReferenceMarkerSeed referenceMarkerSeed,
       IncidentEventPublisher incidentEventPublisher,
+      IncidentLifecycleGuard incidentLifecycleGuard,
       IncidentMapper incidentMapper,
       Clock clock) {
     this.authorizer = authorizer;
@@ -73,6 +76,7 @@ public class IncidentImportService {
     this.initialOperationalPeriodCreator = initialOperationalPeriodCreator;
     this.referenceMarkerSeed = referenceMarkerSeed;
     this.incidentEventPublisher = incidentEventPublisher;
+    this.incidentLifecycleGuard = incidentLifecycleGuard;
     this.incidentMapper = incidentMapper;
     this.clock = clock;
   }
@@ -82,17 +86,20 @@ public class IncidentImportService {
     authorizer.requireImportAllowed(command.authentication(), command.clientChannel());
     requireIdempotencyKey(command.idempotencyKey());
     Instant now = clock.instant();
-    reserveIdempotency(command, now);
 
     // 같은 sourceIncidentId는 112 원천 사건 1건을 의미한다. 새 Idempotency-Key로 재호출돼도
     // 외부 fetch나 하위 Lane port 호출을 반복하지 않고 기존 사건 응답만 재구성한다.
     var existing = incidentMapper.findBySourceIncidentId(command.sourceIncidentId());
     if (existing.isPresent()) {
+      // 이미 terminal인 112 원천 사건은 import replay로 되살리지 않는다.
+      incidentLifecycleGuard.requireOpen(existing.get().getId());
+      reserveIdempotency(command, now);
       IncidentImportResult result = toResult(existing.get());
       completeIdempotency(command, result, now);
       return result;
     }
 
+    reserveIdempotency(command, now);
     ExternalIncident externalIncident = fetchExternalIncident(command.sourceIncidentId());
     String sourceIncidentId = sourceIncidentId(command, externalIncident);
     UUID incidentId = incidentIdFor(sourceIncidentId);
