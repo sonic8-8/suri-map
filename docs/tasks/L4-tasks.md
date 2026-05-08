@@ -19,7 +19,7 @@
 
 ## Phase -1
 
-- [ ] L4-B01 Android 실행 기반과 오프라인 테스트 기반 준비
+- [x] L4-B01 Android 실행 기반과 오프라인 테스트 기반 준비
   - 담당 Spec: S3-1, S6
   - 필수 참조: `architecture.md §3`, `adr.md ADR-0003`, `adr.md ADR-0035`, `spec/specs/S3-1.json`, `spec/specs/S6.json`
   - 연관 Spec: S1-2, S7
@@ -30,7 +30,7 @@
 
 ## Phase 0
 
-- [ ] L4-T04A GPS 품질 실패 고정 데이터와 검증 기준 작성
+- [x] L4-T04A GPS 품질 실패 고정 데이터와 검증 기준 작성
   - 담당 Spec: S3-1
   - 필수 참조: `spec/specs/S3-1.json`, `spec/boundaries.md §4.1.1`, `spec/harness-scenarios.md §6 mock GPS 경로`
   - 연관 Spec: S2
@@ -39,7 +39,7 @@
   - 예상 작업량: 1d
   - 완료 기준: validator 구현 전에 GPS max batch, bbox, coordinate order, timestamp skew, accuracy, speed, jump 실패 조건이 failing test 또는 fixture로 고정된다.
 
-- [ ] L4-T07A 클라이언트-서버 시각 보정 API 계약 테스트 작성
+- [x] L4-T07A 클라이언트-서버 시각 보정 API 계약 테스트 작성
   - 담당 Spec: S6
   - 필수 참조: `spec/specs/S6.json`, `spec/harness-scenarios.md §6 mock network 상태`
   - 연관 Spec: S1-2, S4
@@ -48,7 +48,7 @@
   - 예상 작업량: 1d
   - 완료 기준: endpoint behavior를 구현하지 않은 상태에서 sync clock 기대 조건이 failing contract test로 고정된다.
 
-- [ ] L4-T07B Outbox 재시도 진단 고정 데이터와 실패 테스트 작성
+- [x] L4-T07B Outbox 재시도 진단 고정 데이터와 실패 테스트 작성
   - 담당 Spec: S6
   - 필수 참조: `spec/specs/S6.json`, `spec/harness-scenarios.md §6 mock network 상태`
   - 연관 Spec: S1-2, S4
@@ -59,7 +59,7 @@
 
 ## Phase 1
 
-- [ ] L4-T01 수색 경로 상태 흐름 구현
+- [x] L4-T01 수색 경로 상태 흐름 구현
   - 담당 Spec: S3-1
   - 필수 참조: `spec/specs/S3-1.json`, `spec/specs/S8.json`, `spec/harness-scenarios.md §2 SC-05`
   - 연관 Spec: S1-2, S8, S4, S3-2
@@ -69,7 +69,7 @@
   - 예상 작업량: 2d
   - 완료 기준: app PolicePhone이 current OP search_path를 start/end할 수 있고, invalid OP/police_phone는 실패하며, search_path lifecycle PublishRequest가 안정적인 id/status/version/opId/policePhoneId를 포함한다.
 
-- [ ] L4-T04B 경로 도형과 GPS 품질 검증 구현
+- [x] L4-T04B 경로 도형과 GPS 품질 검증 구현
   - 담당 Spec: S3-1
   - 필수 참조: `spec/specs/S3-1.json`, `spec/boundaries.md §4.1.1`, `spec/harness-scenarios.md §6 mock GPS 경로`
   - 연관 Spec: S2
@@ -78,7 +78,7 @@
   - 예상 작업량: 1d
   - 완료 기준: GPS max batch, bbox, coordinate order, timestamp skew, accuracy, speed, jump filter가 `spec/harness-scenarios.md` fixture를 따른다.
 
-- [ ] L4-T02 GPS 일괄 저장과 경로 조회 구현
+- [x] L4-T02 GPS 일괄 저장과 경로 조회 구현
   - 담당 Spec: S3-1
   - 필수 참조: `spec/specs/S3-1.json`, `spec/boundaries.md §10 SC-05`, `spec/boundaries.md §10 SC-09`
   - 연관 Spec: S2, S8, S4, S3-2
@@ -90,7 +90,7 @@
 
 ## Phase 2
 
-- [ ] L4-T03 차량·도보 구간 분류와 보정 구현
+- [x] L4-T03 차량·도보 구간 분류와 보정 구현
   - 담당 Spec: S3-1
   - 필수 참조: `spec/specs/S3-1.json`, `prd.md FR-33`, `prd.md FR-35`, `spec/harness-scenarios.md §6 mock GPS 경로`
   - 연관 Spec: S1-2, S3-2
