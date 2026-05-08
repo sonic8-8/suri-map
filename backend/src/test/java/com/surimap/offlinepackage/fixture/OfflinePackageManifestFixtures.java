@@ -105,12 +105,11 @@ public final class OfflinePackageManifestFixtures {
 
   public record MissingPerson(
       String incidentId,
-      String missingPersonId,
-      String sourceFixture,
-      String name,
-      String sex,
-      int age,
-      String lastSeenSummary) {}
+      String displayName,
+      String photoObjectKey,
+      String appearanceText,
+      String lastSeenLocationText,
+      OffsetDateTime lastSeenAt) {}
 
   public record OperationalPeriod(
       String opId, String incidentId, int sequenceNumber, String status, long version) {}
