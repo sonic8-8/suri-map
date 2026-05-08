@@ -38,7 +38,21 @@
             <arg column="version" javaType="_long"/>
             <arg column="sequence_number" javaType="_long"/>
             <arg column="manifest_version" javaType="_int"/>
+            <arg column="active_manifest_version" javaType="_int"/>
             <arg column="ready_for_offline_use" javaType="_boolean"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="manifestRecordMap"
+               type="com.surimap.offlinepackage.repository.OfflinePackageManifestRecord">
+        <constructor>
+            <arg column="id" javaType="string"/>
+            <arg column="incident_id" javaType="string"/>
+            <arg column="manifest_version" javaType="_int"/>
+            <arg column="overall_search_area_id" javaType="string"/>
+            <arg column="overall_search_area_version" javaType="_long"/>
+            <arg column="manifest_hash" javaType="string"/>
+            <arg column="expires_at" javaType="java.time.OffsetDateTime"/>
         </constructor>
     </resultMap>
 
@@ -121,6 +135,77 @@
         )
     </insert>
 
+    <select id="countInstallation" resultType="int">
+        SELECT COUNT(*)
+        FROM offline_package_installation
+        WHERE id = #{id}
+    </select>
+
+    <select id="findStaleCandidateInstallationIds" resultType="string">
+        SELECT id
+        FROM offline_package_installation
+        WHERE offline_package_manifest_id = #{manifestId}
+          AND status IN ('READY', 'PARTIAL', 'DOWNLOADING')
+        ORDER BY police_phone_id
+    </select>
+
+    <select id="findCurrentManifestByIncident" resultMap="manifestRecordMap">
+        SELECT
+            id,
+            incident_id,
+            manifest_version,
+            overall_search_area_id,
+            overall_search_area_version,
+            manifest_hash,
+            expires_at
+        FROM offline_package_manifest
+        WHERE incident_id = #{incidentId}
+        ORDER BY manifest_version DESC
+        LIMIT 1
+    </select>
+
+    <insert id="insertNextManifestFrom">
+        INSERT INTO offline_package_manifest (
+            id,
+            incident_id,
+            manifest_version,
+            operational_period_id,
+            overall_search_area_id,
+            overall_search_area_version,
+            manifest_hash,
+            manifest_format_version,
+            manifest_payload,
+            expires_at,
+            created_at,
+            updated_at
+        )
+        SELECT
+            #{newManifestId},
+            incident_id,
+            #{manifestVersion},
+            operational_period_id,
+            #{overallSearchAreaId},
+            #{overallSearchAreaVersion},
+            #{manifestHash},
+            manifest_format_version,
+            manifest_payload,
+            expires_at,
+            #{createdAt},
+            #{createdAt}
+        FROM offline_package_manifest
+        WHERE id = #{sourceManifestId}
+    </insert>
+
+    <update id="markReadyAndPartialInstallationsStale">
+        UPDATE offline_package_installation
+        SET
+            status = 'STALE',
+            version = version + 1,
+            updated_at = #{updatedAt}
+        WHERE offline_package_manifest_id = #{sourceManifestId}
+          AND status IN ('READY', 'PARTIAL', 'DOWNLOADING')
+    </update>
+
     <select id="findInstallationForPhone" resultMap="installationRecordMap">
         SELECT
             i.id,
@@ -146,7 +231,7 @@
           AND i.police_phone_id = #{policePhoneId}
     </select>
 
-    <select id="findStatusesByIncident" resultMap="installationStatusMap">
+    <select id="findStatusesByManifest" resultMap="installationStatusMap">
         SELECT
             i.id,
             m.incident_id,
@@ -155,9 +240,54 @@
             i.version,
             901 AS sequence_number,
             m.manifest_version,
+            m.manifest_version AS active_manifest_version,
             i.status = 'READY' AS ready_for_offline_use
         FROM offline_package_installation i
         JOIN offline_package_manifest m ON m.id = i.offline_package_manifest_id
+        WHERE i.offline_package_manifest_id = #{manifestId}
+        ORDER BY i.police_phone_id
+    </select>
+
+    <select id="findStatusesByIds" resultMap="installationStatusMap">
+        SELECT
+            i.id,
+            m.incident_id,
+            i.police_phone_id,
+            i.status,
+            i.version,
+            901 AS sequence_number,
+            m.manifest_version,
+            #{activeManifestVersion} AS active_manifest_version,
+            i.status = 'READY' AS ready_for_offline_use
+        FROM offline_package_installation i
+        JOIN offline_package_manifest m ON m.id = i.offline_package_manifest_id
+        WHERE i.id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        ORDER BY i.police_phone_id
+    </select>
+
+    <select id="findStatusesByIncident" resultMap="installationStatusMap">
+        WITH latest_manifest AS (
+            SELECT incident_id, MAX(manifest_version) AS active_manifest_version
+            FROM offline_package_manifest
+            WHERE incident_id = #{incidentId}
+            GROUP BY incident_id
+        )
+        SELECT
+            i.id,
+            m.incident_id,
+            i.police_phone_id,
+            i.status,
+            i.version,
+            901 AS sequence_number,
+            m.manifest_version,
+            latest_manifest.active_manifest_version,
+            i.status = 'READY' AS ready_for_offline_use
+        FROM offline_package_installation i
+        JOIN offline_package_manifest m ON m.id = i.offline_package_manifest_id
+        JOIN latest_manifest ON latest_manifest.incident_id = m.incident_id
         WHERE m.incident_id = #{incidentId}
         ORDER BY
             CASE i.status
