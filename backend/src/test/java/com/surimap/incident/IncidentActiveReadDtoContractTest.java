@@ -213,15 +213,23 @@ class IncidentActiveReadDtoContractTest {
       accountId = "acct-precinct-team",
       policePhoneId = "dev-precinct-phone-01",
       roles = {Role.MEMBER})
-  @DisplayName("GET /api/incidents/{incidentId}는 종료 사건을 active 상세 DTO에서 제외한다")
-  void detail_excludes_closed_incident_from_active_read() throws Exception {
+  @DisplayName("GET /api/incidents/{incidentId}는 종료 사건을 active 상세 필드 없이 terminal DTO로 반환한다")
+  void detail_returns_closed_incident_without_active_detail_fields() throws Exception {
     mockMvc
         .perform(
             get("/api/incidents/{incidentId}", CLOSED_ASSIGNED_INCIDENT_ID)
                 .contextPath("/api")
                 .header("Authorization", "Bearer app-active-detail-closed")
                 .header("X-Client-Channel", "APP"))
-        .andExpect(status().isNotFound());
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(CLOSED_ASSIGNED_INCIDENT_ID.toString()))
+        .andExpect(jsonPath("$.incidentId").value(CLOSED_ASSIGNED_INCIDENT_ID.toString()))
+        .andExpect(jsonPath("$.status").value("CLOSED"))
+        .andExpect(jsonPath("$.closedAt").value("2026-04-28T03:00:00Z"))
+        .andExpect(jsonPath("$.writeDisabledReason").value("incident_closed"))
+        // T05B 이후 CLOSED 상세는 같은 endpoint에서 조회하되 active 상세 개인정보는 조립하지 않는다.
+        .andExpect(jsonPath("$.missingPerson").doesNotExist())
+        .andExpect(jsonPath("$.assignments").doesNotExist());
   }
 
   private JsonNode readJson(String body) throws Exception {
