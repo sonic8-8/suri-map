@@ -42,6 +42,8 @@ public class SearchAreaAssignmentMock implements SearchAreaAssignmentCommand {
         "ACTIVE",
         1L);
     var event = new SearchAreaAssignmentChangedEvent(
+        java.util.UUID.randomUUID().toString(),
+        0L,
         "SEARCH_AREA_ASSIGNMENT_CHANGED",
         row.id(),
         request.incidentId(),
