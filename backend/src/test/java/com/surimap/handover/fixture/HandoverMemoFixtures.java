@@ -22,9 +22,9 @@ public final class HandoverMemoFixtures {
   public static final UUID OP2_ID = BoundaryAreaFixtures.OP2_ID;
 
   /** S8.json harness_fixtures.sc11_handover_ai_convergence.handoverMemo.memoId */
-  public static final String MEMO_ALIAS = "memo-precinct-op2-001";
+  public static final String MEMO_ALIAS = "memo-precinct-handover-001";
 
-  public static final UUID MEMO_ID = UUID.fromString("eeeeeeee-eeee-eeee-eeee-eeeeeeee0001");
+  public static final UUID MEMO_ID = UUID.fromString("eeeeeeee-eeee-eeee-eeee-eeeeeeee0010");
 
   /** S8.json harness_fixtures.sc11_handover_ai_convergence.handoverMemo.version */
   public static final long MEMO_VERSION = 1L;
