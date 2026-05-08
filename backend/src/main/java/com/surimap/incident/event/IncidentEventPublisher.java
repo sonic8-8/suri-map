@@ -8,4 +8,7 @@ public interface IncidentEventPublisher {
 
   /** INCIDENT_ASSIGNMENT_CHANGED publish 요청. event_dispatch_job 저장과 fanout은 S4 구현체 책임이다. */
   void publishIncidentAssignmentChanged(IncidentAssignmentChangedEvent event);
+
+  /** INCIDENT_CLOSED publish 요청. event_dispatch_job 저장과 purge/fanout은 소비 Lane 구현체 책임이다. */
+  void publishIncidentClosed(IncidentClosedEvent event);
 }
