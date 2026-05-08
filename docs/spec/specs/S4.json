@@ -560,9 +560,9 @@
       }
     ],
     "flyway_migrations": [
-      "V20__create_event_dispatch_job.sql",
-      "V21__create_sse_replay_event.sql",
-      "V22__create_event_dispatch_target.sql"
+      "V20260508_001__create_event_dispatch_job.sql",
+      "V20260508_002__create_sse_replay_event.sql",
+      "V20260508_003__create_event_dispatch_target.sql"
     ]
   },
   "api_contracts": {

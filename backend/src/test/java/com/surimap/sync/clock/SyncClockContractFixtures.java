@@ -2,7 +2,7 @@ package com.surimap.sync.clock;
 
 final class SyncClockContractFixtures {
 
-  static final String INCIDENT_ID = "inc-precinct-first-001";
+  static final String INCIDENT_ID = "b5fdbad6-57ce-4d64-a6f2-82b1d3e16699";
   static final String DEVICE_ID = "dev-precinct-phone-01";
   static final String CLIENT_TS = "2026-04-28T09:00:40+09:00";
   static final String SKEWED_CLIENT_TS = "2026-04-28T09:01:20+09:00";

@@ -20,7 +20,7 @@
 
 ## Phase -1
 
-- [ ] L5-B01A 모의 파일 저장소와 사진 실패 고정 데이터 준비
+- [x] L5-B01A 모의 파일 저장소와 사진 실패 고정 데이터 준비
   - 담당 Spec: S5
   - 필수 참조: `architecture.md §6.4`, `adr.md ADR-0035`, `spec/specs/S5.json`, `spec/harness-scenarios.md §6 mock object storage/upload URL fixture`
   - 연관 Spec: S6
@@ -29,7 +29,7 @@
   - 예상 작업량: 1d
   - 완료 기준: upload-url/attach API behavior를 구현하지 않은 상태에서 external S3 호출 없이 MinIO-compatible object key 규칙, mock object storage, photo failure fixture가 실행된다.
 
-- [ ] L5-B01B FCM 발송 모의체와 수신자 캡처 준비
+- [x] L5-B01B FCM 발송 모의체와 수신자 캡처 준비
   - 담당 Spec: S5
   - 필수 참조: `spec/specs/S5.json`, `spec/harness-scenarios.md §6 mock FCM recipient`
   - 연관 Spec: S1-2, S4
@@ -40,7 +40,7 @@
 
 ## Phase 0
 
-- [ ] L5-T03A 마커 위치와 OP 연결 실패 테스트 작성
+- [x] L5-T03A 마커 위치와 OP 연결 실패 테스트 작성
   - 담당 Spec: S5
   - 필수 참조: `spec/specs/S5.json`, `spec/boundaries.md §4.1.1`, `spec/specs/S8.json`
   - 연관 Spec: S2, S8
@@ -49,7 +49,7 @@
   - 예상 작업량: 1d
   - 완료 기준: domain validator 구현 전에 marker location과 OP binding 기대 조건이 failing test 또는 fixture로 고정된다.
 
-- [ ] L5-T05A 초기 기준 마커 주입 계약 fixture 작성
+- [x] L5-T05A 초기 기준 마커 주입 계약 fixture 작성
   - 담당 Spec: S5
   - 필수 참조: `spec/specs/S5.json`, `spec/specs/S1-1.json`, `spec/specs/S7.json`
   - 연관 Spec: S1-1, S7, S3-2
@@ -60,7 +60,7 @@
 
 ## Phase 1
 
-- [ ] L5-T03B 마커 위치와 OP 연결 검증 구현
+- [x] L5-T03B 마커 위치와 OP 연결 검증 구현
   - 담당 Spec: S5
   - 필수 참조: `spec/specs/S5.json`, `spec/boundaries.md §4.1.1`, `spec/specs/S8.json`
   - 연관 Spec: S2, S8
@@ -89,7 +89,7 @@
   - 예상 작업량: 1d
   - 완료 기준: Android marker input이 필수 marker field를 수집하고 manual location adjustment를 지원하며, S6 replay behavior를 소유하지 않고 S5 marker creation으로 데이터를 전달할 수 있다.
 
-- [ ] L5-T05B 초기 기준 마커 데이터 주입 구현
+- [x] L5-T05B 초기 기준 마커 데이터 주입 구현
   - 담당 Spec: S5
   - 필수 참조: `spec/specs/S5.json`, `spec/specs/S1-1.json`, `spec/specs/S7.json`
   - 연관 Spec: S1-1, S7, S3-2
