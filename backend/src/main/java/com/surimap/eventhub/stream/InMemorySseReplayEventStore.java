@@ -4,7 +4,6 @@ import com.surimap.eventhub.dto.PublishRequest;
 import com.surimap.eventhub.validation.BaseEventValidator;
 import java.time.Clock;
 import java.time.Instant;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -44,40 +43,41 @@ public class InMemorySseReplayEventStore implements SseReplayEventStore {
   @Override
   public ReplayAppend append(UUID eventDispatchJobId, PublishRequest envelope) {
     BaseEventValidator.validate(envelope);
-    var existing = byEventId.get(envelope.eventId());
-    if (existing != null) {
-      return toAppend(existing);
-    }
 
-    long replaySequence = nextReplaySequence(envelope.incidentId(), eventDispatchJobId);
+    // computeIfAbsent is atomic: the sequence is allocated only when this thread wins the slot,
+    // eliminating the gap that would arise from pre-allocating a sequence before putIfAbsent.
+    boolean[] created = {false};
     var event =
-        SseReplayEvent.active(
-            UUID.randomUUID(),
-            eventDispatchJobId,
-            envelope.incidentId(),
-            replaySequence,
-            envelope,
-            now());
+        byEventId.computeIfAbsent(
+            envelope.eventId(),
+            ignored -> {
+              long seq = nextReplaySequence(envelope.incidentId(), eventDispatchJobId);
+              created[0] = true;
+              return SseReplayEvent.active(
+                  UUID.randomUUID(),
+                  eventDispatchJobId,
+                  envelope.incidentId(),
+                  seq,
+                  envelope,
+                  now());
+            });
 
-    var raced = byEventId.putIfAbsent(envelope.eventId(), event);
-    if (raced != null) {
-      return toAppend(raced);
+    if (created[0]) {
+      byIncident
+          .computeIfAbsent(envelope.incidentId(), ignored -> new ConcurrentSkipListMap<>())
+          .put(event.replaySequence(), event);
     }
-    byIncident
-        .computeIfAbsent(envelope.incidentId(), ignored -> new ConcurrentSkipListMap<>())
-        .put(replaySequence, event);
-    return toAppend(event);
+    return toAppend(event, created[0]);
   }
 
   @Override
   public Optional<ReplayAppend> findByEventId(UUID eventId) {
-    return Optional.ofNullable(byEventId.get(eventId)).map(this::toAppend);
+    return Optional.ofNullable(byEventId.get(eventId)).map(e -> toAppend(e, false));
   }
 
   @Override
   public List<SseReplayEvent> findByIncidentId(UUID incidentId) {
     return byIncident.getOrDefault(incidentId, new ConcurrentSkipListMap<>()).values().stream()
-        .sorted(Comparator.comparingLong(SseReplayEvent::replaySequence))
         .toList();
   }
 
@@ -108,8 +108,8 @@ public class InMemorySseReplayEventStore implements SseReplayEventStore {
     return Instant.now(clock);
   }
 
-  private ReplayAppend toAppend(SseReplayEvent event) {
+  private ReplayAppend toAppend(SseReplayEvent event, boolean isNew) {
     return new ReplayAppend(
-        event.envelope().eventId(), event.incidentId(), event.replaySequence(), event);
+        event.envelope().eventId(), event.incidentId(), event.replaySequence(), event, isNew);
   }
 }

@@ -39,7 +39,9 @@ public class SseStreamService {
   public SseReplayEventStore.ReplayAppend dispatchLive(
       UUID eventDispatchJobId, PublishRequest request) {
     var append = replayEventStore.append(eventDispatchJobId, request);
-    sessionRegistry.send(request.incidentId(), replayService.frameOf(append.event()));
+    if (append.isNew()) {
+      sessionRegistry.send(request.incidentId(), replayService.frameOf(append.event()));
+    }
     return append;
   }
 

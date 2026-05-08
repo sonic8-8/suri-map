@@ -133,7 +133,7 @@
 
 ## Phase 3
 
-- [ ] L2-T07B SSE 중복·순서 뒤바뀜·board API refetch 복구 실패 주입 구현
+- [x] L2-T07B SSE 중복·순서 뒤바뀜·board API refetch 복구 실패 주입 구현
   - 담당 Spec: S4
   - 필수 참조: `spec/specs/S4.json`, `spec/harness-scenarios.md §0.3`, `spec/harness-scenarios.md §6 mock SSE client`
   - 연관 Spec: S1-1, S1-2, S1-3, S2, S3-1, S5, S6, S7, S8, S3-2

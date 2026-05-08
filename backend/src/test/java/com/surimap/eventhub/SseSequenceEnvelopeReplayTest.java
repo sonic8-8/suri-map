@@ -75,7 +75,9 @@ class SseSequenceEnvelopeReplayTest {
     var firstAppend = replayStore.append(UUID.randomUUID(), first);
     var secondAppend = replayStore.append(UUID.randomUUID(), duplicate);
 
-    assertThat(secondAppend).isEqualTo(firstAppend);
+    assertThat(secondAppend.eventId()).isEqualTo(firstAppend.eventId());
+    assertThat(secondAppend.replaySequence()).isEqualTo(firstAppend.replaySequence());
+    assertThat(secondAppend.isNew()).isFalse();
     assertThat(replayService.replayAfter(INCIDENT_ID, "0")).hasSize(1);
   }
 
