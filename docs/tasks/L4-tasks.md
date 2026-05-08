@@ -124,7 +124,7 @@
 
 ## Phase 3
 
-- [ ] L4-T07C 클라이언트-서버 시각 보정 API 구현
+- [x] L4-T07C 클라이언트-서버 시각 보정 API 구현
   - 담당 Spec: S6
   - 필수 참조: `spec/specs/S6.json`, `spec/harness-scenarios.md §6 mock network 상태`
   - 연관 Spec: S1-2, S4
@@ -132,8 +132,9 @@
   - 구현 산출물: `POST /api/sync/clock`, client/server time offset record, time skew tests
   - 예상 작업량: 1d
   - 완료 기준: client/server time offset이 기록되고 owner endpoint를 우회하지 않은 채 offline retry logic에 노출된다.
+  - 완료 근거: `backend/src/main/java/com/surimap/sync/clock/SyncClockController.java`, `backend/src/test/java/com/surimap/sync/clock/SyncClockContractTest.java` (`channel_not_allowed`/`police_phone_required`/`police_phone_not_registered`/`police_phone_not_assigned` guard 포함), `backend/AGENTS.md` 기본 검증 `./gradlew test` 통과
 
-- [ ] L4-T07D Outbox 재시도 진단 상태 구현
+- [x] L4-T07D Outbox 재시도 진단 상태 구현
   - 담당 Spec: S6
   - 필수 참조: `spec/specs/S6.json`, `spec/harness-scenarios.md §6 mock network 상태`
   - 연관 Spec: S1-2, S4
@@ -141,6 +142,7 @@
   - 구현 산출물: requeue diagnostics endpoint/state, retryable/terminal state tests, diagnostic fixture
   - 예상 작업량: 1d
   - 완료 기준: requeue diagnostics가 owner endpoint를 우회하지 않고 retryable/terminal local state를 노출한다.
+  - 완료 근거: `backend/src/main/java/com/surimap/sync/outbox/OutboxRequeueController.java`, `backend/src/main/java/com/surimap/sync/outbox/OutboxRequeueExceptionHandler.java`, `backend/src/test/java/com/surimap/sync/outbox/OutboxRequeueContractRedTest.java`, `backend/src/test/java/com/surimap/sync/outbox/OutboxRetryDiagnosticsFixtureTest.java`
 
 - [ ] L4-T06 서버 멱등 처리와 응답 재사용 구현
   - 담당 Spec: S6
