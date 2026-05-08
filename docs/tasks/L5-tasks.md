@@ -184,7 +184,7 @@
 
 ## Phase 4
 
-- [ ] L5-T09A SC-06 마커·사진 하네스 작성
+- [x] L5-T09A SC-06 마커·사진 하네스 작성
   - 담당 Spec: S5
   - 필수 참조: `spec/specs/S5.json`, `spec/harness-scenarios.md §2 SC-06`
   - 연관 Spec: S1-2, S2, S4, S6, S8, S3-2
