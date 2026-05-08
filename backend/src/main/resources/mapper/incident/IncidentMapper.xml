@@ -233,6 +233,25 @@
         WHERE id = #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
     </update>
 
+    <update id="closeIncident">
+        <!-- Terminal 전이와 write block 기준 version 증가는 같은 incident row update에서 끝낸다. -->
+        UPDATE "incident"
+        SET
+            status = 'CLOSED',
+            closed_at = #{closedAt},
+            closed_by_account_id = #{closedByAccountId, jdbcType=VARCHAR, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            version = version + 1,
+            updated_at = #{closedAt}
+        WHERE id = #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND status = 'OPEN'
+    </update>
+
+    <delete id="deleteMissingPersonByIncidentId">
+        <!-- S1-1 소유 active missing_person row 삭제. S1-3 package/local purge는 INCIDENT_CLOSED 소비자가 처리한다. -->
+        DELETE FROM missing_person
+        WHERE incident_id = #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+    </delete>
+
     <select id="findActiveAssignmentAccountIds" resultType="string">
         SELECT account_id
         FROM incident_assignment
