@@ -20,44 +20,56 @@ public final class IncidentActiveReadResults {
   public record ListItem(
       UUID id, UUID incidentId, String title, String status, long version, Instant closedAt) {}
 
-  /** 상세 read model. OPEN이면 active 필드, CLOSED이면 sanitized terminal 필드만 채운다. */
-  public record Detail(
-      UUID id,
-      UUID incidentId,
-      String status,
-      long version,
-      Instant closedAt,
-      TerminalSnapshot terminalSnapshot,
-      String writeDisabledReason,
-      MissingPerson missingPerson,
-      List<Assignment> assignments) {
-    public Detail {
-      assignments = assignments == null ? null : List.copyOf(assignments);
-    }
+  /** 상세 read model. Active와 Terminal을 타입으로 분리해 잘못된 필드 조합을 만들 수 없게 한다. */
+  public sealed interface Detail permits Detail.Active, Detail.Terminal {
+    UUID id();
 
-    public static Detail active(
+    UUID incidentId();
+
+    String status();
+
+    long version();
+
+    static Detail active(
         UUID id,
         UUID incidentId,
         String status,
         long version,
         MissingPerson missingPerson,
         List<Assignment> assignments) {
-      return new Detail(
-          id, incidentId, status, version, null, null, null, missingPerson, assignments);
+      return new Active(id, incidentId, status, version, missingPerson, assignments);
     }
 
-    public static Detail terminal(
+    static Detail terminal(
         UUID id, UUID incidentId, String status, long version, Instant closedAt) {
-      return new Detail(
-          id,
-          incidentId,
-          status,
-          version,
-          closedAt,
-          new TerminalSnapshot(id, incidentId, status, version, closedAt, "incident_closed"),
-          "incident_closed",
-          null,
-          null);
+      return new Terminal(id, incidentId, status, version, closedAt);
+    }
+
+    /** OPEN 상세는 missing_person과 active assignments만 포함한다. */
+    record Active(
+        UUID id,
+        UUID incidentId,
+        String status,
+        long version,
+        MissingPerson missingPerson,
+        List<Assignment> assignments)
+        implements Detail {
+      public Active {
+        assignments = List.copyOf(assignments);
+      }
+    }
+
+    /** CLOSED 상세는 sanitized terminal 상태만 포함하고 active 개인정보 필드를 가질 수 없다. */
+    record Terminal(UUID id, UUID incidentId, String status, long version, Instant closedAt)
+        implements Detail {
+      public String writeDisabledReason() {
+        return "incident_closed";
+      }
+
+      public TerminalSnapshot terminalSnapshot() {
+        return new TerminalSnapshot(
+            id, incidentId, status, version, closedAt, writeDisabledReason());
+      }
     }
   }
 
