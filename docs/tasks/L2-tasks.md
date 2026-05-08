@@ -97,7 +97,7 @@
   - 예상 작업량: 2d
   - 완료 기준: 배정된 police_phone fixture는 package 조회와 현장 기록 write가 가능하고, 미배정 police_phone는 assignment guard로 실패하며, 새 public police_phone registration API 없이 heartbeat가 police_phone_freshness DTO에 반영된다.
 
-- [ ] L2-T05 S4 기본 이벤트 포맷 검증 구현
+- [x] L2-T05 S4 기본 이벤트 포맷 검증 구현
   - 담당 Spec: S4
   - 필수 참조: `spec/specs/S4.json`, `spec/boundaries.md §4.4`, `spec/boundaries.md §9.1`, `spec/boundaries.md §10`
   - 연관 Spec: S1-1, S1-2, S1-3, S2, S3-1, S5, S7, S8
