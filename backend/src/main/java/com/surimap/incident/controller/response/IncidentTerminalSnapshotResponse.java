@@ -1,5 +1,6 @@
 package com.surimap.incident.controller.response;
 
+import com.surimap.incident.service.IncidentActiveReadResults.TerminalSnapshot;
 import com.surimap.incident.service.IncidentCloseResult;
 import java.time.Instant;
 import java.util.UUID;
@@ -21,5 +22,18 @@ public record IncidentTerminalSnapshotResponse(
         result.version(),
         result.closedAt(),
         result.writeDisabledReason());
+  }
+
+  public static IncidentTerminalSnapshotResponse from(TerminalSnapshot snapshot) {
+    if (snapshot == null) {
+      return null;
+    }
+    return new IncidentTerminalSnapshotResponse(
+        snapshot.id(),
+        snapshot.incidentId(),
+        snapshot.status(),
+        snapshot.version(),
+        snapshot.closedAt(),
+        snapshot.writeDisabledReason());
   }
 }

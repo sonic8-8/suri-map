@@ -88,6 +88,46 @@ public final class IncidentReadRows {
     }
   }
 
+  /** 종료 사건 상세 응답의 sanitized terminal 상태 row. */
+  public static class TerminalDetailRow {
+    private UUID id;
+    private String status;
+    private long version;
+    private Instant closedAt;
+
+    public UUID getId() {
+      return id;
+    }
+
+    public void setId(UUID id) {
+      this.id = id;
+    }
+
+    public String getStatus() {
+      return status;
+    }
+
+    public void setStatus(String status) {
+      this.status = status;
+    }
+
+    public long getVersion() {
+      return version;
+    }
+
+    public void setVersion(long version) {
+      this.version = version;
+    }
+
+    public Instant getClosedAt() {
+      return closedAt;
+    }
+
+    public void setClosedAt(Instant closedAt) {
+      this.closedAt = closedAt;
+    }
+  }
+
   /** 상세 응답에 붙는 active missing_person row. */
   public static class MissingPersonRow {
     private UUID incidentId;
