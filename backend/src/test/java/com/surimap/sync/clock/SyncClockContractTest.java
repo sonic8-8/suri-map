@@ -107,7 +107,7 @@ class SyncClockContractTest {
       channel = Channel.APP,
       accountType = AccountType.TEAM,
       organizationType = OrganizationType.MISSING_TEAM)
-  @DisplayName("POST /api/sync/clock는 APP 단말 식별자가 없으면 police_phone_required로 거부한다")
+  @DisplayName("POST /api/sync/clock는 APP 단말 식별자가 없으면 device_required로 거부한다")
   void post_sync_clock_rejects_when_police_phone_missing() throws Exception {
     mockMvc
         .perform(
@@ -115,7 +115,7 @@ class SyncClockContractTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(SyncClockContractFixtures.requestBody()))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.error").value("police_phone_required"));
+        .andExpect(jsonPath("$.error").value("device_required"));
   }
 
   @Test
@@ -124,15 +124,16 @@ class SyncClockContractTest {
       accountType = AccountType.TEAM,
       organizationType = OrganizationType.MISSING_TEAM,
       policePhoneId = "00000000-0000-0000-0000-000000000201")
-  @DisplayName("POST /api/sync/clock는 미등록 단말을 police_phone_not_registered로 거부한다")
+  @DisplayName("POST /api/sync/clock는 미등록 단말을 device_not_registered로 거부한다")
   void post_sync_clock_rejects_unregistered_police_phone() throws Exception {
     mockMvc
         .perform(
             post("/api/sync/clock")
                 .contentType(MediaType.APPLICATION_JSON)
+                .header("X-Device-Id", SyncClockContractFixtures.DEVICE_ID)
                 .content(SyncClockContractFixtures.requestBody()))
         .andExpect(status().isForbidden())
-        .andExpect(jsonPath("$.error").value("police_phone_not_registered"));
+        .andExpect(jsonPath("$.error").value("device_not_registered"));
   }
 
   @Test
@@ -141,14 +142,15 @@ class SyncClockContractTest {
       accountType = AccountType.TEAM,
       organizationType = OrganizationType.MISSING_TEAM,
       policePhoneId = "00000000-0000-0000-0000-000000000301")
-  @DisplayName("POST /api/sync/clock는 미배정 단말을 police_phone_not_assigned로 거부한다")
+  @DisplayName("POST /api/sync/clock는 미배정 단말을 device_not_assigned로 거부한다")
   void post_sync_clock_rejects_unassigned_police_phone() throws Exception {
     mockMvc
         .perform(
             post("/api/sync/clock")
                 .contentType(MediaType.APPLICATION_JSON)
+                .header("X-Device-Id", SyncClockContractFixtures.DEVICE_ID)
                 .content(SyncClockContractFixtures.requestBody()))
         .andExpect(status().isForbidden())
-        .andExpect(jsonPath("$.error").value("police_phone_not_assigned"));
+        .andExpect(jsonPath("$.error").value("device_not_assigned"));
   }
 }
