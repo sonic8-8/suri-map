@@ -1,0 +1,55 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border-radius: 999px;
+  line-height: 1.2;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.sizeSm {
+  min-width: 62px;
+  min-height: 26px;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.sizeLg {
+  min-height: 42px;
+  padding: 0 18px;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.toneActive {
+  border: 1px solid color-mix(in srgb, #52c184 52%, var(--color-border-default));
+  color: #1f6b45;
+  background: #e5f7ec;
+}
+
+.toneWaiting {
+  border: 1px solid color-mix(in srgb, var(--krds-ops-warning) 58%, var(--color-border-default));
+  color: #a75d00;
+  background: #fff0d7;
+}
+
+.toneDanger {
+  border: 1px solid color-mix(in srgb, #dc2626 58%, var(--color-border-default));
+  color: #b91c1c;
+  background: #fee2e2;
+}
+
+.toneClosed {
+  border: 1px solid color-mix(in srgb, #6f8398 50%, var(--color-border-default));
+  color: #50657a;
+  background: #e8eef4;
+}
+
+.toneNeutral {
+  border: 1px solid var(--color-border-default);
+  color: var(--color-fg-secondary);
+  background: var(--color-bg-surface);
+}
