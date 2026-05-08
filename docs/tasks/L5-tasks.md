@@ -172,7 +172,7 @@
   - 예상 작업량: 1d
   - 완료 기준: person found marker가 high priority notification flow를 따르고, 안정적인 id/status/version/opId/policePhoneId를 가진 `PERSON_FOUND`를 발행하며, 지원하지 않는 external push infrastructure를 노출하지 않는다.
 
-- [ ] L5-T04C 사건 종료 후 마커·사진 쓰기 차단과 삭제 후크 계약 구현
+- [x] L5-T04C 사건 종료 후 마커·사진 쓰기 차단과 삭제 후크 계약 구현
   - 담당 Spec: S5
   - 필수 참조: `spec/specs/S5.json`, `spec/specs/S1-3.json`, `spec/boundaries.md §4.5`, `spec/harness-scenarios.md §2 SC-12`
   - 연관 Spec: S1-1, S1-3, S4, S6, S3-2
