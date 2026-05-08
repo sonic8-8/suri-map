@@ -91,7 +91,7 @@ public class SearchPathService {
     return new PathQueryResponse(rows);
   }
 
-  public SearchPathSegment correctSegment(
+  public SegmentCorrectionResult correctSegment(
       String segmentId, MovementType movementType, UUID correctedByAccountId) {
     SearchPathAggregate owner =
         repository.findAll().stream()
@@ -114,7 +114,7 @@ public class SearchPathService {
             corrected.id(),
             corrected.movementType(),
             corrected.movementTypeSource()));
-    return corrected;
+    return new SegmentCorrectionResult(corrected, owner.opId(), owner.policePhoneId());
   }
 
   private List<GpsPathPoint> toValidatorPoints(List<PathBatchPointRequest> points) {

@@ -30,19 +30,24 @@ class SearchPathSegmentControllerTest {
   @DisplayName("PATCH /api/search-path-segments/{id} returns manual correction response")
   void correctionContract() throws Exception {
     UUID accountId = UUID.fromString("30000000-0000-0000-0000-000000000001");
+    UUID opId = UUID.fromString("70000000-0000-0000-0000-000000000001");
+    UUID policePhoneId = UUID.fromString("50000000-0000-0000-0000-000000000001");
     when(searchPathService.correctSegment(eq("seg-001"), eq(MovementType.FOOT), eq(accountId)))
         .thenReturn(
-            new SearchPathSegment(
-                "seg-001",
-                2L,
-                MovementType.FOOT,
-                MovementTypeSource.MANUAL,
-                0,
-                3,
-                "gps-precinct-001",
-                "gps-precinct-004",
-                accountId,
-                OffsetDateTime.parse("2026-04-28T09:12:00+09:00")));
+            new SegmentCorrectionResult(
+                new SearchPathSegment(
+                    "seg-001",
+                    2L,
+                    MovementType.FOOT,
+                    MovementTypeSource.MANUAL,
+                    0,
+                    3,
+                    "gps-precinct-001",
+                    "gps-precinct-004",
+                    accountId,
+                    OffsetDateTime.parse("2026-04-28T09:12:00+09:00")),
+                opId,
+                policePhoneId));
 
     mockMvc
         .perform(
@@ -54,6 +59,8 @@ class SearchPathSegmentControllerTest {
         .andExpect(jsonPath("$.id", is("seg-001")))
         .andExpect(jsonPath("$.movementType", is("FOOT")))
         .andExpect(jsonPath("$.movementTypeSource", is("MANUAL")))
+        .andExpect(jsonPath("$.opId", is(opId.toString())))
+        .andExpect(jsonPath("$.policePhoneId", is(policePhoneId.toString())))
         .andExpect(jsonPath("$.correctedByAccountId", is(accountId.toString())))
         .andExpect(jsonPath("$.version", is(2)));
   }

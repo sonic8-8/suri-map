@@ -27,15 +27,17 @@ public class SearchPathSegmentController {
       throw new SearchPathApiException("write_conflict");
     }
     UUID accountId = parseAccountId(accountIdHeader);
-    SearchPathSegment corrected =
+    SegmentCorrectionResult corrected =
         searchPathService.correctSegment(searchPathSegmentId, request.movementType(), accountId);
     return new PathSegmentCorrectionResponse(
-        corrected.id(),
-        corrected.movementType(),
-        corrected.movementTypeSource(),
-        corrected.correctedByAccountId(),
-        corrected.correctedAt(),
-        corrected.version());
+        corrected.segment().id(),
+        corrected.segment().movementType(),
+        corrected.segment().movementTypeSource(),
+        corrected.opId(),
+        corrected.policePhoneId(),
+        corrected.segment().correctedByAccountId(),
+        corrected.segment().correctedAt(),
+        corrected.segment().version());
   }
 
   private UUID parseAccountId(String accountIdHeader) {

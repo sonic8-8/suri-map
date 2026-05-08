@@ -106,14 +106,16 @@ class SearchPathServiceTest {
 
     var corrected = service.correctSegment(target.id(), MovementType.FOOT, accountId);
 
-    assertThat(corrected.id()).isEqualTo(target.id());
-    assertThat(corrected.startIndex()).isEqualTo(target.startIndex());
-    assertThat(corrected.endIndex()).isEqualTo(target.endIndex());
-    assertThat(corrected.startPointId()).isEqualTo(target.startPointId());
-    assertThat(corrected.endPointId()).isEqualTo(target.endPointId());
-    assertThat(corrected.movementType()).isEqualTo(MovementType.FOOT);
-    assertThat(corrected.movementTypeSource()).isEqualTo(MovementTypeSource.MANUAL);
-    assertThat(corrected.correctedByAccountId()).isEqualTo(accountId);
+    assertThat(corrected.segment().id()).isEqualTo(target.id());
+    assertThat(corrected.segment().startIndex()).isEqualTo(target.startIndex());
+    assertThat(corrected.segment().endIndex()).isEqualTo(target.endIndex());
+    assertThat(corrected.segment().startPointId()).isEqualTo(target.startPointId());
+    assertThat(corrected.segment().endPointId()).isEqualTo(target.endPointId());
+    assertThat(corrected.segment().movementType()).isEqualTo(MovementType.FOOT);
+    assertThat(corrected.segment().movementTypeSource()).isEqualTo(MovementTypeSource.MANUAL);
+    assertThat(corrected.segment().correctedByAccountId()).isEqualTo(accountId);
+    assertThat(corrected.opId()).isEqualTo(opId);
+    assertThat(corrected.policePhoneId()).isEqualTo(policePhoneId);
 
     assertThat(publisher.segmentUpdated())
         .singleElement()
