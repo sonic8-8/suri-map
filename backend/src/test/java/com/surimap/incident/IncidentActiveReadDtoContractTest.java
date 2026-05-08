@@ -51,8 +51,8 @@ import org.springframework.test.web.servlet.MockMvc;
       "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('20000000-0000-4000-8000-000000000006', '10000000-0000-4000-8000-000000000002', 'acct-other-incident', 'MEMBER', '2026-04-28T09:15:00+09:00', NULL, '2026-04-28T09:15:00+09:00', '2026-04-28T09:15:00+09:00')",
       "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('20000000-0000-4000-8000-000000000007', '10000000-0000-4000-8000-000000000003', 'acct-precinct-team', 'MEMBER', '2026-04-27T09:00:00+09:00', NULL, '2026-04-27T09:00:00+09:00', '2026-04-27T09:00:00+09:00')"
     })
-@DisplayName("L1-T05A GET /api/incidents active read DTO RED")
-class IncidentActiveReadDtoRedTest {
+@DisplayName("L1-T05A GET /api/incidents active read DTO 계약")
+class IncidentActiveReadDtoContractTest {
 
   private static final UUID OPEN_ASSIGNED_INCIDENT_ID =
       UUID.fromString("10000000-0000-4000-8000-000000000001");

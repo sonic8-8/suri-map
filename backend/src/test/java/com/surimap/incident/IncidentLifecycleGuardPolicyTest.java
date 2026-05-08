@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 
 @DisplayName("L1-T02 사건 lifecycle guard 정책")
-class IncidentLifecycleGuardPolicyRedTest {
+class IncidentLifecycleGuardPolicyTest {
 
   private static final UUID INCIDENT_ID = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001");
 

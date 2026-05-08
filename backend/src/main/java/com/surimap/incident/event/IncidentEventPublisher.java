@@ -5,4 +5,7 @@ public interface IncidentEventPublisher {
 
   /** INCIDENT_CREATED publish 요청. event_dispatch_job 저장과 fanout은 S4 구현체 책임이다. */
   void publishIncidentCreated(IncidentCreatedEvent event);
+
+  /** INCIDENT_ASSIGNMENT_CHANGED publish 요청. event_dispatch_job 저장과 fanout은 S4 구현체 책임이다. */
+  void publishIncidentAssignmentChanged(IncidentAssignmentChangedEvent event);
 }

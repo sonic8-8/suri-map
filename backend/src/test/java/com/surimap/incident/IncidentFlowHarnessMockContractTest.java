@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
 /**
  * L1-T07 SC-01/02/12 사건 흐름 하네스 mock 계약 테스트.
  *
- * <p>본 계약은 Phase 0 골격이다. mock 간 상호작용 자체로 fixture·adapter 계약을 고정하고, 실제 RED 검증은 Phase 1의 L1-T01 사건
+ * <p>본 계약은 Phase 0 골격이다. mock 간 상호작용 자체로 fixture·adapter 계약을 고정하고, 실제 실패 검증은 Phase 1의 L1-T01 사건
  * 가져오기 API 테스트가 본 계약을 consume하면서 수행한다.
  */
 @DisplayName("L1-T07 사건 흐름 mock adapter와 시드 fixture 로더 계약")

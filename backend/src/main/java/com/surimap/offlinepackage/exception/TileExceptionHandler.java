@@ -19,4 +19,10 @@ public class TileExceptionHandler {
     return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
         .body(Map.of("error", "tile_unavailable"));
   }
+
+  @ExceptionHandler(OfflinePackageApiException.class)
+  ResponseEntity<Map<String, String>> handleOfflinePackageApi(
+      OfflinePackageApiException exception) {
+    return ResponseEntity.status(exception.status()).body(Map.of("error", exception.errorCode()));
+  }
 }

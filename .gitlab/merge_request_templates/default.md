@@ -13,8 +13,9 @@
 - [ ] 검증 명령과 결과를 MR 설명에 적었다.
 
 ## 백엔드 리뷰 체크리스트
-- [ ] 변경한 일반 JSON 성공 응답이 공통 `ApiResponse`를 사용한다.
-- [ ] `ApiResponse`를 사용하지 않은 성공 응답이 있다면, 그 이유를 MR 설명에 적었다.
+- [ ] 변경한 일반 JSON 성공 응답이 `ResponseEntity<계약 Response DTO>`를 사용한다.
+- [ ] 공통 `ApiResponse` wrapper를 만들거나 사용하지 않았다.
+- [ ] 응답 body가 `docs/api/api-spec.md`의 JSON shape와 직접 일치한다.
 - [ ] 예외 응답 형식을 추가하거나 수정했다면, 공통 `ErrorResponse`를 사용한다.
 - [ ] Validation을 추가하거나 수정했다면, Validation 실패 응답에 `errors` 목록이 포함된다.
 - [ ] 보호 API를 수정했다면, `userId`/`userKey` 요청값 대신 인증 principal 기반으로 처리한다.

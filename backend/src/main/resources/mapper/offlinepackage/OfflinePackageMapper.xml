@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.surimap.offlinepackage.repository.OfflinePackageMapper">
+    <resultMap id="installationRecordMap"
+               type="com.surimap.offlinepackage.repository.OfflinePackageInstallationRecord">
+        <constructor>
+            <arg column="id" javaType="string"/>
+            <arg column="offline_package_manifest_id" javaType="string"/>
+            <arg column="incident_id" javaType="string"/>
+            <arg column="police_phone_id" javaType="string"/>
+            <arg column="last_reported_by_account_id" javaType="string"/>
+            <arg column="status" javaType="string"/>
+            <arg column="total_item_count" javaType="_int"/>
+            <arg column="completed_item_count" javaType="_int"/>
+            <arg column="failed_item_count" javaType="_int"/>
+            <arg column="failed_item_keys" javaType="java.util.List"
+                 typeHandler="com.surimap.config.mybatis.StringListArrayTypeHandler"/>
+            <arg column="last_error_code" javaType="string"/>
+            <arg column="last_reported_at" javaType="java.time.OffsetDateTime"/>
+            <arg column="version" javaType="_long"/>
+            <arg column="sequence_number" javaType="_long"/>
+            <arg column="ready_for_offline_use" javaType="_boolean"/>
+            <arg column="created_at" javaType="java.time.OffsetDateTime"/>
+            <arg column="updated_at" javaType="java.time.OffsetDateTime"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="installationStatusMap"
+               type="com.surimap.offlinepackage.query.OfflinePackageInstallationStatus">
+        <constructor>
+            <arg column="id" javaType="string"/>
+            <arg column="incident_id" javaType="string"/>
+            <arg column="police_phone_id" javaType="string"/>
+            <arg column="status" javaType="string"/>
+            <arg column="version" javaType="_long"/>
+            <arg column="sequence_number" javaType="_long"/>
+            <arg column="manifest_version" javaType="_int"/>
+            <arg column="ready_for_offline_use" javaType="_boolean"/>
+        </constructor>
+    </resultMap>
+
+    <select id="countManifest" resultType="int">
+        SELECT COUNT(*)
+        FROM offline_package_manifest
+        WHERE id = #{manifestId}
+    </select>
+
+    <insert id="insertManifest">
+        INSERT INTO offline_package_manifest (
+            id,
+            incident_id,
+            manifest_version,
+            operational_period_id,
+            overall_search_area_id,
+            overall_search_area_version,
+            manifest_hash,
+            manifest_format_version,
+            manifest_payload,
+            expires_at,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            #{manifestId},
+            #{incidentId},
+            #{manifestVersion},
+            'op-precinct-001-op1',
+            'osa-precinct-001',
+            1,
+            '1111111111111111111111111111111111111111111111111111111111111111',
+            1,
+            '{}',
+            #{expiresAt},
+            #{createdAt},
+            #{createdAt}
+        )
+    </insert>
+
+    <delete id="deleteInstallationForPhone">
+        DELETE FROM offline_package_installation
+        WHERE offline_package_manifest_id = #{manifestId}
+          AND police_phone_id = #{policePhoneId}
+    </delete>
+
+    <insert id="insertInstallation">
+        INSERT INTO offline_package_installation (
+            id,
+            offline_package_manifest_id,
+            police_phone_id,
+            last_reported_by_account_id,
+            status,
+            total_item_count,
+            completed_item_count,
+            failed_item_count,
+            failed_item_keys,
+            last_error_code,
+            last_reported_at,
+            version,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            #{record.id},
+            #{record.manifestId},
+            #{record.policePhoneId},
+            #{record.lastReportedByAccountId},
+            #{record.status},
+            #{record.totalItemCount},
+            #{record.completedItemCount},
+            #{record.failedItemCount},
+            #{record.failedItemKeys,
+              typeHandler=com.surimap.config.mybatis.StringListArrayTypeHandler},
+            #{record.lastErrorCode},
+            #{record.lastReportedAt},
+            #{record.version},
+            #{record.createdAt},
+            #{record.updatedAt}
+        )
+    </insert>
+
+    <select id="findInstallationForPhone" resultMap="installationRecordMap">
+        SELECT
+            i.id,
+            i.offline_package_manifest_id,
+            m.incident_id,
+            i.police_phone_id,
+            i.last_reported_by_account_id,
+            i.status,
+            i.total_item_count,
+            i.completed_item_count,
+            i.failed_item_count,
+            i.failed_item_keys,
+            i.last_error_code,
+            i.last_reported_at,
+            i.version,
+            901 AS sequence_number,
+            i.status = 'READY' AS ready_for_offline_use,
+            i.created_at,
+            i.updated_at
+        FROM offline_package_installation i
+        JOIN offline_package_manifest m ON m.id = i.offline_package_manifest_id
+        WHERE i.offline_package_manifest_id = #{manifestId}
+          AND i.police_phone_id = #{policePhoneId}
+    </select>
+
+    <select id="findStatusesByIncident" resultMap="installationStatusMap">
+        SELECT
+            i.id,
+            m.incident_id,
+            i.police_phone_id,
+            i.status,
+            i.version,
+            901 AS sequence_number,
+            m.manifest_version,
+            i.status = 'READY' AS ready_for_offline_use
+        FROM offline_package_installation i
+        JOIN offline_package_manifest m ON m.id = i.offline_package_manifest_id
+        WHERE m.incident_id = #{incidentId}
+        ORDER BY
+            CASE i.status
+                WHEN 'READY' THEN 1
+                WHEN 'PARTIAL' THEN 2
+                WHEN 'STALE' THEN 3
+                WHEN 'FAILED' THEN 4
+                ELSE 5
+            END,
+            i.police_phone_id
+    </select>
+</mapper>

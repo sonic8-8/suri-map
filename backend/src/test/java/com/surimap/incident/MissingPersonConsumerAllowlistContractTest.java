@@ -25,7 +25,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 @DisplayName("L1-T03 실종자 정보 소비 필드 허용 목록")
-class MissingPersonConsumerAllowlistRedTest {
+class MissingPersonConsumerAllowlistContractTest {
 
   private static final String DETAIL_MISSING_PERSON_RESPONSE =
       "com.surimap.incident.controller.response.IncidentDetailMissingPersonResponse";
@@ -117,15 +117,10 @@ class MissingPersonConsumerAllowlistRedTest {
                     List.of(terminalIncidentRowWithMissingPersonFields())));
 
     @SuppressWarnings("unchecked")
-    Map<String, Object> terminalSlot =
-        (Map<String, Object>) board.slots().get("incident_terminal");
+    Map<String, Object> terminalSlot = (Map<String, Object>) board.slots().get("incident_terminal");
     assertThat(terminalSlot)
         .doesNotContainKeys(
-            "displayName",
-            "photoObjectKey",
-            "appearanceText",
-            "lastSeenLocationText",
-            "lastSeenAt")
+            "displayName", "photoObjectKey", "appearanceText", "lastSeenLocationText", "lastSeenAt")
         .doesNotContainKeys(FORBIDDEN_MISSING_PERSON_FIELDS.toArray(String[]::new));
     assertThat(terminalSlot)
         .containsOnlyKeys(

@@ -23,6 +23,7 @@ public class SearchPathExceptionHandler {
   private HttpStatus status(String code) {
     return switch (code) {
       case "police_phone_required" -> HttpStatus.BAD_REQUEST;
+      case "incident_access_denied" -> HttpStatus.FORBIDDEN;
       default -> HttpStatus.CONFLICT;
     };
   }

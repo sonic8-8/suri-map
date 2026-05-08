@@ -46,7 +46,18 @@ class SearchPathControllerTest {
                 0,
                 List.of(),
                 List.of(List.of(126.956, 37.57), List.of(126.957, 37.571)),
-                List.of(new SearchPathSegment("seg-001", MovementType.VEHICLE, 0, 1, "p1", "p2")),
+                List.of(
+                    new SearchPathSegment(
+                        "seg-001",
+                        1L,
+                        MovementType.VEHICLE,
+                        MovementTypeSource.AUTO,
+                        0,
+                        1,
+                        "p1",
+                        "p2",
+                        null,
+                        null)),
                 2L,
                 SearchPathStatus.RECORDING));
 
