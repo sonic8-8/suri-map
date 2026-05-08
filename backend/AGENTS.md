@@ -106,14 +106,17 @@ Do / Don't:
 - Service Response DTO는 domain object, mapper row, 조회 결과를 API 반환 형태로 변환한다.
 - DTO는 API fixture field 이름을 보존한다. 하네스 필드명을 임의로 축약하거나 재명명하지 않는다.
 - DTO는 기본적으로 `record`보다 `class`를 우선한다. 단순 projection에는 `record`를 쓸 수 있으나 API 계약 안정성을 먼저 본다.
+- Controller 응답은 `ResponseEntity<계약 Response DTO>`를 기본으로 사용한다. 공통 `ApiResponse`
+  wrapper를 만들거나 사용하지 않는다. 응답 body는 `docs/api/api-spec.md`의 JSON shape와 직접 일치해야 한다.
 
 ```java
 @PostMapping("/api/search-paths")
-SearchPathResponse start(
+ResponseEntity<SearchPathResponse> start(
         @RequestHeader("X-PolicePhone-Id") Long policePhoneId,
         @Valid @RequestBody StartSearchPathRequest request
 ) {
-    return searchPathCommandService.start(request.toServiceRequest(policePhoneId));
+    return ResponseEntity.status(HttpStatus.CREATED)
+            .body(searchPathCommandService.start(request.toServiceRequest(policePhoneId)));
 }
 ```
 
