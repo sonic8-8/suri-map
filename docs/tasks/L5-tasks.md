@@ -193,7 +193,7 @@
   - 예상 작업량: 1d
   - 완료 기준: marker/photo red test가 auth, geometry, current OP, outbox, event, board API assembly mock contract로 통과한다.
 
-- [ ] L5-T09B SC-08 알림 하네스 작성
+- [x] L5-T09B SC-08 알림 하네스 작성
   - 담당 Spec: S5
   - 필수 참조: `spec/specs/S5.json`, `spec/harness-scenarios.md §2 SC-08`
   - 연관 Spec: S1-1, S1-2, S4, S6, S3-2
