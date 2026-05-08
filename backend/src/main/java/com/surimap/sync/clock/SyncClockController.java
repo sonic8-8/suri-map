@@ -1,5 +1,10 @@
 package com.surimap.sync.clock;
 
+import com.surimap.common.auth.Channel;
+import com.surimap.common.auth.RequireChannel;
+import com.surimap.common.auth.RequirePolicePhone;
+import com.surimap.common.auth.RequirePolicePhoneAssigned;
+import com.surimap.common.auth.RequirePolicePhoneRegistered;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -22,6 +27,10 @@ public class SyncClockController {
   }
 
   @PostMapping("/api/sync/clock")
+  @RequireChannel(Channel.APP)
+  @RequirePolicePhone
+  @RequirePolicePhoneRegistered
+  @RequirePolicePhoneAssigned
   public ResponseEntity<?> syncClock(@RequestBody SyncClockRequest request) {
     OffsetDateTime clientTs = OffsetDateTime.parse(request.clientTs());
     OffsetDateTime serverTs = OffsetDateTime.now(clock);

@@ -4,6 +4,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.surimap.common.auth.AccountType;
+import com.surimap.common.auth.Channel;
+import com.surimap.common.auth.OrganizationType;
+import com.surimap.common.auth.Role;
+import com.surimap.support.auth.WithMockAccount;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -20,7 +25,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest
-@AutoConfigureMockMvc(addFilters = false)
+@AutoConfigureMockMvc
 @ActiveProfiles("test")
 @DisplayName("L4-T07A sync clock contract")
 class SyncClockContractTest {
@@ -38,6 +43,11 @@ class SyncClockContractTest {
   }
 
   @Test
+  @WithMockAccount(
+      channel = Channel.APP,
+      accountType = AccountType.TEAM,
+      organizationType = OrganizationType.MISSING_TEAM,
+      policePhoneId = "00000000-0000-0000-0000-000000000101")
   @DisplayName("POST /api/sync/clock는 client/server clock offset contract를 반환한다")
   void post_sync_clock_returns_clock_offset_contract() throws Exception {
     mockMvc
@@ -57,6 +67,11 @@ class SyncClockContractTest {
   }
 
   @Test
+  @WithMockAccount(
+      channel = Channel.APP,
+      accountType = AccountType.TEAM,
+      organizationType = OrganizationType.MISSING_TEAM,
+      policePhoneId = "00000000-0000-0000-0000-000000000101")
   @DisplayName("POST /api/sync/clock는 clock skew 초과 시 409 clock_skew_exceeded를 반환한다")
   void post_sync_clock_rejects_clock_skew_exceeded() throws Exception {
     mockMvc
@@ -68,5 +83,72 @@ class SyncClockContractTest {
                 .content(SyncClockContractFixtures.skewedRequestBody()))
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.error").value("clock_skew_exceeded"));
+  }
+
+  @Test
+  @WithMockAccount(
+      channel = Channel.WEB,
+      accountType = AccountType.COMMAND,
+      organizationType = OrganizationType.POLICE_SUBSTATION,
+      roles = Role.FIELD_COMMANDER)
+  @DisplayName("POST /api/sync/clock는 WEB channel 요청을 channel_not_allowed로 거부한다")
+  void post_sync_clock_rejects_web_channel() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/sync/clock")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(SyncClockContractFixtures.requestBody()))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error").value("channel_not_allowed"));
+  }
+
+  @Test
+  @WithMockAccount(
+      channel = Channel.APP,
+      accountType = AccountType.TEAM,
+      organizationType = OrganizationType.MISSING_TEAM)
+  @DisplayName("POST /api/sync/clock는 APP 단말 식별자가 없으면 police_phone_required로 거부한다")
+  void post_sync_clock_rejects_when_police_phone_missing() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/sync/clock")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(SyncClockContractFixtures.requestBody()))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error").value("police_phone_required"));
+  }
+
+  @Test
+  @WithMockAccount(
+      channel = Channel.APP,
+      accountType = AccountType.TEAM,
+      organizationType = OrganizationType.MISSING_TEAM,
+      policePhoneId = "00000000-0000-0000-0000-000000000201")
+  @DisplayName("POST /api/sync/clock는 미등록 단말을 police_phone_not_registered로 거부한다")
+  void post_sync_clock_rejects_unregistered_police_phone() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/sync/clock")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(SyncClockContractFixtures.requestBody()))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error").value("police_phone_not_registered"));
+  }
+
+  @Test
+  @WithMockAccount(
+      channel = Channel.APP,
+      accountType = AccountType.TEAM,
+      organizationType = OrganizationType.MISSING_TEAM,
+      policePhoneId = "00000000-0000-0000-0000-000000000301")
+  @DisplayName("POST /api/sync/clock는 미배정 단말을 police_phone_not_assigned로 거부한다")
+  void post_sync_clock_rejects_unassigned_police_phone() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/sync/clock")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(SyncClockContractFixtures.requestBody()))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error").value("police_phone_not_assigned"));
   }
 }
