@@ -1,0 +1,62 @@
+.surface {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: #f7f7f7;
+}
+
+.canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.drawingCursor {
+  cursor: crosshair;
+}
+
+.vertexControl {
+  position: absolute;
+  z-index: 12;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  box-shadow:
+    0 8px 18px rgb(0 0 0 / 28%),
+    0 0 0 1px rgb(0 0 0 / 16%);
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  transform: translate(-50%, calc(-100% - 10px));
+}
+
+.vertexControl::after {
+  position: absolute;
+  bottom: -7px;
+  left: 50%;
+  width: 2px;
+  height: 8px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 26%);
+  content: "";
+  transform: translateX(-50%);
+}
+
+.undoControl {
+  color: #12355f;
+  background: #ffffff;
+}
+
+.completeControl {
+  color: #ffffff;
+  background: #0057ff;
+}
+
+.vertexControl:hover {
+  filter: brightness(1.04);
+}

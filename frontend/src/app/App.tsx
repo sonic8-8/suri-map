@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 
+import { AreaEditPage } from '../features/areaEdit/presentation/pages/AreaEditPage';
 import { IncidentClosePage } from '../features/incidentClose/presentation/pages/IncidentClosePage';
 import { IncidentListPage } from '../features/incidents/presentation/pages/IncidentListPage';
 import { LoginPage } from '../features/login/presentation/pages/LoginPage';
@@ -53,5 +54,14 @@ export function App() {
     return <LoginPage onLoginSuccess={() => navigate(ROUTES.incidentList)} />;
   }
 
-  return <SituationBoardPage onOpenIncidentList={() => navigate(ROUTES.incidentList)} />;
+  if (pathname === ROUTES.areaEdit) {
+    return <AreaEditPage onBackToSituationBoard={() => navigate(ROUTES.home)} />;
+  }
+
+  return (
+    <SituationBoardPage
+      onOpenIncidentList={() => navigate(ROUTES.incidentList)}
+      onOpenAreaEdit={() => navigate(ROUTES.areaEdit)}
+    />
+  );
 }

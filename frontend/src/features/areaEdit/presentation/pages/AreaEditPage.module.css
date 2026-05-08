@@ -1,0 +1,357 @@
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid var(--suri-board-border);
+  background: var(--suri-board-page-bg);
+}
+
+.productNav {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: var(--suri-board-header-top-height);
+  flex-shrink: 0;
+  gap: 8px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--suri-board-border);
+  background: color-mix(in srgb, var(--suri-board-panel-bg) 95%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+.backButton {
+  position: relative;
+  z-index: 1;
+  min-height: 40px;
+  padding: 0 90px 0 0;
+  border: 0;
+  border-right: 1px solid var(--suri-board-border);
+  border-radius: 0;
+  color: var(--suri-board-fg-primary);
+  background: transparent;
+  font-size: var(--suri-board-header-back-font-size);
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.navTabs {
+  position: absolute;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  transform: translateX(-50%);
+}
+
+.navButton {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--suri-board-header-nav-button-height);
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--suri-board-fg-secondary);
+  background: transparent;
+  font-size: var(--suri-board-header-nav-font-size);
+  font-weight: var(--suri-board-header-nav-font-weight);
+  white-space: nowrap;
+}
+
+.navButtonActive {
+  border-color: color-mix(in srgb, var(--suri-board-primary) 40%, transparent);
+  color: var(--suri-board-primary-hi);
+  background: var(--suri-board-primary-soft);
+}
+
+.meta {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--suri-board-fg-muted);
+  font-size: var(--suri-board-header-meta-font-size);
+  white-space: nowrap;
+}
+
+.meta b,
+.brand {
+  color: var(--suri-board-fg-primary);
+}
+
+.metaDivider {
+  width: 1px;
+  height: 20px;
+  background: var(--suri-board-border);
+}
+
+.brand {
+  font-size: var(--suri-board-header-brand-font-size);
+  font-weight: 800;
+}
+
+.contextBar {
+  display: flex;
+  align-items: center;
+  min-height: 64px;
+  flex-shrink: 0;
+  gap: 16px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--suri-board-border);
+  background: var(--suri-board-header-bg);
+}
+
+.contextMain {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border: 1px solid var(--suri-board-border);
+  border-radius: 8px;
+  color: var(--suri-board-fg-secondary);
+  background: linear-gradient(135deg, var(--suri-board-border), var(--suri-board-panel-surface));
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.contextTitle {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.contextTitle span,
+.contextMetrics span {
+  color: var(--suri-board-fg-muted);
+  font-size: 12px;
+}
+
+.contextTitle strong,
+.contextMetrics strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contextTitle strong {
+  color: var(--suri-board-fg-primary);
+  font-size: 14px;
+}
+
+.contextDivider {
+  width: 1px;
+  height: 32px;
+  flex: 0 0 auto;
+  background: var(--suri-board-border);
+}
+
+.contextMetrics {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  min-width: 0;
+}
+
+.contextMetrics > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.contextMetrics strong {
+  color: var(--suri-board-fg-secondary);
+  font-size: 14px;
+}
+
+.contextActions {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid color-mix(in srgb, var(--suri-board-primary-hi) 70%, var(--suri-board-border));
+  border-radius: 999px;
+  color: var(--suri-board-primary-hi);
+  background: color-mix(in srgb, var(--suri-board-primary-soft) 58%, transparent);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.status::before {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+  content: "";
+}
+
+.shell {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.leftPanelTabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0 0 12px;
+  padding: 4px;
+  border: 1px solid var(--suri-board-border);
+  border-radius: 8px;
+  background: var(--suri-board-panel-surface);
+}
+
+.leftPanelTab {
+  min-height: 34px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--suri-board-fg-secondary);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.leftPanelTab:hover {
+  color: var(--suri-board-fg-primary);
+  background: var(--suri-board-panel-muted-bg);
+}
+
+.leftPanelTabActive {
+  border-color: color-mix(in srgb, var(--suri-board-primary-hi) 54%, var(--suri-board-border));
+  color: var(--suri-board-primary-hi);
+  background: var(--suri-board-primary-soft);
+}
+
+.deniedState {
+  place-self: center;
+  display: grid;
+  width: min(460px, calc(100% - 48px));
+  gap: 8px;
+  padding: 22px;
+  border: 1px solid var(--suri-board-border);
+  border-radius: 8px;
+  color: var(--suri-board-fg-secondary);
+  background: var(--suri-board-panel-bg);
+  box-shadow: 0 16px 36px rgb(0 0 0 / 18%);
+}
+
+.deniedState strong {
+  color: var(--suri-board-fg-primary);
+  font-size: 18px;
+}
+
+.deniedState span {
+  color: var(--suri-board-fg-muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+@media (max-width: 1180px) {
+  .meta {
+    display: none;
+  }
+}
+
+.navButton:not([aria-current]):hover {
+  color: var(--suri-board-fg-primary);
+  background: color-mix(in srgb, var(--suri-board-border) 60%, transparent);
+  cursor: pointer;
+}
+
+.confirmDialogBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(0 0 0 / 52%);
+  backdrop-filter: blur(2px);
+}
+
+.confirmDialog {
+  display: grid;
+  width: min(400px, calc(100% - 48px));
+  gap: 10px;
+  padding: 22px 24px 20px;
+  border: 1px solid var(--suri-board-border);
+  border-radius: 10px;
+  color: var(--suri-board-fg-secondary);
+  background: var(--suri-board-panel-bg);
+  box-shadow: 0 20px 48px rgb(0 0 0 / 36%);
+}
+
+.confirmDialogTitle {
+  color: var(--suri-board-fg-primary);
+  font-size: 16px;
+}
+
+.confirmDialogBody {
+  margin: 0;
+  color: var(--suri-board-fg-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.confirmDialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.confirmDialogCancel,
+.confirmDialogConfirm {
+  min-height: 36px;
+  padding: 0 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.confirmDialogCancel {
+  border: 1px solid var(--suri-board-border);
+  color: var(--suri-board-fg-secondary);
+  background: transparent;
+}
+
+.confirmDialogCancel:hover {
+  color: var(--suri-board-fg-primary);
+  background: color-mix(in srgb, var(--suri-board-border) 60%, transparent);
+}
+
+.confirmDialogConfirm {
+  border: 1px solid color-mix(in srgb, var(--suri-board-danger, #e03131) 50%, transparent);
+  color: color-mix(in srgb, var(--suri-board-danger, #e03131) 90%, var(--suri-board-fg-primary));
+  background: color-mix(in srgb, var(--suri-board-danger, #e03131) 12%, transparent);
+}
+
+.confirmDialogConfirm:hover {
+  background: color-mix(in srgb, var(--suri-board-danger, #e03131) 22%, transparent);
+}
