@@ -1,6 +1,7 @@
 package com.surimap.incident.repository;
 
 import com.surimap.incident.repository.IncidentReadRows.AssignmentRow;
+import com.surimap.incident.repository.IncidentReadRows.AssignmentTargetRow;
 import com.surimap.incident.repository.IncidentReadRows.DetailRow;
 import com.surimap.incident.repository.IncidentReadRows.ListRow;
 import com.surimap.incident.repository.IncidentReadRows.MissingPersonRow;
@@ -27,4 +28,7 @@ public interface IncidentReadMapper {
   Optional<MissingPersonRow> findMissingPersonByIncidentId(@Param("incidentId") UUID incidentId);
 
   List<AssignmentRow> findActiveAssignmentsByIncidentId(@Param("incidentId") UUID incidentId);
+
+  List<AssignmentTargetRow> findActiveAssignmentTargetsByIncidentId(
+      @Param("incidentId") UUID incidentId);
 }

@@ -167,4 +167,53 @@ public final class IncidentReadRows {
       this.incidentRole = incidentRole;
     }
   }
+
+  /** 알림 대상 계산을 위한 active assignment + account + police_phone row. */
+  public static class AssignmentTargetRow {
+    private String accountId;
+    private String incidentRole;
+    private String accountType;
+    private String organizationType;
+    private String policePhoneId;
+
+    public String getAccountId() {
+      return accountId;
+    }
+
+    public void setAccountId(String accountId) {
+      this.accountId = accountId;
+    }
+
+    public String getIncidentRole() {
+      return incidentRole;
+    }
+
+    public void setIncidentRole(String incidentRole) {
+      this.incidentRole = incidentRole;
+    }
+
+    public String getAccountType() {
+      return accountType;
+    }
+
+    public void setAccountType(String accountType) {
+      this.accountType = accountType;
+    }
+
+    public String getOrganizationType() {
+      return organizationType;
+    }
+
+    public void setOrganizationType(String organizationType) {
+      this.organizationType = organizationType;
+    }
+
+    public String getPolicePhoneId() {
+      return policePhoneId;
+    }
+
+    public void setPolicePhoneId(String policePhoneId) {
+      this.policePhoneId = policePhoneId;
+    }
+  }
 }

@@ -32,6 +32,14 @@
         <result property="incidentRole" column="incident_role"/>
     </resultMap>
 
+    <resultMap id="assignmentTargetRowMap" type="com.surimap.incident.repository.IncidentReadRows$AssignmentTargetRow">
+        <result property="accountId" column="account_id"/>
+        <result property="incidentRole" column="incident_role"/>
+        <result property="accountType" column="account_type"/>
+        <result property="organizationType" column="organization_type"/>
+        <result property="policePhoneId" column="police_phone_id"/>
+    </resultMap>
+
     <select id="findActiveListByAccountId" resultMap="listRowMap">
         <!-- L1-T05A는 active DTO만 다루므로 OPEN 사건과 해제되지 않은 배정만 노출한다. -->
         SELECT
@@ -104,5 +112,23 @@
         WHERE incident_id = #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
           AND revoked_at IS NULL
         ORDER BY assigned_at ASC, account_id ASC
+    </select>
+
+    <select id="findActiveAssignmentTargetsByIncidentId" resultMap="assignmentTargetRowMap">
+        SELECT
+            ia.account_id,
+            ia.incident_role,
+            a.account_type,
+            a.organization_type,
+            pp.id AS police_phone_id
+        FROM incident_assignment ia
+        LEFT JOIN account a
+            ON a.id = ia.account_id
+        LEFT JOIN police_phone pp
+            ON pp.account_id = ia.account_id
+           AND pp.status = 'ACTIVE'
+        WHERE ia.incident_id = #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND ia.revoked_at IS NULL
+        ORDER BY ia.assigned_at ASC, ia.account_id ASC, pp.id ASC
     </select>
 </mapper>
