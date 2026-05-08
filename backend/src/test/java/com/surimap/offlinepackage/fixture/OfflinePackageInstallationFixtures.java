@@ -7,13 +7,20 @@ import java.util.List;
 public final class OfflinePackageInstallationFixtures {
 
   public static final String INSTALLATION_ID = "pkg-status-precinct-001";
+  public static final String SEEDED_READY_INSTALLATION_ID = "pkg-status-precinct-ready-001";
+  public static final String SEEDED_PARTIAL_INSTALLATION_ID = "pkg-status-precinct-partial-001";
+  public static final String SEEDED_DOWNLOADING_INSTALLATION_ID =
+      "pkg-status-precinct-downloading-001";
   public static final String PACKAGE_STATUS_RESPONSE_ID = "pkg-inc-precinct-first-001";
   public static final String BOARD_ROW_ID = "board-package-inc-precinct-first-001";
   public static final String EVENT_ID = "evt-s7-package-status-001";
   public static final String EVENT_TYPE = "OFFLINE_PACKAGE_INSTALLATION_CHANGED";
+  public static final String SEARCH_AREA_CHANGED_EVENT_TYPE = "SEARCH_AREA_CHANGED";
   public static final String SOURCE_ENTITY_TYPE = "offline_package_installation";
   public static final int SEQUENCE = 901;
   public static final int VERSION = 3;
+  public static final int STALE_MANIFEST_VERSION =
+      OfflinePackageManifestFixtures.MANIFEST_VERSION + 1;
   public static final OffsetDateTime CLIENT_TS = OffsetDateTime.parse("2026-04-28T09:00:40+09:00");
   public static final OffsetDateTime SERVER_TS = OffsetDateTime.parse("2026-04-28T09:00:41+09:00");
   public static final String IDEMPOTENCY_KEY = "idem-package-001";
@@ -98,7 +105,7 @@ public final class OfflinePackageInstallationFixtures {
   public static List<OfflinePackageInstallationStatus> byIncidentQueryRows() {
     return List.of(
         status(INSTALLATION_ID, "READY", VERSION, OfflinePackageManifestFixtures.POLICE_PHONE_ID),
-        status("pkg-status-precinct-partial-001", "PARTIAL", 2, "dev-precinct-phone-02"),
+        status(SEEDED_PARTIAL_INSTALLATION_ID, "PARTIAL", 2, "dev-precinct-phone-02"),
         status("pkg-status-precinct-stale-001", "STALE", 4, "dev-precinct-phone-03"),
         status("pkg-status-precinct-failed-001", "FAILED", 5, "dev-precinct-phone-04"));
   }

@@ -62,13 +62,15 @@ public final class PackageBadgeBoardAssembler {
     input.put("warningType", PACKAGE_MISSING);
     input.put("packageStatus", status.status());
     input.put("manifestVersion", status.manifestVersion());
-    input.put("activeManifestVersion", status.manifestVersion());
+    input.put("activeManifestVersion", status.activeManifestVersion());
     input.put("raised", raised);
     input.put("reason", raised ? RAISE_REASON : CLEAR_REASON);
     return input;
   }
 
   private static boolean shouldRaisePackageMissing(OfflinePackageInstallationStatus status) {
-    return !("READY".equals(status.status()) && status.readyForOfflineUse());
+    return !("READY".equals(status.status())
+        && status.readyForOfflineUse()
+        && status.manifestVersion() == status.activeManifestVersion());
   }
 }
