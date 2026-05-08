@@ -18,7 +18,7 @@
 
 ## Phase -1
 
-- [ ] L2-B01 백엔드 실행 기반과 마이그레이션 러너 준비
+- [x] L2-B01 백엔드 실행 기반과 마이그레이션 러너 준비
   - 담당 Spec: S1-2, S1-3, S4
   - 필수 참조: `architecture.md §2`, `architecture.md §5`, `architecture.md §6.1`, `adr.md ADR-0001`, `adr.md ADR-0013`, `adr.md ADR-0033`, `adr.md ADR-0035`
   - 연관 Lane: All backend-consuming lanes
@@ -27,7 +27,7 @@
   - 예상 작업량: 1d
   - 완료 기준: domain behavior를 만들지 않은 상태에서 Spring Boot app, Gradle Groovy DSL build, PostgreSQL migration runner, MyBatis mapper scan이 test profile로 기동된다.
 
-- [ ] L2-B02 인증 필터 테스트 기반 준비
+- [x] L2-B02 인증 필터 테스트 기반 준비
   - 담당 Spec: S1-2
   - 필수 참조: `architecture.md §2`, `spec/specs/S1-2.json`, `spec/boundaries.md §7`
   - 연관 Lane: All lanes
@@ -36,7 +36,7 @@
   - 예상 작업량: 1d
   - 완료 기준: Lane별 domain write가 실행되기 전에 auth/security filter test가 mock account로 실행되고 fail-closed를 검증한다.
 
-- [ ] L2-B03A 이벤트 테스트 기반과 모의 발행 후크 작성
+- [x] L2-B03A 이벤트 테스트 기반과 모의 발행 후크 작성
   - 담당 Spec: S4
   - 필수 참조: `spec/specs/S4.json`, `spec/boundaries.md §4.4`
   - 연관 Lane: All event-consuming lanes
@@ -45,7 +45,7 @@
   - 예상 작업량: 1d
   - 완료 기준: real event_dispatch_job 또는 SSE dispatch 구현 전에 안정적인 mock publish hook 기준으로 event test를 작성할 수 있다.
 
-- [ ] L2-B03B 삭제 테스트 기반과 모의 삭제 후크 등록기 작성
+- [x] L2-B03B 삭제 테스트 기반과 모의 삭제 후크 등록기 작성
   - 담당 Spec: S1-3
   - 필수 참조: `spec/specs/S1-3.json`, `spec/boundaries.md §4.5`
   - 연관 Lane: L1, L4, L5, L6
@@ -54,7 +54,7 @@
   - 예상 작업량: 1d
   - 완료 기준: real purge orchestration 구현 전에 안정적인 mock hook registry 기준으로 purge test를 작성할 수 있다.
 
-- [ ] L2-B04 백엔드 테스트 CI 작업과 아티팩트 업로드 경로 구성
+- [x] L2-B04 백엔드 테스트 CI 작업과 아티팩트 업로드 경로 구성
   - 담당 Spec: S1-2, S1-3, S4
   - 필수 참조: `architecture.md §9`
   - 연관 Lane: All lanes
@@ -65,7 +65,7 @@
 
 ## Phase 0
 
-- [ ] L2-T01 계정·역할·단말 테스트 데이터 기준 준비
+- [x] L2-T01 계정·역할·단말 테스트 데이터 기준 준비
   - 담당 Spec: S1-2
   - 필수 참조: `spec/specs/S1-2.json`, `spec/harness-scenarios.md §6`, `spec/boundaries.md §4.6`
   - 연관 Lane: All lanes
@@ -77,7 +77,7 @@
 
 ## Phase 1
 
-- [ ] L2-T02 채널·역할 권한 별칭 구현
+- [x] L2-T02 채널·역할 권한 별칭 구현
   - 담당 Spec: S1-2
   - 필수 참조: `spec/specs/S1-2.json`, `spec/boundaries.md §7`, `spec/boundaries.md §4.6`
   - 연관 Spec: S1-1, S2, S3-1, S5, S7, S8
