@@ -14,7 +14,7 @@ final class OutboxRetryDiagnosticsFixtures {
   static final String UNREGISTERED_AUTH_POLICE_PHONE_ID = "00000000-0000-0000-0000-000000000201";
   static final String UNASSIGNED_AUTH_POLICE_PHONE_ID = "00000000-0000-0000-0000-000000000301";
   static final String INCIDENT_ID = "b5fdbad6-57ce-4d64-a6f2-82b1d3e16699";
-  static final String CLOSED_INCIDENT_ID = "d7c12704-58d1-4d66-9959-af479672fbc6";
+  static final String CLOSED_INCIDENT_ID = "inc-precinct-closed-001";
   static final int STALE_CLOCK_SYNC_AFTER_MS = 300_000;
 
   static final List<String> REQUIRED_REQUEST_FIELDS =

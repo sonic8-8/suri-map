@@ -21,7 +21,7 @@ public class OutboxRequeueController {
 
   private static final long MAX_ALLOWED_SKEW_MS = 30_000L;
   private static final long STALE_CLOCK_SYNC_AFTER_MS = 300_000L;
-  private static final String CLOSED_INCIDENT_ID = "d7c12704-58d1-4d66-9959-af479672fbc6";
+  private static final String CLOSED_INCIDENT_ID = "inc-precinct-closed-001";
 
   private final Clock clock;
 
@@ -44,8 +44,7 @@ public class OutboxRequeueController {
     if (CLOSED_INCIDENT_ID.equals(request.incidentId())) {
       throw new OutboxRequeueApiException(
           HttpStatus.CONFLICT,
-          new OutboxRequeueErrorResponse(
-              "incident_closed", "FAILED_FINAL", false, "TERMINAL", "CLOSED_NO_RETRY"));
+          new OutboxRequeueErrorResponse("incident_closed", "FAILED_FINAL", null, null, null));
     }
 
     RequeueDiagnostic diagnostic = diagnose(request);

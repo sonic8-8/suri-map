@@ -105,13 +105,13 @@ class OutboxRequeueContractRedTest {
                     OutboxRetryDiagnosticsFixtures.DEVICE_HEADER,
                     OutboxRetryDiagnosticsFixtures.HARNESS_DEVICE_ID)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(OutboxRetryDiagnosticsFixtures.CLOSED_INCIDENT_REQUEUE.json()))
+        .content(OutboxRetryDiagnosticsFixtures.CLOSED_INCIDENT_REQUEUE.json()))
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.error", is("incident_closed")))
         .andExpect(jsonPath("$.outboxStatus", is("FAILED_FINAL")))
-        .andExpect(jsonPath("$.retryable", is(false)))
-        .andExpect(jsonPath("$.diagnosticState", is("TERMINAL")))
-        .andExpect(jsonPath("$.userSafeFailureCategory", is("CLOSED_NO_RETRY")))
+        .andExpect(jsonPath("$.retryable").doesNotExist())
+        .andExpect(jsonPath("$.diagnosticState").doesNotExist())
+        .andExpect(jsonPath("$.userSafeFailureCategory").doesNotExist())
         .andExpect(jsonPath("$.lastError").doesNotExist())
         .andExpect(content().string(not(containsString("post_close_requeue_rejected"))));
   }

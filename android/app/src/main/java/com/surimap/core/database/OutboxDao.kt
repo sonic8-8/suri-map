@@ -26,12 +26,17 @@ interface OutboxDao {
           AND police_phone_id = :policePhoneId
           AND idempotency_status IN ('PENDING', 'FAILED_RETRYABLE')
           AND local_mirror_status IN ('PENDING_SEND', 'FAILED')
+          AND (next_attempt_at IS NULL OR next_attempt_at <= :now)
+          AND clock_synced_at >= :minClockSyncedAt
+          AND (incident_closed_at IS NULL OR client_requested_at <= incident_closed_at)
         ORDER BY sequence ASC
         """
     )
     suspend fun findReplayCandidates(
         incidentId: String,
-        policePhoneId: String
+        policePhoneId: String,
+        now: Long,
+        minClockSyncedAt: Long
     ): List<OutboxEntity>
 
     @Query("SELECT * FROM android_outbox_row WHERE client_operation_id = :operationId LIMIT 1")
