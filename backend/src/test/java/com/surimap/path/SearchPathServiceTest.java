@@ -68,6 +68,67 @@ class SearchPathServiceTest {
     assertThat(byPolice.paths()).singleElement().satisfies(path -> assertThat(path.policePhoneId()).isEqualTo(policePhoneId));
   }
 
+  @Test
+  void 연속3개미만_speed_run은_UNKNOWN으로_분류한다() {
+    UUID incidentId = UUID.fromString("10000000-0000-0000-0000-000000000001");
+    UUID opId = UUID.fromString("70000000-0000-0000-0000-000000000001");
+    UUID pathId = UUID.fromString("81000000-0000-0000-0000-000000000001");
+    UUID policePhoneId = UUID.fromString("50000000-0000-0000-0000-000000000001");
+
+    var response =
+        service.appendBatch(
+            new PathBatchAppendRequest(
+                incidentId,
+                opId,
+                pathId,
+                List.of(
+                    point("p1", "126.956000", "37.570000", 12.0, "2026-04-28T09:00:00+09:00"),
+                    point("p2", "126.956200", "37.570050", 12.0, "2026-04-28T09:00:05+09:00"),
+                    point("p3", "126.956300", "37.570100", 1.2, "2026-04-28T09:00:10+09:00"),
+                    point("p4", "126.956400", "37.570150", 1.2, "2026-04-28T09:00:15+09:00")),
+                0L),
+            policePhoneId);
+
+    assertThat(response.segments())
+        .allSatisfy(segment -> assertThat(segment.movementType()).isEqualTo(MovementType.UNKNOWN));
+  }
+
+  @Test
+  void segment_manual_correction은_movementType만_수정하고_SEARCH_PATH_SEGMENT_UPDATED를_발행한다() {
+    UUID incidentId = UUID.fromString("10000000-0000-0000-0000-000000000001");
+    UUID opId = UUID.fromString("70000000-0000-0000-0000-000000000001");
+    UUID pathId = UUID.fromString("81000000-0000-0000-0000-000000000001");
+    UUID policePhoneId = UUID.fromString("50000000-0000-0000-0000-000000000001");
+    UUID accountId = UUID.fromString("30000000-0000-0000-0000-000000000001");
+
+    var appended = service.appendBatch(request(incidentId, opId, pathId), policePhoneId);
+    var target = appended.segments().get(0);
+
+    var corrected = service.correctSegment(target.id(), MovementType.FOOT, accountId);
+
+    assertThat(corrected.id()).isEqualTo(target.id());
+    assertThat(corrected.startIndex()).isEqualTo(target.startIndex());
+    assertThat(corrected.endIndex()).isEqualTo(target.endIndex());
+    assertThat(corrected.startPointId()).isEqualTo(target.startPointId());
+    assertThat(corrected.endPointId()).isEqualTo(target.endPointId());
+    assertThat(corrected.movementType()).isEqualTo(MovementType.FOOT);
+    assertThat(corrected.movementTypeSource()).isEqualTo(MovementTypeSource.MANUAL);
+    assertThat(corrected.correctedByAccountId()).isEqualTo(accountId);
+
+    assertThat(publisher.segmentUpdated())
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.id()).isEqualTo(pathId);
+              assertThat(event.status()).isEqualTo(SearchPathStatus.RECORDING);
+              assertThat(event.opId()).isEqualTo(opId);
+              assertThat(event.policePhoneId()).isEqualTo(policePhoneId);
+              assertThat(event.segmentId()).isEqualTo(target.id());
+              assertThat(event.movementType()).isEqualTo(MovementType.FOOT);
+              assertThat(event.movementTypeSource()).isEqualTo(MovementTypeSource.MANUAL);
+            });
+  }
+
   private PathBatchAppendRequest request(UUID incidentId, UUID opId, UUID pathId) {
     return new PathBatchAppendRequest(
         incidentId,

@@ -91,6 +91,32 @@ public class SearchPathService {
     return new PathQueryResponse(rows);
   }
 
+  public SearchPathSegment correctSegment(
+      String segmentId, MovementType movementType, UUID correctedByAccountId) {
+    SearchPathAggregate owner =
+        repository.findAll().stream()
+            .filter(path -> path.segments().stream().anyMatch(segment -> segment.id().equals(segmentId)))
+            .findFirst()
+            .orElseThrow(() -> new SearchPathApiException("write_conflict"));
+
+    SearchPathSegment corrected =
+        owner.correctSegment(segmentId, movementType, correctedByAccountId, OffsetDateTime.now());
+    owner.bumpVersion();
+    repository.save(owner);
+
+    eventPublisher.publishSegmentUpdated(
+        new SearchPathSegmentUpdatedPublishRequest(
+            owner.id(),
+            owner.status(),
+            owner.version(),
+            owner.opId(),
+            owner.policePhoneId(),
+            corrected.id(),
+            corrected.movementType(),
+            corrected.movementTypeSource()));
+    return corrected;
+  }
+
   private List<GpsPathPoint> toValidatorPoints(List<PathBatchPointRequest> points) {
     return points.stream()
         .map(
@@ -133,17 +159,38 @@ public class SearchPathService {
     if (points.isEmpty()) {
       return segments;
     }
+    List<MovementType> perPoint = new ArrayList<>();
+    for (SearchPathPoint point : points) {
+      perPoint.add(classify(point));
+    }
+
+    int runStart = 0;
+    while (runStart < perPoint.size()) {
+      MovementType runType = perPoint.get(runStart);
+      int runEnd = runStart;
+      while (runEnd + 1 < perPoint.size() && perPoint.get(runEnd + 1) == runType) {
+        runEnd++;
+      }
+      if ((runType == MovementType.VEHICLE || runType == MovementType.FOOT)
+          && (runEnd - runStart + 1) < 3) {
+        for (int i = runStart; i <= runEnd; i++) {
+          perPoint.set(i, MovementType.UNKNOWN);
+        }
+      }
+      runStart = runEnd + 1;
+    }
+
     int start = 0;
-    MovementType current = classify(points.get(0));
-    for (int i = 1; i < points.size(); i++) {
-      MovementType next = classify(points.get(i));
+    MovementType current = perPoint.get(0);
+    for (int i = 1; i < perPoint.size(); i++) {
+      MovementType next = perPoint.get(i);
       if (next != current) {
         segments.add(segment(points, start, i - 1, current, segments.size()));
         start = i;
         current = next;
       }
     }
-    segments.add(segment(points, start, points.size() - 1, current, segments.size()));
+    segments.add(segment(points, start, perPoint.size() - 1, current, segments.size()));
     return segments;
   }
 
@@ -151,11 +198,15 @@ public class SearchPathService {
       List<SearchPathPoint> points, int start, int end, MovementType type, int segmentIndex) {
     return new SearchPathSegment(
         "seg-%03d".formatted(segmentIndex + 1),
+        1L,
         type,
+        MovementTypeSource.AUTO,
         start,
         end,
         points.get(start).pointId(),
-        points.get(end).pointId());
+        points.get(end).pointId(),
+        null,
+        null);
   }
 
   private MovementType classify(SearchPathPoint point) {

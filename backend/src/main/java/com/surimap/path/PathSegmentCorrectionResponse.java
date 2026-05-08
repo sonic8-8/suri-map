@@ -3,14 +3,10 @@ package com.surimap.path;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
-public record SearchPathSegment(
+public record PathSegmentCorrectionResponse(
     String id,
-    long version,
     MovementType movementType,
     MovementTypeSource movementTypeSource,
-    int startIndex,
-    int endIndex,
-    String startPointId,
-    String endPointId,
     UUID correctedByAccountId,
-    OffsetDateTime correctedAt) {}
+    OffsetDateTime correctedAt,
+    long version) {}
