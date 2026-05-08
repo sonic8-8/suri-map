@@ -18,7 +18,7 @@
 
 ## Phase -1
 
-- [ ] L3-B01 공간 DB와 도형 테스트 데이터 준비
+- [x] L3-B01 공간 DB와 도형 테스트 데이터 준비
   - 담당 Spec: S2, S8
   - 필수 참조: `architecture.md §5`, `architecture.md §6.1`, `adr.md ADR-0002`, `adr.md ADR-0033`, `spec/specs/S2.json`, `spec/specs/S8.json`, `spec/harness-scenarios.md §6`
   - 연관 Spec: S3-1, S5, S7, S3-2
@@ -29,7 +29,7 @@
 
 ## Phase 0
 
-- [ ] L3-T04A 전체 수색 구역·수색 구역 조회 포트 계약 검증 작성
+- [x] L3-T04A 전체 수색 구역·수색 구역 조회 포트 계약 검증 작성
   - 담당 Spec: S2
   - 필수 참조: `spec/specs/S2.json`, `spec/boundaries.md §4.1.1`, `spec/harness-scenarios.md §6 geometry/GPS 기준 좌표`
   - 연관 Spec: S3-1, S5, S7, S3-2
@@ -38,7 +38,7 @@
   - 예상 작업량: 1d
   - 완료 기준: real DB query 구현 없이도 소비 Lane이 canonical geometry, bbox, id/status/version, shared fixture coordinate 기준의 실패 contract test를 실행할 수 있다.
 
-- [ ] L3-T05A OP1 시작·현재 OP 모의 계약과 guard 실패 테스트 작성
+- [x] L3-T05A OP1 시작·현재 OP 모의 계약과 guard 실패 테스트 작성
   - 담당 Spec: S8
   - 필수 참조: `spec/specs/S8.json`, `spec/specs/S1-1.json`, `spec/boundaries.md §10 SC-01`
   - 연관 Spec: S1-1, S3-1, S5, S7
@@ -50,7 +50,7 @@
 
 ## Phase 1
 
-- [ ] L3-T05B OP1 시작과 현재 OP 보호 규칙 구현
+- [x] L3-T05B OP1 시작과 현재 OP 보호 규칙 구현
   - 담당 Spec: S8
   - 필수 참조: `spec/specs/S8.json`, `spec/specs/S1-1.json`, `spec/boundaries.md §10 SC-01`
   - 연관 Spec: S1-1, S3-1, S5, S7
@@ -60,7 +60,7 @@
   - 예상 작업량: 1d
   - 완료 기준: incident import가 S8을 통해 OP1을 생성하고, `OP_TRANSITIONED(from=null,to=OP1)`가 안정적인 id/status/version/opId를 포함하며, OP가 필요한 write는 `op_required`/`op_mismatch`로 실패한다.
 
-- [ ] L3-T01 전체 수색 구역 생성·수정·조회 구현
+- [x] L3-T01 전체 수색 구역 생성·수정·조회 구현
   - 담당 Spec: S2
   - 필수 참조: `spec/specs/S2.json`, `spec/boundaries.md §3 S2`, `spec/harness-scenarios.md §2 SC-04`
   - 연관 Spec: S1-2, S4, S7, S3-2
@@ -70,7 +70,7 @@
   - 예상 작업량: 2d
   - 완료 기준: web commander가 incident별 active overall search area 1개를 관리할 수 있고, `SEARCH_AREA_CHANGED`가 발행되며, 자동 누락/추천 구역은 생성되지 않는다.
 
-- [ ] L3-T02A 수색 구역 생성·수정·조회 구현
+- [x] L3-T02A 수색 구역 생성·수정·조회 구현
   - 담당 Spec: S2
   - 필수 참조: `spec/specs/S2.json`, `spec/boundaries.md §4.1.1`, `spec/harness-scenarios.md §2 SC-04`
   - 연관 Spec: S1-2, S4, S8, S3-2
@@ -80,7 +80,7 @@
   - 예상 작업량: 1d
   - 완료 기준: 유효한 polygon은 area를 생성/수정하고, `SEARCH_AREA_CHANGED`는 안정적인 id/status/version/opId를 포함하며, invalid geometry는 공통 규칙으로 실패하고 board 소비자는 안정적인 query DTO를 받는다.
 
-- [ ] L3-T04B 전체 수색 구역·수색 구역 조회 포트 구현
+- [x] L3-T04B 전체 수색 구역·수색 구역 조회 포트 구현
   - 담당 Spec: S2
   - 필수 참조: `spec/specs/S2.json`, `spec/boundaries.md §4.1.1`, `spec/harness-scenarios.md §6 geometry/GPS 기준 좌표`
   - 연관 Spec: S3-1, S5, S7, S3-2
@@ -89,7 +89,7 @@
   - 예상 작업량: 1d
   - 완료 기준: `SearchAreaQuery.overallOf`, `AreaQuery.byIncident`, `AreaQuery.byOp`가 canonical geometry, bbox, id/status/version, shared fixture coordinate를 사용한다.
 
-- [ ] L3-T02B 수색 구역 분할과 분할 이력 검증 구현
+- [x] L3-T02B 수색 구역 분할과 분할 이력 검증 구현
   - 담당 Spec: S2
   - 필수 참조: `spec/specs/S2.json`, `spec/boundaries.md §4.1.1`, `spec/harness-scenarios.md §2 SC-04`
   - 연관 Spec: S1-2, S4, S8, S3-2
@@ -101,7 +101,7 @@
 
 ## Phase 2
 
-- [ ] L3-T03 구역 상태 전이와 이력 구현
+- [x] L3-T03 구역 상태 전이와 이력 구현
   - 담당 Spec: S2
   - 필수 참조: `spec/specs/S2.json`, `spec/specs/S8.json`, `spec/boundaries.md §10 SC-10`
   - 연관 Spec: S8, S4, S3-2
@@ -111,7 +111,7 @@
   - 예상 작업량: 2d
   - 완료 기준: 상태 전이가 previous/next status, account, time, memo, history-derived count를 기록하고 `SEARCH_AREA_CHANGED`를 발행한다.
 
-- [ ] L3-T06A OP2+ 전환 구현
+- [x] L3-T06A OP2+ 전환 구현
   - 담당 Spec: S8
   - 필수 참조: `spec/specs/S8.json`, `spec/boundaries.md §3 S8`, `spec/harness-scenarios.md §2 SC-10`
   - 연관 Spec: S2, S1-2, S4, S3-2, S7
@@ -121,7 +121,7 @@
   - 예상 작업량: 1d
   - 완료 기준: web commander가 reason과 함께 OP2+를 열고 이전 active OP를 닫으며, transition history를 보존하고 `OP_TRANSITIONED`를 발행한다.
 
-- [ ] L3-T06B OP 담당 구역 배정과 이력 구현
+- [x] L3-T06B OP 담당 구역 배정과 이력 구현
   - 담당 Spec: S8
   - 필수 참조: `spec/specs/S8.json`, `spec/boundaries.md §3 S8`, `spec/harness-scenarios.md §2 SC-04`, `spec/harness-scenarios.md §2 SC-10`
   - 연관 Spec: S2, S1-2, S4, S3-2, S7
@@ -131,7 +131,7 @@
   - 예상 작업량: 1d
   - 완료 기준: SC-04 담당 구역 배정과 SC-10 OP area assignment write가 assignment history를 보존하고 board 소비자용 query data를 노출하며 `SEARCH_AREA_ASSIGNMENT_CHANGED`를 발행한다.
 
-- [ ] L3-T07 인수인계 메모 생성·조회 구현
+- [x] L3-T07 인수인계 메모 생성·조회 구현
   - 담당 Spec: S8
   - 필수 참조: `spec/specs/S8.json`, `spec/specs/S6.json`, `spec/harness-scenarios.md §2 SC-10`, `spec/harness-scenarios.md §2 SC-11`
   - 연관 Spec: S1-2, S6, S3-2
@@ -143,7 +143,7 @@
 
 ## Phase 3
 
-- [ ] L3-T08 수색 이력 요약과 FR-23 보호 규칙 구현
+- [x] L3-T08 수색 이력 요약과 FR-23 보호 규칙 구현
   - 담당 Spec: S8
   - 필수 참조: `spec/specs/S8.json`, `spec/boundaries.md §6 FR-23`, `spec/harness-scenarios.md §2 SC-11`, `adr.md ADR-0034`, `architecture.md §6.5`
   - 연관 Spec: S3-1, S2, S5, S3-2, S4
@@ -155,7 +155,7 @@
 
 ## Phase 4
 
-- [ ] L3-T09A SC-04 전체 수색 구역·구역 하네스 작성
+- [x] L3-T09A SC-04 전체 수색 구역·구역 하네스 작성
   - 담당 Spec: S2, S8
   - 필수 참조: `spec/specs/S2.json`, `spec/specs/S8.json`, `spec/harness-scenarios.md §2 SC-04`
   - 연관 Spec: S1-2, S4, S3-2, S7
@@ -165,7 +165,7 @@
   - 예상 작업량: 1d
   - 완료 기준: SC-04 domain harness가 L2/S4/S3-2 mock으로 통과하고 overall_search_area, search_area, search_area_assignment, 담당 구역 공유, board convergence evidence를 생성한다.
 
-- [ ] L3-T09B SC-10 OP 전환·인수인계 하네스 작성
+- [x] L3-T09B SC-10 OP 전환·인수인계 하네스 작성
   - 담당 Spec: S8
   - 필수 참조: `spec/specs/S8.json`, `spec/harness-scenarios.md §2 SC-10`
   - 연관 Spec: S1-2, S4, S3-2
@@ -174,7 +174,7 @@
   - 예상 작업량: 1d
   - 완료 기준: SC-10 domain harness가 L2/S4/S3-2 mock으로 통과하고, radio_report_received -> commander_decision_recorded -> area_completed -> op_transitioned -> handover_saved -> board_api_refetched 순서와 OP/handover board convergence evidence를 생성한다.
 
-- [ ] L3-T10 시연용 도형·OP·인수인계 fixture 작성
+- [x] L3-T10 시연용 도형·OP·인수인계 fixture 작성
   - 담당 Spec: S2, S8
   - 필수 참조: `prd.md §5.1`, `spec/harness-scenarios.md §2 SC-04`, `spec/harness-scenarios.md §2 SC-10`, `spec/harness-scenarios.md §2 SC-11`
   - 연관 Lane: L1, L4, L5, L6
