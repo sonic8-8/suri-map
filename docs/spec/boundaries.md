@@ -50,7 +50,7 @@
 | S1-2 | Account, Device & RBAC | 팀/순찰차/지휘 계정, Device, 세션, 채널·역할 권한 | L2 |
 | S1-3 | Retention & Operational Records | 파기 오케스트레이션, 위치정보 접근기록, 비사용자 화면 운영 기록 | L2 |
 | S2 | Map Boundary & Search Area | 지도 기준 범위, 수색 구역, 구역 상태 이력 | L3 |
-| S3-1 | Device Path Collection | 수색 세션, Device 경로, 차량·도보 구간 | L4 |
+| S3-1 | PolicePhone Path Collection | 수색 세션, PolicePhone 경로, 차량·도보 구간 | L4 |
 | S3-2 | Situation Board Shell & Projection | 상황판 shell, board projection/snapshot read model, slot merge/rendering, OP 비교 화면 | L6 |
 | S4 | Realtime Event Hub | SSE, event envelope, `EventHub.publish`, `EventFanout`, `event_outbox`, `sse_event_log` | L2 |
 | S5 | Markers / Photo / Notification Delivery | 현장 마커, 사진, notification payload/recipient 계산, `FcmDispatcher` adapter | L5 |
@@ -65,7 +65,7 @@
 | L1 | 사건 가져오기, 사건 종료, 실종자 운영 캐시, 사건 참여 계정 |
 | L2 | 계정·Device·권한, 운영 기록, S4 이벤트 허브 실구현 |
 | L3 | 지도 기준 범위, 수색 구역, OP, 인수인계 |
-| L4 | Device 경로, Outbox, 로컬 경고, 복구 동기화 |
+| L4 | PolicePhone 경로, Outbox, 로컬 경고, 복구 동기화 |
 | L5 | 마커, 사진, notification payload/recipient, FCM adapter |
 | L6 | 상황판 shell, offline package, tileserver, board snapshot |
 
@@ -117,7 +117,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 
 ## 2. 공통 의존 규칙
 
-1. 모든 domain write API는 `incidentId`, `accountId`, `deviceId` 필요 여부, `opId` 귀속 여부를 명시한다.
+1. 모든 domain write API는 `incidentId`, `accountId`, `policePhoneId` 필요 여부, `opId` 귀속 여부를 명시한다.
 2. 사건 `OPEN` 전 쓰기는 `409 incident_bootstrapping`을 반환한다.
 3. 사건 종료 후 쓰기는 `409 incident_closed`를 반환한다.
 4. 앱 전용 쓰기 API는 Web 요청을 `403 channel_not_allowed`로 거부한다.
@@ -224,7 +224,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 - `POST /auth/login`
 - `POST /auth/logout`
 - `POST /fcm/tokens`
-- `POST /devices/{deviceId}/heartbeat`
+- `POST /police-phones/{policePhoneId}/heartbeat`
 
 **provides**
 
@@ -233,20 +233,20 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 - `SecurityContext.affiliation`
 - `SecurityContext.roles`
 - `SecurityContext.channel`
-- `SecurityContext.deviceId`
+- `SecurityContext.policePhoneId`
 - `@RequireIncidentAccess`
 - `@RequireRole`
 - `@RequireChannel`
-- `@RequireDevice`
-- `@RequireDeviceRegistered`
-- `@RequireDeviceAssigned`
-- `DeviceFreshnessQuery.byIncident(incidentId)`
-- `FcmTokenQuery.activeByDevice(deviceId)`
-- `DEVICE_HEARTBEAT_UPDATED`
-- `events/device_heartbeat.payload.schema.json` for `DEVICE_HEARTBEAT_UPDATED`
-- `PublishRequest.DEVICE_HEARTBEAT_UPDATED`
+- `@RequirePolicePhone`
+- `@RequirePolicePhoneRegistered`
+- `@RequirePolicePhoneAssigned`
+- `PolicePhoneFreshnessQuery.byIncident(incidentId)`
+- `FcmTokenQuery.activeByPolicePhone(policePhoneId)`
+- `POLICE_PHONE_HEARTBEAT_UPDATED`
+- `events/police_phone_heartbeat.payload.schema.json` for `POLICE_PHONE_HEARTBEAT_UPDATED`
+- `PublishRequest.POLICE_PHONE_HEARTBEAT_UPDATED`
 - `account.schema.json`
-- `device.schema.json`
+- `police_phone.schema.json`
 
 **consumes**
 
@@ -266,9 +266,9 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 **acceptance_hints**
 
 - Login/logout establishes `SecurityContext` fields used by `@RequireIncidentAccess`, `@RequireRole`, and `@RequireChannel`.
-- App-only Device APIs reject missing, unregistered, or unassigned devices with the matching guard error code.
-- `POST /devices/{deviceId}/heartbeat` updates the single freshness source and emits `DEVICE_HEARTBEAT_UPDATED`.
-- `POST /fcm/tokens` stores tokens for authenticated app devices without granting notification routing ownership.
+- App-only PolicePhone APIs reject missing, unregistered, or unassigned police phones with the matching guard error code.
+- `POST /police-phones/{policePhoneId}/heartbeat` updates the single freshness source and emits `POLICE_PHONE_HEARTBEAT_UPDATED`.
+- `POST /fcm/tokens` stores tokens for authenticated app police phones without granting notification routing ownership.
 
 **excluded**
 
@@ -427,7 +427,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 
 ---
 
-### S3-1 · Device Path Collection
+### S3-1 · PolicePhone Path Collection
 
 **owns**
 
@@ -445,7 +445,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 
 - `PathQuery.byIncident(incidentId, filters)`
 - `PathQuery.byOp(opId, filters)`
-- `PathQuery.byDevice(deviceId, filters)`
+- `PathQuery.byPolicePhone(policePhoneId, filters)`
 - `PATH_APPENDED`
 - `PATH_SEGMENT_UPDATED`
 - `SEARCH_SESSION_STARTED`
@@ -465,7 +465,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 **consumes**
 
 - S1-1: incident lifecycle, membership
-- S1-2: Device, `@RequireDevice`, `@RequireChannel`, `spec/boundaries.md §4.6 Channel / Role Matrix` 수색 세션·경로 행
+- S1-2: PolicePhone, `@RequirePolicePhone`, `@RequireChannel`, `spec/boundaries.md §4.6 Channel / Role Matrix` 수색 세션·경로 행
 - S4: `EventHub.publish`
 - S6: `SyncClient.enqueue(writeOperation)`, `@IdempotentWrite`, `IdempotentWrite`, `POST /sync/clock`
 - S8: current OP
@@ -483,8 +483,8 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 
 **acceptance_hints**
 
-- Search session start/end APIs require app channel, assigned Device, open incident, idempotency key, and current OP.
-- `POST /search-paths/batch` records Device-based path points with `accountId`, `deviceId`, `opId`, sequence, and timestamps.
+- Search session start/end APIs require app channel, assigned PolicePhone, open incident, idempotency key, and current OP.
+- `POST /search-paths/batch` records PolicePhone-based path points with `accountId`, `policePhoneId`, `opId`, sequence, and timestamps.
 - Path and session writes publish the matching `PublishRequest.*` contract and can be replayed from S6 Outbox without duplication.
 - `PATCH /path-segments/{segmentId}` applies only the allowed channel policy and emits `PATH_SEGMENT_UPDATED`.
 
@@ -571,7 +571,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 - S4 `EventFanout`이 board projector trigger를 orchestration하고, S3-2는 trigger 이후 projection 적용, snapshot read model 조회, 화면 렌더링 구현만 소유한다.
 - `BoardSnapshotProjector`는 mockable port다. 외부 연동 없이 fixture projector로 대체할 수 있어야 한다.
 - `lastHeartbeatAt`/`lastSyncAt` 경과는 위치 점 색·외곽선·라벨로 표시한다. 별도 알림은 만들지 않는다.
-- 운용 중 Device 경로는 현재 세션의 `deviceId` 기준으로 강조한다.
+- 운용 중 PolicePhone 경로는 현재 세션의 `policePhoneId` 기준으로 강조한다.
 - 초기 뷰포트 fallback 순서: map boundary → 최근 활동 위치 → 기본 지역.
 - FR-09는 필터 기능이 아니라 최신 수색 현황의 기록 시각 표시를 의미한다. OP/팀/마커/구간 필터는 S3-2 display-only UX로만 취급한다.
 - FR-18은 알림 표시가 아니라 팀/경로/구역/마커/실종자 정보를 한 화면에서 정리해 보는 공용 상황판 reference view를 의미한다.
@@ -722,12 +722,12 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 
 - 현장 마커 생성 채널은 `spec/boundaries.md §4.6 Channel / Role Matrix` `현장 마커 생성` 행과 S1-2 `@RequireChannel` 기준 적용.
 - 마커 조회·수정·삭제 UI와 초기 기준 마커 보정 권한은 `spec/boundaries.md §4.6 Channel / Role Matrix` 관련 행 및 S1-2 `@RequireChannel`, `@RequireRole` 기준 적용.
-- 마커는 `incidentId`, `opId`, `accountId`, `deviceId`, `clientTs`, `serverTs`, `location`, `type`, `memo`, `photos`를 가진다.
+- 마커는 `incidentId`, `opId`, `accountId`, `policePhoneId`, `clientTs`, `serverTs`, `location`, `type`, `memo`, `photos`를 가진다.
 - 사진 제한은 `spec/boundaries.md §4.2 Time, Limits, Retention` 기준 적용.
 - `notification_delivery`는 알림 저장 엔티티이며 pending/status/version을 기록한다.
 - 지원 요청 알림은 실종팀 지휘 계정과 현장 지휘관 역할 계정 우선이다.
 - 실종자 발견 알림은 사건 배정 계정·단말 전체 대상이다.
-- 지원 부대 배정 알림은 `INCIDENT_MEMBERSHIP_CHANGED` fanout 시 신규 배정된 `TEAM_PHONE`, `PATROL_CAR_PHONE` 단말에만 FCM data message로 전달한다. 이 알림은 `notification_delivery` row를 만들지 않으며, 지휘 계정 deviceId는 Android FCM recipient로 고정하지 않는다.
+- 지원 부대 배정 알림은 `INCIDENT_MEMBERSHIP_CHANGED` fanout 시 신규 배정된 `TEAM_PHONE`, `PATROL_CAR_PHONE` 단말에만 FCM data message로 전달한다. 이 알림은 `notification_delivery` row를 만들지 않으며, 지휘 계정 policePhoneId는 Android FCM recipient로 고정하지 않는다.
 - Web toast와 FCM push는 별도 저장 엔티티가 아니라 S4 `EventFanout`과 S5 notification payload/recipient 및 `FcmDispatcher` adapter의 전달 계약이다.
 - FCM fanout orchestration은 S5가 소유하지 않는다. S5는 S4가 호출할 수 있는 `FcmDispatcher` port와 fixture/mock adapter를 제공하며, 실제 외부 FCM 없이 대체 가능해야 한다.
 
@@ -752,8 +752,8 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 - `@IdempotentWrite`
 - `IdempotentWrite.reserveAndReplay(idempotencyKey, bodyHash)`
 - `POST /sync/clock`
-- `OutboxRow(outboxId, operationId, incidentId, deviceId, sequence, method, endpoint, bodyHash, idempotencyKey, status, attemptCount, nextAttemptAt, clientTs, serverAckTs, lastError)`
-- `OutboxReplay.flushPending(deviceId, incidentId)`
+- `OutboxRow(outboxId, operationId, incidentId, policePhoneId, sequence, method, endpoint, bodyHash, idempotencyKey, status, attemptCount, nextAttemptAt, clientTs, serverAckTs, lastError)`
+- `OutboxReplay.flushPending(policePhoneId, incidentId)`
 - `OutboxRequeue.requeue(operationId, reason)`
 - `LocalSyncPurgeHook.purgeIncidentLocalSync(incidentId, purgeRunId, closedAt, purgeDeadlineTs)`
 - `IdempotencyKeyGenerator.next()`
@@ -802,7 +802,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 - Outbox flush 중 일부 항목만 실패하면 성공 항목은 ack 처리하고 실패 항목만 큐에 남긴다.
 - Outbox 실패 누적 > 10건이면 앱 배너를 표시한다.
 - Outbox row status는 `PENDING`, `SENDING`, `ACKED`, `FAILED_RETRYABLE`, `FAILED_FINAL`, `PURGED` 중 하나다.
-- `write_operation.schema.json`은 REST body, S6 Outbox row, replay/requeue local contract가 공유하는 `operationId`, `incidentId`, `deviceId`, `sequence`, `opId`, `idempotencyKey`, `clientTs`, `bodyHash`, `endpoint`, `method`, `payload` 필드를 정의한다.
+- `write_operation.schema.json`은 REST body, S6 Outbox row, replay/requeue local contract가 공유하는 `operationId`, `incidentId`, `policePhoneId`, `sequence`, `opId`, `idempotencyKey`, `clientTs`, `bodyHash`, `endpoint`, `method`, `payload` 필드를 정의한다.
 - GPS 중단, 배터리 저하, 지도 미다운로드 경고는 서버 연결 없이 표시한다.
 - 사건 purge 수신 시 flush 완료 항목부터 로컬 삭제한다.
 
@@ -973,9 +973,9 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 | `team_not_assigned` | 팀 계정이 사건·OP·구역 배정 대상이 아님 | 403 |
 | `role_denied` | 필요한 역할 없음 | 403 |
 | `channel_not_allowed` | 허용되지 않은 채널의 API 호출 또는 쓰기 | 403 |
-| `device_required` | Device가 필요한 앱 요청에 Device 없음 | 400 |
-| `device_not_registered` | 등록되지 않았거나 세션과 연결되지 않은 Device | 403 |
-| `device_not_assigned` | Device가 사건·팀·OP 배정에 연결되지 않음 | 403 |
+| `police_phone_required` | PolicePhone이 필요한 앱 요청에 PolicePhone 없음 | 400 |
+| `police_phone_not_registered` | 등록되지 않았거나 세션과 연결되지 않은 PolicePhone | 403 |
+| `police_phone_not_assigned` | PolicePhone이 사건·팀·OP 배정에 연결되지 않음 | 403 |
 | `op_required` | current OP가 없음 | 409 |
 | `op_mismatch` | payload OP와 서버 current OP 불일치 | 409 |
 | `area_state_conflict` | 구역 상태 전이 불가 | 409 |
@@ -1028,7 +1028,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 | `INCIDENT_MEMBERSHIP_CHANGED` | S1-1 | S1-2, S3-2, S5 |
 | `INCIDENT_CLOSED` | S1-1 | S1-3, S3-2, S6, S7, S4 EventFanout -> S5 `FcmDispatcher` |
 | `INCIDENT_PURGED` | S1-3 | S4, S6, S7 |
-| `DEVICE_HEARTBEAT_UPDATED` | S1-2 | S3-2 |
+| `POLICE_PHONE_HEARTBEAT_UPDATED` | S1-2 | S3-2 |
 | `SEARCH_AREA_CHANGED` | S2 | S3-2, S7 |
 | `SEARCH_AREA_ASSIGNMENT_CHANGED` | S2 | S3-2, S7 |
 | `SEARCH_SESSION_STARTED` | S3-1 | S3-2 |
@@ -1046,7 +1046,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 | `HANDOVER_MEMO_CREATED` | S8 | S3-2 |
 | `AI_SUMMARY_READY` | S8 | S3-2 |
 
-Event payload는 REST response DTO, S6 `write_operation.schema.json`, S4 outbox/SSE, S3-2 `board.schema.json`, S5 FCM payload가 같은 필드명을 공유한다. Payload root의 공통 비교 필드는 `id`, `status`, `version`이며, 적용 가능한 이벤트는 `opId`, `deviceId`, `sequence`도 같은 이름으로 포함한다. SSE envelope는 §9.1 기준 적용. FCM은 동일 payload subset에 §9.1 envelope 중 알림 전달에 필요한 메타만 얹는다.
+Event payload는 REST response DTO, S6 `write_operation.schema.json`, S4 outbox/SSE, S3-2 `board.schema.json`, S5 FCM payload가 같은 필드명을 공유한다. Payload root의 공통 비교 필드는 `id`, `status`, `version`이며, 적용 가능한 이벤트는 `opId`, `policePhoneId`, `sequence`도 같은 이름으로 포함한다. SSE envelope는 §9.1 기준 적용. FCM은 동일 payload subset에 §9.1 envelope 중 알림 전달에 필요한 메타만 얹는다.
 
 | event | payload schema | schemaVersion | common payload fields |
 |---|---|---:|---|
@@ -1054,18 +1054,18 @@ Event payload는 REST response DTO, S6 `write_operation.schema.json`, S4 outbox/
 | `INCIDENT_MEMBERSHIP_CHANGED` | `events/incident_membership.payload.schema.json` | 1 | `id`, `status`, `version` |
 | `INCIDENT_CLOSED` | `events/incident_terminal.payload.schema.json` | 1 | `id`, `status`, `version` |
 | `INCIDENT_PURGED` | `events/incident_purge.payload.schema.json` | 1 | `id`, `status`, `version` |
-| `DEVICE_HEARTBEAT_UPDATED` | `events/device_heartbeat.payload.schema.json` | 1 | `id`, `status`, `version`, `deviceId`, `sequence` |
+| `POLICE_PHONE_HEARTBEAT_UPDATED` | `events/police_phone_heartbeat.payload.schema.json` | 1 | `id`, `status`, `version`, `policePhoneId`, `sequence` |
 | `SEARCH_AREA_CHANGED` | `events/search_area.payload.schema.json` | 1 | `id`, `incidentId`, `status`, `version`, `geometry`, `serverTs` |
 | `SEARCH_AREA_ASSIGNMENT_CHANGED` | `events/search_area.payload.schema.json` | 1 | `id`, `incidentId`, `status`, `version` |
-| `SEARCH_SESSION_STARTED` | `events/search_session.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `deviceId`, `sequence` |
-| `SEARCH_SESSION_ENDED` | `events/search_session.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `deviceId`, `sequence` |
-| `PATH_APPENDED` | `events/search_path.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `deviceId`, `sequence` |
-| `PATH_SEGMENT_UPDATED` | `events/path_segment.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `deviceId`, `sequence` |
-| `MARKER_CREATED` | `events/marker.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `deviceId` |
-| `MARKER_UPDATED` | `events/marker.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `deviceId` |
-| `MARKER_DELETED` | `events/marker.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `deviceId` |
-| `SUPPORT_REQUEST_CREATED` | `events/notification_delivery.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `deviceId` |
-| `PERSON_FOUND` | `events/notification_delivery.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `deviceId` |
+| `SEARCH_SESSION_STARTED` | `events/search_session.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `policePhoneId`, `sequence` |
+| `SEARCH_SESSION_ENDED` | `events/search_session.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `policePhoneId`, `sequence` |
+| `PATH_APPENDED` | `events/search_path.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `policePhoneId`, `sequence` |
+| `PATH_SEGMENT_UPDATED` | `events/path_segment.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `policePhoneId`, `sequence` |
+| `MARKER_CREATED` | `events/marker.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `policePhoneId` |
+| `MARKER_UPDATED` | `events/marker.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `policePhoneId` |
+| `MARKER_DELETED` | `events/marker.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `policePhoneId` |
+| `SUPPORT_REQUEST_CREATED` | `events/notification_delivery.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `policePhoneId` |
+| `PERSON_FOUND` | `events/notification_delivery.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `policePhoneId` |
 | `OFFLINE_PACKAGE_INSTALLATION_CHANGED` | `events/offline_package_installation.payload.schema.json` | 1 | `id`, `status`, `version`, `policePhoneId`, `sequence` |
 | `OP_TRANSITIONED` | `events/operational_period.payload.schema.json` | 1 | `id`, `status`, `version`, `opId` |
 | `OP_ASSIGNMENT_CHANGED` | `events/op_assignment.payload.schema.json` | 1 | `id`, `status`, `version`, `opId` |
@@ -1168,7 +1168,7 @@ Event payload는 REST response DTO, S6 `write_operation.schema.json`, S4 outbox/
 | FR-22 개인정보 파기 | S1-1/S1-3 | close/purge |
 | FR-23 자동 누락 판단 금지 | S2/S3-2/S8 | OP 경로·완료 구역·재확인 마커·메모로 사람 판단 보조 |
 | FR-24 단말 최신성 | S1-2/S3-2 | heartbeat |
-| FR-25 운용 중 Device 궤도 강조 | S3-1/S3-2 | deviceId 기준 |
+| FR-25 운용 중 PolicePhone 궤도 강조 | S3-1/S3-2 | policePhoneId 기준 |
 | FR-26 단순 지도 보기 | S3-2 | overlay toggle |
 | FR-27 초기 뷰포트 | S3-2 | boundary fallback |
 | FR-28 미전송 큐 | S6 | Android dashboard |
@@ -1193,8 +1193,8 @@ Guard shorthand:
 - `public-session`: `@RequireChannel(APP,WEB)` -> `channel_not_allowed`
 - `incident-read`: `@RequireIncidentAccess` -> `incident_access_denied`, `team_not_assigned`
 - `web-command`: `@RequireChannel(WEB)`, `@RequireRole` -> `channel_not_allowed`, `role_denied`
-- `app-device`: `@RequireChannel(APP)`, `@RequireDevice`, `@RequireDeviceRegistered`, `@RequireDeviceAssigned` -> `channel_not_allowed`, `device_required`, `device_not_registered`, `device_not_assigned`
-- `field-or-web-write`: `@RequireChannel(APP,WEB)`, APP 요청의 `@RequireDevice`, `@RequireDeviceRegistered`, `@RequireDeviceAssigned` -> `channel_not_allowed`, `device_required`, `device_not_registered`, `device_not_assigned`
+- `app-police-phone`: `@RequireChannel(APP)`, `@RequirePolicePhone`, `@RequirePolicePhoneRegistered`, `@RequirePolicePhoneAssigned` -> `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`
+- `field-or-web-write`: `@RequireChannel(APP,WEB)`, APP 요청의 `@RequirePolicePhone`, `@RequirePolicePhoneRegistered`, `@RequirePolicePhoneAssigned` -> `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`
 - `write-common`: `@RequireOpenIncident`, `@IdempotentWrite` -> `incident_bootstrapping`, `incident_closed`, `idempotency_mismatch`, `write_conflict`
 - `internal-caller`: `@RequireChannel(INTERNAL)` -> `channel_not_allowed`
 
@@ -1202,8 +1202,8 @@ Guard shorthand:
 |---|---|---|---|---|---|
 | `POST /auth/login` | S1-2 | 앱, 웹 | HTTPS | `public-session` | - |
 | `POST /auth/logout` | S1-2 | 앱, 웹 | HTTPS | `public-session` | - |
-| `POST /fcm/tokens` | S1-2 | 앱 | HTTPS | `app-device` | - |
-| `POST /devices/{deviceId}/heartbeat` | S1-2 | 앱 | HTTPS | `app-device` | - |
+| `POST /fcm/tokens` | S1-2 | 앱 | HTTPS | `app-police-phone` | - |
+| `POST /police-phones/{policePhoneId}/heartbeat` | S1-2 | 앱 | HTTPS | `app-police-phone` | - |
 | `POST /incidents/import-from-seed` | S1-1 | 웹 지휘 계정 | HTTPS | `web-command` | `internal-caller`: seed/mock bootstrap |
 | `GET /incidents` | S1-1 | 앱, 웹, S3-2 | HTTPS | `public-session` | - |
 | `GET /incidents/{incidentId}` | S1-1 | 앱, 웹, S3-2 | HTTPS | `public-session`, `incident-read` | - |
@@ -1217,23 +1217,23 @@ Guard shorthand:
 | `PATCH /search-areas/{areaId}` | S2 | 웹 | HTTPS | `web-command`, `incident-read`, `write-common` | - |
 | `POST /search-areas/{areaId}/split` | S2 | 웹 | HTTPS | `web-command`, `incident-read`, `write-common` | - |
 | `PATCH /search-areas/{areaId}/state` | S2 | 웹 | HTTPS | `web-command`, `incident-read`, `write-common` | - |
-| `POST /search-sessions` | S3-1 | 앱 | HTTPS | `app-device`, `incident-read`, `write-common`, `@RequireCurrentOp` | `internal-caller`: outbox replay |
-| `PATCH /search-sessions/{sessionId}` | S3-1 | 앱 | HTTPS | `app-device`, `incident-read`, `write-common`, `@RequireCurrentOp` | `internal-caller`: outbox replay |
-| `POST /search-paths/batch` | S3-1 | 앱 | HTTPS | `app-device`, `incident-read`, `write-common`, `@RequireCurrentOp` | `internal-caller`: outbox replay |
+| `POST /search-sessions` | S3-1 | 앱 | HTTPS | `app-police-phone`, `incident-read`, `write-common`, `@RequireCurrentOp` | `internal-caller`: outbox replay |
+| `PATCH /search-sessions/{sessionId}` | S3-1 | 앱 | HTTPS | `app-police-phone`, `incident-read`, `write-common`, `@RequireCurrentOp` | `internal-caller`: outbox replay |
+| `POST /search-paths/batch` | S3-1 | 앱 | HTTPS | `app-police-phone`, `incident-read`, `write-common`, `@RequireCurrentOp` | `internal-caller`: outbox replay |
 | `GET /search-paths` | S3-1 | 앱, 웹, S3-2, S8 | HTTPS | `public-session`, `incident-read`, `@RecordLocationAccess` | - |
 | `PATCH /path-segments/{segmentId}` | S3-1 | 웹 | HTTPS | `web-command`, `incident-read`, `write-common` | - |
 | `GET /incidents/{incidentId}/board/snapshot` | S3-2 | 웹 | HTTPS | `public-session`, `incident-read`, `@RecordLocationAccess` | - |
 | `GET /events?incidentId={incidentId}` | S4 | 웹, S3-2 | SSE/HTTPS | `public-session`, `incident-read`, `@RequireChannel(WEB)` | `internal-caller`: event fanout replay |
-| `POST /markers` | S5 | 앱 | HTTPS | `app-device`, `incident-read`, `write-common`, `@RequireCurrentOp` | `internal-caller`: outbox replay |
+| `POST /markers` | S5 | 앱 | HTTPS | `app-police-phone`, `incident-read`, `write-common`, `@RequireCurrentOp` | `internal-caller`: outbox replay |
 | `PATCH /markers/{markerId}` | S5 | 앱, 웹 | HTTPS | `field-or-web-write`, `incident-read`, `write-common`, S5 marker policy | `internal-caller`: outbox replay |
 | `DELETE /markers/{markerId}` | S5 | 앱, 웹 | HTTPS | `field-or-web-write`, `incident-read`, `write-common`, S5 marker policy | `internal-caller`: outbox replay |
-| `POST /markers/{markerId}/photos/presign` | S5 | 앱 | HTTPS | `app-device`, `incident-read`, `write-common` | - |
-| `POST /markers/{markerId}/photos/{photoId}/finalize` | S5 | 앱 | HTTPS | `app-device`, `incident-read`, `write-common` | `internal-caller`: outbox replay |
-| `POST /sync/clock` | S6 | 앱 | HTTPS | `app-device` | - |
-| `POST /sync/outbox/requeue` | S6 | 앱 local retry scheduler | HTTPS | `app-device` | - |
+| `POST /markers/{markerId}/photos/presign` | S5 | 앱 | HTTPS | `app-police-phone`, `incident-read`, `write-common` | - |
+| `POST /markers/{markerId}/photos/{photoId}/finalize` | S5 | 앱 | HTTPS | `app-police-phone`, `incident-read`, `write-common` | `internal-caller`: outbox replay |
+| `POST /sync/clock` | S6 | 앱 | HTTPS | `app-police-phone` | - |
+| `POST /sync/outbox/requeue` | S6 | 앱 local retry scheduler | HTTPS | `app-police-phone` | - |
 | `GET /tiles/{style}/{z}/{x}/{y}.pbf` | S7 | 앱, 웹 MapLibre | tile HTTPS | `public-session` | - |
 | `GET /tiles/styles/{styleId}.json` | S7 | 앱, 웹 MapLibre | tile HTTPS | `public-session` | - |
-| `GET /incidents/{incidentId}/offline-package/manifest` | S7 | 앱, S3-2 | HTTPS | `public-session`, `incident-read`; 앱 package fetch는 `@RequireDevice`, `@RequireDeviceRegistered`, `@RequireDeviceAssigned` -> `device_required`, `device_not_registered`, `device_not_assigned` | - |
+| `GET /incidents/{incidentId}/offline-package/manifest` | S7 | 앱, S3-2 | HTTPS | `public-session`, `incident-read`; 앱 package fetch는 `@RequirePolicePhone`, `@RequirePolicePhoneRegistered`, `@RequirePolicePhoneAssigned` -> `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned` | - |
 | `POST /incidents/{incidentId}/offline-package/installations` | S7 | 앱 | HTTPS | `app-police-phone`, `incident-read`, `write-common` | `internal-caller`: outbox replay |
 | `POST /operational-periods` | S8 | 웹 | HTTPS | `web-command`, `incident-read`, `write-common` | `internal-caller`: OP bootstrap |
 | `GET /incidents/{incidentId}/operational-periods` | S8 | 앱, 웹, S3-2, S7 | HTTPS | `public-session`, `incident-read` | - |
@@ -1251,9 +1251,9 @@ Guard shorthand:
 | `@RequireIncidentAccess` | S1-2 | `incident_access_denied`, `team_not_assigned` | 사건 배정 팀 계정 확인 |
 | `@RequireRole` | S1-2 | `role_denied` | 역할 확인 |
 | `@RequireChannel` | S1-2 | `channel_not_allowed` | APP/WEB/INTERNAL 허용 채널 확인 |
-| `@RequireDevice` | S1-2 | `device_required` | 앱 요청의 Device 식별자 확인 |
-| `@RequireDeviceRegistered` | S1-2 | `device_not_registered` | 등록된 업무폰·순찰차 Device 확인 |
-| `@RequireDeviceAssigned` | S1-2 | `device_not_assigned` | 사건·팀·OP 배정과 Device 연결 확인 |
+| `@RequirePolicePhone` | S1-2 | `police_phone_required` | 앱 요청의 PolicePhone 식별자 확인 |
+| `@RequirePolicePhoneRegistered` | S1-2 | `police_phone_not_registered` | 등록된 업무폰·순찰차 PolicePhone 확인 |
+| `@RequirePolicePhoneAssigned` | S1-2 | `police_phone_not_assigned` | 사건·팀·OP 배정과 PolicePhone 연결 확인 |
 | `@RequireOpenIncident` | S1-1 | `incident_bootstrapping`, `incident_closed` | 사건 OPEN 상태 확인 |
 | `@RequireCurrentOp` | S8 | `op_required`, `op_mismatch` | current OP 확인 |
 | `@IdempotentWrite` | S6 | `idempotency_mismatch`, `write_conflict` | idempotency key 처리 |
