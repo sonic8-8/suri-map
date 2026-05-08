@@ -2,6 +2,9 @@ package com.surimap.common.auth.guard;
 
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.RequireChannel;
+import com.surimap.common.auth.RequireDevice;
+import com.surimap.common.auth.RequireDeviceAssigned;
+import com.surimap.common.auth.RequireDeviceRegistered;
 import com.surimap.common.auth.RequireIncidentAccess;
 import com.surimap.common.auth.RequirePolicePhone;
 import com.surimap.common.auth.RequirePolicePhoneAssigned;
@@ -58,6 +61,9 @@ public class GuardInterceptor implements HandlerInterceptor {
     var requirePolicePhone = method.getMethodAnnotation(RequirePolicePhone.class);
     var requireRegistered = method.getMethodAnnotation(RequirePolicePhoneRegistered.class);
     var requireAssigned = method.getMethodAnnotation(RequirePolicePhoneAssigned.class);
+    var requireDevice = method.getMethodAnnotation(RequireDevice.class);
+    var requireDeviceRegistered = method.getMethodAnnotation(RequireDeviceRegistered.class);
+    var requireDeviceAssigned = method.getMethodAnnotation(RequireDeviceAssigned.class);
 
     boolean hasAnyGuard =
         requireChannel != null
@@ -65,7 +71,10 @@ public class GuardInterceptor implements HandlerInterceptor {
             || requireIncidentAccess != null
             || requirePolicePhone != null
             || requireRegistered != null
-            || requireAssigned != null;
+            || requireAssigned != null
+            || requireDevice != null
+            || requireDeviceRegistered != null
+            || requireDeviceAssigned != null;
 
     if (!hasAnyGuard) {
       return true;
@@ -90,16 +99,30 @@ public class GuardInterceptor implements HandlerInterceptor {
 
     // 4. Police-phone guards — skip entirely for WEB channel
     if (auth.getChannel() != Channel.WEB) {
-      if (requirePolicePhone != null) {
-        enforcePolicePhonePresent(auth);
+      if (requirePolicePhone != null || requireDevice != null) {
+        enforcePolicePhonePresent(auth, requireDevice != null);
       }
 
       if (requireRegistered != null && auth.getPolicePhoneId() != null) {
-        policePhoneValidationPort.checkRegistered(parsePolicePhoneId(auth));
+        policePhoneValidationPort.checkRegistered(parsePolicePhoneId(auth, false));
+      }
+      if (requireDeviceRegistered != null && auth.getPolicePhoneId() != null) {
+        try {
+          policePhoneValidationPort.checkRegistered(parsePolicePhoneId(auth, true));
+        } catch (PolicePhoneNotRegisteredException ex) {
+          throw new DeviceNotRegisteredException();
+        }
       }
 
       if (requireAssigned != null && auth.getPolicePhoneId() != null) {
-        policePhoneValidationPort.checkAssigned(parsePolicePhoneId(auth));
+        policePhoneValidationPort.checkAssigned(parsePolicePhoneId(auth, false));
+      }
+      if (requireDeviceAssigned != null && auth.getPolicePhoneId() != null) {
+        try {
+          policePhoneValidationPort.checkAssigned(parsePolicePhoneId(auth, true));
+        } catch (PolicePhoneNotAssignedException ex) {
+          throw new DeviceNotAssignedException();
+        }
       }
     }
 
@@ -136,16 +159,22 @@ public class GuardInterceptor implements HandlerInterceptor {
     }
   }
 
-  private void enforcePolicePhonePresent(SuriMapAuthentication auth) {
+  private void enforcePolicePhonePresent(SuriMapAuthentication auth, boolean deviceAlias) {
     if (auth.getPolicePhoneId() == null) {
+      if (deviceAlias) {
+        throw new DeviceRequiredException();
+      }
       throw new PolicePhoneRequiredException();
     }
   }
 
-  private UUID parsePolicePhoneId(SuriMapAuthentication auth) {
+  private UUID parsePolicePhoneId(SuriMapAuthentication auth, boolean deviceAlias) {
     try {
       return UUID.fromString(auth.getPolicePhoneId());
     } catch (IllegalArgumentException e) {
+      if (deviceAlias) {
+        throw new DeviceRequiredException();
+      }
       throw new PolicePhoneRequiredException();
     }
   }

@@ -110,7 +110,7 @@
 
 ## Phase 2
 
-- [ ] L2-T06 이벤트 저장·발행 트랜잭션 경계 구현
+- [x] L2-T06 이벤트 저장·발행 트랜잭션 경계 구현
   - 담당 Spec: S4
   - 필수 참조: `spec/specs/S4.json`, `spec/boundaries.md §4.3`, `spec/boundaries.md §4.4`
   - 연관 Spec: S1-1, S2, S3-1, S5, S7, S8
