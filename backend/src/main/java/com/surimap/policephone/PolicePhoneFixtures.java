@@ -1,0 +1,24 @@
+package com.surimap.policephone;
+
+import com.surimap.common.auth.AccountType;
+import com.surimap.common.auth.OrganizationType;
+import java.util.UUID;
+
+/** Stable S1-2 fixture IDs for police-phone assignment and heartbeat flows. */
+public final class PolicePhoneFixtures {
+
+  public static final UUID INCIDENT_ID =
+      UUID.fromString("10000000-0000-0000-0000-000000000001");
+  public static final UUID OP_ID = UUID.fromString("70000000-0000-0000-0000-000000000001");
+  public static final UUID ASSIGNED_POLICE_PHONE_ID =
+      UUID.fromString("00000000-0000-0000-0000-000000000101");
+  public static final UUID ASSIGNED_PATH_POLICE_PHONE_ID =
+      UUID.fromString("50000000-0000-0000-0000-000000000001");
+  public static final UUID REGISTERED_UNASSIGNED_POLICE_PHONE_ID =
+      UUID.fromString("00000000-0000-0000-0000-000000000301");
+  public static final String ASSIGNED_ACCOUNT_ID = "acct-precinct-team";
+  public static final AccountType ASSIGNED_ACCOUNT_TYPE = AccountType.TEAM;
+  public static final OrganizationType ASSIGNED_ORGANIZATION_TYPE = OrganizationType.MISSING_TEAM;
+
+  private PolicePhoneFixtures() {}
+}
