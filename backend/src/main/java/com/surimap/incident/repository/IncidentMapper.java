@@ -84,6 +84,13 @@ public interface IncidentMapper {
 
   void incrementIncidentVersion(@Param("incidentId") UUID incidentId, @Param("now") Instant now);
 
+  int closeIncident(
+      @Param("incidentId") UUID incidentId,
+      @Param("closedByAccountId") UUID closedByAccountId,
+      @Param("closedAt") Instant closedAt);
+
+  int deleteMissingPersonByIncidentId(@Param("incidentId") UUID incidentId);
+
   List<String> findActiveAssignmentAccountIds(@Param("incidentId") UUID incidentId);
 
   Optional<MissingPersonRecord> findMissingPersonByIncidentId(@Param("incidentId") UUID incidentId);
