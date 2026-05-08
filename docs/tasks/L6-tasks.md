@@ -162,7 +162,7 @@
   - 예상 작업량: 1d
   - 완료 기준: status report API test가 manifest item state를 갱신하고, publish request test가 `OFFLINE_PACKAGE_INSTALLATION_CHANGED`를 capture하며, OfflinePackageInstallationQuery contract test가 기대 package installation status field를 노출한다.
 
-- [ ] L6-T06B package_badge API 조립과 S6 로컬 경고 입력 검증
+- [x] L6-T06B package_badge API 조립과 S6 로컬 경고 입력 검증
   - 담당 Spec: S7, S3-2
   - 필수 참조: `spec/specs/S7.json`, `spec/specs/S6.json`, `spec/specs/S3-2.json`
   - 연관 Spec: S3-2, S6
