@@ -41,7 +41,7 @@ import org.springframework.test.web.servlet.MockMvc;
       "DELETE FROM \"incident\"",
       "INSERT INTO \"incident\" (id, source_incident_id, title, status, opened_at, closed_at, closed_by_account_id, version, created_at, updated_at) VALUES ('10000000-0000-4000-8000-000000000001', 'mock-112-incident-001', '종로구 인왕산 실종 신고', 'OPEN', '2026-04-28T09:00:00+09:00', NULL, NULL, 3, '2026-04-28T09:00:00+09:00', '2026-04-28T10:30:00+09:00')",
       "INSERT INTO \"incident\" (id, source_incident_id, title, status, opened_at, closed_at, closed_by_account_id, version, created_at, updated_at) VALUES ('10000000-0000-4000-8000-000000000002', 'mock-112-incident-unassigned', '미배정 OPEN 사건', 'OPEN', '2026-04-28T09:10:00+09:00', NULL, NULL, 1, '2026-04-28T09:10:00+09:00', '2026-04-28T09:10:00+09:00')",
-      "INSERT INTO \"incident\" (id, source_incident_id, title, status, opened_at, closed_at, closed_by_account_id, version, created_at, updated_at) VALUES ('10000000-0000-4000-8000-000000000003', 'mock-112-incident-closed', '종료된 배정 사건', 'CLOSED', '2026-04-27T09:00:00+09:00', '2026-04-28T12:00:00+09:00', 'acct-precinct-team', 7, '2026-04-27T09:00:00+09:00', '2026-04-28T12:00:00+09:00')",
+      "INSERT INTO \"incident\" (id, source_incident_id, title, status, opened_at, closed_at, closed_by_account_id, version, created_at, updated_at) VALUES ('10000000-0000-4000-8000-000000000005', 'mock-112-incident-no-missing', '실종자 row 없는 OPEN 사건', 'OPEN', '2026-04-28T09:20:00+09:00', NULL, NULL, 2, '2026-04-28T09:20:00+09:00', '2026-04-28T09:20:00+09:00')",
       "INSERT INTO missing_person (incident_id, display_name, photo_object_key, appearance_text, last_seen_location_text, last_seen_at, imported_at) VALUES ('10000000-0000-4000-8000-000000000001', '가상 실종자 001', 'mock-112/missing-person/001', '남색 점퍼, 회색 등산화', '인왕산 북측 산책로 입구', '2026-04-28T08:30:00+09:00', '2026-04-28T09:00:00+09:00')",
       "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('20000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', 'acct-precinct-cmd', 'FIELD_COMMANDER', '2026-04-28T09:00:00+09:00', NULL, '2026-04-28T09:00:00+09:00', '2026-04-28T09:00:00+09:00')",
       "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('20000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000001', 'acct-precinct-car', 'MEMBER', '2026-04-28T09:05:00+09:00', NULL, '2026-04-28T09:05:00+09:00', '2026-04-28T09:05:00+09:00')",
@@ -49,15 +49,15 @@ import org.springframework.test.web.servlet.MockMvc;
       "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('20000000-0000-4000-8000-000000000004', '10000000-0000-4000-8000-000000000001', 'acct-cmd-alpha', 'INCIDENT_COMMANDER', '2026-04-28T10:30:00+09:00', NULL, '2026-04-28T10:30:00+09:00', '2026-04-28T10:30:00+09:00')",
       "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('20000000-0000-4000-8000-000000000005', '10000000-0000-4000-8000-000000000001', 'acct-team-alpha', 'MEMBER', '2026-04-28T10:35:00+09:00', NULL, '2026-04-28T10:35:00+09:00', '2026-04-28T10:35:00+09:00')",
       "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('20000000-0000-4000-8000-000000000006', '10000000-0000-4000-8000-000000000002', 'acct-other-incident', 'MEMBER', '2026-04-28T09:15:00+09:00', NULL, '2026-04-28T09:15:00+09:00', '2026-04-28T09:15:00+09:00')",
-      "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('20000000-0000-4000-8000-000000000007', '10000000-0000-4000-8000-000000000003', 'acct-precinct-team', 'MEMBER', '2026-04-27T09:00:00+09:00', NULL, '2026-04-27T09:00:00+09:00', '2026-04-27T09:00:00+09:00')"
+      "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('20000000-0000-4000-8000-000000000007', '10000000-0000-4000-8000-000000000005', 'acct-no-missing', 'MEMBER', '2026-04-28T09:20:00+09:00', NULL, '2026-04-28T09:20:00+09:00', '2026-04-28T09:20:00+09:00')"
     })
 @DisplayName("L1-T05A GET /api/incidents active read DTO 계약")
 class IncidentActiveReadDtoContractTest {
 
   private static final UUID OPEN_ASSIGNED_INCIDENT_ID =
       UUID.fromString("10000000-0000-4000-8000-000000000001");
-  private static final UUID CLOSED_ASSIGNED_INCIDENT_ID =
-      UUID.fromString("10000000-0000-4000-8000-000000000003");
+  private static final UUID OPEN_NO_MISSING_INCIDENT_ID =
+      UUID.fromString("10000000-0000-4000-8000-000000000005");
   private static final Set<String> ACTIVE_LIST_ITEM_FIELDS =
       Set.of("id", "incidentId", "title", "status", "version", "closedAt");
   private static final Set<String> ACTIVE_DETAIL_FIELDS =
@@ -210,26 +210,34 @@ class IncidentActiveReadDtoContractTest {
       accountType = AccountType.TEAM,
       organizationType = OrganizationType.POLICE_SUBSTATION,
       channel = Channel.APP,
-      accountId = "acct-precinct-team",
-      policePhoneId = "dev-precinct-phone-01",
+      accountId = "acct-no-missing",
+      policePhoneId = "dev-no-missing-phone-01",
       roles = {Role.MEMBER})
-  @DisplayName("GET /api/incidents/{incidentId}는 종료 사건을 active 상세 필드 없이 terminal DTO로 반환한다")
-  void detail_returns_closed_incident_without_active_detail_fields() throws Exception {
-    mockMvc
-        .perform(
-            get("/api/incidents/{incidentId}", CLOSED_ASSIGNED_INCIDENT_ID)
-                .contextPath("/api")
-                .header("Authorization", "Bearer app-active-detail-closed")
-                .header("X-Client-Channel", "APP"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.id").value(CLOSED_ASSIGNED_INCIDENT_ID.toString()))
-        .andExpect(jsonPath("$.incidentId").value(CLOSED_ASSIGNED_INCIDENT_ID.toString()))
-        .andExpect(jsonPath("$.status").value("CLOSED"))
-        .andExpect(jsonPath("$.closedAt").value("2026-04-28T03:00:00Z"))
-        .andExpect(jsonPath("$.writeDisabledReason").value("incident_closed"))
-        // T05B 이후 CLOSED 상세는 같은 endpoint에서 조회하되 active 상세 개인정보는 조립하지 않는다.
-        .andExpect(jsonPath("$.missingPerson").doesNotExist())
-        .andExpect(jsonPath("$.assignments").doesNotExist());
+  @DisplayName("GET /api/incidents/{incidentId}는 OPEN missing_person row가 없어도 active detail 키를 유지한다")
+  void detail_keeps_active_missing_person_key_when_row_is_absent() throws Exception {
+    JsonNode body =
+        readJson(
+            mockMvc
+                .perform(
+                    get("/api/incidents/{incidentId}", OPEN_NO_MISSING_INCIDENT_ID)
+                        .contextPath("/api")
+                        .header("Authorization", "Bearer app-active-detail-no-missing")
+                        .header("X-Client-Channel", "APP"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(OPEN_NO_MISSING_INCIDENT_ID.toString()))
+                .andExpect(jsonPath("$.incidentId").value(OPEN_NO_MISSING_INCIDENT_ID.toString()))
+                .andExpect(jsonPath("$.status").value("OPEN"))
+                .andExpect(jsonPath("$.version").value(2))
+                .andReturn()
+                .getResponse()
+                .getContentAsString(StandardCharsets.UTF_8));
+
+    assertThat(fieldNames(body)).isEqualTo(ACTIVE_DETAIL_FIELDS);
+    assertThat(body.has("missingPerson")).isTrue();
+    assertThat(body.path("missingPerson").isNull()).isTrue();
+    assertThat(body.path("assignments").isArray()).isTrue();
+    assertThat(body.path("assignments")).hasSize(1);
+    assertNoTerminalOrPurgeFields(body);
   }
 
   private JsonNode readJson(String body) throws Exception {
