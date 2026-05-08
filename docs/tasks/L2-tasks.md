@@ -121,7 +121,7 @@
   - 예상 작업량: 2d
   - 완료 기준: domain transaction은 publish request를 원자적으로 stage할 수 있고, `event_dispatch_job` row와 dispatch state 소유권은 S4에 남는다.
 
-- [ ] L2-T07A SSE endpoint와 Last-Event-ID 재전송 구현
+- [x] L2-T07A SSE endpoint와 Last-Event-ID 재전송 구현
   - 담당 Spec: S4
   - 필수 참조: `spec/specs/S4.json`, `spec/harness-scenarios.md §0.3`, `spec/harness-scenarios.md §6 mock SSE client`
   - 연관 Spec: S1-1, S1-2, S1-3, S2, S3-1, S5, S6, S7, S8, S3-2
@@ -144,7 +144,7 @@
   - 예상 작업량: 1d
   - 완료 기준: duplicate/reordered event test와 gone board API refetch recovery check가 SSE replay path 기준으로 통과한다.
 
-- [ ] L2-T04 FCM 토큰 등록 fixture와 활성 토큰 조회 구현
+- [x] L2-T04 FCM 토큰 등록 fixture와 활성 토큰 조회 구현
   - 담당 Spec: S1-2
   - 필수 참조: `spec/specs/S1-2.json`, `spec/harness-scenarios.md §6 mock FCM recipient`
   - 연관 Spec: S5, S4
