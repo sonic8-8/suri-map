@@ -4,31 +4,39 @@ import { IncidentImportCompleteDialog } from '../../../incidentImport/presentati
 import { IncidentImportModal } from '../../../incidentImport/presentation/components/IncidentImportModal';
 import type { IncidentFilter, IncidentStatus } from '../../domain/entities/Incident';
 import { INCIDENT_FILTERS, INCIDENT_LIST_PAGE_SIZE, mockIncidentList } from '../constants/mockIncidentList';
+import { ActionButton, StatusBadge, type StatusBadgeTone } from '../../../../shared';
 import styles from './IncidentListPage.module.css';
 
 const INITIAL_IMPORTED_INCIDENT_IDS = ['INC-2026-0506-001', 'INC-2026-0505-004'];
 
+// MP_O(실종팀 간부), LP_O(지구대/파출소 팀장)만 사건 가져오기 권한 있음 (permission-matrix §2.1)
+function canImportIncident(role: string): boolean {
+  return role === 'MISSING_TEAM_COMMANDER' || role === 'FIELD_COMMANDER';
+}
+
 type IncidentListPageProps = {
   onOpenSituationBoard: () => void;
   onOpenLogin: () => void;
+  currentUserRole: string;
 };
 
-function getStatusToneClassName(status: IncidentStatus) {
+function getStatusTone(status: IncidentStatus): StatusBadgeTone {
   if (status === '진행 중') {
-    return styles.statusActive;
+    return 'active';
   }
 
   if (status === '인계 대기') {
-    return styles.statusWaiting;
+    return 'waiting';
   }
 
-  return styles.statusClosed;
+  return 'closed';
 }
 
-export function IncidentListPage({ onOpenLogin }: IncidentListPageProps) {
+export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUserRole }: IncidentListPageProps) {
   const [filter, setFilter] = useState<IncidentFilter>('전체');
   const [pageNumber, setPageNumber] = useState(1);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isOffline, setIsOffline] = useState(() => !navigator.onLine);
   const [importedIncidentIds, setImportedIncidentIds] = useState<string[]>(INITIAL_IMPORTED_INCIDENT_IDS);
   const [importCompleteIncidentId, setImportCompleteIncidentId] = useState<string | null>(null);
 
@@ -56,6 +64,19 @@ export function IncidentListPage({ onOpenLogin }: IncidentListPageProps) {
       setPageNumber(activePage);
     }
   }, [activePage, pageNumber]);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  const canImport = canImportIncident(currentUserRole);
 
   return (
     <main className={styles.page}>
@@ -115,9 +136,13 @@ export function IncidentListPage({ onOpenLogin }: IncidentListPageProps) {
             </div>
           </div>
           <div className={styles.listContextActions}>
-            <button type="button" className={styles.importButton} onClick={() => setIsImportModalOpen(true)}>
-              사건 가져오기
-            </button>
+            {canImport && (
+              <ActionButton
+                label="사건 가져오기"
+                onClick={() => setIsImportModalOpen(true)}
+                disabled={isOffline}
+              />
+            )}
           </div>
         </section>
       </header>
@@ -147,9 +172,11 @@ export function IncidentListPage({ onOpenLogin }: IncidentListPageProps) {
             <div className={styles.emptyState}>
               <strong>{importedIncidents.length === 0 ? '아직 가져온 사건이 없습니다' : '표시할 사건이 없습니다'}</strong>
               <span>
-                {importedIncidents.length === 0
+                {importedIncidents.length === 0 && canImport
                   ? '사건 가져오기 버튼을 눌러 mock 112 배정 후보를 확인하세요.'
-                  : '선택한 상태 필터에 맞는 사건이 없습니다. 다른 필터를 선택하세요.'}
+                  : importedIncidents.length === 0
+                    ? '배정된 사건이 없습니다.'
+                    : '선택한 상태 필터에 맞는 사건이 없습니다. 다른 필터를 선택하세요.'}
               </span>
             </div>
           ) : (
@@ -166,9 +193,13 @@ export function IncidentListPage({ onOpenLogin }: IncidentListPageProps) {
                       <div className={styles.cardLocation}>{incident.location}</div>
                       <span className={styles.importedBadge}>내가 가져온</span>
                     </div>
-                    <div className={`${styles.statusBadge} ${getStatusToneClassName(incident.status)}`}>
-                      {incident.status}
-                    </div>
+                    <StatusBadge status={incident.status} tone={getStatusTone(incident.status)} />
+                  </div>
+
+                  <div className={styles.cardActionRow}>
+                    <button type="button" className={styles.boardButton} onClick={onOpenSituationBoard}>
+                      상황판 보기
+                    </button>
                   </div>
 
                   <div className={styles.cardMetaGrid}>
@@ -200,9 +231,7 @@ export function IncidentListPage({ onOpenLogin }: IncidentListPageProps) {
                 총 <b>{filteredIncidents.length}건</b>
               </span>
               <span className={styles.toolbarDivider} aria-hidden="true" />
-              <span>
-                {filteredIncidents.length === 0 ? '0' : `${pageStartNumber}-${pageEndNumber}`}건 표시
-              </span>
+              <span>{filteredIncidents.length === 0 ? '0' : `${pageStartNumber}-${pageEndNumber}`}건 표시</span>
             </div>
 
             <div className={styles.paginationControls}>
@@ -244,6 +273,8 @@ export function IncidentListPage({ onOpenLogin }: IncidentListPageProps) {
         <IncidentImportModal
           incidents={mockIncidentList}
           importedIncidentIds={importedIncidentIdSet}
+          canImport={canImport}
+          isOffline={isOffline}
           onClose={() => setIsImportModalOpen(false)}
           onImportIncident={(incidentId) => {
             setImportedIncidentIds((currentIds) => [...currentIds, incidentId]);

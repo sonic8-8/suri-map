@@ -1,4 +1,4 @@
-/* 페이지 전체는 body 스크롤을 열지 않고 내부 목록 영역만 스크롤한다. */
+/* ?섏씠吏 ?꾩껜??body ?ㅽ겕濡ㅼ쓣 ?댁? ?딄퀬 ?대? 紐⑸줉 ?곸뿭留??ㅽ겕濡ㅽ븳?? */
 .page {
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
@@ -8,7 +8,7 @@
   background: var(--suri-board-page-bg);
 }
 
-/* 상황판 Header와 같은 2단 헤더 구조를 사건 목록 화면에도 맞춰 사용한다. */
+/* ?곹솴??Header? 媛숈? 2???ㅻ뜑 援ъ“瑜??ш굔 紐⑸줉 ?붾㈃?먮룄 留욎떠 ?ъ슜?쒕떎. */
 .header {
   position: sticky;
   top: 0;
@@ -19,7 +19,7 @@
   background: var(--suri-board-page-bg);
 }
 
-/* 첫 번째 헤더 줄: 뒤로가기, 화면 탭, 사용자/브랜드 메타를 배치한다. */
+/* 泥?踰덉㎏ ?ㅻ뜑 以? ?ㅻ줈媛湲? ?붾㈃ ?? ?ъ슜??釉뚮옖??硫뷀?瑜?諛곗튂?쒕떎. */
 .productNav {
   position: relative;
   display: flex;
@@ -44,7 +44,7 @@
   transform: translateX(-50%);
 }
 
-/* 우측 사용자, mock 시각, 브랜드 정보를 담는 메타 영역. */
+/* ?곗륫 ?ъ슜?? mock ?쒓컖, 釉뚮옖???뺣낫瑜??대뒗 硫뷀? ?곸뿭. */
 .meta {
   position: relative;
   z-index: 1;
@@ -115,7 +115,7 @@
   outline-offset: 2px;
 }
 
-/* 두 번째 헤더 줄: 사건 목록의 집계와 주요 액션을 보여준다. */
+/* ??踰덉㎏ ?ㅻ뜑 以? ?ш굔 紐⑸줉??吏묎퀎? 二쇱슂 ?≪뀡??蹂댁뿬以?? */
 .listContextBar {
   display: flex;
   align-items: center;
@@ -129,7 +129,7 @@
     #c3cfdd;
 }
 
-/* 화면 제목과 LIST 아바타를 묶는 왼쪽 컨텍스트 영역. */
+/* ?붾㈃ ?쒕ぉ怨?LIST ?꾨컮?瑜?臾띕뒗 ?쇱そ 而⑦뀓?ㅽ듃 ?곸뿭. */
 .listContextMain {
   display: flex;
   align-items: center;
@@ -164,7 +164,7 @@
   background: #9fb0c2;
 }
 
-/* 전체/진행/종료 같은 사건 집계 메트릭 영역. */
+/* ?꾩껜/吏꾪뻾/醫낅즺 媛숈? ?ш굔 吏묎퀎 硫뷀듃由??곸뿭. */
 .listContextMetrics {
   display: flex;
   align-items: center;
@@ -189,7 +189,7 @@
   white-space: nowrap;
 }
 
-/* 헤더 우측 주요 액션 영역. */
+/* ?ㅻ뜑 ?곗륫 二쇱슂 ?≪뀡 ?곸뿭. */
 .listContextActions {
   display: flex;
   align-items: center;
@@ -198,41 +198,6 @@
   flex-shrink: 0;
 }
 
-/* 레이어 선택 버튼의 선택 상태 효과를 차용한 사건 가져오기 CTA. */
-.importButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  padding: 0 22px;
-  border: 1px solid #4f7198;
-  border-radius: 7px;
-  color: var(--suri-board-fg-primary);
-  background: linear-gradient(180deg, #37628e 0%, #2b537c 56%, #21466d 100%);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 18%),
-    0 2px 7px rgb(21 47 76 / 26%);
-  font-size: 15px;
-  font-weight: 900;
-  line-height: 1.2;
-  white-space: nowrap;
-}
-
-.importButton:hover {
-  border-color: #6687ad;
-  color: #ffffff;
-  background: linear-gradient(180deg, #426f9d 0%, #335f8b 56%, #28517b 100%);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 22%),
-    0 3px 9px rgb(21 47 76 / 32%);
-}
-
-.importButton:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--suri-board-primary-hi) 64%, transparent);
-  outline-offset: 3px;
-}
-
-/* 카드 목록 위 상태 필터를 담는 툴바. */
 .toolbar {
   display: flex;
   align-items: center;
@@ -243,7 +208,7 @@
   background: #f4f6f8;
 }
 
-/* 상태 필터 칩 묶음. */
+/* ?곹깭 ?꾪꽣 移?臾띠쓬. */
 .filterGroup {
   display: flex;
   align-items: center;
@@ -251,7 +216,7 @@
   min-width: 0;
 }
 
-/* 전체/진행 중/인계 대기/종료 필터 버튼. */
+/* ?꾩껜/吏꾪뻾 以??멸퀎 ?湲?醫낅즺 ?꾪꽣 踰꾪듉. */
 .filterChip {
   min-height: 32px;
   padding: 0 12px;
@@ -276,7 +241,7 @@
   background: color-mix(in srgb, #dfe8f2 72%, var(--color-bg-surface));
 }
 
-/* 페이지네이션에서 쓰는 보조 수치 표시. */
+/* ?섏씠吏?ㅼ씠?섏뿉???곕뒗 蹂댁“ ?섏튂 ?쒖떆. */
 .paginationSummary {
   display: flex;
   align-items: center;
@@ -297,7 +262,7 @@
   background: var(--color-border-default);
 }
 
-/* 카드 목록만 독립적으로 스크롤되도록 하는 본문 영역. */
+/* 移대뱶 紐⑸줉留??낅┰?곸쑝濡??ㅽ겕濡ㅻ릺?꾨줉 ?섎뒗 蹂몃Ц ?곸뿭. */
 .content {
   min-height: 0;
   overflow: auto;
@@ -322,7 +287,7 @@
   background-clip: content-box;
 }
 
-/* 목록 내용의 최대 폭과 상하 여백을 제한한다. */
+/* 紐⑸줉 ?댁슜??理쒕? ??낵 ?곹븯 ?щ갚???쒗븳?쒕떎. */
 .contentInner {
   display: grid;
   gap: 16px;
@@ -331,14 +296,14 @@
   padding: 20px;
 }
 
-/* 사건 카드는 넓은 화면에서 4열 dense dashboard 그리드로 배치한다. */
+/* ?ш굔 移대뱶???볦? ?붾㈃?먯꽌 4??dense dashboard 洹몃━?쒕줈 諛곗튂?쒕떎. */
 .cardGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 
-/* 개별 사건 카드. 표 대신 반복 카드로 핵심 사건 정보를 스캔하게 한다. */
+/* 媛쒕퀎 ?ш굔 移대뱶. ?????諛섎났 移대뱶濡??듭떖 ?ш굔 ?뺣낫瑜??ㅼ틪?섍쾶 ?쒕떎. */
 .card {
   display: grid;
   gap: 14px;
@@ -386,7 +351,7 @@
   background: color-mix(in srgb, #eef1f4 72%, #dfe4ea);
 }
 
-/* 카드 상단의 사건명/위치와 상태 배지를 양쪽에 배치한다. */
+/* 移대뱶 ?곷떒???ш굔紐??꾩튂? ?곹깭 諛곗?瑜??묒そ??諛곗튂?쒕떎. */
 .cardHeader {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -401,7 +366,11 @@
   min-width: 0;
 }
 
-/* 사건 번호는 긴 ID가 넘치지 않도록 monospace 한 줄로 고정한다. */
+.cardIdentity .importedBadge {
+  display: none;
+}
+
+/* ?ш굔 踰덊샇??湲?ID媛 ?섏튂吏 ?딅룄濡?monospace ??以꾨줈 怨좎젙?쒕떎. */
 .cardId {
   overflow: hidden;
   color: var(--color-fg-muted);
@@ -446,41 +415,45 @@
   white-space: nowrap;
 }
 
-/* 사건 상태 배지의 공통 골격. 색은 상태별 class에서 부여한다. */
-.statusBadge {
+.cardActionRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  min-width: 0;
+  padding-top: 2px;
+}
+
+.boardButton {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 62px;
-  min-height: 26px;
-  padding: 0 8px;
-  border: 1px solid var(--color-border-default);
-  border-radius: 999px;
-  font-size: 12px;
+  min-height: 44px;
+  padding: 0 22px;
+  border: 1px solid #c66a19;
+  border-radius: 7px;
+  color: #ffffff;
+  background: linear-gradient(180deg, #e47b1c 0%, #d97018 100%);
+  box-shadow: 0 1px 2px rgb(91 47 13 / 14%);
+  font-size: 16px;
   font-weight: 800;
   line-height: 1.2;
   white-space: nowrap;
 }
 
-.statusActive {
-  border-color: color-mix(in srgb, var(--suri-board-success) 38%, var(--color-border-default));
-  color: var(--suri-board-success);
-  background: color-mix(in srgb, var(--suri-board-success) 10%, #ffffff);
+.boardButton:hover {
+  border-color: #ad5a13;
+  color: #ffffff;
+  background: linear-gradient(180deg, #e88324 0%, #c96314 100%);
+  box-shadow: 0 1px 3px rgb(91 47 13 / 18%);
 }
 
-.statusWaiting {
-  border-color: color-mix(in srgb, var(--krds-ops-warning) 42%, var(--color-border-default));
-  color: #b86b00;
-  background: color-mix(in srgb, var(--krds-ops-warning) 14%, #ffffff);
+.boardButton:focus-visible {
+  outline: 2px solid color-mix(in srgb, #f08a24 64%, transparent);
+  outline-offset: 3px;
 }
 
-.statusClosed {
-  border-color: color-mix(in srgb, var(--color-border-strong) 58%, var(--color-border-default));
-  color: var(--color-fg-muted);
-  background: #f8f8f8;
-}
-
-/* 카드 하단 메타 정보는 라벨/값 2열 구조로 압축한다. */
+/* 移대뱶 ?섎떒 硫뷀? ?뺣낫???쇰꺼/媛?2??援ъ“濡??뺤텞?쒕떎. */
 .cardMetaGrid {
   display: grid;
   gap: 8px;
@@ -513,7 +486,7 @@
   white-space: nowrap;
 }
 
-/* 필터 결과가 없을 때 표시하는 빈 상태. */
+/* ?꾪꽣 寃곌낵媛 ?놁쓣 ???쒖떆?섎뒗 鍮??곹깭. */
 .emptyState {
   display: grid;
   place-items: center;
@@ -535,7 +508,7 @@
   font-size: 13px;
 }
 
-/* offset 기반 페이지 번호를 조작하는 하단 컨트롤. */
+/* offset 湲곕컲 ?섏씠吏 踰덊샇瑜?議곗옉?섎뒗 ?섎떒 而⑦듃濡? */
 .paginationBar {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
@@ -566,7 +539,7 @@
   text-align: right;
 }
 
-/* 이전/다음, 번호 버튼의 공통 크기와 톤. */
+/* ?댁쟾/?ㅼ쓬, 踰덊샇 踰꾪듉??怨듯넻 ?ш린? ?? */
 .pageNumberButton,
 .paginationButton {
   display: inline-flex;
@@ -608,7 +581,7 @@
   opacity: 0.58;
 }
 
-/* 데스크톱 폭이 줄어들 때 카드 열 수와 헤더 메타 노출을 조정한다. */
+/* ?곗뒪?ы넲 ??씠 以꾩뼱????移대뱶 ???섏? ?ㅻ뜑 硫뷀? ?몄텧??議곗젙?쒕떎. */
 @media (max-width: 1240px) {
   .cardGrid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -619,7 +592,7 @@
   }
 }
 
-/* 태블릿 폭에서는 헤더 중앙 탭을 일반 흐름으로 돌리고 카드 2열로 낮춘다. */
+/* ?쒕툝由???뿉?쒕뒗 ?ㅻ뜑 以묒븰 ??쓣 ?쇰컲 ?먮쫫?쇰줈 ?뚮━怨?移대뱶 2?대줈 ??텣?? */
 @media (max-width: 960px) {
   .productNav {
     justify-content: space-between;
@@ -650,7 +623,7 @@
   }
 }
 
-/* 모바일 폭에서는 카드 1열과 wrap 가능한 조작 영역으로 전환한다. */
+/* 紐⑤컮????뿉?쒕뒗 移대뱶 1?닿낵 wrap 媛?ν븳 議곗옉 ?곸뿭?쇰줈 ?꾪솚?쒕떎. */
 @media (max-width: 640px) {
   .contentInner {
     padding: 12px;
@@ -675,3 +648,4 @@
     display: none;
   }
 }
+
