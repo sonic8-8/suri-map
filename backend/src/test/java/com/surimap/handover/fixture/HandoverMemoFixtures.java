@@ -82,7 +82,7 @@ public final class HandoverMemoFixtures {
   /**
    * SC-11 HANDOVER_MEMO_CREATED expected S4 event (S8.json harness_fixtures).
    *
-   * <p>payloadId=memo-precinct-op2-001, payloadStatus=ACTIVE, payloadVersion=1, opId=op-precinct-001-op2
+   * <p>payloadId=memo-precinct-handover-001, payloadStatus=ACTIVE, payloadVersion=1, opId=op-precinct-001-op2
    */
   public static ExpectedHandoverMemoEvent handoverMemoCreatedEvent(
       String targetType, UUID targetId) {
