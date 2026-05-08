@@ -4,15 +4,28 @@ import { SituationBoardLeftPanel } from '../components/leftPanel/SituationBoardL
 import type { InitialMapState } from '../components/map/SearchMapCanvas';
 import { SituationBoardMap } from '../components/map/SituationBoardMap';
 import type { CompletedAreaDraft } from '../../../../shared/model/areaDraft';
+import type { MarkerNotification } from '../../../../shared/ui';
 import { useSituationBoardShell } from '../hooks/useSituationBoardShell';
 
 type SituationBoardPageProps = {
+  markerNotificationIndex: number;
+  markerNotifications: MarkerNotification[];
+  onCloseMarkerNotifications: () => void;
+  onMoveMarkerNotification: (nextIndex: number) => void;
   savedAreaDrafts: CompletedAreaDraft[];
   onOpenIncidentList: () => void;
   onOpenAreaEdit: () => void;
 };
 
-export function SituationBoardPage({ savedAreaDrafts, onOpenIncidentList, onOpenAreaEdit }: SituationBoardPageProps) {
+export function SituationBoardPage({
+  markerNotificationIndex,
+  markerNotifications,
+  onCloseMarkerNotifications,
+  onMoveMarkerNotification,
+  savedAreaDrafts,
+  onOpenIncidentList,
+  onOpenAreaEdit,
+}: SituationBoardPageProps) {
   const { isLeftPanelCollapsed, shellClassName, toggleLeftPanelCollapsed } = useSituationBoardShell();
   const [isMapExpanded, setIsMapExpanded] = useState(false);
   const [initialMapState, setInitialMapState] = useState<InitialMapState | null>(null);
@@ -31,7 +44,16 @@ export function SituationBoardPage({ savedAreaDrafts, onOpenIncidentList, onOpen
 
   return (
     <main className={`situation-board-page${isMapExpanded ? ' map-expanded' : ''}`}>
-      {isMapExpanded ? null : <SituationBoardHeader onOpenIncidentList={onOpenIncidentList} onOpenAreaEdit={onOpenAreaEdit} />}
+      {isMapExpanded ? null : (
+        <SituationBoardHeader
+          markerNotificationIndex={markerNotificationIndex}
+          markerNotifications={markerNotifications}
+          onCloseMarkerNotifications={onCloseMarkerNotifications}
+          onMoveMarkerNotification={onMoveMarkerNotification}
+          onOpenIncidentList={onOpenIncidentList}
+          onOpenAreaEdit={onOpenAreaEdit}
+        />
+      )}
       <div className={shellClassName}>
         {isMapExpanded ? null : (
           <SituationBoardLeftPanel

@@ -36,7 +36,7 @@ export function MarkerTypeFilter() {
                 label={label}
                 selected={isSelected}
                 variant="icon"
-                icon={<MarkerGlyph name={icon} size={20} />}
+                icon={<MarkerGlyph name={icon} size={24} />}
                 onClick={() => handleMarkerTypeToggle(label)}
               />
           );
@@ -55,7 +55,7 @@ export function MarkerTypeFilter() {
                 label={label}
                 selected={isSelected}
                 variant="icon"
-                icon={<MarkerGlyph name={icon} size={18} />}
+                icon={<MarkerGlyph name={icon} size={22} />}
                 className={optionStyles.compactIcon}
                 onClick={() => handleMarkerTypeToggle(label)}
               />

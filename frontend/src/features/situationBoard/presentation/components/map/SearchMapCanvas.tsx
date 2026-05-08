@@ -411,9 +411,9 @@ function addInitialReferenceMarkerLayer(map: maplibregl.Map, markers: MarkerAnch
     source: INITIAL_MARKER_SOURCE_ID,
     paint: {
       'circle-color': ['match', ['get', 'markerType'], 'CLUE', '#6741d9', 'NOTE', '#1c7ed6', '#495057'],
-      'circle-radius': 7,
+      'circle-radius': 9,
       'circle-stroke-color': '#ffffff',
-      'circle-stroke-width': 2,
+      'circle-stroke-width': 3,
     },
   });
 }

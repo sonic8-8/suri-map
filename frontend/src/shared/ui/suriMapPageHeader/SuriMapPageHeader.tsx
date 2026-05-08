@@ -1,12 +1,26 @@
 import styles from './SuriMapPageHeader.module.css';
 
-export type SuriMapPageHeaderTabId = 'situationBoard' | 'areaEdit' | 'opCompare' | 'handover' | 'offlinePackage';
+export type SuriMapPageHeaderTabId = 'situationBoard' | 'areaEdit' | 'handover' | 'offlinePackage';
+
+export type MarkerNotification = {
+  id: string;
+  title: string;
+  markerType: string;
+  reporter: string;
+  areaLabel: string;
+  receivedAtLabel: string;
+  coordinateLabel: string;
+};
 
 export type SuriMapPageHeaderProps = {
   activeTab: SuriMapPageHeaderTabId;
+  markerNotificationIndex?: number;
+  markerNotifications?: MarkerNotification[];
   onOpenIncidentList: () => void;
   onOpenSituationBoard?: () => void;
   onOpenAreaEdit?: () => void;
+  onCloseMarkerNotifications?: () => void;
+  onMoveMarkerNotification?: (nextIndex: number) => void;
 };
 
 type NavItem = {
@@ -23,17 +37,23 @@ const INCIDENT_CONTEXT_METRICS = [
 
 export function SuriMapPageHeader({
   activeTab,
+  markerNotificationIndex = 0,
+  markerNotifications = [],
+  onCloseMarkerNotifications,
   onOpenAreaEdit,
   onOpenIncidentList,
+  onMoveMarkerNotification,
   onOpenSituationBoard,
 }: SuriMapPageHeaderProps) {
   const navItems: NavItem[] = [
     { id: 'situationBoard', label: '상황판', onClick: onOpenSituationBoard },
     { id: 'areaEdit', label: '구역 분할', onClick: onOpenAreaEdit },
-    { id: 'opCompare', label: 'OP 비교' },
     { id: 'handover', label: '인수인계' },
     { id: 'offlinePackage', label: '오프라인 패키지' },
   ];
+  const activeMarkerNotification = markerNotifications[markerNotificationIndex] ?? null;
+  const hasPreviousMarkerNotification = markerNotificationIndex > 0;
+  const hasNextMarkerNotification = markerNotificationIndex < markerNotifications.length - 1;
 
   return (
     <header className={styles.header}>
@@ -109,6 +129,52 @@ export function SuriMapPageHeader({
           </div>
         </div>
       </section>
+      {activeMarkerNotification ? (
+        <section className={styles.markerPopup} role="alertdialog" aria-label="신규 마커 알림" aria-live="assertive">
+          {hasPreviousMarkerNotification ? (
+            <button
+              type="button"
+              className={`${styles.markerPageButton} ${styles.markerPageButtonPrevious}`}
+              aria-label="이전 마커 알림"
+              onClick={() => onMoveMarkerNotification?.(markerNotificationIndex - 1)}
+            >
+              &lt;
+            </button>
+          ) : null}
+          {hasNextMarkerNotification ? (
+            <button
+              type="button"
+              className={`${styles.markerPageButton} ${styles.markerPageButtonNext}`}
+              aria-label="다음 마커 알림"
+              onClick={() => onMoveMarkerNotification?.(markerNotificationIndex + 1)}
+            >
+              &gt;
+            </button>
+          ) : null}
+          {!hasNextMarkerNotification ? (
+            <button type="button" className={styles.markerCloseButton} aria-label="마커 알림 닫기" onClick={onCloseMarkerNotifications}>
+              X
+            </button>
+          ) : null}
+          <div className={styles.markerPopupIcon} aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <circle cx="11" cy="11" r="6" />
+              <line x1="15.5" y1="15.5" x2="20" y2="20" />
+            </svg>
+          </div>
+          <div className={styles.markerPopupTitle}>{activeMarkerNotification.title}</div>
+          <div className={styles.markerPopupMeta}>
+            <b>{activeMarkerNotification.markerType}</b> · {activeMarkerNotification.reporter}
+            <br />
+            {activeMarkerNotification.areaLabel} · {activeMarkerNotification.receivedAtLabel}
+            <br />
+            {activeMarkerNotification.coordinateLabel}
+          </div>
+          <div className={styles.markerPopupPager} aria-label="마커 알림 페이지">
+            {markerNotificationIndex + 1} / {markerNotifications.length}
+          </div>
+        </section>
+      ) : null}
     </header>
   );
 }

@@ -1,2 +1,2 @@
 export { SuriMapPageHeader } from './SuriMapPageHeader';
-export type { SuriMapPageHeaderProps, SuriMapPageHeaderTabId } from './SuriMapPageHeader';
+export type { MarkerNotification, SuriMapPageHeaderProps, SuriMapPageHeaderTabId } from './SuriMapPageHeader';

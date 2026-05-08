@@ -261,6 +261,121 @@
   content: "";
 }
 
+.markerPopup {
+  position: fixed;
+  z-index: 10000;
+  top: 50%;
+  left: 50%;
+  width: min(460px, calc(100vw - 48px));
+  padding: 24px 30px 22px;
+  border: 1px solid color-mix(in srgb, #d63a3a 42%, var(--suri-board-border));
+  border-radius: 8px;
+  color: var(--suri-board-fg-primary);
+  background: color-mix(in srgb, var(--suri-board-panel-bg) 96%, transparent);
+  box-shadow: 0 16px 34px rgb(0 0 0 / 24%), 0 0 0 1px rgb(255 255 255 / 4%) inset;
+  font-family: Pretendard, sans-serif;
+  transform: translate(-50%, -50%);
+  backdrop-filter: blur(8px);
+}
+
+.markerPopupIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 16px;
+  border: 1px solid color-mix(in srgb, #ff6b6b 72%, var(--suri-board-border));
+  border-radius: 50%;
+  color: #ff8787;
+  background: color-mix(in srgb, #d63a3a 14%, transparent);
+}
+
+.markerPopupIcon svg {
+  width: 32px;
+  height: 32px;
+}
+
+.markerPopupTitle {
+  margin-bottom: 10px;
+  color: var(--suri-board-fg-primary);
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.markerPopupMeta {
+  margin-bottom: 16px;
+  color: var(--suri-board-fg-secondary);
+  font-size: 14px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.markerPopupMeta b {
+  color: #ff8787;
+  font-weight: 800;
+}
+
+.markerPopupPager {
+  color: var(--suri-board-fg-muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+}
+
+.markerPageButton,
+.markerCloseButton {
+  position: absolute;
+  border: 0;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.markerPageButton {
+  top: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 52px;
+  border-radius: 6px;
+  border: 1px solid var(--suri-board-border);
+  color: var(--suri-board-fg-secondary);
+  background: var(--suri-board-panel-surface);
+  font-size: 20px;
+  font-weight: 900;
+  transform: translateY(-50%);
+}
+
+.markerPageButton:hover,
+.markerCloseButton:hover {
+  color: var(--suri-board-fg-primary);
+  background: color-mix(in srgb, var(--suri-board-panel-surface) 82%, #d63a3a);
+}
+
+.markerPageButtonPrevious {
+  left: 10px;
+}
+
+.markerPageButtonNext {
+  right: 10px;
+}
+
+.markerCloseButton {
+  top: 10px;
+  right: 10px;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  color: var(--suri-board-fg-muted);
+  background: transparent;
+  font-size: 14px;
+  font-weight: 900;
+}
+
 @media (max-width: 1180px) {
   .meta {
     display: none;

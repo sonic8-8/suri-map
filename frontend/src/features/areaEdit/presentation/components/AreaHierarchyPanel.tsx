@@ -75,6 +75,10 @@ export function AreaHierarchyPanel({
 }: AreaHierarchyPanelProps) {
   const shouldShowUnassignedNotice = true;
   const units = areaTree.children ?? [];
+  const noticeClassName = [
+    styles.unassignedNotice,
+    isSaveEnabled ? styles.assignedNotice : 'suri-soft-pulse',
+  ].join(' ');
 
   return (
     <section className={styles.panelContent} aria-label="수색 구역 배정 패널">
@@ -83,7 +87,7 @@ export function AreaHierarchyPanel({
       </header>
 
       {shouldShowUnassignedNotice ? (
-        <div className={`${styles.unassignedNotice}${isSaveEnabled ? ` ${styles.assignedNotice}` : ''}`} role="status">
+        <div className={noticeClassName} role="status">
           {isSaveEnabled ? (
             <span>
               구역 배정이 모두 완료되었습니다.
@@ -207,6 +211,5 @@ export function AreaHierarchyPanel({
     </section>
   );
 }
-
 
 

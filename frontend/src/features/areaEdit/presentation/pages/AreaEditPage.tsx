@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import { SuriMapPageHeader } from '../../../../shared/ui';
+import { SuriMapPageHeader, type MarkerNotification } from '../../../../shared/ui';
 import { AreaEditMap } from '../components/AreaEditMap';
 import { AreaEditPanelShell } from '../components/AreaEditPanelShell';
 import { AreaHierarchyPanel } from '../components/AreaHierarchyPanel';
@@ -17,9 +17,16 @@ import { useAreaEditTools } from '../hooks/useAreaEditTools';
 import styles from './AreaEditPage.module.css';
 
 type AreaEditPageProps = {
+  markerNotificationIndex: number;
+  markerNotifications: MarkerNotification[];
   onBackToSituationBoard: () => void;
+  onCloseMarkerNotifications: () => void;
+  onMoveMarkerNotification: (nextIndex: number) => void;
+  onOpenIncidentList: () => void;
   onSaveAssignedAreas: (drafts: CompletedAreaDraft[]) => void;
 };
+
+type PendingNavigationTarget = 'situationBoard' | 'incidentList';
 
 const drawDisabledPageStates: AreaEditPageState[] = ['permission_denied', 'permission_partial', 'incident_closed'];
 const autoDismissValidationMessages = new Set(['구역 배정을 완료했습니다.', '필요한 모든 구역 배정을 저장했습니다.']);
@@ -130,7 +137,15 @@ function isRingInsideParent(childRing: AreaEditPosition[], parentRing: AreaEditP
   return true;
 }
 
-export function AreaEditPage({ onBackToSituationBoard, onSaveAssignedAreas }: AreaEditPageProps) {
+export function AreaEditPage({
+  markerNotificationIndex,
+  markerNotifications,
+  onBackToSituationBoard,
+  onCloseMarkerNotifications,
+  onMoveMarkerNotification,
+  onOpenIncidentList,
+  onSaveAssignedAreas,
+}: AreaEditPageProps) {
   const { activeToolId } = useAreaEditTools();
   const [isMapExpanded, setIsMapExpanded] = useState(false);
   const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
@@ -142,7 +157,7 @@ export function AreaEditPage({ onBackToSituationBoard, onSaveAssignedAreas }: Ar
   const [deleteConfirmAreaId, setDeleteConfirmAreaId] = useState<string | null>(null);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
   const [hasDraftChanges, setHasDraftChanges] = useState(false);
-  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
+  const [pendingNavigationTarget, setPendingNavigationTarget] = useState<PendingNavigationTarget | null>(null);
   const { isToolPanelCollapsed, toggleToolPanelCollapsed } = useAreaEditPanels();
   const allAreaNodes = useMemo(() => flattenAreaTree(areaTree), []);
   const requiredAreaNodes = useMemo(() => allAreaNodes.filter((area) => area.state === 'unassigned'), [allAreaNodes]);
@@ -351,22 +366,42 @@ export function AreaEditPage({ onBackToSituationBoard, onSaveAssignedAreas }: Ar
     onBackToSituationBoard();
   };
 
-  const handleNavToSituationBoard = () => {
+  const requestNavigation = (target: PendingNavigationTarget) => {
     if (hasDraftChanges) {
-      setIsConfirmDialogOpen(true);
+      setPendingNavigationTarget(target);
+      return;
+    }
+
+    if (target === 'incidentList') {
+      onOpenIncidentList();
       return;
     }
 
     onBackToSituationBoard();
   };
 
+  const handleNavToSituationBoard = () => {
+    requestNavigation('situationBoard');
+  };
+
+  const handleNavToIncidentList = () => {
+    requestNavigation('incidentList');
+  };
+
   const handleConfirmNavigation = () => {
-    setIsConfirmDialogOpen(false);
+    const target = pendingNavigationTarget;
+    setPendingNavigationTarget(null);
+
+    if (target === 'incidentList') {
+      onOpenIncidentList();
+      return;
+    }
+
     onBackToSituationBoard();
   };
 
   const handleCancelNavigation = () => {
-    setIsConfirmDialogOpen(false);
+    setPendingNavigationTarget(null);
   };
 
   const toggleMapExpanded = () => {
@@ -378,7 +413,11 @@ export function AreaEditPage({ onBackToSituationBoard, onSaveAssignedAreas }: Ar
       {isMapExpanded ? null : (
         <SuriMapPageHeader
           activeTab="areaEdit"
-          onOpenIncidentList={onBackToSituationBoard}
+          markerNotificationIndex={markerNotificationIndex}
+          markerNotifications={markerNotifications}
+          onCloseMarkerNotifications={onCloseMarkerNotifications}
+          onMoveMarkerNotification={onMoveMarkerNotification}
+          onOpenIncidentList={handleNavToIncidentList}
           onOpenSituationBoard={handleNavToSituationBoard}
         />
       )}
@@ -433,7 +472,7 @@ export function AreaEditPage({ onBackToSituationBoard, onSaveAssignedAreas }: Ar
                   normalSelectedAreaId={normalSelectedAreaId}
                   selectedAreaId={selectedAreaId}
                   unassignedPhoneCount={unassignedAreaCount}
-                  onCancel={onBackToSituationBoard}
+                  onCancel={handleNavToSituationBoard}
                   onSelectArea={handleSelectArea}
                   onSave={handleSaveAreaEdit}
                 />
@@ -443,7 +482,7 @@ export function AreaEditPage({ onBackToSituationBoard, onSaveAssignedAreas }: Ar
         )}
       </div>
 
-      {isConfirmDialogOpen ? (
+      {pendingNavigationTarget ? (
         <div className={styles.confirmDialogBackdrop} onClick={handleCancelNavigation}>
           <div
             className={styles.confirmDialog}
@@ -452,16 +491,17 @@ export function AreaEditPage({ onBackToSituationBoard, onSaveAssignedAreas }: Ar
             aria-labelledby="confirm-nav-title"
             onClick={(event) => event.stopPropagation()}
           >
-            <strong id="confirm-nav-title" className={styles.confirmDialogTitle}>
-              저장하지 않은 변경사항이 있습니다
+            <strong id="confirm-nav-title" className={styles.confirmDialogSubTitle}>
+              저장 전 페이지 이동 시, 변경사항이 초기화됩니다.
+              <br />
+              이동하시겠습니까?
             </strong>
-            <p className={styles.confirmDialogBody}>이동하면 현재 편집 중인 구역 배정 내용이 사라집니다.</p>
             <div className={styles.confirmDialogActions}>
               <button type="button" className={styles.confirmDialogCancel} onClick={handleCancelNavigation}>
                 계속 편집
               </button>
               <button type="button" className={styles.confirmDialogConfirm} onClick={handleConfirmNavigation}>
-                변경사항 버리고 이동
+                변경사항 삭제 후 이동
               </button>
             </div>
           </div>
@@ -478,7 +518,9 @@ export function AreaEditPage({ onBackToSituationBoard, onSaveAssignedAreas }: Ar
             onClick={(event) => event.stopPropagation()}
           >
             <strong id="confirm-area-delete-title" className={styles.confirmDialogTitle}>
-              {deleteConfirmArea.name} 배정 구역과 하위 구역을<br />모두 삭제하시겠습니까?
+              {deleteConfirmArea.name} 배정 구역과 하위 구역을
+              <br />
+              모두 삭제하시겠습니까?
             </strong>
             <div className={styles.confirmDialogActions}>
               <button type="button" className={styles.confirmDialogCancel} onClick={handleCancelAreaDelete}>
@@ -494,7 +536,6 @@ export function AreaEditPage({ onBackToSituationBoard, onSaveAssignedAreas }: Ar
     </main>
   );
 }
-
 
 
 

@@ -313,6 +313,13 @@
   line-height: 1.6;
 }
 
+.confirmDialogSubTitle {
+  color: var(--suri-board-fg-primary);
+  font-size: 15px;
+  text-align: center;
+  line-height: 1.9;
+}
+
 .confirmDialogBody {
   margin: 0;
   color: var(--suri-board-fg-muted);

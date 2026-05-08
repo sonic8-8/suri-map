@@ -9,22 +9,22 @@
   border-radius: 4px;
   color: var(--suri-board-option-default-fg);
   background: var(--suri-board-option-default-bg);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 400;
   line-height: 1.2;
 }
 
 /* 텍스트형 옵션 버튼 높이. */
 .text {
-  min-height: 38px;
+  min-height: 44px;
 }
 
 /* 아이콘형 옵션 버튼 레이아웃. */
 .icon {
   position: relative;
   justify-content: flex-start;
-  gap: 5px;
-  min-height: 38px;
+  gap: 7px;
+  min-height: 44px;
   text-align: left;
 }
 
@@ -70,8 +70,8 @@
 /* 지원 요청처럼 더 촘촘하게 보여야 하는 아이콘형 버튼 변형. */
 .compactIcon {
   justify-content: center;
-  gap: 3px;
-  min-height: 32px;
-  padding: 0 5px;
+  gap: 5px;
+  min-height: 38px;
+  padding: 0 6px;
   text-align: center;
 }

@@ -105,8 +105,17 @@ export const legendItems = [
   { label: '차량 구간', className: 'legend-swatch route-vehicle' },
   { label: '도보 구간', className: 'legend-swatch route-walk' },
   { label: '운용 중인 폴리폰', className: 'legend-swatch device-active' },
+  { label: '비교 OP 경로', className: 'legend-swatch route-compare' },
+  { label: '정상 (60초 이내 동기화)', className: 'legend-swatch device-normal' },
+  { label: '1분 이상 미동기', className: 'legend-swatch device-stale' },
+  { label: '5분 이상 위치 끊김', className: 'legend-swatch device-lost' },
   { label: '단서', className: 'legend-swatch marker-clue' },
   { label: '발견', className: 'legend-swatch marker-found' },
+  { label: '지형', className: 'legend-swatch marker-field' },
+  { label: '드론', className: 'legend-swatch marker-drone' },
+  { label: '경찰견', className: 'legend-swatch marker-dog' },
+  { label: '기타 지원', className: 'legend-swatch marker-support' },
+  { label: '메모', className: 'legend-swatch marker-note' },
 ] as const;
 
 
