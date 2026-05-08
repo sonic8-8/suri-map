@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import type maplibregl from 'maplibre-gl';
 import type { LngLatBoundsLike } from 'maplibre-gl';
 import { MapControls } from '../../../../../shared/ui';
+import type { CompletedAreaDraft } from '../../../../../shared/model/areaDraft';
 import { MapLegend } from './MapLegend';
 import { SearchMapCanvas, type InitialMapState } from './SearchMapCanvas';
 import styles from './DashboardMapShell.module.css';
@@ -11,6 +12,7 @@ const INCIDENT_FIT_MAX_ZOOM = 15;
 
 type DashboardMapShellProps = {
   isMapExpanded: boolean;
+  savedAreaDrafts: CompletedAreaDraft[];
   onInitialMapStateChange: (state: InitialMapState | null) => void;
   onToggleMapExpanded: () => void;
   selectedSearchAreaId: string | null;
@@ -19,6 +21,7 @@ type DashboardMapShellProps = {
 
 export function DashboardMapShell({
   isMapExpanded,
+  savedAreaDrafts,
   onInitialMapStateChange,
   onSelectSearchArea,
   onToggleMapExpanded,
@@ -84,6 +87,7 @@ export function DashboardMapShell({
           onZoomOut={handleZoomOut}
         />
         <SearchMapCanvas
+          savedAreaDrafts={savedAreaDrafts}
           onInitialBoundsReady={handleInitialBoundsReady}
           onInitialMapStateReady={onInitialMapStateChange}
           onMapReady={handleMapReady}

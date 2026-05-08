@@ -7,6 +7,8 @@ import styles from './AreaHierarchyPanel.module.css';
 type AreaHierarchyPanelProps = {
   areaTree: AreaTreeNode;
   assignedAreaIds: Set<string>;
+  isSaveEnabled: boolean;
+  normalSelectedAreaId: string | null;
   selectedAreaId: string | null;
   unassignedPhoneCount: number;
   onCancel: () => void;
@@ -38,9 +40,16 @@ function getAreaIdentityColorStyle(colorToken: AreaColorToken): AreaIdentityColo
   };
 }
 
-function getNodeClassName(baseClassName: string, area: AreaTreeNode, selectedAreaId: string | null, assignedAreaIds: Set<string>) {
+function getNodeClassName(
+  baseClassName: string,
+  area: AreaTreeNode,
+  selectedAreaId: string | null,
+  normalSelectedAreaId: string | null,
+  assignedAreaIds: Set<string>,
+) {
   const classNames = [baseClassName];
   if (area.id === selectedAreaId) classNames.push(styles.selectedNode);
+  if (area.id === normalSelectedAreaId) classNames.push(styles.mapSelectedNode);
   if (getDisplayState(area, assignedAreaIds) === 'assigned') classNames.push(styles.assignedNode);
   return classNames.join(' ');
 }
@@ -56,13 +65,15 @@ function isSelectableArea(area: AreaTreeNode, assignedAreaIds: Set<string>) {
 export function AreaHierarchyPanel({
   areaTree,
   assignedAreaIds,
+  isSaveEnabled,
+  normalSelectedAreaId,
   selectedAreaId,
   unassignedPhoneCount,
   onCancel,
   onSelectArea,
   onSave,
 }: AreaHierarchyPanelProps) {
-  const shouldShowUnassignedNotice = unassignedPhoneCount > 0;
+  const shouldShowUnassignedNotice = true;
   const units = areaTree.children ?? [];
 
   return (
@@ -72,8 +83,20 @@ export function AreaHierarchyPanel({
       </header>
 
       {shouldShowUnassignedNotice ? (
-        <div className={styles.unassignedNotice} role="status">
-          <span>{unassignedPhoneCount}개의 폴리폰 배정 필요 구역이 있습니다. UNIT을 선택해 배정하세요.</span>
+        <div className={`${styles.unassignedNotice}${isSaveEnabled ? ` ${styles.assignedNotice}` : ''}`} role="status">
+          {isSaveEnabled ? (
+            <span>
+              구역 배정이 모두 완료되었습니다.
+              <br />
+              해당 차수의 수색 구역을 확정할 수 있습니다.
+            </span>
+          ) : (
+            <span>
+              {unassignedPhoneCount}개의 폴리폰 배정 필요 구역이 있습니다.
+              <br />
+              UNIT을 선택해 배정하세요.
+            </span>
+          )}
         </div>
       ) : null}
 
@@ -81,7 +104,13 @@ export function AreaHierarchyPanel({
         <div className={styles.rootNode} style={getAreaIdentityColorStyle(areaTree.colorToken)}>
           <button
             type="button"
-            className={getNodeClassName(styles.nodeRow, areaTree, selectedAreaId, assignedAreaIds)}
+            className={getNodeClassName(
+              styles.nodeRow,
+              areaTree,
+              selectedAreaId,
+              normalSelectedAreaId,
+              assignedAreaIds,
+            )}
             disabled={!isSelectableArea(areaTree, assignedAreaIds)}
             aria-pressed={areaTree.id === selectedAreaId}
             onClick={() => onSelectArea(areaTree)}
@@ -109,6 +138,7 @@ export function AreaHierarchyPanel({
                       hasTeams ? styles.unitToggle : styles.unitStaticRow,
                       unit,
                       selectedAreaId,
+                      normalSelectedAreaId,
                       assignedAreaIds,
                     )}
                     disabled={!isSelectableArea(unit, assignedAreaIds)}
@@ -133,7 +163,13 @@ export function AreaHierarchyPanel({
                         <button
                           key={team.id}
                           type="button"
-                          className={getNodeClassName(styles.teamNode, team, selectedAreaId, assignedAreaIds)}
+                          className={getNodeClassName(
+                            styles.teamNode,
+                            team,
+                            selectedAreaId,
+                            normalSelectedAreaId,
+                            assignedAreaIds,
+                          )}
                           style={getAreaIdentityColorStyle(team.colorToken)}
                           disabled={!isSelectableArea(team, assignedAreaIds)}
                           aria-pressed={team.id === selectedAreaId}
@@ -164,10 +200,13 @@ export function AreaHierarchyPanel({
         <button type="button" className={styles.cancelButton} onClick={onCancel}>
           취소
         </button>
-        <button type="button" className={styles.saveButton} onClick={onSave}>
-          확인
+        <button type="button" className={styles.saveButton} disabled={!isSaveEnabled} onClick={onSave}>
+          구역 저장
         </button>
       </footer>
     </section>
   );
 }
+
+
+

@@ -1,9 +1,9 @@
-﻿import { CheckCircle2, Hexagon, Layers3, MousePointer2 } from 'lucide-react';
+import { CheckCircle2, Hexagon, Layers3, MousePointer2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { AreaColorToken } from '../../../../shared/constants/areaColorTokens';
+import type { AreaEditPosition, AreaNodeKind, CompletedAreaDraft } from '../../../../shared/model/areaDraft';
 
 export type AreaEditToolId = 'overall' | 'unit' | 'team' | 'complete';
-export type AreaNodeKind = 'overall' | 'unit' | 'team';
 export type AreaEditPageState = 'empty' | 'default' | 'permission_denied' | 'permission_partial' | 'offline' | 'incident_closed' | 'error';
 
 export type AreaEditTool = { id: AreaEditToolId; label: string; description: string; Icon: LucideIcon };
@@ -17,11 +17,9 @@ export type AreaTreeNode = {
   children?: AreaTreeNode[];
 };
 export type MapAreaShape = { id: string; kind: AreaNodeKind; label: string; meta: string; className: string };
-export type AreaEditPosition = [number, number];
-export type CompletedAreaDraft = { areaId: string; kind: AreaNodeKind; colorToken: AreaColorToken; label: string; coordinates: AreaEditPosition[] };
+export type { AreaEditPosition, AreaNodeKind, CompletedAreaDraft };
 
 export const MOCK_PAGE_STATE: AreaEditPageState = 'default';
-export const MOCK_UNASSIGNED_PHONE_COUNT = 3;
 
 export const areaEditTools: AreaEditTool[] = [
   { id: 'overall', label: '전체 수색 구역 그리기', description: '사건 전체 범위를 OVERALL 구역으로 지정합니다.', Icon: Hexagon },
@@ -56,9 +54,8 @@ export const areaTree: AreaTreeNode = {
       kind: 'unit',
       colorToken: 'areaColor004',
       name: '지구대 지원',
-      meta: '북측 진입로 대기 · 1팀 분할 필요',
+      meta: '북측 진입로 대기',
       state: 'unassigned',
-      children: [{ id: 'team-d', kind: 'team', colorToken: 'areaColor012', name: '지구대 지원팀', meta: '지구대 지원팀 폴리폰', state: 'unassigned' }],
     },
   ],
 };
@@ -70,5 +67,4 @@ export const mapAreaShapes: MapAreaShape[] = [
   { id: 'team-b', kind: 'team', label: 'B팀', meta: '기동대 1부대 B팀', className: 'teamAreaB' },
   { id: 'team-c', kind: 'team', label: 'C팀', meta: '기동대 1부대 C팀', className: 'teamAreaC' },
   { id: 'unit-02', kind: 'unit', label: '지구대 지원', meta: 'UNIT', className: 'unitAreaTwo' },
-  { id: 'team-d', kind: 'team', label: '지구대 지원팀', meta: '팀 분할 필요', className: 'teamAreaD' },
 ];

@@ -1,12 +1,10 @@
-/* 패널 전체 레이아웃: 헤더, 안내문, 구역 트리, 하단 액션을 세로로 배치합니다. */
-.panelContent {
+﻿.panelContent {
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
   min-width: 0;
   min-height: 100%;
 }
 
-/* 패널 상단 제목 영역: 화면 이름과 구역 계층 정보를 묶습니다. */
 .header {
   display: grid;
   gap: 4px;
@@ -14,13 +12,11 @@
   border-bottom: 1px solid var(--suri-board-left-section-divider);
 }
 
-/* 헤더 주요 라벨: "수색 구역 배정" */
 .header strong {
   color: var(--suri-board-fg-muted);
   font-size: 22px;
 }
 
-/* 미배정 안내 박스: 폴리폰 배정 필요 구역이 있을 때 노출되는 배너입니다. */
 .unassignedNotice {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -31,9 +27,9 @@
   border-radius: 4px;
   color: #fff;
   background: #ca5858;
+  text-align: center;
 }
 
-/* 미배정 안내 문구: 배너 안의 실제 안내 텍스트입니다. */
 .unassignedNotice span {
   min-width: 0;
   color: #fff;
@@ -42,7 +38,16 @@
   line-height: 1.45;
 }
 
-/* 구역 트리 스크롤 영역: OVERALL > UNIT > TEAM 목록을 담습니다. */
+.assignedNotice {
+  border-color: #84cc16;
+  color: #24470b;
+  background: #acef6b;
+}
+
+.assignedNotice span {
+  color: #24470b;
+}
+
 .tree {
   display: flex;
   flex-direction: column;
@@ -59,13 +64,11 @@
   scrollbar-width: thin;
 }
 
-/* 루트 노드 묶음: OVERALL 노드와 하위 UNIT 목록의 간격을 관리합니다. */
 .rootNode {
   display: grid;
   gap: 18px;
 }
 
-/* 공통 구역 행: OVERALL, UNIT 토글, 자식 없는 UNIT 행의 기본 박스 스타일입니다. */
 .nodeRow,
 .unitToggle,
 .unitStaticRow {
@@ -85,20 +88,17 @@
   cursor: pointer;
 }
 
-/* UNIT 토글 행: TEAM 자식 목록을 가진 UNIT의 행 스타일입니다. */
 .unitToggle {
   grid-template-columns: minmax(0, 1fr) auto;
   background: color-mix(in srgb, var(--area-identity-color) 9%, #f8fbff);
 }
 
-/* 노드 텍스트 묶음: 이름과 메타 정보를 세로로 배치합니다. */
 .nodeText {
   display: grid;
   gap: 3px;
   min-width: 0;
 }
 
-/* 노드 이름 공통: 구역 색상 막대와 한 줄 말줄임을 적용합니다. */
 .nodeName,
 .teamName {
   overflow: hidden;
@@ -111,17 +111,14 @@
   white-space: nowrap;
 }
 
-/* OVERALL/UNIT 이름: 상위 구역 이름을 더 강하게 표시합니다. */
 .nodeName {
   font-weight: 700;
 }
 
-/* TEAM 이름: 하위 팀 구역 이름을 표시합니다. */
 .teamName {
   font-weight: 600;
 }
 
-/* 노드 메타 공통: 구역 종류, 폴리폰 정보 등 보조 텍스트입니다. */
 .nodeMeta,
 .teamMeta {
   overflow: hidden;
@@ -133,7 +130,6 @@
   white-space: nowrap;
 }
 
-/* UNIT 목록: OVERALL 아래 UNIT 노드들을 들여쓰기해 배치합니다. */
 .unitList {
   position: relative;
   display: grid;
@@ -142,7 +138,6 @@
   padding-left: 28px;
 }
 
-/* UNIT 목록 세로 연결선: OVERALL에서 UNIT으로 이어지는 계층선을 표시합니다. */
 .unitList::before {
   position: absolute;
   top: -18px;
@@ -153,14 +148,12 @@
   content: "";
 }
 
-/* UNIT 노드 묶음: UNIT 행과 그 하위 TEAM 목록의 간격을 관리합니다. */
 .unitNode {
   position: relative;
   display: grid;
   gap: 12px;
 }
 
-/* 비활성 노드 박스: 선택 불가 상태의 UNIT/TEAM 박스를 흐리게 표시합니다. */
 .inactiveNode .unitToggle,
 .inactiveNode .unitStaticRow,
 .inactiveNode.teamNode {
@@ -171,25 +164,21 @@
     0 1px 0 rgb(0 0 0 / 5%);
 }
 
-/* 비활성 TEAM 박스: 선택 불가 TEAM 노드의 배경과 테두리 톤입니다. */
 .inactiveNode .teamNode {
   border-color: color-mix(in srgb, var(--area-identity-color) 34%, #d7e0ec);
   background: color-mix(in srgb, var(--area-identity-color) 7%, #fbfdff);
 }
 
-/* 비활성 노드 이름: 선택 불가 노드의 이름 투명도입니다. */
 .inactiveNode .nodeName,
 .inactiveNode .teamName {
   opacity: 0.74;
 }
 
-/* 비활성 노드 메타: 선택 불가 노드의 보조 텍스트 투명도입니다. */
 .inactiveNode .nodeMeta,
 .inactiveNode .teamMeta {
   opacity: 0.68;
 }
 
-/* UNIT 가로 연결선: 세로 계층선에서 각 UNIT 행으로 이어지는 선입니다. */
 .unitNode::before {
   position: absolute;
   top: 20px;
@@ -200,7 +189,6 @@
   content: "";
 }
 
-/* TEAM 목록: UNIT 아래 TEAM 노드들을 들여쓰기해 배치합니다. */
 .teamList {
   position: relative;
   display: grid;
@@ -209,7 +197,6 @@
   padding-left: 28px;
 }
 
-/* TEAM 목록 세로 연결선: UNIT에서 TEAM으로 이어지는 계층선을 표시합니다. */
 .teamList::before {
   position: absolute;
   top: -12px;
@@ -220,7 +207,6 @@
   content: "";
 }
 
-/* TEAM 노드 박스: 하위 팀/폴리폰 배정 구역 행의 기본 스타일입니다. */
 .teamNode {
   position: relative;
   z-index: 1;
@@ -237,7 +223,6 @@
   cursor: pointer;
 }
 
-/* 비활성 커서: 선택할 수 없는 구역 행의 마우스 커서입니다. */
 .nodeRow:disabled,
 .unitToggle:disabled,
 .unitStaticRow:disabled,
@@ -245,7 +230,6 @@
   cursor: not-allowed;
 }
 
-/* 선택된 노드: 현재 선택된 구역 행의 강조 테두리와 그림자입니다. */
 .selectedNode {
   border-color: var(--area-identity-color);
   background: color-mix(in srgb, var(--area-identity-color) 20%, #f8fbff);
@@ -254,7 +238,13 @@
     0 8px 18px rgb(0 0 0 / 16%);
 }
 
-/* 배정 완료 노드: 이미 배정된 구역 행을 회색 톤으로 표시합니다. */
+.mapSelectedNode {
+  border-color: var(--area-identity-color);
+  border-width: 3px;
+  outline: 2px solid color-mix(in srgb, var(--area-identity-color) 34%, transparent);
+  outline-offset: 2px;
+}
+
 .assignedNode {
   border-color: #cfd6df;
   background: #a8a8a8;
@@ -263,19 +253,16 @@
     0 1px 0 rgb(0 0 0 / 6%);
 }
 
-/* 배정 완료 노드 hover: 배정 완료 행에 마우스를 올렸을 때의 배경입니다. */
 .assignedNode:hover {
   background: #e8edf3;
 }
 
-/* 배정 완료 뱃지: "배정됨" 상태 뱃지의 색상입니다. */
 .assignedBadge {
   border-color: #9ad36f;
   color: #2f6b16;
   background: #d9f99d;
 }
 
-/* TEAM 가로 연결선: 세로 계층선에서 각 TEAM 행으로 이어지는 선입니다. */
 .teamNode::before {
   position: absolute;
   top: 18px;
@@ -287,7 +274,6 @@
   content: "";
 }
 
-/* 하단 액션 영역: 취소와 확인 버튼을 2열로 배치합니다. */
 .actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -296,25 +282,40 @@
   border-top: 1px solid var(--suri-board-left-section-divider);
 }
 
-/* 하단 버튼 공통: 취소/확인 버튼의 크기와 글자 굵기입니다. */
 .cancelButton,
 .saveButton {
-  min-height: 42px;
+  min-height: 58px;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 19px;
   font-weight: 800;
 }
 
-/* 취소 버튼: 보조 액션 버튼 스타일입니다. */
 .cancelButton {
   border: 1px solid var(--suri-board-option-default-border);
   color: var(--suri-board-fg-secondary);
   background: transparent;
 }
 
-/* 확인 버튼: 선택한 구역 배정을 확정하는 주요 액션 버튼입니다. */
 .saveButton {
-  border: 1px solid color-mix(in srgb, var(--suri-board-primary-hi) 74%, var(--suri-board-border));
+  border: 1px solid color-mix(in srgb, var(--suri-board-primary-hi) 72%, var(--suri-board-border));
   color: var(--suri-board-panel-bg);
   background: var(--suri-board-primary-hi);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 22%);
+  letter-spacing: 0;
+}
+
+.saveButton:hover {
+  background: color-mix(in srgb, var(--suri-board-primary-hi) 88%, #ffffff);
+}
+
+.saveButton:disabled {
+  border-color: var(--suri-board-option-default-border);
+  color: color-mix(in srgb, var(--suri-board-fg-muted) 76%, var(--suri-board-panel-bg));
+  background: color-mix(in srgb, var(--suri-board-border) 62%, transparent);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.saveButton:disabled:hover {
+  background: color-mix(in srgb, var(--suri-board-border) 62%, transparent);
 }

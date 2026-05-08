@@ -1,7 +1,12 @@
 ﻿export const operationalPeriods: Array<{ id: string; label: string; reason: string; meta: string; state: string; startDate: string; startTime: string; endDate: string | null; endTime: string | null }> = [
   { id: 'op-8', label: '8차', reason: '수색', meta: '진행 중', state: 'current', startDate: '05.04', startTime: '20:10', endDate: null, endTime: null },
   { id: 'op-7', label: '7차', reason: '수색 범위 변경', meta: '종료', state: 'ended', startDate: '05.04', startTime: '18:45', endDate: '05.04', endTime: '20:02' },
-];
+  { id: 'op-6', label: '6차', reason: '수색', meta: '종료', state: 'ended', startDate: '05.04', startTime: '17:25', endDate: '05.04', endTime: '18:38' },
+  { id: 'op-5', label: '5차', reason: '수색', meta: '종료', state: 'ended', startDate: '05.04', startTime: '17:20', endDate: '05.04', endTime: '17:23' },
+  { id: 'op-4', label: '4차', reason: '수색 범위 변경', meta: '종료', state: 'ended', startDate: '05.04', startTime: '15:40', endDate: '05.04', endTime: '17:18' },
+  { id: 'op-3', label: '3차', reason: '수색', meta: '종료', state: 'ended', startDate: '05.04', startTime: '14:20', endDate: '05.04', endTime: '15:35' },
+  { id: 'op-2', label: '2차', reason: '수색 범위 변경', meta: '종료', state: 'ended', startDate: '05.04', startTime: '11:40', endDate: '05.04', endTime: '14:18' },
+  { id: 'op-1', label: '1차', reason: '초기', meta: '종료', state: 'ended', startDate: '05.04', startTime: '09:12', endDate: '05.04', endTime: '11:35' },];
 
 export const layerOptions: string[] = ['차량 구간', '도보 구간', '전체 수색 구역', '부대 구역', '팀 구역', '마커 레벨', '지형 마커'];
 
@@ -103,5 +108,6 @@ export const legendItems = [
   { label: '단서', className: 'legend-swatch marker-clue' },
   { label: '발견', className: 'legend-swatch marker-found' },
 ] as const;
+
 
 

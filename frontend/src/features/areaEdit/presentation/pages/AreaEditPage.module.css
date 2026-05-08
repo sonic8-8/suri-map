@@ -296,7 +296,7 @@
 
 .confirmDialog {
   display: grid;
-  width: min(400px, calc(100% - 48px));
+  width: min(380px, calc(100% - 48px));
   gap: 10px;
   padding: 22px 24px 20px;
   border: 1px solid var(--suri-board-border);
@@ -308,7 +308,9 @@
 
 .confirmDialogTitle {
   color: var(--suri-board-fg-primary);
-  font-size: 16px;
+  font-size: 18px;
+  text-align: center;
+  line-height: 1.6;
 }
 
 .confirmDialogBody {

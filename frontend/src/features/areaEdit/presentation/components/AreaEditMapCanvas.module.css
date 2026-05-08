@@ -60,3 +60,68 @@
 .vertexControl:hover {
   filter: brightness(1.04);
 }
+
+.areaTooltip {
+  position: absolute;
+  z-index: 11;
+  display: grid;
+  gap: 3px;
+  min-width: 132px;
+  max-width: 220px;
+  padding: 9px 11px;
+  border: 1px solid color-mix(in srgb, var(--suri-board-primary-hi) 48%, var(--suri-board-border));
+  border-radius: 8px;
+  color: var(--suri-board-fg-primary);
+  background: color-mix(in srgb, var(--suri-board-panel-bg) 96%, #ffffff);
+  box-shadow: 0 10px 22px rgb(0 0 0 / 24%);
+  pointer-events: auto;
+  transform: translate(-50%, calc(-100% - 18px));
+}
+
+.areaTooltip::after {
+  position: absolute;
+  bottom: -7px;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  border-right: 1px solid color-mix(in srgb, var(--suri-board-primary-hi) 48%, var(--suri-board-border));
+  border-bottom: 1px solid color-mix(in srgb, var(--suri-board-primary-hi) 48%, var(--suri-board-border));
+  background: color-mix(in srgb, var(--suri-board-panel-bg) 96%, #ffffff);
+  content: "";
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.areaTooltip strong {
+  overflow: hidden;
+  color: var(--suri-board-fg-primary);
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.areaTooltip span {
+  color: var(--suri-board-fg-muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.areaTooltipDeleteButton {
+  justify-self: end;
+  min-height: 22px;
+  margin: -3px -4px 0 0;
+  padding: 0 4px;
+  border: 0;
+  color: #b42318;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.areaTooltipDeleteButton:hover {
+  text-decoration: underline;
+}

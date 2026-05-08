@@ -30,13 +30,13 @@
   --suri-board-panel-bg: #0e1724;
   --suri-board-panel-surface: #162334;
   --suri-board-panel-muted-bg: #203147;
-  --suri-board-border: #001f50;
+  --suri-board-border: #3a3a3a;
   --suri-board-border-soft: color-mix(in srgb, var(--suri-board-border) 78%, var(--suri-board-fg-muted));
   --suri-board-primary: #69a7ff;
-  --suri-board-primary-hi: #8fc0ff;
+  --suri-board-primary-hi: #4bbfff;
   --suri-board-primary-soft: #1d3c61;
   --suri-board-success: #52c184;
-  --suri-board-success-hi: #8dffa9;
+  --suri-board-success-hi: #4ad66c;
   --suri-board-success-soft: rgba(35, 87, 58, 0.16);
   --suri-board-success-border: rgba(36, 225, 119, 0.58);
   --suri-board-fg-primary: #f2f6fb;

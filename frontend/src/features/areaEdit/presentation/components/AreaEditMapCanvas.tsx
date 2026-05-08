@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import maplibregl, {
   type GeoJSONSource,
   type LayerSpecification,
@@ -8,7 +8,7 @@ import maplibregl, {
 
 import { getVWorldApiKey } from '../../../../shared/config';
 import { areaColorTokens, type AreaColorToken } from '../../../../shared/constants/areaColorTokens';
-import type { AreaEditPosition, AreaNodeKind, CompletedAreaDraft } from '../constants/mockAreaEdit';
+import type { AreaEditPosition, CompletedAreaDraft } from '../constants/mockAreaEdit';
 import styles from './AreaEditMapCanvas.module.css';
 
 const DEFAULT_JURISDICTION_CENTER: AreaEditPosition = [126.7525, 35.1598];
@@ -201,7 +201,7 @@ function addMudeungsanHikingTrailLayersSafely(map: maplibregl.Map) {
   try {
     addMudeungsanHikingTrailLayers(map);
   } catch (error) {
-    console.error('[AreaEditMap] 臾대벑???몃젅???덉씠??異붽? ?ㅽ뙣', error);
+    console.error('[AreaEditMap] 무등산 등산로 레이어 추가 실패', error);
   }
 }
 
@@ -431,15 +431,15 @@ function countDistinctPoints(points: AreaEditPosition[]) {
 
 function validateClosedRing(closedRing: AreaEditPosition[]) {
   if (closedRing.length < 4 || countDistinctPoints(closedRing.slice(0, -1)) < 3) {
-    return '援ъ뿭? ?쒕줈 ?ㅻⅨ 瑗?쭞??3媛??댁긽?쇰줈 ?レ븘???⑸땲??';
+    return '구역은 서로 다른 꼭짓점 3개 이상으로 닫아야 합니다.';
   }
 
   if (!areSamePoint(closedRing[0], closedRing[closedRing.length - 1])) {
-    return '援ъ뿭???꾨즺?섎젮硫?留덉?留??먯씠 ?쒖옉?먭낵 媛숈븘???⑸땲??';
+    return '구역을 완료하려면 마지막 점이 시작점과 같아야 합니다.';
   }
 
   if (hasSelfIntersection(closedRing)) {
-    return '援ъ뿭 寃쎄퀎?좎씠 ?쒕줈 援먯감?⑸땲?? 援먯감?섏? ?딅뒗 ?섎굹???ロ엺 援ъ뿭?쇰줈 ?ㅼ떆 吏?뺥븯??떆??';
+    return '구역 경계선이 서로 교차합니다. 교차하지 않는 하나의 닫힌 구역으로 다시 지정하세요.';
   }
 
   return null;
@@ -450,11 +450,16 @@ export type AreaEditMapCanvasProps = {
   completedDrafts: CompletedAreaDraft[];
   draftPoints: AreaEditPosition[];
   isDrawing: boolean;
+  normalSelectedAreaId: string | null;
+  normalSelectedAreaPosition: AreaEditPosition | null;
   onBoundsReady?: (bounds: LngLatBoundsLike | null) => void;
+  onClearNormalAreaSelection: () => void;
   onCloseDraft: (coordinates: AreaEditPosition[]) => void;
   onConfirmDraft: () => void;
   onDraftPointAdd: (position: AreaEditPosition) => void;
   onMapReady?: (map: maplibregl.Map | null) => void;
+  onNormalAreaSelect: (areaId: string, position: AreaEditPosition) => void;
+  onRequestAreaDelete: (areaId: string) => void;
   selectedAreaColorToken: AreaColorToken | null;
   selectedAreaId: string | null;
   onSelectArea: (areaId: string) => void;
@@ -467,11 +472,16 @@ export function AreaEditMapCanvas({
   completedDrafts,
   draftPoints,
   isDrawing,
+  normalSelectedAreaId,
+  normalSelectedAreaPosition,
   onBoundsReady,
+  onClearNormalAreaSelection,
   onCloseDraft,
   onConfirmDraft,
   onDraftPointAdd,
   onMapReady,
+  onNormalAreaSelect,
+  onRequestAreaDelete,
   selectedAreaColorToken,
   selectedAreaId,
   onSelectArea,
@@ -481,15 +491,20 @@ export function AreaEditMapCanvas({
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [floatingControlPosition, setFloatingControlPosition] = useState<{ x: number; y: number } | null>(null);
+  const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
   const completedDraftsRef = useRef(completedDrafts);
   const draftPointsRef = useRef(draftPoints);
   const isDrawingRef = useRef(isDrawing);
+  const normalSelectedAreaIdRef = useRef(normalSelectedAreaId);
+  const normalSelectedAreaPositionRef = useRef(normalSelectedAreaPosition);
   const selectedAreaColorTokenRef = useRef(selectedAreaColorToken);
   const selectedAreaIdRef = useRef(selectedAreaId);
 
   const onMapReadyRef = useRef(onMapReady);
   const onBoundsReadyRef = useRef(onBoundsReady);
   const onSelectAreaRef = useRef(onSelectArea);
+  const onNormalAreaSelectRef = useRef(onNormalAreaSelect);
+  const onClearNormalAreaSelectionRef = useRef(onClearNormalAreaSelection);
   const onDraftPointAddRef = useRef(onDraftPointAdd);
   const onCloseDraftRef = useRef(onCloseDraft);
   const onValidationMessageRef = useRef(onValidationMessage);
@@ -497,6 +512,8 @@ export function AreaEditMapCanvas({
   useEffect(() => { onMapReadyRef.current = onMapReady; }, [onMapReady]);
   useEffect(() => { onBoundsReadyRef.current = onBoundsReady; }, [onBoundsReady]);
   useEffect(() => { onSelectAreaRef.current = onSelectArea; }, [onSelectArea]);
+  useEffect(() => { onNormalAreaSelectRef.current = onNormalAreaSelect; }, [onNormalAreaSelect]);
+  useEffect(() => { onClearNormalAreaSelectionRef.current = onClearNormalAreaSelection; }, [onClearNormalAreaSelection]);
   useEffect(() => { onDraftPointAddRef.current = onDraftPointAdd; }, [onDraftPointAdd]);
   useEffect(() => { onCloseDraftRef.current = onCloseDraft; }, [onCloseDraft]);
   useEffect(() => { onValidationMessageRef.current = onValidationMessage; }, [onValidationMessage]);
@@ -515,12 +532,31 @@ export function AreaEditMapCanvas({
     setFloatingControlPosition({ x: projectedPoint.x, y: projectedPoint.y });
   }, []);
 
+  const updateTooltipPosition = useCallback(() => {
+    const map = mapRef.current;
+    const position = normalSelectedAreaPositionRef.current;
+
+    if (!map || !position || isDrawingRef.current) {
+      setTooltipPosition(null);
+      return;
+    }
+
+    const projectedPoint = map.project(position);
+    setTooltipPosition({ x: projectedPoint.x, y: projectedPoint.y });
+  }, []);
+
   useEffect(() => {
     completedDraftsRef.current = completedDrafts;
     const map = mapRef.current;
     if (!map) return;
     setGeoJsonSourceData(map, AREA_EDIT_COMPLETED_DRAFT_SOURCE_ID, buildCompletedDraftFeatureCollection(completedDrafts));
   }, [completedDrafts]);
+
+  useEffect(() => {
+    normalSelectedAreaIdRef.current = normalSelectedAreaId;
+    normalSelectedAreaPositionRef.current = normalSelectedAreaPosition;
+    updateTooltipPosition();
+  }, [normalSelectedAreaId, normalSelectedAreaPosition, updateTooltipPosition]);
 
   useEffect(() => {
     draftPointsRef.current = draftPoints;
@@ -542,7 +578,8 @@ export function AreaEditMapCanvas({
     isDrawingRef.current = isDrawing;
     mapRef.current?.getCanvas().classList.toggle(styles.drawingCursor, isDrawing);
     updateFloatingControlPosition();
-  }, [isDrawing, updateFloatingControlPosition]);
+    updateTooltipPosition();
+  }, [isDrawing, updateFloatingControlPosition, updateTooltipPosition]);
 
   useEffect(() => {
     selectedAreaIdRef.current = selectedAreaId;
@@ -560,7 +597,21 @@ export function AreaEditMapCanvas({
   }, []);
 
   const handleMapClick = useCallback((event: maplibregl.MapMouseEvent) => {
-    if (!isDrawingRef.current) return;
+    if (!isDrawingRef.current) {
+      const map = mapRef.current;
+      const clickedFeatures = map?.queryRenderedFeatures(event.point, {
+        layers: [AREA_EDIT_COMPLETED_DRAFT_FILL_LAYER_ID, AREA_EDIT_COMPLETED_DRAFT_LINE_LAYER_ID],
+      });
+      const clickedAreaId = clickedFeatures?.[0]?.properties?.entityId as string | undefined;
+
+      if (clickedAreaId) {
+        onNormalAreaSelectRef.current(clickedAreaId, [event.lngLat.lng, event.lngLat.lat]);
+        return;
+      }
+
+      onClearNormalAreaSelectionRef.current();
+      return;
+    }
 
     const position: AreaEditPosition = [event.lngLat.lng, event.lngLat.lat];
     const currentPoints = draftPointsRef.current;
@@ -610,11 +661,13 @@ export function AreaEditMapCanvas({
       map.setFilter(AREA_EDIT_SELECTED_FILL_LAYER_ID, ['==', ['get', 'entityId'], selectedAreaIdRef.current ?? '']);
       map.on('click', AREA_EDIT_FILL_LAYER_ID, handleAreaClick);
       map.on('click', AREA_EDIT_LINE_LAYER_ID, handleAreaClick);
-      map.on('click', AREA_EDIT_COMPLETED_DRAFT_FILL_LAYER_ID, handleAreaClick);
       map.on('click', handleMapClick);
       map.on('move', updateFloatingControlPosition);
       map.on('zoom', updateFloatingControlPosition);
+      map.on('move', updateTooltipPosition);
+      map.on('zoom', updateTooltipPosition);
       map.on('resize', updateFloatingControlPosition);
+      map.on('resize', updateTooltipPosition);
 
       void loadGwangsanManifest()
         .then((manifest) => {
@@ -633,7 +686,7 @@ export function AreaEditMapCanvas({
           onBoundsReadyRef.current?.(bounds);
         })
         .catch((error: unknown) => {
-          console.error('[AreaEditMap] 吏??珥덇린???ㅻ쪟', error);
+          console.error('[AreaEditMap] 지도 초기화 오류', error);
           onBoundsReadyRef.current?.(null);
         });
     });
@@ -641,21 +694,47 @@ export function AreaEditMapCanvas({
     return () => {
       map.off('click', AREA_EDIT_FILL_LAYER_ID, handleAreaClick);
       map.off('click', AREA_EDIT_LINE_LAYER_ID, handleAreaClick);
-      map.off('click', AREA_EDIT_COMPLETED_DRAFT_FILL_LAYER_ID, handleAreaClick);
       map.off('click', handleMapClick);
       map.off('move', updateFloatingControlPosition);
       map.off('zoom', updateFloatingControlPosition);
+      map.off('move', updateTooltipPosition);
+      map.off('zoom', updateTooltipPosition);
       map.off('resize', updateFloatingControlPosition);
+      map.off('resize', updateTooltipPosition);
       mapRef.current = null;
       onMapReadyRef.current?.(null);
       onBoundsReadyRef.current?.(null);
       map.remove();
     };
-  }, [handleAreaClick, handleMapClick, updateFloatingControlPosition]);
+  }, [handleAreaClick, handleMapClick, updateFloatingControlPosition, updateTooltipPosition]);
+
+  const selectedTooltipDraft = normalSelectedAreaId ? completedDrafts.find((draft) => draft.areaId === normalSelectedAreaId) : null;
 
   return (
     <div className={styles.surface} aria-label="구역 편집 지도">
       <div ref={mapContainerRef} className={styles.canvas} />
+      {tooltipPosition && selectedTooltipDraft ? (
+        <div
+          className={styles.areaTooltip}
+          style={{
+            left: tooltipPosition.x,
+            top: tooltipPosition.y,
+          }}
+        >
+          <button
+            type="button"
+            className={styles.areaTooltipDeleteButton}
+            onClick={(event) => {
+              event.stopPropagation();
+              onRequestAreaDelete(selectedTooltipDraft.areaId);
+            }}
+          >
+            삭제
+          </button>
+          <strong>{selectedTooltipDraft.label}</strong>
+          <span>{selectedTooltipDraft.kind.toUpperCase()} 담당 구역</span>
+        </div>
+      ) : null}
       {floatingControlPosition ? (
         <button
           type="button"
@@ -674,3 +753,4 @@ export function AreaEditMapCanvas({
     </div>
   );
 }
+

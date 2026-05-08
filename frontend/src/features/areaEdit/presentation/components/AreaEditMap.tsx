@@ -19,15 +19,20 @@ type AreaEditMapProps = {
   isDrawToolDisabled: boolean;
   isDrawing: boolean;
   isMapExpanded: boolean;
+  normalSelectedAreaId: string | null;
+  normalSelectedAreaPosition: [number, number] | null;
   pageState: AreaEditPageState;
   selectedAreaColorToken: AreaColorToken | null;
   selectedAreaId: string | null;
   canCompleteDraft: boolean;
   validationMessage: string | null;
   onCancelDraft: () => void;
+  onClearNormalAreaSelection: () => void;
   onConfirmDraft: () => void;
   onDraftPointAdd: (position: [number, number]) => void;
   onCloseDraft: (coordinates: [number, number][]) => void;
+  onNormalAreaSelect: (areaId: string, position: [number, number]) => void;
+  onRequestAreaDelete: (areaId: string) => void;
   onSelectArea: (areaId: string) => void;
   onStartDrawing: () => void;
   onToggleMapExpanded: () => void;
@@ -69,15 +74,20 @@ export function AreaEditMap({
   isDrawToolDisabled,
   isDrawing,
   isMapExpanded,
+  normalSelectedAreaId,
+  normalSelectedAreaPosition,
   pageState,
   selectedAreaColorToken,
   selectedAreaId,
   canCompleteDraft,
   validationMessage,
   onCancelDraft,
+  onClearNormalAreaSelection,
   onCloseDraft,
   onConfirmDraft,
   onDraftPointAdd,
+  onNormalAreaSelect,
+  onRequestAreaDelete,
   onSelectArea,
   onStartDrawing,
   onToggleMapExpanded,
@@ -87,6 +97,11 @@ export function AreaEditMap({
   const mapRef = useRef<maplibregl.Map | null>(null);
   const initialBoundsRef = useRef<LngLatBoundsLike | null>(null);
   const overlayMessage = overlayMessages[pageState];
+  const isSuccessValidationMessage =
+    validationMessage === '구역 범위를 임시 저장했습니다.' || validationMessage === '임시 저장된 구역 범위를 확인했습니다.';
+  const isInfoValidationMessage =
+    validationMessage === '지도에서 꼭짓점을 차례로 찍고 시작점을 다시 눌러 구역을 닫으십시오.' ||
+    validationMessage === '닫힌 구역입니다. ✔를 누르면 임시 저장됩니다.';
 
   const handleMapReady = useCallback((map: maplibregl.Map | null) => {
     mapRef.current = map;
@@ -127,12 +142,17 @@ export function AreaEditMap({
           completedDrafts={completedDrafts}
           draftPoints={draftPoints}
           isDrawing={isDrawing}
+          normalSelectedAreaId={normalSelectedAreaId}
+          normalSelectedAreaPosition={normalSelectedAreaPosition}
           canCompleteDraft={canCompleteDraft}
+          onClearNormalAreaSelection={onClearNormalAreaSelection}
           onBoundsReady={handleBoundsReady}
           onCloseDraft={onCloseDraft}
           onConfirmDraft={onConfirmDraft}
           onDraftPointAdd={onDraftPointAdd}
           onMapReady={handleMapReady}
+          onNormalAreaSelect={onNormalAreaSelect}
+          onRequestAreaDelete={onRequestAreaDelete}
           onSelectArea={onSelectArea}
           onUndoDraft={onUndoDraft}
           onValidationMessage={onValidationMessage}
@@ -182,7 +202,16 @@ export function AreaEditMap({
           </button>
         </div>
 
-        {validationMessage ? <div className={styles.validationMessage} role="alert">{validationMessage}</div> : null}
+        {validationMessage ? (
+          <div
+            className={`${styles.validationMessage} ${
+              isSuccessValidationMessage ? styles.successMessage : isInfoValidationMessage ? styles.infoMessage : styles.warningMessage
+            }`}
+            role="alert"
+          >
+            {validationMessage}
+          </div>
+        ) : null}
 
         {overlayMessage ? (
           <div className={styles.stateOverlay} role={pageState === 'permission_denied' ? 'alert' : 'status'}>

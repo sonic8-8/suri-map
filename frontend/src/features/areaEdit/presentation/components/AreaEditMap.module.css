@@ -184,21 +184,36 @@
 .validationMessage {
   position: absolute;
   z-index: 9;
-  bottom: 158px;
+  bottom: 230px;
   left: 50%;
-  max-width: min(460px, calc(100% - 48px));
+  max-width: min(600px, calc(100% - 48px));
   padding: 10px 12px;
-  border: 1px solid color-mix(in srgb, #d9480f 58%, var(--suri-board-border));
+  border: 0 solid transparent;
   border-radius: 8px;
-  color: #fff4e6;
-  background: color-mix(in srgb, #7c2d12 88%, transparent);
-  box-shadow: 0 12px 26px rgb(0 0 0 / 26%);
-  font-size: 13px;
+  box-shadow: 0 12px 26px rgb(0 0 0 / 19%);
+  font-size: 17px;
   font-weight: 800;
   line-height: 1.42;
   text-align: center;
   transform: translateX(-50%);
-  backdrop-filter: blur(8px);
+}
+
+.successMessage {
+  border-color: color-mix(in srgb, #84cc16 70%, var(--suri-board-border));
+  color: #24470b;
+  background: color-mix(in srgb, #d9f99d 82%, transparent);
+}
+
+.warningMessage {
+  border-color: color-mix(in srgb, #d9480f 58%, var(--suri-board-border));
+  color: #ffffff;
+  background: color-mix(in srgb, #ff4747 70%, transparent);
+}
+
+.infoMessage {
+  border-color: color-mix(in srgb, #d9480f 78%, var(--suri-board-border));
+  color: #fff4e6;
+  background: color-mix(in srgb, #3A3A3AFF 88%, transparent);
 }
 
 .overallSwatch {

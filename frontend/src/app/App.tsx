@@ -6,10 +6,12 @@ import { IncidentListPage } from '../features/incidents/presentation/pages/Incid
 import { LoginPage } from '../features/login/presentation/pages/LoginPage';
 import { MOCK_LOGIN_ACCOUNT } from '../features/login/presentation/constants/mockLogin';
 import { SituationBoardPage } from '../features/situationBoard/presentation/pages/SituationBoardPage';
+import type { CompletedAreaDraft } from '../shared/model/areaDraft';
 import { ROUTES } from './routes';
 
 export function App() {
   const [pathname, setPathname] = useState(() => window.location.pathname);
+  const [savedAreaDrafts, setSavedAreaDrafts] = useState<CompletedAreaDraft[]>([]);
 
   useEffect(() => {
     const handlePopState = () => {
@@ -55,11 +57,17 @@ export function App() {
   }
 
   if (pathname === ROUTES.areaEdit) {
-    return <AreaEditPage onBackToSituationBoard={() => navigate(ROUTES.home)} />;
+    return (
+      <AreaEditPage
+        onBackToSituationBoard={() => navigate(ROUTES.home)}
+        onSaveAssignedAreas={setSavedAreaDrafts}
+      />
+    );
   }
 
   return (
     <SituationBoardPage
+      savedAreaDrafts={savedAreaDrafts}
       onOpenIncidentList={() => navigate(ROUTES.incidentList)}
       onOpenAreaEdit={() => navigate(ROUTES.areaEdit)}
     />

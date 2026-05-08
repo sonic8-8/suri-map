@@ -3,14 +3,16 @@ import { SituationBoardHeader } from '../components/header/SituationBoardHeader'
 import { SituationBoardLeftPanel } from '../components/leftPanel/SituationBoardLeftPanel';
 import type { InitialMapState } from '../components/map/SearchMapCanvas';
 import { SituationBoardMap } from '../components/map/SituationBoardMap';
+import type { CompletedAreaDraft } from '../../../../shared/model/areaDraft';
 import { useSituationBoardShell } from '../hooks/useSituationBoardShell';
 
 type SituationBoardPageProps = {
+  savedAreaDrafts: CompletedAreaDraft[];
   onOpenIncidentList: () => void;
   onOpenAreaEdit: () => void;
 };
 
-export function SituationBoardPage({ onOpenIncidentList, onOpenAreaEdit }: SituationBoardPageProps) {
+export function SituationBoardPage({ savedAreaDrafts, onOpenIncidentList, onOpenAreaEdit }: SituationBoardPageProps) {
   const { isLeftPanelCollapsed, shellClassName, toggleLeftPanelCollapsed } = useSituationBoardShell();
   const [isMapExpanded, setIsMapExpanded] = useState(false);
   const [initialMapState, setInitialMapState] = useState<InitialMapState | null>(null);
@@ -41,6 +43,7 @@ export function SituationBoardPage({ onOpenIncidentList, onOpenAreaEdit }: Situa
         )}
         <SituationBoardMap
           isMapExpanded={isMapExpanded}
+          savedAreaDrafts={savedAreaDrafts}
           onInitialMapStateChange={setInitialMapState}
           onSelectSearchArea={toggleSelectedSearchArea}
           onToggleMapExpanded={toggleMapExpanded}

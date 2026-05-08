@@ -7,6 +7,7 @@ import maplibregl, {
 } from 'maplibre-gl';
 import { getVWorldApiKey } from '../../../../../shared/config';
 import { areaColorTokens } from '../../../../../shared/constants/areaColorTokens';
+import type { CompletedAreaDraft } from '../../../../../shared/model/areaDraft';
 import { initialReferenceMarkerResponses, searchAreaResponses } from '../../constants/mockSituationBoard';
 import styles from './SearchMapCanvas.module.css';
 
@@ -128,6 +129,37 @@ function toPolygonFeature(area: (typeof searchAreaResponses)[number]): Operation
   };
 }
 
+function toSavedAreaDraftFeature(draft: CompletedAreaDraft): OperationalFeature {
+  const visualStyle = areaColorTokens[draft.colorToken];
+  return {
+    type: 'Feature',
+    properties: {
+      slot: draft.kind === 'overall' ? 'overall_search_area' : 'area',
+      entityId: draft.areaId,
+      areaLevel: draft.kind.toUpperCase(),
+      status: 'ACTIVE',
+      incidentId: 'incident-gwangsan-001',
+      version: '1',
+      fillColor: visualStyle.fillColor,
+      lineColor: visualStyle.lineColor,
+      fillOpacity: String(Math.max(visualStyle.fillOpacity, 0.18)),
+      lineWidth: String(draft.kind === 'overall' ? 3 : draft.kind === 'unit' ? 2.6 : 2.2),
+      lineOpacity: '0.98',
+    },
+    geometry: {
+      type: 'Polygon',
+      coordinates: [draft.coordinates],
+    },
+  };
+}
+
+function buildSearchAreaFeatureCollection(savedAreaDrafts: CompletedAreaDraft[]): OperationalFeatureCollection {
+  return {
+    type: 'FeatureCollection',
+    features: savedAreaDrafts.map(toSavedAreaDraftFeature),
+  };
+}
+
 const selectedIncidentOverallSearchArea: OperationalFeatureCollection = {
   type: 'FeatureCollection',
   features:
@@ -221,6 +253,15 @@ function addGeoJsonSource(
     type: 'geojson',
     data,
   });
+}
+
+function setOperationalGeoJsonSourceData(map: maplibregl.Map, sourceId: string, data: OperationalFeatureCollection) {
+  const source = map.getSource(sourceId);
+  if (!source || !('setData' in source)) {
+    return;
+  }
+
+  (source as GeoJSONSource).setData(data);
 }
 
 function resolveInitialMapView(fallbackBounds: LngLatBoundsLike | null): InitialMapResolution {
@@ -467,6 +508,7 @@ async function loadGwangsanManifest(): Promise<GwangsanMapManifest> {
 }
 
 type SearchMapCanvasProps = {
+  savedAreaDrafts: CompletedAreaDraft[];
   onInitialBoundsReady?: (bounds: LngLatBoundsLike | null) => void;
   onInitialMapStateReady?: (state: InitialMapResolution['state'] | null) => void;
   onMapReady?: (map: maplibregl.Map | null) => void;
@@ -475,6 +517,7 @@ type SearchMapCanvasProps = {
 };
 
 export function SearchMapCanvas({
+  savedAreaDrafts,
   onInitialBoundsReady,
   onInitialMapStateReady,
   onMapReady,
@@ -484,6 +527,15 @@ export function SearchMapCanvas({
   const isRouteEditorEnabledRef = useRef(getIsRouteEditorEnabled());
   const [routeEditorCoordinates, setRouteEditorCoordinates] = useState<Position[]>([]);
   const isRouteEditorEnabled = isRouteEditorEnabledRef.current;
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.loaded()) {
+      return;
+    }
+
+    setOperationalGeoJsonSourceData(map, OVERALL_SEARCH_AREA_SOURCE_ID, buildSearchAreaFeatureCollection(savedAreaDrafts));
+  }, [savedAreaDrafts]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -567,6 +619,7 @@ export function SearchMapCanvas({
 
     map.once('load', () => {
       syncBaseMapOpacity(map);
+      addOverallSearchAreaLayer(map, buildSearchAreaFeatureCollection(savedAreaDrafts));
 
       void loadGwangsanManifest()
         .then((manifest) => {
@@ -605,7 +658,7 @@ export function SearchMapCanvas({
       onMapReady?.(null);
       map.remove();
     };
-  }, [onInitialBoundsReady, onInitialMapStateReady, onMapReady]);
+  }, [onInitialBoundsReady, onInitialMapStateReady, onMapReady, savedAreaDrafts]);
 
   return (
     <div className={styles.surface} aria-label="Search map">
