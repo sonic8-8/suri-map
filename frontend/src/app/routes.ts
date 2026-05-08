@@ -3,4 +3,5 @@ export const ROUTES = {
   home: '/',
   login: '/login',
   incidentList: '/incidents',
+  incidentClose: '/incident-close',
 } as const;

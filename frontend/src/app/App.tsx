@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 
+import { IncidentClosePage } from '../features/incidentClose/presentation/pages/IncidentClosePage';
 import { IncidentListPage } from '../features/incidents/presentation/pages/IncidentListPage';
 import { LoginPage } from '../features/login/presentation/pages/LoginPage';
+import { MOCK_LOGIN_ACCOUNT } from '../features/login/presentation/constants/mockLogin';
 import { SituationBoardPage } from '../features/situationBoard/presentation/pages/SituationBoardPage';
 import { ROUTES } from './routes';
 
@@ -32,6 +34,16 @@ export function App() {
     return (
       <IncidentListPage
         onOpenSituationBoard={() => navigate(ROUTES.home)}
+        onOpenLogin={() => navigate(ROUTES.login)}
+        currentUserRole={MOCK_LOGIN_ACCOUNT.role}
+      />
+    );
+  }
+
+  if (pathname === ROUTES.incidentClose) {
+    return (
+      <IncidentClosePage
+        onBackToIncidents={() => navigate(ROUTES.incidentList)}
         onOpenLogin={() => navigate(ROUTES.login)}
       />
     );
