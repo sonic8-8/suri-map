@@ -8,13 +8,19 @@ import { ViewModeSwitch } from './ViewModeSwitch';
 import styles from './SituationBoardLeftPanel.module.css';
 
 type SituationBoardLeftPanelProps = {
+  hasActiveOverallSearchArea: boolean;
   isCollapsed: boolean;
   onToggleCollapsed: () => void;
   onSelectSearchArea: (searchAreaId: string) => void;
 };
 
 // 좌측 패널은 OP, 레이어, 마커, 보기 모드를 한 덩어리로 묶어 보여준다.
-export function SituationBoardLeftPanel({ isCollapsed, onToggleCollapsed, onSelectSearchArea }: SituationBoardLeftPanelProps) {
+export function SituationBoardLeftPanel({
+  hasActiveOverallSearchArea,
+  isCollapsed,
+  onToggleCollapsed,
+  onSelectSearchArea,
+}: SituationBoardLeftPanelProps) {
   const { activePage, getIndexTabAriaLabel, handleIndexTabClick } = useLeftPanelPages({
     isCollapsed,
     onToggleCollapsed,
@@ -79,7 +85,7 @@ export function SituationBoardLeftPanel({ isCollapsed, onToggleCollapsed, onSele
         </div>
         <div className={styles.page} hidden={activePage !== 'area'}>
           <div className={styles.scroll}>
-            <SearchAreaTree onSelectSearchArea={onSelectSearchArea} />
+            <SearchAreaTree hasActiveOverallSearchArea={hasActiveOverallSearchArea} onSelectSearchArea={onSelectSearchArea} />
           </div>
         </div>
         <div className={styles.page} hidden={activePage !== 'marker'}>

@@ -4,10 +4,26 @@
   flex-direction: column;
   gap: 6px;
   min-width: 0;
-  --area-identity-color: var(--area-overall);
+  --area-identity-color: var(--area-color-001);
   --area-box-text: #07111f;
   --area-box-meta: #3d4c5f;
   --area-tree-completed-bg: color-mix(in srgb, var(--suri-board-fg-muted) 16%, var(--suri-board-panel-bg));
+}
+
+.treeDisabled {
+  --area-box-text: color-mix(in srgb, var(--suri-board-fg-primary) 58%, var(--suri-board-fg-muted));
+  --area-box-meta: var(--suri-board-fg-muted);
+}
+
+.requiredNotice {
+  padding: 9px 10px;
+  border: 1px solid color-mix(in srgb, #d9b45f 42%, var(--suri-board-border));
+  border-radius: 4px;
+  background: color-mix(in srgb, #d9b45f 12%, var(--suri-board-panel-bg));
+  color: var(--suri-board-fg-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
 }
 
 /* 전체 수색 구역 루트 노드. */
@@ -111,6 +127,16 @@
   cursor: pointer;
 }
 
+.areaRowButton[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.areaRowButton[aria-disabled="true"]:hover {
+  border-color: color-mix(in srgb, var(--area-identity-color) 44%, #d7e0ec);
+  background: color-mix(in srgb, var(--area-identity-color) 10%, #f8fbff);
+}
+
 .areaRowButton:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--area-identity-color) 78%, #ffffff);
   outline-offset: 2px;
@@ -153,6 +179,11 @@
     inset 0 1px 0 rgb(255 255 255 / 70%),
     0 1px 0 rgb(0 0 0 / 8%);
   text-align: left;
+}
+
+.unitToggle[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.72;
 }
 
 .unitStaticRow {
