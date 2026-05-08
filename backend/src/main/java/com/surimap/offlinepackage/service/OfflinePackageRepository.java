@@ -11,14 +11,21 @@ import com.surimap.offlinepackage.dto.OfflinePackageManifestResponse.OverallSear
 import com.surimap.offlinepackage.dto.OfflinePackageManifestResponse.PackageItem;
 import com.surimap.offlinepackage.dto.OfflinePackageManifestResponse.PolicePhoneContext;
 import com.surimap.offlinepackage.dto.OfflinePackageManifestResponse.TileItem;
+import com.surimap.offlinepackage.exception.OfflinePackageApiException;
 import com.surimap.offlinepackage.query.OfflinePackageInstallationStatus;
 import com.surimap.offlinepackage.repository.OfflinePackageInstallationRecord;
+import com.surimap.offlinepackage.repository.OfflinePackageManifestRecord;
 import com.surimap.offlinepackage.repository.OfflinePackageMapper;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.OffsetDateTime;
+import java.util.HexFormat;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -44,13 +51,17 @@ public class OfflinePackageRepository {
   public synchronized OfflinePackageManifestResponse manifest(
       String incidentId, String policePhoneId) {
     ensureFixtureManifest();
-    PackageItemState itemState = itemStateFor(policePhoneId);
+    OfflinePackageManifestRecord current = mapper.findCurrentManifestByIncident(incidentId);
+    if (current == null) {
+      throw new IllegalArgumentException("offline package manifest not found: " + incidentId);
+    }
+    PackageItemState itemState = itemStateFor(current.id(), policePhoneId);
     return new OfflinePackageManifestResponse(
-        MANIFEST_ID,
+        current.id(),
         incidentId,
-        MANIFEST_VERSION,
-        EXPIRES_AT,
-        "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        current.manifestVersion(),
+        current.expiresAt(),
+        "sha256:" + current.manifestHash(),
         new PolicePhoneContext(
             POLICE_PHONE_ID, "acct-precinct-team", "TEAM", "team-precinct-jongno", "MEMBER"),
         new IncidentMetadata(incidentId, "OPEN", "CURRENT", "mock-112-incident-001"),
@@ -73,19 +84,25 @@ public class OfflinePackageRepository {
                 point("126.956500", "37.571200"),
                 "ACTIVE")),
         new OverallSearchArea(
-            "osa-precinct-001",
+            current.overallSearchAreaId(),
             incidentId,
             "OVERALL",
             "ACTIVE",
             "overall-area-hash-precinct-current",
             overallSearchAreaPolygon()),
         tileItems(),
-        packageItems(itemState));
+        packageItems(itemState, current));
   }
 
   public synchronized OfflinePackageInstallationStatus saveStatus(
       String incidentId, OfflinePackageInstallationReportRequest request) {
     ensureFixtureManifest();
+    OfflinePackageManifestRecord current = mapper.findCurrentManifestByIncident(incidentId);
+    if (current == null
+        || !current.id().equals(request.manifestId())
+        || current.manifestVersion() != request.manifestVersion()) {
+      throw new OfflinePackageApiException("write_conflict", HttpStatus.CONFLICT);
+    }
     OfflinePackageInstallationRecord record =
         OfflinePackageInstallationRecord.from(INSTALLATION_ID, incidentId, request, SERVER_TS);
     mapper.deleteInstallationForPhone(request.manifestId(), request.policePhoneId());
@@ -98,6 +115,7 @@ public class OfflinePackageRepository {
         record.version(),
         record.sequence(),
         request.manifestVersion(),
+        current.manifestVersion(),
         record.readyForOfflineUse());
   }
 
@@ -106,13 +124,66 @@ public class OfflinePackageRepository {
     return mapper.findStatusesByIncident(incidentId);
   }
 
+  public synchronized List<OfflinePackageInstallationStatus> staleReadyAndPartialForOverallAreaChange(
+      String incidentId,
+      String overallSearchAreaId,
+      long overallSearchAreaVersion,
+      String sourceHash) {
+    ensureFixtureManifest();
+    OfflinePackageManifestRecord current = mapper.findCurrentManifestByIncident(incidentId);
+    if (current == null) {
+      return List.of();
+    }
+    if (current.overallSearchAreaId().equals(overallSearchAreaId)
+        && current.overallSearchAreaVersion() >= overallSearchAreaVersion) {
+      return List.of();
+    }
+
+    List<String> changedStatusIds = mapper.findStaleCandidateInstallationIds(current.id());
+    int nextManifestVersion = current.manifestVersion() + 1;
+    String nextManifestId = nextManifestId(current.id(), nextManifestVersion);
+    mapper.insertNextManifestFrom(
+        current.id(),
+        nextManifestId,
+        nextManifestVersion,
+        overallSearchAreaId,
+        overallSearchAreaVersion,
+        manifestHash(incidentId, overallSearchAreaId, overallSearchAreaVersion, sourceHash),
+        SERVER_TS);
+    if (changedStatusIds.isEmpty()) {
+      return List.of();
+    }
+    mapper.markReadyAndPartialInstallationsStale(current.id(), SERVER_TS);
+    return mapper.findStatusesByIds(changedStatusIds, nextManifestVersion);
+  }
+
   private void ensureFixtureManifest() {
     if (mapper.countManifest(MANIFEST_ID) > 0) {
+      ensureSeedStatus("pkg-status-precinct-ready-001", POLICE_PHONE_ID, "READY", 3, true);
+      ensureSeedStatus(
+          "pkg-status-precinct-partial-001", "dev-precinct-phone-02", "PARTIAL", 2, false);
+      ensureSeedStatus(
+          "pkg-status-precinct-downloading-001",
+          "dev-precinct-phone-05",
+          "DOWNLOADING",
+          1,
+          false);
+      ensureSeedStatus(
+          "pkg-status-precinct-stale-001", "dev-precinct-phone-03", "STALE", 4, false);
+      ensureSeedStatus(
+          "pkg-status-precinct-failed-001", "dev-precinct-phone-04", "FAILED", 5, false);
       return;
     }
     mapper.insertManifest(MANIFEST_ID, INCIDENT_ID, MANIFEST_VERSION, EXPIRES_AT, SERVER_TS);
     seedStatus("pkg-status-precinct-ready-001", POLICE_PHONE_ID, "READY", 3, true);
-    seedStatus("pkg-status-precinct-partial-001", "dev-precinct-phone-02", "PARTIAL", 2, false);
+    seedStatus(
+        "pkg-status-precinct-partial-001", "dev-precinct-phone-02", "PARTIAL", 2, false);
+    seedStatus(
+        "pkg-status-precinct-downloading-001",
+        "dev-precinct-phone-05",
+        "DOWNLOADING",
+        1,
+        false);
     seedStatus("pkg-status-precinct-stale-001", "dev-precinct-phone-03", "STALE", 4, false);
     seedStatus("pkg-status-precinct-failed-001", "dev-precinct-phone-04", "FAILED", 5, false);
   }
@@ -140,12 +211,24 @@ public class OfflinePackageRepository {
             SERVER_TS));
   }
 
-  private PackageItemState itemStateFor(String policePhoneId) {
+  private void ensureSeedStatus(
+      String id, String policePhoneId, String status, long version, boolean readyForOfflineUse) {
+    if (mapper.countInstallation(id) > 0) {
+      return;
+    }
+    String seedPolicePhoneId = policePhoneId;
+    if (mapper.findInstallationForPhone(MANIFEST_ID, policePhoneId) != null) {
+      seedPolicePhoneId = policePhoneId + "-seed";
+    }
+    seedStatus(id, seedPolicePhoneId, status, version, readyForOfflineUse);
+  }
+
+  private PackageItemState itemStateFor(String manifestId, String policePhoneId) {
     if (policePhoneId == null || policePhoneId.isBlank()) {
       return PackageItemState.pending();
     }
     OfflinePackageInstallationRecord record =
-        mapper.findInstallationForPhone(MANIFEST_ID, policePhoneId);
+        mapper.findInstallationForPhone(manifestId, policePhoneId);
     if (record == null) {
       return PackageItemState.pending();
     }
@@ -158,7 +241,8 @@ public class OfflinePackageRepository {
     return PackageItemState.partial(new LinkedHashSet<>(record.failedItemKeys()));
   }
 
-  private static List<PackageItem> packageItems(PackageItemState itemState) {
+  private static List<PackageItem> packageItems(
+      PackageItemState itemState, OfflinePackageManifestRecord manifest) {
     return List.of(
         item(
             "incident:inc-precinct-first-001",
@@ -186,12 +270,12 @@ public class OfflinePackageRepository {
             itemState,
             "sha256:6666666666666666666666666666666666666666666666666666666666666666"),
         item(
-            "overall-search-area:overall-area-hash-precinct-current",
+            "overall-search-area:" + manifest.overallSearchAreaId(),
             "OVERALL_SEARCH_AREA",
             itemState,
             "sha256:7777777777777777777777777777777777777777777777777777777777777777"),
         item(
-            "tile-manifest:tile-manifest-inc-precinct-001",
+            "tile-manifest:" + manifest.id(),
             "TILE",
             itemState,
             "sha256:8888888888888888888888888888888888888888888888888888888888888888"));
@@ -248,6 +332,28 @@ public class OfflinePackageRepository {
 
   private static List<BigDecimal> point(String lon, String lat) {
     return List.of(new BigDecimal(lon), new BigDecimal(lat));
+  }
+
+  private static String manifestHash(
+      String incidentId,
+      String overallSearchAreaId,
+      long overallSearchAreaVersion,
+      String sourceHash) {
+    String source =
+        incidentId + "|" + overallSearchAreaId + "|" + overallSearchAreaVersion + "|" + sourceHash;
+    try {
+      MessageDigest digest = MessageDigest.getInstance("SHA-256");
+      return HexFormat.of().formatHex(digest.digest(source.getBytes(StandardCharsets.UTF_8)));
+    } catch (NoSuchAlgorithmException exception) {
+      throw new IllegalStateException("SHA-256 digest is unavailable", exception);
+    }
+  }
+
+  private static String nextManifestId(String currentManifestId, int nextManifestVersion) {
+    int revisionIndex = currentManifestId.indexOf("-rev-");
+    String baseManifestId =
+        revisionIndex >= 0 ? currentManifestId.substring(0, revisionIndex) : currentManifestId;
+    return baseManifestId + "-rev-" + nextManifestVersion;
   }
 
   private record PackageItemState(boolean allDownloaded, Set<String> failedKeys) {

@@ -100,7 +100,7 @@
   - 예상 작업량: 1d
   - 완료 기준: speed fixture가 VEHICLE/FOOT segment를 만들고, low-quality GPS는 승격되지 않으며, web correction은 기존 movement_type만 수정하고, `SEARCH_PATH_SEGMENT_UPDATED`는 안정적인 id/status/version/opId/policePhoneId를 포함한다.
 
-- [ ] L4-T05A Android 로컬 저장소와 경로·마커·패키지 복제 스키마 구현
+- [x] L4-T05A Android 로컬 저장소와 경로·마커·패키지 복제 스키마 구현
   - 담당 Spec: S6
   - 필수 참조: `spec/specs/S6.json`, `spec/harness-scenarios.md §2 SC-07`, `spec/harness-scenarios.md §6 mock network 상태`
   - 연관 Spec: S3-1, S5, S7
@@ -109,8 +109,9 @@
   - 구현 산출물: Room local store schema, local path/marker/package mirror schema, local mirror tests
   - 예상 작업량: 1d
   - 완료 기준: offline path/marker/offline_package_installation status write가 replay 전 server row를 만들지 않고 local mirror table에 저장된다.
+  - 완료 근거: `backend/src/test/java/com/surimap/sync/localstore/LocalMirrorSchemaContractTest.java` (S6 local schema, SC-07/09 outbox replay fixture, offline `PENDING_LOCAL`/`PENDING_SEND` 고정 검증)
 
-- [ ] L4-T05B Android Outbox 스키마와 재시도 상태 흐름 구현
+- [x] L4-T05B Android Outbox 스키마와 재시도 상태 흐름 구현
   - 담당 Spec: S6
   - 필수 참조: `spec/specs/S6.json`, `spec/harness-scenarios.md §2 SC-07`, `spec/harness-scenarios.md §6 mock network 상태`
   - 연관 Spec: S3-1, S5, S7
@@ -119,6 +120,7 @@
   - 구현 산출물: Android Outbox schema, `PENDING`/`SENDING`/`ACKED`/`FAILED_RETRYABLE`/`FAILED_FINAL`/`PURGED` retry state machine, `PENDING_LOCAL`/`PENDING_SEND`/`SENDING`/`SYNCED`/`FAILED`/`PURGED` UI 상태 test
   - 예상 작업량: 1d
   - 완료 기준: local write가 S6 기준 Outbox 상태와 harness UI 상태를 그대로 거치며, 중복 server row 없이 replay 가능하다.
+  - 완료 근거: `android/app/src/main/java/com/surimap/core/sync/RoomLocalSyncServices.kt`, `android/app/src/main/java/com/surimap/core/sync/OutboxStateMachine.kt`, `android/app/src/test/java/com/surimap/core/sync/RoomLocalSyncServicesTest.kt`, `android/app/src/test/java/com/surimap/core/sync/OutboxStateMachineTest.kt`, `android/app/src/test/java/com/surimap/core/sync/OutboxIdempotencyReplayGateTest.kt`
 
 ## Phase 3
 
