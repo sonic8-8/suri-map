@@ -8,9 +8,13 @@ final class OutboxRetryDiagnosticsFixtures {
   static final String API_PATH = "/api/sync/outbox/requeue";
   static final String SOURCE_SPEC_PATH = "POST /sync/outbox/requeue";
   static final String CANONICAL_API_PATH = "POST /api/sync/outbox/requeue";
-  static final String POLICE_PHONE_HEADER = "X-PolicePhone-Id";
-  static final String HARNESS_POLICE_PHONE_ID = "dev-precinct-car-01";
-  static final String INCIDENT_ID = "inc-precinct-first-001";
+  static final String DEVICE_HEADER = "X-Device-Id";
+  static final String HARNESS_DEVICE_ID = "dev-precinct-car-01";
+  static final String ASSIGNED_AUTH_POLICE_PHONE_ID = "00000000-0000-0000-0000-000000000101";
+  static final String UNREGISTERED_AUTH_POLICE_PHONE_ID = "00000000-0000-0000-0000-000000000201";
+  static final String UNASSIGNED_AUTH_POLICE_PHONE_ID = "00000000-0000-0000-0000-000000000301";
+  static final String INCIDENT_ID = "b5fdbad6-57ce-4d64-a6f2-82b1d3e16699";
+  static final String CLOSED_INCIDENT_ID = "d7c12704-58d1-4d66-9959-af479672fbc6";
   static final int STALE_CLOCK_SYNC_AFTER_MS = 300_000;
 
   static final List<String> REQUIRED_REQUEST_FIELDS =
@@ -108,6 +112,26 @@ final class OutboxRetryDiagnosticsFixtures {
           0,
           Instant.parse("2026-04-28T00:00:35Z"),
           2);
+
+  static final RequeueRequestFixture STALE_CLOCK_REQUEUE =
+      new RequeueRequestFixture(
+          "op-fail-clock-001",
+          INCIDENT_ID,
+          "USER_RETRY",
+          Instant.parse("2026-04-28T00:10:45Z"),
+          0,
+          Instant.parse("2026-04-28T00:00:35Z"),
+          3);
+
+  static final RequeueRequestFixture CLOSED_INCIDENT_REQUEUE =
+      new RequeueRequestFixture(
+          "op-fail-closed-001",
+          CLOSED_INCIDENT_ID,
+          "USER_RETRY",
+          Instant.parse("2026-04-28T12:00:45Z"),
+          0,
+          Instant.parse("2026-04-28T12:00:35Z"),
+          1);
 
   private OutboxRetryDiagnosticsFixtures() {}
 
