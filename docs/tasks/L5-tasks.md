@@ -222,7 +222,7 @@
 
 ## Phase 5
 
-- [ ] L5-D01 마커·사진·알림 시연 증거 수집
+- [x] L5-D01 마커·사진·알림 시연 증거 수집
   - 담당 Spec: S5
   - 필수 참조: `prd.md §2.3`, `spec/harness-scenarios.md §2 SC-06`, `spec/harness-scenarios.md §2 SC-08`
   - 연관 Lane: L1, L2, L4, L6
