@@ -87,7 +87,7 @@
   - 예상 작업량: 1d
   - 완료 기준: `public-session`, `incident-read`, `web-command`, `app-police-phone`, `field-or-web-write`가 `spec/boundaries.md §7` guard shorthand와 일치하고, `write-common`은 S1-1 incident lifecycle과 S6 idempotency 계약으로 위임되며 guard 실패 시 domain row를 만들지 않는다.
 
-- [ ] L2-T03 단말 배정 fixture와 heartbeat 상태 보고 구현
+- [x] L2-T03 단말 배정 fixture와 heartbeat 상태 보고 구현
   - 담당 Spec: S1-2
   - 필수 참조: `spec/specs/S1-2.json`, `spec/boundaries.md §3 S1-2`, `spec/boundaries.md §9.2 police_phone_freshness`
   - 연관 Spec: S3-1, S6, S7, S3-2
@@ -97,7 +97,7 @@
   - 예상 작업량: 2d
   - 완료 기준: 배정된 police_phone fixture는 package 조회와 현장 기록 write가 가능하고, 미배정 police_phone는 assignment guard로 실패하며, 새 public police_phone registration API 없이 heartbeat가 police_phone_freshness DTO에 반영된다.
 
-- [ ] L2-T05 S4 기본 이벤트 포맷 검증 구현
+- [x] L2-T05 S4 기본 이벤트 포맷 검증 구현
   - 담당 Spec: S4
   - 필수 참조: `spec/specs/S4.json`, `spec/boundaries.md §4.4`, `spec/boundaries.md §9.1`, `spec/boundaries.md §10`
   - 연관 Spec: S1-1, S1-2, S1-3, S2, S3-1, S5, S7, S8

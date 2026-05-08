@@ -21,7 +21,7 @@
 
 ## Phase -1
 
-- [ ] L1-B01 배정 사건·소속·실종자 도메인 데이터 시드 데이터 준비
+- [x] L1-B01 배정 사건·소속·실종자 도메인 데이터 시드 데이터 준비
   - 담당 Spec: S1-1
   - 필수 참조: `spec/specs/S1-1.json`, `spec/harness-scenarios.md §6`, `spec/boundaries.md §10`
   - 연관 Spec: S1-2, S5, S8, S7
@@ -33,7 +33,7 @@
 
 ## Phase 0
 
-- [ ] L1-T07 SC-01/02/12 사건 흐름 모의 어댑터와 시드 ID 로더 작성
+- [x] L1-T07 SC-01/02/12 사건 흐름 모의 어댑터와 시드 ID 로더 작성
   - 담당 Spec: S1-1
   - 필수 참조: `spec/specs/S1-1.json`, `spec/harness-scenarios.md §2 SC-01`, `spec/harness-scenarios.md §2 SC-02`, `spec/harness-scenarios.md §2 SC-12`
   - 연관 Spec: S1-2, S4, S5, S8
@@ -45,7 +45,7 @@
 
 ## Phase 1
 
-- [ ] L1-T01 배정 사건 가져오기 API 구현
+- [x] L1-T01 배정 사건 가져오기 API 구현
   - 담당 Spec: S1-1
   - 필수 참조: `spec/specs/S1-1.json`, `spec/boundaries.md §3 S1-1`, `spec/boundaries.md §10 SC-01`
   - 연관 Spec: S1-2, S4, S5, S8
@@ -55,7 +55,7 @@
   - 예상 작업량: 2d
   - 완료 기준: `POST /api/incidents/import`가 중복 row 없이 incident, missing_person, incident_assignment, OP1, `INCIDENT_CREATED`를 생성하고 실패 시 전체 rollback한다.
 
-- [ ] L1-T03 실종자 도메인 데이터와 소비 계약 구현
+- [x] L1-T03 실종자 도메인 데이터와 소비 계약 구현
   - 담당 Spec: S1-1
   - 필수 참조: `spec/specs/S1-1.json`, `spec/specs/S7.json`, `spec/boundaries.md §6 FR-21`, `spec/boundaries.md §6 FR-22`
   - 연관 Spec: S7, S3-2
@@ -65,7 +65,7 @@
   - 예상 작업량: 1d
   - 완료 기준: incident detail과 offline package input의 allowlist test가 통과하고, 금지 필드 노출 test가 실패하며, S7/S3-2가 S1-1 허용 필드만 소비함이 fixture로 검증된다.
 
-- [ ] L1-T05A 진행 중 사건 목록·상세 조회 DTO 구현
+- [x] L1-T05A 진행 중 사건 목록·상세 조회 DTO 구현
   - 담당 Spec: S1-1
   - 필수 참조: `spec/specs/S1-1.json`, `spec/boundaries.md §3 S1-1`, `spec/boundaries.md §5 Entity Ownership`
   - 연관 Spec: S1-2, S3-2
@@ -77,7 +77,7 @@
 
 ## Phase 2
 
-- [ ] L1-T02 사건 상태 전이 보호 규칙 구현
+- [x] L1-T02 사건 상태 전이 보호 규칙 구현
   - 담당 Spec: S1-1
   - 필수 참조: `spec/specs/S1-1.json`, `spec/boundaries.md §4.5`, `spec/boundaries.md §7`
   - 연관 Spec: S1-2, S2, S3-1, S5, S7, S8
@@ -87,7 +87,7 @@
   - 예상 작업량: 1d
   - 완료 기준: import 실패는 incident row를 남기지 않고, 종료 후 write는 closed/terminal guard로 실패하며, 소비 Lane fixture가 두 상태를 검증할 수 있다.
 
-- [ ] L1-T04 인계 후 기존 기록 조회와 112/mock 지원 배정 반영 구현
+- [x] L1-T04 인계 후 기존 기록 조회와 112/mock 지원 배정 반영 구현
   - 담당 Spec: S1-1
   - 필수 참조: `spec/specs/S1-1.json`, `spec/harness-scenarios.md §1.1`, `spec/boundaries.md §10 SC-02`
   - 연관 Spec: S1-2, S3-1, S5, S8, S3-2
@@ -99,7 +99,7 @@
 
 ## Phase 3
 
-- [ ] L1-T06 사건 종료 명령과 데이터 삭제 인계 구현
+- [x] L1-T06 사건 종료 명령과 데이터 삭제 인계 구현
   - 담당 Spec: S1-1
   - 필수 참조: `spec/specs/S1-1.json`, `spec/specs/S1-3.json`, `spec/boundaries.md §4.5`, `spec/boundaries.md §10 SC-12`
   - 연관 Spec: S1-3, S4, S6, S7, S3-2
@@ -109,7 +109,7 @@
   - 예상 작업량: 2d
   - 완료 기준: close가 `INCIDENT_CLOSED`를 발행하고 신규 write를 차단하며 active missing_person를 삭제하고 S3-2용 sanitized terminal state를 제공한다.
 
-- [ ] L1-T05B 종료 사건 조회와 개인정보 제거 검증 구현
+- [x] L1-T05B 종료 사건 조회와 개인정보 제거 검증 구현
   - 담당 Spec: S1-1
   - 필수 참조: `spec/specs/S1-1.json`, `spec/specs/S1-3.json`, `spec/boundaries.md §4.5`, `spec/boundaries.md §5 Entity Ownership`
   - 연관 Spec: S1-3, S3-2

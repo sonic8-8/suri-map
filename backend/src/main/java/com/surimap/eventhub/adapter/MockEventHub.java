@@ -2,6 +2,7 @@ package com.surimap.eventhub.adapter;
 
 import com.surimap.eventhub.dto.PublishRequest;
 import com.surimap.eventhub.port.EventHub;
+import com.surimap.eventhub.validation.BaseEventValidator;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
@@ -15,8 +16,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 /**
  * EventHub 모의체 (Mock EventHub).
  *
- * <p>실제 event_dispatch_job 저장이나 SSE dispatch 없이 메모리에 발행 기록을 남긴다. 테스트에서 어떤 eventId로, 어떤
- * type으로, 어떤 incidentId에 대해 발행했는지 검증할 수 있다.
+ * <p>실제 event_dispatch_job 저장이나 SSE dispatch 없이 메모리에 발행 기록을 남긴다. 테스트에서 어떤 eventId로, 어떤 type으로, 어떤
+ * incidentId에 대해 발행했는지 검증할 수 있다.
  *
  * <p>failure injection을 지원하여 특정 eventId에 대한 publish 호출을 RuntimeException으로 차단할 수 있다.
  *
@@ -30,6 +31,7 @@ public class MockEventHub implements EventHub {
   @Override
   public void publish(PublishRequest request) {
     Objects.requireNonNull(request, "request must not be null");
+    BaseEventValidator.validate(request);
 
     if (failureInjections.contains(request.eventId())) {
       throw new RuntimeException("publish_blocked_for_test");
