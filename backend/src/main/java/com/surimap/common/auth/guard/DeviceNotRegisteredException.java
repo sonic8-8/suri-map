@@ -8,4 +8,3 @@ public class DeviceNotRegisteredException extends GuardException {
     super("device_not_registered", HttpStatus.FORBIDDEN);
   }
 }
-

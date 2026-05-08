@@ -39,4 +39,3 @@ public class SyncClockExceptionHandler {
     return ResponseEntity.status(mappedStatus).body(Map.of("error", mappedError));
   }
 }
-

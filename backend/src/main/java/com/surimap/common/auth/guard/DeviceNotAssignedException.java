@@ -8,4 +8,3 @@ public class DeviceNotAssignedException extends GuardException {
     super("device_not_assigned", HttpStatus.FORBIDDEN);
   }
 }
-

@@ -8,4 +8,3 @@ public class DeviceRequiredException extends GuardException {
     super("device_required", HttpStatus.BAD_REQUEST);
   }
 }
-

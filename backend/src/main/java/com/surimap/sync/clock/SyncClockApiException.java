@@ -21,4 +21,3 @@ public class SyncClockApiException extends RuntimeException {
     return error;
   }
 }
-

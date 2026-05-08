@@ -13,4 +13,3 @@ public class SyncClockCalibrationRecordStore {
     records.put(incidentId, response);
   }
 }
-
