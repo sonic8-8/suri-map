@@ -202,7 +202,7 @@
   - 예상 작업량: 1d
   - 완료 기준: support request와 person-found notification red test가 auth, event, FCM, board toast mock contract로 통과한다.
 
-- [ ] L5-T09D SC-02 지원 배정 FCM evidence 하네스 작성
+- [x] L5-T09D SC-02 지원 배정 FCM evidence 하네스 작성
   - 담당 Spec: S5
   - 필수 참조: `spec/harness-scenarios.md §2 SC-02`, `spec/harness-scenarios.md §6 mock FCM dispatcher`, `spec/specs/S5.json`
   - 연관 Spec: S1-1, S1-2, S4
@@ -211,7 +211,7 @@
   - 예상 작업량: 1d
   - 완료 기준: 112/mock 지원 배정 후 신규 배정 계정이 운용 중인 활성 policePhoneId로 가는 FCM payload/recipient/eventId/version이 mock dispatcher에 capture되고, 지휘 계정 policePhoneId 제외와 mock 미수신 실패 주입이 red test로 검증된다.
 
-- [ ] L5-T09C 마커·사진·알림 시연 스모크 절차 작성
+- [x] L5-T09C 마커·사진·알림 시연 스모크 절차 작성
   - 담당 Spec: S5
   - 필수 참조: `prd.md §2.3`, `spec/harness-scenarios.md §2 SC-06`, `spec/harness-scenarios.md §2 SC-08`
   - 연관 Lane: L1, L2, L4, L6
