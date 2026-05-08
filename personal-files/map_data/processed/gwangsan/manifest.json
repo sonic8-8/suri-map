@@ -1,0 +1,22 @@
+{
+  "id": "gwangsan-static-map-v1",
+  "name": "Gwangsan-gu static MapLibre layers",
+  "crs": "EPSG:4326",
+  "layers": [
+    {
+      "layerId": "boundary",
+      "url": "/map-data/gwangsan/boundary.geojson",
+      "sourceCodes": [
+        "N3A_G0100000"
+      ],
+      "crs": "EPSG:4326",
+      "bbox": [
+        126.644683,
+        35.07017,
+        126.860403,
+        35.258809
+      ],
+      "featureCount": 1
+    }
+  ]
+}
