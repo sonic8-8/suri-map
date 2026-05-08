@@ -29,6 +29,16 @@
         <result property="resultEntityVersion" column="result_entity_version"/>
     </resultMap>
 
+    <resultMap id="missingPersonRecordMap" type="com.surimap.incident.domain.MissingPersonRecord">
+        <id property="incidentId" column="incident_id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="displayName" column="display_name"/>
+        <result property="photoObjectKey" column="photo_object_key"/>
+        <result property="appearanceText" column="appearance_text"/>
+        <result property="lastSeenLocationText" column="last_seen_location_text"/>
+        <result property="lastSeenAt" column="last_seen_at"/>
+        <result property="importedAt" column="imported_at"/>
+    </resultMap>
+
     <select id="findBySourceIncidentId" resultMap="incidentRecordMap">
         SELECT
             id,
@@ -41,6 +51,20 @@
             version
         FROM "incident"
         WHERE source_incident_id = #{sourceIncidentId}
+    </select>
+
+    <select id="findByIncidentId" resultMap="incidentRecordMap">
+        SELECT
+            id,
+            source_incident_id,
+            title,
+            status,
+            opened_at,
+            closed_at,
+            closed_by_account_id,
+            version
+        FROM "incident"
+        WHERE id = #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
     </select>
 
     <select id="findImportIdempotencyRecord" resultMap="idempotencyRecordMap">
@@ -178,5 +202,18 @@
         WHERE incident_id = #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
           AND revoked_at IS NULL
         ORDER BY assigned_at ASC, account_id ASC
+    </select>
+
+    <select id="findMissingPersonByIncidentId" resultMap="missingPersonRecordMap">
+        SELECT
+            incident_id,
+            display_name,
+            photo_object_key,
+            appearance_text,
+            last_seen_location_text,
+            last_seen_at,
+            imported_at
+        FROM missing_person
+        WHERE incident_id = #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
     </select>
 </mapper>

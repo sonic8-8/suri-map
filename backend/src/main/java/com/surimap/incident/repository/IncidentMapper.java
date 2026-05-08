@@ -2,6 +2,7 @@ package com.surimap.incident.repository;
 
 import com.surimap.incident.domain.IncidentImportIdempotencyRecord;
 import com.surimap.incident.domain.IncidentRecord;
+import com.surimap.incident.domain.MissingPersonRecord;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -19,6 +20,8 @@ public interface IncidentMapper {
 
   Optional<IncidentRecord> findBySourceIncidentId(
       @Param("sourceIncidentId") String sourceIncidentId);
+
+  Optional<IncidentRecord> findByIncidentId(@Param("incidentId") UUID incidentId);
 
   Optional<IncidentImportIdempotencyRecord> findImportIdempotencyRecord(
       @Param("idempotencyKey") String idempotencyKey,
@@ -72,4 +75,6 @@ public interface IncidentMapper {
       @Param("now") Instant now);
 
   List<String> findActiveAssignmentAccountIds(@Param("incidentId") UUID incidentId);
+
+  Optional<MissingPersonRecord> findMissingPersonByIncidentId(@Param("incidentId") UUID incidentId);
 }

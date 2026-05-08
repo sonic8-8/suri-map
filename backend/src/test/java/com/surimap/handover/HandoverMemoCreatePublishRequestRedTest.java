@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
  * <p>harness fixture: sc11_handover_ai_convergence.expectedS4Events.handoverMemoCreated
  * - eventId: "evt-s8-handover-memo-001"
  * - type: "HANDOVER_MEMO_CREATED"
- * - payloadId: "memo-precinct-op2-001"
+ * - payloadId: "memo-precinct-handover-001"
  * - payloadStatus: "ACTIVE"
  * - payloadVersion: 1
  * - opId: "op-precinct-001-op2"
