@@ -20,6 +20,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class OfflinePackageService implements OfflinePackageInstallationQuery {
@@ -71,9 +72,36 @@ public class OfflinePackageService implements OfflinePackageInstallationQuery {
     return repository.byIncident(incidentId);
   }
 
+  @Transactional
+  public void consumeSearchAreaChanged(PublishRequest event) {
+    if (!"SEARCH_AREA_CHANGED".equals(event.type())) {
+      return;
+    }
+    Map<String, Object> payload = event.payload();
+    if (payload.containsKey("opId")) {
+      return;
+    }
+    if (!payload.containsKey("id")
+        || !payload.containsKey("incidentId")
+        || !payload.containsKey("version")) {
+      return;
+    }
+
+    String incidentId = String.valueOf(payload.get("incidentId"));
+    String overallSearchAreaId = String.valueOf(payload.get("id"));
+    long overallSearchAreaVersion = Long.parseLong(String.valueOf(payload.get("version")));
+    String sourceHash =
+        String.valueOf(
+            payload.getOrDefault("overallAreaHash", payload.getOrDefault("geometry", "")));
+    repository
+        .staleReadyAndPartialForOverallAreaChange(
+            incidentId, overallSearchAreaId, overallSearchAreaVersion, sourceHash)
+        .forEach(status -> eventHub.publish(publishRequest(status)));
+  }
+
   private static PublishRequest publishRequest(OfflinePackageInstallationStatus status) {
     return new PublishRequest(
-        stableUuid("event:" + EVENT_TYPE + ":" + status.id()),
+        stableUuid("event:" + EVENT_TYPE + ":" + status.id() + ":" + status.version()),
         stableUuid("incident:" + status.incidentId()),
         EVENT_TYPE,
         1,

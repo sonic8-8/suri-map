@@ -162,7 +162,7 @@
   - 예상 작업량: 1d
   - 완료 기준: status report API test가 manifest item state를 갱신하고, publish request test가 `OFFLINE_PACKAGE_INSTALLATION_CHANGED`를 capture하며, OfflinePackageInstallationQuery contract test가 기대 package installation status field를 노출한다.
 
-- [ ] L6-T06B package_badge API 조립과 S6 로컬 경고 입력 검증
+- [x] L6-T06B package_badge API 조립과 S6 로컬 경고 입력 검증
   - 담당 Spec: S7, S3-2
   - 필수 참조: `spec/specs/S7.json`, `spec/specs/S6.json`, `spec/specs/S3-2.json`
   - 연관 Spec: S3-2, S6
@@ -174,7 +174,7 @@
 
 ## Phase 3
 
-- [ ] L6-T04A OP 비교·이력·인수인계 slot 구현
+- [x] L6-T04A OP 비교·이력·인수인계 slot 구현
   - 담당 Spec: S3-2
   - 필수 참조: `spec/specs/S3-2.json`, `spec/specs/S8.json`, `spec/boundaries.md §6 FR-23`, `spec/harness-scenarios.md §2 SC-11`
   - 연관 Spec: S8, S3-1, S2, S5, S4
@@ -185,7 +185,7 @@
   - 예상 작업량: 1d
   - 완료 기준: S8 source data를 변경하지 않고 OP toggle/history와 handover slot이 source evidence와 unavailable state를 표시한다.
 
-- [ ] L6-T04B 수색 이력 요약 대체 표시와 FR-23 금지 행동 버튼 차단 구현
+- [x] L6-T04B 수색 이력 요약 대체 표시와 FR-23 금지 행동 버튼 차단 구현
   - 담당 Spec: S3-2
   - 필수 참조: `spec/specs/S3-2.json`, `spec/specs/S8.json`, `spec/boundaries.md §6 FR-23`, `spec/harness-scenarios.md §2 SC-11`, `adr.md ADR-0034`
   - 연관 Spec: S8, S3-1, S2, S5, S4
@@ -195,7 +195,7 @@
   - 예상 작업량: 1d
   - 완료 기준: search_history_summary slot이 OpenAI-generated 요약과 unavailable 상태를 구분해 표시하고, source prompt/provider secret을 노출하지 않으며 자동 누락 구역 확정, 위험도 판단, 다음 구역 CTA를 차단한다.
 
-- [ ] L6-T07 전체 수색 구역 버전과 만료 패키지 처리 구현
+- [x] L6-T07 전체 수색 구역 버전과 만료 패키지 처리 구현
   - 담당 Spec: S7
   - 필수 참조: `spec/specs/S7.json`, `spec/specs/S2.json`, `spec/boundaries.md §10 SC-03`, `spec/boundaries.md §10 SC-04`
   - 연관 Spec: S2, S4, S3-2

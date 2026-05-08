@@ -399,8 +399,8 @@
       }
     ],
     "flyway_migrations": [
-      "V20260428_671__create_offline_package_manifest_status.sql",
-      "V20260428_672__seed_tile_style_config.sql"
+      "V20260428_802__create_offline_package_manifest_status.sql",
+      "V20260428_803__seed_tile_style_config.sql"
     ]
   },
   "api_contracts": {

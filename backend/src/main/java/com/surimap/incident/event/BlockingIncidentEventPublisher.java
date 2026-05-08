@@ -15,4 +15,9 @@ public class BlockingIncidentEventPublisher implements IncidentEventPublisher {
   public void publishIncidentAssignmentChanged(IncidentAssignmentChangedEvent event) {
     throw new IncidentApiException("write_conflict", HttpStatus.CONFLICT);
   }
+
+  @Override
+  public void publishIncidentClosed(IncidentClosedEvent event) {
+    throw new IncidentApiException("write_conflict", HttpStatus.CONFLICT);
+  }
 }

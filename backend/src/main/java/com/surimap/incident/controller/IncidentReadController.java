@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
-/** S1-1 active 사건 목록·상세 public read endpoint. */
+/** S1-1 사건 목록·상세 public read endpoint. 목록은 active 전용이고 상세는 terminal CLOSED도 노출한다. */
 @RestController
 @RequestMapping("/incidents")
 public class IncidentReadController {
@@ -41,11 +41,11 @@ public class IncidentReadController {
   @GetMapping("/{incidentId}")
   @RequireChannel({Channel.APP, Channel.WEB})
   @RequireIncidentAccess
-  public ResponseEntity<IncidentDetailResponse> getActiveIncident(@PathVariable UUID incidentId) {
+  public ResponseEntity<IncidentDetailResponse> getIncidentDetail(@PathVariable UUID incidentId) {
     var auth = currentAuthentication();
-    // L1-T05A는 진행 중 사건 조회만 담당한다. 접근 범위는 service SQL의 active assignment 필터로 좁힌다.
+    // 접근 범위는 service SQL의 incident_assignment 필터로 좁히고, CLOSED는 sanitized DTO만 반환한다.
     return incidentReadQueryService
-        .findActiveIncidentDetail(incidentId, auth.getAccountId())
+        .findIncidentDetail(incidentId, auth.getAccountId())
         .map(IncidentDetailResponse::from)
         .map(ResponseEntity::ok)
         .orElseGet(() -> ResponseEntity.notFound().build());

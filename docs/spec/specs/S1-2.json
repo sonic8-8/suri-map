@@ -449,28 +449,6 @@
         ]
       },
       {
-        "entity": "PolicePhone",
-        "field": "connectivity_status",
-        "states": [
-          "UNKNOWN",
-          "ONLINE"
-        ],
-        "transitions": [
-          {
-            "from": "UNKNOWN",
-            "to": "ONLINE",
-            "trigger": "heartbeat received",
-            "guard": "registered=true"
-          },
-          {
-            "from": "ONLINE",
-            "to": "ONLINE",
-            "trigger": "heartbeat received",
-            "guard": "registered=true and sequence is newer"
-          }
-        ]
-      },
-      {
         "entity": "fcm_token",
         "field": "status",
         "states": [
@@ -995,7 +973,7 @@
         "failure_codes": [
           "police_phone_not_assigned"
         ],
-        "rule": "PolicePhone.account_id가 SecurityContext.accountId와 같아야 하고, S1-1 active incident_assignment 기준으로 사건 배정 계정에 연결된 PolicePhone여야 한다. incident-scoped domain API의 incident/op/current OP 검증은 해당 API owner의 incident-read와 @RequireCurrentOp가 담당하며, S1-2는 S2 SearchAreaAssignmentQuery를 소비하지 않는다."
+        "rule": "현재 인증 세션에 바인딩된 registered PolicePhone이어야 하고, S1-1 active incident_assignment 기준으로 사건 배정 계정이 운용 중인 PolicePhone여야 한다. incident-scoped domain API의 incident/op/current OP 검증은 해당 API owner의 incident-read와 @RequireCurrentOp가 담당하며, S1-2는 S2 SearchAreaAssignmentQuery를 소비하지 않는다."
       }
     ],
     "api_guard_aliases": [
@@ -1063,7 +1041,7 @@
       {
         "name": "PolicePhoneQuery.byAccount(accountId)",
         "classification": "internal_helper",
-        "returns": "police_phone.account_id = accountId AND registered=true인 PolicePhone 목록. boundaries.md provides에 없는 public contract가 아니며, refresh_token.police_phone_id는 현재 로그인 세션의 active PolicePhone 선택에만 사용한다."
+        "returns": "현재 로그인 세션/account binding 기준의 registered PolicePhone 목록. boundaries.md provides에 없는 public contract가 아니며, refresh_token.police_phone_id는 현재 로그인 세션의 active PolicePhone 선택에만 사용한다."
       },
       {
         "name": "RolePolicyQuery.forIncident(incidentId, accountId)",
@@ -1073,7 +1051,7 @@
       {
         "name": "PolicePhoneFreshnessQuery.byIncident(incidentId)",
         "classification": "cross_spec_public_provides",
-        "returns": "S3-2 refetch가 소비하는 DTO fixture 목록: policePhoneId, accountId, accountType, organizationType, incidentId, optional opId, lastHeartbeatAt, lastSyncAt, version, derivedFreshness. derivedFreshness는 now-lastHeartbeatAt < 60s ONLINE, 60s 이상 STALE, 5분 이상 LOST로 계산하며 POLICE_PHONE_HEARTBEAT_UPDATED 없이도 board response 재계산으로 수렴해야 한다."
+        "returns": "S3-2 refetch가 소비하는 DTO fixture 목록: policePhoneId, accountId, accountType, organizationType, incidentId, optional opId, lastHeartbeatAt, lastSyncAt, derivedFreshness. derivedFreshness는 now-lastHeartbeatAt < 60s ONLINE, 60s 이상 STALE, 5분 이상 LOST로 계산하며 POLICE_PHONE_HEARTBEAT_UPDATED 없이도 board response 재계산으로 수렴해야 한다."
       },
       {
         "name": "FcmTokenQuery.activeByPolicePhone(policePhoneId)",
@@ -1185,7 +1163,7 @@
           "note": "FCM token registration 상태 캐시"
         }
       ],
-      "sync_flow": "HeartbeatWorker가 POST /police-phones/{policePhoneId}/heartbeat를 주기적으로 호출한다. 실패/복구 중 Android local policePhoneConnectivity는 OFFLINE -> RECOVERING -> ONLINE으로 표시할 수 있지만, 서버 police_phone.connectivity_status에는 UNKNOWN|ONLINE만 저장한다."
+      "sync_flow": "HeartbeatWorker가 POST /police-phones/{policePhoneId}/heartbeat를 주기적으로 호출한다. 실패/복구 중 Android local policePhoneConnectivity는 OFFLINE -> RECOVERING -> ONLINE으로 표시할 수 있지만, 서버 persisted state는 `last_heartbeat_at`, `last_sync_at` 갱신과 read-time freshness 재계산으로 수렴한다."
     }
   },
   "dependencies": {
@@ -1283,7 +1261,7 @@
       ],
       "given": "사건 배정 PolicePhone가 온라인 상태다.",
       "when": "POST /police-phones/{policePhoneId}/heartbeat를 호출한다.",
-      "then": "police_phone.last_heartbeat_at, last_sync_at, sequence, version이 갱신되고 POLICE_PHONE_HEARTBEAT_UPDATED payload의 id/status/version/policePhoneId/sequence가 REST response 및 board freshness board response과 수렴한다.",
+      "then": "police_phone.last_heartbeat_at, last_sync_at가 갱신되고 heartbeat request의 sequence와 POLICE_PHONE_HEARTBEAT_UPDATED payload의 id/status/version/policePhoneId/sequence가 REST response 및 board freshness board response과 수렴한다.",
       "priority": "high"
     },
     {
@@ -1377,7 +1355,7 @@
     "PolicePhone heartbeat sequence가 낮은 요청은 최신 row를 과거 상태로 되돌리지 않는다.",
     "지휘 계정 앱 단말은 public PolicePhone subtype으로 고정하지 않는다. 경로 생성 주체와 Android FCM recipient는 사건 배정 계정이 운용 중인 활성 폴리폰이며, 지휘 계정 policePhoneId는 웹 지휘·incident_assignment fixture 식별자에 머문다.",
     "STALE/LOST는 저장 상태나 이벤트가 아니라 lastHeartbeatAt 기반 read-time 파생값이므로 별도 event_dispatch_job row를 만들지 않는다.",
-    "Android OFFLINE/RECOVERING은 로컬 네트워크·재시도 표시 상태이며 서버 police_phone.connectivity_status에 저장하지 않는다.",
+    "Android OFFLINE/RECOVERING은 로컬 네트워크·재시도 표시 상태이며 서버 persisted police_phone 상태로 저장하지 않는다.",
     "heartbeat request는 incidentId/opId를 public scope hint로 받지 않는다. API Index 기준 heartbeat에는 write-common이 없으므로 closed incident 차단 error를 S1-2 public API로 확정하지 않고, closed incident board에서 freshness/위치 표시를 숨기는 것으로 수렴한다."
   ],
   "error_handling": {
@@ -1466,7 +1444,7 @@
       {
         "name": "heartbeatLowerSequenceIsIgnored",
         "framework": "JUnit 5",
-        "scenario": "현재 police_phone.sequence보다 낮은 heartbeat 요청은 200으로 처리하되 last_heartbeat_at, last_sync_at, sequence, POLICE_PHONE_HEARTBEAT_UPDATED를 갱신하지 않는다."
+        "scenario": "이미 더 높은 heartbeat sequence를 수용한 뒤 더 낮은 sequence 요청이 오면 200으로 처리하되 last_heartbeat_at, last_sync_at, 수용된 최신 sequence 기준 상태, POLICE_PHONE_HEARTBEAT_UPDATED를 갱신하지 않는다."
       },
       {
         "name": "webCannotCallAppPolicePhoneApis",
@@ -1560,7 +1538,7 @@
       {
         "name": "heartbeatWorkerRecoversConnectivity",
         "framework": "JUnit5 + Robolectric",
-        "scenario": "heartbeat 실패 후 Android local OFFLINE 상태를 표시하다가 복구 첫 성공 시 RECOVERING을 거쳐 ONLINE으로 전환하되 서버 connectivity_status에는 OFFLINE/RECOVERING을 쓰지 않는다."
+        "scenario": "heartbeat 실패 후 Android local OFFLINE 상태를 표시하다가 복구 첫 성공 시 RECOVERING을 거쳐 ONLINE으로 전환하되 서버 persisted police_phone 상태에는 OFFLINE/RECOVERING을 쓰지 않는다."
       }
     ]
   },

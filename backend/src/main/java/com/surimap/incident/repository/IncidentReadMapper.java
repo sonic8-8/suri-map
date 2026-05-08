@@ -5,6 +5,7 @@ import com.surimap.incident.repository.IncidentReadRows.AssignmentTargetRow;
 import com.surimap.incident.repository.IncidentReadRows.DetailRow;
 import com.surimap.incident.repository.IncidentReadRows.ListRow;
 import com.surimap.incident.repository.IncidentReadRows.MissingPersonRow;
+import com.surimap.incident.repository.IncidentReadRows.TerminalDetailRow;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -21,7 +22,10 @@ public interface IncidentReadMapper {
   Optional<DetailRow> findActiveDetailByIncidentIdAndAccountId(
       @Param("incidentId") UUID incidentId, @Param("accountId") String accountId);
 
-  int countActiveIncidentById(@Param("incidentId") UUID incidentId);
+  Optional<TerminalDetailRow> findTerminalDetailByIncidentIdAndAccountId(
+      @Param("incidentId") UUID incidentId, @Param("accountId") String accountId);
+
+  int countIncidentById(@Param("incidentId") UUID incidentId);
 
   int countActiveAssignmentsByAccountId(@Param("accountId") String accountId);
 

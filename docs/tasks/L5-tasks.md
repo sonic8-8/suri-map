@@ -69,7 +69,7 @@
   - 예상 작업량: 1d
   - 완료 기준: marker location이 공통 geometry rule을 따르고 marker record가 기대 incident/op/police_phone/account context를 포함한다.
 
-- [ ] L5-T01A 마커 생성 API와 생성 이벤트 구현
+- [x] L5-T01A 마커 생성 API와 생성 이벤트 구현
   - 담당 Spec: S5
   - 필수 참조: `spec/specs/S5.json`, `spec/harness-scenarios.md §2 SC-06`, `spec/boundaries.md §10 SC-06`
   - 연관 Spec: S1-2, S2, S6, S8, S4
@@ -98,7 +98,7 @@
   - 예상 작업량: 0.5d
   - 완료 기준: S7이 marker write를 소유하지 않은 채 incident import가 seed marker를 만들고 offline package가 initial marker를 포함할 수 있다.
 
-- [ ] L5-T04A 사진 업로드 서명·완료 API 구현
+- [x] L5-T04A 사진 업로드 서명·완료 API 구현
   - 담당 Spec: S5
   - 필수 참조: `spec/specs/S5.json`, `spec/harness-scenarios.md §6 mock object storage/upload URL fixture`
   - 연관 Spec: S1-2, S6
@@ -110,7 +110,7 @@
 
 ## Phase 2
 
-- [ ] L5-T02 마커 수정·삭제 정책 구현
+- [x] L5-T02 마커 수정·삭제 정책 구현
   - 담당 Spec: S5
   - 필수 참조: `spec/specs/S5.json`, `spec/boundaries.md §4.6`, `spec/specs/S3-2.json`
   - 연관 Spec: S1-2, S4, S3-2
@@ -120,7 +120,7 @@
   - 예상 작업량: 1d
   - 완료 기준: 권한 있는 update/delete가 audit/version semantics를 보존하고, 안정적인 id/status/version/opId/policePhoneId를 가진 `MARKER_UPDATED` 또는 `MARKER_DELETED`를 발행하며, S3-2 marker detail panel은 domain policy를 소유하지 않고 S5 API를 호출한다.
 
-- [ ] L5-T08 상황판·OP 이력용 마커 조회 모델 구현
+- [x] L5-T08 상황판·OP 이력용 마커 조회 모델 구현
   - 담당 Spec: S5
   - 필수 참조: `spec/specs/S5.json`, `spec/specs/S3-2.json`, `spec/specs/S8.json`
   - 연관 Spec: S3-2, S8
@@ -132,7 +132,7 @@
 
 ## Phase 3
 
-- [ ] L5-T04B 사진 업로드 중복·오프라인 재시도 검증 구현
+- [x] L5-T04B 사진 업로드 중복·오프라인 재시도 검증 구현
   - 담당 Spec: S5
   - 필수 참조: `spec/specs/S5.json`, `spec/specs/S6.json`, `spec/harness-scenarios.md §6 mock object storage/upload URL fixture`
   - 연관 Spec: S6
@@ -142,7 +142,7 @@
   - 예상 작업량: 1d
   - 완료 기준: duplicate attach와 offline retry가 duplicate marker photo 또는 orphan object reference를 만들지 않는다.
 
-- [ ] L5-T06A 지원 요청 마커 정책과 수신자 계산 구현
+- [x] L5-T06A 지원 요청 마커 정책과 수신자 계산 구현
   - 담당 Spec: S5
   - 필수 참조: `spec/specs/S5.json`, `spec/harness-scenarios.md §2 SC-08`, `spec/harness-scenarios.md §6 mock event_dispatch_job`
   - 연관 Spec: S1-1, S1-2, S4, S6, S3-2
@@ -152,7 +152,7 @@
   - 예상 작업량: 1d
   - 완료 기준: support request marker가 기대 notification payload와 recipient를 만들고, 안정적인 id/status/version/opId/policePhoneId를 가진 duplicate-safe `SUPPORT_REQUEST_CREATED`를 발행한다.
 
-- [ ] L5-T06B 지원 요청 FCM 발송과 상황판 알림 토스트 수렴 검증
+- [x] L5-T06B 지원 요청 FCM 발송과 상황판 알림 토스트 수렴 검증
   - 담당 Spec: S5
   - 필수 참조: `spec/specs/S5.json`, `spec/harness-scenarios.md §2 SC-08`, `spec/harness-scenarios.md §6 mock FCM recipient`
   - 연관 Spec: S1-2, S4, S3-2
@@ -162,7 +162,7 @@
   - 예상 작업량: 1d
   - 완료 기준: support request notification dispatch가 mock FCM에 capture되고 기대 board toast evidence로 수렴한다.
 
-- [ ] L5-T07 실종자 발견 알림 구현
+- [x] L5-T07 실종자 발견 알림 구현
   - 담당 Spec: S5
   - 필수 참조: `spec/specs/S5.json`, `spec/harness-scenarios.md §2 SC-08`
   - 연관 Spec: S1-1, S1-2, S4, S3-2
@@ -184,7 +184,7 @@
 
 ## Phase 4
 
-- [ ] L5-T09A SC-06 마커·사진 하네스 작성
+- [x] L5-T09A SC-06 마커·사진 하네스 작성
   - 담당 Spec: S5
   - 필수 참조: `spec/specs/S5.json`, `spec/harness-scenarios.md §2 SC-06`
   - 연관 Spec: S1-2, S2, S4, S6, S8, S3-2
