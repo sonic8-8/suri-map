@@ -205,7 +205,7 @@
   - 예상 작업량: 1d
   - 완료 기준: close/purge 소비 Lane이 mock purge hook으로 실행되고 fixture ID 변경 없이 real S1-3 orchestration으로 교체할 수 있다.
 
-- [ ] L2-T10 인증·이벤트 부하 스모크 시나리오 작성
+- [x] L2-T10 인증·이벤트 부하 스모크 시나리오 작성
   - 담당 Spec: S1-2, S4
   - 필수 참조: `architecture.md §9`, `prd.md §2.2`, `spec/harness-scenarios.md`
   - 연관 Lane: L4, L6
