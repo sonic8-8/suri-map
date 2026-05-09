@@ -187,7 +187,7 @@
   - 예상 작업량: 1d
   - 완료 기준: 다른 Lane이 L2 mock으로 auth/policePhone path를 실행하고 fixture ID 변경 없이 real S1-2 contract로 교체할 수 있다.
 
-- [ ] L2-T09B 이벤트 허브 모의 계약 하네스 작성
+- [x] L2-T09B 이벤트 허브 모의 계약 하네스 작성
   - 담당 Spec: S4
   - 필수 참조: `spec/specs/S4.json`, `spec/harness-scenarios.md §0.3`, `spec/harness-scenarios.md §6 mock event_dispatch_job`
   - 연관 Lane: All event-producing lanes
