@@ -165,7 +165,7 @@
   - 예상 작업량: 2d
   - 완료 기준: `INCIDENT_CLOSED`가 incident_data_purge를 시작하고 `spec/boundaries.md §4.5` lifecycle 순서로 hook을 조율하며, internal-only 운영 기록을 저장하고 모든 hook 성공 후에만 sanitized purge/tombstone state를 발행한다.
 
-- [ ] L2-T07C 사건 종료 SSE 재전송 중지와 stream 해제 검증 구현
+- [x] L2-T07C 사건 종료 SSE 재전송 중지와 stream 해제 검증 구현
   - 담당 Spec: S4
   - 필수 참조: `spec/specs/S4.json`, `spec/harness-scenarios.md §2 SC-12`, `spec/harness-scenarios.md §6 mock SSE client`
   - 연관 Spec: S1-1, S1-3, S3-2

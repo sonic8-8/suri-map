@@ -19,4 +19,9 @@ final class SseEmitterLiveEventSink implements SseLiveEventSink {
       emitter.completeWithError(e);
     }
   }
+
+  @Override
+  public void close() {
+    emitter.complete();
+  }
 }
