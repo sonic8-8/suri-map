@@ -142,7 +142,7 @@
   - 예상 작업량: 1d
   - 완료 기준: requeue diagnostics가 owner endpoint를 우회하지 않고 retryable/terminal local state를 노출한다.
 
-- [ ] L4-T06 서버 멱등 처리와 응답 재사용 구현
+- [x] L4-T06 서버 멱등 처리와 응답 재사용 구현
   - 담당 Spec: S6
   - 필수 참조: `spec/specs/S6.json`, `spec/boundaries.md §4.3`, `spec/harness-scenarios.md §2 SC-09`
   - 연관 Spec: S2, S3-1, S5, S7, S8
@@ -151,6 +151,7 @@
   - 구현 산출물: `@IdempotentWrite` middleware, idempotency response cache, bodyHash mismatch tests, committed-cache-missing recovery tests
   - 예상 작업량: 2d
   - 완료 기준: 같은 idempotency key/body는 cached response를 replay하고, body가 바뀌면 mismatch를 반환하며, committed-cache-missing 복구는 owner port를 호출한다.
+  - 완료 근거: `backend/src/main/java/com/surimap/sync/idempotency/IdempotentWrite.java`, `backend/src/main/java/com/surimap/sync/idempotency/IdempotentWriteAspect.java`, `backend/src/main/java/com/surimap/sync/idempotency/IdempotentWriteService.java`, `backend/src/main/java/com/surimap/sync/idempotency/InMemoryIdempotencyRecordRepository.java`, `backend/src/main/java/com/surimap/sync/idempotency/IdempotencyReplayRecoveryRegistry.java`, `backend/src/test/java/com/surimap/sync/idempotency/IdempotentWriteServiceBehaviorRedTest.java`, `./gradlew test --tests '*IdempotentWriteServiceBehaviorRedTest'` 통과
 
 - [ ] L4-T08 로컬 경고 감시 구현
   - 담당 Spec: S6
