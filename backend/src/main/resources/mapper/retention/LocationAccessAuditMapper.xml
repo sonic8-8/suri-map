@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.surimap.retention.purge.LocationAccessAuditMapper">
+
+    <insert id="insert" parameterType="com.surimap.retention.purge.LocationAccessAuditRecord">
+        INSERT INTO location_data_access_audit (
+            id,
+            incident_id,
+            account_id,
+            police_phone_id,
+            access_channel,
+            access_purpose,
+            accessed_at,
+            retention_until
+        )
+        VALUES (
+            #{id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{accountId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{policePhoneId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{accessChannel},
+            #{accessPurpose},
+            #{accessedAt},
+            #{retentionUntil}
+        )
+    </insert>
+
+</mapper>

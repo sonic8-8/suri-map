@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.surimap.retention.purge.PurgeRunMapper">
+
+    <resultMap id="PurgeRunRecordMap" type="com.surimap.retention.purge.PurgeRunRecord">
+        <id property="id" column="id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="incidentId" column="incident_id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="status" column="status"/>
+        <result property="closedAt" column="closed_at"/>
+        <result property="purgeDueAt" column="purge_due_at"/>
+        <result property="completedAt" column="completed_at"/>
+        <result property="lastErrorCode" column="last_error_code"/>
+        <result property="version" column="version"/>
+        <result property="environmentPolicy" column="environment_policy"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <resultMap id="PurgeHookStepRecordMap" type="com.surimap.retention.purge.PurgeHookStepRecord">
+        <id property="purgeRunId" column="purge_run_id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <id property="hookName" column="hook_name"/>
+        <result property="status" column="status"/>
+        <result property="purgedCount" column="purged_count"/>
+        <result property="retainedCount" column="retained_count"/>
+        <result property="errorCode" column="error_code"/>
+        <result property="completedAt" column="completed_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <insert id="insertIfAbsent">
+        INSERT INTO incident_data_purge (
+            id,
+            incident_id,
+            status,
+            closed_at,
+            purge_due_at,
+            version,
+            environment_policy,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            #{id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{status},
+            #{closedAt},
+            #{purgeDueAt},
+            1,
+            #{environmentPolicy},
+            #{now},
+            #{now}
+        )
+        ON CONFLICT (incident_id) DO NOTHING
+    </insert>
+
+    <select id="findByIncidentId" resultMap="PurgeRunRecordMap">
+        SELECT
+            id,
+            incident_id,
+            status,
+            closed_at,
+            purge_due_at,
+            completed_at,
+            last_error_code,
+            version,
+            environment_policy,
+            created_at,
+            updated_at
+        FROM incident_data_purge
+        WHERE incident_id = #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+    </select>
+
+    <update id="transition">
+        UPDATE incident_data_purge
+        SET status = #{status},
+            last_error_code = #{lastErrorCode},
+            completed_at = #{completedAt},
+            environment_policy = #{environmentPolicy},
+            version = #{version},
+            updated_at = #{now}
+        WHERE id = #{purgeRunId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+    </update>
+
+    <select id="findHookSteps" resultMap="PurgeHookStepRecordMap">
+        SELECT
+            purge_run_id,
+            hook_name,
+            status,
+            purged_count,
+            retained_count,
+            error_code,
+            completed_at,
+            updated_at
+        FROM incident_data_purge_hook_step
+        WHERE purge_run_id = #{purgeRunId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+        ORDER BY hook_name ASC
+    </select>
+
+    <insert id="upsertHookStep">
+        INSERT INTO incident_data_purge_hook_step (
+            purge_run_id,
+            hook_name,
+            status,
+            purged_count,
+            retained_count,
+            error_code,
+            completed_at,
+            updated_at
+        )
+        VALUES (
+            #{purgeRunId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{hookName},
+            #{status},
+            #{purgedCount},
+            #{retainedCount},
+            #{errorCode},
+            #{completedAt},
+            #{now}
+        )
+        ON CONFLICT (purge_run_id, hook_name) DO UPDATE
+        SET status = EXCLUDED.status,
+            purged_count = EXCLUDED.purged_count,
+            retained_count = EXCLUDED.retained_count,
+            error_code = EXCLUDED.error_code,
+            completed_at = EXCLUDED.completed_at,
+            updated_at = EXCLUDED.updated_at
+    </insert>
+
+</mapper>

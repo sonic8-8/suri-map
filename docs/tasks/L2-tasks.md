@@ -155,7 +155,7 @@
   - 예상 작업량: 1d
   - 완료 기준: S5가 marker_notification를 위해 `FcmTokenQuery.activeByPolicePhone(policePhoneId)` fixture를 소비할 수 있고, L2는 incident-scoped unsubscribe/invalidate를 소유하지 않는다.
 
-- [ ] L2-T08 데이터 삭제 오케스트레이션과 운영 기록 구현
+- [x] L2-T08 데이터 삭제 오케스트레이션과 운영 기록 구현
   - 담당 Spec: S1-3
   - 필수 참조: `spec/specs/S1-3.json`, `spec/boundaries.md §4.5`, `spec/boundaries.md §10 SC-12`
   - 연관 Spec: S1-1, S3-1, S5, S6, S7, S3-2
