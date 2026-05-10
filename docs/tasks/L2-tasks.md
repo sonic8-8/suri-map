@@ -196,7 +196,7 @@
   - 예상 작업량: 1d
   - 완료 기준: event-producing Lane이 S4 mock으로 실행되고 이후 real event_dispatch_job/SSE contract로 교체할 수 있다.
 
-- [ ] L2-T09C 삭제 오케스트레이션 모의 계약 하네스 작성
+- [x] L2-T09C 삭제 오케스트레이션 모의 계약 하네스 작성
   - 담당 Spec: S1-3
   - 필수 참조: `spec/specs/S1-3.json`, `spec/boundaries.md §4.5`, `spec/harness-scenarios.md §2 SC-12`
   - 연관 Lane: L1, L4, L5, L6
