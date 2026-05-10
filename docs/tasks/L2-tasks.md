@@ -235,7 +235,7 @@
   - 예상 작업량: 1d
   - 완료 기준: 준비된 k6 smoke가 합의된 auth/event path에 대해 실행되고 pass/fail threshold evidence를 기록한다.
 
-- [ ] L2-D03 S4 재전송·팬아웃 릴리즈 증거 작성
+- [x] L2-D03 S4 재전송·팬아웃 릴리즈 증거 작성
   - 담당 Spec: S4
   - 필수 참조: `spec/specs/S4.json`, `spec/harness-scenarios.md §0.3`
   - 연관 Lane: All event-consuming lanes
