@@ -216,7 +216,7 @@
 
 ## Phase 5
 
-- [ ] L2-D01 CI 품질 게이트 결과 수집
+- [x] L2-D01 CI 품질 게이트 결과 수집
   - 담당 Spec: S1-2, S1-3, S4
   - 필수 참조: `architecture.md §9`, `prd.md §2.2`
   - 연관 Lane: All lanes

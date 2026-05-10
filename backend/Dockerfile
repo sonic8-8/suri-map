@@ -13,7 +13,7 @@ COPY backend/src ./src
 COPY docs /docs
 
 FROM source AS tester
-RUN ./gradlew --no-daemon --build-cache test
+RUN ./gradlew --no-daemon --build-cache test jacocoTestReport
 
 FROM tester AS builder
 RUN ./gradlew --no-daemon --build-cache bootJar -x test

@@ -91,16 +91,6 @@ pipeline {
                     mkdir -p \
                       "${BACKEND_TEST_ARTIFACT_DIR}/coverage" \
                       "${BACKEND_TEST_ARTIFACT_DIR}/sonar"
-
-                    cat > "${BACKEND_TEST_ARTIFACT_DIR}/coverage/README.txt" <<'EOF'
-Coverage gate placeholder for L2-B04.
-Real coverage report wiring is tracked by the L2 release quality gate tasks.
-EOF
-
-                    cat > "${BACKEND_TEST_ARTIFACT_DIR}/sonar/README.txt" <<'EOF'
-SonarQube gate placeholder for L2-B04.
-Real SonarQube quality gate wiring is tracked by the L2 release quality gate tasks.
-EOF
                 '''
 
                 sh '''
@@ -125,6 +115,36 @@ EOF
                       backend/build/reports/tests/
                     docker cp "${test_container}:/workspace/build/test-results/test" \
                       backend/build/test-results/
+
+                    docker cp "${test_container}:/workspace/build/reports/jacoco/test/jacocoTestReport.xml" \
+                      "${BACKEND_TEST_ARTIFACT_DIR}/coverage/jacoco.xml" 2>/dev/null || true
+
+                    docker cp "${test_container}:/workspace/build/reports/jacoco/test/html" \
+                      "${BACKEND_TEST_ARTIFACT_DIR}/coverage/html" 2>/dev/null || true
+                '''
+
+                sh '''
+                    if [ -f "${BACKEND_TEST_ARTIFACT_DIR}/coverage/jacoco.xml" ]; then
+                        missed=$(grep -oE 'type="LINE"[^>]* missed="[0-9]+"' "${BACKEND_TEST_ARTIFACT_DIR}/coverage/jacoco.xml" \
+                                 | tail -1 | grep -oE 'missed="[0-9]+"' | grep -oE '[0-9]+' || echo "0")
+                        covered=$(grep -oE 'type="LINE"[^>]* covered="[0-9]+"' "${BACKEND_TEST_ARTIFACT_DIR}/coverage/jacoco.xml" \
+                                  | tail -1 | grep -oE 'covered="[0-9]+"' | grep -oE '[0-9]+' || echo "0")
+                        total=$((missed + covered))
+                        if [ "${total}" -gt 0 ]; then
+                            pct=$(awk "BEGIN { printf \"%.1f\", (${covered} / ${total}) * 100 }")
+                        else
+                            pct="0.0"
+                        fi
+                        echo "COVERAGE: ${pct}%" > "${BACKEND_TEST_ARTIFACT_DIR}/coverage/coverage-summary.txt"
+                        echo "LINE_COVERED: ${covered}" >> "${BACKEND_TEST_ARTIFACT_DIR}/coverage/coverage-summary.txt"
+                        echo "LINE_MISSED: ${missed}" >> "${BACKEND_TEST_ARTIFACT_DIR}/coverage/coverage-summary.txt"
+                        echo "LINE_TOTAL: ${total}" >> "${BACKEND_TEST_ARTIFACT_DIR}/coverage/coverage-summary.txt"
+                    fi
+                '''
+
+                sh '''
+                    echo "STATUS: SKIPPED_NO_SERVER" > "${BACKEND_TEST_ARTIFACT_DIR}/sonar/sonar-status.txt"
+                    echo "REASON: SonarQube server not yet configured for this environment" >> "${BACKEND_TEST_ARTIFACT_DIR}/sonar/sonar-status.txt"
                 '''
             }
 

@@ -166,7 +166,7 @@
   - 완료 기준: GPS stopped, battery low, offline, package unavailable/stale warning이 server round trip 없이 local에서 동작한다.
   - 완료 증거: `android/app/src/main/java/com/surimap/core/sync/LocalWarningMonitor.kt`, `android/app/src/test/java/com/surimap/core/sync/LocalWarningMonitorTest.kt`, `android/app/src/test/java/com/surimap/core/sync/LocalWarningUiStateTest.kt`; `cmd.exe /c gradlew.bat --no-daemon :app:testDebugUnitTest --tests com.surimap.core.sync.LocalWarningMonitorTest --tests com.surimap.core.sync.LocalWarningUiStateTest` PASS, `cmd.exe /c gradlew.bat --no-daemon :app:assembleDebug` PASS.
 
-- [ ] L4-T09 사건 종료·삭제 로컬 정리 정책 구현
+- [x] L4-T09 사건 종료·삭제 로컬 정리 정책 구현
   - 담당 Spec: S6
   - 필수 참조: `spec/specs/S6.json`, `spec/specs/S1-3.json`, `spec/boundaries.md §4.5`, `spec/harness-scenarios.md §2 SC-12`
   - 연관 Spec: S1-1, S1-3, S7
@@ -177,10 +177,11 @@
   - 구현 산출물: local close/purge state policy, post-close requeue rejection, incident-scoped local cleanup test, ack-only deletion, tombstone retention tests
   - 예상 작업량: 2d
   - 완료 기준: pre-close pending row, post-close requeue rejection, incident-scoped local cleanup, ack-only deletion, tombstone retention, package/missing_person cleanup 순서가 S1-3 handoff와 일치한다.
+  - 완료 근거: Android `LocalSyncPurgeHookAdapter`/`RoomSyncClient`/`RoomOutboxReplay`에 close cutoff, post-close write/requeue rejection, ACKED-only purge, retained tombstone reporting, package/missing_person handoff order를 구현했고 `IncidentLocalCleanupPolicyTest`로 검증했다. Windows SDK 기준 `cmd.exe /c gradlew.bat --no-daemon :app:testDebugUnitTest --tests com.surimap.core.sync.IncidentLocalCleanupPolicyTest` 및 `cmd.exe /c gradlew.bat --no-daemon :app:assembleDebug` 통과.
 
 ## Phase 4
 
-- [ ] L4-T10A 경로·구간 고정 데이터 하네스 작성
+- [x] L4-T10A 경로·구간 고정 데이터 하네스 작성
   - 담당 Spec: S3-1
   - 필수 참조: `spec/specs/S3-1.json`, `spec/specs/S1-2.json`, `spec/specs/S3-2.json`, `spec/harness-scenarios.md §2 SC-05`, `spec/harness-scenarios.md §6 mock GPS 경로`
   - 연관 Spec: S1-2, S2, S4, S8, S3-2
@@ -189,7 +190,7 @@
   - 예상 작업량: 1d
   - 완료 기준: path/segment fixture test가 auth, geometry, OP, event mock contract로 통과하고, S1-2 freshness DTO의 lastHeartbeatAt/lastSyncAt/derivedFreshness가 S3-2 `police_phone_freshness` slot row와 수렴한다.
 
-- [ ] L4-T10B 오프라인 재전송·중복 방지 하네스 작성
+- [x] L4-T10B 오프라인 재전송·중복 방지 하네스 작성
   - 담당 Spec: S6
   - 필수 참조: `spec/specs/S6.json`, `spec/specs/S1-2.json`, `spec/specs/S3-2.json`, `spec/harness-scenarios.md §2 SC-07`, `spec/harness-scenarios.md §2 SC-09`
   - 연관 Spec: S1-2, S4, S7, S3-2
@@ -197,8 +198,9 @@
   - 구현 산출물: offline/recovery harness runner, duplicate replay tests, board API refetch lag checks, mocked owner endpoint fixtures, `police_phone_freshness` recovery convergence evidence
   - 예상 작업량: 1d
   - 완료 기준: offline, recovery, duplicate replay, board API refetch lag check가 mocked owner endpoint로 통과하고, 복구 후 S3-2 `path`/`marker`/`police_phone_freshness` slot이 기대 version로 수렴한다.
+  - 완료 근거: `backend/src/test/java/com/surimap/harness/sc09/Sc07Sc09OfflineReplayHarnessRedTest.java`, `backend/src/test/java/com/surimap/harness/sc09/Sc07Sc09OfflineReplayHarnessRunner.java` (SC-07 offline pending, SC-09 recovery flush, duplicate replay dedupe, board refetch lag, mocked owner recovery convergence)
 
-- [ ] L4-T10C 네트워크 전환 안정성 검증 프로토콜 작성
+- [x] L4-T10C 네트워크 전환 안정성 검증 프로토콜 작성
   - 담당 Spec: S3-1, S6
   - 필수 참조: `prd.md §2.2`, `prd.md §2.3`, `spec/harness-scenarios.md §2 SC-05`, `spec/harness-scenarios.md §2 SC-07`, `spec/harness-scenarios.md §2 SC-09`
   - 연관 Spec: S1-2, S4, S5, S7
@@ -206,6 +208,7 @@
   - 구현 산출물: 1-hour stability checklist, network on/off 10-cycle script or manual protocol, duplicate row verification query
   - 예상 작업량: 1d
   - 완료 기준: Phase 5 실행 전에 stability checklist, network switch protocol, duplicate row verification query가 준비된다.
+  - 완료 근거: `docs/tasks/l4-network-switch-stability-protocol.md`, `docs/tasks/check_l4_network_switch_stability_protocol.py`
 
 ## Phase 5
 
