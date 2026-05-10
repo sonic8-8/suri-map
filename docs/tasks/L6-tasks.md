@@ -258,7 +258,7 @@
   - 예상 작업량: 1d
   - 완료 기준: OP/search_history_summary rendering guard test가 OpenAI success/failure 상태 모두에서 통과하고 금지된 recommendation/risk/missing-area CTA state가 숨겨진 상태로 유지된다.
 
-- [ ] L6-T10D 상황판·패키지·타일 시연 스모크 절차 작성
+- [x] L6-T10D 상황판·패키지·타일 시연 스모크 절차 작성
   - 담당 Spec: S3-2, S7
   - 필수 참조: `prd.md §2.2`, `prd.md §2.3`, `spec/harness-scenarios.md`
   - 연관 Lane: All lanes
