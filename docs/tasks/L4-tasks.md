@@ -180,7 +180,7 @@
 
 ## Phase 4
 
-- [ ] L4-T10A 경로·구간 고정 데이터 하네스 작성
+- [x] L4-T10A 경로·구간 고정 데이터 하네스 작성
   - 담당 Spec: S3-1
   - 필수 참조: `spec/specs/S3-1.json`, `spec/specs/S1-2.json`, `spec/specs/S3-2.json`, `spec/harness-scenarios.md §2 SC-05`, `spec/harness-scenarios.md §6 mock GPS 경로`
   - 연관 Spec: S1-2, S2, S4, S8, S3-2
