@@ -94,3 +94,8 @@ __pycache__/
 
 # Personal planning notes
 TODO.md
+# Added by code-review-graph
+.code-review-graph/
+
+# Local knowledge graph outputs
+graphify-out/
