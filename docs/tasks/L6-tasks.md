@@ -231,7 +231,7 @@
 
 ## Phase 4
 
-- [ ] L6-T10A SC-03 패키지·타일 하네스 작성
+- [x] L6-T10A SC-03 패키지·타일 하네스 작성
   - 담당 Spec: S3-2, S7
   - 필수 참조: `spec/specs/S7.json`, `spec/harness-scenarios.md §2 SC-03`
   - 연관 Lane: All lanes

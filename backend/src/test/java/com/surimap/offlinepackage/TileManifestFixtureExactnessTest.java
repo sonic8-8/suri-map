@@ -43,7 +43,7 @@ class TileManifestFixtureExactnessTest {
                 27925,
                 12680,
                 "local://tiles/inc-precinct-first-001/15/27925/12680.pbf",
-                "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "sha256:354260e6043ab9b70662016952da6cdc783319deae611490d0803d5b417b000c",
                 18432),
             new TileItem(
                 "tile:osm-local:15:27926:12680",
@@ -52,7 +52,7 @@ class TileManifestFixtureExactnessTest {
                 27926,
                 12680,
                 "local://tiles/inc-precinct-first-001/15/27926/12680.pbf",
-                "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "sha256:ffa729767ab0dd0add127c19b0b1243f553dadaf7f796a593d180d00552ea977",
                 20480),
             new TileItem(
                 "tile:osm-local:16:27925:12681",
@@ -61,7 +61,7 @@ class TileManifestFixtureExactnessTest {
                 27925,
                 12681,
                 "local://tiles/inc-precinct-first-001/16/27925/12681.pbf",
-                "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "sha256:64fc20008bd026acb2cc672812de4fa0f1928fc763f894c82c5ef89c2beb6165",
                 24576));
 
     assertThat(OfflinePackageManifestFixtures.tileManifest().tiles())
