@@ -9,9 +9,9 @@ public record MarkerPhotoSummaryRow(
     UUID markerId,
     UUID photoId,
     String status,
-    long version,
+    Long version,
     String contentType,
-    long sizeBytes,
+    Long sizeBytes,
     Instant attachedAt) {
 
   public MarkerPhotoSummary toSummary() {
