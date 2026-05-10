@@ -66,6 +66,8 @@ pipeline {
         GITHUB_DISPATCH_REPOSITORY = 'Choi-jinseo/mattermost-reminder-bot'
         GITHUB_DISPATCH_EVENT_TYPE = 'suri_map_ci'
         K6_SMOKE_ARTIFACT_DIR = 'ci-artifacts/k6-smoke'
+        S4_EVIDENCE_ARTIFACT_DIR = 'ci-artifacts/s4-evidence'
+        BACKEND_TEST_RESULT_DIR = 'backend/build/test-results/test'
     }
 
     stages {
@@ -156,6 +158,25 @@ pipeline {
                     archiveArtifacts(
                         allowEmptyArchive: true,
                         artifacts: 'ci-artifacts/backend-test/**,backend/build/reports/tests/test/**,backend/build/test-results/test/**/*.xml',
+                        fingerprint: true
+                    )
+                }
+            }
+        }
+
+        stage('S4 Evidence') {
+            steps {
+                script {
+                    env.FAILED_STAGE = 'S4 Evidence'
+                }
+                sh 'sh infra/ci/collect-s4-evidence.sh'
+                sh 'sh infra/ci/verify-s4-evidence.sh'
+            }
+            post {
+                always {
+                    archiveArtifacts(
+                        allowEmptyArchive: true,
+                        artifacts: 'ci-artifacts/s4-evidence/**',
                         fingerprint: true
                     )
                 }
