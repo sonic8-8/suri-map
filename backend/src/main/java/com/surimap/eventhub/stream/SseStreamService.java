@@ -7,6 +7,9 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 public class SseStreamService {
 
+  private static final String INCIDENT_CLOSED = "INCIDENT_CLOSED";
+  private static final String INCIDENT_PURGED = "INCIDENT_PURGED";
+
   private final SseReplayService replayService;
   private final SseReplayEventStore replayEventStore;
   private final SseStreamSessionRegistry sessionRegistry;
@@ -23,16 +26,22 @@ public class SseStreamService {
   }
 
   public SseEmitter openStream(UUID incidentId, String lastEventId) {
-    var replayFrames = replayService.replayAfter(incidentId, lastEventId);
+    var replay = replayService.replayResultAfter(incidentId, lastEventId);
     var emitter = new SseEmitter(0L);
     var sink = new SseEmitterLiveEventSink(emitter);
+    if (replay.terminalReached()) {
+      replay.frames().forEach(sink::send);
+      sink.close();
+      return emitter;
+    }
+
     AutoCloseable registration = sessionRegistry.register(incidentId, sink);
 
     emitter.onCompletion(() -> closeQuietly(registration));
     emitter.onTimeout(() -> closeQuietly(registration));
     emitter.onError(ignored -> closeQuietly(registration));
 
-    replayFrames.forEach(sink::send);
+    replay.frames().forEach(sink::send);
     return emitter;
   }
 
@@ -41,6 +50,13 @@ public class SseStreamService {
     var append = replayEventStore.append(eventDispatchJobId, request);
     if (append.isNew()) {
       sessionRegistry.send(request.incidentId(), replayService.frameOf(append.event()));
+    }
+    if (append.isNew() && INCIDENT_CLOSED.equals(request.type())) {
+      sessionRegistry.release(request.incidentId());
+    }
+    if (append.isNew() && INCIDENT_PURGED.equals(request.type())) {
+      sessionRegistry.release(request.incidentId());
+      replayEventStore.purgeIncident(request.incidentId());
     }
     return append;
   }

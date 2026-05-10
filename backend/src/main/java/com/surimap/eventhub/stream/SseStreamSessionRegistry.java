@@ -22,6 +22,14 @@ public class SseStreamSessionRegistry {
         .forEach(sink -> sink.send(frame));
   }
 
+  public void release(UUID incidentId) {
+    var sinks = sinksByIncident.remove(incidentId);
+    if (sinks == null) {
+      return;
+    }
+    sinks.forEach(SseLiveEventSink::close);
+  }
+
   public List<SseLiveEventSink> sinks(UUID incidentId) {
     return List.copyOf(sinksByIncident.getOrDefault(incidentId, new CopyOnWriteArrayList<>()));
   }
