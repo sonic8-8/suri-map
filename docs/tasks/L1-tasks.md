@@ -122,7 +122,7 @@
 
 ## Phase 4
 
-- [ ] L1-I01 SC-01 사건 시작 흐름 통합 검증
+- [x] L1-I01 SC-01 사건 시작 흐름 통합 검증
   - 담당 Spec: S1-1
   - 필수 참조: `spec/harness-scenarios.md §2 SC-01`, `spec/boundaries.md §10 SC-01`
   - 연관 Spec: S1-2, S4, S5, S8

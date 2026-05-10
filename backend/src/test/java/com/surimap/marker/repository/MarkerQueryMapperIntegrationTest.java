@@ -6,6 +6,7 @@ import com.surimap.maparea.support.PostGisIntegrationTestSupport;
 import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.query.MarkerQueryFilters;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -141,7 +142,7 @@ class MarkerQueryMapperIntegrationTest extends PostGisIntegrationTestSupport {
         opId,
         type,
         "L5-T08 marker for " + incidentId,
-        Instant.parse("2026-04-28T00:00:00Z").plusSeconds(version),
+        Timestamp.from(Instant.parse("2026-04-28T00:00:00Z").plusSeconds(version)),
         ACCOUNT_ID,
         POLICE_PHONE_ID,
         status,
