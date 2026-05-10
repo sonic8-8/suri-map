@@ -14,7 +14,8 @@ import org.springframework.stereotype.Component;
 public class EventHubIncidentEventPublisher implements IncidentEventPublisher {
 
   private static final int PAYLOAD_FORMAT_VERSION = 1;
-  private static final String SOURCE_ENTITY_TYPE = "incident";
+  private static final String INCIDENT_SOURCE_ENTITY_TYPE = "incident";
+  private static final String ASSIGNMENT_SOURCE_ENTITY_TYPE = "incident_assignment";
 
   private final EventHub eventHub;
 
@@ -27,14 +28,19 @@ public class EventHubIncidentEventPublisher implements IncidentEventPublisher {
     Map<String, Object> payload = basePayload(event.id(), event.status(), event.version());
     payload.put("sourceIncidentId", event.sourceIncidentId());
     payload.put("memberAccountIds", event.memberAccountIds());
-    publish("INCIDENT_CREATED", event.id(), event.version(), payload);
+    publish("INCIDENT_CREATED", event.id(), event.version(), INCIDENT_SOURCE_ENTITY_TYPE, payload);
   }
 
   @Override
   public void publishIncidentAssignmentChanged(IncidentAssignmentChangedEvent event) {
     Map<String, Object> payload = basePayload(event.id(), event.status(), event.version());
     payload.put("changedAccountIds", event.changedAccountIds());
-    publish("INCIDENT_ASSIGNMENT_CHANGED", event.id(), event.version(), payload);
+    publish(
+        "INCIDENT_ASSIGNMENT_CHANGED",
+        event.id(),
+        event.version(),
+        ASSIGNMENT_SOURCE_ENTITY_TYPE,
+        payload);
   }
 
   @Override
@@ -42,17 +48,22 @@ public class EventHubIncidentEventPublisher implements IncidentEventPublisher {
     Map<String, Object> payload = basePayload(event.id(), event.status(), event.version());
     payload.put("closedAt", event.closedAt());
     payload.put("writeDisabledReason", event.writeDisabledReason());
-    publish("INCIDENT_CLOSED", event.id(), event.version(), payload);
+    publish("INCIDENT_CLOSED", event.id(), event.version(), INCIDENT_SOURCE_ENTITY_TYPE, payload);
   }
 
-  private void publish(String type, UUID incidentId, long version, Map<String, Object> payload) {
+  private void publish(
+      String type,
+      UUID incidentId,
+      long version,
+      String sourceEntityType,
+      Map<String, Object> payload) {
     eventHub.publish(
         new PublishRequest(
             eventIdFor(type, incidentId, version),
             incidentId,
             type,
             PAYLOAD_FORMAT_VERSION,
-            SOURCE_ENTITY_TYPE,
+            sourceEntityType,
             incidentId,
             Instant.now(),
             payload));
