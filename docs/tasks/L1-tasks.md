@@ -152,7 +152,7 @@
   - 예상 작업량: 2d
   - 완료 기준: close가 write를 차단하고 active PII 노출을 제거하며 purge orchestration을 시작하고, `INCIDENT_CLOSED`/`INCIDENT_PURGED` event/SSE payload와 S3-2 incident_terminal board API row가 같은 terminal/closed 상태로 수렴한다.
 
-- [ ] L1-I04 12단계 리허설 체크리스트와 복구 절차서 작성
+- [x] L1-I04 12단계 리허설 체크리스트와 복구 절차서 작성
   - 담당 Spec: S1-1
   - 필수 참조: `prd.md §2.3`, `prd.md §5.1`, `spec/harness-scenarios.md`
   - 연관 Lane: All lanes
