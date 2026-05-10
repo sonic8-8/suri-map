@@ -62,6 +62,13 @@
         WHERE id = #{manifestId}
     </select>
 
+    <select id="countPurgeTargetManifestsByIncident" resultType="int">
+        SELECT COUNT(*)
+        FROM offline_package_manifest
+        WHERE incident_id = #{incidentId}
+          AND manifest_hash &lt;&gt; #{purgedManifestHash}
+    </select>
+
     <insert id="insertManifest">
         INSERT INTO offline_package_manifest (
             id,
@@ -139,6 +146,36 @@
         SELECT COUNT(*)
         FROM offline_package_installation
         WHERE id = #{id}
+    </select>
+
+    <select id="countActiveInstallationsByManifest" resultType="int">
+        SELECT COUNT(*)
+        FROM offline_package_installation
+        WHERE offline_package_manifest_id = #{manifestId}
+          AND status &lt;&gt; 'PURGED'
+    </select>
+
+    <select id="countPurgedInstallationsByManifest" resultType="int">
+        SELECT COUNT(*)
+        FROM offline_package_installation
+        WHERE offline_package_manifest_id = #{manifestId}
+          AND status = 'PURGED'
+    </select>
+
+    <select id="countPurgeTargetInstallationsByIncident" resultType="int">
+        SELECT COUNT(*)
+        FROM offline_package_installation i
+        JOIN offline_package_manifest m ON m.id = i.offline_package_manifest_id
+        WHERE m.incident_id = #{incidentId}
+          AND (
+              i.status &lt;&gt; 'PURGED'
+              OR i.total_item_count &lt;&gt; 0
+              OR i.completed_item_count &lt;&gt; 0
+              OR i.failed_item_count &lt;&gt; 0
+              OR i.failed_item_keys IS NOT NULL
+              OR i.last_error_code IS NOT NULL
+              OR i.last_reported_by_account_id IS NOT NULL
+          )
     </select>
 
     <select id="findStaleCandidateInstallationIds" resultType="string">
@@ -299,4 +336,42 @@
             END,
             i.police_phone_id
     </select>
+
+    <update id="tombstoneInstallationsByIncident">
+        UPDATE offline_package_installation
+        SET
+            status = 'PURGED',
+            total_item_count = 0,
+            completed_item_count = 0,
+            failed_item_count = 0,
+            failed_item_keys = NULL,
+            last_error_code = NULL,
+            last_reported_by_account_id = NULL,
+            last_reported_at = NULL,
+            updated_at = #{updatedAt}
+        WHERE offline_package_manifest_id IN (
+            SELECT id
+            FROM offline_package_manifest
+            WHERE incident_id = #{incidentId}
+        )
+          AND (
+              status &lt;&gt; 'PURGED'
+              OR total_item_count &lt;&gt; 0
+              OR completed_item_count &lt;&gt; 0
+              OR failed_item_count &lt;&gt; 0
+              OR failed_item_keys IS NOT NULL
+              OR last_error_code IS NOT NULL
+              OR last_reported_by_account_id IS NOT NULL
+          )
+    </update>
+
+    <update id="sanitizeManifestPayloadsByIncident">
+        UPDATE offline_package_manifest
+        SET
+            manifest_hash = #{purgedManifestHash},
+            manifest_payload = '{"purged":true,"reason":"package_purged","packageItems":[]}',
+            updated_at = #{updatedAt}
+        WHERE incident_id = #{incidentId}
+          AND manifest_hash &lt;&gt; #{purgedManifestHash}
+    </update>
 </mapper>

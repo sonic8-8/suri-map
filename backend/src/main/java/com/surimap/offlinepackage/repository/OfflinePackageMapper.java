@@ -11,6 +11,10 @@ public interface OfflinePackageMapper {
 
   int countManifest(@Param("manifestId") String manifestId);
 
+  int countPurgeTargetManifestsByIncident(
+      @Param("incidentId") String incidentId,
+      @Param("purgedManifestHash") String purgedManifestHash);
+
   void insertManifest(
       @Param("manifestId") String manifestId,
       @Param("incidentId") String incidentId,
@@ -24,6 +28,12 @@ public interface OfflinePackageMapper {
   void insertInstallation(@Param("record") OfflinePackageInstallationRecord record);
 
   int countInstallation(@Param("id") String id);
+
+  int countActiveInstallationsByManifest(@Param("manifestId") String manifestId);
+
+  int countPurgedInstallationsByManifest(@Param("manifestId") String manifestId);
+
+  int countPurgeTargetInstallationsByIncident(@Param("incidentId") String incidentId);
 
   List<String> findStaleCandidateInstallationIds(@Param("manifestId") String manifestId);
 
@@ -52,4 +62,12 @@ public interface OfflinePackageMapper {
 
   List<OfflinePackageInstallationStatus> findStatusesByIncident(
       @Param("incidentId") String incidentId);
+
+  int tombstoneInstallationsByIncident(
+      @Param("incidentId") String incidentId, @Param("updatedAt") OffsetDateTime updatedAt);
+
+  int sanitizeManifestPayloadsByIncident(
+      @Param("incidentId") String incidentId,
+      @Param("purgedManifestHash") String purgedManifestHash,
+      @Param("updatedAt") OffsetDateTime updatedAt);
 }
