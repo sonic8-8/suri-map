@@ -155,7 +155,7 @@
   - 완료 기준: 같은 idempotency key/body는 cached response를 replay하고, body가 바뀌면 mismatch를 반환하며, committed-cache-missing 복구는 owner port를 호출한다.
   - 완료 근거: `backend/src/main/java/com/surimap/sync/idempotency/IdempotentWrite.java`, `backend/src/main/java/com/surimap/sync/idempotency/IdempotentWriteAspect.java`, `backend/src/main/java/com/surimap/sync/idempotency/IdempotentWriteService.java`, `backend/src/main/java/com/surimap/sync/idempotency/InMemoryIdempotencyRecordRepository.java`, `backend/src/main/java/com/surimap/sync/idempotency/IdempotencyReplayRecoveryRegistry.java`, `backend/src/test/java/com/surimap/sync/idempotency/IdempotentWriteServiceBehaviorRedTest.java`, `./gradlew test --tests '*IdempotentWriteServiceBehaviorRedTest'` 통과
 
-- [ ] L4-T08 로컬 경고 감시 구현
+- [x] L4-T08 로컬 경고 감시 구현
   - 담당 Spec: S6
   - 필수 참조: `spec/specs/S6.json`, `spec/specs/S7.json`, `prd.md FR-29`
   - 연관 Spec: S1-2, S7
@@ -164,6 +164,7 @@
   - 구현 산출물: local warning monitor, package unavailable/stale input adapter, Android warning UI state tests
   - 예상 작업량: 1d
   - 완료 기준: GPS stopped, battery low, offline, package unavailable/stale warning이 server round trip 없이 local에서 동작한다.
+  - 완료 증거: `android/app/src/main/java/com/surimap/core/sync/LocalWarningMonitor.kt`, `android/app/src/test/java/com/surimap/core/sync/LocalWarningMonitorTest.kt`, `android/app/src/test/java/com/surimap/core/sync/LocalWarningUiStateTest.kt`; `cmd.exe /c gradlew.bat --no-daemon :app:testDebugUnitTest --tests com.surimap.core.sync.LocalWarningMonitorTest --tests com.surimap.core.sync.LocalWarningUiStateTest` PASS, `cmd.exe /c gradlew.bat --no-daemon :app:assembleDebug` PASS.
 
 - [ ] L4-T09 사건 종료·삭제 로컬 정리 정책 구현
   - 담당 Spec: S6
