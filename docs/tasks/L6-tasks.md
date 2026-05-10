@@ -205,7 +205,7 @@
   - 예상 작업량: 1d
   - 완료 기준: `SEARCH_AREA_CHANGED`가 manifest revision을 증가시키고 기존 READY/PARTIAL offline_package_installation status를 STALE로 표시하며 re-download requirement를 노출한다.
 
-- [ ] L6-T09A offline_package_manifest/offline_package_installation 삭제 후크와 삭제 표식 전이 구현
+- [x] L6-T09A offline_package_manifest/offline_package_installation 삭제 후크와 삭제 표식 전이 구현
   - 담당 Spec: S3-2, S7
   - 필수 참조: `spec/specs/S3-2.json`, `spec/specs/S7.json`, `spec/specs/S1-3.json`, `spec/harness-scenarios.md §2 SC-12`
   - 연관 Spec: S1-1, S1-3, S4, S6

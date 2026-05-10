@@ -21,10 +21,12 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.HexFormat;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Repository;
 
@@ -39,6 +41,8 @@ public class OfflinePackageRepository {
   public static final int INSTALLATION_VERSION = 3;
   public static final int SEQUENCE = 901;
   public static final OffsetDateTime SERVER_TS = OffsetDateTime.parse("2026-04-28T09:00:41+09:00");
+  private static final String PURGED_MANIFEST_HASH =
+      "0000000000000000000000000000000000000000000000000000000000000000";
   private static final OffsetDateTime EXPIRES_AT =
       OffsetDateTime.parse("2026-04-28T12:00:00+09:00");
 
@@ -54,6 +58,11 @@ public class OfflinePackageRepository {
     OfflinePackageManifestRecord current = mapper.findCurrentManifestByIncident(incidentId);
     if (current == null) {
       throw new IllegalArgumentException("offline package manifest not found: " + incidentId);
+    }
+    if (PURGED_MANIFEST_HASH.equals(current.manifestHash())
+        || (mapper.countActiveInstallationsByManifest(current.id()) == 0
+            && mapper.countPurgedInstallationsByManifest(current.id()) > 0)) {
+      throw new OfflinePackageApiException("package_purged", HttpStatus.GONE);
     }
     PackageItemState itemState = itemStateFor(current.id(), policePhoneId);
     return new OfflinePackageManifestResponse(
@@ -103,6 +112,9 @@ public class OfflinePackageRepository {
         || current.manifestVersion() != request.manifestVersion()) {
       throw new OfflinePackageApiException("write_conflict", HttpStatus.CONFLICT);
     }
+    if (PURGED_MANIFEST_HASH.equals(current.manifestHash())) {
+      throw new OfflinePackageApiException("incident_closed", HttpStatus.CONFLICT);
+    }
     OfflinePackageInstallationRecord record =
         OfflinePackageInstallationRecord.from(INSTALLATION_ID, incidentId, request, SERVER_TS);
     mapper.deleteInstallationForPhone(request.manifestId(), request.policePhoneId());
@@ -134,6 +146,9 @@ public class OfflinePackageRepository {
     if (current == null) {
       return List.of();
     }
+    if (PURGED_MANIFEST_HASH.equals(current.manifestHash())) {
+      return List.of();
+    }
     if (current.overallSearchAreaId().equals(overallSearchAreaId)
         && current.overallSearchAreaVersion() >= overallSearchAreaVersion) {
       return List.of();
@@ -155,6 +170,17 @@ public class OfflinePackageRepository {
     }
     mapper.markReadyAndPartialInstallationsStale(current.id(), SERVER_TS);
     return mapper.findStatusesByIds(changedStatusIds, nextManifestVersion);
+  }
+
+  public synchronized long purgeIncidentPackage(UUID incidentId) {
+    String incidentIdValue = incidentId.toString();
+    long targetInstallationCount = mapper.countPurgeTargetInstallationsByIncident(incidentIdValue);
+    long targetManifestCount =
+        mapper.countPurgeTargetManifestsByIncident(incidentIdValue, PURGED_MANIFEST_HASH);
+    OffsetDateTime purgedAt = OffsetDateTime.now(ZoneOffset.UTC);
+    mapper.tombstoneInstallationsByIncident(incidentIdValue, purgedAt);
+    mapper.sanitizeManifestPayloadsByIncident(incidentIdValue, PURGED_MANIFEST_HASH, purgedAt);
+    return targetManifestCount + targetInstallationCount;
   }
 
   private void ensureFixtureManifest() {
