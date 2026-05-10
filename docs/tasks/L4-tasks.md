@@ -189,7 +189,7 @@
   - 예상 작업량: 1d
   - 완료 기준: path/segment fixture test가 auth, geometry, OP, event mock contract로 통과하고, S1-2 freshness DTO의 lastHeartbeatAt/lastSyncAt/derivedFreshness가 S3-2 `police_phone_freshness` slot row와 수렴한다.
 
-- [ ] L4-T10B 오프라인 재전송·중복 방지 하네스 작성
+- [x] L4-T10B 오프라인 재전송·중복 방지 하네스 작성
   - 담당 Spec: S6
   - 필수 참조: `spec/specs/S6.json`, `spec/specs/S1-2.json`, `spec/specs/S3-2.json`, `spec/harness-scenarios.md §2 SC-07`, `spec/harness-scenarios.md §2 SC-09`
   - 연관 Spec: S1-2, S4, S7, S3-2
@@ -197,6 +197,7 @@
   - 구현 산출물: offline/recovery harness runner, duplicate replay tests, board API refetch lag checks, mocked owner endpoint fixtures, `police_phone_freshness` recovery convergence evidence
   - 예상 작업량: 1d
   - 완료 기준: offline, recovery, duplicate replay, board API refetch lag check가 mocked owner endpoint로 통과하고, 복구 후 S3-2 `path`/`marker`/`police_phone_freshness` slot이 기대 version로 수렴한다.
+  - 완료 근거: `backend/src/test/java/com/surimap/harness/sc09/Sc07Sc09OfflineReplayHarnessRedTest.java`, `backend/src/test/java/com/surimap/harness/sc09/Sc07Sc09OfflineReplayHarnessRunner.java` (SC-07 offline pending, SC-09 recovery flush, duplicate replay dedupe, board refetch lag, mocked owner recovery convergence)
 
 - [ ] L4-T10C 네트워크 전환 안정성 검증 프로토콜 작성
   - 담당 Spec: S3-1, S6
