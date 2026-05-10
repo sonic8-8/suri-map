@@ -205,7 +205,7 @@
   - 예상 작업량: 1d
   - 완료 기준: `SEARCH_AREA_CHANGED`가 manifest revision을 증가시키고 기존 READY/PARTIAL offline_package_installation status를 STALE로 표시하며 re-download requirement를 노출한다.
 
-- [ ] L6-T09A offline_package_manifest/offline_package_installation 삭제 후크와 삭제 표식 전이 구현
+- [x] L6-T09A offline_package_manifest/offline_package_installation 삭제 후크와 삭제 표식 전이 구현
   - 담당 Spec: S3-2, S7
   - 필수 참조: `spec/specs/S3-2.json`, `spec/specs/S7.json`, `spec/specs/S1-3.json`, `spec/harness-scenarios.md §2 SC-12`
   - 연관 Spec: S1-1, S1-3, S4, S6
@@ -217,7 +217,7 @@
   - 예상 작업량: 1d
   - 완료 기준: package manifest/installation purge hook이 실행되고 missing_person package data를 보존하지 않은 채 package state를 sanitized tombstone으로 전이한다.
 
-- [ ] L6-T09B incident_terminal/package_badge board state와 개인정보 제거 검증
+- [x] L6-T09B incident_terminal/package_badge board state와 개인정보 제거 검증
   - 담당 Spec: S3-2, S7
   - 필수 참조: `spec/specs/S3-2.json`, `spec/specs/S7.json`, `spec/specs/S1-3.json`, `spec/harness-scenarios.md §2 SC-12`
   - 연관 Spec: S1-1, S1-3, S4, S6
@@ -231,7 +231,7 @@
 
 ## Phase 4
 
-- [ ] L6-T10A SC-03 패키지·타일 하네스 작성
+- [x] L6-T10A SC-03 패키지·타일 하네스 작성
   - 담당 Spec: S3-2, S7
   - 필수 참조: `spec/specs/S7.json`, `spec/harness-scenarios.md §2 SC-03`
   - 연관 Lane: All lanes
@@ -240,7 +240,7 @@
   - 예상 작업량: 1d
   - 완료 기준: package/tile harness test가 mocked source contract와 local tile fixture 기준으로 통과하고, tileManifestId/zoomRange/tile URI는 `spec/harness-scenarios.md`와 `spec/specs/S7.json`에 정렬된 값으로 검증된다.
 
-- [ ] L6-T10B 상황판 board API/SSE 수렴 하네스 작성
+- [x] L6-T10B 상황판 board API/SSE 수렴 하네스 작성
   - 담당 Spec: S3-2
   - 필수 참조: `spec/specs/S3-2.json`, `spec/specs/S4.json`, `spec/harness-scenarios.md §0.3`
   - 연관 Lane: All event-producing lanes
@@ -249,7 +249,7 @@
   - 예상 작업량: 1d
   - 완료 기준: board API response, slot merge, SSE convergence, board API refetch lag test가 mocked source contract 기준으로 통과한다.
 
-- [ ] L6-T10C SC-11 OP·수색 이력 요약·FR-23 렌더링 차단 하네스 작성
+- [x] L6-T10C SC-11 OP·수색 이력 요약·FR-23 렌더링 차단 하네스 작성
   - 담당 Spec: S3-2
   - 필수 참조: `spec/specs/S3-2.json`, `spec/specs/S8.json`, `spec/boundaries.md §6 FR-23`, `spec/harness-scenarios.md §2 SC-11`, `adr.md ADR-0034`
   - 연관 Lane: L3, L4, L5
@@ -258,7 +258,7 @@
   - 예상 작업량: 1d
   - 완료 기준: OP/search_history_summary rendering guard test가 OpenAI success/failure 상태 모두에서 통과하고 금지된 recommendation/risk/missing-area CTA state가 숨겨진 상태로 유지된다.
 
-- [ ] L6-T10D 상황판·패키지·타일 시연 스모크 절차 작성
+- [x] L6-T10D 상황판·패키지·타일 시연 스모크 절차 작성
   - 담당 Spec: S3-2, S7
   - 필수 참조: `prd.md §2.2`, `prd.md §2.3`, `spec/harness-scenarios.md`
   - 연관 Lane: All lanes
@@ -269,7 +269,7 @@
 
 ## Phase 5
 
-- [ ] L6-D01 상황판·패키지·타일·단말 시연 종료 검증
+- [x] L6-D01 상황판·패키지·타일·단말 시연 종료 검증
   - 담당 Spec: S3-2, S7
   - 필수 참조: `prd.md §2.2`, `prd.md §2.3`, `spec/harness-scenarios.md`
   - 연관 Lane: All lanes

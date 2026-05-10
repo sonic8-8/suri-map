@@ -124,7 +124,7 @@
 
 ## Phase 3
 
-- [ ] L4-T07C 클라이언트-서버 시각 보정 API 구현
+- [x] L4-T07C 클라이언트-서버 시각 보정 API 구현
   - 담당 Spec: S6
   - 필수 참조: `spec/specs/S6.json`, `spec/harness-scenarios.md §6 mock network 상태`
   - 연관 Spec: S1-2, S4
@@ -132,8 +132,9 @@
   - 구현 산출물: `POST /api/sync/clock`, client/server time offset record, time skew tests
   - 예상 작업량: 1d
   - 완료 기준: client/server time offset이 기록되고 owner endpoint를 우회하지 않은 채 offline retry logic에 노출된다.
+  - 완료 근거: `backend/src/main/java/com/surimap/sync/clock/SyncClockController.java`, `backend/src/test/java/com/surimap/sync/clock/SyncClockContractTest.java` (`channel_not_allowed`/`police_phone_required`/`police_phone_not_registered`/`police_phone_not_assigned` guard 포함), `backend/AGENTS.md` 기본 검증 `./gradlew test` 통과
 
-- [ ] L4-T07D Outbox 재시도 진단 상태 구현
+- [x] L4-T07D Outbox 재시도 진단 상태 구현
   - 담당 Spec: S6
   - 필수 참조: `spec/specs/S6.json`, `spec/harness-scenarios.md §6 mock network 상태`
   - 연관 Spec: S1-2, S4
@@ -141,8 +142,9 @@
   - 구현 산출물: requeue diagnostics endpoint/state, retryable/terminal state tests, diagnostic fixture
   - 예상 작업량: 1d
   - 완료 기준: requeue diagnostics가 owner endpoint를 우회하지 않고 retryable/terminal local state를 노출한다.
+  - 완료 근거: `backend/src/main/java/com/surimap/sync/outbox/OutboxRequeueController.java`, `backend/src/main/java/com/surimap/sync/outbox/OutboxRequeueExceptionHandler.java`, `backend/src/test/java/com/surimap/sync/outbox/OutboxRequeueContractRedTest.java`, `backend/src/test/java/com/surimap/sync/outbox/OutboxRetryDiagnosticsFixtureTest.java`
 
-- [ ] L4-T06 서버 멱등 처리와 응답 재사용 구현
+- [x] L4-T06 서버 멱등 처리와 응답 재사용 구현
   - 담당 Spec: S6
   - 필수 참조: `spec/specs/S6.json`, `spec/boundaries.md §4.3`, `spec/harness-scenarios.md §2 SC-09`
   - 연관 Spec: S2, S3-1, S5, S7, S8
@@ -151,8 +153,9 @@
   - 구현 산출물: `@IdempotentWrite` middleware, idempotency response cache, bodyHash mismatch tests, committed-cache-missing recovery tests
   - 예상 작업량: 2d
   - 완료 기준: 같은 idempotency key/body는 cached response를 replay하고, body가 바뀌면 mismatch를 반환하며, committed-cache-missing 복구는 owner port를 호출한다.
+  - 완료 근거: `backend/src/main/java/com/surimap/sync/idempotency/IdempotentWrite.java`, `backend/src/main/java/com/surimap/sync/idempotency/IdempotentWriteAspect.java`, `backend/src/main/java/com/surimap/sync/idempotency/IdempotentWriteService.java`, `backend/src/main/java/com/surimap/sync/idempotency/InMemoryIdempotencyRecordRepository.java`, `backend/src/main/java/com/surimap/sync/idempotency/IdempotencyReplayRecoveryRegistry.java`, `backend/src/test/java/com/surimap/sync/idempotency/IdempotentWriteServiceBehaviorRedTest.java`, `./gradlew test --tests '*IdempotentWriteServiceBehaviorRedTest'` 통과
 
-- [ ] L4-T08 로컬 경고 감시 구현
+- [x] L4-T08 로컬 경고 감시 구현
   - 담당 Spec: S6
   - 필수 참조: `spec/specs/S6.json`, `spec/specs/S7.json`, `prd.md FR-29`
   - 연관 Spec: S1-2, S7
@@ -161,6 +164,7 @@
   - 구현 산출물: local warning monitor, package unavailable/stale input adapter, Android warning UI state tests
   - 예상 작업량: 1d
   - 완료 기준: GPS stopped, battery low, offline, package unavailable/stale warning이 server round trip 없이 local에서 동작한다.
+  - 완료 증거: `android/app/src/main/java/com/surimap/core/sync/LocalWarningMonitor.kt`, `android/app/src/test/java/com/surimap/core/sync/LocalWarningMonitorTest.kt`, `android/app/src/test/java/com/surimap/core/sync/LocalWarningUiStateTest.kt`; `cmd.exe /c gradlew.bat --no-daemon :app:testDebugUnitTest --tests com.surimap.core.sync.LocalWarningMonitorTest --tests com.surimap.core.sync.LocalWarningUiStateTest` PASS, `cmd.exe /c gradlew.bat --no-daemon :app:assembleDebug` PASS.
 
 - [ ] L4-T09 사건 종료·삭제 로컬 정리 정책 구현
   - 담당 Spec: S6

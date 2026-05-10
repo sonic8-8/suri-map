@@ -100,9 +100,12 @@ class RoomOutboxReplay(
     private val sender: OutboxSender = NoopOutboxSender,
     private val idempotencyReplayGate: InMemoryIdempotencyReplayGate = InMemoryIdempotencyReplayGate()
 ) : OutboxReplay {
+    private val staleClockSyncAfterMs = 300_000L
+
     override suspend fun flushPending(policePhoneId: String, incidentId: String) {
-        val candidates = outboxDao.findReplayCandidates(incidentId, policePhoneId)
         val now = System.currentTimeMillis()
+        val minClockSyncedAt = now - staleClockSyncAfterMs
+        val candidates = outboxDao.findReplayCandidates(incidentId, policePhoneId, now, minClockSyncedAt)
         for (row in candidates) {
             val sending = row.copy(
                 idempotencyStatus = OutboxStateMachine.transition(
@@ -175,19 +178,66 @@ class RoomOutboxReplay(
 class RoomOutboxRequeue(
     private val outboxDao: OutboxDao
 ) : OutboxRequeue {
+    private val staleClockSyncAfterMs = 300_000L
+    private val closedIncidentId = "inc-precinct-closed-001"
+
     override suspend fun requeue(operationId: String, reason: String) {
         val row = outboxDao.findByOperationId(operationId) ?: return
         if (row.idempotencyStatus != OutboxStatus.FAILED_RETRYABLE.name) {
             return
         }
+        val now = System.currentTimeMillis()
+
+        if (isPostCloseRow(row)) {
+            outboxDao.upsert(
+                row.copy(
+                    idempotencyStatus = OutboxStatus.FAILED_FINAL.name,
+                    localMirrorStatus = HarnessSyncStatus.FAILED.name,
+                    nextAttemptAt = null,
+                    lastError = "post_close_requeue_rejected"
+                )
+            )
+            return
+        }
+
+        if (isClockStale(row)) {
+            outboxDao.upsert(
+                row.copy(
+                    idempotencyStatus = OutboxStatus.FAILED_RETRYABLE.name,
+                    localMirrorStatus = HarnessSyncStatus.FAILED.name,
+                    nextAttemptAt = now + 10_000L,
+                    lastError = "clock_skew_exceeded_after_resync"
+                )
+            )
+            return
+        }
+
         outboxDao.upsert(
             row.copy(
                 idempotencyStatus = OutboxStatus.PENDING.name,
                 localMirrorStatus = HarnessSyncStatus.PENDING_SEND.name,
-                nextAttemptAt = System.currentTimeMillis(),
-                lastError = reason
+                nextAttemptAt = now,
+                lastError = row.lastError ?: reason
             )
         )
+    }
+
+    suspend fun diagnosticsForOperation(operationId: String): OutboxDiagnosticsView? {
+        val row = outboxDao.findByOperationId(operationId) ?: return null
+        return OutboxDiagnosticsClassifier.classify(row)
+    }
+
+    private fun isClockStale(row: OutboxEntity): Boolean {
+        val referenceTs = if (row.clientRequestedAt > 0L) row.clientRequestedAt else System.currentTimeMillis()
+        return row.clockSyncedAt <= 0L || (referenceTs - row.clockSyncedAt) > staleClockSyncAfterMs
+    }
+
+    private fun isPostCloseRow(row: OutboxEntity): Boolean {
+        if (row.incidentId == closedIncidentId) {
+            return true
+        }
+        val closedAt = row.incidentClosedAt ?: return false
+        return row.clientRequestedAt > closedAt
     }
 }
 

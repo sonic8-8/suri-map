@@ -10,9 +10,11 @@ import com.surimap.offlinepackage.dto.TileStyleResponse;
 import com.surimap.offlinepackage.exception.TileUnavailableException;
 import com.surimap.offlinepackage.fixture.OfflinePackageManifestFixtures;
 import com.surimap.offlinepackage.service.LocalTileService;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,8 +30,6 @@ class LocalTileServiceTest {
   private static final String TILE_URL = "/tiles/osm-local/{z}/{x}/{y}.pbf";
   private static final MediaType APPLICATION_X_PROTOBUF =
       MediaType.valueOf("application/x-protobuf");
-  private static final Pattern FIXTURE_CHECKSUM_TOKEN_PATTERN =
-      Pattern.compile("^sha256:([0-9a-f]{2})\\1{31}$");
   private static final byte[] MINIMAL_VECTOR_TILE_PREFIX =
       new byte[] {
         0x1a,
@@ -98,8 +98,8 @@ class LocalTileServiceTest {
     TileBlobResponse repeatedTile = tileService.getTile(STYLE_ID, z, x, y);
 
     assertThat(tile.contentType()).isEqualTo(APPLICATION_X_PROTOBUF);
-    assertThat(FIXTURE_CHECKSUM_TOKEN_PATTERN.matcher(fixtureChecksumToken).matches()).isTrue();
     assertThat(tile.bytes()).hasSize(expectedSize).startsWith(MINIMAL_VECTOR_TILE_PREFIX);
+    assertThat(sha256(tile.bytes())).isEqualTo(fixtureChecksumToken);
     assertThat(repeatedTile.bytes()).isEqualTo(tile.bytes());
     assertUnknownLengthDelimitedPaddingConsumesRest(tile.bytes());
   }
@@ -127,6 +127,15 @@ class LocalTileServiceTest {
   private static Stream<Arguments> localFixtureTiles() {
     return OfflinePackageManifestFixtures.tileManifest().tiles().stream()
         .map(tile -> arguments(tile.z(), tile.x(), tile.y(), tile.bytes(), tile.checksum()));
+  }
+
+  private static String sha256(byte[] bytes) {
+    try {
+      return "sha256:"
+          + HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+    } catch (NoSuchAlgorithmException exception) {
+      throw new IllegalStateException("SHA-256 digest is unavailable", exception);
+    }
   }
 
   private static void assertUnknownLengthDelimitedPaddingConsumesRest(byte[] bytes) {

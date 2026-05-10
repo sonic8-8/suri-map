@@ -16,6 +16,11 @@ public final class PolicePhoneFixtures {
       UUID.fromString("50000000-0000-0000-0000-000000000001");
   public static final UUID REGISTERED_UNASSIGNED_POLICE_PHONE_ID =
       UUID.fromString("00000000-0000-0000-0000-000000000301");
+  public static final String ASSIGNED_APP_INSTANCE_ID = "app-instance-assigned-101";
+  public static final String ASSIGNED_APP_TOKEN = "fcm-token-assigned-101";
+  public static final String ASSIGNED_APP_TOKEN_ROTATED = "fcm-token-assigned-101-rotated";
+  public static final String PATH_APP_INSTANCE_ID = "app-instance-path-500";
+  public static final String PATH_APP_TOKEN = "fcm-token-path-500";
   public static final String ASSIGNED_ACCOUNT_ID = "acct-precinct-team";
   public static final AccountType ASSIGNED_ACCOUNT_TYPE = AccountType.TEAM;
   public static final OrganizationType ASSIGNED_ORGANIZATION_TYPE = OrganizationType.MISSING_TEAM;

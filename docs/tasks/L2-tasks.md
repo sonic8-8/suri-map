@@ -110,7 +110,7 @@
 
 ## Phase 2
 
-- [ ] L2-T06 이벤트 저장·발행 트랜잭션 경계 구현
+- [x] L2-T06 이벤트 저장·발행 트랜잭션 경계 구현
   - 담당 Spec: S4
   - 필수 참조: `spec/specs/S4.json`, `spec/boundaries.md §4.3`, `spec/boundaries.md §4.4`
   - 연관 Spec: S1-1, S2, S3-1, S5, S7, S8
@@ -121,7 +121,7 @@
   - 예상 작업량: 2d
   - 완료 기준: domain transaction은 publish request를 원자적으로 stage할 수 있고, `event_dispatch_job` row와 dispatch state 소유권은 S4에 남는다.
 
-- [ ] L2-T07A SSE endpoint와 Last-Event-ID 재전송 구현
+- [x] L2-T07A SSE endpoint와 Last-Event-ID 재전송 구현
   - 담당 Spec: S4
   - 필수 참조: `spec/specs/S4.json`, `spec/harness-scenarios.md §0.3`, `spec/harness-scenarios.md §6 mock SSE client`
   - 연관 Spec: S1-1, S1-2, S1-3, S2, S3-1, S5, S6, S7, S8, S3-2
@@ -133,7 +133,7 @@
 
 ## Phase 3
 
-- [ ] L2-T07B SSE 중복·순서 뒤바뀜·board API refetch 복구 실패 주입 구현
+- [x] L2-T07B SSE 중복·순서 뒤바뀜·board API refetch 복구 실패 주입 구현
   - 담당 Spec: S4
   - 필수 참조: `spec/specs/S4.json`, `spec/harness-scenarios.md §0.3`, `spec/harness-scenarios.md §6 mock SSE client`
   - 연관 Spec: S1-1, S1-2, S1-3, S2, S3-1, S5, S6, S7, S8, S3-2
@@ -144,7 +144,7 @@
   - 예상 작업량: 1d
   - 완료 기준: duplicate/reordered event test와 gone board API refetch recovery check가 SSE replay path 기준으로 통과한다.
 
-- [ ] L2-T04 FCM 토큰 등록 fixture와 활성 토큰 조회 구현
+- [x] L2-T04 FCM 토큰 등록 fixture와 활성 토큰 조회 구현
   - 담당 Spec: S1-2
   - 필수 참조: `spec/specs/S1-2.json`, `spec/harness-scenarios.md §6 mock FCM recipient`
   - 연관 Spec: S5, S4
@@ -155,7 +155,7 @@
   - 예상 작업량: 1d
   - 완료 기준: S5가 marker_notification를 위해 `FcmTokenQuery.activeByPolicePhone(policePhoneId)` fixture를 소비할 수 있고, L2는 incident-scoped unsubscribe/invalidate를 소유하지 않는다.
 
-- [ ] L2-T08 데이터 삭제 오케스트레이션과 운영 기록 구현
+- [x] L2-T08 데이터 삭제 오케스트레이션과 운영 기록 구현
   - 담당 Spec: S1-3
   - 필수 참조: `spec/specs/S1-3.json`, `spec/boundaries.md §4.5`, `spec/boundaries.md §10 SC-12`
   - 연관 Spec: S1-1, S3-1, S5, S6, S7, S3-2
@@ -165,7 +165,7 @@
   - 예상 작업량: 2d
   - 완료 기준: `INCIDENT_CLOSED`가 incident_data_purge를 시작하고 `spec/boundaries.md §4.5` lifecycle 순서로 hook을 조율하며, internal-only 운영 기록을 저장하고 모든 hook 성공 후에만 sanitized purge/tombstone state를 발행한다.
 
-- [ ] L2-T07C 사건 종료 SSE 재전송 중지와 stream 해제 검증 구현
+- [x] L2-T07C 사건 종료 SSE 재전송 중지와 stream 해제 검증 구현
   - 담당 Spec: S4
   - 필수 참조: `spec/specs/S4.json`, `spec/harness-scenarios.md §2 SC-12`, `spec/harness-scenarios.md §6 mock SSE client`
   - 연관 Spec: S1-1, S1-3, S3-2
@@ -178,7 +178,7 @@
 
 ## Phase 4
 
-- [ ] L2-T09A 인증·단말 모의 계약 하네스 작성
+- [x] L2-T09A 인증·단말 모의 계약 하네스 작성
   - 담당 Spec: S1-2
   - 필수 참조: `spec/specs/S1-2.json`, `spec/harness-scenarios.md §6`, `spec/boundaries.md §7`
   - 연관 Lane: All lanes
@@ -187,7 +187,7 @@
   - 예상 작업량: 1d
   - 완료 기준: 다른 Lane이 L2 mock으로 auth/policePhone path를 실행하고 fixture ID 변경 없이 real S1-2 contract로 교체할 수 있다.
 
-- [ ] L2-T09B 이벤트 허브 모의 계약 하네스 작성
+- [x] L2-T09B 이벤트 허브 모의 계약 하네스 작성
   - 담당 Spec: S4
   - 필수 참조: `spec/specs/S4.json`, `spec/harness-scenarios.md §0.3`, `spec/harness-scenarios.md §6 mock event_dispatch_job`
   - 연관 Lane: All event-producing lanes
@@ -196,7 +196,7 @@
   - 예상 작업량: 1d
   - 완료 기준: event-producing Lane이 S4 mock으로 실행되고 이후 real event_dispatch_job/SSE contract로 교체할 수 있다.
 
-- [ ] L2-T09C 삭제 오케스트레이션 모의 계약 하네스 작성
+- [x] L2-T09C 삭제 오케스트레이션 모의 계약 하네스 작성
   - 담당 Spec: S1-3
   - 필수 참조: `spec/specs/S1-3.json`, `spec/boundaries.md §4.5`, `spec/harness-scenarios.md §2 SC-12`
   - 연관 Lane: L1, L4, L5, L6
@@ -205,7 +205,7 @@
   - 예상 작업량: 1d
   - 완료 기준: close/purge 소비 Lane이 mock purge hook으로 실행되고 fixture ID 변경 없이 real S1-3 orchestration으로 교체할 수 있다.
 
-- [ ] L2-T10 인증·이벤트 부하 스모크 시나리오 작성
+- [x] L2-T10 인증·이벤트 부하 스모크 시나리오 작성
   - 담당 Spec: S1-2, S4
   - 필수 참조: `architecture.md §9`, `prd.md §2.2`, `spec/harness-scenarios.md`
   - 연관 Lane: L4, L6

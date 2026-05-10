@@ -135,6 +135,80 @@ class RoomLocalSyncServicesTest {
     }
 
     @Test
+    fun requeueDoesNotChangeNonRetryableStates() = runBlocking {
+        val operation = sampleOperation(idempotencyKey = "idem-requeue-guard-001", bodyHash = "sha256:guard")
+        val enqueue = syncClient.enqueue(operation)
+        val base = database.outboxDao().findById(enqueue.outboxId)!!
+
+        val states = listOf(OutboxStatus.FAILED_FINAL, OutboxStatus.ACKED, OutboxStatus.PENDING, OutboxStatus.PURGED)
+        states.forEach { status ->
+            database.outboxDao().upsert(
+                base.copy(
+                    idempotencyStatus = status.name,
+                    localMirrorStatus = HarnessSyncStatus.FAILED.name,
+                    lastError = "idempotency_mismatch"
+                )
+            )
+            requeue.requeue(operationId = operation.operationId, reason = "NETWORK_RESTORED")
+            val row = database.outboxDao().findById(enqueue.outboxId)!!
+            assertEquals(status.name, row.idempotencyStatus)
+        }
+    }
+
+    @Test
+    fun postCloseRequeueIsRejectedAsFailedFinalAndDoesNotPromoteToPendingSend() = runBlocking {
+        val operation = sampleOperation(
+            operationId = "op-closed-001",
+            idempotencyKey = "idem-closed-001",
+            bodyHash = "sha256:closed"
+        ).copy(incidentId = "inc-precinct-closed-001")
+
+        val enqueue = syncClient.enqueue(operation)
+        val current = database.outboxDao().findById(enqueue.outboxId)!!
+        database.outboxDao().upsert(
+            current.copy(
+                idempotencyStatus = OutboxStatus.FAILED_RETRYABLE.name,
+                localMirrorStatus = HarnessSyncStatus.FAILED.name,
+                incidentClosedAt = current.clientRequestedAt - 1_000L,
+                lastError = "network_unavailable"
+            )
+        )
+
+        requeue.requeue(operationId = operation.operationId, reason = "USER_RETRY")
+
+        val row = database.outboxDao().findById(enqueue.outboxId)!!
+        assertEquals(OutboxStatus.FAILED_FINAL.name, row.idempotencyStatus)
+        assertEquals(HarnessSyncStatus.FAILED.name, row.localMirrorStatus)
+        assertEquals("post_close_requeue_rejected", row.lastError)
+    }
+
+    @Test
+    fun staleClockRowStaysFailedRetryableUntilResynced() = runBlocking {
+        val operation = sampleOperation(
+            operationId = "op-stale-001",
+            idempotencyKey = "idem-stale-001",
+            bodyHash = "sha256:stale"
+        )
+        val enqueue = syncClient.enqueue(operation)
+        val current = database.outboxDao().findById(enqueue.outboxId)!!
+        database.outboxDao().upsert(
+            current.copy(
+                idempotencyStatus = OutboxStatus.FAILED_RETRYABLE.name,
+                localMirrorStatus = HarnessSyncStatus.FAILED.name,
+                clockSyncedAt = Instant.parse("2026-04-28T00:00:35Z").toEpochMilli(),
+                lastError = "network_unavailable"
+            )
+        )
+
+        requeue.requeue(operationId = operation.operationId, reason = "USER_RETRY")
+
+        val row = database.outboxDao().findById(enqueue.outboxId)!!
+        assertEquals(OutboxStatus.FAILED_RETRYABLE.name, row.idempotencyStatus)
+        assertEquals(HarnessSyncStatus.FAILED.name, row.localMirrorStatus)
+        assertEquals("clock_skew_exceeded_after_resync", row.lastError)
+    }
+
+    @Test
     fun pendingLocalRowIsNotReplayedUntilPromotedToPendingSend() = runBlocking {
         val localOnly = LocalWriteOperation(
             operationId = "op-local-only-001",
