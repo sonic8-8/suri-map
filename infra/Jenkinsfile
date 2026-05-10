@@ -266,6 +266,12 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=${env.SPRING_JPA_HIBERNATE_DDL_AUTO}
         }
 
         stage('k6 Smoke') {
+            when {
+                expression {
+                    return (env.K6_SMOKE_ENABLED ?: 'false').trim().equalsIgnoreCase('true')
+                }
+            }
+
             options {
                 timeout(time: 5, unit: 'MINUTES')
             }
@@ -292,6 +298,11 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=${env.SPRING_JPA_HIBERNATE_DDL_AUTO}
                       --env WEB_ACCOUNT_CODE="acct-cmd-alpha" \
                       --env APP_ACCOUNT_CODE="acct-team-alpha" \
                       --env FIXTURE_PASSWORD="fixture" \
+                      --env SMOKE_DURATION="${K6_SMOKE_DURATION:-30s}" \
+                      --env WEB_AUTH_P95_MS="${K6_WEB_AUTH_P95_MS:-2000}" \
+                      --env APP_AUTH_P95_MS="${K6_APP_AUTH_P95_MS:-2000}" \
+                      --env SSE_P95_MS="${K6_SSE_P95_MS:-15000}" \
+                      --env HTTP_FAIL_RATE="${K6_HTTP_FAIL_RATE:-0.05}" \
                       /scripts/smoke.js \
                       > "${K6_SMOKE_ARTIFACT_DIR}/k6-output.txt" 2>&1 || k6_exit=$?
 

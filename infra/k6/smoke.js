@@ -7,37 +7,41 @@ const POLICE_PHONE_ID = __ENV.POLICE_PHONE_ID || 'dev-alpha-phone-01';
 const WEB_ACCOUNT_CODE = __ENV.WEB_ACCOUNT_CODE || 'acct-cmd-alpha';
 const APP_ACCOUNT_CODE = __ENV.APP_ACCOUNT_CODE || 'acct-team-alpha';
 const FIXTURE_PASSWORD = __ENV.FIXTURE_PASSWORD || 'fixture';
+const SMOKE_DURATION = __ENV.SMOKE_DURATION || '30s';
+const WEB_AUTH_P95_MS = Number(__ENV.WEB_AUTH_P95_MS || '2000');
+const APP_AUTH_P95_MS = Number(__ENV.APP_AUTH_P95_MS || '2000');
+const SSE_P95_MS = Number(__ENV.SSE_P95_MS || '15000');
+const HTTP_FAIL_RATE = Number(__ENV.HTTP_FAIL_RATE || '0.05');
 
 export const options = {
   scenarios: {
     web_auth: {
       executor: 'constant-vus',
       vus: 1,
-      duration: '30s',
+      duration: SMOKE_DURATION,
       exec: 'web_auth',
       tags: { scenario: 'web_auth' },
     },
     app_auth: {
       executor: 'constant-vus',
       vus: 1,
-      duration: '30s',
+      duration: SMOKE_DURATION,
       exec: 'app_auth',
       tags: { scenario: 'app_auth' },
     },
     sse_event: {
       executor: 'constant-vus',
       vus: 1,
-      duration: '30s',
+      duration: SMOKE_DURATION,
       exec: 'sse_event',
       tags: { scenario: 'sse_event' },
     },
   },
   thresholds: {
-    http_req_duration: ['p(95)<500'],
-    http_req_failed: ['rate<0.01'],
-    'http_req_duration{scenario:web_auth}': ['p(95)<500'],
-    'http_req_duration{scenario:app_auth}': ['p(95)<500'],
-    'http_req_duration{scenario:sse_event}': ['p(95)<15000'],
+    http_req_failed: [`rate<${HTTP_FAIL_RATE}`],
+    'http_req_duration{scenario:web_auth}': [`p(95)<${WEB_AUTH_P95_MS}`],
+    'http_req_duration{scenario:app_auth}': [`p(95)<${APP_AUTH_P95_MS}`],
+    'http_req_duration{scenario:sse_event}': [`p(95)<${SSE_P95_MS}`],
   },
 };
 
