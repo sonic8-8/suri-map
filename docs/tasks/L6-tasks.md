@@ -269,7 +269,7 @@
 
 ## Phase 5
 
-- [ ] L6-D01 상황판·패키지·타일·단말 시연 종료 검증
+- [x] L6-D01 상황판·패키지·타일·단말 시연 종료 검증
   - 담당 Spec: S3-2, S7
   - 필수 참조: `prd.md §2.2`, `prd.md §2.3`, `spec/harness-scenarios.md`
   - 연관 Lane: All lanes
