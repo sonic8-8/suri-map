@@ -198,7 +198,7 @@
   - 예상 작업량: 1d
   - 완료 기준: offline, recovery, duplicate replay, board API refetch lag check가 mocked owner endpoint로 통과하고, 복구 후 S3-2 `path`/`marker`/`police_phone_freshness` slot이 기대 version로 수렴한다.
 
-- [ ] L4-T10C 네트워크 전환 안정성 검증 프로토콜 작성
+- [x] L4-T10C 네트워크 전환 안정성 검증 프로토콜 작성
   - 담당 Spec: S3-1, S6
   - 필수 참조: `prd.md §2.2`, `prd.md §2.3`, `spec/harness-scenarios.md §2 SC-05`, `spec/harness-scenarios.md §2 SC-07`, `spec/harness-scenarios.md §2 SC-09`
   - 연관 Spec: S1-2, S4, S5, S7
@@ -206,6 +206,7 @@
   - 구현 산출물: 1-hour stability checklist, network on/off 10-cycle script or manual protocol, duplicate row verification query
   - 예상 작업량: 1d
   - 완료 기준: Phase 5 실행 전에 stability checklist, network switch protocol, duplicate row verification query가 준비된다.
+  - 완료 근거: `docs/tasks/l4-network-switch-stability-protocol.md`, `docs/tasks/check_l4_network_switch_stability_protocol.py`
 
 ## Phase 5
 
