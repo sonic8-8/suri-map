@@ -240,7 +240,7 @@
   - 예상 작업량: 1d
   - 완료 기준: package/tile harness test가 mocked source contract와 local tile fixture 기준으로 통과하고, tileManifestId/zoomRange/tile URI는 `spec/harness-scenarios.md`와 `spec/specs/S7.json`에 정렬된 값으로 검증된다.
 
-- [ ] L6-T10B 상황판 board API/SSE 수렴 하네스 작성
+- [x] L6-T10B 상황판 board API/SSE 수렴 하네스 작성
   - 담당 Spec: S3-2
   - 필수 참조: `spec/specs/S3-2.json`, `spec/specs/S4.json`, `spec/harness-scenarios.md §0.3`
   - 연관 Lane: All event-producing lanes
