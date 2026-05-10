@@ -164,7 +164,7 @@
   - 예상 작업량: 1d
   - 완료 기준: GPS stopped, battery low, offline, package unavailable/stale warning이 server round trip 없이 local에서 동작한다.
 
-- [ ] L4-T09 사건 종료·삭제 로컬 정리 정책 구현
+- [x] L4-T09 사건 종료·삭제 로컬 정리 정책 구현
   - 담당 Spec: S6
   - 필수 참조: `spec/specs/S6.json`, `spec/specs/S1-3.json`, `spec/boundaries.md §4.5`, `spec/harness-scenarios.md §2 SC-12`
   - 연관 Spec: S1-1, S1-3, S7
@@ -175,6 +175,7 @@
   - 구현 산출물: local close/purge state policy, post-close requeue rejection, incident-scoped local cleanup test, ack-only deletion, tombstone retention tests
   - 예상 작업량: 2d
   - 완료 기준: pre-close pending row, post-close requeue rejection, incident-scoped local cleanup, ack-only deletion, tombstone retention, package/missing_person cleanup 순서가 S1-3 handoff와 일치한다.
+  - 완료 근거: Android `LocalSyncPurgeHookAdapter`/`RoomSyncClient`/`RoomOutboxReplay`에 close cutoff, post-close write/requeue rejection, ACKED-only purge, retained tombstone reporting, package/missing_person handoff order를 구현했고 `IncidentLocalCleanupPolicyTest`로 검증했다. Windows SDK 기준 `cmd.exe /c gradlew.bat --no-daemon :app:testDebugUnitTest --tests com.surimap.core.sync.IncidentLocalCleanupPolicyTest` 및 `cmd.exe /c gradlew.bat --no-daemon :app:assembleDebug` 통과.
 
 ## Phase 4
 
