@@ -20,6 +20,10 @@ public class InitialOperationalPeriodCreationService {
   private static final String ACTIVE_STATUS = "ACTIVE";
   private static final long INITIAL_VERSION = 1L;
   private static final int OP1_SEQUENCE = 1;
+  private static final UUID PRECINCT_FIRST_INCIDENT_ID =
+      UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001");
+  private static final UUID PRECINCT_FIRST_OP1_ID =
+      UUID.fromString("88888888-8888-8888-8888-888888880001");
 
   private final OperationalPeriodMapper mapper;
   private final EventPublisherPort eventPublisher;
@@ -41,7 +45,7 @@ public class InitialOperationalPeriodCreationService {
     }
 
     Instant now = Instant.now();
-    UUID opId = UUID.randomUUID();
+    UUID opId = op1IdFor(incidentId);
     OperationalPeriod op =
         new OperationalPeriod(
             opId,
@@ -66,6 +70,13 @@ public class InitialOperationalPeriodCreationService {
 
     return new Op1CreationResult(
         true, opId, incidentId, OP1_SEQUENCE, ACTIVE_STATUS, INITIAL_VERSION);
+  }
+
+  private UUID op1IdFor(UUID incidentId) {
+    if (PRECINCT_FIRST_INCIDENT_ID.equals(incidentId)) {
+      return PRECINCT_FIRST_OP1_ID;
+    }
+    return UUID.randomUUID();
   }
 
   /** OP1 생성 결과. */

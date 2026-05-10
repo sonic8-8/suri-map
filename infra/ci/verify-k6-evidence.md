@@ -1,0 +1,3 @@
+## verify-k6-evidence.sh
+
+`infra/ci/verify-k6-evidence.sh` is a POSIX sh fixture script that validates whether the opt-in k6 Smoke CI stage (L2-D02) produced its three required artifact files under `ci-artifacts/k6-smoke` (overridable via `K6_SMOKE_ARTIFACT_DIR`): it checks that `k6-results.json` exists and is non-empty (the raw `--out json` metrics stream), that `k6-output.txt` exists and is non-empty (captured k6 stdout), and that `k6-threshold-summary.txt` exists and contains a line matching `STATUS: PASS` or `STATUS: FAIL`. The script prints a `PASS:` or `FAIL:` verdict for each check, then exits 0 if all three pass or exits 1 if any check fails; Jenkins runs it only when the k6 smoke stage itself is enabled with `K6_SMOKE_ENABLED=true`.

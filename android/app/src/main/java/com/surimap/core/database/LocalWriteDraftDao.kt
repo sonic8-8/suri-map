@@ -12,4 +12,7 @@ interface LocalWriteDraftDao {
 
     @Query("SELECT * FROM local_write_draft WHERE draftId = :draftId")
     suspend fun findById(draftId: String): LocalWriteDraftEntity?
+
+    @Query("DELETE FROM local_write_draft WHERE draftId = :draftId")
+    suspend fun deleteById(draftId: String): Int
 }

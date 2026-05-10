@@ -65,6 +65,7 @@ pipeline {
         SPRING_JPA_HIBERNATE_DDL_AUTO = 'update'
         GITHUB_DISPATCH_REPOSITORY = 'Choi-jinseo/mattermost-reminder-bot'
         GITHUB_DISPATCH_EVENT_TYPE = 'suri_map_ci'
+        K6_SMOKE_ARTIFACT_DIR = 'ci-artifacts/k6-smoke'
     }
 
     stages {
@@ -91,16 +92,6 @@ pipeline {
                     mkdir -p \
                       "${BACKEND_TEST_ARTIFACT_DIR}/coverage" \
                       "${BACKEND_TEST_ARTIFACT_DIR}/sonar"
-
-                    cat > "${BACKEND_TEST_ARTIFACT_DIR}/coverage/README.txt" <<'EOF'
-Coverage gate placeholder for L2-B04.
-Real coverage report wiring is tracked by the L2 release quality gate tasks.
-EOF
-
-                    cat > "${BACKEND_TEST_ARTIFACT_DIR}/sonar/README.txt" <<'EOF'
-SonarQube gate placeholder for L2-B04.
-Real SonarQube quality gate wiring is tracked by the L2 release quality gate tasks.
-EOF
                 '''
 
                 sh '''
@@ -125,6 +116,37 @@ EOF
                       backend/build/reports/tests/
                     docker cp "${test_container}:/workspace/build/test-results/test" \
                       backend/build/test-results/
+
+                    docker cp "${test_container}:/workspace/build/reports/jacoco/test/jacocoTestReport.xml" \
+                      "${BACKEND_TEST_ARTIFACT_DIR}/coverage/jacoco.xml" 2>/dev/null || true
+
+                    docker cp "${test_container}:/workspace/build/reports/jacoco/test/html" \
+                      "${BACKEND_TEST_ARTIFACT_DIR}/coverage/html" 2>/dev/null || true
+                '''
+
+                sh '''
+                    if [ -f "${BACKEND_TEST_ARTIFACT_DIR}/coverage/jacoco.xml" ]; then
+                        missed=$(grep -oE 'type="LINE"[^>]* missed="[0-9]+"' "${BACKEND_TEST_ARTIFACT_DIR}/coverage/jacoco.xml" \
+                                 | tail -1 | grep -oE 'missed="[0-9]+"' | grep -oE '[0-9]+' || echo "0")
+                        covered=$(grep -oE 'type="LINE"[^>]* covered="[0-9]+"' "${BACKEND_TEST_ARTIFACT_DIR}/coverage/jacoco.xml" \
+                                  | tail -1 | grep -oE 'covered="[0-9]+"' | grep -oE '[0-9]+' || echo "0")
+                        total=$((missed + covered))
+                        if [ "${total}" -gt 0 ]; then
+                            pct_tenths=$(((covered * 1000 + total / 2) / total))
+                            pct="$((pct_tenths / 10)).$((pct_tenths % 10))"
+                        else
+                            pct="0.0"
+                        fi
+                        echo "COVERAGE: ${pct}%" > "${BACKEND_TEST_ARTIFACT_DIR}/coverage/coverage-summary.txt"
+                        echo "LINE_COVERED: ${covered}" >> "${BACKEND_TEST_ARTIFACT_DIR}/coverage/coverage-summary.txt"
+                        echo "LINE_MISSED: ${missed}" >> "${BACKEND_TEST_ARTIFACT_DIR}/coverage/coverage-summary.txt"
+                        echo "LINE_TOTAL: ${total}" >> "${BACKEND_TEST_ARTIFACT_DIR}/coverage/coverage-summary.txt"
+                    fi
+                '''
+
+                sh '''
+                    echo "STATUS: SKIPPED_NO_SERVER" > "${BACKEND_TEST_ARTIFACT_DIR}/sonar/sonar-status.txt"
+                    echo "REASON: SonarQube server not yet configured for this environment" >> "${BACKEND_TEST_ARTIFACT_DIR}/sonar/sonar-status.txt"
                 '''
             }
 
@@ -240,6 +262,71 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=${env.SPRING_JPA_HIBERNATE_DDL_AUTO}
                       exit 1
                     fi
                 '''
+            }
+        }
+
+        stage('k6 Smoke') {
+            when {
+                expression {
+                    return (env.K6_SMOKE_ENABLED ?: 'false').trim().equalsIgnoreCase('true')
+                }
+            }
+
+            options {
+                timeout(time: 5, unit: 'MINUTES')
+            }
+
+            steps {
+                script {
+                    env.FAILED_STAGE = 'k6 Smoke'
+                }
+
+                sh '''
+                    rm -rf "${K6_SMOKE_ARTIFACT_DIR}"
+                    mkdir -p "${K6_SMOKE_ARTIFACT_DIR}"
+
+                    k6_exit=0
+                    docker run --rm \
+                      --network host \
+                      -v "$(pwd)/infra/k6/smoke.js:/scripts/smoke.js:ro" \
+                      -v "$(pwd)/${K6_SMOKE_ARTIFACT_DIR}:/results" \
+                      grafana/k6:latest run \
+                      --out "json=/results/k6-results.json" \
+                      --env BASE_URL="http://localhost:${BACKEND_HOST_PORT}" \
+                      --env INCIDENT_ID="inc-precinct-first-001" \
+                      --env POLICE_PHONE_ID="dev-alpha-phone-01" \
+                      --env WEB_ACCOUNT_CODE="acct-cmd-alpha" \
+                      --env APP_ACCOUNT_CODE="acct-team-alpha" \
+                      --env FIXTURE_PASSWORD="fixture" \
+                      --env SMOKE_DURATION="${K6_SMOKE_DURATION:-30s}" \
+                      --env WEB_AUTH_P95_MS="${K6_WEB_AUTH_P95_MS:-2000}" \
+                      --env APP_AUTH_P95_MS="${K6_APP_AUTH_P95_MS:-2000}" \
+                      --env SSE_P95_MS="${K6_SSE_P95_MS:-15000}" \
+                      --env HTTP_FAIL_RATE="${K6_HTTP_FAIL_RATE:-0.05}" \
+                      /scripts/smoke.js \
+                      > "${K6_SMOKE_ARTIFACT_DIR}/k6-output.txt" 2>&1 || k6_exit=$?
+
+                    cat "${K6_SMOKE_ARTIFACT_DIR}/k6-output.txt"
+
+                    if [ "${k6_exit}" -eq 0 ]; then
+                        echo "STATUS: PASS" > "${K6_SMOKE_ARTIFACT_DIR}/k6-threshold-summary.txt"
+                    else
+                        echo "STATUS: FAIL" > "${K6_SMOKE_ARTIFACT_DIR}/k6-threshold-summary.txt"
+                        echo "EXIT_CODE: ${k6_exit}" >> "${K6_SMOKE_ARTIFACT_DIR}/k6-threshold-summary.txt"
+                    fi
+                '''
+
+                sh 'sh infra/ci/verify-k6-evidence.sh'
+            }
+
+            post {
+                always {
+                    archiveArtifacts(
+                        allowEmptyArchive: true,
+                        artifacts: 'ci-artifacts/k6-smoke/**',
+                        fingerprint: true
+                    )
+                }
             }
         }
     }
