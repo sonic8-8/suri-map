@@ -249,7 +249,7 @@
   - 예상 작업량: 1d
   - 완료 기준: board API response, slot merge, SSE convergence, board API refetch lag test가 mocked source contract 기준으로 통과한다.
 
-- [ ] L6-T10C SC-11 OP·수색 이력 요약·FR-23 렌더링 차단 하네스 작성
+- [x] L6-T10C SC-11 OP·수색 이력 요약·FR-23 렌더링 차단 하네스 작성
   - 담당 Spec: S3-2
   - 필수 참조: `spec/specs/S3-2.json`, `spec/specs/S8.json`, `spec/boundaries.md §6 FR-23`, `spec/harness-scenarios.md §2 SC-11`, `adr.md ADR-0034`
   - 연관 Lane: L3, L4, L5
