@@ -225,7 +225,7 @@
   - 예상 작업량: 1d
   - 완료 기준: CI가 test, coverage, Sonar gate 결과를 기록하고 MR 또는 release note에 evidence를 첨부한다.
 
-- [ ] L2-D02 k6 부하 스모크 검증
+- [x] L2-D02 k6 부하 스모크 검증
   - 담당 Spec: S1-2, S4
   - 필수 참조: `architecture.md §9`, `prd.md §2.2`
   - 연관 Lane: L4, L6

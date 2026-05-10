@@ -65,6 +65,7 @@ pipeline {
         SPRING_JPA_HIBERNATE_DDL_AUTO = 'update'
         GITHUB_DISPATCH_REPOSITORY = 'Choi-jinseo/mattermost-reminder-bot'
         GITHUB_DISPATCH_EVENT_TYPE = 'suri_map_ci'
+        K6_SMOKE_ARTIFACT_DIR = 'ci-artifacts/k6-smoke'
     }
 
     stages {
@@ -260,6 +261,60 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=${env.SPRING_JPA_HIBERNATE_DDL_AUTO}
                       exit 1
                     fi
                 '''
+            }
+        }
+
+        stage('k6 Smoke') {
+            options {
+                timeout(time: 5, unit: 'MINUTES')
+            }
+
+            steps {
+                script {
+                    env.FAILED_STAGE = 'k6 Smoke'
+                }
+
+                sh '''
+                    rm -rf "${K6_SMOKE_ARTIFACT_DIR}"
+                    mkdir -p "${K6_SMOKE_ARTIFACT_DIR}"
+
+                    k6_exit=0
+                    docker run --rm \
+                      --network host \
+                      -v "$(pwd)/infra/k6/smoke.js:/scripts/smoke.js:ro" \
+                      -v "$(pwd)/${K6_SMOKE_ARTIFACT_DIR}:/results" \
+                      grafana/k6:latest run \
+                      --out "json=/results/k6-results.json" \
+                      --env BASE_URL="http://localhost:${BACKEND_HOST_PORT}" \
+                      --env INCIDENT_ID="inc-precinct-first-001" \
+                      --env POLICE_PHONE_ID="dev-alpha-phone-01" \
+                      --env WEB_ACCOUNT_CODE="acct-cmd-alpha" \
+                      --env APP_ACCOUNT_CODE="acct-team-alpha" \
+                      --env FIXTURE_PASSWORD="fixture" \
+                      /scripts/smoke.js \
+                      > "${K6_SMOKE_ARTIFACT_DIR}/k6-output.txt" 2>&1 || k6_exit=$?
+
+                    cat "${K6_SMOKE_ARTIFACT_DIR}/k6-output.txt"
+
+                    if [ "${k6_exit}" -eq 0 ]; then
+                        echo "STATUS: PASS" > "${K6_SMOKE_ARTIFACT_DIR}/k6-threshold-summary.txt"
+                    else
+                        echo "STATUS: FAIL" > "${K6_SMOKE_ARTIFACT_DIR}/k6-threshold-summary.txt"
+                        echo "EXIT_CODE: ${k6_exit}" >> "${K6_SMOKE_ARTIFACT_DIR}/k6-threshold-summary.txt"
+                    fi
+                '''
+
+                sh 'sh infra/ci/verify-k6-evidence.sh'
+            }
+
+            post {
+                always {
+                    archiveArtifacts(
+                        allowEmptyArchive: true,
+                        artifacts: 'ci-artifacts/k6-smoke/**',
+                        fingerprint: true
+                    )
+                }
             }
         }
     }
