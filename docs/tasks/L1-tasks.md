@@ -164,7 +164,7 @@
 
 ## Phase 5
 
-- [ ] L1-D01A SC-01~03 리허설 실행과 시연 증거 수집
+- [x] L1-D01A SC-01~03 리허설 실행과 시연 증거 수집
   - 담당 Spec: S1-1
   - 필수 참조: `prd.md §2.3`, `prd.md §5.1`, `spec/harness-scenarios.md §2 SC-01`, `spec/harness-scenarios.md §2 SC-02`, `spec/harness-scenarios.md §2 SC-03`
   - 연관 Lane: L2, L3, L5, L6
