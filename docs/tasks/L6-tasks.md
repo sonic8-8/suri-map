@@ -217,7 +217,7 @@
   - 예상 작업량: 1d
   - 완료 기준: package manifest/installation purge hook이 실행되고 missing_person package data를 보존하지 않은 채 package state를 sanitized tombstone으로 전이한다.
 
-- [ ] L6-T09B incident_terminal/package_badge board state와 개인정보 제거 검증
+- [x] L6-T09B incident_terminal/package_badge board state와 개인정보 제거 검증
   - 담당 Spec: S3-2, S7
   - 필수 참조: `spec/specs/S3-2.json`, `spec/specs/S7.json`, `spec/specs/S1-3.json`, `spec/harness-scenarios.md §2 SC-12`
   - 연관 Spec: S1-1, S1-3, S4, S6

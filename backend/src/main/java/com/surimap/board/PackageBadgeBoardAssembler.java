@@ -14,6 +14,7 @@ public final class PackageBadgeBoardAssembler {
   private static final String LATEST_EVENT_ID = "evt-s7-package-status-001";
   private static final String SOURCE_HASH = "hash-s7-package-current";
   private static final String PACKAGE_MISSING = "PACKAGE_MISSING";
+  private static final String PURGED = "PURGED";
   private static final String RAISE_REASON =
       "S7 package status is MISSING, STALE, EXPIRED, or any required item failed";
   private static final String CLEAR_REASON =
@@ -49,8 +50,11 @@ public final class PackageBadgeBoardAssembler {
     Map<String, Object> payload = new LinkedHashMap<>();
     payload.put("incidentId", status.incidentId());
     payload.put("policePhoneId", status.policePhoneId());
-    payload.put("manifestVersion", status.manifestVersion());
     payload.put("packageStatus", status.status());
+    if (PURGED.equals(status.status())) {
+      return payload;
+    }
+    payload.put("manifestVersion", status.manifestVersion());
     payload.put("readyForOfflineUse", status.readyForOfflineUse());
     payload.put("localWarningInput", localWarningInput(status));
     return payload;
