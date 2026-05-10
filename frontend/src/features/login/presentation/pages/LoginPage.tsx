@@ -1,17 +1,22 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 
-import { DEFAULT_LOGIN_FORM_VALUES } from '../constants/mockLogin';
-import type { LoginFormValues } from '../types/login';
+import { ApiError } from '../../../../shared/api/client';
+import { loginWithAccount } from '../../data/login';
+import type { LoginAccount, LoginFormValues } from '../types/login';
 import styles from './LoginPage.module.css';
 
 type LoginPageProps = {
-  onLoginSuccess: () => void;
+  onLoginSuccess: (account: LoginAccount) => void;
 };
 
 export function LoginPage({ onLoginSuccess }: LoginPageProps) {
-  const [formValues, setFormValues] = useState<LoginFormValues>(DEFAULT_LOGIN_FORM_VALUES);
+  const [formValues, setFormValues] = useState<LoginFormValues>({
+    username: '',
+    password: '',
+  });
   const [errorMessage, setErrorMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const updateField = (fieldName: keyof LoginFormValues, value: string) => {
     setFormValues((currentValues) => ({
@@ -21,15 +26,35 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
     setErrorMessage('');
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!formValues.username.trim() || !formValues.password.trim()) {
-      setErrorMessage('아이디와 비밀번호를 모두 입력하세요.');
+      setErrorMessage('아이디와 비밀번호를 입력하세요.');
       return;
     }
 
-    onLoginSuccess();
+    setIsSubmitting(true);
+    setErrorMessage('');
+
+    try {
+      const account = await loginWithAccount(formValues.username.trim(), formValues.password);
+      onLoginSuccess(account);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        setErrorMessage('아이디 또는 비밀번호를 확인하세요.');
+        return;
+      }
+
+      if (error instanceof ApiError) {
+        setErrorMessage(`로그인에 실패했습니다. (${error.code})`);
+        return;
+      }
+
+      setErrorMessage('로그인에 실패했습니다.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -52,7 +77,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
             </svg>
           </div>
           <div className={styles.title}>Suri-Map</div>
-          <div className={styles.subtitle}>경찰 실종 수색 운영 보조</div>
+          <div className={styles.subtitle}>지휘 상황판 계정 접속</div>
         </div>
 
         <form className={styles.loginForm} onSubmit={handleSubmit}>
@@ -78,18 +103,15 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
             />
           </div>
 
-          <button type="submit" className={styles.loginButton}>
-            로그인
+          <button type="submit" className={styles.loginButton} disabled={isSubmitting}>
+            {isSubmitting ? '접속 중' : '로그인'}
           </button>
 
           {errorMessage ? <div className={styles.errorMessage}>{errorMessage}</div> : null}
         </form>
 
-        <div className={styles.help}>
-          계정 발급은 IT 부서로 문의하세요.
-        </div>
+        <div className={styles.help}>계정은 운영 DB에 등록된 지휘 계정을 사용합니다.</div>
       </section>
-
     </main>
   );
 }

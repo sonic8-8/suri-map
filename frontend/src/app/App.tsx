@@ -4,8 +4,9 @@ import { Navigate, Route, Routes, useNavigate, useParams } from 'react-router-do
 import { AreaEditPage } from '../features/areaEdit/presentation/pages/AreaEditPage';
 import { IncidentClosePage } from '../features/incidentClose/presentation/pages/IncidentClosePage';
 import { IncidentListPage } from '../features/incidents/presentation/pages/IncidentListPage';
+import { clearLoginSession, readStoredLoginAccount } from '../features/login/data/login';
 import { LoginPage } from '../features/login/presentation/pages/LoginPage';
-import { MOCK_LOGIN_ACCOUNT } from '../features/login/presentation/constants/mockLogin';
+import type { LoginAccount } from '../features/login/presentation/types/login';
 import { SituationBoardPage } from '../features/situationBoard/presentation/pages/SituationBoardPage';
 import type { CompletedAreaDraft } from '../shared/model/areaDraft';
 import type { MarkerNotification } from '../shared/ui';
@@ -118,6 +119,7 @@ function IncidentCloseRoute() {
 
 export function App() {
   const navigate = useNavigate();
+  const [currentUserAccount, setCurrentUserAccount] = useState<LoginAccount | null>(() => readStoredLoginAccount());
   const [savedAreaDrafts, setSavedAreaDrafts] = useState<CompletedAreaDraft[]>([]);
   const [markerNotifications, setMarkerNotifications] = useState<MarkerNotification[]>(initialMarkerNotifications);
   const [markerNotificationIndex, setMarkerNotificationIndex] = useState(0);
@@ -131,30 +133,49 @@ export function App() {
     setMarkerNotificationIndex(Math.max(0, Math.min(nextIndex, markerNotifications.length - 1)));
   };
 
+  const openLogin = () => {
+    clearLoginSession();
+    setCurrentUserAccount(null);
+    navigate(ROUTES.login);
+  };
+
+  const handleLoginSuccess = (account: LoginAccount) => {
+    setCurrentUserAccount(account);
+    navigate(ROUTES.incidentList);
+  };
+
   return (
     <Routes>
       <Route path={ROUTES.home} element={<Navigate to={ROUTES.incidentList} replace />} />
       <Route
         path={ROUTES.incidentList}
         element={
-          <IncidentListPage
-            onOpenSituationBoard={() => navigate(getIncidentBoardPath(BOOTSTRAP_INCIDENT_ID))}
-            onOpenLogin={() => navigate(ROUTES.login)}
-            currentUserRole={MOCK_LOGIN_ACCOUNT.role}
-          />
+          currentUserAccount ? (
+            <IncidentListPage
+              onOpenSituationBoard={() => navigate(getIncidentBoardPath(BOOTSTRAP_INCIDENT_ID))}
+              onOpenLogin={openLogin}
+              currentUserRole={currentUserAccount.role}
+            />
+          ) : (
+            <Navigate to={ROUTES.login} replace />
+          )
         }
       />
-      <Route path={ROUTES.login} element={<LoginPage onLoginSuccess={() => navigate(ROUTES.incidentList)} />} />
+      <Route path={ROUTES.login} element={<LoginPage onLoginSuccess={handleLoginSuccess} />} />
       <Route
         path={ROUTES.incidentBoard}
         element={
-          <SituationBoardRoute
-            markerNotificationIndex={markerNotificationIndex}
-            markerNotifications={markerNotifications}
-            onCloseMarkerNotifications={closeMarkerNotifications}
-            onMoveMarkerNotification={moveMarkerNotification}
-            savedAreaDrafts={savedAreaDrafts}
-          />
+          currentUserAccount ? (
+            <SituationBoardRoute
+              markerNotificationIndex={markerNotificationIndex}
+              markerNotifications={markerNotifications}
+              onCloseMarkerNotifications={closeMarkerNotifications}
+              onMoveMarkerNotification={moveMarkerNotification}
+              savedAreaDrafts={savedAreaDrafts}
+            />
+          ) : (
+            <Navigate to={ROUTES.login} replace />
+          )
         }
       />
       <Route

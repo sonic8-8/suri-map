@@ -1,3 +1,4 @@
+/* 로그인 화면 전체를 중앙 정렬하고 페이지 배경을 지정한다. */
 .page {
   position: relative;
   display: flex;
@@ -10,6 +11,7 @@
   background: var(--color-bg-page);
 }
 
+/* 로그인 폼을 담는 카드 컨테이너다. */
 .loginCard {
   width: 400px;
   max-width: 100%;
@@ -20,6 +22,7 @@
   box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
 }
 
+/* 로고, 서비스명, 보조 문구를 세로로 정렬하는 영역이다. */
 .logo {
   display: grid;
   justify-items: center;
@@ -28,6 +31,7 @@
   text-align: center;
 }
 
+/* 로고 아이콘을 담는 원형 마크다. */
 .logoMark {
   display: flex;
   align-items: center;
@@ -41,14 +45,17 @@
   background: color-mix(in srgb, #dfe8f2 62%, var(--color-bg-surface));
 }
 
+/* 로고 내부 SVG 색상을 고정한다. */
 .logoMark svg {
   color: #315474;
 }
 
+/* 로고 SVG의 강조 도형 색상이다. */
 .brandMark {
   fill: #4f7198;
 }
 
+/* 로그인 카드의 서비스명 제목이다. */
 .title {
   color: var(--color-fg-primary);
   font-size: 19px;
@@ -56,20 +63,24 @@
   line-height: 1.2;
 }
 
+/* 서비스명 아래의 보조 설명 문구다. */
 .subtitle {
   color: var(--color-fg-secondary);
   font-size: 12px;
   line-height: 1.35;
 }
 
+/* 로그인 입력 필드와 제출 버튼을 감싸는 폼이다. */
 .loginForm {
   display: block;
 }
 
+/* 라벨과 입력칸 한 쌍의 하단 간격을 만든다. */
 .fieldGroup {
   margin-bottom: 16px;
 }
 
+/* 입력 필드 라벨 텍스트다. */
 .fieldGroup label {
   display: block;
   margin-bottom: 6px;
@@ -79,6 +90,7 @@
   line-height: 1.25;
 }
 
+/* 아이디/비밀번호 입력칸의 기본 모양이다. */
 .fieldGroup input {
   width: 100%;
   height: 44px;
@@ -92,11 +104,13 @@
   outline: none;
 }
 
+/* 입력칸 포커스 상태를 테두리와 그림자로 표시한다. */
 .fieldGroup input:focus {
   border-color: #4f7198;
   box-shadow: 0 0 0 2px color-mix(in srgb, #4f7198 24%, transparent);
 }
 
+/* 로그인 제출 버튼의 기본 모양이다. */
 .loginButton {
   width: 100%;
   min-height: 46px;
@@ -113,17 +127,20 @@
   line-height: 1.2;
 }
 
+/* 로그인 버튼 마우스 오버 상태다. */
 .loginButton:hover {
   border-color: #6687ad;
   color: #ffffff;
   background: linear-gradient(180deg, #426f9d 0%, #335f8b 56%, #28517b 100%);
 }
 
+/* 로그인 버튼 키보드 포커스 표시다. */
 .loginButton:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--suri-board-primary-hi) 64%, transparent);
   outline-offset: 3px;
 }
 
+/* 로그인 실패 등 오류 메시지 텍스트다. */
 .errorMessage {
   margin-top: 8px;
   color: #d63a3a;
@@ -131,6 +148,7 @@
   font-weight: 700;
 }
 
+/* 로그인 카드 하단의 도움말/안내 문구 영역이다. */
 .help {
   margin-top: 24px;
   padding-top: 16px;
@@ -141,6 +159,7 @@
   text-align: center;
 }
 
+/* 작은 화면에서 로그인 카드가 위쪽부터 자연스럽게 보이도록 조정한다. */
 @media (max-width: 520px) {
   .page {
     align-items: flex-start;
