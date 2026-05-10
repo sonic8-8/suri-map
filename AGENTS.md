@@ -77,3 +77,14 @@
 ## 자동화 가드레일
 
 컨벤션 위반 검증은 로컬 lint/format/test 명령, CODEOWNERS, MR template, agent hook이 담당한다. GitLab CI는 runner가 안정화될 때까지 사용하지 않는다.
+
+## graphify
+
+이 프로젝트는 `graphify-out/`에 지식 그래프를 둔다. 그래프에는 주요 노드, 커뮤니티 구조, 파일 간 관계가 포함된다.
+
+규칙:
+- `graphify-out/GRAPH_REPORT.md`가 있으면 소스 파일을 읽거나 `rg`/glob 검색을 실행하거나 코드베이스 질문에 답하기 전에 먼저 확인한다. 그래프는 코드베이스를 파악하는 1차 지도다.
+- `graphify-out/GRAPH_REPORT.md`가 없거나 현재 커밋보다 오래됐으면 `graphify update .`로 생성 또는 갱신한 뒤 사용한다.
+- `graphify-out/wiki/index.md`가 있으면 원본 파일을 바로 읽기 전에 wiki를 먼저 탐색한다.
+- 여러 모듈에 걸친 "X와 Y가 어떻게 연결되는가" 유형의 질문은 `rg`보다 `graphify query "<질문>"`, `graphify path "<A>" "<B>"`, `graphify explain "<개념>"`을 우선한다. 이 명령은 그래프의 EXTRACTED/INFERRED edge를 따라 탐색한다.
+- 코드를 수정한 뒤에는 `graphify update .`를 실행해 그래프를 최신 상태로 맞춘다. 이 업데이트는 AST 기반이며 API 비용이 없다.
