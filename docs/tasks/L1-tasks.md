@@ -142,13 +142,14 @@
   - 예상 작업량: 2d
   - 완료 기준: 실종팀 인계와 112/mock 지원 배정 후에도 OP1 기록이 보존되고, 배정 단말 FCM evidence가 남으며, S4 fanout/SSE와 S3-2 board API가 수렴한다.
 
-- [ ] L1-I03 SC-12 사건 종료·데이터 파기 통합 검증
+- [x] L1-I03 SC-12 사건 종료·데이터 파기 통합 검증
   - 담당 Spec: S1-1
   - 필수 참조: `spec/harness-scenarios.md §2 SC-12`, `spec/boundaries.md §10 SC-12`
   - 연관 Spec: S1-2, S1-3, S4, S5, S6, S7, S3-2
   - 시나리오: SC-12
   - 선행 task: L1-T06, L2-T07C, L2-T08, L4-T09, L5-T04C, L6-T09A, L6-T09B, L6-T10B
   - 구현 산출물: SC-12 integration test, close/write-block/purge-start evidence, `INCIDENT_CLOSED`/`INCIDENT_PURGED` event/SSE evidence, sanitized terminal board API evidence
+  - 완료 근거: close API 응답, 이후 배정 쓰기 차단, 파기 실행 상태 전이, 종료 SSE replay marker, 개인정보 제거 상황판 행을 한 테스트에서 함께 검증한다.
   - 예상 작업량: 2d
   - 완료 기준: close가 write를 차단하고 active PII 노출을 제거하며 purge orchestration을 시작하고, `INCIDENT_CLOSED`/`INCIDENT_PURGED` event/SSE payload와 S3-2 incident_terminal board API row가 같은 terminal/closed 상태로 수렴한다.
 
