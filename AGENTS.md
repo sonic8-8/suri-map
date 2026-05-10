@@ -78,13 +78,14 @@
 
 컨벤션 위반 검증은 로컬 lint/format/test 명령, CODEOWNERS, MR template, agent hook이 담당한다. GitLab CI는 runner가 안정화될 때까지 사용하지 않는다.
 
-## graphify
+## 코드 그래프 도구
 
-이 프로젝트는 `graphify-out/`에 지식 그래프를 둔다. 그래프에는 주요 노드, 커뮤니티 구조, 파일 간 관계가 포함된다.
+이 프로젝트는 `code-review-graph`와 `graphify`를 보조 도구로 사용한다. 생성된 그래프는 source of truth가 아니라 읽을 범위와 검증 범위를 줄이는 탐색 도구다. 기준 문서와 실제 소스/테스트가 항상 우선한다.
 
 규칙:
-- `graphify-out/GRAPH_REPORT.md`가 있으면 소스 파일을 읽거나 `rg`/glob 검색을 실행하거나 코드베이스 질문에 답하기 전에 먼저 확인한다. 그래프는 코드베이스를 파악하는 1차 지도다.
-- `graphify-out/GRAPH_REPORT.md`가 없거나 현재 커밋보다 오래됐으면 `graphify update .`로 생성 또는 갱신한 뒤 사용한다.
-- `graphify-out/wiki/index.md`가 있으면 원본 파일을 바로 읽기 전에 wiki를 먼저 탐색한다.
-- 여러 모듈에 걸친 "X와 Y가 어떻게 연결되는가" 유형의 질문은 `rg`보다 `graphify query "<질문>"`, `graphify path "<A>" "<B>"`, `graphify explain "<개념>"`을 우선한다. 이 명령은 그래프의 EXTRACTED/INFERRED edge를 따라 탐색한다.
-- 코드를 수정한 뒤에는 `graphify update .`를 실행해 그래프를 최신 상태로 맞춘다. 이 업데이트는 AST 기반이며 API 비용이 없다.
+- 변경 영향도 확인과 MR 전 검토에는 `code-review-graph detect-changes --repo . --base origin/develop --brief`를 우선 사용한다. 상세 검토가 필요하면 `--brief`를 빼고 다시 실행한다.
+- 코드를 수정한 뒤에는 `code-review-graph update --repo .`로 그래프를 갱신한다.
+- 여러 모듈에 걸친 개념 연결을 찾을 때만 `graphify query "<질문>"`, `graphify path "<A>" "<B>"`, `graphify explain "<개념>"`을 보조로 사용한다.
+- `GRAPH_REPORT.md`, graph/wiki/visualize 산출물, god node, surprising connection은 참고 자료로만 본다. 이 산출물만 근거로 설계 판단이나 코드 변경을 하지 않는다.
+- 비 trivial 변경은 그래프 결과로 범위를 좁힌 뒤 실제 구현 파일, 관련 테스트, 기준 문서를 직접 읽고 확인한다.
+- 그래프 결과와 소스/기준 문서가 충돌하면 소스/기준 문서를 신뢰한다.
