@@ -152,9 +152,9 @@ export function App() {
         element={
           currentUserAccount ? (
             <IncidentListPage
-              onOpenSituationBoard={() => navigate(getIncidentBoardPath(BOOTSTRAP_INCIDENT_ID))}
+              onOpenSituationBoard={(incidentId) => navigate(getIncidentBoardPath(incidentId))}
               onOpenLogin={openLogin}
-              currentUserRole={currentUserAccount.role}
+              currentUserAccount={currentUserAccount}
             />
           ) : (
             <Navigate to={ROUTES.login} replace />

@@ -8,7 +8,7 @@ export type IncidentCard = {
   status: IncidentStatus;
   location: string;
   timeLabel: string;
-  timeKind: '마지막 목격' | '신고 시각' | '갱신 시각';
+  timeKind: '마지막 목격' | '신고 시각' | '갱신 시각' | '가져온 시각' | '종료 시각';
   currentPhase: string;
   assignedOrganization: string;
   assignedTeam: string;

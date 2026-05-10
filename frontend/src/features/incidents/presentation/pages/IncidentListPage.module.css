@@ -1,4 +1,4 @@
-/* ?섏씠吏 ?꾩껜??body ?ㅽ겕濡ㅼ쓣 ?댁? ?딄퀬 ?대? 紐⑸줉 ?곸뿭留??ㅽ겕濡ㅽ븳?? */
+/* 사건 목록 페이지 전체 레이아웃과 배경을 정의한다. */
 .page {
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
@@ -8,7 +8,7 @@
   background: var(--suri-board-page-bg);
 }
 
-/* ?곹솴??Header? 媛숈? 2???ㅻ뜑 援ъ“瑜??ш굔 紐⑸줉 ?붾㈃?먮룄 留욎떠 ?ъ슜?쒕떎. */
+/* 상단 제품 내비게이션과 목록 컨텍스트 바를 묶는 고정 헤더 영역이다. */
 .header {
   position: sticky;
   top: 0;
@@ -19,7 +19,7 @@
   background: var(--suri-board-page-bg);
 }
 
-/* 泥?踰덉㎏ ?ㅻ뜑 以? ?ㅻ줈媛湲? ?붾㈃ ?? ?ъ슜??釉뚮옖??硫뷀?瑜?諛곗튂?쒕떎. */
+/* 제품명, 중앙 타이틀, 사용자 메타 정보를 배치하는 최상단 내비게이션이다. */
 .productNav {
   position: relative;
   display: flex;
@@ -33,18 +33,30 @@
   backdrop-filter: blur(8px);
 }
 
+/* 헤더 중앙의 클릭 가능한 페이지 타이틀 버튼이다. */
 .headerCenterTitle {
   position: absolute;
   left: 50%;
+  padding: 0;
+  border: 0;
   color: var(--suri-board-fg-primary);
+  background: transparent;
+  font-family: inherit;
   font-size: 22px;
   font-weight: 800;
   line-height: 1.2;
   white-space: nowrap;
   transform: translateX(-50%);
+  cursor: pointer;
 }
 
-/* ?곗륫 ?ъ슜?? mock ?쒓컖, 釉뚮옖???뺣낫瑜??대뒗 硫뷀? ?곸뿭. */
+/* 중앙 타이틀 키보드 포커스 표시다. */
+.headerCenterTitle:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--suri-board-primary-hi) 64%, transparent);
+  outline-offset: 4px;
+}
+
+/* 헤더 우측의 사용자/환경 메타 정보를 표시한다. */
 .meta {
   position: relative;
   z-index: 1;
@@ -58,17 +70,20 @@
   white-space: nowrap;
 }
 
+/* 메타 정보 안에서 강조 값의 가독성을 높인다. */
 .meta b {
   color: var(--suri-board-fg-primary);
   font-weight: 700;
 }
 
+/* 메타 정보 항목 사이를 나누는 세로 구분선이다. */
 .metaDivider {
   width: 1px;
   height: 20px;
   background: var(--suri-board-border);
 }
 
+/* 좌측 브랜드 로고와 브랜드명을 정렬한다. */
 .brand {
   display: flex;
   align-items: center;
@@ -80,6 +95,7 @@
   white-space: nowrap;
 }
 
+/* 브랜드 아이콘 크기와 색상을 고정한다. */
 .brand svg {
   flex: 0 0 auto;
   width: 26px;
@@ -87,10 +103,12 @@
   color: var(--suri-board-fg-primary);
 }
 
+/* 브랜드 아이콘 내부 강조 도형 색상이다. */
 .brandMark {
   fill: var(--suri-board-primary);
 }
 
+/* 로그아웃 버튼의 기본 모양이다. */
 .logoutButton {
   min-height: 32px;
   padding: 0 12px;
@@ -104,18 +122,20 @@
   white-space: nowrap;
 }
 
+/* 로그아웃 버튼 마우스 오버 상태다. */
 .logoutButton:hover {
   border-color: color-mix(in srgb, var(--suri-board-primary-hi) 42%, var(--suri-board-fg-muted));
   color: var(--suri-board-fg-primary);
   background: var(--suri-board-panel-surface);
 }
 
+/* 로그아웃 버튼 키보드 포커스 표시다. */
 .logoutButton:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--suri-board-primary-hi) 64%, transparent);
   outline-offset: 2px;
 }
 
-/* ??踰덉㎏ ?ㅻ뜑 以? ?ш굔 紐⑸줉??吏묎퀎? 二쇱슂 ?≪뀡??蹂댁뿬以?? */
+/* 목록 제목, 지표, 가져오기 버튼을 담는 컨텍스트 바다. */
 .listContextBar {
   display: flex;
   align-items: center;
@@ -129,7 +149,7 @@
     #c3cfdd;
 }
 
-/* ?붾㈃ ?쒕ぉ怨?LIST ?꾨컮?瑜?臾띕뒗 ?쇱そ 而⑦뀓?ㅽ듃 ?곸뿭. */
+/* 컨텍스트 바 좌측의 제목 그룹을 정렬한다. */
 .listContextMain {
   display: flex;
   align-items: center;
@@ -137,17 +157,20 @@
   min-width: 0;
 }
 
+/* 목록 제목과 보조 정보를 세로로 배치한다. */
 .listContextTitle {
   display: grid;
   gap: 2px;
   min-width: 0;
 }
 
+/* 목록 제목 하단의 작은 지표 텍스트다. */
 .listContextMetrics span {
   color: var(--color-fg-muted);
   font-size: 12px;
 }
 
+/* 목록 컨텍스트의 주요 제목 텍스트다. */
 .listContextTitle strong {
   overflow: hidden;
   color: var(--color-fg-primary);
@@ -157,6 +180,7 @@
   white-space: nowrap;
 }
 
+/* 제목 영역과 지표 영역을 나누는 세로 구분선이다. */
 .listContextDivider {
   width: 1px;
   height: 32px;
@@ -164,7 +188,7 @@
   background: #9fb0c2;
 }
 
-/* ?꾩껜/吏꾪뻾/醫낅즺 媛숈? ?ш굔 吏묎퀎 硫뷀듃由??곸뿭. */
+/* 사건 수, 진행 상태 등 목록 요약 지표를 가로로 배치한다. */
 .listContextMetrics {
   display: flex;
   align-items: center;
@@ -174,12 +198,14 @@
   font-size: 14px;
 }
 
+/* 각 목록 요약 지표의 라벨과 값을 세로로 배치한다. */
 .listContextMetrics > div {
   display: grid;
   gap: 2px;
   min-width: 0;
 }
 
+/* 목록 요약 지표의 값 텍스트다. */
 .listContextMetrics strong {
   overflow: hidden;
   color: var(--color-fg-primary);
@@ -189,7 +215,7 @@
   white-space: nowrap;
 }
 
-/* ?ㅻ뜑 ?곗륫 二쇱슂 ?≪뀡 ?곸뿭. */
+/* 컨텍스트 바 우측 액션 영역이다. */
 .listContextActions {
   display: flex;
   align-items: center;
@@ -198,6 +224,7 @@
   flex-shrink: 0;
 }
 
+/* 필터 칩과 페이지 요약을 담는 도구 막대다. */
 .toolbar {
   display: flex;
   align-items: center;
@@ -208,7 +235,7 @@
   background: #f4f6f8;
 }
 
-/* ?곹깭 ?꾪꽣 移?臾띠쓬. */
+/* 필터 버튼 묶음을 가로로 정렬한다. */
 .filterGroup {
   display: flex;
   align-items: center;
@@ -216,32 +243,102 @@
   min-width: 0;
 }
 
-/* ?꾩껜/吏꾪뻾 以??멸퀎 ?湲?醫낅즺 ?꾪꽣 踰꾪듉. */
+/* 상태/분류 필터 칩의 기본 모양이다. */
 .filterChip {
   min-height: 32px;
   padding: 0 12px;
-  border: 1px solid color-mix(in srgb, var(--color-border-default) 82%, var(--color-border-strong));
+  border: 1px solid color-mix(in srgb, #4f7198 24%, var(--color-border-default));
   border-radius: 999px;
-  color: var(--color-fg-secondary);
-  background: color-mix(in srgb, var(--color-bg-surface) 76%, #f4f6f8);
+  color: #40576d;
+  background: color-mix(in srgb, #dfe8f2 42%, var(--color-bg-surface));
   font-size: 13px;
   font-weight: 700;
   white-space: nowrap;
 }
 
+/* 필터 칩 마우스 오버 상태다. */
 .filterChip:hover {
   border-color: var(--color-border-strong);
   color: var(--color-fg-primary);
   background: var(--color-bg-surface);
 }
 
+/* 선택된 필터 칩의 공통 강조 상태다. */
 .filterChipActive {
-  border-color: color-mix(in srgb, #4f7198 56%, var(--color-border-default));
-  color: var(--color-fg-primary);
-  background: color-mix(in srgb, #dfe8f2 72%, var(--color-bg-surface));
+  border-color: #4f7198;
+  color: #243d57;
+  background: #d8e5f2;
+  box-shadow: 0 0 0 2px color-mix(in srgb, #4f7198 18%, transparent);
+  font-weight: 800;
 }
 
-/* ?섏씠吏?ㅼ씠?섏뿉???곕뒗 蹂댁“ ?섏튂 ?쒖떆. */
+/* 진행 중 상태 필터 칩의 색상이다. */
+.filterChipStatusProgress {
+  border-color: color-mix(in srgb, #1f8754 28%, var(--color-border-default));
+  color: #246344;
+  background: color-mix(in srgb, #e5f4ec 64%, var(--color-bg-surface));
+}
+
+/* 진행 중 상태 필터 칩 마우스 오버 상태다. */
+.filterChipStatusProgress:hover {
+  border-color: color-mix(in srgb, #1f8754 44%, var(--color-border-strong));
+  color: #164d33;
+  background: color-mix(in srgb, #e5f4ec 82%, var(--color-bg-surface));
+}
+
+/* 선택된 진행 중 상태 필터 칩이다. */
+.filterChipActive.filterChipStatusProgress {
+  border-color: #1f8754;
+  color: #0f3d28;
+  background: #cce8d8;
+  box-shadow: 0 0 0 2px color-mix(in srgb, #1f8754 20%, transparent);
+}
+
+/* 대기 상태 필터 칩의 색상이다. */
+.filterChipStatusWaiting {
+  border-color: color-mix(in srgb, #e8881a 32%, var(--color-border-default));
+  color: #815116;
+  background: color-mix(in srgb, #fcf1e2 68%, var(--color-bg-surface));
+}
+
+/* 대기 상태 필터 칩 마우스 오버 상태다. */
+.filterChipStatusWaiting:hover {
+  border-color: color-mix(in srgb, #e8881a 52%, var(--color-border-strong));
+  color: #683e0c;
+  background: color-mix(in srgb, #fcf1e2 86%, var(--color-bg-surface));
+}
+
+/* 선택된 대기 상태 필터 칩이다. */
+.filterChipActive.filterChipStatusWaiting {
+  border-color: #d77812;
+  color: #5a3508;
+  background: #f7ddb8;
+  box-shadow: 0 0 0 2px color-mix(in srgb, #e8881a 22%, transparent);
+}
+
+/* 종료 상태 필터 칩의 색상이다. */
+.filterChipStatusClosed {
+  border-color: color-mix(in srgb, #8e8e8e 34%, var(--color-border-default));
+  color: #5f6872;
+  background: color-mix(in srgb, #edf1f5 72%, var(--color-bg-surface));
+}
+
+/* 종료 상태 필터 칩 마우스 오버 상태다. */
+.filterChipStatusClosed:hover {
+  border-color: color-mix(in srgb, #8e8e8e 56%, var(--color-border-strong));
+  color: #454d56;
+  background: color-mix(in srgb, #edf1f5 88%, var(--color-bg-surface));
+}
+
+/* 선택된 종료 상태 필터 칩이다. */
+.filterChipActive.filterChipStatusClosed {
+  border-color: #68717a;
+  color: #323940;
+  background: #d7dde4;
+  box-shadow: 0 0 0 2px color-mix(in srgb, #6f7780 20%, transparent);
+}
+
+/* 현재 페이지와 전체 건수를 보여주는 페이지 요약 영역이다. */
 .paginationSummary {
   display: flex;
   align-items: center;
@@ -252,17 +349,19 @@
   white-space: nowrap;
 }
 
+/* 페이지 요약에서 숫자 등 핵심 값을 강조한다. */
 .paginationSummary b {
   color: var(--color-fg-primary);
 }
 
+/* 툴바 내부 항목을 구분하는 세로선이다. */
 .toolbarDivider {
   width: 1px;
   height: 16px;
   background: var(--color-border-default);
 }
 
-/* 移대뱶 紐⑸줉留??낅┰?곸쑝濡??ㅽ겕濡ㅻ릺?꾨줉 ?섎뒗 蹂몃Ц ?곸뿭. */
+/* 카드 목록이 스크롤되는 본문 영역이다. */
 .content {
   min-height: 0;
   overflow: auto;
@@ -272,14 +371,17 @@
   scrollbar-width: thin;
 }
 
+/* 본문 스크롤바 너비를 지정한다. */
 .content::-webkit-scrollbar {
   width: 10px;
 }
 
+/* 본문 스크롤바 트랙 배경이다. */
 .content::-webkit-scrollbar-track {
   background: transparent;
 }
 
+/* 본문 스크롤바 손잡이 모양이다. */
 .content::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
   border-radius: 999px;
@@ -287,25 +389,30 @@
   background-clip: content-box;
 }
 
-/* 紐⑸줉 ?댁슜??理쒕? ??낵 ?곹븯 ?щ갚???쒗븳?쒕떎. */
+/* 본문 내부 최대 폭과 카드/페이지네이션 배치를 정의한다. */
 .contentInner {
   display: grid;
+  grid-template-rows: minmax(320px, 1fr) auto;
   gap: 16px;
   width: min(1440px, 100%);
+  min-height: 100%;
   margin: 0 auto;
   padding: 20px;
 }
 
-/* ?ш굔 移대뱶???볦? ?붾㈃?먯꽌 4??dense dashboard 洹몃━?쒕줈 諛곗튂?쒕떎. */
+/* 사건 카드를 데스크톱 기준 4열 그리드로 배치한다. */
 .cardGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-content: start;
+  align-items: start;
   gap: 12px;
 }
 
-/* 媛쒕퀎 ?ш굔 移대뱶. ?????諛섎났 移대뱶濡??듭떖 ?ш굔 ?뺣낫瑜??ㅼ틪?섍쾶 ?쒕떎. */
+/* 개별 사건 카드의 기본 표면, 간격, 테두리를 정의한다. */
 .card {
   display: grid;
+  align-self: start;
   gap: 14px;
   min-height: 214px;
   padding: 14px;
@@ -316,11 +423,13 @@
   box-shadow: 0 4px 12px rgb(0 0 0 / 6%);
 }
 
+/* 사건 카드 마우스 오버 상태다. */
 .card:hover {
   border-color: color-mix(in srgb, var(--color-primary) 24%, var(--color-border-default));
   background: #fafafa;
 }
 
+/* 종료된 사건 카드의 비활성화된 시각 상태다. */
 .cardClosed {
   border-color: color-mix(in srgb, var(--color-border-strong) 70%, var(--color-border-default));
   color: color-mix(in srgb, var(--color-fg-secondary) 72%, var(--color-fg-muted));
@@ -329,29 +438,33 @@
   opacity: 0.78;
 }
 
+/* 종료된 사건 카드 마우스 오버 상태다. */
 .cardClosed:hover {
   border-color: var(--color-border-strong);
   background: #e2e7ed;
 }
 
+/* 종료된 카드 안의 주요 텍스트 색상을 낮춘다. */
 .cardClosed .cardTitle,
 .cardClosed .cardLocation,
 .cardClosed .metaRow strong {
   color: color-mix(in srgb, var(--color-fg-secondary) 72%, var(--color-fg-muted));
 }
 
+/* 종료된 카드 안의 보조 텍스트 색상을 낮춘다. */
 .cardClosed .cardId,
 .cardClosed .metaRow span {
   color: var(--color-fg-muted);
 }
 
+/* 종료된 카드 안의 가져옴 배지 색상을 비활성 톤으로 바꾼다. */
 .cardClosed .importedBadge {
   border-color: color-mix(in srgb, var(--color-border-strong) 72%, var(--color-border-default));
   color: var(--color-fg-muted);
   background: color-mix(in srgb, #eef1f4 72%, #dfe4ea);
 }
 
-/* 移대뱶 ?곷떒???ш굔紐??꾩튂? ?곹깭 諛곗?瑜??묒そ??諛곗튂?쒕떎. */
+/* 카드 상단의 사건 정보와 상태 배지를 나란히 배치한다. */
 .cardHeader {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -360,17 +473,19 @@
   min-width: 0;
 }
 
+/* 카드 안의 사건 ID, 제목, 위치 정보를 세로로 묶는다. */
 .cardIdentity {
   display: grid;
   gap: 5px;
   min-width: 0;
 }
 
+/* 카드 본문 안에서는 중복 배지를 숨긴다. */
 .cardIdentity .importedBadge {
   display: none;
 }
 
-/* ?ш굔 踰덊샇??湲?ID媛 ?섏튂吏 ?딅룄濡?monospace ??以꾨줈 怨좎젙?쒕떎. */
+/* 외부 사건 ID를 고정폭 글꼴로 표시한다. */
 .cardId {
   overflow: hidden;
   color: var(--color-fg-muted);
@@ -382,6 +497,7 @@
   white-space: nowrap;
 }
 
+/* 카드의 사건 제목 텍스트다. */
 .cardTitle {
   overflow: hidden;
   margin: 0;
@@ -393,6 +509,7 @@
   white-space: nowrap;
 }
 
+/* 카드의 위치/주소 보조 텍스트다. */
 .cardLocation {
   overflow: hidden;
   color: var(--color-fg-secondary);
@@ -402,6 +519,7 @@
   white-space: nowrap;
 }
 
+/* 이미 가져온 사건임을 표시하는 배지다. */
 .importedBadge {
   justify-self: start;
   padding: 3px 8px;
@@ -415,6 +533,7 @@
   white-space: nowrap;
 }
 
+/* 카드 하단 액션 버튼 행이다. */
 .cardActionRow {
   display: flex;
   align-items: center;
@@ -424,6 +543,7 @@
   padding-top: 2px;
 }
 
+/* 상황판으로 이동하는 주요 버튼이다. */
 .boardButton {
   display: inline-flex;
   align-items: center;
@@ -441,6 +561,7 @@
   white-space: nowrap;
 }
 
+/* 상황판 이동 버튼 마우스 오버 상태다. */
 .boardButton:hover {
   border-color: #ad5a13;
   color: #ffffff;
@@ -448,12 +569,13 @@
   box-shadow: 0 1px 3px rgb(91 47 13 / 18%);
 }
 
+/* 상황판 이동 버튼 키보드 포커스 표시다. */
 .boardButton:focus-visible {
   outline: 2px solid color-mix(in srgb, #f08a24 64%, transparent);
   outline-offset: 3px;
 }
 
-/* 移대뱶 ?섎떒 硫뷀? ?뺣낫???쇰꺼/媛?2??援ъ“濡??뺤텞?쒕떎. */
+/* 카드 하단의 상세 메타 정보를 세로 그리드로 배치한다. */
 .cardMetaGrid {
   display: grid;
   gap: 8px;
@@ -461,6 +583,7 @@
   border-top: 1px solid var(--color-border-default);
 }
 
+/* 카드 메타 정보 한 줄의 라벨/값 배치다. */
 .metaRow {
   display: grid;
   grid-template-columns: 78px minmax(0, 1fr);
@@ -469,6 +592,7 @@
   min-width: 0;
 }
 
+/* 카드 메타 정보 라벨 텍스트다. */
 .metaRow span {
   color: var(--color-fg-muted);
   font-size: 12px;
@@ -476,6 +600,7 @@
   white-space: nowrap;
 }
 
+/* 카드 메타 정보 값 텍스트다. */
 .metaRow strong {
   overflow: hidden;
   color: var(--color-fg-secondary);
@@ -486,12 +611,13 @@
   white-space: nowrap;
 }
 
-/* ?꾪꽣 寃곌낵媛 ?놁쓣 ???쒖떆?섎뒗 鍮??곹깭. */
+/* 필터 결과가 없을 때 표시하는 안내 문구다. */
+/* 전체 목록이 비었을 때 표시하는 빈 상태 패널이다. */
 .emptyState {
   display: grid;
   place-items: center;
   gap: 8px;
-  min-height: 320px;
+  min-height: 0;
   border: 1px solid var(--color-border-default);
   border-radius: 8px;
   color: var(--color-fg-muted);
@@ -499,16 +625,24 @@
   text-align: center;
 }
 
+/* 빈 상태 패널의 강조 문구다. */
 .emptyState strong {
   color: var(--color-fg-primary);
   font-size: 16px;
 }
 
+.emptyState .emptyStateFilterText {
+  color: var(--color-fg-muted);
+  font-size: 17px;
+  font-weight: 650;
+}
+
+/* 빈 상태 패널의 보조 설명이다. */
 .emptyState span {
   font-size: 13px;
 }
 
-/* offset 湲곕컲 ?섏씠吏 踰덊샇瑜?議곗옉?섎뒗 ?섎떒 而⑦듃濡? */
+/* 페이지 번호와 이전/다음 버튼을 담는 하단 페이지네이션 바다. */
 .paginationBar {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
@@ -521,6 +655,7 @@
   background: transparent;
 }
 
+/* 페이지네이션 컨트롤과 페이지 번호 버튼 묶음의 공통 정렬이다. */
 .paginationControls,
 .pageNumberGroup {
   display: flex;
@@ -528,18 +663,20 @@
   gap: 6px;
 }
 
+/* 페이지네이션 컨트롤을 가운데 칸에 고정한다. */
 .paginationControls {
   grid-column: 2;
   justify-self: center;
 }
 
+/* 페이지 요약을 페이지네이션 바 오른쪽에 배치한다. */
 .paginationSummary {
   grid-column: 3;
   justify-self: end;
   text-align: right;
 }
 
-/* ?댁쟾/?ㅼ쓬, 踰덊샇 踰꾪듉??怨듯넻 ?ш린? ?? */
+/* 페이지 번호 버튼과 이전/다음 버튼의 공통 모양이다. */
 .pageNumberButton,
 .paginationButton {
   display: inline-flex;
@@ -557,10 +694,12 @@
   white-space: nowrap;
 }
 
+/* 이전/다음 버튼의 최소 너비를 보장한다. */
 .paginationButton {
   min-width: 54px;
 }
 
+/* 페이지 번호와 이전/다음 버튼의 마우스 오버 상태다. */
 .pageNumberButton:hover,
 .paginationButton:hover:not(:disabled) {
   border-color: var(--color-border-strong);
@@ -568,12 +707,14 @@
   background: var(--color-bg-surface);
 }
 
+/* 현재 선택된 페이지 번호 버튼이다. */
 .pageNumberButtonActive {
   border-color: color-mix(in srgb, #4f7198 56%, var(--color-border-default));
   color: var(--color-fg-primary);
   background: color-mix(in srgb, #dfe8f2 72%, var(--color-bg-surface));
 }
 
+/* 비활성화된 이전/다음 버튼 상태다. */
 .paginationButton:disabled {
   color: var(--color-fg-muted);
   background: color-mix(in srgb, var(--color-bg-surface) 72%, var(--color-bg-subtle));
@@ -581,7 +722,7 @@
   opacity: 0.58;
 }
 
-/* ?곗뒪?ы넲 ??씠 以꾩뼱????移대뱶 ???섏? ?ㅻ뜑 硫뷀? ?몄텧??議곗젙?쒕떎. */
+/* 중간 화면에서 카드 열 수를 줄이고 헤더 메타 정보를 숨긴다. */
 @media (max-width: 1240px) {
   .cardGrid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -592,7 +733,7 @@
   }
 }
 
-/* ?쒕툝由???뿉?쒕뒗 ?ㅻ뜑 以묒븰 ??쓣 ?쇰컲 ?먮쫫?쇰줈 ?뚮━怨?移대뱶 2?대줈 ??텣?? */
+/* 태블릿 화면에서 헤더/툴바를 접고 카드 그리드를 2열로 줄인다. */
 @media (max-width: 960px) {
   .productNav {
     justify-content: space-between;
@@ -623,7 +764,7 @@
   }
 }
 
-/* 紐⑤컮????뿉?쒕뒗 移대뱶 1?닿낵 wrap 媛?ν븳 議곗옉 ?곸뿭?쇰줈 ?꾪솚?쒕떎. */
+/* 모바일 화면에서 카드 그리드를 1열로 만들고 보조 영역을 줄인다. */
 @media (max-width: 640px) {
   .contentInner {
     padding: 12px;
@@ -648,4 +789,3 @@
     display: none;
   }
 }
-

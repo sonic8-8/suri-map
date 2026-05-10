@@ -1,25 +1,43 @@
-import type { IncidentCard } from '../../../incidents/domain/entities/Incident';
+import { useState } from 'react';
+
 import styles from './IncidentImportModal.module.css';
 
+const DEFAULT_SOURCE_INCIDENT_ID = 'cccccccc-cccc-cccc-cccc-cccccccc0001';
+
 type IncidentImportModalProps = {
-  incidents: IncidentCard[];
   importedIncidentIds: Set<string>;
   canImport: boolean;
   isOffline: boolean;
+  isImporting: boolean;
+  errorMessage: string;
   onClose: () => void;
-  onImportIncident: (incidentId: string) => void;
+  onImportIncident: (sourceIncidentId: string) => void;
 };
 
 export function IncidentImportModal({
-  incidents,
   importedIncidentIds,
   canImport,
   isOffline,
+  isImporting,
+  errorMessage,
   onClose,
   onImportIncident,
 }: IncidentImportModalProps) {
+  const [sourceIncidentId, setSourceIncidentId] = useState(DEFAULT_SOURCE_INCIDENT_ID);
+  const normalizedSourceIncidentId = sourceIncidentId.trim();
+  const isImported = importedIncidentIds.has(normalizedSourceIncidentId);
+  const canSubmit = normalizedSourceIncidentId.length > 0 && !isOffline && !isImporting && !isImported;
+
   return (
-    <div className={styles.modalOverlay} role="presentation" onClick={onClose}>
+    <div
+      className={styles.modalOverlay}
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          event.preventDefault();
+        }
+      }}
+    >
       <section
         className={styles.importModal}
         role="dialog"
@@ -28,65 +46,60 @@ export function IncidentImportModal({
         onClick={(event) => event.stopPropagation()}
       >
         <header className={styles.modalHeader}>
-          <h2 id="import-modal-title">mock 112 배정 후보</h2>
-          <button
-            type="button"
-            className={styles.modalCloseButton}
-            aria-label="사건 가져오기 모달 닫기"
-            onClick={onClose}
-          >
-            ×
+          <h2 id="import-modal-title">사건 가져오기</h2>
+          <button type="button" className={styles.modalCloseButton} aria-label="닫기" onClick={onClose}>
+            x
           </button>
         </header>
 
         {!canImport ? (
           <div className={styles.modalBody}>
             <div className={styles.modalPermissionDenied}>
-              <p>이 화면에 접근 권한이 없습니다.</p>
+              <p>현재 계정은 사건 가져오기 권한이 없습니다.</p>
               <button type="button" className={styles.modalImportButton} onClick={onClose}>
-                사건 목록으로 돌아가기
+                확인
               </button>
             </div>
           </div>
         ) : (
           <>
-            {isOffline && (
+            {isOffline ? (
               <div className={styles.modalOfflineBanner}>
                 오프라인 상태에서는 사건을 가져올 수 없습니다.
               </div>
-            )}
+            ) : null}
             <div className={styles.modalBody}>
-              {incidents.map((incident) => {
-                const isImported = importedIncidentIds.has(incident.id);
-
-                return (
-                  <div key={incident.id} className={styles.modalRow}>
-                    <div className={styles.modalIncidentInfo}>
-                      <div className={styles.modalIncidentId}>{incident.id}</div>
-                      <div className={styles.modalIncidentTitle}>{incident.title}</div>
-                      <div className={styles.modalIncidentMeta}>
-                        {incident.location} · {incident.timeLabel} 배정
-                      </div>
-                    </div>
-                    {isImported ? (
-                      <span className={styles.modalImportedLabel}>가져옴</span>
-                    ) : (
-                      <button
-                        type="button"
-                        className={styles.modalImportButton}
-                        disabled={isOffline}
-                        onClick={() => onImportIncident(incident.id)}
-                      >
-                        가져오기
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
+              <form
+                className={styles.modalForm}
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (canSubmit) {
+                    onImportIncident(normalizedSourceIncidentId);
+                  }
+                }}
+              >
+                <label className={styles.modalField}>
+                  <span>사건 번호</span>
+                  <input
+                    className={styles.modalTextInput}
+                    value={sourceIncidentId}
+                    onChange={(event) => setSourceIncidentId(event.target.value)}
+                    placeholder="사건 번호를 입력하세요"
+                    spellCheck={false}
+                  />
+                </label>
+                {isImported ? (
+                  <span className={styles.modalImportedLabel}>가져온 사건</span>
+                ) : (
+                  <button type="submit" className={styles.modalImportButton} disabled={!canSubmit}>
+                    {isImporting ? '가져오는 중' : '가져오기'}
+                  </button>
+                )}
+              </form>
+              {errorMessage ? <div className={styles.modalErrorMessage}>{errorMessage}</div> : null}
             </div>
             <footer className={styles.modalFooter}>
-              <span>마지막 polling: 14:25</span>
-              <span>가져오기를 클릭하면 사건 목록에 추가됩니다</span>
+              <span>112 시스템에 등록된 사건 번호를 입력해 사건 정보를 불러옵니다.</span>
             </footer>
           </>
         )}

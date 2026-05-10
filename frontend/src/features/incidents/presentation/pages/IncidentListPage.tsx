@@ -1,23 +1,29 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
+import { importIncident } from '../../../incidentImport/data/importIncident';
 import { IncidentImportCompleteDialog } from '../../../incidentImport/presentation/components/IncidentImportCompleteDialog';
 import { IncidentImportModal } from '../../../incidentImport/presentation/components/IncidentImportModal';
-import type { IncidentFilter, IncidentStatus } from '../../domain/entities/Incident';
-import { INCIDENT_FILTERS, INCIDENT_LIST_PAGE_SIZE, mockIncidentList } from '../constants/mockIncidentList';
+import type { LoginAccount } from '../../../login/presentation/types/login';
 import { ActionButton, StatusBadge, type StatusBadgeTone } from '../../../../shared';
+import { ApiError } from '../../../../shared/api/client';
+import { getIncidents, type IncidentListItemDto } from '../../data/getIncidents';
+import type { IncidentCard, IncidentFilter, IncidentStatus } from '../../domain/entities/Incident';
 import styles from './IncidentListPage.module.css';
 
-const INITIAL_IMPORTED_INCIDENT_IDS = ['INC-2026-0506-001', 'INC-2026-0505-004'];
+const INCIDENT_FILTERS: IncidentFilter[] = ['전체', '진행 중', '인계 대기', '종료'];
+const INCIDENT_LIST_PAGE_SIZE = 12;
 
-// MP_O(실종팀 간부), LP_O(지구대/파출소 팀장)만 사건 가져오기 권한 있음 (permission-matrix §2.1)
-function canImportIncident(role: string): boolean {
-  return role === 'MISSING_TEAM_COMMANDER' || role === 'FIELD_COMMANDER';
+function canImportIncident(account: LoginAccount): boolean {
+  return (
+    account.role === 'MISSING_TEAM_COMMANDER' ||
+    (account.role === 'FIELD_COMMANDER' && account.organizationType === 'POLICE_SUBSTATION')
+  );
 }
 
 type IncidentListPageProps = {
-  onOpenSituationBoard: () => void;
+  onOpenSituationBoard: (incidentId: string) => void;
   onOpenLogin: () => void;
-  currentUserRole: string;
+  currentUserAccount: LoginAccount;
 };
 
 function getStatusTone(status: IncidentStatus): StatusBadgeTone {
@@ -32,18 +38,111 @@ function getStatusTone(status: IncidentStatus): StatusBadgeTone {
   return 'closed';
 }
 
-export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUserRole }: IncidentListPageProps) {
+function getIncidentStatus(status: string): IncidentStatus {
+  if (status === 'CLOSED') {
+    return '종료';
+  }
+
+  return '진행 중';
+}
+
+function getImportErrorMessage(error: unknown) {
+  if (error instanceof ApiError) {
+    if (error.code === 'external_incident_adapter_unavailable') {
+      return 'mock 112 adapter에서 사건을 가져오지 못했습니다. sourceIncidentId를 확인해주세요.';
+    }
+
+    if (error.code === 'write_conflict') {
+      return '같은 Idempotency-Key 요청이 충돌했습니다. 잠시 뒤 다시 시도해주세요.';
+    }
+
+    if (error.code === 'role_denied' || error.code === 'channel_not_allowed') {
+      return '현재 계정 권한으로는 사건 가져오기를 수행할 수 없습니다.';
+    }
+
+    return `사건 가져오기에 실패했습니다. (${error.code})`;
+  }
+
+  return '사건 가져오기에 실패했습니다.';
+}
+
+function getListErrorMessage(error: unknown) {
+  if (error instanceof ApiError) {
+    return `배정 사건 목록을 불러오지 못했습니다. (${error.code})`;
+  }
+
+  return '배정 사건 목록을 불러오지 못했습니다.';
+}
+
+function formatKstDateTime(date: Date) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+    .formatToParts(date)
+    .reduce<Record<string, string>>((dateParts, part) => {
+      dateParts[part.type] = part.value;
+      return dateParts;
+    }, {});
+
+  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute} KST`;
+}
+
+function createIncidentCard(item: IncidentListItemDto): IncidentCard {
+  const status = getIncidentStatus(item.status);
+
+  return {
+    id: item.incidentId,
+    title: item.title,
+    status,
+    location: `incidentId: ${item.incidentId}`,
+    timeKind: item.closedAt ? '종료 시각' : '갱신 시각',
+    timeLabel: item.closedAt ? formatKstDateTime(new Date(item.closedAt)) : '-',
+    currentPhase: `version ${item.version}`,
+    assignedOrganization: '-',
+    assignedTeam: '-',
+  };
+}
+
+function getFilterChipClassName(filter: IncidentFilter, selectedFilter: IncidentFilter) {
+  const classNames = [styles.filterChip];
+
+  if (filter === '진행 중') {
+    classNames.push(styles.filterChipStatusProgress);
+  } else if (filter === '인계 대기') {
+    classNames.push(styles.filterChipStatusWaiting);
+  } else if (filter === '종료') {
+    classNames.push(styles.filterChipStatusClosed);
+  }
+
+  if (selectedFilter === filter) {
+    classNames.push(styles.filterChipActive);
+  }
+
+  return classNames.join(' ');
+}
+
+export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUserAccount }: IncidentListPageProps) {
   const [filter, setFilter] = useState<IncidentFilter>('전체');
   const [pageNumber, setPageNumber] = useState(1);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isOffline, setIsOffline] = useState(() => !navigator.onLine);
-  const [importedIncidentIds, setImportedIncidentIds] = useState<string[]>(INITIAL_IMPORTED_INCIDENT_IDS);
+  const [now, setNow] = useState(() => new Date());
+  const [incidents, setIncidents] = useState<IncidentCard[]>([]);
+  const [importedSourceIncidentIds, setImportedSourceIncidentIds] = useState<string[]>([]);
   const [importCompleteIncidentId, setImportCompleteIncidentId] = useState<string | null>(null);
+  const [importErrorMessage, setImportErrorMessage] = useState('');
+  const [listErrorMessage, setListErrorMessage] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
+  const [isLoadingIncidents, setIsLoadingIncidents] = useState(false);
 
-  const importedIncidentIdSet = new Set(importedIncidentIds);
-  const importedIncidents = mockIncidentList.filter((incident) => importedIncidentIdSet.has(incident.id));
-  const filteredIncidents =
-    filter === '전체' ? importedIncidents : importedIncidents.filter((incident) => incident.status === filter);
+  const importedSourceIncidentIdSet = useMemo(() => new Set(importedSourceIncidentIds), [importedSourceIncidentIds]);
+  const filteredIncidents = filter === '전체' ? incidents : incidents.filter((incident) => incident.status === filter);
 
   const totalPages = Math.max(1, Math.ceil(filteredIncidents.length / INCIDENT_LIST_PAGE_SIZE));
   const activePage = Math.min(pageNumber, totalPages);
@@ -51,13 +150,46 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
   const visibleIncidents = filteredIncidents.slice(pageStartIndex, pageStartIndex + INCIDENT_LIST_PAGE_SIZE);
   const pageStartNumber = filteredIncidents.length === 0 ? 0 : pageStartIndex + 1;
   const pageEndNumber = Math.min(pageStartIndex + INCIDENT_LIST_PAGE_SIZE, filteredIncidents.length);
-  const importedStatusSummary = importedIncidents.reduce(
+  const incidentStatusSummary = incidents.reduce<Record<IncidentStatus, number>>(
     (summary, incident) => {
       summary[incident.status] += 1;
       return summary;
     },
     { '진행 중': 0, '인계 대기': 0, 종료: 0 },
   );
+  const isFilteredEmptyState =
+    visibleIncidents.length === 0 && incidents.length > 0 && !isLoadingIncidents && !listErrorMessage;
+
+  useEffect(() => {
+    let ignore = false;
+
+    const loadAssignedIncidents = async () => {
+      setIsLoadingIncidents(true);
+      setListErrorMessage('');
+
+      try {
+        const response = await getIncidents();
+
+        if (!ignore) {
+          setIncidents(response.items.map(createIncidentCard));
+        }
+      } catch (error) {
+        if (!ignore) {
+          setListErrorMessage(getListErrorMessage(error));
+        }
+      } finally {
+        if (!ignore) {
+          setIsLoadingIncidents(false);
+        }
+      }
+    };
+
+    void loadAssignedIncidents();
+
+    return () => {
+      ignore = true;
+    };
+  }, [currentUserAccount.id]);
 
   useEffect(() => {
     if (pageNumber !== activePage) {
@@ -76,7 +208,41 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
     };
   }, []);
 
-  const canImport = canImportIncident(currentUserRole);
+  useEffect(() => {
+    const intervalId = window.setInterval(() => setNow(new Date()), 30_000);
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  const canImport = canImportIncident(currentUserAccount);
+  const currentUserLabel = `${currentUserAccount.name} / ${currentUserAccount.organization}`;
+  const currentTimeLabel = formatKstDateTime(now);
+
+  const reloadAssignedIncidents = async () => {
+    const response = await getIncidents();
+    setIncidents(response.items.map(createIncidentCard));
+    setListErrorMessage('');
+  };
+
+  const handleImportIncident = async (sourceIncidentId: string) => {
+    setIsImporting(true);
+    setImportErrorMessage('');
+
+    try {
+      const response = await importIncident(sourceIncidentId);
+      await reloadAssignedIncidents();
+      setImportedSourceIncidentIds((currentIds) =>
+        currentIds.includes(sourceIncidentId) ? currentIds : [...currentIds, sourceIncidentId],
+      );
+      setFilter('전체');
+      setPageNumber(1);
+      setImportCompleteIncidentId(response.incidentId);
+      setIsImportModalOpen(false);
+    } catch (error) {
+      setImportErrorMessage(getImportErrorMessage(error));
+    } finally {
+      setIsImporting(false);
+    }
+  };
 
   return (
     <main className={styles.page}>
@@ -98,15 +264,20 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
             </svg>
             <div>Suri-Map</div>
           </div>
-          <div className={styles.headerCenterTitle} aria-current="page">
+          <button
+            type="button"
+            className={styles.headerCenterTitle}
+            aria-current="page"
+            onClick={() => window.location.reload()}
+          >
             사건 목록
-          </div>
+          </button>
           <div className={styles.meta}>
             <span>
-              현재 사용자: <b>실종팀 1팀장 박OO</b>
+              현재 계정 <b>{currentUserLabel}</b>
             </span>
             <span className={styles.metaDivider} aria-hidden="true" />
-            <span>2026-05-06 09:42 KST · mock</span>
+            <span>{currentTimeLabel}</span>
             <span className={styles.metaDivider} aria-hidden="true" />
             <button type="button" className={styles.logoutButton} onClick={onOpenLogin}>
               로그아웃
@@ -123,23 +294,26 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
           <span className={styles.listContextDivider} aria-hidden="true" />
           <div className={styles.listContextMetrics}>
             <div>
-              <span>가져온 사건</span>
-              <strong>{importedIncidents.length}건</strong>
+              <span>배정 사건</span>
+              <strong>{incidents.length}건</strong>
             </div>
             <div>
               <span>진행 중</span>
-              <strong>{importedStatusSummary['진행 중']}건</strong>
+              <strong>{incidentStatusSummary['진행 중']}건</strong>
             </div>
             <div>
               <span>종료 / 인계 대기</span>
-              <strong>{importedStatusSummary['종료'] + importedStatusSummary['인계 대기']}건</strong>
+              <strong>{incidentStatusSummary.종료 + incidentStatusSummary['인계 대기']}건</strong>
             </div>
           </div>
           <div className={styles.listContextActions}>
             {canImport && (
               <ActionButton
                 label="사건 가져오기"
-                onClick={() => setIsImportModalOpen(true)}
+                onClick={() => {
+                  setImportErrorMessage('');
+                  setIsImportModalOpen(true);
+                }}
                 disabled={isOffline}
               />
             )}
@@ -153,7 +327,7 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
             <button
               key={item}
               type="button"
-              className={`${styles.filterChip}${filter === item ? ` ${styles.filterChipActive}` : ''}`}
+              className={getFilterChipClassName(item, filter)}
               aria-pressed={filter === item}
               onClick={() => {
                 setFilter(item);
@@ -168,15 +342,25 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
 
       <section className={styles.content} aria-label="사건 카드 목록">
         <div className={styles.contentInner}>
-          {visibleIncidents.length === 0 ? (
+          {isFilteredEmptyState ? (
             <div className={styles.emptyState}>
-              <strong>{importedIncidents.length === 0 ? '아직 가져온 사건이 없습니다' : '표시할 사건이 없습니다'}</strong>
+              <strong className={styles.emptyStateFilterText}>조건에 맞는 사건이 없습니다.</strong>
+            </div>
+          ) : visibleIncidents.length === 0 ? (
+            <div className={styles.emptyState}>
+              <strong>
+                {isLoadingIncidents
+                  ? '배정 사건 목록을 불러오는 중입니다'
+                  : listErrorMessage || (incidents.length === 0 ? '배정된 사건이 없습니다' : '조건에 맞는 사건이 없습니다')}
+              </strong>
               <span>
-                {importedIncidents.length === 0 && canImport
-                  ? '사건 가져오기 버튼을 눌러 mock 112 배정 후보를 확인하세요.'
-                  : importedIncidents.length === 0
-                    ? '배정된 사건이 없습니다.'
-                    : '선택한 상태 필터에 맞는 사건이 없습니다. 다른 필터를 선택하세요.'}
+                {listErrorMessage
+                  ? '로그인 상태와 API 서버 응답을 확인해주세요.'
+                  : incidents.length === 0 && canImport
+                    ? '사건 가져오기에서 sourceIncidentId를 입력해 배정 사건을 생성할 수 있습니다.'
+                    : incidents.length === 0
+                      ? '현재 계정에 배정된 사건이 없습니다.'
+                      : '다른 상태 필터를 선택해주세요.'}
               </span>
             </div>
           ) : (
@@ -191,13 +375,17 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
                       <div className={styles.cardId}>{incident.id}</div>
                       <h2 className={styles.cardTitle}>{incident.title}</h2>
                       <div className={styles.cardLocation}>{incident.location}</div>
-                      <span className={styles.importedBadge}>내가 가져온</span>
+                      <span className={styles.importedBadge}>배정 사건</span>
                     </div>
                     <StatusBadge status={incident.status} tone={getStatusTone(incident.status)} />
                   </div>
 
                   <div className={styles.cardActionRow}>
-                    <button type="button" className={styles.boardButton} onClick={onOpenSituationBoard}>
+                    <button
+                      type="button"
+                      className={styles.boardButton}
+                      onClick={() => onOpenSituationBoard(incident.id)}
+                    >
                       상황판 보기
                     </button>
                   </div>
@@ -208,11 +396,11 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
                       <strong>{incident.timeLabel}</strong>
                     </div>
                     <div className={styles.metaRow}>
-                      <span>현재 단계</span>
+                      <span>버전</span>
                       <strong>{incident.currentPhase}</strong>
                     </div>
                     <div className={styles.metaRow}>
-                      <span>배정 기관</span>
+                      <span>배정 조직</span>
                       <strong>{incident.assignedOrganization}</strong>
                     </div>
                     <div className={styles.metaRow}>
@@ -228,7 +416,7 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
           <footer className={styles.paginationBar} aria-label="사건 목록 페이지네이션">
             <div className={styles.paginationSummary}>
               <span>
-                총 <b>{filteredIncidents.length}건</b>
+                전체 <b>{filteredIncidents.length}건</b>
               </span>
               <span className={styles.toolbarDivider} aria-hidden="true" />
               <span>{filteredIncidents.length === 0 ? '0' : `${pageStartNumber}-${pageEndNumber}`}건 표시</span>
@@ -271,17 +459,13 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
 
       {isImportModalOpen ? (
         <IncidentImportModal
-          incidents={mockIncidentList}
-          importedIncidentIds={importedIncidentIdSet}
+          importedIncidentIds={importedSourceIncidentIdSet}
           canImport={canImport}
           isOffline={isOffline}
+          isImporting={isImporting}
+          errorMessage={importErrorMessage}
           onClose={() => setIsImportModalOpen(false)}
-          onImportIncident={(incidentId) => {
-            setImportedIncidentIds((currentIds) => [...currentIds, incidentId]);
-            setFilter('전체');
-            setPageNumber(1);
-            setImportCompleteIncidentId(incidentId);
-          }}
+          onImportIncident={handleImportIncident}
         />
       ) : null}
 
