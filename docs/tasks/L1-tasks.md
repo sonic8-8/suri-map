@@ -132,7 +132,7 @@
   - 예상 작업량: 1d
   - 완료 기준: 배정 사건 import, OP1 자동 생성, `OPEN` 사건 응답이 SC-01 e2e red test를 통과한다.
 
-- [ ] L1-I02 SC-02 인계·지원 배정 통합 검증
+- [x] L1-I02 SC-02 인계·지원 배정 통합 검증
   - 담당 Spec: S1-1
   - 필수 참조: `spec/harness-scenarios.md §2 SC-02`, `spec/boundaries.md §10 SC-02`
   - 연관 Spec: S1-2, S3-1, S5, S8, S3-2
