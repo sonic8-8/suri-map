@@ -1,8 +1,13 @@
-﻿import { type CSSProperties, type KeyboardEvent, type MouseEvent, useState } from 'react';
-import { ChevronRight } from 'lucide-react';
+﻿import { type CSSProperties, type KeyboardEvent } from 'react';
 
 import { areaColorTokens, type AreaColorToken } from '../../../../../shared/constants/areaColorTokens';
-import { searchAreaTree } from '../../constants/mockSituationBoard';
+import {
+  getSearchAreaDisplayState,
+  type SearchAreaDisplayState,
+  searchAreaDisplayStateLabel,
+} from '../../../../../shared/model/searchAreaDisplayState';
+import type { CompletedAreaDraft } from '../../../../../shared/model/areaDraft';
+import type { SearchAreaTreeNode } from '../../constants/mockSituationBoard';
 import { CollapsiblePanelSection } from './CollapsiblePanelSection';
 import styles from './SearchAreaTree.module.css';
 
@@ -10,6 +15,8 @@ type AreaIdentityColorStyle = CSSProperties & { '--area-identity-color': string 
 
 type SearchAreaTreeProps = {
   hasActiveOverallSearchArea: boolean;
+  savedAreaDrafts: CompletedAreaDraft[];
+  searchAreaTree: SearchAreaTreeNode;
   onSelectSearchArea: (searchAreaId: string) => void;
 };
 
@@ -17,137 +24,161 @@ function getAreaIdentityColorStyle(colorToken: AreaColorToken): AreaIdentityColo
   return { '--area-identity-color': `var(${areaColorTokens[colorToken].cssVariable})` };
 }
 
-function getStateClassName(state: string) {
-  if (state === '완료') return `${styles.stateBadge} ${styles.stateCompleted}`;
-  if (state === '활성') return `${styles.stateBadge} ${styles.stateActive}`;
+function getStateClassName(state: SearchAreaDisplayState) {
+  if (state === 'completed' || state === 'cancelled') return `${styles.stateBadge} ${styles.stateCompleted}`;
+  if (state === 'assignmentDone' || state === 'geometrySaved') return `${styles.stateBadge} ${styles.stateActive}`;
+  if (state === 'assignmentPending' || state === 'geometryPending') return `${styles.stateBadge} ${styles.stateRequired}`;
   return styles.stateBadge;
 }
 
-function shouldShowParentState(state: string) {
-  return state !== '활성';
+function getAssignedAccountNames(area: SearchAreaTreeNode) {
+  return (area.assignedAccounts ?? []).map((account) => account.displayName).join(', ');
+}
+
+function getDisplayState(area: SearchAreaTreeNode, assignedAreaIds: Set<string>): SearchAreaDisplayState {
+  return getSearchAreaDisplayState({
+    kind: area.kind,
+    status: area.status,
+    geometryState: area.geometryState,
+    hasSavedGeometry: area.geometryState === 'saved' || assignedAreaIds.has(area.id),
+    assignedAccountCount: area.assignedAccounts?.length ?? 0,
+  });
+}
+
+function getNodeClassName(area: SearchAreaTreeNode, assignedAreaIds: Set<string>) {
+  if (area.kind === 'overall') return styles.nodeRow;
+  if (area.kind === 'unit') return area.children?.length ? styles.unitToggle : styles.unitStaticRow;
+  return `${styles.teamNode}${getDisplayState(area, assignedAreaIds) === 'completed' ? ` ${styles.teamCompleted}` : ''}`;
 }
 
 function handleAreaRowKeyDown(
   event: KeyboardEvent<HTMLElement>,
-  searchAreaId: string,
-  hasActiveOverallSearchArea: boolean,
+  areaId: string,
+  canSelectArea: boolean,
   onSelectSearchArea: (searchAreaId: string) => void,
 ) {
   if (event.key !== 'Enter' && event.key !== ' ') return;
   event.preventDefault();
-  if (!hasActiveOverallSearchArea) return;
-  onSelectSearchArea(searchAreaId);
+  if (!canSelectArea) return;
+  onSelectSearchArea(areaId);
 }
 
-export function SearchAreaTree({ hasActiveOverallSearchArea, onSelectSearchArea }: SearchAreaTreeProps) {
-  const [collapsedUnitIds, setCollapsedUnitIds] = useState<string[]>([]);
+function AreaNode({
+  area,
+  assignedAreaIds,
+  hasActiveOverallSearchArea,
+  onSelectSearchArea,
+}: {
+  area: SearchAreaTreeNode;
+  assignedAreaIds: Set<string>;
+  hasActiveOverallSearchArea: boolean;
+  onSelectSearchArea: (searchAreaId: string) => void;
+}) {
+  const children = area.children ?? [];
+  const hasChildren = children.length > 0;
+  const displayState = getDisplayState(area, assignedAreaIds);
+  const assignedAccountNames = area.kind === 'team' ? getAssignedAccountNames(area) : '';
+  const canSelectArea = hasActiveOverallSearchArea && assignedAreaIds.has(area.id);
+  const rowClassName = `${getNodeClassName(area, assignedAreaIds)} ${styles.areaRowButton}`;
+  const textNameClassName = area.kind === 'team' ? styles.teamName : styles.nodeName;
+  const textMetaClassName = area.kind === 'team' ? styles.teamMeta : styles.nodeMeta;
 
-  const handleSelectSearchArea = (searchAreaId: string) => {
-    if (!hasActiveOverallSearchArea) return;
-    onSelectSearchArea(searchAreaId);
+  const handleSelectArea = () => {
+    if (!canSelectArea) return;
+    onSelectSearchArea(area.id);
   };
 
-  const toggleUnit = (unitId: string, event?: MouseEvent<HTMLButtonElement>) => {
-    event?.stopPropagation();
-    setCollapsedUnitIds((currentIds) =>
-      currentIds.includes(unitId) ? currentIds.filter((currentId) => currentId !== unitId) : [...currentIds, unitId],
+  const row = (
+    <div
+      className={rowClassName}
+      role="button"
+      tabIndex={0}
+      aria-disabled={!canSelectArea}
+      onClick={handleSelectArea}
+      onKeyDown={(event) => handleAreaRowKeyDown(event, area.id, canSelectArea, onSelectSearchArea)}
+    >
+      <span className={styles.nodeText}>
+        <strong className={textNameClassName}>{area.name}</strong>
+        <span className={textMetaClassName}>{area.meta}</span>
+        {assignedAccountNames ? <span className={styles.assignmentNames}>{assignedAccountNames}</span> : null}
+      </span>
+      <span className={styles.badgeColumn}>
+        <span className={getStateClassName(displayState)}>{searchAreaDisplayStateLabel[displayState]}</span>
+      </span>
+    </div>
+  );
+
+  if (area.kind === 'overall') {
+    return (
+      <div className={styles.rootNode} style={getAreaIdentityColorStyle(area.colorToken)}>
+        {row}
+        {hasChildren ? (
+          <div className={styles.unitList}>
+            {children.map((child) => (
+              <AreaNode
+                key={child.id}
+                area={child}
+                assignedAreaIds={assignedAreaIds}
+                hasActiveOverallSearchArea={hasActiveOverallSearchArea}
+                onSelectSearchArea={onSelectSearchArea}
+              />
+            ))}
+          </div>
+        ) : null}
+      </div>
     );
-  };
+  }
+
+  if (area.kind === 'unit') {
+    return (
+      <div className={styles.unitNode} style={getAreaIdentityColorStyle(area.colorToken)}>
+        {row}
+        {hasChildren ? (
+          <div className={styles.teamList}>
+            {children.map((child) => (
+              <AreaNode
+                key={child.id}
+                area={child}
+                assignedAreaIds={assignedAreaIds}
+                hasActiveOverallSearchArea={hasActiveOverallSearchArea}
+                onSelectSearchArea={onSelectSearchArea}
+              />
+            ))}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
-    <CollapsiblePanelSection title="수색 구역 (계층)">
+    <div className={styles.unitNode} style={getAreaIdentityColorStyle(area.colorToken)}>
+      {row}
+    </div>
+  );
+}
+
+export function SearchAreaTree({
+  hasActiveOverallSearchArea,
+  savedAreaDrafts,
+  searchAreaTree,
+  onSelectSearchArea,
+}: SearchAreaTreeProps) {
+  const assignedAreaIds = new Set(savedAreaDrafts.map((draft) => draft.areaId));
+
+  return (
+    <CollapsiblePanelSection title="수색 구역">
       <div className={`${styles.tree}${hasActiveOverallSearchArea ? '' : ` ${styles.treeDisabled}`}`}>
-        {!hasActiveOverallSearchArea ? (
-          <div className={styles.requiredNotice}>전체 수색 구역이 필요합니다. 구역 분할과 배정은 전체 구역 설정 후 사용할 수 있습니다.</div>
+        {assignedAreaIds.size === 0 ? (
+          <div className={styles.requiredNotice}>
+            저장된 수색 구역이 없습니다. 구역 분할에서 범위를 저장한 뒤 확인할 수 있습니다.
+          </div>
         ) : null}
-        <div className={styles.rootNode} style={getAreaIdentityColorStyle(searchAreaTree.colorToken)}>
-          <div
-            className={`${styles.nodeRow} ${styles.areaRowButton}`}
-            role="button"
-            tabIndex={0}
-            aria-disabled={!hasActiveOverallSearchArea}
-            onClick={() => handleSelectSearchArea(searchAreaTree.id)}
-            onKeyDown={(event) => handleAreaRowKeyDown(event, searchAreaTree.id, hasActiveOverallSearchArea, onSelectSearchArea)}
-          >
-            <div className={styles.nodeText}>
-              <strong className={styles.nodeName}>{searchAreaTree.name}</strong>
-              <span className={styles.nodeMeta}>{searchAreaTree.meta}</span>
-            </div>
-            {shouldShowParentState(searchAreaTree.state) ? <span className={getStateClassName(searchAreaTree.state)}>{searchAreaTree.state}</span> : null}
-          </div>
-          <div className={styles.unitList}>
-            {searchAreaTree.units.map((unit) => {
-              const isCollapsed = collapsedUnitIds.includes(unit.id);
-              const hasTeams = unit.teams.length > 0;
-              return (
-                <div key={unit.id} className={styles.unitNode} style={getAreaIdentityColorStyle(unit.colorToken)}>
-                  {hasTeams ? (
-                    <div
-                      className={`${styles.unitToggle} ${styles.areaRowButton}`}
-                      aria-expanded={!isCollapsed}
-                      role="button"
-                      tabIndex={0}
-                      aria-disabled={!hasActiveOverallSearchArea}
-                      onClick={() => handleSelectSearchArea(unit.id)}
-                      onKeyDown={(event) => handleAreaRowKeyDown(event, unit.id, hasActiveOverallSearchArea, onSelectSearchArea)}
-                    >
-                      <span className={styles.nodeText}>
-                        <strong className={styles.nodeName}>{unit.name}</strong>
-                        <span className={styles.nodeMeta}>{unit.meta}</span>
-                      </span>
-                      <button
-                        type="button"
-                        className={styles.toggleButton}
-                        aria-label={`${unit.name} ${isCollapsed ? '펼치기' : '접기'}`}
-                        aria-expanded={!isCollapsed}
-                        onClick={(event) => toggleUnit(unit.id, event)}
-                      >
-                        <ChevronRight size={14} aria-hidden="true" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div
-                      className={`${styles.unitStaticRow} ${styles.areaRowButton}`}
-                      role="button"
-                      tabIndex={0}
-                      aria-disabled={!hasActiveOverallSearchArea}
-                      onClick={() => handleSelectSearchArea(unit.id)}
-                      onKeyDown={(event) => handleAreaRowKeyDown(event, unit.id, hasActiveOverallSearchArea, onSelectSearchArea)}
-                    >
-                      <span className={styles.togglePlaceholder} aria-hidden="true" />
-                      <span className={styles.nodeText}>
-                        <strong className={styles.nodeName}>{unit.name}</strong>
-                        <span className={styles.nodeMeta}>{unit.meta}</span>
-                      </span>
-                    </div>
-                  )}
-                  {hasTeams && !isCollapsed ? (
-                    <div className={styles.teamList}>
-                      {unit.teams.map((team) => (
-                        <div
-                          key={team.id}
-                          className={`${styles.teamNode} ${styles.areaRowButton}${team.state === '완료' ? ` ${styles.teamCompleted}` : ''}`}
-                          style={getAreaIdentityColorStyle(team.colorToken)}
-                          role="button"
-                          tabIndex={0}
-                          aria-disabled={!hasActiveOverallSearchArea}
-                          onClick={() => handleSelectSearchArea(team.id)}
-                          onKeyDown={(event) => handleAreaRowKeyDown(event, team.id, hasActiveOverallSearchArea, onSelectSearchArea)}
-                        >
-                          <span className={styles.nodeText}>
-                            <strong className={styles.teamName}>{team.phone}</strong>
-                            <span className={styles.teamMeta}>{team.meta}</span>
-                          </span>
-                          <span className={getStateClassName(team.state)}>{team.state}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        <AreaNode
+          area={searchAreaTree}
+          assignedAreaIds={assignedAreaIds}
+          hasActiveOverallSearchArea={hasActiveOverallSearchArea}
+          onSelectSearchArea={onSelectSearchArea}
+        />
       </div>
     </CollapsiblePanelSection>
   );

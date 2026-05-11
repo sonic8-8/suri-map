@@ -1,14 +1,43 @@
-﻿import { useEffect, useRef, useState } from 'react';
+﻿import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback } from 'react';
 import maplibregl, {
   type GeoJSONSource,
   type LayerSpecification,
   type LngLatBoundsLike,
-  type StyleSpecification,
 } from 'maplibre-gl';
 import { getVWorldApiKey } from '../../../../../shared/config';
-import { areaColorTokens } from '../../../../../shared/constants/areaColorTokens';
+import {
+  AreaEditMapCanvas,
+  type AreaEditMapCanvasProps,
+} from '../../../../areaEdit/presentation/components/AreaEditMapCanvas';
+import {
+  HandoverComparisonMap,
+  type HandoverComparisonMapProps,
+} from '../../../../handover/presentation/components/HandoverComparisonMap';
+import {
+  createVWorldBaseStyle,
+  V_WORLD_BASE_LAYER_ID,
+  V_WORLD_BASE_OPACITY,
+  V_WORLD_MAX_ZOOM,
+} from '../../../../../shared/map/vworldBaseMap';
 import type { CompletedAreaDraft } from '../../../../../shared/model/areaDraft';
-import { initialReferenceMarkerResponses, searchAreaResponses } from '../../constants/mockSituationBoard';
+import {
+  createMovementPathFeatureCollection,
+  createSearchAreaDraftFeatureCollection,
+  type BoardMapFeature,
+  type BoardMapFeatureCollection,
+  type BoardMapGeometry,
+} from '../../../../../shared/model/boardMapFeatures';
+import type { MovementPath, RecentMarker } from '../../constants/mockSituationBoard';
+import {
+  clearMarkerElements,
+  hasRenderedMarkerAtPoint,
+  removeMarkerPopup,
+  syncMarkerElements,
+  syncMarkerPopups,
+  type MarkerInstance,
+  type MarkerInteractionHandlers,
+} from './boardMarkerLayer';
 import styles from './SearchMapCanvas.module.css';
 
 const DEFAULT_JURISDICTION_CENTER: [number, number] = [126.7525, 35.1598];
@@ -16,18 +45,20 @@ const GWANGSAN_MANIFEST_URL = '/map-data/gwangsan/manifest.json';
 const MUDEUNGSAN_HIKING_TRAILS_URL = '/map-data/mudeungsan/trails.geojson';
 const MUDEUNGSAN_OSM_TRAILS_URL = '/map-data/mudeungsan/osm-trails.geojson';
 const MUDEUNGSAN_OSM_PEAKS_URL = '/map-data/mudeungsan/osm-peaks.geojson';
-const V_WORLD_TILE_SIZE = 256;
-const V_WORLD_MAX_ZOOM = 19;
-const V_WORLD_BASE_OPACITY = 1;
 const DEFAULT_FIT_PADDING = 44;
 const ENABLE_LOCAL_ROUTE_EDITOR = false;
 const ROUTE_EDITOR_SOURCE_ID = 'dev-route-editor-draft';
 const ROUTE_EDITOR_LINE_LAYER_ID = 'dev-route-editor-draft-line';
 const ROUTE_EDITOR_POINT_LAYER_ID = 'dev-route-editor-draft-point';
 const OVERALL_SEARCH_AREA_SOURCE_ID = 'operational-overall_search_area';
-const INITIAL_MARKER_SOURCE_ID = 'initial-reference-marker';
+const SEARCH_AREA_FILL_LAYER_ID = 'operational-overall_search_area-fill';
+const SEARCH_AREA_LINE_LAYER_ID = 'operational-overall_search_area-line';
+const MOVEMENT_PATH_SOURCE_ID = 'operational-movement-path';
+const MOVEMENT_PATH_COMPARE_LAYER_ID = 'operational-movement-path-compare';
+const MOVEMENT_PATH_VEHICLE_LAYER_ID = 'operational-movement-path-vehicle';
+const MOVEMENT_PATH_FOOT_LAYER_ID = 'operational-movement-path-foot';
+const MOVEMENT_PATH_UNKNOWN_LAYER_ID = 'operational-movement-path-unknown';
 const INITIAL_MAP_FALLBACK_ZOOM = 12;
-const MOCK_INITIAL_MAP_SOURCE = 'overall' as 'overall' | 'markers' | 'fallback';
 
 type GwangsanLayerId = 'boundary';
 
@@ -47,33 +78,11 @@ type GwangsanMapManifest = {
 };
 
 type Position = [number, number];
-type PolygonGeometry = { type: 'Polygon'; coordinates: Position[][] };
 type LineStringGeometry = { type: 'LineString'; coordinates: Position[] };
 type PointGeometry = { type: 'Point'; coordinates: Position };
-type OperationalGeometry = PolygonGeometry | LineStringGeometry | PointGeometry;
-type OperationalFeature = {
-  type: 'Feature';
-  properties: Record<string, string>;
-  geometry: OperationalGeometry;
-};
-type OperationalFeatureCollection = {
-  type: 'FeatureCollection';
-  features: OperationalFeature[];
-};
-type MarkerAnchorFeatureCollection = {
-  type: 'FeatureCollection';
-  features: Array<{
-    type: 'Feature';
-    properties: {
-      slot: 'marker';
-      entityId: string;
-      markerType: string;
-      source: string;
-      memo: string;
-    };
-    geometry: PointGeometry;
-  }>;
-};
+type OperationalGeometry = BoardMapGeometry;
+type OperationalFeature = BoardMapFeature;
+type OperationalFeatureCollection = BoardMapFeatureCollection;
 type RouteEditorFeatureCollection = {
   type: 'FeatureCollection';
   features: Array<
@@ -91,130 +100,29 @@ type RouteEditorFeatureCollection = {
 };
 type InitialMapResolution =
   | { state: 'overall-ready'; bounds: LngLatBoundsLike; overallSearchArea: OperationalFeatureCollection }
-  | { state: 'overall-required'; bounds: LngLatBoundsLike; markers: MarkerAnchorFeatureCollection }
-  | { state: 'fallback'; bounds: LngLatBoundsLike | null; markers: MarkerAnchorFeatureCollection };
+  | { state: 'fallback'; bounds: LngLatBoundsLike | null };
 
 export type InitialMapState = InitialMapResolution['state'];
 
-function toPolygonFeature(area: (typeof searchAreaResponses)[number]): OperationalFeature {
-  const visualStyle = areaColorTokens[area.colorToken];
-  const lineWidth = area.areaLevel === 'OVERALL' ? 3 : area.areaLevel === 'UNIT' ? 2.6 : 2.2;
-  const lineOpacity = area.status === 'COMPLETED' ? 0.62 : 0.96;
-  const optionalProperties = {
-    ...('opId' in area ? { opId: area.opId } : {}),
-    ...('parentSearchAreaId' in area ? { parentSearchAreaId: area.parentSearchAreaId } : {}),
-  };
-
-  return {
-    type: 'Feature',
-    properties: {
-      slot: area.areaLevel === 'OVERALL' ? 'overall_search_area' : 'area',
-      entityId: area.id,
-      areaLevel: area.areaLevel,
-      status: area.status,
-      incidentId: area.incidentId,
-      version: String(area.version),
-      fillColor: visualStyle.fillColor,
-      lineColor: visualStyle.lineColor,
-      fillOpacity: String(visualStyle.fillOpacity),
-      lineWidth: String(lineWidth),
-      lineOpacity: String(lineOpacity),
-      ...optionalProperties,
-      ...(area.historyCount ? { historyCount: String(area.historyCount) } : {}),
-    },
-    geometry: {
-      type: 'Polygon',
-      coordinates: area.geometry.coordinates.map((ring) => ring.map((coordinate) => [coordinate[0], coordinate[1]])),
-    },
-  };
-}
-
-function toSavedAreaDraftFeature(draft: CompletedAreaDraft): OperationalFeature {
-  const visualStyle = areaColorTokens[draft.colorToken];
-  return {
-    type: 'Feature',
-    properties: {
-      slot: draft.kind === 'overall' ? 'overall_search_area' : 'area',
-      entityId: draft.areaId,
-      areaLevel: draft.kind.toUpperCase(),
-      status: 'ACTIVE',
-      incidentId: 'incident-gwangsan-001',
-      version: '1',
-      fillColor: visualStyle.fillColor,
-      lineColor: visualStyle.lineColor,
-      fillOpacity: String(Math.max(visualStyle.fillOpacity, 0.18)),
-      lineWidth: String(draft.kind === 'overall' ? 3 : draft.kind === 'unit' ? 2.6 : 2.2),
-      lineOpacity: '0.98',
-    },
-    geometry: {
-      type: 'Polygon',
-      coordinates: [draft.coordinates],
-    },
-  };
-}
-
-function buildSearchAreaFeatureCollection(savedAreaDrafts: CompletedAreaDraft[]): OperationalFeatureCollection {
-  return {
-    type: 'FeatureCollection',
-    features: savedAreaDrafts.map(toSavedAreaDraftFeature),
-  };
-}
-
-const selectedIncidentOverallSearchArea: OperationalFeatureCollection = {
-  type: 'FeatureCollection',
-  features:
-    MOCK_INITIAL_MAP_SOURCE === 'overall'
-      ? searchAreaResponses.filter((area) => area.areaLevel === 'OVERALL' && area.status === 'ACTIVE').map(toPolygonFeature)
-      : [],
+export type LayerVisibility = {
+  vehiclePath: boolean;
+  footPath: boolean;
+  searchArea: boolean;
+  marker: boolean;
 };
 
-const initialReferenceMarkers: MarkerAnchorFeatureCollection = {
-  type: 'FeatureCollection',
-  features:
-    MOCK_INITIAL_MAP_SOURCE === 'fallback'
-      ? []
-      : initialReferenceMarkerResponses
-          .filter((marker) => marker.status === 'ACTIVE' || marker.status === 'UPDATED')
-          .map((marker) => ({
-            type: 'Feature',
-            properties: {
-              slot: 'marker',
-              entityId: marker.id,
-              markerType: marker.type,
-              source: marker.source,
-              memo: marker.memo ?? '',
-            },
-            geometry: {
-              type: 'Point',
-              coordinates: [marker.location.coordinates[0], marker.location.coordinates[1]],
-            },
-          })),
-};
-
-function createVWorldBaseStyle(apiKey: string): StyleSpecification {
-  return {
-    version: 8,
-    glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
-    sources: {
-      'vworld-base-raster': {
-        type: 'raster',
-        tiles: [`https://api.vworld.kr/req/wmts/1.0.0/${apiKey}/Base/{z}/{y}/{x}.png`],
-        tileSize: V_WORLD_TILE_SIZE,
-        maxzoom: V_WORLD_MAX_ZOOM,
-        attribution: 'VWorld',
-      },
-    },
-    layers: [
-      {
-        id: 'vworld-base-raster',
-        type: 'raster',
-        source: 'vworld-base-raster',
-        paint: {
-          'raster-opacity': V_WORLD_BASE_OPACITY,
-        },
-      },
-    ],
-  };
+function createOperationalFeatureCollectionSignature(collection: OperationalFeatureCollection): string {
+  return collection.features
+    .map((feature) =>
+      [
+        feature.properties.entityId,
+        feature.properties.areaLevel ?? '',
+        feature.properties.status ?? '',
+        feature.properties.version ?? '',
+        JSON.stringify(feature.geometry.coordinates),
+      ].join('|'),
+    )
+    .join(';');
 }
 
 function toBounds(bbox: [number, number, number, number]): LngLatBoundsLike {
@@ -235,7 +143,7 @@ function extendBounds(bounds: maplibregl.LngLatBounds, coordinates: unknown): vo
   coordinates.forEach((item) => extendBounds(bounds, item));
 }
 
-function getFeatureCollectionBounds(collection: OperationalFeatureCollection | MarkerAnchorFeatureCollection): LngLatBoundsLike | null {
+function getFeatureCollectionBounds(collection: OperationalFeatureCollection): LngLatBoundsLike | null {
   const bounds = new maplibregl.LngLatBounds();
   collection.features.forEach((feature) => extendBounds(bounds, feature.geometry.coordinates));
   return bounds.isEmpty() ? null : bounds;
@@ -244,7 +152,7 @@ function getFeatureCollectionBounds(collection: OperationalFeatureCollection | M
 function addGeoJsonSource(
   map: maplibregl.Map,
   sourceId: string,
-  data: string | OperationalFeatureCollection | MarkerAnchorFeatureCollection | RouteEditorFeatureCollection,
+  data: string | OperationalFeatureCollection | RouteEditorFeatureCollection,
 ) {
   if (map.getSource(sourceId)) {
     return;
@@ -264,29 +172,39 @@ function setOperationalGeoJsonSourceData(map: maplibregl.Map, sourceId: string, 
   (source as GeoJSONSource).setData(data);
 }
 
-function resolveInitialMapView(fallbackBounds: LngLatBoundsLike | null): InitialMapResolution {
-  const overallSearchAreaBounds = getFeatureCollectionBounds(selectedIncidentOverallSearchArea);
+function getAssignedSearchAreaBounds(searchAreas: OperationalFeatureCollection): LngLatBoundsLike | null {
+  const overallSearchAreas: OperationalFeatureCollection = {
+    type: 'FeatureCollection',
+    features: searchAreas.features.filter((feature) => feature.geometry.type === 'Polygon' && feature.properties.areaLevel === 'OVERALL'),
+  };
+  const overallSearchAreaBounds = getFeatureCollectionBounds(overallSearchAreas);
   if (overallSearchAreaBounds) {
-    return {
-      state: 'overall-ready',
-      bounds: overallSearchAreaBounds,
-      overallSearchArea: selectedIncidentOverallSearchArea,
-    };
+    return overallSearchAreaBounds;
   }
 
-  const markerBounds = getFeatureCollectionBounds(initialReferenceMarkers);
-  if (markerBounds) {
+  const availableSearchAreas: OperationalFeatureCollection = {
+    type: 'FeatureCollection',
+    features: searchAreas.features.filter((feature) => feature.geometry.type === 'Polygon'),
+  };
+  return getFeatureCollectionBounds(availableSearchAreas);
+}
+
+function resolveInitialMapView(
+  fallbackBounds: LngLatBoundsLike | null,
+  assignedSearchAreas: OperationalFeatureCollection,
+): InitialMapResolution {
+  const assignedSearchAreaBounds = getAssignedSearchAreaBounds(assignedSearchAreas);
+  if (assignedSearchAreaBounds) {
     return {
-      state: 'overall-required',
-      bounds: markerBounds,
-      markers: initialReferenceMarkers,
+      state: 'overall-ready',
+      bounds: assignedSearchAreaBounds,
+      overallSearchArea: assignedSearchAreas,
     };
   }
 
   return {
     state: 'fallback',
     bounds: fallbackBounds,
-    markers: initialReferenceMarkers,
   };
 }
 
@@ -367,10 +285,10 @@ function syncRouteEditorDraft(map: maplibregl.Map, coordinates: Position[]) {
 }
 
 function applyBaseRasterOpacity(map: maplibregl.Map) {
-  if (!map.getLayer('vworld-base-raster')) {
+  if (!map.getLayer(V_WORLD_BASE_LAYER_ID)) {
     return;
   }
-  map.setPaintProperty('vworld-base-raster', 'raster-opacity', V_WORLD_BASE_OPACITY);
+  map.setPaintProperty(V_WORLD_BASE_LAYER_ID, 'raster-opacity', V_WORLD_BASE_OPACITY);
 }
 
 function syncBaseMapOpacity(map: maplibregl.Map) {
@@ -381,7 +299,7 @@ function addOverallSearchAreaLayer(map: maplibregl.Map, overallSearchArea: Opera
   addGeoJsonSource(map, OVERALL_SEARCH_AREA_SOURCE_ID, overallSearchArea);
 
   addLayer(map, {
-    id: 'operational-overall_search_area-fill',
+    id: SEARCH_AREA_FILL_LAYER_ID,
     type: 'fill',
     source: OVERALL_SEARCH_AREA_SOURCE_ID,
     paint: {
@@ -390,7 +308,7 @@ function addOverallSearchAreaLayer(map: maplibregl.Map, overallSearchArea: Opera
     },
   });
   addLayer(map, {
-    id: 'operational-overall_search_area-line',
+    id: SEARCH_AREA_LINE_LAYER_ID,
     type: 'line',
     source: OVERALL_SEARCH_AREA_SOURCE_ID,
     paint: {
@@ -402,20 +320,107 @@ function addOverallSearchAreaLayer(map: maplibregl.Map, overallSearchArea: Opera
   });
 }
 
-function addInitialReferenceMarkerLayer(map: maplibregl.Map, markers: MarkerAnchorFeatureCollection) {
-  addGeoJsonSource(map, INITIAL_MARKER_SOURCE_ID, markers);
+function addMovementPathLayers(map: maplibregl.Map, movementPaths: OperationalFeatureCollection) {
+  addGeoJsonSource(map, MOVEMENT_PATH_SOURCE_ID, movementPaths);
 
   addLayer(map, {
-    id: 'initial-reference-marker-circle',
-    type: 'circle',
-    source: INITIAL_MARKER_SOURCE_ID,
+    id: MOVEMENT_PATH_COMPARE_LAYER_ID,
+    type: 'line',
+    source: MOVEMENT_PATH_SOURCE_ID,
+    filter: ['all', ['has', 'deviceColor'], ['!=', ['get', 'deviceColor'], ''], ['!=', ['get', 'isActiveOp'], 'true']],
     paint: {
-      'circle-color': ['match', ['get', 'markerType'], 'CLUE', '#6741d9', 'NOTE', '#1c7ed6', '#495057'],
-      'circle-radius': 9,
-      'circle-stroke-color': '#ffffff',
-      'circle-stroke-width': 3,
+      'line-color': ['get', 'deviceColor'],
+      'line-width': 2.8,
+      'line-opacity': 0.62,
+      'line-dasharray': [1.2, 1.1],
     },
   });
+  addLayer(map, {
+    id: MOVEMENT_PATH_VEHICLE_LAYER_ID,
+    type: 'line',
+    source: MOVEMENT_PATH_SOURCE_ID,
+    filter: [
+      'all',
+      ['has', 'deviceColor'],
+      ['!=', ['get', 'deviceColor'], ''],
+      ['==', ['get', 'isActiveOp'], 'true'],
+      ['==', ['get', 'movementType'], 'VEHICLE'],
+    ],
+    paint: {
+      'line-color': ['get', 'deviceColor'],
+      'line-width': 4.2,
+      'line-opacity': 0.88,
+    },
+  });
+  addLayer(map, {
+    id: MOVEMENT_PATH_FOOT_LAYER_ID,
+    type: 'line',
+    source: MOVEMENT_PATH_SOURCE_ID,
+    filter: [
+      'all',
+      ['has', 'deviceColor'],
+      ['!=', ['get', 'deviceColor'], ''],
+      ['==', ['get', 'isActiveOp'], 'true'],
+      ['==', ['get', 'movementType'], 'FOOT'],
+    ],
+    paint: {
+      'line-color': ['get', 'deviceColor'],
+      'line-width': 3.2,
+      'line-opacity': 0.9,
+      'line-dasharray': [1.1, 0.85],
+    },
+  });
+  addLayer(map, {
+    id: MOVEMENT_PATH_UNKNOWN_LAYER_ID,
+    type: 'line',
+    source: MOVEMENT_PATH_SOURCE_ID,
+    filter: [
+      'all',
+      ['has', 'deviceColor'],
+      ['!=', ['get', 'deviceColor'], ''],
+      ['==', ['get', 'isActiveOp'], 'true'],
+      ['==', ['get', 'movementType'], 'UNKNOWN'],
+    ],
+    paint: {
+      'line-color': ['get', 'deviceColor'],
+      'line-width': 3,
+      'line-opacity': 0.78,
+      'line-dasharray': [0.7, 1],
+    },
+  });
+}
+
+function syncSelectedSearchArea(map: maplibregl.Map, selectedSearchAreaId: string | null) {
+  if (!map.getLayer(SEARCH_AREA_FILL_LAYER_ID) || !map.getLayer(SEARCH_AREA_LINE_LAYER_ID)) {
+    return;
+  }
+
+  const selectedFilter = selectedSearchAreaId ? ['==', ['get', 'entityId'], selectedSearchAreaId] : false;
+  map.setPaintProperty(SEARCH_AREA_FILL_LAYER_ID, 'fill-opacity', ['case', selectedFilter, 0.28, 0.12]);
+  map.setPaintProperty(SEARCH_AREA_LINE_LAYER_ID, 'line-width', [
+    'case',
+    selectedFilter,
+    ['+', ['to-number', ['get', 'lineWidth']], 1.4],
+    ['to-number', ['get', 'lineWidth']],
+  ]);
+  map.setPaintProperty(SEARCH_AREA_LINE_LAYER_ID, 'line-opacity', ['case', selectedFilter, 1, ['to-number', ['get', 'lineOpacity']]]);
+}
+
+function setLayerVisibility(map: maplibregl.Map, layerId: string, isVisible: boolean) {
+  if (!map.getLayer(layerId)) {
+    return;
+  }
+
+  map.setLayoutProperty(layerId, 'visibility', isVisible ? 'visible' : 'none');
+}
+
+function syncLayerVisibility(map: maplibregl.Map, layerVisibility: LayerVisibility) {
+  setLayerVisibility(map, SEARCH_AREA_FILL_LAYER_ID, layerVisibility.searchArea);
+  setLayerVisibility(map, SEARCH_AREA_LINE_LAYER_ID, layerVisibility.searchArea);
+  setLayerVisibility(map, MOVEMENT_PATH_VEHICLE_LAYER_ID, layerVisibility.vehiclePath);
+  setLayerVisibility(map, MOVEMENT_PATH_FOOT_LAYER_ID, layerVisibility.footPath);
+  setLayerVisibility(map, MOVEMENT_PATH_UNKNOWN_LAYER_ID, layerVisibility.vehiclePath || layerVisibility.footPath);
+  setLayerVisibility(map, MOVEMENT_PATH_COMPARE_LAYER_ID, layerVisibility.vehiclePath || layerVisibility.footPath);
 }
 
 function addMudeungsanHikingTrailLayers(map: maplibregl.Map) {
@@ -508,25 +513,201 @@ async function loadGwangsanManifest(): Promise<GwangsanMapManifest> {
 }
 
 type SearchMapCanvasProps = {
+  activeOperationalPeriodId: string | null;
+  incidentId: string;
+  layerVisibility: LayerVisibility;
+  movementPaths: MovementPath[];
+  recentMarkers: RecentMarker[];
+  visibleMarkerIds: string[];
   savedAreaDrafts: CompletedAreaDraft[];
   onInitialBoundsReady?: (bounds: LngLatBoundsLike | null) => void;
   onInitialMapStateReady?: (state: InitialMapResolution['state'] | null) => void;
   onMapReady?: (map: maplibregl.Map | null) => void;
+  areaEditMapProps?: AreaEditMapCanvasProps | null;
+  handoverMapProps?: HandoverComparisonMapProps | null;
   selectedSearchAreaId: string | null;
   onSelectSearchArea: (searchAreaId: string) => void;
 };
 
 export function SearchMapCanvas({
+  activeOperationalPeriodId,
+  incidentId,
+  layerVisibility,
+  movementPaths,
+  recentMarkers,
+  visibleMarkerIds,
   savedAreaDrafts,
   onInitialBoundsReady,
   onInitialMapStateReady,
   onMapReady,
+  areaEditMapProps,
+  handoverMapProps,
+  selectedSearchAreaId,
+  onSelectSearchArea,
 }: SearchMapCanvasProps) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const isRouteEditorEnabledRef = useRef(getIsRouteEditorEnabled());
+  const selectedSearchAreaIdRef = useRef(selectedSearchAreaId);
+  const areaEditMapPropsRef = useRef(areaEditMapProps);
+  const layerVisibilityRef = useRef(layerVisibility);
+  const recentMarkersRef = useRef(recentMarkers);
+  const markerInstancesRef = useRef<Map<string, MarkerInstance>>(new Map());
+  const hoverMarkerPopupRef = useRef<maplibregl.Popup | null>(null);
+  const selectedMarkerPopupRef = useRef<maplibregl.Popup | null>(null);
+  const onSelectSearchAreaRef = useRef(onSelectSearchArea);
   const [routeEditorCoordinates, setRouteEditorCoordinates] = useState<Position[]>([]);
+  const [mapInstance, setMapInstance] = useState<maplibregl.Map | null>(null);
+  const [hoveredMarkerId, setHoveredMarkerId] = useState<string | null>(null);
+  const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
   const isRouteEditorEnabled = isRouteEditorEnabledRef.current;
+  const assignedSearchAreas = useMemo(
+    () => createSearchAreaDraftFeatureCollection(savedAreaDrafts, { incidentId, includeSlot: true }),
+    [incidentId, savedAreaDrafts],
+  );
+  const movementPathFeatures = useMemo(
+    () => createMovementPathFeatureCollection(movementPaths, activeOperationalPeriodId, { includeLabel: true }),
+    [activeOperationalPeriodId, movementPaths],
+  );
+  const assignedSearchAreasSignature = useMemo(
+    () => createOperationalFeatureCollectionSignature(assignedSearchAreas),
+    [assignedSearchAreas],
+  );
+  const assignedSearchAreasRef = useRef(assignedSearchAreas);
+  const movementPathFeaturesRef = useRef(movementPathFeatures);
+  const fittedSearchAreasSignatureRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    assignedSearchAreasRef.current = assignedSearchAreas;
+  }, [assignedSearchAreas]);
+
+  useEffect(() => {
+    movementPathFeaturesRef.current = movementPathFeatures;
+  }, [movementPathFeatures]);
+
+  useEffect(() => {
+    selectedSearchAreaIdRef.current = selectedSearchAreaId;
+  }, [selectedSearchAreaId]);
+
+  useEffect(() => {
+    areaEditMapPropsRef.current = areaEditMapProps;
+  }, [areaEditMapProps]);
+
+  const handleHoverMarker = useCallback((markerId: string) => {
+    setHoveredMarkerId(markerId);
+  }, []);
+
+  const handleLeaveMarker = useCallback(() => {
+    setHoveredMarkerId(null);
+  }, []);
+
+  const handleSelectMarker = useCallback((markerId: string) => {
+    setSelectedMarkerId(markerId);
+    setHoveredMarkerId(null);
+  }, []);
+
+  const handleCloseSelectedMarker = useCallback(() => {
+    setSelectedMarkerId(null);
+  }, []);
+
+  const markerInteractionHandlers = useMemo<MarkerInteractionHandlers>(
+    () => ({
+      onHoverMarker: handleHoverMarker,
+      onLeaveMarker: handleLeaveMarker,
+      onSelectMarker: handleSelectMarker,
+      onCloseSelectedMarker: handleCloseSelectedMarker,
+    }),
+    [handleCloseSelectedMarker, handleHoverMarker, handleLeaveMarker, handleSelectMarker],
+  );
+
+  useEffect(() => {
+    layerVisibilityRef.current = layerVisibility;
+    const map = mapRef.current;
+    if (!map || !map.loaded()) {
+      return;
+    }
+
+    syncMarkerElements(
+      map,
+      recentMarkersRef.current,
+      visibleMarkerIds,
+      markerInstancesRef,
+      layerVisibility.marker,
+      markerInteractionHandlers,
+    );
+  }, [layerVisibility, markerInteractionHandlers, visibleMarkerIds]);
+
+  useEffect(() => {
+    recentMarkersRef.current = recentMarkers;
+    const map = mapRef.current;
+    if (!map || !map.loaded()) {
+      return;
+    }
+
+    syncMarkerElements(
+      map,
+      recentMarkers,
+      visibleMarkerIds,
+      markerInstancesRef,
+      layerVisibilityRef.current.marker,
+      markerInteractionHandlers,
+    );
+  }, [markerInteractionHandlers, recentMarkers, visibleMarkerIds]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.loaded() || !layerVisibility.marker) {
+      removeMarkerPopup(hoverMarkerPopupRef);
+      removeMarkerPopup(selectedMarkerPopupRef);
+      return;
+    }
+
+    syncMarkerPopups(
+      map,
+      recentMarkers,
+      hoveredMarkerId,
+      selectedMarkerId,
+      { hover: hoverMarkerPopupRef, selected: selectedMarkerPopupRef },
+      markerInteractionHandlers,
+    );
+  }, [hoveredMarkerId, layerVisibility.marker, markerInteractionHandlers, recentMarkers, selectedMarkerId]);
+
+  useEffect(() => {
+    const visibleMarkerIdSet = new Set(visibleMarkerIds);
+    setHoveredMarkerId((currentMarkerId) =>
+      currentMarkerId && visibleMarkerIdSet.has(currentMarkerId) ? currentMarkerId : null,
+    );
+    setSelectedMarkerId((currentMarkerId) =>
+      currentMarkerId && visibleMarkerIdSet.has(currentMarkerId) ? currentMarkerId : null,
+    );
+  }, [visibleMarkerIds]);
+
+  useEffect(() => {
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!selectedMarkerId) {
+        return;
+      }
+
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      const isInsidePopup = selectedMarkerPopupRef.current?.getElement().contains(target) ?? false;
+      if (!isInsidePopup) {
+        setSelectedMarkerId(null);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+    };
+  }, [selectedMarkerId]);
+
+  useEffect(() => {
+    onSelectSearchAreaRef.current = onSelectSearchArea;
+  }, [onSelectSearchArea]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -534,8 +715,49 @@ export function SearchMapCanvas({
       return;
     }
 
-    setOperationalGeoJsonSourceData(map, OVERALL_SEARCH_AREA_SOURCE_ID, buildSearchAreaFeatureCollection(savedAreaDrafts));
-  }, [savedAreaDrafts]);
+    setOperationalGeoJsonSourceData(map, MOVEMENT_PATH_SOURCE_ID, movementPathFeatures);
+  }, [movementPathFeatures]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.loaded()) {
+      return;
+    }
+
+    setOperationalGeoJsonSourceData(map, OVERALL_SEARCH_AREA_SOURCE_ID, assignedSearchAreas);
+    syncSelectedSearchArea(map, selectedSearchAreaIdRef.current);
+    const assignedSearchAreaBounds = getAssignedSearchAreaBounds(assignedSearchAreas);
+    if (!assignedSearchAreaBounds) {
+      onInitialBoundsReady?.(null);
+      onInitialMapStateReady?.(null);
+      return;
+    }
+
+    onInitialBoundsReady?.(assignedSearchAreaBounds);
+    onInitialMapStateReady?.('overall-ready');
+    if (fittedSearchAreasSignatureRef.current !== assignedSearchAreasSignature) {
+      fittedSearchAreasSignatureRef.current = assignedSearchAreasSignature;
+      map.fitBounds(assignedSearchAreaBounds, { padding: DEFAULT_FIT_PADDING, duration: 420, maxZoom: 15 });
+    }
+  }, [assignedSearchAreas, assignedSearchAreasSignature, onInitialBoundsReady, onInitialMapStateReady]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.loaded()) {
+      return;
+    }
+
+    syncSelectedSearchArea(map, selectedSearchAreaId);
+  }, [selectedSearchAreaId]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.loaded()) {
+      return;
+    }
+
+    syncLayerVisibility(map, layerVisibility);
+  }, [layerVisibility]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -603,10 +825,25 @@ export function SearchMapCanvas({
     });
 
     mapRef.current = map;
+    setMapInstance(map);
     onMapReady?.(map);
 
     const handleMapClick = (event: maplibregl.MapMouseEvent) => {
       if (!isRouteEditorEnabledRef.current) {
+        if (areaEditMapPropsRef.current || hasRenderedMarkerAtPoint(map, event.point)) {
+          return;
+        }
+
+        if (!map.getLayer(SEARCH_AREA_FILL_LAYER_ID) || !map.getLayer(SEARCH_AREA_LINE_LAYER_ID)) {
+          return;
+        }
+
+        const features = map.queryRenderedFeatures(event.point, { layers: [SEARCH_AREA_FILL_LAYER_ID, SEARCH_AREA_LINE_LAYER_ID] });
+        const searchAreaId = features.find((feature) => typeof feature.properties?.entityId === 'string')?.properties
+          ?.entityId;
+        if (typeof searchAreaId === 'string') {
+          onSelectSearchAreaRef.current(searchAreaId);
+        }
         return;
       }
 
@@ -619,7 +856,20 @@ export function SearchMapCanvas({
 
     map.once('load', () => {
       syncBaseMapOpacity(map);
-      addOverallSearchAreaLayer(map, buildSearchAreaFeatureCollection(savedAreaDrafts));
+      const currentAssignedSearchAreas = assignedSearchAreasRef.current;
+      const currentMovementPathFeatures = movementPathFeaturesRef.current;
+      addOverallSearchAreaLayer(map, currentAssignedSearchAreas);
+      addMovementPathLayers(map, currentMovementPathFeatures);
+      syncSelectedSearchArea(map, selectedSearchAreaIdRef.current);
+      syncLayerVisibility(map, layerVisibilityRef.current);
+      syncMarkerElements(
+        map,
+        recentMarkersRef.current,
+        visibleMarkerIds,
+        markerInstancesRef,
+        layerVisibilityRef.current.marker,
+        markerInteractionHandlers,
+      );
 
       void loadGwangsanManifest()
         .then((manifest) => {
@@ -630,15 +880,12 @@ export function SearchMapCanvas({
 
           const boundaryLayer = manifest.layers.find((layer) => layer.layerId === 'boundary');
           const fallbackBounds = boundaryLayer ? toBounds(boundaryLayer.bbox) : null;
-          const initialMapResolution = resolveInitialMapView(fallbackBounds);
-
-          if (initialMapResolution.state !== 'overall-ready') {
-            addInitialReferenceMarkerLayer(map, initialMapResolution.markers);
-          }
+          const initialMapResolution = resolveInitialMapView(fallbackBounds, assignedSearchAreasRef.current);
 
           onInitialBoundsReady?.(initialMapResolution.bounds);
           onInitialMapStateReady?.(initialMapResolution.state);
           if (initialMapResolution.bounds) {
+            fittedSearchAreasSignatureRef.current = createOperationalFeatureCollectionSignature(assignedSearchAreasRef.current);
             map.fitBounds(initialMapResolution.bounds, { padding: DEFAULT_FIT_PADDING, duration: 0, maxZoom: 15 });
           } else {
             map.setCenter(DEFAULT_JURISDICTION_CENTER);
@@ -652,21 +899,31 @@ export function SearchMapCanvas({
 
     return () => {
       map.off('click', handleMapClick);
+      clearMarkerElements(markerInstancesRef);
+      removeMarkerPopup(hoverMarkerPopupRef);
+      removeMarkerPopup(selectedMarkerPopupRef);
       mapRef.current = null;
+      setMapInstance(null);
       onInitialBoundsReady?.(null);
       onInitialMapStateReady?.(null);
       onMapReady?.(null);
       map.remove();
     };
-  }, [onInitialBoundsReady, onInitialMapStateReady, onMapReady, savedAreaDrafts]);
+  }, [onInitialBoundsReady, onInitialMapStateReady, onMapReady]);
 
   return (
     <div className={styles.surface} aria-label="Search map">
       <div ref={mapContainerRef} className={styles.canvas} />
-      {MOCK_INITIAL_MAP_SOURCE !== 'overall' ? (
+      {areaEditMapProps && mapInstance ? (
+        <AreaEditMapCanvas {...areaEditMapProps} externalMap={mapInstance} hideCanvas />
+      ) : null}
+      {handoverMapProps && mapInstance ? (
+        <HandoverComparisonMap {...handoverMapProps} externalMap={mapInstance} hideCanvas />
+      ) : null}
+      {false ? (
         <aside className={styles.initialMapNotice} aria-live="polite">
-          <strong>?꾩껜 ?섏깋 援ъ뿭 ?꾩슂</strong>
-          <span>珥덇린 湲곗? 留덉빱 ?먮뒗 愿??湲곕낯 ?꾩튂濡?吏?꾨? ?댁뿀?듬땲??</span>
+          <strong>전체 수색 구역 필요</strong>
+          <span>초기 기준 마커 또는 관할 기본 위치로 지도를 열었습니다.</span>
         </aside>
       ) : null}
       {isRouteEditorEnabled ? (

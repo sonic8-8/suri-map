@@ -3,26 +3,47 @@ import type maplibregl from 'maplibre-gl';
 import type { LngLatBoundsLike } from 'maplibre-gl';
 import { MapControls } from '../../../../../shared/ui';
 import type { CompletedAreaDraft } from '../../../../../shared/model/areaDraft';
+import type { LegendItem, MovementPath, RecentMarker } from '../../constants/mockSituationBoard';
 import { MapLegend } from './MapLegend';
-import { SearchMapCanvas, type InitialMapState } from './SearchMapCanvas';
+import { SearchMapCanvas, type InitialMapState, type LayerVisibility } from './SearchMapCanvas';
+import type { AreaEditMapCanvasProps } from '../../../../areaEdit/presentation/components/AreaEditMapCanvas';
+import type { HandoverComparisonMapProps } from '../../../../handover/presentation/components/HandoverComparisonMap';
 import styles from './DashboardMapShell.module.css';
 
 const INCIDENT_FIT_PADDING = 44;
 const INCIDENT_FIT_MAX_ZOOM = 15;
 
 type DashboardMapShellProps = {
+  activeOperationalPeriodId: string | null;
+  incidentId: string;
   isMapExpanded: boolean;
+  legendItems: LegendItem[];
+  layerVisibility: LayerVisibility;
+  movementPaths: MovementPath[];
+  recentMarkers: RecentMarker[];
+  visibleMarkerIds: string[];
   savedAreaDrafts: CompletedAreaDraft[];
   onInitialMapStateChange: (state: InitialMapState | null) => void;
+  areaEditMapProps?: AreaEditMapCanvasProps | null;
+  handoverMapProps?: HandoverComparisonMapProps | null;
   onToggleMapExpanded: () => void;
   selectedSearchAreaId: string | null;
   onSelectSearchArea: (searchAreaId: string) => void;
 };
 
 export function DashboardMapShell({
+  activeOperationalPeriodId,
+  incidentId,
   isMapExpanded,
+  legendItems,
+  layerVisibility,
+  movementPaths,
+  recentMarkers,
+  visibleMarkerIds,
   savedAreaDrafts,
   onInitialMapStateChange,
+  areaEditMapProps,
+  handoverMapProps,
   onSelectSearchArea,
   onToggleMapExpanded,
   selectedSearchAreaId,
@@ -87,14 +108,22 @@ export function DashboardMapShell({
           onZoomOut={handleZoomOut}
         />
         <SearchMapCanvas
+          activeOperationalPeriodId={activeOperationalPeriodId}
+          incidentId={incidentId}
+          layerVisibility={layerVisibility}
+          movementPaths={movementPaths}
+          recentMarkers={recentMarkers}
+          visibleMarkerIds={visibleMarkerIds}
           savedAreaDrafts={savedAreaDrafts}
           onInitialBoundsReady={handleInitialBoundsReady}
           onInitialMapStateReady={onInitialMapStateChange}
           onMapReady={handleMapReady}
+          areaEditMapProps={areaEditMapProps}
+          handoverMapProps={handoverMapProps}
           selectedSearchAreaId={selectedSearchAreaId}
           onSelectSearchArea={onSelectSearchArea}
         />
-        <MapLegend />
+        <MapLegend legendItems={legendItems} />
       </div>
     </div>
   );

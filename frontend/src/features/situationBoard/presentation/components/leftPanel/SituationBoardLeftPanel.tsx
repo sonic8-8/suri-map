@@ -5,21 +5,47 @@ import { OperationalPeriodSelector } from './OperationalPeriodSelector';
 import { RecentMarkerList } from './RecentMarkerList';
 import { SearchAreaTree } from './SearchAreaTree';
 import { ViewModeSwitch } from './ViewModeSwitch';
+import type { CompletedAreaDraft } from '../../../../../shared/model/areaDraft';
+import type {
+  LayerFilterId,
+  MarkerTypeId,
+  RecentMarker,
+  SituationBoardFallbackData,
+  SupportRequestTypeId,
+} from '../../constants/mockSituationBoard';
 import styles from './SituationBoardLeftPanel.module.css';
 
 type SituationBoardLeftPanelProps = {
+  board: SituationBoardFallbackData;
   hasActiveOverallSearchArea: boolean;
   isCollapsed: boolean;
+  savedAreaDrafts: CompletedAreaDraft[];
+  recentMarkers: RecentMarker[];
+  selectedLayerIds: LayerFilterId[];
+  selectedMarkerType: MarkerTypeId | null;
+  selectedSupportRequestType: SupportRequestTypeId | null;
   onToggleCollapsed: () => void;
+  onToggleLayer: (layerId: LayerFilterId) => void;
+  onToggleMarkerType: (markerType: MarkerTypeId, supportRequestType?: SupportRequestTypeId) => void;
   onSelectSearchArea: (searchAreaId: string) => void;
+  onOpenAreaEdit: () => void;
 };
 
 // 좌측 패널은 OP, 레이어, 마커, 보기 모드를 한 덩어리로 묶어 보여준다.
 export function SituationBoardLeftPanel({
+  board,
   hasActiveOverallSearchArea,
   isCollapsed,
+  savedAreaDrafts,
+  recentMarkers,
+  selectedLayerIds,
+  selectedMarkerType,
+  selectedSupportRequestType,
   onToggleCollapsed,
+  onToggleLayer,
+  onToggleMarkerType,
   onSelectSearchArea,
+  onOpenAreaEdit,
 }: SituationBoardLeftPanelProps) {
   const { activePage, getIndexTabAriaLabel, handleIndexTabClick } = useLeftPanelPages({
     isCollapsed,
@@ -77,20 +103,44 @@ export function SituationBoardLeftPanel({
       <div className={styles.content}>
         <div className={styles.page} hidden={activePage !== 'filter'}>
           <div className={styles.scroll}>
-            <OperationalPeriodSelector />
-            <LayerTogglePanel />
-            <MarkerTypeFilter />
+            <OperationalPeriodSelector operationalPeriods={board.operationalPeriods} />
+            <LayerTogglePanel
+              layerOptions={board.layerOptions}
+              selectedLayerIds={selectedLayerIds}
+              onToggleLayer={onToggleLayer}
+            />
+            <MarkerTypeFilter
+              markerTypes={board.markerTypes}
+              supportMarkerTypes={board.supportMarkerTypes}
+              selectedMarkerType={selectedMarkerType}
+              selectedSupportRequestType={selectedSupportRequestType}
+              onToggleMarkerType={onToggleMarkerType}
+            />
             <ViewModeSwitch />
           </div>
         </div>
         <div className={styles.page} hidden={activePage !== 'area'}>
           <div className={styles.scroll}>
-            <SearchAreaTree hasActiveOverallSearchArea={hasActiveOverallSearchArea} onSelectSearchArea={onSelectSearchArea} />
+            <section className={styles.areaModePanel} aria-label="구역 작업">
+              <div>
+                <strong>구역</strong>
+                <span>조회와 분할 작업을 같은 상황판에서 처리합니다.</span>
+              </div>
+              <button type="button" className={styles.areaModeButton} onClick={onOpenAreaEdit}>
+                구역 분할
+              </button>
+            </section>
+            <SearchAreaTree
+              hasActiveOverallSearchArea={hasActiveOverallSearchArea}
+              savedAreaDrafts={savedAreaDrafts}
+              searchAreaTree={board.searchAreaTree}
+              onSelectSearchArea={onSelectSearchArea}
+            />
           </div>
         </div>
         <div className={styles.page} hidden={activePage !== 'marker'}>
           <div className={styles.scroll}>
-            <RecentMarkerList />
+            <RecentMarkerList recentMarkers={recentMarkers} />
           </div>
         </div>
       </div>

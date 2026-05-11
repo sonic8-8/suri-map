@@ -1,0 +1,39 @@
+import { apiRequest } from '../../../shared/api/client';
+
+export type IncidentDetailMissingPersonDto = {
+  incidentId: string;
+  displayName: string | null;
+  photoObjectKey: string | null;
+  appearanceText: string | null;
+  lastSeenLocationText: string | null;
+  lastSeenAt: string | null;
+};
+
+export type IncidentAssignmentDto = {
+  accountId: string;
+  incidentRole: string;
+};
+
+export type ActiveIncidentDetailDto = {
+  id: string;
+  incidentId: string;
+  status: 'OPEN' | string;
+  version: number;
+  missingPerson: IncidentDetailMissingPersonDto | null;
+  assignments: IncidentAssignmentDto[];
+};
+
+export type TerminalIncidentDetailDto = {
+  id: string;
+  incidentId: string;
+  status: 'CLOSED' | string;
+  version: number;
+  closedAt: string;
+  writeDisabledReason: string;
+};
+
+export type IncidentDetailDto = ActiveIncidentDetailDto | TerminalIncidentDetailDto;
+
+export function getIncidentDetail(incidentId: string) {
+  return apiRequest<IncidentDetailDto>(`/incidents/${encodeURIComponent(incidentId)}`);
+}

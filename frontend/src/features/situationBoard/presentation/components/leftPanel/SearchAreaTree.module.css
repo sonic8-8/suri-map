@@ -92,6 +92,24 @@
   white-space: nowrap;
 }
 
+.badgeColumn {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  min-width: max-content;
+}
+
+.assignmentNames {
+  overflow: hidden;
+  padding-left: 15px;
+  color: var(--suri-board-fg-secondary);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .stateActive {
   border-color: var(--suri-board-success);
   color: var(--suri-board-success);
@@ -102,6 +120,12 @@
   border-color: color-mix(in srgb, var(--suri-board-fg-muted) 76%, var(--suri-board-border));
   color: var(--suri-board-fg-secondary);
   background: var(--area-tree-completed-bg);
+}
+
+.stateRequired {
+  border-color: color-mix(in srgb, #d97706 72%, var(--suri-board-border));
+  color: #b45309;
+  background: color-mix(in srgb, #f59e0b 14%, var(--suri-board-panel-bg));
 }
 
 /* UNIT 노드를 루트 아래에 들여쓰기해서 계층을 보여준다. */

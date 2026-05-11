@@ -112,6 +112,281 @@
   background: #edf6f8;
 }
 
+.markerDefaultRoot {
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.markerDefaultRoot > svg {
+  filter: drop-shadow(0 6px 12px rgba(15, 23, 42, 0.28));
+}
+
+.markerDefaultIcon {
+  position: absolute;
+  top: 7px;
+  left: 50%;
+  z-index: 1;
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  color: #ffffff;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.markerDefaultIcon svg {
+  display: block;
+  width: 17px;
+  height: 17px;
+  color: inherit;
+  fill: none;
+  stroke: currentColor;
+}
+
+.markerRoot {
+  position: relative;
+  display: block;
+  width: 30px;
+  height: 39px;
+  contain: layout;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.markerBalloon {
+  --marker-color: #334155;
+
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  box-sizing: border-box;
+  padding: 0;
+  appearance: none;
+  border: 1px solid rgba(15, 23, 42, 0.18);
+  border-radius: 999px;
+  background: var(--marker-color);
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.24);
+  color: #ffffff;
+  font: 800 11px/1 Pretendard, system-ui, sans-serif;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.markerBalloon::after {
+  position: absolute;
+  left: 50%;
+  bottom: -8px;
+  width: 11px;
+  height: 11px;
+  border-right: 1px solid rgba(15, 23, 42, 0.18);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.18);
+  background: var(--marker-color);
+  content: '';
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.markerBalloonIcon {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  background: transparent;
+  color: #ffffff;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.markerBalloonIcon svg {
+  display: block;
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+  stroke: currentColor;
+  color: #ffffff;
+}
+
+.markerBalloonClue {
+  --marker-color: #ffb020;
+}
+
+.markerBalloonFound {
+  --marker-color: #d63a3a;
+}
+
+.markerBalloonField {
+  --marker-color: #64748b;
+}
+
+.markerBalloonSupport {
+  --marker-color: #a855f7;
+}
+
+.markerBalloonNote {
+  --marker-color: #3b82f6;
+}
+
+.markerBalloonUnknown {
+  --marker-color: #334155;
+}
+
+.markerMapTooltip :global(.maplibregl-popup-content),
+.markerMapPopup :global(.maplibregl-popup-content) {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.markerMapTooltip :global(.maplibregl-popup-tip),
+.markerMapPopup :global(.maplibregl-popup-tip) {
+  border-top-color: #ffffff;
+}
+
+.markerTooltip,
+.markerPopup {
+  color: #172033;
+  pointer-events: auto;
+}
+
+.markerTooltip {
+  display: grid;
+  gap: 2px;
+  width: max-content;
+  max-width: 210px;
+  padding: 7px 9px;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.18);
+  font-size: 11px;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.markerTooltipType {
+  color: #526071;
+  font-weight: 800;
+}
+
+.markerTooltipTitle {
+  overflow: hidden;
+  max-width: 190px;
+  color: #172033;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.markerTooltipMeta {
+  color: #64748b;
+  font-weight: 700;
+}
+
+.markerPopup {
+  display: grid;
+  gap: 9px;
+  width: 260px;
+  max-width: min(260px, calc(100vw - 32px));
+  padding: 11px;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  border-radius: 7px;
+  background: #ffffff;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.22);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.markerPopupHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.markerPopupTitleGroup {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.markerPopupType {
+  color: #526071;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.markerPopupTitle {
+  overflow-wrap: anywhere;
+  color: #172033;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.markerPopupMeta {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.markerPopupClose {
+  display: grid;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.markerPopupClose:hover {
+  background: #eaf3f5;
+}
+
+.markerPopupBody {
+  margin: 0;
+  color: #334155;
+  overflow-wrap: anywhere;
+}
+
+.markerPopupDetail {
+  display: grid;
+  gap: 5px;
+  padding-top: 7px;
+  border-top: 1px solid rgba(15, 23, 42, 0.1);
+}
+
+.markerPopupRow {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.markerPopupRowLabel {
+  color: #64748b;
+  font-weight: 800;
+}
+
+.markerPopupRowValue {
+  min-width: 0;
+  color: #172033;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 860px) {
   /* 모바일 폭에서는 지도 표면이 너무 낮아지지 않도록 최소 높이를 둔다. */
   .surface {

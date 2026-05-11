@@ -1,7 +1,11 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { ChevronDown } from 'lucide-react';
-import { legendItems } from '../../constants/mockSituationBoard';
+import type { LegendItem } from '../../constants/mockSituationBoard';
 import styles from './MapLegend.module.css';
+
+type MapLegendProps = {
+  legendItems: LegendItem[];
+};
 
 const legendSwatchClassNames: Record<string, string> = {
   'legend-swatch area-overall': `${styles.swatch} ${styles.areaOverall}`,
@@ -24,7 +28,21 @@ const legendSwatchClassNames: Record<string, string> = {
   'legend-swatch marker-note': `${styles.swatch} ${styles.markerNote}`,
 };
 
-export function MapLegend() {
+type LegendSwatchStyle = CSSProperties & {
+  '--legend-device-route-color'?: string;
+};
+
+function getLegendSwatchClassName(item: LegendItem) {
+  if (!item.color) return legendSwatchClassNames[item.className] ?? styles.swatch;
+
+  return `${styles.swatch} ${styles.deviceRoute}${item.lineStyle === 'dashed' ? ` ${styles.deviceRouteDashed}` : ''}`;
+}
+
+function getLegendSwatchStyle(item: LegendItem): LegendSwatchStyle | undefined {
+  return item.color ? { '--legend-device-route-color': item.color } : undefined;
+}
+
+export function MapLegend({ legendItems }: MapLegendProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const handleToggleCollapsed = () => {
@@ -47,7 +65,7 @@ export function MapLegend() {
         <div id="map-legend-list" className={styles.list}>
           {legendItems.map((item) => (
             <div key={item.label} className={styles.row}>
-              <span className={legendSwatchClassNames[item.className] ?? styles.swatch} aria-hidden="true" />
+              <span className={getLegendSwatchClassName(item)} style={getLegendSwatchStyle(item)} aria-hidden="true" />
               <span>{item.label}</span>
             </div>
           ))}

@@ -259,3 +259,97 @@ button {
   min-height: 0;
   overflow: hidden;
 }
+
+.overall-search-area-modal-overlay {
+  position: fixed;
+  z-index: 90;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(4 13 24 / 62%);
+}
+
+.overall-search-area-modal {
+  display: grid;
+  gap: 14px;
+  width: min(460px, 100%);
+  padding: 22px;
+  border: 1px solid color-mix(in srgb, var(--suri-board-primary-hi) 32%, var(--suri-board-border));
+  border-radius: 8px;
+  color: var(--suri-board-fg-primary);
+  background: var(--suri-board-panel-surface);
+  box-shadow: 0 24px 60px rgb(0 0 0 / 34%);
+}
+
+.overall-search-area-modal h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1.25;
+}
+
+.overall-search-area-modal p {
+  margin: 0;
+  color: var(--suri-board-fg-secondary);
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.5;
+}
+
+.overall-search-area-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.overall-search-area-modal-primary,
+.overall-search-area-modal-secondary {
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.overall-search-area-modal-primary {
+  border: 1px solid #4f7198;
+  color: #ffffff;
+  background: linear-gradient(180deg, #37628e 0%, #2b537c 56%, #21466d 100%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 18%);
+}
+
+.overall-search-area-modal-primary:hover {
+  border-color: #6687ad;
+  background: linear-gradient(180deg, #426f9d 0%, #335f8b 56%, #28517b 100%);
+}
+
+.overall-search-area-modal-secondary {
+  border: 1px solid var(--suri-board-border);
+  color: var(--suri-board-fg-primary);
+  background: var(--suri-board-panel-elevated);
+}
+
+.overall-search-area-modal-secondary:hover {
+  border-color: var(--suri-board-primary-hi);
+  background: color-mix(in srgb, var(--suri-board-primary-hi) 10%, var(--suri-board-panel-elevated));
+}
+
+.overall-search-area-modal-primary:focus-visible,
+.overall-search-area-modal-secondary:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--suri-board-primary-hi) 64%, transparent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 560px) {
+  .overall-search-area-modal-actions {
+    flex-direction: column-reverse;
+  }
+
+  .overall-search-area-modal-primary,
+  .overall-search-area-modal-secondary {
+    width: 100%;
+  }
+}

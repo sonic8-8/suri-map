@@ -156,6 +156,21 @@
   opacity: 0.7;
 }
 
+.deviceRoute {
+  height: 4px;
+  border: 0;
+  background: var(--legend-device-route-color);
+}
+
+.deviceRouteDashed {
+  background:
+    repeating-linear-gradient(
+      90deg,
+      var(--legend-device-route-color) 0 4px,
+      transparent 4px 7px
+    );
+}
+
 /* 운용 중인 폴리폰의 강조 선 표시. */
 .deviceActive {
   height: 6px;
