@@ -3,6 +3,7 @@ package com.surimap.board;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.RequireChannel;
 import com.surimap.common.auth.RequireIncidentAccess;
+import com.surimap.retention.purge.RecordLocationAccess;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
@@ -25,6 +26,7 @@ public class IncidentBoardController {
   @GetMapping
   @RequireChannel({Channel.WEB})
   @RequireIncidentAccess
+  @RecordLocationAccess(accessPurpose = "BOARD_VIEW")
   public ResponseEntity<IncidentBoardResponse> getBoard(
       @PathVariable UUID incidentId,
       @RequestParam(value = "opIds", required = false) List<UUID> opIds,
