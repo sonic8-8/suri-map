@@ -76,9 +76,9 @@ export interface ApiClient {
     body: TBody,
     options?: Omit<ApiRequestOptions<TBody>, 'method' | 'body'>,
   ): Promise<TResponse>;
-  delete<TResponse>(
+  delete<TResponse, TBody = unknown>(
     path: string,
-    options?: Omit<ApiRequestOptions, 'method' | 'body'>,
+    options?: Omit<ApiRequestOptions<TBody>, 'method'>,
   ): Promise<TResponse>;
 }
 

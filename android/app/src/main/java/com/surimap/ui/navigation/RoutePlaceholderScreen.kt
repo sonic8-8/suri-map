@@ -22,31 +22,6 @@ import com.surimap.ui.theme.PoliDimens
 import com.surimap.ui.theme.PoliFgMuted
 
 @Composable
-fun OfflinePackageRouteScreen(
-    onBack: () -> Unit,
-    onOpenSearchMap: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    PlaceholderScaffold(
-        title = "오프라인 패키지",
-        subtitle = "사건 #1234 · manifest rev 17",
-        onBack = onBack,
-        modifier = modifier
-    ) {
-        PoliCard(strong = true) {
-            Text(text = "패키지 준비됨", style = MaterialTheme.typography.titleMedium)
-            Text(
-                text = "사건 메타, 실종자, OP, 구역, 마커, 전체 수색 구역, 타일 mock state를 적재한 상태입니다.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = PoliFgMuted
-            )
-            PoliChip(text = "100%", variant = PoliChipVariant.Good)
-        }
-        PoliButton(text = "수색 지도 열기", onClick = onOpenSearchMap, modifier = Modifier.fillMaxWidth())
-    }
-}
-
-@Composable
 fun SearchMapRouteScreen(
     onBack: () -> Unit,
     onOpenHandover: () -> Unit,

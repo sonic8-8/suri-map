@@ -36,10 +36,10 @@
 
 | API | Owner | Backend | 근거 | 후속 작업 |
 |---|---:|---|---|---|
-| `POST /api/auth/login` | S1-2 | 미구현 | Auth controller 없음 | 로그인/세션 MVP 필요 여부 판단 후 구현 |
-| `POST /api/auth/logout` | S1-2 | 미구현 | Auth controller 없음 | 로그인과 함께 분리 |
-| `POST /api/fcm/tokens` | S1-2 | 미구현 | FCM token controller 없음 | Android FCM 경로 작업과 묶기 |
-| `POST /api/police-phones/{policePhoneId}/heartbeat` | S1-2 | 구현 | `PolicePhoneHeartbeatController` | Android heartbeat client 필요 |
+| `POST /api/auth/login` | S1-2 | 구현 | `AuthController`, `AuthSessionAuthenticationFilter` | FE/Android headless client 추가됨 |
+| `POST /api/auth/logout` | S1-2 | 구현 | `AuthController` | FE/Android headless client 추가됨 |
+| `POST /api/fcm/tokens` | S1-2 | 구현 | `FcmTokenController` | Android headless client 추가됨 |
+| `POST /api/police-phones/{policePhoneId}/heartbeat` | S1-2 | 구현 | `PolicePhoneHeartbeatController` | Android headless client 추가됨 |
 | `POST /api/incidents/import` | S1-1 | 구현 | `IncidentImportController` | Web command client 필요 |
 | `GET /api/incidents` | S1-1 | 구현 | `IncidentReadController` | FE/Android read repository 필요 |
 | `GET /api/incidents/{incidentId}` | S1-1 | 구현 | `IncidentReadController` | FE/Android read repository 필요 |
