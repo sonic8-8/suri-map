@@ -165,6 +165,7 @@ Android 앱은 **서버에 띄우는 대상이 아니라** 현장 폴리폰에 �
 - **운용 중 업무폰 궤도 강조** (FR-25): 앱 지도에서 현재 단말(PolicePhone)의 경로를 다른 단말과 구분되는 스타일로 렌더링
 - **단순 지도 보기 모드** (FR-26): 현장 집중 모드에서 비핵심 오버레이를 최소화
 - **사건 오프라인 패키지 사전 적재** (FR-31, ADR-0028): 사건 메타·실종자·OP·담당 구역·초기 마커·전체 수색 구역·타일을 단일 다운로드 흐름으로 적재
+- **인수인계 확인**: 인수인계 메모와 서버에서 생성된 수색 이력 요약을 근무 교대/OP 전환 화면에서 조회한다. 앱은 요약 생성·재시도 명령을 보내지 않는다.
 
 ### 3.2 오프라인 우선 스택
 
@@ -374,7 +375,8 @@ Android toolchain은 Kotlin + Gradle Kotlin DSL + AGP 8.13.x, minSdk 31, targetS
 
 - S8 `search_history_summary`는 `SearchHistorySummaryPort`를 통해 호출한다.
 - MVP 기본 구현은 `OpenAiSearchHistorySummaryAdapter`이며, OpenAI API 응답은 Structured Outputs 또는 동등한 JSON schema 검증을 통과해야 한다.
-- OpenAI 호출 실패, timeout, schema validation 실패, 금지 문구 검출 시 `search_history_summary.generation_status = FAILED`로 남기고 `content`를 저장하지 않는다. 조회/API/UI는 `summary_unavailable` 표시와 재시도를 제공한다.
+- OpenAI 호출 실패, timeout, schema validation 실패, 금지 문구 검출 시 `search_history_summary.generation_status = FAILED`로 남기고 `content`를 저장하지 않는다. 조회/API/UI는 `summary_unavailable` 상태를 표시하고, 재시도는 웹 지휘 화면에서만 제공한다.
+- 앱과 웹은 생성된 `search_history_summary`를 조회할 수 있다. 앱은 `READY`/`FAILED`/`GENERATING` 상태와 안전한 요약만 표시하고, 재시도 CTA는 웹 지휘 화면에만 둔다.
 - OpenAI로 전달하는 입력은 OP/path/marker/area/handover memo에서 만든 최소화된 source snapshot으로 제한한다.
 - 추천, 누락 확정, 위험도 판단, 다음 구역 지시 표현은 저장 전 guard에서 차단한다.
 - API key와 model명은 secret/env로 주입하며 코드, fixture, 로그, board UI에 노출하지 않는다.

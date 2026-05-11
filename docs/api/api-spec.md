@@ -519,7 +519,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 - Owner: S8
 - Source spec: `GET /handover-memos`
-- Consumer: WEB, S3-2
+- Consumer: APP, WEB, S3-2
 - Headers: `Authorization`
 - Guard: `public-session`, `incident-read`
 - Idempotency-Key: no
@@ -538,6 +538,19 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Request: `incidentId`, `clientTs`, optional `scopeType`, `scopeId`, `dutyShiftId`
 - Response: `202 {summaryId, status, version}`
 - Errors: `summary_unavailable`, `channel_not_allowed`, `role_denied`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`
+
+#### GET `/api/operational-periods/{operationalPeriodId}/search-history-summaries`
+
+- Owner: S8
+- Source spec: `GET /operational-periods/{operationalPeriodId}/search-history-summaries`
+- Consumer: APP, WEB, S3-2
+- Headers: `Authorization`
+- Guard: `public-session`, `incident-read`
+- Idempotency-Key: no
+- Query: `incidentId`, optional `scopeType`, `scopeId`, `dutyShiftId`, `status`
+- Response: `200 {items}`. `READY` items may include safe `content`; `GENERATING`/`FAILED` items expose status/displayStatus without source prompt, provider secret, recommendation, missing-area conclusion, or risk wording.
+- Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`
+- Channel rule: APP is read-only for this resource. Summary generation/retry remains `POST /api/operational-periods/{operationalPeriodId}/search-history-summaries` with WEB command guard.
 
 ### 4.9 Tiles
 
@@ -605,11 +618,12 @@ Tileserver는 Spring Boot JSON API가 아니므로 `/api` prefix를 붙이지 �
 | `GET /incidents/{incidentId}/offline-package/manifest` | `/api` prefix 없음 | `GET /api/incidents/{incidentId}/offline-package/manifest` |
 | `POST /incidents/{incidentId}/offline-package/installations` | `/api` prefix 없음 | `POST /api/incidents/{incidentId}/offline-package/installations` |
 | `POST /operational-periods/{opId}/search-history-summaries` | path variable 축약 | `POST /api/operational-periods/{operationalPeriodId}/search-history-summaries` |
+| `GET /operational-periods/{opId}/search-history-summaries` | path variable 축약 | `GET /api/operational-periods/{operationalPeriodId}/search-history-summaries` |
 
 ## 7. docs/spec 반영 상태
 
 - `docs/spec/specs/S2.json`: `POST /search-areas/{searchAreaId}/assignments` 상세 contract와 `SEARCH_AREA_ASSIGNMENT_CHANGED` 소유권을 반영했다.
-- `docs/spec/specs/S8.json`: `POST/PATCH/GET /duty-shifts` 상세 contract를 반영하고, `search_area_assignment`는 S2 read-only 소비로 정리했다.
+- `docs/spec/specs/S8.json`: `POST/PATCH/GET /duty-shifts` 상세 contract와 `search_history_summary` APP/WEB read 계약을 반영하고, `search_area_assignment`는 S2 read-only 소비로 정리했다.
 - `docs/spec/boundaries.md`, `docs/spec/harness-scenarios.md`: canonical URL과 photo `upload-url`/`attach` 표현을 반영했다.
 - `docs/tasks/*.md`: 구현 산출물 endpoint 문자열을 canonical URL로 반영했다.
 

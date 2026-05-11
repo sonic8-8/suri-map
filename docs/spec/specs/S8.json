@@ -144,12 +144,12 @@
     {
       "id": "FR-37",
       "summary": "수색 경로·구역·OP에 대한 정성적 인수인계 메모를 남길 수 있다.",
-      "handling": "POST /handover-memos와 GET /handover-memos로 OP, path, area 대상 메모를 계정·시각과 함께 저장·조회한다."
+      "handling": "POST /handover-memos와 GET /handover-memos로 OP, path, area 대상 메모를 계정·시각과 함께 저장·조회한다. APP/WEB 모두 작성·조회할 수 있다."
     },
     {
       "id": "FR-39",
       "summary": "OP·경로·마커·구역 상태·인수인계 메모 기반으로 수색 이력을 짧게 요약한다.",
-      "handling": "search history summary는 내부 기록 기반 history summary만 생성하고 실패 시 generation_status=FAILED로 남기며 대체 요약 문장을 저장하지 않는다."
+      "handling": "search history summary는 내부 기록 기반 history summary만 생성하고 실패 시 generation_status=FAILED로 남기며 대체 요약 문장을 저장하지 않는다. 생성/재시도는 Web 지휘 명령으로 제한하고, 생성된 요약 조회는 APP/WEB read flow에서 허용한다."
     }
   ],
   "domain_model": {
@@ -1289,6 +1289,126 @@
             "body": "{\"error\": \"write_conflict\"}"
           }
         ]
+      },
+      {
+        "method": "GET",
+        "path": "/operational-periods/{operationalPeriodId}/search-history-summaries",
+        "summary": "OP 수색 이력 요약 조회",
+        "auth": "guard aliases public-session + incident-read",
+        "idempotent": false,
+        "required_headers": [
+          "Authorization"
+        ],
+        "request_schema": {
+          "type": "object",
+          "required": [
+            "incidentId"
+          ],
+          "properties": {
+            "incidentId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "scopeType": {
+              "type": "string",
+              "enum": [
+                "OP",
+                "DUTY_SHIFT"
+              ]
+            },
+            "scopeId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "dutyShiftId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "GENERATING",
+                "READY",
+                "FAILED"
+              ]
+            }
+          }
+        },
+        "response_schema": {
+          "200": {
+            "type": "object",
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "summaryId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "opId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "scopeType": {
+                      "type": "string"
+                    },
+                    "scopeId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "dutyShiftId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "GENERATING",
+                        "READY",
+                        "FAILED"
+                      ]
+                    },
+                    "displayStatus": {
+                      "type": "string",
+                      "enum": [
+                        "LOADING",
+                        "READY",
+                        "UNAVAILABLE"
+                      ]
+                    },
+                    "content": {
+                      "type": "string",
+                      "description": "READY 상태에서만 제공한다."
+                    },
+                    "version": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "code": 403,
+            "case": "channel_not_allowed",
+            "body": "{\"error\": \"channel_not_allowed\"}"
+          },
+          {
+            "code": 403,
+            "case": "incident_access_denied",
+            "body": "{\"error\": \"incident_access_denied\"}"
+          },
+          {
+            "code": 403,
+            "case": "team_not_assigned",
+            "body": "{\"error\": \"team_not_assigned\"}"
+          }
+        ],
+        "channel_note": "APP/WEB/S3-2 read-only 조회 계약이다. Android는 생성/재시도 CTA를 노출하지 않고, 생성/재시도 POST는 Web 지휘 명령으로만 허용한다."
       }
     ],
     "consumed": [
@@ -1300,7 +1420,7 @@
       {
         "from_spec": "S1-2",
         "interface": "@RequireIncidentAccess, @RequireRole, @RequireChannel, SecurityContext account/channel/PolicePhone",
-        "usage": "OP/duty shift/search history summary는 Web 지휘 권한, handover memo는 APP/WEB 사건 배정 계정 권한을 검증한다."
+        "usage": "OP/duty shift/search history summary 생성·재시도는 Web 지휘 권한, search history summary 조회와 handover memo는 APP/WEB 사건 배정 계정 권한을 검증한다."
       },
       {
         "from_spec": "S2",
@@ -1519,7 +1639,7 @@
         },
         {
           "name": "SearchHistorySummaryController",
-          "responsibility": "search history summary generation trigger and response contract"
+          "responsibility": "search history summary generation trigger and APP/WEB read response contract"
         },
         {
           "name": "SearchHistorySummaryPort",
@@ -1600,6 +1720,10 @@
         {
           "name": "HandoverMemoSheet",
           "responsibility": "OP/path/area 메모 작성과 미전송 상태 표시"
+        },
+        {
+          "name": "SearchHistorySummaryReadPanel",
+          "responsibility": "근무 교대/OP 전환 화면에서 생성된 search_history_summary 상태와 안전한 요약을 read-only로 표시"
         }
       ],
       "room_entities": [
@@ -1614,9 +1738,13 @@
         {
           "name": "HandoverMemoOutboxEntity",
           "note": "S6 SyncClient.enqueue로 서버 반영"
+        },
+        {
+          "name": "SearchHistorySummaryCacheEntity",
+          "note": "생성된 요약 조회 결과를 OP/duty shift 단위 read model로 캐시한다. 생성/재시도 outbox 대상은 아니다."
         }
       ],
-      "sync_flow": "handover memo write만 S6 SyncClient.enqueue(...) 경유. OP 생성, assignment, search history summary는 Android에서 호출하지 않는다."
+      "sync_flow": "handover memo write만 S6 SyncClient.enqueue(...) 경유. OP 생성, assignment, search history summary 생성/재시도는 Android에서 호출하지 않는다. 생성된 search history summary 조회/표시는 Android와 Web의 read flow에서 허용한다."
     }
   },
   "dependencies": {
@@ -1820,15 +1948,15 @@
   "edge_cases": [
     "OP1 자동 생성 호출이 중복되어도 incident당 sequenceNumber=1 OP는 하나만 생성된다.",
     "OP2+ 생성 요청 reason이 OTHER인데 reasonMemo와 handoverMemo가 모두 없으면 domain validation으로 거부하되 catalog 밖 public error code를 추가하지 않는다. 표준 field validation error가 필요하면 open issue로 처리한다.",
-    "앱 채널에서 OP 생성, assignment, search history summary API를 직접 호출하면 channel_not_allowed로 거부한다.",
+    "앱 채널에서 OP 생성, assignment, search history summary 생성/재시도 API를 직접 호출하면 channel_not_allowed로 거부한다. 생성된 search history summary 조회는 APP read flow로 허용한다.",
     "handover memo targetType=AREA인데 S2에 해당 area가 없거나 incident/op가 다르면 domain validation으로 거부하되 catalog 밖 public error code를 추가하지 않는다.",
     "초동 대응 순찰차는 담당 search_area가 없어도 OP1 assignment 또는 PolicePhone context를 가질 수 있다.",
     "search history summary source board response이 이전 요청과 같으면 idempotency replay 또는 기존 summary 재사용을 허용한다."
   ],
   "error_handling": {
-    "role_denied": "새 OP, assignment, search history summary CTA를 숨기고 직접 호출은 403으로 실패시킨다.",
-    "channel_not_allowed": "앱에서는 OP 생성·assignment·search history summary UI를 노출하지 않고 서버도 403을 반환한다.",
-    "summary_unavailable": "웹은 원본 경로·마커·메모와 수동 인수인계 메모를 계속 표시하고 요약 재시도 CTA를 제공한다.",
+    "role_denied": "새 OP, assignment, search history summary 생성/재시도 CTA를 숨기고 직접 호출은 403으로 실패시킨다.",
+    "channel_not_allowed": "앱에서는 OP 생성·assignment·search history summary 생성/재시도 UI를 노출하지 않고 서버도 해당 write 요청에 403을 반환한다. search history summary 조회 UI는 APP read 계약으로 허용한다.",
+    "summary_unavailable": "앱/웹은 원본 경로·마커·메모와 수동 인수인계 메모를 계속 표시한다. 요약 재시도 CTA는 Web 지휘 화면에만 제공한다.",
     "idempotency_mismatch": "같은 key의 다른 content 재전송을 충돌로 표시하고 새 요청 생성을 유도한다."
   },
   "non_functional_requirements": {
@@ -1838,7 +1966,7 @@
       "search history summary 생성은 비동기 처리 가능하되 READY/FAILED 결과 상태가 UI에서 관찰 가능해야 한다."
     ],
     "security": [
-      "OP2+ 생성, duty shift, search history summary는 Web 현장 지휘관 전용이다.",
+      "OP2+ 생성, duty shift, search history summary 생성/재시도는 Web 현장 지휘관 전용이다. 생성된 search_history_summary 조회는 APP/WEB 사건 배정 계정에 허용하되 APP은 read-only로 표시한다.",
       "handover memo는 사건 배정 계정의 APP/WEB 채널에서만 허용한다.",
       "search history summary input은 Suri-Map 내부 OP/path/marker/area/memo 기록으로 제한한다.",
       "OpenAI API 호출에는 최소화된 source board response만 전달하고 source prompt, API key, model secret, raw location stream 전체를 저장하거나 화면에 노출하지 않는다.",
@@ -1876,6 +2004,11 @@
         "name": "SearchHistorySummaryContainsNoRecommendationTest",
         "framework": "JUnit 5",
         "scenario": "OpenAI adapter가 schema valid 응답을 반환해도 추천·누락 확정 문구가 있으면 저장 전 차단하고 generation_status=FAILED 및 summary_unavailable로 처리한다."
+      },
+      {
+        "name": "SearchHistorySummaryReadAllowsAppAndWebTest",
+        "framework": "JUnit 5",
+        "scenario": "APP/WEB 사건 배정 계정은 생성된 search_history_summary를 조회할 수 있지만 APP 채널은 생성/재시도 POST를 호출하면 channel_not_allowed로 거부된다."
       },
       {
         "name": "CurrentOpConsumersDoNotMutateOwnerDomainsTest",
@@ -1935,6 +2068,11 @@
         "name": "AndroidCannotCreateOperationalPeriod",
         "framework": "JUnit5 + Robolectric | Instrumentation",
         "scenario": "앱에는 OP 생성/assignment/search history summary write flow가 없고 해당 요청이 enqueue되지 않는다."
+      },
+      {
+        "name": "SearchHistorySummaryReadOnlyPanelTest",
+        "framework": "JUnit5 + Robolectric | Instrumentation",
+        "scenario": "앱 근무 교대/OP 전환 화면은 GET search-history-summaries 결과의 READY/FAILED/GENERATING 상태와 안전한 content만 표시하고 생성/재시도 CTA를 노출하지 않는다."
       }
     ]
   },
