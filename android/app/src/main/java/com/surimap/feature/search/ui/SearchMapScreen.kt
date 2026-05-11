@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.surimap.feature.handover.ui.HandoverPromptUiState
 import com.surimap.ui.HandoverPromptBanner
 import com.surimap.ui.components.PoliAppBar
 import com.surimap.ui.components.PoliBanner
@@ -92,13 +93,14 @@ data class SearchMapUiState(
     val elapsedLabel: String,
     val movementSummary: String,
     val layers: List<SearchMapLayerUiState>,
-    val showHandoverPrompt: Boolean
+    val handoverPrompt: HandoverPromptUiState?
 ) {
     val canWritePath: Boolean = lifecycleStatus == SearchLifecycleStatus.Active
     val canCreateMarker: Boolean = lifecycleStatus == SearchLifecycleStatus.Active
     val canStopSearch: Boolean =
         lifecycleStatus == SearchLifecycleStatus.Active || lifecycleStatus == SearchLifecycleStatus.Paused
     val shouldOpenBlockedOutbox: Boolean = blockedOutboxCount > 0
+    val showHandoverPrompt: Boolean = handoverPrompt?.shouldShow == true
 
     val syncLabel: String =
         when (syncStatus) {
@@ -175,7 +177,7 @@ data class SearchMapUiState(
                 unsentCount = unsentCount,
                 oldestPendingMinutes = oldestPendingMinutes,
                 blockedOutboxCount = blockedOutboxCount,
-                showHandoverPrompt = hasUnreadHandover
+                handoverPrompt = if (hasUnreadHandover) HandoverPromptUiState.unreadSample() else null
             )
 
         fun paused(): SearchMapUiState =
@@ -206,7 +208,7 @@ data class SearchMapUiState(
             unsentCount: Int = 0,
             oldestPendingMinutes: Int? = null,
             blockedOutboxCount: Int = 0,
-            showHandoverPrompt: Boolean = false
+            handoverPrompt: HandoverPromptUiState? = null
         ): SearchMapUiState =
             SearchMapUiState(
                 incidentTitle = "광주 북구 산악 실종",
@@ -227,7 +229,7 @@ data class SearchMapUiState(
                     SearchMapLayerUiState("기동대 1부대", SearchLayerKind.Unit),
                     SearchMapLayerUiState("A팀 담당 구역", SearchLayerKind.Team, highlighted = true)
                 ),
-                showHandoverPrompt = showHandoverPrompt
+                handoverPrompt = handoverPrompt
             )
     }
 }
