@@ -32,7 +32,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @DisplayName("L4-T07D Outbox requeue diagnostics contract")
-class OutboxRequeueContractRedTest {
+class OutboxRequeueContractTest {
 
   @Autowired private MockMvc mockMvc;
 
@@ -54,8 +54,8 @@ class OutboxRequeueContractRedTest {
             post(OutboxRetryDiagnosticsFixtures.API_PATH)
                 .header("Authorization", "Bearer app-token-sync")
                 .header(
-                    OutboxRetryDiagnosticsFixtures.DEVICE_HEADER,
-                    OutboxRetryDiagnosticsFixtures.HARNESS_DEVICE_ID)
+                    OutboxRetryDiagnosticsFixtures.POLICE_PHONE_HEADER,
+                    OutboxRetryDiagnosticsFixtures.ASSIGNED_AUTH_POLICE_PHONE_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(OutboxRetryDiagnosticsFixtures.NETWORK_RESTORED_REQUEUE.json()))
         .andExpect(status().isAccepted())
@@ -79,8 +79,8 @@ class OutboxRequeueContractRedTest {
         .perform(
             post(OutboxRetryDiagnosticsFixtures.API_PATH)
                 .header(
-                    OutboxRetryDiagnosticsFixtures.DEVICE_HEADER,
-                    OutboxRetryDiagnosticsFixtures.HARNESS_DEVICE_ID)
+                    OutboxRetryDiagnosticsFixtures.POLICE_PHONE_HEADER,
+                    OutboxRetryDiagnosticsFixtures.ASSIGNED_AUTH_POLICE_PHONE_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(OutboxRetryDiagnosticsFixtures.STALE_CLOCK_REQUEUE.json()))
         .andExpect(status().isAccepted())
@@ -102,8 +102,8 @@ class OutboxRequeueContractRedTest {
         .perform(
             post(OutboxRetryDiagnosticsFixtures.API_PATH)
                 .header(
-                    OutboxRetryDiagnosticsFixtures.DEVICE_HEADER,
-                    OutboxRetryDiagnosticsFixtures.HARNESS_DEVICE_ID)
+                    OutboxRetryDiagnosticsFixtures.POLICE_PHONE_HEADER,
+                    OutboxRetryDiagnosticsFixtures.ASSIGNED_AUTH_POLICE_PHONE_ID)
                 .contentType(MediaType.APPLICATION_JSON)
         .content(OutboxRetryDiagnosticsFixtures.CLOSED_INCIDENT_REQUEUE.json()))
         .andExpect(status().isConflict())
@@ -137,55 +137,57 @@ class OutboxRequeueContractRedTest {
       channel = Channel.APP,
       accountType = AccountType.TEAM,
       organizationType = OrganizationType.MISSING_TEAM)
-  void appRequeueRequestWithoutDeviceSessionIsRejectedWithDeviceRequired() throws Exception {
+  void appRequeueRequestWithoutPolicePhoneSessionIsRejectedWithPolicePhoneRequired()
+      throws Exception {
     mockMvc
         .perform(
             post(OutboxRetryDiagnosticsFixtures.API_PATH)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(OutboxRetryDiagnosticsFixtures.NETWORK_RESTORED_REQUEUE.json()))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.error", is("device_required")));
+        .andExpect(jsonPath("$.error", is("police_phone_required")));
   }
 
   @Test
   @WithMockAccount(policePhoneId = OutboxRetryDiagnosticsFixtures.ASSIGNED_AUTH_POLICE_PHONE_ID)
-  void appRequeueRequestWithoutDeviceHeaderIsRejectedWithDeviceRequired() throws Exception {
+  void appRequeueRequestWithoutPolicePhoneHeaderIsRejectedWithPolicePhoneRequired()
+      throws Exception {
     mockMvc
         .perform(
             post(OutboxRetryDiagnosticsFixtures.API_PATH)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(OutboxRetryDiagnosticsFixtures.NETWORK_RESTORED_REQUEUE.json()))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.error", is("device_required")));
+        .andExpect(jsonPath("$.error", is("police_phone_required")));
   }
 
   @Test
   @WithMockAccount(policePhoneId = OutboxRetryDiagnosticsFixtures.UNREGISTERED_AUTH_POLICE_PHONE_ID)
-  void appRequeueRequestWithUnregisteredDeviceIsRejected() throws Exception {
+  void appRequeueRequestWithUnregisteredPolicePhoneIsRejected() throws Exception {
     mockMvc
         .perform(
             post(OutboxRetryDiagnosticsFixtures.API_PATH)
                 .header(
-                    OutboxRetryDiagnosticsFixtures.DEVICE_HEADER,
-                    OutboxRetryDiagnosticsFixtures.HARNESS_DEVICE_ID)
+                    OutboxRetryDiagnosticsFixtures.POLICE_PHONE_HEADER,
+                    OutboxRetryDiagnosticsFixtures.UNREGISTERED_AUTH_POLICE_PHONE_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(OutboxRetryDiagnosticsFixtures.NETWORK_RESTORED_REQUEUE.json()))
         .andExpect(status().isForbidden())
-        .andExpect(jsonPath("$.error", is("device_not_registered")));
+        .andExpect(jsonPath("$.error", is("police_phone_not_registered")));
   }
 
   @Test
   @WithMockAccount(policePhoneId = OutboxRetryDiagnosticsFixtures.UNASSIGNED_AUTH_POLICE_PHONE_ID)
-  void appRequeueRequestWithUnassignedDeviceIsRejected() throws Exception {
+  void appRequeueRequestWithUnassignedPolicePhoneIsRejected() throws Exception {
     mockMvc
         .perform(
             post(OutboxRetryDiagnosticsFixtures.API_PATH)
                 .header(
-                    OutboxRetryDiagnosticsFixtures.DEVICE_HEADER,
-                    OutboxRetryDiagnosticsFixtures.HARNESS_DEVICE_ID)
+                    OutboxRetryDiagnosticsFixtures.POLICE_PHONE_HEADER,
+                    OutboxRetryDiagnosticsFixtures.UNASSIGNED_AUTH_POLICE_PHONE_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(OutboxRetryDiagnosticsFixtures.NETWORK_RESTORED_REQUEUE.json()))
         .andExpect(status().isForbidden())
-        .andExpect(jsonPath("$.error", is("device_not_assigned")));
+        .andExpect(jsonPath("$.error", is("police_phone_not_assigned")));
   }
 }

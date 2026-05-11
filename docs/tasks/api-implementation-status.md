@@ -27,10 +27,10 @@
 1. 백엔드 public URL prefix는 `S14P31C106-206`에서 정렬됐다. JSON API는 `/api`, tiles는 `/tiles`로 노출된다.
 2. 백엔드는 S1-1 Incident, S3-1 SearchPath, S4 SSE, S5 Marker/Photo, S7 Offline/Tiles 일부가 구현되어 있다.
 3. 백엔드는 S3-2 Board read controller shell이 추가됐지만 실제 slot source row provider 연결은 남아 있다. S2 SearchArea public controller와 S8 OperationalPeriod/DutyShift/Handover/SearchHistorySummary public controller는 아직 없다.
-4. 백엔드 S6 `POST /api/sync/clock`, `POST /api/sync/outbox/requeue`는 존재하지만 `X-Device-Id`/`device_required`를 사용해 `X-PolicePhone-Id`/PolicePhone 용어 규칙과 충돌한다.
+4. 백엔드 S6 `POST /api/sync/clock`, `POST /api/sync/outbox/requeue`는 `X-PolicePhone-Id`/`police_phone_*` 계약으로 정렬됐다.
 5. Frontend는 TanStack Query provider와 MapLibre `/tiles` 렌더링만 있고, board API query나 SSE `EventSource` adapter가 없다.
 6. Frontend Vite dev proxy는 `/api`만 있고 `/tiles` proxy가 없어 로컬 백엔드 타일 endpoint와 개발 서버 연동이 끊길 수 있다.
-7. Android는 Room/Outbox/WorkManager 골격은 있으나 실제 HTTP client 의존성, API client, repository, real `OutboxSender`가 없다. 현재 `RoomOutboxReplay` 기본 sender는 `NoopOutboxSender`다.
+7. Android는 공통 HTTP client와 real `OutboxSender`가 추가됐지만, domain별 repository/write operation builder는 아직 없다.
 
 ## Backend API 현황
 
@@ -61,8 +61,8 @@
 | `DELETE /api/markers/{markerId}` | S5 | 구현 | `MarkerController` | Android/Web policy client 필요 |
 | `POST /api/markers/{markerId}/photos/upload-url` | S5 | 구현 | `PhotoController` | Android photo upload flow 필요 |
 | `POST /api/markers/{markerId}/photos/{photoId}/attach` | S5 | 구현 | `PhotoController` | Android photo attach flow 필요 |
-| `POST /api/sync/clock` | S6 | 불일치 | `SyncClockController`가 `X-Device-Id` 사용 | `X-PolicePhone-Id`로 정리 |
-| `POST /api/sync/outbox/requeue` | S6 | 불일치 | `OutboxRequeueController`가 `X-Device-Id` 사용 | `X-PolicePhone-Id`로 정리 |
+| `POST /api/sync/clock` | S6 | 구현 | `SyncClockController`가 `X-PolicePhone-Id`/`police_phone_*` 계약 사용 | Android sync clock client 추가 |
+| `POST /api/sync/outbox/requeue` | S6 | 구현 | `OutboxRequeueController`가 `X-PolicePhone-Id`/`police_phone_*` 계약 사용 | Android requeue client 추가 |
 | `GET /api/incidents/{incidentId}/offline-package/manifest` | S7 | 구현 | `OfflinePackageController` | Android package repository 필요 |
 | `POST /api/incidents/{incidentId}/offline-package/installations` | S7 | 구현 | `OfflinePackageController` | Android outbox replay 연결 필요 |
 | `POST /api/operational-periods` | S8 | 미구현 | command/query는 있으나 public controller 없음 | S8 backend controller 우선 구현 |
@@ -105,7 +105,7 @@
 
 - `docs/api/api-spec.md`는 S5 photo endpoint를 `upload-url`/`attach`로 확정했지만, `docs/spec/boundaries.md` 일부 표에는 `presign`/`finalize`가 남아 있다. 구현은 `docs/api/api-spec.md` 기준을 따른다.
 - `docs/api/api-spec.md`는 `POST /api/search-areas/{searchAreaId}/assignments`를 S2로 둔다. `docs/spec/boundaries.md`에는 `POST /operational-periods/{opId}/assignments`가 S8로 남아 있어 후속 구현 전 owner/URL 정리가 필요하다.
-- S6 controller의 `Device`/`X-Device-Id` 용어는 root `AGENTS.md`의 `PolicePhone` 규칙과 충돌한다.
+- S6 controller와 S6 spec fixture의 sync API 용어는 `PolicePhone`/`X-PolicePhone-Id` 기준으로 정렬됐다.
 - Search history summary 생성은 public retry/command API가 아니다. 서버는 duty shift 종료 또는 OP 전환 후 job으로 생성하고, Web/App은 read-only endpoint로만 확인해야 한다.
 
 ## 권장 후속 MR 순서
@@ -113,8 +113,6 @@
 1. `[BE]` S3-2 Board source row provider 연결과 `GET /api/incidents/{incidentId}/board` 데이터 충실도 보강
 2. `[BE]` S2 SearchArea public controller 구현 및 assignment URL 충돌 정리
 3. `[BE]` S8 OperationalPeriod/DutyShift/Handover/SearchHistorySummary controller 구현
-4. `[BE]` S6 `Device`/`X-Device-Id`를 `PolicePhone`/`X-PolicePhone-Id`로 리팩토링
-5. `[FE]` 공통 API client, board query, SSE adapter, board mapper 추가
-6. `[FE]` Vite `/tiles` proxy 또는 tile base URL 설정 정리
-7. `[Android]` 네트워크 client와 real `OutboxSender` 추가
-8. `[Android]` incident/offline/search-path/marker/duty-shift/handover repository와 write operation builder 추가
+4. `[FE]` 공통 API client, board query, SSE adapter, board mapper 추가
+5. `[FE]` Vite `/tiles` proxy 또는 tile base URL 설정 정리
+6. `[Android]` incident/offline/search-path/marker/duty-shift/handover repository와 write operation builder 추가

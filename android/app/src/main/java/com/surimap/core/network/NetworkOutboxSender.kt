@@ -45,4 +45,14 @@ object AndroidNetworkFactory {
             accessTokenProvider = accessTokenProvider
         )
     }
+
+    fun createSyncApiClient(
+        baseUrl: String = com.surimap.BuildConfig.SURI_MAP_API_BASE_URL,
+        accessTokenProvider: AccessTokenProvider = NoAccessTokenProvider
+    ): SyncApiClient {
+        return SyncApiClient(
+            apiClient = SuriMapApiClient(baseUrl = baseUrl),
+            accessTokenProvider = accessTokenProvider
+        )
+    }
 }

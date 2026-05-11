@@ -261,7 +261,7 @@ S6_REQUIRED_FAILURE_ROWS = {
     },
     "op-fail-PolicePhone-001": {
         "lastError": "police_phone_not_assigned",
-        "userSafeFailureCategory": "DEVICE_ACCESS_REQUIRED",
+        "userSafeFailureCategory": "POLICE_PHONE_ACCESS_REQUIRED",
         "retryable": False,
     },
     "op-fail-closed-001": {

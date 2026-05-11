@@ -35,10 +35,10 @@ public class OutboxRequeueController {
   @RequirePolicePhoneRegistered
   @RequirePolicePhoneAssigned
   public ResponseEntity<OutboxRequeueResponse> requeue(
-      @RequestHeader(value = "X-Device-Id", required = false) String deviceId,
+      @RequestHeader(value = "X-PolicePhone-Id", required = false) String policePhoneId,
       @RequestBody OutboxRequeueRequest request) {
-    if (deviceId == null || deviceId.isBlank()) {
-      throw new OutboxRequeueApiException(HttpStatus.BAD_REQUEST, "device_required");
+    if (policePhoneId == null || policePhoneId.isBlank()) {
+      throw new OutboxRequeueApiException(HttpStatus.BAD_REQUEST, "police_phone_required");
     }
 
     if (CLOSED_INCIDENT_ID.equals(request.incidentId())) {

@@ -8,8 +8,7 @@ final class OutboxRetryDiagnosticsFixtures {
   static final String API_PATH = "/api/sync/outbox/requeue";
   static final String SOURCE_SPEC_PATH = "POST /sync/outbox/requeue";
   static final String CANONICAL_API_PATH = "POST /api/sync/outbox/requeue";
-  static final String DEVICE_HEADER = "X-Device-Id";
-  static final String HARNESS_DEVICE_ID = "dev-precinct-car-01";
+  static final String POLICE_PHONE_HEADER = "X-PolicePhone-Id";
   static final String ASSIGNED_AUTH_POLICE_PHONE_ID = "00000000-0000-0000-0000-000000000101";
   static final String UNREGISTERED_AUTH_POLICE_PHONE_ID = "00000000-0000-0000-0000-000000000201";
   static final String UNASSIGNED_AUTH_POLICE_PHONE_ID = "00000000-0000-0000-0000-000000000301";
@@ -83,7 +82,7 @@ final class OutboxRetryDiagnosticsFixtures {
           new FailureCategoryFixture(
               "op-fail-PolicePhone-001",
               "police_phone_not_assigned",
-              "DEVICE_ACCESS_REQUIRED",
+              "POLICE_PHONE_ACCESS_REQUIRED",
               false),
           new FailureCategoryFixture(
               "op-fail-closed-001",

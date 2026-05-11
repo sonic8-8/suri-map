@@ -36,7 +36,7 @@
     ],
     "boundaries": "spec/boundaries.md §3 S6, §4.1, §4.3, §4.5, §6, §7, §8",
     "harness": [
-      "SC-05 수색 세션·Device GPS 경로",
+      "SC-05 수색 세션·PolicePhone GPS 경로",
       "SC-06 현장 마커 생성",
       "SC-07 통신 단절 중 로컬 기록",
       "SC-08 지원 요청·실종자 발견 알림",
@@ -339,7 +339,7 @@
       "userSafeCategories": {
         "CLOCK_RESYNC_REQUIRED": "clock_skew_exceeded or stale clock sync; show /sync/clock retry CTA",
         "NON_RETRYABLE_CONFLICT": "idempotency_mismatch, invalid_payload, request_body_hash_mismatch, write_conflict; stop automatic retry and ask user review",
-        "DEVICE_ACCESS_REQUIRED": "police_phone_required, police_phone_not_registered, police_phone_not_assigned; show PolicePhone/session repair guidance",
+        "POLICE_PHONE_ACCESS_REQUIRED": "police_phone_required, police_phone_not_registered, police_phone_not_assigned; show PolicePhone/session repair guidance",
         "CLOSED_NO_RETRY": "incident_closed or post_close_requeue_rejected; mark final failure with no retry CTA",
         "RETRYABLE_NETWORK": "network_unavailable, timeout, 408/429/5xx; show nextAttemptAt and retry count"
       }
@@ -370,7 +370,7 @@
             "nullable": true
           },
           {
-            "name": "device_id",
+            "name": "police_phone_id",
             "type": "UUID",
             "nullable": true,
             "note": "Required for APP/Outbox writes. Null for WEB/INTERNAL write-common requests."
@@ -497,9 +497,9 @@
             ]
           },
           {
-            "name": "idx_sync_event_device_status",
+            "name": "idx_sync_event_police_phone_status",
             "columns": [
-              "device_id",
+              "police_phone_id",
               "status"
             ]
           },
@@ -547,7 +547,7 @@
             "nullable": true
           },
           {
-            "name": "device_id",
+            "name": "police_phone_id",
             "type": "UUID",
             "nullable": false
           },
@@ -664,16 +664,16 @@
             "name": "idx_android_outbox_replay_order",
             "columns": [
               "incident_id",
-              "device_id",
+              "police_phone_id",
               "dependency_group",
               "sequence"
             ]
           },
           {
-            "name": "idx_android_outbox_incident_device",
+            "name": "idx_android_outbox_incident_police_phone",
             "columns": [
               "incident_id",
-              "device_id"
+              "police_phone_id"
             ]
           },
           {
@@ -697,7 +697,7 @@
         "description": "Android local sync dashboard summary materialized from Outbox and warning signals.",
         "fields": [
           {
-            "name": "device_id",
+            "name": "police_phone_id",
             "type": "UUID",
             "nullable": false,
             "pk": true
@@ -796,7 +796,7 @@
           {
             "from": "SENDING",
             "to": "FAILED_FINAL",
-            "trigger": "idempotency_mismatch, invalid payload, op_mismatch, device_not_registered, device_not_assigned",
+            "trigger": "idempotency_mismatch, invalid payload, op_mismatch, police_phone_not_registered, police_phone_not_assigned",
             "guard": "automatic replay would be unsafe"
           },
           {
@@ -901,11 +901,11 @@
         "method": "POST",
         "path": "/sync/clock",
         "summary": "단말 clientTs와 serverTs 차이를 계산해 이후 writeOperation에 clockOffsetMs를 포함하게 한다.",
-        "auth": "@RequireChannel(APP) + @RequireDevice + @RequireDeviceRegistered + @RequireDeviceAssigned(incidentId)",
+        "auth": "@RequireChannel(APP) + @RequirePolicePhone + @RequirePolicePhoneRegistered + @RequirePolicePhoneAssigned(incidentId)",
         "idempotent": false,
         "required_headers": [
           "Authorization",
-          "X-Device-Id"
+          "X-PolicePhone-Id"
         ],
         "request_schema": {
           "type": "object",
@@ -957,18 +957,18 @@
           },
           {
             "code": 400,
-            "case": "device_required",
-            "body": "{ \"error\": \"device_required\" }"
+            "case": "police_phone_required",
+            "body": "{ \"error\": \"police_phone_required\" }"
           },
           {
             "code": 403,
-            "case": "device_not_registered",
-            "body": "{ \"error\": \"device_not_registered\" }"
+            "case": "police_phone_not_registered",
+            "body": "{ \"error\": \"police_phone_not_registered\" }"
           },
           {
             "code": 403,
-            "case": "device_not_assigned",
-            "body": "{ \"error\": \"device_not_assigned\" }"
+            "case": "police_phone_not_assigned",
+            "body": "{ \"error\": \"police_phone_not_assigned\" }"
           },
           {
             "code": 409,
@@ -981,11 +981,11 @@
         "method": "POST",
         "path": "/sync/outbox/requeue",
         "summary": "앱 local retry scheduler가 retryable Outbox operation을 재큐잉한 사실을 서버 진단 로그와 동기화한다.",
-        "auth": "@RequireChannel(APP) + @RequireDevice + @RequireDeviceRegistered + @RequireDeviceAssigned(incidentId)",
+        "auth": "@RequireChannel(APP) + @RequirePolicePhone + @RequirePolicePhoneRegistered + @RequirePolicePhoneAssigned(incidentId)",
         "idempotent": true,
         "required_headers": [
           "Authorization",
-          "X-Device-Id"
+          "X-PolicePhone-Id"
         ],
         "request_schema": {
           "type": "object",
@@ -1058,18 +1058,18 @@
           },
           {
             "code": 400,
-            "case": "device_required",
-            "body": "{ \"error\": \"device_required\" }"
+            "case": "police_phone_required",
+            "body": "{ \"error\": \"police_phone_required\" }"
           },
           {
             "code": 403,
-            "case": "device_not_registered",
-            "body": "{ \"error\": \"device_not_registered\" }"
+            "case": "police_phone_not_registered",
+            "body": "{ \"error\": \"police_phone_not_registered\" }"
           },
           {
             "code": 403,
-            "case": "device_not_assigned",
-            "body": "{ \"error\": \"device_not_assigned\" }"
+            "case": "police_phone_not_assigned",
+            "body": "{ \"error\": \"police_phone_not_assigned\" }"
           },
           {
             "code": 409,
@@ -1082,8 +1082,8 @@
     "consumed": [
       {
         "from_spec": "S1-2",
-        "interface": "SecurityContext.channel, SecurityContext.deviceId, @RequireDevice, @RequireDeviceRegistered, @RequireDeviceAssigned(incidentId), auth session",
-        "usage": "Outbox operation과 sync_event를 Device 단위로 묶고 /sync/clock 및 /sync/outbox/requeue를 app-device guard로 보호한다."
+        "interface": "SecurityContext.channel, SecurityContext.policePhoneId, @RequirePolicePhone, @RequirePolicePhoneRegistered, @RequirePolicePhoneAssigned(incidentId), auth session",
+        "usage": "Outbox operation과 sync_event를 PolicePhone 단위로 묶고 /sync/clock 및 /sync/outbox/requeue를 app-police-phone guard로 보호한다."
       },
       {
         "from_spec": "S3-1",
@@ -1212,8 +1212,8 @@
       },
       {
         "spec": "S1-2",
-        "contract": "Device auth/session guard and deviceId fixture",
-        "stub_strategy": "Fixed registered Device fixture and rejected unregistered Device case.",
+        "contract": "PolicePhone auth/session guard and deviceId fixture",
+        "stub_strategy": "Fixed registered PolicePhone fixture and rejected unregistered PolicePhone case.",
         "replaced_by_real_at": "S1-2 auth/device guard PASS"
       },
       {
@@ -1256,7 +1256,7 @@
       "fr_refs": [
         "FR-03"
       ],
-      "given": "사건 배정 Device가 30분 이상 오프라인이고 GPS/path와 marker writes가 발생한다",
+      "given": "사건 배정 PolicePhone가 30분 이상 오프라인이고 GPS/path와 marker writes가 발생한다",
       "when": "네트워크가 복구되어 WorkManager flush가 실행된다",
       "then": "Outbox의 모든 pending operation이 순서대로 replay되고 경로 포인트 유실 없이 ACKED 또는 명확한 retry/final failure 상태가 된다.",
       "priority": "critical"
@@ -1371,7 +1371,7 @@
       ],
       "given": "Outbox row가 clock skew, idempotency mismatch, device guard failure, post-close requeue, retryable network failure 중 하나로 실패한다.",
       "when": "OutboxDashboard가 해당 row를 렌더링한다.",
-      "then": "앱은 CLOCK_RESYNC_REQUIRED, NON_RETRYABLE_CONFLICT, DEVICE_ACCESS_REQUIRED, CLOSED_NO_RETRY, RETRYABLE_NETWORK 중 하나의 user-safe category와 재시도 가능 여부를 표시하고 raw lastError 문자열은 노출하지 않는다.",
+      "then": "앱은 CLOCK_RESYNC_REQUIRED, NON_RETRYABLE_CONFLICT, POLICE_PHONE_ACCESS_REQUIRED, CLOSED_NO_RETRY, RETRYABLE_NETWORK 중 하나의 user-safe category와 재시도 가능 여부를 표시하고 raw lastError 문자열은 노출하지 않는다.",
       "priority": "critical"
     },
     {
@@ -1406,8 +1406,8 @@
     "clock_skew_exceeded": "POST /sync/clock 재실행을 유도하고 해당 operation은 재보정 전 SENDING으로 올리지 않는다.",
     "write_conflict": "sync_event가 COMMITTED인데 responseBodyJson이 없으면 owner replay recovery port를 먼저 호출하고 실패 시 409 write_conflict로 FAILED_RETRYABLE 유지한다.",
     "incident_closed": "새 enqueue를 차단한다. pre-close row는 replay 대상, post-close requeue는 FAILED_FINAL로 전환하고 local delete pending 상태로 표시한다.",
-    "device_required": "X-Device-Id 없는 APP sync 요청은 400 device_required로 거부하고 Outbox row는 FAILED_FINAL로 전환하지 않고 앱 설정/세션 복구 안내를 표시한다.",
-    "device_not_assigned": "등록됐지만 incident에 배정되지 않은 Device의 sync API는 403 device_not_assigned로 거부하고 해당 incident rows는 FAILED_FINAL로 표시한다.",
+    "police_phone_required": "X-PolicePhone-Id 없는 APP sync 요청은 400 police_phone_required로 거부하고 Outbox row는 FAILED_FINAL로 전환하지 않고 앱 설정/세션 복구 안내를 표시한다.",
+    "police_phone_not_assigned": "등록됐지만 incident에 배정되지 않은 PolicePhone의 sync API는 403 police_phone_not_assigned로 거부하고 해당 incident rows는 FAILED_FINAL로 표시한다.",
     "purge_delete_failed": "삭제 실패 row는 local warning으로 표시하고 WorkManager가 재시도한다."
   },
   "non_functional_requirements": {
@@ -1418,9 +1418,9 @@
       "Outbox dashboard summary는 local DB만으로 즉시 표시되어야 한다."
     ],
     "security": [
-      "Outbox payload는 Device 세션 범위의 사건 데이터만 보관하며 incident purge 후 acked local rows를 삭제한다.",
+      "Outbox payload는 PolicePhone 세션 범위의 사건 데이터만 보관하며 incident purge 후 acked local rows를 삭제한다.",
       "idempotency response cache는 bodyHash mismatch를 409로 차단한다.",
-      "sync clock/requeue API는 APP channel, X-Device-Id, registered Device, incident assigned Device guard를 모두 요구한다.",
+      "sync clock/requeue API는 APP channel, X-PolicePhone-Id, registered PolicePhone, incident assigned PolicePhone guard를 모두 요구한다.",
       "post-close requeue는 domain endpoint로 전달하지 않고 FAILED_FINAL로 보존해 종료 사건에 새 쓰기가 반영되지 않게 한다."
     ],
     "observability": [
@@ -1444,12 +1444,12 @@
       {
         "name": "SyncClockReturnsOffsetFieldsTest",
         "framework": "JUnit 5 + MockMvc",
-        "scenario": "POST /sync/clock 응답은 app-device guard 통과 후 clientTs, serverTs, clockOffsetMs, clockSyncedAt, maxAllowedSkewMs를 포함한다."
+        "scenario": "POST /sync/clock 응답은 app-police-phone guard 통과 후 clientTs, serverTs, clockOffsetMs, clockSyncedAt, maxAllowedSkewMs를 포함한다."
       },
       {
-        "name": "SyncApiRequiresAssignedAppDeviceTest",
+        "name": "SyncApiRequiresAssignedAppPolicePhoneTest",
         "framework": "JUnit 5 + MockMvc",
-        "scenario": "/sync/clock과 /sync/outbox/requeue는 WEB channel, missing X-Device-Id, unregistered Device, unassigned Device를 각각 channel_not_allowed/device_required/device_not_registered/device_not_assigned로 거부한다."
+        "scenario": "/sync/clock과 /sync/outbox/requeue는 WEB channel, missing X-PolicePhone-Id, unregistered PolicePhone, unassigned PolicePhone를 각각 channel_not_allowed/police_phone_required/police_phone_not_registered/police_phone_not_assigned로 거부한다."
       },
       {
         "name": "CommittedMissingResponseCacheRecoveryTest",
@@ -1513,7 +1513,7 @@
       {
         "name": "OutboxFailureCategoryUxTest",
         "framework": "JUnit5 + Robolectric",
-        "scenario": "clock skew, idempotency mismatch, device_not_assigned, incident_closed, network timeout row가 각각 CLOCK_RESYNC_REQUIRED, NON_RETRYABLE_CONFLICT, DEVICE_ACCESS_REQUIRED, CLOSED_NO_RETRY, RETRYABLE_NETWORK로 표시되고 raw lastError는 화면에 노출되지 않는다."
+        "scenario": "clock skew, idempotency mismatch, police_phone_not_assigned, incident_closed, network timeout row가 각각 CLOCK_RESYNC_REQUIRED, NON_RETRYABLE_CONFLICT, POLICE_PHONE_ACCESS_REQUIRED, CLOSED_NO_RETRY, RETRYABLE_NETWORK로 표시되고 raw lastError는 화면에 노출되지 않는다."
       },
       {
         "name": "OutboxReplayConvergenceProbeTest",
@@ -1722,7 +1722,7 @@
       {
         "operationId": "op-fail-PolicePhone-001",
         "lastError": "police_phone_not_assigned",
-        "userSafeFailureCategory": "DEVICE_ACCESS_REQUIRED",
+        "userSafeFailureCategory": "POLICE_PHONE_ACCESS_REQUIRED",
         "retryable": false
       },
       {
@@ -1876,7 +1876,7 @@
     {
       "date": "2026-04-28",
       "change": "Phase 4 tester findings 반영",
-      "reason": "close/purge 정책, idempotent replay cache, app-device guards, retry/backoff, clock fields, warning thresholds, package status replay, ordering/dependency rules 명시"
+      "reason": "close/purge 정책, idempotent replay cache, app-police-phone guards, retry/backoff, clock fields, warning thresholds, package status replay, ordering/dependency rules 명시"
     }
   ]
 }
