@@ -20,22 +20,6 @@ public class SyncClockExceptionHandler {
 
   @ExceptionHandler(GuardException.class)
   ResponseEntity<Map<String, String>> handleGuardException(GuardException ex) {
-    String mappedError =
-        switch (ex.getErrorCode()) {
-          case "police_phone_required" -> "device_required";
-          case "police_phone_not_registered" -> "device_not_registered";
-          case "police_phone_not_assigned" -> "device_not_assigned";
-          default -> ex.getErrorCode();
-        };
-
-    HttpStatus mappedStatus =
-        switch (mappedError) {
-          case "device_required" -> HttpStatus.BAD_REQUEST;
-          case "device_not_registered", "device_not_assigned", "channel_not_allowed" ->
-              HttpStatus.FORBIDDEN;
-          default -> ex.getHttpStatus();
-        };
-
-    return ResponseEntity.status(mappedStatus).body(Map.of("error", mappedError));
+    return ResponseEntity.status(ex.getHttpStatus()).body(Map.of("error", ex.getErrorCode()));
   }
 }

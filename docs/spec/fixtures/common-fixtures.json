@@ -922,7 +922,7 @@
           "request_body_hash_mismatch",
           "write_conflict"
         ],
-        "DEVICE_ACCESS_REQUIRED": [
+        "POLICE_PHONE_ACCESS_REQUIRED": [
           "police_phone_required",
           "police_phone_not_registered",
           "police_phone_not_assigned"
@@ -1127,7 +1127,7 @@
         {
           "operationId": "op-fail-PolicePhone-001",
           "lastError": "police_phone_not_assigned",
-          "userSafeFailureCategory": "DEVICE_ACCESS_REQUIRED",
+          "userSafeFailureCategory": "POLICE_PHONE_ACCESS_REQUIRED",
           "retryable": false
         },
         {
