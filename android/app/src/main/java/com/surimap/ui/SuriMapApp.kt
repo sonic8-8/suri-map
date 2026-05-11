@@ -31,7 +31,9 @@ import com.surimap.feature.incidents.data.IncidentListStateLoader
 import com.surimap.feature.incidents.ui.IncidentListScreen
 import com.surimap.feature.incidents.ui.IncidentListUiState
 import com.surimap.feature.marker.ui.MarkerCreateBottomSheet
+import com.surimap.feature.marker.ui.MarkerDetailScreen
 import com.surimap.feature.marker.ui.MarkerType
+import com.surimap.feature.marker.ui.sampleMarkerDetailState
 import com.surimap.feature.marker.ui.sampleMarkerCreateSheetState
 import com.surimap.feature.offline.ui.OfflinePackageScreen
 import com.surimap.feature.offline.ui.sampleOfflinePackageState
@@ -39,7 +41,6 @@ import com.surimap.feature.search.ui.SearchMapScreen
 import com.surimap.feature.search.ui.sampleSearchMapState
 import com.surimap.ui.navigation.BlockedOutboxRouteScreen
 import com.surimap.ui.navigation.IncidentSessionState
-import com.surimap.ui.navigation.MarkerDetailRouteScreen
 import com.surimap.ui.navigation.PolicePhoneRoute
 import com.surimap.ui.theme.PoliBgBase
 
@@ -148,7 +149,22 @@ fun SuriMapApp() {
                     )
                 }
                 composable(PolicePhoneRoute.MarkerDetail.route) {
-                    MarkerDetailRouteScreen(onBack = { navController.popBackStack() })
+                    var markerDetailState by remember { mutableStateOf(sampleMarkerDetailState()) }
+                    MarkerDetailScreen(
+                        state = markerDetailState,
+                        onBack = { navController.popBackStack() },
+                        onMemoChange = { memo -> markerDetailState = markerDetailState.copy(memo = memo) },
+                        onSave = { navController.popBackStack() },
+                        onRequestDelete = {
+                            markerDetailState = markerDetailState.copy(showDeleteConfirm = true)
+                        },
+                        onDismissDelete = {
+                            markerDetailState = markerDetailState.copy(showDeleteConfirm = false)
+                        },
+                        onConfirmDelete = { navController.popBackStack() },
+                        onAddPhoto = {},
+                        onDeletePhoto = {}
+                    )
                 }
                 composable(PolicePhoneRoute.BlockedOutbox.route) {
                     BlockedOutboxRouteScreen(onBack = { navController.popBackStack() })

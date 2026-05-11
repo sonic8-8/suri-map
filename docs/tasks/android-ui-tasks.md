@@ -274,7 +274,7 @@
     - VERIFY: `git diff --check` 통과
     - VERIFY: `cd android && ./gradlew test :app:assembleDebug` 통과
 
-- [ ] AUI-T09 마커 상세/편집 화면을 구현한다
+- [x] AUI-T09 마커 상세/편집 화면을 구현한다
   - 담당 영역: Android UI
   - 연관 Spec: S5
   - 필수 참조: `docs/api/api-spec.md`, `docs/spec/specs/S5.json`, `docs/screen-design/artifacts/lo/lo-polifon-marker-detail-v1.html`
@@ -291,6 +291,12 @@
     - readonly 상태에서는 수정/삭제 버튼이 숨겨진다.
     - 삭제는 명시 버튼과 confirm dialog를 모두 거친다.
     - `cd android && ./gradlew :app:assembleDebug` 통과
+  - 완료 증거:
+    - Jira `S14P31C106-228`, branch `feature/S14P31C106-228-marker-detail-edit-screen`
+    - RED: `cd android && ./gradlew :app:testDebugUnitTest --tests com.surimap.feature.marker.MarkerDetailUiStateTest` 실패 (`MarkerDetailUiState`, `MarkerDetailPhotoStatus` 미정의)
+    - GREEN: 같은 targeted test 통과
+    - VERIFY: `git diff --check` 통과
+    - VERIFY: `cd android && ./gradlew test :app:assembleDebug` 통과
 
 ## Phase 5 — 인수인계와 처리 불가 큐
 

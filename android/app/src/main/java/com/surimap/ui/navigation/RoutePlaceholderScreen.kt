@@ -16,25 +16,6 @@ import com.surimap.ui.theme.PoliDimens
 import com.surimap.ui.theme.PoliFgMuted
 
 @Composable
-fun MarkerDetailRouteScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
-    PlaceholderScaffold(
-        title = "마커 상세",
-        subtitle = "단서 마커 · 배수로 입구",
-        onBack = onBack,
-        modifier = modifier
-    ) {
-        PoliCard(strong = true) {
-            Text(text = "마커 상세 route", style = MaterialTheme.typography.titleMedium)
-            Text(
-                text = "권한 분기와 사진 첨부 UI는 AUI-T09에서 구현합니다.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = PoliFgMuted
-            )
-        }
-    }
-}
-
-@Composable
 fun BlockedOutboxRouteScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     PlaceholderScaffold(
         title = "미전송 진단",
