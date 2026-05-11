@@ -10,6 +10,11 @@ import com.surimap.api.controller.searcharea.response.SearchAreaReadResponse;
 import com.surimap.api.controller.searcharea.response.SearchAreaResponse;
 import com.surimap.api.controller.searcharea.response.SearchAreaSplitResponse;
 import com.surimap.maparea.geometry.geojson.GeoJsonPolygon;
+import com.surimap.maparea.query.OverallSearchAreaResult;
+import com.surimap.maparea.query.SearchAreaCollection;
+import com.surimap.maparea.query.SearchAreaFilters;
+import com.surimap.maparea.query.SearchAreaQuery;
+import com.surimap.maparea.query.SearchAreaRow;
 import com.surimap.maparea.geometry.validation.GeometryValidator;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -23,12 +28,13 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 
 @Service
-public class SearchAreaApiService {
+public class SearchAreaApiService implements SearchAreaQuery {
 
   private static final String ACTIVE = "ACTIVE";
   private static final String CANCELLED = "CANCELLED";
@@ -109,6 +115,40 @@ public class SearchAreaApiService {
     long sourceVersion = records.stream().mapToLong(SearchAreaRecord::version).max().orElse(0L);
     return new SearchAreaCollectionResponse(
         incidentId, sourceVersion, records.stream().map(this::toResponse).toList());
+  }
+
+  @Override
+  public synchronized Optional<OverallSearchAreaResult> overallOf(UUID incidentId) {
+    SearchAreaRecord overall = activeOverallOf(incidentId);
+    if (overall == null) {
+      return Optional.empty();
+    }
+    return Optional.of(
+        new OverallSearchAreaResult(
+            overall.id(),
+            overall.incidentId(),
+            overall.status(),
+            overall.version(),
+            overall.geometry(),
+            computeBbox(overall.geometry()),
+            overall.updatedAt()));
+  }
+
+  @Override
+  public synchronized SearchAreaCollection byIncident(UUID incidentId, SearchAreaFilters filters) {
+    List<SearchAreaRecord> records = queryRecords(incidentId, null, filters);
+    long sourceVersion = records.stream().mapToLong(SearchAreaRecord::version).max().orElse(0L);
+    return new SearchAreaCollection(
+        incidentId, sourceVersion, records.stream().map(this::toSearchAreaRow).toList());
+  }
+
+  @Override
+  public synchronized SearchAreaCollection byOp(UUID opId, SearchAreaFilters filters) {
+    List<SearchAreaRecord> records = queryRecords(null, opId, filters);
+    long sourceVersion = records.stream().mapToLong(SearchAreaRecord::version).max().orElse(0L);
+    UUID incidentId = records.isEmpty() ? null : records.get(0).incidentId();
+    return new SearchAreaCollection(
+        incidentId, sourceVersion, records.stream().map(this::toSearchAreaRow).toList());
   }
 
   public synchronized SearchAreaResponse patch(
@@ -307,6 +347,41 @@ public class SearchAreaApiService {
         record.updatedAt());
   }
 
+  private List<SearchAreaRecord> queryRecords(
+      UUID incidentId, UUID opId, SearchAreaFilters filters) {
+    SearchAreaFilters effectiveFilters = filters == null ? SearchAreaFilters.empty() : filters;
+    return searchAreas.values().stream()
+        .filter(area -> incidentId == null || incidentId.equals(area.incidentId()))
+        .filter(area -> opId == null || opId.equals(area.opId()))
+        .filter(area -> effectiveFilters.opId() == null || effectiveFilters.opId().equals(area.opId()))
+        .filter(area -> effectiveFilters.includeCancelled() || !CANCELLED.equals(area.status()))
+        .filter(area -> effectiveFilters.status() == null || effectiveFilters.status().contains(area.status()))
+        .filter(area -> effectiveFilters.minVersion() == null || area.version() >= effectiveFilters.minVersion())
+        .filter(area -> effectiveFilters.updatedAfter() == null || area.updatedAt().isAfter(effectiveFilters.updatedAfter()))
+        .filter(area -> effectiveFilters.bbox() == null || bboxIntersects(computeBbox(area.geometry()), effectiveFilters.bbox()))
+        .sorted(
+            Comparator.comparing(
+                    SearchAreaRecord::opId, Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(SearchAreaRecord::status)
+                .thenComparing(SearchAreaRecord::updatedAt)
+                .thenComparing(SearchAreaRecord::id))
+        .toList();
+  }
+
+  private SearchAreaRow toSearchAreaRow(SearchAreaRecord record) {
+    return new SearchAreaRow(
+        record.id(),
+        record.incidentId(),
+        record.opId(),
+        record.parentAreaId(),
+        record.status(),
+        record.version(),
+        record.geometry(),
+        computeBbox(record.geometry()),
+        record.updatedAt(),
+        record.historyCount());
+  }
+
   private List<BigDecimal> computeBbox(GeoJsonPolygon polygon) {
     BigDecimal minLon = null;
     BigDecimal minLat = null;
@@ -323,6 +398,24 @@ public class SearchAreaApiService {
       }
     }
     return List.of(minLon, minLat, maxLon, maxLat);
+  }
+
+  private boolean bboxIntersects(List<BigDecimal> areaBbox, List<BigDecimal> filterBbox) {
+    if (filterBbox.size() != 4) {
+      return false;
+    }
+    BigDecimal aMinLon = areaBbox.get(0);
+    BigDecimal aMinLat = areaBbox.get(1);
+    BigDecimal aMaxLon = areaBbox.get(2);
+    BigDecimal aMaxLat = areaBbox.get(3);
+    BigDecimal fMinLon = filterBbox.get(0);
+    BigDecimal fMinLat = filterBbox.get(1);
+    BigDecimal fMaxLon = filterBbox.get(2);
+    BigDecimal fMaxLat = filterBbox.get(3);
+    return aMaxLon.compareTo(fMinLon) >= 0
+        && aMinLon.compareTo(fMaxLon) <= 0
+        && aMaxLat.compareTo(fMinLat) >= 0
+        && aMinLat.compareTo(fMaxLat) <= 0;
   }
 
   private <T> T replayOrRun(

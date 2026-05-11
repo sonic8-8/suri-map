@@ -54,7 +54,7 @@
 | `POST /api/search-paths/batch` | S3-1 | 구현 | `SearchPathController` | Android real outbox replay 필요 |
 | `GET /api/search-paths` | S3-1 | 구현 | `SearchPathController` | FE board mapper와 Android read repository 필요 |
 | `PATCH /api/search-path-segments/{searchPathSegmentId}` | S3-1 | 구현 | `SearchPathSegmentController` | Web correction client 필요 |
-| `GET /api/incidents/{incidentId}/board` | S3-2 | 부분 | `IncidentBoardController`가 `BoardAssembler` 기반 response shape와 WEB guard를 노출 | S2/S3-1/S5/S7/S8 source row provider 연결, location access audit guard 정리 |
+| `GET /api/incidents/{incidentId}/board` | S3-2 | 부분 | `IncidentBoardController`가 `BoardAssembler` 기반 response shape와 WEB guard를 노출하고, S2/S3-1/S5/S7/S8의 현재 구현된 query source row를 collector로 조립 | location access audit guard, `sinceVersion`/`gone_refetch_required`, 아직 source owner가 없는 `toast`/`handover_status`/`police_phone_freshness` 세부 source 정리 |
 | `GET /api/incidents/{incidentId}/events` | S4 | 구현 | `EventStreamController` | FE SSE adapter 필요 |
 | `POST /api/markers` | S5 | 구현 | `MarkerController` | Android write operation builder 필요 |
 | `PATCH /api/markers/{markerId}` | S5 | 구현 | `MarkerController` | Android/Web policy client 필요 |
