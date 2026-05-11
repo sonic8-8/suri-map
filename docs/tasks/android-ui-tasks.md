@@ -169,7 +169,7 @@
     - 현재 `app-police-phone` guard가 `police_phone_not_assigned`를 반환할 수 있어 bootstrap heartbeat 단계에서 미배정 폴리폰이 P2 empty로 내려가지 않고 `server_rejected_phone`으로 막힐 수 있다.
     - "배정 0건은 P2 empty가 처리" 원칙을 유지하려면 S1-2/API에서 배정 여부를 요구하지 않는 bootstrap/session check endpoint 또는 guard 조정이 필요하다.
 
-- [ ] AUI-T05 배정 사건 선택 화면을 실제 리스트 상태와 연결한다
+- [x] AUI-T05 배정 사건 선택 화면을 실제 리스트 상태와 연결한다
   - 담당 영역: Android UI
   - 연관 Spec: S1-2, S4, S8
   - 필수 참조: `docs/api/api-spec.md`, `docs/spec/harness-scenarios.md`, `docs/screen-design/screen-state-matrix.md`
@@ -186,6 +186,13 @@
     - empty가 기본 가능 상태로 표현된다.
     - `police_phone_not_assigned` 또는 사건 종료 상태에서 사건 컨텍스트가 비워진다.
     - `cd android && ./gradlew :app:assembleDebug` 통과
+  - 완료 증거:
+    - Jira `S14P31C106-223`, branch `feature/S14P31C106-223-incident-list-state`
+    - RED/GREEN: `cd android && ./gradlew :app:testDebugUnitTest --tests com.surimap.feature.incidents.IncidentListStateLoaderTest`
+    - VERIFY: `cd android && ./gradlew test :app:assembleDebug`
+  - 계약 메모:
+    - 현재 `GET /api/incidents` list schema는 `id`, `incidentId`, `title`, `status`, `version`, `closedAt`만 제공한다. 실종자 요약, 마지막 활동 시각, current OP/DutyShift는 list 응답 계약에 없다.
+    - AUI-T05는 계약에 있는 필드만 카드에 반영하고, `IncidentContext`는 우선 `incidentId`만 채운다. OP/DutyShift 보강은 S8/오프라인 패키지 연결 task에서 처리해야 한다.
 
 ## Phase 3 — 오프라인 패키지와 수색 지도
 

@@ -32,8 +32,8 @@ object PolicePhoneRoutes {
 
 data class IncidentContext(
     val incidentId: String,
-    val currentOpId: String,
-    val currentDutyShiftId: String
+    val currentOpId: String? = null,
+    val currentDutyShiftId: String? = null
 )
 
 @Stable
