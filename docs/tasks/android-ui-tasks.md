@@ -52,7 +52,7 @@
 
 ## Phase 0 — Foundation
 
-- [ ] AUI-T01 폴리폰 Compose UI foundation과 핵심 화면 골격 구현
+- [x] AUI-T01 폴리폰 Compose UI foundation과 핵심 화면 골격 구현
   - 담당 영역: Android UI
   - 필수 참조: `android/AGENTS.md`, `docs/screen-design/wireframes.md`, `docs/screen-design/dense-tokens.md`, `docs/screen-design/screen-state-matrix.md`, `docs/screen-design/permission-matrix.md`, `docs/screen-design/README.md`, `docs/screen-design/artifacts/lo/lo-polifon-wireframes-v1.html`, `docs/api/api-spec.md`, `docs/spec/boundaries.md`, `docs/spec/harness-scenarios.md`
   - 연관 Spec: S1-2, S3-1, S4, S5, S6, S7, S8
@@ -75,10 +75,11 @@
     - 공통 컴포넌트와 4개 화면 골격이 low-fi HTML 구조와 screen-state-matrix의 핵심 상태를 반영한다.
     - Android UI에 Web 지휘 기능, ID/PW 로그인, 메모 작성 중 요약 생성 CTA, 사건 종료 실행 UI, 정상 미전송 큐 직접 진입 UI가 없다.
     - MR 변경 범위는 원칙적으로 `android/`, `docs/screen-design/`, `docs/tasks/android-ui-tasks.md`로 제한한다.
+  - 완료 증거: Jira `S14P31C106-211`, MR `!151`, `cd android && ./gradlew :app:assembleDebug` 통과
 
 ## Phase 1 — App Shell과 의존성 결정
 
-- [ ] AUI-T02 Navigation, scaffold, app state holder 골격을 붙인다
+- [x] AUI-T02 Navigation, scaffold, app state holder 골격을 붙인다
   - 담당 영역: Android UI
   - 필수 참조: `docs/tasks/index.md`, `docs/spec/boundaries.md`, `docs/screen-design/screen-state-matrix.md`
   - 구현 산출물:
@@ -88,13 +89,14 @@
     - Activity/Nav scope `IncidentSessionState` 또는 `IncidentSessionViewModel`
     - DataStore에는 `last_seen_handover_at`, `last_known_manifest_revision`, managed config snapshot hash 같은 작은 preference만 저장
   - 명시 결정:
-    - Navigation Compose 도입 여부
-    - 수동 `SuriMapAppContainer` 유지 vs Hilt 도입 보류
-    - root overlay event 전달 방식: `SharedFlow` 또는 단순 state holder
+    - Navigation Compose 도입: `androidx.navigation:navigation-compose:2.9.8` 사용. Google Maven metadata 기준 stable 최신 2.9.8을 선택하고 alpha release는 배제한다.
+    - 수동 provider/state holder 유지. Hilt는 ViewModel/Repository 주입 복잡도가 생길 때까지 보류한다.
+    - root overlay event 전달은 AUI-T02 범위에서 Compose root state holder로 처리한다. `SharedFlow`/EventBus는 실제 WorkManager·FCM 이벤트 연결 task에서 필요성이 확인되면 도입한다.
   - 완료 기준:
     - 8개 route가 mock state로 이동 가능하다.
     - 사건 컨텍스트가 DataStore에 저장되지 않는다.
     - `cd android && ./gradlew :app:assembleDebug` 통과
+  - 완료 증거: Jira `S14P31C106-217`, branch `feature/S14P31C106-217-police-phone-nav-scaffold-state-holder`, RED/GREEN `./gradlew :app:testDebugUnitTest --tests com.surimap.ui.navigation.PolicePhoneNavigationContractTest`, `cd android && ./gradlew :app:assembleDebug`, `cd android && ./gradlew test`
 
 - [ ] AUI-T03 신규 의존성 도입 여부를 task별로 결정한다
   - 담당 영역: Android UI / Android infra decision
