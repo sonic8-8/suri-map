@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.surimap.summary.SearchHistorySummaryMapper">
+
+    <resultMap id="summaryRowMap" type="com.surimap.summary.SearchHistorySummaryRow">
+        <constructor>
+            <arg column="summary_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="incident_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="op_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="duty_shift_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="generation_status" javaType="java.lang.String"/>
+            <arg column="content" javaType="java.lang.String"/>
+            <arg column="source_data_hash" javaType="java.lang.String"/>
+            <arg column="source_readiness" javaType="java.lang.String"/>
+            <arg column="generated_at" javaType="java.time.Instant"/>
+            <arg column="version" javaType="_long"/>
+        </constructor>
+    </resultMap>
+
+    <select id="findByOp" resultMap="summaryRowMap">
+        SELECT
+            shs.id AS summary_id,
+            op.incident_id,
+            shs.operational_period_id AS op_id,
+            shs.duty_shift_id,
+            shs.generation_status,
+            shs.content,
+            shs.source_data_hash,
+            shs.source_readiness,
+            shs.generated_at,
+            shs.version
+        FROM search_history_summary shs
+        JOIN operational_period op ON op.id = shs.operational_period_id
+        WHERE shs.operational_period_id = #{opId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND op.incident_id = #{incidentId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+        <if test="scopeType != null and scopeType == 'OP'">
+            AND shs.duty_shift_id IS NULL
+            <if test="scopeId != null">
+                AND shs.operational_period_id = #{scopeId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+            </if>
+        </if>
+        <if test="scopeType != null and scopeType == 'DUTY_SHIFT'">
+            AND shs.duty_shift_id IS NOT NULL
+            <if test="scopeId != null">
+                AND shs.duty_shift_id = #{scopeId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+            </if>
+        </if>
+        <if test="dutyShiftId != null">
+            AND shs.duty_shift_id = #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+        </if>
+        <if test="status != null">
+            AND shs.generation_status = #{status}
+        </if>
+        ORDER BY shs.created_at DESC, shs.id ASC
+    </select>
+</mapper>

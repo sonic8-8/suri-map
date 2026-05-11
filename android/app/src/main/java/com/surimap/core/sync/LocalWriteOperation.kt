@@ -7,7 +7,9 @@ enum class DependencyGroup {
     PATH,
     MARKER,
     PHOTO,
-    PACKAGE_INSTALLATION
+    PACKAGE_INSTALLATION,
+    DUTY_SHIFT,
+    HANDOVER_MEMO
 }
 
 enum class OutboxStatus {

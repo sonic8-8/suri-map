@@ -26,7 +26,7 @@
 
 1. 백엔드 public URL prefix는 `S14P31C106-206`에서 정렬됐다. JSON API는 `/api`, tiles는 `/tiles`로 노출된다.
 2. 백엔드는 S1-1 Incident, S2 SearchArea headless MVP, S3-1 SearchPath, S4 SSE, S5 Marker/Photo, S7 Offline/Tiles 일부가 구현되어 있다.
-3. 백엔드는 S3-2 Board read controller shell이 추가됐지만 실제 slot source row provider 연결은 남아 있다. S2 SearchArea public controller는 in-memory headless MVP라 MyBatis persistence 정렬이 남아 있고, S8 OperationalPeriod public controller는 headless MVP로 추가됐지만 DutyShift/Handover/SearchHistorySummary public controller는 아직 없다.
+3. 백엔드는 S3-2 Board read controller shell이 추가됐지만 실제 slot source row provider 연결은 남아 있다. S2 SearchArea public controller는 in-memory headless MVP라 MyBatis persistence 정렬이 남아 있고, S8 OperationalPeriod와 DutyShift/Handover/SearchHistorySummary public controller는 headless MVP로 추가됐다.
 4. 백엔드 S6 `POST /api/sync/clock`, `POST /api/sync/outbox/requeue`는 `X-PolicePhone-Id`/`police_phone_*` 계약으로 정렬됐다.
 5. Frontend는 TanStack Query provider와 MapLibre `/tiles` 렌더링만 있고, board API query나 SSE `EventSource` adapter가 없다.
 6. Frontend Vite dev proxy는 `/api`만 있고 `/tiles` proxy가 없어 로컬 백엔드 타일 endpoint와 개발 서버 연동이 끊길 수 있다.
@@ -67,12 +67,12 @@
 | `POST /api/incidents/{incidentId}/offline-package/installations` | S7 | 구현 | `OfflinePackageController` | Android outbox replay 연결 필요 |
 | `POST /api/operational-periods` | S8 | 부분 | `OperationalPeriodController`, MyBatis `operational_period` write, Web command client 추가 | idempotency durable record, handoverMemo 저장, summary job 연계 보강 |
 | `GET /api/incidents/{incidentId}/operational-periods` | S8 | 부분 | `OperationalPeriodController`, `OperationalPeriodQuery`, Web client, Android read repository 추가 | board/offline source provider 연결 |
-| `POST /api/duty-shifts` | S8 | 미구현 | public controller 없음 | Android duty shift write 필요 |
-| `PATCH /api/duty-shifts/{dutyShiftId}` | S8 | 미구현 | public controller 없음 | summary server job trigger 포함 |
-| `GET /api/duty-shifts` | S8 | 미구현 | public controller 없음 | Web/App read repository 필요 |
-| `POST /api/handover-memos` | S8 | 미구현 | handover command/query 패키지는 있으나 controller 없음 | App/Web field-or-web write 구현 |
-| `GET /api/handover-memos` | S8 | 미구현 | public controller 없음 | board slot source로 필요 |
-| `GET /api/operational-periods/{operationalPeriodId}/search-history-summaries` | S8 | 미구현 | `domain/summary`만 있고 public read 없음 | App/Web read-only 구현 |
+| `POST /api/duty-shifts` | S8 | 부분 | `AppDutyShiftController`, MyBatis `duty_shift` write, Android outbox repository 추가 | durable idempotency, assignment 정책 보강, summary job trigger는 P2-D |
+| `PATCH /api/duty-shifts/{dutyShiftId}` | S8 | 부분 | `AppDutyShiftController`, Android duty shift END outbox repository 추가 | source readiness barrier와 summary server job trigger는 P2-D |
+| `GET /api/duty-shifts` | S8 | 부분 | `DutyShiftQueryController`, Web API client, Android read repository 추가 | board slot source provider 연결 |
+| `POST /api/handover-memos` | S8 | 부분 | `HandoverMemoController`, MyBatis `handover_memo` write, EventHub publish, Web client, Android outbox repository 추가 | durable idempotency와 board source provider 연결 |
+| `GET /api/handover-memos` | S8 | 부분 | `HandoverMemoController`, `HandoverMemoMapper`, Web/Android read client 추가 | S3-2 handover slot source provider 연결 |
+| `GET /api/operational-periods/{operationalPeriodId}/search-history-summaries` | S8 | 부분 | `SearchHistorySummaryController`, MyBatis read mapper, Web/Android read client 추가 | 서버 내부 generation job과 stale/source readiness 계산은 P2-D |
 | `GET /tiles/styles/{styleId}.json` | S7 | 구현 | `TileController` | FE `/tiles` proxy 필요 |
 | `GET /tiles/{style}/{z}/{x}/{y}.pbf` | S7 | 구현 | `TileController` | Android MapLibre tile wiring 필요 |
 
@@ -86,7 +86,7 @@
 | SSE | 미구현 | `EventSource` 사용 없음 | `GET /api/incidents/{incidentId}/events` adapter 작성 |
 | Board slots | 부분 | slot component/test는 있음 | fixture rows 대신 API mapper 결과 주입 |
 | Tiles | 부분 | MapLibre style URL은 `/tiles/styles/osm-local.json` | Vite `/tiles` proxy 추가 또는 tile base config 결정 |
-| Web commands | 부분 | incident/search-area/operational-period command client는 있으나 handover command client 없음 | UI 작업물과 합칠 나머지 headless command API 선행 |
+| Web commands | 부분 | incident/search-area/operational-period/handover command client 추가 | UI 작업물과 합칠 나머지 headless command API 선행 |
 
 ## Android Headless 현황
 
@@ -96,9 +96,9 @@
 | API client | 미구현 | runtime HTTP client 코드 없음 | base URL, auth, `X-Client-Channel: APP`, `X-PolicePhone-Id` 처리 |
 | Outbox local model | 구현 | Room `OutboxEntity`, DAO, WorkManager, state machine 있음 | 실제 sender와 sequence barrier 연결 |
 | Outbox sender | 부분 | `OutboxSender` interface는 있으나 기본값이 `NoopOutboxSender` | production 기본 sender를 real HTTP로 교체 |
-| Incident/offline/search-area/operational-period read repository | 부분 | incident/offline/search-area/operational-period read repository 추가 | duty-shift/handover/summary read repository 추가 |
+| Incident/offline/search-area/operational-period/duty-shift/handover/summary read repository | 부분 | incident/offline/search-area/operational-period/duty-shift/handover/summary read repository 추가 | UI/ViewModel 연결 |
 | SearchPath/Marker write builder | 미구현 | tests에 sample path만 있음 | write operation builder와 payload mapper 추가 |
-| DutyShift/Handover/Summary | 미구현 | API client/repository 없음 | S8 backend controller 이후 연결 |
+| DutyShift/Handover/Summary | 부분 | duty shift/handover write outbox builder와 summary read repository 추가 | duty shift END barrier와 UI/ViewModel 연결 |
 | Tiles | 부분 | MapLibre dependency만 있음 | local `/tiles` style/tile source wiring 추가 |
 
 ## 기준 문서 충돌 또는 주의 지점
@@ -112,7 +112,7 @@
 
 1. `[BE]` S3-2 Board source row provider 연결과 `GET /api/incidents/{incidentId}/board` 데이터 충실도 보강
 2. `[BE]` S2 SearchArea MyBatis persistence 정렬 및 assignment URL/테이블 충돌 정리
-3. `[BE]` S8 OperationalPeriod/DutyShift/Handover/SearchHistorySummary controller 구현
+3. `[BE]` S8 summary generation job, duty shift END source readiness barrier, Board S8 source provider 연결
 4. `[FE]` 공통 API client, board query, SSE adapter, board mapper 추가
 5. `[FE]` Vite `/tiles` proxy 또는 tile base URL 설정 정리
 6. `[Android]` incident/offline/search-path/marker/duty-shift/handover repository와 write operation builder 추가
