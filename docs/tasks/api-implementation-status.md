@@ -11,7 +11,7 @@
 - Public HTTP URL 기준은 `docs/api/api-spec.md`를 따른다.
 - 구현 여부는 실제 controller, frontend runtime 코드, Android runtime 코드 기준으로 판단했다.
 - Frontend/Android UI는 별도 작업 중이므로 여기서는 API client, repository, outbox sender, mapper, SSE adapter 같은 headless 연동 상태만 본다.
-- `backend/src/main/java/com/surimap/**/Controller.java` 기준 현재 public controller는 Incident, PolicePhone heartbeat, SearchPath, EventStream, Marker/Photo, Sync/Offline, Tiles만 있다.
+- `backend/src/main/java/com/surimap/**/Controller.java` 기준 현재 public controller는 Incident, SearchArea(headless MVP), PolicePhone heartbeat, SearchPath, EventStream, Marker/Photo, Sync/Offline, Tiles를 포함한다.
 
 상태 표기:
 
@@ -25,12 +25,12 @@
 ## 핵심 결론
 
 1. 백엔드 public URL prefix는 `S14P31C106-206`에서 정렬됐다. JSON API는 `/api`, tiles는 `/tiles`로 노출된다.
-2. 백엔드는 S1-1 Incident, S3-1 SearchPath, S4 SSE, S5 Marker/Photo, S7 Offline/Tiles 일부가 구현되어 있다.
-3. 백엔드는 S3-2 Board read controller shell이 추가됐지만 실제 slot source row provider 연결은 남아 있다. S2 SearchArea public controller와 S8 OperationalPeriod/DutyShift/Handover/SearchHistorySummary public controller는 아직 없다.
+2. 백엔드는 S1-1 Incident, S2 SearchArea headless MVP, S3-1 SearchPath, S4 SSE, S5 Marker/Photo, S7 Offline/Tiles 일부가 구현되어 있다.
+3. 백엔드는 S3-2 Board read controller shell이 추가됐지만 실제 slot source row provider 연결은 남아 있다. S2 SearchArea public controller는 in-memory headless MVP라 MyBatis persistence 정렬이 남아 있고, S8 OperationalPeriod/DutyShift/Handover/SearchHistorySummary public controller는 아직 없다.
 4. 백엔드 S6 `POST /api/sync/clock`, `POST /api/sync/outbox/requeue`는 `X-PolicePhone-Id`/`police_phone_*` 계약으로 정렬됐다.
 5. Frontend는 TanStack Query provider와 MapLibre `/tiles` 렌더링만 있고, board API query나 SSE `EventSource` adapter가 없다.
 6. Frontend Vite dev proxy는 `/api`만 있고 `/tiles` proxy가 없어 로컬 백엔드 타일 endpoint와 개발 서버 연동이 끊길 수 있다.
-7. Android는 공통 HTTP client와 real `OutboxSender`가 추가됐지만, domain별 repository/write operation builder는 아직 없다.
+7. Android는 공통 HTTP client와 real `OutboxSender`가 추가됐고, Incident/Auth/Offline/SearchArea read repository 일부와 field write operation builder 일부가 추가됐다.
 
 ## Backend API 현황
 
@@ -44,11 +44,11 @@
 | `GET /api/incidents` | S1-1 | 구현 | `IncidentReadController` | FE/Android read repository 필요 |
 | `GET /api/incidents/{incidentId}` | S1-1 | 구현 | `IncidentReadController` | FE/Android read repository 필요 |
 | `POST /api/incidents/{incidentId}/close` | S1-1 | 구현 | `IncidentCloseController` | Web command client 필요 |
-| `POST /api/search-areas` | S2 | 미구현 | `maparea` service/query는 있으나 controller 없음 | S2 public controller 구현 |
-| `GET /api/search-areas` | S2 | 미구현 | controller 없음 | board/offline/Android read path 우선 |
-| `PATCH /api/search-areas/{searchAreaId}` | S2 | 미구현 | controller 없음 | Web command client와 함께 구현 |
-| `POST /api/search-areas/{searchAreaId}/split` | S2 | 미구현 | controller 없음 | 분할 정책 확인 후 구현 |
-| `POST /api/search-areas/{searchAreaId}/assignments` | S2 | 미구현 | controller 없음 | `boundaries.md`의 S8 assignment 경로와 충돌 확인 필요 |
+| `POST /api/search-areas` | S2 | 부분 | `SearchAreaController`, `SearchAreaApiService`가 WEB guard/idempotency header/headless response를 제공하나 MyBatis persistence는 미연결 | search_area/op DB 계약 정렬 후 persistence 전환 |
+| `GET /api/search-areas` | S2 | 부분 | `SearchAreaController`, Web client, Android read repository 추가 | board/offline source provider와 MyBatis query adapter 연결 |
+| `PATCH /api/search-areas/{searchAreaId}` | S2 | 부분 | `SearchAreaController`, Web command client 추가 | search_area_history/MyBatis persistence 연결 |
+| `POST /api/search-areas/{searchAreaId}/split` | S2 | 부분 | `SearchAreaController`, Web command client 추가 | split spatial validation/history persistence 연결 |
+| `POST /api/search-areas/{searchAreaId}/assignments` | S2 | 부분 | `SearchAreaController`, Web command client 추가 | `search_area_assignment` migration/owner 정렬 필요 |
 | `POST /api/search-paths` | S3-1 | 구현 | `PathController` | Android write operation builder 필요 |
 | `PATCH /api/search-paths/{searchPathId}` | S3-1 | 구현 | `PathController` | Android write operation builder 필요 |
 | `POST /api/search-paths/batch` | S3-1 | 구현 | `SearchPathController` | Android real outbox replay 필요 |
@@ -86,7 +86,7 @@
 | SSE | 미구현 | `EventSource` 사용 없음 | `GET /api/incidents/{incidentId}/events` adapter 작성 |
 | Board slots | 부분 | slot component/test는 있음 | fixture rows 대신 API mapper 결과 주입 |
 | Tiles | 부분 | MapLibre style URL은 `/tiles/styles/osm-local.json` | Vite `/tiles` proxy 추가 또는 tile base config 결정 |
-| Web commands | 미구현 | import/close/search-area/op/handover command client 없음 | UI 작업물과 합칠 headless command API만 선행 |
+| Web commands | 부분 | incident/search-area command client는 있으나 op/handover command client 없음 | UI 작업물과 합칠 나머지 headless command API 선행 |
 
 ## Android Headless 현황
 
@@ -96,7 +96,7 @@
 | API client | 미구현 | runtime HTTP client 코드 없음 | base URL, auth, `X-Client-Channel: APP`, `X-PolicePhone-Id` 처리 |
 | Outbox local model | 구현 | Room `OutboxEntity`, DAO, WorkManager, state machine 있음 | 실제 sender와 sequence barrier 연결 |
 | Outbox sender | 부분 | `OutboxSender` interface는 있으나 기본값이 `NoopOutboxSender` | production 기본 sender를 real HTTP로 교체 |
-| Incident/offline read repository | 미구현 | repository/API layer 없음 | incident list/detail, manifest repository 추가 |
+| Incident/offline/search-area read repository | 부분 | incident/offline/search-area read repository 추가 | duty-shift/handover/summary read repository 추가 |
 | SearchPath/Marker write builder | 미구현 | tests에 sample path만 있음 | write operation builder와 payload mapper 추가 |
 | DutyShift/Handover/Summary | 미구현 | API client/repository 없음 | S8 backend controller 이후 연결 |
 | Tiles | 부분 | MapLibre dependency만 있음 | local `/tiles` style/tile source wiring 추가 |
@@ -111,7 +111,7 @@
 ## 권장 후속 MR 순서
 
 1. `[BE]` S3-2 Board source row provider 연결과 `GET /api/incidents/{incidentId}/board` 데이터 충실도 보강
-2. `[BE]` S2 SearchArea public controller 구현 및 assignment URL 충돌 정리
+2. `[BE]` S2 SearchArea MyBatis persistence 정렬 및 assignment URL/테이블 충돌 정리
 3. `[BE]` S8 OperationalPeriod/DutyShift/Handover/SearchHistorySummary controller 구현
 4. `[FE]` 공통 API client, board query, SSE adapter, board mapper 추가
 5. `[FE]` Vite `/tiles` proxy 또는 tile base URL 설정 정리
