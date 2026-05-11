@@ -22,6 +22,12 @@ android {
         versionName = "0.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        val suriMapApiBaseUrl = providers
+            .gradleProperty("suriMapApiBaseUrl")
+            .orElse("http://10.0.2.2:8080")
+            .get()
+        buildConfigField("String", "SURI_MAP_API_BASE_URL", "\"$suriMapApiBaseUrl\"")
     }
 
     buildTypes {
@@ -77,6 +83,7 @@ dependencies {
 
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.maplibre.android)
+    implementation(libs.okhttp)
 
     testImplementation(libs.junit4)
     testImplementation(libs.robolectric)
