@@ -196,7 +196,7 @@
 
 ## Phase 3 — 오프라인 패키지와 수색 지도
 
-- [ ] AUI-T06 오프라인 패키지 다운로드 화면을 구현한다
+- [x] AUI-T06 오프라인 패키지 다운로드 화면을 구현한다
   - 담당 영역: Android UI
   - 연관 Spec: S3-2, S7
   - 시나리오: SC-03, SC-11
@@ -214,6 +214,11 @@
     - 100% + `readyForOfflineUse=true`에서 P5로 이동한다.
     - 부분 성공 상태가 지도 진입 위험을 명시한다.
     - `cd android && ./gradlew :app:assembleDebug` 통과
+  - 완료 증거:
+    - Jira `S14P31C106-224`, branch `feature/S14P31C106-224-offline-package-screen`
+    - RED: `cd android && ./gradlew :app:testDebugUnitTest --tests com.surimap.feature.offline.OfflinePackageUiStateTest` 실패 (`OfflinePackageUiState`, `OfflinePackageDownloadStatus` 미정의)
+    - GREEN: 같은 targeted test 통과
+    - VERIFY: `cd android && ./gradlew test :app:assembleDebug` 통과
 
 - [ ] AUI-T07 수색 지도 shell과 동기화 상태 UI를 구현한다
   - 담당 영역: Android UI
