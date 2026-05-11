@@ -41,6 +41,27 @@ describe('createApiClient', () => {
     await expect(client.delete<undefined>('/auth/logout')).resolves.toBeUndefined();
   });
 
+  it('supports JSON body on DELETE commands', async () => {
+    const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+    const client = createApiClient({
+      baseUrl: '/api',
+      fetch: async (input, init) => {
+        calls.push({ input, init });
+        return jsonResponse({ id: 'mk-precinct-clue-001', status: 'DELETED', version: 5 });
+      },
+    });
+
+    await client.delete('/markers/mk-precinct-clue-001', {
+      body: { version: 4, reason: 'duplicated' },
+    });
+
+    expect(calls[0]?.input).toBe('/api/markers/mk-precinct-clue-001');
+    expect(calls[0]?.init?.method).toBe('DELETE');
+    expect(calls[0]?.init?.body).toBe('{"version":4,"reason":"duplicated"}');
+    const headers = new Headers(calls[0]?.init?.headers);
+    expect(headers.get('Content-Type')).toBe('application/json');
+  });
+
   it('throws ApiHttpError with backend error code for JSON error bodies', async () => {
     const client = createApiClient({
       baseUrl: '/api',
