@@ -527,17 +527,16 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Response: `200 {items}`
 - Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`
 
-#### POST `/api/operational-periods/{operationalPeriodId}/search-history-summaries`
+#### Search history summary generation
 
 - Owner: S8
-- Source spec: `POST /operational-periods/{operationalPeriodId}/search-history-summaries`
-- Consumer: WEB
-- Headers: `Authorization`, `Idempotency-Key`
-- Guard: `web-command`, `incident-read`, `write-common`
-- Idempotency-Key: yes
-- Request: `incidentId`, `clientTs`, optional `scopeType`, `scopeId`, `dutyShiftId`
-- Response: `202 {summaryId, status, version}`
-- Errors: `summary_unavailable`, `channel_not_allowed`, `role_denied`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`
+- Public client endpoint: none
+- Trigger: server-side after successful handover boundary writes:
+  - `PATCH /api/duty-shifts/{dutyShiftId}` with `action=END`
+  - `POST /api/operational-periods` when the previous OP is ended and the next OP is opened
+- Worker: S8 summary generation job builds a minimized source snapshot from OP, duty shift, path, marker, area, and handover memo records, calls the configured provider, then stores `GENERATING` -> `READY` or `FAILED`.
+- Retry: server-managed job retry/requeue only. APP and WEB do not call summary generation or retry APIs.
+- Event: `SEARCH_HISTORY_SUMMARY_CHANGED` after `READY` or `FAILED` state is stored.
 
 #### GET `/api/operational-periods/{operationalPeriodId}/search-history-summaries`
 
@@ -550,7 +549,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Query: `incidentId`, optional `scopeType`, `scopeId`, `dutyShiftId`, `status`
 - Response: `200 {items}`. `READY` items may include safe `content`; `GENERATING`/`FAILED` items expose status/displayStatus without source prompt, provider secret, recommendation, missing-area conclusion, or risk wording.
 - Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`
-- Channel rule: APP is read-only for this resource. Summary generation/retry remains `POST /api/operational-periods/{operationalPeriodId}/search-history-summaries` with WEB command guard.
+- Channel rule: APP and WEB are read-only for this resource. Summary generation/retry is server-side and is triggered by duty shift end or OP transition.
 
 ### 4.9 Tiles
 
@@ -617,7 +616,6 @@ Tileserver는 Spring Boot JSON API가 아니므로 `/api` prefix를 붙이지 �
 | `POST /sync/outbox/requeue` | `/api` prefix 없음 | `POST /api/sync/outbox/requeue` |
 | `GET /incidents/{incidentId}/offline-package/manifest` | `/api` prefix 없음 | `GET /api/incidents/{incidentId}/offline-package/manifest` |
 | `POST /incidents/{incidentId}/offline-package/installations` | `/api` prefix 없음 | `POST /api/incidents/{incidentId}/offline-package/installations` |
-| `POST /operational-periods/{opId}/search-history-summaries` | path variable 축약 | `POST /api/operational-periods/{operationalPeriodId}/search-history-summaries` |
 | `GET /operational-periods/{opId}/search-history-summaries` | path variable 축약 | `GET /api/operational-periods/{operationalPeriodId}/search-history-summaries` |
 
 ## 7. docs/spec 반영 상태

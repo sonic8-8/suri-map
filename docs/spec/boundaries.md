@@ -889,8 +889,8 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 - `POST /operational-periods/{opId}/assignments`
 - `POST /handover-memos`
 - `GET /handover-memos`
-- `POST /operational-periods/{operationalPeriodId}/search-history-summaries`
 - `GET /operational-periods/{operationalPeriodId}/search-history-summaries`
+- `SearchHistorySummaryGenerationJob` (server-side trigger only)
 
 **provides**
 
@@ -1238,10 +1238,12 @@ Guard shorthand:
 | `POST /incidents/{incidentId}/offline-package/installations` | S7 | 앱 | HTTPS | `app-police-phone`, `incident-read`, `write-common` | `internal-caller`: outbox replay |
 | `POST /operational-periods` | S8 | 웹 | HTTPS | `web-command`, `incident-read`, `write-common` | `internal-caller`: OP bootstrap |
 | `GET /incidents/{incidentId}/operational-periods` | S8 | 앱, 웹, S3-2, S7 | HTTPS | `public-session`, `incident-read` | - |
+| `POST /duty-shifts` | S8 | 앱 | HTTPS | `app-police-phone`, `incident-read`, `write-common`, `@RequireCurrentOp` | - |
+| `PATCH /duty-shifts/{dutyShiftId}` | S8 | 앱 | HTTPS | `app-police-phone`, `incident-read`, `write-common`, `@RequireCurrentOp` | `internal-caller`: search history summary generation job trigger after `action=END` commit |
+| `GET /duty-shifts` | S8 | 앱, 웹, S3-2 | HTTPS | `public-session`, `incident-read` | - |
 | `POST /operational-periods/{opId}/assignments` | S8 | 웹 | HTTPS | `web-command`, `incident-read`, `write-common` | - |
 | `POST /handover-memos` | S8 | 앱, 웹 | HTTPS | `field-or-web-write`, `incident-read`, `write-common` | - |
 | `GET /handover-memos` | S8 | 앱, 웹, S3-2 | HTTPS | `public-session`, `incident-read` | - |
-| `POST /operational-periods/{operationalPeriodId}/search-history-summaries` | S8 | 웹 | HTTPS | `web-command`, `incident-read`, `write-common` | `internal-caller`: AI summary worker |
 | `GET /operational-periods/{operationalPeriodId}/search-history-summaries` | S8 | 앱, 웹, S3-2 | HTTPS | `public-session`, `incident-read` | - |
 
 ---
@@ -1338,5 +1340,5 @@ S3-2는 shell routing, page layout, slot mounting, shared state wiring의 owner�
 | SC-08 지원 요청·실종자 발견 알림 | S5, S1-1, S1-2, S4, S6, S8 | `POST /markers`, `SUPPORT_REQUEST_CREATED`, `PERSON_FOUND`, fixture `FcmDispatcher` | `marker`, `toast` | S5 marker/notification payload through S6 Outbox -> S4 `EventFanout` -> S3-2 marker/toast; S1-2 `FcmTokenQuery.activeByPolicePhone(policePhoneId)` -> S5 resolver/`FcmDispatcher` adapter -> app banner |
 | SC-09 통신 복구·동기화 | S6, S3-1, S5, S1-2, S3-2, S4, S7 | `POST /sync/outbox/requeue`, `POST /search-paths/batch`, `POST /markers`, `POST /incidents/{incidentId}/offline-package/installations`, `GET /incidents/{incidentId}/events`, `PATH_APPENDED`, `MARKER_CREATED`, `OFFLINE_PACKAGE_INSTALLATION_CHANGED` | `marker`, `path`, `police_phone_freshness`, `package_badge` | S6 Outbox flush -> S3-1/S5/S7 server rows -> S4 replay/dedupe -> S3-2 recovered board state including `package_badge` |
 | SC-10 구역 완료·새 OP 열기 | S2, S8, S1-2, S4, S1-1 | `PATCH /search-areas/{searchAreaId}`, `POST /operational-periods`, `POST /handover-memos`, `SEARCH_AREA_CHANGED`, `OP_TRANSITIONED`, `HANDOVER_MEMO_CREATED` | `area`, `op_toggle`, `op_history`, `handover_memo`, `handover_status` | S2 area state + S8 OP/handover writes -> S4 `EventFanout` -> S3-2 area/op_history/handover_status/handover_memo display, S1-1 open-incident guard |
-| SC-11 인수인계·OP 비교·수색 이력 요약 | S3-2, S1-2, S8, S3-1, S2, S5, S4, S1-1 | `GET /incidents/{incidentId}/board`, `GET /search-paths`, `GET /handover-memos`, `POST /operational-periods/{operationalPeriodId}/search-history-summaries`, `GET /operational-periods/{operationalPeriodId}/search-history-summaries`, `HANDOVER_MEMO_CREATED`, `SEARCH_HISTORY_SUMMARY_CHANGED` | `op_toggle`, `handover_memo`, `search_history_summary` | S3-1/S2/S5 evidence + S8 handover/summary -> S4 `EventFanout` refetch signal -> S3-2 comparison and summary slots; Android handover/OP screens may read generated summary without generation/retry CTA; S1-1/S1-2 access guard |
+| SC-11 인수인계·OP 비교·수색 이력 요약 | S3-2, S1-2, S8, S3-1, S2, S5, S4, S1-1 | `GET /incidents/{incidentId}/board`, `GET /search-paths`, `GET /handover-memos`, `PATCH /duty-shifts/{dutyShiftId}`, `POST /operational-periods`, `GET /operational-periods/{operationalPeriodId}/search-history-summaries`, `HANDOVER_MEMO_CREATED`, `SEARCH_HISTORY_SUMMARY_CHANGED` | `op_toggle`, `handover_memo`, `search_history_summary` | DutyShift 종료 또는 OP 전환 commit 이후 S8 서버 job이 이전 근무/OP source snapshot으로 summary를 생성하고 S4 `EventFanout` refetch signal을 발행한다. Web/App은 생성된 summary를 read-only로 확인한다; S1-1/S1-2 access guard |
 | SC-12 사건 종료·도메인 데이터 파기 | S1-1, S1-2, S1-3, S6, S7, S4, S3-1, S3-2, S5 | §7 `POST /incidents/{incidentId}/close`, `GET /incidents/{incidentId}/events` web unsubscribe/replay stop, §4.4 `INCIDENT_CLOSED`, `INCIDENT_PURGED`, local package purge, app local close cleanup | §9.2 `incident_terminal`, `package_badge` | S1-1 close -> S1-3 purge orchestration -> S6/S7 purge hooks -> sanitized terminal/tombstone status -> S3-2 `incident_terminal`; S4 carries `INCIDENT_CLOSED`/`INCIDENT_PURGED` fanout, while S6/S7 handle local/package removal and app local close cleanup |

@@ -149,7 +149,7 @@
     {
       "id": "FR-39",
       "summary": "OP·경로·마커·구역 상태·인수인계 메모 기반으로 수색 이력을 짧게 요약한다.",
-      "handling": "search history summary는 내부 기록 기반 history summary만 생성하고 실패 시 generation_status=FAILED로 남기며 대체 요약 문장을 저장하지 않는다. 생성/재시도는 Web 지휘 명령으로 제한하고, 생성된 요약 조회는 APP/WEB read flow에서 허용한다."
+      "handling": "search history summary는 근무 교대 종료 또는 OP 전환 write가 성공한 뒤 서버 내부 job이 생성한다. 내부 기록 기반 history summary만 생성하고 실패 시 generation_status=FAILED로 남기며 대체 요약 문장을 저장하지 않는다. APP/WEB은 생성된 요약을 read flow로 조회한다."
     }
   ],
   "domain_model": {
@@ -1185,112 +1185,6 @@
         ]
       },
       {
-        "method": "POST",
-        "path": "/operational-periods/{operationalPeriodId}/search-history-summaries",
-        "summary": "OP 수색 이력 요약 생성",
-        "auth": "guard aliases web-command + incident-read + write-common",
-        "idempotent": true,
-        "required_headers": [
-          "Authorization",
-          "Idempotency-Key"
-        ],
-        "request_schema": {
-          "type": "object",
-          "required": [
-            "incidentId",
-            "clientTs"
-          ],
-          "properties": {
-            "incidentId": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "scopeType": {
-              "type": "string",
-              "enum": [
-                "OP",
-                "DUTY_SHIFT"
-              ]
-            },
-            "scopeId": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "clientTs": {
-              "type": "string",
-              "format": "date-time"
-            },
-            "dutyShiftId": {
-              "type": "string",
-              "format": "uuid",
-              "description": "null/omitted이면 OP-wide summary"
-            }
-          }
-        },
-        "response_schema": {
-          "202": {
-            "type": "object",
-            "properties": {
-              "summaryId": {
-                "type": "string",
-                "format": "uuid"
-              },
-              "status": {
-                "type": "string",
-                "enum": [
-                  "GENERATING"
-                ]
-              },
-              "version": {
-                "type": "integer"
-              }
-            }
-          }
-        },
-        "errors": [
-          {
-            "code": 503,
-            "case": "summary_unavailable",
-            "body": "{\"error\": \"summary_unavailable\"}"
-          },
-          {
-            "code": 403,
-            "case": "channel_not_allowed",
-            "body": "{\"error\": \"channel_not_allowed\"}"
-          },
-          {
-            "code": 403,
-            "case": "role_denied",
-            "body": "{\"error\": \"role_denied\"}"
-          },
-          {
-            "code": 403,
-            "case": "incident_access_denied",
-            "body": "{\"error\": \"incident_access_denied\"}"
-          },
-          {
-            "code": 403,
-            "case": "team_not_assigned",
-            "body": "{\"error\": \"team_not_assigned\"}"
-          },
-          {
-            "code": 409,
-            "case": "incident_closed",
-            "body": "{\"error\": \"incident_closed\"}"
-          },
-          {
-            "code": 409,
-            "case": "idempotency_mismatch",
-            "body": "{\"error\": \"idempotency_mismatch\"}"
-          },
-          {
-            "code": 409,
-            "case": "write_conflict",
-            "body": "{\"error\": \"write_conflict\"}"
-          }
-        ]
-      },
-      {
         "method": "GET",
         "path": "/operational-periods/{operationalPeriodId}/search-history-summaries",
         "summary": "OP 수색 이력 요약 조회",
@@ -1408,7 +1302,7 @@
             "body": "{\"error\": \"team_not_assigned\"}"
           }
         ],
-        "channel_note": "APP/WEB/S3-2 read-only 조회 계약이다. Android는 생성/재시도 CTA를 노출하지 않고, 생성/재시도 POST는 Web 지휘 명령으로만 허용한다."
+        "channel_note": "APP/WEB/S3-2 read-only 조회 계약이다. Android와 Web은 생성/재시도 CTA를 노출하지 않고, 요약 생성은 duty shift END 또는 OP transition commit 이후 서버 내부 job이 수행한다."
       }
     ],
     "consumed": [
@@ -1420,7 +1314,7 @@
       {
         "from_spec": "S1-2",
         "interface": "@RequireIncidentAccess, @RequireRole, @RequireChannel, SecurityContext account/channel/PolicePhone",
-        "usage": "OP/duty shift/search history summary 생성·재시도는 Web 지휘 권한, search history summary 조회와 handover memo는 APP/WEB 사건 배정 계정 권한을 검증한다."
+        "usage": "OP 생성/assignment는 Web 지휘 권한, duty shift와 handover memo는 APP/WEB 경계별 권한, search history summary 조회는 APP/WEB 사건 배정 계정 권한을 검증한다. search history summary 생성은 공개 client API가 아니라 S8 서버 내부 job이다."
       },
       {
         "from_spec": "S2",
@@ -1639,7 +1533,11 @@
         },
         {
           "name": "SearchHistorySummaryController",
-          "responsibility": "search history summary generation trigger and APP/WEB read response contract"
+          "responsibility": "APP/WEB search history summary read response contract"
+        },
+        {
+          "name": "SearchHistorySummaryGenerationJob",
+          "responsibility": "duty shift END 또는 OP transition commit 이후 source snapshot을 만들고 provider 호출 결과를 READY/FAILED로 저장"
         },
         {
           "name": "SearchHistorySummaryPort",
@@ -1744,7 +1642,7 @@
           "note": "생성된 요약 조회 결과를 OP/duty shift 단위 read model로 캐시한다. 생성/재시도 outbox 대상은 아니다."
         }
       ],
-      "sync_flow": "handover memo write만 S6 SyncClient.enqueue(...) 경유. OP 생성, assignment, search history summary 생성/재시도는 Android에서 호출하지 않는다. 생성된 search history summary 조회/표시는 Android와 Web의 read flow에서 허용한다."
+      "sync_flow": "handover memo write만 S6 SyncClient.enqueue(...) 경유. OP 생성과 assignment는 Android에서 호출하지 않는다. search history summary 생성/재시도는 APP/WEB client API가 아니라 duty shift END 또는 OP transition commit 이후 S8 서버 내부 job으로 수행한다. 생성된 search history summary 조회/표시는 Android와 Web의 read flow에서 허용한다."
     }
   },
   "dependencies": {
@@ -1872,8 +1770,8 @@
       "fr_refs": [
         "FR-39"
       ],
-      "given": "OP에 경로, 마커, 구역 상태, 인수인계 메모가 존재한다.",
-      "when": "현장 지휘관이 search history summary 생성을 요청한다.",
+      "given": "종료되는 duty shift 또는 이전 OP에 경로, 마커, 구역 상태, 인수인계 메모가 존재한다.",
+      "when": "APP/WEB 채널의 근무 교대 종료 또는 OP 전환 write가 commit된다.",
       "then": "OpenAI structured output provider가 수색 시간, 수색한 일대, 차량·도보 구간, 주요 마커·메모 중심의 history summary를 반환하고, 저장된 요약은 추천·누락 확정·위험도 판단 문구를 포함하지 않는다.",
       "priority": "critical"
     },
@@ -1883,7 +1781,7 @@
         "FR-39"
       ],
       "given": "OpenAI adapter 호출이 실패하거나 품질 기준에 미달한다.",
-      "when": "요약 생성 요청이 완료된다.",
+      "when": "서버 내부 summary generation job이 완료된다.",
       "then": "요약 생성이 FAILED로 저장되어 summary_unavailable을 반환하더라도 수동 메모와 OP 비교 화면은 계속 동작한다.",
       "priority": "high"
     },
@@ -1904,7 +1802,7 @@
         "FR-37",
         "FR-39"
       ],
-      "given": "SC-10 OP transition and SC-11 handover memo/search history summary writes succeed",
+      "given": "SC-10 OP transition, SC-11 handover memo write, and server-side search history summary generation succeed",
       "when": "S4 event probes and S3-2 slot probes consume the resulting events and queries",
       "then": "REST response, OP_TRANSITIONED, HANDOVER_MEMO_CREATED, SEARCH_HISTORY_SUMMARY_CHANGED, query result, and board slot probe converge on the fixed id/status/version/opId values in harness_fixtures.",
       "priority": "critical"
@@ -1917,7 +1815,7 @@
       ],
       "given": "new OP is created without handoverMemo or search history summary falls back",
       "when": "S3-2 renders handover_status and search_history_summary slots before and after API assembly",
-      "then": "handover_status shows NEEDS_MEMO without blocking OP transition, STALE_REFETCH is visible until slot version catches up, AI summary failure shows UNAVAILABLE status and retry CTA without source prompt or recommendation text.",
+      "then": "handover_status shows NEEDS_MEMO without blocking OP transition, STALE_REFETCH is visible until slot version catches up, AI summary failure shows UNAVAILABLE status without source prompt, recommendation text, or client-side retry CTA.",
       "priority": "critical"
     }
   ],
@@ -1940,7 +1838,7 @@
         "자동 판단"
       ],
       "displayStatusOnFailure": "UNAVAILABLE",
-      "retryCta": "요약 다시 생성",
+      "retryPolicy": "server-managed retry/requeue only; APP/WEB clients do not expose summary generation or retry CTA",
       "sourcePromptVisible": false,
       "failurePolicy": "OpenAI 호출 실패, timeout, schema validation 실패, 금지 문구 검출 시 generation_status=FAILED로 저장하고 content를 저장하지 않는다."
     }
@@ -1948,15 +1846,15 @@
   "edge_cases": [
     "OP1 자동 생성 호출이 중복되어도 incident당 sequenceNumber=1 OP는 하나만 생성된다.",
     "OP2+ 생성 요청 reason이 OTHER인데 reasonMemo와 handoverMemo가 모두 없으면 domain validation으로 거부하되 catalog 밖 public error code를 추가하지 않는다. 표준 field validation error가 필요하면 open issue로 처리한다.",
-    "앱 채널에서 OP 생성, assignment, search history summary 생성/재시도 API를 직접 호출하면 channel_not_allowed로 거부한다. 생성된 search history summary 조회는 APP read flow로 허용한다.",
+    "앱 채널에서 OP 생성 또는 assignment API를 직접 호출하면 channel_not_allowed로 거부한다. search history summary 생성/재시도는 APP/WEB 공개 API가 아니며 생성된 search history summary 조회는 APP read flow로 허용한다.",
     "handover memo targetType=AREA인데 S2에 해당 area가 없거나 incident/op가 다르면 domain validation으로 거부하되 catalog 밖 public error code를 추가하지 않는다.",
     "초동 대응 순찰차는 담당 search_area가 없어도 OP1 assignment 또는 PolicePhone context를 가질 수 있다.",
     "search history summary source board response이 이전 요청과 같으면 idempotency replay 또는 기존 summary 재사용을 허용한다."
   ],
   "error_handling": {
-    "role_denied": "새 OP, assignment, search history summary 생성/재시도 CTA를 숨기고 직접 호출은 403으로 실패시킨다.",
-    "channel_not_allowed": "앱에서는 OP 생성·assignment·search history summary 생성/재시도 UI를 노출하지 않고 서버도 해당 write 요청에 403을 반환한다. search history summary 조회 UI는 APP read 계약으로 허용한다.",
-    "summary_unavailable": "앱/웹은 원본 경로·마커·메모와 수동 인수인계 메모를 계속 표시한다. 요약 재시도 CTA는 Web 지휘 화면에만 제공한다.",
+    "role_denied": "새 OP와 assignment CTA를 숨기고 직접 호출은 403으로 실패시킨다.",
+    "channel_not_allowed": "앱에서는 OP 생성·assignment UI를 노출하지 않고 서버도 해당 write 요청에 403을 반환한다. search history summary 생성/재시도 CTA는 APP/WEB 모두 노출하지 않으며 조회 UI는 APP/WEB read 계약으로 허용한다.",
+    "summary_unavailable": "앱/웹은 원본 경로·마커·메모와 수동 인수인계 메모를 계속 표시한다. 요약 재생성은 client CTA가 아니라 서버 관리 재시도/재큐잉 정책으로 처리한다.",
     "idempotency_mismatch": "같은 key의 다른 content 재전송을 충돌로 표시하고 새 요청 생성을 유도한다."
   },
   "non_functional_requirements": {
@@ -1966,7 +1864,7 @@
       "search history summary 생성은 비동기 처리 가능하되 READY/FAILED 결과 상태가 UI에서 관찰 가능해야 한다."
     ],
     "security": [
-      "OP2+ 생성, duty shift, search history summary 생성/재시도는 Web 현장 지휘관 전용이다. 생성된 search_history_summary 조회는 APP/WEB 사건 배정 계정에 허용하되 APP은 read-only로 표시한다.",
+      "OP2+ 생성과 assignment는 Web 현장 지휘관 전용이다. duty shift는 APP 업무폰 흐름에서 수행하고, search history summary 생성은 duty shift END 또는 OP transition commit 이후 서버 내부 job만 수행한다. 생성된 search_history_summary 조회는 APP/WEB 사건 배정 계정에 허용한다.",
       "handover memo는 사건 배정 계정의 APP/WEB 채널에서만 허용한다.",
       "search history summary input은 Suri-Map 내부 OP/path/marker/area/memo 기록으로 제한한다.",
       "OpenAI API 호출에는 최소화된 source board response만 전달하고 source prompt, API key, model secret, raw location stream 전체를 저장하거나 화면에 노출하지 않는다.",
@@ -2008,7 +1906,7 @@
       {
         "name": "SearchHistorySummaryReadAllowsAppAndWebTest",
         "framework": "JUnit 5",
-        "scenario": "APP/WEB 사건 배정 계정은 생성된 search_history_summary를 조회할 수 있지만 APP 채널은 생성/재시도 POST를 호출하면 channel_not_allowed로 거부된다."
+        "scenario": "APP/WEB 사건 배정 계정은 생성된 search_history_summary를 조회할 수 있고, summary generation job은 duty shift END 또는 OP transition commit 이후 서버 내부에서만 enqueue된다."
       },
       {
         "name": "CurrentOpConsumersDoNotMutateOwnerDomainsTest",
@@ -2023,12 +1921,12 @@
       {
         "name": "S8PublishRequestFailureDoesNotCommitRowsTest",
         "framework": "JUnit 5",
-        "scenario": "FailingEventHubPublisher makes OP transition, assignment, handover memo, or search history summary write fail before commit so domain rows and PublishRequest capture are both absent."
+        "scenario": "FailingEventHubPublisher makes OP transition, assignment, handover memo, or search history summary trigger write fail before commit so domain rows and PublishRequest capture are both absent."
       },
       {
         "name": "S8IdempotentWriteReplayAndMismatchTest",
         "framework": "JUnit 5",
-        "scenario": "For OP creation, assignment, handover memo, and search history summary POST paths, same Idempotency-Key with same content replays the cached response and same key with changed body returns idempotency_mismatch without new rows or PublishRequest."
+        "scenario": "For OP creation, assignment, handover memo, and duty shift handover writes that trigger summary generation, same Idempotency-Key with same content replays the cached response and same key with changed body returns idempotency_mismatch without new rows or PublishRequest."
       }
     ],
     "web": [
@@ -2050,7 +1948,7 @@
       {
         "name": "SearchHistorySummaryFailureShowsRetryWithoutPromptLeak",
         "framework": "Vitest + RTL",
-        "scenario": "AI summary failure renders UNAVAILABLE display status and retry CTA without source prompt, recommendation, missing-area conclusion, or risk wording."
+        "scenario": "AI summary failure renders UNAVAILABLE display status without source prompt, recommendation, missing-area conclusion, risk wording, or client-side retry CTA."
       },
       {
         "name": "BoardRefetchLagShowsPendingSlots",
@@ -2158,7 +2056,7 @@
         "displayStatus": "UNAVAILABLE",
         "version": 1,
         "eventId": "evt-s8-ai-summary-001",
-        "retryCta": "요약 다시 생성",
+        "retryCta": null,
         "sourcePromptVisible": false
       },
       "expectedS4Events": {
@@ -2263,7 +2161,7 @@
         "POST /operational-periods",
         "POST /search-areas/{searchAreaId}/assignments",
         "POST /handover-memos",
-        "POST /operational-periods/{operationalPeriodId}/search-history-summaries"
+        "PATCH /duty-shifts/{dutyShiftId}"
       ]
     }
   },
