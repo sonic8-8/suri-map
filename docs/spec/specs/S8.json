@@ -149,7 +149,7 @@
     {
       "id": "FR-39",
       "summary": "OP·경로·마커·구역 상태·인수인계 메모 기반으로 수색 이력을 짧게 요약한다.",
-      "handling": "search history summary는 근무 교대 종료 또는 OP 전환 write가 성공한 뒤 서버 내부 job이 생성한다. 내부 기록 기반 history summary만 생성하고 실패 시 generation_status=FAILED로 남기며 대체 요약 문장을 저장하지 않는다. APP/WEB은 생성된 요약을 read flow로 조회한다."
+      "handling": "search history summary는 근무 교대 종료 또는 OP 전환 write가 성공한 뒤 서버 내부 job이 생성한다. APP 근무 교대 종료는 같은 incident/policePhone/op의 앞선 현장 outbox write가 ACKED 또는 FAILED_FINAL/PURGED 상태가 된 뒤 서버로 전송되어야 한다. 서버는 sourceHash/sourceReadiness로 late source row를 감지해 stale 표시와 재생성을 처리한다. 내부 기록 기반 history summary만 생성하고 실패 시 generation_status=FAILED로 남기며 대체 요약 문장을 저장하지 않는다. APP/WEB은 생성된 요약을 read flow로 조회한다."
     }
   ],
   "domain_model": {
@@ -1276,6 +1276,19 @@
                       "type": "string",
                       "description": "READY 상태에서만 제공한다."
                     },
+                    "sourceReadiness": {
+                      "type": "string",
+                      "enum": [
+                        "PENDING_SYNC",
+                        "READY",
+                        "STALE"
+                      ],
+                      "description": "PENDING_SYNC이면 handover boundary source가 아직 안정되지 않아 content를 최종 요약으로 취급하지 않는다."
+                    },
+                    "sourceHash": {
+                      "type": "string",
+                      "description": "OP, duty shift, path, marker, area, handover memo source row와 version 기반 hash"
+                    },
                     "version": {
                       "type": "integer"
                     }
@@ -1302,7 +1315,7 @@
             "body": "{\"error\": \"team_not_assigned\"}"
           }
         ],
-        "channel_note": "APP/WEB/S3-2 read-only 조회 계약이다. Android와 Web은 생성/재시도 CTA를 노출하지 않고, 요약 생성은 duty shift END 또는 OP transition commit 이후 서버 내부 job이 수행한다."
+        "channel_note": "APP/WEB/S3-2 read-only 조회 계약이다. Android와 Web은 생성/재시도 CTA를 노출하지 않고, 요약 생성은 duty shift END 또는 OP transition commit 이후 서버 내부 job이 수행한다. sourceReadiness=PENDING_SYNC 또는 STALE인 row는 최종 요약으로 취급하지 않는다."
       }
     ],
     "consumed": [
@@ -1444,7 +1457,7 @@
       },
       {
         "type": "SEARCH_HISTORY_SUMMARY_CHANGED",
-        "trigger": "search_history_summary READY 또는 FAILED 상태 저장 이후",
+        "trigger": "search_history_summary READY/FAILED 상태 저장 또는 sourceReadiness STALE 감지 이후",
         "payload_schema": {
           "type": "object",
           "required": [
@@ -1452,6 +1465,8 @@
             "incidentId",
             "opId",
             "status",
+            "sourceReadiness",
+            "sourceHash",
             "version"
           ],
           "properties": {
@@ -1469,7 +1484,14 @@
             },
             "status": {
               "type": "string",
-              "description": "READY 또는 FAILED"
+              "description": "GENERATING, READY 또는 FAILED"
+            },
+            "sourceReadiness": {
+              "type": "string",
+              "description": "PENDING_SYNC, READY 또는 STALE"
+            },
+            "sourceHash": {
+              "type": "string"
             },
             "version": {
               "type": "integer"
@@ -1537,7 +1559,11 @@
         },
         {
           "name": "SearchHistorySummaryGenerationJob",
-          "responsibility": "duty shift END 또는 OP transition commit 이후 source snapshot을 만들고 provider 호출 결과를 READY/FAILED로 저장"
+          "responsibility": "duty shift END 또는 OP transition commit 이후 source readiness가 READY이면 source snapshot을 만들고 provider 호출 결과를 READY/FAILED로 저장한다. sourceHash 변경은 STALE로 표시하고 서버 재생성을 enqueue한다."
+        },
+        {
+          "name": "SearchHistorySummarySourceReadinessGuard",
+          "responsibility": "handover boundary write 기준으로 같은 incident/policePhone/op의 lower-sequence APP source write ACKED 또는 FAILED_FINAL/PURGED 여부와 sourceHash 변화를 확인해 PENDING_SYNC/READY/STALE을 산출"
         },
         {
           "name": "SearchHistorySummaryPort",
@@ -1639,10 +1665,10 @@
         },
         {
           "name": "SearchHistorySummaryCacheEntity",
-          "note": "생성된 요약 조회 결과를 OP/duty shift 단위 read model로 캐시한다. 생성/재시도 outbox 대상은 아니다."
+          "note": "생성된 요약 조회 결과와 sourceReadiness/sourceHash를 OP/duty shift 단위 read model로 캐시한다. 생성/재시도 outbox 대상은 아니다."
         }
       ],
-      "sync_flow": "handover memo write만 S6 SyncClient.enqueue(...) 경유. OP 생성과 assignment는 Android에서 호출하지 않는다. search history summary 생성/재시도는 APP/WEB client API가 아니라 duty shift END 또는 OP transition commit 이후 S8 서버 내부 job으로 수행한다. 생성된 search history summary 조회/표시는 Android와 Web의 read flow에서 허용한다."
+      "sync_flow": "handover memo write와 APP duty shift END는 S6 SyncClient.enqueue(...) 경유. OP 생성과 assignment는 Android에서 호출하지 않는다. duty shift END는 같은 incidentId/policePhoneId/opId의 lower-sequence path, marker, photo finalize, handover memo write가 ACKED 또는 FAILED_FINAL/PURGED 되기 전에는 replay하지 않는 handover boundary barrier이다. search history summary 생성/재시도는 APP/WEB client API가 아니라 duty shift END 또는 OP transition commit 이후 S8 서버 내부 job으로 수행한다. 생성된 search history summary 조회/표시는 Android와 Web의 read flow에서 허용한다."
     }
   },
   "dependencies": {
@@ -1685,8 +1711,8 @@
       },
       {
         "spec": "S6",
-        "contract": "idempotent write and app outbox for handover memo",
-        "stub_strategy": "duplicate key replay and offline memo fixture",
+        "contract": "idempotent write, app outbox for handover memo, and handover boundary barrier before duty shift END replay",
+        "stub_strategy": "duplicate key replay, offline memo fixture, and lower-sequence pending source write fixture",
         "replaced_by_real_at": "S6 idempotency/outbox contract freeze"
       },
       {
@@ -1772,7 +1798,7 @@
       ],
       "given": "종료되는 duty shift 또는 이전 OP에 경로, 마커, 구역 상태, 인수인계 메모가 존재한다.",
       "when": "APP/WEB 채널의 근무 교대 종료 또는 OP 전환 write가 commit된다.",
-      "then": "OpenAI structured output provider가 수색 시간, 수색한 일대, 차량·도보 구간, 주요 마커·메모 중심의 history summary를 반환하고, 저장된 요약은 추천·누락 확정·위험도 판단 문구를 포함하지 않는다.",
+      "then": "sourceReadiness=READY일 때 OpenAI structured output provider가 수색 시간, 수색한 일대, 차량·도보 구간, 주요 마커·메모 중심의 history summary를 반환하고, 저장된 요약은 추천·누락 확정·위험도 판단 문구를 포함하지 않는다.",
       "priority": "critical"
     },
     {
@@ -1817,6 +1843,16 @@
       "when": "S3-2 renders handover_status and search_history_summary slots before and after API assembly",
       "then": "handover_status shows NEEDS_MEMO without blocking OP transition, STALE_REFETCH is visible until slot version catches up, AI summary failure shows UNAVAILABLE status without source prompt, recommendation text, or client-side retry CTA.",
       "priority": "critical"
+    },
+    {
+      "id": "AC-S8-10",
+      "fr_refs": [
+        "FR-39"
+      ],
+      "given": "APP duty shift END보다 낮은 sequence의 path, marker, photo finalize, handover memo outbox row가 같은 incidentId/policePhoneId/opId에 남아 있다.",
+      "when": "S6 replay와 S8 search history summary generation job이 실행된다.",
+      "then": "duty shift END는 lower-sequence source row가 ACKED 또는 FAILED_FINAL/PURGED 상태가 될 때까지 replay되지 않고, 서버 read response는 sourceReadiness=PENDING_SYNC인 GENERATING 상태를 유지한다. READY/FAILED 이후 late source row가 sourceHash를 바꾸면 sourceReadiness=STALE로 표시하고 서버 재생성을 enqueue한다.",
+      "priority": "critical"
     }
   ],
   "domain_policies": {
@@ -1841,6 +1877,16 @@
       "retryPolicy": "server-managed retry/requeue only; APP/WEB clients do not expose summary generation or retry CTA",
       "sourcePromptVisible": false,
       "failurePolicy": "OpenAI 호출 실패, timeout, schema validation 실패, 금지 문구 검출 시 generation_status=FAILED로 저장하고 content를 저장하지 않는다."
+    },
+    "search_history_summary_source_readiness": {
+      "handoverBoundaryWrites": [
+        "PATCH /duty-shifts/{dutyShiftId} action=END",
+        "POST /operational-periods"
+      ],
+      "androidOutboxBarrier": "APP duty shift END는 같은 incidentId/policePhoneId/opId에서 path, marker, photo finalize, handover memo에 영향을 주는 lower-sequence APP write가 ACKED 또는 FAILED_FINAL/PURGED 되기 전까지 replay하지 않는다.",
+      "pendingSyncPolicy": "handover boundary source가 안정되지 않으면 summary row 또는 read model은 GENERATING/sourceReadiness=PENDING_SYNC/content=null 상태로 노출한다.",
+      "sourceHashPolicy": "summary sourceHash는 committed OP, duty shift, path, marker, area, handover memo row id와 version으로 계산한다. READY/FAILED 이후 sourceHash가 바뀌면 기존 summary를 sourceReadiness=STALE로 표시하고 서버 재생성을 enqueue한다.",
+      "lateWritePolicy": "handover boundary clientTs 이전의 late write 또는 같은 dutyShiftId/opId에 연결된 late source row는 재생성 snapshot에 포함한다. client retry CTA는 계속 숨긴다."
     }
   },
   "edge_cases": [
@@ -1849,7 +1895,8 @@
     "앱 채널에서 OP 생성 또는 assignment API를 직접 호출하면 channel_not_allowed로 거부한다. search history summary 생성/재시도는 APP/WEB 공개 API가 아니며 생성된 search history summary 조회는 APP read flow로 허용한다.",
     "handover memo targetType=AREA인데 S2에 해당 area가 없거나 incident/op가 다르면 domain validation으로 거부하되 catalog 밖 public error code를 추가하지 않는다.",
     "초동 대응 순찰차는 담당 search_area가 없어도 OP1 assignment 또는 PolicePhone context를 가질 수 있다.",
-    "search history summary source board response이 이전 요청과 같으면 idempotency replay 또는 기존 summary 재사용을 허용한다."
+    "search history summary source board response이 이전 요청과 같으면 idempotency replay 또는 기존 summary 재사용을 허용한다.",
+    "근무 교대 종료 이후 늦게 반영된 path, marker, photo finalize, handover memo row가 sourceHash를 바꾸면 기존 summary를 최종 요약으로 취급하지 않고 STALE 상태에서 서버 재생성을 기다린다."
   ],
   "error_handling": {
     "role_denied": "새 OP와 assignment CTA를 숨기고 직접 호출은 403으로 실패시킨다.",
@@ -1909,6 +1956,16 @@
         "scenario": "APP/WEB 사건 배정 계정은 생성된 search_history_summary를 조회할 수 있고, summary generation job은 duty shift END 또는 OP transition commit 이후 서버 내부에서만 enqueue된다."
       },
       {
+        "name": "SearchHistorySummaryWaitsForSourceReadinessTest",
+        "framework": "JUnit 5",
+        "scenario": "handover boundary source가 PENDING_SYNC이면 GET search-history-summaries는 GENERATING/sourceReadiness=PENDING_SYNC/content=null을 반환하고 provider 호출은 시작하지 않는다."
+      },
+      {
+        "name": "SearchHistorySummaryLateSourceHashRegeneratesTest",
+        "framework": "JUnit 5",
+        "scenario": "READY 또는 FAILED 이후 늦게 들어온 path/marker/photo finalize/handover memo row가 sourceHash를 바꾸면 sourceReadiness=STALE 이벤트를 발행하고 서버 재생성을 enqueue한다."
+      },
+      {
         "name": "CurrentOpConsumersDoNotMutateOwnerDomainsTest",
         "framework": "JUnit 5",
         "scenario": "S7 manifest, S3-1 path, S5 marker/support fixtures consume the same OperationalPeriodQuery.current/list opId/version and S8 mocks assert no package/path/marker domain writes occur."
@@ -1946,7 +2003,7 @@
         "scenario": "OP transition without handover memo renders handover_status=NEEDS_MEMO and STALE_REFETCH until board slot version reaches the fixture version."
       },
       {
-        "name": "SearchHistorySummaryFailureShowsRetryWithoutPromptLeak",
+        "name": "SearchHistorySummaryFailureShowsUnavailableWithoutPromptLeak",
         "framework": "Vitest + RTL",
         "scenario": "AI summary failure renders UNAVAILABLE display status without source prompt, recommendation, missing-area conclusion, risk wording, or client-side retry CTA."
       },
@@ -1971,6 +2028,11 @@
         "name": "SearchHistorySummaryReadOnlyPanelTest",
         "framework": "JUnit5 + Robolectric | Instrumentation",
         "scenario": "앱 근무 교대/OP 전환 화면은 GET search-history-summaries 결과의 READY/FAILED/GENERATING 상태와 안전한 content만 표시하고 생성/재시도 CTA를 노출하지 않는다."
+      },
+      {
+        "name": "DutyShiftEndOutboxBarrierTest",
+        "framework": "JUnit5 + Robolectric | Instrumentation",
+        "scenario": "같은 incidentId/policePhoneId/opId의 lower-sequence path, marker, photo finalize, handover memo outbox row가 pending/retryable이면 duty shift END outbox row는 전송하지 않고, source write가 ACKED 또는 FAILED_FINAL/PURGED 상태가 된 뒤에만 END를 전송한다."
       }
     ]
   },
@@ -2054,6 +2116,8 @@
         "summaryId": "summary-precinct-op2-001",
         "status": "FAILED",
         "displayStatus": "UNAVAILABLE",
+        "sourceReadiness": "READY",
+        "sourceHash": "hash-s8-source-snapshot-op2-001",
         "version": 1,
         "eventId": "evt-s8-ai-summary-001",
         "retryCta": null,
@@ -2073,6 +2137,8 @@
           "type": "SEARCH_HISTORY_SUMMARY_CHANGED",
           "payloadId": "summary-precinct-op2-001",
           "payloadStatus": "FAILED",
+          "sourceReadiness": "READY",
+          "sourceHash": "hash-s8-source-snapshot-op2-001",
           "payloadVersion": 1,
           "opId": "op-precinct-001-op2"
         }
@@ -2088,6 +2154,8 @@
           "summaryId": "summary-precinct-op2-001",
           "status": "FAILED",
           "displayStatus": "UNAVAILABLE",
+          "sourceReadiness": "READY",
+          "sourceHash": "hash-s8-source-snapshot-op2-001",
           "version": 1,
           "opId": "op-precinct-001-op2"
         }
@@ -2112,6 +2180,8 @@
           "id": "summary-precinct-op2-001",
           "status": "FAILED",
           "displayStatus": "UNAVAILABLE",
+          "sourceReadiness": "READY",
+          "sourceHash": "hash-s8-source-snapshot-op2-001",
           "version": 1
         },
         "preConvergenceState": "STALE_REFETCH"
@@ -2333,9 +2403,10 @@
         "incidentId": "string",
         "opId": "string",
         "status": "GENERATING|READY|FAILED",
-        "displayStatus": "READY|UNAVAILABLE",
+        "displayStatus": "LOADING|READY|UNAVAILABLE",
         "summaryText": "string",
-        "sourceSnapshotHash": "string",
+        "sourceReadiness": "PENDING_SYNC|READY|STALE",
+        "sourceHash": "string",
         "generatedAt": "date-time",
         "version": "integer",
         "policy": "summary only; no recommendation, no missing-area conclusion, no risk score"

@@ -536,7 +536,11 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
   - `POST /api/operational-periods` when the previous OP is ended and the next OP is opened
 - Worker: S8 summary generation job builds a minimized source snapshot from OP, duty shift, path, marker, area, and handover memo records, calls the configured provider, then stores `GENERATING` -> `READY` or `FAILED`.
 - Retry: server-managed job retry/requeue only. APP and WEB do not call summary generation or retry APIs.
-- Event: `SEARCH_HISTORY_SUMMARY_CHANGED` after `READY` or `FAILED` state is stored.
+- Event: `SEARCH_HISTORY_SUMMARY_CHANGED` after `READY`/`FAILED` state is stored or `sourceReadiness=STALE` is detected.
+- Source readiness:
+  - APP duty shift end is a handover boundary write. Android/S6 replay must not send it before lower-sequence path, marker, photo finalize, and handover memo writes for the same `incidentId`/`policePhoneId`/`opId` are `ACKED` or `FAILED_FINAL`/`PURGED`.
+  - The server computes a summary `sourceHash` from committed OP, duty shift, path, marker, area, and handover memo source rows. While the handover boundary is not ready, the public read response remains `GENERATING` with `sourceReadiness=PENDING_SYNC`.
+  - If a late committed source row changes `sourceHash` after a summary is `READY` or `FAILED`, the existing summary is treated as stale and server-side regeneration is enqueued. Clients still do not call a retry endpoint.
 
 #### GET `/api/operational-periods/{operationalPeriodId}/search-history-summaries`
 
@@ -547,7 +551,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Guard: `public-session`, `incident-read`
 - Idempotency-Key: no
 - Query: `incidentId`, optional `scopeType`, `scopeId`, `dutyShiftId`, `status`
-- Response: `200 {items}`. `READY` items may include safe `content`; `GENERATING`/`FAILED` items expose status/displayStatus without source prompt, provider secret, recommendation, missing-area conclusion, or risk wording.
+- Response: `200 {items}`. `READY` items may include safe `content`; `GENERATING`/`FAILED` items expose status/displayStatus without source prompt, provider secret, recommendation, missing-area conclusion, or risk wording. Each item includes `sourceReadiness` (`PENDING_SYNC`, `READY`, `STALE`) and `sourceHash`.
 - Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`
 - Channel rule: APP and WEB are read-only for this resource. Summary generation/retry is server-side and is triggered by duty shift end or OP transition.
 
