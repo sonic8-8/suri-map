@@ -386,7 +386,7 @@
 
 ## Phase 7 — Test와 실기기 검증
 
-- [ ] AUI-T13 Android UI test와 ViewModel test를 추가한다
+- [x] AUI-T13 Android UI test와 ViewModel test를 추가한다
   - 담당 영역: Android test
   - 필수 참조: `docs/spec/harness-scenarios.md`, `docs/spec/fixtures/`, `docs/tasks/review-guide.md`
   - 구현 산출물:
@@ -398,6 +398,16 @@
   - 완료 기준:
     - `cd android && ./gradlew :app:assembleDebug`
     - 테스트 추가 범위에 맞춰 `cd android && ./gradlew test` 또는 `:app:testDebugUnitTest` 통과
+  - 완료 증거:
+    - Jira `S14P31C106-234`, branch `feature/S14P31C106-234-android-ui-test-fixtures`
+    - RED: `cd android && ./gradlew :app:testDebugUnitTest --tests com.surimap.testing.AndroidHarnessFixtureCatalogTest --tests com.surimap.feature.AndroidUiScenarioCoverageTest --tests com.surimap.ui.components.PoliComponentVariantContractTest --tests com.surimap.ui.navigation.IncidentSessionStateTest` 실패 (`AndroidHarnessFixtureCatalog` 미정의)
+    - GREEN: `cd android && ./gradlew :app:testDebugUnitTest --tests com.surimap.testing.AndroidHarnessFixtureCatalogTest --tests com.surimap.feature.AndroidUiScenarioCoverageTest --tests com.surimap.ui.components.PoliComponentVariantContractTest --tests com.surimap.ui.navigation.IncidentSessionStateTest --tests com.surimap.core.sync.OutboxHarnessIntegrationTest` 통과
+    - VERIFY: `python3 docs/spec/fixtures/preflight_common_fixtures.py` 통과
+    - VERIFY: `git diff --check` 통과
+    - VERIFY: `cd android && ./gradlew test :app:assembleDebug` 통과
+  - 범위 메모:
+    - 현재 Android UI는 별도 ViewModel보다 Activity/Nav scope `IncidentSessionState`를 사용하므로 해당 state holder 전이를 ViewModel-equivalent 테스트로 검증했다.
+    - fixture JSON은 복사본을 만들지 않고 `docs/spec/fixtures`를 Gradle test resource로 연결해 `common-fixtures.json`의 확정 ID를 직접 읽는다.
 
 - [ ] AUI-T14 연결된 Android 실기기에서 화면 검증을 수행한다
   - 담당 영역: Android QA
