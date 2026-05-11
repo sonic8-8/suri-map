@@ -8,6 +8,7 @@ import maplibregl, {
 import { getVWorldApiKey } from '../../../../shared/config';
 import { areaColorTokens, type AreaColorToken } from '../../../../shared/constants/areaColorTokens';
 import { createVWorldBaseStyle, V_WORLD_MAX_ZOOM } from '../../../../shared/map/vworldBaseMap';
+import { getRouteCoreColor } from '../../../../shared/model/boardMapFeatures';
 import type { AreaEditPosition, CompletedAreaDraft } from '../constants/mockAreaEdit';
 import styles from './AreaEditMapCanvas.module.css';
 
@@ -32,8 +33,11 @@ const AREA_EDIT_COMPLETED_DRAFT_SOURCE_ID = 'area-edit-completed-drafts';
 const AREA_EDIT_COMPLETED_DRAFT_FILL_LAYER_ID = 'area-edit-completed-draft-fill';
 const AREA_EDIT_COMPLETED_DRAFT_LINE_LAYER_ID = 'area-edit-completed-draft-line';
 const AREA_EDIT_MOVEMENT_PATH_SOURCE_ID = 'area-edit-movement-path';
+const AREA_EDIT_MOVEMENT_PATH_VEHICLE_GLOW_LAYER_ID = 'area-edit-movement-path-vehicle-glow';
 const AREA_EDIT_MOVEMENT_PATH_VEHICLE_LAYER_ID = 'area-edit-movement-path-vehicle';
+const AREA_EDIT_MOVEMENT_PATH_FOOT_GLOW_LAYER_ID = 'area-edit-movement-path-foot-glow';
 const AREA_EDIT_MOVEMENT_PATH_FOOT_LAYER_ID = 'area-edit-movement-path-foot';
+const AREA_EDIT_MOVEMENT_PATH_UNKNOWN_GLOW_LAYER_ID = 'area-edit-movement-path-unknown-glow';
 const AREA_EDIT_MOVEMENT_PATH_UNKNOWN_LAYER_ID = 'area-edit-movement-path-unknown';
 const AREA_EDIT_MARKER_SOURCE_ID = 'area-edit-marker';
 const AREA_EDIT_MARKER_LAYER_ID = 'area-edit-marker-circle';
@@ -235,6 +239,11 @@ function buildAreaFeatureCollection(): AreaFeatureCollection {
 
 function toCompletedDraftFeature(draft: CompletedAreaDraft): PolygonFeature {
   const visualStyle = areaColorTokens[draft.colorToken];
+  const lineWidthByKind: Record<CompletedAreaDraft['kind'], number> = {
+    overall: 3,
+    unit: 2.6,
+    team: 2.2,
+  };
 
   return {
     type: 'Feature',
@@ -244,8 +253,8 @@ function toCompletedDraftFeature(draft: CompletedAreaDraft): PolygonFeature {
       status: 'DRAFT_COMPLETED',
       fillColor: visualStyle.fillColor,
       lineColor: visualStyle.lineColor,
-      fillOpacity: String(Math.max(visualStyle.fillOpacity, 0.18)),
-      lineWidth: String(draft.kind === 'overall' ? 3.2 : draft.kind === 'unit' ? 2.8 : 2.4),
+      fillOpacity: '0.12',
+      lineWidth: String(lineWidthByKind[draft.kind]),
       lineOpacity: '0.98',
     },
     geometry: {
@@ -269,6 +278,7 @@ function toMovementPathFeature(path: AreaEditMovementPath, activeOperationalPeri
       entityId: path.id,
       policePhoneId: path.policePhoneId ?? '',
       deviceColor: path.routeColor ?? '',
+      routeCoreColor: getRouteCoreColor(path.routeColor),
       opId: path.opId,
       movementType: path.movementType,
       isActiveOp: String(path.opId === activeOperationalPeriodId),
@@ -402,7 +412,9 @@ function addSearchAreaLayers(map: maplibregl.Map, areas: AreaFeatureCollection) 
   });
 }
 
-function addDrawingLayers(map: maplibregl.Map) {
+function addDrawingLayers(map: maplibregl.Map, options: { showCompletedDrafts?: boolean } = {}) {
+  const showCompletedDrafts = options.showCompletedDrafts ?? true;
+
   addGeoJsonSource(map, AREA_EDIT_COMPLETED_DRAFT_SOURCE_ID, { type: 'FeatureCollection', features: [] });
   addGeoJsonSource(map, AREA_EDIT_DRAFT_SOURCE_ID, { type: 'FeatureCollection', features: [] });
 
@@ -412,7 +424,7 @@ function addDrawingLayers(map: maplibregl.Map) {
     source: AREA_EDIT_COMPLETED_DRAFT_SOURCE_ID,
     paint: {
       'fill-color': ['get', 'fillColor'],
-      'fill-opacity': ['to-number', ['get', 'fillOpacity']],
+      'fill-opacity': showCompletedDrafts ? ['to-number', ['get', 'fillOpacity']] : 0,
     },
   });
   addLayer(map, {
@@ -422,7 +434,8 @@ function addDrawingLayers(map: maplibregl.Map) {
     paint: {
       'line-color': ['get', 'lineColor'],
       'line-width': ['to-number', ['get', 'lineWidth']],
-      'line-opacity': ['to-number', ['get', 'lineOpacity']],
+      'line-opacity': showCompletedDrafts ? ['to-number', ['get', 'lineOpacity']] : 0,
+      'line-dasharray': [2, 1.2],
     },
   });
   addLayer(map, {
@@ -464,6 +477,27 @@ function addMovementPathLayers(map: maplibregl.Map, movementPaths: AreaFeatureCo
   addGeoJsonSource(map, AREA_EDIT_MOVEMENT_PATH_SOURCE_ID, movementPaths);
 
   addLayer(map, {
+    id: AREA_EDIT_MOVEMENT_PATH_VEHICLE_GLOW_LAYER_ID,
+    type: 'line',
+    source: AREA_EDIT_MOVEMENT_PATH_SOURCE_ID,
+    filter: [
+      'all',
+      ['has', 'deviceColor'],
+      ['!=', ['get', 'deviceColor'], ''],
+      ['==', ['get', 'isActiveOp'], 'true'],
+      ['==', ['get', 'movementType'], 'VEHICLE'],
+    ],
+    layout: {
+      'line-cap': 'round',
+      'line-join': 'round',
+    },
+    paint: {
+      'line-color': ['get', 'deviceColor'],
+      'line-width': 8.8,
+      'line-opacity': 0.32,
+    },
+  });
+  addLayer(map, {
     id: AREA_EDIT_MOVEMENT_PATH_VEHICLE_LAYER_ID,
     type: 'line',
     source: AREA_EDIT_MOVEMENT_PATH_SOURCE_ID,
@@ -474,10 +508,35 @@ function addMovementPathLayers(map: maplibregl.Map, movementPaths: AreaFeatureCo
       ['==', ['get', 'isActiveOp'], 'true'],
       ['==', ['get', 'movementType'], 'VEHICLE'],
     ],
+    layout: {
+      'line-cap': 'round',
+      'line-join': 'round',
+    },
+    paint: {
+      'line-color': ['get', 'routeCoreColor'],
+      'line-width': 4.6,
+      'line-opacity': 0.98,
+    },
+  });
+  addLayer(map, {
+    id: AREA_EDIT_MOVEMENT_PATH_FOOT_GLOW_LAYER_ID,
+    type: 'line',
+    source: AREA_EDIT_MOVEMENT_PATH_SOURCE_ID,
+    filter: [
+      'all',
+      ['has', 'deviceColor'],
+      ['!=', ['get', 'deviceColor'], ''],
+      ['==', ['get', 'isActiveOp'], 'true'],
+      ['==', ['get', 'movementType'], 'FOOT'],
+    ],
+    layout: {
+      'line-cap': 'round',
+      'line-join': 'round',
+    },
     paint: {
       'line-color': ['get', 'deviceColor'],
-      'line-width': 4.2,
-      'line-opacity': 0.88,
+      'line-width': 7.8,
+      'line-opacity': 0.3,
     },
   });
   addLayer(map, {
@@ -491,11 +550,35 @@ function addMovementPathLayers(map: maplibregl.Map, movementPaths: AreaFeatureCo
       ['==', ['get', 'isActiveOp'], 'true'],
       ['==', ['get', 'movementType'], 'FOOT'],
     ],
+    layout: {
+      'line-cap': 'round',
+      'line-join': 'round',
+    },
+    paint: {
+      'line-color': ['get', 'routeCoreColor'],
+      'line-width': 3.8,
+      'line-opacity': 0.98,
+    },
+  });
+  addLayer(map, {
+    id: AREA_EDIT_MOVEMENT_PATH_UNKNOWN_GLOW_LAYER_ID,
+    type: 'line',
+    source: AREA_EDIT_MOVEMENT_PATH_SOURCE_ID,
+    filter: [
+      'all',
+      ['has', 'deviceColor'],
+      ['!=', ['get', 'deviceColor'], ''],
+      ['==', ['get', 'isActiveOp'], 'true'],
+      ['==', ['get', 'movementType'], 'UNKNOWN'],
+    ],
+    layout: {
+      'line-cap': 'round',
+      'line-join': 'round',
+    },
     paint: {
       'line-color': ['get', 'deviceColor'],
-      'line-width': 3.2,
-      'line-opacity': 0.9,
-      'line-dasharray': [1.1, 0.85],
+      'line-width': 7,
+      'line-opacity': 0.24,
     },
   });
   addLayer(map, {
@@ -509,12 +592,38 @@ function addMovementPathLayers(map: maplibregl.Map, movementPaths: AreaFeatureCo
       ['==', ['get', 'isActiveOp'], 'true'],
       ['==', ['get', 'movementType'], 'UNKNOWN'],
     ],
-    paint: {
-      'line-color': ['get', 'deviceColor'],
-      'line-width': 3,
-      'line-opacity': 0.78,
-      'line-dasharray': [0.7, 1],
+    layout: {
+      'line-cap': 'round',
+      'line-join': 'round',
     },
+    paint: {
+      'line-color': ['get', 'routeCoreColor'],
+      'line-width': 3.4,
+      'line-opacity': 0.86,
+    },
+  });
+}
+
+function raiseMovementPathLayers(map: maplibregl.Map) {
+  [
+    AREA_EDIT_MOVEMENT_PATH_VEHICLE_GLOW_LAYER_ID,
+    AREA_EDIT_MOVEMENT_PATH_FOOT_GLOW_LAYER_ID,
+    AREA_EDIT_MOVEMENT_PATH_UNKNOWN_GLOW_LAYER_ID,
+    AREA_EDIT_MOVEMENT_PATH_VEHICLE_LAYER_ID,
+    AREA_EDIT_MOVEMENT_PATH_FOOT_LAYER_ID,
+    AREA_EDIT_MOVEMENT_PATH_UNKNOWN_LAYER_ID,
+  ].forEach((layerId) => {
+    if (map.getLayer(layerId)) {
+      map.moveLayer(layerId);
+    }
+  });
+}
+
+function raiseMarkerLayers(map: maplibregl.Map) {
+  [AREA_EDIT_MARKER_LAYER_ID, AREA_EDIT_MARKER_SYMBOL_LAYER_ID].forEach((layerId) => {
+    if (map.getLayer(layerId)) {
+      map.moveLayer(layerId);
+    }
   });
 }
 
@@ -695,6 +804,7 @@ export function AreaEditMapCanvas({
   onUndoDraft,
   onValidationMessage,
 }: AreaEditMapCanvasProps) {
+  const shouldRenderReferenceLayers = !externalMap;
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [floatingControlPosition, setFloatingControlPosition] = useState<{ x: number; y: number } | null>(null);
@@ -731,6 +841,7 @@ export function AreaEditMapCanvas({
 
   useEffect(() => {
     activeOperationalPeriodIdRef.current = activeOperationalPeriodId;
+    if (!shouldRenderReferenceLayers) return;
     const map = mapRef.current;
     if (!map) return;
     setGeoJsonSourceData(
@@ -738,10 +849,11 @@ export function AreaEditMapCanvas({
       AREA_EDIT_MOVEMENT_PATH_SOURCE_ID,
       buildMovementPathFeatureCollection(movementPathsRef.current, activeOperationalPeriodId),
     );
-  }, [activeOperationalPeriodId]);
+  }, [activeOperationalPeriodId, shouldRenderReferenceLayers]);
 
   useEffect(() => {
     movementPathsRef.current = movementPaths;
+    if (!shouldRenderReferenceLayers) return;
     const map = mapRef.current;
     if (!map) return;
     setGeoJsonSourceData(
@@ -749,14 +861,15 @@ export function AreaEditMapCanvas({
       AREA_EDIT_MOVEMENT_PATH_SOURCE_ID,
       buildMovementPathFeatureCollection(movementPaths, activeOperationalPeriodIdRef.current),
     );
-  }, [movementPaths]);
+  }, [movementPaths, shouldRenderReferenceLayers]);
 
   useEffect(() => {
     mapMarkersRef.current = mapMarkers;
+    if (!shouldRenderReferenceLayers) return;
     const map = mapRef.current;
     if (!map) return;
     setGeoJsonSourceData(map, AREA_EDIT_MARKER_SOURCE_ID, buildMarkerFeatureCollection(mapMarkers));
-  }, [mapMarkers]);
+  }, [mapMarkers, shouldRenderReferenceLayers]);
 
   const updateFloatingControlPosition = useCallback(() => {
     const map = mapRef.current;
@@ -895,12 +1008,7 @@ export function AreaEditMapCanvas({
 
     const initializeExternalLayers = () => {
       addSearchAreaLayers(externalMap, buildAreaFeatureCollection());
-      addDrawingLayers(externalMap);
-      addMovementPathLayers(
-        externalMap,
-        buildMovementPathFeatureCollection(movementPathsRef.current, activeOperationalPeriodIdRef.current),
-      );
-      addMarkerLayers(externalMap, buildMarkerFeatureCollection(mapMarkersRef.current));
+      addDrawingLayers(externalMap, { showCompletedDrafts: false });
       setGeoJsonSourceData(
         externalMap,
         AREA_EDIT_COMPLETED_DRAFT_SOURCE_ID,
@@ -995,6 +1103,8 @@ export function AreaEditMapCanvas({
       void loadGwangsanManifest()
         .then((manifest) => {
           addMudeungsanHikingTrailLayersSafely(map);
+          raiseMovementPathLayers(map);
+          raiseMarkerLayers(map);
 
           const boundaryLayer = manifest.layers.find((layer) => layer.layerId === 'boundary');
           const overallBounds = findOverallDraftBounds(completedDraftsRef.current);

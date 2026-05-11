@@ -1,7 +1,6 @@
 import { useLeftPanelPages } from '../../hooks/useLeftPanelPages';
 import { LayerTogglePanel } from './LayerTogglePanel';
 import { MarkerTypeFilter } from './MarkerTypeFilter';
-import { OperationalPeriodSelector } from './OperationalPeriodSelector';
 import { RecentMarkerList } from './RecentMarkerList';
 import { SearchAreaTree } from './SearchAreaTree';
 import { ViewModeSwitch } from './ViewModeSwitch';
@@ -103,7 +102,6 @@ export function SituationBoardLeftPanel({
       <div className={styles.content}>
         <div className={styles.page} hidden={activePage !== 'filter'}>
           <div className={styles.scroll}>
-            <OperationalPeriodSelector operationalPeriods={board.operationalPeriods} />
             <LayerTogglePanel
               layerOptions={board.layerOptions}
               selectedLayerIds={selectedLayerIds}

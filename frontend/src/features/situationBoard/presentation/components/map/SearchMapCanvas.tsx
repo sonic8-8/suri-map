@@ -11,10 +11,6 @@ import {
   type AreaEditMapCanvasProps,
 } from '../../../../areaEdit/presentation/components/AreaEditMapCanvas';
 import {
-  HandoverComparisonMap,
-  type HandoverComparisonMapProps,
-} from '../../../../handover/presentation/components/HandoverComparisonMap';
-import {
   createVWorldBaseStyle,
   V_WORLD_BASE_LAYER_ID,
   V_WORLD_BASE_OPACITY,
@@ -33,6 +29,7 @@ import {
   clearMarkerElements,
   hasRenderedMarkerAtPoint,
   removeMarkerPopup,
+  raiseMarkerLayer,
   syncMarkerElements,
   syncMarkerPopups,
   type MarkerInstance,
@@ -54,9 +51,13 @@ const OVERALL_SEARCH_AREA_SOURCE_ID = 'operational-overall_search_area';
 const SEARCH_AREA_FILL_LAYER_ID = 'operational-overall_search_area-fill';
 const SEARCH_AREA_LINE_LAYER_ID = 'operational-overall_search_area-line';
 const MOVEMENT_PATH_SOURCE_ID = 'operational-movement-path';
+const MOVEMENT_PATH_COMPARE_HIGHLIGHT_LAYER_ID = 'operational-movement-path-compare-highlight';
 const MOVEMENT_PATH_COMPARE_LAYER_ID = 'operational-movement-path-compare';
+const MOVEMENT_PATH_VEHICLE_GLOW_LAYER_ID = 'operational-movement-path-vehicle-glow';
 const MOVEMENT_PATH_VEHICLE_LAYER_ID = 'operational-movement-path-vehicle';
+const MOVEMENT_PATH_FOOT_GLOW_LAYER_ID = 'operational-movement-path-foot-glow';
 const MOVEMENT_PATH_FOOT_LAYER_ID = 'operational-movement-path-foot';
+const MOVEMENT_PATH_UNKNOWN_GLOW_LAYER_ID = 'operational-movement-path-unknown-glow';
 const MOVEMENT_PATH_UNKNOWN_LAYER_ID = 'operational-movement-path-unknown';
 const INITIAL_MAP_FALLBACK_ZOOM = 12;
 
@@ -109,6 +110,11 @@ export type LayerVisibility = {
   footPath: boolean;
   searchArea: boolean;
   marker: boolean;
+};
+
+const EMPTY_OPERATIONAL_FEATURE_COLLECTION: OperationalFeatureCollection = {
+  type: 'FeatureCollection',
+  features: [],
 };
 
 function createOperationalFeatureCollectionSignature(collection: OperationalFeatureCollection): string {
@@ -170,6 +176,18 @@ function setOperationalGeoJsonSourceData(map: maplibregl.Map, sourceId: string, 
   }
 
   (source as GeoJSONSource).setData(data);
+}
+
+function syncSearchAreaSourceData(
+  map: maplibregl.Map,
+  searchAreas: OperationalFeatureCollection,
+  isVisible: boolean,
+) {
+  setOperationalGeoJsonSourceData(
+    map,
+    OVERALL_SEARCH_AREA_SOURCE_ID,
+    isVisible ? searchAreas : EMPTY_OPERATIONAL_FEATURE_COLLECTION,
+  );
 }
 
 function getAssignedSearchAreaBounds(searchAreas: OperationalFeatureCollection): LngLatBoundsLike | null {
@@ -324,15 +342,54 @@ function addMovementPathLayers(map: maplibregl.Map, movementPaths: OperationalFe
   addGeoJsonSource(map, MOVEMENT_PATH_SOURCE_ID, movementPaths);
 
   addLayer(map, {
+    id: MOVEMENT_PATH_COMPARE_HIGHLIGHT_LAYER_ID,
+    type: 'line',
+    source: MOVEMENT_PATH_SOURCE_ID,
+    filter: ['all', ['has', 'deviceColor'], ['!=', ['get', 'deviceColor'], ''], ['!=', ['get', 'isActiveOp'], 'true']],
+    layout: {
+      'line-cap': 'round',
+      'line-join': 'round',
+    },
+    paint: {
+      'line-color': ['get', 'deviceColor'],
+      'line-width': 5.8,
+      'line-opacity': 0.18,
+    },
+  });
+  addLayer(map, {
     id: MOVEMENT_PATH_COMPARE_LAYER_ID,
     type: 'line',
     source: MOVEMENT_PATH_SOURCE_ID,
     filter: ['all', ['has', 'deviceColor'], ['!=', ['get', 'deviceColor'], ''], ['!=', ['get', 'isActiveOp'], 'true']],
+    layout: {
+      'line-cap': 'round',
+      'line-join': 'round',
+    },
+    paint: {
+      'line-color': ['get', 'routeCoreColor'],
+      'line-width': 2.7,
+      'line-opacity': 0.64,
+    },
+  });
+  addLayer(map, {
+    id: MOVEMENT_PATH_VEHICLE_GLOW_LAYER_ID,
+    type: 'line',
+    source: MOVEMENT_PATH_SOURCE_ID,
+    filter: [
+      'all',
+      ['has', 'deviceColor'],
+      ['!=', ['get', 'deviceColor'], ''],
+      ['==', ['get', 'isActiveOp'], 'true'],
+      ['==', ['get', 'movementType'], 'VEHICLE'],
+    ],
+    layout: {
+      'line-cap': 'round',
+      'line-join': 'round',
+    },
     paint: {
       'line-color': ['get', 'deviceColor'],
-      'line-width': 2.8,
-      'line-opacity': 0.62,
-      'line-dasharray': [1.2, 1.1],
+      'line-width': 8.8,
+      'line-opacity': 0.32,
     },
   });
   addLayer(map, {
@@ -346,10 +403,35 @@ function addMovementPathLayers(map: maplibregl.Map, movementPaths: OperationalFe
       ['==', ['get', 'isActiveOp'], 'true'],
       ['==', ['get', 'movementType'], 'VEHICLE'],
     ],
+    layout: {
+      'line-cap': 'round',
+      'line-join': 'round',
+    },
+    paint: {
+      'line-color': ['get', 'routeCoreColor'],
+      'line-width': 4.6,
+      'line-opacity': 0.98,
+    },
+  });
+  addLayer(map, {
+    id: MOVEMENT_PATH_FOOT_GLOW_LAYER_ID,
+    type: 'line',
+    source: MOVEMENT_PATH_SOURCE_ID,
+    filter: [
+      'all',
+      ['has', 'deviceColor'],
+      ['!=', ['get', 'deviceColor'], ''],
+      ['==', ['get', 'isActiveOp'], 'true'],
+      ['==', ['get', 'movementType'], 'FOOT'],
+    ],
+    layout: {
+      'line-cap': 'round',
+      'line-join': 'round',
+    },
     paint: {
       'line-color': ['get', 'deviceColor'],
-      'line-width': 4.2,
-      'line-opacity': 0.88,
+      'line-width': 7.8,
+      'line-opacity': 0.3,
     },
   });
   addLayer(map, {
@@ -363,11 +445,35 @@ function addMovementPathLayers(map: maplibregl.Map, movementPaths: OperationalFe
       ['==', ['get', 'isActiveOp'], 'true'],
       ['==', ['get', 'movementType'], 'FOOT'],
     ],
+    layout: {
+      'line-cap': 'round',
+      'line-join': 'round',
+    },
+    paint: {
+      'line-color': ['get', 'routeCoreColor'],
+      'line-width': 3.8,
+      'line-opacity': 0.98,
+    },
+  });
+  addLayer(map, {
+    id: MOVEMENT_PATH_UNKNOWN_GLOW_LAYER_ID,
+    type: 'line',
+    source: MOVEMENT_PATH_SOURCE_ID,
+    filter: [
+      'all',
+      ['has', 'deviceColor'],
+      ['!=', ['get', 'deviceColor'], ''],
+      ['==', ['get', 'isActiveOp'], 'true'],
+      ['==', ['get', 'movementType'], 'UNKNOWN'],
+    ],
+    layout: {
+      'line-cap': 'round',
+      'line-join': 'round',
+    },
     paint: {
       'line-color': ['get', 'deviceColor'],
-      'line-width': 3.2,
-      'line-opacity': 0.9,
-      'line-dasharray': [1.1, 0.85],
+      'line-width': 7,
+      'line-opacity': 0.24,
     },
   });
   addLayer(map, {
@@ -381,12 +487,32 @@ function addMovementPathLayers(map: maplibregl.Map, movementPaths: OperationalFe
       ['==', ['get', 'isActiveOp'], 'true'],
       ['==', ['get', 'movementType'], 'UNKNOWN'],
     ],
-    paint: {
-      'line-color': ['get', 'deviceColor'],
-      'line-width': 3,
-      'line-opacity': 0.78,
-      'line-dasharray': [0.7, 1],
+    layout: {
+      'line-cap': 'round',
+      'line-join': 'round',
     },
+    paint: {
+      'line-color': ['get', 'routeCoreColor'],
+      'line-width': 3.4,
+      'line-opacity': 0.86,
+    },
+  });
+}
+
+function raiseMovementPathLayers(map: maplibregl.Map) {
+  [
+    MOVEMENT_PATH_COMPARE_HIGHLIGHT_LAYER_ID,
+    MOVEMENT_PATH_COMPARE_LAYER_ID,
+    MOVEMENT_PATH_VEHICLE_GLOW_LAYER_ID,
+    MOVEMENT_PATH_FOOT_GLOW_LAYER_ID,
+    MOVEMENT_PATH_UNKNOWN_GLOW_LAYER_ID,
+    MOVEMENT_PATH_VEHICLE_LAYER_ID,
+    MOVEMENT_PATH_FOOT_LAYER_ID,
+    MOVEMENT_PATH_UNKNOWN_LAYER_ID,
+  ].forEach((layerId) => {
+    if (map.getLayer(layerId)) {
+      map.moveLayer(layerId);
+    }
   });
 }
 
@@ -417,8 +543,12 @@ function setLayerVisibility(map: maplibregl.Map, layerId: string, isVisible: boo
 function syncLayerVisibility(map: maplibregl.Map, layerVisibility: LayerVisibility) {
   setLayerVisibility(map, SEARCH_AREA_FILL_LAYER_ID, layerVisibility.searchArea);
   setLayerVisibility(map, SEARCH_AREA_LINE_LAYER_ID, layerVisibility.searchArea);
+  setLayerVisibility(map, MOVEMENT_PATH_COMPARE_HIGHLIGHT_LAYER_ID, layerVisibility.vehiclePath || layerVisibility.footPath);
+  setLayerVisibility(map, MOVEMENT_PATH_VEHICLE_GLOW_LAYER_ID, layerVisibility.vehiclePath);
   setLayerVisibility(map, MOVEMENT_PATH_VEHICLE_LAYER_ID, layerVisibility.vehiclePath);
+  setLayerVisibility(map, MOVEMENT_PATH_FOOT_GLOW_LAYER_ID, layerVisibility.footPath);
   setLayerVisibility(map, MOVEMENT_PATH_FOOT_LAYER_ID, layerVisibility.footPath);
+  setLayerVisibility(map, MOVEMENT_PATH_UNKNOWN_GLOW_LAYER_ID, layerVisibility.vehiclePath || layerVisibility.footPath);
   setLayerVisibility(map, MOVEMENT_PATH_UNKNOWN_LAYER_ID, layerVisibility.vehiclePath || layerVisibility.footPath);
   setLayerVisibility(map, MOVEMENT_PATH_COMPARE_LAYER_ID, layerVisibility.vehiclePath || layerVisibility.footPath);
 }
@@ -524,7 +654,6 @@ type SearchMapCanvasProps = {
   onInitialMapStateReady?: (state: InitialMapResolution['state'] | null) => void;
   onMapReady?: (map: maplibregl.Map | null) => void;
   areaEditMapProps?: AreaEditMapCanvasProps | null;
-  handoverMapProps?: HandoverComparisonMapProps | null;
   selectedSearchAreaId: string | null;
   onSelectSearchArea: (searchAreaId: string) => void;
 };
@@ -541,7 +670,6 @@ export function SearchMapCanvas({
   onInitialMapStateReady,
   onMapReady,
   areaEditMapProps,
-  handoverMapProps,
   selectedSearchAreaId,
   onSelectSearchArea,
 }: SearchMapCanvasProps) {
@@ -727,7 +855,7 @@ export function SearchMapCanvas({
       return;
     }
 
-    setOperationalGeoJsonSourceData(map, OVERALL_SEARCH_AREA_SOURCE_ID, assignedSearchAreas);
+    syncSearchAreaSourceData(map, assignedSearchAreas, layerVisibilityRef.current.searchArea);
     syncSelectedSearchArea(map, selectedSearchAreaIdRef.current);
     const assignedSearchAreaBounds = getAssignedSearchAreaBounds(assignedSearchAreas);
     if (!assignedSearchAreaBounds) {
@@ -759,7 +887,9 @@ export function SearchMapCanvas({
       return;
     }
 
+    syncSearchAreaSourceData(map, assignedSearchAreasRef.current, layerVisibility.searchArea);
     syncLayerVisibility(map, layerVisibility);
+    syncSelectedSearchArea(map, selectedSearchAreaIdRef.current);
   }, [layerVisibility]);
 
   useEffect(() => {
@@ -841,6 +971,10 @@ export function SearchMapCanvas({
           return;
         }
 
+        if (!layerVisibilityRef.current.searchArea) {
+          return;
+        }
+
         const features = map.queryRenderedFeatures(event.point, { layers: [SEARCH_AREA_FILL_LAYER_ID, SEARCH_AREA_LINE_LAYER_ID] });
         const searchAreaId = features.find((feature) => typeof feature.properties?.entityId === 'string')?.properties
           ?.entityId;
@@ -877,6 +1011,8 @@ export function SearchMapCanvas({
       void loadGwangsanManifest()
         .then((manifest) => {
           addMudeungsanHikingTrailLayersSafely(map);
+          raiseMovementPathLayers(map);
+          raiseMarkerLayer(map);
           if (isRouteEditorEnabledRef.current) {
             addRouteEditorLayers(map);
           }
@@ -919,9 +1055,6 @@ export function SearchMapCanvas({
       <div ref={mapContainerRef} className={styles.canvas} />
       {areaEditMapProps && mapInstance ? (
         <AreaEditMapCanvas {...areaEditMapProps} externalMap={mapInstance} hideCanvas />
-      ) : null}
-      {handoverMapProps && mapInstance ? (
-        <HandoverComparisonMap {...handoverMapProps} externalMap={mapInstance} hideCanvas />
       ) : null}
       {false ? (
         <aside className={styles.initialMapNotice} aria-live="polite">

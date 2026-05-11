@@ -1,7 +1,6 @@
 import { DashboardMapShell } from './DashboardMapShell';
 import type { InitialMapState, LayerVisibility } from './SearchMapCanvas';
 import type { AreaEditMapCanvasProps } from '../../../../areaEdit/presentation/components/AreaEditMapCanvas';
-import type { HandoverComparisonMapProps } from '../../../../handover/presentation/components/HandoverComparisonMap';
 import type { CompletedAreaDraft } from '../../../../../shared/model/areaDraft';
 import type { LegendItem, MovementPath, RecentMarker } from '../../constants/mockSituationBoard';
 import styles from './SituationBoardMap.module.css';
@@ -17,7 +16,6 @@ type SituationBoardMapProps = {
   visibleMarkerIds: string[];
   savedAreaDrafts: CompletedAreaDraft[];
   areaEditMapProps?: AreaEditMapCanvasProps | null;
-  handoverMapProps?: HandoverComparisonMapProps | null;
   onInitialMapStateChange: (state: InitialMapState | null) => void;
   onToggleMapExpanded: () => void;
   selectedSearchAreaId: string | null;
@@ -35,7 +33,6 @@ export function SituationBoardMap({
   visibleMarkerIds,
   savedAreaDrafts,
   areaEditMapProps,
-  handoverMapProps,
   onInitialMapStateChange,
   onSelectSearchArea,
   onToggleMapExpanded,
@@ -54,7 +51,6 @@ export function SituationBoardMap({
         visibleMarkerIds={visibleMarkerIds}
         savedAreaDrafts={savedAreaDrafts}
         areaEditMapProps={areaEditMapProps}
-        handoverMapProps={handoverMapProps}
         onInitialMapStateChange={onInitialMapStateChange}
         onSelectSearchArea={onSelectSearchArea}
         onToggleMapExpanded={onToggleMapExpanded}

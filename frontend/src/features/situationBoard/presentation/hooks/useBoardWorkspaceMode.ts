@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import type { AreaEditMapCanvasProps } from '../../../areaEdit/presentation/components/AreaEditMapCanvas';
-import type { HandoverComparisonMapProps } from '../../../handover/presentation/components/HandoverComparisonMap';
 import type { InitialMapState } from '../components/map/SearchMapCanvas';
 
 export function useBoardWorkspaceMode() {
@@ -10,7 +9,6 @@ export function useBoardWorkspaceMode() {
   const [isAreaWorkspaceOpen, setIsAreaWorkspaceOpen] = useState(false);
   const [isHandoverWorkspaceOpen, setIsHandoverWorkspaceOpen] = useState(false);
   const [areaEditMapProps, setAreaEditMapProps] = useState<AreaEditMapCanvasProps | null>(null);
-  const [handoverMapProps, setHandoverMapProps] = useState<HandoverComparisonMapProps | null>(null);
 
   const hasActiveOverallSearchArea = initialMapState === null || initialMapState === 'overall-ready';
 
@@ -28,7 +26,6 @@ export function useBoardWorkspaceMode() {
 
   const openAreaWorkspace = () => {
     setIsHandoverWorkspaceOpen(false);
-    setHandoverMapProps(null);
     setIsAreaWorkspaceOpen(true);
   };
 
@@ -45,14 +42,12 @@ export function useBoardWorkspaceMode() {
 
   const closeHandoverWorkspace = () => {
     setIsHandoverWorkspaceOpen(false);
-    setHandoverMapProps(null);
   };
 
   return {
     areaEditMapProps,
     closeAreaWorkspace,
     closeHandoverWorkspace,
-    handoverMapProps,
     hasActiveOverallSearchArea,
     isAreaWorkspaceOpen,
     isHandoverWorkspaceOpen,
@@ -61,7 +56,6 @@ export function useBoardWorkspaceMode() {
     openHandoverWorkspace,
     selectedSearchAreaId,
     setAreaEditMapProps,
-    setHandoverMapProps,
     setInitialMapState,
     toggleMapExpanded,
     toggleSelectedSearchArea,

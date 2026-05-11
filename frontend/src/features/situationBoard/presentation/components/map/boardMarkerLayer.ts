@@ -221,6 +221,7 @@ function setMarkerSourceData(map: maplibregl.Map, data: MarkerFeatureCollection)
 
 function addMarkerLayer(map: maplibregl.Map) {
   if (map.getLayer(MARKER_LAYER_ID)) {
+    raiseMarkerLayer(map);
     return;
   }
 
@@ -238,6 +239,12 @@ function addMarkerLayer(map: maplibregl.Map) {
       'symbol-sort-key': ['match', ['get', 'markerType'], 'PERSON_FOUND', 5, 'CLUE', 4, 'SUPPORT_REQUEST', 3, 'FIELD_CONDITION', 2, 1],
     },
   });
+}
+
+export function raiseMarkerLayer(map: maplibregl.Map) {
+  if (map.getLayer(MARKER_LAYER_ID)) {
+    map.moveLayer(MARKER_LAYER_ID);
+  }
 }
 
 function bindMarkerLayerEvents(map: maplibregl.Map, handlers: MarkerInteractionHandlers) {
@@ -315,6 +322,7 @@ export function syncMarkerElements(
       addMarkerLayer(map);
       bindMarkerLayerEvents(map, handlers);
       setMarkerSourceData(map, markerData);
+      raiseMarkerLayer(map);
     })
     .catch((error: unknown) => {
       console.error('[map] failed to register marker symbol images', error);

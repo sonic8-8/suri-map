@@ -28,13 +28,9 @@ export function useBoardLayerFilters({
 
   const mapRecentMarkers = useMemo(
     () =>
-      recentMarkers.flatMap((marker) => {
-        const markerType = getRecentMarkerType(marker);
-        if (!markerType) {
-          return [];
-        }
-
-        return [{ ...marker, markerType }];
+      recentMarkers.map((marker): RecentMarker => {
+        const markerType: MarkerTypeId | 'UNKNOWN' = getRecentMarkerType(marker) ?? 'UNKNOWN';
+        return { ...marker, markerType: markerType ?? 'UNKNOWN' };
       }),
     [recentMarkers],
   );

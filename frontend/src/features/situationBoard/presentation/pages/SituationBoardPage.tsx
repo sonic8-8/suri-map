@@ -90,7 +90,6 @@ export function SituationBoardPage({
             currentUserAccount={currentUserAccount}
             onOpenIncidentList={onOpenIncidentList}
             onOpenSituationBoard={boardState.closeHandoverWorkspace}
-            onSharedMapPropsChange={boardState.setHandoverMapProps}
           />
         ) : boardState.isMapExpanded ? null : (
           <SituationBoardLeftPanel
@@ -120,7 +119,6 @@ export function SituationBoardPage({
           visibleMarkerIds={boardState.visibleMarkerIds}
           savedAreaDrafts={boardState.board.searchAreaDrafts}
           areaEditMapProps={boardState.isAreaWorkspaceOpen ? boardState.areaEditMapProps : null}
-          handoverMapProps={boardState.isHandoverWorkspaceOpen ? boardState.handoverMapProps : null}
           onInitialMapStateChange={boardState.setInitialMapState}
           onSelectSearchArea={boardState.toggleSelectedSearchArea}
           onToggleMapExpanded={boardState.toggleMapExpanded}

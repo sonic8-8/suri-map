@@ -7,7 +7,6 @@ import type { LegendItem, MovementPath, RecentMarker } from '../../constants/moc
 import { MapLegend } from './MapLegend';
 import { SearchMapCanvas, type InitialMapState, type LayerVisibility } from './SearchMapCanvas';
 import type { AreaEditMapCanvasProps } from '../../../../areaEdit/presentation/components/AreaEditMapCanvas';
-import type { HandoverComparisonMapProps } from '../../../../handover/presentation/components/HandoverComparisonMap';
 import styles from './DashboardMapShell.module.css';
 
 const INCIDENT_FIT_PADDING = 44;
@@ -25,7 +24,6 @@ type DashboardMapShellProps = {
   savedAreaDrafts: CompletedAreaDraft[];
   onInitialMapStateChange: (state: InitialMapState | null) => void;
   areaEditMapProps?: AreaEditMapCanvasProps | null;
-  handoverMapProps?: HandoverComparisonMapProps | null;
   onToggleMapExpanded: () => void;
   selectedSearchAreaId: string | null;
   onSelectSearchArea: (searchAreaId: string) => void;
@@ -43,7 +41,6 @@ export function DashboardMapShell({
   savedAreaDrafts,
   onInitialMapStateChange,
   areaEditMapProps,
-  handoverMapProps,
   onSelectSearchArea,
   onToggleMapExpanded,
   selectedSearchAreaId,
@@ -119,7 +116,6 @@ export function DashboardMapShell({
           onInitialMapStateReady={onInitialMapStateChange}
           onMapReady={handleMapReady}
           areaEditMapProps={areaEditMapProps}
-          handoverMapProps={handoverMapProps}
           selectedSearchAreaId={selectedSearchAreaId}
           onSelectSearchArea={onSelectSearchArea}
         />

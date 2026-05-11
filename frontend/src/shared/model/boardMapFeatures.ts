@@ -150,6 +150,20 @@ export function markerTypeGlyph(markerType: BoardMapMarkerType) {
   }
 }
 
+export function getRouteCoreColor(routeColor: string | null | undefined): string {
+  if (!routeColor) return '';
+
+  const normalizedColor = normalizeHexColor(routeColor);
+  if (!normalizedColor) return routeColor;
+
+  const red = Number.parseInt(normalizedColor.slice(1, 3), 16);
+  const green = Number.parseInt(normalizedColor.slice(3, 5), 16);
+  const blue = Number.parseInt(normalizedColor.slice(5, 7), 16);
+  const darkenRatio = 0.72;
+
+  return `#${toHexChannel(red * darkenRatio)}${toHexChannel(green * darkenRatio)}${toHexChannel(blue * darkenRatio)}`;
+}
+
 function resolveRouteColor(
   path: BoardMovementPath,
   routeColorsByAccountId: ReadonlyMap<string, string>,
@@ -210,6 +224,7 @@ function createMovementPathFeature(
     policePhoneId: path.policePhoneId ?? '',
     accountId: path.accountId ?? '',
     deviceColor: path.routeColor ?? options.fallbackColor ?? '',
+    routeCoreColor: getRouteCoreColor(path.routeColor ?? options.fallbackColor),
     movementType: path.movementType,
     isActiveOp: String(path.opId === activeOperationalPeriodId),
     startedAt: path.startedAt,
@@ -228,4 +243,25 @@ function createMovementPathFeature(
       coordinates: path.coordinates,
     },
   };
+}
+
+function normalizeHexColor(color: string): string | null {
+  const trimmedColor = color.trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(trimmedColor)) {
+    return trimmedColor;
+  }
+
+  if (/^#[0-9a-fA-F]{3}$/.test(trimmedColor)) {
+    const red = trimmedColor[1];
+    const green = trimmedColor[2];
+    const blue = trimmedColor[3];
+    return `#${red}${red}${green}${green}${blue}${blue}`;
+  }
+
+  return null;
+}
+
+function toHexChannel(value: number): string {
+  const roundedValue = Math.max(0, Math.min(255, Math.round(value)));
+  return roundedValue.toString(16).padStart(2, '0');
 }
