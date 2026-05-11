@@ -46,7 +46,8 @@ public class EventHubIncidentEventPublisher implements IncidentEventPublisher {
   @Override
   public void publishIncidentClosed(IncidentClosedEvent event) {
     Map<String, Object> payload = basePayload(event.id(), event.status(), event.version());
-    payload.put("closedAt", event.closedAt());
+    // SC-12 소비자는 JSONB/SSE 본문에서 closedAt을 읽으므로 전송 값을 명시 문자열로 고정한다.
+    payload.put("closedAt", event.closedAt().toString());
     payload.put("writeDisabledReason", event.writeDisabledReason());
     publish("INCIDENT_CLOSED", event.id(), event.version(), INCIDENT_SOURCE_ENTITY_TYPE, payload);
   }
