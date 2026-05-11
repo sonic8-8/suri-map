@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Low-fi · 폴리폰 로컬 경고 alert variant 카탈로그 v1</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="./lo-polifon-wireframes.css">
+</head>
+<body>
+  <div class="meta">
+    <strong>P5 로컬 경고 alert variant 카탈로그</strong> — FR-29 기준. <strong>독립 화면이 아니라 지도(Hero) 상단 배너로 겹쳐 표시되는 alert variant 모음</strong>이다. 서버 판단 없이 폴리폰 로컬 상태로 감지하며, 화면 카탈로그라기보다 alert 컴포넌트 참조 시트로 본다.
+    실제 배치는 <a href="./lo-polifon-search-map-v1.html">수색 중 지도(Hero)</a> 상단 `.alert-banner` slot에서 이뤄진다.
+  </div>
+
+  <div class="phone-frame">
+    <div class="status-bar"><span>14:24</span><span class="right">GPS 약함 · 19%</span></div>
+    <div class="appbar">
+      <div class="appbar-row">
+        <button class="back">←</button>
+        <div class="title-block"><h1>사건 #1234</h1><p>OP 3차 · 기동대 1부대 A팀</p></div>
+        <span class="chip bad">오프라인</span>
+      </div>
+    </div>
+
+    <main class="content">
+      <div class="meta" style="margin:0 0 8px">variant 카탈로그 (실제 화면에서는 1~2개만 동시 노출, 우선순위: bad > warn > info)</div>
+      <div class="banner bad">오프라인 — 미전송 12건. 연결 시 자동 전송됩니다. (정상 동작 = 탭 동선 없음. P4 진입은 처리 불가 toast 별도)</div>
+      <div class="banner warn">GPS 신호 약함 — 마지막 위치 1분 30초 전.</div>
+      <div class="banner warn">배터리 19% — 보조 배터리 연결 필요.</div>
+      <div class="banner">지도 타일 미완료 — 담당 구역 일부가 낮은 해상도로 표시됩니다.</div>
+
+      <div class="map-placeholder">
+        <div class="label">수색 중 지도 위 overlay (Hero 화면 안)</div>
+        <div class="area"></div>
+        <div class="dot"></div>
+      </div>
+    </main>
+
+    <div class="bottom">
+      <button class="button primary">마커 생성</button>
+    </div>
+    <div class="gesture"><span></span></div>
+  </div>
+
+  <div class="meta">
+    <strong>variant 명세</strong>
+    <ul>
+      <li><strong>banner bad · 오프라인</strong> — 미전송 큐 누적 안내. 정상 동작이므로 사용자 탭 동선 없음 (chip aggregate만으로 충분)</li>
+      <li><strong>toast bad · 처리 불가 N건</strong> — 자동 재시도로 해결 안 되는 항목 발생 시에만 등장. 탭 시 P4 진단 화면 진입 (단독 진입점). banner와 분리</li>
+      <li><strong>banner warn · GPS 약함</strong> — 위치 정확도 저하. 마지막 fix 시각 표시</li>
+      <li><strong>banner warn · 배터리 저하</strong> — &lt;20% 임계. 보조 배터리 안내</li>
+      <li><strong>banner info · 타일 미완료</strong> — readyForOfflineUse=false 상태. 낮은 해상도 안내</li>
+    </ul>
+    동시 노출은 우선순위 상위 2개까지. 나머지는 토스트 또는 sync chip aggregate로 표현.
+  </div>
+</body>
+</html>

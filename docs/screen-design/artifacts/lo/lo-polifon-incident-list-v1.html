@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Low-fi · 폴리폰 사건 선택 v1</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="./lo-polifon-wireframes.css">
+</head>
+<body>
+  <div class="meta">
+    <strong>P2 사건 선택</strong> — <code>GET /api/incidents</code> 결과 중 배정 사건만 표시한다. Android 전용 조회 화면이며 지휘 CTA는 없다.
+    단말 = 팀/순찰차 1대 1:1 매핑 + FR-08 동시 활성 OP 1개 전제이므로 <strong>default는 보통 1건이고, empty가 더 일반적인 상태</strong>다. 잠시 2건이 겹치는 경우는 사건 가져오기/종료 시점의 짧은 transition이다.
+    사건 종료(P7) 시 자동 진입되는 화면이기도 하며, 진입 직후 종료 사건 다이얼로그가 뜬다.
+  </div>
+
+  <div class="phone-frame">
+    <div class="status-bar"><span>14:24</span><span class="right">LTE · 78%</span></div>
+    <div class="appbar">
+      <div class="appbar-row">
+        <button class="back">←</button>
+        <div class="title-block"><h1>사건 선택</h1><p>POL-1A-0023 · 기동대 1부대 A팀</p></div>
+        <span class="chip good">동기화</span>
+      </div>
+    </div>
+
+    <main class="content scroll">
+      <section class="card" style="border-color: var(--poli-primary-border);">
+        <h2>사건 #1234</h2>
+        <p>광주 북구 ○○산 · 60대 여성 · OP 3차</p>
+        <div class="row">
+          <div class="main"><strong>패키지 상태</strong><span>오늘 13:40 적재 완료</span></div>
+          <span class="chip good">준비됨</span>
+        </div>
+        <div class="row">
+          <div class="main"><strong>현재 단말 배정</strong><span>이 폴리폰에 active 배정된 사건</span></div>
+          <span class="chip good">활성</span>
+        </div>
+      </section>
+
+      <div class="banner" style="opacity:0.7">활성 배정은 보통 1건입니다. 동시에 2건이 보이는 경우는 사건 가져오기·종료 시점의 짧은 전환 상태입니다.</div>
+    </main>
+
+    <div class="bottom">
+      <button class="button primary">선택한 사건 열기</button>
+    </div>
+    <div class="gesture"><span></span></div>
+  </div>
+
+  <div class="meta">
+    <strong>Empty variant (일반)</strong> — 배정 사건이 0건일 때. 단말 1:1 매핑 정책상 배정 해제·사건 종료 직후 가장 자주 보이는 상태.
+    "현재 배정된 사건이 없습니다 · 상황실 배정 대기" + 새로고침 안내만 표시한다. 새 사건 가져오기 버튼은 없다(가져오기는 Web 상황판 전용, PRD §8.4).
+  </div>
+
+  <div class="phone-frame">
+    <div class="status-bar"><span>14:24</span><span class="right">LTE · 78%</span></div>
+    <div class="appbar">
+      <div class="appbar-row">
+        <button class="back">←</button>
+        <div class="title-block"><h1>사건 선택</h1><p>POL-1A-0023 · 기동대 1부대 A팀</p></div>
+        <span class="chip good">동기화</span>
+      </div>
+    </div>
+
+    <main class="content" style="display:flex;align-items:center;justify-content:center;text-align:center;padding:32px">
+      <div>
+        <h2 style="margin-bottom:8px">현재 배정된 사건이 없습니다</h2>
+        <p style="opacity:0.7">상황실 배정을 기다리거나, 새로고침을 시도하세요.</p>
+        <div style="height:16px"></div>
+        <button class="button secondary">새로고침</button>
+      </div>
+    </main>
+
+    <div class="gesture"><span></span></div>
+  </div>
+
+  <div class="meta">
+    <strong>P7 사건 종료 다이얼로그 (격하 후 진입점)</strong> — 사건 종료 FCM 수신 시 이 화면 위에 다이얼로그로 표시한다. 별도 단독 페이지가 아니다.
+    파기·미전송 ack 등 로컬 정리는 백그라운드로 진행되며 사용자에게 진행률 바를 보여주지 않는다.
+  </div>
+
+  <div class="phone-frame">
+    <div class="status-bar"><span>14:24</span><span class="right">LTE · 78%</span></div>
+    <div class="appbar">
+      <div class="appbar-row">
+        <button class="back">←</button>
+        <div class="title-block"><h1>사건 선택</h1><p>POL-1A-0023 · 기동대 1부대 A팀</p></div>
+        <span class="chip good">동기화</span>
+      </div>
+    </div>
+
+    <main class="content" style="position:relative">
+      <section class="card" style="opacity:0.4">
+        <h2>사건 #1234</h2>
+        <p>광주 북구 ○○산 · 60대 여성</p>
+      </section>
+
+      <div style="position:absolute;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;padding:24px">
+        <div class="card" style="max-width:340px;width:100%">
+          <h2 style="color:var(--poli-emphasis)">사건이 종료되었습니다</h2>
+          <p>사건 #1234가 종료되어 이 폴리폰에서 더 이상 입력할 수 없습니다. 로컬 정리는 백그라운드에서 자동으로 진행됩니다.</p>
+          <div style="height:12px"></div>
+          <button class="button primary" style="width:100%">확인</button>
+        </div>
+      </div>
+    </main>
+
+    <div class="gesture"><span></span></div>
+  </div>
+</body>
+</html>

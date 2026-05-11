@@ -33,6 +33,12 @@
 | L5 | [L5-tasks.md](./L5-tasks.md) | S5 | SC-06, SC-08 |
 | L6 | [L6-tasks.md](./L6-tasks.md) | S3-2, S7 | SC-03, SC-11, board convergence |
 
+## 플랫폼 UI 작업 파일
+
+| 영역 | 파일 | 담당 범위 | 비고 |
+|---|---|---|---|
+| Android UI | [android-ui-tasks.md](./android-ui-tasks.md) | 폴리폰 Compose theme, common components, screen skeleton | Lane 도메인 계약을 소비하는 UI 구현 task. API/DB/event/fixture 정의는 Lane 파일을 따른다. |
+
 ## 에이전트 작업 규칙
 
 1. 먼저 이 인덱스를 읽고, 그다음 자기 Lane 파일과 참조된 기준 Spec만 읽는다.

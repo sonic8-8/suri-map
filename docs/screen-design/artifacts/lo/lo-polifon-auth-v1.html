@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Low-fi · 폴리폰 인증 결정 v1</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="./lo-polifon-wireframes.css">
+</head>
+<body>
+  <div class="meta">
+    <strong>P1 인증 / 폴리폰 접속 결정</strong><br>
+    폴리폰은 팀 단위(팀 업무폰) 또는 순찰차 단위(순찰차 업무폰) 1대 지급(PRD §0.1, §8.4)되는 삼성 Knox 관리 단말이다.
+    단말 ↔ 팀 계정 또는 순찰차 계정은 1:1 매핑(L5-03-auth-contract.md §4.2)이고, "팀 계정/순찰차 계정 장기 로그인 유지"는 PRD §8.4와 boundaries.md §S1-2 §282에서 이미 보장된다.
+    따라서 정상 운영 첫 화면은 관리 폴리폰 자동 확인이고, 사용자 ID/PW·바인딩 코드 입력 화면은 두지 않는다.
+    인증 전 UI에는 사건명, OP, 배정 사건을 노출하지 않는다.
+  </div>
+
+  <div class="candidate-board">
+    <section class="candidate-card">
+      <span class="verdict">채택 · 정상 운영 기본</span>
+      <h2>관리 폴리폰 자동 확인</h2>
+      <p>앱 실행 시 관리 폴리폰 상태, 내부망 도달, 배정 사건 가용성을 짧은 상태 전환으로 확인하고 사건 선택(P2)으로 자동 진입한다. 사용자가 ID/PW를 직접 입력하지 않는다.</p>
+      <ul>
+        <li>장점: PRD §8.4 장기 세션 정책·단말 1:1 매핑·Knox managed configuration 주입과 모두 정합. OS/EMM 등록 절차와 중복되지 않음</li>
+        <li>주의: 클라이언트의 관리 상태 표시만으로 권한을 허용하지 않음. 서버가 세션·폴리폰 배정을 검증함 (L5-03 §3 PolicePhone 가드)</li>
+      </ul>
+      <p><a href="./lo-polifon-auth-managed-device-v1.html">전환 상태 보기</a></p>
+    </section>
+
+    <section class="candidate-card bad">
+      <span class="verdict">제외</span>
+      <h2>앱 ID/PW 로그인 폼</h2>
+      <p>세션 만료·시연·IT 복구 상황에서도 사용자에게 계정/비밀번호 입력을 요구하지 않는다. 앱은 내부 세션 bootstrap 또는 관리 설정 재동기화를 시도하고, 실패하면 IT 문의/재시도 안내만 제공한다.</p>
+      <ul>
+        <li>이유: Knox/EMM 관리 단말 운영과 장기 세션 전제가 있는데 앱 로그인 폼을 노출하면 사용자가 계정 문제로 오해하기 쉽다.</li>
+        <li>처리: `POST /api/auth/login` 등 서버 세션 처리는 앱 내부 bootstrap 계약으로 남기고 화면 후보에서는 제외한다.</li>
+      </ul>
+    </section>
+
+    <section class="candidate-card bad">
+      <span class="verdict">제외</span>
+      <h2>바인딩 코드 / 기기 연결 폼</h2>
+      <p>최초 설치, 기기 교체, 관리 설정 주입은 Knox Mobile Enrollment / EMM / Android Enterprise managed configuration 영역으로 본다. 앱 화면에서는 "관리 설정이 없습니다. IT 부서 문의" 실패 분기만 제공한다.</p>
+    </section>
+
+    <section class="candidate-card bad">
+      <span class="verdict">제외</span>
+      <h2>등록 단말 상세 상태판</h2>
+      <p>관리 프로필, 내부망, 폴리폰 등록 상태를 사용자가 매번 확인하는 화면은 첫 화면 후보에서 제외한다. 해당 정보는 OS/EMM 관리 영역 또는 실패 진단 화면에 머무르는 편이 낫다.</p>
+    </section>
+
+    <section class="candidate-card bad">
+      <span class="verdict">v2 후보 (MVP 제외)</span>
+      <h2>개인 단위 식별 (KAM / Knox SSO SDK)</h2>
+      <p>Knox Authentication Manager PIN/Face 또는 Knox SSO SDK Kerberos/SAML 통합. 단말 = 팀/순찰차 1대 1:1이라 MVP 요구사항이 아니다. 외부 도달성(Firebase, AD/ADFS) 가용성 확인이 선행되어야 하므로 v2 검토 대상.</p>
+    </section>
+  </div>
+</body>
+</html>

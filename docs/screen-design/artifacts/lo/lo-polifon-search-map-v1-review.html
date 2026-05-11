@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>Review · 폴리폰 수색 중 지도 v1</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: Pretendard, "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; }
+  body { background: #e0e0e0; padding: 24px; color: #1d1d1d; line-height: 1.5; }
+  .container { max-width: 1280px; margin: 0 auto; }
+  h1 { font-size: 20px; margin-bottom: 8px; }
+  h2 { font-size: 15px; margin: 32px 0 12px; padding-bottom: 6px; border-bottom: 1px solid #999; }
+  h3 { font-size: 13px; margin-bottom: 4px; }
+  p, li { font-size: 12px; }
+  dl { display: grid; grid-template-columns: 140px 1fr; gap: 4px 12px; margin-bottom: 16px; }
+  dt { color: #666; font-size: 12px; }
+  dd { font-size: 12px; }
+  ul { padding-left: 20px; }
+  .meta-card { background: #fff; padding: 16px; border: 1px solid #999; }
+  .link { color: #0066cc; text-decoration: underline; }
+  .checklist { background: #fff; padding: 16px; border: 1px solid #999; font-size: 12px; line-height: 1.7; }
+  .badge { display: inline-block; padding: 1px 6px; font-size: 10px; border: 1px solid #333; }
+  .badge.fixed { background: #e5f4ec; }
+  .badge.note { background: #e8f0ff; }
+  .badge.policy { background: #fff8d8; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; background: #fff; margin-top: 8px; }
+  th, td { border: 1px solid #999; padding: 6px 8px; vertical-align: top; text-align: left; }
+  th { background: #f0f0f0; }
+  .variant-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .variant-card { background: #fff; border: 1px solid #999; padding: 16px; }
+  .variant-mock { border: 1px solid #ccc; min-height: 160px; padding: 12px; font-size: 11px; display: flex; flex-direction: column; gap: 6px; background: #f7f7f7; }
+  .variant-mock .banner { padding: 6px 10px; border: 1px solid #333; background: #fff; font-size: 10px; font-weight: bold; }
+  .variant-mock .banner.warn { border-style: dashed; }
+  .variant-mock .full { flex: 1; display: flex; align-items: center; justify-content: center; color: #666; text-align: center; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>Review · 폴리폰 수색 중 지도 v1</h1>
+
+<div class="meta-card">
+  <dl>
+    <dt>Main canvas</dt>
+    <dd><a class="link" href="./lo-polifon-search-map-v1.html">lo-polifon-search-map-v1.html</a> (412×892, KRDS-Ops 폴리폰 variant)</dd>
+    <dt>플랫폼</dt><dd>Android (Galaxy S22 이상, PRD §8.8). 다크 base (야외 가시성·야간 운용·배터리)</dd>
+    <dt>연결 SC</dt><dd>SC-05 (PolicePhone GPS 경로) · SC-06 (현장 마커 생성) · SC-07 (통신 단절)</dd>
+    <dt>주 사용자</dt><dd>모든 폴리폰 계정 (MP_O · MP_M · SU_O · SU_M · LP_O · LP_M) — 마커 생성 등 모든 계정 동등</dd>
+    <dt>핵심 행동</dt>
+    <dd>① 수색 시작/일시정지/종료 (FR-34) ② 현장 마커 생성 (FR-30) ③ 자기 위치·경로·동기화 글랜스</dd>
+    <dt>금지</dt><dd>웹 상황판 메뉴 노출 · 자동 위험 색·진척도 % · 유니코드 기호 · 검색바 중앙 · POI 카드</dd>
+  </dl>
+</div>
+
+<h2>화면 구성</h2>
+
+<table>
+  <thead><tr><th style="width:140px;">영역</th><th>높이</th><th>역할</th></tr></thead>
+  <tbody>
+    <tr><td>OS Status Bar</td><td>32px</td><td>시간, GPS, LTE/오프라인, 배터리 (FR-29 로컬 경고와 시각적 일관)</td></tr>
+    <tr><td>App Bar</td><td>80px</td><td>사건 정보 + 사건 목록 버튼 + OP/DutyShift/담당 TEAM/미전송 큐 chip + 동기화 pill</td></tr>
+    <tr><td>지도</td><td>flex (가장 큼)</td><td>OVERALL outline 일부 + 담당 TEAM 강조 + 자기 폴리폰 위치/경로 강조 + 다른 폴리폰·마커 + 컨트롤 + 내 위치 큰 버튼</td></tr>
+    <tr><td>Bottom Status + CTAs</td><td>auto (~210px)</td><td>현재 수색 상태 카드 + [일시정지][종료] + [마커 생성] (thumb zone)</td></tr>
+    <tr><td>Gesture Pill</td><td>24px</td><td>OS gesture nav</td></tr>
+  </tbody>
+</table>
+
+<h2>핵심 디자인 결정</h2>
+
+<div class="checklist">
+  <ul>
+    <li><b>다크 base</b>: 야외 직사광선 + 야간 운용 + 배터리 절약 (field-context §1.1). 라이트 모드 전환은 v2.</li>
+    <li><b>thumb zone</b>: 화면 하단 1/3에 모든 primary CTA. "마커 생성"은 가장 큰 72px 높이로 강조 (가장 자주, 가장 빠르게).</li>
+    <li><b>자기 폴리폰 강조</b> (FR-25): 시안색 outline + 더 큰 점 + 경로 굵기. 다른 폴리폰과 명확히 구분.</li>
+    <li><b>담당 TEAM 강조</b>: 자기 배정 구역만 시안 outline. 다른 TEAM은 점선 dimmed. "내가 어디 책임지는지" 즉시 판단.</li>
+    <li><b>App Bar 정보 우선순위</b>: 사건명 → OP/DutyShift → 동기화 상태. 무전 청취 중에도 글랜스로 인지.</li>
+    <li><b>"내 위치" 큰 버튼</b> (우하단 56px): 지도 panning 후 즉시 자기 위치 복귀. 가장 빈번한 동작.</li>
+    <li><b>강조 알림 banner</b>: PERSON_FOUND·SUPPORT_REQUEST 수신 시 지도 상단 banner (variant 참조). 명시적 dismiss까지 유지 (anti-patterns §6.1).</li>
+    <li><b>마커 시각</b>: web v1.3과 동일 7종 SVG 글리프. 공통 아이콘 시스템.</li>
+    <li><b>웹 상황판 진입 없음</b>: anti-patterns §1.6.4. 헤더 어디에도 상황판 메뉴 없음. 사건 목록만 진입 가능.</li>
+  </ul>
+</div>
+
+<h2>anti-patterns 검수</h2>
+
+<div class="checklist">
+  <ul>
+    <li><span class="badge fixed">PASS</span> §1.3.1 진척도 % 0건 (수색 카드는 시작 시각·도보 km·경과 시간만)</li>
+    <li><span class="badge fixed">PASS</span> §1.5 stale 폴리폰 dashed (별도 위험 라벨 X)</li>
+    <li><span class="badge fixed">PASS</span> §1.6.1 OP 라벨에 "OP 3차 · 재수색" + DutyShift는 별도 chip ("DutyShift · 14:00 인계 (3교대)")</li>
+    <li><span class="badge fixed">PASS</span> §1.6.2 폴리폰=인원 표현 X. 담당 TEAM은 "기동대 1부대 A팀"</li>
+    <li><span class="badge fixed">PASS</span> §1.6.3 마커 생성 CTA가 가장 큰 강조 (모든 계정 동등)</li>
+    <li><span class="badge fixed">PASS</span> §1.6.4 웹 상황판 진입 메뉴 없음</li>
+    <li><span class="badge fixed">PASS</span> §1.6.5 동시 active OP 1개 ("OP 3차" 단독 표시)</li>
+    <li><span class="badge fixed">PASS</span> §1.6.7 사건 재오픈 UI 없음</li>
+    <li><span class="badge fixed">PASS</span> §1.6.10/§1.6.11 마커 = 아이콘 + 라벨 칩 (web v1.3과 동일)</li>
+    <li><span class="badge fixed">PASS</span> §2.2 검색바 중앙 없음</li>
+    <li><span class="badge fixed">PASS</span> §2.5 "내 위치" 버튼이 화면 중심 액션 아님 (마커 생성이 최대 강조). 단 폴리폰 화면이라 "내 위치"는 보조 강조 OK</li>
+    <li><span class="badge fixed">PASS</span> §3.1 마커 = 아이콘 모양 + 라벨 + (high-fi에서 색)</li>
+    <li><span class="badge fixed">PASS</span> §4.1 primary CTA thumb zone 안 (화면 하단)</li>
+    <li><span class="badge fixed">PASS</span> §4.2 "종료" CTA는 confirm 필요 (현재는 단순 버튼이지만 클릭 시 confirm 다이얼로그 가정 — variant 미정)</li>
+    <li><span class="badge note">메모</span> §4.5 오프라인 표출은 default state에서 동기화 pill만. 오프라인 상태 variant에서 별도 강조 필요</li>
+    <li><span class="badge fixed">PASS</span> §4.6 미전송 큐 chip "미전송 1건" — dense-tokens §1.2 임계 5건/20건 미만이라 일반 톤</li>
+  </ul>
+</div>
+
+<h2>measurement-gates 검수</h2>
+
+<div class="checklist">
+  <ul>
+    <li><span class="badge fixed">PASS</span> G1-4 지도 점유율 — 바텀시트 닫힘 100% 가정 (현재 상태는 펼침 — 약 50% 지도)</li>
+    <li><span class="badge fixed">PASS</span> G2-1 본문 contrast — 경찰 블루 다크 base에서 #F8FAFC/#E5EDF8 on #101B2C (WCAG AAA 7:1+)</li>
+    <li><span class="badge note">메모</span> G2-4 야외 가독성 — 실 폴리폰 검증 필요</li>
+    <li><span class="badge fixed">PASS</span> G3-5 primary CTA thumb zone 100%</li>
+    <li><span class="badge note">메모</span> G4-1 장갑 터치 정확도 — 터치 타깃 56/72px (dense-tokens §5 기준 충족). 실 폴리폰 테스트 필요</li>
+    <li><span class="badge fixed">PASS</span> G4-2 오프라인 표출 — App Bar 동기화 pill (default OK, offline variant에서 강조)</li>
+    <li><span class="badge fixed">PASS</span> G4-3 미전송 큐 임계 — chip 색 변경 (현재 1건이라 일반)</li>
+    <li><span class="badge note">메모</span> G4-4 destructive action confirm — "종료" 버튼 클릭 후 confirm 다이얼로그 미설계 (variant 추가 필요)</li>
+    <li><span class="badge fixed">PASS</span> G6-5 도메인 모델 정합성</li>
+  </ul>
+</div>
+
+<h2>상태 variant (요약 mock — 우선순위 1~5)</h2>
+
+<div class="variant-grid">
+
+  <div class="variant-card">
+    <h3>default (현재 main canvas)</h3>
+    <p style="font-size:11px; color:#333;">수색 기록 중. 동기화 OK. 미전송 1건. 활성 OP 3차.</p>
+    <div class="variant-mock"><div class="full">main canvas 참조</div></div>
+  </div>
+
+  <div class="variant-card">
+    <h3>loading (사건 진입 직후)</h3>
+    <p style="font-size:11px; color:#333;">지도 베이스맵 즉시. 폴리폰/경로/마커 progressive load. 바텀 CTA = "수색 시작" (수색 미시작 상태).</p>
+    <div class="variant-mock">
+      <div class="banner">[지도 베이스맵 + 담당 TEAM outline만]</div>
+      <div class="banner">바텀: [수색 시작] (큰 CTA)</div>
+    </div>
+  </div>
+
+  <div class="variant-card">
+    <h3>empty (수색 시작 전)</h3>
+    <p style="font-size:11px; color:#333;">사건 진입 + 패키지 적재 완료 + 수색 미시작. 지도는 OVERALL/UNIT/TEAM만, 경로 0개, 자기 마커 0개. CTA = "수색 시작".</p>
+    <div class="variant-mock">
+      <div class="banner">[지도: 구역만, 경로/마커 0]</div>
+      <div class="banner">바텀: [수색 시작] · 이전 DutyShift 메모 1건 표시</div>
+    </div>
+  </div>
+
+  <div class="variant-card">
+    <h3>error (GPS 약함 — FR-29)</h3>
+    <p style="font-size:11px; color:#333;">GPS 신호 약함 → status bar GPS 표시 흐림 + 로컬 경고 배너.</p>
+    <div class="variant-mock">
+      <div class="banner warn">주의 · GPS 신호가 약합니다 (마지막 위치 1분 30초 전)</div>
+      <div class="banner">[지도: 마지막 위치 점만, 경로 끊김]</div>
+    </div>
+  </div>
+
+  <div class="variant-card">
+    <h3>permission_denied (사건 미배정)</h3>
+    <p style="font-size:11px; color:#333;">사건 진입 자체 차단 — 사건 선택 화면에서. 이 화면 도달 안 함.</p>
+    <div class="variant-mock"><div class="full">사건 선택 화면 참조 (별도)</div></div>
+  </div>
+
+  <div class="variant-card">
+    <h3>permission_partial</h3>
+    <p style="font-size:11px; color:#333;">N/A — 폴리폰 수색 중 화면은 사건 진입한 모든 계정에 동일 액션 (마커 생성·수색 시작·종료 모두 허용). 마커 수정·삭제만 자기 계정 분 (마커 상세 화면).</p>
+    <div class="variant-mock"><div class="full">N/A (이 화면 진입 = full 권한)</div></div>
+  </div>
+
+  <div class="variant-card">
+    <h3>offline</h3>
+    <p style="font-size:11px; color:#333;">App Bar 동기화 pill = "오프라인 / 기록 중" (warn 색). 미전송 chip 카운트 증가. 지도/경로/마커 모두 정상 동작 (로컬 저장).</p>
+    <div class="variant-mock">
+      <div class="banner warn">App Bar: ⚠ 오프라인 / 기록 중 · 미전송 12건</div>
+      <div class="banner">[지도: 정상 동작]</div>
+      <div class="banner">하단: 수색 카드 정상, CTA 모두 활성</div>
+    </div>
+  </div>
+
+  <div class="variant-card">
+    <h3>partial_sync</h3>
+    <p style="font-size:11px; color:#333;">미전송 큐 5건+ → chip warn 색. 20건+ → 빨강 강조. 정상 자동 전송 대기는 P4로 이동하지 않는다.</p>
+    <div class="variant-mock">
+      <div class="banner warn">App Bar chip: 미전송 8건 (5건 임계 초과)</div>
+      <div class="banner">처리 불가 항목 발생 시에만 별도 toast 탭 → P4 진단</div>
+    </div>
+  </div>
+
+  <div class="variant-card">
+    <h3>stale (다른 폴리폰)</h3>
+    <p style="font-size:11px; color:#333;">자기 폴리폰은 정상. 다른 폴리폰 stale → 점 dashed + (라벨은 web 상황판 위주, 폴리폰에서는 작게).</p>
+    <div class="variant-mock">
+      <div class="banner">[지도: 다른 폴리폰 점 dashed outline]</div>
+      <div class="banner">자기 폴리폰은 정상 (시안 강조 유지)</div>
+    </div>
+  </div>
+
+  <div class="variant-card">
+    <h3>incident_closed</h3>
+    <p style="font-size:11px; color:#333;">사건 종료 알림 수신 → P2 사건 선택으로 자동 이동 + 모달 "사건이 종료되었습니다". 로컬 정리는 백그라운드에서 진행.</p>
+    <div class="variant-mock">
+      <div class="banner" style="background:#ddd;">[모달] 이 사건은 종료되었습니다</div>
+      <div class="banner">자동 이동: P2 사건 선택 + 종료 다이얼로그</div>
+    </div>
+  </div>
+
+  <div class="variant-card">
+    <h3>event/PERSON_FOUND·SUPPORT_REQUEST 수신</h3>
+    <p style="font-size:11px; color:#333;">강조 알림 banner 지도 상단. 명시적 dismiss까지 유지. FCM data message → 인앱 banner.</p>
+    <div class="variant-mock">
+      <div class="banner" style="border-width:2px;">[지도 상단 강조 banner]</div>
+      <div class="banner">"실종자 발견 · 실종팀 폴리폰 · 14:22" + [확인]</div>
+    </div>
+  </div>
+
+  <div class="variant-card">
+    <h3>"종료" confirm 다이얼로그</h3>
+    <p style="font-size:11px; color:#333;">destructive action confirm (anti-patterns §4.2). "수색을 종료하시겠습니까?" + 경로 요약 + [취소] [종료].</p>
+    <div class="variant-mock">
+      <div class="banner" style="background:#ddd;">[중앙 모달]</div>
+      <div class="banner">"수색을 종료하시겠습니까? 4분 21초 · 도보 1.2km"</div>
+      <div class="banner">[취소] [종료]</div>
+    </div>
+  </div>
+
+</div>
+
+<h2>v1 검토 필요 / 미정</h2>
+
+<div class="checklist">
+  <ul>
+    <li><b>마커 생성 화면으로 이동</b>: "마커 생성" CTA → 마커 생성 바텀시트 화면 (별도 low-fi). 어떻게 push되는지 (모달 vs 화면 전환) 명시 필요</li>
+    <li><b>지도 panning 시 "내 위치" 버튼 동작</b>: 자기 위치로 즉시 복귀 + 자동 추적 모드 토글 가능?</li>
+    <li><b>App Bar의 "사건 목록" 버튼</b>: 사건 진입 중 사건 목록 복귀 시 수색 기록 어떻게? 백그라운드 유지?</li>
+    <li><b>레이어 컨트롤 버튼</b>: 우상단 "레이어"는 마커 유형/구역/경로 토글 액세스. 별도 시트로 펼침 가정 — 시안 미설계</li>
+    <li><b>OVERALL outline 표시 범위</b>: 화면이 좁아서 OVERALL이 화면 밖일 가능성. zoom out 시 자동 fit 필요</li>
+    <li><b>다른 폴리폰 라벨</b>: web과 달리 폴리폰 화면은 다른 폴리폰 점 라벨이 거의 없음 (가독성). tap 시 라벨 노출 정책 결정</li>
+    <li><b>바텀 시트 펼치기 (드래그)</b>: 현재는 펼침 상태만 표시. 접기 시 "수색 카드"만 + 큰 마커 생성 CTA 유지 정책</li>
+    <li><b>강조 알림 banner와 status bar 충돌</b>: 둘 다 지도 위 영역. banner 표시 시 status bar 가리지 않아야 함</li>
+    <li><b>"수색 시작" CTA의 GPS 권한 요청 흐름</b>: 첫 시작 시 OS 권한 요청 모달. variant 미설계</li>
+    <li><b>장갑 모드</b>: dense-tokens §5 touch-glove 56px 적용. 정상 모드 vs 장갑 모드 자동 감지 또는 토글 v2</li>
+  </ul>
+</div>
+
+<h2>다음 단계</h2>
+<div class="checklist">
+  <ul>
+    <li><b>(a) 너가 v1 브라우저 검증</b> — 412×892 viewport에서 thumb zone·다크 가독성·구역 강조 확인</li>
+    <li><b>(b) Codex v1 재검수</b></li>
+    <li><b>(c) 다음 폴리폰 화면 — 마커 생성 바텀시트</b> (FR-30 핵심)</li>
+    <li><b>(d) 다른 web 화면 — OP 비교 / 구역 편집 등</b></li>
+  </ul>
+  <p style="margin-top:8px;">추천: (a) → (c). 마커 생성 바텀시트는 이 화면과 직결되니까 한 흐름으로 만들고, 그 후 사건 선택 / 오프라인 패키지 다운로드 / 미전송 큐 등 폴리폰 흐름 마무리.</p>
+</div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Low-fi · 폴리폰 인증 기본 · 관리 폴리폰 자동 확인 v1</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="./lo-polifon-wireframes.css">
+</head>
+<body>
+  <div class="meta">
+    <strong>P1-B 관리 폴리폰 자동 확인</strong> — 정상 운영 첫 화면 (기본 후보).
+    폴리폰 = 팀/순찰차 1대 1:1 매핑 + 장기 세션 + Knox 관리 단말 전제(PRD §0.1, §8.4, boundaries.md §S1-2 §282, L5-03 §4.2).
+    사용자가 ID/PW를 입력하지 않으며, 2단계 자동 확인(관리 폴리폰·내부망) 통과 시 사건 선택(P2)으로 자동 이동한다 — 배정 사건 0건이면 P2 empty가 처리한다.
+    실패 시에만 사용자 조치/IT 안내 분기로 전환한다. 인증 전 화면에는 사건명, OP, 배정 사건을 노출하지 않는다.
+  </div>
+
+  <div class="phone-frame">
+    <div class="status-bar"><span>14:24</span><span class="right">LTE · 78%</span></div>
+    <div class="appbar">
+      <div class="appbar-row">
+        <div class="brand-mark logo-mark" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M20 10c0 7-8 13-8 13s-8-6-8-13a8 8 0 0 1 16 0z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+        </div>
+        <div class="title-block">
+          <h1>수리맵</h1>
+        </div>
+      </div>
+    </div>
+
+    <main class="content">
+      <div class="card">
+        <h2>접속 확인 중</h2>
+        <p>관리 폴리폰 상태와 내부망 연결을 확인하고 있습니다.</p>
+      </div>
+
+      <div class="card">
+        <div class="progress"><span style="width:80%"></span></div>
+        <div class="row">
+          <div class="main"><strong>관리 폴리폰 확인</strong><span>단말 등록 상태 확인</span></div>
+          <span class="chip good">확인</span>
+        </div>
+        <div class="row">
+          <div class="main"><strong>내부망 연결</strong><span>경찰 내부망 도달 확인</span></div>
+          <span class="chip warn">확인 중</span>
+        </div>
+      </div>
+
+      <div class="banner warn">2단계 통과 시 사건 선택(P2)으로 자동 이동합니다. 배정 사건 0건이면 P2 empty가 처리합니다. 실패 분기는 단말 신뢰·내부망 도달까지만.</div>
+    </main>
+
+    <div class="bottom">
+      <button class="button disabled">확인 중</button>
+    </div>
+    <div class="gesture"><span></span></div>
+  </div>
+
+  <div class="meta" style="margin-top:24px">
+    <strong>실패 분기 (variant)</strong> — P1 책임 = 단말 신뢰 + 내부망 도달까지. 배정 사건 0건은 P1 실패가 아니라 P2 empty로 처리.
+    <ul>
+      <li><strong>not_managed_phone</strong> — "관리 단말이 아닙니다. IT 부서 문의" (재시도 CTA 없음)</li>
+      <li><strong>managed_config_missing</strong> — "관리 설정이 없습니다. IT 부서 문의" (사용자 입력 폼 없음)</li>
+      <li><strong>internal_network_unavailable</strong> — "내부망 연결을 확인하세요" (네트워크 재시도 CTA, Wi-Fi 설정 이동 보조)</li>
+      <li><strong>server_rejected_phone</strong> — "이 폴리폰으로 접속할 수 없습니다. IT 부서 문의" (재시도 버튼 없음, L5-03 §4.2 1:1 매핑 위반 시 발생)</li>
+    </ul>
+    <p>어느 분기에서도 사건명, OP, 배정 사건 상세는 노출하지 않는다.</p>
+    <p><strong>관리 설정 후보</strong>: 내부 API base URL, PolicePhone/enrollment 식별자, 운영 조직/관서 식별자. 단, managed configuration 값은 편의 입력일 뿐 단독 인증 수단이 아니며 서버가 세션·폴리폰·사건 배정을 검증한다.</p>
+  </div>
+</body>
+</html>
