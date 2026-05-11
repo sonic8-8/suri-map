@@ -25,6 +25,8 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.surimap.feature.alert.ui.IncidentAlertBanner
+import com.surimap.feature.alert.ui.IncidentAlertUiState
 import com.surimap.feature.handover.ui.HandoverPromptUiState
 import com.surimap.ui.HandoverPromptBanner
 import com.surimap.ui.components.PoliAppBar
@@ -93,7 +95,8 @@ data class SearchMapUiState(
     val elapsedLabel: String,
     val movementSummary: String,
     val layers: List<SearchMapLayerUiState>,
-    val handoverPrompt: HandoverPromptUiState?
+    val handoverPrompt: HandoverPromptUiState?,
+    val incidentAlert: IncidentAlertUiState? = null
 ) {
     val canWritePath: Boolean = lifecycleStatus == SearchLifecycleStatus.Active
     val canCreateMarker: Boolean = lifecycleStatus == SearchLifecycleStatus.Active
@@ -157,6 +160,7 @@ data class SearchMapUiState(
             if (showHandoverPrompt) {
                 add("이전 근무 기록 있음")
             }
+            incidentAlert?.visibleText()?.forEach(::add)
             if (blockedOutboxCount > 0) {
                 add("미전송 ${blockedOutboxCount}건 처리 불가")
             }
@@ -169,7 +173,8 @@ data class SearchMapUiState(
             unsentCount: Int = 0,
             oldestPendingMinutes: Int? = null,
             blockedOutboxCount: Int = 0,
-            hasUnreadHandover: Boolean = false
+            hasUnreadHandover: Boolean = false,
+            incidentAlert: IncidentAlertUiState? = null
         ): SearchMapUiState =
             base(
                 syncStatus = syncStatus,
@@ -177,7 +182,8 @@ data class SearchMapUiState(
                 unsentCount = unsentCount,
                 oldestPendingMinutes = oldestPendingMinutes,
                 blockedOutboxCount = blockedOutboxCount,
-                handoverPrompt = if (hasUnreadHandover) HandoverPromptUiState.unreadSample() else null
+                handoverPrompt = if (hasUnreadHandover) HandoverPromptUiState.unreadSample() else null,
+                incidentAlert = incidentAlert
             )
 
         fun paused(): SearchMapUiState =
@@ -208,7 +214,8 @@ data class SearchMapUiState(
             unsentCount: Int = 0,
             oldestPendingMinutes: Int? = null,
             blockedOutboxCount: Int = 0,
-            handoverPrompt: HandoverPromptUiState? = null
+            handoverPrompt: HandoverPromptUiState? = null,
+            incidentAlert: IncidentAlertUiState? = null
         ): SearchMapUiState =
             SearchMapUiState(
                 incidentTitle = "광주 북구 산악 실종",
@@ -229,7 +236,8 @@ data class SearchMapUiState(
                     SearchMapLayerUiState("기동대 1부대", SearchLayerKind.Unit),
                     SearchMapLayerUiState("A팀 담당 구역", SearchLayerKind.Team, highlighted = true)
                 ),
-                handoverPrompt = handoverPrompt
+                handoverPrompt = handoverPrompt,
+                incidentAlert = incidentAlert
             )
     }
 }
@@ -243,6 +251,8 @@ fun SearchMapScreen(
     onCreateMarker: () -> Unit,
     onOpenHandover: () -> Unit,
     onOpenBlockedOutbox: () -> Unit,
+    onDismissIncidentAlert: () -> Unit,
+    onOpenIncidentAlertMarker: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxSize().background(PoliBgBase)) {
@@ -252,6 +262,14 @@ fun SearchMapScreen(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
         ) {
+            state.incidentAlert?.let { alert ->
+                IncidentAlertBanner(
+                    state = alert,
+                    onConfirm = onDismissIncidentAlert,
+                    onOpenMap = onOpenIncidentAlertMarker,
+                    modifier = Modifier.padding(horizontal = PoliDimens.SectionPadding)
+                )
+            }
             if (state.showHandoverPrompt) {
                 HandoverPromptBanner(
                     onOpenHandover = onOpenHandover,
@@ -567,7 +585,8 @@ fun sampleSearchMapState(): SearchMapUiState =
         syncStatus = SearchMapSyncStatus.Offline,
         unsentCount = 1,
         oldestPendingMinutes = 2,
-        hasUnreadHandover = true
+        hasUnreadHandover = true,
+        incidentAlert = IncidentAlertUiState.personFoundSample()
     )
 
 @Preview(widthDp = 412, heightDp = 892)
@@ -581,7 +600,9 @@ private fun SearchMapScreenPreview() {
             onStopSearch = {},
             onCreateMarker = {},
             onOpenHandover = {},
-            onOpenBlockedOutbox = {}
+            onOpenBlockedOutbox = {},
+            onDismissIncidentAlert = {},
+            onOpenIncidentAlertMarker = {}
         )
     }
 }
