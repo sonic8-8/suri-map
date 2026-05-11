@@ -10,7 +10,7 @@ import java.util.UUID;
 public class IncidentRecord {
 
   private UUID id;
-  private String sourceIncidentId;
+  private UUID sourceIncidentId;
   private String title;
   private String status;
   private Instant openedAt;
@@ -26,11 +26,11 @@ public class IncidentRecord {
     this.id = id;
   }
 
-  public String getSourceIncidentId() {
+  public UUID getSourceIncidentId() {
     return sourceIncidentId;
   }
 
-  public void setSourceIncidentId(String sourceIncidentId) {
+  public void setSourceIncidentId(UUID sourceIncidentId) {
     this.sourceIncidentId = sourceIncidentId;
   }
 

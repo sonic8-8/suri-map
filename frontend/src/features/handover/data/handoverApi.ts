@@ -1,11 +1,17 @@
-import { apiRequest, createIdempotencyKey } from '../../../shared/api/client';
+import { createIdempotencyKey } from '../../../shared/api/client';
+import {
+  handoverApi,
+  type CreateHandoverMemoRequest,
+  type HandoverMemoTargetType,
+} from '../../operationalPeriod/api/handoverApi';
+import {
+  operationalPeriodApi,
+  type CreateOperationalPeriodReason,
+  type CreateOperationalPeriodRequest,
+  type CreateOperationalPeriodResponse as CreateOperationalPeriodResponseDto,
+} from '../../operationalPeriod/api/operationalPeriodApi';
 
-export type HandoverMemoTargetType =
-  | 'OPERATIONAL_PERIOD'
-  | 'DUTY_SHIFT'
-  | 'SEARCH_PATH'
-  | 'SEARCH_AREA'
-  | 'MARKER';
+export type { CreateOperationalPeriodReason, HandoverMemoTargetType };
 
 export type OperationalPeriodDto = {
   opId: string;
@@ -23,24 +29,8 @@ export type OperationalPeriodsResponseDto = {
   items: OperationalPeriodDto[];
 };
 
-export type CreateOperationalPeriodReason = 'RE_SEARCH' | 'AREA_CHANGED' | 'OTHER';
-
-export type CreateOperationalPeriodRequestDto = {
-  incidentId: string;
-  reason: CreateOperationalPeriodReason;
-  clientTs: string;
-  reasonMemo?: string;
-  handoverMemo?: string;
-};
-
-export type CreateOperationalPeriodResponseDto = {
-  id: string;
-  incidentId: string;
-  status: string;
-  reason: string;
-  version: number;
-  sequenceNumber: number;
-};
+export type CreateOperationalPeriodRequestDto = CreateOperationalPeriodRequest;
+export type { CreateOperationalPeriodResponseDto };
 
 export type HandoverMemoDto = {
   memoId: string;
@@ -58,14 +48,7 @@ export type HandoverMemosResponseDto = {
   items: HandoverMemoDto[];
 };
 
-export type CreateHandoverMemoRequestDto = {
-  incidentId: string;
-  opId: string;
-  memoTargetType: HandoverMemoTargetType;
-  memoTargetId?: string;
-  content: string;
-  clientTs: string;
-};
+export type CreateHandoverMemoRequestDto = CreateHandoverMemoRequest;
 
 export type CreateHandoverMemoResponseDto = {
   id: string;
@@ -76,17 +59,23 @@ export type CreateHandoverMemoResponseDto = {
 };
 
 export function getOperationalPeriods(incidentId: string) {
-  return apiRequest<OperationalPeriodsResponseDto>(
-    `/incidents/${encodeURIComponent(incidentId)}/operational-periods`,
-  );
+  return operationalPeriodApi.list(incidentId).then((response): OperationalPeriodsResponseDto => ({
+    currentOpId: response.currentOpId,
+    items: response.items.map((period) => ({
+      opId: period.id,
+      incidentId,
+      status: period.status,
+      sequenceNo: period.sequenceNumber,
+      startedAt: '',
+      endedAt: null,
+      reason: period.reason,
+      version: 0,
+    })),
+  }));
 }
 
 export function createOperationalPeriod(request: CreateOperationalPeriodRequestDto) {
-  return apiRequest<CreateOperationalPeriodResponseDto>('/operational-periods', {
-    method: 'POST',
-    body: request,
-    idempotencyKey: createIdempotencyKey('operational-period'),
-  });
+  return operationalPeriodApi.create(request, createIdempotencyKey('operational-period'));
 }
 
 export function getHandoverMemos(params: {
@@ -95,26 +84,21 @@ export function getHandoverMemos(params: {
   memoTargetType?: HandoverMemoTargetType;
   memoTargetId?: string;
 }) {
-  const query = new URLSearchParams({
-    incidentId: params.incidentId,
-    opId: params.opId,
-  });
-
-  if (params.memoTargetType) {
-    query.set('memoTargetType', params.memoTargetType);
-  }
-
-  if (params.memoTargetId) {
-    query.set('memoTargetId', params.memoTargetId);
-  }
-
-  return apiRequest<HandoverMemosResponseDto>(`/handover-memos?${query.toString()}`);
+  return handoverApi.listHandoverMemos(params).then((response): HandoverMemosResponseDto => ({
+    items: response.items.map((memo) => ({
+      memoId: memo.id,
+      incidentId: memo.incidentId,
+      opId: memo.opId,
+      targetType: memo.memoTargetType,
+      targetId: memo.memoTargetId,
+      content: memo.content,
+      createdByAccountId: memo.createdByAccountId,
+      createdAt: memo.createdAt,
+      version: memo.version,
+    })),
+  }));
 }
 
 export function createHandoverMemo(request: CreateHandoverMemoRequestDto) {
-  return apiRequest<CreateHandoverMemoResponseDto>('/handover-memos', {
-    method: 'POST',
-    body: request,
-    idempotencyKey: createIdempotencyKey('handover-memo'),
-  });
+  return handoverApi.createHandoverMemo(request, createIdempotencyKey('handover-memo'));
 }

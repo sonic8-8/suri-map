@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 
 import { ApiError } from '../../../../shared/api/client';
-import { loginWithAccount } from '../../data/login';
+import { clearLoginSession, loginWithAccount } from '../../data/login';
 import type { LoginAccount, LoginFormValues } from '../types/login';
 import styles from './LoginPage.module.css';
 
@@ -28,11 +28,15 @@ function getLoginErrorMessage(error: unknown) {
 
 export function LoginPage({ onLoginSuccess }: LoginPageProps) {
   const [formValues, setFormValues] = useState<LoginFormValues>({
-    username: '',
-    password: '',
+    username: 'acct-cmd-alpha',
+    password: 'fixture',
   });
   const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    clearLoginSession();
+  }, []);
 
   const updateField = (fieldName: keyof LoginFormValues, value: string) => {
     setFormValues((currentValues) => ({

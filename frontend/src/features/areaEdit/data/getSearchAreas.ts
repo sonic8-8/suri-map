@@ -1,34 +1,16 @@
-import { apiRequest, ApiError } from '../../../shared/api/client';
+import { ApiError } from '../../../shared/api/client';
+import {
+  searchAreaApi,
+  type GeoJsonPolygon as GeoJsonPolygonDto,
+  type SearchAreaCollectionResponse as SearchAreaListResponseDto,
+  type SearchAreaResponse as SearchAreaDto,
+} from '../../searchArea/api/searchAreaApi';
 
-export type GeoJsonPolygonDto = {
-  type: 'Polygon';
-  coordinates: number[][][];
-};
-
-export type SearchAreaDto = {
-  id: string;
-  incidentId: string;
-  opId?: string | null;
-  parentAreaId?: string | null;
-  areaLevel?: 'OVERALL' | 'UNIT' | 'TEAM';
-  geometry: GeoJsonPolygonDto;
-  status: 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
-  version: number;
-};
-
-export type SearchAreaListResponseDto = {
-  areas: SearchAreaDto[];
-};
+export type { GeoJsonPolygonDto, SearchAreaDto, SearchAreaListResponseDto };
 
 export async function getActiveOverallSearchArea(incidentId: string) {
-  const params = new URLSearchParams({
-    incidentId,
-    areaLevel: 'OVERALL',
-    status: 'ACTIVE',
-  });
-
   try {
-    return await apiRequest<SearchAreaDto>(`/search-areas?${params.toString()}`);
+    return await searchAreaApi.fetchActiveOverall(incidentId);
   } catch (error) {
     if (error instanceof ApiError && error.status === 409 && error.code === 'overall_search_area_required') {
       return null;
@@ -39,13 +21,9 @@ export async function getActiveOverallSearchArea(incidentId: string) {
 }
 
 export function getActiveSearchAreas(incidentId: string, opId?: string | null) {
-  const params = new URLSearchParams({
+  return searchAreaApi.list({
     incidentId,
     status: 'ACTIVE',
+    opId: opId ?? undefined,
   });
-  if (opId) {
-    params.set('opId', opId);
-  }
-
-  return apiRequest<SearchAreaListResponseDto>(`/search-areas?${params.toString()}`);
 }

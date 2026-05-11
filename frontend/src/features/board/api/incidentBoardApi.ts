@@ -1,7 +1,50 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient, type ApiClient, type ApiQuery } from '../../../shared/api';
-import type { BoardSlotRow } from '../components/BoardSlotHost';
-import { s3_2BoardSlotRegistryContract, type BoardSlotName } from '../contracts/boardSlotRegistryContract';
+
+export type BoardSlotName =
+  | 'overall_search_area'
+  | 'area'
+  | 'path'
+  | 'police_phone_freshness'
+  | 'marker'
+  | 'toast'
+  | 'package_badge'
+  | 'op_toggle'
+  | 'op_history'
+  | 'handover_memo'
+  | 'handover_status'
+  | 'search_history_summary'
+  | 'incident_terminal';
+
+export interface BoardSlotRow {
+  readonly slot: BoardSlotName;
+  readonly id: string;
+  readonly status: string;
+  readonly version: number;
+  readonly sequence: number;
+  readonly sourceSpec: string;
+  readonly sourceHash: string;
+  readonly latestEventId: string;
+  readonly slotSources: readonly string[];
+  readonly sourceVersions: Record<string, number>;
+  readonly sourceHashes: Record<string, string>;
+}
+
+const boardSlotRegistry: readonly BoardSlotName[] = [
+  'overall_search_area',
+  'area',
+  'path',
+  'police_phone_freshness',
+  'marker',
+  'toast',
+  'package_badge',
+  'op_toggle',
+  'op_history',
+  'handover_memo',
+  'handover_status',
+  'search_history_summary',
+  'incident_terminal',
+];
 
 export interface BoardSourceRowCursor {
   readonly id: string;
@@ -149,7 +192,7 @@ function sortedValues<TValue extends string>(values: readonly TValue[] | undefin
 }
 
 function boardSlots(): readonly BoardSlotName[] {
-  return s3_2BoardSlotRegistryContract.map((entry) => entry.slot);
+  return boardSlotRegistry;
 }
 
 function normalizeSlotRows(slot: BoardSlotName, value: IncidentBoardSlotValue): readonly IncidentBoardSlotRow[] {

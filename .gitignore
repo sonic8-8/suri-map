@@ -99,3 +99,6 @@ TODO.md
 
 # Local knowledge graph outputs
 graphify-out/
+
+.tmp/*
+.playwright-mcp/*

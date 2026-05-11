@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.surimap.account.repository.AccountLoginMapper">
+    <resultMap id="accountLoginRowMap" type="com.surimap.account.repository.AccountLoginRow">
+        <constructor>
+            <arg column="id" javaType="string"/>
+            <arg column="login_id" javaType="string"/>
+            <arg column="password_hash" javaType="string"/>
+            <arg column="account_type" javaType="com.surimap.common.auth.AccountType"/>
+            <arg column="organization_type" javaType="com.surimap.common.auth.OrganizationType"/>
+            <arg column="status" javaType="string"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="policePhoneLoginRowMap" type="com.surimap.account.repository.PolicePhoneLoginRow">
+        <constructor>
+            <arg column="id" javaType="string"/>
+            <arg column="account_id" javaType="string"/>
+            <arg column="status" javaType="string"/>
+        </constructor>
+    </resultMap>
+
+    <select id="findActiveAccountByLoginId" resultMap="accountLoginRowMap">
+        SELECT
+            id::text AS id,
+            login_id,
+            password_hash,
+            account_type,
+            organization_type,
+            status
+        FROM account
+        WHERE login_id = #{loginId}
+          AND status = 'ACTIVE'
+        LIMIT 1
+    </select>
+
+    <select id="findActivePolicePhoneByCodeAndAccountId" resultMap="policePhoneLoginRowMap">
+        SELECT
+            id::text AS id,
+            account_id::text AS account_id,
+            status
+        FROM police_phone
+        WHERE phone_code = #{phoneCode}
+          AND account_id = CAST(#{accountId} AS uuid)
+          AND status = 'ACTIVE'
+        LIMIT 1
+    </select>
+</mapper>

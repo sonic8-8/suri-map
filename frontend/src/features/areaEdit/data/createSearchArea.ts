@@ -1,5 +1,6 @@
-import { apiRequest, createIdempotencyKey } from '../../../shared/api/client';
+import { createIdempotencyKey } from '../../../shared/api/client';
 import type { AreaEditPosition } from '../../../shared/model/areaDraft';
+import { searchAreaApi } from '../../searchArea/api/searchAreaApi';
 import type { GeoJsonPolygonDto, SearchAreaDto } from './getSearchAreas';
 
 type CreateOverallSearchAreaRequestDto = {
@@ -24,9 +25,5 @@ export function createOverallSearchArea(incidentId: string, coordinates: AreaEdi
     clientTs: new Date().toISOString(),
   };
 
-  return apiRequest<SearchAreaDto>('/search-areas', {
-    method: 'POST',
-    body,
-    idempotencyKey: createIdempotencyKey('search-area-overall'),
-  });
+  return searchAreaApi.create(body, createIdempotencyKey('search-area-overall')) as Promise<SearchAreaDto>;
 }

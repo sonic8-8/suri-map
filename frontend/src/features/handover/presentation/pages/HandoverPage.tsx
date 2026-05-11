@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
 
-import { ApiError } from '../../../../shared/api/client';
+import { ApiError, createIdempotencyKey } from '../../../../shared/api/client';
 import { BoardPanel, SuriMapPageHeader, type SuriMapPageHeaderIncidentContext } from '../../../../shared/ui';
 import type { LoginAccount } from '../../../login/presentation/types/login';
 import { getHandoverBoard, type HandoverBoardResponseDto } from '../../data/getHandoverBoard';
@@ -10,15 +10,15 @@ import {
   type HandoverIncidentDetailDto,
 } from '../../data/getHandoverIncidentDetail';
 import {
-  createHandoverMemo,
-  createOperationalPeriod,
-  getHandoverMemos,
-  getOperationalPeriods,
-  type CreateOperationalPeriodReason,
-  type HandoverMemoDto,
   type HandoverMemoTargetType,
-  type OperationalPeriodDto,
-} from '../../data/handoverApi';
+  handoverApi,
+  type HandoverMemoListItem,
+} from '../../../operationalPeriod/api/handoverApi';
+import {
+  operationalPeriodApi,
+  type CreateOperationalPeriodReason,
+  type OperationalPeriodListItem,
+} from '../../../operationalPeriod/api/operationalPeriodApi';
 import { OperationalPeriodSelector } from '../../../situationBoard/presentation/components/leftPanel/OperationalPeriodSelector';
 import type { OperationalPeriod } from '../../../situationBoard/presentation/constants/mockSituationBoard';
 import { HandoverComparisonMap } from '../components/HandoverComparisonMap';
@@ -73,11 +73,11 @@ export function HandoverPage({
   onOpenSituationBoard,
   onOperationalPeriodCreated,
 }: HandoverPageProps) {
-  const [operationalPeriods, setOperationalPeriods] = useState<OperationalPeriodDto[]>([]);
+  const [operationalPeriods, setOperationalPeriods] = useState<OperationalPeriodListItem[]>([]);
   const [currentOpId, setCurrentOpId] = useState<string | null>(null);
   const [focusedOpId, setFocusedOpId] = useState<string | null>(null);
   const [selectedOpIds, setSelectedOpIds] = useState<string[]>([]);
-  const [memos, setMemos] = useState<HandoverMemoDto[]>([]);
+  const [memos, setMemos] = useState<HandoverMemoListItem[]>([]);
   const [incidentDetail, setIncidentDetail] = useState<HandoverIncidentDetailDto | null>(null);
   const [board, setBoard] = useState<HandoverBoardResponseDto | null>(null);
   const [now, setNow] = useState(() => new Date());
@@ -99,11 +99,11 @@ export function HandoverPage({
   const [createOpErrorMessage, setCreateOpErrorMessage] = useState('');
 
   const selectedOp = useMemo(
-    () => operationalPeriods.find((period) => period.opId === focusedOpId) ?? null,
+    () => operationalPeriods.find((period) => period.id === focusedOpId) ?? null,
     [focusedOpId, operationalPeriods],
   );
   const displayedOperationalPeriods = useMemo(
-    () => [...operationalPeriods].sort((left, right) => right.sequenceNo - left.sequenceNo),
+    () => [...operationalPeriods].sort((left, right) => right.sequenceNumber - left.sequenceNumber),
     [operationalPeriods],
   );
   const handoverOperationalPeriods = useMemo(
@@ -173,12 +173,12 @@ export function HandoverPage({
       setSelectedOpIds([]);
 
       try {
-        const response = await getOperationalPeriods(incidentId);
+        const response = await operationalPeriodApi.list(incidentId);
         if (ignore) return;
 
         setOperationalPeriods(response.items);
         setCurrentOpId(response.currentOpId);
-        const initialOpId = response.currentOpId ?? response.items[0]?.opId ?? null;
+        const initialOpId = response.currentOpId ?? response.items[0]?.id ?? null;
         setFocusedOpId(initialOpId);
         setSelectedOpIds(initialOpId ? [initialOpId] : []);
       } catch (error) {
@@ -249,7 +249,7 @@ export function HandoverPage({
     setMemoErrorMessage('');
 
     try {
-      const response = await getHandoverMemos({
+      const response = await handoverApi.listHandoverMemos({
         incidentId,
         opId,
       });
@@ -271,14 +271,14 @@ export function HandoverPage({
     setMemoErrorMessage('');
 
     try {
-      await createHandoverMemo({
+      await handoverApi.createHandoverMemo({
         incidentId,
         opId: focusedOpId,
         memoTargetType: selectedMemoTarget.targetType,
         memoTargetId: selectedMemoTarget.targetId,
         content: trimmedContent,
         clientTs: new Date().toISOString(),
-      });
+      }, createIdempotencyKey('handover-memo'));
       setContent('');
       await loadMemos(focusedOpId);
     } catch (error) {
@@ -329,34 +329,30 @@ export function HandoverPage({
     setCreateOpErrorMessage('');
 
     try {
-      const createdOperationalPeriod = await createOperationalPeriod({
+      const createdOperationalPeriod = await operationalPeriodApi.create({
         incidentId,
         reason: newOpReason,
         clientTs: new Date().toISOString(),
         ...(reasonMemo ? { reasonMemo } : {}),
         ...(handoverMemo ? { handoverMemo } : {}),
-      });
-      const createdOp: OperationalPeriodDto = {
-        opId: createdOperationalPeriod.id,
-        incidentId: createdOperationalPeriod.incidentId,
+      }, createIdempotencyKey('operational-period'));
+      const createdOp: OperationalPeriodListItem = {
+        id: createdOperationalPeriod.id,
         status: createdOperationalPeriod.status,
-        sequenceNo: createdOperationalPeriod.sequenceNumber,
-        startedAt: new Date().toISOString(),
-        endedAt: null,
-        reason: createdOperationalPeriod.reason,
-        version: createdOperationalPeriod.version,
+        sequenceNumber: createdOperationalPeriod.sequenceNumber,
+        reason: createdOperationalPeriod.reason as OperationalPeriodListItem['reason'],
       };
       setOperationalPeriods((currentPeriods) => {
         const endedPeriods = currentPeriods.map((period) =>
-          period.opId === currentOpId ? { ...period, status: 'ENDED', endedAt: period.endedAt ?? createdOp.startedAt } : period,
+          period.id === currentOpId ? { ...period, status: 'ENDED' as const } : period,
         );
-        return [...endedPeriods.filter((period) => period.opId !== createdOp.opId), createdOp].sort(
-          (left, right) => left.sequenceNo - right.sequenceNo,
+        return [...endedPeriods.filter((period) => period.id !== createdOp.id), createdOp].sort(
+          (left, right) => left.sequenceNumber - right.sequenceNumber,
         );
       });
-      setCurrentOpId(createdOp.opId);
-      setFocusedOpId(createdOp.opId);
-      setSelectedOpIds([createdOp.opId]);
+      setCurrentOpId(createdOp.id);
+      setFocusedOpId(createdOp.id);
+      setSelectedOpIds([createdOp.id]);
       setIsCreateOpModalOpen(false);
       onOperationalPeriodCreated?.();
       setReloadVersion((version) => version + 1);
@@ -473,11 +469,11 @@ export function HandoverPage({
                 </div>
                 <div>
                   <dt>시작 시각</dt>
-                  <dd>{selectedOp ? formatKstDateTime(new Date(selectedOp.startedAt)) : '-'}</dd>
+                  <dd>-</dd>
                 </div>
                 <div>
                   <dt>종료 시각</dt>
-                  <dd>{selectedOp?.endedAt ? formatKstDateTime(new Date(selectedOp.endedAt)) : '진행 중'}</dd>
+                  <dd>{selectedOp?.status === 'ENDED' ? '-' : '진행 중'}</dd>
                 </div>
               </dl>
             </section>
@@ -589,7 +585,7 @@ export function HandoverPage({
               <div className={styles.emptyState}>작성된 인수인계 메모가 없습니다.</div>
             ) : (
               selectedOpMemos.map((memo) => (
-                <article key={memo.memoId} className={styles.memoItem}>
+                <article key={memo.id} className={styles.memoItem}>
                   <p>{memo.content}</p>
                   <div>
                     <span className={styles.memoTargetBadge}>{formatMemoTargetLabel(memo, memoTargetOptions)}</span>
@@ -690,7 +686,7 @@ function SummaryCard({ label, value, helper }: { label: string; value: string; h
 function createIncidentContext(
   incidentId: string,
   incidentDetail: HandoverIncidentDetailDto | null,
-  selectedOp: OperationalPeriodDto | null,
+  selectedOp: OperationalPeriodListItem | null,
 ): SuriMapPageHeaderIncidentContext {
   const missingPerson = incidentDetail && 'missingPerson' in incidentDetail ? incidentDetail.missingPerson : null;
   const displayName = missingPerson?.displayName?.trim() || null;
@@ -711,11 +707,11 @@ function createIncidentContext(
 
 function createHandoverMemoTargetOptions(
   board: HandoverBoardResponseDto | null,
-  selectedOp: OperationalPeriodDto | null,
+  selectedOp: OperationalPeriodListItem | null,
 ): HandoverMemoTargetOption[] {
   if (!selectedOp) return [];
 
-  const selectedOpId = selectedOp.opId;
+  const selectedOpId = selectedOp.id;
   const options: HandoverMemoTargetOption[] = [
     {
       key: createMemoTargetKey(DEFAULT_MEMO_TARGET_TYPE, selectedOpId),
@@ -793,9 +789,9 @@ function createMemoTargetKey(targetType: string, targetId: string | null | undef
   return `${targetType}:${targetId ?? ''}`;
 }
 
-function formatMemoTargetLabel(memo: HandoverMemoDto, options: HandoverMemoTargetOption[]) {
-  const key = createMemoTargetKey(memo.targetType, memo.targetId);
-  return options.find((option) => option.key === key)?.label ?? formatMemoTargetTypeLabel(memo.targetType);
+function formatMemoTargetLabel(memo: HandoverMemoListItem, options: HandoverMemoTargetOption[]) {
+  const key = createMemoTargetKey(memo.memoTargetType, memo.memoTargetId);
+  return options.find((option) => option.key === key)?.label ?? formatMemoTargetTypeLabel(memo.memoTargetType);
 }
 
 function formatMemoTargetTypeLabel(targetType: string) {
@@ -916,33 +912,24 @@ function hasOperationalPeriodCommandPermission(account: LoginAccount) {
 }
 
 function createHandoverOperationalPeriod(
-  period: OperationalPeriodDto,
+  period: OperationalPeriodListItem,
   currentOpId: string | null,
 ): OperationalPeriod {
-  const start = formatKstDateParts(new Date(period.startedAt));
-  const end = period.endedAt ? formatKstDateParts(new Date(period.endedAt)) : null;
-
   return {
-    id: period.opId,
+    id: period.id,
     label: formatOperationalPeriodLabel(period),
     reason: formatReasonLabel(period.reason),
     meta: formatStatusLabel(period.status),
-    state: period.opId === currentOpId || period.status === 'ACTIVE' ? 'current' : 'ended',
-    startDate: start.date,
-    startTime: start.time,
-    endDate: end?.date ?? null,
-    endTime: end?.time ?? null,
+    state: period.id === currentOpId || period.status === 'ACTIVE' ? 'current' : 'ended',
+    startDate: '-',
+    startTime: '-',
+    endDate: null,
+    endTime: null,
   };
 }
 
-function formatOperationalPeriodLabel(period: OperationalPeriodDto) {
-  return `OP ${period.sequenceNo}차`;
-}
-
-function formatOperationalPeriodTimeRange(period: OperationalPeriodDto) {
-  const start = formatKstDateTime(new Date(period.startedAt));
-  const end = period.endedAt ? formatKstDateTime(new Date(period.endedAt)) : '진행 중';
-  return `${start} - ${end}`;
+function formatOperationalPeriodLabel(period: OperationalPeriodListItem) {
+  return `OP ${period.sequenceNumber}차`;
 }
 
 function formatReasonLabel(reason: string) {

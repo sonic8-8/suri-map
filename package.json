@@ -1,0 +1,7 @@
+{
+  "devDependencies": {
+    "@mermaid-js/mermaid-cli": "^11.14.0",
+    "markdownlint-cli2": "^0.22.1",
+    "prettier": "^3.8.3"
+  }
+}

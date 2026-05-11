@@ -25,6 +25,7 @@ export default defineConfig(({ mode }) => {
         '/api': {
           target: resolveApiProxyTarget(apiBaseUrl),
           changeOrigin: true,
+          configure: stripBrowserBasicAuthChallenge,
         },
         '/tiles': {
           target: resolveTileProxyTarget(apiBaseUrl, tileBaseUrl),
@@ -50,4 +51,10 @@ export function resolveTileProxyTarget(apiBaseUrl: string, tileBaseUrl: string) 
   }
 
   return resolveApiProxyTarget(apiBaseUrl);
+}
+
+function stripBrowserBasicAuthChallenge(proxy: { on: (event: 'proxyRes', handler: (proxyRes: { headers: Record<string, unknown> }) => void) => void }) {
+  proxy.on('proxyRes', (proxyRes) => {
+    delete proxyRes.headers['www-authenticate'];
+  });
 }

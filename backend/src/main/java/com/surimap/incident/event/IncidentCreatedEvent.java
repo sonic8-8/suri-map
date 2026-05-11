@@ -5,4 +5,4 @@ import java.util.UUID;
 
 /** INCIDENT_CREATED payload에 필요한 L1 소유 필드. */
 public record IncidentCreatedEvent(
-    UUID id, String status, long version, String sourceIncidentId, List<String> memberAccountIds) {}
+    UUID id, String status, long version, UUID sourceIncidentId, List<String> memberAccountIds) {}
