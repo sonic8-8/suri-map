@@ -249,7 +249,7 @@
 
 ## Phase 4 — 마커와 사진
 
-- [ ] AUI-T08 마커 생성 bottom sheet를 구현한다
+- [x] AUI-T08 마커 생성 bottom sheet를 구현한다
   - 담당 영역: Android UI
   - 연관 Spec: S5, S6
   - 시나리오: SC-06, SC-08
@@ -267,6 +267,12 @@
     - 5개 마커 유형이 모두 화면에서 선택 가능하다.
     - offline 상태에서 pending 표시가 P4 직접 진입으로 바뀌지 않는다.
     - `cd android && ./gradlew :app:assembleDebug` 통과
+  - 완료 증거:
+    - Jira `S14P31C106-227`, branch `feature/S14P31C106-227-marker-create-bottom-sheet`
+    - RED: `cd android && ./gradlew :app:testDebugUnitTest --tests com.surimap.feature.marker.MarkerCreateSheetUiStateTest` 실패 (`MarkerCreateSheetUiState`, `MarkerType`, `SupportRequestType` 미정의)
+    - GREEN: 같은 targeted test 통과
+    - VERIFY: `git diff --check` 통과
+    - VERIFY: `cd android && ./gradlew test :app:assembleDebug` 통과
 
 - [ ] AUI-T09 마커 상세/편집 화면을 구현한다
   - 담당 영역: Android UI

@@ -1,5 +1,6 @@
 package com.surimap.ui
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -29,6 +30,9 @@ import com.surimap.feature.handover.ui.sampleHandoverMemoState
 import com.surimap.feature.incidents.data.IncidentListStateLoader
 import com.surimap.feature.incidents.ui.IncidentListScreen
 import com.surimap.feature.incidents.ui.IncidentListUiState
+import com.surimap.feature.marker.ui.MarkerCreateBottomSheet
+import com.surimap.feature.marker.ui.MarkerType
+import com.surimap.feature.marker.ui.sampleMarkerCreateSheetState
 import com.surimap.feature.offline.ui.OfflinePackageScreen
 import com.surimap.feature.offline.ui.sampleOfflinePackageState
 import com.surimap.feature.search.ui.SearchMapScreen
@@ -84,15 +88,49 @@ fun SuriMapApp() {
                     )
                 }
                 composable(PolicePhoneRoute.SearchMap.route) {
-                    SearchMapScreen(
-                        state = sampleSearchMapState(),
-                        onBack = { navController.popBackStack() },
-                        onPrimaryLifecycleAction = {},
-                        onStopSearch = {},
-                        onCreateMarker = { navController.navigateToSingleTop(PolicePhoneRoute.MarkerDetail) },
-                        onOpenHandover = { navController.navigateToSingleTop(PolicePhoneRoute.HandoverSummary) },
-                        onOpenBlockedOutbox = { blockedQueue = BlockedQueueToastState(blockedCount = 2) }
-                    )
+                    var markerSheetOpen by remember { mutableStateOf(false) }
+                    var markerSheetState by remember { mutableStateOf(sampleMarkerCreateSheetState()) }
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        SearchMapScreen(
+                            state = sampleSearchMapState(),
+                            onBack = { navController.popBackStack() },
+                            onPrimaryLifecycleAction = {},
+                            onStopSearch = {},
+                            onCreateMarker = {
+                                markerSheetState = sampleMarkerCreateSheetState()
+                                markerSheetOpen = true
+                            },
+                            onOpenHandover = { navController.navigateToSingleTop(PolicePhoneRoute.HandoverSummary) },
+                            onOpenBlockedOutbox = { blockedQueue = BlockedQueueToastState(blockedCount = 2) }
+                        )
+                        if (markerSheetOpen) {
+                            MarkerCreateBottomSheet(
+                                state = markerSheetState,
+                                onDismiss = { markerSheetOpen = false },
+                                onSelectMarkerType = { type ->
+                                    markerSheetState =
+                                        markerSheetState.copy(
+                                            selectedType = type,
+                                            supportRequestType =
+                                            if (type == MarkerType.SUPPORT_REQUEST) {
+                                                markerSheetState.supportRequestType
+                                            } else {
+                                                null
+                                            }
+                                        )
+                                },
+                                onSelectSupportRequestType = { type ->
+                                    markerSheetState = markerSheetState.copy(supportRequestType = type)
+                                },
+                                onMemoChange = { memo ->
+                                    markerSheetState = markerSheetState.copy(memo = memo)
+                                },
+                                onSave = { markerSheetOpen = false },
+                                onAttachPhoto = {},
+                                onRetryPhoto = {}
+                            )
+                        }
+                    }
                 }
                 composable(PolicePhoneRoute.HandoverSummary.route) {
                     DutyHandoverScreen(
