@@ -1,0 +1,100 @@
+package com.surimap.core.incident
+
+import com.surimap.core.network.AccessTokenProvider
+import com.surimap.core.network.SuriMapApiClient
+import kotlinx.coroutines.runBlocking
+import okhttp3.Call
+import okhttp3.Callback
+import okhttp3.Protocol
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.ResponseBody.Companion.toResponseBody
+import okio.Timeout
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Test
+import kotlin.reflect.KClass
+
+class IncidentReadRepositoryTest {
+
+    @Test
+    fun listRequestsIncidentCollectionWithStatusQuery() = runBlocking {
+        val callFactory = CapturingCallFactory(response = response(200, """{"items":[]}"""))
+        val repository = IncidentReadRepository(
+            apiClient = SuriMapApiClient(
+                baseUrl = "https://suri-map.example.com",
+                callFactory = callFactory
+            ),
+            accessTokenProvider = AccessTokenProvider { "token-1" }
+        )
+
+        val result = repository.list(status = "OPEN")
+
+        val request = callFactory.lastRequest!!
+        assertEquals(200, result.statusCode)
+        assertEquals("GET", request.method)
+        assertEquals("https://suri-map.example.com/api/incidents?status=OPEN", request.url.toString())
+        assertEquals("APP", request.header("X-Client-Channel"))
+        assertEquals("Bearer token-1", request.header("Authorization"))
+        assertNull(request.header("X-PolicePhone-Id"))
+        assertNull(request.header("Idempotency-Key"))
+    }
+
+    @Test
+    fun detailRequestsIncidentByCanonicalPath() = runBlocking {
+        val callFactory = CapturingCallFactory(response = response(200, """{"status":"OPEN"}"""))
+        val repository = IncidentReadRepository(
+            apiClient = SuriMapApiClient(
+                baseUrl = "https://suri-map.example.com/api",
+                callFactory = callFactory
+            )
+        )
+
+        repository.detail("inc-precinct-first-001")
+
+        val request = callFactory.lastRequest!!
+        assertEquals("GET", request.method)
+        assertEquals("https://suri-map.example.com/api/incidents/inc-precinct-first-001", request.url.toString())
+        assertEquals("APP", request.header("X-Client-Channel"))
+        assertNull(request.header("Idempotency-Key"))
+    }
+
+    private class CapturingCallFactory(
+        private val response: Response
+    ) : Call.Factory {
+        var lastRequest: Request? = null
+
+        override fun newCall(request: Request): Call {
+            lastRequest = request
+            return CapturingCall(request, response)
+        }
+    }
+
+    private class CapturingCall(
+        private val request: Request,
+        private val response: Response
+    ) : Call {
+        override fun request(): Request = request
+        override fun execute(): Response = response.newBuilder().request(request).build()
+        override fun enqueue(responseCallback: Callback) = error("async calls are not used")
+        override fun cancel() = Unit
+        override fun isExecuted(): Boolean = false
+        override fun isCanceled(): Boolean = false
+        override fun timeout(): Timeout = Timeout.NONE
+        override fun <T : Any> tag(type: KClass<T>): T? = null
+        override fun <T> tag(type: Class<out T>): T? = null
+        override fun <T : Any> tag(type: KClass<T>, computeIfAbsent: () -> T): T = computeIfAbsent()
+        override fun <T : Any> tag(type: Class<T>, computeIfAbsent: () -> T): T = computeIfAbsent()
+        override fun clone(): Call = CapturingCall(request, response)
+    }
+}
+
+private fun response(statusCode: Int, body: String): Response {
+    return Response.Builder()
+        .request(Request.Builder().url("https://suri-map.example.com/placeholder").build())
+        .protocol(Protocol.HTTP_1_1)
+        .code(statusCode)
+        .message("test")
+        .body(body.toResponseBody())
+        .build()
+}
