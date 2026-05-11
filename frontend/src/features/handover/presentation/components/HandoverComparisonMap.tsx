@@ -15,6 +15,7 @@ import {
   type BoardMapMarker,
   type BoardMovementPath,
 } from '../../../../shared/model/boardMapSlots';
+import { getRouteCoreColor } from '../../../../shared/model/boardMapFeatures';
 import type { HandoverBoardResponseDto } from '../../data/getHandoverBoard';
 import styles from './HandoverComparisonMap.module.css';
 
@@ -51,6 +52,7 @@ const PATH_SOURCE_ID = 'handover-comparison-path';
 const MARKER_SOURCE_ID = 'handover-comparison-marker';
 const AREA_FILL_LAYER_ID = 'handover-comparison-area-fill';
 const AREA_LINE_LAYER_ID = 'handover-comparison-area-line';
+const PATH_GLOW_LAYER_ID = 'handover-comparison-path-glow';
 const PATH_LINE_LAYER_ID = 'handover-comparison-path-line';
 const MARKER_CIRCLE_LAYER_ID = 'handover-comparison-marker-circle';
 const MARKER_SYMBOL_LAYER_ID = 'handover-comparison-marker-symbol';
@@ -228,15 +230,34 @@ function addComparisonLayers(map: maplibregl.Map) {
   } as LayerSpecification);
 
   addLayer(map, {
+    id: PATH_GLOW_LAYER_ID,
+    type: 'line',
+    source: PATH_SOURCE_ID,
+    filter: ['all', ['has', 'color'], ['!=', ['get', 'color'], '']],
+    layout: {
+      'line-cap': 'round',
+      'line-join': 'round',
+    },
+    paint: {
+      'line-color': ['get', 'color'],
+      'line-width': ['+', ['to-number', ['get', 'lineWidth']], 4.6],
+      'line-opacity': ['to-number', ['get', 'outerOpacity']],
+    },
+  } as LayerSpecification);
+
+  addLayer(map, {
     id: PATH_LINE_LAYER_ID,
     type: 'line',
     source: PATH_SOURCE_ID,
     filter: ['all', ['has', 'color'], ['!=', ['get', 'color'], '']],
+    layout: {
+      'line-cap': 'round',
+      'line-join': 'round',
+    },
     paint: {
-      'line-color': ['get', 'color'],
+      'line-color': ['get', 'coreColor'],
       'line-width': ['to-number', ['get', 'lineWidth']],
       'line-opacity': ['to-number', ['get', 'lineOpacity']],
-      'line-dasharray': ['case', ['==', ['get', 'focused'], 'true'], ['literal', [1, 0]], ['literal', [1.8, 1.1]]],
     },
   } as LayerSpecification);
 
@@ -270,6 +291,8 @@ function addComparisonLayers(map: maplibregl.Map) {
       'text-halo-width': 0.8,
     },
   });
+
+  raiseMarkerLayers(map);
 }
 
 function addGeoJsonSource(map: maplibregl.Map, sourceId: string, data: ComparisonFeatureCollection) {
@@ -283,6 +306,14 @@ function addGeoJsonSource(map: maplibregl.Map, sourceId: string, data: Compariso
 function addLayer(map: maplibregl.Map, layer: LayerSpecification) {
   if (map.getLayer(layer.id)) return;
   map.addLayer(layer);
+}
+
+function raiseMarkerLayers(map: maplibregl.Map) {
+  [MARKER_CIRCLE_LAYER_ID, MARKER_SYMBOL_LAYER_ID].forEach((layerId) => {
+    if (map.getLayer(layerId)) {
+      map.moveLayer(layerId);
+    }
+  });
 }
 
 function syncComparisonSources(
@@ -426,8 +457,10 @@ function createPathFeatureFromBoardPath(
       opId: path.opId,
       focused: String(focused),
       color: path.routeColor ?? '',
-      lineOpacity: focused ? 0.94 : 0.62,
-      lineWidth: focused ? 4.4 : 3,
+      coreColor: getRouteCoreColor(path.routeColor),
+      outerOpacity: focused ? 0.3 : 0.18,
+      lineOpacity: focused ? 0.98 : 0.64,
+      lineWidth: focused ? 4.6 : 2.8,
     },
     geometry: {
       type: 'LineString',

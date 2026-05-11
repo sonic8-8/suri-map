@@ -1,11 +1,11 @@
 .shell,
 .modalOverlay {
   --handover-page-bg: #111d2c;
-  --handover-panel-bg: #142235;
-  --handover-panel-surface: #1b2c41;
-  --handover-panel-elevated: #20344c;
-  --handover-border: #4a5b70;
-  --handover-border-soft: #405167;
+  --handover-panel-bg: var(--suri-board-panel-bg);
+  --handover-panel-surface: var(--suri-board-panel-surface);
+  --handover-panel-elevated: var(--suri-board-panel-muted-bg);
+  --handover-border: var(--suri-board-border);
+  --handover-border-soft: var(--suri-board-left-section-divider);
 }
 
 .embeddedPage {
@@ -22,12 +22,15 @@
 
 .shell {
   display: grid;
-  grid-template-columns: 320px minmax(0, 1fr) 360px;
-  min-height: calc(100vh - var(--suri-board-header-top-height) - 64px);
+  grid-template-columns: 360px minmax(0, 1fr) 360px;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
   background: var(--handover-page-bg);
 }
 
 .embeddedPage .shell {
+  grid-template-columns: 360px minmax(0, 1fr) 360px;
   min-height: 0;
   height: 100%;
   background: transparent;
@@ -40,7 +43,12 @@
 }
 
 .embeddedPage .historyPanel {
-  display: none;
+  grid-column: 2;
+  align-self: end;
+  justify-self: stretch;
+  max-height: min(440px, calc(100% - 36px));
+  margin: 18px;
+  pointer-events: auto;
 }
 
 .embeddedPage .memoPanel {
@@ -48,50 +56,64 @@
   pointer-events: auto;
 }
 
+.embeddedPage .mapBlock {
+  display: none;
+}
+
 .opPanel,
 .historyPanel,
 .memoPanel {
   min-height: 0;
-  border-color: var(--handover-border);
-  color: var(--suri-board-fg-primary);
-  background: var(--handover-panel-bg);
-}
-
-.opPanel,
-.memoPanel {
-  display: flex;
-  flex-direction: column;
 }
 
 .opPanel {
-  border-right: 1px solid var(--handover-border);
+  width: 360px;
+  min-width: 360px;
 }
 
-.historyPanel {
+.opPanelBody,
+.memoPanelBody {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.opPanelBody {
+  padding: 42px 7px 12px 12px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-color: var(--suri-board-left-scrollbar-thumb) var(--suri-board-left-scrollbar-track);
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+.opPanelBody::-webkit-scrollbar {
+  width: 10px;
+}
+
+.opPanelBody::-webkit-scrollbar-track {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.opPanelBody::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--suri-board-left-scrollbar-thumb);
+  background-clip: content-box;
+}
+
+.opPanelBody::-webkit-scrollbar-thumb:hover {
+  background: var(--suri-board-left-scrollbar-thumb-hover);
+}
+
+.historyPanelBody {
   min-width: 0;
-}
-
-.memoPanel {
-  border-left: 1px solid var(--handover-border);
-}
-
-.panelHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 52px;
-  padding: 0 18px;
-  border-bottom: 1px solid var(--handover-border);
-  color: var(--suri-board-fg-secondary);
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.panelHeader strong {
-  color: var(--suri-board-primary-hi);
-  font-size: 13px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .opList,
@@ -199,8 +221,6 @@
   display: grid;
   gap: 8px;
   padding: 14px;
-  border-top: 1px solid var(--handover-border);
-  background: color-mix(in srgb, var(--handover-panel-bg) 70%, var(--handover-panel-surface));
 }
 
 .opPanelFooter span {
@@ -242,6 +262,11 @@
   align-content: start;
   gap: 14px;
   padding: 18px 20px 22px;
+}
+
+.embeddedPage .historyContent {
+  gap: 12px;
+  padding: 14px;
 }
 
 .mapBlock {
@@ -316,6 +341,11 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
+}
+
+.embeddedPage .detailGrid,
+.embeddedPage .summaryGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .summaryCard {
@@ -545,8 +575,8 @@
   background: color-mix(in srgb, #4b1e20 40%, var(--suri-board-panel-bg));
 }
 
-.opPanel > .errorText,
-.memoPanel > .errorText {
+.opPanelBody > .errorText,
+.memoPanelBody > .errorText {
   margin: 14px;
 }
 
@@ -731,7 +761,7 @@
 
 @media (max-width: 1280px) {
   .shell {
-    grid-template-columns: 300px minmax(0, 1fr);
+    grid-template-columns: 360px minmax(0, 1fr);
   }
 
   .memoPanel {

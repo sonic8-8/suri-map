@@ -241,3 +241,10 @@
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
+
+.empty {
+  padding: 12px 13px;
+  color: var(--suri-board-fg-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}

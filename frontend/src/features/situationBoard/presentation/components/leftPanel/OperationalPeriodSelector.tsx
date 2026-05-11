@@ -6,7 +6,12 @@ import { CollapsiblePanelSection } from './CollapsiblePanelSection';
 import styles from './OperationalPeriodSelector.module.css';
 
 type OperationalPeriodSelectorProps = {
+  allowEmptySelection?: boolean;
+  emptyMessage?: string;
+  onFocusedOperationalPeriodChange?: (periodId: string) => void;
+  onSelectedOperationalPeriodIdsChange?: (periodIds: string[]) => void;
   operationalPeriods: OperationalPeriod[];
+  selectedOperationalPeriodIds?: string[];
 };
 
 function formatOperationalPeriodTime(period: OperationalPeriod) {
@@ -21,33 +26,57 @@ function formatOperationalPeriodTime(period: OperationalPeriod) {
   return `${period.startDate} ${period.startTime}-${period.endDate} ${period.endTime}`;
 }
 
-export function OperationalPeriodSelector({ operationalPeriods }: OperationalPeriodSelectorProps) {
+export function OperationalPeriodSelector({
+  allowEmptySelection = true,
+  emptyMessage = '표시할 OP가 없습니다.',
+  onFocusedOperationalPeriodChange,
+  onSelectedOperationalPeriodIdsChange,
+  operationalPeriods,
+  selectedOperationalPeriodIds,
+}: OperationalPeriodSelectorProps) {
   const currentOperationalPeriodIds = operationalPeriods
     .filter((period) => period.state === 'current')
     .map((period) => period.id);
-  const [selectedOperationalPeriodIds, setSelectedOperationalPeriodIds] = useState<string[]>(
-    currentOperationalPeriodIds,
-  );
-  const isAllOperationalPeriodsSelected = selectedOperationalPeriodIds.length === operationalPeriods.length;
+  const [internalSelectedOperationalPeriodIds, setInternalSelectedOperationalPeriodIds] =
+    useState<string[]>(currentOperationalPeriodIds);
+  const selectedIds = selectedOperationalPeriodIds ?? internalSelectedOperationalPeriodIds;
+  const isAllOperationalPeriodsSelected =
+    operationalPeriods.length > 0 && selectedIds.length === operationalPeriods.length;
   const isCurrentOnlySelected =
-    selectedOperationalPeriodIds.length === currentOperationalPeriodIds.length &&
-    currentOperationalPeriodIds.every((periodId) => selectedOperationalPeriodIds.includes(periodId));
+    currentOperationalPeriodIds.length > 0 &&
+    selectedIds.length === currentOperationalPeriodIds.length &&
+    currentOperationalPeriodIds.every((periodId) => selectedIds.includes(periodId));
+
+  const updateSelectedOperationalPeriodIds = (nextIds: string[]) => {
+    const fallbackIds =
+      currentOperationalPeriodIds.length > 0
+        ? currentOperationalPeriodIds
+        : operationalPeriods.slice(0, 1).map((period) => period.id);
+    const normalizedIds = !allowEmptySelection && nextIds.length === 0 ? fallbackIds : nextIds;
+
+    if (selectedOperationalPeriodIds === undefined) {
+      setInternalSelectedOperationalPeriodIds(normalizedIds);
+    }
+
+    onSelectedOperationalPeriodIdsChange?.(normalizedIds);
+  };
 
   const toggleAllOperationalPeriods = () => {
-    setSelectedOperationalPeriodIds(
+    updateSelectedOperationalPeriodIds(
       isAllOperationalPeriodsSelected ? [] : operationalPeriods.map((period) => period.id),
     );
   };
 
   const selectCurrentOperationalPeriods = () => {
-    setSelectedOperationalPeriodIds(currentOperationalPeriodIds);
+    updateSelectedOperationalPeriodIds(currentOperationalPeriodIds);
   };
 
   const toggleOperationalPeriod = (periodId: string) => {
-    setSelectedOperationalPeriodIds((currentIds) =>
-      currentIds.includes(periodId)
-        ? currentIds.filter((currentId) => currentId !== periodId)
-        : [...currentIds, periodId],
+    onFocusedOperationalPeriodChange?.(periodId);
+    updateSelectedOperationalPeriodIds(
+      selectedIds.includes(periodId)
+        ? selectedIds.filter((currentId) => currentId !== periodId)
+        : [...selectedIds, periodId],
     );
   };
 
@@ -68,8 +97,9 @@ export function OperationalPeriodSelector({ operationalPeriods }: OperationalPer
           </button>
         </div>
         <div className={styles.scroll}>
+          {operationalPeriods.length === 0 ? <div className={styles.empty}>{emptyMessage}</div> : null}
           {operationalPeriods.map((period) => {
-            const isSelected = selectedOperationalPeriodIds.includes(period.id);
+            const isSelected = selectedIds.includes(period.id);
             const timeText = formatOperationalPeriodTime(period);
             const optionClassName = [
               styles.option,

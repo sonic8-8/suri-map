@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
 
 import { ApiError } from '../../../../shared/api/client';
-import { SuriMapPageHeader, type SuriMapPageHeaderIncidentContext } from '../../../../shared/ui';
+import { BoardPanel, SuriMapPageHeader, type SuriMapPageHeaderIncidentContext } from '../../../../shared/ui';
 import type { LoginAccount } from '../../../login/presentation/types/login';
 import { getHandoverBoard, type HandoverBoardResponseDto } from '../../data/getHandoverBoard';
 import {
@@ -19,7 +19,9 @@ import {
   type HandoverMemoTargetType,
   type OperationalPeriodDto,
 } from '../../data/handoverApi';
-import { HandoverComparisonMap, type HandoverComparisonMapProps } from '../components/HandoverComparisonMap';
+import { OperationalPeriodSelector } from '../../../situationBoard/presentation/components/leftPanel/OperationalPeriodSelector';
+import type { OperationalPeriod } from '../../../situationBoard/presentation/constants/mockSituationBoard';
+import { HandoverComparisonMap } from '../components/HandoverComparisonMap';
 import styles from './HandoverPage.module.css';
 
 type HandoverPageProps = {
@@ -30,7 +32,6 @@ type HandoverPageProps = {
   onOpenIncidentList: () => void;
   onOpenSituationBoard: () => void;
   onOperationalPeriodCreated?: () => void;
-  onSharedMapPropsChange?: (props: HandoverComparisonMapProps | null) => void;
 };
 
 type EvidenceSummary = {
@@ -71,7 +72,6 @@ export function HandoverPage({
   onOpenIncidentList,
   onOpenSituationBoard,
   onOperationalPeriodCreated,
-  onSharedMapPropsChange,
 }: HandoverPageProps) {
   const [operationalPeriods, setOperationalPeriods] = useState<OperationalPeriodDto[]>([]);
   const [currentOpId, setCurrentOpId] = useState<string | null>(null);
@@ -106,6 +106,10 @@ export function HandoverPage({
     () => [...operationalPeriods].sort((left, right) => right.sequenceNo - left.sequenceNo),
     [operationalPeriods],
   );
+  const handoverOperationalPeriods = useMemo(
+    () => displayedOperationalPeriods.map((period) => createHandoverOperationalPeriod(period, currentOpId)),
+    [currentOpId, displayedOperationalPeriods],
+  );
   const selectedOpMemos = useMemo(
     () => memos.filter((memo) => memo.opId === focusedOpId),
     [focusedOpId, memos],
@@ -134,22 +138,6 @@ export function HandoverPage({
     canCreateOperationalPeriod &&
     !isCreatingOp &&
     (newOpReason !== 'OTHER' || newOpReasonMemo.trim().length > 0);
-
-  const sharedHandoverMapProps = useMemo<HandoverComparisonMapProps>(
-    () => ({
-      incidentId,
-      board,
-      focusedOpId,
-      selectedOpIds,
-    }),
-    [board, focusedOpId, incidentId, selectedOpIds],
-  );
-
-  useEffect(() => {
-    if (!sharedMapMode) return;
-    onSharedMapPropsChange?.(sharedHandoverMapProps);
-    return () => onSharedMapPropsChange?.(null);
-  }, [onSharedMapPropsChange, sharedHandoverMapProps, sharedMapMode]);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => setNow(new Date()), 30_000);
@@ -379,19 +367,13 @@ export function HandoverPage({
     }
   };
 
-  const toggleOpSelection = (opId: string) => {
-    setFocusedOpId(opId);
-    setSelectedOpIds((currentOpIds) => {
-      if (!currentOpIds.includes(opId)) {
-        return [...currentOpIds, opId];
-      }
+  const handleOperationalPeriodSelectionChange = (nextOpIds: string[]) => {
+    if (nextOpIds.length === 0) return;
 
-      if (currentOpIds.length === 1) {
-        return currentOpIds;
-      }
-
-      return currentOpIds.filter((currentOpId) => currentOpId !== opId);
-    });
+    setSelectedOpIds(nextOpIds);
+    setFocusedOpId((currentFocusedOpId) =>
+      currentFocusedOpId && nextOpIds.includes(currentFocusedOpId) ? currentFocusedOpId : nextOpIds[0],
+    );
   };
 
   return (
@@ -408,70 +390,60 @@ export function HandoverPage({
       )}
 
       <div className={styles.shell}>
-        <aside className={styles.opPanel} aria-label="OP 목록">
-          <div className={styles.panelHeader}>
-            <span>OP 목록</span>
-            <strong>{operationalPeriods.length}건</strong>
-          </div>
-
-          {opErrorMessage ? <div className={styles.errorText}>{opErrorMessage}</div> : null}
-
-          <div className={styles.opList}>
-            {isLoadingOps ? (
-              <div className={styles.emptyState}>OP 목록을 불러오는 중입니다.</div>
-            ) : operationalPeriods.length === 0 ? (
-              <div className={styles.emptyState}>등록된 OP가 없습니다.</div>
-            ) : (
-              displayedOperationalPeriods.map((period) => {
-                const isSelected = selectedOpIds.includes(period.opId);
-                const isFocused = period.opId === focusedOpId;
-                const isCurrent = period.opId === currentOpId;
-
-                return (
-                  <button
-                    key={period.opId}
-                    type="button"
-                    className={`${styles.opItem}${isSelected ? ` ${styles.opItemSelected}` : ''}${isFocused ? ` ${styles.opItemFocused}` : ''}`}
-                    aria-pressed={isSelected}
-                    onClick={() => toggleOpSelection(period.opId)}
-                  >
-                    <span className={styles.opItemTop}>
-                      <span className={styles.opLabelGroup}>
-                        <span className={styles.opCheck} aria-hidden="true">
-                          {isSelected ? '✓' : ''}
-                        </span>
-                        <strong>{formatOperationalPeriodLabel(period)}</strong>
-                      </span>
-                      {isCurrent ? <span className={styles.currentBadge}>진행 중</span> : null}
-                    </span>
-                    <span>{formatOperationalPeriodTimeRange(period)}</span>
-                    <span>{formatReasonLabel(period.reason)}</span>
-                  </button>
-                );
-              })
-            )}
-          </div>
-
+        <BoardPanel
+          as="aside"
+          ariaLabel="OP 목록"
+          className={styles.opPanel}
+          bodyClassName={styles.opPanelBody}
+          placement="left"
+          footer={(
           <div className={styles.opPanelFooter}>
             <button
               type="button"
               className={styles.createOpButton}
               disabled={!canCreateOperationalPeriod}
-              title={canCreateOperationalPeriod ? '새 OP 열기' : '지휘 권한이 필요합니다'}
+              title={canCreateOperationalPeriod ? '새 OP 열기' : '현재 계정에는 권한이 없습니다.'}
               onClick={openCreateOpModal}
             >
               <Plus size={16} aria-hidden="true" />
               새 OP 열기
             </button>
-            {!canCreateOperationalPeriod ? <span>지휘 권한이 필요합니다.</span> : null}
+            {!canCreateOperationalPeriod ? <span>현재 계정에는 권한이 없습니다.</span> : null}
           </div>
-        </aside>
+          )}
+        >
 
-        <section className={styles.historyPanel} aria-label="OP 비교와 선택 OP 수색 이력">
-          <div className={styles.panelHeader}>
+          {opErrorMessage ? <div className={styles.errorText}>{opErrorMessage}</div> : null}
+
+          {isLoadingOps ? (
+            <div className={styles.opList}>
+              <div className={styles.emptyState}>OP 목록을 불러오는 중입니다.</div>
+            </div>
+          ) : (
+            <OperationalPeriodSelector
+              allowEmptySelection={false}
+              emptyMessage="등록된 OP가 없습니다."
+              onFocusedOperationalPeriodChange={setFocusedOpId}
+              onSelectedOperationalPeriodIdsChange={handleOperationalPeriodSelectionChange}
+              operationalPeriods={handoverOperationalPeriods}
+              selectedOperationalPeriodIds={selectedOpIds}
+            />
+          )}
+
+        </BoardPanel>
+
+        <BoardPanel
+          ariaLabel="OP 비교와 선택 OP 수색 이력"
+          className={styles.historyPanel}
+          bodyClassName={styles.historyPanelBody}
+          placement={embedded ? 'floating' : 'center'}
+          header={(
+          <>
             <span>OP 비교</span>
             <strong>{selectedOpIds.length}개 선택</strong>
-          </div>
+          </>
+          )}
+        >
 
           <div className={styles.historyContent}>
             <section className={styles.mapBlock} aria-label="선택 OP overlay 지도">
@@ -557,13 +529,21 @@ export function HandoverPage({
               </ul>
             </section>
           </div>
-        </section>
+        </BoardPanel>
 
-        <aside className={styles.memoPanel} aria-label="인수인계 메모">
-          <div className={styles.panelHeader}>
+        <BoardPanel
+          as="aside"
+          ariaLabel="인수인계 메모"
+          className={styles.memoPanel}
+          bodyClassName={styles.memoPanelBody}
+          placement="right"
+          header={(
+          <>
             <span>인수인계 메모</span>
             <strong>{selectedOpMemos.length}건</strong>
-          </div>
+          </>
+          )}
+        >
 
           <div className={styles.memoComposer}>
             <label className={styles.memoTargetField}>
@@ -621,7 +601,7 @@ export function HandoverPage({
               ))
             )}
           </div>
-        </aside>
+        </BoardPanel>
       </div>
 
       {isCreateOpModalOpen ? (
@@ -935,6 +915,26 @@ function hasOperationalPeriodCommandPermission(account: LoginAccount) {
   return account.roles.includes('MISSING_TEAM_COMMANDER') || account.roles.includes('FIELD_COMMANDER');
 }
 
+function createHandoverOperationalPeriod(
+  period: OperationalPeriodDto,
+  currentOpId: string | null,
+): OperationalPeriod {
+  const start = formatKstDateParts(new Date(period.startedAt));
+  const end = period.endedAt ? formatKstDateParts(new Date(period.endedAt)) : null;
+
+  return {
+    id: period.opId,
+    label: formatOperationalPeriodLabel(period),
+    reason: formatReasonLabel(period.reason),
+    meta: formatStatusLabel(period.status),
+    state: period.opId === currentOpId || period.status === 'ACTIVE' ? 'current' : 'ended',
+    startDate: start.date,
+    startTime: start.time,
+    endDate: end?.date ?? null,
+    endTime: end?.time ?? null,
+  };
+}
+
 function formatOperationalPeriodLabel(period: OperationalPeriodDto) {
   return `OP ${period.sequenceNo}차`;
 }
@@ -983,6 +983,31 @@ function formatKstDateTime(date: Date) {
     }, {});
 
   return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute} KST`;
+}
+
+function formatKstDateParts(date: Date) {
+  if (Number.isNaN(date.getTime())) {
+    return { date: '-', time: '-' };
+  }
+
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+    .formatToParts(date)
+    .reduce<Record<string, string>>((dateParts, part) => {
+      dateParts[part.type] = part.value;
+      return dateParts;
+    }, {});
+
+  return {
+    date: `${parts.month}.${parts.day}`,
+    time: `${parts.hour}:${parts.minute}`,
+  };
 }
 
 function getApiErrorMessage(error: unknown, fallback: string) {
