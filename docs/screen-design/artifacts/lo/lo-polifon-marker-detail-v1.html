@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Low-fi · 폴리폰 마커 상세 v1</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="./lo-polifon-wireframes.css">
+<style>
+  /*
+    Low-fi · 폴리폰 마커 상세 / 편집 v1
+    - 412×892. KRDS-Ops 폴리폰.
+    - 권한 분기:
+      자기 마커(자기 계정 생성분) → 메모/사진 편집 + 삭제 가능
+      타 계정 마커 → 읽기 전용 (작성자/시각/유형/메모/사진 표시)
+    - permission-matrix.md 마커 수정·삭제 행 정합 (간부=모든 마커, 대원=자기 계정 생성분만).
+    - 삭제는 P1-4 anti-patterns §4.2/§6.4 정합: 명시적 버튼 + confirm dialog. long-press/hold-to-confirm 은 사용하지 않는다.
+  */
+  body { background: #999; padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .row-pair { display: grid; grid-template-columns: repeat(2, 412px); gap: 24px; align-items: start; }
+  .variant-label { font-size: 12px; font-weight: 700; color: #1d1d1d; margin-bottom: 6px; }
+
+  .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .photo-item { display: grid; gap: 6px; }
+  .photo-thumb { aspect-ratio: 1; background: var(--poli-bg-input); border: 1px solid var(--poli-border-strong); border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--poli-fg-muted); font-size: 11px; }
+  .photo-remove { min-height: 36px; border: 1px solid color-mix(in srgb, var(--poli-emphasis) 58%, transparent); border-radius: 7px; background: color-mix(in srgb, var(--poli-emphasis) 12%, transparent); color: color-mix(in srgb, var(--poli-emphasis) 50%, white 50%); font-size: 12px; font-weight: 800; }
+
+  .meta-list { display: grid; grid-template-columns: 80px 1fr; gap: 4px 12px; font-size: 13px; line-height: 1.5; }
+  .meta-list dt { color: var(--poli-fg-muted); }
+  .meta-list dd { margin: 0; color: var(--poli-fg-primary); }
+
+  .marker-icon { width: 56px; height: 56px; border: 2px solid var(--poli-fg-secondary); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .marker-icon.found { border-color: #fff; box-shadow: var(--poli-emphasis-glow); color: var(--poli-emphasis); }
+  .marker-icon svg { width: 32px; height: 32px; color: inherit; }
+
+  .marker-summary { display: flex; gap: 14px; align-items: center; }
+  .marker-summary .info { min-width: 0; }
+  .marker-summary .type-label { font-size: 11px; color: var(--poli-fg-muted); }
+  .marker-summary .title { font-size: 17px; font-weight: 800; color: var(--poli-fg-primary); }
+
+  .danger-row { display: grid; grid-template-columns: 1fr auto; gap: var(--poli-touch-gap-min); padding-top: 8px; }
+  .readonly-note { font-size: 12px; color: var(--poli-fg-muted); padding: 8px 12px; background: color-mix(in srgb, var(--poli-warning) 10%, transparent); border: 1px solid color-mix(in srgb, var(--poli-warning) 36%, transparent); border-radius: 8px; line-height: 1.4; }
+</style>
+</head>
+<body>
+
+<div class="meta">
+  <strong>P9 마커 상세 / 편집</strong> — 권한 분기는 PRD §8.4 + permission-matrix 정합.
+  자기 마커는 메모/사진 편집·삭제. 타 계정 마커는 읽기 전용.
+</div>
+
+<div class="row-pair">
+
+  <!-- A: 자기 마커 (편집 가능) -->
+  <div>
+    <div class="variant-label">A · 자기 마커 (편집·삭제 가능)</div>
+    <div class="phone-frame">
+      <div class="status-bar"><span>14:31</span><span class="right">LTE · 78%</span></div>
+      <div class="appbar">
+        <div class="appbar-row">
+          <button class="back" aria-label="뒤로">←</button>
+          <div class="title-block"><h1>마커 상세</h1><p>사건 #1234 · OP 3차 · 내가 작성</p></div>
+          <span class="chip good">동기화</span>
+        </div>
+      </div>
+
+      <main class="content scroll">
+        <section class="card">
+          <div class="marker-summary">
+            <span class="marker-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6"/><line x1="15.5" y1="15.5" x2="20" y2="20"/></svg>
+            </span>
+            <div class="info">
+              <div class="type-label">단서 (CLUE)</div>
+              <div class="title">의류 발견</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>메모</h2>
+          <div class="input-like">검정 패딩, 회색 운동화. 20m 북측 능선 측구.</div>
+          <p style="margin-top:6px;">28 / 500 · 자기 계정만 수정 가능</p>
+        </section>
+
+        <section class="card">
+          <h2>사진 3장</h2>
+          <div class="photo-grid">
+            <div class="photo-item">
+              <div class="photo-thumb">사진 1</div>
+              <button class="photo-remove">삭제</button>
+            </div>
+            <div class="photo-item">
+              <div class="photo-thumb">사진 2</div>
+              <button class="photo-remove">삭제</button>
+            </div>
+            <div class="photo-item">
+              <div class="photo-thumb">사진 3</div>
+              <button class="photo-remove">삭제</button>
+            </div>
+          </div>
+          <p style="margin-top:6px;">사진 삭제는 버튼 선택 후 확인 다이얼로그에서 확정한다.</p>
+        </section>
+
+        <section class="card">
+          <h2>메타</h2>
+          <dl class="meta-list">
+            <dt>작성</dt><dd>기동대 1부대 A팀 폴리폰</dd>
+            <dt>계정</dt><dd>기동대 1부대 A팀 계정</dd>
+            <dt>위치</dt><dd>35.1631° N, 126.9134° E</dd>
+            <dt>시각</dt><dd>14:18 (clock 동기 +120ms)</dd>
+            <dt>버전</dt><dd>v3 (마지막 수정 14:24)</dd>
+          </dl>
+        </section>
+      </main>
+
+      <div class="bottom">
+        <div class="danger-row">
+          <button class="button primary">저장</button>
+          <button class="button danger">삭제</button>
+        </div>
+      </div>
+      <div class="gesture"><span></span></div>
+    </div>
+  </div>
+
+  <!-- B: 타 계정 마커 (읽기 전용) -->
+  <div>
+    <div class="variant-label">B · 타 계정 마커 (읽기 전용)</div>
+    <div class="phone-frame">
+      <div class="status-bar"><span>14:31</span><span class="right">LTE · 78%</span></div>
+      <div class="appbar">
+        <div class="appbar-row">
+          <button class="back" aria-label="뒤로">←</button>
+          <div class="title-block"><h1>마커 상세</h1><p>사건 #1234 · OP 3차 · 다른 팀 작성</p></div>
+          <span class="chip good">동기화</span>
+        </div>
+      </div>
+
+      <main class="content scroll">
+        <section class="card">
+          <div class="marker-summary">
+            <span class="marker-icon found" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3"/><path d="M3 21v-1a6 6 0 0 1 12 0v1"/><path d="M16 13l2 2 4-4"/></svg>
+            </span>
+            <div class="info">
+              <div class="type-label">실종자 발견 (PERSON_FOUND)</div>
+              <div class="title">발견 보고</div>
+            </div>
+          </div>
+        </section>
+
+        <div class="readonly-note">읽기 전용 — 다른 팀이 작성한 마커입니다. 수정·삭제는 지휘 계정만 가능합니다.</div>
+
+        <section class="card">
+          <h2>메모</h2>
+          <div class="input-like" style="opacity: 0.85;">북측 능선 50m 지점 발견. 보호자 확인 중.</div>
+        </section>
+
+        <section class="card">
+          <h2>사진 1장</h2>
+          <div class="photo-grid">
+            <div class="photo-thumb">사진 1</div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>메타</h2>
+          <dl class="meta-list">
+            <dt>작성</dt><dd>실종팀 폴리폰</dd>
+            <dt>계정</dt><dd>실종팀 지휘 계정</dd>
+            <dt>위치</dt><dd>35.1645° N, 126.9120° E</dd>
+            <dt>시각</dt><dd>14:23 (clock 동기 +90ms)</dd>
+            <dt>버전</dt><dd>v1</dd>
+          </dl>
+        </section>
+      </main>
+
+      <div class="bottom">
+        <button class="button secondary" style="width:100%;">목록으로</button>
+      </div>
+      <div class="gesture"><span></span></div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

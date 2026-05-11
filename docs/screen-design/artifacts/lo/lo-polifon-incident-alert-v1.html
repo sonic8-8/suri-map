@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>Low-fi · 폴리폰 강조 알림 v1</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="./lo-polifon-wireframes.css">
+<style>
+  /*
+    Low-fi · 폴리폰 강조 알림 v1
+    - 412×892 viewport. KRDS-Ops 폴리폰 variant.
+    - SC-08 (지원 요청·실종자 발견 알림) — anti-patterns §6.1 정합:
+      강조 알림은 명시적 dismiss 까지 유지, 자동 dismiss 금지.
+    - In-app banner (앱 활성 중) + OS notification mock (백그라운드/잠금) 두 variant 동시 표기.
+    - FSI(full-screen intent) 는 Android 14+ USE_FULL_SCREEN_INTENT 권한·심사 정책 확인 항목.
+      MVP 기본 UX 에서는 사용하지 않고, OS heads-up notification 으로 대체.
+    - 펄스 ≤1Hz (1.4s, WCAG 2.3.1 photosensitive 안전) + prefers-reduced-motion 비활성.
+  */
+  html, body { margin: 0; padding: 0; }
+  * { box-sizing: border-box; font-family: "Pretendard GOV", Pretendard, "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; }
+  body { background: #999; padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .label-meta { font-size: 12px; color: #1d1d1d; max-width: 880px; line-height: 1.5; }
+  .row-pair { display: grid; grid-template-columns: repeat(2, 412px); gap: 24px; align-items: start; }
+  .variant-label { font-size: 12px; font-weight: 700; color: #1d1d1d; margin-bottom: 6px; }
+
+  /* 디바이스 frame */
+  .device { width: 412px; height: 892px; background: var(--poli-bg-base); color: var(--poli-fg-primary); display: grid; grid-template-rows: 32px auto minmax(0, 1fr) auto 24px; position: relative; overflow: hidden; }
+
+  .status-bar { background: var(--poli-bg-base); padding: 0 16px; display: flex; align-items: center; font-size: 12px; font-weight: 600; color: var(--poli-fg-secondary); gap: 8px; height: 32px; }
+  .status-bar .right { margin-left: auto; }
+
+  /* Variant A — In-app banner (앱 활성 중, search-map 위에 reserved slot) */
+  .map-mock { position: relative; background: var(--poli-bg-input); }
+  .map-mock::before { content: ''; position: absolute; inset: 0; background:
+    linear-gradient(transparent 50%, rgba(255,255,255,0.04) 50%) 0 0 / 100% 56px,
+    linear-gradient(90deg, transparent 50%, rgba(255,255,255,0.04) 50%) 0 0 / 56px 100%; pointer-events: none; }
+
+  /* In-app alert banner — search-map 의 alert-banner 와 동일 톤
+     pulse 1.4s ≤1Hz. prefers-reduced-motion 일 때 비활성. */
+  .alert-banner { position: absolute; left: 8px; right: 8px; top: 10px; background: var(--poli-bg-surface); border: 2px solid var(--poli-emphasis); border-left: 4px solid var(--poli-rugged); border-radius: 12px; padding: 10px 12px; display: flex; gap: 10px; align-items: center; animation: alertPulse 1.4s ease-in-out infinite; }
+  .alert-banner.support { border-color: var(--poli-warning); }
+  @keyframes alertPulse {
+    /* halo는 --poli-emphasis-glow와 동일 색을 alpha 0→0.18→0 으로 펄스. ≤1Hz (1.4s) */
+    0%, 100% { box-shadow: 0 0 0 0 rgb(239 68 68 / 0%); }
+    50% { box-shadow: 0 0 0 6px rgb(239 68 68 / 18%); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .alert-banner { animation: none; }
+  }
+  .alert-banner .icon { width: 28px; height: 28px; flex-shrink: 0; border: 2px solid var(--poli-emphasis); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: var(--poli-emphasis); font-weight: 800; font-size: 14px; }
+  .alert-banner.support .icon { border-color: var(--poli-warning); color: var(--poli-warning); }
+  .alert-banner .body { flex: 1; min-width: 0; }
+  .alert-banner .body .title { font-size: 14px; font-weight: 800; color: #fff; }
+  .alert-banner .body .meta { font-size: 11px; color: var(--poli-fg-muted); margin-top: 2px; }
+  .alert-banner .dismiss { font-size: 11px; padding: 6px 10px; border: 1px solid var(--poli-border-strong); background: transparent; color: var(--poli-fg-secondary); border-radius: 6px; font-family: inherit; cursor: pointer; }
+
+  /* Variant B — OS notification (잠금 화면 / 백그라운드 heads-up)
+     Android Material You notification 톤. 앱 아이콘 + 카테고리 + 본문 + 액션. */
+  .lockscreen { position: absolute; inset: 0; background:
+    radial-gradient(ellipse at 50% 30%, rgba(43,83,124,0.40) 0%, var(--poli-bg-base) 70%); }
+  .lockscreen .clock { position: absolute; top: 60px; left: 50%; transform: translateX(-50%); color: #fff; font-size: 56px; font-weight: 200; letter-spacing: 1px; font-variant-numeric: tabular-nums; }
+  .lockscreen .date { position: absolute; top: 130px; left: 50%; transform: translateX(-50%); color: rgba(255,255,255,0.7); font-size: 14px; }
+  .lockscreen .lock-icon { position: absolute; top: 30px; left: 50%; transform: translateX(-50%); width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.6); border-radius: 4px; }
+
+  .os-notification { position: absolute; left: 12px; right: 12px; top: 200px; background: rgba(255,255,255,0.10); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.16); border-radius: 16px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+  .os-notification .head { display: flex; align-items: center; gap: 8px; font-size: 11px; color: rgba(255,255,255,0.85); }
+  .os-notification .head .icon { width: 18px; height: 18px; border-radius: 4px; background: var(--poli-primary); display: inline-flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 800; color: #fff; }
+  .os-notification .head .app-name { font-weight: 700; color: #fff; }
+  .os-notification .head .time { margin-left: auto; }
+  .os-notification .title { font-size: 15px; font-weight: 800; color: #fff; }
+  .os-notification .body { font-size: 13px; color: rgba(255,255,255,0.86); line-height: 1.4; }
+  .os-notification .actions { display: flex; gap: 6px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.10); }
+  .os-notification .actions button { flex: 1; min-height: 36px; background: transparent; border: 0; color: var(--poli-primary-fg); font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer; }
+  .os-notification .actions button:first-child { color: #fff; }
+
+  /* gesture pill */
+  .gesture-bar { background: var(--poli-bg-base); display: flex; align-items: center; justify-content: center; height: 24px; }
+  .gesture-bar .pill { width: 130px; height: 4px; background: #6b7280; border-radius: 2px; }
+
+  /* In-app variant 의 더미 상태 카드 (alert 가 reserved slot 에 들어왔을 때 layout jump 0 임을 보여준다) */
+  .dummy-card { margin: 80px 12px 0; background: var(--poli-bg-surface); border: 1px solid var(--poli-border-strong); border-radius: 12px; padding: 12px 14px; color: var(--poli-fg-secondary); font-size: 13px; }
+  .dummy-card strong { color: var(--poli-fg-primary); display: block; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+
+<div class="label-meta">
+  <strong>폴리폰 강조 알림 v1</strong> — 412×892 · SC-08 (지원 요청·실종자 발견)
+  ·
+  <strong>좌</strong>: 앱 활성 중 in-app banner (search-map 상단 reserved slot, 명시적 dismiss).
+  <strong>우</strong>: 잠금 화면 / 백그라운드 heads-up notification (Android OS 기본).
+  FSI 는 운영 정책 확인 후 후보로만 둔다 (anti-patterns §6.1, P4-2).
+</div>
+
+<div class="row-pair">
+
+  <!-- ===== Variant A: In-app banner ===== -->
+  <div>
+    <div class="variant-label">A · 앱 활성 중 (in-app banner) — PERSON_FOUND</div>
+    <div class="device">
+      <div class="status-bar"><span>14:24</span><span class="right">GPS · LTE · 78%</span></div>
+      <div class="appbar" style="background: var(--poli-bg-surface); border-bottom: 1px solid var(--poli-border); padding: 8px 14px;">
+        <div style="font-size:13px; color: var(--poli-fg-primary); font-weight: 700;">[실종자 이름] · 60대 여</div>
+        <div style="font-size:11px; color: var(--poli-fg-muted); margin-top:2px;">광주 북구 ○○ · OP 3차</div>
+      </div>
+      <div class="map-mock">
+        <!-- alert reserved slot: layout jump 0. dismiss 전까지 유지. -->
+        <div class="alert-banner">
+          <span class="icon" aria-hidden="true">!</span>
+          <div class="body">
+            <div class="title">실종자 발견 마커</div>
+            <div class="meta">기동대 1부대 A팀 · 14:23 · 북측 능선</div>
+          </div>
+          <button class="dismiss">확인</button>
+        </div>
+        <!-- 알림 등장 시 아래 콘텐츠가 밀리지 않음을 보여주는 더미 카드 -->
+        <div class="dummy-card">
+          <strong>지도 상태</strong>
+          알림 등장 시에도 상단 reserved slot 에만 들어가며 layout jump 가 없다.
+        </div>
+      </div>
+      <div class="bottom" style="padding: 12px 14px 14px; background: var(--poli-bg-surface); border-top: 1px solid var(--poli-border);">
+        <button class="button primary button--lg" style="width:100%;">알림 보러 가기</button>
+      </div>
+      <div class="gesture-bar"><span class="pill"></span></div>
+    </div>
+  </div>
+
+  <!-- ===== Variant B: OS lockscreen notification ===== -->
+  <div>
+    <div class="variant-label">B · 잠금 화면 / 백그라운드 (OS heads-up) — SUPPORT_REQUEST</div>
+    <div class="device">
+      <div class="status-bar"><span>14:24</span><span class="right">GPS · LTE · 78%</span></div>
+      <!-- App bar 없음 (잠금 상태) -->
+      <div class="lockscreen" style="grid-row: 2 / -2;">
+        <div class="lock-icon" aria-hidden="true"></div>
+        <div class="clock">14:24</div>
+        <div class="date">2026년 5월 11일 (월)</div>
+        <div class="os-notification">
+          <div class="head">
+            <span class="icon" aria-hidden="true">수</span>
+            <span class="app-name">수리맵</span>
+            <span>· 지원 요청</span>
+            <span class="time">방금</span>
+          </div>
+          <div class="title">드론 지원 요청</div>
+          <div class="body">기동대 1부대 A팀 · 14:23 · 북측 능선 진입 불가</div>
+          <!--
+            강조 알림(PERSON_FOUND · SUPPORT_REQUEST)은 PRD §8.3 "즉시 도달" 정신상 snooze 부적합.
+            인지만 하고 즉시 이동하지 못하는 경우는 OS notification을 그대로 두면 됨 (사용자 액션 없음 = 보류와 동일).
+            액션은 명시적 진입 1개로 단순화: "지도 열기".
+          -->
+          <div class="actions">
+            <button>지도 열기</button>
+          </div>
+        </div>
+      </div>
+      <div class="gesture-bar"><span class="pill"></span></div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

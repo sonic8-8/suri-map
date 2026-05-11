@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Low-fi · 폴리폰 이전 근무 확인 v1</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="./lo-polifon-wireframes.css">
+<style>
+  .summary-card {
+    border-color: color-mix(in srgb, var(--poli-primary-fg) 52%, var(--poli-border-strong));
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--poli-primary) 18%, transparent), transparent 72%),
+      var(--poli-bg-surface);
+  }
+
+  .summary-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .summary-head h2 {
+    margin-bottom: 3px;
+  }
+
+  .summary-head p {
+    color: var(--poli-fg-muted);
+  }
+
+  .summary-text {
+    margin: 0;
+    color: var(--poli-fg-secondary);
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  .metric-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .summary-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .summary-actions .button {
+    min-width: 0;
+  }
+
+  .metric {
+    min-height: 58px;
+    padding: 8px;
+    border: 1px solid var(--poli-border);
+    border-radius: 8px;
+    background: var(--poli-bg-input);
+  }
+
+  .metric strong {
+    display: block;
+    color: var(--poli-fg-primary);
+    font-size: 17px;
+    line-height: 1;
+  }
+
+  .metric span {
+    display: block;
+    margin-top: 6px;
+    color: var(--poli-fg-muted);
+    font-size: 11px;
+    line-height: 1.3;
+  }
+
+  .record-list {
+    display: grid;
+    gap: 8px;
+  }
+
+  .record-row {
+    min-height: 52px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    align-items: center;
+    padding: 9px 10px;
+    border: 1px solid var(--poli-border);
+    border-radius: 8px;
+    background: var(--poli-bg-input);
+  }
+
+  .record-row strong {
+    display: block;
+    color: var(--poli-fg-secondary);
+    font-size: 13px;
+  }
+
+  .record-row span {
+    display: block;
+    margin-top: 3px;
+    color: var(--poli-fg-muted);
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .state-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    align-items: center;
+    padding: 9px 10px;
+    border: 1px solid var(--poli-border);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--poli-bg-input) 82%, transparent);
+    color: var(--poli-fg-muted);
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .state-row strong {
+    display: block;
+    color: var(--poli-fg-secondary);
+    font-size: 13px;
+  }
+
+  .bottom.split {
+    grid-template-columns: 1fr 1.35fr;
+  }
+
+  .bottom.split .button {
+    min-width: 0;
+  }
+</style>
+</head>
+<body>
+  <div class="meta">
+    <strong>P6-A 이전 근무 확인</strong> — 새 근무자가 이전 근무 기록을 확인하고 필요 시 AI 요약 생성을 요청하는 화면.
+    실제 AI 처리는 앱 내부가 아니라 내부망 백엔드가 수행한다.
+    메모 작성은 P6-B에서 분리하며, P6-B에는 요약 생성 CTA를 두지 않는다.
+    앱은 외부 AI API를 직접 호출하지 않고 S8/API 계약만 소비한다.
+  </div>
+
+  <div class="phone-frame">
+    <div class="status-bar"><span>14:24</span><span class="right">LTE · 78%</span></div>
+    <div class="appbar">
+      <div class="appbar-row">
+        <button class="back">←</button>
+        <div class="title-block"><h1>이전 근무 확인</h1><p>사건 #1234 · OP 3차 · 교대 14:00</p></div>
+      </div>
+    </div>
+
+    <main class="content scroll">
+      <div class="card summary-card">
+        <div class="summary-head">
+          <div>
+            <h2>AI 인수인계 요약</h2>
+            <p>박 순경 근무 기록 기준 · 12:00-14:00 · 서버 처리 완료</p>
+          </div>
+          <span class="chip good">준비됨</span>
+        </div>
+        <p class="summary-text">동쪽 능선과 북측 진입로 주변을 도보로 수색했습니다. CCTV 확인 필요 구간이 운영 메모 3건으로 남았고, 배수로 인근 단서 마커 1건에 사진 2장이 첨부되었습니다. 차량 구간은 없습니다.</p>
+        <div class="metric-grid">
+          <div class="metric"><strong>1.8km</strong><span>도보 경로</span></div>
+          <div class="metric"><strong>4건</strong><span>마커</span></div>
+          <div class="metric"><strong>2건</strong><span>메모</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>원본 기록</h2>
+        <div class="record-list">
+          <div class="record-row">
+            <div><strong>도보 경로 · 동쪽 능선</strong><span>12:07-13:18 · GPS 일부 약함</span></div>
+            <span class="chip">보기</span>
+          </div>
+          <div class="record-row">
+            <div><strong>단서 마커 · 배수로 입구</strong><span>사진 2장 · 작성 13:36</span></div>
+            <span class="chip">열기</span>
+          </div>
+          <div class="record-row">
+            <div><strong>운영 메모 · 북측 진입로</strong><span>"주민 진술 대기, 배수로 아래 확인 필요"</span></div>
+            <span class="chip">열기</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>요약 상태 variant (참조)</h2>
+        <p style="opacity:0.7;font-size:12px;margin-bottom:8px">위 요약 카드 자리에 표시되는 상태별 안내. 생성 요청은 P6-A에서만 제공하고, 실제 처리는 내부망 백엔드가 수행한다.</p>
+        <div class="record-list">
+          <div class="state-row">
+            <div><strong>요약 생성 필요</strong><span>이전 근무 기록을 기준으로 AI 요약을 만들 수 있습니다. 원본 기록은 먼저 확인할 수 있습니다.</span></div>
+            <button class="button secondary">AI 요약 생성</button>
+          </div>
+          <div class="state-row">
+            <div><strong>준비 중</strong><span>이전 근무자 기록을 정리하고 있습니다. 원본 기록은 즉시 확인할 수 있습니다.</span></div>
+            <span class="chip warn">자동 처리 중</span>
+          </div>
+          <div class="state-row">
+            <div><strong>요약 없음</strong><span>이전 근무자 기록이 충분하지 않거나 아직 인수인계 트리거 전입니다. 원본 기록을 직접 확인하세요.</span></div>
+            <span class="chip">안내</span>
+          </div>
+          <div class="state-row">
+            <div><strong>요약 준비 못 함</strong><span>서버 요약 생성이 실패했습니다. 원본 기록으로 판단하고, 계약이 허용하면 다시 요청할 수 있습니다.</span></div>
+            <button class="button secondary">다시 생성 요청</button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <div class="bottom split">
+      <button class="button secondary">메모 작성</button>
+      <button class="button primary">수색 화면으로</button>
+    </div>
+    <div class="gesture"><span></span></div>
+  </div>
+</body>
+</html>
