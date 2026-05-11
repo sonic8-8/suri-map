@@ -74,7 +74,7 @@ export function createMovementPathFeatureCollection(
   return {
     type: 'FeatureCollection',
     features: movementPaths
-      .filter((path) => path.coordinates.length >= 2 && path.routeColor)
+      .filter((path) => path.coordinates.length >= 2)
       .map((path) => createMovementPathFeature(path, activeOperationalPeriodId, options)),
   };
 }
@@ -98,14 +98,22 @@ export function createMarkerFeatureCollection(markers: BoardMapMarker[]): BoardM
   };
 }
 
-export function applyRouteColorsByPolicePhone(
+export function applyRouteColorsByAssignee(
   movementPaths: BoardMovementPath[],
+  routeColorsByAccountId: ReadonlyMap<string, string>,
   routeColorsByPolicePhoneId: ReadonlyMap<string, string>,
 ): BoardMovementPath[] {
   return movementPaths.map((path) => ({
     ...path,
-    routeColor: path.routeColor ?? (path.policePhoneId ? routeColorsByPolicePhoneId.get(path.policePhoneId) ?? null : null),
+    routeColor: resolveRouteColor(path, routeColorsByAccountId, routeColorsByPolicePhoneId),
   }));
+}
+
+export function applyRouteColorsByPolicePhone(
+  movementPaths: BoardMovementPath[],
+  routeColorsByPolicePhoneId: ReadonlyMap<string, string>,
+): BoardMovementPath[] {
+  return applyRouteColorsByAssignee(movementPaths, new Map(), routeColorsByPolicePhoneId);
 }
 
 export function markerTypeColor(markerType: BoardMapMarkerType) {
@@ -140,6 +148,19 @@ export function markerTypeGlyph(markerType: BoardMapMarkerType) {
     default:
       return '.';
   }
+}
+
+function resolveRouteColor(
+  path: BoardMovementPath,
+  routeColorsByAccountId: ReadonlyMap<string, string>,
+  routeColorsByPolicePhoneId: ReadonlyMap<string, string>,
+) {
+  if (path.routeColor) return path.routeColor;
+
+  const accountRouteColor = path.accountId ? routeColorsByAccountId.get(path.accountId) : undefined;
+  if (accountRouteColor) return accountRouteColor;
+
+  return path.policePhoneId ? routeColorsByPolicePhoneId.get(path.policePhoneId) ?? null : null;
 }
 
 function createSearchAreaDraftFeature(
@@ -187,6 +208,7 @@ function createMovementPathFeature(
     entityId: path.id,
     opId: path.opId,
     policePhoneId: path.policePhoneId ?? '',
+    accountId: path.accountId ?? '',
     deviceColor: path.routeColor ?? options.fallbackColor ?? '',
     movementType: path.movementType,
     isActiveOp: String(path.opId === activeOperationalPeriodId),

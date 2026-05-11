@@ -60,6 +60,7 @@ export type LegendItem = {
 export type MovementPath = {
   id: string;
   policePhoneId: string | null;
+  accountId: string | null;
   routeColor: string | null;
   opId: string;
   label: string;

@@ -10,6 +10,7 @@ export type BoardPosition = [number, number];
 export type BoardMovementPath = {
   id: string;
   policePhoneId: string | null;
+  accountId: string | null;
   routeColor: string | null;
   opId: string;
   label: string;
@@ -52,10 +53,12 @@ export function createBoardMovementPaths(board: BoardResponseLike | null): Board
 
         const rowId = readString(row, 'id') ?? readString(row, 'pathId') ?? 'path';
         const policePhoneId = readPolicePhoneId(segment) ?? readPolicePhoneId(row);
+        const accountId = readAccountId(segment) ?? readAccountId(row);
         return [
           {
             id: readString(segment, 'id') ?? readString(segment, 'segmentId') ?? `${rowId}:segment-${segmentIndex + 1}`,
             policePhoneId,
+            accountId,
             routeColor: null,
             opId: readRowOpId(segment) ?? readRowOpId(row) ?? board.activeOpId ?? '',
             label: readString(segment, 'label') ?? readString(row, 'label') ?? `Path ${pathIndex + 1}`,
@@ -75,6 +78,7 @@ export function createBoardMovementPaths(board: BoardResponseLike | null): Board
       {
         id: readString(row, 'id') ?? readString(row, 'pathId') ?? `${board.incidentId}:path-${pathIndex + 1}`,
         policePhoneId: readPolicePhoneId(row),
+        accountId: readAccountId(row),
         routeColor: null,
         opId: readRowOpId(row) ?? board.activeOpId ?? '',
         label: readString(row, 'label') ?? `Path ${pathIndex + 1}`,
@@ -206,6 +210,10 @@ function readPolicePhoneId(row: Record<string, unknown>) {
     readString(row, 'deviceId') ??
     readString(row, 'device_id')
   );
+}
+
+function readAccountId(row: Record<string, unknown>) {
+  return readString(row, 'accountId') ?? readString(row, 'account_id');
 }
 
 function readPhotoCount(row: Record<string, unknown>) {

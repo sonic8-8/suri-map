@@ -7,7 +7,7 @@ import maplibregl, {
 } from 'maplibre-gl';
 
 import { getVWorldApiKey } from '../../../../shared/config';
-import { getAreaColor, getAreaVisualStyle } from '../../../../shared/model/areaColorRegistry';
+import { getAreaVisualStyle, type AreaVisualStyle } from '../../../../shared/model/areaColorRegistry';
 import { createVWorldBaseStyle, V_WORLD_MAX_ZOOM } from '../../../../shared/map/vworldBaseMap';
 import {
   createBoardMapMarkers,
@@ -344,27 +344,27 @@ function createComparisonFeatureCollections(
   const selectedOpIdSet = new Set(selectedOpIds);
   const overallRows = readSlotRows(board, 'overall_search_area');
   const areaRows = readSlotRows(board, 'area').filter((row) => rowBelongsToSelectedOp(row, selectedOpIdSet));
-  const routeColorsByPolicePhoneId = createRouteColorsByPolicePhoneId(areaRows);
+  const areaVisualStylesByAreaId = createAreaVisualStylesByAreaId([...overallRows, ...areaRows]);
+  const routeColorsByAssignee = createRouteColorsByAssignee(areaRows, areaVisualStylesByAreaId);
   const paths = createBoardMovementPaths(board)
     .filter((path) => rowBelongsToSelectedOpId(path.opId, selectedOpIdSet))
     .map((path) => ({
       ...path,
-      routeColor: path.policePhoneId ? routeColorsByPolicePhoneId.get(path.policePhoneId) ?? null : null,
-    }))
-    .filter((path) => path.routeColor);
+      routeColor: resolveRouteColor(path, routeColorsByAssignee.accountId, routeColorsByAssignee.policePhoneId),
+    }));
   const markers = createBoardMapMarkers(board).filter((marker) => rowBelongsToSelectedOpId(marker.opId, selectedOpIdSet));
 
   return {
     areas: {
       type: 'FeatureCollection' as const,
       features: [
-        ...overallRows.flatMap((row, index) => createAreaFeature(row, index, incidentId, 'OVERALL')),
-        ...areaRows.flatMap((row, index) => createAreaFeature(row, index, incidentId)),
+        ...overallRows.flatMap((row, index) => createAreaFeature(row, index, incidentId, 'OVERALL', areaVisualStylesByAreaId)),
+        ...areaRows.flatMap((row, index) => createAreaFeature(row, index, incidentId, 'UNIT', areaVisualStylesByAreaId)),
       ],
     },
     paths: {
       type: 'FeatureCollection' as const,
-      features: paths.map((path) => createPathFeatureFromBoardPath(path, incidentId, focusedOpId)),
+      features: paths.map((path) => createPathFeatureFromBoardPath(path, incidentId, focusedOpId, selectedOpIds)),
     },
     markers: {
       type: 'FeatureCollection' as const,
@@ -378,6 +378,7 @@ function createAreaFeature(
   index: number,
   incidentId: string,
   defaultAreaLevel = 'UNIT',
+  areaVisualStylesByAreaId?: ReadonlyMap<string, AreaVisualStyle>,
 ): ComparisonFeature[] {
   const geometry = readGeometry(row);
   if (!geometry || geometry.type !== 'Polygon') return [];
@@ -385,7 +386,7 @@ function createAreaFeature(
   const opId = readRowOpId(row);
   const areaLevel = readString(row, 'areaLevel') ?? defaultAreaLevel;
   const areaId = readString(row, 'id') ?? readString(row, 'searchAreaId') ?? `area-${index}`;
-  const visualStyle = getAreaVisualStyle(areaId);
+  const visualStyle = areaVisualStylesByAreaId?.get(areaId) ?? getAreaVisualStyle(areaId);
   const areaKind = areaLevel === 'OVERALL' ? 'overall' : areaLevel === 'TEAM' ? 'team' : 'unit';
 
   return [
@@ -412,6 +413,7 @@ function createPathFeatureFromBoardPath(
   path: BoardMovementPath,
   incidentId: string,
   focusedOpId: string | null,
+  selectedOpIds: string[],
 ): ComparisonFeature {
   const focused = !path.opId || path.opId === focusedOpId;
 
@@ -525,21 +527,52 @@ function readRowOpId(row: Record<string, unknown>) {
   return readString(row, 'opId') ?? readString(row, 'operationalPeriodId');
 }
 
-function createRouteColorsByPolicePhoneId(areaRows: Record<string, unknown>[]) {
+function createAreaVisualStylesByAreaId(areaRows: Record<string, unknown>[]) {
+  const areaVisualStylesByAreaId = new Map<string, AreaVisualStyle>();
+
+  areaRows.forEach((row) => {
+    const areaId = readString(row, 'id') ?? readString(row, 'searchAreaId');
+    if (!areaId || areaVisualStylesByAreaId.has(areaId)) return;
+    areaVisualStylesByAreaId.set(areaId, getAreaVisualStyle(areaId));
+  });
+
+  return areaVisualStylesByAreaId;
+}
+
+function createRouteColorsByAssignee(
+  areaRows: Record<string, unknown>[],
+  areaVisualStylesByAreaId: ReadonlyMap<string, AreaVisualStyle>,
+) {
+  const routeColorsByAccountId = new Map<string, string>();
   const routeColorsByPolicePhoneId = new Map<string, string>();
 
   areaRows.forEach((row) => {
     const areaId = readString(row, 'id') ?? readString(row, 'searchAreaId');
     const assignedAccounts = row.assignedAccounts;
     if (!areaId || !Array.isArray(assignedAccounts)) return;
+    const routeColor = areaVisualStylesByAreaId.get(areaId)?.lineColor ?? getAreaVisualStyle(areaId).lineColor;
 
     assignedAccounts.filter(isRecord).forEach((account) => {
+      const accountId = readAccountId(account);
       const policePhoneId = readPolicePhoneId(account);
-      if (policePhoneId) routeColorsByPolicePhoneId.set(policePhoneId, getAreaColor(areaId));
+      if (accountId) routeColorsByAccountId.set(accountId, routeColor);
+      if (policePhoneId) routeColorsByPolicePhoneId.set(policePhoneId, routeColor);
     });
   });
 
-  return routeColorsByPolicePhoneId;
+  return { accountId: routeColorsByAccountId, policePhoneId: routeColorsByPolicePhoneId };
+}
+
+function resolveRouteColor(
+  path: BoardMovementPath,
+  routeColorsByAccountId: ReadonlyMap<string, string>,
+  routeColorsByPolicePhoneId: ReadonlyMap<string, string>,
+) {
+  const accountRouteColor = path.accountId ? routeColorsByAccountId.get(path.accountId) : undefined;
+  if (accountRouteColor) return accountRouteColor;
+
+  const phoneRouteColor = path.policePhoneId ? routeColorsByPolicePhoneId.get(path.policePhoneId) : undefined;
+  return phoneRouteColor ?? path.routeColor;
 }
 
 function getOpColor(opId: string | null, selectedOpIds: string[]) {
@@ -600,6 +633,10 @@ function readPolicePhoneId(row: Record<string, unknown>) {
     readString(row, 'deviceId') ??
     readString(row, 'device_id')
   );
+}
+
+function readAccountId(row: Record<string, unknown>) {
+  return readString(row, 'accountId') ?? readString(row, 'account_id');
 }
 
 function emptyFeatureCollection(): ComparisonFeatureCollection {

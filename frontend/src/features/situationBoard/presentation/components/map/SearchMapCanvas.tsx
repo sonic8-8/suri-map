@@ -566,7 +566,10 @@ export function SearchMapCanvas({
     [incidentId, savedAreaDrafts],
   );
   const movementPathFeatures = useMemo(
-    () => createMovementPathFeatureCollection(movementPaths, activeOperationalPeriodId, { includeLabel: true }),
+    () =>
+      createMovementPathFeatureCollection(movementPaths, activeOperationalPeriodId, {
+        includeLabel: true,
+      }),
     [activeOperationalPeriodId, movementPaths],
   );
   const assignedSearchAreasSignature = useMemo(
