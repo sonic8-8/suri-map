@@ -9,6 +9,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.surimap.feature.bootstrap.ui.AuthBootstrapScreen
 import com.surimap.feature.bootstrap.ui.sampleAuthBootstrapState
 import com.surimap.feature.handover.ui.DutyHandoverScreen
@@ -17,19 +21,20 @@ import com.surimap.feature.handover.ui.sampleDutyHandoverState
 import com.surimap.feature.handover.ui.sampleHandoverMemoState
 import com.surimap.feature.incidents.ui.IncidentListScreen
 import com.surimap.feature.incidents.ui.sampleIncidentListState
+import com.surimap.ui.navigation.BlockedOutboxRouteScreen
+import com.surimap.ui.navigation.IncidentContext
+import com.surimap.ui.navigation.IncidentSessionState
+import com.surimap.ui.navigation.MarkerDetailRouteScreen
+import com.surimap.ui.navigation.OfflinePackageRouteScreen
+import com.surimap.ui.navigation.PolicePhoneRoute
+import com.surimap.ui.navigation.SearchMapRouteScreen
 import com.surimap.ui.theme.PoliBgBase
 import kotlinx.coroutines.delay
 
-private enum class PolicePhoneRoute {
-    AuthBootstrap,
-    IncidentList,
-    DutyHandover,
-    HandoverMemo
-}
-
 @Composable
 fun SuriMapApp() {
-    var route by remember { mutableStateOf(PolicePhoneRoute.AuthBootstrap) }
+    val navController = rememberNavController()
+    val incidentSessionState = remember { IncidentSessionState() }
     var incidentClosed by remember { mutableStateOf<IncidentClosedOverlayState?>(null) }
     var blockedQueue by remember { mutableStateOf<BlockedQueueToastState?>(null) }
 
@@ -38,41 +43,105 @@ fun SuriMapApp() {
             state = AppOverlayState(incidentClosed = incidentClosed, blockedQueue = blockedQueue),
             onDismissIncidentClosed = {
                 incidentClosed = null
-                route = PolicePhoneRoute.IncidentList
+                incidentSessionState.clearIncidentContext()
+                navController.navigateToIncidentListRoot()
             },
             onOpenBlockedQueue = {
                 blockedQueue = null
+                navController.navigateToSingleTop(PolicePhoneRoute.BlockedOutbox)
             }
         ) {
-            when (route) {
-                PolicePhoneRoute.AuthBootstrap -> {
-                    LaunchedEffect(Unit) {
-                        delay(1200)
-                        route = PolicePhoneRoute.IncidentList
-                    }
-                    AuthBootstrapScreen(state = sampleAuthBootstrapState())
+            NavHost(
+                navController = navController,
+                startDestination = PolicePhoneRoute.AuthBootstrap.route,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                composable(PolicePhoneRoute.AuthBootstrap.route) {
+                    AuthBootstrapRoute(navController = navController)
                 }
-                PolicePhoneRoute.IncidentList ->
+                composable(PolicePhoneRoute.IncidentList.route) {
                     IncidentListScreen(
                         state = sampleIncidentListState(),
-                        onOpenIncident = { route = PolicePhoneRoute.DutyHandover },
+                        onOpenIncident = {
+                            incidentSessionState.activateIncidentContext(sampleIncidentContext)
+                            navController.navigateToSingleTop(PolicePhoneRoute.OfflinePackage)
+                        },
                         onRefresh = {},
                         onDismissClosedDialog = { incidentClosed = null }
                     )
-                PolicePhoneRoute.DutyHandover ->
+                }
+                composable(PolicePhoneRoute.OfflinePackage.route) {
+                    OfflinePackageRouteScreen(
+                        onBack = { navController.popBackStack() },
+                        onOpenSearchMap = { navController.navigateToSingleTop(PolicePhoneRoute.SearchMap) }
+                    )
+                }
+                composable(PolicePhoneRoute.SearchMap.route) {
+                    SearchMapRouteScreen(
+                        onBack = { navController.popBackStack() },
+                        onOpenHandover = { navController.navigateToSingleTop(PolicePhoneRoute.HandoverSummary) },
+                        onOpenMarkerDetail = { navController.navigateToSingleTop(PolicePhoneRoute.MarkerDetail) },
+                        onShowBlockedQueue = { blockedQueue = BlockedQueueToastState(blockedCount = 2) }
+                    )
+                }
+                composable(PolicePhoneRoute.HandoverSummary.route) {
                     DutyHandoverScreen(
                         state = sampleDutyHandoverState(),
-                        onBack = { route = PolicePhoneRoute.IncidentList },
-                        onWriteMemo = { route = PolicePhoneRoute.HandoverMemo },
-                        onOpenSearch = { blockedQueue = BlockedQueueToastState(blockedCount = 2) }
+                        onBack = { navController.popBackStack() },
+                        onWriteMemo = { navController.navigateToSingleTop(PolicePhoneRoute.HandoverMemo) },
+                        onOpenSearch = { navController.navigateToSingleTop(PolicePhoneRoute.SearchMap) }
                     )
-                PolicePhoneRoute.HandoverMemo ->
+                }
+                composable(PolicePhoneRoute.HandoverMemo.route) {
                     HandoverMemoScreen(
                         state = sampleHandoverMemoState(),
-                        onBack = { route = PolicePhoneRoute.DutyHandover },
-                        onSave = { route = PolicePhoneRoute.DutyHandover }
+                        onBack = { navController.popBackStack() },
+                        onSave = { navController.popBackStack() }
                     )
+                }
+                composable(PolicePhoneRoute.MarkerDetail.route) {
+                    MarkerDetailRouteScreen(onBack = { navController.popBackStack() })
+                }
+                composable(PolicePhoneRoute.BlockedOutbox.route) {
+                    BlockedOutboxRouteScreen(onBack = { navController.popBackStack() })
+                }
             }
         }
     }
 }
+
+@Composable
+private fun AuthBootstrapRoute(navController: NavHostController) {
+    LaunchedEffect(Unit) {
+        delay(1200)
+        navController.navigate(PolicePhoneRoute.IncidentList.route) {
+            popUpTo(PolicePhoneRoute.AuthBootstrap.route) {
+                inclusive = true
+            }
+            launchSingleTop = true
+        }
+    }
+    AuthBootstrapScreen(state = sampleAuthBootstrapState())
+}
+
+private fun NavHostController.navigateToSingleTop(route: PolicePhoneRoute) {
+    navigate(route.route) {
+        launchSingleTop = true
+    }
+}
+
+private fun NavHostController.navigateToIncidentListRoot() {
+    navigate(PolicePhoneRoute.IncidentList.route) {
+        popUpTo(PolicePhoneRoute.IncidentList.route) {
+            inclusive = true
+        }
+        launchSingleTop = true
+    }
+}
+
+private val sampleIncidentContext =
+    IncidentContext(
+        incidentId = "inc-precinct-first-001",
+        currentOpId = "op-003",
+        currentDutyShiftId = "duty-shift-014"
+    )
