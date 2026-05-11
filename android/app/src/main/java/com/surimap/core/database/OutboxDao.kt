@@ -49,6 +49,24 @@ interface OutboxDao {
         minClockSyncedAt: Long
     ): List<OutboxEntity>
 
+    @Query(
+        """
+        SELECT COUNT(*) FROM android_outbox_row
+        WHERE incident_id = :incidentId
+          AND police_phone_id = :policePhoneId
+          AND (:opId IS NULL OR op_id = :opId)
+          AND sequence < :sequence
+          AND dependency_group IN ('PATH', 'MARKER', 'PHOTO', 'HANDOVER_MEMO')
+          AND idempotency_status NOT IN ('ACKED', 'FAILED_FINAL', 'PURGED')
+        """
+    )
+    suspend fun countUnresolvedLowerSequenceSourceRows(
+        incidentId: String,
+        policePhoneId: String,
+        opId: String?,
+        sequence: Long
+    ): Int
+
     @Query("SELECT * FROM android_outbox_row WHERE client_operation_id = :operationId LIMIT 1")
     suspend fun findByOperationId(operationId: String): OutboxEntity?
 

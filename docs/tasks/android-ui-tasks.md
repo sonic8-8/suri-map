@@ -220,7 +220,7 @@
     - GREEN: 같은 targeted test 통과
     - VERIFY: `cd android && ./gradlew test :app:assembleDebug` 통과
 
-- [ ] AUI-T07 수색 지도 shell과 동기화 상태 UI를 구현한다
+- [x] AUI-T07 수색 지도 shell과 동기화 상태 UI를 구현한다
   - 담당 영역: Android UI
   - 연관 Spec: S2, S3-1, S6, S7, S8
   - 시나리오: SC-05, SC-07, SC-09, SC-11
@@ -240,10 +240,16 @@
     - OP 없음/전환/일시정지/종료 상태가 지도 write 가능 여부와 함께 드러난다.
     - P5에서 P6-A banner 진입이 가능하다.
     - `cd android && ./gradlew :app:assembleDebug` 통과
+  - 완료 증거:
+    - Jira `S14P31C106-226`, branch `feature/S14P31C106-226-search-map-shell-sync-state`
+    - RED: `cd android && ./gradlew :app:testDebugUnitTest --tests com.surimap.feature.search.SearchMapUiStateTest` 실패 (`SearchMapUiState`, `SearchLifecycleStatus`, `SearchMapSyncStatus` 미정의)
+    - GREEN: 같은 targeted test 통과
+    - VERIFY: `git diff --check` 통과
+    - VERIFY: `cd android && ./gradlew test :app:assembleDebug` 통과
 
 ## Phase 4 — 마커와 사진
 
-- [ ] AUI-T08 마커 생성 bottom sheet를 구현한다
+- [x] AUI-T08 마커 생성 bottom sheet를 구현한다
   - 담당 영역: Android UI
   - 연관 Spec: S5, S6
   - 시나리오: SC-06, SC-08
@@ -261,8 +267,14 @@
     - 5개 마커 유형이 모두 화면에서 선택 가능하다.
     - offline 상태에서 pending 표시가 P4 직접 진입으로 바뀌지 않는다.
     - `cd android && ./gradlew :app:assembleDebug` 통과
+  - 완료 증거:
+    - Jira `S14P31C106-227`, branch `feature/S14P31C106-227-marker-create-bottom-sheet`
+    - RED: `cd android && ./gradlew :app:testDebugUnitTest --tests com.surimap.feature.marker.MarkerCreateSheetUiStateTest` 실패 (`MarkerCreateSheetUiState`, `MarkerType`, `SupportRequestType` 미정의)
+    - GREEN: 같은 targeted test 통과
+    - VERIFY: `git diff --check` 통과
+    - VERIFY: `cd android && ./gradlew test :app:assembleDebug` 통과
 
-- [ ] AUI-T09 마커 상세/편집 화면을 구현한다
+- [x] AUI-T09 마커 상세/편집 화면을 구현한다
   - 담당 영역: Android UI
   - 연관 Spec: S5
   - 필수 참조: `docs/api/api-spec.md`, `docs/spec/specs/S5.json`, `docs/screen-design/artifacts/lo/lo-polifon-marker-detail-v1.html`
@@ -279,10 +291,16 @@
     - readonly 상태에서는 수정/삭제 버튼이 숨겨진다.
     - 삭제는 명시 버튼과 confirm dialog를 모두 거친다.
     - `cd android && ./gradlew :app:assembleDebug` 통과
+  - 완료 증거:
+    - Jira `S14P31C106-228`, branch `feature/S14P31C106-228-marker-detail-edit-screen`
+    - RED: `cd android && ./gradlew :app:testDebugUnitTest --tests com.surimap.feature.marker.MarkerDetailUiStateTest` 실패 (`MarkerDetailUiState`, `MarkerDetailPhotoStatus` 미정의)
+    - GREEN: 같은 targeted test 통과
+    - VERIFY: `git diff --check` 통과
+    - VERIFY: `cd android && ./gradlew test :app:assembleDebug` 통과
 
 ## Phase 5 — 인수인계와 처리 불가 큐
 
-- [ ] AUI-T10 이전 근무 확인과 인수인계 메모 화면을 도메인 상태와 연결한다
+- [x] AUI-T10 이전 근무 확인과 인수인계 메모 화면을 도메인 상태와 연결한다
   - 담당 영역: Android UI
   - 연관 Spec: S8, S6
   - 시나리오: SC-10, SC-11
@@ -299,8 +317,19 @@
     - 새 근무자가 이전 근무 정보를 확인하는 흐름과 새 메모를 남기는 흐름이 분리된다.
     - P6-B 저장 후 P5 또는 P6-A로 복귀하고 toast가 표시된다.
     - `cd android && ./gradlew :app:assembleDebug` 통과
+  - 완료 증거:
+    - Jira `S14P31C106-230`, branch `feature/S14P31C106-230-handover-summary-memo-state`
+    - RED: `cd android && ./gradlew :app:testDebugUnitTest --tests com.surimap.feature.handover.HandoverUiStateTest` 실패 (`HandoverMemoTarget`, `HandoverPromptUiState`, P6-A summary state factory 미정의)
+    - GREEN: 같은 targeted test 통과
+    - VERIFY: `cd android && ./gradlew :app:testDebugUnitTest --tests com.surimap.feature.search.SearchMapUiStateTest` 통과
+    - VERIFY: `git diff --check` 통과
+    - VERIFY: `cd android && ./gradlew test :app:assembleDebug` 통과
+  - 계약 메모:
+    - 현재 `docs/api/api-spec.md`와 `docs/spec/specs/S8.json`은 search history summary 생성/재시도를 APP/WEB 공개 API로 허용하지 않고, duty shift END 또는 OP transition commit 이후 S8 서버 내부 job이 처리한다고 정한다.
+    - 따라서 P6-A는 `READY`/`GENERATING`/`FAILED`와 `sourceReadiness` 기반 상태, `summary_unavailable`, 원본 확인만 표시하고 Android client 생성/재시도 CTA는 만들지 않았다.
+    - low-fi의 생성/재생성 CTA를 실제 앱에 노출하려면 S8/API 계약이 먼저 변경되어야 한다.
 
-- [ ] AUI-T11 처리 불가 미전송 진단 화면을 구현한다
+- [x] AUI-T11 처리 불가 미전송 진단 화면을 구현한다
   - 담당 영역: Android UI
   - 연관 Spec: S6, S4
   - 시나리오: SC-07, SC-09, SC-12
@@ -319,10 +348,17 @@
     - 처리 불가 사유가 명확하게 구분된다.
     - 정상 큐 상태에서는 P4 진입 CTA가 노출되지 않는다.
     - `cd android && ./gradlew :app:assembleDebug` 통과
+  - 완료 증거:
+    - Jira `S14P31C106-232`, branch `feature/S14P31C106-232-blocked-outbox-diagnostic`
+    - RED: `cd android && ./gradlew :app:testDebugUnitTest --tests com.surimap.feature.outbox.BlockedOutboxUiStateTest` 실패 (`BlockedOutboxUiState`, `BlockedOutboxReason` 미정의)
+    - GREEN: 같은 targeted test 통과
+    - VERIFY: `cd android && ./gradlew :app:testDebugUnitTest --tests com.surimap.core.sync.OutboxRetryDiagnosticsStateTest` 통과
+    - VERIFY: `git diff --check` 통과
+    - VERIFY: `cd android && ./gradlew test :app:assembleDebug` 통과
 
 ## Phase 6 — 알림과 terminal state
 
-- [ ] AUI-T12 강조 알림 UI와 FCM 라우팅 shell을 구현한다
+- [x] AUI-T12 강조 알림 UI와 FCM 라우팅 shell을 구현한다
   - 담당 영역: Android UI
   - 연관 Spec: S4, S5
   - 시나리오: SC-08, SC-12
@@ -340,10 +376,17 @@
     - 알림에서 P5 marker focus로 이동한다.
     - INCIDENT_CLOSED는 alert UI가 아니라 root terminal dialog로 처리된다.
     - `cd android && ./gradlew :app:assembleDebug` 통과
+  - 완료 증거:
+    - Jira `S14P31C106-233`, branch `feature/S14P31C106-233-incident-alert-fcm-route-shell`
+    - RED: `cd android && ./gradlew :app:testDebugUnitTest --tests com.surimap.feature.alert.IncidentAlertUiStateTest` 실패 (`IncidentAlertUiState`, `IncidentFcmRouteMapper` 미정의)
+    - GREEN: 같은 targeted test 통과
+    - VERIFY: `cd android && ./gradlew :app:testDebugUnitTest --tests com.surimap.feature.search.SearchMapUiStateTest` 통과
+    - VERIFY: `git diff --check` 통과
+    - VERIFY: `cd android && ./gradlew test :app:assembleDebug` 통과
 
 ## Phase 7 — Test와 실기기 검증
 
-- [ ] AUI-T13 Android UI test와 ViewModel test를 추가한다
+- [x] AUI-T13 Android UI test와 ViewModel test를 추가한다
   - 담당 영역: Android test
   - 필수 참조: `docs/spec/harness-scenarios.md`, `docs/spec/fixtures/`, `docs/tasks/review-guide.md`
   - 구현 산출물:
@@ -355,6 +398,16 @@
   - 완료 기준:
     - `cd android && ./gradlew :app:assembleDebug`
     - 테스트 추가 범위에 맞춰 `cd android && ./gradlew test` 또는 `:app:testDebugUnitTest` 통과
+  - 완료 증거:
+    - Jira `S14P31C106-234`, branch `feature/S14P31C106-234-android-ui-test-fixtures`
+    - RED: `cd android && ./gradlew :app:testDebugUnitTest --tests com.surimap.testing.AndroidHarnessFixtureCatalogTest --tests com.surimap.feature.AndroidUiScenarioCoverageTest --tests com.surimap.ui.components.PoliComponentVariantContractTest --tests com.surimap.ui.navigation.IncidentSessionStateTest` 실패 (`AndroidHarnessFixtureCatalog` 미정의)
+    - GREEN: `cd android && ./gradlew :app:testDebugUnitTest --tests com.surimap.testing.AndroidHarnessFixtureCatalogTest --tests com.surimap.feature.AndroidUiScenarioCoverageTest --tests com.surimap.ui.components.PoliComponentVariantContractTest --tests com.surimap.ui.navigation.IncidentSessionStateTest --tests com.surimap.core.sync.OutboxHarnessIntegrationTest` 통과
+    - VERIFY: `python3 docs/spec/fixtures/preflight_common_fixtures.py` 통과
+    - VERIFY: `git diff --check` 통과
+    - VERIFY: `cd android && ./gradlew test :app:assembleDebug` 통과
+  - 범위 메모:
+    - 현재 Android UI는 별도 ViewModel보다 Activity/Nav scope `IncidentSessionState`를 사용하므로 해당 state holder 전이를 ViewModel-equivalent 테스트로 검증했다.
+    - fixture JSON은 복사본을 만들지 않고 `docs/spec/fixtures`를 Gradle test resource로 연결해 `common-fixtures.json`의 확정 ID를 직접 읽는다.
 
 - [ ] AUI-T14 연결된 Android 실기기에서 화면 검증을 수행한다
   - 담당 영역: Android QA

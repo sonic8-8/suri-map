@@ -1,5 +1,6 @@
 package com.surimap.ui
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -29,13 +30,18 @@ import com.surimap.feature.handover.ui.sampleHandoverMemoState
 import com.surimap.feature.incidents.data.IncidentListStateLoader
 import com.surimap.feature.incidents.ui.IncidentListScreen
 import com.surimap.feature.incidents.ui.IncidentListUiState
+import com.surimap.feature.marker.ui.MarkerCreateBottomSheet
+import com.surimap.feature.marker.ui.MarkerDetailScreen
+import com.surimap.feature.marker.ui.MarkerType
+import com.surimap.feature.marker.ui.sampleMarkerDetailState
+import com.surimap.feature.marker.ui.sampleMarkerCreateSheetState
 import com.surimap.feature.offline.ui.OfflinePackageScreen
 import com.surimap.feature.offline.ui.sampleOfflinePackageState
+import com.surimap.feature.search.ui.SearchMapScreen
+import com.surimap.feature.search.ui.sampleSearchMapState
 import com.surimap.ui.navigation.BlockedOutboxRouteScreen
 import com.surimap.ui.navigation.IncidentSessionState
-import com.surimap.ui.navigation.MarkerDetailRouteScreen
 import com.surimap.ui.navigation.PolicePhoneRoute
-import com.surimap.ui.navigation.SearchMapRouteScreen
 import com.surimap.ui.theme.PoliBgBase
 
 @Composable
@@ -44,10 +50,16 @@ fun SuriMapApp() {
     val incidentSessionState = remember { IncidentSessionState() }
     var incidentClosed by remember { mutableStateOf<IncidentClosedOverlayState?>(null) }
     var blockedQueue by remember { mutableStateOf<BlockedQueueToastState?>(null) }
+    var handoverMemoSaved by remember { mutableStateOf<HandoverMemoSavedToastState?>(null) }
 
     Surface(modifier = Modifier.fillMaxSize(), color = PoliBgBase) {
         AppOverlayHost(
-            state = AppOverlayState(incidentClosed = incidentClosed, blockedQueue = blockedQueue),
+            state =
+            AppOverlayState(
+                incidentClosed = incidentClosed,
+                blockedQueue = blockedQueue,
+                handoverMemoSaved = handoverMemoSaved
+            ),
             onDismissIncidentClosed = {
                 incidentClosed = null
                 incidentSessionState.clearIncidentContext()
@@ -56,7 +68,8 @@ fun SuriMapApp() {
             onOpenBlockedQueue = {
                 blockedQueue = null
                 navController.navigateToSingleTop(PolicePhoneRoute.BlockedOutbox)
-            }
+            },
+            onDismissHandoverMemoSaved = { handoverMemoSaved = null }
         ) {
             NavHost(
                 navController = navController,
@@ -83,12 +96,53 @@ fun SuriMapApp() {
                     )
                 }
                 composable(PolicePhoneRoute.SearchMap.route) {
-                    SearchMapRouteScreen(
-                        onBack = { navController.popBackStack() },
-                        onOpenHandover = { navController.navigateToSingleTop(PolicePhoneRoute.HandoverSummary) },
-                        onOpenMarkerDetail = { navController.navigateToSingleTop(PolicePhoneRoute.MarkerDetail) },
-                        onShowBlockedQueue = { blockedQueue = BlockedQueueToastState(blockedCount = 2) }
-                    )
+                    var markerSheetOpen by remember { mutableStateOf(false) }
+                    var markerSheetState by remember { mutableStateOf(sampleMarkerCreateSheetState()) }
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        SearchMapScreen(
+                            state = sampleSearchMapState(),
+                            onBack = { navController.popBackStack() },
+                            onPrimaryLifecycleAction = {},
+                            onStopSearch = {},
+                            onCreateMarker = {
+                                markerSheetState = sampleMarkerCreateSheetState()
+                                markerSheetOpen = true
+                            },
+                            onOpenHandover = { navController.navigateToSingleTop(PolicePhoneRoute.HandoverSummary) },
+                            onOpenBlockedOutbox = { blockedQueue = BlockedQueueToastState(blockedCount = 2) },
+                            onDismissIncidentAlert = {},
+                            onOpenIncidentAlertMarker = {
+                                navController.navigateToSingleTop(PolicePhoneRoute.SearchMap)
+                            }
+                        )
+                        if (markerSheetOpen) {
+                            MarkerCreateBottomSheet(
+                                state = markerSheetState,
+                                onDismiss = { markerSheetOpen = false },
+                                onSelectMarkerType = { type ->
+                                    markerSheetState =
+                                        markerSheetState.copy(
+                                            selectedType = type,
+                                            supportRequestType =
+                                            if (type == MarkerType.SUPPORT_REQUEST) {
+                                                markerSheetState.supportRequestType
+                                            } else {
+                                                null
+                                            }
+                                        )
+                                },
+                                onSelectSupportRequestType = { type ->
+                                    markerSheetState = markerSheetState.copy(supportRequestType = type)
+                                },
+                                onMemoChange = { memo ->
+                                    markerSheetState = markerSheetState.copy(memo = memo)
+                                },
+                                onSave = { markerSheetOpen = false },
+                                onAttachPhoto = {},
+                                onRetryPhoto = {}
+                            )
+                        }
+                    }
                 }
                 composable(PolicePhoneRoute.HandoverSummary.route) {
                     DutyHandoverScreen(
@@ -99,14 +153,39 @@ fun SuriMapApp() {
                     )
                 }
                 composable(PolicePhoneRoute.HandoverMemo.route) {
+                    var memoState by remember { mutableStateOf(sampleHandoverMemoState()) }
                     HandoverMemoScreen(
-                        state = sampleHandoverMemoState(),
+                        state = memoState,
                         onBack = { navController.popBackStack() },
-                        onSave = { navController.popBackStack() }
+                        onSelectTarget = { target ->
+                            memoState = memoState.copy(selectedTarget = target)
+                        },
+                        onMemoChange = { memo ->
+                            memoState = memoState.copy(memoText = memo)
+                        },
+                        onSave = {
+                            handoverMemoSaved = HandoverMemoSavedToastState(pendingSync = memoState.offline)
+                            navController.popBackStack()
+                        }
                     )
                 }
                 composable(PolicePhoneRoute.MarkerDetail.route) {
-                    MarkerDetailRouteScreen(onBack = { navController.popBackStack() })
+                    var markerDetailState by remember { mutableStateOf(sampleMarkerDetailState()) }
+                    MarkerDetailScreen(
+                        state = markerDetailState,
+                        onBack = { navController.popBackStack() },
+                        onMemoChange = { memo -> markerDetailState = markerDetailState.copy(memo = memo) },
+                        onSave = { navController.popBackStack() },
+                        onRequestDelete = {
+                            markerDetailState = markerDetailState.copy(showDeleteConfirm = true)
+                        },
+                        onDismissDelete = {
+                            markerDetailState = markerDetailState.copy(showDeleteConfirm = false)
+                        },
+                        onConfirmDelete = { navController.popBackStack() },
+                        onAddPhoto = {},
+                        onDeletePhoto = {}
+                    )
                 }
                 composable(PolicePhoneRoute.BlockedOutbox.route) {
                     BlockedOutboxRouteScreen(onBack = { navController.popBackStack() })

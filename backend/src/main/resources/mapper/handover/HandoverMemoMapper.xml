@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.surimap.handover.HandoverMemoMapper">
+
+    <insert id="insert" parameterType="com.surimap.handover.HandoverMemo">
+        INSERT INTO handover_memo (
+            id, operational_period_id, memo_target_type, memo_target_id, content,
+            created_by_account_id, duty_shift_id, status, version, created_at, updated_at
+        ) VALUES (
+            #{id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{opId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{memoTargetType},
+            #{memoTargetId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{content},
+            #{createdByAccountId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{status},
+            #{version},
+            #{createdAt},
+            #{updatedAt}
+        )
+    </insert>
+
+    <resultMap id="handoverMemoRowMap" type="com.surimap.handover.query.HandoverMemoRow">
+        <constructor>
+            <arg column="memo_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="incident_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="op_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="target_type" javaType="java.lang.String"/>
+            <arg column="target_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="content" javaType="java.lang.String"/>
+            <arg column="created_by_account_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="created_at" javaType="java.time.Instant"/>
+            <arg column="version" javaType="_long"/>
+        </constructor>
+    </resultMap>
+
+    <select id="findByContext" resultMap="handoverMemoRowMap">
+        SELECT
+            hm.id AS memo_id,
+            op.incident_id,
+            hm.operational_period_id AS op_id,
+            hm.memo_target_type AS target_type,
+            hm.memo_target_id AS target_id,
+            hm.content,
+            hm.created_by_account_id,
+            hm.created_at,
+            hm.version
+        FROM handover_memo hm
+        JOIN operational_period op ON op.id = hm.operational_period_id
+        WHERE op.incident_id = #{incidentId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+        <if test="opId != null">
+            AND hm.operational_period_id = #{opId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+        </if>
+        <if test="memoTargetType != null">
+            AND hm.memo_target_type = #{memoTargetType}
+        </if>
+        <if test="memoTargetId != null">
+            AND hm.memo_target_id = #{memoTargetId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+        </if>
+        ORDER BY hm.created_at DESC, hm.id ASC
+    </select>
+</mapper>
