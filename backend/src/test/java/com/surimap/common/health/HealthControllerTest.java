@@ -10,7 +10,9 @@ class HealthControllerTest {
   void healthReturnsUpStatus() {
     var response = new HealthController().health();
 
-    assertThat(response.status()).isEqualTo("UP");
-    assertThat(response.service()).isEqualTo("suri-map-api");
+    assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
+    assertThat(response.getBody()).isNotNull();
+    assertThat(response.getBody().status()).isEqualTo("UP");
+    assertThat(response.getBody().service()).isEqualTo("suri-map-api");
   }
 }

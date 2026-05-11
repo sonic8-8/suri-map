@@ -1,6 +1,7 @@
 package com.surimap.path;
 
 import java.util.UUID;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -19,7 +20,7 @@ public class SearchPathSegmentController {
   }
 
   @PatchMapping("/{searchPathSegmentId}")
-  public PathSegmentCorrectionResponse correctSegment(
+  public ResponseEntity<PathSegmentCorrectionResponse> correctSegment(
       @PathVariable String searchPathSegmentId,
       @RequestHeader(value = "X-Account-Id", required = false) String accountIdHeader,
       @RequestBody PathSegmentCorrectionRequest request) {
@@ -29,15 +30,16 @@ public class SearchPathSegmentController {
     UUID accountId = parseAccountId(accountIdHeader);
     SegmentCorrectionResult corrected =
         searchPathService.correctSegment(searchPathSegmentId, request.movementType(), accountId);
-    return new PathSegmentCorrectionResponse(
-        corrected.segment().id(),
-        corrected.segment().movementType(),
-        corrected.segment().movementTypeSource(),
-        corrected.opId(),
-        corrected.policePhoneId(),
-        corrected.segment().correctedByAccountId(),
-        corrected.segment().correctedAt(),
-        corrected.segment().version());
+    return ResponseEntity.ok(
+        new PathSegmentCorrectionResponse(
+            corrected.segment().id(),
+            corrected.segment().movementType(),
+            corrected.segment().movementTypeSource(),
+            corrected.opId(),
+            corrected.policePhoneId(),
+            corrected.segment().correctedByAccountId(),
+            corrected.segment().correctedAt(),
+            corrected.segment().version()));
   }
 
   private UUID parseAccountId(String accountIdHeader) {

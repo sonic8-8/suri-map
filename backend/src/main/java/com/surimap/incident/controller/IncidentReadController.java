@@ -31,11 +31,12 @@ public class IncidentReadController {
 
   @GetMapping
   @RequireChannel({Channel.APP, Channel.WEB})
-  public IncidentListResponse listActiveIncidents(
+  public ResponseEntity<IncidentListResponse> listActiveIncidents(
       @RequestParam(value = "status", required = false) String status) {
     var auth = currentAuthentication();
-    return IncidentListResponse.from(
-        incidentReadQueryService.findActiveIncidents(auth.getAccountId(), status));
+    return ResponseEntity.ok(
+        IncidentListResponse.from(
+            incidentReadQueryService.findActiveIncidents(auth.getAccountId(), status)));
   }
 
   @GetMapping("/{incidentId}")

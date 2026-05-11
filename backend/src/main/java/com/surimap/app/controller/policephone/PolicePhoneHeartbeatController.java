@@ -13,6 +13,7 @@ import com.surimap.common.auth.guard.ChannelNotAllowedException;
 import com.surimap.common.auth.guard.PolicePhoneRequiredException;
 import jakarta.validation.Valid;
 import java.util.UUID;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -34,20 +35,21 @@ public class PolicePhoneHeartbeatController {
   @RequirePolicePhone
   @RequirePolicePhoneRegistered
   @RequirePolicePhoneAssigned
-  public PolicePhoneHeartbeatResponse heartbeat(
+  public ResponseEntity<PolicePhoneHeartbeatResponse> heartbeat(
       @PathVariable UUID policePhoneId,
       @RequestHeader(value = "X-PolicePhone-Id", required = false) String policePhoneIdHeader,
       @Valid @RequestBody PolicePhoneHeartbeatRequest request) {
     // ONLINE response includes policePhoneId, sequence, lastHeartbeatAt, and lastSyncAt.
     SuriMapAuthentication auth = currentAuthentication();
     validatePolicePhoneBinding(policePhoneId, policePhoneIdHeader, auth);
-    return PolicePhoneHeartbeatResponse.from(
-        service.heartbeat(
-            request.toServiceRequest(
-                policePhoneId,
-                auth.getAccountId(),
-                auth.getAccountType(),
-                auth.getOrganizationType())));
+    return ResponseEntity.ok(
+        PolicePhoneHeartbeatResponse.from(
+            service.heartbeat(
+                request.toServiceRequest(
+                    policePhoneId,
+                    auth.getAccountId(),
+                    auth.getAccountType(),
+                    auth.getOrganizationType()))));
   }
 
   private SuriMapAuthentication currentAuthentication() {

@@ -43,7 +43,7 @@ public class PhotoController {
   }
 
   @PostMapping("/{photoId}/attach")
-  public PhotoAttachResponse attach(
+  public ResponseEntity<PhotoAttachResponse> attach(
       @PathVariable UUID markerId,
       @PathVariable UUID photoId,
       @RequestHeader(value = "Authorization", required = false) String authorization,
@@ -53,6 +53,6 @@ public class PhotoController {
       @RequestBody PhotoAttachRequest request) {
     PhotoRequestContext context =
         contextResolver.resolve(authorization, channel, policePhoneId, idempotencyKey);
-    return photoService.attach(markerId, photoId, request, context).response();
+    return ResponseEntity.ok(photoService.attach(markerId, photoId, request, context).response());
   }
 }
