@@ -15,7 +15,7 @@ class LocationAccessRecorderTest {
   void recordStoresInternalAuditRowWithMinimumSixMonthRetention() {
     CapturingLocationAccessAuditMapper mapper = new CapturingLocationAccessAuditMapper();
     LocationAccessRecorder recorder = new LocationAccessRecorder(mapper);
-    UUID accountId = UUID.fromString("11111111-1111-1111-1111-111111110010");
+    String accountId = "acct-cmd-alpha";
     UUID incidentId = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001");
     UUID policePhoneId = UUID.fromString("33333333-3333-4333-8333-333333330001");
     Instant accessedAt = Instant.parse("2026-04-28T01:30:00Z");
