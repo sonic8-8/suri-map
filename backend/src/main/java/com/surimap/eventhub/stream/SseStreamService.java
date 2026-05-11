@@ -1,6 +1,7 @@
 package com.surimap.eventhub.stream;
 
 import com.surimap.eventhub.dto.PublishRequest;
+import java.io.IOException;
 import java.util.Objects;
 import java.util.UUID;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -41,7 +42,13 @@ public class SseStreamService {
     emitter.onTimeout(() -> closeQuietly(registration));
     emitter.onError(ignored -> closeQuietly(registration));
 
-    replay.frames().forEach(sink::send);
+    try {
+      sendOpenComment(emitter);
+      replay.frames().forEach(sink::send);
+    } catch (RuntimeException exception) {
+      closeQuietly(registration);
+      throw exception;
+    }
     return emitter;
   }
 
@@ -66,6 +73,15 @@ public class SseStreamService {
       closeable.close();
     } catch (Exception ignored) {
       // Closing an already completed SSE session is idempotent for the registry.
+    }
+  }
+
+  private void sendOpenComment(SseEmitter emitter) {
+    try {
+      emitter.send(SseEmitter.event().comment("connected"));
+    } catch (IOException exception) {
+      emitter.completeWithError(exception);
+      throw new IllegalStateException("failed to open SSE stream", exception);
     }
   }
 }

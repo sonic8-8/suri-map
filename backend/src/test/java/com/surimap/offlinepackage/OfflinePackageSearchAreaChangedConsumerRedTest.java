@@ -60,7 +60,8 @@ class OfflinePackageSearchAreaChangedConsumerRedTest {
     jdbcTemplate.update("DELETE FROM offline_package_installation");
     jdbcTemplate.update("DELETE FROM offline_package_manifest");
     eventHub.reset();
-    installationQuery.byIncident(OfflinePackageManifestFixtures.INCIDENT_ID);
+    offlinePackageService.manifest(
+        OfflinePackageManifestFixtures.INCIDENT_ID, OfflinePackageManifestFixtures.POLICE_PHONE_ID);
   }
 
   @Test

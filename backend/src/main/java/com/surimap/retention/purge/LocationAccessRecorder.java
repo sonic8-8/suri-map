@@ -19,7 +19,7 @@ public class LocationAccessRecorder {
 
   @Transactional
   public LocationAccessAuditRecord record(
-      UUID accountId,
+      String accountId,
       UUID incidentId,
       UUID policePhoneId,
       String accessChannel,

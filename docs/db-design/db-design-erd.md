@@ -148,7 +148,7 @@ erDiagram
     location_data_access_audit {
         UUID id PK
         UUID incident_id FK
-        UUID account_id FK
+        VARCHAR account_id FK
         UUID police_phone_id FK
         VARCHAR access_channel
         VARCHAR access_purpose
