@@ -1,3 +1,5 @@
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+
 import styles from './SuriMapPageHeader.module.css';
 
 export type SuriMapPageHeaderTabId = 'situationBoard' | 'areaEdit' | 'handover' | 'offlinePackage';
@@ -12,13 +14,29 @@ export type MarkerNotification = {
   coordinateLabel: string;
 };
 
+export type SuriMapPageHeaderMetric = {
+  label: string;
+  value: string;
+};
+
+export type SuriMapPageHeaderIncidentContext = {
+  avatarLabel: string;
+  eyebrow: string;
+  title: string;
+  metrics: SuriMapPageHeaderMetric[];
+  statusLabel: string;
+};
+
 export type SuriMapPageHeaderProps = {
   activeTab: SuriMapPageHeaderTabId;
+  currentAccountLabel?: string;
+  incidentContext?: SuriMapPageHeaderIncidentContext;
   markerNotificationIndex?: number;
   markerNotifications?: MarkerNotification[];
+  timestampLabel?: string;
   onOpenIncidentList: () => void;
   onOpenSituationBoard?: () => void;
-  onOpenAreaEdit?: () => void;
+  onOpenHandover?: () => void;
   onCloseMarkerNotifications?: () => void;
   onMoveMarkerNotification?: (nextIndex: number) => void;
 };
@@ -29,26 +47,34 @@ type NavItem = {
   onClick?: () => void;
 };
 
-const INCIDENT_CONTEXT_METRICS = [
-  { label: '실종자', value: '김OO · 73세 · 남' },
-  { label: '마지막 목격', value: '오늘 08:40, 반포동 진입로 인근' },
-  { label: '현장 지휘관', value: '실종팀 지휘 계정 · 서초경찰서 지휘 계정' },
-];
+const DEFAULT_INCIDENT_CONTEXT: SuriMapPageHeaderIncidentContext = {
+  avatarLabel: '사건',
+  eyebrow: '사건 정보 동기화 전',
+  title: '사건 정보를 불러오는 중',
+  metrics: [
+    { label: '실종자', value: '-' },
+    { label: '마지막 목격', value: '-' },
+    { label: '배정 계정', value: '-' },
+  ],
+  statusLabel: '동기화 전',
+};
 
 export function SuriMapPageHeader({
   activeTab,
+  currentAccountLabel = '-',
+  incidentContext = DEFAULT_INCIDENT_CONTEXT,
   markerNotificationIndex = 0,
   markerNotifications = [],
   onCloseMarkerNotifications,
-  onOpenAreaEdit,
   onOpenIncidentList,
   onMoveMarkerNotification,
+  onOpenHandover,
   onOpenSituationBoard,
+  timestampLabel = '동기화 전',
 }: SuriMapPageHeaderProps) {
   const navItems: NavItem[] = [
     { id: 'situationBoard', label: '상황판', onClick: onOpenSituationBoard },
-    { id: 'areaEdit', label: '구역 분할', onClick: onOpenAreaEdit },
-    { id: 'handover', label: '인수인계' },
+    { id: 'handover', label: '인수인계', onClick: onOpenHandover },
     { id: 'offlinePackage', label: '오프라인 패키지' },
   ];
   const activeMarkerNotification = markerNotifications[markerNotificationIndex] ?? null;
@@ -59,7 +85,7 @@ export function SuriMapPageHeader({
     <header className={styles.header}>
       <nav className={styles.productNav} aria-label="Suri-Map 화면 이동">
         <button type="button" className={styles.backButton} onClick={onOpenIncidentList}>
-          사건 목록
+          ⟵ㅤ사건 목록
         </button>
         <div className={styles.navTabs} role="list" aria-label="상황판 화면 이동">
           {navItems.map(({ id, label, onClick }) => {
@@ -81,10 +107,10 @@ export function SuriMapPageHeader({
         </div>
         <div className={styles.meta}>
           <span>
-            현재 계정 <b>실종팀 지휘 계정</b>
+            현재 계정 <b>{currentAccountLabel}</b>
           </span>
           <span className={styles.metaDivider} aria-hidden="true" />
-          <span>2026-05-04 16:42 KST · mock</span>
+          <span>{timestampLabel}</span>
           <span className={styles.metaDivider} aria-hidden="true" />
           <div className={styles.brand}>
             <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
@@ -107,16 +133,16 @@ export function SuriMapPageHeader({
       <section className={styles.incidentContextBar} aria-label="사건 상황 요약">
         <div className={styles.incidentContextMain}>
           <div className={styles.incidentAvatar} aria-hidden="true">
-            김OO
+            {incidentContext.avatarLabel}
           </div>
           <div className={styles.incidentContextTitle}>
-            <span>INC-2026-0428-031 · mock</span>
-            <strong>서초구 반포동 실종 사건</strong>
+            <span>{incidentContext.eyebrow}</span>
+            <strong>{incidentContext.title}</strong>
           </div>
         </div>
         <span className={styles.incidentContextDivider} aria-hidden="true" />
         <div className={styles.incidentContextMetrics}>
-          {INCIDENT_CONTEXT_METRICS.map(({ label, value }) => (
+          {incidentContext.metrics.map(({ label, value }) => (
             <div key={label}>
               <span>{label}</span>
               <strong>{value}</strong>
@@ -125,7 +151,7 @@ export function SuriMapPageHeader({
         </div>
         <div className={styles.incidentContextActions}>
           <div className={`${styles.headerStatus} ${styles.headerStatusInProgress}`} aria-label="현재 운영 상태">
-            진행 중 · OP 2차
+            {incidentContext.statusLabel}
           </div>
         </div>
       </section>
@@ -138,7 +164,7 @@ export function SuriMapPageHeader({
               aria-label="이전 마커 알림"
               onClick={() => onMoveMarkerNotification?.(markerNotificationIndex - 1)}
             >
-              &lt;
+              <ChevronLeft size={30} strokeWidth={2.2} aria-hidden="true" />
             </button>
           ) : null}
           {hasNextMarkerNotification ? (
@@ -148,23 +174,37 @@ export function SuriMapPageHeader({
               aria-label="다음 마커 알림"
               onClick={() => onMoveMarkerNotification?.(markerNotificationIndex + 1)}
             >
-              &gt;
+              <ChevronRight size={30} strokeWidth={2.2} aria-hidden="true" />
             </button>
           ) : null}
           {!hasNextMarkerNotification ? (
-            <button type="button" className={styles.markerCloseButton} aria-label="마커 알림 닫기" onClick={onCloseMarkerNotifications}>
-              X
+            <button
+              type="button"
+              className={styles.markerCloseButton}
+              aria-label="마커 알림 닫기"
+              onClick={onCloseMarkerNotifications}
+            >
+              닫기
             </button>
           ) : null}
           <div className={styles.markerPopupIcon} aria-hidden="true">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+            >
               <circle cx="11" cy="11" r="6" />
               <line x1="15.5" y1="15.5" x2="20" y2="20" />
             </svg>
           </div>
           <div className={styles.markerPopupTitle}>{activeMarkerNotification.title}</div>
           <div className={styles.markerPopupMeta}>
-            <b>{activeMarkerNotification.markerType}</b> · {activeMarkerNotification.reporter}
+            <b className={styles.markerPopupType}>{activeMarkerNotification.markerType}</b>
+            {activeMarkerNotification.reporter}
             <br />
             {activeMarkerNotification.areaLabel} · {activeMarkerNotification.receivedAtLabel}
             <br />

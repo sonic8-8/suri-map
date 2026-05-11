@@ -1,24 +1,27 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 
-import { AreaEditPage } from '../features/areaEdit/presentation/pages/AreaEditPage';
+import { HandoverPage } from '../features/handover/presentation/pages/HandoverPage';
 import { IncidentClosePage } from '../features/incidentClose/presentation/pages/IncidentClosePage';
 import { IncidentListPage } from '../features/incidents/presentation/pages/IncidentListPage';
-import { clearLoginSession, readStoredLoginAccount } from '../features/login/data/login';
+import { clearLoginSession, logoutCurrentSession, readStoredLoginAccount } from '../features/login/data/login';
 import { LoginPage } from '../features/login/presentation/pages/LoginPage';
 import type { LoginAccount } from '../features/login/presentation/types/login';
+import { useIncidentMarkerNotifications } from '../features/markerNotifications/presentation/hooks/useIncidentMarkerNotifications';
 import { SituationBoardPage } from '../features/situationBoard/presentation/pages/SituationBoardPage';
 import type { CompletedAreaDraft } from '../shared/model/areaDraft';
 import type { MarkerNotification } from '../shared/ui';
+import { API_UNAUTHORIZED_EVENT } from '../shared/api/client';
 import {
   BOOTSTRAP_INCIDENT_ID,
   getAreaEditPath,
+  getIncidentHandoverPath,
   getIncidentBoardPath,
   getIncidentClosePath,
   ROUTES,
 } from './routes';
 
-const initialMarkerNotifications: MarkerNotification[] = [
+/*
   {
     id: 'marker-notification-clue-001',
     title: '신규 마커 수신',
@@ -37,7 +40,7 @@ const initialMarkerNotifications: MarkerNotification[] = [
     receivedAtLabel: '14:52',
     coordinateLabel: '35.14N · 126.98E',
   },
-];
+*/
 
 function useRouteIncidentId() {
   const { incidentId } = useParams();
@@ -45,63 +48,76 @@ function useRouteIncidentId() {
 }
 
 type SituationBoardRouteProps = {
+  currentUserAccount: LoginAccount;
   markerNotificationIndex: number;
   markerNotifications: MarkerNotification[];
   onCloseMarkerNotifications: () => void;
+  onMarkerNotification: (notification: MarkerNotification) => void;
   onMoveMarkerNotification: (nextIndex: number) => void;
-  savedAreaDrafts: CompletedAreaDraft[];
+  onSaveAssignedAreas: (incidentId: string, drafts: CompletedAreaDraft[]) => void;
+  savedAreaDraftsByIncidentId: Record<string, CompletedAreaDraft[]>;
+  opRefreshVersionByIncidentId: Record<string, number>;
 };
 
 function SituationBoardRoute({
+  currentUserAccount,
   markerNotificationIndex,
   markerNotifications,
   onCloseMarkerNotifications,
+  onMarkerNotification,
   onMoveMarkerNotification,
-  savedAreaDrafts,
+  onSaveAssignedAreas,
+  savedAreaDraftsByIncidentId,
+  opRefreshVersionByIncidentId,
 }: SituationBoardRouteProps) {
   const incidentId = useRouteIncidentId();
   const navigate = useNavigate();
+  const savedAreaDrafts = savedAreaDraftsByIncidentId[incidentId] ?? [];
+  const refreshVersion = opRefreshVersionByIncidentId[incidentId] ?? 0;
+
+  useIncidentMarkerNotifications({
+    incidentId,
+    enabled: true,
+    onNotification: onMarkerNotification,
+  });
 
   return (
     <SituationBoardPage
+      incidentId={incidentId}
+      currentUserAccount={currentUserAccount}
       markerNotificationIndex={markerNotificationIndex}
       markerNotifications={markerNotifications}
       onCloseMarkerNotifications={onCloseMarkerNotifications}
       onMoveMarkerNotification={onMoveMarkerNotification}
+      onSaveAssignedAreas={(drafts) => onSaveAssignedAreas(incidentId, drafts)}
       savedAreaDrafts={savedAreaDrafts}
+      refreshVersion={refreshVersion}
       onOpenIncidentList={() => navigate(ROUTES.incidentList)}
-      onOpenAreaEdit={() => navigate(getAreaEditPath(incidentId))}
     />
   );
 }
 
-type AreaEditRouteProps = {
-  markerNotificationIndex: number;
-  markerNotifications: MarkerNotification[];
-  onCloseMarkerNotifications: () => void;
-  onMoveMarkerNotification: (nextIndex: number) => void;
-  onSaveAssignedAreas: (drafts: CompletedAreaDraft[]) => void;
+function AreaEditRedirectRoute() {
+  const incidentId = useRouteIncidentId();
+  return <Navigate to={getAreaEditPath(incidentId)} replace />;
+}
+
+type HandoverRouteProps = {
+  currentUserAccount: LoginAccount;
+  onOperationalPeriodCreated: (incidentId: string) => void;
 };
 
-function AreaEditRoute({
-  markerNotificationIndex,
-  markerNotifications,
-  onCloseMarkerNotifications,
-  onMoveMarkerNotification,
-  onSaveAssignedAreas,
-}: AreaEditRouteProps) {
+function HandoverRoute({ currentUserAccount, onOperationalPeriodCreated }: HandoverRouteProps) {
   const incidentId = useRouteIncidentId();
   const navigate = useNavigate();
 
   return (
-    <AreaEditPage
-      markerNotificationIndex={markerNotificationIndex}
-      markerNotifications={markerNotifications}
-      onBackToSituationBoard={() => navigate(getIncidentBoardPath(incidentId))}
-      onCloseMarkerNotifications={onCloseMarkerNotifications}
-      onMoveMarkerNotification={onMoveMarkerNotification}
+    <HandoverPage
+      incidentId={incidentId}
+      currentUserAccount={currentUserAccount}
       onOpenIncidentList={() => navigate(ROUTES.incidentList)}
-      onSaveAssignedAreas={onSaveAssignedAreas}
+      onOpenSituationBoard={() => navigate(getIncidentBoardPath(incidentId))}
+      onOperationalPeriodCreated={() => onOperationalPeriodCreated(incidentId)}
     />
   );
 }
@@ -120,8 +136,9 @@ function IncidentCloseRoute() {
 export function App() {
   const navigate = useNavigate();
   const [currentUserAccount, setCurrentUserAccount] = useState<LoginAccount | null>(() => readStoredLoginAccount());
-  const [savedAreaDrafts, setSavedAreaDrafts] = useState<CompletedAreaDraft[]>([]);
-  const [markerNotifications, setMarkerNotifications] = useState<MarkerNotification[]>(initialMarkerNotifications);
+  const [savedAreaDraftsByIncidentId, setSavedAreaDraftsByIncidentId] = useState<Record<string, CompletedAreaDraft[]>>({});
+  const [opRefreshVersionByIncidentId, setOpRefreshVersionByIncidentId] = useState<Record<string, number>>({});
+  const [markerNotifications, setMarkerNotifications] = useState<MarkerNotification[]>([]);
   const [markerNotificationIndex, setMarkerNotificationIndex] = useState(0);
 
   const closeMarkerNotifications = () => {
@@ -133,15 +150,53 @@ export function App() {
     setMarkerNotificationIndex(Math.max(0, Math.min(nextIndex, markerNotifications.length - 1)));
   };
 
+  const addMarkerNotification = useCallback((notification: MarkerNotification) => {
+    setMarkerNotifications((currentNotifications) => {
+      const existingIndex = currentNotifications.findIndex((current) => current.id === notification.id);
+      if (existingIndex >= 0) {
+        setMarkerNotificationIndex(existingIndex);
+        return currentNotifications;
+      }
+
+      setMarkerNotificationIndex(currentNotifications.length);
+      return [...currentNotifications, notification];
+    });
+  }, []);
+
   const openLogin = () => {
-    clearLoginSession();
-    setCurrentUserAccount(null);
-    navigate(ROUTES.login);
+    void logoutCurrentSession().finally(() => {
+      setCurrentUserAccount(null);
+      navigate(ROUTES.login);
+    });
   };
+
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      setCurrentUserAccount(null);
+      navigate(ROUTES.login, { replace: true });
+    };
+
+    window.addEventListener(API_UNAUTHORIZED_EVENT, handleUnauthorized);
+    return () => window.removeEventListener(API_UNAUTHORIZED_EVENT, handleUnauthorized);
+  }, [navigate]);
 
   const handleLoginSuccess = (account: LoginAccount) => {
     setCurrentUserAccount(account);
     navigate(ROUTES.incidentList);
+  };
+
+  const saveAssignedAreas = (incidentId: string, drafts: CompletedAreaDraft[]) => {
+    setSavedAreaDraftsByIncidentId((currentDraftsByIncidentId) => ({
+      ...currentDraftsByIncidentId,
+      [incidentId]: drafts,
+    }));
+  };
+
+  const refreshOperationalPeriodViews = (incidentId: string) => {
+    setOpRefreshVersionByIncidentId((currentVersionsByIncidentId) => ({
+      ...currentVersionsByIncidentId,
+      [incidentId]: (currentVersionsByIncidentId[incidentId] ?? 0) + 1,
+    }));
   };
 
   return (
@@ -151,11 +206,11 @@ export function App() {
         path={ROUTES.incidentList}
         element={
           currentUserAccount ? (
-            <IncidentListPage
-              onOpenSituationBoard={(incidentId) => navigate(getIncidentBoardPath(incidentId))}
-              onOpenLogin={openLogin}
-              currentUserAccount={currentUserAccount}
-            />
+          <IncidentListPage
+            onOpenSituationBoard={(incidentId) => navigate(getIncidentBoardPath(incidentId))}
+            onOpenLogin={openLogin}
+            currentUserAccount={currentUserAccount}
+          />
           ) : (
             <Navigate to={ROUTES.login} replace />
           )
@@ -167,11 +222,15 @@ export function App() {
         element={
           currentUserAccount ? (
             <SituationBoardRoute
+              currentUserAccount={currentUserAccount}
               markerNotificationIndex={markerNotificationIndex}
               markerNotifications={markerNotifications}
               onCloseMarkerNotifications={closeMarkerNotifications}
+              onMarkerNotification={addMarkerNotification}
               onMoveMarkerNotification={moveMarkerNotification}
-              savedAreaDrafts={savedAreaDrafts}
+              onSaveAssignedAreas={saveAssignedAreas}
+              savedAreaDraftsByIncidentId={savedAreaDraftsByIncidentId}
+              opRefreshVersionByIncidentId={opRefreshVersionByIncidentId}
             />
           ) : (
             <Navigate to={ROUTES.login} replace />
@@ -181,13 +240,24 @@ export function App() {
       <Route
         path={ROUTES.areaEdit}
         element={
-          <AreaEditRoute
-            markerNotificationIndex={markerNotificationIndex}
-            markerNotifications={markerNotifications}
-            onCloseMarkerNotifications={closeMarkerNotifications}
-            onMoveMarkerNotification={moveMarkerNotification}
-            onSaveAssignedAreas={setSavedAreaDrafts}
-          />
+          currentUserAccount ? (
+            <AreaEditRedirectRoute />
+          ) : (
+            <Navigate to={ROUTES.login} replace />
+          )
+        }
+      />
+      <Route
+        path={ROUTES.incidentHandover}
+        element={
+          currentUserAccount ? (
+            <HandoverRoute
+              currentUserAccount={currentUserAccount}
+              onOperationalPeriodCreated={refreshOperationalPeriodViews}
+            />
+          ) : (
+            <Navigate to={ROUTES.login} replace />
+          )
         }
       />
       <Route path={ROUTES.incidentClose} element={<IncidentCloseRoute />} />

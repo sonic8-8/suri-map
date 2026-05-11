@@ -5,6 +5,7 @@ export const ROUTES = {
   login: '/login',
   incidentList: '/incidents',
   incidentBoard: '/incidents/:incidentId/board',
+  incidentHandover: '/incidents/:incidentId/handover',
   areaEdit: '/incidents/:incidentId/area-edit',
   incidentClose: '/incidents/:incidentId/close',
   legacyAreaEdit: '/area-edit',
@@ -15,8 +16,12 @@ export function getIncidentBoardPath(incidentId: string) {
   return `/incidents/${incidentId}/board`;
 }
 
+export function getIncidentHandoverPath(incidentId: string) {
+  return `/incidents/${incidentId}/handover`;
+}
+
 export function getAreaEditPath(incidentId: string) {
-  return `/incidents/${incidentId}/area-edit`;
+  return getIncidentBoardPath(incidentId);
 }
 
 export function getIncidentClosePath(incidentId: string) {

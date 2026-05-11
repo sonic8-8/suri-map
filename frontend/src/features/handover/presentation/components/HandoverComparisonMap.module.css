@@ -1,0 +1,131 @@
+.surface {
+  position: relative;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--suri-board-border);
+  border-radius: 8px;
+  background: #eef2f6;
+}
+
+.externalSurface {
+  position: absolute;
+  z-index: 19;
+  inset: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  pointer-events: none;
+}
+
+.canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.toolbar {
+  position: absolute;
+  z-index: 6;
+  top: 14px;
+  right: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.toolbar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  color: #ffffff;
+  background: linear-gradient(180deg, #163967 0%, #12335f 55%, #0f2c53 100%);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.toolbar button:hover {
+  background: linear-gradient(180deg, #1f4779 0%, #173e70 55%, #12335f 100%);
+}
+
+.toolbar button:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+.toolbar svg {
+  width: 20px;
+  height: 20px;
+}
+
+.emptyOverlay,
+.legend {
+  position: absolute;
+  z-index: 5;
+  left: 14px;
+  max-width: min(380px, calc(100% - 28px));
+  border: 1px solid rgba(15, 23, 42, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.14);
+  color: #172033;
+}
+
+.emptyOverlay {
+  top: 14px;
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  pointer-events: none;
+}
+
+.emptyOverlay strong {
+  font-size: 14px;
+}
+
+.emptyOverlay span {
+  color: #526071;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.legend {
+  bottom: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #344052;
+}
+
+.legendSwatch {
+  width: 18px;
+  height: 8px;
+  border-radius: 999px;
+  background: #2563eb;
+}
+
+.legendSwatchCompare {
+  background: repeating-linear-gradient(90deg, #f59e0b 0 6px, transparent 6px 10px);
+  border: 1px solid #f59e0b;
+}
+
+.legendMarker {
+  width: 10px;
+  height: 10px;
+  border: 2px solid #ffffff;
+  border-radius: 999px;
+  background: #0f766e;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.22);
+}
