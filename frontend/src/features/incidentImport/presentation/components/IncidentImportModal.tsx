@@ -55,7 +55,7 @@ export function IncidentImportModal({
         {!canImport ? (
           <div className={styles.modalBody}>
             <div className={styles.modalPermissionDenied}>
-              <p>현재 계정은 사건 가져오기 권한이 없습니다.</p>
+              <p>현재 계정에는 사건 가져오기 권한이 없습니다.</p>
               <button type="button" className={styles.modalImportButton} onClick={onClose}>
                 확인
               </button>
@@ -65,7 +65,7 @@ export function IncidentImportModal({
           <>
             {isOffline ? (
               <div className={styles.modalOfflineBanner}>
-                오프라인 상태에서는 사건을 가져올 수 없습니다.
+                네트워크 연결이 끊겨 사건을 가져올 수 없습니다.
               </div>
             ) : null}
             <div className={styles.modalBody}>
@@ -79,17 +79,17 @@ export function IncidentImportModal({
                 }}
               >
                 <label className={styles.modalField}>
-                  <span>사건 번호</span>
+                  <span>sourceIncidentId</span>
                   <input
                     className={styles.modalTextInput}
                     value={sourceIncidentId}
                     onChange={(event) => setSourceIncidentId(event.target.value)}
-                    placeholder="사건 번호를 입력하세요"
+                    placeholder="가져올 sourceIncidentId를 입력하세요"
                     spellCheck={false}
                   />
                 </label>
                 {isImported ? (
-                  <span className={styles.modalImportedLabel}>가져온 사건</span>
+                  <span className={styles.modalImportedLabel}>이미 가져온 사건</span>
                 ) : (
                   <button type="submit" className={styles.modalImportButton} disabled={!canSubmit}>
                     {isImporting ? '가져오는 중' : '가져오기'}
@@ -99,7 +99,7 @@ export function IncidentImportModal({
               {errorMessage ? <div className={styles.modalErrorMessage}>{errorMessage}</div> : null}
             </div>
             <footer className={styles.modalFooter}>
-              <span>112 시스템에 등록된 사건 번호를 입력해 사건 정보를 불러옵니다.</span>
+              <span>mock 112 배정 사건의 sourceIncidentId를 입력하면 사건과 OP1이 생성됩니다.</span>
             </footer>
           </>
         )}

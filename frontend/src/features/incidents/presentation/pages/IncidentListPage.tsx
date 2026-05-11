@@ -10,7 +10,7 @@ import { getIncidents, type IncidentListItemDto } from '../../data/getIncidents'
 import type { IncidentCard, IncidentFilter, IncidentStatus } from '../../domain/entities/Incident';
 import styles from './IncidentListPage.module.css';
 
-const INCIDENT_FILTERS: IncidentFilter[] = ['전체', '진행 중', '인계 대기', '종료'];
+const INCIDENT_FILTERS: IncidentFilter[] = ['전체', '진행 중', '종료'];
 const INCIDENT_LIST_PAGE_SIZE = 12;
 
 function canImportIncident(account: LoginAccount): boolean {
@@ -27,54 +27,60 @@ type IncidentListPageProps = {
 };
 
 function getStatusTone(status: IncidentStatus): StatusBadgeTone {
-  if (status === '진행 중') {
-    return 'active';
-  }
-
-  if (status === '인계 대기') {
-    return 'waiting';
-  }
-
-  return 'closed';
+  return status === '진행 중' ? 'active' : 'closed';
 }
 
 function getIncidentStatus(status: string): IncidentStatus {
-  if (status === 'CLOSED') {
-    return '종료';
-  }
-
-  return '진행 중';
+  return status === 'CLOSED' ? '종료' : '진행 중';
 }
 
 function getImportErrorMessage(error: unknown) {
   if (error instanceof ApiError) {
     if (error.code === 'external_incident_adapter_unavailable') {
-      return 'mock 112 adapter에서 사건을 가져오지 못했습니다. sourceIncidentId를 확인해주세요.';
+      return 'mock 112 adapter에서 사건을 가져오지 못했습니다. sourceIncidentId를 확인해 주세요.';
+    }
+
+    if (error.code === 'idempotency_mismatch') {
+      return '같은 Idempotency-Key로 다른 요청 본문이 감지되었습니다. 다시 시도해 주세요.';
     }
 
     if (error.code === 'write_conflict') {
-      return '같은 Idempotency-Key 요청이 충돌했습니다. 잠시 뒤 다시 시도해주세요.';
+      return '사건 가져오기 상태가 충돌했습니다. 목록을 새로고침한 뒤 다시 시도해 주세요.';
     }
 
-    if (error.code === 'role_denied' || error.code === 'channel_not_allowed') {
-      return '현재 계정 권한으로는 사건 가져오기를 수행할 수 없습니다.';
+    if (error.code === 'role_denied') {
+      return '현재 계정에는 사건 가져오기 권한이 없습니다.';
     }
 
-    return `사건 가져오기에 실패했습니다. (${error.code})`;
+    if (error.code === 'channel_not_allowed') {
+      return '웹 채널에서 허용되지 않는 사건 가져오기 요청입니다.';
+    }
+
+    return `사건 가져오기를 처리하지 못했습니다. (${error.code})`;
   }
 
-  return '사건 가져오기에 실패했습니다.';
+  return '사건 가져오기를 처리하지 못했습니다.';
 }
 
 function getListErrorMessage(error: unknown) {
   if (error instanceof ApiError) {
+    if (error.code === 'channel_not_allowed') {
+      return '웹 채널에서 사건 목록을 조회할 수 없습니다.';
+    }
+
     return `배정 사건 목록을 불러오지 못했습니다. (${error.code})`;
   }
 
   return '배정 사건 목록을 불러오지 못했습니다.';
 }
 
+function getListErrorHelp(errorMessage: string) {
+  return errorMessage ? '잠시 후 다시 시도하거나 로그인 상태를 확인해 주세요.' : '';
+}
+
 function formatKstDateTime(date: Date) {
+  if (Number.isNaN(date.getTime())) return '-';
+
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Seoul',
     year: 'numeric',
@@ -100,8 +106,8 @@ function createIncidentCard(item: IncidentListItemDto): IncidentCard {
     id: item.incidentId,
     title: item.title,
     status,
-    location: `incidentId: ${item.incidentId}`,
-    timeKind: item.closedAt ? '종료 시각' : '갱신 시각',
+    location: `사건 ID ${item.incidentId}`,
+    timeKind: item.closedAt ? '종료 시각' : '개시 시각',
     timeLabel: item.closedAt ? formatKstDateTime(new Date(item.closedAt)) : '-',
     currentPhase: `version ${item.version}`,
     assignedOrganization: '-',
@@ -114,8 +120,6 @@ function getFilterChipClassName(filter: IncidentFilter, selectedFilter: Incident
 
   if (filter === '진행 중') {
     classNames.push(styles.filterChipStatusProgress);
-  } else if (filter === '인계 대기') {
-    classNames.push(styles.filterChipStatusWaiting);
   } else if (filter === '종료') {
     classNames.push(styles.filterChipStatusClosed);
   }
@@ -143,7 +147,6 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
 
   const importedSourceIncidentIdSet = useMemo(() => new Set(importedSourceIncidentIds), [importedSourceIncidentIds]);
   const filteredIncidents = filter === '전체' ? incidents : incidents.filter((incident) => incident.status === filter);
-
   const totalPages = Math.max(1, Math.ceil(filteredIncidents.length / INCIDENT_LIST_PAGE_SIZE));
   const activePage = Math.min(pageNumber, totalPages);
   const pageStartIndex = (activePage - 1) * INCIDENT_LIST_PAGE_SIZE;
@@ -155,7 +158,7 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
       summary[incident.status] += 1;
       return summary;
     },
-    { '진행 중': 0, '인계 대기': 0, 종료: 0 },
+    { '진행 중': 0, 종료: 0 },
   );
   const isFilteredEmptyState =
     visibleIncidents.length === 0 && incidents.length > 0 && !isLoadingIncidents && !listErrorMessage;
@@ -247,7 +250,7 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
   return (
     <main className={styles.page}>
       <header className={styles.header}>
-        <nav className={styles.productNav} aria-label="사건 목록 주요 화면">
+        <nav className={styles.productNav} aria-label="사건 목록 탐색">
           <div className={styles.brand}>
             <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
               <path
@@ -302,8 +305,8 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
               <strong>{incidentStatusSummary['진행 중']}건</strong>
             </div>
             <div>
-              <span>종료 / 인계 대기</span>
-              <strong>{incidentStatusSummary.종료 + incidentStatusSummary['인계 대기']}건</strong>
+              <span>종료</span>
+              <strong>{incidentStatusSummary.종료}건</strong>
             </div>
           </div>
           <div className={styles.listContextActions}>
@@ -344,23 +347,23 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
         <div className={styles.contentInner}>
           {isFilteredEmptyState ? (
             <div className={styles.emptyState}>
-              <strong className={styles.emptyStateFilterText}>조건에 맞는 사건이 없습니다.</strong>
+              <strong className={styles.emptyStateFilterText}>선택한 상태의 사건이 없습니다.</strong>
             </div>
           ) : visibleIncidents.length === 0 ? (
             <div className={styles.emptyState}>
               <strong>
                 {isLoadingIncidents
-                  ? '배정 사건 목록을 불러오는 중입니다'
-                  : listErrorMessage || (incidents.length === 0 ? '배정된 사건이 없습니다' : '조건에 맞는 사건이 없습니다')}
+                  ? '배정 사건 목록을 불러오는 중입니다.'
+                  : listErrorMessage || (incidents.length === 0 ? '배정된 사건이 없습니다.' : '선택한 상태의 사건이 없습니다.')}
               </strong>
               <span>
                 {listErrorMessage
-                  ? '로그인 상태와 API 서버 응답을 확인해주세요.'
+                  ? getListErrorHelp(listErrorMessage)
                   : incidents.length === 0 && canImport
-                    ? '사건 가져오기에서 sourceIncidentId를 입력해 배정 사건을 생성할 수 있습니다.'
+                    ? '사건 가져오기로 mock 112 배정 사건을 가져올 수 있습니다.'
                     : incidents.length === 0
                       ? '현재 계정에 배정된 사건이 없습니다.'
-                      : '다른 상태 필터를 선택해주세요.'}
+                      : '다른 상태 필터를 선택해 주세요.'}
               </span>
             </div>
           ) : (
@@ -386,7 +389,7 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
                       className={styles.boardButton}
                       onClick={() => onOpenSituationBoard(incident.id)}
                     >
-                      상황판 보기
+                      상황판 열기
                     </button>
                   </div>
 
@@ -413,7 +416,7 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
             </div>
           )}
 
-          <footer className={styles.paginationBar} aria-label="사건 목록 페이지네이션">
+          <footer className={styles.paginationBar} aria-label="사건 목록 페이지 이동">
             <div className={styles.paginationSummary}>
               <span>
                 전체 <b>{filteredIncidents.length}건</b>

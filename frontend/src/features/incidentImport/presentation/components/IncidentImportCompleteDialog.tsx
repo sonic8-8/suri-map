@@ -19,11 +19,11 @@ export function IncidentImportCompleteDialog({ incidentId, onConfirm }: Incident
           ✓
         </div>
         <div className={styles.confirmContent}>
-          <h2 id="import-complete-title">사건 {incidentId} 가져오기 완료!</h2>
+          <h2 id="import-complete-title">사건 {incidentId} 가져오기 완료</h2>
           <p id="import-complete-description">
-            OP 1차가 자동 생성되었습니다.
+            OP1이 생성되었습니다.
             <br />
-            사건 카드를 클릭하여 상황판으로 진입하세요.
+            사건 목록에서 상황판을 열어 진행 상태를 확인할 수 있습니다.
           </p>
         </div>
         <button type="button" className={styles.confirmButton} onClick={onConfirm}>
