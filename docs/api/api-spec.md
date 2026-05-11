@@ -309,8 +309,10 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Guard: `@RequireChannel(WEB)`, `@RequireIncidentAccess`, `@RecordLocationAccess`
 - Idempotency-Key: no
 - Query: `opIds`, `includeSlots`, `sinceVersion`
+- `sinceVersion`: optional previous `boardResponseVersion` reload watermark. The response remains a full snapshot for the requested `opIds`/`includeSlots`; S3-2 must not use this aggregate value as a source-owner delta or `minVersion` filter.
 - Response: `200 {incidentId, boardResponseVersion, serverTs, activeOpId, selectedOpIds, slots, sourceVersions, geometryHash, sourceHashes, slotSources}`
-- Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`, `gone_refetch_required`
+- Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`
+- Note: `gone_refetch_required` is emitted by the event stream replay path; clients recover by reloading this full board snapshot and replacing the requested slot state.
 
 #### GET `/api/incidents/{incidentId}/events`
 

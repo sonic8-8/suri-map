@@ -142,6 +142,32 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
     assertThat(searchAreaQuery.byIncidentCalls()).isZero();
   }
 
+  @Test
+  @DisplayName("sinceVersion does not filter rows from a full board snapshot reload")
+  void since_version_does_not_filter_rows_from_full_board_snapshot_reload() {
+    CapturingSearchAreaQuery searchAreaQuery = new CapturingSearchAreaQuery();
+    DefaultIncidentBoardSourceRowCollector collector =
+        new DefaultIncidentBoardSourceRowCollector(
+            provider(searchAreaQuery),
+            provider(searchPathService()),
+            new CapturingMarkerQuery(),
+            new FakePackageQuery(),
+            new FakeOperationalPeriodQuery(),
+            new FakeHandoverMemoQuery(),
+            new FakeSummaryMapper());
+
+    IncidentBoardSourceRowSnapshot snapshot =
+        collector.collect(
+            new BoardSourceRowContext(INCIDENT_ID, List.of(OP_ID), List.of("area"), 1200L));
+
+    assertThat(snapshot.sourceRows()).extracting(BoardSourceRow::slot).containsExactly("area");
+    assertThat(row(snapshot, "area").version()).isEqualTo(5L);
+    assertThat(searchAreaQuery.byOpFilters())
+        .singleElement()
+        .extracting(SearchAreaFilters::minVersion)
+        .isNull();
+  }
+
   private static BoardSourceRow row(IncidentBoardSourceRowSnapshot snapshot, String slot) {
     return snapshot.sourceRows().stream()
         .filter(row -> row.slot().equals(slot))
@@ -224,12 +250,21 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
 
     @Override
     public SearchAreaCollection byIncident(UUID incidentId, SearchAreaFilters filters) {
-      return new SearchAreaCollection(incidentId, 5L, List.of(areaRow(incidentId)));
+      SearchAreaRow areaRow = areaRow(incidentId);
+      return new SearchAreaCollection(
+          incidentId, 5L, matchesMinVersion(areaRow, filters) ? List.of(areaRow) : List.of());
     }
 
     @Override
     public SearchAreaCollection byOp(UUID opId, SearchAreaFilters filters) {
-      return new SearchAreaCollection(INCIDENT_ID, 5L, List.of(areaRow(INCIDENT_ID)));
+      SearchAreaRow areaRow = areaRow(INCIDENT_ID);
+      return new SearchAreaCollection(
+          INCIDENT_ID, 5L, matchesMinVersion(areaRow, filters) ? List.of(areaRow) : List.of());
+    }
+
+    private static boolean matchesMinVersion(SearchAreaRow row, SearchAreaFilters filters) {
+      SearchAreaFilters effectiveFilters = filters == null ? SearchAreaFilters.empty() : filters;
+      return effectiveFilters.minVersion() == null || row.version() >= effectiveFilters.minVersion();
     }
 
     private static SearchAreaRow areaRow(UUID incidentId) {
@@ -254,6 +289,8 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
   private static final class CapturingSearchAreaQuery extends FakeSearchAreaQuery {
     private int overallCalls;
     private int byIncidentCalls;
+    private final List<SearchAreaFilters> byIncidentFilters = new ArrayList<>();
+    private final List<SearchAreaFilters> byOpFilters = new ArrayList<>();
 
     @Override
     public Optional<OverallSearchAreaResult> overallOf(UUID incidentId) {
@@ -264,7 +301,14 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
     @Override
     public SearchAreaCollection byIncident(UUID incidentId, SearchAreaFilters filters) {
       byIncidentCalls++;
+      byIncidentFilters.add(filters);
       return super.byIncident(incidentId, filters);
+    }
+
+    @Override
+    public SearchAreaCollection byOp(UUID opId, SearchAreaFilters filters) {
+      byOpFilters.add(filters);
+      return super.byOp(opId, filters);
     }
 
     private int overallCalls() {
@@ -273,6 +317,14 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
 
     private int byIncidentCalls() {
       return byIncidentCalls;
+    }
+
+    private List<SearchAreaFilters> byIncidentFilters() {
+      return List.copyOf(byIncidentFilters);
+    }
+
+    private List<SearchAreaFilters> byOpFilters() {
+      return List.copyOf(byOpFilters);
     }
   }
 

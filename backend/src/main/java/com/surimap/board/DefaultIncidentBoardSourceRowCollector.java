@@ -107,7 +107,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     if (context.includes("area")) {
       if (selectedOpIds.isEmpty()) {
         query
-            .byIncident(context.incidentId(), searchAreaFilters(null, context.sinceVersion()))
+            .byIncident(context.incidentId(), searchAreaFilters(null, null))
             .areas()
             .stream()
             .map(this::areaRow)
@@ -115,7 +115,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
       } else {
         selectedOpIds.forEach(
             opId ->
-                query.byOp(opId, searchAreaFilters(null, context.sinceVersion())).areas().stream()
+                query.byOp(opId, searchAreaFilters(null, null)).areas().stream()
                     .map(this::areaRow)
                     .forEach(rows::add));
       }

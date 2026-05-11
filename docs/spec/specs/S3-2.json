@@ -205,7 +205,8 @@
               }
             },
             "sinceVersion": {
-              "type": "integer"
+              "type": "integer",
+              "description": "Optional previous boardResponseVersion reload watermark. GET /board still returns a full snapshot for the requested opIds/includeSlots and must not filter source-owner rows by this aggregate value. Owner-local minVersion/sinceVersion filters require a future per-slot or per-source cursor request shape."
             }
           }
         },
@@ -1269,11 +1270,6 @@
             "code": 403,
             "case": "team_not_assigned",
             "body": "{\"error\": \"team_not_assigned\"}"
-          },
-          {
-            "code": 409,
-            "case": "gone_refetch_required",
-            "body": "{\"error\": \"gone_refetch_required\"}"
           }
         ]
       }
