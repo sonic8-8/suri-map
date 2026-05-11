@@ -34,7 +34,11 @@ class PublicRouteContractTest {
         .as("context-path plus controller mapping must not duplicate the JSON API prefix")
         .noneMatch(path -> path.startsWith("/api/api/"));
 
-    assertThat(effectivePaths).contains("/api/health", "/tiles/styles/{styleId}.json");
+    assertThat(effectivePaths)
+        .contains(
+            "/api/health",
+            "/api/incidents/{incidentId}/board",
+            "/tiles/styles/{styleId}.json");
     assertThat(effectivePaths).doesNotContain("/api/tiles/styles/{styleId}.json");
 
     assertThat(

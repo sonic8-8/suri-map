@@ -26,7 +26,7 @@
 
 1. 백엔드 public URL prefix는 `S14P31C106-206`에서 정렬됐다. JSON API는 `/api`, tiles는 `/tiles`로 노출된다.
 2. 백엔드는 S1-1 Incident, S3-1 SearchPath, S4 SSE, S5 Marker/Photo, S7 Offline/Tiles 일부가 구현되어 있다.
-3. 백엔드는 S2 SearchArea public controller, S3-2 Board read controller, S8 OperationalPeriod/DutyShift/Handover/SearchHistorySummary public controller가 없다.
+3. 백엔드는 S3-2 Board read controller shell이 추가됐지만 실제 slot source row provider 연결은 남아 있다. S2 SearchArea public controller와 S8 OperationalPeriod/DutyShift/Handover/SearchHistorySummary public controller는 아직 없다.
 4. 백엔드 S6 `POST /api/sync/clock`, `POST /api/sync/outbox/requeue`는 존재하지만 `X-Device-Id`/`device_required`를 사용해 `X-PolicePhone-Id`/PolicePhone 용어 규칙과 충돌한다.
 5. Frontend는 TanStack Query provider와 MapLibre `/tiles` 렌더링만 있고, board API query나 SSE `EventSource` adapter가 없다.
 6. Frontend Vite dev proxy는 `/api`만 있고 `/tiles` proxy가 없어 로컬 백엔드 타일 endpoint와 개발 서버 연동이 끊길 수 있다.
@@ -54,7 +54,7 @@
 | `POST /api/search-paths/batch` | S3-1 | 구현 | `SearchPathController` | Android real outbox replay 필요 |
 | `GET /api/search-paths` | S3-1 | 구현 | `SearchPathController` | FE board mapper와 Android read repository 필요 |
 | `PATCH /api/search-path-segments/{searchPathSegmentId}` | S3-1 | 구현 | `SearchPathSegmentController` | Web correction client 필요 |
-| `GET /api/incidents/{incidentId}/board` | S3-2 | 미구현 | `BoardAssembler`는 있으나 controller 없음 | 다음 백엔드 우선순위 |
+| `GET /api/incidents/{incidentId}/board` | S3-2 | 부분 | `IncidentBoardController`가 `BoardAssembler` 기반 response shape와 WEB guard를 노출 | S2/S3-1/S5/S7/S8 source row provider 연결, location access audit guard 정리 |
 | `GET /api/incidents/{incidentId}/events` | S4 | 구현 | `EventStreamController` | FE SSE adapter 필요 |
 | `POST /api/markers` | S5 | 구현 | `MarkerController` | Android write operation builder 필요 |
 | `PATCH /api/markers/{markerId}` | S5 | 구현 | `MarkerController` | Android/Web policy client 필요 |
@@ -110,7 +110,7 @@
 
 ## 권장 후속 MR 순서
 
-1. `[BE]` S3-2 `GET /api/incidents/{incidentId}/board` controller 구현
+1. `[BE]` S3-2 Board source row provider 연결과 `GET /api/incidents/{incidentId}/board` 데이터 충실도 보강
 2. `[BE]` S2 SearchArea public controller 구현 및 assignment URL 충돌 정리
 3. `[BE]` S8 OperationalPeriod/DutyShift/Handover/SearchHistorySummary controller 구현
 4. `[BE]` S6 `Device`/`X-Device-Id`를 `PolicePhone`/`X-PolicePhone-Id`로 리팩토링
