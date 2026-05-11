@@ -26,10 +26,10 @@ import com.surimap.feature.handover.ui.DutyHandoverScreen
 import com.surimap.feature.handover.ui.HandoverMemoScreen
 import com.surimap.feature.handover.ui.sampleDutyHandoverState
 import com.surimap.feature.handover.ui.sampleHandoverMemoState
+import com.surimap.feature.incidents.data.IncidentListStateLoader
 import com.surimap.feature.incidents.ui.IncidentListScreen
-import com.surimap.feature.incidents.ui.sampleIncidentListState
+import com.surimap.feature.incidents.ui.IncidentListUiState
 import com.surimap.ui.navigation.BlockedOutboxRouteScreen
-import com.surimap.ui.navigation.IncidentContext
 import com.surimap.ui.navigation.IncidentSessionState
 import com.surimap.ui.navigation.MarkerDetailRouteScreen
 import com.surimap.ui.navigation.OfflinePackageRouteScreen
@@ -66,14 +66,11 @@ fun SuriMapApp() {
                     AuthBootstrapRoute(navController = navController)
                 }
                 composable(PolicePhoneRoute.IncidentList.route) {
-                    IncidentListScreen(
-                        state = sampleIncidentListState(),
-                        onOpenIncident = {
-                            incidentSessionState.activateIncidentContext(sampleIncidentContext)
-                            navController.navigateToSingleTop(PolicePhoneRoute.OfflinePackage)
-                        },
-                        onRefresh = {},
-                        onDismissClosedDialog = { incidentClosed = null }
+                    IncidentListRoute(
+                        incidentSessionState = incidentSessionState,
+                        navController = navController,
+                        incidentClosed = incidentClosed,
+                        onClearClosedOverlay = { incidentClosed = null }
                     )
                 }
                 composable(PolicePhoneRoute.OfflinePackage.route) {
@@ -159,6 +156,45 @@ private fun AuthBootstrapRoute(navController: NavHostController) {
     )
 }
 
+@Composable
+private fun IncidentListRoute(
+    incidentSessionState: IncidentSessionState,
+    navController: NavHostController,
+    incidentClosed: IncidentClosedOverlayState?,
+    onClearClosedOverlay: () -> Unit
+) {
+    val loader = remember {
+        IncidentListStateLoader(
+            policePhoneLabel = "관리 폴리폰"
+        )
+    }
+    var refreshNonce by remember { mutableStateOf(0) }
+    var state by remember {
+        mutableStateOf(IncidentListUiState.loading(policePhoneLabel = "관리 폴리폰"))
+    }
+
+    LaunchedEffect(refreshNonce, incidentClosed) {
+        state = IncidentListUiState.loading(policePhoneLabel = "관리 폴리폰")
+        state = loader.load().copy(showClosedDialog = incidentClosed != null)
+        if (state.shouldClearIncidentContext || incidentClosed != null) {
+            incidentSessionState.clearIncidentContext()
+        }
+    }
+
+    IncidentListScreen(
+        state = state,
+        onOpenIncident = { incident ->
+            incidentSessionState.activateIncidentContext(incident.toIncidentContext())
+            navController.navigateToSingleTop(PolicePhoneRoute.OfflinePackage)
+        },
+        onRefresh = { refreshNonce += 1 },
+        onDismissClosedDialog = {
+            onClearClosedOverlay()
+            incidentSessionState.clearIncidentContext()
+        }
+    )
+}
+
 private fun NavHostController.navigateToSingleTop(route: PolicePhoneRoute) {
     navigate(route.route) {
         launchSingleTop = true
@@ -173,10 +209,3 @@ private fun NavHostController.navigateToIncidentListRoot() {
         launchSingleTop = true
     }
 }
-
-private val sampleIncidentContext =
-    IncidentContext(
-        incidentId = "inc-precinct-first-001",
-        currentOpId = "op-003",
-        currentDutyShiftId = "duty-shift-014"
-    )
