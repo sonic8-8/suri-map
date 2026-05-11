@@ -18,4 +18,10 @@ public interface OperationalPeriodMapper {
   Optional<OperationalPeriod> findActiveByIncident(@Param("incidentId") UUID incidentId);
 
   List<OperationalPeriod> findAllByIncidentOrderBySequence(@Param("incidentId") UUID incidentId);
+
+  void endActive(
+      @Param("id") UUID id,
+      @Param("endedByAccountId") UUID endedByAccountId,
+      @Param("endedAt") java.time.Instant endedAt,
+      @Param("version") long version);
 }

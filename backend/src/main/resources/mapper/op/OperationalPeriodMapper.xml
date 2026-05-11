@@ -65,4 +65,15 @@
         ORDER BY sequence_number ASC
     </select>
 
+    <update id="endActive">
+        UPDATE operational_period
+        SET status = 'ENDED',
+            ended_by_account_id = #{endedByAccountId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            ended_at = #{endedAt},
+            version = #{version},
+            updated_at = #{endedAt}
+        WHERE id = #{id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND status = 'ACTIVE'
+    </update>
+
 </mapper>

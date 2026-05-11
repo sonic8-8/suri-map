@@ -26,7 +26,7 @@
 
 1. 백엔드 public URL prefix는 `S14P31C106-206`에서 정렬됐다. JSON API는 `/api`, tiles는 `/tiles`로 노출된다.
 2. 백엔드는 S1-1 Incident, S2 SearchArea headless MVP, S3-1 SearchPath, S4 SSE, S5 Marker/Photo, S7 Offline/Tiles 일부가 구현되어 있다.
-3. 백엔드는 S3-2 Board read controller shell이 추가됐지만 실제 slot source row provider 연결은 남아 있다. S2 SearchArea public controller는 in-memory headless MVP라 MyBatis persistence 정렬이 남아 있고, S8 OperationalPeriod/DutyShift/Handover/SearchHistorySummary public controller는 아직 없다.
+3. 백엔드는 S3-2 Board read controller shell이 추가됐지만 실제 slot source row provider 연결은 남아 있다. S2 SearchArea public controller는 in-memory headless MVP라 MyBatis persistence 정렬이 남아 있고, S8 OperationalPeriod public controller는 headless MVP로 추가됐지만 DutyShift/Handover/SearchHistorySummary public controller는 아직 없다.
 4. 백엔드 S6 `POST /api/sync/clock`, `POST /api/sync/outbox/requeue`는 `X-PolicePhone-Id`/`police_phone_*` 계약으로 정렬됐다.
 5. Frontend는 TanStack Query provider와 MapLibre `/tiles` 렌더링만 있고, board API query나 SSE `EventSource` adapter가 없다.
 6. Frontend Vite dev proxy는 `/api`만 있고 `/tiles` proxy가 없어 로컬 백엔드 타일 endpoint와 개발 서버 연동이 끊길 수 있다.
@@ -65,8 +65,8 @@
 | `POST /api/sync/outbox/requeue` | S6 | 구현 | `OutboxRequeueController`가 `X-PolicePhone-Id`/`police_phone_*` 계약 사용 | Android requeue client 추가 |
 | `GET /api/incidents/{incidentId}/offline-package/manifest` | S7 | 구현 | `OfflinePackageController` | Android package repository 필요 |
 | `POST /api/incidents/{incidentId}/offline-package/installations` | S7 | 구현 | `OfflinePackageController` | Android outbox replay 연결 필요 |
-| `POST /api/operational-periods` | S8 | 미구현 | command/query는 있으나 public controller 없음 | S8 backend controller 우선 구현 |
-| `GET /api/incidents/{incidentId}/operational-periods` | S8 | 미구현 | `OperationalPeriodQuery`만 있음 | board/offline/Android read path 우선 |
+| `POST /api/operational-periods` | S8 | 부분 | `OperationalPeriodController`, MyBatis `operational_period` write, Web command client 추가 | idempotency durable record, handoverMemo 저장, summary job 연계 보강 |
+| `GET /api/incidents/{incidentId}/operational-periods` | S8 | 부분 | `OperationalPeriodController`, `OperationalPeriodQuery`, Web client, Android read repository 추가 | board/offline source provider 연결 |
 | `POST /api/duty-shifts` | S8 | 미구현 | public controller 없음 | Android duty shift write 필요 |
 | `PATCH /api/duty-shifts/{dutyShiftId}` | S8 | 미구현 | public controller 없음 | summary server job trigger 포함 |
 | `GET /api/duty-shifts` | S8 | 미구현 | public controller 없음 | Web/App read repository 필요 |
@@ -86,7 +86,7 @@
 | SSE | 미구현 | `EventSource` 사용 없음 | `GET /api/incidents/{incidentId}/events` adapter 작성 |
 | Board slots | 부분 | slot component/test는 있음 | fixture rows 대신 API mapper 결과 주입 |
 | Tiles | 부분 | MapLibre style URL은 `/tiles/styles/osm-local.json` | Vite `/tiles` proxy 추가 또는 tile base config 결정 |
-| Web commands | 부분 | incident/search-area command client는 있으나 op/handover command client 없음 | UI 작업물과 합칠 나머지 headless command API 선행 |
+| Web commands | 부분 | incident/search-area/operational-period command client는 있으나 handover command client 없음 | UI 작업물과 합칠 나머지 headless command API 선행 |
 
 ## Android Headless 현황
 
@@ -96,7 +96,7 @@
 | API client | 미구현 | runtime HTTP client 코드 없음 | base URL, auth, `X-Client-Channel: APP`, `X-PolicePhone-Id` 처리 |
 | Outbox local model | 구현 | Room `OutboxEntity`, DAO, WorkManager, state machine 있음 | 실제 sender와 sequence barrier 연결 |
 | Outbox sender | 부분 | `OutboxSender` interface는 있으나 기본값이 `NoopOutboxSender` | production 기본 sender를 real HTTP로 교체 |
-| Incident/offline/search-area read repository | 부분 | incident/offline/search-area read repository 추가 | duty-shift/handover/summary read repository 추가 |
+| Incident/offline/search-area/operational-period read repository | 부분 | incident/offline/search-area/operational-period read repository 추가 | duty-shift/handover/summary read repository 추가 |
 | SearchPath/Marker write builder | 미구현 | tests에 sample path만 있음 | write operation builder와 payload mapper 추가 |
 | DutyShift/Handover/Summary | 미구현 | API client/repository 없음 | S8 backend controller 이후 연결 |
 | Tiles | 부분 | MapLibre dependency만 있음 | local `/tiles` style/tile source wiring 추가 |
