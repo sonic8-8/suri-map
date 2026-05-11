@@ -3,11 +3,11 @@ import maplibregl, {
   type GeoJSONSource,
   type LayerSpecification,
   type LngLatBoundsLike,
-  type StyleSpecification,
 } from 'maplibre-gl';
 
 import { getVWorldApiKey } from '../../../../shared/config';
 import { areaColorTokens, type AreaColorToken } from '../../../../shared/constants/areaColorTokens';
+import { createVWorldBaseStyle, V_WORLD_MAX_ZOOM } from '../../../../shared/map/vworldBaseMap';
 import type { AreaEditPosition, CompletedAreaDraft } from '../constants/mockAreaEdit';
 import styles from './AreaEditMapCanvas.module.css';
 
@@ -16,9 +16,6 @@ const GWANGSAN_MANIFEST_URL = '/map-data/gwangsan/manifest.json';
 const MUDEUNGSAN_HIKING_TRAILS_URL = '/map-data/mudeungsan/trails.geojson';
 const MUDEUNGSAN_OSM_TRAILS_URL = '/map-data/mudeungsan/osm-trails.geojson';
 const MUDEUNGSAN_OSM_PEAKS_URL = '/map-data/mudeungsan/osm-peaks.geojson';
-const V_WORLD_TILE_SIZE = 256;
-const V_WORLD_MAX_ZOOM = 19;
-const V_WORLD_BASE_OPACITY = 1;
 const DEFAULT_FIT_PADDING = 44;
 const INITIAL_MAP_FALLBACK_ZOOM = 12;
 const CLOSE_VERTEX_PIXEL_THRESHOLD = 12;
@@ -34,6 +31,28 @@ const AREA_EDIT_DRAFT_VERTEX_LAYER_ID = 'area-edit-draft-vertices';
 const AREA_EDIT_COMPLETED_DRAFT_SOURCE_ID = 'area-edit-completed-drafts';
 const AREA_EDIT_COMPLETED_DRAFT_FILL_LAYER_ID = 'area-edit-completed-draft-fill';
 const AREA_EDIT_COMPLETED_DRAFT_LINE_LAYER_ID = 'area-edit-completed-draft-line';
+const AREA_EDIT_MOVEMENT_PATH_SOURCE_ID = 'area-edit-movement-path';
+const AREA_EDIT_MOVEMENT_PATH_VEHICLE_LAYER_ID = 'area-edit-movement-path-vehicle';
+const AREA_EDIT_MOVEMENT_PATH_FOOT_LAYER_ID = 'area-edit-movement-path-foot';
+const AREA_EDIT_MOVEMENT_PATH_UNKNOWN_LAYER_ID = 'area-edit-movement-path-unknown';
+const AREA_EDIT_MARKER_SOURCE_ID = 'area-edit-marker';
+const AREA_EDIT_MARKER_LAYER_ID = 'area-edit-marker-circle';
+const AREA_EDIT_MARKER_SYMBOL_LAYER_ID = 'area-edit-marker-symbol';
+
+export type AreaEditMovementPath = {
+  id: string;
+  policePhoneId: string | null;
+  routeColor: string | null;
+  opId: string;
+  movementType: 'VEHICLE' | 'FOOT' | 'UNKNOWN';
+  coordinates: AreaEditPosition[];
+};
+
+export type AreaEditMapMarker = {
+  id: string;
+  markerType: 'CLUE' | 'PERSON_FOUND' | 'FIELD_CONDITION' | 'SUPPORT_REQUEST' | 'NOTE' | 'UNKNOWN';
+  coordinates: AreaEditPosition;
+};
 
 type GwangsanLayerId = 'boundary';
 type GwangsanMapLayerManifest = {
@@ -72,35 +91,37 @@ type AreaFeatureCollection = {
   features: AreaFeature[];
 };
 
-function createVWorldBaseStyle(apiKey: string): StyleSpecification {
-  return {
-    version: 8,
-    glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
-    sources: {
-      'vworld-base-raster': {
-        type: 'raster',
-        tiles: [`https://api.vworld.kr/req/wmts/1.0.0/${apiKey}/Base/{z}/{y}/{x}.png`],
-        tileSize: V_WORLD_TILE_SIZE,
-        maxzoom: V_WORLD_MAX_ZOOM,
-        attribution: 'VWorld',
-      },
-    },
-    layers: [
-      {
-        id: 'vworld-base-raster',
-        type: 'raster',
-        source: 'vworld-base-raster',
-        paint: { 'raster-opacity': V_WORLD_BASE_OPACITY },
-      },
-    ],
-  };
-}
-
 function toBounds(bbox: [number, number, number, number]): LngLatBoundsLike {
   return [
     [bbox[0], bbox[1]],
     [bbox[2], bbox[3]],
   ];
+}
+
+function toRingBounds(ring: AreaEditPosition[]): LngLatBoundsLike | null {
+  if (ring.length === 0) return null;
+
+  let minLon = ring[0][0];
+  let minLat = ring[0][1];
+  let maxLon = ring[0][0];
+  let maxLat = ring[0][1];
+
+  for (const [lon, lat] of ring) {
+    minLon = Math.min(minLon, lon);
+    minLat = Math.min(minLat, lat);
+    maxLon = Math.max(maxLon, lon);
+    maxLat = Math.max(maxLat, lat);
+  }
+
+  return [
+    [minLon, minLat],
+    [maxLon, maxLat],
+  ];
+}
+
+function findOverallDraftBounds(completedDrafts: CompletedAreaDraft[]): LngLatBoundsLike | null {
+  const overallDraft = completedDrafts.find((draft) => draft.kind === 'overall' && draft.coordinates.length >= 4);
+  return overallDraft ? toRingBounds(overallDraft.coordinates) : null;
 }
 
 function addGeoJsonSource(map: maplibregl.Map, sourceId: string, data: string | AreaFeatureCollection) {
@@ -241,6 +262,75 @@ function buildCompletedDraftFeatureCollection(completedDrafts: CompletedAreaDraf
   };
 }
 
+function toMovementPathFeature(path: AreaEditMovementPath, activeOperationalPeriodId: string | null): LineFeature {
+  return {
+    type: 'Feature',
+    properties: {
+      entityId: path.id,
+      policePhoneId: path.policePhoneId ?? '',
+      deviceColor: path.routeColor ?? '',
+      opId: path.opId,
+      movementType: path.movementType,
+      isActiveOp: String(path.opId === activeOperationalPeriodId),
+    },
+    geometry: {
+      type: 'LineString',
+      coordinates: path.coordinates,
+    },
+  };
+}
+
+function buildMovementPathFeatureCollection(
+  movementPaths: AreaEditMovementPath[],
+  activeOperationalPeriodId: string | null,
+): AreaFeatureCollection {
+  return {
+    type: 'FeatureCollection',
+    features: movementPaths
+      .filter((path) => path.coordinates.length >= 2 && path.routeColor)
+      .map((path) => toMovementPathFeature(path, activeOperationalPeriodId)),
+  };
+}
+
+function toMarkerFeature(marker: AreaEditMapMarker): PointFeature {
+  return {
+    type: 'Feature',
+    properties: {
+      entityId: marker.id,
+      markerType: marker.markerType,
+      markerGlyph: markerTypeGlyph(marker.markerType),
+    },
+    geometry: {
+      type: 'Point',
+      coordinates: marker.coordinates,
+    },
+  };
+}
+
+function markerTypeGlyph(markerType: AreaEditMapMarker['markerType']) {
+  switch (markerType) {
+    case 'CLUE':
+      return '?';
+    case 'PERSON_FOUND':
+      return 'P';
+    case 'FIELD_CONDITION':
+      return '!';
+    case 'SUPPORT_REQUEST':
+      return '+';
+    case 'NOTE':
+      return 'N';
+    default:
+      return '.';
+  }
+}
+
+function buildMarkerFeatureCollection(markers: AreaEditMapMarker[]): AreaFeatureCollection {
+  return {
+    type: 'FeatureCollection',
+    features: markers.map(toMarkerFeature),
+  };
+}
+
 function buildDraftFeatureCollection(draftPoints: AreaEditPosition[], colorToken: AreaColorToken | null): AreaFeatureCollection {
   const visualStyle = areaColorTokens[colorToken ?? 'areaColor001'];
   const features: AreaFeature[] = draftPoints.map((position, index) => ({
@@ -370,6 +460,113 @@ function addDrawingLayers(map: maplibregl.Map) {
   });
 }
 
+function addMovementPathLayers(map: maplibregl.Map, movementPaths: AreaFeatureCollection) {
+  addGeoJsonSource(map, AREA_EDIT_MOVEMENT_PATH_SOURCE_ID, movementPaths);
+
+  addLayer(map, {
+    id: AREA_EDIT_MOVEMENT_PATH_VEHICLE_LAYER_ID,
+    type: 'line',
+    source: AREA_EDIT_MOVEMENT_PATH_SOURCE_ID,
+    filter: [
+      'all',
+      ['has', 'deviceColor'],
+      ['!=', ['get', 'deviceColor'], ''],
+      ['==', ['get', 'isActiveOp'], 'true'],
+      ['==', ['get', 'movementType'], 'VEHICLE'],
+    ],
+    paint: {
+      'line-color': ['get', 'deviceColor'],
+      'line-width': 4.2,
+      'line-opacity': 0.88,
+    },
+  });
+  addLayer(map, {
+    id: AREA_EDIT_MOVEMENT_PATH_FOOT_LAYER_ID,
+    type: 'line',
+    source: AREA_EDIT_MOVEMENT_PATH_SOURCE_ID,
+    filter: [
+      'all',
+      ['has', 'deviceColor'],
+      ['!=', ['get', 'deviceColor'], ''],
+      ['==', ['get', 'isActiveOp'], 'true'],
+      ['==', ['get', 'movementType'], 'FOOT'],
+    ],
+    paint: {
+      'line-color': ['get', 'deviceColor'],
+      'line-width': 3.2,
+      'line-opacity': 0.9,
+      'line-dasharray': [1.1, 0.85],
+    },
+  });
+  addLayer(map, {
+    id: AREA_EDIT_MOVEMENT_PATH_UNKNOWN_LAYER_ID,
+    type: 'line',
+    source: AREA_EDIT_MOVEMENT_PATH_SOURCE_ID,
+    filter: [
+      'all',
+      ['has', 'deviceColor'],
+      ['!=', ['get', 'deviceColor'], ''],
+      ['==', ['get', 'isActiveOp'], 'true'],
+      ['==', ['get', 'movementType'], 'UNKNOWN'],
+    ],
+    paint: {
+      'line-color': ['get', 'deviceColor'],
+      'line-width': 3,
+      'line-opacity': 0.78,
+      'line-dasharray': [0.7, 1],
+    },
+  });
+}
+
+function addMarkerLayers(map: maplibregl.Map, markers: AreaFeatureCollection) {
+  addGeoJsonSource(map, AREA_EDIT_MARKER_SOURCE_ID, markers);
+
+  addLayer(map, {
+    id: AREA_EDIT_MARKER_LAYER_ID,
+    type: 'circle',
+    source: AREA_EDIT_MARKER_SOURCE_ID,
+    paint: {
+      'circle-color': [
+        'match',
+        ['get', 'markerType'],
+        'CLUE',
+        '#f59e0b',
+        'PERSON_FOUND',
+        '#dc2626',
+        'FIELD_CONDITION',
+        '#0ea5e9',
+        'SUPPORT_REQUEST',
+        '#7c3aed',
+        'NOTE',
+        '#475569',
+        '#334155',
+      ],
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 11, 8, 14, 10, 16, 12],
+      'circle-stroke-color': '#ffffff',
+      'circle-stroke-width': 2,
+      'circle-opacity': 0.94,
+    },
+  });
+
+  addLayer(map, {
+    id: AREA_EDIT_MARKER_SYMBOL_LAYER_ID,
+    type: 'symbol',
+    source: AREA_EDIT_MARKER_SOURCE_ID,
+    layout: {
+      'text-field': ['get', 'markerGlyph'],
+      'text-size': ['interpolate', ['linear'], ['zoom'], 11, 10, 14, 12, 16, 14],
+      'text-font': ['Noto Sans Regular'],
+      'text-allow-overlap': true,
+      'text-ignore-placement': true,
+    },
+    paint: {
+      'text-color': '#ffffff',
+      'text-halo-color': 'rgba(15, 23, 42, 0.22)',
+      'text-halo-width': 0.8,
+    },
+  });
+}
+
 function signedArea(a: AreaEditPosition, b: AreaEditPosition, c: AreaEditPosition) {
   return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
 }
@@ -446,10 +643,15 @@ function validateClosedRing(closedRing: AreaEditPosition[]) {
 }
 
 export type AreaEditMapCanvasProps = {
+  externalMap?: maplibregl.Map | null;
+  hideCanvas?: boolean;
   canCompleteDraft: boolean;
   completedDrafts: CompletedAreaDraft[];
   draftPoints: AreaEditPosition[];
   isDrawing: boolean;
+  activeOperationalPeriodId: string | null;
+  mapMarkers: AreaEditMapMarker[];
+  movementPaths: AreaEditMovementPath[];
   normalSelectedAreaId: string | null;
   normalSelectedAreaPosition: AreaEditPosition | null;
   onBoundsReady?: (bounds: LngLatBoundsLike | null) => void;
@@ -468,10 +670,15 @@ export type AreaEditMapCanvasProps = {
 };
 
 export function AreaEditMapCanvas({
+  externalMap = null,
+  hideCanvas = false,
+  activeOperationalPeriodId,
   canCompleteDraft,
   completedDrafts,
   draftPoints,
   isDrawing,
+  mapMarkers,
+  movementPaths,
   normalSelectedAreaId,
   normalSelectedAreaPosition,
   onBoundsReady,
@@ -493,8 +700,12 @@ export function AreaEditMapCanvas({
   const [floatingControlPosition, setFloatingControlPosition] = useState<{ x: number; y: number } | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
   const completedDraftsRef = useRef(completedDrafts);
+  const fittedOverallAreaIdRef = useRef<string | null>(null);
   const draftPointsRef = useRef(draftPoints);
   const isDrawingRef = useRef(isDrawing);
+  const activeOperationalPeriodIdRef = useRef(activeOperationalPeriodId);
+  const mapMarkersRef = useRef(mapMarkers);
+  const movementPathsRef = useRef(movementPaths);
   const normalSelectedAreaIdRef = useRef(normalSelectedAreaId);
   const normalSelectedAreaPositionRef = useRef(normalSelectedAreaPosition);
   const selectedAreaColorTokenRef = useRef(selectedAreaColorToken);
@@ -517,6 +728,35 @@ export function AreaEditMapCanvas({
   useEffect(() => { onDraftPointAddRef.current = onDraftPointAdd; }, [onDraftPointAdd]);
   useEffect(() => { onCloseDraftRef.current = onCloseDraft; }, [onCloseDraft]);
   useEffect(() => { onValidationMessageRef.current = onValidationMessage; }, [onValidationMessage]);
+
+  useEffect(() => {
+    activeOperationalPeriodIdRef.current = activeOperationalPeriodId;
+    const map = mapRef.current;
+    if (!map) return;
+    setGeoJsonSourceData(
+      map,
+      AREA_EDIT_MOVEMENT_PATH_SOURCE_ID,
+      buildMovementPathFeatureCollection(movementPathsRef.current, activeOperationalPeriodId),
+    );
+  }, [activeOperationalPeriodId]);
+
+  useEffect(() => {
+    movementPathsRef.current = movementPaths;
+    const map = mapRef.current;
+    if (!map) return;
+    setGeoJsonSourceData(
+      map,
+      AREA_EDIT_MOVEMENT_PATH_SOURCE_ID,
+      buildMovementPathFeatureCollection(movementPaths, activeOperationalPeriodIdRef.current),
+    );
+  }, [movementPaths]);
+
+  useEffect(() => {
+    mapMarkersRef.current = mapMarkers;
+    const map = mapRef.current;
+    if (!map) return;
+    setGeoJsonSourceData(map, AREA_EDIT_MARKER_SOURCE_ID, buildMarkerFeatureCollection(mapMarkers));
+  }, [mapMarkers]);
 
   const updateFloatingControlPosition = useCallback(() => {
     const map = mapRef.current;
@@ -550,6 +790,16 @@ export function AreaEditMapCanvas({
     const map = mapRef.current;
     if (!map) return;
     setGeoJsonSourceData(map, AREA_EDIT_COMPLETED_DRAFT_SOURCE_ID, buildCompletedDraftFeatureCollection(completedDrafts));
+
+    const overallDraft = completedDrafts.find((draft) => draft.kind === 'overall' && draft.coordinates.length >= 4);
+    if (!overallDraft || fittedOverallAreaIdRef.current === overallDraft.areaId) return;
+
+    const bounds = toRingBounds(overallDraft.coordinates);
+    if (!bounds) return;
+
+    fittedOverallAreaIdRef.current = overallDraft.areaId;
+    map.fitBounds(bounds, { padding: DEFAULT_FIT_PADDING, duration: 260, maxZoom: 15 });
+    onBoundsReadyRef.current?.(bounds);
   }, [completedDrafts]);
 
   useEffect(() => {
@@ -638,6 +888,74 @@ export function AreaEditMapCanvas({
   }, []);
 
   useEffect(() => {
+    if (!externalMap) return;
+
+    mapRef.current = externalMap;
+    onMapReadyRef.current?.(externalMap);
+
+    const initializeExternalLayers = () => {
+      addSearchAreaLayers(externalMap, buildAreaFeatureCollection());
+      addDrawingLayers(externalMap);
+      addMovementPathLayers(
+        externalMap,
+        buildMovementPathFeatureCollection(movementPathsRef.current, activeOperationalPeriodIdRef.current),
+      );
+      addMarkerLayers(externalMap, buildMarkerFeatureCollection(mapMarkersRef.current));
+      setGeoJsonSourceData(
+        externalMap,
+        AREA_EDIT_COMPLETED_DRAFT_SOURCE_ID,
+        buildCompletedDraftFeatureCollection(completedDraftsRef.current),
+      );
+      setGeoJsonSourceData(
+        externalMap,
+        AREA_EDIT_DRAFT_SOURCE_ID,
+        buildDraftFeatureCollection(draftPointsRef.current, selectedAreaColorTokenRef.current),
+      );
+      externalMap.setFilter(AREA_EDIT_SELECTED_FILL_LAYER_ID, ['==', ['get', 'entityId'], selectedAreaIdRef.current ?? '']);
+      externalMap.on('click', AREA_EDIT_FILL_LAYER_ID, handleAreaClick);
+      externalMap.on('click', AREA_EDIT_LINE_LAYER_ID, handleAreaClick);
+      externalMap.on('click', handleMapClick);
+      externalMap.on('move', updateFloatingControlPosition);
+      externalMap.on('zoom', updateFloatingControlPosition);
+      externalMap.on('move', updateTooltipPosition);
+      externalMap.on('zoom', updateTooltipPosition);
+      externalMap.on('resize', updateFloatingControlPosition);
+      externalMap.on('resize', updateTooltipPosition);
+    };
+
+    if (externalMap.loaded()) {
+      initializeExternalLayers();
+    } else {
+      externalMap.once('load', initializeExternalLayers);
+    }
+
+    return () => {
+      externalMap.off('load', initializeExternalLayers);
+      externalMap.off('click', AREA_EDIT_FILL_LAYER_ID, handleAreaClick);
+      externalMap.off('click', AREA_EDIT_LINE_LAYER_ID, handleAreaClick);
+      externalMap.off('click', handleMapClick);
+      externalMap.off('move', updateFloatingControlPosition);
+      externalMap.off('zoom', updateFloatingControlPosition);
+      externalMap.off('move', updateTooltipPosition);
+      externalMap.off('zoom', updateTooltipPosition);
+      externalMap.off('resize', updateFloatingControlPosition);
+      externalMap.off('resize', updateTooltipPosition);
+      externalMap.getCanvas().classList.remove(styles.drawingCursor);
+      setGeoJsonSourceData(externalMap, AREA_EDIT_COMPLETED_DRAFT_SOURCE_ID, buildAreaFeatureCollection());
+      setGeoJsonSourceData(externalMap, AREA_EDIT_DRAFT_SOURCE_ID, buildAreaFeatureCollection());
+      setGeoJsonSourceData(externalMap, AREA_EDIT_MARKER_SOURCE_ID, buildAreaFeatureCollection());
+      setGeoJsonSourceData(externalMap, AREA_EDIT_MOVEMENT_PATH_SOURCE_ID, buildAreaFeatureCollection());
+      if (externalMap.getLayer(AREA_EDIT_SELECTED_FILL_LAYER_ID)) {
+        externalMap.setFilter(AREA_EDIT_SELECTED_FILL_LAYER_ID, ['==', ['get', 'entityId'], '']);
+      }
+      mapRef.current = null;
+      onMapReadyRef.current?.(null);
+      onBoundsReadyRef.current?.(null);
+    };
+  }, [externalMap, handleAreaClick, handleMapClick, updateFloatingControlPosition, updateTooltipPosition]);
+
+  useEffect(() => {
+    if (externalMap) return;
     if (!mapContainerRef.current) return;
 
     const vWorldApiKey = getVWorldApiKey();
@@ -656,6 +974,11 @@ export function AreaEditMapCanvas({
     map.once('load', () => {
       addSearchAreaLayers(map, buildAreaFeatureCollection());
       addDrawingLayers(map);
+      addMovementPathLayers(
+        map,
+        buildMovementPathFeatureCollection(movementPathsRef.current, activeOperationalPeriodIdRef.current),
+      );
+      addMarkerLayers(map, buildMarkerFeatureCollection(mapMarkersRef.current));
       setGeoJsonSourceData(map, AREA_EDIT_COMPLETED_DRAFT_SOURCE_ID, buildCompletedDraftFeatureCollection(completedDraftsRef.current));
       setGeoJsonSourceData(map, AREA_EDIT_DRAFT_SOURCE_ID, buildDraftFeatureCollection(draftPointsRef.current, selectedAreaColorTokenRef.current));
       map.setFilter(AREA_EDIT_SELECTED_FILL_LAYER_ID, ['==', ['get', 'entityId'], selectedAreaIdRef.current ?? '']);
@@ -674,10 +997,18 @@ export function AreaEditMapCanvas({
           addMudeungsanHikingTrailLayersSafely(map);
 
           const boundaryLayer = manifest.layers.find((layer) => layer.layerId === 'boundary');
-          const bounds = boundaryLayer ? toBounds(boundaryLayer.bbox) : null;
+          const overallBounds = findOverallDraftBounds(completedDraftsRef.current);
+          // TODO(area-edit): 사건 상세 계약에 좌표 필드가 생기면 active OVERALL bounds와 광산 fallback 사이에서
+          // 사건 좌표를 초기 지도 기준으로 사용한다. 현재 사건 상세에는 lastSeenLocationText 문자열만 있어
+          // 지도 중심을 계산하면 문서 계약 밖의 추정 로직이 된다.
+          const bounds = overallBounds ?? (boundaryLayer ? toBounds(boundaryLayer.bbox) : null);
 
           if (bounds) {
             map.fitBounds(bounds, { padding: DEFAULT_FIT_PADDING, duration: 0, maxZoom: 15 });
+            if (overallBounds) {
+              const overallDraft = completedDraftsRef.current.find((draft) => draft.kind === 'overall');
+              fittedOverallAreaIdRef.current = overallDraft?.areaId ?? null;
+            }
           } else {
             map.setCenter(DEFAULT_JURISDICTION_CENTER);
             map.setZoom(INITIAL_MAP_FALLBACK_ZOOM);
@@ -706,13 +1037,13 @@ export function AreaEditMapCanvas({
       onBoundsReadyRef.current?.(null);
       map.remove();
     };
-  }, [handleAreaClick, handleMapClick, updateFloatingControlPosition, updateTooltipPosition]);
+  }, [externalMap, handleAreaClick, handleMapClick, updateFloatingControlPosition, updateTooltipPosition]);
 
   const selectedTooltipDraft = normalSelectedAreaId ? completedDrafts.find((draft) => draft.areaId === normalSelectedAreaId) : null;
 
   return (
-    <div className={styles.surface} aria-label="구역 편집 지도">
-      <div ref={mapContainerRef} className={styles.canvas} />
+    <div className={`${styles.surface}${hideCanvas ? ` ${styles.externalSurface}` : ''}`} aria-label="구역 편집 지도">
+      {hideCanvas ? null : <div ref={mapContainerRef} className={styles.canvas} />}
       {tooltipPosition && selectedTooltipDraft ? (
         <div
           className={styles.areaTooltip}

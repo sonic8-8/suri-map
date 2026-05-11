@@ -12,6 +12,7 @@
   background: var(--suri-board-panel-bg);
   box-shadow: 6px 0 18px rgb(0 0 0 / 18%);
   transition: transform 180ms ease;
+  pointer-events: auto;
 }
 
 .left {

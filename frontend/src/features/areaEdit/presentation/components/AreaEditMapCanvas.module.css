@@ -6,6 +6,14 @@
   background: #f7f7f7;
 }
 
+.externalSurface {
+  position: absolute;
+  z-index: 18;
+  inset: 0;
+  background: transparent;
+  pointer-events: none;
+}
+
 .canvas {
   position: absolute;
   inset: 0;
@@ -33,6 +41,7 @@
   font-weight: 900;
   line-height: 1;
   transform: translate(-50%, calc(-100% - 10px));
+  pointer-events: auto;
 }
 
 .vertexControl::after {

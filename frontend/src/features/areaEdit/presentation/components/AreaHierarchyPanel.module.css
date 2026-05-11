@@ -69,14 +69,39 @@
   gap: 18px;
 }
 
+.addUnitButton {
+  display: none;
+}
+
+.inlineActionButton {
+  min-height: 42px;
+  margin: -8px 0 0 28px;
+  border: 1px solid color-mix(in srgb, var(--suri-board-primary-hi) 58%, var(--suri-board-border));
+  border-radius: 4px;
+  color: var(--suri-board-panel-bg);
+  background: var(--suri-board-primary-hi);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.inlineActionButton:disabled {
+  border-color: var(--suri-board-option-default-border);
+  color: color-mix(in srgb, var(--suri-board-fg-muted) 76%, var(--suri-board-panel-bg));
+  background: color-mix(in srgb, var(--suri-board-border) 62%, transparent);
+  cursor: not-allowed;
+}
+
 .nodeRow,
 .unitToggle,
 .unitStaticRow {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
+  align-items: center;
   gap: 8px;
+  width: 100%;
   min-width: 0;
+  box-sizing: border-box;
   padding: 8px 9px;
   border: 1px solid color-mix(in srgb, var(--area-identity-color) 44%, #d7e0ec);
   border-radius: 4px;
@@ -89,8 +114,17 @@
 }
 
 .unitToggle {
-  grid-template-columns: minmax(0, 1fr) auto;
   background: color-mix(in srgb, var(--area-identity-color) 9%, #f8fbff);
+}
+
+.unitToggle,
+.unitStaticRow {
+  padding-right: 9px;
+}
+
+.unitActionRow:has(.removeDraftUnitButton) .unitToggle,
+.unitActionRow:has(.removeDraftUnitButton) .unitStaticRow {
+  padding-right: 28px;
 }
 
 .nodeText {
@@ -130,6 +164,13 @@
   white-space: nowrap;
 }
 
+.nodeStatusRow {
+  display: flex;
+  justify-content: flex-end;
+  min-width: 0;
+  max-width: 100%;
+}
+
 .unitList {
   position: relative;
   display: grid;
@@ -152,6 +193,33 @@
   position: relative;
   display: grid;
   gap: 12px;
+}
+
+.unitActionRow {
+  position: relative;
+  display: block;
+}
+
+.removeDraftUnitButton {
+  position: absolute;
+  top: 8px;
+  right: 9px;
+  z-index: 2;
+  width: auto;
+  height: auto;
+  padding: 0;
+  border: 0;
+  color: #7f1d1d;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
+  cursor: pointer;
+}
+
+.removeDraftUnitButton:hover {
+  color: #dc2626;
 }
 
 .inactiveNode .unitToggle,
@@ -212,8 +280,10 @@
   z-index: 1;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
+  align-items: center;
   gap: 6px;
+  width: 100%;
+  box-sizing: border-box;
   padding: 6px 7px;
   border: 1px solid color-mix(in srgb, var(--area-identity-color) 36%, #d7e0ec);
   border-radius: 4px;
@@ -272,6 +342,105 @@
   height: 1px;
   background: color-mix(in srgb, var(--suri-board-fg-muted) 62%, var(--suri-board-border));
   content: "";
+}
+
+.assignmentPanel {
+  display: grid;
+  gap: 10px;
+  margin: 4px 5px 12px 0;
+  padding: 12px;
+  border: 1px solid var(--suri-board-left-section-divider);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--suri-board-panel-bg) 92%, #ffffff);
+}
+
+.assignmentHeader {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.assignmentHeader strong {
+  color: var(--suri-board-fg-muted);
+  font-size: 14px;
+}
+
+.assignmentHeader span {
+  overflow: hidden;
+  color: var(--suri-board-fg-secondary);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assignmentList {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.assignmentItem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--suri-board-border) 76%, transparent);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--suri-board-border) 24%, transparent);
+  cursor: pointer;
+}
+
+.assignmentItem input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
+.assignmentText {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.assignmentText strong,
+.assignmentText span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assignmentText strong {
+  color: var(--suri-board-fg-muted);
+  font-size: 13px;
+}
+
+.assignmentText span,
+.assignmentEmpty {
+  color: var(--suri-board-fg-secondary);
+  font-size: 12px;
+}
+
+.assignmentEmpty {
+  margin: 0;
+}
+
+.assignmentSaveButton {
+  min-height: 38px;
+  border: 1px solid color-mix(in srgb, var(--suri-board-primary-hi) 58%, var(--suri-board-border));
+  border-radius: 4px;
+  color: var(--suri-board-panel-bg);
+  background: var(--suri-board-primary-hi);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.assignmentSaveButton:disabled {
+  border-color: var(--suri-board-option-default-border);
+  color: color-mix(in srgb, var(--suri-board-fg-muted) 76%, var(--suri-board-panel-bg));
+  background: color-mix(in srgb, var(--suri-board-border) 62%, transparent);
+  cursor: not-allowed;
 }
 
 .actions {

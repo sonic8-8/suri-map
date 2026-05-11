@@ -6,19 +6,24 @@ import type { LngLatBoundsLike } from 'maplibre-gl';
 import { MapControls } from '../../../../shared/ui';
 import type { AreaColorToken } from '../../../../shared/constants/areaColorTokens';
 import type { AreaEditPageState, AreaEditToolId, CompletedAreaDraft } from '../constants/mockAreaEdit';
-import { AreaEditMapCanvas } from './AreaEditMapCanvas';
+import { AreaEditMapCanvas, type AreaEditMapMarker, type AreaEditMovementPath } from './AreaEditMapCanvas';
 import styles from './AreaEditMap.module.css';
+
+export type { AreaEditMapMarker, AreaEditMovementPath };
 
 const AREA_FIT_PADDING = 44;
 const AREA_FIT_MAX_ZOOM = 15;
 
 type AreaEditMapProps = {
   activeToolId: AreaEditToolId;
+  activeOperationalPeriodId: string | null;
   completedDrafts: CompletedAreaDraft[];
   draftPoints: [number, number][];
   isDrawToolDisabled: boolean;
   isDrawing: boolean;
   isMapExpanded: boolean;
+  mapMarkers: AreaEditMapMarker[];
+  movementPaths: AreaEditMovementPath[];
   normalSelectedAreaId: string | null;
   normalSelectedAreaPosition: [number, number] | null;
   pageState: AreaEditPageState;
@@ -57,6 +62,10 @@ const overlayMessages: Partial<Record<AreaEditPageState, { title: string; descri
     title: '오프라인 상태입니다',
     description: '네트워크 연결을 확인한 뒤 구역 편집을 다시 시도하세요.',
   },
+  op_transition: {
+    title: '진행 중인 OP가 없습니다',
+    description: '새 OP를 연 뒤 현재 OP에서만 수색 구역을 편집할 수 있습니다.',
+  },
   incident_closed: {
     title: '종료된 사건입니다',
     description: '종료된 사건에서는 수색 구역을 새로 편집할 수 없습니다.',
@@ -69,11 +78,14 @@ const overlayMessages: Partial<Record<AreaEditPageState, { title: string; descri
 
 export function AreaEditMap({
   activeToolId,
+  activeOperationalPeriodId,
   completedDrafts,
   draftPoints,
   isDrawToolDisabled,
   isDrawing,
   isMapExpanded,
+  mapMarkers,
+  movementPaths,
   normalSelectedAreaId,
   normalSelectedAreaPosition,
   pageState,
@@ -139,9 +151,12 @@ export function AreaEditMap({
     <main className={styles.map} aria-label="수색 구역 편집 지도">
       <div className={styles.mapCanvas}>
         <AreaEditMapCanvas
+          activeOperationalPeriodId={activeOperationalPeriodId}
           completedDrafts={completedDrafts}
           draftPoints={draftPoints}
           isDrawing={isDrawing}
+          mapMarkers={mapMarkers}
+          movementPaths={movementPaths}
           normalSelectedAreaId={normalSelectedAreaId}
           normalSelectedAreaPosition={normalSelectedAreaPosition}
           canCompleteDraft={canCompleteDraft}
@@ -159,11 +174,6 @@ export function AreaEditMap({
           selectedAreaColorToken={selectedAreaColorToken}
           selectedAreaId={selectedAreaId}
         />
-
-        <div className={styles.mapToolbar} aria-label="지도 작업 상태">
-          <span>수색 구역 편집</span>
-          <strong>{activeToolId.toUpperCase()}</strong>
-        </div>
 
         <MapControls
           isMapExpanded={isMapExpanded}
