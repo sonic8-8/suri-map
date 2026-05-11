@@ -23,7 +23,7 @@ public final class S8IdempotencyFixtures {
           "POST /operational-periods",
           "POST /operational-periods/{opId}/assignments",
           "POST /handover-memos",
-          "POST /operational-periods/{opId}/ai-summary");
+          "PATCH /duty-shifts/{dutyShiftId}");
 
   private S8IdempotencyFixtures() {}
 

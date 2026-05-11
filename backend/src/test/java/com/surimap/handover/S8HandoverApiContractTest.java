@@ -33,6 +33,7 @@ import com.surimap.incident.lifecycle.IncidentLifecycleGuard;
 import com.surimap.incident.lifecycle.IncidentLifecycleSnapshot;
 import com.surimap.operationalperiod.OperationalPeriod;
 import com.surimap.operationalperiod.OperationalPeriodMapper;
+import com.surimap.summary.SearchHistorySummaryGenerationJob;
 import com.surimap.summary.SearchHistorySummaryMapper;
 import com.surimap.summary.SearchHistorySummaryRow;
 import com.surimap.support.auth.GuardPortTestStubs;
@@ -92,6 +93,7 @@ class S8HandoverApiContractTest {
   @MockitoBean private DutyShiftMapper dutyShiftMapper;
   @MockitoBean private HandoverMemoMapper handoverMemoMapper;
   @MockitoBean private SearchHistorySummaryMapper searchHistorySummaryMapper;
+  @MockitoBean private SearchHistorySummaryGenerationJob searchHistorySummaryGenerationJob;
   @MockitoBean private IncidentLifecycleGuard incidentLifecycleGuard;
   @MockitoBean private EventHub eventHub;
 
@@ -247,6 +249,14 @@ class S8HandoverApiContractTest {
         .andExpect(jsonPath("$.endedAt", notNullValue()));
 
     verify(dutyShiftMapper).end(eq(DUTY_SHIFT_ID), eq(ACCOUNT_ID), any(Instant.class), eq(2L));
+    verify(searchHistorySummaryGenerationJob)
+        .enqueueForDutyShiftEnd(
+            org.mockito.ArgumentMatchers.<DutyShift>argThat(
+                dutyShift ->
+                    DUTY_SHIFT_ID.equals(dutyShift.getId())
+                        && INCIDENT_ID.equals(dutyShift.getIncidentId())
+                        && OP_ID.equals(dutyShift.getOpId())),
+            eq(ACCOUNT_ID));
   }
 
   @Test
