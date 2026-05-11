@@ -50,10 +50,16 @@ fun SuriMapApp() {
     val incidentSessionState = remember { IncidentSessionState() }
     var incidentClosed by remember { mutableStateOf<IncidentClosedOverlayState?>(null) }
     var blockedQueue by remember { mutableStateOf<BlockedQueueToastState?>(null) }
+    var handoverMemoSaved by remember { mutableStateOf<HandoverMemoSavedToastState?>(null) }
 
     Surface(modifier = Modifier.fillMaxSize(), color = PoliBgBase) {
         AppOverlayHost(
-            state = AppOverlayState(incidentClosed = incidentClosed, blockedQueue = blockedQueue),
+            state =
+            AppOverlayState(
+                incidentClosed = incidentClosed,
+                blockedQueue = blockedQueue,
+                handoverMemoSaved = handoverMemoSaved
+            ),
             onDismissIncidentClosed = {
                 incidentClosed = null
                 incidentSessionState.clearIncidentContext()
@@ -62,7 +68,8 @@ fun SuriMapApp() {
             onOpenBlockedQueue = {
                 blockedQueue = null
                 navController.navigateToSingleTop(PolicePhoneRoute.BlockedOutbox)
-            }
+            },
+            onDismissHandoverMemoSaved = { handoverMemoSaved = null }
         ) {
             NavHost(
                 navController = navController,
@@ -142,10 +149,20 @@ fun SuriMapApp() {
                     )
                 }
                 composable(PolicePhoneRoute.HandoverMemo.route) {
+                    var memoState by remember { mutableStateOf(sampleHandoverMemoState()) }
                     HandoverMemoScreen(
-                        state = sampleHandoverMemoState(),
+                        state = memoState,
                         onBack = { navController.popBackStack() },
-                        onSave = { navController.popBackStack() }
+                        onSelectTarget = { target ->
+                            memoState = memoState.copy(selectedTarget = target)
+                        },
+                        onMemoChange = { memo ->
+                            memoState = memoState.copy(memoText = memo)
+                        },
+                        onSave = {
+                            handoverMemoSaved = HandoverMemoSavedToastState(pendingSync = memoState.offline)
+                            navController.popBackStack()
+                        }
                     )
                 }
                 composable(PolicePhoneRoute.MarkerDetail.route) {

@@ -24,7 +24,8 @@ import com.surimap.ui.theme.PoliFgMuted
 
 data class AppOverlayState(
     val incidentClosed: IncidentClosedOverlayState? = null,
-    val blockedQueue: BlockedQueueToastState? = null
+    val blockedQueue: BlockedQueueToastState? = null,
+    val handoverMemoSaved: HandoverMemoSavedToastState? = null
 )
 
 data class IncidentClosedOverlayState(
@@ -35,11 +36,16 @@ data class BlockedQueueToastState(
     val blockedCount: Int
 )
 
+data class HandoverMemoSavedToastState(
+    val pendingSync: Boolean
+)
+
 @Composable
 fun AppOverlayHost(
     state: AppOverlayState,
     onDismissIncidentClosed: () -> Unit,
     onOpenBlockedQueue: () -> Unit,
+    onDismissHandoverMemoSaved: () -> Unit,
     content: @Composable BoxScope.() -> Unit
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
@@ -52,6 +58,16 @@ fun AppOverlayHost(
                 onAction = onOpenBlockedQueue,
                 modifier = Modifier.align(Alignment.TopCenter).padding(PoliDimens.SectionPadding),
                 variant = PoliBannerVariant.Bad
+            )
+        }
+
+        state.handoverMemoSaved?.let { toast ->
+            PoliToast(
+                text = if (toast.pendingSync) "인수인계 메모 저장됨 · 미전송" else "인수인계 메모 저장됨",
+                actionText = "확인",
+                onAction = onDismissHandoverMemoSaved,
+                modifier = Modifier.align(Alignment.TopCenter).padding(PoliDimens.SectionPadding),
+                variant = PoliBannerVariant.Info
             )
         }
 

@@ -300,7 +300,7 @@
 
 ## Phase 5 — 인수인계와 처리 불가 큐
 
-- [ ] AUI-T10 이전 근무 확인과 인수인계 메모 화면을 도메인 상태와 연결한다
+- [x] AUI-T10 이전 근무 확인과 인수인계 메모 화면을 도메인 상태와 연결한다
   - 담당 영역: Android UI
   - 연관 Spec: S8, S6
   - 시나리오: SC-10, SC-11
@@ -317,6 +317,17 @@
     - 새 근무자가 이전 근무 정보를 확인하는 흐름과 새 메모를 남기는 흐름이 분리된다.
     - P6-B 저장 후 P5 또는 P6-A로 복귀하고 toast가 표시된다.
     - `cd android && ./gradlew :app:assembleDebug` 통과
+  - 완료 증거:
+    - Jira `S14P31C106-230`, branch `feature/S14P31C106-230-handover-summary-memo-state`
+    - RED: `cd android && ./gradlew :app:testDebugUnitTest --tests com.surimap.feature.handover.HandoverUiStateTest` 실패 (`HandoverMemoTarget`, `HandoverPromptUiState`, P6-A summary state factory 미정의)
+    - GREEN: 같은 targeted test 통과
+    - VERIFY: `cd android && ./gradlew :app:testDebugUnitTest --tests com.surimap.feature.search.SearchMapUiStateTest` 통과
+    - VERIFY: `git diff --check` 통과
+    - VERIFY: `cd android && ./gradlew test :app:assembleDebug` 통과
+  - 계약 메모:
+    - 현재 `docs/api/api-spec.md`와 `docs/spec/specs/S8.json`은 search history summary 생성/재시도를 APP/WEB 공개 API로 허용하지 않고, duty shift END 또는 OP transition commit 이후 S8 서버 내부 job이 처리한다고 정한다.
+    - 따라서 P6-A는 `READY`/`GENERATING`/`FAILED`와 `sourceReadiness` 기반 상태, `summary_unavailable`, 원본 확인만 표시하고 Android client 생성/재시도 CTA는 만들지 않았다.
+    - low-fi의 생성/재생성 CTA를 실제 앱에 노출하려면 S8/API 계약이 먼저 변경되어야 한다.
 
 - [ ] AUI-T11 처리 불가 미전송 진단 화면을 구현한다
   - 담당 영역: Android UI
