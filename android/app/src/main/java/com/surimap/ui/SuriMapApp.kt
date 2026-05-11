@@ -29,10 +29,11 @@ import com.surimap.feature.handover.ui.sampleHandoverMemoState
 import com.surimap.feature.incidents.data.IncidentListStateLoader
 import com.surimap.feature.incidents.ui.IncidentListScreen
 import com.surimap.feature.incidents.ui.IncidentListUiState
+import com.surimap.feature.offline.ui.OfflinePackageScreen
+import com.surimap.feature.offline.ui.sampleOfflinePackageState
 import com.surimap.ui.navigation.BlockedOutboxRouteScreen
 import com.surimap.ui.navigation.IncidentSessionState
 import com.surimap.ui.navigation.MarkerDetailRouteScreen
-import com.surimap.ui.navigation.OfflinePackageRouteScreen
 import com.surimap.ui.navigation.PolicePhoneRoute
 import com.surimap.ui.navigation.SearchMapRouteScreen
 import com.surimap.ui.theme.PoliBgBase
@@ -74,9 +75,11 @@ fun SuriMapApp() {
                     )
                 }
                 composable(PolicePhoneRoute.OfflinePackage.route) {
-                    OfflinePackageRouteScreen(
+                    OfflinePackageScreen(
+                        state = sampleOfflinePackageState(),
                         onBack = { navController.popBackStack() },
-                        onOpenSearchMap = { navController.navigateToSingleTop(PolicePhoneRoute.SearchMap) }
+                        onOpenSearchMap = { navController.navigateToSingleTop(PolicePhoneRoute.SearchMap) },
+                        onRetryFailedItems = {}
                     )
                 }
                 composable(PolicePhoneRoute.SearchMap.route) {
