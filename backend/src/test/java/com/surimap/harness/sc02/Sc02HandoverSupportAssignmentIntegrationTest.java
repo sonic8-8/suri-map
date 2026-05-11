@@ -226,7 +226,6 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
     mockMvc
         .perform(
             get("/api/incidents/{incidentId}", INCIDENT_ID)
-                .contextPath("/api")
                 .header("Authorization", "Bearer support-assignment-read")
                 .header("X-Client-Channel", "APP"))
         .andExpect(status().isOk())

@@ -117,7 +117,6 @@ class MarkerControllerTest {
     mockMvc
         .perform(
             post("/api/markers")
-                .contextPath("/api")
                 .header("Authorization", AUTHORIZATION)
                 .header("X-Client-Channel", "APP")
                 .header("X-PolicePhone-Id", POLICE_PHONE_ID.toString())
@@ -187,7 +186,6 @@ class MarkerControllerTest {
     mockMvc
         .perform(
             patch("/api/markers/{markerId}", MARKER_ID)
-                .contextPath("/api")
                 .header("Authorization", AUTHORIZATION)
                 .header("X-Client-Channel", "APP")
                 .header("X-PolicePhone-Id", POLICE_PHONE_ID.toString())
@@ -244,7 +242,6 @@ class MarkerControllerTest {
     mockMvc
         .perform(
             delete("/api/markers/{markerId}", MARKER_ID)
-                .contextPath("/api")
                 .header("Authorization", AUTHORIZATION)
                 .header("X-Client-Channel", "WEB")
                 .header("Idempotency-Key", "idem-marker-delete-001")
@@ -268,7 +265,6 @@ class MarkerControllerTest {
     mockMvc
         .perform(
             post("/api/markers")
-                .contextPath("/api")
                 .header("Authorization", AUTHORIZATION)
                 .header("X-Client-Channel", "WEB")
                 .header("X-PolicePhone-Id", POLICE_PHONE_ID.toString())
@@ -295,7 +291,6 @@ class MarkerControllerTest {
     mockMvc
         .perform(
             patch("/api/markers/{markerId}", MARKER_ID)
-                .contextPath("/api")
                 .header("Authorization", AUTHORIZATION)
                 .header("X-Client-Channel", "APP")
                 .header("Idempotency-Key", "idem-marker-update-001")

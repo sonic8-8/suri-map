@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Low-fi · 폴리폰 화면 묶음 v1</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="./lo-polifon-wireframes.css">
+</head>
+<body>
+  <div class="meta">
+    <strong>Low-fi · 폴리폰 화면 묶음 v1</strong><br>
+    기준: <code>docs/screen-design/wireframes.md</code> 3차, <code>docs/spec/harness-scenarios.md</code>, <code>docs/spec/boundaries.md</code>, <code>docs/api/api-spec.md</code>.
+    Android 폴리폰 전용 화면만 포함한다. Web 상황판 write 흐름은 포함하지 않는다.
+    카탈로그 정리(2026-05-11): P1-A·P1-C·P7·P10 화면은 카탈로그에서 제외(Knox 관리 단말 운영에서 정상 사용자가 마주칠 일이 없거나, 다른 화면에 흡수). P5는 alert variant 카탈로그로 격하.
+  </div>
+
+  <div class="index-grid">
+    <a class="index-card" href="./lo-polifon-auth-managed-device-v1.html">
+      <strong>P1 인증 (관리 폴리폰 자동 확인)</strong>
+      <span>정상 운영 첫 화면. 2단계 자동 확인 통과 시 P2로 이동. 후보 평가 보드(lo-polifon-auth-v1.html)는 의사결정 메타 문서로 별도 보관 (wireframes.md에서 인용).</span>
+    </a>
+    <a class="index-card" href="./lo-polifon-incident-list-v1.html">
+      <strong>P2 사건 선택 (+ P7 종료 다이얼로그)</strong>
+      <span>default = 활성 1건 / empty = 일반. 사건 종료 시 이 화면 위 다이얼로그 + 백그라운드 정리.</span>
+    </a>
+    <a class="index-card" href="./lo-polifon-offline-package-v1.html">
+      <strong>P3 오프라인 패키지</strong>
+      <span>manifest 항목별 다운로드 진행률과 실패 항목 재시도.</span>
+    </a>
+    <a class="index-card" href="./lo-polifon-outbox-v1.html">
+      <strong>P4 미전송 진단 화면</strong>
+      <span>평소엔 진입 없음. 처리 불가 사유(<code>incident_closed</code>, <code>police_phone_not_assigned</code> 등) 발생 시 toast 탭으로만 진입. 정상 큐 소진은 지도 sync chip aggregate로 표현.</span>
+    </a>
+    <a class="index-card" href="./lo-polifon-local-warning-v1.html">
+      <strong>P5 alert variant 카탈로그</strong>
+      <span>독립 화면이 아닌, 지도 Hero 상단 배너 위 표시되는 alert 참조 시트 (오프라인·GPS·배터리·타일).</span>
+    </a>
+    <a class="index-card" href="./lo-polifon-duty-handover-v1.html">
+      <strong>P6-A 이전 근무 확인</strong>
+      <span>새 근무자가 시스템 자동 요약과 원본 경로/마커/메모를 확인. Android 요약 생성/재생성 CTA와 메모 작성 폼 없음.</span>
+    </a>
+    <a class="index-card" href="./lo-polifon-handover-memo-v1.html">
+      <strong>P6-B 인수인계 메모 작성</strong>
+      <span>OP/근무/경로/구역/마커 대상 handover_memo 저장 전용. AI 요약 없음.</span>
+    </a>
+    <a class="index-card" href="./lo-polifon-incident-alert-v1.html">
+      <strong>P8 강조 알림 (PERSON_FOUND · SUPPORT_REQUEST)</strong>
+      <span>앱 활성 중 in-app banner(상단 reserved slot, 명시적 dismiss) + 잠금/백그라운드 OS heads-up notification 두 variant. FSI는 운영 정책 확인 후보.</span>
+    </a>
+    <a class="index-card" href="./lo-polifon-marker-detail-v1.html">
+      <strong>P9 마커 상세 / 편집</strong>
+      <span>자기 마커는 메모/사진 편집·삭제 가능, 타 계정 마커는 읽기 전용. PRD §8.4 + permission-matrix 권한 분기 정합.</span>
+    </a>
+    <a class="index-card" href="./lo-polifon-search-map-v1.html">
+      <strong>Hero · 수색 중 지도</strong>
+      <span>기존 승인 후보. 현재 OP/DutyShift/폴리폰 기준 수색 화면.</span>
+    </a>
+    <a class="index-card" href="./lo-polifon-marker-bottomsheet-v1.html">
+      <strong>Hero · 마커 생성 바텀시트</strong>
+      <span>기존 승인 후보. 5종 유형 원탭과 사진 첨부.</span>
+    </a>
+  </div>
+
+  <div class="meta">
+    <strong>카탈로그에서 제외된 화면 (사유)</strong>
+    <ul>
+      <li><strong>P1-A 앱 계정 ID/PW · P1-C 최초 바인딩</strong> — Knox 관리 단말 운영에서 정상 사용자가 마주칠 일이 없음 (시연·바인딩은 OS/EMM 영역)</li>
+      <li><strong>P7 사건 종료 정리</strong> — 단독 화면이 아니라 P2 사건 선택 위 다이얼로그 + 백그라운드 정리로 격하</li>
+      <li><strong>P10 권한 / 환경 거부</strong> — Knox managed configuration이 위치/배터리/Kiosk를 OS 단에서 처리하므로 정상 사용자가 마주치지 않음</li>
+      <li><strong>lo-polifon-auth-v1.html (후보 평가 보드)</strong> — 의사결정 메타 문서. 인덱스에는 실제 운영 화면(managed-device)만 노출하고, 의사결정 근거는 wireframes.md §P1에서 인용</li>
+    </ul>
+  </div>
+</body>
+</html>

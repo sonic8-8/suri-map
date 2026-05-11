@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>Review · Polifon 마커 생성 바텀시트 v1</title>
+<title>Review · 폴리폰 마커 생성 바텀시트 v1</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; font-family: Pretendard, "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; }
   body { background: #e0e0e0; padding: 24px; color: #1d1d1d; line-height: 1.5; }
@@ -30,12 +30,12 @@
 <body>
 <div class="container">
 
-<h1>Review · Polifon 마커 생성 바텀시트 v1 (Hero 3/3)</h1>
+<h1>Review · 폴리폰 마커 생성 바텀시트 v1 (Hero 3/3)</h1>
 
 <div class="meta-card">
   <dl>
     <dt>Main canvas</dt>
-    <dd><a class="link" href="./lo-polifon-marker-bottomsheet-v1.html">lo-polifon-marker-bottomsheet-v1.html</a> (412×892, KRDS-Ops Polifon)</dd>
+    <dd><a class="link" href="./lo-polifon-marker-bottomsheet-v1.html">lo-polifon-marker-bottomsheet-v1.html</a> (412×892, KRDS-Ops 폴리폰)</dd>
     <dt>연결 SC</dt><dd>SC-06 (현장 마커 생성) · SC-08 (지원 요청·발견 알림)</dd>
     <dt>관련 FR</dt><dd>FR-10 (5종 마커) · FR-14 (GPS 자동) · FR-15 (시간/주체/유형 자동) · FR-17 (지원 요청 sub-type) · FR-20 (사진 첨부) · FR-30 (엄지 중심 바텀시트)</dd>
     <dt>주 사용자</dt><dd>모든 폴리폰 계정 (PRD §8.4 — 마커 생성은 모든 계정 동등)</dd>
@@ -55,13 +55,13 @@
   <tbody>
     <tr><td style="border:1px solid #999;padding:6px;">status bar (32px)</td><td style="border:1px solid #999;padding:6px;">OS 시간/GPS/LTE/배터리 (수색 중 지도와 동일)</td></tr>
     <tr><td style="border:1px solid #999;padding:6px;">배경 지도 (dimmed)</td><td style="border:1px solid #999;padding:6px;">시트 펼침 시 지도 dim + 자기 위치 핀 강조 (어디 마커 찍히는지 시각 확인)</td></tr>
-    <tr><td style="border:1px solid #999;padding:6px;">바텀시트 헤더</td><td style="border:1px solid #999;padding:6px;">제목 "마커 생성" + 부가 안내 + [취소]</td></tr>
+    <tr><td style="border:1px solid #999;padding:6px;">바텀시트 헤더</td><td style="border:1px solid #999;padding:6px;">제목 "마커 생성" + 유형 탭 즉시 생성 안내 + [취소/닫기]</td></tr>
     <tr><td style="border:1px solid #999;padding:6px;">자동 입력 정보 카드</td><td style="border:1px solid #999;padding:6px;">위치(GPS 자동), 시각(자동), 작성자(폴리폰 + 계정 자동) — FR-15</td></tr>
     <tr><td style="border:1px solid #999;padding:6px;">마커 유형 5종 grid</td><td style="border:1px solid #999;padding:6px;">2×3 + 마지막 full-width = 5개. 한 화면 스크롤 없음 (FR-30, dense-tokens §1.2). 각 버튼 84px height</td></tr>
-    <tr><td style="border:1px solid #999;padding:6px;">SUPPORT sub-type</td><td style="border:1px solid #999;padding:6px;">3종 (드론/경찰견/기타). 지원 요청 선택 시 expand (현재는 항상 표시 mock)</td></tr>
+    <tr><td style="border:1px solid #999;padding:6px;">SUPPORT sub-type</td><td style="border:1px solid #999;padding:6px;">3종 (드론/경찰견/기타). 지원 요청 선택 시에만 expand. sub-type 탭에서 최소 마커 생성.</td></tr>
     <tr><td style="border:1px solid #999;padding:6px;">메모 (선택)</td><td style="border:1px solid #999;padding:6px;">텍스트 입력. 56px min-height</td></tr>
     <tr><td style="border:1px solid #999;padding:6px;">사진 (선택)</td><td style="border:1px solid #999;padding:6px;">[촬영] [앨범] + 카운트 (n/10) — FR-20</td></tr>
-    <tr><td style="border:1px solid #999;padding:6px;">CTA: [취소][저장]</td><td style="border:1px solid #999;padding:6px;">저장 56px 강조 (thumb zone)</td></tr>
+    <tr><td style="border:1px solid #999;padding:6px;">CTA: [닫기][추가 정보 저장]</td><td style="border:1px solid #999;padding:6px;">초기 생성 후 메모/사진 추가 저장용 56px CTA</td></tr>
   </tbody>
 </table>
 
@@ -69,11 +69,11 @@
 
 <div class="checklist">
   <ul>
-    <li><b>유형 선택만으로 저장 가능</b> (FR-15): 메모/사진은 선택. 한 손 빠른 입력.</li>
+    <li><b>유형 탭으로 최소 마커 생성</b> (FR-15): 메모/사진은 선택. SUPPORT_REQUEST는 supportRequestType 탭에서 생성.</li>
     <li><b>5종 마커 한 화면</b> (FR-30, dense-tokens §1.2): 2×2 + full-width 1개. 스크롤 없음.</li>
-    <li><b>지원 요청 sub-type 별도</b> (FR-17): 단일 마커 보지 않고 sub-type 직접 선택. 지도에서 즉시 식별.</li>
+    <li><b>지원 요청 sub-type 별도</b> (FR-17): 지원 요청 선택 시에만 sub-type 표시. subtype 없이 SUPPORT_REQUEST 저장하지 않음.</li>
     <li><b>자동 입력 시각화</b>: 위치/시각/작성자가 자동임을 명시. 사용자가 입력 안 해도 됨을 인지.</li>
-    <li><b>thumb zone 100%</b>: 저장 버튼 시트 가장 아래 + 56px. 모든 type-btn 84px (장갑 56px 이상).</li>
+    <li><b>thumb zone 100%</b>: type/subtype 버튼 72px+로 최소 마커 생성, 추가 정보 저장 버튼은 시트 가장 아래 + 56px.</li>
     <li><b>다크 base</b>: 수색 중 지도와 일관. 야외 가시성.</li>
     <li><b>아이콘 = web v1.3과 동일 7종</b>: 공통 시각 시스템.</li>
     <li><b>배경 지도 dimmed + 핀 강조</b>: 어디 마커 찍히는지 시트 위에서도 확인 가능.</li>
@@ -102,53 +102,53 @@
 <div class="variant-grid">
   <div class="variant-card">
     <h3>default (현재)</h3>
-    <p style="font-size:11px;color:#333;">유형 선택 (실종자 발견 selected) + 메모 입력 중 + 사진 2장.</p>
+    <p style="font-size:11px;color:#333;">지원 요청/드론 선택으로 최소 마커 생성됨 + 추가 메모 입력 중.</p>
     <div class="variant-mock"><div class="banner">main canvas 참조</div></div>
   </div>
   <div class="variant-card">
     <h3>유형 미선택</h3>
-    <p style="font-size:11px;color:#333;">[저장] 비활성. 안내 문구 "유형을 선택하세요".</p>
+    <p style="font-size:11px;color:#333;">아직 마커 미생성. 안내 문구 "유형을 선택하세요".</p>
     <div class="variant-mock">
       <div class="banner">5종 모두 outline (selected 없음)</div>
-      <div class="banner warn">[저장 비활성]</div>
+      <div class="banner warn">[추가 정보 저장 비활성]</div>
     </div>
   </div>
   <div class="variant-card">
     <h3>지원 요청 선택 → sub-type expand</h3>
-    <p style="font-size:11px;color:#333;">"지원 요청 ↓" 클릭 시 sub-type 3종 강조. sub-type 선택 후 저장 가능.</p>
+    <p style="font-size:11px;color:#333;">"지원 요청" 클릭 시 sub-type 3종 표시. sub-type 선택 탭에서 최소 마커 생성.</p>
     <div class="variant-mock">
       <div class="banner">[지원 요청 selected] → 아래 [드론][경찰견][기타]</div>
-      <div class="banner">sub-type 미선택이면 [저장 비활성]</div>
+      <div class="banner">sub-type 미선택이면 아직 미생성</div>
     </div>
   </div>
   <div class="variant-card">
-    <h3>저장 중</h3>
-    <p style="font-size:11px;color:#333;">[저장] 비활성 + 스피너. 모든 입력 disabled.</p>
+    <h3>생성/추가 저장 중</h3>
+    <p style="font-size:11px;color:#333;">선택한 type/subtype 또는 [추가 정보 저장] 비활성 + 스피너. 해당 입력 disabled.</p>
     <div class="variant-mock">
-      <div class="banner">[저장 ⌛ 처리 중]</div>
+      <div class="banner">[처리 중]</div>
     </div>
   </div>
   <div class="variant-card">
-    <h3>오프라인 저장</h3>
-    <p style="font-size:11px;color:#333;">정상 동작 (로컬 저장 + outbox). 저장 후 toast "오프라인 저장됨. 연결 시 자동 전송".</p>
+    <h3>오프라인 생성</h3>
+    <p style="font-size:11px;color:#333;">정상 동작 (로컬 생성 + outbox). 생성 후 toast "오프라인 저장됨. 연결 시 자동 전송".</p>
     <div class="variant-mock">
       <div class="banner warn">시트 상단: ⚠ 오프라인 — 로컬 저장됨</div>
-      <div class="banner">저장 후 토스트 + 시트 닫힘</div>
+      <div class="banner">생성 후 토스트 + 시트 닫힘</div>
     </div>
   </div>
   <div class="variant-card">
-    <h3>저장 실패</h3>
+    <h3>생성 실패</h3>
     <p style="font-size:11px;color:#333;">시트 상단 inline 에러. 입력 유지 + [다시 시도].</p>
     <div class="variant-mock">
-      <div class="banner warn">"저장 실패. 다시 시도하세요."</div>
+      <div class="banner warn">"마커를 저장하지 못했습니다. 다시 시도하세요."</div>
       <div class="banner">입력 모두 유지</div>
     </div>
   </div>
   <div class="variant-card">
     <h3>사진 업로드 실패 (FR-20)</h3>
-    <p style="font-size:11px;color:#333;">마커 자체는 저장 OK, 사진만 outbox로 재시도. UI에 "사진 업로드 대기" 표시.</p>
+    <p style="font-size:11px;color:#333;">마커 자체는 생성 OK, 사진만 outbox로 재시도. UI에 "사진 업로드 대기" 표시.</p>
     <div class="variant-mock">
-      <div class="banner">마커 저장됨, 사진 1/2 업로드 대기</div>
+      <div class="banner">마커 생성됨, 사진 1/2 업로드 대기</div>
     </div>
   </div>
   <div class="variant-card">
@@ -165,11 +165,11 @@
 
 <div class="checklist">
   <ul>
-    <li><b>지원 요청 expand 인터랙션</b>: 현재 mock은 항상 표시. 실제는 "지원 요청" type-btn 탭 → sub-type 영역 expand 애니메이션 high-fi에서 결정.</li>
+    <li><b>지원 요청 expand 인터랙션</b>: 실제 구현은 "지원 요청" type-btn 탭 → sub-type 영역 expand. subtype 탭이 최소 마커 생성 액션이다.</li>
     <li><b>실종자 발견 강조</b>: PERSON_FOUND는 destructive 아니지만 영향이 큼 (사건 종료 가능성). confirm 다이얼로그 추가 검토.</li>
     <li><b>위치 수동 조정</b> (FR-14): 자동 위치가 부정확한 경우 사용자가 지도에서 핀 드래그. 이 시트에서 [위치 조정] 버튼 추가? 또는 시트 닫고 지도에서?</li>
     <li><b>메모 음성 입력</b>: 야외·장갑 환경에서 키보드 입력 어려움. 음성 입력 토글 v2.</li>
-    <li><b>저장 후 흐름</b>: 시트 닫힘 → 지도 복귀 + toast "마커 저장됨". 토스트 위치/지속 결정 필요.</li>
+    <li><b>생성 후 흐름</b>: 시트 닫힘 → 지도 복귀 + toast "마커 저장됨". 토스트 위치/지속 결정 필요.</li>
     <li><b>사진 thumbnail 표시</b>: 현재 mock은 카운트만. 실제는 첨부된 사진 썸네일 grid 표시 (지웠던 자리 + 추가 버튼).</li>
     <li><b>type-btn 글자 길이</b>: "실종자 발견"이 가장 김. high-fi에서 폰트 크기·줄바꿈 확인.</li>
     <li><b>SUPPORT_REQUEST sub-type "기타 지원" 라벨</b>: 너무 모호. 실제 운영에서 어떤 케이스인지 확인 필요.</li>

@@ -21,11 +21,11 @@ public class SearchPathController {
   }
 
   @PostMapping("/batch")
-  public PathBatchAppendResponse appendBatch(
+  public ResponseEntity<PathBatchAppendResponse> appendBatch(
       @RequestHeader(value = "X-PolicePhone-Id", required = false) String policePhoneIdHeader,
       @RequestBody PathBatchAppendRequest request) {
     UUID policePhoneId = parsePolicePhoneId(policePhoneIdHeader);
-    return searchPathService.appendBatch(request, policePhoneId);
+    return ResponseEntity.ok(searchPathService.appendBatch(request, policePhoneId));
   }
 
   @GetMapping

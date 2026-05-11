@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Low-fi · 폴리폰 오프라인 패키지 v1</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="./lo-polifon-wireframes.css">
+</head>
+<body>
+  <div class="meta">
+    <strong>P3 오프라인 패키지 다운로드</strong> — SC-03 기준. manifest 항목별 진행률과 자동 재시도 상태를 보여준다.
+    <strong>실패 항목은 WorkManager가 자동 재시도하며, 사용자 수동 재시도 CTA는 자동 재시도 한계 도달 시에만 노출한다</strong> (P6-A 요약·P4 진단 화면과 같은 원칙: 자동 처리는 자동으로).
+    지도 타일 미완료는 readyForOfflineUse=false로 유지하되, 필수 사건 데이터가 있으면 제한 경고 후 진입할 수 있다.
+  </div>
+
+  <div class="phone-frame">
+    <div class="status-bar"><span>14:24</span><span class="right">LTE · 78%</span></div>
+    <div class="appbar">
+      <div class="appbar-row">
+        <button class="back">←</button>
+        <div class="title-block"><h1>오프라인 패키지</h1><p>사건 #1234 · OP 3차</p></div>
+        <span class="chip warn">64%</span>
+      </div>
+    </div>
+
+    <main class="content scroll">
+      <div class="card">
+        <div class="big-number">64%</div>
+        <div class="progress warn"><span style="width:64%"></span></div>
+        <p style="margin-top:8px">지도 타일 2개 실패 · 오프라인 사용 준비 완료로 표시하지 않습니다.</p>
+      </div>
+
+      <div class="banner warn">지도 사용 제한 — 미완료 타일 영역에서는 지도 표시가 비거나 늦을 수 있습니다. 현장 진입 전 재시도를 권장합니다.</div>
+
+      <div class="card">
+        <div class="row"><div class="main"><strong>사건 메타</strong><span>사건 번호, 현재 OP</span></div><span class="chip good">완료</span></div>
+        <div class="row"><div class="main"><strong>실종자 정보</strong><span>필수 PII 최소 세트</span></div><span class="chip good">완료</span></div>
+        <div class="row"><div class="main"><strong>운영 기간 / 구역</strong><span>현재 OP, 배정 TEAM 구역</span></div><span class="chip good">완료</span></div>
+        <div class="row"><div class="main"><strong>초기 마커</strong><span>단서, 발견, 지형, 지원, 운영 메모</span></div><span class="chip warn">진행</span></div>
+        <div class="row"><div class="main"><strong>전체 수색 구역</strong><span>OVERALL search_area</span></div><span class="chip good">완료</span></div>
+        <div class="row"><div class="main"><strong>지도 타일</strong><span>2개 타일 실패 · 자동 재시도 2/3회</span></div><span class="chip warn">자동 재시도</span></div>
+      </div>
+
+      <p style="opacity:0.7;font-size:12px;margin-top:8px">자동 재시도는 1초 → 5초 → 30초 backoff로 최대 3회까지 진행합니다. 한계 도달 시에만 수동 재시도 CTA가 표시됩니다.</p>
+    </main>
+
+    <div class="bottom">
+      <button class="button primary">제한 안내 후 열기</button>
+    </div>
+    <div class="gesture"><span></span></div>
+  </div>
+
+  <div class="meta">
+    <strong>variant: 자동 재시도 한계 도달</strong> — 3회 자동 재시도 후에도 실패한 항목만 수동 재시도 CTA 노출. 그 전에는 chip `자동 재시도` 만으로 충분.
+  </div>
+
+  <div class="phone-frame">
+    <div class="status-bar"><span>14:24</span><span class="right">LTE · 78%</span></div>
+    <div class="appbar">
+      <div class="appbar-row">
+        <button class="back">←</button>
+        <div class="title-block"><h1>오프라인 패키지</h1><p>사건 #1234 · OP 3차</p></div>
+        <span class="chip bad">68%</span>
+      </div>
+    </div>
+
+    <main class="content scroll">
+      <div class="card">
+        <div class="big-number">68%</div>
+        <div class="progress warn"><span style="width:68%"></span></div>
+        <p style="margin-top:8px">지도 타일 2개 자동 재시도 3회 모두 실패. 수동 재시도 또는 IT 부서 문의 필요.</p>
+      </div>
+
+      <div class="banner bad">자동 재시도 한계 도달 — 네트워크 상태를 확인하고 수동 재시도하거나 IT 부서에 문의하세요.</div>
+
+      <div class="card">
+        <div class="row"><div class="main"><strong>지도 타일</strong><span>2개 타일 · 자동 재시도 3/3회 실패</span></div><span class="chip bad">재시도 한계</span></div>
+      </div>
+    </main>
+
+    <div class="bottom">
+      <button class="button secondary">수동 재시도</button>
+      <button class="button primary">제한 안내 후 열기</button>
+    </div>
+    <div class="gesture"><span></span></div>
+  </div>
+</body>
+</html>

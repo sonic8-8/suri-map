@@ -117,7 +117,7 @@ class RoomSyncClient(
 
 class RoomOutboxReplay(
     private val outboxDao: OutboxDao,
-    private val sender: OutboxSender = NoopOutboxSender,
+    private val sender: OutboxSender,
     private val idempotencyReplayGate: InMemoryIdempotencyReplayGate = InMemoryIdempotencyReplayGate()
 ) : OutboxReplay {
     private val staleClockSyncAfterMs = 300_000L

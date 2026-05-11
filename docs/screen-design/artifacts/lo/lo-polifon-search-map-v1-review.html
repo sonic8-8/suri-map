@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>Review · Polifon 수색 중 지도 v1</title>
+<title>Review · 폴리폰 수색 중 지도 v1</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; font-family: Pretendard, "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; }
   body { background: #e0e0e0; padding: 24px; color: #1d1d1d; line-height: 1.5; }
@@ -36,12 +36,12 @@
 <body>
 <div class="container">
 
-<h1>Review · Polifon 수색 중 지도 v1</h1>
+<h1>Review · 폴리폰 수색 중 지도 v1</h1>
 
 <div class="meta-card">
   <dl>
     <dt>Main canvas</dt>
-    <dd><a class="link" href="./lo-polifon-search-map-v1.html">lo-polifon-search-map-v1.html</a> (412×892, KRDS-Ops Polifon variant)</dd>
+    <dd><a class="link" href="./lo-polifon-search-map-v1.html">lo-polifon-search-map-v1.html</a> (412×892, KRDS-Ops 폴리폰 variant)</dd>
     <dt>플랫폼</dt><dd>Android (Galaxy S22 이상, PRD §8.8). 다크 base (야외 가시성·야간 운용·배터리)</dd>
     <dt>연결 SC</dt><dd>SC-05 (PolicePhone GPS 경로) · SC-06 (현장 마커 생성) · SC-07 (통신 단절)</dd>
     <dt>주 사용자</dt><dd>모든 폴리폰 계정 (MP_O · MP_M · SU_O · SU_M · LP_O · LP_M) — 마커 생성 등 모든 계정 동등</dd>
@@ -108,10 +108,10 @@
 <div class="checklist">
   <ul>
     <li><span class="badge fixed">PASS</span> G1-4 지도 점유율 — 바텀시트 닫힘 100% 가정 (현재 상태는 펼침 — 약 50% 지도)</li>
-    <li><span class="badge fixed">PASS</span> G2-1 본문 contrast — 다크 base에서 #fff/#E5E7EB on #111827 (WCAG AAA 7:1+)</li>
-    <li><span class="badge note">메모</span> G2-4 야외 가독성 — 실 단말 검증 필요</li>
+    <li><span class="badge fixed">PASS</span> G2-1 본문 contrast — 경찰 블루 다크 base에서 #F8FAFC/#E5EDF8 on #101B2C (WCAG AAA 7:1+)</li>
+    <li><span class="badge note">메모</span> G2-4 야외 가독성 — 실 폴리폰 검증 필요</li>
     <li><span class="badge fixed">PASS</span> G3-5 primary CTA thumb zone 100%</li>
-    <li><span class="badge note">메모</span> G4-1 장갑 터치 정확도 — 터치 타깃 56/72px (dense-tokens §5 기준 충족). 실 단말 테스트 필요</li>
+    <li><span class="badge note">메모</span> G4-1 장갑 터치 정확도 — 터치 타깃 56/72px (dense-tokens §5 기준 충족). 실 폴리폰 테스트 필요</li>
     <li><span class="badge fixed">PASS</span> G4-2 오프라인 표출 — App Bar 동기화 pill (default OK, offline variant에서 강조)</li>
     <li><span class="badge fixed">PASS</span> G4-3 미전송 큐 임계 — chip 색 변경 (현재 1건이라 일반)</li>
     <li><span class="badge note">메모</span> G4-4 destructive action confirm — "종료" 버튼 클릭 후 confirm 다이얼로그 미설계 (variant 추가 필요)</li>
@@ -180,10 +180,10 @@
 
   <div class="variant-card">
     <h3>partial_sync</h3>
-    <p style="font-size:11px; color:#333;">미전송 큐 5건+ → chip warn 색. 20건+ → 빨강 + 알림.</p>
+    <p style="font-size:11px; color:#333;">미전송 큐 5건+ → chip warn 색. 20건+ → 빨강 강조. 정상 자동 전송 대기는 P4로 이동하지 않는다.</p>
     <div class="variant-mock">
       <div class="banner warn">App Bar chip: 미전송 8건 (5건 임계 초과)</div>
-      <div class="banner">tap → 미전송 큐 화면 진입</div>
+      <div class="banner">처리 불가 항목 발생 시에만 별도 toast 탭 → P4 진단</div>
     </div>
   </div>
 
@@ -198,10 +198,10 @@
 
   <div class="variant-card">
     <h3>incident_closed</h3>
-    <p style="font-size:11px; color:#333;">사건 종료 알림 수신 → 지도 dimmed + 모달 "사건이 종료되었습니다" → 사건 종료 후 로컬 정리 화면 자동 이동 (별도 화면).</p>
+    <p style="font-size:11px; color:#333;">사건 종료 알림 수신 → P2 사건 선택으로 자동 이동 + 모달 "사건이 종료되었습니다". 로컬 정리는 백그라운드에서 진행.</p>
     <div class="variant-mock">
       <div class="banner" style="background:#ddd;">[모달] 이 사건은 종료되었습니다</div>
-      <div class="banner">자동 이동: 사건 종료 후 로컬 정리 화면</div>
+      <div class="banner">자동 이동: P2 사건 선택 + 종료 다이얼로그</div>
     </div>
   </div>
 

@@ -1,82 +1,147 @@
 package com.surimap.ui
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import com.surimap.feature.bootstrap.ui.AuthBootstrapScreen
+import com.surimap.feature.bootstrap.ui.sampleAuthBootstrapState
+import com.surimap.feature.handover.ui.DutyHandoverScreen
+import com.surimap.feature.handover.ui.HandoverMemoScreen
+import com.surimap.feature.handover.ui.sampleDutyHandoverState
+import com.surimap.feature.handover.ui.sampleHandoverMemoState
+import com.surimap.feature.incidents.ui.IncidentListScreen
+import com.surimap.feature.incidents.ui.sampleIncidentListState
+import com.surimap.ui.navigation.BlockedOutboxRouteScreen
+import com.surimap.ui.navigation.IncidentContext
+import com.surimap.ui.navigation.IncidentSessionState
+import com.surimap.ui.navigation.MarkerDetailRouteScreen
+import com.surimap.ui.navigation.OfflinePackageRouteScreen
+import com.surimap.ui.navigation.PolicePhoneRoute
+import com.surimap.ui.navigation.SearchMapRouteScreen
+import com.surimap.ui.theme.PoliBgBase
+import kotlinx.coroutines.delay
 
 @Composable
 fun SuriMapApp() {
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
-    ) {
-        Column(
-            modifier =
-            Modifier
-                .fillMaxSize()
-                .padding(20.dp),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column {
-                Text(
-                    text = "Suri-Map",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "반포 한강공원 일대",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(20.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    AssistChip(onClick = {}, label = { Text("OP 1차") })
-                    AssistChip(onClick = {}, label = { Text("오프라인 기록 가능") })
-                }
-            }
+    val navController = rememberNavController()
+    val incidentSessionState = remember { IncidentSessionState() }
+    var incidentClosed by remember { mutableStateOf<IncidentClosedOverlayState?>(null) }
+    var blockedQueue by remember { mutableStateOf<BlockedQueueToastState?>(null) }
 
-            Column(
-                modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .background(
-                        color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                        shape = MaterialTheme.shapes.medium
-                    ).padding(16.dp)
+    Surface(modifier = Modifier.fillMaxSize(), color = PoliBgBase) {
+        AppOverlayHost(
+            state = AppOverlayState(incidentClosed = incidentClosed, blockedQueue = blockedQueue),
+            onDismissIncidentClosed = {
+                incidentClosed = null
+                incidentSessionState.clearIncidentContext()
+                navController.navigateToIncidentListRoot()
+            },
+            onOpenBlockedQueue = {
+                blockedQueue = null
+                navController.navigateToSingleTop(PolicePhoneRoute.BlockedOutbox)
+            }
+        ) {
+            NavHost(
+                navController = navController,
+                startDestination = PolicePhoneRoute.AuthBootstrap.route,
+                modifier = Modifier.fillMaxSize()
             ) {
-                Text(
-                    text = "수색 세션",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = {}) {
-                        Text("시작")
-                    }
-                    Button(onClick = {}) {
-                        Text("일시정지")
-                    }
-                    Spacer(modifier = Modifier.width(1.dp))
+                composable(PolicePhoneRoute.AuthBootstrap.route) {
+                    AuthBootstrapRoute(navController = navController)
+                }
+                composable(PolicePhoneRoute.IncidentList.route) {
+                    IncidentListScreen(
+                        state = sampleIncidentListState(),
+                        onOpenIncident = {
+                            incidentSessionState.activateIncidentContext(sampleIncidentContext)
+                            navController.navigateToSingleTop(PolicePhoneRoute.OfflinePackage)
+                        },
+                        onRefresh = {},
+                        onDismissClosedDialog = { incidentClosed = null }
+                    )
+                }
+                composable(PolicePhoneRoute.OfflinePackage.route) {
+                    OfflinePackageRouteScreen(
+                        onBack = { navController.popBackStack() },
+                        onOpenSearchMap = { navController.navigateToSingleTop(PolicePhoneRoute.SearchMap) }
+                    )
+                }
+                composable(PolicePhoneRoute.SearchMap.route) {
+                    SearchMapRouteScreen(
+                        onBack = { navController.popBackStack() },
+                        onOpenHandover = { navController.navigateToSingleTop(PolicePhoneRoute.HandoverSummary) },
+                        onOpenMarkerDetail = { navController.navigateToSingleTop(PolicePhoneRoute.MarkerDetail) },
+                        onShowBlockedQueue = { blockedQueue = BlockedQueueToastState(blockedCount = 2) }
+                    )
+                }
+                composable(PolicePhoneRoute.HandoverSummary.route) {
+                    DutyHandoverScreen(
+                        state = sampleDutyHandoverState(),
+                        onBack = { navController.popBackStack() },
+                        onWriteMemo = { navController.navigateToSingleTop(PolicePhoneRoute.HandoverMemo) },
+                        onOpenSearch = { navController.navigateToSingleTop(PolicePhoneRoute.SearchMap) }
+                    )
+                }
+                composable(PolicePhoneRoute.HandoverMemo.route) {
+                    HandoverMemoScreen(
+                        state = sampleHandoverMemoState(),
+                        onBack = { navController.popBackStack() },
+                        onSave = { navController.popBackStack() }
+                    )
+                }
+                composable(PolicePhoneRoute.MarkerDetail.route) {
+                    MarkerDetailRouteScreen(onBack = { navController.popBackStack() })
+                }
+                composable(PolicePhoneRoute.BlockedOutbox.route) {
+                    BlockedOutboxRouteScreen(onBack = { navController.popBackStack() })
                 }
             }
         }
     }
 }
+
+@Composable
+private fun AuthBootstrapRoute(navController: NavHostController) {
+    LaunchedEffect(Unit) {
+        delay(1200)
+        navController.navigate(PolicePhoneRoute.IncidentList.route) {
+            popUpTo(PolicePhoneRoute.AuthBootstrap.route) {
+                inclusive = true
+            }
+            launchSingleTop = true
+        }
+    }
+    AuthBootstrapScreen(state = sampleAuthBootstrapState())
+}
+
+private fun NavHostController.navigateToSingleTop(route: PolicePhoneRoute) {
+    navigate(route.route) {
+        launchSingleTop = true
+    }
+}
+
+private fun NavHostController.navigateToIncidentListRoot() {
+    navigate(PolicePhoneRoute.IncidentList.route) {
+        popUpTo(PolicePhoneRoute.IncidentList.route) {
+            inclusive = true
+        }
+        launchSingleTop = true
+    }
+}
+
+private val sampleIncidentContext =
+    IncidentContext(
+        incidentId = "inc-precinct-first-001",
+        currentOpId = "op-003",
+        currentDutyShiftId = "duty-shift-014"
+    )

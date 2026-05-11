@@ -20,7 +20,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 /** S1-1 사건 목록·상세 public read endpoint. 목록은 active 전용이고 상세는 terminal CLOSED도 노출한다. */
 @RestController
-@RequestMapping("/incidents")
+@RequestMapping("/api/incidents")
 public class IncidentReadController {
 
   private final IncidentReadQueryService incidentReadQueryService;
@@ -31,11 +31,12 @@ public class IncidentReadController {
 
   @GetMapping
   @RequireChannel({Channel.APP, Channel.WEB})
-  public IncidentListResponse listActiveIncidents(
+  public ResponseEntity<IncidentListResponse> listActiveIncidents(
       @RequestParam(value = "status", required = false) String status) {
     var auth = currentAuthentication();
-    return IncidentListResponse.from(
-        incidentReadQueryService.findActiveIncidents(auth.getAccountId(), status));
+    return ResponseEntity.ok(
+        IncidentListResponse.from(
+            incidentReadQueryService.findActiveIncidents(auth.getAccountId(), status)));
   }
 
   @GetMapping("/{incidentId}")

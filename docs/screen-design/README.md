@@ -26,8 +26,8 @@
 | `measurement-gates.md` | 검증 | 정량 측정 가능한 검수 게이트 G1~G6 | 완료 |
 | `prototype-agent-loop.md` | 프로세스 | 프로토타입 생성 agent 루프와 프롬프트 골격 + 산출물 명명 | 완료 |
 | `user-research-source.md` | 참조 | 인터뷰·관찰 자료 누적 (시연 baseline은 freeze, v2용) | 정책 freeze |
-| `wireframes.md` | 명세 | 비-Hero 13개 화면 IA 텍스트 명세 | 1차 완료 |
-| `artifacts/lo/` | Hero mock | Hero 3개 HTML mock + review | 1차 완료 |
+| `wireframes.md` | 명세 | 계약 기준 화면 IA 텍스트 명세 | 3차 완료 |
+| `artifacts/lo/` | Low-fi mock | Hero 3개 HTML mock + 폴리폰 low-fi 화면 묶음 | 폴리폰 1차 완료 |
 
 ## 의존 그래프
 
@@ -92,23 +92,24 @@ flowchart TD
 
 ## 디자인 시스템 조합 (한 줄 요약)
 
-**KRDS** (base, 범정부 공통가이드) + **KRDS-Ops dense variant** (fork, 운영 dashboard·rugged field UI) + **네이버 지도** (지도 조작 패턴만 borrow) + **한국 경찰 도메인** (차량/도보 구간, 5종 마커, OP/DutyShift, 단말 stale 등 적용).
+**KRDS** (base, 범정부 공통가이드) + **KRDS-Ops dense variant** (fork, 운영 dashboard·rugged field UI) + **네이버 지도** (지도 조작 패턴만 borrow) + **한국 경찰 도메인** (차량/도보 구간, 5종 마커, OP/DutyShift, 폴리폰 freshness 등 적용).
 
 자세한 토큰은 [dense-tokens.md](./dense-tokens.md) 참조.
 
 ## 화면 산출물 정책 (Hero + Wireframe)
 
-5주 MVP 일정에서 18개 화면 모두 HTML mock 만드는 건 비현실적. 베스트 프랙티스:
+5주 MVP 일정에서 모든 화면을 바로 HTML mock으로 만드는 건 비현실적. 베스트 프랙티스:
 
 - **Hero 3개**: 정체성·핵심 패턴 검증을 위한 HTML mock (현재 승인 후보 + variants + review)
   - `artifacts/lo/lo-web-situation-board-main-v1.3.html` (정보 dense dashboard)
   - `artifacts/lo/lo-polifon-search-map-v1.html` (rugged field UI)
   - `artifacts/lo/lo-polifon-marker-bottomsheet-v1.html` (빠른 입력)
-- **나머지 13개**: [wireframes.md](./wireframes.md) 텍스트 IA 명세 (각 화면 5-15줄, 재사용 컴포넌트 명시)
+- **폴리폰 나머지 화면**: `artifacts/lo/lo-polifon-wireframes-v1.html`에서 링크되는 HTML low-fi (P1 인증 — 관리 폴리폰 자동 확인 / P2 사건 선택 + P7 종료 다이얼로그 / P3 오프라인 패키지 / P4 미전송 진단 — 진입 = 처리 불가 toast 탭 / P5 alert variant 카탈로그 / P6-A 이전 근무 확인 / P6-B 인수인계 메모 / P8 강조 알림 / P9 마커 상세). 카탈로그 정리(2026-05-11): P1-A·P1-C ID/PW·바인딩 / P7 단독 / P10 권한 거부 화면은 Knox 관리 단말 운영에서 정상 사용자가 마주칠 일이 없거나 다른 화면에 흡수되어 카탈로그에서 제외.
+- **Web 나머지 화면**: [wireframes.md](./wireframes.md) 텍스트 IA 명세 유지 (각 화면 5-15줄, 재사용 컴포넌트 명시)
 - **High-fi**: 본 개발 진행하면서 필요해지면 KRDS-Ops 토큰 적용. 디자이너 또는 후속 단계
 - **인터랙티브 프로토타입**: `artifacts/proto/index.html` — PRD §5.1 12단계 → 핵심 7단계 시연 흐름. localStorage 상태 공유.
 
-화면 설계 완료 후 본 개발 시작. 본 개발 중 화면 정교화 필요 시 그때 HTML mock 또는 Figma high-fi.
+진행 순서는 **기준 문서 → wireframes.md → 필요한 low-fi HTML → 본 개발**이다. 화면 설계 완료 후 본 개발 시작. 본 개발 중 화면 정교화 필요 시 그때 HTML mock 또는 Figma high-fi.
 
 ### 산출물 보관 정책
 
@@ -130,7 +131,7 @@ flowchart TD
 
 | 사실 | 근거 | 자주 하는 잘못 |
 |---|---|---|
-| 1팀 6명이 **팀 폴리폰 1대**를 공유 (개인당 폰 아님) | PRD FR-33, §8.4 | 단말 수를 인원 수와 동일하게 가정 |
+| 1팀 6명이 **팀 폴리폰 1대**를 공유 (개인당 폰 아님) | PRD FR-33, §8.4 | 폴리폰 수를 인원 수와 동일하게 가정 |
 | OP는 **재수색·범위 변경 단위** (`RE_SEARCH`/`AREA_CHANGED`/`OTHER`). 인수인계 단위가 아님 | PRD FR-12, ADR-0029 | OP를 시프트/인수인계 단위로 오해 |
 | 인수인계·근무 교대는 **`DutyShift`** | PRD FR-32, FR-33 | OP에 인수인계 의미 부여 |
 | 현장 마커 생성은 **모든 계정** (앱 전용). 마커 수정·삭제만 권한 차등 (간부=모든 마커, 대원=자기 계정 생성분만) | PRD §8.4 권한 매트릭스 | 마커 생성을 일부 계정으로 제한 |

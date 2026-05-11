@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Low-fi · 폴리폰 미전송 진단 v1</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="./lo-polifon-wireframes.css">
+</head>
+<body>
+  <div class="meta">
+    <strong>P4 미전송 진단 화면</strong> — 평소에는 보이지 않는 화면이다.
+    정상 오프라인·복구 진행은 지도 sync chip aggregate(`미전송 12 → 8 → 0`)로 충분하다.
+    <strong>이 화면은 "사용자 조치가 필요한 처리 불가 항목이 발생했을 때만" 진입한다</strong> —
+    진입 동선 = 지도 상단 toast `미전송 N건 처리 불가` 탭. 별도 메뉴/탭 없음.
+    자동 처리 대기 항목은 화면 하단 한 줄 축약으로만 표시한다 (사용자 조치 불요, WorkManager 자동 재시도).
+  </div>
+
+  <div class="phone-frame">
+    <div class="status-bar"><span>14:24</span><span class="right">오프라인 · 78%</span></div>
+    <div class="appbar">
+      <div class="appbar-row">
+        <button class="back">←</button>
+        <div class="title-block"><h1>미전송 진단</h1><p>POL-1A-0023 · 사건 #1234</p></div>
+        <span class="chip bad">처리 불가 2</span>
+      </div>
+    </div>
+
+    <main class="content scroll">
+      <section class="card" style="border-color: var(--poli-emphasis-border)">
+        <h2 style="color: var(--poli-emphasis)">처리 불가 2건 — IT 부서 문의</h2>
+        <p style="margin:6px 0 12px;opacity:0.85">자동 재시도로 해결되지 않는 항목입니다. 사유별 안내를 확인하세요.</p>
+
+        <div class="row">
+          <div class="main">
+            <strong>경로 batch · 14:18 ~ 14:22</strong>
+            <span>사유: 사건 #1234 종료 수신 후 전송 차단 (<code>incident_closed</code>)</span>
+            <span style="margin-top:4px">조치: 사건 종료 시점 이전 기록은 IT 부서가 별도 처리합니다. 폴리폰 ID와 시각을 함께 전달하세요.</span>
+          </div>
+          <span class="chip bad">재시도 불가</span>
+        </div>
+
+        <div class="row">
+          <div class="main">
+            <strong>패키지 상태 보고 · 14:08</strong>
+            <span>사유: 이 폴리폰이 사건/OP 배정에서 제외됨 (<code>police_phone_not_assigned</code>)</span>
+            <span style="margin-top:4px">조치: 단말 배정 정정이 필요합니다. IT 부서에 폴리폰 ID와 사건 번호를 전달하세요.</span>
+          </div>
+          <span class="chip bad">확인 필요</span>
+        </div>
+      </section>
+
+      <section class="card" style="opacity:0.7">
+        <div class="row">
+          <div class="main">
+            <strong>자동 처리 대기 10건</strong>
+            <span>경로 6 · 마커 2 · 사진 2 · 가장 오래된 항목 8분 전</span>
+            <span style="margin-top:4px;opacity:0.7">연결되면 자동 전송됩니다. 사용자 조치 불요.</span>
+          </div>
+          <span class="chip warn">자동</span>
+        </div>
+      </section>
+    </main>
+
+    <div class="bottom">
+      <button class="button primary">IT 부서 문의 안내 보기</button>
+    </div>
+    <div class="gesture"><span></span></div>
+  </div>
+
+  <div class="meta">
+    <strong>비교: 정상 오프라인 (이 화면 진입 X)</strong> — 자동 처리만 남아 있으면 지도 상단 sync chip aggregate로만 표시한다.
+    예: <code>오프라인 · 미전송 12 · 8분</code> → 복구 시 <code>전송 중 · 8</code> → <code>전송 중 · 3</code> → <code>동기화</code>.
+    사용자는 이 변화만 보면 충분하고, P4 진단 화면에는 진입할 이유가 없다.
+  </div>
+
+  <div class="meta">
+    <strong>진입 동선</strong>
+    <ol>
+      <li>지도 화면 상단 toast 등장: <code>미전송 2건 처리 불가 · 탭하여 확인</code> (WorkManager가 처리 불가 사유 감지 시 발행)</li>
+      <li>사용자가 toast 탭 → 본 화면 진입</li>
+      <li>처리 불가 사유별 안내 확인 → IT 부서 문의 또는 그대로 둠 (사건 종료 후 자동 정리됨)</li>
+      <li>자동 처리 대기 그룹은 한 줄 축약으로만 노출 (사용자가 들여다볼 가치 없음)</li>
+    </ol>
+  </div>
+</body>
+</html>

@@ -2,9 +2,9 @@ package com.surimap.sync.clock;
 
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.RequireChannel;
-import com.surimap.common.auth.RequireDevice;
-import com.surimap.common.auth.RequireDeviceAssigned;
-import com.surimap.common.auth.RequireDeviceRegistered;
+import com.surimap.common.auth.RequirePolicePhone;
+import com.surimap.common.auth.RequirePolicePhoneAssigned;
+import com.surimap.common.auth.RequirePolicePhoneRegistered;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -31,14 +31,14 @@ public class SyncClockController {
 
   @PostMapping("/api/sync/clock")
   @RequireChannel(Channel.APP)
-  @RequireDevice
-  @RequireDeviceRegistered
-  @RequireDeviceAssigned
+  @RequirePolicePhone
+  @RequirePolicePhoneRegistered
+  @RequirePolicePhoneAssigned
   public ResponseEntity<?> syncClock(
-      @RequestHeader(value = "X-Device-Id", required = false) String deviceId,
+      @RequestHeader(value = "X-PolicePhone-Id", required = false) String policePhoneId,
       @RequestBody SyncClockRequest request) {
-    if (deviceId == null || deviceId.isBlank()) {
-      throw new SyncClockApiException(HttpStatus.BAD_REQUEST, "device_required");
+    if (policePhoneId == null || policePhoneId.isBlank()) {
+      throw new SyncClockApiException(HttpStatus.BAD_REQUEST, "police_phone_required");
     }
 
     OffsetDateTime clientTs = OffsetDateTime.parse(request.clientTs());

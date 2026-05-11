@@ -270,22 +270,25 @@ class RoomLocalSyncServicesTest {
         operationId: String = "op-outbox-path-001",
         idempotencyKey: String,
         bodyHash: String
-    ): LocalWriteOperation = LocalWriteOperation(
-        operationId = operationId,
-        incidentId = "inc-precinct-first-001",
-        policePhoneId = "dev-precinct-car-01",
-        dependencyGroup = DependencyGroup.PATH,
-        sequence = 502L,
-        method = "POST",
-        endpoint = "/api/search-paths/batch",
-        payload = """{"points":[{"lat":37.0,"lng":127.0}]}""",
-        bodyHash = bodyHash,
-        idempotencyKey = idempotencyKey,
-        clientTs = Instant.parse("2026-04-28T00:00:40Z"),
-        clockOffsetMs = 0L,
-        clockSyncedAt = Instant.parse("2026-04-28T00:00:35Z"),
-        entityType = "search_path"
-    )
+    ): LocalWriteOperation {
+        val clockSyncedAt = Instant.ofEpochMilli(System.currentTimeMillis())
+        return LocalWriteOperation(
+            operationId = operationId,
+            incidentId = "inc-precinct-first-001",
+            policePhoneId = "dev-precinct-car-01",
+            dependencyGroup = DependencyGroup.PATH,
+            sequence = 502L,
+            method = "POST",
+            endpoint = "/api/search-paths/batch",
+            payload = """{"points":[{"lat":37.0,"lng":127.0}]}""",
+            bodyHash = bodyHash,
+            idempotencyKey = idempotencyKey,
+            clientTs = clockSyncedAt.minusSeconds(5),
+            clockOffsetMs = 0L,
+            clockSyncedAt = clockSyncedAt,
+            entityType = "search_path"
+        )
+    }
 
     private class CapturingSender : OutboxSender {
         val decisionByKey: MutableMap<String, SendResult> = linkedMapOf()

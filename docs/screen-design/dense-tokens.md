@@ -4,7 +4,7 @@
 
 ## 목적
 
-KRDS는 시민 포털 디자인 시스템이다. 본문 17px, 카드 padding 40px, line-height 1.5 같은 기본값은 **정책 정보를 여유 있게 보여주기 위한 톤**이다. Suri-Map의 웹 상황판은 사건 1건당 폴리폰 약 12~15대·마커 수십 개·사용자 선택 OP overlay를 동시 표시해야 하는 **운영 dashboard**이고, 폴리폰(현장 단말)은 **야외 글랜스 + 장갑 조작** 환경이다. 두 사용 맥락 모두 KRDS 기본 토큰을 그대로 쓰면 정보 밀도와 가독성이 부족하다.
+KRDS는 시민 포털 디자인 시스템이다. 본문 17px, 카드 padding 40px, line-height 1.5 같은 기본값은 **정책 정보를 여유 있게 보여주기 위한 톤**이다. Suri-Map의 웹 상황판은 사건 1건당 폴리폰 약 12~15대·마커 수십 개·사용자 선택 OP overlay를 동시 표시해야 하는 **운영 dashboard**이고, 폴리폰(현장 입력 앱)은 **야외 글랜스 + 장갑 조작** 환경이다. 두 사용 맥락 모두 KRDS 기본 토큰을 그대로 쓰면 정보 밀도와 가독성이 부족하다.
 
 이 문서는 KRDS를 base로 fork한 **KRDS-Ops dense variant**의 토큰을 정의한다.
 
@@ -13,7 +13,7 @@ KRDS는 시민 포털 디자인 시스템이다. 본문 17px, 카드 padding 40p
 - **base**: KRDS (범정부 UI/UX 공통가이드) — 출처: 프로젝트 루트의 `Korean Government UIUX Design System/`
 - **fork**: KRDS-Ops dense variant — 정보 밀도·rugged field UI를 위한 압축 + 한국 경찰 도메인 컬러
 - **borrow**: 네이버 지도 — 지도 조작 패턴(컨트롤 위치, 바텀시트 조작감)만. 검색·POI·길찾기 등 비채택
-- **domain**: 한국 경찰 실종 수색 — 차량/도보 구간, 5종 마커, OP/DutyShift 시각 분리, 단말 stale·미전송 큐 표현 등
+- **domain**: 한국 경찰 실종 수색 — 차량/도보 구간, 5종 마커, OP/DutyShift 시각 분리, 폴리폰 freshness·미전송 큐 표현 등
 
 ## 명명 규칙
 
@@ -21,6 +21,7 @@ KRDS는 시민 포털 디자인 시스템이다. 본문 17px, 카드 padding 40p
 - Suri-Map ops fork: `--krds-ops-*`
 - 두 토큰을 같은 화면에 섞지 않는다. 화면 단위로 어느 셋을 쓰는지 결정한다.
 - 한 토큰의 값을 바꿀 때는 §10 영향표를 먼저 본다.
+- `artifacts/lo/`의 HTML mock은 읽기 쉽게 `--poli-*` 축약 alias를 쓸 수 있다. 단일 출처는 이 문서의 `--krds-ops-poli-*`이며, alias 추가 시 1:1 매핑을 유지한다.
 
 ## 1. 정보 밀도 목표
 
@@ -112,33 +113,46 @@ KRDS 원본 컬러 base + 도메인 컬러 추가. KRDS의 형식 톤(저채도�
 
 | 상태 | 임계 | 출처 |
 |---|---|---|
-| online | 동기화 60초 이내 | boundaries.md §단말 stale 표시 |
-| stale | 60초 이상 미동기 | boundaries.md §단말 stale 표시 |
-| lost | 5분 이상 위치 끊김 | boundaries.md §단말 stale 표시 |
+| online | 동기화 60초 이내 | boundaries.md §폴리폰 freshness 표시 |
+| stale | 60초 이상 미동기 | boundaries.md §폴리폰 freshness 표시 |
+| lost | 5분 이상 위치 끊김 | boundaries.md §폴리폰 freshness 표시 |
 
 화면 라벨은 영어 코드(`stale`/`lost`)가 아니라 한국어 경과 시간 중심으로 표기한다. screen-labels.md §3 상태 라벨 참조.
 
-### 2.2 KRDS-Ops Polifon (다크 모드 기본)
+### 2.2 KRDS-Ops 폴리폰 (다크 모드 기본)
 
-야외 가시성·야간 운용·배터리 절약을 위한 다크 base. 주간 모드 자동 전환은 v2 검토.
+야외 가시성·야간 운용·배터리 절약을 위한 다크 base. 경찰 프로젝트 정체성을 위해 primary CTA와 선택 상태는 **경찰 블루 계열**로 통일한다. 초록은 primary CTA가 아니라 동기화 성공·기록 중 같은 상태 표현에만 사용한다. 주간 모드 자동 전환은 v2 검토.
 
 | 토큰 | 값 | 용도 |
 |---|---|---|
-| `--krds-ops-poli-bg-base` | `#0B0F19` | 화면 배경 (다크 네이비) |
-| `--krds-ops-poli-bg-surface` | `#111827` | 카드 |
-| `--krds-ops-poli-bg-input` | `#1F2937` | 입력 영역 |
-| `--krds-ops-poli-bg-elevated` | `#1F2937` | 모달/바텀시트 |
-| `--krds-ops-poli-fg-primary` | `#FFFFFF` | 본문 (고대비) |
-| `--krds-ops-poli-fg-secondary` | `#E5E7EB` | 부가 |
-| `--krds-ops-poli-fg-muted` | `#9CA3AF` | placeholder |
-| `--krds-ops-poli-border` | `#2A3240` | 일반 보더 |
-| `--krds-ops-poli-primary` | `#3B82F6` | 일반 액션 |
+| `--krds-ops-poli-bg-base` | `#08111F` | 화면 배경 (경찰 블루 다크 네이비) |
+| `--krds-ops-poli-bg-surface` | `#101B2C` | 카드 |
+| `--krds-ops-poli-bg-input` | `#17263A` | 입력 영역 |
+| `--krds-ops-poli-bg-elevated` | `#17263A` | 모달/바텀시트 |
+| `--krds-ops-poli-fg-primary` | `#F8FAFC` | 본문 (고대비) |
+| `--krds-ops-poli-fg-secondary` | `#E5EDF8` | 부가 |
+| `--krds-ops-poli-fg-muted` | `#9FB2C8` | placeholder |
+| `--krds-ops-poli-border` | `#2A3B52` | 일반 보더 |
+| `--krds-ops-poli-border-strong` | `#3C5472` | 강조 보더 |
+| `--krds-ops-poli-primary` | `#2B537C` | primary CTA **fill** 전용. Web `ActionButton` 사건 가져오기 색과 동일 |
+| `--krds-ops-poli-primary-hi` | `#37628E` | primary CTA 상단(그라데이션 highlight) |
+| `--krds-ops-poli-primary-border` | `#4F7198` | primary CTA 외곽선 |
+| `--krds-ops-poli-primary-soft` | `#1D3C61` | 선택 배경 |
+| `--krds-ops-poli-primary-fg` | `#A8CCEA` | primary 계열 foreground (text/icon stroke/focus ring). 다크 surface 대비 ≈11:1 (AAA) |
+| `--krds-ops-poli-primary-mid` | `#5C8AB8` | chip border, mid-weight primary foreground (≈5:1) |
+| `--krds-ops-poli-current` | `#22D3EE` | 현재 위치·운용 중인 폴리폰 강조 |
+| `--krds-ops-poli-current-glow` | `0 0 0 4px rgb(34 211 238 / 20%)` | 현재 위치 ring `box-shadow` (FR-25 mine 강조 통일) |
 | `--krds-ops-poli-emphasis` | `#EF4444` | 긴급 액션 (수색 종료, destructive) |
 | `--krds-ops-poli-success` | `#22C55E` | 동기화 성공·기록 중 |
 | `--krds-ops-poli-warning` | `#F59E0B` | 오프라인·미전송 강조·배터리 저하 |
 | `--krds-ops-poli-rec` | `#EF4444` | GPS 기록 중 점멸 |
 | `--krds-ops-poli-rugged` | `#FCBA04` | 러기드 strip / 강조 외곽 |
+| `--krds-ops-poli-emphasis-glow` | `0 0 0 3px rgb(239 68 68 / 30%)` | 실종자 발견 마커 ring `box-shadow` / pulse halo |
+| `--krds-ops-poli-primary-fill-soft` | `rgb(43 83 124 / 30%)` | primary fill alpha (선택 상태 배경, marker type 선택 등) |
+| `--krds-ops-poli-overlay-dim` | `rgb(0 0 0 / 50%)` | text overlay 어두운 배경 (GPS label, photo caption) |
 | (마커·구간 색상 다크 변형) | §2.1 색에 brightness +10% | 같은 의미 유지 |
+
+> **Primary 토큰 사용 정책**: `--krds-ops-poli-primary`(#2B537C)는 **buffered fill 색**이며, `#0E1724`/`#08111F` 다크 surface 대비 ≈3:1로 WCAG AA 본문(4.5:1)을 통과하지 못한다. 다크 surface 위 foreground(text, icon stroke, focus ring, secondary 라벨)에는 반드시 `--krds-ops-poli-primary-fg`(≈11:1, AAA 통과) 또는 `--krds-ops-poli-primary-mid`(≈5:1, AA 통과)를 사용한다. 흰색 라벨이 올라간 fill 버튼(`#2B537C` background + `#FFFFFF` foreground ≈7:1)은 AAA 통과로 예외.
 
 ### 2.3 색맹 검증
 
@@ -165,7 +179,7 @@ KRDS 원본 컬러 base + 도메인 컬러 추가. KRDS의 형식 톤(저채도�
 | `--krds-ops-line-height-tight` | 1.3 | 데이터 dense (리스트 행) | KRDS 1.5 → 1.3 |
 | `--krds-ops-line-height-default` | 1.5 | 본문 | KRDS 유지 |
 
-### 3.2 KRDS-Ops Polifon
+### 3.2 KRDS-Ops 폴리폰
 
 야외 가독성. KRDS 원본보다 **본문은 키우되** dense 라벨은 유지.
 
@@ -183,7 +197,7 @@ KRDS 원본 컬러 base + 도메인 컬러 추가. KRDS의 형식 톤(저채도�
 
 | 용도 | 폰트 |
 |---|---|
-| 본문/라벨 (Web/Polifon) | Pretendard GOV (KRDS 표준), fallback Pretendard, Noto Sans KR, system-ui |
+| 본문/라벨 (Web/폴리폰) | Pretendard GOV (KRDS 표준), fallback Pretendard, Noto Sans KR, system-ui |
 | 디스플레이 | Noto Sans KR Bold (KRDS 표준 유지) |
 | 숫자/좌표/시각 (monospace) | JetBrains Mono — 라이선스 OFL, 시인성 우수, 한글 fallback Pretendard 숫자 |
 
@@ -212,11 +226,15 @@ KRDS 8px 스케일 base. 카드 padding은 dense fork.
 
 | 토큰 | 값 | 용도 | 근거 |
 |---|---|---|---|
-| `--krds-ops-poli-touch-min` | 48px | 최소 터치 타깃 | WCAG 2.5.5 |
+| `--krds-ops-poli-touch-min` | 48px | 최소 터치 타깃 | Android 접근성 48dp, WCAG target size 참고 |
 | `--krds-ops-poli-touch-glove` | 56px | 장갑 사용 타깃 | field-context §1.1 |
 | `--krds-ops-poli-cta-height` | 56px | primary CTA 높이 | 일반 |
-| `--krds-ops-poli-cta-height-large` | 72px | 강조 CTA 높이 | 수색 시작·종료, 마커 생성 |
-| `--krds-ops-poli-bottomsheet-handle` | 32px | 바텀시트 drag handle 높이 | 엄지 grip |
+| `--krds-ops-poli-cta-height-large` | 72px | 강조 CTA 높이 | 수색 시작·종료, 마커 생성. 실 폴리폰 검증 필요 |
+| `--krds-ops-poli-touch-gap-min` | 16px | 인접 CTA 간격 | 장갑 환경 검증 후보 |
+| `--krds-ops-poli-safe-gesture-inset` | 16px | Android gesture nav 회피 | `WindowInsets.safeGestures` 대응 |
+| `--krds-ops-poli-bottomsheet-handle-h` | 6px | 바텀시트 drag handle 시각 높이 | 장갑 환경 검증 후보 |
+| `--krds-ops-poli-bottomsheet-handle-w` | 48px | 바텀시트 drag handle 시각 폭 | 장갑 환경 검증 후보 |
+| `--krds-ops-poli-bottomsheet-handle-hit` | 48px | 바텀시트 drag handle hit area | 최소 터치 타깃 |
 | `--krds-ops-poli-marker-tap-area` | 48px | 지도 위 마커 탭 영역 | 시각 마커 자체는 작아도 가능 |
 
 ## 6. Radius / Border / Shadow 토큰
@@ -242,9 +260,9 @@ KRDS 8px 스케일 base. 카드 padding은 dense fork.
 | 토큰 | 값 | 용도 |
 |---|---|---|
 | `--krds-ops-map-overlay-bg` | `rgba(255,255,255,0.95)` | 지도 위 패널 배경 (Web 라이트) |
-| `--krds-ops-map-overlay-bg-poli` | `rgba(17,24,39,0.92)` | 지도 위 패널 배경 (Polifon 다크) |
+| `--krds-ops-map-overlay-bg-poli` | `rgba(17,24,39,0.92)` | 지도 위 패널 배경 (폴리폰 다크) |
 | `--krds-ops-map-overlay-blur` | `backdrop-filter: blur(8px)` | 배경 blur (지원 브라우저만) |
-| `--krds-ops-map-text-halo` | `2px white outline` (Web) / `2px #0B0F19 outline` (Polifon) | 지도 위 라벨 outline |
+| `--krds-ops-map-text-halo` | `2px white outline` (Web) / `2px #08111F outline` (폴리폰) | 지도 위 라벨 outline |
 | `--krds-ops-map-marker-z` | 100 | 마커 기본 z-index |
 | `--krds-ops-map-marker-cluster-z` | 110 | 마커 cluster z |
 | `--krds-ops-map-emphasis-z` | 200 | PERSON_FOUND·SUPPORT_REQUEST 강조 마커 z |
@@ -267,7 +285,7 @@ KRDS 8px 스케일 base. 카드 padding은 dense fork.
 
 ## 9. 적용 범위
 
-| 화면 | KRDS 원본 | KRDS-Ops Web | KRDS-Ops Polifon |
+| 화면 | KRDS 원본 | KRDS-Ops Web | KRDS-Ops 폴리폰 |
 |---|---|---|---|
 | 웹 로그인 | ✓ (기본 KRDS 톤) | — | — |
 | 웹 사건 목록 | — | ✓ | — |

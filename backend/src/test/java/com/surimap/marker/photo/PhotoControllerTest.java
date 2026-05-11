@@ -91,7 +91,6 @@ class PhotoControllerTest {
     mockMvc
         .perform(
             post("/api/markers/{markerId}/photos/upload-url", MARKER_ID)
-                .contextPath("/api")
                 .header("Authorization", AUTHORIZATION)
                 .header("X-Client-Channel", "APP")
                 .header("X-PolicePhone-Id", POLICE_PHONE_ID.toString())
@@ -121,7 +120,6 @@ class PhotoControllerTest {
     mockMvc
         .perform(
             post("/api/markers/{markerId}/photos/upload-url", MARKER_ID)
-                .contextPath("/api")
                 .header("Authorization", AUTHORIZATION)
                 .header("X-Client-Channel", "WEB")
                 .header("X-PolicePhone-Id", POLICE_PHONE_ID.toString())
@@ -140,7 +138,6 @@ class PhotoControllerTest {
     mockMvc
         .perform(
             post("/api/markers/{markerId}/photos/upload-url", MARKER_ID)
-                .contextPath("/api")
                 .header("Authorization", AUTHORIZATION)
                 .header("X-PolicePhone-Id", POLICE_PHONE_ID.toString())
                 .header("Idempotency-Key", "idem-photo-upload-url-001")
@@ -158,7 +155,6 @@ class PhotoControllerTest {
     mockMvc
         .perform(
             post("/api/markers/{markerId}/photos/upload-url", MARKER_ID)
-                .contextPath("/api")
                 .header("Authorization", AUTHORIZATION)
                 .header("X-Client-Channel", "APP")
                 .header("Idempotency-Key", "idem-photo-upload-url-001")
@@ -176,7 +172,6 @@ class PhotoControllerTest {
     mockMvc
         .perform(
             post("/api/markers/{markerId}/photos/upload-url", MARKER_ID)
-                .contextPath("/api")
                 .header("Authorization", AUTHORIZATION)
                 .header("X-Client-Channel", "APP")
                 .header("X-PolicePhone-Id", "dev-precinct-phone-01")
@@ -195,7 +190,6 @@ class PhotoControllerTest {
     mockMvc
         .perform(
             post("/api/markers/{markerId}/photos/upload-url", MARKER_ID)
-                .contextPath("/api")
                 .header("Authorization", AUTHORIZATION)
                 .header("X-Client-Channel", "APP")
                 .header("X-PolicePhone-Id", OTHER_POLICE_PHONE_ID.toString())
@@ -215,7 +209,6 @@ class PhotoControllerTest {
     mockMvc
         .perform(
             post("/api/markers/{markerId}/photos/upload-url", MARKER_ID)
-                .contextPath("/api")
                 .header("X-Client-Channel", "APP")
                 .header("X-PolicePhone-Id", POLICE_PHONE_ID.toString())
                 .header("Idempotency-Key", "idem-photo-upload-url-001")
@@ -236,7 +229,6 @@ class PhotoControllerTest {
     mockMvc
         .perform(
             post("/api/markers/{markerId}/photos/upload-url", MARKER_ID)
-                .contextPath("/api")
                 .header("Authorization", "Bearer unknown")
                 .header("X-Client-Channel", "APP")
                 .header("X-PolicePhone-Id", POLICE_PHONE_ID.toString())
@@ -255,7 +247,6 @@ class PhotoControllerTest {
     mockMvc
         .perform(
             post("/api/markers/{markerId}/photos/upload-url", MARKER_ID)
-                .contextPath("/api")
                 .header("Authorization", AUTHORIZATION)
                 .header("X-Client-Channel", "APP")
                 .header("X-PolicePhone-Id", POLICE_PHONE_ID.toString())
@@ -293,7 +284,6 @@ class PhotoControllerTest {
     mockMvc
         .perform(
             post("/api/markers/{markerId}/photos/{photoId}/attach", MARKER_ID, PHOTO_ID)
-                .contextPath("/api")
                 .header("Authorization", AUTHORIZATION)
                 .header("X-Client-Channel", "APP")
                 .header("X-PolicePhone-Id", POLICE_PHONE_ID.toString())
@@ -323,7 +313,6 @@ class PhotoControllerTest {
     mockMvc
         .perform(
             post("/api/markers/{markerId}/photos/{photoId}/attach", MARKER_ID, PHOTO_ID)
-                .contextPath("/api")
                 .header("Authorization", AUTHORIZATION)
                 .header("X-Client-Channel", "APP")
                 .header("X-PolicePhone-Id", POLICE_PHONE_ID.toString())

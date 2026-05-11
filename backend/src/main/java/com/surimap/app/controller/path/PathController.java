@@ -38,7 +38,7 @@ public class PathController {
   }
 
   @PatchMapping("/{searchPathId}")
-  public PatchSearchPathResponse patch(
+  public ResponseEntity<PatchSearchPathResponse> patch(
       @PathVariable UUID searchPathId,
       @RequestHeader(value = "X-PolicePhone-Id", required = false) String policePhoneIdHeader,
       @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
@@ -48,6 +48,6 @@ public class PathController {
       throw new SearchPathGuardException("write_conflict");
     }
     var ended = service.end(searchPathId, policePhoneId, request.toServiceRequest(idempotencyKey));
-    return PatchSearchPathResponse.from(ended);
+    return ResponseEntity.ok(PatchSearchPathResponse.from(ended));
   }
 }
