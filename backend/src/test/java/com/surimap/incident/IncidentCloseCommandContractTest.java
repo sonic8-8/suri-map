@@ -97,7 +97,6 @@ class IncidentCloseCommandContractTest {
     mockMvc
         .perform(
             post("/api/incidents/{incidentId}/close", INCIDENT_ID)
-                .contextPath("/api")
                 .header("Authorization", "Bearer close-command")
                 .header("X-Client-Channel", "WEB")
                 .header("Idempotency-Key", "idem-l1-t06-close-001")
@@ -161,7 +160,6 @@ class IncidentCloseCommandContractTest {
     mockMvc
         .perform(
             post("/api/incidents/{incidentId}/close", INCIDENT_ID)
-                .contextPath("/api")
                 .header("Authorization", "Bearer close-command")
                 .header("X-Client-Channel", "WEB")
                 .header("Idempotency-Key", "idem-l1-t06-close-confirm-false")
@@ -193,7 +191,6 @@ class IncidentCloseCommandContractTest {
     mockMvc
         .perform(
             post("/api/incidents/{incidentId}/close", INCIDENT_ID)
-                .contextPath("/api")
                 .header("Authorization", "Bearer close-command")
                 .header("X-Client-Channel", "APP")
                 .header("Idempotency-Key", "idem-l1-t06-close-app")

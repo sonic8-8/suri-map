@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class HealthController {
 
-  @GetMapping("/health")
+  @GetMapping("/api/health")
   public ResponseEntity<HealthResponse> health() {
     return ResponseEntity.ok(new HealthResponse("UP", "suri-map-api"));
   }

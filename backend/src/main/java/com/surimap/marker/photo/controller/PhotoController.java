@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/markers/{markerId}/photos")
+@RequestMapping("/api/markers/{markerId}/photos")
 public class PhotoController {
 
   private final PhotoService photoService;

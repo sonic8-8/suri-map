@@ -131,7 +131,6 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
     mockMvc
         .perform(
             post("/api/incidents/{incidentId}/close", INCIDENT_ID)
-                .contextPath("/api")
                 .header("Authorization", "Bearer sc12-close")
                 .header("X-Client-Channel", "WEB")
                 .header("Idempotency-Key", "idem-l1-i03-sc12-close")

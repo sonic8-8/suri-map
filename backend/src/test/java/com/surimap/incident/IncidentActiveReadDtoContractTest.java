@@ -104,7 +104,6 @@ class IncidentActiveReadDtoContractTest {
             mockMvc
                 .perform(
                     get("/api/incidents")
-                        .contextPath("/api")
                         .header("Authorization", "Bearer app-active-list")
                         .header("X-Client-Channel", "APP"))
                 .andExpect(status().isOk())
@@ -145,7 +144,6 @@ class IncidentActiveReadDtoContractTest {
             mockMvc
                 .perform(
                     get("/api/incidents/{incidentId}", OPEN_ASSIGNED_INCIDENT_ID)
-                        .contextPath("/api")
                         .header("Authorization", "Bearer app-active-detail")
                         .header("X-Client-Channel", "APP"))
                 .andExpect(status().isOk())
@@ -198,7 +196,6 @@ class IncidentActiveReadDtoContractTest {
     mockMvc
         .perform(
             get("/api/incidents/{incidentId}", OPEN_ASSIGNED_INCIDENT_ID)
-                .contextPath("/api")
                 .header("Authorization", "Bearer app-active-detail-denied")
                 .header("X-Client-Channel", "APP"))
         .andExpect(status().isForbidden())
@@ -220,7 +217,6 @@ class IncidentActiveReadDtoContractTest {
             mockMvc
                 .perform(
                     get("/api/incidents/{incidentId}", OPEN_NO_MISSING_INCIDENT_ID)
-                        .contextPath("/api")
                         .header("Authorization", "Bearer app-active-detail-no-missing")
                         .header("X-Client-Channel", "APP"))
                 .andExpect(status().isOk())

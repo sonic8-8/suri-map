@@ -26,7 +26,7 @@ public class SecurityConfig {
         .authorizeHttpRequests(
             auth ->
                 auth.requestMatchers(
-                        AntPathRequestMatcher.antMatcher("/health"),
+                        AntPathRequestMatcher.antMatcher("/api/health"),
                         AntPathRequestMatcher.antMatcher("/actuator/health"),
                         AntPathRequestMatcher.antMatcher("/actuator/prometheus"))
                     .permitAll()
