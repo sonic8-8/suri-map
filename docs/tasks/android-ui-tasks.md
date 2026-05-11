@@ -220,7 +220,7 @@
     - GREEN: 같은 targeted test 통과
     - VERIFY: `cd android && ./gradlew test :app:assembleDebug` 통과
 
-- [ ] AUI-T07 수색 지도 shell과 동기화 상태 UI를 구현한다
+- [x] AUI-T07 수색 지도 shell과 동기화 상태 UI를 구현한다
   - 담당 영역: Android UI
   - 연관 Spec: S2, S3-1, S6, S7, S8
   - 시나리오: SC-05, SC-07, SC-09, SC-11
@@ -240,6 +240,12 @@
     - OP 없음/전환/일시정지/종료 상태가 지도 write 가능 여부와 함께 드러난다.
     - P5에서 P6-A banner 진입이 가능하다.
     - `cd android && ./gradlew :app:assembleDebug` 통과
+  - 완료 증거:
+    - Jira `S14P31C106-226`, branch `feature/S14P31C106-226-search-map-shell-sync-state`
+    - RED: `cd android && ./gradlew :app:testDebugUnitTest --tests com.surimap.feature.search.SearchMapUiStateTest` 실패 (`SearchMapUiState`, `SearchLifecycleStatus`, `SearchMapSyncStatus` 미정의)
+    - GREEN: 같은 targeted test 통과
+    - VERIFY: `git diff --check` 통과
+    - VERIFY: `cd android && ./gradlew test :app:assembleDebug` 통과
 
 ## Phase 4 — 마커와 사진
 

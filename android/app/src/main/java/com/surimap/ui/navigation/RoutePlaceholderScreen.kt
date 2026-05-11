@@ -4,56 +4,16 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import com.surimap.ui.HandoverPromptBanner
 import com.surimap.ui.components.PoliAppBar
 import com.surimap.ui.components.PoliBanner
-import com.surimap.ui.components.PoliButton
-import com.surimap.ui.components.PoliButtonVariant
 import com.surimap.ui.components.PoliCard
-import com.surimap.ui.components.PoliChip
-import com.surimap.ui.components.PoliChipVariant
 import com.surimap.ui.theme.PoliDimens
 import com.surimap.ui.theme.PoliFgMuted
-
-@Composable
-fun SearchMapRouteScreen(
-    onBack: () -> Unit,
-    onOpenHandover: () -> Unit,
-    onOpenMarkerDetail: () -> Unit,
-    onShowBlockedQueue: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    PlaceholderScaffold(
-        title = "수색 중 지도",
-        subtitle = "사건 #1234 · OP 3차 · DutyShift 14:00",
-        onBack = onBack,
-        modifier = modifier
-    ) {
-        HandoverPromptBanner(onOpenHandover = onOpenHandover)
-        PoliCard(strong = true) {
-            Text(text = "MapLibre route placeholder", style = MaterialTheme.typography.titleMedium)
-            Text(
-                text = "AUI-T02는 route shell만 닫고, 실제 지도 layer와 GPS 기록은 후속 AUI-T07에서 연결합니다.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = PoliFgMuted
-            )
-            PoliChip(text = "Synced", variant = PoliChipVariant.Good)
-        }
-        PoliButton(text = "마커 상세 열기", onClick = onOpenMarkerDetail, modifier = Modifier.fillMaxWidth())
-        PoliButton(
-            text = "처리 불가 toast 표시",
-            onClick = onShowBlockedQueue,
-            modifier = Modifier.fillMaxWidth(),
-            variant = PoliButtonVariant.Secondary
-        )
-    }
-}
 
 @Composable
 fun MarkerDetailRouteScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
