@@ -329,7 +329,7 @@
     - 따라서 P6-A는 `READY`/`GENERATING`/`FAILED`와 `sourceReadiness` 기반 상태, `summary_unavailable`, 원본 확인만 표시하고 Android client 생성/재시도 CTA는 만들지 않았다.
     - low-fi의 생성/재생성 CTA를 실제 앱에 노출하려면 S8/API 계약이 먼저 변경되어야 한다.
 
-- [ ] AUI-T11 처리 불가 미전송 진단 화면을 구현한다
+- [x] AUI-T11 처리 불가 미전송 진단 화면을 구현한다
   - 담당 영역: Android UI
   - 연관 Spec: S6, S4
   - 시나리오: SC-07, SC-09, SC-12
@@ -348,6 +348,13 @@
     - 처리 불가 사유가 명확하게 구분된다.
     - 정상 큐 상태에서는 P4 진입 CTA가 노출되지 않는다.
     - `cd android && ./gradlew :app:assembleDebug` 통과
+  - 완료 증거:
+    - Jira `S14P31C106-232`, branch `feature/S14P31C106-232-blocked-outbox-diagnostic`
+    - RED: `cd android && ./gradlew :app:testDebugUnitTest --tests com.surimap.feature.outbox.BlockedOutboxUiStateTest` 실패 (`BlockedOutboxUiState`, `BlockedOutboxReason` 미정의)
+    - GREEN: 같은 targeted test 통과
+    - VERIFY: `cd android && ./gradlew :app:testDebugUnitTest --tests com.surimap.core.sync.OutboxRetryDiagnosticsStateTest` 통과
+    - VERIFY: `git diff --check` 통과
+    - VERIFY: `cd android && ./gradlew test :app:assembleDebug` 통과
 
 ## Phase 6 — 알림과 terminal state
 
