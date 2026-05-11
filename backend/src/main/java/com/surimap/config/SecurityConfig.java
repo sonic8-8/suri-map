@@ -1,7 +1,10 @@
 package com.surimap.config;
 
+import com.surimap.account.security.AuthSessionAuthenticationFilter;
+import com.surimap.account.service.AuthSessionService;
 import com.surimap.common.auth.SuriMapAuthentication;
 import java.util.function.Supplier;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authorization.AuthorizationDecision;
@@ -14,6 +17,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 @Configuration
@@ -21,19 +25,28 @@ import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 public class SecurityConfig {
 
   @Bean
-  SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-    return http.csrf(csrf -> csrf.disable())
+  SecurityFilterChain securityFilterChain(
+      HttpSecurity http, ObjectProvider<AuthSessionService> authSessionService) throws Exception {
+    http.csrf(csrf -> csrf.disable())
         .authorizeHttpRequests(
             auth ->
                 auth.requestMatchers(
                         AntPathRequestMatcher.antMatcher("/api/health"),
+                        AntPathRequestMatcher.antMatcher("/api/auth/login"),
                         AntPathRequestMatcher.antMatcher("/actuator/health"),
                         AntPathRequestMatcher.antMatcher("/actuator/prometheus"))
                     .permitAll()
                     .anyRequest()
                     .access(SecurityConfig::hasSuriMapAuthentication))
-        .httpBasic(Customizer.withDefaults())
-        .build();
+        .httpBasic(Customizer.withDefaults());
+
+    authSessionService.ifAvailable(
+        service ->
+            http.addFilterBefore(
+                new AuthSessionAuthenticationFilter(service),
+                UsernamePasswordAuthenticationFilter.class));
+
+    return http.build();
   }
 
   private static AuthorizationDecision hasSuriMapAuthentication(
