@@ -22,6 +22,7 @@ import com.surimap.config.GuardConfig;
 import com.surimap.incident.lifecycle.IncidentLifecycleGuard;
 import com.surimap.incident.lifecycle.IncidentLifecycleSnapshot;
 import com.surimap.operationalperiod.event.EventPublisherPort;
+import com.surimap.summary.SearchHistorySummaryGenerationJob;
 import com.surimap.support.auth.GuardPortTestStubs;
 import com.surimap.support.auth.WithMockAccount;
 import java.time.Instant;
@@ -52,6 +53,7 @@ class OperationalPeriodApiContractTest {
 
   @MockitoBean private OperationalPeriodMapper mapper;
   @MockitoBean private EventPublisherPort eventPublisher;
+  @MockitoBean private SearchHistorySummaryGenerationJob searchHistorySummaryGenerationJob;
   @MockitoBean private IncidentLifecycleGuard incidentLifecycleGuard;
 
   @BeforeEach
@@ -96,6 +98,16 @@ class OperationalPeriodApiContractTest {
     verify(mapper).endActive(eq(OP1_ID), any(UUID.class), any(Instant.class), eq(2L));
     verify(mapper).insert(any(OperationalPeriod.class));
     verify(eventPublisher).publish(any());
+    verify(searchHistorySummaryGenerationJob)
+        .enqueueForOperationalPeriodTransition(
+            org.mockito.ArgumentMatchers.<OperationalPeriod>argThat(
+                ended -> OP1_ID.equals(ended.getId()) && INCIDENT_ID.equals(ended.getIncidentId())),
+            org.mockito.ArgumentMatchers.<OperationalPeriod>argThat(
+                opened ->
+                    INCIDENT_ID.equals(opened.getIncidentId())
+                        && opened.getSequenceNumber() == 2
+                        && "ACTIVE".equals(opened.getStatus())),
+            eq(UUID.fromString("11111111-1111-1111-1111-111111110001")));
   }
 
   @Test

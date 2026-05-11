@@ -56,4 +56,89 @@
         </if>
         ORDER BY shs.created_at DESC, shs.id ASC
     </select>
+
+    <select id="sourceFingerprintForScope" resultType="java.lang.String">
+        SELECT CONCAT_WS(
+            '|',
+            'op:' || op.id::text || ':' || op.version::text,
+            COALESCE((
+                SELECT string_agg('duty:' || ds.id::text || ':' || ds.version::text, ',' ORDER BY ds.id::text)
+                FROM duty_shift ds
+                WHERE ds.operational_period_id = op.id
+                <if test="dutyShiftId != null">
+                    AND ds.id = #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+                </if>
+            ), ''),
+            COALESCE((
+                SELECT string_agg('area:' || sa.id::text || ':' || sa.version::text, ',' ORDER BY sa.id::text)
+                FROM search_area sa
+                WHERE sa.operational_period_id = op.id
+            ), ''),
+            COALESCE((
+                SELECT string_agg('marker:' || m.id::text || ':' || m.version::text, ',' ORDER BY m.id::text)
+                FROM marker m
+                WHERE m.operational_period_id = op.id
+                <if test="dutyShiftId != null">
+                    AND m.duty_shift_id = #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+                </if>
+            ), ''),
+            COALESCE((
+                SELECT string_agg('photo:' || p.id::text || ':' || p.version::text, ',' ORDER BY p.id::text)
+                FROM photo p
+                JOIN marker pm ON pm.id = p.marker_id
+                WHERE pm.operational_period_id = op.id
+                <if test="dutyShiftId != null">
+                    AND pm.duty_shift_id = #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+                </if>
+            ), ''),
+            COALESCE((
+                SELECT string_agg('memo:' || hm.id::text || ':' || hm.version::text, ',' ORDER BY hm.id::text)
+                FROM handover_memo hm
+                WHERE hm.operational_period_id = op.id
+                <if test="dutyShiftId != null">
+                    AND (
+                        hm.duty_shift_id = #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+                        OR (
+                            hm.memo_target_type = 'DUTY_SHIFT'
+                            AND hm.memo_target_id = #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+                        )
+                    )
+                </if>
+            ), '')
+        )
+        FROM operational_period op
+        WHERE op.id = #{opId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+    </select>
+
+    <insert id="insertGenerationRequest">
+        INSERT INTO search_history_summary (
+            id,
+            operational_period_id,
+            duty_shift_id,
+            generation_status,
+            content,
+            source_data_hash,
+            source_readiness,
+            requested_by_account_id,
+            generated_at,
+            version,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            #{summaryId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{opId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{generationStatus},
+            #{content},
+            #{sourceDataHash},
+            #{sourceReadiness},
+            #{requestedByAccountId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{generatedAt},
+            #{version},
+            #{createdAt},
+            #{updatedAt}
+        )
+        ON CONFLICT DO NOTHING
+    </insert>
 </mapper>

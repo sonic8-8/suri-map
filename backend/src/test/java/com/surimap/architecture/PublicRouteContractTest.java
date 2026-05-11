@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.web.ServerProperties;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 @SpringBootTest
@@ -48,6 +49,50 @@ class PublicRouteContractTest {
                 .collect(Collectors.toList()))
         .as("non-tile application routes must use the canonical /api JSON prefix")
         .allMatch(path -> path.startsWith("/api/"));
+  }
+
+  @Test
+  @DisplayName("search history summary exposes read-only API and no public generation command")
+  void search_history_summary_has_no_public_command_route() {
+    Set<String> routes = effectiveApplicationRoutes();
+
+    assertThat(routes)
+        .contains(
+            "GET /api/operational-periods/{operationalPeriodId}/search-history-summaries");
+
+    assertThat(
+            routes.stream()
+                .filter(
+                    route ->
+                        route.contains("search-history-summaries")
+                            || route.contains("ai-summary"))
+                .filter(route -> !route.startsWith("GET "))
+                .collect(Collectors.toList()))
+        .as("APP/WEB must not call summary generation or retry commands")
+        .isEmpty();
+  }
+
+  private Set<String> effectiveApplicationRoutes() {
+    String contextPath = normalizeContextPath(serverProperties.getServlet().getContextPath());
+    return handlerMapping.getHandlerMethods().entrySet().stream()
+        .filter(entry -> entry.getValue().getBeanType().getPackageName().startsWith("com.surimap"))
+        .flatMap(
+            entry -> {
+              Set<RequestMethod> methods = entry.getKey().getMethodsCondition().getMethods();
+              Set<RequestMethod> effectiveMethods =
+                  methods.isEmpty() ? Set.of(RequestMethod.GET, RequestMethod.POST, RequestMethod.PATCH, RequestMethod.PUT, RequestMethod.DELETE) : methods;
+              return entry.getKey().getPatternValues().stream()
+                  .flatMap(
+                      path ->
+                          effectiveMethods.stream()
+                              .map(
+                                  method ->
+                                      method.name()
+                                          + " "
+                                          + effectivePath(contextPath, path)));
+            })
+        .sorted(Comparator.naturalOrder())
+        .collect(Collectors.toCollection(LinkedHashSet::new));
   }
 
   private Set<String> effectiveApplicationPaths() {

@@ -128,6 +128,10 @@ class RoomOutboxReplay(
         outboxDao.rejectPostCloseRows(incidentId, policePhoneId)
         val candidates = outboxDao.findReplayCandidates(incidentId, policePhoneId, now, minClockSyncedAt)
         for (row in candidates) {
+            if (isDutyShiftEndBlocked(row)) {
+                break
+            }
+
             if (row.incidentClosedAt != null && row.clientRequestedAt > row.incidentClosedAt) {
                 outboxDao.upsert(
                     row.copy(
@@ -205,6 +209,26 @@ class RoomOutboxReplay(
                 }
             }
         }
+    }
+
+    private suspend fun isDutyShiftEndBlocked(row: OutboxEntity): Boolean {
+        if (!isDutyShiftEnd(row)) {
+            return false
+        }
+        val blockerCount = outboxDao.countUnresolvedLowerSequenceSourceRows(
+            incidentId = row.incidentId ?: return false,
+            policePhoneId = row.policePhoneId,
+            opId = row.opId,
+            sequence = row.sequence
+        )
+        return blockerCount > 0
+    }
+
+    private fun isDutyShiftEnd(row: OutboxEntity): Boolean {
+        return row.dependencyGroup == DependencyGroup.DUTY_SHIFT.name &&
+            row.requestMethod == "PATCH" &&
+            row.requestPath.startsWith("/api/duty-shifts/") &&
+            row.payloadJson.contains("\"action\":\"END\"")
     }
 }
 

@@ -65,14 +65,14 @@
 | `POST /api/sync/outbox/requeue` | S6 | 구현 | `OutboxRequeueController`가 `X-PolicePhone-Id`/`police_phone_*` 계약 사용 | Android requeue client 추가 |
 | `GET /api/incidents/{incidentId}/offline-package/manifest` | S7 | 구현 | `OfflinePackageController` | Android package repository 필요 |
 | `POST /api/incidents/{incidentId}/offline-package/installations` | S7 | 구현 | `OfflinePackageController` | Android outbox replay 연결 필요 |
-| `POST /api/operational-periods` | S8 | 부분 | `OperationalPeriodController`, MyBatis `operational_period` write, Web command client 추가 | idempotency durable record, handoverMemo 저장, summary job 연계 보강 |
+| `POST /api/operational-periods` | S8 | 부분 | `OperationalPeriodController`, MyBatis `operational_period` write, Web command client, previous OP summary generation enqueue 추가 | idempotency durable record, handoverMemo 저장, provider 실행/STALE 재생성 보강 |
 | `GET /api/incidents/{incidentId}/operational-periods` | S8 | 부분 | `OperationalPeriodController`, `OperationalPeriodQuery`, Web client, Android read repository 추가 | board/offline source provider 연결 |
-| `POST /api/duty-shifts` | S8 | 부분 | `AppDutyShiftController`, MyBatis `duty_shift` write, Android outbox repository 추가 | durable idempotency, assignment 정책 보강, summary job trigger는 P2-D |
-| `PATCH /api/duty-shifts/{dutyShiftId}` | S8 | 부분 | `AppDutyShiftController`, Android duty shift END outbox repository 추가 | source readiness barrier와 summary server job trigger는 P2-D |
+| `POST /api/duty-shifts` | S8 | 부분 | `AppDutyShiftController`, MyBatis `duty_shift` write, Android outbox repository 추가 | durable idempotency, assignment 정책 보강 |
+| `PATCH /api/duty-shifts/{dutyShiftId}` | S8 | 부분 | `AppDutyShiftController`, Android duty shift END outbox repository, 서버 summary generation enqueue, Android lower-sequence barrier 추가 | provider 실행/STALE 재생성 보강 |
 | `GET /api/duty-shifts` | S8 | 부분 | `DutyShiftQueryController`, Web API client, Android read repository 추가 | board slot source provider 연결 |
 | `POST /api/handover-memos` | S8 | 부분 | `HandoverMemoController`, MyBatis `handover_memo` write, EventHub publish, Web client, Android outbox repository 추가 | durable idempotency와 board source provider 연결 |
 | `GET /api/handover-memos` | S8 | 부분 | `HandoverMemoController`, `HandoverMemoMapper`, Web/Android read client 추가 | S3-2 handover slot source provider 연결 |
-| `GET /api/operational-periods/{operationalPeriodId}/search-history-summaries` | S8 | 부분 | `SearchHistorySummaryController`, MyBatis read mapper, Web/Android read client 추가 | 서버 내부 generation job과 stale/source readiness 계산은 P2-D |
+| `GET /api/operational-periods/{operationalPeriodId}/search-history-summaries` | S8 | 부분 | `SearchHistorySummaryController`, MyBatis read mapper, Web/Android read client, 서버 내부 generation enqueue 추가 | provider 실행과 READY/FAILED 전환, STALE 재생성 계산 보강 |
 | `GET /tiles/styles/{styleId}.json` | S7 | 구현 | `TileController` | FE `/tiles` proxy 필요 |
 | `GET /tiles/{style}/{z}/{x}/{y}.pbf` | S7 | 구현 | `TileController` | Android MapLibre tile wiring 필요 |
 
@@ -98,7 +98,7 @@
 | Outbox sender | 부분 | `OutboxSender` interface는 있으나 기본값이 `NoopOutboxSender` | production 기본 sender를 real HTTP로 교체 |
 | Incident/offline/search-area/operational-period/duty-shift/handover/summary read repository | 부분 | incident/offline/search-area/operational-period/duty-shift/handover/summary read repository 추가 | UI/ViewModel 연결 |
 | SearchPath/Marker write builder | 미구현 | tests에 sample path만 있음 | write operation builder와 payload mapper 추가 |
-| DutyShift/Handover/Summary | 부분 | duty shift/handover write outbox builder와 summary read repository 추가 | duty shift END barrier와 UI/ViewModel 연결 |
+| DutyShift/Handover/Summary | 부분 | duty shift/handover write outbox builder, duty shift END lower-sequence barrier, summary read repository 추가 | UI/ViewModel 연결 |
 | Tiles | 부분 | MapLibre dependency만 있음 | local `/tiles` style/tile source wiring 추가 |
 
 ## 기준 문서 충돌 또는 주의 지점
@@ -112,7 +112,7 @@
 
 1. `[BE]` S3-2 Board source row provider 연결과 `GET /api/incidents/{incidentId}/board` 데이터 충실도 보강
 2. `[BE]` S2 SearchArea MyBatis persistence 정렬 및 assignment URL/테이블 충돌 정리
-3. `[BE]` S8 summary generation job, duty shift END source readiness barrier, Board S8 source provider 연결
+3. `[BE]` S8 summary provider 실행/STALE 재생성, Board S8 source provider 연결
 4. `[FE]` 공통 API client, board query, SSE adapter, board mapper 추가
 5. `[FE]` Vite `/tiles` proxy 또는 tile base URL 설정 정리
 6. `[Android]` incident/offline/search-path/marker/duty-shift/handover repository와 write operation builder 추가

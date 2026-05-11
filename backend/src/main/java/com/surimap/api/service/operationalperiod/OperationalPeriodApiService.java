@@ -8,6 +8,7 @@ import com.surimap.operationalperiod.OperationalPeriod;
 import com.surimap.operationalperiod.OperationalPeriodMapper;
 import com.surimap.operationalperiod.event.EventPublisherPort;
 import com.surimap.operationalperiod.event.OpTransitionedPublishRequest;
+import com.surimap.summary.SearchHistorySummaryGenerationJob;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -31,15 +32,18 @@ public class OperationalPeriodApiService {
   private final OperationalPeriodMapper mapper;
   private final EventPublisherPort eventPublisher;
   private final IncidentLifecycleGuard incidentLifecycleGuard;
+  private final SearchHistorySummaryGenerationJob searchHistorySummaryGenerationJob;
   private final Map<String, IdempotencyEntry> idempotencyEntries = new LinkedHashMap<>();
 
   public OperationalPeriodApiService(
       OperationalPeriodMapper mapper,
       EventPublisherPort eventPublisher,
-      IncidentLifecycleGuard incidentLifecycleGuard) {
+      IncidentLifecycleGuard incidentLifecycleGuard,
+      SearchHistorySummaryGenerationJob searchHistorySummaryGenerationJob) {
     this.mapper = mapper;
     this.eventPublisher = eventPublisher;
     this.incidentLifecycleGuard = incidentLifecycleGuard;
+    this.searchHistorySummaryGenerationJob = searchHistorySummaryGenerationJob;
   }
 
   @Transactional
@@ -97,6 +101,8 @@ public class OperationalPeriodApiService {
                   created.getSequenceNumber(),
                   previous.getId(),
                   created.getId()));
+          searchHistorySummaryGenerationJob.enqueueForOperationalPeriodTransition(
+              previous, created, actorAccountId);
 
           return OperationalPeriodResponse.from(created);
         });

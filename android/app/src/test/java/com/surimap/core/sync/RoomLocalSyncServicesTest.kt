@@ -238,6 +238,60 @@ class RoomLocalSyncServicesTest {
     }
 
     @Test
+    fun dutyShiftEndWaitsForLowerSequenceSourceRowsBeforeReplay() = runBlocking {
+        val blocker = sampleOperation(
+            operationId = "op-path-before-duty-end-001",
+            idempotencyKey = "idem-path-before-duty-end-001",
+            bodyHash = "sha256:path-before-duty-end"
+        ).copy(
+            opId = "op-precinct-001",
+            sequence = 502L,
+            clockOffsetMs = null,
+            clockSyncedAt = null
+        )
+        val dutyEnd = sampleOperation(
+            operationId = "op-duty-end-boundary-001",
+            idempotencyKey = "idem-duty-end-boundary-001",
+            bodyHash = "sha256:duty-end-boundary"
+        ).copy(
+            dependencyGroup = DependencyGroup.DUTY_SHIFT,
+            sequence = 503L,
+            method = "PATCH",
+            endpoint = "/api/duty-shifts/duty-shift-001",
+            payload = """{"incidentId":"${blocker.incidentId}","opId":"op-precinct-001","action":"END"}""",
+            opId = "op-precinct-001",
+            entityId = "duty-shift-001",
+            entityType = "duty_shift"
+        )
+
+        val blockerEnqueue = syncClient.enqueue(blocker)
+        syncClient.enqueue(dutyEnd)
+
+        replay.flushPending(policePhoneId = dutyEnd.policePhoneId, incidentId = dutyEnd.incidentId)
+
+        val blockedDutyEnd = database.outboxDao().findByIdempotencyKey(dutyEnd.idempotencyKey)!!
+        assertEquals(OutboxStatus.PENDING.name, blockedDutyEnd.idempotencyStatus)
+        assertEquals(HarnessSyncStatus.PENDING_SEND.name, blockedDutyEnd.localMirrorStatus)
+        assertEquals(0, blockedDutyEnd.attemptCount)
+        assertEquals(0, sender.sendCountByKey(dutyEnd.idempotencyKey))
+
+        val sourceRow = database.outboxDao().findById(blockerEnqueue.outboxId)!!
+        database.outboxDao().upsert(
+            sourceRow.copy(
+                idempotencyStatus = OutboxStatus.ACKED.name,
+                localMirrorStatus = HarnessSyncStatus.SYNCED.name,
+                serverAckTs = System.currentTimeMillis()
+            )
+        )
+
+        replay.flushPending(policePhoneId = dutyEnd.policePhoneId, incidentId = dutyEnd.incidentId)
+
+        val sentDutyEnd = database.outboxDao().findByIdempotencyKey(dutyEnd.idempotencyKey)!!
+        assertEquals(OutboxStatus.ACKED.name, sentDutyEnd.idempotencyStatus)
+        assertEquals(1, sender.sendCountByKey(dutyEnd.idempotencyKey))
+    }
+
+    @Test
     fun replayFailurePathsArePersistedToRetryableAndFinalStates() = runBlocking {
         val retryableOp = sampleOperation(
             operationId = "op-retryable-001",

@@ -10,6 +10,7 @@ import com.surimap.dutyshift.DutyShiftMapper;
 import com.surimap.incident.lifecycle.IncidentLifecycleGuard;
 import com.surimap.operationalperiod.OperationalPeriod;
 import com.surimap.operationalperiod.OperationalPeriodMapper;
+import com.surimap.summary.SearchHistorySummaryGenerationJob;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -32,15 +33,18 @@ public class AppDutyShiftCommandService {
   private final DutyShiftMapper dutyShiftMapper;
   private final OperationalPeriodMapper operationalPeriodMapper;
   private final IncidentLifecycleGuard incidentLifecycleGuard;
+  private final SearchHistorySummaryGenerationJob searchHistorySummaryGenerationJob;
   private final Map<String, IdempotencyEntry> idempotencyEntries = new LinkedHashMap<>();
 
   public AppDutyShiftCommandService(
       DutyShiftMapper dutyShiftMapper,
       OperationalPeriodMapper operationalPeriodMapper,
-      IncidentLifecycleGuard incidentLifecycleGuard) {
+      IncidentLifecycleGuard incidentLifecycleGuard,
+      SearchHistorySummaryGenerationJob searchHistorySummaryGenerationJob) {
     this.dutyShiftMapper = dutyShiftMapper;
     this.operationalPeriodMapper = operationalPeriodMapper;
     this.incidentLifecycleGuard = incidentLifecycleGuard;
+    this.searchHistorySummaryGenerationJob = searchHistorySummaryGenerationJob;
   }
 
   @Transactional
@@ -130,6 +134,7 @@ public class AppDutyShiftCommandService {
                   nextVersion,
                   existing.getCreatedAt(),
                   endedAt);
+          searchHistorySummaryGenerationJob.enqueueForDutyShiftEnd(ended, actorAccountId);
           return DutyShiftEndResponse.from(ended);
         });
   }
