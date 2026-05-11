@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/incidents")
+@RequestMapping("/api/incidents")
 public class IncidentCloseController {
 
   private final IncidentCloseService incidentCloseService;

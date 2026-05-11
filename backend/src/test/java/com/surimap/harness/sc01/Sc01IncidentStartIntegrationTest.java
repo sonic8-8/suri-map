@@ -121,7 +121,7 @@ class Sc01IncidentStartIntegrationTest extends PostGisIntegrationTestSupport {
         .containsExactlyInAnyOrder("INCIDENT_CREATED", "OP_TRANSITIONED");
 
     mockMvc
-        .perform(get("/api/incidents").contextPath("/api").header("X-Client-Channel", "WEB"))
+        .perform(get("/api/incidents").header("X-Client-Channel", "WEB"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.items[0].id", is(INCIDENT_ID.toString())))
         .andExpect(jsonPath("$.items[0].status", is("OPEN")))
@@ -130,7 +130,6 @@ class Sc01IncidentStartIntegrationTest extends PostGisIntegrationTestSupport {
     mockMvc
         .perform(
             get("/api/incidents/{incidentId}", INCIDENT_ID)
-                .contextPath("/api")
                 .header("X-Client-Channel", "WEB"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id", is(INCIDENT_ID.toString())))
@@ -175,7 +174,6 @@ class Sc01IncidentStartIntegrationTest extends PostGisIntegrationTestSupport {
 
   private org.springframework.test.web.servlet.RequestBuilder importRequest(String idempotencyKey) {
     return post("/api/incidents/import")
-        .contextPath("/api")
         .header("Authorization", "Bearer test-web")
         .header("X-Client-Channel", "WEB")
         .header("Idempotency-Key", idempotencyKey)

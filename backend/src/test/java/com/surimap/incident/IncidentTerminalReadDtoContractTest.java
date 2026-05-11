@@ -101,7 +101,6 @@ class IncidentTerminalReadDtoContractTest {
             mockMvc
                 .perform(
                     get("/api/incidents/{incidentId}", CLOSED_INCIDENT_ID)
-                        .contextPath("/api")
                         .header("Authorization", "Bearer app-terminal-detail")
                         .header("X-Client-Channel", "APP"))
                 .andExpect(status().isOk())
@@ -135,7 +134,6 @@ class IncidentTerminalReadDtoContractTest {
         mockMvc
             .perform(
                 get("/api/incidents/{incidentId}", STALE_PII_INCIDENT_ID)
-                    .contextPath("/api")
                     .header("Authorization", "Bearer web-terminal-detail-stale-pii")
                     .header("X-Client-Channel", "WEB"))
             .andExpect(status().isOk())

@@ -381,7 +381,6 @@ class IncidentImportApiContractTest {
   private org.springframework.test.web.servlet.RequestBuilder importRequestWithChannel(
       String sourceIncidentId, String idempotencyKey, String clientChannel) {
     return post("/api/incidents/import")
-        .contextPath("/api")
         .header("Authorization", "Bearer test-web")
         .header("X-Client-Channel", clientChannel)
         .header("Idempotency-Key", idempotencyKey)
@@ -392,7 +391,6 @@ class IncidentImportApiContractTest {
   private org.springframework.test.web.servlet.RequestBuilder importRequestWithoutIdempotencyKey(
       String sourceIncidentId) {
     return post("/api/incidents/import")
-        .contextPath("/api")
         .header("Authorization", "Bearer test-web")
         .header("X-Client-Channel", "WEB")
         .contentType(MediaType.APPLICATION_JSON)

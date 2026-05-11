@@ -32,7 +32,7 @@ class SecurityFilterBaselineTest {
 
   @Test
   void healthEndpointIsAccessibleWithoutAuth() throws Exception {
-    mockMvc.perform(get("/health")).andExpect(status().isOk());
+    mockMvc.perform(get("/api/health")).andExpect(status().isOk());
   }
 
   @Test

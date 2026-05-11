@@ -152,7 +152,6 @@ class Sc01IncidentStartBridgeTest {
 
   private org.springframework.test.web.servlet.RequestBuilder importRequest(String idempotencyKey) {
     return post("/api/incidents/import")
-        .contextPath("/api")
         .header("Authorization", "Bearer test-web")
         .header("X-Client-Channel", "WEB")
         .header("Idempotency-Key", idempotencyKey)
