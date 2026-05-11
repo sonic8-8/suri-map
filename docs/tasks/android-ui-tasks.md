@@ -358,7 +358,7 @@
 
 ## Phase 6 — 알림과 terminal state
 
-- [ ] AUI-T12 강조 알림 UI와 FCM 라우팅 shell을 구현한다
+- [x] AUI-T12 강조 알림 UI와 FCM 라우팅 shell을 구현한다
   - 담당 영역: Android UI
   - 연관 Spec: S4, S5
   - 시나리오: SC-08, SC-12
@@ -376,6 +376,13 @@
     - 알림에서 P5 marker focus로 이동한다.
     - INCIDENT_CLOSED는 alert UI가 아니라 root terminal dialog로 처리된다.
     - `cd android && ./gradlew :app:assembleDebug` 통과
+  - 완료 증거:
+    - Jira `S14P31C106-233`, branch `feature/S14P31C106-233-incident-alert-fcm-route-shell`
+    - RED: `cd android && ./gradlew :app:testDebugUnitTest --tests com.surimap.feature.alert.IncidentAlertUiStateTest` 실패 (`IncidentAlertUiState`, `IncidentFcmRouteMapper` 미정의)
+    - GREEN: 같은 targeted test 통과
+    - VERIFY: `cd android && ./gradlew :app:testDebugUnitTest --tests com.surimap.feature.search.SearchMapUiStateTest` 통과
+    - VERIFY: `git diff --check` 통과
+    - VERIFY: `cd android && ./gradlew test :app:assembleDebug` 통과
 
 ## Phase 7 — Test와 실기기 검증
 

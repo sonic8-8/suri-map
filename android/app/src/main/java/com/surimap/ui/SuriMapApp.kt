@@ -109,7 +109,11 @@ fun SuriMapApp() {
                                 markerSheetOpen = true
                             },
                             onOpenHandover = { navController.navigateToSingleTop(PolicePhoneRoute.HandoverSummary) },
-                            onOpenBlockedOutbox = { blockedQueue = BlockedQueueToastState(blockedCount = 2) }
+                            onOpenBlockedOutbox = { blockedQueue = BlockedQueueToastState(blockedCount = 2) },
+                            onDismissIncidentAlert = {},
+                            onOpenIncidentAlertMarker = {
+                                navController.navigateToSingleTop(PolicePhoneRoute.SearchMap)
+                            }
                         )
                         if (markerSheetOpen) {
                             MarkerCreateBottomSheet(
