@@ -20,4 +20,4 @@ npm run build
 ```
 
 `VITE_API_BASE_URL` defaults to `/api`.
-
+`VITE_TILE_BASE_URL` defaults to `/tiles`; the Vite dev server proxies `/tiles` to the backend tiles endpoint.

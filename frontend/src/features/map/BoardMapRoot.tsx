@@ -1,9 +1,17 @@
 import maplibregl from 'maplibre-gl';
 import { useEffect, useRef } from 'react';
+import { getTileBaseUrl } from '../../shared/config';
 import { useBoardDisplayStore } from '../board/model/boardDisplayStore';
 
-const boardMapStyleUrl = '/tiles/styles/osm-local.json';
-const localVectorTilePathPattern = /^\/tiles\/osm-local\/\d+\/\d+\/\d+\.pbf$/;
+const tileBaseUrl = getTileBaseUrl();
+const tileBaseUrlObject = new URL(tileBaseUrl, window.location.origin);
+const tileBaseOrigin = tileBaseUrlObject.origin;
+const tileBasePath = tileBaseUrlObject.pathname.replace(/\/+$/, '') || '/tiles';
+const boardMapStyleUrl = `${tileBaseUrl}/styles/osm-local.json`;
+const boardMapStylePath = `${tileBasePath}/styles/osm-local.json`;
+const localVectorTilePathPattern = new RegExp(
+  `^${escapeRegExp(tileBasePath)}/osm-local/\\d+/\\d+/\\d+\\.pbf$`,
+);
 const browserAccessTokenStorageKeys = ['accessToken', 'access_token', 'suriMapAccessToken'];
 
 function readBoardMapAccessToken() {
@@ -31,14 +39,14 @@ function buildWebTileRequestHeaders() {
 
 function transformLocalTileRequest(url: string, resourceType?: string) {
   const requestUrl = new URL(url, window.location.origin);
-  const isCurrentOrigin = requestUrl.origin === window.location.origin;
+  const isAllowedTileOrigin = requestUrl.origin === tileBaseOrigin;
 
-  if (!isCurrentOrigin) {
+  if (!isAllowedTileOrigin) {
     throw new Error(`external tile host rejected: ${url}`);
   }
 
   if (resourceType === 'Style') {
-    if (requestUrl.pathname === boardMapStyleUrl) {
+    if (requestUrl.pathname === boardMapStylePath) {
       return { url, headers: buildWebTileRequestHeaders() };
     }
 
@@ -93,4 +101,8 @@ export function BoardMapRoot() {
   }, []);
 
   return <div ref={mapContainerRef} className="map-root" aria-label={`MapLibre board map ${incidentId}`} />;
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
