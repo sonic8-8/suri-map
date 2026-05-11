@@ -519,7 +519,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 - Owner: S8
 - Source spec: `GET /handover-memos`
-- Consumer: WEB, S3-2
+- Consumer: APP, WEB, S3-2
 - Headers: `Authorization`
 - Guard: `public-session`, `incident-read`
 - Idempotency-Key: no
@@ -527,17 +527,33 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Response: `200 {items}`
 - Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`
 
-#### POST `/api/operational-periods/{operationalPeriodId}/search-history-summaries`
+#### Search history summary generation
 
 - Owner: S8
-- Source spec: `POST /operational-periods/{operationalPeriodId}/search-history-summaries`
-- Consumer: WEB
-- Headers: `Authorization`, `Idempotency-Key`
-- Guard: `web-command`, `incident-read`, `write-common`
-- Idempotency-Key: yes
-- Request: `incidentId`, `clientTs`, optional `scopeType`, `scopeId`, `dutyShiftId`
-- Response: `202 {summaryId, status, version}`
-- Errors: `summary_unavailable`, `channel_not_allowed`, `role_denied`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`
+- Public client endpoint: none
+- Trigger: server-side after successful handover boundary writes:
+  - `PATCH /api/duty-shifts/{dutyShiftId}` with `action=END`
+  - `POST /api/operational-periods` when the previous OP is ended and the next OP is opened
+- Worker: S8 summary generation job builds a minimized source snapshot from OP, duty shift, path, marker, area, and handover memo records, calls the configured provider, then stores `GENERATING` -> `READY` or `FAILED`.
+- Retry: server-managed job retry/requeue only. APP and WEB do not call summary generation or retry APIs.
+- Event: `SEARCH_HISTORY_SUMMARY_CHANGED` after `READY`/`FAILED` state is stored or `sourceReadiness=STALE` is detected.
+- Source readiness:
+  - APP duty shift end is a handover boundary write. Android/S6 replay must not send it before lower-sequence path, marker, photo finalize, and handover memo writes for the same `incidentId`/`policePhoneId`/`opId` are `ACKED` or `FAILED_FINAL`/`PURGED`.
+  - The server computes a summary `sourceHash` from committed OP, duty shift, path, marker, area, and handover memo source rows. While the handover boundary is not ready, the public read response remains `GENERATING` with `sourceReadiness=PENDING_SYNC`.
+  - If a late committed source row changes `sourceHash` after a summary is `READY` or `FAILED`, the existing summary is treated as stale and server-side regeneration is enqueued. Clients still do not call a retry endpoint.
+
+#### GET `/api/operational-periods/{operationalPeriodId}/search-history-summaries`
+
+- Owner: S8
+- Source spec: `GET /operational-periods/{operationalPeriodId}/search-history-summaries`
+- Consumer: APP, WEB, S3-2
+- Headers: `Authorization`
+- Guard: `public-session`, `incident-read`
+- Idempotency-Key: no
+- Query: `incidentId`, optional `scopeType`, `scopeId`, `dutyShiftId`, `status`
+- Response: `200 {items}`. `READY` items may include safe `content`; `GENERATING`/`FAILED` items expose status/displayStatus without source prompt, provider secret, recommendation, missing-area conclusion, or risk wording. Each item includes `sourceReadiness` (`PENDING_SYNC`, `READY`, `STALE`) and `sourceHash`.
+- Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`
+- Channel rule: APP and WEB are read-only for this resource. Summary generation/retry is server-side and is triggered by duty shift end or OP transition.
 
 ### 4.9 Tiles
 
@@ -604,12 +620,12 @@ Tileserver는 Spring Boot JSON API가 아니므로 `/api` prefix를 붙이지 �
 | `POST /sync/outbox/requeue` | `/api` prefix 없음 | `POST /api/sync/outbox/requeue` |
 | `GET /incidents/{incidentId}/offline-package/manifest` | `/api` prefix 없음 | `GET /api/incidents/{incidentId}/offline-package/manifest` |
 | `POST /incidents/{incidentId}/offline-package/installations` | `/api` prefix 없음 | `POST /api/incidents/{incidentId}/offline-package/installations` |
-| `POST /operational-periods/{opId}/search-history-summaries` | path variable 축약 | `POST /api/operational-periods/{operationalPeriodId}/search-history-summaries` |
+| `GET /operational-periods/{opId}/search-history-summaries` | path variable 축약 | `GET /api/operational-periods/{operationalPeriodId}/search-history-summaries` |
 
 ## 7. docs/spec 반영 상태
 
 - `docs/spec/specs/S2.json`: `POST /search-areas/{searchAreaId}/assignments` 상세 contract와 `SEARCH_AREA_ASSIGNMENT_CHANGED` 소유권을 반영했다.
-- `docs/spec/specs/S8.json`: `POST/PATCH/GET /duty-shifts` 상세 contract를 반영하고, `search_area_assignment`는 S2 read-only 소비로 정리했다.
+- `docs/spec/specs/S8.json`: `POST/PATCH/GET /duty-shifts` 상세 contract와 `search_history_summary` APP/WEB read 계약을 반영하고, `search_area_assignment`는 S2 read-only 소비로 정리했다.
 - `docs/spec/boundaries.md`, `docs/spec/harness-scenarios.md`: canonical URL과 photo `upload-url`/`attach` 표현을 반영했다.
 - `docs/tasks/*.md`: 구현 산출물 endpoint 문자열을 canonical URL로 반영했다.
 
