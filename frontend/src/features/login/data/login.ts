@@ -24,6 +24,7 @@ export async function loginWithAccount(accountCode: string, password: string): P
   });
 
   sessionStorage.setItem('suriMapAccessToken', response.accessToken);
+  sessionStorage.setItem('suriMapSessionId', response.sessionId);
 
   const account: LoginAccount = {
     id: response.account.id,
@@ -39,6 +40,22 @@ export async function loginWithAccount(accountCode: string, password: string): P
   sessionStorage.setItem('suriMapCurrentAccount', JSON.stringify(account));
 
   return account;
+}
+
+export async function logoutCurrentSession(): Promise<void> {
+  const sessionId = sessionStorage.getItem('suriMapSessionId');
+
+  try {
+    await apiRequest<{ status: string }>('/auth/logout', {
+      method: 'POST',
+      body: sessionId ? { sessionId } : undefined,
+    });
+  } catch {
+    // Local cleanup must still run if the server session has already expired
+    // or the current backend build has not exposed logout yet.
+  } finally {
+    clearLoginSession();
+  }
 }
 
 export function readStoredLoginAccount(): LoginAccount | null {
@@ -58,6 +75,7 @@ export function readStoredLoginAccount(): LoginAccount | null {
 export function clearLoginSession() {
   sessionStorage.removeItem('suriMapAccessToken');
   sessionStorage.removeItem('suriMapCurrentAccount');
+  sessionStorage.removeItem('suriMapSessionId');
 }
 
 function organizationLabel(organizationType: LoginOrganizationType) {

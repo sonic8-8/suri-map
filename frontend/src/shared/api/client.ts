@@ -16,6 +16,8 @@ export class ApiError extends Error {
   }
 }
 
+export const API_UNAUTHORIZED_EVENT = 'suri-map-api-unauthorized';
+
 type ApiRequestOptions = Omit<RequestInit, 'body' | 'headers'> & {
   body?: unknown;
   headers?: Record<string, string>;
@@ -59,6 +61,9 @@ export async function apiRequest<TResponse>(path: string, options: ApiRequestOpt
 
   if (!response.ok) {
     const body = await readErrorBody(response);
+    if (response.status === 401) {
+      clearExpiredApiSession();
+    }
     throw new ApiError(response.status, body.error ?? `http_${response.status}`);
   }
 
@@ -67,6 +72,13 @@ export async function apiRequest<TResponse>(path: string, options: ApiRequestOpt
   }
 
   return (await response.json()) as TResponse;
+}
+
+function clearExpiredApiSession() {
+  sessionStorage.removeItem('suriMapAccessToken');
+  sessionStorage.removeItem('suriMapCurrentAccount');
+  sessionStorage.removeItem('suriMapSessionId');
+  window.dispatchEvent(new CustomEvent(API_UNAUTHORIZED_EVENT));
 }
 
 async function readErrorBody(response: Response): Promise<ApiErrorBody> {

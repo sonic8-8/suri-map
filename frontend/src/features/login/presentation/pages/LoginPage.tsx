@@ -10,6 +10,22 @@ type LoginPageProps = {
   onLoginSuccess: (account: LoginAccount) => void;
 };
 
+function getLoginErrorMessage(error: unknown) {
+  if (error instanceof ApiError && error.status === 401) {
+    return '계정 코드 또는 비밀번호를 확인해 주세요.';
+  }
+
+  if (error instanceof ApiError && error.code === 'channel_not_allowed') {
+    return '웹 로그인 채널에서 사용할 수 없는 계정입니다.';
+  }
+
+  if (error instanceof ApiError) {
+    return `로그인 요청을 처리하지 못했습니다. (${error.code})`;
+  }
+
+  return '로그인 요청을 처리하지 못했습니다.';
+}
+
 export function LoginPage({ onLoginSuccess }: LoginPageProps) {
   const [formValues, setFormValues] = useState<LoginFormValues>({
     username: '',
@@ -30,7 +46,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
     event.preventDefault();
 
     if (!formValues.username.trim() || !formValues.password.trim()) {
-      setErrorMessage('아이디와 비밀번호를 입력하세요.');
+      setErrorMessage('계정 코드와 비밀번호를 입력해 주세요.');
       return;
     }
 
@@ -41,17 +57,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
       const account = await loginWithAccount(formValues.username.trim(), formValues.password);
       onLoginSuccess(account);
     } catch (error) {
-      if (error instanceof ApiError && error.status === 401) {
-        setErrorMessage('아이디 또는 비밀번호를 확인하세요.');
-        return;
-      }
-
-      if (error instanceof ApiError) {
-        setErrorMessage(`로그인에 실패했습니다. (${error.code})`);
-        return;
-      }
-
-      setErrorMessage('로그인에 실패했습니다.');
+      setErrorMessage(getLoginErrorMessage(error));
     } finally {
       setIsSubmitting(false);
     }
@@ -77,12 +83,12 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
             </svg>
           </div>
           <div className={styles.title}>Suri-Map</div>
-          <div className={styles.subtitle}>지휘 상황판 계정 접속</div>
+          <div className={styles.subtitle}>지휘 상황판 계정으로 로그인</div>
         </div>
 
         <form className={styles.loginForm} onSubmit={handleSubmit}>
           <div className={styles.fieldGroup}>
-            <label htmlFor="login-username">아이디</label>
+            <label htmlFor="login-username">계정 코드</label>
             <input
               id="login-username"
               type="text"
@@ -104,13 +110,13 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
           </div>
 
           <button type="submit" className={styles.loginButton} disabled={isSubmitting}>
-            {isSubmitting ? '접속 중' : '로그인'}
+            {isSubmitting ? '로그인 중' : '로그인'}
           </button>
 
           {errorMessage ? <div className={styles.errorMessage}>{errorMessage}</div> : null}
         </form>
 
-        <div className={styles.help}>계정은 운영 DB에 등록된 지휘 계정을 사용합니다.</div>
+        <div className={styles.help}>등록된 지휘 계정으로만 접속할 수 있습니다.</div>
       </section>
     </main>
   );
