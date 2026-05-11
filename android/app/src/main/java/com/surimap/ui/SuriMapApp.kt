@@ -31,11 +31,12 @@ import com.surimap.feature.incidents.ui.IncidentListScreen
 import com.surimap.feature.incidents.ui.IncidentListUiState
 import com.surimap.feature.offline.ui.OfflinePackageScreen
 import com.surimap.feature.offline.ui.sampleOfflinePackageState
+import com.surimap.feature.search.ui.SearchMapScreen
+import com.surimap.feature.search.ui.sampleSearchMapState
 import com.surimap.ui.navigation.BlockedOutboxRouteScreen
 import com.surimap.ui.navigation.IncidentSessionState
 import com.surimap.ui.navigation.MarkerDetailRouteScreen
 import com.surimap.ui.navigation.PolicePhoneRoute
-import com.surimap.ui.navigation.SearchMapRouteScreen
 import com.surimap.ui.theme.PoliBgBase
 
 @Composable
@@ -83,11 +84,14 @@ fun SuriMapApp() {
                     )
                 }
                 composable(PolicePhoneRoute.SearchMap.route) {
-                    SearchMapRouteScreen(
+                    SearchMapScreen(
+                        state = sampleSearchMapState(),
                         onBack = { navController.popBackStack() },
+                        onPrimaryLifecycleAction = {},
+                        onStopSearch = {},
+                        onCreateMarker = { navController.navigateToSingleTop(PolicePhoneRoute.MarkerDetail) },
                         onOpenHandover = { navController.navigateToSingleTop(PolicePhoneRoute.HandoverSummary) },
-                        onOpenMarkerDetail = { navController.navigateToSingleTop(PolicePhoneRoute.MarkerDetail) },
-                        onShowBlockedQueue = { blockedQueue = BlockedQueueToastState(blockedCount = 2) }
+                        onOpenBlockedOutbox = { blockedQueue = BlockedQueueToastState(blockedCount = 2) }
                     )
                 }
                 composable(PolicePhoneRoute.HandoverSummary.route) {
