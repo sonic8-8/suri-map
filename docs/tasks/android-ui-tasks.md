@@ -98,7 +98,7 @@
     - `cd android && ./gradlew :app:assembleDebug` 통과
   - 완료 증거: Jira `S14P31C106-217`, branch `feature/S14P31C106-217-police-phone-nav-scaffold-state-holder`, RED/GREEN `./gradlew :app:testDebugUnitTest --tests com.surimap.ui.navigation.PolicePhoneNavigationContractTest`, `cd android && ./gradlew :app:assembleDebug`, `cd android && ./gradlew test`
 
-- [ ] AUI-T03 신규 의존성 도입 여부를 task별로 결정한다
+- [x] AUI-T03 신규 의존성 도입 여부를 task별로 결정한다
   - 담당 영역: Android UI / Android infra decision
   - 필수 참조: `android/gradle/libs.versions.toml`, `docs/api/api-spec.md`, `docs/spec/specs/S1-2.json`, `docs/spec/specs/S4.json`, `docs/spec/specs/S8.json`
   - 검토 대상:
@@ -114,9 +114,33 @@
   - 보류 기본값:
     - Hilt, Firebase Messaging, CameraX, Roborazzi, lucide-compose는 목적과 실패 모드가 명확해질 때까지 보류한다.
     - FCM은 `google-services.json` 없이 assembleDebug가 깨지지 않는 no-op provider 또는 flavor 전략을 먼저 정한다.
+  - 결정표 (2026-05-11, Jira `S14P31C106-219`):
+    | 후보 | 결론 | 근거 | 최초 도입 후보 |
+    |---|---|---|---|
+    | Navigation Compose | 도입 완료 | AUI-T02에서 8개 route와 `IncidentSessionState`를 붙였고 `androidx.navigation:navigation-compose:2.9.8`이 version catalog에 있다. | 완료: AUI-T02 |
+    | DataStore Preferences | 보류 | `IncidentContext(incidentId, currentOpId, currentDutyShiftId)`는 Nav/Activity scope state에만 둔다. DataStore는 `last_seen_handover_at`, `last_known_manifest_revision`, managed config snapshot hash처럼 작은 preference가 실제로 생길 때만 쓴다. | AUI-T04 또는 AUI-T10 |
+    | OkHttp | 기존 유지 | `SuriMapApiClient`가 `X-Client-Channel: APP`, `X-PolicePhone-Id`, `Idempotency-Key`를 명시적으로 붙이고 기존 sync/outbox 호출이 이를 소비한다. | 완료: 기존 Android network |
+    | Retrofit | 보류 | 현재 API 호출면은 작고 hand-written OkHttp client가 channel/idempotency guard를 드러낸다. DTO surface가 커지는 P2/P3/P6 연결 전까지 추상화를 늘리지 않는다. | AUI-T05, AUI-T06, AUI-T10 중 API DTO가 늘어날 때 재검토 |
+    | kotlinx-serialization 또는 Moshi | 보류 | Retrofit 또는 복잡한 nested response parsing이 들어오기 전까지는 별도 JSON stack을 추가하지 않는다. 도입 시 Retrofit 선택과 함께 한 번에 결정한다. | Retrofit 도입 task와 묶어서 재검토 |
+    | Firebase Messaging | 보류 | 기준 문서상 Android product client는 SSE/EventSource를 쓰지 않고 FCM data message와 REST/Outbox 복구 경로를 사용한다. 다만 실제 Firebase 의존성은 `google-services.json` 누락으로 debug build를 깨뜨릴 수 있어 먼저 provider interface와 no-op flavor가 필요하다. | AUI-T12 또는 별도 FCM provider task |
+    | google-services plugin | 보류 | 실제 Firebase 프로젝트 설정과 secret 파일 운용 정책이 정해지기 전에는 plugin을 추가하지 않는다. Debug/local은 no-op provider가 assembleDebug를 보장해야 한다. | Firebase Messaging 도입 task와 묶어서 재검토 |
+    | Hilt | 보류 | 현재는 수동 provider와 state holder로 충분하다. Repository/ViewModel 수가 늘고 생성자 주입 반복이 실제 비용이 될 때 도입한다. | AUI-T05 이후 data layer가 늘어날 때 재검토 |
+    | CameraX | 보류 | 사진 촬영/첨부 UI는 AUI-T08/AUI-T09 책임이다. 마커 UI 전에 카메라 권한과 lifecycle 의존성을 먼저 넣지 않는다. | AUI-T08 또는 AUI-T09 |
+    | Turbine | 보류 | 아직 Flow 기반 ViewModel contract test가 없다. StateFlow/Flow 전이 테스트가 생기면 testImplementation으로만 추가한다. | AUI-T04 또는 AUI-T05 테스트에서 재검토 |
+    | MockWebServer | 보류 | HTTP repository test를 붙일 때 유효하다. 현재 AUI-T03은 문서 결정 task라 test dependency를 추가하지 않는다. | Retrofit/Repository task에서 재검토 |
+    | Roborazzi | 보류 | snapshot baseline, device/font policy, CI artifact 정책이 없으면 유지 비용이 크다. 우선 Compose semantics/unit 테스트와 실기기 확인을 쓴다. | 화면 안정화 뒤 별도 visual regression task |
+    | lucide-compose | 보류 | 현재 공통 컴포넌트는 텍스트/기본 Material affordance로 충분하다. 아이콘 밀도가 높아져 접근성 label과 일관 icon set이 필요해질 때 결정한다. | AUI-T07 이후 지도 tool UI에서 재검토 |
+  - 현재 문서 충돌 메모:
+    - `docs/api/api-spec.md`와 `docs/spec/specs/S8.json` 현재 기준은 search history summary 생성/재시도 CTA를 APP/WEB에 노출하지 않고, duty shift END 또는 OP transition commit 이후 서버 내부 job이 생성한다고 정한다.
+    - 따라서 AUI-T10에서 AI 요약 생성 요청 CTA를 구현하려면, 그 전에 S8/API 기준 문서가 Android client generation request를 허용하도록 먼저 바뀌어야 한다.
   - 완료 기준:
     - 각 의존성의 `도입 / 보류 / 대체` 결론이 MR에 남는다.
     - 신규 의존성 추가가 있으면 즉시 `cd android && ./gradlew :app:assembleDebug`가 통과한다.
+  - 완료 증거:
+    - RED: 결정표 row 검색이 실패해 검토 대상별 결론 누락을 확인했다.
+    - GREEN: 위 결정표에 모든 검토 대상의 `도입 / 보류 / 기존 유지` 결론과 재검토 task를 기록했다.
+    - VERIFY: 결정표 row 검색 통과, `git diff --check` 통과, `cd android && ./gradlew :app:assembleDebug` 통과.
+    - 신규 Gradle 의존성은 추가하지 않았다.
 
 ## Phase 2 — 인증 진입과 사건 선택
 
