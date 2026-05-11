@@ -144,7 +144,7 @@
 
 ## Phase 2 — 인증 진입과 사건 선택
 
-- [ ] AUI-T04 관리 폴리폰 자동 확인 화면을 실제 app state와 연결한다
+- [x] AUI-T04 관리 폴리폰 자동 확인 화면을 실제 app state와 연결한다
   - 담당 영역: Android UI
   - 연관 Spec: S1-2, S4
   - 필수 참조: `docs/api/api-spec.md`, `docs/spec/boundaries.md`, `docs/spec/specs/S1-2.json`, `docs/screen-design/permission-matrix.md`
@@ -161,6 +161,13 @@
     - 성공/실패 4분기가 화면에서 재현된다.
     - 실패 화면은 P2/P5로 진입시키지 않는다.
     - `cd android && ./gradlew :app:assembleDebug` 통과
+  - 완료 증거:
+    - Jira `S14P31C106-221`, branch `feature/S14P31C106-221-police-phone-managed-bootstrap-state`
+    - RED/GREEN: `cd android && ./gradlew :app:testDebugUnitTest --tests com.surimap.feature.bootstrap.AuthBootstrapContractTest`
+    - VERIFY: `cd android && ./gradlew test`, `cd android && ./gradlew :app:assembleDebug`
+  - 계약 메모:
+    - 현재 `app-police-phone` guard가 `police_phone_not_assigned`를 반환할 수 있어 bootstrap heartbeat 단계에서 미배정 폴리폰이 P2 empty로 내려가지 않고 `server_rejected_phone`으로 막힐 수 있다.
+    - "배정 0건은 P2 empty가 처리" 원칙을 유지하려면 S1-2/API에서 배정 여부를 요구하지 않는 bootstrap/session check endpoint 또는 guard 조정이 필요하다.
 
 - [ ] AUI-T05 배정 사건 선택 화면을 실제 리스트 상태와 연결한다
   - 담당 영역: Android UI

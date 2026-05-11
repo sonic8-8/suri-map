@@ -9,12 +9,19 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.surimap.BuildConfig
+import com.surimap.core.network.SuriMapApiClient
+import com.surimap.feature.bootstrap.data.AndroidManagedConfigurationReader
+import com.surimap.feature.bootstrap.data.AuthBootstrapCoordinator
+import com.surimap.feature.bootstrap.data.AuthBootstrapServerCheck
+import com.surimap.feature.bootstrap.data.NetworkPolicePhoneBootstrapServerCheck
 import com.surimap.feature.bootstrap.ui.AuthBootstrapScreen
-import com.surimap.feature.bootstrap.ui.sampleAuthBootstrapState
+import com.surimap.feature.bootstrap.ui.AuthBootstrapUiState
 import com.surimap.feature.handover.ui.DutyHandoverScreen
 import com.surimap.feature.handover.ui.HandoverMemoScreen
 import com.surimap.feature.handover.ui.sampleDutyHandoverState
@@ -29,7 +36,6 @@ import com.surimap.ui.navigation.OfflinePackageRouteScreen
 import com.surimap.ui.navigation.PolicePhoneRoute
 import com.surimap.ui.navigation.SearchMapRouteScreen
 import com.surimap.ui.theme.PoliBgBase
-import kotlinx.coroutines.delay
 
 @Composable
 fun SuriMapApp() {
@@ -112,16 +118,45 @@ fun SuriMapApp() {
 
 @Composable
 private fun AuthBootstrapRoute(navController: NavHostController) {
-    LaunchedEffect(Unit) {
-        delay(1200)
-        navController.navigate(PolicePhoneRoute.IncidentList.route) {
-            popUpTo(PolicePhoneRoute.AuthBootstrap.route) {
-                inclusive = true
+    val context = LocalContext.current.applicationContext
+    val managedConfigurationReader = remember(context) {
+        AndroidManagedConfigurationReader(context = context)
+    }
+    val bootstrapCoordinator = remember(managedConfigurationReader) {
+        AuthBootstrapCoordinator(
+            managedConfigurationReader = managedConfigurationReader,
+            serverCheck =
+            AuthBootstrapServerCheck { config ->
+                NetworkPolicePhoneBootstrapServerCheck(
+                    apiClient = SuriMapApiClient(baseUrl = config.apiBaseUrl)
+                ).verify(config)
             }
-            launchSingleTop = true
+        )
+    }
+    var retryNonce by remember { mutableStateOf(0) }
+    var state by remember {
+        mutableStateOf(AuthBootstrapUiState.checking(apiBaseUrl = BuildConfig.SURI_MAP_API_BASE_URL))
+    }
+
+    LaunchedEffect(retryNonce) {
+        val config = bootstrapCoordinator.readConfig()
+        state = AuthBootstrapUiState.checking(apiBaseUrl = config.apiBaseUrl)
+        val outcome = bootstrapCoordinator.check(config)
+        state = AuthBootstrapUiState.fromOutcome(outcome = outcome, apiBaseUrl = config.apiBaseUrl)
+        if (state.shouldEnterIncidentList) {
+            navController.navigate(PolicePhoneRoute.IncidentList.route) {
+                popUpTo(PolicePhoneRoute.AuthBootstrap.route) {
+                    inclusive = true
+                }
+                launchSingleTop = true
+            }
         }
     }
-    AuthBootstrapScreen(state = sampleAuthBootstrapState())
+
+    AuthBootstrapScreen(
+        state = state,
+        onRetry = { retryNonce += 1 }
+    )
 }
 
 private fun NavHostController.navigateToSingleTop(route: PolicePhoneRoute) {
