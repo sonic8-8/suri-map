@@ -6,17 +6,21 @@ import com.surimap.domain.path.port.PolicePhoneGuard;
 import com.surimap.domain.path.port.SearchPathEventPublisher;
 import com.surimap.operationalperiod.query.CurrentOpResult;
 import com.surimap.operationalperiod.query.OperationalPeriodQuery;
+import com.surimap.operationalperiod.query.OperationalPeriodQueryService;
 import com.surimap.operationalperiod.query.OperationalPeriodRow;
+import com.surimap.path.SearchPathMapper;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.core.annotation.Order;
+import org.springframework.core.env.Environment;
 
 @Configuration
 @Order(Integer.MAX_VALUE)
@@ -29,50 +33,80 @@ public class PathCommandConfig {
   AppSearchPathCommandService appSearchPathCommandService(
       OperationalPeriodQuery operationalPeriodQuery,
       PolicePhoneGuard policePhoneGuard,
-      SearchPathEventPublisher searchPathEventPublisher) {
+      SearchPathEventPublisher searchPathEventPublisher,
+      SearchPathMapper searchPathMapper,
+      Environment environment) {
     return new AppSearchPathCommandService(
-        operationalPeriodQuery, policePhoneGuard, searchPathEventPublisher);
+        operationalPeriodQuery,
+        policePhoneGuard,
+        searchPathEventPublisher,
+        postgresqlDataSource(environment) ? searchPathMapper : null);
   }
 
   @Bean
   @Primary
-  OperationalPeriodQuery operationalPeriodQuery() {
+  OperationalPeriodQuery operationalPeriodQuery(
+      ObjectProvider<OperationalPeriodQueryService> dbQueryProvider, Environment environment) {
+    OperationalPeriodQuery inMemoryQuery =
+        new OperationalPeriodQuery() {
+          @Override
+          public Optional<CurrentOpResult> current(UUID incidentId) {
+            CurrentOpResult row =
+                inMemoryCurrentOps.computeIfAbsent(
+                    incidentId,
+                    key ->
+                        new CurrentOpResult(
+                            stableUuid(key, "current-op"),
+                            key,
+                            "ACTIVE",
+                            1,
+                            Instant.now(),
+                            null,
+                            null,
+                            1L));
+            return Optional.of(row);
+          }
+
+          @Override
+          public List<OperationalPeriodRow> list(UUID incidentId) {
+            return current(incidentId)
+                .map(row -> List.of(toOperationalPeriodRow(row)))
+                .orElse(List.of());
+          }
+        };
     return new OperationalPeriodQuery() {
       @Override
       public Optional<CurrentOpResult> current(UUID incidentId) {
-        CurrentOpResult row =
-            inMemoryCurrentOps.computeIfAbsent(
-                incidentId,
-                key ->
-                    new CurrentOpResult(
-                        stableUuid(key, "current-op"),
-                        key,
-                        "ACTIVE",
-                        1,
-                        Instant.now(),
-                        null,
-                        null,
-                        1L));
-        return Optional.of(row);
+        OperationalPeriodQueryService dbQuery = dbQueryProvider.getIfAvailable();
+        if (postgresqlDataSource(environment) && dbQuery != null) {
+          return dbQuery.current(incidentId);
+        }
+        return inMemoryQuery.current(incidentId);
       }
 
       @Override
       public List<OperationalPeriodRow> list(UUID incidentId) {
-        return current(incidentId)
-            .map(row -> List.of(toOperationalPeriodRow(row)))
-            .orElse(List.of());
+        OperationalPeriodQueryService dbQuery = dbQueryProvider.getIfAvailable();
+        if (postgresqlDataSource(environment) && dbQuery != null) {
+          return dbQuery.list(incidentId);
+        }
+        return inMemoryQuery.list(incidentId);
       }
     };
   }
 
   @Bean
   @Primary
-  PolicePhoneGuard policePhoneGuard() {
+  PolicePhoneGuard policePhoneGuard(SearchPathMapper searchPathMapper, Environment environment) {
     return (policePhoneId, opId) -> {
       if (policePhoneId == null) {
         throw new SearchPathGuardException("police_phone_not_registered");
       }
       if (opId == null) {
+        throw new SearchPathGuardException("police_phone_not_assigned");
+      }
+      if (postgresqlDataSource(environment)
+          && searchPathMapper.findActiveDutyShiftId(opId, policePhoneId).isEmpty()) {
         throw new SearchPathGuardException("police_phone_not_assigned");
       }
     };
@@ -111,5 +145,11 @@ public class PathCommandConfig {
         row.endedAt(),
         row.reason(),
         row.version());
+  }
+
+  private static boolean postgresqlDataSource(Environment environment) {
+    String driver = environment.getProperty("spring.datasource.driver-class-name", "");
+    String url = environment.getProperty("spring.datasource.url", "");
+    return driver.contains("postgresql") || url.startsWith("jdbc:postgresql:");
   }
 }
