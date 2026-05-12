@@ -710,6 +710,11 @@ class SearchMapStateLoaderTest {
         assertTrue(source.contains("SearchLifecycleStatus.Stopped"))
         assertFalse(source.contains("onPrimaryLifecycleAction = {}"))
         assertFalse(source.contains("onStopSearch = {}"))
+        assertTrue(source.contains("MarkerLocalRecorder"))
+        assertTrue(source.contains("createMarker"))
+        assertTrue(source.contains("MarkerUpsertInput"))
+        assertTrue(source.contains("markerCreationLocation"))
+        assertFalse(source.contains("onSave = { markerSheetOpen = false }"))
         assertTrue(source.contains("OfflinePackageRepository"))
         assertTrue(source.contains("initialMarkers"))
     }

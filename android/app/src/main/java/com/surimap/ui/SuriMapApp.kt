@@ -31,6 +31,8 @@ import com.surimap.core.offline.OfflinePackageItemStatus
 import com.surimap.core.offline.OfflinePackageManifestQuery
 import com.surimap.core.offline.OfflinePackageRepository
 import com.surimap.core.offline.toOfflinePackageItemStatusEntity
+import com.surimap.core.operationalperiod.HandoverMemoRepository
+import com.surimap.core.operationalperiod.SearchHistorySummaryReadRepository
 import com.surimap.core.path.SearchPathRepository
 import com.surimap.core.searcharea.SearchAreaReadRepository
 import com.surimap.core.sync.RoomSyncClient
@@ -41,15 +43,28 @@ import com.surimap.feature.bootstrap.data.ManagedPolicePhoneConfig
 import com.surimap.feature.bootstrap.data.NetworkPolicePhoneBootstrapServerCheck
 import com.surimap.feature.bootstrap.ui.AuthBootstrapScreen
 import com.surimap.feature.bootstrap.ui.AuthBootstrapUiState
+import com.surimap.feature.handover.data.DutyHandoverStateLoader
+import com.surimap.feature.handover.data.HandoverMemoInput
+import com.surimap.feature.handover.data.HandoverMemoLocalRecorder
+import com.surimap.feature.handover.data.HandoverSessionContext
+import com.surimap.feature.handover.data.HandoverWriteContext
+import com.surimap.feature.handover.data.HandoverWriteResult
 import com.surimap.feature.handover.ui.DutyHandoverScreen
 import com.surimap.feature.handover.ui.HandoverMemoScreen
-import com.surimap.feature.handover.ui.sampleDutyHandoverState
-import com.surimap.feature.handover.ui.sampleHandoverMemoState
+import com.surimap.feature.handover.ui.HandoverMemoTarget
+import com.surimap.feature.handover.ui.HandoverMemoUiState
 import com.surimap.feature.incidents.data.IncidentListStateLoader
 import com.surimap.feature.incidents.ui.IncidentListScreen
 import com.surimap.feature.incidents.ui.IncidentListUiState
+import com.surimap.feature.marker.data.MarkerLocalRecorder
+import com.surimap.feature.marker.data.MarkerLocation
+import com.surimap.feature.marker.data.MarkerUpsertInput
+import com.surimap.feature.marker.data.MarkerWriteContext
+import com.surimap.feature.marker.data.MarkerWriteResult
 import com.surimap.feature.marker.ui.MarkerCreateBottomSheet
 import com.surimap.feature.marker.ui.MarkerDetailScreen
+import com.surimap.feature.marker.ui.MarkerCreateSheetUiState
+import com.surimap.feature.marker.ui.MarkerSaveStatus
 import com.surimap.feature.marker.ui.MarkerType
 import com.surimap.feature.marker.ui.sampleMarkerDetailState
 import com.surimap.feature.marker.ui.sampleMarkerCreateSheetState
@@ -63,12 +78,14 @@ import com.surimap.feature.search.data.SearchPathWriteContext
 import com.surimap.feature.search.ui.SearchLayerKind
 import com.surimap.feature.search.ui.SearchLifecycleStatus
 import com.surimap.feature.search.ui.SearchMapScreen
+import com.surimap.feature.search.ui.SearchMapUiState
 import com.surimap.ui.navigation.BlockedOutboxRouteScreen
 import com.surimap.ui.navigation.IncidentContext
 import com.surimap.ui.navigation.IncidentSessionState
 import com.surimap.ui.navigation.PolicePhoneContext
 import com.surimap.ui.navigation.PolicePhoneRoute
 import com.surimap.ui.theme.PoliBgBase
+import java.util.Locale
 import kotlinx.coroutines.launch
 
 @Composable
@@ -133,27 +150,17 @@ fun SuriMapApp() {
                     )
                 }
                 composable(PolicePhoneRoute.HandoverSummary.route) {
-                    DutyHandoverScreen(
-                        state = sampleDutyHandoverState(),
-                        onBack = { navController.popBackStack() },
-                        onWriteMemo = { navController.navigateToSingleTop(PolicePhoneRoute.HandoverMemo) },
-                        onOpenSearch = { navController.navigateToSingleTop(PolicePhoneRoute.SearchMap) }
+                    HandoverSummaryRoute(
+                        incidentSessionState = incidentSessionState,
+                        navController = navController
                     )
                 }
                 composable(PolicePhoneRoute.HandoverMemo.route) {
-                    var memoState by remember { mutableStateOf(sampleHandoverMemoState()) }
-                    HandoverMemoScreen(
-                        state = memoState,
-                        onBack = { navController.popBackStack() },
-                        onSelectTarget = { target ->
-                            memoState = memoState.copy(selectedTarget = target)
-                        },
-                        onMemoChange = { memo ->
-                            memoState = memoState.copy(memoText = memo)
-                        },
-                        onSave = {
-                            handoverMemoSaved = HandoverMemoSavedToastState(pendingSync = memoState.offline)
-                            navController.popBackStack()
+                    HandoverMemoRoute(
+                        incidentSessionState = incidentSessionState,
+                        navController = navController,
+                        onMemoSaved = { pendingSync ->
+                            handoverMemoSaved = HandoverMemoSavedToastState(pendingSync = pendingSync)
                         }
                     )
                 }
@@ -184,6 +191,97 @@ fun SuriMapApp() {
 }
 
 @Composable
+private fun HandoverSummaryRoute(
+    incidentSessionState: IncidentSessionState,
+    navController: NavHostController
+) {
+    val incidentContext = incidentSessionState.incidentContext
+    val policePhoneContext = incidentSessionState.policePhoneContext
+    val sessionContext = incidentContext.toHandoverSessionContext(policePhoneContext)
+    val apiBaseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
+    val loader =
+        remember(apiBaseUrl) {
+            DutyHandoverStateLoader(
+                handoverMemos = { query ->
+                    HandoverMemoRepository(
+                        apiClient = SuriMapApiClient(baseUrl = apiBaseUrl)
+                    ).listHandoverMemos(query)
+                },
+                searchHistorySummaries = { operationalPeriodId, query ->
+                    SearchHistorySummaryReadRepository(
+                        apiClient = SuriMapApiClient(baseUrl = apiBaseUrl)
+                    ).list(operationalPeriodId, query)
+                }
+            )
+        }
+    var handoverState by remember(loader, sessionContext) {
+        mutableStateOf(loader.fallback(sessionContext))
+    }
+
+    LaunchedEffect(loader, sessionContext) {
+        handoverState = loader.fallback(sessionContext)
+        handoverState = loader.load(sessionContext)
+    }
+
+    DutyHandoverScreen(
+        state = handoverState,
+        onBack = { navController.popBackStack() },
+        onWriteMemo = { navController.navigateToSingleTop(PolicePhoneRoute.HandoverMemo) },
+        onOpenSearch = { navController.navigateToSingleTop(PolicePhoneRoute.SearchMap) }
+    )
+}
+
+@Composable
+private fun HandoverMemoRoute(
+    incidentSessionState: IncidentSessionState,
+    navController: NavHostController,
+    onMemoSaved: (Boolean) -> Unit
+) {
+    val incidentContext = incidentSessionState.incidentContext
+    val policePhoneContext = incidentSessionState.policePhoneContext
+    val sessionContext = incidentContext.toHandoverSessionContext(policePhoneContext)
+    val context = LocalContext.current.applicationContext
+    val database = remember(context) { SuriMapDatabaseProvider.database(context) }
+    val syncClient = remember(database) { RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()) }
+    val recorder = remember(syncClient) { HandoverMemoLocalRecorder(syncClient = syncClient) }
+    val coroutineScope = rememberCoroutineScope()
+    var memoState by remember(sessionContext) {
+        mutableStateOf(HandoverMemoUiState.default().withContext(sessionContext))
+    }
+
+    HandoverMemoScreen(
+        state = memoState,
+        onBack = { navController.popBackStack() },
+        onSelectTarget = { target ->
+            memoState = memoState.copy(selectedTarget = target).withTargetContext(sessionContext)
+        },
+        onMemoChange = { memo ->
+            memoState = memoState.copy(memoText = memo)
+        },
+        onSave = {
+            coroutineScope.launch {
+                memoState = memoState.copy(saving = true)
+                when (
+                    recorder.createMemo(
+                        context = sessionContext.toHandoverWriteContext(),
+                        input = memoState.toHandoverMemoInput(sessionContext)
+                    )
+                ) {
+                    HandoverWriteResult.Blocked -> {
+                        memoState = memoState.copy(saving = false)
+                    }
+
+                    is HandoverWriteResult.Enqueued -> {
+                        onMemoSaved(true)
+                        navController.popBackStack()
+                    }
+                }
+            }
+        }
+    )
+}
+
+@Composable
 private fun SearchMapRoute(
     incidentSessionState: IncidentSessionState,
     navController: NavHostController,
@@ -195,9 +293,15 @@ private fun SearchMapRoute(
     val database = remember(context) { SuriMapDatabaseProvider.database(context) }
     val outboxDao = remember(database) { database.outboxDao() }
     val sessionContext = incidentContext.toSearchMapSessionContext(policePhoneContext)
-    val searchPathRecorder = remember(database) {
+    val syncClient = remember(database) { RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()) }
+    val searchPathRecorder = remember(syncClient) {
         SearchPathLocalRecorder(
-            syncClient = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao())
+            syncClient = syncClient
+        )
+    }
+    val markerRecorder = remember(syncClient) {
+        MarkerLocalRecorder(
+            syncClient = syncClient
         )
     }
     val coroutineScope = rememberCoroutineScope()
@@ -286,7 +390,7 @@ private fun SearchMapRoute(
                 }
             },
             onCreateMarker = {
-                markerSheetState = sampleMarkerCreateSheetState()
+                markerSheetState = sampleMarkerCreateSheetState().withLocation(searchMapState.markerCreationLocation())
                 markerSheetOpen = true
             },
             onOpenHandover = { navController.navigateToSingleTop(PolicePhoneRoute.HandoverSummary) },
@@ -318,7 +422,26 @@ private fun SearchMapRoute(
                 onMemoChange = { memo ->
                     markerSheetState = markerSheetState.copy(memo = memo)
                 },
-                onSave = { markerSheetOpen = false },
+                onSave = {
+                    coroutineScope.launch {
+                        markerSheetState = markerSheetState.copy(saveStatus = MarkerSaveStatus.Saving)
+                        when (
+                            markerRecorder.createMarker(
+                                context = sessionContext.toMarkerWriteContext(),
+                                input = markerSheetState.toMarkerUpsertInput(searchMapState.markerCreationLocation())
+                            )
+                        ) {
+                            MarkerWriteResult.Blocked -> {
+                                markerSheetState = markerSheetState.copy(saveStatus = MarkerSaveStatus.Failed)
+                            }
+                            is MarkerWriteResult.Enqueued -> {
+                                markerSheetState = markerSheetState.copy(saveStatus = MarkerSaveStatus.PendingOutbox)
+                                markerSheetOpen = false
+                                searchMapState = loader.load(sessionContext)
+                            }
+                        }
+                    }
+                },
                 onAttachPhoto = {},
                 onRetryPhoto = {}
             )
@@ -562,6 +685,14 @@ private fun IncidentContext?.toSearchMapSessionContext(policePhoneContext: Polic
         policePhoneId = policePhoneContext?.policePhoneId
     )
 
+private fun IncidentContext?.toHandoverSessionContext(policePhoneContext: PolicePhoneContext?): HandoverSessionContext =
+    HandoverSessionContext(
+        incidentId = this?.incidentId,
+        opId = this?.currentOpId,
+        dutyShiftId = this?.currentDutyShiftId,
+        policePhoneId = policePhoneContext?.policePhoneId
+    )
+
 private fun SearchMapSessionContext.toSearchPathWriteContext(): SearchPathWriteContext =
     SearchPathWriteContext(
         incidentId = incidentId,
@@ -569,8 +700,130 @@ private fun SearchMapSessionContext.toSearchPathWriteContext(): SearchPathWriteC
         policePhoneId = policePhoneId
     )
 
+private fun SearchMapSessionContext.toMarkerWriteContext(): MarkerWriteContext =
+    MarkerWriteContext(
+        incidentId = incidentId,
+        opId = currentOpId,
+        policePhoneId = policePhoneId
+    )
+
+private fun HandoverSessionContext.toHandoverWriteContext(): HandoverWriteContext =
+    HandoverWriteContext(
+        incidentId = incidentId,
+        opId = opId,
+        dutyShiftId = dutyShiftId,
+        policePhoneId = policePhoneId
+    )
+
+private fun HandoverMemoUiState.withContext(context: HandoverSessionContext): HandoverMemoUiState =
+    copy(
+        subtitle = context.handoverMemoSubtitle(),
+        memoText = "",
+        offline = true
+    ).withTargetContext(context)
+
+private fun HandoverMemoUiState.withTargetContext(context: HandoverSessionContext): HandoverMemoUiState {
+    val target = selectedTarget.toHandoverTargetContext(context)
+    return copy(
+        selectedTargetTitle = target.title,
+        selectedTargetSubtitle = target.subtitle
+    )
+}
+
+private fun HandoverMemoUiState.toHandoverMemoInput(context: HandoverSessionContext): HandoverMemoInput {
+    val target = selectedTarget.toHandoverTargetContext(context)
+    return HandoverMemoInput(
+        memoTargetType = target.apiType,
+        memoTargetId = target.targetId,
+        content = memoText
+    )
+}
+
+private fun HandoverSessionContext.handoverMemoSubtitle(): String {
+    val incident = incidentId?.takeIf(String::isNotBlank) ?: "사건 미선택"
+    val op = opId?.takeIf(String::isNotBlank) ?: "OP 미선택"
+    val dutyShift = dutyShiftId?.takeIf(String::isNotBlank) ?: "DutyShift 미선택"
+    return "$incident · $op · $dutyShift"
+}
+
+private fun HandoverMemoTarget.toHandoverTargetContext(context: HandoverSessionContext): HandoverTargetContext =
+    when (this) {
+        HandoverMemoTarget.OP ->
+            HandoverTargetContext(
+                apiType = "OPERATIONAL_PERIOD",
+                targetId = context.opId?.takeIf(String::isNotBlank),
+                title = context.opId?.let { "현재 OP $it" } ?: "OP 미선택",
+                subtitle = "활성 운영 기간"
+            )
+
+        HandoverMemoTarget.Path ->
+            HandoverTargetContext(
+                apiType = "SEARCH_PATH",
+                targetId = null,
+                title = "현재 OP 경로",
+                subtitle = context.opId?.let { "OP $it 기준 경로" } ?: "OP 기준 경로"
+            )
+
+        HandoverMemoTarget.Area ->
+            HandoverTargetContext(
+                apiType = "SEARCH_AREA",
+                targetId = null,
+                title = "현재 OP 구역",
+                subtitle = context.opId?.let { "OP $it 기준 구역" } ?: "OP 기준 구역"
+            )
+
+        HandoverMemoTarget.DutyShift ->
+            HandoverTargetContext(
+                apiType = "DUTY_SHIFT",
+                targetId = context.dutyShiftId?.takeIf(String::isNotBlank),
+                title = context.dutyShiftId?.let { "현재 근무 $it" } ?: "근무 미선택",
+                subtitle = "교대 인수인계"
+            )
+
+        HandoverMemoTarget.Marker ->
+            HandoverTargetContext(
+                apiType = "MARKER",
+                targetId = null,
+                title = "현재 OP 마커",
+                subtitle = context.opId?.let { "OP $it 기준 마커" } ?: "OP 기준 마커"
+            )
+    }
+
+private data class HandoverTargetContext(
+    val apiType: String,
+    val targetId: String?,
+    val title: String,
+    val subtitle: String
+)
+
 private fun com.surimap.feature.search.ui.SearchMapUiState.activeSearchPathId(): String? =
     layers.firstOrNull { layer -> layer.kind == SearchLayerKind.Path && layer.highlighted }?.overlayId
+
+private fun SearchMapUiState.markerCreationLocation(): MarkerLocation? =
+    viewportBounds?.let { bounds ->
+        MarkerLocation(
+            lon = (bounds.west + bounds.east) / 2.0,
+            lat = (bounds.south + bounds.north) / 2.0
+        )
+    }
+
+private fun MarkerCreateSheetUiState.toMarkerUpsertInput(location: MarkerLocation?): MarkerUpsertInput =
+    MarkerUpsertInput(
+        type = selectedType.apiValue,
+        location = location,
+        supportRequestType = supportRequestType?.apiValue,
+        memo = memo
+    )
+
+private fun MarkerCreateSheetUiState.withLocation(location: MarkerLocation?): MarkerCreateSheetUiState =
+    copy(
+        locationLabel =
+        if (location == null) {
+            "지도 기준 위치 확인 필요"
+        } else {
+            String.format(Locale.US, "지도 중심 · %.6f, %.6f", location.lat, location.lon)
+        }
+    )
 
 private fun PolicePhoneContext?.toMapLibreRuntimeMapState(): MapLibreRuntimeMapState =
     MapLibreRuntimeMapState(
