@@ -1,8 +1,10 @@
 package com.surimap.feature.search.data
 
-import com.surimap.core.incident.IncidentReadRepository
 import com.surimap.core.database.OutboxStatusSummary
+import com.surimap.core.incident.IncidentReadRepository
 import com.surimap.core.network.SuriMapApiResponse
+import com.surimap.core.path.SearchPathQuery
+import com.surimap.core.path.SearchPathRepository
 import com.surimap.core.searcharea.SearchAreaReadRepository
 import com.surimap.feature.search.ui.SearchLayerKind
 import com.surimap.feature.search.ui.SearchLifecycleStatus
@@ -30,17 +32,21 @@ class SearchMapStateLoader(
     private val opSearchAreas: suspend (String, String) -> SuriMapApiResponse = { incidentId, opId ->
         SearchAreaReadRepository().list(incidentId = incidentId, opId = opId, status = "ACTIVE")
     },
+    private val searchPaths: suspend (SearchPathQuery) -> SuriMapApiResponse = { query ->
+        SearchPathRepository().listSearchPaths(query)
+    },
     private val outboxSummary: suspend (String, String) -> OutboxStatusSummary? = { _, _ -> null },
     private val nowMs: () -> Long = { System.currentTimeMillis() }
 ) {
     suspend fun load(context: SearchMapSessionContext): SearchMapUiState {
         val areaState = withOpSearchAreas(context, withOverallSearchArea(context, fallback(context)))
-        val incidentId = context.incidentId?.takeIf(String::isNotBlank) ?: return areaState
-        val response = runCatching { incidentDetail(incidentId) }.getOrNull() ?: return areaState
+        val mapState = withSearchPaths(context, areaState)
+        val incidentId = context.incidentId?.takeIf(String::isNotBlank) ?: return mapState
+        val response = runCatching { incidentDetail(incidentId) }.getOrNull() ?: return mapState
         if (!response.isSuccessful || response.body.isNullOrBlank()) {
-            return areaState
+            return mapState
         }
-        return detailState(context, response.body, areaState)
+        return detailState(context, response.body, mapState)
     }
 
     fun fallbackForRemember(context: SearchMapSessionContext): SearchMapUiState = fallbackState(context, summary = null)
@@ -141,6 +147,41 @@ class SearchMapStateLoader(
         )
     }
 
+    private suspend fun withSearchPaths(
+        context: SearchMapSessionContext,
+        state: SearchMapUiState
+    ): SearchMapUiState {
+        val incidentId = context.incidentId?.takeIf(String::isNotBlank) ?: return state
+        val opId = context.currentOpId?.takeIf(String::isNotBlank) ?: return state
+        val policePhoneId = context.policePhoneId?.takeIf(String::isNotBlank) ?: return state
+        val response =
+            runCatching {
+                searchPaths(
+                    SearchPathQuery(
+                        incidentId = incidentId,
+                        opId = opId,
+                        policePhoneId = policePhoneId,
+                        includeGeometry = true,
+                        geometryMode = "RENDER_SIMPLIFIED",
+                        limit = 500,
+                        sort = "startedAtAsc"
+                    )
+                )
+            }.getOrNull()
+                ?: return state
+        if (!response.isSuccessful || response.body.isNullOrBlank()) {
+            return state
+        }
+        val pathLayers = searchPathLayers(response.body)
+        if (pathLayers.isEmpty()) {
+            return state
+        }
+        return state.copy(
+            movementSummary = "경로 ${pathLayers.size}개 표시",
+            layers = state.layers + pathLayers
+        )
+    }
+
     private fun detailState(
         context: SearchMapSessionContext,
         body: String,
@@ -209,6 +250,30 @@ class SearchMapStateLoader(
         }
     }
 
+    private fun searchPathLayers(body: String): List<SearchMapLayerUiState> {
+        val root = runCatching { JSONObject(body) }.getOrNull() ?: return emptyList()
+        val paths = root.optJSONArray("paths") ?: root.optJSONArray("items") ?: return emptyList()
+        return buildList {
+            repeat(paths.length()) { index ->
+                val path = paths.optJSONObject(index) ?: return@repeat
+                val geometry = path.optJSONObject("geometry") ?: return@repeat
+                if (!geometry.optString("type").equals("LineString", ignoreCase = true)) {
+                    return@repeat
+                }
+                val active = path.optString("status").uppercase() == "ACTIVE"
+                add(
+                    SearchMapLayerUiState(
+                        label = if (active) "현재 경로" else "기존 경로",
+                        kind = SearchLayerKind.Path,
+                        highlighted = active,
+                        overlayId = path.optString("id").ifBlank { "search-path-$index" },
+                        geoJson = geometry.toString()
+                    )
+                )
+            }
+        }
+    }
+
     private fun JSONObject.searchLayerKind(): SearchLayerKind? {
         val areaLevel =
             optString("areaLevel")
@@ -239,6 +304,7 @@ class SearchMapStateLoader(
                     SearchLayerKind.Overall -> "전체 수색 구역"
                     SearchLayerKind.Unit -> "부대 수색 구역"
                     SearchLayerKind.Team -> "팀 담당 구역"
+                    SearchLayerKind.Path -> "수색 경로"
                 }
             }
     }

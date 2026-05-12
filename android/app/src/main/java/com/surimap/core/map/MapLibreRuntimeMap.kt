@@ -46,7 +46,8 @@ data class MapLibreViewportBounds(
 enum class MapLibreGeometryOverlayKind {
     Overall,
     Unit,
-    Team
+    Team,
+    Path
 }
 
 data class MapLibreGeometryOverlay(
@@ -211,7 +212,7 @@ private fun Style.upsertGeometryOverlay(overlay: MapLibreGeometryOverlay) {
         source.setGeoJson(sourceJson)
     }
 
-    if (getLayer(overlay.fillLayerId) == null) {
+    if (overlay.supportsFillLayer && getLayer(overlay.fillLayerId) == null) {
         addLayer(
             FillLayer(overlay.fillLayerId, overlay.sourceId).withProperties(
                 fillColor(overlay.fillColor),
@@ -259,12 +260,22 @@ private fun MapLibreGeometryOverlay.featureCollectionJson(): String =
         )
         .toString()
 
+private val MapLibreGeometryOverlay.supportsFillLayer: Boolean
+    get() =
+        when (kind) {
+            MapLibreGeometryOverlayKind.Overall -> true
+            MapLibreGeometryOverlayKind.Unit -> true
+            MapLibreGeometryOverlayKind.Team -> true
+            MapLibreGeometryOverlayKind.Path -> false
+        }
+
 private val MapLibreGeometryOverlay.fillColor: String
     get() =
         when (kind) {
             MapLibreGeometryOverlayKind.Overall -> "#1D4ED8"
             MapLibreGeometryOverlayKind.Unit -> "#047857"
             MapLibreGeometryOverlayKind.Team -> "#C2410C"
+            MapLibreGeometryOverlayKind.Path -> "#2563EB"
         }
 
 private val MapLibreGeometryOverlay.lineColor: String
@@ -273,6 +284,7 @@ private val MapLibreGeometryOverlay.lineColor: String
             MapLibreGeometryOverlayKind.Overall -> "#1E40AF"
             MapLibreGeometryOverlayKind.Unit -> "#065F46"
             MapLibreGeometryOverlayKind.Team -> "#9A3412"
+            MapLibreGeometryOverlayKind.Path -> "#2563EB"
         }
 
 private val MapLibreGeometryOverlay.fillOpacity: Float
@@ -281,6 +293,7 @@ private val MapLibreGeometryOverlay.fillOpacity: Float
             MapLibreGeometryOverlayKind.Overall -> 0.10f
             MapLibreGeometryOverlayKind.Unit -> 0.13f
             MapLibreGeometryOverlayKind.Team -> 0.18f
+            MapLibreGeometryOverlayKind.Path -> 0.0f
         }
 
 private class MapViewLifecycleBridge(

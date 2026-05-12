@@ -2,6 +2,7 @@ package com.surimap.feature.search
 
 import com.surimap.core.database.OutboxStatusSummary
 import com.surimap.core.network.SuriMapApiResponse
+import com.surimap.core.path.SearchPathQuery
 import com.surimap.feature.search.data.SearchMapSessionContext
 import com.surimap.feature.search.data.SearchMapStateLoader
 import com.surimap.feature.search.ui.SearchLifecycleStatus
@@ -303,6 +304,201 @@ class SearchMapStateLoaderTest {
     }
 
     @Test
+    fun currentPolicePhoneSearchPathsMapToLineOverlaysAfterAreaLayers() = runBlocking {
+        val areaGeometry =
+            """
+            {
+              "type": "Polygon",
+              "coordinates": [[
+                [126.910000, 37.510000],
+                [126.930000, 37.510000],
+                [126.930000, 37.530000],
+                [126.910000, 37.530000],
+                [126.910000, 37.510000]
+              ]]
+            }
+            """.trimIndent()
+        val pathGeometry =
+            """
+            {
+              "type": "LineString",
+              "coordinates": [
+                [126.912000, 37.512000],
+                [126.918000, 37.518000],
+                [126.924000, 37.524000]
+              ]
+            }
+            """.trimIndent()
+        val loader =
+            SearchMapStateLoader(
+                incidentDetail = { notFoundResponse() },
+                overallSearchArea = {
+                    SuriMapApiResponse(
+                        statusCode = 200,
+                        body =
+                        """
+                        {
+                          "id": "area-overall-001",
+                          "incidentId": "inc-precinct-first-001",
+                          "status": "ACTIVE",
+                          "geometry": $areaGeometry
+                        }
+                        """.trimIndent(),
+                        errorCode = null
+                    )
+                },
+                opSearchAreas = { _, _ ->
+                    SuriMapApiResponse(
+                        statusCode = 200,
+                        body =
+                        """
+                        {
+                          "areas": [
+                            {
+                              "id": "area-team-001",
+                              "opId": "op-precinct-first-001",
+                              "areaLevel": "TEAM",
+                              "name": "A팀 담당 구역",
+                              "status": "ACTIVE",
+                              "geometry": $areaGeometry
+                            }
+                          ]
+                        }
+                        """.trimIndent(),
+                        errorCode = null
+                    )
+                },
+                searchPaths = { query ->
+                    assertEquals("inc-precinct-first-001", query.incidentId)
+                    assertEquals("op-precinct-first-001", query.opId)
+                    assertEquals("phone-precinct-001", query.policePhoneId)
+                    assertEquals(true, query.includeGeometry)
+                    assertEquals("RENDER_SIMPLIFIED", query.geometryMode)
+                    assertEquals("startedAtAsc", query.sort)
+                    assertEquals(500, query.limit)
+                    SuriMapApiResponse(
+                        statusCode = 200,
+                        body =
+                        """
+                        {
+                          "paths": [
+                            {
+                              "id": "path-001",
+                              "status": "ACTIVE",
+                              "version": 12,
+                              "incidentId": "inc-precinct-first-001",
+                              "opId": "op-precinct-first-001",
+                              "policePhoneId": "phone-precinct-001",
+                              "geometryMode": "RENDER_SIMPLIFIED",
+                              "geometry": $pathGeometry
+                            }
+                          ]
+                        }
+                        """.trimIndent(),
+                        errorCode = null
+                    )
+                }
+            )
+
+        val state =
+            loader.load(
+                SearchMapSessionContext(
+                    incidentId = "inc-precinct-first-001",
+                    currentOpId = "op-precinct-first-001",
+                    currentDutyShiftId = "shift-precinct-day-001",
+                    policePhoneId = "phone-precinct-001"
+                )
+            )
+
+        assertEquals(SearchLayerKind.Overall, state.layers[0].kind)
+        assertEquals(SearchLayerKind.Team, state.layers[1].kind)
+        assertEquals(SearchLayerKind.Path, state.layers[2].kind)
+        assertEquals("현재 경로", state.layers[2].label)
+        assertEquals("path-001", state.layers[2].overlayId)
+        assertTrue(state.layers[2].highlighted)
+        assertTrue(state.layers[2].geoJson!!.contains("\"LineString\""))
+        assertEquals("경로 1개 표시", state.movementSummary)
+    }
+
+    @Test
+    fun missingPolicePhoneDoesNotReadSearchPaths() = runBlocking {
+        var searchPathsCalled = false
+        val loader =
+            SearchMapStateLoader(
+                incidentDetail = { notFoundResponse() },
+                overallSearchArea = { notFoundResponse() },
+                opSearchAreas = { _, _ -> notFoundResponse() },
+                searchPaths = { _: SearchPathQuery ->
+                    searchPathsCalled = true
+                    notFoundResponse()
+                }
+            )
+
+        val state =
+            loader.load(
+                SearchMapSessionContext(
+                    incidentId = "inc-precinct-first-001",
+                    currentOpId = "op-precinct-first-001",
+                    currentDutyShiftId = "shift-precinct-day-001",
+                    policePhoneId = null
+                )
+            )
+
+        assertFalse(searchPathsCalled)
+        assertEquals(SearchLifecycleStatus.Active, state.lifecycleStatus)
+    }
+
+    @Test
+    fun searchPathReadFailureKeepsAreaOverlays() = runBlocking {
+        val areaGeometry =
+            """
+            {
+              "type": "Polygon",
+              "coordinates": [[
+                [126.910000, 37.510000],
+                [126.930000, 37.510000],
+                [126.930000, 37.530000],
+                [126.910000, 37.530000],
+                [126.910000, 37.510000]
+              ]]
+            }
+            """.trimIndent()
+        val loader =
+            SearchMapStateLoader(
+                incidentDetail = { notFoundResponse() },
+                overallSearchArea = {
+                    SuriMapApiResponse(
+                        statusCode = 200,
+                        body = """{"id":"area-overall-001","geometry":$areaGeometry}""",
+                        errorCode = null
+                    )
+                },
+                opSearchAreas = { _, _ -> notFoundResponse() },
+                searchPaths = {
+                    SuriMapApiResponse(
+                        statusCode = 403,
+                        body = """{"error":"team_not_assigned"}""",
+                        errorCode = "team_not_assigned"
+                    )
+                }
+            )
+
+        val state =
+            loader.load(
+                SearchMapSessionContext(
+                    incidentId = "inc-precinct-first-001",
+                    currentOpId = "op-precinct-first-001",
+                    currentDutyShiftId = "shift-precinct-day-001",
+                    policePhoneId = "phone-precinct-001"
+                )
+            )
+
+        assertEquals(1, state.layers.size)
+        assertEquals(SearchLayerKind.Overall, state.layers.single().kind)
+        assertTrue(state.layers.single().geoJson!!.contains("\"Polygon\""))
+    }
+
+    @Test
     fun overallSearchAreaRequiredKeepsFallbackWithoutMapOverlay() = runBlocking {
         val loader =
             SearchMapStateLoader(
@@ -390,6 +586,8 @@ class SearchMapStateLoaderTest {
         assertTrue(source.contains("activeOverall"))
         assertTrue(source.contains("opSearchAreas"))
         assertTrue(source.contains("list(incidentId = incidentId, opId = opId, status = \"ACTIVE\")"))
+        assertTrue(source.contains("SearchPathRepository"))
+        assertTrue(source.contains("listSearchPaths"))
     }
 
     private fun fallbackOnlyLoader(): SearchMapStateLoader =
