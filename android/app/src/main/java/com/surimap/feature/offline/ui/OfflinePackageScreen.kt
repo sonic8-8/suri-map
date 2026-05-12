@@ -108,6 +108,115 @@ data class OfflinePackageUiState(
                 OfflinePackageItemUiState(label = "타일", progress = 0f)
             )
 
+        fun loading(incidentTitle: String = "선택한 사건"): OfflinePackageUiState =
+            OfflinePackageUiState(
+                incidentTitle = incidentTitle,
+                manifestRevision = 0,
+                knownManifestRevision = null,
+                status = OfflinePackageDownloadStatus.Downloading,
+                packageItems = defaultPackageItems(),
+                readyForOfflineUse = false,
+                autoOpenSearchMap = false,
+                requiresLimitedOpenConfirmation = false,
+                shouldDownloadPackage = false,
+                canManualRetry = false,
+                retryLabel = null,
+                message = "오프라인 패키지 manifest를 확인하고 있습니다."
+            )
+
+        fun manifestLoaded(
+            incidentTitle: String,
+            manifestRevision: Int,
+            knownManifestRevision: Int?,
+            packageItems: List<OfflinePackageItemUiState>
+        ): OfflinePackageUiState {
+            val items = packageItems.takeIf(List<OfflinePackageItemUiState>::isNotEmpty) ?: defaultPackageItems()
+            val hasFailedItem = items.any(OfflinePackageItemUiState::failed)
+            val allItemsComplete = items.all { item -> item.progress >= 1f && !item.failed }
+            val status =
+                when {
+                    hasFailedItem -> OfflinePackageDownloadStatus.Partial
+                    knownManifestRevision == manifestRevision && allItemsComplete ->
+                        OfflinePackageDownloadStatus.ManifestCurrent
+                    else -> OfflinePackageDownloadStatus.ManifestChanged
+                }
+            val revisionMessage =
+                knownManifestRevision
+                    ?.takeIf { known -> known != manifestRevision }
+                    ?.let { known -> "manifest rev $known -> $manifestRevision 변경을 확인했습니다." }
+                    ?: "manifest rev $manifestRevision 정보를 확인했습니다."
+            return OfflinePackageUiState(
+                incidentTitle = incidentTitle,
+                manifestRevision = manifestRevision,
+                knownManifestRevision = knownManifestRevision,
+                status = status,
+                packageItems = items,
+                readyForOfflineUse = false,
+                autoOpenSearchMap = false,
+                requiresLimitedOpenConfirmation = hasFailedItem,
+                shouldDownloadPackage = !allItemsComplete || knownManifestRevision != manifestRevision,
+                canManualRetry = hasFailedItem,
+                retryLabel = null,
+                message =
+                if (hasFailedItem) {
+                    "$revisionMessage 실패 항목이 남아 오프라인 사용 준비 완료로 표시하지 않습니다."
+                } else {
+                    "$revisionMessage 패키지 설치 상태와 구분해 적재를 진행합니다."
+                }
+            )
+        }
+
+        fun offline(incidentTitle: String = "선택한 사건"): OfflinePackageUiState =
+            OfflinePackageUiState(
+                incidentTitle = incidentTitle,
+                manifestRevision = 0,
+                knownManifestRevision = null,
+                status = OfflinePackageDownloadStatus.Offline,
+                packageItems = defaultPackageItems(),
+                readyForOfflineUse = false,
+                autoOpenSearchMap = false,
+                requiresLimitedOpenConfirmation = false,
+                shouldDownloadPackage = false,
+                canManualRetry = false,
+                retryLabel = null,
+                message = "내부망 연결이 없어 오프라인 패키지 manifest를 확인하지 못했습니다."
+            )
+
+        fun permissionDenied(incidentTitle: String = "선택한 사건"): OfflinePackageUiState =
+            OfflinePackageUiState(
+                incidentTitle = incidentTitle,
+                manifestRevision = 0,
+                knownManifestRevision = null,
+                status = OfflinePackageDownloadStatus.PermissionDenied,
+                packageItems = defaultPackageItems(),
+                readyForOfflineUse = false,
+                autoOpenSearchMap = false,
+                requiresLimitedOpenConfirmation = false,
+                shouldDownloadPackage = false,
+                canManualRetry = false,
+                retryLabel = null,
+                message = "폴리폰 배정 정보를 확인할 수 없어 오프라인 패키지를 받을 수 없습니다."
+            )
+
+        fun unavailable(
+            incidentTitle: String = "선택한 사건",
+            manifestRevision: Int = 0
+        ): OfflinePackageUiState =
+            OfflinePackageUiState(
+                incidentTitle = incidentTitle,
+                manifestRevision = manifestRevision,
+                knownManifestRevision = null,
+                status = OfflinePackageDownloadStatus.AutoRetryExhausted,
+                packageItems = defaultPackageItems(),
+                readyForOfflineUse = false,
+                autoOpenSearchMap = false,
+                requiresLimitedOpenConfirmation = false,
+                shouldDownloadPackage = false,
+                canManualRetry = true,
+                retryLabel = null,
+                message = "오프라인 패키지 manifest를 불러오지 못했습니다. 내부망 확인 후 다시 시도하세요."
+            )
+
         fun manifestCurrent(
             incidentTitle: String,
             manifestRevision: Int,
