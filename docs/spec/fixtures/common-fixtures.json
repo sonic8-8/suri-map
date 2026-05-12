@@ -451,6 +451,7 @@
         "acct-support-car",
         "acct-support-team"
       ],
+      "accountIdMeaning": "Legacy fixture field name. acct-* values are mock-112/fixture account codes, not internal account.id UUIDs. Import maps them to S1-2 account UUIDs before writing incident_assignment.account_id.",
       "policePhoneIds": [
         "dev-precinct-cmd-phone-01",
         "dev-precinct-car-01",
@@ -509,7 +510,8 @@
           "incidentRole",
           "assignedAt"
         ],
-        "accountIdSource": "S1-2 account fixture",
+        "accountIdSource": "mock-112 fixture account code mapped to S1-2 account UUID",
+        "accountIdMeaning": "Legacy mock-112 field name. The value carries acct-* fixture account code, not DB account.id UUID.",
         "incidentRoleSource": "S1-1 incident_assignment incident_role enum"
       },
       "initialAssignments": [
