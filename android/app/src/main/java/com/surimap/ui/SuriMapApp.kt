@@ -48,8 +48,15 @@ import com.surimap.feature.handover.ui.sampleHandoverMemoState
 import com.surimap.feature.incidents.data.IncidentListStateLoader
 import com.surimap.feature.incidents.ui.IncidentListScreen
 import com.surimap.feature.incidents.ui.IncidentListUiState
+import com.surimap.feature.marker.data.MarkerLocalRecorder
+import com.surimap.feature.marker.data.MarkerLocation
+import com.surimap.feature.marker.data.MarkerUpsertInput
+import com.surimap.feature.marker.data.MarkerWriteContext
+import com.surimap.feature.marker.data.MarkerWriteResult
 import com.surimap.feature.marker.ui.MarkerCreateBottomSheet
 import com.surimap.feature.marker.ui.MarkerDetailScreen
+import com.surimap.feature.marker.ui.MarkerCreateSheetUiState
+import com.surimap.feature.marker.ui.MarkerSaveStatus
 import com.surimap.feature.marker.ui.MarkerType
 import com.surimap.feature.marker.ui.sampleMarkerDetailState
 import com.surimap.feature.marker.ui.sampleMarkerCreateSheetState
@@ -63,12 +70,14 @@ import com.surimap.feature.search.data.SearchPathWriteContext
 import com.surimap.feature.search.ui.SearchLayerKind
 import com.surimap.feature.search.ui.SearchLifecycleStatus
 import com.surimap.feature.search.ui.SearchMapScreen
+import com.surimap.feature.search.ui.SearchMapUiState
 import com.surimap.ui.navigation.BlockedOutboxRouteScreen
 import com.surimap.ui.navigation.IncidentContext
 import com.surimap.ui.navigation.IncidentSessionState
 import com.surimap.ui.navigation.PolicePhoneContext
 import com.surimap.ui.navigation.PolicePhoneRoute
 import com.surimap.ui.theme.PoliBgBase
+import java.util.Locale
 import kotlinx.coroutines.launch
 
 @Composable
@@ -195,9 +204,15 @@ private fun SearchMapRoute(
     val database = remember(context) { SuriMapDatabaseProvider.database(context) }
     val outboxDao = remember(database) { database.outboxDao() }
     val sessionContext = incidentContext.toSearchMapSessionContext(policePhoneContext)
-    val searchPathRecorder = remember(database) {
+    val syncClient = remember(database) { RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()) }
+    val searchPathRecorder = remember(syncClient) {
         SearchPathLocalRecorder(
-            syncClient = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao())
+            syncClient = syncClient
+        )
+    }
+    val markerRecorder = remember(syncClient) {
+        MarkerLocalRecorder(
+            syncClient = syncClient
         )
     }
     val coroutineScope = rememberCoroutineScope()
@@ -286,7 +301,7 @@ private fun SearchMapRoute(
                 }
             },
             onCreateMarker = {
-                markerSheetState = sampleMarkerCreateSheetState()
+                markerSheetState = sampleMarkerCreateSheetState().withLocation(searchMapState.markerCreationLocation())
                 markerSheetOpen = true
             },
             onOpenHandover = { navController.navigateToSingleTop(PolicePhoneRoute.HandoverSummary) },
@@ -318,7 +333,26 @@ private fun SearchMapRoute(
                 onMemoChange = { memo ->
                     markerSheetState = markerSheetState.copy(memo = memo)
                 },
-                onSave = { markerSheetOpen = false },
+                onSave = {
+                    coroutineScope.launch {
+                        markerSheetState = markerSheetState.copy(saveStatus = MarkerSaveStatus.Saving)
+                        when (
+                            markerRecorder.createMarker(
+                                context = sessionContext.toMarkerWriteContext(),
+                                input = markerSheetState.toMarkerUpsertInput(searchMapState.markerCreationLocation())
+                            )
+                        ) {
+                            MarkerWriteResult.Blocked -> {
+                                markerSheetState = markerSheetState.copy(saveStatus = MarkerSaveStatus.Failed)
+                            }
+                            is MarkerWriteResult.Enqueued -> {
+                                markerSheetState = markerSheetState.copy(saveStatus = MarkerSaveStatus.PendingOutbox)
+                                markerSheetOpen = false
+                                searchMapState = loader.load(sessionContext)
+                            }
+                        }
+                    }
+                },
                 onAttachPhoto = {},
                 onRetryPhoto = {}
             )
@@ -569,8 +603,41 @@ private fun SearchMapSessionContext.toSearchPathWriteContext(): SearchPathWriteC
         policePhoneId = policePhoneId
     )
 
+private fun SearchMapSessionContext.toMarkerWriteContext(): MarkerWriteContext =
+    MarkerWriteContext(
+        incidentId = incidentId,
+        opId = currentOpId,
+        policePhoneId = policePhoneId
+    )
+
 private fun com.surimap.feature.search.ui.SearchMapUiState.activeSearchPathId(): String? =
     layers.firstOrNull { layer -> layer.kind == SearchLayerKind.Path && layer.highlighted }?.overlayId
+
+private fun SearchMapUiState.markerCreationLocation(): MarkerLocation? =
+    viewportBounds?.let { bounds ->
+        MarkerLocation(
+            lon = (bounds.west + bounds.east) / 2.0,
+            lat = (bounds.south + bounds.north) / 2.0
+        )
+    }
+
+private fun MarkerCreateSheetUiState.toMarkerUpsertInput(location: MarkerLocation?): MarkerUpsertInput =
+    MarkerUpsertInput(
+        type = selectedType.apiValue,
+        location = location,
+        supportRequestType = supportRequestType?.apiValue,
+        memo = memo
+    )
+
+private fun MarkerCreateSheetUiState.withLocation(location: MarkerLocation?): MarkerCreateSheetUiState =
+    copy(
+        locationLabel =
+        if (location == null) {
+            "지도 기준 위치 확인 필요"
+        } else {
+            String.format(Locale.US, "지도 중심 · %.6f, %.6f", location.lat, location.lon)
+        }
+    )
 
 private fun PolicePhoneContext?.toMapLibreRuntimeMapState(): MapLibreRuntimeMapState =
     MapLibreRuntimeMapState(
