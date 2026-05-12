@@ -319,7 +319,7 @@ class OfflinePackagePurgeHookRedTest {
             created_at,
             updated_at
         )
-        VALUES (?, ?, ?, 'acct-purge-reporter', ?, 7, 3, 2, NULL, 'tile-timeout', ?, 1, ?, ?)
+        VALUES (?, ?, ?, '11111111-1111-1111-1111-111111119903', ?, 7, 3, 2, NULL, 'tile-timeout', ?, 1, ?, ?)
         """,
         "pkg-purge-l6-t09a-%02d".formatted(index),
         MANIFEST_ID,

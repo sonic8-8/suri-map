@@ -187,7 +187,7 @@
         VALUES (
             #{id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
             #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
-            #{accountId},
+            #{accountId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
             #{incidentRole},
             #{assignedAt},
             NULL,
@@ -210,7 +210,7 @@
         SELECT
             #{id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
             #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
-            #{accountId},
+            #{accountId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
             #{incidentRole},
             #{assignedAt},
             NULL,
@@ -220,7 +220,7 @@
             SELECT 1
             FROM incident_assignment
             WHERE incident_id = #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
-              AND account_id = #{accountId}
+              AND account_id = #{accountId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
               AND revoked_at IS NULL
         )
     </insert>

@@ -69,7 +69,7 @@ public interface IncidentMapper {
   void insertIncidentAssignment(
       @Param("id") UUID id,
       @Param("incidentId") UUID incidentId,
-      @Param("accountId") String accountId,
+      @Param("accountId") UUID accountId,
       @Param("incidentRole") String incidentRole,
       @Param("assignedAt") Instant assignedAt,
       @Param("now") Instant now);
@@ -77,7 +77,7 @@ public interface IncidentMapper {
   int insertIncidentAssignmentIfAbsent(
       @Param("id") UUID id,
       @Param("incidentId") UUID incidentId,
-      @Param("accountId") String accountId,
+      @Param("accountId") UUID accountId,
       @Param("incidentRole") String incidentRole,
       @Param("assignedAt") Instant assignedAt,
       @Param("now") Instant now);

@@ -21,6 +21,7 @@
 
 - [agent-loop-guide.md](./agent-loop-guide.md): tester/constructor 에이전틱 TDD 루프, RED -> GREEN -> 재검증 산출물 기준
 - [review-guide.md](./review-guide.md): Lane task 리뷰 관점, 분할 판정, fixture exactness 체크리스트
+- [knox-tasks.md](./knox-tasks.md): 폴리폰 Android 관리 단말, Knox/MDM, managed configuration, 실기기 PoC 체크리스트
 
 ## Lane 파일
 

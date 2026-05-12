@@ -24,7 +24,9 @@
 
 §6은 `COMMANDER`, `PATROL`, `TEAM`을 fixture alias로만 사용하며 실제 enum이 아니라고 명시한다. 실제 `account_type`은 `COMMAND` / `TEAM` / `PATROL_CAR`다. mock-112 `incidentRole`은 `INCIDENT_COMMANDER` / `FIELD_COMMANDER` / `MEMBER`이고, 내부 권한 role은 `MISSING_TEAM_COMMANDER` / `FIELD_COMMANDER` / `MEMBER`다.
 
-| 그룹 | accountId | account_type alias | mock-112 incidentRole | policePhoneId |
+아래 `accountCode=acct-*` 값은 mock-112/fixture 계정 코드다. 내부 `account.id`와 `incident_assignment.account_id` FK는 UUID이며, import 단계에서 S1-2 account fixture UUID로 매핑한다. `policePhoneAlias=dev-*`도 하네스 별칭이며 public contract field `policePhoneId`는 UUID다.
+
+| 그룹 | accountCode | account_type alias | mock-112 incidentRole | policePhoneAlias |
 |---|---|---|---|---|
 | 지구대/파출소 | `acct-precinct-cmd` | COMMANDER / COMMAND | `FIELD_COMMANDER` | `dev-precinct-cmd-phone-01` |
 | 지구대/파출소 | `acct-precinct-car` | PATROL / PATROL_CAR | `MEMBER` | `dev-precinct-car-01` |
@@ -35,13 +37,13 @@
 | 지원 부대 | `acct-support-car` | PATROL / PATROL_CAR | `MEMBER` | `dev-support-car-01` |
 | 지원 부대 | `acct-support-team` | TEAM / TEAM | `MEMBER` | `dev-support-phone-01` |
 
-지휘 계정 policePhoneId(`dev-*-cmd-phone-01`)는 웹 지휘·`incident_assignment` fixture 식별자로만 쓰며 Android 앱 FCM recipient로 고정하지 않는다.
+지휘 계정 policePhoneAlias(`dev-*-cmd-phone-01`)는 웹 지휘·`incident_assignment` fixture 식별자로만 쓰며 Android 앱 FCM recipient로 고정하지 않는다.
 
 ## 3. mock-112 → Suri-Map incident_assignment 매핑
 
 mock-112 seed의 `externalAssignmentKey` ↔ Suri-Map `incident_assignment.id` (canonical row ID)는 import 흐름에서 deterministic하게 매핑된다.
 
-| externalAssignmentKey (mock-112) | accountId | 기대 `incident_assignment.id` | 단계 |
+| externalAssignmentKey (mock-112) | accountCode | 기대 `incident_assignment.id` | 단계 |
 |---|---|---|---|
 | `mock-112-incident-001:precinct-cmd` | `acct-precinct-cmd` | `ia-precinct-cmd-001` | 초동 (import 직후 ACTIVE) |
 | `mock-112-incident-001:precinct-car` | `acct-precinct-car` | `ia-precinct-car-001` | 초동 (import 직후 ACTIVE) |
@@ -73,8 +75,8 @@ S5 소유의 SC-06/08용 marker fixture (`mk-precinct-support-001`, `mk-precinct
 
 | 종류 | canonical ID | 비고 |
 |---|---|---|
-| Path (차량) | `path-precinct-car-001` | 순찰차 업무폰 OP1 차량 구간 경로 |
-| Path (도보) | `path-precinct-foot-001` | 팀 업무폰 OP1 도보 구간 경로 |
+| Path (차량) | `path-precinct-car-001` | 순찰차 PolicePhone OP1 차량 구간 경로 |
+| Path (도보) | `path-precinct-foot-001` | 팀 PolicePhone OP1 도보 구간 경로 |
 | Handover memo | `memo-precinct-handover-001` | OP 전환·인수인계 시 사용 |
 
 ## 6. FCM recipient (mock)
@@ -85,7 +87,7 @@ S5 소유의 SC-06/08용 marker fixture (`mk-precinct-support-001`, `mk-precinct
 | `fcm:dev-support-car-01` | `dev-support-car-01` |
 | `fcm:dev-support-phone-01` | `dev-support-phone-01` |
 
-지휘 계정 policePhoneId는 Android FCM recipient로 고정하지 않는다 (§6).
+지휘 계정 policePhoneAlias는 Android FCM recipient로 고정하지 않는다 (§6).
 
 ## 7. 변경 / 확장 절차
 

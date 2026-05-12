@@ -1,0 +1,2 @@
+command: rg -i 'openstreetmap|mapbox|googleapis|s3\.amazonaws|google\.com' p5-synced-logcat.txt
+result: no matches

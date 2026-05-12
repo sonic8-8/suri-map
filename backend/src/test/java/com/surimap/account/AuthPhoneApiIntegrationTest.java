@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
+import com.surimap.account.AccountIdentityCatalog;
 import com.surimap.account.config.AuthConfig;
 import com.surimap.account.controller.AuthController;
 import com.surimap.app.controller.policephone.FcmTokenController;
@@ -60,7 +61,9 @@ class AuthPhoneApiIntegrationTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.sessionId").isString())
         .andExpect(jsonPath("$.accessToken").isString())
-        .andExpect(jsonPath("$.securityContext.accountId").value("acct-precinct-team"))
+        .andExpect(
+            jsonPath("$.securityContext.accountId")
+                .value(AccountIdentityCatalog.PRECINCT_TEAM_ID.toString()))
         .andExpect(jsonPath("$.securityContext.accountType").value("TEAM"))
         .andExpect(jsonPath("$.securityContext.organizationType").value("MISSING_TEAM"))
         .andExpect(jsonPath("$.securityContext.channel").value("APP"))

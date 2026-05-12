@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -118,7 +119,11 @@ fun HandoverMemoScreen(
                     state.targetOptions.forEach { target ->
                         PoliChip(
                             text = target.label,
-                            modifier = Modifier.weight(1f).clickable { onSelectTarget(target) },
+                            modifier =
+                            Modifier
+                                .weight(1f)
+                                .heightIn(min = PoliDimens.TouchMin)
+                                .clickable { onSelectTarget(target) },
                             variant = if (target == state.selectedTarget) PoliChipVariant.Outbox else PoliChipVariant.Neutral
                         )
                     }
