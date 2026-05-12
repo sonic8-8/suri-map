@@ -7,7 +7,9 @@ data class OfflinePackageDownloadItem(
     val itemType: String,
     val sourceVersion: Int,
     val sourceHash: String,
-    val downloadUrl: String?
+    val downloadUrl: String?,
+    val status: String = "PENDING",
+    val bytesTotal: Long? = null
 )
 
 data class OfflinePackageItemInstallCommand(
