@@ -104,8 +104,8 @@
 
 ## 기준 문서 충돌 또는 주의 지점
 
-- `docs/api/api-spec.md`는 S5 photo endpoint를 `upload-url`/`attach`로 확정했지만, `docs/spec/boundaries.md` 일부 표에는 `presign`/`finalize`가 남아 있다. 구현은 `docs/api/api-spec.md` 기준을 따른다.
-- `docs/api/api-spec.md`는 `POST /api/search-areas/{searchAreaId}/assignments`를 S2로 둔다. `docs/spec/boundaries.md`에는 `POST /operational-periods/{opId}/assignments`가 S8로 남아 있어 후속 구현 전 owner/URL 정리가 필요하다.
+- `docs/spec/boundaries.md`의 public API 표와 Spec ownership은 `docs/api/api-spec.md` 기준으로 정렬됐다. S5 photo endpoint는 `upload-url`/`attach`를 사용하고, search area assignment는 S2 `POST /api/search-areas/{searchAreaId}/assignments`가 owner다.
+- `docs/spec/specs/*.json` 안에는 아직 source-spec endpoint 표기가 `/api` prefix 없이 남은 곳이 있다. 이는 canonical public URL 재정의가 아니라 source spec의 축약 표기로 취급하되, 후속 Spec 정리 MR에서 필요한 경우 명시적으로 정렬한다.
 - S6 controller와 S6 spec fixture의 sync API 용어는 `PolicePhone`/`X-PolicePhone-Id` 기준으로 정렬됐다.
 - Search history summary 생성은 public retry/command API가 아니다. 서버는 duty shift 종료 또는 OP 전환 후 job으로 생성하고, Web/App은 read-only endpoint로만 확인해야 한다.
 
