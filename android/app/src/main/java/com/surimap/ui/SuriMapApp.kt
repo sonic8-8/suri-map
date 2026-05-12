@@ -105,64 +105,13 @@ fun SuriMapApp() {
                     )
                 }
                 composable(PolicePhoneRoute.SearchMap.route) {
-                    val incidentContext = incidentSessionState.incidentContext
-                    val policePhoneContext = incidentSessionState.policePhoneContext
-                    val searchMapState =
-                        remember(
-                            incidentContext?.incidentId,
-                            incidentContext?.currentOpId,
-                            incidentContext?.currentDutyShiftId
-                        ) {
-                            SearchMapStateLoader().load(incidentContext.toSearchMapSessionContext())
+                    SearchMapRoute(
+                        incidentSessionState = incidentSessionState,
+                        navController = navController,
+                        onOpenBlockedOutbox = {
+                            blockedQueue = BlockedQueueToastState(blockedCount = 2)
                         }
-                    var markerSheetOpen by remember { mutableStateOf(false) }
-                    var markerSheetState by remember { mutableStateOf(sampleMarkerCreateSheetState()) }
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        SearchMapScreen(
-                            state = searchMapState,
-                            mapState = policePhoneContext.toMapLibreRuntimeMapState(),
-                            onBack = { navController.popBackStack() },
-                            onPrimaryLifecycleAction = {},
-                            onStopSearch = {},
-                            onCreateMarker = {
-                                markerSheetState = sampleMarkerCreateSheetState()
-                                markerSheetOpen = true
-                            },
-                            onOpenHandover = { navController.navigateToSingleTop(PolicePhoneRoute.HandoverSummary) },
-                            onOpenBlockedOutbox = { blockedQueue = BlockedQueueToastState(blockedCount = 2) },
-                            onDismissIncidentAlert = {},
-                            onOpenIncidentAlertMarker = {
-                                navController.navigateToSingleTop(PolicePhoneRoute.SearchMap)
-                            }
-                        )
-                        if (markerSheetOpen) {
-                            MarkerCreateBottomSheet(
-                                state = markerSheetState,
-                                onDismiss = { markerSheetOpen = false },
-                                onSelectMarkerType = { type ->
-                                    markerSheetState =
-                                        markerSheetState.copy(
-                                            selectedType = type,
-                                            supportRequestType =
-                                            if (type == MarkerType.SUPPORT_REQUEST) {
-                                                markerSheetState.supportRequestType
-                                            } else {
-                                                null
-                                            }
-                                        )
-                                },
-                                onSelectSupportRequestType = { type ->
-                                    markerSheetState = markerSheetState.copy(supportRequestType = type)
-                                },
-                                onMemoChange = { memo ->
-                                    markerSheetState = markerSheetState.copy(memo = memo)
-                                },
-                                onSave = { markerSheetOpen = false },
-                                onAttachPhoto = {},
-                                onRetryPhoto = {}
-                            )
-                        }
-                    }
+                    )
                 }
                 composable(PolicePhoneRoute.HandoverSummary.route) {
                     DutyHandoverScreen(
@@ -211,6 +160,87 @@ fun SuriMapApp() {
                     BlockedOutboxRouteScreen(onBack = { navController.popBackStack() })
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SearchMapRoute(
+    incidentSessionState: IncidentSessionState,
+    navController: NavHostController,
+    onOpenBlockedOutbox: () -> Unit
+) {
+    val incidentContext = incidentSessionState.incidentContext
+    val policePhoneContext = incidentSessionState.policePhoneContext
+    val sessionContext = incidentContext.toSearchMapSessionContext()
+    val loader =
+        remember(policePhoneContext?.apiBaseUrl) {
+            SearchMapStateLoader(
+                incidentDetail = { incidentId ->
+                    IncidentReadRepository(
+                        apiClient =
+                        SuriMapApiClient(
+                            baseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
+                        )
+                    ).detail(incidentId)
+                }
+            )
+        }
+    var searchMapState by remember {
+        mutableStateOf(loader.fallback(sessionContext))
+    }
+    var markerSheetOpen by remember { mutableStateOf(false) }
+    var markerSheetState by remember { mutableStateOf(sampleMarkerCreateSheetState()) }
+
+    LaunchedEffect(loader, sessionContext) {
+        searchMapState = loader.fallback(sessionContext)
+        searchMapState = loader.load(sessionContext)
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        SearchMapScreen(
+            state = searchMapState,
+            mapState = policePhoneContext.toMapLibreRuntimeMapState(),
+            onBack = { navController.popBackStack() },
+            onPrimaryLifecycleAction = {},
+            onStopSearch = {},
+            onCreateMarker = {
+                markerSheetState = sampleMarkerCreateSheetState()
+                markerSheetOpen = true
+            },
+            onOpenHandover = { navController.navigateToSingleTop(PolicePhoneRoute.HandoverSummary) },
+            onOpenBlockedOutbox = onOpenBlockedOutbox,
+            onDismissIncidentAlert = {},
+            onOpenIncidentAlertMarker = {
+                navController.navigateToSingleTop(PolicePhoneRoute.SearchMap)
+            }
+        )
+        if (markerSheetOpen) {
+            MarkerCreateBottomSheet(
+                state = markerSheetState,
+                onDismiss = { markerSheetOpen = false },
+                onSelectMarkerType = { type ->
+                    markerSheetState =
+                        markerSheetState.copy(
+                            selectedType = type,
+                            supportRequestType =
+                            if (type == MarkerType.SUPPORT_REQUEST) {
+                                markerSheetState.supportRequestType
+                            } else {
+                                null
+                            }
+                        )
+                },
+                onSelectSupportRequestType = { type ->
+                    markerSheetState = markerSheetState.copy(supportRequestType = type)
+                },
+                onMemoChange = { memo ->
+                    markerSheetState = markerSheetState.copy(memo = memo)
+                },
+                onSave = { markerSheetOpen = false },
+                onAttachPhoto = {},
+                onRetryPhoto = {}
+            )
         }
     }
 }
