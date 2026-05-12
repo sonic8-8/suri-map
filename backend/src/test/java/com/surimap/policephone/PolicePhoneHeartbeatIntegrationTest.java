@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.surimap.app.controller.policephone.PolicePhoneHeartbeatController;
 import com.surimap.app.service.policephone.PolicePhoneHeartbeatConfig;
+import com.surimap.common.auth.OrganizationType;
 import com.surimap.config.ClockConfig;
 import com.surimap.config.GuardConfig;
 import com.surimap.config.SecurityConfig;
@@ -30,15 +31,19 @@ class PolicePhoneHeartbeatIntegrationTest {
 
   @Autowired private MockMvc mockMvc;
   @Autowired private MockEventHub eventHub;
+  @Autowired private InMemoryPolicePhoneFixtureStore fixtureStore;
   @Autowired private PolicePhoneFreshnessQuery freshnessQuery;
 
   @BeforeEach
-  void resetEventHub() {
+  void resetFixtures() {
     eventHub.reset();
+    fixtureStore.reset();
   }
 
   @Test
-  @WithMockAccount(policePhoneId = "00000000-0000-0000-0000-000000000101")
+  @WithMockAccount(
+      organizationType = OrganizationType.POLICE_SUBSTATION,
+      policePhoneId = "00000000-0000-0000-0000-000000000101")
   @DisplayName("assigned police phone heartbeat updates freshness and publishes event")
   void assignedHeartbeatUpdatesFreshnessAndPublishesEvent() throws Exception {
     mockMvc

@@ -125,7 +125,7 @@
           },
           {
             "name": "source_incident_id",
-            "type": "VARCHAR(80)",
+            "type": "UUID",
             "nullable": false,
             "note": "mock 112 데이터셋 안에서 유일한 원천 사건 ID. Suri-Map 내부 UUID인 incident.id와 구분한다."
           },
@@ -366,7 +366,8 @@
           "properties": {
             "sourceIncidentId": {
               "type": "string",
-              "description": "mock 112 데이터셋 안에서 유일한 원천 사건 ID. incident.source_incident_id로 저장한다."
+              "format": "uuid",
+              "description": "mock 112 데이터셋 안에서 유일한 원천 사건 ID. incident.source_incident_id UUID로 저장한다."
             }
           }
         },
@@ -756,7 +757,8 @@
               }
             },
             "sourceIncidentId": {
-              "type": "string"
+              "type": "string",
+              "format": "uuid"
             }
           }
         },

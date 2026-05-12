@@ -28,7 +28,7 @@ import org.springframework.test.context.jdbc.Sql;
 @AutoConfigureMockMvc(addFilters = false)
 @Sql(
     statements = {
-      "CREATE TABLE IF NOT EXISTS \"incident\" (id VARCHAR(36) PRIMARY KEY, source_incident_id VARCHAR(80) NOT NULL UNIQUE, title VARCHAR(200) NOT NULL, status VARCHAR(32) NOT NULL, opened_at TIMESTAMP WITH TIME ZONE, closed_at TIMESTAMP WITH TIME ZONE, closed_by_account_id VARCHAR(80), version BIGINT NOT NULL, created_at TIMESTAMP WITH TIME ZONE NOT NULL, updated_at TIMESTAMP WITH TIME ZONE NOT NULL)",
+      "CREATE TABLE IF NOT EXISTS \"incident\" (id VARCHAR(36) PRIMARY KEY, source_incident_id UUID NOT NULL UNIQUE, title VARCHAR(200) NOT NULL, status VARCHAR(32) NOT NULL, opened_at TIMESTAMP WITH TIME ZONE, closed_at TIMESTAMP WITH TIME ZONE, closed_by_account_id VARCHAR(80), version BIGINT NOT NULL, created_at TIMESTAMP WITH TIME ZONE NOT NULL, updated_at TIMESTAMP WITH TIME ZONE NOT NULL)",
       "CREATE TABLE IF NOT EXISTS incident_assignment (id VARCHAR(36) PRIMARY KEY, incident_id VARCHAR(36) NOT NULL, account_id VARCHAR(80) NOT NULL, incident_role VARCHAR(32) NOT NULL, assigned_at TIMESTAMP WITH TIME ZONE NOT NULL, revoked_at TIMESTAMP WITH TIME ZONE, created_at TIMESTAMP WITH TIME ZONE NOT NULL, updated_at TIMESTAMP WITH TIME ZONE NOT NULL)",
       "CREATE TABLE IF NOT EXISTS operational_period (id VARCHAR(36) PRIMARY KEY, incident_id VARCHAR(36) NOT NULL, sequence_number INTEGER NOT NULL, status VARCHAR(32) NOT NULL, reason VARCHAR(32) NOT NULL, reason_memo CLOB, started_by_account_id VARCHAR(36), ended_by_account_id VARCHAR(36), started_at TIMESTAMP WITH TIME ZONE NOT NULL, ended_at TIMESTAMP WITH TIME ZONE, version BIGINT NOT NULL, created_at TIMESTAMP WITH TIME ZONE NOT NULL, updated_at TIMESTAMP WITH TIME ZONE NOT NULL)",
       "CREATE TABLE IF NOT EXISTS search_path_seed_probe (id VARCHAR(80) PRIMARY KEY, incident_id VARCHAR(36) NOT NULL, op_id VARCHAR(80) NOT NULL)",
@@ -40,7 +40,7 @@ import org.springframework.test.context.jdbc.Sql;
       "DELETE FROM operational_period",
       "DELETE FROM incident_assignment",
       "DELETE FROM \"incident\"",
-      "INSERT INTO \"incident\" (id, source_incident_id, title, status, opened_at, closed_at, closed_by_account_id, version, created_at, updated_at) VALUES ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001', 'mock-112-incident-001', '종로구 인왕산 실종 신고', 'OPEN', '2026-04-28T09:00:00+09:00', NULL, NULL, 1, '2026-04-28T09:00:00+09:00', '2026-04-28T09:00:00+09:00')",
+      "INSERT INTO \"incident\" (id, source_incident_id, title, status, opened_at, closed_at, closed_by_account_id, version, created_at, updated_at) VALUES ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001', '00000000-0000-0000-0000-000000000001', '종로구 인왕산 실종 신고', 'OPEN', '2026-04-28T09:00:00+09:00', NULL, NULL, 1, '2026-04-28T09:00:00+09:00', '2026-04-28T09:00:00+09:00')",
       "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('10000000-0000-4000-8000-000000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001', '11111111-1111-1111-1111-111111110001', 'FIELD_COMMANDER', '2026-04-28T09:00:00+09:00', NULL, '2026-04-28T09:00:00+09:00', '2026-04-28T09:00:00+09:00')",
       "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('10000000-0000-4000-8000-000000000002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001', '11111111-1111-1111-1111-111111110002', 'MEMBER', '2026-04-28T09:05:00+09:00', NULL, '2026-04-28T09:05:00+09:00', '2026-04-28T09:05:00+09:00')",
       "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('10000000-0000-4000-8000-000000000003', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001', '11111111-1111-1111-1111-111111110003', 'MEMBER', '2026-04-28T09:10:00+09:00', NULL, '2026-04-28T09:10:00+09:00', '2026-04-28T09:10:00+09:00')",
@@ -53,7 +53,7 @@ import org.springframework.test.context.jdbc.Sql;
 @DisplayName("L1-T04 SC-02 112/mock incident_assignment import")
 class IncidentAssignmentImportContractTest {
 
-  private static final String SOURCE_INCIDENT_ID = "mock-112-incident-001";
+  private static final String SOURCE_INCIDENT_ID = "00000000-0000-0000-0000-000000000001";
   private static final UUID INCIDENT_ID = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001");
 
   @Autowired private AssignmentPollingHandler assignmentPollingHandler;
@@ -122,12 +122,12 @@ class IncidentAssignmentImportContractTest {
         SOURCE_INCIDENT_ID,
         List.of(
             assignment(
-                "mock-112-incident-001:precinct-cmd",
+                SOURCE_INCIDENT_ID + ":precinct-cmd",
                 "acct-precinct-cmd",
                 "FIELD_COMMANDER",
                 "2026-04-28T09:00:00+09:00"),
             assignment(
-                "mock-112-incident-001:precinct-car",
+                SOURCE_INCIDENT_ID + ":precinct-car",
                 "acct-precinct-car",
                 "MEMBER",
                 "2026-04-28T09:05:00+09:00")));
@@ -165,27 +165,27 @@ class IncidentAssignmentImportContractTest {
   private static List<ExternalAssignment> handoverAndSupport() {
     return List.of(
         assignment(
-            "mock-112-incident-001:cmd-alpha",
+            SOURCE_INCIDENT_ID + ":cmd-alpha",
             "acct-cmd-alpha",
             "INCIDENT_COMMANDER",
             "2026-04-28T10:30:00+09:00"),
         assignment(
-            "mock-112-incident-001:team-alpha",
+            SOURCE_INCIDENT_ID + ":team-alpha",
             "acct-team-alpha",
             "MEMBER",
             "2026-04-28T10:35:00+09:00"),
         assignment(
-            "mock-112-incident-001:support-cmd",
+            SOURCE_INCIDENT_ID + ":support-cmd",
             "acct-support-cmd",
             "FIELD_COMMANDER",
             "2026-04-28T10:40:00+09:00"),
         assignment(
-            "mock-112-incident-001:support-car",
+            SOURCE_INCIDENT_ID + ":support-car",
             "acct-support-car",
             "MEMBER",
             "2026-04-28T10:45:00+09:00"),
         assignment(
-            "mock-112-incident-001:support-team",
+            SOURCE_INCIDENT_ID + ":support-team",
             "acct-support-team",
             "MEMBER",
             "2026-04-28T10:50:00+09:00"));

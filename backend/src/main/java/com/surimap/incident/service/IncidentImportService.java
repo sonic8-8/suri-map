@@ -47,7 +47,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class IncidentImportService {
 
-  private static final String PRECINCT_FIRST_SOURCE_INCIDENT_ID = "mock-112-incident-001";
+  private static final String PRECINCT_FIRST_SOURCE_INCIDENT_ID =
+      "00000000-0000-0000-0000-000000000001";
   private static final UUID PRECINCT_FIRST_INCIDENT_ID =
       UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001");
   private static final String IMPORT_REQUEST_PATH = "/api/incidents/import";
