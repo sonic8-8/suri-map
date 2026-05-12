@@ -17,17 +17,17 @@ import org.apache.ibatis.annotations.Param;
 public interface IncidentReadMapper {
 
   List<ListRow> findActiveListByAccountId(
-      @Param("accountId") String accountId, @Param("status") String status);
+      @Param("accountId") UUID accountId, @Param("status") String status);
 
   Optional<DetailRow> findActiveDetailByIncidentIdAndAccountId(
-      @Param("incidentId") UUID incidentId, @Param("accountId") String accountId);
+      @Param("incidentId") UUID incidentId, @Param("accountId") UUID accountId);
 
   Optional<TerminalDetailRow> findTerminalDetailByIncidentIdAndAccountId(
-      @Param("incidentId") UUID incidentId, @Param("accountId") String accountId);
+      @Param("incidentId") UUID incidentId, @Param("accountId") UUID accountId);
 
   int countIncidentById(@Param("incidentId") UUID incidentId);
 
-  int countActiveAssignmentsByAccountId(@Param("accountId") String accountId);
+  int countActiveAssignmentsByAccountId(@Param("accountId") UUID accountId);
 
   Optional<MissingPersonRow> findMissingPersonByIncidentId(@Param("incidentId") UUID incidentId);
 

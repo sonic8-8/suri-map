@@ -63,9 +63,12 @@ class Sc01IncidentStartBridgeTest {
 
   private static final String SOURCE_INCIDENT_ID = "mock-112-incident-001";
   private static final UUID INCIDENT_ID = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001");
-  private static final String COMMAND_ACCOUNT_ID = "acct-precinct-cmd";
-  private static final String CAR_ACCOUNT_ID = "acct-precinct-car";
-  private static final String TEAM_ACCOUNT_ID = "acct-precinct-team";
+  private static final String COMMAND_ACCOUNT_CODE = "acct-precinct-cmd";
+  private static final String CAR_ACCOUNT_CODE = "acct-precinct-car";
+  private static final String TEAM_ACCOUNT_CODE = "acct-precinct-team";
+  private static final String COMMAND_ACCOUNT_ID = "11111111-1111-1111-1111-111111110001";
+  private static final String CAR_ACCOUNT_ID = "11111111-1111-1111-1111-111111110002";
+  private static final String TEAM_ACCOUNT_ID = "11111111-1111-1111-1111-111111110003";
 
   @Autowired private MockMvc mockMvc;
 
@@ -82,7 +85,7 @@ class Sc01IncidentStartBridgeTest {
       accountType = AccountType.COMMAND,
       organizationType = OrganizationType.POLICE_SUBSTATION,
       channel = Channel.WEB,
-      accountId = COMMAND_ACCOUNT_ID,
+      accountId = COMMAND_ACCOUNT_CODE,
       roles = {Role.FIELD_COMMANDER})
   @DisplayName("import는 실제 OP1 생성 후 INCIDENT_CREATED와 OP_TRANSITIONED publish를 요청한다")
   void importCreatesOp1AndPublishesIncidentStartEvents() throws Exception {
@@ -135,9 +138,9 @@ class Sc01IncidentStartBridgeTest {
                     "인왕산 북측 산책로 입구",
                     OffsetDateTime.parse("2026-04-27T23:20:00Z")),
                 List.of(
-                    assignment("precinct-cmd", COMMAND_ACCOUNT_ID, "FIELD_COMMANDER"),
-                    assignment("precinct-car", CAR_ACCOUNT_ID, "MEMBER"),
-                    assignment("precinct-team", TEAM_ACCOUNT_ID, "MEMBER")),
+                    assignment("precinct-cmd", COMMAND_ACCOUNT_CODE, "FIELD_COMMANDER"),
+                    assignment("precinct-car", CAR_ACCOUNT_CODE, "MEMBER"),
+                    assignment("precinct-team", TEAM_ACCOUNT_CODE, "MEMBER")),
                 List.of(
                     new ExternalSeedMarker("CLUE", "MOCK_SEED", "신고자 진술 위치", 126.9565, 37.5712))));
   }

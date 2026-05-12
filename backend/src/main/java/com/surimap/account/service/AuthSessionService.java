@@ -1,5 +1,6 @@
 package com.surimap.account.service;
 
+import com.surimap.account.AccountIdentityCatalog;
 import com.surimap.common.auth.AccountType;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.OrganizationType;
@@ -38,7 +39,7 @@ public class AuthSessionService {
     String accessToken = UUID.randomUUID().toString();
     SecurityContextSnapshot context =
         new SecurityContextSnapshot(
-            account.accountId(),
+            account.accountId().toString(),
             account.accountType(),
             account.organizationType(),
             command.channel(),
@@ -127,7 +128,7 @@ public class AuthSessionService {
     return Map.of(
         "acct-precinct-team",
         new AccountFixture(
-            "acct-precinct-team",
+            AccountIdentityCatalog.PRECINCT_TEAM_ID,
             "fixture",
             AccountType.TEAM,
             PolicePhoneFixtures.ASSIGNED_ORGANIZATION_TYPE,
@@ -135,7 +136,7 @@ public class AuthSessionService {
             Map.of("dev-precinct-phone-01", PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID)),
         "acct-cmd-alpha",
         new AccountFixture(
-            "acct-cmd-alpha",
+            AccountIdentityCatalog.ALPHA_COMMANDER_ID,
             "fixture",
             AccountType.COMMAND,
             OrganizationType.MISSING_TEAM,
@@ -147,7 +148,7 @@ public class AuthSessionService {
       UUID sessionId, String accessToken, SecurityContextSnapshot securityContext) {}
 
   private record AccountFixture(
-      String accountId,
+      UUID accountId,
       String password,
       AccountType accountType,
       OrganizationType organizationType,

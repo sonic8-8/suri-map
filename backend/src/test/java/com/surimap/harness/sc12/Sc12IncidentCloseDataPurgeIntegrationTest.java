@@ -70,7 +70,7 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
   private static final UUID INCIDENT_ID = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001");
   private static final String SOURCE_INCIDENT_ID = "inc-precinct-first-001";
   private static final String OP1_ID = "op-precinct-001-op1";
-  private static final String COMMANDER_ACCOUNT_ID = "acct-cmd-alpha";
+  private static final String COMMANDER_ACCOUNT_ID = "11111111-1111-1111-1111-111111110004";
   private static final String TERMINAL_BOARD_ROW_ID =
       "board-incident-terminal-inc-precinct-first-001";
   private static final String TERMINAL_SOURCE_RESPONSE_ID = "tombstone-inc-precinct-first-001";
@@ -163,7 +163,8 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
                     SOURCE_INCIDENT_ID, List.of(supportAssignment())))
         .isInstanceOf(IncidentLifecycleGuardException.class)
         .hasMessage("incident_closed");
-    assertThat(activeAssignmentAccountIds()).doesNotContain("acct-support-cmd");
+    assertThat(activeAssignmentAccountIds())
+        .doesNotContain("11111111-1111-1111-1111-111111110006");
 
     // 3. 종료 이벤트는 S4 전파와 파기 소비자로 넘어가는 인계 경계다.
     OutboxRow closedEvent = singleOutboxRow("INCIDENT_CLOSED");
@@ -289,7 +290,7 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
           ?, NULL, ?, ?)
         """,
         INCIDENT_ID,
-        COMMANDER_ACCOUNT_ID,
+        UUID.fromString(COMMANDER_ACCOUNT_ID),
         OPENED_AT,
         OPENED_AT,
         OPENED_AT);
@@ -331,7 +332,8 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
           total_item_count, completed_item_count, failed_item_count, failed_item_keys,
           last_error_code, last_reported_at, version, created_at, updated_at
         )
-        VALUES ('pkg-status-sc12-001', ?, 'dev-alpha-phone-01', 'acct-team-alpha', 'READY',
+        VALUES ('pkg-status-sc12-001', ?, 'dev-alpha-phone-01',
+          '11111111-1111-1111-1111-111111110005', 'READY',
           7, 7, 0, NULL, NULL, ?, 3, ?, ?)
         """,
         PACKAGE_MANIFEST_ID,
@@ -471,7 +473,7 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
   private static ExternalAssignment supportAssignment() {
     return new ExternalAssignment(
         SOURCE_INCIDENT_ID + ":support-cmd",
-        "acct-support-cmd",
+        "11111111-1111-1111-1111-111111110006",
         "FIELD_COMMANDER",
         OffsetDateTime.parse("2026-04-28T11:00:00+09:00"));
   }

@@ -16,7 +16,7 @@ public class DutyShiftQueryService {
   }
 
   public DutyShiftListResponse list(
-      UUID incidentId, UUID opId, UUID policePhoneId, String accountId, String status) {
+      UUID incidentId, UUID opId, UUID policePhoneId, UUID accountId, String status) {
     return new DutyShiftListResponse(
         dutyShiftMapper.findByFilters(incidentId, opId, policePhoneId, accountId, status).stream()
             .map(DutyShiftResponse::from)

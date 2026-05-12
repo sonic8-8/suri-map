@@ -17,7 +17,7 @@ public final class NotificationFixtures {
   public static final String INCIDENT_ID = "inc-precinct-first-001";
   public static final String OP_ID = "op-precinct-001-op1";
   public static final String POLICE_PHONE_ID = "dev-precinct-phone-01";
-  public static final String ACCOUNT_ID = "acct-precinct-team";
+  public static final String ACCOUNT_ID = "11111111-1111-1111-1111-111111110003";
 
   // ── SC-08: 지원 요청 알림 ────────────────────────────
 
@@ -30,7 +30,11 @@ public final class NotificationFixtures {
 
   /** 지원 요청 수신 대상 계정 */
   public static final List<String> SUPPORT_RECIPIENT_ACCOUNT_IDS =
-      List.of("acct-cmd-alpha", "acct-support-cmd", "acct-support-car", "acct-support-team");
+      List.of(
+          "11111111-1111-1111-1111-111111110004",
+          "11111111-1111-1111-1111-111111110006",
+          "11111111-1111-1111-1111-111111110007",
+          "11111111-1111-1111-1111-111111110008");
 
   /** 지원 요청 수신 대상 폴리폰 */
   public static final List<String> SUPPORT_RECIPIENT_POLICE_PHONE_IDS =
@@ -68,14 +72,14 @@ public final class NotificationFixtures {
   /** 실종자 발견 수신 대상 계정 */
   public static final List<String> PERSON_FOUND_RECIPIENT_ACCOUNT_IDS =
       List.of(
-          "acct-precinct-cmd",
-          "acct-precinct-car",
-          "acct-precinct-team",
-          "acct-cmd-alpha",
-          "acct-team-alpha",
-          "acct-support-cmd",
-          "acct-support-car",
-          "acct-support-team");
+          "11111111-1111-1111-1111-111111110001",
+          "11111111-1111-1111-1111-111111110002",
+          "11111111-1111-1111-1111-111111110003",
+          "11111111-1111-1111-1111-111111110004",
+          "11111111-1111-1111-1111-111111110005",
+          "11111111-1111-1111-1111-111111110006",
+          "11111111-1111-1111-1111-111111110007",
+          "11111111-1111-1111-1111-111111110008");
 
   /** 실종자 발견 수신 대상 폴리폰 */
   public static final List<String> PERSON_FOUND_RECIPIENT_POLICE_PHONE_IDS =
@@ -115,11 +119,16 @@ public final class NotificationFixtures {
 
   /** 지원 배정으로 변경된 계정 */
   public static final List<String> ASSIGNMENT_CHANGED_ACCOUNT_IDS =
-      List.of("acct-support-cmd", "acct-support-car", "acct-support-team");
+      List.of(
+          "11111111-1111-1111-1111-111111110006",
+          "11111111-1111-1111-1111-111111110007",
+          "11111111-1111-1111-1111-111111110008");
 
   /** 지원 배정 수신 대상 (지휘 계정 제외) */
   public static final List<String> ASSIGNMENT_RECIPIENT_ACCOUNT_IDS =
-      List.of("acct-support-car", "acct-support-team");
+      List.of(
+          "11111111-1111-1111-1111-111111110007",
+          "11111111-1111-1111-1111-111111110008");
 
   /** 지원 배정 수신 대상 폴리폰 */
   public static final List<String> ASSIGNMENT_RECIPIENT_POLICE_PHONE_IDS =

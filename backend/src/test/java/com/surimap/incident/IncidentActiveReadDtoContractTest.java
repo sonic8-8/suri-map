@@ -43,13 +43,13 @@ import org.springframework.test.web.servlet.MockMvc;
       "INSERT INTO \"incident\" (id, source_incident_id, title, status, opened_at, closed_at, closed_by_account_id, version, created_at, updated_at) VALUES ('10000000-0000-4000-8000-000000000002', 'mock-112-incident-unassigned', '미배정 OPEN 사건', 'OPEN', '2026-04-28T09:10:00+09:00', NULL, NULL, 1, '2026-04-28T09:10:00+09:00', '2026-04-28T09:10:00+09:00')",
       "INSERT INTO \"incident\" (id, source_incident_id, title, status, opened_at, closed_at, closed_by_account_id, version, created_at, updated_at) VALUES ('10000000-0000-4000-8000-000000000005', 'mock-112-incident-no-missing', '실종자 row 없는 OPEN 사건', 'OPEN', '2026-04-28T09:20:00+09:00', NULL, NULL, 2, '2026-04-28T09:20:00+09:00', '2026-04-28T09:20:00+09:00')",
       "INSERT INTO missing_person (incident_id, display_name, photo_object_key, appearance_text, last_seen_location_text, last_seen_at, imported_at) VALUES ('10000000-0000-4000-8000-000000000001', '가상 실종자 001', 'mock-112/missing-person/001', '남색 점퍼, 회색 등산화', '인왕산 북측 산책로 입구', '2026-04-28T08:30:00+09:00', '2026-04-28T09:00:00+09:00')",
-      "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('20000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', 'acct-precinct-cmd', 'FIELD_COMMANDER', '2026-04-28T09:00:00+09:00', NULL, '2026-04-28T09:00:00+09:00', '2026-04-28T09:00:00+09:00')",
-      "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('20000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000001', 'acct-precinct-car', 'MEMBER', '2026-04-28T09:05:00+09:00', NULL, '2026-04-28T09:05:00+09:00', '2026-04-28T09:05:00+09:00')",
-      "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('20000000-0000-4000-8000-000000000003', '10000000-0000-4000-8000-000000000001', 'acct-precinct-team', 'MEMBER', '2026-04-28T09:10:00+09:00', NULL, '2026-04-28T09:10:00+09:00', '2026-04-28T09:10:00+09:00')",
-      "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('20000000-0000-4000-8000-000000000004', '10000000-0000-4000-8000-000000000001', 'acct-cmd-alpha', 'INCIDENT_COMMANDER', '2026-04-28T10:30:00+09:00', NULL, '2026-04-28T10:30:00+09:00', '2026-04-28T10:30:00+09:00')",
-      "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('20000000-0000-4000-8000-000000000005', '10000000-0000-4000-8000-000000000001', 'acct-team-alpha', 'MEMBER', '2026-04-28T10:35:00+09:00', NULL, '2026-04-28T10:35:00+09:00', '2026-04-28T10:35:00+09:00')",
-      "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('20000000-0000-4000-8000-000000000006', '10000000-0000-4000-8000-000000000002', 'acct-other-incident', 'MEMBER', '2026-04-28T09:15:00+09:00', NULL, '2026-04-28T09:15:00+09:00', '2026-04-28T09:15:00+09:00')",
-      "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('20000000-0000-4000-8000-000000000007', '10000000-0000-4000-8000-000000000005', 'acct-no-missing', 'MEMBER', '2026-04-28T09:20:00+09:00', NULL, '2026-04-28T09:20:00+09:00', '2026-04-28T09:20:00+09:00')"
+      "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('20000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', '11111111-1111-1111-1111-111111110001', 'FIELD_COMMANDER', '2026-04-28T09:00:00+09:00', NULL, '2026-04-28T09:00:00+09:00', '2026-04-28T09:00:00+09:00')",
+      "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('20000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000001', '11111111-1111-1111-1111-111111110002', 'MEMBER', '2026-04-28T09:05:00+09:00', NULL, '2026-04-28T09:05:00+09:00', '2026-04-28T09:05:00+09:00')",
+      "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('20000000-0000-4000-8000-000000000003', '10000000-0000-4000-8000-000000000001', '11111111-1111-1111-1111-111111110003', 'MEMBER', '2026-04-28T09:10:00+09:00', NULL, '2026-04-28T09:10:00+09:00', '2026-04-28T09:10:00+09:00')",
+      "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('20000000-0000-4000-8000-000000000004', '10000000-0000-4000-8000-000000000001', '11111111-1111-1111-1111-111111110004', 'INCIDENT_COMMANDER', '2026-04-28T10:30:00+09:00', NULL, '2026-04-28T10:30:00+09:00', '2026-04-28T10:30:00+09:00')",
+      "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('20000000-0000-4000-8000-000000000005', '10000000-0000-4000-8000-000000000001', '11111111-1111-1111-1111-111111110005', 'MEMBER', '2026-04-28T10:35:00+09:00', NULL, '2026-04-28T10:35:00+09:00', '2026-04-28T10:35:00+09:00')",
+      "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('20000000-0000-4000-8000-000000000006', '10000000-0000-4000-8000-000000000002', '11111111-1111-1111-1111-111111119901', 'MEMBER', '2026-04-28T09:15:00+09:00', NULL, '2026-04-28T09:15:00+09:00', '2026-04-28T09:15:00+09:00')",
+      "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('20000000-0000-4000-8000-000000000007', '10000000-0000-4000-8000-000000000005', '11111111-1111-1111-1111-111111119902', 'MEMBER', '2026-04-28T09:20:00+09:00', NULL, '2026-04-28T09:20:00+09:00', '2026-04-28T09:20:00+09:00')"
     })
 @DisplayName("L1-T05A GET /api/incidents active read DTO 계약")
 class IncidentActiveReadDtoContractTest {
@@ -175,11 +175,11 @@ class IncidentActiveReadDtoContractTest {
         assignment -> assertThat(fieldNames(assignment)).isEqualTo(DETAIL_ASSIGNMENT_FIELDS));
     assertThat(accountIds(assignments))
         .containsExactlyInAnyOrder(
-            "acct-precinct-cmd",
-            "acct-precinct-car",
-            "acct-precinct-team",
-            "acct-cmd-alpha",
-            "acct-team-alpha");
+            "11111111-1111-1111-1111-111111110001",
+            "11111111-1111-1111-1111-111111110002",
+            "11111111-1111-1111-1111-111111110003",
+            "11111111-1111-1111-1111-111111110004",
+            "11111111-1111-1111-1111-111111110005");
     assertNoTerminalOrPurgeFields(body);
   }
 
@@ -188,7 +188,7 @@ class IncidentActiveReadDtoContractTest {
       accountType = AccountType.TEAM,
       organizationType = OrganizationType.MISSING_TEAM,
       channel = Channel.APP,
-      accountId = "acct-other-incident",
+      accountId = "11111111-1111-1111-1111-111111119901",
       policePhoneId = "dev-other-phone-01",
       roles = {Role.MEMBER})
   @DisplayName("GET /api/incidents/{incidentId}는 다른 사건 배정 계정을 incident_access_denied로 거부한다")
@@ -207,7 +207,7 @@ class IncidentActiveReadDtoContractTest {
       accountType = AccountType.TEAM,
       organizationType = OrganizationType.POLICE_SUBSTATION,
       channel = Channel.APP,
-      accountId = "acct-no-missing",
+      accountId = "11111111-1111-1111-1111-111111119902",
       policePhoneId = "dev-no-missing-phone-01",
       roles = {Role.MEMBER})
   @DisplayName("GET /api/incidents/{incidentId}는 OPEN missing_person row가 없어도 active detail 키를 유지한다")

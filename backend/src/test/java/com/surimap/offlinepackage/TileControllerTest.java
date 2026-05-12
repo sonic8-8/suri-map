@@ -55,7 +55,7 @@ class TileControllerTest {
   private static final MediaType APPLICATION_X_PROTOBUF =
       MediaType.valueOf("application/x-protobuf");
   private static final byte[] LOCAL_TILE_BYTES = repeatedBytes(0xaa, 18_432);
-  private static final String ACCOUNT_ID = "acct-precinct-team";
+  private static final String ACCOUNT_ID = "11111111-1111-1111-1111-111111110003";
   private static final String POLICE_PHONE_ID = "dev-precinct-phone-01";
 
   @Autowired private MockMvc mockMvc;

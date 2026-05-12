@@ -19,7 +19,7 @@
         VALUES (
             #{id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
             #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
-            #{accountId},
+            #{accountId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
             #{policePhoneId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
             #{accessChannel},
             #{accessPurpose},

@@ -58,14 +58,14 @@ import org.springframework.test.web.servlet.MockMvc;
       "DELETE FROM \"incident\"",
       "INSERT INTO \"incident\" (id, source_incident_id, title, status, opened_at, closed_at, closed_by_account_id, version, created_at, updated_at) VALUES ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001', 'mock-112-incident-001', '종로구 인왕산 실종 신고', 'OPEN', '2026-04-28T09:00:00+09:00', NULL, NULL, 1, '2026-04-28T09:00:00+09:00', '2026-04-28T09:00:00+09:00')",
       "INSERT INTO missing_person (incident_id, display_name, photo_object_key, appearance_text, last_seen_location_text, last_seen_at, imported_at) VALUES ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001', '가상 실종자 001', 'mock-112/missing-person/mock-112-incident-001.jpg', '남색 점퍼, 회색 등산화', '인왕산 북측 산책로 입구', '2026-04-28T08:30:00+09:00', '2026-04-28T09:00:00+09:00')",
-      "INSERT INTO operational_period (id, incident_id, sequence_number, status, reason, reason_memo, started_by_account_id, ended_by_account_id, started_at, ended_at, version, created_at, updated_at) VALUES ('88888888-8888-8888-8888-888888880001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001', 1, 'ACTIVE', 'INITIAL', NULL, 'acct-precinct-cmd', NULL, '2026-04-28T09:00:00+09:00', NULL, 1, '2026-04-28T09:00:00+09:00', '2026-04-28T09:00:00+09:00')",
+      "INSERT INTO operational_period (id, incident_id, sequence_number, status, reason, reason_memo, started_by_account_id, ended_by_account_id, started_at, ended_at, version, created_at, updated_at) VALUES ('88888888-8888-8888-8888-888888880001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001', 1, 'ACTIVE', 'INITIAL', NULL, '11111111-1111-1111-1111-111111110001', NULL, '2026-04-28T09:00:00+09:00', NULL, 1, '2026-04-28T09:00:00+09:00', '2026-04-28T09:00:00+09:00')",
       "INSERT INTO search_path_seed_probe (id, incident_id, op_id) VALUES ('path-precinct-car-001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001', '88888888-8888-8888-8888-888888880001')",
       "INSERT INTO search_path_seed_probe (id, incident_id, op_id) VALUES ('path-precinct-foot-001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001', '88888888-8888-8888-8888-888888880001')",
       "INSERT INTO marker_seed_probe (id, incident_id, op_id) VALUES ('mk-precinct-clue-001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001', '88888888-8888-8888-8888-888888880001')",
       "INSERT INTO handover_memo_seed_probe (id, incident_id, op_id) VALUES ('memo-precinct-handover-001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001', '88888888-8888-8888-8888-888888880001')",
-      "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('10000000-0000-4000-8000-000000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001', 'acct-precinct-cmd', 'FIELD_COMMANDER', '2026-04-28T09:00:00+09:00', NULL, '2026-04-28T09:00:00+09:00', '2026-04-28T09:00:00+09:00')",
-      "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('10000000-0000-4000-8000-000000000002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001', 'acct-precinct-car', 'MEMBER', '2026-04-28T09:00:00+09:00', NULL, '2026-04-28T09:00:00+09:00', '2026-04-28T09:00:00+09:00')",
-      "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('10000000-0000-4000-8000-000000000003', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001', 'acct-precinct-team', 'MEMBER', '2026-04-28T09:00:00+09:00', NULL, '2026-04-28T09:00:00+09:00', '2026-04-28T09:00:00+09:00')"
+      "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('10000000-0000-4000-8000-000000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001', '11111111-1111-1111-1111-111111110001', 'FIELD_COMMANDER', '2026-04-28T09:00:00+09:00', NULL, '2026-04-28T09:00:00+09:00', '2026-04-28T09:00:00+09:00')",
+      "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('10000000-0000-4000-8000-000000000002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001', '11111111-1111-1111-1111-111111110002', 'MEMBER', '2026-04-28T09:00:00+09:00', NULL, '2026-04-28T09:00:00+09:00', '2026-04-28T09:00:00+09:00')",
+      "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('10000000-0000-4000-8000-000000000003', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001', '11111111-1111-1111-1111-111111110003', 'MEMBER', '2026-04-28T09:00:00+09:00', NULL, '2026-04-28T09:00:00+09:00', '2026-04-28T09:00:00+09:00')"
     })
 @DisplayName("L1-T04 SC-02 실종팀 인계와 112/mock 지원 배정 계약")
 class IncidentHandoverSupportAssignmentContractTest {
@@ -107,14 +107,14 @@ class IncidentHandoverSupportAssignmentContractTest {
 
     assertThat(activeAssignmentAccountIds())
         .containsExactlyInAnyOrder(
-            "acct-precinct-cmd",
-            "acct-precinct-car",
-            "acct-precinct-team",
-            "acct-cmd-alpha",
-            "acct-team-alpha",
-            "acct-support-cmd",
-            "acct-support-car",
-            "acct-support-team");
+            "11111111-1111-1111-1111-111111110001",
+            "11111111-1111-1111-1111-111111110002",
+            "11111111-1111-1111-1111-111111110003",
+            "11111111-1111-1111-1111-111111110004",
+            "11111111-1111-1111-1111-111111110005",
+            "11111111-1111-1111-1111-111111110006",
+            "11111111-1111-1111-1111-111111110007",
+            "11111111-1111-1111-1111-111111110008");
     assertThat(revokedAssignmentCount()).isZero();
     assertOp1SeedEvidenceStillBelongsToSameIncidentAndOp();
 
@@ -131,14 +131,14 @@ class IncidentHandoverSupportAssignmentContractTest {
             jsonPath(
                 "$.assignments[*].accountId",
                 containsInAnyOrder(
-                    "acct-precinct-cmd",
-                    "acct-precinct-car",
-                    "acct-precinct-team",
-                    "acct-cmd-alpha",
-                    "acct-team-alpha",
-                    "acct-support-cmd",
-                    "acct-support-car",
-                    "acct-support-team")));
+                    "11111111-1111-1111-1111-111111110001",
+                    "11111111-1111-1111-1111-111111110002",
+                    "11111111-1111-1111-1111-111111110003",
+                    "11111111-1111-1111-1111-111111110004",
+                    "11111111-1111-1111-1111-111111110005",
+                    "11111111-1111-1111-1111-111111110006",
+                    "11111111-1111-1111-1111-111111110007",
+                    "11111111-1111-1111-1111-111111110008")));
 
     verify(incidentEventPublisher)
         .publishIncidentAssignmentChanged(
@@ -147,11 +147,11 @@ class IncidentHandoverSupportAssignmentContractTest {
                     assignmentChangedEventMatches(
                         event,
                         List.of(
-                            "acct-cmd-alpha",
-                            "acct-team-alpha",
-                            "acct-support-cmd",
-                            "acct-support-car",
-                            "acct-support-team"))));
+                            "11111111-1111-1111-1111-111111110004",
+                            "11111111-1111-1111-1111-111111110005",
+                            "11111111-1111-1111-1111-111111110006",
+                            "11111111-1111-1111-1111-111111110007",
+                            "11111111-1111-1111-1111-111111110008"))));
   }
 
   @Test
@@ -169,7 +169,9 @@ class IncidentHandoverSupportAssignmentContractTest {
             .invoke(incidentAssignmentView(), INCIDENT_ID, "SUPPORT_ASSIGNMENT");
 
     assertThat(stringList(targets, "accountIds"))
-        .containsExactlyInAnyOrder("acct-support-car", "acct-support-team");
+        .containsExactlyInAnyOrder(
+            "11111111-1111-1111-1111-111111110007",
+            "11111111-1111-1111-1111-111111110008");
     assertThat(stringList(targets, "policePhoneIds"))
         .containsExactlyInAnyOrder("dev-support-car-01", "dev-support-phone-01");
   }

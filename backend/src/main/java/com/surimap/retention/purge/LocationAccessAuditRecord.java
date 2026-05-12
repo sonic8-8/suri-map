@@ -6,7 +6,7 @@ import java.util.UUID;
 public record LocationAccessAuditRecord(
     UUID id,
     UUID incidentId,
-    String accountId,
+    UUID accountId,
     UUID policePhoneId,
     String accessChannel,
     String accessPurpose,

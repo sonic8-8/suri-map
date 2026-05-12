@@ -34,7 +34,7 @@ public class RecordLocationAccessAspect {
     SuriMapAuthentication auth = currentAuthentication();
 
     recorder.record(
-        auth.getAccountId(),
+        parseUuid(auth.getAccountId(), "accountId"),
         incidentId,
         parseNullableUuid(auth.getPolicePhoneId(), "policePhoneId"),
         auth.getChannel().name(),
