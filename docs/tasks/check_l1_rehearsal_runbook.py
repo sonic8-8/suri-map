@@ -59,7 +59,7 @@ def main() -> int:
         "close retry": ["사건 종료", "terminal", "재오픈 없음"],
         "soft delete policy": ["24시간", "soft delete"],
         "fixture incident": ["inc-precinct-first-001"],
-        "fixture mock source": ["mock-112-incident-001"],
+        "fixture mock source": ["00000000-0000-0000-0000-000000000001"],
         "fixture OP1": ["op-precinct-001-op1"],
         "fixture OP2": ["op-precinct-001-op2"],
         "tile manifest": ["tile-manifest-inc-precinct-001"],

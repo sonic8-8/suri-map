@@ -168,7 +168,7 @@ mock 112 payload는 Suri-Map DB 설계로 무리 없이 변환 가능해야 한�
 
 ```json
 {
-  "sourceIncidentId": "mock-112-incident-001",
+  "sourceIncidentId": "00000000-0000-0000-0000-000000000001",
   "title": "종로구 인왕산 실종 신고",
   "openedAt": "2026-04-28T09:00:00+09:00",
   "missingPerson": {
@@ -180,19 +180,19 @@ mock 112 payload는 Suri-Map DB 설계로 무리 없이 변환 가능해야 한�
   },
   "assignments": [
     {
-      "externalAssignmentKey": "mock-112-incident-001:precinct-cmd",
+      "externalAssignmentKey": "00000000-0000-0000-0000-000000000001:precinct-cmd",
       "accountId": "acct-precinct-cmd",
       "incidentRole": "FIELD_COMMANDER",
       "assignedAt": "2026-04-28T09:00:00+09:00"
     },
     {
-      "externalAssignmentKey": "mock-112-incident-001:precinct-car",
+      "externalAssignmentKey": "00000000-0000-0000-0000-000000000001:precinct-car",
       "accountId": "acct-precinct-car",
       "incidentRole": "MEMBER",
       "assignedAt": "2026-04-28T09:00:00+09:00"
     },
     {
-      "externalAssignmentKey": "mock-112-incident-001:precinct-team",
+      "externalAssignmentKey": "00000000-0000-0000-0000-000000000001:precinct-team",
       "accountId": "acct-precinct-team",
       "incidentRole": "MEMBER",
       "assignedAt": "2026-04-28T09:00:00+09:00"
