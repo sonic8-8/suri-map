@@ -15,14 +15,56 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.surimap.BuildConfig
+import org.json.JSONArray
+import org.json.JSONObject
 import org.maplibre.android.MapLibre
+import org.maplibre.android.camera.CameraUpdateFactory
+import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.maps.MapView
+import org.maplibre.android.maps.Style
+import org.maplibre.android.style.layers.FillLayer
+import org.maplibre.android.style.layers.LineLayer
+import org.maplibre.android.style.layers.PropertyFactory.fillColor
+import org.maplibre.android.style.layers.PropertyFactory.fillOpacity
+import org.maplibre.android.style.layers.PropertyFactory.fillOutlineColor
+import org.maplibre.android.style.layers.PropertyFactory.lineColor
+import org.maplibre.android.style.layers.PropertyFactory.lineOpacity
+import org.maplibre.android.style.layers.PropertyFactory.lineWidth
+import org.maplibre.android.style.sources.GeoJsonSource
+
+data class MapLibreViewportBounds(
+    val south: Double,
+    val west: Double,
+    val north: Double,
+    val east: Double
+) {
+    fun signature(): String = "$south,$west,$north,$east"
+
+    fun toLatLngBounds(): LatLngBounds = LatLngBounds.from(north, east, south, west)
+}
+
+enum class MapLibreGeometryOverlayKind {
+    Overall,
+    Unit,
+    Team
+}
+
+data class MapLibreGeometryOverlay(
+    val id: String,
+    val kind: MapLibreGeometryOverlayKind,
+    val geoJson: String,
+    val highlighted: Boolean = false
+) {
+    fun signature(): String = "${kind.name}:$id:$highlighted:$geoJson"
+}
 
 data class MapLibreRuntimeMapState(
     val apiBaseUrl: String = BuildConfig.SURI_MAP_API_BASE_URL,
     val styleId: String = "osm-local",
     val accessToken: String? = null,
-    val policePhoneId: String? = null
+    val policePhoneId: String? = null,
+    val initialBounds: MapLibreViewportBounds? = null,
+    val geometryOverlays: List<MapLibreGeometryOverlay> = emptyList()
 ) {
     fun tileSourceConfig(): MapLibreTileSourceConfig {
         return MapLibreTileSourceFactory(apiBaseUrl = apiBaseUrl).styleSource(
@@ -43,6 +85,9 @@ fun SuriMapLibreMap(
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val latestLoadFailed by rememberUpdatedState(onLoadFailed)
     var appliedStyleUrl by remember { mutableStateOf<String?>(null) }
+    var appliedOverlaySignature by remember { mutableStateOf<String?>(null) }
+    var appliedOverlayStyleIds by remember { mutableStateOf(emptySet<String>()) }
+    var appliedCameraSignature by remember { mutableStateOf<String?>(null) }
     val mapView = remember {
         MapLibre.getInstance(context.applicationContext)
         MapView(context).apply { onCreate(Bundle()) }
@@ -79,13 +124,52 @@ fun SuriMapLibreMap(
         modifier = modifier,
         update = { view ->
             val styleUrl = state.tileSourceConfig().styleUrl
-            if (appliedStyleUrl != styleUrl) {
-                installMapLibreTileHttp(state)
-                view.getMapAsync { mapLibreMap ->
-                    mapLibreMap.uiSettings.setAttributionEnabled(true)
-                    mapLibreMap.uiSettings.setLogoEnabled(true)
+            val overlaySignature = state.geometryOverlaySignature()
+            val cameraSignature = state.initialBounds?.signature()
+            view.getMapAsync { mapLibreMap ->
+                mapLibreMap.uiSettings.setAttributionEnabled(true)
+                mapLibreMap.uiSettings.setLogoEnabled(true)
+                fun applyRuntimeState(style: Style) {
+                    if (appliedOverlaySignature != overlaySignature) {
+                        val currentStyleIds = state.geometryOverlays.map { it.styleId }.toSet()
+                        style.removeGeometryOverlays(appliedOverlayStyleIds - currentStyleIds)
+                        state.geometryOverlays.forEach { overlay ->
+                            style.upsertGeometryOverlay(overlay)
+                        }
+                        appliedOverlayStyleIds = currentStyleIds
+                        appliedOverlaySignature = overlaySignature
+                    }
+                    val bounds = state.initialBounds
+                    if (bounds != null && appliedCameraSignature != cameraSignature) {
+                        view.post {
+                            runCatching {
+                                mapLibreMap.moveCamera(
+                                    CameraUpdateFactory.newLatLngBounds(
+                                        bounds.toLatLngBounds(),
+                                        INITIAL_BOUNDS_PADDING_PX
+                                    )
+                                )
+                            }.onSuccess {
+                                appliedCameraSignature = cameraSignature
+                            }
+                        }
+                    } else if (bounds == null) {
+                        appliedCameraSignature = null
+                    }
+                }
+
+                if (appliedStyleUrl != styleUrl) {
+                    installMapLibreTileHttp(state)
+                    appliedOverlaySignature = null
+                    appliedOverlayStyleIds = emptySet()
+                    appliedCameraSignature = null
                     mapLibreMap.setStyle(styleUrl) {
                         appliedStyleUrl = styleUrl
+                        applyRuntimeState(it)
+                    }
+                } else {
+                    mapLibreMap.getStyle { style ->
+                        applyRuntimeState(style)
                     }
                 }
             }
@@ -102,6 +186,102 @@ private fun installMapLibreTileHttp(state: MapLibreRuntimeMapState) {
         )
     )
 }
+
+private val MapLibreGeometryOverlay.styleId: String
+    get() = "suri-${kind.name.lowercase()}-${id.ifBlank { kind.name }.replace(UNSAFE_STYLE_ID_CHARS, "-")}"
+
+private val MapLibreGeometryOverlay.sourceId: String
+    get() = "$styleId-source"
+
+private val MapLibreGeometryOverlay.fillLayerId: String
+    get() = "$styleId-fill"
+
+private val MapLibreGeometryOverlay.lineLayerId: String
+    get() = "$styleId-line"
+
+private fun MapLibreRuntimeMapState.geometryOverlaySignature(): String =
+    geometryOverlays.joinToString("|") { it.signature() }
+
+private fun Style.upsertGeometryOverlay(overlay: MapLibreGeometryOverlay) {
+    val sourceJson = runCatching { overlay.featureCollectionJson() }.getOrNull() ?: return
+    val source = getSourceAs<GeoJsonSource>(overlay.sourceId)
+    if (source == null) {
+        addSource(GeoJsonSource(overlay.sourceId, sourceJson))
+    } else {
+        source.setGeoJson(sourceJson)
+    }
+
+    if (getLayer(overlay.fillLayerId) == null) {
+        addLayer(
+            FillLayer(overlay.fillLayerId, overlay.sourceId).withProperties(
+                fillColor(overlay.fillColor),
+                fillOpacity(overlay.fillOpacity),
+                fillOutlineColor(overlay.lineColor)
+            )
+        )
+    }
+    if (getLayer(overlay.lineLayerId) == null) {
+        addLayer(
+            LineLayer(overlay.lineLayerId, overlay.sourceId).withProperties(
+                lineColor(overlay.lineColor),
+                lineWidth(if (overlay.highlighted) 3.5f else 2.25f),
+                lineOpacity(0.88f)
+            )
+        )
+    }
+}
+
+private fun Style.removeGeometryOverlays(styleIds: Set<String>) {
+    styleIds.forEach { styleId ->
+        removeLayer("$styleId-line")
+        removeLayer("$styleId-fill")
+        removeSource("$styleId-source")
+    }
+}
+
+private fun MapLibreGeometryOverlay.featureCollectionJson(): String =
+    JSONObject()
+        .put("type", "FeatureCollection")
+        .put(
+            "features",
+            JSONArray().put(
+                JSONObject()
+                    .put("type", "Feature")
+                    .put(
+                        "properties",
+                        JSONObject()
+                            .put("id", id)
+                            .put("kind", kind.name)
+                            .put("highlighted", highlighted)
+                    )
+                    .put("geometry", JSONObject(geoJson))
+            )
+        )
+        .toString()
+
+private val MapLibreGeometryOverlay.fillColor: String
+    get() =
+        when (kind) {
+            MapLibreGeometryOverlayKind.Overall -> "#1D4ED8"
+            MapLibreGeometryOverlayKind.Unit -> "#047857"
+            MapLibreGeometryOverlayKind.Team -> "#C2410C"
+        }
+
+private val MapLibreGeometryOverlay.lineColor: String
+    get() =
+        when (kind) {
+            MapLibreGeometryOverlayKind.Overall -> "#1E40AF"
+            MapLibreGeometryOverlayKind.Unit -> "#065F46"
+            MapLibreGeometryOverlayKind.Team -> "#9A3412"
+        }
+
+private val MapLibreGeometryOverlay.fillOpacity: Float
+    get() =
+        when (kind) {
+            MapLibreGeometryOverlayKind.Overall -> 0.10f
+            MapLibreGeometryOverlayKind.Unit -> 0.13f
+            MapLibreGeometryOverlayKind.Team -> 0.18f
+        }
 
 private class MapViewLifecycleBridge(
     private val mapView: MapView
@@ -155,3 +335,6 @@ private class MapViewLifecycleBridge(
         }
     }
 }
+
+private val UNSAFE_STYLE_ID_CHARS = Regex("[^A-Za-z0-9_-]")
+private const val INITIAL_BOUNDS_PADDING_PX = 64
