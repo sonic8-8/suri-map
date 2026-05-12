@@ -79,7 +79,7 @@ Android Room 로컬 엔티티
 **주요 컬럼**
 
 - `id`: 사건 식별자
-- `source_incident_id`: mock 112 원천 사건 ID
+- `source_incident_id`: mock 112 원천 사건 ID. DB에는 UUID로 저장한다.
 - `title`: 사건 표시 제목
 - `status`: 사건 진행 상태
 - `opened_at`: 사건 시작 시각

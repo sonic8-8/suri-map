@@ -56,7 +56,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @AutoConfigureMockMvc(addFilters = false)
 @Sql(
     statements = {
-      "CREATE TABLE IF NOT EXISTS \"incident\" (id VARCHAR(36) PRIMARY KEY, source_incident_id VARCHAR(80) NOT NULL UNIQUE, title VARCHAR(200) NOT NULL, status VARCHAR(32) NOT NULL, opened_at TIMESTAMP WITH TIME ZONE, closed_at TIMESTAMP WITH TIME ZONE, closed_by_account_id VARCHAR(36), version BIGINT NOT NULL, created_at TIMESTAMP WITH TIME ZONE NOT NULL, updated_at TIMESTAMP WITH TIME ZONE NOT NULL)",
+      "CREATE TABLE IF NOT EXISTS \"incident\" (id VARCHAR(36) PRIMARY KEY, source_incident_id UUID NOT NULL UNIQUE, title VARCHAR(200) NOT NULL, status VARCHAR(32) NOT NULL, opened_at TIMESTAMP WITH TIME ZONE, closed_at TIMESTAMP WITH TIME ZONE, closed_by_account_id VARCHAR(36), version BIGINT NOT NULL, created_at TIMESTAMP WITH TIME ZONE NOT NULL, updated_at TIMESTAMP WITH TIME ZONE NOT NULL)",
       "CREATE TABLE IF NOT EXISTS missing_person (incident_id VARCHAR(36) PRIMARY KEY, display_name VARCHAR(120) NOT NULL, photo_object_key CLOB, appearance_text CLOB, last_seen_location_text VARCHAR(255), last_seen_at TIMESTAMP WITH TIME ZONE, imported_at TIMESTAMP WITH TIME ZONE NOT NULL)",
       "CREATE TABLE IF NOT EXISTS incident_assignment (id VARCHAR(36) PRIMARY KEY, incident_id VARCHAR(36) NOT NULL, account_id VARCHAR(80) NOT NULL, incident_role VARCHAR(32) NOT NULL, assigned_at TIMESTAMP WITH TIME ZONE NOT NULL, revoked_at TIMESTAMP WITH TIME ZONE, created_at TIMESTAMP WITH TIME ZONE NOT NULL, updated_at TIMESTAMP WITH TIME ZONE NOT NULL)",
       "CREATE TABLE IF NOT EXISTS operational_period (id VARCHAR(36) PRIMARY KEY, incident_id VARCHAR(36) NOT NULL, sequence_number INTEGER NOT NULL, status VARCHAR(32) NOT NULL, reason VARCHAR(32) NOT NULL, reason_memo CLOB, started_by_account_id VARCHAR(36), ended_by_account_id VARCHAR(36), started_at TIMESTAMP WITH TIME ZONE NOT NULL, ended_at TIMESTAMP WITH TIME ZONE, version BIGINT NOT NULL, created_at TIMESTAMP WITH TIME ZONE NOT NULL, updated_at TIMESTAMP WITH TIME ZONE NOT NULL)",
@@ -72,7 +72,8 @@ import org.springframework.test.web.servlet.MockMvc;
 @DisplayName("L1-T01 POST /api/incidents/import 계약")
 class IncidentImportApiContractTest {
 
-  private static final String SOURCE_INCIDENT_ID = "mock-112-incident-001";
+  private static final String SOURCE_INCIDENT_ID = "00000000-0000-0000-0000-000000000001";
+  private static final String OTHER_SOURCE_INCIDENT_ID = "00000000-0000-0000-0000-000000000002";
   private static final UUID INCIDENT_ID = BoundaryAreaFixtures.INCIDENT_ID;
   private static final UUID OP1_ID = BoundaryAreaFixtures.OP1_ID;
   private static final UUID ACCOUNT_PRECINCT_COMMANDER =
@@ -123,7 +124,8 @@ class IncidentImportApiContractTest {
                     ACCOUNT_PRECINCT_CAR.toString(),
                     ACCOUNT_PRECINCT_TEAM.toString())));
 
-    assertThat(count("\"incident\"", "source_incident_id = ?", SOURCE_INCIDENT_ID)).isEqualTo(1);
+    assertThat(count("\"incident\"", "CAST(source_incident_id AS VARCHAR) = ?", SOURCE_INCIDENT_ID))
+        .isEqualTo(1);
     assertThat(count("missing_person", "incident_id = ?", INCIDENT_ID.toString())).isEqualTo(1);
     assertThat(
             count(
@@ -169,7 +171,8 @@ class IncidentImportApiContractTest {
         .perform(importRequest(SOURCE_INCIDENT_ID, "idem-l1-t01-op1-failure"))
         .andExpect(status().is5xxServerError());
 
-    assertThat(count("\"incident\"", "source_incident_id = ?", SOURCE_INCIDENT_ID)).isZero();
+    assertThat(count("\"incident\"", "CAST(source_incident_id AS VARCHAR) = ?", SOURCE_INCIDENT_ID))
+        .isZero();
     assertThat(count("missing_person", "1 = 1")).isZero();
     assertThat(count("incident_assignment", "1 = 1")).isZero();
     assertThat(count("operational_period", "1 = 1")).isZero();
@@ -196,7 +199,8 @@ class IncidentImportApiContractTest {
         .perform(importRequest(SOURCE_INCIDENT_ID, "idem-l1-t01-marker-failure"))
         .andExpect(status().is5xxServerError());
 
-    assertThat(count("\"incident\"", "source_incident_id = ?", SOURCE_INCIDENT_ID)).isZero();
+    assertThat(count("\"incident\"", "CAST(source_incident_id AS VARCHAR) = ?", SOURCE_INCIDENT_ID))
+        .isZero();
     assertThat(count("missing_person", "1 = 1")).isZero();
     assertThat(count("incident_assignment", "1 = 1")).isZero();
     assertThat(count("operational_period", "1 = 1")).isZero();
@@ -227,7 +231,8 @@ class IncidentImportApiContractTest {
         .andExpect(jsonPath("$.status", is("OPEN")))
         .andExpect(jsonPath("$.version", is(1)));
 
-    assertThat(count("\"incident\"", "source_incident_id = ?", SOURCE_INCIDENT_ID)).isEqualTo(1);
+    assertThat(count("\"incident\"", "CAST(source_incident_id AS VARCHAR) = ?", SOURCE_INCIDENT_ID))
+        .isEqualTo(1);
     assertThat(
             count(
                 "incident_assignment",
@@ -267,7 +272,8 @@ class IncidentImportApiContractTest {
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.error", is("incident_closed")));
 
-    assertThat(count("\"incident\"", "source_incident_id = ?", SOURCE_INCIDENT_ID)).isEqualTo(1);
+    assertThat(count("\"incident\"", "CAST(source_incident_id AS VARCHAR) = ?", SOURCE_INCIDENT_ID))
+        .isEqualTo(1);
     assertThat(
             jdbc.queryForObject(
                 "SELECT status FROM \"incident\" WHERE id = ?",
@@ -302,7 +308,7 @@ class IncidentImportApiContractTest {
         .perform(importRequest(SOURCE_INCIDENT_ID, "idem-l1-t01-mismatch"))
         .andExpect(status().isCreated());
     mockMvc
-        .perform(importRequest("mock-112-incident-002", "idem-l1-t01-mismatch"))
+        .perform(importRequest(OTHER_SOURCE_INCIDENT_ID, "idem-l1-t01-mismatch"))
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.error", is("idempotency_mismatch")));
 
@@ -413,17 +419,17 @@ class IncidentImportApiContractTest {
                     OffsetDateTime.parse("2026-04-27T23:20:00Z")),
                 List.of(
                     new ExternalAssignment(
-                        "mock-112-incident-001:precinct-cmd",
+                        sourceIncidentId + ":precinct-cmd",
                         ACCOUNT_PRECINCT_COMMANDER.toString(),
                         "FIELD_COMMANDER",
                         OffsetDateTime.parse("2026-04-28T00:00:00Z")),
                     new ExternalAssignment(
-                        "mock-112-incident-001:precinct-car",
+                        sourceIncidentId + ":precinct-car",
                         ACCOUNT_PRECINCT_CAR.toString(),
                         "MEMBER",
                         OffsetDateTime.parse("2026-04-28T00:00:00Z")),
                     new ExternalAssignment(
-                        "mock-112-incident-001:precinct-team",
+                        sourceIncidentId + ":precinct-team",
                         ACCOUNT_PRECINCT_TEAM.toString(),
                         "MEMBER",
                         OffsetDateTime.parse("2026-04-28T00:00:00Z"))),
@@ -437,7 +443,7 @@ class IncidentImportApiContractTest {
         INSERT INTO "incident" (
           id, source_incident_id, title, status, opened_at, closed_at,
           closed_by_account_id, version, created_at, updated_at
-        ) VALUES (?, ?, ?, 'CLOSED', ?, ?, ?, 3, ?, ?)
+        ) VALUES (?, CAST(? AS UUID), ?, 'CLOSED', ?, ?, ?, 3, ?, ?)
         """,
         INCIDENT_ID.toString(),
         sourceIncidentId,

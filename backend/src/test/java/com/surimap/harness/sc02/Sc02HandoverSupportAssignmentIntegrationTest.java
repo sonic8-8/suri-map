@@ -56,7 +56,7 @@ import org.springframework.test.web.servlet.MockMvc;
 class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTestSupport {
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-  private static final String SOURCE_INCIDENT_ID = "mock-112-incident-001";
+  private static final String SOURCE_INCIDENT_ID = "00000000-0000-0000-0000-000000000001";
   private static final UUID INCIDENT_ID = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001");
   private static final UUID OP1_ID = UUID.fromString("88888888-8888-8888-8888-888888880001");
   private static final String PATH_CAR_ID = "path-precinct-car-001";
@@ -126,7 +126,7 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
       organizationType = OrganizationType.SUPPORT_UNIT,
       channel = Channel.APP,
       accountId = "acct-support-team",
-      policePhoneId = "dev-support-phone-01",
+      policePhoneId = "00000000-0000-0000-0000-000000000208",
       roles = {Role.MEMBER})
   @DisplayName("인계·지원 배정 후 OP1 보존, SSE, FCM, board 슬롯이 수렴한다")
   void handoverAndSupportAssignmentConvergesSseFcmAndBoard() throws Exception {
@@ -256,7 +256,7 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
           id, source_incident_id, title, status, opened_at, closed_at, closed_by_account_id,
           version, created_at, updated_at
         )
-        VALUES (?, ?, '종로구 인왕산 실종 신고', 'OPEN', ?, NULL, NULL, 1, ?, ?)
+        VALUES (?, ?::uuid, '종로구 인왕산 실종 신고', 'OPEN', ?, NULL, NULL, 1, ?, ?)
         """,
         INCIDENT_ID,
         SOURCE_INCIDENT_ID,
@@ -307,17 +307,16 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
     jdbcTemplate.execute(
         """
         CREATE TABLE IF NOT EXISTS police_phone (
-          id UUID PRIMARY KEY,
-          phone_code VARCHAR(80) NOT NULL UNIQUE,
-          display_name VARCHAR(120) NOT NULL,
-          account_id UUID,
-          status VARCHAR(24) NOT NULL,
-          registered BOOLEAN NOT NULL DEFAULT FALSE,
+          id VARCHAR(64) PRIMARY KEY,
+          phone_code VARCHAR(64) NOT NULL UNIQUE,
+          display_name VARCHAR(128) NOT NULL,
+          account_id UUID NOT NULL,
+          status VARCHAR(32) NOT NULL,
           last_heartbeat_at TIMESTAMP WITH TIME ZONE,
           last_sync_at TIMESTAMP WITH TIME ZONE,
-          version BIGINT NOT NULL DEFAULT 1,
           created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+          updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          CONSTRAINT fk_police_phone_account FOREIGN KEY (account_id) REFERENCES account(id)
         )
         """);
     jdbcTemplate.update(
@@ -346,24 +345,24 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
         """);
     jdbcTemplate.update(
         """
-        INSERT INTO police_phone (id, phone_code, display_name, account_id, status, registered)
+        INSERT INTO police_phone (id, phone_code, display_name, account_id, status)
         VALUES
-          ('22222222-2222-2222-2222-222222220001', 'dev-precinct-cmd-phone-01',
-            '종로 지구대 지휘 폴리폰', '11111111-1111-1111-1111-111111110001', 'ACTIVE', TRUE),
-          ('22222222-2222-2222-2222-222222220002', 'dev-precinct-car-01',
-            '종로 지구대 순찰차 폴리폰', '11111111-1111-1111-1111-111111110002', 'ACTIVE', TRUE),
-          ('22222222-2222-2222-2222-222222220003', 'dev-precinct-phone-01',
-            '종로 지구대 팀 폴리폰', '11111111-1111-1111-1111-111111110003', 'ACTIVE', TRUE),
-          ('22222222-2222-2222-2222-222222220004', 'dev-alpha-cmd-phone-01',
-            '실종팀 알파 지휘 폴리폰', '11111111-1111-1111-1111-111111110004', 'ACTIVE', TRUE),
-          ('22222222-2222-2222-2222-222222220005', 'dev-alpha-phone-01',
-            '실종팀 알파 폴리폰', '11111111-1111-1111-1111-111111110005', 'ACTIVE', TRUE),
-          ('22222222-2222-2222-2222-222222220006', 'dev-support-cmd-phone-01',
-            '지원 브라보 지휘 폴리폰', '11111111-1111-1111-1111-111111110006', 'ACTIVE', TRUE),
-          ('22222222-2222-2222-2222-222222220007', 'dev-support-car-01',
-            '지원 브라보 순찰차 폴리폰', '11111111-1111-1111-1111-111111110007', 'ACTIVE', TRUE),
-          ('22222222-2222-2222-2222-222222220008', 'dev-support-phone-01',
-            '지원 브라보 팀 폴리폰', '11111111-1111-1111-1111-111111110008', 'ACTIVE', TRUE)
+          ('00000000-0000-0000-0000-000000000201', 'dev-precinct-cmd-phone-01',
+            '종로 지구대 지휘 폴리폰', '11111111-1111-1111-1111-111111110001', 'ACTIVE'),
+          ('50000000-0000-0000-0000-000000000001', 'dev-precinct-car-01',
+            '종로 지구대 순찰차 폴리폰', '11111111-1111-1111-1111-111111110002', 'ACTIVE'),
+          ('00000000-0000-0000-0000-000000000101', 'dev-precinct-phone-01',
+            '종로 지구대 팀 폴리폰', '11111111-1111-1111-1111-111111110003', 'ACTIVE'),
+          ('00000000-0000-0000-0000-000000000204', 'dev-alpha-cmd-phone-01',
+            '실종팀 알파 지휘 폴리폰', '11111111-1111-1111-1111-111111110004', 'ACTIVE'),
+          ('00000000-0000-0000-0000-000000000205', 'dev-alpha-phone-01',
+            '실종팀 알파 폴리폰', '11111111-1111-1111-1111-111111110005', 'ACTIVE'),
+          ('00000000-0000-0000-0000-000000000206', 'dev-support-cmd-phone-01',
+            '지원 브라보 지휘 폴리폰', '11111111-1111-1111-1111-111111110006', 'ACTIVE'),
+          ('00000000-0000-0000-0000-000000000207', 'dev-support-car-01',
+            '지원 브라보 순찰차 폴리폰', '11111111-1111-1111-1111-111111110007', 'ACTIVE'),
+          ('00000000-0000-0000-0000-000000000208', 'dev-support-phone-01',
+            '지원 브라보 팀 폴리폰', '11111111-1111-1111-1111-111111110008', 'ACTIVE')
         ON CONFLICT (id) DO NOTHING
         """);
   }
@@ -621,17 +620,17 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
   private static List<ExternalAssignment> initialAssignments() {
     return List.of(
         assignment(
-            "mock-112-incident-001:precinct-cmd",
+            SOURCE_INCIDENT_ID + ":precinct-cmd",
             "acct-precinct-cmd",
             "FIELD_COMMANDER",
             "2026-04-28T09:00:00+09:00"),
         assignment(
-            "mock-112-incident-001:precinct-car",
+            SOURCE_INCIDENT_ID + ":precinct-car",
             "acct-precinct-car",
             "MEMBER",
             "2026-04-28T09:00:00+09:00"),
         assignment(
-            "mock-112-incident-001:precinct-team",
+            SOURCE_INCIDENT_ID + ":precinct-team",
             "acct-precinct-team",
             "MEMBER",
             "2026-04-28T09:00:00+09:00"));
@@ -640,12 +639,12 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
   private static List<ExternalAssignment> handoverAssignments() {
     return List.of(
         assignment(
-            "mock-112-incident-001:cmd-alpha",
+            SOURCE_INCIDENT_ID + ":cmd-alpha",
             "acct-cmd-alpha",
             "INCIDENT_COMMANDER",
             "2026-04-28T10:30:00+09:00"),
         assignment(
-            "mock-112-incident-001:team-alpha",
+            SOURCE_INCIDENT_ID + ":team-alpha",
             "acct-team-alpha",
             "MEMBER",
             "2026-04-28T10:30:00+09:00"));
@@ -654,17 +653,17 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
   private static List<ExternalAssignment> supportAssignments() {
     return List.of(
         assignment(
-            "mock-112-incident-001:support-cmd",
+            SOURCE_INCIDENT_ID + ":support-cmd",
             "acct-support-cmd",
             "FIELD_COMMANDER",
             "2026-04-28T11:00:00+09:00"),
         assignment(
-            "mock-112-incident-001:support-car",
+            SOURCE_INCIDENT_ID + ":support-car",
             "acct-support-car",
             "MEMBER",
             "2026-04-28T11:00:00+09:00"),
         assignment(
-            "mock-112-incident-001:support-team",
+            SOURCE_INCIDENT_ID + ":support-team",
             "acct-support-team",
             "MEMBER",
             "2026-04-28T11:00:00+09:00"));

@@ -69,7 +69,7 @@ erDiagram
 
     incident {
         UUID id PK
-        VARCHAR source_incident_id UK
+        UUID source_incident_id UK
         VARCHAR title
         VARCHAR status
         TIMESTAMPTZ opened_at

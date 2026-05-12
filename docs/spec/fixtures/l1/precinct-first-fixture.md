@@ -12,7 +12,7 @@
 
 | 항목 | mock-112 source | Suri-Map internal canonical (§6) |
 |---|---|---|
-| Source incident ID | `mock-112-incident-001` | — |
+| Source incident ID | `00000000-0000-0000-0000-000000000001` | DB `incident.source_incident_id` UUID |
 | Suri-Map internal `incident.id` | (import 시 결정) | `inc-precinct-first-001` |
 | Active OP | (import 시 자동 생성) | `op-precinct-001-op1` |
 | Team alias (지구대/파출소) | — | `team-precinct-jongno` |
@@ -45,14 +45,14 @@ mock-112 seed의 `externalAssignmentKey` ↔ Suri-Map `incident_assignment.id` (
 
 | externalAssignmentKey (mock-112) | accountCode | 기대 `incident_assignment.id` | 단계 |
 |---|---|---|---|
-| `mock-112-incident-001:precinct-cmd` | `acct-precinct-cmd` | `ia-precinct-cmd-001` | 초동 (import 직후 ACTIVE) |
-| `mock-112-incident-001:precinct-car` | `acct-precinct-car` | `ia-precinct-car-001` | 초동 (import 직후 ACTIVE) |
-| `mock-112-incident-001:precinct-team` | `acct-precinct-team` | `ia-precinct-team-001` | 초동 (import 직후 ACTIVE) |
-| `mock-112-incident-001:cmd-alpha` | `acct-cmd-alpha` | `ia-precinct-alpha-cmd-001` | 실종팀 인계 (polling/import 후 추가) |
-| `mock-112-incident-001:team-alpha` | `acct-team-alpha` | `ia-precinct-alpha-team-001` | 실종팀 인계 (polling/import 후 추가) |
-| `mock-112-incident-001:support-cmd` | `acct-support-cmd` | `ia-precinct-support-cmd-001` | 지원 배정 (polling/import 후 추가) |
-| `mock-112-incident-001:support-car` | `acct-support-car` | `ia-precinct-support-car-001` | 지원 배정 (polling/import 후 추가) |
-| `mock-112-incident-001:support-team` | `acct-support-team` | `ia-precinct-support-team-001` | 지원 배정 (polling/import 후 추가) |
+| `00000000-0000-0000-0000-000000000001:precinct-cmd` | `acct-precinct-cmd` | `ia-precinct-cmd-001` | 초동 (import 직후 ACTIVE) |
+| `00000000-0000-0000-0000-000000000001:precinct-car` | `acct-precinct-car` | `ia-precinct-car-001` | 초동 (import 직후 ACTIVE) |
+| `00000000-0000-0000-0000-000000000001:precinct-team` | `acct-precinct-team` | `ia-precinct-team-001` | 초동 (import 직후 ACTIVE) |
+| `00000000-0000-0000-0000-000000000001:cmd-alpha` | `acct-cmd-alpha` | `ia-precinct-alpha-cmd-001` | 실종팀 인계 (polling/import 후 추가) |
+| `00000000-0000-0000-0000-000000000001:team-alpha` | `acct-team-alpha` | `ia-precinct-alpha-team-001` | 실종팀 인계 (polling/import 후 추가) |
+| `00000000-0000-0000-0000-000000000001:support-cmd` | `acct-support-cmd` | `ia-precinct-support-cmd-001` | 지원 배정 (polling/import 후 추가) |
+| `00000000-0000-0000-0000-000000000001:support-car` | `acct-support-car` | `ia-precinct-support-car-001` | 지원 배정 (polling/import 후 추가) |
+| `00000000-0000-0000-0000-000000000001:support-team` | `acct-support-team` | `ia-precinct-support-team-001` | 지원 배정 (polling/import 후 추가) |
 
 모든 기대 row의 `revokedAt`은 null이며, 실종팀 인계·지원 배정 후에도 기존 row는 유지된다 (§6).
 
