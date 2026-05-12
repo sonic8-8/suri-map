@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.surimap.maparea.SearchAreaMapper">
+
+    <resultMap id="searchAreaReadRecordMap" type="com.surimap.maparea.SearchAreaReadRecord">
+        <constructor>
+            <arg column="id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="incident_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="operational_period_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="parent_search_area_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="area_level" javaType="string"/>
+            <arg column="status" javaType="string"/>
+            <arg column="version" javaType="_long"/>
+            <arg column="geometry" javaType="org.locationtech.jts.geom.Polygon" typeHandler="com.surimap.config.mybatis.JtsGeometryTypeHandler"/>
+            <arg column="updated_at" javaType="java.time.Instant"/>
+            <arg column="history_count" javaType="_long"/>
+        </constructor>
+    </resultMap>
+
+    <insert id="insert" parameterType="com.surimap.maparea.SearchAreaPersistenceRecord">
+        INSERT INTO search_area (
+            id,
+            operational_period_id,
+            parent_search_area_id,
+            name,
+            area_level,
+            geometry,
+            status,
+            version,
+            created_by_account_id,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            #{id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{operationalPeriodId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{parentSearchAreaId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{name},
+            #{areaLevel},
+            ST_GeomFromEWKT(#{geometry,typeHandler=com.surimap.config.mybatis.JtsGeometryTypeHandler}),
+            #{status},
+            #{version},
+            #{createdByAccountId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{createdAt},
+            #{updatedAt}
+        )
+    </insert>
+
+    <insert id="insertHistory" parameterType="com.surimap.maparea.SearchAreaHistoryPersistenceRecord">
+        INSERT INTO search_area_history (
+            id,
+            search_area_id,
+            change_type,
+            previous_status,
+            next_status,
+            previous_geometry,
+            next_geometry,
+            change_memo,
+            changed_by_account_id,
+            changed_at,
+            created_at
+        )
+        VALUES (
+            #{id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{searchAreaId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{changeType},
+            #{previousStatus},
+            #{nextStatus},
+            ST_GeomFromEWKT(#{previousGeometry,typeHandler=com.surimap.config.mybatis.JtsGeometryTypeHandler}),
+            ST_GeomFromEWKT(#{nextGeometry,typeHandler=com.surimap.config.mybatis.JtsGeometryTypeHandler}),
+            #{changeMemo},
+            #{changedByAccountId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{changedAt},
+            #{createdAt}
+        )
+    </insert>
+
+    <update id="updateMutation">
+        UPDATE search_area
+        SET status = #{status},
+            geometry = ST_GeomFromEWKT(#{geometry,typeHandler=com.surimap.config.mybatis.JtsGeometryTypeHandler}),
+            version = #{version},
+            updated_at = #{updatedAt}
+        WHERE id = #{id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+    </update>
+
+    <select id="countActiveOverallByIncident" resultType="int">
+        SELECT COUNT(*)
+        FROM search_area area
+        JOIN operational_period op
+          ON op.id = area.operational_period_id
+        WHERE op.incident_id = #{incidentId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND area.area_level = 'OVERALL'
+          AND area.status = 'ACTIVE'
+    </select>
+
+    <sql id="searchAreaReadColumns">
+        area.id,
+        op.incident_id,
+        area.operational_period_id,
+        area.parent_search_area_id,
+        area.area_level,
+        area.status,
+        area.version,
+        ST_AsEWKT(area.geometry) AS geometry,
+        area.updated_at,
+        COUNT(history.id) AS history_count
+    </sql>
+
+    <sql id="searchAreaReadJoins">
+        FROM search_area area
+        JOIN operational_period op
+          ON op.id = area.operational_period_id
+        LEFT JOIN search_area_history history
+          ON history.search_area_id = area.id
+    </sql>
+
+    <sql id="searchAreaFilters">
+        <if test="filters != null and filters.opId != null">
+          AND area.operational_period_id = #{filters.opId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+        </if>
+        <if test="filters != null and filters.status != null and !filters.status.isEmpty()">
+          AND area.status IN
+          <foreach collection="filters.status" item="status" open="(" separator="," close=")">
+            #{status}
+          </foreach>
+        </if>
+        <if test="filters == null or !filters.includeCancelled">
+          AND area.status != 'CANCELLED'
+        </if>
+        <if test="filters != null and filters.minVersion != null">
+          AND area.version &gt;= #{filters.minVersion}
+        </if>
+        <if test="filters != null and filters.updatedAfter != null">
+          AND area.updated_at &gt; #{filters.updatedAfter}
+        </if>
+        <if test="filters != null and filters.bbox != null and filters.bbox.size() == 4">
+          AND ST_Intersects(
+              area.geometry,
+              ST_MakeEnvelope(
+                  #{filters.bbox[0]},
+                  #{filters.bbox[1]},
+                  #{filters.bbox[2]},
+                  #{filters.bbox[3]},
+                  4326
+              )
+          )
+        </if>
+    </sql>
+
+    <select id="findActiveOverallByIncident" resultMap="searchAreaReadRecordMap">
+        SELECT
+        <include refid="searchAreaReadColumns"/>
+        <include refid="searchAreaReadJoins"/>
+        WHERE op.incident_id = #{incidentId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND area.area_level = 'OVERALL'
+          AND area.status = 'ACTIVE'
+        GROUP BY area.id, op.incident_id
+        ORDER BY area.updated_at DESC, area.id ASC
+        LIMIT 1
+    </select>
+
+    <select id="findById" resultMap="searchAreaReadRecordMap">
+        SELECT
+        <include refid="searchAreaReadColumns"/>
+        <include refid="searchAreaReadJoins"/>
+        WHERE area.id = #{id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+        GROUP BY area.id, op.incident_id
+    </select>
+
+    <select id="findByIncident" resultMap="searchAreaReadRecordMap">
+        SELECT
+        <include refid="searchAreaReadColumns"/>
+        <include refid="searchAreaReadJoins"/>
+        WHERE op.incident_id = #{incidentId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+        <include refid="searchAreaFilters"/>
+        GROUP BY area.id, op.incident_id
+        ORDER BY area.operational_period_id ASC, area.status ASC, area.updated_at ASC, area.id ASC
+    </select>
+
+    <select id="findByOp" resultMap="searchAreaReadRecordMap">
+        SELECT
+        <include refid="searchAreaReadColumns"/>
+        <include refid="searchAreaReadJoins"/>
+        WHERE area.operational_period_id = #{opId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+        <if test="filters != null and filters.status != null and !filters.status.isEmpty()">
+          AND area.status IN
+          <foreach collection="filters.status" item="status" open="(" separator="," close=")">
+            #{status}
+          </foreach>
+        </if>
+        <if test="filters == null or !filters.includeCancelled">
+          AND area.status != 'CANCELLED'
+        </if>
+        <if test="filters != null and filters.minVersion != null">
+          AND area.version &gt;= #{filters.minVersion}
+        </if>
+        <if test="filters != null and filters.updatedAfter != null">
+          AND area.updated_at &gt; #{filters.updatedAfter}
+        </if>
+        <if test="filters != null and filters.bbox != null and filters.bbox.size() == 4">
+          AND ST_Intersects(
+              area.geometry,
+              ST_MakeEnvelope(
+                  #{filters.bbox[0]},
+                  #{filters.bbox[1]},
+                  #{filters.bbox[2]},
+                  #{filters.bbox[3]},
+                  4326
+              )
+          )
+        </if>
+        GROUP BY area.id, op.incident_id
+        ORDER BY area.operational_period_id ASC, area.status ASC, area.updated_at ASC, area.id ASC
+    </select>
+</mapper>
