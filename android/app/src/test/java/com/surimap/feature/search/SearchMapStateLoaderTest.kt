@@ -705,6 +705,11 @@ class SearchMapStateLoaderTest {
         assertTrue(source.contains("list(incidentId = incidentId, opId = opId, status = \"ACTIVE\")"))
         assertTrue(source.contains("SearchPathRepository"))
         assertTrue(source.contains("listSearchPaths"))
+        assertTrue(source.contains("SearchPathLocalRecorder"))
+        assertTrue(source.contains("RoomSyncClient(database.outboxDao(), database.localWriteDraftDao())"))
+        assertTrue(source.contains("SearchLifecycleStatus.Stopped"))
+        assertFalse(source.contains("onPrimaryLifecycleAction = {}"))
+        assertFalse(source.contains("onStopSearch = {}"))
         assertTrue(source.contains("OfflinePackageRepository"))
         assertTrue(source.contains("initialMarkers"))
     }

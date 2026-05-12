@@ -8,6 +8,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -32,6 +33,7 @@ import com.surimap.core.offline.OfflinePackageRepository
 import com.surimap.core.offline.toOfflinePackageItemStatusEntity
 import com.surimap.core.path.SearchPathRepository
 import com.surimap.core.searcharea.SearchAreaReadRepository
+import com.surimap.core.sync.RoomSyncClient
 import com.surimap.feature.bootstrap.data.AndroidManagedConfigurationReader
 import com.surimap.feature.bootstrap.data.AuthBootstrapCoordinator
 import com.surimap.feature.bootstrap.data.AuthBootstrapServerCheck
@@ -56,6 +58,10 @@ import com.surimap.feature.offline.ui.OfflinePackageScreen
 import com.surimap.feature.offline.ui.OfflinePackageUiState
 import com.surimap.feature.search.data.SearchMapSessionContext
 import com.surimap.feature.search.data.SearchMapStateLoader
+import com.surimap.feature.search.data.SearchPathLocalRecorder
+import com.surimap.feature.search.data.SearchPathWriteContext
+import com.surimap.feature.search.ui.SearchLayerKind
+import com.surimap.feature.search.ui.SearchLifecycleStatus
 import com.surimap.feature.search.ui.SearchMapScreen
 import com.surimap.ui.navigation.BlockedOutboxRouteScreen
 import com.surimap.ui.navigation.IncidentContext
@@ -63,6 +69,7 @@ import com.surimap.ui.navigation.IncidentSessionState
 import com.surimap.ui.navigation.PolicePhoneContext
 import com.surimap.ui.navigation.PolicePhoneRoute
 import com.surimap.ui.theme.PoliBgBase
+import kotlinx.coroutines.launch
 
 @Composable
 fun SuriMapApp() {
@@ -185,8 +192,15 @@ private fun SearchMapRoute(
     val incidentContext = incidentSessionState.incidentContext
     val policePhoneContext = incidentSessionState.policePhoneContext
     val context = LocalContext.current.applicationContext
-    val outboxDao = remember(context) { SuriMapDatabaseProvider.database(context).outboxDao() }
+    val database = remember(context) { SuriMapDatabaseProvider.database(context) }
+    val outboxDao = remember(database) { database.outboxDao() }
     val sessionContext = incidentContext.toSearchMapSessionContext(policePhoneContext)
+    val searchPathRecorder = remember(database) {
+        SearchPathLocalRecorder(
+            syncClient = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao())
+        )
+    }
+    val coroutineScope = rememberCoroutineScope()
     val loader =
         remember(policePhoneContext?.apiBaseUrl, outboxDao) {
             SearchMapStateLoader(
@@ -256,8 +270,21 @@ private fun SearchMapRoute(
             state = searchMapState,
             mapState = policePhoneContext.toMapLibreRuntimeMapState(),
             onBack = { navController.popBackStack() },
-            onPrimaryLifecycleAction = {},
-            onStopSearch = {},
+            onPrimaryLifecycleAction = {
+                coroutineScope.launch {
+                    if (searchMapState.lifecycleStatus == SearchLifecycleStatus.Stopped) {
+                        searchPathRecorder.start(sessionContext.toSearchPathWriteContext())
+                    }
+                }
+            },
+            onStopSearch = {
+                coroutineScope.launch {
+                    searchPathRecorder.end(
+                        context = sessionContext.toSearchPathWriteContext(),
+                        searchPathId = searchMapState.activeSearchPathId()
+                    )
+                }
+            },
             onCreateMarker = {
                 markerSheetState = sampleMarkerCreateSheetState()
                 markerSheetOpen = true
@@ -534,6 +561,16 @@ private fun IncidentContext?.toSearchMapSessionContext(policePhoneContext: Polic
         currentDutyShiftId = this?.currentDutyShiftId,
         policePhoneId = policePhoneContext?.policePhoneId
     )
+
+private fun SearchMapSessionContext.toSearchPathWriteContext(): SearchPathWriteContext =
+    SearchPathWriteContext(
+        incidentId = incidentId,
+        opId = currentOpId,
+        policePhoneId = policePhoneId
+    )
+
+private fun com.surimap.feature.search.ui.SearchMapUiState.activeSearchPathId(): String? =
+    layers.firstOrNull { layer -> layer.kind == SearchLayerKind.Path && layer.highlighted }?.overlayId
 
 private fun PolicePhoneContext?.toMapLibreRuntimeMapState(): MapLibreRuntimeMapState =
     MapLibreRuntimeMapState(
