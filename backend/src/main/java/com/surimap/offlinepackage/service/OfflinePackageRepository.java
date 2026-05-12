@@ -1,5 +1,6 @@
 package com.surimap.offlinepackage.service;
 
+import com.surimap.account.AccountIdentityCatalog;
 import com.surimap.offlinepackage.dto.OfflinePackageInstallationReportRequest;
 import com.surimap.offlinepackage.dto.OfflinePackageManifestResponse;
 import com.surimap.offlinepackage.dto.OfflinePackageManifestResponse.AssignedArea;
@@ -16,7 +17,6 @@ import com.surimap.offlinepackage.query.OfflinePackageInstallationStatus;
 import com.surimap.offlinepackage.repository.OfflinePackageInstallationRecord;
 import com.surimap.offlinepackage.repository.OfflinePackageManifestRecord;
 import com.surimap.offlinepackage.repository.OfflinePackageMapper;
-import com.surimap.account.AccountIdentityCatalog;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -26,6 +26,7 @@ import java.time.ZoneOffset;
 import java.util.HexFormat;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -42,10 +43,45 @@ public class OfflinePackageRepository {
   public static final int INSTALLATION_VERSION = 3;
   public static final int SEQUENCE = 901;
   public static final OffsetDateTime SERVER_TS = OffsetDateTime.parse("2026-04-28T09:00:41+09:00");
+  private static final String INCIDENT_DB_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001";
+  private static final String OP_DB_ID = "88888888-8888-8888-8888-888888880001";
+  private static final String OVERALL_SEARCH_AREA_DB_ID = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0001";
+  private static final String MANIFEST_DB_ID = "77777777-0000-4000-8000-000000000701";
+  private static final String INSTALLATION_DB_ID = "77777777-0000-4000-8000-000000000901";
   private static final String PURGED_MANIFEST_HASH =
       "0000000000000000000000000000000000000000000000000000000000000000";
   private static final OffsetDateTime EXPIRES_AT =
       OffsetDateTime.parse("2026-04-28T12:00:00+09:00");
+  private static final Map<String, String> KNOWN_DB_IDS_BY_ALIAS =
+      Map.ofEntries(
+          Map.entry(INCIDENT_ID, INCIDENT_DB_ID),
+          Map.entry("op-precinct-001-op1", OP_DB_ID),
+          Map.entry("osa-precinct-001", OVERALL_SEARCH_AREA_DB_ID),
+          Map.entry("osa-precinct-001-v1", OVERALL_SEARCH_AREA_DB_ID),
+          Map.entry(MANIFEST_ID, MANIFEST_DB_ID),
+          Map.entry(INSTALLATION_ID, INSTALLATION_DB_ID),
+          Map.entry(POLICE_PHONE_ID, "00000000-0000-0000-0000-000000000101"),
+          Map.entry("dev-precinct-cmd-phone-01", "00000000-0000-0000-0000-000000000201"),
+          Map.entry("dev-precinct-car-01", "50000000-0000-0000-0000-000000000001"),
+          Map.entry("dev-alpha-cmd-phone-01", "00000000-0000-0000-0000-000000000204"),
+          Map.entry("dev-alpha-phone-01", "00000000-0000-0000-0000-000000000205"),
+          Map.entry("dev-support-cmd-phone-01", "00000000-0000-0000-0000-000000000206"),
+          Map.entry("dev-support-car-01", "00000000-0000-0000-0000-000000000207"),
+          Map.entry("dev-support-phone-01", "00000000-0000-0000-0000-000000000208"));
+  private static final List<String> SEED_INSTALLATION_ALIASES =
+      List.of(
+          "pkg-status-precinct-ready-001",
+          "pkg-status-precinct-partial-001",
+          "pkg-status-precinct-downloading-001",
+          "pkg-status-precinct-stale-001",
+          "pkg-status-precinct-failed-001");
+  private static final List<String> SEED_POLICE_PHONE_ALIASES =
+      List.of(
+          POLICE_PHONE_ID,
+          "dev-precinct-phone-02",
+          "dev-precinct-phone-03",
+          "dev-precinct-phone-04",
+          "dev-precinct-phone-05");
 
   private final OfflinePackageMapper mapper;
 
@@ -56,7 +92,10 @@ public class OfflinePackageRepository {
   public synchronized OfflinePackageManifestResponse manifest(
       String incidentId, String policePhoneId) {
     ensureFixtureManifest();
-    OfflinePackageManifestRecord current = mapper.findCurrentManifestByIncident(incidentId);
+    String incidentDbId = incidentDbId(incidentId);
+    String policePhoneDbId =
+        policePhoneDbId(policePhoneId == null ? POLICE_PHONE_ID : policePhoneId);
+    OfflinePackageManifestRecord current = mapper.findCurrentManifestByIncident(incidentDbId);
     if (current == null) {
       throw new IllegalArgumentException("offline package manifest not found: " + incidentId);
     }
@@ -65,55 +104,61 @@ public class OfflinePackageRepository {
             && mapper.countPurgedInstallationsByManifest(current.id()) > 0)) {
       throw new OfflinePackageApiException("package_purged", HttpStatus.GONE);
     }
-    PackageItemState itemState = itemStateFor(current.id(), policePhoneId);
+    String publicIncidentId = incidentPublicId(current.incidentId());
+    String publicManifestId = manifestPublicId(current);
+    String publicOverallSearchAreaId = searchAreaPublicId(current.overallSearchAreaId());
+    PackageItemState itemState = itemStateFor(current.id(), policePhoneDbId);
     return new OfflinePackageManifestResponse(
-        current.id(),
-        incidentId,
+        publicManifestId,
+        publicIncidentId,
         current.manifestVersion(),
         current.expiresAt(),
         "sha256:" + current.manifestHash(),
         new PolicePhoneContext(
-            POLICE_PHONE_ID,
+            policePhonePublicId(policePhoneDbId),
             AccountIdentityCatalog.PRECINCT_TEAM_ID.toString(),
             "TEAM",
             "team-precinct-jongno",
             "MEMBER"),
-        new IncidentMetadata(incidentId, "OPEN", "CURRENT", "mock-112-incident-001"),
+        new IncidentMetadata(publicIncidentId, "OPEN", "CURRENT", "mock-112-incident-001"),
         new MissingPerson(
-            incidentId,
+            publicIncidentId,
             "가상 실종자 001",
             null,
             "남색 점퍼, 회색 등산화",
             "인왕산 북측 산책로 입구",
             OffsetDateTime.parse("2026-04-28T08:30:00+09:00")),
-        List.of(new OperationalPeriod("op-precinct-001-op1", incidentId, 1, "ACTIVE", 1L)),
+        List.of(new OperationalPeriod("op-precinct-001-op1", publicIncidentId, 1, "ACTIVE", 1L)),
         List.of(
             new AssignedArea(
-                "area-precinct-a1", incidentId, "op-precinct-001-op1", "ASSIGNED", 1L)),
+                "area-precinct-a1", publicIncidentId, "op-precinct-001-op1", "ASSIGNED", 1L)),
         List.of(
             new InitialMarker(
                 "mk-precinct-clue-001",
-                incidentId,
+                publicIncidentId,
                 "op-precinct-001-op1",
                 point("126.956500", "37.571200"),
                 "ACTIVE")),
         new OverallSearchArea(
-            current.overallSearchAreaId(),
-            incidentId,
+            publicOverallSearchAreaId,
+            publicIncidentId,
             "OVERALL",
             "ACTIVE",
             "overall-area-hash-precinct-current",
             overallSearchAreaPolygon()),
         tileItems(),
-        packageItems(itemState, current));
+        packageItems(itemState, publicManifestId, publicOverallSearchAreaId));
   }
 
   public synchronized OfflinePackageInstallationStatus saveStatus(
       String incidentId, OfflinePackageInstallationReportRequest request) {
     ensureFixtureManifest();
-    OfflinePackageManifestRecord current = mapper.findCurrentManifestByIncident(incidentId);
+    String incidentDbId = incidentDbId(incidentId);
+    String requestManifestDbId = manifestDbId(request.manifestId());
+    String requestPolicePhoneDbId = policePhoneDbId(request.policePhoneId());
+    OfflinePackageManifestRecord current = mapper.findCurrentManifestByIncident(incidentDbId);
     if (current == null
-        || !current.id().equals(request.manifestId())
+        || !current.id().equals(requestManifestDbId)
         || current.manifestVersion() != request.manifestVersion()) {
       throw new OfflinePackageApiException("write_conflict", HttpStatus.CONFLICT);
     }
@@ -121,51 +166,63 @@ public class OfflinePackageRepository {
       throw new OfflinePackageApiException("incident_closed", HttpStatus.CONFLICT);
     }
     OfflinePackageInstallationRecord record =
-        OfflinePackageInstallationRecord.from(INSTALLATION_ID, incidentId, request, SERVER_TS);
-    mapper.deleteInstallationForPhone(request.manifestId(), request.policePhoneId());
+        OfflinePackageInstallationRecord.from(
+            INSTALLATION_DB_ID,
+            incidentDbId,
+            requestManifestDbId,
+            requestPolicePhoneDbId,
+            request,
+            SERVER_TS);
+    mapper.deleteInstallationForPhone(requestManifestDbId, requestPolicePhoneDbId);
     mapper.insertInstallation(record);
-    return new OfflinePackageInstallationStatus(
-        record.id(),
-        record.incidentId(),
-        record.policePhoneId(),
-        record.status(),
-        record.version(),
-        record.sequence(),
-        request.manifestVersion(),
-        current.manifestVersion(),
-        record.readyForOfflineUse());
+    return publicStatus(
+        new OfflinePackageInstallationStatus(
+            record.id(),
+            record.incidentId(),
+            record.policePhoneId(),
+            record.status(),
+            record.version(),
+            record.sequence(),
+            request.manifestVersion(),
+            current.manifestVersion(),
+            record.readyForOfflineUse()));
   }
 
   public synchronized List<OfflinePackageInstallationStatus> byIncident(String incidentId) {
-    return mapper.findStatusesByIncident(incidentId);
+    return mapper.findStatusesByIncident(incidentDbId(incidentId)).stream()
+        .map(OfflinePackageRepository::publicStatus)
+        .toList();
   }
 
-  public synchronized List<OfflinePackageInstallationStatus> staleReadyAndPartialForOverallAreaChange(
-      String incidentId,
-      String overallSearchAreaId,
-      long overallSearchAreaVersion,
-      String sourceHash) {
+  public synchronized List<OfflinePackageInstallationStatus>
+      staleReadyAndPartialForOverallAreaChange(
+          String incidentId,
+          String overallSearchAreaId,
+          long overallSearchAreaVersion,
+          String sourceHash) {
     ensureFixtureManifest();
-    OfflinePackageManifestRecord current = mapper.findCurrentManifestByIncident(incidentId);
+    String incidentDbId = incidentDbId(incidentId);
+    String overallSearchAreaDbId = searchAreaDbId(overallSearchAreaId);
+    OfflinePackageManifestRecord current = mapper.findCurrentManifestByIncident(incidentDbId);
     if (current == null) {
       return List.of();
     }
     if (PURGED_MANIFEST_HASH.equals(current.manifestHash())) {
       return List.of();
     }
-    if (current.overallSearchAreaId().equals(overallSearchAreaId)
+    if (current.overallSearchAreaId().equals(overallSearchAreaDbId)
         && current.overallSearchAreaVersion() >= overallSearchAreaVersion) {
       return List.of();
     }
 
     List<String> changedStatusIds = mapper.findStaleCandidateInstallationIds(current.id());
     int nextManifestVersion = current.manifestVersion() + 1;
-    String nextManifestId = nextManifestId(current.id(), nextManifestVersion);
+    String nextManifestId = nextManifestId(manifestPublicId(current), nextManifestVersion);
     mapper.insertNextManifestFrom(
         current.id(),
-        nextManifestId,
+        manifestDbId(nextManifestId),
         nextManifestVersion,
-        overallSearchAreaId,
+        overallSearchAreaDbId,
         overallSearchAreaVersion,
         manifestHash(incidentId, overallSearchAreaId, overallSearchAreaVersion, sourceHash),
         SERVER_TS);
@@ -173,7 +230,9 @@ public class OfflinePackageRepository {
       return List.of();
     }
     mapper.markReadyAndPartialInstallationsStale(current.id(), SERVER_TS);
-    return mapper.findStatusesByIds(changedStatusIds, nextManifestVersion);
+    return mapper.findStatusesByIds(changedStatusIds, nextManifestVersion).stream()
+        .map(OfflinePackageRepository::publicStatus)
+        .toList();
   }
 
   public synchronized long purgeIncidentPackage(UUID incidentId) {
@@ -188,32 +247,29 @@ public class OfflinePackageRepository {
   }
 
   private void ensureFixtureManifest() {
-    if (mapper.countManifest(MANIFEST_ID) > 0) {
+    if (mapper.countManifest(MANIFEST_DB_ID) > 0) {
       ensureSeedStatus("pkg-status-precinct-ready-001", POLICE_PHONE_ID, "READY", 3, true);
       ensureSeedStatus(
           "pkg-status-precinct-partial-001", "dev-precinct-phone-02", "PARTIAL", 2, false);
       ensureSeedStatus(
-          "pkg-status-precinct-downloading-001",
-          "dev-precinct-phone-05",
-          "DOWNLOADING",
-          1,
-          false);
-      ensureSeedStatus(
-          "pkg-status-precinct-stale-001", "dev-precinct-phone-03", "STALE", 4, false);
+          "pkg-status-precinct-downloading-001", "dev-precinct-phone-05", "DOWNLOADING", 1, false);
+      ensureSeedStatus("pkg-status-precinct-stale-001", "dev-precinct-phone-03", "STALE", 4, false);
       ensureSeedStatus(
           "pkg-status-precinct-failed-001", "dev-precinct-phone-04", "FAILED", 5, false);
       return;
     }
-    mapper.insertManifest(MANIFEST_ID, INCIDENT_ID, MANIFEST_VERSION, EXPIRES_AT, SERVER_TS);
+    mapper.insertManifest(
+        MANIFEST_DB_ID,
+        INCIDENT_DB_ID,
+        MANIFEST_VERSION,
+        OP_DB_ID,
+        OVERALL_SEARCH_AREA_DB_ID,
+        EXPIRES_AT,
+        SERVER_TS);
     seedStatus("pkg-status-precinct-ready-001", POLICE_PHONE_ID, "READY", 3, true);
+    seedStatus("pkg-status-precinct-partial-001", "dev-precinct-phone-02", "PARTIAL", 2, false);
     seedStatus(
-        "pkg-status-precinct-partial-001", "dev-precinct-phone-02", "PARTIAL", 2, false);
-    seedStatus(
-        "pkg-status-precinct-downloading-001",
-        "dev-precinct-phone-05",
-        "DOWNLOADING",
-        1,
-        false);
+        "pkg-status-precinct-downloading-001", "dev-precinct-phone-05", "DOWNLOADING", 1, false);
     seedStatus("pkg-status-precinct-stale-001", "dev-precinct-phone-03", "STALE", 4, false);
     seedStatus("pkg-status-precinct-failed-001", "dev-precinct-phone-04", "FAILED", 5, false);
   }
@@ -222,10 +278,10 @@ public class OfflinePackageRepository {
       String id, String policePhoneId, String status, long version, boolean readyForOfflineUse) {
     mapper.insertInstallation(
         new OfflinePackageInstallationRecord(
-            id,
-            MANIFEST_ID,
-            INCIDENT_ID,
-            policePhoneId,
+            installationDbId(id),
+            MANIFEST_DB_ID,
+            INCIDENT_DB_ID,
+            policePhoneDbId(policePhoneId),
             null,
             status,
             7,
@@ -243,11 +299,11 @@ public class OfflinePackageRepository {
 
   private void ensureSeedStatus(
       String id, String policePhoneId, String status, long version, boolean readyForOfflineUse) {
-    if (mapper.countInstallation(id) > 0) {
+    if (mapper.countInstallation(installationDbId(id)) > 0) {
       return;
     }
     String seedPolicePhoneId = policePhoneId;
-    if (mapper.findInstallationForPhone(MANIFEST_ID, policePhoneId) != null) {
+    if (mapper.findInstallationForPhone(MANIFEST_DB_ID, policePhoneDbId(policePhoneId)) != null) {
       seedPolicePhoneId = policePhoneId + "-seed";
     }
     seedStatus(id, seedPolicePhoneId, status, version, readyForOfflineUse);
@@ -272,7 +328,7 @@ public class OfflinePackageRepository {
   }
 
   private static List<PackageItem> packageItems(
-      PackageItemState itemState, OfflinePackageManifestRecord manifest) {
+      PackageItemState itemState, String manifestId, String overallSearchAreaId) {
     return List.of(
         item(
             "incident:inc-precinct-first-001",
@@ -300,12 +356,12 @@ public class OfflinePackageRepository {
             itemState,
             "sha256:6666666666666666666666666666666666666666666666666666666666666666"),
         item(
-            "overall-search-area:" + manifest.overallSearchAreaId(),
+            "overall-search-area:" + overallSearchAreaId,
             "OVERALL_SEARCH_AREA",
             itemState,
             "sha256:7777777777777777777777777777777777777777777777777777777777777777"),
         item(
-            "tile-manifest:" + manifest.id(),
+            "tile-manifest:" + manifestId,
             "TILE",
             itemState,
             "sha256:8888888888888888888888888888888888888888888888888888888888888888"));
@@ -384,6 +440,125 @@ public class OfflinePackageRepository {
     String baseManifestId =
         revisionIndex >= 0 ? currentManifestId.substring(0, revisionIndex) : currentManifestId;
     return baseManifestId + "-rev-" + nextManifestVersion;
+  }
+
+  private static OfflinePackageInstallationStatus publicStatus(
+      OfflinePackageInstallationStatus status) {
+    return new OfflinePackageInstallationStatus(
+        installationPublicId(status.id()),
+        incidentPublicId(status.incidentId()),
+        policePhonePublicId(status.policePhoneId()),
+        status.status(),
+        status.version(),
+        status.sequence(),
+        status.manifestVersion(),
+        status.activeManifestVersion(),
+        status.readyForOfflineUse());
+  }
+
+  private static String incidentDbId(String value) {
+    return dbId(value, "incident");
+  }
+
+  private static String manifestDbId(String value) {
+    return dbId(value, "offline_package_manifest");
+  }
+
+  private static String installationDbId(String value) {
+    return dbId(value, "offline_package_installation");
+  }
+
+  private static String policePhoneDbId(String value) {
+    return dbId(value, "police_phone");
+  }
+
+  private static String searchAreaDbId(String value) {
+    return dbId(value, "search_area");
+  }
+
+  private static String dbId(String value, String namespace) {
+    if (value == null || value.isBlank()) {
+      return value;
+    }
+    String known = KNOWN_DB_IDS_BY_ALIAS.get(value);
+    if (known != null) {
+      return known;
+    }
+    if (isUuid(value)) {
+      return value;
+    }
+    return derivedUuid(namespace, value);
+  }
+
+  private static String manifestPublicId(OfflinePackageManifestRecord manifest) {
+    if (MANIFEST_DB_ID.equals(manifest.id()) || MANIFEST_ID.equals(manifest.id())) {
+      return MANIFEST_ID;
+    }
+    String revisedAlias = nextManifestId(MANIFEST_ID, manifest.manifestVersion());
+    if (manifestDbId(revisedAlias).equals(manifest.id())) {
+      return revisedAlias;
+    }
+    return manifest.id();
+  }
+
+  private static String incidentPublicId(String value) {
+    return INCIDENT_DB_ID.equals(value) ? INCIDENT_ID : value;
+  }
+
+  private static String searchAreaPublicId(String value) {
+    return OVERALL_SEARCH_AREA_DB_ID.equals(value) ? "osa-precinct-001" : value;
+  }
+
+  private static String installationPublicId(String value) {
+    if (INSTALLATION_DB_ID.equals(value) || INSTALLATION_ID.equals(value)) {
+      return INSTALLATION_ID;
+    }
+    for (String alias : SEED_INSTALLATION_ALIASES) {
+      if (installationDbId(alias).equals(value)) {
+        return alias;
+      }
+    }
+    return value;
+  }
+
+  private static String policePhonePublicId(String value) {
+    for (String alias : SEED_POLICE_PHONE_ALIASES) {
+      if (policePhoneDbId(alias).equals(value)) {
+        return alias;
+      }
+    }
+    for (Map.Entry<String, String> entry : KNOWN_DB_IDS_BY_ALIAS.entrySet()) {
+      if (entry.getKey().startsWith("dev-") && entry.getValue().equals(value)) {
+        return entry.getKey();
+      }
+    }
+    return value;
+  }
+
+  private static boolean isUuid(String value) {
+    try {
+      UUID.fromString(value);
+      return true;
+    } catch (IllegalArgumentException exception) {
+      return false;
+    }
+  }
+
+  private static String derivedUuid(String namespace, String value) {
+    String source = namespace + ":" + value;
+    try {
+      MessageDigest digest = MessageDigest.getInstance("MD5");
+      String hex = HexFormat.of().formatHex(digest.digest(source.getBytes(StandardCharsets.UTF_8)));
+      return "%s-%s-%s-%s-%s"
+          .formatted(
+              hex.substring(0, 8),
+              hex.substring(8, 12),
+              hex.substring(12, 16),
+              hex.substring(16, 20),
+              hex.substring(20, 32));
+    } catch (NoSuchAlgorithmException exception) {
+      throw new IllegalStateException("MD5 digest is unavailable", exception);
+    }
   }
 
   private record PackageItemState(boolean allDownloaded, Set<String> failedKeys) {

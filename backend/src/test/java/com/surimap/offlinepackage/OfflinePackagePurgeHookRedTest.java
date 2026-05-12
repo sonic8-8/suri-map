@@ -37,14 +37,15 @@ import org.springframework.test.context.ActiveProfiles;
 @DisplayName("L6-T09A offline package purge hook RED")
 class OfflinePackagePurgeHookRedTest {
 
-  private static final UUID INCIDENT_ID =
-      UUID.fromString("77777777-0000-4000-8000-0000000009a1");
-  private static final UUID PURGE_RUN_ID =
-      UUID.fromString("77777777-0000-4000-8000-0000000009a2");
+  private static final UUID INCIDENT_ID = UUID.fromString("77777777-0000-4000-8000-0000000009a1");
+  private static final UUID PURGE_RUN_ID = UUID.fromString("77777777-0000-4000-8000-0000000009a2");
   private static final Instant CLOSED_AT = Instant.parse("2026-05-07T00:10:00Z");
   private static final Instant PURGE_DEADLINE_TS = Instant.parse("2026-05-08T00:10:00Z");
   private static final OffsetDateTime NOW = OffsetDateTime.parse("2026-05-07T09:10:00+09:00");
-  private static final String MANIFEST_ID = "purge-manifest-l6-t09a";
+  private static final String MANIFEST_ID = "77777777-0000-4000-8000-0000000009c1";
+  private static final String OP_ID = "77777777-0000-4000-8000-0000000009c2";
+  private static final String OVERALL_SEARCH_AREA_ID = "77777777-0000-4000-8000-0000000009c3";
+  private static final String LAST_REPORTED_BY_ACCOUNT_ID = "11111111-1111-1111-1111-111111119903";
   private static final List<String> PRE_PURGE_STATUSES =
       List.of("NOT_STARTED", "DOWNLOADING", "PARTIAL", "READY", "STALE", "FAILED");
 
@@ -135,7 +136,8 @@ class OfflinePackagePurgeHookRedTest {
   }
 
   @Test
-  @DisplayName("purged manifest rejects later package installation reports without resurrecting state")
+  @DisplayName(
+      "purged manifest rejects later package installation reports without resurrecting state")
   void purgeHookPreventsPostPurgeInstallationWrites() {
     seedPackageRows();
 
@@ -144,9 +146,7 @@ class OfflinePackagePurgeHookRedTest {
     assertThatThrownBy(
             () ->
                 offlinePackageService.reportInstallation(
-                    INCIDENT_ID.toString(),
-                    "idem-purged-package-ready",
-                    readyReport()))
+                    INCIDENT_ID.toString(), "idem-purged-package-ready", readyReport()))
         .isInstanceOf(OfflinePackageApiException.class)
         .hasMessageContaining("incident_closed");
 
@@ -175,7 +175,8 @@ class OfflinePackagePurgeHookRedTest {
   }
 
   @Test
-  @DisplayName("post-purge SEARCH_AREA_CHANGED does not create a new manifest with missing_person data")
+  @DisplayName(
+      "post-purge SEARCH_AREA_CHANGED does not create a new manifest with missing_person data")
   void purgeHookPreventsPostPurgeManifestRevisionFromSearchAreaChanged() {
     seedPackageRows();
 
@@ -234,7 +235,9 @@ class OfflinePackagePurgeHookRedTest {
 
   private PurgeHook packageHookFromS13Boundary() {
     List<PurgeHook> hooks =
-        applicationContext.getBeanProvider(PurgeHook.class).orderedStream()
+        applicationContext
+            .getBeanProvider(PurgeHook.class)
+            .orderedStream()
             .filter(hook -> hook.name() == PurgeHookName.OFFLINE_PACKAGE)
             .toList();
     assertThat(hooks)
@@ -254,8 +257,7 @@ class OfflinePackagePurgeHookRedTest {
         // Try the next local S7 package convention.
       }
     }
-    fail(
-        "Expected S7 PackagePurgeHook contract type in com.surimap.offlinepackage(.purge)");
+    fail("Expected S7 PackagePurgeHook contract type in com.surimap.offlinepackage(.purge)");
     throw new IllegalStateException("unreachable");
   }
 
@@ -288,12 +290,14 @@ class OfflinePackagePurgeHookRedTest {
             created_at,
             updated_at
         )
-        VALUES (?, ?, 1, 'op-purge-l6-t09a', 'osa-purge-l6-t09a', 1,
+        VALUES (?, ?, 1, ?, ?, 1,
                 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 1,
                 ?, ?, ?, ?)
         """,
         MANIFEST_ID,
         INCIDENT_ID.toString(),
+        OP_ID,
+        OVERALL_SEARCH_AREA_ID,
         manifestPayloadWithMissingPerson(),
         NOW.plusHours(24),
         NOW,
@@ -319,11 +323,12 @@ class OfflinePackagePurgeHookRedTest {
             created_at,
             updated_at
         )
-        VALUES (?, ?, ?, '11111111-1111-1111-1111-111111119903', ?, 7, 3, 2, NULL, 'tile-timeout', ?, 1, ?, ?)
+        VALUES (?, ?, ?, ?, ?, 7, 3, 2, NULL, 'tile-timeout', ?, 1, ?, ?)
         """,
-        "pkg-purge-l6-t09a-%02d".formatted(index),
+        installationId(index),
         MANIFEST_ID,
-        "dev-purge-phone-%02d".formatted(index),
+        policePhoneId(index),
+        LAST_REPORTED_BY_ACCOUNT_ID,
         status,
         NOW,
         NOW,
@@ -391,20 +396,15 @@ class OfflinePackagePurgeHookRedTest {
 
   private static OfflinePackageInstallationReportRequest readyReport() {
     return new OfflinePackageInstallationReportRequest(
-        "dev-purge-phone-01",
-        MANIFEST_ID,
-        1,
-        "READY",
-        7,
-        7,
-        0,
-        2,
-        NOW,
-        true,
-        List.of(),
-        null,
-        902,
-        0L);
+        policePhoneId(1), MANIFEST_ID, 1, "READY", 7, 7, 0, 2, NOW, true, List.of(), null, 902, 0L);
+  }
+
+  private static String installationId(int index) {
+    return "77777777-0000-4000-8000-0000000009%02d".formatted(index);
+  }
+
+  private static String policePhoneId(int index) {
+    return "00000000-0000-0000-0000-0000000099%02d".formatted(index);
   }
 
   private static PublishRequest searchAreaChangedEvent() {

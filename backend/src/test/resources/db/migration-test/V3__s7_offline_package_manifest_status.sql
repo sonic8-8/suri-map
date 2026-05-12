@@ -1,9 +1,9 @@
 CREATE TABLE offline_package_manifest (
-    id VARCHAR(80) PRIMARY KEY,
-    incident_id VARCHAR(80) NOT NULL,
+    id UUID PRIMARY KEY,
+    incident_id UUID NOT NULL,
     manifest_version INTEGER NOT NULL,
-    operational_period_id VARCHAR(80) NOT NULL,
-    overall_search_area_id VARCHAR(80) NOT NULL,
+    operational_period_id UUID NOT NULL,
+    overall_search_area_id UUID NOT NULL,
     overall_search_area_version BIGINT NOT NULL,
     manifest_hash CHAR(64) NOT NULL,
     manifest_format_version INTEGER NOT NULL,
@@ -17,10 +17,10 @@ CREATE UNIQUE INDEX ux_offline_package_manifest_incident_version
     ON offline_package_manifest (incident_id, manifest_version);
 
 CREATE TABLE offline_package_installation (
-    id VARCHAR(80) PRIMARY KEY,
-    offline_package_manifest_id VARCHAR(80) NOT NULL,
-    police_phone_id VARCHAR(80) NOT NULL,
-    last_reported_by_account_id VARCHAR(80),
+    id UUID PRIMARY KEY,
+    offline_package_manifest_id UUID NOT NULL,
+    police_phone_id UUID NOT NULL,
+    last_reported_by_account_id UUID,
     status VARCHAR(32) NOT NULL,
     total_item_count INTEGER NOT NULL,
     completed_item_count INTEGER NOT NULL,

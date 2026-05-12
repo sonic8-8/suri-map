@@ -43,8 +43,13 @@ class CoreRuntimeSchemaMigrationIntegrationTest {
                 "fcm_token",
                 "search_area_assignment",
                 "search_path",
-                "search_path_segment"));
+                "search_path_segment",
+                "offline_package_manifest",
+                "offline_package_installation",
+                "event_dispatch_job",
+                "marker_notification"));
 
+        assertColumnType(connection, "incident", "source_incident_id", "uuid");
         assertColumnType(connection, "account", "id", "uuid");
         assertColumnType(connection, "account", "login_id", "varchar");
         assertColumnType(connection, "police_phone", "id", "uuid");
@@ -56,6 +61,20 @@ class CoreRuntimeSchemaMigrationIntegrationTest {
         assertColumnType(connection, "search_area_assignment", "search_area_id", "uuid");
         assertColumnType(connection, "search_path", "duty_shift_id", "uuid");
         assertColumnType(connection, "search_path_segment", "search_path_id", "uuid");
+        assertColumnType(connection, "offline_package_manifest", "id", "uuid");
+        assertColumnType(connection, "offline_package_manifest", "incident_id", "uuid");
+        assertColumnType(connection, "offline_package_manifest", "operational_period_id", "uuid");
+        assertColumnType(connection, "offline_package_manifest", "overall_search_area_id", "uuid");
+        assertColumnType(connection, "offline_package_installation", "id", "uuid");
+        assertColumnType(
+            connection, "offline_package_installation", "offline_package_manifest_id", "uuid");
+        assertColumnType(connection, "offline_package_installation", "police_phone_id", "uuid");
+        assertColumnType(
+            connection, "offline_package_installation", "last_reported_by_account_id", "uuid");
+        assertColumnType(connection, "event_dispatch_job", "event_id", "uuid");
+        assertColumnType(connection, "event_dispatch_job", "source_entity_id", "uuid");
+        assertColumnType(connection, "marker_notification", "recipient_account_ids", "_uuid");
+        assertColumnType(connection, "marker_notification", "recipient_police_phone_ids", "_uuid");
 
         assertGeometryColumn(connection, "search_path", "geometry", "LINESTRING", 4326);
         assertGeometryColumn(connection, "search_path_segment", "geometry", "LINESTRING", 4326);
@@ -157,9 +176,7 @@ class CoreRuntimeSchemaMigrationIntegrationTest {
       statement.setString(2, indexName);
       try (ResultSet result = statement.executeQuery()) {
         assertThat(result.next()).isTrue();
-        assertThat(result.getBoolean(1))
-            .as("index %s on %s exists", indexName, tableName)
-            .isTrue();
+        assertThat(result.getBoolean(1)).as("index %s on %s exists", indexName, tableName).isTrue();
       }
     }
   }
