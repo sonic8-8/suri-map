@@ -16,10 +16,12 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.surimap.BuildConfig
+import com.surimap.core.incident.IncidentReadRepository
 import com.surimap.core.network.SuriMapApiClient
 import com.surimap.feature.bootstrap.data.AndroidManagedConfigurationReader
 import com.surimap.feature.bootstrap.data.AuthBootstrapCoordinator
 import com.surimap.feature.bootstrap.data.AuthBootstrapServerCheck
+import com.surimap.feature.bootstrap.data.ManagedPolicePhoneConfig
 import com.surimap.feature.bootstrap.data.NetworkPolicePhoneBootstrapServerCheck
 import com.surimap.feature.bootstrap.ui.AuthBootstrapScreen
 import com.surimap.feature.bootstrap.ui.AuthBootstrapUiState
@@ -41,6 +43,7 @@ import com.surimap.feature.search.ui.SearchMapScreen
 import com.surimap.feature.search.ui.sampleSearchMapState
 import com.surimap.ui.navigation.BlockedOutboxRouteScreen
 import com.surimap.ui.navigation.IncidentSessionState
+import com.surimap.ui.navigation.PolicePhoneContext
 import com.surimap.ui.navigation.PolicePhoneRoute
 import com.surimap.ui.theme.PoliBgBase
 
@@ -77,7 +80,10 @@ fun SuriMapApp() {
                 modifier = Modifier.fillMaxSize()
             ) {
                 composable(PolicePhoneRoute.AuthBootstrap.route) {
-                    AuthBootstrapRoute(navController = navController)
+                    AuthBootstrapRoute(
+                        incidentSessionState = incidentSessionState,
+                        navController = navController
+                    )
                 }
                 composable(PolicePhoneRoute.IncidentList.route) {
                     IncidentListRoute(
@@ -196,7 +202,10 @@ fun SuriMapApp() {
 }
 
 @Composable
-private fun AuthBootstrapRoute(navController: NavHostController) {
+private fun AuthBootstrapRoute(
+    incidentSessionState: IncidentSessionState,
+    navController: NavHostController
+) {
     val context = LocalContext.current.applicationContext
     val managedConfigurationReader = remember(context) {
         AndroidManagedConfigurationReader(context = context)
@@ -223,6 +232,7 @@ private fun AuthBootstrapRoute(navController: NavHostController) {
         val outcome = bootstrapCoordinator.check(config)
         state = AuthBootstrapUiState.fromOutcome(outcome = outcome, apiBaseUrl = config.apiBaseUrl)
         if (state.shouldEnterIncidentList) {
+            incidentSessionState.activatePolicePhoneContext(config.toPolicePhoneContext())
             navController.navigate(PolicePhoneRoute.IncidentList.route) {
                 popUpTo(PolicePhoneRoute.AuthBootstrap.route) {
                     inclusive = true
@@ -245,18 +255,27 @@ private fun IncidentListRoute(
     incidentClosed: IncidentClosedOverlayState?,
     onClearClosedOverlay: () -> Unit
 ) {
-    val loader = remember {
+    val policePhoneContext = incidentSessionState.policePhoneContext
+    val policePhoneLabel = policePhoneContext?.policePhoneId ?: "관리 폴리폰"
+    val loader = remember(policePhoneContext?.apiBaseUrl, policePhoneLabel) {
         IncidentListStateLoader(
-            policePhoneLabel = "관리 폴리폰"
+            repository =
+            IncidentReadRepository(
+                apiClient =
+                SuriMapApiClient(
+                    baseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
+                )
+            ),
+            policePhoneLabel = policePhoneLabel
         )
     }
     var refreshNonce by remember { mutableStateOf(0) }
     var state by remember {
-        mutableStateOf(IncidentListUiState.loading(policePhoneLabel = "관리 폴리폰"))
+        mutableStateOf(IncidentListUiState.loading(policePhoneLabel = policePhoneLabel))
     }
 
-    LaunchedEffect(refreshNonce, incidentClosed) {
-        state = IncidentListUiState.loading(policePhoneLabel = "관리 폴리폰")
+    LaunchedEffect(refreshNonce, incidentClosed, loader, policePhoneLabel) {
+        state = IncidentListUiState.loading(policePhoneLabel = policePhoneLabel)
         state = loader.load().copy(showClosedDialog = incidentClosed != null)
         if (state.shouldClearIncidentContext || incidentClosed != null) {
             incidentSessionState.clearIncidentContext()
@@ -274,6 +293,16 @@ private fun IncidentListRoute(
             onClearClosedOverlay()
             incidentSessionState.clearIncidentContext()
         }
+    )
+}
+
+private fun ManagedPolicePhoneConfig.toPolicePhoneContext(): PolicePhoneContext {
+    return PolicePhoneContext(
+        policePhoneId = requireNotNull(policePhoneId),
+        apiBaseUrl = apiBaseUrl,
+        tileBaseUrl = tileBaseUrl,
+        objectStorageBaseUrl = objectStorageBaseUrl,
+        allowedHosts = allowedHosts
     )
 }
 
