@@ -36,10 +36,27 @@ data class IncidentContext(
     val currentDutyShiftId: String? = null
 )
 
+data class PolicePhoneContext(
+    val policePhoneId: String,
+    val apiBaseUrl: String,
+    val tileBaseUrl: String,
+    val objectStorageBaseUrl: String,
+    val allowedHosts: Set<String> = emptySet()
+)
+
 @Stable
-class IncidentSessionState(initialIncidentContext: IncidentContext? = null) {
+class IncidentSessionState(
+    initialIncidentContext: IncidentContext? = null,
+    initialPolicePhoneContext: PolicePhoneContext? = null
+) {
     var incidentContext by mutableStateOf(initialIncidentContext)
         private set
+    var policePhoneContext by mutableStateOf(initialPolicePhoneContext)
+        private set
+
+    fun activatePolicePhoneContext(context: PolicePhoneContext) {
+        policePhoneContext = context
+    }
 
     fun activateIncidentContext(context: IncidentContext) {
         incidentContext = context
