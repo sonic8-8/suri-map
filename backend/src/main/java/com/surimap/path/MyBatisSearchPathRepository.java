@@ -66,6 +66,7 @@ public class MyBatisSearchPathRepository implements SearchPathRepository {
     }
 
     List<SearchPathSegment> persistedSegments = persistSegments(aggregate, now);
+    persistExcludedPoints(aggregate, now);
     return new SearchPathAggregate(
         aggregate.id(),
         aggregate.incidentId(),
@@ -126,6 +127,7 @@ public class MyBatisSearchPathRepository implements SearchPathRepository {
     List<SearchPathPoint> points = pointsFrom(record.geometry(), record.startedAt());
     List<SearchPathSegmentReadRecord> segmentRecords = mapper.findSegmentsByPathId(record.id());
     List<SearchPathSegment> segments = segmentsFrom(segmentRecords, points);
+    List<PathExcludedPoint> excludedPoints = excludedPointsFrom(record.id());
     return new SearchPathAggregate(
         record.id(),
         record.incidentId(),
@@ -134,8 +136,32 @@ public class MyBatisSearchPathRepository implements SearchPathRepository {
         SearchPathStatus.valueOf(record.status()),
         record.version(),
         points,
-        List.of(),
+        excludedPoints,
         segments);
+  }
+
+  private void persistExcludedPoints(SearchPathAggregate aggregate, Instant now) {
+    mapper.deleteExcludedPoints(aggregate.id());
+    for (PathExcludedPoint point : aggregate.excludedPoints()) {
+      mapper.insertExcludedPoint(
+          new SearchPathExcludedPointPersistenceRecord(
+              excludedPointId(aggregate.id(), point),
+              aggregate.id(),
+              point.pointId(),
+              point.reason(),
+              instant(point.clientTs()),
+              now,
+              now));
+    }
+  }
+
+  private List<PathExcludedPoint> excludedPointsFrom(UUID pathId) {
+    return mapper.findExcludedPointsByPathId(pathId).stream()
+        .map(
+            record ->
+                new PathExcludedPoint(
+                    record.pointId(), record.reason(), offsetDateTime(record.clientTs())))
+        .toList();
   }
 
   private List<SearchPathSegment> segmentsFrom(
@@ -268,6 +294,13 @@ public class MyBatisSearchPathRepository implements SearchPathRepository {
           "search-path-segment:%s:%d:%d".formatted(pathId, segment.startIndex(), segment.endIndex());
       return UUID.nameUUIDFromBytes(seed.getBytes(StandardCharsets.UTF_8));
     }
+  }
+
+  private UUID excludedPointId(UUID pathId, PathExcludedPoint point) {
+    String seed =
+        "search-path-excluded-point:%s:%s:%s"
+            .formatted(pathId, point.pointId(), point.clientTs());
+    return UUID.nameUUIDFromBytes(seed.getBytes(StandardCharsets.UTF_8));
   }
 
   private static Instant instant(OffsetDateTime value) {

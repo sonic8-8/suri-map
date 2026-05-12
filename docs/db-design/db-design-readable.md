@@ -27,7 +27,8 @@
 │     │  ├─ search_area_assignment    [search_area-account 중간 테이블]
 │     │  └─ search_area_history       [search_area 변경 이력]
 │     ├─ search_path                  [duty_shift 하위 수색 경로]
-│     │  └─ search_path_segment       [search_path 하위 경로 구간]
+│     │  ├─ search_path_segment       [search_path 하위 경로 구간]
+│     │  └─ search_path_excluded_point [품질 저하로 경로 도형에서 제외된 GPS point]
 │     ├─ marker                       [OP 하위 현장 마커]
 │     │  └─ photo                     [marker 하위 첨부 사진]
 │     ├─ handover_memo                [OP/근무/경로/구역/마커에 붙는 메모]
@@ -389,6 +390,7 @@ Android Room 로컬 엔티티
 - 하나의 `duty_shift`는 여러 개의 `search_path`를 가진다. (1:N)
 - 하나의 `search_path`는 하나의 `duty_shift`에 속한다. (N:1)
 - 하나의 `search_path`는 여러 개의 `search_path_segment`를 가진다. (1:N)
+- 하나의 `search_path`는 여러 개의 `search_path_excluded_point`를 가진다. (1:N)
 
 **주요 컬럼**
 
@@ -438,6 +440,32 @@ Android Room 로컬 엔티티
 **설명**
 
 `search_path_segment`는 수색 경로를 차량, 도보, 알 수 없음 구간으로 나눈 결과다. 폴리폰 종류가 아니라 실제 이동 패턴을 기준으로 분리한다.
+
+#### search_path_excluded_point
+
+**PRD 근거**
+
+- PRD §7.7 FR-33 `GPS 속도 기반 차량/도보 자동 분리`
+- S3-1 품질 정책 `low-quality point는 경로 도형과 segment geometry에서 제외하고 excludedPoints로 노출`
+
+**연관 관계**
+
+- 하나의 `search_path`는 여러 개의 `search_path_excluded_point`를 가진다. (1:N)
+- 하나의 `search_path_excluded_point`는 하나의 `search_path`에 속한다. (N:1)
+
+**주요 컬럼**
+
+- `id`: 제외 point evidence 식별자. 내부 참조와 FK는 UUID를 사용한다.
+- `search_path_id`: 제외 point가 속한 수색 경로
+- `point_id`: 앱 batch 요청의 point 식별자. 사람이 입력하는 값은 아니지만 DB 내부 PK/FK가 아니므로 문자열로 저장한다.
+- `reason`: 제외 사유. API 응답에서 사용하는 `low_accuracy`, `clock_skew`, `invalid_speed`, `distance_jump` 값이다.
+- `client_ts`: 앱이 수집한 point 시각
+- `created_at`: 생성 시각
+- `updated_at`: 수정 시각
+
+**설명**
+
+`search_path_excluded_point`는 품질 저하로 서버 canonical LineString과 `search_path_segment.geometry`에 들어가지 않은 GPS point evidence다. 지도에서 수색 완료 경로로 그리지는 않지만, 앱·상황판·인수인계가 저품질/제외 상태를 표시할 수 있게 `PathQuery`의 `excludedPoints` source가 된다.
 
 ### 마커와 사진
 
