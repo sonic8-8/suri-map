@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<restrictions xmlns:android="http://schemas.android.com/apk/res/android">
+    <restriction
+        android:key="police_phone_id"
+        android:title="@string/restriction_police_phone_id_title"
+        android:description="@string/restriction_police_phone_id_description"
+        android:restrictionType="string" />
+
+    <restriction
+        android:key="api_base_url"
+        android:title="@string/restriction_api_base_url_title"
+        android:description="@string/restriction_api_base_url_description"
+        android:restrictionType="string" />
+
+    <restriction
+        android:key="tile_base_url"
+        android:title="@string/restriction_tile_base_url_title"
+        android:description="@string/restriction_tile_base_url_description"
+        android:restrictionType="string" />
+
+    <restriction
+        android:key="object_storage_base_url"
+        android:title="@string/restriction_object_storage_base_url_title"
+        android:description="@string/restriction_object_storage_base_url_description"
+        android:restrictionType="string" />
+
+    <restriction
+        android:key="allowed_hosts"
+        android:title="@string/restriction_allowed_hosts_title"
+        android:description="@string/restriction_allowed_hosts_description"
+        android:restrictionType="string" />
+</restrictions>
