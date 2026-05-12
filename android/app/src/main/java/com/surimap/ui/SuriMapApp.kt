@@ -16,10 +16,12 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.surimap.BuildConfig
+import com.surimap.core.database.OfflinePackageInstallationEntity
 import com.surimap.core.database.SuriMapDatabaseProvider
 import com.surimap.core.incident.IncidentReadRepository
 import com.surimap.core.map.MapLibreRuntimeMapState
 import com.surimap.core.network.SuriMapApiClient
+import com.surimap.core.offline.OfflinePackageInstallationStatus
 import com.surimap.core.offline.OfflinePackageManifestQuery
 import com.surimap.core.offline.OfflinePackageRepository
 import com.surimap.core.path.SearchPathRepository
@@ -298,11 +300,16 @@ private fun OfflinePackageRoute(
 ) {
     val incidentContext = incidentSessionState.incidentContext
     val policePhoneContext = incidentSessionState.policePhoneContext
+    val context = LocalContext.current.applicationContext
+    val offlinePackageInstallationDao = remember(context) {
+        SuriMapDatabaseProvider.database(context).offlinePackageInstallationDao()
+    }
     val loader =
         remember(
             incidentContext?.incidentId,
             policePhoneContext?.policePhoneId,
-            policePhoneContext?.apiBaseUrl
+            policePhoneContext?.apiBaseUrl,
+            offlinePackageInstallationDao
         ) {
             if (incidentContext == null || policePhoneContext == null) {
                 null
@@ -313,7 +320,13 @@ private fun OfflinePackageRoute(
                         apiClient = SuriMapApiClient(baseUrl = policePhoneContext.apiBaseUrl)
                     ),
                     incidentId = incidentContext.incidentId,
-                    policePhoneId = policePhoneContext.policePhoneId
+                    policePhoneId = policePhoneContext.policePhoneId,
+                    localInstallationStatus = {
+                        offlinePackageInstallationDao.find(
+                            incidentId = incidentContext.incidentId,
+                            policePhoneId = policePhoneContext.policePhoneId
+                        )?.toOfflinePackageInstallationStatus()
+                    }
                 )
             }
         }
@@ -442,6 +455,20 @@ private fun ManagedPolicePhoneConfig.toPolicePhoneContext(): PolicePhoneContext 
         allowedHosts = allowedHosts
     )
 }
+
+private fun OfflinePackageInstallationEntity.toOfflinePackageInstallationStatus(): OfflinePackageInstallationStatus =
+    OfflinePackageInstallationStatus(
+        incidentId = incidentId,
+        policePhoneId = policePhoneId,
+        manifestId = manifestId,
+        manifestVersion = manifestVersion,
+        status = status,
+        totalItems = totalItems,
+        completedItems = completedItems,
+        failedItems = failedItems,
+        version = version,
+        readyForOfflineUse = readyForOfflineUse
+    )
 
 private fun IncidentContext?.toSearchMapSessionContext(policePhoneContext: PolicePhoneContext?): SearchMapSessionContext =
     SearchMapSessionContext(
