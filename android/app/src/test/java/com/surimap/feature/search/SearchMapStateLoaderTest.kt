@@ -1,9 +1,11 @@
 package com.surimap.feature.search
 
+import com.surimap.core.database.OutboxStatusSummary
 import com.surimap.core.network.SuriMapApiResponse
 import com.surimap.feature.search.data.SearchMapSessionContext
 import com.surimap.feature.search.data.SearchMapStateLoader
 import com.surimap.feature.search.ui.SearchLifecycleStatus
+import com.surimap.feature.search.ui.SearchMapSyncStatus
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -103,6 +105,41 @@ class SearchMapStateLoaderTest {
     }
 
     @Test
+    fun outboxSummaryMapsPendingQueueAndBlockedFinalFailures() = runBlocking {
+        val loader =
+            SearchMapStateLoader(
+                incidentDetail = { SuriMapApiResponse(statusCode = 404, body = null, errorCode = null) },
+                outboxSummary = { incidentId, policePhoneId ->
+                    assertEquals("inc-precinct-first-001", incidentId)
+                    assertEquals("phone-precinct-001", policePhoneId)
+                    OutboxStatusSummary(
+                        pendingCount = 2,
+                        retryableCount = 1,
+                        finalFailedCount = 1,
+                        oldestPendingClientRequestedAt = 1_000L
+                    )
+                },
+                nowMs = { 181_000L }
+            )
+
+        val state =
+            loader.load(
+                SearchMapSessionContext(
+                    incidentId = "inc-precinct-first-001",
+                    currentOpId = "op-precinct-first-001",
+                    currentDutyShiftId = "shift-precinct-day-001",
+                    policePhoneId = "phone-precinct-001"
+                )
+            )
+
+        assertEquals(SearchMapSyncStatus.Offline, state.syncStatus)
+        assertEquals(3, state.unsentCount)
+        assertEquals(3, state.oldestPendingMinutes)
+        assertEquals(1, state.blockedOutboxCount)
+        assertTrue(state.visibleText().any { it.contains("미전송 1건 처리 불가") })
+    }
+
+    @Test
     fun missingCurrentOpBlocksPathAndMarkerWrites() = runBlocking {
         val state =
             SearchMapStateLoader().load(
@@ -130,5 +167,6 @@ class SearchMapStateLoaderTest {
         assertTrue(source.contains("toMapLibreRuntimeMapState"))
         assertTrue(source.contains("tileBaseUrl"))
         assertTrue(source.contains("policePhoneId"))
+        assertTrue(source.contains("statusSummary"))
     }
 }

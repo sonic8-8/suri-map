@@ -16,6 +16,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.surimap.BuildConfig
+import com.surimap.core.database.SuriMapDatabaseProvider
 import com.surimap.core.incident.IncidentReadRepository
 import com.surimap.core.map.MapLibreRuntimeMapState
 import com.surimap.core.network.SuriMapApiClient
@@ -172,9 +173,11 @@ private fun SearchMapRoute(
 ) {
     val incidentContext = incidentSessionState.incidentContext
     val policePhoneContext = incidentSessionState.policePhoneContext
-    val sessionContext = incidentContext.toSearchMapSessionContext()
+    val context = LocalContext.current.applicationContext
+    val outboxDao = remember(context) { SuriMapDatabaseProvider.database(context).outboxDao() }
+    val sessionContext = incidentContext.toSearchMapSessionContext(policePhoneContext)
     val loader =
-        remember(policePhoneContext?.apiBaseUrl) {
+        remember(policePhoneContext?.apiBaseUrl, outboxDao) {
             SearchMapStateLoader(
                 incidentDetail = { incidentId ->
                     IncidentReadRepository(
@@ -183,11 +186,14 @@ private fun SearchMapRoute(
                             baseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
                         )
                     ).detail(incidentId)
+                },
+                outboxSummary = { incidentId, policePhoneId ->
+                    outboxDao.statusSummary(incidentId = incidentId, policePhoneId = policePhoneId)
                 }
             )
         }
     var searchMapState by remember {
-        mutableStateOf(loader.fallback(sessionContext))
+        mutableStateOf(SearchMapStateLoader().fallbackForRemember(sessionContext))
     }
     var markerSheetOpen by remember { mutableStateOf(false) }
     var markerSheetState by remember { mutableStateOf(sampleMarkerCreateSheetState()) }
@@ -397,11 +403,12 @@ private fun ManagedPolicePhoneConfig.toPolicePhoneContext(): PolicePhoneContext 
     )
 }
 
-private fun IncidentContext?.toSearchMapSessionContext(): SearchMapSessionContext =
+private fun IncidentContext?.toSearchMapSessionContext(policePhoneContext: PolicePhoneContext?): SearchMapSessionContext =
     SearchMapSessionContext(
         incidentId = this?.incidentId,
         currentOpId = this?.currentOpId,
-        currentDutyShiftId = this?.currentDutyShiftId
+        currentDutyShiftId = this?.currentDutyShiftId,
+        policePhoneId = policePhoneContext?.policePhoneId
     )
 
 private fun PolicePhoneContext?.toMapLibreRuntimeMapState(): MapLibreRuntimeMapState =
