@@ -46,7 +46,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @Tag("integration")
 class Sc01IncidentStartIntegrationTest extends PostGisIntegrationTestSupport {
 
-  private static final String SOURCE_INCIDENT_ID = "mock-112-incident-001";
+  private static final String SOURCE_INCIDENT_ID = "00000000-0000-0000-0000-000000000001";
   private static final UUID INCIDENT_ID = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001");
   private static final UUID OP1_ID = UUID.fromString("88888888-8888-8888-8888-888888880001");
   private static final UUID MARKER_ID = UUID.fromString("55555555-5555-5555-5555-555555550001");

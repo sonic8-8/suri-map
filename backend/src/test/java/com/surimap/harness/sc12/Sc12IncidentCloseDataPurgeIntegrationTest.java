@@ -68,7 +68,7 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private static final UUID INCIDENT_ID = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001");
-  private static final String SOURCE_INCIDENT_ID = "inc-precinct-first-001";
+  private static final String SOURCE_INCIDENT_ID = "00000000-0000-0000-0000-000000000001";
   private static final String OP1_ID = "op-precinct-001-op1";
   private static final String COMMANDER_ACCOUNT_ID = "11111111-1111-1111-1111-111111110004";
   private static final String TERMINAL_BOARD_ROW_ID =
@@ -256,7 +256,7 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
           id, source_incident_id, title, status, opened_at, closed_at, closed_by_account_id,
           version, created_at, updated_at
         )
-        VALUES (?, ?, '종로구 인왕산 실종 신고', 'OPEN', ?, NULL, NULL, 1, ?, ?)
+        VALUES (?, ?::uuid, '종로구 인왕산 실종 신고', 'OPEN', ?, NULL, NULL, 1, ?, ?)
         """,
         INCIDENT_ID,
         SOURCE_INCIDENT_ID,

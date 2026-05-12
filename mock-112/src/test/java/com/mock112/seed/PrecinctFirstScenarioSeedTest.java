@@ -23,7 +23,8 @@ import org.springframework.core.io.ClassPathResource;
 @DisplayName("L1-B01 mock 112 precinct-first seed contract")
 class PrecinctFirstScenarioSeedTest {
 
-    private static final String EXPECTED_SOURCE_INCIDENT_ID = "mock-112-incident-001";
+    private static final String EXPECTED_SOURCE_INCIDENT_ID =
+            "00000000-0000-0000-0000-000000000001";
     private static final String EXPECTED_MARKER_SOURCE = "MOCK_SEED";
     private static final String SEED_RESOURCE_PATH = "seed/precinct-first-scenario.json";
 
