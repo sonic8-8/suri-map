@@ -17,6 +17,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.surimap.BuildConfig
 import com.surimap.core.incident.IncidentReadRepository
+import com.surimap.core.map.MapLibreRuntimeMapState
 import com.surimap.core.network.SuriMapApiClient
 import com.surimap.core.offline.OfflinePackageRepository
 import com.surimap.feature.bootstrap.data.AndroidManagedConfigurationReader
@@ -41,9 +42,11 @@ import com.surimap.feature.marker.ui.sampleMarkerCreateSheetState
 import com.surimap.feature.offline.data.OfflinePackageStateLoader
 import com.surimap.feature.offline.ui.OfflinePackageScreen
 import com.surimap.feature.offline.ui.OfflinePackageUiState
+import com.surimap.feature.search.data.SearchMapSessionContext
+import com.surimap.feature.search.data.SearchMapStateLoader
 import com.surimap.feature.search.ui.SearchMapScreen
-import com.surimap.feature.search.ui.sampleSearchMapState
 import com.surimap.ui.navigation.BlockedOutboxRouteScreen
+import com.surimap.ui.navigation.IncidentContext
 import com.surimap.ui.navigation.IncidentSessionState
 import com.surimap.ui.navigation.PolicePhoneContext
 import com.surimap.ui.navigation.PolicePhoneRoute
@@ -102,11 +105,22 @@ fun SuriMapApp() {
                     )
                 }
                 composable(PolicePhoneRoute.SearchMap.route) {
+                    val incidentContext = incidentSessionState.incidentContext
+                    val policePhoneContext = incidentSessionState.policePhoneContext
+                    val searchMapState =
+                        remember(
+                            incidentContext?.incidentId,
+                            incidentContext?.currentOpId,
+                            incidentContext?.currentDutyShiftId
+                        ) {
+                            SearchMapStateLoader().load(incidentContext.toSearchMapSessionContext())
+                        }
                     var markerSheetOpen by remember { mutableStateOf(false) }
                     var markerSheetState by remember { mutableStateOf(sampleMarkerCreateSheetState()) }
                     Box(modifier = Modifier.fillMaxSize()) {
                         SearchMapScreen(
-                            state = sampleSearchMapState(),
+                            state = searchMapState,
+                            mapState = policePhoneContext.toMapLibreRuntimeMapState(),
                             onBack = { navController.popBackStack() },
                             onPrimaryLifecycleAction = {},
                             onStopSearch = {},
@@ -352,6 +366,19 @@ private fun ManagedPolicePhoneConfig.toPolicePhoneContext(): PolicePhoneContext 
         allowedHosts = allowedHosts
     )
 }
+
+private fun IncidentContext?.toSearchMapSessionContext(): SearchMapSessionContext =
+    SearchMapSessionContext(
+        incidentId = this?.incidentId,
+        currentOpId = this?.currentOpId,
+        currentDutyShiftId = this?.currentDutyShiftId
+    )
+
+private fun PolicePhoneContext?.toMapLibreRuntimeMapState(): MapLibreRuntimeMapState =
+    MapLibreRuntimeMapState(
+        apiBaseUrl = this?.tileBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL,
+        policePhoneId = this?.policePhoneId
+    )
 
 private fun NavHostController.navigateToSingleTop(route: PolicePhoneRoute) {
     navigate(route.route) {
