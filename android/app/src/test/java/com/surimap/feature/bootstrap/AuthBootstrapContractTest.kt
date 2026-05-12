@@ -4,15 +4,18 @@ import com.surimap.core.network.AccessTokenProvider
 import com.surimap.core.network.SuriMapApiClient
 import com.surimap.feature.bootstrap.data.AuthBootstrapCoordinator
 import com.surimap.feature.bootstrap.data.AuthBootstrapServerCheck
+import com.surimap.feature.bootstrap.data.AndroidManagedConfigurationReader
 import com.surimap.feature.bootstrap.data.ManagedPolicePhoneConfig
 import com.surimap.feature.bootstrap.data.NetworkPolicePhoneBootstrapServerCheck
 import com.surimap.feature.bootstrap.ui.AuthBootstrapFailureReason
 import com.surimap.feature.bootstrap.ui.AuthBootstrapOutcome
 import com.surimap.feature.bootstrap.ui.AuthBootstrapUiState
+import java.io.File
 import java.io.IOException
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
+import javax.xml.parsers.DocumentBuilderFactory
 import kotlinx.coroutines.runBlocking
 import okhttp3.Call
 import okhttp3.Callback
@@ -29,6 +32,69 @@ import org.junit.Test
 import kotlin.reflect.KClass
 
 class AuthBootstrapContractTest {
+
+    @Test
+    fun managedConfigurationSchemaIsDeclaredForStandardMdmInjection() {
+        val schemaFile = File("src/main/res/xml/app_restrictions.xml")
+        val document = schemaFile.requireXml()
+        val restrictions = document.getElementsByTagName("restriction")
+        val keys = (0 until restrictions.length)
+            .map { index -> restrictions.item(index).attributes.getNamedItem("android:key").nodeValue }
+            .toSet()
+
+        assertEquals(
+            setOf(
+                AndroidManagedConfigurationReader.KEY_POLICE_PHONE_ID,
+                AndroidManagedConfigurationReader.KEY_API_BASE_URL,
+                AndroidManagedConfigurationReader.KEY_TILE_BASE_URL,
+                AndroidManagedConfigurationReader.KEY_OBJECT_STORAGE_BASE_URL,
+                AndroidManagedConfigurationReader.KEY_ALLOWED_HOSTS
+            ),
+            keys
+        )
+        assertEquals(
+            listOf("string", "string", "string", "string", "string"),
+            (0 until restrictions.length).map { index ->
+                restrictions.item(index).attributes.getNamedItem("android:restrictionType").nodeValue
+            }
+        )
+    }
+
+    @Test
+    fun manifestLinksManagedConfigurationSchemaWithoutKnoxSpecificMetadata() {
+        val document = File("src/main/AndroidManifest.xml").requireXml()
+        val metadata = document.getElementsByTagName("meta-data")
+        val managedConfigNodes = (0 until metadata.length)
+            .map { index -> metadata.item(index).attributes }
+            .filter { attributes ->
+                attributes.getNamedItem("android:name")?.nodeValue == "android.content.APP_RESTRICTIONS"
+            }
+
+        assertEquals(1, managedConfigNodes.size)
+        assertEquals("@xml/app_restrictions", managedConfigNodes.single().getNamedItem("android:resource").nodeValue)
+        assertFalse((0 until metadata.length).any { index ->
+            metadata.item(index).attributes
+                .getNamedItem("android:name")
+                ?.nodeValue
+                ?.contains("knox", ignoreCase = true) == true
+        })
+    }
+
+    @Test
+    fun managedPolicePhoneConfigCarriesFutureTileAndStorageSettingsWithoutVendorCoupling() {
+        val config =
+            ManagedPolicePhoneConfig(
+                policePhoneId = "police-phone-precinct-car-01",
+                apiBaseUrl = "https://suri-map.internal/api",
+                tileBaseUrl = "https://suri-map.internal/tiles",
+                objectStorageBaseUrl = "https://suri-map.internal/objects",
+                allowedHosts = setOf("suri-map.internal", "objects.suri-map.internal")
+            )
+
+        assertEquals("https://suri-map.internal/tiles", config.tileBaseUrl)
+        assertEquals("https://suri-map.internal/objects", config.objectStorageBaseUrl)
+        assertEquals(setOf("suri-map.internal", "objects.suri-map.internal"), config.allowedHosts)
+    }
 
     @Test
     fun failureVariantsBlockIncidentNavigationAndUseFieldFacingCopy() {
@@ -280,3 +346,10 @@ private fun readRequestBody(request: Request): String {
     request.body!!.writeTo(buffer)
     return buffer.readUtf8()
 }
+
+private fun File.requireXml() =
+    DocumentBuilderFactory
+        .newInstance()
+        .apply { isNamespaceAware = false }
+        .newDocumentBuilder()
+        .parse(this)
