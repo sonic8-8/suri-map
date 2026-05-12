@@ -307,16 +307,17 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
     jdbcTemplate.execute(
         """
         CREATE TABLE IF NOT EXISTS police_phone (
-          id VARCHAR(64) PRIMARY KEY,
-          phone_code VARCHAR(64) NOT NULL UNIQUE,
-          display_name VARCHAR(128) NOT NULL,
-          account_id UUID NOT NULL,
-          status VARCHAR(32) NOT NULL,
+          id UUID PRIMARY KEY,
+          phone_code VARCHAR(80) NOT NULL UNIQUE,
+          display_name VARCHAR(120) NOT NULL,
+          account_id UUID,
+          status VARCHAR(24) NOT NULL,
+          registered BOOLEAN NOT NULL DEFAULT FALSE,
           last_heartbeat_at TIMESTAMP WITH TIME ZONE,
           last_sync_at TIMESTAMP WITH TIME ZONE,
+          version BIGINT NOT NULL DEFAULT 1,
           created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          CONSTRAINT fk_police_phone_account FOREIGN KEY (account_id) REFERENCES account(id)
+          updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
         """);
     jdbcTemplate.update(
@@ -345,24 +346,24 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
         """);
     jdbcTemplate.update(
         """
-        INSERT INTO police_phone (id, phone_code, display_name, account_id, status)
+        INSERT INTO police_phone (id, phone_code, display_name, account_id, status, registered)
         VALUES
-          ('dev-precinct-cmd-phone-01', 'dev-precinct-cmd-phone-01',
-            '종로 지구대 지휘 폴리폰', '11111111-1111-1111-1111-111111110001', 'ACTIVE'),
-          ('dev-precinct-car-01', 'dev-precinct-car-01',
-            '종로 지구대 순찰차 폴리폰', '11111111-1111-1111-1111-111111110002', 'ACTIVE'),
-          ('dev-precinct-phone-01', 'dev-precinct-phone-01',
-            '종로 지구대 팀 폴리폰', '11111111-1111-1111-1111-111111110003', 'ACTIVE'),
-          ('dev-alpha-cmd-phone-01', 'dev-alpha-cmd-phone-01',
-            '실종팀 알파 지휘 폴리폰', '11111111-1111-1111-1111-111111110004', 'ACTIVE'),
-          ('dev-alpha-phone-01', 'dev-alpha-phone-01',
-            '실종팀 알파 폴리폰', '11111111-1111-1111-1111-111111110005', 'ACTIVE'),
-          ('dev-support-cmd-phone-01', 'dev-support-cmd-phone-01',
-            '지원 브라보 지휘 폴리폰', '11111111-1111-1111-1111-111111110006', 'ACTIVE'),
-          ('dev-support-car-01', 'dev-support-car-01',
-            '지원 브라보 순찰차 폴리폰', '11111111-1111-1111-1111-111111110007', 'ACTIVE'),
-          ('dev-support-phone-01', 'dev-support-phone-01',
-            '지원 브라보 팀 폴리폰', '11111111-1111-1111-1111-111111110008', 'ACTIVE')
+          ('22222222-2222-2222-2222-222222220001', 'dev-precinct-cmd-phone-01',
+            '종로 지구대 지휘 폴리폰', '11111111-1111-1111-1111-111111110001', 'ACTIVE', TRUE),
+          ('22222222-2222-2222-2222-222222220002', 'dev-precinct-car-01',
+            '종로 지구대 순찰차 폴리폰', '11111111-1111-1111-1111-111111110002', 'ACTIVE', TRUE),
+          ('22222222-2222-2222-2222-222222220003', 'dev-precinct-phone-01',
+            '종로 지구대 팀 폴리폰', '11111111-1111-1111-1111-111111110003', 'ACTIVE', TRUE),
+          ('22222222-2222-2222-2222-222222220004', 'dev-alpha-cmd-phone-01',
+            '실종팀 알파 지휘 폴리폰', '11111111-1111-1111-1111-111111110004', 'ACTIVE', TRUE),
+          ('22222222-2222-2222-2222-222222220005', 'dev-alpha-phone-01',
+            '실종팀 알파 폴리폰', '11111111-1111-1111-1111-111111110005', 'ACTIVE', TRUE),
+          ('22222222-2222-2222-2222-222222220006', 'dev-support-cmd-phone-01',
+            '지원 브라보 지휘 폴리폰', '11111111-1111-1111-1111-111111110006', 'ACTIVE', TRUE),
+          ('22222222-2222-2222-2222-222222220007', 'dev-support-car-01',
+            '지원 브라보 순찰차 폴리폰', '11111111-1111-1111-1111-111111110007', 'ACTIVE', TRUE),
+          ('22222222-2222-2222-2222-222222220008', 'dev-support-phone-01',
+            '지원 브라보 팀 폴리폰', '11111111-1111-1111-1111-111111110008', 'ACTIVE', TRUE)
         ON CONFLICT (id) DO NOTHING
         """);
   }
