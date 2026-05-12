@@ -1,6 +1,7 @@
 package com.surimap.feature.offline.data
 
 import com.surimap.core.network.SuriMapNetworkException
+import com.surimap.core.offline.OfflinePackageInstallationStatus
 import com.surimap.core.offline.OfflinePackageManifestQuery
 import com.surimap.core.offline.OfflinePackageRepository
 import com.surimap.feature.offline.ui.OfflinePackageItemUiState
@@ -13,23 +14,26 @@ class OfflinePackageStateLoader(
     private val repository: OfflinePackageRepository = OfflinePackageRepository(),
     private val incidentId: String,
     private val policePhoneId: String,
-    private val knownManifestRevision: Long? = null
+    private val knownManifestRevision: Long? = null,
+    private val localInstallationStatus: suspend () -> OfflinePackageInstallationStatus? = { null }
 ) {
     suspend fun load(): OfflinePackageUiState {
         if (incidentId.isBlank() || policePhoneId.isBlank()) {
             return OfflinePackageUiState.permissionDenied()
         }
         return try {
+            val localStatus = localInstallationStatus()
+            val knownRevision = localStatus?.manifestVersion?.toLong() ?: knownManifestRevision
             val response =
                 repository.manifest(
                     OfflinePackageManifestQuery(
                         incidentId = incidentId,
                         policePhoneId = policePhoneId,
-                        knownManifestRevision = knownManifestRevision
+                        knownManifestRevision = knownRevision
                     )
                 )
             when {
-                response.isSuccessful -> manifestState(response.body)
+                response.isSuccessful -> manifestState(response.body, localStatus, knownRevision)
                 response.errorCode in PERMISSION_ERROR_CODES ->
                     OfflinePackageUiState.permissionDenied(incidentTitle = incidentId)
                 else -> OfflinePackageUiState.unavailable(incidentTitle = incidentId)
@@ -41,21 +45,31 @@ class OfflinePackageStateLoader(
         }
     }
 
-    private fun manifestState(body: String?): OfflinePackageUiState {
+    private fun manifestState(
+        body: String?,
+        localStatus: OfflinePackageInstallationStatus?,
+        knownRevision: Long?
+    ): OfflinePackageUiState {
         if (body.isNullOrBlank()) {
             return OfflinePackageUiState.unavailable(incidentTitle = incidentId)
         }
         val json = JSONObject(body)
-        val manifestRevision = json.optInt("manifestVersion", knownManifestRevision?.toInt() ?: 0)
+        val manifestRevision = json.optInt("manifestVersion", knownRevision?.toInt() ?: 0)
         val incidentTitle =
             json.optJSONObject("incident")
                 ?.optString("title")
                 ?.takeIf(String::isNotBlank)
                 ?: incidentId
+        if (localStatus.isReadyForManifest(manifestRevision)) {
+            return OfflinePackageUiState.ready(
+                incidentTitle = incidentTitle,
+                manifestRevision = manifestRevision
+            )
+        }
         return OfflinePackageUiState.manifestLoaded(
             incidentTitle = incidentTitle,
             manifestRevision = manifestRevision,
-            knownManifestRevision = knownManifestRevision?.toInt(),
+            knownManifestRevision = knownRevision?.toInt(),
             packageItems = packageItemStates(json.optJSONArray("packageItems") ?: JSONArray())
         )
     }
@@ -111,6 +125,16 @@ class OfflinePackageStateLoader(
             statuses.any { status -> status == "DOWNLOADED" || status == "SKIPPED" } -> "부분 완료"
             else -> "대기"
         }
+
+    private fun OfflinePackageInstallationStatus?.isReadyForManifest(manifestRevision: Int): Boolean {
+        return this != null &&
+            manifestVersion == manifestRevision &&
+            status == "READY" &&
+            readyForOfflineUse &&
+            totalItems > 0 &&
+            completedItems == totalItems &&
+            failedItems == 0
+    }
 
     private companion object {
         val PERMISSION_ERROR_CODES =

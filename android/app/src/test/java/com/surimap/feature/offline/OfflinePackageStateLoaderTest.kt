@@ -1,6 +1,7 @@
 package com.surimap.feature.offline
 
 import com.surimap.core.network.SuriMapApiClient
+import com.surimap.core.offline.OfflinePackageInstallationStatus
 import com.surimap.core.offline.OfflinePackageRepository
 import com.surimap.feature.offline.data.OfflinePackageStateLoader
 import com.surimap.feature.offline.ui.OfflinePackageDownloadStatus
@@ -142,12 +143,73 @@ class OfflinePackageStateLoaderTest {
     }
 
     @Test
+    fun readyLocalInstallationStatusSendsKnownManifestRevisionAndOpensMap() = runBlocking {
+        val callFactory =
+            CapturingCallFactory(
+                response =
+                response(
+                    200,
+                    """
+                    {
+                      "manifestId": "pkg-precinct-first-rev-18",
+                      "incidentId": "$INCIDENT_ID",
+                      "manifestVersion": 18,
+                      "incident": {"title": "광주 북구 산악 실종"},
+                      "packageItems": []
+                    }
+                    """.trimIndent()
+                )
+            )
+        val loader =
+            OfflinePackageStateLoader(
+                repository =
+                OfflinePackageRepository(
+                    apiClient =
+                    SuriMapApiClient(
+                        baseUrl = "https://suri-map.internal",
+                        callFactory = callFactory
+                    )
+                ),
+                incidentId = INCIDENT_ID,
+                policePhoneId = POLICE_PHONE_ID,
+                localInstallationStatus = {
+                    OfflinePackageInstallationStatus(
+                        incidentId = INCIDENT_ID,
+                        policePhoneId = POLICE_PHONE_ID,
+                        manifestId = "pkg-precinct-first-rev-18",
+                        manifestVersion = 18,
+                        status = "READY",
+                        totalItems = 7,
+                        completedItems = 7,
+                        failedItems = 0,
+                        version = 3,
+                        readyForOfflineUse = true
+                    )
+                }
+            )
+
+        val state = loader.load()
+        val request = callFactory.lastRequest!!
+
+        assertEquals(
+            "https://suri-map.internal/api/incidents/$INCIDENT_ID/offline-package/manifest?policePhoneId=$POLICE_PHONE_ID&knownManifestRevision=18",
+            request.url.toString()
+        )
+        assertEquals(OfflinePackageDownloadStatus.Ready, state.status)
+        assertTrue(state.readyForOfflineUse)
+        assertTrue(state.autoOpenSearchMap)
+        assertFalse(state.shouldDownloadPackage)
+    }
+
+    @Test
     fun appOfflineRouteDoesNotRenderSamplePackageStateDirectly() {
         val source = java.io.File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
 
         assertFalse(source.contains("state = sampleOfflinePackageState()"))
         assertFalse(source.contains("import com.surimap.feature.offline.ui.sampleOfflinePackageState"))
         assertTrue(source.contains("OfflinePackageStateLoader"))
+        assertTrue(source.contains("offlinePackageInstallationDao"))
+        assertTrue(source.contains("localInstallationStatus"))
     }
 
     private fun loaderFor(response: Response): OfflinePackageStateLoader {
