@@ -21,6 +21,7 @@ import com.surimap.core.incident.IncidentReadRepository
 import com.surimap.core.map.MapLibreRuntimeMapState
 import com.surimap.core.network.SuriMapApiClient
 import com.surimap.core.offline.OfflinePackageRepository
+import com.surimap.core.searcharea.SearchAreaReadRepository
 import com.surimap.feature.bootstrap.data.AndroidManagedConfigurationReader
 import com.surimap.feature.bootstrap.data.AuthBootstrapCoordinator
 import com.surimap.feature.bootstrap.data.AuthBootstrapServerCheck
@@ -186,6 +187,14 @@ private fun SearchMapRoute(
                             baseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
                         )
                     ).detail(incidentId)
+                },
+                overallSearchArea = { incidentId ->
+                    SearchAreaReadRepository(
+                        apiClient =
+                        SuriMapApiClient(
+                            baseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
+                        )
+                    ).activeOverall(incidentId)
                 },
                 outboxSummary = { incidentId, policePhoneId ->
                     outboxDao.statusSummary(incidentId = incidentId, policePhoneId = policePhoneId)

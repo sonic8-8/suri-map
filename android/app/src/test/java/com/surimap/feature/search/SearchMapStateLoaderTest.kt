@@ -5,7 +5,9 @@ import com.surimap.core.network.SuriMapApiResponse
 import com.surimap.feature.search.data.SearchMapSessionContext
 import com.surimap.feature.search.data.SearchMapStateLoader
 import com.surimap.feature.search.ui.SearchLifecycleStatus
+import com.surimap.feature.search.ui.SearchLayerKind
 import com.surimap.feature.search.ui.SearchMapSyncStatus
+import com.surimap.feature.search.ui.SearchMapViewportBounds
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -20,7 +22,7 @@ class SearchMapStateLoaderTest {
     @Test
     fun currentOpSessionMapsToActiveSearchMapWithoutSampleIncidentCopy() = runBlocking {
         val state =
-            SearchMapStateLoader().load(
+            fallbackOnlyLoader().load(
                 SearchMapSessionContext(
                     incidentId = "inc-precinct-first-001",
                     currentOpId = "op-precinct-first-001",
@@ -63,7 +65,8 @@ class SearchMapStateLoaderTest {
                         """.trimIndent(),
                         errorCode = null
                     )
-                }
+                },
+                overallSearchArea = { notFoundResponse() }
             )
 
         val state =
@@ -87,7 +90,8 @@ class SearchMapStateLoaderTest {
             SearchMapStateLoader(
                 incidentDetail = {
                     SuriMapApiResponse(statusCode = 403, body = """{"error":"team_not_assigned"}""", errorCode = "team_not_assigned")
-                }
+                },
+                overallSearchArea = { notFoundResponse() }
             )
 
         val state =
@@ -109,6 +113,7 @@ class SearchMapStateLoaderTest {
         val loader =
             SearchMapStateLoader(
                 incidentDetail = { SuriMapApiResponse(statusCode = 404, body = null, errorCode = null) },
+                overallSearchArea = { notFoundResponse() },
                 outboxSummary = { incidentId, policePhoneId ->
                     assertEquals("inc-precinct-first-001", incidentId)
                     assertEquals("phone-precinct-001", policePhoneId)
@@ -140,9 +145,100 @@ class SearchMapStateLoaderTest {
     }
 
     @Test
+    fun activeOverallSearchAreaMapsViewportAndOverallOverlay() = runBlocking {
+        val overallGeometry =
+            """
+            {
+              "type": "Polygon",
+              "coordinates": [[
+                [126.900000, 37.500000],
+                [127.080000, 37.500000],
+                [127.080000, 37.620000],
+                [126.900000, 37.620000],
+                [126.900000, 37.500000]
+              ]]
+            }
+            """.trimIndent()
+        val loader =
+            SearchMapStateLoader(
+                incidentDetail = { SuriMapApiResponse(statusCode = 404, body = null, errorCode = null) },
+                overallSearchArea = { incidentId ->
+                    assertEquals("inc-precinct-first-001", incidentId)
+                    SuriMapApiResponse(
+                        statusCode = 200,
+                        body =
+                        """
+                        {
+                          "id": "area-overall-001",
+                          "incidentId": "inc-precinct-first-001",
+                          "areaLevel": "OVERALL",
+                          "status": "ACTIVE",
+                          "version": 3,
+                          "geometry": $overallGeometry
+                        }
+                        """.trimIndent(),
+                        errorCode = null
+                    )
+                }
+            )
+
+        val state =
+            loader.load(
+                SearchMapSessionContext(
+                    incidentId = "inc-precinct-first-001",
+                    currentOpId = "op-precinct-first-001",
+                    currentDutyShiftId = "shift-precinct-day-001"
+                )
+            )
+
+        assertEquals(
+            SearchMapViewportBounds(
+                south = 37.5,
+                west = 126.9,
+                north = 37.62,
+                east = 127.08
+            ),
+            state.viewportBounds
+        )
+        assertEquals(1, state.layers.size)
+        assertEquals(SearchLayerKind.Overall, state.layers[0].kind)
+        assertTrue(state.layers[0].geoJson!!.contains("\"Polygon\""))
+        assertEquals("전체 수색 구역", state.layers[0].label)
+        assertFalse(state.layers[0].highlighted)
+    }
+
+    @Test
+    fun overallSearchAreaRequiredKeepsFallbackWithoutMapOverlay() = runBlocking {
+        val loader =
+            SearchMapStateLoader(
+                incidentDetail = { notFoundResponse() },
+                overallSearchArea = {
+                    SuriMapApiResponse(
+                        statusCode = 409,
+                        body = """{"error":"overall_search_area_required"}""",
+                        errorCode = "overall_search_area_required"
+                    )
+                }
+            )
+
+        val state =
+            loader.load(
+                SearchMapSessionContext(
+                    incidentId = "inc-precinct-first-001",
+                    currentOpId = "op-precinct-first-001",
+                    currentDutyShiftId = "shift-precinct-day-001"
+                )
+            )
+
+        assertEquals(null, state.viewportBounds)
+        assertTrue(state.layers.all { layer -> layer.geoJson == null })
+        assertTrue(state.visibleText().any { it == "담당 구역 확인 중" })
+    }
+
+    @Test
     fun missingCurrentOpBlocksPathAndMarkerWrites() = runBlocking {
         val state =
-            SearchMapStateLoader().load(
+            fallbackOnlyLoader().load(
                 SearchMapSessionContext(
                     incidentId = "inc-precinct-first-001",
                     currentOpId = null,
@@ -168,5 +264,15 @@ class SearchMapStateLoaderTest {
         assertTrue(source.contains("tileBaseUrl"))
         assertTrue(source.contains("policePhoneId"))
         assertTrue(source.contains("statusSummary"))
+        assertTrue(source.contains("activeOverall"))
     }
+
+    private fun fallbackOnlyLoader(): SearchMapStateLoader =
+        SearchMapStateLoader(
+            incidentDetail = { notFoundResponse() },
+            overallSearchArea = { notFoundResponse() }
+        )
+
+    private fun notFoundResponse(): SuriMapApiResponse =
+        SuriMapApiResponse(statusCode = 404, body = null, errorCode = null)
 }
