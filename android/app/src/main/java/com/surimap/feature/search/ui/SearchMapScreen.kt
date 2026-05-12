@@ -456,7 +456,7 @@ private fun MockMapCanvas(modifier: Modifier = Modifier) {
 @Composable
 private fun MapControlButton(text: String) {
     Surface(
-        modifier = Modifier.size(40.dp),
+        modifier = Modifier.size(PoliDimens.TouchMin),
         shape = MaterialTheme.shapes.medium,
         color = PoliBgSurface,
         contentColor = PoliFgSecondary,
