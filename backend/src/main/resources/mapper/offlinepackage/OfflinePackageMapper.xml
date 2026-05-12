@@ -59,13 +59,13 @@
     <select id="countManifest" resultType="int">
         SELECT COUNT(*)
         FROM offline_package_manifest
-        WHERE id = #{manifestId}
+        WHERE id = CAST(#{manifestId} AS UUID)
     </select>
 
     <select id="countPurgeTargetManifestsByIncident" resultType="int">
         SELECT COUNT(*)
         FROM offline_package_manifest
-        WHERE incident_id = #{incidentId}
+        WHERE incident_id = CAST(#{incidentId} AS UUID)
           AND manifest_hash &lt;&gt; #{purgedManifestHash}
     </select>
 
@@ -85,11 +85,11 @@
             updated_at
         )
         VALUES (
-            #{manifestId},
-            #{incidentId},
+            CAST(#{manifestId} AS UUID),
+            CAST(#{incidentId} AS UUID),
             #{manifestVersion},
-            'op-precinct-001-op1',
-            'osa-precinct-001',
+            CAST(#{operationalPeriodId} AS UUID),
+            CAST(#{overallSearchAreaId} AS UUID),
             1,
             '1111111111111111111111111111111111111111111111111111111111111111',
             1,
@@ -102,8 +102,8 @@
 
     <delete id="deleteInstallationForPhone">
         DELETE FROM offline_package_installation
-        WHERE offline_package_manifest_id = #{manifestId}
-          AND police_phone_id = #{policePhoneId}
+        WHERE offline_package_manifest_id = CAST(#{manifestId} AS UUID)
+          AND police_phone_id = CAST(#{policePhoneId} AS UUID)
     </delete>
 
     <insert id="insertInstallation">
@@ -124,10 +124,10 @@
             updated_at
         )
         VALUES (
-            #{record.id},
-            #{record.manifestId},
-            #{record.policePhoneId},
-            #{record.lastReportedByAccountId},
+            CAST(#{record.id} AS UUID),
+            CAST(#{record.manifestId} AS UUID),
+            CAST(#{record.policePhoneId} AS UUID),
+            CAST(#{record.lastReportedByAccountId,jdbcType=VARCHAR} AS UUID),
             #{record.status},
             #{record.totalItemCount},
             #{record.completedItemCount},
@@ -145,20 +145,20 @@
     <select id="countInstallation" resultType="int">
         SELECT COUNT(*)
         FROM offline_package_installation
-        WHERE id = #{id}
+        WHERE id = CAST(#{id} AS UUID)
     </select>
 
     <select id="countActiveInstallationsByManifest" resultType="int">
         SELECT COUNT(*)
         FROM offline_package_installation
-        WHERE offline_package_manifest_id = #{manifestId}
+        WHERE offline_package_manifest_id = CAST(#{manifestId} AS UUID)
           AND status &lt;&gt; 'PURGED'
     </select>
 
     <select id="countPurgedInstallationsByManifest" resultType="int">
         SELECT COUNT(*)
         FROM offline_package_installation
-        WHERE offline_package_manifest_id = #{manifestId}
+        WHERE offline_package_manifest_id = CAST(#{manifestId} AS UUID)
           AND status = 'PURGED'
     </select>
 
@@ -166,7 +166,7 @@
         SELECT COUNT(*)
         FROM offline_package_installation i
         JOIN offline_package_manifest m ON m.id = i.offline_package_manifest_id
-        WHERE m.incident_id = #{incidentId}
+        WHERE m.incident_id = CAST(#{incidentId} AS UUID)
           AND (
               i.status &lt;&gt; 'PURGED'
               OR i.total_item_count &lt;&gt; 0
@@ -181,7 +181,7 @@
     <select id="findStaleCandidateInstallationIds" resultType="string">
         SELECT id
         FROM offline_package_installation
-        WHERE offline_package_manifest_id = #{manifestId}
+        WHERE offline_package_manifest_id = CAST(#{manifestId} AS UUID)
           AND status IN ('READY', 'PARTIAL', 'DOWNLOADING')
         ORDER BY police_phone_id
     </select>
@@ -196,7 +196,7 @@
             manifest_hash,
             expires_at
         FROM offline_package_manifest
-        WHERE incident_id = #{incidentId}
+        WHERE incident_id = CAST(#{incidentId} AS UUID)
         ORDER BY manifest_version DESC
         LIMIT 1
     </select>
@@ -217,11 +217,11 @@
             updated_at
         )
         SELECT
-            #{newManifestId},
+            CAST(#{newManifestId} AS UUID),
             incident_id,
             #{manifestVersion},
             operational_period_id,
-            #{overallSearchAreaId},
+            CAST(#{overallSearchAreaId} AS UUID),
             #{overallSearchAreaVersion},
             #{manifestHash},
             manifest_format_version,
@@ -230,7 +230,7 @@
             #{createdAt},
             #{createdAt}
         FROM offline_package_manifest
-        WHERE id = #{sourceManifestId}
+        WHERE id = CAST(#{sourceManifestId} AS UUID)
     </insert>
 
     <update id="markReadyAndPartialInstallationsStale">
@@ -239,7 +239,7 @@
             status = 'STALE',
             version = version + 1,
             updated_at = #{updatedAt}
-        WHERE offline_package_manifest_id = #{sourceManifestId}
+        WHERE offline_package_manifest_id = CAST(#{sourceManifestId} AS UUID)
           AND status IN ('READY', 'PARTIAL', 'DOWNLOADING')
     </update>
 
@@ -264,8 +264,8 @@
             i.updated_at
         FROM offline_package_installation i
         JOIN offline_package_manifest m ON m.id = i.offline_package_manifest_id
-        WHERE i.offline_package_manifest_id = #{manifestId}
-          AND i.police_phone_id = #{policePhoneId}
+        WHERE i.offline_package_manifest_id = CAST(#{manifestId} AS UUID)
+          AND i.police_phone_id = CAST(#{policePhoneId} AS UUID)
     </select>
 
     <select id="findStatusesByManifest" resultMap="installationStatusMap">
@@ -281,7 +281,7 @@
             i.status = 'READY' AS ready_for_offline_use
         FROM offline_package_installation i
         JOIN offline_package_manifest m ON m.id = i.offline_package_manifest_id
-        WHERE i.offline_package_manifest_id = #{manifestId}
+        WHERE i.offline_package_manifest_id = CAST(#{manifestId} AS UUID)
         ORDER BY i.police_phone_id
     </select>
 
@@ -300,7 +300,7 @@
         JOIN offline_package_manifest m ON m.id = i.offline_package_manifest_id
         WHERE i.id IN
         <foreach collection="ids" item="id" open="(" separator="," close=")">
-            #{id}
+            CAST(#{id} AS UUID)
         </foreach>
         ORDER BY i.police_phone_id
     </select>
@@ -309,7 +309,7 @@
         WITH latest_manifest AS (
             SELECT incident_id, MAX(manifest_version) AS active_manifest_version
             FROM offline_package_manifest
-            WHERE incident_id = #{incidentId}
+            WHERE incident_id = CAST(#{incidentId} AS UUID)
             GROUP BY incident_id
         )
         SELECT
@@ -325,7 +325,7 @@
         FROM offline_package_installation i
         JOIN offline_package_manifest m ON m.id = i.offline_package_manifest_id
         JOIN latest_manifest ON latest_manifest.incident_id = m.incident_id
-        WHERE m.incident_id = #{incidentId}
+        WHERE m.incident_id = CAST(#{incidentId} AS UUID)
         ORDER BY
             CASE i.status
                 WHEN 'READY' THEN 1
@@ -352,7 +352,7 @@
         WHERE offline_package_manifest_id IN (
             SELECT id
             FROM offline_package_manifest
-            WHERE incident_id = #{incidentId}
+            WHERE incident_id = CAST(#{incidentId} AS UUID)
         )
           AND (
               status &lt;&gt; 'PURGED'
@@ -371,7 +371,7 @@
             manifest_hash = #{purgedManifestHash},
             manifest_payload = '{"purged":true,"reason":"package_purged","packageItems":[]}',
             updated_at = #{updatedAt}
-        WHERE incident_id = #{incidentId}
+        WHERE incident_id = CAST(#{incidentId} AS UUID)
           AND manifest_hash &lt;&gt; #{purgedManifestHash}
     </update>
 </mapper>

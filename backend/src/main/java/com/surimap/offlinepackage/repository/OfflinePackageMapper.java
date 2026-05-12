@@ -19,6 +19,8 @@ public interface OfflinePackageMapper {
       @Param("manifestId") String manifestId,
       @Param("incidentId") String incidentId,
       @Param("manifestVersion") int manifestVersion,
+      @Param("operationalPeriodId") String operationalPeriodId,
+      @Param("overallSearchAreaId") String overallSearchAreaId,
       @Param("expiresAt") OffsetDateTime expiresAt,
       @Param("createdAt") OffsetDateTime createdAt);
 
@@ -37,7 +39,8 @@ public interface OfflinePackageMapper {
 
   List<String> findStaleCandidateInstallationIds(@Param("manifestId") String manifestId);
 
-  OfflinePackageManifestRecord findCurrentManifestByIncident(@Param("incidentId") String incidentId);
+  OfflinePackageManifestRecord findCurrentManifestByIncident(
+      @Param("incidentId") String incidentId);
 
   void insertNextManifestFrom(
       @Param("sourceManifestId") String sourceManifestId,
@@ -55,7 +58,8 @@ public interface OfflinePackageMapper {
   OfflinePackageInstallationRecord findInstallationForPhone(
       @Param("manifestId") String manifestId, @Param("policePhoneId") String policePhoneId);
 
-  List<OfflinePackageInstallationStatus> findStatusesByManifest(@Param("manifestId") String manifestId);
+  List<OfflinePackageInstallationStatus> findStatusesByManifest(
+      @Param("manifestId") String manifestId);
 
   List<OfflinePackageInstallationStatus> findStatusesByIds(
       @Param("ids") List<String> ids, @Param("activeManifestVersion") int activeManifestVersion);

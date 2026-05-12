@@ -26,21 +26,21 @@
                 <when test="record.recipientAccountIds != null and record.recipientAccountIds.size > 0">
                     ARRAY[
                     <foreach collection="record.recipientAccountIds" item="accountId" separator=",">
-                        #{accountId}
+                        CAST(#{accountId} AS UUID)
                     </foreach>
-                    ]::text[]
+                    ]::uuid[]
                 </when>
-                <otherwise>ARRAY[]::text[]</otherwise>
+                <otherwise>ARRAY[]::uuid[]</otherwise>
             </choose>,
             <choose>
                 <when test="record.recipientPolicePhoneIds != null and record.recipientPolicePhoneIds.size > 0">
                     ARRAY[
                     <foreach collection="record.recipientPolicePhoneIds" item="policePhoneId" separator=",">
-                        #{policePhoneId}
+                        CAST(#{policePhoneId} AS UUID)
                     </foreach>
-                    ]::text[]
+                    ]::uuid[]
                 </when>
-                <otherwise>ARRAY[]::text[]</otherwise>
+                <otherwise>ARRAY[]::uuid[]</otherwise>
             </choose>,
             CAST(#{record.notificationPayloadJson} AS jsonb),
             #{record.status},
