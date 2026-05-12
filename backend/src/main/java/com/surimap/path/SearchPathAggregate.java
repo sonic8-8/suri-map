@@ -18,15 +18,37 @@ public class SearchPathAggregate {
   private final List<SearchPathSegment> segments;
 
   public SearchPathAggregate(UUID id, UUID incidentId, UUID opId, UUID policePhoneId) {
+    this(
+        id,
+        incidentId,
+        opId,
+        policePhoneId,
+        SearchPathStatus.RECORDING,
+        1L,
+        new ArrayList<>(),
+        new ArrayList<>(),
+        new ArrayList<>());
+  }
+
+  SearchPathAggregate(
+      UUID id,
+      UUID incidentId,
+      UUID opId,
+      UUID policePhoneId,
+      SearchPathStatus status,
+      long version,
+      List<SearchPathPoint> points,
+      List<PathExcludedPoint> excludedPoints,
+      List<SearchPathSegment> segments) {
     this.id = id;
     this.incidentId = incidentId;
     this.opId = opId;
     this.policePhoneId = policePhoneId;
-    this.status = SearchPathStatus.RECORDING;
-    this.version = 1L;
-    this.points = new ArrayList<>();
-    this.excludedPoints = new ArrayList<>();
-    this.segments = new ArrayList<>();
+    this.status = status;
+    this.version = version;
+    this.points = new ArrayList<>(points);
+    this.excludedPoints = new ArrayList<>(excludedPoints);
+    this.segments = new ArrayList<>(segments);
   }
 
   public UUID id() {
