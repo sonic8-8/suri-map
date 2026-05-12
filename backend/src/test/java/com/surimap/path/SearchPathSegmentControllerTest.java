@@ -53,6 +53,7 @@ class SearchPathSegmentControllerTest {
         .perform(
             patch("/api/search-path-segments/{id}", "seg-001")
                 .header("X-Account-Id", accountId.toString())
+                .header("Idempotency-Key", "idem-path-segment-correction")
                 .contentType("application/json")
                 .content("{\"movementType\":\"FOOT\",\"reason\":\"manual correction\"}"))
         .andExpect(status().isOk())
@@ -63,5 +64,20 @@ class SearchPathSegmentControllerTest {
         .andExpect(jsonPath("$.policePhoneId", is(policePhoneId.toString())))
         .andExpect(jsonPath("$.correctedByAccountId", is(accountId.toString())))
         .andExpect(jsonPath("$.version", is(2)));
+  }
+
+  @Test
+  @DisplayName("PATCH /api/search-path-segments/{id} missing Idempotency-Key returns write_conflict")
+  void correctionRequiresIdempotencyKey() throws Exception {
+    UUID accountId = UUID.fromString("30000000-0000-0000-0000-000000000001");
+
+    mockMvc
+        .perform(
+            patch("/api/search-path-segments/{id}", "seg-001")
+                .header("X-Account-Id", accountId.toString())
+                .contentType("application/json")
+                .content("{\"movementType\":\"FOOT\",\"reason\":\"manual correction\"}"))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.error", is("write_conflict")));
   }
 }

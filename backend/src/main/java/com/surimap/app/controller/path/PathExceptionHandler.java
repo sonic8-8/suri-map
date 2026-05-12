@@ -19,7 +19,7 @@ public class PathExceptionHandler {
   private HttpStatus statusOf(String code) {
     return switch (code) {
       case "police_phone_required" -> HttpStatus.BAD_REQUEST;
-      case "op_required", "op_mismatch", "write_conflict" -> HttpStatus.CONFLICT;
+      case "op_required", "op_mismatch", "write_conflict", "idempotency_mismatch" -> HttpStatus.CONFLICT;
       case "police_phone_not_registered", "police_phone_not_assigned" -> HttpStatus.FORBIDDEN;
       default -> HttpStatus.BAD_REQUEST;
     };

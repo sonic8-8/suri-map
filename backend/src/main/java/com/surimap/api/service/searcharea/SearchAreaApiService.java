@@ -25,6 +25,8 @@ import com.surimap.maparea.query.SearchAreaQuery;
 import com.surimap.maparea.query.SearchAreaRow;
 import com.surimap.operationalperiod.OperationalPeriod;
 import com.surimap.operationalperiod.OperationalPeriodMapper;
+import com.surimap.sync.idempotency.IdempotentResponseCache;
+import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -68,6 +70,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
   private final SearchAreaMapper searchAreaMapper;
   private final SearchAreaAssignmentMapper searchAreaAssignmentMapper;
   private final OperationalPeriodMapper operationalPeriodMapper;
+  private final IdempotentResponseCache idempotentResponseCache;
   private final Map<UUID, SearchAreaRecord> searchAreas = new LinkedHashMap<>();
   private final Map<String, IdempotencyEntry> idempotencyEntries = new LinkedHashMap<>();
 
@@ -76,7 +79,8 @@ public class SearchAreaApiService implements SearchAreaQuery {
         geometryValidator,
         (SearchAreaMapper) null,
         (SearchAreaAssignmentMapper) null,
-        (OperationalPeriodMapper) null);
+        (OperationalPeriodMapper) null,
+        null);
   }
 
   @Autowired
@@ -84,23 +88,27 @@ public class SearchAreaApiService implements SearchAreaQuery {
       GeometryValidator geometryValidator,
       ObjectProvider<SearchAreaMapper> searchAreaMapperProvider,
       ObjectProvider<SearchAreaAssignmentMapper> searchAreaAssignmentMapperProvider,
-      ObjectProvider<OperationalPeriodMapper> operationalPeriodMapperProvider) {
+      ObjectProvider<OperationalPeriodMapper> operationalPeriodMapperProvider,
+      ObjectProvider<IdempotentResponseCache> idempotentResponseCacheProvider) {
     this(
         geometryValidator,
         searchAreaMapperProvider.getIfAvailable(),
         searchAreaAssignmentMapperProvider.getIfAvailable(),
-        operationalPeriodMapperProvider.getIfAvailable());
+        operationalPeriodMapperProvider.getIfAvailable(),
+        idempotentResponseCacheProvider.getIfAvailable());
   }
 
   private SearchAreaApiService(
       GeometryValidator geometryValidator,
       SearchAreaMapper searchAreaMapper,
       SearchAreaAssignmentMapper searchAreaAssignmentMapper,
-      OperationalPeriodMapper operationalPeriodMapper) {
+      OperationalPeriodMapper operationalPeriodMapper,
+      IdempotentResponseCache idempotentResponseCache) {
     this.geometryValidator = geometryValidator;
     this.searchAreaMapper = searchAreaMapper;
     this.searchAreaAssignmentMapper = searchAreaAssignmentMapper;
     this.operationalPeriodMapper = operationalPeriodMapper;
+    this.idempotentResponseCache = idempotentResponseCache;
   }
 
   @Transactional
@@ -111,6 +119,8 @@ public class SearchAreaApiService implements SearchAreaQuery {
     return replayOrRun(
         idempotencyKey,
         fingerprint,
+        "POST /api/search-areas",
+        201,
         SearchAreaResponse.class,
         () -> {
           String areaLevel = requireAreaLevel(request.areaLevel());
@@ -308,6 +318,8 @@ public class SearchAreaApiService implements SearchAreaQuery {
     return replayOrRun(
         idempotencyKey,
         fingerprint,
+        "PATCH /api/search-areas/{searchAreaId}",
+        200,
         SearchAreaResponse.class,
         () -> {
           Optional<SearchAreaResponse> persistentResponse = patchPersistent(searchAreaId, request);
@@ -352,6 +364,8 @@ public class SearchAreaApiService implements SearchAreaQuery {
     return replayOrRun(
         idempotencyKey,
         fingerprint,
+        "POST /api/search-areas/{searchAreaId}/split",
+        200,
         SearchAreaSplitResponse.class,
         () -> {
           Optional<SearchAreaSplitResponse> persistentResponse =
@@ -413,6 +427,8 @@ public class SearchAreaApiService implements SearchAreaQuery {
     return replayOrRun(
         idempotencyKey,
         fingerprint,
+        "POST /api/search-areas/{searchAreaId}/assignments",
+        201,
         SearchAreaAssignmentResponse.class,
         () -> {
           Optional<SearchAreaAssignmentResponse> persistentResponse =
@@ -1076,7 +1092,22 @@ public class SearchAreaApiService implements SearchAreaQuery {
   }
 
   private <T> T replayOrRun(
-      String idempotencyKey, String fingerprint, Class<T> responseType, Operation<T> operation) {
+      String idempotencyKey,
+      String fingerprint,
+      String endpoint,
+      int responseStatusCode,
+      Class<T> responseType,
+      Operation<T> operation) {
+    if (idempotentResponseCache != null) {
+      return idempotentResponseCache.replayOrRun(
+          endpoint,
+          idempotencyKey,
+          fingerprint,
+          responseStatusCode,
+          responseType,
+          operation::run,
+          this::metadataFor);
+    }
     IdempotencyEntry existing = idempotencyEntries.get(idempotencyKey);
     if (existing != null) {
       if (!existing.fingerprint().equals(fingerprint)) {
@@ -1133,6 +1164,28 @@ public class SearchAreaApiService implements SearchAreaQuery {
   }
 
   private record IdempotencyEntry(String fingerprint, Object response) {}
+
+  private <T> ResponseMetadata metadataFor(T response) {
+    if (response instanceof SearchAreaResponse area) {
+      return new ResponseMetadata(
+          area.id().toString(), area.status(), area.version(), area.version());
+    }
+    if (response instanceof SearchAreaSplitResponse split) {
+      return new ResponseMetadata(
+          split.parentAreaId().toString(),
+          split.parent().status(),
+          split.parent().version(),
+          split.parent().version());
+    }
+    if (response instanceof SearchAreaAssignmentResponse assignment) {
+      return new ResponseMetadata(
+          assignment.searchAreaId().toString(),
+          "ASSIGNED",
+          assignment.version(),
+          assignment.version());
+    }
+    throw SearchAreaApiException.writeConflict();
+  }
 
   @FunctionalInterface
   private interface Operation<T> {
