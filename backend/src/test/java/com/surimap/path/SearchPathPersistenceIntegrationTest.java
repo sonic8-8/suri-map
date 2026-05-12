@@ -49,7 +49,7 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
 
   @BeforeEach
   void cleanAndSeedPathContext() {
-    jdbcTemplate.execute("TRUNCATE TABLE search_path_segment, search_path");
+    jdbcTemplate.execute("TRUNCATE TABLE search_path_excluded_point, search_path_segment, search_path");
     jdbcTemplate.update("DELETE FROM duty_shift WHERE id = ?::uuid", DUTY_SHIFT_ID.toString());
     jdbcTemplate.update("DELETE FROM operational_period WHERE id = ?::uuid", OP_ID.toString());
     jdbcTemplate.update(
@@ -340,6 +340,47 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
   }
 
   @Test
+  @DisplayName("low-quality excluded point remains in query after DB reload")
+  void excluded_point_persists_and_reloads_for_query() {
+    PathBatchAppendResponse response =
+        searchPathService.appendBatch(lowQualityPointRequest(), POLICE_PHONE_ID);
+
+    assertThat(response.acceptedPointCount()).isEqualTo(2);
+    assertThat(response.excludedPointCount()).isEqualTo(1);
+    assertThat(response.excludedPoints())
+        .singleElement()
+        .satisfies(
+            point -> {
+              assertThat(point.pointId()).isEqualTo("gps-precinct-low-accuracy");
+              assertThat(point.reason()).isEqualTo("low_accuracy");
+            });
+    Map<String, Object> excludedRow =
+        jdbcTemplate.queryForMap(
+            """
+            SELECT point_id,
+                   reason,
+                   client_ts
+            FROM search_path_excluded_point
+            WHERE search_path_id = ?::uuid
+            """,
+            PATH_ID.toString());
+    assertThat(excludedRow.get("point_id")).isEqualTo("gps-precinct-low-accuracy");
+    assertThat(excludedRow.get("reason")).isEqualTo("low_accuracy");
+
+    PathQueryRow queried = searchPathService.query(INCIDENT_ID, OP_ID, POLICE_PHONE_ID).paths().get(0);
+
+    assertThat(queried.geometry()).hasSize(2);
+    assertThat(queried.excludedPoints())
+        .singleElement()
+        .satisfies(
+            point -> {
+              assertThat(point.pointId()).isEqualTo("gps-precinct-low-accuracy");
+              assertThat(point.reason()).isEqualTo("low_accuracy");
+              assertThat(point.clientTs()).isEqualTo(OffsetDateTime.parse("2026-04-28T09:00:05+09:00"));
+            });
+  }
+
+  @Test
   @DisplayName("next batch after DB reload preserves existing movement segments")
   void append_after_reload_keeps_existing_segments() {
     PathBatchAppendResponse first =
@@ -409,14 +450,31 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
         0L);
   }
 
+  private PathBatchAppendRequest lowQualityPointRequest() {
+    return new PathBatchAppendRequest(
+        INCIDENT_ID,
+        OP_ID,
+        PATH_ID,
+        List.of(
+            point("gps-precinct-good-001", "126.956000", "37.570000", 1.4, "2026-04-28T09:00:00+09:00"),
+            point("gps-precinct-low-accuracy", "126.956050", "37.570020", 1.3, "2026-04-28T09:00:05+09:00", 80),
+            point("gps-precinct-good-002", "126.956100", "37.570040", 1.2, "2026-04-28T09:00:10+09:00")),
+        0L);
+  }
+
   private PathBatchPointRequest point(
       String pointId, String lon, String lat, double speed, String clientTs) {
+    return point(pointId, lon, lat, speed, clientTs, 5);
+  }
+
+  private PathBatchPointRequest point(
+      String pointId, String lon, String lat, double speed, String clientTs, int accuracyM) {
     return new PathBatchPointRequest(
         pointId,
         new BigDecimal(lon),
         new BigDecimal(lat),
         BigDecimal.valueOf(speed),
-        5,
+        accuracyM,
         OffsetDateTime.parse(clientTs));
   }
 }

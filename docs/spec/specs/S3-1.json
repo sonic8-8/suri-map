@@ -256,6 +256,53 @@
           "type": "LINESTRING",
           "srid": 4326
         }
+      },
+      {
+        "name": "search_path_excluded_point",
+        "owner_spec": "S3-1",
+        "description": "품질 저하로 canonical search_path/search_path_segment geometry에서 제외된 GPS point evidence.",
+        "fields": [
+          {
+            "name": "id",
+            "type": "UUID",
+            "nullable": false,
+            "pk": true
+          },
+          {
+            "name": "search_path_id",
+            "type": "UUID",
+            "nullable": false
+          },
+          {
+            "name": "point_id",
+            "type": "VARCHAR(120)",
+            "nullable": false
+          },
+          {
+            "name": "reason",
+            "type": "VARCHAR(32)",
+            "nullable": false,
+            "note": "low_accuracy|clock_skew|invalid_speed|distance_jump"
+          },
+          {
+            "name": "client_ts",
+            "type": "TIMESTAMPTZ",
+            "nullable": false
+          },
+          {
+            "name": "created_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": false
+          },
+          {
+            "name": "updated_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": false
+          }
+        ],
+        "indexes": [
+          "idx_search_path_excluded_point_path(search_path_id, client_ts)"
+        ]
       }
     ],
     "state_machines": [
@@ -279,7 +326,8 @@
     "flyway_migrations": [
       "V20260428_431__create_search_path.sql",
       "V20260428_432__create_search_path.sql",
-      "V20260428_433__create_search_path_segment.sql"
+      "V20260428_433__create_search_path_segment.sql",
+      "V20260513_003__create_search_path_excluded_point.sql"
     ]
   },
   "api_contracts": {
@@ -643,10 +691,10 @@
                     "reason": {
                       "type": "string",
                       "enum": [
-                        "LOW_ACCURACY",
-                        "CLOCK_SKEW",
-                        "INVALID_SPEED",
-                        "DISTANCE_JUMP"
+                        "low_accuracy",
+                        "clock_skew",
+                        "invalid_speed",
+                        "distance_jump"
                       ]
                     }
                   }
@@ -1351,7 +1399,7 @@
     "queries": [
       {
         "name": "PathQuery.byIncident(incidentId, filters)",
-        "source": "S3-1 read model over search_path/search_path_segment",
+        "source": "S3-1 read model over search_path/search_path_segment/search_path_excluded_point",
         "filters": {
           "opId": "optional UUID",
           "policePhoneId": "optional UUID",
@@ -1459,7 +1507,7 @@
         },
         {
           "name": "SearchPathRepository",
-          "responsibility": "PostGIS search_path/search_path_segment persistence and read model queries"
+          "responsibility": "PostGIS search_path/search_path_segment/search_path_excluded_point persistence and read model queries"
         },
         {
           "name": "PathQuery",

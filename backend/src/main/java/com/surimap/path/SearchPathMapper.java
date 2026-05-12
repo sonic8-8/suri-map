@@ -32,4 +32,10 @@ public interface SearchPathMapper {
   void insertSegment(SearchPathSegmentPersistenceRecord record);
 
   List<SearchPathSegmentReadRecord> findSegmentsByPathId(@Param("pathId") UUID pathId);
+
+  void deleteExcludedPoints(@Param("pathId") UUID pathId);
+
+  void insertExcludedPoint(SearchPathExcludedPointPersistenceRecord record);
+
+  List<SearchPathExcludedPointReadRecord> findExcludedPointsByPathId(@Param("pathId") UUID pathId);
 }

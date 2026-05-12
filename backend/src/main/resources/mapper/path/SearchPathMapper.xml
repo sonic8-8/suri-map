@@ -35,6 +35,16 @@
         </constructor>
     </resultMap>
 
+    <resultMap id="searchPathExcludedPointReadRecordMap" type="com.surimap.path.SearchPathExcludedPointReadRecord">
+        <constructor>
+            <arg column="id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="search_path_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="point_id" javaType="string"/>
+            <arg column="reason" javaType="string"/>
+            <arg column="client_ts" javaType="java.time.Instant"/>
+        </constructor>
+    </resultMap>
+
     <select id="findActiveDutyShiftId" resultType="java.util.UUID">
         SELECT ds.id
         FROM duty_shift ds
@@ -175,5 +185,43 @@
         FROM search_path_segment
         WHERE search_path_id = #{pathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
         ORDER BY started_at ASC, id ASC
+    </select>
+
+    <delete id="deleteExcludedPoints">
+        DELETE FROM search_path_excluded_point
+        WHERE search_path_id = #{pathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+    </delete>
+
+    <insert id="insertExcludedPoint" parameterType="com.surimap.path.SearchPathExcludedPointPersistenceRecord">
+        INSERT INTO search_path_excluded_point (
+            id,
+            search_path_id,
+            point_id,
+            reason,
+            client_ts,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            #{id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{searchPathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{pointId},
+            #{reason},
+            #{clientTs},
+            #{createdAt},
+            #{updatedAt}
+        )
+    </insert>
+
+    <select id="findExcludedPointsByPathId" resultMap="searchPathExcludedPointReadRecordMap">
+        SELECT
+            id,
+            search_path_id,
+            point_id,
+            reason,
+            client_ts
+        FROM search_path_excluded_point
+        WHERE search_path_id = #{pathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+        ORDER BY client_ts ASC, id ASC
     </select>
 </mapper>
