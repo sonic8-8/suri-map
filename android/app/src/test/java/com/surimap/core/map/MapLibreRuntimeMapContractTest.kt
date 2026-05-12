@@ -72,6 +72,23 @@ class MapLibreRuntimeMapContractTest {
     }
 
     @Test
+    fun markerOverlayKindIsCarriedAsHighlightedPointGeometry() {
+        val overlay =
+            MapLibreGeometryOverlay(
+                id = "mk-clue-001",
+                kind = MapLibreGeometryOverlayKind.Marker,
+                highlighted = true,
+                geoJson = """{"type":"Point","coordinates":[126.91,37.51]}"""
+            )
+        val source = File("src/main/java/com/surimap/core/map/MapLibreRuntimeMap.kt").readText()
+
+        assertTrue(overlay.signature().contains("Marker:mk-clue-001:true"))
+        assertTrue(source.contains("CircleLayer("))
+        assertTrue(source.contains("supportsCircleLayer"))
+        assertTrue(source.contains("MapLibreGeometryOverlayKind.Marker -> true"))
+    }
+
+    @Test
     fun searchMapScreenUsesRuntimeMapInsteadOfMockCanvas() {
         val source = File("src/main/java/com/surimap/feature/search/ui/SearchMapScreen.kt").readText()
 

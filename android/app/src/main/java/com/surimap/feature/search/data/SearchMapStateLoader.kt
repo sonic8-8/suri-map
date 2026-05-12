@@ -3,6 +3,8 @@ package com.surimap.feature.search.data
 import com.surimap.core.database.OutboxStatusSummary
 import com.surimap.core.incident.IncidentReadRepository
 import com.surimap.core.network.SuriMapApiResponse
+import com.surimap.core.offline.OfflinePackageManifestQuery
+import com.surimap.core.offline.OfflinePackageRepository
 import com.surimap.core.path.SearchPathQuery
 import com.surimap.core.path.SearchPathRepository
 import com.surimap.core.searcharea.SearchAreaReadRepository
@@ -35,18 +37,27 @@ class SearchMapStateLoader(
     private val searchPaths: suspend (SearchPathQuery) -> SuriMapApiResponse = { query ->
         SearchPathRepository().listSearchPaths(query)
     },
+    private val initialMarkers: suspend (String, String) -> SuriMapApiResponse = { incidentId, policePhoneId ->
+        OfflinePackageRepository().manifest(
+            OfflinePackageManifestQuery(
+                incidentId = incidentId,
+                policePhoneId = policePhoneId
+            )
+        )
+    },
     private val outboxSummary: suspend (String, String) -> OutboxStatusSummary? = { _, _ -> null },
     private val nowMs: () -> Long = { System.currentTimeMillis() }
 ) {
     suspend fun load(context: SearchMapSessionContext): SearchMapUiState {
         val areaState = withOpSearchAreas(context, withOverallSearchArea(context, fallback(context)))
         val mapState = withSearchPaths(context, areaState)
-        val incidentId = context.incidentId?.takeIf(String::isNotBlank) ?: return mapState
-        val response = runCatching { incidentDetail(incidentId) }.getOrNull() ?: return mapState
+        val markerState = withInitialMarkers(context, mapState)
+        val incidentId = context.incidentId?.takeIf(String::isNotBlank) ?: return markerState
+        val response = runCatching { incidentDetail(incidentId) }.getOrNull() ?: return markerState
         if (!response.isSuccessful || response.body.isNullOrBlank()) {
-            return mapState
+            return markerState
         }
-        return detailState(context, response.body, mapState)
+        return detailState(context, response.body, markerState)
     }
 
     fun fallbackForRemember(context: SearchMapSessionContext): SearchMapUiState = fallbackState(context, summary = null)
@@ -182,6 +193,23 @@ class SearchMapStateLoader(
         )
     }
 
+    private suspend fun withInitialMarkers(
+        context: SearchMapSessionContext,
+        state: SearchMapUiState
+    ): SearchMapUiState {
+        val incidentId = context.incidentId?.takeIf(String::isNotBlank) ?: return state
+        val policePhoneId = context.policePhoneId?.takeIf(String::isNotBlank) ?: return state
+        val response = runCatching { initialMarkers(incidentId, policePhoneId) }.getOrNull() ?: return state
+        if (!response.isSuccessful || response.body.isNullOrBlank()) {
+            return state
+        }
+        val markerLayers = initialMarkerLayers(response.body)
+        if (markerLayers.isEmpty()) {
+            return state
+        }
+        return state.copy(layers = state.layers + markerLayers)
+    }
+
     private fun detailState(
         context: SearchMapSessionContext,
         body: String,
@@ -250,6 +278,33 @@ class SearchMapStateLoader(
         }
     }
 
+    private fun initialMarkerLayers(body: String): List<SearchMapLayerUiState> {
+        val root = runCatching { JSONObject(body) }.getOrNull() ?: return emptyList()
+        val markers = root.optJSONArray("initialMarkers") ?: root.optJSONArray("markers") ?: return emptyList()
+        return buildList {
+            repeat(markers.length()) { index ->
+                val marker = markers.optJSONObject(index) ?: return@repeat
+                val status = marker.optString("status").uppercase()
+                if (status == "DELETED") {
+                    return@repeat
+                }
+                val location = marker.optJSONObject("location") ?: marker.optJSONObject("geometry") ?: return@repeat
+                if (!location.optString("type").equals("Point", ignoreCase = true)) {
+                    return@repeat
+                }
+                add(
+                    SearchMapLayerUiState(
+                        label = marker.markerLabel(),
+                        kind = SearchLayerKind.Marker,
+                        highlighted = true,
+                        overlayId = marker.optString("id").ifBlank { "initial-marker-$index" },
+                        geoJson = location.toString()
+                    )
+                )
+            }
+        }
+    }
+
     private fun searchPathLayers(body: String): List<SearchMapLayerUiState> {
         val root = runCatching { JSONObject(body) }.getOrNull() ?: return emptyList()
         val paths = root.optJSONArray("paths") ?: root.optJSONArray("items") ?: return emptyList()
@@ -305,6 +360,22 @@ class SearchMapStateLoader(
                     SearchLayerKind.Unit -> "부대 수색 구역"
                     SearchLayerKind.Team -> "팀 담당 구역"
                     SearchLayerKind.Path -> "수색 경로"
+                    SearchLayerKind.Marker -> "마커"
+                }
+            }
+    }
+
+    private fun JSONObject.markerLabel(): String {
+        return optString("label")
+            .ifBlank { optString("displayName") }
+            .ifBlank {
+                when (optString("type").uppercase()) {
+                    "CLUE" -> "단서"
+                    "PERSON_FOUND" -> "실종자 발견"
+                    "FIELD_CONDITION" -> "현장 상태"
+                    "SUPPORT_REQUEST" -> "지원 요청"
+                    "NOTE" -> "메모"
+                    else -> "마커"
                 }
             }
     }
