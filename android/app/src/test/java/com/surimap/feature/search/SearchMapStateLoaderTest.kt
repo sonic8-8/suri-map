@@ -499,6 +499,123 @@ class SearchMapStateLoaderTest {
     }
 
     @Test
+    fun manifestInitialMarkersMapToMarkerPointOverlaysAfterPathLayers() = runBlocking {
+        val markerLocation =
+            """
+            {
+              "type": "Point",
+              "coordinates": [126.915000, 37.515000]
+            }
+            """.trimIndent()
+        val pathGeometry =
+            """
+            {
+              "type": "LineString",
+              "coordinates": [
+                [126.912000, 37.512000],
+                [126.918000, 37.518000]
+              ]
+            }
+            """.trimIndent()
+        val loader =
+            SearchMapStateLoader(
+                incidentDetail = { notFoundResponse() },
+                overallSearchArea = { notFoundResponse() },
+                opSearchAreas = { _, _ -> notFoundResponse() },
+                searchPaths = {
+                    SuriMapApiResponse(
+                        statusCode = 200,
+                        body =
+                        """
+                        {
+                          "paths": [
+                            {
+                              "id": "path-001",
+                              "status": "ACTIVE",
+                              "geometry": $pathGeometry
+                            }
+                          ]
+                        }
+                        """.trimIndent(),
+                        errorCode = null
+                    )
+                },
+                initialMarkers = { incidentId, policePhoneId ->
+                    assertEquals("inc-precinct-first-001", incidentId)
+                    assertEquals("phone-precinct-001", policePhoneId)
+                    SuriMapApiResponse(
+                        statusCode = 200,
+                        body =
+                        """
+                        {
+                          "manifestId": "manifest-001",
+                          "incidentId": "inc-precinct-first-001",
+                          "manifestVersion": 7,
+                          "initialMarkers": [
+                            {
+                              "id": "mk-clue-001",
+                              "incidentId": "inc-precinct-first-001",
+                              "opId": "op-precinct-first-001",
+                              "type": "CLUE",
+                              "status": "ACTIVE",
+                              "version": 3,
+                              "location": $markerLocation,
+                              "memo": "등산로 입구 제보"
+                            }
+                          ]
+                        }
+                        """.trimIndent(),
+                        errorCode = null
+                    )
+                }
+            )
+
+        val state =
+            loader.load(
+                SearchMapSessionContext(
+                    incidentId = "inc-precinct-first-001",
+                    currentOpId = "op-precinct-first-001",
+                    currentDutyShiftId = "shift-precinct-day-001",
+                    policePhoneId = "phone-precinct-001"
+                )
+            )
+
+        assertEquals(SearchLayerKind.Path, state.layers[2].kind)
+        assertEquals(SearchLayerKind.Marker, state.layers[3].kind)
+        assertEquals("단서", state.layers[3].label)
+        assertEquals("mk-clue-001", state.layers[3].overlayId)
+        assertTrue(state.layers[3].highlighted)
+        assertTrue(state.layers[3].geoJson!!.contains("\"Point\""))
+    }
+
+    @Test
+    fun missingPolicePhoneDoesNotReadInitialMarkers() = runBlocking {
+        var initialMarkersCalled = false
+        val loader =
+            SearchMapStateLoader(
+                incidentDetail = { notFoundResponse() },
+                overallSearchArea = { notFoundResponse() },
+                opSearchAreas = { _, _ -> notFoundResponse() },
+                searchPaths = { notFoundResponse() },
+                initialMarkers = { _, _ ->
+                    initialMarkersCalled = true
+                    notFoundResponse()
+                }
+            )
+
+        loader.load(
+            SearchMapSessionContext(
+                incidentId = "inc-precinct-first-001",
+                currentOpId = "op-precinct-first-001",
+                currentDutyShiftId = "shift-precinct-day-001",
+                policePhoneId = null
+            )
+        )
+
+        assertFalse(initialMarkersCalled)
+    }
+
+    @Test
     fun overallSearchAreaRequiredKeepsFallbackWithoutMapOverlay() = runBlocking {
         val loader =
             SearchMapStateLoader(
@@ -588,6 +705,8 @@ class SearchMapStateLoaderTest {
         assertTrue(source.contains("list(incidentId = incidentId, opId = opId, status = \"ACTIVE\")"))
         assertTrue(source.contains("SearchPathRepository"))
         assertTrue(source.contains("listSearchPaths"))
+        assertTrue(source.contains("OfflinePackageRepository"))
+        assertTrue(source.contains("initialMarkers"))
     }
 
     private fun fallbackOnlyLoader(): SearchMapStateLoader =

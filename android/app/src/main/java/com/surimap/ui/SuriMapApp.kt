@@ -20,6 +20,7 @@ import com.surimap.core.database.SuriMapDatabaseProvider
 import com.surimap.core.incident.IncidentReadRepository
 import com.surimap.core.map.MapLibreRuntimeMapState
 import com.surimap.core.network.SuriMapApiClient
+import com.surimap.core.offline.OfflinePackageManifestQuery
 import com.surimap.core.offline.OfflinePackageRepository
 import com.surimap.core.path.SearchPathRepository
 import com.surimap.core.searcharea.SearchAreaReadRepository
@@ -212,6 +213,19 @@ private fun SearchMapRoute(
                             baseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
                         )
                     ).listSearchPaths(query)
+                },
+                initialMarkers = { incidentId, policePhoneId ->
+                    OfflinePackageRepository(
+                        apiClient =
+                        SuriMapApiClient(
+                            baseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
+                        )
+                    ).manifest(
+                        OfflinePackageManifestQuery(
+                            incidentId = incidentId,
+                            policePhoneId = policePhoneId
+                        )
+                    )
                 },
                 outboxSummary = { incidentId, policePhoneId ->
                     outboxDao.statusSummary(incidentId = incidentId, policePhoneId = policePhoneId)
