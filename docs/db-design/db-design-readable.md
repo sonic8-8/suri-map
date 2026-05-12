@@ -167,8 +167,8 @@ Android Room 로컬 엔티티
 
 **주요 컬럼**
 
-- `id`: 계정 식별자
-- `login_id`: 로그인 ID
+- `id`: 계정 식별자. 내부 참조와 FK는 UUID를 사용한다.
+- `login_id`: 사람이 입력하는 로그인 ID. `acct-*` fixture 코드는 여기에 해당하며 FK로 사용하지 않는다.
 - `password_hash`: 비밀번호 해시
 - `display_name`: 화면에 표시할 계정 이름
 - `account_type`: 팀, 순찰차, 지휘 계정 구분

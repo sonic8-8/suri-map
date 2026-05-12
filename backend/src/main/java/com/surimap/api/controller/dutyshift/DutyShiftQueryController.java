@@ -27,7 +27,7 @@ public class DutyShiftQueryController {
       @RequestParam UUID incidentId,
       @RequestParam(required = false) UUID opId,
       @RequestParam(required = false) UUID policePhoneId,
-      @RequestParam(required = false) String accountId,
+      @RequestParam(required = false) UUID accountId,
       @RequestParam(required = false) String status) {
     return ResponseEntity.ok(service.list(incidentId, opId, policePhoneId, accountId, status));
   }

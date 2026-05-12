@@ -57,7 +57,7 @@ class SecurityFilterBaselineTest {
     mockMvc
         .perform(get("/api/auth-harness/context"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.accountId").value("acct-precinct-team"))
+        .andExpect(jsonPath("$.accountId").value("11111111-1111-1111-1111-111111110003"))
         .andExpect(jsonPath("$.accountType").value("TEAM"))
         .andExpect(jsonPath("$.organizationType").value("MISSING_TEAM"))
         .andExpect(jsonPath("$.channel").value("APP"))
