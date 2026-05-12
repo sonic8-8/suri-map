@@ -4,6 +4,7 @@ import com.surimap.feature.handover.ui.DutyHandoverUiState
 import com.surimap.feature.handover.ui.HandoverMemoTarget
 import com.surimap.feature.handover.ui.HandoverMemoUiState
 import com.surimap.feature.handover.ui.HandoverPromptUiState
+import java.io.File
 import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -63,5 +64,18 @@ class HandoverUiStateTest {
         assertTrue(newerServerShift.shouldShow)
         assertFalse(alreadySeen.shouldShow)
         assertTrue(HandoverPromptUiState(currentDutyShiftStartedAt = Instant.parse("2026-04-28T04:00:00Z")).shouldShow)
+    }
+
+    @Test
+    fun appHandoverRoutesUseRepositoriesInsteadOfSampleStateDirectly() {
+        val source = File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+
+        assertFalse(source.contains("sampleDutyHandoverState()"))
+        assertFalse(source.contains("sampleHandoverMemoState()"))
+        assertTrue(source.contains("DutyHandoverStateLoader"))
+        assertTrue(source.contains("HandoverMemoLocalRecorder"))
+        assertTrue(source.contains("HandoverMemoRepository"))
+        assertTrue(source.contains("SearchHistorySummaryReadRepository"))
+        assertTrue(source.contains("createMemo"))
     }
 }
