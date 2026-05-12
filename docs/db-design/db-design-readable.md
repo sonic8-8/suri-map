@@ -583,6 +583,8 @@ Android Room 로컬 엔티티
 
 #### refresh_token
 
+`account_id`와 `police_phone_id`는 사람이 읽는 alias가 아니라 DB 내부 UUID 식별자를 저장한다.
+
 **PRD 근거**
 
 - PRD §8.4 `인증/권한`

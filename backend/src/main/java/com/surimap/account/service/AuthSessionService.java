@@ -1,6 +1,8 @@
 package com.surimap.account.service;
 
-import com.surimap.account.AccountIdentityCatalog;
+import com.surimap.account.repository.AccountLoginMapper;
+import com.surimap.account.repository.AccountLoginRow;
+import com.surimap.account.repository.AuthSessionRow;
 import com.surimap.common.auth.AccountType;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.OrganizationType;
@@ -8,85 +10,114 @@ import com.surimap.common.auth.Role;
 import com.surimap.common.auth.SuriMapAuthentication;
 import com.surimap.common.auth.guard.ChannelNotAllowedException;
 import com.surimap.policephone.InMemoryPolicePhoneFixtureStore;
-import com.surimap.policephone.PolicePhoneFixtures;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.HexFormat;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.annotation.Transactional;
 
 public class AuthSessionService {
 
-  private final InMemoryPolicePhoneFixtureStore fixtureStore;
-  private final Map<String, AccountFixture> accountsByCode;
-  private final Map<String, AuthSession> sessionsByAccessToken = new ConcurrentHashMap<>();
-  private final Map<UUID, String> accessTokensBySessionId = new ConcurrentHashMap<>();
+  private static final Duration SESSION_TTL = Duration.ofDays(30);
 
-  public AuthSessionService(InMemoryPolicePhoneFixtureStore fixtureStore) {
+  private final AccountLoginMapper accountLoginMapper;
+  private final InMemoryPolicePhoneFixtureStore fixtureStore;
+  private final PasswordEncoder passwordEncoder;
+  private final Clock clock;
+
+  public AuthSessionService(
+      AccountLoginMapper accountLoginMapper,
+      InMemoryPolicePhoneFixtureStore fixtureStore,
+      PasswordEncoder passwordEncoder,
+      Clock clock) {
+    this.accountLoginMapper = accountLoginMapper;
     this.fixtureStore = fixtureStore;
-    this.accountsByCode = seedAccounts();
+    this.passwordEncoder = passwordEncoder;
+    this.clock = clock;
   }
 
+  @Transactional
   public AuthLoginResult login(AuthLoginCommand command) {
-    AccountFixture account = accountsByCode.get(command.accountCode());
-    if (account == null || !account.password().equals(command.password())) {
+    AccountLoginRow account =
+        accountLoginMapper
+            .findActiveAccountByLoginId(command.accountCode())
+            .orElseThrow(ChannelNotAllowedException::new);
+    if (!passwordEncoder.matches(command.password(), account.passwordHash())) {
       throw new ChannelNotAllowedException();
     }
 
-    String policePhoneId = resolvePolicePhoneId(account, command);
+    UUID policePhoneId = resolvePolicePhoneId(command, account.id());
     UUID sessionId = UUID.randomUUID();
     String accessToken = UUID.randomUUID().toString();
+    Instant now = clock.instant();
+    accountLoginMapper.insertRefreshToken(
+        sessionId,
+        account.id(),
+        policePhoneId,
+        command.channel(),
+        hashToken(accessToken),
+        now.plus(SESSION_TTL),
+        now);
     SecurityContextSnapshot context =
         new SecurityContextSnapshot(
-            account.accountId().toString(),
+            account.id().toString(),
             account.accountType(),
             account.organizationType(),
             command.channel(),
-            policePhoneId,
-            account.authorities());
-    AuthSession session = new AuthSession(sessionId, accessToken, context);
-    sessionsByAccessToken.put(accessToken, session);
-    accessTokensBySessionId.put(sessionId, accessToken);
+            policePhoneId == null ? null : policePhoneId.toString(),
+            authorities(account.accountType(), account.organizationType()));
     return new AuthLoginResult(sessionId, accessToken, context);
   }
 
+  @Transactional
   public void logout(String accessToken, String sessionId) {
-    AuthSession session = removeSession(accessToken, sessionId);
+    AuthSessionRow session = revokeSession(accessToken, sessionId);
     if (session == null) {
       return;
     }
-    String policePhoneId = session.securityContext().policePhoneId();
-    if (policePhoneId != null && session.securityContext().channel() == Channel.APP) {
+    if (session.policePhoneId() != null) {
       fixtureStore.revokeActiveTokensForLogout(
-          UUID.fromString(policePhoneId), session.securityContext().accountId());
+          session.policePhoneId(), session.accountId().toString());
     }
   }
 
+  @Transactional(readOnly = true)
   public Optional<SuriMapAuthentication> authenticate(String accessToken) {
     if (accessToken == null || accessToken.isBlank()) {
       return Optional.empty();
     }
-    return Optional.ofNullable(sessionsByAccessToken.get(accessToken))
-        .map(AuthSession::securityContext)
+    return accountLoginMapper
+        .findActiveSessionByTokenHash(hashToken(accessToken), clock.instant())
+        .map(AuthSessionService::toSecurityContext)
         .map(AuthSessionService::toAuthentication);
   }
 
-  private AuthSession removeSession(String accessToken, String sessionId) {
-    AuthSession session = null;
+  private AuthSessionRow revokeSession(String accessToken, String sessionId) {
+    AuthSessionRow session = null;
     if (accessToken != null && !accessToken.isBlank()) {
-      session = sessionsByAccessToken.remove(accessToken);
+      String tokenHash = hashToken(accessToken);
+      Instant now = clock.instant();
+      session = accountLoginMapper.findActiveSessionByTokenHash(tokenHash, now).orElse(null);
       if (session != null) {
-        accessTokensBySessionId.remove(session.sessionId());
+        accountLoginMapper.revokeByTokenHash(tokenHash, now);
       }
     }
 
     if (session == null && sessionId != null && !sessionId.isBlank()) {
       try {
         UUID parsedSessionId = UUID.fromString(sessionId);
-        String token = accessTokensBySessionId.remove(parsedSessionId);
-        if (token != null) {
-          session = sessionsByAccessToken.remove(token);
+        Instant now = clock.instant();
+        session = accountLoginMapper.findActiveSessionBySessionId(parsedSessionId, now).orElse(null);
+        if (session != null) {
+          accountLoginMapper.revokeBySessionId(parsedSessionId, now);
         }
       } catch (IllegalArgumentException ignored) {
         return null;
@@ -107,7 +138,7 @@ public class AuthSessionService {
         authorities);
   }
 
-  private String resolvePolicePhoneId(AccountFixture account, AuthLoginCommand command) {
+  private UUID resolvePolicePhoneId(AuthLoginCommand command, UUID accountId) {
     if (command.channel() == Channel.WEB) {
       return null;
     }
@@ -117,47 +148,43 @@ public class AuthSessionService {
     if (command.policePhoneCode() == null || command.policePhoneCode().isBlank()) {
       return null;
     }
-    UUID policePhoneId = account.policePhoneIdsByCode().get(command.policePhoneCode());
-    if (policePhoneId == null) {
+    var policePhone =
+        accountLoginMapper
+        .findActivePolicePhoneByCode(command.policePhoneCode())
+        .orElseThrow(ChannelNotAllowedException::new);
+    if (!accountId.equals(policePhone.accountId())) {
       throw new ChannelNotAllowedException();
     }
-    return policePhoneId.toString();
+    return policePhone.id();
   }
 
-  private static Map<String, AccountFixture> seedAccounts() {
-    return Map.of(
-        "acct-precinct-team",
-        new AccountFixture(
-            AccountIdentityCatalog.PRECINCT_TEAM_ID,
-            "fixture",
-            AccountType.TEAM,
-            PolicePhoneFixtures.ASSIGNED_ORGANIZATION_TYPE,
-            List.of(Role.MEMBER.name()),
-            Map.of("dev-precinct-phone-01", PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID)),
-        "acct-cmd-alpha",
-        new AccountFixture(
-            AccountIdentityCatalog.ALPHA_COMMANDER_ID,
-            "fixture",
-            AccountType.COMMAND,
-            OrganizationType.MISSING_TEAM,
-            List.of(Role.MISSING_TEAM_COMMANDER.name(), Role.FIELD_COMMANDER.name()),
-            Map.of()));
+  private static SecurityContextSnapshot toSecurityContext(AuthSessionRow row) {
+    return new SecurityContextSnapshot(
+        row.accountId().toString(),
+        row.accountType(),
+        row.organizationType(),
+        row.channel(),
+        row.policePhoneId() == null ? null : row.policePhoneId().toString(),
+        authorities(row.accountType(), row.organizationType()));
   }
 
-  private record AuthSession(
-      UUID sessionId, String accessToken, SecurityContextSnapshot securityContext) {}
+  private static List<String> authorities(
+      AccountType accountType, OrganizationType organizationType) {
+    if (accountType == AccountType.COMMAND && organizationType == OrganizationType.MISSING_TEAM) {
+      return List.of(Role.MISSING_TEAM_COMMANDER.name(), Role.FIELD_COMMANDER.name());
+    }
+    if (accountType == AccountType.COMMAND) {
+      return List.of(Role.FIELD_COMMANDER.name());
+    }
+    return List.of(Role.MEMBER.name());
+  }
 
-  private record AccountFixture(
-      UUID accountId,
-      String password,
-      AccountType accountType,
-      OrganizationType organizationType,
-      List<String> authorities,
-      Map<String, UUID> policePhoneIdsByCode) {
-
-    private AccountFixture {
-      authorities = List.copyOf(authorities);
-      policePhoneIdsByCode = Map.copyOf(policePhoneIdsByCode);
+  private static String hashToken(String token) {
+    try {
+      MessageDigest digest = MessageDigest.getInstance("SHA-256");
+      return HexFormat.of().formatHex(digest.digest(token.getBytes(StandardCharsets.UTF_8)));
+    } catch (NoSuchAlgorithmException exception) {
+      throw new IllegalStateException("SHA-256 must be available", exception);
     }
   }
 }

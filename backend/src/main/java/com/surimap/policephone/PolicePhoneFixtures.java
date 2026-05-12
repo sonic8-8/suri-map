@@ -25,7 +25,7 @@ public final class PolicePhoneFixtures {
   public static final String ASSIGNED_ACCOUNT_CODE = AccountIdentityCatalog.PRECINCT_TEAM_CODE;
   public static final String ASSIGNED_ACCOUNT_ID = AccountIdentityCatalog.PRECINCT_TEAM_ID.toString();
   public static final AccountType ASSIGNED_ACCOUNT_TYPE = AccountType.TEAM;
-  public static final OrganizationType ASSIGNED_ORGANIZATION_TYPE = OrganizationType.MISSING_TEAM;
+  public static final OrganizationType ASSIGNED_ORGANIZATION_TYPE = OrganizationType.POLICE_SUBSTATION;
 
   private PolicePhoneFixtures() {}
 }

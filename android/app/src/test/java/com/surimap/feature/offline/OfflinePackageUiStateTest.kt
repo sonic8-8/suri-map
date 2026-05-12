@@ -1,6 +1,7 @@
 package com.surimap.feature.offline
 
 import com.surimap.feature.offline.ui.OfflinePackageDownloadStatus
+import com.surimap.feature.offline.ui.OfflinePackageItemUiState
 import com.surimap.feature.offline.ui.OfflinePackageUiState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -68,6 +69,43 @@ class OfflinePackageUiStateTest {
         assertTrue(changed.shouldDownloadPackage)
         assertFalse(changed.autoOpenSearchMap)
         assertTrue(changed.visibleText().any { it.contains("manifest rev 17 -> 18") })
+    }
+
+    @Test
+    fun manifestLoadedDoesNotMarkPackageReadyWithoutInstallationStatus() {
+        val state =
+            OfflinePackageUiState.manifestLoaded(
+                incidentTitle = "광주 북구 산악 실종",
+                manifestRevision = 18,
+                knownManifestRevision = null,
+                packageItems =
+                listOf(
+                    OfflinePackageItemUiState(label = "사건 메타", progress = 1f, statusLabel = "완료"),
+                    OfflinePackageItemUiState(label = "타일", progress = 0f, statusLabel = "대기")
+                )
+            )
+
+        assertEquals(OfflinePackageDownloadStatus.ManifestChanged, state.status)
+        assertFalse(state.readyForOfflineUse)
+        assertFalse(state.autoOpenSearchMap)
+        assertTrue(state.shouldDownloadPackage)
+        assertTrue(state.visibleText().any { it.contains("패키지 설치 상태와 구분") })
+    }
+
+    @Test
+    fun offlineAndPermissionStatesDoNotStartDownloadOrOpenMap() {
+        val offline = OfflinePackageUiState.offline(incidentTitle = "inc-001")
+        val permissionDenied = OfflinePackageUiState.permissionDenied(incidentTitle = "inc-001")
+        val unavailable = OfflinePackageUiState.unavailable(incidentTitle = "inc-001")
+
+        assertEquals(OfflinePackageDownloadStatus.Offline, offline.status)
+        assertEquals(OfflinePackageDownloadStatus.PermissionDenied, permissionDenied.status)
+        assertEquals(OfflinePackageDownloadStatus.AutoRetryExhausted, unavailable.status)
+        assertFalse(offline.shouldDownloadPackage)
+        assertFalse(permissionDenied.shouldDownloadPackage)
+        assertFalse(offline.autoOpenSearchMap)
+        assertFalse(permissionDenied.autoOpenSearchMap)
+        assertTrue(unavailable.canManualRetry)
     }
 
     @Test
