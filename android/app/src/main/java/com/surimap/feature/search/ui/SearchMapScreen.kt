@@ -1,6 +1,5 @@
 package com.surimap.feature.search.ui
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,16 +14,17 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.surimap.core.map.MapLibreRuntimeMapState
+import com.surimap.core.map.SuriMapLibreMap
 import com.surimap.feature.alert.ui.IncidentAlertBanner
 import com.surimap.feature.alert.ui.IncidentAlertUiState
 import com.surimap.feature.handover.ui.HandoverPromptUiState
@@ -342,8 +342,14 @@ private fun BlockedOutboxNotice(state: SearchMapUiState, onOpenBlockedOutbox: ()
 
 @Composable
 private fun SearchMapShell(state: SearchMapUiState, modifier: Modifier = Modifier) {
+    var mapLoadFailure by remember { mutableStateOf<String?>(null) }
+
     Box(modifier = modifier.fillMaxWidth().background(PoliBgInput)) {
-        MockMapCanvas(modifier = Modifier.fillMaxSize())
+        SuriMapLibreMap(
+            state = MapLibreRuntimeMapState(),
+            modifier = Modifier.fillMaxSize(),
+            onLoadFailed = { reason -> mapLoadFailure = reason }
+        )
 
         Column(
             modifier = Modifier.align(Alignment.TopStart).padding(PoliDimens.Space3),
@@ -377,79 +383,14 @@ private fun SearchMapShell(state: SearchMapUiState, modifier: Modifier = Modifie
                 Text(text = "내\n위치", style = MaterialTheme.typography.labelMedium)
             }
         }
-    }
-}
 
-@Composable
-private fun MockMapCanvas(modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val grid = Color.White.copy(alpha = 0.06f)
-        val gridStep = 56.dp.toPx()
-        var x = 0f
-        while (x <= size.width) {
-            drawLine(grid, Offset(x, 0f), Offset(x, size.height), strokeWidth = 1.dp.toPx())
-            x += gridStep
+        mapLoadFailure?.let {
+            PoliBanner(
+                text = "지도 로드 실패 · 기록은 계속 가능합니다.",
+                variant = PoliBannerVariant.Warn,
+                modifier = Modifier.align(Alignment.BottomStart).padding(PoliDimens.Space4)
+            )
         }
-        var y = 0f
-        while (y <= size.height) {
-            drawLine(grid, Offset(0f, y), Offset(size.width, y), strokeWidth = 1.dp.toPx())
-            y += gridStep
-        }
-
-        drawRect(
-            color = Color(0xFF6B7280),
-            topLeft = Offset(size.width * 0.05f, size.height * 0.08f),
-            size = Size(size.width * 0.9f, size.height * 0.62f),
-            style = Stroke(width = 2.dp.toPx())
-        )
-        drawRoundRect(
-            color = PoliCurrent.copy(alpha = 0.16f),
-            topLeft = Offset(size.width * 0.15f, size.height * 0.16f),
-            size = Size(size.width * 0.7f, size.height * 0.34f),
-            cornerRadius = CornerRadius(8.dp.toPx(), 8.dp.toPx())
-        )
-        drawRoundRect(
-            color = PoliCurrent,
-            topLeft = Offset(size.width * 0.15f, size.height * 0.16f),
-            size = Size(size.width * 0.7f, size.height * 0.34f),
-            cornerRadius = CornerRadius(8.dp.toPx(), 8.dp.toPx()),
-            style = Stroke(width = 2.dp.toPx())
-        )
-
-        drawLine(
-            color = PoliCurrent,
-            start = Offset(size.width * 0.28f, size.height * 0.39f),
-            end = Offset(size.width * 0.62f, size.height * 0.46f),
-            strokeWidth = 4.dp.toPx()
-        )
-        drawLine(
-            color = PoliFgSecondary,
-            start = Offset(size.width * 0.2f, size.height * 0.63f),
-            end = Offset(size.width * 0.43f, size.height * 0.67f),
-            strokeWidth = 3.dp.toPx()
-        )
-        drawCircle(
-            color = PoliCurrent,
-            radius = 9.dp.toPx(),
-            center = Offset(size.width * 0.62f, size.height * 0.46f)
-        )
-        drawCircle(
-            color = PoliFgSecondary,
-            radius = 7.dp.toPx(),
-            center = Offset(size.width * 0.34f, size.height * 0.35f),
-            style = Stroke(width = 2.dp.toPx())
-        )
-        drawCircle(
-            color = PoliEmphasis,
-            radius = 10.dp.toPx(),
-            center = Offset(size.width * 0.66f, size.height * 0.34f),
-            style = Stroke(width = 3.dp.toPx())
-        )
-        drawCircle(
-            color = PoliFgPrimary,
-            radius = 4.dp.toPx(),
-            center = Offset(size.width * 0.66f, size.height * 0.34f)
-        )
     }
 }
 
