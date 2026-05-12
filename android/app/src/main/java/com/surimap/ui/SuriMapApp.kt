@@ -18,6 +18,7 @@ import androidx.navigation.compose.rememberNavController
 import com.surimap.BuildConfig
 import com.surimap.core.incident.IncidentReadRepository
 import com.surimap.core.network.SuriMapApiClient
+import com.surimap.core.offline.OfflinePackageRepository
 import com.surimap.feature.bootstrap.data.AndroidManagedConfigurationReader
 import com.surimap.feature.bootstrap.data.AuthBootstrapCoordinator
 import com.surimap.feature.bootstrap.data.AuthBootstrapServerCheck
@@ -37,8 +38,9 @@ import com.surimap.feature.marker.ui.MarkerDetailScreen
 import com.surimap.feature.marker.ui.MarkerType
 import com.surimap.feature.marker.ui.sampleMarkerDetailState
 import com.surimap.feature.marker.ui.sampleMarkerCreateSheetState
+import com.surimap.feature.offline.data.OfflinePackageStateLoader
 import com.surimap.feature.offline.ui.OfflinePackageScreen
-import com.surimap.feature.offline.ui.sampleOfflinePackageState
+import com.surimap.feature.offline.ui.OfflinePackageUiState
 import com.surimap.feature.search.ui.SearchMapScreen
 import com.surimap.feature.search.ui.sampleSearchMapState
 import com.surimap.ui.navigation.BlockedOutboxRouteScreen
@@ -94,11 +96,9 @@ fun SuriMapApp() {
                     )
                 }
                 composable(PolicePhoneRoute.OfflinePackage.route) {
-                    OfflinePackageScreen(
-                        state = sampleOfflinePackageState(),
-                        onBack = { navController.popBackStack() },
-                        onOpenSearchMap = { navController.navigateToSingleTop(PolicePhoneRoute.SearchMap) },
-                        onRetryFailedItems = {}
+                    OfflinePackageRoute(
+                        incidentSessionState = incidentSessionState,
+                        navController = navController
                     )
                 }
                 composable(PolicePhoneRoute.SearchMap.route) {
@@ -199,6 +199,53 @@ fun SuriMapApp() {
             }
         }
     }
+}
+
+@Composable
+private fun OfflinePackageRoute(
+    incidentSessionState: IncidentSessionState,
+    navController: NavHostController
+) {
+    val incidentContext = incidentSessionState.incidentContext
+    val policePhoneContext = incidentSessionState.policePhoneContext
+    val loader =
+        remember(
+            incidentContext?.incidentId,
+            policePhoneContext?.policePhoneId,
+            policePhoneContext?.apiBaseUrl
+        ) {
+            if (incidentContext == null || policePhoneContext == null) {
+                null
+            } else {
+                OfflinePackageStateLoader(
+                    repository =
+                    OfflinePackageRepository(
+                        apiClient = SuriMapApiClient(baseUrl = policePhoneContext.apiBaseUrl)
+                    ),
+                    incidentId = incidentContext.incidentId,
+                    policePhoneId = policePhoneContext.policePhoneId
+                )
+            }
+        }
+    val fallbackIncidentTitle = incidentContext?.incidentId ?: "선택한 사건"
+    var retryNonce by remember { mutableStateOf(0) }
+    var state by remember {
+        mutableStateOf(OfflinePackageUiState.loading(incidentTitle = fallbackIncidentTitle))
+    }
+
+    LaunchedEffect(loader, fallbackIncidentTitle, retryNonce) {
+        state = OfflinePackageUiState.loading(incidentTitle = fallbackIncidentTitle)
+        state =
+            loader?.load()
+                ?: OfflinePackageUiState.permissionDenied(incidentTitle = fallbackIncidentTitle)
+    }
+
+    OfflinePackageScreen(
+        state = state,
+        onBack = { navController.popBackStack() },
+        onOpenSearchMap = { navController.navigateToSingleTop(PolicePhoneRoute.SearchMap) },
+        onRetryFailedItems = { retryNonce += 1 }
+    )
 }
 
 @Composable
