@@ -8,9 +8,10 @@ import androidx.room.RoomDatabase
         OutboxEntity::class,
         SyncStatusEntity::class,
         LocalWriteDraftEntity::class,
-        OfflinePackageInstallationEntity::class
+        OfflinePackageInstallationEntity::class,
+        OfflinePackageItemStatusEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = true
 )
 abstract class SuriMapDatabase : RoomDatabase() {
@@ -21,4 +22,6 @@ abstract class SuriMapDatabase : RoomDatabase() {
     abstract fun localWriteDraftDao(): LocalWriteDraftDao
 
     abstract fun offlinePackageInstallationDao(): OfflinePackageInstallationDao
+
+    abstract fun offlinePackageItemStatusDao(): OfflinePackageItemStatusDao
 }
