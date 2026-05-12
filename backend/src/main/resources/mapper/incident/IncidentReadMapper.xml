@@ -143,7 +143,7 @@
             ia.incident_role,
             a.account_type,
             a.organization_type,
-            pp.id AS police_phone_id
+            pp.phone_code AS police_phone_id
         FROM incident_assignment ia
         LEFT JOIN account a
             ON a.id = ia.account_id
