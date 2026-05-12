@@ -24,6 +24,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.surimap.core.map.MapLibreRuntimeMapState
+import com.surimap.core.map.MapLibreGeometryOverlay
+import com.surimap.core.map.MapLibreGeometryOverlayKind
+import com.surimap.core.map.MapLibreViewportBounds
 import com.surimap.core.map.SuriMapLibreMap
 import com.surimap.feature.alert.ui.IncidentAlertBanner
 import com.surimap.feature.alert.ui.IncidentAlertUiState
@@ -75,10 +78,19 @@ enum class SearchLayerKind {
     Team
 }
 
+data class SearchMapViewportBounds(
+    val south: Double,
+    val west: Double,
+    val north: Double,
+    val east: Double
+)
+
 data class SearchMapLayerUiState(
     val label: String,
     val kind: SearchLayerKind,
-    val highlighted: Boolean = false
+    val highlighted: Boolean = false,
+    val overlayId: String? = null,
+    val geoJson: String? = null
 )
 
 data class SearchMapUiState(
@@ -95,6 +107,7 @@ data class SearchMapUiState(
     val elapsedLabel: String,
     val movementSummary: String,
     val layers: List<SearchMapLayerUiState>,
+    val viewportBounds: SearchMapViewportBounds? = null,
     val handoverPrompt: HandoverPromptUiState?,
     val incidentAlert: IncidentAlertUiState? = null
 ) {
@@ -349,10 +362,11 @@ private fun SearchMapShell(
     modifier: Modifier = Modifier
 ) {
     var mapLoadFailure by remember { mutableStateOf<String?>(null) }
+    val runtimeMapState = state.toRuntimeMapState(mapState)
 
     Box(modifier = modifier.fillMaxWidth().background(PoliBgInput)) {
         SuriMapLibreMap(
-            state = mapState,
+            state = runtimeMapState,
             modifier = Modifier.fillMaxSize(),
             onLoadFailed = { reason -> mapLoadFailure = reason }
         )
@@ -526,6 +540,37 @@ private val SearchMapUiState.syncVariant: PoliChipVariant
             SearchMapSyncStatus.Offline -> PoliChipVariant.Warn
             SearchMapSyncStatus.Sending -> PoliChipVariant.Outbox
         }
+
+private fun SearchMapUiState.toRuntimeMapState(base: MapLibreRuntimeMapState): MapLibreRuntimeMapState {
+    return base.copy(
+        initialBounds =
+        viewportBounds?.let { bounds ->
+            MapLibreViewportBounds(
+                south = bounds.south,
+                west = bounds.west,
+                north = bounds.north,
+                east = bounds.east
+            )
+        },
+        geometryOverlays =
+        layers.mapNotNull { layer ->
+            val geoJson = layer.geoJson?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+            MapLibreGeometryOverlay(
+                id = layer.overlayId ?: layer.label,
+                kind = layer.kind.toMapLibreGeometryOverlayKind(),
+                geoJson = geoJson,
+                highlighted = layer.highlighted
+            )
+        }
+    )
+}
+
+private fun SearchLayerKind.toMapLibreGeometryOverlayKind(): MapLibreGeometryOverlayKind =
+    when (this) {
+        SearchLayerKind.Overall -> MapLibreGeometryOverlayKind.Overall
+        SearchLayerKind.Unit -> MapLibreGeometryOverlayKind.Unit
+        SearchLayerKind.Team -> MapLibreGeometryOverlayKind.Team
+    }
 
 fun sampleSearchMapState(): SearchMapUiState =
     SearchMapUiState.active(
