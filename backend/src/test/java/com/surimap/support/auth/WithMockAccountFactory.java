@@ -1,5 +1,6 @@
 package com.surimap.support.auth;
 
+import com.surimap.account.AccountIdentityCatalog;
 import com.surimap.common.auth.SuriMapAuthentication;
 import java.util.Arrays;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -20,7 +21,7 @@ public class WithMockAccountFactory implements WithSecurityContextFactory<WithMo
 
     var auth =
         new SuriMapAuthentication(
-            annotation.accountId(),
+            AccountIdentityCatalog.accountIdFromCodeOrUuid(annotation.accountId()).toString(),
             annotation.accountType(),
             annotation.organizationType(),
             annotation.channel(),

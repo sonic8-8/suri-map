@@ -1,5 +1,6 @@
 package com.surimap.incident.service;
 
+import com.surimap.account.AccountIdentityCatalog;
 import com.surimap.external.ExternalAssignment;
 import com.surimap.incident.domain.IncidentRecord;
 import com.surimap.incident.event.IncidentAssignmentChangedEvent;
@@ -56,16 +57,17 @@ public class IncidentAssignmentImportService {
     Instant now = clock.instant();
     List<String> changedAccountIds = new ArrayList<>();
     for (ExternalAssignment assignment : assignments) {
+      UUID accountId = AccountIdentityCatalog.accountIdFromCodeOrUuid(assignment.accountId());
       int inserted =
           incidentMapper.insertIncidentAssignmentIfAbsent(
               assignmentIdFor(assignment),
               incident.getId(),
-              assignment.accountId(),
+              accountId,
               assignment.incidentRole(),
               assignedAt(assignment, now),
               now);
       if (inserted > 0) {
-        changedAccountIds.add(assignment.accountId());
+        changedAccountIds.add(accountId.toString());
       }
     }
 

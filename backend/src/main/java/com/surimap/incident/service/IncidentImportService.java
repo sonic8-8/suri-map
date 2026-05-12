@@ -1,5 +1,6 @@
 package com.surimap.incident.service;
 
+import com.surimap.account.AccountIdentityCatalog;
 import com.surimap.external.ExternalAssignment;
 import com.surimap.external.ExternalIncident;
 import com.surimap.external.ExternalIncidentAdapter;
@@ -255,7 +256,7 @@ public class IncidentImportService {
       incidentMapper.insertIncidentAssignment(
           assignmentIdFor(assignment),
           incidentId,
-          assignment.accountId(),
+          AccountIdentityCatalog.accountIdFromCodeOrUuid(assignment.accountId()),
           assignment.incidentRole(),
           assignedAt(assignment, importedAt),
           importedAt);

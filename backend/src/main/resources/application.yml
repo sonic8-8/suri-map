@@ -2,7 +2,7 @@ spring:
   application:
     name: suri-map-api
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/surimap}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/surimap}
     username: ${SPRING_DATASOURCE_USERNAME:surimap}
     password: ${SPRING_DATASOURCE_PASSWORD:surimap}
   flyway:

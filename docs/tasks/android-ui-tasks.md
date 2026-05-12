@@ -409,7 +409,7 @@
     - 현재 Android UI는 별도 ViewModel보다 Activity/Nav scope `IncidentSessionState`를 사용하므로 해당 state holder 전이를 ViewModel-equivalent 테스트로 검증했다.
     - fixture JSON은 복사본을 만들지 않고 `docs/spec/fixtures`를 Gradle test resource로 연결해 `common-fixtures.json`의 확정 ID를 직접 읽는다.
 
-- [ ] AUI-T14 연결된 Android 실기기에서 화면 검증을 수행한다
+- [x] AUI-T14 연결된 Android 실기기에서 화면 검증을 수행한다
   - 담당 영역: Android QA
   - 필수 참조: `docs/screen-design/measurement-gates.md`, `docs/screen-design/anti-patterns.md`, `docs/prd.md`
   - 구현 산출물:
@@ -421,6 +421,18 @@
     - `adb devices`에서 대상 단말 확인
     - `cd android && ./gradlew :app:installDebug` 성공
     - 화면 겹침, 잘림, 터치 타깃 미달, long-press 단독 confirm 0건 확인
+  - 완료 증거:
+    - Jira `S14P31C106-235`, branch `feature/S14P31C106-235-android-device-screen-verification`
+    - 단말: `R3CT50BD92Y device product:r0qksx model:SM_S901N device:r0q`
+    - VERIFY: `cd android && ./gradlew --no-daemon :app:installDebug` 통과
+    - VERIFY: `cd android && ./gradlew --no-daemon :app:assembleDebug` 통과
+    - VERIFY: `cd android && ./gradlew --no-daemon test :app:assembleDebug` 통과
+    - VERIFY: `git diff --check` 통과
+    - Evidence: `docs/screen-design/artifacts/device-qa/AUI-T14/report.md`
+  - 범위 메모:
+    - 실제 단말에는 production Knox/MDM managed configuration과 내부망 backend fixture가 없어 P1-B 이후 운영 흐름 end-to-end 전환은 재현하지 못했다.
+    - P2/P3/P5/P6/P8/P9는 release에 포함되지 않는 `src/debug` QA Activity로 동일 Compose 컴포넌트를 실단말에서 직접 렌더링해 확인했다.
+    - live 통신 on/off 전이는 관리 프로파일과 backend fixture가 준비된 뒤 별도 E2E로 재검증해야 한다.
 
 ## 보류 / 별도 기획 필요
 

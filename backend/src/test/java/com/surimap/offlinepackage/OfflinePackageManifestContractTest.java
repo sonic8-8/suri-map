@@ -59,7 +59,8 @@ class OfflinePackageManifestContractTest {
     assertThat(manifest.packageHash()).matches(SHA256_HEX);
 
     assertThat(manifest.policePhoneContext().policePhoneId()).isEqualTo("dev-precinct-phone-01");
-    assertThat(manifest.policePhoneContext().accountId()).isEqualTo("acct-precinct-team");
+    assertThat(manifest.policePhoneContext().accountId())
+        .isEqualTo("11111111-1111-1111-1111-111111110003");
     assertThat(manifest.policePhoneContext().accountType()).isEqualTo("TEAM");
     assertThat(manifest.policePhoneContext().teamId()).isEqualTo("team-precinct-jongno");
     assertThat(manifest.policePhoneContext().role()).isEqualTo("MEMBER");

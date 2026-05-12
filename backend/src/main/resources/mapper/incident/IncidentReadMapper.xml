@@ -146,9 +146,9 @@
             pp.id AS police_phone_id
         FROM incident_assignment ia
         LEFT JOIN account a
-            ON a.id = ia.account_id
+            ON CAST(a.id AS VARCHAR) = CAST(ia.account_id AS VARCHAR)
         LEFT JOIN police_phone pp
-            ON pp.account_id = ia.account_id
+            ON CAST(pp.account_id AS VARCHAR) = CAST(ia.account_id AS VARCHAR)
            AND pp.status = 'ACTIVE'
         WHERE ia.incident_id = #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
           AND ia.revoked_at IS NULL

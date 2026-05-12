@@ -1,4 +1,13 @@
 <resources>
     <string name="app_name">Suri-Map</string>
+    <string name="restriction_police_phone_id_title">폴리폰 ID</string>
+    <string name="restriction_police_phone_id_description">관리 콘솔에서 배정한 폴리폰 식별값</string>
+    <string name="restriction_api_base_url_title">내부망 API URL</string>
+    <string name="restriction_api_base_url_description">Suri-Map API 서버 기본 URL</string>
+    <string name="restriction_tile_base_url_title">지도 타일 URL</string>
+    <string name="restriction_tile_base_url_description">Suri-Map 지도 타일 서버 기본 URL</string>
+    <string name="restriction_object_storage_base_url_title">사진 저장소 URL</string>
+    <string name="restriction_object_storage_base_url_description">마커 사진 업로드용 저장소 기본 URL</string>
+    <string name="restriction_allowed_hosts_title">허용 호스트</string>
+    <string name="restriction_allowed_hosts_description">쉼표로 구분한 내부망 호스트 목록</string>
 </resources>
-

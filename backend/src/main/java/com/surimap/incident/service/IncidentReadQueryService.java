@@ -28,7 +28,7 @@ public class IncidentReadQueryService {
   }
 
   @Transactional(readOnly = true)
-  public ListResult findActiveIncidents(String accountId, String status) {
+  public ListResult findActiveIncidents(UUID accountId, String status) {
     return new ListResult(
         incidentReadMapper.findActiveListByAccountId(accountId, status).stream()
             .map(this::toListItem)
@@ -36,7 +36,7 @@ public class IncidentReadQueryService {
   }
 
   @Transactional(readOnly = true)
-  public Optional<Detail> findIncidentDetail(UUID incidentId, String accountId) {
+  public Optional<Detail> findIncidentDetail(UUID incidentId, UUID accountId) {
     var detail = incidentReadMapper.findActiveDetailByIncidentIdAndAccountId(incidentId, accountId);
     if (detail.isPresent()) {
       return detail.map(row -> toDetail(row, activeMissingPerson(row), activeAssignments(row)));

@@ -75,6 +75,33 @@ interface OutboxDao {
 
     @Query(
         """
+        SELECT
+          COALESCE(SUM(CASE WHEN idempotency_status IN ('PENDING', 'SENDING') THEN 1 ELSE 0 END), 0)
+            AS pending_count,
+          COALESCE(SUM(CASE WHEN idempotency_status = 'FAILED_RETRYABLE' THEN 1 ELSE 0 END), 0)
+            AS retryable_count,
+          COALESCE(SUM(CASE WHEN idempotency_status = 'FAILED_FINAL' THEN 1 ELSE 0 END), 0)
+            AS final_failed_count,
+          MIN(
+            CASE
+              WHEN idempotency_status IN ('PENDING', 'SENDING', 'FAILED_RETRYABLE')
+              THEN client_requested_at
+              ELSE NULL
+            END
+          ) AS oldest_pending_client_requested_at
+        FROM android_outbox_row
+        WHERE incident_id = :incidentId
+          AND police_phone_id = :policePhoneId
+          AND idempotency_status NOT IN ('ACKED', 'PURGED')
+        """
+    )
+    suspend fun statusSummary(
+        incidentId: String,
+        policePhoneId: String
+    ): OutboxStatusSummary
+
+    @Query(
+        """
         SELECT * FROM android_outbox_row
         WHERE incident_id = :incidentId
         ORDER BY sequence ASC, outbox_id ASC

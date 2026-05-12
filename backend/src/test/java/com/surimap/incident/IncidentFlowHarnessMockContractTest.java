@@ -29,7 +29,7 @@ class IncidentFlowHarnessMockContractTest {
   void seed_loader_loads_sc010212_canonical_incident_ids_from_common_fixtures() {
     IncidentSeedFixtureIds seed = IncidentSeedFixtureLoader.loadPrecinctFirst();
 
-    assertThat(seed.sourceIncidentId()).isEqualTo("mock-112-incident-001");
+    assertThat(seed.sourceIncidentId()).isEqualTo("00000000-0000-0000-0000-000000000001");
     assertThat(seed.incidentId()).isEqualTo("inc-precinct-first-001");
     assertThat(seed.opId()).isEqualTo("op-precinct-001-op1");
     assertThat(seed.markerIds()).containsExactly("mk-precinct-clue-001");

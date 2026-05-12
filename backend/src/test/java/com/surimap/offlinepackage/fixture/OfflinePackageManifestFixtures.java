@@ -13,7 +13,7 @@ public final class OfflinePackageManifestFixtures {
   public static final String MANIFEST_ID = "tile-manifest-inc-precinct-001";
   public static final int MANIFEST_VERSION = 1;
   public static final String POLICE_PHONE_ID = "dev-precinct-phone-01";
-  public static final String ACCOUNT_ID = "acct-precinct-team";
+  public static final String ACCOUNT_ID = "11111111-1111-1111-1111-111111110003";
   public static final String TEAM_ID = "team-precinct-jongno";
   public static final String OP_ID = "op-precinct-001-op1";
   public static final String OVERALL_SEARCH_AREA_ID = "osa-precinct-001";

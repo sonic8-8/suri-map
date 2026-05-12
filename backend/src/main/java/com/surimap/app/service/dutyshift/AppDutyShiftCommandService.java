@@ -66,7 +66,7 @@ public class AppDutyShiftCommandService {
           incidentLifecycleGuard.requireOpen(request.incidentId());
           UUID assignmentId =
               dutyShiftMapper
-                  .findActiveAssignmentId(request.incidentId(), actorAccountId.toString())
+                  .findActiveAssignmentId(request.incidentId(), actorAccountId)
                   .orElseThrow(HandoverApiException::writeConflict);
           Instant now = Instant.now();
           DutyShift dutyShift =

@@ -79,7 +79,7 @@ Android Room 로컬 엔티티
 **주요 컬럼**
 
 - `id`: 사건 식별자
-- `source_incident_id`: mock 112 원천 사건 ID
+- `source_incident_id`: mock 112 원천 사건 ID. DB에는 UUID로 저장한다.
 - `title`: 사건 표시 제목
 - `status`: 사건 진행 상태
 - `opened_at`: 사건 시작 시각
@@ -167,8 +167,8 @@ Android Room 로컬 엔티티
 
 **주요 컬럼**
 
-- `id`: 계정 식별자
-- `login_id`: 로그인 ID
+- `id`: 계정 식별자. 내부 참조와 FK는 UUID를 사용한다.
+- `login_id`: 사람이 입력하는 로그인 ID. `acct-*` fixture 코드는 여기에 해당하며 FK로 사용하지 않는다.
 - `password_hash`: 비밀번호 해시
 - `display_name`: 화면에 표시할 계정 이름
 - `account_type`: 팀, 순찰차, 지휘 계정 구분
@@ -582,6 +582,8 @@ Android Room 로컬 엔티티
 ### 인증과 푸시 채널
 
 #### refresh_token
+
+`account_id`와 `police_phone_id`는 사람이 읽는 alias가 아니라 DB 내부 UUID 식별자를 저장한다.
 
 **PRD 근거**
 

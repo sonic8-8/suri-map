@@ -16,6 +16,7 @@ import com.surimap.offlinepackage.query.OfflinePackageInstallationStatus;
 import com.surimap.offlinepackage.repository.OfflinePackageInstallationRecord;
 import com.surimap.offlinepackage.repository.OfflinePackageManifestRecord;
 import com.surimap.offlinepackage.repository.OfflinePackageMapper;
+import com.surimap.account.AccountIdentityCatalog;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -72,7 +73,11 @@ public class OfflinePackageRepository {
         current.expiresAt(),
         "sha256:" + current.manifestHash(),
         new PolicePhoneContext(
-            POLICE_PHONE_ID, "acct-precinct-team", "TEAM", "team-precinct-jongno", "MEMBER"),
+            POLICE_PHONE_ID,
+            AccountIdentityCatalog.PRECINCT_TEAM_ID.toString(),
+            "TEAM",
+            "team-precinct-jongno",
+            "MEMBER"),
         new IncidentMetadata(incidentId, "OPEN", "CURRENT", "mock-112-incident-001"),
         new MissingPerson(
             incidentId,
@@ -132,7 +137,6 @@ public class OfflinePackageRepository {
   }
 
   public synchronized List<OfflinePackageInstallationStatus> byIncident(String incidentId) {
-    ensureFixtureManifest();
     return mapper.findStatusesByIncident(incidentId);
   }
 

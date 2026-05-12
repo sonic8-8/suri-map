@@ -451,6 +451,7 @@
         "acct-support-car",
         "acct-support-team"
       ],
+      "accountIdMeaning": "Legacy fixture field name. acct-* values are mock-112/fixture account codes, not internal account.id UUIDs. Import maps them to S1-2 account UUIDs before writing incident_assignment.account_id.",
       "policePhoneIds": [
         "dev-precinct-cmd-phone-01",
         "dev-precinct-car-01",
@@ -491,7 +492,7 @@
     },
     "mock112SourceContract": {
       "fixtureId": "mock-112-incident-001",
-      "sourceIncidentId": "mock-112-incident-001",
+      "sourceIncidentId": "00000000-0000-0000-0000-000000000001",
       "title": "종로구 인왕산 실종 신고",
       "openedAt": "2026-04-28T09:00:00+09:00",
       "syntheticDataNote": "All names, locations, and identifiers are synthetic test fixtures. Do not replace with real personal data.",
@@ -509,24 +510,25 @@
           "incidentRole",
           "assignedAt"
         ],
-        "accountIdSource": "S1-2 account fixture",
+        "accountIdSource": "mock-112 fixture account code mapped to S1-2 account UUID",
+        "accountIdMeaning": "Legacy mock-112 field name. The value carries acct-* fixture account code, not DB account.id UUID.",
         "incidentRoleSource": "S1-1 incident_assignment incident_role enum"
       },
       "initialAssignments": [
         {
-          "externalAssignmentKey": "mock-112-incident-001:precinct-cmd",
+          "externalAssignmentKey": "00000000-0000-0000-0000-000000000001:precinct-cmd",
           "accountId": "acct-precinct-cmd",
           "incidentRole": "FIELD_COMMANDER",
           "assignedAt": "2026-04-28T09:00:00+09:00"
         },
         {
-          "externalAssignmentKey": "mock-112-incident-001:precinct-car",
+          "externalAssignmentKey": "00000000-0000-0000-0000-000000000001:precinct-car",
           "accountId": "acct-precinct-car",
           "incidentRole": "MEMBER",
           "assignedAt": "2026-04-28T09:00:00+09:00"
         },
         {
-          "externalAssignmentKey": "mock-112-incident-001:precinct-team",
+          "externalAssignmentKey": "00000000-0000-0000-0000-000000000001:precinct-team",
           "accountId": "acct-precinct-team",
           "incidentRole": "MEMBER",
           "assignedAt": "2026-04-28T09:00:00+09:00"
@@ -534,13 +536,13 @@
       ],
       "handoverAssignments": [
         {
-          "externalAssignmentKey": "mock-112-incident-001:cmd-alpha",
+          "externalAssignmentKey": "00000000-0000-0000-0000-000000000001:cmd-alpha",
           "accountId": "acct-cmd-alpha",
           "incidentRole": "INCIDENT_COMMANDER",
           "assignedAt": "2026-04-28T10:30:00+09:00"
         },
         {
-          "externalAssignmentKey": "mock-112-incident-001:team-alpha",
+          "externalAssignmentKey": "00000000-0000-0000-0000-000000000001:team-alpha",
           "accountId": "acct-team-alpha",
           "incidentRole": "MEMBER",
           "assignedAt": "2026-04-28T10:30:00+09:00"
@@ -548,19 +550,19 @@
       ],
       "supportAssignments": [
         {
-          "externalAssignmentKey": "mock-112-incident-001:support-cmd",
+          "externalAssignmentKey": "00000000-0000-0000-0000-000000000001:support-cmd",
           "accountId": "acct-support-cmd",
           "incidentRole": "FIELD_COMMANDER",
           "assignedAt": "2026-04-28T11:00:00+09:00"
         },
         {
-          "externalAssignmentKey": "mock-112-incident-001:support-car",
+          "externalAssignmentKey": "00000000-0000-0000-0000-000000000001:support-car",
           "accountId": "acct-support-car",
           "incidentRole": "MEMBER",
           "assignedAt": "2026-04-28T11:00:00+09:00"
         },
         {
-          "externalAssignmentKey": "mock-112-incident-001:support-team",
+          "externalAssignmentKey": "00000000-0000-0000-0000-000000000001:support-team",
           "accountId": "acct-support-team",
           "incidentRole": "MEMBER",
           "assignedAt": "2026-04-28T11:00:00+09:00"
@@ -1831,6 +1833,16 @@
   },
   "confirmedIdIndex": [
     {
+      "id": "00000000-0000-0000-0000-000000000001",
+      "paths": [
+        "mock112SourceContract.sourceIncidentId"
+      ],
+      "groups": [
+        "mock112SourceContract"
+      ],
+      "kind": "seed_id"
+    },
+    {
       "id": "10000000-0000-4000-8000-000000000001",
       "paths": [
         "eventFanout.duplicateEventDedupe.incidentId",
@@ -3070,8 +3082,7 @@
     {
       "id": "mock-112-incident-001",
       "paths": [
-        "mock112SourceContract.fixtureId",
-        "mock112SourceContract.sourceIncidentId"
+        "mock112SourceContract.fixtureId"
       ],
       "groups": [
         "mock112SourceContract"

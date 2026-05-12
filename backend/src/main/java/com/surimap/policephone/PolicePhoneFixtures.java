@@ -1,5 +1,6 @@
 package com.surimap.policephone;
 
+import com.surimap.account.AccountIdentityCatalog;
 import com.surimap.common.auth.AccountType;
 import com.surimap.common.auth.OrganizationType;
 import java.util.UUID;
@@ -21,9 +22,10 @@ public final class PolicePhoneFixtures {
   public static final String ASSIGNED_APP_TOKEN_ROTATED = "fcm-token-assigned-101-rotated";
   public static final String PATH_APP_INSTANCE_ID = "app-instance-path-500";
   public static final String PATH_APP_TOKEN = "fcm-token-path-500";
-  public static final String ASSIGNED_ACCOUNT_ID = "acct-precinct-team";
+  public static final String ASSIGNED_ACCOUNT_CODE = AccountIdentityCatalog.PRECINCT_TEAM_CODE;
+  public static final String ASSIGNED_ACCOUNT_ID = AccountIdentityCatalog.PRECINCT_TEAM_ID.toString();
   public static final AccountType ASSIGNED_ACCOUNT_TYPE = AccountType.TEAM;
-  public static final OrganizationType ASSIGNED_ORGANIZATION_TYPE = OrganizationType.MISSING_TEAM;
+  public static final OrganizationType ASSIGNED_ORGANIZATION_TYPE = OrganizationType.POLICE_SUBSTATION;
 
   private PolicePhoneFixtures() {}
 }
