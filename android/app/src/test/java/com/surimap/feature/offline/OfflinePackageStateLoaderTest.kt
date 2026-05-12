@@ -2,6 +2,7 @@ package com.surimap.feature.offline
 
 import com.surimap.core.network.SuriMapApiClient
 import com.surimap.core.offline.OfflinePackageInstallationStatus
+import com.surimap.core.offline.OfflinePackageItemStatus
 import com.surimap.core.offline.OfflinePackageRepository
 import com.surimap.feature.offline.data.OfflinePackageStateLoader
 import com.surimap.feature.offline.ui.OfflinePackageDownloadStatus
@@ -202,6 +203,108 @@ class OfflinePackageStateLoaderTest {
     }
 
     @Test
+    fun localPackageItemProgressOverridesManifestItemProgress() = runBlocking {
+        val callFactory =
+            CapturingCallFactory(
+                response =
+                response(
+                    200,
+                    """
+                    {
+                      "manifestId": "pkg-precinct-first-rev-19",
+                      "incidentId": "$INCIDENT_ID",
+                      "manifestVersion": 19,
+                      "incident": {"title": "광주 북구 산악 실종"},
+                      "packageItems": [
+                        {
+                          "itemKey": "incident-meta",
+                          "itemType": "INCIDENT_META",
+                          "status": "PENDING",
+                          "sourceVersion": 8,
+                          "sourceHash": "sha256:incident"
+                        },
+                        {
+                          "itemKey": "tile-1",
+                          "itemType": "TILE",
+                          "status": "DOWNLOADED",
+                          "sourceVersion": 19,
+                          "sourceHash": "sha256:tile"
+                        }
+                      ]
+                    }
+                    """.trimIndent()
+                )
+            )
+        val loader =
+            OfflinePackageStateLoader(
+                repository =
+                OfflinePackageRepository(
+                    apiClient =
+                    SuriMapApiClient(
+                        baseUrl = "https://suri-map.internal",
+                        callFactory = callFactory
+                    )
+                ),
+                incidentId = INCIDENT_ID,
+                policePhoneId = POLICE_PHONE_ID,
+                localPackageItems = { manifestId ->
+                    assertEquals("pkg-precinct-first-rev-19", manifestId)
+                    listOf(
+                        OfflinePackageItemStatus(
+                            incidentId = INCIDENT_ID,
+                            policePhoneId = POLICE_PHONE_ID,
+                            manifestId = manifestId,
+                            manifestVersion = 19,
+                            itemKey = "incident-meta",
+                            itemType = "INCIDENT_META",
+                            status = "DOWNLOADED",
+                            sourceVersion = 8,
+                            sourceHash = "sha256:incident",
+                            bytesTotal = null,
+                            bytesDownloaded = null
+                        ),
+                        OfflinePackageItemStatus(
+                            incidentId = INCIDENT_ID,
+                            policePhoneId = POLICE_PHONE_ID,
+                            manifestId = manifestId,
+                            manifestVersion = 19,
+                            itemKey = "tile-1",
+                            itemType = "TILE",
+                            status = "PENDING",
+                            sourceVersion = 19,
+                            sourceHash = "sha256:tile",
+                            bytesTotal = 100,
+                            bytesDownloaded = 40
+                        ),
+                        OfflinePackageItemStatus(
+                            incidentId = INCIDENT_ID,
+                            policePhoneId = POLICE_PHONE_ID,
+                            manifestId = manifestId,
+                            manifestVersion = 19,
+                            itemKey = "marker-1",
+                            itemType = "INITIAL_MARKER",
+                            status = "FAILED",
+                            sourceVersion = 19,
+                            sourceHash = "sha256:marker",
+                            bytesTotal = null,
+                            bytesDownloaded = null
+                        )
+                    )
+                }
+            )
+
+        val state = loader.load()
+
+        assertEquals(OfflinePackageDownloadStatus.Partial, state.status)
+        assertEquals("완료", state.packageItems.single { it.label == "사건 메타" }.statusLabel)
+        assertEquals(1f, state.packageItems.single { it.label == "사건 메타" }.progress)
+        assertEquals("다운로드 중", state.packageItems.single { it.label == "타일" }.statusLabel)
+        assertEquals(0.4f, state.packageItems.single { it.label == "타일" }.progress)
+        assertEquals("실패", state.packageItems.single { it.label == "마커" }.statusLabel)
+        assertTrue(state.packageItems.single { it.label == "마커" }.failed)
+    }
+
+    @Test
     fun appOfflineRouteDoesNotRenderSamplePackageStateDirectly() {
         val source = java.io.File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
 
@@ -209,7 +312,9 @@ class OfflinePackageStateLoaderTest {
         assertFalse(source.contains("import com.surimap.feature.offline.ui.sampleOfflinePackageState"))
         assertTrue(source.contains("OfflinePackageStateLoader"))
         assertTrue(source.contains("offlinePackageInstallationDao"))
+        assertTrue(source.contains("offlinePackageItemStatusDao"))
         assertTrue(source.contains("localInstallationStatus"))
+        assertTrue(source.contains("localPackageItems"))
     }
 
     private fun loaderFor(response: Response): OfflinePackageStateLoader {

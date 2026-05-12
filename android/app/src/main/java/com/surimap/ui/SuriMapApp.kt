@@ -17,11 +17,13 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.surimap.BuildConfig
 import com.surimap.core.database.OfflinePackageInstallationEntity
+import com.surimap.core.database.OfflinePackageItemStatusEntity
 import com.surimap.core.database.SuriMapDatabaseProvider
 import com.surimap.core.incident.IncidentReadRepository
 import com.surimap.core.map.MapLibreRuntimeMapState
 import com.surimap.core.network.SuriMapApiClient
 import com.surimap.core.offline.OfflinePackageInstallationStatus
+import com.surimap.core.offline.OfflinePackageItemStatus
 import com.surimap.core.offline.OfflinePackageManifestQuery
 import com.surimap.core.offline.OfflinePackageRepository
 import com.surimap.core.path.SearchPathRepository
@@ -301,15 +303,16 @@ private fun OfflinePackageRoute(
     val incidentContext = incidentSessionState.incidentContext
     val policePhoneContext = incidentSessionState.policePhoneContext
     val context = LocalContext.current.applicationContext
-    val offlinePackageInstallationDao = remember(context) {
-        SuriMapDatabaseProvider.database(context).offlinePackageInstallationDao()
-    }
+    val database = remember(context) { SuriMapDatabaseProvider.database(context) }
+    val offlinePackageInstallationDao = remember(database) { database.offlinePackageInstallationDao() }
+    val offlinePackageItemStatusDao = remember(database) { database.offlinePackageItemStatusDao() }
     val loader =
         remember(
             incidentContext?.incidentId,
             policePhoneContext?.policePhoneId,
             policePhoneContext?.apiBaseUrl,
-            offlinePackageInstallationDao
+            offlinePackageInstallationDao,
+            offlinePackageItemStatusDao
         ) {
             if (incidentContext == null || policePhoneContext == null) {
                 null
@@ -326,6 +329,13 @@ private fun OfflinePackageRoute(
                             incidentId = incidentContext.incidentId,
                             policePhoneId = policePhoneContext.policePhoneId
                         )?.toOfflinePackageInstallationStatus()
+                    },
+                    localPackageItems = { manifestId ->
+                        offlinePackageItemStatusDao.findByManifest(
+                            incidentId = incidentContext.incidentId,
+                            policePhoneId = policePhoneContext.policePhoneId,
+                            manifestId = manifestId
+                        ).map(OfflinePackageItemStatusEntity::toOfflinePackageItemStatus)
                     }
                 )
             }
@@ -468,6 +478,21 @@ private fun OfflinePackageInstallationEntity.toOfflinePackageInstallationStatus(
         failedItems = failedItems,
         version = version,
         readyForOfflineUse = readyForOfflineUse
+    )
+
+private fun OfflinePackageItemStatusEntity.toOfflinePackageItemStatus(): OfflinePackageItemStatus =
+    OfflinePackageItemStatus(
+        incidentId = incidentId,
+        policePhoneId = policePhoneId,
+        manifestId = manifestId,
+        manifestVersion = manifestVersion,
+        itemKey = itemKey,
+        itemType = itemType,
+        status = status,
+        sourceVersion = sourceVersion,
+        sourceHash = sourceHash,
+        bytesTotal = bytesTotal,
+        bytesDownloaded = bytesDownloaded
     )
 
 private fun IncidentContext?.toSearchMapSessionContext(policePhoneContext: PolicePhoneContext?): SearchMapSessionContext =
