@@ -117,6 +117,55 @@ class OutboxHarnessIntegrationTest {
         assertEquals("idem-path-001", request.header("Idempotency-Key"))
         assertEquals("https://suri-map.example.com/api/search-paths/batch", request.url.toString())
     }
+
+    @Test
+    fun persistedAppWriteHeadersAreReplayedFromRoomOutboxRows() = runBlocking {
+        val syncClient = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao())
+        val callFactory = StaticCallFactory(response = response(201))
+        val replay = RoomOutboxReplay(
+            outboxDao = database.outboxDao(),
+            sender =
+            HttpOutboxSender(
+                apiClient = SuriMapApiClient(
+                    baseUrl = "https://suri-map.example.com",
+                    callFactory = callFactory
+                )
+            )
+        )
+        val now = Instant.ofEpochMilli(System.currentTimeMillis())
+        val operation =
+            LocalWriteOperation(
+                operationId = "op-app-write-header-guard-001",
+                incidentId = "inc-precinct-first-001",
+                policePhoneId = "phone-header-guard-001",
+                dependencyGroup = DependencyGroup.HANDOVER_MEMO,
+                sequence = 701L,
+                method = "POST",
+                endpoint = "/api/handover-memos",
+                payload = """{"incidentId":"inc-precinct-first-001","opId":"op-001","content":"memo"}""",
+                bodyHash = "sha256:app-write-header-guard",
+                idempotencyKey = "idem-app-write-header-guard-001",
+                clientTs = now.minusSeconds(2),
+                clockOffsetMs = 0L,
+                clockSyncedAt = now,
+                opId = "op-001",
+                entityType = "handover_memo"
+            )
+
+        val enqueue = syncClient.enqueue(operation)
+        val persistedRow = database.outboxDao().findById(enqueue.outboxId)
+        assertNotNull(persistedRow)
+        assertEquals("phone-header-guard-001", persistedRow!!.policePhoneId)
+        assertEquals("idem-app-write-header-guard-001", persistedRow.idempotencyKey)
+
+        replay.flushPending(policePhoneId = operation.policePhoneId, incidentId = operation.incidentId)
+
+        val request = callFactory.lastRequest!!
+        assertEquals("APP", request.header("X-Client-Channel"))
+        assertEquals(persistedRow.policePhoneId, request.header("X-PolicePhone-Id"))
+        assertEquals(persistedRow.idempotencyKey, request.header("Idempotency-Key"))
+        assertEquals("https://suri-map.example.com/api/handover-memos", request.url.toString())
+    }
 }
 
 private class StaticCallFactory(
