@@ -196,6 +196,14 @@ private fun SearchMapRoute(
                         )
                     ).activeOverall(incidentId)
                 },
+                opSearchAreas = { incidentId, opId ->
+                    SearchAreaReadRepository(
+                        apiClient =
+                        SuriMapApiClient(
+                            baseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
+                        )
+                    ).list(incidentId = incidentId, opId = opId, status = "ACTIVE")
+                },
                 outboxSummary = { incidentId, policePhoneId ->
                     outboxDao.statusSummary(incidentId = incidentId, policePhoneId = policePhoneId)
                 }

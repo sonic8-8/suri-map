@@ -27,11 +27,14 @@ class SearchMapStateLoader(
     private val overallSearchArea: suspend (String) -> SuriMapApiResponse = { incidentId ->
         SearchAreaReadRepository().activeOverall(incidentId)
     },
+    private val opSearchAreas: suspend (String, String) -> SuriMapApiResponse = { incidentId, opId ->
+        SearchAreaReadRepository().list(incidentId = incidentId, opId = opId, status = "ACTIVE")
+    },
     private val outboxSummary: suspend (String, String) -> OutboxStatusSummary? = { _, _ -> null },
     private val nowMs: () -> Long = { System.currentTimeMillis() }
 ) {
     suspend fun load(context: SearchMapSessionContext): SearchMapUiState {
-        val areaState = withOverallSearchArea(context, fallback(context))
+        val areaState = withOpSearchAreas(context, withOverallSearchArea(context, fallback(context)))
         val incidentId = context.incidentId?.takeIf(String::isNotBlank) ?: return areaState
         val response = runCatching { incidentDetail(incidentId) }.getOrNull() ?: return areaState
         if (!response.isSuccessful || response.body.isNullOrBlank()) {
@@ -117,6 +120,27 @@ class SearchMapStateLoader(
         )
     }
 
+    private suspend fun withOpSearchAreas(
+        context: SearchMapSessionContext,
+        state: SearchMapUiState
+    ): SearchMapUiState {
+        val incidentId = context.incidentId?.takeIf(String::isNotBlank) ?: return state
+        val opId = context.currentOpId?.takeIf(String::isNotBlank) ?: return state
+        val response = runCatching { opSearchAreas(incidentId, opId) }.getOrNull() ?: return state
+        if (!response.isSuccessful || response.body.isNullOrBlank()) {
+            return state
+        }
+        val opLayers = searchAreaLayers(response.body)
+        if (opLayers.isEmpty()) {
+            return state
+        }
+        return state.copy(
+            layers =
+            state.layers
+                .filterNot { layer -> layer.kind != SearchLayerKind.Overall && layer.geoJson == null } + opLayers
+        )
+    }
+
     private fun detailState(
         context: SearchMapSessionContext,
         body: String,
@@ -161,6 +185,62 @@ class SearchMapStateLoader(
 
     private fun oldestPendingMinutes(clientRequestedAt: Long): Int {
         return ((nowMs() - clientRequestedAt).coerceAtLeast(0L) / MILLIS_PER_MINUTE).toInt()
+    }
+
+    private fun searchAreaLayers(body: String): List<SearchMapLayerUiState> {
+        val root = runCatching { JSONObject(body) }.getOrNull() ?: return emptyList()
+        val areas = root.optJSONArray("areas") ?: root.optJSONArray("items") ?: return emptyList()
+        return buildList {
+            repeat(areas.length()) { index ->
+                val area = areas.optJSONObject(index) ?: return@repeat
+                val geometry = area.optJSONObject("geometry") ?: return@repeat
+                val kind = area.searchLayerKind() ?: return@repeat
+                val id = area.optString("id").ifBlank { "op-${kind.name.lowercase()}-$index" }
+                add(
+                    SearchMapLayerUiState(
+                        label = area.labelFor(kind),
+                        kind = kind,
+                        highlighted = kind == SearchLayerKind.Team,
+                        overlayId = id,
+                        geoJson = geometry.toString()
+                    )
+                )
+            }
+        }
+    }
+
+    private fun JSONObject.searchLayerKind(): SearchLayerKind? {
+        val areaLevel =
+            optString("areaLevel")
+                .ifBlank { optString("area_level") }
+                .uppercase()
+        return when (areaLevel) {
+            "UNIT" -> SearchLayerKind.Unit
+            "TEAM" -> SearchLayerKind.Team
+            "OVERALL" -> null
+            else ->
+                if (
+                    optString("parentAreaId").isNotBlank() ||
+                    optString("parent_area_id").isNotBlank()
+                ) {
+                    SearchLayerKind.Team
+                } else {
+                    SearchLayerKind.Unit
+                }
+        }
+    }
+
+    private fun JSONObject.labelFor(kind: SearchLayerKind): String {
+        return optString("name")
+            .ifBlank { optString("label") }
+            .ifBlank { optString("displayName") }
+            .ifBlank {
+                when (kind) {
+                    SearchLayerKind.Overall -> "전체 수색 구역"
+                    SearchLayerKind.Unit -> "부대 수색 구역"
+                    SearchLayerKind.Team -> "팀 담당 구역"
+                }
+            }
     }
 
     private fun viewportBounds(area: JSONObject, geometry: JSONObject): SearchMapViewportBounds? {
