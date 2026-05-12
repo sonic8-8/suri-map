@@ -1,6 +1,7 @@
 package com.surimap.path;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.surimap.app.service.path.AppSearchPathCommandService;
 import com.surimap.app.service.path.request.EndSearchPathServiceRequest;
@@ -10,6 +11,8 @@ import com.surimap.domain.path.port.SearchPathEventPublisher;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
 import com.surimap.operationalperiod.query.OperationalPeriodQuery;
 import com.surimap.path.fixture.SearchPathFixtures;
+import com.surimap.sync.idempotency.IdempotencyMismatchException;
+import com.surimap.sync.idempotency.IdempotentResponseCache;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -22,6 +25,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.ObjectProvider;
 
 @DisplayName("SearchPath MyBatis persistence")
 @Tag("integration")
@@ -46,9 +50,13 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
   @Autowired private SearchPathEventPublisher searchPathEventPublisher;
   @Autowired private SearchPathMapper searchPathMapper;
   @Autowired private SearchPathService searchPathService;
+  @Autowired private SearchPathController searchPathController;
+  @Autowired private SearchPathSegmentController searchPathSegmentController;
+  @Autowired private ObjectProvider<IdempotentResponseCache> idempotentResponseCacheProvider;
 
   @BeforeEach
   void cleanAndSeedPathContext() {
+    jdbcTemplate.execute("TRUNCATE TABLE idempotency_record");
     jdbcTemplate.execute("TRUNCATE TABLE search_path_excluded_point, search_path_segment, search_path");
     jdbcTemplate.update("DELETE FROM duty_shift WHERE id = ?::uuid", DUTY_SHIFT_ID.toString());
     jdbcTemplate.update("DELETE FROM operational_period WHERE id = ?::uuid", OP_ID.toString());
@@ -217,6 +225,113 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
     assertThat(row.get("status")).isEqualTo("ENDED");
     assertThat(row.get("ended_at")).isNotNull();
     assertThat(row.get("version")).isEqualTo(2L);
+  }
+
+  @Test
+  @DisplayName("start idempotency replay survives service recreation without duplicate path rows")
+  void start_idempotency_replay_survives_service_recreation() {
+    StartSearchPathServiceRequest request =
+        new StartSearchPathServiceRequest(
+            INCIDENT_ID, OP_ID, POLICE_PHONE_ID, STARTED_AT, "idem-path-start-db-replay");
+    var created = appCommandService.start(request);
+    AppSearchPathCommandService restartedService =
+        new AppSearchPathCommandService(
+            operationalPeriodQuery,
+            policePhoneGuard,
+            searchPathEventPublisher,
+            searchPathMapper,
+            idempotentResponseCacheProvider);
+
+    var replayed = restartedService.start(request);
+
+    assertThat(replayed).isEqualTo(created);
+    assertThat(rowCount("search_path")).isEqualTo(1);
+    assertThat(idempotencyStatus("idem-path-start-db-replay")).isEqualTo("COMPLETED");
+  }
+
+  @Test
+  @DisplayName("same start idempotency key with different body is rejected")
+  void start_same_key_different_body_is_rejected() {
+    appCommandService.start(
+        new StartSearchPathServiceRequest(
+            INCIDENT_ID, OP_ID, POLICE_PHONE_ID, STARTED_AT, "idem-path-start-mismatch"));
+
+    assertThatThrownBy(
+            () ->
+                appCommandService.start(
+                    new StartSearchPathServiceRequest(
+                        INCIDENT_ID,
+                        OP_ID,
+                        POLICE_PHONE_ID,
+                        STARTED_AT.plusSeconds(1),
+                        "idem-path-start-mismatch")))
+        .isInstanceOf(IdempotencyMismatchException.class);
+    assertThat(rowCount("search_path")).isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName("batch append idempotency replay does not append geometry twice")
+  void batch_append_idempotency_replay_does_not_append_twice() {
+    PathBatchAppendResponse first =
+        searchPathController
+            .appendBatch(
+                POLICE_PHONE_ID.toString(), "idem-path-batch-db-replay", batchRequest())
+            .getBody();
+
+    PathBatchAppendResponse replayed =
+        searchPathController
+            .appendBatch(
+                POLICE_PHONE_ID.toString(), "idem-path-batch-db-replay", batchRequest())
+            .getBody();
+
+    assertThat(replayed).isEqualTo(first);
+    Integer pointCount =
+        jdbcTemplate.queryForObject(
+            """
+            SELECT ST_NumPoints(geometry)
+            FROM search_path
+            WHERE id = ?::uuid
+            """,
+            Integer.class,
+            PATH_ID.toString());
+    assertThat(pointCount).isEqualTo(8);
+    assertThat(idempotencyStatus("idem-path-batch-db-replay")).isEqualTo("COMPLETED");
+  }
+
+  @Test
+  @DisplayName("segment correction idempotency replay does not increment segment twice")
+  void segment_correction_idempotency_replay_does_not_increment_twice() {
+    PathBatchAppendResponse batch =
+        searchPathController
+            .appendBatch(POLICE_PHONE_ID.toString(), "idem-path-batch-for-correction", batchRequest())
+            .getBody();
+    String segmentId = batch.segments().get(0).id();
+    PathSegmentCorrectionRequest request =
+        new PathSegmentCorrectionRequest(MovementType.FOOT, "manual correction");
+
+    PathSegmentCorrectionResponse first =
+        searchPathSegmentController
+            .correctSegment(
+                segmentId, CORRECTED_BY_ACCOUNT_ID.toString(), "idem-path-segment-db-replay", request)
+            .getBody();
+    PathSegmentCorrectionResponse replayed =
+        searchPathSegmentController
+            .correctSegment(
+                segmentId, CORRECTED_BY_ACCOUNT_ID.toString(), "idem-path-segment-db-replay", request)
+            .getBody();
+
+    assertThat(replayed).isEqualTo(first);
+    Long segmentVersion =
+        jdbcTemplate.queryForObject(
+            """
+            SELECT version
+            FROM search_path_segment
+            WHERE id = ?::uuid
+            """,
+            Long.class,
+            segmentId);
+    assertThat(segmentVersion).isEqualTo(2L);
+    assertThat(idempotencyStatus("idem-path-segment-db-replay")).isEqualTo("COMPLETED");
   }
 
   @Test
@@ -420,6 +535,22 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
             point("gps-precinct-007", "126.958160", "37.571050", 1.1, "2026-04-28T09:00:30+09:00"),
             point("gps-precinct-008", "126.958250", "37.571220", 1.4, "2026-04-28T09:00:35+09:00")),
         0L);
+  }
+
+  private int rowCount(String tableName) {
+    Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM " + tableName, Integer.class);
+    return count == null ? 0 : count;
+  }
+
+  private String idempotencyStatus(String idempotencyKey) {
+    return jdbcTemplate.queryForObject(
+        """
+        SELECT idempotency_status
+        FROM idempotency_record
+        WHERE idempotency_key = ?
+        """,
+        String.class,
+        idempotencyKey);
   }
 
   private PathBatchAppendRequest singlePointSegmentRequest() {

@@ -65,6 +65,7 @@ class SearchPathControllerTest {
         .perform(
             post("/api/search-paths/batch")
                 .header("X-PolicePhone-Id", policePhoneId)
+                .header("Idempotency-Key", "idem-path-batch-contract")
                 .contentType("application/json")
                 .content(
                     """
@@ -85,6 +86,31 @@ class SearchPathControllerTest {
         .andExpect(jsonPath("$.acceptedPointCount", is(2)))
         .andExpect(jsonPath("$.version", is(2)))
         .andExpect(jsonPath("$.status", is("RECORDING")));
+  }
+
+  @Test
+  @DisplayName("POST /api/search-paths/batch missing Idempotency-Key returns write_conflict")
+  void appendBatchRequiresIdempotencyKey() throws Exception {
+    UUID policePhoneId = UUID.fromString("50000000-0000-0000-0000-000000000001");
+
+    mockMvc
+        .perform(
+            post("/api/search-paths/batch")
+                .header("X-PolicePhone-Id", policePhoneId)
+                .contentType("application/json")
+                .content(
+                    """
+                    {
+                      "incidentId":"10000000-0000-0000-0000-000000000001",
+                      "opId":"70000000-0000-0000-0000-000000000001",
+                      "pathId":"81000000-0000-0000-0000-000000000001",
+                      "points":[
+                        {"pointId":"p1","lon":126.956000,"lat":37.570000,"speedMps":3.0,"horizontalAccuracyM":5,"clientTs":"2026-04-28T09:00:00+09:00"}
+                      ]
+                    }
+                    """))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.error", is("write_conflict")));
   }
 
   @Test

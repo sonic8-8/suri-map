@@ -9,6 +9,7 @@ import com.surimap.operationalperiod.query.OperationalPeriodQuery;
 import com.surimap.operationalperiod.query.OperationalPeriodQueryService;
 import com.surimap.operationalperiod.query.OperationalPeriodRow;
 import com.surimap.path.SearchPathMapper;
+import com.surimap.sync.idempotency.IdempotentResponseCache;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -35,12 +36,14 @@ public class PathCommandConfig {
       PolicePhoneGuard policePhoneGuard,
       SearchPathEventPublisher searchPathEventPublisher,
       SearchPathMapper searchPathMapper,
-      Environment environment) {
+      Environment environment,
+      ObjectProvider<IdempotentResponseCache> idempotentResponseCacheProvider) {
     return new AppSearchPathCommandService(
         operationalPeriodQuery,
         policePhoneGuard,
         searchPathEventPublisher,
-        postgresqlDataSource(environment) ? searchPathMapper : null);
+        postgresqlDataSource(environment) ? searchPathMapper : null,
+        idempotentResponseCacheProvider);
   }
 
   @Bean

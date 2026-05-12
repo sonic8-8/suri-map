@@ -5,9 +5,10 @@ import com.surimap.eventhub.port.EventHub;
 import com.surimap.offlinepackage.dto.OfflinePackageInstallationReportRequest;
 import com.surimap.offlinepackage.dto.OfflinePackageInstallationResponse;
 import com.surimap.offlinepackage.dto.OfflinePackageManifestResponse;
-import com.surimap.offlinepackage.exception.OfflinePackageApiException;
 import com.surimap.offlinepackage.query.OfflinePackageInstallationQuery;
 import com.surimap.offlinepackage.query.OfflinePackageInstallationStatus;
+import com.surimap.sync.idempotency.IdempotentResponseCache;
+import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -16,9 +17,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,12 +29,15 @@ public class OfflinePackageService implements OfflinePackageInstallationQuery {
 
   private final OfflinePackageRepository repository;
   private final EventHub eventHub;
-  private final Map<String, IdempotencySnapshot> idempotencySnapshots = new ConcurrentHashMap<>();
+  private final IdempotentResponseCache idempotentResponseCache;
 
   public OfflinePackageService(
-      OfflinePackageRepository repository, ObjectProvider<EventHub> eventHub) {
+      OfflinePackageRepository repository,
+      ObjectProvider<EventHub> eventHub,
+      IdempotentResponseCache idempotentResponseCache) {
     this.repository = repository;
     this.eventHub = eventHub.getIfAvailable(() -> request -> {});
+    this.idempotentResponseCache = idempotentResponseCache;
   }
 
   public OfflinePackageManifestResponse manifest(String incidentId, String policePhoneId) {
@@ -44,27 +46,27 @@ public class OfflinePackageService implements OfflinePackageInstallationQuery {
 
   public OfflinePackageInstallationResponse reportInstallation(
       String incidentId, String idempotencyKey, OfflinePackageInstallationReportRequest request) {
-    IdempotencySnapshot existing = idempotencySnapshots.get(idempotencyKey);
     String requestHash = requestHash(incidentId, request);
-    if (existing != null) {
-      if (!existing.requestHash().equals(requestHash)) {
-        throw new OfflinePackageApiException("idempotency_mismatch", HttpStatus.CONFLICT);
-      }
-      return existing.response();
-    }
-
-    OfflinePackageInstallationStatus status = repository.saveStatus(incidentId, request);
-    eventHub.publish(publishRequest(status));
-    OfflinePackageInstallationResponse response =
-        new OfflinePackageInstallationResponse(
-            status.id(),
-            status.status(),
-            status.version(),
-            status.manifestVersion(),
-            status.readyForOfflineUse(),
-            OfflinePackageRepository.SERVER_TS);
-    idempotencySnapshots.put(idempotencyKey, new IdempotencySnapshot(requestHash, response));
-    return response;
+    return idempotentResponseCache.replayOrRun(
+        "POST /api/incidents/" + incidentId + "/offline-package/installations",
+        idempotencyKey,
+        requestHash,
+        200,
+        OfflinePackageInstallationResponse.class,
+        () -> {
+          OfflinePackageInstallationStatus status = repository.saveStatus(incidentId, request);
+          eventHub.publish(publishRequest(status));
+          return new OfflinePackageInstallationResponse(
+              status.id(),
+              status.status(),
+              status.version(),
+              status.manifestVersion(),
+              status.readyForOfflineUse(),
+              OfflinePackageRepository.SERVER_TS);
+        },
+        response ->
+            new ResponseMetadata(
+                response.id(), response.status(), response.version(), response.version()));
   }
 
   @Override
@@ -159,6 +161,4 @@ public class OfflinePackageService implements OfflinePackageInstallationQuery {
       throw new IllegalStateException("SHA-256 digest is unavailable", exception);
     }
   }
-
-  private record IdempotencySnapshot(String requestHash, OfflinePackageInstallationResponse response) {}
 }

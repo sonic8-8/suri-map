@@ -13,11 +13,18 @@ import com.surimap.operationalperiod.query.CurrentOpResult;
 import com.surimap.operationalperiod.query.OperationalPeriodQuery;
 import com.surimap.path.SearchPathMapper;
 import com.surimap.path.SearchPathPersistenceRecord;
+import com.surimap.sync.idempotency.IdempotentResponseCache;
+import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.util.HexFormat;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.locationtech.jts.geom.Geometry;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.transaction.annotation.Transactional;
 
 public class AppSearchPathCommandService {
@@ -26,7 +33,9 @@ public class AppSearchPathCommandService {
   private final PolicePhoneGuard policePhoneGuard;
   private final SearchPathEventPublisher eventPublisher;
   private final SearchPathMapper searchPathMapper;
+  private final IdempotentResponseCache idempotentResponseCache;
   private final Map<UUID, SearchPath> activePaths = new ConcurrentHashMap<>();
+  private final Map<String, IdempotencyEntry> idempotencyEntries = new ConcurrentHashMap<>();
 
   public AppSearchPathCommandService(
       OperationalPeriodQuery opQuery,
@@ -40,14 +49,49 @@ public class AppSearchPathCommandService {
       PolicePhoneGuard policePhoneGuard,
       SearchPathEventPublisher eventPublisher,
       SearchPathMapper searchPathMapper) {
+    this(opQuery, policePhoneGuard, eventPublisher, searchPathMapper, (IdempotentResponseCache) null);
+  }
+
+  public AppSearchPathCommandService(
+      OperationalPeriodQuery opQuery,
+      PolicePhoneGuard policePhoneGuard,
+      SearchPathEventPublisher eventPublisher,
+      SearchPathMapper searchPathMapper,
+      ObjectProvider<IdempotentResponseCache> idempotentResponseCacheProvider) {
+    this(
+        opQuery,
+        policePhoneGuard,
+        eventPublisher,
+        searchPathMapper,
+        idempotentResponseCacheProvider.getIfAvailable());
+  }
+
+  private AppSearchPathCommandService(
+      OperationalPeriodQuery opQuery,
+      PolicePhoneGuard policePhoneGuard,
+      SearchPathEventPublisher eventPublisher,
+      SearchPathMapper searchPathMapper,
+      IdempotentResponseCache idempotentResponseCache) {
     this.opQuery = opQuery;
     this.policePhoneGuard = policePhoneGuard;
     this.eventPublisher = eventPublisher;
     this.searchPathMapper = searchPathMapper;
+    this.idempotentResponseCache = idempotentResponseCache;
   }
 
   @Transactional
   public SearchPath start(StartSearchPathServiceRequest request) {
+    requireIdempotencyKey(request.idempotencyKey());
+    String fingerprint = fingerprint("start", request);
+    return replayOrRun(
+        request.idempotencyKey(),
+        fingerprint,
+        "POST /api/search-paths",
+        201,
+        () -> startNewPath(request));
+  }
+
+  private SearchPath startNewPath(StartSearchPathServiceRequest request) {
     CurrentOpResult currentOp =
         opQuery
             .current(request.incidentId())
@@ -84,6 +128,18 @@ public class AppSearchPathCommandService {
 
   @Transactional
   public SearchPath end(
+      UUID searchPathId, UUID policePhoneId, EndSearchPathServiceRequest request) {
+    requireIdempotencyKey(request.idempotencyKey());
+    String fingerprint = fingerprint("end:" + searchPathId + ":" + policePhoneId, request);
+    return replayOrRun(
+        request.idempotencyKey(),
+        fingerprint,
+        "PATCH /api/search-paths/" + searchPathId,
+        200,
+        () -> endLoadedPath(searchPathId, policePhoneId, request));
+  }
+
+  private SearchPath endLoadedPath(
       UUID searchPathId, UUID policePhoneId, EndSearchPathServiceRequest request) {
     SearchPath current = activePaths.get(searchPathId);
     if (current == null) {
@@ -177,4 +233,62 @@ public class AppSearchPathCommandService {
                     row.endedAt()))
         .orElse(null);
   }
+
+  private void requireIdempotencyKey(String idempotencyKey) {
+    if (idempotencyKey == null || idempotencyKey.isBlank()) {
+      throw new SearchPathGuardException("write_conflict");
+    }
+  }
+
+  private SearchPath replayOrRun(
+      String idempotencyKey,
+      String fingerprint,
+      String endpoint,
+      int responseStatusCode,
+      Operation operation) {
+    if (idempotentResponseCache != null) {
+      return idempotentResponseCache.replayOrRun(
+          endpoint,
+          idempotencyKey,
+          fingerprint,
+          responseStatusCode,
+          SearchPath.class,
+          operation::run,
+          this::metadataFor);
+    }
+    IdempotencyEntry existing = idempotencyEntries.get(idempotencyKey);
+    if (existing != null) {
+      if (!existing.fingerprint().equals(fingerprint)) {
+        throw new SearchPathGuardException("idempotency_mismatch");
+      }
+      return existing.response();
+    }
+    SearchPath response = operation.run();
+    idempotencyEntries.put(idempotencyKey, new IdempotencyEntry(fingerprint, response));
+    return response;
+  }
+
+  private ResponseMetadata metadataFor(SearchPath path) {
+    return new ResponseMetadata(
+        path.id().toString(), path.status().name(), path.version(), path.version());
+  }
+
+  private String fingerprint(String operation, Object request) {
+    try {
+      MessageDigest digest = MessageDigest.getInstance("SHA-256");
+      byte[] hashed =
+          digest.digest(
+              (operation + ":" + String.valueOf(request)).getBytes(StandardCharsets.UTF_8));
+      return HexFormat.of().formatHex(hashed);
+    } catch (NoSuchAlgorithmException exception) {
+      throw new IllegalStateException("SHA-256 is not available", exception);
+    }
+  }
+
+  @FunctionalInterface
+  private interface Operation {
+    SearchPath run();
+  }
+
+  private record IdempotencyEntry(String fingerprint, SearchPath response) {}
 }

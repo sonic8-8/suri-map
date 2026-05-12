@@ -44,7 +44,7 @@ class SearchPathPolicePhoneGuardContractTest {
             SearchPathFixtures.OP1_ID,
             UUID.randomUUID(),
             Instant.now(),
-            null);
+            "idem-path-unregistered-phone");
 
     assertThatThrownBy(() -> service.start(request))
         .isInstanceOf(SearchPathGuardException.class)
