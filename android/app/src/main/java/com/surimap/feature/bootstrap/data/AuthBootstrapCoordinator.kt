@@ -2,6 +2,7 @@ package com.surimap.feature.bootstrap.data
 
 import android.content.Context
 import android.content.RestrictionsManager
+import android.os.Bundle
 import com.surimap.BuildConfig
 import com.surimap.core.network.AccessTokenProvider
 import com.surimap.core.network.NoAccessTokenProvider
@@ -15,6 +16,9 @@ import java.time.Clock
 data class ManagedPolicePhoneConfig(
     val policePhoneId: String?,
     val apiBaseUrl: String,
+    val tileBaseUrl: String = apiBaseUrl.trimEnd('/').removeSuffix("/api"),
+    val objectStorageBaseUrl: String = apiBaseUrl.trimEnd('/').removeSuffix("/api"),
+    val allowedHosts: Set<String> = emptySet(),
     val isManagedPhone: Boolean = true
 )
 
@@ -51,22 +55,37 @@ class AndroidManagedConfigurationReader(
             context
                 .getSystemService(RestrictionsManager::class.java)
                 ?.applicationRestrictions
+        val apiBaseUrl = restrictions.managedString(KEY_API_BASE_URL) ?: BuildConfig.SURI_MAP_API_BASE_URL
+        val defaultResourceBaseUrl = apiBaseUrl.trimEnd('/').removeSuffix("/api")
 
         return ManagedPolicePhoneConfig(
-            policePhoneId = restrictions?.getString(KEY_POLICE_PHONE_ID)?.takeIf(String::isNotBlank),
-            apiBaseUrl =
-            restrictions
-                ?.getString(KEY_API_BASE_URL)
-                ?.takeIf(String::isNotBlank)
-                ?: BuildConfig.SURI_MAP_API_BASE_URL,
+            policePhoneId = restrictions.managedString(KEY_POLICE_PHONE_ID),
+            apiBaseUrl = apiBaseUrl,
+            tileBaseUrl = restrictions.managedString(KEY_TILE_BASE_URL) ?: defaultResourceBaseUrl,
+            objectStorageBaseUrl = restrictions.managedString(KEY_OBJECT_STORAGE_BASE_URL) ?: defaultResourceBaseUrl,
+            allowedHosts = restrictions.managedString(KEY_ALLOWED_HOSTS)?.toAllowedHostSet() ?: emptySet(),
             isManagedPhone = restrictions != null && !restrictions.isEmpty
         )
+    }
+
+    private fun String.toAllowedHostSet(): Set<String> {
+        return split(',', '\n', ';', ' ')
+            .map(String::trim)
+            .filter(String::isNotBlank)
+            .toSet()
     }
 
     companion object {
         const val KEY_POLICE_PHONE_ID = "police_phone_id"
         const val KEY_API_BASE_URL = "api_base_url"
+        const val KEY_TILE_BASE_URL = "tile_base_url"
+        const val KEY_OBJECT_STORAGE_BASE_URL = "object_storage_base_url"
+        const val KEY_ALLOWED_HOSTS = "allowed_hosts"
     }
+}
+
+private fun Bundle?.managedString(key: String): String? {
+    return this?.getString(key)?.takeIf(String::isNotBlank)
 }
 
 class NetworkPolicePhoneBootstrapServerCheck(
