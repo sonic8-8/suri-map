@@ -245,6 +245,7 @@ data class SearchMapUiState(
 @Composable
 fun SearchMapScreen(
     state: SearchMapUiState,
+    mapState: MapLibreRuntimeMapState = MapLibreRuntimeMapState(),
     onBack: () -> Unit,
     onPrimaryLifecycleAction: () -> Unit,
     onStopSearch: () -> Unit,
@@ -290,6 +291,7 @@ fun SearchMapScreen(
             }
             SearchMapShell(
                 state = state,
+                mapState = mapState,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -341,12 +343,16 @@ private fun BlockedOutboxNotice(state: SearchMapUiState, onOpenBlockedOutbox: ()
 }
 
 @Composable
-private fun SearchMapShell(state: SearchMapUiState, modifier: Modifier = Modifier) {
+private fun SearchMapShell(
+    state: SearchMapUiState,
+    mapState: MapLibreRuntimeMapState,
+    modifier: Modifier = Modifier
+) {
     var mapLoadFailure by remember { mutableStateOf<String?>(null) }
 
     Box(modifier = modifier.fillMaxWidth().background(PoliBgInput)) {
         SuriMapLibreMap(
-            state = MapLibreRuntimeMapState(),
+            state = mapState,
             modifier = Modifier.fillMaxSize(),
             onLoadFailed = { reason -> mapLoadFailure = reason }
         )
