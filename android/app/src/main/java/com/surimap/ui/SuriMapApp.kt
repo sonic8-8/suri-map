@@ -15,6 +15,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.work.WorkManager
 import com.surimap.BuildConfig
 import com.surimap.core.database.OfflinePackageInstallationEntity
 import com.surimap.core.database.OfflinePackageItemStatusEntity
@@ -22,10 +23,13 @@ import com.surimap.core.database.SuriMapDatabaseProvider
 import com.surimap.core.incident.IncidentReadRepository
 import com.surimap.core.map.MapLibreRuntimeMapState
 import com.surimap.core.network.SuriMapApiClient
+import com.surimap.core.offline.OfflinePackageDownloadScheduler
+import com.surimap.core.offline.OfflinePackageDownloadWorkRequest
 import com.surimap.core.offline.OfflinePackageInstallationStatus
 import com.surimap.core.offline.OfflinePackageItemStatus
 import com.surimap.core.offline.OfflinePackageManifestQuery
 import com.surimap.core.offline.OfflinePackageRepository
+import com.surimap.core.offline.toOfflinePackageItemStatusEntity
 import com.surimap.core.path.SearchPathRepository
 import com.surimap.core.searcharea.SearchAreaReadRepository
 import com.surimap.feature.bootstrap.data.AndroidManagedConfigurationReader
@@ -306,13 +310,17 @@ private fun OfflinePackageRoute(
     val database = remember(context) { SuriMapDatabaseProvider.database(context) }
     val offlinePackageInstallationDao = remember(database) { database.offlinePackageInstallationDao() }
     val offlinePackageItemStatusDao = remember(database) { database.offlinePackageItemStatusDao() }
+    val offlinePackageDownloadScheduler = remember(context) {
+        OfflinePackageDownloadScheduler(WorkManager.getInstance(context))
+    }
     val loader =
         remember(
             incidentContext?.incidentId,
             policePhoneContext?.policePhoneId,
             policePhoneContext?.apiBaseUrl,
             offlinePackageInstallationDao,
-            offlinePackageItemStatusDao
+            offlinePackageItemStatusDao,
+            offlinePackageDownloadScheduler
         ) {
             if (incidentContext == null || policePhoneContext == null) {
                 null
@@ -336,6 +344,30 @@ private fun OfflinePackageRoute(
                             policePhoneId = policePhoneContext.policePhoneId,
                             manifestId = manifestId
                         ).map(OfflinePackageItemStatusEntity::toOfflinePackageItemStatus)
+                    },
+                    onDownloadPlanAvailable = { plan ->
+                        val existing = offlinePackageItemStatusDao.findByManifest(
+                            incidentId = incidentContext.incidentId,
+                            policePhoneId = policePhoneContext.policePhoneId,
+                            manifestId = plan.manifestId
+                        )
+                        if (existing.isEmpty()) {
+                            val updatedAt = System.currentTimeMillis()
+                            offlinePackageItemStatusDao.upsertAll(
+                                plan.initialItemStatuses(
+                                    incidentId = incidentContext.incidentId,
+                                    policePhoneId = policePhoneContext.policePhoneId
+                                ).map { status -> status.toOfflinePackageItemStatusEntity(updatedAt) }
+                            )
+                        }
+                        offlinePackageDownloadScheduler.schedule(
+                            OfflinePackageDownloadWorkRequest(
+                                incidentId = incidentContext.incidentId,
+                                policePhoneId = policePhoneContext.policePhoneId,
+                                manifestId = plan.manifestId,
+                                apiBaseUrl = policePhoneContext.apiBaseUrl
+                            )
+                        )
                     }
                 )
             }

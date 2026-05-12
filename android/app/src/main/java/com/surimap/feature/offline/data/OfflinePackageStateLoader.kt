@@ -1,6 +1,7 @@
 package com.surimap.feature.offline.data
 
 import com.surimap.core.network.SuriMapNetworkException
+import com.surimap.core.offline.OfflinePackageDownloadPlan
 import com.surimap.core.offline.OfflinePackageInstallationStatus
 import com.surimap.core.offline.OfflinePackageItemStatus
 import com.surimap.core.offline.OfflinePackageManifestQuery
@@ -17,7 +18,8 @@ class OfflinePackageStateLoader(
     private val policePhoneId: String,
     private val knownManifestRevision: Long? = null,
     private val localInstallationStatus: suspend () -> OfflinePackageInstallationStatus? = { null },
-    private val localPackageItems: suspend (String) -> List<OfflinePackageItemStatus> = { emptyList() }
+    private val localPackageItems: suspend (String) -> List<OfflinePackageItemStatus> = { emptyList() },
+    private val onDownloadPlanAvailable: suspend (OfflinePackageDownloadPlan) -> Unit = {}
 ) {
     suspend fun load(): OfflinePackageUiState {
         if (incidentId.isBlank() || policePhoneId.isBlank()) {
@@ -58,6 +60,7 @@ class OfflinePackageStateLoader(
         val json = JSONObject(body)
         val manifestId = json.optString("manifestId").takeIf(String::isNotBlank).orEmpty()
         val manifestRevision = json.optInt("manifestVersion", knownRevision?.toInt() ?: 0)
+        val downloadPlan = OfflinePackageDownloadPlan.fromManifestJson(body)
         val incidentTitle =
             json.optJSONObject("incident")
                 ?.optString("title")
@@ -68,6 +71,9 @@ class OfflinePackageStateLoader(
                 incidentTitle = incidentTitle,
                 manifestRevision = manifestRevision
             )
+        }
+        if (downloadPlan != null && downloadPlan.items.isNotEmpty()) {
+            onDownloadPlanAvailable(downloadPlan)
         }
         val localItems = manifestId.takeIf(String::isNotBlank)
             ?.let { id -> localPackageItems(id) }

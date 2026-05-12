@@ -1,6 +1,7 @@
 package com.surimap.feature.offline
 
 import com.surimap.core.network.SuriMapApiClient
+import com.surimap.core.offline.OfflinePackageDownloadPlan
 import com.surimap.core.offline.OfflinePackageInstallationStatus
 import com.surimap.core.offline.OfflinePackageItemStatus
 import com.surimap.core.offline.OfflinePackageRepository
@@ -305,6 +306,58 @@ class OfflinePackageStateLoaderTest {
     }
 
     @Test
+    fun manifestLoadPublishesDownloadPlanForDaoSeedAndScheduling() = runBlocking {
+        val capturedPlans = mutableListOf<OfflinePackageDownloadPlan>()
+        val loader =
+            OfflinePackageStateLoader(
+                repository =
+                OfflinePackageRepository(
+                    apiClient =
+                    SuriMapApiClient(
+                        baseUrl = "https://suri-map.internal",
+                        callFactory =
+                        CapturingCallFactory(
+                            response(
+                                200,
+                                """
+                                {
+                                  "manifestId": "pkg-precinct-first-rev-19",
+                                  "incidentId": "$INCIDENT_ID",
+                                  "manifestVersion": 19,
+                                  "incident": {"title": "광주 북구 산악 실종"},
+                                  "packageItems": [
+                                    {
+                                      "itemKey": "tile-1",
+                                      "itemType": "TILE",
+                                      "status": "PENDING",
+                                      "sourceVersion": 19,
+                                      "sourceHash": "sha256:tile",
+                                      "tile": {
+                                        "url": "/tiles/osm-local/15/1/1.pbf",
+                                        "checksum": "sha256:tile",
+                                        "bytes": 100
+                                      }
+                                    }
+                                  ]
+                                }
+                                """.trimIndent()
+                            )
+                        )
+                    )
+                ),
+                incidentId = INCIDENT_ID,
+                policePhoneId = POLICE_PHONE_ID,
+                onDownloadPlanAvailable = { plan -> capturedPlans += plan }
+            )
+
+        val state = loader.load()
+
+        assertTrue(state.shouldDownloadPackage)
+        assertEquals("pkg-precinct-first-rev-19", capturedPlans.single().manifestId)
+        assertEquals("/tiles/osm-local/15/1/1.pbf", capturedPlans.single().items.single().downloadUrl)
+    }
+
+    @Test
     fun appOfflineRouteDoesNotRenderSamplePackageStateDirectly() {
         val source = java.io.File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
 
@@ -315,6 +368,10 @@ class OfflinePackageStateLoaderTest {
         assertTrue(source.contains("offlinePackageItemStatusDao"))
         assertTrue(source.contains("localInstallationStatus"))
         assertTrue(source.contains("localPackageItems"))
+        assertTrue(source.contains("onDownloadPlanAvailable"))
+        assertTrue(source.contains("OfflinePackageDownloadScheduler"))
+        assertTrue(source.contains("WorkManager.getInstance"))
+        assertTrue(source.contains("upsertAll"))
     }
 
     private fun loaderFor(response: Response): OfflinePackageStateLoader {
