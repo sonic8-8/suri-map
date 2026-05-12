@@ -30,7 +30,7 @@ management:
         enabled: true
 
 mock112:
-  enabled: ${MOCK_112_ENABLED:false}
+  enabled: ${MOCK_112_ENABLED:true}
   base-url: ${MOCK_112_BASE_URL:http://localhost:18112}
   polling:
     interval-ms: ${MOCK_112_POLLING_INTERVAL:5000}

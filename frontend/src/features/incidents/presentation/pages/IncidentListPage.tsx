@@ -12,6 +12,8 @@ import styles from './IncidentListPage.module.css';
 
 const INCIDENT_FILTERS: IncidentFilter[] = ['전체', '진행 중', '종료'];
 const INCIDENT_LIST_PAGE_SIZE = 12;
+const IMPORT_INCOMPLETE_ERROR_MESSAGE =
+  '사건 가져오기가 완료되지 않았습니다. 목록을 새로고침한 뒤 다시 시도해 주세요.';
 
 function canImportIncident(account: LoginAccount): boolean {
   return (
@@ -224,6 +226,7 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
     const response = await incidentReadApi.list();
     setIncidents(response.items.map(createIncidentCard));
     setListErrorMessage('');
+    return response.items;
   };
 
   const handleImportIncident = async (sourceIncidentId: string) => {
@@ -235,7 +238,16 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
         { sourceIncidentId },
         createIdempotencyKey('incident-import'),
       );
-      await reloadAssignedIncidents();
+      const assignedIncidents = await reloadAssignedIncidents();
+      const isImportedIncidentAvailable = assignedIncidents.some(
+        (incident) => incident.id === response.id || incident.incidentId === response.incidentId,
+      );
+
+      if (!isImportedIncidentAvailable) {
+        setImportErrorMessage(IMPORT_INCOMPLETE_ERROR_MESSAGE);
+        return;
+      }
+
       setImportedSourceIncidentIds((currentIds) =>
         currentIds.includes(sourceIncidentId) ? currentIds : [...currentIds, sourceIncidentId],
       );

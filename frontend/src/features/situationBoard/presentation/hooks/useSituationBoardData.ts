@@ -1,15 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import type { CompletedAreaDraft } from '../../../../shared/model/areaDraft';
-import { getSituationBoard, type SituationBoardResponseDto } from '../../data/getSituationBoard';
+import type { SituationBoardResponseDto } from '../../data/getSituationBoard';
+import { useIncidentBoardQuery, incidentBoardQueryKeys } from '../../../board/api/incidentBoardApi';
+import { openIncidentBoardEventStream } from '../../../board/api/incidentBoardEventStream';
 import {
   createIncidentScopedFallbackBoard,
   type SearchAreaAssignedAccount,
   type SituationBoardFallbackData,
 } from '../constants/mockSituationBoard';
-import {
-  hasOverallSearchArea,
-  mergeSearchAreaDrafts,
-} from '../utils/boardApiMappers';
+import { hasOverallSearchArea, mergeSearchAreaDrafts } from '../utils/boardApiMappers';
 import { toBoardRecentMarkers } from '../utils/markerBoardMapper';
 import {
   assignRouteColorsToMovementPaths,
@@ -38,34 +38,70 @@ export function useSituationBoardData(
   savedAreaDrafts: CompletedAreaDraft[],
   refreshVersion = 0,
 ): SituationBoardDataState {
-  const [apiBoard, setApiBoard] = useState<SituationBoardResponseDto | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const queryClient = useQueryClient();
+  const lastEventIdRef = useRef<string | null>(null);
+  const prevRefreshVersionRef = useRef(refreshVersion);
 
   const fallbackBoard = useMemo(() => createIncidentScopedFallbackBoard(incidentId), [incidentId]);
 
-  useEffect(() => {
-    let isActive = true;
-    setIsLoading(true);
-    setApiBoard(null);
+  const boardQuery = useIncidentBoardQuery({ incidentId });
+  const apiBoard = (boardQuery.data as unknown as SituationBoardResponseDto) ?? null;
 
-    void getSituationBoard(incidentId)
-      .then((response) => {
-        if (!isActive) return;
-        setApiBoard(response);
-      })
-      .catch(() => {
-        if (!isActive) return;
-        setApiBoard(null);
-      })
-      .finally(() => {
-        if (!isActive) return;
-        setIsLoading(false);
+  // 외부 refreshVersion 변경 시 board 재조회 (구역 저장 등)
+  useEffect(() => {
+    if (prevRefreshVersionRef.current === refreshVersion) return;
+    prevRefreshVersionRef.current = refreshVersion;
+    void queryClient.invalidateQueries({ queryKey: incidentBoardQueryKeys.all });
+  }, [refreshVersion, queryClient]);
+
+  // SSE: 도메인 이벤트 수신 시 board 재조회
+  useEffect(() => {
+    if (!incidentId) return;
+
+    let cancelled = false;
+    let activeSubscription: { close(): void } | null = null;
+
+    const connect = () => {
+      if (cancelled) return;
+
+      const accessToken =
+        sessionStorage.getItem('suriMapAccessToken') ??
+        (import.meta.env.VITE_API_ACCESS_TOKEN as string | undefined) ??
+        undefined;
+
+      const queryKey = incidentBoardQueryKeys.detail({ incidentId });
+
+      const subscription = openIncidentBoardEventStream({
+        incidentId,
+        accessToken,
+        lastEventId: lastEventIdRef.current,
+        onEvent: (_event, meta) => {
+          lastEventIdRef.current = meta.lastEventId;
+          void queryClient.invalidateQueries({ queryKey });
+        },
+        onRefetchRequired: () => {
+          lastEventIdRef.current = null;
+          void queryClient.invalidateQueries({ queryKey });
+        },
       });
 
-    return () => {
-      isActive = false;
+      activeSubscription = subscription;
+
+      // 연결 종료 시 재연결 (3초 후)
+      void subscription.closed.then(() => {
+        if (!cancelled) {
+          setTimeout(connect, 3_000);
+        }
+      });
     };
-  }, [incidentId, refreshVersion]);
+
+    connect();
+
+    return () => {
+      cancelled = true;
+      activeSubscription?.close();
+    };
+  }, [incidentId, queryClient]);
 
   const board = useMemo<SituationBoardFallbackData>(() => {
     const apiSearchAreaRows = apiBoard ? toSearchAreaRows(apiBoard) : [];
@@ -106,7 +142,7 @@ export function useSituationBoardData(
 
   return {
     board,
-    isLoading,
+    isLoading: boardQuery.isLoading,
     apiBoard,
     isFallback: apiBoard === null,
     isOverallSearchAreaMissing:

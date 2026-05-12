@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import styles from './IncidentImportModal.module.css';
 
-const DEFAULT_SOURCE_INCIDENT_ID = 'cccccccc-cccc-cccc-cccc-cccccccc0001';
+const DEFAULT_SOURCE_INCIDENT_ID = '00000000-0000-0000-0000-000000000001';
 
 type IncidentImportModalProps = {
   importedIncidentIds: Set<string>;
