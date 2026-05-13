@@ -75,6 +75,23 @@ interface OutboxDao {
 
     @Query(
         """
+        UPDATE local_marker
+        SET sync_status = :syncStatus,
+            updated_at_millis = :updatedAtMillis
+        WHERE outbox_id = :outboxId
+        """
+    )
+    suspend fun markLocalMarkerSyncStatusByOutboxId(
+        outboxId: String,
+        syncStatus: String,
+        updatedAtMillis: Long
+    ): Int
+
+    @Query("DELETE FROM local_write_draft WHERE draftId = :outboxId")
+    suspend fun deleteLocalWriteDraftByOutboxId(outboxId: String): Int
+
+    @Query(
+        """
         SELECT
           COALESCE(SUM(CASE WHEN idempotency_status IN ('PENDING', 'SENDING') THEN 1 ELSE 0 END), 0)
             AS pending_count,

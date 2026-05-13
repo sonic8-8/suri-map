@@ -21,6 +21,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import java.nio.charset.StandardCharsets
+import java.util.UUID
 import kotlin.reflect.KClass
 
 @RunWith(RobolectricTestRunner::class)
@@ -77,6 +79,9 @@ class RoomOfflinePackageWorkerInstallerTest {
             "/api/incidents/$INCIDENT_ID/offline-package/installations",
             outboxRows.single().requestPath
         )
+        val draft = database.localWriteDraftDao().findById(outboxRows.single().outboxId)
+        assertEquals("offline_package_installation", draft!!.entityType)
+        assertEquals(expectedInstallationEntityId(), draft.entityId)
     }
 
     @Test
@@ -226,5 +231,11 @@ class RoomOfflinePackageWorkerInstallerTest {
         const val INCIDENT_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001"
         const val POLICE_PHONE_ID = "50000000-0000-0000-0000-000000000001"
         const val MANIFEST_ID = "77777777-0000-4000-8000-000000000701"
+
+        fun expectedInstallationEntityId(): String =
+            UUID.nameUUIDFromBytes(
+                "offline-package-installation:$INCIDENT_ID:$POLICE_PHONE_ID:$MANIFEST_ID"
+                    .toByteArray(StandardCharsets.UTF_8)
+            ).toString()
     }
 }

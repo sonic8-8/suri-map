@@ -19,6 +19,7 @@ import com.surimap.core.sync.jsonString
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.time.Instant
+import java.util.UUID
 
 data class OfflinePackageManifestQuery(
     val incidentId: String,
@@ -32,6 +33,7 @@ data class OfflinePackageInstallationCommand(
     val policePhoneId: String,
     val idempotencyKey: String,
     val sequence: Long,
+    val installationId: String? = null,
     val manifestId: String,
     val manifestVersion: Int,
     val status: String,
@@ -64,6 +66,12 @@ class OfflinePackageRepository(
     }
 
     suspend fun reportInstallation(command: OfflinePackageInstallationCommand): EnqueueResult {
+        val installationEntityId = command.installationId
+            ?: offlinePackageInstallationId(
+                incidentId = command.incidentId,
+                policePhoneId = command.policePhoneId,
+                manifestId = command.manifestId
+            )
         val payload = jsonObject(
             "policePhoneId" to jsonString(command.policePhoneId),
             "manifestId" to jsonString(command.manifestId),
@@ -96,8 +104,8 @@ class OfflinePackageRepository(
             clientTs = command.clientTs,
             clockOffsetMs = command.clockOffsetMs,
             clockSyncedAt = command.clockSyncedAt,
-            entityId = command.manifestId,
-            entityType = "package_installation"
+            entityId = installationEntityId,
+            entityType = "offline_package_installation"
         )
         return requireNotNull(syncClient) { "SyncClient is required for package installation writes" }
             .enqueue(operation)
@@ -122,3 +130,13 @@ private fun encodePathSegment(value: String): String = encodeQueryValue(value).r
 private fun encodeQueryValue(value: String): String {
     return URLEncoder.encode(value, StandardCharsets.UTF_8.toString())
 }
+
+private fun offlinePackageInstallationId(
+    incidentId: String,
+    policePhoneId: String,
+    manifestId: String
+): String =
+    UUID.nameUUIDFromBytes(
+        "offline-package-installation:$incidentId:$policePhoneId:$manifestId"
+            .toByteArray(StandardCharsets.UTF_8)
+    ).toString()

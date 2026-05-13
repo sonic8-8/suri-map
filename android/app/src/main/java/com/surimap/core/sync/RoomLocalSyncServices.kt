@@ -168,26 +168,12 @@ class RoomOutboxReplay(
                 }
 
                 IdempotencyReplayDecision.REPLAYED -> {
-                    outboxDao.upsert(
-                        sending.copy(
-                            idempotencyStatus = OutboxStatus.ACKED.name,
-                            localMirrorStatus = HarnessSyncStatus.SYNCED.name,
-                            serverAckTs = now,
-                            lastError = null
-                        )
-                    )
+                    persistAck(sending, now)
                 }
 
                 IdempotencyReplayDecision.ACCEPTED -> {
                     when (sender.send(sending)) {
-                        SendResult.ACKED -> outboxDao.upsert(
-                            sending.copy(
-                                idempotencyStatus = OutboxStatus.ACKED.name,
-                                localMirrorStatus = HarnessSyncStatus.SYNCED.name,
-                                serverAckTs = now,
-                                lastError = null
-                            )
-                        )
+                        SendResult.ACKED -> persistAck(sending, now)
 
                         SendResult.RETRYABLE_FAILURE -> outboxDao.upsert(
                             sending.copy(
@@ -202,7 +188,7 @@ class RoomOutboxReplay(
                             sending.copy(
                                 idempotencyStatus = OutboxStatus.FAILED_FINAL.name,
                                 localMirrorStatus = HarnessSyncStatus.FAILED.name,
-                                lastError = "invalid_payload"
+                                lastError = sender.finalFailureErrorCode() ?: "invalid_payload"
                             )
                         )
                     }
@@ -229,6 +215,23 @@ class RoomOutboxReplay(
             row.requestMethod == "PATCH" &&
             row.requestPath.startsWith("/api/duty-shifts/") &&
             row.payloadJson.contains("\"action\":\"END\"")
+    }
+
+    private suspend fun persistAck(row: OutboxEntity, serverAckTs: Long) {
+        outboxDao.upsert(
+            row.copy(
+                idempotencyStatus = OutboxStatus.ACKED.name,
+                localMirrorStatus = HarnessSyncStatus.SYNCED.name,
+                serverAckTs = serverAckTs,
+                lastError = null
+            )
+        )
+        outboxDao.markLocalMarkerSyncStatusByOutboxId(
+            outboxId = row.outboxId,
+            syncStatus = HarnessSyncStatus.SYNCED.name,
+            updatedAtMillis = serverAckTs
+        )
+        outboxDao.deleteLocalWriteDraftByOutboxId(row.outboxId)
     }
 }
 
@@ -448,6 +451,8 @@ enum class SendResult {
 
 fun interface OutboxSender {
     suspend fun send(row: OutboxEntity): SendResult
+
+    fun finalFailureErrorCode(): String? = null
 }
 
 object NoopOutboxSender : OutboxSender {

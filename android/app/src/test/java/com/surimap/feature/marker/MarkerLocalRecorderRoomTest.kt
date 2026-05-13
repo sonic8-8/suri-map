@@ -2,6 +2,10 @@ package com.surimap.feature.marker
 
 import androidx.room.Room
 import com.surimap.core.database.SuriMapDatabase
+import com.surimap.core.sync.HarnessSyncStatus
+import com.surimap.core.sync.NoopOutboxSender
+import com.surimap.core.sync.OutboxStatus
+import com.surimap.core.sync.RoomOutboxReplay
 import com.surimap.core.sync.RoomSyncClient
 import com.surimap.feature.marker.data.MarkerLocation
 import com.surimap.feature.marker.data.MarkerPhotoAttachInput
@@ -20,6 +24,8 @@ import java.time.Instant
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -42,6 +48,40 @@ class MarkerLocalRecorderRoomTest {
     @After
     fun tearDown() {
         database.close()
+    }
+
+    @Test
+    fun markerReplayAckClearsDraftAndMarksLocalMarkerSynced() = runBlocking {
+        val replayEligibleTs = Instant.ofEpochMilli(System.currentTimeMillis())
+        val recorder =
+            MarkerLocalRecorder(
+                syncClient = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()),
+                localMarkerDao = database.localMarkerDao(),
+                now = { replayEligibleTs },
+                clockSyncedAt = { replayEligibleTs },
+                sequenceSource = sequenceSource(50),
+                idFactory = idFactory()
+            )
+        val replay = RoomOutboxReplay(database.outboxDao(), NoopOutboxSender)
+
+        val create =
+            recorder.createMarker(
+                context = CONTEXT,
+                input = MarkerUpsertInput(type = "CLUE", location = LOCATION, memo = "등산로 입구 제보")
+            ) as MarkerWriteResult.Enqueued
+
+        assertNotNull(database.localWriteDraftDao().findById(create.outboxId))
+
+        replay.flushPending(policePhoneId = POLICE_PHONE_ID, incidentId = INCIDENT_ID)
+
+        val row = database.outboxDao().findById(create.outboxId)!!
+        assertEquals(OutboxStatus.ACKED.name, row.idempotencyStatus)
+        assertEquals(HarnessSyncStatus.SYNCED.name, row.localMirrorStatus)
+        assertNull(database.localWriteDraftDao().findById(create.outboxId))
+        assertEquals(
+            HarnessSyncStatus.SYNCED.name,
+            database.localMarkerDao().findByOutboxId(create.outboxId)!!.syncStatus
+        )
     }
 
     @Test
