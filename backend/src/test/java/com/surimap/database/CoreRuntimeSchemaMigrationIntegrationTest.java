@@ -58,6 +58,8 @@ class CoreRuntimeSchemaMigrationIntegrationTest {
         assertColumnType(connection, "police_phone", "id", "uuid");
         assertColumnType(connection, "police_phone", "account_id", "uuid");
         assertColumnType(connection, "police_phone", "registered", "bool");
+        assertColumnType(connection, "police_phone", "heartbeat_sequence", "int8");
+        assertColumnType(connection, "police_phone", "last_heartbeat_event_id", "uuid");
         assertColumnType(connection, "police_phone", "version", "int8");
         assertColumnType(connection, "refresh_token", "account_id", "uuid");
         assertColumnType(connection, "fcm_token", "police_phone_id", "uuid");

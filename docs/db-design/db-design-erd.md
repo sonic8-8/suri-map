@@ -122,8 +122,12 @@ erDiagram
         VARCHAR phone_code UK
         VARCHAR display_name
         VARCHAR status
+        BOOLEAN registered
         TIMESTAMPTZ last_heartbeat_at
         TIMESTAMPTZ last_sync_at
+        BIGINT heartbeat_sequence
+        UUID last_heartbeat_event_id
+        BIGINT version
     }
 
     fcm_token {

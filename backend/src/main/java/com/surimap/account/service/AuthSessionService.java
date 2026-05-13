@@ -9,7 +9,7 @@ import com.surimap.common.auth.OrganizationType;
 import com.surimap.common.auth.Role;
 import com.surimap.common.auth.SuriMapAuthentication;
 import com.surimap.common.auth.guard.ChannelNotAllowedException;
-import com.surimap.policephone.InMemoryPolicePhoneFixtureStore;
+import com.surimap.policephone.PolicePhonePersistenceService;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -29,17 +29,17 @@ public class AuthSessionService {
   private static final Duration SESSION_TTL = Duration.ofDays(30);
 
   private final AccountLoginMapper accountLoginMapper;
-  private final InMemoryPolicePhoneFixtureStore fixtureStore;
+  private final PolicePhonePersistenceService policePhonePersistenceService;
   private final PasswordEncoder passwordEncoder;
   private final Clock clock;
 
   public AuthSessionService(
       AccountLoginMapper accountLoginMapper,
-      InMemoryPolicePhoneFixtureStore fixtureStore,
+      PolicePhonePersistenceService policePhonePersistenceService,
       PasswordEncoder passwordEncoder,
       Clock clock) {
     this.accountLoginMapper = accountLoginMapper;
-    this.fixtureStore = fixtureStore;
+    this.policePhonePersistenceService = policePhonePersistenceService;
     this.passwordEncoder = passwordEncoder;
     this.clock = clock;
   }
@@ -84,7 +84,7 @@ public class AuthSessionService {
       return;
     }
     if (session.policePhoneId() != null) {
-      fixtureStore.revokeActiveTokensForLogout(
+      policePhonePersistenceService.revokeActiveTokensForLogout(
           session.policePhoneId(), session.accountId().toString());
     }
   }
@@ -150,8 +150,8 @@ public class AuthSessionService {
     }
     var policePhone =
         accountLoginMapper
-        .findActivePolicePhoneByCode(command.policePhoneCode())
-        .orElseThrow(ChannelNotAllowedException::new);
+            .findActivePolicePhoneByCode(command.policePhoneCode())
+            .orElseThrow(ChannelNotAllowedException::new);
     if (!accountId.equals(policePhone.accountId())) {
       throw new ChannelNotAllowedException();
     }
