@@ -15,7 +15,7 @@ convergence evidence.
 | Existing Jira | `S14P31C106-196` |
 | Evidence gap Jira | `S14P31C106-300` |
 | Branch | `docs/S14P31C106-300-l4-d01-blocker-refresh` |
-| Checked at | `2026-05-14T02:55:00+09:00` |
+| Checked at | `2026-05-14T04:47:48+09:00` |
 | Required sources | `docs/prd.md §2.2`, `docs/prd.md §2.3`, `docs/spec/harness-scenarios.md §2 SC-05`, `docs/spec/harness-scenarios.md §2 SC-07`, `docs/spec/harness-scenarios.md §2 SC-09` |
 | Execution protocol | `docs/tasks/l4-network-switch-stability-protocol.md` |
 | Runtime preflight | `python3 docs/tasks/check_l4_d01_runtime_preflight.py --adb <adb-path>` |
@@ -105,9 +105,26 @@ Follow-up defects:
 | `S14P31C106-312` | Offline package tile checksum convergence issue found during post-fix single-device validation. |
 
 Follow-up status as of 2026-05-14: `S14P31C106-307`, `S14P31C106-308`,
-`S14P31C106-310`, and `S14P31C106-312` are completed and merged into
-`origin/develop` `fde35f1`. These fixes improve the single-device baseline, but
-they do not replace the required two-PolicePhone final evidence.
+`S14P31C106-310`, `S14P31C106-312`, `S14P31C106-313`, `S14P31C106-294`,
+and `S14P31C106-314` are completed and merged into `origin/develop`
+`86aeaad`. These fixes improve the single-device baseline and tileserver
+runtime baseline, but they do not replace the required two-PolicePhone final
+evidence.
+
+## 2026-05-14 Runtime Preflight Recheck
+
+Command:
+
+```bash
+python3 docs/tasks/check_l4_d01_runtime_preflight.py --adb '/mnt/c/Users/SSAFY/AppData/Local/Android/Sdk/platform-tools/adb.exe'
+```
+
+Result at `2026-05-14T04:47:48+09:00`: BLOCKED.
+
+Windows ADB still reports one ready physical Android device only:
+`SM_S901N` / `R3CT50BD92Y`. The runtime preflight was polled 6 times over
+about 60 seconds, and every attempt reported 1 physical device found, 2
+required. Emulators remain excluded from final PolicePhone evidence.
 
 ## Next Action
 
