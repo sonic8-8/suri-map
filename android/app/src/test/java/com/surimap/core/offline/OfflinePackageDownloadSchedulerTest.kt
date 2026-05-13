@@ -20,7 +20,8 @@ class OfflinePackageDownloadSchedulerTest {
                 incidentId = INCIDENT_ID,
                 policePhoneId = POLICE_PHONE_ID,
                 manifestId = MANIFEST_ID,
-                apiBaseUrl = "https://suri-map.internal"
+                apiBaseUrl = "https://suri-map.internal",
+                accessToken = "bootstrap-token-1"
             )
         )
 
@@ -34,6 +35,7 @@ class OfflinePackageDownloadSchedulerTest {
         assertEquals(POLICE_PHONE_ID, work.request.workSpec.input.getString("policePhoneId"))
         assertEquals(MANIFEST_ID, work.request.workSpec.input.getString("manifestId"))
         assertEquals("https://suri-map.internal", work.request.workSpec.input.getString("apiBaseUrl"))
+        assertEquals("bootstrap-token-1", work.request.workSpec.input.getString("accessToken"))
     }
 
     @Test
