@@ -13,7 +13,7 @@ final class OutboxRetryDiagnosticsFixtures {
   static final String UNREGISTERED_AUTH_POLICE_PHONE_ID = "00000000-0000-0000-0000-000000000201";
   static final String UNASSIGNED_AUTH_POLICE_PHONE_ID = "00000000-0000-0000-0000-000000000301";
   static final String INCIDENT_ID = "b5fdbad6-57ce-4d64-a6f2-82b1d3e16699";
-  static final String CLOSED_INCIDENT_ID = "inc-precinct-closed-001";
+  static final String CLOSED_INCIDENT_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0012";
   static final int STALE_CLOCK_SYNC_AFTER_MS = 300_000;
 
   static final List<String> REQUIRED_REQUEST_FIELDS =
@@ -76,25 +76,34 @@ final class OutboxRetryDiagnosticsFixtures {
   static final List<FailureCategoryFixture> FAILURE_CATEGORY_ROWS =
       List.of(
           new FailureCategoryFixture(
-              "op-fail-clock-001", "clock_skew_exceeded", "CLOCK_RESYNC_REQUIRED", true),
+              "66666666-0000-4000-8000-000000001701",
+              "clock_skew_exceeded",
+              "CLOCK_RESYNC_REQUIRED",
+              true),
           new FailureCategoryFixture(
-              "op-fail-idem-001", "idempotency_mismatch", "NON_RETRYABLE_CONFLICT", false),
+              "66666666-0000-4000-8000-000000001702",
+              "idempotency_mismatch",
+              "NON_RETRYABLE_CONFLICT",
+              false),
           new FailureCategoryFixture(
-              "op-fail-PolicePhone-001",
+              "66666666-0000-4000-8000-000000001703",
               "police_phone_not_assigned",
               "POLICE_PHONE_ACCESS_REQUIRED",
               false),
           new FailureCategoryFixture(
-              "op-fail-closed-001",
+              "66666666-0000-4000-8000-000000001704",
               "post_close_requeue_rejected",
               "CLOSED_NO_RETRY",
               false),
           new FailureCategoryFixture(
-              "op-fail-network-001", "low_connectivity_timeout", "RETRYABLE_NETWORK", true));
+              "66666666-0000-4000-8000-000000001705",
+              "low_connectivity_timeout",
+              "RETRYABLE_NETWORK",
+              true));
 
   static final RequeueRequestFixture NETWORK_RESTORED_REQUEUE =
       new RequeueRequestFixture(
-          "op-outbox-path-001",
+          "66666666-0000-4000-8000-000000000501",
           INCIDENT_ID,
           "NETWORK_RESTORED",
           Instant.parse("2026-04-28T00:00:45Z"),
@@ -104,7 +113,7 @@ final class OutboxRetryDiagnosticsFixtures {
 
   static final RequeueRequestFixture PARTIAL_FAILURE_REQUEUE =
       new RequeueRequestFixture(
-          "op-outbox-package-001",
+          "66666666-0000-4000-8000-000000000901",
           INCIDENT_ID,
           "PARTIAL_FAILURE",
           Instant.parse("2026-04-28T00:00:45Z"),
@@ -114,7 +123,7 @@ final class OutboxRetryDiagnosticsFixtures {
 
   static final RequeueRequestFixture STALE_CLOCK_REQUEUE =
       new RequeueRequestFixture(
-          "op-fail-clock-001",
+          "66666666-0000-4000-8000-000000001701",
           INCIDENT_ID,
           "USER_RETRY",
           Instant.parse("2026-04-28T00:10:45Z"),
@@ -124,7 +133,7 @@ final class OutboxRetryDiagnosticsFixtures {
 
   static final RequeueRequestFixture CLOSED_INCIDENT_REQUEUE =
       new RequeueRequestFixture(
-          "op-fail-closed-001",
+          "66666666-0000-4000-8000-000000001704",
           CLOSED_INCIDENT_ID,
           "USER_RETRY",
           Instant.parse("2026-04-28T12:00:45Z"),

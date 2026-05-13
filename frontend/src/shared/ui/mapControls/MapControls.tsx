@@ -3,6 +3,7 @@ import { Focus, Maximize2, Minimize2, Minus, Plus } from 'lucide-react';
 import styles from './MapControls.module.css';
 
 export type MapControlsProps = {
+  canFitIncidentSearchArea?: boolean;
   isMapExpanded: boolean;
   onFitIncidentSearchArea: () => void;
   onToggleMapExpanded: () => void;
@@ -11,6 +12,7 @@ export type MapControlsProps = {
 };
 
 export function MapControls({
+  canFitIncidentSearchArea = true,
   isMapExpanded,
   onFitIncidentSearchArea,
   onToggleMapExpanded,
@@ -21,9 +23,11 @@ export function MapControls({
 
   return (
     <div className={styles.toolbar} aria-label="지도 조작">
-      <button type="button" className={styles.button} title="전체 수색 구역" onClick={onFitIncidentSearchArea}>
-        <Focus size={18} aria-hidden="true" />
-      </button>
+      {canFitIncidentSearchArea ? (
+        <button type="button" className={styles.button} title="전체 수색 구역" onClick={onFitIncidentSearchArea}>
+          <Focus size={18} aria-hidden="true" />
+        </button>
+      ) : null}
       <button type="button" className={styles.button} title="확대" onClick={onZoomIn}>
         <Plus size={18} aria-hidden="true" />
       </button>

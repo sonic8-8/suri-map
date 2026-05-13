@@ -59,7 +59,7 @@
         INNER JOIN incident_assignment ia
             ON ia.incident_id = i.id
            AND ia.revoked_at IS NULL
-        WHERE ia.account_id = CAST(#{accountId} AS uuid)
+        WHERE ia.account_id = #{accountId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
           AND i.status = 'OPEN'
         <if test="status != null and status != ''">
           AND UPPER(#{status}) = 'OPEN'
@@ -78,7 +78,7 @@
             ON ia.incident_id = i.id
            AND ia.revoked_at IS NULL
         WHERE i.id = #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
-          AND ia.account_id = CAST(#{accountId} AS uuid)
+          AND ia.account_id = #{accountId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
           AND i.status = 'OPEN'
         LIMIT 1
     </select>
@@ -95,7 +95,7 @@
             ON ia.incident_id = i.id
            AND ia.revoked_at IS NULL
         WHERE i.id = #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
-          AND ia.account_id = CAST(#{accountId} AS uuid)
+          AND ia.account_id = #{accountId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
           AND i.status = 'CLOSED'
         LIMIT 1
     </select>
@@ -111,7 +111,7 @@
         <!-- @RequireIncidentAccess port가 계정 단위 active assignment 보유 여부를 확인할 때 사용한다. -->
         SELECT COUNT(*)
         FROM incident_assignment
-        WHERE account_id = CAST(#{accountId} AS uuid)
+        WHERE account_id = #{accountId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
           AND revoked_at IS NULL
     </select>
 
@@ -143,7 +143,7 @@
             ia.incident_role,
             a.account_type,
             a.organization_type,
-            pp.id AS police_phone_id
+            CAST(pp.id AS VARCHAR) AS police_phone_id
         FROM incident_assignment ia
         LEFT JOIN account a
             ON CAST(a.id AS VARCHAR) = CAST(ia.account_id AS VARCHAR)

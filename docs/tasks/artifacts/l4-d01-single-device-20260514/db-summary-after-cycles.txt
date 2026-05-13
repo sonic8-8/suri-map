@@ -1,0 +1,15 @@
+[outbox_by_status]
+('ACKED', 'SYNCED', None, 1)
+('FAILED_FINAL', 'FAILED', 'invalid_payload', 1)
+[outbox_rows]
+('68d9f2e7-0ec1-426a-8e7b-e83822071df0', 'PACKAGE_INSTALLATION', '/api/incidents/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001/offline-package/installations', 'FAILED_FINAL', 'FAILED', 1, 'invalid_payload')
+('644194cf-92de-48ef-b9ed-09109a5c1bbe', 'MARKER', '/api/markers', 'ACKED', 'SYNCED', 1, None)
+[local_marker_rows]
+('744f96b4-5e25-4555-b42a-537da8a396a9', '644194cf-92de-48ef-b9ed-09109a5c1bbe', '744f96b4-5e25-4555-b42a-537da8a396a9', 'CLUE', 'PENDING_SEND', '북측 능선 상공 확인 필요')
+[offline_installation_rows]
+('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001', '00000000-0000-0000-0000-000000000101', '35a70cfd-a3a9-4da1-472e-3222a9281cf9', 'READY', 7, 7, 0, 1)
+[offline_item_status_counts]
+('SKIPPED', 7)
+[draft_count]
+('marker', 1)
+('package_installation', 1)

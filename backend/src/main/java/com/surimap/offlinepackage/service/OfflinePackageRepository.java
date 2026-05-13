@@ -1,6 +1,19 @@
 package com.surimap.offlinepackage.service;
 
 import com.surimap.account.AccountIdentityCatalog;
+import com.surimap.incident.domain.IncidentRecord;
+import com.surimap.incident.domain.MissingPersonRecord;
+import com.surimap.incident.repository.IncidentMapper;
+import com.surimap.maparea.query.OverallSearchAreaResult;
+import com.surimap.maparea.query.SearchAreaAssignmentQuery;
+import com.surimap.maparea.query.SearchAreaCollection;
+import com.surimap.maparea.query.SearchAreaFilters;
+import com.surimap.maparea.query.SearchAreaQuery;
+import com.surimap.maparea.query.SearchAreaRow;
+import com.surimap.marker.query.MarkerQuery;
+import com.surimap.marker.query.MarkerQueryFilters;
+import com.surimap.marker.query.MarkerQueryResult;
+import com.surimap.marker.query.MarkerView;
 import com.surimap.offlinepackage.dto.OfflinePackageInstallationReportRequest;
 import com.surimap.offlinepackage.dto.OfflinePackageManifestResponse;
 import com.surimap.offlinepackage.dto.OfflinePackageManifestResponse.AssignedArea;
@@ -17,18 +30,30 @@ import com.surimap.offlinepackage.query.OfflinePackageInstallationStatus;
 import com.surimap.offlinepackage.repository.OfflinePackageInstallationRecord;
 import com.surimap.offlinepackage.repository.OfflinePackageManifestRecord;
 import com.surimap.offlinepackage.repository.OfflinePackageMapper;
+import com.surimap.operationalperiod.query.OperationalPeriodQuery;
+import com.surimap.operationalperiod.query.OperationalPeriodRow;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import org.locationtech.jts.geom.Point;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Repository;
 
@@ -93,30 +118,123 @@ public class OfflinePackageRepository {
           "dev-precinct-phone-05");
 
   private final OfflinePackageMapper mapper;
+  private final IncidentMapper incidentMapper;
+  private final OperationalPeriodQuery operationalPeriodQuery;
+  private final SearchAreaQuery searchAreaQuery;
+  private final SearchAreaAssignmentQuery assignmentQuery;
+  private final MarkerQuery markerQuery;
 
   public OfflinePackageRepository(OfflinePackageMapper mapper) {
+    this(
+        mapper,
+        (IncidentMapper) null,
+        (OperationalPeriodQuery) null,
+        (SearchAreaQuery) null,
+        (SearchAreaAssignmentQuery) null,
+        (MarkerQuery) null);
+  }
+
+  @Autowired
+  public OfflinePackageRepository(
+      OfflinePackageMapper mapper,
+      ObjectProvider<IncidentMapper> incidentMapper,
+      ObjectProvider<OperationalPeriodQuery> operationalPeriodQuery,
+      ObjectProvider<SearchAreaQuery> searchAreaQuery,
+      ObjectProvider<SearchAreaAssignmentQuery> assignmentQuery,
+      ObjectProvider<MarkerQuery> markerQuery) {
+    this(
+        mapper,
+        incidentMapper == null ? null : incidentMapper.getIfAvailable(),
+        operationalPeriodQuery == null ? null : operationalPeriodQuery.getIfAvailable(),
+        searchAreaQuery == null ? null : searchAreaQuery.getIfAvailable(),
+        assignmentQuery == null ? null : assignmentQuery.getIfAvailable(),
+        markerQuery == null ? null : markerQuery.getIfAvailable());
+  }
+
+  private OfflinePackageRepository(
+      OfflinePackageMapper mapper,
+      IncidentMapper incidentMapper,
+      OperationalPeriodQuery operationalPeriodQuery,
+      SearchAreaQuery searchAreaQuery,
+      SearchAreaAssignmentQuery assignmentQuery,
+      MarkerQuery markerQuery) {
     this.mapper = mapper;
+    this.incidentMapper = incidentMapper;
+    this.operationalPeriodQuery = operationalPeriodQuery;
+    this.searchAreaQuery = searchAreaQuery;
+    this.assignmentQuery = assignmentQuery;
+    this.markerQuery = markerQuery;
   }
 
   public synchronized OfflinePackageManifestResponse manifest(
       String incidentId, String policePhoneId) {
-    ensureFixtureManifest();
     String incidentDbId = incidentDbId(incidentId);
     String policePhoneDbId =
         policePhoneDbId(policePhoneId == null ? POLICE_PHONE_ID : policePhoneId);
     OfflinePackageManifestRecord current = mapper.findCurrentManifestByIncident(incidentDbId);
     if (current == null) {
+      Optional<OfflinePackageManifestResponse> generated =
+          generateManifestFromSources(incidentDbId, policePhoneDbId);
+      if (generated.isPresent()) {
+        return generated.get();
+      }
+      ensureFixtureManifest();
+      current = mapper.findCurrentManifestByIncident(incidentDbId);
+    }
+    if (current == null) {
       throw new IllegalArgumentException("offline package manifest not found: " + incidentId);
     }
     if (PURGED_MANIFEST_HASH.equals(current.manifestHash())
-        || (mapper.countActiveInstallationsByManifest(current.id()) == 0
-            && mapper.countPurgedInstallationsByManifest(current.id()) > 0)) {
+        || (mapper.countActiveInstallationsByManifest(current.id().toString()) == 0
+            && mapper.countPurgedInstallationsByManifest(current.id().toString()) > 0)) {
       throw new OfflinePackageApiException("package_purged", HttpStatus.GONE);
     }
-    String publicIncidentId = incidentPublicId(current.incidentId());
+    Optional<SourceSnapshot> sourceSnapshot = sourceSnapshot(UUID.fromString(incidentDbId));
+    if (sourceSnapshot.isPresent()) {
+      return manifestFromSource(current, policePhoneDbId, sourceSnapshot.get());
+    }
+    return fixtureManifest(current, policePhoneDbId);
+  }
+
+  private Optional<OfflinePackageManifestResponse> generateManifestFromSources(
+      String incidentDbId, String policePhoneDbId) {
+    UUID incidentUuid = UUID.fromString(incidentDbId);
+    Optional<SourceSnapshot> sourceSnapshot = sourceSnapshot(incidentUuid);
+    if (sourceSnapshot.isEmpty()) {
+      return Optional.empty();
+    }
+    SourceSnapshot snapshot = sourceSnapshot.get();
+    int manifestVersion = 1;
+    String manifestId = manifestDbId("generated:" + incidentDbId + ":" + manifestVersion);
+    String manifestHash = sourceHash(snapshot.manifestHashSource());
+    mapper.insertManifest(
+        manifestId,
+        incidentDbId,
+        manifestVersion,
+        snapshot.currentOp().opId().toString(),
+        snapshot.overallSearchArea().id().toString(),
+        snapshot.overallSearchArea().version(),
+        manifestHash,
+        EXPIRES_AT,
+        SERVER_TS);
+    OfflinePackageManifestRecord record =
+        new OfflinePackageManifestRecord(
+            UUID.fromString(manifestId),
+            incidentUuid,
+            manifestVersion,
+            snapshot.overallSearchArea().id(),
+            snapshot.overallSearchArea().version(),
+            manifestHash,
+            EXPIRES_AT);
+    return Optional.of(manifestFromSource(record, policePhoneDbId, snapshot));
+  }
+
+  private OfflinePackageManifestResponse fixtureManifest(
+      OfflinePackageManifestRecord current, String policePhoneDbId) {
+    String publicIncidentId = incidentPublicId(current.incidentId().toString());
     String publicManifestId = manifestPublicId(current);
-    String publicOverallSearchAreaId = searchAreaPublicId(current.overallSearchAreaId());
-    PackageItemState itemState = itemStateFor(current.id(), policePhoneDbId);
+    String publicOverallSearchAreaId = searchAreaPublicId(current.overallSearchAreaId().toString());
+    PackageItemState itemState = itemStateFor(current.id().toString(), policePhoneDbId);
     return new OfflinePackageManifestResponse(
         publicManifestId,
         publicIncidentId,
@@ -156,7 +274,163 @@ public class OfflinePackageRepository {
             "overall-area-hash-precinct-current",
             overallSearchAreaPolygon()),
         tileItems(),
-        packageItems(itemState, publicManifestId, publicOverallSearchAreaId));
+        fixturePackageItems(itemState, publicManifestId, publicOverallSearchAreaId));
+  }
+
+  private Optional<SourceSnapshot> sourceSnapshot(UUID incidentId) {
+    if (incidentMapper == null
+        || operationalPeriodQuery == null
+        || searchAreaQuery == null
+        || assignmentQuery == null
+        || markerQuery == null) {
+      return Optional.empty();
+    }
+    try {
+      return readSourceSnapshot(incidentId);
+    } catch (DataAccessException ignored) {
+      return Optional.empty();
+    }
+  }
+
+  private Optional<SourceSnapshot> readSourceSnapshot(UUID incidentId) {
+    Optional<IncidentRecord> incident = incidentMapper.findByIncidentId(incidentId);
+    if (incident.isEmpty()) {
+      return Optional.empty();
+    }
+    List<OperationalPeriodRow> queriedOperationalPeriods = operationalPeriodQuery.list(incidentId);
+    List<OperationalPeriodRow> operationalPeriods =
+        queriedOperationalPeriods == null ? List.of() : queriedOperationalPeriods;
+    if (operationalPeriods.isEmpty()) {
+      return Optional.empty();
+    }
+    Optional<OverallSearchAreaResult> overallSearchArea = searchAreaQuery.overallOf(incidentId);
+    if (overallSearchArea.isEmpty()) {
+      return Optional.empty();
+    }
+
+    OperationalPeriodRow currentOp =
+        operationalPeriods.stream()
+            .filter(op -> "ACTIVE".equals(op.status()))
+            .findFirst()
+            .orElse(operationalPeriods.get(0));
+    SearchAreaCollection opAreas = searchAreaQuery.byOp(currentOp.opId(), SearchAreaFilters.empty());
+    Map<UUID, SearchAreaRow> areasById =
+        opAreas == null
+            ? Map.of()
+            : opAreas.areas().stream()
+                .collect(
+                    Collectors.toMap(
+                        SearchAreaRow::id,
+                        row -> row,
+                        (left, right) -> left,
+                        LinkedHashMap::new));
+    var queriedAssignments = assignmentQuery.byOp(currentOp.opId());
+    Set<UUID> assignedAreaIds =
+        queriedAssignments == null
+            ? Set.of()
+            : queriedAssignments.stream()
+                .map(row -> row.searchAreaId())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    List<SearchAreaRow> assignedAreas =
+        assignedAreaIds.stream().map(areasById::get).filter(Objects::nonNull).toList();
+    MarkerQueryResult markerResult = markerQuery.byIncident(incidentId, MarkerQueryFilters.empty());
+    List<MarkerView> markers = markerResult == null ? List.of() : markerResult.markers();
+
+    return Optional.of(
+        new SourceSnapshot(
+            incident.get(),
+            incidentMapper.findMissingPersonByIncidentId(incidentId).orElse(null),
+            operationalPeriods.stream()
+                .sorted(Comparator.comparingInt(OperationalPeriodRow::sequenceNumber))
+                .toList(),
+            currentOp,
+            overallSearchArea.get(),
+            assignedAreas,
+            markers.stream()
+                .filter(marker -> marker.location() != null)
+                .sorted(
+                    Comparator.comparing(MarkerView::occurredAt, Comparator.nullsLast(Comparator.naturalOrder()))
+                        .thenComparing(MarkerView::id))
+                .toList()));
+  }
+
+  private OfflinePackageManifestResponse manifestFromSource(
+      OfflinePackageManifestRecord record, String policePhoneDbId, SourceSnapshot source) {
+    String incidentId = source.incident().getId().toString();
+    String manifestId = manifestPublicId(record);
+    PackageItemState itemState = itemStateFor(record.id().toString(), policePhoneDbId);
+    return new OfflinePackageManifestResponse(
+        manifestId,
+        incidentId,
+        record.manifestVersion(),
+        record.expiresAt(),
+        "sha256:" + record.manifestHash(),
+        new PolicePhoneContext(
+            policePhonePublicId(policePhoneDbId),
+            AccountIdentityCatalog.PRECINCT_TEAM_ID.toString(),
+            "TEAM",
+            "team-precinct-jongno",
+            "MEMBER"),
+        new IncidentMetadata(
+            incidentId,
+            source.incident().getStatus(),
+            "OPEN".equals(source.incident().getStatus()) ? "CURRENT" : "TERMINAL",
+            source.incident().getSourceIncidentId()),
+        missingPersonFromSource(source.missingPerson()),
+        source.operationalPeriods().stream()
+            .map(
+                op ->
+                    new OperationalPeriod(
+                        op.opId().toString(),
+                        op.incidentId().toString(),
+                        op.sequenceNumber(),
+                        op.status(),
+                        op.version()))
+            .toList(),
+        source.assignedAreas().stream()
+            .map(
+                area ->
+                    new AssignedArea(
+                        area.id().toString(),
+                        area.incidentId().toString(),
+                        area.opId().toString(),
+                        area.status(),
+                        area.version()))
+            .toList(),
+        source.initialMarkers().stream()
+            .map(
+                marker ->
+                    new InitialMarker(
+                        marker.id().toString(),
+                        marker.incidentId().toString(),
+                        marker.opId().toString(),
+                        coordinate(marker.location()),
+                        marker.status().name()))
+            .toList(),
+        new OverallSearchArea(
+            source.overallSearchArea().id().toString(),
+            source.overallSearchArea().incidentId().toString(),
+            "OVERALL",
+            source.overallSearchArea().status(),
+            sourceHash("overall:" + source.overallSearchArea().id() + ":" + source.overallSearchArea().version()),
+            source.overallSearchArea().geometry().outerRing()),
+        tileItems(),
+        sourcePackageItems(itemState, manifestId, source));
+  }
+
+  private static MissingPerson missingPersonFromSource(MissingPersonRecord missingPerson) {
+    if (missingPerson == null) {
+      return null;
+    }
+    return new MissingPerson(
+        missingPerson.getIncidentId().toString(),
+        missingPerson.getDisplayName(),
+        missingPerson.getPhotoObjectKey(),
+        missingPerson.getAppearanceText(),
+        missingPerson.getLastSeenLocationText(),
+        missingPerson.getLastSeenAt() == null
+            ? null
+            : OffsetDateTime.ofInstant(missingPerson.getLastSeenAt(), ZoneOffset.UTC));
   }
 
   public synchronized OfflinePackageInstallationStatus saveStatus(
@@ -167,7 +441,7 @@ public class OfflinePackageRepository {
     String requestPolicePhoneDbId = policePhoneDbId(request.policePhoneId());
     OfflinePackageManifestRecord current = mapper.findCurrentManifestByIncident(incidentDbId);
     if (current == null
-        || !current.id().equals(requestManifestDbId)
+        || !current.id().toString().equals(requestManifestDbId)
         || current.manifestVersion() != request.manifestVersion()) {
       throw new OfflinePackageApiException("write_conflict", HttpStatus.CONFLICT);
     }
@@ -178,17 +452,17 @@ public class OfflinePackageRepository {
         OfflinePackageInstallationRecord.from(
             installationIdForReport(requestManifestDbId, requestPolicePhoneDbId),
             incidentDbId,
+            requestManifestDbId,
+            requestPolicePhoneDbId,
             request,
             SERVER_TS);
     mapper.deleteInstallationForPhone(requestManifestDbId, requestPolicePhoneDbId);
     mapper.insertInstallation(record);
     return publicStatus(
         new OfflinePackageInstallationStatus(
-            record.id(),
-            record.incidentId(),
-            record.policePhoneId(),
-            policePhoneCode(record.policePhoneId()),
-            policePhoneName(record.policePhoneId()),
+            record.id().toString(),
+            record.incidentId().toString(),
+            record.policePhoneId().toString(),
             record.status(),
             record.version(),
             record.sequence(),
@@ -219,16 +493,16 @@ public class OfflinePackageRepository {
     if (PURGED_MANIFEST_HASH.equals(current.manifestHash())) {
       return List.of();
     }
-    if (current.overallSearchAreaId().equals(overallSearchAreaDbId)
+    if (current.overallSearchAreaId().toString().equals(overallSearchAreaDbId)
         && current.overallSearchAreaVersion() >= overallSearchAreaVersion) {
       return List.of();
     }
 
-    List<String> changedStatusIds = mapper.findStaleCandidateInstallationIds(current.id());
+    List<String> changedStatusIds = mapper.findStaleCandidateInstallationIds(current.id().toString());
     int nextManifestVersion = current.manifestVersion() + 1;
     String nextManifestId = nextManifestId(nextManifestVersion);
     mapper.insertNextManifestFrom(
-        current.id(),
+        current.id().toString(),
         manifestDbId(nextManifestId),
         nextManifestVersion,
         overallSearchAreaDbId,
@@ -238,7 +512,7 @@ public class OfflinePackageRepository {
     if (changedStatusIds.isEmpty()) {
       return List.of();
     }
-    mapper.markReadyAndPartialInstallationsStale(current.id(), SERVER_TS);
+    mapper.markReadyAndPartialInstallationsStale(current.id().toString(), SERVER_TS);
     return mapper.findStatusesByIds(changedStatusIds, nextManifestVersion).stream()
         .map(OfflinePackageRepository::publicStatus)
         .toList();
@@ -275,6 +549,10 @@ public class OfflinePackageRepository {
         MANIFEST_DB_ID,
         INCIDENT_DB_ID,
         MANIFEST_VERSION,
+        OP_DB_ID,
+        OVERALL_SEARCH_AREA_DB_ID,
+        1L,
+        "1111111111111111111111111111111111111111111111111111111111111111",
         EXPIRES_AT,
         SERVER_TS);
     seedStatus("pkg-status-precinct-ready-001", POLICE_PHONE_ID, "READY", 3, true);
@@ -289,10 +567,10 @@ public class OfflinePackageRepository {
       String id, String policePhoneId, String status, long version, boolean readyForOfflineUse) {
     mapper.insertInstallation(
         new OfflinePackageInstallationRecord(
-            installationDbId(id),
-            MANIFEST_DB_ID,
-            INCIDENT_DB_ID,
-            policePhoneDbId(policePhoneId),
+            UUID.fromString(installationDbId(id)),
+            UUID.fromString(MANIFEST_DB_ID),
+            UUID.fromString(INCIDENT_DB_ID),
+            UUID.fromString(policePhoneDbId(policePhoneId)),
             null,
             status,
             7,
@@ -338,7 +616,7 @@ public class OfflinePackageRepository {
     return PackageItemState.partial(new LinkedHashSet<>(record.failedItemKeys()));
   }
 
-  private static List<PackageItem> packageItems(
+  private static List<PackageItem> fixturePackageItems(
       PackageItemState itemState, String manifestId, String overallSearchAreaId) {
     return List.of(
         item(
@@ -378,10 +656,87 @@ public class OfflinePackageRepository {
             "sha256:8888888888888888888888888888888888888888888888888888888888888888"));
   }
 
+  private static List<PackageItem> sourcePackageItems(
+      PackageItemState itemState, String manifestId, SourceSnapshot source) {
+    List<PackageItem> items = new ArrayList<>();
+    String incidentId = source.incident().getId().toString();
+    items.add(
+        item(
+            "incident:" + incidentId,
+            "INCIDENT_META",
+            itemState,
+            source.incident().getVersion(),
+            prefixedSourceHash("incident:" + incidentId + ":" + source.incident().getVersion())));
+    items.add(
+        item(
+            "missing-person:" + incidentId,
+            "MISSING_PERSON_CACHE",
+            itemState,
+            source.missingPerson() == null ? 0L : source.incident().getVersion(),
+            prefixedSourceHash("missing-person:" + incidentId + ":" + source.missingPersonHash())));
+    items.add(
+        item(
+            "op-list:" + incidentId,
+            "OP_LIST",
+            itemState,
+            source.maxOperationalPeriodVersion(),
+            prefixedSourceHash("op-list:" + source.operationalPeriodHash())));
+    String assignedAreaKey =
+        source.assignedAreas().isEmpty()
+            ? "assigned-area:none:" + incidentId
+            : "assigned-area:" + source.assignedAreas().get(0).id();
+    items.add(
+        item(
+            assignedAreaKey,
+            "ASSIGNED_AREA",
+            itemState,
+            source.maxAssignedAreaVersion(),
+            prefixedSourceHash("assigned-area:" + source.assignedAreaHash())));
+    String markerKey =
+        source.initialMarkers().isEmpty()
+            ? "initial-marker:none:" + incidentId
+            : "initial-marker:" + source.initialMarkers().get(0).id();
+    items.add(
+        item(
+            markerKey,
+            "INITIAL_MARKER",
+            itemState,
+            source.maxMarkerVersion(),
+            prefixedSourceHash("initial-marker:" + source.markerHash())));
+    items.add(
+        item(
+            "overall-search-area:" + source.overallSearchArea().id(),
+            "OVERALL_SEARCH_AREA",
+            itemState,
+            source.overallSearchArea().version(),
+            prefixedSourceHash(
+                "overall:"
+                    + source.overallSearchArea().id()
+                    + ":"
+                    + source.overallSearchArea().version())));
+    items.add(
+        item(
+            "tile-manifest:" + manifestId,
+            "TILE",
+            itemState,
+            1L,
+            prefixedSourceHash("tile-manifest:" + manifestId)));
+    return List.copyOf(items);
+  }
+
   private static PackageItem item(
       String itemKey, String itemType, PackageItemState itemState, String sourceHash) {
+    return item(itemKey, itemType, itemState, 1L, sourceHash);
+  }
+
+  private static PackageItem item(
+      String itemKey,
+      String itemType,
+      PackageItemState itemState,
+      long sourceVersion,
+      String sourceHash) {
     String status = itemState.statusOf(itemKey);
-    return new PackageItem(itemKey, itemType, status, 1L, sourceHash);
+    return new PackageItem(itemKey, itemType, status, sourceVersion, sourceHash);
   }
 
   private static List<TileItem> tileItems() {
@@ -431,6 +786,23 @@ public class OfflinePackageRepository {
     return List.of(new BigDecimal(lon), new BigDecimal(lat));
   }
 
+  private static List<BigDecimal> coordinate(Point point) {
+    return List.of(BigDecimal.valueOf(point.getX()), BigDecimal.valueOf(point.getY()));
+  }
+
+  private static String prefixedSourceHash(String source) {
+    return "sha256:" + sourceHash(source);
+  }
+
+  private static String sourceHash(String source) {
+    try {
+      MessageDigest digest = MessageDigest.getInstance("SHA-256");
+      return HexFormat.of().formatHex(digest.digest(source.getBytes(StandardCharsets.UTF_8)));
+    } catch (NoSuchAlgorithmException exception) {
+      throw new IllegalStateException("SHA-256 digest is unavailable", exception);
+    }
+  }
+
   private static String manifestHash(
       String incidentId,
       String overallSearchAreaId,
@@ -456,8 +828,6 @@ public class OfflinePackageRepository {
         installationPublicId(status.id()),
         incidentPublicId(status.incidentId()),
         policePhonePublicId(status.policePhoneId()),
-        publicPolicePhoneCode(status.policePhoneId(), status.policePhoneCode()),
-        publicPolicePhoneName(status.policePhoneId(), status.policePhoneName()),
         status.status(),
         status.version(),
         status.sequence(),
@@ -508,7 +878,7 @@ public class OfflinePackageRepository {
   }
 
   private static String manifestPublicId(OfflinePackageManifestRecord manifest) {
-    return manifestDbId(manifest.id());
+    return manifest.id().toString();
   }
 
   private static String incidentPublicId(String value) {
@@ -525,53 +895,6 @@ public class OfflinePackageRepository {
 
   private static String policePhonePublicId(String value) {
     return policePhoneDbId(value);
-  }
-
-  private static String policePhoneCode(String value) {
-    String dbId = policePhoneDbId(value);
-    for (String alias : SEED_POLICE_PHONE_ALIASES) {
-      if (policePhoneDbId(alias).equals(dbId)) {
-        return alias;
-      }
-    }
-    for (Map.Entry<String, String> entry : KNOWN_DB_IDS_BY_ALIAS.entrySet()) {
-      if (entry.getKey().startsWith("dev-") && entry.getValue().equals(dbId)) {
-        return entry.getKey();
-      }
-    }
-    return dbId;
-  }
-
-  private static String publicPolicePhoneCode(String policePhoneId, String code) {
-    if (code == null || code.isBlank() || code.equals(policePhoneId)) {
-      return policePhoneCode(policePhoneId);
-    }
-    return code;
-  }
-
-  private static String publicPolicePhoneName(String policePhoneId, String name) {
-    if (name == null || name.isBlank() || name.equals(policePhoneId)) {
-      return policePhoneName(policePhoneId);
-    }
-    return name;
-  }
-
-  private static String policePhoneName(String value) {
-    return switch (policePhoneCode(value)) {
-      case "dev-precinct-cmd-phone-01" -> "경찰서 지휘관 폰";
-      case "dev-precinct-car-01" -> "경찰서 순찰 폰";
-      case "dev-precinct-phone-01" -> "경찰서 팀폰";
-      case "dev-precinct-phone-02" -> "경찰서 팀폰 02";
-      case "dev-precinct-phone-03" -> "경찰서 팀폰 03";
-      case "dev-precinct-phone-04" -> "경찰서 팀폰 04";
-      case "dev-precinct-phone-05" -> "경찰서 팀폰 05";
-      case "dev-alpha-cmd-phone-01" -> "실종팀 지휘관 폰";
-      case "dev-alpha-phone-01" -> "실종팀 폰";
-      case "dev-support-cmd-phone-01" -> "지원부대 지휘관 폰";
-      case "dev-support-car-01" -> "지원부대 순찰 폰";
-      case "dev-support-phone-01" -> "지원부대 팀폰";
-      default -> policePhoneCode(value);
-    };
   }
 
   private static boolean isUuid(String value) {
@@ -597,6 +920,71 @@ public class OfflinePackageRepository {
               hex.substring(20, 32));
     } catch (NoSuchAlgorithmException exception) {
       throw new IllegalStateException("MD5 digest is unavailable", exception);
+    }
+  }
+
+  private record SourceSnapshot(
+      IncidentRecord incident,
+      MissingPersonRecord missingPerson,
+      List<OperationalPeriodRow> operationalPeriods,
+      OperationalPeriodRow currentOp,
+      OverallSearchAreaResult overallSearchArea,
+      List<SearchAreaRow> assignedAreas,
+      List<MarkerView> initialMarkers) {
+
+    String manifestHashSource() {
+      return String.join(
+          "|",
+          "incident:" + incident.getId() + ":" + incident.getVersion(),
+          "missing-person:" + missingPersonHash(),
+          "ops:" + operationalPeriodHash(),
+          "assigned:" + assignedAreaHash(),
+          "markers:" + markerHash(),
+          "overall:" + overallSearchArea.id() + ":" + overallSearchArea.version());
+    }
+
+    String missingPersonHash() {
+      if (missingPerson == null) {
+        return "none";
+      }
+      return String.join(
+          ":",
+          missingPerson.getIncidentId().toString(),
+          Objects.toString(missingPerson.getDisplayName(), ""),
+          Objects.toString(missingPerson.getPhotoObjectKey(), ""),
+          Objects.toString(missingPerson.getAppearanceText(), ""),
+          Objects.toString(missingPerson.getLastSeenLocationText(), ""),
+          Objects.toString(missingPerson.getLastSeenAt(), ""));
+    }
+
+    String operationalPeriodHash() {
+      return operationalPeriods.stream()
+          .map(op -> op.opId() + ":" + op.status() + ":" + op.sequenceNumber() + ":" + op.version())
+          .collect(Collectors.joining(","));
+    }
+
+    long maxOperationalPeriodVersion() {
+      return operationalPeriods.stream().mapToLong(OperationalPeriodRow::version).max().orElse(0L);
+    }
+
+    String assignedAreaHash() {
+      return assignedAreas.stream()
+          .map(area -> area.id() + ":" + area.status() + ":" + area.version())
+          .collect(Collectors.joining(","));
+    }
+
+    long maxAssignedAreaVersion() {
+      return assignedAreas.stream().mapToLong(SearchAreaRow::version).max().orElse(0L);
+    }
+
+    String markerHash() {
+      return initialMarkers.stream()
+          .map(marker -> marker.id() + ":" + marker.status() + ":" + marker.version())
+          .collect(Collectors.joining(","));
+    }
+
+    long maxMarkerVersion() {
+      return initialMarkers.stream().mapToLong(MarkerView::version).max().orElse(0L);
     }
   }
 

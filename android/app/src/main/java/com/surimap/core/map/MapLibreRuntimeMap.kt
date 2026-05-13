@@ -22,8 +22,13 @@ import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
+import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.FillLayer
 import org.maplibre.android.style.layers.LineLayer
+import org.maplibre.android.style.layers.PropertyFactory.circleColor
+import org.maplibre.android.style.layers.PropertyFactory.circleRadius
+import org.maplibre.android.style.layers.PropertyFactory.circleStrokeColor
+import org.maplibre.android.style.layers.PropertyFactory.circleStrokeWidth
 import org.maplibre.android.style.layers.PropertyFactory.fillColor
 import org.maplibre.android.style.layers.PropertyFactory.fillOpacity
 import org.maplibre.android.style.layers.PropertyFactory.fillOutlineColor
@@ -46,7 +51,9 @@ data class MapLibreViewportBounds(
 enum class MapLibreGeometryOverlayKind {
     Overall,
     Unit,
-    Team
+    Team,
+    Path,
+    Marker
 }
 
 data class MapLibreGeometryOverlay(
@@ -199,6 +206,9 @@ private val MapLibreGeometryOverlay.fillLayerId: String
 private val MapLibreGeometryOverlay.lineLayerId: String
     get() = "$styleId-line"
 
+private val MapLibreGeometryOverlay.circleLayerId: String
+    get() = "$styleId-circle"
+
 private fun MapLibreRuntimeMapState.geometryOverlaySignature(): String =
     geometryOverlays.joinToString("|") { it.signature() }
 
@@ -211,7 +221,7 @@ private fun Style.upsertGeometryOverlay(overlay: MapLibreGeometryOverlay) {
         source.setGeoJson(sourceJson)
     }
 
-    if (getLayer(overlay.fillLayerId) == null) {
+    if (overlay.supportsFillLayer && getLayer(overlay.fillLayerId) == null) {
         addLayer(
             FillLayer(overlay.fillLayerId, overlay.sourceId).withProperties(
                 fillColor(overlay.fillColor),
@@ -220,7 +230,7 @@ private fun Style.upsertGeometryOverlay(overlay: MapLibreGeometryOverlay) {
             )
         )
     }
-    if (getLayer(overlay.lineLayerId) == null) {
+    if (overlay.supportsLineLayer && getLayer(overlay.lineLayerId) == null) {
         addLayer(
             LineLayer(overlay.lineLayerId, overlay.sourceId).withProperties(
                 lineColor(overlay.lineColor),
@@ -229,10 +239,21 @@ private fun Style.upsertGeometryOverlay(overlay: MapLibreGeometryOverlay) {
             )
         )
     }
+    if (overlay.supportsCircleLayer && getLayer(overlay.circleLayerId) == null) {
+        addLayer(
+            CircleLayer(overlay.circleLayerId, overlay.sourceId).withProperties(
+                circleColor(overlay.lineColor),
+                circleRadius(if (overlay.highlighted) 7.0f else 5.0f),
+                circleStrokeColor("#FFFFFF"),
+                circleStrokeWidth(2.0f)
+            )
+        )
+    }
 }
 
 private fun Style.removeGeometryOverlays(styleIds: Set<String>) {
     styleIds.forEach { styleId ->
+        removeLayer("$styleId-circle")
         removeLayer("$styleId-line")
         removeLayer("$styleId-fill")
         removeSource("$styleId-source")
@@ -259,12 +280,44 @@ private fun MapLibreGeometryOverlay.featureCollectionJson(): String =
         )
         .toString()
 
+private val MapLibreGeometryOverlay.supportsFillLayer: Boolean
+    get() =
+        when (kind) {
+            MapLibreGeometryOverlayKind.Overall -> true
+            MapLibreGeometryOverlayKind.Unit -> true
+            MapLibreGeometryOverlayKind.Team -> true
+            MapLibreGeometryOverlayKind.Path -> false
+            MapLibreGeometryOverlayKind.Marker -> false
+        }
+
+private val MapLibreGeometryOverlay.supportsLineLayer: Boolean
+    get() =
+        when (kind) {
+            MapLibreGeometryOverlayKind.Overall -> true
+            MapLibreGeometryOverlayKind.Unit -> true
+            MapLibreGeometryOverlayKind.Team -> true
+            MapLibreGeometryOverlayKind.Path -> true
+            MapLibreGeometryOverlayKind.Marker -> false
+        }
+
+private val MapLibreGeometryOverlay.supportsCircleLayer: Boolean
+    get() =
+        when (kind) {
+            MapLibreGeometryOverlayKind.Overall -> false
+            MapLibreGeometryOverlayKind.Unit -> false
+            MapLibreGeometryOverlayKind.Team -> false
+            MapLibreGeometryOverlayKind.Path -> false
+            MapLibreGeometryOverlayKind.Marker -> true
+        }
+
 private val MapLibreGeometryOverlay.fillColor: String
     get() =
         when (kind) {
             MapLibreGeometryOverlayKind.Overall -> "#1D4ED8"
             MapLibreGeometryOverlayKind.Unit -> "#047857"
             MapLibreGeometryOverlayKind.Team -> "#C2410C"
+            MapLibreGeometryOverlayKind.Path -> "#2563EB"
+            MapLibreGeometryOverlayKind.Marker -> "#DC2626"
         }
 
 private val MapLibreGeometryOverlay.lineColor: String
@@ -273,6 +326,8 @@ private val MapLibreGeometryOverlay.lineColor: String
             MapLibreGeometryOverlayKind.Overall -> "#1E40AF"
             MapLibreGeometryOverlayKind.Unit -> "#065F46"
             MapLibreGeometryOverlayKind.Team -> "#9A3412"
+            MapLibreGeometryOverlayKind.Path -> "#2563EB"
+            MapLibreGeometryOverlayKind.Marker -> "#DC2626"
         }
 
 private val MapLibreGeometryOverlay.fillOpacity: Float
@@ -281,6 +336,8 @@ private val MapLibreGeometryOverlay.fillOpacity: Float
             MapLibreGeometryOverlayKind.Overall -> 0.10f
             MapLibreGeometryOverlayKind.Unit -> 0.13f
             MapLibreGeometryOverlayKind.Team -> 0.18f
+            MapLibreGeometryOverlayKind.Path -> 0.0f
+            MapLibreGeometryOverlayKind.Marker -> 0.0f
         }
 
 private class MapViewLifecycleBridge(

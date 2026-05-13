@@ -75,7 +75,9 @@ enum class SearchLifecycleStatus {
 enum class SearchLayerKind {
     Overall,
     Unit,
-    Team
+    Team,
+    Path,
+    Marker
 }
 
 data class SearchMapViewportBounds(
@@ -109,7 +111,8 @@ data class SearchMapUiState(
     val layers: List<SearchMapLayerUiState>,
     val viewportBounds: SearchMapViewportBounds? = null,
     val handoverPrompt: HandoverPromptUiState?,
-    val incidentAlert: IncidentAlertUiState? = null
+    val incidentAlert: IncidentAlertUiState? = null,
+    val focusedMarkerId: String? = null
 ) {
     val canWritePath: Boolean = lifecycleStatus == SearchLifecycleStatus.Active
     val canCreateMarker: Boolean = lifecycleStatus == SearchLifecycleStatus.Active
@@ -117,6 +120,22 @@ data class SearchMapUiState(
         lifecycleStatus == SearchLifecycleStatus.Active || lifecycleStatus == SearchLifecycleStatus.Paused
     val shouldOpenBlockedOutbox: Boolean = blockedOutboxCount > 0
     val showHandoverPrompt: Boolean = handoverPrompt?.shouldShow == true
+    val focusedMarkerLayer: SearchMapLayerUiState? =
+        focusedMarkerId
+            ?.takeIf(String::isNotBlank)
+            ?.let { markerId ->
+                layers.firstOrNull { layer -> layer.kind == SearchLayerKind.Marker && layer.overlayId == markerId }
+                    ?.copy(highlighted = true)
+            }
+    val markerFocusLabel: String? =
+        focusedMarkerId
+            ?.takeIf(String::isNotBlank)
+            ?.let { markerId ->
+                val label = focusedMarkerLayer?.label ?: markerId
+                "마커 포커스 · $label"
+            }
+    val focusedMarkerViewportBounds: SearchMapViewportBounds? =
+        focusedMarkerLayer?.geoJson?.pointViewportBounds()
 
     val syncLabel: String =
         when (syncStatus) {
@@ -173,12 +192,16 @@ data class SearchMapUiState(
             if (showHandoverPrompt) {
                 add("이전 근무 기록 있음")
             }
+            markerFocusLabel?.let(::add)
             incidentAlert?.visibleText()?.forEach(::add)
             if (blockedOutboxCount > 0) {
                 add("미전송 ${blockedOutboxCount}건 처리 불가")
             }
             layers.forEach { add(it.label) }
         }
+
+    fun withFocusedMarker(markerId: String?): SearchMapUiState =
+        copy(focusedMarkerId = markerId?.takeIf(String::isNotBlank))
 
     companion object {
         fun active(
@@ -247,7 +270,9 @@ data class SearchMapUiState(
                 listOf(
                     SearchMapLayerUiState("전체 수색 구역", SearchLayerKind.Overall),
                     SearchMapLayerUiState("기동대 1부대", SearchLayerKind.Unit),
-                    SearchMapLayerUiState("A팀 담당 구역", SearchLayerKind.Team, highlighted = true)
+                    SearchMapLayerUiState("A팀 담당 구역", SearchLayerKind.Team, highlighted = true),
+                    SearchMapLayerUiState("현재 경로", SearchLayerKind.Path, highlighted = true),
+                    SearchMapLayerUiState("단서", SearchLayerKind.Marker, highlighted = true)
                 ),
                 handoverPrompt = handoverPrompt,
                 incidentAlert = incidentAlert
@@ -375,6 +400,9 @@ private fun SearchMapShell(
             modifier = Modifier.align(Alignment.TopStart).padding(PoliDimens.Space3),
             verticalArrangement = Arrangement.spacedBy(PoliDimens.Space2)
         ) {
+            state.markerFocusLabel?.let { focusLabel ->
+                PoliChip(text = focusLabel, variant = PoliChipVariant.Bad)
+            }
             state.layers.forEach { layer ->
                 PoliChip(
                     text = layer.label,
@@ -544,7 +572,7 @@ private val SearchMapUiState.syncVariant: PoliChipVariant
 private fun SearchMapUiState.toRuntimeMapState(base: MapLibreRuntimeMapState): MapLibreRuntimeMapState {
     return base.copy(
         initialBounds =
-        viewportBounds?.let { bounds ->
+        (focusedMarkerViewportBounds ?: viewportBounds)?.let { bounds ->
             MapLibreViewportBounds(
                 south = bounds.south,
                 west = bounds.west,
@@ -555,11 +583,12 @@ private fun SearchMapUiState.toRuntimeMapState(base: MapLibreRuntimeMapState): M
         geometryOverlays =
         layers.mapNotNull { layer ->
             val geoJson = layer.geoJson?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+            val focused = focusedMarkerId != null && layer.kind == SearchLayerKind.Marker && layer.overlayId == focusedMarkerId
             MapLibreGeometryOverlay(
                 id = layer.overlayId ?: layer.label,
                 kind = layer.kind.toMapLibreGeometryOverlayKind(),
                 geoJson = geoJson,
-                highlighted = layer.highlighted
+                highlighted = layer.highlighted || focused
             )
         }
     )
@@ -570,7 +599,25 @@ private fun SearchLayerKind.toMapLibreGeometryOverlayKind(): MapLibreGeometryOve
         SearchLayerKind.Overall -> MapLibreGeometryOverlayKind.Overall
         SearchLayerKind.Unit -> MapLibreGeometryOverlayKind.Unit
         SearchLayerKind.Team -> MapLibreGeometryOverlayKind.Team
+        SearchLayerKind.Path -> MapLibreGeometryOverlayKind.Path
+        SearchLayerKind.Marker -> MapLibreGeometryOverlayKind.Marker
     }
+
+private fun String.pointViewportBounds(): SearchMapViewportBounds? {
+    val match = POINT_COORDINATES.find(this) ?: return null
+    val lon = match.groupValues[1].toDoubleOrNull() ?: return null
+    val lat = match.groupValues[2].toDoubleOrNull() ?: return null
+    val delta = MARKER_FOCUS_BOUNDS_DELTA
+    return SearchMapViewportBounds(
+        south = lat - delta,
+        west = lon - delta,
+        north = lat + delta,
+        east = lon + delta
+    )
+}
+
+private val POINT_COORDINATES = Regex(""""coordinates"\s*:\s*\[\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*]""")
+private const val MARKER_FOCUS_BOUNDS_DELTA = 0.001
 
 fun sampleSearchMapState(): SearchMapUiState =
     SearchMapUiState.active(

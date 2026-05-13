@@ -37,6 +37,7 @@ erDiagram
 
     duty_shift ||--o{ search_path : records
     search_path ||--o{ search_path_segment : splits
+    search_path ||--o{ search_path_excluded_point : excludes
     account ||--o{ search_path_segment : corrects
 
     operational_period ||--o{ marker : has
@@ -121,8 +122,12 @@ erDiagram
         VARCHAR phone_code UK
         VARCHAR display_name
         VARCHAR status
+        BOOLEAN registered
         TIMESTAMPTZ last_heartbeat_at
         TIMESTAMPTZ last_sync_at
+        BIGINT heartbeat_sequence
+        UUID last_heartbeat_event_id
+        BIGINT version
     }
 
     fcm_token {
@@ -235,6 +240,16 @@ erDiagram
         UUID corrected_by_account_id FK
         TIMESTAMPTZ corrected_at
         BIGINT version
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+    }
+
+    search_path_excluded_point {
+        UUID id PK
+        UUID search_path_id FK
+        VARCHAR point_id
+        VARCHAR reason
+        TIMESTAMPTZ client_ts
         TIMESTAMPTZ created_at
         TIMESTAMPTZ updated_at
     }

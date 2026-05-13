@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.surimap.sync.idempotency.IdempotencyRecordMapper">
+  <resultMap id="idempotencyRecordRowMap" type="com.surimap.sync.idempotency.IdempotencyRecordRow">
+    <id property="id" column="id" javaType="java.util.UUID"/>
+    <result property="clientOperationId" column="client_operation_id"/>
+    <result property="idempotencyKey" column="idempotency_key"/>
+    <result property="requestBodyHash" column="request_body_hash"/>
+    <result property="requestPath" column="request_path"/>
+    <result property="requestMethod" column="request_method"/>
+    <result property="idempotencyStatus" column="idempotency_status"/>
+    <result property="responseStatusCode" column="response_status_code"/>
+    <result property="responseBodyJson" column="response_body_json"/>
+    <result property="responseContentType" column="response_content_type"/>
+    <result property="responseBodyFormatVersion" column="response_body_format_version"/>
+    <result property="resultEntityId" column="result_entity_id" javaType="java.util.UUID"/>
+    <result property="resultEntityStatus" column="result_entity_status"/>
+    <result property="resultEntityVersion" column="result_entity_version"/>
+    <result property="resultEntitySequence" column="result_entity_sequence"/>
+    <result property="replayRecovered" column="replay_recovered"/>
+    <result property="createdAt" column="created_at"/>
+    <result property="updatedAt" column="updated_at"/>
+  </resultMap>
+
+  <select id="findByIdempotencyKey" resultMap="idempotencyRecordRowMap">
+    SELECT
+      id,
+      client_operation_id,
+      idempotency_key,
+      request_body_hash,
+      request_path,
+      request_method,
+      idempotency_status,
+      response_status_code,
+      response_body_json,
+      response_content_type,
+      response_body_format_version,
+      result_entity_id,
+      result_entity_status,
+      result_entity_version,
+      result_entity_sequence,
+      replay_recovered,
+      created_at,
+      updated_at
+    FROM idempotency_record
+    WHERE idempotency_key = #{idempotencyKey}
+    ORDER BY created_at ASC, id ASC
+    LIMIT 1
+  </select>
+
+  <insert id="insert">
+    INSERT INTO idempotency_record (
+      id,
+      client_operation_id,
+      idempotency_key,
+      request_body_hash,
+      request_path,
+      request_method,
+      idempotency_status,
+      response_status_code,
+      response_body_json,
+      response_content_type,
+      response_body_format_version,
+      result_entity_id,
+      result_entity_status,
+      result_entity_version,
+      result_entity_sequence,
+      replay_recovered,
+      created_at,
+      updated_at
+    )
+    VALUES (
+      #{id},
+      #{clientOperationId},
+      #{idempotencyKey},
+      #{requestBodyHash},
+      #{requestPath},
+      #{requestMethod},
+      #{idempotencyStatus},
+      #{responseStatusCode},
+      #{responseBodyJson},
+      #{responseContentType},
+      #{responseBodyFormatVersion},
+      #{resultEntityId},
+      #{resultEntityStatus},
+      #{resultEntityVersion},
+      #{resultEntitySequence},
+      #{replayRecovered},
+      #{createdAt},
+      #{updatedAt}
+    )
+  </insert>
+
+  <update id="updateByIdempotencyKey">
+    UPDATE idempotency_record
+    SET
+      client_operation_id = #{clientOperationId},
+      request_body_hash = #{requestBodyHash},
+      request_path = #{requestPath},
+      request_method = #{requestMethod},
+      idempotency_status = #{idempotencyStatus},
+      response_status_code = #{responseStatusCode},
+      response_body_json = #{responseBodyJson},
+      response_content_type = #{responseContentType},
+      response_body_format_version = #{responseBodyFormatVersion},
+      result_entity_id = #{resultEntityId},
+      result_entity_status = #{resultEntityStatus},
+      result_entity_version = #{resultEntityVersion},
+      result_entity_sequence = #{resultEntitySequence},
+      replay_recovered = #{replayRecovered},
+      updated_at = #{updatedAt}
+    WHERE idempotency_key = #{idempotencyKey}
+  </update>
+
+  <delete id="deleteByIdempotencyKey">
+    DELETE FROM idempotency_record
+    WHERE idempotency_key = #{idempotencyKey}
+  </delete>
+</mapper>

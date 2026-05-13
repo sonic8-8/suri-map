@@ -1,5 +1,6 @@
 package com.surimap.core.map
 
+import com.surimap.testing.policePhoneIdFixture
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.Protocol
@@ -21,7 +22,7 @@ class MapLibreTileHttpTest {
             delegate = delegate,
             tileBaseUrl = "https://suri-map.example.com/api",
             accessTokenProvider = { "access-token-1" },
-            policePhoneIdProvider = { "phone-1" }
+            policePhoneIdProvider = { POLICE_PHONE_ID }
         )
 
         factory.newCall(
@@ -33,7 +34,7 @@ class MapLibreTileHttpTest {
         val request = delegate.lastRequest!!
         assertEquals("APP", request.header("X-Client-Channel"))
         assertEquals("Bearer access-token-1", request.header("Authorization"))
-        assertEquals("phone-1", request.header("X-PolicePhone-Id"))
+        assertEquals(POLICE_PHONE_ID, request.header("X-PolicePhone-Id"))
         assertNull(request.header("Idempotency-Key"))
     }
 
@@ -44,7 +45,7 @@ class MapLibreTileHttpTest {
             delegate = delegate,
             tileBaseUrl = "https://suri-map.example.com/api",
             accessTokenProvider = { "access-token-1" },
-            policePhoneIdProvider = { "phone-1" }
+            policePhoneIdProvider = { POLICE_PHONE_ID }
         )
 
         factory.newCall(
@@ -92,5 +93,9 @@ class MapLibreTileHttpTest {
         override fun <T : Any> tag(type: KClass<T>, computeIfAbsent: () -> T): T = computeIfAbsent()
         override fun <T : Any> tag(type: Class<T>, computeIfAbsent: () -> T): T = computeIfAbsent()
         override fun clone(): Call = CapturingCall(request)
+    }
+
+    private companion object {
+        val POLICE_PHONE_ID = policePhoneIdFixture("1")
     }
 }

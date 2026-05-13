@@ -79,7 +79,7 @@
   - 예상 작업량: 1d
   - 완료 기준: app-only marker 생성이 필수 필드를 저장하고 type/location/source를 검증하며 `MARKER_CREATED`를 발행한다.
 
-- [ ] L5-T01B Android 마커 입력 계약 구현
+- [x] L5-T01B Android 마커 입력 계약 구현
   - 담당 Spec: S5
   - 필수 참조: `spec/specs/S5.json`, `spec/harness-scenarios.md §2 SC-06`, `spec/boundaries.md §10 SC-06`
   - 연관 Spec: S3-1, S6

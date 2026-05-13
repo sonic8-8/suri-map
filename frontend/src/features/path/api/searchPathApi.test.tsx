@@ -20,9 +20,9 @@ describe('search path API', () => {
 
     await expect(
       api.list({
-        incidentId: 'inc-precinct-first-001',
-        opId: 'op-precinct-first-001',
-        policePhoneId: 'phone-precinct-001',
+        incidentId: INCIDENT_ID,
+        opId: OP_ID,
+        policePhoneId: POLICE_PHONE_ID,
         includeGeometry: true,
         geometryMode: 'FULL',
         sinceVersion: 3,
@@ -34,9 +34,9 @@ describe('search path API', () => {
 
     expect(client.get).toHaveBeenCalledWith('/search-paths', {
       query: {
-        incidentId: 'inc-precinct-first-001',
-        opId: 'op-precinct-first-001',
-        policePhoneId: 'phone-precinct-001',
+        incidentId: INCIDENT_ID,
+        opId: OP_ID,
+        policePhoneId: POLICE_PHONE_ID,
         includeGeometry: true,
         geometryMode: 'FULL',
         sinceVersion: 3,
@@ -49,12 +49,12 @@ describe('search path API', () => {
 
   test('corrects search path segment with idempotency key', async () => {
     const response: CorrectSearchPathSegmentResponse = {
-      id: 'seg-001',
+      id: SEGMENT_ID,
       movementType: 'FOOT',
       movementTypeSource: 'MANUAL',
-      opId: 'op-precinct-first-001',
-      policePhoneId: 'phone-precinct-001',
-      correctedByAccountId: 'acct-missing-team-commander',
+      opId: OP_ID,
+      policePhoneId: POLICE_PHONE_ID,
+      correctedByAccountId: ACCOUNT_ID,
       correctedAt: '2026-05-11T06:00:00Z',
       version: 4,
     };
@@ -63,24 +63,24 @@ describe('search path API', () => {
 
     await expect(
       api.correctSegment(
-        'seg-001',
+        SEGMENT_ID,
         { movementType: 'FOOT', reason: 'manual correction' },
         'idem-segment-001',
       ),
     ).resolves.toBe(response);
 
     expect(client.patch).toHaveBeenCalledWith(
-      '/search-path-segments/seg-001',
+      `/search-path-segments/${SEGMENT_ID}`,
       { movementType: 'FOOT', reason: 'manual correction' },
       { headers: { 'Idempotency-Key': 'idem-segment-001' } },
     );
   });
 
   test('uses stable query keys for path list cache', () => {
-    expect(searchPathQueryKeys.list({ incidentId: 'inc-precinct-first-001' })).toEqual([
+    expect(searchPathQueryKeys.list({ incidentId: INCIDENT_ID })).toEqual([
       'searchPaths',
       'list',
-      { incidentId: 'inc-precinct-first-001' },
+      { incidentId: INCIDENT_ID },
     ]);
   });
 
@@ -90,23 +90,23 @@ describe('search path API', () => {
       correctSegment: vi.fn(),
     };
     const { result } = renderQueryHook(() =>
-      useSearchPathListQuery({ incidentId: 'inc-precinct-first-001' }, searchPathApi),
+      useSearchPathListQuery({ incidentId: INCIDENT_ID }, searchPathApi),
     );
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(searchPathApi.list).toHaveBeenCalledWith({ incidentId: 'inc-precinct-first-001' });
+    expect(searchPathApi.list).toHaveBeenCalledWith({ incidentId: INCIDENT_ID });
   });
 
   test('segment correction invalidates search path cache after success', async () => {
     const searchPathApi = {
       list: vi.fn(),
       correctSegment: vi.fn(async () => ({
-        id: 'seg-001',
+        id: SEGMENT_ID,
         movementType: 'FOOT',
         movementTypeSource: 'MANUAL',
-        opId: 'op-precinct-first-001',
-        policePhoneId: 'phone-precinct-001',
-        correctedByAccountId: 'acct-missing-team-commander',
+        opId: OP_ID,
+        policePhoneId: POLICE_PHONE_ID,
+        correctedByAccountId: ACCOUNT_ID,
         correctedAt: '2026-05-11T06:00:00Z',
         version: 4,
       })),
@@ -116,14 +116,14 @@ describe('search path API', () => {
     );
 
     result.current.mutate({
-      searchPathSegmentId: 'seg-001',
+      searchPathSegmentId: SEGMENT_ID,
       request: { movementType: 'FOOT', reason: 'manual correction' },
       idempotencyKey: 'idem-segment-001',
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(searchPathApi.correctSegment).toHaveBeenCalledWith(
-      'seg-001',
+      SEGMENT_ID,
       { movementType: 'FOOT', reason: 'manual correction' },
       'idem-segment-001',
     );
@@ -140,6 +140,12 @@ function fakeApiClient<TResponse>(response: TResponse): ApiClient {
     delete: vi.fn(),
   } as unknown as ApiClient;
 }
+
+const INCIDENT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001';
+const OP_ID = '88888888-8888-8888-8888-888888880001';
+const POLICE_PHONE_ID = '50000000-0000-0000-0000-000000000001';
+const SEGMENT_ID = '33333333-3333-3333-3333-333333330001';
+const ACCOUNT_ID = '11111111-1111-1111-1111-111111110003';
 
 function renderQueryHook<TResult>(callback: () => TResult) {
   const queryClient = new QueryClient({

@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.surimap.policephone.PolicePhoneMapper">
+
+    <resultMap id="PolicePhoneStateRowMap" type="com.surimap.policephone.PolicePhoneStateRow">
+        <constructor>
+            <arg column="id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="account_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="account_type" javaType="com.surimap.common.auth.AccountType"/>
+            <arg column="organization_type" javaType="com.surimap.common.auth.OrganizationType"/>
+            <arg column="registered" javaType="boolean"/>
+            <arg column="status" javaType="java.lang.String"/>
+            <arg column="last_heartbeat_event_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="last_heartbeat_at" javaType="java.time.Instant"/>
+            <arg column="last_sync_at" javaType="java.time.Instant"/>
+            <arg column="heartbeat_sequence" javaType="long"/>
+            <arg column="version" javaType="long"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="PolicePhoneAssignmentRowMap" type="com.surimap.policephone.PolicePhoneAssignmentRow">
+        <constructor>
+            <arg column="incident_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="PolicePhoneFreshnessStateRowMap" type="com.surimap.policephone.PolicePhoneFreshnessStateRow">
+        <constructor>
+            <arg column="police_phone_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="account_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="account_type" javaType="com.surimap.common.auth.AccountType"/>
+            <arg column="organization_type" javaType="com.surimap.common.auth.OrganizationType"/>
+            <arg column="incident_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="last_heartbeat_event_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="last_heartbeat_at" javaType="java.time.Instant"/>
+            <arg column="last_sync_at" javaType="java.time.Instant"/>
+            <arg column="version" javaType="long"/>
+            <arg column="heartbeat_sequence" javaType="long"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="FcmTokenRowMap" type="com.surimap.policephone.query.FcmTokenRow">
+        <constructor>
+            <arg column="id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="police_phone_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="app_instance_id" javaType="java.lang.String"/>
+            <arg column="token_ciphertext" javaType="java.lang.String"/>
+            <arg column="token_hash" javaType="java.lang.String"/>
+            <arg column="status" javaType="com.surimap.policephone.FcmTokenStatus"/>
+            <arg column="version" javaType="long"/>
+        </constructor>
+    </resultMap>
+
+    <select id="findActiveById" resultMap="PolicePhoneStateRowMap">
+        SELECT
+            pp.id,
+            pp.account_id,
+            a.account_type,
+            a.organization_type,
+            pp.registered,
+            pp.status,
+            pp.last_heartbeat_event_id,
+            pp.last_heartbeat_at,
+            pp.last_sync_at,
+            pp.heartbeat_sequence,
+            pp.version
+        FROM police_phone pp
+        JOIN account a
+            ON a.id = pp.account_id
+        WHERE pp.id = #{policePhoneId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND pp.status = 'ACTIVE'
+          AND a.status = 'ACTIVE'
+    </select>
+
+    <select id="findActiveAssignmentByPolicePhone" resultMap="PolicePhoneAssignmentRowMap">
+        SELECT ia.incident_id
+        FROM police_phone pp
+        JOIN incident_assignment ia
+            ON CAST(ia.account_id AS VARCHAR) = CAST(pp.account_id AS VARCHAR)
+           AND ia.revoked_at IS NULL
+        WHERE pp.id = #{policePhoneId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND pp.status = 'ACTIVE'
+        ORDER BY ia.assigned_at DESC, ia.id ASC
+        LIMIT 1
+    </select>
+
+    <select id="findFreshnessByIncident" resultMap="PolicePhoneFreshnessStateRowMap">
+        SELECT
+            pp.id AS police_phone_id,
+            pp.account_id,
+            a.account_type,
+            a.organization_type,
+            ia.incident_id,
+            pp.last_heartbeat_event_id,
+            pp.last_heartbeat_at,
+            pp.last_sync_at,
+            pp.version,
+            pp.heartbeat_sequence
+        FROM incident_assignment ia
+        JOIN police_phone pp
+            ON CAST(pp.account_id AS VARCHAR) = CAST(ia.account_id AS VARCHAR)
+           AND pp.status = 'ACTIVE'
+           AND pp.registered = TRUE
+        JOIN account a
+            ON a.id = pp.account_id
+           AND a.status = 'ACTIVE'
+        WHERE ia.incident_id = #{incidentId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND ia.revoked_at IS NULL
+        ORDER BY pp.id ASC
+    </select>
+
+    <update id="updateHeartbeatIfNewer">
+        UPDATE police_phone
+        SET heartbeat_sequence = #{sequence},
+            last_heartbeat_event_id = #{eventId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            last_heartbeat_at = #{receivedAt},
+            last_sync_at = COALESCE(#{lastSyncAt}, last_sync_at),
+            version = version + 1,
+            updated_at = #{receivedAt}
+        WHERE id = #{policePhoneId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND heartbeat_sequence &lt; #{sequence}
+    </update>
+
+    <select id="findActiveTokenVersion" resultType="long">
+        SELECT version
+        FROM fcm_token
+        WHERE police_phone_id = #{policePhoneId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND app_instance_id = #{appInstanceId}
+          AND status = 'ACTIVE'
+        LIMIT 1
+    </select>
+
+    <update id="revokeActiveTokenForInstance">
+        UPDATE fcm_token
+        SET status = 'REVOKED',
+            revoked_at = #{revokedAt}
+        WHERE police_phone_id = #{policePhoneId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND app_instance_id = #{appInstanceId}
+          AND status = 'ACTIVE'
+    </update>
+
+    <update id="revokeActiveTokensForLogout">
+        UPDATE fcm_token
+        SET status = 'REVOKED',
+            revoked_at = #{revokedAt}
+        WHERE police_phone_id = #{policePhoneId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND account_id = #{accountId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND status = 'ACTIVE'
+    </update>
+
+    <insert id="insertFcmToken">
+        INSERT INTO fcm_token (
+            id,
+            account_id,
+            police_phone_id,
+            app_instance_id,
+            token_hash,
+            token_ciphertext,
+            status,
+            created_at,
+            last_registered_at,
+            version
+        ) VALUES (
+            #{id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{accountId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{policePhoneId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{appInstanceId},
+            #{tokenHash},
+            #{tokenCiphertext},
+            #{status},
+            #{registeredAt},
+            #{registeredAt},
+            #{version}
+        )
+    </insert>
+
+    <select id="findActiveTokensByPolicePhone" resultMap="FcmTokenRowMap">
+        SELECT
+            id,
+            police_phone_id,
+            app_instance_id,
+            token_ciphertext,
+            token_hash,
+            status,
+            version
+        FROM fcm_token
+        WHERE police_phone_id = #{policePhoneId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND status = 'ACTIVE'
+        ORDER BY app_instance_id ASC, id ASC
+    </select>
+</mapper>

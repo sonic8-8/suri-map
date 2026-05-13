@@ -9,6 +9,8 @@ import com.surimap.operationalperiod.OperationalPeriodMapper;
 import com.surimap.operationalperiod.event.EventPublisherPort;
 import com.surimap.operationalperiod.event.OpTransitionedPublishRequest;
 import com.surimap.summary.SearchHistorySummaryGenerationJob;
+import com.surimap.sync.idempotency.IdempotentResponseCache;
+import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -18,6 +20,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,17 +36,20 @@ public class OperationalPeriodApiService {
   private final EventPublisherPort eventPublisher;
   private final IncidentLifecycleGuard incidentLifecycleGuard;
   private final SearchHistorySummaryGenerationJob searchHistorySummaryGenerationJob;
+  private final IdempotentResponseCache idempotentResponseCache;
   private final Map<String, IdempotencyEntry> idempotencyEntries = new LinkedHashMap<>();
 
   public OperationalPeriodApiService(
       OperationalPeriodMapper mapper,
       EventPublisherPort eventPublisher,
       IncidentLifecycleGuard incidentLifecycleGuard,
-      SearchHistorySummaryGenerationJob searchHistorySummaryGenerationJob) {
+      SearchHistorySummaryGenerationJob searchHistorySummaryGenerationJob,
+      ObjectProvider<IdempotentResponseCache> idempotentResponseCacheProvider) {
     this.mapper = mapper;
     this.eventPublisher = eventPublisher;
     this.incidentLifecycleGuard = incidentLifecycleGuard;
     this.searchHistorySummaryGenerationJob = searchHistorySummaryGenerationJob;
+    this.idempotentResponseCache = idempotentResponseCacheProvider.getIfAvailable();
   }
 
   @Transactional
@@ -143,6 +149,21 @@ public class OperationalPeriodApiService {
 
   private OperationalPeriodResponse replayOrRun(
       String idempotencyKey, String fingerprint, Operation operation) {
+    if (idempotentResponseCache != null) {
+      return idempotentResponseCache.replayOrRun(
+          "POST /api/operational-periods",
+          idempotencyKey,
+          fingerprint,
+          201,
+          OperationalPeriodResponse.class,
+          operation::run,
+          response ->
+              new ResponseMetadata(
+                  response.id().toString(),
+                  response.status(),
+                  response.version(),
+                  response.sequenceNumber()));
+    }
     IdempotencyEntry existing = idempotencyEntries.get(idempotencyKey);
     if (existing != null) {
       if (!existing.fingerprint().equals(fingerprint)) {

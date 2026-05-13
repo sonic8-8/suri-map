@@ -12,10 +12,10 @@ import java.util.UUID;
 /** L2-T09A shared auth/policePhone fixture values for mock and real contract adapters. */
 public final class AuthPolicePhoneHarnessFixtures {
 
-  public static final String INCIDENT_ID = "inc-precinct-first-001";
-  public static final String OP1_ID = "op-precinct-001-op1";
-  public static final String PRECINCT_TEAM_ACCOUNT_ID = "acct-precinct-team";
-  public static final String PRECINCT_TEAM_POLICE_PHONE_ALIAS = "dev-precinct-phone-01";
+  public static final String INCIDENT_ALIAS = "inc-precinct-first-001";
+  public static final String OP1_ALIAS = "op-precinct-001-op1";
+  public static final String PRECINCT_TEAM_ACCOUNT_CODE = "acct-precinct-team";
+  public static final String PRECINCT_TEAM_POLICE_PHONE_CODE = "dev-precinct-phone-01";
   public static final UUID PRECINCT_TEAM_POLICE_PHONE_ID =
       PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID;
   public static final UUID UNREGISTERED_POLICE_PHONE_ID =
@@ -27,26 +27,28 @@ public final class AuthPolicePhoneHarnessFixtures {
 
   public static HarnessFixture precinctTeamApp() {
     return new HarnessFixture(
-        precinctTeamContext(Channel.APP, PRECINCT_TEAM_POLICE_PHONE_ALIAS, PRECINCT_TEAM_POLICE_PHONE_ID),
+        precinctTeamContext(
+            Channel.APP, PRECINCT_TEAM_POLICE_PHONE_CODE, PRECINCT_TEAM_POLICE_PHONE_ID),
         new PolicePhoneAssignment(
-            PRECINCT_TEAM_POLICE_PHONE_ALIAS,
+            PRECINCT_TEAM_POLICE_PHONE_CODE,
             PRECINCT_TEAM_POLICE_PHONE_ID,
-            PRECINCT_TEAM_ACCOUNT_ID,
-            INCIDENT_ID,
-            OP1_ID,
+            PRECINCT_TEAM_ACCOUNT_CODE,
+            INCIDENT_ALIAS,
+            OP1_ALIAS,
             true,
             true));
   }
 
   public static HarnessFixture precinctTeamWeb() {
     return new HarnessFixture(
-        precinctTeamContext(Channel.WEB, PRECINCT_TEAM_POLICE_PHONE_ALIAS, PRECINCT_TEAM_POLICE_PHONE_ID),
+        precinctTeamContext(
+            Channel.WEB, PRECINCT_TEAM_POLICE_PHONE_CODE, PRECINCT_TEAM_POLICE_PHONE_ID),
         new PolicePhoneAssignment(
-            PRECINCT_TEAM_POLICE_PHONE_ALIAS,
+            PRECINCT_TEAM_POLICE_PHONE_CODE,
             PRECINCT_TEAM_POLICE_PHONE_ID,
-            PRECINCT_TEAM_ACCOUNT_ID,
-            INCIDENT_ID,
-            OP1_ID,
+            PRECINCT_TEAM_ACCOUNT_CODE,
+            INCIDENT_ALIAS,
+            OP1_ALIAS,
             true,
             true));
   }
@@ -65,8 +67,8 @@ public final class AuthPolicePhoneHarnessFixtures {
             "dev-alpha-cmd-phone-01",
             PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID,
             "acct-cmd-alpha",
-            INCIDENT_ID,
-            OP1_ID,
+            INCIDENT_ALIAS,
+            OP1_ALIAS,
             true,
             true));
   }
@@ -74,7 +76,8 @@ public final class AuthPolicePhoneHarnessFixtures {
   public static HarnessFixture missingPolicePhoneApp() {
     return new HarnessFixture(
         precinctTeamContext(Channel.APP, null, null),
-        new PolicePhoneAssignment(null, null, PRECINCT_TEAM_ACCOUNT_ID, INCIDENT_ID, OP1_ID, false, false));
+        new PolicePhoneAssignment(
+            null, null, PRECINCT_TEAM_ACCOUNT_CODE, INCIDENT_ALIAS, OP1_ALIAS, false, false));
   }
 
   public static HarnessFixture unregisteredPolicePhoneApp() {
@@ -83,9 +86,9 @@ public final class AuthPolicePhoneHarnessFixtures {
         new PolicePhoneAssignment(
             "dev-unregistered-phone-01",
             UNREGISTERED_POLICE_PHONE_ID,
-            PRECINCT_TEAM_ACCOUNT_ID,
-            INCIDENT_ID,
-            OP1_ID,
+            PRECINCT_TEAM_ACCOUNT_CODE,
+            INCIDENT_ALIAS,
+            OP1_ALIAS,
             false,
             false));
   }
@@ -96,9 +99,9 @@ public final class AuthPolicePhoneHarnessFixtures {
         new PolicePhoneAssignment(
             "dev-unassigned-phone-01",
             UNASSIGNED_POLICE_PHONE_ID,
-            PRECINCT_TEAM_ACCOUNT_ID,
-            INCIDENT_ID,
-            OP1_ID,
+            PRECINCT_TEAM_ACCOUNT_CODE,
+            INCIDENT_ALIAS,
+            OP1_ALIAS,
             true,
             false));
   }
@@ -111,13 +114,14 @@ public final class AuthPolicePhoneHarnessFixtures {
   public static HarnessFixture webChannelMissingPolicePhone() {
     return new HarnessFixture(
         precinctTeamContext(Channel.WEB, null, null),
-        new PolicePhoneAssignment(null, null, PRECINCT_TEAM_ACCOUNT_ID, INCIDENT_ID, OP1_ID, false, false));
+        new PolicePhoneAssignment(
+            null, null, PRECINCT_TEAM_ACCOUNT_CODE, INCIDENT_ALIAS, OP1_ALIAS, false, false));
   }
 
   private static HarnessContext precinctTeamContext(
       Channel channel, String policePhoneAlias, UUID policePhoneId) {
     return new HarnessContext(
-        PRECINCT_TEAM_ACCOUNT_ID,
+        PRECINCT_TEAM_ACCOUNT_CODE,
         channel,
         AccountType.TEAM,
         OrganizationType.POLICE_SUBSTATION,
@@ -129,7 +133,7 @@ public final class AuthPolicePhoneHarnessFixtures {
   public record HarnessFixture(HarnessContext context, PolicePhoneAssignment policePhone) {}
 
   public record HarnessContext(
-      String accountId,
+      String accountCode,
       Channel channel,
       AccountType accountType,
       OrganizationType organizationType,
@@ -145,9 +149,9 @@ public final class AuthPolicePhoneHarnessFixtures {
   public record PolicePhoneAssignment(
       String alias,
       UUID policePhoneId,
-      String accountId,
-      String incidentId,
-      String opId,
+      String accountCode,
+      String incidentAlias,
+      String opAlias,
       boolean registered,
       boolean assigned) {}
 

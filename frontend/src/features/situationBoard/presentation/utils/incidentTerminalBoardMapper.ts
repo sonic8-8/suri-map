@@ -39,7 +39,9 @@ export function toIncidentTerminal(board: SituationBoardResponseDto): IncidentTe
   };
 }
 
-export function isIncidentTerminalClosed(terminal: IncidentTerminalViewModel | null) {
+export function isIncidentTerminalClosed(
+  terminal: IncidentTerminalViewModel | null,
+): terminal is IncidentTerminalViewModel {
   return terminal?.terminalStatus === 'CLOSED' || terminal?.terminalStatus === 'PURGE_PENDING' || terminal?.terminalStatus === 'PURGED';
 }
 

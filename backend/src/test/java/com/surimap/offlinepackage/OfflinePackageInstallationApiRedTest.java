@@ -121,11 +121,11 @@ class OfflinePackageInstallationApiRedTest {
               assertThat(event.payload())
                   .containsEntry("id", OfflinePackageInstallationFixtures.INSTALLATION_ID)
                   .containsEntry("status", "READY")
-                  .containsEntry("version", OfflinePackageInstallationFixtures.VERSION)
+                  .containsEntry("version", (long) OfflinePackageInstallationFixtures.VERSION)
                   .containsEntry("incidentId", OfflinePackageManifestFixtures.INCIDENT_ID)
                   .containsEntry("policePhoneId", OfflinePackageManifestFixtures.POLICE_PHONE_ID)
                   .containsEntry("manifestVersion", OfflinePackageManifestFixtures.MANIFEST_VERSION)
-                  .containsEntry("sequence", OfflinePackageInstallationFixtures.SEQUENCE);
+                  .containsEntry("sequence", (long) OfflinePackageInstallationFixtures.SEQUENCE);
             });
 
     assertThat(installationQuery.byIncident(OfflinePackageManifestFixtures.INCIDENT_ID))
@@ -138,6 +138,57 @@ class OfflinePackageInstallationApiRedTest {
               assertThat(row.manifestVersion())
                   .isEqualTo(OfflinePackageManifestFixtures.MANIFEST_VERSION);
               assertThat(row.readyForOfflineUse()).isTrue();
+            });
+  }
+
+  @Test
+  @DisplayName("same manifest accepts installation reports from two PolicePhones")
+  void same_manifest_accepts_reports_from_two_police_phones() throws Exception {
+    mockMvc
+        .perform(
+            post(OfflinePackageInstallationFixtures.apiPath())
+                .header("Authorization", "Bearer app-package-session")
+                .header("X-Client-Channel", "APP")
+                .header("X-PolicePhone-Id", OfflinePackageManifestFixtures.POLICE_PHONE_ID)
+                .header("Idempotency-Key", "idem-package-phone-01")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(OfflinePackageInstallationFixtures.readyReportJson()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id", is(OfflinePackageInstallationFixtures.INSTALLATION_ID)));
+
+    String phone02ReadyReport =
+        OfflinePackageInstallationFixtures.readyReportJson()
+            .replace(
+                OfflinePackageManifestFixtures.POLICE_PHONE_ID,
+                OfflinePackageInstallationFixtures.SEEDED_PHONE_02_ID)
+            .replace(
+                "\"sequence\": %d".formatted(OfflinePackageInstallationFixtures.SEQUENCE),
+                "\"sequence\": %d".formatted(OfflinePackageInstallationFixtures.SEQUENCE + 1));
+
+    mockMvc
+        .perform(
+            post(OfflinePackageInstallationFixtures.apiPath())
+                .header("Authorization", "Bearer app-package-session")
+                .header("X-Client-Channel", "APP")
+                .header("X-PolicePhone-Id", OfflinePackageInstallationFixtures.SEEDED_PHONE_02_ID)
+                .header("Idempotency-Key", "idem-package-phone-02")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(phone02ReadyReport))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status", is("READY")));
+
+    assertThat(installationQuery.byIncident(OfflinePackageManifestFixtures.INCIDENT_ID))
+        .anySatisfy(
+            row -> {
+              assertThat(row.id()).isEqualTo(OfflinePackageInstallationFixtures.INSTALLATION_ID);
+              assertThat(row.policePhoneId()).isEqualTo(OfflinePackageManifestFixtures.POLICE_PHONE_ID);
+            })
+        .anySatisfy(
+            row -> {
+              assertThat(row.id()).isNotEqualTo(OfflinePackageInstallationFixtures.INSTALLATION_ID);
+              assertThat(row.policePhoneId())
+                  .isEqualTo(OfflinePackageInstallationFixtures.SEEDED_PHONE_02_ID);
+              assertThat(row.status()).isEqualTo("READY");
             });
   }
 

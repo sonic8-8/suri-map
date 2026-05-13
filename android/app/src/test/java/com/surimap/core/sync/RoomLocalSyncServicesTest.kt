@@ -2,6 +2,11 @@ package com.surimap.core.sync
 
 import androidx.room.Room
 import com.surimap.core.database.SuriMapDatabase
+import com.surimap.testing.dutyShiftIdFixture
+import com.surimap.testing.incidentIdFixture
+import com.surimap.testing.operationIdFixture
+import com.surimap.testing.opIdFixture
+import com.surimap.testing.policePhoneIdFixture
 import java.time.Instant
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -64,7 +69,7 @@ class RoomLocalSyncServicesTest {
     fun duplicateIdempotencyKeyWithSameBodyHashDoesNotCreateExtraRow() = runBlocking {
         val op = sampleOperation(idempotencyKey = "idem-dup-001", bodyHash = "sha256:same")
         syncClient.enqueue(op)
-        syncClient.enqueue(op.copy(operationId = "op-dup-2"))
+        syncClient.enqueue(op.copy(operationId = operationIdFixture("dup-2")))
         replay.flushPending(policePhoneId = op.policePhoneId, incidentId = op.incidentId)
 
         assertEquals(1, database.outboxDao().countByIdempotencyKey(op.idempotencyKey))
@@ -75,7 +80,7 @@ class RoomLocalSyncServicesTest {
     fun duplicateIdempotencyKeyWithDifferentBodyHashMarksFailedFinal() = runBlocking {
         val first = sampleOperation(idempotencyKey = "idem-conflict-001", bodyHash = "sha256:a")
         val second = sampleOperation(
-            operationId = "op-conflict-2",
+            operationId = operationIdFixture("conflict-2"),
             idempotencyKey = "idem-conflict-001",
             bodyHash = "sha256:b"
         )
@@ -158,10 +163,10 @@ class RoomLocalSyncServicesTest {
     @Test
     fun postCloseRequeueIsRejectedAsFailedFinalAndDoesNotPromoteToPendingSend() = runBlocking {
         val operation = sampleOperation(
-            operationId = "op-closed-001",
+            operationId = operationIdFixture("closed-001"),
             idempotencyKey = "idem-closed-001",
             bodyHash = "sha256:closed"
-        ).copy(incidentId = "inc-precinct-closed-001")
+        ).copy(incidentId = incidentIdFixture("precinct-closed-001"))
 
         val enqueue = syncClient.enqueue(operation)
         val current = database.outboxDao().findById(enqueue.outboxId)!!
@@ -185,7 +190,7 @@ class RoomLocalSyncServicesTest {
     @Test
     fun staleClockRowStaysFailedRetryableUntilResynced() = runBlocking {
         val operation = sampleOperation(
-            operationId = "op-stale-001",
+            operationId = operationIdFixture("stale-001"),
             idempotencyKey = "idem-stale-001",
             bodyHash = "sha256:stale"
         )
@@ -211,9 +216,9 @@ class RoomLocalSyncServicesTest {
     @Test
     fun pendingLocalRowIsNotReplayedUntilPromotedToPendingSend() = runBlocking {
         val localOnly = LocalWriteOperation(
-            operationId = "op-local-only-001",
-            incidentId = "inc-precinct-first-001",
-            policePhoneId = "dev-precinct-car-01",
+            operationId = operationIdFixture("local-only-001"),
+            incidentId = incidentIdFixture("precinct-first-001"),
+            policePhoneId = policePhoneIdFixture("precinct-car-01"),
             dependencyGroup = DependencyGroup.PATH,
             sequence = 503L,
             method = "POST",
@@ -239,28 +244,30 @@ class RoomLocalSyncServicesTest {
 
     @Test
     fun dutyShiftEndWaitsForLowerSequenceSourceRowsBeforeReplay() = runBlocking {
+        val dutyOpId = opIdFixture("precinct-001")
+        val dutyShiftId = dutyShiftIdFixture("001")
         val blocker = sampleOperation(
-            operationId = "op-path-before-duty-end-001",
+            operationId = operationIdFixture("path-before-duty-end-001"),
             idempotencyKey = "idem-path-before-duty-end-001",
             bodyHash = "sha256:path-before-duty-end"
         ).copy(
-            opId = "op-precinct-001",
+            opId = dutyOpId,
             sequence = 502L,
             clockOffsetMs = null,
             clockSyncedAt = null
         )
         val dutyEnd = sampleOperation(
-            operationId = "op-duty-end-boundary-001",
+            operationId = operationIdFixture("duty-end-boundary-001"),
             idempotencyKey = "idem-duty-end-boundary-001",
             bodyHash = "sha256:duty-end-boundary"
         ).copy(
             dependencyGroup = DependencyGroup.DUTY_SHIFT,
             sequence = 503L,
             method = "PATCH",
-            endpoint = "/api/duty-shifts/duty-shift-001",
-            payload = """{"incidentId":"${blocker.incidentId}","opId":"op-precinct-001","action":"END"}""",
-            opId = "op-precinct-001",
-            entityId = "duty-shift-001",
+            endpoint = "/api/duty-shifts/$dutyShiftId",
+            payload = """{"incidentId":"${blocker.incidentId}","opId":"$dutyOpId","action":"END"}""",
+            opId = dutyOpId,
+            entityId = dutyShiftId,
             entityType = "duty_shift"
         )
 
@@ -294,12 +301,12 @@ class RoomLocalSyncServicesTest {
     @Test
     fun replayFailurePathsArePersistedToRetryableAndFinalStates() = runBlocking {
         val retryableOp = sampleOperation(
-            operationId = "op-retryable-001",
+            operationId = operationIdFixture("retryable-001"),
             idempotencyKey = "idem-retryable-001",
             bodyHash = "sha256:retryable"
         )
         val finalOp = sampleOperation(
-            operationId = "op-final-001",
+            operationId = operationIdFixture("final-001"),
             idempotencyKey = "idem-final-001",
             bodyHash = "sha256:final"
         )
@@ -320,16 +327,35 @@ class RoomLocalSyncServicesTest {
         assertEquals(HarnessSyncStatus.FAILED.name, finalRow.localMirrorStatus)
     }
 
+    @Test
+    fun replayPersistsFinalFailureErrorCodeFromSender() = runBlocking {
+        val finalOp = sampleOperation(
+            operationId = operationIdFixture("final-with-error-001"),
+            idempotencyKey = "idem-final-with-error-001",
+            bodyHash = "sha256:final-with-error"
+        )
+
+        syncClient.enqueue(finalOp)
+        sender.decisionByKey[finalOp.idempotencyKey] = SendResult.FINAL_FAILURE
+        sender.finalFailureErrorByKey[finalOp.idempotencyKey] = "incident_access_denied"
+
+        replay.flushPending(policePhoneId = finalOp.policePhoneId, incidentId = finalOp.incidentId)
+
+        val row = database.outboxDao().findByIdempotencyKey(finalOp.idempotencyKey)!!
+        assertEquals(OutboxStatus.FAILED_FINAL.name, row.idempotencyStatus)
+        assertEquals("incident_access_denied", row.lastError)
+    }
+
     private fun sampleOperation(
-        operationId: String = "op-outbox-path-001",
+        operationId: String = operationIdFixture("outbox-path-001"),
         idempotencyKey: String,
         bodyHash: String
     ): LocalWriteOperation {
         val clockSyncedAt = Instant.ofEpochMilli(System.currentTimeMillis())
         return LocalWriteOperation(
             operationId = operationId,
-            incidentId = "inc-precinct-first-001",
-            policePhoneId = "dev-precinct-car-01",
+            incidentId = incidentIdFixture("precinct-first-001"),
+            policePhoneId = policePhoneIdFixture("precinct-car-01"),
             dependencyGroup = DependencyGroup.PATH,
             sequence = 502L,
             method = "POST",
@@ -346,12 +372,17 @@ class RoomLocalSyncServicesTest {
 
     private class CapturingSender : OutboxSender {
         val decisionByKey: MutableMap<String, SendResult> = linkedMapOf()
+        val finalFailureErrorByKey: MutableMap<String, String> = linkedMapOf()
         private val sentByKey: MutableMap<String, Int> = linkedMapOf()
+        private var lastFailureError: String? = null
 
         override suspend fun send(row: com.surimap.core.database.OutboxEntity): SendResult {
             sentByKey[row.idempotencyKey] = (sentByKey[row.idempotencyKey] ?: 0) + 1
+            lastFailureError = finalFailureErrorByKey[row.idempotencyKey]
             return decisionByKey[row.idempotencyKey] ?: SendResult.ACKED
         }
+
+        override fun finalFailureErrorCode(): String? = lastFailureError
 
         fun sendCountByKey(idempotencyKey: String): Int = sentByKey[idempotencyKey] ?: 0
     }

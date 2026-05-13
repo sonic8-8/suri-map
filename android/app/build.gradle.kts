@@ -5,6 +5,22 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+fun String.quotedBuildConfig(): String =
+    "\"" + replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+
+val fixtureAccountCode = providers
+    .gradleProperty("suriMapFixtureAccountCode")
+    .orElse("")
+    .get()
+val fixturePassword = providers
+    .gradleProperty("suriMapFixturePassword")
+    .orElse("")
+    .get()
+val fixturePolicePhoneCode = providers
+    .gradleProperty("suriMapFixturePolicePhoneCode")
+    .orElse("")
+    .get()
+
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
     arg("room.generateKotlin", "true")
@@ -28,9 +44,18 @@ android {
             .orElse("http://10.0.2.2:8080")
             .get()
         buildConfigField("String", "SURI_MAP_API_BASE_URL", "\"$suriMapApiBaseUrl\"")
+
+        buildConfigField("String", "SURI_MAP_FIXTURE_ACCOUNT_CODE", "\"\"")
+        buildConfigField("String", "SURI_MAP_FIXTURE_PASSWORD", "\"\"")
+        buildConfigField("String", "SURI_MAP_FIXTURE_POLICE_PHONE_CODE", "\"\"")
     }
 
     buildTypes {
+        debug {
+            buildConfigField("String", "SURI_MAP_FIXTURE_ACCOUNT_CODE", fixtureAccountCode.quotedBuildConfig())
+            buildConfigField("String", "SURI_MAP_FIXTURE_PASSWORD", fixturePassword.quotedBuildConfig())
+            buildConfigField("String", "SURI_MAP_FIXTURE_POLICE_PHONE_CODE", fixturePolicePhoneCode.quotedBuildConfig())
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(

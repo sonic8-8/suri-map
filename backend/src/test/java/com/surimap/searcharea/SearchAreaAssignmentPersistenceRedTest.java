@@ -321,13 +321,13 @@ class SearchAreaAssignmentPersistenceRedTest extends PostGisIntegrationTestSuppo
             id, source_incident_id, title, status, opened_at,
             closed_at, closed_by_account_id, version, created_at, updated_at
         )
-        VALUES (?::uuid, ?, ?, 'OPEN', ?, NULL, NULL, 1, ?, ?)
+        VALUES (?::uuid, ?::uuid, ?, 'OPEN', ?, NULL, NULL, 1, ?, ?)
         ON CONFLICT (id) DO UPDATE
         SET status = 'OPEN',
             updated_at = EXCLUDED.updated_at
         """,
         INCIDENT_ID.toString(),
-        "SRC-" + INCIDENT_ID,
+        INCIDENT_ID.toString(),
         "S2 SearchArea assignment persistence red",
         nowTimestamp,
         nowTimestamp,

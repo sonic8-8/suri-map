@@ -77,7 +77,7 @@ S5 소유의 SC-06/08용 marker fixture (`mk-precinct-support-001`, `mk-precinct
 |---|---|---|
 | Path (차량) | `path-precinct-car-001` | 순찰차 PolicePhone OP1 차량 구간 경로 |
 | Path (도보) | `path-precinct-foot-001` | 팀 PolicePhone OP1 도보 구간 경로 |
-| Handover memo | `memo-precinct-handover-001` | OP 전환·인수인계 시 사용 |
+| Handover memo | `memo-precinct-handover-001` | OP1 seed 보존용. SC-11 OP2 인수인계 메모 fixture는 `memo-precinct-op2-001` |
 
 ## 6. FCM recipient (mock)
 

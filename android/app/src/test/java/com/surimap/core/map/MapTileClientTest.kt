@@ -1,5 +1,6 @@
 package com.surimap.core.map
 
+import com.surimap.testing.policePhoneIdFixture
 import kotlinx.coroutines.runBlocking
 import okhttp3.Call
 import okhttp3.Callback
@@ -23,7 +24,7 @@ class MapTileClientTest {
         ).styleSource(
             styleId = "osm-local",
             accessToken = "access-token-1",
-            policePhoneId = "phone-1"
+            policePhoneId = POLICE_PHONE_ID
         )
 
         assertEquals("osm-local", config.styleId)
@@ -33,7 +34,7 @@ class MapTileClientTest {
         )
         assertEquals("APP", config.requestHeaders["X-Client-Channel"])
         assertEquals("Bearer access-token-1", config.requestHeaders["Authorization"])
-        assertEquals("phone-1", config.requestHeaders["X-PolicePhone-Id"])
+        assertEquals(POLICE_PHONE_ID, config.requestHeaders["X-PolicePhone-Id"])
     }
 
     @Test
@@ -52,7 +53,7 @@ class MapTileClientTest {
         val result = client.fetchStyle(
             styleId = "osm-local",
             accessToken = "access-token-1",
-            policePhoneId = "phone-1"
+            policePhoneId = POLICE_PHONE_ID
         )
 
         val request = callFactory.lastRequest!!
@@ -64,7 +65,7 @@ class MapTileClientTest {
         assertEquals("GET", request.method)
         assertEquals("APP", request.header("X-Client-Channel"))
         assertEquals("Bearer access-token-1", request.header("Authorization"))
-        assertEquals("phone-1", request.header("X-PolicePhone-Id"))
+        assertEquals(POLICE_PHONE_ID, request.header("X-PolicePhone-Id"))
         assertEquals("application/json", request.header("Accept"))
         assertEquals("OpenStreetMap", result.requiredAttribution)
     }
@@ -90,7 +91,7 @@ class MapTileClientTest {
             x = 27925,
             y = 12680,
             accessToken = "access-token-1",
-            policePhoneId = "phone-1"
+            policePhoneId = POLICE_PHONE_ID
         )
 
         val request = callFactory.lastRequest!!
@@ -146,6 +147,10 @@ class MapTileClientTest {
         override fun <T : Any> tag(type: KClass<T>, computeIfAbsent: () -> T): T = computeIfAbsent()
         override fun <T : Any> tag(type: Class<T>, computeIfAbsent: () -> T): T = computeIfAbsent()
         override fun clone(): Call = CapturingCall(request, response)
+    }
+
+    private companion object {
+        val POLICE_PHONE_ID = policePhoneIdFixture("1")
     }
 }
 

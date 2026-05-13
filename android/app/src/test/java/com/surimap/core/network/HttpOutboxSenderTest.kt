@@ -2,6 +2,10 @@ package com.surimap.core.network
 
 import com.surimap.core.database.OutboxEntity
 import com.surimap.core.sync.SendResult
+import com.surimap.testing.incidentIdFixture
+import com.surimap.testing.operationIdFixture
+import com.surimap.testing.opIdFixture
+import com.surimap.testing.policePhoneIdFixture
 import java.time.Instant
 import kotlinx.coroutines.runBlocking
 import okhttp3.Call
@@ -45,6 +49,23 @@ class HttpOutboxSenderTest {
     }
 
     @Test
+    fun sendPreservesServerErrorCodeForFinalFailureDiagnostics() = runBlocking {
+        val sender =
+            HttpOutboxSender(
+                apiClient =
+                SuriMapApiClient(
+                    baseUrl = "https://suri-map.example.com",
+                    callFactory = StaticCallFactory(
+                        response = response(403, """{"error":"incident_access_denied"}""")
+                    )
+                )
+            )
+
+        assertEquals(SendResult.FINAL_FAILURE, sender.send(outboxRow()))
+        assertEquals("incident_access_denied", sender.finalFailureErrorCode())
+    }
+
+    @Test
     fun sendMapsNetworkExceptionsToRetryableFailure() = runBlocking {
         val sender = HttpOutboxSender(
             apiClient = SuriMapApiClient(
@@ -73,7 +94,7 @@ class HttpOutboxSenderTest {
         assertEquals("POST", request.method)
         assertEquals("APP", request.header("X-Client-Channel"))
         assertEquals("Bearer token-1", request.header("Authorization"))
-        assertEquals("dev-precinct-car-01", request.header("X-PolicePhone-Id"))
+        assertEquals(policePhoneIdFixture("precinct-car-01"), request.header("X-PolicePhone-Id"))
         assertEquals("idem-outbox-001", request.header("Idempotency-Key"))
         assertEquals("https://suri-map.example.com/api/search-paths/batch", request.url.toString())
     }
@@ -91,10 +112,10 @@ private fun senderForStatus(statusCode: Int): HttpOutboxSender {
 private fun outboxRow(): OutboxEntity {
     return OutboxEntity(
         outboxId = "outbox-001",
-        operationId = "op-001",
-        incidentId = "inc-precinct-first-001",
-        opId = "op-1",
-        policePhoneId = "dev-precinct-car-01",
+        operationId = operationIdFixture("outbox-001"),
+        incidentId = incidentIdFixture("precinct-first-001"),
+        opId = opIdFixture("1"),
+        policePhoneId = policePhoneIdFixture("precinct-car-01"),
         dependencyGroup = "PATH",
         parentOperationId = null,
         sequence = 1L,
@@ -153,12 +174,12 @@ private class StaticCall(
     override fun clone(): Call = StaticCall(request, response, exception)
 }
 
-private fun response(statusCode: Int): Response {
+private fun response(statusCode: Int, body: String = """{"status":"ok"}"""): Response {
     return Response.Builder()
         .request(Request.Builder().url("https://suri-map.example.com/placeholder").build())
         .protocol(Protocol.HTTP_1_1)
         .code(statusCode)
         .message("test")
-        .body("""{"status":"ok"}""".toResponseBody())
+        .body(body.toResponseBody())
         .build()
 }

@@ -9,6 +9,7 @@ type SituationBoardMapProps = {
   activeOperationalPeriodId: string | null;
   incidentId: string;
   isMapExpanded: boolean;
+  isTerminalBoard?: boolean;
   legendItems: LegendItem[];
   layerVisibility: LayerVisibility;
   movementPaths: MovementPath[];
@@ -26,6 +27,7 @@ export function SituationBoardMap({
   activeOperationalPeriodId,
   incidentId,
   isMapExpanded,
+  isTerminalBoard = false,
   legendItems,
   layerVisibility,
   movementPaths,
@@ -44,6 +46,7 @@ export function SituationBoardMap({
         activeOperationalPeriodId={activeOperationalPeriodId}
         incidentId={incidentId}
         isMapExpanded={isMapExpanded}
+        isTerminalBoard={isTerminalBoard}
         legendItems={legendItems}
         layerVisibility={layerVisibility}
         movementPaths={movementPaths}
@@ -56,6 +59,12 @@ export function SituationBoardMap({
         onToggleMapExpanded={onToggleMapExpanded}
         selectedSearchAreaId={selectedSearchAreaId}
       />
+      {isTerminalBoard ? (
+        <aside className={styles.terminalNotice} aria-label="종료 사건 지도 상태">
+          <strong>종료된 사건</strong>
+          <span>실시간 위치와 현장 기록은 표시하지 않습니다.</span>
+        </aside>
+      ) : null}
     </main>
   );
 }

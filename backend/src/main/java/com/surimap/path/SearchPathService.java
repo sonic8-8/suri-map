@@ -35,6 +35,9 @@ public class SearchPathService {
         gpsPathValidator.validateBatch(
             toValidatorPoints(request.points()), request.points().get(0).clientTs().plusSeconds(20));
 
+    List<SearchPathPoint> acceptedPoints = toAcceptedPoints(validationResult.acceptedPoints());
+    List<PathExcludedPoint> excludedPoints = toExcludedPoints(validationResult.excludedPoints());
+
     SearchPathAggregate aggregate =
         repository
             .findById(request.pathId())
@@ -44,11 +47,16 @@ public class SearchPathService {
                         new SearchPathAggregate(
                             request.pathId(), request.incidentId(), request.opId(), policePhoneId)));
 
-    aggregate.appendAcceptedPoints(toAcceptedPoints(validationResult.acceptedPoints()));
-    aggregate.appendExcludedPoints(toExcludedPoints(validationResult.excludedPoints()));
-    aggregate.replaceSegments(autoSegments(aggregate.points()));
+    int pointOffset = aggregate.points().size();
+    int segmentOffset = aggregate.segments().size();
+    List<SearchPathSegment> segments = new ArrayList<>(aggregate.segments());
+    segments.addAll(autoSegments(acceptedPoints, pointOffset, segmentOffset));
+
+    aggregate.appendAcceptedPoints(acceptedPoints);
+    aggregate.appendExcludedPoints(excludedPoints);
+    aggregate.replaceSegments(segments);
     aggregate.bumpVersion();
-    repository.save(aggregate);
+    aggregate = repository.save(aggregate);
 
     eventPublisher.publishPathAppended(
         new PathAppendedPublishRequest(
@@ -155,6 +163,11 @@ public class SearchPathService {
   }
 
   private List<SearchPathSegment> autoSegments(List<SearchPathPoint> points) {
+    return autoSegments(points, 0, 0);
+  }
+
+  private List<SearchPathSegment> autoSegments(
+      List<SearchPathPoint> points, int pointOffset, int segmentOffset) {
     List<SearchPathSegment> segments = new ArrayList<>();
     if (points.isEmpty()) {
       return segments;
@@ -185,24 +198,37 @@ public class SearchPathService {
     for (int i = 1; i < perPoint.size(); i++) {
       MovementType next = perPoint.get(i);
       if (next != current) {
-        segments.add(segment(points, start, i - 1, current, segments.size()));
+        segments.add(
+            segment(points, start, i - 1, current, pointOffset, segmentOffset + segments.size()));
         start = i;
         current = next;
       }
     }
-    segments.add(segment(points, start, perPoint.size() - 1, current, segments.size()));
+    segments.add(
+        segment(
+            points,
+            start,
+            perPoint.size() - 1,
+            current,
+            pointOffset,
+            segmentOffset + segments.size()));
     return segments;
   }
 
   private SearchPathSegment segment(
-      List<SearchPathPoint> points, int start, int end, MovementType type, int segmentIndex) {
+      List<SearchPathPoint> points,
+      int start,
+      int end,
+      MovementType type,
+      int pointOffset,
+      int segmentIndex) {
     return new SearchPathSegment(
         "seg-%03d".formatted(segmentIndex + 1),
         1L,
         type,
         MovementTypeSource.AUTO,
-        start,
-        end,
+        pointOffset + start,
+        pointOffset + end,
         points.get(start).pointId(),
         points.get(end).pointId(),
         null,

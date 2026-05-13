@@ -22,7 +22,7 @@ public final class HandoverMemoFixtures {
   public static final UUID OP2_ID = BoundaryAreaFixtures.OP2_ID;
 
   /** S8.json harness_fixtures.sc11_handover_ai_convergence.handoverMemo.memoId */
-  public static final String MEMO_ALIAS = "memo-precinct-handover-001";
+  public static final String MEMO_ALIAS = "memo-precinct-op2-001";
 
   public static final UUID MEMO_ID = UUID.fromString("eeeeeeee-eeee-eeee-eeee-eeeeeeee0010");
 
@@ -82,7 +82,7 @@ public final class HandoverMemoFixtures {
   /**
    * SC-11 HANDOVER_MEMO_CREATED expected S4 event (S8.json harness_fixtures).
    *
-   * <p>payloadId=memo-precinct-handover-001, payloadStatus=ACTIVE, payloadVersion=1, opId=op-precinct-001-op2
+   * <p>payloadId=memo-precinct-op2-001, payloadStatus=ACTIVE, payloadVersion=1, opId=op-precinct-001-op2
    */
   public static ExpectedHandoverMemoEvent handoverMemoCreatedEvent(
       String targetType, UUID targetId) {

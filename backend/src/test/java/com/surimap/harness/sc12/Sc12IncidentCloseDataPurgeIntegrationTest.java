@@ -70,11 +70,19 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
   private static final UUID INCIDENT_ID = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001");
   private static final String SOURCE_INCIDENT_ID = "00000000-0000-0000-0000-000000000001";
   private static final String OP1_ID = "op-precinct-001-op1";
+  private static final UUID OP1_DB_ID = UUID.fromString("88888888-8888-8888-8888-888888880001");
+  private static final UUID OVERALL_SEARCH_AREA_DB_ID =
+      UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0001");
   private static final String COMMANDER_ACCOUNT_ID = "11111111-1111-1111-1111-111111110004";
   private static final String TERMINAL_BOARD_ROW_ID =
       "board-incident-terminal-inc-precinct-first-001";
   private static final String TERMINAL_SOURCE_RESPONSE_ID = "tombstone-inc-precinct-first-001";
-  private static final String PACKAGE_MANIFEST_ID = "tile-manifest-sc12-uuid-001";
+  private static final UUID PACKAGE_MANIFEST_ID =
+      UUID.fromString("77777777-0000-4000-8000-000000001201");
+  private static final UUID PACKAGE_INSTALLATION_ID =
+      UUID.fromString("77777777-0000-4000-8000-000000001202");
+  private static final UUID PACKAGE_POLICE_PHONE_ID =
+      UUID.fromString("00000000-0000-0000-0000-000000000205");
   private static final Instant CLOSED_AT = Instant.parse("2026-04-28T01:45:00Z");
   private static final OffsetDateTime OPENED_AT = OffsetDateTime.parse("2026-04-28T09:00:00+09:00");
   private static final OffsetDateTime SERVER_TS = OffsetDateTime.parse("2026-04-28T10:45:05+09:00");
@@ -305,13 +313,14 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
           overall_search_area_version, manifest_hash, manifest_format_version, manifest_payload,
           expires_at, created_at, updated_at
         )
-        VALUES (?, ?, 1, ?, 'overall-area-precinct-current', 1,
+        VALUES (?, ?, 1, ?, ?, 1,
           'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', 1,
           ?::jsonb, ?, ?, ?)
         """,
         PACKAGE_MANIFEST_ID,
-        INCIDENT_ID.toString(),
-        OP1_ID,
+        INCIDENT_ID,
+        OP1_DB_ID,
+        OVERALL_SEARCH_AREA_DB_ID,
         """
         {
           "missing_person": {
@@ -332,11 +341,13 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
           total_item_count, completed_item_count, failed_item_count, failed_item_keys,
           last_error_code, last_reported_at, version, created_at, updated_at
         )
-        VALUES ('pkg-status-sc12-001', ?, 'dev-alpha-phone-01',
+        VALUES (?, ?, ?,
           '11111111-1111-1111-1111-111111110005', 'READY',
           7, 7, 0, NULL, NULL, ?, 3, ?, ?)
         """,
+        PACKAGE_INSTALLATION_ID,
         PACKAGE_MANIFEST_ID,
+        PACKAGE_POLICE_PHONE_ID,
         SERVER_TS,
         SERVER_TS,
         SERVER_TS);

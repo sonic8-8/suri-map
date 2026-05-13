@@ -37,11 +37,18 @@ public abstract class PostGisIntegrationTestSupport {
 
   @DynamicPropertySource
   static void registerDataSourceProperties(DynamicPropertyRegistry registry) {
-    registry.add("spring.datasource.url", POSTGIS::getJdbcUrl);
+    registry.add("spring.datasource.url", () -> postgis().getJdbcUrl());
     registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
-    registry.add("spring.datasource.username", POSTGIS::getUsername);
-    registry.add("spring.datasource.password", POSTGIS::getPassword);
+    registry.add("spring.datasource.username", () -> postgis().getUsername());
+    registry.add("spring.datasource.password", () -> postgis().getPassword());
     registry.add("spring.flyway.locations", () -> "classpath:db/migration");
+  }
+
+  private static synchronized PostgreSQLContainer<?> postgis() {
+    if (!POSTGIS.isRunning()) {
+      POSTGIS.start();
+    }
+    return POSTGIS;
   }
 
   @BeforeEach

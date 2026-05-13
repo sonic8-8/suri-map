@@ -12,7 +12,7 @@ describe('auth API', () => {
       sessionId: 'session-001',
       accessToken: 'access-token-001',
       securityContext: {
-        accountId: 'acct-cmd-alpha',
+        accountId: '11111111-1111-1111-1111-111111110004',
         accountType: 'COMMAND',
         organizationType: 'MISSING_TEAM',
         channel: 'WEB',

@@ -122,15 +122,20 @@ class RoomOutboxReplay(
 ) : OutboxReplay {
     private val staleClockSyncAfterMs = 300_000L
 
-    override suspend fun flushPending(policePhoneId: String, incidentId: String) {
+    override suspend fun flushPending(policePhoneId: String, incidentId: String): OutboxReplayResult {
         val now = System.currentTimeMillis()
         val minClockSyncedAt = now - staleClockSyncAfterMs
         outboxDao.rejectPostCloseRows(incidentId, policePhoneId)
         val candidates = outboxDao.findReplayCandidates(incidentId, policePhoneId, now, minClockSyncedAt)
+        var attemptedCount = 0
+        var ackedCount = 0
+        var retryableFailureCount = 0
+        var finalFailureCount = 0
         for (row in candidates) {
             if (isDutyShiftEndBlocked(row)) {
                 break
             }
+            attemptedCount += 1
 
             if (row.incidentClosedAt != null && row.clientRequestedAt > row.incidentClosedAt) {
                 outboxDao.upsert(
@@ -141,6 +146,7 @@ class RoomOutboxReplay(
                         lastError = POST_CLOSE_REQUEUE_REJECTED
                     )
                 )
+                finalFailureCount += 1
                 continue
             }
 
@@ -165,50 +171,55 @@ class RoomOutboxReplay(
                             lastError = "idempotency_mismatch"
                         )
                     )
+                    finalFailureCount += 1
                 }
 
                 IdempotencyReplayDecision.REPLAYED -> {
-                    outboxDao.upsert(
-                        sending.copy(
-                            idempotencyStatus = OutboxStatus.ACKED.name,
-                            localMirrorStatus = HarnessSyncStatus.SYNCED.name,
-                            serverAckTs = now,
-                            lastError = null
-                        )
-                    )
+                    persistAck(sending, now)
+                    ackedCount += 1
                 }
 
                 IdempotencyReplayDecision.ACCEPTED -> {
                     when (sender.send(sending)) {
-                        SendResult.ACKED -> outboxDao.upsert(
-                            sending.copy(
-                                idempotencyStatus = OutboxStatus.ACKED.name,
-                                localMirrorStatus = HarnessSyncStatus.SYNCED.name,
-                                serverAckTs = now,
-                                lastError = null
-                            )
-                        )
+                        SendResult.ACKED -> {
+                            persistAck(sending, now)
+                            ackedCount += 1
+                        }
 
-                        SendResult.RETRYABLE_FAILURE -> outboxDao.upsert(
-                            sending.copy(
-                                idempotencyStatus = OutboxStatus.FAILED_RETRYABLE.name,
-                                localMirrorStatus = HarnessSyncStatus.FAILED.name,
-                                nextAttemptAt = if (sending.incidentClosedAt == null) now + 10_000L else null,
-                                lastError = "network_unavailable"
+                        SendResult.RETRYABLE_FAILURE -> {
+                            outboxDao.upsert(
+                                sending.copy(
+                                    idempotencyStatus = OutboxStatus.FAILED_RETRYABLE.name,
+                                    localMirrorStatus = HarnessSyncStatus.FAILED.name,
+                                    nextAttemptAt = if (sending.incidentClosedAt == null) now + 10_000L else null,
+                                    lastError = "network_unavailable"
+                                )
                             )
-                        )
+                            markLocalMirrorFailed(sending.outboxId, now)
+                            retryableFailureCount += 1
+                        }
 
-                        SendResult.FINAL_FAILURE -> outboxDao.upsert(
-                            sending.copy(
-                                idempotencyStatus = OutboxStatus.FAILED_FINAL.name,
-                                localMirrorStatus = HarnessSyncStatus.FAILED.name,
-                                lastError = "invalid_payload"
+                        SendResult.FINAL_FAILURE -> {
+                            outboxDao.upsert(
+                                sending.copy(
+                                    idempotencyStatus = OutboxStatus.FAILED_FINAL.name,
+                                    localMirrorStatus = HarnessSyncStatus.FAILED.name,
+                                    lastError = sender.finalFailureErrorCode() ?: "invalid_payload"
+                                )
                             )
-                        )
+                            markLocalMirrorFailed(sending.outboxId, now)
+                            finalFailureCount += 1
+                        }
                     }
                 }
             }
         }
+        return OutboxReplayResult(
+            attemptedCount = attemptedCount,
+            ackedCount = ackedCount,
+            retryableFailureCount = retryableFailureCount,
+            finalFailureCount = finalFailureCount
+        )
     }
 
     private suspend fun isDutyShiftEndBlocked(row: OutboxEntity): Boolean {
@@ -229,6 +240,31 @@ class RoomOutboxReplay(
             row.requestMethod == "PATCH" &&
             row.requestPath.startsWith("/api/duty-shifts/") &&
             row.payloadJson.contains("\"action\":\"END\"")
+    }
+
+    private suspend fun persistAck(row: OutboxEntity, serverAckTs: Long) {
+        outboxDao.upsert(
+            row.copy(
+                idempotencyStatus = OutboxStatus.ACKED.name,
+                localMirrorStatus = HarnessSyncStatus.SYNCED.name,
+                serverAckTs = serverAckTs,
+                lastError = null
+            )
+        )
+        outboxDao.markLocalMarkerSyncStatusByOutboxId(
+            outboxId = row.outboxId,
+            syncStatus = HarnessSyncStatus.SYNCED.name,
+            updatedAtMillis = serverAckTs
+        )
+        outboxDao.deleteLocalWriteDraftByOutboxId(row.outboxId)
+    }
+
+    private suspend fun markLocalMirrorFailed(outboxId: String, updatedAtMillis: Long) {
+        outboxDao.markLocalMarkerSyncStatusByOutboxId(
+            outboxId = outboxId,
+            syncStatus = HarnessSyncStatus.FAILED.name,
+            updatedAtMillis = updatedAtMillis
+        )
     }
 }
 
@@ -370,11 +406,12 @@ class LocalSyncPurgeHookAdapter(
         closedAtMillis: Long,
         purgeRunId: String
     ) {
-        val markerId = "incident-closure:$incidentId:$policePhoneId"
+        val closureKey = "incident-closure:$incidentId:$policePhoneId"
+        val operationKey = "$closureKey:$purgeRunId"
         outboxDao.upsert(
             OutboxEntity(
-                outboxId = markerId,
-                operationId = "$markerId:$purgeRunId",
+                outboxId = stableUuid("outbox:$operationKey"),
+                operationId = stableUuid(operationKey),
                 incidentId = incidentId,
                 opId = null,
                 policePhoneId = policePhoneId,
@@ -385,7 +422,7 @@ class LocalSyncPurgeHookAdapter(
                 requestPath = LOCAL_INCIDENT_CLOSED_PATH,
                 payloadJson = "{}",
                 requestBodyHash = "incident-closed:$closedAtMillis",
-                idempotencyKey = markerId,
+                idempotencyKey = closureKey,
                 idempotencyStatus = OutboxStatus.PURGED.name,
                 localMirrorStatus = HarnessSyncStatus.PURGED.name,
                 attemptCount = 0,
@@ -400,6 +437,9 @@ class LocalSyncPurgeHookAdapter(
             )
         )
     }
+
+    private fun stableUuid(value: String): String =
+        UUID.nameUUIDFromBytes(value.toByteArray(Charsets.UTF_8)).toString()
 
     private suspend fun retainedRowsForIncident(incidentId: String): List<LocalSyncRetainedRow> {
         return outboxDao.findByIncidentId(incidentId)
@@ -444,6 +484,8 @@ enum class SendResult {
 
 fun interface OutboxSender {
     suspend fun send(row: OutboxEntity): SendResult
+
+    fun finalFailureErrorCode(): String? = null
 }
 
 object NoopOutboxSender : OutboxSender {

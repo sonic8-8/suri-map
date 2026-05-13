@@ -59,6 +59,7 @@
 /* 화면 중앙에 고정되는 주요 페이지 탭 그룹입니다. */
 .navTabs {
   position: absolute;
+  z-index: 2;
   left: 50%;
   display: flex;
   align-items: center;
@@ -171,6 +172,32 @@
   padding: 0 20px;
   border-bottom: 1px solid var(--suri-board-border);
   background: var(--suri-board-header-bg);
+}
+
+/* 종료 사건 컨텍스트는 진행 중 사건과 구분되도록 채도를 낮춘 회색 계열로 표시합니다. */
+.incidentContextBarTerminal {
+  border-bottom-color: rgba(176, 184, 193, 0.44);
+  background: #2f343a;
+}
+
+.incidentContextBarTerminal .incidentAvatar {
+  border-color: rgba(196, 204, 212, 0.42);
+  color: #f1f4f7;
+  background: #555f69;
+}
+
+.incidentContextBarTerminal .incidentContextTitle span,
+.incidentContextBarTerminal .incidentContextMetrics span {
+  color: #b8c0c8;
+}
+
+.incidentContextBarTerminal .incidentContextTitle strong,
+.incidentContextBarTerminal .incidentContextMetrics strong {
+  color: #f1f4f7;
+}
+
+.incidentContextBarTerminal .incidentContextDivider {
+  background: rgba(196, 204, 212, 0.3);
 }
 
 /* 사건 아바타와 사건 제목을 묶는 좌측 사건 정보 영역입니다. */
@@ -291,6 +318,13 @@
   border-radius: 999px;
   background: var(--header-status-fg);
   content: "";
+}
+
+/* 종료된 사건 상태는 진행 중 점을 제거하고 read-only 상태로 표시합니다. */
+.headerStatusTerminal {
+  --header-status-fg: #d2d8df;
+  --header-status-border: rgba(174, 184, 194, 0.42);
+  --header-status-bg: rgba(112, 122, 132, 0.18);
 }
 
 /* 신규 마커 알림 팝업 본체입니다. 화면 중앙에 고정됩니다. */

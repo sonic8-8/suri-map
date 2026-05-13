@@ -1,5 +1,6 @@
 package com.surimap.core.network
 
+import com.surimap.testing.policePhoneIdFixture
 import java.io.IOException
 import kotlinx.coroutines.runBlocking
 import okhttp3.Call
@@ -33,7 +34,7 @@ class SuriMapApiClientTest {
                 path = "/api/search-paths/batch",
                 body = """{"points":[]}""",
                 accessToken = "token-1",
-                policePhoneId = "phone-1",
+                policePhoneId = POLICE_PHONE_ID,
                 idempotencyKey = "idem-1"
             )
         )
@@ -44,7 +45,7 @@ class SuriMapApiClientTest {
         assertEquals("POST", request.method)
         assertEquals("APP", request.header("X-Client-Channel"))
         assertEquals("Bearer token-1", request.header("Authorization"))
-        assertEquals("phone-1", request.header("X-PolicePhone-Id"))
+        assertEquals(POLICE_PHONE_ID, request.header("X-PolicePhone-Id"))
         assertEquals("idem-1", request.header("Idempotency-Key"))
         assertEquals("""{"points":[]}""", readRequestBody(request))
     }
@@ -128,6 +129,10 @@ class SuriMapApiClientTest {
         override fun <T : Any> tag(type: KClass<T>, computeIfAbsent: () -> T): T = computeIfAbsent()
         override fun <T : Any> tag(type: Class<T>, computeIfAbsent: () -> T): T = computeIfAbsent()
         override fun clone(): Call = CapturingCall(request, response, exception)
+    }
+
+    private companion object {
+        val POLICE_PHONE_ID = policePhoneIdFixture("1")
     }
 }
 

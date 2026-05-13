@@ -25,6 +25,7 @@ export type SuriMapPageHeaderIncidentContext = {
   title: string;
   metrics: SuriMapPageHeaderMetric[];
   statusLabel: string;
+  statusTone?: 'active' | 'terminal';
 };
 
 export type SuriMapPageHeaderProps = {
@@ -49,15 +50,16 @@ type NavItem = {
 };
 
 const DEFAULT_INCIDENT_CONTEXT: SuriMapPageHeaderIncidentContext = {
-  avatarLabel: 'INC',
-  eyebrow: 'Incident context',
-  title: 'Incident dashboard',
+  avatarLabel: '사건',
+  eyebrow: '사건 컨텍스트',
+  title: '사건 상황판',
   metrics: [
-    { label: 'Missing person', value: '-' },
-    { label: 'Search areas', value: '-' },
-    { label: 'Assigned accounts', value: '-' },
+    { label: '실종자', value: '-' },
+    { label: '수색 구역', value: '-' },
+    { label: '배정 계정', value: '-' },
   ],
-  statusLabel: 'Active',
+  statusLabel: '진행 중',
+  statusTone: 'active',
 };
 
 export function SuriMapPageHeader({
@@ -72,12 +74,12 @@ export function SuriMapPageHeader({
   onOpenHandover,
   onOpenOfflinePackage,
   onOpenSituationBoard,
-  timestampLabel = 'Live',
+  timestampLabel = '실시간',
 }: SuriMapPageHeaderProps) {
   const navItems: NavItem[] = [
-    { id: 'situationBoard', label: 'Situation board', onClick: onOpenSituationBoard },
-    { id: 'handover', label: 'Handover', onClick: onOpenHandover },
-    { id: 'offlinePackage', label: 'Offline package', onClick: onOpenOfflinePackage },
+    { id: 'situationBoard', label: '상황판', onClick: onOpenSituationBoard },
+    { id: 'handover', label: '인수인계', onClick: onOpenHandover },
+    { id: 'offlinePackage', label: '오프라인 패키지', onClick: onOpenOfflinePackage },
   ];
   const activeMarkerNotification = markerNotifications[markerNotificationIndex] ?? null;
   const hasPreviousMarkerNotification = markerNotificationIndex > 0;
@@ -85,11 +87,11 @@ export function SuriMapPageHeader({
 
   return (
     <header className={styles.header}>
-      <nav className={styles.productNav} aria-label="Suri-Map navigation">
+      <nav className={styles.productNav} aria-label="Suri-Map 내비게이션">
         <button type="button" className={styles.backButton} onClick={onOpenIncidentList}>
-          Incident list
+          사건 목록
         </button>
-        <div className={styles.navTabs} role="list" aria-label="Board navigation">
+        <div className={styles.navTabs} role="list" aria-label="상황판 내비게이션">
           {navItems.map(({ id, label, onClick }) => {
             const isActive = id === activeTab;
 
@@ -108,8 +110,8 @@ export function SuriMapPageHeader({
           })}
         </div>
         <div className={styles.meta}>
-          <span>
-            Account <b>{currentAccountLabel}</b>
+            <span>
+            계정 <b>{currentAccountLabel}</b>
           </span>
           <span className={styles.metaDivider} aria-hidden="true" />
           <span>{timestampLabel}</span>
@@ -132,7 +134,12 @@ export function SuriMapPageHeader({
           </div>
         </div>
       </nav>
-      <section className={styles.incidentContextBar} aria-label="Incident context">
+      <section
+        className={`${styles.incidentContextBar} ${
+          incidentContext.statusTone === 'terminal' ? styles.incidentContextBarTerminal : ''
+        }`}
+        aria-label="사건 컨텍스트"
+      >
         <div className={styles.incidentContextMain}>
           <div className={styles.incidentAvatar} aria-hidden="true">
             {incidentContext.avatarLabel}
@@ -152,18 +159,25 @@ export function SuriMapPageHeader({
           ))}
         </div>
         <div className={styles.incidentContextActions}>
-          <div className={`${styles.headerStatus} ${styles.headerStatusInProgress}`} aria-label="Incident status">
+          <div
+            className={`${styles.headerStatus} ${
+              incidentContext.statusTone === 'terminal'
+                ? styles.headerStatusTerminal
+                : styles.headerStatusInProgress
+            }`}
+            aria-label="사건 상태"
+          >
             {incidentContext.statusLabel}
           </div>
         </div>
       </section>
       {activeMarkerNotification ? (
-        <section className={styles.markerPopup} role="alertdialog" aria-label="Marker notification" aria-live="assertive">
+        <section className={styles.markerPopup} role="alertdialog" aria-label="마커 알림" aria-live="assertive">
           {hasPreviousMarkerNotification ? (
             <button
               type="button"
               className={`${styles.markerPageButton} ${styles.markerPageButtonPrevious}`}
-              aria-label="Previous marker notification"
+              aria-label="이전 마커 알림"
               onClick={() => onMoveMarkerNotification?.(markerNotificationIndex - 1)}
             >
               <ChevronLeft size={30} strokeWidth={2.2} aria-hidden="true" />
@@ -173,7 +187,7 @@ export function SuriMapPageHeader({
             <button
               type="button"
               className={`${styles.markerPageButton} ${styles.markerPageButtonNext}`}
-              aria-label="Next marker notification"
+              aria-label="다음 마커 알림"
               onClick={() => onMoveMarkerNotification?.(markerNotificationIndex + 1)}
             >
               <ChevronRight size={30} strokeWidth={2.2} aria-hidden="true" />
@@ -183,10 +197,10 @@ export function SuriMapPageHeader({
             <button
               type="button"
               className={styles.markerCloseButton}
-              aria-label="Close marker notification"
+              aria-label="마커 알림 닫기"
               onClick={onCloseMarkerNotifications}
             >
-              Close
+              닫기
             </button>
           ) : null}
           <div className={styles.markerPopupIcon} aria-hidden="true">
@@ -212,7 +226,7 @@ export function SuriMapPageHeader({
             <br />
             {activeMarkerNotification.coordinateLabel}
           </div>
-          <div className={styles.markerPopupPager} aria-label="Marker notification page">
+          <div className={styles.markerPopupPager} aria-label="마커 알림 페이지">
             {markerNotificationIndex + 1} / {markerNotifications.length}
           </div>
         </section>

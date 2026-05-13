@@ -32,6 +32,7 @@ public class PathController {
       @RequestHeader(value = "X-PolicePhone-Id", required = false) String policePhoneIdHeader,
       @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
       @RequestBody StartSearchPathRequest request) {
+    requireIdempotencyKey(idempotencyKey);
     UUID policePhoneId = HeaderParsers.parsePolicePhoneId(policePhoneIdHeader);
     var created = service.start(request.toServiceRequest(policePhoneId, idempotencyKey));
     return ResponseEntity.status(HttpStatus.CREATED).body(StartSearchPathResponse.from(created));
@@ -43,11 +44,18 @@ public class PathController {
       @RequestHeader(value = "X-PolicePhone-Id", required = false) String policePhoneIdHeader,
       @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
       @RequestBody PatchSearchPathRequest request) {
+    requireIdempotencyKey(idempotencyKey);
     UUID policePhoneId = HeaderParsers.parsePolicePhoneId(policePhoneIdHeader);
     if (request.action() == null || !"END".equalsIgnoreCase(request.action())) {
       throw new SearchPathGuardException("write_conflict");
     }
     var ended = service.end(searchPathId, policePhoneId, request.toServiceRequest(idempotencyKey));
     return ResponseEntity.ok(PatchSearchPathResponse.from(ended));
+  }
+
+  private void requireIdempotencyKey(String idempotencyKey) {
+    if (idempotencyKey == null || idempotencyKey.isBlank()) {
+      throw new SearchPathGuardException("write_conflict");
+    }
   }
 }

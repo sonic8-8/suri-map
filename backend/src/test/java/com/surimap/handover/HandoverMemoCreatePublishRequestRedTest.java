@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
  * <p>harness fixture: sc11_handover_ai_convergence.expectedS4Events.handoverMemoCreated
  * - eventId: "evt-s8-handover-memo-001"
  * - type: "HANDOVER_MEMO_CREATED"
- * - payloadId: "memo-precinct-handover-001"
+ * - payloadAlias: "memo-precinct-op2-001"
  * - payloadStatus: "ACTIVE"
  * - payloadVersion: 1
  * - opId: "op-precinct-001-op2"
@@ -53,6 +53,7 @@ class HandoverMemoCreatePublishRequestRedTest {
     ExpectedHandoverMemoEvent event = events.get(0);
 
     // S8.json harness_fixtures.sc11_handover_ai_convergence.expectedS4Events.handoverMemoCreated
+    assertThat(HandoverMemoFixtures.MEMO_ALIAS).isEqualTo("memo-precinct-op2-001");
     assertThat(event.type()).isEqualTo(HandoverMemoFixtures.EVENT_TYPE_HANDOVER_MEMO_CREATED);
     assertThat(event.eventId()).isEqualTo(HandoverMemoFixtures.MEMO_EVENT_ID);
     assertThat(event.payloadId()).isEqualTo(HandoverMemoFixtures.MEMO_ID);
