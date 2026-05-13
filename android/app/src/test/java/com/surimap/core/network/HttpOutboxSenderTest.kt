@@ -40,11 +40,83 @@ class HttpOutboxSenderTest {
 
     @Test
     fun sendMapsContractFourHundredsToFinalFailure() = runBlocking {
-        val finalStatuses = listOf(400, 401, 403, 409, 422)
+        val finalStatuses = listOf(400, 403, 409, 422)
 
         finalStatuses.forEach { statusCode ->
             val sender = senderForStatus(statusCode)
             assertEquals(SendResult.FINAL_FAILURE, sender.send(outboxRow()))
+        }
+    }
+
+    @Test
+    fun sendMapsPolicePhoneRequiredToRetryableFailureAndPreservesErrorCode() = runBlocking {
+        val sender =
+            HttpOutboxSender(
+                apiClient =
+                SuriMapApiClient(
+                    baseUrl = "https://suri-map.example.com",
+                    callFactory = StaticCallFactory(
+                        response = response(400, """{"error":"police_phone_required"}""")
+                    )
+                )
+            )
+
+        assertEquals(SendResult.RETRYABLE_FAILURE, sender.send(outboxRow()))
+        assertEquals("police_phone_required", sender.retryableFailureErrorCode())
+    }
+
+    @Test
+    fun sendMapsUnauthorizedWithoutContractErrorToRetryableFailure() = runBlocking {
+        val sender = senderForStatus(401)
+
+        assertEquals(SendResult.RETRYABLE_FAILURE, sender.send(outboxRow()))
+        assertEquals("http_401", sender.retryableFailureErrorCode())
+    }
+
+    @Test
+    fun sendPreservesRetryAfterDelayForRetryableResponses() = runBlocking {
+        val sender =
+            HttpOutboxSender(
+                apiClient =
+                SuriMapApiClient(
+                    baseUrl = "https://suri-map.example.com",
+                    callFactory = StaticCallFactory(
+                        response = response(429).newBuilder()
+                            .header("Retry-After", "90")
+                            .build()
+                    )
+                )
+            )
+
+        assertEquals(SendResult.RETRYABLE_FAILURE, sender.send(outboxRow()))
+        assertEquals("http_429", sender.retryableFailureErrorCode())
+        assertEquals(90_000L, sender.retryAfterDelayMs())
+    }
+
+    @Test
+    fun sendMapsPolicePhoneAccessGuardFailuresToFinalFailure() = runBlocking {
+        val failures =
+            listOf(
+                403 to "police_phone_not_registered",
+                403 to "police_phone_not_assigned",
+                403 to "channel_not_allowed",
+                401 to "role_denied"
+            )
+
+        failures.forEach { (statusCode, errorCode) ->
+            val sender =
+                HttpOutboxSender(
+                    apiClient =
+                    SuriMapApiClient(
+                        baseUrl = "https://suri-map.example.com",
+                        callFactory = StaticCallFactory(
+                            response = response(statusCode, """{"error":"$errorCode"}""")
+                        )
+                    )
+                )
+
+            assertEquals(SendResult.FINAL_FAILURE, sender.send(outboxRow()))
+            assertEquals(errorCode, sender.finalFailureErrorCode())
         }
     }
 
