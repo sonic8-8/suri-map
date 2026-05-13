@@ -2,6 +2,10 @@ package com.surimap.core.database
 
 import androidx.room.Room
 import com.surimap.core.sync.DependencyGroup
+import com.surimap.testing.incidentIdFixture
+import com.surimap.testing.operationIdFixture
+import com.surimap.testing.opIdFixture
+import com.surimap.testing.policePhoneIdFixture
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -38,7 +42,7 @@ class OutboxDaoStatusSummaryTest {
         dao.upsert(row("retryable", status = "FAILED_RETRYABLE", requestedAt = 2_000L))
         dao.upsert(row("final", status = "FAILED_FINAL", requestedAt = 3_000L))
         dao.upsert(row("acked", status = "ACKED", requestedAt = 500L))
-        dao.upsert(row("other-phone", policePhoneId = "phone-other", status = "PENDING", requestedAt = 100L))
+        dao.upsert(row("other-phone", policePhoneId = policePhoneIdFixture("other"), status = "PENDING", requestedAt = 100L))
 
         val summary = dao.statusSummary(
             incidentId = INCIDENT_ID,
@@ -72,9 +76,9 @@ class OutboxDaoStatusSummaryTest {
     ): OutboxEntity =
         OutboxEntity(
             outboxId = "outbox-$suffix",
-            operationId = "op-$suffix",
+            operationId = operationIdFixture(suffix),
             incidentId = INCIDENT_ID,
-            opId = "op-precinct-first-001",
+            opId = opIdFixture("precinct-first-001"),
             policePhoneId = policePhoneId,
             dependencyGroup = DependencyGroup.PATH.name,
             sequence = requestedAt,
@@ -92,7 +96,7 @@ class OutboxDaoStatusSummaryTest {
         )
 
     private companion object {
-        const val INCIDENT_ID = "inc-precinct-first-001"
-        const val POLICE_PHONE_ID = "phone-precinct-001"
+        val INCIDENT_ID = incidentIdFixture("precinct-first-001")
+        val POLICE_PHONE_ID = policePhoneIdFixture("precinct-001")
     }
 }

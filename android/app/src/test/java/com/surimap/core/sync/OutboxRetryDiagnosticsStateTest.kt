@@ -1,6 +1,9 @@
 package com.surimap.core.sync
 
 import com.surimap.core.database.OutboxEntity
+import com.surimap.testing.incidentIdFixture
+import com.surimap.testing.operationIdFixture
+import com.surimap.testing.policePhoneIdFixture
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -45,9 +48,9 @@ class OutboxRetryDiagnosticsStateTest {
     private fun sampleRow(lastError: String, status: OutboxStatus): OutboxEntity =
         OutboxEntity(
             outboxId = "outbox-001",
-            operationId = "op-001",
-            incidentId = "inc-precinct-first-001",
-            policePhoneId = "dev-precinct-car-01",
+            operationId = operationIdFixture("outbox-001"),
+            incidentId = incidentIdFixture("precinct-first-001"),
+            policePhoneId = policePhoneIdFixture("precinct-car-01"),
             dependencyGroup = "PATH",
             sequence = 1L,
             requestMethod = "POST",
@@ -66,4 +69,3 @@ class OutboxRetryDiagnosticsStateTest {
             lastError = lastError
         )
 }
-

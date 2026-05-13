@@ -2,6 +2,7 @@ package com.surimap.core.incident
 
 import com.surimap.core.network.AccessTokenProvider
 import com.surimap.core.network.SuriMapApiClient
+import com.surimap.testing.incidentIdFixture
 import kotlinx.coroutines.runBlocking
 import okhttp3.Call
 import okhttp3.Callback
@@ -50,11 +51,12 @@ class IncidentReadRepositoryTest {
             )
         )
 
-        repository.detail("inc-precinct-first-001")
+        val incidentId = incidentIdFixture("precinct-first-001")
+        repository.detail(incidentId)
 
         val request = callFactory.lastRequest!!
         assertEquals("GET", request.method)
-        assertEquals("https://suri-map.example.com/api/incidents/inc-precinct-first-001", request.url.toString())
+        assertEquals("https://suri-map.example.com/api/incidents/$incidentId", request.url.toString())
         assertEquals("APP", request.header("X-Client-Channel"))
         assertNull(request.header("Idempotency-Key"))
     }

@@ -5,6 +5,7 @@ import com.surimap.feature.search.ui.SearchLayerKind
 import com.surimap.feature.search.ui.SearchMapLayerUiState
 import com.surimap.feature.search.ui.SearchMapSyncStatus
 import com.surimap.feature.search.ui.SearchMapUiState
+import com.surimap.testing.markerIdFixture
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -88,13 +89,13 @@ class SearchMapUiStateTest {
                         label = "실종자 발견",
                         kind = SearchLayerKind.Marker,
                         highlighted = false,
-                        overlayId = "mk-person-found-001",
+                        overlayId = MARKER_ID,
                         geoJson = """{"type":"Point","coordinates":[126.91,37.51]}"""
                     )
                 )
-            ).withFocusedMarker("mk-person-found-001")
+            ).withFocusedMarker(MARKER_ID)
 
-        assertEquals("mk-person-found-001", state.focusedMarkerId)
+        assertEquals(MARKER_ID, state.focusedMarkerId)
         assertTrue(state.focusedMarkerLayer!!.highlighted)
         assertEquals(37.509, state.focusedMarkerViewportBounds!!.south, 0.000001)
         assertEquals(126.909, state.focusedMarkerViewportBounds.west, 0.000001)
@@ -103,5 +104,9 @@ class SearchMapUiStateTest {
         assertTrue(state.visibleText().any { it.contains("마커 포커스 · 실종자 발견") })
         assertTrue(state.canCreateMarker)
         assertTrue(state.canWritePath)
+    }
+
+    private companion object {
+        val MARKER_ID = markerIdFixture("person-found-001")
     }
 }

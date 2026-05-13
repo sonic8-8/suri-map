@@ -6,6 +6,10 @@ import com.surimap.core.sync.HarnessSyncStatus
 import com.surimap.core.sync.LocalWriteOperation
 import com.surimap.core.sync.OutboxStatus
 import com.surimap.core.sync.SyncClient
+import com.surimap.testing.incidentIdFixture
+import com.surimap.testing.manifestIdFixture
+import com.surimap.testing.operationIdFixture
+import com.surimap.testing.policePhoneIdFixture
 import java.time.Instant
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -98,7 +102,7 @@ class OfflinePackageInstallationProgressReporterTest {
         items: List<OfflinePackageItemStatus>
     ): OfflinePackageInstallationProgressCommand =
         OfflinePackageInstallationProgressCommand(
-            operationId = "op-package-install-001",
+            operationId = operationIdFixture("package-install-001"),
             incidentId = INCIDENT_ID,
             policePhoneId = POLICE_PHONE_ID,
             idempotencyKey = "idem-package-install-001",
@@ -148,9 +152,9 @@ class OfflinePackageInstallationProgressReporterTest {
     }
 
     private companion object {
-        const val INCIDENT_ID = "inc-precinct-first-001"
-        const val POLICE_PHONE_ID = "phone-precinct-001"
-        const val MANIFEST_ID = "pkg-precinct-first-rev-18"
+        val INCIDENT_ID = incidentIdFixture("precinct-first-001")
+        val POLICE_PHONE_ID = policePhoneIdFixture("precinct-001")
+        val MANIFEST_ID = manifestIdFixture("precinct-first-rev-18")
         val CLIENT_TS: Instant = Instant.parse("2026-05-11T06:00:00Z")
         val CLOCK_SYNCED_AT: Instant = Instant.parse("2026-05-11T05:59:30Z")
     }

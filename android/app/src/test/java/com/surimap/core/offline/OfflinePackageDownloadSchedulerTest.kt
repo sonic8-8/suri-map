@@ -2,6 +2,9 @@ package com.surimap.core.offline
 
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequest
+import com.surimap.testing.incidentIdFixture
+import com.surimap.testing.manifestIdFixture
+import com.surimap.testing.policePhoneIdFixture
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -58,8 +61,8 @@ class OfflinePackageDownloadSchedulerTest {
     )
 
     private companion object {
-        const val INCIDENT_ID = "inc-precinct-first-001"
-        const val POLICE_PHONE_ID = "phone-precinct-001"
-        const val MANIFEST_ID = "pkg-precinct-first-rev-18"
+        val INCIDENT_ID = incidentIdFixture("precinct-first-001")
+        val POLICE_PHONE_ID = policePhoneIdFixture("precinct-001")
+        val MANIFEST_ID = manifestIdFixture("precinct-first-rev-18")
     }
 }

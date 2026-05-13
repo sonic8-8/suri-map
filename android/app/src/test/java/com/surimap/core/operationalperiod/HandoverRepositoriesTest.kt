@@ -8,6 +8,11 @@ import com.surimap.core.sync.HarnessSyncStatus
 import com.surimap.core.sync.LocalWriteOperation
 import com.surimap.core.sync.OutboxStatus
 import com.surimap.core.sync.SyncClient
+import com.surimap.testing.dutyShiftIdFixture
+import com.surimap.testing.incidentIdFixture
+import com.surimap.testing.operationIdFixture
+import com.surimap.testing.opIdFixture
+import com.surimap.testing.policePhoneIdFixture
 import java.time.Instant
 import kotlinx.coroutines.runBlocking
 import okhttp3.Call
@@ -31,7 +36,7 @@ class HandoverRepositoriesTest {
 
         repository.startDutyShift(
             StartDutyShiftCommand(
-                operationId = "op-duty-start-001",
+                operationId = operationIdFixture("duty-start-001"),
                 incidentId = INCIDENT_ID,
                 opId = OP_ID,
                 policePhoneId = POLICE_PHONE_ID,
@@ -55,7 +60,7 @@ class HandoverRepositoriesTest {
 
         repository.endDutyShift(
             EndDutyShiftCommand(
-                operationId = "op-duty-end-001",
+                operationId = operationIdFixture("duty-end-001"),
                 incidentId = INCIDENT_ID,
                 opId = OP_ID,
                 dutyShiftId = DUTY_SHIFT_ID,
@@ -118,7 +123,7 @@ class HandoverRepositoriesTest {
 
         repository.createHandoverMemo(
             CreateHandoverMemoCommand(
-                operationId = "op-memo-001",
+                operationId = operationIdFixture("memo-001"),
                 incidentId = INCIDENT_ID,
                 opId = OP_ID,
                 policePhoneId = POLICE_PHONE_ID,
@@ -254,10 +259,10 @@ class HandoverRepositoriesTest {
     }
 
     private companion object {
-        const val INCIDENT_ID = "inc-precinct-first-001"
-        const val OP_ID = "op-precinct-first-001"
-        const val DUTY_SHIFT_ID = "shift-precinct-first-001"
-        const val POLICE_PHONE_ID = "phone-precinct-001"
+        val INCIDENT_ID = incidentIdFixture("precinct-first-001")
+        val OP_ID = opIdFixture("precinct-first-001")
+        val DUTY_SHIFT_ID = dutyShiftIdFixture("precinct-first-001")
+        val POLICE_PHONE_ID = policePhoneIdFixture("precinct-001")
         val CLIENT_TS: Instant = Instant.parse("2026-05-11T06:00:00Z")
     }
 }

@@ -7,6 +7,9 @@ import com.surimap.core.offline.OfflinePackageItemStatus
 import com.surimap.core.offline.OfflinePackageRepository
 import com.surimap.feature.offline.data.OfflinePackageStateLoader
 import com.surimap.feature.offline.ui.OfflinePackageDownloadStatus
+import com.surimap.testing.incidentIdFixture
+import com.surimap.testing.manifestIdFixture
+import com.surimap.testing.policePhoneIdFixture
 import java.io.IOException
 import kotlinx.coroutines.runBlocking
 import okhttp3.Call
@@ -36,7 +39,7 @@ class OfflinePackageStateLoaderTest {
                     200,
                     """
                     {
-                      "manifestId": "pkg-precinct-first-rev-18",
+                      "manifestId": "$MANIFEST_ID",
                       "incidentId": "$INCIDENT_ID",
                       "manifestVersion": 18,
                       "expiresAt": "2026-05-11T09:00:00Z",
@@ -153,7 +156,7 @@ class OfflinePackageStateLoaderTest {
                     200,
                     """
                     {
-                      "manifestId": "pkg-precinct-first-rev-18",
+                      "manifestId": "$MANIFEST_ID",
                       "incidentId": "$INCIDENT_ID",
                       "manifestVersion": 18,
                       "incident": {"title": "광주 북구 산악 실종"},
@@ -178,7 +181,7 @@ class OfflinePackageStateLoaderTest {
                     OfflinePackageInstallationStatus(
                         incidentId = INCIDENT_ID,
                         policePhoneId = POLICE_PHONE_ID,
-                        manifestId = "pkg-precinct-first-rev-18",
+                        manifestId = MANIFEST_ID,
                         manifestVersion = 18,
                         status = "READY",
                         totalItems = 7,
@@ -212,7 +215,7 @@ class OfflinePackageStateLoaderTest {
                     200,
                     """
                     {
-                      "manifestId": "pkg-precinct-first-rev-19",
+                      "manifestId": "$UPDATED_MANIFEST_ID",
                       "incidentId": "$INCIDENT_ID",
                       "manifestVersion": 19,
                       "incident": {"title": "광주 북구 산악 실종"},
@@ -249,7 +252,7 @@ class OfflinePackageStateLoaderTest {
                 incidentId = INCIDENT_ID,
                 policePhoneId = POLICE_PHONE_ID,
                 localPackageItems = { manifestId ->
-                    assertEquals("pkg-precinct-first-rev-19", manifestId)
+                    assertEquals(UPDATED_MANIFEST_ID, manifestId)
                     listOf(
                         OfflinePackageItemStatus(
                             incidentId = INCIDENT_ID,
@@ -321,7 +324,7 @@ class OfflinePackageStateLoaderTest {
                                 200,
                                 """
                                 {
-                                  "manifestId": "pkg-precinct-first-rev-19",
+                                  "manifestId": "$UPDATED_MANIFEST_ID",
                                   "incidentId": "$INCIDENT_ID",
                                   "manifestVersion": 19,
                                   "incident": {"title": "광주 북구 산악 실종"},
@@ -353,7 +356,7 @@ class OfflinePackageStateLoaderTest {
         val state = loader.load()
 
         assertTrue(state.shouldDownloadPackage)
-        assertEquals("pkg-precinct-first-rev-19", capturedPlans.single().manifestId)
+        assertEquals(UPDATED_MANIFEST_ID, capturedPlans.single().manifestId)
         assertEquals("/tiles/osm-local/15/1/1.pbf", capturedPlans.single().items.single().downloadUrl)
     }
 
@@ -450,7 +453,9 @@ class OfflinePackageStateLoaderTest {
     }
 
     private companion object {
-        const val INCIDENT_ID = "inc-precinct-first-001"
-        const val POLICE_PHONE_ID = "phone-precinct-001"
+        val INCIDENT_ID = incidentIdFixture("precinct-first-001")
+        val POLICE_PHONE_ID = policePhoneIdFixture("precinct-001")
+        val MANIFEST_ID = manifestIdFixture("precinct-first-rev-18")
+        val UPDATED_MANIFEST_ID = manifestIdFixture("precinct-first-rev-19")
     }
 }

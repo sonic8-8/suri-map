@@ -3,6 +3,9 @@ package com.surimap.core.sync
 import androidx.room.Room
 import com.surimap.core.database.OutboxEntity
 import com.surimap.core.database.SuriMapDatabase
+import com.surimap.testing.incidentIdFixture
+import com.surimap.testing.operationIdFixture
+import com.surimap.testing.policePhoneIdFixture
 import java.time.Instant
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -53,7 +56,7 @@ class IncidentLocalCleanupPolicyTest {
     fun preCloseEligibleRowGetsOneCloseDrainThenManualRequeueIsBlocked() = runBlocking {
         val closeCutoff = Instant.parse("2026-04-28T00:01:00Z")
         val operation = sampleOperation(
-            operationId = "op-pre-close-drain-001",
+            operationId = operationIdFixture("pre-close-drain-001"),
             idempotencyKey = "idem-pre-close-drain-001",
             bodyHash = "sha256:pre-close-drain",
             clientTs = closeCutoff.minusMillis(5_000)
@@ -95,7 +98,7 @@ class IncidentLocalCleanupPolicyTest {
     fun preCloseRetryableDueRowGetsOneCloseDrainAndThenPurgesWhenAcked() = runBlocking {
         val closeCutoff = Instant.parse("2026-04-28T00:01:00Z")
         val operation = sampleOperation(
-            operationId = "op-pre-close-retryable-drain-001",
+            operationId = operationIdFixture("pre-close-retryable-drain-001"),
             idempotencyKey = "idem-pre-close-retryable-drain-001",
             bodyHash = "sha256:pre-close-retryable-drain",
             clientTs = closeCutoff.minusMillis(5_000)
@@ -129,7 +132,7 @@ class IncidentLocalCleanupPolicyTest {
     fun postCloseRowsAreRejectedWithoutSendAndExposeOnlyClosedNoRetryDiagnostics() = runBlocking {
         val closeCutoff = Instant.parse("2026-04-28T00:01:00Z")
         val operation = sampleOperation(
-            operationId = "op-post-close-001",
+            operationId = operationIdFixture("post-close-001"),
             idempotencyKey = "idem-post-close-001",
             bodyHash = "sha256:post-close",
             clientTs = closeCutoff.plusMillis(1)
@@ -164,29 +167,29 @@ class IncidentLocalCleanupPolicyTest {
     fun purgeIsIncidentScopedAndDoesNotRemoveOtherIncidentOutboxRowsOrDrafts() = runBlocking {
         val targetAcked = enqueueAckedOperation(
             sampleOperation(
-                operationId = "op-target-acked-001",
+                operationId = operationIdFixture("target-acked-001"),
                 idempotencyKey = "idem-target-acked-001",
                 bodyHash = "sha256:target-acked",
-                incidentId = "inc-close-target-001"
+                incidentId = incidentIdFixture("close-target-001")
             )
         )
         val otherAcked = enqueueAckedOperation(
             sampleOperation(
-                operationId = "op-other-acked-001",
+                operationId = operationIdFixture("other-acked-001"),
                 idempotencyKey = "idem-other-acked-001",
                 bodyHash = "sha256:other-acked",
-                incidentId = "inc-close-other-001"
+                incidentId = incidentIdFixture("close-other-001")
             )
         )
 
         val result = purgeHook.purgeIncidentLocalSync(
-            incidentId = "inc-close-target-001",
+            incidentId = incidentIdFixture("close-target-001"),
             purgeRunId = "purge-run-scoped-001",
             closedAt = "2026-04-28T00:01:00Z",
             purgeDeadlineTs = "2026-04-29T00:01:00Z"
         )
         val idempotentRetry = purgeHook.purgeIncidentLocalSync(
-            incidentId = "inc-close-target-001",
+            incidentId = incidentIdFixture("close-target-001"),
             purgeRunId = "purge-run-scoped-001",
             closedAt = "2026-04-28T00:01:00Z",
             purgeDeadlineTs = "2026-04-29T00:01:00Z"
@@ -210,14 +213,14 @@ class IncidentLocalCleanupPolicyTest {
     fun purgeDeletesOnlyAckedLocalMirrorsAndRetainsUnackedRowsAsLocalDeletePending() = runBlocking {
         val acked = enqueueAckedOperation(
             sampleOperation(
-                operationId = "op-acked-purge-001",
+                operationId = operationIdFixture("acked-purge-001"),
                 idempotencyKey = "idem-acked-purge-001",
                 bodyHash = "sha256:acked-purge"
             )
         )
         val retryable = enqueueFailedOperation(
             sampleOperation(
-                operationId = "op-retryable-retained-001",
+                operationId = operationIdFixture("retryable-retained-001"),
                 idempotencyKey = "idem-retryable-retained-001",
                 bodyHash = "sha256:retryable-retained"
             ),
@@ -226,7 +229,7 @@ class IncidentLocalCleanupPolicyTest {
         )
         val finalRejected = enqueueFailedOperation(
             sampleOperation(
-                operationId = "op-final-retained-001",
+                operationId = operationIdFixture("final-retained-001"),
                 idempotencyKey = "idem-final-retained-001",
                 bodyHash = "sha256:final-retained"
             ),
@@ -235,7 +238,7 @@ class IncidentLocalCleanupPolicyTest {
         )
 
         val result = purgeHook.purgeIncidentLocalSync(
-            incidentId = "inc-precinct-first-001",
+            incidentId = incidentIdFixture("precinct-first-001"),
             purgeRunId = "purge-run-acked-only-001",
             closedAt = "2026-04-28T00:01:00Z",
             purgeDeadlineTs = "2026-04-29T00:01:00Z"
@@ -264,7 +267,7 @@ class IncidentLocalCleanupPolicyTest {
     fun retainedTombstonesRemainCountableUntilExplicitRetentionResolution() = runBlocking {
         enqueueFailedOperation(
             sampleOperation(
-                operationId = "op-tombstone-final-001",
+                operationId = operationIdFixture("tombstone-final-001"),
                 idempotencyKey = "idem-tombstone-final-001",
                 bodyHash = "sha256:tombstone-final"
             ),
@@ -273,13 +276,13 @@ class IncidentLocalCleanupPolicyTest {
         )
 
         val firstPass = purgeHook.purgeIncidentLocalSync(
-            incidentId = "inc-precinct-first-001",
+            incidentId = incidentIdFixture("precinct-first-001"),
             purgeRunId = "purge-run-tombstone-001",
             closedAt = "2026-04-28T00:01:00Z",
             purgeDeadlineTs = "2026-04-29T00:01:00Z"
         )
         val secondPass = purgeHook.purgeIncidentLocalSync(
-            incidentId = "inc-precinct-first-001",
+            incidentId = incidentIdFixture("precinct-first-001"),
             purgeRunId = "purge-run-tombstone-002",
             closedAt = "2026-04-28T00:01:00Z",
             purgeDeadlineTs = "2026-04-29T00:01:00Z"
@@ -298,14 +301,14 @@ class IncidentLocalCleanupPolicyTest {
     fun cleanupReportPreservesAckedLocalSyncBeforePackageAndMissingPersonSteps() = runBlocking {
         enqueueAckedOperation(
             sampleOperation(
-                operationId = "op-order-acked-001",
+                operationId = operationIdFixture("order-acked-001"),
                 idempotencyKey = "idem-order-acked-001",
                 bodyHash = "sha256:order-acked"
             )
         )
         enqueueFailedOperation(
             sampleOperation(
-                operationId = "op-order-retained-001",
+                operationId = operationIdFixture("order-retained-001"),
                 idempotencyKey = "idem-order-retained-001",
                 bodyHash = "sha256:order-retained"
             ),
@@ -314,7 +317,7 @@ class IncidentLocalCleanupPolicyTest {
         )
 
         val result = purgeHook.purgeIncidentLocalSync(
-            incidentId = "inc-precinct-first-001",
+            incidentId = incidentIdFixture("precinct-first-001"),
             purgeRunId = "purge-run-order-001",
             closedAt = "2026-04-28T00:01:00Z",
             purgeDeadlineTs = "2026-04-29T00:01:00Z"
@@ -368,12 +371,12 @@ class IncidentLocalCleanupPolicyTest {
         operationId: String,
         idempotencyKey: String,
         bodyHash: String,
-        incidentId: String = "inc-precinct-first-001",
+        incidentId: String = incidentIdFixture("precinct-first-001"),
         clientTs: Instant = Instant.parse("2026-04-28T00:00:40Z")
     ): LocalWriteOperation = LocalWriteOperation(
         operationId = operationId,
         incidentId = incidentId,
-        policePhoneId = "dev-precinct-car-01",
+        policePhoneId = policePhoneIdFixture("precinct-car-01"),
         dependencyGroup = DependencyGroup.PATH,
         sequence = 502L,
         method = "POST",
@@ -385,7 +388,7 @@ class IncidentLocalCleanupPolicyTest {
         clockOffsetMs = 0L,
         clockSyncedAt = clientTs.minusSeconds(5),
         entityType = "search_path",
-        entityId = operationId.removePrefix("op-")
+        entityId = operationId
     )
 
     private class CapturingSender : OutboxSender {
