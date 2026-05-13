@@ -86,11 +86,11 @@ class MarkerLocalRecorderTest {
 
         assertEquals(
             listOf(
-                "op-marker-create-1",
-                "op-marker-update-2",
-                "op-marker-delete-3",
-                "op-photo-upload-url-4",
-                "op-photo-attach-5"
+                OP_MARKER_CREATE_ID,
+                OP_MARKER_UPDATE_ID,
+                OP_MARKER_DELETE_ID,
+                OP_PHOTO_UPLOAD_ID,
+                OP_PHOTO_ATTACH_ID
             ),
             syncClient.operations.map { it.operationId }
         )
@@ -112,10 +112,10 @@ class MarkerLocalRecorderTest {
         assertTrue(syncClient.operations.all { it.idempotencyKey == "idem-${it.operationId}" })
         assertTrue(syncClient.operations.all { it.clockOffsetMs == 0L })
         assertTrue(syncClient.operations.all { it.clockSyncedAt == CLIENT_TS })
-        assertEquals("op-marker-create-1", create.operationId)
-        assertEquals("op-marker-update-2", update.operationId)
-        assertEquals("op-marker-delete-3", delete.operationId)
-        assertEquals("op-photo-attach-5", attach.operationId)
+        assertEquals(OP_MARKER_CREATE_ID, create.operationId)
+        assertEquals(OP_MARKER_UPDATE_ID, update.operationId)
+        assertEquals(OP_MARKER_DELETE_ID, delete.operationId)
+        assertEquals(OP_PHOTO_ATTACH_ID, attach.operationId)
         assertEquals(upload.operationId, syncClient.operations.last().parentOperationId)
     }
 
@@ -216,16 +216,29 @@ class MarkerLocalRecorderTest {
     }
 
     private fun idFactory(): (String) -> String {
-        var next = 1
-        return { prefix -> "$prefix-${next++}" }
+        val ids =
+            listOf(
+                OP_MARKER_CREATE_ID,
+                OP_MARKER_UPDATE_ID,
+                OP_MARKER_DELETE_ID,
+                OP_PHOTO_UPLOAD_ID,
+                OP_PHOTO_ATTACH_ID
+            )
+        var next = 0
+        return { ids[next++] }
     }
 
     private companion object {
-        const val INCIDENT_ID = "inc-precinct-first-001"
-        const val OP_ID = "op-precinct-first-001"
-        const val MARKER_ID = "mk-precinct-clue-001"
-        const val PHOTO_ID = "photo-precinct-clue-001"
-        const val POLICE_PHONE_ID = "phone-precinct-001"
+        const val INCIDENT_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001"
+        const val OP_ID = "88888888-8888-8888-8888-888888880001"
+        const val MARKER_ID = "55555555-5555-5555-5555-555555550001"
+        const val PHOTO_ID = "55555555-5555-5555-5555-555555550101"
+        const val POLICE_PHONE_ID = "50000000-0000-0000-0000-000000000001"
+        const val OP_MARKER_CREATE_ID = "22222222-2222-4222-8222-222222222001"
+        const val OP_MARKER_UPDATE_ID = "22222222-2222-4222-8222-222222222002"
+        const val OP_MARKER_DELETE_ID = "22222222-2222-4222-8222-222222222003"
+        const val OP_PHOTO_UPLOAD_ID = "22222222-2222-4222-8222-222222222004"
+        const val OP_PHOTO_ATTACH_ID = "22222222-2222-4222-8222-222222222005"
         val CLIENT_TS: Instant = Instant.parse("2026-05-11T06:00:00Z")
         val LOCATION = MarkerLocation(lon = 126.9565, lat = 37.5712)
         val CONTEXT =

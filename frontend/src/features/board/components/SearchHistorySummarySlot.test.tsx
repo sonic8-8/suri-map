@@ -17,8 +17,8 @@ describe('L6-T04B search_history_summary board slot rendering', () => {
     render(
       <>
         <OpToggleSlot
-          currentOpId="op-precinct-001-op2"
-          selectedOpIds={['op-precinct-001-op1', 'op-precinct-001-op2']}
+          currentOpId={OP2_ID}
+          selectedOpIds={[OP1_ID, OP2_ID]}
           rows={createOpToggleRows()}
         />
         <SearchHistorySummarySlot row={summaryRow} />
@@ -26,12 +26,12 @@ describe('L6-T04B search_history_summary board slot rendering', () => {
     );
 
     const summarySlot = screen.getByTestId('slot-search_history_summary');
-    expect(summarySlot).toHaveAttribute('data-source-response-id', 'summary-precinct-op2-001');
+    expect(summarySlot).toHaveAttribute('data-source-response-id', SUMMARY_ID);
     expect(summarySlot).toHaveAttribute('data-source-spec', 'S8');
     expect(within(summarySlot).getByText('READY')).toBeInTheDocument();
     expect(within(summarySlot).getByText('displayStatus=READY')).toBeInTheDocument();
-    expect(within(summarySlot).getByText('summary-precinct-op2-001')).toBeInTheDocument();
-    expect(within(summarySlot).getByText('op-precinct-001-op2')).toBeInTheDocument();
+    expect(within(summarySlot).getByText(SUMMARY_ID)).toBeInTheDocument();
+    expect(within(summarySlot).getByText(OP2_ID)).toBeInTheDocument();
     expect(within(summarySlot).getByText('version=1')).toBeInTheDocument();
     expect(within(summarySlot).getByText('sequence=805')).toBeInTheDocument();
     expect(within(summarySlot).getByText('evt-s8-ai-summary-001')).toBeInTheDocument();
@@ -48,15 +48,15 @@ describe('L6-T04B search_history_summary board slot rendering', () => {
     );
     expect(within(summarySlot).getByRole('link', { name: 'path-precinct-car-001 원본 열기' })).toHaveAttribute(
       'href',
-      '#path-precinct-car-001',
+      `#${PATH_CAR_ID}`,
     );
     expect(within(summarySlot).getByRole('link', { name: 'mk-precinct-clue-001 원본 열기' })).toHaveAttribute(
       'href',
-      '#mk-precinct-clue-001',
+      `#${MARKER_ID}`,
     );
     expect(within(summarySlot).getByRole('link', { name: 'memo-precinct-handover-001 원본 열기' })).toHaveAttribute(
       'href',
-      '#memo-precinct-handover-001',
+      `#${MEMO_HANDOVER_ID}`,
     );
     expect(screen.getByTestId('slot-op_toggle')).toBeInTheDocument();
     expect(summarySlot).not.toHaveTextContent(forbiddenProviderLeakText);
@@ -70,8 +70,8 @@ describe('L6-T04B search_history_summary board slot rendering', () => {
     const { rerender } = render(
       <>
         <OpToggleSlot
-          currentOpId="op-precinct-001-op2"
-          selectedOpIds={['op-precinct-001-op1', 'op-precinct-001-op2']}
+          currentOpId={OP2_ID}
+          selectedOpIds={[OP1_ID, OP2_ID]}
           rows={createOpToggleRows()}
         />
         <SearchHistorySummarySlot row={null} loadState={{ kind: 'loading' }} />
@@ -84,8 +84,8 @@ describe('L6-T04B search_history_summary board slot rendering', () => {
     rerender(
       <>
         <OpToggleSlot
-          currentOpId="op-precinct-001-op2"
-          selectedOpIds={['op-precinct-001-op1', 'op-precinct-001-op2']}
+          currentOpId={OP2_ID}
+          selectedOpIds={[OP1_ID, OP2_ID]}
           rows={createOpToggleRows()}
         />
         <SearchHistorySummarySlot
@@ -116,8 +116,8 @@ describe('L6-T04B search_history_summary board slot rendering', () => {
     render(
       <>
         <OpToggleSlot
-          currentOpId="op-precinct-001-op2"
-          selectedOpIds={['op-precinct-001-op1', 'op-precinct-001-op2']}
+          currentOpId={OP2_ID}
+          selectedOpIds={[OP1_ID, OP2_ID]}
           rows={createOpToggleRows()}
         />
         <SearchHistorySummarySlot row={createForbiddenReadySummaryRow()} />
@@ -219,10 +219,10 @@ function createReadySummaryRow(): SearchHistorySummaryRow {
   return {
     slot: 'search_history_summary',
     id: 'board-ai-summary-op-precinct-001-op2',
-    sourceResponseId: 'summary-precinct-op2-001',
-    incidentId: 'inc-precinct-first-001',
-    summaryId: 'summary-precinct-op2-001',
-    opId: 'op-precinct-001-op2',
+    sourceResponseId: SUMMARY_ID,
+    incidentId: INCIDENT_ID,
+    summaryId: SUMMARY_ID,
+    opId: OP2_ID,
     status: 'READY',
     displayStatus: 'READY',
     version: 1,
@@ -237,9 +237,9 @@ function createReadySummaryRow(): SearchHistorySummaryRow {
     retryCta: null,
     evidenceLinks: [
       { label: 'OP2 원본 열기', href: '#op-precinct-001-op2' },
-      { label: 'path-precinct-car-001 원본 열기', href: '#path-precinct-car-001' },
-      { label: 'mk-precinct-clue-001 원본 열기', href: '#mk-precinct-clue-001' },
-      { label: 'memo-precinct-handover-001 원본 열기', href: '#memo-precinct-handover-001' },
+      { label: 'path-precinct-car-001 원본 열기', href: `#${PATH_CAR_ID}` },
+      { label: 'mk-precinct-clue-001 원본 열기', href: `#${MARKER_ID}` },
+      { label: 'memo-precinct-handover-001 원본 열기', href: `#${MEMO_HANDOVER_ID}` },
     ],
     internalProviderProbe: 'provider-probe-leak',
     sourcePromptProbe: 'prompt-probe-leak',
@@ -251,8 +251,8 @@ function createUnavailableSummaryRow(): SearchHistorySummaryRow {
   return {
     ...createReadySummaryRow(),
     id: 'board-ai-summary-unavailable-op-precinct-001-op2',
-    sourceResponseId: 'summary-precinct-op2-unavailable-001',
-    summaryId: 'summary-precinct-op2-unavailable-001',
+    sourceResponseId: SUMMARY_UNAVAILABLE_ID,
+    summaryId: SUMMARY_UNAVAILABLE_ID,
     status: 'FAILED',
     displayStatus: 'UNAVAILABLE',
     sourceHash: 'hash-s8-ai-summary-unavailable',
@@ -266,8 +266,8 @@ function createForbiddenReadySummaryRow(): SearchHistorySummaryRow {
   return {
     ...createReadySummaryRow(),
     id: 'board-ai-summary-forbidden-op-precinct-001-op2',
-    sourceResponseId: 'summary-precinct-op2-forbidden-001',
-    summaryId: 'summary-precinct-op2-forbidden-001',
+    sourceResponseId: SUMMARY_FORBIDDEN_ID,
+    summaryId: SUMMARY_FORBIDDEN_ID,
     sourceHash: 'hash-s8-ai-summary-forbidden',
     summaryText: '다음 구역 추천: 북쪽으로 이동. 위험도 높음. 누락 확정.',
   };
@@ -278,9 +278,9 @@ function createOpToggleRows(): readonly OpToggleRow[] {
     {
       slot: 'op_toggle',
       id: 'board-op-toggle-op-precinct-001-op1',
-      sourceResponseId: 'op-precinct-001-op1',
-      incidentId: 'inc-precinct-first-001',
-      opId: 'op-precinct-001-op1',
+      sourceResponseId: OP1_ID,
+      incidentId: INCIDENT_ID,
+      opId: OP1_ID,
       status: 'ENDED',
       version: 1,
       sequence: 801,
@@ -295,9 +295,9 @@ function createOpToggleRows(): readonly OpToggleRow[] {
     {
       slot: 'op_toggle',
       id: 'board-op-toggle-op-precinct-001-op2',
-      sourceResponseId: 'op-precinct-001-op2',
-      incidentId: 'inc-precinct-first-001',
-      opId: 'op-precinct-001-op2',
+      sourceResponseId: OP2_ID,
+      incidentId: INCIDENT_ID,
+      opId: OP2_ID,
       status: 'ACTIVE',
       version: 2,
       sequence: 802,
@@ -311,6 +311,16 @@ function createOpToggleRows(): readonly OpToggleRow[] {
     },
   ] as const;
 }
+
+const INCIDENT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001';
+const OP1_ID = '88888888-8888-8888-8888-888888880001';
+const OP2_ID = '88888888-8888-8888-8888-888888880002';
+const SUMMARY_ID = '44444444-4444-4444-4444-444444440001';
+const SUMMARY_UNAVAILABLE_ID = '44444444-4444-4444-4444-444444440002';
+const SUMMARY_FORBIDDEN_ID = '44444444-4444-4444-4444-444444440003';
+const PATH_CAR_ID = 'ffffffff-ffff-ffff-ffff-ffffffff0001';
+const MARKER_ID = '55555555-5555-5555-5555-555555550001';
+const MEMO_HANDOVER_ID = 'eeeeeeee-eeee-eeee-eeee-eeeeeeee0001';
 
 function deepFreeze<T>(value: T): T {
   if (typeof value !== 'object' || value === null) {

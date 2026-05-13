@@ -2119,13 +2119,14 @@
       "opAlias": "op-precinct-001-op2",
       "opId": "88888888-8888-8888-8888-888888880002",
       "handoverMemo": {
-        "memoId": "memo-precinct-op2-001",
+        "memoId": "eeeeeeee-eeee-eeee-eeee-eeeeeeee0010",
         "status": "ACTIVE",
         "version": 1,
-        "eventId": "evt-s8-handover-memo-001"
+        "eventId": "evt-s8-handover-memo-001",
+        "memoAlias": "memo-precinct-op2-001"
       },
       "aiSummary": {
-        "summaryId": "summary-precinct-op2-001",
+        "summaryId": "44444444-4444-4444-4444-444444440001",
         "status": "FAILED",
         "displayStatus": "UNAVAILABLE",
         "sourceReadiness": "READY",
@@ -2133,47 +2134,52 @@
         "version": 1,
         "eventId": "evt-s8-ai-summary-001",
         "retryCta": null,
-        "sourcePromptVisible": false
+        "sourcePromptVisible": false,
+        "summaryAlias": "summary-precinct-op2-001"
       },
       "expectedS4Events": {
         "handoverMemoCreated": {
           "eventId": "evt-s8-handover-memo-001",
           "type": "HANDOVER_MEMO_CREATED",
-          "payloadId": "memo-precinct-op2-001",
+          "payloadId": "eeeeeeee-eeee-eeee-eeee-eeeeeeee0010",
           "payloadStatus": "ACTIVE",
           "payloadVersion": 1,
           "opAlias": "op-precinct-001-op2",
-          "opId": "88888888-8888-8888-8888-888888880002"
+          "opId": "88888888-8888-8888-8888-888888880002",
+          "payloadAlias": "memo-precinct-op2-001"
         },
         "aiSummaryReady": {
           "eventId": "evt-s8-ai-summary-001",
           "type": "SEARCH_HISTORY_SUMMARY_CHANGED",
-          "payloadId": "summary-precinct-op2-001",
+          "payloadId": "44444444-4444-4444-4444-444444440001",
           "payloadStatus": "FAILED",
           "sourceReadiness": "READY",
           "sourceHash": "hash-s8-source-snapshot-op2-001",
           "payloadVersion": 1,
           "opAlias": "op-precinct-001-op2",
-          "opId": "88888888-8888-8888-8888-888888880002"
+          "opId": "88888888-8888-8888-8888-888888880002",
+          "payloadAlias": "summary-precinct-op2-001"
         }
       },
       "expectedQueries": {
         "HandoverMemoQuery.byContext": {
-          "memoId": "memo-precinct-op2-001",
+          "memoId": "eeeeeeee-eeee-eeee-eeee-eeeeeeee0010",
           "status": "ACTIVE",
           "version": 1,
           "opAlias": "op-precinct-001-op2",
-          "opId": "88888888-8888-8888-8888-888888880002"
+          "opId": "88888888-8888-8888-8888-888888880002",
+          "memoAlias": "memo-precinct-op2-001"
         },
         "SearchHistorySummaryQuery.byOp": {
-          "summaryId": "summary-precinct-op2-001",
+          "summaryId": "44444444-4444-4444-4444-444444440001",
           "status": "FAILED",
           "displayStatus": "UNAVAILABLE",
           "sourceReadiness": "READY",
           "sourceHash": "hash-s8-source-snapshot-op2-001",
           "version": 1,
           "opAlias": "op-precinct-001-op2",
-          "opId": "88888888-8888-8888-8888-888888880002"
+          "opId": "88888888-8888-8888-8888-888888880002",
+          "summaryAlias": "summary-precinct-op2-001"
         }
       },
       "expectedBoardProbe": {
@@ -2185,21 +2191,23 @@
         "opAlias": "op-precinct-001-op2",
         "opId": "88888888-8888-8888-8888-888888880002",
         "handoverMemoSlot": {
-          "id": "memo-precinct-op2-001",
+          "id": "eeeeeeee-eeee-eeee-eeee-eeeeeeee0010",
           "status": "ACTIVE",
-          "version": 1
+          "version": 1,
+          "idAlias": "memo-precinct-op2-001"
         },
         "handoverStatusSlot": {
           "status": "READY",
           "version": 1
         },
         "aiSummarySlot": {
-          "id": "summary-precinct-op2-001",
+          "id": "44444444-4444-4444-4444-444444440001",
           "status": "FAILED",
           "displayStatus": "UNAVAILABLE",
           "sourceReadiness": "READY",
           "sourceHash": "hash-s8-source-snapshot-op2-001",
-          "version": 1
+          "version": 1,
+          "idAlias": "summary-precinct-op2-001"
         },
         "preConvergenceState": "STALE_REFETCH"
       }

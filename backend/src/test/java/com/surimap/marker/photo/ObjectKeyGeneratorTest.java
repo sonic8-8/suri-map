@@ -49,9 +49,9 @@ class ObjectKeyGeneratorTest {
   void generateHarnessFixtureKey() {
     String key =
         generator.generate(
-            "inc-precinct-first-001",
-            "mk-precinct-clue-001",
-            "photo-precinct-clue-001",
+            "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
+            "55555555-5555-5555-5555-555555550001",
+            "55555555-5555-5555-5555-555555550101",
             "image/jpeg");
 
     assertThat(key).isEqualTo(ObjectKeyFixtures.EXPECTED_HARNESS_JPEG_KEY);

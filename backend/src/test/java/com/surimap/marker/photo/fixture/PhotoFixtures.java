@@ -16,17 +16,20 @@ public final class PhotoFixtures {
   public static final String MOCK_OBJECT_STORAGE_URI = "mock://object-storage/suri-map-harness";
 
   public static final String MOCK_UPLOAD_BASE_URL = "http://127.0.0.1:18080/mock-upload";
-  public static final String HARNESS_INCIDENT_ID = "inc-precinct-first-001";
-  public static final String HARNESS_MARKER_ID = "mk-precinct-clue-001";
-  public static final String HARNESS_PHOTO_ID = "photo-precinct-clue-001";
+  public static final String HARNESS_INCIDENT_ALIAS = "inc-precinct-first-001";
+  public static final String HARNESS_INCIDENT_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001";
+  public static final String HARNESS_MARKER_ALIAS = "mk-precinct-clue-001";
+  public static final String HARNESS_MARKER_ID = "55555555-5555-5555-5555-555555550001";
+  public static final String HARNESS_PHOTO_ALIAS = "photo-precinct-clue-001";
+  public static final String HARNESS_PHOTO_ID = "55555555-5555-5555-5555-555555550101";
   public static final String HARNESS_UPLOAD_URL = MOCK_UPLOAD_BASE_URL + "/" + HARNESS_PHOTO_ID;
   public static final Duration UPLOAD_URL_TTL = Duration.ofMinutes(15);
 
   /** 테스트용 고정 UUID */
-  public static final UUID INCIDENT_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
+  public static final UUID INCIDENT_ID = UUID.fromString(HARNESS_INCIDENT_ID);
 
-  public static final UUID MARKER_ID = UUID.fromString("00000000-0000-0000-0000-000000000010");
-  public static final UUID PHOTO_ID_1 = UUID.fromString("00000000-0000-0000-0000-000000000101");
+  public static final UUID MARKER_ID = UUID.fromString(HARNESS_MARKER_ID);
+  public static final UUID PHOTO_ID_1 = UUID.fromString(HARNESS_PHOTO_ID);
   public static final UUID PHOTO_ID_2 = UUID.fromString("00000000-0000-0000-0000-000000000102");
 
   /** 기본 사진 metadata */

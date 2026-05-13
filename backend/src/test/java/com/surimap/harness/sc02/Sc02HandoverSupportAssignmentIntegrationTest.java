@@ -502,7 +502,17 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
   }
 
   private static List<String> fcmRecipientsFor(List<String> policePhoneIds) {
-    return policePhoneIds.stream().map(id -> "fcm:" + id).toList();
+    return policePhoneIds.stream()
+        .map(Sc02HandoverSupportAssignmentIntegrationTest::fcmRecipientFor)
+        .toList();
+  }
+
+  private static String fcmRecipientFor(String policePhoneId) {
+    int fixtureIndex = NotificationFixtures.ASSIGNMENT_RECIPIENT_POLICE_PHONE_IDS.indexOf(policePhoneId);
+    if (fixtureIndex >= 0) {
+      return NotificationFixtures.ASSIGNMENT_FCM_RECIPIENTS.get(fixtureIndex);
+    }
+    return "fcm:" + policePhoneId;
   }
 
   private BoardDTO assembleSc02Board(AssignmentChangedOutboxRow supportEvent) {

@@ -33,13 +33,13 @@ class SearchPathLocalRecorderTest {
         val batch = recorder.appendBatch(CONTEXT, PATH_ID, points()) as SearchPathWriteResult.Enqueued
         val end = recorder.end(CONTEXT, PATH_ID) as SearchPathWriteResult.Enqueued
 
-        assertEquals(listOf("op-path-start-1", "op-path-batch-2", "op-path-end-3"), syncClient.operations.map { it.operationId })
+        assertEquals(listOf(OP_START_ID, OP_BATCH_ID, OP_END_ID), syncClient.operations.map { it.operationId })
         assertEquals(listOf(10L, 11L, 12L), syncClient.operations.map { it.sequence })
         assertEquals(listOf("/api/search-paths", "/api/search-paths/batch", "/api/search-paths/$PATH_ID"), syncClient.operations.map { it.endpoint })
         assertTrue(syncClient.operations.all { it.dependencyGroup == DependencyGroup.PATH })
-        assertEquals("op-path-start-1", start.operationId)
-        assertEquals("op-path-batch-2", batch.operationId)
-        assertEquals("op-path-end-3", end.operationId)
+        assertEquals(OP_START_ID, start.operationId)
+        assertEquals(OP_BATCH_ID, batch.operationId)
+        assertEquals(OP_END_ID, end.operationId)
     }
 
     @Test
@@ -129,15 +129,19 @@ class SearchPathLocalRecorderTest {
     }
 
     private fun idFactory(): (String) -> String {
-        var next = 1
-        return { prefix -> "$prefix-${next++}" }
+        val ids = listOf(OP_START_ID, OP_BATCH_ID, OP_END_ID)
+        var next = 0
+        return { ids[next++] }
     }
 
     private companion object {
-        const val INCIDENT_ID = "inc-precinct-first-001"
-        const val OP_ID = "op-precinct-first-001"
-        const val PATH_ID = "path-precinct-first-001"
-        const val POLICE_PHONE_ID = "phone-precinct-001"
+        const val INCIDENT_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001"
+        const val OP_ID = "88888888-8888-8888-8888-888888880001"
+        const val PATH_ID = "ffffffff-ffff-ffff-ffff-ffffffff0001"
+        const val POLICE_PHONE_ID = "50000000-0000-0000-0000-000000000001"
+        const val OP_START_ID = "11111111-1111-4111-8111-111111111001"
+        const val OP_BATCH_ID = "11111111-1111-4111-8111-111111111002"
+        const val OP_END_ID = "11111111-1111-4111-8111-111111111003"
         val CLIENT_TS: Instant = Instant.parse("2026-05-11T06:00:00Z")
         val CONTEXT =
             SearchPathWriteContext(

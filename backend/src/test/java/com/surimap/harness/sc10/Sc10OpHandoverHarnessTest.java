@@ -198,8 +198,8 @@ class Sc10OpHandoverHarnessTest {
     @Test
     @DisplayName("handover memo fixture alias/eventId가 harness fixture 리터럴과 일치한다")
     void handoverMemoFixtureMatchesSpecLiteral() {
-      // docs/spec/harness-scenarios.md §6 mock 112/SC-10 fixture.
-      assertThat(HandoverMemoFixtures.MEMO_ALIAS).isEqualTo("memo-precinct-handover-001");
+      // docs/spec/specs/S8.json §harness_fixtures.sc11_handover_ai_convergence.
+      assertThat(HandoverMemoFixtures.MEMO_ALIAS).isEqualTo("memo-precinct-op2-001");
       assertThat(HandoverMemoFixtures.MEMO_EVENT_ID).isEqualTo("evt-s8-handover-memo-001");
       assertThat(HandoverMemoFixtures.MEMO_VERSION).isEqualTo(1L);
       assertThat(HandoverMemoFixtures.MEMO_STATUS).isEqualTo("ACTIVE");
