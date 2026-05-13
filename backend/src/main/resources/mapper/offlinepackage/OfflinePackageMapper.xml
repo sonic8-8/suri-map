@@ -7,11 +7,11 @@
     <resultMap id="installationRecordMap"
                type="com.surimap.offlinepackage.repository.OfflinePackageInstallationRecord">
         <constructor>
-            <arg column="id" javaType="string"/>
-            <arg column="offline_package_manifest_id" javaType="string"/>
-            <arg column="incident_id" javaType="string"/>
-            <arg column="police_phone_id" javaType="string"/>
-            <arg column="last_reported_by_account_id" javaType="string"/>
+            <arg column="id" javaType="java.util.UUID"/>
+            <arg column="offline_package_manifest_id" javaType="java.util.UUID"/>
+            <arg column="incident_id" javaType="java.util.UUID"/>
+            <arg column="police_phone_id" javaType="java.util.UUID"/>
+            <arg column="last_reported_by_account_id" javaType="java.util.UUID"/>
             <arg column="status" javaType="string"/>
             <arg column="total_item_count" javaType="_int"/>
             <arg column="completed_item_count" javaType="_int"/>
@@ -46,10 +46,10 @@
     <resultMap id="manifestRecordMap"
                type="com.surimap.offlinepackage.repository.OfflinePackageManifestRecord">
         <constructor>
-            <arg column="id" javaType="string"/>
-            <arg column="incident_id" javaType="string"/>
+            <arg column="id" javaType="java.util.UUID"/>
+            <arg column="incident_id" javaType="java.util.UUID"/>
             <arg column="manifest_version" javaType="_int"/>
-            <arg column="overall_search_area_id" javaType="string"/>
+            <arg column="overall_search_area_id" javaType="java.util.UUID"/>
             <arg column="overall_search_area_version" javaType="_long"/>
             <arg column="manifest_hash" javaType="string"/>
             <arg column="expires_at" javaType="java.time.OffsetDateTime"/>
@@ -90,8 +90,8 @@
             #{manifestVersion},
             CAST(#{operationalPeriodId} AS UUID),
             CAST(#{overallSearchAreaId} AS UUID),
-            1,
-            '1111111111111111111111111111111111111111111111111111111111111111',
+            #{overallSearchAreaVersion},
+            #{manifestHash},
             1,
             '{}',
             #{expiresAt},
