@@ -49,7 +49,8 @@
 | 초동 clue marker | `mk-precinct-clue-001` | SC-01, SC-06, SC-10 |
 | 차량 경로 | `path-precinct-car-001` | SC-05, SC-07, SC-09, SC-11 |
 | 도보 경로 | `path-precinct-foot-001` | SC-05, SC-07, SC-09, SC-11 |
-| 인수인계 메모 | `memo-precinct-handover-001` | SC-10, SC-11 |
+| OP1 seed 인수인계 메모 | `memo-precinct-handover-001` | SC-10 OP1 보존, SC-11 요약 원본 evidence |
+| OP2 인수인계 메모 | `memo-precinct-op2-001` | SC-11 S8 handover memo write/convergence |
 
 ### 계정과 PolicePhone
 

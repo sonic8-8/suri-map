@@ -60,8 +60,8 @@ JSON fixture에서 UUID도 문자열로 표현되지만, 의미상 DB PK/FK 또�
 | `evt-s5-person-found-001` | 인원 발견 notification event | SC-08 | L2, L5, L6 | `S5.json` | `common-fixtures.json` | event fixture 단계에서 로드 | 공통 데이터 | all assigned recipient fixture와 연결 |
 | `bs-inc-precinct-first-001` | board API 응답 기준 row 집합 | SC-02, SC-03, SC-05, SC-06, SC-08, SC-09, SC-10, SC-11, SC-12 | L2, L3, L5, L6 | `S3-2.json`, `S2.json`, `S1-2.json`, `S8.json` | `common-fixtures.json` | board probe 단계에서 로드 | 공통 데이터 | overall_search_area, area, police_phone_freshness, handover, summary rows 포함 |
 | `rr-precinct-001` | SC-10 radio report fixture | SC-10 | L1, L3, L6 | `harness-scenarios.md §6` | `common-fixtures.json` | command flow 단계에서 로드 | 공통 데이터 | `decisionId`와 함께 검증 |
-| `memo-precinct-handover-001` | OP1 handover memo seed | SC-10 | L1, L3, L6 | `harness-scenarios.md §6`, `S8.json` | `common-fixtures.json` | incident seed와 함께 로드 | 공통 데이터 | board handover row와 연결 |
-| `memo-precinct-op2-001` | SC-11 handover memo fixture | SC-11 | L3, L6 | `S8.json` | `common-fixtures.json` | OP2 fixture 단계에서 로드 | 공통 데이터 | owner-spec S4 event 기대값 포함 |
+| `memo-precinct-handover-001` | OP1 handover memo seed | SC-10 | L1, L3, L6 | `harness-scenarios.md §6`, `S3-2.json` | `common-fixtures.json` | incident seed와 함께 로드 | 공통 데이터 | OP1 seed 보존과 board handover row 기준. SC-11 OP2 memo fixture와 전역 치환하지 않는다 |
+| `memo-precinct-op2-001` | SC-11 OP2 handover memo fixture | SC-11 | L3, L6 | `S8.json` | `common-fixtures.json` | OP2 fixture 단계에서 로드 | 공통 데이터 | owner-spec S4 event 기대값 포함. OP1 seed `memo-precinct-handover-001`와 다른 row |
 | `summary-precinct-op2-001` | SC-11 AI summary fixture | SC-11 | L3, L6 | `S8.json` | `common-fixtures.json` | OP2 fixture 단계에서 로드 | 공통 데이터 | 금지 문구는 `negativeOnlyInputs.forbiddenPhraseResponse`로만 제공 |
 
 ## Confirmed ID Index
