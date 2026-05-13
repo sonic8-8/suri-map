@@ -30,6 +30,12 @@ interface LocalMarkerDao {
         policePhoneId: String
     ): List<LocalMarkerEntity>
 
+    @Query("SELECT * FROM local_marker WHERE local_marker_id = :localMarkerId LIMIT 1")
+    suspend fun findById(localMarkerId: String): LocalMarkerEntity?
+
+    @Query("SELECT local_mirror_status FROM android_outbox_row WHERE outbox_id = :outboxId LIMIT 1")
+    suspend fun findOutboxLocalMirrorStatus(outboxId: String): String?
+
     @Query("DELETE FROM local_marker WHERE local_marker_id = :localMarkerId")
     suspend fun deleteById(localMarkerId: String): Int
 }

@@ -9,6 +9,7 @@ import com.surimap.incident.domain.IncidentRecord;
 import com.surimap.incident.domain.MissingPersonRecord;
 import com.surimap.incident.repository.IncidentMapper;
 import com.surimap.api.service.searcharea.SearchAreaApiService;
+import com.surimap.eventhub.port.EventHub;
 import com.surimap.maparea.geometry.geojson.GeoJsonPolygon;
 import com.surimap.maparea.query.OverallSearchAreaResult;
 import com.surimap.maparea.query.SearchAreaAssignmentQuery;
@@ -21,12 +22,16 @@ import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.query.MarkerQuery;
 import com.surimap.marker.query.MarkerQueryResult;
 import com.surimap.marker.query.MarkerView;
+import com.surimap.offlinepackage.dto.OfflinePackageInstallationReportRequest;
+import com.surimap.offlinepackage.dto.OfflinePackageInstallationResponse;
 import com.surimap.offlinepackage.dto.OfflinePackageManifestResponse;
+import com.surimap.offlinepackage.service.OfflinePackageRepository;
 import com.surimap.offlinepackage.service.OfflinePackageService;
 import com.surimap.operationalperiod.query.OperationalPeriodQuery;
 import com.surimap.operationalperiod.query.OperationalPeriodRow;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -74,6 +79,8 @@ class OfflinePackageManifestSourceIntegrationTest {
   @MockBean private SearchAreaAssignmentQuery assignmentQuery;
 
   @MockBean private MarkerQuery markerQuery;
+
+  @MockBean private EventHub eventHub;
 
   @BeforeEach
   void reset() {
@@ -143,6 +150,50 @@ class OfflinePackageManifestSourceIntegrationTest {
                 INCIDENT_ID.toString(),
                 OP_ID.toString(),
                 OVERALL_AREA_ID.toString()))
+        .isOne();
+  }
+
+  @Test
+  @DisplayName("source-generated fixture manifest accepts installation report")
+  void sourceGeneratedFixtureManifestAcceptsInstallationReport() {
+    givenFixtureSourceRows();
+
+    OfflinePackageManifestResponse manifest =
+        service.manifest(OfflinePackageRepository.INCIDENT_ID, OfflinePackageRepository.POLICE_PHONE_ID);
+
+    OfflinePackageInstallationResponse response =
+        service.reportInstallation(
+            OfflinePackageRepository.INCIDENT_ID,
+            "idem-source-generated-fixture-install",
+            new OfflinePackageInstallationReportRequest(
+                OfflinePackageRepository.POLICE_PHONE_ID,
+                manifest.manifestId(),
+                manifest.manifestVersion(),
+                "READY",
+                manifest.packageItems().size(),
+                manifest.packageItems().size(),
+                0,
+                1_778_686_570_000L,
+                OffsetDateTime.parse("2026-05-13T00:01:00Z"),
+                true,
+                List.of(),
+                null,
+                1_778_686_570_000L,
+                0L));
+
+    assertThat(response.status()).isEqualTo("READY");
+    assertThat(response.manifestVersion()).isEqualTo(manifest.manifestVersion());
+    assertThat(
+            jdbcTemplate.queryForObject(
+                """
+                SELECT COUNT(*)
+                FROM offline_package_installation
+                WHERE offline_package_manifest_id = ?::uuid
+                  AND police_phone_id = ?::uuid
+                """,
+                Integer.class,
+                manifest.manifestId(),
+                OfflinePackageRepository.POLICE_PHONE_ID))
         .isOne();
   }
 
@@ -236,6 +287,106 @@ class OfflinePackageManifestSourceIntegrationTest {
                         7L,
                         jtsPoint("126.957", "37.572"),
                         "동적 단서",
+                        NOW,
+                        List.of()))));
+  }
+
+  private void givenFixtureSourceRows() {
+    UUID incidentId = UUID.fromString(OfflinePackageRepository.INCIDENT_ID);
+    UUID opId = UUID.fromString("88888888-8888-8888-8888-888888880001");
+    UUID overallAreaId = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0001");
+    UUID assignedAreaId = UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccc0001");
+    UUID markerId = UUID.fromString("55555555-0000-4000-8000-000000002902");
+
+    IncidentRecord incident = new IncidentRecord();
+    incident.setId(incidentId);
+    incident.setSourceIncidentId("mock-112-source-s7-fixture-dynamic");
+    incident.setStatus("OPEN");
+    incident.setVersion(8L);
+    when(incidentMapper.findByIncidentId(incidentId)).thenReturn(Optional.of(incident));
+
+    MissingPersonRecord missingPerson = new MissingPersonRecord();
+    missingPerson.setIncidentId(incidentId);
+    missingPerson.setDisplayName("fixture 동적 실종자");
+    missingPerson.setPhotoObjectKey("photo/fixture-dynamic.jpg");
+    missingPerson.setAppearanceText("남색 점퍼");
+    missingPerson.setLastSeenLocationText("북측 능선");
+    missingPerson.setLastSeenAt(NOW);
+    when(incidentMapper.findMissingPersonByIncidentId(incidentId))
+        .thenReturn(Optional.of(missingPerson));
+
+    OperationalPeriodRow op =
+        new OperationalPeriodRow(opId, incidentId, "ACTIVE", 3, NOW, null, "RE_SEARCH", 5L);
+    when(operationalPeriodQuery.list(incidentId)).thenReturn(List.of(op));
+    when(operationalPeriodQuery.current(incidentId)).thenReturn(Optional.empty());
+
+    GeoJsonPolygon overallPolygon =
+        polygon(
+            "126.950", "37.570", "126.970", "37.570", "126.970", "37.580", "126.950", "37.580");
+    when(searchAreaQuery.overallOf(incidentId))
+        .thenReturn(
+            Optional.of(
+                new OverallSearchAreaResult(
+                    overallAreaId,
+                    incidentId,
+                    "ACTIVE",
+                    4L,
+                    overallPolygon,
+                    List.of(),
+                    NOW)));
+    SearchAreaRow assignedArea =
+        new SearchAreaRow(
+            assignedAreaId,
+            incidentId,
+            opId,
+            overallAreaId,
+            "ACTIVE",
+            6L,
+            polygon(
+                "126.955",
+                "37.571",
+                "126.960",
+                "37.571",
+                "126.960",
+                "37.575",
+                "126.955",
+                "37.575"),
+            List.of(),
+            NOW,
+            1L);
+    when(searchAreaQuery.byOp(eq(opId), any()))
+        .thenReturn(new SearchAreaCollection(incidentId, 6L, List.of(assignedArea)));
+    when(assignmentQuery.byOp(opId))
+        .thenReturn(
+            List.of(
+                new SearchAreaAssignmentRow(
+                    UUID.fromString("dddddddd-0000-4000-8000-000000002902"),
+                    assignedAreaId,
+                    ACCOUNT_ID,
+                    ACCOUNT_ID,
+                    NOW,
+                    null,
+                    "ACTIVE",
+                    6L)));
+
+    when(markerQuery.byIncident(eq(incidentId), any()))
+        .thenReturn(
+            new MarkerQueryResult(
+                incidentId,
+                List.of(
+                    new MarkerView(
+                        markerId,
+                        incidentId,
+                        opId,
+                        ACCOUNT_ID,
+                        POLICE_PHONE_ID,
+                        MarkerType.CLUE,
+                        null,
+                        MarkerSource.APP,
+                        MarkerStatus.ACTIVE,
+                        7L,
+                        jtsPoint("126.957", "37.572"),
+                        "fixture 동적 단서",
                         NOW,
                         List.of()))));
   }

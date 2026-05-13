@@ -122,15 +122,20 @@ class RoomOutboxReplay(
 ) : OutboxReplay {
     private val staleClockSyncAfterMs = 300_000L
 
-    override suspend fun flushPending(policePhoneId: String, incidentId: String) {
+    override suspend fun flushPending(policePhoneId: String, incidentId: String): OutboxReplayResult {
         val now = System.currentTimeMillis()
         val minClockSyncedAt = now - staleClockSyncAfterMs
         outboxDao.rejectPostCloseRows(incidentId, policePhoneId)
         val candidates = outboxDao.findReplayCandidates(incidentId, policePhoneId, now, minClockSyncedAt)
+        var attemptedCount = 0
+        var ackedCount = 0
+        var retryableFailureCount = 0
+        var finalFailureCount = 0
         for (row in candidates) {
             if (isDutyShiftEndBlocked(row)) {
                 break
             }
+            attemptedCount += 1
 
             if (row.incidentClosedAt != null && row.clientRequestedAt > row.incidentClosedAt) {
                 outboxDao.upsert(
@@ -141,6 +146,7 @@ class RoomOutboxReplay(
                         lastError = POST_CLOSE_REQUEUE_REJECTED
                     )
                 )
+                finalFailureCount += 1
                 continue
             }
 
@@ -165,36 +171,55 @@ class RoomOutboxReplay(
                             lastError = "idempotency_mismatch"
                         )
                     )
+                    finalFailureCount += 1
                 }
 
                 IdempotencyReplayDecision.REPLAYED -> {
                     persistAck(sending, now)
+                    ackedCount += 1
                 }
 
                 IdempotencyReplayDecision.ACCEPTED -> {
                     when (sender.send(sending)) {
-                        SendResult.ACKED -> persistAck(sending, now)
+                        SendResult.ACKED -> {
+                            persistAck(sending, now)
+                            ackedCount += 1
+                        }
 
-                        SendResult.RETRYABLE_FAILURE -> outboxDao.upsert(
-                            sending.copy(
-                                idempotencyStatus = OutboxStatus.FAILED_RETRYABLE.name,
-                                localMirrorStatus = HarnessSyncStatus.FAILED.name,
-                                nextAttemptAt = if (sending.incidentClosedAt == null) now + 10_000L else null,
-                                lastError = "network_unavailable"
+                        SendResult.RETRYABLE_FAILURE -> {
+                            outboxDao.upsert(
+                                sending.copy(
+                                    idempotencyStatus = OutboxStatus.FAILED_RETRYABLE.name,
+                                    localMirrorStatus = HarnessSyncStatus.FAILED.name,
+                                    nextAttemptAt = if (sending.incidentClosedAt == null) now + 10_000L else null,
+                                    lastError = "network_unavailable"
+                                )
                             )
-                        )
+                            markLocalMirrorFailed(sending.outboxId, now)
+                            retryableFailureCount += 1
+                        }
 
-                        SendResult.FINAL_FAILURE -> outboxDao.upsert(
-                            sending.copy(
-                                idempotencyStatus = OutboxStatus.FAILED_FINAL.name,
-                                localMirrorStatus = HarnessSyncStatus.FAILED.name,
-                                lastError = sender.finalFailureErrorCode() ?: "invalid_payload"
+                        SendResult.FINAL_FAILURE -> {
+                            outboxDao.upsert(
+                                sending.copy(
+                                    idempotencyStatus = OutboxStatus.FAILED_FINAL.name,
+                                    localMirrorStatus = HarnessSyncStatus.FAILED.name,
+                                    lastError = sender.finalFailureErrorCode() ?: "invalid_payload"
+                                )
                             )
-                        )
+                            markLocalMirrorFailed(sending.outboxId, now)
+                            finalFailureCount += 1
+                        }
                     }
                 }
             }
         }
+        return OutboxReplayResult(
+            attemptedCount = attemptedCount,
+            ackedCount = ackedCount,
+            retryableFailureCount = retryableFailureCount,
+            finalFailureCount = finalFailureCount
+        )
     }
 
     private suspend fun isDutyShiftEndBlocked(row: OutboxEntity): Boolean {
@@ -232,6 +257,14 @@ class RoomOutboxReplay(
             updatedAtMillis = serverAckTs
         )
         outboxDao.deleteLocalWriteDraftByOutboxId(row.outboxId)
+    }
+
+    private suspend fun markLocalMirrorFailed(outboxId: String, updatedAtMillis: Long) {
+        outboxDao.markLocalMarkerSyncStatusByOutboxId(
+            outboxId = outboxId,
+            syncStatus = HarnessSyncStatus.FAILED.name,
+            updatedAtMillis = updatedAtMillis
+        )
     }
 }
 
