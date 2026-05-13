@@ -37,6 +37,7 @@ public final class SearchAreaQueryFixtures {
         BoundaryAreaFixtures.OP1_ID,
         null,
         "ACTIVE",
+        null,
         BoundaryAreaFixtures.AREA_CREATED_VERSION,
         GeometryFixtures.validSearchAreaPolygon(),
         GeometryFixtures.AREA_GEOMETRY_BBOX,

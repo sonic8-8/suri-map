@@ -27,7 +27,7 @@ export function IncidentClosePage({ incidentId, onBackToIncidents, onOpenLogin }
   const markerSummaryText = useMemo(() => {
     const markers = mockIncidentCloseSummary.markerSummary;
 
-    return `${markers.total}개 (단서 ${markers.clue}, 발견 ${markers.found}, 지형 ${markers.field}, 지원 ${markers.support}, NOTE ${markers.note})`;
+    return `${markers.total}개 (단서 ${markers.clue}, 발견 ${markers.found}, 지형 ${markers.field}, 지원 ${markers.support}, 메모 ${markers.note})`;
   }, []);
 
   const openConfirm = () => {
@@ -105,7 +105,7 @@ export function IncidentClosePage({ incidentId, onBackToIncidents, onOpenLogin }
         <section className={styles.contextBar} aria-label="사건 종료 컨텍스트">
           <div className={styles.contextMain}>
             <div className={styles.contextTitle}>
-              <strong>{isClosed ? '종료 사건 tombstone' : '사건 종료 확인'}</strong>
+              <strong>{isClosed ? '종료 사건 요약' : '사건 종료 확인'}</strong>
               <span>{mockIncidentCloseSummary.incidentId}</span>
             </div>
           </div>
@@ -133,11 +133,11 @@ export function IncidentClosePage({ incidentId, onBackToIncidents, onOpenLogin }
       <section className={styles.content} aria-label="사건 종료 본문">
         <div className={styles.contentInner}>
           {isClosed ? (
-            <section className={styles.tombstonePanel} aria-label="종료 사건 tombstone">
+            <section className={styles.tombstonePanel} aria-label="종료 사건 요약">
               <div className={styles.stamp}>종료됨</div>
               <div className={styles.panelHeader}>
                 <div>
-                  <p className={styles.eyebrow}>sanitized tombstone</p>
+                  <p className={styles.eyebrow}>비식별 종료 요약</p>
                   <h1>사건 {mockIncidentTombstone.incidentId}</h1>
                 </div>
                 <StatusBadge status={incidentStatusLabel} tone="closed" size="lg" />
@@ -157,7 +157,7 @@ export function IncidentClosePage({ incidentId, onBackToIncidents, onOpenLogin }
                   <dd>{mockIncidentTombstone.availableMetadata.operationalPeriods}차</dd>
                 </div>
                 <div>
-                  <dt>DutyShift</dt>
+                  <dt>근무 교대</dt>
                   <dd>{mockIncidentTombstone.availableMetadata.dutyShifts}개</dd>
                 </div>
                 <div>
@@ -189,14 +189,14 @@ export function IncidentClosePage({ incidentId, onBackToIncidents, onOpenLogin }
 
               <div className={styles.neutralNotice}>
                 종료 사건은 사용자 대상 재오픈 UI를 제공하지 않습니다. 실종자 개인정보, 폴리폰 위치, 경로 좌표, 실시간
-                stream은 tombstone 화면에서 다시 노출하지 않습니다.
+                스트림은 종료 사건 요약 화면에서 다시 노출하지 않습니다.
               </div>
             </section>
           ) : (
             <section className={styles.closePanel} aria-label="사건 종료 확인">
               <div className={styles.panelHeader}>
                 <div>
-                  <p className={styles.eyebrow}>final command</p>
+                  <p className={styles.eyebrow}>최종 명령</p>
                   <h1>사건 종료 전 최종 확인</h1>
                 </div>
                 <StatusBadge status={incidentStatusLabel} tone="active" size="lg" />

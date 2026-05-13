@@ -50,6 +50,8 @@ public final class PackageBadgeBoardAssembler {
     Map<String, Object> payload = new LinkedHashMap<>();
     payload.put("incidentId", status.incidentId());
     payload.put("policePhoneId", status.policePhoneId());
+    payload.put("policePhoneCode", status.policePhoneCode());
+    payload.put("policePhoneName", status.policePhoneName());
     payload.put("packageStatus", status.status());
     if (PURGED.equals(status.status())) {
       return payload;

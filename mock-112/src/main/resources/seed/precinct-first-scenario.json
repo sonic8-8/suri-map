@@ -1,5 +1,5 @@
 {
-  "sourceIncidentId": "mock-112-incident-001",
+  "sourceIncidentId": "00000000-0000-0000-0000-000000000001",
   "title": "종로구 인왕산 실종 신고",
   "openedAt": "2026-04-28T09:00:00+09:00",
   "missingPerson": {
@@ -11,19 +11,19 @@
   },
   "assignments": [
     {
-      "externalAssignmentKey": "mock-112-incident-001:precinct-cmd",
+      "externalAssignmentKey": "00000000-0000-0000-0000-000000000001:precinct-cmd",
       "accountId": "acct-precinct-cmd",
       "incidentRole": "FIELD_COMMANDER",
       "assignedAt": "2026-04-28T09:00:00+09:00"
     },
     {
-      "externalAssignmentKey": "mock-112-incident-001:precinct-car",
+      "externalAssignmentKey": "00000000-0000-0000-0000-000000000001:precinct-car",
       "accountId": "acct-precinct-car",
       "incidentRole": "MEMBER",
       "assignedAt": "2026-04-28T09:00:00+09:00"
     },
     {
-      "externalAssignmentKey": "mock-112-incident-001:precinct-team",
+      "externalAssignmentKey": "00000000-0000-0000-0000-000000000001:precinct-team",
       "accountId": "acct-precinct-team",
       "incidentRole": "MEMBER",
       "assignedAt": "2026-04-28T09:00:00+09:00"
@@ -40,13 +40,13 @@
   ],
   "handoverAssignments": [
     {
-      "externalAssignmentKey": "mock-112-incident-001:cmd-alpha",
+      "externalAssignmentKey": "00000000-0000-0000-0000-000000000001:cmd-alpha",
       "accountId": "acct-cmd-alpha",
       "incidentRole": "INCIDENT_COMMANDER",
       "assignedAt": "2026-04-28T10:30:00+09:00"
     },
     {
-      "externalAssignmentKey": "mock-112-incident-001:team-alpha",
+      "externalAssignmentKey": "00000000-0000-0000-0000-000000000001:team-alpha",
       "accountId": "acct-team-alpha",
       "incidentRole": "MEMBER",
       "assignedAt": "2026-04-28T10:30:00+09:00"
@@ -54,19 +54,19 @@
   ],
   "supportAssignments": [
     {
-      "externalAssignmentKey": "mock-112-incident-001:support-cmd",
+      "externalAssignmentKey": "00000000-0000-0000-0000-000000000001:support-cmd",
       "accountId": "acct-support-cmd",
       "incidentRole": "FIELD_COMMANDER",
       "assignedAt": "2026-04-28T11:00:00+09:00"
     },
     {
-      "externalAssignmentKey": "mock-112-incident-001:support-car",
+      "externalAssignmentKey": "00000000-0000-0000-0000-000000000001:support-car",
       "accountId": "acct-support-car",
       "incidentRole": "MEMBER",
       "assignedAt": "2026-04-28T11:00:00+09:00"
     },
     {
-      "externalAssignmentKey": "mock-112-incident-001:support-team",
+      "externalAssignmentKey": "00000000-0000-0000-0000-000000000001:support-team",
       "accountId": "acct-support-team",
       "incidentRole": "MEMBER",
       "assignedAt": "2026-04-28T11:00:00+09:00"

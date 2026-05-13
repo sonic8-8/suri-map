@@ -168,6 +168,62 @@ SOURCE_TEXT = "\n".join(
 
 UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 
+DB_ALIAS_TO_UUID = {
+    "inc-precinct-first-001": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
+    "inc-precinct-closed-001": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0012",
+    "op-precinct-001-op1": "88888888-8888-8888-8888-888888880001",
+    "op-precinct-001-op2": "88888888-8888-8888-8888-888888880002",
+    "osa-precinct-001": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0001",
+    "osa-precinct-001-v1": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0001",
+    "area-precinct-a1": "cccccccc-cccc-cccc-cccc-cccccccc0001",
+    "area-precinct-a1-v1": "cccccccc-cccc-cccc-cccc-cccccccc0001",
+    "tile-manifest-inc-precinct-001": "77777777-0000-4000-8000-000000000701",
+    "pkg-status-precinct-001": "77777777-0000-4000-8000-000000000901",
+    "acct-precinct-cmd": "11111111-1111-1111-1111-111111110001",
+    "acct-precinct-car": "11111111-1111-1111-1111-111111110002",
+    "acct-precinct-team": "11111111-1111-1111-1111-111111110003",
+    "acct-cmd-alpha": "11111111-1111-1111-1111-111111110004",
+    "acct-team-alpha": "11111111-1111-1111-1111-111111110005",
+    "acct-support-cmd": "11111111-1111-1111-1111-111111110006",
+    "acct-support-car": "11111111-1111-1111-1111-111111110007",
+    "acct-support-team": "11111111-1111-1111-1111-111111110008",
+    "dev-precinct-cmd-phone-01": "00000000-0000-0000-0000-000000000201",
+    "dev-precinct-car-01": "50000000-0000-0000-0000-000000000001",
+    "dev-precinct-phone-01": "00000000-0000-0000-0000-000000000101",
+    "dev-alpha-cmd-phone-01": "00000000-0000-0000-0000-000000000204",
+    "dev-alpha-phone-01": "00000000-0000-0000-0000-000000000205",
+    "dev-support-cmd-phone-01": "00000000-0000-0000-0000-000000000206",
+    "dev-support-car-01": "00000000-0000-0000-0000-000000000207",
+    "dev-support-phone-01": "00000000-0000-0000-0000-000000000208",
+    "op-outbox-path-001": "66666666-0000-4000-8000-000000000501",
+    "op-outbox-marker-001": "66666666-0000-4000-8000-000000000601",
+    "op-outbox-photo-001": "66666666-0000-4000-8000-000000000602",
+    "op-outbox-support-001": "66666666-0000-4000-8000-000000000801",
+    "op-outbox-package-001": "66666666-0000-4000-8000-000000000901",
+    "op-outbox-preclose-path-001": "66666666-0000-4000-8000-000000001201",
+    "op-outbox-postclose-marker-001": "66666666-0000-4000-8000-000000001202",
+    "op-fail-clock-001": "66666666-0000-4000-8000-000000001701",
+    "op-fail-idem-001": "66666666-0000-4000-8000-000000001702",
+    "op-fail-PolicePhone-001": "66666666-0000-4000-8000-000000001703",
+    "op-fail-closed-001": "66666666-0000-4000-8000-000000001704",
+    "op-fail-network-001": "66666666-0000-4000-8000-000000001705",
+}
+
+DB_ALIAS_ALLOWED_SUFFIXES = ("Alias", "Aliases", "Code", "Codes")
+DB_ALIAS_ALLOWED_KEYS = {
+    "fixtureId",
+    "ownerPath",
+    "sourceDocs",
+    "implementationReferences",
+    "dataFile",
+    "branch",
+    "sourceSpecEndpoint",
+    "canonicalApiEndpoint",
+    "endpoint",
+    "requestPathAlias",
+    "request_pathAlias",
+}
+
 ID_PREFIXES = (
     "acct-",
     "ai-summary-",
@@ -318,8 +374,6 @@ def is_confirmed_id_value(value: str, path: str):
     if any(fragment in path for fragment in DERIVED_PATH_FRAGMENTS):
         return False
     if value.startswith(ID_PREFIXES):
-        return True
-    if UUID_RE.fullmatch(value):
         return True
     if value.startswith(("incident:", "connection:")):
         return True
@@ -896,23 +950,25 @@ def check_internal_consistency(common: dict):
     ensure(confirmed["terminalStateRules"]["sc12CloseRequeue"]["expectedPostClose"] == "FAILED_FINAL", "unexpected SC-12 post-close status")
     failure_rows = confirmed["terminalStateRules"]["failureCategoryRows"]
     failure_policy = confirmed["outboxSharedRules"]["failureDisplayPolicy"]
-    failure_operation_ids = [row.get("operationId") for row in failure_rows if isinstance(row, dict)]
-    duplicate_failure_ops = sorted({op for op in failure_operation_ids if failure_operation_ids.count(op) > 1})
-    ensure(not duplicate_failure_ops, f"duplicate S6 failure category operationId found: {duplicate_failure_ops}")
-    ensure(
-        set(failure_operation_ids) == set(S6_REQUIRED_FAILURE_ROWS),
-        f"S6 failure category coverage mismatch: {sorted(failure_operation_ids)}",
+    failure_operation_aliases = [row.get("operationAlias") for row in failure_rows if isinstance(row, dict)]
+    duplicate_failure_ops = sorted(
+        {op for op in failure_operation_aliases if failure_operation_aliases.count(op) > 1}
     )
-    rows_by_operation = {row["operationId"]: row for row in failure_rows}
-    for operation_id, expected in S6_REQUIRED_FAILURE_ROWS.items():
-        row = rows_by_operation[operation_id]
+    ensure(not duplicate_failure_ops, f"duplicate S6 failure category operationAlias found: {duplicate_failure_ops}")
+    ensure(
+        set(failure_operation_aliases) == set(S6_REQUIRED_FAILURE_ROWS),
+        f"S6 failure category coverage mismatch: {sorted(failure_operation_aliases)}",
+    )
+    rows_by_operation = {row["operationAlias"]: row for row in failure_rows}
+    for operation_alias, expected in S6_REQUIRED_FAILURE_ROWS.items():
+        row = rows_by_operation[operation_alias]
         for key, value in expected.items():
-            ensure(row.get(key) == value, f"S6 failure category row mismatch for {operation_id}.{key}: {row.get(key)} != {value}")
+            ensure(row.get(key) == value, f"S6 failure category row mismatch for {operation_alias}.{key}: {row.get(key)} != {value}")
         category = row["userSafeFailureCategory"]
         ensure(category in failure_policy, f"S6 failure category missing from display policy: {category}")
         ensure(
             row["lastError"] in failure_policy[category],
-            f"S6 failure row lastError not mapped by display policy: {operation_id} -> {row['lastError']} / {category}",
+            f"S6 failure row lastError not mapped by display policy: {operation_alias} -> {row['lastError']} / {category}",
         )
     ensure(confirmed["searchHistorySummary"]["negativeOnlyInputs"]["forbiddenPhraseResponse"]["expectedDisplayStatus"] == "UNAVAILABLE", "SC-11 negative fixture display status mismatch")
 
@@ -991,9 +1047,13 @@ def check_internal_consistency(common: dict):
     ensure(package_query["method"] == "OfflinePackageInstallationQuery.byIncident", "SC-09 package status query method mismatch")
     ensure(package_query["incidentId"] == package_replay["incidentId"], "SC-09 package status query incidentId mismatch")
     ensure(package_query["policePhoneId"] == package_replay["policePhoneId"], "SC-09 package status query policePhoneId mismatch")
+    ensure(package_query["policePhoneCode"] == package_replay["policePhoneCode"], "SC-09 package status query policePhoneCode mismatch")
+    ensure(package_query["policePhoneName"] == package_replay["policePhoneName"], "SC-09 package status query policePhoneName mismatch")
     ensure(package_query["id"] == package_owner_response["id"], "SC-09 package status query id mismatch")
     ensure(package_board_probe["incidentId"] == package_replay["incidentId"], "SC-09 package board incidentId mismatch")
     ensure(package_board_probe["policePhoneId"] == package_replay["policePhoneId"], "SC-09 package board policePhoneId mismatch")
+    ensure(package_board_probe["policePhoneCode"] == package_replay["policePhoneCode"], "SC-09 package board policePhoneCode mismatch")
+    ensure(package_board_probe["policePhoneName"] == package_replay["policePhoneName"], "SC-09 package board policePhoneName mismatch")
     ensure(package_board_probe["id"] == package_owner_response["id"], "SC-09 package board probe id mismatch")
     ensure(package_board_probe["slot"] == "package_badge", "SC-09 package board probe slot mismatch")
     ensure(package_board_relation["baseSlot"] == package_board_row["slot"], "SC-09 package board relation slot mismatch")
@@ -1033,10 +1093,10 @@ def check_mock112_seed_alignment(common: dict):
     valid_roles = set(common["confirmed"]["accountAliases"]["validIncidentRoles"])
     ensure(valid_roles == VALID_INCIDENT_ROLES, f"validIncidentRoles mismatch: {sorted(valid_roles)}")
     ensure(
-        set(alias_entries) == set(common["confirmed"]["incidentSeed"]["accountIds"]),
-        "accountAliases account ids must exactly match incidentSeed.accountIds: "
-        f"missing={sorted(set(common['confirmed']['incidentSeed']['accountIds']) - set(alias_entries))}, "
-        f"extra={sorted(set(alias_entries) - set(common['confirmed']['incidentSeed']['accountIds']))}",
+        set(alias_entries) == set(common["confirmed"]["incidentSeed"]["accountCodes"]),
+        "accountAliases account codes must exactly match incidentSeed.accountCodes: "
+        f"missing={sorted(set(common['confirmed']['incidentSeed']['accountCodes']) - set(alias_entries))}, "
+        f"extra={sorted(set(alias_entries) - set(common['confirmed']['incidentSeed']['accountCodes']))}",
     )
     for account_id, alias in alias_entries.items():
         ensure(isinstance(alias, dict), f"accountAliases entry must be an object: {account_id}")
@@ -1049,13 +1109,13 @@ def check_mock112_seed_alignment(common: dict):
     for marker in contract["seedMarkers"]:
         ensure(marker.get("source") == "MOCK_SEED", f"mock112SourceContract seed marker source must match S5 marker_source enum: {marker}")
 
-    initial_account_ids = [assignment.get("accountId") for assignment in contract["initialAssignments"]]
+    initial_account_codes = [assignment.get("accountCode") for assignment in contract["initialAssignments"]]
     ensure(
-        initial_account_ids == common["confirmed"]["incidentSeed"]["accountIds"][:3],
+        initial_account_codes == common["confirmed"]["incidentSeed"]["accountCodes"][:3],
         "mock112SourceContract.initialAssignments must match the precinct before-handover account set",
     )
     ensure(
-        len(initial_account_ids) == len(common["confirmed"]["incidentSeed"]["expectedIncidentAssignments"]["beforeHandover"]),
+        len(initial_account_codes) == len(common["confirmed"]["incidentSeed"]["expectedIncidentAssignments"]["beforeHandover"]),
         "mock112SourceContract.initialAssignments must cover every beforeHandover incident assignment row",
     )
 
@@ -1071,13 +1131,58 @@ def check_mock112_seed_alignment(common: dict):
         )
         for assignment in contract.get(contract_field, []):
             ensure(
-                assignment.get("accountId") in alias_entries,
-                f"mock112SourceContract.{contract_field} accountId missing from accountAliases: {assignment}",
+                assignment.get("accountCode") in alias_entries,
+                f"mock112SourceContract.{contract_field} accountCode missing from accountAliases: {assignment}",
             )
             ensure(
                 assignment.get("incidentRole") in valid_roles,
                 f"mock112SourceContract.{contract_field} has invalid incidentRole: {assignment}",
             )
+
+
+def should_allow_db_alias_key(key: str):
+    return key in DB_ALIAS_ALLOWED_KEYS or key.endswith(DB_ALIAS_ALLOWED_SUFFIXES)
+
+
+def check_no_db_alias_in_uuid_fields(common: dict):
+    violations = []
+
+    def walk(obj, path_parts):
+        if isinstance(obj, dict):
+            for key, value in obj.items():
+                walk(value, [*path_parts, key])
+            return
+        if isinstance(obj, list):
+            for index, value in enumerate(obj):
+                if path_parts:
+                    walk(value, [*path_parts[:-1], f"{path_parts[-1]}[{index}]"])
+                else:
+                    walk(value, [f"[{index}]"])
+            return
+        if not isinstance(obj, str) or not path_parts:
+            return
+
+        key = path_parts[-1]
+        if should_allow_db_alias_key(key):
+            return
+        if obj not in DB_ALIAS_TO_UUID:
+            return
+        if not (key == "id" or key.endswith("Id") or key.endswith("Ids") or "Id[" in key):
+            return
+        violations.append((".".join(path_parts), obj, DB_ALIAS_TO_UUID[obj]))
+
+    walk(common["confirmed"], ["confirmed"])
+    for spec_path in sorted((ROOT.parent / "specs").glob("*.json")):
+        spec = load_json(spec_path)
+        harness_fixtures = spec.get("harness_fixtures")
+        if harness_fixtures is not None:
+            walk(harness_fixtures, [spec_path.name, "harness_fixtures"])
+
+    ensure(
+        not violations,
+        "DB UUID field contains fixture alias/code; use UUID field plus *Alias/*Code sibling: "
+        + ", ".join(f"{path}={alias} -> {uuid}" for path, alias, uuid in violations[:20]),
+    )
 
 
 def main():
@@ -1098,6 +1203,7 @@ def main():
     check_id_cross_references(common)
     check_internal_consistency(common)
     check_mock112_seed_alignment(common)
+    check_no_db_alias_in_uuid_fields(common)
 
     print("common fixture preflight passed")
 

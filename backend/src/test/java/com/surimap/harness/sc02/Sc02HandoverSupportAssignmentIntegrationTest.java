@@ -56,7 +56,7 @@ import org.springframework.test.web.servlet.MockMvc;
 class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTestSupport {
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-  private static final String SOURCE_INCIDENT_ID = "mock-112-incident-001";
+  private static final String SOURCE_INCIDENT_ID = "00000000-0000-0000-0000-000000000001";
   private static final UUID INCIDENT_ID = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001");
   private static final UUID OP1_ID = UUID.fromString("88888888-8888-8888-8888-888888880001");
   private static final String PATH_CAR_ID = "path-precinct-car-001";
@@ -126,7 +126,7 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
       organizationType = OrganizationType.SUPPORT_UNIT,
       channel = Channel.APP,
       accountId = "acct-support-team",
-      policePhoneId = "dev-support-phone-01",
+      policePhoneId = "00000000-0000-0000-0000-000000000208",
       roles = {Role.MEMBER})
   @DisplayName("인계·지원 배정 후 OP1 보존, SSE, FCM, board 슬롯이 수렴한다")
   void handoverAndSupportAssignmentConvergesSseFcmAndBoard() throws Exception {
@@ -137,14 +137,14 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
 
     assertThat(activeAssignmentAccountIds())
         .containsExactlyInAnyOrder(
-            "acct-precinct-cmd",
-            "acct-precinct-car",
-            "acct-precinct-team",
-            "acct-cmd-alpha",
-            "acct-team-alpha",
-            "acct-support-cmd",
-            "acct-support-car",
-            "acct-support-team");
+            "11111111-1111-1111-1111-111111110001",
+            "11111111-1111-1111-1111-111111110002",
+            "11111111-1111-1111-1111-111111110003",
+            "11111111-1111-1111-1111-111111110004",
+            "11111111-1111-1111-1111-111111110005",
+            "11111111-1111-1111-1111-111111110006",
+            "11111111-1111-1111-1111-111111110007",
+            "11111111-1111-1111-1111-111111110008");
     assertThat(
             count("incident_assignment", "incident_id = ? AND revoked_at IS NOT NULL", INCIDENT_ID))
         .isZero();
@@ -161,7 +161,9 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
 
     AssignmentChangedOutboxRow handoverEvent = assignmentEvents.get(0);
     assertThat(handoverEvent.payloadStringList("changedAccountIds"))
-        .containsExactly("acct-cmd-alpha", "acct-team-alpha");
+        .containsExactly(
+            "11111111-1111-1111-1111-111111110004",
+            "11111111-1111-1111-1111-111111110005");
 
     AssignmentChangedOutboxRow supportEvent = assignmentEvents.get(1);
     assertThat(supportEvent.eventType()).isEqualTo("INCIDENT_ASSIGNMENT_CHANGED");
@@ -236,14 +238,14 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
             jsonPath(
                 "$.assignments[*].accountId",
                 containsInAnyOrder(
-                    "acct-precinct-cmd",
-                    "acct-precinct-car",
-                    "acct-precinct-team",
-                    "acct-cmd-alpha",
-                    "acct-team-alpha",
-                    "acct-support-cmd",
-                    "acct-support-car",
-                    "acct-support-team")));
+                    "11111111-1111-1111-1111-111111110001",
+                    "11111111-1111-1111-1111-111111110002",
+                    "11111111-1111-1111-1111-111111110003",
+                    "11111111-1111-1111-1111-111111110004",
+                    "11111111-1111-1111-1111-111111110005",
+                    "11111111-1111-1111-1111-111111110006",
+                    "11111111-1111-1111-1111-111111110007",
+                    "11111111-1111-1111-1111-111111110008")));
   }
 
   private void seedIncident() {
@@ -254,7 +256,7 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
           id, source_incident_id, title, status, opened_at, closed_at, closed_by_account_id,
           version, created_at, updated_at
         )
-        VALUES (?, ?, '종로구 인왕산 실종 신고', 'OPEN', ?, NULL, NULL, 1, ?, ?)
+        VALUES (?, ?::uuid, '종로구 인왕산 실종 신고', 'OPEN', ?, NULL, NULL, 1, ?, ?)
         """,
         INCIDENT_ID,
         SOURCE_INCIDENT_ID,
@@ -291,7 +293,7 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
     jdbcTemplate.execute(
         """
         CREATE TABLE IF NOT EXISTS account (
-          id VARCHAR(64) PRIMARY KEY,
+          id UUID PRIMARY KEY,
           login_id VARCHAR(64) NOT NULL UNIQUE,
           password_hash VARCHAR(255) NOT NULL,
           display_name VARCHAR(128) NOT NULL,
@@ -308,7 +310,7 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
           id VARCHAR(64) PRIMARY KEY,
           phone_code VARCHAR(64) NOT NULL UNIQUE,
           display_name VARCHAR(128) NOT NULL,
-          account_id VARCHAR(64) NOT NULL,
+          account_id UUID NOT NULL,
           status VARCHAR(32) NOT NULL,
           last_heartbeat_at TIMESTAMP WITH TIME ZONE,
           last_sync_at TIMESTAMP WITH TIME ZONE,
@@ -323,21 +325,21 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
           id, login_id, password_hash, display_name, account_type, organization_type, status
         )
         VALUES
-          ('acct-precinct-cmd', 'acct-precinct-cmd', '{noop}fixture',
+          ('11111111-1111-1111-1111-111111110001', 'acct-precinct-cmd', '{noop}fixture',
             '종로 지구대 지휘', 'COMMAND', 'POLICE_SUBSTATION', 'ACTIVE'),
-          ('acct-precinct-car', 'acct-precinct-car', '{noop}fixture',
+          ('11111111-1111-1111-1111-111111110002', 'acct-precinct-car', '{noop}fixture',
             '종로 지구대 순찰차', 'PATROL_CAR', 'POLICE_SUBSTATION', 'ACTIVE'),
-          ('acct-precinct-team', 'acct-precinct-team', '{noop}fixture',
+          ('11111111-1111-1111-1111-111111110003', 'acct-precinct-team', '{noop}fixture',
             '종로 지구대 팀', 'TEAM', 'POLICE_SUBSTATION', 'ACTIVE'),
-          ('acct-cmd-alpha', 'acct-cmd-alpha', '{noop}fixture',
+          ('11111111-1111-1111-1111-111111110004', 'acct-cmd-alpha', '{noop}fixture',
             '실종팀 알파 지휘', 'COMMAND', 'MISSING_TEAM', 'ACTIVE'),
-          ('acct-team-alpha', 'acct-team-alpha', '{noop}fixture',
+          ('11111111-1111-1111-1111-111111110005', 'acct-team-alpha', '{noop}fixture',
             '실종팀 알파 팀', 'TEAM', 'MISSING_TEAM', 'ACTIVE'),
-          ('acct-support-cmd', 'acct-support-cmd', '{noop}fixture',
+          ('11111111-1111-1111-1111-111111110006', 'acct-support-cmd', '{noop}fixture',
             '지원 브라보 지휘', 'COMMAND', 'SUPPORT_UNIT', 'ACTIVE'),
-          ('acct-support-car', 'acct-support-car', '{noop}fixture',
+          ('11111111-1111-1111-1111-111111110007', 'acct-support-car', '{noop}fixture',
             '지원 브라보 순찰차', 'PATROL_CAR', 'SUPPORT_UNIT', 'ACTIVE'),
-          ('acct-support-team', 'acct-support-team', '{noop}fixture',
+          ('11111111-1111-1111-1111-111111110008', 'acct-support-team', '{noop}fixture',
             '지원 브라보 팀', 'TEAM', 'SUPPORT_UNIT', 'ACTIVE')
         ON CONFLICT (id) DO NOTHING
         """);
@@ -345,22 +347,22 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
         """
         INSERT INTO police_phone (id, phone_code, display_name, account_id, status)
         VALUES
-          ('dev-precinct-cmd-phone-01', 'dev-precinct-cmd-phone-01',
-            '종로 지구대 지휘 폴리폰', 'acct-precinct-cmd', 'ACTIVE'),
-          ('dev-precinct-car-01', 'dev-precinct-car-01',
-            '종로 지구대 순찰차 폴리폰', 'acct-precinct-car', 'ACTIVE'),
-          ('dev-precinct-phone-01', 'dev-precinct-phone-01',
-            '종로 지구대 팀 폴리폰', 'acct-precinct-team', 'ACTIVE'),
-          ('dev-alpha-cmd-phone-01', 'dev-alpha-cmd-phone-01',
-            '실종팀 알파 지휘 폴리폰', 'acct-cmd-alpha', 'ACTIVE'),
-          ('dev-alpha-phone-01', 'dev-alpha-phone-01',
-            '실종팀 알파 폴리폰', 'acct-team-alpha', 'ACTIVE'),
-          ('dev-support-cmd-phone-01', 'dev-support-cmd-phone-01',
-            '지원 브라보 지휘 폴리폰', 'acct-support-cmd', 'ACTIVE'),
-          ('dev-support-car-01', 'dev-support-car-01',
-            '지원 브라보 순찰차 폴리폰', 'acct-support-car', 'ACTIVE'),
-          ('dev-support-phone-01', 'dev-support-phone-01',
-            '지원 브라보 팀 폴리폰', 'acct-support-team', 'ACTIVE')
+          ('00000000-0000-0000-0000-000000000201', 'dev-precinct-cmd-phone-01',
+            '종로 지구대 지휘 폴리폰', '11111111-1111-1111-1111-111111110001', 'ACTIVE'),
+          ('50000000-0000-0000-0000-000000000001', 'dev-precinct-car-01',
+            '종로 지구대 순찰차 폴리폰', '11111111-1111-1111-1111-111111110002', 'ACTIVE'),
+          ('00000000-0000-0000-0000-000000000101', 'dev-precinct-phone-01',
+            '종로 지구대 팀 폴리폰', '11111111-1111-1111-1111-111111110003', 'ACTIVE'),
+          ('00000000-0000-0000-0000-000000000204', 'dev-alpha-cmd-phone-01',
+            '실종팀 알파 지휘 폴리폰', '11111111-1111-1111-1111-111111110004', 'ACTIVE'),
+          ('00000000-0000-0000-0000-000000000205', 'dev-alpha-phone-01',
+            '실종팀 알파 폴리폰', '11111111-1111-1111-1111-111111110005', 'ACTIVE'),
+          ('00000000-0000-0000-0000-000000000206', 'dev-support-cmd-phone-01',
+            '지원 브라보 지휘 폴리폰', '11111111-1111-1111-1111-111111110006', 'ACTIVE'),
+          ('00000000-0000-0000-0000-000000000207', 'dev-support-car-01',
+            '지원 브라보 순찰차 폴리폰', '11111111-1111-1111-1111-111111110007', 'ACTIVE'),
+          ('00000000-0000-0000-0000-000000000208', 'dev-support-phone-01',
+            '지원 브라보 팀 폴리폰', '11111111-1111-1111-1111-111111110008', 'ACTIVE')
         ON CONFLICT (id) DO NOTHING
         """);
   }
@@ -390,9 +392,17 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
 
   private void seedInitialAssignments() {
     insertAssignment(
-        "10000000-0000-4000-8000-000000000001", "acct-precinct-cmd", "FIELD_COMMANDER");
-    insertAssignment("10000000-0000-4000-8000-000000000002", "acct-precinct-car", "MEMBER");
-    insertAssignment("10000000-0000-4000-8000-000000000003", "acct-precinct-team", "MEMBER");
+        "10000000-0000-4000-8000-000000000001",
+        "11111111-1111-1111-1111-111111110001",
+        "FIELD_COMMANDER");
+    insertAssignment(
+        "10000000-0000-4000-8000-000000000002",
+        "11111111-1111-1111-1111-111111110002",
+        "MEMBER");
+    insertAssignment(
+        "10000000-0000-4000-8000-000000000003",
+        "11111111-1111-1111-1111-111111110003",
+        "MEMBER");
   }
 
   private void insertAssignment(String id, String accountId, String incidentRole) {
@@ -406,7 +416,7 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
         """,
         UUID.fromString(id),
         INCIDENT_ID,
-        accountId,
+        UUID.fromString(accountId),
         incidentRole,
         assignedAt,
         assignedAt,
@@ -610,17 +620,17 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
   private static List<ExternalAssignment> initialAssignments() {
     return List.of(
         assignment(
-            "mock-112-incident-001:precinct-cmd",
+            SOURCE_INCIDENT_ID + ":precinct-cmd",
             "acct-precinct-cmd",
             "FIELD_COMMANDER",
             "2026-04-28T09:00:00+09:00"),
         assignment(
-            "mock-112-incident-001:precinct-car",
+            SOURCE_INCIDENT_ID + ":precinct-car",
             "acct-precinct-car",
             "MEMBER",
             "2026-04-28T09:00:00+09:00"),
         assignment(
-            "mock-112-incident-001:precinct-team",
+            SOURCE_INCIDENT_ID + ":precinct-team",
             "acct-precinct-team",
             "MEMBER",
             "2026-04-28T09:00:00+09:00"));
@@ -629,12 +639,12 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
   private static List<ExternalAssignment> handoverAssignments() {
     return List.of(
         assignment(
-            "mock-112-incident-001:cmd-alpha",
+            SOURCE_INCIDENT_ID + ":cmd-alpha",
             "acct-cmd-alpha",
             "INCIDENT_COMMANDER",
             "2026-04-28T10:30:00+09:00"),
         assignment(
-            "mock-112-incident-001:team-alpha",
+            SOURCE_INCIDENT_ID + ":team-alpha",
             "acct-team-alpha",
             "MEMBER",
             "2026-04-28T10:30:00+09:00"));
@@ -643,17 +653,17 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
   private static List<ExternalAssignment> supportAssignments() {
     return List.of(
         assignment(
-            "mock-112-incident-001:support-cmd",
+            SOURCE_INCIDENT_ID + ":support-cmd",
             "acct-support-cmd",
             "FIELD_COMMANDER",
             "2026-04-28T11:00:00+09:00"),
         assignment(
-            "mock-112-incident-001:support-car",
+            SOURCE_INCIDENT_ID + ":support-car",
             "acct-support-car",
             "MEMBER",
             "2026-04-28T11:00:00+09:00"),
         assignment(
-            "mock-112-incident-001:support-team",
+            SOURCE_INCIDENT_ID + ":support-team",
             "acct-support-team",
             "MEMBER",
             "2026-04-28T11:00:00+09:00"));

@@ -41,7 +41,7 @@
 | 항목 | 결과 |
 |---|---|
 | 대표 사건 | PASS. `incidentId=inc-precinct-first-001` |
-| mock 112 원천 | PASS. `sourceIncidentId=mock-112-incident-001` |
+| mock 112 원천 | PASS. `sourceIncidentId=00000000-0000-0000-0000-000000000001` |
 | OP1 | PASS. `opId=op-precinct-001-op1` |
 | 초기 마커 | PASS. `mk-precinct-clue-001` |
 | 초동 차량 경로 | PASS. `path-precinct-car-001` |
@@ -52,7 +52,7 @@
 
 | 확인 항목 | 결과 |
 |---|---|
-| 사건 가져오기 | PASS. `mock-112-incident-001` 원천 import가 `inc-precinct-first-001` 사건을 `OPEN` 상태로 구성한다. |
+| 사건 가져오기 | PASS. `00000000-0000-0000-0000-000000000001` 원천 import가 `inc-precinct-first-001` 사건을 `OPEN` 상태로 구성한다. |
 | OP1 자동 생성 | PASS. 같은 import 흐름에서 `op-precinct-001-op1` 생성과 `OP_TRANSITIONED(from=null)` publish request stage가 검증됐다. |
 | 참여 계정/초기 마커 | PASS. 지구대/파출소 지휘·순찰차·팀 계정 배정과 `mk-precinct-clue-001` 초기 마커 fixture가 유지된다. |
 | 중복 import 방지 | PASS. 같은 sourceIncidentId와 idempotency 기준으로 사건, OP, assignment가 중복 생성되지 않는 계약을 검증했다. |
@@ -61,8 +61,8 @@
 
 | 확인 항목 | 결과 |
 |---|---|
-| 실종팀 인계 | PASS. `mock-112-incident-001:cmd-alpha`, `mock-112-incident-001:team-alpha`가 같은 사건에 추가되고 기존 OP1 기록이 보존된다. |
-| 지원 부대 배정 | PASS. `mock-112-incident-001:support-cmd`, `mock-112-incident-001:support-car`, `mock-112-incident-001:support-team` 반영 후 `ia-precinct-support-car-001=ACTIVE`를 포함한 지원 배정 row가 활성 상태로 남는다. |
+| 실종팀 인계 | PASS. `00000000-0000-0000-0000-000000000001:cmd-alpha`, `00000000-0000-0000-0000-000000000001:team-alpha`가 같은 사건에 추가되고 기존 OP1 기록이 보존된다. |
+| 지원 부대 배정 | PASS. `00000000-0000-0000-0000-000000000001:support-cmd`, `00000000-0000-0000-0000-000000000001:support-car`, `00000000-0000-0000-0000-000000000001:support-team` 반영 후 `ia-precinct-support-car-001=ACTIVE`를 포함한 지원 배정 row가 활성 상태로 남는다. |
 | OP1 기록 보존 | PASS. `path-precinct-car-001`, `path-precinct-foot-001`, `memo-precinct-handover-001`가 인계 후에도 같은 사건·OP1 소속으로 유지된다. |
 | FCM evidence | PASS. mock FCM recipient `fcm:dev-support-car-01`, `fcm:dev-support-phone-01`, `fcm:dev-alpha-phone-01` 경계에서 개인정보 없는 배정 알림 payload가 검증됐다. |
 | board 수렴 | PASS. `bs-inc-precinct-first-001` board response에서 `handover_status`, `op_history`, `marker`, `path` 소비 경계가 최신 source evidence를 따른다. |

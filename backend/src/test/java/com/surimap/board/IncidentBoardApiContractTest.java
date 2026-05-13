@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.surimap.account.AccountIdentityCatalog;
 import com.surimap.common.auth.AccountType;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.OrganizationType;
@@ -40,7 +41,7 @@ import org.springframework.test.web.servlet.MockMvc;
 class IncidentBoardApiContractTest {
 
   private static final UUID INCIDENT_ID = UUID.fromString("10000000-0000-4000-8000-000000000001");
-  private static final String COMMAND_ACCOUNT_ID_VALUE = "11111111-1111-4111-8111-111111111111";
+  private static final String COMMAND_ACCOUNT_ID_VALUE = "11111111-1111-1111-1111-111111110004";
 
   @Autowired private MockMvc mockMvc;
 

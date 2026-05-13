@@ -4,6 +4,7 @@ import com.surimap.common.auth.SuriMapAuthentication;
 import com.surimap.common.auth.guard.IncidentAccessPort;
 import com.surimap.common.auth.guard.TeamNotAssignedException;
 import com.surimap.incident.repository.IncidentReadMapper;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 /**
@@ -21,7 +22,7 @@ public class IncidentAssignmentAccessGuard implements IncidentAccessPort {
 
   @Override
   public void checkAccess(SuriMapAuthentication auth) {
-    if (incidentReadMapper.countActiveAssignmentsByAccountId(auth.getAccountId()) == 0) {
+    if (incidentReadMapper.countActiveAssignmentsByAccountId(UUID.fromString(auth.getAccountId())) == 0) {
       throw new TeamNotAssignedException();
     }
   }

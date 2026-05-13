@@ -60,7 +60,8 @@ class OfflinePackageSearchAreaChangedConsumerRedTest {
     jdbcTemplate.update("DELETE FROM offline_package_installation");
     jdbcTemplate.update("DELETE FROM offline_package_manifest");
     eventHub.reset();
-    installationQuery.byIncident(OfflinePackageManifestFixtures.INCIDENT_ID);
+    offlinePackageService.manifest(
+        OfflinePackageManifestFixtures.INCIDENT_ID, OfflinePackageManifestFixtures.POLICE_PHONE_ID);
   }
 
   @Test
@@ -183,11 +184,7 @@ class OfflinePackageSearchAreaChangedConsumerRedTest {
             OfflinePackageManifestFixtures.POLICE_PHONE_ID);
     assertThat(manifest.manifestVersion())
         .isEqualTo(OfflinePackageInstallationFixtures.STALE_MANIFEST_VERSION);
-    assertThat(manifest.manifestId())
-        .isEqualTo(
-            OfflinePackageManifestFixtures.MANIFEST_ID
-                + "-rev-"
-                + OfflinePackageInstallationFixtures.STALE_MANIFEST_VERSION);
+    assertThat(manifest.manifestId()).isEqualTo(OfflinePackageInstallationFixtures.STALE_MANIFEST_ID);
     assertThat(manifest.packageItems())
         .extracting(OfflinePackageManifestResponse.PackageItem::status)
         .containsOnly("PENDING");
@@ -217,6 +214,8 @@ class OfflinePackageSearchAreaChangedConsumerRedTest {
     assertThat(row.version()).isPositive();
     assertThat(row.payload())
         .containsEntry("packageStatus", "STALE")
+        .containsEntry("policePhoneCode", statusPhoneCode(id))
+        .containsEntry("policePhoneName", statusPhoneName(id))
         .containsEntry("readyForOfflineUse", false)
         .containsEntry(
             "manifestVersion", OfflinePackageManifestFixtures.MANIFEST_VERSION);
@@ -232,9 +231,35 @@ class OfflinePackageSearchAreaChangedConsumerRedTest {
             "activeManifestVersion", OfflinePackageInstallationFixtures.STALE_MANIFEST_VERSION);
   }
 
+  private static String statusPhoneCode(String id) {
+    if (OfflinePackageInstallationFixtures.SEEDED_READY_INSTALLATION_ID.equals(id)) {
+      return OfflinePackageManifestFixtures.POLICE_PHONE_CODE;
+    }
+    if (OfflinePackageInstallationFixtures.SEEDED_PARTIAL_INSTALLATION_ID.equals(id)) {
+      return "dev-precinct-phone-02";
+    }
+    if (OfflinePackageInstallationFixtures.SEEDED_DOWNLOADING_INSTALLATION_ID.equals(id)) {
+      return "dev-precinct-phone-05";
+    }
+    return id;
+  }
+
+  private static String statusPhoneName(String id) {
+    if (OfflinePackageInstallationFixtures.SEEDED_READY_INSTALLATION_ID.equals(id)) {
+      return "경찰서 팀폰";
+    }
+    if (OfflinePackageInstallationFixtures.SEEDED_PARTIAL_INSTALLATION_ID.equals(id)) {
+      return "경찰서 팀폰 02";
+    }
+    if (OfflinePackageInstallationFixtures.SEEDED_DOWNLOADING_INSTALLATION_ID.equals(id)) {
+      return "경찰서 팀폰 05";
+    }
+    return statusPhoneCode(id);
+  }
+
   private static PublishRequest searchAreaChangedEvent() {
     Map<String, Object> payload = new LinkedHashMap<>();
-    payload.put("id", BoundaryAreaFixtures.OVERALL_AREA_ALIAS);
+    payload.put("id", BoundaryAreaFixtures.OVERALL_AREA_ID.toString());
     payload.put("incidentId", OfflinePackageManifestFixtures.INCIDENT_ID);
     payload.put("status", "ACTIVE");
     payload.put("version", BoundaryAreaFixtures.OVERALL_AREA_VERSION);
@@ -247,7 +272,7 @@ class OfflinePackageSearchAreaChangedConsumerRedTest {
         OfflinePackageInstallationFixtures.SEARCH_AREA_CHANGED_EVENT_TYPE,
         1,
         "search_area",
-        stableUuid("search_area:" + BoundaryAreaFixtures.OVERALL_AREA_ALIAS),
+        stableUuid("search_area:" + BoundaryAreaFixtures.OVERALL_AREA_ID),
         OfflinePackageInstallationFixtures.SERVER_TS.toInstant(),
         payload);
   }

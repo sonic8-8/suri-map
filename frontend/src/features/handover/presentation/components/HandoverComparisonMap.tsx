@@ -16,14 +16,14 @@ import {
   type BoardMovementPath,
 } from '../../../../shared/model/boardMapSlots';
 import { getRouteCoreColor } from '../../../../shared/model/boardMapFeatures';
-import type { HandoverBoardResponseDto } from '../../data/getHandoverBoard';
+import { type IncidentBoardResponse, type BoardSlotName } from '../../../board/api/incidentBoardApi';
 import styles from './HandoverComparisonMap.module.css';
 
 export type HandoverComparisonMapProps = {
   externalMap?: maplibregl.Map | null;
   hideCanvas?: boolean;
   incidentId: string;
-  board: HandoverBoardResponseDto | null;
+  board: IncidentBoardResponse | null;
   focusedOpId: string | null;
   selectedOpIds: string[];
 };
@@ -359,7 +359,7 @@ function extendBounds(bounds: maplibregl.LngLatBounds, coordinates: unknown): vo
 }
 
 function createComparisonFeatureCollections(
-  board: HandoverBoardResponseDto | null,
+  board: IncidentBoardResponse | null,
   incidentId: string,
   selectedOpIds: string[],
   focusedOpId: string | null,
@@ -642,11 +642,11 @@ function markerTypeGlyph(markerType: string) {
   }
 }
 
-function readSlotRows(board: HandoverBoardResponseDto, slot: string): Record<string, unknown>[] {
-  const value = board.slots[slot];
-  if (isRecord(value) && Object.keys(value).length > 0) return [value];
-  if (!Array.isArray(value)) return [];
-  return value.filter(isRecord);
+function readSlotRows(board: IncidentBoardResponse, slot: BoardSlotName): Record<string, unknown>[] {
+  const raw = board.slots[slot] as unknown;
+  if (!raw) return [];
+  if (Array.isArray(raw)) return (raw as unknown[]).filter(isRecord);
+  return isRecord(raw) ? [raw] : [];
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

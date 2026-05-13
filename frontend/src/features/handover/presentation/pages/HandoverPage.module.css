@@ -22,7 +22,7 @@
 
 .shell {
   display: grid;
-  grid-template-columns: 360px minmax(0, 1fr) 360px;
+  grid-template-columns: 360px minmax(0, 1fr);
   height: 100%;
   min-height: 0;
   overflow: hidden;
@@ -30,7 +30,7 @@
 }
 
 .embeddedPage .shell {
-  grid-template-columns: 360px minmax(0, 1fr) 360px;
+  grid-template-columns: 360px minmax(0, 1fr);
   min-height: 0;
   height: 100%;
   background: transparent;
@@ -51,18 +51,12 @@
   pointer-events: auto;
 }
 
-.embeddedPage .memoPanel {
-  grid-column: 3;
-  pointer-events: auto;
-}
-
 .embeddedPage .mapBlock {
   display: none;
 }
 
 .opPanel,
-.historyPanel,
-.memoPanel {
+.historyPanel {
   min-height: 0;
 }
 
@@ -71,8 +65,7 @@
   min-width: 360px;
 }
 
-.opPanelBody,
-.memoPanelBody {
+.opPanelBody {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
@@ -81,7 +74,7 @@
 }
 
 .opPanelBody {
-  padding: 42px 7px 12px 12px;
+  padding: 12px 7px 12px 12px;
   overflow-x: hidden;
   overflow-y: auto;
   scrollbar-color: var(--suri-board-left-scrollbar-thumb) var(--suri-board-left-scrollbar-track);
@@ -108,6 +101,60 @@
 
 .opPanelBody::-webkit-scrollbar-thumb:hover {
   background: var(--suri-board-left-scrollbar-thumb-hover);
+}
+
+.leftPanelTabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  width: 100%;
+}
+
+.leftPanelTab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--handover-border-soft);
+  border-radius: 6px;
+  color: var(--suri-board-fg-secondary);
+  background: var(--handover-panel-surface);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.leftPanelTab span {
+  color: var(--suri-board-primary-hi);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.leftPanelTabActive {
+  border-color: var(--suri-board-primary-hi);
+  color: var(--suri-board-fg-primary);
+  background: var(--suri-board-primary-soft);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--suri-board-primary-hi) 34%, transparent);
+}
+
+.leftPanelTab:focus-visible {
+  outline: 2px solid var(--suri-board-primary-hi);
+  outline-offset: 2px;
+}
+
+.leftPanelPage {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.leftPanelPage[hidden] {
+  display: none;
 }
 
 .historyPanelBody {
@@ -220,7 +267,8 @@
 .opPanelFooter {
   display: grid;
   gap: 8px;
-  padding: 14px;
+  margin-top: auto;
+  padding: 14px 7px 2px 2px;
 }
 
 .opPanelFooter span {
@@ -267,6 +315,11 @@
 .embeddedPage .historyContent {
   gap: 12px;
   padding: 14px;
+}
+
+.mapArea {
+  min-height: 0;
+  overflow: hidden;
 }
 
 .mapBlock {
@@ -421,7 +474,7 @@
 .memoComposer {
   display: grid;
   gap: 10px;
-  margin: 14px;
+  margin: 0 0 14px;
   padding: 14px;
   border: 1px solid var(--handover-border-soft);
   border-radius: 8px;
@@ -513,7 +566,7 @@
   display: grid;
   align-content: start;
   gap: 10px;
-  padding: 0 14px 16px;
+  padding: 0 0 16px;
 }
 
 .memoItem {
@@ -575,8 +628,7 @@
   background: color-mix(in srgb, #4b1e20 40%, var(--suri-board-panel-bg));
 }
 
-.opPanelBody > .errorText,
-.memoPanelBody > .errorText {
+.opPanelBody > .errorText {
   margin: 14px;
 }
 
@@ -600,6 +652,89 @@
   color: var(--suri-board-fg-primary);
   background: var(--handover-panel-bg);
   box-shadow: 0 24px 70px rgb(0 0 0 / 34%);
+}
+
+.comparisonModal {
+  width: min(787px, calc(100vw - 48px));
+  max-height: min(573px, calc(100vh - 48px));
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.comparisonModalBody {
+  min-height: 0;
+  overflow: auto;
+  scrollbar-color: var(--suri-board-left-scrollbar-thumb) var(--suri-board-left-scrollbar-track);
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+.comparisonModalBody::-webkit-scrollbar {
+  width: 10px;
+}
+
+.comparisonModalBody::-webkit-scrollbar-track {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.comparisonModalBody::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--suri-board-left-scrollbar-thumb);
+  background-clip: content-box;
+}
+
+.comparisonModalBody::-webkit-scrollbar-thumb:hover {
+  background: var(--suri-board-left-scrollbar-thumb-hover);
+}
+
+.comparisonModalBody .historyContent {
+  padding: 18px 20px 22px;
+}
+
+.comparisonModalBody .detailGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.comparisonModalBody .detailGrid div {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 14px;
+  row-gap: 4px;
+}
+
+.comparisonModalBody .summaryGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.comparisonModalBody .summaryCard {
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  padding: 16px 20px;
+  column-gap: 20px;
+  row-gap: 4px;
+}
+
+.comparisonModalBody .summaryCard > span {
+  grid-area: 1 / 1;
+}
+
+.comparisonModalBody .summaryCard > strong {
+  grid-area: 1 / 2 / 3 / 3;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.comparisonModalBody .summaryCard > small {
+  grid-area: 2 / 1;
+}
+
+.comparisonModal .modalHeader button {
+  width: auto;
+  padding: 0 12px;
+  font-size: 13px;
 }
 
 .modalHeader {
@@ -762,13 +897,6 @@
 @media (max-width: 1280px) {
   .shell {
     grid-template-columns: 360px minmax(0, 1fr);
-  }
-
-  .memoPanel {
-    grid-column: 1 / -1;
-    min-height: 360px;
-    border-left: 0;
-    border-top: 1px solid var(--handover-border);
   }
 
   .mapBlock {

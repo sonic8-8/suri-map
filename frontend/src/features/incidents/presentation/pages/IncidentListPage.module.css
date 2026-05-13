@@ -1,7 +1,7 @@
 /* 사건 목록 페이지 전체 레이아웃과 배경을 정의한다. */
 .page {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   height: 100%;
   overflow: hidden;
   color: var(--suri-board-fg-primary);
@@ -222,120 +222,6 @@
   gap: 8px;
   margin-left: auto;
   flex-shrink: 0;
-}
-
-/* 필터 칩과 페이지 요약을 담는 도구 막대다. */
-.toolbar {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  min-height: 54px;
-  padding: 0 20px;
-  border-bottom: 1px solid var(--color-border-default);
-  background: #f4f6f8;
-}
-
-/* 필터 버튼 묶음을 가로로 정렬한다. */
-.filterGroup {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-/* 상태/분류 필터 칩의 기본 모양이다. */
-.filterChip {
-  min-height: 32px;
-  padding: 0 12px;
-  border: 1px solid color-mix(in srgb, #4f7198 24%, var(--color-border-default));
-  border-radius: 999px;
-  color: #40576d;
-  background: color-mix(in srgb, #dfe8f2 42%, var(--color-bg-surface));
-  font-size: 13px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-/* 필터 칩 마우스 오버 상태다. */
-.filterChip:hover {
-  border-color: var(--color-border-strong);
-  color: var(--color-fg-primary);
-  background: var(--color-bg-surface);
-}
-
-/* 선택된 필터 칩의 공통 강조 상태다. */
-.filterChipActive {
-  border-color: #4f7198;
-  color: #243d57;
-  background: #d8e5f2;
-  box-shadow: 0 0 0 2px color-mix(in srgb, #4f7198 18%, transparent);
-  font-weight: 800;
-}
-
-/* 진행 중 상태 필터 칩의 색상이다. */
-.filterChipStatusProgress {
-  border-color: color-mix(in srgb, #1f8754 28%, var(--color-border-default));
-  color: #246344;
-  background: color-mix(in srgb, #e5f4ec 64%, var(--color-bg-surface));
-}
-
-/* 진행 중 상태 필터 칩 마우스 오버 상태다. */
-.filterChipStatusProgress:hover {
-  border-color: color-mix(in srgb, #1f8754 44%, var(--color-border-strong));
-  color: #164d33;
-  background: color-mix(in srgb, #e5f4ec 82%, var(--color-bg-surface));
-}
-
-/* 선택된 진행 중 상태 필터 칩이다. */
-.filterChipActive.filterChipStatusProgress {
-  border-color: #1f8754;
-  color: #0f3d28;
-  background: #cce8d8;
-  box-shadow: 0 0 0 2px color-mix(in srgb, #1f8754 20%, transparent);
-}
-
-/* 대기 상태 필터 칩의 색상이다. */
-.filterChipStatusWaiting {
-  border-color: color-mix(in srgb, #e8881a 32%, var(--color-border-default));
-  color: #815116;
-  background: color-mix(in srgb, #fcf1e2 68%, var(--color-bg-surface));
-}
-
-/* 대기 상태 필터 칩 마우스 오버 상태다. */
-.filterChipStatusWaiting:hover {
-  border-color: color-mix(in srgb, #e8881a 52%, var(--color-border-strong));
-  color: #683e0c;
-  background: color-mix(in srgb, #fcf1e2 86%, var(--color-bg-surface));
-}
-
-/* 선택된 대기 상태 필터 칩이다. */
-.filterChipActive.filterChipStatusWaiting {
-  border-color: #d77812;
-  color: #5a3508;
-  background: #f7ddb8;
-  box-shadow: 0 0 0 2px color-mix(in srgb, #e8881a 22%, transparent);
-}
-
-/* 종료 상태 필터 칩의 색상이다. */
-.filterChipStatusClosed {
-  border-color: color-mix(in srgb, #8e8e8e 34%, var(--color-border-default));
-  color: #5f6872;
-  background: color-mix(in srgb, #edf1f5 72%, var(--color-bg-surface));
-}
-
-/* 종료 상태 필터 칩 마우스 오버 상태다. */
-.filterChipStatusClosed:hover {
-  border-color: color-mix(in srgb, #8e8e8e 56%, var(--color-border-strong));
-  color: #454d56;
-  background: color-mix(in srgb, #edf1f5 88%, var(--color-bg-surface));
-}
-
-/* 선택된 종료 상태 필터 칩이다. */
-.filterChipActive.filterChipStatusClosed {
-  border-color: #68717a;
-  color: #323940;
-  background: #d7dde4;
-  box-shadow: 0 0 0 2px color-mix(in srgb, #6f7780 20%, transparent);
 }
 
 /* 현재 페이지와 전체 건수를 보여주는 페이지 요약 영역이다. */
@@ -748,7 +634,6 @@
     display: none;
   }
 
-  .toolbar,
   .paginationBar {
     align-items: flex-start;
     flex-direction: column;
@@ -770,7 +655,6 @@
     padding: 12px;
   }
 
-  .filterGroup,
   .paginationControls {
     flex-wrap: wrap;
   }

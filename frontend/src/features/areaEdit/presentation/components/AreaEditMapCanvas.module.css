@@ -14,6 +14,11 @@
   pointer-events: none;
 }
 
+.drawingCapture {
+  cursor: crosshair;
+  pointer-events: auto;
+}
+
 .canvas {
   position: absolute;
   inset: 0;

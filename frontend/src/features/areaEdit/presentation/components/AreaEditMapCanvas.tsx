@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react';
 import maplibregl, {
   type GeoJSONSource,
   type LayerSpecification,
@@ -959,6 +959,30 @@ export function AreaEditMapCanvas({
     if (entityId) onSelectAreaRef.current(entityId);
   }, []);
 
+  const handleDrawingClick = useCallback((position: AreaEditPosition, point: { x: number; y: number }) => {
+    const currentPoints = draftPointsRef.current;
+    const firstPoint = currentPoints[0];
+
+    if (firstPoint && currentPoints.length >= 2) {
+      const map = mapRef.current;
+      const firstPixel = map?.project(firstPoint);
+      if (firstPixel && Math.hypot(firstPixel.x - point.x, firstPixel.y - point.y) <= CLOSE_VERTEX_PIXEL_THRESHOLD) {
+        const closedRing: AreaEditPosition[] = [...currentPoints, firstPoint];
+        const validationError = validateClosedRing(closedRing);
+
+        if (validationError) {
+          onValidationMessageRef.current(validationError);
+          return;
+        }
+
+        onCloseDraftRef.current(closedRing);
+        return;
+      }
+    }
+
+    onDraftPointAddRef.current(position);
+  }, []);
+
   const handleMapClick = useCallback((event: maplibregl.MapMouseEvent) => {
     if (!isDrawingRef.current) {
       const map = mapRef.current;
@@ -976,37 +1000,33 @@ export function AreaEditMapCanvas({
       return;
     }
 
-    const position: AreaEditPosition = [event.lngLat.lng, event.lngLat.lat];
-    const currentPoints = draftPointsRef.current;
-    const firstPoint = currentPoints[0];
+    handleDrawingClick([event.lngLat.lng, event.lngLat.lat], event.point);
+  }, [handleDrawingClick]);
 
-    if (firstPoint && currentPoints.length >= 2) {
-      const map = mapRef.current;
-      const firstPixel = map?.project(firstPoint);
-      if (firstPixel && Math.hypot(firstPixel.x - event.point.x, firstPixel.y - event.point.y) <= CLOSE_VERTEX_PIXEL_THRESHOLD) {
-        const closedRing: AreaEditPosition[] = [...currentPoints, firstPoint];
-        const validationError = validateClosedRing(closedRing);
+  const handleExternalSurfaceClick = useCallback((event: MouseEvent<HTMLDivElement>) => {
+    const map = mapRef.current;
+    if (!map || !hideCanvas || !isDrawingRef.current) return;
+    if ((event.target as HTMLElement).closest('button')) return;
 
-        if (validationError) {
-          onValidationMessageRef.current(validationError);
-          return;
-        }
-
-        onCloseDraftRef.current(closedRing);
-        return;
-      }
-    }
-
-    onDraftPointAddRef.current(position);
-  }, []);
+    const canvasRect = map.getCanvas().getBoundingClientRect();
+    const point = {
+      x: event.clientX - canvasRect.left,
+      y: event.clientY - canvasRect.top,
+    };
+    const lngLat = map.unproject([point.x, point.y]);
+    handleDrawingClick([lngLat.lng, lngLat.lat], point);
+  }, [handleDrawingClick, hideCanvas]);
 
   useEffect(() => {
     if (!externalMap) return;
 
     mapRef.current = externalMap;
     onMapReadyRef.current?.(externalMap);
+    let isInitialized = false;
 
     const initializeExternalLayers = () => {
+      if (isInitialized || !externalMap.isStyleLoaded()) return;
+      isInitialized = true;
       addSearchAreaLayers(externalMap, buildAreaFeatureCollection());
       addDrawingLayers(externalMap, { showCompletedDrafts: false });
       setGeoJsonSourceData(
@@ -1031,14 +1051,16 @@ export function AreaEditMapCanvas({
       externalMap.on('resize', updateTooltipPosition);
     };
 
-    if (externalMap.loaded()) {
+    if (externalMap.isStyleLoaded()) {
       initializeExternalLayers();
     } else {
       externalMap.once('load', initializeExternalLayers);
+      externalMap.on('styledata', initializeExternalLayers);
     }
 
     return () => {
       externalMap.off('load', initializeExternalLayers);
+      externalMap.off('styledata', initializeExternalLayers);
       externalMap.off('click', AREA_EDIT_FILL_LAYER_ID, handleAreaClick);
       externalMap.off('click', AREA_EDIT_LINE_LAYER_ID, handleAreaClick);
       externalMap.off('click', handleMapClick);
@@ -1152,7 +1174,13 @@ export function AreaEditMapCanvas({
   const selectedTooltipDraft = normalSelectedAreaId ? completedDrafts.find((draft) => draft.areaId === normalSelectedAreaId) : null;
 
   return (
-    <div className={`${styles.surface}${hideCanvas ? ` ${styles.externalSurface}` : ''}`} aria-label="구역 편집 지도">
+    <div
+      className={`${styles.surface}${hideCanvas ? ` ${styles.externalSurface}` : ''}${
+        hideCanvas && isDrawing ? ` ${styles.drawingCapture}` : ''
+      }`}
+      aria-label="구역 편집 지도"
+      onClick={handleExternalSurfaceClick}
+    >
       {hideCanvas ? null : <div ref={mapContainerRef} className={styles.canvas} />}
       {tooltipPosition && selectedTooltipDraft ? (
         <div
@@ -1186,7 +1214,14 @@ export function AreaEditMapCanvas({
           }}
           aria-label={canCompleteDraft ? '구역 완료' : '최근 꼭짓점 되돌리기'}
           title={canCompleteDraft ? '완료' : '되돌리기'}
-          onClick={canCompleteDraft ? onConfirmDraft : onUndoDraft}
+          onClick={(event) => {
+            event.stopPropagation();
+            if (canCompleteDraft) {
+              onConfirmDraft();
+              return;
+            }
+            onUndoDraft();
+          }}
         >
           {canCompleteDraft ? '✓' : '↶'}
         </button>
@@ -1194,4 +1229,3 @@ export function AreaEditMapCanvas({
     </div>
   );
 }
-

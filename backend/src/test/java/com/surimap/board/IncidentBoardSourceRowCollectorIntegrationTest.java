@@ -71,7 +71,9 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
             new FakePackageQuery(),
             new FakeOperationalPeriodQuery(),
             new FakeHandoverMemoQuery(),
-            new FakeSummaryMapper());
+            new FakeSummaryMapper(),
+            provider(null),
+            provider(null));
 
     IncidentBoardSourceRowSnapshot snapshot =
         collector.collect(
@@ -129,7 +131,9 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
             new FakePackageQuery(),
             new FakeOperationalPeriodQuery(),
             new FakeHandoverMemoQuery(),
-            new FakeSummaryMapper());
+            new FakeSummaryMapper(),
+            provider(null),
+            provider(null));
 
     IncidentBoardSourceRowSnapshot snapshot =
         collector.collect(
@@ -154,7 +158,9 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
             new FakePackageQuery(),
             new FakeOperationalPeriodQuery(),
             new FakeHandoverMemoQuery(),
-            new FakeSummaryMapper());
+            new FakeSummaryMapper(),
+            provider(null),
+            provider(null));
 
     IncidentBoardSourceRowSnapshot snapshot =
         collector.collect(
@@ -274,6 +280,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
           OP_ID,
           null,
           "ACTIVE",
+          null,
           5L,
           polygon(),
           List.of(
@@ -367,7 +374,16 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
     public List<OfflinePackageInstallationStatus> byIncident(String incidentId) {
       return List.of(
           new OfflinePackageInstallationStatus(
-              "pkg-status-test-001", incidentId, PHONE_ID.toString(), "READY", 7L, 701L, 1, true));
+              "pkg-status-test-001",
+              incidentId,
+              PHONE_ID.toString(),
+              "dev-test-phone-01",
+              "Test team phone",
+              "READY",
+              7L,
+              701L,
+              1,
+              true));
     }
   }
 
@@ -424,7 +440,18 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
     }
 
     @Override
-    public void insertGenerationRequest(
+    public String sourceEvidenceForScope(UUID opId, UUID dutyShiftId) {
+      return "unused";
+    }
+
+    @Override
+    public List<SearchHistorySummaryRow> findReadyOrFailedByScopeWithDifferentHash(
+        UUID opId, UUID dutyShiftId, String sourceDataHash) {
+      return List.of();
+    }
+
+    @Override
+    public int insertGenerationRequest(
         UUID summaryId,
         UUID opId,
         UUID dutyShiftId,
@@ -436,6 +463,20 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
         Instant generatedAt,
         long version,
         Instant createdAt,
+        Instant updatedAt) {
+      return 1;
+    }
+
+    @Override
+    public void updateGenerationResult(
+        UUID summaryId,
+        String generationStatus,
+        String content,
+        String sourceReadiness,
+        Instant generatedAt,
         Instant updatedAt) {}
+
+    @Override
+    public void markStaleByIds(List<UUID> summaryIds, Instant updatedAt) {}
   }
 }

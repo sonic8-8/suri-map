@@ -44,6 +44,13 @@ public class InMemoryPolicePhoneFixtureStore
     seedFixtures();
   }
 
+  public synchronized void reset() {
+    fixtures.clear();
+    activeTokensById.clear();
+    activeTokenIdsByPhoneAndInstance.clear();
+    seedFixtures();
+  }
+
   @Override
   public void checkRegistered(UUID policePhoneId) {
     if (!fixtures.containsKey(policePhoneId)) {

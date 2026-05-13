@@ -60,6 +60,8 @@ class PackageBadgeBoardAssemblyRedTest {
         .containsEntry("sequence", (long) OfflinePackageInstallationFixtures.SEQUENCE)
         .containsEntry("incidentId", OfflinePackageManifestFixtures.INCIDENT_ID)
         .containsEntry("policePhoneId", OfflinePackageManifestFixtures.POLICE_PHONE_ID)
+        .containsEntry("policePhoneCode", OfflinePackageManifestFixtures.POLICE_PHONE_CODE)
+        .containsEntry("policePhoneName", "경찰서 팀폰")
         .containsEntry("manifestVersion", OfflinePackageManifestFixtures.MANIFEST_VERSION)
         .containsEntry("packageStatus", "READY")
         .containsEntry("readyForOfflineUse", true);
@@ -143,6 +145,8 @@ class PackageBadgeBoardAssemblyRedTest {
             OfflinePackageInstallationFixtures.INSTALLATION_ID,
             OfflinePackageManifestFixtures.INCIDENT_ID,
             OfflinePackageManifestFixtures.POLICE_PHONE_ID,
+            OfflinePackageManifestFixtures.POLICE_PHONE_CODE,
+            "경찰서 팀폰",
             "READY",
             OfflinePackageInstallationFixtures.VERSION,
             OfflinePackageInstallationFixtures.SEQUENCE,
@@ -152,6 +156,8 @@ class PackageBadgeBoardAssemblyRedTest {
             "pkg-status-precinct-partial-001",
             OfflinePackageManifestFixtures.INCIDENT_ID,
             "dev-precinct-phone-02",
+            "dev-precinct-phone-02",
+            "경찰서 팀폰 02",
             "PARTIAL",
             2,
             OfflinePackageInstallationFixtures.SEQUENCE,
@@ -161,6 +167,8 @@ class PackageBadgeBoardAssemblyRedTest {
             "pkg-status-precinct-stale-001",
             OfflinePackageManifestFixtures.INCIDENT_ID,
             "dev-precinct-phone-03",
+            "dev-precinct-phone-03",
+            "경찰서 팀폰 03",
             "STALE",
             4,
             OfflinePackageInstallationFixtures.SEQUENCE,
@@ -170,6 +178,8 @@ class PackageBadgeBoardAssemblyRedTest {
             "pkg-status-precinct-failed-001",
             OfflinePackageManifestFixtures.INCIDENT_ID,
             "dev-precinct-phone-04",
+            "dev-precinct-phone-04",
+            "경찰서 팀폰 04",
             "FAILED",
             5,
             OfflinePackageInstallationFixtures.SEQUENCE,
