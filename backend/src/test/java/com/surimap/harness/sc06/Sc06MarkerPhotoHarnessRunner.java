@@ -57,17 +57,22 @@ import org.springframework.http.HttpStatus;
 public class Sc06MarkerPhotoHarnessRunner {
 
   private static final String SCENARIO_ID = "SC-06";
-  private static final String INCIDENT_ID = MarkerGeometryFixtures.INCIDENT_ALIAS;
+  private static final String INCIDENT_ALIAS = MarkerGeometryFixtures.INCIDENT_ALIAS;
+  private static final String INCIDENT_ID = String.valueOf(MarkerGeometryFixtures.INCIDENT_ID);
   private static final UUID INCIDENT_UUID = MarkerGeometryFixtures.INCIDENT_ID;
-  private static final String OP_ID = MarkerGeometryFixtures.OP1_ALIAS;
+  private static final String OP_ALIAS = MarkerGeometryFixtures.OP1_ALIAS;
+  private static final String OP_ID = String.valueOf(MarkerGeometryFixtures.OP1_ID);
   private static final UUID OP_UUID = MarkerGeometryFixtures.OP1_ID;
-  private static final String ACCOUNT_ID = MarkerGeometryFixtures.ACCOUNT_ALIAS;
-  private static final UUID ACCOUNT_UUID = UUID.fromString("11111111-1111-1111-1111-111111110906");
-  private static final String POLICE_PHONE_ID = MarkerGeometryFixtures.POLICE_PHONE_ALIAS;
-  private static final UUID POLICE_PHONE_UUID =
-      UUID.fromString("22222222-2222-2222-2222-222222220906");
-  private static final String MARKER_ID = MarkerGeometryFixtures.MARKER_ALIAS;
+  private static final String ACCOUNT_CODE = MarkerGeometryFixtures.ACCOUNT_ALIAS;
+  private static final String ACCOUNT_ID = "11111111-1111-1111-1111-111111110003";
+  private static final UUID ACCOUNT_UUID = UUID.fromString(ACCOUNT_ID);
+  private static final String POLICE_PHONE_CODE = MarkerGeometryFixtures.POLICE_PHONE_ALIAS;
+  private static final String POLICE_PHONE_ID = "00000000-0000-0000-0000-000000000101";
+  private static final UUID POLICE_PHONE_UUID = UUID.fromString(POLICE_PHONE_ID);
+  private static final String MARKER_ALIAS = MarkerGeometryFixtures.MARKER_ALIAS;
+  private static final String MARKER_ID = PhotoFixtures.HARNESS_MARKER_ID;
   private static final UUID MARKER_UUID = PhotoFixtures.MARKER_ID;
+  private static final String PHOTO_ALIAS = PhotoFixtures.HARNESS_PHOTO_ALIAS;
   private static final String PHOTO_ID = PhotoFixtures.HARNESS_PHOTO_ID;
   private static final String MARKER_CREATE_EVENT_ID = "evt-s5-marker-created-001";
   private static final String PHOTO_ATTACH_EVENT_ID = "evt-s5-marker-updated-photo-001";
@@ -669,12 +674,12 @@ public class Sc06MarkerPhotoHarnessRunner {
           "marker",
           "S5",
           MARKER_ID,
-          "board-marker-" + MARKER_ID,
+          "board-marker-" + MARKER_ALIAS,
           job.status(),
           job.version(),
           job.sequence(),
           job.eventId(),
-          "S5:marker:" + MARKER_ID + ":v" + job.version() + ":seq" + job.sequence(),
+          "S5:marker:" + MARKER_ALIAS + ":v" + job.version() + ":seq" + job.sequence(),
           payload);
     }
   }

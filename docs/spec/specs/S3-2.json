@@ -1999,13 +1999,14 @@
       {
         "slot": "path",
         "sourceSpec": "S3-1",
-        "sourceResponseId": "path-precinct-mixed-001",
+        "sourceResponseId": "ffffffff-ffff-ffff-ffff-ffffffffffff",
         "boardRowId": "board-path-precinct-mixed-001",
         "status": "ACTIVE",
         "version": 2,
         "sequence": 502,
         "latestEventId": "evt-s3-path-appended-001",
-        "sourceHash": "hash-s3-path-mixed-current"
+        "sourceHash": "hash-s3-path-mixed-current",
+        "sourceResponseAlias": "path-precinct-mixed-001"
       },
       {
         "slot": "police_phone_freshness",
@@ -2022,13 +2023,14 @@
       {
         "slot": "marker",
         "sourceSpec": "S5",
-        "sourceResponseId": "mk-precinct-clue-001",
+        "sourceResponseId": "55555555-5555-5555-5555-555555550001",
         "boardRowId": "board-marker-mk-precinct-clue-001",
         "status": "ACTIVE",
         "version": 1,
         "sequence": 601,
         "latestEventId": "evt-s5-marker-created-001",
-        "sourceHash": "hash-s5-marker-clue-current"
+        "sourceHash": "hash-s5-marker-clue-current",
+        "sourceResponseAlias": "mk-precinct-clue-001"
       },
       {
         "slot": "toast",
@@ -2079,13 +2081,14 @@
       {
         "slot": "handover_memo",
         "sourceSpec": "S8",
-        "sourceResponseId": "memo-precinct-handover-001",
+        "sourceResponseId": "eeeeeeee-eeee-eeee-eeee-eeeeeeee0001",
         "boardRowId": "board-handover-memo-precinct-001",
         "status": "ACTIVE",
         "version": 1,
         "sequence": 803,
         "latestEventId": "evt-s8-handover-created-001",
-        "sourceHash": "hash-s8-handover-memo-current"
+        "sourceHash": "hash-s8-handover-memo-current",
+        "sourceResponseAlias": "memo-precinct-handover-001"
       },
       {
         "slot": "handover_status",
@@ -2135,21 +2138,23 @@
       "stale_lower_version": {
         "eventId": "evt-s3-path-appended-stale-001",
         "slot": "path",
-        "entityId": "path-precinct-mixed-001",
+        "entityId": "ffffffff-ffff-ffff-ffff-ffffffffffff",
         "version": 1,
         "sequence": 501,
         "currentVersion": 2,
         "currentSequence": 502,
-        "expectedLedgerStatus": "STALE"
+        "expectedLedgerStatus": "STALE",
+        "entityAlias": "path-precinct-mixed-001"
       },
       "missing_predecessor": {
         "eventId": "evt-s3-path-appended-gap-003",
         "slot": "path",
-        "entityId": "path-precinct-mixed-001",
+        "entityId": "ffffffff-ffff-ffff-ffff-ffffffffffff",
         "sequence": 505,
         "cursorLastSequence": 502,
         "expectedLedgerStatus": "REFETCH_REQUIRED",
-        "expectedReloadReason": "MISSING_PREDECESSOR"
+        "expectedReloadReason": "MISSING_PREDECESSOR",
+        "entityAlias": "path-precinct-mixed-001"
       },
       "gone_refetch_required": {
         "lastEventId": "evt-s4-gap-before-800",

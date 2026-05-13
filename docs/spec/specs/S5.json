@@ -1942,8 +1942,8 @@
       "policePhoneId": "00000000-0000-0000-0000-000000000101",
       "accountCode": "acct-precinct-team",
       "accountId": "11111111-1111-1111-1111-111111110003",
-      "markerId": "mk-precinct-clue-001",
-      "photoId": "photo-precinct-clue-001",
+      "markerId": "55555555-5555-5555-5555-555555550001",
+      "photoId": "55555555-5555-5555-5555-555555550101",
       "markerVersionBefore": 1,
       "photoVersionBefore": 1,
       "markerVersionAfter": 2,
@@ -1951,22 +1951,27 @@
       "eventId": "evt-s5-marker-updated-photo-001",
       "expectedEvent": {
         "type": "MARKER_UPDATED",
-        "payloadId": "mk-precinct-clue-001",
+        "payloadId": "55555555-5555-5555-5555-555555550001",
         "status": "UPDATED",
         "version": 2,
         "photoDelta": {
-          "photoId": "photo-precinct-clue-001",
+          "photoId": "55555555-5555-5555-5555-555555550101",
           "status": "ATTACHED",
-          "version": 2
-        }
+          "version": 2,
+          "photoAlias": "photo-precinct-clue-001"
+        },
+        "payloadAlias": "mk-precinct-clue-001"
       },
       "expectedBoard": {
         "slot": "marker",
         "latestEventId": "evt-s5-marker-updated-photo-001",
-        "photoId": "photo-precinct-clue-001",
+        "photoId": "55555555-5555-5555-5555-555555550101",
         "photoStatus": "ATTACHED",
-        "photoVersion": 2
-      }
+        "photoVersion": 2,
+        "photoAlias": "photo-precinct-clue-001"
+      },
+      "markerAlias": "mk-precinct-clue-001",
+      "photoAlias": "photo-precinct-clue-001"
     },
     "sc02_support_assignment_notification": {
       "incidentAlias": "inc-precinct-first-001",
@@ -2018,8 +2023,8 @@
       "policePhoneId": "00000000-0000-0000-0000-000000000101",
       "accountCode": "acct-precinct-team",
       "accountId": "11111111-1111-1111-1111-111111110003",
-      "markerId": "mk-precinct-support-001",
-      "notificationDeliveryId": "notif-precinct-support-001",
+      "markerId": "55555555-5555-5555-5555-555555550801",
+      "notificationDeliveryId": "66666666-6666-6666-6666-666666660801",
       "eventId": "evt-s5-support-request-001",
       "markerStatus": "ACTIVE",
       "markerVersion": 1,
@@ -2054,10 +2059,13 @@
       "expectedToast": {
         "slot": "toast",
         "type": "SUPPORT_REQUEST_CREATED",
-        "id": "notif-precinct-support-001",
+        "id": "66666666-6666-6666-6666-666666660801",
         "status": "SNAPSHOT_CREATED",
-        "version": 1
-      }
+        "version": 1,
+        "idAlias": "notif-precinct-support-001"
+      },
+      "markerAlias": "mk-precinct-support-001",
+      "notificationDeliveryAlias": "notif-precinct-support-001"
     },
     "sc08_person_found_notification": {
       "incidentAlias": "inc-precinct-first-001",
@@ -2068,8 +2076,8 @@
       "policePhoneId": "00000000-0000-0000-0000-000000000101",
       "accountCode": "acct-precinct-team",
       "accountId": "11111111-1111-1111-1111-111111110003",
-      "markerId": "mk-precinct-person-found-001",
-      "notificationDeliveryId": "notif-precinct-person-found-001",
+      "markerId": "55555555-5555-5555-5555-555555550802",
+      "notificationDeliveryId": "66666666-6666-6666-6666-666666660802",
       "eventId": "evt-s5-person-found-001",
       "markerStatus": "ACTIVE",
       "markerVersion": 1,
@@ -2116,10 +2124,13 @@
       "expectedToast": {
         "slot": "toast",
         "type": "PERSON_FOUND",
-        "id": "notif-precinct-person-found-001",
+        "id": "66666666-6666-6666-6666-666666660802",
         "status": "SNAPSHOT_CREATED",
-        "version": 1
-      }
+        "version": 1,
+        "idAlias": "notif-precinct-person-found-001"
+      },
+      "markerAlias": "mk-precinct-person-found-001",
+      "notificationDeliveryAlias": "notif-precinct-person-found-001"
     },
     "guard_failure_fixtures": {
       "webPhotoUploadUrl": {
@@ -2137,19 +2148,22 @@
         "expectedError": "police_phone_not_assigned"
       },
       "opMismatch": {
-        "markerId": "mk-precinct-op-mismatch-001",
+        "markerId": "55555555-5555-5555-5555-555555550099",
         "requestOpAlias": "op-precinct-001-op1",
         "requestOpId": "88888888-8888-8888-8888-888888880001",
         "currentOpAlias": "op-precinct-001-op2",
         "currentOpId": "88888888-8888-8888-8888-888888880002",
-        "expectedError": "op_mismatch"
+        "expectedError": "op_mismatch",
+        "markerAlias": "mk-precinct-op-mismatch-001"
       },
       "closedIncident": {
         "incidentAlias": "inc-precinct-closed-001",
         "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0012",
-        "markerId": "mk-precinct-closed-001",
-        "photoId": "photo-precinct-closed-001",
-        "expectedError": "incident_closed"
+        "markerId": "55555555-5555-5555-5555-555555551148",
+        "photoId": "55555555-5555-5555-5555-555555551149",
+        "expectedError": "incident_closed",
+        "markerAlias": "mk-precinct-closed-001",
+        "photoAlias": "photo-precinct-closed-001"
       }
     },
     "convergence_failure_injection": {

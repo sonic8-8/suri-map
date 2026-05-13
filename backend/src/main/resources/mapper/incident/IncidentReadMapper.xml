@@ -143,7 +143,7 @@
             ia.incident_role,
             a.account_type,
             a.organization_type,
-            pp.phone_code AS police_phone_id
+            CAST(pp.id AS VARCHAR) AS police_phone_id
         FROM incident_assignment ia
         LEFT JOIN account a
             ON CAST(a.id AS VARCHAR) = CAST(ia.account_id AS VARCHAR)

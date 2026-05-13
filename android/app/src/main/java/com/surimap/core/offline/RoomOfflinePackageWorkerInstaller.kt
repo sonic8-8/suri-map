@@ -9,6 +9,7 @@ import com.surimap.core.network.SuriMapApiClient
 import com.surimap.core.sync.RoomSyncClient
 import java.io.IOException
 import java.time.Instant
+import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Call
@@ -79,8 +80,8 @@ class RoomOfflinePackageWorkerInstaller(
         issuedAt: Long
     ): OfflinePackageInstallationProgressCommand {
         val clientTs = Instant.ofEpochMilli(issuedAt)
-        val operationId =
-            "offline-package-installation:${request.incidentId}:${request.policePhoneId}:${plan.manifestId}:$issuedAt"
+        val operationKey = "offline-package-installation:${request.incidentId}:${request.policePhoneId}:${plan.manifestId}:$issuedAt"
+        val operationId = UUID.nameUUIDFromBytes(operationKey.toByteArray(Charsets.UTF_8)).toString()
         return OfflinePackageInstallationProgressCommand(
             operationId = operationId,
             incidentId = request.incidentId,

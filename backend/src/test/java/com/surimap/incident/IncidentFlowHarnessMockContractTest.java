@@ -34,10 +34,10 @@ class IncidentFlowHarnessMockContractTest {
     assertThat(seed.incidentId()).isEqualTo("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001");
     assertThat(seed.opAlias()).isEqualTo("op-precinct-001-op1");
     assertThat(seed.opId()).isEqualTo("88888888-8888-8888-8888-888888880001");
-    assertThat(seed.markerIds()).containsExactly("mk-precinct-clue-001");
-    assertThat(seed.pathVehicleId()).isEqualTo("path-precinct-car-001");
-    assertThat(seed.pathFootId()).isEqualTo("path-precinct-foot-001");
-    assertThat(seed.memoId()).isEqualTo("memo-precinct-handover-001");
+    assertThat(seed.markerIds()).containsExactly("55555555-5555-5555-5555-555555550001");
+    assertThat(seed.pathVehicleId()).isEqualTo("ffffffff-ffff-ffff-ffff-ffffffff0001");
+    assertThat(seed.pathFootId()).isEqualTo("ffffffff-ffff-ffff-ffff-ffffffff0002");
+    assertThat(seed.memoId()).isEqualTo("eeeeeeee-eeee-eeee-eeee-eeeeeeee0001");
     assertThat(seed.beforeHandoverAssignmentIds())
         .containsExactly("ia-precinct-cmd-001", "ia-precinct-car-001", "ia-precinct-team-001");
     assertThat(seed.afterHandoverAssignmentIds())
