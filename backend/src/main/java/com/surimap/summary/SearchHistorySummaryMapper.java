@@ -20,7 +20,14 @@ public interface SearchHistorySummaryMapper {
   String sourceFingerprintForScope(
       @Param("opId") UUID opId, @Param("dutyShiftId") UUID dutyShiftId);
 
-  void insertGenerationRequest(
+  String sourceEvidenceForScope(@Param("opId") UUID opId, @Param("dutyShiftId") UUID dutyShiftId);
+
+  List<SearchHistorySummaryRow> findReadyOrFailedByScopeWithDifferentHash(
+      @Param("opId") UUID opId,
+      @Param("dutyShiftId") UUID dutyShiftId,
+      @Param("sourceDataHash") String sourceDataHash);
+
+  int insertGenerationRequest(
       @Param("summaryId") UUID summaryId,
       @Param("opId") UUID opId,
       @Param("dutyShiftId") UUID dutyShiftId,
@@ -33,4 +40,14 @@ public interface SearchHistorySummaryMapper {
       @Param("version") long version,
       @Param("createdAt") Instant createdAt,
       @Param("updatedAt") Instant updatedAt);
+
+  void updateGenerationResult(
+      @Param("summaryId") UUID summaryId,
+      @Param("generationStatus") String generationStatus,
+      @Param("content") String content,
+      @Param("sourceReadiness") String sourceReadiness,
+      @Param("generatedAt") Instant generatedAt,
+      @Param("updatedAt") Instant updatedAt);
+
+  void markStaleByIds(@Param("summaryIds") List<UUID> summaryIds, @Param("updatedAt") Instant updatedAt);
 }
