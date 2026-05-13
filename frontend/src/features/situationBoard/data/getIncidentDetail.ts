@@ -1,4 +1,4 @@
-import { apiRequest } from '../../../shared/api/client';
+import { incidentReadApi, type IncidentDetailResponse } from '../../incident/api/incidentReadApi';
 
 export type IncidentDetailMissingPersonDto = {
   incidentId: string;
@@ -32,8 +32,8 @@ export type TerminalIncidentDetailDto = {
   writeDisabledReason: string;
 };
 
-export type IncidentDetailDto = ActiveIncidentDetailDto | TerminalIncidentDetailDto;
+export type IncidentDetailDto = IncidentDetailResponse;
 
 export function getIncidentDetail(incidentId: string) {
-  return apiRequest<IncidentDetailDto>(`/incidents/${encodeURIComponent(incidentId)}`);
+  return incidentReadApi.detail(incidentId);
 }
