@@ -7,7 +7,6 @@ import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
-import static org.hamcrest.Matchers.startsWith;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -77,6 +76,7 @@ class TileControllerTest {
             get("/tiles/styles/{styleId}.json", STYLE_ID)
                 .header("Authorization", AUTHORIZATION)
                 .header("X-Client-Channel", channel.name())
+                .header("Host", "suri-map.local:8080")
                 .principal(authentication(channel)))
         .andExpect(status().isOk())
         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
@@ -84,7 +84,8 @@ class TileControllerTest {
         .andExpect(jsonPath("$.sources").exists())
         .andExpect(
             jsonPath(
-                "$.sources.*.tiles[0]", hasItem(startsWith("/tiles/osm-local/{z}/{x}/{y}.pbf"))))
+                "$.sources.*.tiles[0]",
+                hasItem("http://suri-map.local:8080/tiles/osm-local/{z}/{x}/{y}.pbf")))
         .andExpect(jsonPath("$.layers").isArray())
         .andExpect(jsonPath("$.layers.length()", greaterThan(0)))
         .andExpect(
@@ -98,6 +99,28 @@ class TileControllerTest {
         .andExpect(content().string(not(containsString(".tile.openstreetmap.org"))))
         .andExpect(content().string(not(containsString("mapbox.com"))))
         .andExpect(content().string(not(containsString("googleapis.com"))));
+  }
+
+  @Test
+  @DisplayName("프록시 뒤 style JSON은 forwarded origin 기준 절대 tile URL을 반환한다")
+  void styleJsonUsesForwardedOriginForTileUrls() throws Exception {
+    when(tileService.getStyle(STYLE_ID)).thenReturn(localStyleResponse());
+
+    mockMvc
+        .perform(
+            get("/tiles/styles/{styleId}.json", STYLE_ID)
+                .header("Authorization", AUTHORIZATION)
+                .header("X-Client-Channel", "APP")
+                .header("Host", "internal-api:8080")
+                .header("X-Forwarded-Proto", "https")
+                .header("X-Forwarded-Host", "api.surimap.example")
+                .header("X-Forwarded-Port", "443")
+                .principal(authentication(Channel.APP)))
+        .andExpect(status().isOk())
+        .andExpect(
+            jsonPath(
+                "$.sources.*.tiles[0]",
+                hasItem("https://api.surimap.example/tiles/osm-local/{z}/{x}/{y}.pbf")));
   }
 
   @ParameterizedTest
