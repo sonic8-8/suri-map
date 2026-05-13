@@ -5,6 +5,7 @@ import com.surimap.feature.alert.ui.IncidentAlertUiState
 import com.surimap.feature.alert.ui.IncidentFcmPayload
 import com.surimap.feature.alert.ui.IncidentFcmRoute
 import com.surimap.feature.alert.ui.IncidentFcmRouteMapper
+import com.surimap.ui.navigation.SearchMapDeepLink
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -48,7 +49,9 @@ class IncidentAlertUiStateTest {
         )
 
         assertTrue(markerRoute is IncidentFcmRoute.MarkerFocus)
-        assertEquals("mk-person-found-001", (markerRoute as IncidentFcmRoute.MarkerFocus).markerId)
+        val markerFocus = markerRoute as IncidentFcmRoute.MarkerFocus
+        assertEquals("mk-person-found-001", markerFocus.markerId)
+        assertEquals(SearchMapDeepLink.markerFocusRoute("mk-person-found-001"), markerFocus.searchMapRoute)
         assertTrue(terminalRoute is IncidentFcmRoute.IncidentClosed)
         assertFalse(terminalRoute is IncidentFcmRoute.Alert)
     }

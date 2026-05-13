@@ -13,9 +13,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import androidx.work.WorkManager
 import com.surimap.BuildConfig
 import com.surimap.core.database.OfflinePackageInstallationEntity
@@ -84,6 +86,7 @@ import com.surimap.ui.navigation.IncidentContext
 import com.surimap.ui.navigation.IncidentSessionState
 import com.surimap.ui.navigation.PolicePhoneContext
 import com.surimap.ui.navigation.PolicePhoneRoute
+import com.surimap.ui.navigation.SearchMapDeepLink
 import com.surimap.ui.theme.PoliBgBase
 import java.util.Locale
 import kotlinx.coroutines.launch
@@ -140,10 +143,21 @@ fun SuriMapApp() {
                         navController = navController
                     )
                 }
-                composable(PolicePhoneRoute.SearchMap.route) {
+                composable(
+                    route = SearchMapDeepLink.RoutePattern,
+                    arguments =
+                    listOf(
+                        navArgument(SearchMapDeepLink.FocusMarkerIdArg) {
+                            type = NavType.StringType
+                            nullable = true
+                            defaultValue = null
+                        }
+                    )
+                ) { backStackEntry ->
                     SearchMapRoute(
                         incidentSessionState = incidentSessionState,
                         navController = navController,
+                        focusMarkerId = backStackEntry.arguments?.getString(SearchMapDeepLink.FocusMarkerIdArg),
                         onOpenBlockedOutbox = {
                             blockedQueue = BlockedQueueToastState(blockedCount = 2)
                         }
@@ -285,6 +299,7 @@ private fun HandoverMemoRoute(
 private fun SearchMapRoute(
     incidentSessionState: IncidentSessionState,
     navController: NavHostController,
+    focusMarkerId: String? = null,
     onOpenBlockedOutbox: () -> Unit
 ) {
     val incidentContext = incidentSessionState.incidentContext
@@ -364,9 +379,9 @@ private fun SearchMapRoute(
     var markerSheetOpen by remember { mutableStateOf(false) }
     var markerSheetState by remember { mutableStateOf(sampleMarkerCreateSheetState()) }
 
-    LaunchedEffect(loader, sessionContext) {
-        searchMapState = loader.fallback(sessionContext)
-        searchMapState = loader.load(sessionContext)
+    LaunchedEffect(loader, sessionContext, focusMarkerId) {
+        searchMapState = loader.fallback(sessionContext).withFocusedMarker(focusMarkerId)
+        searchMapState = loader.load(sessionContext).withFocusedMarker(focusMarkerId)
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -395,9 +410,12 @@ private fun SearchMapRoute(
             },
             onOpenHandover = { navController.navigateToSingleTop(PolicePhoneRoute.HandoverSummary) },
             onOpenBlockedOutbox = onOpenBlockedOutbox,
-            onDismissIncidentAlert = {},
-            onOpenIncidentAlertMarker = {
-                navController.navigateToSingleTop(PolicePhoneRoute.SearchMap)
+            onDismissIncidentAlert = {
+                searchMapState = searchMapState.copy(incidentAlert = null)
+            },
+            onOpenIncidentAlertMarker = { markerId ->
+                searchMapState = searchMapState.withFocusedMarker(markerId)
+                navController.navigateToSingleTop(SearchMapDeepLink.markerFocusRoute(markerId))
             }
         )
         if (markerSheetOpen) {
@@ -832,7 +850,11 @@ private fun PolicePhoneContext?.toMapLibreRuntimeMapState(): MapLibreRuntimeMapS
     )
 
 private fun NavHostController.navigateToSingleTop(route: PolicePhoneRoute) {
-    navigate(route.route) {
+    navigateToSingleTop(route.route)
+}
+
+private fun NavHostController.navigateToSingleTop(route: String) {
+    navigate(route) {
         launchSingleTop = true
     }
 }

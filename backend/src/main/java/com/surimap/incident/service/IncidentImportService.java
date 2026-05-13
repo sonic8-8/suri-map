@@ -260,7 +260,7 @@ public class IncidentImportService {
       incidentMapper.insertIncidentAssignment(
           assignmentIdFor(assignment),
           incidentId,
-          AccountIdentityCatalog.accountIdFromCodeOrUuid(assignment.accountId()),
+          AccountIdentityCatalog.accountIdFromCodeOrUuid(assignment.accountCode()),
           assignment.incidentRole(),
           assignedAt(assignment, importedAt),
           importedAt);
@@ -328,7 +328,7 @@ public class IncidentImportService {
   private UUID assignmentIdFor(ExternalAssignment assignment) {
     String seed =
         assignment.externalAssignmentKey() == null
-            ? assignment.accountId()
+            ? assignment.accountCode()
             : assignment.externalAssignmentKey();
     // mock 112의 externalAssignmentKey가 있으면 그것을 우선해 polling/import 재실행 시 같은 배정 row로 수렴시킨다.
     return UUID.nameUUIDFromBytes(

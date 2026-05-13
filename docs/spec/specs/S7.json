@@ -1470,9 +1470,12 @@
   },
   "harness_fixtures": {
     "sc03_manifest_download_pending": {
-      "incidentId": "inc-precinct-first-001",
-      "policePhoneId": "dev-precinct-phone-01",
-      "manifestId": "tile-manifest-inc-precinct-001",
+      "incidentAlias": "inc-precinct-first-001",
+      "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
+      "policePhoneCode": "dev-precinct-phone-01",
+      "policePhoneId": "00000000-0000-0000-0000-000000000101",
+      "manifestAlias": "tile-manifest-inc-precinct-001",
+      "manifestId": "77777777-0000-4000-8000-000000000701",
       "manifestVersion": 1,
       "status": "DOWNLOADING",
       "disabledControls": [
@@ -1494,7 +1497,8 @@
       ]
     },
     "tile_manifest_fixture": {
-      "manifestId": "tile-manifest-inc-precinct-001",
+      "manifestAlias": "tile-manifest-inc-precinct-001",
+      "manifestId": "77777777-0000-4000-8000-000000000701",
       "styleId": "osm-local",
       "overallAreaHash": "overall-area-hash-precinct-current",
       "blobUriTemplate": "local://tiles/inc-precinct-first-001/{z}/{x}/{y}.pbf",
@@ -1542,12 +1546,14 @@
       ],
       "failureKeys": {
         "manifest-expired": {
-          "manifestId": "tile-manifest-inc-precinct-001",
+          "manifestAlias": "tile-manifest-inc-precinct-001",
+          "manifestId": "77777777-0000-4000-8000-000000000701",
           "error": "manifest_expired",
           "retryable": true
         },
         "manifest-overall-area-stale": {
-          "manifestId": "tile-manifest-inc-precinct-001",
+          "manifestAlias": "tile-manifest-inc-precinct-001",
+          "manifestId": "77777777-0000-4000-8000-000000000701",
           "overallAreaHash": "overall-area-hash-precinct-stale",
           "expectedOverallAreaHash": "overall-area-hash-precinct-current",
           "error": "manifest_overall_area_stale",
@@ -1577,27 +1583,33 @@
       }
     },
     "sc09_package_status_convergence": {
-      "operationId": "op-outbox-package-001",
+      "operationAlias": "op-outbox-package-001",
+      "operationId": "66666666-0000-4000-8000-000000000901",
       "outboxId": "outbox-package-001",
       "idempotencyKey": "idem-package-001",
       "bodyHash": "sha256:package-status-ready-001",
-      "incidentId": "inc-precinct-first-001",
-      "policePhoneId": "dev-precinct-phone-01",
-      "manifestId": "tile-manifest-inc-precinct-001",
+      "incidentAlias": "inc-precinct-first-001",
+      "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
+      "policePhoneCode": "dev-precinct-phone-01",
+      "policePhoneId": "00000000-0000-0000-0000-000000000101",
+      "manifestAlias": "tile-manifest-inc-precinct-001",
+      "manifestId": "77777777-0000-4000-8000-000000000701",
       "manifestVersion": 1,
       "sequence": 901,
       "pendingLocalState": "PENDING_SYNC",
       "expectedOwnerResponse": {
-        "id": "pkg-status-precinct-001",
+        "id": "77777777-0000-4000-8000-000000000901",
         "status": "READY",
         "version": 3,
         "manifestVersion": 1,
-        "readyForOfflineUse": true
+        "readyForOfflineUse": true,
+        "idAlias": "pkg-status-precinct-001"
       },
       "expectedS4Event": {
         "eventId": "evt-s7-package-status-001",
         "type": "OFFLINE_PACKAGE_INSTALLATION_CHANGED",
-        "payloadId": "pkg-status-precinct-001",
+        "payloadAlias": "pkg-status-precinct-001",
+        "payloadId": "77777777-0000-4000-8000-000000000901",
         "payloadStatus": "READY",
         "payloadVersion": 3,
         "sequence": 901,
@@ -1605,20 +1617,22 @@
       },
       "expectedPackageStatusQuery": {
         "method": "OfflinePackageInstallationQuery.byIncident",
-        "id": "pkg-status-precinct-001",
+        "id": "77777777-0000-4000-8000-000000000901",
         "status": "READY",
         "version": 3,
         "sequence": 901,
-        "manifestVersion": 1
+        "manifestVersion": 1,
+        "idAlias": "pkg-status-precinct-001"
       },
       "expectedBoardProbe": {
         "slot": "package_badge",
-        "id": "pkg-status-precinct-001",
+        "id": "77777777-0000-4000-8000-000000000901",
         "status": "READY",
         "minimumVersion": 3,
         "sequence": 901,
         "manifestVersion": 1,
-        "preConvergenceState": "STALE_REFETCH"
+        "preConvergenceState": "STALE_REFETCH",
+        "idAlias": "pkg-status-precinct-001"
       }
     }
   },
