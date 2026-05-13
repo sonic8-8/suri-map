@@ -27,6 +27,10 @@ interface OutboxDao {
           AND police_phone_id = :policePhoneId
           AND idempotency_status IN ('PENDING', 'FAILED_RETRYABLE')
           AND local_mirror_status IN ('PENDING_SEND', 'FAILED')
+          AND NOT (
+            idempotency_status = 'FAILED_RETRYABLE'
+            AND last_error IN ('police_phone_required', 'http_401')
+          )
           AND (
             (
               incident_closed_at IS NULL

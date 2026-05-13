@@ -126,6 +126,31 @@ class OutboxWorkerTest {
         assertEquals(ListenableWorker.Result.retry(), worker.doWork())
     }
 
+    @Test
+    fun outboxWorkerDoesNotAutoRetryWhenReplayRequiresAccessRepair() = runBlocking {
+        LocalSyncRuntime.outboxReplay =
+            object : OutboxReplay {
+                override suspend fun flushPending(
+                    policePhoneId: String,
+                    incidentId: String
+                ): OutboxReplayResult =
+                    OutboxReplayResult(attemptedCount = 1, accessRepairRequiredCount = 1)
+            }
+        val worker = TestListenableWorkerBuilder<OutboxWorker>(
+            RuntimeEnvironment.getApplication()
+        )
+            .setInputData(
+                Data.Builder()
+                    .putString(OutboxWorker.KEY_INCIDENT_ID, INCIDENT_ID)
+                    .putString(OutboxWorker.KEY_POLICE_PHONE_ID, POLICE_PHONE_ID)
+                    .putString(OutboxWorker.KEY_API_BASE_URL, "https://suri-map.internal")
+                    .build()
+            )
+            .build()
+
+        assertEquals(ListenableWorker.Result.success(), worker.doWork())
+    }
+
     private data class ProviderCall(
         val apiBaseUrl: String,
         val accessToken: String?

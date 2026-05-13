@@ -25,7 +25,8 @@ data class SuriMapApiRequest(
 data class SuriMapApiResponse(
     val statusCode: Int,
     val body: String?,
-    val errorCode: String?
+    val errorCode: String?,
+    val retryAfterDelayMs: Long? = null
 ) {
     val isSuccessful: Boolean = statusCode in 200..299
 }
@@ -54,7 +55,8 @@ class SuriMapApiClient(
                 SuriMapApiResponse(
                     statusCode = it.code,
                     body = body.ifBlank { null },
-                    errorCode = parseErrorCode(body)
+                    errorCode = parseErrorCode(body),
+                    retryAfterDelayMs = parseRetryAfterDelayMs(it.header("Retry-After"))
                 )
             }
         } catch (exception: IOException) {
@@ -101,4 +103,9 @@ private fun parseErrorCode(body: String): String? {
         return null
     }
     return ERROR_FIELD.find(body)?.groupValues?.get(1)
+}
+
+private fun parseRetryAfterDelayMs(value: String?): Long? {
+    val seconds = value?.trim()?.toLongOrNull() ?: return null
+    return (seconds * 1_000L).takeIf { it >= 0L }
 }

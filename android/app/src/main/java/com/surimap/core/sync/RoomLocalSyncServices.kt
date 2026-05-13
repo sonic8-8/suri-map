@@ -6,9 +6,14 @@ import com.surimap.core.database.OutboxDao
 import com.surimap.core.database.OutboxEntity
 import java.time.Instant
 import java.util.UUID
+import kotlin.math.roundToLong
 
 private const val POST_CLOSE_REQUEUE_REJECTED = "post_close_requeue_rejected"
 private const val LOCAL_INCIDENT_CLOSED_PATH = "/_local/incident-closed"
+private const val OUTBOX_RETRY_BASE_DELAY_MS = 10_000L
+private const val OUTBOX_RETRY_MAX_DELAY_MS = 300_000L
+private const val OUTBOX_RETRY_MAX_ATTEMPTS = 8
+private const val OUTBOX_RETRY_MAX_AGE_MS = 86_400_000L
 
 class RoomSyncClient(
     private val outboxDao: OutboxDao,
@@ -118,7 +123,8 @@ class RoomSyncClient(
 class RoomOutboxReplay(
     private val outboxDao: OutboxDao,
     private val sender: OutboxSender,
-    private val idempotencyReplayGate: InMemoryIdempotencyReplayGate = InMemoryIdempotencyReplayGate()
+    private val idempotencyReplayGate: InMemoryIdempotencyReplayGate = InMemoryIdempotencyReplayGate(),
+    private val enableRetryJitter: Boolean = false
 ) : OutboxReplay {
     private val staleClockSyncAfterMs = 300_000L
 
@@ -130,6 +136,7 @@ class RoomOutboxReplay(
         var attemptedCount = 0
         var ackedCount = 0
         var retryableFailureCount = 0
+        var accessRepairRequiredCount = 0
         var finalFailureCount = 0
         for (row in candidates) {
             if (isDutyShiftEndBlocked(row)) {
@@ -187,16 +194,45 @@ class RoomOutboxReplay(
                         }
 
                         SendResult.RETRYABLE_FAILURE -> {
-                            outboxDao.upsert(
-                                sending.copy(
-                                    idempotencyStatus = OutboxStatus.FAILED_RETRYABLE.name,
-                                    localMirrorStatus = HarnessSyncStatus.FAILED.name,
-                                    nextAttemptAt = if (sending.incidentClosedAt == null) now + 10_000L else null,
-                                    lastError = "network_unavailable"
+                            val retryableError = sender.retryableFailureErrorCode() ?: "network_unavailable"
+                            if (isAccessRepairRequired(retryableError)) {
+                                outboxDao.upsert(
+                                    sending.copy(
+                                        idempotencyStatus = OutboxStatus.FAILED_RETRYABLE.name,
+                                        localMirrorStatus = HarnessSyncStatus.FAILED.name,
+                                        nextAttemptAt = null,
+                                        lastError = retryableError
+                                    )
                                 )
-                            )
-                            markLocalMirrorFailed(sending.outboxId, now)
-                            retryableFailureCount += 1
+                                markLocalMirrorFailed(sending.outboxId, now)
+                                accessRepairRequiredCount += 1
+                            } else if (retryLimitReached(sending, now)) {
+                                outboxDao.upsert(
+                                    sending.copy(
+                                        idempotencyStatus = OutboxStatus.FAILED_FINAL.name,
+                                        localMirrorStatus = HarnessSyncStatus.FAILED.name,
+                                        nextAttemptAt = null,
+                                        lastError = retryableError
+                                    )
+                                )
+                                markLocalMirrorFailed(sending.outboxId, now)
+                                finalFailureCount += 1
+                            } else {
+                                outboxDao.upsert(
+                                    sending.copy(
+                                        idempotencyStatus = OutboxStatus.FAILED_RETRYABLE.name,
+                                        localMirrorStatus = HarnessSyncStatus.FAILED.name,
+                                        nextAttemptAt = if (sending.incidentClosedAt == null) {
+                                            now + retryDelayMs(sending, sender.retryAfterDelayMs())
+                                        } else {
+                                            null
+                                        },
+                                        lastError = retryableError
+                                    )
+                                )
+                                markLocalMirrorFailed(sending.outboxId, now)
+                                retryableFailureCount += 1
+                            }
                         }
 
                         SendResult.FINAL_FAILURE -> {
@@ -204,6 +240,7 @@ class RoomOutboxReplay(
                                 sending.copy(
                                     idempotencyStatus = OutboxStatus.FAILED_FINAL.name,
                                     localMirrorStatus = HarnessSyncStatus.FAILED.name,
+                                    nextAttemptAt = null,
                                     lastError = sender.finalFailureErrorCode() ?: "invalid_payload"
                                 )
                             )
@@ -218,6 +255,7 @@ class RoomOutboxReplay(
             attemptedCount = attemptedCount,
             ackedCount = ackedCount,
             retryableFailureCount = retryableFailureCount,
+            accessRepairRequiredCount = accessRepairRequiredCount,
             finalFailureCount = finalFailureCount
         )
     }
@@ -240,6 +278,37 @@ class RoomOutboxReplay(
             row.requestMethod == "PATCH" &&
             row.requestPath.startsWith("/api/duty-shifts/") &&
             row.payloadJson.contains("\"action\":\"END\"")
+    }
+
+    private fun retryLimitReached(row: OutboxEntity, now: Long): Boolean {
+        val firstAttemptAt = row.firstAttemptAt
+        return row.attemptCount >= OUTBOX_RETRY_MAX_ATTEMPTS ||
+            (firstAttemptAt != null && now - firstAttemptAt >= OUTBOX_RETRY_MAX_AGE_MS)
+    }
+
+    private fun retryDelayMs(row: OutboxEntity, retryAfterDelayMs: Long?): Long {
+        val attemptCount = row.attemptCount
+        var delayMs = OUTBOX_RETRY_BASE_DELAY_MS
+        repeat((attemptCount - 1).coerceAtLeast(0)) {
+            delayMs = (delayMs * 2).coerceAtMost(OUTBOX_RETRY_MAX_DELAY_MS)
+        }
+        val jittered = if (enableRetryJitter) {
+            applyStableJitter(delayMs, row.operationId, attemptCount)
+                .coerceAtMost(OUTBOX_RETRY_MAX_DELAY_MS)
+        } else {
+            delayMs
+        }
+        return maxOf(jittered, retryAfterDelayMs ?: 0L).coerceAtMost(OUTBOX_RETRY_MAX_DELAY_MS)
+    }
+
+    private fun applyStableJitter(delayMs: Long, operationId: String, attemptCount: Int): Long {
+        val bucket = kotlin.math.abs("$operationId:$attemptCount".hashCode() % 41) - 20
+        val multiplier = 1.0 + (bucket / 100.0)
+        return (delayMs * multiplier).roundToLong().coerceAtLeast(0L)
+    }
+
+    private fun isAccessRepairRequired(errorCode: String): Boolean {
+        return errorCode in setOf("police_phone_required", "http_401")
     }
 
     private suspend fun persistAck(row: OutboxEntity, serverAckTs: Long) {
@@ -484,6 +553,10 @@ enum class SendResult {
 
 fun interface OutboxSender {
     suspend fun send(row: OutboxEntity): SendResult
+
+    fun retryableFailureErrorCode(): String? = null
+
+    fun retryAfterDelayMs(): Long? = null
 
     fun finalFailureErrorCode(): String? = null
 }
