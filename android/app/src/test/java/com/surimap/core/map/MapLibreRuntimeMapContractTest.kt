@@ -93,6 +93,33 @@ class MapLibreRuntimeMapContractTest {
     }
 
     @Test
+    fun overlayPaintContractAddsReadableLabelsAndHighContrastHalo() {
+        val labeledOverlay =
+            MapLibreGeometryOverlay(
+                id = MARKER_ID,
+                kind = MapLibreGeometryOverlayKind.Marker,
+                highlighted = true,
+                label = "단서",
+                geoJson = """{"type":"Point","coordinates":[126.91,37.51]}"""
+            )
+        val markerPaint = mapLibreOverlayPaint(MapLibreGeometryOverlayKind.Marker, highlighted = true)
+        val pathPaint = mapLibreOverlayPaint(MapLibreGeometryOverlayKind.Path, highlighted = true)
+        val source = File("src/main/java/com/surimap/core/map/MapLibreRuntimeMap.kt").readText()
+        val searchMapSource = File("src/main/java/com/surimap/feature/search/ui/SearchMapScreen.kt").readText()
+
+        assertTrue(labeledOverlay.signature().contains("Marker:$MARKER_ID:true:단서"))
+        assertEquals("#FFFFFF", markerPaint.textHaloColor)
+        assertTrue(markerPaint.textHaloWidth >= 1.75f)
+        assertTrue(markerPaint.circleStrokeWidth >= 2.0f)
+        assertTrue(pathPaint.lineWidth > mapLibreOverlayPaint(MapLibreGeometryOverlayKind.Path, highlighted = false).lineWidth)
+        assertTrue(source.contains("SymbolLayer("))
+        assertTrue(source.contains("textField(Expression.get(\"label\"))"))
+        assertTrue(source.contains("textHaloColor(paint.textHaloColor)"))
+        assertTrue(source.contains("removeLayer(\"\$styleId-label\")"))
+        assertTrue(searchMapSource.contains("label = layer.label"))
+    }
+
+    @Test
     fun searchMapScreenUsesRuntimeMapInsteadOfMockCanvas() {
         val source = File("src/main/java/com/surimap/feature/search/ui/SearchMapScreen.kt").readText()
 
