@@ -221,6 +221,7 @@
   - 구현 산출물: 1-hour stability run result, network on/off 10-cycle result, duplicate row verification result, convergence evidence
   - 예상 작업량: 3d+
   - 완료 기준: Android PolicePhone 2대와 board 1개가 1시간 실행되고, network on/off가 10회 반복되며, path/marker/package local state가 수렴하고 duplicate server row가 0건으로 유지된다.
+  - 현재 상태: `S14P31C106-196`은 Jira 완료 상태지만 물리 실행 증거가 repo/Jira에 없고, 현재 세션에는 연결된 Android device가 0대라 완료 검증 불가. 증거 누락은 `S14P31C106-300`과 `docs/tasks/l4-d01-stability-evidence.md`로 추적한다.
 
 ## 담당하지 않음
 
