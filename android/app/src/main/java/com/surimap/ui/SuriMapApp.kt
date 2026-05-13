@@ -34,6 +34,7 @@ import com.surimap.core.offline.OfflinePackageManifestQuery
 import com.surimap.core.offline.OfflinePackageRepository
 import com.surimap.core.offline.toOfflinePackageItemStatusEntity
 import com.surimap.core.operationalperiod.HandoverMemoRepository
+import com.surimap.core.operationalperiod.OperationalPeriodReadRepository
 import com.surimap.core.operationalperiod.SearchHistorySummaryReadRepository
 import com.surimap.core.path.SearchPathRepository
 import com.surimap.core.searcharea.SearchAreaReadRepository
@@ -58,6 +59,7 @@ import com.surimap.feature.handover.ui.HandoverMemoScreen
 import com.surimap.feature.handover.ui.HandoverMemoTarget
 import com.surimap.feature.handover.ui.HandoverMemoUiState
 import com.surimap.feature.incidents.data.IncidentListStateLoader
+import com.surimap.feature.incidents.data.IncidentSessionContextResolver
 import com.surimap.feature.incidents.ui.IncidentListScreen
 import com.surimap.feature.incidents.ui.IncidentListUiState
 import com.surimap.feature.marker.data.MarkerLocalRecorder
@@ -635,6 +637,7 @@ private fun IncidentListRoute(
     val policePhoneContext = incidentSessionState.policePhoneContext
     val policePhoneLabel = policePhoneContext?.policePhoneId ?: "관리 폴리폰"
     val accessTokenProvider = policePhoneContext.accessTokenProvider()
+    val coroutineScope = rememberCoroutineScope()
     val loader = remember(policePhoneContext?.apiBaseUrl, policePhoneContext?.accessToken, policePhoneLabel) {
         IncidentListStateLoader(
             repository =
@@ -646,6 +649,19 @@ private fun IncidentListRoute(
                 accessTokenProvider = accessTokenProvider
             ),
             policePhoneLabel = policePhoneLabel
+        )
+    }
+    val contextResolver = remember(policePhoneContext?.apiBaseUrl, policePhoneContext?.accessToken) {
+        IncidentSessionContextResolver(
+            operationalPeriods = { incidentId ->
+                OperationalPeriodReadRepository(
+                    apiClient =
+                    SuriMapApiClient(
+                        baseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
+                    ),
+                    accessTokenProvider = accessTokenProvider
+                ).list(incidentId)
+            }
         )
     }
     var refreshNonce by remember { mutableStateOf(0) }
@@ -664,8 +680,10 @@ private fun IncidentListRoute(
     IncidentListScreen(
         state = state,
         onOpenIncident = { incident ->
-            incidentSessionState.activateIncidentContext(incident.toIncidentContext())
-            navController.navigateToSingleTop(PolicePhoneRoute.OfflinePackage)
+            coroutineScope.launch {
+                incidentSessionState.activateIncidentContext(contextResolver.resolve(incident))
+                navController.navigateToSingleTop(PolicePhoneRoute.OfflinePackage)
+            }
         },
         onRefresh = { refreshNonce += 1 },
         onDismissClosedDialog = {
