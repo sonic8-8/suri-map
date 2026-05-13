@@ -39,4 +39,13 @@ class PolicePhoneNavigationContractTest {
 
         assertNull(holder.incidentContext)
     }
+
+    @Test
+    fun searchMapMarkerFocusRoutePreservesMarkerIdAsDeeplinkArgument() {
+        val route = SearchMapDeepLink.markerFocusRoute("mk-person/found 001")
+
+        assertEquals("search_map?focusMarkerId=mk-person%2Ffound+001", route)
+        assertEquals("mk-person/found 001", SearchMapDeepLink.focusMarkerIdFromRoute(route))
+        assertNull(SearchMapDeepLink.focusMarkerIdFromRoute(PolicePhoneRoute.SearchMap.route))
+    }
 }
