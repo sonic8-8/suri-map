@@ -41,6 +41,20 @@ class PolicePhoneNavigationContractTest {
     }
 
     @Test
+    fun policePhoneContextCarriesBootstrapAccessTokenForProtectedAppRequests() {
+        val context =
+            PolicePhoneContext(
+                policePhoneId = "00000000-0000-0000-0000-000000000101",
+                apiBaseUrl = "https://suri-map.internal/api",
+                tileBaseUrl = "https://suri-map.internal",
+                objectStorageBaseUrl = "https://suri-map.internal",
+                accessToken = "bootstrap-token-1"
+            )
+
+        assertEquals("bootstrap-token-1", context.accessTokenProvider().accessToken())
+    }
+
+    @Test
     fun searchMapMarkerFocusRoutePreservesMarkerIdAsDeeplinkArgument() {
         val route = SearchMapDeepLink.markerFocusRoute("mk-person/found 001")
 
