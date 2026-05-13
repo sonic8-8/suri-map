@@ -134,7 +134,7 @@ class OfflinePackageHttpByteFetcher(
             ?: throw IOException("download_url_required")
         val request =
             Request.Builder()
-                .url(resolveDownloadUrl(downloadUrl))
+                .url(resolveDownloadUrl(item, downloadUrl))
                 .header("X-Client-Channel", "APP")
         accessTokenProvider.accessToken()
             ?.takeIf(String::isNotBlank)
@@ -153,12 +153,24 @@ class OfflinePackageHttpByteFetcher(
         }
     }
 
-    private fun resolveDownloadUrl(downloadUrl: String): String {
+    private fun resolveDownloadUrl(item: OfflinePackageDownloadItem, downloadUrl: String): String {
         if (downloadUrl.startsWith("http://") || downloadUrl.startsWith("https://")) {
             return downloadUrl
         }
         val tileBaseUrl = apiBaseUrl.trimEnd('/').removeSuffix("/api")
+        if (downloadUrl.startsWith("local://tiles/")) {
+            return tileBaseUrl + item.canonicalTilePathFromItemKey()
+        }
         val path = if (downloadUrl.startsWith("/")) downloadUrl else "/$downloadUrl"
         return tileBaseUrl + path
+    }
+
+    private fun OfflinePackageDownloadItem.canonicalTilePathFromItemKey(): String {
+        val parts = itemKey.split(":")
+        if (parts.size == 5 && parts[0] == "tile") {
+            val (_, style, z, x, y) = parts
+            return "/tiles/$style/$z/$x/$y.pbf"
+        }
+        throw IOException("tile_url_unresolvable")
     }
 }

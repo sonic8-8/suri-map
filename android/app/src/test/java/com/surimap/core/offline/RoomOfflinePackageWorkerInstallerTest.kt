@@ -85,6 +85,43 @@ class RoomOfflinePackageWorkerInstallerTest {
     }
 
     @Test
+    fun installsTopLevelTileItemsFromBackendManifestShape() = runBlocking {
+        val fetched = mutableListOf<OfflinePackageDownloadItem>()
+        val installer =
+            roomInstaller(
+                manifestBody =
+                manifestBodyWithTileItems(
+                    tileSourceHash = "sha256:256aa026a53e12257562cb73c6a1e4ce769566957c1823773028e08cf6ddb355"
+                ),
+                tileBytes = "tile-bytes".encodeToByteArray(),
+                onFetch = { item -> fetched += item }
+            )
+
+        installer.install(
+            OfflinePackageWorkerInstallRequest(
+                incidentId = INCIDENT_ID,
+                policePhoneId = POLICE_PHONE_ID,
+                manifestId = MANIFEST_ID
+            )
+        )
+
+        val items = database.offlinePackageItemStatusDao().findByManifest(
+            incidentId = INCIDENT_ID,
+            policePhoneId = POLICE_PHONE_ID,
+            manifestId = MANIFEST_ID
+        )
+        val installation = database.offlinePackageInstallationDao().find(INCIDENT_ID, POLICE_PHONE_ID)
+
+        assertEquals(listOf("incident-meta", "tile:osm-local:15:27925:12680"), items.map { it.itemKey })
+        assertEquals("/tiles/osm-local/15/27925/12680.pbf", fetched.single().downloadUrl)
+        assertEquals("DOWNLOADED", items.single { it.itemType == "TILE" }.status)
+        assertEquals(10L, items.single { it.itemType == "TILE" }.bytesTotal)
+        assertEquals("READY", installation!!.status)
+        assertEquals(2, installation.totalItems)
+        assertEquals(2, installation.completedItems)
+    }
+
+    @Test
     fun checksumMismatchPersistsFailedTileAndPartialInstallation() = runBlocking {
         val installer =
             roomInstaller(
@@ -139,9 +176,35 @@ class RoomOfflinePackageWorkerInstallerTest {
         assertEquals("Bearer bootstrap-token-1", callFactory.lastRequest!!.header("Authorization"))
     }
 
+    @Test
+    fun httpByteFetcherCanonicalizesLocalTileUriFromTileItemKey() = runBlocking {
+        val callFactory = CapturingCallFactory(response(200, "tile-bytes"))
+        val fetcher =
+            OfflinePackageHttpByteFetcher(
+                apiBaseUrl = "https://suri-map.internal/api",
+                callFactory = callFactory
+            )
+
+        fetcher.fetch(
+            OfflinePackageDownloadItem(
+                itemKey = "tile:osm-local:15:27925:12680",
+                itemType = "TILE",
+                sourceVersion = 18,
+                sourceHash = "sha256:irrelevant",
+                downloadUrl = "local://tiles/inc-precinct-first-001/15/27925/12680.pbf"
+            )
+        )
+
+        assertEquals(
+            "https://suri-map.internal/tiles/osm-local/15/27925/12680.pbf",
+            callFactory.lastRequest!!.url.toString()
+        )
+    }
+
     private fun roomInstaller(
         manifestBody: String,
-        tileBytes: ByteArray
+        tileBytes: ByteArray,
+        onFetch: (OfflinePackageDownloadItem) -> Unit = {}
     ): RoomOfflinePackageWorkerInstaller {
         val repository =
             OfflinePackageRepository(
@@ -155,7 +218,10 @@ class RoomOfflinePackageWorkerInstallerTest {
         return RoomOfflinePackageWorkerInstaller(
             database = database,
             repository = repository,
-            fetchBytes = { tileBytes },
+            fetchBytes = { item ->
+                onFetch(item)
+                tileBytes
+            },
             nowMillis = { 1_000L }
         )
     }
@@ -186,6 +252,43 @@ class RoomOfflinePackageWorkerInstallerTest {
                 "checksum": "$tileSourceHash",
                 "bytes": 10
               }
+            }
+          ]
+        }
+        """.trimIndent()
+
+    private fun manifestBodyWithTileItems(tileSourceHash: String): String =
+        """
+        {
+          "manifestId": "$MANIFEST_ID",
+          "incidentId": "$INCIDENT_ID",
+          "manifestVersion": 18,
+          "tileItems": [
+            {
+              "styleId": "osm-local",
+              "z": 15,
+              "x": 27925,
+              "y": 12680,
+              "url": "local://tiles/inc-precinct-first-001/15/27925/12680.pbf",
+              "checksum": "$tileSourceHash",
+              "bytes": 10
+            }
+          ],
+          "packageItems": [
+            {
+              "itemKey": "incident-meta",
+              "itemType": "INCIDENT_META",
+              "status": "PENDING",
+              "sourceVersion": 7,
+              "sourceHash": "sha256:incident",
+              "payload": {"title": "광주 북구 산악 실종"}
+            },
+            {
+              "itemKey": "tile-manifest:tile-manifest-inc-precinct-001",
+              "itemType": "TILE",
+              "status": "PENDING",
+              "sourceVersion": 18,
+              "sourceHash": "sha256:tile-manifest"
             }
           ]
         }
