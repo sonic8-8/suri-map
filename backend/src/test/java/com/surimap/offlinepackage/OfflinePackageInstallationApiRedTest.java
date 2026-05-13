@@ -8,10 +8,15 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.surimap.eventhub.adapter.MockEventHub;
 import com.surimap.offlinepackage.fixture.OfflinePackageInstallationFixtures;
 import com.surimap.offlinepackage.fixture.OfflinePackageManifestFixtures;
 import com.surimap.offlinepackage.query.OfflinePackageInstallationQuery;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -38,9 +43,46 @@ class OfflinePackageInstallationApiRedTest {
 
   @Autowired private OfflinePackageInstallationQuery installationQuery;
 
+  private final ObjectMapper objectMapper = new ObjectMapper();
+
   @BeforeEach
   void resetEventHub() {
     eventHub.reset();
+  }
+
+  @Test
+  @DisplayName("manifest tileItems expose checksums aligned with local tile fixture blobs")
+  void manifest_tile_items_expose_checksums_aligned_with_local_tile_fixture_blobs() throws Exception {
+    String body =
+        mockMvc
+            .perform(
+                get(OfflinePackageInstallationFixtures.manifestApiPath())
+                    .header("Authorization", "Bearer app-package-session")
+                    .header("X-Client-Channel", "APP")
+                    .header("X-PolicePhone-Id", OfflinePackageManifestFixtures.POLICE_PHONE_ID)
+                    .param("policePhoneId", OfflinePackageManifestFixtures.POLICE_PHONE_ID))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+
+    Map<String, OfflinePackageManifestFixtures.TileItem> expectedTiles =
+        OfflinePackageManifestFixtures.tileManifest().tiles().stream()
+            .collect(
+                Collectors.toMap(
+                    OfflinePackageManifestFixtures.TileItem::itemKey, Function.identity()));
+
+    JsonNode tileItems = objectMapper.readTree(body).path("tileItems");
+
+    assertThat(tileItems).hasSize(expectedTiles.size());
+    tileItems.forEach(
+        tile -> {
+          OfflinePackageManifestFixtures.TileItem expected =
+              expectedTiles.get(tile.path("itemKey").asText());
+          assertThat(expected).as(tile.toString()).isNotNull();
+          assertThat(tile.path("checksum").asText()).isEqualTo(expected.checksum());
+          assertThat(tile.path("bytes").asInt()).isEqualTo(expected.bytes());
+        });
   }
 
   @Test
