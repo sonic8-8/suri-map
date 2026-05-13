@@ -47,7 +47,7 @@ public class IncidentAssignmentImportService {
       return Optional.empty();
     }
 
-    IncidentRecord incident = incidentMapper.findBySourceIncidentId(sourceIncidentId).orElse(null);
+    IncidentRecord incident = incidentMapper.findBySourceIncidentId(UUID.fromString(sourceIncidentId)).orElse(null);
     if (incident == null) {
       return Optional.empty();
     }

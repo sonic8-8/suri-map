@@ -1,20 +1,25 @@
 import { useMemo, useState } from 'react';
 
+import { incidentCommandApi } from '../../../incident/api/incidentCommandApi';
 import { mockIncidentCloseSummary, mockIncidentTombstone } from '../constants/mockIncidentClose';
 import { ActionButton, StatusBadge } from '../../../../shared';
+import { ApiError, createIdempotencyKey } from '../../../../shared/api/client';
 import styles from './IncidentClosePage.module.css';
 
 type IncidentClosePageProps = {
+  incidentId: string;
   onBackToIncidents: () => void;
   onOpenLogin: () => void;
 };
 
 type IncidentLifecycleStatus = '진행중' | '인계대기' | '종료';
 
-export function IncidentClosePage({ onBackToIncidents, onOpenLogin }: IncidentClosePageProps) {
+export function IncidentClosePage({ incidentId, onBackToIncidents, onOpenLogin }: IncidentClosePageProps) {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [confirmText, setConfirmText] = useState('');
   const [isClosed, setIsClosed] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+  const [, setCloseErrorMessage] = useState('');
 
   const incidentStatusLabel: IncidentLifecycleStatus = isClosed ? '종료' : '진행중';
   const expectedConfirmText = mockIncidentCloseSummary.missingPersonName;
@@ -27,6 +32,7 @@ export function IncidentClosePage({ onBackToIncidents, onOpenLogin }: IncidentCl
 
   const openConfirm = () => {
     setConfirmText('');
+    setCloseErrorMessage('');
     setIsConfirmOpen(true);
   };
 
@@ -34,13 +40,30 @@ export function IncidentClosePage({ onBackToIncidents, onOpenLogin }: IncidentCl
     setIsConfirmOpen(false);
   };
 
-  const closeIncident = () => {
-    if (!canConfirmClose) {
+  const closeIncident = async () => {
+    if (!canConfirmClose || isClosing) {
       return;
     }
 
-    setIsClosed(true);
-    setIsConfirmOpen(false);
+    setIsClosing(true);
+    setCloseErrorMessage('');
+
+    try {
+      await incidentCommandApi.closeIncident(
+        incidentId,
+        {
+          closeReason: 'WEB_FINAL_COMMAND',
+          confirmPersonalDataRemoval: true,
+        },
+        createIdempotencyKey('incident-close'),
+      );
+      setIsClosed(true);
+      setIsConfirmOpen(false);
+    } catch (error) {
+      setCloseErrorMessage(getCloseErrorMessage(error));
+    } finally {
+      setIsClosing(false);
+    }
   };
 
   return (
@@ -260,4 +283,20 @@ export function IncidentClosePage({ onBackToIncidents, onOpenLogin }: IncidentCl
       ) : null}
     </main>
   );
+}
+
+function getCloseErrorMessage(error: unknown) {
+  if (error instanceof ApiError) {
+    if (error.code === 'write_conflict') {
+      return '사건 종료 상태가 변경되었습니다. 새로고침 후 다시 시도하세요.';
+    }
+
+    if (error.code === 'role_denied') {
+      return '사건 종료 권한이 없습니다.';
+    }
+
+    return `사건 종료 처리에 실패했습니다. (${error.code})`;
+  }
+
+  return '사건 종료 처리에 실패했습니다.';
 }

@@ -1,5 +1,8 @@
 package com.surimap.account.service;
 
+import com.surimap.account.repository.AccountLoginMapper;
+import com.surimap.account.repository.AccountLoginRow;
+import com.surimap.account.repository.PolicePhoneLoginRow;
 import com.surimap.common.auth.AccountType;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.OrganizationType;
@@ -7,7 +10,7 @@ import com.surimap.common.auth.Role;
 import com.surimap.common.auth.SuriMapAuthentication;
 import com.surimap.common.auth.guard.ChannelNotAllowedException;
 import com.surimap.policephone.InMemoryPolicePhoneFixtureStore;
-import com.surimap.policephone.PolicePhoneFixtures;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -18,18 +21,20 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 public class AuthSessionService {
 
   private final InMemoryPolicePhoneFixtureStore fixtureStore;
-  private final Map<String, AccountFixture> accountsByCode;
+  private final AccountLoginMapper accountLoginMapper;
   private final Map<String, AuthSession> sessionsByAccessToken = new ConcurrentHashMap<>();
   private final Map<UUID, String> accessTokensBySessionId = new ConcurrentHashMap<>();
 
-  public AuthSessionService(InMemoryPolicePhoneFixtureStore fixtureStore) {
+  public AuthSessionService(
+      InMemoryPolicePhoneFixtureStore fixtureStore, AccountLoginMapper accountLoginMapper) {
     this.fixtureStore = fixtureStore;
-    this.accountsByCode = seedAccounts();
+    this.accountLoginMapper = accountLoginMapper;
   }
 
   public AuthLoginResult login(AuthLoginCommand command) {
-    AccountFixture account = accountsByCode.get(command.accountCode());
-    if (account == null || !account.password().equals(command.password())) {
+    AccountLoginRow account =
+        accountLoginMapper.findActiveAccountByLoginId(command.accountCode()).orElse(null);
+    if (account == null || !matchesPassword(command.password(), account.passwordHash())) {
       throw new ChannelNotAllowedException();
     }
 
@@ -38,12 +43,12 @@ public class AuthSessionService {
     String accessToken = UUID.randomUUID().toString();
     SecurityContextSnapshot context =
         new SecurityContextSnapshot(
-            account.accountId(),
+            account.id(),
             account.accountType(),
             account.organizationType(),
             command.channel(),
             policePhoneId,
-            account.authorities());
+            authorities(account));
     AuthSession session = new AuthSession(sessionId, accessToken, context);
     sessionsByAccessToken.put(accessToken, session);
     accessTokensBySessionId.put(sessionId, accessToken);
@@ -106,7 +111,7 @@ public class AuthSessionService {
         authorities);
   }
 
-  private String resolvePolicePhoneId(AccountFixture account, AuthLoginCommand command) {
+  private String resolvePolicePhoneId(AccountLoginRow account, AuthLoginCommand command) {
     if (command.channel() == Channel.WEB) {
       return null;
     }
@@ -116,47 +121,33 @@ public class AuthSessionService {
     if (command.policePhoneCode() == null || command.policePhoneCode().isBlank()) {
       return null;
     }
-    UUID policePhoneId = account.policePhoneIdsByCode().get(command.policePhoneCode());
-    if (policePhoneId == null) {
-      throw new ChannelNotAllowedException();
-    }
-    return policePhoneId.toString();
+    return accountLoginMapper
+        .findActivePolicePhoneByCodeAndAccountId(command.policePhoneCode(), account.id())
+        .map(PolicePhoneLoginRow::id)
+        .orElseThrow(ChannelNotAllowedException::new);
   }
 
-  private static Map<String, AccountFixture> seedAccounts() {
-    return Map.of(
-        "acct-precinct-team",
-        new AccountFixture(
-            "acct-precinct-team",
-            "fixture",
-            AccountType.TEAM,
-            PolicePhoneFixtures.ASSIGNED_ORGANIZATION_TYPE,
-            List.of(Role.MEMBER.name()),
-            Map.of("dev-precinct-phone-01", PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID)),
-        "acct-cmd-alpha",
-        new AccountFixture(
-            "acct-cmd-alpha",
-            "fixture",
-            AccountType.COMMAND,
-            OrganizationType.MISSING_TEAM,
-            List.of(Role.MISSING_TEAM_COMMANDER.name(), Role.FIELD_COMMANDER.name()),
-            Map.of()));
+  private static boolean matchesPassword(String rawPassword, String passwordHash) {
+    if (passwordHash == null || !passwordHash.startsWith("{noop}")) {
+      return false;
+    }
+    return passwordHash.substring("{noop}".length()).equals(rawPassword);
+  }
+
+  private static List<String> authorities(AccountLoginRow account) {
+    List<String> authorities = new ArrayList<>();
+    if (account.accountType() == AccountType.COMMAND) {
+      if (account.organizationType() == OrganizationType.MISSING_TEAM) {
+        authorities.add(Role.MISSING_TEAM_COMMANDER.name());
+      }
+      authorities.add(Role.FIELD_COMMANDER.name());
+    }
+    if (authorities.isEmpty()) {
+      authorities.add(Role.MEMBER.name());
+    }
+    return authorities;
   }
 
   private record AuthSession(
       UUID sessionId, String accessToken, SecurityContextSnapshot securityContext) {}
-
-  private record AccountFixture(
-      String accountId,
-      String password,
-      AccountType accountType,
-      OrganizationType organizationType,
-      List<String> authorities,
-      Map<String, UUID> policePhoneIdsByCode) {
-
-    private AccountFixture {
-      authorities = List.copyOf(authorities);
-      policePhoneIdsByCode = Map.copyOf(policePhoneIdsByCode);
-    }
-  }
 }

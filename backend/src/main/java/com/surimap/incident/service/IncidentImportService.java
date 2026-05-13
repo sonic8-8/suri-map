@@ -46,9 +46,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class IncidentImportService {
 
-  private static final String PRECINCT_FIRST_SOURCE_INCIDENT_ID = "mock-112-incident-001";
-  private static final UUID PRECINCT_FIRST_INCIDENT_ID =
-      UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001");
   private static final String IMPORT_REQUEST_PATH = "/api/incidents/import";
   private static final String IMPORT_REQUEST_METHOD = "POST";
   private static final long INITIAL_VERSION = 1L;
@@ -101,7 +98,7 @@ public class IncidentImportService {
 
     reserveIdempotency(command, now);
     ExternalIncident externalIncident = fetchExternalIncident(command.sourceIncidentId());
-    String sourceIncidentId = sourceIncidentId(command, externalIncident);
+    UUID sourceIncidentId = sourceIncidentId(command, externalIncident);
     UUID incidentId = incidentIdFor(sourceIncidentId);
 
     incidentMapper.insertIncident(
@@ -197,7 +194,7 @@ public class IncidentImportService {
         now);
   }
 
-  private String requestBodyHash(String sourceIncidentId) {
+  private String requestBodyHash(UUID sourceIncidentId) {
     // 현재 import body의 의미 필드는 sourceIncidentId 하나다. 요청 필드가 늘어나면 canonical body도
     // 같이 확장해야 같은 Idempotency-Key의 body mismatch를 정확히 잡을 수 있다.
     String canonicalBody = "{\"sourceIncidentId\":\"" + sourceIncidentId + "\"}";
@@ -229,9 +226,9 @@ public class IncidentImportService {
         + "}";
   }
 
-  private ExternalIncident fetchExternalIncident(String sourceIncidentId) {
+  private ExternalIncident fetchExternalIncident(UUID sourceIncidentId) {
     try {
-      return Objects.requireNonNull(externalIncidentAdapter.fetchIncident(sourceIncidentId));
+      return Objects.requireNonNull(externalIncidentAdapter.fetchIncident(sourceIncidentId.toString()));
     } catch (RuntimeException exception) {
       throw new IncidentImportDependencyException(exception);
     }
@@ -305,20 +302,16 @@ public class IncidentImportService {
     return incident.assignments();
   }
 
-  private String sourceIncidentId(
+  private UUID sourceIncidentId(
       IncidentImportCommand command, ExternalIncident externalIncident) {
     String sourceIncidentId = externalIncident.sourceIncidentId();
     if (sourceIncidentId == null || sourceIncidentId.isBlank()) {
       return command.sourceIncidentId();
     }
-    return sourceIncidentId;
+    return UUID.fromString(sourceIncidentId);
   }
 
-  private UUID incidentIdFor(String sourceIncidentId) {
-    if (PRECINCT_FIRST_SOURCE_INCIDENT_ID.equals(sourceIncidentId)) {
-      // SC-01/02/10/12 대표 fixture는 다른 Lane 테스트가 같은 UUID를 참조하므로 고정 매핑을 유지한다.
-      return PRECINCT_FIRST_INCIDENT_ID;
-    }
+  private UUID incidentIdFor(UUID sourceIncidentId) {
     return UUID.nameUUIDFromBytes(
         ("incident:" + sourceIncidentId).getBytes(StandardCharsets.UTF_8));
   }

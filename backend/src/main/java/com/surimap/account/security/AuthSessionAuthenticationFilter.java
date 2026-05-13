@@ -21,9 +21,11 @@ public class AuthSessionAuthenticationFilter extends OncePerRequestFilter {
   protected void doFilterInternal(
       HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
       throws ServletException, IOException {
-    if (SecurityContextHolder.getContext().getAuthentication() == null) {
+    String accessToken = accessToken(request.getHeader("Authorization"));
+    if (accessToken != null) {
+      // TODO: Add a security filter test that proves WEB Bearer sessions can access protected APIs.
       authSessionService
-          .authenticate(accessToken(request.getHeader("Authorization")))
+          .authenticate(accessToken)
           .ifPresent(
               authentication -> SecurityContextHolder.getContext().setAuthentication(authentication));
     }

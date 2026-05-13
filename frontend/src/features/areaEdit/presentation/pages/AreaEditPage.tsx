@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import { ApiError } from '../../../../shared/api/client';
+import { ApiError, createIdempotencyKey } from '../../../../shared/api/client';
 import { areaColorTokens } from '../../../../shared/constants/areaColorTokens';
 import { applyRouteColorsByAssignee } from '../../../../shared/model/boardMapFeatures';
 import { createBoardMapMarkers, createBoardMovementPaths } from '../../../../shared/model/boardMapSlots';
@@ -24,17 +24,14 @@ import {
   type AreaTreeNode,
   type CompletedAreaDraft,
 } from '../constants/mockAreaEdit';
-import { createOverallSearchArea } from '../../data/createSearchArea';
 import { getAreaEditBoard, type AreaEditBoardResponseDto } from '../../data/getAreaEditBoard';
 import {
   getAreaEditIncidentDetail,
   type AreaEditIncidentAssignmentDto,
   type AreaEditIncidentDetailDto,
 } from '../../data/getAreaEditIncidentDetail';
-import { assignSearchArea } from '../../data/assignSearchArea';
-import { getCurrentOperationalPeriodId } from '../../data/getOperationalPeriods';
-import { splitSearchArea } from '../../data/splitSearchArea';
-import { getActiveOverallSearchArea, getActiveSearchAreas, type SearchAreaDto } from '../../data/getSearchAreas';
+import { operationalPeriodApi } from '../../../operationalPeriod/api/operationalPeriodApi';
+import { searchAreaApi, type GeoJsonPolygon, type SearchAreaResponse as SearchAreaDto } from '../../../searchArea/api/searchAreaApi';
 import { useActiveOverallSearchArea } from '../hooks/useActiveOverallSearchArea';
 import { useAreaEditPanels } from '../hooks/useAreaEditPanels';
 import { useAreaEditTools } from '../hooks/useAreaEditTools';
@@ -101,6 +98,23 @@ function getAreaAndDescendantIds(root: AreaTreeNode, areaId: string): Set<string
   if (!targetArea) return new Set([areaId]);
 
   return new Set(flattenAreaTree(targetArea).map((area) => area.id));
+}
+
+function toGeoJsonPolygon(coordinates: AreaEditPosition[]): GeoJsonPolygon {
+  return {
+    type: 'Polygon',
+    coordinates: [coordinates.map(([longitude, latitude]) => [longitude, latitude])],
+  };
+}
+
+async function getActiveOverallSearchArea(incidentId: string) {
+  try {
+    return await searchAreaApi.fetchActiveOverall(incidentId);
+  } catch (error) {
+    if (error instanceof ApiError && error.code === 'overall_search_area_required') return null;
+    if (error instanceof ApiError && error.status === 404) return null;
+    throw error;
+  }
 }
 
 function createOverallAreaTree(overallArea: SearchAreaDto | null, unitAreaNodes: AreaTreeNode[]): AreaTreeNode {
@@ -660,7 +674,7 @@ export function AreaEditPage({
 
     let isActive = true;
 
-    void getActiveSearchAreas(incidentId, currentOpId)
+    void searchAreaApi.list({ incidentId, opId: currentOpId, status: 'ACTIVE' })
       .then((response) => {
         if (!isActive) return;
 
@@ -686,10 +700,10 @@ export function AreaEditPage({
     setCurrentOpId(null);
     setCurrentOpLoadState('loading');
 
-    void getCurrentOperationalPeriodId(incidentId)
-      .then((opId) => {
+    void operationalPeriodApi.list(incidentId)
+      .then((response) => {
         if (!isActive) return;
-        setCurrentOpId(opId);
+        setCurrentOpId(response.currentOpId);
         setCurrentOpLoadState('loaded');
       })
       .catch(() => {
@@ -1050,17 +1064,12 @@ export function AreaEditPage({
             return;
           }
 
-          const splitChildren = parentDrafts.map((draft) => ({
-            kind: draft.kind === 'team' ? 'team' as const : 'unit' as const,
-            name: draft.label,
-            coordinates: draft.coordinates,
-          }));
-          const splitResponse = await splitSearchArea(
-            parentAreaId,
-            currentOpId,
+          const splitResponse = await searchAreaApi.split(parentAreaId, {
+            opId: currentOpId,
+            children: parentDrafts.map((draft) => toGeoJsonPolygon(draft.coordinates)),
             expectedVersion,
-            splitChildren,
-          ).catch((error: unknown) => {
+            clientTs: new Date().toISOString(),
+          }, createIdempotencyKey('search-area-split')).catch((error: unknown) => {
             if (error instanceof ApiError && error.code === 'area_state_conflict') {
               throw new Error('search_area_split_conflict');
             }
@@ -1084,7 +1093,7 @@ export function AreaEditPage({
           ...savedChildDrafts,
         ];
         onSaveAssignedAreas(nextCompletedDrafts);
-        const activeAreas = await getActiveSearchAreas(incidentId, currentOpId);
+        const activeAreas = await searchAreaApi.list({ incidentId, opId: currentOpId, status: 'ACTIVE' });
         const { unitNodes, completedDrafts: refreshedCompletedDrafts } = createAreaEditTreeState(
           activeOverallArea,
           activeAreas.areas,
@@ -1099,7 +1108,12 @@ export function AreaEditPage({
       }
 
 
-      const savedOverallArea = await createOverallSearchArea(incidentId, overallDraft.coordinates);
+      const savedOverallArea = await searchAreaApi.create({
+        incidentId,
+        areaLevel: 'OVERALL',
+        geometry: toGeoJsonPolygon(overallDraft.coordinates),
+        clientTs: new Date().toISOString(),
+      }, createIdempotencyKey('search-area-overall'));
       const savedOverallDraft = createOverallDraft(savedOverallArea) ?? {
         ...overallDraft,
         areaId: savedOverallArea.id,
@@ -1182,11 +1196,12 @@ export function AreaEditPage({
 
     try {
       setIsAssigningArea(true);
-      await assignSearchArea(selectedArea.id, {
+      await searchAreaApi.assign(selectedArea.id, {
         incidentId,
         opId: currentOpId,
         assigneeAccountIds,
-      });
+        clientTs: new Date().toISOString(),
+      }, createIdempotencyKey('search-area-assignment'));
       setValidationMessage('수색 구역 담당 계정을 배정했습니다.');
       setSelectedAssigneeAccountIds(new Set());
       const refreshedBoard = await getAreaEditBoard(incidentId).catch(() => null);

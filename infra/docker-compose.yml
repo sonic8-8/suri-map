@@ -27,7 +27,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-surimap}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-surimap}
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - surimap-postgres-data:/var/lib/postgresql/data
     healthcheck:

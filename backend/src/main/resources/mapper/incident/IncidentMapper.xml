@@ -6,7 +6,7 @@
 <mapper namespace="com.surimap.incident.repository.IncidentMapper">
     <resultMap id="incidentRecordMap" type="com.surimap.incident.domain.IncidentRecord">
         <id property="id" column="id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
-        <result property="sourceIncidentId" column="source_incident_id"/>
+        <result property="sourceIncidentId" column="source_incident_id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
         <result property="title" column="title"/>
         <result property="status" column="status"/>
         <result property="openedAt" column="opened_at"/>
@@ -50,7 +50,7 @@
             closed_by_account_id,
             version
         FROM "incident"
-        WHERE source_incident_id = #{sourceIncidentId}
+        WHERE source_incident_id = #{sourceIncidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
     </select>
 
     <select id="findByIncidentId" resultMap="incidentRecordMap">
@@ -140,7 +140,7 @@
         )
         VALUES (
             #{id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
-            #{sourceIncidentId},
+            #{sourceIncidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
             #{title},
             #{status},
             #{openedAt},
@@ -187,7 +187,7 @@
         VALUES (
             #{id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
             #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
-            #{accountId},
+            (SELECT id FROM account WHERE login_id = #{accountId} OR id::text = #{accountId} LIMIT 1),
             #{incidentRole},
             #{assignedAt},
             NULL,
@@ -210,7 +210,7 @@
         SELECT
             #{id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
             #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
-            #{accountId},
+            (SELECT id FROM account WHERE login_id = #{accountId} OR id::text = #{accountId} LIMIT 1),
             #{incidentRole},
             #{assignedAt},
             NULL,
@@ -220,7 +220,7 @@
             SELECT 1
             FROM incident_assignment
             WHERE incident_id = #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
-              AND account_id = #{accountId}
+              AND account_id = (SELECT id FROM account WHERE login_id = #{accountId} OR id::text = #{accountId} LIMIT 1)
               AND revoked_at IS NULL
         )
     </insert>

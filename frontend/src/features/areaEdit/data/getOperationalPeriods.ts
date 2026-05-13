@@ -1,12 +1,6 @@
-import { apiRequest } from '../../../shared/api/client';
-
-type OperationalPeriodsResponseDto = {
-  currentOpId: string | null;
-};
+import { operationalPeriodApi } from '../../operationalPeriod/api/operationalPeriodApi';
 
 export async function getCurrentOperationalPeriodId(incidentId: string) {
-  const response = await apiRequest<OperationalPeriodsResponseDto>(
-    `/incidents/${encodeURIComponent(incidentId)}/operational-periods`,
-  );
+  const response = await operationalPeriodApi.list(incidentId);
   return response.currentOpId;
 }

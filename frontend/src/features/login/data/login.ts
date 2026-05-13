@@ -1,73 +1,72 @@
-import { apiRequest } from '../../../shared/api/client';
+import { authApi } from '../../auth/api/authApi';
+import { ApiError, ApiHttpError } from '../../../shared/api/client';
 import type { LoginAccount, LoginOrganizationType, LoginRole } from '../presentation/types/login';
 
-type LoginResponseDto = {
-  sessionId: string;
-  accessToken: string;
-  account: {
-    id: string;
-    displayName: string;
-    accountType: LoginAccount['accountType'];
-    organizationType: LoginOrganizationType;
-    roles: LoginRole[];
-  };
-};
-
 export async function loginWithAccount(accountCode: string, password: string): Promise<LoginAccount> {
-  const response = await apiRequest<LoginResponseDto>('/auth/login', {
-    method: 'POST',
-    body: {
+  clearLoginSession();
+
+  let response;
+  try {
+    response = await authApi.login({
       accountCode,
       password,
       channel: 'WEB',
-    },
-  });
+    });
+  } catch (error) {
+    clearLoginSession();
+    if (error instanceof ApiHttpError) {
+      throw new ApiError(error.status, error.code, error.body);
+    }
+    throw error;
+  }
 
+  const { securityContext } = response;
   sessionStorage.setItem('suriMapAccessToken', response.accessToken);
   sessionStorage.setItem('suriMapSessionId', response.sessionId);
 
+  const roles = securityContext.authorities as LoginRole[];
   const account: LoginAccount = {
-    id: response.account.id,
-    name: response.account.displayName,
-    organization: organizationLabel(response.account.organizationType),
-    accountType: response.account.accountType,
-    organizationType: response.account.organizationType,
-    role: response.account.roles[0] ?? 'MEMBER',
-    roles: response.account.roles,
-    description: '',
+    id: securityContext.accountId,
+    name: accountDisplayName(securityContext.accountId),
+    organization: organizationLabel(securityContext.organizationType),
+    accountType: securityContext.accountType,
+    organizationType: securityContext.organizationType,
+    role: roles[0] ?? 'MEMBER',
+    roles,
+    description: 'WEB command account',
   };
 
   sessionStorage.setItem('suriMapCurrentAccount', JSON.stringify(account));
-
   return account;
 }
 
 export async function logoutCurrentSession(): Promise<void> {
+  const accessToken = sessionStorage.getItem('suriMapAccessToken');
   const sessionId = sessionStorage.getItem('suriMapSessionId');
 
   try {
-    await apiRequest<{ status: string }>('/auth/logout', {
-      method: 'POST',
-      body: sessionId ? { sessionId } : undefined,
-    });
+    await authApi.logout(sessionId ? { sessionId } : undefined, accessToken);
   } catch {
-    // Local cleanup must still run if the server session has already expired
-    // or the current backend build has not exposed logout yet.
+    // Local cleanup must still run if the server session has already expired.
   } finally {
     clearLoginSession();
   }
 }
 
 export function readStoredLoginAccount(): LoginAccount | null {
+  const accessToken = sessionStorage.getItem('suriMapAccessToken');
+  const sessionId = sessionStorage.getItem('suriMapSessionId');
   const rawAccount = sessionStorage.getItem('suriMapCurrentAccount');
-  if (!rawAccount) {
+
+  if (!accessToken || !sessionId || !rawAccount) {
+    clearLoginSession();
     return null;
   }
 
   try {
     return JSON.parse(rawAccount) as LoginAccount;
   } catch {
-    sessionStorage.removeItem('suriMapCurrentAccount');
+    clearLoginSession();
     return null;
   }
 }
@@ -78,13 +77,21 @@ export function clearLoginSession() {
   sessionStorage.removeItem('suriMapSessionId');
 }
 
+function accountDisplayName(accountId: string) {
+  if (accountId === 'acct-cmd-alpha') return 'Missing team commander';
+  if (accountId === '11111111-1111-1111-1111-111111110002') return 'Missing team commander';
+  if (accountId === 'acct-precinct-team') return 'Precinct field team';
+  if (accountId === '11111111-1111-1111-1111-111111110004') return 'Precinct field team';
+  return accountId;
+}
+
 function organizationLabel(organizationType: LoginOrganizationType) {
   switch (organizationType) {
     case 'MISSING_TEAM':
-      return '실종팀';
+      return 'Missing team';
     case 'POLICE_SUBSTATION':
-      return '지구대/파출소';
+      return 'Police substation';
     case 'SUPPORT_UNIT':
-      return '지원 부대';
+      return 'Support unit';
   }
 }

@@ -1,17 +1,12 @@
-import { apiRequest, createIdempotencyKey } from '../../../shared/api/client';
+import { createIdempotencyKey } from '../../../shared/api/client';
 import type { AreaEditPosition, AreaNodeKind } from '../../../shared/model/areaDraft';
+import { searchAreaApi } from '../../searchArea/api/searchAreaApi';
 import type { GeoJsonPolygonDto, SearchAreaDto } from './getSearchAreas';
 import { toGeoJsonPolygon } from './createSearchArea';
 
-type SplitSearchAreaChildRequestDto = {
-  areaLevel: Exclude<Uppercase<AreaNodeKind>, 'OVERALL'>;
-  name: string;
-  geometry: GeoJsonPolygonDto;
-};
-
 type SplitSearchAreaRequestDto = {
   opId: string;
-  children: SplitSearchAreaChildRequestDto[];
+  children: GeoJsonPolygonDto[];
   expectedVersion: number;
   clientTs: string;
   memo?: string;
@@ -38,18 +33,10 @@ export function splitSearchArea(
 ) {
   const body: SplitSearchAreaRequestDto = {
     opId,
-    children: children.map((child) => ({
-      areaLevel: child.kind.toUpperCase() as SplitSearchAreaChildRequestDto['areaLevel'],
-      name: child.name,
-      geometry: toGeoJsonPolygon(child.coordinates),
-    })),
+    children: children.map((child) => toGeoJsonPolygon(child.coordinates)),
     expectedVersion,
     clientTs: new Date().toISOString(),
   };
 
-  return apiRequest<SplitSearchAreaResponseDto>(`/search-areas/${encodeURIComponent(parentAreaId)}/split`, {
-    method: 'POST',
-    body,
-    idempotencyKey: createIdempotencyKey('search-area-split'),
-  });
+  return searchAreaApi.split(parentAreaId, body, createIdempotencyKey('search-area-split'));
 }

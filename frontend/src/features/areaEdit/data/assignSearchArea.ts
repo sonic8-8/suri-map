@@ -1,4 +1,5 @@
-import { apiRequest, createIdempotencyKey } from '../../../shared/api/client';
+import { createIdempotencyKey } from '../../../shared/api/client';
+import { searchAreaApi } from '../../searchArea/api/searchAreaApi';
 
 export type AssignSearchAreaRequestDto = {
   incidentId: string;
@@ -21,12 +22,5 @@ export function assignSearchArea(searchAreaId: string, request: Omit<AssignSearc
     clientTs: new Date().toISOString(),
   };
 
-  return apiRequest<AssignSearchAreaResponseDto>(
-    `/search-areas/${encodeURIComponent(searchAreaId)}/assignments`,
-    {
-      method: 'POST',
-      body,
-      idempotencyKey: createIdempotencyKey('search-area-assignment'),
-    },
-  );
+  return searchAreaApi.assign(searchAreaId, body, createIdempotencyKey('search-area-assignment'));
 }

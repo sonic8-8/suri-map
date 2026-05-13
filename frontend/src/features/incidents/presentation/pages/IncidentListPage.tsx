@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import { importIncident } from '../../../incidentImport/data/importIncident';
+import { incidentCommandApi } from '../../../incident/api/incidentCommandApi';
+import { incidentReadApi, type IncidentListItem } from '../../../incident/api/incidentReadApi';
 import { IncidentImportCompleteDialog } from '../../../incidentImport/presentation/components/IncidentImportCompleteDialog';
 import { IncidentImportModal } from '../../../incidentImport/presentation/components/IncidentImportModal';
 import type { LoginAccount } from '../../../login/presentation/types/login';
 import { ActionButton, StatusBadge, type StatusBadgeTone } from '../../../../shared';
-import { ApiError } from '../../../../shared/api/client';
-import { getIncidents, type IncidentListItemDto } from '../../data/getIncidents';
+import { ApiError, createIdempotencyKey } from '../../../../shared/api/client';
 import type { IncidentCard, IncidentFilter, IncidentStatus } from '../../domain/entities/Incident';
 import styles from './IncidentListPage.module.css';
 
@@ -99,7 +99,7 @@ function formatKstDateTime(date: Date) {
   return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute} KST`;
 }
 
-function createIncidentCard(item: IncidentListItemDto): IncidentCard {
+function createIncidentCard(item: IncidentListItem): IncidentCard {
   const status = getIncidentStatus(item.status);
 
   return {
@@ -171,7 +171,7 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
       setListErrorMessage('');
 
       try {
-        const response = await getIncidents();
+        const response = await incidentReadApi.list();
 
         if (!ignore) {
           setIncidents(response.items.map(createIncidentCard));
@@ -221,7 +221,7 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
   const currentTimeLabel = formatKstDateTime(now);
 
   const reloadAssignedIncidents = async () => {
-    const response = await getIncidents();
+    const response = await incidentReadApi.list();
     setIncidents(response.items.map(createIncidentCard));
     setListErrorMessage('');
   };
@@ -231,7 +231,10 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
     setImportErrorMessage('');
 
     try {
-      const response = await importIncident(sourceIncidentId);
+      const response = await incidentCommandApi.importIncident(
+        { sourceIncidentId },
+        createIdempotencyKey('incident-import'),
+      );
       await reloadAssignedIncidents();
       setImportedSourceIncidentIds((currentIds) =>
         currentIds.includes(sourceIncidentId) ? currentIds : [...currentIds, sourceIncidentId],

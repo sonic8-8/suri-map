@@ -3,6 +3,7 @@ package com.surimap.config;
 import com.surimap.account.security.AuthSessionAuthenticationFilter;
 import com.surimap.account.service.AuthSessionService;
 import com.surimap.common.auth.SuriMapAuthentication;
+import java.util.List;
 import java.util.function.Supplier;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
@@ -19,6 +20,9 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
 @EnableMethodSecurity
@@ -28,6 +32,7 @@ public class SecurityConfig {
   SecurityFilterChain securityFilterChain(
       HttpSecurity http, ObjectProvider<AuthSessionService> authSessionService) throws Exception {
     http.csrf(csrf -> csrf.disable())
+        .cors(Customizer.withDefaults())
         .authorizeHttpRequests(
             auth ->
                 auth.requestMatchers(
@@ -47,6 +52,22 @@ public class SecurityConfig {
                 UsernamePasswordAuthenticationFilter.class));
 
     return http.build();
+  }
+
+  @Bean
+  CorsConfigurationSource corsConfigurationSource() {
+    CorsConfiguration configuration = new CorsConfiguration();
+    configuration.setAllowedOriginPatterns(
+        List.of("http://localhost:*", "http://127.0.0.1:*"));
+    configuration.setAllowedMethods(List.of("GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"));
+    configuration.setAllowedHeaders(
+        List.of("Authorization", "Content-Type", "Accept", "X-Client-Channel", "Idempotency-Key", "Last-Event-ID"));
+    configuration.setExposedHeaders(List.of("Location"));
+    configuration.setAllowCredentials(false);
+
+    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+    source.registerCorsConfiguration("/api/**", configuration);
+    return source;
   }
 
   private static AuthorizationDecision hasSuriMapAuthentication(

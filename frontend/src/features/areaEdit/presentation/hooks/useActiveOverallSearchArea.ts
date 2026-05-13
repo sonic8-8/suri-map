@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
-import { getActiveOverallSearchArea, type SearchAreaDto } from '../../data/getSearchAreas';
+import { ApiError } from '../../../../shared/api/client';
+import { searchAreaApi, type SearchAreaResponse as SearchAreaDto } from '../../../searchArea/api/searchAreaApi';
 
 type ActiveOverallSearchAreaState =
   | { status: 'loading'; area: null; error: null }
@@ -20,13 +21,17 @@ export function useActiveOverallSearchArea(incidentId: string): ActiveOverallSea
 
     setState({ status: 'loading', area: null, error: null });
 
-    void getActiveOverallSearchArea(incidentId)
+    void searchAreaApi.fetchActiveOverall(incidentId)
       .then((area) => {
         if (!isActive) return;
-        setState(area ? { status: 'loaded', area, error: null } : { status: 'missing', area: null, error: null });
+        setState({ status: 'loaded', area, error: null });
       })
       .catch((error: unknown) => {
         if (!isActive) return;
+        if (error instanceof ApiError && (error.code === 'overall_search_area_required' || error.status === 404)) {
+          setState({ status: 'missing', area: null, error: null });
+          return;
+        }
         setState({ status: 'error', area: null, error: error instanceof Error ? error : new Error('search_area_error') });
       });
 

@@ -1,4 +1,4 @@
-import { apiRequest } from '../../../shared/api/client';
+import { incidentReadApi, type IncidentDetailResponse } from '../../incident/api/incidentReadApi';
 
 export type AreaEditIncidentDetailMissingPersonDto = {
   incidentId: string;
@@ -32,8 +32,8 @@ export type AreaEditTerminalIncidentDetailDto = {
   writeDisabledReason: string;
 };
 
-export type AreaEditIncidentDetailDto = AreaEditActiveIncidentDetailDto | AreaEditTerminalIncidentDetailDto;
+export type AreaEditIncidentDetailDto = IncidentDetailResponse;
 
 export function getAreaEditIncidentDetail(incidentId: string) {
-  return apiRequest<AreaEditIncidentDetailDto>(`/incidents/${encodeURIComponent(incidentId)}`);
+  return incidentReadApi.detail(incidentId);
 }

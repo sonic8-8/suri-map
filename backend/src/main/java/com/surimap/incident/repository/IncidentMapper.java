@@ -19,7 +19,7 @@ import org.apache.ibatis.annotations.Param;
 public interface IncidentMapper {
 
   Optional<IncidentRecord> findBySourceIncidentId(
-      @Param("sourceIncidentId") String sourceIncidentId);
+      @Param("sourceIncidentId") UUID sourceIncidentId);
 
   Optional<IncidentRecord> findByIncidentId(@Param("incidentId") UUID incidentId);
 
@@ -50,7 +50,7 @@ public interface IncidentMapper {
 
   void insertIncident(
       @Param("id") UUID id,
-      @Param("sourceIncidentId") String sourceIncidentId,
+      @Param("sourceIncidentId") UUID sourceIncidentId,
       @Param("title") String title,
       @Param("status") String status,
       @Param("openedAt") Instant openedAt,
