@@ -60,6 +60,7 @@ class OfflinePackageStateLoader(
         val json = JSONObject(body)
         val manifestId = json.optString("manifestId").takeIf(String::isNotBlank).orEmpty()
         val manifestRevision = json.optInt("manifestVersion", knownRevision?.toInt() ?: 0)
+        val manifestItems = json.optJSONArray("packageItems") ?: JSONArray()
         val downloadPlan = OfflinePackageDownloadPlan.fromManifestJson(body)
         val incidentTitle =
             json.optJSONObject("incident")
@@ -78,6 +79,12 @@ class OfflinePackageStateLoader(
         val localItems = manifestId.takeIf(String::isNotBlank)
             ?.let { id -> localPackageItems(id) }
             .orEmpty()
+        if (localItems.areReadyForManifest(manifestRevision, manifestItems)) {
+            return OfflinePackageUiState.ready(
+                incidentTitle = incidentTitle,
+                manifestRevision = manifestRevision
+            )
+        }
         return OfflinePackageUiState.manifestLoaded(
             incidentTitle = incidentTitle,
             manifestRevision = manifestRevision,
@@ -85,7 +92,7 @@ class OfflinePackageStateLoader(
             packageItems = if (localItems.isNotEmpty()) {
                 packageItemStates(localItems)
             } else {
-                packageItemStates(json.optJSONArray("packageItems") ?: JSONArray())
+                packageItemStates(manifestItems)
             }
         )
     }
@@ -180,6 +187,33 @@ class OfflinePackageStateLoader(
             failedItems == 0
     }
 
+    private fun List<OfflinePackageItemStatus>.areReadyForManifest(
+        manifestRevision: Int,
+        manifestItems: JSONArray
+    ): Boolean {
+        if (isEmpty()) {
+            return false
+        }
+        val expectedItemKeys = manifestItems.itemKeys()
+        if (expectedItemKeys.isEmpty()) {
+            return false
+        }
+        val localItemKeys = map(OfflinePackageItemStatus::itemKey).toSet()
+        return all { item ->
+            item.manifestVersion == manifestRevision && item.status.isCompletePackageItemStatus()
+        } && localItemKeys.containsAll(expectedItemKeys)
+    }
+
+    private fun JSONArray.itemKeys(): Set<String> =
+        buildSet {
+            repeat(length()) { index ->
+                optJSONObject(index)
+                    ?.optString("itemKey")
+                    ?.takeIf(String::isNotBlank)
+                    ?.let(::add)
+            }
+        }
+
     private companion object {
         val PERMISSION_ERROR_CODES =
             setOf(
@@ -208,3 +242,5 @@ class OfflinePackageStateLoader(
             }
     }
 }
+
+private fun String.isCompletePackageItemStatus(): Boolean = this == "DOWNLOADED" || this == "SKIPPED"

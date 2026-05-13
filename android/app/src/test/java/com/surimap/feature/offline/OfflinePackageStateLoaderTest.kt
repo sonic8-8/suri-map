@@ -207,6 +207,92 @@ class OfflinePackageStateLoaderTest {
     }
 
     @Test
+    fun completedLocalPackageItemsOpenMapWhenInstallationAggregateIsNotYetVisible() = runBlocking {
+        val callFactory =
+            CapturingCallFactory(
+                response =
+                response(
+                    200,
+                    """
+                    {
+                      "manifestId": "$MANIFEST_ID",
+                      "incidentId": "$INCIDENT_ID",
+                      "manifestVersion": 18,
+                      "incident": {"title": "광주 북구 산악 실종"},
+                      "packageItems": [
+                        {
+                          "itemKey": "incident-meta",
+                          "itemType": "INCIDENT_META",
+                          "status": "PENDING",
+                          "sourceVersion": 7,
+                          "sourceHash": "sha256:incident"
+                        },
+                        {
+                          "itemKey": "tile-1",
+                          "itemType": "TILE",
+                          "status": "PENDING",
+                          "sourceVersion": 18,
+                          "sourceHash": "sha256:tile"
+                        }
+                      ]
+                    }
+                    """.trimIndent()
+                )
+            )
+        val loader =
+            OfflinePackageStateLoader(
+                repository =
+                OfflinePackageRepository(
+                    apiClient =
+                    SuriMapApiClient(
+                        baseUrl = "https://suri-map.internal",
+                        callFactory = callFactory
+                    )
+                ),
+                incidentId = INCIDENT_ID,
+                policePhoneId = POLICE_PHONE_ID,
+                localPackageItems = { manifestId ->
+                    assertEquals(MANIFEST_ID, manifestId)
+                    listOf(
+                        OfflinePackageItemStatus(
+                            incidentId = INCIDENT_ID,
+                            policePhoneId = POLICE_PHONE_ID,
+                            manifestId = manifestId,
+                            manifestVersion = 18,
+                            itemKey = "incident-meta",
+                            itemType = "INCIDENT_META",
+                            status = "SKIPPED",
+                            sourceVersion = 7,
+                            sourceHash = "sha256:incident",
+                            bytesTotal = null,
+                            bytesDownloaded = null
+                        ),
+                        OfflinePackageItemStatus(
+                            incidentId = INCIDENT_ID,
+                            policePhoneId = POLICE_PHONE_ID,
+                            manifestId = manifestId,
+                            manifestVersion = 18,
+                            itemKey = "tile-1",
+                            itemType = "TILE",
+                            status = "DOWNLOADED",
+                            sourceVersion = 18,
+                            sourceHash = "sha256:tile",
+                            bytesTotal = 100,
+                            bytesDownloaded = 100
+                        )
+                    )
+                }
+            )
+
+        val state = loader.load()
+
+        assertEquals(OfflinePackageDownloadStatus.Ready, state.status)
+        assertTrue(state.readyForOfflineUse)
+        assertTrue(state.autoOpenSearchMap)
+        assertFalse(state.shouldDownloadPackage)
+    }
+
+    @Test
     fun localPackageItemProgressOverridesManifestItemProgress() = runBlocking {
         val callFactory =
             CapturingCallFactory(
