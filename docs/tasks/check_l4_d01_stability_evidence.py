@@ -57,7 +57,15 @@ def main() -> int:
             "docs/tasks 하위",
             "final evidence 문서 없음",
         ],
-        "device availability": ["adb devices -l", "연결된 Android device 0대"],
+        "device availability": ["Windows ADB", "one physical Android device", "insufficient"],
+        "merged follow-up defects": [
+            "S14P31C106-307",
+            "S14P31C106-308",
+            "S14P31C106-310",
+            "S14P31C106-312",
+            "origin/develop",
+            "do not replace",
+        ],
         "blocked verdict": ["Verdict", "BLOCKED"],
         "next action": ["docs/tasks/l4-network-switch-stability-protocol.md", "실제 장치"],
     }
