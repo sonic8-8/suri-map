@@ -26,7 +26,7 @@ type SituationBoardHeaderProps = {
   onMoveMarkerNotification: (nextIndex: number) => void;
   onOpenIncidentList: () => void;
   onOpenSituationBoard?: () => void;
-  onOpenHandover: () => void;
+  onOpenHandover?: () => void;
   onOpenOfflinePackage?: () => void;
 };
 

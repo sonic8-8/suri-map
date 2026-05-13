@@ -16,6 +16,7 @@ type DashboardMapShellProps = {
   activeOperationalPeriodId: string | null;
   incidentId: string;
   isMapExpanded: boolean;
+  isTerminalBoard?: boolean;
   legendItems: LegendItem[];
   layerVisibility: LayerVisibility;
   movementPaths: MovementPath[];
@@ -33,6 +34,7 @@ export function DashboardMapShell({
   activeOperationalPeriodId,
   incidentId,
   isMapExpanded,
+  isTerminalBoard = false,
   legendItems,
   layerVisibility,
   movementPaths,
@@ -98,6 +100,7 @@ export function DashboardMapShell({
     <div className={styles.layout}>
       <div className={styles.canvasShell}>
         <MapControls
+          canFitIncidentSearchArea={!isTerminalBoard}
           isMapExpanded={isMapExpanded}
           onFitIncidentSearchArea={handleFitIncidentSearchArea}
           onToggleMapExpanded={onToggleMapExpanded}
@@ -119,7 +122,7 @@ export function DashboardMapShell({
           selectedSearchAreaId={selectedSearchAreaId}
           onSelectSearchArea={onSelectSearchArea}
         />
-        <MapLegend legendItems={legendItems} />
+        {isTerminalBoard ? null : <MapLegend legendItems={legendItems} />}
       </div>
     </div>
   );
