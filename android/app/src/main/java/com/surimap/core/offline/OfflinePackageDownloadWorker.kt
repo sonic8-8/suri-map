@@ -2,9 +2,13 @@ package com.surimap.core.offline
 
 import android.content.Context
 import androidx.work.CoroutineWorker
+import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.surimap.BuildConfig
 import com.surimap.core.network.AccessTokenProvider
+import com.surimap.core.sync.LocalSyncRuntime
+import com.surimap.core.sync.OutboxReplayScheduler
+import com.surimap.core.sync.OutboxReplayWorkRequest
 
 data class OfflinePackageWorkerInstallRequest(
     val incidentId: String,
@@ -51,6 +55,17 @@ class OfflinePackageDownloadWorker(appContext: Context, workerParameters: Worker
                 accessTokenProvider = AccessTokenProvider { accessToken }
             )
         installer.install(request)
+        val replayRequest =
+            OutboxReplayWorkRequest(
+                incidentId = incidentId,
+                policePhoneId = policePhoneId,
+                apiBaseUrl = apiBaseUrl,
+                accessToken = accessToken
+            )
+        LocalSyncRuntime.outboxReplayScheduler?.invoke(replayRequest)
+            ?: OutboxReplayScheduler(WorkManager.getInstance(applicationContext)).schedule(
+                replayRequest
+            )
         return Result.success()
     }
 

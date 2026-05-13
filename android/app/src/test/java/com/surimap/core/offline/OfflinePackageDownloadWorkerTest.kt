@@ -3,6 +3,8 @@ package com.surimap.core.offline
 import androidx.work.Data
 import androidx.work.ListenableWorker
 import androidx.work.testing.TestListenableWorkerBuilder
+import com.surimap.core.sync.LocalSyncRuntime
+import com.surimap.core.sync.OutboxReplayWorkRequest
 import com.surimap.testing.incidentIdFixture
 import com.surimap.testing.manifestIdFixture
 import com.surimap.testing.policePhoneIdFixture
@@ -22,13 +24,16 @@ class OfflinePackageDownloadWorkerTest {
     @After
     fun tearDown() {
         OfflinePackageDownloadRuntime.installer = null
+        LocalSyncRuntime.outboxReplayScheduler = null
     }
 
     @Test
     fun workerDelegatesManifestInstallToRuntimeInstaller() = runBlocking {
         val installs = mutableListOf<OfflinePackageWorkerInstallRequest>()
+        val replayRequests = mutableListOf<OutboxReplayWorkRequest>()
         OfflinePackageDownloadRuntime.installer =
             OfflinePackageWorkerInstaller { request -> installs += request }
+        LocalSyncRuntime.outboxReplayScheduler = { request -> replayRequests += request }
         val worker =
             TestListenableWorkerBuilder<OfflinePackageDownloadWorker>(
                 RuntimeEnvironment.getApplication()
@@ -54,6 +59,14 @@ class OfflinePackageDownloadWorkerTest {
                 accessToken = "bootstrap-token-1"
             ),
             installs.single()
+        )
+        assertEquals(
+            OutboxReplayWorkRequest(
+                incidentId = INCIDENT_ID,
+                policePhoneId = POLICE_PHONE_ID,
+                accessToken = "bootstrap-token-1"
+            ),
+            replayRequests.single()
         )
     }
 

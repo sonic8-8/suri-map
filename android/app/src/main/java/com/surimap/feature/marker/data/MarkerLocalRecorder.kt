@@ -103,6 +103,10 @@ class MarkerLocalRecorder(
             )
         if (result.status != OutboxStatus.FAILED_FINAL) {
             val createdAt = clientTs.toEpochMilli()
+            val localMirrorStatus =
+                localMarkerDao?.findOutboxLocalMirrorStatus(result.outboxId)
+                    ?.takeIf(String::isNotBlank)
+                    ?: result.harnessStatus.name
             localMarkerDao?.upsert(
                 LocalMarkerEntity(
                     localMarkerId = operationId,
@@ -116,7 +120,7 @@ class MarkerLocalRecorder(
                     memo = input.memo?.takeIf(String::isNotBlank),
                     lon = location.lon,
                     lat = location.lat,
-                    syncStatus = result.harnessStatus.name,
+                    syncStatus = localMirrorStatus,
                     createdAtMillis = createdAt,
                     updatedAtMillis = createdAt
                 )
