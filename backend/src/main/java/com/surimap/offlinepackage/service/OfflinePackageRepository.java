@@ -176,7 +176,7 @@ public class OfflinePackageRepository {
     }
     OfflinePackageInstallationRecord record =
         OfflinePackageInstallationRecord.from(
-            INSTALLATION_DB_ID,
+            installationIdForReport(requestManifestDbId, requestPolicePhoneDbId),
             incidentDbId,
             requestManifestDbId,
             requestPolicePhoneDbId,
@@ -258,7 +258,11 @@ public class OfflinePackageRepository {
   }
 
   private void ensureFixtureManifest() {
-    if (mapper.countManifest(MANIFEST_DB_ID) > 0) {
+    OfflinePackageManifestRecord current = mapper.findCurrentManifestByIncident(INCIDENT_DB_ID);
+    if (current != null && !current.id().toString().equals(MANIFEST_DB_ID)) {
+      return;
+    }
+    if (current != null || mapper.countManifest(MANIFEST_DB_ID) > 0) {
       ensureSeedStatus("pkg-status-precinct-ready-001", POLICE_PHONE_ID, "READY", 3, true);
       ensureSeedStatus(
           "pkg-status-precinct-partial-001", "dev-precinct-phone-02", "PARTIAL", 2, false);
@@ -476,6 +480,13 @@ public class OfflinePackageRepository {
 
   private static String installationDbId(String value) {
     return dbId(value, "offline_package_installation");
+  }
+
+  private static String installationIdForReport(String manifestDbId, String policePhoneDbId) {
+    if (MANIFEST_DB_ID.equals(manifestDbId) && POLICE_PHONE_ID.equals(policePhoneDbId)) {
+      return INSTALLATION_DB_ID;
+    }
+    return installationDbId(manifestDbId + ":" + policePhoneDbId);
   }
 
   private static String policePhoneDbId(String value) {

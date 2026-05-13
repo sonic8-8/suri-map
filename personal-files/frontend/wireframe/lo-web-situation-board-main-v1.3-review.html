@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>Review · Web 사건 상황판 메인 v1.3</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: Pretendard, "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; }
+  body { background: #e0e0e0; padding: 24px; color: #1d1d1d; line-height: 1.5; }
+  .container { max-width: 1280px; margin: 0 auto; }
+  h1 { font-size: 20px; margin-bottom: 8px; }
+  h2 { font-size: 15px; margin: 32px 0 12px; padding-bottom: 6px; border-bottom: 1px solid #999; }
+  p, li { font-size: 12px; }
+  dl { display: grid; grid-template-columns: 140px 1fr; gap: 4px 12px; margin-bottom: 16px; }
+  dt { color: #666; font-size: 12px; }
+  dd { font-size: 12px; }
+  ul { padding-left: 20px; }
+  .meta-card { background: #fff; padding: 16px; border: 1px solid #999; }
+  .link { color: #0066cc; text-decoration: underline; }
+  .checklist { background: #fff; padding: 16px; border: 1px solid #999; font-size: 12px; line-height: 1.7; }
+  .badge { display: inline-block; padding: 1px 6px; font-size: 10px; border: 1px solid #333; }
+  .badge.fixed { background: #e5f4ec; }
+  .badge.note { background: #e8f0ff; }
+  .badge.policy { background: #fff8d8; }
+  .badge.issue { background: #ffe8e8; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; background: #fff; margin-top: 8px; }
+  th, td { border: 1px solid #999; padding: 6px 8px; vertical-align: top; text-align: left; }
+  th { background: #f0f0f0; }
+  .icon-table svg { width: 20px; height: 20px; }
+  .variant-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .variant-card { background: #fff; border: 1px solid #999; padding: 16px; }
+  .variant-mock { border: 1px solid #ccc; min-height: 160px; padding: 12px; font-size: 11px; display: flex; flex-direction: column; gap: 6px; background: #f7f7f7; }
+  .variant-mock .banner { padding: 6px 10px; border: 1px solid #333; background: #fff; font-size: 10px; font-weight: bold; }
+  .variant-mock .banner.warn { border-style: dashed; }
+  .variant-mock .full { flex: 1; display: flex; align-items: center; justify-content: center; color: #666; text-align: center; }
+</style>
+</head>
+<body>
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none;">
+  <symbol id="ic-clue" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6"/><line x1="15.5" y1="15.5" x2="20" y2="20"/></symbol>
+  <symbol id="ic-found" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3"/><path d="M3 21v-1a6 6 0 0 1 12 0v1"/><path d="M16 13l2 2 4-4"/></symbol>
+  <symbol id="ic-field" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 19l5-9 4 7 3-5 6 7z"/><circle cx="8" cy="7" r="1.5" fill="currentColor"/></symbol>
+  <symbol id="ic-drone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="6" height="6" rx="1"/><line x1="9" y1="9" x2="5" y2="5"/><line x1="15" y1="9" x2="19" y2="5"/><line x1="9" y1="15" x2="5" y2="19"/><line x1="15" y1="15" x2="19" y2="19"/><circle cx="5" cy="5" r="1.5"/><circle cx="19" cy="5" r="1.5"/><circle cx="5" cy="19" r="1.5"/><circle cx="19" cy="19" r="1.5"/></symbol>
+  <symbol id="ic-dog" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6l3 4v8h3v-3h2v3h3v-7l3-3-1-3-3 2h-6z"/><circle cx="9" cy="13" r="0.6" fill="currentColor"/><circle cx="15" cy="13" r="0.6" fill="currentColor"/></symbol>
+  <symbol id="ic-hand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11V5a1.5 1.5 0 0 1 3 0v6"/><path d="M12 11V4a1.5 1.5 0 0 1 3 0v7"/><path d="M15 11V6a1.5 1.5 0 0 1 3 0v8a6 6 0 0 1-12 0V9a1.5 1.5 0 0 1 3 0v2"/></symbol>
+  <symbol id="ic-note" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h10l4 4v12H5z"/><path d="M15 4v4h4"/><line x1="8" y1="13" x2="15" y2="13"/><line x1="8" y1="16" x2="13" y2="16"/></symbol>
+</svg>
+
+<div class="container">
+
+<h1>Review · Web 사건 상황판 메인 v1.3</h1>
+
+<div class="meta-card">
+  <dl>
+    <dt>Main canvas</dt>
+    <dd><a class="link" href="./lo-web-situation-board-main-v1.3.html">lo-web-situation-board-main-v1.3.html</a> (1920×1080)</dd>
+    <dt>버전 보관</dt>
+    <dd>이전 시도(v1~v1.2)는 Git 이력으로 보관하고, 작업 디렉토리에는 최신 승인 후보와 review만 유지한다.</dd>
+    <dt>v1.3 변경 이유</dt>
+    <dd>(1) Codex v1.2 재검수 FIX 6건 반영. (2) 사용자 피드백: 마커 = 의미 있는 SVG 아이콘 + 라벨 칩 조합 (경찰견·드론 등 sub-type 시각 구분).</dd>
+  </dl>
+</div>
+
+<h2>v1.3 핵심 변경</h2>
+
+<table>
+  <thead>
+    <tr><th style="width:140px;">영역</th><th>v1.2</th><th>v1.3</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>마커 시각</td>
+      <td>추상 도형 (사각/원/삼각/마름모/검은원)</td>
+      <td>의미 SVG 아이콘 + 텍스트 라벨 칩 (7종)</td>
+    </tr>
+    <tr>
+      <td>SUPPORT_REQUEST sub-type</td>
+      <td>모두 마름모 단일 글리프</td>
+      <td>드론/경찰견/기타 각각 다른 아이콘 + 라벨 (지도에서 즉시 식별)</td>
+    </tr>
+    <tr>
+      <td>좌측 마커 필터</td>
+      <td>5종 chip 평면</td>
+      <td>5종 chip + SUPPORT_REQUEST 아래 sub-type 3종 sub-chip</td>
+    </tr>
+    <tr>
+      <td>마커 라벨 토글</td>
+      <td>없음 (라벨 X)</td>
+      <td>좌측 레이어 패널에 "마커 라벨" 토글 (default ON)</td>
+    </tr>
+    <tr>
+      <td>최근 마커 라벨</td>
+      <td>"발견 · 단서 의류" (의미 충돌)</td>
+      <td>"단서 · 의류" / "드론 지원 요청" / "단서 · 신발 자국" / "메모 · 개천 건넘 불가"</td>
+    </tr>
+    <tr>
+      <td>폴리폰 라벨</td>
+      <td>"기동1-A", "지구대-팀" (영어/축약)</td>
+      <td>"기동대 1부대 A팀 폴리폰", "지구대 팀 폴리폰" (screen-labels §2 정렬)</td>
+    </tr>
+    <tr>
+      <td>우측 트리 stale 표기</td>
+      <td>"stale 12분"</td>
+      <td>"12분 전 동기화"</td>
+    </tr>
+    <tr>
+      <td>OP overlay 패널 라벨</td>
+      <td>"OP overlay (1개 비교 중)"</td>
+      <td>"비교 OP (1개)"</td>
+    </tr>
+    <tr>
+      <td>UNIT 접기/펼치기</td>
+      <td>모두 펼침</td>
+      <td>UNIT별 +/− 토글 추가 (기동대 2부대 접힌 상태 예시)</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>마커 아이콘 7종 (SVG inline)</h2>
+
+<table class="icon-table">
+  <thead>
+    <tr><th style="width:60px;">아이콘</th><th style="width:100px;">marker_type / sub_type</th><th style="width:100px;">라벨</th><th>메타포</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><svg><use href="#ic-clue"/></svg></td><td><code>CLUE</code></td><td>단서</td><td>돋보기 (조사한 결과 = 단서). 메타포 약함을 라벨로 보완 — anti-patterns §1.6.11 정책</td></tr>
+    <tr><td><svg><use href="#ic-found"/></svg></td><td><code>PERSON_FOUND</code></td><td>발견</td><td>사람 + 체크. 강조 outline 추가</td></tr>
+    <tr><td><svg><use href="#ic-field"/></svg></td><td><code>FIELD_CONDITION</code></td><td>지형</td><td>산 윤곽 + 태양</td></tr>
+    <tr><td><svg><use href="#ic-drone"/></svg></td><td><code>SUPPORT_REQUEST · DRONE</code></td><td>드론</td><td>quadcopter (4-rotor)</td></tr>
+    <tr><td><svg><use href="#ic-dog"/></svg></td><td><code>SUPPORT_REQUEST · POLICE_DOG</code></td><td>경찰견</td><td>개 옆모습</td></tr>
+    <tr><td><svg><use href="#ic-hand"/></svg></td><td><code>SUPPORT_REQUEST · OTHER</code></td><td>기타 지원</td><td>손 들기 (도움 요청)</td></tr>
+    <tr><td><svg><use href="#ic-note"/></svg></td><td><code>NOTE</code></td><td>메모</td><td>메모지. 사용자 화면 라벨은 "운영 메모"/"메모"로 통일하고, enum <code>NOTE</code>는 API/debug 맥락에만 노출.</td></tr>
+  </tbody>
+</table>
+
+<h2>Codex v1.2 재검수 FIX 6건 처리</h2>
+
+<table>
+  <thead><tr><th style="width:40px;">#</th><th>항목</th><th style="width:80px;">처리</th><th>v1.3 적용</th></tr></thead>
+  <tbody>
+    <tr><td>F1</td><td>한글 폰트 검수 환경</td><td><span class="badge policy">정책</span></td><td>prototype-agent-loop §3.1에 검수 환경 폰트 설치 전제 추가 (Pretendard / Noto Sans CJK KR)</td></tr>
+    <tr><td>F2</td><td>지도 폴리폰 라벨 (지구대-팀 등)</td><td><span class="badge fixed">반영</span></td><td>"지구대 팀 폴리폰", "지구대 순찰차 폴리폰", "기동대 1부대 A팀 폴리폰" 등 screen-labels §2 정렬. 라벨도 추가</td></tr>
+    <tr><td>F3</td><td>우측 트리 "stale 12분"</td><td><span class="badge fixed">반영</span></td><td>모두 "12분 전 동기화", "8분 전 동기화", "위치 끊김 27분"으로 변경</td></tr>
+    <tr><td>F4</td><td>"발견 · 단서 의류" 의미 충돌</td><td><span class="badge fixed">반영 + 정책</span></td><td>"단서 · 의류"로 변경. anti-patterns §1.6.10 신설 (마커 카테고리·라벨 일치)</td></tr>
+    <tr><td>F5</td><td>구역 편집 권한 variant</td><td><span class="badge fixed">반영</span></td><td>main canvas는 command role default. permission_partial은 아래 §"권한 variant"</td></tr>
+    <tr><td>F6</td><td>상태 variant 범위</td><td><span class="badge fixed">반영</span></td><td>기존 상태 variant와 simple_mode/op_transition/overall_required 신규 상태를 아래 §"상태 variant"에 통합 (요약 mock만)</td></tr>
+  </tbody>
+</table>
+
+<h2>anti-patterns 검수</h2>
+
+<div class="checklist">
+  <p><b>v1.3 신규 검수</b></p>
+  <ul>
+    <li><span class="badge fixed">PASS</span> §1.6.10 마커 카테고리·라벨 일치 (CLUE → "단서", PERSON_FOUND → "발견" 등)</li>
+    <li><span class="badge fixed">PASS</span> §1.6.11 모든 마커 아이콘 + 라벨 칩 조합. 좌측 토글로 라벨 on/off 가능</li>
+    <li><span class="badge fixed">PASS</span> 색맹 친화: 마커 = 아이콘 모양 + 텍스트 라벨 + (high-fi에서 색) 3중 인코딩</li>
+  </ul>
+
+  <p style="margin-top:12px;"><b>v1.2 기준 (재검증)</b></p>
+  <ul>
+    <li><span class="badge fixed">PASS</span> §1.6.8 OVERALL → UNIT → TEAM 3계층</li>
+    <li><span class="badge fixed">PASS</span> §1.6.9 OVERALL 작성자 명시 (실종팀 간부)</li>
+    <li><span class="badge fixed">PASS</span> §1.6.5 동시 active OP 1개 (current vs selected)</li>
+    <li><span class="badge fixed">PASS</span> 폴리폰 freshness 60초/5분 spec 정렬</li>
+  </ul>
+</div>
+
+<h2>권한 variant (F5 보강)</h2>
+
+<div class="variant-grid">
+  <div class="variant-card">
+    <h3>command role (MP_O · SU_O · LP_O)</h3>
+    <p style="font-size:11px;color:#333;">main canvas의 default. 헤더 액션 모두 활성. 구역 편집·새 OP·구역 완료 가능.</p>
+    <div class="variant-mock">
+      <div class="banner">헤더: [인수인계 메모] [수색 이력 요약] [구역 편집] [사건 목록]</div>
+      <div class="banner">마커 상세: 모든 마커 [수정] [삭제] 활성</div>
+    </div>
+  </div>
+  <div class="variant-card">
+    <h3>member role (MP_M)</h3>
+    <p style="font-size:11px;color:#333;">화면 진입 OK. 지휘 액션 disabled + tooltip "지휘 권한이 필요합니다". 마커 수정·삭제는 자기 계정 생성분만.</p>
+    <div class="variant-mock">
+      <div class="banner">헤더: [인수인계 메모] [수색 이력 요약] <s>[구역 편집]</s> [사건 목록]</div>
+      <div class="banner warn">tooltip: "지휘 권한이 필요합니다"</div>
+      <div class="banner">마커 상세: 자기 마커 [수정] [삭제] / 타 마커 [수정 비활성] [삭제 비활성]</div>
+    </div>
+  </div>
+</div>
+
+<h2>상태 variant (F6 보강 — 요약 mock)</h2>
+
+<div class="variant-grid">
+
+  <div class="variant-card">
+    <h3>incident_closed (tombstone)</h3>
+    <p style="font-size:11px;color:#333;">실종자/위치/패키지 재다운로드 모두 제거. sanitized tombstone만. anti-patterns §1.6.7.1.</p>
+    <div class="variant-mock">
+      <div class="banner" style="background:#ddd;">이 사건은 종료되었습니다 (2026-04-30 18:20 종료 · 실종팀 간부)</div>
+      <div class="banner">사건 ID + 비식별 사건 메타만</div>
+      <div class="banner">파기 진행: 실종자 정보 ✓ · 위치 좌표 ✓ · 단말 로컬 ✓</div>
+    </div>
+  </div>
+
+  <div class="variant-card">
+    <h3>simple_mode (FR-26)</h3>
+    <p style="font-size:11px;color:#333;">레이어 토글에서 "단순 보기" ON. 마커 라벨/지형/운영 메모/cluster 숨김. 활성 폴리폰·완료 구역·강조 알림만 표시.</p>
+    <div class="variant-mock">
+      <div class="banner">[지도: OVERALL outline + 활성 폴리폰 + 구역 상태만]</div>
+      <div class="banner warn">숨김: 마커 라벨, 지형 마커, 운영 메모 마커, OP overlay, cluster</div>
+    </div>
+  </div>
+
+  <div class="variant-card">
+    <h3>op_transition (OP 전환 직후)</h3>
+    <p style="font-size:11px;color:#333;">OP 3차 → OP 4차 직후. 이전 OP 데이터 readonly로 잠김. 헤더에 "OP 4차 시작 — OP 3차 보존됨" 배너.</p>
+    <div class="variant-mock">
+      <div class="banner warn">OP 4차 시작 (재수색) — OP 3차 데이터 보존됨</div>
+      <div class="banner">현재 OP에 새 구역 배정·경로 기록 시작</div>
+      <div class="banner">OP 비교 패널에 OP 3차 자동 selected</div>
+    </div>
+  </div>
+
+  <div class="variant-card">
+    <h3>overall_search_area_required (사건 가져온 직후)</h3>
+    <p style="font-size:11px;color:#333;">사건 가져왔으나 OVERALL 0개. 지도 비어있고 "전체 수색 구역을 먼저 그려주세요" 안내.</p>
+    <div class="variant-mock">
+      <div class="banner">[지도: 베이스맵만, 구역 0개]</div>
+      <div class="full">전체 수색 구역을 먼저 그려주세요<br><br>[전체 수색 구역 그리기] (지휘 권한자만)</div>
+    </div>
+  </div>
+
+  <div class="variant-card">
+    <h3>permission_partial</h3>
+    <p style="font-size:11px;color:#333;">위 권한 variant 참조.</p>
+    <div class="variant-mock"><div class="full">위 §"권한 variant" 참조</div></div>
+  </div>
+
+  <div class="variant-card">
+    <h3>다른 우선순위 1~5 상태</h3>
+    <p style="font-size:11px;color:#333;">loading / empty / error / permission_denied / offline / partial_sync / stale는 screen-state-matrix.md 기준으로 유지. 이 review에서는 신규·고위험 상태만 요약 mock으로 표시한다.</p>
+    <div class="variant-mock"><div class="full">기본 상태 정의: screen-state-matrix.md 참조</div></div>
+  </div>
+
+</div>
+
+<h2>v1.3 검토 필요 / 미정</h2>
+
+<div class="checklist">
+  <ul>
+    <li><b>마커 SVG 디테일</b>: 현재 inline path는 시안. high-fi에서 Lucide·Tabler·Material Symbols 중 라이브러리 결정 + 디테일 정교화 필요</li>
+    <li><b>경찰견 아이콘</b>: 시안 path가 다소 거침. high-fi에서 다듬기</li>
+    <li><b>마커 라벨 토글 UX</b>: default ON이라 좌측 패널에 새 항목 추가됨. 사용 빈도 검증 후 default OFF/ON 결정</li>
+    <li><b>운영 메모 라벨</b>: 사용자 화면은 "운영 메모"/"메모"로 통일. 영어 enum "NOTE"는 API/debug 맥락 전용.</li>
+    <li><b>cluster 안의 마커</b>: cluster 클릭 시 sub-type별 그룹 표시? 아니면 zoom-in?</li>
+    <li><b>마커 라벨 collision</b>: 같은 좌표 근처에 마커 여러 개 + 라벨 모두 ON이면 라벨 겹침. cluster 임계 + 라벨 stack 정책 high-fi 단계</li>
+    <li><b>지도 범례 길이</b>: 마커 7종 추가로 범례가 길어짐. 좌측 하단 max-width 320px에서 줄바꿈 발생. 범례 grid 정리 필요</li>
+    <li><b>실종팀 영역 표시</b>: 이전 시도부터 미정 — UNIT 외부 실종팀 free roam. 현재 v1.3에서도 미반영</li>
+  </ul>
+</div>
+
+<h2>Codex 재검수 (PRD/spec 대조 · 2026-05-05)</h2>
+
+<div class="checklist">
+  <p><b>검수 기준</b>: `docs/prd.md`, `docs/spec/harness-scenarios.md`, `docs/spec/boundaries.md`를 기준으로 v1.3 main canvas와 review variant를 대조했다. 브라우저 검증은 1920×1080 Playwright viewport에서 수행했고, favicon 404 외 콘솔 오류는 없었다.</p>
+
+  <p style="margin-top:12px;"><b>반영 확인</b></p>
+  <ul>
+    <li><span class="badge fixed">PASS</span> PRD의 SearchArea 3계층(`OVERALL | UNIT | TEAM`)과 README의 OVERALL → UNIT → TEAM 흐름이 main canvas와 우측 트리에 반영됐다.</li>
+    <li><span class="badge fixed">PASS</span> OP current와 selected overlay가 분리되어, PRD FR-11/FR-32의 OP 비교 요구와 anti-pattern의 "동시 active OP" 금지에 맞는다.</li>
+    <li><span class="badge fixed">PASS</span> 현장 마커 기본 타입 5종(`CLUE`, `PERSON_FOUND`, `FIELD_CONDITION`, `SUPPORT_REQUEST`, `NOTE`)과 지원 요청 subtype 3종(`DRONE`, `POLICE_DOG`, `OTHER`)이 UI에서 식별된다.</li>
+    <li><span class="badge fixed">PASS</span> 폴리폰 최신성은 `60초 이내 / 1분 이상 / 5분 이상` 기준으로 spec의 stale/lost 기준과 맞는다.</li>
+    <li><span class="badge fixed">PASS</span> `incident_closed` variant가 실종자 정보와 실시간 위치를 제거한 tombstone 방향으로 바뀌었다.</li>
+  </ul>
+
+  <p style="margin-top:12px;"><b>수정 필요</b></p>
+  <ul>
+    <li><span class="badge issue">FIX</span> 지원 요청 마커의 지도 chip이 `드론`, `경찰견`만 표시된다. PRD는 외부 수색 자산의 실제 투입·승인·경로 표시를 범위 밖으로 두고, 무전/공식 채널로 전달한 <b>지원 요청 위치 기록</b>만 다룬다. `드론` 단독 라벨은 실제 드론이 배치된 것처럼 보일 수 있으므로 `지원: 드론`, `지원: 경찰견`, `지원 요청`처럼 요청 상태가 드러나야 한다.</li>
+    <li><span class="badge issue">FIX</span> `toast` slot 검증이 빠져 있다. boundaries의 board slot에는 `toast`가 `SUPPORT_REQUEST_CREATED`, `PERSON_FOUND` 알림을 담당하고, PRD/SC-08은 지원 요청·실종자 발견 알림 도달을 검증한다. main canvas 또는 state variant에 `지원 요청 toast`, `실종자 발견 강조 알림`, dismiss/stack 정책을 다시 넣어야 한다.</li>
+    <li><span class="badge issue">FIX</span> 헤더의 `수색 이력 요약` 버튼은 생성 CTA인지 조회 CTA인지 불명확하다. SC-11은 OP1 구역 완료, OP2 전환, 인수인계 메모 저장 전에는 생성 CTA/API가 열리지 않아야 하고, 비지휘 계정은 생성 CTA가 노출되지 않아야 한다. `요약 보기`와 `요약 생성/다시 시도`를 분리하고, eligibility/FAILED/loading variant를 명시해야 한다.</li>
+    <li><span class="badge issue">FIX</span> member role variant에서 `수색 이력 요약`이 활성 버튼처럼 남아 있다. 사건 배정 대원은 기존 요약 조회는 가능할 수 있지만, 생성/재시도는 `현장 지휘관` 권한이다. member variant는 `요약 보기`만 허용하거나 `요약 생성`을 숨김/비활성으로 표시해야 한다.</li>
+    <li><span class="badge issue">FIX</span> `incident_closed` variant의 `파기 진행: 실종자 정보 ✓ · 위치 좌표 ✓ · 단말 로컬 ✓`는 tombstone 허용 필드와 표현을 더 좁혀야 한다. boundaries는 public tombstone을 `incidentId`, 종료 상태/시각, 쓰기 불가 사유, 사용자 노출 가능한 `localPurgeState` 수준으로 제한한다. 세부 내부 파기 항목처럼 보이지 않게 `로컬 정리 상태: 완료/대기` 정도로 축약한다.</li>
+    <li><span class="badge issue">FIX</span> SC-12는 사건 종료 확인 다이얼로그가 삭제 대상과 재오픈 불가를 승인 전에 표시해야 한다. 현재 review에는 종료 후 tombstone만 있고, 종료 승인 전 confirm variant가 없다. `사건 종료` 화면/다이얼로그 산출물에서 반드시 보완해야 한다.</li>
+  </ul>
+
+  <p style="margin-top:12px;"><b>검토 메모</b></p>
+  <ul>
+    <li><span class="badge note">메모</span> 지도 라벨과 SVG 마커가 많이 좋아졌지만, 실제 Playwright/Linux 검수 환경에서는 한글 glyph가 여전히 네모로 보인다. 폰트 설치 전제를 문서화한 것은 맞지만, 산출물 공유/CI 검수까지 고려하면 로컬 폰트 번들 또는 screenshot 검수 환경 고정이 필요하다.</li>
+    <li><span class="badge note">메모</span> main canvas 우측 패널은 내부 스크롤이 생긴다. UNIT 접기/펼치기가 들어와 사용성은 개선됐지만, high-fi에서는 접힘 상태의 기본값과 "stale/lost 폴리폰이 있는 UNIT은 자동 펼침" 같은 정책을 검토할 만하다.</li>
+    <li><span class="badge note">메모</span> FR-13은 구역 클릭 시 `완료 이력: N회`처럼 `search_area_history` 기반 이력을 표시해야 한다. main board에서 모두 보여줄 필요는 없지만, 구역 상세/hover/우측 detail variant에서는 완료 이력 표현을 추가해야 한다.</li>
+  </ul>
+
+  <p style="margin-top:12px;"><b>판정</b>: v1.3 main canvas는 웹 상황판 기본 구조와 마커 시각 체계 검증용 low-fi로는 통과 가능하다. 다만 PRD/spec 기준 완성도를 보려면 다음 화면으로 넘어가기 전에 위 FIX 중 `지원 요청 라벨`, `toast slot`, `수색 이력 요약 CTA 상태`, `incident_closed/close confirm`은 v1.4 또는 별도 state artifact로 정리하는 편이 안전하다.</p>
+</div>
+
+<h2>다음 단계</h2>
+<div class="checklist">
+  <ul>
+    <li><b>(a) v1.3 브라우저 검증</b> — 1920×1080에서 마커 아이콘·라벨이 의미 식별되는지</li>
+    <li><b>(b) Codex v1.3 재검수</b></li>
+    <li><b>(c) 폴리폰 수색 중 지도 low-fi 시작</b> — v1.3 OK면 다음 화면</li>
+  </ul>
+  <p style="margin-top:8px;">v1.3에서 main canvas의 큰 구조는 정리됐다. 다만 Codex 재검수 FIX 항목은 v1.4 또는 별도 state artifact로 보완한 뒤 다음 화면(폴리폰)으로 넘어가는 편이 안전하다.</p>
+</div>
+
+</div>
+</body>
+</html>

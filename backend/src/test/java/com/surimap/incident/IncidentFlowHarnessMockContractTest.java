@@ -30,8 +30,10 @@ class IncidentFlowHarnessMockContractTest {
     IncidentSeedFixtureIds seed = IncidentSeedFixtureLoader.loadPrecinctFirst();
 
     assertThat(seed.sourceIncidentId()).isEqualTo("00000000-0000-0000-0000-000000000001");
-    assertThat(seed.incidentId()).isEqualTo("inc-precinct-first-001");
-    assertThat(seed.opId()).isEqualTo("op-precinct-001-op1");
+    assertThat(seed.incidentAlias()).isEqualTo("inc-precinct-first-001");
+    assertThat(seed.incidentId()).isEqualTo("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001");
+    assertThat(seed.opAlias()).isEqualTo("op-precinct-001-op1");
+    assertThat(seed.opId()).isEqualTo("88888888-8888-8888-8888-888888880001");
     assertThat(seed.markerIds()).containsExactly("mk-precinct-clue-001");
     assertThat(seed.pathVehicleId()).isEqualTo("path-precinct-car-001");
     assertThat(seed.pathFootId()).isEqualTo("path-precinct-foot-001");
@@ -70,8 +72,8 @@ class IncidentFlowHarnessMockContractTest {
     assertThatThrownBy(() -> auth.requireImportAllowed(auth.webSupportCommander()))
         .isInstanceOf(SecurityException.class)
         .hasMessage("role_denied");
-    assertThat(OperationalPeriodFixtures.INCIDENT_ALIAS).isEqualTo(seed.incidentId());
-    assertThat(OperationalPeriodFixtures.OP1_ALIAS).isEqualTo(seed.opId());
+    assertThat(OperationalPeriodFixtures.INCIDENT_ALIAS).isEqualTo(seed.incidentAlias());
+    assertThat(OperationalPeriodFixtures.OP1_ALIAS).isEqualTo(seed.opAlias());
     var op1 = opCreator.createOp1(OperationalPeriodFixtures.INCIDENT_ID).operationalPeriod();
     markerSeed.createForIncident(seed.incidentId(), seed.seedMarkers());
     IncidentPublishRequest created =
@@ -105,7 +107,7 @@ class IncidentFlowHarnessMockContractTest {
     eventHub.publish(assignmentChanged);
 
     assertThat(auth.assignedAccountIds())
-        .containsAll(seed.accountIds())
+        .containsAll(seed.accountCodes())
         .contains("acct-cmd-alpha", "acct-team-alpha", "acct-support-cmd");
     assertThat(eventHub.publishedRequests())
         .containsExactly(assignmentChanged)

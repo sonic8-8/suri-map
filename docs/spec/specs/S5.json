@@ -1934,10 +1934,14 @@
   },
   "harness_fixtures": {
     "sc06_marker_photo_attach": {
-      "incidentId": "inc-precinct-first-001",
-      "opId": "op-precinct-001-op1",
-      "policePhoneId": "dev-precinct-phone-01",
-      "accountId": "acct-precinct-team",
+      "incidentAlias": "inc-precinct-first-001",
+      "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
+      "opAlias": "op-precinct-001-op1",
+      "opId": "88888888-8888-8888-8888-888888880001",
+      "policePhoneCode": "dev-precinct-phone-01",
+      "policePhoneId": "00000000-0000-0000-0000-000000000101",
+      "accountCode": "acct-precinct-team",
+      "accountId": "11111111-1111-1111-1111-111111110003",
       "markerId": "mk-precinct-clue-001",
       "photoId": "photo-precinct-clue-001",
       "markerVersionBefore": 1,
@@ -1965,20 +1969,32 @@
       }
     },
     "sc02_support_assignment_notification": {
-      "incidentId": "inc-precinct-first-001",
+      "incidentAlias": "inc-precinct-first-001",
+      "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
       "eventId": "evt-s1-assignment-support-assigned-001",
       "assignmentVersion": 2,
       "recipientPolicy": "NEWLY_ASSIGNED_SUPPORT_DEVICES",
-      "recipientAccountIds": [
+      "recipientAccountCodes": [
         "acct-support-car",
         "acct-support-team"
       ],
-      "recipientPolicePhoneIds": [
+      "recipientAccountIds": [
+        "11111111-1111-1111-1111-111111110007",
+        "11111111-1111-1111-1111-111111110008"
+      ],
+      "recipientPolicePhoneCodes": [
         "dev-support-car-01",
         "dev-support-phone-01"
       ],
-      "excludedPolicePhoneIds": [
+      "recipientPolicePhoneIds": [
+        "00000000-0000-0000-0000-000000000207",
+        "00000000-0000-0000-0000-000000000208"
+      ],
+      "excludedPolicePhoneCodes": [
         "dev-support-cmd-phone-01"
+      ],
+      "excludedPolicePhoneIds": [
+        "00000000-0000-0000-0000-000000000206"
       ],
       "expectedFcmRecipients": [
         "fcm:dev-support-car-01",
@@ -1986,33 +2002,49 @@
       ],
       "expectedPayload": {
         "type": "INCIDENT_ASSIGNMENT_CHANGED",
-        "incidentId": "inc-precinct-first-001",
+        "incidentAlias": "inc-precinct-first-001",
+        "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
         "status": "ACTIVE",
         "version": 2,
         "pii": false
       }
     },
     "sc08_support_request_notification": {
-      "incidentId": "inc-precinct-first-001",
-      "opId": "op-precinct-001-op1",
-      "policePhoneId": "dev-precinct-phone-01",
-      "accountId": "acct-precinct-team",
+      "incidentAlias": "inc-precinct-first-001",
+      "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
+      "opAlias": "op-precinct-001-op1",
+      "opId": "88888888-8888-8888-8888-888888880001",
+      "policePhoneCode": "dev-precinct-phone-01",
+      "policePhoneId": "00000000-0000-0000-0000-000000000101",
+      "accountCode": "acct-precinct-team",
+      "accountId": "11111111-1111-1111-1111-111111110003",
       "markerId": "mk-precinct-support-001",
       "notificationDeliveryId": "notif-precinct-support-001",
       "eventId": "evt-s5-support-request-001",
       "markerStatus": "ACTIVE",
       "markerVersion": 1,
       "recipientPolicy": "COMMANDERS_AND_FIELD_COMMANDERS",
-      "recipientAccountIds": [
+      "recipientAccountCodes": [
         "acct-cmd-alpha",
         "acct-support-cmd",
         "acct-support-car",
         "acct-support-team"
       ],
-      "recipientPolicePhoneIds": [
+      "recipientAccountIds": [
+        "11111111-1111-1111-1111-111111110004",
+        "11111111-1111-1111-1111-111111110006",
+        "11111111-1111-1111-1111-111111110007",
+        "11111111-1111-1111-1111-111111110008"
+      ],
+      "recipientPolicePhoneCodes": [
         "dev-alpha-phone-01",
         "dev-support-car-01",
         "dev-support-phone-01"
+      ],
+      "recipientPolicePhoneIds": [
+        "00000000-0000-0000-0000-000000000205",
+        "00000000-0000-0000-0000-000000000207",
+        "00000000-0000-0000-0000-000000000208"
       ],
       "expectedFcmRecipients": [
         "fcm:dev-alpha-phone-01",
@@ -2028,17 +2060,21 @@
       }
     },
     "sc08_person_found_notification": {
-      "incidentId": "inc-precinct-first-001",
-      "opId": "op-precinct-001-op1",
-      "policePhoneId": "dev-precinct-phone-01",
-      "accountId": "acct-precinct-team",
+      "incidentAlias": "inc-precinct-first-001",
+      "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
+      "opAlias": "op-precinct-001-op1",
+      "opId": "88888888-8888-8888-8888-888888880001",
+      "policePhoneCode": "dev-precinct-phone-01",
+      "policePhoneId": "00000000-0000-0000-0000-000000000101",
+      "accountCode": "acct-precinct-team",
+      "accountId": "11111111-1111-1111-1111-111111110003",
       "markerId": "mk-precinct-person-found-001",
       "notificationDeliveryId": "notif-precinct-person-found-001",
       "eventId": "evt-s5-person-found-001",
       "markerStatus": "ACTIVE",
       "markerVersion": 1,
       "recipientPolicy": "ALL_INCIDENT_ASSIGNED",
-      "recipientAccountIds": [
+      "recipientAccountCodes": [
         "acct-precinct-cmd",
         "acct-precinct-car",
         "acct-precinct-team",
@@ -2048,12 +2084,29 @@
         "acct-support-car",
         "acct-support-team"
       ],
-      "recipientPolicePhoneIds": [
+      "recipientAccountIds": [
+        "11111111-1111-1111-1111-111111110001",
+        "11111111-1111-1111-1111-111111110002",
+        "11111111-1111-1111-1111-111111110003",
+        "11111111-1111-1111-1111-111111110004",
+        "11111111-1111-1111-1111-111111110005",
+        "11111111-1111-1111-1111-111111110006",
+        "11111111-1111-1111-1111-111111110007",
+        "11111111-1111-1111-1111-111111110008"
+      ],
+      "recipientPolicePhoneCodes": [
         "dev-precinct-car-01",
         "dev-precinct-phone-01",
         "dev-alpha-phone-01",
         "dev-support-car-01",
         "dev-support-phone-01"
+      ],
+      "recipientPolicePhoneIds": [
+        "50000000-0000-0000-0000-000000000001",
+        "00000000-0000-0000-0000-000000000101",
+        "00000000-0000-0000-0000-000000000205",
+        "00000000-0000-0000-0000-000000000207",
+        "00000000-0000-0000-0000-000000000208"
       ],
       "expectedFcmRecipients": [
         "fcm:dev-alpha-phone-01",
@@ -2074,21 +2127,26 @@
         "expectedError": "channel_not_allowed"
       },
       "unregisteredDevice": {
-        "policePhoneId": "dev-unregistered-001",
+        "policePhoneCode": "dev-unregistered-001",
+        "policePhoneId": "00000000-0000-0000-0000-000000000401",
         "expectedError": "police_phone_not_registered"
       },
       "unassignedDevice": {
-        "policePhoneId": "dev-not-assigned-001",
+        "policePhoneCode": "dev-not-assigned-001",
+        "policePhoneId": "00000000-0000-0000-0000-000000000402",
         "expectedError": "police_phone_not_assigned"
       },
       "opMismatch": {
         "markerId": "mk-precinct-op-mismatch-001",
-        "requestOpId": "op-precinct-001-op1",
-        "currentOpId": "op-precinct-001-op2",
+        "requestOpAlias": "op-precinct-001-op1",
+        "requestOpId": "88888888-8888-8888-8888-888888880001",
+        "currentOpAlias": "op-precinct-001-op2",
+        "currentOpId": "88888888-8888-8888-8888-888888880002",
         "expectedError": "op_mismatch"
       },
       "closedIncident": {
-        "incidentId": "inc-precinct-closed-001",
+        "incidentAlias": "inc-precinct-closed-001",
+        "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0012",
         "markerId": "mk-precinct-closed-001",
         "photoId": "photo-precinct-closed-001",
         "expectedError": "incident_closed"

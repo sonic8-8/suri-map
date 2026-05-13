@@ -1749,7 +1749,8 @@
     "gps_path_normal_001": {
       "fixtureId": "gps-path-normal-001",
       "pathId": "path-precinct-mixed-001",
-      "policePhoneId": "dev-precinct-car-01",
+      "policePhoneCode": "dev-precinct-car-01",
+      "policePhoneId": "50000000-0000-0000-0000-000000000001",
       "points": [
         {
           "pointId": "gps-precinct-001",

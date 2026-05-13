@@ -21,6 +21,8 @@ import {
   handoverApi,
   type HandoverMemoListItem,
   useSearchHistorySummaryListQuery,
+  useDutyShiftListQuery,
+  type DutyShiftResponse,
 } from '../../../operationalPeriod/api/handoverApi';
 import {
   operationalPeriodApi,
@@ -112,6 +114,8 @@ export function HandoverPage({
   const isLoadingBoard = boardQuery.isLoading;
   const boardErrorMessage = boardQuery.isError ? '수색 이력 정보를 불러오지 못했습니다.' : '';
   const summaryQuery = useSearchHistorySummaryListQuery(focusedOpId, { incidentId });
+  const dutyShiftQuery = useDutyShiftListQuery({ incidentId, opId: focusedOpId ?? undefined });
+  const dutyShifts = dutyShiftQuery.data?.items ?? [];
 
   const selectedOp = useMemo(
     () => operationalPeriods.find((period) => period.id === focusedOpId) ?? null,
@@ -130,8 +134,8 @@ export function HandoverPage({
     [focusedOpId, memos],
   );
   const memoTargetOptions = useMemo(
-    () => createHandoverMemoTargetOptions(board, selectedOp),
-    [board, selectedOp],
+    () => createHandoverMemoTargetOptions(board, selectedOp, dutyShifts),
+    [board, selectedOp, dutyShifts],
   );
   const selectedMemoTarget = useMemo(
     () => memoTargetOptions.find((option) => option.key === selectedMemoTargetKey) ?? memoTargetOptions[0] ?? null,
@@ -722,6 +726,7 @@ function createIncidentContext(
 function createHandoverMemoTargetOptions(
   board: IncidentBoardResponse | null,
   selectedOp: OperationalPeriodListItem | null,
+  dutyShifts: DutyShiftResponse[],
 ): HandoverMemoTargetOption[] {
   if (!selectedOp) return [];
 
@@ -736,6 +741,16 @@ function createHandoverMemoTargetOptions(
     },
   ];
 
+  dutyShifts.forEach((shift) => {
+    options.push({
+      key: createMemoTargetKey('DUTY_SHIFT', shift.id),
+      targetType: 'DUTY_SHIFT',
+      targetId: shift.id,
+      label: `근무 구간 · ${shift.policePhoneId ? shortId(shift.policePhoneId) : shortId(shift.id)}`,
+      description: shift.status === 'ACTIVE' ? '현재 진행 중인 근무 구간 메모' : '종료된 근무 구간 메모',
+    });
+  });
+
   if (!board) return options;
 
   filterRowsBySelectedOps(readSlotRows(board, 'area'), [selectedOpId]).forEach((row) => {
@@ -743,7 +758,7 @@ function createHandoverMemoTargetOptions(
     if (!targetId) return;
 
     const areaLevel = readString(row, 'areaLevel') ?? readString(row, 'level') ?? 'SEARCH_AREA';
-    const areaName = readString(row, 'name') ?? readString(row, 'areaName') ?? `${formatAreaLevelLabel(areaLevel)} ${shortId(targetId)}`;
+    const areaName = readString(row, 'name') ?? readString(row, 'areaName') ?? shortId(targetId);
     const status = readString(row, 'status');
 
     options.push({
@@ -821,9 +836,9 @@ function formatMemoTargetTypeLabel(targetType: string) {
 
 function formatAreaLevelLabel(areaLevel: string) {
   const labels: Record<string, string> = {
-    OVERALL: '전체 구역',
-    UNIT: 'UNIT 구역',
-    TEAM: 'TEAM 구역',
+    OVERALL: '전체 수색 구역',
+    UNIT: '부대 구역',
+    TEAM: '팀 구역',
   };
   return labels[areaLevel] ?? '수색 구역';
 }

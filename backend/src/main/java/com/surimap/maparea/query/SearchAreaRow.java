@@ -17,6 +17,7 @@ public record SearchAreaRow(
     UUID opId,
     UUID parentAreaId,
     String status,
+    String areaLevel,
     long version,
     GeoJsonPolygon geometry,
     List<BigDecimal> bbox,

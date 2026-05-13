@@ -271,6 +271,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     payload.put("incidentId", row.incidentId().toString());
     putUuid(payload, "opId", row.opId());
     putUuid(payload, "parentAreaId", row.parentAreaId());
+    payload.put("areaLevel", row.areaLevel());
     payload.put("geometryHash", sourceHash("area", row.id().toString(), row.version(), row.status()));
     payload.put("geometry", row.geometry());
     payload.put("bbox", row.bbox());

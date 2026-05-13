@@ -280,6 +280,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
           OP_ID,
           null,
           "ACTIVE",
+          null,
           5L,
           polygon(),
           List.of(

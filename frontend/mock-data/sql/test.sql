@@ -337,7 +337,7 @@ VALUES
   );
 
 -- Additional frontend incident seeds aligned with docs/api/api-spec.md S1-1.
--- They keep the same public read contract: incident + missing_person + active assignments + OP1.
+-- Diverse mock set: open/closed incidents, active/ended OPs, and reusable search-area states.
 
 INSERT INTO incident (id, source_incident_id, title, status, opened_at, closed_at, closed_by_account_id, version, created_at, updated_at)
 VALUES
