@@ -84,7 +84,10 @@ class OutboxRequeueContractTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(OutboxRetryDiagnosticsFixtures.STALE_CLOCK_REQUEUE.json()))
         .andExpect(status().isAccepted())
-        .andExpect(jsonPath("$.operationId", is("op-fail-clock-001")))
+        .andExpect(
+            jsonPath(
+                "$.operationId",
+                is(OutboxRetryDiagnosticsFixtures.STALE_CLOCK_REQUEUE.operationId())))
         .andExpect(jsonPath("$.accepted", is(false)))
         .andExpect(jsonPath("$.outboxStatus", is("FAILED_RETRYABLE")))
         .andExpect(jsonPath("$.retryable", is(true)))
@@ -105,7 +108,7 @@ class OutboxRequeueContractTest {
                     OutboxRetryDiagnosticsFixtures.POLICE_PHONE_HEADER,
                     OutboxRetryDiagnosticsFixtures.ASSIGNED_AUTH_POLICE_PHONE_ID)
                 .contentType(MediaType.APPLICATION_JSON)
-        .content(OutboxRetryDiagnosticsFixtures.CLOSED_INCIDENT_REQUEUE.json()))
+                .content(OutboxRetryDiagnosticsFixtures.CLOSED_INCIDENT_REQUEUE.json()))
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.error", is("incident_closed")))
         .andExpect(jsonPath("$.outboxStatus", is("FAILED_FINAL")))

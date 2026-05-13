@@ -44,9 +44,9 @@ public class AssignmentPollingHandler {
       if (!processedKeys.contains(key)) {
         // 새로 감지된 배정
         log.info(
-            "새 배정 감지: incident={}, account={}, role={}, key={}",
+            "새 배정 감지: incident={}, accountCode={}, role={}, key={}",
             sourceIncidentId,
-            assignment.accountId(),
+            assignment.accountCode(),
             assignment.incidentRole(),
             key);
         candidates.add(assignment);
@@ -85,7 +85,7 @@ public class AssignmentPollingHandler {
 
   private String assignmentKey(ExternalAssignment assignment) {
     return assignment.externalAssignmentKey() == null
-        ? assignment.accountId()
+        ? assignment.accountCode()
         : assignment.externalAssignmentKey();
   }
 }

@@ -2038,9 +2038,11 @@
   },
   "harness_fixtures": {
     "current_op_consumer_contract": {
-      "incidentId": "inc-precinct-first-001",
+      "incidentAlias": "inc-precinct-first-001",
+      "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
       "currentOp": {
-        "opId": "op-precinct-001-op1",
+        "opAlias": "op-precinct-001-op1",
+        "opId": "88888888-8888-8888-8888-888888880001",
         "status": "ACTIVE",
         "version": 1,
         "sequenceNumber": 1
@@ -2062,32 +2064,38 @@
       ]
     },
     "sc10_op_transition_convergence": {
-      "incidentId": "inc-precinct-first-001",
+      "incidentAlias": "inc-precinct-first-001",
+      "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
       "previousOp": {
-        "opId": "op-precinct-001-op1",
+        "opAlias": "op-precinct-001-op1",
+        "opId": "88888888-8888-8888-8888-888888880001",
         "status": "ENDED",
         "version": 2,
         "sequenceNumber": 1
       },
       "newOp": {
-        "opId": "op-precinct-001-op2",
+        "opAlias": "op-precinct-001-op2",
+        "opId": "88888888-8888-8888-8888-888888880002",
         "status": "ACTIVE",
         "version": 1,
         "sequenceNumber": 2
       },
       "expectedRestResponse": {
-        "id": "op-precinct-001-op2",
+        "id": "88888888-8888-8888-8888-888888880002",
         "status": "ACTIVE",
         "version": 1,
-        "sequenceNumber": 2
+        "sequenceNumber": 2,
+        "idAlias": "op-precinct-001-op2"
       },
       "expectedS4Event": {
         "eventId": "evt-s8-op-transitioned-001",
         "type": "OP_TRANSITIONED",
-        "payloadId": "op-precinct-001-op2",
+        "payloadAlias": "op-precinct-001-op2",
+        "payloadId": "88888888-8888-8888-8888-888888880002",
         "payloadStatus": "ACTIVE",
         "payloadVersion": 1,
-        "opId": "op-precinct-001-op2"
+        "opAlias": "op-precinct-001-op2",
+        "opId": "88888888-8888-8888-8888-888888880002"
       },
       "expectedBoardProbe": {
         "slots": [
@@ -2095,17 +2103,21 @@
           "op_history",
           "handover_status"
         ],
-        "id": "op-precinct-001-op2",
+        "id": "88888888-8888-8888-8888-888888880002",
         "status": "ACTIVE",
         "version": 1,
-        "opId": "op-precinct-001-op2",
+        "opAlias": "op-precinct-001-op2",
+        "opId": "88888888-8888-8888-8888-888888880002",
         "handoverStatus": "NEEDS_MEMO",
-        "preConvergenceState": "STALE_REFETCH"
+        "preConvergenceState": "STALE_REFETCH",
+        "idAlias": "op-precinct-001-op2"
       }
     },
     "sc11_handover_ai_convergence": {
-      "incidentId": "inc-precinct-first-001",
-      "opId": "op-precinct-001-op2",
+      "incidentAlias": "inc-precinct-first-001",
+      "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
+      "opAlias": "op-precinct-001-op2",
+      "opId": "88888888-8888-8888-8888-888888880002",
       "handoverMemo": {
         "memoId": "memo-precinct-op2-001",
         "status": "ACTIVE",
@@ -2130,7 +2142,8 @@
           "payloadId": "memo-precinct-op2-001",
           "payloadStatus": "ACTIVE",
           "payloadVersion": 1,
-          "opId": "op-precinct-001-op2"
+          "opAlias": "op-precinct-001-op2",
+          "opId": "88888888-8888-8888-8888-888888880002"
         },
         "aiSummaryReady": {
           "eventId": "evt-s8-ai-summary-001",
@@ -2140,7 +2153,8 @@
           "sourceReadiness": "READY",
           "sourceHash": "hash-s8-source-snapshot-op2-001",
           "payloadVersion": 1,
-          "opId": "op-precinct-001-op2"
+          "opAlias": "op-precinct-001-op2",
+          "opId": "88888888-8888-8888-8888-888888880002"
         }
       },
       "expectedQueries": {
@@ -2148,7 +2162,8 @@
           "memoId": "memo-precinct-op2-001",
           "status": "ACTIVE",
           "version": 1,
-          "opId": "op-precinct-001-op2"
+          "opAlias": "op-precinct-001-op2",
+          "opId": "88888888-8888-8888-8888-888888880002"
         },
         "SearchHistorySummaryQuery.byOp": {
           "summaryId": "summary-precinct-op2-001",
@@ -2157,7 +2172,8 @@
           "sourceReadiness": "READY",
           "sourceHash": "hash-s8-source-snapshot-op2-001",
           "version": 1,
-          "opId": "op-precinct-001-op2"
+          "opAlias": "op-precinct-001-op2",
+          "opId": "88888888-8888-8888-8888-888888880002"
         }
       },
       "expectedBoardProbe": {
@@ -2166,7 +2182,8 @@
           "handover_status",
           "search_history_summary"
         ],
-        "opId": "op-precinct-001-op2",
+        "opAlias": "op-precinct-001-op2",
+        "opId": "88888888-8888-8888-8888-888888880002",
         "handoverMemoSlot": {
           "id": "memo-precinct-op2-001",
           "status": "ACTIVE",
@@ -2214,7 +2231,8 @@
         "idempotencyKey": "idem-s8-op-transition-001",
         "bodyHash": "sha256:s8-op-transition-content-001",
         "endpoint": "POST /operational-periods",
-        "expectedResponseId": "op-precinct-001-op2",
+        "expectedResponseAlias": "op-precinct-001-op2",
+        "expectedResponseId": "88888888-8888-8888-8888-888888880002",
         "expectedStatus": "ACTIVE",
         "expectedVersion": 1,
         "expectedPublishRequestCount": 1

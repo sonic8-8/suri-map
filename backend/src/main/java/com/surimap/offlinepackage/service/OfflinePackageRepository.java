@@ -35,32 +35,41 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class OfflinePackageRepository {
 
-  public static final String INCIDENT_ID = "inc-precinct-first-001";
-  public static final String MANIFEST_ID = "tile-manifest-inc-precinct-001";
+  public static final String INCIDENT_ALIAS = "inc-precinct-first-001";
+  public static final String INCIDENT_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001";
+  public static final String MANIFEST_ALIAS = "tile-manifest-inc-precinct-001";
+  public static final String MANIFEST_ID = "77777777-0000-4000-8000-000000000701";
   public static final int MANIFEST_VERSION = 1;
-  public static final String POLICE_PHONE_ID = "dev-precinct-phone-01";
-  public static final String INSTALLATION_ID = "pkg-status-precinct-001";
+  public static final String POLICE_PHONE_CODE = "dev-precinct-phone-01";
+  public static final String POLICE_PHONE_ID = "00000000-0000-0000-0000-000000000101";
+  public static final String INSTALLATION_ALIAS = "pkg-status-precinct-001";
+  public static final String INSTALLATION_ID = "77777777-0000-4000-8000-000000000901";
   public static final int INSTALLATION_VERSION = 3;
   public static final int SEQUENCE = 901;
   public static final OffsetDateTime SERVER_TS = OffsetDateTime.parse("2026-04-28T09:00:41+09:00");
-  private static final String INCIDENT_DB_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001";
+  private static final String INCIDENT_DB_ID = INCIDENT_ID;
+  private static final String OP_ALIAS = "op-precinct-001-op1";
   private static final String OP_DB_ID = "88888888-8888-8888-8888-888888880001";
+  private static final String OVERALL_SEARCH_AREA_ALIAS = "osa-precinct-001";
   private static final String OVERALL_SEARCH_AREA_DB_ID = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0001";
-  private static final String MANIFEST_DB_ID = "77777777-0000-4000-8000-000000000701";
-  private static final String INSTALLATION_DB_ID = "77777777-0000-4000-8000-000000000901";
+  private static final String ASSIGNED_AREA_ALIAS = "area-precinct-a1";
+  private static final String ASSIGNED_AREA_DB_ID = "cccccccc-cccc-cccc-cccc-cccccccc0001";
+  private static final String MANIFEST_DB_ID = MANIFEST_ID;
+  private static final String INSTALLATION_DB_ID = INSTALLATION_ID;
   private static final String PURGED_MANIFEST_HASH =
       "0000000000000000000000000000000000000000000000000000000000000000";
   private static final OffsetDateTime EXPIRES_AT =
       OffsetDateTime.parse("2026-04-28T12:00:00+09:00");
   private static final Map<String, String> KNOWN_DB_IDS_BY_ALIAS =
       Map.ofEntries(
-          Map.entry(INCIDENT_ID, INCIDENT_DB_ID),
-          Map.entry("op-precinct-001-op1", OP_DB_ID),
-          Map.entry("osa-precinct-001", OVERALL_SEARCH_AREA_DB_ID),
+          Map.entry(INCIDENT_ALIAS, INCIDENT_DB_ID),
+          Map.entry(OP_ALIAS, OP_DB_ID),
+          Map.entry(OVERALL_SEARCH_AREA_ALIAS, OVERALL_SEARCH_AREA_DB_ID),
           Map.entry("osa-precinct-001-v1", OVERALL_SEARCH_AREA_DB_ID),
-          Map.entry(MANIFEST_ID, MANIFEST_DB_ID),
-          Map.entry(INSTALLATION_ID, INSTALLATION_DB_ID),
-          Map.entry(POLICE_PHONE_ID, "00000000-0000-0000-0000-000000000101"),
+          Map.entry(ASSIGNED_AREA_ALIAS, ASSIGNED_AREA_DB_ID),
+          Map.entry(MANIFEST_ALIAS, MANIFEST_DB_ID),
+          Map.entry(INSTALLATION_ALIAS, INSTALLATION_DB_ID),
+          Map.entry(POLICE_PHONE_CODE, POLICE_PHONE_ID),
           Map.entry("dev-precinct-cmd-phone-01", "00000000-0000-0000-0000-000000000201"),
           Map.entry("dev-precinct-car-01", "50000000-0000-0000-0000-000000000001"),
           Map.entry("dev-alpha-cmd-phone-01", "00000000-0000-0000-0000-000000000204"),
@@ -77,7 +86,7 @@ public class OfflinePackageRepository {
           "pkg-status-precinct-failed-001");
   private static final List<String> SEED_POLICE_PHONE_ALIASES =
       List.of(
-          POLICE_PHONE_ID,
+          POLICE_PHONE_CODE,
           "dev-precinct-phone-02",
           "dev-precinct-phone-03",
           "dev-precinct-phone-04",
@@ -128,15 +137,15 @@ public class OfflinePackageRepository {
             "남색 점퍼, 회색 등산화",
             "인왕산 북측 산책로 입구",
             OffsetDateTime.parse("2026-04-28T08:30:00+09:00")),
-        List.of(new OperationalPeriod("op-precinct-001-op1", publicIncidentId, 1, "ACTIVE", 1L)),
+        List.of(new OperationalPeriod(OP_DB_ID, publicIncidentId, 1, "ACTIVE", 1L)),
         List.of(
             new AssignedArea(
-                "area-precinct-a1", publicIncidentId, "op-precinct-001-op1", "ASSIGNED", 1L)),
+                ASSIGNED_AREA_DB_ID, publicIncidentId, OP_DB_ID, "ASSIGNED", 1L)),
         List.of(
             new InitialMarker(
                 "mk-precinct-clue-001",
                 publicIncidentId,
-                "op-precinct-001-op1",
+                OP_DB_ID,
                 point("126.956500", "37.571200"),
                 "ACTIVE")),
         new OverallSearchArea(
@@ -217,7 +226,7 @@ public class OfflinePackageRepository {
 
     List<String> changedStatusIds = mapper.findStaleCandidateInstallationIds(current.id());
     int nextManifestVersion = current.manifestVersion() + 1;
-    String nextManifestId = nextManifestId(manifestPublicId(current), nextManifestVersion);
+    String nextManifestId = nextManifestId(nextManifestVersion);
     mapper.insertNextManifestFrom(
         current.id(),
         manifestDbId(nextManifestId),
@@ -331,22 +340,22 @@ public class OfflinePackageRepository {
       PackageItemState itemState, String manifestId, String overallSearchAreaId) {
     return List.of(
         item(
-            "incident:inc-precinct-first-001",
+            "incident:" + INCIDENT_ALIAS,
             "INCIDENT_META",
             itemState,
             "sha256:2222222222222222222222222222222222222222222222222222222222222222"),
         item(
-            "missing-person:inc-precinct-first-001",
+            "missing-person:" + INCIDENT_ALIAS,
             "MISSING_PERSON_CACHE",
             itemState,
             "sha256:3333333333333333333333333333333333333333333333333333333333333333"),
         item(
-            "op-list:inc-precinct-first-001",
+            "op-list:" + INCIDENT_ALIAS,
             "OP_LIST",
             itemState,
             "sha256:4444444444444444444444444444444444444444444444444444444444444444"),
         item(
-            "assigned-area:area-precinct-a1",
+            "assigned-area:" + ASSIGNED_AREA_ALIAS,
             "ASSIGNED_AREA",
             itemState,
             "sha256:5555555555555555555555555555555555555555555555555555555555555555"),
@@ -356,12 +365,12 @@ public class OfflinePackageRepository {
             itemState,
             "sha256:6666666666666666666666666666666666666666666666666666666666666666"),
         item(
-            "overall-search-area:" + overallSearchAreaId,
+            "overall-search-area:overall-area-hash-precinct-current",
             "OVERALL_SEARCH_AREA",
             itemState,
             "sha256:7777777777777777777777777777777777777777777777777777777777777777"),
         item(
-            "tile-manifest:" + manifestId,
+            "tile-manifest:" + MANIFEST_ALIAS,
             "TILE",
             itemState,
             "sha256:8888888888888888888888888888888888888888888888888888888888888888"));
@@ -402,7 +411,7 @@ public class OfflinePackageRepository {
         z,
         x,
         y,
-        "local://tiles/%s/%d/%d/%d.pbf".formatted(INCIDENT_ID, z, x, y),
+        "local://tiles/%s/%d/%d/%d.pbf".formatted(INCIDENT_ALIAS, z, x, y),
         "sha256:" + sha256,
         bytes);
   }
@@ -435,11 +444,8 @@ public class OfflinePackageRepository {
     }
   }
 
-  private static String nextManifestId(String currentManifestId, int nextManifestVersion) {
-    int revisionIndex = currentManifestId.indexOf("-rev-");
-    String baseManifestId =
-        revisionIndex >= 0 ? currentManifestId.substring(0, revisionIndex) : currentManifestId;
-    return baseManifestId + "-rev-" + nextManifestVersion;
+  private static String nextManifestId(int nextManifestVersion) {
+    return manifestDbId(MANIFEST_ALIAS + "-rev-" + nextManifestVersion);
   }
 
   private static OfflinePackageInstallationStatus publicStatus(
@@ -491,48 +497,23 @@ public class OfflinePackageRepository {
   }
 
   private static String manifestPublicId(OfflinePackageManifestRecord manifest) {
-    if (MANIFEST_DB_ID.equals(manifest.id()) || MANIFEST_ID.equals(manifest.id())) {
-      return MANIFEST_ID;
-    }
-    String revisedAlias = nextManifestId(MANIFEST_ID, manifest.manifestVersion());
-    if (manifestDbId(revisedAlias).equals(manifest.id())) {
-      return revisedAlias;
-    }
-    return manifest.id();
+    return manifestDbId(manifest.id());
   }
 
   private static String incidentPublicId(String value) {
-    return INCIDENT_DB_ID.equals(value) ? INCIDENT_ID : value;
+    return incidentDbId(value);
   }
 
   private static String searchAreaPublicId(String value) {
-    return OVERALL_SEARCH_AREA_DB_ID.equals(value) ? "osa-precinct-001" : value;
+    return searchAreaDbId(value);
   }
 
   private static String installationPublicId(String value) {
-    if (INSTALLATION_DB_ID.equals(value) || INSTALLATION_ID.equals(value)) {
-      return INSTALLATION_ID;
-    }
-    for (String alias : SEED_INSTALLATION_ALIASES) {
-      if (installationDbId(alias).equals(value)) {
-        return alias;
-      }
-    }
-    return value;
+    return installationDbId(value);
   }
 
   private static String policePhonePublicId(String value) {
-    for (String alias : SEED_POLICE_PHONE_ALIASES) {
-      if (policePhoneDbId(alias).equals(value)) {
-        return alias;
-      }
-    }
-    for (Map.Entry<String, String> entry : KNOWN_DB_IDS_BY_ALIAS.entrySet()) {
-      if (entry.getKey().startsWith("dev-") && entry.getValue().equals(value)) {
-        return entry.getKey();
-      }
-    }
-    return value;
+    return policePhoneDbId(value);
   }
 
   private static boolean isUuid(String value) {

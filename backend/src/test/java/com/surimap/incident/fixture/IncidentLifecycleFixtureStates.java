@@ -18,11 +18,15 @@ public record IncidentLifecycleFixtureStates(
 
   public FailureCategoryRow closedFailureRow() {
     return failureCategoryRows.stream()
-        .filter(row -> "op-fail-closed-001".equals(row.operationId()))
+        .filter(row -> "op-fail-closed-001".equals(row.operationAlias()))
         .findFirst()
         .orElseThrow(() -> new IllegalStateException("op-fail-closed-001 fixture가 없습니다"));
   }
 
   public record FailureCategoryRow(
-      String operationId, String lastError, String userSafeFailureCategory, boolean retryable) {}
+      String operationId,
+      String operationAlias,
+      String lastError,
+      String userSafeFailureCategory,
+      boolean retryable) {}
 }

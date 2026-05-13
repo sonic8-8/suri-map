@@ -19,7 +19,17 @@
 
 `mock-112/src/main/resources/seed/precinct-first-scenario.json`은 현재 구현 참고값이다. canonical mock 112 payload는 `confirmed.mock112SourceContract`로 승격되었으며 implementation seed가 catalog와 어긋나면 implementation seed를 catalog에 맞춘다.
 
-mock 112 payload의 `accountId`는 외부/fixture 계정 코드(`acct-*`)를 참조할 수 있지만, 서버 내부 `account.id`와 모든 `*_account_id` FK는 UUID를 사용한다. 구현은 mock 112 계정 코드를 S1-2 계정 UUID로 매핑해 `incident_assignment.account_id`에 저장한다. `incidentRole`은 `S1-1` `incident_assignment.incident_role` 값을 참조한다. 새 ID·새 role을 mock 112 payload용으로 만들지 않는다.
+mock 112 payload의 `accountCode`는 외부/fixture 계정 코드(`acct-*`)를 참조하지만, 서버 내부 `account.id`와 모든 `*_account_id` FK는 UUID를 사용한다. 구현은 mock 112 계정 코드를 S1-2 계정 UUID로 매핑해 `incident_assignment.account_id`에 저장한다. `incidentRole`은 `S1-1` `incident_assignment.incident_role` 값을 참조한다. 새 ID·새 role을 mock 112 payload용으로 만들지 않는다.
+
+## ID / Alias 원칙
+
+JSON fixture에서 UUID도 문자열로 표현되지만, 의미상 DB PK/FK 또는 public API 식별자인 `id`, `*Id`, `*Ids` 필드는 UUID 형식 문자열이어야 한다. 사람이 읽기 위한 하네스 별칭이나 외부 입력값은 `*Alias`, `*Code`, `fixtureId`, `itemKey`, `boardRowId`, `eventId`, `outboxId`처럼 식별자 종류가 드러나는 별도 필드명으로 둔다.
+
+- UUID로 둔다: `incidentId`, `opId`, `accountId`, `policePhoneId`, `manifestId`, `operationId`, `entityId`, `payloadId`, DB-backed query/API response id.
+- alias/code로 둔다: `incidentAlias`, `opAlias`, `accountCode`, `policePhoneCode`, `manifestAlias`, mock 112 외부 key, local tile/cache key.
+- projection/local key로 둔다: board row id, event fixture id, outbox row id, idempotency key, package item key, `local://tiles/...`.
+
+애매한 경우에는 `docs/db-design/db-design-readable.md`의 엔티티 컬럼이 UUID인지 먼저 확인한다. UUID 컬럼이면 fixture alias를 같은 `*Id` 필드에 넣지 않고 UUID 필드와 `*Alias`/`*Code` 필드를 분리한다.
 
 ## Confirmed Catalog
 

@@ -210,7 +210,7 @@ public final class OfflinePackageManifestFixtureBuilder {
         x,
         y,
         "local://tiles/%s/%d/%d/%d.pbf"
-            .formatted(OfflinePackageManifestFixtures.INCIDENT_ID, z, x, y),
+            .formatted(OfflinePackageManifestFixtures.INCIDENT_ALIAS, z, x, y),
         "sha256:" + sha256,
         bytes);
   }
