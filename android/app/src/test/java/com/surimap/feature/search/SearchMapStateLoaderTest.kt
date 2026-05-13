@@ -1,5 +1,6 @@
 package com.surimap.feature.search
 
+import com.surimap.core.database.LocalMarkerEntity
 import com.surimap.core.database.OutboxStatusSummary
 import com.surimap.core.network.SuriMapApiResponse
 import com.surimap.core.path.SearchPathQuery
@@ -596,6 +597,56 @@ class SearchMapStateLoaderTest {
     }
 
     @Test
+    fun pendingLocalMarkersRenderBeforeServerReplay() = runBlocking {
+        val loader =
+            SearchMapStateLoader(
+                incidentDetail = { notFoundResponse() },
+                overallSearchArea = { notFoundResponse() },
+                opSearchAreas = { _, _ -> notFoundResponse() },
+                searchPaths = { notFoundResponse() },
+                initialMarkers = { _, _ -> notFoundResponse() },
+                pendingMarkers = { incidentId, policePhoneId ->
+                    assertEquals(INCIDENT_ID, incidentId)
+                    assertEquals(POLICE_PHONE_ID, policePhoneId)
+                    listOf(
+                        LocalMarkerEntity(
+                            localMarkerId = MARKER_ID,
+                            outboxId = "outbox-marker-001",
+                            operationId = "22222222-2222-4222-8222-222222222001",
+                            incidentId = INCIDENT_ID,
+                            opId = OP_ID,
+                            policePhoneId = POLICE_PHONE_ID,
+                            type = "CLUE",
+                            supportRequestType = null,
+                            memo = "수동 조정 좌표",
+                            lon = 126.970321,
+                            lat = 37.580321,
+                            syncStatus = "PENDING_SEND",
+                            createdAtMillis = 1_000L,
+                            updatedAtMillis = 1_000L
+                        )
+                    )
+                }
+            )
+
+        val state =
+            loader.load(
+                SearchMapSessionContext(
+                    incidentId = INCIDENT_ID,
+                    currentOpId = OP_ID,
+                    currentDutyShiftId = DUTY_SHIFT_ID,
+                    policePhoneId = POLICE_PHONE_ID
+                )
+            )
+
+        val marker = state.layers.single { it.kind == SearchLayerKind.Marker }
+        assertEquals("단서 · 전송 대기", marker.label)
+        assertEquals(MARKER_ID, marker.overlayId)
+        assertTrue(marker.highlighted)
+        assertTrue(marker.geoJson!!.contains("[126.970321,37.580321]"))
+    }
+
+    @Test
     fun missingPolicePhoneDoesNotReadInitialMarkers() = runBlocking {
         var initialMarkersCalled = false
         val loader =
@@ -721,6 +772,9 @@ class SearchMapStateLoaderTest {
         assertTrue(source.contains("createMarker"))
         assertTrue(source.contains("MarkerUpsertInput"))
         assertTrue(source.contains("markerCreationLocation"))
+        assertTrue(source.contains("localMarkerDao"))
+        assertTrue(source.contains("toMarkerUpsertInput()"))
+        assertFalse(source.contains("toMarkerUpsertInput(searchMapState.markerCreationLocation())"))
         assertFalse(source.contains("onSave = { markerSheetOpen = false }"))
         assertTrue(source.contains("OfflinePackageRepository"))
         assertTrue(source.contains("initialMarkers"))

@@ -75,6 +75,8 @@ import com.surimap.feature.marker.ui.MarkerSaveStatus
 import com.surimap.feature.marker.ui.MarkerType
 import com.surimap.feature.marker.ui.sampleMarkerDetailState
 import com.surimap.feature.marker.ui.sampleMarkerCreateSheetState
+import com.surimap.feature.marker.ui.withCurrentLocation
+import com.surimap.feature.marker.ui.withManualLocation
 import com.surimap.feature.offline.data.OfflinePackageStateLoader
 import com.surimap.feature.offline.ui.OfflinePackageScreen
 import com.surimap.feature.offline.ui.OfflinePackageUiState
@@ -94,7 +96,6 @@ import com.surimap.ui.navigation.PolicePhoneRoute
 import com.surimap.ui.navigation.SearchMapDeepLink
 import com.surimap.ui.navigation.accessTokenProvider
 import com.surimap.ui.theme.PoliBgBase
-import java.util.Locale
 import kotlinx.coroutines.launch
 
 @Composable
@@ -324,14 +325,15 @@ private fun SearchMapRoute(
             syncClient = syncClient
         )
     }
-    val markerRecorder = remember(syncClient) {
+    val markerRecorder = remember(syncClient, database) {
         MarkerLocalRecorder(
-            syncClient = syncClient
+            syncClient = syncClient,
+            localMarkerDao = database.localMarkerDao()
         )
     }
     val coroutineScope = rememberCoroutineScope()
     val loader =
-        remember(policePhoneContext?.apiBaseUrl, policePhoneContext?.accessToken, outboxDao) {
+        remember(policePhoneContext?.apiBaseUrl, policePhoneContext?.accessToken, database, outboxDao) {
             SearchMapStateLoader(
                 incidentDetail = { incidentId ->
                     IncidentReadRepository(
@@ -385,6 +387,9 @@ private fun SearchMapRoute(
                 },
                 outboxSummary = { incidentId, policePhoneId ->
                     outboxDao.statusSummary(incidentId = incidentId, policePhoneId = policePhoneId)
+                },
+                pendingMarkers = { incidentId, policePhoneId ->
+                    database.localMarkerDao().findPendingByIncidentAndPolicePhone(incidentId, policePhoneId)
                 }
             )
         }
@@ -420,7 +425,7 @@ private fun SearchMapRoute(
                 }
             },
             onCreateMarker = {
-                markerSheetState = sampleMarkerCreateSheetState().withLocation(searchMapState.markerCreationLocation())
+                markerSheetState = sampleMarkerCreateSheetState().withCurrentLocation(searchMapState.markerCreationLocation())
                 markerSheetOpen = true
             },
             onOpenHandover = { navController.navigateToSingleTop(PolicePhoneRoute.HandoverSummary) },
@@ -455,13 +460,16 @@ private fun SearchMapRoute(
                 onMemoChange = { memo ->
                     markerSheetState = markerSheetState.copy(memo = memo)
                 },
+                onAdjustLocation = {
+                    markerSheetState = markerSheetState.withManualLocation(searchMapState.markerCreationLocation())
+                },
                 onSave = {
                     coroutineScope.launch {
                         markerSheetState = markerSheetState.copy(saveStatus = MarkerSaveStatus.Saving)
                         when (
                             markerRecorder.createMarker(
                                 context = sessionContext.toMarkerWriteContext(),
-                                input = markerSheetState.toMarkerUpsertInput(searchMapState.markerCreationLocation())
+                                input = markerSheetState.toMarkerUpsertInput()
                             )
                         ) {
                             MarkerWriteResult.Blocked -> {
@@ -875,23 +883,27 @@ private fun SearchMapUiState.markerCreationLocation(): MarkerLocation? =
         )
     }
 
-private fun MarkerCreateSheetUiState.toMarkerUpsertInput(location: MarkerLocation?): MarkerUpsertInput =
+private fun MarkerCreateSheetUiState.toMarkerUpsertInput(): MarkerUpsertInput =
     MarkerUpsertInput(
         type = selectedType.apiValue,
-        location = location,
+        location = selectedLocation?.let { MarkerLocation(lon = it.lon, lat = it.lat) },
         supportRequestType = supportRequestType?.apiValue,
         memo = memo
     )
 
-private fun MarkerCreateSheetUiState.withLocation(location: MarkerLocation?): MarkerCreateSheetUiState =
-    copy(
-        locationLabel =
-        if (location == null) {
-            "지도 기준 위치 확인 필요"
-        } else {
-            String.format(Locale.US, "지도 중심 · %.6f, %.6f", location.lat, location.lon)
-        }
-    )
+private fun MarkerCreateSheetUiState.withCurrentLocation(location: MarkerLocation?): MarkerCreateSheetUiState =
+    if (location == null) {
+        copy(selectedLocation = null, locationLabel = "지도 기준 위치 확인 필요")
+    } else {
+        withCurrentLocation(lon = location.lon, lat = location.lat)
+    }
+
+private fun MarkerCreateSheetUiState.withManualLocation(location: MarkerLocation?): MarkerCreateSheetUiState =
+    if (location == null) {
+        copy(selectedLocation = null, locationLabel = "지도 기준 위치 확인 필요")
+    } else {
+        withManualLocation(lon = location.lon, lat = location.lat)
+    }
 
 private fun PolicePhoneContext?.toMapLibreRuntimeMapState(): MapLibreRuntimeMapState =
     MapLibreRuntimeMapState(
