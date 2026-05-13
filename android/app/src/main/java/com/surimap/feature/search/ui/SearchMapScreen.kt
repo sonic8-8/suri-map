@@ -588,7 +588,8 @@ private fun SearchMapUiState.toRuntimeMapState(base: MapLibreRuntimeMapState): M
                 id = layer.overlayId ?: layer.label,
                 kind = layer.kind.toMapLibreGeometryOverlayKind(),
                 geoJson = geoJson,
-                highlighted = layer.highlighted || focused
+                highlighted = layer.highlighted || focused,
+                label = layer.label
             )
         }
     )
