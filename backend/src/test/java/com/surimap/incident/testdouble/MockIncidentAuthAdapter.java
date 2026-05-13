@@ -78,7 +78,7 @@ public final class MockIncidentAuthAdapter {
       String organizationType,
       String channel,
       String authority) {
-    if (!seed.accountIds().contains(accountId)) {
+    if (!seed.accountCodes().contains(accountId)) {
       throw new IllegalArgumentException("fixture에 없는 accountId입니다: " + accountId);
     }
     return new MockSecurityContext(

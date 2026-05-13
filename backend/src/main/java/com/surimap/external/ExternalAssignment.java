@@ -1,5 +1,6 @@
 package com.surimap.external;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import java.time.OffsetDateTime;
 
 /**
@@ -9,6 +10,6 @@ import java.time.OffsetDateTime;
  */
 public record ExternalAssignment(
     String externalAssignmentKey,
-    String accountId,
+    @JsonAlias("accountId") String accountCode,
     String incidentRole,
     OffsetDateTime assignedAt) {}

@@ -1529,12 +1529,13 @@
   },
   "harness_fixtures": {
     "sc05_path_replay": {
-      "operationId": "op-outbox-path-001",
+      "operationAlias": "op-outbox-path-001",
+      "operationId": "66666666-0000-4000-8000-000000000501",
       "outboxId": "outbox-path-001",
       "idempotencyKey": "idem-path-001",
       "bodyHash": "sha256:path-normal-001",
-      "incidentId": "inc-precinct-first-001",
-      "deviceId": "dev-precinct-car-01",
+      "incidentAlias": "inc-precinct-first-001",
+      "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
       "dependencyGroup": "PATH",
       "sequence": 502,
       "endpoint": "POST /search-paths/batch",
@@ -1558,14 +1559,17 @@
         "status": "ACTIVE",
         "minimumVersion": 2,
         "sequence": 502
-      }
+      },
+      "policePhoneCode": "dev-precinct-car-01",
+      "policePhoneId": "50000000-0000-0000-0000-000000000001"
     },
     "sc06_marker_photo_replay": {
-      "incidentId": "inc-precinct-first-001",
-      "deviceId": "dev-precinct-phone-01",
+      "incidentAlias": "inc-precinct-first-001",
+      "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
       "operations": [
         {
-          "operationId": "op-outbox-marker-001",
+          "operationAlias": "op-outbox-marker-001",
+          "operationId": "66666666-0000-4000-8000-000000000601",
           "outboxId": "outbox-marker-001",
           "idempotencyKey": "idem-marker-001",
           "bodyHash": "sha256:marker-clue-001",
@@ -1575,12 +1579,14 @@
           "endpoint": "POST /markers"
         },
         {
-          "operationId": "op-outbox-photo-001",
+          "operationAlias": "op-outbox-photo-001",
+          "operationId": "66666666-0000-4000-8000-000000000602",
           "outboxId": "outbox-photo-001",
           "idempotencyKey": "idem-photo-attach-001",
           "bodyHash": "sha256:photo-attach-clue-001",
           "dependencyGroup": "PHOTO",
-          "parentOperationId": "op-outbox-marker-001",
+          "parentOperationAlias": "op-outbox-marker-001",
+          "parentOperationId": "66666666-0000-4000-8000-000000000601",
           "sequence": 602,
           "method": "POST",
           "endpoint": "POST /markers/{markerId}/photos/{photoId}/attach"
@@ -1617,15 +1623,18 @@
         "photoId": "photo-precinct-clue-001",
         "photoStatus": "FINALIZED",
         "photoVersion": 2
-      }
+      },
+      "policePhoneCode": "dev-precinct-phone-01",
+      "policePhoneId": "00000000-0000-0000-0000-000000000101"
     },
     "sc08_notification_marker_replay": {
-      "operationId": "op-outbox-support-001",
+      "operationAlias": "op-outbox-support-001",
+      "operationId": "66666666-0000-4000-8000-000000000801",
       "outboxId": "outbox-support-001",
       "idempotencyKey": "idem-support-001",
       "bodyHash": "sha256:support-marker-001",
-      "incidentId": "inc-precinct-first-001",
-      "deviceId": "dev-precinct-phone-01",
+      "incidentAlias": "inc-precinct-first-001",
+      "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
       "dependencyGroup": "MARKER",
       "sequence": 801,
       "markerId": "mk-precinct-support-001",
@@ -1659,28 +1668,33 @@
           "version": 1
         },
         "minimumVersion": 1
-      }
+      },
+      "policePhoneCode": "dev-precinct-phone-01",
+      "policePhoneId": "00000000-0000-0000-0000-000000000101"
     },
     "sc09_package_status_replay": {
-      "operationId": "op-outbox-package-001",
+      "operationAlias": "op-outbox-package-001",
+      "operationId": "66666666-0000-4000-8000-000000000901",
       "outboxId": "outbox-package-001",
       "idempotencyKey": "idem-package-001",
       "bodyHash": "sha256:package-status-ready-001",
-      "incidentId": "inc-precinct-first-001",
-      "deviceId": "dev-precinct-phone-01",
+      "incidentAlias": "inc-precinct-first-001",
+      "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
       "dependencyGroup": "PACKAGE_STATUS",
       "sequence": 901,
       "expectedOwnerResponse": {
-        "id": "pkg-status-precinct-001",
+        "id": "77777777-0000-4000-8000-000000000901",
         "status": "READY",
         "version": 3,
         "manifestVersion": 1,
-        "readyForOfflineUse": true
+        "readyForOfflineUse": true,
+        "idAlias": "pkg-status-precinct-001"
       },
       "expectedS4Event": {
         "eventId": "evt-s7-package-status-001",
         "type": "OFFLINE_PACKAGE_INSTALLATION_CHANGED",
-        "payloadId": "pkg-status-precinct-001",
+        "payloadAlias": "pkg-status-precinct-001",
+        "payloadId": "77777777-0000-4000-8000-000000000901",
         "payloadStatus": "READY",
         "payloadVersion": 3,
         "sequence": 901,
@@ -1688,18 +1702,24 @@
       },
       "expectedBoardProbe": {
         "slot": "package_badge",
-        "id": "pkg-status-precinct-001",
+        "id": "77777777-0000-4000-8000-000000000901",
         "status": "READY",
         "minimumVersion": 3,
         "sequence": 901,
         "manifestVersion": 1,
-        "preConvergenceState": "STALE_REFETCH"
-      }
+        "preConvergenceState": "STALE_REFETCH",
+        "idAlias": "pkg-status-precinct-001"
+      },
+      "policePhoneCode": "dev-precinct-phone-01",
+      "policePhoneId": "00000000-0000-0000-0000-000000000101"
     },
     "sc12_close_requeue": {
-      "preCloseOperationId": "op-outbox-preclose-path-001",
-      "postCloseOperationId": "op-outbox-postclose-marker-001",
-      "incidentId": "inc-precinct-closed-001",
+      "preCloseOperationAlias": "op-outbox-preclose-path-001",
+      "preCloseOperationId": "66666666-0000-4000-8000-000000001201",
+      "postCloseOperationAlias": "op-outbox-postclose-marker-001",
+      "postCloseOperationId": "66666666-0000-4000-8000-000000001202",
+      "incidentAlias": "inc-precinct-closed-001",
+      "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0012",
       "closeCutoff": "2026-04-28T12:00:00+09:00",
       "expectedPreClose": "close-drain-once",
       "expectedPostClose": "FAILED_FINAL",
@@ -1708,31 +1728,36 @@
     },
     "failure_category_rows": [
       {
-        "operationId": "op-fail-clock-001",
+        "operationAlias": "op-fail-clock-001",
+        "operationId": "66666666-0000-4000-8000-000000001701",
         "lastError": "clock_skew_exceeded",
         "userSafeFailureCategory": "CLOCK_RESYNC_REQUIRED",
         "retryable": true
       },
       {
-        "operationId": "op-fail-idem-001",
+        "operationAlias": "op-fail-idem-001",
+        "operationId": "66666666-0000-4000-8000-000000001702",
         "lastError": "idempotency_mismatch",
         "userSafeFailureCategory": "NON_RETRYABLE_CONFLICT",
         "retryable": false
       },
       {
-        "operationId": "op-fail-PolicePhone-001",
+        "operationAlias": "op-fail-PolicePhone-001",
+        "operationId": "66666666-0000-4000-8000-000000001703",
         "lastError": "police_phone_not_assigned",
         "userSafeFailureCategory": "POLICE_PHONE_ACCESS_REQUIRED",
         "retryable": false
       },
       {
-        "operationId": "op-fail-closed-001",
+        "operationAlias": "op-fail-closed-001",
+        "operationId": "66666666-0000-4000-8000-000000001704",
         "lastError": "post_close_requeue_rejected",
         "userSafeFailureCategory": "CLOSED_NO_RETRY",
         "retryable": false
       },
       {
-        "operationId": "op-fail-network-001",
+        "operationAlias": "op-fail-network-001",
+        "operationId": "66666666-0000-4000-8000-000000001705",
         "lastError": "low_connectivity_timeout",
         "userSafeFailureCategory": "RETRYABLE_NETWORK",
         "retryable": true
