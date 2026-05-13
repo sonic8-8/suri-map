@@ -159,11 +159,11 @@ class SearchPathRepositoryTest {
                 opId = OP_ID,
                 policePhoneId = POLICE_PHONE_ID,
                 includeGeometry = true,
-                geometryMode = "FULL",
+                geometryMode = "RENDER_SIMPLIFIED",
                 sinceVersion = 3,
-                limit = 50,
-                sort = "clientTs,asc",
-                movementType = "WALK"
+                limit = 500,
+                sort = "startedAtAsc",
+                movementType = "FOOT"
             )
         )
 
@@ -171,7 +171,7 @@ class SearchPathRepositoryTest {
         assertEquals(200, result.statusCode)
         assertEquals("GET", request.method)
         assertEquals(
-            "https://suri-map.example.com/api/search-paths?incidentId=$INCIDENT_ID&opId=$OP_ID&policePhoneId=$POLICE_PHONE_ID&includeGeometry=true&geometryMode=FULL&sinceVersion=3&limit=50&sort=clientTs%2Casc&movementType=WALK",
+            "https://suri-map.example.com/api/search-paths?incidentId=$INCIDENT_ID&opId=$OP_ID&policePhoneId=$POLICE_PHONE_ID&includeGeometry=true&geometryMode=RENDER_SIMPLIFIED&sinceVersion=3&limit=500&sort=startedAtAsc&movementType=FOOT",
             request.url.toString()
         )
         assertEquals("APP", request.header("X-Client-Channel"))

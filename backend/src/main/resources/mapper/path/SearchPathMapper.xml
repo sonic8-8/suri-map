@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.surimap.path.SearchPathMapper">
+
+    <resultMap id="searchPathReadRecordMap" type="com.surimap.path.SearchPathReadRecord">
+        <constructor>
+            <arg column="id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="incident_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="op_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="duty_shift_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="police_phone_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="status" javaType="string"/>
+            <arg column="started_at" javaType="java.time.Instant"/>
+            <arg column="ended_at" javaType="java.time.Instant"/>
+            <arg column="geometry" javaType="org.locationtech.jts.geom.Geometry" typeHandler="com.surimap.config.mybatis.JtsGeometryTypeHandler"/>
+            <arg column="version" javaType="_long"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="searchPathSegmentReadRecordMap" type="com.surimap.path.SearchPathSegmentReadRecord">
+        <constructor>
+            <arg column="id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="search_path_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="movement_type" javaType="string"/>
+            <arg column="movement_type_source" javaType="string"/>
+            <arg column="geometry" javaType="org.locationtech.jts.geom.Geometry" typeHandler="com.surimap.config.mybatis.JtsGeometryTypeHandler"/>
+            <arg column="started_at" javaType="java.time.Instant"/>
+            <arg column="ended_at" javaType="java.time.Instant"/>
+            <arg column="corrected_by_account_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="corrected_at" javaType="java.time.Instant"/>
+            <arg column="version" javaType="_long"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="searchPathExcludedPointReadRecordMap" type="com.surimap.path.SearchPathExcludedPointReadRecord">
+        <constructor>
+            <arg column="id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="search_path_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="point_id" javaType="string"/>
+            <arg column="reason" javaType="string"/>
+            <arg column="client_ts" javaType="java.time.Instant"/>
+        </constructor>
+    </resultMap>
+
+    <select id="findActiveDutyShiftId" resultType="java.util.UUID">
+        SELECT ds.id
+        FROM duty_shift ds
+        WHERE ds.operational_period_id = #{opId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND ds.police_phone_id = #{policePhoneId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND ds.status = 'ACTIVE'
+        ORDER BY ds.started_at DESC, ds.id ASC
+        LIMIT 1
+    </select>
+
+    <insert id="insertPath" parameterType="com.surimap.path.SearchPathPersistenceRecord">
+        INSERT INTO search_path (
+            id,
+            duty_shift_id,
+            status,
+            started_at,
+            ended_at,
+            geometry,
+            version,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            #{id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{status},
+            #{startedAt},
+            #{endedAt},
+            ST_GeomFromEWKT(#{geometry,typeHandler=com.surimap.config.mybatis.JtsGeometryTypeHandler}),
+            #{version},
+            #{createdAt},
+            #{updatedAt}
+        )
+    </insert>
+
+    <update id="updatePath" parameterType="com.surimap.path.SearchPathPersistenceRecord">
+        UPDATE search_path
+        SET status = #{status},
+            ended_at = #{endedAt},
+            geometry = ST_GeomFromEWKT(#{geometry,typeHandler=com.surimap.config.mybatis.JtsGeometryTypeHandler}),
+            version = #{version},
+            updated_at = #{updatedAt}
+        WHERE id = #{id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+    </update>
+
+    <update id="endPath">
+        UPDATE search_path
+        SET status = 'ENDED',
+            ended_at = #{endedAt},
+            version = #{version},
+            updated_at = #{updatedAt}
+        WHERE id = #{id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+    </update>
+
+    <sql id="searchPathReadColumns">
+        sp.id,
+        op.incident_id,
+        ds.operational_period_id AS op_id,
+        sp.duty_shift_id,
+        ds.police_phone_id,
+        sp.status,
+        sp.started_at,
+        sp.ended_at,
+        ST_AsEWKT(sp.geometry) AS geometry,
+        sp.version
+    </sql>
+
+    <sql id="searchPathReadJoins">
+        FROM search_path sp
+        JOIN duty_shift ds
+          ON ds.id = sp.duty_shift_id
+        JOIN operational_period op
+          ON op.id = ds.operational_period_id
+    </sql>
+
+    <select id="findPathById" resultMap="searchPathReadRecordMap">
+        SELECT
+        <include refid="searchPathReadColumns"/>
+        <include refid="searchPathReadJoins"/>
+        WHERE sp.id = #{id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+    </select>
+
+    <select id="findAllPaths" resultMap="searchPathReadRecordMap">
+        SELECT
+        <include refid="searchPathReadColumns"/>
+        <include refid="searchPathReadJoins"/>
+        ORDER BY sp.updated_at DESC, sp.id ASC
+    </select>
+
+    <delete id="deleteSegments">
+        DELETE FROM search_path_segment
+        WHERE search_path_id = #{pathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+    </delete>
+
+    <insert id="insertSegment" parameterType="com.surimap.path.SearchPathSegmentPersistenceRecord">
+        INSERT INTO search_path_segment (
+            id,
+            search_path_id,
+            movement_type,
+            movement_type_source,
+            geometry,
+            started_at,
+            ended_at,
+            corrected_by_account_id,
+            corrected_at,
+            version,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            #{id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{searchPathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{movementType},
+            #{movementTypeSource},
+            ST_GeomFromEWKT(#{geometry,typeHandler=com.surimap.config.mybatis.JtsGeometryTypeHandler}),
+            #{startedAt},
+            #{endedAt},
+            #{correctedByAccountId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{correctedAt},
+            #{version},
+            #{createdAt},
+            #{updatedAt}
+        )
+    </insert>
+
+    <select id="findSegmentsByPathId" resultMap="searchPathSegmentReadRecordMap">
+        SELECT
+            id,
+            search_path_id,
+            movement_type,
+            movement_type_source,
+            ST_AsEWKT(geometry) AS geometry,
+            started_at,
+            ended_at,
+            corrected_by_account_id,
+            corrected_at,
+            version
+        FROM search_path_segment
+        WHERE search_path_id = #{pathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+        ORDER BY started_at ASC, id ASC
+    </select>
+
+    <delete id="deleteExcludedPoints">
+        DELETE FROM search_path_excluded_point
+        WHERE search_path_id = #{pathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+    </delete>
+
+    <insert id="insertExcludedPoint" parameterType="com.surimap.path.SearchPathExcludedPointPersistenceRecord">
+        INSERT INTO search_path_excluded_point (
+            id,
+            search_path_id,
+            point_id,
+            reason,
+            client_ts,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            #{id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{searchPathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{pointId},
+            #{reason},
+            #{clientTs},
+            #{createdAt},
+            #{updatedAt}
+        )
+    </insert>
+
+    <select id="findExcludedPointsByPathId" resultMap="searchPathExcludedPointReadRecordMap">
+        SELECT
+            id,
+            search_path_id,
+            point_id,
+            reason,
+            client_ts
+        FROM search_path_excluded_point
+        WHERE search_path_id = #{pathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+        ORDER BY client_ts ASC, id ASC
+    </select>
+</mapper>

@@ -189,6 +189,127 @@ class SuriMapDatabaseTest {
         assertFalse(names.contains("PACKAGE_STATUS"))
     }
 
+    @Test
+    fun offlinePackageInstallationSchemaStoresKnownManifestRevisionPerPolicePhone() = runBlocking {
+        assertEquals(
+            listOf(
+                ColumnSpec("incident_id", nullable = false, primaryKey = true),
+                ColumnSpec("police_phone_id", nullable = false, primaryKey = true),
+                ColumnSpec("manifest_id", nullable = false),
+                ColumnSpec("manifest_version", nullable = false),
+                ColumnSpec("status", nullable = false),
+                ColumnSpec("total_items", nullable = false),
+                ColumnSpec("completed_items", nullable = false),
+                ColumnSpec("failed_items", nullable = false),
+                ColumnSpec("version", nullable = false),
+                ColumnSpec("ready_for_offline_use", nullable = false),
+                ColumnSpec("updated_at", nullable = false)
+            ),
+            tableColumns("offline_package_installation_status")
+        )
+
+        database.offlinePackageInstallationDao().upsert(
+            OfflinePackageInstallationEntity(
+                incidentId = "inc-precinct-first-001",
+                policePhoneId = "phone-precinct-001",
+                manifestId = "pkg-precinct-first-rev-18",
+                manifestVersion = 18,
+                status = "READY",
+                totalItems = 7,
+                completedItems = 7,
+                failedItems = 0,
+                version = 3,
+                readyForOfflineUse = true,
+                updatedAt = 1_000L
+            )
+        )
+
+        val status = database.offlinePackageInstallationDao().find(
+            incidentId = "inc-precinct-first-001",
+            policePhoneId = "phone-precinct-001"
+        )
+
+        assertEquals(18, status!!.manifestVersion)
+        assertTrue(status.readyForOfflineUse)
+    }
+
+    @Test
+    fun offlinePackageItemStatusSchemaStoresPerManifestProgress() = runBlocking {
+        assertEquals(
+            listOf(
+                ColumnSpec("incident_id", nullable = false, primaryKey = true),
+                ColumnSpec("police_phone_id", nullable = false, primaryKey = true),
+                ColumnSpec("manifest_id", nullable = false, primaryKey = true),
+                ColumnSpec("item_key", nullable = false, primaryKey = true),
+                ColumnSpec("manifest_version", nullable = false),
+                ColumnSpec("item_type", nullable = false),
+                ColumnSpec("status", nullable = false),
+                ColumnSpec("source_version", nullable = false),
+                ColumnSpec("source_hash", nullable = false),
+                ColumnSpec("bytes_total", nullable = true),
+                ColumnSpec("bytes_downloaded", nullable = true),
+                ColumnSpec("updated_at", nullable = false)
+            ),
+            tableColumns("offline_package_item_status")
+        )
+
+        database.offlinePackageItemStatusDao().upsertAll(
+            listOf(
+                OfflinePackageItemStatusEntity(
+                    incidentId = "inc-precinct-first-001",
+                    policePhoneId = "phone-precinct-001",
+                    manifestId = "pkg-precinct-first-rev-18",
+                    itemKey = "incident-meta",
+                    manifestVersion = 18,
+                    itemType = "INCIDENT_META",
+                    status = "DOWNLOADED",
+                    sourceVersion = 7,
+                    sourceHash = "sha256:incident",
+                    bytesTotal = null,
+                    bytesDownloaded = null,
+                    updatedAt = 1_000L
+                ),
+                OfflinePackageItemStatusEntity(
+                    incidentId = "inc-precinct-first-001",
+                    policePhoneId = "phone-precinct-001",
+                    manifestId = "pkg-precinct-first-rev-18",
+                    itemKey = "tile-1",
+                    manifestVersion = 18,
+                    itemType = "TILE",
+                    status = "PENDING",
+                    sourceVersion = 18,
+                    sourceHash = "sha256:tile",
+                    bytesTotal = 100,
+                    bytesDownloaded = 40,
+                    updatedAt = 1_100L
+                ),
+                OfflinePackageItemStatusEntity(
+                    incidentId = "inc-precinct-first-001",
+                    policePhoneId = "phone-precinct-002",
+                    manifestId = "pkg-precinct-first-rev-18",
+                    itemKey = "tile-1",
+                    manifestVersion = 18,
+                    itemType = "TILE",
+                    status = "DOWNLOADED",
+                    sourceVersion = 18,
+                    sourceHash = "sha256:tile",
+                    bytesTotal = 100,
+                    bytesDownloaded = 100,
+                    updatedAt = 1_200L
+                )
+            )
+        )
+
+        val items = database.offlinePackageItemStatusDao().findByManifest(
+            incidentId = "inc-precinct-first-001",
+            policePhoneId = "phone-precinct-001",
+            manifestId = "pkg-precinct-first-rev-18"
+        )
+
+        assertEquals(listOf("incident-meta", "tile-1"), items.map { it.itemKey })
+        assertEquals(40L, items.single { it.itemKey == "tile-1" }.bytesDownloaded)
+    }
+
     private fun tableColumns(tableName: String): List<ColumnSpec> {
         val columns = mutableListOf<ColumnSpec>()
         val cursor = database.openHelper.readableDatabase.query("PRAGMA table_info($tableName)")

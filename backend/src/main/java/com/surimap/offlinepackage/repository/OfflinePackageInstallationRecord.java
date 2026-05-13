@@ -26,13 +26,15 @@ public record OfflinePackageInstallationRecord(
   public static OfflinePackageInstallationRecord from(
       String id,
       String incidentId,
+      String manifestId,
+      String policePhoneId,
       OfflinePackageInstallationReportRequest request,
       OffsetDateTime serverTs) {
     return new OfflinePackageInstallationRecord(
         id,
-        request.manifestId(),
+        manifestId,
         incidentId,
-        request.policePhoneId(),
+        policePhoneId,
         null,
         request.status(),
         request.totalItems(),

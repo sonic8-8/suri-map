@@ -75,6 +75,35 @@
                 WHERE sa.operational_period_id = op.id
             ), ''),
             COALESCE((
+                SELECT string_agg('path:' || sp.id::text || ':' || sp.version::text, ',' ORDER BY sp.id::text)
+                FROM search_path sp
+                JOIN duty_shift sp_ds ON sp_ds.id = sp.duty_shift_id
+                WHERE sp_ds.operational_period_id = op.id
+                <if test="dutyShiftId != null">
+                    AND sp.duty_shift_id = #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+                </if>
+            ), ''),
+            COALESCE((
+                SELECT string_agg('segment:' || sps.id::text || ':' || sps.version::text, ',' ORDER BY sps.id::text)
+                FROM search_path_segment sps
+                JOIN search_path sp ON sp.id = sps.search_path_id
+                JOIN duty_shift sp_ds ON sp_ds.id = sp.duty_shift_id
+                WHERE sp_ds.operational_period_id = op.id
+                <if test="dutyShiftId != null">
+                    AND sp.duty_shift_id = #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+                </if>
+            ), ''),
+            COALESCE((
+                SELECT string_agg('excluded:' || spep.id::text || ':' || spep.updated_at::text, ',' ORDER BY spep.id::text)
+                FROM search_path_excluded_point spep
+                JOIN search_path sp ON sp.id = spep.search_path_id
+                JOIN duty_shift sp_ds ON sp_ds.id = sp.duty_shift_id
+                WHERE sp_ds.operational_period_id = op.id
+                <if test="dutyShiftId != null">
+                    AND sp.duty_shift_id = #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+                </if>
+            ), ''),
+            COALESCE((
                 SELECT string_agg('marker:' || m.id::text || ':' || m.version::text, ',' ORDER BY m.id::text)
                 FROM marker m
                 WHERE m.operational_period_id = op.id
@@ -110,6 +139,98 @@
         WHERE op.id = #{opId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
     </select>
 
+    <select id="sourceEvidenceForScope" resultType="java.lang.String">
+        SELECT CONCAT_WS(
+            E'\n',
+            'op=' || op.id::text || ',status=' || op.status || ',sequence=' || op.sequence_number::text,
+            COALESCE((
+                SELECT 'dutyShiftCount=' || COUNT(*)::text
+                FROM duty_shift ds
+                WHERE ds.operational_period_id = op.id
+                <if test="dutyShiftId != null">
+                    AND ds.id = #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+                </if>
+            ), 'dutyShiftCount=0'),
+            COALESCE((
+                SELECT 'areaCount=' || COUNT(*)::text || ',completedAreaCount=' || (COUNT(*) FILTER (WHERE sa.status = 'COMPLETED'))::text
+                FROM search_area sa
+                WHERE sa.operational_period_id = op.id
+            ), 'areaCount=0,completedAreaCount=0'),
+            COALESCE((
+                SELECT 'pathCount=' || COUNT(*)::text
+                FROM search_path sp
+                JOIN duty_shift sp_ds ON sp_ds.id = sp.duty_shift_id
+                WHERE sp_ds.operational_period_id = op.id
+                <if test="dutyShiftId != null">
+                    AND sp.duty_shift_id = #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+                </if>
+            ), 'pathCount=0'),
+            COALESCE((
+                SELECT 'segmentCount=' || COUNT(*)::text
+                FROM search_path_segment sps
+                JOIN search_path sp ON sp.id = sps.search_path_id
+                JOIN duty_shift sp_ds ON sp_ds.id = sp.duty_shift_id
+                WHERE sp_ds.operational_period_id = op.id
+                <if test="dutyShiftId != null">
+                    AND sp.duty_shift_id = #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+                </if>
+            ), 'segmentCount=0'),
+            COALESCE((
+                SELECT 'markerCount=' || COUNT(*)::text
+                FROM marker m
+                WHERE m.operational_period_id = op.id
+                <if test="dutyShiftId != null">
+                    AND m.duty_shift_id = #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+                </if>
+            ), 'markerCount=0'),
+            COALESCE((
+                SELECT 'memo=' || string_agg(LEFT(hm.content, 500), ' | ' ORDER BY hm.created_at, hm.id::text)
+                FROM handover_memo hm
+                WHERE hm.operational_period_id = op.id
+                <if test="dutyShiftId != null">
+                    AND (
+                        hm.duty_shift_id = #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+                        OR (
+                            hm.memo_target_type = 'DUTY_SHIFT'
+                            AND hm.memo_target_id = #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+                        )
+                    )
+                </if>
+            ), 'memo=')
+        )
+        FROM operational_period op
+        WHERE op.id = #{opId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+    </select>
+
+    <select id="findReadyOrFailedByScopeWithDifferentHash" resultMap="summaryRowMap">
+        SELECT
+            shs.id AS summary_id,
+            op.incident_id,
+            shs.operational_period_id AS op_id,
+            shs.duty_shift_id,
+            shs.generation_status,
+            shs.content,
+            shs.source_data_hash,
+            shs.source_readiness,
+            shs.generated_at,
+            shs.version
+        FROM search_history_summary shs
+        JOIN operational_period op ON op.id = shs.operational_period_id
+        WHERE shs.operational_period_id = #{opId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND shs.source_data_hash &lt;&gt; #{sourceDataHash}
+          AND shs.source_readiness = 'READY'
+          AND shs.generation_status IN ('READY', 'FAILED')
+        <choose>
+            <when test="dutyShiftId != null">
+                AND shs.duty_shift_id = #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+            </when>
+            <otherwise>
+                AND shs.duty_shift_id IS NULL
+            </otherwise>
+        </choose>
+        ORDER BY shs.created_at ASC, shs.id ASC
+    </select>
+
     <insert id="insertGenerationRequest">
         INSERT INTO search_history_summary (
             id,
@@ -141,4 +262,24 @@
         )
         ON CONFLICT DO NOTHING
     </insert>
+
+    <update id="updateGenerationResult">
+        UPDATE search_history_summary
+        SET generation_status = #{generationStatus},
+            content = #{content},
+            source_readiness = #{sourceReadiness},
+            generated_at = #{generatedAt},
+            updated_at = #{updatedAt}
+        WHERE id = #{summaryId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+    </update>
+
+    <update id="markStaleByIds">
+        UPDATE search_history_summary
+        SET source_readiness = 'STALE',
+            updated_at = #{updatedAt}
+        WHERE id IN
+        <foreach collection="summaryIds" item="summaryId" open="(" separator="," close=")">
+            #{summaryId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+        </foreach>
+    </update>
 </mapper>

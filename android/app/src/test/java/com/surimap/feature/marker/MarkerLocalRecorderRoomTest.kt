@@ -1,0 +1,145 @@
+package com.surimap.feature.marker
+
+import androidx.room.Room
+import com.surimap.core.database.SuriMapDatabase
+import com.surimap.core.sync.RoomSyncClient
+import com.surimap.feature.marker.data.MarkerLocation
+import com.surimap.feature.marker.data.MarkerPhotoAttachInput
+import com.surimap.feature.marker.data.MarkerPhotoUploadUrlInput
+import com.surimap.feature.marker.data.MarkerWriteContext
+import com.surimap.feature.marker.data.MarkerWriteResult
+import com.surimap.feature.marker.data.MarkerLocalRecorder
+import com.surimap.feature.marker.data.MarkerUpsertInput
+import java.time.Instant
+import kotlinx.coroutines.runBlocking
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
+
+@RunWith(RobolectricTestRunner::class)
+class MarkerLocalRecorderRoomTest {
+    private lateinit var database: SuriMapDatabase
+
+    @Before
+    fun setUp() {
+        database = Room.inMemoryDatabaseBuilder(
+            RuntimeEnvironment.getApplication(),
+            SuriMapDatabase::class.java
+        ).build()
+    }
+
+    @After
+    fun tearDown() {
+        database.close()
+    }
+
+    @Test
+    fun markerAndPhotoWritesPersistPendingOutboxRowsBeforeNetworkReplay() = runBlocking {
+        val recorder =
+            MarkerLocalRecorder(
+                syncClient = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()),
+                now = { CLIENT_TS },
+                sequenceSource = sequenceSource(50),
+                idFactory = idFactory()
+            )
+
+        val create =
+            recorder.createMarker(
+                context = CONTEXT,
+                input = MarkerUpsertInput(type = "CLUE", location = LOCATION, memo = "등산로 입구 제보")
+            ) as MarkerWriteResult.Enqueued
+        recorder.updateMarker(
+            context = CONTEXT,
+            markerId = MARKER_ID,
+            version = 3,
+            input = MarkerUpsertInput(memo = "메모 수정")
+        )
+        recorder.deleteMarker(
+            context = CONTEXT,
+            markerId = MARKER_ID,
+            version = 4,
+            reason = "duplicated"
+        )
+        val upload =
+            recorder.requestPhotoUploadUrl(
+                context = CONTEXT,
+                input =
+                MarkerPhotoUploadUrlInput(
+                    markerId = MARKER_ID,
+                    contentType = "image/jpeg",
+                    sizeBytes = 512_000,
+                    checksumSha256 = "sha256-local-photo"
+                )
+            ) as MarkerWriteResult.Enqueued
+        recorder.attachPhoto(
+            context = CONTEXT,
+            input =
+            MarkerPhotoAttachInput(
+                markerId = MARKER_ID,
+                photoId = PHOTO_ID,
+                contentType = "image/jpeg",
+                sizeBytes = 512_000,
+                checksumSha256 = "sha256-local-photo",
+                parentOperationId = upload.operationId
+            )
+        )
+
+        val rows = database.outboxDao().findByIncidentId(INCIDENT_ID)
+
+        assertEquals(
+            listOf("POST", "PATCH", "DELETE", "POST", "POST"),
+            rows.map { it.requestMethod }
+        )
+        assertEquals(
+            listOf(
+                "/api/markers",
+                "/api/markers/$MARKER_ID",
+                "/api/markers/$MARKER_ID",
+                "/api/markers/$MARKER_ID/photos/upload-url",
+                "/api/markers/$MARKER_ID/photos/$PHOTO_ID/attach"
+            ),
+            rows.map { it.requestPath }
+        )
+        assertEquals(listOf("MARKER", "MARKER", "MARKER", "PHOTO", "PHOTO"), rows.map { it.dependencyGroup })
+        assertTrue(rows.all { it.idempotencyStatus == "PENDING" })
+        assertTrue(rows.all { it.localMirrorStatus == "PENDING_SEND" })
+        assertEquals(listOf(50L, 51L, 52L, 53L, 54L), rows.map { it.sequence })
+        assertEquals(upload.operationId, rows.last().parentOperationId)
+
+        val draft = database.localWriteDraftDao().findById(create.outboxId)
+        assertEquals("marker", draft!!.entityType)
+        assertEquals(create.operationId, draft.operationId)
+        assertTrue(draft.payload.contains("\"type\":\"CLUE\""))
+    }
+
+    private fun sequenceSource(first: Long): () -> Long {
+        var next = first
+        return { next++ }
+    }
+
+    private fun idFactory(): (String) -> String {
+        var next = 1
+        return { prefix -> "$prefix-${next.toString().padStart(3, '0')}".also { next++ } }
+    }
+
+    private companion object {
+        const val INCIDENT_ID = "inc-precinct-first-001"
+        const val OP_ID = "op-precinct-first-001"
+        const val MARKER_ID = "mk-precinct-clue-001"
+        const val PHOTO_ID = "photo-precinct-clue-001"
+        const val POLICE_PHONE_ID = "phone-precinct-001"
+        val CLIENT_TS: Instant = Instant.parse("2026-05-11T06:00:00Z")
+        val LOCATION = MarkerLocation(lon = 126.9565, lat = 37.5712)
+        val CONTEXT =
+            MarkerWriteContext(
+                incidentId = INCIDENT_ID,
+                opId = OP_ID,
+                policePhoneId = POLICE_PHONE_ID
+            )
+    }
+}

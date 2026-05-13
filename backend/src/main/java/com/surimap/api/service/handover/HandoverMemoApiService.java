@@ -11,6 +11,8 @@ import com.surimap.handover.HandoverMemoMapper;
 import com.surimap.incident.lifecycle.IncidentLifecycleGuard;
 import com.surimap.operationalperiod.OperationalPeriod;
 import com.surimap.operationalperiod.OperationalPeriodMapper;
+import com.surimap.sync.idempotency.IdempotentResponseCache;
+import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -19,6 +21,7 @@ import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,17 +40,20 @@ public class HandoverMemoApiService {
   private final OperationalPeriodMapper operationalPeriodMapper;
   private final IncidentLifecycleGuard incidentLifecycleGuard;
   private final EventHub eventHub;
+  private final IdempotentResponseCache idempotentResponseCache;
   private final Map<String, IdempotencyEntry> idempotencyEntries = new LinkedHashMap<>();
 
   public HandoverMemoApiService(
       HandoverMemoMapper handoverMemoMapper,
       OperationalPeriodMapper operationalPeriodMapper,
       IncidentLifecycleGuard incidentLifecycleGuard,
-      EventHub eventHub) {
+      EventHub eventHub,
+      ObjectProvider<IdempotentResponseCache> idempotentResponseCacheProvider) {
     this.handoverMemoMapper = handoverMemoMapper;
     this.operationalPeriodMapper = operationalPeriodMapper;
     this.incidentLifecycleGuard = incidentLifecycleGuard;
     this.eventHub = eventHub;
+    this.idempotentResponseCache = idempotentResponseCacheProvider.getIfAvailable();
   }
 
   @Transactional
@@ -165,6 +171,16 @@ public class HandoverMemoApiService {
 
   private <T> T replayOrRun(
       String idempotencyKey, String fingerprint, Class<T> responseType, Operation<T> operation) {
+    if (idempotentResponseCache != null) {
+      return idempotentResponseCache.replayOrRun(
+          "POST /api/handover-memos",
+          idempotencyKey,
+          fingerprint,
+          201,
+          responseType,
+          operation::run,
+          this::metadataFor);
+    }
     IdempotencyEntry existing = idempotencyEntries.get(idempotencyKey);
     if (existing != null) {
       if (!existing.fingerprint().equals(fingerprint)) {
@@ -193,6 +209,14 @@ public class HandoverMemoApiService {
   }
 
   private record IdempotencyEntry(String fingerprint, Object response) {}
+
+  private <T> ResponseMetadata metadataFor(T response) {
+    if (response instanceof HandoverMemoResponse memo) {
+      return new ResponseMetadata(
+          memo.id().toString(), ACTIVE, memo.version(), memo.version());
+    }
+    throw HandoverApiException.writeConflict();
+  }
 
   @FunctionalInterface
   private interface Operation<T> {

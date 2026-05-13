@@ -424,7 +424,18 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
     }
 
     @Override
-    public void insertGenerationRequest(
+    public String sourceEvidenceForScope(UUID opId, UUID dutyShiftId) {
+      return "unused";
+    }
+
+    @Override
+    public List<SearchHistorySummaryRow> findReadyOrFailedByScopeWithDifferentHash(
+        UUID opId, UUID dutyShiftId, String sourceDataHash) {
+      return List.of();
+    }
+
+    @Override
+    public int insertGenerationRequest(
         UUID summaryId,
         UUID opId,
         UUID dutyShiftId,
@@ -436,6 +447,20 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
         Instant generatedAt,
         long version,
         Instant createdAt,
+        Instant updatedAt) {
+      return 1;
+    }
+
+    @Override
+    public void updateGenerationResult(
+        UUID summaryId,
+        String generationStatus,
+        String content,
+        String sourceReadiness,
+        Instant generatedAt,
         Instant updatedAt) {}
+
+    @Override
+    public void markStaleByIds(List<UUID> summaryIds, Instant updatedAt) {}
   }
 }

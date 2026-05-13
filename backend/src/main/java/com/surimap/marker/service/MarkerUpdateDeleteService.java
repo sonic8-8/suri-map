@@ -17,12 +17,20 @@ import com.surimap.marker.repository.MarkerDeleteRecord;
 import com.surimap.marker.repository.MarkerRecord;
 import com.surimap.marker.repository.MarkerRepository;
 import com.surimap.marker.repository.MarkerUpdateRecord;
+import com.surimap.sync.idempotency.IdempotentResponseCache;
+import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.HexFormat;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import org.locationtech.jts.geom.Point;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,19 +45,22 @@ public class MarkerUpdateDeleteService {
   private final MarkerWriteGuardPort markerWriteGuardPort;
   private final MarkerEventPublisher markerEventPublisher;
   private final Clock clock;
+  private final IdempotentResponseCache idempotentResponseCache;
 
   @Autowired
   public MarkerUpdateDeleteService(
       MarkerRepository markerRepository,
       MarkerLocationValidator markerLocationValidator,
       MarkerWriteGuardPort markerWriteGuardPort,
-      MarkerEventPublisher markerEventPublisher) {
+      MarkerEventPublisher markerEventPublisher,
+      ObjectProvider<IdempotentResponseCache> idempotentResponseCacheProvider) {
     this(
         markerRepository,
         markerLocationValidator,
         markerWriteGuardPort,
         markerEventPublisher,
-        Clock.systemUTC());
+        Clock.systemUTC(),
+        idempotentResponseCacheProvider.getIfAvailable());
   }
 
   public MarkerUpdateDeleteService(
@@ -58,11 +69,28 @@ public class MarkerUpdateDeleteService {
       MarkerWriteGuardPort markerWriteGuardPort,
       MarkerEventPublisher markerEventPublisher,
       Clock clock) {
+    this(
+        markerRepository,
+        markerLocationValidator,
+        markerWriteGuardPort,
+        markerEventPublisher,
+        clock,
+        null);
+  }
+
+  private MarkerUpdateDeleteService(
+      MarkerRepository markerRepository,
+      MarkerLocationValidator markerLocationValidator,
+      MarkerWriteGuardPort markerWriteGuardPort,
+      MarkerEventPublisher markerEventPublisher,
+      Clock clock,
+      IdempotentResponseCache idempotentResponseCache) {
     this.markerRepository = Objects.requireNonNull(markerRepository);
     this.markerLocationValidator = Objects.requireNonNull(markerLocationValidator);
     this.markerWriteGuardPort = Objects.requireNonNull(markerWriteGuardPort);
     this.markerEventPublisher = Objects.requireNonNull(markerEventPublisher);
     this.clock = Objects.requireNonNull(clock);
+    this.idempotentResponseCache = idempotentResponseCache;
   }
 
   @Transactional
@@ -71,7 +99,30 @@ public class MarkerUpdateDeleteService {
     requireMarkerId(markerId);
     requireRequestVersion(request == null ? null : request.version());
     requireWriteContext(context);
+    if (idempotentResponseCache != null) {
+      AtomicReference<MarkerMutationResult> updatedResult = new AtomicReference<>();
+      MarkerMutationResponse response =
+          idempotentResponseCache.replayOrRun(
+              "PATCH /api/markers/" + markerId,
+              context.idempotencyKey(),
+              fingerprint("update:" + markerId, request),
+              200,
+              MarkerMutationResponse.class,
+              () -> {
+                MarkerMutationResult result = updateMarker(markerId, request, context);
+                updatedResult.set(result);
+                return result.response();
+              },
+              this::metadataFor);
+      return updatedResult.get() == null
+          ? new MarkerMutationResult(response, null)
+          : updatedResult.get();
+    }
+    return updateMarker(markerId, request, context);
+  }
 
+  private MarkerMutationResult updateMarker(
+      UUID markerId, MarkerUpdateRequest request, MarkerRequestContext context) {
     MarkerMutationContext mutationContext =
         markerWriteGuardPort.requireUpdateAccess(markerId, context);
     requireMutationContext(markerId, mutationContext);
@@ -117,7 +168,30 @@ public class MarkerUpdateDeleteService {
     requireMarkerId(markerId);
     requireRequestVersion(request == null ? null : request.version());
     requireWriteContext(context);
+    if (idempotentResponseCache != null) {
+      AtomicReference<MarkerMutationResult> deletedResult = new AtomicReference<>();
+      MarkerMutationResponse response =
+          idempotentResponseCache.replayOrRun(
+              "DELETE /api/markers/" + markerId,
+              context.idempotencyKey(),
+              fingerprint("delete:" + markerId, request),
+              200,
+              MarkerMutationResponse.class,
+              () -> {
+                MarkerMutationResult result = deleteMarker(markerId, request, context);
+                deletedResult.set(result);
+                return result.response();
+              },
+              this::metadataFor);
+      return deletedResult.get() == null
+          ? new MarkerMutationResult(response, null)
+          : deletedResult.get();
+    }
+    return deleteMarker(markerId, request, context);
+  }
 
+  private MarkerMutationResult deleteMarker(
+      UUID markerId, MarkerDeleteRequest request, MarkerRequestContext context) {
     MarkerMutationContext mutationContext =
         markerWriteGuardPort.requireDeleteAccess(markerId, context);
     requireMutationContext(markerId, mutationContext);
@@ -269,5 +343,22 @@ public class MarkerUpdateDeleteService {
 
   private MarkerApiException conflict(String error) {
     return new MarkerApiException(error, HttpStatus.CONFLICT);
+  }
+
+  private ResponseMetadata metadataFor(MarkerMutationResponse response) {
+    return new ResponseMetadata(
+        response.id().toString(), response.status(), response.version(), response.version());
+  }
+
+  private String fingerprint(String operation, Object request) {
+    try {
+      MessageDigest digest = MessageDigest.getInstance("SHA-256");
+      byte[] hashed =
+          digest.digest(
+              (operation + ":" + String.valueOf(request)).getBytes(StandardCharsets.UTF_8));
+      return HexFormat.of().formatHex(hashed);
+    } catch (NoSuchAlgorithmException exception) {
+      throw new IllegalStateException("SHA-256 is not available", exception);
+    }
   }
 }

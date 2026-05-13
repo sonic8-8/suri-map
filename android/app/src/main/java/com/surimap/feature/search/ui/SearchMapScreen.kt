@@ -75,7 +75,9 @@ enum class SearchLifecycleStatus {
 enum class SearchLayerKind {
     Overall,
     Unit,
-    Team
+    Team,
+    Path,
+    Marker
 }
 
 data class SearchMapViewportBounds(
@@ -247,7 +249,9 @@ data class SearchMapUiState(
                 listOf(
                     SearchMapLayerUiState("전체 수색 구역", SearchLayerKind.Overall),
                     SearchMapLayerUiState("기동대 1부대", SearchLayerKind.Unit),
-                    SearchMapLayerUiState("A팀 담당 구역", SearchLayerKind.Team, highlighted = true)
+                    SearchMapLayerUiState("A팀 담당 구역", SearchLayerKind.Team, highlighted = true),
+                    SearchMapLayerUiState("현재 경로", SearchLayerKind.Path, highlighted = true),
+                    SearchMapLayerUiState("단서", SearchLayerKind.Marker, highlighted = true)
                 ),
                 handoverPrompt = handoverPrompt,
                 incidentAlert = incidentAlert
@@ -570,6 +574,8 @@ private fun SearchLayerKind.toMapLibreGeometryOverlayKind(): MapLibreGeometryOve
         SearchLayerKind.Overall -> MapLibreGeometryOverlayKind.Overall
         SearchLayerKind.Unit -> MapLibreGeometryOverlayKind.Unit
         SearchLayerKind.Team -> MapLibreGeometryOverlayKind.Team
+        SearchLayerKind.Path -> MapLibreGeometryOverlayKind.Path
+        SearchLayerKind.Marker -> MapLibreGeometryOverlayKind.Marker
     }
 
 fun sampleSearchMapState(): SearchMapUiState =
