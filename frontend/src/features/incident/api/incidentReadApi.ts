@@ -19,7 +19,9 @@ export type IncidentDetailResponse = ActiveIncidentDetailResponse | TerminalInci
 export interface ActiveIncidentDetailResponse {
   id: string;
   incidentId: string;
+  title: string;
   status: 'OPEN';
+  openedAt: string | null;
   version: number;
   missingPerson: IncidentMissingPersonSummary | null;
   assignments: IncidentAssignmentSummary[];
@@ -46,7 +48,11 @@ export interface IncidentMissingPersonSummary {
 
 export interface IncidentAssignmentSummary {
   accountId: string;
+  accountDisplayName: string | null;
+  accountType: string | null;
+  organizationType: string | null;
   incidentRole: string;
+  assignedAt: string;
 }
 
 export interface IncidentTerminalSnapshot {

@@ -151,7 +151,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Headers: `Authorization`, `X-Client-Channel`
 - Guard: `@RequireChannel(APP,WEB)`, `@RequireIncidentAccess`
 - Idempotency-Key: no
-- Response: `200 {id, incidentId, status, version, missingPerson, assignments}`
+- Response: `200 {id, incidentId, title, status, openedAt, version, missingPerson, assignments}`
 - Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`
 
 #### POST `/api/incidents/{incidentId}/close`

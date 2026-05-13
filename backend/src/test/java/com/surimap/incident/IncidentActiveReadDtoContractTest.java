@@ -36,6 +36,12 @@ import org.springframework.test.web.servlet.MockMvc;
       "CREATE TABLE IF NOT EXISTS \"incident\" (id VARCHAR(36) PRIMARY KEY, source_incident_id UUID NOT NULL UNIQUE, title VARCHAR(200) NOT NULL, status VARCHAR(32) NOT NULL, opened_at TIMESTAMP WITH TIME ZONE, closed_at TIMESTAMP WITH TIME ZONE, closed_by_account_id VARCHAR(80), version BIGINT NOT NULL, created_at TIMESTAMP WITH TIME ZONE NOT NULL, updated_at TIMESTAMP WITH TIME ZONE NOT NULL)",
       "CREATE TABLE IF NOT EXISTS missing_person (incident_id VARCHAR(36) PRIMARY KEY, display_name VARCHAR(120) NOT NULL, photo_object_key CLOB, appearance_text CLOB, last_seen_location_text VARCHAR(255), last_seen_at TIMESTAMP WITH TIME ZONE, imported_at TIMESTAMP WITH TIME ZONE NOT NULL)",
       "CREATE TABLE IF NOT EXISTS incident_assignment (id VARCHAR(36) PRIMARY KEY, incident_id VARCHAR(36) NOT NULL, account_id VARCHAR(80) NOT NULL, incident_role VARCHAR(32) NOT NULL, assigned_at TIMESTAMP WITH TIME ZONE NOT NULL, revoked_at TIMESTAMP WITH TIME ZONE, created_at TIMESTAMP WITH TIME ZONE NOT NULL, updated_at TIMESTAMP WITH TIME ZONE NOT NULL)",
+      "CREATE TABLE IF NOT EXISTS account (id VARCHAR(36) PRIMARY KEY, login_id VARCHAR(80) NOT NULL UNIQUE, password_hash VARCHAR(255) NOT NULL, display_name VARCHAR(128) NOT NULL, account_type VARCHAR(32) NOT NULL, organization_type VARCHAR(32) NOT NULL, status VARCHAR(32) NOT NULL, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP)",
+      "MERGE INTO account (id, login_id, password_hash, display_name, account_type, organization_type, status) KEY(id) VALUES ('11111111-1111-1111-1111-111111110001', 'acct-precinct-cmd', '{noop}fixture', '종로 지구대 지휘', 'COMMAND', 'POLICE_SUBSTATION', 'ACTIVE')",
+      "MERGE INTO account (id, login_id, password_hash, display_name, account_type, organization_type, status) KEY(id) VALUES ('11111111-1111-1111-1111-111111110002', 'acct-precinct-car', '{noop}fixture', '종로 지구대 순찰차', 'PATROL_CAR', 'POLICE_SUBSTATION', 'ACTIVE')",
+      "MERGE INTO account (id, login_id, password_hash, display_name, account_type, organization_type, status) KEY(id) VALUES ('11111111-1111-1111-1111-111111110003', 'acct-precinct-team', '{noop}fixture', '종로 지구대 팀', 'TEAM', 'POLICE_SUBSTATION', 'ACTIVE')",
+      "MERGE INTO account (id, login_id, password_hash, display_name, account_type, organization_type, status) KEY(id) VALUES ('11111111-1111-1111-1111-111111110004', 'acct-cmd-alpha', '{noop}fixture', '실종팀 알파 지휘', 'COMMAND', 'MISSING_TEAM', 'ACTIVE')",
+      "MERGE INTO account (id, login_id, password_hash, display_name, account_type, organization_type, status) KEY(id) VALUES ('11111111-1111-1111-1111-111111110005', 'acct-team-alpha', '{noop}fixture', '실종팀 알파 팀', 'TEAM', 'MISSING_TEAM', 'ACTIVE')",
       "DELETE FROM incident_assignment",
       "DELETE FROM missing_person",
       "DELETE FROM \"incident\"",
@@ -61,7 +67,15 @@ class IncidentActiveReadDtoContractTest {
   private static final Set<String> ACTIVE_LIST_ITEM_FIELDS =
       Set.of("id", "incidentId", "title", "status", "version", "closedAt");
   private static final Set<String> ACTIVE_DETAIL_FIELDS =
-      Set.of("id", "incidentId", "status", "version", "missingPerson", "assignments");
+      Set.of(
+          "id",
+          "incidentId",
+          "title",
+          "status",
+          "openedAt",
+          "version",
+          "missingPerson",
+          "assignments");
   private static final Set<String> DETAIL_MISSING_PERSON_FIELDS =
       Set.of(
           "incidentId",
@@ -70,7 +84,14 @@ class IncidentActiveReadDtoContractTest {
           "appearanceText",
           "lastSeenLocationText",
           "lastSeenAt");
-  private static final Set<String> DETAIL_ASSIGNMENT_FIELDS = Set.of("accountId", "incidentRole");
+  private static final Set<String> DETAIL_ASSIGNMENT_FIELDS =
+      Set.of(
+          "accountId",
+          "accountDisplayName",
+          "accountType",
+          "organizationType",
+          "incidentRole",
+          "assignedAt");
   private static final List<String> TERMINAL_OR_PURGE_FIELDS =
       List.of(
           "terminalStatus",
@@ -154,7 +175,9 @@ class IncidentActiveReadDtoContractTest {
     assertThat(fieldNames(body)).isEqualTo(ACTIVE_DETAIL_FIELDS);
     assertThat(body.path("id").asText()).isEqualTo(OPEN_ASSIGNED_INCIDENT_ID.toString());
     assertThat(body.path("incidentId").asText()).isEqualTo(OPEN_ASSIGNED_INCIDENT_ID.toString());
+    assertThat(body.path("title").asText()).isEqualTo("종로구 인왕산 실종 신고");
     assertThat(body.path("status").asText()).isEqualTo("OPEN");
+    assertThat(body.path("openedAt").asText()).isEqualTo("2026-04-28T00:00:00Z");
     assertThat(body.path("version").asLong()).isEqualTo(3L);
 
     JsonNode missingPerson = body.path("missingPerson");
@@ -180,6 +203,12 @@ class IncidentActiveReadDtoContractTest {
             "11111111-1111-1111-1111-111111110003",
             "11111111-1111-1111-1111-111111110004",
             "11111111-1111-1111-1111-111111110005");
+    JsonNode commander = assignmentByAccountId(assignments, "11111111-1111-1111-1111-111111110001");
+    assertThat(commander.path("accountDisplayName").asText()).isEqualTo("종로 지구대 지휘");
+    assertThat(commander.path("accountType").asText()).isEqualTo("COMMAND");
+    assertThat(commander.path("organizationType").asText()).isEqualTo("POLICE_SUBSTATION");
+    assertThat(commander.path("incidentRole").asText()).isEqualTo("FIELD_COMMANDER");
+    assertThat(commander.path("assignedAt").asText()).isEqualTo("2026-04-28T00:00:00Z");
     assertNoTerminalOrPurgeFields(body);
   }
 
@@ -210,7 +239,8 @@ class IncidentActiveReadDtoContractTest {
       accountId = "11111111-1111-1111-1111-111111119902",
       policePhoneId = "dev-no-missing-phone-01",
       roles = {Role.MEMBER})
-  @DisplayName("GET /api/incidents/{incidentId}는 OPEN missing_person row가 없어도 active detail 키를 유지한다")
+  @DisplayName(
+      "GET /api/incidents/{incidentId}는 OPEN missing_person row가 없어도 active detail 키를 유지한다")
   void detail_keeps_active_missing_person_key_when_row_is_absent() throws Exception {
     JsonNode body =
         readJson(
@@ -222,7 +252,9 @@ class IncidentActiveReadDtoContractTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(OPEN_NO_MISSING_INCIDENT_ID.toString()))
                 .andExpect(jsonPath("$.incidentId").value(OPEN_NO_MISSING_INCIDENT_ID.toString()))
+                .andExpect(jsonPath("$.title").value("실종자 row 없는 OPEN 사건"))
                 .andExpect(jsonPath("$.status").value("OPEN"))
+                .andExpect(jsonPath("$.openedAt").value("2026-04-28T00:20:00Z"))
                 .andExpect(jsonPath("$.version").value(2))
                 .andReturn()
                 .getResponse()
@@ -251,6 +283,15 @@ class IncidentActiveReadDtoContractTest {
 
   private static List<String> accountIds(JsonNode assignments) {
     return assignments.findValues("accountId").stream().map(JsonNode::asText).toList();
+  }
+
+  private static JsonNode assignmentByAccountId(JsonNode assignments, String accountId) {
+    for (JsonNode assignment : assignments) {
+      if (assignment.path("accountId").asText().equals(accountId)) {
+        return assignment;
+      }
+    }
+    throw new AssertionError("assignment not found: " + accountId);
   }
 
   private static void assertNoTerminalOrPurgeFields(JsonNode node) {
