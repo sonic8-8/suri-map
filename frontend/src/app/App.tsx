@@ -164,12 +164,10 @@ function OfflinePackageRoute({
 }
 
 function IncidentCloseRoute() {
-  const incidentId = useRouteIncidentId();
   const navigate = useNavigate();
 
   return (
     <IncidentClosePage
-      incidentId={incidentId}
       onBackToIncidents={() => navigate(ROUTES.incidentList)}
       onOpenLogin={() => navigate(ROUTES.login)}
     />
