@@ -120,7 +120,7 @@ class MarkerPhotoUploadCoordinator(
     clockOffsetMs: () -> Long? = { 0L },
     clockSyncedAt: () -> Instant? = { now() },
     sequenceSource: () -> Long = { System.currentTimeMillis() },
-    idFactory: (String) -> String = { prefix -> "$prefix-${UUID.randomUUID()}" }
+    idFactory: (String) -> String = { _ -> UUID.randomUUID().toString() }
 ) {
     private val recorder =
         MarkerLocalRecorder(

@@ -72,6 +72,7 @@ class RoomOfflinePackageWorkerInstallerTest {
         assertEquals("READY", installation!!.status)
         assertTrue(installation.readyForOfflineUse)
         assertEquals("PACKAGE_INSTALLATION", outboxRows.single().dependencyGroup)
+        assertEquals("e54c8c5a-802f-352d-b366-ee430f0bbea5", outboxRows.single().operationId)
         assertEquals(
             "/api/incidents/$INCIDENT_ID/offline-package/installations",
             outboxRows.single().requestPath
@@ -222,8 +223,8 @@ class RoomOfflinePackageWorkerInstallerTest {
             .build()
 
     private companion object {
-        const val INCIDENT_ID = "inc-precinct-first-001"
-        const val POLICE_PHONE_ID = "phone-precinct-001"
-        const val MANIFEST_ID = "pkg-precinct-first-rev-18"
+        const val INCIDENT_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001"
+        const val POLICE_PHONE_ID = "50000000-0000-0000-0000-000000000001"
+        const val MANIFEST_ID = "77777777-0000-4000-8000-000000000701"
     }
 }

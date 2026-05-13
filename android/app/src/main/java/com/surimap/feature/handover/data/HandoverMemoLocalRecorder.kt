@@ -35,7 +35,7 @@ class HandoverMemoLocalRecorder(
     private val clockOffsetMs: () -> Long? = { 0L },
     private val clockSyncedAt: () -> Instant? = { now() },
     private val sequenceSource: () -> Long = { System.currentTimeMillis() },
-    private val idFactory: (String) -> String = { prefix -> "$prefix-${UUID.randomUUID()}" }
+    private val idFactory: (String) -> String = { _ -> UUID.randomUUID().toString() }
 ) {
     private val repository = HandoverMemoRepository(syncClient = syncClient)
 

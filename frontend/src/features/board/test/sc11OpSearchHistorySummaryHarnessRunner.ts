@@ -80,16 +80,23 @@ const canonicalSummaryBoardRowId = 'board-ai-summary-op-precinct-001-op2';
 const canonicalSummaryEventId = 'evt-s8-ai-summary-001';
 const canonicalSummarySourceHash = 'hash-s8-ai-summary-current';
 const publicUnavailableReason = 'summary_unavailable';
+const INCIDENT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001';
+const OP1_ID = '88888888-8888-8888-8888-888888880001';
+const OP2_ID = '88888888-8888-8888-8888-888888880002';
+const PATH_MIXED_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
+const MARKER_ID = '55555555-5555-5555-5555-555555550001';
+const MEMO_OP2_ID = 'eeeeeeee-eeee-eeee-eeee-eeeeeeee0010';
+const SUMMARY_ID = '44444444-4444-4444-4444-444444440001';
 const forbiddenCtaPattern =
   /누락 확정|위험도 판단|다음 구역|추천|자동 판단|재수색|source owner write|source row mutation/i;
 const sourceOwnerWriteButtonPattern =
   /OP 생성|OP 전환|저장|수정|삭제|인수인계 저장|누락 확정|위험도 판단|다음 구역|source owner write|source row mutation/i;
 const geometryWritePattern = /GEOMETRY_WRITTEN|geometry write|overall_search_area write|map boundary write/i;
 const evidenceIds = [
-  'op-precinct-001-op2',
-  'path-precinct-mixed-001',
-  'mk-precinct-clue-001',
-  'memo-precinct-op2-001',
+  OP2_ID,
+  PATH_MIXED_ID,
+  MARKER_ID,
+  MEMO_OP2_ID,
 ] as const;
 
 export async function runSc11OpSummaryRenderingHarness(): Promise<Sc11HarnessReport> {
@@ -133,8 +140,8 @@ function renderHarnessCase(fixture: Sc11HarnessCaseFixture): Sc11HarnessCaseRepo
       Fragment,
       null,
       createElement(OpToggleSlot, {
-        currentOpId: 'op-precinct-001-op2',
-        selectedOpIds: ['op-precinct-001-op1', 'op-precinct-001-op2'],
+        currentOpId: OP2_ID,
+        selectedOpIds: [OP1_ID, OP2_ID],
         rows: opToggleRows,
       }),
       createElement(SearchHistorySummarySlot, {
@@ -158,7 +165,7 @@ function renderHarnessCase(fixture: Sc11HarnessCaseFixture): Sc11HarnessCaseRepo
   const summarySlot = result.container.querySelector('[data-testid="slot-search_history_summary"]');
   const displayStatus = readSummaryDisplayStatus(summarySlot);
   const opComparisonVisible = Boolean(
-    result.container.querySelector('[data-testid="slot-op_toggle"]')?.textContent?.includes('op-precinct-001-op2'),
+    result.container.querySelector('[data-testid="slot-op_toggle"]')?.textContent?.includes(OP2_ID),
   );
 
   cleanup();
@@ -246,26 +253,26 @@ function createSearchHistorySummaryRow({
   return {
     slot: 'search_history_summary',
     id: canonicalSummaryBoardRowId,
-    sourceResponseId: 'ai-summary-op-precinct-001-op2',
-    incidentId: 'inc-precinct-first-001',
+    sourceResponseId: SUMMARY_ID,
+    incidentId: INCIDENT_ID,
     status,
     version: 1,
     sequence: 805,
     sourceSpec: 'S8',
     sourceHash: canonicalSummarySourceHash,
     latestEventId: canonicalSummaryEventId,
-    summaryId: 'summary-precinct-op2-001',
-    opId: 'op-precinct-001-op2',
+    summaryId: SUMMARY_ID,
+    opId: OP2_ID,
     displayStatus,
     summaryText,
     sourceSnapshotHash: 'hash-s8-source-snapshot-op2-001',
     generatedAt: status === 'READY' ? '2026-04-28T10:42:00+09:00' : null,
     retryCta,
     evidenceLinks: [
-      { label: 'OP2 원본 열기', href: '#op-precinct-001-op2' },
-      { label: 'path-precinct-mixed-001 원본 열기', href: '#path-precinct-mixed-001' },
-      { label: 'mk-precinct-clue-001 원본 열기', href: '#mk-precinct-clue-001' },
-      { label: 'memo-precinct-op2-001 원본 열기', href: '#memo-precinct-op2-001' },
+      { label: 'OP2 원본 열기', href: `#${OP2_ID}` },
+      { label: 'path-precinct-mixed-001 원본 열기', href: `#${PATH_MIXED_ID}` },
+      { label: 'mk-precinct-clue-001 원본 열기', href: `#${MARKER_ID}` },
+      { label: 'memo-precinct-op2-001 원본 열기', href: `#${MEMO_OP2_ID}` },
     ],
   };
 }
@@ -275,15 +282,15 @@ function createOpToggleRows(): readonly OpToggleRow[] {
     {
       slot: 'op_toggle',
       id: 'board-op-toggle-op-precinct-001-op1',
-      sourceResponseId: 'op-precinct-001-op1',
-      incidentId: 'inc-precinct-first-001',
+      sourceResponseId: OP1_ID,
+      incidentId: INCIDENT_ID,
       status: 'ENDED',
       version: 1,
       sequence: 801,
       sourceSpec: 'S8',
       sourceHash: 'hash-s8-op1-current',
       latestEventId: 'evt-s8-op-transition-001',
-      opId: 'op-precinct-001-op1',
+      opId: OP1_ID,
       sequenceNumber: 1,
       startedAt: '2026-04-28T09:00:00+09:00',
       endedAt: '2026-04-28T10:30:00+09:00',
@@ -292,15 +299,15 @@ function createOpToggleRows(): readonly OpToggleRow[] {
     {
       slot: 'op_toggle',
       id: 'board-op-toggle-op-precinct-001-op2',
-      sourceResponseId: 'op-precinct-001-op2',
-      incidentId: 'inc-precinct-first-001',
+      sourceResponseId: OP2_ID,
+      incidentId: INCIDENT_ID,
       status: 'ACTIVE',
       version: 2,
       sequence: 802,
       sourceSpec: 'S8',
       sourceHash: 'hash-s8-op2-current',
       latestEventId: 'evt-s8-op-transition-001',
-      opId: 'op-precinct-001-op2',
+      opId: OP2_ID,
       sequenceNumber: 2,
       startedAt: '2026-04-28T10:30:00+09:00',
       endedAt: null,
@@ -327,14 +334,14 @@ function createSourceRowSnapshot(): SourceRowSnapshot {
     },
     path: {
       slot: 'path',
-      sourceResponseId: 'path-precinct-mixed-001',
+      sourceResponseId: PATH_MIXED_ID,
       status: 'ACTIVE',
       version: 2,
       geometryHash: 'path-geometry-hash-precinct-mixed-current',
     },
     marker: {
       slot: 'marker',
-      sourceResponseId: 'mk-precinct-clue-001',
+      sourceResponseId: MARKER_ID,
       status: 'ACTIVE',
       version: 1,
       geometryHash: 'marker-geometry-hash-mk-precinct-clue-current',

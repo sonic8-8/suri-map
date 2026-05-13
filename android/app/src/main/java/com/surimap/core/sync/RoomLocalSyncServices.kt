@@ -370,11 +370,12 @@ class LocalSyncPurgeHookAdapter(
         closedAtMillis: Long,
         purgeRunId: String
     ) {
-        val markerId = "incident-closure:$incidentId:$policePhoneId"
+        val closureKey = "incident-closure:$incidentId:$policePhoneId"
+        val operationKey = "$closureKey:$purgeRunId"
         outboxDao.upsert(
             OutboxEntity(
-                outboxId = markerId,
-                operationId = "$markerId:$purgeRunId",
+                outboxId = stableUuid("outbox:$operationKey"),
+                operationId = stableUuid(operationKey),
                 incidentId = incidentId,
                 opId = null,
                 policePhoneId = policePhoneId,
@@ -385,7 +386,7 @@ class LocalSyncPurgeHookAdapter(
                 requestPath = LOCAL_INCIDENT_CLOSED_PATH,
                 payloadJson = "{}",
                 requestBodyHash = "incident-closed:$closedAtMillis",
-                idempotencyKey = markerId,
+                idempotencyKey = closureKey,
                 idempotencyStatus = OutboxStatus.PURGED.name,
                 localMirrorStatus = HarnessSyncStatus.PURGED.name,
                 attemptCount = 0,
@@ -400,6 +401,9 @@ class LocalSyncPurgeHookAdapter(
             )
         )
     }
+
+    private fun stableUuid(value: String): String =
+        UUID.nameUUIDFromBytes(value.toByteArray(Charsets.UTF_8)).toString()
 
     private suspend fun retainedRowsForIncident(incidentId: String): List<LocalSyncRetainedRow> {
         return outboxDao.findByIncidentId(incidentId)

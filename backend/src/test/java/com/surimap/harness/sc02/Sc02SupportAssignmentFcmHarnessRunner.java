@@ -164,7 +164,7 @@ public class Sc02SupportAssignmentFcmHarnessRunner {
               new IncidentAssignmentRow(
                   "ia-precinct-support-cmd-001",
                   "11111111-1111-1111-1111-111111110006",
-                  "dev-support-cmd-phone-01",
+                  "00000000-0000-0000-0000-000000000206",
                   SUPPORT_TEAM_ID,
                   "COMMAND",
                   true,
@@ -172,7 +172,7 @@ public class Sc02SupportAssignmentFcmHarnessRunner {
               new IncidentAssignmentRow(
                   "ia-precinct-support-car-001",
                   "11111111-1111-1111-1111-111111110007",
-                  "dev-support-car-01",
+                  "00000000-0000-0000-0000-000000000207",
                   SUPPORT_TEAM_ID,
                   "PATROL_CAR",
                   true,
@@ -180,7 +180,7 @@ public class Sc02SupportAssignmentFcmHarnessRunner {
               new IncidentAssignmentRow(
                   "ia-precinct-support-team-001",
                   "11111111-1111-1111-1111-111111110008",
-                  "dev-support-phone-01",
+                  "00000000-0000-0000-0000-000000000208",
                   SUPPORT_TEAM_ID,
                   "TEAM",
                   true,
@@ -209,13 +209,13 @@ public class Sc02SupportAssignmentFcmHarnessRunner {
 
     private final Map<String, String> tokensByPolicePhone =
         Map.of(
-            "dev-support-cmd-phone-01",
+            "00000000-0000-0000-0000-000000000206",
             "fcm:dev-support-cmd-phone-01",
-            "dev-support-car-01",
+            "00000000-0000-0000-0000-000000000207",
             "fcm:dev-support-car-01",
-            "dev-support-phone-01",
+            "00000000-0000-0000-0000-000000000208",
             "fcm:dev-support-phone-01",
-            "dev-alpha-phone-01",
+            "00000000-0000-0000-0000-000000000205",
             "fcm:dev-alpha-phone-01");
 
     boolean hasActiveToken(String policePhoneId) {

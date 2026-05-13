@@ -11,8 +11,8 @@ class GpsPathValidationFixturesTest {
 
   @Test
   void normalFixtureUsesHarnessPointAndSegmentIds() {
-    assertThat(GpsPathValidationFixtures.NORMAL_PATH_ID).isEqualTo("path-precinct-mixed-001");
-    assertThat(GpsPathValidationFixtures.NORMAL_POLICE_PHONE_ID).isEqualTo("dev-precinct-car-01");
+    assertThat(GpsPathValidationFixtures.NORMAL_PATH_ALIAS).isEqualTo("path-precinct-mixed-001");
+    assertThat(GpsPathValidationFixtures.NORMAL_POLICE_PHONE_CODE).isEqualTo("dev-precinct-car-01");
     assertThat(GpsPathValidationFixtures.NORMAL_POINTS)
         .extracting(GpsPathValidationFixtures.GpsPointFixture::pointId)
         .containsExactly(

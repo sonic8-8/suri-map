@@ -45,8 +45,8 @@ class AndroidHarnessFixtureCatalogTest {
                 "outbox-marker-001" to "outboxReplay.sc06MarkerPhotoReplay.markerOutboxId",
                 "outbox-photo-001" to "outboxReplay.sc06MarkerPhotoReplay.photoOutboxId",
                 "evt-s5-support-request-001" to "eventRegistry.supportRequestNotification.eventId",
-                "memo-precinct-op2-001" to "searchHistorySummary.memoId",
-                "summary-precinct-op2-001" to "searchHistorySummary.summaryId"
+                "memo-precinct-op2-001" to "searchHistorySummary.memoAlias",
+                "summary-precinct-op2-001" to "searchHistorySummary.summaryAlias"
             )
 
         ownerPaths.forEach { (fixtureId, ownerPath) ->

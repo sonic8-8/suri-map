@@ -1540,25 +1540,28 @@
       "sequence": 502,
       "endpoint": "POST /search-paths/batch",
       "expectedOwnerResponse": {
-        "id": "path-precinct-mixed-001",
+        "id": "ffffffff-ffff-ffff-ffff-ffffffffffff",
         "status": "ACTIVE",
         "version": 2,
-        "sequence": 502
+        "sequence": 502,
+        "idAlias": "path-precinct-mixed-001"
       },
       "expectedS4Event": {
         "eventId": "evt-s3-path-appended-001",
         "type": "PATH_APPENDED",
-        "payloadId": "path-precinct-mixed-001",
+        "payloadId": "ffffffff-ffff-ffff-ffff-ffffffffffff",
         "payloadStatus": "ACTIVE",
         "payloadVersion": 2,
-        "sequence": 502
+        "sequence": 502,
+        "payloadAlias": "path-precinct-mixed-001"
       },
       "expectedBoardProbe": {
         "slot": "path",
-        "id": "path-precinct-mixed-001",
+        "id": "ffffffff-ffff-ffff-ffff-ffffffffffff",
         "status": "ACTIVE",
         "minimumVersion": 2,
-        "sequence": 502
+        "sequence": 502,
+        "idAlias": "path-precinct-mixed-001"
       },
       "policePhoneCode": "dev-precinct-car-01",
       "policePhoneId": "50000000-0000-0000-0000-000000000001"
@@ -1592,40 +1595,48 @@
           "endpoint": "POST /markers/{markerId}/photos/{photoId}/attach"
         }
       ],
-      "markerId": "mk-precinct-clue-001",
-      "photoId": "photo-precinct-clue-001",
+      "markerId": "55555555-5555-5555-5555-555555550001",
+      "photoId": "55555555-5555-5555-5555-555555550101",
       "expectedOwnerResponse": {
-        "markerId": "mk-precinct-clue-001",
+        "markerId": "55555555-5555-5555-5555-555555550001",
         "markerStatus": "UPDATED",
         "markerVersion": 2,
-        "photoId": "photo-precinct-clue-001",
+        "photoId": "55555555-5555-5555-5555-555555550101",
         "photoStatus": "FINALIZED",
-        "photoVersion": 2
+        "photoVersion": 2,
+        "markerAlias": "mk-precinct-clue-001",
+        "photoAlias": "photo-precinct-clue-001"
       },
       "expectedS4Event": {
         "eventId": "evt-s5-marker-updated-photo-001",
         "type": "MARKER_UPDATED",
-        "payloadId": "mk-precinct-clue-001",
+        "payloadId": "55555555-5555-5555-5555-555555550001",
         "payloadStatus": "UPDATED",
         "payloadVersion": 2,
         "photoDelta": {
-          "photoId": "photo-precinct-clue-001",
+          "photoId": "55555555-5555-5555-5555-555555550101",
           "status": "FINALIZED",
-          "version": 2
+          "version": 2,
+          "photoAlias": "photo-precinct-clue-001"
         },
-        "photoDeltaVersion": 2
+        "photoDeltaVersion": 2,
+        "payloadAlias": "mk-precinct-clue-001"
       },
       "expectedBoardProbe": {
         "slot": "marker",
-        "id": "mk-precinct-clue-001",
+        "id": "55555555-5555-5555-5555-555555550001",
         "status": "UPDATED",
         "version": 2,
-        "photoId": "photo-precinct-clue-001",
+        "photoId": "55555555-5555-5555-5555-555555550101",
         "photoStatus": "FINALIZED",
-        "photoVersion": 2
+        "photoVersion": 2,
+        "idAlias": "mk-precinct-clue-001",
+        "photoAlias": "photo-precinct-clue-001"
       },
       "policePhoneCode": "dev-precinct-phone-01",
-      "policePhoneId": "00000000-0000-0000-0000-000000000101"
+      "policePhoneId": "00000000-0000-0000-0000-000000000101",
+      "markerAlias": "mk-precinct-clue-001",
+      "photoAlias": "photo-precinct-clue-001"
     },
     "sc08_notification_marker_replay": {
       "operationAlias": "op-outbox-support-001",
@@ -1637,20 +1648,23 @@
       "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
       "dependencyGroup": "MARKER",
       "sequence": 801,
-      "markerId": "mk-precinct-support-001",
-      "notificationDeliveryId": "notif-precinct-support-001",
+      "markerId": "55555555-5555-5555-5555-555555550801",
+      "notificationDeliveryId": "66666666-6666-6666-6666-666666660801",
       "expectedOwnerResponse": {
-        "id": "mk-precinct-support-001",
+        "id": "55555555-5555-5555-5555-555555550801",
         "status": "ACTIVE",
-        "version": 1
+        "version": 1,
+        "idAlias": "mk-precinct-support-001"
       },
       "expectedS4Event": {
         "eventId": "evt-s5-support-request-001",
         "type": "SUPPORT_REQUEST_CREATED",
-        "payloadId": "notif-precinct-support-001",
+        "payloadId": "66666666-6666-6666-6666-666666660801",
         "payloadStatus": "READY_FOR_FANOUT",
         "payloadVersion": 1,
-        "markerId": "mk-precinct-support-001"
+        "markerId": "55555555-5555-5555-5555-555555550801",
+        "payloadAlias": "notif-precinct-support-001",
+        "markerAlias": "mk-precinct-support-001"
       },
       "expectedBoardProbe": {
         "slots": [
@@ -1658,19 +1672,23 @@
           "toast"
         ],
         "marker": {
-          "id": "mk-precinct-support-001",
+          "id": "55555555-5555-5555-5555-555555550801",
           "status": "ACTIVE",
-          "version": 1
+          "version": 1,
+          "idAlias": "mk-precinct-support-001"
         },
         "toast": {
-          "id": "notif-precinct-support-001",
+          "id": "66666666-6666-6666-6666-666666660801",
           "status": "READY_FOR_FANOUT",
-          "version": 1
+          "version": 1,
+          "idAlias": "notif-precinct-support-001"
         },
         "minimumVersion": 1
       },
       "policePhoneCode": "dev-precinct-phone-01",
-      "policePhoneId": "00000000-0000-0000-0000-000000000101"
+      "policePhoneId": "00000000-0000-0000-0000-000000000101",
+      "markerAlias": "mk-precinct-support-001",
+      "notificationDeliveryAlias": "notif-precinct-support-001"
     },
     "sc09_package_status_replay": {
       "operationAlias": "op-outbox-package-001",

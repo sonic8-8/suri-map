@@ -132,7 +132,7 @@ class DemoScenarioFixturesTest {
     @Test
     @DisplayName("handover memo fixture alias/eventId가 spec 리터럴과 일치한다")
     void handoverMemoFixtureMatchesSpec() {
-      assertThat(DemoScenarioFixtures.HANDOVER_MEMO_ALIAS).isEqualTo("memo-precinct-handover-001");
+      assertThat(DemoScenarioFixtures.HANDOVER_MEMO_ALIAS).isEqualTo("memo-precinct-op2-001");
       assertThat(DemoScenarioFixtures.HANDOVER_MEMO_EVENT_ID).isEqualTo("evt-s8-handover-memo-001");
       assertThat(DemoScenarioFixtures.HANDOVER_MEMO_VERSION).isEqualTo(1L);
       assertThat(DemoScenarioFixtures.HANDOVER_MEMO_STATUS).isEqualTo("ACTIVE");
