@@ -5,6 +5,7 @@ import com.surimap.core.network.SuriMapApiClient
 import com.surimap.feature.bootstrap.data.AuthBootstrapCoordinator
 import com.surimap.feature.bootstrap.data.AuthBootstrapServerCheck
 import com.surimap.feature.bootstrap.data.AndroidManagedConfigurationReader
+import com.surimap.feature.bootstrap.data.AuthBootstrapCredentials
 import com.surimap.feature.bootstrap.data.ManagedPolicePhoneConfig
 import com.surimap.feature.bootstrap.data.NetworkPolicePhoneBootstrapServerCheck
 import com.surimap.feature.bootstrap.ui.AuthBootstrapFailureReason
@@ -231,7 +232,13 @@ class AuthBootstrapContractTest {
             )
 
         val request = callFactory.lastRequest!!
-        assertEquals(AuthBootstrapOutcome.Ready("police-phone-precinct-car-01"), outcome)
+        assertEquals(
+            AuthBootstrapOutcome.Ready(
+                policePhoneId = "police-phone-precinct-car-01",
+                accessToken = "token-1"
+            ),
+            outcome
+        )
         assertEquals("POST", request.method)
         assertEquals(
             "https://suri-map.internal/api/police-phones/police-phone-precinct-car-01/heartbeat",
@@ -242,6 +249,75 @@ class AuthBootstrapContractTest {
         assertEquals("police-phone-precinct-car-01", request.header("X-PolicePhone-Id"))
         assertNull(request.header("X-Device-Id"))
         assertEquals("""{"clientTs":"2026-05-11T07:00:00Z","sequence":1}""", readRequestBody(request))
+    }
+
+    @Test
+    fun networkServerCheckLogsInWithFixtureCredentialsBeforeHeartbeat() = runBlocking {
+        val callFactory =
+            CapturingCallFactory(
+                responses =
+                listOf(
+                    response(
+                        200,
+                        """
+                        {
+                          "sessionId": "session-1",
+                          "accessToken": "bootstrap-token-1",
+                          "securityContext": {
+                            "policePhoneId": "00000000-0000-0000-0000-000000000101"
+                          }
+                        }
+                        """.trimIndent()
+                    ),
+                    response(200, """{"status":"ACTIVE"}""")
+                )
+            )
+        val serverCheck =
+            NetworkPolicePhoneBootstrapServerCheck(
+                apiClient =
+                SuriMapApiClient(
+                    baseUrl = "https://suri-map.internal",
+                    callFactory = callFactory
+                ),
+                credentialsProvider = {
+                    AuthBootstrapCredentials(
+                        accountCode = "acct-precinct-team",
+                        password = "fixture",
+                        policePhoneCode = "dev-precinct-phone-01"
+                    )
+                },
+                clock = Clock.fixed(Instant.parse("2026-05-11T07:00:00Z"), ZoneOffset.UTC)
+            )
+
+        val outcome =
+            serverCheck.verify(
+                ManagedPolicePhoneConfig(
+                    policePhoneId = "dev-precinct-phone-01",
+                    apiBaseUrl = "https://suri-map.internal"
+                )
+            )
+
+        val requests = callFactory.requests
+        assertEquals(
+            AuthBootstrapOutcome.Ready(
+                policePhoneId = "00000000-0000-0000-0000-000000000101",
+                accessToken = "bootstrap-token-1"
+            ),
+            outcome
+        )
+        assertEquals("POST", requests[0].method)
+        assertEquals("https://suri-map.internal/api/auth/login", requests[0].url.toString())
+        assertEquals("APP", requests[0].header("X-Client-Channel"))
+        assertEquals(
+            """{"accountCode":"acct-precinct-team","password":"fixture","channel":"APP","policePhoneCode":"dev-precinct-phone-01"}""",
+            readRequestBody(requests[0])
+        )
+        assertEquals(
+            "https://suri-map.internal/api/police-phones/00000000-0000-0000-0000-000000000101/heartbeat",
+            requests[1].url.toString()
+        )
+        assertEquals("Bearer bootstrap-token-1", requests[1].header("Authorization"))
+        assertEquals("00000000-0000-0000-0000-000000000101", requests[1].header("X-PolicePhone-Id"))
     }
 
     @Test
@@ -281,12 +357,19 @@ class AuthBootstrapContractTest {
     }
 
     private class CapturingCallFactory(
-        private val response: Response
+        private val responses: List<Response>
     ) : Call.Factory {
+        constructor(response: Response) : this(listOf(response))
+
         var lastRequest: Request? = null
+        val requests = mutableListOf<Request>()
+        private var index = 0
 
         override fun newCall(request: Request): Call {
             lastRequest = request
+            requests += request
+            val response = responses[minOf(index, responses.lastIndex)]
+            index += 1
             return CapturingCall(request, response)
         }
     }
