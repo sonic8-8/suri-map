@@ -51,6 +51,7 @@ class SuriMapDatabaseTest {
         assertTrue(tableNames.contains("android_outbox_row"))
         assertTrue(tableNames.contains("android_sync_status"))
         assertTrue(tableNames.contains("local_write_draft"))
+        assertTrue(tableNames.contains("local_marker"))
         assertFalse(tableNames.contains("sync_status"))
     }
 
@@ -239,6 +240,137 @@ class SuriMapDatabaseTest {
     }
 
     @Test
+    fun localMarkerSchemaStoresPendingMarkerMirrorForMapRendering() = runBlocking {
+        assertEquals(
+            listOf(
+                ColumnSpec("local_marker_id", nullable = false, primaryKey = true),
+                ColumnSpec("outbox_id", nullable = false),
+                ColumnSpec("operation_id", nullable = false),
+                ColumnSpec("incident_id", nullable = false),
+                ColumnSpec("op_id", nullable = false),
+                ColumnSpec("police_phone_id", nullable = false),
+                ColumnSpec("type", nullable = false),
+                ColumnSpec("support_request_type", nullable = true),
+                ColumnSpec("memo", nullable = true),
+                ColumnSpec("lon", nullable = false),
+                ColumnSpec("lat", nullable = false),
+                ColumnSpec("sync_status", nullable = false),
+                ColumnSpec("created_at_millis", nullable = false),
+                ColumnSpec("updated_at_millis", nullable = false)
+            ),
+            tableColumns("local_marker")
+        )
+
+        database.localMarkerDao().upsert(
+            LocalMarkerEntity(
+                localMarkerId = MARKER_ID,
+                outboxId = "outbox-marker-001",
+                operationId = "22222222-2222-4222-8222-222222222001",
+                incidentId = INCIDENT_ID,
+                opId = "88888888-8888-8888-8888-888888880001",
+                policePhoneId = POLICE_PHONE_ID,
+                type = "CLUE",
+                supportRequestType = null,
+                memo = "수동 조정 좌표",
+                lon = 126.970321,
+                lat = 37.580321,
+                syncStatus = "PENDING_SEND",
+                createdAtMillis = 1_000L,
+                updatedAtMillis = 1_000L
+            )
+        )
+        database.outboxDao().upsert(
+            markerOutboxEntity(
+                outboxId = "outbox-marker-001",
+                operationId = "22222222-2222-4222-8222-222222222001",
+                idempotencyStatus = "PENDING",
+                localMirrorStatus = "PENDING_SEND"
+            )
+        )
+
+        val pending = database.localMarkerDao().findPendingByIncidentAndPolicePhone(INCIDENT_ID, POLICE_PHONE_ID)
+
+        assertEquals(listOf(MARKER_ID), pending.map { it.localMarkerId })
+        assertEquals(126.970321, pending.single().lon, 0.0)
+        assertEquals(
+            IndexSpec(unique = false, columns = listOf("incident_id", "police_phone_id", "sync_status")),
+            indexSpec("local_marker", "idx_local_marker_pending")
+        )
+        assertEquals(
+            IndexSpec(unique = true, columns = listOf("operation_id")),
+            indexSpec("local_marker", "ux_local_marker_operation")
+        )
+    }
+
+    @Test
+    fun localMarkerDaoExcludesSyncedAndPurgedRowsFromPendingMapSource() = runBlocking {
+        database.localMarkerDao().upsert(
+            LocalMarkerEntity(
+                localMarkerId = MARKER_ID,
+                outboxId = "outbox-marker-001",
+                operationId = "22222222-2222-4222-8222-222222222001",
+                incidentId = INCIDENT_ID,
+                opId = "88888888-8888-8888-8888-888888880001",
+                policePhoneId = POLICE_PHONE_ID,
+                type = "CLUE",
+                lon = 126.970321,
+                lat = 37.580321,
+                syncStatus = "SYNCED",
+                createdAtMillis = 1_000L,
+                updatedAtMillis = 1_000L
+            )
+        )
+        database.outboxDao().upsert(
+            markerOutboxEntity(
+                outboxId = "outbox-marker-001",
+                operationId = "22222222-2222-4222-8222-222222222001",
+                idempotencyStatus = "ACKED",
+                localMirrorStatus = "SYNCED"
+            )
+        )
+
+        val pending = database.localMarkerDao().findPendingByIncidentAndPolicePhone(INCIDENT_ID, POLICE_PHONE_ID)
+
+        assertTrue(pending.isEmpty())
+    }
+
+    @Test
+    fun migration3To4CreatesLocalMarkerMirrorTable() {
+        val writableDatabase = database.openHelper.writableDatabase
+        writableDatabase.execSQL("DROP TABLE IF EXISTS local_marker")
+
+        SuriMapDatabaseProvider.MIGRATION_3_4.migrate(writableDatabase)
+
+        assertEquals(
+            listOf(
+                ColumnSpec("local_marker_id", nullable = false, primaryKey = true),
+                ColumnSpec("outbox_id", nullable = false),
+                ColumnSpec("operation_id", nullable = false),
+                ColumnSpec("incident_id", nullable = false),
+                ColumnSpec("op_id", nullable = false),
+                ColumnSpec("police_phone_id", nullable = false),
+                ColumnSpec("type", nullable = false),
+                ColumnSpec("support_request_type", nullable = true),
+                ColumnSpec("memo", nullable = true),
+                ColumnSpec("lon", nullable = false),
+                ColumnSpec("lat", nullable = false),
+                ColumnSpec("sync_status", nullable = false),
+                ColumnSpec("created_at_millis", nullable = false),
+                ColumnSpec("updated_at_millis", nullable = false)
+            ),
+            tableColumns("local_marker")
+        )
+        assertEquals(
+            IndexSpec(unique = false, columns = listOf("incident_id", "police_phone_id", "sync_status")),
+            indexSpec("local_marker", "idx_local_marker_pending")
+        )
+        assertEquals(
+            IndexSpec(unique = true, columns = listOf("operation_id")),
+            indexSpec("local_marker", "ux_local_marker_operation")
+        )
+    }
+
+    @Test
     fun offlinePackageItemStatusSchemaStoresPerManifestProgress() = runBlocking {
         assertEquals(
             listOf(
@@ -379,10 +511,39 @@ class SuriMapDatabaseTest {
 
     private data class IndexSpec(val unique: Boolean, val columns: List<String>)
 
+    private fun markerOutboxEntity(
+        outboxId: String,
+        operationId: String,
+        idempotencyStatus: String,
+        localMirrorStatus: String
+    ): OutboxEntity =
+        OutboxEntity(
+            outboxId = outboxId,
+            operationId = operationId,
+            incidentId = INCIDENT_ID,
+            opId = "88888888-8888-8888-8888-888888880001",
+            policePhoneId = POLICE_PHONE_ID,
+            dependencyGroup = DependencyGroup.MARKER.name,
+            sequence = 1L,
+            requestMethod = "POST",
+            requestPath = "/api/markers",
+            payloadJson = "{}",
+            requestBodyHash = "sha256:marker",
+            idempotencyKey = "idem-$operationId",
+            idempotencyStatus = idempotencyStatus,
+            localMirrorStatus = localMirrorStatus,
+            attemptCount = 0,
+            nextAttemptAt = 1_000L,
+            clientRequestedAt = 1_000L,
+            clockOffsetMs = 0L,
+            clockSyncedAt = 1_000L
+        )
+
     private companion object {
         val INCIDENT_ID = incidentIdFixture("precinct-first-001")
         val POLICE_PHONE_ID = policePhoneIdFixture("precinct-001")
         val POLICE_PHONE_2_ID = policePhoneIdFixture("precinct-002")
         val MANIFEST_ID = manifestIdFixture("precinct-first-rev-18")
+        val MARKER_ID = "22222222-2222-4222-8222-222222222001"
     }
 }

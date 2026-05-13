@@ -1,5 +1,6 @@
 package com.surimap.feature.search.data
 
+import com.surimap.core.database.LocalMarkerEntity
 import com.surimap.core.database.OutboxStatusSummary
 import com.surimap.core.incident.IncidentReadRepository
 import com.surimap.core.network.SuriMapApiResponse
@@ -46,12 +47,13 @@ class SearchMapStateLoader(
         )
     },
     private val outboxSummary: suspend (String, String) -> OutboxStatusSummary? = { _, _ -> null },
+    private val pendingMarkers: suspend (String, String) -> List<LocalMarkerEntity> = { _, _ -> emptyList() },
     private val nowMs: () -> Long = { System.currentTimeMillis() }
 ) {
     suspend fun load(context: SearchMapSessionContext): SearchMapUiState {
         val areaState = withOpSearchAreas(context, withOverallSearchArea(context, fallback(context)))
         val mapState = withSearchPaths(context, areaState)
-        val markerState = withInitialMarkers(context, mapState)
+        val markerState = withPendingMarkers(context, withInitialMarkers(context, mapState))
         val incidentId = context.incidentId?.takeIf(String::isNotBlank) ?: return markerState
         val response = runCatching { incidentDetail(incidentId) }.getOrNull() ?: return markerState
         if (!response.isSuccessful || response.body.isNullOrBlank()) {
@@ -210,6 +212,22 @@ class SearchMapStateLoader(
         return state.copy(layers = state.layers + markerLayers)
     }
 
+    private suspend fun withPendingMarkers(
+        context: SearchMapSessionContext,
+        state: SearchMapUiState
+    ): SearchMapUiState {
+        val incidentId = context.incidentId?.takeIf(String::isNotBlank) ?: return state
+        val policePhoneId = context.policePhoneId?.takeIf(String::isNotBlank) ?: return state
+        val markerLayers =
+            runCatching { pendingMarkers(incidentId, policePhoneId) }
+                .getOrDefault(emptyList())
+                .pendingMarkerLayers()
+        if (markerLayers.isEmpty()) {
+            return state
+        }
+        return state.copy(layers = state.layers + markerLayers)
+    }
+
     private fun detailState(
         context: SearchMapSessionContext,
         body: String,
@@ -305,6 +323,17 @@ class SearchMapStateLoader(
         }
     }
 
+    private fun List<LocalMarkerEntity>.pendingMarkerLayers(): List<SearchMapLayerUiState> =
+        map { marker ->
+            SearchMapLayerUiState(
+                label = "${marker.type.markerTypeLabel()} · 전송 대기",
+                kind = SearchLayerKind.Marker,
+                highlighted = true,
+                overlayId = marker.localMarkerId,
+                geoJson = """{"type":"Point","coordinates":[${marker.lon},${marker.lat}]}"""
+            )
+        }
+
     private fun searchPathLayers(body: String): List<SearchMapLayerUiState> {
         val root = runCatching { JSONObject(body) }.getOrNull() ?: return emptyList()
         val paths = root.optJSONArray("paths") ?: root.optJSONArray("items") ?: return emptyList()
@@ -369,16 +398,19 @@ class SearchMapStateLoader(
         return optString("label")
             .ifBlank { optString("displayName") }
             .ifBlank {
-                when (optString("type").uppercase()) {
-                    "CLUE" -> "단서"
-                    "PERSON_FOUND" -> "실종자 발견"
-                    "FIELD_CONDITION" -> "현장 상태"
-                    "SUPPORT_REQUEST" -> "지원 요청"
-                    "NOTE" -> "메모"
-                    else -> "마커"
-                }
+                optString("type").markerTypeLabel()
             }
     }
+
+    private fun String.markerTypeLabel(): String =
+        when (uppercase()) {
+            "CLUE" -> "단서"
+            "PERSON_FOUND" -> "실종자 발견"
+            "FIELD_CONDITION" -> "현장 상태"
+            "SUPPORT_REQUEST" -> "지원 요청"
+            "NOTE" -> "메모"
+            else -> "마커"
+        }
 
     private fun viewportBounds(area: JSONObject, geometry: JSONObject): SearchMapViewportBounds? {
         area.optJSONArray("bbox")?.let { bbox ->

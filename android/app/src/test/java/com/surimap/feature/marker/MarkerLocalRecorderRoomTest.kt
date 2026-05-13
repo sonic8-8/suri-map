@@ -49,6 +49,7 @@ class MarkerLocalRecorderRoomTest {
         val recorder =
             MarkerLocalRecorder(
                 syncClient = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()),
+                localMarkerDao = database.localMarkerDao(),
                 now = { CLIENT_TS },
                 sequenceSource = sequenceSource(50),
                 idFactory = idFactory()
@@ -121,6 +122,14 @@ class MarkerLocalRecorderRoomTest {
         assertEquals("marker", draft!!.entityType)
         assertEquals(create.operationId, draft.operationId)
         assertTrue(draft.payload.contains("\"type\":\"CLUE\""))
+
+        val pendingMarkers = database.localMarkerDao().findPendingByIncidentAndPolicePhone(INCIDENT_ID, POLICE_PHONE_ID)
+        assertEquals(1, pendingMarkers.size)
+        assertEquals(create.operationId, pendingMarkers.single().localMarkerId)
+        assertEquals("CLUE", pendingMarkers.single().type)
+        assertEquals(126.9565, pendingMarkers.single().lon, 0.0)
+        assertEquals(37.5712, pendingMarkers.single().lat, 0.0)
+        assertEquals("PENDING_SEND", pendingMarkers.single().syncStatus)
     }
 
     private fun sequenceSource(first: Long): () -> Long {

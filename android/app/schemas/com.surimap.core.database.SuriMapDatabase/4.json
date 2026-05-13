@@ -1,0 +1,641 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 4,
+    "identityHash": "79244daa5a6f6b7e9212187f2642cb8f",
+    "entities": [
+      {
+        "tableName": "android_outbox_row",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`outbox_id` TEXT NOT NULL, `client_operation_id` TEXT NOT NULL, `incident_id` TEXT, `op_id` TEXT, `police_phone_id` TEXT NOT NULL, `dependency_group` TEXT NOT NULL, `parent_client_operation_id` TEXT, `sequence` INTEGER NOT NULL, `request_method` TEXT NOT NULL, `request_path` TEXT NOT NULL, `payload_json` TEXT NOT NULL, `request_body_hash` TEXT NOT NULL, `idempotency_key` TEXT NOT NULL, `idempotency_status` TEXT NOT NULL, `local_mirror_status` TEXT NOT NULL, `attempt_count` INTEGER NOT NULL, `first_attempt_at` INTEGER, `next_attempt_at` INTEGER, `client_requested_at` INTEGER NOT NULL, `clock_offset_ms` INTEGER NOT NULL, `clock_synced_at` INTEGER NOT NULL, `server_ack_ts` INTEGER, `incident_closed_at` INTEGER, `last_error` TEXT, PRIMARY KEY(`outbox_id`))",
+        "fields": [
+          {
+            "fieldPath": "outboxId",
+            "columnName": "outbox_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "operationId",
+            "columnName": "client_operation_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "incidentId",
+            "columnName": "incident_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "opId",
+            "columnName": "op_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "policePhoneId",
+            "columnName": "police_phone_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dependencyGroup",
+            "columnName": "dependency_group",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "parentOperationId",
+            "columnName": "parent_client_operation_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "sequence",
+            "columnName": "sequence",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "requestMethod",
+            "columnName": "request_method",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "requestPath",
+            "columnName": "request_path",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "payloadJson",
+            "columnName": "payload_json",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "requestBodyHash",
+            "columnName": "request_body_hash",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "idempotencyKey",
+            "columnName": "idempotency_key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "idempotencyStatus",
+            "columnName": "idempotency_status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "localMirrorStatus",
+            "columnName": "local_mirror_status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "attemptCount",
+            "columnName": "attempt_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "firstAttemptAt",
+            "columnName": "first_attempt_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "nextAttemptAt",
+            "columnName": "next_attempt_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "clientRequestedAt",
+            "columnName": "client_requested_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "clockOffsetMs",
+            "columnName": "clock_offset_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "clockSyncedAt",
+            "columnName": "clock_synced_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "serverAckTs",
+            "columnName": "server_ack_ts",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "incidentClosedAt",
+            "columnName": "incident_closed_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "lastError",
+            "columnName": "last_error",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "outbox_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "idx_android_outbox_status_next_attempt",
+            "unique": false,
+            "columnNames": [
+              "idempotency_status",
+              "next_attempt_at"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `idx_android_outbox_status_next_attempt` ON `${TABLE_NAME}` (`idempotency_status`, `next_attempt_at`)"
+          },
+          {
+            "name": "idx_android_outbox_replay_order",
+            "unique": false,
+            "columnNames": [
+              "incident_id",
+              "police_phone_id",
+              "dependency_group",
+              "sequence"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `idx_android_outbox_replay_order` ON `${TABLE_NAME}` (`incident_id`, `police_phone_id`, `dependency_group`, `sequence`)"
+          },
+          {
+            "name": "idx_android_outbox_incident_police_phone",
+            "unique": false,
+            "columnNames": [
+              "incident_id",
+              "police_phone_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `idx_android_outbox_incident_police_phone` ON `${TABLE_NAME}` (`incident_id`, `police_phone_id`)"
+          },
+          {
+            "name": "ux_android_outbox_idempotency_key",
+            "unique": true,
+            "columnNames": [
+              "idempotency_key"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `ux_android_outbox_idempotency_key` ON `${TABLE_NAME}` (`idempotency_key`)"
+          }
+        ]
+      },
+      {
+        "tableName": "android_sync_status",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`police_phone_id` TEXT NOT NULL, `incident_id` TEXT, `pending_count` INTEGER NOT NULL, `retryable_count` INTEGER NOT NULL, `final_failed_count` INTEGER NOT NULL, `last_successful_sync_at` INTEGER, `offline_since` INTEGER, `warning_codes` TEXT NOT NULL, PRIMARY KEY(`police_phone_id`))",
+        "fields": [
+          {
+            "fieldPath": "policePhoneId",
+            "columnName": "police_phone_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "incidentId",
+            "columnName": "incident_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "pendingCount",
+            "columnName": "pending_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "retryableCount",
+            "columnName": "retryable_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "finalFailedCount",
+            "columnName": "final_failed_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastSuccessfulSyncAt",
+            "columnName": "last_successful_sync_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "offlineSince",
+            "columnName": "offline_since",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "warningCodes",
+            "columnName": "warning_codes",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "police_phone_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "idx_android_sync_status_incident",
+            "unique": false,
+            "columnNames": [
+              "incident_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `idx_android_sync_status_incident` ON `${TABLE_NAME}` (`incident_id`)"
+          }
+        ]
+      },
+      {
+        "tableName": "local_write_draft",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`draftId` TEXT NOT NULL, `incidentId` TEXT NOT NULL, `operationId` TEXT NOT NULL, `entityType` TEXT NOT NULL, `entityId` TEXT, `payload` TEXT NOT NULL, `createdAtMillis` INTEGER NOT NULL, `updatedAtMillis` INTEGER NOT NULL, PRIMARY KEY(`draftId`))",
+        "fields": [
+          {
+            "fieldPath": "draftId",
+            "columnName": "draftId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "incidentId",
+            "columnName": "incidentId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "operationId",
+            "columnName": "operationId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "entityType",
+            "columnName": "entityType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "entityId",
+            "columnName": "entityId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "payload",
+            "columnName": "payload",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtMillis",
+            "columnName": "createdAtMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAtMillis",
+            "columnName": "updatedAtMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "draftId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_local_write_draft_incidentId",
+            "unique": false,
+            "columnNames": [
+              "incidentId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_local_write_draft_incidentId` ON `${TABLE_NAME}` (`incidentId`)"
+          },
+          {
+            "name": "index_local_write_draft_operationId",
+            "unique": true,
+            "columnNames": [
+              "operationId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_local_write_draft_operationId` ON `${TABLE_NAME}` (`operationId`)"
+          },
+          {
+            "name": "index_local_write_draft_entityType_entityId",
+            "unique": false,
+            "columnNames": [
+              "entityType",
+              "entityId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_local_write_draft_entityType_entityId` ON `${TABLE_NAME}` (`entityType`, `entityId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "local_marker",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`local_marker_id` TEXT NOT NULL, `outbox_id` TEXT NOT NULL, `operation_id` TEXT NOT NULL, `incident_id` TEXT NOT NULL, `op_id` TEXT NOT NULL, `police_phone_id` TEXT NOT NULL, `type` TEXT NOT NULL, `support_request_type` TEXT, `memo` TEXT, `lon` REAL NOT NULL, `lat` REAL NOT NULL, `sync_status` TEXT NOT NULL, `created_at_millis` INTEGER NOT NULL, `updated_at_millis` INTEGER NOT NULL, PRIMARY KEY(`local_marker_id`))",
+        "fields": [
+          {
+            "fieldPath": "localMarkerId",
+            "columnName": "local_marker_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "outboxId",
+            "columnName": "outbox_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "operationId",
+            "columnName": "operation_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "incidentId",
+            "columnName": "incident_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "opId",
+            "columnName": "op_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "policePhoneId",
+            "columnName": "police_phone_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "supportRequestType",
+            "columnName": "support_request_type",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "memo",
+            "columnName": "memo",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "lon",
+            "columnName": "lon",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lat",
+            "columnName": "lat",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "syncStatus",
+            "columnName": "sync_status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtMillis",
+            "columnName": "created_at_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAtMillis",
+            "columnName": "updated_at_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "local_marker_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "idx_local_marker_pending",
+            "unique": false,
+            "columnNames": [
+              "incident_id",
+              "police_phone_id",
+              "sync_status"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `idx_local_marker_pending` ON `${TABLE_NAME}` (`incident_id`, `police_phone_id`, `sync_status`)"
+          },
+          {
+            "name": "ux_local_marker_operation",
+            "unique": true,
+            "columnNames": [
+              "operation_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `ux_local_marker_operation` ON `${TABLE_NAME}` (`operation_id`)"
+          }
+        ]
+      },
+      {
+        "tableName": "offline_package_installation_status",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`incident_id` TEXT NOT NULL, `police_phone_id` TEXT NOT NULL, `manifest_id` TEXT NOT NULL, `manifest_version` INTEGER NOT NULL, `status` TEXT NOT NULL, `total_items` INTEGER NOT NULL, `completed_items` INTEGER NOT NULL, `failed_items` INTEGER NOT NULL, `version` INTEGER NOT NULL, `ready_for_offline_use` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`incident_id`, `police_phone_id`))",
+        "fields": [
+          {
+            "fieldPath": "incidentId",
+            "columnName": "incident_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "policePhoneId",
+            "columnName": "police_phone_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "manifestId",
+            "columnName": "manifest_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "manifestVersion",
+            "columnName": "manifest_version",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "totalItems",
+            "columnName": "total_items",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "completedItems",
+            "columnName": "completed_items",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "failedItems",
+            "columnName": "failed_items",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "version",
+            "columnName": "version",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "readyForOfflineUse",
+            "columnName": "ready_for_offline_use",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "incident_id",
+            "police_phone_id"
+          ]
+        }
+      },
+      {
+        "tableName": "offline_package_item_status",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`incident_id` TEXT NOT NULL, `police_phone_id` TEXT NOT NULL, `manifest_id` TEXT NOT NULL, `item_key` TEXT NOT NULL, `manifest_version` INTEGER NOT NULL, `item_type` TEXT NOT NULL, `status` TEXT NOT NULL, `source_version` INTEGER NOT NULL, `source_hash` TEXT NOT NULL, `bytes_total` INTEGER, `bytes_downloaded` INTEGER, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`incident_id`, `police_phone_id`, `manifest_id`, `item_key`))",
+        "fields": [
+          {
+            "fieldPath": "incidentId",
+            "columnName": "incident_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "policePhoneId",
+            "columnName": "police_phone_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "manifestId",
+            "columnName": "manifest_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "itemKey",
+            "columnName": "item_key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "manifestVersion",
+            "columnName": "manifest_version",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "itemType",
+            "columnName": "item_type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sourceVersion",
+            "columnName": "source_version",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sourceHash",
+            "columnName": "source_hash",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bytesTotal",
+            "columnName": "bytes_total",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "bytesDownloaded",
+            "columnName": "bytes_downloaded",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "incident_id",
+            "police_phone_id",
+            "manifest_id",
+            "item_key"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '79244daa5a6f6b7e9212187f2642cb8f')"
+    ]
+  }
+}
