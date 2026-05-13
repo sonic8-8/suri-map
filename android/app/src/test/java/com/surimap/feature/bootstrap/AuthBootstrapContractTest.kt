@@ -6,6 +6,7 @@ import com.surimap.feature.bootstrap.data.AuthBootstrapCoordinator
 import com.surimap.feature.bootstrap.data.AuthBootstrapServerCheck
 import com.surimap.feature.bootstrap.data.AndroidManagedConfigurationReader
 import com.surimap.feature.bootstrap.data.AuthBootstrapCredentials
+import com.surimap.feature.bootstrap.data.DebugManagedConfigurationOverrideProvider
 import com.surimap.feature.bootstrap.data.ManagedPolicePhoneConfig
 import com.surimap.feature.bootstrap.data.NetworkPolicePhoneBootstrapServerCheck
 import com.surimap.feature.bootstrap.ui.AuthBootstrapFailureReason
@@ -31,8 +32,14 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RuntimeEnvironment
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 import kotlin.reflect.KClass
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
 class AuthBootstrapContractTest {
 
     @Test
@@ -186,6 +193,83 @@ class AuthBootstrapContractTest {
 
         assertEquals(AuthBootstrapOutcome.Blocked(AuthBootstrapFailureReason.NotManagedPhone), outcome)
         assertFalse(serverCalled)
+    }
+
+    @Test
+    fun unmanagedDebugFixtureConfigActsAsManagedForUsbSmoke() = runBlocking {
+        val reader =
+            AndroidManagedConfigurationReader(
+                context = RuntimeEnvironment.getApplication(),
+                localOverrideProvider =
+                DebugManagedConfigurationOverrideProvider(
+                    isDebugBuild = true,
+                    apiBaseUrl = "http://127.0.0.1:8080",
+                    fixtureAccountCode = "acct-precinct-team",
+                    fixturePassword = "fixture-password",
+                    fixturePolicePhoneCode = "dev-precinct-phone-01"
+                )
+            )
+        var checkedConfig: ManagedPolicePhoneConfig? = null
+        val coordinator =
+            AuthBootstrapCoordinator(
+                managedConfigurationReader = reader,
+                serverCheck =
+                AuthBootstrapServerCheck { config ->
+                    checkedConfig = config
+                    AuthBootstrapOutcome.Ready(policePhoneId = config.policePhoneId.orEmpty())
+                }
+            )
+
+        val outcome = coordinator.check()
+
+        assertEquals(AuthBootstrapOutcome.Ready(policePhoneId = "dev-precinct-phone-01"), outcome)
+        assertEquals("dev-precinct-phone-01", checkedConfig?.policePhoneId)
+        assertEquals("http://127.0.0.1:8080", checkedConfig?.apiBaseUrl)
+        assertEquals(true, checkedConfig?.isManagedPhone)
+    }
+
+    @Test
+    fun unmanagedDebugWithoutFixtureConfigStaysNotManaged() = runBlocking {
+        var serverCalled = false
+        val coordinator =
+            AuthBootstrapCoordinator(
+                managedConfigurationReader =
+                AndroidManagedConfigurationReader(
+                    context = RuntimeEnvironment.getApplication(),
+                    localOverrideProvider =
+                    DebugManagedConfigurationOverrideProvider(
+                        isDebugBuild = true,
+                        apiBaseUrl = "http://127.0.0.1:8080",
+                        fixtureAccountCode = "",
+                        fixturePassword = "fixture-password",
+                        fixturePolicePhoneCode = "dev-precinct-phone-01"
+                    )
+                ),
+                serverCheck =
+                AuthBootstrapServerCheck {
+                    serverCalled = true
+                    AuthBootstrapOutcome.Ready(policePhoneId = it.policePhoneId.orEmpty())
+                }
+            )
+
+        val outcome = coordinator.check()
+
+        assertEquals(AuthBootstrapOutcome.Blocked(AuthBootstrapFailureReason.NotManagedPhone), outcome)
+        assertFalse(serverCalled)
+    }
+
+    @Test
+    fun nonDebugBuildDoesNotUseLocalFixtureManagedConfigOverride() {
+        val override =
+            DebugManagedConfigurationOverrideProvider(
+                isDebugBuild = false,
+                apiBaseUrl = "http://127.0.0.1:8080",
+                fixtureAccountCode = "acct-precinct-team",
+                fixturePassword = "fixture-password",
+                fixturePolicePhoneCode = "dev-precinct-phone-01"
+            )
+
+        assertNull(override.read())
     }
 
     @Test
@@ -355,6 +439,51 @@ class AuthBootstrapContractTest {
             AuthBootstrapOutcome.Blocked(AuthBootstrapFailureReason.InternalNetworkUnavailable),
             offlineCheck.verify(config)
         )
+    }
+
+    @Test
+    fun networkServerCheckMapsFixtureLoginIoFailureWithoutCrashing() = runBlocking {
+        val serverCheck =
+            NetworkPolicePhoneBootstrapServerCheck(
+                apiClient =
+                SuriMapApiClient(
+                    baseUrl = "http://127.0.0.1:8080",
+                    callFactory = FailingCallFactory()
+                ),
+                credentialsProvider = {
+                    AuthBootstrapCredentials(
+                        accountCode = "acct-precinct-team",
+                        password = "fixture",
+                        policePhoneCode = "dev-precinct-phone-01"
+                    )
+                }
+            )
+
+        assertEquals(
+            AuthBootstrapOutcome.Blocked(AuthBootstrapFailureReason.InternalNetworkUnavailable),
+            serverCheck.verify(
+                ManagedPolicePhoneConfig(
+                    policePhoneId = "dev-precinct-phone-01",
+                    apiBaseUrl = "http://127.0.0.1:8080"
+                )
+            )
+        )
+    }
+
+    @Test
+    fun debugManifestAllowsCleartextForUsbSmokeAndKeepsQaActivity() {
+        val document = File("src/debug/AndroidManifest.xml").requireXml()
+        val applications = document.getElementsByTagName("application")
+        val activities = document.getElementsByTagName("activity")
+
+        assertEquals(
+            "true",
+            applications.item(0).attributes.getNamedItem("android:usesCleartextTraffic").nodeValue
+        )
+        assertTrue((0 until activities.length).any { index ->
+            activities.item(index).attributes.getNamedItem("android:name")?.nodeValue ==
+                ".ui.qa.DeviceQaActivity"
+        })
     }
 
     private companion object {

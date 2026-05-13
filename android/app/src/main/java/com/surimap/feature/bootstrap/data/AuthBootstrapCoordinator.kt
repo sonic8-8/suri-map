@@ -48,8 +48,40 @@ fun interface AuthBootstrapCredentialsProvider {
     fun credentials(config: ManagedPolicePhoneConfig): AuthBootstrapCredentials?
 }
 
+fun interface ManagedConfigurationOverrideProvider {
+    fun read(): ManagedPolicePhoneConfig?
+}
+
 object NoAuthBootstrapCredentialsProvider : AuthBootstrapCredentialsProvider {
     override fun credentials(config: ManagedPolicePhoneConfig): AuthBootstrapCredentials? = null
+}
+
+class DebugManagedConfigurationOverrideProvider(
+    private val isDebugBuild: Boolean = BuildConfig.DEBUG,
+    private val apiBaseUrl: String = BuildConfig.SURI_MAP_API_BASE_URL,
+    private val fixtureAccountCode: String = BuildConfig.SURI_MAP_FIXTURE_ACCOUNT_CODE,
+    private val fixturePassword: String = BuildConfig.SURI_MAP_FIXTURE_PASSWORD,
+    private val fixturePolicePhoneCode: String = BuildConfig.SURI_MAP_FIXTURE_POLICE_PHONE_CODE
+) : ManagedConfigurationOverrideProvider {
+    override fun read(): ManagedPolicePhoneConfig? {
+        if (!isDebugBuild || apiBaseUrl.isBlank()) {
+            return null
+        }
+        val credentials =
+            AuthBootstrapCredentials(
+                accountCode = fixtureAccountCode,
+                password = fixturePassword,
+                policePhoneCode = fixturePolicePhoneCode
+            )
+        if (!credentials.isUsable()) {
+            return null
+        }
+        return ManagedPolicePhoneConfig(
+            policePhoneId = credentials.policePhoneCode,
+            apiBaseUrl = apiBaseUrl,
+            isManagedPhone = true
+        )
+    }
 }
 
 object BuildConfigAuthBootstrapCredentialsProvider : AuthBootstrapCredentialsProvider {
@@ -86,13 +118,19 @@ class AuthBootstrapCoordinator(
 }
 
 class AndroidManagedConfigurationReader(
-    private val context: Context
+    private val context: Context,
+    private val localOverrideProvider: ManagedConfigurationOverrideProvider =
+        DebugManagedConfigurationOverrideProvider()
 ) : ManagedConfigurationReader {
     override fun read(): ManagedPolicePhoneConfig {
         val restrictions =
             context
                 .getSystemService(RestrictionsManager::class.java)
                 ?.applicationRestrictions
+        val isManagedByRestrictions = restrictions != null && !restrictions.isEmpty
+        if (!isManagedByRestrictions) {
+            localOverrideProvider.read()?.let { return it }
+        }
         val apiBaseUrl = restrictions.managedString(KEY_API_BASE_URL) ?: BuildConfig.SURI_MAP_API_BASE_URL
         val defaultResourceBaseUrl = apiBaseUrl.trimEnd('/').removeSuffix("/api")
 
@@ -102,7 +140,7 @@ class AndroidManagedConfigurationReader(
             tileBaseUrl = restrictions.managedString(KEY_TILE_BASE_URL) ?: defaultResourceBaseUrl,
             objectStorageBaseUrl = restrictions.managedString(KEY_OBJECT_STORAGE_BASE_URL) ?: defaultResourceBaseUrl,
             allowedHosts = restrictions.managedString(KEY_ALLOWED_HOSTS)?.toAllowedHostSet() ?: emptySet(),
-            isManagedPhone = restrictions != null && !restrictions.isEmpty
+            isManagedPhone = isManagedByRestrictions
         )
     }
 
@@ -133,12 +171,11 @@ class NetworkPolicePhoneBootstrapServerCheck(
     private val clock: Clock = Clock.systemUTC()
 ) : AuthBootstrapServerCheck {
     override suspend fun verify(config: ManagedPolicePhoneConfig): AuthBootstrapOutcome {
-        val loginSession = loginIfNeeded(config)
-        val accessToken = loginSession?.accessToken ?: accessTokenProvider.accessToken()
-        val policePhoneId = loginSession?.policePhoneId ?: config.policePhoneId
-            ?: return AuthBootstrapOutcome.Blocked(AuthBootstrapFailureReason.ManagedConfigMissing)
-
         return try {
+            val loginSession = loginIfNeeded(config)
+            val accessToken = loginSession?.accessToken ?: accessTokenProvider.accessToken()
+            val policePhoneId = loginSession?.policePhoneId ?: config.policePhoneId
+                ?: return AuthBootstrapOutcome.Blocked(AuthBootstrapFailureReason.ManagedConfigMissing)
             val response =
                 apiClient.execute(
                     SuriMapApiRequest(
