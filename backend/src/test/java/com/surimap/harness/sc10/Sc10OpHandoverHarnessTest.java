@@ -174,10 +174,10 @@ class Sc10OpHandoverHarnessTest {
     private HandoverMemoCreateRequest validMemoRequest() {
       return new HandoverMemoCreateRequest(
           Sc10Fixtures.INCIDENT_ID,
-          Sc10Fixtures.OP2_ID,
+          Sc10Fixtures.OP1_ID,
           "OPERATIONAL_PERIOD",
-          Sc10Fixtures.OP2_ID,
-          "SC-10 harness 인수인계 메모",
+          Sc10Fixtures.OP1_ID,
+          "SC-10 harness OP1 인수인계 메모",
           HandoverMemoFixtures.CREATED_BY_ACCOUNT_ID,
           "WEB",
           Instant.parse("2026-04-28T09:00:00Z"));
@@ -190,7 +190,7 @@ class Sc10OpHandoverHarnessTest {
       var result = handoverMemoPort.create(validMemoRequest());
 
       assertThat(result.id()).isEqualTo(Sc10Fixtures.MEMO_ID);
-      assertThat(result.opId()).isEqualTo(Sc10Fixtures.OP2_ID);
+      assertThat(result.opId()).isEqualTo(Sc10Fixtures.OP1_ID);
       assertThat(result.version()).isEqualTo(Sc10Fixtures.MEMO_VERSION);
       assertThat(result.memoTargetType()).isEqualTo("OPERATIONAL_PERIOD");
     }
@@ -198,11 +198,12 @@ class Sc10OpHandoverHarnessTest {
     @Test
     @DisplayName("handover memo fixture alias/eventId가 harness fixture 리터럴과 일치한다")
     void handoverMemoFixtureMatchesSpecLiteral() {
-      // docs/spec/specs/S8.json §harness_fixtures.sc11_handover_ai_convergence.
-      assertThat(HandoverMemoFixtures.MEMO_ALIAS).isEqualTo("memo-precinct-op2-001");
-      assertThat(HandoverMemoFixtures.MEMO_EVENT_ID).isEqualTo("evt-s8-handover-memo-001");
-      assertThat(HandoverMemoFixtures.MEMO_VERSION).isEqualTo(1L);
-      assertThat(HandoverMemoFixtures.MEMO_STATUS).isEqualTo("ACTIVE");
+      // docs/spec/harness-scenarios.md §6 mock 112/SC-10 fixture.
+      assertThat(Sc10Fixtures.MEMO_ALIAS).isEqualTo("memo-precinct-handover-001");
+      assertThat(Sc10Fixtures.MEMO_ID).hasToString("eeeeeeee-eeee-eeee-eeee-eeeeeeee0001");
+      assertThat(Sc10Fixtures.MEMO_BOARD_EVENT_ID).isEqualTo("evt-s8-handover-created-001");
+      assertThat(Sc10Fixtures.MEMO_VERSION).isEqualTo(1L);
+      assertThat(Sc10Fixtures.MEMO_STATUS).isEqualTo("ACTIVE");
     }
   }
 
@@ -227,25 +228,25 @@ class Sc10OpHandoverHarnessTest {
     }
 
     @Test
-    @DisplayName("OP 전환 후 handover memo byContext 쿼리로 OP2 메모가 조회된다 — board 수렴 증거")
+    @DisplayName("OP 전환 후 handover memo byContext 쿼리로 OP1 seed 메모가 보존된다 — board 수렴 증거")
     void handoverMemoIsQueryableAfterSave() {
       handoverMemoPort.create(new HandoverMemoCreateRequest(
           Sc10Fixtures.INCIDENT_ID,
-          Sc10Fixtures.OP2_ID,
+          Sc10Fixtures.OP1_ID,
           "OPERATIONAL_PERIOD",
-          Sc10Fixtures.OP2_ID,
-          "SC-10 board 수렴 메모",
+          Sc10Fixtures.OP1_ID,
+          "SC-10 board 수렴 OP1 메모",
           HandoverMemoFixtures.CREATED_BY_ACCOUNT_ID,
           "WEB",
           Instant.parse("2026-04-28T09:00:00Z")));
       executionLog.add(Sc10Fixtures.STEP_BOARD_API_REFETCHED);
 
       List<HandoverMemoRow> rows = handoverMemoPort.byContext(
-          Sc10Fixtures.INCIDENT_ID, Sc10Fixtures.OP2_ID, null, null);
+          Sc10Fixtures.INCIDENT_ID, Sc10Fixtures.OP1_ID, null, null);
 
       assertThat(rows).hasSize(1);
       assertThat(rows.get(0).memoId()).isEqualTo(Sc10Fixtures.MEMO_ID);
-      assertThat(rows.get(0).opId()).isEqualTo(Sc10Fixtures.OP2_ID);
+      assertThat(rows.get(0).opId()).isEqualTo(Sc10Fixtures.OP1_ID);
       assertThat(rows.get(0).version()).isEqualTo(Sc10Fixtures.MEMO_VERSION);
     }
 
@@ -278,10 +279,10 @@ class Sc10OpHandoverHarnessTest {
       // Step-5: handover_saved
       handoverMemoPort.create(new HandoverMemoCreateRequest(
           Sc10Fixtures.INCIDENT_ID,
-          Sc10Fixtures.OP2_ID,
+          Sc10Fixtures.OP1_ID,
           "OPERATIONAL_PERIOD",
-          Sc10Fixtures.OP2_ID,
-          "전체 SC-10 전환 메모",
+          Sc10Fixtures.OP1_ID,
+          "전체 SC-10 OP1 전환 메모",
           HandoverMemoFixtures.CREATED_BY_ACCOUNT_ID,
           "WEB",
           Instant.parse("2026-04-28T09:00:00Z")));
@@ -289,11 +290,11 @@ class Sc10OpHandoverHarnessTest {
 
       // Step-6: board_api_refetched (convergence query)
       List<HandoverMemoRow> boardRows = handoverMemoPort.byContext(
-          Sc10Fixtures.INCIDENT_ID, Sc10Fixtures.OP2_ID, null, null);
+          Sc10Fixtures.INCIDENT_ID, Sc10Fixtures.OP1_ID, null, null);
       executionLog.add(Sc10Fixtures.STEP_BOARD_API_REFETCHED);
 
       assertThat(boardRows).hasSize(1);
-      assertThat(boardRows.get(0).opId()).isEqualTo(Sc10Fixtures.OP2_ID);
+      assertThat(boardRows.get(0).opId()).isEqualTo(Sc10Fixtures.OP1_ID);
 
       // harness_execution_log: SC-10 6단계 순서 검증
       assertThat(executionLog).containsExactly(
