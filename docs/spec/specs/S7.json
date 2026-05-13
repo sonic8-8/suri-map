@@ -1473,6 +1473,7 @@
       "incidentAlias": "inc-precinct-first-001",
       "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
       "policePhoneCode": "dev-precinct-phone-01",
+      "policePhoneName": "경찰서 팀폰",
       "policePhoneId": "00000000-0000-0000-0000-000000000101",
       "manifestAlias": "tile-manifest-inc-precinct-001",
       "manifestId": "77777777-0000-4000-8000-000000000701",
@@ -1599,6 +1600,8 @@
       "pendingLocalState": "PENDING_SYNC",
       "expectedOwnerResponse": {
         "id": "77777777-0000-4000-8000-000000000901",
+        "policePhoneCode": "dev-precinct-phone-01",
+        "policePhoneName": "경찰서 팀폰",
         "status": "READY",
         "version": 3,
         "manifestVersion": 1,
@@ -1627,6 +1630,8 @@
       "expectedBoardProbe": {
         "slot": "package_badge",
         "id": "77777777-0000-4000-8000-000000000901",
+        "policePhoneCode": "dev-precinct-phone-01",
+        "policePhoneName": "경찰서 팀폰",
         "status": "READY",
         "minimumVersion": 3,
         "sequence": 901,
