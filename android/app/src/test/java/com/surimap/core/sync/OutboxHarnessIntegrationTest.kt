@@ -9,6 +9,10 @@ import com.surimap.core.network.AccessTokenProvider
 import com.surimap.core.network.HttpOutboxSender
 import com.surimap.core.network.SuriMapApiClient
 import com.surimap.testing.AndroidHarnessFixtureCatalog
+import com.surimap.testing.incidentIdFixture
+import com.surimap.testing.operationIdFixture
+import com.surimap.testing.opIdFixture
+import com.surimap.testing.policePhoneIdFixture
 import java.time.Instant
 import kotlinx.coroutines.runBlocking
 import okhttp3.Call
@@ -72,9 +76,9 @@ class OutboxHarnessIntegrationTest {
         val now = Instant.ofEpochMilli(System.currentTimeMillis())
         val operation =
             LocalWriteOperation(
-                operationId = "op-outbox-path-001",
-                incidentId = "inc-precinct-first-001",
-                policePhoneId = "dev-precinct-car-01",
+                operationId = operationIdFixture("outbox-path-001"),
+                incidentId = incidentIdFixture("precinct-first-001"),
+                policePhoneId = policePhoneIdFixture("precinct-car-01"),
                 dependencyGroup = DependencyGroup.PATH,
                 sequence = 502L,
                 method = "POST",
@@ -85,7 +89,7 @@ class OutboxHarnessIntegrationTest {
                 clientTs = now.minusSeconds(5),
                 clockOffsetMs = 0L,
                 clockSyncedAt = now,
-                opId = "op-precinct-001-op1",
+                opId = opIdFixture("precinct-001-op1"),
                 entityType = "search_path"
             )
 
@@ -113,7 +117,7 @@ class OutboxHarnessIntegrationTest {
         assertEquals("POST", request.method)
         assertEquals("APP", request.header("X-Client-Channel"))
         assertEquals("Bearer token-1", request.header("Authorization"))
-        assertEquals("dev-precinct-car-01", request.header("X-PolicePhone-Id"))
+        assertEquals(policePhoneIdFixture("precinct-car-01"), request.header("X-PolicePhone-Id"))
         assertEquals("idem-path-001", request.header("Idempotency-Key"))
         assertEquals("https://suri-map.example.com/api/search-paths/batch", request.url.toString())
     }
@@ -133,29 +137,31 @@ class OutboxHarnessIntegrationTest {
             )
         )
         val now = Instant.ofEpochMilli(System.currentTimeMillis())
+        val incidentId = incidentIdFixture("precinct-first-001")
+        val opId = opIdFixture("001")
         val operation =
             LocalWriteOperation(
-                operationId = "op-app-write-header-guard-001",
-                incidentId = "inc-precinct-first-001",
-                policePhoneId = "phone-header-guard-001",
+                operationId = operationIdFixture("app-write-header-guard-001"),
+                incidentId = incidentId,
+                policePhoneId = policePhoneIdFixture("header-guard-001"),
                 dependencyGroup = DependencyGroup.HANDOVER_MEMO,
                 sequence = 701L,
                 method = "POST",
                 endpoint = "/api/handover-memos",
-                payload = """{"incidentId":"inc-precinct-first-001","opId":"op-001","content":"memo"}""",
+                payload = """{"incidentId":"$incidentId","opId":"$opId","content":"memo"}""",
                 bodyHash = "sha256:app-write-header-guard",
                 idempotencyKey = "idem-app-write-header-guard-001",
                 clientTs = now.minusSeconds(2),
                 clockOffsetMs = 0L,
                 clockSyncedAt = now,
-                opId = "op-001",
+                opId = opId,
                 entityType = "handover_memo"
             )
 
         val enqueue = syncClient.enqueue(operation)
         val persistedRow = database.outboxDao().findById(enqueue.outboxId)
         assertNotNull(persistedRow)
-        assertEquals("phone-header-guard-001", persistedRow!!.policePhoneId)
+        assertEquals(operation.policePhoneId, persistedRow!!.policePhoneId)
         assertEquals("idem-app-write-header-guard-001", persistedRow.idempotencyKey)
 
         replay.flushPending(policePhoneId = operation.policePhoneId, incidentId = operation.incidentId)

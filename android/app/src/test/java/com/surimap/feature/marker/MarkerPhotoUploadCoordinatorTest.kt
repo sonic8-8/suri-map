@@ -15,6 +15,12 @@ import com.surimap.feature.marker.data.MarkerWriteContext
 import com.surimap.feature.marker.data.ObjectStoragePutRequest
 import com.surimap.feature.marker.data.ObjectStoragePutResult
 import com.surimap.feature.marker.data.ObjectStorageUploader
+import com.surimap.testing.incidentIdFixture
+import com.surimap.testing.markerIdFixture
+import com.surimap.testing.operationIdFixture
+import com.surimap.testing.opIdFixture
+import com.surimap.testing.photoIdFixture
+import com.surimap.testing.policePhoneIdFixture
 import java.net.URI
 import java.time.Instant
 import kotlinx.coroutines.runBlocking
@@ -74,7 +80,7 @@ class MarkerPhotoUploadCoordinatorTest {
 
         assertEquals(
             MarkerPhotoUploadResult.UploadUrlEnqueued(
-                operationId = "op-photo-upload-url-1",
+                operationId = PHOTO_UPLOAD_OPERATION_ID,
                 outboxId = "outbox-1"
             ),
             result
@@ -95,7 +101,7 @@ class MarkerPhotoUploadCoordinatorTest {
                 context = CONTEXT,
                 response = UPLOAD_RESPONSE,
                 payload = PHOTO_PAYLOAD,
-                parentOperationId = "op-photo-upload-url-1"
+                parentOperationId = PHOTO_UPLOAD_OPERATION_ID
             )
 
         assertEquals(MarkerPhotoUploadResult.UploadFailed("timeout"), result)
@@ -114,12 +120,12 @@ class MarkerPhotoUploadCoordinatorTest {
                 context = CONTEXT,
                 response = UPLOAD_RESPONSE,
                 payload = PHOTO_PAYLOAD,
-                parentOperationId = "op-photo-upload-url-1"
+                parentOperationId = PHOTO_UPLOAD_OPERATION_ID
             )
 
         assertEquals(
             MarkerPhotoUploadResult.AttachedEnqueued(
-                operationId = "op-photo-attach-1",
+                operationId = PHOTO_ATTACH_OPERATION_ID,
                 outboxId = "outbox-1"
             ),
             result
@@ -132,7 +138,7 @@ class MarkerPhotoUploadCoordinatorTest {
         assertEquals(1, syncClient.operations.size)
         val attach = syncClient.operations.single()
         assertEquals("/api/markers/$MARKER_ID/photos/$PHOTO_ID/attach", attach.endpoint)
-        assertEquals("op-photo-upload-url-1", attach.parentOperationId)
+        assertEquals(PHOTO_UPLOAD_OPERATION_ID, attach.parentOperationId)
         assertEquals(
             """{"sizeBytes":4,"contentType":"image/jpeg","width":1280,"height":960,"checksumSha256":"sha256-local-photo"}""",
             attach.payload
@@ -150,7 +156,7 @@ class MarkerPhotoUploadCoordinatorTest {
                 context = CONTEXT,
                 response = UPLOAD_RESPONSE.copy(uploadUrl = "not-a-url"),
                 payload = PHOTO_PAYLOAD,
-                parentOperationId = "op-photo-upload-url-1"
+                parentOperationId = PHOTO_UPLOAD_OPERATION_ID
             )
 
         assertEquals(MarkerPhotoUploadResult.Blocked, result)
@@ -169,7 +175,7 @@ class MarkerPhotoUploadCoordinatorTest {
                 context = CONTEXT.copy(policePhoneId = null),
                 response = UPLOAD_RESPONSE,
                 payload = PHOTO_PAYLOAD,
-                parentOperationId = "op-photo-upload-url-1"
+                parentOperationId = PHOTO_UPLOAD_OPERATION_ID
             )
 
         assertEquals(MarkerPhotoUploadResult.Blocked, result)
@@ -344,18 +350,20 @@ class MarkerPhotoUploadCoordinatorTest {
         return { prefix ->
             val next = nextByPrefix.getOrDefault(prefix, 1)
             nextByPrefix[prefix] = next + 1
-            "$prefix-$next"
+            operationIdFixture("${prefix.removePrefix("op-")}-$next")
         }
     }
 
     private companion object {
-        const val INCIDENT_ID = "inc-precinct-first-001"
-        const val OP_ID = "op-precinct-first-001"
-        const val MARKER_ID = "mk-precinct-clue-001"
-        const val PHOTO_ID = "photo-precinct-clue-001"
-        const val POLICE_PHONE_ID = "phone-precinct-001"
+        val INCIDENT_ID = incidentIdFixture("precinct-first-001")
+        val OP_ID = opIdFixture("precinct-first-001")
+        val MARKER_ID = markerIdFixture("precinct-clue-001")
+        val PHOTO_ID = photoIdFixture("precinct-clue-001")
+        val POLICE_PHONE_ID = policePhoneIdFixture("precinct-001")
         const val CHECKSUM = "sha256-local-photo"
         const val UPLOAD_URL = "https://object-storage.local/bucket/photo-precinct-clue-001"
+        val PHOTO_UPLOAD_OPERATION_ID = operationIdFixture("photo-upload-url-1")
+        val PHOTO_ATTACH_OPERATION_ID = operationIdFixture("photo-attach-1")
         val CLIENT_TS: Instant = Instant.parse("2026-05-11T06:00:00Z")
         val PHOTO_BYTES = byteArrayOf(1, 2, 3, 4)
         val CONTEXT =

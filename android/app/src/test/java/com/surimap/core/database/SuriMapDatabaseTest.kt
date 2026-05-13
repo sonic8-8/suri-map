@@ -2,6 +2,9 @@ package com.surimap.core.database
 
 import androidx.room.Room
 import com.surimap.core.sync.DependencyGroup
+import com.surimap.testing.incidentIdFixture
+import com.surimap.testing.manifestIdFixture
+import com.surimap.testing.policePhoneIdFixture
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -149,11 +152,13 @@ class SuriMapDatabaseTest {
 
     @Test
     fun syncStatusIsKeyedByPolicePhoneAndAllowsSharedIncident() = runBlocking {
-        val incidentId = "inc-precinct-first-001"
+        val incidentId = incidentIdFixture("precinct-first-001")
+        val phoneId = policePhoneIdFixture("precinct-phone-01")
+        val carId = policePhoneIdFixture("precinct-car-01")
 
         database.syncStatusDao().upsert(
             SyncStatusEntity(
-                policePhoneId = "dev-precinct-phone-01",
+                policePhoneId = phoneId,
                 incidentId = incidentId,
                 pendingCount = 1,
                 retryableCount = 0,
@@ -163,7 +168,7 @@ class SuriMapDatabaseTest {
         )
         database.syncStatusDao().upsert(
             SyncStatusEntity(
-                policePhoneId = "dev-precinct-car-01",
+                policePhoneId = carId,
                 incidentId = incidentId,
                 pendingCount = 2,
                 retryableCount = 1,
@@ -176,7 +181,7 @@ class SuriMapDatabaseTest {
 
         assertEquals(2, statuses.size)
         assertEquals(
-            setOf("dev-precinct-phone-01", "dev-precinct-car-01"),
+            setOf(phoneId, carId),
             statuses.map { it.policePhoneId }.toSet()
         )
     }
@@ -210,9 +215,9 @@ class SuriMapDatabaseTest {
 
         database.offlinePackageInstallationDao().upsert(
             OfflinePackageInstallationEntity(
-                incidentId = "inc-precinct-first-001",
-                policePhoneId = "phone-precinct-001",
-                manifestId = "pkg-precinct-first-rev-18",
+                incidentId = INCIDENT_ID,
+                policePhoneId = POLICE_PHONE_ID,
+                manifestId = MANIFEST_ID,
                 manifestVersion = 18,
                 status = "READY",
                 totalItems = 7,
@@ -225,8 +230,8 @@ class SuriMapDatabaseTest {
         )
 
         val status = database.offlinePackageInstallationDao().find(
-            incidentId = "inc-precinct-first-001",
-            policePhoneId = "phone-precinct-001"
+            incidentId = INCIDENT_ID,
+            policePhoneId = POLICE_PHONE_ID
         )
 
         assertEquals(18, status!!.manifestVersion)
@@ -256,9 +261,9 @@ class SuriMapDatabaseTest {
         database.offlinePackageItemStatusDao().upsertAll(
             listOf(
                 OfflinePackageItemStatusEntity(
-                    incidentId = "inc-precinct-first-001",
-                    policePhoneId = "phone-precinct-001",
-                    manifestId = "pkg-precinct-first-rev-18",
+                    incidentId = INCIDENT_ID,
+                    policePhoneId = POLICE_PHONE_ID,
+                    manifestId = MANIFEST_ID,
                     itemKey = "incident-meta",
                     manifestVersion = 18,
                     itemType = "INCIDENT_META",
@@ -270,9 +275,9 @@ class SuriMapDatabaseTest {
                     updatedAt = 1_000L
                 ),
                 OfflinePackageItemStatusEntity(
-                    incidentId = "inc-precinct-first-001",
-                    policePhoneId = "phone-precinct-001",
-                    manifestId = "pkg-precinct-first-rev-18",
+                    incidentId = INCIDENT_ID,
+                    policePhoneId = POLICE_PHONE_ID,
+                    manifestId = MANIFEST_ID,
                     itemKey = "tile-1",
                     manifestVersion = 18,
                     itemType = "TILE",
@@ -284,9 +289,9 @@ class SuriMapDatabaseTest {
                     updatedAt = 1_100L
                 ),
                 OfflinePackageItemStatusEntity(
-                    incidentId = "inc-precinct-first-001",
-                    policePhoneId = "phone-precinct-002",
-                    manifestId = "pkg-precinct-first-rev-18",
+                    incidentId = INCIDENT_ID,
+                    policePhoneId = POLICE_PHONE_2_ID,
+                    manifestId = MANIFEST_ID,
                     itemKey = "tile-1",
                     manifestVersion = 18,
                     itemType = "TILE",
@@ -301,9 +306,9 @@ class SuriMapDatabaseTest {
         )
 
         val items = database.offlinePackageItemStatusDao().findByManifest(
-            incidentId = "inc-precinct-first-001",
-            policePhoneId = "phone-precinct-001",
-            manifestId = "pkg-precinct-first-rev-18"
+            incidentId = INCIDENT_ID,
+            policePhoneId = POLICE_PHONE_ID,
+            manifestId = MANIFEST_ID
         )
 
         assertEquals(listOf("incident-meta", "tile-1"), items.map { it.itemKey })
@@ -373,4 +378,11 @@ class SuriMapDatabaseTest {
     private data class ColumnSpec(val name: String, val nullable: Boolean, val primaryKey: Boolean = false)
 
     private data class IndexSpec(val unique: Boolean, val columns: List<String>)
+
+    private companion object {
+        val INCIDENT_ID = incidentIdFixture("precinct-first-001")
+        val POLICE_PHONE_ID = policePhoneIdFixture("precinct-001")
+        val POLICE_PHONE_2_ID = policePhoneIdFixture("precinct-002")
+        val MANIFEST_ID = manifestIdFixture("precinct-first-rev-18")
+    }
 }

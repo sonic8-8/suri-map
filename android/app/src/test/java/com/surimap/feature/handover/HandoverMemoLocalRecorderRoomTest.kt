@@ -7,6 +7,12 @@ import com.surimap.feature.handover.data.HandoverMemoInput
 import com.surimap.feature.handover.data.HandoverMemoLocalRecorder
 import com.surimap.feature.handover.data.HandoverWriteContext
 import com.surimap.feature.handover.data.HandoverWriteResult
+import com.surimap.testing.dutyShiftIdFixture
+import com.surimap.testing.incidentIdFixture
+import com.surimap.testing.operationIdFactory
+import com.surimap.testing.operationIdFixture
+import com.surimap.testing.opIdFixture
+import com.surimap.testing.policePhoneIdFixture
 import java.time.Instant
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -42,7 +48,7 @@ class HandoverMemoLocalRecorderRoomTest {
                 syncClient = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()),
                 now = { CLIENT_TS },
                 sequenceSource = { 80L },
-                idFactory = { prefix -> "$prefix-001" }
+                idFactory = operationIdFactory("handover-memo-001")
             )
 
         val result =
@@ -59,7 +65,7 @@ class HandoverMemoLocalRecorderRoomTest {
         val row = database.outboxDao().findByIncidentId(INCIDENT_ID).single()
         val draft = database.localWriteDraftDao().findById(result.outboxId)
 
-        assertEquals("op-handover-memo-001", row.operationId)
+        assertEquals(operationIdFixture("handover-memo-001"), row.operationId)
         assertEquals(OP_ID, row.opId)
         assertEquals(POLICE_PHONE_ID, row.policePhoneId)
         assertEquals("HANDOVER_MEMO", row.dependencyGroup)
@@ -74,10 +80,10 @@ class HandoverMemoLocalRecorderRoomTest {
     }
 
     private companion object {
-        const val INCIDENT_ID = "inc-precinct-first-001"
-        const val OP_ID = "op-precinct-first-001"
-        const val DUTY_SHIFT_ID = "shift-precinct-first-001"
-        const val POLICE_PHONE_ID = "phone-precinct-001"
+        val INCIDENT_ID = incidentIdFixture("precinct-first-001")
+        val OP_ID = opIdFixture("precinct-first-001")
+        val DUTY_SHIFT_ID = dutyShiftIdFixture("precinct-first-001")
+        val POLICE_PHONE_ID = policePhoneIdFixture("precinct-001")
         val CLIENT_TS: Instant = Instant.parse("2026-05-11T06:00:00Z")
         val CONTEXT =
             HandoverWriteContext(

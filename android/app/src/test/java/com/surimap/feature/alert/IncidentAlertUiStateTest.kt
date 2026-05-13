@@ -5,6 +5,8 @@ import com.surimap.feature.alert.ui.IncidentAlertUiState
 import com.surimap.feature.alert.ui.IncidentFcmPayload
 import com.surimap.feature.alert.ui.IncidentFcmRoute
 import com.surimap.feature.alert.ui.IncidentFcmRouteMapper
+import com.surimap.testing.incidentIdFixture
+import com.surimap.testing.markerIdFixture
 import com.surimap.ui.navigation.SearchMapDeepLink
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -15,16 +17,16 @@ class IncidentAlertUiStateTest {
 
     @Test
     fun personFoundAndSupportRequestAlertsFocusMarkerOnMap() {
-        val found = IncidentAlertUiState.personFound(markerId = "mk-person-found-001")
-        val support = IncidentAlertUiState.supportRequest(markerId = "mk-support-001")
+        val found = IncidentAlertUiState.personFound(markerId = PERSON_FOUND_MARKER_ID)
+        val support = IncidentAlertUiState.supportRequest(markerId = SUPPORT_MARKER_ID)
 
         assertEquals(IncidentAlertType.PERSON_FOUND, found.type)
-        assertEquals("mk-person-found-001", found.focusMarkerId)
+        assertEquals(PERSON_FOUND_MARKER_ID, found.focusMarkerId)
         assertTrue(found.visibleText().any { it.contains("실종자 발견") })
         assertTrue(found.visibleText().any { it.contains("지도 열기") })
 
         assertEquals(IncidentAlertType.SUPPORT_REQUEST, support.type)
-        assertEquals("mk-support-001", support.focusMarkerId)
+        assertEquals(SUPPORT_MARKER_ID, support.focusMarkerId)
         assertTrue(support.visibleText().any { it.contains("지원 요청") })
         assertTrue(support.visibleText().any { it.contains("확인") })
     }
@@ -35,23 +37,23 @@ class IncidentAlertUiStateTest {
             IncidentFcmPayload(
                 eventId = "evt-person-found-001",
                 type = "PERSON_FOUND",
-                incidentId = "inc-precinct-first-001",
-                markerId = "mk-person-found-001"
+                incidentId = INCIDENT_ID,
+                markerId = PERSON_FOUND_MARKER_ID
             )
         )
         val terminalRoute = IncidentFcmRouteMapper.route(
             IncidentFcmPayload(
                 eventId = "evt-incident-closed-001",
                 type = "INCIDENT_CLOSED",
-                incidentId = "inc-precinct-first-001",
+                incidentId = INCIDENT_ID,
                 markerId = null
             )
         )
 
         assertTrue(markerRoute is IncidentFcmRoute.MarkerFocus)
         val markerFocus = markerRoute as IncidentFcmRoute.MarkerFocus
-        assertEquals("mk-person-found-001", markerFocus.markerId)
-        assertEquals(SearchMapDeepLink.markerFocusRoute("mk-person-found-001"), markerFocus.searchMapRoute)
+        assertEquals(PERSON_FOUND_MARKER_ID, markerFocus.markerId)
+        assertEquals(SearchMapDeepLink.markerFocusRoute(PERSON_FOUND_MARKER_ID), markerFocus.searchMapRoute)
         assertTrue(terminalRoute is IncidentFcmRoute.IncidentClosed)
         assertFalse(terminalRoute is IncidentFcmRoute.Alert)
     }
@@ -62,11 +64,17 @@ class IncidentAlertUiStateTest {
             IncidentFcmPayload(
                 eventId = "evt-support-001",
                 type = "SUPPORT_REQUEST_CREATED",
-                incidentId = "inc-precinct-first-001",
+                incidentId = INCIDENT_ID,
                 markerId = null
             )
         )
 
         assertEquals(IncidentFcmRoute.Ignore, route)
+    }
+
+    private companion object {
+        val INCIDENT_ID = incidentIdFixture("precinct-first-001")
+        val PERSON_FOUND_MARKER_ID = markerIdFixture("person-found-001")
+        val SUPPORT_MARKER_ID = markerIdFixture("support-001")
     }
 }

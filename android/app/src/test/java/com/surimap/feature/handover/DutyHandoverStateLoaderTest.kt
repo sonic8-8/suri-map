@@ -7,6 +7,10 @@ import com.surimap.feature.handover.data.DutyHandoverStateLoader
 import com.surimap.feature.handover.data.HandoverSessionContext
 import com.surimap.feature.handover.ui.SearchHistorySummaryStatus
 import com.surimap.feature.handover.ui.SummarySourceReadiness
+import com.surimap.testing.dutyShiftIdFixture
+import com.surimap.testing.incidentIdFixture
+import com.surimap.testing.opIdFixture
+import com.surimap.testing.policePhoneIdFixture
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -142,10 +146,10 @@ class DutyHandoverStateLoaderTest {
         SuriMapApiResponse(statusCode = 200, body = body, errorCode = null)
 
     private companion object {
-        const val INCIDENT_ID = "inc-precinct-first-001"
-        const val OP_ID = "op-precinct-first-001"
-        const val DUTY_SHIFT_ID = "shift-precinct-first-001"
-        const val POLICE_PHONE_ID = "phone-precinct-001"
+        val INCIDENT_ID = incidentIdFixture("precinct-first-001")
+        val OP_ID = opIdFixture("precinct-first-001")
+        val DUTY_SHIFT_ID = dutyShiftIdFixture("precinct-first-001")
+        val POLICE_PHONE_ID = policePhoneIdFixture("precinct-001")
         val CONTEXT =
             HandoverSessionContext(
                 incidentId = INCIDENT_ID,
