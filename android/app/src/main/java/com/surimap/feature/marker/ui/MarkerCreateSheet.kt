@@ -80,6 +80,7 @@ data class MarkerPhotoUiState(
     val fileName: String,
     val stage: MarkerPhotoStage,
     val progress: Float,
+    val sizeBytes: Long? = null,
     val retryAvailable: Boolean = false
 )
 
@@ -98,8 +99,20 @@ data class MarkerCreateSheetUiState(
     val supportRequestPayloadName: String = "supportRequestType"
     val requiresSupportRequestType: Boolean =
         selectedType == MarkerType.SUPPORT_REQUEST && supportRequestType == null
-    val canSave: Boolean = !requiresSupportRequestType && saveStatus != MarkerSaveStatus.Saving
+    val maxPhotoCount: Int = MAX_PHOTO_COUNT
+    val maxPhotoBytes: Long = MAX_PHOTO_BYTES
+    val photosWithinSizeLimit: Boolean =
+        photos.all { photo -> photo.sizeBytes == null || photo.sizeBytes in 1..maxPhotoBytes }
+    val canAttachPhoto: Boolean = photoCount < maxPhotoCount && photos.size < maxPhotoCount
+    val canSave: Boolean = !requiresSupportRequestType && saveStatus != MarkerSaveStatus.Saving && photosWithinSizeLimit
     val opensBlockedOutbox: Boolean = false
+    val photoLimitLabel: String = "사진 ${photoCount.coerceAtMost(maxPhotoCount)} / $maxPhotoCount · 파일당 10MB"
+    val photoLimitWarning: String? =
+        when {
+            !photosWithinSizeLimit -> "사진 파일은 10MB 이하만 첨부할 수 있습니다."
+            !canAttachPhoto -> "마커당 사진은 10장까지 첨부할 수 있습니다."
+            else -> null
+        }
 
     val statusLabel: String =
         when (saveStatus) {
@@ -136,7 +149,8 @@ data class MarkerCreateSheetUiState(
             } else {
                 add(memo)
             }
-            add("사진 $photoCount / 10")
+            add(photoLimitLabel)
+            photoLimitWarning?.let(::add)
             photos.forEach { photo ->
                 add(photo.fileName)
                 add(photo.stage.label)
@@ -179,6 +193,9 @@ data class MarkerCreateSheetUiState(
                     MarkerPhotoUiState("north-ridge.jpg", MarkerPhotoStage.Attach, progress = 0.82f)
                 )
             )
+
+        private const val MAX_PHOTO_COUNT = 10
+        private const val MAX_PHOTO_BYTES = 10_485_760L
     }
 }
 
@@ -407,9 +424,24 @@ private fun PhotoSection(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
-            Text(text = "사진 ${state.photoCount} / 10", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-            PoliButton(text = "촬영", onClick = onAttachPhoto, size = PoliButtonSize.Small, variant = PoliButtonVariant.Secondary)
-            PoliButton(text = "앨범", onClick = onAttachPhoto, size = PoliButtonSize.Small, variant = PoliButtonVariant.Secondary)
+            Text(text = state.photoLimitLabel, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+            PoliButton(
+                text = "촬영",
+                onClick = onAttachPhoto,
+                size = PoliButtonSize.Small,
+                variant = PoliButtonVariant.Secondary,
+                enabled = state.canAttachPhoto
+            )
+            PoliButton(
+                text = "앨범",
+                onClick = onAttachPhoto,
+                size = PoliButtonSize.Small,
+                variant = PoliButtonVariant.Secondary,
+                enabled = state.canAttachPhoto
+            )
+        }
+        state.photoLimitWarning?.let { warning ->
+            Text(text = warning, style = MaterialTheme.typography.bodyMedium, color = PoliWarning)
         }
         if (state.photos.isEmpty()) {
             PoliCard {
