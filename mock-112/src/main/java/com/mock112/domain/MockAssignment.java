@@ -14,7 +14,7 @@ import java.time.OffsetDateTime;
 public class MockAssignment {
 
     private String externalAssignmentKey;
-    private String accountId;
+    private String accountCode;
     private String incidentRole;
 
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ssXXX")
@@ -22,10 +22,10 @@ public class MockAssignment {
 
     public MockAssignment() {}
 
-    public MockAssignment(String externalAssignmentKey, String accountId,
+    public MockAssignment(String externalAssignmentKey, String accountCode,
                           String incidentRole, OffsetDateTime assignedAt) {
         this.externalAssignmentKey = externalAssignmentKey;
-        this.accountId = accountId;
+        this.accountCode = accountCode;
         this.incidentRole = incidentRole;
         this.assignedAt = assignedAt;
     }
@@ -35,8 +35,8 @@ public class MockAssignment {
     public String getExternalAssignmentKey() { return externalAssignmentKey; }
     public void setExternalAssignmentKey(String externalAssignmentKey) { this.externalAssignmentKey = externalAssignmentKey; }
 
-    public String getAccountId() { return accountId; }
-    public void setAccountId(String accountId) { this.accountId = accountId; }
+    public String getAccountCode() { return accountCode; }
+    public void setAccountCode(String accountCode) { this.accountCode = accountCode; }
 
     public String getIncidentRole() { return incidentRole; }
     public void setIncidentRole(String incidentRole) { this.incidentRole = incidentRole; }

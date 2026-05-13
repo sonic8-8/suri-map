@@ -61,7 +61,7 @@ public class InMemoryIncidentStore {
         }
         boolean added = incident.addAssignment(assignment);
         if (added) {
-            log.info("Assignment added to {}: {}", sourceIncidentId, assignment.getAccountId());
+            log.info("Assignment added to {}: {}", sourceIncidentId, assignment.getAccountCode());
         }
         return added;
     }
