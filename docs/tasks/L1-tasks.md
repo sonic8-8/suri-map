@@ -198,7 +198,7 @@
   - 예상 작업량: 1d
   - 완료 기준: 통신 단절 중 로컬 기록, 지원 요청·실종자 발견 알림, 통신 복구·동기화 흐름을 fixture ID와 함께 리허설하고 pass/fail evidence를 첨부하며, 실패는 별도 follow-up fix task로 연결한다.
 
-- [ ] L1-D01D SC-10~12 리허설 실행과 시연 증거 수집
+- [x] L1-D01D SC-10~12 리허설 실행과 시연 증거 수집
   - 담당 Spec: S1-1
   - 필수 참조: `prd.md §2.3`, `prd.md §5.1`, `spec/harness-scenarios.md §2 SC-10`, `spec/harness-scenarios.md §2 SC-11`, `spec/harness-scenarios.md §2 SC-12`
   - 연관 Lane: L2, L3, L4, L5, L6
