@@ -14,12 +14,26 @@ import org.junit.jupiter.api.Test;
 class AuthFixtureExactnessTest {
 
   @Test
-  @DisplayName("account and policePhone fixture IDs match harness-scenarios section 6")
-  void account_and_policePhone_fixture_ids_match_harness_scenarios_section_6() {
-    assertThat(AccountPolicePhoneFixtures.INCIDENT_ID).isEqualTo("inc-precinct-first-001");
-    assertThat(AccountPolicePhoneFixtures.OP1_ID).isEqualTo("op-precinct-001-op1");
+  @DisplayName("account and policePhone fixture IDs stay UUID while harness codes stay aliases")
+  void account_and_policePhone_fixture_ids_stay_uuid_while_harness_codes_stay_aliases() {
+    assertThat(AccountPolicePhoneFixtures.INCIDENT_ALIAS).isEqualTo("inc-precinct-first-001");
+    assertThat(AccountPolicePhoneFixtures.OP1_ALIAS).isEqualTo("op-precinct-001-op1");
 
     assertThat(AccountPolicePhoneFixtures.accountIds())
+        .containsExactlyInAnyOrder(
+            AccountIdentityCatalog.PRECINCT_COMMANDER_ID,
+            AccountIdentityCatalog.PRECINCT_PATROL_ID,
+            AccountIdentityCatalog.PRECINCT_TEAM_ID,
+            AccountIdentityCatalog.ALPHA_COMMANDER_ID,
+            AccountIdentityCatalog.ALPHA_TEAM_ID,
+            AccountIdentityCatalog.SUPPORT_COMMANDER_ID,
+            AccountIdentityCatalog.SUPPORT_PATROL_ID,
+            AccountIdentityCatalog.SUPPORT_TEAM_ID);
+
+    assertThat(AccountPolicePhoneFixtures.policePhoneIds())
+        .allSatisfy(id -> assertThat(id.toString()).matches("[0-9a-f-]{36}"));
+
+    assertThat(AccountPolicePhoneFixtures.accountCodes())
         .containsExactlyInAnyOrder(
             "acct-precinct-cmd",
             "acct-precinct-car",
@@ -30,7 +44,7 @@ class AuthFixtureExactnessTest {
             "acct-support-car",
             "acct-support-team");
 
-    assertThat(AccountPolicePhoneFixtures.policePhoneIds())
+    assertThat(AccountPolicePhoneFixtures.policePhoneCodes())
         .containsExactlyInAnyOrder(
             "dev-precinct-cmd-phone-01",
             "dev-precinct-car-01",
@@ -74,10 +88,10 @@ class AuthFixtureExactnessTest {
     assertThat(seed.accounts()).hasSize(8);
     assertThat(seed.policePhones()).hasSize(8);
     assertThat(seed.roleChannelRules()).containsAll(RoleChannelMatrixFixtures.rules());
-    assertThat(seed.accountById("acct-support-car").orElseThrow().accountType())
+    assertThat(seed.accountByCode("acct-support-car").orElseThrow().accountType())
         .isEqualTo(AccountType.PATROL_CAR);
-    assertThat(seed.policePhoneById("dev-support-phone-01").orElseThrow().accountId())
-        .isEqualTo("acct-support-team");
+    assertThat(seed.policePhoneByCode("dev-support-phone-01").orElseThrow().accountId())
+        .isEqualTo(AccountIdentityCatalog.SUPPORT_TEAM_ID);
   }
 
   @Test

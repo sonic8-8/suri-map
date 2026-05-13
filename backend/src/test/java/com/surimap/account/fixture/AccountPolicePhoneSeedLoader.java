@@ -5,6 +5,7 @@ import com.surimap.account.fixture.AccountPolicePhoneFixtures.PolicePhoneFixture
 import com.surimap.account.fixture.RoleChannelMatrixFixtures.RoleChannelRule;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 /** Test seed loader for S1-2 auth/policePhone fixtures. */
 public final class AccountPolicePhoneSeedLoader {
@@ -23,13 +24,25 @@ public final class AccountPolicePhoneSeedLoader {
       List<PolicePhoneFixture> policePhones,
       List<RoleChannelRule> roleChannelRules) {
 
-    public Optional<AccountFixture> accountById(String accountId) {
+    public Optional<AccountFixture> accountById(UUID accountId) {
       return accounts.stream().filter(account -> account.id().equals(accountId)).findFirst();
     }
 
-    public Optional<PolicePhoneFixture> policePhoneById(String policePhoneId) {
+    public Optional<AccountFixture> accountByCode(String accountCode) {
+      return accounts.stream()
+          .filter(account -> account.accountCode().equals(accountCode))
+          .findFirst();
+    }
+
+    public Optional<PolicePhoneFixture> policePhoneById(UUID policePhoneId) {
       return policePhones.stream()
           .filter(policePhone -> policePhone.id().equals(policePhoneId))
+          .findFirst();
+    }
+
+    public Optional<PolicePhoneFixture> policePhoneByCode(String phoneCode) {
+      return policePhones.stream()
+          .filter(policePhone -> policePhone.phoneCode().equals(phoneCode))
           .findFirst();
     }
   }

@@ -2,7 +2,7 @@ package com.surimap.account.config;
 
 import com.surimap.account.repository.AccountLoginMapper;
 import com.surimap.account.service.AuthSessionService;
-import com.surimap.policephone.InMemoryPolicePhoneFixtureStore;
+import com.surimap.policephone.PolicePhonePersistenceService;
 import java.time.Clock;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -15,10 +15,11 @@ public class AuthConfig {
   @Bean
   AuthSessionService authSessionService(
       AccountLoginMapper accountLoginMapper,
-      InMemoryPolicePhoneFixtureStore fixtureStore,
+      PolicePhonePersistenceService policePhonePersistenceService,
       PasswordEncoder passwordEncoder,
       Clock clock) {
-    return new AuthSessionService(accountLoginMapper, fixtureStore, passwordEncoder, clock);
+    return new AuthSessionService(
+        accountLoginMapper, policePhonePersistenceService, passwordEncoder, clock);
   }
 
   @Bean

@@ -29,6 +29,9 @@ import com.surimap.path.SearchPathAggregate;
 import com.surimap.path.SearchPathPoint;
 import com.surimap.path.SearchPathService;
 import com.surimap.path.validation.GpsPathValidator;
+import com.surimap.policephone.PolicePhoneFreshnessStatus;
+import com.surimap.policephone.query.PolicePhoneFreshnessQuery;
+import com.surimap.policephone.query.PolicePhoneFreshnessRow;
 import com.surimap.summary.SearchHistorySummaryMapper;
 import com.surimap.summary.SearchHistorySummaryRow;
 import java.math.BigDecimal;
@@ -67,6 +70,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
         new DefaultIncidentBoardSourceRowCollector(
             provider(new FakeSearchAreaQuery()),
             provider(searchPathService()),
+            provider(new FakePolicePhoneFreshnessQuery()),
             markerQuery,
             new FakePackageQuery(),
             new FakeOperationalPeriodQuery(),
@@ -82,6 +86,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
                     "overall_search_area",
                     "area",
                     "path",
+                    "police_phone_freshness",
                     "marker",
                     "package_badge",
                     "op_toggle",
@@ -100,6 +105,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
             "overall_search_area",
             "area",
             "path",
+            "police_phone_freshness",
             "marker",
             "package_badge",
             "op_toggle",
@@ -108,6 +114,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
             "search_history_summary");
     assertThat(row(snapshot, "overall_search_area").sourceSpec()).isEqualTo("S2");
     assertThat(row(snapshot, "path").sourceSpec()).isEqualTo("S3-1");
+    assertThat(row(snapshot, "police_phone_freshness").sourceSpec()).isEqualTo("S1-2");
     assertThat(row(snapshot, "marker").sourceSpec()).isEqualTo("S5");
     assertThat(row(snapshot, "package_badge").sourceSpec()).isEqualTo("S7");
     assertThat(row(snapshot, "op_toggle").sourceSpec()).isEqualTo("S8");
@@ -125,6 +132,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
         new DefaultIncidentBoardSourceRowCollector(
             provider(searchAreaQuery),
             provider(searchPathService()),
+            provider(new FakePolicePhoneFreshnessQuery()),
             markerQuery,
             new FakePackageQuery(),
             new FakeOperationalPeriodQuery(),
@@ -150,6 +158,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
         new DefaultIncidentBoardSourceRowCollector(
             provider(searchAreaQuery),
             provider(searchPathService()),
+            provider(new FakePolicePhoneFreshnessQuery()),
             new CapturingMarkerQuery(),
             new FakePackageQuery(),
             new FakeOperationalPeriodQuery(),
@@ -368,6 +377,26 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
       return List.of(
           new OfflinePackageInstallationStatus(
               "pkg-status-test-001", incidentId, PHONE_ID.toString(), "READY", 7L, 701L, 1, true));
+    }
+  }
+
+  private static final class FakePolicePhoneFreshnessQuery implements PolicePhoneFreshnessQuery {
+    @Override
+    public List<PolicePhoneFreshnessRow> byIncident(UUID incidentId) {
+      return List.of(
+          new PolicePhoneFreshnessRow(
+              PHONE_ID,
+              ACCOUNT_ID.toString(),
+              com.surimap.common.auth.AccountType.TEAM,
+              com.surimap.common.auth.OrganizationType.POLICE_SUBSTATION,
+              incidentId,
+              null,
+              UUID.fromString("61000000-0000-0000-0000-000000000001"),
+              STARTED_AT,
+              STARTED_AT,
+              11L,
+              111L,
+              PolicePhoneFreshnessStatus.ONLINE));
     }
   }
 

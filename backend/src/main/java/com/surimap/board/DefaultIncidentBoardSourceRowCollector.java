@@ -20,11 +20,15 @@ import com.surimap.path.PathExcludedPoint;
 import com.surimap.path.PathQueryRow;
 import com.surimap.path.SearchPathSegment;
 import com.surimap.path.SearchPathService;
+import com.surimap.policephone.PolicePhoneFreshnessStatus;
+import com.surimap.policephone.query.PolicePhoneFreshnessQuery;
+import com.surimap.policephone.query.PolicePhoneFreshnessRow;
 import com.surimap.summary.SearchHistorySummaryMapper;
 import com.surimap.summary.SearchHistorySummaryRow;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HexFormat;
@@ -45,6 +49,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
 
   private final ObjectProvider<SearchAreaQuery> searchAreaQuery;
   private final ObjectProvider<SearchPathService> searchPathService;
+  private final ObjectProvider<PolicePhoneFreshnessQuery> policePhoneFreshnessQuery;
   private final MarkerQuery markerQuery;
   private final PackageBadgeBoardAssembler packageBadgeBoardAssembler;
   private final OperationalPeriodQuery operationalPeriodQuery;
@@ -54,6 +59,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
   public DefaultIncidentBoardSourceRowCollector(
       ObjectProvider<SearchAreaQuery> searchAreaQuery,
       ObjectProvider<SearchPathService> searchPathService,
+      ObjectProvider<PolicePhoneFreshnessQuery> policePhoneFreshnessQuery,
       MarkerQuery markerQuery,
       OfflinePackageInstallationQuery offlinePackageInstallationQuery,
       OperationalPeriodQuery operationalPeriodQuery,
@@ -61,6 +67,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
       SearchHistorySummaryMapper searchHistorySummaryMapper) {
     this.searchAreaQuery = searchAreaQuery;
     this.searchPathService = searchPathService;
+    this.policePhoneFreshnessQuery = policePhoneFreshnessQuery;
     this.markerQuery = Objects.requireNonNull(markerQuery, "markerQuery must not be null");
     this.packageBadgeBoardAssembler =
         new PackageBadgeBoardAssembler(
@@ -85,6 +92,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     List<BoardSourceRow> rows = new ArrayList<>();
     collectSearchAreaRows(context, selectedOpIds, rows);
     collectPathRows(context, selectedOpIds, rows);
+    collectPolicePhoneFreshnessRows(context, rows);
     collectMarkerRows(context, selectedOpIds, rows);
     collectPackageRows(context, rows);
     collectOperationalPeriodRows(context, rows);
@@ -161,6 +169,18 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
                 .stream()
                 .map(this::markerRow)
                 .forEach(rows::add));
+  }
+
+  private void collectPolicePhoneFreshnessRows(
+      BoardSourceRowContext context, List<BoardSourceRow> rows) {
+    if (!context.includes("police_phone_freshness")) {
+      return;
+    }
+    PolicePhoneFreshnessQuery query = policePhoneFreshnessQuery.getIfAvailable();
+    if (query == null) {
+      return;
+    }
+    query.byIncident(context.incidentId()).stream().map(this::freshnessRow).forEach(rows::add);
   }
 
   private void collectPackageRows(BoardSourceRowContext context, List<BoardSourceRow> rows) {
@@ -373,6 +393,37 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
         payload);
   }
 
+  private BoardSourceRow freshnessRow(PolicePhoneFreshnessRow row) {
+    String status = row.derivedFreshness().name();
+    Map<String, Object> payload = new LinkedHashMap<>();
+    payload.put("policePhoneId", row.policePhoneId().toString());
+    payload.put("accountId", row.accountId());
+    payload.put("accountType", row.accountType().name());
+    payload.put("organizationType", row.organizationType().name());
+    payload.put("incidentId", row.incidentId().toString());
+    putUuid(payload, "opId", row.opId());
+    payload.put("freshness", frontendFreshness(row.derivedFreshness()));
+    payload.put("freshnessStatus", status);
+    payload.put("lastHeartbeatAt", row.lastHeartbeatAt());
+    payload.put("lastSyncAt", row.lastSyncAt());
+    if (row.lastHeartbeatAt() != null) {
+      payload.put("elapsedSeconds", Duration.between(row.lastHeartbeatAt(), Instant.now()).toSeconds());
+    }
+    return sourceRow(
+        "police_phone_freshness",
+        "S1-2",
+        row.policePhoneId().toString(),
+        "board-PolicePhone-freshness-" + row.policePhoneId(),
+        status,
+        row.version(),
+        row.heartbeatSequence(),
+        row.latestEventId() == null
+            ? eventId("S1-2", "police-phone-freshness", row.policePhoneId().toString(), row.version())
+            : row.latestEventId().toString(),
+        sourceHash("police_phone_freshness", row.policePhoneId().toString(), row.version(), status),
+        payload);
+  }
+
   private Map<String, Object> segmentPayload(SearchPathSegment segment) {
     Map<String, Object> payload = new LinkedHashMap<>();
     payload.put("id", segment.id());
@@ -464,6 +515,14 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
 
   private static String sourceHash(String slot, String id, long version, String status) {
     return hash(slot + "|" + id + "|" + status + "|" + version);
+  }
+
+  private static String frontendFreshness(PolicePhoneFreshnessStatus status) {
+    return switch (status) {
+      case ONLINE -> "normal";
+      case STALE -> "stale";
+      case LOST -> "lost";
+    };
   }
 
   private static String eventId(String sourceSpec, String sourceType, String id, long version) {

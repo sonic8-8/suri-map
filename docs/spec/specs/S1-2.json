@@ -290,6 +290,12 @@
             "note": "ACTIVE|DISABLED"
           },
           {
+            "name": "registered",
+            "type": "BOOLEAN",
+            "nullable": false,
+            "note": "app-police-phone guard의 police_phone_not_registered 판정 기준"
+          },
+          {
             "name": "last_heartbeat_at",
             "type": "TIMESTAMPTZ",
             "nullable": true
@@ -298,6 +304,24 @@
             "name": "last_sync_at",
             "type": "TIMESTAMPTZ",
             "nullable": true
+          },
+          {
+            "name": "heartbeat_sequence",
+            "type": "BIGINT",
+            "nullable": false,
+            "note": "lower/equal heartbeat replay 무시와 REST/event/board sequence 수렴 기준"
+          },
+          {
+            "name": "last_heartbeat_event_id",
+            "type": "UUID",
+            "nullable": true,
+            "note": "마지막으로 수용한 heartbeat publish eventId. REST 응답과 board freshness latestEventId 수렴 기준"
+          },
+          {
+            "name": "version",
+            "type": "BIGINT",
+            "nullable": false,
+            "note": "heartbeat 수용 시 증가하는 police_phone source version"
           },
           {
             "name": "created_at",

@@ -65,7 +65,7 @@ public final class RealS1_2AuthPolicePhoneContract implements AuthPolicePhoneCon
         context.authorities().stream().map(SimpleGrantedAuthority::new).toList();
     var authentication =
         new SuriMapAuthentication(
-            context.accountId(),
+            context.accountCode(),
             context.accountType(),
             context.organizationType(),
             context.channel(),
