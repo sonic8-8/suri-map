@@ -1,12 +1,13 @@
 package com.surimap.offlinepackage.repository;
 
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 public record OfflinePackageManifestRecord(
-    String id,
-    String incidentId,
+    UUID id,
+    UUID incidentId,
     int manifestVersion,
-    String overallSearchAreaId,
+    UUID overallSearchAreaId,
     long overallSearchAreaVersion,
     String manifestHash,
     OffsetDateTime expiresAt) {}

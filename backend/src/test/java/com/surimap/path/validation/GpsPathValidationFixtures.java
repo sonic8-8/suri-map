@@ -7,10 +7,10 @@ import java.util.stream.IntStream;
 
 final class GpsPathValidationFixtures {
 
-  static final String NORMAL_PATH_ID = "path-precinct-mixed-001";
-  static final String NORMAL_POLICE_PHONE_ID = "dev-precinct-car-01";
-  static final String VEHICLE_SEGMENT_ID = "seg-precinct-vehicle-001";
-  static final String FOOT_SEGMENT_ID = "seg-precinct-foot-001";
+  static final String NORMAL_PATH_ALIAS = "path-precinct-mixed-001";
+  static final String NORMAL_POLICE_PHONE_CODE = "dev-precinct-car-01";
+  static final String VEHICLE_SEGMENT_ALIAS = "seg-precinct-vehicle-001";
+  static final String FOOT_SEGMENT_ALIAS = "seg-precinct-foot-001";
 
   static final List<GpsPointFixture> NORMAL_POINTS =
       List.of(
@@ -30,9 +30,9 @@ final class GpsPathValidationFixtures {
   static final List<PathSegmentFixture> NORMAL_SEGMENTS =
       List.of(
           new PathSegmentFixture(
-              VEHICLE_SEGMENT_ID, "VEHICLE", 0, 3, "gps-precinct-001", "gps-precinct-004"),
+              VEHICLE_SEGMENT_ALIAS, "VEHICLE", 0, 3, "gps-precinct-001", "gps-precinct-004"),
           new PathSegmentFixture(
-              FOOT_SEGMENT_ID, "FOOT", 4, 7, "gps-precinct-005", "gps-precinct-008"));
+              FOOT_SEGMENT_ALIAS, "FOOT", 4, 7, "gps-precinct-005", "gps-precinct-008"));
 
   static final StructuralFailureFixture BATCH_LIMIT_EXCEEDED =
       new StructuralFailureFixture(

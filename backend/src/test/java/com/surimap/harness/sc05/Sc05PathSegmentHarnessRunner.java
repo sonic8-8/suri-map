@@ -858,8 +858,10 @@ public class Sc05PathSegmentHarnessRunner {
               OrganizationType.POLICE_SUBSTATION,
               SearchPathFixtures.INCIDENT_ID,
               SearchPathFixtures.OP1_ID,
+              UUID.fromString("61000000-0000-0000-0000-000000000005"),
               LAST_HEARTBEAT_AT,
               LAST_SYNC_AT,
+              4L,
               4L,
               deriveFreshness(LAST_HEARTBEAT_AT, FRESHNESS_SERVER_TS.toInstant())));
     }

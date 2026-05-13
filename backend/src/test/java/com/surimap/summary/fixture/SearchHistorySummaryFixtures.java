@@ -11,11 +11,14 @@ public final class SearchHistorySummaryFixtures {
   private SearchHistorySummaryFixtures() {}
 
   // ── S8 harness_fixtures.sc11_handover_ai_convergence ──────────────────────
-  public static final UUID INCIDENT_ID = toUuid("inc-precinct-first-001");
-  public static final UUID OP_ID = toUuid("op-precinct-001-op2");
+  public static final String INCIDENT_ALIAS = "inc-precinct-first-001";
+  public static final UUID INCIDENT_ID = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001");
+  public static final String OP_ALIAS = "op-precinct-001-op2";
+  public static final UUID OP_ID = UUID.fromString("88888888-8888-8888-8888-888888880002");
 
   // summary row
-  public static final UUID SUMMARY_ID = toUuid("summary-precinct-op2-001");
+  public static final String SUMMARY_ALIAS = "summary-precinct-op2-001";
+  public static final UUID SUMMARY_ID = UUID.fromString("44444444-4444-4444-4444-444444440001");
   public static final String SUMMARY_STATUS_FAILED = "FAILED";
   public static final String SUMMARY_DISPLAY_STATUS_UNAVAILABLE = "UNAVAILABLE";
   public static final long SUMMARY_VERSION = 1L;
@@ -37,13 +40,4 @@ public final class SearchHistorySummaryFixtures {
   public static final String FORBIDDEN_HIGH_RISK = "위험도 높음";
   public static final String FORBIDDEN_AUTO_JUDGE = "자동 판단";
 
-  // ── helpers ───────────────────────────────────────────────────────────────
-
-  /**
-   * Converts a human-readable fixture key string to UUID. Uses a deterministic name-based UUID so
-   * the same string always produces the same UUID. This keeps fixture IDs stable across test runs.
-   */
-  public static UUID toUuid(String fixtureKey) {
-    return UUID.nameUUIDFromBytes(fixtureKey.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-  }
 }

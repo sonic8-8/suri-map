@@ -47,15 +47,15 @@ describe('createApiClient', () => {
       baseUrl: '/api',
       fetch: async (input, init) => {
         calls.push({ input, init });
-        return jsonResponse({ id: 'mk-precinct-clue-001', status: 'DELETED', version: 5 });
+        return jsonResponse({ id: MARKER_ID, status: 'DELETED', version: 5 });
       },
     });
 
-    await client.delete('/markers/mk-precinct-clue-001', {
+    await client.delete(`/markers/${MARKER_ID}`, {
       body: { version: 4, reason: 'duplicated' },
     });
 
-    expect(calls[0]?.input).toBe('/api/markers/mk-precinct-clue-001');
+    expect(calls[0]?.input).toBe(`/api/markers/${MARKER_ID}`);
     expect(calls[0]?.init?.method).toBe('DELETE');
     expect(calls[0]?.init?.body).toBe('{"version":4,"reason":"duplicated"}');
     const headers = new Headers(calls[0]?.init?.headers);
@@ -101,3 +101,5 @@ function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
     },
   });
 }
+
+const MARKER_ID = '55555555-5555-5555-5555-555555550001';

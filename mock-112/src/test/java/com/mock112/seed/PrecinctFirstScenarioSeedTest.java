@@ -76,4 +76,26 @@ class PrecinctFirstScenarioSeedTest {
                     .isFalse();
         }
     }
+
+    @Test
+    @DisplayName("대표 시나리오 배정은 mock-112 HTTP 응답에서도 accountCode 필드로 노출된다")
+    void precinctFirstAssignmentsExposeAccountCodeInHttpResponseShape() {
+        SeedDataLoader loader = new SeedDataLoader();
+        InMemoryIncidentStore store = new InMemoryIncidentStore();
+        ObjectMapper mapper = new ObjectMapper().findAndRegisterModules();
+
+        MockIncident incident = loader.loadPrecinctFirstScenario(store);
+
+        JsonNode assignments = mapper.valueToTree(incident).get("assignments");
+        assertThat(assignments).as("assignments array must exist in mock-112 response").isNotNull();
+        assertThat(assignments.isArray()).isTrue();
+        assertThat(assignments).hasSize(3);
+        assertThat(assignments.get(0).path("accountCode").asText()).isEqualTo("acct-precinct-cmd");
+        assertThat(assignments.get(1).path("accountCode").asText()).isEqualTo("acct-precinct-car");
+        assertThat(assignments.get(2).path("accountCode").asText()).isEqualTo("acct-precinct-team");
+        assertThat(assignments)
+                .allSatisfy(assignment -> assertThat(assignment.hasNonNull("accountCode")).isTrue());
+        assertThat(assignments)
+                .allSatisfy(assignment -> assertThat(assignment.has("accountId")).isFalse());
+    }
 }

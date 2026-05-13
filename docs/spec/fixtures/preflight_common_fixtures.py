@@ -207,6 +207,23 @@ DB_ALIAS_TO_UUID = {
     "op-fail-PolicePhone-001": "66666666-0000-4000-8000-000000001703",
     "op-fail-closed-001": "66666666-0000-4000-8000-000000001704",
     "op-fail-network-001": "66666666-0000-4000-8000-000000001705",
+    "path-precinct-car-001": "ffffffff-ffff-ffff-ffff-ffffffff0001",
+    "path-precinct-foot-001": "ffffffff-ffff-ffff-ffff-ffffffff0002",
+    "path-precinct-mixed-001": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+    "seg-precinct-vehicle-001": "33333333-3333-3333-3333-333333330001",
+    "seg-precinct-foot-001": "33333333-3333-3333-3333-333333330002",
+    "mk-precinct-clue-001": "55555555-5555-5555-5555-555555550001",
+    "mk-precinct-support-001": "55555555-5555-5555-5555-555555550801",
+    "mk-precinct-person-found-001": "55555555-5555-5555-5555-555555550802",
+    "mk-precinct-op-mismatch-001": "55555555-5555-5555-5555-555555550099",
+    "mk-precinct-closed-001": "55555555-5555-5555-5555-555555551148",
+    "photo-precinct-clue-001": "55555555-5555-5555-5555-555555550101",
+    "photo-precinct-closed-001": "55555555-5555-5555-5555-555555551149",
+    "notif-precinct-support-001": "66666666-6666-6666-6666-666666660801",
+    "notif-precinct-person-found-001": "66666666-6666-6666-6666-666666660802",
+    "memo-precinct-handover-001": "eeeeeeee-eeee-eeee-eeee-eeeeeeee0001",
+    "memo-precinct-op2-001": "eeeeeeee-eeee-eeee-eeee-eeeeeeee0010",
+    "summary-precinct-op2-001": "44444444-4444-4444-4444-444444440001",
 }
 
 DB_ALIAS_ALLOWED_SUFFIXES = ("Alias", "Aliases", "Code", "Codes")

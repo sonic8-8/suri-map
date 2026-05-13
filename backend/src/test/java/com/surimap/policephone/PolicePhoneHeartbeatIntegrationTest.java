@@ -1,43 +1,73 @@
 package com.surimap.policephone;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.surimap.app.controller.policephone.PolicePhoneHeartbeatController;
-import com.surimap.app.service.policephone.PolicePhoneHeartbeatConfig;
 import com.surimap.common.auth.OrganizationType;
-import com.surimap.config.ClockConfig;
-import com.surimap.config.GuardConfig;
-import com.surimap.config.SecurityConfig;
-import com.surimap.eventhub.adapter.MockEventHub;
+import com.surimap.eventhub.port.EventHub;
 import com.surimap.policephone.query.PolicePhoneFreshnessQuery;
 import com.surimap.support.auth.WithMockAccount;
+import java.time.Instant;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.context.annotation.Import;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-@WebMvcTest(PolicePhoneHeartbeatController.class)
+@SpringBootTest
+@ActiveProfiles("test")
 @AutoConfigureMockMvc(addFilters = false)
-@Import({SecurityConfig.class, GuardConfig.class, ClockConfig.class, PolicePhoneHeartbeatConfig.class})
 @DisplayName("L2-T03 police phone heartbeat integration")
 class PolicePhoneHeartbeatIntegrationTest {
 
   @Autowired private MockMvc mockMvc;
-  @Autowired private MockEventHub eventHub;
-  @Autowired private InMemoryPolicePhoneFixtureStore fixtureStore;
+  @Autowired private JdbcTemplate jdbcTemplate;
+  @MockitoBean private EventHub eventHub;
   @Autowired private PolicePhoneFreshnessQuery freshnessQuery;
 
   @BeforeEach
   void resetFixtures() {
-    eventHub.reset();
-    fixtureStore.reset();
+    clearInvocations(eventHub);
+    jdbcTemplate.update("DELETE FROM fcm_token");
+    jdbcTemplate.update("DELETE FROM incident_assignment");
+    jdbcTemplate.update(
+        """
+        UPDATE police_phone
+        SET registered = FALSE,
+            last_heartbeat_at = NULL,
+            last_sync_at = NULL,
+            heartbeat_sequence = 0,
+            last_heartbeat_event_id = NULL,
+            version = 1
+        """);
+    PolicePhoneDbFixtureSupport.ensureGuardFixtures(jdbcTemplate);
+    jdbcTemplate.update(
+        "UPDATE police_phone SET registered = TRUE WHERE id IN (?, ?)",
+        PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID,
+        PolicePhoneFixtures.REGISTERED_UNASSIGNED_POLICE_PHONE_ID);
+    jdbcTemplate.update(
+        """
+        INSERT INTO incident_assignment (
+            id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at
+        ) VALUES (?, ?, ?, 'MEMBER', ?, NULL, ?, ?)
+        """,
+        UUID.fromString("71000000-0000-0000-0000-000000000102"),
+        PolicePhoneFixtures.INCIDENT_ID,
+        UUID.fromString(PolicePhoneFixtures.ASSIGNED_ACCOUNT_ID),
+        Instant.parse("2026-05-08T00:00:00Z"),
+        Instant.parse("2026-05-08T00:00:00Z"),
+        Instant.parse("2026-05-08T00:00:00Z"));
   }
 
   @Test
@@ -64,11 +94,17 @@ class PolicePhoneHeartbeatIntegrationTest {
                     """))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.status").value("ONLINE"))
-        .andExpect(jsonPath("$.policePhoneId").value(PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID.toString()))
+        .andExpect(
+            jsonPath("$.policePhoneId").value(PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID.toString()))
         .andExpect(jsonPath("$.sequence").value(1))
-        .andExpect(jsonPath("$.version").value(1));
+        .andExpect(jsonPath("$.version").value(2));
 
-    assertThat(eventHub.findByType(PolicePhoneHeartbeatUpdatedPublishRequest.TYPE)).hasSize(1);
+    verify(eventHub)
+        .publish(
+            argThat(
+                request ->
+                    PolicePhoneHeartbeatUpdatedPublishRequest.TYPE.equals(request.type())
+                        && PolicePhoneFixtures.INCIDENT_ID.equals(request.incidentId())));
 
     var row =
         freshnessQuery.byIncident(PolicePhoneFixtures.INCIDENT_ID).stream()
@@ -78,7 +114,7 @@ class PolicePhoneHeartbeatIntegrationTest {
             .orElseThrow();
 
     assertThat(row.accountId()).isEqualTo(PolicePhoneFixtures.ASSIGNED_ACCOUNT_ID);
-    assertThat(row.version()).isEqualTo(1L);
+    assertThat(row.version()).isEqualTo(2L);
     assertThat(row.derivedFreshness()).isEqualTo(PolicePhoneFreshnessStatus.ONLINE);
   }
 

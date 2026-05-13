@@ -14,15 +14,20 @@ public final class NotificationFixtures {
 
   // ── 공통 사건/OP 컨텍스트 ─────────────────────────────
 
-  public static final String INCIDENT_ID = "inc-precinct-first-001";
-  public static final String OP_ID = "op-precinct-001-op1";
-  public static final String POLICE_PHONE_ID = "dev-precinct-phone-01";
+  public static final String INCIDENT_ALIAS = "inc-precinct-first-001";
+  public static final String INCIDENT_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001";
+  public static final String OP_ALIAS = "op-precinct-001-op1";
+  public static final String OP_ID = "88888888-8888-8888-8888-888888880001";
+  public static final String POLICE_PHONE_CODE = "dev-precinct-phone-01";
+  public static final String POLICE_PHONE_ID = "00000000-0000-0000-0000-000000000101";
   public static final String ACCOUNT_ID = "11111111-1111-1111-1111-111111110003";
 
   // ── SC-08: 지원 요청 알림 ────────────────────────────
 
-  public static final String SUPPORT_MARKER_ID = "mk-precinct-support-001";
-  public static final String SUPPORT_NOTIFICATION_ID = "notif-precinct-support-001";
+  public static final String SUPPORT_MARKER_ALIAS = "mk-precinct-support-001";
+  public static final String SUPPORT_MARKER_ID = "55555555-5555-5555-5555-555555550801";
+  public static final String SUPPORT_NOTIFICATION_ALIAS = "notif-precinct-support-001";
+  public static final String SUPPORT_NOTIFICATION_ID = "66666666-6666-6666-6666-666666660801";
   public static final String SUPPORT_EVENT_ID = "evt-s5-support-request-001";
 
   /** 지원 요청 수신 정책: 지휘관 + 현장지휘관 */
@@ -38,6 +43,12 @@ public final class NotificationFixtures {
 
   /** 지원 요청 수신 대상 폴리폰 */
   public static final List<String> SUPPORT_RECIPIENT_POLICE_PHONE_IDS =
+      List.of(
+          "00000000-0000-0000-0000-000000000205",
+          "00000000-0000-0000-0000-000000000207",
+          "00000000-0000-0000-0000-000000000208");
+
+  public static final List<String> SUPPORT_RECIPIENT_POLICE_PHONE_CODES =
       List.of("dev-alpha-phone-01", "dev-support-car-01", "dev-support-phone-01");
 
   /** 지원 요청 FCM 토큰 수신자 */
@@ -62,8 +73,11 @@ public final class NotificationFixtures {
 
   // ── SC-08: 실종자 발견 알림 ──────────────────────────
 
-  public static final String PERSON_FOUND_MARKER_ID = "mk-precinct-person-found-001";
-  public static final String PERSON_FOUND_NOTIFICATION_ID = "notif-precinct-person-found-001";
+  public static final String PERSON_FOUND_MARKER_ALIAS = "mk-precinct-person-found-001";
+  public static final String PERSON_FOUND_MARKER_ID = "55555555-5555-5555-5555-555555550802";
+  public static final String PERSON_FOUND_NOTIFICATION_ALIAS = "notif-precinct-person-found-001";
+  public static final String PERSON_FOUND_NOTIFICATION_ID =
+      "66666666-6666-6666-6666-666666660802";
   public static final String PERSON_FOUND_EVENT_ID = "evt-s5-person-found-001";
 
   /** 실종자 발견 수신 정책: 사건 배정 전체 */
@@ -83,6 +97,14 @@ public final class NotificationFixtures {
 
   /** 실종자 발견 수신 대상 폴리폰 */
   public static final List<String> PERSON_FOUND_RECIPIENT_POLICE_PHONE_IDS =
+      List.of(
+          "50000000-0000-0000-0000-000000000001",
+          "00000000-0000-0000-0000-000000000101",
+          "00000000-0000-0000-0000-000000000205",
+          "00000000-0000-0000-0000-000000000207",
+          "00000000-0000-0000-0000-000000000208");
+
+  public static final List<String> PERSON_FOUND_RECIPIENT_POLICE_PHONE_CODES =
       List.of(
           "dev-precinct-car-01",
           "dev-precinct-phone-01",
@@ -132,10 +154,18 @@ public final class NotificationFixtures {
 
   /** 지원 배정 수신 대상 폴리폰 */
   public static final List<String> ASSIGNMENT_RECIPIENT_POLICE_PHONE_IDS =
+      List.of(
+          "00000000-0000-0000-0000-000000000207",
+          "00000000-0000-0000-0000-000000000208");
+
+  public static final List<String> ASSIGNMENT_RECIPIENT_POLICE_PHONE_CODES =
       List.of("dev-support-car-01", "dev-support-phone-01");
 
   /** 지원 배정 제외 폴리폰 (지휘 계정) */
   public static final List<String> ASSIGNMENT_EXCLUDED_POLICE_PHONE_IDS =
+      List.of("00000000-0000-0000-0000-000000000206");
+
+  public static final List<String> ASSIGNMENT_EXCLUDED_POLICE_PHONE_CODES =
       List.of("dev-support-cmd-phone-01");
 
   /** 지원 배정 FCM 토큰 수신자 */

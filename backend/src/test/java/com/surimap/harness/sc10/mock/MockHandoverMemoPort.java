@@ -3,7 +3,6 @@ package com.surimap.harness.sc10.mock;
 import com.surimap.handover.command.HandoverMemoCreateCommand;
 import com.surimap.handover.command.HandoverMemoCreateRequest;
 import com.surimap.handover.command.HandoverMemoCreateResult;
-import com.surimap.handover.fixture.HandoverMemoFixtures;
 import com.surimap.handover.query.HandoverMemoQuery;
 import com.surimap.handover.query.HandoverMemoRow;
 import com.surimap.harness.sc10.fixture.Sc10Fixtures;

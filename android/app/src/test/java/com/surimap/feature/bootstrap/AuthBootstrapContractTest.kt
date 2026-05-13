@@ -5,11 +5,14 @@ import com.surimap.core.network.SuriMapApiClient
 import com.surimap.feature.bootstrap.data.AuthBootstrapCoordinator
 import com.surimap.feature.bootstrap.data.AuthBootstrapServerCheck
 import com.surimap.feature.bootstrap.data.AndroidManagedConfigurationReader
+import com.surimap.feature.bootstrap.data.AuthBootstrapCredentials
+import com.surimap.feature.bootstrap.data.DebugManagedConfigurationOverrideProvider
 import com.surimap.feature.bootstrap.data.ManagedPolicePhoneConfig
 import com.surimap.feature.bootstrap.data.NetworkPolicePhoneBootstrapServerCheck
 import com.surimap.feature.bootstrap.ui.AuthBootstrapFailureReason
 import com.surimap.feature.bootstrap.ui.AuthBootstrapOutcome
 import com.surimap.feature.bootstrap.ui.AuthBootstrapUiState
+import com.surimap.testing.policePhoneIdFixture
 import java.io.File
 import java.io.IOException
 import java.time.Clock
@@ -29,8 +32,14 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RuntimeEnvironment
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 import kotlin.reflect.KClass
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
 class AuthBootstrapContractTest {
 
     @Test
@@ -84,7 +93,7 @@ class AuthBootstrapContractTest {
     fun managedPolicePhoneConfigCarriesFutureTileAndStorageSettingsWithoutVendorCoupling() {
         val config =
             ManagedPolicePhoneConfig(
-                policePhoneId = "police-phone-precinct-car-01",
+                policePhoneId = POLICE_PHONE_ID,
                 apiBaseUrl = "https://suri-map.internal/api",
                 tileBaseUrl = "https://suri-map.internal/tiles",
                 objectStorageBaseUrl = "https://suri-map.internal/objects",
@@ -126,7 +135,7 @@ class AuthBootstrapContractTest {
     fun readyOutcomeAllowsAutomaticIncidentListNavigationWithoutIncidentDetails() {
         val state = AuthBootstrapUiState.fromOutcome(
             outcome = AuthBootstrapOutcome.Ready(
-                policePhoneId = "police-phone-precinct-car-01"
+                policePhoneId = POLICE_PHONE_ID
             ),
             apiBaseUrl = "https://suri-map.internal"
         )
@@ -168,7 +177,7 @@ class AuthBootstrapContractTest {
             AuthBootstrapCoordinator(
                 managedConfigurationReader = {
                     ManagedPolicePhoneConfig(
-                        policePhoneId = "police-phone-precinct-car-01",
+                        policePhoneId = POLICE_PHONE_ID,
                         apiBaseUrl = "https://suri-map.internal",
                         isManagedPhone = false
                     )
@@ -187,12 +196,89 @@ class AuthBootstrapContractTest {
     }
 
     @Test
+    fun unmanagedDebugFixtureConfigActsAsManagedForUsbSmoke() = runBlocking {
+        val reader =
+            AndroidManagedConfigurationReader(
+                context = RuntimeEnvironment.getApplication(),
+                localOverrideProvider =
+                DebugManagedConfigurationOverrideProvider(
+                    isDebugBuild = true,
+                    apiBaseUrl = "http://127.0.0.1:8080",
+                    fixtureAccountCode = "acct-precinct-team",
+                    fixturePassword = "fixture-password",
+                    fixturePolicePhoneCode = "dev-precinct-phone-01"
+                )
+            )
+        var checkedConfig: ManagedPolicePhoneConfig? = null
+        val coordinator =
+            AuthBootstrapCoordinator(
+                managedConfigurationReader = reader,
+                serverCheck =
+                AuthBootstrapServerCheck { config ->
+                    checkedConfig = config
+                    AuthBootstrapOutcome.Ready(policePhoneId = config.policePhoneId.orEmpty())
+                }
+            )
+
+        val outcome = coordinator.check()
+
+        assertEquals(AuthBootstrapOutcome.Ready(policePhoneId = "dev-precinct-phone-01"), outcome)
+        assertEquals("dev-precinct-phone-01", checkedConfig?.policePhoneId)
+        assertEquals("http://127.0.0.1:8080", checkedConfig?.apiBaseUrl)
+        assertEquals(true, checkedConfig?.isManagedPhone)
+    }
+
+    @Test
+    fun unmanagedDebugWithoutFixtureConfigStaysNotManaged() = runBlocking {
+        var serverCalled = false
+        val coordinator =
+            AuthBootstrapCoordinator(
+                managedConfigurationReader =
+                AndroidManagedConfigurationReader(
+                    context = RuntimeEnvironment.getApplication(),
+                    localOverrideProvider =
+                    DebugManagedConfigurationOverrideProvider(
+                        isDebugBuild = true,
+                        apiBaseUrl = "http://127.0.0.1:8080",
+                        fixtureAccountCode = "",
+                        fixturePassword = "fixture-password",
+                        fixturePolicePhoneCode = "dev-precinct-phone-01"
+                    )
+                ),
+                serverCheck =
+                AuthBootstrapServerCheck {
+                    serverCalled = true
+                    AuthBootstrapOutcome.Ready(policePhoneId = it.policePhoneId.orEmpty())
+                }
+            )
+
+        val outcome = coordinator.check()
+
+        assertEquals(AuthBootstrapOutcome.Blocked(AuthBootstrapFailureReason.NotManagedPhone), outcome)
+        assertFalse(serverCalled)
+    }
+
+    @Test
+    fun nonDebugBuildDoesNotUseLocalFixtureManagedConfigOverride() {
+        val override =
+            DebugManagedConfigurationOverrideProvider(
+                isDebugBuild = false,
+                apiBaseUrl = "http://127.0.0.1:8080",
+                fixtureAccountCode = "acct-precinct-team",
+                fixturePassword = "fixture-password",
+                fixturePolicePhoneCode = "dev-precinct-phone-01"
+            )
+
+        assertNull(override.read())
+    }
+
+    @Test
     fun coordinatorMapsServerFailuresToBootstrapOutcomes() = runBlocking {
         val coordinator =
             AuthBootstrapCoordinator(
                 managedConfigurationReader = {
                     ManagedPolicePhoneConfig(
-                        policePhoneId = "police-phone-precinct-car-01",
+                        policePhoneId = POLICE_PHONE_ID,
                         apiBaseUrl = "https://suri-map.internal"
                     )
                 },
@@ -225,23 +311,98 @@ class AuthBootstrapContractTest {
         val outcome =
             serverCheck.verify(
                 ManagedPolicePhoneConfig(
-                    policePhoneId = "police-phone-precinct-car-01",
+                    policePhoneId = POLICE_PHONE_ID,
                     apiBaseUrl = "https://suri-map.internal"
                 )
             )
 
         val request = callFactory.lastRequest!!
-        assertEquals(AuthBootstrapOutcome.Ready("police-phone-precinct-car-01"), outcome)
+        assertEquals(
+            AuthBootstrapOutcome.Ready(
+                policePhoneId = POLICE_PHONE_ID,
+                accessToken = "token-1"
+            ),
+            outcome
+        )
         assertEquals("POST", request.method)
         assertEquals(
-            "https://suri-map.internal/api/police-phones/police-phone-precinct-car-01/heartbeat",
+            "https://suri-map.internal/api/police-phones/$POLICE_PHONE_ID/heartbeat",
             request.url.toString()
         )
         assertEquals("APP", request.header("X-Client-Channel"))
         assertEquals("Bearer token-1", request.header("Authorization"))
-        assertEquals("police-phone-precinct-car-01", request.header("X-PolicePhone-Id"))
+        assertEquals(POLICE_PHONE_ID, request.header("X-PolicePhone-Id"))
         assertNull(request.header("X-Device-Id"))
         assertEquals("""{"clientTs":"2026-05-11T07:00:00Z","sequence":1}""", readRequestBody(request))
+    }
+
+    @Test
+    fun networkServerCheckLogsInWithFixtureCredentialsBeforeHeartbeat() = runBlocking {
+        val callFactory =
+            CapturingCallFactory(
+                responses =
+                listOf(
+                    response(
+                        200,
+                        """
+                        {
+                          "sessionId": "session-1",
+                          "accessToken": "bootstrap-token-1",
+                          "securityContext": {
+                            "policePhoneId": "$POLICE_PHONE_ID"
+                          }
+                        }
+                        """.trimIndent()
+                    ),
+                    response(200, """{"status":"ACTIVE"}""")
+                )
+            )
+        val serverCheck =
+            NetworkPolicePhoneBootstrapServerCheck(
+                apiClient =
+                SuriMapApiClient(
+                    baseUrl = "https://suri-map.internal",
+                    callFactory = callFactory
+                ),
+                credentialsProvider = {
+                    AuthBootstrapCredentials(
+                        accountCode = "acct-precinct-team",
+                        password = "fixture",
+                        policePhoneCode = "dev-precinct-phone-01"
+                    )
+                },
+                clock = Clock.fixed(Instant.parse("2026-05-11T07:00:00Z"), ZoneOffset.UTC)
+            )
+
+        val outcome =
+            serverCheck.verify(
+                ManagedPolicePhoneConfig(
+                    policePhoneId = POLICE_PHONE_ID,
+                    apiBaseUrl = "https://suri-map.internal"
+                )
+            )
+
+        val requests = callFactory.requests
+        assertEquals(
+            AuthBootstrapOutcome.Ready(
+                policePhoneId = POLICE_PHONE_ID,
+                accessToken = "bootstrap-token-1"
+            ),
+            outcome
+        )
+        assertEquals("POST", requests[0].method)
+        assertEquals("https://suri-map.internal/api/auth/login", requests[0].url.toString())
+        assertEquals("APP", requests[0].header("X-Client-Channel"))
+        assertEquals(
+            """{"accountCode":"acct-precinct-team","password":"fixture","channel":"APP","policePhoneCode":"dev-precinct-phone-01"}""",
+            readRequestBody(requests[0])
+        )
+        assertEquals(
+            "https://suri-map.internal/api/police-phones/$POLICE_PHONE_ID/heartbeat",
+            requests[1].url.toString()
+        )
+        assertEquals("Bearer bootstrap-token-1", requests[1].header("Authorization"))
+        assertEquals(POLICE_PHONE_ID, requests[1].header("X-PolicePhone-Id"))
     }
 
     @Test
@@ -266,7 +427,7 @@ class AuthBootstrapContractTest {
             )
         val config =
             ManagedPolicePhoneConfig(
-                policePhoneId = "police-phone-precinct-car-01",
+                policePhoneId = POLICE_PHONE_ID,
                 apiBaseUrl = "https://suri-map.internal"
             )
 
@@ -280,13 +441,69 @@ class AuthBootstrapContractTest {
         )
     }
 
+    @Test
+    fun networkServerCheckMapsFixtureLoginIoFailureWithoutCrashing() = runBlocking {
+        val serverCheck =
+            NetworkPolicePhoneBootstrapServerCheck(
+                apiClient =
+                SuriMapApiClient(
+                    baseUrl = "http://127.0.0.1:8080",
+                    callFactory = FailingCallFactory()
+                ),
+                credentialsProvider = {
+                    AuthBootstrapCredentials(
+                        accountCode = "acct-precinct-team",
+                        password = "fixture",
+                        policePhoneCode = "dev-precinct-phone-01"
+                    )
+                }
+            )
+
+        assertEquals(
+            AuthBootstrapOutcome.Blocked(AuthBootstrapFailureReason.InternalNetworkUnavailable),
+            serverCheck.verify(
+                ManagedPolicePhoneConfig(
+                    policePhoneId = "dev-precinct-phone-01",
+                    apiBaseUrl = "http://127.0.0.1:8080"
+                )
+            )
+        )
+    }
+
+    @Test
+    fun debugManifestAllowsCleartextForUsbSmokeAndKeepsQaActivity() {
+        val document = File("src/debug/AndroidManifest.xml").requireXml()
+        val applications = document.getElementsByTagName("application")
+        val activities = document.getElementsByTagName("activity")
+
+        assertEquals(
+            "true",
+            applications.item(0).attributes.getNamedItem("android:usesCleartextTraffic").nodeValue
+        )
+        assertTrue((0 until activities.length).any { index ->
+            activities.item(index).attributes.getNamedItem("android:name")?.nodeValue ==
+                ".ui.qa.DeviceQaActivity"
+        })
+    }
+
+    private companion object {
+        val POLICE_PHONE_ID = policePhoneIdFixture("precinct-car-01")
+    }
+
     private class CapturingCallFactory(
-        private val response: Response
+        private val responses: List<Response>
     ) : Call.Factory {
+        constructor(response: Response) : this(listOf(response))
+
         var lastRequest: Request? = null
+        val requests = mutableListOf<Request>()
+        private var index = 0
 
         override fun newCall(request: Request): Call {
             lastRequest = request
+            requests += request
+            val response = responses[minOf(index, responses.lastIndex)]
+            index += 1
             return CapturingCall(request, response)
         }
     }

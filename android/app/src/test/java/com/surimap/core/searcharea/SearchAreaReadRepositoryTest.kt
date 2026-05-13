@@ -2,6 +2,8 @@ package com.surimap.core.searcharea
 
 import com.surimap.core.network.AccessTokenProvider
 import com.surimap.core.network.SuriMapApiClient
+import com.surimap.testing.incidentIdFixture
+import com.surimap.testing.opIdFixture
 import kotlin.reflect.KClass
 import kotlinx.coroutines.runBlocking
 import okhttp3.Call
@@ -28,13 +30,14 @@ class SearchAreaReadRepositoryTest {
             accessTokenProvider = AccessTokenProvider { "token-1" }
         )
 
-        val result = repository.activeOverall("inc-precinct-first-001")
+        val incidentId = incidentIdFixture("precinct-first-001")
+        val result = repository.activeOverall(incidentId)
 
         val request = callFactory.lastRequest!!
         assertEquals(200, result.statusCode)
         assertEquals("GET", request.method)
         assertEquals(
-            "https://suri-map.example.com/api/search-areas?incidentId=inc-precinct-first-001&areaLevel=OVERALL&status=ACTIVE",
+            "https://suri-map.example.com/api/search-areas?incidentId=$incidentId&areaLevel=OVERALL&status=ACTIVE",
             request.url.toString()
         )
         assertEquals("APP", request.header("X-Client-Channel"))
@@ -53,9 +56,11 @@ class SearchAreaReadRepositoryTest {
             )
         )
 
+        val incidentId = incidentIdFixture("precinct-first-001")
+        val opId = opIdFixture("001")
         repository.list(
-            incidentId = "inc-precinct-first-001",
-            opId = "op-001",
+            incidentId = incidentId,
+            opId = opId,
             areaLevel = "UNIT",
             status = "ACTIVE"
         )
@@ -63,7 +68,7 @@ class SearchAreaReadRepositoryTest {
         val request = callFactory.lastRequest!!
         assertEquals("GET", request.method)
         assertEquals(
-            "https://suri-map.example.com/api/search-areas?incidentId=inc-precinct-first-001&opId=op-001&areaLevel=UNIT&status=ACTIVE",
+            "https://suri-map.example.com/api/search-areas?incidentId=$incidentId&opId=$opId&areaLevel=UNIT&status=ACTIVE",
             request.url.toString()
         )
         assertEquals("APP", request.header("X-Client-Channel"))

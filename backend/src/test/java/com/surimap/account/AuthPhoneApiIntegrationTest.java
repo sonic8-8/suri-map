@@ -9,9 +9,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.jayway.jsonpath.JsonPath;
 import com.surimap.eventhub.port.EventHub;
-import com.surimap.policephone.InMemoryPolicePhoneFixtureStore;
 import com.surimap.policephone.PolicePhoneFixtures;
 import com.surimap.policephone.PolicePhoneHeartbeatUpdatedPublishRequest;
+import com.surimap.policephone.query.FcmTokenQuery;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,7 +29,7 @@ import org.springframework.test.web.servlet.MvcResult;
 class AuthPhoneApiIntegrationTest {
 
   @Autowired private MockMvc mockMvc;
-  @Autowired private InMemoryPolicePhoneFixtureStore fixtureStore;
+  @Autowired private FcmTokenQuery fcmTokenQuery;
   @MockitoBean private EventHub eventHub;
 
   @Test
@@ -112,7 +112,7 @@ class AuthPhoneApiIntegrationTest {
         .andExpect(jsonPath("$.tokenCiphertext").doesNotExist())
         .andExpect(jsonPath("$.tokenHash").doesNotExist());
 
-    var activeTokens = fixtureStore.activeByPolicePhone(PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID);
+    var activeTokens = fcmTokenQuery.activeByPolicePhone(PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID);
     assertThat(activeTokens)
         .anySatisfy(
             row -> {

@@ -46,6 +46,7 @@ import com.surimap.ui.theme.PoliPrimaryBorder
 import com.surimap.ui.theme.PoliPrimaryFillSoft
 import com.surimap.ui.theme.PoliWarning
 import com.surimap.ui.theme.SuriMapTheme
+import java.util.Locale
 
 enum class MarkerType(val apiValue: String, val label: String) {
     CLUE("CLUE", "단서"),
@@ -84,6 +85,19 @@ data class MarkerPhotoUiState(
     val retryAvailable: Boolean = false
 )
 
+enum class MarkerLocationSource {
+    Current,
+    Manual
+}
+
+data class MarkerLocationUiState(
+    val lon: Double,
+    val lat: Double
+) {
+    val isValid: Boolean =
+        lon.isFinite() && lat.isFinite() && lon in -180.0..180.0 && lat in -90.0..90.0
+}
+
 data class MarkerCreateSheetUiState(
     val selectedType: MarkerType,
     val supportRequestType: SupportRequestType?,
@@ -91,20 +105,29 @@ data class MarkerCreateSheetUiState(
     val photoCount: Int,
     val photos: List<MarkerPhotoUiState>,
     val saveStatus: MarkerSaveStatus,
+    val selectedLocation: MarkerLocationUiState?,
+    val locationSource: MarkerLocationSource,
     val locationLabel: String,
     val createdAtLabel: String,
     val authorLabel: String
 ) {
     val markerTypePayloadName: String = "type"
     val supportRequestPayloadName: String = "supportRequestType"
+    val locationPayloadName: String = "location"
+    val manualLocationAdjusted: Boolean = locationSource == MarkerLocationSource.Manual
     val requiresSupportRequestType: Boolean =
         selectedType == MarkerType.SUPPORT_REQUEST && supportRequestType == null
     val maxPhotoCount: Int = MAX_PHOTO_COUNT
     val maxPhotoBytes: Long = MAX_PHOTO_BYTES
+    val selectedLocationIsValid: Boolean = selectedLocation?.isValid == true
     val photosWithinSizeLimit: Boolean =
         photos.all { photo -> photo.sizeBytes == null || photo.sizeBytes in 1..maxPhotoBytes }
     val canAttachPhoto: Boolean = photoCount < maxPhotoCount && photos.size < maxPhotoCount
-    val canSave: Boolean = !requiresSupportRequestType && saveStatus != MarkerSaveStatus.Saving && photosWithinSizeLimit
+    val canSave: Boolean =
+        !requiresSupportRequestType &&
+            selectedLocationIsValid &&
+            saveStatus != MarkerSaveStatus.Saving &&
+            photosWithinSizeLimit
     val opensBlockedOutbox: Boolean = false
     val photoLimitLabel: String = "사진 ${photoCount.coerceAtMost(maxPhotoCount)} / $maxPhotoCount · 파일당 10MB"
     val photoLimitWarning: String? =
@@ -170,6 +193,8 @@ data class MarkerCreateSheetUiState(
                 photoCount = 0,
                 photos = emptyList(),
                 saveStatus = MarkerSaveStatus.Editing,
+                selectedLocation = MarkerLocationUiState(lon = 126.913400, lat = 35.163100),
+                locationSource = MarkerLocationSource.Current,
                 locationLabel = "현재 위치 · 35.163100, 126.913400",
                 createdAtLabel = "기록 시각 · 14:24 자동 입력",
                 authorLabel = "작성 · 기동대 1부대 A팀 폴리폰"
@@ -199,6 +224,23 @@ data class MarkerCreateSheetUiState(
     }
 }
 
+fun MarkerCreateSheetUiState.withCurrentLocation(lon: Double, lat: Double): MarkerCreateSheetUiState =
+    copy(
+        selectedLocation = MarkerLocationUiState(lon = lon, lat = lat),
+        locationSource = MarkerLocationSource.Current,
+        locationLabel = markerLocationLabel(prefix = "지도 중심", lon = lon, lat = lat)
+    )
+
+fun MarkerCreateSheetUiState.withManualLocation(lon: Double, lat: Double): MarkerCreateSheetUiState =
+    copy(
+        selectedLocation = MarkerLocationUiState(lon = lon, lat = lat),
+        locationSource = MarkerLocationSource.Manual,
+        locationLabel = markerLocationLabel(prefix = "수동 조정", lon = lon, lat = lat)
+    )
+
+private fun markerLocationLabel(prefix: String, lon: Double, lat: Double): String =
+    String.format(Locale.US, "%s · %.6f, %.6f", prefix, lat, lon)
+
 @Composable
 fun MarkerCreateBottomSheet(
     state: MarkerCreateSheetUiState,
@@ -207,6 +249,7 @@ fun MarkerCreateBottomSheet(
     onSelectSupportRequestType: (SupportRequestType) -> Unit,
     onMemoChange: (String) -> Unit,
     onSave: () -> Unit,
+    onAdjustLocation: () -> Unit,
     onAttachPhoto: () -> Unit,
     onRetryPhoto: (MarkerPhotoUiState) -> Unit,
     modifier: Modifier = Modifier
@@ -228,7 +271,7 @@ fun MarkerCreateBottomSheet(
             ) {
                 GrabHandle()
                 SheetHeader(state = state, onDismiss = onDismiss)
-                AutoInfoCard(state = state)
+                AutoInfoCard(state = state, onAdjustLocation = onAdjustLocation)
                 MarkerTypeGrid(
                     selectedType = state.selectedType,
                     onSelectMarkerType = onSelectMarkerType
@@ -281,9 +324,15 @@ private fun SheetHeader(state: MarkerCreateSheetUiState, onDismiss: () -> Unit) 
 }
 
 @Composable
-private fun AutoInfoCard(state: MarkerCreateSheetUiState) {
+private fun AutoInfoCard(state: MarkerCreateSheetUiState, onAdjustLocation: () -> Unit) {
     PoliCard(strong = true) {
         PoliRow(title = "위치", subtitle = state.locationLabel)
+        PoliButton(
+            text = if (state.manualLocationAdjusted) "지도 중심 재적용" else "위치 조정",
+            onClick = onAdjustLocation,
+            size = PoliButtonSize.Small,
+            variant = PoliButtonVariant.Secondary
+        )
         PoliRow(title = "시각", subtitle = state.createdAtLabel)
         PoliRow(title = "작성", subtitle = state.authorLabel)
     }
@@ -528,6 +577,7 @@ private fun MarkerCreateBottomSheetPreview() {
             onSelectSupportRequestType = {},
             onMemoChange = {},
             onSave = {},
+            onAdjustLocation = {},
             onAttachPhoto = {},
             onRetryPhoto = {}
         )

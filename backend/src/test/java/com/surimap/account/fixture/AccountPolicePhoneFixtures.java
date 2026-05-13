@@ -1,20 +1,24 @@
 package com.surimap.account.fixture;
 
+import com.surimap.account.AccountIdentityCatalog;
 import com.surimap.common.auth.AccountType;
 import com.surimap.common.auth.OrganizationType;
 import com.surimap.common.auth.Role;
 import java.util.List;
+import java.util.UUID;
 
-/** S1-2 account/police_phone harness fixture IDs from docs/spec/harness-scenarios.md §6. */
+/** S1-2 account/police_phone harness fixture IDs and codes from docs/spec/harness-scenarios.md §6. */
 public final class AccountPolicePhoneFixtures {
 
-  public static final String INCIDENT_ID = "inc-precinct-first-001";
-  public static final String OP1_ID = "op-precinct-001-op1";
+  public static final String INCIDENT_ALIAS = "inc-precinct-first-001";
+  public static final String OP1_ALIAS = "op-precinct-001-op1";
 
   private static final AccountFixture PRECINCT_COMMANDER =
       new AccountFixture(
-          "acct-precinct-cmd",
+          AccountIdentityCatalog.PRECINCT_COMMANDER_ID,
+          AccountIdentityCatalog.PRECINCT_COMMANDER_CODE,
           "team-precinct-jongno",
+          UUID.fromString("00000000-0000-0000-0000-000000000201"),
           "dev-precinct-cmd-phone-01",
           AccountType.COMMAND,
           OrganizationType.POLICE_SUBSTATION,
@@ -22,8 +26,10 @@ public final class AccountPolicePhoneFixtures {
 
   private static final AccountFixture PRECINCT_PATROL =
       new AccountFixture(
-          "acct-precinct-car",
+          AccountIdentityCatalog.PRECINCT_PATROL_ID,
+          AccountIdentityCatalog.PRECINCT_PATROL_CODE,
           "team-precinct-jongno",
+          UUID.fromString("50000000-0000-0000-0000-000000000001"),
           "dev-precinct-car-01",
           AccountType.PATROL_CAR,
           OrganizationType.POLICE_SUBSTATION,
@@ -31,8 +37,10 @@ public final class AccountPolicePhoneFixtures {
 
   private static final AccountFixture PRECINCT_TEAM =
       new AccountFixture(
-          "acct-precinct-team",
+          AccountIdentityCatalog.PRECINCT_TEAM_ID,
+          AccountIdentityCatalog.PRECINCT_TEAM_CODE,
           "team-precinct-jongno",
+          UUID.fromString("00000000-0000-0000-0000-000000000101"),
           "dev-precinct-phone-01",
           AccountType.TEAM,
           OrganizationType.POLICE_SUBSTATION,
@@ -40,8 +48,10 @@ public final class AccountPolicePhoneFixtures {
 
   private static final AccountFixture ALPHA_COMMANDER =
       new AccountFixture(
-          "acct-cmd-alpha",
+          AccountIdentityCatalog.ALPHA_COMMANDER_ID,
+          AccountIdentityCatalog.ALPHA_COMMANDER_CODE,
           "team-missing-alpha",
+          UUID.fromString("00000000-0000-0000-0000-000000000204"),
           "dev-alpha-cmd-phone-01",
           AccountType.COMMAND,
           OrganizationType.MISSING_TEAM,
@@ -49,8 +59,10 @@ public final class AccountPolicePhoneFixtures {
 
   private static final AccountFixture ALPHA_TEAM =
       new AccountFixture(
-          "acct-team-alpha",
+          AccountIdentityCatalog.ALPHA_TEAM_ID,
+          AccountIdentityCatalog.ALPHA_TEAM_CODE,
           "team-missing-alpha",
+          UUID.fromString("00000000-0000-0000-0000-000000000205"),
           "dev-alpha-phone-01",
           AccountType.TEAM,
           OrganizationType.MISSING_TEAM,
@@ -58,8 +70,10 @@ public final class AccountPolicePhoneFixtures {
 
   private static final AccountFixture SUPPORT_COMMANDER =
       new AccountFixture(
-          "acct-support-cmd",
+          AccountIdentityCatalog.SUPPORT_COMMANDER_ID,
+          AccountIdentityCatalog.SUPPORT_COMMANDER_CODE,
           "team-support-bravo",
+          UUID.fromString("00000000-0000-0000-0000-000000000206"),
           "dev-support-cmd-phone-01",
           AccountType.COMMAND,
           OrganizationType.SUPPORT_UNIT,
@@ -67,8 +81,10 @@ public final class AccountPolicePhoneFixtures {
 
   private static final AccountFixture SUPPORT_PATROL =
       new AccountFixture(
-          "acct-support-car",
+          AccountIdentityCatalog.SUPPORT_PATROL_ID,
+          AccountIdentityCatalog.SUPPORT_PATROL_CODE,
           "team-support-bravo",
+          UUID.fromString("00000000-0000-0000-0000-000000000207"),
           "dev-support-car-01",
           AccountType.PATROL_CAR,
           OrganizationType.SUPPORT_UNIT,
@@ -76,8 +92,10 @@ public final class AccountPolicePhoneFixtures {
 
   private static final AccountFixture SUPPORT_TEAM =
       new AccountFixture(
-          "acct-support-team",
+          AccountIdentityCatalog.SUPPORT_TEAM_ID,
+          AccountIdentityCatalog.SUPPORT_TEAM_CODE,
           "team-support-bravo",
+          UUID.fromString("00000000-0000-0000-0000-000000000208"),
           "dev-support-phone-01",
           AccountType.TEAM,
           OrganizationType.SUPPORT_UNIT,
@@ -99,16 +117,27 @@ public final class AccountPolicePhoneFixtures {
 
   public static List<PolicePhoneFixture> policePhones() {
     return accounts().stream()
-        .map(account -> new PolicePhoneFixture(account.policePhoneId(), account.id(), true))
+        .map(
+            account ->
+                new PolicePhoneFixture(
+                    account.policePhoneId(), account.policePhoneCode(), account.id(), true))
         .toList();
   }
 
-  public static List<String> accountIds() {
+  public static List<UUID> accountIds() {
     return accounts().stream().map(AccountFixture::id).toList();
   }
 
-  public static List<String> policePhoneIds() {
+  public static List<String> accountCodes() {
+    return accounts().stream().map(AccountFixture::accountCode).toList();
+  }
+
+  public static List<UUID> policePhoneIds() {
     return policePhones().stream().map(PolicePhoneFixture::id).toList();
+  }
+
+  public static List<String> policePhoneCodes() {
+    return policePhones().stream().map(PolicePhoneFixture::phoneCode).toList();
   }
 
   public static AccountFixture precinctCommander() {
@@ -128,12 +157,14 @@ public final class AccountPolicePhoneFixtures {
   }
 
   public record AccountFixture(
-      String id,
-      String teamId,
-      String policePhoneId,
+      UUID id,
+      String accountCode,
+      String teamCode,
+      UUID policePhoneId,
+      String policePhoneCode,
       AccountType accountType,
       OrganizationType organizationType,
       List<Role> roles) {}
 
-  public record PolicePhoneFixture(String id, String accountId, boolean registered) {}
+  public record PolicePhoneFixture(UUID id, String phoneCode, UUID accountId, boolean registered) {}
 }

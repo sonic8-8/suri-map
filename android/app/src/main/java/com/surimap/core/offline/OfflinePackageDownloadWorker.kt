@@ -4,12 +4,14 @@ import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.surimap.BuildConfig
+import com.surimap.core.network.AccessTokenProvider
 
 data class OfflinePackageWorkerInstallRequest(
     val incidentId: String,
     val policePhoneId: String,
     val manifestId: String,
-    val apiBaseUrl: String = BuildConfig.SURI_MAP_API_BASE_URL
+    val apiBaseUrl: String = BuildConfig.SURI_MAP_API_BASE_URL,
+    val accessToken: String? = null
 )
 
 fun interface OfflinePackageWorkerInstaller {
@@ -30,6 +32,7 @@ class OfflinePackageDownloadWorker(appContext: Context, workerParameters: Worker
         val apiBaseUrl = inputData.getString(KEY_API_BASE_URL)
             ?.takeIf(String::isNotBlank)
             ?: BuildConfig.SURI_MAP_API_BASE_URL
+        val accessToken = inputData.getString(KEY_ACCESS_TOKEN)?.takeIf(String::isNotBlank)
         if (incidentId == null || policePhoneId == null || manifestId == null) {
             return Result.failure()
         }
@@ -38,12 +41,14 @@ class OfflinePackageDownloadWorker(appContext: Context, workerParameters: Worker
                 incidentId = incidentId,
                 policePhoneId = policePhoneId,
                 manifestId = manifestId,
-                apiBaseUrl = apiBaseUrl
+                apiBaseUrl = apiBaseUrl,
+                accessToken = accessToken
             )
         val installer = OfflinePackageDownloadRuntime.installer
             ?: RoomOfflinePackageWorkerInstaller.fromContext(
                 context = applicationContext,
-                apiBaseUrl = apiBaseUrl
+                apiBaseUrl = apiBaseUrl,
+                accessTokenProvider = AccessTokenProvider { accessToken }
             )
         installer.install(request)
         return Result.success()
@@ -54,5 +59,6 @@ class OfflinePackageDownloadWorker(appContext: Context, workerParameters: Worker
         const val KEY_POLICE_PHONE_ID = "policePhoneId"
         const val KEY_MANIFEST_ID = "manifestId"
         const val KEY_API_BASE_URL = "apiBaseUrl"
+        const val KEY_ACCESS_TOKEN = "accessToken"
     }
 }

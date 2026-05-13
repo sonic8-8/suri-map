@@ -13,7 +13,9 @@ public record PolicePhoneFreshnessRow(
     OrganizationType organizationType,
     UUID incidentId,
     UUID opId,
+    UUID latestEventId,
     Instant lastHeartbeatAt,
     Instant lastSyncAt,
     long version,
+    long heartbeatSequence,
     PolicePhoneFreshnessStatus derivedFreshness) {}

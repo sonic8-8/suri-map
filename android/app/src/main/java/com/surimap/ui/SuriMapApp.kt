@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,7 +34,9 @@ import com.surimap.core.offline.OfflinePackageItemStatus
 import com.surimap.core.offline.OfflinePackageManifestQuery
 import com.surimap.core.offline.OfflinePackageRepository
 import com.surimap.core.offline.toOfflinePackageItemStatusEntity
+import com.surimap.core.operationalperiod.DutyShiftRepository
 import com.surimap.core.operationalperiod.HandoverMemoRepository
+import com.surimap.core.operationalperiod.OperationalPeriodReadRepository
 import com.surimap.core.operationalperiod.SearchHistorySummaryReadRepository
 import com.surimap.core.path.SearchPathRepository
 import com.surimap.core.searcharea.SearchAreaReadRepository
@@ -41,8 +44,10 @@ import com.surimap.core.sync.RoomSyncClient
 import com.surimap.feature.bootstrap.data.AndroidManagedConfigurationReader
 import com.surimap.feature.bootstrap.data.AuthBootstrapCoordinator
 import com.surimap.feature.bootstrap.data.AuthBootstrapServerCheck
+import com.surimap.feature.bootstrap.data.BuildConfigAuthBootstrapCredentialsProvider
 import com.surimap.feature.bootstrap.data.ManagedPolicePhoneConfig
 import com.surimap.feature.bootstrap.data.NetworkPolicePhoneBootstrapServerCheck
+import com.surimap.feature.bootstrap.ui.AuthBootstrapOutcome
 import com.surimap.feature.bootstrap.ui.AuthBootstrapScreen
 import com.surimap.feature.bootstrap.ui.AuthBootstrapUiState
 import com.surimap.feature.handover.data.DutyHandoverStateLoader
@@ -56,6 +61,7 @@ import com.surimap.feature.handover.ui.HandoverMemoScreen
 import com.surimap.feature.handover.ui.HandoverMemoTarget
 import com.surimap.feature.handover.ui.HandoverMemoUiState
 import com.surimap.feature.incidents.data.IncidentListStateLoader
+import com.surimap.feature.incidents.data.IncidentSessionContextResolver
 import com.surimap.feature.incidents.ui.IncidentListScreen
 import com.surimap.feature.incidents.ui.IncidentListUiState
 import com.surimap.feature.marker.data.MarkerLocalRecorder
@@ -70,6 +76,8 @@ import com.surimap.feature.marker.ui.MarkerSaveStatus
 import com.surimap.feature.marker.ui.MarkerType
 import com.surimap.feature.marker.ui.sampleMarkerDetailState
 import com.surimap.feature.marker.ui.sampleMarkerCreateSheetState
+import com.surimap.feature.marker.ui.withCurrentLocation
+import com.surimap.feature.marker.ui.withManualLocation
 import com.surimap.feature.offline.data.OfflinePackageStateLoader
 import com.surimap.feature.offline.ui.OfflinePackageScreen
 import com.surimap.feature.offline.ui.OfflinePackageUiState
@@ -87,8 +95,9 @@ import com.surimap.ui.navigation.IncidentSessionState
 import com.surimap.ui.navigation.PolicePhoneContext
 import com.surimap.ui.navigation.PolicePhoneRoute
 import com.surimap.ui.navigation.SearchMapDeepLink
+import com.surimap.ui.navigation.accessTokenProvider
 import com.surimap.ui.theme.PoliBgBase
-import java.util.Locale
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 
 @Composable
@@ -213,17 +222,20 @@ private fun HandoverSummaryRoute(
     val policePhoneContext = incidentSessionState.policePhoneContext
     val sessionContext = incidentContext.toHandoverSessionContext(policePhoneContext)
     val apiBaseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
+    val accessTokenProvider = policePhoneContext.accessTokenProvider()
     val loader =
-        remember(apiBaseUrl) {
+        remember(apiBaseUrl, policePhoneContext?.accessToken) {
             DutyHandoverStateLoader(
                 handoverMemos = { query ->
                     HandoverMemoRepository(
-                        apiClient = SuriMapApiClient(baseUrl = apiBaseUrl)
+                        apiClient = SuriMapApiClient(baseUrl = apiBaseUrl),
+                        accessTokenProvider = accessTokenProvider
                     ).listHandoverMemos(query)
                 },
                 searchHistorySummaries = { operationalPeriodId, query ->
                     SearchHistorySummaryReadRepository(
-                        apiClient = SuriMapApiClient(baseUrl = apiBaseUrl)
+                        apiClient = SuriMapApiClient(baseUrl = apiBaseUrl),
+                        accessTokenProvider = accessTokenProvider
                     ).list(operationalPeriodId, query)
                 }
             )
@@ -308,27 +320,30 @@ private fun SearchMapRoute(
     val database = remember(context) { SuriMapDatabaseProvider.database(context) }
     val outboxDao = remember(database) { database.outboxDao() }
     val sessionContext = incidentContext.toSearchMapSessionContext(policePhoneContext)
+    val accessTokenProvider = policePhoneContext.accessTokenProvider()
     val syncClient = remember(database) { RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()) }
     val searchPathRecorder = remember(syncClient) {
         SearchPathLocalRecorder(
             syncClient = syncClient
         )
     }
-    val markerRecorder = remember(syncClient) {
+    val markerRecorder = remember(syncClient, database) {
         MarkerLocalRecorder(
-            syncClient = syncClient
+            syncClient = syncClient,
+            localMarkerDao = database.localMarkerDao()
         )
     }
     val coroutineScope = rememberCoroutineScope()
     val loader =
-        remember(policePhoneContext?.apiBaseUrl, outboxDao) {
+        remember(policePhoneContext?.apiBaseUrl, policePhoneContext?.accessToken, database, outboxDao) {
             SearchMapStateLoader(
                 incidentDetail = { incidentId ->
                     IncidentReadRepository(
                         apiClient =
                         SuriMapApiClient(
                             baseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
-                        )
+                        ),
+                        accessTokenProvider = accessTokenProvider
                     ).detail(incidentId)
                 },
                 overallSearchArea = { incidentId ->
@@ -336,7 +351,8 @@ private fun SearchMapRoute(
                         apiClient =
                         SuriMapApiClient(
                             baseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
-                        )
+                        ),
+                        accessTokenProvider = accessTokenProvider
                     ).activeOverall(incidentId)
                 },
                 opSearchAreas = { incidentId, opId ->
@@ -344,7 +360,8 @@ private fun SearchMapRoute(
                         apiClient =
                         SuriMapApiClient(
                             baseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
-                        )
+                        ),
+                        accessTokenProvider = accessTokenProvider
                     ).list(incidentId = incidentId, opId = opId, status = "ACTIVE")
                 },
                 searchPaths = { query ->
@@ -352,7 +369,8 @@ private fun SearchMapRoute(
                         apiClient =
                         SuriMapApiClient(
                             baseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
-                        )
+                        ),
+                        accessTokenProvider = accessTokenProvider
                     ).listSearchPaths(query)
                 },
                 initialMarkers = { incidentId, policePhoneId ->
@@ -360,7 +378,8 @@ private fun SearchMapRoute(
                         apiClient =
                         SuriMapApiClient(
                             baseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
-                        )
+                        ),
+                        accessTokenProvider = accessTokenProvider
                     ).manifest(
                         OfflinePackageManifestQuery(
                             incidentId = incidentId,
@@ -370,6 +389,9 @@ private fun SearchMapRoute(
                 },
                 outboxSummary = { incidentId, policePhoneId ->
                     outboxDao.statusSummary(incidentId = incidentId, policePhoneId = policePhoneId)
+                },
+                pendingMarkers = { incidentId, policePhoneId ->
+                    database.localMarkerDao().findPendingByIncidentAndPolicePhone(incidentId, policePhoneId)
                 }
             )
         }
@@ -405,7 +427,7 @@ private fun SearchMapRoute(
                 }
             },
             onCreateMarker = {
-                markerSheetState = sampleMarkerCreateSheetState().withLocation(searchMapState.markerCreationLocation())
+                markerSheetState = sampleMarkerCreateSheetState().withCurrentLocation(searchMapState.markerCreationLocation())
                 markerSheetOpen = true
             },
             onOpenHandover = { navController.navigateToSingleTop(PolicePhoneRoute.HandoverSummary) },
@@ -440,13 +462,16 @@ private fun SearchMapRoute(
                 onMemoChange = { memo ->
                     markerSheetState = markerSheetState.copy(memo = memo)
                 },
+                onAdjustLocation = {
+                    markerSheetState = markerSheetState.withManualLocation(searchMapState.markerCreationLocation())
+                },
                 onSave = {
                     coroutineScope.launch {
                         markerSheetState = markerSheetState.copy(saveStatus = MarkerSaveStatus.Saving)
                         when (
                             markerRecorder.createMarker(
                                 context = sessionContext.toMarkerWriteContext(),
-                                input = markerSheetState.toMarkerUpsertInput(searchMapState.markerCreationLocation())
+                                input = markerSheetState.toMarkerUpsertInput()
                             )
                         ) {
                             MarkerWriteResult.Blocked -> {
@@ -481,11 +506,27 @@ private fun OfflinePackageRoute(
     val offlinePackageDownloadScheduler = remember(context) {
         OfflinePackageDownloadScheduler(WorkManager.getInstance(context))
     }
+    val installationRefreshSignal by remember(
+        incidentContext?.incidentId,
+        policePhoneContext?.policePhoneId,
+        offlinePackageInstallationDao
+    ) {
+        if (incidentContext == null || policePhoneContext == null) {
+            flowOf<OfflinePackageInstallationEntity?>(null)
+        } else {
+            offlinePackageInstallationDao.observe(
+                incidentId = incidentContext.incidentId,
+                policePhoneId = policePhoneContext.policePhoneId
+            )
+        }
+    }.collectAsState(initial = null)
+    val accessTokenProvider = policePhoneContext.accessTokenProvider()
     val loader =
         remember(
             incidentContext?.incidentId,
             policePhoneContext?.policePhoneId,
             policePhoneContext?.apiBaseUrl,
+            policePhoneContext?.accessToken,
             offlinePackageInstallationDao,
             offlinePackageItemStatusDao,
             offlinePackageDownloadScheduler
@@ -496,7 +537,8 @@ private fun OfflinePackageRoute(
                 OfflinePackageStateLoader(
                     repository =
                     OfflinePackageRepository(
-                        apiClient = SuriMapApiClient(baseUrl = policePhoneContext.apiBaseUrl)
+                        apiClient = SuriMapApiClient(baseUrl = policePhoneContext.apiBaseUrl),
+                        accessTokenProvider = accessTokenProvider
                     ),
                     incidentId = incidentContext.incidentId,
                     policePhoneId = policePhoneContext.policePhoneId,
@@ -533,7 +575,8 @@ private fun OfflinePackageRoute(
                                 incidentId = incidentContext.incidentId,
                                 policePhoneId = policePhoneContext.policePhoneId,
                                 manifestId = plan.manifestId,
-                                apiBaseUrl = policePhoneContext.apiBaseUrl
+                                apiBaseUrl = policePhoneContext.apiBaseUrl,
+                                accessToken = policePhoneContext.accessToken
                             )
                         )
                     }
@@ -546,7 +589,7 @@ private fun OfflinePackageRoute(
         mutableStateOf(OfflinePackageUiState.loading(incidentTitle = fallbackIncidentTitle))
     }
 
-    LaunchedEffect(loader, fallbackIncidentTitle, retryNonce) {
+    LaunchedEffect(loader, fallbackIncidentTitle, retryNonce, installationRefreshSignal) {
         state = OfflinePackageUiState.loading(incidentTitle = fallbackIncidentTitle)
         state =
             loader?.load()
@@ -576,7 +619,8 @@ private fun AuthBootstrapRoute(
             serverCheck =
             AuthBootstrapServerCheck { config ->
                 NetworkPolicePhoneBootstrapServerCheck(
-                    apiClient = SuriMapApiClient(baseUrl = config.apiBaseUrl)
+                    apiClient = SuriMapApiClient(baseUrl = config.apiBaseUrl),
+                    credentialsProvider = BuildConfigAuthBootstrapCredentialsProvider
                 ).verify(config)
             }
         )
@@ -591,8 +635,8 @@ private fun AuthBootstrapRoute(
         state = AuthBootstrapUiState.checking(apiBaseUrl = config.apiBaseUrl)
         val outcome = bootstrapCoordinator.check(config)
         state = AuthBootstrapUiState.fromOutcome(outcome = outcome, apiBaseUrl = config.apiBaseUrl)
-        if (state.shouldEnterIncidentList) {
-            incidentSessionState.activatePolicePhoneContext(config.toPolicePhoneContext())
+        if (outcome is AuthBootstrapOutcome.Ready && state.shouldEnterIncidentList) {
+            incidentSessionState.activatePolicePhoneContext(config.toPolicePhoneContext(outcome))
             navController.navigate(PolicePhoneRoute.IncidentList.route) {
                 popUpTo(PolicePhoneRoute.AuthBootstrap.route) {
                     inclusive = true
@@ -617,16 +661,41 @@ private fun IncidentListRoute(
 ) {
     val policePhoneContext = incidentSessionState.policePhoneContext
     val policePhoneLabel = policePhoneContext?.policePhoneId ?: "관리 폴리폰"
-    val loader = remember(policePhoneContext?.apiBaseUrl, policePhoneLabel) {
+    val accessTokenProvider = policePhoneContext.accessTokenProvider()
+    val coroutineScope = rememberCoroutineScope()
+    val loader = remember(policePhoneContext?.apiBaseUrl, policePhoneContext?.accessToken, policePhoneLabel) {
         IncidentListStateLoader(
             repository =
             IncidentReadRepository(
                 apiClient =
                 SuriMapApiClient(
                     baseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
-                )
+                ),
+                accessTokenProvider = accessTokenProvider
             ),
             policePhoneLabel = policePhoneLabel
+        )
+    }
+    val contextResolver = remember(policePhoneContext?.apiBaseUrl, policePhoneContext?.accessToken) {
+        IncidentSessionContextResolver(
+            operationalPeriods = { incidentId ->
+                OperationalPeriodReadRepository(
+                    apiClient =
+                    SuriMapApiClient(
+                        baseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
+                    ),
+                    accessTokenProvider = accessTokenProvider
+                ).list(incidentId)
+            },
+            dutyShifts = { query ->
+                DutyShiftRepository(
+                    apiClient =
+                    SuriMapApiClient(
+                        baseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
+                    ),
+                    accessTokenProvider = accessTokenProvider
+                ).listDutyShifts(query)
+            }
         )
     }
     var refreshNonce by remember { mutableStateOf(0) }
@@ -645,8 +714,12 @@ private fun IncidentListRoute(
     IncidentListScreen(
         state = state,
         onOpenIncident = { incident ->
-            incidentSessionState.activateIncidentContext(incident.toIncidentContext())
-            navController.navigateToSingleTop(PolicePhoneRoute.OfflinePackage)
+            coroutineScope.launch {
+                incidentSessionState.activateIncidentContext(
+                    contextResolver.resolve(incident, policePhoneId = policePhoneContext?.policePhoneId)
+                )
+                navController.navigateToSingleTop(PolicePhoneRoute.OfflinePackage)
+            }
         },
         onRefresh = { refreshNonce += 1 },
         onDismissClosedDialog = {
@@ -656,13 +729,14 @@ private fun IncidentListRoute(
     )
 }
 
-private fun ManagedPolicePhoneConfig.toPolicePhoneContext(): PolicePhoneContext {
+private fun ManagedPolicePhoneConfig.toPolicePhoneContext(outcome: AuthBootstrapOutcome.Ready): PolicePhoneContext {
     return PolicePhoneContext(
-        policePhoneId = requireNotNull(policePhoneId),
+        policePhoneId = outcome.policePhoneId,
         apiBaseUrl = apiBaseUrl,
         tileBaseUrl = tileBaseUrl,
         objectStorageBaseUrl = objectStorageBaseUrl,
-        allowedHosts = allowedHosts
+        allowedHosts = allowedHosts,
+        accessToken = outcome.accessToken
     )
 }
 
@@ -825,28 +899,33 @@ private fun SearchMapUiState.markerCreationLocation(): MarkerLocation? =
         )
     }
 
-private fun MarkerCreateSheetUiState.toMarkerUpsertInput(location: MarkerLocation?): MarkerUpsertInput =
+private fun MarkerCreateSheetUiState.toMarkerUpsertInput(): MarkerUpsertInput =
     MarkerUpsertInput(
         type = selectedType.apiValue,
-        location = location,
+        location = selectedLocation?.let { MarkerLocation(lon = it.lon, lat = it.lat) },
         supportRequestType = supportRequestType?.apiValue,
         memo = memo
     )
 
-private fun MarkerCreateSheetUiState.withLocation(location: MarkerLocation?): MarkerCreateSheetUiState =
-    copy(
-        locationLabel =
-        if (location == null) {
-            "지도 기준 위치 확인 필요"
-        } else {
-            String.format(Locale.US, "지도 중심 · %.6f, %.6f", location.lat, location.lon)
-        }
-    )
+private fun MarkerCreateSheetUiState.withCurrentLocation(location: MarkerLocation?): MarkerCreateSheetUiState =
+    if (location == null) {
+        copy(selectedLocation = null, locationLabel = "지도 기준 위치 확인 필요")
+    } else {
+        withCurrentLocation(lon = location.lon, lat = location.lat)
+    }
+
+private fun MarkerCreateSheetUiState.withManualLocation(location: MarkerLocation?): MarkerCreateSheetUiState =
+    if (location == null) {
+        copy(selectedLocation = null, locationLabel = "지도 기준 위치 확인 필요")
+    } else {
+        withManualLocation(lon = location.lon, lat = location.lat)
+    }
 
 private fun PolicePhoneContext?.toMapLibreRuntimeMapState(): MapLibreRuntimeMapState =
     MapLibreRuntimeMapState(
         apiBaseUrl = this?.tileBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL,
-        policePhoneId = this?.policePhoneId
+        policePhoneId = this?.policePhoneId,
+        accessToken = this?.accessToken
     )
 
 private fun NavHostController.navigateToSingleTop(route: PolicePhoneRoute) {

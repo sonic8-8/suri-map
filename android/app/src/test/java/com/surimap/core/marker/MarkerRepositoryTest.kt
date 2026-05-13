@@ -6,6 +6,12 @@ import com.surimap.core.sync.HarnessSyncStatus
 import com.surimap.core.sync.LocalWriteOperation
 import com.surimap.core.sync.OutboxStatus
 import com.surimap.core.sync.SyncClient
+import com.surimap.testing.incidentIdFixture
+import com.surimap.testing.markerIdFixture
+import com.surimap.testing.operationIdFixture
+import com.surimap.testing.opIdFixture
+import com.surimap.testing.photoIdFixture
+import com.surimap.testing.policePhoneIdFixture
 import java.time.Instant
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -21,7 +27,7 @@ class MarkerRepositoryTest {
 
         repository.createMarker(
             CreateMarkerCommand(
-                operationId = "op-marker-create-001",
+                operationId = operationIdFixture("marker-create-001"),
                 incidentId = INCIDENT_ID,
                 opId = OP_ID,
                 policePhoneId = POLICE_PHONE_ID,
@@ -59,7 +65,7 @@ class MarkerRepositoryTest {
 
         repository.updateMarker(
             UpdateMarkerCommand(
-                operationId = "op-marker-update-001",
+                operationId = operationIdFixture("marker-update-001"),
                 incidentId = INCIDENT_ID,
                 opId = OP_ID,
                 markerId = MARKER_ID,
@@ -87,7 +93,7 @@ class MarkerRepositoryTest {
 
         repository.deleteMarker(
             DeleteMarkerCommand(
-                operationId = "op-marker-delete-001",
+                operationId = operationIdFixture("marker-delete-001"),
                 incidentId = INCIDENT_ID,
                 opId = OP_ID,
                 markerId = MARKER_ID,
@@ -117,7 +123,7 @@ class MarkerRepositoryTest {
 
         repository.requestPhotoUploadUrl(
             PhotoUploadUrlCommand(
-                operationId = "op-photo-upload-url-001",
+                operationId = operationIdFixture("photo-upload-url-001"),
                 incidentId = INCIDENT_ID,
                 opId = OP_ID,
                 markerId = MARKER_ID,
@@ -143,7 +149,7 @@ class MarkerRepositoryTest {
 
         repository.attachPhoto(
             PhotoAttachCommand(
-                operationId = "op-photo-attach-001",
+                operationId = operationIdFixture("photo-attach-001"),
                 incidentId = INCIDENT_ID,
                 opId = OP_ID,
                 markerId = MARKER_ID,
@@ -158,7 +164,7 @@ class MarkerRepositoryTest {
                 checksumSha256 = "sha256-local-photo",
                 clientTs = CLIENT_TS,
                 clockSyncedAt = CLOCK_SYNCED_AT,
-                parentOperationId = "op-photo-upload-url-001"
+                parentOperationId = operationIdFixture("photo-upload-url-001")
             )
         )
 
@@ -166,7 +172,7 @@ class MarkerRepositoryTest {
         assertEquals("POST", operation.method)
         assertEquals("/api/markers/$MARKER_ID/photos/$PHOTO_ID/attach", operation.endpoint)
         assertEquals(PHOTO_ID, operation.entityId)
-        assertEquals("op-photo-upload-url-001", operation.parentOperationId)
+        assertEquals(operationIdFixture("photo-upload-url-001"), operation.parentOperationId)
         assertEquals(
             """{"sizeBytes":512000,"contentType":"image/jpeg","width":1280,"height":960,"checksumSha256":"sha256-local-photo"}""",
             operation.payload
@@ -188,11 +194,11 @@ class MarkerRepositoryTest {
     }
 
     private companion object {
-        const val INCIDENT_ID = "inc-precinct-first-001"
-        const val OP_ID = "op-precinct-first-001"
-        const val MARKER_ID = "mk-precinct-clue-001"
-        const val PHOTO_ID = "photo-precinct-clue-001"
-        const val POLICE_PHONE_ID = "phone-precinct-001"
+        val INCIDENT_ID = incidentIdFixture("precinct-first-001")
+        val OP_ID = opIdFixture("precinct-first-001")
+        val MARKER_ID = markerIdFixture("precinct-clue-001")
+        val PHOTO_ID = photoIdFixture("precinct-clue-001")
+        val POLICE_PHONE_ID = policePhoneIdFixture("precinct-001")
         val CLIENT_TS: Instant = Instant.parse("2026-05-11T06:00:00Z")
         val CLOCK_SYNCED_AT: Instant = Instant.parse("2026-05-11T05:59:30Z")
     }

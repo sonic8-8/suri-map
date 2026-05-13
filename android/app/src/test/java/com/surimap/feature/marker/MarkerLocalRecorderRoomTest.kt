@@ -10,6 +10,12 @@ import com.surimap.feature.marker.data.MarkerWriteContext
 import com.surimap.feature.marker.data.MarkerWriteResult
 import com.surimap.feature.marker.data.MarkerLocalRecorder
 import com.surimap.feature.marker.data.MarkerUpsertInput
+import com.surimap.testing.incidentIdFixture
+import com.surimap.testing.markerIdFixture
+import com.surimap.testing.operationIdFixture
+import com.surimap.testing.opIdFixture
+import com.surimap.testing.photoIdFixture
+import com.surimap.testing.policePhoneIdFixture
 import java.time.Instant
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -43,6 +49,7 @@ class MarkerLocalRecorderRoomTest {
         val recorder =
             MarkerLocalRecorder(
                 syncClient = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()),
+                localMarkerDao = database.localMarkerDao(),
                 now = { CLIENT_TS },
                 sequenceSource = sequenceSource(50),
                 idFactory = idFactory()
@@ -115,6 +122,14 @@ class MarkerLocalRecorderRoomTest {
         assertEquals("marker", draft!!.entityType)
         assertEquals(create.operationId, draft.operationId)
         assertTrue(draft.payload.contains("\"type\":\"CLUE\""))
+
+        val pendingMarkers = database.localMarkerDao().findPendingByIncidentAndPolicePhone(INCIDENT_ID, POLICE_PHONE_ID)
+        assertEquals(1, pendingMarkers.size)
+        assertEquals(create.operationId, pendingMarkers.single().localMarkerId)
+        assertEquals("CLUE", pendingMarkers.single().type)
+        assertEquals(126.9565, pendingMarkers.single().lon, 0.0)
+        assertEquals(37.5712, pendingMarkers.single().lat, 0.0)
+        assertEquals("PENDING_SEND", pendingMarkers.single().syncStatus)
     }
 
     private fun sequenceSource(first: Long): () -> Long {
@@ -124,15 +139,15 @@ class MarkerLocalRecorderRoomTest {
 
     private fun idFactory(): (String) -> String {
         var next = 1
-        return { prefix -> "$prefix-${next.toString().padStart(3, '0')}".also { next++ } }
+        return { prefix -> operationIdFixture("${prefix.removePrefix("op-")}-${next.toString().padStart(3, '0')}").also { next++ } }
     }
 
     private companion object {
-        const val INCIDENT_ID = "inc-precinct-first-001"
-        const val OP_ID = "op-precinct-first-001"
-        const val MARKER_ID = "mk-precinct-clue-001"
-        const val PHOTO_ID = "photo-precinct-clue-001"
-        const val POLICE_PHONE_ID = "phone-precinct-001"
+        val INCIDENT_ID = incidentIdFixture("precinct-first-001")
+        val OP_ID = opIdFixture("precinct-first-001")
+        val MARKER_ID = markerIdFixture("precinct-clue-001")
+        val PHOTO_ID = photoIdFixture("precinct-clue-001")
+        val POLICE_PHONE_ID = policePhoneIdFixture("precinct-001")
         val CLIENT_TS: Instant = Instant.parse("2026-05-11T06:00:00Z")
         val LOCATION = MarkerLocation(lon = 126.9565, lat = 37.5712)
         val CONTEXT =

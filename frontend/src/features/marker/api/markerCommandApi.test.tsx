@@ -14,7 +14,7 @@ import {
 describe('marker command API', () => {
   test('updates marker with idempotency key through canonical path', async () => {
     const response: MarkerMutationResponse = {
-      id: 'mk-precinct-clue-001',
+      id: MARKER_ID,
       status: 'ACTIVE',
       version: 4,
     };
@@ -23,7 +23,7 @@ describe('marker command API', () => {
 
     await expect(
       api.updateMarker(
-        'mk-precinct-clue-001',
+        MARKER_ID,
         {
           version: 3,
           location: {
@@ -38,7 +38,7 @@ describe('marker command API', () => {
     ).resolves.toBe(response);
 
     expect(client.patch).toHaveBeenCalledWith(
-      '/markers/mk-precinct-clue-001',
+      `/markers/${MARKER_ID}`,
       {
         version: 3,
         location: {
@@ -54,7 +54,7 @@ describe('marker command API', () => {
 
   test('deletes marker with idempotency key through canonical path', async () => {
     const response: MarkerMutationResponse = {
-      id: 'mk-precinct-clue-001',
+      id: MARKER_ID,
       status: 'DELETED',
       version: 5,
     };
@@ -63,13 +63,13 @@ describe('marker command API', () => {
 
     await expect(
       api.deleteMarker(
-        'mk-precinct-clue-001',
+        MARKER_ID,
         { version: 4, reason: 'duplicated' },
         'idem-marker-delete-001',
       ),
     ).resolves.toBe(response);
 
-    expect(client.delete).toHaveBeenCalledWith('/markers/mk-precinct-clue-001', {
+    expect(client.delete).toHaveBeenCalledWith(`/markers/${MARKER_ID}`, {
       body: { version: 4, reason: 'duplicated' },
       headers: { 'Idempotency-Key': 'idem-marker-delete-001' },
     });
@@ -78,12 +78,12 @@ describe('marker command API', () => {
   test('marker mutations invalidate marker cache after success', async () => {
     const markerCommandApi = {
       updateMarker: vi.fn(async () => ({
-        id: 'mk-precinct-clue-001',
+        id: MARKER_ID,
         status: 'ACTIVE',
         version: 4,
       })),
       deleteMarker: vi.fn(async () => ({
-        id: 'mk-precinct-clue-001',
+        id: MARKER_ID,
         status: 'DELETED',
         version: 5,
       })),
@@ -91,14 +91,14 @@ describe('marker command API', () => {
     const updateHook = renderMutationHook(() => useUpdateMarkerMutation(markerCommandApi));
 
     updateHook.result.current.mutate({
-      markerId: 'mk-precinct-clue-001',
+      markerId: MARKER_ID,
       request: { version: 3, memo: '수정 메모' },
       idempotencyKey: 'idem-marker-update-001',
     });
 
     await waitFor(() => expect(updateHook.result.current.isSuccess).toBe(true));
     expect(markerCommandApi.updateMarker).toHaveBeenCalledWith(
-      'mk-precinct-clue-001',
+      MARKER_ID,
       { version: 3, memo: '수정 메모' },
       'idem-marker-update-001',
     );
@@ -109,14 +109,14 @@ describe('marker command API', () => {
     const deleteHook = renderMutationHook(() => useDeleteMarkerMutation(markerCommandApi));
 
     deleteHook.result.current.mutate({
-      markerId: 'mk-precinct-clue-001',
+      markerId: MARKER_ID,
       request: { version: 4, reason: 'duplicated' },
       idempotencyKey: 'idem-marker-delete-001',
     });
 
     await waitFor(() => expect(deleteHook.result.current.isSuccess).toBe(true));
     expect(markerCommandApi.deleteMarker).toHaveBeenCalledWith(
-      'mk-precinct-clue-001',
+      MARKER_ID,
       { version: 4, reason: 'duplicated' },
       'idem-marker-delete-001',
     );
@@ -135,6 +135,8 @@ function fakeApiClient<TResponse>(response: TResponse): ApiClient {
     delete: vi.fn(async () => response),
   } as unknown as ApiClient;
 }
+
+const MARKER_ID = '55555555-5555-5555-5555-555555550001';
 
 function renderMutationHook<TResult>(callback: () => TResult) {
   const queryClient = new QueryClient({

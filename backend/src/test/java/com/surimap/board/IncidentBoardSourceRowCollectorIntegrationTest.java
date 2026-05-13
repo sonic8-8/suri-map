@@ -1,9 +1,13 @@
 package com.surimap.board;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.surimap.handover.query.HandoverMemoQuery;
 import com.surimap.handover.query.HandoverMemoRow;
+import com.surimap.incident.domain.IncidentRecord;
+import com.surimap.incident.repository.IncidentMapper;
 import com.surimap.maparea.geometry.geojson.GeoJsonPolygon;
 import com.surimap.maparea.query.OverallSearchAreaResult;
 import com.surimap.maparea.query.SearchAreaCollection;
@@ -14,6 +18,8 @@ import com.surimap.marker.domain.MarkerSource;
 import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
+import com.surimap.marker.notification.query.MarkerNotificationToastQuery;
+import com.surimap.marker.notification.query.MarkerNotificationToastRow;
 import com.surimap.marker.query.MarkerQuery;
 import com.surimap.marker.query.MarkerQueryFilters;
 import com.surimap.marker.query.MarkerQueryResult;
@@ -29,6 +35,14 @@ import com.surimap.path.SearchPathAggregate;
 import com.surimap.path.SearchPathPoint;
 import com.surimap.path.SearchPathService;
 import com.surimap.path.validation.GpsPathValidator;
+import com.surimap.policephone.PolicePhoneFreshnessStatus;
+import com.surimap.policephone.query.PolicePhoneFreshnessQuery;
+import com.surimap.policephone.query.PolicePhoneFreshnessRow;
+import com.surimap.retention.purge.IncidentDataPurgeRun;
+import com.surimap.retention.purge.IncidentDataPurgeStatus;
+import com.surimap.retention.purge.IncidentDataPurgeStore;
+import com.surimap.retention.purge.LocalPurgeState;
+import com.surimap.retention.purge.PurgeEnvironmentPolicy;
 import com.surimap.summary.SearchHistorySummaryMapper;
 import com.surimap.summary.SearchHistorySummaryRow;
 import java.math.BigDecimal;
@@ -36,6 +50,7 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -57,6 +72,8 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
   private static final UUID ACCOUNT_ID = UUID.fromString("70000000-0000-4000-8000-000000000001");
   private static final UUID MEMO_ID = UUID.fromString("80000000-0000-4000-8000-000000000001");
   private static final UUID SUMMARY_ID = UUID.fromString("90000000-0000-4000-8000-000000000001");
+  private static final UUID PURGE_RUN_ID =
+      UUID.fromString("91000000-0000-4000-8000-000000000001");
   private static final Instant STARTED_AT = Instant.parse("2026-04-28T00:00:00Z");
 
   @Test
@@ -67,11 +84,15 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
         new DefaultIncidentBoardSourceRowCollector(
             provider(new FakeSearchAreaQuery()),
             provider(searchPathService()),
+            provider(new FakePolicePhoneFreshnessQuery()),
             markerQuery,
             new FakePackageQuery(),
             new FakeOperationalPeriodQuery(),
             new FakeHandoverMemoQuery(),
-            new FakeSummaryMapper());
+            new FakeSummaryMapper(),
+            provider(null),
+            provider(null),
+            provider(new FakeToastQuery()));
 
     IncidentBoardSourceRowSnapshot snapshot =
         collector.collect(
@@ -82,11 +103,14 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
                     "overall_search_area",
                     "area",
                     "path",
+                    "police_phone_freshness",
                     "marker",
+                    "toast",
                     "package_badge",
                     "op_toggle",
                     "op_history",
                     "handover_memo",
+                    "handover_status",
                     "search_history_summary"),
                 null));
 
@@ -100,18 +124,24 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
             "overall_search_area",
             "area",
             "path",
+            "police_phone_freshness",
             "marker",
+            "toast",
             "package_badge",
             "op_toggle",
             "op_history",
             "handover_memo",
+            "handover_status",
             "search_history_summary");
     assertThat(row(snapshot, "overall_search_area").sourceSpec()).isEqualTo("S2");
     assertThat(row(snapshot, "path").sourceSpec()).isEqualTo("S3-1");
+    assertThat(row(snapshot, "police_phone_freshness").sourceSpec()).isEqualTo("S1-2");
     assertThat(row(snapshot, "marker").sourceSpec()).isEqualTo("S5");
+    assertThat(row(snapshot, "toast").payload()).containsEntry("type", "SUPPORT_REQUEST_CREATED");
     assertThat(row(snapshot, "package_badge").sourceSpec()).isEqualTo("S7");
     assertThat(row(snapshot, "op_toggle").sourceSpec()).isEqualTo("S8");
     assertThat(row(snapshot, "handover_memo").payload()).containsEntry("content", "memo for next team");
+    assertThat(row(snapshot, "handover_status").payload()).containsEntry("handoverStatus", "READY");
     assertThat(row(snapshot, "search_history_summary").payload())
         .containsEntry("summaryText", "searched ridge trail and checked shelter");
   }
@@ -125,6 +155,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
         new DefaultIncidentBoardSourceRowCollector(
             provider(searchAreaQuery),
             provider(searchPathService()),
+            provider(new FakePolicePhoneFreshnessQuery()),
             markerQuery,
             new FakePackageQuery(),
             new FakeOperationalPeriodQuery(),
@@ -150,6 +181,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
         new DefaultIncidentBoardSourceRowCollector(
             provider(searchAreaQuery),
             provider(searchPathService()),
+            provider(new FakePolicePhoneFreshnessQuery()),
             new CapturingMarkerQuery(),
             new FakePackageQuery(),
             new FakeOperationalPeriodQuery(),
@@ -166,6 +198,77 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
         .singleElement()
         .extracting(SearchAreaFilters::minVersion)
         .isNull();
+  }
+
+  @Test
+  @DisplayName("collects sanitized incident_terminal row from closed incident and purge source")
+  void collects_sanitized_incident_terminal_row_from_closed_incident_and_purge_source() {
+    IncidentMapper incidentMapper = mock(IncidentMapper.class);
+    IncidentDataPurgeStore purgeStore = mock(IncidentDataPurgeStore.class);
+    IncidentRecord incident = new IncidentRecord();
+    incident.setId(INCIDENT_ID);
+    incident.setStatus("CLOSED");
+    incident.setClosedAt(STARTED_AT);
+    incident.setVersion(12L);
+    when(incidentMapper.findByIncidentId(INCIDENT_ID)).thenReturn(Optional.of(incident));
+    when(purgeStore.findByIncidentId(INCIDENT_ID))
+        .thenReturn(
+            Optional.of(
+                new IncidentDataPurgeRun(
+                    PURGE_RUN_ID,
+                    INCIDENT_ID,
+                    IncidentDataPurgeStatus.COMPLETED,
+                    STARTED_AT,
+                    STARTED_AT.plusSeconds(60),
+                    STARTED_AT.plusSeconds(30),
+                    null,
+                    13L,
+                    PurgeEnvironmentPolicy.PRODUCTION_IMMEDIATE,
+                    LocalPurgeState.LOCAL_PURGED)));
+
+    DefaultIncidentBoardSourceRowCollector collector =
+        new DefaultIncidentBoardSourceRowCollector(
+            provider(null),
+            provider(null),
+            provider(new FakePolicePhoneFreshnessQuery()),
+            new CapturingMarkerQuery(),
+            new FakePackageQuery(),
+            new FakeOperationalPeriodQuery(),
+            new FakeHandoverMemoQuery(),
+            new FakeSummaryMapper(),
+            provider(incidentMapper),
+            provider(purgeStore),
+            provider(null));
+
+    IncidentBoardSourceRowSnapshot snapshot =
+        collector.collect(
+            new BoardSourceRowContext(
+                INCIDENT_ID, List.of(OP_ID), List.of("incident_terminal", "police_phone_freshness"), null));
+
+    BoardDTO board =
+        new BoardAssembler()
+            .assemble(
+                new BoardAssemblyRequest(
+                    INCIDENT_ID.toString(),
+                    "board-response-test",
+                    0L,
+                    OffsetDateTime.parse("2026-04-28T09:00:00+09:00"),
+                    OP_ID.toString(),
+                    List.of(OP_ID.toString()),
+                    snapshot.geometryHash(),
+                    snapshot.sourceRows()));
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> terminal = (Map<String, Object>) board.slots().get("incident_terminal");
+    assertThat(terminal)
+        .containsEntry("incidentId", INCIDENT_ID.toString())
+        .containsEntry("terminalStatus", "PURGED")
+        .containsEntry("writeDisabledReason", "purged")
+        .containsEntry("localPurgeState", "completed");
+    assertThat(terminal.keySet())
+        .doesNotContain("missingPerson", "missing_person", "latestLocation", "packageReloadUrl");
+    assertThat(board.slots().get("police_phone_freshness")).isEqualTo(List.of());
+    assertThat(board.slotSources().get("incident_terminal")).singleElement();
   }
 
   private static BoardSourceRow row(IncidentBoardSourceRowSnapshot snapshot, String slot) {
@@ -362,12 +465,50 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
     }
   }
 
+  private static final class FakeToastQuery implements MarkerNotificationToastQuery {
+    @Override
+    public List<MarkerNotificationToastRow> byIncident(UUID incidentId) {
+      return List.of(
+          new MarkerNotificationToastRow(
+              UUID.fromString("51000000-0000-4000-8000-000000000001"),
+              MARKER_ID,
+              incidentId,
+              OP_ID,
+              PHONE_ID,
+              "SUPPORT_REQUEST_CREATED",
+              "SNAPSHOT_CREATED",
+              12L,
+              STARTED_AT,
+              UUID.fromString("52000000-0000-4000-8000-000000000001")));
+    }
+  }
+
   private static final class FakePackageQuery implements OfflinePackageInstallationQuery {
     @Override
     public List<OfflinePackageInstallationStatus> byIncident(String incidentId) {
       return List.of(
           new OfflinePackageInstallationStatus(
               "pkg-status-test-001", incidentId, PHONE_ID.toString(), "READY", 7L, 701L, 1, true));
+    }
+  }
+
+  private static final class FakePolicePhoneFreshnessQuery implements PolicePhoneFreshnessQuery {
+    @Override
+    public List<PolicePhoneFreshnessRow> byIncident(UUID incidentId) {
+      return List.of(
+          new PolicePhoneFreshnessRow(
+              PHONE_ID,
+              ACCOUNT_ID.toString(),
+              com.surimap.common.auth.AccountType.TEAM,
+              com.surimap.common.auth.OrganizationType.POLICE_SUBSTATION,
+              incidentId,
+              null,
+              UUID.fromString("61000000-0000-0000-0000-000000000001"),
+              STARTED_AT,
+              STARTED_AT,
+              11L,
+              111L,
+              PolicePhoneFreshnessStatus.ONLINE));
     }
   }
 

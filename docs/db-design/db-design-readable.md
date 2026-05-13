@@ -202,8 +202,12 @@ Android Room 로컬 엔티티
 - `phone_code`: 폴리폰 시스템 식별 코드
 - `display_name`: 화면에 표시할 폴리폰 이름
 - `status`: 폴리폰 사용 가능 상태
+- `registered`: 앱 폴리폰 등록 여부. `police_phone_not_registered` guard 판정 기준
 - `last_heartbeat_at`: 마지막 생존 신호 시각
 - `last_sync_at`: 마지막 동기화 완료 시각
+- `heartbeat_sequence`: 마지막으로 수용한 heartbeat sequence. 낮거나 같은 sequence 재전송은 DB 상태와 event를 갱신하지 않는다.
+- `last_heartbeat_event_id`: 마지막으로 수용한 heartbeat에서 발행한 event 식별자. REST 응답과 board freshness row의 `latestEventId` 수렴 기준이다.
+- `version`: heartbeat 수용 시 증가하는 폴리폰 상태 변경 버전
 - `created_at`: 생성 시각
 - `updated_at`: 수정 시각
 

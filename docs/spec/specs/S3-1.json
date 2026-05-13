@@ -1796,7 +1796,7 @@
   "harness_fixtures": {
     "gps_path_normal_001": {
       "fixtureId": "gps-path-normal-001",
-      "pathId": "path-precinct-mixed-001",
+      "pathId": "ffffffff-ffff-ffff-ffff-ffffffffffff",
       "policePhoneCode": "dev-precinct-car-01",
       "policePhoneId": "50000000-0000-0000-0000-000000000001",
       "points": [
@@ -1859,14 +1859,17 @@
       ],
       "expectedSegments": [
         {
-          "segmentId": "seg-precinct-vehicle-001",
-          "movementType": "VEHICLE"
+          "segmentId": "33333333-3333-3333-3333-333333330001",
+          "movementType": "VEHICLE",
+          "segmentAlias": "seg-precinct-vehicle-001"
         },
         {
-          "segmentId": "seg-precinct-foot-001",
-          "movementType": "FOOT"
+          "segmentId": "33333333-3333-3333-3333-333333330002",
+          "movementType": "FOOT",
+          "segmentAlias": "seg-precinct-foot-001"
         }
-      ]
+      ],
+      "pathAlias": "path-precinct-mixed-001"
     },
     "batch_limits": {
       "minItems": 2,

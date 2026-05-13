@@ -64,7 +64,12 @@ def main() -> int:
         "area fixture": ["areaId=area-precinct-a1"],
         "assignment fixture": ["assignmentId=saa-precinct-a1-001"],
         "OP fixture": ["opId=op-precinct-001-op1", "opId=op-precinct-001-op2"],
-        "handover memo fixture": ["memoId=memo-precinct-handover-001"],
+        "handover memo fixture": [
+            "memoId=memo-precinct-handover-001",
+            "memoId=memo-precinct-op2-001",
+            "eeeeeeee-eeee-eeee-eeee-eeeeeeee0001",
+            "eeeeeeee-eeee-eeee-eeee-eeeeeeee0010",
+        ],
         "summary fixture": ["ai-summary-op-precinct-001-op2"],
         "geometry fixture": [
             "EPSG:4326",
@@ -101,8 +106,11 @@ def main() -> int:
     ):
         failures.append("executed evidence commands must include command/result rows")
 
-    if not regex(text, r"Verdict\s*:\s*(PASS|FAIL|BLOCKED)"):
-        failures.append("completion verdict must record Verdict: PASS, FAIL, or BLOCKED")
+    if not regex(text, r"Verdict\s*:\s*PASS"):
+        failures.append("completion verdict must record Verdict: PASS")
+
+    if regex(text, r"Verdict\s*:\s*(FAIL|BLOCKED)"):
+        failures.append("completion verdict must not be FAIL or BLOCKED")
 
     if not regex(text, r"(Defect|결함).{0,180}(None|N/A|없음|S14P31C106-\d+)"):
         failures.append("linked defect task list must record None/N/A/없음 or Jira task keys")
