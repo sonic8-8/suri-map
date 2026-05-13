@@ -8,6 +8,7 @@ import { SituationBoardHeader } from '../components/header/SituationBoardHeader'
 import { SituationBoardLeftPanel } from '../components/leftPanel/SituationBoardLeftPanel';
 import { SituationBoardMap } from '../components/map/SituationBoardMap';
 import { useSituationBoardPageState } from '../hooks/useSituationBoardPageState';
+import { isIncidentTerminalClosed, toIncidentTerminal } from '../utils/incidentTerminalBoardMapper';
 
 type SituationBoardPageProps = {
   incidentId: string;
@@ -17,6 +18,7 @@ type SituationBoardPageProps = {
   onCloseMarkerNotifications: () => void;
   onMoveMarkerNotification: (nextIndex: number) => void;
   onSaveAssignedAreas: (drafts: CompletedAreaDraft[]) => void;
+  onOpenOfflinePackage: () => void;
   savedAreaDrafts: CompletedAreaDraft[];
   refreshVersion?: number;
   onOpenIncidentList: () => void;
@@ -30,6 +32,7 @@ export function SituationBoardPage({
   onCloseMarkerNotifications,
   onMoveMarkerNotification,
   onSaveAssignedAreas,
+  onOpenOfflinePackage,
   savedAreaDrafts,
   refreshVersion = 0,
   onOpenIncidentList,
@@ -40,6 +43,8 @@ export function SituationBoardPage({
     refreshVersion,
     savedAreaDrafts,
   });
+  const incidentTerminal = boardState.apiBoard ? toIncidentTerminal(boardState.apiBoard) : null;
+  const isClosedTerminalBoard = isIncidentTerminalClosed(incidentTerminal);
 
   return (
     <main className={`situation-board-page${boardState.isMapExpanded ? ' map-expanded' : ''}`}>
@@ -50,11 +55,13 @@ export function SituationBoardPage({
           board={boardState.board}
           currentUserAccount={currentUserAccount}
           incidentDetail={boardState.incidentDetail}
+          incidentTerminal={incidentTerminal}
           markerNotificationIndex={markerNotificationIndex}
           markerNotifications={markerNotifications}
           onCloseMarkerNotifications={onCloseMarkerNotifications}
           onMoveMarkerNotification={onMoveMarkerNotification}
           onOpenIncidentList={onOpenIncidentList}
+          onOpenOfflinePackage={onOpenOfflinePackage}
           onOpenSituationBoard={
             boardState.isAreaWorkspaceOpen
               ? boardState.closeAreaWorkspace
@@ -90,6 +97,7 @@ export function SituationBoardPage({
             currentUserAccount={currentUserAccount}
             onOpenIncidentList={onOpenIncidentList}
             onOpenSituationBoard={boardState.closeHandoverWorkspace}
+            onOpenOfflinePackage={onOpenOfflinePackage}
           />
         ) : boardState.isMapExpanded ? null : (
           <SituationBoardLeftPanel
@@ -125,7 +133,9 @@ export function SituationBoardPage({
           selectedSearchAreaId={boardState.selectedSearchAreaId}
         />
       </div>
-      {!boardState.isAreaWorkspaceOpen && boardState.isOverallSearchAreaMissing ? (
+      {!boardState.isAreaWorkspaceOpen &&
+      !isClosedTerminalBoard &&
+      boardState.isOverallSearchAreaMissing ? (
         <OverallSearchAreaRequiredModal
           onOpenAreaWorkspace={boardState.openAreaWorkspace}
           onOpenIncidentList={onOpenIncidentList}

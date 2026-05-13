@@ -8,6 +8,10 @@ import type { LoginAccount } from '../../../../login/presentation/types/login';
 import type { IncidentDetailDto } from '../../../data/getIncidentDetail';
 import type { SituationBoardResponseDto } from '../../../data/getSituationBoard';
 import type { SituationBoardFallbackData } from '../../constants/mockSituationBoard';
+import {
+  isIncidentTerminalClosed,
+  type IncidentTerminalViewModel,
+} from '../../utils/incidentTerminalBoardMapper';
 
 type SituationBoardHeaderProps = {
   activeTab?: SuriMapPageHeaderTabId;
@@ -15,6 +19,7 @@ type SituationBoardHeaderProps = {
   board: SituationBoardFallbackData;
   currentUserAccount: LoginAccount;
   incidentDetail: IncidentDetailDto | null;
+  incidentTerminal: IncidentTerminalViewModel | null;
   markerNotificationIndex: number;
   markerNotifications: MarkerNotification[];
   onCloseMarkerNotifications: () => void;
@@ -22,6 +27,7 @@ type SituationBoardHeaderProps = {
   onOpenIncidentList: () => void;
   onOpenSituationBoard?: () => void;
   onOpenHandover: () => void;
+  onOpenOfflinePackage?: () => void;
 };
 
 export function SituationBoardHeader({
@@ -30,6 +36,7 @@ export function SituationBoardHeader({
   board,
   currentUserAccount,
   incidentDetail,
+  incidentTerminal,
   markerNotificationIndex,
   markerNotifications,
   onCloseMarkerNotifications,
@@ -37,10 +44,11 @@ export function SituationBoardHeader({
   onOpenIncidentList,
   onOpenSituationBoard,
   onOpenHandover,
+  onOpenOfflinePackage,
 }: SituationBoardHeaderProps) {
   const currentAccountLabel = `${currentUserAccount.name} / ${currentUserAccount.organization}`;
   const timestampLabel = apiBoard?.serverTs ? formatKstDateTime(new Date(apiBoard.serverTs)) : '동기화 전';
-  const incidentContext = createIncidentContext(board, incidentDetail);
+  const incidentContext = createIncidentContext(board, incidentDetail, incidentTerminal);
 
   return (
     <SuriMapPageHeader
@@ -54,6 +62,7 @@ export function SituationBoardHeader({
       onMoveMarkerNotification={onMoveMarkerNotification}
       onOpenHandover={onOpenHandover}
       onOpenIncidentList={onOpenIncidentList}
+      onOpenOfflinePackage={onOpenOfflinePackage}
       onOpenSituationBoard={onOpenSituationBoard}
     />
   );
@@ -62,7 +71,12 @@ export function SituationBoardHeader({
 function createIncidentContext(
   board: SituationBoardFallbackData,
   incidentDetail: IncidentDetailDto | null,
+  incidentTerminal: IncidentTerminalViewModel | null,
 ): SuriMapPageHeaderIncidentContext {
+  if (isIncidentTerminalClosed(incidentTerminal)) {
+    return createTerminalIncidentContext(board, incidentDetail, incidentTerminal);
+  }
+
   const missingPerson = incidentDetail && 'missingPerson' in incidentDetail ? incidentDetail.missingPerson : null;
   const assignments = incidentDetail && 'assignments' in incidentDetail ? incidentDetail.assignments : [];
   const status = incidentDetail?.status ?? 'OPEN';
@@ -85,8 +99,58 @@ function createIncidentContext(
       { label: '배정 계정', value: assignmentLabel },
     ],
     statusLabel: `${getIncidentStatusLabel(status)} · ${activeOperationalPeriodLabel}`,
+    statusTone: 'active',
   };
 }
+
+function createTerminalIncidentContext(
+  board: SituationBoardFallbackData,
+  incidentDetail: IncidentDetailDto | null,
+  incidentTerminal: IncidentTerminalViewModel,
+): SuriMapPageHeaderIncidentContext {
+  return {
+    avatarLabel: '종료',
+    eyebrow: `${board.incidentId} · v${incidentDetail?.version ?? '-'}`,
+    title: '종료된 사건',
+    metrics: [
+      {
+        label: '종료 시각',
+        value: incidentTerminal.closedAt ? formatKstDateTime(new Date(incidentTerminal.closedAt)) : '-',
+      },
+      {
+        label: '쓰기 상태',
+        value: writeDisabledReasonLabels[incidentTerminal.writeDisabledReason],
+      },
+      {
+        label: '로컬 정리',
+        value: localPurgeStateLabels[incidentTerminal.localPurgeState],
+      },
+    ],
+    statusLabel: terminalStatusLabels[incidentTerminal.terminalStatus],
+    statusTone: 'terminal',
+  };
+}
+
+const terminalStatusLabels: Record<IncidentTerminalViewModel['terminalStatus'], string> = {
+  OPEN: '진행 중',
+  CLOSED: '종료',
+  PURGE_PENDING: '파기 대기',
+  PURGED: '파기 완료',
+};
+
+const writeDisabledReasonLabels: Record<IncidentTerminalViewModel['writeDisabledReason'], string> = {
+  none: '제한 없음',
+  incident_closed: '사건 종료로 쓰기 불가',
+  purged: '데이터 파기 완료로 쓰기 불가',
+};
+
+const localPurgeStateLabels: Record<IncidentTerminalViewModel['localPurgeState'], string> = {
+  not_started: '정리 시작 전',
+  queued: '정리 대기',
+  in_progress: '정리 진행 중',
+  completed: '정리 완료',
+  failed_retryable: '재시도 필요',
+};
 
 function createAvatarLabel(displayName: string | null) {
   if (!displayName) {
