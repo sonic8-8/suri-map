@@ -33,6 +33,7 @@ import com.surimap.core.offline.OfflinePackageItemStatus
 import com.surimap.core.offline.OfflinePackageManifestQuery
 import com.surimap.core.offline.OfflinePackageRepository
 import com.surimap.core.offline.toOfflinePackageItemStatusEntity
+import com.surimap.core.operationalperiod.DutyShiftRepository
 import com.surimap.core.operationalperiod.HandoverMemoRepository
 import com.surimap.core.operationalperiod.OperationalPeriodReadRepository
 import com.surimap.core.operationalperiod.SearchHistorySummaryReadRepository
@@ -661,6 +662,15 @@ private fun IncidentListRoute(
                     ),
                     accessTokenProvider = accessTokenProvider
                 ).list(incidentId)
+            },
+            dutyShifts = { query ->
+                DutyShiftRepository(
+                    apiClient =
+                    SuriMapApiClient(
+                        baseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
+                    ),
+                    accessTokenProvider = accessTokenProvider
+                ).listDutyShifts(query)
             }
         )
     }
@@ -681,7 +691,9 @@ private fun IncidentListRoute(
         state = state,
         onOpenIncident = { incident ->
             coroutineScope.launch {
-                incidentSessionState.activateIncidentContext(contextResolver.resolve(incident))
+                incidentSessionState.activateIncidentContext(
+                    contextResolver.resolve(incident, policePhoneId = policePhoneContext?.policePhoneId)
+                )
                 navController.navigateToSingleTop(PolicePhoneRoute.OfflinePackage)
             }
         },
