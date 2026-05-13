@@ -176,7 +176,7 @@
   - 예상 작업량: 1d
   - 완료 기준: 배정 사건 가져오기, 실종팀 인계·지원 부대 배정, 오프라인 패키지 사전 적재 흐름을 fixture ID와 함께 리허설하고 pass/fail evidence를 첨부하며, 실패는 별도 follow-up fix task로 연결한다.
 
-- [ ] L1-D01B SC-04~06 리허설 실행과 시연 증거 수집
+- [x] L1-D01B SC-04~06 리허설 실행과 시연 증거 수집
   - 담당 Spec: S1-1
   - 필수 참조: `prd.md §2.3`, `prd.md §5.1`, `spec/harness-scenarios.md §2 SC-04`, `spec/harness-scenarios.md §2 SC-05`, `spec/harness-scenarios.md §2 SC-06`
   - 연관 Lane: L2, L3, L4, L5, L6
