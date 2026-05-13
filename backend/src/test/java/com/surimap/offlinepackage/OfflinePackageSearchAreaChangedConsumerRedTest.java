@@ -218,6 +218,8 @@ class OfflinePackageSearchAreaChangedConsumerRedTest {
     assertThat(row.version()).isPositive();
     assertThat(row.payload())
         .containsEntry("packageStatus", "STALE")
+        .containsEntry("policePhoneCode", statusPhoneCode(id))
+        .containsEntry("policePhoneName", statusPhoneName(id))
         .containsEntry("readyForOfflineUse", false)
         .containsEntry(
             "manifestVersion", OfflinePackageManifestFixtures.MANIFEST_VERSION);
@@ -231,6 +233,32 @@ class OfflinePackageSearchAreaChangedConsumerRedTest {
             "manifestVersion", OfflinePackageManifestFixtures.MANIFEST_VERSION)
         .containsEntry(
             "activeManifestVersion", OfflinePackageInstallationFixtures.STALE_MANIFEST_VERSION);
+  }
+
+  private static String statusPhoneCode(String id) {
+    if (OfflinePackageInstallationFixtures.SEEDED_READY_INSTALLATION_ID.equals(id)) {
+      return OfflinePackageManifestFixtures.POLICE_PHONE_CODE;
+    }
+    if (OfflinePackageInstallationFixtures.SEEDED_PARTIAL_INSTALLATION_ID.equals(id)) {
+      return "dev-precinct-phone-02";
+    }
+    if (OfflinePackageInstallationFixtures.SEEDED_DOWNLOADING_INSTALLATION_ID.equals(id)) {
+      return "dev-precinct-phone-05";
+    }
+    return id;
+  }
+
+  private static String statusPhoneName(String id) {
+    if (OfflinePackageInstallationFixtures.SEEDED_READY_INSTALLATION_ID.equals(id)) {
+      return "경찰서 팀폰";
+    }
+    if (OfflinePackageInstallationFixtures.SEEDED_PARTIAL_INSTALLATION_ID.equals(id)) {
+      return "경찰서 팀폰 02";
+    }
+    if (OfflinePackageInstallationFixtures.SEEDED_DOWNLOADING_INSTALLATION_ID.equals(id)) {
+      return "경찰서 팀폰 05";
+    }
+    return statusPhoneCode(id);
   }
 
   private static PublishRequest searchAreaChangedEvent() {

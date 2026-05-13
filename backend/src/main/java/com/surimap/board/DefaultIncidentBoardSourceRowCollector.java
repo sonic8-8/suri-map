@@ -2,6 +2,8 @@ package com.surimap.board;
 
 import com.surimap.handover.query.HandoverMemoQuery;
 import com.surimap.handover.query.HandoverMemoRow;
+import com.surimap.incident.domain.IncidentRecord;
+import com.surimap.incident.repository.IncidentMapper;
 import com.surimap.maparea.geometry.geojson.GeoJsonPolygon;
 import com.surimap.maparea.query.OverallSearchAreaResult;
 import com.surimap.maparea.query.SearchAreaFilters;
@@ -20,6 +22,9 @@ import com.surimap.path.PathExcludedPoint;
 import com.surimap.path.PathQueryRow;
 import com.surimap.path.SearchPathSegment;
 import com.surimap.path.SearchPathService;
+import com.surimap.retention.purge.LocalPurgeState;
+import com.surimap.retention.purge.RetentionPurgeStatus;
+import com.surimap.retention.purge.RetentionPurgeStatusSnapshot;
 import com.surimap.summary.SearchHistorySummaryMapper;
 import com.surimap.summary.SearchHistorySummaryRow;
 import java.nio.charset.StandardCharsets;
@@ -50,6 +55,8 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
   private final OperationalPeriodQuery operationalPeriodQuery;
   private final HandoverMemoQuery handoverMemoQuery;
   private final SearchHistorySummaryMapper searchHistorySummaryMapper;
+  private final ObjectProvider<IncidentMapper> incidentMapper;
+  private final ObjectProvider<RetentionPurgeStatus> retentionPurgeStatus;
 
   public DefaultIncidentBoardSourceRowCollector(
       ObjectProvider<SearchAreaQuery> searchAreaQuery,
@@ -58,7 +65,9 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
       OfflinePackageInstallationQuery offlinePackageInstallationQuery,
       OperationalPeriodQuery operationalPeriodQuery,
       HandoverMemoQuery handoverMemoQuery,
-      SearchHistorySummaryMapper searchHistorySummaryMapper) {
+      SearchHistorySummaryMapper searchHistorySummaryMapper,
+      ObjectProvider<IncidentMapper> incidentMapper,
+      ObjectProvider<RetentionPurgeStatus> retentionPurgeStatus) {
     this.searchAreaQuery = searchAreaQuery;
     this.searchPathService = searchPathService;
     this.markerQuery = Objects.requireNonNull(markerQuery, "markerQuery must not be null");
@@ -72,6 +81,9 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
         Objects.requireNonNull(handoverMemoQuery, "handoverMemoQuery must not be null");
     this.searchHistorySummaryMapper =
         Objects.requireNonNull(searchHistorySummaryMapper, "searchHistorySummaryMapper must not be null");
+    this.incidentMapper = Objects.requireNonNull(incidentMapper, "incidentMapper must not be null");
+    this.retentionPurgeStatus =
+        Objects.requireNonNull(retentionPurgeStatus, "retentionPurgeStatus must not be null");
   }
 
   @Override
@@ -90,6 +102,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     collectOperationalPeriodRows(context, rows);
     collectHandoverMemoRows(context, selectedOpIds, rows);
     collectSearchHistorySummaryRows(context, selectedOpIds, rows);
+    collectIncidentTerminalRows(context, rows);
 
     return new IncidentBoardSourceRowSnapshot(
         activeOpId, selectedOpIds, geometryHash(rows), rows);
@@ -215,6 +228,22 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
                 .stream()
                 .map(this::searchHistorySummaryRow)
                 .forEach(rows::add));
+  }
+
+  private void collectIncidentTerminalRows(BoardSourceRowContext context, List<BoardSourceRow> rows) {
+    if (!context.includes("incident_terminal")) {
+      return;
+    }
+    IncidentMapper mapper = incidentMapper.getIfAvailable();
+    if (mapper == null) {
+      return;
+    }
+
+    mapper
+        .findByIncidentId(context.incidentId())
+        .filter(incident -> "CLOSED".equals(incident.getStatus()))
+        .map(incident -> incidentTerminalRow(incident, purgeStatusOf(incident.getId())))
+        .ifPresent(rows::add);
   }
 
   private BoardSourceRow overallSearchAreaRow(OverallSearchAreaResult row) {
@@ -373,6 +402,37 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
         payload);
   }
 
+  private BoardSourceRow incidentTerminalRow(
+      IncidentRecord incident, RetentionPurgeStatusSnapshot purgeStatus) {
+    String terminalStatus = terminalStatus(purgeStatus);
+    String closedStatus = closedStatus(terminalStatus);
+    String writeDisabledReason = writeDisabledReason(terminalStatus);
+    String localPurgeState = localPurgeState(purgeStatus);
+    long version = Math.max(incident.getVersion(), purgeStatus == null ? 0 : purgeStatus.version());
+    String sourceSpec = purgeStatus == null ? "S1-1" : "S1-3";
+    String incidentId = incident.getId().toString();
+
+    Map<String, Object> payload = new LinkedHashMap<>();
+    payload.put("incidentId", incidentId);
+    payload.put("terminalStatus", terminalStatus);
+    payload.put("closedStatus", closedStatus);
+    payload.put("closedAt", incident.getClosedAt());
+    payload.put("writeDisabledReason", writeDisabledReason);
+    payload.put("localPurgeState", localPurgeState);
+
+    return sourceRow(
+        "incident_terminal",
+        sourceSpec,
+        incidentId,
+        "board-incident-terminal-" + incidentId,
+        terminalStatus,
+        version,
+        version,
+        eventId(sourceSpec, "incident-terminal", incidentId, version),
+        sourceHash("incident_terminal", incidentId, version, terminalStatus + "|" + localPurgeState),
+        payload);
+  }
+
   private Map<String, Object> segmentPayload(SearchPathSegment segment) {
     Map<String, Object> payload = new LinkedHashMap<>();
     payload.put("id", segment.id());
@@ -446,6 +506,49 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     if (value != null) {
       payload.put(key, value.toString());
     }
+  }
+
+  private RetentionPurgeStatusSnapshot purgeStatusOf(UUID incidentId) {
+    RetentionPurgeStatus status = retentionPurgeStatus.getIfAvailable();
+    if (status == null) {
+      return null;
+    }
+    return status.byIncident(incidentId).orElse(null);
+  }
+
+  private static String terminalStatus(RetentionPurgeStatusSnapshot purgeStatus) {
+    if (purgeStatus == null) {
+      return "CLOSED";
+    }
+    if (purgeStatus.localPurgeState() == LocalPurgeState.LOCAL_PURGED) {
+      return "PURGED";
+    }
+    return "PURGE_PENDING";
+  }
+
+  private static String closedStatus(String terminalStatus) {
+    return switch (terminalStatus) {
+      case "PURGED" -> "purged";
+      case "PURGE_PENDING" -> "purge_pending";
+      default -> "closed";
+    };
+  }
+
+  private static String writeDisabledReason(String terminalStatus) {
+    return "PURGED".equals(terminalStatus) ? "purged" : "incident_closed";
+  }
+
+  private static String localPurgeState(RetentionPurgeStatusSnapshot purgeStatus) {
+    if (purgeStatus == null) {
+      return "not_started";
+    }
+    return switch (purgeStatus.localPurgeState()) {
+      case NOT_STARTED -> "not_started";
+      case PURGE_PENDING -> "queued";
+      case WAITING_FOR_SYNC -> "in_progress";
+      case LOCAL_PURGED -> "completed";
+      case FAILED_RETRYABLE -> "failed_retryable";
+    };
   }
 
   private static String geometryHash(List<BoardSourceRow> rows) {

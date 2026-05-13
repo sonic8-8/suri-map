@@ -71,7 +71,9 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
             new FakePackageQuery(),
             new FakeOperationalPeriodQuery(),
             new FakeHandoverMemoQuery(),
-            new FakeSummaryMapper());
+            new FakeSummaryMapper(),
+            provider(null),
+            provider(null));
 
     IncidentBoardSourceRowSnapshot snapshot =
         collector.collect(
@@ -129,7 +131,9 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
             new FakePackageQuery(),
             new FakeOperationalPeriodQuery(),
             new FakeHandoverMemoQuery(),
-            new FakeSummaryMapper());
+            new FakeSummaryMapper(),
+            provider(null),
+            provider(null));
 
     IncidentBoardSourceRowSnapshot snapshot =
         collector.collect(
@@ -154,7 +158,9 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
             new FakePackageQuery(),
             new FakeOperationalPeriodQuery(),
             new FakeHandoverMemoQuery(),
-            new FakeSummaryMapper());
+            new FakeSummaryMapper(),
+            provider(null),
+            provider(null));
 
     IncidentBoardSourceRowSnapshot snapshot =
         collector.collect(
@@ -367,7 +373,16 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
     public List<OfflinePackageInstallationStatus> byIncident(String incidentId) {
       return List.of(
           new OfflinePackageInstallationStatus(
-              "pkg-status-test-001", incidentId, PHONE_ID.toString(), "READY", 7L, 701L, 1, true));
+              "pkg-status-test-001",
+              incidentId,
+              PHONE_ID.toString(),
+              "dev-test-phone-01",
+              "Test team phone",
+              "READY",
+              7L,
+              701L,
+              1,
+              true));
     }
   }
 

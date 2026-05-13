@@ -1,17 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { ApiError, createIdempotencyKey } from '../../../../shared/api/client';
-import { areaColorTokens } from '../../../../shared/constants/areaColorTokens';
-import { applyRouteColorsByAssignee } from '../../../../shared/model/boardMapFeatures';
-import { createBoardMapMarkers, createBoardMovementPaths } from '../../../../shared/model/boardMapSlots';
 import { getAreaColorToken, rememberAreaColorToken } from '../../../../shared/model/areaColorRegistry';
-import { buildSearchAreaHierarchy } from '../../../../shared/model/searchAreaHierarchy';
 import {
   SuriMapPageHeader,
   type MarkerNotification,
   type SuriMapPageHeaderIncidentContext,
 } from '../../../../shared/ui';
 import type { LoginAccount } from '../../../login/presentation/types/login';
+import { searchAreaApi, type SearchAreaResponse as SearchAreaDto } from '../../../searchArea/api/searchAreaApi';
 import { AreaEditMap, type AreaEditMapMarker, type AreaEditMovementPath } from '../components/AreaEditMap';
 import type { AreaEditMapCanvasProps } from '../components/AreaEditMapCanvas';
 import { AreaEditPanelShell } from '../components/AreaEditPanelShell';
@@ -24,17 +21,21 @@ import {
   type AreaTreeNode,
   type CompletedAreaDraft,
 } from '../constants/mockAreaEdit';
-import { getAreaEditBoard, type AreaEditBoardResponseDto } from '../../data/getAreaEditBoard';
-import {
-  getAreaEditIncidentDetail,
-  type AreaEditIncidentAssignmentDto,
-  type AreaEditIncidentDetailDto,
-} from '../../data/getAreaEditIncidentDetail';
-import { operationalPeriodApi } from '../../../operationalPeriod/api/operationalPeriodApi';
-import { searchAreaApi, type GeoJsonPolygon, type SearchAreaResponse as SearchAreaDto } from '../../../searchArea/api/searchAreaApi';
 import { useActiveOverallSearchArea } from '../hooks/useActiveOverallSearchArea';
+import { useAreaEditData } from '../hooks/useAreaEditData';
+import { useAreaEditOpState } from '../hooks/useAreaEditOpState';
 import { useAreaEditPanels } from '../hooks/useAreaEditPanels';
 import { useAreaEditTools } from '../hooks/useAreaEditTools';
+import { findParentArea, flattenAreaTree, getAncestorAreaIds, getAreaAndDescendantIds } from '../utils/areaTreeUtils';
+import { createAssignedAccountCountsByAreaId, createAreaEditMapMarkers, createAreaEditMovementPaths } from '../utils/boardReadUtils';
+import {
+  createAreaEditTreeState,
+  createOverallAreaTree,
+  createOverallDraft,
+  toGeoJsonPolygon,
+} from '../utils/draftUtils';
+import { isPointInRing, isRingInsideParent } from '../utils/geometryUtils';
+import { createIncidentContext, formatBoardTimestamp } from '../utils/incidentContextUtils';
 import styles from './AreaEditPage.module.css';
 
 type AreaEditPageProps = {
@@ -54,7 +55,6 @@ type AreaEditPageProps = {
 };
 
 type PendingNavigationTarget = 'situationBoard' | 'incidentList';
-type CurrentOperationalPeriodLoadState = 'loading' | 'loaded' | 'error';
 
 const drawDisabledPageStates: AreaEditPageState[] = [
   'permission_denied',
@@ -64,48 +64,6 @@ const drawDisabledPageStates: AreaEditPageState[] = [
   'error',
 ];
 const autoDismissValidationMessages = new Set(['구역 배정을 완료했습니다.', '필요한 모든 구역 배정을 저장했습니다.']);
-
-function flattenAreaTree(root: AreaTreeNode): AreaTreeNode[] {
-  return [root, ...(root.children ?? []).flatMap(flattenAreaTree)];
-}
-
-function findAreaPath(root: AreaTreeNode, areaId: string): AreaTreeNode[] | null {
-  if (root.id === areaId) return [root];
-
-  for (const child of root.children ?? []) {
-    const childPath = findAreaPath(child, areaId);
-    if (childPath) return [root, ...childPath];
-  }
-
-  return null;
-}
-
-function findParentArea(root: AreaTreeNode, areaId: string) {
-  const path = findAreaPath(root, areaId);
-  if (!path || path.length < 2) return null;
-  return path[path.length - 2];
-}
-
-function getAncestorAreaIds(root: AreaTreeNode, areaId: string) {
-  const path = findAreaPath(root, areaId);
-  if (!path) return new Set<string>();
-  return new Set(path.slice(0, -1).map((area) => area.id));
-}
-
-function getAreaAndDescendantIds(root: AreaTreeNode, areaId: string): Set<string> {
-  const targetPath = findAreaPath(root, areaId);
-  const targetArea = targetPath?.[targetPath.length - 1];
-  if (!targetArea) return new Set([areaId]);
-
-  return new Set(flattenAreaTree(targetArea).map((area) => area.id));
-}
-
-function toGeoJsonPolygon(coordinates: AreaEditPosition[]): GeoJsonPolygon {
-  return {
-    type: 'Polygon',
-    coordinates: [coordinates.map(([longitude, latitude]) => [longitude, latitude])],
-  };
-}
 
 async function getActiveOverallSearchArea(incidentId: string) {
   try {
@@ -117,397 +75,20 @@ async function getActiveOverallSearchArea(incidentId: string) {
   }
 }
 
-function createOverallAreaTree(overallArea: SearchAreaDto | null, unitAreaNodes: AreaTreeNode[]): AreaTreeNode {
-  if (!overallArea) return areaTree;
+function createPendingAreaNode(kind: 'unit' | 'team', index: number): AreaTreeNode {
+  const id = globalThis.crypto?.randomUUID?.() ?? `${kind}-${Date.now()}-${index}`;
+  const label = kind === 'unit' ? 'UNIT' : 'TEAM';
 
   return {
-    ...areaTree,
-    id: overallArea.id,
-    colorToken: getAreaColorToken(overallArea.id),
-    status: overallArea.status,
-    geometryState: 'saved',
-    meta: `ACTIVE / v${overallArea.version}`,
-    children: unitAreaNodes,
-  };
-}
-
-function createOverallDraft(overallArea: SearchAreaDto): CompletedAreaDraft | null {
-  const outerRing = overallArea.geometry.coordinates[0];
-  if (!outerRing || outerRing.length < 4) return null;
-
-  return {
-    areaId: overallArea.id,
-    kind: 'overall',
-    colorToken: getAreaColorToken(overallArea.id),
-    label: areaTree.name,
-    coordinates: outerRing.map((point) => [point[0], point[1]]),
-  };
-}
-
-function createAreaDraft(area: SearchAreaDto, fallbackIndex: number): CompletedAreaDraft | null {
-  const outerRing = area.geometry.coordinates[0];
-  if (!outerRing || outerRing.length < 4) return null;
-
-  const kind = area.areaLevel === 'TEAM' ? 'team' : area.parentAreaId ? 'unit' : 'overall';
-  return {
-    areaId: area.id,
+    id,
     kind,
-    colorToken: getAreaColorToken(area.id),
-    label: kind === 'overall' ? areaTree.name : `${kind.toUpperCase()} ${fallbackIndex}`,
-    coordinates: outerRing.map((point) => [point[0], point[1]]),
-  };
-}
-
-function createUnitAreaNode(area: SearchAreaDto, fallbackIndex: number, children: AreaTreeNode[] = []): AreaTreeNode {
-  return {
-    id: area.id,
-    kind: 'unit',
-    colorToken: getAreaColorToken(area.id),
-    name: `UNIT ${fallbackIndex}`,
-    meta: `ACTIVE / v${area.version}`,
-    status: area.status,
-    geometryState: 'saved',
-    sourceVersion: area.version,
-    children,
-  };
-}
-
-function createTeamAreaNode(area: SearchAreaDto, fallbackIndex: number): AreaTreeNode {
-  return {
-    id: area.id,
-    kind: 'team',
-    colorToken: getAreaColorToken(area.id),
-    name: `TEAM ${fallbackIndex}`,
-    meta: `ACTIVE / v${area.version}`,
-    status: area.status,
-    geometryState: 'saved',
-    sourceVersion: area.version,
+    colorToken: getAreaColorToken(id),
+    name: `${label} ${index}`,
+    meta: kind === 'unit' ? '저장 전 임시 구역' : '저장 전 TEAM 구역',
+    status: 'ACTIVE',
+    geometryState: 'pending',
     children: [],
   };
-}
-
-function createAreaEditTreeState(overallArea: SearchAreaDto, areas: SearchAreaDto[]) {
-  const overallDraft = createOverallDraft(overallArea);
-  const hierarchyAreas = [overallArea, ...areas.filter((area) => area.id !== overallArea.id)];
-  const hierarchyRoot = buildSearchAreaHierarchy(hierarchyAreas);
-  const unitNodes = (hierarchyRoot?.children ?? []).map((area, index) =>
-    createUnitAreaNode(
-      area,
-      index + 1,
-      area.children.map((teamArea, teamIndex) =>
-        createTeamAreaNode(teamArea, teamIndex + 1),
-      ),
-    ),
-  );
-  const childAreas = hierarchyRoot ? hierarchyRoot.children.flatMap((area) => [area, ...area.children]) : [];
-  const unitDrafts = childAreas
-    .filter((area) => area.areaLevel !== 'TEAM')
-    .map((area, index) => createAreaDraft(area, index + 1))
-    .filter((draft): draft is CompletedAreaDraft => draft !== null);
-  const teamDrafts = childAreas
-    .filter((area) => area.areaLevel === 'TEAM')
-    .map((area, index) => createAreaDraft(area, index + 1))
-    .filter((draft): draft is CompletedAreaDraft => draft !== null);
-
-  return {
-    unitNodes,
-    completedDrafts: [...(overallDraft ? [overallDraft] : []), ...unitDrafts, ...teamDrafts],
-  };
-}
-
-function signedArea(a: AreaEditPosition, b: AreaEditPosition, c: AreaEditPosition) {
-  return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
-}
-
-function isBetween(a: AreaEditPosition, b: AreaEditPosition, c: AreaEditPosition) {
-  return (
-    Math.min(a[0], b[0]) <= c[0] &&
-    c[0] <= Math.max(a[0], b[0]) &&
-    Math.min(a[1], b[1]) <= c[1] &&
-    c[1] <= Math.max(a[1], b[1])
-  );
-}
-
-function createIncidentContext(
-  incidentId: string,
-  incidentDetail: AreaEditIncidentDetailDto | null,
-  board: AreaEditBoardResponseDto | null,
-): SuriMapPageHeaderIncidentContext {
-  const missingPerson = incidentDetail && 'missingPerson' in incidentDetail ? incidentDetail.missingPerson : null;
-  const assignments = incidentDetail && 'assignments' in incidentDetail ? incidentDetail.assignments : [];
-  const status = incidentDetail?.status ?? 'OPEN';
-  const displayName = missingPerson?.displayName?.trim() || null;
-  const lastSeenLabel = createLastSeenLabel(missingPerson?.lastSeenAt ?? null, missingPerson?.lastSeenLocationText ?? null);
-  const assignmentLabel = assignments.length > 0 ? `${assignments.length}개 계정` : '배정 계정 없음';
-  const activeOperationalPeriodLabel = createActiveOperationalPeriodLabel(board);
-
-  return {
-    avatarLabel: createAvatarLabel(displayName),
-    eyebrow: `${incidentId} · v${incidentDetail?.version ?? '-'}`,
-    title: displayName ? `${displayName} 실종 사건` : `사건 ${incidentId}`,
-    metrics: [
-      { label: '실종자', value: displayName ?? '-' },
-      { label: '마지막 목격', value: lastSeenLabel },
-      { label: '배정 계정', value: assignmentLabel },
-    ],
-    statusLabel: `${getIncidentStatusLabel(status)} · ${activeOperationalPeriodLabel}`,
-  };
-}
-
-function createActiveOperationalPeriodLabel(board: AreaEditBoardResponseDto | null) {
-  if (!board?.activeOpId) return 'OP 정보 없음';
-
-  const opRow = readSlotRows(board, 'op_toggle').find(
-    (row) => readString(row, 'opId') === board.activeOpId || readString(row, 'id') === board.activeOpId,
-  );
-  const sequence = opRow ? readNumber(opRow, 'sequenceNumber') ?? readNumber(opRow, 'sequence') : null;
-
-  return sequence ? `OP ${sequence}차` : 'OP 정보 있음';
-}
-
-function createAvatarLabel(displayName: string | null) {
-  if (!displayName) return '사건';
-  return displayName.length > 4 ? displayName.slice(0, 4) : displayName;
-}
-
-function createLastSeenLabel(lastSeenAt: string | null, lastSeenLocationText: string | null) {
-  const timeLabel = lastSeenAt ? formatKstDateTime(new Date(lastSeenAt)) : null;
-  const locationLabel = lastSeenLocationText?.trim() || null;
-
-  if (timeLabel && locationLabel) return `${timeLabel} · ${locationLabel}`;
-
-  return timeLabel ?? locationLabel ?? '-';
-}
-
-function getIncidentStatusLabel(status: string) {
-  return status === 'CLOSED' ? '종료' : '진행 중';
-}
-
-function readSlotRows(board: AreaEditBoardResponseDto, slot: string): Record<string, unknown>[] {
-  const value = board.slots[slot];
-  if (isRecord(value) && Object.keys(value).length > 0) return [value];
-  if (!Array.isArray(value)) return [];
-  return value.filter(isRecord);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function readString(row: Record<string, unknown>, key: string) {
-  const value = row[key];
-  return typeof value === 'string' ? value : null;
-}
-
-function readPolicePhoneId(row: Record<string, unknown>) {
-  return (
-    readString(row, 'policePhoneId') ??
-    readString(row, 'police_phone_id') ??
-    readString(row, 'phoneId') ??
-    readString(row, 'deviceId') ??
-    readString(row, 'device_id')
-  );
-}
-
-function readNumber(row: Record<string, unknown>, key: string) {
-  const value = row[key];
-  return typeof value === 'number' ? value : null;
-}
-
-function readAssignedAccountCount(row: Record<string, unknown>) {
-  const assignedAccounts = row.assignedAccounts;
-  if (Array.isArray(assignedAccounts)) return assignedAccounts.filter(isRecord).length;
-
-  const assignedAccountIds = row.assignedAccountIds;
-  if (Array.isArray(assignedAccountIds)) return assignedAccountIds.length;
-
-  return 0;
-}
-
-function createAssignedAccountCountsByAreaId(board: AreaEditBoardResponseDto | null) {
-  const countsByAreaId = new Map<string, number>();
-  if (!board) return countsByAreaId;
-
-  for (const row of readSlotRows(board, 'area')) {
-    const areaId = readString(row, 'id') ?? readString(row, 'searchAreaId');
-    if (!areaId) continue;
-    countsByAreaId.set(areaId, readAssignedAccountCount(row));
-  }
-
-  return countsByAreaId;
-}
-
-function isPosition(value: unknown): value is AreaEditPosition {
-  return Array.isArray(value) &&
-    value.length >= 2 &&
-    typeof value[0] === 'number' &&
-    typeof value[1] === 'number';
-}
-
-function readLineStringCoordinates(row: Record<string, unknown>): AreaEditPosition[] | null {
-  const geometry = row.geometry;
-  if (!isRecord(geometry) || geometry.type !== 'LineString' || !Array.isArray(geometry.coordinates)) {
-    return null;
-  }
-
-  const coordinates = geometry.coordinates.filter(isPosition);
-  return coordinates.length >= 2 ? coordinates : null;
-}
-
-function readPointCoordinates(row: Record<string, unknown>): AreaEditPosition | null {
-  const geometry = row.geometry;
-  if (isRecord(geometry) && geometry.type === 'Point' && isPosition(geometry.coordinates)) {
-    return geometry.coordinates;
-  }
-
-  const coordinates = row.coordinates;
-  return isPosition(coordinates) ? coordinates : null;
-}
-
-function readMovementType(row: Record<string, unknown>): AreaEditMovementPath['movementType'] {
-  const movementType = readString(row, 'movementType');
-  return movementType === 'VEHICLE' || movementType === 'FOOT' || movementType === 'UNKNOWN'
-    ? movementType
-    : 'UNKNOWN';
-}
-
-function readMarkerType(row: Record<string, unknown>): AreaEditMapMarker['markerType'] {
-  const markerType = readString(row, 'markerType') ?? readString(row, 'type');
-  if (
-    markerType === 'CLUE' ||
-    markerType === 'PERSON_FOUND' ||
-    markerType === 'FIELD_CONDITION' ||
-    markerType === 'SUPPORT_REQUEST' ||
-    markerType === 'NOTE'
-  ) {
-    return markerType;
-  }
-
-  return 'UNKNOWN';
-}
-
-function createAreaEditMovementPaths(
-  board: AreaEditBoardResponseDto | null,
-  completedDrafts: CompletedAreaDraft[],
-): AreaEditMovementPath[] {
-  if (!board) return [];
-  const routeColorsByAssignee = createAreaEditRouteColorsByAssignee(board, completedDrafts);
-  return applyRouteColorsByAssignee(
-    createBoardMovementPaths(board),
-    routeColorsByAssignee.accountId,
-    routeColorsByAssignee.policePhoneId,
-  );
-}
-
-function createAreaEditRouteColorsByAssignee(
-  board: AreaEditBoardResponseDto,
-  completedDrafts: CompletedAreaDraft[],
-) {
-  const colorTokensByAreaId = new Map(completedDrafts.map((draft) => [draft.areaId, draft.colorToken]));
-  const routeColorsByAccountId = new Map<string, string>();
-  const routeColorsByPolicePhoneId = new Map<string, string>();
-
-  for (const row of readSlotRows(board, 'area')) {
-    const areaId = readString(row, 'id') ?? readString(row, 'searchAreaId');
-    const colorToken = areaId ? colorTokensByAreaId.get(areaId) : null;
-    if (!colorToken) continue;
-
-    const assignedAccounts = row.assignedAccounts;
-    if (!Array.isArray(assignedAccounts)) continue;
-
-    assignedAccounts.filter(isRecord).forEach((account) => {
-      const accountId = readString(account, 'accountId') ?? readString(account, 'account_id');
-      const policePhoneId = readPolicePhoneId(account);
-      if (accountId) routeColorsByAccountId.set(accountId, areaColorTokens[colorToken].lineColor);
-      if (policePhoneId) routeColorsByPolicePhoneId.set(policePhoneId, areaColorTokens[colorToken].lineColor);
-    });
-  }
-
-  return { accountId: routeColorsByAccountId, policePhoneId: routeColorsByPolicePhoneId };
-}
-
-function createAreaEditMapMarkers(board: AreaEditBoardResponseDto | null): AreaEditMapMarker[] {
-  if (!board) return [];
-  return createBoardMapMarkers(board);
-}
-
-function formatKstDateTime(date: Date) {
-  if (Number.isNaN(date.getTime())) return '-';
-
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Seoul',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  })
-    .formatToParts(date)
-    .reduce<Record<string, string>>((dateParts, part) => {
-      dateParts[part.type] = part.value;
-      return dateParts;
-    }, {});
-
-  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute} KST`;
-}
-
-function isPointOnSegment(a: AreaEditPosition, b: AreaEditPosition, point: AreaEditPosition) {
-  return signedArea(a, b, point) === 0 && isBetween(a, b, point);
-}
-
-function segmentsIntersect(a: AreaEditPosition, b: AreaEditPosition, c: AreaEditPosition, d: AreaEditPosition) {
-  const abC = signedArea(a, b, c);
-  const abD = signedArea(a, b, d);
-  const cdA = signedArea(c, d, a);
-  const cdB = signedArea(c, d, b);
-
-  if (abC === 0 && isBetween(a, b, c)) return true;
-  if (abD === 0 && isBetween(a, b, d)) return true;
-  if (cdA === 0 && isBetween(c, d, a)) return true;
-  if (cdB === 0 && isBetween(c, d, b)) return true;
-
-  return (abC > 0) !== (abD > 0) && (cdA > 0) !== (cdB > 0);
-}
-
-function isPointInRing(point: AreaEditPosition, ring: AreaEditPosition[]) {
-  let isInside = false;
-
-  for (let index = 0, previousIndex = ring.length - 1; index < ring.length; previousIndex = index, index += 1) {
-    const current = ring[index];
-    const previous = ring[previousIndex];
-
-    if (isPointOnSegment(previous, current, point)) return true;
-
-    const intersectsRay =
-      current[1] > point[1] !== previous[1] > point[1] &&
-      point[0] < ((previous[0] - current[0]) * (point[1] - current[1])) / (previous[1] - current[1]) + current[0];
-
-    if (intersectsRay) isInside = !isInside;
-  }
-
-  return isInside;
-}
-
-function isRingInsideParent(childRing: AreaEditPosition[], parentRing: AreaEditPosition[]) {
-  const childVertices = childRing.slice(0, -1);
-  if (!childVertices.every((point) => isPointInRing(point, parentRing))) return false;
-
-  for (let childIndex = 0; childIndex < childRing.length - 1; childIndex += 1) {
-    const childStart = childRing[childIndex];
-    const childEnd = childRing[childIndex + 1];
-
-    for (let parentIndex = 0; parentIndex < parentRing.length - 1; parentIndex += 1) {
-      const parentStart = parentRing[parentIndex];
-      const parentEnd = parentRing[parentIndex + 1];
-      const touchesBoundary =
-        isPointOnSegment(parentStart, parentEnd, childStart) || isPointOnSegment(parentStart, parentEnd, childEnd);
-
-      if (!touchesBoundary && segmentsIntersect(childStart, childEnd, parentStart, parentEnd)) return false;
-    }
-  }
-
-  return true;
 }
 
 export function AreaEditPage({
@@ -527,6 +108,10 @@ export function AreaEditPage({
 }: AreaEditPageProps) {
   const { activeToolId } = useAreaEditTools();
   const overallSearchAreaState = useActiveOverallSearchArea(incidentId);
+  const { incidentDetail, board, reloadBoard } = useAreaEditData(incidentId);
+  const { currentOpId, currentOpLoadState } = useAreaEditOpState(incidentId);
+  const { isToolPanelCollapsed, toggleToolPanelCollapsed } = useAreaEditPanels();
+
   const [savedOverallArea, setSavedOverallArea] = useState<SearchAreaDto | null>(null);
   const [isMapExpanded, setIsMapExpanded] = useState(false);
   const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
@@ -534,8 +119,6 @@ export function AreaEditPage({
   const [draftPoints, setDraftPoints] = useState<AreaEditPosition[]>([]);
   const [completedDrafts, setCompletedDrafts] = useState<CompletedAreaDraft[]>([]);
   const [unitAreaNodes, setUnitAreaNodes] = useState<AreaTreeNode[]>([]);
-  const [currentOpId, setCurrentOpId] = useState<string | null>(null);
-  const [currentOpLoadState, setCurrentOpLoadState] = useState<CurrentOperationalPeriodLoadState>('loading');
   const [normalSelectedAreaId, setNormalSelectedAreaId] = useState<string | null>(null);
   const [normalSelectedAreaPosition, setNormalSelectedAreaPosition] = useState<AreaEditPosition | null>(null);
   const [deleteConfirmAreaId, setDeleteConfirmAreaId] = useState<string | null>(null);
@@ -545,9 +128,7 @@ export function AreaEditPage({
   const [hasDraftChanges, setHasDraftChanges] = useState(false);
   const [selectedAssigneeAccountIds, setSelectedAssigneeAccountIds] = useState<Set<string>>(new Set());
   const [pendingNavigationTarget, setPendingNavigationTarget] = useState<PendingNavigationTarget | null>(null);
-  const [incidentDetail, setIncidentDetail] = useState<AreaEditIncidentDetailDto | null>(null);
-  const [board, setBoard] = useState<AreaEditBoardResponseDto | null>(null);
-  const { isToolPanelCollapsed, toggleToolPanelCollapsed } = useAreaEditPanels();
+
   const currentOverallArea =
     overallSearchAreaState.status === 'loaded' ? overallSearchAreaState.area : savedOverallArea;
   const currentAreaTree = useMemo(
@@ -582,53 +163,22 @@ export function AreaEditPage({
   const isClosedDraft = draftPoints.length >= 4 && draftPoints[0] === draftPoints[draftPoints.length - 1];
   const canCompleteDraft = isDrawing && isClosedDraft;
   const currentAccountLabel = `${currentUserAccount.name} / ${currentUserAccount.organization}`;
-  const timestampLabel = board?.serverTs ? formatKstDateTime(new Date(board.serverTs)) : '동기화 전';
-  const incidentContext = useMemo(
+  const timestampLabel = formatBoardTimestamp(board);
+  const incidentContext = useMemo<SuriMapPageHeaderIncidentContext>(
     () => createIncidentContext(incidentId, incidentDetail, board),
     [incidentId, incidentDetail, board],
   );
-  const assignmentCandidates = useMemo<AreaEditIncidentAssignmentDto[]>(
+  const assignmentCandidates = useMemo(
     () => (incidentDetail && 'assignments' in incidentDetail ? incidentDetail.assignments : []),
     [incidentDetail],
   );
   const assignedAccountCountsByAreaId = useMemo(() => createAssignedAccountCountsByAreaId(board), [board]);
-  const movementPaths = useMemo(() => createAreaEditMovementPaths(board, completedDrafts), [board, completedDrafts]);
-  const mapMarkers = useMemo(() => createAreaEditMapMarkers(board), [board]);
+  const movementPaths = useMemo<AreaEditMovementPath[]>(
+    () => createAreaEditMovementPaths(board, completedDrafts),
+    [board, completedDrafts],
+  );
+  const mapMarkers = useMemo<AreaEditMapMarker[]>(() => createAreaEditMapMarkers(board), [board]);
   const activeOperationalPeriodId = currentOpId ?? board?.activeOpId ?? null;
-
-  useEffect(() => {
-    let isActive = true;
-
-    setIncidentDetail(null);
-    void getAreaEditIncidentDetail(incidentId)
-      .then((detail) => {
-        if (isActive) setIncidentDetail(detail);
-      })
-      .catch(() => {
-        if (isActive) setIncidentDetail(null);
-      });
-
-    return () => {
-      isActive = false;
-    };
-  }, [incidentId]);
-
-  useEffect(() => {
-    let isActive = true;
-
-    setBoard(null);
-    void getAreaEditBoard(incidentId)
-      .then((response) => {
-        if (isActive) setBoard(response);
-      })
-      .catch(() => {
-        if (isActive) setBoard(null);
-      });
-
-    return () => {
-      isActive = false;
-    };
-  }, [incidentId]);
 
   useEffect(() => {
     if (!validationMessage || !autoDismissValidationMessages.has(validationMessage)) return;
@@ -696,28 +246,6 @@ export function AreaEditPage({
   }, [incidentId, currentOpId, currentOpLoadState, currentOverallArea]);
 
   useEffect(() => {
-    let isActive = true;
-    setCurrentOpId(null);
-    setCurrentOpLoadState('loading');
-
-    void operationalPeriodApi.list(incidentId)
-      .then((response) => {
-        if (!isActive) return;
-        setCurrentOpId(response.currentOpId);
-        setCurrentOpLoadState('loaded');
-      })
-      .catch(() => {
-        if (!isActive) return;
-        setCurrentOpId(null);
-        setCurrentOpLoadState('error');
-      });
-
-    return () => {
-      isActive = false;
-    };
-  }, [incidentId]);
-
-  useEffect(() => {
     if (isCurrentOpEditable) return;
 
     setIsDrawing(false);
@@ -745,21 +273,10 @@ export function AreaEditPage({
       return;
     }
 
-    const unitIndex = unitAreaNodes.length + 1;
-    const unitId = globalThis.crypto?.randomUUID?.() ?? `unit-${Date.now()}-${unitIndex}`;
-    const unitNode: AreaTreeNode = {
-      id: unitId,
-      kind: 'unit',
-      colorToken: getAreaColorToken(unitId),
-      name: `UNIT ${unitIndex}`,
-      meta: '저장 전 임시 구역',
-      status: 'ACTIVE',
-      geometryState: 'pending',
-      children: [],
-    };
+    const unitNode = createPendingAreaNode('unit', unitAreaNodes.length + 1);
 
     setUnitAreaNodes((currentNodes) => [...currentNodes, unitNode]);
-    setSelectedAreaId(unitId);
+    setSelectedAreaId(unitNode.id);
     setValidationMessage('UNIT 구역을 추가했습니다. 지도를 그려 범위를 지정하세요.');
     setHasDraftChanges(true);
   };
@@ -777,25 +294,14 @@ export function AreaEditPage({
       return;
     }
 
-    const teamIndex = (parentUnit.children ?? []).length + 1;
-    const teamId = globalThis.crypto?.randomUUID?.() ?? `team-${Date.now()}-${teamIndex}`;
-    const teamNode: AreaTreeNode = {
-      id: teamId,
-      kind: 'team',
-      colorToken: getAreaColorToken(teamId),
-      name: `TEAM ${teamIndex}`,
-      meta: '저장 전 TEAM 구역',
-      status: 'ACTIVE',
-      geometryState: 'pending',
-      children: [],
-    };
+    const teamNode = createPendingAreaNode('team', (parentUnit.children ?? []).length + 1);
 
     setUnitAreaNodes((currentNodes) =>
       currentNodes.map((unit) =>
         unit.id === parentUnitId ? { ...unit, children: [...(unit.children ?? []), teamNode] } : unit,
       ),
     );
-    setSelectedAreaId(teamId);
+    setSelectedAreaId(teamNode.id);
     setValidationMessage('TEAM 구역을 추가했습니다. UNIT 안에 범위를 그려 지정하세요.');
     setHasDraftChanges(true);
   };
@@ -910,6 +416,14 @@ export function AreaEditPage({
     setHasDraftChanges(true);
   };
 
+  const beginDrawing = (message = '지도 위에 꼭짓점을 차례로 찍고 시작점으로 돌아와 구역을 닫으세요.') => {
+    setNormalSelectedAreaId(null);
+    setNormalSelectedAreaPosition(null);
+    setIsDrawing(true);
+    setDraftPoints([]);
+    setValidationMessage(message);
+  };
+
   const handleStartDrawing = () => {
     const disabledMessage = getEditDisabledValidationMessage();
     if (disabledMessage) {
@@ -917,16 +431,40 @@ export function AreaEditPage({
       return;
     }
 
-    if (!selectedArea || selectedArea.geometryState !== 'pending' || assignedAreaIds.has(selectedArea.id)) {
-      setValidationMessage('배정 가능한 미배정 수색구역을 먼저 선택하세요.');
+    if (selectedArea?.geometryState === 'pending' && !assignedAreaIds.has(selectedArea.id)) {
+      beginDrawing();
       return;
     }
 
-    setNormalSelectedAreaId(null);
-    setNormalSelectedAreaPosition(null);
-    setIsDrawing(true);
-    setDraftPoints([]);
-    setValidationMessage('지도 위에 꼭짓점을 차례로 찍고 시작점으로 돌아와 구역을 닫으세요.');
+    if (!currentOverallArea) {
+      setSelectedAreaId(currentAreaTree.id);
+      beginDrawing();
+      return;
+    }
+
+    if (!selectedArea || selectedArea.kind === 'overall') {
+      const unitNode = createPendingAreaNode('unit', unitAreaNodes.length + 1);
+      setUnitAreaNodes((currentNodes) => [...currentNodes, unitNode]);
+      setSelectedAreaId(unitNode.id);
+      setHasDraftChanges(true);
+      beginDrawing('새 UNIT 구역을 추가했습니다. 지도 위에 꼭짓점을 찍어 범위를 지정하세요.');
+      return;
+    }
+
+    if (selectedArea.kind === 'unit' && selectedArea.geometryState === 'saved') {
+      const teamNode = createPendingAreaNode('team', (selectedArea.children ?? []).length + 1);
+      setUnitAreaNodes((currentNodes) =>
+        currentNodes.map((unit) =>
+          unit.id === selectedArea.id ? { ...unit, children: [...(unit.children ?? []), teamNode] } : unit,
+        ),
+      );
+      setSelectedAreaId(teamNode.id);
+      setHasDraftChanges(true);
+      beginDrawing('새 TEAM 구역을 추가했습니다. UNIT 안에 꼭짓점을 찍어 범위를 지정하세요.');
+      return;
+    }
+
+    setValidationMessage('배정 가능한 미배정 수색구역을 먼저 선택하세요.');
   };
 
   const handleDraftPointAdd = (position: AreaEditPosition) => {
@@ -1102,36 +640,33 @@ export function AreaEditPage({
         setCompletedDrafts(refreshedCompletedDrafts);
         setSelectedAreaId(savedChildDrafts[0]?.areaId ?? null);
         setValidationMessage('하위 수색 구역 분할을 저장했습니다. 저장된 구역을 선택해 담당 계정을 배정하세요.');
-        const refreshedBoard = await getAreaEditBoard(incidentId).catch(() => null);
-        if (refreshedBoard) setBoard(refreshedBoard);
+        await reloadBoard();
         return;
       }
 
-
-      const savedOverallArea = await searchAreaApi.create({
+      const savedOverallAreaResult = await searchAreaApi.create({
         incidentId,
         areaLevel: 'OVERALL',
         geometry: toGeoJsonPolygon(overallDraft.coordinates),
         clientTs: new Date().toISOString(),
       }, createIdempotencyKey('search-area-overall'));
-      const savedOverallDraft = createOverallDraft(savedOverallArea) ?? {
+      const savedOverallDraftBase = createOverallDraft(savedOverallAreaResult) ?? {
         ...overallDraft,
-        areaId: savedOverallArea.id,
+        areaId: savedOverallAreaResult.id,
       };
       const nextSavedOverallDraft = {
-        ...savedOverallDraft,
-        colorToken: rememberAreaColorToken(savedOverallArea.id, overallDraft.colorToken),
+        ...savedOverallDraftBase,
+        colorToken: rememberAreaColorToken(savedOverallAreaResult.id, overallDraft.colorToken),
       };
 
       setHasDraftChanges(false);
-      setSavedOverallArea(savedOverallArea);
+      setSavedOverallArea(savedOverallAreaResult);
       setUnitAreaNodes([]);
       setCompletedDrafts([nextSavedOverallDraft]);
-      setSelectedAreaId(savedOverallArea.id);
+      setSelectedAreaId(savedOverallAreaResult.id);
       onSaveAssignedAreas([nextSavedOverallDraft]);
       setValidationMessage('전체 수색 구역을 저장했습니다. UNIT 구역을 추가해 하위 구역을 지정하세요.');
-      const refreshedBoard = await getAreaEditBoard(incidentId).catch(() => null);
-      if (refreshedBoard) setBoard(refreshedBoard);
+      await reloadBoard();
     } catch (error) {
       if (error instanceof Error && error.message === 'search_area_split_conflict') {
         setValidationMessage('수색 구역 상태가 변경되어 UNIT 구역을 저장하지 못했습니다. 화면을 새로고침한 뒤 다시 시도해 주세요.');
@@ -1204,8 +739,7 @@ export function AreaEditPage({
       }, createIdempotencyKey('search-area-assignment'));
       setValidationMessage('수색 구역 담당 계정을 배정했습니다.');
       setSelectedAssigneeAccountIds(new Set());
-      const refreshedBoard = await getAreaEditBoard(incidentId).catch(() => null);
-      if (refreshedBoard) setBoard(refreshedBoard);
+      await reloadBoard();
     } catch (error) {
       if (error instanceof ApiError && error.code === 'idempotency_mismatch') {
         setValidationMessage('동일한 배정 요청 키가 다른 내용으로 재사용되었습니다. 다시 시도해 주세요.');

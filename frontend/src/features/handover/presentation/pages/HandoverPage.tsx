@@ -1,10 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 
 import { ApiError, createIdempotencyKey } from '../../../../shared/api/client';
 import { BoardPanel, SuriMapPageHeader, type SuriMapPageHeaderIncidentContext } from '../../../../shared/ui';
 import type { LoginAccount } from '../../../login/presentation/types/login';
-import { getHandoverBoard, type HandoverBoardResponseDto } from '../../data/getHandoverBoard';
+import {
+  useIncidentBoardQuery,
+  type IncidentBoardResponse,
+  type BoardSlotName,
+  incidentBoardQueryKeys,
+} from '../../../board/api/incidentBoardApi';
 import {
   getHandoverIncidentDetail,
   type HandoverIncidentDetailDto,
@@ -13,14 +20,15 @@ import {
   type HandoverMemoTargetType,
   handoverApi,
   type HandoverMemoListItem,
+  useSearchHistorySummaryListQuery,
 } from '../../../operationalPeriod/api/handoverApi';
 import {
   operationalPeriodApi,
   type CreateOperationalPeriodReason,
   type OperationalPeriodListItem,
 } from '../../../operationalPeriod/api/operationalPeriodApi';
-import { OperationalPeriodSelector } from '../../../situationBoard/presentation/components/leftPanel/OperationalPeriodSelector';
 import type { OperationalPeriod } from '../../../situationBoard/presentation/constants/mockSituationBoard';
+import { HandoverOperationalPeriodSelector } from '../components/HandoverOperationalPeriodSelector';
 import { HandoverComparisonMap } from '../components/HandoverComparisonMap';
 import styles from './HandoverPage.module.css';
 
@@ -31,6 +39,7 @@ type HandoverPageProps = {
   currentUserAccount: LoginAccount;
   onOpenIncidentList: () => void;
   onOpenSituationBoard: () => void;
+  onOpenOfflinePackage: () => void;
   onOperationalPeriodCreated?: () => void;
 };
 
@@ -71,6 +80,7 @@ export function HandoverPage({
   currentUserAccount,
   onOpenIncidentList,
   onOpenSituationBoard,
+  onOpenOfflinePackage,
   onOperationalPeriodCreated,
 }: HandoverPageProps) {
   const [operationalPeriods, setOperationalPeriods] = useState<OperationalPeriodListItem[]>([]);
@@ -79,24 +89,29 @@ export function HandoverPage({
   const [selectedOpIds, setSelectedOpIds] = useState<string[]>([]);
   const [memos, setMemos] = useState<HandoverMemoListItem[]>([]);
   const [incidentDetail, setIncidentDetail] = useState<HandoverIncidentDetailDto | null>(null);
-  const [board, setBoard] = useState<HandoverBoardResponseDto | null>(null);
   const [now, setNow] = useState(() => new Date());
   const [content, setContent] = useState('');
-  const [reloadVersion, setReloadVersion] = useState(0);
+  const [leftPanelTab, setLeftPanelTab] = useState<'op' | 'handoverMemo'>('op');
+  const [isComparisonPopupOpen, setIsComparisonPopupOpen] = useState(false);
   const [isCreateOpModalOpen, setIsCreateOpModalOpen] = useState(false);
   const [newOpReason, setNewOpReason] = useState<CreateOperationalPeriodReason>('RE_SEARCH');
   const [newOpReasonMemo, setNewOpReasonMemo] = useState('');
   const [newOpHandoverMemo, setNewOpHandoverMemo] = useState('');
   const [selectedMemoTargetKey, setSelectedMemoTargetKey] = useState('');
   const [isLoadingOps, setIsLoadingOps] = useState(false);
-  const [isLoadingBoard, setIsLoadingBoard] = useState(false);
   const [isLoadingMemos, setIsLoadingMemos] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCreatingOp, setIsCreatingOp] = useState(false);
   const [opErrorMessage, setOpErrorMessage] = useState('');
-  const [boardErrorMessage, setBoardErrorMessage] = useState('');
   const [memoErrorMessage, setMemoErrorMessage] = useState('');
   const [createOpErrorMessage, setCreateOpErrorMessage] = useState('');
+
+  const queryClient = useQueryClient();
+  const boardQuery = useIncidentBoardQuery({ incidentId, opIds: selectedOpIds });
+  const board = boardQuery.data ?? null;
+  const isLoadingBoard = boardQuery.isLoading;
+  const boardErrorMessage = boardQuery.isError ? '수색 이력 정보를 불러오지 못했습니다.' : '';
+  const summaryQuery = useSearchHistorySummaryListQuery(focusedOpId, { incidentId });
 
   const selectedOp = useMemo(
     () => operationalPeriods.find((period) => period.id === focusedOpId) ?? null,
@@ -122,11 +137,20 @@ export function HandoverPage({
     () => memoTargetOptions.find((option) => option.key === selectedMemoTargetKey) ?? memoTargetOptions[0] ?? null,
     [memoTargetOptions, selectedMemoTargetKey],
   );
-  const evidenceSummary = useMemo(() => createEvidenceSummary(board, selectedOpIds), [board, selectedOpIds]);
-  const searchHistorySummary = useMemo(
-    () => createSearchHistorySummaryView(board, focusedOpId),
-    [board, focusedOpId],
+  const evidenceSummary = useMemo(
+    () => createEvidenceSummary(board, selectedOpIds, summaryQuery.data?.items.length ?? 0),
+    [board, selectedOpIds, summaryQuery.data],
   );
+  const searchHistorySummary = useMemo((): SearchHistorySummaryView | null => {
+    if (!summaryQuery.data || !focusedOpId) return null;
+    const item = summaryQuery.data.items.find((it) => it.scopeId === focusedOpId) ?? null;
+    if (!item) return null;
+    return {
+      statusLabel: item.displayStatus === 'READY' ? '생성 완료' : '요약 실패',
+      summaryText: item.content ?? null,
+      generatedAt: item.generatedAt ? formatKstDateTime(new Date(item.generatedAt)) : null,
+    };
+  }, [summaryQuery.data, focusedOpId]);
   const currentAccountLabel = `${currentUserAccount.name} / ${currentUserAccount.organization}`;
   const timestampLabel = formatKstDateTime(now);
   const incidentContext = useMemo(
@@ -159,7 +183,7 @@ export function HandoverPage({
     return () => {
       ignore = true;
     };
-  }, [incidentId, reloadVersion]);
+  }, [incidentId]);
 
   useEffect(() => {
     let ignore = false;
@@ -195,40 +219,7 @@ export function HandoverPage({
     return () => {
       ignore = true;
     };
-  }, [incidentId, reloadVersion]);
-
-  useEffect(() => {
-    if (selectedOpIds.length === 0) {
-      setBoard(null);
-      setBoardErrorMessage('');
-      return;
-    }
-
-    let ignore = false;
-
-    const loadBoard = async () => {
-      setIsLoadingBoard(true);
-      setBoardErrorMessage('');
-      setBoard(null);
-
-      try {
-        const response = await getHandoverBoard(incidentId, selectedOpIds);
-        if (!ignore) setBoard(response);
-      } catch (error) {
-        if (!ignore) {
-          setBoardErrorMessage(getApiErrorMessage(error, '수색 이력 정보를 불러오지 못했습니다.'));
-        }
-      } finally {
-        if (!ignore) setIsLoadingBoard(false);
-      }
-    };
-
-    void loadBoard();
-
-    return () => {
-      ignore = true;
-    };
-  }, [incidentId, reloadVersion, selectedOpIds]);
+  }, [incidentId]);
 
   useEffect(() => {
     if (!focusedOpId) {
@@ -355,7 +346,7 @@ export function HandoverPage({
       setSelectedOpIds([createdOp.id]);
       setIsCreateOpModalOpen(false);
       onOperationalPeriodCreated?.();
-      setReloadVersion((version) => version + 1);
+      void queryClient.invalidateQueries({ queryKey: incidentBoardQueryKeys.all });
     } catch (error) {
       setCreateOpErrorMessage(getApiErrorMessage(error, '새 OP를 열지 못했습니다.'));
     } finally {
@@ -372,6 +363,11 @@ export function HandoverPage({
     );
   };
 
+  const openComparisonPopup = (periodId: string) => {
+    setFocusedOpId(periodId);
+    setIsComparisonPopupOpen(true);
+  };
+
   return (
     <main className={embedded ? styles.embeddedPage : 'situation-board-page'}>
       {embedded ? null : (
@@ -382,223 +378,241 @@ export function HandoverPage({
         timestampLabel={timestampLabel}
         onOpenIncidentList={onOpenIncidentList}
         onOpenSituationBoard={onOpenSituationBoard}
+        onOpenOfflinePackage={onOpenOfflinePackage}
       />
       )}
 
       <div className={styles.shell}>
         <BoardPanel
           as="aside"
-          ariaLabel="OP 목록"
+          ariaLabel="인수인계 좌측 패널"
           className={styles.opPanel}
           bodyClassName={styles.opPanelBody}
           placement="left"
-          footer={(
-          <div className={styles.opPanelFooter}>
-            <button
-              type="button"
-              className={styles.createOpButton}
-              disabled={!canCreateOperationalPeriod}
-              title={canCreateOperationalPeriod ? '새 OP 열기' : '현재 계정에는 권한이 없습니다.'}
-              onClick={openCreateOpModal}
-            >
-              <Plus size={16} aria-hidden="true" />
-              새 OP 열기
-            </button>
-            {!canCreateOperationalPeriod ? <span>현재 계정에는 권한이 없습니다.</span> : null}
-          </div>
-          )}
-        >
-
-          {opErrorMessage ? <div className={styles.errorText}>{opErrorMessage}</div> : null}
-
-          {isLoadingOps ? (
-            <div className={styles.opList}>
-              <div className={styles.emptyState}>OP 목록을 불러오는 중입니다.</div>
-            </div>
-          ) : (
-            <OperationalPeriodSelector
-              allowEmptySelection={false}
-              emptyMessage="등록된 OP가 없습니다."
-              onFocusedOperationalPeriodChange={setFocusedOpId}
-              onSelectedOperationalPeriodIdsChange={handleOperationalPeriodSelectionChange}
-              operationalPeriods={handoverOperationalPeriods}
-              selectedOperationalPeriodIds={selectedOpIds}
-            />
-          )}
-
-        </BoardPanel>
-
-        <BoardPanel
-          ariaLabel="OP 비교와 선택 OP 수색 이력"
-          className={styles.historyPanel}
-          bodyClassName={styles.historyPanelBody}
-          placement={embedded ? 'floating' : 'center'}
           header={(
-          <>
-            <span>OP 비교</span>
-            <strong>{selectedOpIds.length}개 선택</strong>
-          </>
-          )}
-        >
-
-          <div className={styles.historyContent}>
-            <section className={styles.mapBlock} aria-label="선택 OP overlay 지도">
-              {sharedMapMode ? null : (
-              <HandoverComparisonMap
-                incidentId={incidentId}
-                board={board}
-                focusedOpId={focusedOpId}
-                selectedOpIds={selectedOpIds}
-              />
-              )}
-            </section>
-
-            <section className={styles.contextBlock} aria-label="OP 기준 정보">
-              <div className={styles.blockHeading}>
-                <h2>OP 기준 정보</h2>
-                <span>{selectedOp?.status ? formatStatusLabel(selectedOp.status) : '-'}</span>
-              </div>
-              <dl className={styles.detailGrid}>
-                <div>
-                  <dt>수색 차수</dt>
-                  <dd>{selectedOp ? formatOperationalPeriodLabel(selectedOp) : '-'}</dd>
-                </div>
-                <div>
-                  <dt>OP 사유</dt>
-                  <dd>{selectedOp ? formatReasonLabel(selectedOp.reason) : '-'}</dd>
-                </div>
-                <div>
-                  <dt>시작 시각</dt>
-                  <dd>-</dd>
-                </div>
-                <div>
-                  <dt>종료 시각</dt>
-                  <dd>{selectedOp?.status === 'ENDED' ? '-' : '진행 중'}</dd>
-                </div>
-              </dl>
-            </section>
-
-            <section className={styles.contextBlock} aria-label="수색 근거 요약">
-              <div className={styles.blockHeading}>
-                <h2>수색 근거 요약</h2>
-                <span>{isLoadingBoard ? '불러오는 중' : evidenceSummary.boardUpdatedAt ?? '-'}</span>
-              </div>
-
-              {boardErrorMessage ? <div className={styles.errorText}>{boardErrorMessage}</div> : null}
-
-              <div className={styles.summaryGrid}>
-                <SummaryCard label="수색 경로" value={`${evidenceSummary.pathCount}건`} helper="차량·도보 구간 기준" />
-                <SummaryCard label="배정 구역" value={`${evidenceSummary.areaCount}건`} helper={evidenceSummary.overallAreaStatus} />
-                <SummaryCard label="마커" value={`${evidenceSummary.markerCount}건`} helper="단서·발견·운영 메모" />
-                <SummaryCard label="수색 이력 요약" value={`${evidenceSummary.summaryCount}건`} helper="요약 생성 결과" />
-              </div>
-            </section>
-
-            <section className={styles.contextBlock} aria-label="수색 이력 자동 요약">
-              <div className={styles.blockHeading}>
-                <h2>수색 이력 자동 요약</h2>
-                <span>{isLoadingBoard ? '불러오는 중' : searchHistorySummary?.statusLabel ?? '요약 없음'}</span>
-              </div>
-              {isLoadingBoard ? (
-                <div className={styles.emptyState}>수색 이력 요약을 불러오는 중입니다.</div>
-              ) : searchHistorySummary?.summaryText ? (
-                <p className={styles.summaryText}>{searchHistorySummary.summaryText}</p>
-              ) : searchHistorySummary ? (
-                <div className={styles.emptyState}>요약을 생성하지 못했습니다. 지도와 메모에서 원본 기록을 확인하세요.</div>
-              ) : (
-                <div className={styles.emptyState}>생성된 수색 이력 요약이 없습니다.</div>
-              )}
-              {searchHistorySummary?.generatedAt ? (
-                <span className={styles.summaryMeta}>{searchHistorySummary.generatedAt}</span>
-              ) : null}
-            </section>
-
-            <section className={styles.contextBlock} aria-label="인계 확인 항목">
-              <div className={styles.blockHeading}>
-                <h2>인계 확인 항목</h2>
-                <span>사람이 판단할 근거</span>
-              </div>
-              <ul className={styles.checkList}>
-                <li>선택한 OP의 차량 구간과 도보 구간을 지도에서 확인합니다.</li>
-                <li>배정 구역과 마커를 함께 보며 재확인할 지점을 판단합니다.</li>
-                <li>인수인계 메모는 판단 결과와 현장 맥락을 보조 기록으로 남깁니다.</li>
-              </ul>
-            </section>
-          </div>
-        </BoardPanel>
-
-        <BoardPanel
-          as="aside"
-          ariaLabel="인수인계 메모"
-          className={styles.memoPanel}
-          bodyClassName={styles.memoPanelBody}
-          placement="right"
-          header={(
-          <>
-            <span>인수인계 메모</span>
-            <strong>{selectedOpMemos.length}건</strong>
-          </>
-          )}
-        >
-
-          <div className={styles.memoComposer}>
-            <label className={styles.memoTargetField}>
-              <span>메모 대상</span>
-              <select
-                value={selectedMemoTarget?.key ?? ''}
-                onChange={(event) => setSelectedMemoTargetKey(event.target.value)}
-                disabled={!focusedOpId || isSubmitting || memoTargetOptions.length === 0}
-              >
-                {memoTargetOptions.map((option) => (
-                  <option key={option.key} value={option.key}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              {selectedMemoTarget ? <small>{selectedMemoTarget.description}</small> : null}
-            </label>
-            <textarea
-              value={content}
-              onChange={(event) => setContent(event.target.value)}
-              placeholder="인계할 현장 맥락을 입력하세요."
-              maxLength={1000}
-              disabled={!focusedOpId || isSubmitting}
-            />
-            <div className={styles.composerFooter}>
-              <span>{content.trim().length}/1000</span>
+            <div className={styles.leftPanelTabs} role="tablist" aria-label="인수인계 좌측 패널">
               <button
                 type="button"
-                onClick={handleSubmit}
-                disabled={!focusedOpId || !selectedMemoTarget || content.trim().length === 0 || isSubmitting}
+                role="tab"
+                aria-selected={leftPanelTab === 'op'}
+                className={`${styles.leftPanelTab}${leftPanelTab === 'op' ? ` ${styles.leftPanelTabActive}` : ''}`}
+                onClick={() => setLeftPanelTab('op')}
               >
-                {isSubmitting ? '저장 중' : '메모 저장'}
+                OP
               </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={leftPanelTab === 'handoverMemo'}
+                className={`${styles.leftPanelTab}${leftPanelTab === 'handoverMemo' ? ` ${styles.leftPanelTabActive}` : ''}`}
+                onClick={() => setLeftPanelTab('handoverMemo')}
+              >
+                인수인계 메모
+                <span>{selectedOpMemos.length}</span>
+              </button>
+            </div>
+          )}
+        >
+
+          <div className={styles.leftPanelPage} hidden={leftPanelTab !== 'op'}>
+            {opErrorMessage ? <div className={styles.errorText}>{opErrorMessage}</div> : null}
+
+            {isLoadingOps ? (
+              <div className={styles.opList}>
+                <div className={styles.emptyState}>OP 목록을 불러오는 중입니다.</div>
+              </div>
+            ) : (
+              <HandoverOperationalPeriodSelector
+                allowEmptySelection={false}
+                emptyMessage="등록된 OP가 없습니다."
+                onFocusedOperationalPeriodChange={setFocusedOpId}
+                onOperationalPeriodOpen={openComparisonPopup}
+                onSelectedOperationalPeriodIdsChange={handleOperationalPeriodSelectionChange}
+                operationalPeriods={handoverOperationalPeriods}
+                selectedOperationalPeriodIds={selectedOpIds}
+              />
+            )}
+
+            <div className={styles.opPanelFooter}>
+              <button
+                type="button"
+                className={styles.createOpButton}
+                disabled={!canCreateOperationalPeriod}
+                title={canCreateOperationalPeriod ? '새 OP 열기' : '현재 계정에는 권한이 없습니다.'}
+                onClick={openCreateOpModal}
+              >
+                <Plus size={16} aria-hidden="true" />
+                새 OP 열기
+              </button>
+              {!canCreateOperationalPeriod ? <span>현재 계정에는 권한이 없습니다.</span> : null}
             </div>
           </div>
 
-          {memoErrorMessage ? <div className={styles.errorText}>{memoErrorMessage}</div> : null}
+          <div className={styles.leftPanelPage} hidden={leftPanelTab !== 'handoverMemo'}>
+            <div className={styles.memoComposer}>
+              <label className={styles.memoTargetField}>
+                <span>메모 대상</span>
+                <select
+                  value={selectedMemoTarget?.key ?? ''}
+                  onChange={(event) => setSelectedMemoTargetKey(event.target.value)}
+                  disabled={!focusedOpId || isSubmitting || memoTargetOptions.length === 0}
+                >
+                  {memoTargetOptions.map((option) => (
+                    <option key={option.key} value={option.key}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                {selectedMemoTarget ? <small>{selectedMemoTarget.description}</small> : null}
+              </label>
+              <textarea
+                value={content}
+                onChange={(event) => setContent(event.target.value)}
+                placeholder="인계할 현장 맥락을 입력하세요."
+                maxLength={1000}
+                disabled={!focusedOpId || isSubmitting}
+              />
+              <div className={styles.composerFooter}>
+                <span>{content.trim().length}/1000</span>
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={!focusedOpId || !selectedMemoTarget || content.trim().length === 0 || isSubmitting}
+                >
+                  {isSubmitting ? '저장 중' : '메모 저장'}
+                </button>
+              </div>
+            </div>
 
-          <div className={styles.memoList}>
-            {isLoadingMemos ? (
-              <div className={styles.emptyState}>인수인계 메모를 불러오는 중입니다.</div>
-            ) : selectedOpMemos.length === 0 ? (
-              <div className={styles.emptyState}>작성된 인수인계 메모가 없습니다.</div>
-            ) : (
-              selectedOpMemos.map((memo) => (
-                <article key={memo.id} className={styles.memoItem}>
-                  <p>{memo.content}</p>
-                  <div>
-                    <span className={styles.memoTargetBadge}>{formatMemoTargetLabel(memo, memoTargetOptions)}</span>
-                    <span>{formatKstDateTime(new Date(memo.createdAt))}</span>
-                    <span>작성 계정 {memo.createdByAccountId}</span>
-                    <span>v{memo.version}</span>
-                  </div>
-                </article>
-              ))
-            )}
+            {memoErrorMessage ? <div className={styles.errorText}>{memoErrorMessage}</div> : null}
+
+            <div className={styles.memoList}>
+              {isLoadingMemos ? (
+                <div className={styles.emptyState}>인수인계 메모를 불러오는 중입니다.</div>
+              ) : selectedOpMemos.length === 0 ? (
+                <div className={styles.emptyState}>작성된 인수인계 메모가 없습니다.</div>
+              ) : (
+                selectedOpMemos.map((memo) => (
+                  <article key={memo.id} className={styles.memoItem}>
+                    <p>{memo.content}</p>
+                    <div>
+                      <span className={styles.memoTargetBadge}>{formatMemoTargetLabel(memo, memoTargetOptions)}</span>
+                      <span>{formatKstDateTime(new Date(memo.createdAt))}</span>
+                      <span>작성 계정 {memo.createdByAccountId}</span>
+                      <span>v{memo.version}</span>
+                    </div>
+                  </article>
+                ))
+              )}
+            </div>
           </div>
         </BoardPanel>
+
+        {sharedMapMode ? null : (
+          <section className={styles.mapArea} aria-label="선택 OP overlay 지도">
+            <HandoverComparisonMap
+              incidentId={incidentId}
+              board={board}
+              focusedOpId={focusedOpId}
+              selectedOpIds={selectedOpIds}
+            />
+          </section>
+        )}
       </div>
+
+      {isComparisonPopupOpen ? createPortal(
+        <div className={styles.modalOverlay} role="presentation">
+          <section
+            className={`${styles.modal} ${styles.comparisonModal}`}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="op-comparison-popup-title"
+          >
+            <div className={styles.modalHeader}>
+              <h2 id="op-comparison-popup-title">OP 비교</h2>
+              <button type="button" aria-label="OP 비교 닫기" onClick={() => setIsComparisonPopupOpen(false)}>
+                닫기
+              </button>
+            </div>
+            <div className={styles.comparisonModalBody}>
+              <div className={styles.historyContent}>
+                <section className={styles.contextBlock} aria-label="OP 기준 정보">
+                  <div className={styles.blockHeading}>
+                    <h2>OP 기준 정보</h2>
+                    <span>{selectedOp?.status ? formatStatusLabel(selectedOp.status) : '-'}</span>
+                  </div>
+                  <dl className={styles.detailGrid}>
+                    <div>
+                      <dt>수색 차수</dt>
+                      <dd>{selectedOp ? formatOperationalPeriodLabel(selectedOp) : '-'}</dd>
+                    </div>
+                    <div>
+                      <dt>OP 사유</dt>
+                      <dd>{selectedOp ? formatReasonLabel(selectedOp.reason) : '-'}</dd>
+                    </div>
+                    <div>
+                      <dt>시작 시각</dt>
+                      <dd>-</dd>
+                    </div>
+                    <div>
+                      <dt>종료 시각</dt>
+                      <dd>{selectedOp?.status === 'ENDED' ? '-' : '진행 중'}</dd>
+                    </div>
+                  </dl>
+                </section>
+
+                <section className={styles.contextBlock} aria-label="수색 근거 요약">
+                  <div className={styles.blockHeading}>
+                    <h2>수색 근거 요약</h2>
+                    <span>{isLoadingBoard ? '불러오는 중' : evidenceSummary.boardUpdatedAt ?? '-'}</span>
+                  </div>
+
+                  {boardErrorMessage ? <div className={styles.errorText}>{boardErrorMessage}</div> : null}
+
+                  <div className={styles.summaryGrid}>
+                    <SummaryCard label="수색 경로" value={`${evidenceSummary.pathCount}건`} helper="차량·도보 구간 기준" />
+                    <SummaryCard label="배정 구역" value={`${evidenceSummary.areaCount}건`} helper={evidenceSummary.overallAreaStatus} />
+                    <SummaryCard label="마커" value={`${evidenceSummary.markerCount}건`} helper="단서·발견·운영 메모" />
+                    <SummaryCard label="수색 이력 요약" value={`${evidenceSummary.summaryCount}건`} helper="요약 생성 결과" />
+                  </div>
+                </section>
+
+                <section className={styles.contextBlock} aria-label="수색 이력 자동 요약">
+                  <div className={styles.blockHeading}>
+                    <h2>수색 이력 자동 요약</h2>
+                    <span>{isLoadingBoard ? '불러오는 중' : searchHistorySummary?.statusLabel ?? '요약 없음'}</span>
+                  </div>
+                  {isLoadingBoard ? (
+                    <div className={styles.emptyState}>수색 이력 요약을 불러오는 중입니다.</div>
+                  ) : searchHistorySummary?.summaryText ? (
+                    <p className={styles.summaryText}>{searchHistorySummary.summaryText}</p>
+                  ) : searchHistorySummary ? (
+                    <div className={styles.emptyState}>요약을 생성하지 못했습니다. 지도와 메모에서 원본 기록을 확인하세요.</div>
+                  ) : (
+                    <div className={styles.emptyState}>생성된 수색 이력 요약이 없습니다.</div>
+                  )}
+                  {searchHistorySummary?.generatedAt ? (
+                    <span className={styles.summaryMeta}>{searchHistorySummary.generatedAt}</span>
+                  ) : null}
+                </section>
+
+                <section className={styles.contextBlock} aria-label="인계 확인 항목">
+                  <div className={styles.blockHeading}>
+                    <h2>인계 확인 항목</h2>
+                    <span>사람이 판단할 근거</span>
+                  </div>
+                  <ul className={styles.checkList}>
+                    <li>선택한 OP의 차량 구간과 도보 구간을 지도에서 확인합니다.</li>
+                    <li>배정 구역과 마커를 함께 보며 상황판에서 판단할 지점을 확인합니다.</li>
+                    <li>인수인계 메모는 판단 결과와 현장 맥락을 보조 기록으로 남깁니다.</li>
+                  </ul>
+                </section>
+              </div>
+            </div>
+          </section>
+        </div>,
+        document.body,
+      ) : null}
 
       {isCreateOpModalOpen ? (
         <div className={styles.modalOverlay} role="presentation">
@@ -706,7 +720,7 @@ function createIncidentContext(
 }
 
 function createHandoverMemoTargetOptions(
-  board: HandoverBoardResponseDto | null,
+  board: IncidentBoardResponse | null,
   selectedOp: OperationalPeriodListItem | null,
 ): HandoverMemoTargetOption[] {
   if (!selectedOp) return [];
@@ -829,13 +843,17 @@ function shortId(id: string) {
   return id.length > 8 ? id.slice(0, 8) : id;
 }
 
-function createEvidenceSummary(board: HandoverBoardResponseDto | null, selectedOpIds: string[]): EvidenceSummary {
+function createEvidenceSummary(
+  board: IncidentBoardResponse | null,
+  selectedOpIds: string[],
+  summaryCount: number,
+): EvidenceSummary {
   if (!board) {
     return {
       pathCount: 0,
       areaCount: 0,
       markerCount: 0,
-      summaryCount: 0,
+      summaryCount,
       overallAreaStatus: '전체 구역 없음',
       boardUpdatedAt: null,
     };
@@ -844,49 +862,23 @@ function createEvidenceSummary(board: HandoverBoardResponseDto | null, selectedO
   const pathRows = filterRowsBySelectedOps(readSlotRows(board, 'path'), selectedOpIds);
   const areaRows = filterRowsBySelectedOps(readSlotRows(board, 'area'), selectedOpIds);
   const markerRows = filterRowsBySelectedOps(readSlotRows(board, 'marker'), selectedOpIds);
-  const summaryRows = filterRowsBySelectedOps(readSlotRows(board, 'search_history_summary'), selectedOpIds);
   const hasOverallArea = readSlotRows(board, 'overall_search_area').length > 0;
 
   return {
     pathCount: pathRows.length,
     areaCount: areaRows.length,
     markerCount: markerRows.length,
-    summaryCount: summaryRows.length,
+    summaryCount,
     overallAreaStatus: hasOverallArea ? '전체 구역 등록됨' : '전체 구역 없음',
     boardUpdatedAt: formatKstDateTime(new Date(board.serverTs)),
   };
 }
 
-function createSearchHistorySummaryView(
-  board: HandoverBoardResponseDto | null,
-  focusedOpId: string | null,
-): SearchHistorySummaryView | null {
-  if (!board || !focusedOpId) return null;
-
-  const summaryRow =
-    readSlotRows(board, 'search_history_summary').find((row) => {
-      const rowOpId = readString(row, 'opId') ?? readString(row, 'operationalPeriodId');
-      return rowOpId === focusedOpId;
-    }) ?? null;
-
-  if (!summaryRow) return null;
-
-  const displayStatus = readString(summaryRow, 'displayStatus') ?? readString(summaryRow, 'status') ?? 'UNAVAILABLE';
-  const summaryText = readString(summaryRow, 'summaryText') ?? readString(summaryRow, 'content') ?? null;
-  const generatedAt = readString(summaryRow, 'generatedAt');
-
-  return {
-    statusLabel: displayStatus === 'READY' ? '생성 완료' : '요약 실패',
-    summaryText,
-    generatedAt: generatedAt ? formatKstDateTime(new Date(generatedAt)) : null,
-  };
-}
-
-function readSlotRows(board: HandoverBoardResponseDto, slot: string): Record<string, unknown>[] {
-  const value = board.slots[slot];
-  if (isRecord(value) && Object.keys(value).length > 0) return [value];
-  if (!Array.isArray(value)) return [];
-  return value.filter(isRecord);
+function readSlotRows(board: IncidentBoardResponse, slot: BoardSlotName): Record<string, unknown>[] {
+  const raw = board.slots[slot] as unknown;
+  if (!raw) return [];
+  if (Array.isArray(raw)) return (raw as unknown[]).filter(isRecord);
+  return isRecord(raw) ? [raw] : [];
 }
 
 function filterRowsBySelectedOps(rows: Record<string, unknown>[], selectedOpIds: string[]) {

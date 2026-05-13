@@ -1005,8 +1005,11 @@ export function AreaEditMapCanvas({
 
     mapRef.current = externalMap;
     onMapReadyRef.current?.(externalMap);
+    let isInitialized = false;
 
     const initializeExternalLayers = () => {
+      if (isInitialized || !externalMap.isStyleLoaded()) return;
+      isInitialized = true;
       addSearchAreaLayers(externalMap, buildAreaFeatureCollection());
       addDrawingLayers(externalMap, { showCompletedDrafts: false });
       setGeoJsonSourceData(
@@ -1031,14 +1034,16 @@ export function AreaEditMapCanvas({
       externalMap.on('resize', updateTooltipPosition);
     };
 
-    if (externalMap.loaded()) {
+    if (externalMap.isStyleLoaded()) {
       initializeExternalLayers();
     } else {
       externalMap.once('load', initializeExternalLayers);
+      externalMap.on('styledata', initializeExternalLayers);
     }
 
     return () => {
       externalMap.off('load', initializeExternalLayers);
+      externalMap.off('styledata', initializeExternalLayers);
       externalMap.off('click', AREA_EDIT_FILL_LAYER_ID, handleAreaClick);
       externalMap.off('click', AREA_EDIT_LINE_LAYER_ID, handleAreaClick);
       externalMap.off('click', handleMapClick);

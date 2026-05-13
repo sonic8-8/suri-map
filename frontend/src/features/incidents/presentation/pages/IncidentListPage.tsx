@@ -7,10 +7,9 @@ import { IncidentImportModal } from '../../../incidentImport/presentation/compon
 import type { LoginAccount } from '../../../login/presentation/types/login';
 import { ActionButton, StatusBadge, type StatusBadgeTone } from '../../../../shared';
 import { ApiError, createIdempotencyKey } from '../../../../shared/api/client';
-import type { IncidentCard, IncidentFilter, IncidentStatus } from '../../domain/entities/Incident';
+import type { IncidentCard, IncidentStatus } from '../../domain/entities/Incident';
 import styles from './IncidentListPage.module.css';
 
-const INCIDENT_FILTERS: IncidentFilter[] = ['전체', '진행 중', '종료'];
 const INCIDENT_LIST_PAGE_SIZE = 12;
 const IMPORT_INCOMPLETE_ERROR_MESSAGE =
   '사건 가져오기가 완료되지 않았습니다. 목록을 새로고침한 뒤 다시 시도해 주세요.';
@@ -117,24 +116,7 @@ function createIncidentCard(item: IncidentListItem): IncidentCard {
   };
 }
 
-function getFilterChipClassName(filter: IncidentFilter, selectedFilter: IncidentFilter) {
-  const classNames = [styles.filterChip];
-
-  if (filter === '진행 중') {
-    classNames.push(styles.filterChipStatusProgress);
-  } else if (filter === '종료') {
-    classNames.push(styles.filterChipStatusClosed);
-  }
-
-  if (selectedFilter === filter) {
-    classNames.push(styles.filterChipActive);
-  }
-
-  return classNames.join(' ');
-}
-
 export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUserAccount }: IncidentListPageProps) {
-  const [filter, setFilter] = useState<IncidentFilter>('전체');
   const [pageNumber, setPageNumber] = useState(1);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isOffline, setIsOffline] = useState(() => !navigator.onLine);
@@ -148,22 +130,12 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
   const [isLoadingIncidents, setIsLoadingIncidents] = useState(false);
 
   const importedSourceIncidentIdSet = useMemo(() => new Set(importedSourceIncidentIds), [importedSourceIncidentIds]);
-  const filteredIncidents = filter === '전체' ? incidents : incidents.filter((incident) => incident.status === filter);
-  const totalPages = Math.max(1, Math.ceil(filteredIncidents.length / INCIDENT_LIST_PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(incidents.length / INCIDENT_LIST_PAGE_SIZE));
   const activePage = Math.min(pageNumber, totalPages);
   const pageStartIndex = (activePage - 1) * INCIDENT_LIST_PAGE_SIZE;
-  const visibleIncidents = filteredIncidents.slice(pageStartIndex, pageStartIndex + INCIDENT_LIST_PAGE_SIZE);
-  const pageStartNumber = filteredIncidents.length === 0 ? 0 : pageStartIndex + 1;
-  const pageEndNumber = Math.min(pageStartIndex + INCIDENT_LIST_PAGE_SIZE, filteredIncidents.length);
-  const incidentStatusSummary = incidents.reduce<Record<IncidentStatus, number>>(
-    (summary, incident) => {
-      summary[incident.status] += 1;
-      return summary;
-    },
-    { '진행 중': 0, 종료: 0 },
-  );
-  const isFilteredEmptyState =
-    visibleIncidents.length === 0 && incidents.length > 0 && !isLoadingIncidents && !listErrorMessage;
+  const visibleIncidents = incidents.slice(pageStartIndex, pageStartIndex + INCIDENT_LIST_PAGE_SIZE);
+  const pageStartNumber = incidents.length === 0 ? 0 : pageStartIndex + 1;
+  const pageEndNumber = Math.min(pageStartIndex + INCIDENT_LIST_PAGE_SIZE, incidents.length);
 
   useEffect(() => {
     let ignore = false;
@@ -251,7 +223,6 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
       setImportedSourceIncidentIds((currentIds) =>
         currentIds.includes(sourceIncidentId) ? currentIds : [...currentIds, sourceIncidentId],
       );
-      setFilter('전체');
       setPageNumber(1);
       setImportCompleteIncidentId(response.incidentId);
       setIsImportModalOpen(false);
@@ -312,16 +283,8 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
           <span className={styles.listContextDivider} aria-hidden="true" />
           <div className={styles.listContextMetrics}>
             <div>
-              <span>배정 사건</span>
+              <span>진행 중 배정 사건</span>
               <strong>{incidents.length}건</strong>
-            </div>
-            <div>
-              <span>진행 중</span>
-              <strong>{incidentStatusSummary['진행 중']}건</strong>
-            </div>
-            <div>
-              <span>종료</span>
-              <strong>{incidentStatusSummary.종료}건</strong>
             </div>
           </div>
           <div className={styles.listContextActions}>
@@ -339,37 +302,14 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
         </section>
       </header>
 
-      <section className={styles.toolbar} aria-label="사건 목록 필터">
-        <div className={styles.filterGroup} role="toolbar" aria-label="상태 필터">
-          {INCIDENT_FILTERS.map((item) => (
-            <button
-              key={item}
-              type="button"
-              className={getFilterChipClassName(item, filter)}
-              aria-pressed={filter === item}
-              onClick={() => {
-                setFilter(item);
-                setPageNumber(1);
-              }}
-            >
-              {item}
-            </button>
-          ))}
-        </div>
-      </section>
-
       <section className={styles.content} aria-label="사건 카드 목록">
         <div className={styles.contentInner}>
-          {isFilteredEmptyState ? (
-            <div className={styles.emptyState}>
-              <strong className={styles.emptyStateFilterText}>선택한 상태의 사건이 없습니다.</strong>
-            </div>
-          ) : visibleIncidents.length === 0 ? (
+          {visibleIncidents.length === 0 ? (
             <div className={styles.emptyState}>
               <strong>
                 {isLoadingIncidents
                   ? '배정 사건 목록을 불러오는 중입니다.'
-                  : listErrorMessage || (incidents.length === 0 ? '배정된 사건이 없습니다.' : '선택한 상태의 사건이 없습니다.')}
+                  : listErrorMessage || '진행 중인 배정 사건이 없습니다.'}
               </strong>
               <span>
                 {listErrorMessage
@@ -377,8 +317,8 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
                   : incidents.length === 0 && canImport
                     ? '사건 가져오기로 mock 112 배정 사건을 가져올 수 있습니다.'
                     : incidents.length === 0
-                      ? '현재 계정에 배정된 사건이 없습니다.'
-                      : '다른 상태 필터를 선택해 주세요.'}
+                      ? '현재 계정에 진행 중인 배정 사건이 없습니다.'
+                      : ''}
               </span>
             </div>
           ) : (
@@ -434,10 +374,10 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
           <footer className={styles.paginationBar} aria-label="사건 목록 페이지 이동">
             <div className={styles.paginationSummary}>
               <span>
-                전체 <b>{filteredIncidents.length}건</b>
+                전체 <b>{incidents.length}건</b>
               </span>
               <span className={styles.toolbarDivider} aria-hidden="true" />
-              <span>{filteredIncidents.length === 0 ? '0' : `${pageStartNumber}-${pageEndNumber}`}건 표시</span>
+              <span>{incidents.length === 0 ? '0' : `${pageStartNumber}-${pageEndNumber}`}건 표시</span>
             </div>
 
             <div className={styles.paginationControls}>

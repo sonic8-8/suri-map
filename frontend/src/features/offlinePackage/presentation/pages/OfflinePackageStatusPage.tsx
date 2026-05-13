@@ -1,7 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { getIncidentDetail, type IncidentDetailDto } from '../../../situationBoard/data/getIncidentDetail';
-import { getSituationBoard } from '../../../situationBoard/data/getSituationBoard';
+import type { SituationBoardResponseDto } from '../../../situationBoard/data/getSituationBoard';
+import {
+  isIncidentTerminalClosed,
+  toIncidentTerminal,
+  type IncidentTerminalViewModel,
+} from '../../../situationBoard/presentation/utils/incidentTerminalBoardMapper';
+import { useIncidentBoardQuery } from '../../../board/api/incidentBoardApi';
 import type { LoginAccount } from '../../../login/presentation/types/login';
 import {
   ActionButton,
@@ -22,12 +28,14 @@ type OfflinePackageStatusPageProps = {
   onMoveMarkerNotification: (nextIndex: number) => void;
   onOpenHandover: () => void;
   onOpenIncidentList: () => void;
+  onOpenOfflinePackage: () => void;
 };
 
 type PackageBadgeRow = {
   id: string;
   incidentId: string;
   policePhoneId: string;
+  policePhoneCode: string;
   policePhoneName: string;
   accountId: string;
   accountName: string;
@@ -58,36 +66,34 @@ export function OfflinePackageStatusPage({
   onMoveMarkerNotification,
   onOpenHandover,
   onOpenIncidentList,
+  onOpenOfflinePackage,
 }: OfflinePackageStatusPageProps) {
-  const [rows, setRows] = useState<PackageBadgeRow[]>([]);
   const [incidentDetail, setIncidentDetail] = useState<IncidentDetailDto | null>(null);
-  const [serverTs, setServerTs] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState('');
   const [isOffline, setIsOffline] = useState(() => !navigator.onLine);
 
-  const loadPackageStatuses = useCallback(async () => {
-    setIsLoading(true);
-    setErrorMessage('');
-
-    try {
-      const [board, detail] = await Promise.all([getSituationBoard(incidentId), getIncidentDetail(incidentId)]);
-      setRows(readPackageBadgeRows(board.slots.package_badge));
-      setIncidentDetail(detail);
-      setServerTs(board.serverTs);
-    } catch {
-      setRows([]);
-      setIncidentDetail(null);
-      setServerTs(null);
-      setErrorMessage('오프라인 패키지 상태를 불러오지 못했습니다.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [incidentId]);
+  const boardQuery = useIncidentBoardQuery({ incidentId, includeSlots: ['package_badge', 'incident_terminal'] });
+  const rows = useMemo(() => readPackageBadgeRows(boardQuery.data?.slots.package_badge), [boardQuery.data]);
+  const incidentTerminal = useMemo(
+    () => (boardQuery.data ? toIncidentTerminal(boardQuery.data as unknown as SituationBoardResponseDto) : null),
+    [boardQuery.data],
+  );
+  const serverTs = boardQuery.data?.serverTs ?? null;
+  const isLoading = boardQuery.isLoading;
+  const errorMessage = boardQuery.isError ? '오프라인 패키지 상태를 불러오지 못했습니다.' : '';
 
   useEffect(() => {
-    void loadPackageStatuses();
-  }, [loadPackageStatuses]);
+    let cancelled = false;
+    void getIncidentDetail(incidentId)
+      .then((detail) => {
+        if (!cancelled) setIncidentDetail(detail);
+      })
+      .catch(() => {
+        if (!cancelled) setIncidentDetail(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [incidentId]);
 
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
@@ -104,7 +110,8 @@ export function OfflinePackageStatusPage({
 
   const summary = useMemo(() => createSummary(rows), [rows]);
   const currentAccountLabel = `${currentUserAccount.name} / ${currentUserAccount.organization}`;
-  const incidentContext = createIncidentContext(incidentId, incidentDetail);
+  const incidentContext = createIncidentContext(incidentId, incidentDetail, incidentTerminal);
+  const isClosedTerminalBoard = isIncidentTerminalClosed(incidentTerminal);
   const timestampLabel = serverTs ? formatKstDateTime(new Date(serverTs)) : '동기화 전';
   const isEmpty = !isLoading && !errorMessage && rows.length === 0;
 
@@ -119,9 +126,9 @@ export function OfflinePackageStatusPage({
         timestampLabel={timestampLabel}
         onCloseMarkerNotifications={onCloseMarkerNotifications}
         onMoveMarkerNotification={onMoveMarkerNotification}
-        onOpenHandover={onOpenHandover}
+        onOpenHandover={isClosedTerminalBoard ? undefined : onOpenHandover}
         onOpenIncidentList={onOpenIncidentList}
-        onOpenOfflinePackage={() => undefined}
+        onOpenOfflinePackage={onOpenOfflinePackage}
         onOpenSituationBoard={onBackToSituationBoard}
       />
 
@@ -153,22 +160,22 @@ export function OfflinePackageStatusPage({
           <div className={styles.emptyState} role="alert">
             <strong>{errorMessage}</strong>
             <span>네트워크 상태와 API 응답을 확인한 뒤 다시 시도하세요.</span>
-            <ActionButton label="다시 시도" onClick={() => void loadPackageStatuses()} />
+            <ActionButton label="다시 시도" onClick={() => void boardQuery.refetch()} />
           </div>
         ) : isEmpty ? (
           <div className={styles.emptyState}>
-            <strong>배정된 폴리폰 패키지 상태가 없습니다.</strong>
-            <span>폴리폰이 오프라인 패키지 적재 상태를 보고하면 이곳에 표시됩니다.</span>
+            <strong>배정된 업무폰 패키지 상태가 없습니다.</strong>
+            <span>팀 업무폰 또는 순찰차 업무폰이 오프라인 패키지 적재 상태를 보고하면 이곳에 표시됩니다.</span>
           </div>
         ) : (
           <div className={styles.tableShell}>
             <table className={styles.statusTable}>
               <thead>
                 <tr>
-                  <th scope="col">폴리폰</th>
+                  <th scope="col">업무폰</th>
                   <th scope="col">패키지 상태</th>
                   <th scope="col">유형</th>
-                  <th scope="col">Manifest</th>
+                  <th scope="col">패키지 버전</th>
                   <th scope="col">오프라인 사용</th>
                   <th scope="col">확인 항목</th>
                 </tr>
@@ -208,7 +215,12 @@ export function OfflinePackageStatusPage({
 function createIncidentContext(
   incidentId: string,
   incidentDetail: IncidentDetailDto | null,
+  incidentTerminal: IncidentTerminalViewModel | null,
 ): SuriMapPageHeaderIncidentContext {
+  if (isIncidentTerminalClosed(incidentTerminal)) {
+    return createTerminalIncidentContext(incidentId, incidentDetail, incidentTerminal);
+  }
+
   const missingPerson = incidentDetail && 'missingPerson' in incidentDetail ? incidentDetail.missingPerson : null;
   const assignments = incidentDetail && 'assignments' in incidentDetail ? incidentDetail.assignments : [];
   const displayName = missingPerson?.displayName?.trim() || null;
@@ -226,8 +238,58 @@ function createIncidentContext(
       { label: '배정 계정', value: assignmentLabel },
     ],
     statusLabel: `${status === 'CLOSED' ? '종료' : '진행 중'} · 오프라인 패키지`,
+    statusTone: status === 'CLOSED' ? 'terminal' : 'active',
   };
 }
+
+function createTerminalIncidentContext(
+  incidentId: string,
+  incidentDetail: IncidentDetailDto | null,
+  incidentTerminal: IncidentTerminalViewModel,
+): SuriMapPageHeaderIncidentContext {
+  return {
+    avatarLabel: '종료',
+    eyebrow: `${incidentId} · v${incidentDetail?.version ?? '-'}`,
+    title: '종료된 사건',
+    metrics: [
+      {
+        label: '종료 시각',
+        value: incidentTerminal.closedAt ? formatKstDateTime(new Date(incidentTerminal.closedAt)) : '-',
+      },
+      {
+        label: '쓰기 상태',
+        value: writeDisabledReasonLabels[incidentTerminal.writeDisabledReason],
+      },
+      {
+        label: '로컬 정리',
+        value: localPurgeStateLabels[incidentTerminal.localPurgeState],
+      },
+    ],
+    statusLabel: `${terminalStatusLabels[incidentTerminal.terminalStatus]} · 오프라인 패키지`,
+    statusTone: 'terminal',
+  };
+}
+
+const terminalStatusLabels: Record<IncidentTerminalViewModel['terminalStatus'], string> = {
+  OPEN: '진행 중',
+  CLOSED: '종료',
+  PURGE_PENDING: '파기 대기',
+  PURGED: '파기 완료',
+};
+
+const writeDisabledReasonLabels: Record<IncidentTerminalViewModel['writeDisabledReason'], string> = {
+  none: '제한 없음',
+  incident_closed: '사건 종료로 쓰기 불가',
+  purged: '데이터 파기 완료로 쓰기 불가',
+};
+
+const localPurgeStateLabels: Record<IncidentTerminalViewModel['localPurgeState'], string> = {
+  not_started: '정리 시작 전',
+  queued: '정리 대기',
+  in_progress: '정리 진행 중',
+  completed: '정리 완료',
+  failed_retryable: '재시도 필요',
+};
 
 function createAvatarLabel(displayName: string | null) {
   if (!displayName) return '사건';
@@ -275,6 +337,7 @@ function readPackageBadgeRow(value: unknown): PackageBadgeRow | null {
     id,
     incidentId: readString(value, 'incidentId') ?? '',
     policePhoneId,
+    policePhoneCode: readString(value, 'policePhoneCode') ?? '',
     policePhoneName: readString(value, 'policePhoneName') ?? '',
     accountId: readString(value, 'accountId') ?? '',
     accountName: readString(value, 'accountName') ?? '',
@@ -308,13 +371,14 @@ function createSummary(rows: PackageBadgeRow[]): PackageSummary {
 }
 
 function createDeviceTitle(row: PackageBadgeRow) {
-  return row.accountName || row.policePhoneName || row.policePhoneId;
+  return row.accountName || row.policePhoneName || row.policePhoneCode || row.policePhoneId;
 }
 
 function createDeviceMeta(row: PackageBadgeRow) {
   const title = createDeviceTitle(row);
   const phoneName = row.policePhoneName && row.policePhoneName !== title ? row.policePhoneName : '';
-  return [phoneName, row.policePhoneId].filter(Boolean).join(' · ');
+  const phoneCode = row.policePhoneCode && row.policePhoneCode !== title ? row.policePhoneCode : '';
+  return [phoneName, phoneCode, row.policePhoneId].filter(Boolean).join(' · ');
 }
 
 function formatAccountType(accountType: string) {

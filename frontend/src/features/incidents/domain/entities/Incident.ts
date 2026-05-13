@@ -1,7 +1,5 @@
 export type IncidentStatus = '진행 중' | '종료';
 
-export type IncidentFilter = '전체' | IncidentStatus;
-
 export type IncidentCard = {
   id: string;
   title: string;

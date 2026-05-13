@@ -50,7 +50,7 @@ export const mockIncidentTombstone: IncidentTombstone = {
     },
     {
       id: 'stream',
-      label: '실시간 stream 재구독 차단',
+      label: '실시간 스트림 재구독 차단',
       status: 'completed',
     },
   ],
