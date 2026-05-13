@@ -8,9 +8,11 @@ import com.surimap.feature.handover.data.HandoverSessionContext
 import com.surimap.feature.handover.ui.SearchHistorySummaryStatus
 import com.surimap.feature.handover.ui.SummarySourceReadiness
 import com.surimap.testing.dutyShiftIdFixture
+import com.surimap.testing.handoverMemoIdFixture
 import com.surimap.testing.incidentIdFixture
 import com.surimap.testing.opIdFixture
 import com.surimap.testing.policePhoneIdFixture
+import com.surimap.testing.searchHistorySummaryIdFixture
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -36,7 +38,7 @@ class DutyHandoverStateLoaderTest {
                         {
                           "items": [
                             {
-                              "id": "memo-001",
+                              "id": "$MEMO_ID",
                               "opId": "$OP_ID",
                               "memoTargetType": "OPERATIONAL_PERIOD",
                               "memoTargetId": "$OP_ID",
@@ -60,7 +62,7 @@ class DutyHandoverStateLoaderTest {
                         {
                           "items": [
                             {
-                              "id": "summary-001",
+                              "id": "$SUMMARY_ID",
                               "status": "READY",
                               "displayStatus": "READY",
                               "content": "동쪽 능선 수색 완료. 원본 메모를 확인하세요.",
@@ -99,7 +101,7 @@ class DutyHandoverStateLoaderTest {
                         {
                           "items": [
                             {
-                              "id": "summary-pending",
+                              "id": "$PENDING_SUMMARY_ID",
                               "status": "GENERATING",
                               "sourceReadiness": "PENDING_SYNC"
                             }
@@ -150,6 +152,9 @@ class DutyHandoverStateLoaderTest {
         val OP_ID = opIdFixture("precinct-first-001")
         val DUTY_SHIFT_ID = dutyShiftIdFixture("precinct-first-001")
         val POLICE_PHONE_ID = policePhoneIdFixture("precinct-001")
+        val MEMO_ID = handoverMemoIdFixture("memo-001")
+        val SUMMARY_ID = searchHistorySummaryIdFixture("summary-001")
+        val PENDING_SUMMARY_ID = searchHistorySummaryIdFixture("summary-pending")
         val CONTEXT =
             HandoverSessionContext(
                 incidentId = INCIDENT_ID,

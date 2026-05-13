@@ -17,6 +17,10 @@ fun pathIdFixture(alias: String): String = uuidFixture("path", alias)
 
 fun dutyShiftIdFixture(alias: String): String = uuidFixture("duty-shift", alias)
 
+fun handoverMemoIdFixture(alias: String): String = uuidFixture("handover-memo", alias)
+
+fun searchHistorySummaryIdFixture(alias: String): String = uuidFixture("search-history-summary", alias)
+
 fun manifestIdFixture(alias: String): String = uuidFixture("manifest", alias)
 
 fun areaIdFixture(alias: String): String = uuidFixture("area", alias)

@@ -12,13 +12,17 @@ import {
   useOperationalPeriodListQuery,
 } from './operationalPeriodApi';
 
+const INCIDENT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001';
+const OP_ID = '88888888-8888-8888-8888-888888880001';
+const NEXT_OP_ID = '88888888-8888-8888-8888-888888880002';
+
 describe('operational period API', () => {
   test('lists operational periods through canonical incident path', async () => {
     const response: OperationalPeriodListResponse = {
-      currentOpId: '88888888-8888-8888-8888-888888880001',
+      currentOpId: OP_ID,
       items: [
         {
-          id: '88888888-8888-8888-8888-888888880001',
+          id: OP_ID,
           status: 'ACTIVE',
           reason: 'INITIAL',
           sequenceNumber: 1,
@@ -28,17 +32,17 @@ describe('operational period API', () => {
     const client = fakeApiClient(response);
     const api = createOperationalPeriodApi(client);
 
-    await expect(api.list('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001')).resolves.toBe(response);
+    await expect(api.list(INCIDENT_ID)).resolves.toBe(response);
 
     expect(client.get).toHaveBeenCalledWith(
-      '/incidents/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001/operational-periods',
+      `/incidents/${INCIDENT_ID}/operational-periods`,
     );
   });
 
   test('creates operational period with idempotency key', async () => {
     const response: CreateOperationalPeriodResponse = {
-      id: '88888888-8888-8888-8888-888888880002',
-      incidentId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001',
+      id: NEXT_OP_ID,
+      incidentId: INCIDENT_ID,
       status: 'ACTIVE',
       reason: 'RE_SEARCH',
       version: 1,
@@ -47,7 +51,7 @@ describe('operational period API', () => {
     const client = fakeApiClient(response);
     const api = createOperationalPeriodApi(client);
     const request = {
-      incidentId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001',
+      incidentId: INCIDENT_ID,
       reason: 'RE_SEARCH' as const,
       clientTs: '2026-05-11T10:00:00+09:00',
     };
@@ -60,20 +64,20 @@ describe('operational period API', () => {
   });
 
   test('query and mutation hooks use stable keys', async () => {
-    expect(operationalPeriodQueryKeys.list('inc-001')).toEqual([
+    expect(operationalPeriodQueryKeys.list(INCIDENT_ID)).toEqual([
       'operationalPeriods',
       'list',
-      'inc-001',
+      INCIDENT_ID,
     ]);
 
     const operationalPeriodApi = {
       list: vi.fn(async () => ({
-        currentOpId: 'op-001',
-        items: [{ id: 'op-001', status: 'ACTIVE' as const, reason: 'INITIAL' as const, sequenceNumber: 1 }],
+        currentOpId: OP_ID,
+        items: [{ id: OP_ID, status: 'ACTIVE' as const, reason: 'INITIAL' as const, sequenceNumber: 1 }],
       })),
       create: vi.fn(async () => ({
-        id: 'op-002',
-        incidentId: 'inc-001',
+        id: NEXT_OP_ID,
+        incidentId: INCIDENT_ID,
         status: 'ACTIVE' as const,
         reason: 'RE_SEARCH',
         version: 1,
@@ -81,14 +85,14 @@ describe('operational period API', () => {
       })),
     };
 
-    const listHook = renderQueryHook(() => useOperationalPeriodListQuery('inc-001', operationalPeriodApi));
+    const listHook = renderQueryHook(() => useOperationalPeriodListQuery(INCIDENT_ID, operationalPeriodApi));
     await waitFor(() => expect(listHook.result.current.isSuccess).toBe(true));
-    expect(operationalPeriodApi.list).toHaveBeenCalledWith('inc-001');
+    expect(operationalPeriodApi.list).toHaveBeenCalledWith(INCIDENT_ID);
 
     const createHook = renderMutationHook(() => useCreateOperationalPeriodMutation(operationalPeriodApi));
     createHook.result.current.mutate({
       request: {
-        incidentId: 'inc-001',
+        incidentId: INCIDENT_ID,
         reason: 'RE_SEARCH',
         clientTs: '2026-05-11T10:00:00+09:00',
       },
