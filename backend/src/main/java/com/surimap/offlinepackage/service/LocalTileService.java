@@ -5,10 +5,12 @@ import com.surimap.offlinepackage.dto.TileStyleResponse;
 import com.surimap.offlinepackage.exception.TileUnavailableException;
 import java.util.List;
 import java.util.Map;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 
 @Service
+@ConditionalOnProperty(name = "tileserver.mode", havingValue = "fixture", matchIfMissing = true)
 public class LocalTileService implements TileService {
 
   private static final String STYLE_ID = "osm-local";

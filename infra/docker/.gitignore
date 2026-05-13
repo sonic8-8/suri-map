@@ -1,3 +1,4 @@
 .env.backend
 .env.runtime
-
+tileserver/data/*.mbtiles
+tileserver/data/*.pmtiles

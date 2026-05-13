@@ -6,6 +6,7 @@ import com.surimap.offlinepackage.dto.TileBlobResponse;
 import com.surimap.offlinepackage.dto.TileStyleResponse;
 import com.surimap.offlinepackage.exception.TileChannelNotAllowedException;
 import com.surimap.offlinepackage.service.TileService;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -39,7 +40,12 @@ public class TileController {
       Authentication authentication) {
     requirePublicSession(authentication);
     TileBlobResponse response = tileService.getTile(style, z, x, y);
-    return ResponseEntity.ok().contentType(response.getContentType()).body(response.getBytes());
+    ResponseEntity.BodyBuilder responseBuilder =
+        ResponseEntity.ok().contentType(response.getContentType());
+    if (response.getContentEncoding() != null && !response.getContentEncoding().isBlank()) {
+      responseBuilder.header(HttpHeaders.CONTENT_ENCODING, response.getContentEncoding());
+    }
+    return responseBuilder.body(response.getBytes());
   }
 
   private static void requirePublicSession(Authentication authentication) {

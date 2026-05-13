@@ -12,6 +12,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -38,6 +39,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -117,6 +119,24 @@ class TileControllerTest {
         .andExpect(content().contentTypeCompatibleWith(APPLICATION_X_PROTOBUF))
         .andExpect(content().bytes(LOCAL_TILE_BYTES))
         .andExpect(result -> assertThat(result.getResponse().getContentAsByteArray()).isNotEmpty());
+  }
+
+  @Test
+  @DisplayName("tile pbf의 gzip content encoding을 응답 헤더로 보존한다")
+  void tilePbfPreservesContentEncoding() throws Exception {
+    when(tileService.getTile(STYLE_ID, 16, 55877, 25377))
+        .thenReturn(new TileBlobResponse(APPLICATION_X_PROTOBUF, LOCAL_TILE_BYTES, "gzip"));
+
+    mockMvc
+        .perform(
+            get("/tiles/{style}/{z}/{x}/{y}.pbf", STYLE_ID, 16, 55877, 25377)
+                .header("Authorization", AUTHORIZATION)
+                .header("X-Client-Channel", "WEB")
+                .principal(authentication(Channel.WEB)))
+        .andExpect(status().isOk())
+        .andExpect(content().contentTypeCompatibleWith(APPLICATION_X_PROTOBUF))
+        .andExpect(header().string(HttpHeaders.CONTENT_ENCODING, "gzip"))
+        .andExpect(content().bytes(LOCAL_TILE_BYTES));
   }
 
   @Test
