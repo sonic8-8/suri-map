@@ -14,6 +14,25 @@ WHERE phone_code IN (
     'dev-support-phone-01'
 );
 
+INSERT INTO account (id, login_id, password_hash, display_name, account_type, organization_type, status)
+VALUES (
+    '11111111-1111-1111-1111-111111110009',
+    'acct-unassigned-phone',
+    '{noop}fixture',
+    'Unassigned police phone account',
+    'TEAM',
+    'POLICE_SUBSTATION',
+    'ACTIVE'
+)
+ON CONFLICT (id) DO UPDATE SET
+    login_id = EXCLUDED.login_id,
+    password_hash = EXCLUDED.password_hash,
+    display_name = EXCLUDED.display_name,
+    account_type = EXCLUDED.account_type,
+    organization_type = EXCLUDED.organization_type,
+    status = EXCLUDED.status,
+    updated_at = CURRENT_TIMESTAMP;
+
 INSERT INTO police_phone (
     id,
     phone_code,
