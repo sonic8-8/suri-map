@@ -460,6 +460,9 @@ class OfflinePackageStateLoaderTest {
         assertTrue(source.contains("onDownloadPlanAvailable"))
         assertTrue(source.contains("OfflinePackageDownloadScheduler"))
         assertTrue(source.contains("WorkManager.getInstance"))
+        assertTrue(source.contains("observe("))
+        assertTrue(source.contains("collectAsState"))
+        assertTrue(source.contains("installationRefreshSignal"))
         assertTrue(source.contains("upsertAll"))
     }
 

@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -96,6 +97,7 @@ import com.surimap.ui.navigation.PolicePhoneRoute
 import com.surimap.ui.navigation.SearchMapDeepLink
 import com.surimap.ui.navigation.accessTokenProvider
 import com.surimap.ui.theme.PoliBgBase
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 
 @Composable
@@ -504,6 +506,20 @@ private fun OfflinePackageRoute(
     val offlinePackageDownloadScheduler = remember(context) {
         OfflinePackageDownloadScheduler(WorkManager.getInstance(context))
     }
+    val installationRefreshSignal by remember(
+        incidentContext?.incidentId,
+        policePhoneContext?.policePhoneId,
+        offlinePackageInstallationDao
+    ) {
+        if (incidentContext == null || policePhoneContext == null) {
+            flowOf<OfflinePackageInstallationEntity?>(null)
+        } else {
+            offlinePackageInstallationDao.observe(
+                incidentId = incidentContext.incidentId,
+                policePhoneId = policePhoneContext.policePhoneId
+            )
+        }
+    }.collectAsState(initial = null)
     val accessTokenProvider = policePhoneContext.accessTokenProvider()
     val loader =
         remember(
@@ -573,7 +589,7 @@ private fun OfflinePackageRoute(
         mutableStateOf(OfflinePackageUiState.loading(incidentTitle = fallbackIncidentTitle))
     }
 
-    LaunchedEffect(loader, fallbackIncidentTitle, retryNonce) {
+    LaunchedEffect(loader, fallbackIncidentTitle, retryNonce, installationRefreshSignal) {
         state = OfflinePackageUiState.loading(incidentTitle = fallbackIncidentTitle)
         state =
             loader?.load()

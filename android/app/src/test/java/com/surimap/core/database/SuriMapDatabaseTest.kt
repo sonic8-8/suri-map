@@ -5,6 +5,9 @@ import com.surimap.core.sync.DependencyGroup
 import com.surimap.testing.incidentIdFixture
 import com.surimap.testing.manifestIdFixture
 import com.surimap.testing.policePhoneIdFixture
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -237,6 +240,38 @@ class SuriMapDatabaseTest {
 
         assertEquals(18, status!!.manifestVersion)
         assertTrue(status.readyForOfflineUse)
+    }
+
+    @Test
+    fun offlinePackageInstallationDaoEmitsReadyStatusForPackageRouteRefresh() = runBlocking {
+        val observed = async {
+            database.offlinePackageInstallationDao()
+                .observe(incidentId = INCIDENT_ID, policePhoneId = POLICE_PHONE_ID)
+                .filterNotNull()
+                .first { status -> status.status == "READY" && status.readyForOfflineUse }
+        }
+
+        database.offlinePackageInstallationDao().upsert(
+            OfflinePackageInstallationEntity(
+                incidentId = INCIDENT_ID,
+                policePhoneId = POLICE_PHONE_ID,
+                manifestId = MANIFEST_ID,
+                manifestVersion = 18,
+                status = "READY",
+                totalItems = 7,
+                completedItems = 7,
+                failedItems = 0,
+                version = 4,
+                readyForOfflineUse = true,
+                updatedAt = 2_000L
+            )
+        )
+
+        val status = observed.await()
+
+        assertEquals(MANIFEST_ID, status.manifestId)
+        assertEquals(18, status.manifestVersion)
+        assertEquals(7, status.completedItems)
     }
 
     @Test
