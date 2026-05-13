@@ -740,28 +740,12 @@ public class OfflinePackageRepository {
   }
 
   private static List<TileItem> tileItems() {
-    return List.of(
-        tile(
-            15,
-            27925,
-            12680,
-            "354260e6043ab9b70662016952da6cdc783319deae611490d0803d5b417b000c",
-            18432),
-        tile(
-            15,
-            27926,
-            12680,
-            "ffa729767ab0dd0add127c19b0b1243f553dadaf7f796a593d180d00552ea977",
-            20480),
-        tile(
-            16,
-            27925,
-            12681,
-            "64fc20008bd026acb2cc672812de4fa0f1928fc763f894c82c5ef89c2beb6165",
-            24576));
+    return LocalTileService.manifestTiles().stream()
+        .map(tile -> tile(tile.z(), tile.x(), tile.y(), tile.checksum(), tile.bytes()))
+        .toList();
   }
 
-  private static TileItem tile(int z, int x, int y, String sha256, int bytes) {
+  private static TileItem tile(int z, int x, int y, String checksum, int bytes) {
     return new TileItem(
         "tile:osm-local:%d:%d:%d".formatted(z, x, y),
         "osm-local",
@@ -769,7 +753,7 @@ public class OfflinePackageRepository {
         x,
         y,
         "local://tiles/%s/%d/%d/%d.pbf".formatted(INCIDENT_ALIAS, z, x, y),
-        "sha256:" + sha256,
+        checksum,
         bytes);
   }
 
