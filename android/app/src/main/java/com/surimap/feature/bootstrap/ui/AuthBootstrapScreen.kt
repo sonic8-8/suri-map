@@ -47,7 +47,10 @@ enum class AuthBootstrapFailureReason {
 }
 
 sealed interface AuthBootstrapOutcome {
-    data class Ready(val policePhoneId: String) : AuthBootstrapOutcome
+    data class Ready(
+        val policePhoneId: String,
+        val accessToken: String? = null
+    ) : AuthBootstrapOutcome
     data class Blocked(val reason: AuthBootstrapFailureReason) : AuthBootstrapOutcome
 }
 

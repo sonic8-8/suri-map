@@ -35,6 +35,7 @@ class OfflinePackageDownloadWorkerTest {
                         .putString("incidentId", INCIDENT_ID)
                         .putString("policePhoneId", POLICE_PHONE_ID)
                         .putString("manifestId", MANIFEST_ID)
+                        .putString("accessToken", "bootstrap-token-1")
                         .build()
                 )
                 .build()
@@ -46,7 +47,8 @@ class OfflinePackageDownloadWorkerTest {
             OfflinePackageWorkerInstallRequest(
                 incidentId = INCIDENT_ID,
                 policePhoneId = POLICE_PHONE_ID,
-                manifestId = MANIFEST_ID
+                manifestId = MANIFEST_ID,
+                accessToken = "bootstrap-token-1"
             ),
             installs.single()
         )

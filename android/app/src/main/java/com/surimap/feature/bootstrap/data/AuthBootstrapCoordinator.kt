@@ -5,6 +5,8 @@ import android.content.RestrictionsManager
 import android.os.Bundle
 import com.surimap.BuildConfig
 import com.surimap.core.network.AccessTokenProvider
+import com.surimap.core.network.AuthLoginNetworkRequest
+import com.surimap.core.network.AuthPhoneApiClient
 import com.surimap.core.network.NoAccessTokenProvider
 import com.surimap.core.network.SuriMapApiClient
 import com.surimap.core.network.SuriMapApiRequest
@@ -12,6 +14,9 @@ import com.surimap.core.network.SuriMapNetworkException
 import com.surimap.feature.bootstrap.ui.AuthBootstrapFailureReason
 import com.surimap.feature.bootstrap.ui.AuthBootstrapOutcome
 import java.time.Clock
+
+private val ACCESS_TOKEN_FIELD = Regex(""""accessToken"\s*:\s*"([^"]+)"""")
+private val POLICE_PHONE_ID_FIELD = Regex(""""policePhoneId"\s*:\s*"([^"]+)"""")
 
 data class ManagedPolicePhoneConfig(
     val policePhoneId: String?,
@@ -28,6 +33,39 @@ fun interface ManagedConfigurationReader {
 
 fun interface AuthBootstrapServerCheck {
     suspend fun verify(config: ManagedPolicePhoneConfig): AuthBootstrapOutcome
+}
+
+data class AuthBootstrapCredentials(
+    val accountCode: String,
+    val password: String,
+    val policePhoneCode: String
+) {
+    fun isUsable(): Boolean =
+        accountCode.isNotBlank() && password.isNotBlank() && policePhoneCode.isNotBlank()
+}
+
+fun interface AuthBootstrapCredentialsProvider {
+    fun credentials(config: ManagedPolicePhoneConfig): AuthBootstrapCredentials?
+}
+
+object NoAuthBootstrapCredentialsProvider : AuthBootstrapCredentialsProvider {
+    override fun credentials(config: ManagedPolicePhoneConfig): AuthBootstrapCredentials? = null
+}
+
+object BuildConfigAuthBootstrapCredentialsProvider : AuthBootstrapCredentialsProvider {
+    override fun credentials(config: ManagedPolicePhoneConfig): AuthBootstrapCredentials? {
+        val policePhoneCode =
+            BuildConfig.SURI_MAP_FIXTURE_POLICE_PHONE_CODE
+                .takeIf(String::isNotBlank)
+                ?: config.policePhoneId?.takeIf(String::isNotBlank)
+        val credentials =
+            AuthBootstrapCredentials(
+                accountCode = BuildConfig.SURI_MAP_FIXTURE_ACCOUNT_CODE,
+                password = BuildConfig.SURI_MAP_FIXTURE_PASSWORD,
+                policePhoneCode = policePhoneCode.orEmpty()
+            )
+        return credentials.takeIf(AuthBootstrapCredentials::isUsable)
+    }
 }
 
 class AuthBootstrapCoordinator(
@@ -91,10 +129,13 @@ private fun Bundle?.managedString(key: String): String? {
 class NetworkPolicePhoneBootstrapServerCheck(
     private val apiClient: SuriMapApiClient = SuriMapApiClient(),
     private val accessTokenProvider: AccessTokenProvider = NoAccessTokenProvider,
+    private val credentialsProvider: AuthBootstrapCredentialsProvider = NoAuthBootstrapCredentialsProvider,
     private val clock: Clock = Clock.systemUTC()
 ) : AuthBootstrapServerCheck {
     override suspend fun verify(config: ManagedPolicePhoneConfig): AuthBootstrapOutcome {
-        val policePhoneId = config.policePhoneId
+        val loginSession = loginIfNeeded(config)
+        val accessToken = loginSession?.accessToken ?: accessTokenProvider.accessToken()
+        val policePhoneId = loginSession?.policePhoneId ?: config.policePhoneId
             ?: return AuthBootstrapOutcome.Blocked(AuthBootstrapFailureReason.ManagedConfigMissing)
 
         return try {
@@ -104,13 +145,13 @@ class NetworkPolicePhoneBootstrapServerCheck(
                         method = "POST",
                         path = "/api/police-phones/$policePhoneId/heartbeat",
                         body = """{"clientTs":"${clock.instant()}","sequence":1}""",
-                        accessToken = accessTokenProvider.accessToken(),
+                        accessToken = accessToken,
                         policePhoneId = policePhoneId
                     )
                 )
 
             if (response.isSuccessful) {
-                AuthBootstrapOutcome.Ready(policePhoneId = policePhoneId)
+                AuthBootstrapOutcome.Ready(policePhoneId = policePhoneId, accessToken = accessToken)
             } else {
                 AuthBootstrapOutcome.Blocked(mapError(response.errorCode))
             }
@@ -127,4 +168,37 @@ class NetworkPolicePhoneBootstrapServerCheck(
             "channel_not_allowed" -> AuthBootstrapFailureReason.ServerRejectedPhone
             else -> AuthBootstrapFailureReason.ServerRejectedPhone
         }
+
+    private suspend fun loginIfNeeded(config: ManagedPolicePhoneConfig): BootstrapLoginSession? {
+        if (!accessTokenProvider.accessToken().isNullOrBlank()) {
+            return null
+        }
+        val credentials = credentialsProvider.credentials(config)?.takeIf(AuthBootstrapCredentials::isUsable)
+            ?: return null
+        val response =
+            AuthPhoneApiClient(apiClient = apiClient)
+                .login(
+                    AuthLoginNetworkRequest(
+                        accountCode = credentials.accountCode,
+                        password = credentials.password,
+                        channel = "APP",
+                        policePhoneCode = credentials.policePhoneCode
+                    )
+                )
+        if (!response.isSuccessful) {
+            return null
+        }
+        val body = response.body.orEmpty()
+        val accessToken = ACCESS_TOKEN_FIELD.find(body)?.groupValues?.get(1)?.takeIf(String::isNotBlank)
+            ?: return null
+        val policePhoneId = POLICE_PHONE_ID_FIELD.find(body)?.groupValues?.get(1)?.takeIf(String::isNotBlank)
+            ?: config.policePhoneId
+            ?: credentials.policePhoneCode
+        return BootstrapLoginSession(accessToken = accessToken, policePhoneId = policePhoneId)
+    }
+
+    private data class BootstrapLoginSession(
+        val accessToken: String,
+        val policePhoneId: String
+    )
 }

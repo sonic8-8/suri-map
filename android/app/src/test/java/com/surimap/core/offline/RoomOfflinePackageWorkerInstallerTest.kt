@@ -2,6 +2,7 @@ package com.surimap.core.offline
 
 import androidx.room.Room
 import com.surimap.core.database.SuriMapDatabase
+import com.surimap.core.network.AccessTokenProvider
 import com.surimap.core.network.SuriMapApiClient
 import com.surimap.core.sync.RoomSyncClient
 import kotlinx.coroutines.runBlocking
@@ -104,6 +105,34 @@ class RoomOfflinePackageWorkerInstallerTest {
         assertEquals(2, installation.totalItems)
     }
 
+    @Test
+    fun httpByteFetcherAddsBootstrapBearerTokenToTileRequest() = runBlocking {
+        val callFactory = CapturingCallFactory(response(200, "tile-bytes"))
+        val fetcher =
+            OfflinePackageHttpByteFetcher(
+                apiBaseUrl = "https://suri-map.internal/api",
+                accessTokenProvider = AccessTokenProvider { "bootstrap-token-1" },
+                callFactory = callFactory
+            )
+
+        fetcher.fetch(
+            OfflinePackageDownloadItem(
+                itemKey = "tile-1",
+                itemType = "TILE",
+                sourceVersion = 18,
+                sourceHash = "sha256:irrelevant",
+                downloadUrl = "/tiles/osm-local/15/27925/12680.pbf"
+            )
+        )
+
+        assertEquals(
+            "https://suri-map.internal/tiles/osm-local/15/27925/12680.pbf",
+            callFactory.lastRequest!!.url.toString()
+        )
+        assertEquals("APP", callFactory.lastRequest!!.header("X-Client-Channel"))
+        assertEquals("Bearer bootstrap-token-1", callFactory.lastRequest!!.header("Authorization"))
+    }
+
     private fun roomInstaller(
         manifestBody: String,
         tileBytes: ByteArray
@@ -157,7 +186,12 @@ class RoomOfflinePackageWorkerInstallerTest {
         """.trimIndent()
 
     private class CapturingCallFactory(private val response: Response) : Call.Factory {
-        override fun newCall(request: Request): Call = CapturingCall(request, response)
+        var lastRequest: Request? = null
+
+        override fun newCall(request: Request): Call {
+            lastRequest = request
+            return CapturingCall(request, response)
+        }
     }
 
     private class CapturingCall(

@@ -4,6 +4,7 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.surimap.core.network.AccessTokenProvider
 
 enum class PolicePhoneRoute(val route: String) {
     AuthBootstrap("auth_bootstrap"),
@@ -41,8 +42,12 @@ data class PolicePhoneContext(
     val apiBaseUrl: String,
     val tileBaseUrl: String,
     val objectStorageBaseUrl: String,
-    val allowedHosts: Set<String> = emptySet()
+    val allowedHosts: Set<String> = emptySet(),
+    val accessToken: String? = null
 )
+
+fun PolicePhoneContext?.accessTokenProvider(): AccessTokenProvider =
+    AccessTokenProvider { this?.accessToken?.takeIf(String::isNotBlank) }
 
 @Stable
 class IncidentSessionState(
