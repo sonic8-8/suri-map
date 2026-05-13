@@ -327,6 +327,25 @@ class RoomLocalSyncServicesTest {
         assertEquals(HarnessSyncStatus.FAILED.name, finalRow.localMirrorStatus)
     }
 
+    @Test
+    fun replayPersistsFinalFailureErrorCodeFromSender() = runBlocking {
+        val finalOp = sampleOperation(
+            operationId = operationIdFixture("final-with-error-001"),
+            idempotencyKey = "idem-final-with-error-001",
+            bodyHash = "sha256:final-with-error"
+        )
+
+        syncClient.enqueue(finalOp)
+        sender.decisionByKey[finalOp.idempotencyKey] = SendResult.FINAL_FAILURE
+        sender.finalFailureErrorByKey[finalOp.idempotencyKey] = "incident_access_denied"
+
+        replay.flushPending(policePhoneId = finalOp.policePhoneId, incidentId = finalOp.incidentId)
+
+        val row = database.outboxDao().findByIdempotencyKey(finalOp.idempotencyKey)!!
+        assertEquals(OutboxStatus.FAILED_FINAL.name, row.idempotencyStatus)
+        assertEquals("incident_access_denied", row.lastError)
+    }
+
     private fun sampleOperation(
         operationId: String = operationIdFixture("outbox-path-001"),
         idempotencyKey: String,
@@ -353,12 +372,17 @@ class RoomLocalSyncServicesTest {
 
     private class CapturingSender : OutboxSender {
         val decisionByKey: MutableMap<String, SendResult> = linkedMapOf()
+        val finalFailureErrorByKey: MutableMap<String, String> = linkedMapOf()
         private val sentByKey: MutableMap<String, Int> = linkedMapOf()
+        private var lastFailureError: String? = null
 
         override suspend fun send(row: com.surimap.core.database.OutboxEntity): SendResult {
             sentByKey[row.idempotencyKey] = (sentByKey[row.idempotencyKey] ?: 0) + 1
+            lastFailureError = finalFailureErrorByKey[row.idempotencyKey]
             return decisionByKey[row.idempotencyKey] ?: SendResult.ACKED
         }
+
+        override fun finalFailureErrorCode(): String? = lastFailureError
 
         fun sendCountByKey(idempotencyKey: String): Int = sentByKey[idempotencyKey] ?: 0
     }

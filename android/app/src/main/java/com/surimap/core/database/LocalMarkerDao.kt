@@ -10,6 +10,9 @@ interface LocalMarkerDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: LocalMarkerEntity)
 
+    @Query("SELECT * FROM local_marker WHERE outbox_id = :outboxId LIMIT 1")
+    suspend fun findByOutboxId(outboxId: String): LocalMarkerEntity?
+
     @Query(
         """
         SELECT local_marker.* FROM local_marker

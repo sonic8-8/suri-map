@@ -71,6 +71,7 @@ class OfflinePackageRepositoryTest {
                 policePhoneId = POLICE_PHONE_ID,
                 idempotencyKey = "idem-package-install-001",
                 sequence = 30,
+                installationId = INSTALLATION_ID,
                 manifestId = MANIFEST_ID,
                 manifestVersion = 4,
                 status = "READY",
@@ -92,7 +93,8 @@ class OfflinePackageRepositoryTest {
         assertEquals("POST", operation.method)
         assertEquals("/api/incidents/$INCIDENT_ID/offline-package/installations", operation.endpoint)
         assertEquals(POLICE_PHONE_ID, operation.policePhoneId)
-        assertEquals("package_installation", operation.entityType)
+        assertEquals("offline_package_installation", operation.entityType)
+        assertEquals(INSTALLATION_ID, operation.entityId)
         assertEquals(
             """{"policePhoneId":"$POLICE_PHONE_ID","manifestId":"$MANIFEST_ID","manifestVersion":4,"status":"READY","totalItems":120,"completedItems":120,"failedItems":0,"version":7,"clientTs":"2026-05-11T06:00:00Z","readyForOfflineUse":true,"failedItemKeys":[],"sequence":30,"clockOffsetMs":50}""",
             operation.payload
@@ -156,6 +158,7 @@ class OfflinePackageRepositoryTest {
         val INCIDENT_ID = incidentIdFixture("precinct-first-001")
         val POLICE_PHONE_ID = policePhoneIdFixture("precinct-001")
         val MANIFEST_ID = manifestIdFixture("precinct-first-rev-4")
+        val INSTALLATION_ID = manifestIdFixture("precinct-first-installation-4")
         val CLIENT_TS: Instant = Instant.parse("2026-05-11T06:00:00Z")
         val CLOCK_SYNCED_AT: Instant = Instant.parse("2026-05-11T05:59:30Z")
     }
