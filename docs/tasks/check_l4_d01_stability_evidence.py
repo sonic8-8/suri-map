@@ -68,6 +68,7 @@ def main() -> int:
         ],
         "blocked verdict": ["Verdict", "BLOCKED"],
         "next action": ["docs/tasks/l4-network-switch-stability-protocol.md", "실제 장치"],
+        "runtime preflight": ["check_l4_d01_runtime_preflight.py", "two ready physical Android devices"],
     }
 
     for label, fragments in required.items():
