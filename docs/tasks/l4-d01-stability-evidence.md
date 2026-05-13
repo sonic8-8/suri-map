@@ -14,8 +14,8 @@ convergence evidence.
 | Task | `L4-D01` |
 | Existing Jira | `S14P31C106-196` |
 | Evidence gap Jira | `S14P31C106-300` |
-| Branch | `feature/S14P31C106-300-l4-d01-single-device-partial-template` |
-| Checked at | `2026-05-13T16:53:20+09:00` |
+| Branch | `feature/S14P31C106-300-l4-d01-single-device-partial-evidence` |
+| Checked at | `2026-05-14T00:31:00+09:00` |
 | Required sources | `docs/prd.md §2.2`, `docs/prd.md §2.3`, `docs/spec/harness-scenarios.md §2 SC-05`, `docs/spec/harness-scenarios.md §2 SC-07`, `docs/spec/harness-scenarios.md §2 SC-09` |
 | Execution protocol | `docs/tasks/l4-network-switch-stability-protocol.md` |
 
@@ -68,11 +68,43 @@ Partial rehearsal cannot cover:
 | Full board convergence gate | Final board evidence must compare two PolicePhones and one board session over the 1-hour run. |
 | Final pass/fail | `L4-D01` requires the full 2-PolicePhone protocol. |
 
+## 2026-05-14 Single-Device Partial Result
+
+Artifacts: `docs/tasks/artifacts/l4-d01-single-device-20260514/`.
+
+This run used one physical Samsung SM-S901N on Android 16 / SDK 36. The app was
+installed as `com.surimap` and launched as `com.surimap/.MainActivity`.
+The local backend was current develop and was exposed to the phone through a
+temporary `trycloudflare.com` tunnel because WSL and Windows LAN addresses were
+not reachable from the device network.
+
+| Check | Result |
+|---|---|
+| Device availability | PARTIAL PASS. Windows ADB saw exactly one physical device in `device` state. WSL ADB still saw no devices because `usbipd` was unavailable. |
+| App bootstrap | PASS. After tunnel stabilization, the app reached the incident selection screen for police phone `00000000-0000-0000-0000-000000000101`. |
+| Network on/off cycles | PARTIAL PASS. 10/10 off phases became network unreachable, and 10/10 on phases recovered health check access. Recovery took 1-2 attempts, maximum about 20s. |
+| Runtime stability | PARTIAL PASS. App PID `17392` stayed alive throughout the 10 cycles. `FATAL EXCEPTION`, `ANR`, and `am_crash` patterns were not observed. |
+| Search map after recovery | PARTIAL. Search map remained open after the cycles, but it showed `미전송 1건 처리 불가`. |
+| Package local state | FAIL/PARTIAL. Local package installation showed `READY` with 7/7 items, but the package installation outbox row stayed `FAILED_FINAL` / `invalid_payload`. |
+| Marker local state | FAIL/PARTIAL. Marker outbox row was `ACKED` / `SYNCED`, but the mirrored `local_marker.sync_status` remained `PENDING_SEND`, and a marker draft still existed. |
+| Duplicate server row | NOT FINAL. This run did not execute the required two-device duplicate-row gate. |
+| Board convergence | NOT FINAL. Board comparison against two PolicePhones was not possible with one physical device. |
+
+Partial verdict: app runtime survived one-device network switching, but local
+convergence is not clean. This is useful bug-finding evidence, not a final
+L4-D01 pass.
+
+Follow-up defects:
+
+| Jira | Scope |
+|---|---|
+| `S14P31C106-307` | Android package installation outbox `invalid_payload` failure. |
+| `S14P31C106-308` | Marker ACK leaves local marker/draft in pending state. |
+
 ## Next Action
 
-Connect the single available physical Android device and run the partial
-rehearsal first. Record the result as `partial evidence, final blocked` in this
-document and Jira `S14P31C106-300`.
+Create follow-up implementation tickets for the observed local convergence
+failures, then rerun the single-device partial rehearsal after fixes.
 
 Run `docs/tasks/l4-network-switch-stability-protocol.md` on 실제 장치 with two
 Android PolicePhone devices and one board session when the second physical

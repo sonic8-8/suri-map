@@ -1,0 +1,11 @@
+checkedAt=2026-05-14T00:31:00+09:00
+adb=Windows platform-tools adb.exe
+List of devices attached
+R3CT50BD92Y            device product:r0qksx model:SM_S901N device:r0q transport_id:1
+
+model=SM-S901N
+androidRelease=16
+androidSdk=36
+package=com.surimap
+activity=com.surimap/.MainActivity
+pid=17392
