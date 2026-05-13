@@ -8,8 +8,10 @@ class HttpOutboxSender(
     private val apiClient: SuriMapApiClient,
     private val accessTokenProvider: AccessTokenProvider = NoAccessTokenProvider
 ) : OutboxSender {
+    private var lastFinalFailureErrorCode: String? = null
 
     override suspend fun send(row: OutboxEntity): SendResult {
+        lastFinalFailureErrorCode = null
         val response = try {
             apiClient.execute(
                 SuriMapApiRequest(
@@ -30,9 +32,14 @@ class HttpOutboxSender(
             response.statusCode == 408 -> SendResult.RETRYABLE_FAILURE
             response.statusCode == 429 -> SendResult.RETRYABLE_FAILURE
             response.statusCode >= 500 -> SendResult.RETRYABLE_FAILURE
-            else -> SendResult.FINAL_FAILURE
+            else -> {
+                lastFinalFailureErrorCode = response.errorCode ?: "http_${response.statusCode}"
+                SendResult.FINAL_FAILURE
+            }
         }
     }
+
+    override fun finalFailureErrorCode(): String? = lastFinalFailureErrorCode
 }
 
 object AndroidNetworkFactory {

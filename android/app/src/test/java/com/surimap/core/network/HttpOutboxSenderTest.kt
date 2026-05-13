@@ -49,6 +49,23 @@ class HttpOutboxSenderTest {
     }
 
     @Test
+    fun sendPreservesServerErrorCodeForFinalFailureDiagnostics() = runBlocking {
+        val sender =
+            HttpOutboxSender(
+                apiClient =
+                SuriMapApiClient(
+                    baseUrl = "https://suri-map.example.com",
+                    callFactory = StaticCallFactory(
+                        response = response(403, """{"error":"incident_access_denied"}""")
+                    )
+                )
+            )
+
+        assertEquals(SendResult.FINAL_FAILURE, sender.send(outboxRow()))
+        assertEquals("incident_access_denied", sender.finalFailureErrorCode())
+    }
+
+    @Test
     fun sendMapsNetworkExceptionsToRetryableFailure() = runBlocking {
         val sender = HttpOutboxSender(
             apiClient = SuriMapApiClient(
@@ -157,12 +174,12 @@ private class StaticCall(
     override fun clone(): Call = StaticCall(request, response, exception)
 }
 
-private fun response(statusCode: Int): Response {
+private fun response(statusCode: Int, body: String = """{"status":"ok"}"""): Response {
     return Response.Builder()
         .request(Request.Builder().url("https://suri-map.example.com/placeholder").build())
         .protocol(Protocol.HTTP_1_1)
         .code(statusCode)
         .message("test")
-        .body("""{"status":"ok"}""".toResponseBody())
+        .body(body.toResponseBody())
         .build()
 }
