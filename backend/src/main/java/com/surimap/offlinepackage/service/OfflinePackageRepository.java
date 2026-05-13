@@ -178,8 +178,6 @@ public class OfflinePackageRepository {
         OfflinePackageInstallationRecord.from(
             installationIdForReport(requestManifestDbId, requestPolicePhoneDbId),
             incidentDbId,
-            requestManifestDbId,
-            requestPolicePhoneDbId,
             request,
             SERVER_TS);
     mapper.deleteInstallationForPhone(requestManifestDbId, requestPolicePhoneDbId);
@@ -277,8 +275,6 @@ public class OfflinePackageRepository {
         MANIFEST_DB_ID,
         INCIDENT_DB_ID,
         MANIFEST_VERSION,
-        OP_DB_ID,
-        OVERALL_SEARCH_AREA_DB_ID,
         EXPIRES_AT,
         SERVER_TS);
     seedStatus("pkg-status-precinct-ready-001", POLICE_PHONE_ID, "READY", 3, true);
