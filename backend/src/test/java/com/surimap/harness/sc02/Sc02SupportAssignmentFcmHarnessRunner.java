@@ -114,7 +114,7 @@ public class Sc02SupportAssignmentFcmHarnessRunner {
       rows.add(
           new IncidentAssignmentRow(
               "ia-precinct-cmd-001",
-              "acct-precinct-cmd",
+              "11111111-1111-1111-1111-111111110001",
               "dev-precinct-cmd-phone-01",
               "team-precinct-jongno",
               "COMMAND",
@@ -123,7 +123,7 @@ public class Sc02SupportAssignmentFcmHarnessRunner {
       rows.add(
           new IncidentAssignmentRow(
               "ia-precinct-car-001",
-              "acct-precinct-car",
+              "11111111-1111-1111-1111-111111110002",
               "dev-precinct-car-01",
               "team-precinct-jongno",
               "PATROL_CAR",
@@ -132,7 +132,7 @@ public class Sc02SupportAssignmentFcmHarnessRunner {
       rows.add(
           new IncidentAssignmentRow(
               "ia-precinct-team-001",
-              "acct-precinct-team",
+              "11111111-1111-1111-1111-111111110003",
               "dev-precinct-phone-01",
               "team-precinct-jongno",
               "TEAM",
@@ -141,7 +141,7 @@ public class Sc02SupportAssignmentFcmHarnessRunner {
       rows.add(
           new IncidentAssignmentRow(
               "ia-precinct-alpha-cmd-001",
-              "acct-cmd-alpha",
+              "11111111-1111-1111-1111-111111110004",
               "dev-alpha-cmd-phone-01",
               "team-missing-alpha",
               "COMMAND",
@@ -150,7 +150,7 @@ public class Sc02SupportAssignmentFcmHarnessRunner {
       rows.add(
           new IncidentAssignmentRow(
               "ia-precinct-alpha-team-001",
-              "acct-team-alpha",
+              "11111111-1111-1111-1111-111111110005",
               "dev-alpha-phone-01",
               "team-missing-alpha",
               "TEAM",
@@ -163,24 +163,24 @@ public class Sc02SupportAssignmentFcmHarnessRunner {
           List.of(
               new IncidentAssignmentRow(
                   "ia-precinct-support-cmd-001",
-                  "acct-support-cmd",
-                  "dev-support-cmd-phone-01",
+                  "11111111-1111-1111-1111-111111110006",
+                  "00000000-0000-0000-0000-000000000206",
                   SUPPORT_TEAM_ID,
                   "COMMAND",
                   true,
                   true),
               new IncidentAssignmentRow(
                   "ia-precinct-support-car-001",
-                  "acct-support-car",
-                  "dev-support-car-01",
+                  "11111111-1111-1111-1111-111111110007",
+                  "00000000-0000-0000-0000-000000000207",
                   SUPPORT_TEAM_ID,
                   "PATROL_CAR",
                   true,
                   true),
               new IncidentAssignmentRow(
                   "ia-precinct-support-team-001",
-                  "acct-support-team",
-                  "dev-support-phone-01",
+                  "11111111-1111-1111-1111-111111110008",
+                  "00000000-0000-0000-0000-000000000208",
                   SUPPORT_TEAM_ID,
                   "TEAM",
                   true,
@@ -209,13 +209,13 @@ public class Sc02SupportAssignmentFcmHarnessRunner {
 
     private final Map<String, String> tokensByPolicePhone =
         Map.of(
-            "dev-support-cmd-phone-01",
+            "00000000-0000-0000-0000-000000000206",
             "fcm:dev-support-cmd-phone-01",
-            "dev-support-car-01",
+            "00000000-0000-0000-0000-000000000207",
             "fcm:dev-support-car-01",
-            "dev-support-phone-01",
+            "00000000-0000-0000-0000-000000000208",
             "fcm:dev-support-phone-01",
-            "dev-alpha-phone-01",
+            "00000000-0000-0000-0000-000000000205",
             "fcm:dev-alpha-phone-01");
 
     boolean hasActiveToken(String policePhoneId) {

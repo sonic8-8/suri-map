@@ -1,44 +1,36 @@
 package com.surimap.account;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
-import com.surimap.account.config.AuthConfig;
-import com.surimap.account.controller.AuthController;
-import com.surimap.app.controller.policephone.FcmTokenController;
-import com.surimap.app.controller.policephone.PolicePhoneHeartbeatController;
-import com.surimap.app.service.policephone.PolicePhoneHeartbeatConfig;
-import com.surimap.config.ClockConfig;
-import com.surimap.config.GuardConfig;
-import com.surimap.config.SecurityConfig;
-import com.surimap.policephone.InMemoryPolicePhoneFixtureStore;
+import com.surimap.eventhub.port.EventHub;
 import com.surimap.policephone.PolicePhoneFixtures;
+import com.surimap.policephone.PolicePhoneHeartbeatUpdatedPublishRequest;
+import com.surimap.policephone.query.FcmTokenQuery;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.context.annotation.Import;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
-@WebMvcTest({AuthController.class, FcmTokenController.class, PolicePhoneHeartbeatController.class})
+@SpringBootTest
+@ActiveProfiles("test")
 @AutoConfigureMockMvc
-@Import({
-  SecurityConfig.class,
-  GuardConfig.class,
-  ClockConfig.class,
-  AuthConfig.class,
-  PolicePhoneHeartbeatConfig.class
-})
 @DisplayName("P1-E auth phone API integration")
 class AuthPhoneApiIntegrationTest {
 
   @Autowired private MockMvc mockMvc;
-  @Autowired private InMemoryPolicePhoneFixtureStore fixtureStore;
+  @Autowired private FcmTokenQuery fcmTokenQuery;
+  @MockitoBean private EventHub eventHub;
 
   @Test
   @DisplayName("APP login creates bearer session bound to PolicePhone security context")
@@ -60,14 +52,37 @@ class AuthPhoneApiIntegrationTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.sessionId").isString())
         .andExpect(jsonPath("$.accessToken").isString())
-        .andExpect(jsonPath("$.securityContext.accountId").value("acct-precinct-team"))
+        .andExpect(
+            jsonPath("$.securityContext.accountId")
+                .value(AccountIdentityCatalog.PRECINCT_TEAM_ID.toString()))
         .andExpect(jsonPath("$.securityContext.accountType").value("TEAM"))
-        .andExpect(jsonPath("$.securityContext.organizationType").value("MISSING_TEAM"))
+        .andExpect(jsonPath("$.securityContext.organizationType").value("POLICE_SUBSTATION"))
         .andExpect(jsonPath("$.securityContext.channel").value("APP"))
         .andExpect(
             jsonPath("$.securityContext.policePhoneId")
                 .value(PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID.toString()))
         .andExpect(jsonPath("$.securityContext.authorities[0]").value("MEMBER"));
+  }
+
+  @Test
+  @DisplayName("APP login rejects PolicePhone owned by another account")
+  void appLoginRejectsPolicePhoneOwnedByAnotherAccount() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/auth/login")
+                .header("X-Client-Channel", "APP")
+                .contentType("application/json")
+                .content(
+                    """
+                    {
+                      "accountCode": "acct-precinct-team",
+                      "password": "fixture",
+                      "channel": "APP",
+                      "policePhoneCode": "dev-support-phone-01"
+                    }
+                    """))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error").value("channel_not_allowed"));
   }
 
   @Test
@@ -97,7 +112,7 @@ class AuthPhoneApiIntegrationTest {
         .andExpect(jsonPath("$.tokenCiphertext").doesNotExist())
         .andExpect(jsonPath("$.tokenHash").doesNotExist());
 
-    var activeTokens = fixtureStore.activeByPolicePhone(PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID);
+    var activeTokens = fcmTokenQuery.activeByPolicePhone(PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID);
     assertThat(activeTokens)
         .anySatisfy(
             row -> {
@@ -135,6 +150,13 @@ class AuthPhoneApiIntegrationTest {
         .andExpect(
             jsonPath("$.policePhoneId").value(PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID.toString()))
         .andExpect(jsonPath("$.sequence").value(1));
+
+    verify(eventHub)
+        .publish(
+            argThat(
+                request ->
+                    PolicePhoneHeartbeatUpdatedPublishRequest.TYPE.equals(request.type())
+                        && PolicePhoneFixtures.INCIDENT_ID.equals(request.incidentId())));
   }
 
   @Test

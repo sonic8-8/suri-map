@@ -12,6 +12,8 @@ import com.surimap.feature.marker.ui.MarkerCreateSheetUiState
 import com.surimap.feature.marker.ui.MarkerType
 import com.surimap.feature.offline.ui.OfflinePackageUiState
 import com.surimap.feature.search.ui.SearchMapUiState
+import com.surimap.testing.incidentIdFixture
+import com.surimap.testing.markerIdFixture
 import com.surimap.ui.AppOverlayState
 import com.surimap.ui.IncidentClosedOverlayState
 import org.junit.Assert.assertEquals
@@ -54,8 +56,8 @@ class AndroidUiScenarioCoverageTest {
             IncidentFcmPayload(
                 eventId = "evt-s5-person-found-001",
                 type = "PERSON_FOUND",
-                incidentId = "inc-precinct-first-001",
-                markerId = "mk-precinct-person-found-001"
+                incidentId = INCIDENT_ID,
+                markerId = PERSON_FOUND_MARKER_ID
             )
         )
         assertTrue(alertRoute is IncidentFcmRoute.MarkerFocus)
@@ -82,7 +84,7 @@ class AndroidUiScenarioCoverageTest {
             IncidentFcmPayload(
                 eventId = "evt-s1-1-incident-closed-001",
                 type = "INCIDENT_CLOSED",
-                incidentId = "inc-precinct-first-001",
+                incidentId = INCIDENT_ID,
                 markerId = null
             )
         )
@@ -95,14 +97,20 @@ class AndroidUiScenarioCoverageTest {
     fun alertUiKeepsMarkerFocusActionForSupportRequestAndPersonFound() {
         val alerts =
             listOf(
-                IncidentAlertUiState.personFound("mk-precinct-person-found-001"),
-                IncidentAlertUiState.supportRequest("mk-precinct-support-001")
+                IncidentAlertUiState.personFound(PERSON_FOUND_MARKER_ID),
+                IncidentAlertUiState.supportRequest(SUPPORT_MARKER_ID)
             )
 
         alerts.forEach { alert ->
             assertTrue(alert.visibleText().contains("확인"))
             assertTrue(alert.visibleText().contains("지도 열기"))
-            assertTrue(alert.focusMarkerId.startsWith("mk-precinct-"))
+            assertTrue(alert.focusMarkerId.contains("-"))
         }
+    }
+
+    private companion object {
+        val INCIDENT_ID = incidentIdFixture("precinct-first-001")
+        val PERSON_FOUND_MARKER_ID = markerIdFixture("precinct-person-found-001")
+        val SUPPORT_MARKER_ID = markerIdFixture("precinct-support-001")
     }
 }

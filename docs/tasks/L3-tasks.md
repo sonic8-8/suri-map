@@ -185,7 +185,7 @@
 
 ## Phase 5
 
-- [ ] L3-D01 시연용 도형·OP·인수인계 데이터 검증
+- [x] L3-D01 시연용 도형·OP·인수인계 데이터 검증
   - 담당 Spec: S2, S8
   - 필수 참조: `prd.md §5.1`, `spec/harness-scenarios.md §2 SC-04`, `spec/harness-scenarios.md §2 SC-10`, `spec/harness-scenarios.md §2 SC-11`
   - 연관 Lane: L1, L4, L5, L6

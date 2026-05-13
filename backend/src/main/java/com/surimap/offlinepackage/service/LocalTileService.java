@@ -3,12 +3,17 @@ package com.surimap.offlinepackage.service;
 import com.surimap.offlinepackage.dto.TileBlobResponse;
 import com.surimap.offlinepackage.dto.TileStyleResponse;
 import com.surimap.offlinepackage.exception.TileUnavailableException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 
 @Service
+@ConditionalOnProperty(name = "tileserver.mode", havingValue = "fixture", matchIfMissing = true)
 public class LocalTileService implements TileService {
 
   private static final String STYLE_ID = "osm-local";
@@ -136,8 +141,21 @@ public class LocalTileService implements TileService {
     return new TileBlobResponse(APPLICATION_X_PROTOBUF, bytes);
   }
 
+  public static List<LocalTileMetadata> manifestTiles() {
+    return List.of(
+        localTileMetadata(TILE_15_27925_12680),
+        localTileMetadata(TILE_15_27926_12680),
+        localTileMetadata(TILE_16_27925_12681));
+  }
+
   private static boolean isInFixtureRange(int z, int x, int y) {
     return z >= MIN_Z && z <= MAX_Z && x >= MIN_X && x <= MAX_X && y >= MIN_Y && y <= MAX_Y;
+  }
+
+  private static LocalTileMetadata localTileMetadata(TileKey tileKey) {
+    byte[] bytes = TILE_BYTES.get(tileKey);
+    return new LocalTileMetadata(
+        STYLE_ID, tileKey.z(), tileKey.x(), tileKey.y(), prefixedSha256(bytes), bytes.length);
   }
 
   private static byte[] vectorTileFixtureBytes(TileKey tileKey, int size) {
@@ -190,6 +208,18 @@ public class LocalTileService implements TileService {
     int value = tileKey.z() * 31 + tileKey.x() * 17 + tileKey.y() * 13 + index * 7;
     return (byte) value;
   }
+
+  private static String prefixedSha256(byte[] bytes) {
+    try {
+      return "sha256:"
+          + HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+    } catch (NoSuchAlgorithmException exception) {
+      throw new IllegalStateException("SHA-256 digest is unavailable", exception);
+    }
+  }
+
+  public record LocalTileMetadata(
+      String styleId, int z, int x, int y, String checksum, int bytes) {}
 
   private record TileKey(int z, int x, int y) {}
 }

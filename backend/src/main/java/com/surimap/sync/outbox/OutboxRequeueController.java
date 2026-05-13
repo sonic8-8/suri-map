@@ -9,6 +9,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
+import java.util.Set;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,7 +22,8 @@ public class OutboxRequeueController {
 
   private static final long MAX_ALLOWED_SKEW_MS = 30_000L;
   private static final long STALE_CLOCK_SYNC_AFTER_MS = 300_000L;
-  private static final String CLOSED_INCIDENT_ID = "inc-precinct-closed-001";
+  private static final Set<String> CLOSED_INCIDENT_IDS =
+      Set.of("inc-precinct-closed-001", "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0012");
 
   private final Clock clock;
 
@@ -41,7 +43,7 @@ public class OutboxRequeueController {
       throw new OutboxRequeueApiException(HttpStatus.BAD_REQUEST, "police_phone_required");
     }
 
-    if (CLOSED_INCIDENT_ID.equals(request.incidentId())) {
+    if (CLOSED_INCIDENT_IDS.contains(request.incidentId())) {
       throw new OutboxRequeueApiException(
           HttpStatus.CONFLICT,
           new OutboxRequeueErrorResponse("incident_closed", "FAILED_FINAL", null, null, null));

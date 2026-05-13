@@ -1,5 +1,8 @@
 package com.surimap.core.network
 
+import com.surimap.testing.incidentIdFixture
+import com.surimap.testing.operationIdFixture
+import com.surimap.testing.policePhoneIdFixture
 import kotlinx.coroutines.runBlocking
 import okhttp3.Call
 import okhttp3.Callback
@@ -18,6 +21,8 @@ class SyncApiClientTest {
     @Test
     fun syncClockUsesPolicePhoneHeaderAndCanonicalPath() = runBlocking {
         val callFactory = CapturingCallFactory(response = response(200))
+        val incidentId = incidentIdFixture("precinct-first-001")
+        val policePhoneId = policePhoneIdFixture("precinct-car-01")
         val client = SyncApiClient(
             apiClient = SuriMapApiClient(
                 baseUrl = "https://suri-map.example.com",
@@ -28,8 +33,8 @@ class SyncApiClientTest {
 
         client.syncClock(
             SyncClockNetworkRequest(
-                incidentId = "inc-precinct-first-001",
-                policePhoneId = "dev-precinct-car-01",
+                incidentId = incidentId,
+                policePhoneId = policePhoneId,
                 clientTs = "2026-04-28T09:00:40+09:00"
             )
         )
@@ -39,11 +44,11 @@ class SyncApiClientTest {
         assertEquals("https://suri-map.example.com/api/sync/clock", request.url.toString())
         assertEquals("APP", request.header("X-Client-Channel"))
         assertEquals("Bearer token-1", request.header("Authorization"))
-        assertEquals("dev-precinct-car-01", request.header("X-PolicePhone-Id"))
+        assertEquals(policePhoneId, request.header("X-PolicePhone-Id"))
         assertNull(request.header("X-Device-Id"))
         assertNull(request.header("Idempotency-Key"))
         assertEquals(
-            """{"incidentId":"inc-precinct-first-001","clientTs":"2026-04-28T09:00:40+09:00"}""",
+            """{"incidentId":"$incidentId","clientTs":"2026-04-28T09:00:40+09:00"}""",
             readRequestBody(request)
         )
     }
@@ -51,6 +56,9 @@ class SyncApiClientTest {
     @Test
     fun requeueUsesPolicePhoneHeaderAndOperationPayload() = runBlocking {
         val callFactory = CapturingCallFactory(response = response(202))
+        val operationId = operationIdFixture("outbox-path-001")
+        val incidentId = incidentIdFixture("precinct-first-001")
+        val policePhoneId = policePhoneIdFixture("precinct-car-01")
         val client = SyncApiClient(
             apiClient = SuriMapApiClient(
                 baseUrl = "https://suri-map.example.com",
@@ -60,14 +68,14 @@ class SyncApiClientTest {
 
         client.requeue(
             OutboxRequeueNetworkRequest(
-                operationId = "op-outbox-path-001",
-                incidentId = "inc-precinct-first-001",
+                operationId = operationId,
+                incidentId = incidentId,
                 reason = "NETWORK_RESTORED",
                 clientTs = "2026-04-28T09:00:45+09:00",
                 clockOffsetMs = 0,
                 clockSyncedAt = "2026-04-28T09:00:35+09:00",
                 attemptCount = 1,
-                policePhoneId = "dev-precinct-car-01"
+                policePhoneId = policePhoneId
             )
         )
 
@@ -75,11 +83,11 @@ class SyncApiClientTest {
         assertEquals("POST", request.method)
         assertEquals("https://suri-map.example.com/api/sync/outbox/requeue", request.url.toString())
         assertEquals("APP", request.header("X-Client-Channel"))
-        assertEquals("dev-precinct-car-01", request.header("X-PolicePhone-Id"))
+        assertEquals(policePhoneId, request.header("X-PolicePhone-Id"))
         assertNull(request.header("X-Device-Id"))
         assertNull(request.header("Idempotency-Key"))
         assertEquals(
-            """{"operationId":"op-outbox-path-001","incidentId":"inc-precinct-first-001","reason":"NETWORK_RESTORED","clientTs":"2026-04-28T09:00:45+09:00","clockOffsetMs":0,"clockSyncedAt":"2026-04-28T09:00:35+09:00","attemptCount":1}""",
+            """{"operationId":"$operationId","incidentId":"$incidentId","reason":"NETWORK_RESTORED","clientTs":"2026-04-28T09:00:45+09:00","clockOffsetMs":0,"clockSyncedAt":"2026-04-28T09:00:35+09:00","attemptCount":1}""",
             readRequestBody(request)
         )
     }

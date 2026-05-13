@@ -11,6 +11,8 @@ import com.surimap.incident.lifecycle.IncidentLifecycleGuard;
 import com.surimap.operationalperiod.OperationalPeriod;
 import com.surimap.operationalperiod.OperationalPeriodMapper;
 import com.surimap.summary.SearchHistorySummaryGenerationJob;
+import com.surimap.sync.idempotency.IdempotentResponseCache;
+import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -20,6 +22,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,17 +37,20 @@ public class AppDutyShiftCommandService {
   private final OperationalPeriodMapper operationalPeriodMapper;
   private final IncidentLifecycleGuard incidentLifecycleGuard;
   private final SearchHistorySummaryGenerationJob searchHistorySummaryGenerationJob;
+  private final IdempotentResponseCache idempotentResponseCache;
   private final Map<String, IdempotencyEntry> idempotencyEntries = new LinkedHashMap<>();
 
   public AppDutyShiftCommandService(
       DutyShiftMapper dutyShiftMapper,
       OperationalPeriodMapper operationalPeriodMapper,
       IncidentLifecycleGuard incidentLifecycleGuard,
-      SearchHistorySummaryGenerationJob searchHistorySummaryGenerationJob) {
+      SearchHistorySummaryGenerationJob searchHistorySummaryGenerationJob,
+      ObjectProvider<IdempotentResponseCache> idempotentResponseCacheProvider) {
     this.dutyShiftMapper = dutyShiftMapper;
     this.operationalPeriodMapper = operationalPeriodMapper;
     this.incidentLifecycleGuard = incidentLifecycleGuard;
     this.searchHistorySummaryGenerationJob = searchHistorySummaryGenerationJob;
+    this.idempotentResponseCache = idempotentResponseCacheProvider.getIfAvailable();
   }
 
   @Transactional
@@ -66,7 +72,7 @@ public class AppDutyShiftCommandService {
           incidentLifecycleGuard.requireOpen(request.incidentId());
           UUID assignmentId =
               dutyShiftMapper
-                  .findActiveAssignmentId(request.incidentId(), actorAccountId.toString())
+                  .findActiveAssignmentId(request.incidentId(), actorAccountId)
                   .orElseThrow(HandoverApiException::writeConflict);
           Instant now = Instant.now();
           DutyShift dutyShift =
@@ -169,6 +175,16 @@ public class AppDutyShiftCommandService {
 
   private <T> T replayOrRun(
       String idempotencyKey, String fingerprint, Class<T> responseType, Operation<T> operation) {
+    if (idempotentResponseCache != null) {
+      return idempotentResponseCache.replayOrRun(
+          endpointFor(responseType),
+          idempotencyKey,
+          fingerprint,
+          responseType.equals(DutyShiftResponse.class) ? 201 : 200,
+          responseType,
+          operation::run,
+          this::metadataFor);
+    }
     IdempotencyEntry existing = idempotencyEntries.get(idempotencyKey);
     if (existing != null) {
       if (!existing.fingerprint().equals(fingerprint)) {
@@ -197,6 +213,25 @@ public class AppDutyShiftCommandService {
   }
 
   private record IdempotencyEntry(String fingerprint, Object response) {}
+
+  private static String endpointFor(Class<?> responseType) {
+    if (responseType.equals(DutyShiftResponse.class)) {
+      return "POST /api/duty-shifts";
+    }
+    return "PATCH /api/duty-shifts/{dutyShiftId}";
+  }
+
+  private <T> ResponseMetadata metadataFor(T response) {
+    if (response instanceof DutyShiftResponse dutyShift) {
+      return new ResponseMetadata(
+          dutyShift.id().toString(), dutyShift.status(), dutyShift.version(), dutyShift.version());
+    }
+    if (response instanceof DutyShiftEndResponse ended) {
+      return new ResponseMetadata(
+          ended.id().toString(), ended.status(), ended.version(), ended.version());
+    }
+    throw HandoverApiException.writeConflict();
+  }
 
   @FunctionalInterface
   private interface Operation<T> {

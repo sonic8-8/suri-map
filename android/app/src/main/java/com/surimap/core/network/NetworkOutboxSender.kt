@@ -8,8 +8,14 @@ class HttpOutboxSender(
     private val apiClient: SuriMapApiClient,
     private val accessTokenProvider: AccessTokenProvider = NoAccessTokenProvider
 ) : OutboxSender {
+    private var lastRetryableFailureErrorCode: String? = null
+    private var lastRetryAfterDelayMs: Long? = null
+    private var lastFinalFailureErrorCode: String? = null
 
     override suspend fun send(row: OutboxEntity): SendResult {
+        lastRetryableFailureErrorCode = null
+        lastRetryAfterDelayMs = null
+        lastFinalFailureErrorCode = null
         val response = try {
             apiClient.execute(
                 SuriMapApiRequest(
@@ -22,16 +28,51 @@ class HttpOutboxSender(
                 )
             )
         } catch (exception: SuriMapNetworkException) {
+            lastRetryableFailureErrorCode = "network_unavailable"
             return SendResult.RETRYABLE_FAILURE
         }
 
+        val errorCode = response.errorCode ?: "http_${response.statusCode}"
         return when {
             response.isSuccessful -> SendResult.ACKED
-            response.statusCode == 408 -> SendResult.RETRYABLE_FAILURE
-            response.statusCode == 429 -> SendResult.RETRYABLE_FAILURE
-            response.statusCode >= 500 -> SendResult.RETRYABLE_FAILURE
-            else -> SendResult.FINAL_FAILURE
+            isRetryable(response.statusCode, response.errorCode) -> {
+                lastRetryableFailureErrorCode = errorCode
+                lastRetryAfterDelayMs = response.retryAfterDelayMs
+                SendResult.RETRYABLE_FAILURE
+            }
+            else -> {
+                lastFinalFailureErrorCode = errorCode
+                SendResult.FINAL_FAILURE
+            }
         }
+    }
+
+    override fun retryableFailureErrorCode(): String? = lastRetryableFailureErrorCode
+
+    override fun retryAfterDelayMs(): Long? = lastRetryAfterDelayMs
+
+    override fun finalFailureErrorCode(): String? = lastFinalFailureErrorCode
+
+    private fun isRetryable(statusCode: Int, errorCode: String?): Boolean {
+        return when {
+            errorCode in finalAccessGuardErrors -> false
+            errorCode == "police_phone_required" -> true
+            statusCode == 401 -> true
+            statusCode == 408 -> true
+            statusCode == 429 -> true
+            statusCode >= 500 -> true
+            else -> false
+        }
+    }
+
+    private companion object {
+        val finalAccessGuardErrors =
+            setOf(
+                "police_phone_not_registered",
+                "police_phone_not_assigned",
+                "channel_not_allowed",
+                "role_denied"
+            )
     }
 }
 

@@ -45,6 +45,7 @@ data class UpdateMarkerCommand(
     val memo: String? = null,
     val type: String? = null,
     val clientTs: Instant,
+    val clockOffsetMs: Long? = null,
     val clockSyncedAt: Instant? = null
 )
 
@@ -59,6 +60,7 @@ data class DeleteMarkerCommand(
     val version: Long,
     val reason: String? = null,
     val clientTs: Instant,
+    val clockOffsetMs: Long? = null,
     val clockSyncedAt: Instant? = null
 )
 
@@ -74,6 +76,7 @@ data class PhotoUploadUrlCommand(
     val sizeBytes: Long,
     val checksumSha256: String? = null,
     val clientTs: Instant,
+    val clockOffsetMs: Long? = null,
     val clockSyncedAt: Instant? = null,
     val parentOperationId: String? = null
 )
@@ -93,6 +96,7 @@ data class PhotoAttachCommand(
     val height: Int? = null,
     val checksumSha256: String? = null,
     val clientTs: Instant,
+    val clockOffsetMs: Long? = null,
     val clockSyncedAt: Instant? = null,
     val parentOperationId: String? = null
 )
@@ -235,6 +239,7 @@ class MarkerRepository(
             bodyHash = canonicalBodyHash(payload),
             idempotencyKey = idempotencyKey,
             clientTs = clientTs,
+            clockOffsetMs = clockOffsetMs,
             clockSyncedAt = clockSyncedAt,
             opId = opId,
             entityId = markerId,
@@ -259,6 +264,7 @@ class MarkerRepository(
             bodyHash = canonicalBodyHash(payload),
             idempotencyKey = idempotencyKey,
             clientTs = clientTs,
+            clockOffsetMs = clockOffsetMs,
             clockSyncedAt = clockSyncedAt,
             opId = opId,
             entityId = markerId,
@@ -284,6 +290,7 @@ class MarkerRepository(
             bodyHash = canonicalBodyHash(payload),
             idempotencyKey = idempotencyKey,
             clientTs = clientTs,
+            clockOffsetMs = clockOffsetMs,
             clockSyncedAt = clockSyncedAt,
             opId = opId,
             entityId = entityId,
@@ -309,6 +316,7 @@ class MarkerRepository(
             bodyHash = canonicalBodyHash(payload),
             idempotencyKey = idempotencyKey,
             clientTs = clientTs,
+            clockOffsetMs = clockOffsetMs,
             clockSyncedAt = clockSyncedAt,
             opId = opId,
             entityId = photoId,

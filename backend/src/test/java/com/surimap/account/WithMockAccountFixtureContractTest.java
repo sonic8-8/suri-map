@@ -2,6 +2,7 @@ package com.surimap.account;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.surimap.account.AccountIdentityCatalog;
 import com.surimap.common.auth.AccountType;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.OrganizationType;
@@ -25,13 +26,14 @@ class WithMockAccountFixtureContractTest {
       organizationType = OrganizationType.POLICE_SUBSTATION,
       channel = Channel.APP,
       roles = Role.MEMBER)
-  @DisplayName("WithMockAccount keeps exact harness string IDs in the security context")
-  void withMockAccount_keeps_exact_harness_string_ids_in_security_context() {
+  @DisplayName("WithMockAccount maps harness login codes to UUID account IDs")
+  void withMockAccount_maps_harness_login_codes_to_uuid_account_ids() {
     var authentication = SecurityContextHolder.getContext().getAuthentication();
 
     assertThat(authentication).isInstanceOf(SuriMapAuthentication.class);
     var suriMapAuthentication = (SuriMapAuthentication) authentication;
-    assertThat(suriMapAuthentication.getAccountId()).isEqualTo("acct-precinct-team");
+    assertThat(suriMapAuthentication.getAccountId())
+        .isEqualTo(AccountIdentityCatalog.PRECINCT_TEAM_ID.toString());
     assertThat(suriMapAuthentication.getPolicePhoneId()).isEqualTo("dev-precinct-phone-01");
     assertThat(suriMapAuthentication.getAccountType()).isEqualTo(AccountType.TEAM);
     assertThat(suriMapAuthentication.getOrganizationType())
@@ -55,7 +57,8 @@ class WithMockAccountFixtureContractTest {
     var authentication =
         (SuriMapAuthentication) SecurityContextHolder.getContext().getAuthentication();
 
-    assertThat(authentication.getAccountId()).isEqualTo("acct-cmd-alpha");
+    assertThat(authentication.getAccountId())
+        .isEqualTo(AccountIdentityCatalog.ALPHA_COMMANDER_ID.toString());
     assertThat(authentication.getPolicePhoneId()).isEqualTo("dev-alpha-cmd-phone-01");
     assertThat(authentication.getAuthorities())
         .extracting(Object::toString)

@@ -8,16 +8,22 @@ import java.util.Set;
 /** L6-T05 SC-03 offline package manifest contract fixture. */
 public final class OfflinePackageManifestFixtures {
 
-  public static final String INCIDENT_ID = "inc-precinct-first-001";
+  public static final String INCIDENT_ALIAS = "inc-precinct-first-001";
+  public static final String INCIDENT_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001";
   public static final String MOCK_112_SOURCE_INCIDENT_ID = "mock-112-incident-001";
-  public static final String MANIFEST_ID = "tile-manifest-inc-precinct-001";
+  public static final String MANIFEST_ALIAS = "tile-manifest-inc-precinct-001";
+  public static final String MANIFEST_ID = "77777777-0000-4000-8000-000000000701";
   public static final int MANIFEST_VERSION = 1;
-  public static final String POLICE_PHONE_ID = "dev-precinct-phone-01";
-  public static final String ACCOUNT_ID = "acct-precinct-team";
+  public static final String POLICE_PHONE_CODE = "dev-precinct-phone-01";
+  public static final String POLICE_PHONE_ID = "00000000-0000-0000-0000-000000000101";
+  public static final String ACCOUNT_ID = "11111111-1111-1111-1111-111111110003";
   public static final String TEAM_ID = "team-precinct-jongno";
-  public static final String OP_ID = "op-precinct-001-op1";
-  public static final String OVERALL_SEARCH_AREA_ID = "osa-precinct-001";
-  public static final String ASSIGNED_AREA_ID = "area-precinct-a1";
+  public static final String OP_ALIAS = "op-precinct-001-op1";
+  public static final String OP_ID = "88888888-8888-8888-8888-888888880001";
+  public static final String OVERALL_SEARCH_AREA_ALIAS = "osa-precinct-001";
+  public static final String OVERALL_SEARCH_AREA_ID = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0001";
+  public static final String ASSIGNED_AREA_ALIAS = "area-precinct-a1";
+  public static final String ASSIGNED_AREA_ID = "cccccccc-cccc-cccc-cccc-cccccccc0001";
   public static final String INITIAL_MARKER_ID = "mk-precinct-clue-001";
   public static final String STYLE_ID = "osm-local";
   public static final String OVERALL_AREA_HASH = "overall-area-hash-precinct-current";

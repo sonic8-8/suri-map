@@ -294,7 +294,7 @@ class BoardApiSseConvergenceHarnessRedTest {
     BoardRefetchSignal sourceSignal =
         new BoardRefetchSignal(
             text(delayed, "eventId"),
-            "inc-precinct-first-001",
+            "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
             "SEARCH_AREA_CHANGED",
             OffsetDateTime.parse("2026-04-28T10:30:00+09:00"),
             number(delayed, "sourceResponseSequence"),
@@ -358,7 +358,7 @@ class BoardApiSseConvergenceHarnessRedTest {
 
   private static BoardAssemblyRequest currentMergeRequest() {
     return new BoardAssemblyRequest(
-        "inc-precinct-first-001",
+        "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
         "bs-inc-precinct-first-001",
         1200,
         OffsetDateTime.parse("2026-04-28T10:30:00+09:00"),
@@ -372,7 +372,7 @@ class BoardApiSseConvergenceHarnessRedTest {
 
   private static BoardAssemblyRequest staleAreaRequest(long staleVersion) {
     return new BoardAssemblyRequest(
-        "inc-precinct-first-001",
+        "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
         "bs-inc-precinct-first-001",
         staleVersion,
         OffsetDateTime.parse("2026-04-28T10:30:00+09:00"),
@@ -447,14 +447,20 @@ class BoardApiSseConvergenceHarnessRedTest {
     return new BoardSourceRow(
         "area",
         "S2",
-        "area-precinct-a1",
+        "cccccccc-cccc-cccc-cccc-cccccccc0001",
         "board-area-precinct-a1",
         "ASSIGNED",
         version,
         sequence,
         eventId,
         sourceHash,
-        Map.of("id", "area-precinct-a1", "status", "ASSIGNED", "version", version));
+        Map.of(
+            "id",
+            "cccccccc-cccc-cccc-cccc-cccccccc0001",
+            "status",
+            "ASSIGNED",
+            "version",
+            version));
   }
 
   private static BoardSourceRow toastRow(String eventId) {

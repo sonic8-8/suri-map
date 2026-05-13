@@ -20,7 +20,7 @@
 ## 운영 원칙
 
 - Suri-Map은 112 공식 시스템과 무전을 대체하지 않는다. 시연은 112/실종프로파일링 mock·seed를 사용한다.
-- 사용자가 사건을 직접 생성하지 않는다. 사건은 `mock-112-incident-001` 원천을 가져와 `inc-precinct-first-001`로 소비한다.
+- 사용자가 사건을 직접 생성하지 않는다. 사건은 `00000000-0000-0000-0000-000000000001` 원천을 가져와 `inc-precinct-first-001`로 소비한다.
 - 지원 부대 배정과 실종팀 인계는 Suri-Map 내부 후보 선택이 아니라 mock 112 `incident_assignment` polling/import 결과로 반영한다.
 - 사건 종료는 terminal 상태다. 사용자 재오픈 UI/API는 없다. 종료 실수 복구는 관리자 운영 절차로만 다룬다.
 - 자동 판단 금지 원칙을 유지한다. 다음 투입 구역 자동 추천, 수색 누락 확정, 위험도 판단 문구나 CTA를 만들지 않는다.
@@ -43,13 +43,14 @@
 | 항목 | 값 | 사용 단계 |
 |---|---|---|
 | 대표 사건 | `inc-precinct-first-001` | SC-01~SC-12 공통 사건 |
-| mock 112 원천 | `mock-112-incident-001` | SC-01 가져오기, SC-02 인계/지원 배정 |
+| mock 112 원천 | `00000000-0000-0000-0000-000000000001` | SC-01 가져오기, SC-02 인계/지원 배정 |
 | 현재 OP | `op-precinct-001-op1` | SC-01~SC-10, 초동 OP 기록 보존 |
 | 다음 OP | `op-precinct-001-op2` | SC-10 OP 전환, SC-11 OP 비교 |
 | 초동 clue marker | `mk-precinct-clue-001` | SC-01, SC-06, SC-10 |
 | 차량 경로 | `path-precinct-car-001` | SC-05, SC-07, SC-09, SC-11 |
 | 도보 경로 | `path-precinct-foot-001` | SC-05, SC-07, SC-09, SC-11 |
-| 인수인계 메모 | `memo-precinct-handover-001` | SC-10, SC-11 |
+| OP1 seed 인수인계 메모 | `memo-precinct-handover-001` | SC-10 OP1 보존, SC-11 요약 원본 evidence |
+| OP2 인수인계 메모 | `memo-precinct-op2-001` | SC-11 S8 handover memo write/convergence |
 
 ### 계정과 PolicePhone
 
@@ -68,14 +69,14 @@
 
 | 단계 | externalAssignmentKey | accountId | incidentRole |
 |---|---|---|---|
-| 초동 지휘 | `mock-112-incident-001:precinct-cmd` | `acct-precinct-cmd` | `FIELD_COMMANDER` |
-| 초동 순찰차 | `mock-112-incident-001:precinct-car` | `acct-precinct-car` | `MEMBER` |
-| 초동 팀 | `mock-112-incident-001:precinct-team` | `acct-precinct-team` | `MEMBER` |
-| 실종팀 지휘 인계 | `mock-112-incident-001:cmd-alpha` | `acct-cmd-alpha` | `INCIDENT_COMMANDER` |
-| 실종팀 팀 인계 | `mock-112-incident-001:team-alpha` | `acct-team-alpha` | `MEMBER` |
-| 지원 지휘 | `mock-112-incident-001:support-cmd` | `acct-support-cmd` | `FIELD_COMMANDER` |
-| 지원 순찰차 | `mock-112-incident-001:support-car` | `acct-support-car` | `MEMBER` |
-| 지원 팀 | `mock-112-incident-001:support-team` | `acct-support-team` | `MEMBER` |
+| 초동 지휘 | `00000000-0000-0000-0000-000000000001:precinct-cmd` | `acct-precinct-cmd` | `FIELD_COMMANDER` |
+| 초동 순찰차 | `00000000-0000-0000-0000-000000000001:precinct-car` | `acct-precinct-car` | `MEMBER` |
+| 초동 팀 | `00000000-0000-0000-0000-000000000001:precinct-team` | `acct-precinct-team` | `MEMBER` |
+| 실종팀 지휘 인계 | `00000000-0000-0000-0000-000000000001:cmd-alpha` | `acct-cmd-alpha` | `INCIDENT_COMMANDER` |
+| 실종팀 팀 인계 | `00000000-0000-0000-0000-000000000001:team-alpha` | `acct-team-alpha` | `MEMBER` |
+| 지원 지휘 | `00000000-0000-0000-0000-000000000001:support-cmd` | `acct-support-cmd` | `FIELD_COMMANDER` |
+| 지원 순찰차 | `00000000-0000-0000-0000-000000000001:support-car` | `acct-support-car` | `MEMBER` |
+| 지원 팀 | `00000000-0000-0000-0000-000000000001:support-team` | `acct-support-team` | `MEMBER` |
 
 ### 패키지·상황판·네트워크
 
@@ -100,7 +101,7 @@
 
 | # | SC | PRD 단계 | 준비 확인 | 관찰 대상 | 실패 시 이동 |
 |---|---|---|---|---|---|
-| 1 | SC-01 | 배정 사건 가져오기 | `mock-112-incident-001` 원천과 초동 배정 3건 준비 | 사건 `inc-precinct-first-001` OPEN, `op-precinct-001-op1` 생성, 중복 import 방지 | 배정 사건 가져오기 재시도 절차 |
+| 1 | SC-01 | 배정 사건 가져오기 | `00000000-0000-0000-0000-000000000001` 원천과 초동 배정 3건 준비 | 사건 `inc-precinct-first-001` OPEN, `op-precinct-001-op1` 생성, 중복 import 방지 | 배정 사건 가져오기 재시도 절차 |
 | 2 | SC-02 | 지원 부대 배정 결과 반영 | 실종팀 인계 2건과 지원 배정 3건의 `externalAssignmentKey` 준비 | 기존 OP1 보존, 신규 계정 접근권한, `INCIDENT_ASSIGNMENT_CHANGED`, FCM 대상 | 인계·지원 배정 재시도 절차 |
 | 3 | SC-03 | 사건 오프라인 패키지 사전 적재 | `tile-manifest-inc-precinct-001`, local tile, `package_badge` 준비 | 패키지 진행률, 실패 항목 재시도, 상황판 경고 배지 | 패키지/타일 실패는 L6 절차로 넘김 |
 | 4 | SC-04 | 구역 분할 / 할당 | `overall-area-hash-precinct-current`와 geometry fixture 준비 | `overall_search_area`, `area`, 배정 상태, manifest stale 여부 | L3/L6 구역·패키지 복구 절차로 넘김 |
@@ -127,7 +128,7 @@
 
 | 실패 지점 | 확인 | 재시도/복구 |
 |---|---|---|
-| mock 112 원천 없음 | `mock-112-incident-001`이 fixture preflight에 존재하는지 확인 | 원천 fixture를 먼저 로드한다. public API error를 새로 만들지 않는다. |
+| mock 112 원천 없음 | `00000000-0000-0000-0000-000000000001`이 fixture preflight에 존재하는지 확인 | 원천 fixture를 먼저 로드한다. public API error를 새로 만들지 않는다. |
 | import 중복 클릭 | 같은 `Idempotency-Key`와 sourceIncidentId인지 확인 | 같은 요청이면 기존 결과를 재사용하고 사건/OP 중복 생성이 없어야 한다. |
 | import rollback | incident, missing_person, assignment, OP1, outbox가 부분 생성됐는지 확인 | 부분 생성이 있으면 실패로 보고 defect로 넘긴다. 수동 DB 보정은 시연 중 하지 않는다. |
 | OP1 미생성 | `op-precinct-001-op1`과 `OP_TRANSITIONED(from=null)` stage 확인 | OP1 자동 생성 blocker로 L3/S8 담당자에게 넘긴다. |
@@ -136,8 +137,8 @@
 
 | 실패 지점 | 확인 | 재시도/복구 |
 |---|---|---|
-| 인계 배정 미반영 | `mock-112-incident-001:cmd-alpha`, `mock-112-incident-001:team-alpha` 확인 | mock 112 polling/import를 다시 실행한다. 같은 `externalAssignmentKey`로 중복 row가 생기면 실패다. |
-| 지원 배정 미반영 | `mock-112-incident-001:support-cmd`, `support-car`, `support-team` 확인 | polling/import 재시도 후 신규 지원 계정 접근권한과 FCM capture를 다시 확인한다. |
+| 인계 배정 미반영 | `00000000-0000-0000-0000-000000000001:cmd-alpha`, `00000000-0000-0000-0000-000000000001:team-alpha` 확인 | mock 112 polling/import를 다시 실행한다. 같은 `externalAssignmentKey`로 중복 row가 생기면 실패다. |
+| 지원 배정 미반영 | `00000000-0000-0000-0000-000000000001:support-cmd`, `support-car`, `support-team` 확인 | polling/import 재시도 후 신규 지원 계정 접근권한과 FCM capture를 다시 확인한다. |
 | 기존 OP1 손실 | `path-precinct-car-001`, `path-precinct-foot-001`, `memo-precinct-handover-001` 확인 | 인계는 OP1 보존이 필수다. 손실이 있으면 재시도하지 않고 defect로 넘긴다. |
 | FCM 미수신 | `fcm:dev-alpha-phone-01`, `fcm:dev-support-car-01`, `fcm:dev-support-phone-01` capture 확인 | payload에 개인정보가 없어야 한다. 실제 Firebase 전송으로 우회하지 않는다. |
 

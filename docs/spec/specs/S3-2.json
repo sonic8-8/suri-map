@@ -1964,7 +1964,8 @@
   },
   "harness_fixtures": {
     "board_api_base": {
-      "incidentId": "inc-precinct-first-001",
+      "incidentAlias": "inc-precinct-first-001",
+      "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
       "boardResponseId": "bs-inc-precinct-first-001",
       "boardResponseVersion": 1200,
       "serverTs": "2026-04-28T10:30:00+09:00",
@@ -1974,40 +1975,44 @@
       {
         "slot": "overall_search_area",
         "sourceSpec": "S2",
-        "sourceResponseId": "osa-precinct-001",
+        "sourceResponseId": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0001",
         "boardRowId": "board-overall-search-area-inc-precinct-first-001",
         "status": "ACTIVE",
         "version": 2,
         "sequence": 401,
         "latestEventId": "evt-s2-overall-area-001",
-        "sourceHash": "hash-s2-overall-area-current"
+        "sourceHash": "hash-s2-overall-area-current",
+        "sourceResponseAlias": "osa-precinct-001"
       },
       {
         "slot": "area",
         "sourceSpec": "S2",
-        "sourceResponseId": "area-precinct-a1",
+        "sourceResponseId": "cccccccc-cccc-cccc-cccc-cccccccc0001",
         "boardRowId": "board-area-precinct-a1",
         "status": "ASSIGNED",
         "version": 1,
         "sequence": 402,
         "latestEventId": "evt-s2-area-created-001",
-        "sourceHash": "hash-s2-area-a1-current"
+        "sourceHash": "hash-s2-area-a1-current",
+        "sourceResponseAlias": "area-precinct-a1"
       },
       {
         "slot": "path",
         "sourceSpec": "S3-1",
-        "sourceResponseId": "path-precinct-mixed-001",
+        "sourceResponseId": "ffffffff-ffff-ffff-ffff-ffffffffffff",
         "boardRowId": "board-path-precinct-mixed-001",
         "status": "ACTIVE",
         "version": 2,
         "sequence": 502,
         "latestEventId": "evt-s3-path-appended-001",
-        "sourceHash": "hash-s3-path-mixed-current"
+        "sourceHash": "hash-s3-path-mixed-current",
+        "sourceResponseAlias": "path-precinct-mixed-001"
       },
       {
         "slot": "police_phone_freshness",
         "sourceSpec": "S1-2",
-        "sourceResponseId": "dev-precinct-car-01",
+        "sourceResponseAlias": "dev-precinct-car-01",
+        "sourceResponseId": "50000000-0000-0000-0000-000000000001",
         "boardRowId": "board-PolicePhone-freshness-dev-precinct-car-01",
         "status": "ONLINE",
         "version": 4,
@@ -2018,13 +2023,14 @@
       {
         "slot": "marker",
         "sourceSpec": "S5",
-        "sourceResponseId": "mk-precinct-clue-001",
+        "sourceResponseId": "55555555-5555-5555-5555-555555550001",
         "boardRowId": "board-marker-mk-precinct-clue-001",
         "status": "ACTIVE",
         "version": 1,
         "sequence": 601,
         "latestEventId": "evt-s5-marker-created-001",
-        "sourceHash": "hash-s5-marker-clue-current"
+        "sourceHash": "hash-s5-marker-clue-current",
+        "sourceResponseAlias": "mk-precinct-clue-001"
       },
       {
         "slot": "toast",
@@ -2051,7 +2057,8 @@
       {
         "slot": "op_toggle",
         "sourceSpec": "S8",
-        "sourceResponseId": "op-precinct-001-op1",
+        "sourceResponseAlias": "op-precinct-001-op1",
+        "sourceResponseId": "88888888-8888-8888-8888-888888880001",
         "boardRowId": "board-op-toggle-op-precinct-001-op1",
         "status": "ACTIVE",
         "version": 1,
@@ -2062,7 +2069,8 @@
       {
         "slot": "op_history",
         "sourceSpec": "S8",
-        "sourceResponseId": "op-precinct-001-op2",
+        "sourceResponseAlias": "op-precinct-001-op2",
+        "sourceResponseId": "88888888-8888-8888-8888-888888880002",
         "boardRowId": "board-op-history-op-precinct-001-op2",
         "status": "OPENED",
         "version": 2,
@@ -2073,13 +2081,14 @@
       {
         "slot": "handover_memo",
         "sourceSpec": "S8",
-        "sourceResponseId": "memo-precinct-handover-001",
+        "sourceResponseId": "eeeeeeee-eeee-eeee-eeee-eeeeeeee0001",
         "boardRowId": "board-handover-memo-precinct-001",
         "status": "ACTIVE",
         "version": 1,
         "sequence": 803,
         "latestEventId": "evt-s8-handover-created-001",
-        "sourceHash": "hash-s8-handover-memo-current"
+        "sourceHash": "hash-s8-handover-memo-current",
+        "sourceResponseAlias": "memo-precinct-handover-001"
       },
       {
         "slot": "handover_status",
@@ -2106,7 +2115,8 @@
       {
         "slot": "incident_terminal",
         "sourceSpec": "S1-1",
-        "sourceResponseId": "inc-precinct-first-001",
+        "sourceResponseAlias": "inc-precinct-first-001",
+        "sourceResponseId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
         "boardRowId": "board-incident-terminal-inc-precinct-first-001",
         "status": "CLOSED",
         "version": 9,
@@ -2128,21 +2138,23 @@
       "stale_lower_version": {
         "eventId": "evt-s3-path-appended-stale-001",
         "slot": "path",
-        "entityId": "path-precinct-mixed-001",
+        "entityId": "ffffffff-ffff-ffff-ffff-ffffffffffff",
         "version": 1,
         "sequence": 501,
         "currentVersion": 2,
         "currentSequence": 502,
-        "expectedLedgerStatus": "STALE"
+        "expectedLedgerStatus": "STALE",
+        "entityAlias": "path-precinct-mixed-001"
       },
       "missing_predecessor": {
         "eventId": "evt-s3-path-appended-gap-003",
         "slot": "path",
-        "entityId": "path-precinct-mixed-001",
+        "entityId": "ffffffff-ffff-ffff-ffff-ffffffffffff",
         "sequence": 505,
         "cursorLastSequence": 502,
         "expectedLedgerStatus": "REFETCH_REQUIRED",
-        "expectedReloadReason": "MISSING_PREDECESSOR"
+        "expectedReloadReason": "MISSING_PREDECESSOR",
+        "entityAlias": "path-precinct-mixed-001"
       },
       "gone_refetch_required": {
         "lastEventId": "evt-s4-gap-before-800",
@@ -2153,12 +2165,13 @@
       "delayed_refetch_trigger": {
         "eventId": "evt-s2-area-state-001",
         "slot": "area",
-        "entityId": "area-precinct-a1",
+        "entityId": "cccccccc-cccc-cccc-cccc-cccccccc0001",
         "sourceResponseVersion": 3,
         "sourceResponseSequence": 403,
         "staleResponseVersion": 2,
         "expectedUiState": "STALE_REFETCH",
-        "expectedAfterReload": "BoardDTO row version >= 3 and sequence >= 403"
+        "expectedAfterReload": "BoardDTO row version >= 3 and sequence >= 403",
+        "entityAlias": "area-precinct-a1"
       }
     }
   },

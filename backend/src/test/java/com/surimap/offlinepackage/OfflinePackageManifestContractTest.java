@@ -53,13 +53,15 @@ class OfflinePackageManifestContractTest {
   void manifest_root_identity_and_police_phone_context_are_fixed() {
     OfflinePackageManifest manifest = OfflinePackageManifestFixtures.manifest();
 
-    assertThat(manifest.manifestId()).isEqualTo("tile-manifest-inc-precinct-001");
-    assertThat(manifest.incidentId()).isEqualTo("inc-precinct-first-001");
+    assertThat(manifest.manifestId()).isEqualTo(OfflinePackageManifestFixtures.MANIFEST_ID);
+    assertThat(manifest.incidentId()).isEqualTo(OfflinePackageManifestFixtures.INCIDENT_ID);
     assertThat(manifest.manifestVersion()).isEqualTo(1);
     assertThat(manifest.packageHash()).matches(SHA256_HEX);
 
-    assertThat(manifest.policePhoneContext().policePhoneId()).isEqualTo("dev-precinct-phone-01");
-    assertThat(manifest.policePhoneContext().accountId()).isEqualTo("acct-precinct-team");
+    assertThat(manifest.policePhoneContext().policePhoneId())
+        .isEqualTo(OfflinePackageManifestFixtures.POLICE_PHONE_ID);
+    assertThat(manifest.policePhoneContext().accountId())
+        .isEqualTo("11111111-1111-1111-1111-111111110003");
     assertThat(manifest.policePhoneContext().accountType()).isEqualTo("TEAM");
     assertThat(manifest.policePhoneContext().teamId()).isEqualTo("team-precinct-jongno");
     assertThat(manifest.policePhoneContext().role()).isEqualTo("MEMBER");
@@ -71,12 +73,13 @@ class OfflinePackageManifestContractTest {
   void manifest_includes_incident_metadata_and_missing_person() {
     OfflinePackageManifest manifest = OfflinePackageManifestFixtures.manifest();
 
-    assertThat(manifest.incident().incidentId()).isEqualTo("inc-precinct-first-001");
+    assertThat(manifest.incident().incidentId()).isEqualTo(OfflinePackageManifestFixtures.INCIDENT_ID);
     assertThat(manifest.incident().status()).isEqualTo("OPEN");
     assertThat(manifest.incident().packageContext()).isEqualTo("CURRENT");
     assertThat(manifest.incident().sourceFixture()).isEqualTo("mock-112-incident-001");
 
-    assertThat(manifest.missingPerson().incidentId()).isEqualTo("inc-precinct-first-001");
+    assertThat(manifest.missingPerson().incidentId())
+        .isEqualTo(OfflinePackageManifestFixtures.INCIDENT_ID);
     assertThat(manifest.missingPerson().displayName()).isEqualTo("가상 실종자 001");
     assertThat(manifest.missingPerson().appearanceText()).isEqualTo("남색 점퍼, 회색 등산화");
     assertThat(manifest.missingPerson().lastSeenLocationText()).isEqualTo("인왕산 북측 산책로 입구");
@@ -88,7 +91,8 @@ class OfflinePackageManifestContractTest {
   void manifest_missing_person_consumes_only_s1_1_allowlist() {
     OfflinePackageManifest manifest = OfflinePackageManifestFixtures.manifest();
 
-    assertThat(manifest.missingPerson().incidentId()).isEqualTo("inc-precinct-first-001");
+    assertThat(manifest.missingPerson().incidentId())
+        .isEqualTo(OfflinePackageManifestFixtures.INCIDENT_ID);
     assertThat(missingPersonFields())
         .containsExactlyInAnyOrderElementsOf(S1_1_ALLOWED_MISSING_PERSON_FIELDS)
         .doesNotContainAnyElementsOf(FORBIDDEN_MISSING_PERSON_FIELDS);
@@ -103,8 +107,8 @@ class OfflinePackageManifestContractTest {
         .singleElement()
         .satisfies(
             op -> {
-              assertThat(op.opId()).isEqualTo("op-precinct-001-op1");
-              assertThat(op.incidentId()).isEqualTo("inc-precinct-first-001");
+              assertThat(op.opId()).isEqualTo(OfflinePackageManifestFixtures.OP_ID);
+              assertThat(op.incidentId()).isEqualTo(OfflinePackageManifestFixtures.INCIDENT_ID);
               assertThat(op.status()).isEqualTo("ACTIVE");
               assertThat(op.sequenceNumber()).isEqualTo(1);
             });
@@ -113,9 +117,9 @@ class OfflinePackageManifestContractTest {
         .singleElement()
         .satisfies(
             area -> {
-              assertThat(area.areaId()).isEqualTo("area-precinct-a1");
-              assertThat(area.incidentId()).isEqualTo("inc-precinct-first-001");
-              assertThat(area.opId()).isEqualTo("op-precinct-001-op1");
+              assertThat(area.areaId()).isEqualTo(OfflinePackageManifestFixtures.ASSIGNED_AREA_ID);
+              assertThat(area.incidentId()).isEqualTo(OfflinePackageManifestFixtures.INCIDENT_ID);
+              assertThat(area.opId()).isEqualTo(OfflinePackageManifestFixtures.OP_ID);
               assertThat(area.status()).isEqualTo("ASSIGNED");
             });
 
@@ -124,11 +128,12 @@ class OfflinePackageManifestContractTest {
         .satisfies(
             marker -> {
               assertThat(marker.markerId()).isEqualTo("mk-precinct-clue-001");
-              assertThat(marker.opId()).isEqualTo("op-precinct-001-op1");
+              assertThat(marker.opId()).isEqualTo(OfflinePackageManifestFixtures.OP_ID);
               assertThat(marker.coordinate()).isEqualTo(point("126.956500", "37.571200"));
             });
 
-    assertThat(manifest.overallSearchArea().areaId()).isEqualTo("osa-precinct-001");
+    assertThat(manifest.overallSearchArea().areaId())
+        .isEqualTo(OfflinePackageManifestFixtures.OVERALL_SEARCH_AREA_ID);
     assertThat(manifest.overallSearchArea().areaLevel()).isEqualTo("OVERALL");
     assertThat(manifest.overallSearchArea().overallAreaHash())
         .isEqualTo("overall-area-hash-precinct-current");

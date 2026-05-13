@@ -75,7 +75,7 @@
     {
       "fixtureId": "op-precinct-001-op1",
       "group": "opTransition",
-      "ownerPath": "opTransition.currentOp.opId",
+      "ownerPath": "opTransition.currentOp.opAlias",
       "usesScenarios": [
         "SC-01",
         "SC-05",
@@ -93,7 +93,7 @@
     {
       "fixtureId": "op-precinct-001-op2",
       "group": "opTransition",
-      "ownerPath": "opTransition.newOp.opId",
+      "ownerPath": "opTransition.newOp.opAlias",
       "usesScenarios": [
         "SC-10",
         "SC-11"
@@ -241,7 +241,7 @@
     {
       "fixtureId": "mk-precinct-clue-001",
       "group": "markerAndNotification",
-      "ownerPath": "incidentSeed.seedIds.markerId",
+      "ownerPath": "incidentSeed.seedIds.markerAlias",
       "usesScenarios": [
         "SC-01",
         "SC-06",
@@ -256,7 +256,7 @@
     {
       "fixtureId": "photo-precinct-clue-001",
       "group": "objectStorageUpload",
-      "ownerPath": "objectStorageUpload.photoId",
+      "ownerPath": "objectStorageUpload.photoAlias",
       "usesScenarios": [
         "SC-06"
       ],
@@ -370,7 +370,7 @@
     {
       "fixtureId": "memo-precinct-handover-001",
       "group": "commandFlow",
-      "ownerPath": "incidentSeed.seedIds.memoId",
+      "ownerPath": "incidentSeed.seedIds.memoAlias",
       "usesScenarios": [
         "SC-10"
       ],
@@ -383,7 +383,7 @@
     {
       "fixtureId": "memo-precinct-op2-001",
       "group": "searchHistorySummary",
-      "ownerPath": "searchHistorySummary.memoId",
+      "ownerPath": "searchHistorySummary.memoAlias",
       "usesScenarios": [
         "SC-11"
       ],
@@ -395,7 +395,7 @@
     {
       "fixtureId": "summary-precinct-op2-001",
       "group": "searchHistorySummary",
-      "ownerPath": "searchHistorySummary.summaryId",
+      "ownerPath": "searchHistorySummary.summaryAlias",
       "usesScenarios": [
         "SC-11"
       ],
@@ -433,15 +433,18 @@
   "confirmed": {
     "incidentSeed": {
       "fixtureId": "inc-precinct-first-001",
-      "incidentId": "inc-precinct-first-001",
-      "currentOpId": "op-precinct-001-op1",
-      "nextOpId": "op-precinct-001-op2",
+      "incidentAlias": "inc-precinct-first-001",
+      "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
+      "currentOpAlias": "op-precinct-001-op1",
+      "currentOpId": "88888888-8888-8888-8888-888888880001",
+      "nextOpAlias": "op-precinct-001-op2",
+      "nextOpId": "88888888-8888-8888-8888-888888880002",
       "teams": [
         "team-precinct-jongno",
         "team-missing-alpha",
         "team-support-bravo"
       ],
-      "accountIds": [
+      "accountCodes": [
         "acct-precinct-cmd",
         "acct-precinct-car",
         "acct-precinct-team",
@@ -451,7 +454,18 @@
         "acct-support-car",
         "acct-support-team"
       ],
-      "policePhoneIds": [
+      "accountIds": [
+        "11111111-1111-1111-1111-111111110001",
+        "11111111-1111-1111-1111-111111110002",
+        "11111111-1111-1111-1111-111111110003",
+        "11111111-1111-1111-1111-111111110004",
+        "11111111-1111-1111-1111-111111110005",
+        "11111111-1111-1111-1111-111111110006",
+        "11111111-1111-1111-1111-111111110007",
+        "11111111-1111-1111-1111-111111110008"
+      ],
+      "accountIdMeaning": "accountIds are internal account.id UUIDs. accountCodes carry acct-* login/fixture codes and mock 112 import maps those codes to UUIDs before writing incident_assignment.account_id.",
+      "policePhoneCodes": [
         "dev-precinct-cmd-phone-01",
         "dev-precinct-car-01",
         "dev-precinct-phone-01",
@@ -461,11 +475,25 @@
         "dev-support-car-01",
         "dev-support-phone-01"
       ],
+      "policePhoneIds": [
+        "00000000-0000-0000-0000-000000000201",
+        "50000000-0000-0000-0000-000000000001",
+        "00000000-0000-0000-0000-000000000101",
+        "00000000-0000-0000-0000-000000000204",
+        "00000000-0000-0000-0000-000000000205",
+        "00000000-0000-0000-0000-000000000206",
+        "00000000-0000-0000-0000-000000000207",
+        "00000000-0000-0000-0000-000000000208"
+      ],
       "seedIds": {
-        "markerId": "mk-precinct-clue-001",
-        "pathVehicleId": "path-precinct-car-001",
-        "pathFootId": "path-precinct-foot-001",
-        "memoId": "memo-precinct-handover-001"
+        "markerId": "55555555-5555-5555-5555-555555550001",
+        "pathVehicleId": "ffffffff-ffff-ffff-ffff-ffffffff0001",
+        "pathFootId": "ffffffff-ffff-ffff-ffff-ffffffff0002",
+        "memoId": "eeeeeeee-eeee-eeee-eeee-eeeeeeee0001",
+        "markerAlias": "mk-precinct-clue-001",
+        "pathVehicleAlias": "path-precinct-car-001",
+        "pathFootAlias": "path-precinct-foot-001",
+        "memoAlias": "memo-precinct-handover-001"
       },
       "expectedIncidentAssignments": {
         "beforeHandover": [
@@ -491,7 +519,7 @@
     },
     "mock112SourceContract": {
       "fixtureId": "mock-112-incident-001",
-      "sourceIncidentId": "mock-112-incident-001",
+      "sourceIncidentId": "00000000-0000-0000-0000-000000000001",
       "title": "종로구 인왕산 실종 신고",
       "openedAt": "2026-04-28T09:00:00+09:00",
       "syntheticDataNote": "All names, locations, and identifiers are synthetic test fixtures. Do not replace with real personal data.",
@@ -505,65 +533,66 @@
       "assignmentShape": {
         "fields": [
           "externalAssignmentKey",
-          "accountId",
+          "accountCode",
           "incidentRole",
           "assignedAt"
         ],
-        "accountIdSource": "S1-2 account fixture",
+        "accountCodeSource": "mock-112 fixture account code mapped to S1-2 account UUID",
+        "accountCodeMeaning": "The value carries acct-* fixture account code, not DB account.id UUID.",
         "incidentRoleSource": "S1-1 incident_assignment incident_role enum"
       },
       "initialAssignments": [
         {
-          "externalAssignmentKey": "mock-112-incident-001:precinct-cmd",
-          "accountId": "acct-precinct-cmd",
+          "externalAssignmentKey": "00000000-0000-0000-0000-000000000001:precinct-cmd",
           "incidentRole": "FIELD_COMMANDER",
-          "assignedAt": "2026-04-28T09:00:00+09:00"
+          "assignedAt": "2026-04-28T09:00:00+09:00",
+          "accountCode": "acct-precinct-cmd"
         },
         {
-          "externalAssignmentKey": "mock-112-incident-001:precinct-car",
-          "accountId": "acct-precinct-car",
+          "externalAssignmentKey": "00000000-0000-0000-0000-000000000001:precinct-car",
           "incidentRole": "MEMBER",
-          "assignedAt": "2026-04-28T09:00:00+09:00"
+          "assignedAt": "2026-04-28T09:00:00+09:00",
+          "accountCode": "acct-precinct-car"
         },
         {
-          "externalAssignmentKey": "mock-112-incident-001:precinct-team",
-          "accountId": "acct-precinct-team",
+          "externalAssignmentKey": "00000000-0000-0000-0000-000000000001:precinct-team",
           "incidentRole": "MEMBER",
-          "assignedAt": "2026-04-28T09:00:00+09:00"
+          "assignedAt": "2026-04-28T09:00:00+09:00",
+          "accountCode": "acct-precinct-team"
         }
       ],
       "handoverAssignments": [
         {
-          "externalAssignmentKey": "mock-112-incident-001:cmd-alpha",
-          "accountId": "acct-cmd-alpha",
+          "externalAssignmentKey": "00000000-0000-0000-0000-000000000001:cmd-alpha",
           "incidentRole": "INCIDENT_COMMANDER",
-          "assignedAt": "2026-04-28T10:30:00+09:00"
+          "assignedAt": "2026-04-28T10:30:00+09:00",
+          "accountCode": "acct-cmd-alpha"
         },
         {
-          "externalAssignmentKey": "mock-112-incident-001:team-alpha",
-          "accountId": "acct-team-alpha",
+          "externalAssignmentKey": "00000000-0000-0000-0000-000000000001:team-alpha",
           "incidentRole": "MEMBER",
-          "assignedAt": "2026-04-28T10:30:00+09:00"
+          "assignedAt": "2026-04-28T10:30:00+09:00",
+          "accountCode": "acct-team-alpha"
         }
       ],
       "supportAssignments": [
         {
-          "externalAssignmentKey": "mock-112-incident-001:support-cmd",
-          "accountId": "acct-support-cmd",
+          "externalAssignmentKey": "00000000-0000-0000-0000-000000000001:support-cmd",
           "incidentRole": "FIELD_COMMANDER",
-          "assignedAt": "2026-04-28T11:00:00+09:00"
+          "assignedAt": "2026-04-28T11:00:00+09:00",
+          "accountCode": "acct-support-cmd"
         },
         {
-          "externalAssignmentKey": "mock-112-incident-001:support-car",
-          "accountId": "acct-support-car",
+          "externalAssignmentKey": "00000000-0000-0000-0000-000000000001:support-car",
           "incidentRole": "MEMBER",
-          "assignedAt": "2026-04-28T11:00:00+09:00"
+          "assignedAt": "2026-04-28T11:00:00+09:00",
+          "accountCode": "acct-support-car"
         },
         {
-          "externalAssignmentKey": "mock-112-incident-001:support-team",
-          "accountId": "acct-support-team",
+          "externalAssignmentKey": "00000000-0000-0000-0000-000000000001:support-team",
           "incidentRole": "MEMBER",
-          "assignedAt": "2026-04-28T11:00:00+09:00"
+          "assignedAt": "2026-04-28T11:00:00+09:00",
+          "accountCode": "acct-support-team"
         }
       ],
       "seedMarkers": [
@@ -628,8 +657,9 @@
     },
     "gpsPath": {
       "fixtureId": "gps-path-normal-001",
-      "pathId": "path-precinct-mixed-001",
-      "policePhoneId": "dev-precinct-car-01",
+      "pathId": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+      "policePhoneCode": "dev-precinct-car-01",
+      "policePhoneId": "50000000-0000-0000-0000-000000000001",
       "batchLimits": {
         "minItems": 2,
         "maxItems": 120,
@@ -695,20 +725,22 @@
       ],
       "expectedSegments": [
         {
-          "segmentId": "seg-precinct-vehicle-001",
+          "segmentId": "33333333-3333-3333-3333-333333330001",
           "movementType": "VEHICLE",
           "startIndex": 0,
           "endIndex": 3,
           "startPointId": "gps-precinct-001",
-          "endPointId": "gps-precinct-004"
+          "endPointId": "gps-precinct-004",
+          "segmentAlias": "seg-precinct-vehicle-001"
         },
         {
-          "segmentId": "seg-precinct-foot-001",
+          "segmentId": "33333333-3333-3333-3333-333333330002",
           "movementType": "FOOT",
           "startIndex": 4,
           "endIndex": 7,
           "startPointId": "gps-precinct-005",
-          "endPointId": "gps-precinct-008"
+          "endPointId": "gps-precinct-008",
+          "segmentAlias": "seg-precinct-foot-001"
         }
       ],
       "qualityDegradedCriteria": [
@@ -717,7 +749,8 @@
         "speedMps < 0 or > 45",
         "distance > 200m between 5-second samples",
         "lon/lat missing, null, or NaN"
-      ]
+      ],
+      "pathAlias": "path-precinct-mixed-001"
     },
     "pathGuardFixtures": {
       "readOnlyGeometryHash": {
@@ -810,7 +843,8 @@
     },
     "tileManifest": {
       "fixtureId": "tile-manifest-inc-precinct-001",
-      "manifestId": "tile-manifest-inc-precinct-001",
+      "manifestAlias": "tile-manifest-inc-precinct-001",
+      "manifestId": "77777777-0000-4000-8000-000000000701",
       "styleId": "osm-local",
       "overallAreaHash": "overall-area-hash-precinct-current",
       "blobUriTemplate": "local://tiles/inc-precinct-first-001/{z}/{x}/{y}.pbf",
@@ -833,9 +867,12 @@
     },
     "offlinePackageUi": {
       "manifestDownloadPending": {
-        "incidentId": "inc-precinct-first-001",
-        "policePhoneId": "dev-precinct-phone-01",
-        "manifestId": "tile-manifest-inc-precinct-001",
+        "incidentAlias": "inc-precinct-first-001",
+        "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
+        "policePhoneCode": "dev-precinct-phone-01",
+        "policePhoneId": "00000000-0000-0000-0000-000000000101",
+        "manifestAlias": "tile-manifest-inc-precinct-001",
+        "manifestId": "77777777-0000-4000-8000-000000000701",
         "manifestVersion": 1,
         "status": "DOWNLOADING",
         "disabledControls": [
@@ -946,12 +983,15 @@
     },
     "outboxReplay": {
       "sc05PathReplay": {
-        "operationId": "op-outbox-path-001",
+        "operationAlias": "op-outbox-path-001",
+        "operationId": "66666666-0000-4000-8000-000000000501",
         "outboxId": "outbox-path-001",
         "idempotencyKey": "idem-path-001",
         "bodyHash": "sha256:path-normal-001",
-        "incidentId": "inc-precinct-first-001",
-        "policePhoneId": "dev-precinct-car-01",
+        "incidentAlias": "inc-precinct-first-001",
+        "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
+        "policePhoneCode": "dev-precinct-car-01",
+        "policePhoneId": "50000000-0000-0000-0000-000000000001",
         "dependencyGroup": "PATH",
         "sequence": 502,
         "sourceSpecEndpoint": "POST /search-paths/batch",
@@ -959,45 +999,59 @@
         "expectedEventId": "evt-s3-path-appended-001"
       },
       "sc06MarkerPhotoReplay": {
-        "markerOperationId": "op-outbox-marker-001",
+        "markerOperationId": "66666666-0000-4000-8000-000000000601",
         "markerOutboxId": "outbox-marker-001",
         "markerIdempotencyKey": "idem-marker-001",
-        "photoOperationId": "op-outbox-photo-001",
+        "photoOperationId": "66666666-0000-4000-8000-000000000602",
         "photoOutboxId": "outbox-photo-001",
         "photoIdempotencyKey": "idem-photo-attach-001",
-        "markerId": "mk-precinct-clue-001",
-        "photoId": "photo-precinct-clue-001",
-        "expectedEventId": "evt-s5-marker-updated-photo-001"
+        "markerId": "55555555-5555-5555-5555-555555550001",
+        "photoId": "55555555-5555-5555-5555-555555550101",
+        "expectedEventId": "evt-s5-marker-updated-photo-001",
+        "markerOperationAlias": "op-outbox-marker-001",
+        "photoOperationAlias": "op-outbox-photo-001",
+        "markerAlias": "mk-precinct-clue-001",
+        "photoAlias": "photo-precinct-clue-001"
       },
       "sc08SupportRequestReplay": {
-        "operationId": "op-outbox-support-001",
+        "operationAlias": "op-outbox-support-001",
+        "operationId": "66666666-0000-4000-8000-000000000801",
         "outboxId": "outbox-support-001",
         "idempotencyKey": "idem-support-001",
-        "markerId": "mk-precinct-support-001",
-        "notificationDeliveryId": "notif-precinct-support-001",
-        "expectedEventId": "evt-s5-support-request-001"
+        "markerId": "55555555-5555-5555-5555-555555550801",
+        "notificationDeliveryId": "66666666-6666-6666-6666-666666660801",
+        "expectedEventId": "evt-s5-support-request-001",
+        "markerAlias": "mk-precinct-support-001",
+        "notificationDeliveryAlias": "notif-precinct-support-001"
       },
       "sc09PackageReplay": {
-        "operationId": "op-outbox-package-001",
+        "operationAlias": "op-outbox-package-001",
+        "operationId": "66666666-0000-4000-8000-000000000901",
         "outboxId": "outbox-package-001",
         "idempotencyKey": "idem-package-001",
         "bodyHash": "sha256:package-status-ready-001",
         "requestBodyHash": "sha256:package-status-ready-001",
-        "incidentId": "inc-precinct-first-001",
-        "policePhoneId": "dev-precinct-phone-01",
-        "manifestId": "tile-manifest-inc-precinct-001",
+        "incidentAlias": "inc-precinct-first-001",
+        "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
+        "policePhoneCode": "dev-precinct-phone-01",
+        "policePhoneId": "00000000-0000-0000-0000-000000000101",
+        "manifestAlias": "tile-manifest-inc-precinct-001",
+        "manifestId": "77777777-0000-4000-8000-000000000701",
         "dependencyGroup": "PACKAGE_INSTALLATION",
         "sequence": 901,
         "sourceSpecEndpoint": "POST /incidents/{incidentId}/offline-package/installations",
         "canonicalApiEndpoint": "POST /api/incidents/{incidentId}/offline-package/installations",
         "requestMethod": "POST",
-        "requestPath": "/api/incidents/inc-precinct-first-001/offline-package/installations",
+        "requestPathAlias": "/api/incidents/inc-precinct-first-001/offline-package/installations",
+        "requestPath": "/api/incidents/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001/offline-package/installations",
         "clientTs": "2026-04-28T09:00:40+09:00",
         "clockOffsetMs": 0,
         "clockSyncedAt": "2026-04-28T09:00:35+09:00",
         "requestPayload": {
-          "policePhoneId": "dev-precinct-phone-01",
-          "manifestId": "tile-manifest-inc-precinct-001",
+          "policePhoneCode": "dev-precinct-phone-01",
+          "policePhoneId": "00000000-0000-0000-0000-000000000101",
+          "manifestAlias": "tile-manifest-inc-precinct-001",
+          "manifestId": "77777777-0000-4000-8000-000000000701",
           "manifestVersion": 1,
           "status": "READY",
           "totalItems": 7,
@@ -1011,16 +1065,22 @@
           "clockOffsetMs": 0
         },
         "writeOperation": {
-          "operationId": "op-outbox-package-001",
-          "incidentId": "inc-precinct-first-001",
-          "policePhoneId": "dev-precinct-phone-01",
+          "operationAlias": "op-outbox-package-001",
+          "operationId": "66666666-0000-4000-8000-000000000901",
+          "incidentAlias": "inc-precinct-first-001",
+          "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
+          "policePhoneCode": "dev-precinct-phone-01",
+          "policePhoneId": "00000000-0000-0000-0000-000000000101",
           "dependencyGroup": "PACKAGE_INSTALLATION",
           "sequence": 901,
           "request_method": "POST",
-          "request_path": "/api/incidents/inc-precinct-first-001/offline-package/installations",
+          "request_pathAlias": "/api/incidents/inc-precinct-first-001/offline-package/installations",
+          "request_path": "/api/incidents/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001/offline-package/installations",
           "payload": {
-            "policePhoneId": "dev-precinct-phone-01",
-            "manifestId": "tile-manifest-inc-precinct-001",
+            "policePhoneCode": "dev-precinct-phone-01",
+            "policePhoneId": "00000000-0000-0000-0000-000000000101",
+            "manifestAlias": "tile-manifest-inc-precinct-001",
+            "manifestId": "77777777-0000-4000-8000-000000000701",
             "manifestVersion": 1,
             "status": "READY",
             "totalItems": 7,
@@ -1038,53 +1098,66 @@
           "clientTs": "2026-04-28T09:00:40+09:00",
           "clockOffsetMs": 0,
           "clockSyncedAt": "2026-04-28T09:00:35+09:00",
-          "entityId": "pkg-status-precinct-001",
+          "entityAlias": "pkg-status-precinct-001",
+          "entityId": "77777777-0000-4000-8000-000000000901",
           "entityType": "offline_package_installation"
         },
         "expectedOwnerResponse": {
-          "id": "pkg-status-precinct-001",
+          "id": "77777777-0000-4000-8000-000000000901",
           "status": "READY",
           "version": 3,
           "manifestVersion": 1,
           "readyForOfflineUse": true,
-          "serverTs": "2026-04-28T09:00:41+09:00"
+          "serverTs": "2026-04-28T09:00:41+09:00",
+          "idAlias": "pkg-status-precinct-001"
         },
         "expectedS4Event": {
           "eventId": "evt-s7-package-status-001",
           "type": "OFFLINE_PACKAGE_INSTALLATION_CHANGED",
           "schemaVersion": 1,
           "serverTs": "2026-04-28T09:00:41+09:00",
-          "incidentId": "inc-precinct-first-001",
-          "payloadId": "pkg-status-precinct-001",
+          "incidentAlias": "inc-precinct-first-001",
+          "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
+          "payloadAlias": "pkg-status-precinct-001",
+          "payloadId": "77777777-0000-4000-8000-000000000901",
           "payloadStatus": "READY",
           "payloadVersion": 3,
-          "policePhoneId": "dev-precinct-phone-01",
+          "policePhoneCode": "dev-precinct-phone-01",
+          "policePhoneId": "00000000-0000-0000-0000-000000000101",
           "sequence": 901,
           "manifestVersion": 1,
           "payload": {
-            "id": "pkg-status-precinct-001",
+            "id": "77777777-0000-4000-8000-000000000901",
             "status": "READY",
             "version": 3,
-            "incidentId": "inc-precinct-first-001",
-            "policePhoneId": "dev-precinct-phone-01",
-            "manifestVersion": 1
+            "incidentAlias": "inc-precinct-first-001",
+            "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
+            "policePhoneCode": "dev-precinct-phone-01",
+            "policePhoneId": "00000000-0000-0000-0000-000000000101",
+            "manifestVersion": 1,
+            "idAlias": "pkg-status-precinct-001"
           }
         },
         "expectedPackageStatusQuery": {
           "method": "OfflinePackageInstallationQuery.byIncident",
-          "incidentId": "inc-precinct-first-001",
-          "policePhoneId": "dev-precinct-phone-01",
-          "id": "pkg-status-precinct-001",
+          "incidentAlias": "inc-precinct-first-001",
+          "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
+          "policePhoneCode": "dev-precinct-phone-01",
+          "policePhoneId": "00000000-0000-0000-0000-000000000101",
+          "id": "77777777-0000-4000-8000-000000000901",
           "status": "READY",
           "version": 3,
           "sequence": 901,
-          "manifestVersion": 1
+          "manifestVersion": 1,
+          "idAlias": "pkg-status-precinct-001"
         },
         "expectedBoardProbe": {
           "slot": "package_badge",
-          "incidentId": "inc-precinct-first-001",
-          "policePhoneId": "dev-precinct-phone-01",
-          "id": "pkg-status-precinct-001",
+          "incidentAlias": "inc-precinct-first-001",
+          "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
+          "policePhoneCode": "dev-precinct-phone-01",
+          "policePhoneId": "00000000-0000-0000-0000-000000000101",
+          "id": "77777777-0000-4000-8000-000000000901",
           "status": "READY",
           "minimumVersion": 3,
           "sequence": 901,
@@ -1096,15 +1169,19 @@
             "baseBoardRowId": "board-package-inc-precinct-first-001",
             "baseStatusBeforeReplay": "STALE",
             "meaning": "boardAssembly keeps the base stale package_badge row; this probe is the expected post-replay S7 convergence state."
-          }
+          },
+          "idAlias": "pkg-status-precinct-001"
         }
       }
     },
     "terminalStateRules": {
       "sc12CloseRequeue": {
-        "preCloseOperationId": "op-outbox-preclose-path-001",
-        "postCloseOperationId": "op-outbox-postclose-marker-001",
-        "incidentId": "inc-precinct-closed-001",
+        "preCloseOperationAlias": "op-outbox-preclose-path-001",
+        "preCloseOperationId": "66666666-0000-4000-8000-000000001201",
+        "postCloseOperationAlias": "op-outbox-postclose-marker-001",
+        "postCloseOperationId": "66666666-0000-4000-8000-000000001202",
+        "incidentAlias": "inc-precinct-closed-001",
+        "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0012",
         "closeCutoff": "2026-04-28T12:00:00+09:00",
         "expectedPreClose": "close-drain-once",
         "expectedPostClose": "FAILED_FINAL",
@@ -1113,31 +1190,36 @@
       },
       "failureCategoryRows": [
         {
-          "operationId": "op-fail-clock-001",
+          "operationAlias": "op-fail-clock-001",
+          "operationId": "66666666-0000-4000-8000-000000001701",
           "lastError": "clock_skew_exceeded",
           "userSafeFailureCategory": "CLOCK_RESYNC_REQUIRED",
           "retryable": true
         },
         {
-          "operationId": "op-fail-idem-001",
+          "operationAlias": "op-fail-idem-001",
+          "operationId": "66666666-0000-4000-8000-000000001702",
           "lastError": "idempotency_mismatch",
           "userSafeFailureCategory": "NON_RETRYABLE_CONFLICT",
           "retryable": false
         },
         {
-          "operationId": "op-fail-PolicePhone-001",
+          "operationAlias": "op-fail-PolicePhone-001",
+          "operationId": "66666666-0000-4000-8000-000000001703",
           "lastError": "police_phone_not_assigned",
           "userSafeFailureCategory": "POLICE_PHONE_ACCESS_REQUIRED",
           "retryable": false
         },
         {
-          "operationId": "op-fail-closed-001",
+          "operationAlias": "op-fail-closed-001",
+          "operationId": "66666666-0000-4000-8000-000000001704",
           "lastError": "post_close_requeue_rejected",
           "userSafeFailureCategory": "CLOSED_NO_RETRY",
           "retryable": false
         },
         {
-          "operationId": "op-fail-network-001",
+          "operationAlias": "op-fail-network-001",
+          "operationId": "66666666-0000-4000-8000-000000001705",
           "lastError": "low_connectivity_timeout",
           "userSafeFailureCategory": "RETRYABLE_NETWORK",
           "retryable": true
@@ -1145,7 +1227,7 @@
       ]
     },
     "objectStorageUpload": {
-      "photoId": "photo-precinct-clue-001",
+      "photoId": "55555555-5555-5555-5555-555555550101",
       "storageBaseUri": "mock://object-storage/suri-map-harness",
       "uploadUrlTemplate": "http://127.0.0.1:18080/mock-upload/{photoId}",
       "successFixtures": {
@@ -1175,31 +1257,46 @@
         "eventId": "evt-s5-marker-updated-photo-001",
         "photoStatus": "ATTACHED",
         "photoVersion": 2
-      }
+      },
+      "photoAlias": "photo-precinct-clue-001"
     },
     "markerAndNotification": {
       "markerPhotoAttach": {
-        "markerId": "mk-precinct-clue-001",
-        "photoId": "photo-precinct-clue-001",
+        "markerId": "55555555-5555-5555-5555-555555550001",
+        "photoId": "55555555-5555-5555-5555-555555550101",
         "eventId": "evt-s5-marker-updated-photo-001",
         "markerVersionAfter": 2,
-        "photoVersionAfter": 2
+        "photoVersionAfter": 2,
+        "markerAlias": "mk-precinct-clue-001",
+        "photoAlias": "photo-precinct-clue-001"
       },
       "supportAssignmentNotification": {
-        "incidentId": "inc-precinct-first-001",
+        "incidentAlias": "inc-precinct-first-001",
+        "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
         "eventId": "evt-s1-assignment-support-assigned-001",
         "assignmentVersion": 2,
         "recipientPolicy": "NEWLY_ASSIGNED_SUPPORT_DEVICES",
-        "recipientAccountIds": [
+        "recipientAccountCodes": [
           "acct-support-car",
           "acct-support-team"
         ],
-        "recipientPolicePhoneIds": [
+        "recipientAccountIds": [
+          "11111111-1111-1111-1111-111111110007",
+          "11111111-1111-1111-1111-111111110008"
+        ],
+        "recipientPolicePhoneCodes": [
           "dev-support-car-01",
           "dev-support-phone-01"
         ],
-        "excludedPolicePhoneIds": [
+        "recipientPolicePhoneIds": [
+          "00000000-0000-0000-0000-000000000207",
+          "00000000-0000-0000-0000-000000000208"
+        ],
+        "excludedPolicePhoneCodes": [
           "dev-support-cmd-phone-01"
+        ],
+        "excludedPolicePhoneIds": [
+          "00000000-0000-0000-0000-000000000206"
         ],
         "expectedFcmRecipients": [
           "fcm:dev-support-car-01",
@@ -1207,33 +1304,49 @@
         ],
         "expectedPayload": {
           "type": "INCIDENT_ASSIGNMENT_CHANGED",
-          "incidentId": "inc-precinct-first-001",
+          "incidentAlias": "inc-precinct-first-001",
+          "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
           "status": "ACTIVE",
           "version": 2,
           "pii": false
         }
       },
       "supportRequestNotification": {
-        "incidentId": "inc-precinct-first-001",
-        "opId": "op-precinct-001-op1",
-        "policePhoneId": "dev-precinct-phone-01",
-        "accountId": "acct-precinct-team",
-        "markerId": "mk-precinct-support-001",
-        "notificationDeliveryId": "notif-precinct-support-001",
+        "incidentAlias": "inc-precinct-first-001",
+        "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
+        "opAlias": "op-precinct-001-op1",
+        "opId": "88888888-8888-8888-8888-888888880001",
+        "policePhoneCode": "dev-precinct-phone-01",
+        "policePhoneId": "00000000-0000-0000-0000-000000000101",
+        "accountCode": "acct-precinct-team",
+        "accountId": "11111111-1111-1111-1111-111111110003",
+        "markerId": "55555555-5555-5555-5555-555555550801",
+        "notificationDeliveryId": "66666666-6666-6666-6666-666666660801",
         "eventId": "evt-s5-support-request-001",
         "markerStatus": "ACTIVE",
         "markerVersion": 1,
         "recipientPolicy": "COMMANDERS_AND_FIELD_COMMANDERS",
-        "recipientAccountIds": [
+        "recipientAccountCodes": [
           "acct-cmd-alpha",
           "acct-support-cmd",
           "acct-support-car",
           "acct-support-team"
         ],
-        "recipientPolicePhoneIds": [
+        "recipientAccountIds": [
+          "11111111-1111-1111-1111-111111110004",
+          "11111111-1111-1111-1111-111111110006",
+          "11111111-1111-1111-1111-111111110007",
+          "11111111-1111-1111-1111-111111110008"
+        ],
+        "recipientPolicePhoneCodes": [
           "dev-alpha-phone-01",
           "dev-support-car-01",
           "dev-support-phone-01"
+        ],
+        "recipientPolicePhoneIds": [
+          "00000000-0000-0000-0000-000000000205",
+          "00000000-0000-0000-0000-000000000207",
+          "00000000-0000-0000-0000-000000000208"
         ],
         "expectedFcmRecipients": [
           "fcm:dev-alpha-phone-01",
@@ -1243,23 +1356,30 @@
         "expectedToast": {
           "slot": "toast",
           "type": "SUPPORT_REQUEST_CREATED",
-          "id": "notif-precinct-support-001",
+          "id": "66666666-6666-6666-6666-666666660801",
           "status": "SNAPSHOT_CREATED",
-          "version": 1
-        }
+          "version": 1,
+          "idAlias": "notif-precinct-support-001"
+        },
+        "markerAlias": "mk-precinct-support-001",
+        "notificationDeliveryAlias": "notif-precinct-support-001"
       },
       "personFoundNotification": {
-        "incidentId": "inc-precinct-first-001",
-        "opId": "op-precinct-001-op1",
-        "policePhoneId": "dev-precinct-phone-01",
-        "accountId": "acct-precinct-team",
-        "markerId": "mk-precinct-person-found-001",
-        "notificationDeliveryId": "notif-precinct-person-found-001",
+        "incidentAlias": "inc-precinct-first-001",
+        "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
+        "opAlias": "op-precinct-001-op1",
+        "opId": "88888888-8888-8888-8888-888888880001",
+        "policePhoneCode": "dev-precinct-phone-01",
+        "policePhoneId": "00000000-0000-0000-0000-000000000101",
+        "accountCode": "acct-precinct-team",
+        "accountId": "11111111-1111-1111-1111-111111110003",
+        "markerId": "55555555-5555-5555-5555-555555550802",
+        "notificationDeliveryId": "66666666-6666-6666-6666-666666660802",
         "eventId": "evt-s5-person-found-001",
         "markerStatus": "ACTIVE",
         "markerVersion": 1,
         "recipientPolicy": "ALL_INCIDENT_ASSIGNED",
-        "recipientAccountIds": [
+        "recipientAccountCodes": [
           "acct-precinct-cmd",
           "acct-precinct-car",
           "acct-precinct-team",
@@ -1269,12 +1389,29 @@
           "acct-support-car",
           "acct-support-team"
         ],
-        "recipientPolicePhoneIds": [
+        "recipientAccountIds": [
+          "11111111-1111-1111-1111-111111110001",
+          "11111111-1111-1111-1111-111111110002",
+          "11111111-1111-1111-1111-111111110003",
+          "11111111-1111-1111-1111-111111110004",
+          "11111111-1111-1111-1111-111111110005",
+          "11111111-1111-1111-1111-111111110006",
+          "11111111-1111-1111-1111-111111110007",
+          "11111111-1111-1111-1111-111111110008"
+        ],
+        "recipientPolicePhoneCodes": [
           "dev-precinct-car-01",
           "dev-precinct-phone-01",
           "dev-alpha-phone-01",
           "dev-support-car-01",
           "dev-support-phone-01"
+        ],
+        "recipientPolicePhoneIds": [
+          "50000000-0000-0000-0000-000000000001",
+          "00000000-0000-0000-0000-000000000101",
+          "00000000-0000-0000-0000-000000000205",
+          "00000000-0000-0000-0000-000000000207",
+          "00000000-0000-0000-0000-000000000208"
         ],
         "expectedFcmRecipients": [
           "fcm:dev-alpha-phone-01",
@@ -1284,10 +1421,13 @@
         "expectedToast": {
           "slot": "toast",
           "type": "PERSON_FOUND",
-          "id": "notif-precinct-person-found-001",
+          "id": "66666666-6666-6666-6666-666666660802",
           "status": "SNAPSHOT_CREATED",
-          "version": 1
-        }
+          "version": 1,
+          "idAlias": "notif-precinct-person-found-001"
+        },
+        "markerAlias": "mk-precinct-person-found-001",
+        "notificationDeliveryAlias": "notif-precinct-person-found-001"
       }
     },
     "eventRegistry": {
@@ -1503,13 +1643,15 @@
       }
     },
     "ownerReferences": {
-      "overallSearchAreaResponseId": "osa-precinct-001",
-      "areaId": "area-precinct-a1",
+      "overallSearchAreaResponseId": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0001",
+      "areaId": "cccccccc-cccc-cccc-cccc-cccccccc0001",
       "supportRequestResponseId": "support-request-precinct-001",
       "packageBadgeResponseId": "pkg-inc-precinct-first-001",
       "handoverStatusResponseId": "handover-status-inc-precinct-first-001",
       "boardSearchHistorySummaryResponseId": "ai-summary-op-precinct-001-op2",
-      "terminalTombstoneResponseId": "tombstone-inc-precinct-first-001"
+      "terminalTombstoneResponseId": "tombstone-inc-precinct-first-001",
+      "overallSearchAreaResponseAlias": "osa-precinct-001",
+      "areaAlias": "area-precinct-a1"
     },
     "boardAssembly": {
       "fixtureId": "bs-inc-precinct-first-001",
@@ -1520,40 +1662,44 @@
         {
           "slot": "overall_search_area",
           "sourceSpec": "S2",
-          "sourceResponseId": "osa-precinct-001",
+          "sourceResponseId": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0001",
           "boardRowId": "board-overall-search-area-inc-precinct-first-001",
           "status": "ACTIVE",
           "version": 2,
           "sequence": 401,
           "latestEventId": "evt-s2-overall-area-001",
-          "sourceHash": "hash-s2-overall-area-current"
+          "sourceHash": "hash-s2-overall-area-current",
+          "sourceResponseAlias": "osa-precinct-001"
         },
         {
           "slot": "area",
           "sourceSpec": "S2",
-          "sourceResponseId": "area-precinct-a1",
+          "sourceResponseId": "cccccccc-cccc-cccc-cccc-cccccccc0001",
           "boardRowId": "board-area-precinct-a1",
           "status": "ASSIGNED",
           "version": 1,
           "sequence": 402,
           "latestEventId": "evt-s2-area-created-001",
-          "sourceHash": "hash-s2-area-a1-current"
+          "sourceHash": "hash-s2-area-a1-current",
+          "sourceResponseAlias": "area-precinct-a1"
         },
         {
           "slot": "path",
           "sourceSpec": "S3-1",
-          "sourceResponseId": "path-precinct-mixed-001",
+          "sourceResponseId": "ffffffff-ffff-ffff-ffff-ffffffffffff",
           "boardRowId": "board-path-precinct-mixed-001",
           "status": "ACTIVE",
           "version": 2,
           "sequence": 502,
           "latestEventId": "evt-s3-path-appended-001",
-          "sourceHash": "hash-s3-path-mixed-current"
+          "sourceHash": "hash-s3-path-mixed-current",
+          "sourceResponseAlias": "path-precinct-mixed-001"
         },
         {
           "slot": "police_phone_freshness",
           "sourceSpec": "S1-2",
-          "sourceResponseId": "dev-precinct-car-01",
+          "sourceResponseAlias": "dev-precinct-car-01",
+          "sourceResponseId": "50000000-0000-0000-0000-000000000001",
           "boardRowId": "board-PolicePhone-freshness-dev-precinct-car-01",
           "status": "ONLINE",
           "version": 4,
@@ -1564,13 +1710,14 @@
         {
           "slot": "marker",
           "sourceSpec": "S5",
-          "sourceResponseId": "mk-precinct-clue-001",
+          "sourceResponseId": "55555555-5555-5555-5555-555555550001",
           "boardRowId": "board-marker-mk-precinct-clue-001",
           "status": "ACTIVE",
           "version": 1,
           "sequence": 601,
           "latestEventId": "evt-s5-marker-created-001",
-          "sourceHash": "hash-s5-marker-clue-current"
+          "sourceHash": "hash-s5-marker-clue-current",
+          "sourceResponseAlias": "mk-precinct-clue-001"
         },
         {
           "slot": "toast",
@@ -1597,7 +1744,8 @@
         {
           "slot": "op_toggle",
           "sourceSpec": "S8",
-          "sourceResponseId": "op-precinct-001-op1",
+          "sourceResponseAlias": "op-precinct-001-op1",
+          "sourceResponseId": "88888888-8888-8888-8888-888888880001",
           "boardRowId": "board-op-toggle-op-precinct-001-op1",
           "status": "ACTIVE",
           "version": 1,
@@ -1608,7 +1756,8 @@
         {
           "slot": "op_history",
           "sourceSpec": "S8",
-          "sourceResponseId": "op-precinct-001-op2",
+          "sourceResponseAlias": "op-precinct-001-op2",
+          "sourceResponseId": "88888888-8888-8888-8888-888888880002",
           "boardRowId": "board-op-history-op-precinct-001-op2",
           "status": "OPENED",
           "version": 2,
@@ -1619,13 +1768,14 @@
         {
           "slot": "handover_memo",
           "sourceSpec": "S8",
-          "sourceResponseId": "memo-precinct-handover-001",
+          "sourceResponseId": "eeeeeeee-eeee-eeee-eeee-eeeeeeee0001",
           "boardRowId": "board-handover-memo-precinct-001",
           "status": "ACTIVE",
           "version": 1,
           "sequence": 803,
           "latestEventId": "evt-s8-handover-created-001",
-          "sourceHash": "hash-s8-handover-memo-current"
+          "sourceHash": "hash-s8-handover-memo-current",
+          "sourceResponseAlias": "memo-precinct-handover-001"
         },
         {
           "slot": "handover_status",
@@ -1652,7 +1802,8 @@
         {
           "slot": "incident_terminal",
           "sourceSpec": "S1-1",
-          "sourceResponseId": "inc-precinct-first-001",
+          "sourceResponseAlias": "inc-precinct-first-001",
+          "sourceResponseId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
           "boardRowId": "board-incident-terminal-inc-precinct-first-001",
           "status": "CLOSED",
           "version": 9,
@@ -1672,16 +1823,20 @@
     },
     "commandFlow": {
       "radioReportId": "rr-precinct-001",
-      "incidentId": "inc-precinct-first-001",
-      "opId": "op-precinct-001-op1",
-      "areaId": "area-precinct-a1",
-      "reportedBy": "acct-precinct-cmd",
+      "incidentAlias": "inc-precinct-first-001",
+      "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
+      "opAlias": "op-precinct-001-op1",
+      "opId": "88888888-8888-8888-8888-888888880001",
+      "areaId": "cccccccc-cccc-cccc-cccc-cccccccc0001",
+      "reportedByAccountCode": "acct-precinct-cmd",
+      "reportedBy": "11111111-1111-1111-1111-111111110001",
       "message": "1구역 수색 완료, 북측 미확인 동선 존재",
       "receivedAt": "2026-04-28T10:15:00+09:00",
       "decisionId": "dec-op-transition-001",
       "decision": "COMPLETE_AREA_AND_OPEN_NEXT_OP",
-      "nextOpId": "op-precinct-001-op2",
-      "handoverMemoId": "memo-precinct-handover-001",
+      "nextOpAlias": "op-precinct-001-op2",
+      "nextOpId": "88888888-8888-8888-8888-888888880002",
+      "handoverMemoId": "eeeeeeee-eeee-eeee-eeee-eeeeeeee0001",
       "expectedExecutionSequence": [
         "radio_report_received",
         "commander_decision_recorded",
@@ -1689,13 +1844,17 @@
         "op_transitioned",
         "handover_saved",
         "board_api_refetched"
-      ]
+      ],
+      "areaAlias": "area-precinct-a1",
+      "handoverMemoAlias": "memo-precinct-handover-001"
     },
     "opTransition": {
       "currentOpConsumerContract": {
-        "incidentId": "inc-precinct-first-001",
+        "incidentAlias": "inc-precinct-first-001",
+        "incidentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
         "currentOp": {
-          "opId": "op-precinct-001-op1",
+          "opAlias": "op-precinct-001-op1",
+          "opId": "88888888-8888-8888-8888-888888880001",
           "status": "ACTIVE",
           "version": 1,
           "sequenceNumber": 1
@@ -1717,22 +1876,25 @@
         ]
       },
       "currentOp": {
-        "opId": "op-precinct-001-op1",
+        "opAlias": "op-precinct-001-op1",
+        "opId": "88888888-8888-8888-8888-888888880001",
         "status": "ACTIVE",
         "version": 1,
         "sequenceNumber": 1
       },
       "newOp": {
-        "opId": "op-precinct-001-op2",
+        "opAlias": "op-precinct-001-op2",
+        "opId": "88888888-8888-8888-8888-888888880002",
         "status": "ACTIVE",
         "version": 1,
         "sequenceNumber": 2
       },
       "expectedRestResponse": {
-        "id": "op-precinct-001-op2",
+        "id": "88888888-8888-8888-8888-888888880002",
         "status": "ACTIVE",
         "version": 1,
-        "sequenceNumber": 2
+        "sequenceNumber": 2,
+        "idAlias": "op-precinct-001-op2"
       },
       "expectedBoardProbe": {
         "slots": [
@@ -1740,19 +1902,22 @@
           "op_history",
           "handover_status"
         ],
-        "id": "op-precinct-001-op2",
+        "id": "88888888-8888-8888-8888-888888880002",
         "status": "ACTIVE",
         "version": 1,
-        "opId": "op-precinct-001-op2",
+        "opAlias": "op-precinct-001-op2",
+        "opId": "88888888-8888-8888-8888-888888880002",
         "handoverStatus": "NEEDS_MEMO",
-        "preConvergenceState": "STALE_REFETCH"
+        "preConvergenceState": "STALE_REFETCH",
+        "idAlias": "op-precinct-001-op2"
       },
       "idempotentWriteReplay": {
         "sameBodyReplay": {
           "idempotencyKey": "idem-s8-op-transition-001",
           "bodyHash": "sha256:s8-op-transition-content-001",
           "endpoint": "POST /operational-periods",
-          "expectedResponseId": "op-precinct-001-op2",
+          "expectedResponseAlias": "op-precinct-001-op2",
+          "expectedResponseId": "88888888-8888-8888-8888-888888880002",
           "expectedStatus": "ACTIVE",
           "expectedVersion": 1,
           "expectedPublishRequestCount": 1
@@ -1774,32 +1939,37 @@
       }
     },
     "searchHistorySummary": {
-      "memoId": "memo-precinct-op2-001",
-      "summaryId": "summary-precinct-op2-001",
+      "memoId": "eeeeeeee-eeee-eeee-eeee-eeeeeeee0010",
+      "summaryId": "44444444-4444-4444-4444-444444440001",
       "expectedRestResponse": {
-        "summaryId": "summary-precinct-op2-001",
+        "summaryId": "44444444-4444-4444-4444-444444440001",
         "status": "FAILED",
         "displayStatus": "UNAVAILABLE",
         "version": 1,
         "retryCta": "요약 다시 생성",
-        "sourcePromptVisible": false
+        "sourcePromptVisible": false,
+        "summaryAlias": "summary-precinct-op2-001"
       },
       "expectedS4Events": {
         "handoverMemoCreated": {
           "eventId": "evt-s8-handover-memo-001",
           "type": "HANDOVER_MEMO_CREATED",
-          "payloadId": "memo-precinct-op2-001",
+          "payloadId": "eeeeeeee-eeee-eeee-eeee-eeeeeeee0010",
           "payloadStatus": "ACTIVE",
           "payloadVersion": 1,
-          "opId": "op-precinct-001-op2"
+          "opAlias": "op-precinct-001-op2",
+          "opId": "88888888-8888-8888-8888-888888880002",
+          "payloadAlias": "memo-precinct-op2-001"
         },
         "aiSummaryReady": {
           "eventId": "evt-s8-ai-summary-001",
           "type": "SEARCH_HISTORY_SUMMARY_CHANGED",
-          "payloadId": "summary-precinct-op2-001",
+          "payloadId": "44444444-4444-4444-4444-444444440001",
           "payloadStatus": "FAILED",
           "payloadVersion": 1,
-          "opId": "op-precinct-001-op2"
+          "opAlias": "op-precinct-001-op2",
+          "opId": "88888888-8888-8888-8888-888888880002",
+          "payloadAlias": "summary-precinct-op2-001"
         }
       },
       "adapterResponses": {
@@ -1826,259 +1996,133 @@
           "summaryText": "",
           "expectedAction": "failure"
         }
-      }
+      },
+      "memoAlias": "memo-precinct-op2-001",
+      "summaryAlias": "summary-precinct-op2-001"
     }
   },
   "confirmedIdIndex": [
     {
-      "id": "10000000-0000-4000-8000-000000000001",
-      "paths": [
-        "eventFanout.duplicateEventDedupe.incidentId",
-        "eventFanout.fanoutFailureInjection.incidentId",
-        "eventFanout.replayGapRefetchRequired.incidentId",
-        "eventFanout.sc08EmptyFcmRecipientSkip.incidentId",
-        "eventFanout.sc09OutboxReplayConvergence.expectedRefetchSignal.incidentId",
-        "eventFanout.sc09OutboxReplayConvergence.incidentId"
-      ],
-      "groups": [
-        "eventFanout"
-      ],
-      "kind": "event_fanout_fixture_id"
-    },
-    {
-      "id": "10000000-0000-4000-8000-000000000012",
-      "paths": [
-        "eventFanout.closedAndPurgedStream.closedIncident.incidentId"
-      ],
-      "groups": [
-        "eventFanout"
-      ],
-      "kind": "event_fanout_fixture_id"
-    },
-    {
-      "id": "10000000-0000-4000-8000-000000000013",
-      "paths": [
-        "eventFanout.closedAndPurgedStream.purgedIncident.incidentId"
-      ],
-      "groups": [
-        "eventFanout"
-      ],
-      "kind": "event_fanout_fixture_id"
-    },
-    {
-      "id": "30000000-0000-4000-8000-000000000501",
-      "paths": [
-        "eventFanout.sc09OutboxReplayConvergence.expectedRefetchSignal.payloadId",
-        "eventFanout.sc09OutboxReplayConvergence.payload.id"
-      ],
-      "groups": [
-        "eventFanout"
-      ],
-      "kind": "event_fanout_fixture_id"
-    },
-    {
-      "id": "40000000-0000-4000-8000-000000000701",
-      "paths": [
-        "eventFanout.duplicateEventDedupe.eventId",
-        "eventRegistry.eventFanoutDuplicatePublish.eventId"
-      ],
-      "groups": [
-        "eventFanout",
-        "eventRegistry"
-      ],
-      "kind": "event_fanout_fixture_id"
-    },
-    {
-      "id": "40000000-0000-4000-8000-000000000808",
-      "paths": [
-        "eventFanout.fanoutFailureInjection.eventId",
-        "eventRegistry.eventFanoutFailureInjection.eventId"
-      ],
-      "groups": [
-        "eventFanout",
-        "eventRegistry"
-      ],
-      "kind": "event_fanout_fixture_id"
-    },
-    {
-      "id": "40000000-0000-4000-8000-000000000811",
-      "paths": [
-        "eventFanout.sc08EmptyFcmRecipientSkip.eventId",
-        "eventRegistry.eventFanoutEmptyRecipient.eventId"
-      ],
-      "groups": [
-        "eventFanout",
-        "eventRegistry"
-      ],
-      "kind": "event_fanout_fixture_id"
-    },
-    {
-      "id": "40000000-0000-4000-8000-000000000901",
-      "paths": [
-        "eventFanout.sc09OutboxReplayConvergence.eventId",
-        "eventFanout.sc09OutboxReplayConvergence.expectedBoardProbe.latestEventId",
-        "eventFanout.sc09OutboxReplayConvergence.expectedRefetchSignal.eventId",
-        "eventRegistry.eventFanoutOutboxReplay.eventId"
-      ],
-      "groups": [
-        "eventFanout",
-        "eventRegistry"
-      ],
-      "kind": "event_fanout_fixture_id"
-    },
-    {
-      "id": "40000000-0000-4000-8000-000000001212",
-      "paths": [
-        "eventFanout.closedAndPurgedStream.closedIncident.terminalEventId",
-        "eventRegistry.eventFanoutTerminalClosed.eventId"
-      ],
-      "groups": [
-        "eventFanout",
-        "eventRegistry"
-      ],
-      "kind": "event_fanout_fixture_id"
-    },
-    {
-      "id": "50000000-0000-4000-8000-000000000801",
-      "paths": [
-        "eventFanout.sc08EmptyFcmRecipientSkip.payload.id"
-      ],
-      "groups": [
-        "eventFanout"
-      ],
-      "kind": "event_fanout_fixture_id"
-    },
-    {
-      "id": "60000000-0000-4000-8000-000000000901",
-      "paths": [
-        "eventFanout.sc09OutboxReplayConvergence.operationId"
-      ],
-      "groups": [
-        "eventFanout"
-      ],
-      "kind": "event_fanout_fixture_id"
-    },
-    {
       "id": "acct-cmd-alpha",
       "paths": [
-        "incidentSeed.accountIds[3]",
-        "markerAndNotification.personFoundNotification.recipientAccountIds[3]",
-        "markerAndNotification.supportRequestNotification.recipientAccountIds[0]",
-        "mock112SourceContract.handoverAssignments[0].accountId"
+        "incidentSeed.accountCodes[3]",
+        "markerAndNotification.personFoundNotification.recipientAccountCodes[3]",
+        "markerAndNotification.supportRequestNotification.recipientAccountCodes[0]",
+        "mock112SourceContract.handoverAssignments[0].accountCode"
       ],
+      "kind": "seed_id",
       "groups": [
         "incidentSeed",
         "markerAndNotification",
         "mock112SourceContract"
-      ],
-      "kind": "seed_id"
+      ]
     },
     {
       "id": "acct-precinct-car",
       "paths": [
-        "incidentSeed.accountIds[1]",
-        "markerAndNotification.personFoundNotification.recipientAccountIds[1]",
-        "mock112SourceContract.initialAssignments[1].accountId"
+        "incidentSeed.accountCodes[1]",
+        "markerAndNotification.personFoundNotification.recipientAccountCodes[1]",
+        "mock112SourceContract.initialAssignments[1].accountCode"
       ],
+      "kind": "seed_id",
       "groups": [
         "incidentSeed",
         "markerAndNotification",
         "mock112SourceContract"
-      ],
-      "kind": "seed_id"
+      ]
     },
     {
       "id": "acct-precinct-cmd",
       "paths": [
-        "commandFlow.reportedBy",
-        "incidentSeed.accountIds[0]",
-        "markerAndNotification.personFoundNotification.recipientAccountIds[0]",
-        "mock112SourceContract.initialAssignments[0].accountId"
+        "commandFlow.reportedByAccountCode",
+        "incidentSeed.accountCodes[0]",
+        "markerAndNotification.personFoundNotification.recipientAccountCodes[0]",
+        "mock112SourceContract.initialAssignments[0].accountCode"
       ],
+      "kind": "seed_id",
       "groups": [
         "commandFlow",
         "incidentSeed",
         "markerAndNotification",
         "mock112SourceContract"
-      ],
-      "kind": "seed_id"
+      ]
     },
     {
       "id": "acct-precinct-team",
       "paths": [
-        "incidentSeed.accountIds[2]",
-        "markerAndNotification.personFoundNotification.accountId",
-        "markerAndNotification.personFoundNotification.recipientAccountIds[2]",
-        "markerAndNotification.supportRequestNotification.accountId",
-        "mock112SourceContract.initialAssignments[2].accountId"
+        "incidentSeed.accountCodes[2]",
+        "markerAndNotification.personFoundNotification.accountCode",
+        "markerAndNotification.personFoundNotification.recipientAccountCodes[2]",
+        "markerAndNotification.supportRequestNotification.accountCode",
+        "mock112SourceContract.initialAssignments[2].accountCode"
       ],
+      "kind": "seed_id",
       "groups": [
         "incidentSeed",
         "markerAndNotification",
         "mock112SourceContract"
-      ],
-      "kind": "seed_id"
+      ]
     },
     {
       "id": "acct-support-car",
       "paths": [
-        "incidentSeed.accountIds[6]",
-        "markerAndNotification.personFoundNotification.recipientAccountIds[6]",
-        "markerAndNotification.supportAssignmentNotification.recipientAccountIds[0]",
-        "markerAndNotification.supportRequestNotification.recipientAccountIds[2]",
-        "mock112SourceContract.supportAssignments[1].accountId"
+        "incidentSeed.accountCodes[6]",
+        "markerAndNotification.personFoundNotification.recipientAccountCodes[6]",
+        "markerAndNotification.supportAssignmentNotification.recipientAccountCodes[0]",
+        "markerAndNotification.supportRequestNotification.recipientAccountCodes[2]",
+        "mock112SourceContract.supportAssignments[1].accountCode"
       ],
+      "kind": "seed_id",
       "groups": [
         "incidentSeed",
         "markerAndNotification",
         "mock112SourceContract"
-      ],
-      "kind": "seed_id"
+      ]
     },
     {
       "id": "acct-support-cmd",
       "paths": [
-        "incidentSeed.accountIds[5]",
-        "markerAndNotification.personFoundNotification.recipientAccountIds[5]",
-        "markerAndNotification.supportRequestNotification.recipientAccountIds[1]",
-        "mock112SourceContract.supportAssignments[0].accountId"
+        "incidentSeed.accountCodes[5]",
+        "markerAndNotification.personFoundNotification.recipientAccountCodes[5]",
+        "markerAndNotification.supportRequestNotification.recipientAccountCodes[1]",
+        "mock112SourceContract.supportAssignments[0].accountCode"
       ],
+      "kind": "seed_id",
       "groups": [
         "incidentSeed",
         "markerAndNotification",
         "mock112SourceContract"
-      ],
-      "kind": "seed_id"
+      ]
     },
     {
       "id": "acct-support-team",
       "paths": [
-        "incidentSeed.accountIds[7]",
-        "markerAndNotification.personFoundNotification.recipientAccountIds[7]",
-        "markerAndNotification.supportAssignmentNotification.recipientAccountIds[1]",
-        "markerAndNotification.supportRequestNotification.recipientAccountIds[3]",
-        "mock112SourceContract.supportAssignments[2].accountId"
+        "incidentSeed.accountCodes[7]",
+        "markerAndNotification.personFoundNotification.recipientAccountCodes[7]",
+        "markerAndNotification.supportAssignmentNotification.recipientAccountCodes[1]",
+        "markerAndNotification.supportRequestNotification.recipientAccountCodes[3]",
+        "mock112SourceContract.supportAssignments[2].accountCode"
       ],
+      "kind": "seed_id",
       "groups": [
         "incidentSeed",
         "markerAndNotification",
         "mock112SourceContract"
-      ],
-      "kind": "seed_id"
+      ]
     },
     {
       "id": "acct-team-alpha",
       "paths": [
-        "incidentSeed.accountIds[4]",
-        "markerAndNotification.personFoundNotification.recipientAccountIds[4]",
-        "mock112SourceContract.handoverAssignments[1].accountId"
+        "incidentSeed.accountCodes[4]",
+        "markerAndNotification.personFoundNotification.recipientAccountCodes[4]",
+        "mock112SourceContract.handoverAssignments[1].accountCode"
       ],
+      "kind": "seed_id",
       "groups": [
         "incidentSeed",
         "markerAndNotification",
         "mock112SourceContract"
-      ],
-      "kind": "seed_id"
+      ]
     },
     {
       "id": "ai-summary-op-precinct-001-op2",
@@ -2086,125 +2130,125 @@
         "boardAssembly.slotRows[11].sourceResponseId",
         "ownerReferences.boardSearchHistorySummaryResponseId"
       ],
+      "kind": "owner_reference",
       "groups": [
         "boardAssembly",
         "ownerReferences"
-      ],
-      "kind": "owner_reference"
+      ]
     },
     {
       "id": "area-precinct-a1",
       "paths": [
-        "boardAssembly.slotRows[1].sourceResponseId",
-        "commandFlow.areaId",
-        "ownerReferences.areaId"
+        "boardAssembly.slotRows[1].sourceResponseAlias",
+        "commandFlow.areaAlias",
+        "ownerReferences.areaAlias"
       ],
+      "kind": "owner_reference",
       "groups": [
         "boardAssembly",
         "commandFlow",
         "ownerReferences"
-      ],
-      "kind": "owner_reference"
+      ]
     },
     {
       "id": "board-PolicePhone-freshness-dev-precinct-car-01",
       "paths": [
         "boardAssembly.slotRows[3].boardRowId"
       ],
+      "kind": "board_or_projection_id",
       "groups": [
         "boardAssembly"
-      ],
-      "kind": "board_or_projection_id"
+      ]
     },
     {
       "id": "board-ai-summary-op-precinct-001-op2",
       "paths": [
         "boardAssembly.slotRows[11].boardRowId"
       ],
+      "kind": "board_or_projection_id",
       "groups": [
         "boardAssembly"
-      ],
-      "kind": "board_or_projection_id"
+      ]
     },
     {
       "id": "board-area-precinct-a1",
       "paths": [
         "boardAssembly.slotRows[1].boardRowId"
       ],
+      "kind": "board_or_projection_id",
       "groups": [
         "boardAssembly"
-      ],
-      "kind": "board_or_projection_id"
+      ]
     },
     {
       "id": "board-handover-memo-precinct-001",
       "paths": [
         "boardAssembly.slotRows[9].boardRowId"
       ],
+      "kind": "board_or_projection_id",
       "groups": [
         "boardAssembly"
-      ],
-      "kind": "board_or_projection_id"
+      ]
     },
     {
       "id": "board-handover-status-inc-precinct-first-001",
       "paths": [
         "boardAssembly.slotRows[10].boardRowId"
       ],
+      "kind": "board_or_projection_id",
       "groups": [
         "boardAssembly"
-      ],
-      "kind": "board_or_projection_id"
+      ]
     },
     {
       "id": "board-incident-terminal-inc-precinct-first-001",
       "paths": [
         "boardAssembly.slotRows[12].boardRowId"
       ],
+      "kind": "board_or_projection_id",
       "groups": [
         "boardAssembly"
-      ],
-      "kind": "board_or_projection_id"
+      ]
     },
     {
       "id": "board-marker-mk-precinct-clue-001",
       "paths": [
         "boardAssembly.slotRows[4].boardRowId"
       ],
+      "kind": "board_or_projection_id",
       "groups": [
         "boardAssembly"
-      ],
-      "kind": "board_or_projection_id"
+      ]
     },
     {
       "id": "board-op-history-op-precinct-001-op2",
       "paths": [
         "boardAssembly.slotRows[8].boardRowId"
       ],
+      "kind": "board_or_projection_id",
       "groups": [
         "boardAssembly"
-      ],
-      "kind": "board_or_projection_id"
+      ]
     },
     {
       "id": "board-op-toggle-op-precinct-001-op1",
       "paths": [
         "boardAssembly.slotRows[7].boardRowId"
       ],
+      "kind": "board_or_projection_id",
       "groups": [
         "boardAssembly"
-      ],
-      "kind": "board_or_projection_id"
+      ]
     },
     {
       "id": "board-overall-search-area-inc-precinct-first-001",
       "paths": [
         "boardAssembly.slotRows[0].boardRowId"
       ],
+      "kind": "board_or_projection_id",
       "groups": [
         "boardAssembly"
-      ],
-      "kind": "board_or_projection_id"
+      ]
     },
     {
       "id": "board-package-inc-precinct-first-001",
@@ -2212,31 +2256,31 @@
         "boardAssembly.slotRows[6].boardRowId",
         "outboxReplay.sc09PackageReplay.expectedBoardProbe.relationToBoardAssembly.baseBoardRowId"
       ],
+      "kind": "board_or_projection_id",
       "groups": [
         "boardAssembly",
         "outboxReplay"
-      ],
-      "kind": "board_or_projection_id"
+      ]
     },
     {
       "id": "board-path-precinct-mixed-001",
       "paths": [
         "boardAssembly.slotRows[2].boardRowId"
       ],
+      "kind": "board_or_projection_id",
       "groups": [
         "boardAssembly"
-      ],
-      "kind": "board_or_projection_id"
+      ]
     },
     {
       "id": "board-toast-support-request-precinct-001",
       "paths": [
         "boardAssembly.slotRows[5].boardRowId"
       ],
+      "kind": "board_or_projection_id",
       "groups": [
         "boardAssembly"
-      ],
-      "kind": "board_or_projection_id"
+      ]
     },
     {
       "id": "bs-inc-precinct-first-001",
@@ -2244,146 +2288,146 @@
         "boardAssembly.boardResponseId",
         "boardAssembly.fixtureId"
       ],
+      "kind": "board_or_projection_id",
       "groups": [
         "boardAssembly"
-      ],
-      "kind": "board_or_projection_id"
+      ]
     },
     {
       "id": "connection:sc08-web-01",
       "paths": [
         "eventFanout.fanoutFailureInjection.targets[1].targetKey"
       ],
+      "kind": "event_fanout_fixture_id",
       "groups": [
         "eventFanout"
-      ],
-      "kind": "event_fanout_fixture_id"
+      ]
     },
     {
       "id": "dec-op-transition-001",
       "paths": [
         "commandFlow.decisionId"
       ],
+      "kind": "fixture_id",
       "groups": [
         "commandFlow"
-      ],
-      "kind": "fixture_id"
+      ]
     },
     {
       "id": "dev-alpha-cmd-phone-01",
       "paths": [
-        "incidentSeed.policePhoneIds[3]"
+        "incidentSeed.policePhoneCodes[3]"
       ],
+      "kind": "seed_id",
       "groups": [
         "incidentSeed"
-      ],
-      "kind": "seed_id"
+      ]
     },
     {
       "id": "dev-alpha-phone-01",
       "paths": [
-        "incidentSeed.policePhoneIds[4]",
-        "markerAndNotification.personFoundNotification.recipientPolicePhoneIds[2]",
-        "markerAndNotification.supportRequestNotification.recipientPolicePhoneIds[0]"
+        "incidentSeed.policePhoneCodes[4]",
+        "markerAndNotification.personFoundNotification.recipientPolicePhoneCodes[2]",
+        "markerAndNotification.supportRequestNotification.recipientPolicePhoneCodes[0]"
       ],
+      "kind": "seed_id",
       "groups": [
         "incidentSeed",
         "markerAndNotification"
-      ],
-      "kind": "seed_id"
+      ]
     },
     {
       "id": "dev-precinct-car-01",
       "paths": [
-        "boardAssembly.slotRows[3].sourceResponseId",
-        "gpsPath.policePhoneId",
-        "incidentSeed.policePhoneIds[1]",
-        "markerAndNotification.personFoundNotification.recipientPolicePhoneIds[0]",
-        "outboxReplay.sc05PathReplay.policePhoneId"
+        "boardAssembly.slotRows[3].sourceResponseAlias",
+        "gpsPath.policePhoneCode",
+        "incidentSeed.policePhoneCodes[1]",
+        "markerAndNotification.personFoundNotification.recipientPolicePhoneCodes[0]",
+        "outboxReplay.sc05PathReplay.policePhoneCode"
       ],
+      "kind": "board_or_projection_id",
       "groups": [
         "boardAssembly",
         "gpsPath",
         "incidentSeed",
         "markerAndNotification",
         "outboxReplay"
-      ],
-      "kind": "board_or_projection_id"
+      ]
     },
     {
       "id": "dev-precinct-cmd-phone-01",
       "paths": [
-        "incidentSeed.policePhoneIds[0]"
+        "incidentSeed.policePhoneCodes[0]"
       ],
+      "kind": "seed_id",
       "groups": [
         "incidentSeed"
-      ],
-      "kind": "seed_id"
+      ]
     },
     {
       "id": "dev-precinct-phone-01",
       "paths": [
-        "incidentSeed.policePhoneIds[2]",
-        "markerAndNotification.personFoundNotification.policePhoneId",
-        "markerAndNotification.personFoundNotification.recipientPolicePhoneIds[1]",
-        "markerAndNotification.supportRequestNotification.policePhoneId",
-        "offlinePackageUi.manifestDownloadPending.policePhoneId",
-        "outboxReplay.sc09PackageReplay.expectedBoardProbe.policePhoneId",
-        "outboxReplay.sc09PackageReplay.expectedPackageStatusQuery.policePhoneId",
-        "outboxReplay.sc09PackageReplay.expectedS4Event.payload.policePhoneId",
-        "outboxReplay.sc09PackageReplay.expectedS4Event.policePhoneId",
-        "outboxReplay.sc09PackageReplay.policePhoneId",
-        "outboxReplay.sc09PackageReplay.requestPayload.policePhoneId",
-        "outboxReplay.sc09PackageReplay.writeOperation.payload.policePhoneId",
-        "outboxReplay.sc09PackageReplay.writeOperation.policePhoneId"
+        "incidentSeed.policePhoneCodes[2]",
+        "markerAndNotification.personFoundNotification.policePhoneCode",
+        "markerAndNotification.personFoundNotification.recipientPolicePhoneCodes[1]",
+        "markerAndNotification.supportRequestNotification.policePhoneCode",
+        "offlinePackageUi.manifestDownloadPending.policePhoneCode",
+        "outboxReplay.sc09PackageReplay.expectedBoardProbe.policePhoneCode",
+        "outboxReplay.sc09PackageReplay.expectedPackageStatusQuery.policePhoneCode",
+        "outboxReplay.sc09PackageReplay.expectedS4Event.payload.policePhoneCode",
+        "outboxReplay.sc09PackageReplay.expectedS4Event.policePhoneCode",
+        "outboxReplay.sc09PackageReplay.policePhoneCode",
+        "outboxReplay.sc09PackageReplay.requestPayload.policePhoneCode",
+        "outboxReplay.sc09PackageReplay.writeOperation.payload.policePhoneCode",
+        "outboxReplay.sc09PackageReplay.writeOperation.policePhoneCode"
       ],
+      "kind": "outbox_or_sync_fixture_id",
       "groups": [
         "incidentSeed",
         "markerAndNotification",
         "offlinePackageUi",
         "outboxReplay"
-      ],
-      "kind": "outbox_or_sync_fixture_id"
+      ]
     },
     {
       "id": "dev-support-car-01",
       "paths": [
-        "incidentSeed.policePhoneIds[6]",
-        "markerAndNotification.personFoundNotification.recipientPolicePhoneIds[3]",
-        "markerAndNotification.supportAssignmentNotification.recipientPolicePhoneIds[0]",
-        "markerAndNotification.supportRequestNotification.recipientPolicePhoneIds[1]"
+        "incidentSeed.policePhoneCodes[6]",
+        "markerAndNotification.personFoundNotification.recipientPolicePhoneCodes[3]",
+        "markerAndNotification.supportAssignmentNotification.recipientPolicePhoneCodes[0]",
+        "markerAndNotification.supportRequestNotification.recipientPolicePhoneCodes[1]"
       ],
+      "kind": "seed_id",
       "groups": [
         "incidentSeed",
         "markerAndNotification"
-      ],
-      "kind": "seed_id"
+      ]
     },
     {
       "id": "dev-support-cmd-phone-01",
       "paths": [
-        "incidentSeed.policePhoneIds[5]",
-        "markerAndNotification.supportAssignmentNotification.excludedPolicePhoneIds[0]"
+        "incidentSeed.policePhoneCodes[5]",
+        "markerAndNotification.supportAssignmentNotification.excludedPolicePhoneCodes[0]"
       ],
+      "kind": "seed_id",
       "groups": [
         "incidentSeed",
         "markerAndNotification"
-      ],
-      "kind": "seed_id"
+      ]
     },
     {
       "id": "dev-support-phone-01",
       "paths": [
-        "incidentSeed.policePhoneIds[7]",
-        "markerAndNotification.personFoundNotification.recipientPolicePhoneIds[4]",
-        "markerAndNotification.supportAssignmentNotification.recipientPolicePhoneIds[1]",
-        "markerAndNotification.supportRequestNotification.recipientPolicePhoneIds[2]"
+        "incidentSeed.policePhoneCodes[7]",
+        "markerAndNotification.personFoundNotification.recipientPolicePhoneCodes[4]",
+        "markerAndNotification.supportAssignmentNotification.recipientPolicePhoneCodes[1]",
+        "markerAndNotification.supportRequestNotification.recipientPolicePhoneCodes[2]"
       ],
+      "kind": "seed_id",
       "groups": [
         "incidentSeed",
         "markerAndNotification"
-      ],
-      "kind": "seed_id"
+      ]
     },
     {
       "id": "evt-s1-1-incident-closed-001",
@@ -2391,11 +2435,11 @@
         "boardAssembly.slotRows[12].latestEventId",
         "eventRegistry.incidentClosed.eventId"
       ],
+      "kind": "board_or_projection_id",
       "groups": [
         "boardAssembly",
         "eventRegistry"
-      ],
-      "kind": "board_or_projection_id"
+      ]
     },
     {
       "id": "evt-s1-2-heartbeat-001",
@@ -2403,11 +2447,11 @@
         "boardAssembly.slotRows[3].latestEventId",
         "eventRegistry.policePhoneHeartbeat.eventId"
       ],
+      "kind": "board_or_projection_id",
       "groups": [
         "boardAssembly",
         "eventRegistry"
-      ],
-      "kind": "board_or_projection_id"
+      ]
     },
     {
       "id": "evt-s1-assignment-support-assigned-001",
@@ -2415,11 +2459,11 @@
         "eventRegistry.supportAssignmentNotification.eventId",
         "markerAndNotification.supportAssignmentNotification.eventId"
       ],
+      "kind": "event_id",
       "groups": [
         "eventRegistry",
         "markerAndNotification"
-      ],
-      "kind": "event_id"
+      ]
     },
     {
       "id": "evt-s2-area-created-001",
@@ -2427,11 +2471,11 @@
         "boardAssembly.slotRows[1].latestEventId",
         "eventRegistry.searchAreaCreated.eventId"
       ],
+      "kind": "board_or_projection_id",
       "groups": [
         "boardAssembly",
         "eventRegistry"
-      ],
-      "kind": "board_or_projection_id"
+      ]
     },
     {
       "id": "evt-s2-overall-area-001",
@@ -2439,11 +2483,11 @@
         "boardAssembly.slotRows[0].latestEventId",
         "eventRegistry.overallSearchAreaCreated.eventId"
       ],
+      "kind": "board_or_projection_id",
       "groups": [
         "boardAssembly",
         "eventRegistry"
-      ],
-      "kind": "board_or_projection_id"
+      ]
     },
     {
       "id": "evt-s3-path-appended-001",
@@ -2452,32 +2496,32 @@
         "eventRegistry.pathAppended.eventId",
         "outboxReplay.sc05PathReplay.expectedEventId"
       ],
+      "kind": "board_or_projection_id",
       "groups": [
         "boardAssembly",
         "eventRegistry",
         "outboxReplay"
-      ],
-      "kind": "board_or_projection_id"
+      ]
     },
     {
       "id": "evt-s3-path-appended-gap-003",
       "paths": [
         "boardAssembly.apiAssemblyFailures.missingPredecessorEventId"
       ],
+      "kind": "board_or_projection_id",
       "groups": [
         "boardAssembly"
-      ],
-      "kind": "board_or_projection_id"
+      ]
     },
     {
       "id": "evt-s3-path-appended-stale-001",
       "paths": [
         "boardAssembly.apiAssemblyFailures.staleEventId"
       ],
+      "kind": "board_or_projection_id",
       "groups": [
         "boardAssembly"
-      ],
-      "kind": "board_or_projection_id"
+      ]
     },
     {
       "id": "evt-s5-marker-created-001",
@@ -2485,11 +2529,11 @@
         "boardAssembly.slotRows[4].latestEventId",
         "eventRegistry.markerCreated.eventId"
       ],
+      "kind": "board_or_projection_id",
       "groups": [
         "boardAssembly",
         "eventRegistry"
-      ],
-      "kind": "board_or_projection_id"
+      ]
     },
     {
       "id": "evt-s5-marker-updated-photo-001",
@@ -2499,13 +2543,13 @@
         "objectStorageUpload.expectedAttachOutcome.eventId",
         "outboxReplay.sc06MarkerPhotoReplay.expectedEventId"
       ],
+      "kind": "outbox_or_sync_fixture_id",
       "groups": [
         "eventRegistry",
         "markerAndNotification",
         "objectStorageUpload",
         "outboxReplay"
-      ],
-      "kind": "outbox_or_sync_fixture_id"
+      ]
     },
     {
       "id": "evt-s5-person-found-001",
@@ -2513,11 +2557,11 @@
         "eventRegistry.personFoundNotification.eventId",
         "markerAndNotification.personFoundNotification.eventId"
       ],
+      "kind": "event_id",
       "groups": [
         "eventRegistry",
         "markerAndNotification"
-      ],
-      "kind": "event_id"
+      ]
     },
     {
       "id": "evt-s5-support-request-001",
@@ -2528,13 +2572,13 @@
         "markerAndNotification.supportRequestNotification.eventId",
         "outboxReplay.sc08SupportRequestReplay.expectedEventId"
       ],
+      "kind": "board_or_projection_id",
       "groups": [
         "boardAssembly",
         "eventRegistry",
         "markerAndNotification",
         "outboxReplay"
-      ],
-      "kind": "board_or_projection_id"
+      ]
     },
     {
       "id": "evt-s7-package-stale-001",
@@ -2542,11 +2586,11 @@
         "boardAssembly.slotRows[6].latestEventId",
         "eventRegistry.packageStaleBoardProjection.eventId"
       ],
+      "kind": "board_or_projection_id",
       "groups": [
         "boardAssembly",
         "eventRegistry"
-      ],
-      "kind": "board_or_projection_id"
+      ]
     },
     {
       "id": "evt-s7-package-status-001",
@@ -2554,11 +2598,11 @@
         "eventRegistry.packageStatusBoardProjection.eventId",
         "outboxReplay.sc09PackageReplay.expectedS4Event.eventId"
       ],
+      "kind": "outbox_or_sync_fixture_id",
       "groups": [
         "eventRegistry",
         "outboxReplay"
-      ],
-      "kind": "outbox_or_sync_fixture_id"
+      ]
     },
     {
       "id": "evt-s8-ai-summary-001",
@@ -2566,11 +2610,11 @@
         "eventRegistry.searchHistorySummaryDomainEvent.eventId",
         "searchHistorySummary.expectedS4Events.aiSummaryReady.eventId"
       ],
+      "kind": "event_id",
       "groups": [
         "eventRegistry",
         "searchHistorySummary"
-      ],
-      "kind": "event_id"
+      ]
     },
     {
       "id": "evt-s8-ai-summary-ready-001",
@@ -2578,11 +2622,11 @@
         "boardAssembly.slotRows[11].latestEventId",
         "eventRegistry.searchHistorySummaryBoardProjection.eventId"
       ],
+      "kind": "board_or_projection_id",
       "groups": [
         "boardAssembly",
         "eventRegistry"
-      ],
-      "kind": "board_or_projection_id"
+      ]
     },
     {
       "id": "evt-s8-handover-created-001",
@@ -2591,11 +2635,11 @@
         "boardAssembly.slotRows[9].latestEventId",
         "eventRegistry.handoverCreatedBoardProjection.eventId"
       ],
+      "kind": "board_or_projection_id",
       "groups": [
         "boardAssembly",
         "eventRegistry"
-      ],
-      "kind": "board_or_projection_id"
+      ]
     },
     {
       "id": "evt-s8-handover-memo-001",
@@ -2603,11 +2647,11 @@
         "eventRegistry.handoverMemoDomainEvent.eventId",
         "searchHistorySummary.expectedS4Events.handoverMemoCreated.eventId"
       ],
+      "kind": "event_id",
       "groups": [
         "eventRegistry",
         "searchHistorySummary"
-      ],
-      "kind": "event_id"
+      ]
     },
     {
       "id": "evt-s8-op-transition-001",
@@ -2616,31 +2660,31 @@
         "boardAssembly.slotRows[8].latestEventId",
         "eventRegistry.opTransitionBoardProjection.eventId"
       ],
+      "kind": "board_or_projection_id",
       "groups": [
         "boardAssembly",
         "eventRegistry"
-      ],
-      "kind": "board_or_projection_id"
+      ]
     },
     {
       "id": "evt-s8-op-transitioned-001",
       "paths": [
         "eventRegistry.opTransitionDomainEvent.eventId"
       ],
+      "kind": "event_id",
       "groups": [
         "eventRegistry"
-      ],
-      "kind": "event_id"
+      ]
     },
     {
       "id": "fcm:account:20000000-0000-4000-8000-000000000201",
       "paths": [
         "eventFanout.fanoutFailureInjection.targets[2].targetKey"
       ],
+      "kind": "event_fanout_fixture_id",
       "groups": [
         "eventFanout"
-      ],
-      "kind": "event_fanout_fixture_id"
+      ]
     },
     {
       "id": "fcm:dev-alpha-phone-01",
@@ -2649,11 +2693,11 @@
         "markerAndNotification.personFoundNotification.expectedFcmRecipients[0]",
         "markerAndNotification.supportRequestNotification.expectedFcmRecipients[0]"
       ],
+      "kind": "seed_id",
       "groups": [
         "incidentSeed",
         "markerAndNotification"
-      ],
-      "kind": "seed_id"
+      ]
     },
     {
       "id": "fcm:dev-support-car-01",
@@ -2663,11 +2707,11 @@
         "markerAndNotification.supportAssignmentNotification.expectedFcmRecipients[0]",
         "markerAndNotification.supportRequestNotification.expectedFcmRecipients[1]"
       ],
+      "kind": "seed_id",
       "groups": [
         "incidentSeed",
         "markerAndNotification"
-      ],
-      "kind": "seed_id"
+      ]
     },
     {
       "id": "fcm:dev-support-phone-01",
@@ -2677,31 +2721,31 @@
         "markerAndNotification.supportAssignmentNotification.expectedFcmRecipients[1]",
         "markerAndNotification.supportRequestNotification.expectedFcmRecipients[2]"
       ],
+      "kind": "seed_id",
       "groups": [
         "incidentSeed",
         "markerAndNotification"
-      ],
-      "kind": "seed_id"
+      ]
     },
     {
       "id": "fcm:none",
       "paths": [
         "eventFanout.sc08EmptyFcmRecipientSkip.expectedFanoutAttempts[1].targetKey"
       ],
+      "kind": "event_fanout_fixture_id",
       "groups": [
         "eventFanout"
-      ],
-      "kind": "event_fanout_fixture_id"
+      ]
     },
     {
       "id": "gps-path-normal-001",
       "paths": [
         "gpsPath.fixtureId"
       ],
+      "kind": "fixture_id",
       "groups": [
         "gpsPath"
-      ],
-      "kind": "fixture_id"
+      ]
     },
     {
       "id": "gps-precinct-001",
@@ -2709,30 +2753,30 @@
         "gpsPath.expectedSegments[0].startPointId",
         "gpsPath.points[0].pointId"
       ],
+      "kind": "fixture_id",
       "groups": [
         "gpsPath"
-      ],
-      "kind": "fixture_id"
+      ]
     },
     {
       "id": "gps-precinct-002",
       "paths": [
         "gpsPath.points[1].pointId"
       ],
+      "kind": "fixture_id",
       "groups": [
         "gpsPath"
-      ],
-      "kind": "fixture_id"
+      ]
     },
     {
       "id": "gps-precinct-003",
       "paths": [
         "gpsPath.points[2].pointId"
       ],
+      "kind": "fixture_id",
       "groups": [
         "gpsPath"
-      ],
-      "kind": "fixture_id"
+      ]
     },
     {
       "id": "gps-precinct-004",
@@ -2740,10 +2784,10 @@
         "gpsPath.expectedSegments[0].endPointId",
         "gpsPath.points[3].pointId"
       ],
+      "kind": "fixture_id",
       "groups": [
         "gpsPath"
-      ],
-      "kind": "fixture_id"
+      ]
     },
     {
       "id": "gps-precinct-005",
@@ -2751,30 +2795,30 @@
         "gpsPath.expectedSegments[1].startPointId",
         "gpsPath.points[4].pointId"
       ],
+      "kind": "fixture_id",
       "groups": [
         "gpsPath"
-      ],
-      "kind": "fixture_id"
+      ]
     },
     {
       "id": "gps-precinct-006",
       "paths": [
         "gpsPath.points[5].pointId"
       ],
+      "kind": "fixture_id",
       "groups": [
         "gpsPath"
-      ],
-      "kind": "fixture_id"
+      ]
     },
     {
       "id": "gps-precinct-007",
       "paths": [
         "gpsPath.points[6].pointId"
       ],
+      "kind": "fixture_id",
       "groups": [
         "gpsPath"
-      ],
-      "kind": "fixture_id"
+      ]
     },
     {
       "id": "gps-precinct-008",
@@ -2782,10 +2826,10 @@
         "gpsPath.expectedSegments[1].endPointId",
         "gpsPath.points[7].pointId"
       ],
+      "kind": "fixture_id",
       "groups": [
         "gpsPath"
-      ],
-      "kind": "fixture_id"
+      ]
     },
     {
       "id": "handover-status-inc-precinct-first-001",
@@ -2793,101 +2837,101 @@
         "boardAssembly.slotRows[10].sourceResponseId",
         "ownerReferences.handoverStatusResponseId"
       ],
+      "kind": "owner_reference",
       "groups": [
         "boardAssembly",
         "ownerReferences"
-      ],
-      "kind": "owner_reference"
+      ]
     },
     {
       "id": "ia-precinct-alpha-cmd-001",
       "paths": [
         "incidentSeed.expectedIncidentAssignments.afterHandoverAdded[0]"
       ],
+      "kind": "seed_id",
       "groups": [
         "incidentSeed"
-      ],
-      "kind": "seed_id"
+      ]
     },
     {
       "id": "ia-precinct-alpha-team-001",
       "paths": [
         "incidentSeed.expectedIncidentAssignments.afterHandoverAdded[1]"
       ],
+      "kind": "seed_id",
       "groups": [
         "incidentSeed"
-      ],
-      "kind": "seed_id"
+      ]
     },
     {
       "id": "ia-precinct-car-001",
       "paths": [
         "incidentSeed.expectedIncidentAssignments.beforeHandover[1]"
       ],
+      "kind": "seed_id",
       "groups": [
         "incidentSeed"
-      ],
-      "kind": "seed_id"
+      ]
     },
     {
       "id": "ia-precinct-cmd-001",
       "paths": [
         "incidentSeed.expectedIncidentAssignments.beforeHandover[0]"
       ],
+      "kind": "seed_id",
       "groups": [
         "incidentSeed"
-      ],
-      "kind": "seed_id"
+      ]
     },
     {
       "id": "ia-precinct-support-car-001",
       "paths": [
         "incidentSeed.expectedIncidentAssignments.afterSupportAdded[1]"
       ],
+      "kind": "seed_id",
       "groups": [
         "incidentSeed"
-      ],
-      "kind": "seed_id"
+      ]
     },
     {
       "id": "ia-precinct-support-cmd-001",
       "paths": [
         "incidentSeed.expectedIncidentAssignments.afterSupportAdded[0]"
       ],
+      "kind": "seed_id",
       "groups": [
         "incidentSeed"
-      ],
-      "kind": "seed_id"
+      ]
     },
     {
       "id": "ia-precinct-support-team-001",
       "paths": [
         "incidentSeed.expectedIncidentAssignments.afterSupportAdded[2]"
       ],
+      "kind": "seed_id",
       "groups": [
         "incidentSeed"
-      ],
-      "kind": "seed_id"
+      ]
     },
     {
       "id": "ia-precinct-team-001",
       "paths": [
         "incidentSeed.expectedIncidentAssignments.beforeHandover[2]"
       ],
+      "kind": "seed_id",
       "groups": [
         "incidentSeed"
-      ],
-      "kind": "seed_id"
+      ]
     },
     {
       "id": "idem-marker-001",
       "paths": [
         "outboxReplay.sc06MarkerPhotoReplay.markerIdempotencyKey"
       ],
+      "kind": "outbox_or_sync_fixture_id",
       "groups": [
         "outboxReplay"
-      ],
-      "kind": "outbox_or_sync_fixture_id"
+      ]
     },
     {
       "id": "idem-package-001",
@@ -2895,30 +2939,30 @@
         "outboxReplay.sc09PackageReplay.idempotencyKey",
         "outboxReplay.sc09PackageReplay.writeOperation.idempotencyKey"
       ],
+      "kind": "outbox_or_sync_fixture_id",
       "groups": [
         "outboxReplay"
-      ],
-      "kind": "outbox_or_sync_fixture_id"
+      ]
     },
     {
       "id": "idem-path-001",
       "paths": [
         "outboxReplay.sc05PathReplay.idempotencyKey"
       ],
+      "kind": "outbox_or_sync_fixture_id",
       "groups": [
         "outboxReplay"
-      ],
-      "kind": "outbox_or_sync_fixture_id"
+      ]
     },
     {
       "id": "idem-photo-attach-001",
       "paths": [
         "outboxReplay.sc06MarkerPhotoReplay.photoIdempotencyKey"
       ],
+      "kind": "outbox_or_sync_fixture_id",
       "groups": [
         "outboxReplay"
-      ],
-      "kind": "outbox_or_sync_fixture_id"
+      ]
     },
     {
       "id": "idem-s8-op-transition-001",
@@ -2926,62 +2970,63 @@
         "opTransition.idempotentWriteReplay.mismatch.idempotencyKey",
         "opTransition.idempotentWriteReplay.sameBodyReplay.idempotencyKey"
       ],
+      "kind": "fixture_id",
       "groups": [
         "opTransition"
-      ],
-      "kind": "fixture_id"
+      ]
     },
     {
       "id": "idem-sc09-path-001",
       "paths": [
         "eventFanout.sc09OutboxReplayConvergence.idempotencyKey"
       ],
+      "kind": "event_fanout_fixture_id",
       "groups": [
         "eventFanout"
-      ],
-      "kind": "event_fanout_fixture_id"
+      ]
     },
     {
       "id": "idem-support-001",
       "paths": [
         "outboxReplay.sc08SupportRequestReplay.idempotencyKey"
       ],
+      "kind": "outbox_or_sync_fixture_id",
       "groups": [
         "outboxReplay"
-      ],
-      "kind": "outbox_or_sync_fixture_id"
+      ]
     },
     {
       "id": "inc-precinct-closed-001",
       "paths": [
-        "terminalStateRules.sc12CloseRequeue.incidentId"
+        "terminalStateRules.sc12CloseRequeue.incidentAlias"
       ],
+      "kind": "outbox_or_sync_fixture_id",
       "groups": [
         "terminalStateRules"
-      ],
-      "kind": "outbox_or_sync_fixture_id"
+      ]
     },
     {
       "id": "inc-precinct-first-001",
       "paths": [
-        "boardAssembly.slotRows[12].sourceResponseId",
-        "commandFlow.incidentId",
+        "boardAssembly.slotRows[12].sourceResponseAlias",
+        "commandFlow.incidentAlias",
         "incidentSeed.fixtureId",
-        "incidentSeed.incidentId",
-        "markerAndNotification.personFoundNotification.incidentId",
-        "markerAndNotification.supportAssignmentNotification.expectedPayload.incidentId",
-        "markerAndNotification.supportAssignmentNotification.incidentId",
-        "markerAndNotification.supportRequestNotification.incidentId",
-        "offlinePackageUi.manifestDownloadPending.incidentId",
-        "opTransition.currentOpConsumerContract.incidentId",
-        "outboxReplay.sc05PathReplay.incidentId",
-        "outboxReplay.sc09PackageReplay.expectedBoardProbe.incidentId",
-        "outboxReplay.sc09PackageReplay.expectedPackageStatusQuery.incidentId",
-        "outboxReplay.sc09PackageReplay.expectedS4Event.incidentId",
-        "outboxReplay.sc09PackageReplay.expectedS4Event.payload.incidentId",
-        "outboxReplay.sc09PackageReplay.incidentId",
-        "outboxReplay.sc09PackageReplay.writeOperation.incidentId"
+        "incidentSeed.incidentAlias",
+        "markerAndNotification.personFoundNotification.incidentAlias",
+        "markerAndNotification.supportAssignmentNotification.expectedPayload.incidentAlias",
+        "markerAndNotification.supportAssignmentNotification.incidentAlias",
+        "markerAndNotification.supportRequestNotification.incidentAlias",
+        "offlinePackageUi.manifestDownloadPending.incidentAlias",
+        "opTransition.currentOpConsumerContract.incidentAlias",
+        "outboxReplay.sc05PathReplay.incidentAlias",
+        "outboxReplay.sc09PackageReplay.expectedBoardProbe.incidentAlias",
+        "outboxReplay.sc09PackageReplay.expectedPackageStatusQuery.incidentAlias",
+        "outboxReplay.sc09PackageReplay.expectedS4Event.incidentAlias",
+        "outboxReplay.sc09PackageReplay.expectedS4Event.payload.incidentAlias",
+        "outboxReplay.sc09PackageReplay.incidentAlias",
+        "outboxReplay.sc09PackageReplay.writeOperation.incidentAlias"
       ],
+      "kind": "board_or_projection_id",
       "groups": [
         "boardAssembly",
         "commandFlow",
@@ -2990,8 +3035,7 @@
         "offlinePackageUi",
         "opTransition",
         "outboxReplay"
-      ],
-      "kind": "board_or_projection_id"
+      ]
     },
     {
       "id": "incident:10000000-0000-4000-8000-000000000001",
@@ -2999,430 +3043,429 @@
         "eventFanout.fanoutFailureInjection.targets[0].targetKey",
         "eventFanout.sc08EmptyFcmRecipientSkip.expectedFanoutAttempts[0].targetKey"
       ],
+      "kind": "event_fanout_fixture_id",
       "groups": [
         "eventFanout"
-      ],
-      "kind": "event_fanout_fixture_id"
+      ]
     },
     {
       "id": "memo-precinct-handover-001",
       "paths": [
-        "boardAssembly.slotRows[9].sourceResponseId",
-        "commandFlow.handoverMemoId",
-        "incidentSeed.seedIds.memoId"
+        "boardAssembly.slotRows[9].sourceResponseAlias",
+        "commandFlow.handoverMemoAlias",
+        "incidentSeed.seedIds.memoAlias"
       ],
+      "kind": "board_or_projection_id",
       "groups": [
         "boardAssembly",
         "commandFlow",
         "incidentSeed"
-      ],
-      "kind": "board_or_projection_id"
+      ]
     },
     {
       "id": "memo-precinct-op2-001",
       "paths": [
-        "searchHistorySummary.expectedS4Events.handoverMemoCreated.payloadId",
-        "searchHistorySummary.memoId"
+        "searchHistorySummary.expectedS4Events.handoverMemoCreated.payloadAlias",
+        "searchHistorySummary.memoAlias"
       ],
+      "kind": "fixture_id",
       "groups": [
         "searchHistorySummary"
-      ],
-      "kind": "fixture_id"
+      ]
     },
     {
       "id": "mk-precinct-clue-001",
       "paths": [
-        "boardAssembly.slotRows[4].sourceResponseId",
-        "incidentSeed.seedIds.markerId",
-        "markerAndNotification.markerPhotoAttach.markerId",
-        "outboxReplay.sc06MarkerPhotoReplay.markerId"
+        "boardAssembly.slotRows[4].sourceResponseAlias",
+        "incidentSeed.seedIds.markerAlias",
+        "markerAndNotification.markerPhotoAttach.markerAlias",
+        "outboxReplay.sc06MarkerPhotoReplay.markerAlias"
       ],
+      "kind": "board_or_projection_id",
       "groups": [
         "boardAssembly",
         "incidentSeed",
         "markerAndNotification",
         "outboxReplay"
-      ],
-      "kind": "board_or_projection_id"
+      ]
     },
     {
       "id": "mk-precinct-person-found-001",
       "paths": [
-        "markerAndNotification.personFoundNotification.markerId"
+        "markerAndNotification.personFoundNotification.markerAlias"
       ],
+      "kind": "fixture_id",
       "groups": [
         "markerAndNotification"
-      ],
-      "kind": "fixture_id"
+      ]
     },
     {
       "id": "mk-precinct-support-001",
       "paths": [
-        "markerAndNotification.supportRequestNotification.markerId",
-        "outboxReplay.sc08SupportRequestReplay.markerId"
+        "markerAndNotification.supportRequestNotification.markerAlias",
+        "outboxReplay.sc08SupportRequestReplay.markerAlias"
       ],
+      "kind": "outbox_or_sync_fixture_id",
       "groups": [
         "markerAndNotification",
         "outboxReplay"
-      ],
-      "kind": "outbox_or_sync_fixture_id"
+      ]
     },
     {
       "id": "mock-112-incident-001",
       "paths": [
-        "mock112SourceContract.fixtureId",
-        "mock112SourceContract.sourceIncidentId"
+        "mock112SourceContract.fixtureId"
       ],
+      "kind": "seed_id",
       "groups": [
         "mock112SourceContract"
-      ],
-      "kind": "seed_id"
+      ]
     },
     {
       "id": "net-script-domain-write-001",
       "paths": [
         "networkScripts.domainWriteScriptId"
       ],
+      "kind": "fixture_id",
       "groups": [
         "networkScripts"
-      ],
-      "kind": "fixture_id"
+      ]
     },
     {
       "id": "net-script-heartbeat-001",
       "paths": [
         "networkScripts.heartbeatScriptId"
       ],
+      "kind": "fixture_id",
       "groups": [
         "networkScripts"
-      ],
-      "kind": "fixture_id"
+      ]
     },
     {
       "id": "net-script-manifest-001",
       "paths": [
         "networkScripts.manifestScriptId"
       ],
+      "kind": "fixture_id",
       "groups": [
         "networkScripts"
-      ],
-      "kind": "fixture_id"
+      ]
     },
     {
       "id": "net-script-outbox-flush-001",
       "paths": [
         "networkScripts.outboxFlushScriptId"
       ],
+      "kind": "fixture_id",
       "groups": [
         "networkScripts"
-      ],
-      "kind": "fixture_id"
+      ]
     },
     {
       "id": "net-script-tile-blob-001",
       "paths": [
         "networkScripts.tileBlobScriptId"
       ],
+      "kind": "fixture_id",
       "groups": [
         "networkScripts"
-      ],
-      "kind": "fixture_id"
+      ]
     },
     {
       "id": "notif-precinct-person-found-001",
       "paths": [
-        "markerAndNotification.personFoundNotification.expectedToast.id",
-        "markerAndNotification.personFoundNotification.notificationDeliveryId"
+        "markerAndNotification.personFoundNotification.expectedToast.idAlias",
+        "markerAndNotification.personFoundNotification.notificationDeliveryAlias"
       ],
+      "kind": "fixture_id",
       "groups": [
         "markerAndNotification"
-      ],
-      "kind": "fixture_id"
+      ]
     },
     {
       "id": "notif-precinct-support-001",
       "paths": [
-        "markerAndNotification.supportRequestNotification.expectedToast.id",
-        "markerAndNotification.supportRequestNotification.notificationDeliveryId",
-        "outboxReplay.sc08SupportRequestReplay.notificationDeliveryId"
+        "markerAndNotification.supportRequestNotification.expectedToast.idAlias",
+        "markerAndNotification.supportRequestNotification.notificationDeliveryAlias",
+        "outboxReplay.sc08SupportRequestReplay.notificationDeliveryAlias"
       ],
+      "kind": "outbox_or_sync_fixture_id",
       "groups": [
         "markerAndNotification",
         "outboxReplay"
-      ],
-      "kind": "outbox_or_sync_fixture_id"
+      ]
     },
     {
       "id": "op-fail-PolicePhone-001",
       "paths": [
-        "terminalStateRules.failureCategoryRows[2].operationId"
+        "terminalStateRules.failureCategoryRows[2].operationAlias"
       ],
+      "kind": "outbox_or_sync_fixture_id",
       "groups": [
         "terminalStateRules"
-      ],
-      "kind": "outbox_or_sync_fixture_id"
+      ]
     },
     {
       "id": "op-fail-clock-001",
       "paths": [
-        "terminalStateRules.failureCategoryRows[0].operationId"
+        "terminalStateRules.failureCategoryRows[0].operationAlias"
       ],
+      "kind": "outbox_or_sync_fixture_id",
       "groups": [
         "terminalStateRules"
-      ],
-      "kind": "outbox_or_sync_fixture_id"
+      ]
     },
     {
       "id": "op-fail-closed-001",
       "paths": [
-        "terminalStateRules.failureCategoryRows[3].operationId"
+        "terminalStateRules.failureCategoryRows[3].operationAlias"
       ],
+      "kind": "outbox_or_sync_fixture_id",
       "groups": [
         "terminalStateRules"
-      ],
-      "kind": "outbox_or_sync_fixture_id"
+      ]
     },
     {
       "id": "op-fail-idem-001",
       "paths": [
-        "terminalStateRules.failureCategoryRows[1].operationId"
+        "terminalStateRules.failureCategoryRows[1].operationAlias"
       ],
+      "kind": "outbox_or_sync_fixture_id",
       "groups": [
         "terminalStateRules"
-      ],
-      "kind": "outbox_or_sync_fixture_id"
+      ]
     },
     {
       "id": "op-fail-network-001",
       "paths": [
-        "terminalStateRules.failureCategoryRows[4].operationId"
+        "terminalStateRules.failureCategoryRows[4].operationAlias"
       ],
+      "kind": "outbox_or_sync_fixture_id",
       "groups": [
         "terminalStateRules"
-      ],
-      "kind": "outbox_or_sync_fixture_id"
+      ]
     },
     {
       "id": "op-outbox-marker-001",
       "paths": [
-        "outboxReplay.sc06MarkerPhotoReplay.markerOperationId"
+        "outboxReplay.sc06MarkerPhotoReplay.markerOperationAlias"
       ],
+      "kind": "outbox_or_sync_fixture_id",
       "groups": [
         "outboxReplay"
-      ],
-      "kind": "outbox_or_sync_fixture_id"
+      ]
     },
     {
       "id": "op-outbox-package-001",
       "paths": [
-        "outboxReplay.sc09PackageReplay.operationId",
-        "outboxReplay.sc09PackageReplay.writeOperation.operationId"
+        "outboxReplay.sc09PackageReplay.operationAlias",
+        "outboxReplay.sc09PackageReplay.writeOperation.operationAlias"
       ],
+      "kind": "outbox_or_sync_fixture_id",
       "groups": [
         "outboxReplay"
-      ],
-      "kind": "outbox_or_sync_fixture_id"
+      ]
     },
     {
       "id": "op-outbox-path-001",
       "paths": [
-        "outboxReplay.sc05PathReplay.operationId"
+        "outboxReplay.sc05PathReplay.operationAlias"
       ],
+      "kind": "outbox_or_sync_fixture_id",
       "groups": [
         "outboxReplay"
-      ],
-      "kind": "outbox_or_sync_fixture_id"
+      ]
     },
     {
       "id": "op-outbox-photo-001",
       "paths": [
-        "outboxReplay.sc06MarkerPhotoReplay.photoOperationId"
+        "outboxReplay.sc06MarkerPhotoReplay.photoOperationAlias"
       ],
+      "kind": "outbox_or_sync_fixture_id",
       "groups": [
         "outboxReplay"
-      ],
-      "kind": "outbox_or_sync_fixture_id"
+      ]
     },
     {
       "id": "op-outbox-postclose-marker-001",
       "paths": [
-        "terminalStateRules.sc12CloseRequeue.postCloseOperationId"
+        "terminalStateRules.sc12CloseRequeue.postCloseOperationAlias"
       ],
+      "kind": "outbox_or_sync_fixture_id",
       "groups": [
         "terminalStateRules"
-      ],
-      "kind": "outbox_or_sync_fixture_id"
+      ]
     },
     {
       "id": "op-outbox-preclose-path-001",
       "paths": [
-        "terminalStateRules.sc12CloseRequeue.preCloseOperationId"
+        "terminalStateRules.sc12CloseRequeue.preCloseOperationAlias"
       ],
+      "kind": "outbox_or_sync_fixture_id",
       "groups": [
         "terminalStateRules"
-      ],
-      "kind": "outbox_or_sync_fixture_id"
+      ]
     },
     {
       "id": "op-outbox-support-001",
       "paths": [
-        "outboxReplay.sc08SupportRequestReplay.operationId"
+        "outboxReplay.sc08SupportRequestReplay.operationAlias"
       ],
+      "kind": "outbox_or_sync_fixture_id",
       "groups": [
         "outboxReplay"
-      ],
-      "kind": "outbox_or_sync_fixture_id"
+      ]
     },
     {
       "id": "op-precinct-001-op1",
       "paths": [
-        "boardAssembly.slotRows[7].sourceResponseId",
-        "commandFlow.opId",
-        "incidentSeed.currentOpId",
-        "markerAndNotification.personFoundNotification.opId",
-        "markerAndNotification.supportRequestNotification.opId",
-        "opTransition.currentOp.opId",
-        "opTransition.currentOpConsumerContract.currentOp.opId"
+        "boardAssembly.slotRows[7].sourceResponseAlias",
+        "commandFlow.opAlias",
+        "incidentSeed.currentOpAlias",
+        "markerAndNotification.personFoundNotification.opAlias",
+        "markerAndNotification.supportRequestNotification.opAlias",
+        "opTransition.currentOp.opAlias",
+        "opTransition.currentOpConsumerContract.currentOp.opAlias"
       ],
+      "kind": "board_or_projection_id",
       "groups": [
         "boardAssembly",
         "commandFlow",
         "incidentSeed",
         "markerAndNotification",
         "opTransition"
-      ],
-      "kind": "board_or_projection_id"
+      ]
     },
     {
       "id": "op-precinct-001-op2",
       "paths": [
-        "boardAssembly.slotRows[8].sourceResponseId",
-        "commandFlow.nextOpId",
-        "incidentSeed.nextOpId",
-        "opTransition.expectedBoardProbe.id",
-        "opTransition.expectedBoardProbe.opId",
-        "opTransition.expectedRestResponse.id",
-        "opTransition.idempotentWriteReplay.sameBodyReplay.expectedResponseId",
-        "opTransition.newOp.opId",
-        "searchHistorySummary.expectedS4Events.aiSummaryReady.opId",
-        "searchHistorySummary.expectedS4Events.handoverMemoCreated.opId"
+        "boardAssembly.slotRows[8].sourceResponseAlias",
+        "commandFlow.nextOpAlias",
+        "incidentSeed.nextOpAlias",
+        "opTransition.expectedBoardProbe.idAlias",
+        "opTransition.expectedBoardProbe.opAlias",
+        "opTransition.expectedRestResponse.idAlias",
+        "opTransition.idempotentWriteReplay.sameBodyReplay.expectedResponseAlias",
+        "opTransition.newOp.opAlias",
+        "searchHistorySummary.expectedS4Events.aiSummaryReady.opAlias",
+        "searchHistorySummary.expectedS4Events.handoverMemoCreated.opAlias"
       ],
+      "kind": "board_or_projection_id",
       "groups": [
         "boardAssembly",
         "commandFlow",
         "incidentSeed",
         "opTransition",
         "searchHistorySummary"
-      ],
-      "kind": "board_or_projection_id"
+      ]
     },
     {
       "id": "osa-precinct-001",
       "paths": [
-        "boardAssembly.slotRows[0].sourceResponseId",
-        "ownerReferences.overallSearchAreaResponseId"
+        "boardAssembly.slotRows[0].sourceResponseAlias",
+        "ownerReferences.overallSearchAreaResponseAlias"
       ],
+      "kind": "owner_reference",
       "groups": [
         "boardAssembly",
         "ownerReferences"
-      ],
-      "kind": "owner_reference"
+      ]
     },
     {
       "id": "outbox-marker-001",
       "paths": [
         "outboxReplay.sc06MarkerPhotoReplay.markerOutboxId"
       ],
+      "kind": "outbox_or_sync_fixture_id",
       "groups": [
         "outboxReplay"
-      ],
-      "kind": "outbox_or_sync_fixture_id"
+      ]
     },
     {
       "id": "outbox-package-001",
       "paths": [
         "outboxReplay.sc09PackageReplay.outboxId"
       ],
+      "kind": "outbox_or_sync_fixture_id",
       "groups": [
         "outboxReplay"
-      ],
-      "kind": "outbox_or_sync_fixture_id"
+      ]
     },
     {
       "id": "outbox-path-001",
       "paths": [
         "outboxReplay.sc05PathReplay.outboxId"
       ],
+      "kind": "outbox_or_sync_fixture_id",
       "groups": [
         "outboxReplay"
-      ],
-      "kind": "outbox_or_sync_fixture_id"
+      ]
     },
     {
       "id": "outbox-photo-001",
       "paths": [
         "outboxReplay.sc06MarkerPhotoReplay.photoOutboxId"
       ],
+      "kind": "outbox_or_sync_fixture_id",
       "groups": [
         "outboxReplay"
-      ],
-      "kind": "outbox_or_sync_fixture_id"
+      ]
     },
     {
       "id": "outbox-support-001",
       "paths": [
         "outboxReplay.sc08SupportRequestReplay.outboxId"
       ],
+      "kind": "outbox_or_sync_fixture_id",
       "groups": [
         "outboxReplay"
-      ],
-      "kind": "outbox_or_sync_fixture_id"
+      ]
     },
     {
       "id": "path-precinct-car-001",
       "paths": [
-        "incidentSeed.seedIds.pathVehicleId"
+        "incidentSeed.seedIds.pathVehicleAlias"
       ],
+      "kind": "seed_id",
       "groups": [
         "incidentSeed"
-      ],
-      "kind": "seed_id"
+      ]
     },
     {
       "id": "path-precinct-foot-001",
       "paths": [
-        "incidentSeed.seedIds.pathFootId"
+        "incidentSeed.seedIds.pathFootAlias"
       ],
+      "kind": "seed_id",
       "groups": [
         "incidentSeed"
-      ],
-      "kind": "seed_id"
+      ]
     },
     {
       "id": "path-precinct-mixed-001",
       "paths": [
-        "boardAssembly.slotRows[2].sourceResponseId",
-        "gpsPath.pathId"
+        "boardAssembly.slotRows[2].sourceResponseAlias",
+        "gpsPath.pathAlias"
       ],
+      "kind": "board_or_projection_id",
       "groups": [
         "boardAssembly",
         "gpsPath"
-      ],
-      "kind": "board_or_projection_id"
+      ]
     },
     {
       "id": "photo-precinct-clue-001",
       "paths": [
-        "markerAndNotification.markerPhotoAttach.photoId",
-        "objectStorageUpload.photoId",
-        "outboxReplay.sc06MarkerPhotoReplay.photoId"
+        "markerAndNotification.markerPhotoAttach.photoAlias",
+        "objectStorageUpload.photoAlias",
+        "outboxReplay.sc06MarkerPhotoReplay.photoAlias"
       ],
+      "kind": "outbox_or_sync_fixture_id",
       "groups": [
         "markerAndNotification",
         "objectStorageUpload",
         "outboxReplay"
-      ],
-      "kind": "outbox_or_sync_fixture_id"
+      ]
     },
     {
       "id": "pkg-inc-precinct-first-001",
@@ -3431,69 +3474,69 @@
         "outboxReplay.sc09PackageReplay.expectedBoardProbe.relationToBoardAssembly.baseSourceResponseId",
         "ownerReferences.packageBadgeResponseId"
       ],
+      "kind": "owner_reference",
       "groups": [
         "boardAssembly",
         "outboxReplay",
         "ownerReferences"
-      ],
-      "kind": "owner_reference"
+      ]
     },
     {
       "id": "pkg-status-precinct-001",
       "paths": [
-        "outboxReplay.sc09PackageReplay.expectedBoardProbe.id",
-        "outboxReplay.sc09PackageReplay.expectedOwnerResponse.id",
-        "outboxReplay.sc09PackageReplay.expectedPackageStatusQuery.id",
-        "outboxReplay.sc09PackageReplay.expectedS4Event.payload.id",
-        "outboxReplay.sc09PackageReplay.expectedS4Event.payloadId",
-        "outboxReplay.sc09PackageReplay.writeOperation.entityId"
+        "outboxReplay.sc09PackageReplay.expectedBoardProbe.idAlias",
+        "outboxReplay.sc09PackageReplay.expectedOwnerResponse.idAlias",
+        "outboxReplay.sc09PackageReplay.expectedPackageStatusQuery.idAlias",
+        "outboxReplay.sc09PackageReplay.expectedS4Event.payload.idAlias",
+        "outboxReplay.sc09PackageReplay.expectedS4Event.payloadAlias",
+        "outboxReplay.sc09PackageReplay.writeOperation.entityAlias"
       ],
+      "kind": "outbox_or_sync_fixture_id",
       "groups": [
         "outboxReplay"
-      ],
-      "kind": "outbox_or_sync_fixture_id"
+      ]
     },
     {
       "id": "rr-precinct-001",
       "paths": [
         "commandFlow.radioReportId"
       ],
+      "kind": "fixture_id",
       "groups": [
         "commandFlow"
-      ],
-      "kind": "fixture_id"
+      ]
     },
     {
       "id": "seg-precinct-foot-001",
       "paths": [
-        "gpsPath.expectedSegments[1].segmentId"
+        "gpsPath.expectedSegments[1].segmentAlias"
       ],
+      "kind": "fixture_id",
       "groups": [
         "gpsPath"
-      ],
-      "kind": "fixture_id"
+      ]
     },
     {
       "id": "seg-precinct-vehicle-001",
       "paths": [
-        "gpsPath.expectedSegments[0].segmentId"
+        "gpsPath.expectedSegments[0].segmentAlias"
       ],
+      "kind": "fixture_id",
       "groups": [
         "gpsPath"
-      ],
-      "kind": "fixture_id"
+      ]
     },
     {
       "id": "summary-precinct-op2-001",
       "paths": [
-        "searchHistorySummary.expectedRestResponse.summaryId",
-        "searchHistorySummary.expectedS4Events.aiSummaryReady.payloadId",
-        "searchHistorySummary.summaryId"
+        "searchHistorySummary.expectedRestResponse.summaryAlias",
+        "searchHistorySummary.expectedS4Events.aiSummaryReady.payloadAlias",
+        "searchHistorySummary.summaryAlias"
       ],
+      "kind": "fixture_id",
       "groups": [
         "searchHistorySummary"
-      ],
-      "kind": "fixture_id"
+      ]
     },
     {
       "id": "support-request-precinct-001",
@@ -3501,58 +3544,58 @@
         "boardAssembly.slotRows[5].sourceResponseId",
         "ownerReferences.supportRequestResponseId"
       ],
+      "kind": "owner_reference",
       "groups": [
         "boardAssembly",
         "ownerReferences"
-      ],
-      "kind": "owner_reference"
+      ]
     },
     {
       "id": "team-missing-alpha",
       "paths": [
         "incidentSeed.teams[1]"
       ],
+      "kind": "seed_id",
       "groups": [
         "incidentSeed"
-      ],
-      "kind": "seed_id"
+      ]
     },
     {
       "id": "team-precinct-jongno",
       "paths": [
         "incidentSeed.teams[0]"
       ],
+      "kind": "seed_id",
       "groups": [
         "incidentSeed"
-      ],
-      "kind": "seed_id"
+      ]
     },
     {
       "id": "team-support-bravo",
       "paths": [
         "incidentSeed.teams[2]"
       ],
+      "kind": "seed_id",
       "groups": [
         "incidentSeed"
-      ],
-      "kind": "seed_id"
+      ]
     },
     {
       "id": "tile-manifest-inc-precinct-001",
       "paths": [
-        "offlinePackageUi.manifestDownloadPending.manifestId",
-        "outboxReplay.sc09PackageReplay.manifestId",
-        "outboxReplay.sc09PackageReplay.requestPayload.manifestId",
-        "outboxReplay.sc09PackageReplay.writeOperation.payload.manifestId",
+        "offlinePackageUi.manifestDownloadPending.manifestAlias",
+        "outboxReplay.sc09PackageReplay.manifestAlias",
+        "outboxReplay.sc09PackageReplay.requestPayload.manifestAlias",
+        "outboxReplay.sc09PackageReplay.writeOperation.payload.manifestAlias",
         "tileManifest.fixtureId",
-        "tileManifest.manifestId"
+        "tileManifest.manifestAlias"
       ],
+      "kind": "outbox_or_sync_fixture_id",
       "groups": [
         "offlinePackageUi",
         "outboxReplay",
         "tileManifest"
-      ],
-      "kind": "outbox_or_sync_fixture_id"
+      ]
     },
     {
       "id": "tombstone-inc-precinct-first-001",
@@ -3560,11 +3603,11 @@
         "boardAssembly.slotRows[12].tombstoneResponseId",
         "ownerReferences.terminalTombstoneResponseId"
       ],
+      "kind": "owner_reference",
       "groups": [
         "boardAssembly",
         "ownerReferences"
-      ],
-      "kind": "owner_reference"
+      ]
     }
   ]
 }

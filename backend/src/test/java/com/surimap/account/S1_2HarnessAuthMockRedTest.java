@@ -4,6 +4,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.surimap.account.AccountIdentityCatalog;
 import com.surimap.common.auth.AccountType;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.OrganizationType;
@@ -43,7 +44,7 @@ class S1_2HarnessAuthMockRedTest {
     mockMvc
         .perform(get("/api/s1-2-red/auth-context"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.accountId").value("acct-precinct-team"))
+        .andExpect(jsonPath("$.accountId").value(AccountIdentityCatalog.PRECINCT_TEAM_ID.toString()))
         .andExpect(jsonPath("$.policePhoneId").value("dev-precinct-phone-01"))
         .andExpect(jsonPath("$.accountType").value("TEAM"))
         .andExpect(jsonPath("$.organizationType").value("POLICE_SUBSTATION"))

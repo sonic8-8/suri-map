@@ -29,7 +29,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * is introduced.
  */
 public class InMemoryPolicePhoneFixtureStore
-    implements PolicePhoneValidationPort, PolicePhoneFreshnessQuery, FcmTokenQuery {
+    implements PolicePhoneHeartbeatRecorder,
+        PolicePhoneValidationPort,
+        PolicePhoneFreshnessQuery,
+        FcmTokenQuery {
 
   private static final Duration STALE_THRESHOLD = Duration.ofSeconds(60);
   private static final Duration LOST_THRESHOLD = Duration.ofMinutes(5);
@@ -41,6 +44,13 @@ public class InMemoryPolicePhoneFixtureStore
 
   public InMemoryPolicePhoneFixtureStore(Clock clock) {
     this.clock = clock;
+    seedFixtures();
+  }
+
+  public synchronized void reset() {
+    fixtures.clear();
+    activeTokensById.clear();
+    activeTokenIdsByPhoneAndInstance.clear();
     seedFixtures();
   }
 
@@ -369,9 +379,11 @@ public class InMemoryPolicePhoneFixtureStore
           organizationType,
           incidentId,
           opId,
+          lastEventId,
           lastHeartbeatAt,
           lastSyncAt,
           version,
+          sequence,
           freshness);
     }
   }

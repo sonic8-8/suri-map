@@ -1,6 +1,5 @@
 package com.surimap.feature.search.ui
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,16 +14,20 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.surimap.core.map.MapLibreRuntimeMapState
+import com.surimap.core.map.MapLibreGeometryOverlay
+import com.surimap.core.map.MapLibreGeometryOverlayKind
+import com.surimap.core.map.MapLibreViewportBounds
+import com.surimap.core.map.SuriMapLibreMap
 import com.surimap.feature.alert.ui.IncidentAlertBanner
 import com.surimap.feature.alert.ui.IncidentAlertUiState
 import com.surimap.feature.handover.ui.HandoverPromptUiState
@@ -72,13 +75,24 @@ enum class SearchLifecycleStatus {
 enum class SearchLayerKind {
     Overall,
     Unit,
-    Team
+    Team,
+    Path,
+    Marker
 }
+
+data class SearchMapViewportBounds(
+    val south: Double,
+    val west: Double,
+    val north: Double,
+    val east: Double
+)
 
 data class SearchMapLayerUiState(
     val label: String,
     val kind: SearchLayerKind,
-    val highlighted: Boolean = false
+    val highlighted: Boolean = false,
+    val overlayId: String? = null,
+    val geoJson: String? = null
 )
 
 data class SearchMapUiState(
@@ -95,8 +109,10 @@ data class SearchMapUiState(
     val elapsedLabel: String,
     val movementSummary: String,
     val layers: List<SearchMapLayerUiState>,
+    val viewportBounds: SearchMapViewportBounds? = null,
     val handoverPrompt: HandoverPromptUiState?,
-    val incidentAlert: IncidentAlertUiState? = null
+    val incidentAlert: IncidentAlertUiState? = null,
+    val focusedMarkerId: String? = null
 ) {
     val canWritePath: Boolean = lifecycleStatus == SearchLifecycleStatus.Active
     val canCreateMarker: Boolean = lifecycleStatus == SearchLifecycleStatus.Active
@@ -104,6 +120,22 @@ data class SearchMapUiState(
         lifecycleStatus == SearchLifecycleStatus.Active || lifecycleStatus == SearchLifecycleStatus.Paused
     val shouldOpenBlockedOutbox: Boolean = blockedOutboxCount > 0
     val showHandoverPrompt: Boolean = handoverPrompt?.shouldShow == true
+    val focusedMarkerLayer: SearchMapLayerUiState? =
+        focusedMarkerId
+            ?.takeIf(String::isNotBlank)
+            ?.let { markerId ->
+                layers.firstOrNull { layer -> layer.kind == SearchLayerKind.Marker && layer.overlayId == markerId }
+                    ?.copy(highlighted = true)
+            }
+    val markerFocusLabel: String? =
+        focusedMarkerId
+            ?.takeIf(String::isNotBlank)
+            ?.let { markerId ->
+                val label = focusedMarkerLayer?.label ?: markerId
+                "마커 포커스 · $label"
+            }
+    val focusedMarkerViewportBounds: SearchMapViewportBounds? =
+        focusedMarkerLayer?.geoJson?.pointViewportBounds()
 
     val syncLabel: String =
         when (syncStatus) {
@@ -160,12 +192,16 @@ data class SearchMapUiState(
             if (showHandoverPrompt) {
                 add("이전 근무 기록 있음")
             }
+            markerFocusLabel?.let(::add)
             incidentAlert?.visibleText()?.forEach(::add)
             if (blockedOutboxCount > 0) {
                 add("미전송 ${blockedOutboxCount}건 처리 불가")
             }
             layers.forEach { add(it.label) }
         }
+
+    fun withFocusedMarker(markerId: String?): SearchMapUiState =
+        copy(focusedMarkerId = markerId?.takeIf(String::isNotBlank))
 
     companion object {
         fun active(
@@ -234,7 +270,9 @@ data class SearchMapUiState(
                 listOf(
                     SearchMapLayerUiState("전체 수색 구역", SearchLayerKind.Overall),
                     SearchMapLayerUiState("기동대 1부대", SearchLayerKind.Unit),
-                    SearchMapLayerUiState("A팀 담당 구역", SearchLayerKind.Team, highlighted = true)
+                    SearchMapLayerUiState("A팀 담당 구역", SearchLayerKind.Team, highlighted = true),
+                    SearchMapLayerUiState("현재 경로", SearchLayerKind.Path, highlighted = true),
+                    SearchMapLayerUiState("단서", SearchLayerKind.Marker, highlighted = true)
                 ),
                 handoverPrompt = handoverPrompt,
                 incidentAlert = incidentAlert
@@ -245,6 +283,7 @@ data class SearchMapUiState(
 @Composable
 fun SearchMapScreen(
     state: SearchMapUiState,
+    mapState: MapLibreRuntimeMapState = MapLibreRuntimeMapState(),
     onBack: () -> Unit,
     onPrimaryLifecycleAction: () -> Unit,
     onStopSearch: () -> Unit,
@@ -290,6 +329,7 @@ fun SearchMapScreen(
             }
             SearchMapShell(
                 state = state,
+                mapState = mapState,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -341,14 +381,28 @@ private fun BlockedOutboxNotice(state: SearchMapUiState, onOpenBlockedOutbox: ()
 }
 
 @Composable
-private fun SearchMapShell(state: SearchMapUiState, modifier: Modifier = Modifier) {
+private fun SearchMapShell(
+    state: SearchMapUiState,
+    mapState: MapLibreRuntimeMapState,
+    modifier: Modifier = Modifier
+) {
+    var mapLoadFailure by remember { mutableStateOf<String?>(null) }
+    val runtimeMapState = state.toRuntimeMapState(mapState)
+
     Box(modifier = modifier.fillMaxWidth().background(PoliBgInput)) {
-        MockMapCanvas(modifier = Modifier.fillMaxSize())
+        SuriMapLibreMap(
+            state = runtimeMapState,
+            modifier = Modifier.fillMaxSize(),
+            onLoadFailed = { reason -> mapLoadFailure = reason }
+        )
 
         Column(
             modifier = Modifier.align(Alignment.TopStart).padding(PoliDimens.Space3),
             verticalArrangement = Arrangement.spacedBy(PoliDimens.Space2)
         ) {
+            state.markerFocusLabel?.let { focusLabel ->
+                PoliChip(text = focusLabel, variant = PoliChipVariant.Bad)
+            }
             state.layers.forEach { layer ->
                 PoliChip(
                     text = layer.label,
@@ -377,86 +431,21 @@ private fun SearchMapShell(state: SearchMapUiState, modifier: Modifier = Modifie
                 Text(text = "내\n위치", style = MaterialTheme.typography.labelMedium)
             }
         }
-    }
-}
 
-@Composable
-private fun MockMapCanvas(modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val grid = Color.White.copy(alpha = 0.06f)
-        val gridStep = 56.dp.toPx()
-        var x = 0f
-        while (x <= size.width) {
-            drawLine(grid, Offset(x, 0f), Offset(x, size.height), strokeWidth = 1.dp.toPx())
-            x += gridStep
+        mapLoadFailure?.let {
+            PoliBanner(
+                text = "지도 로드 실패 · 기록은 계속 가능합니다.",
+                variant = PoliBannerVariant.Warn,
+                modifier = Modifier.align(Alignment.BottomStart).padding(PoliDimens.Space4)
+            )
         }
-        var y = 0f
-        while (y <= size.height) {
-            drawLine(grid, Offset(0f, y), Offset(size.width, y), strokeWidth = 1.dp.toPx())
-            y += gridStep
-        }
-
-        drawRect(
-            color = Color(0xFF6B7280),
-            topLeft = Offset(size.width * 0.05f, size.height * 0.08f),
-            size = Size(size.width * 0.9f, size.height * 0.62f),
-            style = Stroke(width = 2.dp.toPx())
-        )
-        drawRoundRect(
-            color = PoliCurrent.copy(alpha = 0.16f),
-            topLeft = Offset(size.width * 0.15f, size.height * 0.16f),
-            size = Size(size.width * 0.7f, size.height * 0.34f),
-            cornerRadius = CornerRadius(8.dp.toPx(), 8.dp.toPx())
-        )
-        drawRoundRect(
-            color = PoliCurrent,
-            topLeft = Offset(size.width * 0.15f, size.height * 0.16f),
-            size = Size(size.width * 0.7f, size.height * 0.34f),
-            cornerRadius = CornerRadius(8.dp.toPx(), 8.dp.toPx()),
-            style = Stroke(width = 2.dp.toPx())
-        )
-
-        drawLine(
-            color = PoliCurrent,
-            start = Offset(size.width * 0.28f, size.height * 0.39f),
-            end = Offset(size.width * 0.62f, size.height * 0.46f),
-            strokeWidth = 4.dp.toPx()
-        )
-        drawLine(
-            color = PoliFgSecondary,
-            start = Offset(size.width * 0.2f, size.height * 0.63f),
-            end = Offset(size.width * 0.43f, size.height * 0.67f),
-            strokeWidth = 3.dp.toPx()
-        )
-        drawCircle(
-            color = PoliCurrent,
-            radius = 9.dp.toPx(),
-            center = Offset(size.width * 0.62f, size.height * 0.46f)
-        )
-        drawCircle(
-            color = PoliFgSecondary,
-            radius = 7.dp.toPx(),
-            center = Offset(size.width * 0.34f, size.height * 0.35f),
-            style = Stroke(width = 2.dp.toPx())
-        )
-        drawCircle(
-            color = PoliEmphasis,
-            radius = 10.dp.toPx(),
-            center = Offset(size.width * 0.66f, size.height * 0.34f),
-            style = Stroke(width = 3.dp.toPx())
-        )
-        drawCircle(
-            color = PoliFgPrimary,
-            radius = 4.dp.toPx(),
-            center = Offset(size.width * 0.66f, size.height * 0.34f)
-        )
     }
 }
 
 @Composable
 private fun MapControlButton(text: String) {
     Surface(
-        modifier = Modifier.size(40.dp),
+        modifier = Modifier.size(PoliDimens.TouchMin),
         shape = MaterialTheme.shapes.medium,
         color = PoliBgSurface,
         contentColor = PoliFgSecondary,
@@ -579,6 +568,57 @@ private val SearchMapUiState.syncVariant: PoliChipVariant
             SearchMapSyncStatus.Offline -> PoliChipVariant.Warn
             SearchMapSyncStatus.Sending -> PoliChipVariant.Outbox
         }
+
+private fun SearchMapUiState.toRuntimeMapState(base: MapLibreRuntimeMapState): MapLibreRuntimeMapState {
+    return base.copy(
+        initialBounds =
+        (focusedMarkerViewportBounds ?: viewportBounds)?.let { bounds ->
+            MapLibreViewportBounds(
+                south = bounds.south,
+                west = bounds.west,
+                north = bounds.north,
+                east = bounds.east
+            )
+        },
+        geometryOverlays =
+        layers.mapNotNull { layer ->
+            val geoJson = layer.geoJson?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+            val focused = focusedMarkerId != null && layer.kind == SearchLayerKind.Marker && layer.overlayId == focusedMarkerId
+            MapLibreGeometryOverlay(
+                id = layer.overlayId ?: layer.label,
+                kind = layer.kind.toMapLibreGeometryOverlayKind(),
+                geoJson = geoJson,
+                highlighted = layer.highlighted || focused,
+                label = layer.label
+            )
+        }
+    )
+}
+
+private fun SearchLayerKind.toMapLibreGeometryOverlayKind(): MapLibreGeometryOverlayKind =
+    when (this) {
+        SearchLayerKind.Overall -> MapLibreGeometryOverlayKind.Overall
+        SearchLayerKind.Unit -> MapLibreGeometryOverlayKind.Unit
+        SearchLayerKind.Team -> MapLibreGeometryOverlayKind.Team
+        SearchLayerKind.Path -> MapLibreGeometryOverlayKind.Path
+        SearchLayerKind.Marker -> MapLibreGeometryOverlayKind.Marker
+    }
+
+private fun String.pointViewportBounds(): SearchMapViewportBounds? {
+    val match = POINT_COORDINATES.find(this) ?: return null
+    val lon = match.groupValues[1].toDoubleOrNull() ?: return null
+    val lat = match.groupValues[2].toDoubleOrNull() ?: return null
+    val delta = MARKER_FOCUS_BOUNDS_DELTA
+    return SearchMapViewportBounds(
+        south = lat - delta,
+        west = lon - delta,
+        north = lat + delta,
+        east = lon + delta
+    )
+}
+
+private val POINT_COORDINATES = Regex(""""coordinates"\s*:\s*\[\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*]""")
+private const val MARKER_FOCUS_BOUNDS_DELTA = 0.001
 
 fun sampleSearchMapState(): SearchMapUiState =
     SearchMapUiState.active(

@@ -21,13 +21,21 @@ import com.surimap.marker.port.MarkerEventPublisher;
 import com.surimap.marker.port.MarkerWriteGuardPort;
 import com.surimap.marker.repository.MarkerCreateRecord;
 import com.surimap.marker.repository.MarkerRepository;
+import com.surimap.sync.idempotency.IdempotentResponseCache;
+import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.HexFormat;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.locationtech.jts.geom.Point;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,6 +53,7 @@ public class MarkerCreateService {
   private final MarkerNotificationService markerNotificationService;
   private final Clock clock;
   private final Supplier<UUID> markerIdSupplier;
+  private final IdempotentResponseCache idempotentResponseCache;
 
   @Autowired
   public MarkerCreateService(
@@ -53,7 +62,8 @@ public class MarkerCreateService {
       MarkerOpBindingValidator markerOpBindingValidator,
       MarkerWriteGuardPort markerWriteGuardPort,
       MarkerEventPublisher markerEventPublisher,
-      MarkerNotificationService markerNotificationService) {
+      MarkerNotificationService markerNotificationService,
+      ObjectProvider<IdempotentResponseCache> idempotentResponseCacheProvider) {
     this(
         markerRepository,
         markerLocationValidator,
@@ -62,7 +72,8 @@ public class MarkerCreateService {
         markerEventPublisher,
         markerNotificationService,
         Clock.systemUTC(),
-        UUID::randomUUID);
+        UUID::randomUUID,
+        idempotentResponseCacheProvider.getIfAvailable());
   }
 
   public MarkerCreateService(
@@ -81,7 +92,8 @@ public class MarkerCreateService {
         markerEventPublisher,
         null,
         clock,
-        markerIdSupplier);
+        markerIdSupplier,
+        null);
   }
 
   public MarkerCreateService(
@@ -93,6 +105,28 @@ public class MarkerCreateService {
       MarkerNotificationService markerNotificationService,
       Clock clock,
       Supplier<UUID> markerIdSupplier) {
+    this(
+        markerRepository,
+        markerLocationValidator,
+        markerOpBindingValidator,
+        markerWriteGuardPort,
+        markerEventPublisher,
+        markerNotificationService,
+        clock,
+        markerIdSupplier,
+        null);
+  }
+
+  private MarkerCreateService(
+      MarkerRepository markerRepository,
+      MarkerLocationValidator markerLocationValidator,
+      MarkerOpBindingValidator markerOpBindingValidator,
+      MarkerWriteGuardPort markerWriteGuardPort,
+      MarkerEventPublisher markerEventPublisher,
+      MarkerNotificationService markerNotificationService,
+      Clock clock,
+      Supplier<UUID> markerIdSupplier,
+      IdempotentResponseCache idempotentResponseCache) {
     this.markerRepository = Objects.requireNonNull(markerRepository);
     this.markerLocationValidator = Objects.requireNonNull(markerLocationValidator);
     this.markerOpBindingValidator = Objects.requireNonNull(markerOpBindingValidator);
@@ -101,12 +135,34 @@ public class MarkerCreateService {
     this.markerNotificationService = markerNotificationService;
     this.clock = Objects.requireNonNull(clock);
     this.markerIdSupplier = Objects.requireNonNull(markerIdSupplier);
+    this.idempotentResponseCache = idempotentResponseCache;
   }
 
   @Transactional
   public MarkerCreateResult create(MarkerCreateRequest request, MarkerRequestContext context) {
     requireRequest(request);
     requireAppContext(context);
+    if (idempotentResponseCache != null) {
+      AtomicReference<MarkerCreateResult> createdResult = new AtomicReference<>();
+      MarkerCreateResponse response =
+          idempotentResponseCache.replayOrRun(
+              "POST /api/markers",
+              context == null ? null : context.idempotencyKey(),
+              fingerprint("create", request),
+              201,
+              MarkerCreateResponse.class,
+              () -> {
+                MarkerCreateResult result = createNewMarker(request, context);
+                createdResult.set(result);
+                return result.response();
+              },
+              this::metadataFor);
+      return createdResult.get() == null ? new MarkerCreateResult(response, null) : createdResult.get();
+    }
+    return createNewMarker(request, context);
+  }
+
+  private MarkerCreateResult createNewMarker(MarkerCreateRequest request, MarkerRequestContext context) {
     markerWriteGuardPort.requireCreateAccess(request.incidentId(), request.opId(), context);
 
     UUID opId = validateOpBinding(request.incidentId(), request.opId());
@@ -169,6 +225,23 @@ public class MarkerCreateService {
         supportRequestType,
         canonicalLocation);
     return new MarkerCreateResult(response, publishRequest);
+  }
+
+  private ResponseMetadata metadataFor(MarkerCreateResponse response) {
+    return new ResponseMetadata(
+        response.id().toString(), response.status(), response.version(), response.version());
+  }
+
+  private String fingerprint(String operation, Object request) {
+    try {
+      MessageDigest digest = MessageDigest.getInstance("SHA-256");
+      byte[] hashed =
+          digest.digest(
+              (operation + ":" + String.valueOf(request)).getBytes(StandardCharsets.UTF_8));
+      return HexFormat.of().formatHex(hashed);
+    } catch (NoSuchAlgorithmException exception) {
+      throw new IllegalStateException("SHA-256 is not available", exception);
+    }
   }
 
   private void publishNotificationIfNeeded(

@@ -29,14 +29,14 @@ class Sc06MarkerPhotoHarnessRedTest {
     Object result = run("runOnlineMarkerWithOneAttachedPhoto");
 
     assertThat(value(result, "scenarioId")).isEqualTo("SC-06");
-    assertThat(value(result, "incidentId")).isEqualTo("inc-precinct-first-001");
-    assertThat(value(result, "markerId")).isEqualTo("mk-precinct-clue-001");
-    assertThat(value(result, "photoId")).isEqualTo("photo-precinct-clue-001");
+    assertThat(value(result, "incidentId")).isEqualTo("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001");
+    assertThat(value(result, "markerId")).isEqualTo("55555555-5555-5555-5555-555555550001");
+    assertThat(value(result, "photoId")).isEqualTo("55555555-5555-5555-5555-555555550101");
 
     Object auth = call(result, "auth");
     assertThat(value(auth, "channel")).isEqualTo("APP");
-    assertThat(value(auth, "accountId")).isEqualTo("acct-precinct-team");
-    assertThat(value(auth, "policePhoneId")).isEqualTo("dev-precinct-phone-01");
+    assertThat(value(auth, "accountId")).isEqualTo("11111111-1111-1111-1111-111111110003");
+    assertThat(value(auth, "policePhoneId")).isEqualTo("00000000-0000-0000-0000-000000000101");
     assertThat(booleanValue(auth, "registered")).isTrue();
     assertThat(booleanValue(auth, "assignedToIncident")).isTrue();
     assertThat(booleanValue(auth, "guardChecked")).isTrue();
@@ -48,7 +48,7 @@ class Sc06MarkerPhotoHarnessRedTest {
     assertThat(booleanValue(geometry, "insideCurrentOverallSearchArea")).isTrue();
 
     Object currentOp = call(result, "currentOp");
-    assertThat(value(currentOp, "opId")).isEqualTo("op-precinct-001-op1");
+    assertThat(value(currentOp, "opId")).isEqualTo("88888888-8888-8888-8888-888888880001");
     assertThat(value(currentOp, "queryCount")).isEqualTo("3");
     assertThat(booleanValue(currentOp, "matchedRequestOp")).isTrue();
 
@@ -65,8 +65,8 @@ class Sc06MarkerPhotoHarnessRedTest {
     assertThat(value(markerEvent, "type")).isEqualTo("MARKER_CREATED");
     assertThat(value(markerEvent, "status")).isEqualTo("ACTIVE");
     assertThat(value(markerEvent, "version")).isEqualTo("1");
-    assertThat(value(markerEvent, "opId")).isEqualTo("op-precinct-001-op1");
-    assertThat(value(markerEvent, "policePhoneId")).isEqualTo("dev-precinct-phone-01");
+    assertThat(value(markerEvent, "opId")).isEqualTo("88888888-8888-8888-8888-888888880001");
+    assertThat(value(markerEvent, "policePhoneId")).isEqualTo("00000000-0000-0000-0000-000000000101");
     assertThat(value(markerEvent, "capturedPublishCount")).isEqualTo("1");
     assertThat(booleanValue(markerEvent, "eventDispatchJobCaptured")).isTrue();
     assertThat(value(markerEvent, "markerRowStatus")).isEqualTo("ACTIVE");
@@ -77,7 +77,7 @@ class Sc06MarkerPhotoHarnessRedTest {
     assertThat(value(photoEvent, "type")).isEqualTo("MARKER_UPDATED");
     assertThat(value(photoEvent, "status")).isEqualTo("UPDATED");
     assertThat(value(photoEvent, "version")).isEqualTo("2");
-    assertThat(value(photoEvent, "photoId")).isEqualTo("photo-precinct-clue-001");
+    assertThat(value(photoEvent, "photoId")).isEqualTo("55555555-5555-5555-5555-555555550101");
     assertThat(value(photoEvent, "internalPhotoUuid"))
         .isEqualTo(value(storage, "internalPhotoUuid"));
     assertThat(value(photoEvent, "photoStatus")).isEqualTo("ATTACHED");
@@ -89,7 +89,7 @@ class Sc06MarkerPhotoHarnessRedTest {
 
     Object outbox = call(result, "eventDispatchJob");
     assertThat(value(outbox, "eventId")).isEqualTo("evt-s5-marker-updated-photo-001");
-    assertThat(value(outbox, "entityId")).isEqualTo("mk-precinct-clue-001");
+    assertThat(value(outbox, "entityId")).isEqualTo("55555555-5555-5555-5555-555555550001");
     assertThat(value(outbox, "status")).isEqualTo("UPDATED");
     assertThat(value(outbox, "version")).isEqualTo("2");
     assertThat(value(outbox, "type")).isEqualTo("MARKER_UPDATED");
@@ -99,7 +99,7 @@ class Sc06MarkerPhotoHarnessRedTest {
 
     Object sse = call(result, "sse");
     assertThat(value(sse, "eventId")).isEqualTo("evt-s5-marker-updated-photo-001");
-    assertThat(value(sse, "entityId")).isEqualTo("mk-precinct-clue-001");
+    assertThat(value(sse, "entityId")).isEqualTo("55555555-5555-5555-5555-555555550001");
     assertThat(value(sse, "version")).isEqualTo("2");
     assertThat(value(sse, "status")).isEqualTo("UPDATED");
     assertThat(value(sse, "capturedMessageCount")).isEqualTo("2");
@@ -107,8 +107,8 @@ class Sc06MarkerPhotoHarnessRedTest {
     Object board = call(result, "board");
     assertThat(value(board, "slot")).isEqualTo("marker");
     assertThat(value(board, "latestEventId")).isEqualTo("evt-s5-marker-updated-photo-001");
-    assertThat(value(board, "markerId")).isEqualTo("mk-precinct-clue-001");
-    assertThat(value(board, "photoId")).isEqualTo("photo-precinct-clue-001");
+    assertThat(value(board, "markerId")).isEqualTo("55555555-5555-5555-5555-555555550001");
+    assertThat(value(board, "photoId")).isEqualTo("55555555-5555-5555-5555-555555550101");
     assertThat(value(board, "internalPhotoUuid")).isEqualTo(value(photoEvent, "internalPhotoUuid"));
     assertThat(value(board, "photoStatus")).isEqualTo("ATTACHED");
     assertThat(value(board, "photoVersion")).isEqualTo("2");

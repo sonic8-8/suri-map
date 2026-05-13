@@ -34,3 +34,7 @@ mock112:
   base-url: ${MOCK_112_BASE_URL:http://localhost:18112}
   polling:
     interval-ms: ${MOCK_112_POLLING_INTERVAL:5000}
+
+tileserver:
+  mode: ${TILESERVER_MODE:fixture}
+  base-url: ${TILESERVER_BASE_URL:http://tileserver-gl:8080}

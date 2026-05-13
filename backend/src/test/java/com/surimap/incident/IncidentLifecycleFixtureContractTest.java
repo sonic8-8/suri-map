@@ -14,10 +14,12 @@ class IncidentLifecycleFixtureContractTest {
   void sc12TerminalRequeueFixtureFreezesClosedNoRetryState() {
     var states = IncidentLifecycleFixtureLoader.loadTerminalStateRules();
 
-    assertThat(states.closedIncidentId()).isEqualTo("inc-precinct-closed-001");
+    assertThat(states.closedIncidentId()).isEqualTo("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0012");
     assertThat(states.expectedPostClose()).isEqualTo("FAILED_FINAL");
     assertThat(states.expectedUserCategory()).isEqualTo("CLOSED_NO_RETRY");
-    assertThat(states.closedFailureRow().operationId()).isEqualTo("op-fail-closed-001");
+    assertThat(states.closedFailureRow().operationAlias()).isEqualTo("op-fail-closed-001");
+    assertThat(states.closedFailureRow().operationId())
+        .isEqualTo("66666666-0000-4000-8000-000000001704");
     assertThat(states.closedFailureRow().userSafeFailureCategory()).isEqualTo("CLOSED_NO_RETRY");
     assertThat(states.closedFailureRow().retryable()).isFalse();
   }

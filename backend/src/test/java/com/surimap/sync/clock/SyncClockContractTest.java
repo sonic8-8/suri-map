@@ -8,10 +8,12 @@ import com.surimap.common.auth.AccountType;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.OrganizationType;
 import com.surimap.common.auth.Role;
+import com.surimap.policephone.PolicePhoneDbFixtureSupport;
 import com.surimap.support.auth.WithMockAccount;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +23,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -31,6 +34,7 @@ import org.springframework.test.web.servlet.MockMvc;
 class SyncClockContractTest {
 
   @Autowired private MockMvc mockMvc;
+  @Autowired private JdbcTemplate jdbcTemplate;
 
   @TestConfiguration
   static class FixedClockConfig {
@@ -40,6 +44,11 @@ class SyncClockContractTest {
     Clock fixedClock() {
       return Clock.fixed(Instant.parse("2026-04-28T00:00:41Z"), ZoneId.of("Asia/Seoul"));
     }
+  }
+
+  @BeforeEach
+  void ensureS1_2GuardFixtures() {
+    PolicePhoneDbFixtureSupport.ensureGuardFixtures(jdbcTemplate);
   }
 
   @Test

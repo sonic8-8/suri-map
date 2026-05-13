@@ -7,11 +7,11 @@ import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
-import static org.hamcrest.Matchers.startsWith;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -38,6 +38,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -55,8 +56,8 @@ class TileControllerTest {
   private static final MediaType APPLICATION_X_PROTOBUF =
       MediaType.valueOf("application/x-protobuf");
   private static final byte[] LOCAL_TILE_BYTES = repeatedBytes(0xaa, 18_432);
-  private static final String ACCOUNT_ID = "acct-precinct-team";
-  private static final String POLICE_PHONE_ID = "dev-precinct-phone-01";
+  private static final String ACCOUNT_ID = "11111111-1111-1111-1111-111111110003";
+  private static final String POLICE_PHONE_ID = OfflinePackageManifestFixtures.POLICE_PHONE_ID;
 
   @Autowired private MockMvc mockMvc;
 
@@ -75,6 +76,7 @@ class TileControllerTest {
             get("/tiles/styles/{styleId}.json", STYLE_ID)
                 .header("Authorization", AUTHORIZATION)
                 .header("X-Client-Channel", channel.name())
+                .header("Host", "suri-map.local:8080")
                 .principal(authentication(channel)))
         .andExpect(status().isOk())
         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
@@ -82,7 +84,8 @@ class TileControllerTest {
         .andExpect(jsonPath("$.sources").exists())
         .andExpect(
             jsonPath(
-                "$.sources.*.tiles[0]", hasItem(startsWith("/tiles/osm-local/{z}/{x}/{y}.pbf"))))
+                "$.sources.*.tiles[0]",
+                hasItem("http://suri-map.local:8080/tiles/osm-local/{z}/{x}/{y}.pbf")))
         .andExpect(jsonPath("$.layers").isArray())
         .andExpect(jsonPath("$.layers.length()", greaterThan(0)))
         .andExpect(
@@ -96,6 +99,28 @@ class TileControllerTest {
         .andExpect(content().string(not(containsString(".tile.openstreetmap.org"))))
         .andExpect(content().string(not(containsString("mapbox.com"))))
         .andExpect(content().string(not(containsString("googleapis.com"))));
+  }
+
+  @Test
+  @DisplayName("프록시 뒤 style JSON은 forwarded origin 기준 절대 tile URL을 반환한다")
+  void styleJsonUsesForwardedOriginForTileUrls() throws Exception {
+    when(tileService.getStyle(STYLE_ID)).thenReturn(localStyleResponse());
+
+    mockMvc
+        .perform(
+            get("/tiles/styles/{styleId}.json", STYLE_ID)
+                .header("Authorization", AUTHORIZATION)
+                .header("X-Client-Channel", "APP")
+                .header("Host", "internal-api:8080")
+                .header("X-Forwarded-Proto", "https")
+                .header("X-Forwarded-Host", "api.surimap.example")
+                .header("X-Forwarded-Port", "443")
+                .principal(authentication(Channel.APP)))
+        .andExpect(status().isOk())
+        .andExpect(
+            jsonPath(
+                "$.sources.*.tiles[0]",
+                hasItem("https://api.surimap.example/tiles/osm-local/{z}/{x}/{y}.pbf")));
   }
 
   @ParameterizedTest
@@ -117,6 +142,24 @@ class TileControllerTest {
         .andExpect(content().contentTypeCompatibleWith(APPLICATION_X_PROTOBUF))
         .andExpect(content().bytes(LOCAL_TILE_BYTES))
         .andExpect(result -> assertThat(result.getResponse().getContentAsByteArray()).isNotEmpty());
+  }
+
+  @Test
+  @DisplayName("tile pbf의 gzip content encoding을 응답 헤더로 보존한다")
+  void tilePbfPreservesContentEncoding() throws Exception {
+    when(tileService.getTile(STYLE_ID, 16, 55877, 25377))
+        .thenReturn(new TileBlobResponse(APPLICATION_X_PROTOBUF, LOCAL_TILE_BYTES, "gzip"));
+
+    mockMvc
+        .perform(
+            get("/tiles/{style}/{z}/{x}/{y}.pbf", STYLE_ID, 16, 55877, 25377)
+                .header("Authorization", AUTHORIZATION)
+                .header("X-Client-Channel", "WEB")
+                .principal(authentication(Channel.WEB)))
+        .andExpect(status().isOk())
+        .andExpect(content().contentTypeCompatibleWith(APPLICATION_X_PROTOBUF))
+        .andExpect(header().string(HttpHeaders.CONTENT_ENCODING, "gzip"))
+        .andExpect(content().bytes(LOCAL_TILE_BYTES));
   }
 
   @Test

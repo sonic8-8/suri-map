@@ -102,7 +102,7 @@ class S8HandoverApiContractTest {
     when(operationalPeriodMapper.findActiveByIncident(INCIDENT_ID)).thenReturn(Optional.of(op()));
     when(incidentLifecycleGuard.requireOpen(INCIDENT_ID))
         .thenReturn(new IncidentLifecycleSnapshot(INCIDENT_ID, "OPEN", 1L));
-    when(dutyShiftMapper.findActiveAssignmentId(INCIDENT_ID, ACCOUNT_ID.toString()))
+    when(dutyShiftMapper.findActiveAssignmentId(INCIDENT_ID, ACCOUNT_ID))
         .thenReturn(Optional.of(INCIDENT_ASSIGNMENT_ID));
     when(dutyShiftMapper.findById(DUTY_SHIFT_ID)).thenReturn(Optional.of(activeDutyShift()));
     when(dutyShiftMapper.findByFilters(INCIDENT_ID, OP_ID, POLICE_PHONE_ID, null, "ACTIVE"))

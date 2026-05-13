@@ -8,10 +8,15 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.surimap.eventhub.adapter.MockEventHub;
 import com.surimap.offlinepackage.fixture.OfflinePackageInstallationFixtures;
 import com.surimap.offlinepackage.fixture.OfflinePackageManifestFixtures;
 import com.surimap.offlinepackage.query.OfflinePackageInstallationQuery;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -38,9 +43,46 @@ class OfflinePackageInstallationApiRedTest {
 
   @Autowired private OfflinePackageInstallationQuery installationQuery;
 
+  private final ObjectMapper objectMapper = new ObjectMapper();
+
   @BeforeEach
   void resetEventHub() {
     eventHub.reset();
+  }
+
+  @Test
+  @DisplayName("manifest tileItems expose checksums aligned with local tile fixture blobs")
+  void manifest_tile_items_expose_checksums_aligned_with_local_tile_fixture_blobs() throws Exception {
+    String body =
+        mockMvc
+            .perform(
+                get(OfflinePackageInstallationFixtures.manifestApiPath())
+                    .header("Authorization", "Bearer app-package-session")
+                    .header("X-Client-Channel", "APP")
+                    .header("X-PolicePhone-Id", OfflinePackageManifestFixtures.POLICE_PHONE_ID)
+                    .param("policePhoneId", OfflinePackageManifestFixtures.POLICE_PHONE_ID))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+
+    Map<String, OfflinePackageManifestFixtures.TileItem> expectedTiles =
+        OfflinePackageManifestFixtures.tileManifest().tiles().stream()
+            .collect(
+                Collectors.toMap(
+                    OfflinePackageManifestFixtures.TileItem::itemKey, Function.identity()));
+
+    JsonNode tileItems = objectMapper.readTree(body).path("tileItems");
+
+    assertThat(tileItems).hasSize(expectedTiles.size());
+    tileItems.forEach(
+        tile -> {
+          OfflinePackageManifestFixtures.TileItem expected =
+              expectedTiles.get(tile.path("itemKey").asText());
+          assertThat(expected).as(tile.toString()).isNotNull();
+          assertThat(tile.path("checksum").asText()).isEqualTo(expected.checksum());
+          assertThat(tile.path("bytes").asInt()).isEqualTo(expected.bytes());
+        });
   }
 
   @Test
@@ -121,11 +163,11 @@ class OfflinePackageInstallationApiRedTest {
               assertThat(event.payload())
                   .containsEntry("id", OfflinePackageInstallationFixtures.INSTALLATION_ID)
                   .containsEntry("status", "READY")
-                  .containsEntry("version", OfflinePackageInstallationFixtures.VERSION)
+                  .containsEntry("version", (long) OfflinePackageInstallationFixtures.VERSION)
                   .containsEntry("incidentId", OfflinePackageManifestFixtures.INCIDENT_ID)
                   .containsEntry("policePhoneId", OfflinePackageManifestFixtures.POLICE_PHONE_ID)
                   .containsEntry("manifestVersion", OfflinePackageManifestFixtures.MANIFEST_VERSION)
-                  .containsEntry("sequence", OfflinePackageInstallationFixtures.SEQUENCE);
+                  .containsEntry("sequence", (long) OfflinePackageInstallationFixtures.SEQUENCE);
             });
 
     assertThat(installationQuery.byIncident(OfflinePackageManifestFixtures.INCIDENT_ID))
@@ -138,6 +180,57 @@ class OfflinePackageInstallationApiRedTest {
               assertThat(row.manifestVersion())
                   .isEqualTo(OfflinePackageManifestFixtures.MANIFEST_VERSION);
               assertThat(row.readyForOfflineUse()).isTrue();
+            });
+  }
+
+  @Test
+  @DisplayName("same manifest accepts installation reports from two PolicePhones")
+  void same_manifest_accepts_reports_from_two_police_phones() throws Exception {
+    mockMvc
+        .perform(
+            post(OfflinePackageInstallationFixtures.apiPath())
+                .header("Authorization", "Bearer app-package-session")
+                .header("X-Client-Channel", "APP")
+                .header("X-PolicePhone-Id", OfflinePackageManifestFixtures.POLICE_PHONE_ID)
+                .header("Idempotency-Key", "idem-package-phone-01")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(OfflinePackageInstallationFixtures.readyReportJson()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id", is(OfflinePackageInstallationFixtures.INSTALLATION_ID)));
+
+    String phone02ReadyReport =
+        OfflinePackageInstallationFixtures.readyReportJson()
+            .replace(
+                OfflinePackageManifestFixtures.POLICE_PHONE_ID,
+                OfflinePackageInstallationFixtures.SEEDED_PHONE_02_ID)
+            .replace(
+                "\"sequence\": %d".formatted(OfflinePackageInstallationFixtures.SEQUENCE),
+                "\"sequence\": %d".formatted(OfflinePackageInstallationFixtures.SEQUENCE + 1));
+
+    mockMvc
+        .perform(
+            post(OfflinePackageInstallationFixtures.apiPath())
+                .header("Authorization", "Bearer app-package-session")
+                .header("X-Client-Channel", "APP")
+                .header("X-PolicePhone-Id", OfflinePackageInstallationFixtures.SEEDED_PHONE_02_ID)
+                .header("Idempotency-Key", "idem-package-phone-02")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(phone02ReadyReport))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status", is("READY")));
+
+    assertThat(installationQuery.byIncident(OfflinePackageManifestFixtures.INCIDENT_ID))
+        .anySatisfy(
+            row -> {
+              assertThat(row.id()).isEqualTo(OfflinePackageInstallationFixtures.INSTALLATION_ID);
+              assertThat(row.policePhoneId()).isEqualTo(OfflinePackageManifestFixtures.POLICE_PHONE_ID);
+            })
+        .anySatisfy(
+            row -> {
+              assertThat(row.id()).isNotEqualTo(OfflinePackageInstallationFixtures.INSTALLATION_ID);
+              assertThat(row.policePhoneId())
+                  .isEqualTo(OfflinePackageInstallationFixtures.SEEDED_PHONE_02_ID);
+              assertThat(row.status()).isEqualTo("READY");
             });
   }
 

@@ -27,15 +27,15 @@ import org.springframework.test.context.ActiveProfiles;
 @DisplayName("L6-T09B incident_terminal/package_badge privacy board state RED")
 class IncidentTerminalPackageBadgePrivacyRedTest {
 
-  private static final UUID INCIDENT_ID =
-      UUID.fromString("77777777-0000-4000-8000-0000000009b1");
-  private static final UUID PURGE_RUN_ID =
-      UUID.fromString("77777777-0000-4000-8000-0000000009b2");
+  private static final UUID INCIDENT_ID = UUID.fromString("77777777-0000-4000-8000-0000000009b1");
+  private static final UUID PURGE_RUN_ID = UUID.fromString("77777777-0000-4000-8000-0000000009b2");
   private static final Instant CLOSED_AT = Instant.parse("2026-05-07T00:10:00Z");
   private static final Instant PURGE_DEADLINE_TS = Instant.parse("2026-05-08T00:10:00Z");
-  private static final OffsetDateTime SERVER_TS =
-      OffsetDateTime.parse("2026-05-07T09:11:00+09:00");
-  private static final String MANIFEST_ID = "purge-manifest-l6-t09b";
+  private static final OffsetDateTime SERVER_TS = OffsetDateTime.parse("2026-05-07T09:11:00+09:00");
+  private static final String MANIFEST_ID = "77777777-0000-4000-8000-0000000009d1";
+  private static final String OP_ID = "77777777-0000-4000-8000-0000000009d2";
+  private static final String OVERALL_SEARCH_AREA_ID = "77777777-0000-4000-8000-0000000009d3";
+  private static final String LAST_REPORTED_BY_ACCOUNT_ID = "11111111-1111-1111-1111-111111119903";
   private static final List<String> PRE_PURGE_STATUSES = List.of("READY", "PARTIAL", "STALE");
   private static final List<String> TERMINAL_RESPONSE_KEYS =
       List.of(
@@ -106,7 +106,8 @@ class IncidentTerminalPackageBadgePrivacyRedTest {
   }
 
   @Test
-  @DisplayName("package_badge rows after PackagePurgeHook expose only sanitized PURGED package state")
+  @DisplayName(
+      "package_badge rows after PackagePurgeHook expose only sanitized PURGED package state")
   void purgedPackageBadgeRowsExposeOnlySanitizedPackageState() {
     seedPackageRowsWithMissingPersonPayload();
     packagePurgeHook().purge(purgeRequest());
@@ -134,8 +135,7 @@ class IncidentTerminalPackageBadgePrivacyRedTest {
                       "reloadUrl",
                       "staleRefetch");
               assertThat(String.valueOf(row))
-                  .doesNotContain(
-                      "READY", "PARTIAL", "STALE", "MISSING_PERSON_CACHE", "가상 실종자");
+                  .doesNotContain("READY", "PARTIAL", "STALE", "MISSING_PERSON_CACHE", "가상 실종자");
             });
   }
 
@@ -184,9 +184,7 @@ class IncidentTerminalPackageBadgePrivacyRedTest {
 
   private PurgeHook packagePurgeHook() {
     List<PurgeHook> hooks =
-        purgeHooks.stream()
-            .filter(hook -> hook.name() == PurgeHookName.OFFLINE_PACKAGE)
-            .toList();
+        purgeHooks.stream().filter(hook -> hook.name() == PurgeHookName.OFFLINE_PACKAGE).toList();
     assertThat(hooks)
         .as("S7 PackagePurgeHook must be exposed through the S1-3 hook boundary")
         .hasSize(1);
@@ -214,12 +212,14 @@ class IncidentTerminalPackageBadgePrivacyRedTest {
             created_at,
             updated_at
         )
-        VALUES (?, ?, 1, 'op-purge-l6-t09b', 'osa-purge-l6-t09b', 1,
+        VALUES (?, ?, 1, ?, ?, 1,
                 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', 1,
                 ?, ?, ?, ?)
         """,
         MANIFEST_ID,
         INCIDENT_ID.toString(),
+        OP_ID,
+        OVERALL_SEARCH_AREA_ID,
         manifestPayloadWithMissingPerson(),
         SERVER_TS.plusHours(24),
         SERVER_TS,
@@ -250,15 +250,24 @@ class IncidentTerminalPackageBadgePrivacyRedTest {
             created_at,
             updated_at
         )
-        VALUES (?, ?, ?, 'acct-purge-reporter', ?, 7, 3, 2, NULL, 'tile-timeout', ?, 1, ?, ?)
+        VALUES (?, ?, ?, ?, ?, 7, 3, 2, NULL, 'tile-timeout', ?, 1, ?, ?)
         """,
-        "pkg-purge-l6-t09b-%02d".formatted(index),
+        installationId(index),
         MANIFEST_ID,
-        "dev-purge-t09b-phone-%02d".formatted(index),
+        policePhoneId(index),
+        LAST_REPORTED_BY_ACCOUNT_ID,
         status,
         SERVER_TS,
         SERVER_TS,
         SERVER_TS);
+  }
+
+  private static String installationId(int index) {
+    return "77777777-0000-4000-8000-0000000009%02d".formatted(index + 30);
+  }
+
+  private static String policePhoneId(int index) {
+    return "00000000-0000-0000-0000-0000000098%02d".formatted(index);
   }
 
   private static String manifestPayloadWithMissingPerson() {
@@ -298,8 +307,7 @@ class IncidentTerminalPackageBadgePrivacyRedTest {
             Map.entry("localPurgeState", "completed"),
             Map.entry("missing_person", Map.of("displayName", "가상 실종자")),
             Map.entry(
-                "missingPerson",
-                Map.of("photoObjectKey", "photo/missing-person/purge-target.jpg")),
+                "missingPerson", Map.of("photoObjectKey", "photo/missing-person/purge-target.jpg")),
             Map.entry("lastSeenLocationText", "인왕산 북측 산책로"),
             Map.entry(
                 "latestLocation",

@@ -45,7 +45,7 @@ class SearchPathOpGuardContractTest {
             SearchPathFixtures.OP1_ID,
             SearchPathFixtures.POLICE_PHONE_ID,
             Instant.now(),
-            null);
+            "idem-path-op-required");
 
     assertThatThrownBy(() -> service.start(request))
         .isInstanceOf(SearchPathGuardException.class)
@@ -62,7 +62,7 @@ class SearchPathOpGuardContractTest {
             BoundaryAreaFixtures.OP2_ID,
             SearchPathFixtures.POLICE_PHONE_ID,
             Instant.now(),
-            null);
+            "idem-path-op-mismatch");
 
     assertThatThrownBy(() -> service.start(request))
         .isInstanceOf(SearchPathGuardException.class)

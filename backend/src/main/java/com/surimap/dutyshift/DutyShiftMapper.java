@@ -18,11 +18,11 @@ public interface DutyShiftMapper {
       @Param("incidentId") UUID incidentId,
       @Param("opId") UUID opId,
       @Param("policePhoneId") UUID policePhoneId,
-      @Param("accountId") String accountId,
+      @Param("accountId") UUID accountId,
       @Param("status") String status);
 
   Optional<UUID> findActiveAssignmentId(
-      @Param("incidentId") UUID incidentId, @Param("accountId") String accountId);
+      @Param("incidentId") UUID incidentId, @Param("accountId") UUID accountId);
 
   void end(
       @Param("id") UUID id,

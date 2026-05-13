@@ -1,5 +1,6 @@
 package com.surimap.marker.notification.service;
 
+import com.surimap.account.AccountIdentityCatalog;
 import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.dto.MarkerNotificationPublishRequestPayload;
 import com.surimap.marker.dto.MarkerPublishRequest;
@@ -11,6 +12,7 @@ import com.surimap.marker.notification.repository.MarkerNotificationRepository;
 import com.surimap.marker.port.MarkerEventPublisher;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -86,8 +88,8 @@ public class MarkerNotificationService {
             context.markerId(),
             notificationType,
             recipients.policy(),
-            recipients.accountIds(),
-            recipients.policePhoneIds(),
+            accountDbIds(recipients.accountIds()),
+            policePhoneDbIds(recipients.policePhoneIds()),
             payloadFactory.toJson(notificationType, payload),
             MarkerNotificationStatus.SNAPSHOT_CREATED,
             INITIAL_NOTIFICATION_VERSION,
@@ -107,6 +109,34 @@ public class MarkerNotificationService {
       case SUPPORT_REQUEST -> Optional.of(NotificationType.SUPPORT_REQUEST_CREATED);
       case PERSON_FOUND -> Optional.of(NotificationType.PERSON_FOUND);
       default -> Optional.empty();
+    };
+  }
+
+  private static List<String> accountDbIds(List<String> accountIds) {
+    return accountIds.stream()
+        .map(AccountIdentityCatalog::accountIdFromCodeOrUuid)
+        .map(UUID::toString)
+        .toList();
+  }
+
+  private static List<String> policePhoneDbIds(List<String> policePhoneIds) {
+    return policePhoneIds.stream()
+        .map(MarkerNotificationService::policePhoneIdFromCodeOrUuid)
+        .map(UUID::toString)
+        .toList();
+  }
+
+  private static UUID policePhoneIdFromCodeOrUuid(String policePhoneCodeOrId) {
+    return switch (policePhoneCodeOrId) {
+      case "dev-precinct-cmd-phone-01" -> UUID.fromString("00000000-0000-0000-0000-000000000201");
+      case "dev-precinct-car-01" -> UUID.fromString("50000000-0000-0000-0000-000000000001");
+      case "dev-precinct-phone-01" -> UUID.fromString("00000000-0000-0000-0000-000000000101");
+      case "dev-alpha-cmd-phone-01" -> UUID.fromString("00000000-0000-0000-0000-000000000204");
+      case "dev-alpha-phone-01" -> UUID.fromString("00000000-0000-0000-0000-000000000205");
+      case "dev-support-cmd-phone-01" -> UUID.fromString("00000000-0000-0000-0000-000000000206");
+      case "dev-support-car-01" -> UUID.fromString("00000000-0000-0000-0000-000000000207");
+      case "dev-support-phone-01" -> UUID.fromString("00000000-0000-0000-0000-000000000208");
+      default -> UUID.fromString(policePhoneCodeOrId);
     };
   }
 }

@@ -35,8 +35,14 @@ class LocalMirrorSchemaContractTest {
     JsonNode packageReplay = required(replay, "sc09PackageReplay");
 
     assertThat(required(path, "dependencyGroup").asText()).isEqualTo("PATH");
-    assertThat(required(markerPhoto, "markerOperationId").asText()).isEqualTo("op-outbox-marker-001");
-    assertThat(required(markerPhoto, "photoOperationId").asText()).isEqualTo("op-outbox-photo-001");
+    assertThat(required(markerPhoto, "markerOperationAlias").asText())
+        .isEqualTo("op-outbox-marker-001");
+    assertThat(required(markerPhoto, "markerOperationId").asText())
+        .isEqualTo("66666666-0000-4000-8000-000000000601");
+    assertThat(required(markerPhoto, "photoOperationAlias").asText())
+        .isEqualTo("op-outbox-photo-001");
+    assertThat(required(markerPhoto, "photoOperationId").asText())
+        .isEqualTo("66666666-0000-4000-8000-000000000602");
     assertThat(required(packageReplay, "dependencyGroup").asText()).isEqualTo("PACKAGE_INSTALLATION");
     assertThat(required(required(packageReplay, "writeOperation"), "entityType").asText())
         .isEqualTo("offline_package_installation");

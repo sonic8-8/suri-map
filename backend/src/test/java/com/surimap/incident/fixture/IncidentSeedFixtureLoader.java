@@ -26,13 +26,17 @@ public final class IncidentSeedFixtureLoader {
 
     return new IncidentSeedFixtureIds(
         requiredText(mock112, "sourceIncidentId"),
+        requiredText(incidentSeed, "incidentAlias"),
         requiredText(incidentSeed, "incidentId"),
+        requiredText(incidentSeed, "currentOpAlias"),
         requiredText(incidentSeed, "currentOpId"),
         List.of(requiredText(seedIds, "markerId")),
         requiredText(seedIds, "pathVehicleId"),
         requiredText(seedIds, "pathFootId"),
         requiredText(seedIds, "memoId"),
+        textList(required(incidentSeed, "accountCodes")),
         textList(required(incidentSeed, "accountIds")),
+        textList(required(incidentSeed, "policePhoneCodes")),
         textList(required(incidentSeed, "policePhoneIds")),
         textList(required(assignments, "beforeHandover")),
         textList(required(assignments, "afterHandoverAdded")),

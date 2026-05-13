@@ -59,7 +59,7 @@ def main() -> int:
         "SC-02 coverage": ["SC-02", "실종팀 인계", "지원 부대 배정"],
         "SC-03 coverage": ["SC-03", "오프라인 패키지"],
         "fixture incident": ["incidentId=inc-precinct-first-001"],
-        "fixture mock source": ["sourceIncidentId=mock-112-incident-001"],
+        "fixture mock source": ["sourceIncidentId=00000000-0000-0000-0000-000000000001"],
         "fixture OP1": ["opId=op-precinct-001-op1"],
         "fixture marker/path/memo": [
             "mk-precinct-clue-001",
@@ -67,8 +67,8 @@ def main() -> int:
             "memo-precinct-handover-001",
         ],
         "assignment fixtures": [
-            "mock-112-incident-001:cmd-alpha",
-            "mock-112-incident-001:support-car",
+            "00000000-0000-0000-0000-000000000001:cmd-alpha",
+            "00000000-0000-0000-0000-000000000001:support-car",
             "ia-precinct-support-car-001=ACTIVE",
         ],
         "FCM fixture": ["fcm:dev-support-car-01"],

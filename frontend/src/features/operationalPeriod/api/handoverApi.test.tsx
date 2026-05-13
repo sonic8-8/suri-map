@@ -14,15 +14,22 @@ import {
   useSearchHistorySummaryListQuery,
 } from './handoverApi';
 
+const INCIDENT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001';
+const OP_ID = '88888888-8888-8888-8888-888888880001';
+const POLICE_PHONE_ID = '00000000-0000-0000-0000-000000000101';
+const DUTY_SHIFT_ID = '99999999-9999-9999-9999-999999990001';
+const HANDOVER_MEMO_ID = 'eeeeeeee-eeee-eeee-eeee-eeeeeeee0010';
+const SEARCH_HISTORY_SUMMARY_ID = '44444444-4444-4444-4444-444444440001';
+
 describe('handover API', () => {
   test('lists duty shifts through canonical read endpoint', async () => {
     const response: DutyShiftListResponse = {
       items: [
         {
-          id: 'shift-001',
-          incidentId: 'inc-001',
-          opId: 'op-001',
-          policePhoneId: 'phone-001',
+          id: DUTY_SHIFT_ID,
+          incidentId: INCIDENT_ID,
+          opId: OP_ID,
+          policePhoneId: POLICE_PHONE_ID,
           status: 'ACTIVE',
           version: 1,
         },
@@ -33,18 +40,18 @@ describe('handover API', () => {
 
     await expect(
       api.listDutyShifts({
-        incidentId: 'inc-001',
-        opId: 'op-001',
-        policePhoneId: 'phone-001',
+        incidentId: INCIDENT_ID,
+        opId: OP_ID,
+        policePhoneId: POLICE_PHONE_ID,
         status: 'ACTIVE',
       }),
     ).resolves.toBe(response);
 
     expect(client.get).toHaveBeenCalledWith('/duty-shifts', {
       query: {
-        incidentId: 'inc-001',
-        opId: 'op-001',
-        policePhoneId: 'phone-001',
+        incidentId: INCIDENT_ID,
+        opId: OP_ID,
+        policePhoneId: POLICE_PHONE_ID,
         accountId: undefined,
         status: 'ACTIVE',
       },
@@ -54,19 +61,19 @@ describe('handover API', () => {
 
   test('creates handover memo with idempotency key', async () => {
     const response: HandoverMemoResponse = {
-      id: 'memo-001',
-      opId: 'op-001',
+      id: HANDOVER_MEMO_ID,
+      opId: OP_ID,
       version: 1,
       memoTargetType: 'OPERATIONAL_PERIOD',
-      memoTargetId: 'op-001',
+      memoTargetId: OP_ID,
     };
     const client = fakeApiClient(response);
     const api = createHandoverApi(client);
     const request = {
-      incidentId: 'inc-001',
-      opId: 'op-001',
+      incidentId: INCIDENT_ID,
+      opId: OP_ID,
       memoTargetType: 'OPERATIONAL_PERIOD' as const,
-      memoTargetId: 'op-001',
+      memoTargetId: OP_ID,
       content: 'OP 인수인계',
       clientTs: '2026-05-11T10:00:00+09:00',
     };
@@ -82,10 +89,10 @@ describe('handover API', () => {
     const summaryResponse: SearchHistorySummaryListResponse = {
       items: [
         {
-          summaryId: 'summary-001',
-          opId: 'op-001',
+          summaryId: SEARCH_HISTORY_SUMMARY_ID,
+          opId: OP_ID,
           scopeType: 'OP',
-          scopeId: 'op-001',
+          scopeId: OP_ID,
           status: 'READY',
           displayStatus: 'READY',
           content: '요약',
@@ -99,31 +106,31 @@ describe('handover API', () => {
     const api = createHandoverApi(client);
 
     await api.listHandoverMemos({
-      incidentId: 'inc-001',
-      opId: 'op-001',
+      incidentId: INCIDENT_ID,
+      opId: OP_ID,
       memoTargetType: 'OPERATIONAL_PERIOD',
-      memoTargetId: 'op-001',
+      memoTargetId: OP_ID,
     });
     await expect(
-      api.listSearchHistorySummaries('op-001', {
-        incidentId: 'inc-001',
+      api.listSearchHistorySummaries(OP_ID, {
+        incidentId: INCIDENT_ID,
         status: 'READY',
       }),
     ).resolves.toBe(summaryResponse);
 
     expect(client.get).toHaveBeenCalledWith('/handover-memos', {
       query: {
-        incidentId: 'inc-001',
-        opId: 'op-001',
+        incidentId: INCIDENT_ID,
+        opId: OP_ID,
         memoTargetType: 'OPERATIONAL_PERIOD',
-        memoTargetId: 'op-001',
+        memoTargetId: OP_ID,
       },
     });
     expect(client.get).toHaveBeenCalledWith(
-      '/operational-periods/op-001/search-history-summaries',
+      `/operational-periods/${OP_ID}/search-history-summaries`,
       {
         query: {
-          incidentId: 'inc-001',
+          incidentId: INCIDENT_ID,
           scopeType: undefined,
           scopeId: undefined,
           dutyShiftId: undefined,
@@ -135,40 +142,40 @@ describe('handover API', () => {
   });
 
   test('query and mutation hooks use stable keys', async () => {
-    expect(handoverQueryKeys.dutyShifts({ incidentId: 'inc-001' })).toEqual([
+    expect(handoverQueryKeys.dutyShifts({ incidentId: INCIDENT_ID })).toEqual([
       'handover',
       'dutyShifts',
-      { incidentId: 'inc-001' },
+      { incidentId: INCIDENT_ID },
     ]);
 
     const api = {
       listDutyShifts: vi.fn(async () => ({ items: [] })),
       createHandoverMemo: vi.fn(async () => ({
-        id: 'memo-001',
-        opId: 'op-001',
+        id: HANDOVER_MEMO_ID,
+        opId: OP_ID,
         version: 1,
         memoTargetType: 'OPERATIONAL_PERIOD' as const,
-        memoTargetId: 'op-001',
+        memoTargetId: OP_ID,
       })),
       listHandoverMemos: vi.fn(async () => ({ items: [] })),
       listSearchHistorySummaries: vi.fn(async () => ({ items: [] })),
     };
 
-    const listHook = renderQueryHook(() => useDutyShiftListQuery({ incidentId: 'inc-001' }, api));
+    const listHook = renderQueryHook(() => useDutyShiftListQuery({ incidentId: INCIDENT_ID }, api));
     await waitFor(() => expect(listHook.result.current.isSuccess).toBe(true));
-    expect(api.listDutyShifts).toHaveBeenCalledWith({ incidentId: 'inc-001' });
+    expect(api.listDutyShifts).toHaveBeenCalledWith({ incidentId: INCIDENT_ID });
 
     const summaryHook = renderQueryHook(() =>
-      useSearchHistorySummaryListQuery('op-001', { incidentId: 'inc-001' }, api),
+      useSearchHistorySummaryListQuery(OP_ID, { incidentId: INCIDENT_ID }, api),
     );
     await waitFor(() => expect(summaryHook.result.current.isSuccess).toBe(true));
-    expect(api.listSearchHistorySummaries).toHaveBeenCalledWith('op-001', { incidentId: 'inc-001' });
+    expect(api.listSearchHistorySummaries).toHaveBeenCalledWith(OP_ID, { incidentId: INCIDENT_ID });
 
     const createHook = renderMutationHook(() => useCreateHandoverMemoMutation(api));
     createHook.result.current.mutate({
       request: {
-        incidentId: 'inc-001',
-        opId: 'op-001',
+        incidentId: INCIDENT_ID,
+        opId: OP_ID,
         memoTargetType: 'OPERATIONAL_PERIOD',
         content: 'memo',
         clientTs: '2026-05-11T10:00:00+09:00',

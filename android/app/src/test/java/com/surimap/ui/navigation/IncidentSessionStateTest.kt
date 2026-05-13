@@ -1,7 +1,12 @@
 package com.surimap.ui.navigation
 
+import com.surimap.testing.dutyShiftIdFixture
+import com.surimap.testing.incidentIdFixture
+import com.surimap.testing.opIdFixture
+import com.surimap.testing.policePhoneIdFixture
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Test
 
 class IncidentSessionStateTest {
@@ -11,9 +16,9 @@ class IncidentSessionStateTest {
         assertNull(state.incidentContext)
 
         val context = IncidentContext(
-            incidentId = "inc-precinct-first-001",
-            currentOpId = "op-precinct-001-op1",
-            currentDutyShiftId = "shift-precinct-op1-001"
+            incidentId = INCIDENT_ID,
+            currentOpId = OP_ID,
+            currentDutyShiftId = DUTY_SHIFT_ID
         )
         state.activateIncidentContext(context)
         assertEquals(context, state.incidentContext)
@@ -25,11 +30,38 @@ class IncidentSessionStateTest {
     @Test
     fun incidentContextIsActivityScopedStateAndDoesNotRequirePersistenceFields() {
         val restoredAtActivityScope = IncidentSessionState(
-            initialIncidentContext = IncidentContext(incidentId = "inc-precinct-first-001")
+            initialIncidentContext = IncidentContext(incidentId = INCIDENT_ID)
         )
 
-        assertEquals("inc-precinct-first-001", restoredAtActivityScope.incidentContext?.incidentId)
+        assertEquals(INCIDENT_ID, restoredAtActivityScope.incidentContext?.incidentId)
         assertNull(restoredAtActivityScope.incidentContext?.currentOpId)
         assertNull(restoredAtActivityScope.incidentContext?.currentDutyShiftId)
+    }
+
+    @Test
+    fun policePhoneContextSurvivesIncidentContextClearForApiWiring() {
+        val phoneContext =
+            PolicePhoneContext(
+                policePhoneId = POLICE_PHONE_ID,
+                apiBaseUrl = "https://suri-map.internal/api",
+                tileBaseUrl = "https://suri-map.internal/tiles",
+                objectStorageBaseUrl = "https://suri-map.internal/objects",
+                allowedHosts = setOf("suri-map.internal")
+            )
+        val state = IncidentSessionState()
+
+        state.activatePolicePhoneContext(phoneContext)
+        state.activateIncidentContext(IncidentContext(incidentId = INCIDENT_ID))
+        state.clearIncidentContext()
+
+        assertNull(state.incidentContext)
+        assertSame(phoneContext, state.policePhoneContext)
+    }
+
+    private companion object {
+        val INCIDENT_ID = incidentIdFixture("precinct-first-001")
+        val OP_ID = opIdFixture("precinct-001-op1")
+        val DUTY_SHIFT_ID = dutyShiftIdFixture("precinct-op1-001")
+        val POLICE_PHONE_ID = policePhoneIdFixture("precinct-car-01")
     }
 }

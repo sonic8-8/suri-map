@@ -68,6 +68,6 @@ class SearchPathStartedContractTest {
         SearchPathFixtures.OP1_ID,
         SearchPathFixtures.POLICE_PHONE_ID,
         Instant.now(),
-        null);
+        "idem-path-start-contract");
   }
 }

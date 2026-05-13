@@ -78,7 +78,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Request: `accountCode`, `password`, `channel`, optional `policePhoneCode`
 - Response: `200 {sessionId, accessToken, securityContext}`
 - Errors: `channel_not_allowed`
-- Note: 인증 세션을 발급한다. URL은 `sessions`로 바꾸지 않는다.
+- Note: 인증 세션을 발급한다. URL은 `sessions`로 바꾸지 않는다. `accountCode`/`policePhoneCode`는 사람이 입력하거나 fixture가 참조하는 문자열 코드이고, `securityContext.accountId`는 내부 `account.id` UUID 문자열이다.
 
 #### POST `/api/auth/logout`
 
@@ -270,7 +270,8 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Idempotency-Key: yes
 - Request: `incidentId`, `opId`, `pathId`, `points[]`, optional `clockOffsetMs`
 - Request limit: `points` min 2, max 120
-- Response: `200 {id, dutyShiftId, opId, policePhoneId, acceptedPointCount, excludedPointCount, excludedPoints, geometry, segments, version, status}`
+- Response: `200 {id, dutyShiftId, opId, policePhoneId, acceptedPointCount, excludedPointCount, excludedPoints[{pointId, reason, clientTs}], geometry, segments, version, status}`
+- `excludedPoints.reason`: `low_accuracy`, `clock_skew`, `invalid_speed`, `distance_jump`
 - Errors: `invalid_geometry`, `clock_skew_exceeded`, `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`, `op_required`, `op_mismatch`
 - Note: S6 Outbox `request_path`와 harness가 이 path를 기준으로 replay한다.
 
@@ -500,7 +501,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Headers: `Authorization`
 - Guard: `public-session`, `incident-read`
 - Idempotency-Key: no
-- Query: `incidentId`, optional `opId`, `policePhoneId`, `accountId`, `status`
+- Query: `incidentId`, optional `opId`, `policePhoneId`, `accountId(UUID)`, `status`
 - Response: `200 {items}`
 - Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`
 - Gap: `docs/spec/specs/S8.json`에는 상세 `api_contracts`가 아직 없다.

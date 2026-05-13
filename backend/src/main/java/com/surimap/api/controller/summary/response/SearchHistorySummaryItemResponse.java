@@ -29,15 +29,18 @@ public record SearchHistorySummaryItemResponse(
         dutyScoped ? row.dutyShiftId() : row.opId(),
         row.dutyShiftId(),
         row.status(),
-        displayStatus(row.status()),
-        "READY".equals(row.status()) ? row.content() : null,
+        displayStatus(row.status(), row.sourceReadiness()),
+        "READY".equals(row.status()) && "READY".equals(row.sourceReadiness()) ? row.content() : null,
         row.sourceReadiness(),
         row.sourceHash(),
         row.generatedAt(),
         row.version());
   }
 
-  private static String displayStatus(String status) {
+  private static String displayStatus(String status, String sourceReadiness) {
+    if ("STALE".equals(sourceReadiness)) {
+      return "LOADING";
+    }
     return switch (status) {
       case "READY" -> "READY";
       case "FAILED" -> "UNAVAILABLE";
