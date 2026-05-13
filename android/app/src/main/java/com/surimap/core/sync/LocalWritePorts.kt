@@ -1,11 +1,21 @@
 package com.surimap.core.sync
 
-interface SyncClient {
+fun interface SyncClient {
     suspend fun enqueue(writeOperation: LocalWriteOperation): EnqueueResult
 }
 
+data class OutboxReplayResult(
+    val attemptedCount: Int = 0,
+    val ackedCount: Int = 0,
+    val retryableFailureCount: Int = 0,
+    val finalFailureCount: Int = 0
+) {
+    val shouldRetry: Boolean
+        get() = retryableFailureCount > 0
+}
+
 interface OutboxReplay {
-    suspend fun flushPending(policePhoneId: String, incidentId: String)
+    suspend fun flushPending(policePhoneId: String, incidentId: String): OutboxReplayResult
 }
 
 interface OutboxRequeue {

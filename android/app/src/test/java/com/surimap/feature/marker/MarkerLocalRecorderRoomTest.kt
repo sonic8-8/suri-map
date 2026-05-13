@@ -4,9 +4,12 @@ import androidx.room.Room
 import com.surimap.core.database.SuriMapDatabase
 import com.surimap.core.sync.HarnessSyncStatus
 import com.surimap.core.sync.NoopOutboxSender
+import com.surimap.core.sync.OutboxSender
 import com.surimap.core.sync.OutboxStatus
 import com.surimap.core.sync.RoomOutboxReplay
 import com.surimap.core.sync.RoomSyncClient
+import com.surimap.core.sync.SendResult
+import com.surimap.core.sync.SyncClient
 import com.surimap.feature.marker.data.MarkerLocation
 import com.surimap.feature.marker.data.MarkerPhotoAttachInput
 import com.surimap.feature.marker.data.MarkerPhotoUploadUrlInput
@@ -170,6 +173,74 @@ class MarkerLocalRecorderRoomTest {
         assertEquals(126.9565, pendingMarkers.single().lon, 0.0)
         assertEquals(37.5712, pendingMarkers.single().lat, 0.0)
         assertEquals("PENDING_SEND", pendingMarkers.single().syncStatus)
+    }
+
+    @Test
+    fun markerCreateReplayMarksLocalMarkerSynced() = runBlocking {
+        val replayableClientTs = Instant.ofEpochMilli(System.currentTimeMillis())
+        val recorder =
+            MarkerLocalRecorder(
+                syncClient = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()),
+                localMarkerDao = database.localMarkerDao(),
+                now = { replayableClientTs },
+                sequenceSource = sequenceSource(80),
+                idFactory = idFactory()
+            )
+        val create =
+            recorder.createMarker(
+                context = CONTEXT,
+                input = MarkerUpsertInput(type = "CLUE", location = LOCATION, memo = "등산로 입구 제보")
+            ) as MarkerWriteResult.Enqueued
+        val replay =
+            RoomOutboxReplay(
+                database.outboxDao(),
+                OutboxSender { SendResult.ACKED }
+            )
+
+        replay.flushPending(policePhoneId = POLICE_PHONE_ID, incidentId = INCIDENT_ID)
+
+        val row = database.outboxDao().findByIncidentId(INCIDENT_ID).single()
+        assertEquals("ACKED", row.idempotencyStatus)
+        assertEquals("SYNCED", row.localMirrorStatus)
+        assertEquals("SYNCED", database.localMarkerDao().findById(create.operationId)!!.syncStatus)
+        assertTrue(database.localMarkerDao().findPendingByIncidentAndPolicePhone(INCIDENT_ID, POLICE_PHONE_ID).isEmpty())
+    }
+
+    @Test
+    fun markerCreateKeepsLocalMarkerSyncedWhenReplayAcksBeforeLocalMarkerInsert() = runBlocking {
+        val replayableClientTs = Instant.ofEpochMilli(System.currentTimeMillis())
+        val roomSyncClient = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao())
+        val replay =
+            RoomOutboxReplay(
+                database.outboxDao(),
+                OutboxSender { SendResult.ACKED }
+            )
+        val replayBeforeLocalMarkerInsert =
+            SyncClient { writeOperation ->
+                val result = roomSyncClient.enqueue(writeOperation)
+                replay.flushPending(policePhoneId = POLICE_PHONE_ID, incidentId = INCIDENT_ID)
+                result
+            }
+        val recorder =
+            MarkerLocalRecorder(
+                syncClient = replayBeforeLocalMarkerInsert,
+                localMarkerDao = database.localMarkerDao(),
+                now = { replayableClientTs },
+                sequenceSource = sequenceSource(90),
+                idFactory = idFactory()
+            )
+
+        val create =
+            recorder.createMarker(
+                context = CONTEXT,
+                input = MarkerUpsertInput(type = "CLUE", location = LOCATION, memo = "등산로 입구 제보")
+            ) as MarkerWriteResult.Enqueued
+
+        val row = database.outboxDao().findByIncidentId(INCIDENT_ID).single()
+        assertEquals("ACKED", row.idempotencyStatus)
+        assertEquals("SYNCED", row.localMirrorStatus)
+        assertEquals("SYNCED", database.localMarkerDao().findById(create.operationId)!!.syncStatus)
+        assertTrue(database.localMarkerDao().findPendingByIncidentAndPolicePhone(INCIDENT_ID, POLICE_PHONE_ID).isEmpty())
     }
 
     private fun sequenceSource(first: Long): () -> Long {

@@ -40,7 +40,9 @@ import com.surimap.core.operationalperiod.OperationalPeriodReadRepository
 import com.surimap.core.operationalperiod.SearchHistorySummaryReadRepository
 import com.surimap.core.path.SearchPathRepository
 import com.surimap.core.searcharea.SearchAreaReadRepository
+import com.surimap.core.sync.OutboxReplayScheduler
 import com.surimap.core.sync.RoomSyncClient
+import com.surimap.core.sync.SchedulingSyncClient
 import com.surimap.feature.bootstrap.data.AndroidManagedConfigurationReader
 import com.surimap.feature.bootstrap.data.AuthBootstrapCoordinator
 import com.surimap.feature.bootstrap.data.AuthBootstrapServerCheck
@@ -97,6 +99,7 @@ import com.surimap.ui.navigation.PolicePhoneRoute
 import com.surimap.ui.navigation.SearchMapDeepLink
 import com.surimap.ui.navigation.accessTokenProvider
 import com.surimap.ui.theme.PoliBgBase
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 
@@ -268,7 +271,18 @@ private fun HandoverMemoRoute(
     val sessionContext = incidentContext.toHandoverSessionContext(policePhoneContext)
     val context = LocalContext.current.applicationContext
     val database = remember(context) { SuriMapDatabaseProvider.database(context) }
-    val syncClient = remember(database) { RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()) }
+    val outboxReplayScheduler = remember(context) {
+        OutboxReplayScheduler(WorkManager.getInstance(context))
+    }
+    val syncClient =
+        remember(database, outboxReplayScheduler, policePhoneContext?.apiBaseUrl, policePhoneContext?.accessToken) {
+            SchedulingSyncClient(
+                delegate = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()),
+                scheduleReplay = outboxReplayScheduler::schedule,
+                apiBaseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL,
+                accessToken = policePhoneContext?.accessToken
+            )
+        }
     val recorder = remember(syncClient) { HandoverMemoLocalRecorder(syncClient = syncClient) }
     val coroutineScope = rememberCoroutineScope()
     var memoState by remember(sessionContext) {
@@ -321,7 +335,18 @@ private fun SearchMapRoute(
     val outboxDao = remember(database) { database.outboxDao() }
     val sessionContext = incidentContext.toSearchMapSessionContext(policePhoneContext)
     val accessTokenProvider = policePhoneContext.accessTokenProvider()
-    val syncClient = remember(database) { RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()) }
+    val outboxReplayScheduler = remember(context) {
+        OutboxReplayScheduler(WorkManager.getInstance(context))
+    }
+    val syncClient =
+        remember(database, outboxReplayScheduler, policePhoneContext?.apiBaseUrl, policePhoneContext?.accessToken) {
+            SchedulingSyncClient(
+                delegate = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()),
+                scheduleReplay = outboxReplayScheduler::schedule,
+                apiBaseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL,
+                accessToken = policePhoneContext?.accessToken
+            )
+        }
     val searchPathRecorder = remember(syncClient) {
         SearchPathLocalRecorder(
             syncClient = syncClient
@@ -403,7 +428,15 @@ private fun SearchMapRoute(
 
     LaunchedEffect(loader, sessionContext, focusMarkerId) {
         searchMapState = loader.fallback(sessionContext).withFocusedMarker(focusMarkerId)
-        searchMapState = loader.load(sessionContext).withFocusedMarker(focusMarkerId)
+        val incidentId = sessionContext.incidentId?.takeIf(String::isNotBlank)
+        val policePhoneId = sessionContext.policePhoneId?.takeIf(String::isNotBlank)
+        if (incidentId == null || policePhoneId == null) {
+            searchMapState = loader.load(sessionContext).withFocusedMarker(focusMarkerId)
+            return@LaunchedEffect
+        }
+        outboxDao.observeStatusSummary(incidentId = incidentId, policePhoneId = policePhoneId).collect {
+            searchMapState = loader.load(sessionContext).withFocusedMarker(focusMarkerId)
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
