@@ -18,6 +18,7 @@ convergence evidence.
 | Checked at | `2026-05-14T02:55:00+09:00` |
 | Required sources | `docs/prd.md §2.2`, `docs/prd.md §2.3`, `docs/spec/harness-scenarios.md §2 SC-05`, `docs/spec/harness-scenarios.md §2 SC-07`, `docs/spec/harness-scenarios.md §2 SC-09` |
 | Execution protocol | `docs/tasks/l4-network-switch-stability-protocol.md` |
+| Runtime preflight | `python3 docs/tasks/check_l4_d01_runtime_preflight.py --adb <adb-path>` |
 
 ## Evidence Sink Check
 
@@ -114,6 +115,11 @@ Run `docs/tasks/l4-network-switch-stability-protocol.md` on 실제 장치 with t
 Android PolicePhone devices and one board session when the second physical
 device becomes available. Do not check L4-D01 complete until the full execution
 artifacts are captured in the repository or attached to Jira.
+
+Before starting the final run, execute
+`python3 docs/tasks/check_l4_d01_runtime_preflight.py --adb <adb-path>` and
+confirm it reports at least two ready physical Android devices. If it reports
+`BLOCKED`, the run can only be recorded as partial rehearsal evidence.
 
 ## Completion Verdict
 
