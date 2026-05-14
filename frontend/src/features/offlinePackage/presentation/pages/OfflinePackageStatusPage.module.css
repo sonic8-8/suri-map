@@ -1,5 +1,9 @@
 .page {
-  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
   color: var(--suri-board-fg-primary);
   background: var(--suri-board-page-bg);
 }
@@ -42,8 +46,37 @@
 
 .contentStack {
   display: grid;
+  flex: 1 1 auto;
   gap: 24px;
+  min-height: 0;
   padding: 24px;
+  padding-right: 19px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-color: var(--suri-board-left-scrollbar-thumb) var(--suri-board-left-scrollbar-track);
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+.contentStack::-webkit-scrollbar {
+  width: 10px;
+}
+
+.contentStack::-webkit-scrollbar-track {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.contentStack::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--suri-board-left-scrollbar-thumb);
+  background-clip: content-box;
+}
+
+.contentStack::-webkit-scrollbar-thumb:hover {
+  background: var(--suri-board-left-scrollbar-thumb-hover);
 }
 
 .content {
@@ -142,6 +175,31 @@
   border: 1px solid var(--suri-board-border);
   border-radius: 8px;
   background: var(--suri-board-panel-bg);
+  scrollbar-color: var(--suri-board-left-scrollbar-thumb) var(--suri-board-left-scrollbar-track);
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+.tableShell::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.tableShell::-webkit-scrollbar-track {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.tableShell::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--suri-board-left-scrollbar-thumb);
+  background-clip: content-box;
+}
+
+.tableShell::-webkit-scrollbar-thumb:hover {
+  background: var(--suri-board-left-scrollbar-thumb-hover);
 }
 
 .statusTable {
@@ -181,6 +239,61 @@
   margin-top: 4px;
   color: var(--suri-board-fg-muted);
   font-size: 12px;
+}
+
+.statusTable td .packageStatusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  min-width: auto;
+  min-height: 30px;
+  margin-top: 0;
+  padding: 6px 12px;
+  border-color: var(--package-status-border);
+  color: var(--package-status-fg);
+  background: var(--package-status-bg);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.statusTable td .packageStatusBadge::before {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--package-status-fg);
+  content: "";
+}
+
+.packageStatusBadgeActive {
+  --package-status-fg: #8dffa9;
+  --package-status-border: rgba(36, 225, 119, 0.58);
+  --package-status-bg: rgba(35, 87, 58, 0.16);
+}
+
+.packageStatusBadgeWaiting {
+  --package-status-fg: #fde68a;
+  --package-status-border: rgba(250, 204, 21, 0.45);
+  --package-status-bg: rgba(113, 63, 18, 0.22);
+}
+
+.packageStatusBadgeDanger {
+  --package-status-fg: #ff9b9b;
+  --package-status-border: rgba(239, 68, 68, 0.52);
+  --package-status-bg: rgba(127, 29, 29, 0.22);
+}
+
+.packageStatusBadgeClosed {
+  --package-status-fg: #d2d8df;
+  --package-status-border: rgba(174, 184, 194, 0.42);
+  --package-status-bg: rgba(112, 122, 132, 0.18);
+}
+
+.packageStatusBadgeNeutral {
+  --package-status-fg: var(--suri-board-fg-secondary);
+  --package-status-border: var(--suri-board-border);
+  --package-status-bg: rgba(125, 139, 153, 0.12);
 }
 
 .emptyState {
