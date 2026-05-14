@@ -292,6 +292,7 @@ fun SearchMapScreen(
     onOpenBlockedOutbox: () -> Unit,
     onDismissIncidentAlert: () -> Unit,
     onOpenIncidentAlertMarker: (String) -> Unit,
+    onOpenFocusedMarkerDetail: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxSize().background(PoliBgBase)) {
@@ -330,6 +331,7 @@ fun SearchMapScreen(
             SearchMapShell(
                 state = state,
                 mapState = mapState,
+                onOpenFocusedMarkerDetail = onOpenFocusedMarkerDetail,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -384,6 +386,7 @@ private fun BlockedOutboxNotice(state: SearchMapUiState, onOpenBlockedOutbox: ()
 private fun SearchMapShell(
     state: SearchMapUiState,
     mapState: MapLibreRuntimeMapState,
+    onOpenFocusedMarkerDetail: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var mapLoadFailure by remember { mutableStateOf<String?>(null) }
@@ -402,6 +405,14 @@ private fun SearchMapShell(
         ) {
             state.markerFocusLabel?.let { focusLabel ->
                 PoliChip(text = focusLabel, variant = PoliChipVariant.Bad)
+            }
+            state.focusedMarkerId?.takeIf(String::isNotBlank)?.let { markerId ->
+                PoliButton(
+                    text = "마커 상세",
+                    onClick = { onOpenFocusedMarkerDetail(markerId) },
+                    size = PoliButtonSize.Small,
+                    variant = PoliButtonVariant.Secondary
+                )
             }
             state.layers.forEach { layer ->
                 PoliChip(
@@ -642,7 +653,8 @@ private fun SearchMapScreenPreview() {
             onOpenHandover = {},
             onOpenBlockedOutbox = {},
             onDismissIncidentAlert = {},
-            onOpenIncidentAlertMarker = {}
+            onOpenIncidentAlertMarker = {},
+            onOpenFocusedMarkerDetail = {}
         )
     }
 }
