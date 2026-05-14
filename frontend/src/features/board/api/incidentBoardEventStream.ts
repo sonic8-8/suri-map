@@ -1,4 +1,5 @@
 import { getApiBaseUrl } from '../../../shared/config';
+import { isMockApiMode } from '../../../shared/api/client';
 
 export interface BoardEventEnvelope {
   readonly eventId: string;
@@ -49,6 +50,16 @@ export function buildIncidentBoardEventStreamUrl(baseUrl: string, incidentId: st
 export function openIncidentBoardEventStream(
   options: OpenIncidentBoardEventStreamOptions,
 ): IncidentBoardEventStreamSubscription {
+  if (isMockApiMode()) {
+    let closeSubscription: (() => void) | null = null;
+    return {
+      closed: new Promise<void>((resolve) => {
+        closeSubscription = resolve;
+      }),
+      close: () => closeSubscription?.(),
+    };
+  }
+
   const abortController = new AbortController();
   const abortFromSignal = () => abortController.abort(options.signal?.reason);
   options.signal?.addEventListener('abort', abortFromSignal, { once: true });

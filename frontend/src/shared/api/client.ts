@@ -1,4 +1,7 @@
 import { getApiBaseUrl } from '../config';
+import { mockApiClient } from './mockApiClient';
+
+const USE_MOCK_API = true; // TODO: 백엔드 API 연결로 돌아갈 때 false로 변경한다.
 
 export type ApiErrorBody = {
   error?: string;
@@ -116,7 +119,7 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
       throw new ApiNetworkError(error);
     }
 
-    if (response.status === 401) {
+    if (response.status === 401 && !isMockApiMode()) {
       clearExpiredApiSession();
     }
     return parseResponse<TResponse>(response);
@@ -133,9 +136,15 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
   };
 }
 
-export const apiClient = createApiClient({
+export function isMockApiMode() {
+  return USE_MOCK_API;
+}
+
+const realApiClient = createApiClient({
   getAccessToken: getStoredAccessToken,
 });
+
+export const apiClient = isMockApiMode() ? mockApiClient : realApiClient;
 
 export async function apiRequest<TResponse>(path: string, options: ApiRequestOptions = {}): Promise<TResponse> {
   try {
