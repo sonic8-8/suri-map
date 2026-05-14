@@ -7,6 +7,8 @@ type MapLibreTransformRequest = (url: string, resourceType?: string) => unknown;
 
 type MockMapOptions = {
   readonly style?: unknown;
+  readonly center?: unknown;
+  readonly zoom?: unknown;
   readonly attributionControl?: unknown;
   readonly transformRequest?: MapLibreTransformRequest;
 };
@@ -92,12 +94,16 @@ describe('L6-T08B BoardMapRoot local MapLibre style contract', () => {
     const mapOptions = await getOnlyMapOptions();
 
     expect(mapOptions.style).toBe('/tiles/styles/osm-local.json');
+    expect(mapOptions.center).toEqual([126.8481, 35.1603]);
+    expect(mapOptions.zoom).toBe(16);
     expect(mapOptions.attributionControl).toBe(false);
     expect(mapOptions.transformRequest).toEqual(expect.any(Function));
 
     const transformRequest = mapOptions.transformRequest;
     expect(transformRequest?.('/tiles/styles/osm-local.json', 'Style')).toBeTruthy();
     expect(transformRequest?.('/tiles/osm-local/15/27925/12680.pbf', 'Tile')).toBeTruthy();
+    expect(transformRequest?.('/tiles/gwangju-building-labels/16/55877/25377.pbf', 'Tile')).toBeTruthy();
+    expect(transformRequest?.('/tiles/fonts/Noto%20Sans%20CJK%20KR%20Regular/0-255.pbf', 'Glyphs')).toBeTruthy();
   });
 
   test('adds required WEB headers to allowed local S7 style and tile requests', async () => {
@@ -118,6 +124,20 @@ describe('L6-T08B BoardMapRoot local MapLibre style contract', () => {
     });
     expect(transformRequest?.('/tiles/osm-local/15/27925/12680.pbf', 'Tile')).toMatchObject({
       url: '/tiles/osm-local/15/27925/12680.pbf',
+      headers: {
+        Authorization: 'Bearer board-map-access-token',
+        'X-Client-Channel': 'WEB',
+      },
+    });
+    expect(transformRequest?.('/tiles/gwangju-building-labels/16/55877/25377.pbf', 'Tile')).toMatchObject({
+      url: '/tiles/gwangju-building-labels/16/55877/25377.pbf',
+      headers: {
+        Authorization: 'Bearer board-map-access-token',
+        'X-Client-Channel': 'WEB',
+      },
+    });
+    expect(transformRequest?.('/tiles/fonts/Noto%20Sans%20CJK%20KR%20Regular/0-255.pbf', 'Glyphs')).toMatchObject({
+      url: '/tiles/fonts/Noto%20Sans%20CJK%20KR%20Regular/0-255.pbf',
       headers: {
         Authorization: 'Bearer board-map-access-token',
         'X-Client-Channel': 'WEB',
@@ -161,6 +181,9 @@ describe('L6-T08B BoardMapRoot local MapLibre style contract', () => {
     expect(() => transformRequest?.('/tiles/osm-local/15/27925/12680.pbf', 'Source')).toThrow(
       /non-local tile resource/i,
     );
+    expect(() => transformRequest?.('/tiles/fonts/Noto%20Sans%20CJK%20KR%20Regular/0-255.pbf', 'Source')).toThrow(
+      /non-local tile resource/i,
+    );
     expect(() => transformRequest?.('/sprites/local.json', 'SpriteJSON')).toThrow(/non-local tile/i);
   });
 
@@ -175,10 +198,29 @@ describe('L6-T08B BoardMapRoot local MapLibre style contract', () => {
       '/tiles/osm-local/fonts/foo.pbf',
       '/tiles/osm-local/15/27925/foo.pbf',
       '/tiles/osm-local/15/27925/12680.png',
+      '/tiles/gwangju-building-labels/16/55877/25377.png',
     ];
 
     for (const malformedLocalTilePath of malformedLocalTilePaths) {
       expect(() => transformRequest?.(malformedLocalTilePath, 'Tile')).toThrow(/non-local tile/i);
+    }
+  });
+
+  test('rejects malformed local glyph paths inside the S7 tile prefix', async () => {
+    render(<BoardMapRoot />);
+
+    const mapOptions = await getOnlyMapOptions();
+    expect(mapOptions.transformRequest).toEqual(expect.any(Function));
+
+    const transformRequest = mapOptions.transformRequest;
+    const malformedLocalGlyphPaths = [
+      '/tiles/fonts/Noto%20Sans%20CJK%20KR%20Regular/foo.pbf',
+      '/tiles/fonts/Noto%20Sans%20CJK%20KR%20Regular/0-255.png',
+      '/tiles/fonts/Noto%20Sans%20CJK%20KR%20Regular/0/255.pbf',
+    ];
+
+    for (const malformedLocalGlyphPath of malformedLocalGlyphPaths) {
+      expect(() => transformRequest?.(malformedLocalGlyphPath, 'Glyphs')).toThrow(/non-local glyph/i);
     }
   });
 

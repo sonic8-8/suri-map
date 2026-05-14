@@ -451,6 +451,9 @@
                     "type": "string"
                   }
                 }
+              },
+              "glyphs": {
+                "type": "string"
               }
             }
           }
@@ -491,6 +494,46 @@
             },
             "y": {
               "type": "integer"
+            }
+          }
+        },
+        "response_schema": {
+          "200": {
+            "type": "string",
+            "contentEncoding": "binary",
+            "contentMediaType": "application/x-protobuf"
+          }
+        },
+        "errors": [
+          {
+            "code": 403,
+            "case": "channel_not_allowed",
+            "body": "{\"error\": \"channel_not_allowed\"}"
+          },
+          {
+            "code": 503,
+            "case": "tile_unavailable",
+            "body": "{\"error\": \"tile_unavailable\"}"
+          }
+        ]
+      },
+      {
+        "method": "GET",
+        "path": "/tiles/fonts/{fontStack}/{range}.pbf",
+        "summary": "MapLibre glyph PBF 제공",
+        "auth": "guard alias public-session over tile HTTPS",
+        "idempotent": true,
+        "required_headers": [
+          "Authorization"
+        ],
+        "request_schema": {
+          "type": "object",
+          "properties": {
+            "fontStack": {
+              "type": "string"
+            },
+            "range": {
+              "type": "string"
             }
           }
         },

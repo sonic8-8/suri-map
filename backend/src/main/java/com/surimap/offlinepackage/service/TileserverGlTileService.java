@@ -72,6 +72,25 @@ public class TileserverGlTileService implements TileService {
     }
   }
 
+  @Override
+  public TileBlobResponse getGlyph(String fontStack, String range) {
+    try {
+      ResponseEntity<byte[]> response =
+          restTemplate.exchange(
+              properties.glyphUri(fontStack, range), HttpMethod.GET, null, byte[].class);
+      byte[] body = response.getBody();
+      if (!response.getStatusCode().is2xxSuccessful() || body == null) {
+        throw new TileUnavailableException();
+      }
+      MediaType contentType = response.getHeaders().getContentType();
+      String contentEncoding = response.getHeaders().getFirst(HttpHeaders.CONTENT_ENCODING);
+      return new TileBlobResponse(
+          contentType == null ? APPLICATION_X_PROTOBUF : contentType, body, contentEncoding);
+    } catch (RestClientException | IllegalArgumentException exception) {
+      throw new TileUnavailableException();
+    }
+  }
+
   @SuppressWarnings("unchecked")
   private static TileStyleResponse styleResponse(Map<String, Object> body) {
     Object versionValue = body.get("version");
@@ -87,8 +106,9 @@ public class TileserverGlTileService implements TileService {
     if (sources == null || layers == null) {
       throw new TileUnavailableException();
     }
+    String glyphs = glyphUrl(body.get("glyphs"));
     validateLocalTileSources(sources);
-    return new TileStyleResponse(version.intValue(), sources, layers, metadata);
+    return new TileStyleResponse(version.intValue(), sources, layers, metadata, glyphs);
   }
 
   private static void validateLocalTileSources(Map<String, ?> sources) {
@@ -106,5 +126,15 @@ public class TileserverGlTileService implements TileService {
         }
       }
     }
+  }
+
+  private static String glyphUrl(Object glyphs) {
+    if (glyphs == null) {
+      return null;
+    }
+    if (!(glyphs instanceof String glyphUrl) || !glyphUrl.startsWith("/tiles/fonts/")) {
+      throw new TileUnavailableException();
+    }
+    return glyphUrl;
   }
 }

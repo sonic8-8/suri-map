@@ -77,6 +77,7 @@
 | `GET /api/operational-periods/{operationalPeriodId}/search-history-summaries` | S8 | 부분 | `SearchHistorySummaryController`, MyBatis read mapper, Web/Android read client, 서버 내부 generation enqueue 추가 | provider 실행과 READY/FAILED 전환, STALE 재생성 계산 보강 |
 | `GET /tiles/styles/{styleId}.json` | S7 | 구현 | `TileController` | FE `/tiles` proxy와 Android MapLibre style client 추가됨 |
 | `GET /tiles/{style}/{z}/{x}/{y}.pbf` | S7 | 구현 | `TileController` | Android MapLibre tile request header adapter 추가됨 |
+| `GET /tiles/fonts/{fontStack}/{range}.pbf` | S7 | 구현 | `TileController` | FE/Android MapLibre glyph request header adapter 추가됨 |
 
 ## Frontend Headless 현황
 

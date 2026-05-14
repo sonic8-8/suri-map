@@ -814,6 +814,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 - MapLibre style
 - `GET /tiles/{style}/{z}/{x}/{y}.pbf`
 - `GET /tiles/styles/{styleId}.json`
+- `GET /tiles/fonts/{fontStack}/{range}.pbf`
 - `GET /api/incidents/{incidentId}/offline-package/manifest`
 - `POST /api/incidents/{incidentId}/offline-package/installations`
 
@@ -1222,6 +1223,7 @@ Guard shorthand:
 | `POST /api/sync/outbox/requeue` | S6 | 앱 local retry scheduler | HTTPS | `app-police-phone` | - |
 | `GET /tiles/{style}/{z}/{x}/{y}.pbf` | S7 | 앱, 웹 MapLibre | tile HTTPS | `public-session` | - |
 | `GET /tiles/styles/{styleId}.json` | S7 | 앱, 웹 MapLibre | tile HTTPS | `public-session` | - |
+| `GET /tiles/fonts/{fontStack}/{range}.pbf` | S7 | 앱, 웹 MapLibre | tile HTTPS | `public-session` | - |
 | `GET /api/incidents/{incidentId}/offline-package/manifest` | S7 | 앱, S3-2 | HTTPS | `public-session`, `incident-read`; 앱 package fetch는 `@RequirePolicePhone`, `@RequirePolicePhoneRegistered`, `@RequirePolicePhoneAssigned` -> `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned` | - |
 | `POST /api/incidents/{incidentId}/offline-package/installations` | S7 | 앱 | HTTPS | `app-police-phone`, `incident-read`, `write-common` | `internal-caller`: outbox replay |
 | `POST /api/operational-periods` | S8 | 웹 | HTTPS | `web-command`, `incident-read`, `write-common` | `internal-caller`: OP bootstrap |

@@ -595,6 +595,16 @@ Tileserver는 Spring Boot JSON API가 아니므로 `/api` prefix를 붙이지 �
 - Response: `200 application/x-protobuf`
 - Errors: `channel_not_allowed`, `tile_unavailable`
 
+#### GET `/tiles/fonts/{fontStack}/{range}.pbf`
+
+- Owner: S7
+- Source spec: `GET /tiles/fonts/{fontStack}/{range}.pbf`
+- Consumer: APP, WEB MapLibre
+- Headers: `Authorization`
+- Guard: `public-session` over tile HTTPS
+- Response: `200 application/x-protobuf`
+- Errors: `channel_not_allowed`, `tile_unavailable`
+
 ## 5. Public API 제외 항목
 
 `docs/spec/specs/S1-3.json`의 아래 계약은 public HTTP API가 아니다.

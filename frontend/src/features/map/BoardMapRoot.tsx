@@ -9,9 +9,12 @@ const tileBaseOrigin = tileBaseUrlObject.origin;
 const tileBasePath = tileBaseUrlObject.pathname.replace(/\/+$/, '') || '/tiles';
 const boardMapStyleUrl = `${tileBaseUrl}/styles/osm-local.json`;
 const boardMapStylePath = `${tileBasePath}/styles/osm-local.json`;
+const gwangjuDemoCenter: [number, number] = [126.8481, 35.1603];
+const gwangjuDemoZoom = 16;
 const localVectorTilePathPattern = new RegExp(
-  `^${escapeRegExp(tileBasePath)}/osm-local/\\d+/\\d+/\\d+\\.pbf$`,
+  `^${escapeRegExp(tileBasePath)}/(?:osm-local|gwangju-building-labels)/\\d+/\\d+/\\d+\\.pbf$`,
 );
+const localGlyphPathPattern = new RegExp(`^${escapeRegExp(tileBasePath)}/fonts/[^/]+/\\d+-\\d+\\.pbf$`);
 const browserAccessTokenStorageKeys = ['accessToken', 'access_token', 'suriMapAccessToken'];
 
 function readBoardMapAccessToken() {
@@ -61,6 +64,14 @@ function transformLocalTileRequest(url: string, resourceType?: string) {
     return { url, headers: buildWebTileRequestHeaders() };
   }
 
+  if (resourceType === 'Glyphs') {
+    if (!localGlyphPathPattern.test(requestUrl.pathname)) {
+      throw new Error(`non-local glyph rejected: ${url}`);
+    }
+
+    return { url, headers: buildWebTileRequestHeaders() };
+  }
+
   throw new Error(`non-local tile resource rejected: ${url}`);
 }
 
@@ -77,8 +88,8 @@ export function BoardMapRoot() {
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
       style: boardMapStyleUrl,
-      center: [126.9565, 37.5712],
-      zoom: 13,
+      center: gwangjuDemoCenter,
+      zoom: gwangjuDemoZoom,
       attributionControl: false,
       transformRequest: transformLocalTileRequest,
     });

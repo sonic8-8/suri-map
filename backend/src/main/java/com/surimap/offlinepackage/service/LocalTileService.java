@@ -141,6 +141,11 @@ public class LocalTileService implements TileService {
     return new TileBlobResponse(APPLICATION_X_PROTOBUF, bytes);
   }
 
+  @Override
+  public TileBlobResponse getGlyph(String fontStack, String range) {
+    throw new TileUnavailableException();
+  }
+
   public static List<LocalTileMetadata> manifestTiles() {
     return List.of(
         localTileMetadata(TILE_15_27925_12680),

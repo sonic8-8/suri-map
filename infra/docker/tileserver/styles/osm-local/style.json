@@ -2,8 +2,9 @@
   "version": 8,
   "name": "Suri-Map OSM Local",
   "metadata": {
-    "attribution": "OpenStreetMap contributors / OpenMapTiles"
+    "attribution": "OpenStreetMap contributors / OpenMapTiles / Gwangju continuous digital topographic map"
   },
+  "glyphs": "/tiles/fonts/{fontstack}/{range}.pbf",
   "sources": {
     "osm-local": {
       "type": "vector",
@@ -13,6 +14,15 @@
       "minzoom": 0,
       "maxzoom": 16,
       "attribution": "OpenStreetMap contributors / OpenMapTiles"
+    },
+    "gwangju-building-labels": {
+      "type": "vector",
+      "tiles": [
+        "/tiles/gwangju-building-labels/{z}/{x}/{y}.pbf"
+      ],
+      "minzoom": 16,
+      "maxzoom": 16,
+      "attribution": "Gwangju continuous digital topographic map"
     }
   },
   "layers": [
@@ -72,6 +82,48 @@
       "paint": {
         "line-color": "#ffffff",
         "line-width": 1.2
+      }
+    },
+    {
+      "id": "gwangju-building-name-label",
+      "type": "symbol",
+      "source": "gwangju-building-labels",
+      "source-layer": "building_labels",
+      "minzoom": 16,
+      "filter": [
+        "has",
+        "name"
+      ],
+      "layout": {
+        "text-field": [
+          "get",
+          "name"
+        ],
+        "text-font": [
+          "Noto Sans CJK KR Regular"
+        ],
+        "text-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          16,
+          10,
+          18,
+          13
+        ],
+        "text-anchor": "center",
+        "text-allow-overlap": false,
+        "text-ignore-placement": false,
+        "text-optional": true
+      },
+      "paint": {
+        "text-color": "#253238",
+        "text-halo-color": "rgba(255, 255, 255, 0.88)",
+        "text-halo-width": 1.2
       }
     }
   ]

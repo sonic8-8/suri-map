@@ -1,27 +1,40 @@
 package com.surimap.offlinepackage.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class TileStyleResponse {
 
   private final int version;
   private final Map<String, Object> sources;
   private final List<Map<String, Object>> layers;
   private final Map<String, Object> metadata;
+  private final String glyphs;
 
   public TileStyleResponse(
       int version,
       Map<String, ?> sources,
       List<? extends Map<String, ?>> layers,
       Map<String, ?> metadata) {
+    this(version, sources, layers, metadata, null);
+  }
+
+  public TileStyleResponse(
+      int version,
+      Map<String, ?> sources,
+      List<? extends Map<String, ?>> layers,
+      Map<String, ?> metadata,
+      String glyphs) {
     this.version = version;
     this.sources = copyMap(sources);
     this.layers = copyLayers(layers);
     this.metadata = copyMap(metadata);
+    this.glyphs = glyphs;
   }
 
   public int getVersion() {
@@ -54,6 +67,14 @@ public class TileStyleResponse {
 
   public Map<String, Object> metadata() {
     return metadata;
+  }
+
+  public String getGlyphs() {
+    return glyphs;
+  }
+
+  public String glyphs() {
+    return glyphs;
   }
 
   private static Map<String, Object> copyMap(Map<String, ?> values) {
