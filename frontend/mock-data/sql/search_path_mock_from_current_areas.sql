@@ -2,6 +2,8 @@
 -- 기준 DB 상태:
 -- - incident_id: bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0001
 -- - op_id: bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0101
+-- - incident_assignment_id: bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0204 (account 11111111-...0004)
+-- - duty_shift_id: bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0301
 -- - 전체 수색 구역: 8aa7acce-05d8-4446-9fe4-55b256ed5d8f
 -- - UNIT 1: a9f5c92f-0cc0-4638-af8a-c4012e8993ee
 -- - UNIT 2: 058c4a50-e9f7-4517-b470-ab3cfcea2be4
@@ -27,12 +29,60 @@ WHERE id IN (
     '70000000-0000-0000-0000-000000000004'
 );
 
-INSERT INTO search_path (
+DELETE FROM duty_shift WHERE id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0301';
+
+-- duty_shift가 없으면 incident_assignment도 같이 보장한다.
+INSERT INTO incident_assignment (
     id,
     incident_id,
-    op_id,
+    account_id,
+    incident_role,
+    assigned_at,
+    created_at,
+    updated_at
+)
+VALUES (
+    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0204',
+    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0001',
+    '11111111-1111-1111-1111-111111110004',
+    'MEMBER',
+    '2026-05-11T00:00:00+09:00',
+    '2026-05-11T00:00:00+09:00',
+    '2026-05-11T00:00:00+09:00'
+)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO duty_shift (
+    id,
+    operational_period_id,
+    incident_assignment_id,
     police_phone_id,
     status,
+    started_by_account_id,
+    started_at,
+    version,
+    created_at,
+    updated_at
+)
+VALUES (
+    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0301',
+    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0101',
+    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0204',
+    '22222222-2222-2222-2222-222222220004',
+    'ACTIVE',
+    '11111111-1111-1111-1111-111111110004',
+    '2026-05-11T00:00:00+09:00',
+    1,
+    '2026-05-11T00:00:00+09:00',
+    '2026-05-11T02:05:00+09:00'
+);
+
+INSERT INTO search_path (
+    id,
+    duty_shift_id,
+    status,
+    started_at,
+    ended_at,
     geometry,
     version,
     created_at,
@@ -40,10 +90,10 @@ INSERT INTO search_path (
 ) VALUES
 (
     '70000000-0000-0000-0000-000000000001',
-    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0001',
-    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0101',
-    '22222222-2222-2222-2222-222222220004',
+    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0301',
     'ENDED',
+    '2026-05-11T00:00:00+09:00',
+    '2026-05-11T00:18:00+09:00',
     ST_SetSRID(ST_GeomFromText('LINESTRING(126.803800 35.160200,126.807900 35.164600,126.812400 35.169300,126.817400 35.174000)'), 4326),
     1,
     '2026-05-11T00:00:00+09:00',
@@ -51,10 +101,10 @@ INSERT INTO search_path (
 ),
 (
     '70000000-0000-0000-0000-000000000002',
-    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0001',
-    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0101',
-    '22222222-2222-2222-2222-222222220004',
+    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0301',
     'ENDED',
+    '2026-05-11T00:20:00+09:00',
+    '2026-05-11T01:05:00+09:00',
     ST_SetSRID(ST_GeomFromText('LINESTRING(126.817400 35.174000,126.814900 35.179300,126.811400 35.184300,126.805800 35.187000)'), 4326),
     1,
     '2026-05-11T00:20:00+09:00',
@@ -62,10 +112,10 @@ INSERT INTO search_path (
 ),
 (
     '70000000-0000-0000-0000-000000000003',
-    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0001',
-    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0101',
-    '22222222-2222-2222-2222-222222220004',
+    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0301',
     'ENDED',
+    '2026-05-11T01:10:00+09:00',
+    '2026-05-11T01:31:00+09:00',
     ST_SetSRID(ST_GeomFromText('LINESTRING(126.828000 35.161200,126.834200 35.166700,126.840300 35.172700,126.847400 35.180600)'), 4326),
     1,
     '2026-05-11T01:10:00+09:00',
@@ -73,10 +123,10 @@ INSERT INTO search_path (
 ),
 (
     '70000000-0000-0000-0000-000000000004',
-    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0001',
-    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0101',
-    '22222222-2222-2222-2222-222222220004',
+    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0301',
     'RECORDING',
+    '2026-05-11T01:35:00+09:00',
+    NULL,
     ST_SetSRID(ST_GeomFromText('LINESTRING(126.847400 35.180600,126.842200 35.185200,126.835800 35.188100,126.826500 35.188900)'), 4326),
     1,
     '2026-05-11T01:35:00+09:00',

@@ -4,7 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.surimap.api.controller.searcharea.request.CreateSearchAreaRequest;
 import com.surimap.api.controller.searcharea.request.PatchSearchAreaRequest;
+import com.surimap.api.controller.searcharea.request.SplitSearchAreaRequest;
 import com.surimap.api.controller.searcharea.response.SearchAreaResponse;
+import com.surimap.api.controller.searcharea.response.SearchAreaSplitResponse;
 import com.surimap.api.service.searcharea.SearchAreaApiService;
 import com.surimap.maparea.geometry.geojson.GeoJsonPolygon;
 import com.surimap.maparea.geometry.policy.GeometryPolicy;
@@ -23,6 +25,7 @@ class SearchAreaApiServiceQueryTest {
 
   private static final UUID INCIDENT_ID = UUID.fromString("10000000-0000-0000-0000-000000000001");
   private static final UUID OP_ID = UUID.fromString("70000000-0000-0000-0000-000000000001");
+  private static final UUID OTHER_OP_ID = UUID.fromString("70000000-0000-0000-0000-000000000002");
   private static final OffsetDateTime CLIENT_TS = OffsetDateTime.parse("2026-04-28T09:00:00+09:00");
 
   private final SearchAreaApiService service =
@@ -85,9 +88,41 @@ class SearchAreaApiServiceQueryTest {
             });
   }
 
+  @Test
+  @DisplayName("overall split uses the requested OP when the parent overall belongs to another OP")
+  void overall_split_uses_requested_op_for_children_when_parent_overall_belongs_to_another_op() {
+    SearchAreaResponse overall = service.create(overallCreateRequest(OP_ID), "idem-overall-query-003");
+
+    SearchAreaSplitResponse response =
+        service.split(
+            overall.id(),
+            new SplitSearchAreaRequest(
+                OTHER_OP_ID,
+                List.of(
+                    polygon("126.950100", "37.570100"),
+                    polygon("126.950500", "37.570100")),
+                "overall split",
+                1L,
+                CLIENT_TS.plusMinutes(21)),
+            "idem-overall-split-query-003");
+
+    assertThat(response.parent().status()).isEqualTo("ACTIVE");
+    assertThat(response.children())
+        .hasSize(2)
+        .allSatisfy(child -> assertThat(child.opId()).isEqualTo(OTHER_OP_ID));
+    assertThat(service.byOp(OTHER_OP_ID, SearchAreaFilters.empty()).areas())
+        .hasSize(2)
+        .allSatisfy(row -> assertThat(row.opId()).isEqualTo(OTHER_OP_ID));
+  }
+
   private static CreateSearchAreaRequest overallCreateRequest() {
     return new CreateSearchAreaRequest(
         INCIDENT_ID, null, "OVERALL", polygon("126.950000", "37.570000"), null, CLIENT_TS);
+  }
+
+  private static CreateSearchAreaRequest overallCreateRequest(UUID opId) {
+    return new CreateSearchAreaRequest(
+        INCIDENT_ID, opId, "OVERALL", polygon("126.950000", "37.570000"), null, CLIENT_TS);
   }
 
   private static CreateSearchAreaRequest unitCreateRequest() {
