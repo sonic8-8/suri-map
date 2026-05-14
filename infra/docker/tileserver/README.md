@@ -43,28 +43,12 @@ building_labels
 
 Each feature should be a point with at least `name`. Optional properties used
 for debugging and future styling are `ufid`, `district`, and `floor_count`.
-Generate it from the Gwangju continuous digital topographic map building layer.
-The recommended EC2 source directory is:
-
-```text
-/home/ubuntu/infra/tileserver/source/gwangju-continuous-topo
-```
-
-By default the script searches each district directory for `N3A_B0010000.shp`:
+Generate it from the Gwangju continuous digital topographic map building layer
+`N3A_B0010000` with:
 
 ```bash
 bash infra/docker/tileserver/scripts/build-gwangju-building-labels.sh \
-  /home/ubuntu/infra/tileserver/source/gwangju-continuous-topo \
-  /home/ubuntu/infra/tileserver/data
-```
-
-If the source shapefile bundle is renamed, keep the `.shp`, `.dbf`, `.shx`, and
-`.prj` base filenames identical and set the layer glob explicitly:
-
-```bash
-GWANGJU_BUILDING_LAYER_GLOB=building-labels.shp \
-bash infra/docker/tileserver/scripts/build-gwangju-building-labels.sh \
-  /home/ubuntu/infra/tileserver/source/gwangju-continuous-topo \
+  /home/ubuntu/infra/tileserver/source/gwangju-continuous-topo/광주광역시_연속수치지형도 \
   /home/ubuntu/infra/tileserver/data
 ```
 
