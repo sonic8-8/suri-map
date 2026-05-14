@@ -1,5 +1,5 @@
 import { getApiBaseUrl } from '../config';
-import { API_UNAUTHORIZED_EVENT, isMockApiMode } from './client';
+import { API_UNAUTHORIZED_EVENT, isMockAuthApiMode } from './client';
 
 export type SuriMapEventEnvelope = {
   eventId?: string;
@@ -33,17 +33,6 @@ export async function openIncidentEventStream({
   onMessage,
   signal,
 }: OpenIncidentEventStreamOptions) {
-  if (isMockApiMode()) {
-    await new Promise<void>((resolve) => {
-      if (signal.aborted) {
-        resolve();
-        return;
-      }
-      signal.addEventListener('abort', () => resolve(), { once: true });
-    });
-    return;
-  }
-
   const baseUrl = getApiBaseUrl().replace(/\/$/, '');
   const accessToken = sessionStorage.getItem('suriMapAccessToken') ?? import.meta.env.VITE_API_ACCESS_TOKEN;
   const headers: Record<string, string> = {
@@ -65,7 +54,7 @@ export async function openIncidentEventStream({
   });
 
   if (!response.ok) {
-    if (response.status === 401 && !isMockApiMode()) {
+    if (response.status === 401 && !isMockAuthApiMode()) {
       clearExpiredApiSession();
     }
     throw new Error(`event_stream_http_${response.status}`);

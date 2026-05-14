@@ -1,7 +1,7 @@
 import { getApiBaseUrl } from '../config';
-import { mockApiClient } from './mockApiClient';
+import { mockAuthApiClient } from './mockApiClient';
 
-const USE_MOCK_API = true; // TODO: 백엔드 API 연결로 돌아갈 때 false로 변경한다.
+const USE_MOCK_AUTH_API = true; // TODO: 실제 auth API로 돌아갈 때 false로 변경한다.
 
 export type ApiErrorBody = {
   error?: string;
@@ -119,7 +119,7 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
       throw new ApiNetworkError(error);
     }
 
-    if (response.status === 401 && !isMockApiMode()) {
+    if (response.status === 401 && !isMockAuthApiMode()) {
       clearExpiredApiSession();
     }
     return parseResponse<TResponse>(response);
@@ -136,15 +136,21 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
   };
 }
 
-export function isMockApiMode() {
-  return USE_MOCK_API;
+export function isMockAuthApiMode() {
+  return USE_MOCK_AUTH_API;
 }
 
 const realApiClient = createApiClient({
   getAccessToken: getStoredAccessToken,
 });
 
-export const apiClient = isMockApiMode() ? mockApiClient : realApiClient;
+export const apiClient: ApiClient = {
+  request: (path, requestOptions) => clientForPath(path).request(path, requestOptions),
+  get: (path, requestOptions) => clientForPath(path).get(path, requestOptions),
+  post: (path, body, requestOptions) => clientForPath(path).post(path, body, requestOptions),
+  patch: (path, body, requestOptions) => clientForPath(path).patch(path, body, requestOptions),
+  delete: (path, requestOptions) => clientForPath(path).delete(path, requestOptions),
+};
 
 export async function apiRequest<TResponse>(path: string, options: ApiRequestOptions = {}): Promise<TResponse> {
   try {
@@ -256,6 +262,18 @@ function isErrorBody(body: unknown): body is { error: string } {
 
 function getStoredAccessToken() {
   return sessionStorage.getItem('suriMapAccessToken') ?? import.meta.env.VITE_API_ACCESS_TOKEN;
+}
+
+function clientForPath(path: string) {
+  if (isMockAuthApiMode() && isAuthApiPath(path)) {
+    return mockAuthApiClient;
+  }
+  return realApiClient;
+}
+
+function isAuthApiPath(path: string) {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  return normalizedPath === '/auth/login' || normalizedPath === '/auth/logout';
 }
 
 function clearExpiredApiSession() {
