@@ -30,7 +30,15 @@ describe('incident read API', () => {
       incidentId: 'inc-precinct-first-001',
       status: 'OPEN',
       version: 3,
-      missingPerson: null,
+      missingPerson: {
+        incidentId: 'inc-precinct-first-001',
+        displayName: '가상 실종자 001',
+        photoObjectKey: 'mock-112/missing-person/mock-112-incident-001.jpg',
+        photoUrl: '/mock-upload/mock-112/missing-person/mock-112-incident-001.jpg',
+        appearanceText: '남색 점퍼, 회색 등산화',
+        lastSeenLocationText: '인왕산 북측 산책로 입구',
+        lastSeenAt: '2026-04-27T23:30:00Z',
+      },
       assignments: [],
     };
     const client = fakeApiClient(detail);

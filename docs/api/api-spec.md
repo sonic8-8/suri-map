@@ -152,6 +152,14 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Guard: `@RequireChannel(APP,WEB)`, `@RequireIncidentAccess`
 - Idempotency-Key: no
 - Response: `200 {id, incidentId, status, version, missingPerson, assignments}`
+- `missingPerson`: OPEN 사건에서 실종자 기본 정보를 반환한다. CLOSED 사건은 실종자 PII를 제거해 `missingPerson`을 반환하지 않거나 `null`로 둔다.
+- `missingPerson.incidentId`: 사건 ID
+- `missingPerson.displayName`: 실종자 이름/표시명
+- `missingPerson.photoObjectKey`: 실종자 사진 object key. 사진 pointer가 없으면 `null`
+- `missingPerson.photoUrl`: 화면 표시용 사진 URL. 사진 pointer가 없으면 `null`
+- `missingPerson.appearanceText`: 인상착의/외형 설명
+- `missingPerson.lastSeenLocationText`: 마지막 목격 위치
+- `missingPerson.lastSeenAt`: 마지막 목격 시각
 - Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`
 
 #### POST `/api/incidents/{incidentId}/close`

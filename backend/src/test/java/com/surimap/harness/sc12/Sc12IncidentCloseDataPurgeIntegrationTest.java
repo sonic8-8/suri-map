@@ -161,6 +161,7 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
         .andExpect(jsonPath("$.terminalSnapshot.status", is("CLOSED")))
         .andExpect(jsonPath("$.terminalSnapshot.displayName").doesNotExist())
         .andExpect(jsonPath("$.terminalSnapshot.photoObjectKey").doesNotExist())
+        .andExpect(jsonPath("$.terminalSnapshot.photoUrl").doesNotExist())
         .andExpect(jsonPath("$.terminalSnapshot.lastSeenLocationText").doesNotExist());
 
     // 2. 닫기는 종료 상태이므로 활성 개인정보가 제거되고 이후 mock-112 배정은 거부되어야 한다.
@@ -245,6 +246,7 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
             "missingPerson",
             "displayName",
             "photoObjectKey",
+            "photoUrl",
             "lastSeenLocationText",
             "packageReloadUrl",
             "streamResubscribeHint");
@@ -506,6 +508,7 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
             "missingPerson",
             "displayName",
             "photoObjectKey",
+            "photoUrl",
             "appearanceText",
             "lastSeenLocationText",
             "가상 실종자",

@@ -67,6 +67,7 @@ class IncidentActiveReadDtoContractTest {
           "incidentId",
           "displayName",
           "photoObjectKey",
+          "photoUrl",
           "appearanceText",
           "lastSeenLocationText",
           "lastSeenAt");
@@ -164,6 +165,8 @@ class IncidentActiveReadDtoContractTest {
     assertThat(missingPerson.path("displayName").asText()).isEqualTo("가상 실종자 001");
     assertThat(missingPerson.path("photoObjectKey").asText())
         .isEqualTo("mock-112/missing-person/001");
+    assertThat(missingPerson.path("photoUrl").asText())
+        .isEqualTo("/mock-upload/mock-112/missing-person/001");
     assertThat(missingPerson.path("appearanceText").asText()).isEqualTo("남색 점퍼, 회색 등산화");
     assertThat(missingPerson.path("lastSeenLocationText").asText()).isEqualTo("인왕산 북측 산책로 입구");
     assertThat(missingPerson.path("lastSeenAt").asText()).isEqualTo("2026-04-27T23:30:00Z");

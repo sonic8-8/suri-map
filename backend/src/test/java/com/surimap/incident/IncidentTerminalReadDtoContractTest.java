@@ -70,6 +70,7 @@ class IncidentTerminalReadDtoContractTest {
           "assignments",
           "displayName",
           "photoObjectKey",
+          "photoUrl",
           "appearanceText",
           "lastSeenLocationText",
           "lastSeenAt",

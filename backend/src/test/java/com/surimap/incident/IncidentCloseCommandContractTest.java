@@ -124,6 +124,7 @@ class IncidentCloseCommandContractTest {
         // terminalSnapshot은 S3-2가 소비할 sanitized state라서 실종자 PII를 노출하지 않는다.
         .andExpect(jsonPath("$.terminalSnapshot.displayName").doesNotExist())
         .andExpect(jsonPath("$.terminalSnapshot.photoObjectKey").doesNotExist())
+        .andExpect(jsonPath("$.terminalSnapshot.photoUrl").doesNotExist())
         .andExpect(jsonPath("$.terminalSnapshot.appearanceText").doesNotExist())
         .andExpect(jsonPath("$.terminalSnapshot.lastSeenLocationText").doesNotExist());
 

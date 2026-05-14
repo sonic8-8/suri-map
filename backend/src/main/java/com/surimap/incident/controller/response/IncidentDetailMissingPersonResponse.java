@@ -9,6 +9,7 @@ public record IncidentDetailMissingPersonResponse(
     UUID incidentId,
     String displayName,
     String photoObjectKey,
+    String photoUrl,
     String appearanceText,
     String lastSeenLocationText,
     Instant lastSeenAt) {
@@ -21,6 +22,7 @@ public record IncidentDetailMissingPersonResponse(
         view.incidentId(),
         view.displayName(),
         view.photoObjectKey(),
+        MissingPersonPhotoUrls.fromObjectKey(view.photoObjectKey()),
         view.appearanceText(),
         view.lastSeenLocationText(),
         view.lastSeenAt());

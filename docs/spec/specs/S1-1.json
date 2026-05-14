@@ -546,7 +546,48 @@
                   "object",
                   "null"
                 ],
-                "description": "CLOSED 후에는 null 또는 제거된 상태로 반환한다."
+                "description": "OPEN 상세에서만 active missing_person 기본 정보와 사진 표시 URL을 반환한다. CLOSED 후에는 null 또는 제거된 상태로 반환한다.",
+                "properties": {
+                  "incidentId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "displayName": {
+                    "type": "string"
+                  },
+                  "photoObjectKey": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "photoUrl": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "화면 표시용 사진 URL. photoObjectKey가 없으면 null이다."
+                  },
+                  "appearanceText": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "lastSeenLocationText": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "lastSeenAt": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "date-time"
+                  }
+                }
               },
               "assignments": {
                 "type": "array",

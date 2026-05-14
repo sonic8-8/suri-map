@@ -38,10 +38,11 @@ export interface TerminalIncidentDetailResponse {
 export interface IncidentMissingPersonSummary {
   incidentId: string;
   displayName: string;
-  photoObjectKey: string;
-  appearanceText: string;
-  lastSeenLocationText: string;
-  lastSeenAt: string;
+  photoObjectKey: string | null;
+  photoUrl: string | null;
+  appearanceText: string | null;
+  lastSeenLocationText: string | null;
+  lastSeenAt: string | null;
 }
 
 export interface IncidentAssignmentSummary {
