@@ -128,6 +128,8 @@ data class MarkerDetailUiState(
             }
             if (canEdit) {
                 add("저장")
+                add("촬영")
+                add("앨범")
             }
             if (canDelete) {
                 add("삭제")
@@ -271,9 +273,9 @@ fun MarkerDetailScreen(
     onRequestDelete: () -> Unit,
     onDismissDelete: () -> Unit,
     onConfirmDelete: () -> Unit,
-    onAddPhoto: () -> Unit,
+    onCapturePhoto: () -> Unit,
+    onPickPhoto: () -> Unit,
     onRetryPhoto: (MarkerDetailPhotoUiState) -> Unit,
-    onDeletePhoto: (MarkerDetailPhotoUiState) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Box(modifier = modifier.fillMaxSize().background(PoliBgBase)) {
@@ -305,9 +307,9 @@ fun MarkerDetailScreen(
                 MarkerMemoCard(state = state, onMemoChange = onMemoChange)
                 MarkerPhotosCard(
                     state = state,
-                    onAddPhoto = onAddPhoto,
-                    onRetryPhoto = onRetryPhoto,
-                    onDeletePhoto = onDeletePhoto
+                    onCapturePhoto = onCapturePhoto,
+                    onPickPhoto = onPickPhoto,
+                    onRetryPhoto = onRetryPhoto
                 )
                 MarkerMetaCard(state = state)
             }
@@ -375,23 +377,23 @@ private fun MarkerMemoCard(state: MarkerDetailUiState, onMemoChange: (String) ->
 @Composable
 private fun MarkerPhotosCard(
     state: MarkerDetailUiState,
-    onAddPhoto: () -> Unit,
-    onRetryPhoto: (MarkerDetailPhotoUiState) -> Unit,
-    onDeletePhoto: (MarkerDetailPhotoUiState) -> Unit
+    onCapturePhoto: () -> Unit,
+    onPickPhoto: () -> Unit,
+    onRetryPhoto: (MarkerDetailPhotoUiState) -> Unit
 ) {
     PoliCard {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
             Text(text = "사진 ${state.photos.size}장", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
             if (state.canEdit) {
-                PoliButton(text = "사진 추가", onClick = onAddPhoto, size = PoliButtonSize.Small, variant = PoliButtonVariant.Secondary)
+                PoliButton(text = "촬영", onClick = onCapturePhoto, size = PoliButtonSize.Small, variant = PoliButtonVariant.Secondary)
+                PoliButton(text = "앨범", onClick = onPickPhoto, size = PoliButtonSize.Small, variant = PoliButtonVariant.Secondary)
             }
         }
         state.photos.forEach { photo ->
             PhotoDetailRow(
                 photo = photo,
                 canEdit = state.canEdit,
-                onRetryPhoto = onRetryPhoto,
-                onDeletePhoto = onDeletePhoto
+                onRetryPhoto = onRetryPhoto
             )
         }
     }
@@ -401,8 +403,7 @@ private fun MarkerPhotosCard(
 private fun PhotoDetailRow(
     photo: MarkerDetailPhotoUiState,
     canEdit: Boolean,
-    onRetryPhoto: (MarkerDetailPhotoUiState) -> Unit,
-    onDeletePhoto: (MarkerDetailPhotoUiState) -> Unit
+    onRetryPhoto: (MarkerDetailPhotoUiState) -> Unit
 ) {
     PoliCard {
         PoliRow(title = photo.label, subtitle = photo.status.label) {
@@ -420,12 +421,6 @@ private fun PhotoDetailRow(
                     variant = PoliButtonVariant.Secondary
                 )
             }
-            PoliButton(
-                text = "사진 삭제",
-                onClick = { onDeletePhoto(photo) },
-                size = PoliButtonSize.Small,
-                variant = PoliButtonVariant.Secondary
-            )
         }
     }
 }
@@ -538,9 +533,9 @@ private fun MarkerDetailScreenPreview() {
             onRequestDelete = {},
             onDismissDelete = {},
             onConfirmDelete = {},
-            onAddPhoto = {},
-            onRetryPhoto = {},
-            onDeletePhoto = {}
+            onCapturePhoto = {},
+            onPickPhoto = {},
+            onRetryPhoto = {}
         )
     }
 }

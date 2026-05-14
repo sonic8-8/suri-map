@@ -112,7 +112,9 @@ private fun DeviceQaScreen(route: DeviceQaRoute) {
                 onOpenBlockedOutbox = {},
                 onDismissIncidentAlert = {},
                 onOpenIncidentAlertMarker = {},
-                onOpenFocusedMarkerDetail = {}
+                onOpenFocusedMarkerDetail = {},
+                onToggleBottomPanel = {},
+                onToggleMapOverlays = {}
             )
 
         DeviceQaRoute.SearchMapSynced ->
@@ -126,7 +128,9 @@ private fun DeviceQaScreen(route: DeviceQaRoute) {
                 onOpenBlockedOutbox = {},
                 onDismissIncidentAlert = {},
                 onOpenIncidentAlertMarker = {},
-                onOpenFocusedMarkerDetail = {}
+                onOpenFocusedMarkerDetail = {},
+                onToggleBottomPanel = {},
+                onToggleMapOverlays = {}
             )
 
         DeviceQaRoute.SearchMapBlockedOutbox ->
@@ -146,7 +150,9 @@ private fun DeviceQaScreen(route: DeviceQaRoute) {
                 onOpenBlockedOutbox = {},
                 onDismissIncidentAlert = {},
                 onOpenIncidentAlertMarker = {},
-                onOpenFocusedMarkerDetail = {}
+                onOpenFocusedMarkerDetail = {},
+                onToggleBottomPanel = {},
+                onToggleMapOverlays = {}
             )
 
         DeviceQaRoute.HandoverSummary ->
@@ -182,7 +188,9 @@ private fun DeviceQaScreen(route: DeviceQaRoute) {
                 onOpenBlockedOutbox = {},
                 onDismissIncidentAlert = {},
                 onOpenIncidentAlertMarker = {},
-                onOpenFocusedMarkerDetail = {}
+                onOpenFocusedMarkerDetail = {},
+                onToggleBottomPanel = {},
+                onToggleMapOverlays = {}
             )
 
         DeviceQaRoute.MarkerDetail -> {
@@ -195,9 +203,9 @@ private fun DeviceQaScreen(route: DeviceQaRoute) {
                 onRequestDelete = { state = state.copy(showDeleteConfirm = true) },
                 onDismissDelete = { state = state.copy(showDeleteConfirm = false) },
                 onConfirmDelete = {},
-                onAddPhoto = {},
-                onRetryPhoto = {},
-                onDeletePhoto = {}
+                onCapturePhoto = {},
+                onPickPhoto = {},
+                onRetryPhoto = {}
             )
         }
 

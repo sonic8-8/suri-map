@@ -18,6 +18,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.FileProvider
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -122,6 +123,7 @@ import com.surimap.feature.search.data.SearchPathGpsBatchRecorder
 import com.surimap.feature.search.data.SearchPathLocalRecorder
 import com.surimap.feature.search.data.SearchPathWriteContext
 import com.surimap.feature.search.data.SearchPathWriteResult
+import com.surimap.feature.search.data.SearchRecordingSessionState
 import com.surimap.feature.search.ui.SearchLayerKind
 import com.surimap.feature.search.ui.SearchLifecycleStatus
 import com.surimap.feature.search.ui.SearchMapScreen
@@ -134,6 +136,8 @@ import com.surimap.ui.navigation.PolicePhoneRoute
 import com.surimap.ui.navigation.SearchMapDeepLink
 import com.surimap.ui.navigation.accessTokenProvider
 import com.surimap.ui.theme.PoliBgBase
+import java.io.File
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
@@ -708,7 +712,22 @@ private fun SearchMapRoute(
     var searchMapState by remember {
         mutableStateOf(SearchMapStateLoader().fallbackForRemember(sessionContext))
     }
-    var activeLocalSearchPathId by remember { mutableStateOf<String?>(null) }
+    var recordingSession by remember(
+        sessionContext.incidentId,
+        sessionContext.currentOpId,
+        sessionContext.policePhoneId
+    ) {
+        mutableStateOf(SearchRecordingSessionState())
+    }
+    var elapsedTickerNowMs by remember(
+        sessionContext.incidentId,
+        sessionContext.currentOpId,
+        sessionContext.policePhoneId
+    ) {
+        mutableStateOf(System.currentTimeMillis())
+    }
+    var bottomPanelExpanded by remember { mutableStateOf(false) }
+    var mapOverlaysVisible by remember { mutableStateOf(true) }
     var markerSheetOpen by remember { mutableStateOf(false) }
     var markerSheetState by remember { mutableStateOf(sampleMarkerCreateSheetState()) }
 
@@ -734,14 +753,39 @@ private fun SearchMapRoute(
         }
     }
 
-    val activeSearchPathId = activeLocalSearchPathId ?: searchMapState.activeSearchPathId()
+    val serverActiveSearchPathId = searchMapState.activeSearchPathId()
+    val displayedLifecycle = recordingSession.displayedLifecycle(
+        baseLifecycleStatus = searchMapState.lifecycleStatus,
+        serverActiveSearchPathId = serverActiveSearchPathId
+    )
+    val activeSearchPathId = recordingSession.effectiveSearchPathId(serverActiveSearchPathId)
+    val displayedSearchMapState =
+        searchMapState.copy(
+            lifecycleStatus = displayedLifecycle,
+            elapsedLabel = recordingSession.elapsedLabel(elapsedTickerNowMs),
+            bottomPanelExpanded = bottomPanelExpanded,
+            mapOverlaysVisible = mapOverlaysVisible
+        )
+
+    LaunchedEffect(displayedLifecycle, activeSearchPathId) {
+        if (displayedLifecycle == SearchLifecycleStatus.Active && activeSearchPathId != null) {
+            val now = System.currentTimeMillis()
+            recordingSession = recordingSession.ensureActiveStarted(now)
+            elapsedTickerNowMs = now
+            while (true) {
+                delay(1_000L)
+                elapsedTickerNowMs = System.currentTimeMillis()
+            }
+        }
+    }
+
     DisposableEffect(
         locationUpdates,
         activeSearchPathId,
-        searchMapState.lifecycleStatus,
+        displayedLifecycle,
         sessionContext
     ) {
-        if (searchMapState.lifecycleStatus != SearchLifecycleStatus.Active || activeSearchPathId == null) {
+        if (displayedLifecycle != SearchLifecycleStatus.Active || activeSearchPathId == null) {
             onDispose {}
         } else {
             val handle =
@@ -769,21 +813,43 @@ private fun SearchMapRoute(
 
     Box(modifier = Modifier.fillMaxSize()) {
         SearchMapScreen(
-            state = searchMapState,
+            state = displayedSearchMapState,
             mapState = policePhoneContext.toMapLibreRuntimeMapState(),
             onBack = { navController.popBackStack() },
             onPrimaryLifecycleAction = {
                 coroutineScope.launch {
-                    if (searchMapState.lifecycleStatus == SearchLifecycleStatus.Stopped) {
-                        val result = searchPathRecorder.start(sessionContext.toSearchPathWriteContext())
-                        if (result is SearchPathWriteResult.Enqueued) {
-                            activeLocalSearchPathId = result.entityId
+                    val now = System.currentTimeMillis()
+                    when (displayedLifecycle) {
+                        SearchLifecycleStatus.Stopped -> {
+                            val result = searchPathRecorder.start(sessionContext.toSearchPathWriteContext())
+                            if (result is SearchPathWriteResult.Enqueued) {
+                                recordingSession = recordingSession.start(result.entityId, now)
+                                elapsedTickerNowMs = now
+                            }
+                        }
+                        SearchLifecycleStatus.Active -> {
+                            gpsBatchRecorder.flush(
+                                context = sessionContext.toSearchPathWriteContext(),
+                                searchPathId = activeSearchPathId
+                            )
+                            gpsBatchRecorder.clear()
+                            recordingSession = recordingSession.pause(now)
+                            elapsedTickerNowMs = now
+                        }
+                        SearchLifecycleStatus.Paused -> {
+                            recordingSession = recordingSession.resume(now)
+                            elapsedTickerNowMs = now
+                        }
+                        SearchLifecycleStatus.OpRequired,
+                        SearchLifecycleStatus.OpTransition -> {
+                            searchMapState = loader.load(sessionContext).withFocusedMarker(focusMarkerId)
                         }
                     }
                 }
             },
             onStopSearch = {
                 coroutineScope.launch {
+                    val now = System.currentTimeMillis()
                     val pathId = activeSearchPathId
                     gpsBatchRecorder.flush(
                         context = sessionContext.toSearchPathWriteContext(),
@@ -794,11 +860,14 @@ private fun SearchMapRoute(
                         context = sessionContext.toSearchPathWriteContext(),
                         searchPathId = pathId
                     )
-                    activeLocalSearchPathId = null
+                    recordingSession = recordingSession.stop(now)
+                    elapsedTickerNowMs = now
                 }
             },
             onCreateMarker = {
-                markerSheetState = sampleMarkerCreateSheetState().withCurrentLocation(searchMapState.markerCreationLocation())
+                markerSheetState =
+                    sampleMarkerCreateSheetState()
+                        .withCurrentLocation(displayedSearchMapState.markerCreationLocation())
                 markerSheetOpen = true
             },
             onOpenHandover = { navController.navigateToSingleTop(PolicePhoneRoute.HandoverSummary) },
@@ -812,7 +881,9 @@ private fun SearchMapRoute(
             },
             onOpenFocusedMarkerDetail = { markerId ->
                 navController.navigateToSingleTop(MarkerDetailDeepLink.route(markerId))
-            }
+            },
+            onToggleBottomPanel = { bottomPanelExpanded = !bottomPanelExpanded },
+            onToggleMapOverlays = { mapOverlaysVisible = !mapOverlaysVisible }
         )
         if (markerSheetOpen) {
             MarkerCreateBottomSheet(
@@ -837,7 +908,8 @@ private fun SearchMapRoute(
                     markerSheetState = markerSheetState.copy(memo = memo)
                 },
                 onAdjustLocation = {
-                    markerSheetState = markerSheetState.withManualLocation(searchMapState.markerCreationLocation())
+                    markerSheetState =
+                        markerSheetState.withManualLocation(displayedSearchMapState.markerCreationLocation())
                 },
                 onSave = {
                     coroutineScope.launch {
@@ -854,12 +926,11 @@ private fun SearchMapRoute(
                             is MarkerWriteResult.Enqueued -> {
                                 markerSheetState = markerSheetState.copy(saveStatus = MarkerSaveStatus.PendingOutbox)
                                 markerSheetOpen = false
-                                searchMapState = loader.load(sessionContext)
+                                searchMapState = loader.load(sessionContext).withFocusedMarker(focusMarkerId)
                             }
                         }
                     }
                 },
-                onAttachPhoto = {},
                 onRetryPhoto = {}
             )
         }
@@ -927,6 +998,7 @@ private fun MarkerDetailRoute(
     }
     var retryPhotoId by remember(markerId) { mutableStateOf<String?>(null) }
     var photoUriById by remember(markerId) { mutableStateOf<Map<String, Uri>>(emptyMap()) }
+    var pendingCameraPhotoUri by remember(markerId) { mutableStateOf<Uri?>(null) }
     fun beginPhotoUpload(uri: Uri, existingPhotoId: String? = null) {
         val current = markerDetailState
         if (!current.canEdit) {
@@ -974,6 +1046,14 @@ private fun MarkerDetailRoute(
             val targetPhotoId = retryPhotoId
             retryPhotoId = null
             uri?.let { selected -> beginPhotoUpload(selected, targetPhotoId) }
+        }
+    val photoCapture =
+        rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { captured ->
+            val capturedUri = pendingCameraPhotoUri
+            pendingCameraPhotoUri = null
+            if (captured && capturedUri != null) {
+                beginPhotoUpload(capturedUri)
+            }
         }
 
     LaunchedEffect(
@@ -1042,7 +1122,14 @@ private fun MarkerDetailRoute(
                     }
             }
         },
-        onAddPhoto = {
+        onCapturePhoto = {
+            retryPhotoId = null
+            context.createMarkerPhotoCaptureUri(markerDetailState.markerId)?.let { uri ->
+                pendingCameraPhotoUri = uri
+                photoCapture.launch(uri)
+            }
+        },
+        onPickPhoto = {
             retryPhotoId = null
             photoPicker.launch("image/*")
         },
@@ -1054,8 +1141,7 @@ private fun MarkerDetailRoute(
                 retryPhotoId = photo.photoId
                 photoPicker.launch("image/*")
             }
-        },
-        onDeletePhoto = {}
+        }
     )
 }
 
@@ -1449,12 +1535,23 @@ private fun MarkerDetailUiState.toMarkerUpsertInput(): MarkerUpsertInput =
         memo = memo
     )
 
+private fun Context.createMarkerPhotoCaptureUri(markerId: String): Uri? =
+    runCatching {
+        val imageDir = File(cacheDir, "marker-photos").apply { mkdirs() }
+        val safeMarkerId =
+            markerId
+                .filter { char -> char.isLetterOrDigit() || char == '-' || char == '_' }
+                .ifBlank { "marker" }
+        val imageFile = File.createTempFile("marker-$safeMarkerId-", ".jpg", imageDir)
+        FileProvider.getUriForFile(this, "$packageName.fileprovider", imageFile)
+    }.getOrNull()
+
 private fun Context.markerPhotoUploadPayload(markerId: String, uri: Uri): MarkerPhotoUploadPayload? =
     runCatching {
         val bytes = contentResolver.openInputStream(uri)?.use { input -> input.readBytes() } ?: return null
         MarkerPhotoUploadPayload(
             markerId = markerId,
-            contentType = contentResolver.getType(uri) ?: "application/octet-stream",
+            contentType = contentResolver.getType(uri) ?: "image/jpeg",
             bytes = bytes
         )
     }.getOrNull()
