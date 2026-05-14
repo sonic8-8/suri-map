@@ -115,6 +115,18 @@ const packageStatusLabels: Record<string, string> = {
   PURGED: '삭제됨',
 };
 
+const packageStatusBadgeToneClassNames: Record<StatusBadgeTone, string> = {
+  active: styles.packageStatusBadgeActive,
+  waiting: styles.packageStatusBadgeWaiting,
+  danger: styles.packageStatusBadgeDanger,
+  closed: styles.packageStatusBadgeClosed,
+  neutral: styles.packageStatusBadgeNeutral,
+};
+
+function getPackageStatusBadgeClassName(tone: StatusBadgeTone) {
+  return `${styles.packageStatusBadge} ${packageStatusBadgeToneClassNames[tone]}`;
+}
+
 export function OfflinePackageStatusPage({
   currentUserAccount,
   incidentId,
@@ -258,7 +270,11 @@ export function OfflinePackageStatusPage({
                           <span>{createDeviceMeta(row)}</span>
                         </td>
                         <td>
-                          <StatusBadge status={statusView.label} tone={statusView.tone} />
+                          <StatusBadge
+                            className={getPackageStatusBadgeClassName(statusView.tone)}
+                            status={statusView.label}
+                            tone={statusView.tone}
+                          />
                         </td>
                         <td>
                           <strong>{formatAccountType(row.accountType)}</strong>
@@ -384,7 +400,11 @@ function ManifestContent({
                 </td>
                 <td>{group.countLabel}</td>
                 <td>
-                  <StatusBadge status={group.statusLabel} tone={group.statusTone} />
+                  <StatusBadge
+                    className={getPackageStatusBadgeClassName(group.statusTone)}
+                    status={group.statusLabel}
+                    tone={group.statusTone}
+                  />
                 </td>
                 <td>{group.itemKey}</td>
                 <td>{group.sourceVersion}</td>
