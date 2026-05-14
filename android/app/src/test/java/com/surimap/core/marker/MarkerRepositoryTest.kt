@@ -1,5 +1,7 @@
 package com.surimap.core.marker
 
+import com.surimap.core.network.AccessTokenProvider
+import com.surimap.core.network.SuriMapApiClient
 import com.surimap.core.sync.DependencyGroup
 import com.surimap.core.sync.EnqueueResult
 import com.surimap.core.sync.HarnessSyncStatus
@@ -14,9 +16,18 @@ import com.surimap.testing.photoIdFixture
 import com.surimap.testing.policePhoneIdFixture
 import java.time.Instant
 import kotlinx.coroutines.runBlocking
+import okhttp3.Call
+import okhttp3.Callback
+import okhttp3.Protocol
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.ResponseBody.Companion.toResponseBody
+import okio.Timeout
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.reflect.KClass
 
 class MarkerRepositoryTest {
 
@@ -179,6 +190,38 @@ class MarkerRepositoryTest {
         )
     }
 
+    @Test
+    fun listMarkersRequestsCanonicalReadPathWithoutIdempotencyKey() = runBlocking {
+        val callFactory = CapturingCallFactory(response = response(200, """{"markers":[]}"""))
+        val repository = MarkerRepository(
+            apiClient = SuriMapApiClient(
+                baseUrl = "https://suri-map.example.com/api",
+                callFactory = callFactory
+            ),
+            accessTokenProvider = AccessTokenProvider { "token-1" }
+        )
+
+        val result = repository.listMarkers(
+            MarkerReadQuery(
+                incidentId = INCIDENT_ID,
+                opId = OP_ID,
+                type = "CLUE",
+                status = "ACTIVE"
+            )
+        )
+
+        val request = callFactory.lastRequest!!
+        assertEquals(200, result.statusCode)
+        assertEquals("GET", request.method)
+        assertEquals(
+            "https://suri-map.example.com/api/markers?incidentId=$INCIDENT_ID&opId=$OP_ID&type=CLUE&status=ACTIVE",
+            request.url.toString()
+        )
+        assertEquals("APP", request.header("X-Client-Channel"))
+        assertEquals("Bearer token-1", request.header("Authorization"))
+        assertNull(request.header("Idempotency-Key"))
+    }
+
     private class CapturingSyncClient : SyncClient {
         var lastOperation: LocalWriteOperation? = null
 
@@ -191,6 +234,45 @@ class MarkerRepositoryTest {
                 harnessStatus = HarnessSyncStatus.PENDING_SEND
             )
         }
+    }
+
+    private class CapturingCallFactory(
+        private val response: Response
+    ) : Call.Factory {
+        var lastRequest: Request? = null
+
+        override fun newCall(request: Request): Call {
+            lastRequest = request
+            return CapturingCall(request, response)
+        }
+    }
+
+    private class CapturingCall(
+        private val request: Request,
+        private val response: Response
+    ) : Call {
+        override fun request(): Request = request
+        override fun execute(): Response = response.newBuilder().request(request).build()
+        override fun enqueue(responseCallback: Callback) = error("async calls are not used")
+        override fun cancel() = Unit
+        override fun isExecuted(): Boolean = false
+        override fun isCanceled(): Boolean = false
+        override fun timeout(): Timeout = Timeout.NONE
+        override fun <T : Any> tag(type: KClass<T>): T? = null
+        override fun <T> tag(type: Class<out T>): T? = null
+        override fun <T : Any> tag(type: KClass<T>, computeIfAbsent: () -> T): T = computeIfAbsent()
+        override fun <T : Any> tag(type: Class<T>, computeIfAbsent: () -> T): T = computeIfAbsent()
+        override fun clone(): Call = CapturingCall(request, response)
+    }
+
+    private fun response(statusCode: Int, body: String): Response {
+        return Response.Builder()
+            .request(Request.Builder().url("https://suri-map.example.com/placeholder").build())
+            .protocol(Protocol.HTTP_1_1)
+            .code(statusCode)
+            .message("test")
+            .body(body.toResponseBody())
+            .build()
     }
 
     private companion object {

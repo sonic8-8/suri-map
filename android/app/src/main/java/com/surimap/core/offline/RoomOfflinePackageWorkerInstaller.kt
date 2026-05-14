@@ -7,6 +7,7 @@ import com.surimap.core.network.AccessTokenProvider
 import com.surimap.core.network.NoAccessTokenProvider
 import com.surimap.core.network.SuriMapApiClient
 import com.surimap.core.sync.RoomSyncClient
+import com.surimap.core.sync.toClockInstantOrNull
 import java.io.IOException
 import java.time.Instant
 import java.util.UUID
@@ -92,8 +93,8 @@ class RoomOfflinePackageWorkerInstaller(
             manifestVersion = plan.manifestVersion,
             version = issuedAt,
             clientTs = clientTs,
-            clockOffsetMs = 0L,
-            clockSyncedAt = clientTs,
+            clockOffsetMs = request.clockOffsetMs ?: 0L,
+            clockSyncedAt = request.clockSyncedAt?.toClockInstantOrNull() ?: clientTs,
             items = statuses
         )
     }

@@ -103,7 +103,7 @@ public class AppSearchPathCommandService {
 
     SearchPath path =
         new SearchPath(
-            UUID.randomUUID(),
+            request.searchPathId() == null ? UUID.randomUUID() : request.searchPathId(),
             request.incidentId(),
             request.opId(),
             request.policePhoneId(),

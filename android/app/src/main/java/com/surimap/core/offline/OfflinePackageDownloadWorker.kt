@@ -15,7 +15,9 @@ data class OfflinePackageWorkerInstallRequest(
     val policePhoneId: String,
     val manifestId: String,
     val apiBaseUrl: String = BuildConfig.SURI_MAP_API_BASE_URL,
-    val accessToken: String? = null
+    val accessToken: String? = null,
+    val clockOffsetMs: Long? = null,
+    val clockSyncedAt: String? = null
 )
 
 fun interface OfflinePackageWorkerInstaller {
@@ -37,6 +39,8 @@ class OfflinePackageDownloadWorker(appContext: Context, workerParameters: Worker
             ?.takeIf(String::isNotBlank)
             ?: BuildConfig.SURI_MAP_API_BASE_URL
         val accessToken = inputData.getString(KEY_ACCESS_TOKEN)?.takeIf(String::isNotBlank)
+        val clockOffsetMs = inputData.keyValueMap[KEY_CLOCK_OFFSET_MS] as? Long
+        val clockSyncedAt = inputData.getString(KEY_CLOCK_SYNCED_AT)?.takeIf(String::isNotBlank)
         if (incidentId == null || policePhoneId == null || manifestId == null) {
             return Result.failure()
         }
@@ -46,7 +50,9 @@ class OfflinePackageDownloadWorker(appContext: Context, workerParameters: Worker
                 policePhoneId = policePhoneId,
                 manifestId = manifestId,
                 apiBaseUrl = apiBaseUrl,
-                accessToken = accessToken
+                accessToken = accessToken,
+                clockOffsetMs = clockOffsetMs,
+                clockSyncedAt = clockSyncedAt
             )
         val installer = OfflinePackageDownloadRuntime.installer
             ?: RoomOfflinePackageWorkerInstaller.fromContext(
@@ -75,5 +81,7 @@ class OfflinePackageDownloadWorker(appContext: Context, workerParameters: Worker
         const val KEY_MANIFEST_ID = "manifestId"
         const val KEY_API_BASE_URL = "apiBaseUrl"
         const val KEY_ACCESS_TOKEN = "accessToken"
+        const val KEY_CLOCK_OFFSET_MS = "clockOffsetMs"
+        const val KEY_CLOCK_SYNCED_AT = "clockSyncedAt"
     }
 }

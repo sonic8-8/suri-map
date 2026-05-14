@@ -90,6 +90,30 @@ class AuthBootstrapContractTest {
     }
 
     @Test
+    fun manifestDeclaresFirebaseMessagingServiceForTokenRefresh() {
+        val manifest = File("src/main/AndroidManifest.xml").readText()
+
+        assertTrue(manifest.contains(""".core.fcm.SuriMapFirebaseMessagingService"""))
+        assertTrue(manifest.contains("""android:exported="false""""))
+        assertTrue(manifest.contains("""com.google.firebase.MESSAGING_EVENT"""))
+    }
+
+    @Test
+    fun firebaseGradleSetupIsOptionalAndUsesMessagingSdk() {
+        val appBuild = File("build.gradle.kts").readText()
+        val versionCatalog = File("../gradle/libs.versions.toml").readText()
+
+        assertTrue(appBuild.contains("alias(libs.plugins.google.services) apply false"))
+        assertTrue(appBuild.contains("hasGoogleServicesJson"))
+        assertTrue(appBuild.contains("SURI_MAP_FIREBASE_MESSAGING_ENABLED"))
+        assertTrue(appBuild.contains("implementation(platform(libs.firebase.bom))"))
+        assertTrue(appBuild.contains("implementation(libs.firebase.messaging)"))
+        assertTrue(versionCatalog.contains("firebase-bom"))
+        assertTrue(versionCatalog.contains("firebase-messaging"))
+        assertTrue(versionCatalog.contains("google-services"))
+    }
+
+    @Test
     fun managedPolicePhoneConfigCarriesFutureTileAndStorageSettingsWithoutVendorCoupling() {
         val config =
             ManagedPolicePhoneConfig(

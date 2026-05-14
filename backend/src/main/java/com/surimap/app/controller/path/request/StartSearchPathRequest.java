@@ -5,9 +5,15 @@ import java.time.Instant;
 import java.util.UUID;
 
 public record StartSearchPathRequest(
-    UUID incidentId, UUID opId, Instant clientTs, Integer clockOffsetMs) {
+    UUID searchPathId, UUID incidentId, UUID opId, Instant clientTs, Integer clockOffsetMs) {
+
+  public StartSearchPathRequest(
+      UUID incidentId, UUID opId, Instant clientTs, Integer clockOffsetMs) {
+    this(null, incidentId, opId, clientTs, clockOffsetMs);
+  }
 
   public StartSearchPathServiceRequest toServiceRequest(UUID policePhoneId, String idempotencyKey) {
-    return new StartSearchPathServiceRequest(incidentId, opId, policePhoneId, clientTs, idempotencyKey);
+    return new StartSearchPathServiceRequest(
+        searchPathId, incidentId, opId, policePhoneId, clientTs, idempotencyKey);
   }
 }

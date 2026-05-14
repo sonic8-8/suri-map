@@ -48,6 +48,23 @@ class SearchPathStartedContractTest {
   }
 
   @Test
+  @DisplayName("client-generated searchPathId가 있으면 시작 path id로 사용한다")
+  void client_generated_searchPathId_is_used_for_offline_batch_correlation() {
+    SearchPath path =
+        service.start(
+            new StartSearchPathServiceRequest(
+                SearchPathFixtures.PATH_ID,
+                SearchPathFixtures.INCIDENT_ID,
+                SearchPathFixtures.OP1_ID,
+                SearchPathFixtures.POLICE_PHONE_ID,
+                Instant.now(),
+                "idem-path-start-client-id"));
+
+    assertThat(path.id()).isEqualTo(SearchPathFixtures.PATH_ID);
+    assertThat(publisher.captured().get(0).id()).isEqualTo(SearchPathFixtures.PATH_ID);
+  }
+
+  @Test
   @DisplayName("SEARCH_PATH_STARTED payload는 path의 id/opId/policePhoneId/version과 일치한다")
   void SEARCH_PATH_STARTED_payload는_path와_일치한다() {
     SearchPath path = service.start(validStartRequest());

@@ -28,6 +28,7 @@ import com.surimap.marker.exception.MarkerExceptionHandler;
 import com.surimap.marker.photo.security.SuriMapAuthentication;
 import com.surimap.marker.photo.security.SuriMapAuthenticationResolver;
 import com.surimap.marker.service.MarkerCreateService;
+import com.surimap.marker.service.MarkerReadService;
 import com.surimap.marker.service.MarkerUpdateDeleteService;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -65,6 +66,7 @@ class MarkerControllerTest {
 
   @MockitoBean private MarkerCreateService markerCreateService;
   @MockitoBean private MarkerUpdateDeleteService markerUpdateDeleteService;
+  @MockitoBean private MarkerReadService markerReadService;
   @MockitoBean private SuriMapAuthenticationResolver authenticationResolver;
 
   @BeforeEach

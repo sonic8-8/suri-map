@@ -44,6 +44,8 @@ class OfflinePackageDownloadWorkerTest {
                         .putString("policePhoneId", POLICE_PHONE_ID)
                         .putString("manifestId", MANIFEST_ID)
                         .putString("accessToken", "bootstrap-token-1")
+                        .putLong("clockOffsetMs", 120L)
+                        .putString("clockSyncedAt", "2026-05-11T06:00:00.120Z")
                         .build()
                 )
                 .build()
@@ -56,7 +58,9 @@ class OfflinePackageDownloadWorkerTest {
                 incidentId = INCIDENT_ID,
                 policePhoneId = POLICE_PHONE_ID,
                 manifestId = MANIFEST_ID,
-                accessToken = "bootstrap-token-1"
+                accessToken = "bootstrap-token-1",
+                clockOffsetMs = 120L,
+                clockSyncedAt = "2026-05-11T06:00:00.120Z"
             ),
             installs.single()
         )

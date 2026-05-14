@@ -38,6 +38,7 @@ class SearchPathRepositoryTest {
         repository.startSearchPath(
             StartSearchPathCommand(
                 operationId = operationIdFixture("path-start-001"),
+                searchPathId = PATH_ID,
                 incidentId = INCIDENT_ID,
                 opId = OP_ID,
                 policePhoneId = POLICE_PHONE_ID,
@@ -63,9 +64,9 @@ class SearchPathRepositoryTest {
         assertEquals(120L, operation.clockOffsetMs)
         assertEquals(CLOCK_SYNCED_AT, operation.clockSyncedAt)
         assertEquals("search_path", operation.entityType)
-        assertNull(operation.entityId)
+        assertEquals(PATH_ID, operation.entityId)
         assertEquals(
-            """{"incidentId":"$INCIDENT_ID","opId":"$OP_ID","clientTs":"2026-05-11T06:00:00Z","clockOffsetMs":120}""",
+            """{"searchPathId":"$PATH_ID","incidentId":"$INCIDENT_ID","opId":"$OP_ID","clientTs":"2026-05-11T06:00:00Z","clockOffsetMs":120}""",
             operation.payload
         )
         assertTrue(operation.bodyHash.startsWith("sha256:"))
