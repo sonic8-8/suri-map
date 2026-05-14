@@ -38,6 +38,13 @@ public class TileserverProperties {
         .toUri();
   }
 
+  URI glyphUri(String fontStack, String range) {
+    return UriComponentsBuilder.fromUriString(normalizedBaseUrl())
+        .pathSegment("fonts", fontStack, range + ".pbf")
+        .build()
+        .toUri();
+  }
+
   private String normalizedBaseUrl() {
     return baseUrl == null ? "" : baseUrl.replaceAll("/+$", "");
   }

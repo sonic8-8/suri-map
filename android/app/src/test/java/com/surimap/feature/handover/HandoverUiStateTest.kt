@@ -30,7 +30,7 @@ class HandoverUiStateTest {
             assertTrue(state.visibleText().any { it.contains("원본 기록") })
             assertFalse(state.canRequestSummaryGeneration)
             assertFalse(state.visibleText().any { it.contains("다시 생성") })
-            assertFalse(state.visibleText().any { it.contains("AI 요약 생성") })
+            assertFalse(state.visibleText().any { it.contains("AI") })
         }
     }
 

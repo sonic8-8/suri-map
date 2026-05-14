@@ -353,6 +353,42 @@ class RoomLocalSyncServicesTest {
     }
 
     @Test
+    fun replayRequeuesAccessRepairRowsWhenAuthenticatedReplayIsAvailable() = runBlocking {
+        val retryableOp = sampleOperation(
+            operationId = operationIdFixture("retryable-auth-repair-001"),
+            idempotencyKey = "idem-retryable-auth-repair-001",
+            bodyHash = "sha256:retryable-auth-repair"
+        )
+        syncClient.enqueue(retryableOp)
+        sender.decisionByKey[retryableOp.idempotencyKey] = SendResult.RETRYABLE_FAILURE
+        sender.retryableFailureErrorByKey[retryableOp.idempotencyKey] = "http_401"
+
+        replay.flushPending(policePhoneId = retryableOp.policePhoneId, incidentId = retryableOp.incidentId)
+        val blockedRow = database.outboxDao().findByIdempotencyKey(retryableOp.idempotencyKey)!!
+        assertEquals(OutboxStatus.FAILED_RETRYABLE.name, blockedRow.idempotencyStatus)
+        assertNull(blockedRow.nextAttemptAt)
+        assertEquals("http_401", blockedRow.lastError)
+
+        sender.decisionByKey.remove(retryableOp.idempotencyKey)
+        sender.retryableFailureErrorByKey.remove(retryableOp.idempotencyKey)
+        val authenticatedReplay = RoomOutboxReplay(
+            outboxDao = database.outboxDao(),
+            sender = sender,
+            accessRepairAvailable = { true }
+        )
+
+        authenticatedReplay.flushPending(
+            policePhoneId = retryableOp.policePhoneId,
+            incidentId = retryableOp.incidentId
+        )
+
+        val repairedRow = database.outboxDao().findByIdempotencyKey(retryableOp.idempotencyKey)!!
+        assertEquals(OutboxStatus.ACKED.name, repairedRow.idempotencyStatus)
+        assertEquals(HarnessSyncStatus.SYNCED.name, repairedRow.localMirrorStatus)
+        assertEquals(2, sender.sendCountByKey(retryableOp.idempotencyKey))
+    }
+
+    @Test
     fun replayAppliesExponentialBackoffAndRetryAfterForRetryableFailures() = runBlocking {
         val retryableOp = sampleOperation(
             operationId = operationIdFixture("retryable-backoff-001"),

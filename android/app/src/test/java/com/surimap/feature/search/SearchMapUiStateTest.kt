@@ -133,6 +133,20 @@ class SearchMapUiStateTest {
         assertTrue(state.visibleText().contains("마커 상세"))
     }
 
+    @Test
+    fun mapChromeCanCollapsePanelAndHideOverlayChips() {
+        val state =
+            SearchMapUiState.active().copy(
+                bottomPanelExpanded = false,
+                mapOverlaysVisible = false
+            )
+
+        assertFalse(state.bottomPanelExpanded)
+        assertFalse(state.mapOverlaysVisible)
+        assertTrue(state.visibleText().contains("지도 정보 접힘"))
+        assertTrue(state.visibleText().contains("지도 오버레이 숨김"))
+    }
+
     private companion object {
         val MARKER_ID = markerIdFixture("person-found-001")
     }

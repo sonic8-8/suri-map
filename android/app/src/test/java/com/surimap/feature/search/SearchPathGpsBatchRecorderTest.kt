@@ -100,6 +100,26 @@ class SearchPathGpsBatchRecorderTest {
         assertTrue(operation.payload.contains("pt-gps-003"))
     }
 
+    @Test
+    fun missingLocationSpeedIsEstimatedBeforeEnqueue() = runBlocking {
+        val syncClient = CapturingSyncClient()
+        val batchRecorder =
+            SearchPathGpsBatchRecorder(
+                localRecorder = SearchPathLocalRecorder(syncClient = syncClient),
+                pointIdFactory = pointIdFactory()
+            )
+
+        assertNull(batchRecorder.recordFix(CONTEXT, PATH_ID, fixWithoutSpeed(0)))
+        assertNull(batchRecorder.recordFix(CONTEXT, PATH_ID, fixWithoutSpeed(5)))
+        val result = batchRecorder.recordFix(CONTEXT, PATH_ID, fixWithoutSpeed(10))
+
+        assertTrue(result is SearchPathWriteResult.Enqueued)
+        val payload = syncClient.operations.single().payload
+        assertEquals(3, Regex(""""speedMps":""").findAll(payload).count())
+        assertFalse(payload.contains(""""speedMps":null"""))
+    }
+
+
     private class CapturingSyncClient : SyncClient {
         val operations = mutableListOf<LocalWriteOperation>()
 
@@ -122,6 +142,9 @@ class SearchPathGpsBatchRecorderTest {
             horizontalAccuracyM = 5,
             capturedAt = CLIENT_TS.plusSeconds(second)
         )
+
+    private fun fixWithoutSpeed(second: Long): GpsLocationFix =
+        fix(second).copy(speedMps = null)
 
     private fun sequenceSource(first: Long): () -> Long {
         var next = first

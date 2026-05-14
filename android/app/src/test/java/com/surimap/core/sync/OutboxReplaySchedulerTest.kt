@@ -34,7 +34,7 @@ class OutboxReplaySchedulerTest {
 
         val work = enqueued.single()
         assertEquals("outbox-replay-$INCIDENT_ID-$POLICE_PHONE_ID", work.name)
-        assertEquals(ExistingWorkPolicy.APPEND_OR_REPLACE, work.policy)
+        assertEquals(ExistingWorkPolicy.REPLACE, work.policy)
         assertEquals(INCIDENT_ID, work.request.workSpec.input.getString(OutboxWorker.KEY_INCIDENT_ID))
         assertEquals(POLICE_PHONE_ID, work.request.workSpec.input.getString(OutboxWorker.KEY_POLICE_PHONE_ID))
         assertEquals("https://suri-map.internal", work.request.workSpec.input.getString(OutboxWorker.KEY_API_BASE_URL))

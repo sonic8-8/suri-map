@@ -112,7 +112,9 @@ data class SearchMapUiState(
     val viewportBounds: SearchMapViewportBounds? = null,
     val handoverPrompt: HandoverPromptUiState?,
     val incidentAlert: IncidentAlertUiState? = null,
-    val focusedMarkerId: String? = null
+    val focusedMarkerId: String? = null,
+    val bottomPanelExpanded: Boolean = true,
+    val mapOverlaysVisible: Boolean = true
 ) {
     val canWritePath: Boolean = lifecycleStatus == SearchLifecycleStatus.Active
     val canCreateMarker: Boolean = lifecycleStatus == SearchLifecycleStatus.Active
@@ -192,6 +194,8 @@ data class SearchMapUiState(
             add(primaryActionLabel)
             add(if (canWritePath) "경로 기록 가능" else "경로 기록 차단")
             add(if (canCreateMarker) "마커 생성 가능" else "마커 생성 차단")
+            add(if (bottomPanelExpanded) "지도 정보 펼침" else "지도 정보 접힘")
+            add(if (mapOverlaysVisible) "지도 오버레이 표시" else "지도 오버레이 숨김")
             add("인수인계")
             add("마커 생성")
             if (showHandoverPrompt) {
@@ -299,6 +303,8 @@ fun SearchMapScreen(
     onDismissIncidentAlert: () -> Unit,
     onOpenIncidentAlertMarker: (String) -> Unit,
     onOpenFocusedMarkerDetail: (String) -> Unit,
+    onToggleBottomPanel: () -> Unit,
+    onToggleMapOverlays: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxSize().background(PoliBgBase)) {
@@ -338,6 +344,7 @@ fun SearchMapScreen(
                 state = state,
                 mapState = mapState,
                 onOpenFocusedMarkerDetail = onOpenFocusedMarkerDetail,
+                onToggleMapOverlays = onToggleMapOverlays,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -347,7 +354,8 @@ fun SearchMapScreen(
             onPrimaryLifecycleAction = onPrimaryLifecycleAction,
             onStopSearch = onStopSearch,
             onOpenHandover = onOpenHandover,
-            onCreateMarker = onCreateMarker
+            onCreateMarker = onCreateMarker,
+            onToggleBottomPanel = onToggleBottomPanel
         )
     }
 }
@@ -394,6 +402,7 @@ private fun SearchMapShell(
     state: SearchMapUiState,
     mapState: MapLibreRuntimeMapState,
     onOpenFocusedMarkerDetail: (String) -> Unit,
+    onToggleMapOverlays: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var mapLoadFailure by remember { mutableStateOf<String?>(null) }
@@ -410,22 +419,30 @@ private fun SearchMapShell(
             modifier = Modifier.align(Alignment.TopStart).padding(PoliDimens.Space3),
             verticalArrangement = Arrangement.spacedBy(PoliDimens.Space2)
         ) {
-            state.markerFocusLabel?.let { focusLabel ->
-                PoliChip(text = focusLabel, variant = PoliChipVariant.Bad)
-            }
-            state.markerDetailTargetId?.takeIf(String::isNotBlank)?.let { markerId ->
-                PoliButton(
-                    text = "마커 상세",
-                    onClick = { onOpenFocusedMarkerDetail(markerId) },
-                    size = PoliButtonSize.Small,
-                    variant = PoliButtonVariant.Secondary
-                )
-            }
-            state.layers.forEach { layer ->
-                PoliChip(
-                    text = layer.label,
-                    variant = if (layer.highlighted) PoliChipVariant.Outbox else PoliChipVariant.Neutral
-                )
+            PoliButton(
+                text = if (state.mapOverlaysVisible) "정보 숨김" else "정보 표시",
+                onClick = onToggleMapOverlays,
+                size = PoliButtonSize.Small,
+                variant = PoliButtonVariant.Secondary
+            )
+            if (state.mapOverlaysVisible) {
+                state.markerFocusLabel?.let { focusLabel ->
+                    PoliChip(text = focusLabel, variant = PoliChipVariant.Bad)
+                }
+                state.markerDetailTargetId?.takeIf(String::isNotBlank)?.let { markerId ->
+                    PoliButton(
+                        text = "마커 상세",
+                        onClick = { onOpenFocusedMarkerDetail(markerId) },
+                        size = PoliButtonSize.Small,
+                        variant = PoliButtonVariant.Secondary
+                    )
+                }
+                state.layers.forEach { layer ->
+                    PoliChip(
+                        text = layer.label,
+                        variant = if (layer.highlighted) PoliChipVariant.Outbox else PoliChipVariant.Neutral
+                    )
+                }
             }
         }
 
@@ -481,19 +498,22 @@ private fun SearchBottomPanel(
     onPrimaryLifecycleAction: () -> Unit,
     onStopSearch: () -> Unit,
     onOpenHandover: () -> Unit,
-    onCreateMarker: () -> Unit
+    onCreateMarker: () -> Unit,
+    onToggleBottomPanel: () -> Unit
 ) {
     Column(
         modifier =
         Modifier
             .fillMaxWidth()
-            .heightIn(min = 220.dp)
+            .heightIn(min = if (state.bottomPanelExpanded) 220.dp else 104.dp)
             .background(PoliBgSurface)
             .padding(PoliDimens.SectionPadding),
         verticalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
     ) {
-        SearchStatusCard(state = state)
-        WriteAvailabilityRow(state = state)
+        SearchStatusCard(state = state, onToggleBottomPanel = onToggleBottomPanel)
+        if (state.bottomPanelExpanded) {
+            WriteAvailabilityRow(state = state)
+        }
 
         Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
             PoliButton(
@@ -513,27 +533,29 @@ private fun SearchBottomPanel(
                 variant = PoliButtonVariant.Danger
             )
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
-            PoliButton(
-                text = "인수인계",
-                onClick = onOpenHandover,
-                modifier = Modifier.weight(1f),
-                variant = PoliButtonVariant.Secondary,
-                size = PoliButtonSize.Large
-            )
-            PoliButton(
-                text = "마커 생성",
-                onClick = onCreateMarker,
-                modifier = Modifier.weight(1.25f),
-                enabled = state.canCreateMarker,
-                size = PoliButtonSize.Large
-            )
+        if (state.bottomPanelExpanded) {
+            Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
+                PoliButton(
+                    text = "인수인계",
+                    onClick = onOpenHandover,
+                    modifier = Modifier.weight(1f),
+                    variant = PoliButtonVariant.Secondary,
+                    size = PoliButtonSize.Large
+                )
+                PoliButton(
+                    text = "마커 생성",
+                    onClick = onCreateMarker,
+                    modifier = Modifier.weight(1.25f),
+                    enabled = state.canCreateMarker,
+                    size = PoliButtonSize.Large
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun SearchStatusCard(state: SearchMapUiState) {
+private fun SearchStatusCard(state: SearchMapUiState, onToggleBottomPanel: () -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
@@ -557,6 +579,12 @@ private fun SearchStatusCard(state: SearchMapUiState) {
                 Text(text = state.movementSummary, style = MaterialTheme.typography.bodyMedium, color = PoliFgMuted)
             }
             Text(text = state.elapsedLabel, style = MaterialTheme.typography.titleMedium)
+            PoliButton(
+                text = if (state.bottomPanelExpanded) "접기" else "펼치기",
+                onClick = onToggleBottomPanel,
+                size = PoliButtonSize.Small,
+                variant = PoliButtonVariant.Secondary
+            )
         }
     }
 }
@@ -671,7 +699,9 @@ private fun SearchMapScreenPreview() {
             onOpenBlockedOutbox = {},
             onDismissIncidentAlert = {},
             onOpenIncidentAlertMarker = {},
-            onOpenFocusedMarkerDetail = {}
+            onOpenFocusedMarkerDetail = {},
+            onToggleBottomPanel = {},
+            onToggleMapOverlays = {}
         )
     }
 }
