@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { ApiError, createIdempotencyKey } from '../../../../shared/api/client';
 import { getAreaColorToken, rememberAreaColorToken } from '../../../../shared/model/areaColorRegistry';
@@ -50,6 +50,7 @@ type AreaEditPageProps = {
   onMoveMarkerNotification: (nextIndex: number) => void;
   onOpenHandover: () => void;
   onOpenIncidentList: () => void;
+  onHeaderIncidentListNavigationChange?: (handler: (() => void) | null) => void;
   onSaveAssignedAreas: (drafts: CompletedAreaDraft[]) => void;
   onSharedMapPropsChange?: (props: AreaEditMapCanvasProps | null) => void;
 };
@@ -105,6 +106,7 @@ export function AreaEditPage({
   onMoveMarkerNotification,
   onOpenHandover,
   onOpenIncidentList,
+  onHeaderIncidentListNavigationChange,
   onSaveAssignedAreas,
   onSharedMapPropsChange,
 }: AreaEditPageProps) {
@@ -801,7 +803,7 @@ export function AreaEditPage({
     }
   };
 
-  const requestNavigation = (target: PendingNavigationTarget) => {
+  const requestNavigation = useCallback((target: PendingNavigationTarget) => {
     if (hasDraftChanges) {
       setPendingNavigationTarget(target);
       return;
@@ -813,15 +815,22 @@ export function AreaEditPage({
     }
 
     onBackToSituationBoard();
-  };
+  }, [hasDraftChanges, onBackToSituationBoard, onOpenIncidentList]);
 
-  const handleNavToSituationBoard = () => {
+  const handleNavToSituationBoard = useCallback(() => {
     requestNavigation('situationBoard');
-  };
+  }, [requestNavigation]);
 
-  const handleNavToIncidentList = () => {
+  const handleNavToIncidentList = useCallback(() => {
     requestNavigation('incidentList');
-  };
+  }, [requestNavigation]);
+
+  useEffect(() => {
+    if (!embedded || !onHeaderIncidentListNavigationChange) return;
+
+    onHeaderIncidentListNavigationChange(handleNavToIncidentList);
+    return () => onHeaderIncidentListNavigationChange(null);
+  }, [embedded, handleNavToIncidentList, onHeaderIncidentListNavigationChange]);
 
   const handleConfirmNavigation = () => {
     const target = pendingNavigationTarget;
@@ -999,6 +1008,7 @@ export function AreaEditPage({
                   onRemoveDraftUnit={handleRemoveDraftUnit}
                   onSelectArea={handleSelectArea}
                   onSave={handleSaveAreaEdit}
+                  onStartDrawing={handleStartDrawing}
                   onToggleAssignee={handleToggleAssignee}
                 />
               </AreaEditPanelShell>

@@ -33,6 +33,7 @@ type AreaHierarchyPanelProps = {
   onRemoveDraftUnit: (areaId: string) => void;
   onSelectArea: (area: AreaTreeNode) => void;
   onSave: () => void;
+  onStartDrawing: () => void;
   onToggleAssignee: (accountId: string) => void;
 };
 
@@ -138,6 +139,21 @@ function canShowAddTeamAction(area: AreaTreeNode, selectedAreaId: string | null,
   return canAddTeam && area.kind === 'unit' && area.id === selectedAreaId && area.geometryState === 'saved';
 }
 
+function canShowBoundaryAction(
+  area: AreaTreeNode,
+  selectedAreaId: string | null,
+  assignedAreaIds: Set<string>,
+  isAssignmentEnabled: boolean,
+) {
+  return (
+    isAssignmentEnabled &&
+    area.status !== 'COMPLETED' &&
+    area.status !== 'CANCELLED' &&
+    area.id === selectedAreaId &&
+    !isSavedGeometryArea(area, assignedAreaIds)
+  );
+}
+
 function flattenAreaTree(root: AreaTreeNode): AreaTreeNode[] {
   return [root, ...(root.children ?? []).flatMap(flattenAreaTree)];
 }
@@ -174,6 +190,7 @@ export function AreaHierarchyPanel({
   onRemoveDraftUnit,
   onSelectArea,
   onSave,
+  onStartDrawing,
   onToggleAssignee,
 }: AreaHierarchyPanelProps) {
   const shouldShowUnassignedNotice = false;
@@ -264,6 +281,11 @@ export function AreaHierarchyPanel({
               UNIT 추가
             </button>
           ) : null}
+          {canShowBoundaryAction(areaTree, selectedAreaId, assignedAreaIds, isAssignmentEnabled) ? (
+            <button type="button" className={styles.inlineActionButton} onClick={onStartDrawing}>
+              범위 지정
+            </button>
+          ) : null}
           <div className={styles.unitList}>
             {units.map((unit) => {
               const teams = unit.children ?? [];
@@ -318,6 +340,11 @@ export function AreaHierarchyPanel({
                       TEAM 추가
                     </button>
                   ) : null}
+                  {canShowBoundaryAction(unit, selectedAreaId, assignedAreaIds, isAssignmentEnabled) ? (
+                    <button type="button" className={styles.inlineActionButton} onClick={onStartDrawing}>
+                      범위 지정
+                    </button>
+                  ) : null}
                   {hasTeams ? (
                     <div className={styles.teamList}>
                       {teams.map((team) => (
@@ -361,6 +388,11 @@ export function AreaHierarchyPanel({
                               onClick={() => onRemoveDraftUnit(team.id)}
                             >
                               X
+                            </button>
+                          ) : null}
+                          {canShowBoundaryAction(team, selectedAreaId, assignedAreaIds, isAssignmentEnabled) ? (
+                            <button type="button" className={styles.inlineActionButton} onClick={onStartDrawing}>
+                              범위 지정
                             </button>
                           ) : null}
                         </div>
