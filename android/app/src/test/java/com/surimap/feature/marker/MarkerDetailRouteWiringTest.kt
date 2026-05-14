@@ -23,4 +23,15 @@ class MarkerDetailRouteWiringTest {
         assertTrue(source.contains("MarkerSaveStatus.PendingOutbox"))
         assertTrue(source.contains("MarkerSaveStatus.Failed"))
     }
+
+    @Test
+    fun markerDetailRouteConnectsPhotoUploadCoordinatorToAddPhotoAction() {
+        val source = java.io.File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+
+        assertTrue(source.contains("MarkerPhotoUiUploadCoordinator"))
+        assertTrue(source.contains("HttpObjectStorageUploader"))
+        assertTrue(source.contains("photoUploadCoordinator.upload"))
+        assertTrue(source.contains("MarkerPhotoUploadPayload"))
+        assertFalse(source.contains("onAddPhoto = {},"))
+    }
 }
