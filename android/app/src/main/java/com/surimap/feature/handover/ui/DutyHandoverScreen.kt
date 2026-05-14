@@ -56,7 +56,7 @@ data class DutyHandoverUiState(
         buildList {
             add(title)
             add(subtitle)
-            add("AI 인수인계 요약")
+            add("서버 인수인계 요약")
             add(summaryStatus.label)
             add(generatedAtLabel)
             add(summaryText)
@@ -271,7 +271,7 @@ private fun SummaryCard(state: DutyHandoverUiState) {
     PoliCard(strong = true) {
         Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
-                Text(text = "AI 인수인계 요약", style = MaterialTheme.typography.titleMedium)
+                Text(text = "서버 인수인계 요약", style = MaterialTheme.typography.titleMedium)
                 Text(text = state.generatedAtLabel, style = MaterialTheme.typography.bodyMedium, color = PoliFgMuted)
             }
             PoliChip(text = state.summaryStatus.label, variant = state.summaryStatus.variant)

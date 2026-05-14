@@ -130,6 +130,7 @@ data class MarkerCreateSheetUiState(
             photosWithinSizeLimit
     val opensBlockedOutbox: Boolean = false
     val photoLimitLabel: String = "사진 ${photoCount.coerceAtMost(maxPhotoCount)} / $maxPhotoCount · 파일당 10MB"
+    val photoAttachAfterSaveLabel: String = "사진은 마커 저장 후 상세 화면에서 촬영하거나 앨범에서 첨부합니다."
     val photoLimitWarning: String? =
         when {
             !photosWithinSizeLimit -> "사진 파일은 10MB 이하만 첨부할 수 있습니다."
@@ -173,6 +174,7 @@ data class MarkerCreateSheetUiState(
                 add(memo)
             }
             add(photoLimitLabel)
+            add(photoAttachAfterSaveLabel)
             photoLimitWarning?.let(::add)
             photos.forEach { photo ->
                 add(photo.fileName)
@@ -250,7 +252,6 @@ fun MarkerCreateBottomSheet(
     onMemoChange: (String) -> Unit,
     onSave: () -> Unit,
     onAdjustLocation: () -> Unit,
-    onAttachPhoto: () -> Unit,
     onRetryPhoto: (MarkerPhotoUiState) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -285,7 +286,6 @@ fun MarkerCreateBottomSheet(
                 MemoSection(state = state, onMemoChange = onMemoChange)
                 PhotoSection(
                     state = state,
-                    onAttachPhoto = onAttachPhoto,
                     onRetryPhoto = onRetryPhoto
                 )
                 SheetActions(state = state, onDismiss = onDismiss, onSave = onSave)
@@ -468,27 +468,13 @@ private fun MemoSection(state: MarkerCreateSheetUiState, onMemoChange: (String) 
 @Composable
 private fun PhotoSection(
     state: MarkerCreateSheetUiState,
-    onAttachPhoto: () -> Unit,
     onRetryPhoto: (MarkerPhotoUiState) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
             Text(text = state.photoLimitLabel, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-            PoliButton(
-                text = "촬영",
-                onClick = onAttachPhoto,
-                size = PoliButtonSize.Small,
-                variant = PoliButtonVariant.Secondary,
-                enabled = state.canAttachPhoto
-            )
-            PoliButton(
-                text = "앨범",
-                onClick = onAttachPhoto,
-                size = PoliButtonSize.Small,
-                variant = PoliButtonVariant.Secondary,
-                enabled = state.canAttachPhoto
-            )
         }
+        Text(text = state.photoAttachAfterSaveLabel, style = MaterialTheme.typography.bodyMedium, color = PoliFgMuted)
         state.photoLimitWarning?.let { warning ->
             Text(text = warning, style = MaterialTheme.typography.bodyMedium, color = PoliWarning)
         }
@@ -578,7 +564,6 @@ private fun MarkerCreateBottomSheetPreview() {
             onMemoChange = {},
             onSave = {},
             onAdjustLocation = {},
-            onAttachPhoto = {},
             onRetryPhoto = {}
         )
     }

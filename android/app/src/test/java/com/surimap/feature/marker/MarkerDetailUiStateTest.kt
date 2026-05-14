@@ -17,6 +17,8 @@ class MarkerDetailUiStateTest {
         assertTrue(own.canDelete)
         assertTrue(own.visibleText().any { it.contains("저장") })
         assertTrue(own.visibleText().any { it.contains("삭제") })
+        assertTrue(own.visibleText().contains("촬영"))
+        assertTrue(own.visibleText().contains("앨범"))
         assertFalse(own.longPressDeleteEnabled)
     }
 
@@ -29,6 +31,8 @@ class MarkerDetailUiStateTest {
         assertTrue(readonly.visibleText().any { it.contains("읽기 전용") })
         assertFalse(readonly.visibleText().any { it == "저장" })
         assertFalse(readonly.visibleText().any { it == "삭제" })
+        assertFalse(readonly.visibleText().contains("촬영"))
+        assertFalse(readonly.visibleText().contains("앨범"))
     }
 
     @Test
