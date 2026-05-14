@@ -66,6 +66,15 @@ class PolicePhoneNavigationContractTest {
         assertNull(SearchMapDeepLink.focusMarkerIdFromRoute(PolicePhoneRoute.SearchMap.route))
     }
 
+    @Test
+    fun markerDetailRoutePreservesMarkerIdAsPathArgument() {
+        val route = MarkerDetailDeepLink.route("mk-person/found 001")
+
+        assertEquals("marker_detail/mk-person%2Ffound%20001", route)
+        assertEquals("mk-person/found 001", MarkerDetailDeepLink.markerIdFromRoute(route))
+        assertNull(MarkerDetailDeepLink.markerIdFromRoute(PolicePhoneRoute.MarkerDetail.route))
+    }
+
     private companion object {
         val INCIDENT_ID = incidentIdFixture("precinct-first-001")
         val OP_ID = opIdFixture("003")

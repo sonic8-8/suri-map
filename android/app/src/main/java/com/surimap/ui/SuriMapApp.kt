@@ -84,6 +84,8 @@ import com.surimap.feature.incidents.data.IncidentSessionContextResolver
 import com.surimap.feature.incidents.ui.IncidentListScreen
 import com.surimap.feature.incidents.ui.IncidentListUiState
 import com.surimap.feature.marker.data.MarkerLocalRecorder
+import com.surimap.feature.marker.data.MarkerDetailSessionContext
+import com.surimap.feature.marker.data.MarkerDetailStateLoader
 import com.surimap.feature.marker.data.MarkerLocation
 import com.surimap.feature.marker.data.MarkerUpsertInput
 import com.surimap.feature.marker.data.MarkerWriteContext
@@ -91,9 +93,9 @@ import com.surimap.feature.marker.data.MarkerWriteResult
 import com.surimap.feature.marker.ui.MarkerCreateBottomSheet
 import com.surimap.feature.marker.ui.MarkerDetailScreen
 import com.surimap.feature.marker.ui.MarkerCreateSheetUiState
+import com.surimap.feature.marker.ui.MarkerDetailUiState
 import com.surimap.feature.marker.ui.MarkerSaveStatus
 import com.surimap.feature.marker.ui.MarkerType
-import com.surimap.feature.marker.ui.sampleMarkerDetailState
 import com.surimap.feature.marker.ui.sampleMarkerCreateSheetState
 import com.surimap.feature.marker.ui.withCurrentLocation
 import com.surimap.feature.marker.ui.withManualLocation
@@ -116,6 +118,7 @@ import com.surimap.feature.search.ui.SearchMapScreen
 import com.surimap.feature.search.ui.SearchMapUiState
 import com.surimap.ui.navigation.IncidentContext
 import com.surimap.ui.navigation.IncidentSessionState
+import com.surimap.ui.navigation.MarkerDetailDeepLink
 import com.surimap.ui.navigation.PolicePhoneContext
 import com.surimap.ui.navigation.PolicePhoneRoute
 import com.surimap.ui.navigation.SearchMapDeepLink
@@ -220,21 +223,27 @@ fun SuriMapApp() {
                     )
                 }
                 composable(PolicePhoneRoute.MarkerDetail.route) {
-                    var markerDetailState by remember { mutableStateOf(sampleMarkerDetailState()) }
-                    MarkerDetailScreen(
-                        state = markerDetailState,
-                        onBack = { navController.popBackStack() },
-                        onMemoChange = { memo -> markerDetailState = markerDetailState.copy(memo = memo) },
-                        onSave = { navController.popBackStack() },
-                        onRequestDelete = {
-                            markerDetailState = markerDetailState.copy(showDeleteConfirm = true)
-                        },
-                        onDismissDelete = {
-                            markerDetailState = markerDetailState.copy(showDeleteConfirm = false)
-                        },
-                        onConfirmDelete = { navController.popBackStack() },
-                        onAddPhoto = {},
-                        onDeletePhoto = {}
+                    MarkerDetailRoute(
+                        incidentSessionState = incidentSessionState,
+                        navController = navController,
+                        markerId = null,
+                        clockSyncState = clockSyncState
+                    )
+                }
+                composable(
+                    route = MarkerDetailDeepLink.RoutePattern,
+                    arguments =
+                    listOf(
+                        navArgument(MarkerDetailDeepLink.MarkerIdArg) {
+                            type = NavType.StringType
+                        }
+                    )
+                ) { backStackEntry ->
+                    MarkerDetailRoute(
+                        incidentSessionState = incidentSessionState,
+                        navController = navController,
+                        markerId = backStackEntry.arguments?.getString(MarkerDetailDeepLink.MarkerIdArg),
+                        clockSyncState = clockSyncState
                     )
                 }
                 composable(PolicePhoneRoute.BlockedOutbox.route) {
@@ -788,6 +797,9 @@ private fun SearchMapRoute(
             onOpenIncidentAlertMarker = { markerId ->
                 searchMapState = searchMapState.withFocusedMarker(markerId)
                 navController.navigateToSingleTop(SearchMapDeepLink.markerFocusRoute(markerId))
+            },
+            onOpenFocusedMarkerDetail = { markerId ->
+                navController.navigateToSingleTop(MarkerDetailDeepLink.route(markerId))
             }
         )
         if (markerSheetOpen) {
@@ -840,6 +852,126 @@ private fun SearchMapRoute(
             )
         }
     }
+}
+
+@Composable
+private fun MarkerDetailRoute(
+    incidentSessionState: IncidentSessionState,
+    navController: NavHostController,
+    markerId: String?,
+    clockSyncState: ClockSyncState
+) {
+    val incidentContext = incidentSessionState.incidentContext
+    val policePhoneContext = incidentSessionState.policePhoneContext
+    val sessionContext = incidentContext.toMarkerDetailSessionContext(policePhoneContext, markerId)
+    val context = LocalContext.current.applicationContext
+    val database = remember(context) { SuriMapDatabaseProvider.database(context) }
+    val outboxReplayScheduler = remember(context) {
+        OutboxReplayScheduler(WorkManager.getInstance(context))
+    }
+    val apiBaseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
+    val accessTokenProvider = policePhoneContext.accessTokenProvider()
+    val syncClient =
+        remember(database, outboxReplayScheduler, apiBaseUrl, policePhoneContext?.accessToken) {
+            SchedulingSyncClient(
+                delegate = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()),
+                scheduleReplay = outboxReplayScheduler::schedule,
+                apiBaseUrl = apiBaseUrl,
+                accessToken = policePhoneContext?.accessToken
+            )
+        }
+    val markerRecorder = remember(syncClient, clockSyncState) {
+        MarkerLocalRecorder(
+            syncClient = syncClient,
+            clockOffsetMs = clockSyncState::clockOffsetMs,
+            clockSyncedAt = clockSyncState::clockSyncedAt
+        )
+    }
+    val loader =
+        remember(apiBaseUrl, policePhoneContext?.accessToken) {
+            MarkerDetailStateLoader(
+                markerRead = { query ->
+                    MarkerRepository(
+                        apiClient = SuriMapApiClient(baseUrl = apiBaseUrl),
+                        accessTokenProvider = accessTokenProvider
+                    ).listMarkers(query)
+                }
+            )
+        }
+    val coroutineScope = rememberCoroutineScope()
+    var markerDetailState by remember(markerId) {
+        mutableStateOf(MarkerDetailUiState.loading(markerId ?: "marker-id-missing"))
+    }
+
+    LaunchedEffect(
+        sessionContext.incidentId,
+        sessionContext.policePhoneId,
+        policePhoneContext?.apiBaseUrl,
+        policePhoneContext?.accessToken
+    ) {
+        clockSyncState.syncClockForIncident(sessionContext.incidentId, policePhoneContext)
+    }
+    LaunchedEffect(loader, sessionContext) {
+        markerDetailState = MarkerDetailUiState.loading(sessionContext.markerId ?: "marker-id-missing")
+        markerDetailState = loader.load(sessionContext)
+    }
+
+    MarkerDetailScreen(
+        state = markerDetailState,
+        onBack = { navController.popBackStack() },
+        onMemoChange = { memo ->
+            if (markerDetailState.canEdit) {
+                markerDetailState = markerDetailState.copy(memo = memo, mutationStatus = MarkerSaveStatus.Editing)
+            }
+        },
+        onSave = {
+            val current = markerDetailState
+            coroutineScope.launch {
+                markerDetailState = current.copy(mutationStatus = MarkerSaveStatus.Saving)
+                val input = markerDetailState.toMarkerUpsertInput()
+                markerDetailState =
+                    when (
+                        markerRecorder.updateMarker(
+                            context = sessionContext.toMarkerWriteContext(),
+                            markerId = current.markerId,
+                            version = current.version,
+                            input = input
+                        )
+                    ) {
+                        MarkerWriteResult.Blocked -> current.copy(mutationStatus = MarkerSaveStatus.Failed)
+                        is MarkerWriteResult.Enqueued -> current.copy(mutationStatus = MarkerSaveStatus.PendingOutbox)
+                    }
+            }
+        },
+        onRequestDelete = {
+            if (markerDetailState.canDelete) {
+                markerDetailState = markerDetailState.copy(showDeleteConfirm = true)
+            }
+        },
+        onDismissDelete = {
+            markerDetailState = markerDetailState.copy(showDeleteConfirm = false)
+        },
+        onConfirmDelete = {
+            val current = markerDetailState.copy(showDeleteConfirm = false)
+            coroutineScope.launch {
+                markerDetailState = current.copy(mutationStatus = MarkerSaveStatus.Saving)
+                markerDetailState =
+                    when (
+                        markerRecorder.deleteMarker(
+                            context = sessionContext.toMarkerWriteContext(),
+                            markerId = current.markerId,
+                            version = current.version,
+                            reason = "field_deleted"
+                        )
+                    ) {
+                        MarkerWriteResult.Blocked -> current.copy(mutationStatus = MarkerSaveStatus.Failed)
+                        is MarkerWriteResult.Enqueued -> current.copy(mutationStatus = MarkerSaveStatus.PendingOutbox)
+                    }
+            }
+        },
+        onAddPhoto = {},
+        onDeletePhoto = {}
+    )
 }
 
 @Composable
@@ -1180,6 +1312,17 @@ private fun IncidentContext?.toSearchMapSessionContext(policePhoneContext: Polic
         policePhoneId = policePhoneContext?.policePhoneId
     )
 
+private fun IncidentContext?.toMarkerDetailSessionContext(
+    policePhoneContext: PolicePhoneContext?,
+    markerId: String?
+): MarkerDetailSessionContext =
+    MarkerDetailSessionContext(
+        incidentId = this?.incidentId,
+        opId = this?.currentOpId,
+        policePhoneId = policePhoneContext?.policePhoneId,
+        markerId = markerId
+    )
+
 private fun IncidentContext?.toHandoverSessionContext(policePhoneContext: PolicePhoneContext?): HandoverSessionContext =
     HandoverSessionContext(
         incidentId = this?.incidentId,
@@ -1200,6 +1343,25 @@ private fun SearchMapSessionContext.toMarkerWriteContext(): MarkerWriteContext =
         incidentId = incidentId,
         opId = currentOpId,
         policePhoneId = policePhoneId
+    )
+
+private fun MarkerDetailSessionContext.toMarkerWriteContext(): MarkerWriteContext =
+    MarkerWriteContext(
+        incidentId = incidentId,
+        opId = opId,
+        policePhoneId = policePhoneId
+    )
+
+private fun MarkerDetailUiState.toMarkerUpsertInput(): MarkerUpsertInput =
+    MarkerUpsertInput(
+        type = markerType.apiValue,
+        location =
+        if (lon != null && lat != null) {
+            MarkerLocation(lon = lon, lat = lat)
+        } else {
+            null
+        },
+        memo = memo
     )
 
 private fun HandoverSessionContext.toHandoverWriteContext(): HandoverWriteContext =

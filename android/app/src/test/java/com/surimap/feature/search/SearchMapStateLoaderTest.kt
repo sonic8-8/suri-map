@@ -848,6 +848,8 @@ class SearchMapStateLoaderTest {
         assertTrue(source.contains("MarkerLocalRecorder"))
         assertTrue(source.contains("MarkerRepository"))
         assertTrue(source.contains("listMarkers"))
+        assertTrue(source.contains("onOpenFocusedMarkerDetail"))
+        assertTrue(source.contains("MarkerDetailDeepLink.route(markerId)"))
         assertTrue(source.contains("createMarker"))
         assertTrue(source.contains("MarkerUpsertInput"))
         assertTrue(source.contains("markerCreationLocation"))
