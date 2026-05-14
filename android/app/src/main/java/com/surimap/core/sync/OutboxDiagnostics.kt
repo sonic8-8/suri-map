@@ -14,13 +14,14 @@ data class OutboxDiagnosticsView(
 object OutboxDiagnosticsClassifier {
     fun classify(row: OutboxEntity): OutboxDiagnosticsView {
         val (category, retryable) = classifyCategory(row)
+        val canRetry = retryable && row.idempotencyStatus != OutboxStatus.FAILED_FINAL.name
         return OutboxDiagnosticsView(
             operationId = row.operationId,
             outboxStatus = row.idempotencyStatus,
-            retryable = retryable,
+            retryable = canRetry,
             userSafeFailureCategory = category,
             attemptCount = row.attemptCount,
-            nextAttemptAt = if (retryable) row.nextAttemptAt else null
+            nextAttemptAt = if (canRetry) row.nextAttemptAt else null
         )
     }
 
@@ -44,13 +45,16 @@ object OutboxDiagnosticsClassifier {
             lastError in setOf("incident_closed", "post_close_requeue_rejected") ->
                 "CLOSED_NO_RETRY" to false
 
+            lastError in setOf("police_phone_required", "http_401") ->
+                "POLICE_PHONE_ACCESS_REQUIRED" to true
+
             lastError in setOf(
                 "police_phone_not_assigned",
                 "police_phone_not_registered",
                 "device_not_assigned",
                 "device_not_registered",
                 "device_required"
-            ) -> "DEVICE_ACCESS_REQUIRED" to false
+            ) -> "POLICE_PHONE_ACCESS_REQUIRED" to false
 
             lastError in setOf(
                 "idempotency_mismatch",
@@ -66,4 +70,3 @@ object OutboxDiagnosticsClassifier {
         }
     }
 }
-

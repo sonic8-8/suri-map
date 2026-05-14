@@ -64,6 +64,56 @@ class OfflinePackageDownloadPlanTest {
     }
 
     @Test
+    fun manifestTileItemsMapToConcreteTileDownloads() {
+        val plan =
+            OfflinePackageDownloadPlan.fromManifestJson(
+                """
+                {
+                  "manifestId": "$MANIFEST_ID",
+                  "incidentId": "$INCIDENT_ID",
+                  "manifestVersion": 18,
+                  "tileItems": [
+                    {
+                      "styleId": "osm-local",
+                      "z": 15,
+                      "x": 27925,
+                      "y": 12680,
+                      "url": "local://tiles/inc-precinct-first-001/15/27925/12680.pbf",
+                      "checksum": "sha256:tile-a",
+                      "bytes": 18432
+                    }
+                  ],
+                  "packageItems": [
+                    {
+                      "itemKey": "incident-meta",
+                      "itemType": "INCIDENT_META",
+                      "status": "PENDING",
+                      "sourceVersion": 7,
+                      "sourceHash": "sha256:incident"
+                    },
+                    {
+                      "itemKey": "tile-manifest:tile-manifest-inc-precinct-001",
+                      "itemType": "TILE",
+                      "status": "PENDING",
+                      "sourceVersion": 18,
+                      "sourceHash": "sha256:tile-manifest"
+                    }
+                  ]
+                }
+                """.trimIndent()
+            )
+
+        assertEquals(
+            listOf("incident-meta", "tile:osm-local:15:27925:12680"),
+            plan!!.items.map { it.itemKey }
+        )
+        val tile = plan.items.single { it.itemType == "TILE" }
+        assertEquals("/tiles/osm-local/15/27925/12680.pbf", tile.downloadUrl)
+        assertEquals("sha256:tile-a", tile.sourceHash)
+        assertEquals(18432L, tile.bytesTotal)
+    }
+
+    @Test
     fun blankOrMalformedManifestDoesNotCreateDownloadPlan() {
         assertNull(OfflinePackageDownloadPlan.fromManifestJson(""))
         assertNull(OfflinePackageDownloadPlan.fromManifestJson("""{"manifestId":"","packageItems":[]}"""))

@@ -12,6 +12,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -328,6 +329,172 @@ class RoomLocalSyncServicesTest {
     }
 
     @Test
+    fun replayPersistsRetryableFailureErrorCodeFromSender() = runBlocking {
+        val retryableOp = sampleOperation(
+            operationId = operationIdFixture("retryable-phone-required-001"),
+            idempotencyKey = "idem-retryable-phone-required-001",
+            bodyHash = "sha256:retryable-phone-required"
+        )
+
+        syncClient.enqueue(retryableOp)
+        sender.decisionByKey[retryableOp.idempotencyKey] = SendResult.RETRYABLE_FAILURE
+        sender.retryableFailureErrorByKey[retryableOp.idempotencyKey] = "police_phone_required"
+        replay.flushPending(policePhoneId = retryableOp.policePhoneId, incidentId = retryableOp.incidentId)
+
+        val row = database.outboxDao().findByIdempotencyKey(retryableOp.idempotencyKey)!!
+        assertEquals(OutboxStatus.FAILED_RETRYABLE.name, row.idempotencyStatus)
+        assertEquals(HarnessSyncStatus.FAILED.name, row.localMirrorStatus)
+        assertNull(row.nextAttemptAt)
+        assertEquals("police_phone_required", row.lastError)
+
+        replay.flushPending(policePhoneId = retryableOp.policePhoneId, incidentId = retryableOp.incidentId)
+
+        assertEquals(1, sender.sendCountByKey(retryableOp.idempotencyKey))
+    }
+
+    @Test
+    fun replayAppliesExponentialBackoffAndRetryAfterForRetryableFailures() = runBlocking {
+        val retryableOp = sampleOperation(
+            operationId = operationIdFixture("retryable-backoff-001"),
+            idempotencyKey = "idem-retryable-backoff-001",
+            bodyHash = "sha256:retryable-backoff"
+        )
+
+        val enqueue = syncClient.enqueue(retryableOp)
+        val current = database.outboxDao().findById(enqueue.outboxId)!!
+        database.outboxDao().upsert(current.copy(attemptCount = 1))
+        sender.decisionByKey[retryableOp.idempotencyKey] = SendResult.RETRYABLE_FAILURE
+        sender.retryableFailureErrorByKey[retryableOp.idempotencyKey] = "http_429"
+        sender.retryAfterDelayByKey[retryableOp.idempotencyKey] = 90_000L
+        val before = System.currentTimeMillis()
+
+        replay.flushPending(policePhoneId = retryableOp.policePhoneId, incidentId = retryableOp.incidentId)
+
+        val row = database.outboxDao().findByIdempotencyKey(retryableOp.idempotencyKey)!!
+        assertEquals(2, row.attemptCount)
+        assertEquals(OutboxStatus.FAILED_RETRYABLE.name, row.idempotencyStatus)
+        assertTrue(row.nextAttemptAt!! >= before + 90_000L)
+    }
+
+    @Test
+    fun replayAppliesBaseMultiplierAndCapForRetryableFailures() = runBlocking {
+        val firstAttempt = sampleOperation(
+            operationId = operationIdFixture("retryable-base-001"),
+            idempotencyKey = "idem-retryable-base-001",
+            bodyHash = "sha256:retryable-base"
+        )
+        val secondAttempt = sampleOperation(
+            operationId = operationIdFixture("retryable-multiplier-001"),
+            idempotencyKey = "idem-retryable-multiplier-001",
+            bodyHash = "sha256:retryable-multiplier"
+        )
+        val cappedAttempt = sampleOperation(
+            operationId = operationIdFixture("retryable-cap-001"),
+            idempotencyKey = "idem-retryable-cap-001",
+            bodyHash = "sha256:retryable-cap"
+        )
+
+        val firstEnqueue = syncClient.enqueue(firstAttempt)
+        val secondEnqueue = syncClient.enqueue(secondAttempt)
+        val cappedEnqueue = syncClient.enqueue(cappedAttempt)
+        database.outboxDao().upsert(database.outboxDao().findById(secondEnqueue.outboxId)!!.copy(attemptCount = 1))
+        database.outboxDao().upsert(database.outboxDao().findById(cappedEnqueue.outboxId)!!.copy(attemptCount = 5))
+        listOf(firstAttempt, secondAttempt, cappedAttempt).forEach { operation ->
+            sender.decisionByKey[operation.idempotencyKey] = SendResult.RETRYABLE_FAILURE
+            sender.retryableFailureErrorByKey[operation.idempotencyKey] = "http_503"
+        }
+        val before = System.currentTimeMillis()
+
+        replay.flushPending(policePhoneId = firstAttempt.policePhoneId, incidentId = firstAttempt.incidentId)
+        val after = System.currentTimeMillis()
+
+        val firstRow = database.outboxDao().findById(firstEnqueue.outboxId)!!
+        val secondRow = database.outboxDao().findById(secondEnqueue.outboxId)!!
+        val cappedRow = database.outboxDao().findById(cappedEnqueue.outboxId)!!
+        assertEquals(1, firstRow.attemptCount)
+        assertDelayInRange(firstRow.nextAttemptAt!!, before, after, 10_000L)
+        assertEquals(2, secondRow.attemptCount)
+        assertDelayInRange(secondRow.nextAttemptAt!!, before, after, 20_000L)
+        assertEquals(6, cappedRow.attemptCount)
+        assertDelayInRange(cappedRow.nextAttemptAt!!, before, after, 300_000L)
+    }
+
+    @Test
+    fun replayKeepsJitteredRetryDelayWithinCap() = runBlocking {
+        val jitterReplay = RoomOutboxReplay(database.outboxDao(), sender, enableRetryJitter = true)
+        val cappedAttempt = sampleOperation(
+            operationId = operationIdWithPositiveRetryJitter(attemptCount = 6),
+            idempotencyKey = "idem-retryable-jitter-cap-001",
+            bodyHash = "sha256:retryable-jitter-cap"
+        )
+
+        val cappedEnqueue = syncClient.enqueue(cappedAttempt)
+        database.outboxDao().upsert(database.outboxDao().findById(cappedEnqueue.outboxId)!!.copy(attemptCount = 5))
+        sender.decisionByKey[cappedAttempt.idempotencyKey] = SendResult.RETRYABLE_FAILURE
+        sender.retryableFailureErrorByKey[cappedAttempt.idempotencyKey] = "http_503"
+        val before = System.currentTimeMillis()
+
+        jitterReplay.flushPending(policePhoneId = cappedAttempt.policePhoneId, incidentId = cappedAttempt.incidentId)
+        val after = System.currentTimeMillis()
+
+        val cappedRow = database.outboxDao().findById(cappedEnqueue.outboxId)!!
+        assertEquals(6, cappedRow.attemptCount)
+        assertTrue(cappedRow.nextAttemptAt!! >= before + 240_000L)
+        assertTrue(cappedRow.nextAttemptAt!! <= after + 300_000L)
+    }
+
+    @Test
+    fun replayStopsRetryableNetworkFailuresAtMaxAttempts() = runBlocking {
+        val retryableOp = sampleOperation(
+            operationId = operationIdFixture("retryable-max-001"),
+            idempotencyKey = "idem-retryable-max-001",
+            bodyHash = "sha256:retryable-max"
+        )
+
+        val enqueue = syncClient.enqueue(retryableOp)
+        val current = database.outboxDao().findById(enqueue.outboxId)!!
+        database.outboxDao().upsert(current.copy(attemptCount = 7))
+        sender.decisionByKey[retryableOp.idempotencyKey] = SendResult.RETRYABLE_FAILURE
+        sender.retryableFailureErrorByKey[retryableOp.idempotencyKey] = "http_503"
+
+        replay.flushPending(policePhoneId = retryableOp.policePhoneId, incidentId = retryableOp.incidentId)
+
+        val row = database.outboxDao().findByIdempotencyKey(retryableOp.idempotencyKey)!!
+        assertEquals(8, row.attemptCount)
+        assertEquals(OutboxStatus.FAILED_FINAL.name, row.idempotencyStatus)
+        assertEquals(HarnessSyncStatus.FAILED.name, row.localMirrorStatus)
+        assertNull(row.nextAttemptAt)
+        assertEquals("http_503", row.lastError)
+    }
+
+    @Test
+    fun replayStopsRetryableNetworkFailuresAfterMaxElapsed() = runBlocking {
+        val retryableOp = sampleOperation(
+            operationId = operationIdFixture("retryable-aged-001"),
+            idempotencyKey = "idem-retryable-aged-001",
+            bodyHash = "sha256:retryable-aged"
+        )
+
+        val enqueue = syncClient.enqueue(retryableOp)
+        val current = database.outboxDao().findById(enqueue.outboxId)!!
+        database.outboxDao().upsert(
+            current.copy(
+                attemptCount = 1,
+                firstAttemptAt = System.currentTimeMillis() - 86_400_001L
+            )
+        )
+        sender.decisionByKey[retryableOp.idempotencyKey] = SendResult.RETRYABLE_FAILURE
+        sender.retryableFailureErrorByKey[retryableOp.idempotencyKey] = "http_503"
+
+        replay.flushPending(policePhoneId = retryableOp.policePhoneId, incidentId = retryableOp.incidentId)
+
+        val row = database.outboxDao().findByIdempotencyKey(retryableOp.idempotencyKey)!!
+        assertEquals(OutboxStatus.FAILED_FINAL.name, row.idempotencyStatus)
+        assertNull(row.nextAttemptAt)
+        assertEquals("http_503", row.lastError)
+    }
+
+    @Test
     fun replayPersistsFinalFailureErrorCodeFromSender() = runBlocking {
         val finalOp = sampleOperation(
             operationId = operationIdFixture("final-with-error-001"),
@@ -370,17 +537,41 @@ class RoomLocalSyncServicesTest {
         )
     }
 
+    private fun assertDelayInRange(actualNextAttemptAt: Long, before: Long, after: Long, delayMs: Long) {
+        assertTrue(actualNextAttemptAt >= before + delayMs)
+        assertTrue(actualNextAttemptAt <= after + delayMs)
+    }
+
+    private fun operationIdWithPositiveRetryJitter(attemptCount: Int): String {
+        return (1..200)
+            .map { operationIdFixture("retryable-jitter-cap-$it") }
+            .first { operationId -> retryJitterBucket(operationId, attemptCount) > 0 }
+    }
+
+    private fun retryJitterBucket(operationId: String, attemptCount: Int): Int =
+        kotlin.math.abs("$operationId:$attemptCount".hashCode() % 41) - 20
+
     private class CapturingSender : OutboxSender {
         val decisionByKey: MutableMap<String, SendResult> = linkedMapOf()
+        val retryableFailureErrorByKey: MutableMap<String, String> = linkedMapOf()
+        val retryAfterDelayByKey: MutableMap<String, Long> = linkedMapOf()
         val finalFailureErrorByKey: MutableMap<String, String> = linkedMapOf()
         private val sentByKey: MutableMap<String, Int> = linkedMapOf()
+        private var lastRetryableError: String? = null
+        private var lastRetryAfterDelay: Long? = null
         private var lastFailureError: String? = null
 
         override suspend fun send(row: com.surimap.core.database.OutboxEntity): SendResult {
             sentByKey[row.idempotencyKey] = (sentByKey[row.idempotencyKey] ?: 0) + 1
+            lastRetryableError = retryableFailureErrorByKey[row.idempotencyKey]
+            lastRetryAfterDelay = retryAfterDelayByKey[row.idempotencyKey]
             lastFailureError = finalFailureErrorByKey[row.idempotencyKey]
             return decisionByKey[row.idempotencyKey] ?: SendResult.ACKED
         }
+
+        override fun retryableFailureErrorCode(): String? = lastRetryableError
+
+        override fun retryAfterDelayMs(): Long? = lastRetryAfterDelay
 
         override fun finalFailureErrorCode(): String? = lastFailureError
 

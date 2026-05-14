@@ -138,7 +138,8 @@ class OutboxWorker(appContext: Context, workerParameters: WorkerParameters) :
             AndroidNetworkFactory.createOutboxSender(
                 baseUrl = apiBaseUrl,
                 accessTokenProvider = AccessTokenProvider { accessToken }
-            )
+            ),
+            enableRetryJitter = !BuildConfig.DEBUG
         )
     }
 

@@ -8,6 +8,7 @@ data class OutboxReplayResult(
     val attemptedCount: Int = 0,
     val ackedCount: Int = 0,
     val retryableFailureCount: Int = 0,
+    val accessRepairRequiredCount: Int = 0,
     val finalFailureCount: Int = 0
 ) {
     val shouldRetry: Boolean

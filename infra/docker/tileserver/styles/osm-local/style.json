@@ -1,0 +1,78 @@
+{
+  "version": 8,
+  "name": "Suri-Map OSM Local",
+  "metadata": {
+    "attribution": "OpenStreetMap contributors / OpenMapTiles"
+  },
+  "sources": {
+    "osm-local": {
+      "type": "vector",
+      "tiles": [
+        "/tiles/osm-local/{z}/{x}/{y}.pbf"
+      ],
+      "minzoom": 0,
+      "maxzoom": 16,
+      "attribution": "OpenStreetMap contributors / OpenMapTiles"
+    }
+  },
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": {
+        "background-color": "#edf1e8"
+      }
+    },
+    {
+      "id": "landcover-fill",
+      "type": "fill",
+      "source": "osm-local",
+      "source-layer": "landcover",
+      "paint": {
+        "fill-color": "#dfe8d7",
+        "fill-opacity": 0.72
+      }
+    },
+    {
+      "id": "water-fill",
+      "type": "fill",
+      "source": "osm-local",
+      "source-layer": "water",
+      "paint": {
+        "fill-color": "#9bc7d9",
+        "fill-opacity": 0.82
+      }
+    },
+    {
+      "id": "building-fill",
+      "type": "fill",
+      "source": "osm-local",
+      "source-layer": "building",
+      "paint": {
+        "fill-color": "#d7d2c8",
+        "fill-opacity": 0.58
+      }
+    },
+    {
+      "id": "boundary-line",
+      "type": "line",
+      "source": "osm-local",
+      "source-layer": "boundary",
+      "paint": {
+        "line-color": "#8c9791",
+        "line-width": 0.8,
+        "line-opacity": 0.65
+      }
+    },
+    {
+      "id": "road-line",
+      "type": "line",
+      "source": "osm-local",
+      "source-layer": "transportation",
+      "paint": {
+        "line-color": "#ffffff",
+        "line-width": 1.2
+      }
+    }
+  ]
+}

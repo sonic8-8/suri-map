@@ -25,13 +25,18 @@ import com.surimap.marker.query.MarkerView;
 import com.surimap.offlinepackage.dto.OfflinePackageInstallationReportRequest;
 import com.surimap.offlinepackage.dto.OfflinePackageInstallationResponse;
 import com.surimap.offlinepackage.dto.OfflinePackageManifestResponse;
+import com.surimap.offlinepackage.dto.TileBlobResponse;
+import com.surimap.offlinepackage.service.LocalTileService;
 import com.surimap.offlinepackage.service.OfflinePackageRepository;
 import com.surimap.offlinepackage.service.OfflinePackageService;
 import com.surimap.operationalperiod.query.OperationalPeriodQuery;
 import com.surimap.operationalperiod.query.OperationalPeriodRow;
 import java.math.BigDecimal;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -67,6 +72,8 @@ class OfflinePackageManifestSourceIntegrationTest {
   private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory();
 
   @Autowired private OfflinePackageService service;
+
+  @Autowired private LocalTileService localTileService;
 
   @Autowired private JdbcTemplate jdbcTemplate;
 
@@ -151,6 +158,25 @@ class OfflinePackageManifestSourceIntegrationTest {
                 OP_ID.toString(),
                 OVERALL_AREA_ID.toString()))
         .isOne();
+  }
+
+  @Test
+  @DisplayName("manifest tile item checksum matches the local tile blob SHA-256")
+  void manifestTileItemChecksumMatchesLocalTileBlobSha256() {
+    givenSourceRows();
+
+    OfflinePackageManifestResponse manifest =
+        service.manifest(INCIDENT_ID.toString(), POLICE_PHONE_ID.toString());
+
+    assertThat(manifest.tileItems())
+        .allSatisfy(
+            tile -> {
+              TileBlobResponse blob =
+                  localTileService.getTile(tile.styleId(), tile.z(), tile.x(), tile.y());
+
+              assertThat(blob.bytes()).hasSize(tile.bytes());
+              assertThat(sha256(blob.bytes())).isEqualTo(tile.checksum());
+            });
   }
 
   @Test
@@ -414,5 +440,14 @@ class OfflinePackageManifestSourceIntegrationTest {
             new Coordinate(Double.parseDouble(lon), Double.parseDouble(lat)));
     point.setSRID(4326);
     return point;
+  }
+
+  private static String sha256(byte[] bytes) {
+    try {
+      return "sha256:"
+          + HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+    } catch (NoSuchAlgorithmException exception) {
+      throw new IllegalStateException("SHA-256 digest is unavailable", exception);
+    }
   }
 }

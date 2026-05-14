@@ -14,10 +14,11 @@ convergence evidence.
 | Task | `L4-D01` |
 | Existing Jira | `S14P31C106-196` |
 | Evidence gap Jira | `S14P31C106-300` |
-| Branch | `feature/S14P31C106-300-l4-d01-single-device-partial-evidence` |
-| Checked at | `2026-05-14T00:31:00+09:00` |
+| Branch | `docs/S14P31C106-300-l4-d01-blocker-refresh` |
+| Checked at | `2026-05-14T04:47:48+09:00` |
 | Required sources | `docs/prd.md §2.2`, `docs/prd.md §2.3`, `docs/spec/harness-scenarios.md §2 SC-05`, `docs/spec/harness-scenarios.md §2 SC-07`, `docs/spec/harness-scenarios.md §2 SC-09` |
 | Execution protocol | `docs/tasks/l4-network-switch-stability-protocol.md` |
+| Runtime preflight | `python3 docs/tasks/check_l4_d01_runtime_preflight.py --adb <adb-path>` |
 
 ## Evidence Sink Check
 
@@ -28,7 +29,7 @@ convergence evidence.
 | Remote branch | BLOCKED. `feature/S14P31C106-196-stability-network-switch-validation` is an ancestor of current `origin/develop`; no L4-D01 evidence commit is ahead of develop. |
 | Repository evidence | BLOCKED. docs/tasks 하위에 L4-D01 final evidence 문서 없음. |
 | Task checklist | BLOCKED. `docs/tasks/L4-tasks.md` keeps `L4-D01` unchecked. |
-| Device availability | BLOCKED. `adb devices -l` returned 연결된 Android device 0대. User-confirmed available physical Android device count is 1대, which is insufficient for the final 2-PolicePhone gate. |
+| Device availability | BLOCKED. Windows ADB currently sees one physical Android device, `SM-S901N` / `R3CT50BD92Y`, in `device` state. User-confirmed available physical Android device count is 1대, which is insufficient for the final 2-PolicePhone gate. |
 
 ## Required Final Evidence
 
@@ -100,16 +101,42 @@ Follow-up defects:
 |---|---|
 | `S14P31C106-307` | Android package installation outbox `invalid_payload` failure. |
 | `S14P31C106-308` | Marker ACK leaves local marker/draft in pending state. |
+| `S14P31C106-310` | Android outbox replay retry/auth policy alignment found during follow-up validation. |
+| `S14P31C106-312` | Offline package tile checksum convergence issue found during post-fix single-device validation. |
+
+Follow-up status as of 2026-05-14: `S14P31C106-307`, `S14P31C106-308`,
+`S14P31C106-310`, `S14P31C106-312`, `S14P31C106-313`, `S14P31C106-294`,
+and `S14P31C106-314` are completed and merged into `origin/develop`
+`86aeaad`. These fixes improve the single-device baseline and tileserver
+runtime baseline, but they do not replace the required two-PolicePhone final
+evidence.
+
+## 2026-05-14 Runtime Preflight Recheck
+
+Command:
+
+```bash
+python3 docs/tasks/check_l4_d01_runtime_preflight.py --adb '/mnt/c/Users/SSAFY/AppData/Local/Android/Sdk/platform-tools/adb.exe'
+```
+
+Result at `2026-05-14T04:47:48+09:00`: BLOCKED.
+
+Windows ADB still reports one ready physical Android device only:
+`SM_S901N` / `R3CT50BD92Y`. The runtime preflight was polled 6 times over
+about 60 seconds, and every attempt reported 1 physical device found, 2
+required. Emulators remain excluded from final PolicePhone evidence.
 
 ## Next Action
-
-Create follow-up implementation tickets for the observed local convergence
-failures, then rerun the single-device partial rehearsal after fixes.
 
 Run `docs/tasks/l4-network-switch-stability-protocol.md` on 실제 장치 with two
 Android PolicePhone devices and one board session when the second physical
 device becomes available. Do not check L4-D01 complete until the full execution
 artifacts are captured in the repository or attached to Jira.
+
+Before starting the final run, execute
+`python3 docs/tasks/check_l4_d01_runtime_preflight.py --adb <adb-path>` and
+confirm it reports at least two ready physical Android devices. If it reports
+`BLOCKED`, the run can only be recorded as partial rehearsal evidence.
 
 ## Completion Verdict
 
