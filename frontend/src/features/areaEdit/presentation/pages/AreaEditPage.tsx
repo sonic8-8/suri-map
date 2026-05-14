@@ -471,6 +471,16 @@ export function AreaEditPage({
     if (getEditDisabledValidationMessage()) return;
     if (!selectedArea) return;
 
+    const lastPoint = draftPoints.at(-1);
+    if (
+      lastPoint &&
+      lastPoint[0].toFixed(6) === position[0].toFixed(6) &&
+      lastPoint[1].toFixed(6) === position[1].toFixed(6)
+    ) {
+      setValidationMessage('직전 꼭짓점과 너무 가까운 위치입니다. 조금 다른 위치를 선택해 주세요.');
+      return;
+    }
+
     const containmentError = validateDraftVertexContainment(selectedArea, position);
     if (containmentError) {
       setValidationMessage(containmentError);

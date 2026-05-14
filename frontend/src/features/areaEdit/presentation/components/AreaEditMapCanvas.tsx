@@ -731,7 +731,7 @@ function hasSelfIntersection(closedRing: AreaEditPosition[]) {
 }
 
 function countDistinctPoints(points: AreaEditPosition[]) {
-  const pointKeys = new Set(points.map((point) => `${point[0]},${point[1]}`));
+  const pointKeys = new Set(points.map((point) => `${point[0].toFixed(6)},${point[1].toFixed(6)}`));
   return pointKeys.size;
 }
 

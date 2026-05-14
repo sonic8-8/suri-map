@@ -122,7 +122,7 @@ function canShowAddUnitAction(area: AreaTreeNode, selectedAreaId: string | null,
 }
 
 function canShowAddTeamAction(area: AreaTreeNode, selectedAreaId: string | null, canAddTeam: boolean) {
-  return canAddTeam && area.kind === 'unit' && area.id === selectedAreaId;
+  return canAddTeam && area.kind === 'unit' && area.id === selectedAreaId && area.geometryState === 'saved';
 }
 
 function flattenAreaTree(root: AreaTreeNode): AreaTreeNode[] {
