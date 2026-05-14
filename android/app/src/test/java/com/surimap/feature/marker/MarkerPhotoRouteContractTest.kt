@@ -1,6 +1,7 @@
 package com.surimap.feature.marker
 
 import java.io.File
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -18,5 +19,14 @@ class MarkerPhotoRouteContractTest {
         assertTrue(appSource.contains("onCapturePhoto"))
         assertTrue(appSource.contains("onPickPhoto"))
         assertTrue(manifest.contains("androidx.core.content.FileProvider"))
+    }
+
+    @Test
+    fun markerCreateRouteDoesNotUsePreviewSampleStateForProductionInput() {
+        val appSource = File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+
+        assertFalse(appSource.contains("sampleMarkerCreateSheetState"))
+        assertTrue(appSource.contains("MarkerCreateSheetUiState.default()"))
+        assertTrue(appSource.contains(".withCurrentLocation(displayedSearchMapState.markerCreationLocation())"))
     }
 }

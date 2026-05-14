@@ -108,7 +108,6 @@ import com.surimap.feature.marker.ui.MarkerDetailPhotoUiState
 import com.surimap.feature.marker.ui.MarkerDetailUiState
 import com.surimap.feature.marker.ui.MarkerSaveStatus
 import com.surimap.feature.marker.ui.MarkerType
-import com.surimap.feature.marker.ui.sampleMarkerCreateSheetState
 import com.surimap.feature.marker.ui.withCurrentLocation
 import com.surimap.feature.marker.ui.withManualLocation
 import com.surimap.feature.offline.data.OfflinePackageStateLoader
@@ -736,7 +735,7 @@ private fun SearchMapRoute(
     var bottomPanelExpanded by remember { mutableStateOf(false) }
     var mapOverlaysVisible by remember { mutableStateOf(true) }
     var markerSheetOpen by remember { mutableStateOf(false) }
-    var markerSheetState by remember { mutableStateOf(sampleMarkerCreateSheetState()) }
+    var markerSheetState by remember { mutableStateOf(MarkerCreateSheetUiState.default()) }
 
     LaunchedEffect(
         sessionContext.incidentId,
@@ -873,7 +872,7 @@ private fun SearchMapRoute(
             },
             onCreateMarker = {
                 markerSheetState =
-                    sampleMarkerCreateSheetState()
+                    MarkerCreateSheetUiState.default()
                         .withCurrentLocation(displayedSearchMapState.markerCreationLocation())
                 markerSheetOpen = true
             },
