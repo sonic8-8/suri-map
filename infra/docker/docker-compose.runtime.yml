@@ -38,12 +38,32 @@ services:
     networks:
       - web_net
 
+  mock-112:
+    image: ${MOCK_112_IMAGE:-suri-map-mock-112:develop}
+    container_name: suri-map-mock-112
+    restart: unless-stopped
+    environment:
+      SERVER_PORT: 18112
+      TZ: Asia/Seoul
+    ports:
+      - "127.0.0.1:${MOCK_112_HOST_PORT:-18112}:18112"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:18112/mock-112/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - web_net
+
   backend:
     image: ${BACKEND_IMAGE:-suri-map-backend:develop}
     container_name: suri-map-backend
     restart: unless-stopped
     depends_on:
       postgis:
+        condition: service_healthy
+      mock-112:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: prod
@@ -56,6 +76,9 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
       TILESERVER_MODE: ${TILESERVER_MODE:-tileserver-gl}
       TILESERVER_BASE_URL: ${TILESERVER_BASE_URL:-http://tileserver-gl:8080}
+      MOCK_112_ENABLED: ${MOCK_112_ENABLED:-true}
+      MOCK_112_BASE_URL: ${MOCK_112_BASE_URL:-http://mock-112:18112}
+      MOCK_112_POLLING_INTERVAL: ${MOCK_112_POLLING_INTERVAL:-5000}
     ports:
       - "127.0.0.1:${BACKEND_HOST_PORT:-8081}:8080"
     networks:
