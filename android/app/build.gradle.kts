@@ -9,16 +9,16 @@ plugins {
 fun String.quotedBuildConfig(): String =
     "\"" + replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
-val fixtureAccountCode = providers
-    .gradleProperty("suriMapFixtureAccountCode")
+val debugBootstrapAccountCode = providers
+    .gradleProperty("suriMapDebugBootstrapAccountCode")
     .orElse("acct-precinct-team")
     .get()
-val fixturePassword = providers
-    .gradleProperty("suriMapFixturePassword")
+val debugBootstrapPassword = providers
+    .gradleProperty("suriMapDebugBootstrapPassword")
     .orElse("fixture")
     .get()
-val fixturePolicePhoneCode = providers
-    .gradleProperty("suriMapFixturePolicePhoneCode")
+val debugBootstrapPolicePhoneCode = providers
+    .gradleProperty("suriMapDebugBootstrapPolicePhoneCode")
     .orElse("dev-precinct-phone-01")
     .get()
 val debugApiBaseUrl = providers
@@ -83,9 +83,9 @@ android {
         buildConfigField("String", "SURI_MAP_API_BASE_URL", "\"$suriMapApiBaseUrl\"")
         buildConfigField("boolean", "SURI_MAP_FIREBASE_MESSAGING_ENABLED", hasGoogleServicesJson.toString())
 
-        buildConfigField("String", "SURI_MAP_FIXTURE_ACCOUNT_CODE", "\"\"")
-        buildConfigField("String", "SURI_MAP_FIXTURE_PASSWORD", "\"\"")
-        buildConfigField("String", "SURI_MAP_FIXTURE_POLICE_PHONE_CODE", "\"\"")
+        buildConfigField("String", "SURI_MAP_DEBUG_BOOTSTRAP_ACCOUNT_CODE", "\"\"")
+        buildConfigField("String", "SURI_MAP_DEBUG_BOOTSTRAP_PASSWORD", "\"\"")
+        buildConfigField("String", "SURI_MAP_DEBUG_BOOTSTRAP_POLICE_PHONE_CODE", "\"\"")
         buildConfigField("boolean", "SURI_MAP_DEBUG_MAP_ONLY", "false")
         buildConfigField("String", "SURI_MAP_DEBUG_MAP_ONLY_ACCESS_TOKEN", "\"\"")
         buildConfigField("String", "SURI_MAP_DEBUG_MAP_ONLY_POLICE_PHONE_ID", "\"\"")
@@ -97,9 +97,9 @@ android {
     buildTypes {
         debug {
             buildConfigField("String", "SURI_MAP_API_BASE_URL", debugApiBaseUrl.quotedBuildConfig())
-            buildConfigField("String", "SURI_MAP_FIXTURE_ACCOUNT_CODE", fixtureAccountCode.quotedBuildConfig())
-            buildConfigField("String", "SURI_MAP_FIXTURE_PASSWORD", fixturePassword.quotedBuildConfig())
-            buildConfigField("String", "SURI_MAP_FIXTURE_POLICE_PHONE_CODE", fixturePolicePhoneCode.quotedBuildConfig())
+            buildConfigField("String", "SURI_MAP_DEBUG_BOOTSTRAP_ACCOUNT_CODE", debugBootstrapAccountCode.quotedBuildConfig())
+            buildConfigField("String", "SURI_MAP_DEBUG_BOOTSTRAP_PASSWORD", debugBootstrapPassword.quotedBuildConfig())
+            buildConfigField("String", "SURI_MAP_DEBUG_BOOTSTRAP_POLICE_PHONE_CODE", debugBootstrapPolicePhoneCode.quotedBuildConfig())
             buildConfigField("boolean", "SURI_MAP_DEBUG_MAP_ONLY", debugMapOnly)
             buildConfigField("String", "SURI_MAP_DEBUG_MAP_ONLY_ACCESS_TOKEN", debugMapOnlyAccessToken.quotedBuildConfig())
             buildConfigField("String", "SURI_MAP_DEBUG_MAP_ONLY_POLICE_PHONE_ID", debugMapOnlyPolicePhoneId.quotedBuildConfig())
