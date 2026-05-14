@@ -220,7 +220,7 @@ class AuthBootstrapContractTest {
     }
 
     @Test
-    fun unmanagedDebugFixtureConfigActsAsManagedForUsbSmoke() = runBlocking {
+    fun unmanagedDebugBootstrapConfigActsAsManagedForUsbSmoke() = runBlocking {
         val reader =
             AndroidManagedConfigurationReader(
                 context = RuntimeEnvironment.getApplication(),
@@ -228,9 +228,9 @@ class AuthBootstrapContractTest {
                 DebugManagedConfigurationOverrideProvider(
                     isDebugBuild = true,
                     apiBaseUrl = "http://127.0.0.1:8080",
-                    fixtureAccountCode = "acct-precinct-team",
-                    fixturePassword = "fixture-password",
-                    fixturePolicePhoneCode = "dev-precinct-phone-01"
+                    debugBootstrapAccountCode = "acct-precinct-team",
+                    debugBootstrapPassword = "debug-password",
+                    debugBootstrapPolicePhoneCode = "dev-precinct-phone-01"
                 )
             )
         var checkedConfig: ManagedPolicePhoneConfig? = null
@@ -253,7 +253,7 @@ class AuthBootstrapContractTest {
     }
 
     @Test
-    fun unmanagedDebugWithoutFixtureConfigStaysNotManaged() = runBlocking {
+    fun unmanagedDebugWithoutBootstrapConfigStaysNotManaged() = runBlocking {
         var serverCalled = false
         val coordinator =
             AuthBootstrapCoordinator(
@@ -264,9 +264,9 @@ class AuthBootstrapContractTest {
                     DebugManagedConfigurationOverrideProvider(
                         isDebugBuild = true,
                         apiBaseUrl = "http://127.0.0.1:8080",
-                        fixtureAccountCode = "",
-                        fixturePassword = "fixture-password",
-                        fixturePolicePhoneCode = "dev-precinct-phone-01"
+                        debugBootstrapAccountCode = "",
+                        debugBootstrapPassword = "debug-password",
+                        debugBootstrapPolicePhoneCode = "dev-precinct-phone-01"
                     )
                 ),
                 serverCheck =
@@ -283,14 +283,14 @@ class AuthBootstrapContractTest {
     }
 
     @Test
-    fun nonDebugBuildDoesNotUseLocalFixtureManagedConfigOverride() {
+    fun nonDebugBuildDoesNotUseLocalDebugBootstrapManagedConfigOverride() {
         val override =
             DebugManagedConfigurationOverrideProvider(
                 isDebugBuild = false,
                 apiBaseUrl = "http://127.0.0.1:8080",
-                fixtureAccountCode = "acct-precinct-team",
-                fixturePassword = "fixture-password",
-                fixturePolicePhoneCode = "dev-precinct-phone-01"
+                debugBootstrapAccountCode = "acct-precinct-team",
+                debugBootstrapPassword = "debug-password",
+                debugBootstrapPolicePhoneCode = "dev-precinct-phone-01"
             )
 
         assertNull(override.read())
@@ -361,7 +361,7 @@ class AuthBootstrapContractTest {
     }
 
     @Test
-    fun networkServerCheckLogsInWithFixtureCredentialsBeforeHeartbeat() = runBlocking {
+    fun networkServerCheckLogsInWithDebugBootstrapCredentialsBeforeHeartbeat() = runBlocking {
         val callFactory =
             CapturingCallFactory(
                 responses =
@@ -391,7 +391,7 @@ class AuthBootstrapContractTest {
                 credentialsProvider = {
                     AuthBootstrapCredentials(
                         accountCode = "acct-precinct-team",
-                        password = "fixture",
+                        password = "debug-password",
                         policePhoneCode = "dev-precinct-phone-01"
                     )
                 },
@@ -418,7 +418,7 @@ class AuthBootstrapContractTest {
         assertEquals("https://suri-map.internal/api/auth/login", requests[0].url.toString())
         assertEquals("APP", requests[0].header("X-Client-Channel"))
         assertEquals(
-            """{"accountCode":"acct-precinct-team","password":"fixture","channel":"APP","policePhoneCode":"dev-precinct-phone-01"}""",
+            """{"accountCode":"acct-precinct-team","password":"debug-password","channel":"APP","policePhoneCode":"dev-precinct-phone-01"}""",
             readRequestBody(requests[0])
         )
         assertEquals(
@@ -466,7 +466,7 @@ class AuthBootstrapContractTest {
     }
 
     @Test
-    fun networkServerCheckMapsFixtureLoginIoFailureWithoutCrashing() = runBlocking {
+    fun networkServerCheckMapsDebugBootstrapLoginIoFailureWithoutCrashing() = runBlocking {
         val serverCheck =
             NetworkPolicePhoneBootstrapServerCheck(
                 apiClient =
@@ -477,7 +477,7 @@ class AuthBootstrapContractTest {
                 credentialsProvider = {
                     AuthBootstrapCredentials(
                         accountCode = "acct-precinct-team",
-                        password = "fixture",
+                        password = "debug-password",
                         policePhoneCode = "dev-precinct-phone-01"
                     )
                 }

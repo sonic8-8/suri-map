@@ -4,8 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.groups.Tuple.tuple;
 
-import com.surimap.board.BoardAssemblyRequest;
 import com.surimap.board.BoardAssembler;
+import com.surimap.board.BoardAssemblyRequest;
 import com.surimap.board.BoardDTO;
 import com.surimap.board.BoardSlotRow;
 import com.surimap.board.BoardSourceRow;
@@ -39,7 +39,7 @@ import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 
 /** L6-T07 RED: S7 consumes S2 SEARCH_AREA_CHANGED and marks old packages STALE. */
-@SpringBootTest
+@SpringBootTest(properties = "tileserver.mode=fixture")
 @ActiveProfiles("test")
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 @DisplayName("L6-T07 SEARCH_AREA_CHANGED stale offline package consumer RED")
@@ -92,8 +92,7 @@ class OfflinePackageSearchAreaChangedConsumerRedTest {
         .contains(
             tuple(OfflinePackageInstallationFixtures.SEEDED_READY_INSTALLATION_ID, "STALE"),
             tuple(OfflinePackageInstallationFixtures.SEEDED_PARTIAL_INSTALLATION_ID, "STALE"),
-            tuple(
-                OfflinePackageInstallationFixtures.SEEDED_DOWNLOADING_INSTALLATION_ID, "STALE"));
+            tuple(OfflinePackageInstallationFixtures.SEEDED_DOWNLOADING_INSTALLATION_ID, "STALE"));
 
     BoardDTO board = boardFromPackageBadgeRows();
     assertPackageBadgeRequiresRedownload(
@@ -128,7 +127,10 @@ class OfflinePackageSearchAreaChangedConsumerRedTest {
     invokeSearchAreaChangedConsumer(searchAreaChangedEvent());
 
     assertThat(eventHub.findByType(OfflinePackageInstallationFixtures.EVENT_TYPE))
-        .filteredOn(event -> OfflinePackageInstallationFixtures.INSTALLATION_ID.equals(event.payload().get("id")))
+        .filteredOn(
+            event ->
+                OfflinePackageInstallationFixtures.INSTALLATION_ID.equals(
+                    event.payload().get("id")))
         .extracting(MockEventHub.CapturedPublish::eventId)
         .doesNotHaveDuplicates()
         .hasSize(2);
@@ -171,8 +173,7 @@ class OfflinePackageSearchAreaChangedConsumerRedTest {
   private static void assertStaleForCurrentManifest(OfflinePackageInstallationStatus status) {
     assertThat(status.status()).isEqualTo("STALE");
     assertThat(status.readyForOfflineUse()).isFalse();
-    assertThat(status.manifestVersion())
-        .isEqualTo(OfflinePackageManifestFixtures.MANIFEST_VERSION);
+    assertThat(status.manifestVersion()).isEqualTo(OfflinePackageManifestFixtures.MANIFEST_VERSION);
     assertThat(status.activeManifestVersion())
         .isEqualTo(OfflinePackageInstallationFixtures.STALE_MANIFEST_VERSION);
   }
@@ -184,7 +185,8 @@ class OfflinePackageSearchAreaChangedConsumerRedTest {
             OfflinePackageManifestFixtures.POLICE_PHONE_ID);
     assertThat(manifest.manifestVersion())
         .isEqualTo(OfflinePackageInstallationFixtures.STALE_MANIFEST_VERSION);
-    assertThat(manifest.manifestId()).isEqualTo(OfflinePackageInstallationFixtures.STALE_MANIFEST_ID);
+    assertThat(manifest.manifestId())
+        .isEqualTo(OfflinePackageInstallationFixtures.STALE_MANIFEST_ID);
     assertThat(manifest.packageItems())
         .extracting(OfflinePackageManifestResponse.PackageItem::status)
         .containsOnly("PENDING");
@@ -217,16 +219,13 @@ class OfflinePackageSearchAreaChangedConsumerRedTest {
         .containsEntry("policePhoneCode", statusPhoneCode(id))
         .containsEntry("policePhoneName", statusPhoneName(id))
         .containsEntry("readyForOfflineUse", false)
-        .containsEntry(
-            "manifestVersion", OfflinePackageManifestFixtures.MANIFEST_VERSION);
+        .containsEntry("manifestVersion", OfflinePackageManifestFixtures.MANIFEST_VERSION);
 
-    Map<String, Object> warningInput =
-        (Map<String, Object>) row.payload().get("localWarningInput");
+    Map<String, Object> warningInput = (Map<String, Object>) row.payload().get("localWarningInput");
     assertThat(warningInput)
         .containsEntry("packageStatus", "STALE")
         .containsEntry("raised", true)
-        .containsEntry(
-            "manifestVersion", OfflinePackageManifestFixtures.MANIFEST_VERSION)
+        .containsEntry("manifestVersion", OfflinePackageManifestFixtures.MANIFEST_VERSION)
         .containsEntry(
             "activeManifestVersion", OfflinePackageInstallationFixtures.STALE_MANIFEST_VERSION);
   }
