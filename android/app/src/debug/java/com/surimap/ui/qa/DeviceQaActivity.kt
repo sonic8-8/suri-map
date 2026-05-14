@@ -196,6 +196,7 @@ private fun DeviceQaScreen(route: DeviceQaRoute) {
                 onDismissDelete = { state = state.copy(showDeleteConfirm = false) },
                 onConfirmDelete = {},
                 onAddPhoto = {},
+                onRetryPhoto = {},
                 onDeletePhoto = {}
             )
         }

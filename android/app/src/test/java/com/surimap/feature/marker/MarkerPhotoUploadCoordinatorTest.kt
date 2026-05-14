@@ -5,12 +5,15 @@ import com.surimap.core.sync.HarnessSyncStatus
 import com.surimap.core.sync.LocalWriteOperation
 import com.surimap.core.sync.OutboxStatus
 import com.surimap.core.sync.SyncClient
+import com.surimap.core.network.AccessTokenProvider
+import com.surimap.core.network.SuriMapApiClient
 import com.surimap.feature.marker.data.HttpObjectStorageUploader
 import com.surimap.feature.marker.data.MarkerPhotoUploadCoordinator
 import com.surimap.feature.marker.data.MarkerPhotoUploadPayload
 import com.surimap.feature.marker.data.MarkerPhotoUploadResult
 import com.surimap.feature.marker.data.MarkerPhotoUploadUrlInput
 import com.surimap.feature.marker.data.MarkerPhotoUploadUrlResponseInput
+import com.surimap.feature.marker.data.MarkerPhotoUiUploadCoordinator
 import com.surimap.feature.marker.data.MarkerWriteContext
 import com.surimap.feature.marker.data.ObjectStoragePutRequest
 import com.surimap.feature.marker.data.ObjectStoragePutResult
@@ -143,6 +146,91 @@ class MarkerPhotoUploadCoordinatorTest {
             """{"sizeBytes":4,"contentType":"image/jpeg","width":1280,"height":960,"checksumSha256":"sha256-local-photo"}""",
             attach.payload
         )
+    }
+
+    @Test
+    fun uiUploadCoordinatorUsesUploadUrlResponseForObjectPutThenAttachOutbox() = runBlocking {
+        val syncClient = CapturingSyncClient()
+        val uploader = CapturingObjectStorageUploader()
+        val callFactory =
+            StaticCallFactory(
+                response =
+                response(
+                    statusCode = 201,
+                    body =
+                    """
+                    {
+                      "photoId": "$PHOTO_ID",
+                      "uploadUrl": "$UPLOAD_URL",
+                      "maxSizeBytes": 10485760,
+                      "version": 1
+                    }
+                    """.trimIndent()
+                )
+            )
+        val coordinator =
+            uiCoordinator(
+                syncClient = syncClient,
+                uploader = uploader,
+                callFactory = callFactory
+            )
+
+        val result =
+            coordinator.upload(
+                context = CONTEXT,
+                payload = PHOTO_PAYLOAD
+            )
+
+        assertEquals(
+            MarkerPhotoUploadResult.AttachedEnqueued(
+                operationId = PHOTO_ATTACH_OPERATION_ID,
+                outboxId = "outbox-1"
+            ),
+            result
+        )
+        assertEquals(
+            listOf(
+                "/api/markers/$MARKER_ID/photos/$PHOTO_ID/attach"
+            ),
+            syncClient.operations.map { it.endpoint }
+        )
+        assertEquals(PHOTO_UPLOAD_OPERATION_ID, syncClient.operations.single().parentOperationId)
+        val request = callFactory.lastRequest!!
+        assertEquals("POST", request.method)
+        assertEquals(
+            "https://suri-map.example.com/api/markers/$MARKER_ID/photos/upload-url",
+            request.url.toString()
+        )
+        assertEquals("Bearer token-1", request.header("Authorization"))
+        assertEquals(POLICE_PHONE_ID, request.header("X-PolicePhone-Id"))
+        assertEquals("idem-$PHOTO_UPLOAD_OPERATION_ID", request.header("Idempotency-Key"))
+        assertEquals(1, uploader.requests.size)
+        assertEquals(URI.create(UPLOAD_URL), uploader.requests.single().uploadUrl)
+    }
+
+    @Test
+    fun uiUploadCoordinatorDoesNotEnqueueAttachWhenUploadUrlRequestFails() = runBlocking {
+        val syncClient = CapturingSyncClient()
+        val uploader = CapturingObjectStorageUploader()
+        val coordinator =
+            uiCoordinator(
+                syncClient = syncClient,
+                uploader = uploader,
+                callFactory =
+                StaticCallFactory(
+                    response = response(statusCode = 409, body = """{"error":"incident_closed"}""")
+                )
+            )
+
+        val result =
+            coordinator.upload(
+                context = CONTEXT,
+                payload = PHOTO_PAYLOAD
+            )
+
+        assertEquals(MarkerPhotoUploadResult.UploadFailed("incident_closed"), result)
+        assertTrue(syncClient.operations.isEmpty())
+        assertTrue(uploader.requests.isEmpty())
     }
 
     @Test
@@ -279,6 +367,25 @@ class MarkerPhotoUploadCoordinatorTest {
             idFactory = idFactory()
         )
 
+    private fun uiCoordinator(
+        syncClient: SyncClient,
+        uploader: ObjectStorageUploader = CapturingObjectStorageUploader(),
+        callFactory: StaticCallFactory = StaticCallFactory(response = response(statusCode = 201))
+    ): MarkerPhotoUiUploadCoordinator =
+        MarkerPhotoUiUploadCoordinator(
+            syncClient = syncClient,
+            apiClient =
+            SuriMapApiClient(
+                baseUrl = "https://suri-map.example.com/api",
+                callFactory = callFactory
+            ),
+            accessTokenProvider = AccessTokenProvider { "token-1" },
+            uploader = uploader,
+            now = { CLIENT_TS },
+            sequenceSource = sequenceSource(1),
+            idFactory = idFactory()
+        )
+
     private class CapturingSyncClient : SyncClient {
         val operations = mutableListOf<LocalWriteOperation>()
 
@@ -390,13 +497,13 @@ class MarkerPhotoUploadCoordinatorTest {
     }
 }
 
-private fun response(statusCode: Int): Response {
+private fun response(statusCode: Int, body: String = ""): Response {
     return Response.Builder()
         .request(Request.Builder().url("https://object-storage.local/placeholder").build())
         .protocol(Protocol.HTTP_1_1)
         .code(statusCode)
         .message("test")
-        .body("".toResponseBody())
+        .body(body.toResponseBody())
         .build()
 }
 

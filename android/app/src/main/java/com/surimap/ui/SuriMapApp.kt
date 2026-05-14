@@ -1,5 +1,9 @@
 package com.surimap.ui
 
+import android.content.Context
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
@@ -83,16 +87,22 @@ import com.surimap.feature.incidents.data.IncidentListStateLoader
 import com.surimap.feature.incidents.data.IncidentSessionContextResolver
 import com.surimap.feature.incidents.ui.IncidentListScreen
 import com.surimap.feature.incidents.ui.IncidentListUiState
+import com.surimap.feature.marker.data.HttpObjectStorageUploader
 import com.surimap.feature.marker.data.MarkerLocalRecorder
 import com.surimap.feature.marker.data.MarkerDetailSessionContext
 import com.surimap.feature.marker.data.MarkerDetailStateLoader
 import com.surimap.feature.marker.data.MarkerLocation
+import com.surimap.feature.marker.data.MarkerPhotoUiUploadCoordinator
+import com.surimap.feature.marker.data.MarkerPhotoUploadPayload
+import com.surimap.feature.marker.data.MarkerPhotoUploadResult
 import com.surimap.feature.marker.data.MarkerUpsertInput
 import com.surimap.feature.marker.data.MarkerWriteContext
 import com.surimap.feature.marker.data.MarkerWriteResult
 import com.surimap.feature.marker.ui.MarkerCreateBottomSheet
 import com.surimap.feature.marker.ui.MarkerDetailScreen
 import com.surimap.feature.marker.ui.MarkerCreateSheetUiState
+import com.surimap.feature.marker.ui.MarkerDetailPhotoStatus
+import com.surimap.feature.marker.ui.MarkerDetailPhotoUiState
 import com.surimap.feature.marker.ui.MarkerDetailUiState
 import com.surimap.feature.marker.ui.MarkerSaveStatus
 import com.surimap.feature.marker.ui.MarkerType
@@ -887,6 +897,17 @@ private fun MarkerDetailRoute(
             clockSyncedAt = clockSyncState::clockSyncedAt
         )
     }
+    val photoUploadCoordinator =
+        remember(syncClient, apiBaseUrl, policePhoneContext?.accessToken, clockSyncState) {
+            MarkerPhotoUiUploadCoordinator(
+                syncClient = syncClient,
+                apiClient = SuriMapApiClient(baseUrl = apiBaseUrl),
+                accessTokenProvider = accessTokenProvider,
+                uploader = HttpObjectStorageUploader(),
+                clockOffsetMs = clockSyncState::clockOffsetMs,
+                clockSyncedAt = clockSyncState::clockSyncedAt
+            )
+        }
     val loader =
         remember(apiBaseUrl, policePhoneContext?.accessToken) {
             MarkerDetailStateLoader(
@@ -897,11 +918,60 @@ private fun MarkerDetailRoute(
                     ).listMarkers(query)
                 }
             )
-        }
+    }
     val coroutineScope = rememberCoroutineScope()
     var markerDetailState by remember(markerId) {
         mutableStateOf(MarkerDetailUiState.loading(markerId ?: "marker-id-missing"))
     }
+    var retryPhotoId by remember(markerId) { mutableStateOf<String?>(null) }
+    var photoUriById by remember(markerId) { mutableStateOf<Map<String, Uri>>(emptyMap()) }
+    fun beginPhotoUpload(uri: Uri, existingPhotoId: String? = null) {
+        val current = markerDetailState
+        if (!current.canEdit) {
+            return
+        }
+        val localPhotoId = existingPhotoId ?: "local-photo-${System.currentTimeMillis()}"
+        val label = existingPhotoId?.let { id ->
+            current.photos.firstOrNull { photo -> photo.photoId == id }?.label
+        } ?: "사진 ${current.photos.size + 1}"
+        photoUriById = photoUriById + (localPhotoId to uri)
+        markerDetailState =
+            current.upsertPhoto(
+                MarkerDetailPhotoUiState(
+                    photoId = localPhotoId,
+                    label = label,
+                    status = MarkerDetailPhotoStatus.Attaching,
+                    progress = 0.2f
+                )
+            )
+        coroutineScope.launch {
+            val payload = context.markerPhotoUploadPayload(markerId = current.markerId, uri = uri)
+            if (payload == null) {
+                markerDetailState = markerDetailState.markPhotoFailed(localPhotoId)
+                return@launch
+            }
+            markerDetailState = markerDetailState.markPhotoAttaching(localPhotoId, progress = 0.55f)
+            markerDetailState =
+                when (
+                    photoUploadCoordinator.upload(
+                        context = sessionContext.toMarkerWriteContext(),
+                        payload = payload
+                    )
+                ) {
+                    MarkerPhotoUploadResult.Blocked,
+                    is MarkerPhotoUploadResult.UploadFailed -> markerDetailState.markPhotoFailed(localPhotoId)
+
+                    is MarkerPhotoUploadResult.UploadUrlEnqueued,
+                    is MarkerPhotoUploadResult.AttachedEnqueued -> markerDetailState.markPhotoAttaching(localPhotoId, progress = 0.9f)
+                }
+        }
+    }
+    val photoPicker =
+        rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+            val targetPhotoId = retryPhotoId
+            retryPhotoId = null
+            uri?.let { selected -> beginPhotoUpload(selected, targetPhotoId) }
+        }
 
     LaunchedEffect(
         sessionContext.incidentId,
@@ -969,7 +1039,19 @@ private fun MarkerDetailRoute(
                     }
             }
         },
-        onAddPhoto = {},
+        onAddPhoto = {
+            retryPhotoId = null
+            photoPicker.launch("image/*")
+        },
+        onRetryPhoto = { photo ->
+            val uri = photoUriById[photo.photoId]
+            if (uri != null) {
+                beginPhotoUpload(uri, existingPhotoId = photo.photoId)
+            } else {
+                retryPhotoId = photo.photoId
+                photoPicker.launch("image/*")
+            }
+        },
         onDeletePhoto = {}
     )
 }
@@ -1362,6 +1444,43 @@ private fun MarkerDetailUiState.toMarkerUpsertInput(): MarkerUpsertInput =
             null
         },
         memo = memo
+    )
+
+private fun Context.markerPhotoUploadPayload(markerId: String, uri: Uri): MarkerPhotoUploadPayload? =
+    runCatching {
+        val bytes = contentResolver.openInputStream(uri)?.use { input -> input.readBytes() } ?: return null
+        MarkerPhotoUploadPayload(
+            markerId = markerId,
+            contentType = contentResolver.getType(uri) ?: "application/octet-stream",
+            bytes = bytes
+        )
+    }.getOrNull()
+
+private fun MarkerDetailUiState.upsertPhoto(photo: MarkerDetailPhotoUiState): MarkerDetailUiState =
+    copy(photos = photos.filterNot { it.photoId == photo.photoId } + photo)
+
+private fun MarkerDetailUiState.markPhotoAttaching(photoId: String, progress: Float): MarkerDetailUiState =
+    copy(
+        photos =
+        photos.map { photo ->
+            if (photo.photoId == photoId) {
+                photo.copy(status = MarkerDetailPhotoStatus.Attaching, progress = progress)
+            } else {
+                photo
+            }
+        }
+    )
+
+private fun MarkerDetailUiState.markPhotoFailed(photoId: String): MarkerDetailUiState =
+    copy(
+        photos =
+        photos.map { photo ->
+            if (photo.photoId == photoId) {
+                photo.copy(status = MarkerDetailPhotoStatus.Failed, progress = 1f)
+            } else {
+                photo
+            }
+        }
     )
 
 private fun HandoverSessionContext.toHandoverWriteContext(): HandoverWriteContext =

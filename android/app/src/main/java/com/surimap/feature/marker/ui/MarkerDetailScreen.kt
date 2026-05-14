@@ -272,6 +272,7 @@ fun MarkerDetailScreen(
     onDismissDelete: () -> Unit,
     onConfirmDelete: () -> Unit,
     onAddPhoto: () -> Unit,
+    onRetryPhoto: (MarkerDetailPhotoUiState) -> Unit,
     onDeletePhoto: (MarkerDetailPhotoUiState) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -305,6 +306,7 @@ fun MarkerDetailScreen(
                 MarkerPhotosCard(
                     state = state,
                     onAddPhoto = onAddPhoto,
+                    onRetryPhoto = onRetryPhoto,
                     onDeletePhoto = onDeletePhoto
                 )
                 MarkerMetaCard(state = state)
@@ -374,6 +376,7 @@ private fun MarkerMemoCard(state: MarkerDetailUiState, onMemoChange: (String) ->
 private fun MarkerPhotosCard(
     state: MarkerDetailUiState,
     onAddPhoto: () -> Unit,
+    onRetryPhoto: (MarkerDetailPhotoUiState) -> Unit,
     onDeletePhoto: (MarkerDetailPhotoUiState) -> Unit
 ) {
     PoliCard {
@@ -387,6 +390,7 @@ private fun MarkerPhotosCard(
             PhotoDetailRow(
                 photo = photo,
                 canEdit = state.canEdit,
+                onRetryPhoto = onRetryPhoto,
                 onDeletePhoto = onDeletePhoto
             )
         }
@@ -397,6 +401,7 @@ private fun MarkerPhotosCard(
 private fun PhotoDetailRow(
     photo: MarkerDetailPhotoUiState,
     canEdit: Boolean,
+    onRetryPhoto: (MarkerDetailPhotoUiState) -> Unit,
     onDeletePhoto: (MarkerDetailPhotoUiState) -> Unit
 ) {
     PoliCard {
@@ -407,6 +412,14 @@ private fun PhotoDetailRow(
             PoliProgress(progress = photo.progress)
         }
         if (canEdit) {
+            if (photo.status == MarkerDetailPhotoStatus.Failed) {
+                PoliButton(
+                    text = "업로드 재시도",
+                    onClick = { onRetryPhoto(photo) },
+                    size = PoliButtonSize.Small,
+                    variant = PoliButtonVariant.Secondary
+                )
+            }
             PoliButton(
                 text = "사진 삭제",
                 onClick = { onDeletePhoto(photo) },
@@ -526,6 +539,7 @@ private fun MarkerDetailScreenPreview() {
             onDismissDelete = {},
             onConfirmDelete = {},
             onAddPhoto = {},
+            onRetryPhoto = {},
             onDeletePhoto = {}
         )
     }
