@@ -19,7 +19,6 @@ import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -36,10 +35,10 @@ public class SecurityConfig {
         .authorizeHttpRequests(
             auth ->
                 auth.requestMatchers(
-                        AntPathRequestMatcher.antMatcher("/api/health"),
-                        AntPathRequestMatcher.antMatcher("/api/auth/login"),
-                        AntPathRequestMatcher.antMatcher("/actuator/health"),
-                        AntPathRequestMatcher.antMatcher("/actuator/prometheus"))
+                        "/api/health",
+                        "/api/auth/login",
+                        "/actuator/health",
+                        "/actuator/prometheus")
                     .permitAll()
                     .anyRequest()
                     .access(SecurityConfig::hasSuriMapAuthentication))
