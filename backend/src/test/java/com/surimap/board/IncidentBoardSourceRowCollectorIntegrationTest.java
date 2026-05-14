@@ -273,6 +273,8 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
           incidentId,
           OP_ID,
           null,
+          "A구역",
+          "TEAM",
           "ACTIVE",
           5L,
           polygon(),
@@ -282,7 +284,10 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
               new BigDecimal("126.952000"),
               new BigDecimal("37.572000")),
           STARTED_AT,
-          1L);
+          1L,
+          null,
+          null,
+          null);
     }
   }
 

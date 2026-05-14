@@ -9,9 +9,13 @@ public record SearchAreaReadRecord(
     UUID incidentId,
     UUID operationalPeriodId,
     UUID parentSearchAreaId,
+    String name,
     String areaLevel,
     String status,
     long version,
     Polygon geometry,
     Instant updatedAt,
-    long historyCount) {}
+    long historyCount,
+    Instant completedAt,
+    UUID completedByAccountId,
+    String completionMemo) {}

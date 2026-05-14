@@ -23,6 +23,7 @@ import com.surimap.support.auth.WithMockAccount;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -47,12 +48,105 @@ class IncidentBoardApiContractTest {
 
   @MockitoBean private IncidentAccessPort incidentAccessPort;
   @MockitoBean private IncidentBoardSourceRowCollector boardSourceRowCollector;
+  @MockitoBean private BoardAreaPopupQueryService areaPopupQueryService;
   @MockitoBean private LocationAccessRecorder locationAccessRecorder;
 
   @BeforeEach
   void setUp() {
     when(boardSourceRowCollector.collect(any()))
         .thenReturn(new IncidentBoardSourceRowSnapshot(null, List.of(), "hash-board-empty", List.of()));
+  }
+
+  @Test
+  @WithMockAccount(
+      channel = Channel.WEB,
+      accountId = COMMAND_ACCOUNT_ID_VALUE,
+      accountType = AccountType.COMMAND,
+      organizationType = OrganizationType.MISSING_TEAM,
+      roles = Role.MISSING_TEAM_COMMANDER)
+  @DisplayName("WEB can read area popup response split by incomplete/completed summary")
+  void webCanReadAreaPopup() throws Exception {
+    UUID searchAreaId = UUID.fromString("30000000-0000-4000-8000-000000000001");
+    UUID opId = UUID.fromString("20000000-0000-4000-8000-000000000001");
+    UUID assignmentId = UUID.fromString("31000000-0000-4000-8000-000000000001");
+    UUID assignedAccountId = UUID.fromString("11111111-1111-1111-1111-111111110003");
+    UUID policePhoneId = UUID.fromString("50000000-0000-0000-0000-000000000001");
+    when(areaPopupQueryService.getAreaPopup(eq(INCIDENT_ID), eq(searchAreaId)))
+        .thenReturn(
+            Optional.of(
+                new BoardAreaPopupResponse(
+                    new BoardAreaPopupResponse.Common(
+                        searchAreaId,
+                        "A구역",
+                        "TEAM",
+                        "ACTIVE",
+                        opId,
+                        1,
+                        "ACTIVE",
+                        Instant.parse("2026-04-28T00:00:00Z"),
+                        null,
+                        "ASSIGNED",
+                        List.of(
+                            new BoardAreaPopupResponse.Assignment(
+                                assignmentId,
+                                assignedAccountId,
+                                UUID.fromString(COMMAND_ACCOUNT_ID_VALUE),
+                                Instant.parse("2026-04-28T00:10:00Z"),
+                                null,
+                                "ACTIVE",
+                                AccountType.TEAM,
+                                OrganizationType.POLICE_SUBSTATION,
+                                new BoardAreaPopupResponse.PolicePhone(
+                                    policePhoneId,
+                                    "NORMAL",
+                                    Instant.parse("2026-04-28T00:12:00Z"),
+                                    Instant.parse("2026-04-28T00:11:00Z")))),
+                        Instant.parse("2026-04-28T00:20:00Z"),
+                        5L,
+                        1L),
+                    new BoardAreaPopupResponse.IncompleteSummary(
+                        Instant.parse("2026-04-28T00:20:00Z"), 1L),
+                    null)));
+
+    mockMvc
+        .perform(
+            get(
+                "/api/incidents/{incidentId}/board/search-areas/{searchAreaId}/popup",
+                INCIDENT_ID,
+                searchAreaId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.common.areaName").value("A구역"))
+        .andExpect(jsonPath("$.common.areaLevel").value("TEAM"))
+        .andExpect(jsonPath("$.common.areaStatus").value("ACTIVE"))
+        .andExpect(jsonPath("$.common.opSequence").value(1))
+        .andExpect(jsonPath("$.common.assignmentStatus").value("ASSIGNED"))
+        .andExpect(jsonPath("$.common.assignments[0].assignedAccountId").value(assignedAccountId.toString()))
+        .andExpect(jsonPath("$.common.assignments[0].policePhone.policePhoneId").value(policePhoneId.toString()))
+        .andExpect(jsonPath("$.common.assignments[0].policePhone.freshness").value("NORMAL"))
+        .andExpect(jsonPath("$.incompleteSummary.statusUpdatedAt").isString())
+        .andExpect(jsonPath("$.completedSummary").doesNotExist());
+  }
+
+  @Test
+  @WithMockAccount(
+      channel = Channel.WEB,
+      accountId = COMMAND_ACCOUNT_ID_VALUE,
+      accountType = AccountType.COMMAND,
+      organizationType = OrganizationType.MISSING_TEAM,
+      roles = Role.MISSING_TEAM_COMMANDER)
+  @DisplayName("WEB area popup returns 404 when area source row does not exist")
+  void areaPopupReturnsNotFound() throws Exception {
+    UUID searchAreaId = UUID.fromString("30000000-0000-4000-8000-000000009999");
+    when(areaPopupQueryService.getAreaPopup(eq(INCIDENT_ID), eq(searchAreaId)))
+        .thenReturn(Optional.empty());
+
+    mockMvc
+        .perform(
+            get(
+                "/api/incidents/{incidentId}/board/search-areas/{searchAreaId}/popup",
+                INCIDENT_ID,
+                searchAreaId))
+        .andExpect(status().isNotFound());
   }
 
   @Test

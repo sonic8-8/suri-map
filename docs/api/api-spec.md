@@ -315,6 +315,24 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`
 - Note: `gone_refetch_required` is emitted by the event stream replay path; clients recover by reloading this full board snapshot and replacing the requested slot state.
 
+#### GET `/api/incidents/{incidentId}/board/search-areas/{searchAreaId}/popup`
+
+- Owner: S3-2
+- Source spec: `GET /incidents/{incidentId}/board/search-areas/{searchAreaId}/popup`
+- Consumer: WEB
+- Headers: `Authorization`
+- Guard: `@RequireChannel(WEB)`, `@RequireIncidentAccess`
+- Idempotency-Key: no
+- Request: path `incidentId`, `searchAreaId`
+- Response: `200 {common, incompleteSummary, completedSummary}`
+- `common`: `{areaId, areaName, areaLevel, areaStatus, opId, opSequence, opStatus, opStartedAt, opEndedAt, assignmentStatus, assignments, updatedAt, version, historyCount}`
+- `assignments[]`: `{assignmentId, assignedAccountId, assignedByAccountId, assignedAt, revokedAt, status, accountType, organizationType, policePhone}`
+- `policePhone`: optional `{policePhoneId, freshness, lastHeartbeatAt, lastSyncAt}`
+- `incompleteSummary`: present when `areaStatus != COMPLETED`; `{statusUpdatedAt, historyCount}`
+- `completedSummary`: present when `areaStatus = COMPLETED`; `{completedAt, completedByAccountId, completionMemo, historyCount}`
+- Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`, `404 not found`
+- Note: 구역 클릭 팝업 전용 read DTO다. 다음 투입 구역 추천, 위험도 판단, 수색 누락 자동 확정 필드는 제공하지 않는다.
+
 #### GET `/api/incidents/{incidentId}/events`
 
 - Owner: S4

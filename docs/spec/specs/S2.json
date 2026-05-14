@@ -1852,12 +1852,17 @@
               "incidentId": "UUID",
               "opId": "operational_period_id UUID",
               "parentAreaId": "UUID|null",
+              "name": "search_area.name",
+              "areaLevel": "search_area.area_level",
               "status": "persisted search_area.status",
               "version": "BIGINT",
               "geometry": "Canonical GeoJSON Polygon",
               "bbox": "EPSG:4326 bbox",
               "updatedAt": "TIMESTAMPTZ",
-              "historyCount": "derived from search_area_history"
+              "historyCount": "derived from search_area_history",
+              "completedAt": "latest search_area_history.changed_at where next_status=COMPLETED, else null",
+              "completedByAccountId": "latest search_area_history.changed_by_account_id where next_status=COMPLETED, else null",
+              "completionMemo": "latest search_area_history.change_memo where next_status=COMPLETED, else null"
             }
           ]
         },
@@ -1932,9 +1937,14 @@
         "id",
         "incidentId",
         "opId",
+        "name",
+        "areaLevel",
         "status",
         "version",
-        "geometry"
+        "geometry",
+        "completedAt",
+        "completedByAccountId",
+        "completionMemo"
       ]
     },
     "search_area_state_aliases": {

@@ -26,11 +26,14 @@ public class InMemorySearchAreaQueryAdapter implements SearchAreaQuery {
       UUID incidentId,
       UUID opId,
       UUID parentAreaId,
+      String name,
+      String areaLevel,
       String status,
       long version,
       GeoJsonPolygon geometry,
       Instant createdAt,
-      Instant updatedAt) {}
+      Instant updatedAt,
+      Instant completedAt) {}
 
   private final ConcurrentHashMap<UUID, OverallEntry> overallStore = new ConcurrentHashMap<>();
   private final ConcurrentHashMap<UUID, AreaEntry> areaStore = new ConcurrentHashMap<>();
@@ -61,7 +64,18 @@ public class InMemorySearchAreaQueryAdapter implements SearchAreaQuery {
     areaStore.put(
         id,
         new AreaEntry(
-            id, incidentId, opId, parentAreaId, status, version, geometry, createdAt, updatedAt));
+            id,
+            incidentId,
+            opId,
+            parentAreaId,
+            "TEAM",
+            "TEAM",
+            status,
+            version,
+            geometry,
+            createdAt,
+            updatedAt,
+            "COMPLETED".equals(status) ? updatedAt : null));
     if (opId != null) opIncidentIndex.put(opId, incidentId);
   }
 
@@ -144,12 +158,17 @@ public class InMemorySearchAreaQueryAdapter implements SearchAreaQuery {
         e.incidentId(),
         e.opId(),
         e.parentAreaId(),
+        e.name(),
+        e.areaLevel(),
         e.status(),
         e.version(),
         e.geometry(),
         computeBbox(e.geometry()),
         e.updatedAt(),
-        0L);
+        0L,
+        e.completedAt(),
+        null,
+        null);
   }
 
   private boolean bboxIntersects(List<BigDecimal> areaBbox, List<BigDecimal> filterBbox) {

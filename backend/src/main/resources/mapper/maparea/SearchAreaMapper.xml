@@ -11,12 +11,16 @@
             <arg column="incident_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
             <arg column="operational_period_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
             <arg column="parent_search_area_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="name" javaType="string"/>
             <arg column="area_level" javaType="string"/>
             <arg column="status" javaType="string"/>
             <arg column="version" javaType="_long"/>
             <arg column="geometry" javaType="org.locationtech.jts.geom.Polygon" typeHandler="com.surimap.config.mybatis.JtsGeometryTypeHandler"/>
             <arg column="updated_at" javaType="java.time.Instant"/>
             <arg column="history_count" javaType="_long"/>
+            <arg column="completed_at" javaType="java.time.Instant"/>
+            <arg column="completed_by_account_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="completion_memo" javaType="string"/>
         </constructor>
     </resultMap>
 
@@ -102,12 +106,37 @@
         op.incident_id,
         area.operational_period_id,
         area.parent_search_area_id,
+        area.name,
         area.area_level,
         area.status,
         area.version,
         ST_AsEWKT(area.geometry) AS geometry,
         area.updated_at,
-        COUNT(history.id) AS history_count
+        COUNT(history.id) AS history_count,
+        (
+          SELECT completed.changed_at
+          FROM search_area_history completed
+          WHERE completed.search_area_id = area.id
+            AND completed.next_status = 'COMPLETED'
+          ORDER BY completed.changed_at DESC, completed.id ASC
+          LIMIT 1
+        ) AS completed_at,
+        (
+          SELECT completed.changed_by_account_id
+          FROM search_area_history completed
+          WHERE completed.search_area_id = area.id
+            AND completed.next_status = 'COMPLETED'
+          ORDER BY completed.changed_at DESC, completed.id ASC
+          LIMIT 1
+        ) AS completed_by_account_id,
+        (
+          SELECT completed.change_memo
+          FROM search_area_history completed
+          WHERE completed.search_area_id = area.id
+            AND completed.next_status = 'COMPLETED'
+          ORDER BY completed.changed_at DESC, completed.id ASC
+          LIMIT 1
+        ) AS completion_memo
     </sql>
 
     <sql id="searchAreaReadJoins">

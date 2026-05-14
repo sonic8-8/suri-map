@@ -1272,6 +1272,231 @@
             "body": "{\"error\": \"team_not_assigned\"}"
           }
         ]
+      },
+      {
+        "method": "GET",
+        "path": "/incidents/{incidentId}/board/search-areas/{searchAreaId}/popup",
+        "summary": "지도 구역 클릭 팝업 전용 read DTO",
+        "auth": "@RequireChannel(WEB), @RequireIncidentAccess",
+        "idempotent": true,
+        "required_headers": [
+          "Authorization"
+        ],
+        "request_schema": {
+          "type": "object",
+          "required": [
+            "incidentId",
+            "searchAreaId"
+          ],
+          "properties": {
+            "incidentId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "searchAreaId": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "response_schema": {
+          "200": {
+            "type": "object",
+            "required": [
+              "common"
+            ],
+            "properties": {
+              "common": {
+                "type": "object",
+                "required": [
+                  "areaId",
+                  "areaName",
+                  "areaLevel",
+                  "areaStatus",
+                  "assignmentStatus",
+                  "assignments",
+                  "updatedAt",
+                  "version",
+                  "historyCount"
+                ],
+                "properties": {
+                  "areaId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "areaName": {
+                    "type": "string"
+                  },
+                  "areaLevel": {
+                    "type": "string",
+                    "enum": [
+                      "OVERALL",
+                      "UNIT",
+                      "TEAM"
+                    ]
+                  },
+                  "areaStatus": {
+                    "type": "string",
+                    "enum": [
+                      "ACTIVE",
+                      "COMPLETED",
+                      "CANCELLED"
+                    ]
+                  },
+                  "opId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "opSequence": {
+                    "type": "integer"
+                  },
+                  "opStatus": {
+                    "type": "string"
+                  },
+                  "opStartedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "opEndedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "assignmentStatus": {
+                    "type": "string",
+                    "enum": [
+                      "UNASSIGNED",
+                      "ASSIGNED",
+                      "CANCELLED"
+                    ]
+                  },
+                  "assignments": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "assignmentId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "assignedAccountId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "assignedByAccountId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "assignedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "revokedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "accountType": {
+                          "type": "string"
+                        },
+                        "organizationType": {
+                          "type": "string"
+                        },
+                        "policePhone": {
+                          "type": "object",
+                          "properties": {
+                            "policePhoneId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "freshness": {
+                              "type": "string"
+                            },
+                            "lastHeartbeatAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "lastSyncAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "updatedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "version": {
+                    "type": "integer"
+                  },
+                  "historyCount": {
+                    "type": "integer"
+                  }
+                }
+              },
+              "incompleteSummary": {
+                "type": "object",
+                "description": "areaStatus가 COMPLETED가 아닐 때만 존재한다.",
+                "properties": {
+                  "statusUpdatedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "historyCount": {
+                    "type": "integer"
+                  }
+                }
+              },
+              "completedSummary": {
+                "type": "object",
+                "description": "areaStatus가 COMPLETED일 때만 존재한다.",
+                "properties": {
+                  "completedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "completedByAccountId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "completionMemo": {
+                    "type": "string"
+                  },
+                  "historyCount": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "code": 403,
+            "case": "channel_not_allowed",
+            "body": "{\"error\": \"channel_not_allowed\"}"
+          },
+          {
+            "code": 403,
+            "case": "incident_access_denied",
+            "body": "{\"error\": \"incident_access_denied\"}"
+          },
+          {
+            "code": 403,
+            "case": "team_not_assigned",
+            "body": "{\"error\": \"team_not_assigned\"}"
+          },
+          {
+            "code": 404,
+            "case": "not_found",
+            "body": ""
+          }
+        ],
+        "automatic_decision_policy": "다음 구역 추천, 위험도 판단, 수색 누락 자동 확정 필드를 포함하지 않는다."
       }
     ],
     "refetch_ports": {

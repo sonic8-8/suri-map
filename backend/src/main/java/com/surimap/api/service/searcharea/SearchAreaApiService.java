@@ -146,12 +146,16 @@ public class SearchAreaApiService implements SearchAreaQuery {
                   request.incidentId(),
                   request.opId(),
                   null,
+                  searchAreaName(areaLevel, request.memo()),
                   areaLevel,
                   ACTIVE,
                   1L,
                   1L,
                   request.geometry(),
-                  Instant.now());
+                  Instant.now(),
+                  null,
+                  null,
+                  null);
           searchAreas.put(created.id(), created);
           return toResponse(created);
         });
@@ -213,12 +217,16 @@ public class SearchAreaApiService implements SearchAreaQuery {
             request.incidentId(),
             opId,
             parentSearchAreaId,
+            row.name(),
             areaLevel,
             ACTIVE,
             1L,
             1L,
             request.geometry(),
-            now);
+            now,
+            null,
+            null,
+            null);
     searchAreas.put(created.id(), created);
     return toResponse(created);
   }
@@ -350,7 +358,11 @@ public class SearchAreaApiService implements SearchAreaQuery {
           }
           SearchAreaRecord updated =
               existing.withMutation(
-                  nextStatus, existing.historyCount() + 1, existing.version() + 1, geometry);
+                  nextStatus,
+                  existing.historyCount() + 1,
+                  existing.version() + 1,
+                  geometry,
+                  request.memo());
           searchAreas.put(updated.id(), updated);
           return toResponse(updated);
         });
@@ -390,7 +402,11 @@ public class SearchAreaApiService implements SearchAreaQuery {
 
           SearchAreaRecord cancelled =
               parent.withMutation(
-                  CANCELLED, parent.historyCount() + 1, parent.version() + 1, parent.geometry());
+                  CANCELLED,
+                  parent.historyCount() + 1,
+                  parent.version() + 1,
+                  parent.geometry(),
+                  request.memo());
           searchAreas.put(cancelled.id(), cancelled);
 
           List<SearchAreaRecord> children = new ArrayList<>();
@@ -401,12 +417,16 @@ public class SearchAreaApiService implements SearchAreaQuery {
                     parent.incidentId(),
                     parent.opId(),
                     parent.id(),
+                    parent.name(),
                     parent.areaLevel(),
                     ACTIVE,
                     1L,
                     1L,
                     geometry,
-                    Instant.now());
+                    Instant.now(),
+                    null,
+                    null,
+                    null);
             searchAreas.put(child.id(), child);
             children.add(child);
           }
@@ -453,7 +473,8 @@ public class SearchAreaApiService implements SearchAreaQuery {
                   existing.status(),
                   existing.historyCount(),
                   existing.version() + 1,
-                  existing.geometry());
+                  existing.geometry(),
+                  null);
           searchAreas.put(updated.id(), updated);
           List<UUID> assignmentIds =
               request.assigneeAccountIds().stream().map(ignored -> UUID.randomUUID()).toList();
@@ -533,12 +554,16 @@ public class SearchAreaApiService implements SearchAreaQuery {
             updatedRecord.incidentId(),
             updatedRecord.operationalPeriodId(),
             updatedRecord.parentSearchAreaId(),
+            updatedRecord.name(),
             updatedRecord.areaLevel(),
             updatedRecord.status(),
             updatedRecord.historyCount(),
             updatedRecord.version(),
             toGeoJsonPolygon(updatedRecord.geometry()),
-            updatedRecord.updatedAt());
+            updatedRecord.updatedAt(),
+            updatedRecord.completedAt(),
+            updatedRecord.completedByAccountId(),
+            updatedRecord.completionMemo());
     searchAreas.put(memoryRecord.id(), memoryRecord);
 
     return Optional.of(
@@ -657,12 +682,16 @@ public class SearchAreaApiService implements SearchAreaQuery {
             updatedRecord.incidentId(),
             updatedRecord.operationalPeriodId(),
             updatedRecord.parentSearchAreaId(),
+            updatedRecord.name(),
             updatedRecord.areaLevel(),
             updatedRecord.status(),
             updatedRecord.historyCount(),
             updatedRecord.version(),
             nextGeoJsonGeometry,
-            updatedRecord.updatedAt());
+            updatedRecord.updatedAt(),
+            updatedRecord.completedAt(),
+            updatedRecord.completedByAccountId(),
+            updatedRecord.completionMemo());
     searchAreas.put(memoryRecord.id(), memoryRecord);
     return Optional.of(toResponse(updatedRecord));
   }
@@ -754,12 +783,16 @@ public class SearchAreaApiService implements SearchAreaQuery {
               childRecord.incidentId(),
               childRecord.operationalPeriodId(),
               childRecord.parentSearchAreaId(),
+              childRecord.name(),
               childRecord.areaLevel(),
               childRecord.status(),
               childRecord.historyCount(),
               childRecord.version(),
               childGeometry,
-              childRecord.updatedAt());
+              childRecord.updatedAt(),
+              childRecord.completedAt(),
+              childRecord.completedByAccountId(),
+              childRecord.completionMemo());
       searchAreas.put(memoryChild.id(), memoryChild);
       children.add(toResponse(childRecord));
     }
@@ -774,12 +807,16 @@ public class SearchAreaApiService implements SearchAreaQuery {
             updatedParent.incidentId(),
             updatedParent.operationalPeriodId(),
             updatedParent.parentSearchAreaId(),
+            updatedParent.name(),
             updatedParent.areaLevel(),
             updatedParent.status(),
             updatedParent.historyCount(),
             updatedParent.version(),
             toGeoJsonPolygon(updatedParent.geometry()),
-            updatedParent.updatedAt());
+            updatedParent.updatedAt(),
+            updatedParent.completedAt(),
+            updatedParent.completedByAccountId(),
+            updatedParent.completionMemo());
     searchAreas.put(memoryParent.id(), memoryParent);
 
     return Optional.of(
@@ -917,12 +954,17 @@ public class SearchAreaApiService implements SearchAreaQuery {
         record.incidentId(),
         record.opId(),
         record.parentAreaId(),
+        record.name(),
+        record.areaLevel(),
         record.status(),
         record.version(),
         record.geometry(),
         computeBbox(record.geometry()),
         record.updatedAt(),
-        record.historyCount());
+        record.historyCount(),
+        record.completedAt(),
+        record.completedByAccountId(),
+        record.completionMemo());
   }
 
   private SearchAreaRow toSearchAreaRow(SearchAreaReadRecord record) {
@@ -932,12 +974,17 @@ public class SearchAreaApiService implements SearchAreaQuery {
         record.incidentId(),
         record.operationalPeriodId(),
         record.parentSearchAreaId(),
+        record.name(),
+        record.areaLevel(),
         record.status(),
         record.version(),
         geometry,
         computeBbox(geometry),
         record.updatedAt(),
-        record.historyCount());
+        record.historyCount(),
+        record.completedAt(),
+        record.completedByAccountId(),
+        record.completionMemo());
   }
 
   private OverallSearchAreaResult toOverallResult(SearchAreaReadRecord record) {
@@ -1140,26 +1187,42 @@ public class SearchAreaApiService implements SearchAreaQuery {
       UUID incidentId,
       UUID opId,
       UUID parentAreaId,
+      String name,
       String areaLevel,
       String status,
       long historyCount,
       long version,
       GeoJsonPolygon geometry,
-      Instant updatedAt) {
+      Instant updatedAt,
+      Instant completedAt,
+      UUID completedByAccountId,
+      String completionMemo) {
 
     SearchAreaRecord withMutation(
-        String nextStatus, long nextHistoryCount, long nextVersion, GeoJsonPolygon nextGeometry) {
+        String nextStatus,
+        long nextHistoryCount,
+        long nextVersion,
+        GeoJsonPolygon nextGeometry,
+        String memo) {
+      Instant now = Instant.now();
+      boolean completed = COMPLETED.equals(nextStatus);
+      Instant nextCompletedAt = completed ? now : completedAt;
+      String nextCompletionMemo = completed ? memo : completionMemo;
       return new SearchAreaRecord(
           id,
           incidentId,
           opId,
           parentAreaId,
+          name,
           areaLevel,
           nextStatus,
           nextHistoryCount,
           nextVersion,
           nextGeometry,
-          Instant.now());
+          now,
+          nextCompletedAt,
+          completedByAccountId,
+          nextCompletionMemo);
     }
   }
 

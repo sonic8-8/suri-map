@@ -34,12 +34,17 @@ public class MockSearchAreaPort implements SearchAreaQuery {
             Sc04Fixtures.INCIDENT_ID,
             Sc04Fixtures.OP1_ID,
             /* parentAreaId= */ null,
+            "A구역",
+            "TEAM",
             "ACTIVE",
             Sc04Fixtures.AREA_CREATED_VERSION,
             GeometryFixtures.validSearchAreaPolygon(),
             GeometryFixtures.AREA_GEOMETRY_BBOX,
             Instant.parse("2026-04-28T00:30:00Z"),
-            /* historyCount= */ 1L));
+            /* historyCount= */ 1L,
+            null,
+            null,
+            null));
     publishedEventTypes.add("SEARCH_AREA_CHANGED");
     return this;
   }

@@ -16,9 +16,14 @@ public record SearchAreaRow(
     UUID incidentId,
     UUID opId,
     UUID parentAreaId,
+    String name,
+    String areaLevel,
     String status,
     long version,
     GeoJsonPolygon geometry,
     List<BigDecimal> bbox,
     Instant updatedAt,
-    long historyCount) {}
+    long historyCount,
+    Instant completedAt,
+    UUID completedByAccountId,
+    String completionMemo) {}

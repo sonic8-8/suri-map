@@ -517,6 +517,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 - OP 비교 화면
 - 단말 최신성 인코딩
 - `GET /api/incidents/{incidentId}/board`
+- `GET /api/incidents/{incidentId}/board/search-areas/{searchAreaId}/popup`
 
 **provides**
 
@@ -549,6 +550,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 **acceptance_hints**
 
 - `GET /api/incidents/{incidentId}/board` returns `BoardDTO` from the assembler/read model within the board response performance target.
+- `GET /api/incidents/{incidentId}/board/search-areas/{searchAreaId}/popup` returns area click popup DTO split into incomplete/completed summaries without automatic recommendation/risk/missing-area judgement fields.
 - Each slot is mounted only through the S3-2 shell and consumes the source contract declared in `spec/boundaries.md §9.2 Board Shell Slots`.
 - SSE updates are applied idempotently by `eventId`; stale replay recovery falls back to snapshot reload.
 - Marker detail/edit/delete panel changes stay inside S3-2 layout ownership while domain writes remain with S5.
@@ -1211,6 +1213,7 @@ Guard shorthand:
 | `GET /api/search-paths` | S3-1 | 앱, 웹, S3-2, S8 | HTTPS | `public-session`, `incident-read`, `@RecordLocationAccess` | - |
 | `PATCH /api/search-path-segments/{searchPathSegmentId}` | S3-1 | 웹 | HTTPS | `web-command`, `incident-read`, `write-common` | - |
 | `GET /api/incidents/{incidentId}/board` | S3-2 | 웹 | HTTPS | `public-session`, `incident-read`, `@RecordLocationAccess` | - |
+| `GET /api/incidents/{incidentId}/board/search-areas/{searchAreaId}/popup` | S3-2 | 웹 | HTTPS | `public-session`, `incident-read` | - |
 | `GET /api/incidents/{incidentId}/events` | S4 | 웹, S3-2 | SSE/HTTPS | `public-session`, `incident-read`, `@RequireChannel(WEB)` | `internal-caller`: event fanout replay |
 | `POST /api/markers` | S5 | 앱 | HTTPS | `app-police-phone`, `incident-read`, `write-common`, `@RequireCurrentOp` | `internal-caller`: outbox replay |
 | `PATCH /api/markers/{markerId}` | S5 | 앱, 웹 | HTTPS | `field-or-web-write`, `incident-read`, `write-common`, S5 marker policy | `internal-caller`: outbox replay |

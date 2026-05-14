@@ -18,9 +18,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class IncidentBoardController {
 
   private final IncidentBoardQueryService queryService;
+  private final BoardAreaPopupQueryService areaPopupQueryService;
 
-  public IncidentBoardController(IncidentBoardQueryService queryService) {
+  public IncidentBoardController(
+      IncidentBoardQueryService queryService, BoardAreaPopupQueryService areaPopupQueryService) {
     this.queryService = queryService;
+    this.areaPopupQueryService = areaPopupQueryService;
   }
 
   @GetMapping
@@ -34,5 +37,16 @@ public class IncidentBoardController {
       @RequestParam(value = "sinceVersion", required = false) Long sinceVersion) {
     BoardDTO board = queryService.getBoard(incidentId, opIds, includeSlots, sinceVersion);
     return ResponseEntity.ok(IncidentBoardResponse.from(board));
+  }
+
+  @GetMapping("/search-areas/{searchAreaId}/popup")
+  @RequireChannel({Channel.WEB})
+  @RequireIncidentAccess
+  public ResponseEntity<BoardAreaPopupResponse> getAreaPopup(
+      @PathVariable UUID incidentId, @PathVariable UUID searchAreaId) {
+    return areaPopupQueryService
+        .getAreaPopup(incidentId, searchAreaId)
+        .map(ResponseEntity::ok)
+        .orElseGet(() -> ResponseEntity.notFound().build());
   }
 }

@@ -36,12 +36,17 @@ public final class SearchAreaQueryFixtures {
         BoundaryAreaFixtures.INCIDENT_ID,
         BoundaryAreaFixtures.OP1_ID,
         null,
+        "A구역",
+        "TEAM",
         "ACTIVE",
         BoundaryAreaFixtures.AREA_CREATED_VERSION,
         GeometryFixtures.validSearchAreaPolygon(),
         GeometryFixtures.AREA_GEOMETRY_BBOX,
         FIXED_AT,
-        0L);
+        0L,
+        null,
+        null,
+        null);
   }
 
   /** byIncident(incidentId, empty filters) mock 결과 — OP1 ACTIVE area 1건. */
