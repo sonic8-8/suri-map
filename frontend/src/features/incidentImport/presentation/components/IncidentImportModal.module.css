@@ -160,6 +160,14 @@
   white-space: nowrap;
 }
 
+.modalEmpty {
+  padding: 32px 20px;
+  color: var(--color-fg-secondary);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+
 /* 사건 가져오기 실행 버튼이다. */
 .modalImportButton {
   min-height: 34px;
