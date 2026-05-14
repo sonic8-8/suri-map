@@ -194,7 +194,9 @@ class IncidentHandoverSupportAssignmentContractTest {
             "11111111-1111-1111-1111-111111110007",
             "11111111-1111-1111-1111-111111110008");
     assertThat(stringList(targets, "policePhoneIds"))
-        .containsExactlyInAnyOrder("dev-support-car-01", "dev-support-phone-01");
+        .containsExactlyInAnyOrder(
+            "00000000-0000-0000-0000-000000000207",
+            "00000000-0000-0000-0000-000000000208");
   }
 
   private static boolean assignmentChangedEventMatches(

@@ -117,11 +117,11 @@ public class OfflinePackageService implements OfflinePackageInstallationQuery {
     Map<String, Object> payload = new LinkedHashMap<>();
     payload.put("id", status.id());
     payload.put("status", status.status());
-    payload.put("version", Math.toIntExact(status.version()));
+    payload.put("version", status.version());
     payload.put("incidentId", status.incidentId());
     payload.put("policePhoneId", status.policePhoneId());
     payload.put("manifestVersion", status.manifestVersion());
-    payload.put("sequence", Math.toIntExact(status.sequence()));
+    payload.put("sequence", status.sequence());
     return payload;
   }
 

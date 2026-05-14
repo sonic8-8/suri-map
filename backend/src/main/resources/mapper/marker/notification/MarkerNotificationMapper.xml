@@ -4,6 +4,47 @@
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="com.surimap.marker.notification.repository.MarkerNotificationMapper">
+    <resultMap id="toastRowMap"
+               type="com.surimap.marker.notification.query.MarkerNotificationToastRow">
+        <constructor>
+            <arg column="notification_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="marker_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="incident_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="op_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="police_phone_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="notification_type" javaType="string"/>
+            <arg column="status" javaType="string"/>
+            <arg column="version" javaType="_long"/>
+            <arg column="created_at" javaType="java.time.Instant"/>
+            <arg column="latest_event_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        </constructor>
+    </resultMap>
+
+    <select id="byIncident" resultMap="toastRowMap">
+        SELECT
+            notification.id AS notification_id,
+            notification.marker_id AS marker_id,
+            marker.incident_id AS incident_id,
+            marker.operational_period_id AS op_id,
+            marker.police_phone_id AS police_phone_id,
+            notification.notification_type AS notification_type,
+            notification.status AS status,
+            notification.version AS version,
+            notification.created_at AS created_at,
+            (
+                SELECT event.event_id
+                FROM event_dispatch_job event
+                WHERE event.source_entity_type = 'marker_notification'
+                  AND event.source_entity_id = notification.id
+                ORDER BY event.occurred_at DESC, event.created_at DESC
+                LIMIT 1
+            ) AS latest_event_id
+        FROM marker_notification notification
+        JOIN marker marker ON marker.id = notification.marker_id
+        WHERE marker.incident_id = #{incidentId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+        ORDER BY notification.created_at ASC, notification.id ASC
+    </select>
+
     <insert id="insertIfAbsent">
         INSERT INTO marker_notification (
             id,

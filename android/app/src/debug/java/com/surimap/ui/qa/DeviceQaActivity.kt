@@ -111,7 +111,8 @@ private fun DeviceQaScreen(route: DeviceQaRoute) {
                 onOpenHandover = {},
                 onOpenBlockedOutbox = {},
                 onDismissIncidentAlert = {},
-                onOpenIncidentAlertMarker = {}
+                onOpenIncidentAlertMarker = {},
+                onOpenFocusedMarkerDetail = {}
             )
 
         DeviceQaRoute.SearchMapSynced ->
@@ -124,7 +125,8 @@ private fun DeviceQaScreen(route: DeviceQaRoute) {
                 onOpenHandover = {},
                 onOpenBlockedOutbox = {},
                 onDismissIncidentAlert = {},
-                onOpenIncidentAlertMarker = {}
+                onOpenIncidentAlertMarker = {},
+                onOpenFocusedMarkerDetail = {}
             )
 
         DeviceQaRoute.SearchMapBlockedOutbox ->
@@ -143,7 +145,8 @@ private fun DeviceQaScreen(route: DeviceQaRoute) {
                 onOpenHandover = {},
                 onOpenBlockedOutbox = {},
                 onDismissIncidentAlert = {},
-                onOpenIncidentAlertMarker = {}
+                onOpenIncidentAlertMarker = {},
+                onOpenFocusedMarkerDetail = {}
             )
 
         DeviceQaRoute.HandoverSummary ->
@@ -178,7 +181,8 @@ private fun DeviceQaScreen(route: DeviceQaRoute) {
                 onOpenHandover = {},
                 onOpenBlockedOutbox = {},
                 onDismissIncidentAlert = {},
-                onOpenIncidentAlertMarker = {}
+                onOpenIncidentAlertMarker = {},
+                onOpenFocusedMarkerDetail = {}
             )
 
         DeviceQaRoute.MarkerDetail -> {
@@ -192,6 +196,7 @@ private fun DeviceQaScreen(route: DeviceQaRoute) {
                 onDismissDelete = { state = state.copy(showDeleteConfirm = false) },
                 onConfirmDelete = {},
                 onAddPhoto = {},
+                onRetryPhoto = {},
                 onDeletePhoto = {}
             )
         }

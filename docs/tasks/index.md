@@ -207,7 +207,7 @@ MR 제목은 commit 제목과 같은 형식을 사용한다. MR 설명에는 Jir
 |---|---|---|---|
 | 12단계 리허설 | L1 | 전체 Lane | `L1-D01A~D`로 SC-01~12를 나눠 PRD §5.1 흐름이 fixture ID로 1회 통과하고 실패/수정 기록이 남는다 |
 | k6/CI quality gate | L2 | L4, L6 | Sonar/test/coverage/k6 결과가 MR 또는 release note에 첨부된다 |
-| 1시간 안정성 및 on/off 10회 테스트 | L4 | L2, L5, L6 | Android 단말 2대와 board 1대가 네트워크 반복 변경 후에도 정합성을 유지한다 |
+| 1시간 안정성 및 on/off 10회 테스트 | L4 | L2, L5, L6 | Android 단말 1대와 board 1대가 네트워크 반복 변경 후에도 정합성을 유지한다. 2026-05-14 사용자 승인으로 물리 단말 1대 기준으로 다운스코프했다 |
 | Board/package/tile demo smoke | L6 | L2, L3, L5 | board slot, package badge, local tile, terminal state가 수렴한다 |
 | Demo runbook checklist | L1 | 전체 Lane | 운영 절차, rollback/retry 절차, 열린 risk가 문서화된다 |
 

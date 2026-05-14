@@ -4,6 +4,7 @@ import com.surimap.core.incident.IncidentReadRepository
 import com.surimap.core.network.SuriMapApiClient
 import com.surimap.feature.incidents.data.IncidentListStateLoader
 import com.surimap.feature.incidents.ui.IncidentListStatus
+import com.surimap.testing.incidentIdFixture
 import java.io.IOException
 import kotlinx.coroutines.runBlocking
 import okhttp3.Call
@@ -47,7 +48,7 @@ class IncidentListStateLoaderTest {
                     """
                     {
                       "items": [
-                        {"id":"inc-precinct-first-001","title":"광주 북구 산악 실종","status":"OPEN","version":7}
+                        {"id":"$INCIDENT_ID","title":"광주 북구 산악 실종","status":"OPEN","version":7}
                       ]
                     }
                     """.trimIndent()
@@ -59,10 +60,11 @@ class IncidentListStateLoaderTest {
         val context = incident.toIncidentContext()
 
         assertEquals(IncidentListStatus.Ready, state.status)
-        assertEquals("inc-precinct-first-001", incident.incidentId)
+        assertEquals(INCIDENT_ID, incident.incidentId)
         assertEquals("광주 북구 산악 실종", incident.title)
         assertEquals("상태 OPEN · v7", incident.summary)
-        assertEquals("inc-precinct-first-001", context.incidentId)
+        assertEquals("근무 시작 후 사건 열기", state.primaryOpenLabel)
+        assertEquals(INCIDENT_ID, context.incidentId)
         assertNull(context.currentOpId)
         assertNull(context.currentDutyShiftId)
     }
@@ -97,6 +99,16 @@ class IncidentListStateLoaderTest {
 
         assertEquals(IncidentListStatus.Offline, state.status)
         assertFalse(state.canRefresh)
+    }
+
+    @Test
+    fun appIncidentRouteStartsDutyShiftWhenNoActiveShift() {
+        val source = java.io.File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+
+        assertTrue(source.contains("DutyShiftLocalRecorder"))
+        assertTrue(source.contains("resolvedContext.currentDutyShiftId.isNullOrBlank()"))
+        assertTrue(source.contains("dutyShiftRecorder.start"))
+        assertTrue(source.contains("resolvedContext.toDutyShiftWriteContext(policePhoneContext)"))
     }
 
     private fun loaderFor(response: Response): IncidentListStateLoader {
@@ -156,6 +168,10 @@ class IncidentListStateLoaderTest {
         override fun <T : Any> tag(type: KClass<T>, computeIfAbsent: () -> T): T = computeIfAbsent()
         override fun <T : Any> tag(type: Class<T>, computeIfAbsent: () -> T): T = computeIfAbsent()
         override fun clone(): Call = FailingCall(request)
+    }
+
+    private companion object {
+        val INCIDENT_ID = incidentIdFixture("precinct-first-001")
     }
 }
 

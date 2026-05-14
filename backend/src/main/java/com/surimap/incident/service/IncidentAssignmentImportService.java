@@ -57,7 +57,7 @@ public class IncidentAssignmentImportService {
     Instant now = clock.instant();
     List<String> changedAccountIds = new ArrayList<>();
     for (ExternalAssignment assignment : assignments) {
-      UUID accountId = AccountIdentityCatalog.accountIdFromCodeOrUuid(assignment.accountId());
+      UUID accountId = AccountIdentityCatalog.accountIdFromCodeOrUuid(assignment.accountCode());
       int inserted =
           incidentMapper.insertIncidentAssignmentIfAbsent(
               assignmentIdFor(assignment),
@@ -89,7 +89,7 @@ public class IncidentAssignmentImportService {
   private UUID assignmentIdFor(ExternalAssignment assignment) {
     String seed =
         assignment.externalAssignmentKey() == null
-            ? assignment.accountId()
+            ? assignment.accountCode()
             : assignment.externalAssignmentKey();
     return UUID.nameUUIDFromBytes(
         ("incident-assignment:" + Objects.requireNonNull(seed)).getBytes(StandardCharsets.UTF_8));

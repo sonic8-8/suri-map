@@ -15,8 +15,8 @@ describe('L6-T04A S8 OP comparison and handover board slots', () => {
     render(
       <>
         <OpToggleSlot
-          currentOpId="op-precinct-001-op2"
-          selectedOpIds={['op-precinct-001-op1', 'op-precinct-001-op2']}
+          currentOpId={OP2_ID}
+          selectedOpIds={[OP1_ID, OP2_ID]}
           rows={opToggleRows}
         />
         <OpHistorySlot rows={opHistoryRows} />
@@ -24,8 +24,8 @@ describe('L6-T04A S8 OP comparison and handover board slots', () => {
     );
 
     const toggleSlot = screen.getByTestId('slot-op_toggle');
-    const op1Toggle = toggleSlot.querySelector('[data-source-response-id="op-precinct-001-op1"]');
-    const op2Toggle = toggleSlot.querySelector('[data-source-response-id="op-precinct-001-op2"]');
+    const op1Toggle = toggleSlot.querySelector(`[data-source-response-id="${OP1_ID}"]`);
+    const op2Toggle = toggleSlot.querySelector(`[data-source-response-id="${OP2_ID}"]`);
     expect(op1Toggle).not.toBeNull();
     expect(op2Toggle).not.toBeNull();
     expect.soft(op1Toggle).toHaveAttribute('data-source-spec', 'S8');
@@ -33,8 +33,8 @@ describe('L6-T04A S8 OP comparison and handover board slots', () => {
     expect.soft(op1Toggle).toHaveAttribute('data-current-op', 'false');
     expect.soft(op2Toggle).toHaveAttribute('data-selected-op', 'true');
     expect.soft(op2Toggle).toHaveAttribute('data-current-op', 'true');
-    expect(within(toggleSlot).getByText('op-precinct-001-op1')).toBeInTheDocument();
-    expect(within(toggleSlot).getByText('op-precinct-001-op2')).toBeInTheDocument();
+    expect(within(toggleSlot).getByText(OP1_ID)).toBeInTheDocument();
+    expect(within(toggleSlot).getByText(OP2_ID)).toBeInTheDocument();
     expect(within(toggleSlot).getByText('ENDED')).toBeInTheDocument();
     expect(within(toggleSlot).getByText('ACTIVE')).toBeInTheDocument();
     expect(within(toggleSlot).getByText('sequenceNumber=1')).toBeInTheDocument();
@@ -48,7 +48,7 @@ describe('L6-T04A S8 OP comparison and handover board slots', () => {
     expect(within(toggleSlot).getByText('완료 OP')).toBeInTheDocument();
 
     const historySlot = screen.getByTestId('slot-op_history');
-    const op2History = historySlot.querySelector('[data-source-response-id="op-precinct-001-op2"]');
+    const op2History = historySlot.querySelector(`[data-source-response-id="${OP2_ID}"]`);
     expect(op2History).not.toBeNull();
     expect.soft(op2History).toHaveAttribute('data-source-spec', 'S8');
     expect(within(historySlot).getByText('board-op-history-op-precinct-001-op2')).toBeInTheDocument();
@@ -56,7 +56,7 @@ describe('L6-T04A S8 OP comparison and handover board slots', () => {
     expect(within(historySlot).getByText('OP_TRANSITIONED')).toBeInTheDocument();
     expect(within(historySlot).getByText('OP_ASSIGNMENT_CHANGED')).toBeInTheDocument();
     expect(within(historySlot).getByText('area-precinct-a1')).toBeInTheDocument();
-    expect(within(historySlot).getByText('dev-precinct-car-01')).toBeInTheDocument();
+    expect(within(historySlot).getByText(POLICE_PHONE_ID)).toBeInTheDocument();
     expect(within(historySlot).getByText('hash-s8-op2-current')).toBeInTheDocument();
     expect(within(historySlot).getByText('evt-s8-op-assignment-001')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: forbiddenSourceOwnerWriteButtonName })).not.toBeInTheDocument();
@@ -72,8 +72,8 @@ describe('L6-T04A S8 OP comparison and handover board slots', () => {
     render(
       <>
         <OpToggleSlot
-          currentOpId="op-precinct-001-op2"
-          selectedOpIds={['op-precinct-001-op1', 'op-precinct-001-op2']}
+          currentOpId={OP2_ID}
+          selectedOpIds={[OP1_ID, OP2_ID]}
           rows={createOpToggleRows()}
         />
         <HandoverMemoSlot rows={memoRows} />
@@ -82,18 +82,18 @@ describe('L6-T04A S8 OP comparison and handover board slots', () => {
     );
 
     const memoSlot = screen.getByTestId('slot-handover_memo');
-    const memoRow = memoSlot.querySelector('[data-source-response-id="memo-precinct-handover-001"]');
+    const memoRow = memoSlot.querySelector(`[data-source-response-id="${MEMO_ID}"]`);
     expect(memoRow).not.toBeNull();
     expect.soft(memoRow).toHaveAttribute('data-source-spec', 'S8');
-    expect(within(memoSlot).getByText('memo-precinct-handover-001')).toBeInTheDocument();
-    expect(within(memoSlot).getByText('op-precinct-001-op1')).toBeInTheDocument();
+    expect(within(memoSlot).getByText(MEMO_ID)).toBeInTheDocument();
+    expect(within(memoSlot).getByText(OP1_ID)).toBeInTheDocument();
     expect(within(memoSlot).getByText('AREA')).toBeInTheDocument();
     expect(within(memoSlot).getByText('area-precinct-a1')).toBeInTheDocument();
     expect(within(memoSlot).getByText('북측 골목 차량 수색 완료, 하천 진입로는 도보 확인 필요')).toBeInTheDocument();
     expect(within(memoSlot).getByText('createdByAccountId')).toBeInTheDocument();
-    expect(within(memoSlot).getByText('acct-precinct-commander-01')).toBeInTheDocument();
+    expect(within(memoSlot).getByText(ACCOUNT_ID)).toBeInTheDocument();
     expect(within(memoSlot).getByText('APP')).toBeInTheDocument();
-    expect(within(memoSlot).getByText('dev-precinct-car-01')).toBeInTheDocument();
+    expect(within(memoSlot).getByText(POLICE_PHONE_ID)).toBeInTheDocument();
     expect(within(memoSlot).getByText('version=1')).toBeInTheDocument();
     expect(within(memoSlot).getByText('sequence=803')).toBeInTheDocument();
     expect(within(memoSlot).getByText('hash-s8-handover-memo-current')).toBeInTheDocument();
@@ -107,7 +107,7 @@ describe('L6-T04A S8 OP comparison and handover board slots', () => {
     );
     expect(within(memoSlot).getByRole('link', { name: 'path-precinct-mixed-001 원본 열기' })).toHaveAttribute(
       'href',
-      '#path-precinct-mixed-001',
+      `#${PATH_MIXED_ID}`,
     );
 
     const statusSlot = screen.getByTestId('slot-handover_status');
@@ -117,7 +117,7 @@ describe('L6-T04A S8 OP comparison and handover board slots', () => {
     expect(within(statusSlot).getByText('readyForHandover=true')).toBeInTheDocument();
     expect(within(statusSlot).getByText('openMemoCount=1')).toBeInTheDocument();
     expect(within(statusSlot).getByText('currentOpId')).toBeInTheDocument();
-    expect(within(statusSlot).getByText('op-precinct-001-op2')).toBeInTheDocument();
+    expect(within(statusSlot).getByText(OP2_ID)).toBeInTheDocument();
     expect(within(statusSlot).getByText('latestMemoAt')).toBeInTheDocument();
     expect(within(statusSlot).getByText('2026-04-28T10:35:00+09:00')).toBeInTheDocument();
     expect(within(statusSlot).getByText('evt-s8-handover-created-001')).toBeInTheDocument();
@@ -132,8 +132,8 @@ describe('L6-T04A S8 OP comparison and handover board slots', () => {
     const { rerender } = render(
       <>
         <OpToggleSlot
-          currentOpId="op-precinct-001-op2"
-          selectedOpIds={['op-precinct-001-op1', 'op-precinct-001-op2']}
+          currentOpId={OP2_ID}
+          selectedOpIds={[OP1_ID, OP2_ID]}
           rows={createOpToggleRows()}
         />
         <HandoverMemoSlot
@@ -154,8 +154,8 @@ describe('L6-T04A S8 OP comparison and handover board slots', () => {
     rerender(
       <>
         <OpToggleSlot
-          currentOpId="op-precinct-001-op2"
-          selectedOpIds={['op-precinct-001-op1', 'op-precinct-001-op2']}
+          currentOpId={OP2_ID}
+          selectedOpIds={[OP1_ID, OP2_ID]}
           rows={createOpToggleRows()}
         />
         <HandoverStatusSlot
@@ -340,9 +340,9 @@ function createOpToggleRows(): readonly OpToggleRow[] {
     {
       slot: 'op_toggle',
       id: 'board-op-toggle-op-precinct-001-op1',
-      sourceResponseId: 'op-precinct-001-op1',
-      incidentId: 'inc-precinct-first-001',
-      opId: 'op-precinct-001-op1',
+      sourceResponseId: OP1_ID,
+      incidentId: INCIDENT_ID,
+      opId: OP1_ID,
       status: 'ENDED',
       version: 1,
       sequence: 801,
@@ -357,9 +357,9 @@ function createOpToggleRows(): readonly OpToggleRow[] {
     {
       slot: 'op_toggle',
       id: 'board-op-toggle-op-precinct-001-op2',
-      sourceResponseId: 'op-precinct-001-op2',
-      incidentId: 'inc-precinct-first-001',
-      opId: 'op-precinct-001-op2',
+      sourceResponseId: OP2_ID,
+      incidentId: INCIDENT_ID,
+      opId: OP2_ID,
       status: 'ACTIVE',
       version: 2,
       sequence: 802,
@@ -379,9 +379,9 @@ function createOpHistoryRows(): readonly OpHistoryRow[] {
     {
       slot: 'op_history',
       id: 'board-op-history-op-precinct-001-op2',
-      sourceResponseId: 'op-precinct-001-op2',
-      incidentId: 'inc-precinct-first-001',
-      opId: 'op-precinct-001-op2',
+      sourceResponseId: OP2_ID,
+      incidentId: INCIDENT_ID,
+      opId: OP2_ID,
       status: 'OPENED',
       version: 2,
       sequence: 802,
@@ -393,7 +393,7 @@ function createOpHistoryRows(): readonly OpHistoryRow[] {
       assignmentSourceIds: ['assign-precinct-op2-a1'],
       areaIds: ['area-precinct-a1'],
       teamIds: ['team-missing-command-01'],
-      policePhoneIds: ['dev-precinct-car-01'],
+      policePhoneIds: [POLICE_PHONE_ID],
     },
   ] as const;
 }
@@ -403,10 +403,10 @@ function createHandoverMemoRows(): readonly HandoverMemoRow[] {
     {
       slot: 'handover_memo',
       id: 'board-handover-memo-precinct-001',
-      sourceResponseId: 'memo-precinct-handover-001',
-      incidentId: 'inc-precinct-first-001',
-      memoId: 'memo-precinct-handover-001',
-      opId: 'op-precinct-001-op1',
+      sourceResponseId: MEMO_ID,
+      incidentId: INCIDENT_ID,
+      memoId: MEMO_ID,
+      opId: OP1_ID,
       status: 'ACTIVE',
       version: 1,
       sequence: 803,
@@ -416,14 +416,14 @@ function createHandoverMemoRows(): readonly HandoverMemoRow[] {
       targetType: 'AREA',
       targetId: 'area-precinct-a1',
       content: '북측 골목 차량 수색 완료, 하천 진입로는 도보 확인 필요',
-      createdByAccountId: 'acct-precinct-commander-01',
+      createdByAccountId: ACCOUNT_ID,
       channel: 'APP',
-      policePhoneId: 'dev-precinct-car-01',
+      policePhoneId: POLICE_PHONE_ID,
       createdAt: '2026-04-28T10:35:00+09:00',
       evidenceLinks: [
         { label: 'OP1 원본 열기', href: '#op-precinct-001-op1' },
         { label: 'area-precinct-a1 원본 열기', href: '#area-precinct-a1' },
-        { label: 'path-precinct-mixed-001 원본 열기', href: '#path-precinct-mixed-001' },
+        { label: 'path-precinct-mixed-001 원본 열기', href: `#${PATH_MIXED_ID}` },
       ],
     },
   ] as const;
@@ -434,19 +434,27 @@ function createHandoverStatusRow(): HandoverStatusRow {
     slot: 'handover_status',
     id: 'board-handover-status-inc-precinct-first-001',
     sourceResponseId: 'handover-status-inc-precinct-first-001',
-    incidentId: 'inc-precinct-first-001',
+    incidentId: INCIDENT_ID,
     status: 'READY',
     version: 2,
     sequence: 804,
     sourceSpec: 'S8',
     sourceHash: 'hash-s8-handover-status-current',
     latestEventId: 'evt-s8-handover-created-001',
-    currentOpId: 'op-precinct-001-op2',
+    currentOpId: OP2_ID,
     openMemoCount: 1,
     latestMemoAt: '2026-04-28T10:35:00+09:00',
     readyForHandover: true,
   };
 }
+
+const INCIDENT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001';
+const OP1_ID = '88888888-8888-8888-8888-888888880001';
+const OP2_ID = '88888888-8888-8888-8888-888888880002';
+const MEMO_ID = 'eeeeeeee-eeee-eeee-eeee-eeeeeeee0001';
+const ACCOUNT_ID = '11111111-1111-1111-1111-111111110003';
+const POLICE_PHONE_ID = '50000000-0000-0000-0000-000000000001';
+const PATH_MIXED_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
 
 function createNeedsMemoStatusRow(): HandoverStatusRow {
   return {

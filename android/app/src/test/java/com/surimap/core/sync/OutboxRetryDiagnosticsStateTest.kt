@@ -1,6 +1,9 @@
 package com.surimap.core.sync
 
 import com.surimap.core.database.OutboxEntity
+import com.surimap.testing.incidentIdFixture
+import com.surimap.testing.operationIdFixture
+import com.surimap.testing.policePhoneIdFixture
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -23,8 +26,16 @@ class OutboxRetryDiagnosticsStateTest {
         assertEquals(false, closed.retryable)
 
         val device = OutboxDiagnosticsClassifier.classify(base.copy(lastError = "police_phone_not_assigned", idempotencyStatus = OutboxStatus.FAILED_FINAL.name))
-        assertEquals("DEVICE_ACCESS_REQUIRED", device.userSafeFailureCategory)
+        assertEquals("POLICE_PHONE_ACCESS_REQUIRED", device.userSafeFailureCategory)
         assertEquals(false, device.retryable)
+
+        val sessionRepair = OutboxDiagnosticsClassifier.classify(base.copy(lastError = "police_phone_required"))
+        assertEquals("POLICE_PHONE_ACCESS_REQUIRED", sessionRepair.userSafeFailureCategory)
+        assertEquals(true, sessionRepair.retryable)
+
+        val authRepair = OutboxDiagnosticsClassifier.classify(base.copy(lastError = "http_401"))
+        assertEquals("POLICE_PHONE_ACCESS_REQUIRED", authRepair.userSafeFailureCategory)
+        assertEquals(true, authRepair.retryable)
 
         val conflict = OutboxDiagnosticsClassifier.classify(base.copy(lastError = "idempotency_mismatch", idempotencyStatus = OutboxStatus.FAILED_FINAL.name))
         assertEquals("NON_RETRYABLE_CONFLICT", conflict.userSafeFailureCategory)
@@ -40,14 +51,24 @@ class OutboxRetryDiagnosticsStateTest {
         val terminal = OutboxDiagnosticsClassifier.classify(sampleRow("post_close_requeue_rejected", OutboxStatus.FAILED_FINAL))
         assertEquals(false, terminal.retryable)
         assertNull(terminal.nextAttemptAt)
+
+        val exhaustedNetwork = OutboxDiagnosticsClassifier.classify(sampleRow("http_503", OutboxStatus.FAILED_FINAL))
+        assertEquals("RETRYABLE_NETWORK", exhaustedNetwork.userSafeFailureCategory)
+        assertEquals(false, exhaustedNetwork.retryable)
+        assertNull(exhaustedNetwork.nextAttemptAt)
+
+        val exhaustedSessionRepair = OutboxDiagnosticsClassifier.classify(sampleRow("police_phone_required", OutboxStatus.FAILED_FINAL))
+        assertEquals("POLICE_PHONE_ACCESS_REQUIRED", exhaustedSessionRepair.userSafeFailureCategory)
+        assertEquals(false, exhaustedSessionRepair.retryable)
+        assertNull(exhaustedSessionRepair.nextAttemptAt)
     }
 
     private fun sampleRow(lastError: String, status: OutboxStatus): OutboxEntity =
         OutboxEntity(
             outboxId = "outbox-001",
-            operationId = "op-001",
-            incidentId = "inc-precinct-first-001",
-            policePhoneId = "dev-precinct-car-01",
+            operationId = operationIdFixture("outbox-001"),
+            incidentId = incidentIdFixture("precinct-first-001"),
+            policePhoneId = policePhoneIdFixture("precinct-car-01"),
             dependencyGroup = "PATH",
             sequence = 1L,
             requestMethod = "POST",
@@ -66,4 +87,3 @@ class OutboxRetryDiagnosticsStateTest {
             lastError = lastError
         )
 }
-

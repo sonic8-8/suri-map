@@ -1,11 +1,14 @@
 package com.surimap.feature.marker.data
 
+import com.surimap.core.database.LocalMarkerDao
+import com.surimap.core.database.LocalMarkerEntity
 import com.surimap.core.marker.CreateMarkerCommand
 import com.surimap.core.marker.DeleteMarkerCommand
 import com.surimap.core.marker.MarkerRepository
 import com.surimap.core.marker.PhotoAttachCommand
 import com.surimap.core.marker.PhotoUploadUrlCommand
 import com.surimap.core.marker.UpdateMarkerCommand
+import com.surimap.core.sync.OutboxStatus
 import com.surimap.core.sync.SyncClient
 import java.time.Instant
 import java.util.UUID
@@ -57,11 +60,12 @@ sealed interface MarkerWriteResult {
 
 class MarkerLocalRecorder(
     syncClient: SyncClient,
+    private val localMarkerDao: LocalMarkerDao? = null,
     private val now: () -> Instant = { Instant.now() },
     private val clockOffsetMs: () -> Long? = { 0L },
     private val clockSyncedAt: () -> Instant? = { now() },
     private val sequenceSource: () -> Long = { System.currentTimeMillis() },
-    private val idFactory: (String) -> String = { prefix -> "$prefix-${UUID.randomUUID()}" }
+    private val idFactory: (String) -> String = { _ -> UUID.randomUUID().toString() }
 ) {
     private val repository = MarkerRepository(syncClient = syncClient)
 
@@ -97,6 +101,31 @@ class MarkerLocalRecorder(
                     clockSyncedAt = clockSyncedAt()
                 )
             )
+        if (result.status != OutboxStatus.FAILED_FINAL) {
+            val createdAt = clientTs.toEpochMilli()
+            val localMirrorStatus =
+                localMarkerDao?.findOutboxLocalMirrorStatus(result.outboxId)
+                    ?.takeIf(String::isNotBlank)
+                    ?: result.harnessStatus.name
+            localMarkerDao?.upsert(
+                LocalMarkerEntity(
+                    localMarkerId = operationId,
+                    outboxId = result.outboxId,
+                    operationId = operationId,
+                    incidentId = valid.incidentId,
+                    opId = valid.opId,
+                    policePhoneId = valid.policePhoneId,
+                    type = type,
+                    supportRequestType = supportRequestType,
+                    memo = input.memo?.takeIf(String::isNotBlank),
+                    lon = location.lon,
+                    lat = location.lat,
+                    syncStatus = localMirrorStatus,
+                    createdAtMillis = createdAt,
+                    updatedAtMillis = createdAt
+                )
+            )
+        }
         return result.enqueued()
     }
 

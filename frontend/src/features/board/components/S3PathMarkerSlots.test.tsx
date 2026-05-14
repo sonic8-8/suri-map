@@ -13,10 +13,10 @@ describe('L6-T03B S3-1/S5 path and marker board slots', () => {
     render(<PathSlot rows={rows} />);
 
     const slot = screen.getByTestId('slot-path');
-    const pathRow = slot.querySelector('[data-source-id="path-precinct-mixed-001"]');
+    const pathRow = slot.querySelector(`[data-source-id="${PATH_MIXED_ID}"]`);
     expect(pathRow).not.toBeNull();
     expect.soft(pathRow).toHaveAttribute('data-geometry-hash', 'path-geometry-hash-precinct-mixed-current');
-    expect(within(slot).getByText('path-precinct-mixed-001')).toBeInTheDocument();
+    expect(within(slot).getByText(PATH_MIXED_ID)).toBeInTheDocument();
     expect(within(slot).getByText('ACTIVE')).toBeInTheDocument();
     expect(within(slot).getByText('version=2')).toBeInTheDocument();
     expect(within(slot).getByText('sequence=502')).toBeInTheDocument();
@@ -24,15 +24,15 @@ describe('L6-T03B S3-1/S5 path and marker board slots', () => {
     expect(within(slot).getByText('evt-s3-path-appended-001')).toBeInTheDocument();
     expect(within(slot).getByText('hash-s3-path-mixed-current')).toBeInTheDocument();
     expect(within(slot).getByText('opId')).toBeInTheDocument();
-    expect(within(slot).getByText('op-precinct-001-op1')).toBeInTheDocument();
+    expect(within(slot).getByText(OP1_ID)).toBeInTheDocument();
     expect(within(slot).getByText('policePhoneId')).toBeInTheDocument();
-    expect(within(slot).getByText('dev-precinct-car-01')).toBeInTheDocument();
+    expect(within(slot).getByText(POLICE_PHONE_ID)).toBeInTheDocument();
     expect(within(slot).getByText('LineString')).toBeInTheDocument();
     expect(within(slot).getByText('126.956000,37.570000')).toBeInTheDocument();
     expect(within(slot).getByText('126.958250,37.571220')).toBeInTheDocument();
-    expect(within(slot).getByText('seg-precinct-vehicle-001')).toBeInTheDocument();
+    expect(within(slot).getByText(SEGMENT_VEHICLE_ID)).toBeInTheDocument();
     expect(within(slot).getByText('VEHICLE')).toBeInTheDocument();
-    expect(within(slot).getByText('seg-precinct-foot-001')).toBeInTheDocument();
+    expect(within(slot).getByText(SEGMENT_FOOT_ID)).toBeInTheDocument();
     expect(within(slot).getByText('FOOT')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: forbiddenWriteButtonName })).not.toBeInTheDocument();
     expect(JSON.stringify(rows)).toBe(beforeRender);
@@ -45,10 +45,10 @@ describe('L6-T03B S3-1/S5 path and marker board slots', () => {
     render(<MarkerSlot rows={rows} />);
 
     const slot = screen.getByTestId('slot-marker');
-    const markerRow = slot.querySelector('[data-source-id="mk-precinct-clue-001"]');
+    const markerRow = slot.querySelector(`[data-source-id="${MARKER_ID}"]`);
     expect(markerRow).not.toBeNull();
     expect.soft(markerRow).toHaveAttribute('data-geometry-hash', 'marker-geometry-hash-mk-precinct-clue-current');
-    expect(within(slot).getByText('mk-precinct-clue-001')).toBeInTheDocument();
+    expect(within(slot).getByText(MARKER_ID)).toBeInTheDocument();
     expect(within(slot).getByText('CLUE')).toBeInTheDocument();
     expect(within(slot).getByText('ACTIVE')).toBeInTheDocument();
     expect(within(slot).getByText('version=1')).toBeInTheDocument();
@@ -57,7 +57,7 @@ describe('L6-T03B S3-1/S5 path and marker board slots', () => {
     expect(within(slot).getByText('evt-s5-marker-created-001')).toBeInTheDocument();
     expect(within(slot).getByText('hash-s5-marker-clue-current')).toBeInTheDocument();
     expect(within(slot).getByText('opId')).toBeInTheDocument();
-    expect(within(slot).getByText('op-precinct-001-op1')).toBeInTheDocument();
+    expect(within(slot).getByText(OP1_ID)).toBeInTheDocument();
     expect(within(slot).getByText('Point')).toBeInTheDocument();
     expect(within(slot).getByText('126.956500,37.571200')).toBeInTheDocument();
     expect(within(slot).getByText('신고자 진술 위치')).toBeInTheDocument();
@@ -88,10 +88,10 @@ function createPathRow(): PathSlotProps['rows'][number] {
   return {
     slot: 'path',
     id: 'board-path-precinct-mixed-001',
-    sourceId: 'path-precinct-mixed-001',
-    incidentId: 'inc-precinct-first-001',
-    opId: 'op-precinct-001-op1',
-    policePhoneId: 'dev-precinct-car-01',
+    sourceId: PATH_MIXED_ID,
+    incidentId: INCIDENT_ID,
+    opId: OP1_ID,
+    policePhoneId: POLICE_PHONE_ID,
     status: 'ACTIVE',
     version: 2,
     sequence: 502,
@@ -114,7 +114,7 @@ function createPathRow(): PathSlotProps['rows'][number] {
     } as const,
     segments: [
       {
-        id: 'seg-precinct-vehicle-001',
+        id: SEGMENT_VEHICLE_ID,
         version: 1,
         movementType: 'VEHICLE',
         movementTypeSource: 'AUTO',
@@ -131,7 +131,7 @@ function createPathRow(): PathSlotProps['rows'][number] {
         endedAt: '2026-04-28T09:00:15+09:00',
       },
       {
-        id: 'seg-precinct-foot-001',
+        id: SEGMENT_FOOT_ID,
         version: 1,
         movementType: 'FOOT',
         movementTypeSource: 'AUTO',
@@ -155,9 +155,9 @@ function createMarkerRow(): MarkerSlotProps['rows'][number] {
   return {
     slot: 'marker',
     id: 'board-marker-mk-precinct-clue-001',
-    sourceId: 'mk-precinct-clue-001',
-    incidentId: 'inc-precinct-first-001',
-    opId: 'op-precinct-001-op1',
+    sourceId: MARKER_ID,
+    incidentId: INCIDENT_ID,
+    opId: OP1_ID,
     policePhoneId: null,
     type: 'CLUE',
     memo: '신고자 진술 위치',
@@ -174,6 +174,14 @@ function createMarkerRow(): MarkerSlotProps['rows'][number] {
     } as const,
   };
 }
+
+const INCIDENT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001';
+const OP1_ID = '88888888-8888-8888-8888-888888880001';
+const POLICE_PHONE_ID = '50000000-0000-0000-0000-000000000001';
+const PATH_MIXED_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
+const SEGMENT_VEHICLE_ID = '33333333-3333-3333-3333-333333330001';
+const SEGMENT_FOOT_ID = '33333333-3333-3333-3333-333333330002';
+const MARKER_ID = '55555555-5555-5555-5555-555555550001';
 
 function deepFreeze<T>(value: T): T {
   if (typeof value !== 'object' || value === null) {

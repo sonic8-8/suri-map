@@ -64,28 +64,45 @@ data class MarkerDetailUiState(
     val markerType: MarkerType,
     val title: String,
     val memo: String,
+    val version: Long,
+    val lon: Double?,
+    val lat: Double?,
     val createdByAccountId: String,
     val securityContextAccountId: String,
     val canManageAllMarkers: Boolean,
+    val canEditByContext: Boolean? = null,
     val policePhoneLabel: String,
     val accountLabel: String,
     val locationLabel: String,
     val occurredAtLabel: String,
     val versionLabel: String,
     val syncLabel: String,
+    val mutationStatus: MarkerSaveStatus = MarkerSaveStatus.Editing,
     val photos: List<MarkerDetailPhotoUiState>,
     val showDeleteConfirm: Boolean
 ) {
     val isOwnMarker: Boolean = createdByAccountId == securityContextAccountId
-    val canEdit: Boolean = isOwnMarker || canManageAllMarkers
-    val canDelete: Boolean = canEdit
+    val canEdit: Boolean = canEditByContext ?: (isOwnMarker || canManageAllMarkers)
+    val canSave: Boolean = canEdit && version > 0 && mutationStatus != MarkerSaveStatus.Saving
+    val canDelete: Boolean = canEdit && version > 0 && mutationStatus != MarkerSaveStatus.Saving
     val longPressDeleteEnabled: Boolean = false
 
     val permissionLabel: String =
         when {
+            canEditByContext == true -> "편집 가능"
+            canEditByContext == false -> "읽기 전용"
             isOwnMarker -> "내가 작성"
             canManageAllMarkers -> "편집 가능"
             else -> "읽기 전용"
+        }
+
+    val statusLabel: String =
+        when (mutationStatus) {
+            MarkerSaveStatus.Editing -> syncLabel
+            MarkerSaveStatus.Saving -> "저장 중"
+            MarkerSaveStatus.PendingOutbox -> "오프라인 저장됨 · 전송 대기"
+            MarkerSaveStatus.Saved -> "저장 완료"
+            MarkerSaveStatus.Failed -> "저장 실패"
         }
 
     fun visibleText(): List<String> =
@@ -104,6 +121,7 @@ data class MarkerDetailUiState(
             add(occurredAtLabel)
             add(versionLabel)
             add(syncLabel)
+            add(statusLabel)
             photos.forEach { photo ->
                 add(photo.label)
                 add(photo.status.label)
@@ -141,6 +159,48 @@ data class MarkerDetailUiState(
                 accountLabel = "실종팀 지휘 계정"
             )
 
+        fun loading(markerId: String): MarkerDetailUiState =
+            base(
+                markerId = markerId,
+                markerType = MarkerType.NOTE,
+                title = "마커 확인 중",
+                memo = "",
+                createdByAccountId = "",
+                securityContextAccountId = "",
+                canManageAllMarkers = false,
+                canEditByContext = false,
+                policePhoneLabel = "폴리폰 확인 중",
+                accountLabel = "계정 확인 중",
+                locationLabel = "위치 확인 중",
+                occurredAtLabel = "시각 확인 중",
+                version = 0,
+                versionLabel = "version 확인 중",
+                syncLabel = "조회 중",
+                mutationStatus = MarkerSaveStatus.Saving,
+                photos = emptyList()
+            )
+
+        fun unavailable(markerId: String): MarkerDetailUiState =
+            base(
+                markerId = markerId,
+                markerType = MarkerType.NOTE,
+                title = "마커를 찾을 수 없음",
+                memo = "",
+                createdByAccountId = "",
+                securityContextAccountId = "",
+                canManageAllMarkers = false,
+                canEditByContext = false,
+                policePhoneLabel = "폴리폰 미확인",
+                accountLabel = "계정 미확인",
+                locationLabel = "위치 미확인",
+                occurredAtLabel = "시각 미확인",
+                version = 0,
+                versionLabel = "version 미확인",
+                syncLabel = "조회 실패",
+                mutationStatus = MarkerSaveStatus.Failed,
+                photos = emptyList()
+            )
+
         fun withPhotoProgress(): MarkerDetailUiState =
             ownMarker().copy(
                 photos =
@@ -151,36 +211,52 @@ data class MarkerDetailUiState(
             )
 
         private fun base(
+            markerId: String = "mk-precinct-clue-001",
             markerType: MarkerType = MarkerType.CLUE,
             title: String = "의류 발견",
             memo: String = "검정 패딩, 회색 운동화. 20m 북측 능선 측구.",
+            version: Long = 3,
+            lon: Double? = 126.9134,
+            lat: Double? = 35.1631,
             createdByAccountId: String,
             securityContextAccountId: String,
             canManageAllMarkers: Boolean,
+            canEditByContext: Boolean? = null,
             policePhoneLabel: String = "기동대 1부대 A팀 폴리폰",
             accountLabel: String = "기동대 1부대 A팀 계정",
-            showDeleteConfirm: Boolean = false
-        ): MarkerDetailUiState =
-            MarkerDetailUiState(
-                markerId = "mk-precinct-clue-001",
-                markerType = markerType,
-                title = title,
-                memo = memo,
-                createdByAccountId = createdByAccountId,
-                securityContextAccountId = securityContextAccountId,
-                canManageAllMarkers = canManageAllMarkers,
-                policePhoneLabel = policePhoneLabel,
-                accountLabel = accountLabel,
-                locationLabel = "35.163100, 126.913400",
-                occurredAtLabel = "14:18 · clock +120ms",
-                versionLabel = "v3 · 마지막 수정 14:24",
-                syncLabel = "동기화",
-                photos =
+            locationLabel: String = "35.163100, 126.913400",
+            occurredAtLabel: String = "14:18 · clock +120ms",
+            versionLabel: String = "v3 · 마지막 수정 14:24",
+            syncLabel: String = "동기화",
+            mutationStatus: MarkerSaveStatus = MarkerSaveStatus.Editing,
+            photos: List<MarkerDetailPhotoUiState> =
                 listOf(
                     MarkerDetailPhotoUiState("photo-001", "사진 1", MarkerDetailPhotoStatus.Attached),
                     MarkerDetailPhotoUiState("photo-002", "사진 2", MarkerDetailPhotoStatus.Attached),
                     MarkerDetailPhotoUiState("photo-003", "사진 3", MarkerDetailPhotoStatus.Attached)
                 ),
+            showDeleteConfirm: Boolean = false
+        ): MarkerDetailUiState =
+            MarkerDetailUiState(
+                markerId = markerId,
+                markerType = markerType,
+                title = title,
+                memo = memo,
+                version = version,
+                lon = lon,
+                lat = lat,
+                createdByAccountId = createdByAccountId,
+                securityContextAccountId = securityContextAccountId,
+                canManageAllMarkers = canManageAllMarkers,
+                canEditByContext = canEditByContext,
+                policePhoneLabel = policePhoneLabel,
+                accountLabel = accountLabel,
+                locationLabel = locationLabel,
+                occurredAtLabel = occurredAtLabel,
+                versionLabel = versionLabel,
+                syncLabel = syncLabel,
+                mutationStatus = mutationStatus,
+                photos = photos,
                 showDeleteConfirm = showDeleteConfirm
             )
     }
@@ -196,6 +272,7 @@ fun MarkerDetailScreen(
     onDismissDelete: () -> Unit,
     onConfirmDelete: () -> Unit,
     onAddPhoto: () -> Unit,
+    onRetryPhoto: (MarkerDetailPhotoUiState) -> Unit,
     onDeletePhoto: (MarkerDetailPhotoUiState) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -207,7 +284,7 @@ fun MarkerDetailScreen(
                 showBack = true,
                 onBack = onBack,
                 trailing = {
-                    PoliChip(text = state.syncLabel, variant = PoliChipVariant.Good)
+                    PoliChip(text = state.statusLabel, variant = state.mutationStatusVariant)
                 }
             )
             Column(
@@ -229,6 +306,7 @@ fun MarkerDetailScreen(
                 MarkerPhotosCard(
                     state = state,
                     onAddPhoto = onAddPhoto,
+                    onRetryPhoto = onRetryPhoto,
                     onDeletePhoto = onDeletePhoto
                 )
                 MarkerMetaCard(state = state)
@@ -298,6 +376,7 @@ private fun MarkerMemoCard(state: MarkerDetailUiState, onMemoChange: (String) ->
 private fun MarkerPhotosCard(
     state: MarkerDetailUiState,
     onAddPhoto: () -> Unit,
+    onRetryPhoto: (MarkerDetailPhotoUiState) -> Unit,
     onDeletePhoto: (MarkerDetailPhotoUiState) -> Unit
 ) {
     PoliCard {
@@ -311,6 +390,7 @@ private fun MarkerPhotosCard(
             PhotoDetailRow(
                 photo = photo,
                 canEdit = state.canEdit,
+                onRetryPhoto = onRetryPhoto,
                 onDeletePhoto = onDeletePhoto
             )
         }
@@ -321,6 +401,7 @@ private fun MarkerPhotosCard(
 private fun PhotoDetailRow(
     photo: MarkerDetailPhotoUiState,
     canEdit: Boolean,
+    onRetryPhoto: (MarkerDetailPhotoUiState) -> Unit,
     onDeletePhoto: (MarkerDetailPhotoUiState) -> Unit
 ) {
     PoliCard {
@@ -331,6 +412,14 @@ private fun PhotoDetailRow(
             PoliProgress(progress = photo.progress)
         }
         if (canEdit) {
+            if (photo.status == MarkerDetailPhotoStatus.Failed) {
+                PoliButton(
+                    text = "업로드 재시도",
+                    onClick = { onRetryPhoto(photo) },
+                    size = PoliButtonSize.Small,
+                    variant = PoliButtonVariant.Secondary
+                )
+            }
             PoliButton(
                 text = "사진 삭제",
                 onClick = { onDeletePhoto(photo) },
@@ -369,12 +458,13 @@ private fun MarkerDetailActions(
         horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
     ) {
         if (state.canEdit) {
-            PoliButton(text = "저장", onClick = onSave, modifier = Modifier.weight(1f))
+            PoliButton(text = "저장", onClick = onSave, modifier = Modifier.weight(1f), enabled = state.canSave)
             if (state.canDelete) {
                 PoliButton(
                     text = "삭제",
                     onClick = onRequestDelete,
-                    variant = PoliButtonVariant.Danger
+                    variant = PoliButtonVariant.Danger,
+                    enabled = state.canDelete
                 )
             }
         } else {
@@ -424,6 +514,16 @@ private val MarkerDetailPhotoUiState.statusVariant: PoliChipVariant
             MarkerDetailPhotoStatus.Failed -> PoliChipVariant.Bad
         }
 
+private val MarkerDetailUiState.mutationStatusVariant: PoliChipVariant
+    get() =
+        when (mutationStatus) {
+            MarkerSaveStatus.Editing -> PoliChipVariant.Good
+            MarkerSaveStatus.Saving -> PoliChipVariant.Outbox
+            MarkerSaveStatus.PendingOutbox -> PoliChipVariant.Warn
+            MarkerSaveStatus.Saved -> PoliChipVariant.Good
+            MarkerSaveStatus.Failed -> PoliChipVariant.Bad
+        }
+
 fun sampleMarkerDetailState(): MarkerDetailUiState = MarkerDetailUiState.ownMarker()
 
 @Preview(widthDp = 412, heightDp = 892)
@@ -439,6 +539,7 @@ private fun MarkerDetailScreenPreview() {
             onDismissDelete = {},
             onConfirmDelete = {},
             onAddPhoto = {},
+            onRetryPhoto = {},
             onDeletePhoto = {}
         )
     }

@@ -108,7 +108,7 @@ public class Mock112HttpAdapter implements ExternalIncidentAdapter {
                     a ->
                         new ExternalAssignment(
                             (String) a.get("externalAssignmentKey"),
-                            (String) a.get("accountId"),
+                            accountCodeOf(a),
                             (String) a.get("incidentRole"),
                             parseDateTime(a.get("assignedAt"))))
                 .toList()
@@ -143,5 +143,14 @@ public class Mock112HttpAdapter implements ExternalIncidentAdapter {
     if (value == null) return null;
     if (value instanceof String s) return OffsetDateTime.parse(s);
     return null;
+  }
+
+  private String accountCodeOf(Map<String, Object> assignment) {
+    Object accountCode = assignment.get("accountCode");
+    if (accountCode instanceof String value && !value.isBlank()) {
+      return value;
+    }
+    Object legacyAccountId = assignment.get("accountId");
+    return legacyAccountId instanceof String value ? value : null;
   }
 }

@@ -1,7 +1,6 @@
 package com.surimap.harness.sc10.fixture;
 
 import com.surimap.operationalperiod.fixture.OperationalPeriodFixtures;
-import com.surimap.handover.fixture.HandoverMemoFixtures;
 import java.util.UUID;
 
 /**
@@ -45,11 +44,15 @@ public final class Sc10Fixtures {
 
   // ── handover memo ────────────────────────────────────────────────────────
 
-  public static final String MEMO_ALIAS = HandoverMemoFixtures.MEMO_ALIAS;
-  public static final UUID MEMO_ID = HandoverMemoFixtures.MEMO_ID;
-  public static final long MEMO_VERSION = HandoverMemoFixtures.MEMO_VERSION;
-  public static final String MEMO_STATUS = HandoverMemoFixtures.MEMO_STATUS;
-  public static final String MEMO_EVENT_ID = HandoverMemoFixtures.MEMO_EVENT_ID;
+  /** docs/spec/harness-scenarios.md §6 mock 112/SC-10 OP1 seed memo alias */
+  public static final String MEMO_ALIAS = "memo-precinct-handover-001";
+
+  public static final UUID MEMO_ID = UUID.fromString("eeeeeeee-eeee-eeee-eeee-eeeeeeee0001");
+  public static final long MEMO_VERSION = 1L;
+  public static final String MEMO_STATUS = "ACTIVE";
+
+  /** S3-2 board projection event for the OP1 seed memo row. */
+  public static final String MEMO_BOARD_EVENT_ID = "evt-s8-handover-created-001";
 
   // ── SC-10 harness_execution_log step names ───────────────────────────────
 

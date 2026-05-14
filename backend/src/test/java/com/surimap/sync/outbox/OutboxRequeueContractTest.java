@@ -12,10 +12,12 @@ import com.surimap.common.auth.AccountType;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.OrganizationType;
 import com.surimap.common.auth.Role;
+import com.surimap.policephone.PolicePhoneDbFixtureSupport;
 import com.surimap.support.auth.WithMockAccount;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +27,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -35,6 +38,7 @@ import org.springframework.test.web.servlet.MockMvc;
 class OutboxRequeueContractTest {
 
   @Autowired private MockMvc mockMvc;
+  @Autowired private JdbcTemplate jdbcTemplate;
 
   @TestConfiguration
   static class FixedClockConfig {
@@ -44,6 +48,11 @@ class OutboxRequeueContractTest {
     Clock fixedClock() {
       return Clock.fixed(Instant.parse("2026-04-28T00:00:41Z"), ZoneId.of("Asia/Seoul"));
     }
+  }
+
+  @BeforeEach
+  void ensureS1_2GuardFixtures() {
+    PolicePhoneDbFixtureSupport.ensureGuardFixtures(jdbcTemplate);
   }
 
   @Test
@@ -84,7 +93,10 @@ class OutboxRequeueContractTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(OutboxRetryDiagnosticsFixtures.STALE_CLOCK_REQUEUE.json()))
         .andExpect(status().isAccepted())
-        .andExpect(jsonPath("$.operationId", is("op-fail-clock-001")))
+        .andExpect(
+            jsonPath(
+                "$.operationId",
+                is(OutboxRetryDiagnosticsFixtures.STALE_CLOCK_REQUEUE.operationId())))
         .andExpect(jsonPath("$.accepted", is(false)))
         .andExpect(jsonPath("$.outboxStatus", is("FAILED_RETRYABLE")))
         .andExpect(jsonPath("$.retryable", is(true)))
@@ -105,7 +117,7 @@ class OutboxRequeueContractTest {
                     OutboxRetryDiagnosticsFixtures.POLICE_PHONE_HEADER,
                     OutboxRetryDiagnosticsFixtures.ASSIGNED_AUTH_POLICE_PHONE_ID)
                 .contentType(MediaType.APPLICATION_JSON)
-        .content(OutboxRetryDiagnosticsFixtures.CLOSED_INCIDENT_REQUEUE.json()))
+                .content(OutboxRetryDiagnosticsFixtures.CLOSED_INCIDENT_REQUEUE.json()))
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.error", is("incident_closed")))
         .andExpect(jsonPath("$.outboxStatus", is("FAILED_FINAL")))

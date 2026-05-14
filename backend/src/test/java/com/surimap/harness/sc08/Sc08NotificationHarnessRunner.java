@@ -67,17 +67,15 @@ public class Sc08NotificationHarnessRunner {
   private static final String MARKER_CREATE_EVENT_ID = "evt-s5-marker-created-001";
   private static final Instant CLIENT_TS = Instant.parse("2026-04-28T00:12:00Z");
   private static final Instant SERVER_TS = Instant.parse("2026-04-28T00:12:03Z");
-  private static final UUID ACCOUNT_UUID = UUID.fromString("11111111-1111-1111-1111-111111110908");
-  private static final UUID POLICE_PHONE_UUID =
-      UUID.fromString("22222222-2222-2222-2222-222222220908");
-  private static final UUID SUPPORT_MARKER_UUID =
-      UUID.fromString("55555555-5555-5555-5555-555555550908");
+  private static final UUID ACCOUNT_UUID = UUID.fromString(NotificationFixtures.ACCOUNT_ID);
+  private static final UUID POLICE_PHONE_UUID = UUID.fromString(NotificationFixtures.POLICE_PHONE_ID);
+  private static final UUID SUPPORT_MARKER_UUID = UUID.fromString(NotificationFixtures.SUPPORT_MARKER_ID);
   private static final UUID SUPPORT_NOTIFICATION_UUID =
-      UUID.fromString("66666666-6666-6666-6666-666666660908");
+      UUID.fromString(NotificationFixtures.SUPPORT_NOTIFICATION_ID);
   private static final UUID PERSON_FOUND_MARKER_UUID =
-      UUID.fromString("77777777-7777-7777-7777-777777770908");
+      UUID.fromString(NotificationFixtures.PERSON_FOUND_MARKER_ID);
   private static final UUID PERSON_FOUND_NOTIFICATION_UUID =
-      UUID.fromString("88888888-8888-8888-8888-888888880908");
+      UUID.fromString(NotificationFixtures.PERSON_FOUND_NOTIFICATION_ID);
 
   public Sc08NotificationHarnessRunner() {}
 
@@ -423,9 +421,9 @@ public class Sc08NotificationHarnessRunner {
       return new NotificationFlow(
           "SUPPORT_REQUEST",
           "DRONE",
-          NotificationFixtures.SUPPORT_MARKER_ID,
+          NotificationFixtures.SUPPORT_MARKER_ALIAS,
           SUPPORT_MARKER_UUID,
-          NotificationFixtures.SUPPORT_NOTIFICATION_ID,
+          NotificationFixtures.SUPPORT_NOTIFICATION_ALIAS,
           SUPPORT_NOTIFICATION_UUID,
           NotificationFixtures.SUPPORT_EVENT_ID,
           NotificationFixtures.SUPPORT_RECIPIENT_ACCOUNT_IDS,
@@ -437,9 +435,9 @@ public class Sc08NotificationHarnessRunner {
       return new NotificationFlow(
           "PERSON_FOUND",
           null,
-          NotificationFixtures.PERSON_FOUND_MARKER_ID,
+          NotificationFixtures.PERSON_FOUND_MARKER_ALIAS,
           PERSON_FOUND_MARKER_UUID,
-          NotificationFixtures.PERSON_FOUND_NOTIFICATION_ID,
+          NotificationFixtures.PERSON_FOUND_NOTIFICATION_ALIAS,
           PERSON_FOUND_NOTIFICATION_UUID,
           NotificationFixtures.PERSON_FOUND_EVENT_ID,
           NotificationFixtures.PERSON_FOUND_RECIPIENT_ACCOUNT_IDS,

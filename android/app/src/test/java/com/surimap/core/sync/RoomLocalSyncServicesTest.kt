@@ -2,11 +2,17 @@ package com.surimap.core.sync
 
 import androidx.room.Room
 import com.surimap.core.database.SuriMapDatabase
+import com.surimap.testing.dutyShiftIdFixture
+import com.surimap.testing.incidentIdFixture
+import com.surimap.testing.operationIdFixture
+import com.surimap.testing.opIdFixture
+import com.surimap.testing.policePhoneIdFixture
 import java.time.Instant
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -64,7 +70,7 @@ class RoomLocalSyncServicesTest {
     fun duplicateIdempotencyKeyWithSameBodyHashDoesNotCreateExtraRow() = runBlocking {
         val op = sampleOperation(idempotencyKey = "idem-dup-001", bodyHash = "sha256:same")
         syncClient.enqueue(op)
-        syncClient.enqueue(op.copy(operationId = "op-dup-2"))
+        syncClient.enqueue(op.copy(operationId = operationIdFixture("dup-2")))
         replay.flushPending(policePhoneId = op.policePhoneId, incidentId = op.incidentId)
 
         assertEquals(1, database.outboxDao().countByIdempotencyKey(op.idempotencyKey))
@@ -75,7 +81,7 @@ class RoomLocalSyncServicesTest {
     fun duplicateIdempotencyKeyWithDifferentBodyHashMarksFailedFinal() = runBlocking {
         val first = sampleOperation(idempotencyKey = "idem-conflict-001", bodyHash = "sha256:a")
         val second = sampleOperation(
-            operationId = "op-conflict-2",
+            operationId = operationIdFixture("conflict-2"),
             idempotencyKey = "idem-conflict-001",
             bodyHash = "sha256:b"
         )
@@ -158,10 +164,10 @@ class RoomLocalSyncServicesTest {
     @Test
     fun postCloseRequeueIsRejectedAsFailedFinalAndDoesNotPromoteToPendingSend() = runBlocking {
         val operation = sampleOperation(
-            operationId = "op-closed-001",
+            operationId = operationIdFixture("closed-001"),
             idempotencyKey = "idem-closed-001",
             bodyHash = "sha256:closed"
-        ).copy(incidentId = "inc-precinct-closed-001")
+        ).copy(incidentId = incidentIdFixture("precinct-closed-001"))
 
         val enqueue = syncClient.enqueue(operation)
         val current = database.outboxDao().findById(enqueue.outboxId)!!
@@ -185,7 +191,7 @@ class RoomLocalSyncServicesTest {
     @Test
     fun staleClockRowStaysFailedRetryableUntilResynced() = runBlocking {
         val operation = sampleOperation(
-            operationId = "op-stale-001",
+            operationId = operationIdFixture("stale-001"),
             idempotencyKey = "idem-stale-001",
             bodyHash = "sha256:stale"
         )
@@ -211,9 +217,9 @@ class RoomLocalSyncServicesTest {
     @Test
     fun pendingLocalRowIsNotReplayedUntilPromotedToPendingSend() = runBlocking {
         val localOnly = LocalWriteOperation(
-            operationId = "op-local-only-001",
-            incidentId = "inc-precinct-first-001",
-            policePhoneId = "dev-precinct-car-01",
+            operationId = operationIdFixture("local-only-001"),
+            incidentId = incidentIdFixture("precinct-first-001"),
+            policePhoneId = policePhoneIdFixture("precinct-car-01"),
             dependencyGroup = DependencyGroup.PATH,
             sequence = 503L,
             method = "POST",
@@ -239,28 +245,30 @@ class RoomLocalSyncServicesTest {
 
     @Test
     fun dutyShiftEndWaitsForLowerSequenceSourceRowsBeforeReplay() = runBlocking {
+        val dutyOpId = opIdFixture("precinct-001")
+        val dutyShiftId = dutyShiftIdFixture("001")
         val blocker = sampleOperation(
-            operationId = "op-path-before-duty-end-001",
+            operationId = operationIdFixture("path-before-duty-end-001"),
             idempotencyKey = "idem-path-before-duty-end-001",
             bodyHash = "sha256:path-before-duty-end"
         ).copy(
-            opId = "op-precinct-001",
+            opId = dutyOpId,
             sequence = 502L,
             clockOffsetMs = null,
             clockSyncedAt = null
         )
         val dutyEnd = sampleOperation(
-            operationId = "op-duty-end-boundary-001",
+            operationId = operationIdFixture("duty-end-boundary-001"),
             idempotencyKey = "idem-duty-end-boundary-001",
             bodyHash = "sha256:duty-end-boundary"
         ).copy(
             dependencyGroup = DependencyGroup.DUTY_SHIFT,
             sequence = 503L,
             method = "PATCH",
-            endpoint = "/api/duty-shifts/duty-shift-001",
-            payload = """{"incidentId":"${blocker.incidentId}","opId":"op-precinct-001","action":"END"}""",
-            opId = "op-precinct-001",
-            entityId = "duty-shift-001",
+            endpoint = "/api/duty-shifts/$dutyShiftId",
+            payload = """{"incidentId":"${blocker.incidentId}","opId":"$dutyOpId","action":"END"}""",
+            opId = dutyOpId,
+            entityId = dutyShiftId,
             entityType = "duty_shift"
         )
 
@@ -294,12 +302,12 @@ class RoomLocalSyncServicesTest {
     @Test
     fun replayFailurePathsArePersistedToRetryableAndFinalStates() = runBlocking {
         val retryableOp = sampleOperation(
-            operationId = "op-retryable-001",
+            operationId = operationIdFixture("retryable-001"),
             idempotencyKey = "idem-retryable-001",
             bodyHash = "sha256:retryable"
         )
         val finalOp = sampleOperation(
-            operationId = "op-final-001",
+            operationId = operationIdFixture("final-001"),
             idempotencyKey = "idem-final-001",
             bodyHash = "sha256:final"
         )
@@ -320,16 +328,237 @@ class RoomLocalSyncServicesTest {
         assertEquals(HarnessSyncStatus.FAILED.name, finalRow.localMirrorStatus)
     }
 
+    @Test
+    fun replayPersistsRetryableFailureErrorCodeFromSender() = runBlocking {
+        val retryableOp = sampleOperation(
+            operationId = operationIdFixture("retryable-phone-required-001"),
+            idempotencyKey = "idem-retryable-phone-required-001",
+            bodyHash = "sha256:retryable-phone-required"
+        )
+
+        syncClient.enqueue(retryableOp)
+        sender.decisionByKey[retryableOp.idempotencyKey] = SendResult.RETRYABLE_FAILURE
+        sender.retryableFailureErrorByKey[retryableOp.idempotencyKey] = "police_phone_required"
+        replay.flushPending(policePhoneId = retryableOp.policePhoneId, incidentId = retryableOp.incidentId)
+
+        val row = database.outboxDao().findByIdempotencyKey(retryableOp.idempotencyKey)!!
+        assertEquals(OutboxStatus.FAILED_RETRYABLE.name, row.idempotencyStatus)
+        assertEquals(HarnessSyncStatus.FAILED.name, row.localMirrorStatus)
+        assertNull(row.nextAttemptAt)
+        assertEquals("police_phone_required", row.lastError)
+
+        replay.flushPending(policePhoneId = retryableOp.policePhoneId, incidentId = retryableOp.incidentId)
+
+        assertEquals(1, sender.sendCountByKey(retryableOp.idempotencyKey))
+    }
+
+    @Test
+    fun replayRequeuesAccessRepairRowsWhenAuthenticatedReplayIsAvailable() = runBlocking {
+        val retryableOp = sampleOperation(
+            operationId = operationIdFixture("retryable-auth-repair-001"),
+            idempotencyKey = "idem-retryable-auth-repair-001",
+            bodyHash = "sha256:retryable-auth-repair"
+        )
+        syncClient.enqueue(retryableOp)
+        sender.decisionByKey[retryableOp.idempotencyKey] = SendResult.RETRYABLE_FAILURE
+        sender.retryableFailureErrorByKey[retryableOp.idempotencyKey] = "http_401"
+
+        replay.flushPending(policePhoneId = retryableOp.policePhoneId, incidentId = retryableOp.incidentId)
+        val blockedRow = database.outboxDao().findByIdempotencyKey(retryableOp.idempotencyKey)!!
+        assertEquals(OutboxStatus.FAILED_RETRYABLE.name, blockedRow.idempotencyStatus)
+        assertNull(blockedRow.nextAttemptAt)
+        assertEquals("http_401", blockedRow.lastError)
+
+        sender.decisionByKey.remove(retryableOp.idempotencyKey)
+        sender.retryableFailureErrorByKey.remove(retryableOp.idempotencyKey)
+        val authenticatedReplay = RoomOutboxReplay(
+            outboxDao = database.outboxDao(),
+            sender = sender,
+            accessRepairAvailable = { true }
+        )
+
+        authenticatedReplay.flushPending(
+            policePhoneId = retryableOp.policePhoneId,
+            incidentId = retryableOp.incidentId
+        )
+
+        val repairedRow = database.outboxDao().findByIdempotencyKey(retryableOp.idempotencyKey)!!
+        assertEquals(OutboxStatus.ACKED.name, repairedRow.idempotencyStatus)
+        assertEquals(HarnessSyncStatus.SYNCED.name, repairedRow.localMirrorStatus)
+        assertEquals(2, sender.sendCountByKey(retryableOp.idempotencyKey))
+    }
+
+    @Test
+    fun replayAppliesExponentialBackoffAndRetryAfterForRetryableFailures() = runBlocking {
+        val retryableOp = sampleOperation(
+            operationId = operationIdFixture("retryable-backoff-001"),
+            idempotencyKey = "idem-retryable-backoff-001",
+            bodyHash = "sha256:retryable-backoff"
+        )
+
+        val enqueue = syncClient.enqueue(retryableOp)
+        val current = database.outboxDao().findById(enqueue.outboxId)!!
+        database.outboxDao().upsert(current.copy(attemptCount = 1))
+        sender.decisionByKey[retryableOp.idempotencyKey] = SendResult.RETRYABLE_FAILURE
+        sender.retryableFailureErrorByKey[retryableOp.idempotencyKey] = "http_429"
+        sender.retryAfterDelayByKey[retryableOp.idempotencyKey] = 90_000L
+        val before = System.currentTimeMillis()
+
+        replay.flushPending(policePhoneId = retryableOp.policePhoneId, incidentId = retryableOp.incidentId)
+
+        val row = database.outboxDao().findByIdempotencyKey(retryableOp.idempotencyKey)!!
+        assertEquals(2, row.attemptCount)
+        assertEquals(OutboxStatus.FAILED_RETRYABLE.name, row.idempotencyStatus)
+        assertTrue(row.nextAttemptAt!! >= before + 90_000L)
+    }
+
+    @Test
+    fun replayAppliesBaseMultiplierAndCapForRetryableFailures() = runBlocking {
+        val firstAttempt = sampleOperation(
+            operationId = operationIdFixture("retryable-base-001"),
+            idempotencyKey = "idem-retryable-base-001",
+            bodyHash = "sha256:retryable-base"
+        )
+        val secondAttempt = sampleOperation(
+            operationId = operationIdFixture("retryable-multiplier-001"),
+            idempotencyKey = "idem-retryable-multiplier-001",
+            bodyHash = "sha256:retryable-multiplier"
+        )
+        val cappedAttempt = sampleOperation(
+            operationId = operationIdFixture("retryable-cap-001"),
+            idempotencyKey = "idem-retryable-cap-001",
+            bodyHash = "sha256:retryable-cap"
+        )
+
+        val firstEnqueue = syncClient.enqueue(firstAttempt)
+        val secondEnqueue = syncClient.enqueue(secondAttempt)
+        val cappedEnqueue = syncClient.enqueue(cappedAttempt)
+        database.outboxDao().upsert(database.outboxDao().findById(secondEnqueue.outboxId)!!.copy(attemptCount = 1))
+        database.outboxDao().upsert(database.outboxDao().findById(cappedEnqueue.outboxId)!!.copy(attemptCount = 5))
+        listOf(firstAttempt, secondAttempt, cappedAttempt).forEach { operation ->
+            sender.decisionByKey[operation.idempotencyKey] = SendResult.RETRYABLE_FAILURE
+            sender.retryableFailureErrorByKey[operation.idempotencyKey] = "http_503"
+        }
+        val before = System.currentTimeMillis()
+
+        replay.flushPending(policePhoneId = firstAttempt.policePhoneId, incidentId = firstAttempt.incidentId)
+        val after = System.currentTimeMillis()
+
+        val firstRow = database.outboxDao().findById(firstEnqueue.outboxId)!!
+        val secondRow = database.outboxDao().findById(secondEnqueue.outboxId)!!
+        val cappedRow = database.outboxDao().findById(cappedEnqueue.outboxId)!!
+        assertEquals(1, firstRow.attemptCount)
+        assertDelayInRange(firstRow.nextAttemptAt!!, before, after, 10_000L)
+        assertEquals(2, secondRow.attemptCount)
+        assertDelayInRange(secondRow.nextAttemptAt!!, before, after, 20_000L)
+        assertEquals(6, cappedRow.attemptCount)
+        assertDelayInRange(cappedRow.nextAttemptAt!!, before, after, 300_000L)
+    }
+
+    @Test
+    fun replayKeepsJitteredRetryDelayWithinCap() = runBlocking {
+        val jitterReplay = RoomOutboxReplay(database.outboxDao(), sender, enableRetryJitter = true)
+        val cappedAttempt = sampleOperation(
+            operationId = operationIdWithPositiveRetryJitter(attemptCount = 6),
+            idempotencyKey = "idem-retryable-jitter-cap-001",
+            bodyHash = "sha256:retryable-jitter-cap"
+        )
+
+        val cappedEnqueue = syncClient.enqueue(cappedAttempt)
+        database.outboxDao().upsert(database.outboxDao().findById(cappedEnqueue.outboxId)!!.copy(attemptCount = 5))
+        sender.decisionByKey[cappedAttempt.idempotencyKey] = SendResult.RETRYABLE_FAILURE
+        sender.retryableFailureErrorByKey[cappedAttempt.idempotencyKey] = "http_503"
+        val before = System.currentTimeMillis()
+
+        jitterReplay.flushPending(policePhoneId = cappedAttempt.policePhoneId, incidentId = cappedAttempt.incidentId)
+        val after = System.currentTimeMillis()
+
+        val cappedRow = database.outboxDao().findById(cappedEnqueue.outboxId)!!
+        assertEquals(6, cappedRow.attemptCount)
+        assertTrue(cappedRow.nextAttemptAt!! >= before + 240_000L)
+        assertTrue(cappedRow.nextAttemptAt!! <= after + 300_000L)
+    }
+
+    @Test
+    fun replayStopsRetryableNetworkFailuresAtMaxAttempts() = runBlocking {
+        val retryableOp = sampleOperation(
+            operationId = operationIdFixture("retryable-max-001"),
+            idempotencyKey = "idem-retryable-max-001",
+            bodyHash = "sha256:retryable-max"
+        )
+
+        val enqueue = syncClient.enqueue(retryableOp)
+        val current = database.outboxDao().findById(enqueue.outboxId)!!
+        database.outboxDao().upsert(current.copy(attemptCount = 7))
+        sender.decisionByKey[retryableOp.idempotencyKey] = SendResult.RETRYABLE_FAILURE
+        sender.retryableFailureErrorByKey[retryableOp.idempotencyKey] = "http_503"
+
+        replay.flushPending(policePhoneId = retryableOp.policePhoneId, incidentId = retryableOp.incidentId)
+
+        val row = database.outboxDao().findByIdempotencyKey(retryableOp.idempotencyKey)!!
+        assertEquals(8, row.attemptCount)
+        assertEquals(OutboxStatus.FAILED_FINAL.name, row.idempotencyStatus)
+        assertEquals(HarnessSyncStatus.FAILED.name, row.localMirrorStatus)
+        assertNull(row.nextAttemptAt)
+        assertEquals("http_503", row.lastError)
+    }
+
+    @Test
+    fun replayStopsRetryableNetworkFailuresAfterMaxElapsed() = runBlocking {
+        val retryableOp = sampleOperation(
+            operationId = operationIdFixture("retryable-aged-001"),
+            idempotencyKey = "idem-retryable-aged-001",
+            bodyHash = "sha256:retryable-aged"
+        )
+
+        val enqueue = syncClient.enqueue(retryableOp)
+        val current = database.outboxDao().findById(enqueue.outboxId)!!
+        database.outboxDao().upsert(
+            current.copy(
+                attemptCount = 1,
+                firstAttemptAt = System.currentTimeMillis() - 86_400_001L
+            )
+        )
+        sender.decisionByKey[retryableOp.idempotencyKey] = SendResult.RETRYABLE_FAILURE
+        sender.retryableFailureErrorByKey[retryableOp.idempotencyKey] = "http_503"
+
+        replay.flushPending(policePhoneId = retryableOp.policePhoneId, incidentId = retryableOp.incidentId)
+
+        val row = database.outboxDao().findByIdempotencyKey(retryableOp.idempotencyKey)!!
+        assertEquals(OutboxStatus.FAILED_FINAL.name, row.idempotencyStatus)
+        assertNull(row.nextAttemptAt)
+        assertEquals("http_503", row.lastError)
+    }
+
+    @Test
+    fun replayPersistsFinalFailureErrorCodeFromSender() = runBlocking {
+        val finalOp = sampleOperation(
+            operationId = operationIdFixture("final-with-error-001"),
+            idempotencyKey = "idem-final-with-error-001",
+            bodyHash = "sha256:final-with-error"
+        )
+
+        syncClient.enqueue(finalOp)
+        sender.decisionByKey[finalOp.idempotencyKey] = SendResult.FINAL_FAILURE
+        sender.finalFailureErrorByKey[finalOp.idempotencyKey] = "incident_access_denied"
+
+        replay.flushPending(policePhoneId = finalOp.policePhoneId, incidentId = finalOp.incidentId)
+
+        val row = database.outboxDao().findByIdempotencyKey(finalOp.idempotencyKey)!!
+        assertEquals(OutboxStatus.FAILED_FINAL.name, row.idempotencyStatus)
+        assertEquals("incident_access_denied", row.lastError)
+    }
+
     private fun sampleOperation(
-        operationId: String = "op-outbox-path-001",
+        operationId: String = operationIdFixture("outbox-path-001"),
         idempotencyKey: String,
         bodyHash: String
     ): LocalWriteOperation {
         val clockSyncedAt = Instant.ofEpochMilli(System.currentTimeMillis())
         return LocalWriteOperation(
             operationId = operationId,
-            incidentId = "inc-precinct-first-001",
-            policePhoneId = "dev-precinct-car-01",
+            incidentId = incidentIdFixture("precinct-first-001"),
+            policePhoneId = policePhoneIdFixture("precinct-car-01"),
             dependencyGroup = DependencyGroup.PATH,
             sequence = 502L,
             method = "POST",
@@ -344,14 +573,43 @@ class RoomLocalSyncServicesTest {
         )
     }
 
+    private fun assertDelayInRange(actualNextAttemptAt: Long, before: Long, after: Long, delayMs: Long) {
+        assertTrue(actualNextAttemptAt >= before + delayMs)
+        assertTrue(actualNextAttemptAt <= after + delayMs)
+    }
+
+    private fun operationIdWithPositiveRetryJitter(attemptCount: Int): String {
+        return (1..200)
+            .map { operationIdFixture("retryable-jitter-cap-$it") }
+            .first { operationId -> retryJitterBucket(operationId, attemptCount) > 0 }
+    }
+
+    private fun retryJitterBucket(operationId: String, attemptCount: Int): Int =
+        kotlin.math.abs("$operationId:$attemptCount".hashCode() % 41) - 20
+
     private class CapturingSender : OutboxSender {
         val decisionByKey: MutableMap<String, SendResult> = linkedMapOf()
+        val retryableFailureErrorByKey: MutableMap<String, String> = linkedMapOf()
+        val retryAfterDelayByKey: MutableMap<String, Long> = linkedMapOf()
+        val finalFailureErrorByKey: MutableMap<String, String> = linkedMapOf()
         private val sentByKey: MutableMap<String, Int> = linkedMapOf()
+        private var lastRetryableError: String? = null
+        private var lastRetryAfterDelay: Long? = null
+        private var lastFailureError: String? = null
 
         override suspend fun send(row: com.surimap.core.database.OutboxEntity): SendResult {
             sentByKey[row.idempotencyKey] = (sentByKey[row.idempotencyKey] ?: 0) + 1
+            lastRetryableError = retryableFailureErrorByKey[row.idempotencyKey]
+            lastRetryAfterDelay = retryAfterDelayByKey[row.idempotencyKey]
+            lastFailureError = finalFailureErrorByKey[row.idempotencyKey]
             return decisionByKey[row.idempotencyKey] ?: SendResult.ACKED
         }
+
+        override fun retryableFailureErrorCode(): String? = lastRetryableError
+
+        override fun retryAfterDelayMs(): Long? = lastRetryAfterDelay
+
+        override fun finalFailureErrorCode(): String? = lastFailureError
 
         fun sendCountByKey(idempotencyKey: String): Int = sentByKey[idempotencyKey] ?: 0
     }

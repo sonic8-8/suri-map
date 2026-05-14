@@ -16,7 +16,7 @@ object SuriMapDatabaseProvider {
                 SuriMapDatabase::class.java,
                 DATABASE_NAME
             )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .build().also { database ->
                 instance = database
             }
@@ -67,6 +67,45 @@ object SuriMapDatabaseProvider {
                         `updated_at` INTEGER NOT NULL,
                         PRIMARY KEY(`incident_id`, `police_phone_id`, `manifest_id`, `item_key`)
                     )
+                    """.trimIndent()
+                )
+            }
+        }
+
+    internal val MIGRATION_3_4 =
+        object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `local_marker` (
+                        `local_marker_id` TEXT NOT NULL,
+                        `outbox_id` TEXT NOT NULL,
+                        `operation_id` TEXT NOT NULL,
+                        `incident_id` TEXT NOT NULL,
+                        `op_id` TEXT NOT NULL,
+                        `police_phone_id` TEXT NOT NULL,
+                        `type` TEXT NOT NULL,
+                        `support_request_type` TEXT,
+                        `memo` TEXT,
+                        `lon` REAL NOT NULL,
+                        `lat` REAL NOT NULL,
+                        `sync_status` TEXT NOT NULL,
+                        `created_at_millis` INTEGER NOT NULL,
+                        `updated_at_millis` INTEGER NOT NULL,
+                        PRIMARY KEY(`local_marker_id`)
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    CREATE INDEX IF NOT EXISTS `idx_local_marker_pending`
+                    ON `local_marker` (`incident_id`, `police_phone_id`, `sync_status`)
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    CREATE UNIQUE INDEX IF NOT EXISTS `ux_local_marker_operation`
+                    ON `local_marker` (`operation_id`)
                     """.trimIndent()
                 )
             }

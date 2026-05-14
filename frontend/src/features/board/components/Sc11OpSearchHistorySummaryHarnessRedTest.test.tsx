@@ -4,6 +4,10 @@ const forbiddenSummaryText = /누락 확정|위험도 높음|위험도 판단|�
 const forbiddenCtaText = /누락 확정|위험도 판단|다음 구역|추천|자동 판단|재수색|source owner write|source row mutation/;
 const forbiddenInternalLeakText =
   /OpenAiSearchHistorySummaryAdapter|provider|prompt|model|secret|api[_ -]?key|timeout|schema validation/i;
+const OP2_ID = '88888888-8888-8888-8888-888888880002';
+const PATH_MIXED_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
+const MARKER_ID = '55555555-5555-5555-5555-555555550001';
+const MEMO_OP2_ID = 'eeeeeeee-eeee-eeee-eeee-eeeeeeee0010';
 
 describe('L6-T10C SC-11 OP/search_history_summary rendering guard harness RED', () => {
   test('requires a concrete SC-11 harness runner report covering OpenAI success, failure, forbidden, and low-quality fixtures', async () => {
@@ -33,10 +37,10 @@ describe('L6-T10C SC-11 OP/search_history_summary rendering guard harness RED', 
     expect(success.opComparisonVisible).toBe(true);
     expect(success.sourceEvidenceVisible).toEqual(
       expect.arrayContaining([
-        'op-precinct-001-op2',
-        'path-precinct-mixed-001',
-        'mk-precinct-clue-001',
-        'memo-precinct-op2-001',
+        OP2_ID,
+        PATH_MIXED_ID,
+        MARKER_ID,
+        MEMO_OP2_ID,
       ]),
     );
     expect(success.renderedText).toContain('OP2 동안 수색한 경로');

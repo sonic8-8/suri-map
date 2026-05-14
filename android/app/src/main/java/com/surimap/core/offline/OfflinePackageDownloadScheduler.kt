@@ -10,22 +10,29 @@ data class OfflinePackageDownloadWorkRequest(
     val incidentId: String,
     val policePhoneId: String,
     val manifestId: String,
-    val apiBaseUrl: String
+    val apiBaseUrl: String,
+    val accessToken: String? = null,
+    val clockOffsetMs: Long? = null,
+    val clockSyncedAt: String? = null
 ) {
     val uniqueWorkName: String =
         "offline-package-download-$incidentId-$policePhoneId-$manifestId"
 
-    fun toWorkRequest(): OneTimeWorkRequest =
-        OneTimeWorkRequestBuilder<OfflinePackageDownloadWorker>()
-            .setInputData(
-                workDataOf(
-                    OfflinePackageDownloadWorker.KEY_INCIDENT_ID to incidentId,
-                    OfflinePackageDownloadWorker.KEY_POLICE_PHONE_ID to policePhoneId,
-                    OfflinePackageDownloadWorker.KEY_MANIFEST_ID to manifestId,
-                    OfflinePackageDownloadWorker.KEY_API_BASE_URL to apiBaseUrl
-                )
+    fun toWorkRequest(): OneTimeWorkRequest {
+        val input =
+            mutableListOf<Pair<String, Any?>>(
+                OfflinePackageDownloadWorker.KEY_INCIDENT_ID to incidentId,
+                OfflinePackageDownloadWorker.KEY_POLICE_PHONE_ID to policePhoneId,
+                OfflinePackageDownloadWorker.KEY_MANIFEST_ID to manifestId,
+                OfflinePackageDownloadWorker.KEY_API_BASE_URL to apiBaseUrl
             )
+        accessToken?.let { input += OfflinePackageDownloadWorker.KEY_ACCESS_TOKEN to it }
+        clockOffsetMs?.let { input += OfflinePackageDownloadWorker.KEY_CLOCK_OFFSET_MS to it }
+        clockSyncedAt?.let { input += OfflinePackageDownloadWorker.KEY_CLOCK_SYNCED_AT to it }
+        return OneTimeWorkRequestBuilder<OfflinePackageDownloadWorker>()
+            .setInputData(workDataOf(*input.toTypedArray()))
             .build()
+    }
 }
 
 class OfflinePackageDownloadScheduler(

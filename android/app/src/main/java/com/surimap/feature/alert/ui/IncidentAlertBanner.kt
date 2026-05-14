@@ -25,6 +25,7 @@ import com.surimap.ui.theme.PoliEmphasis
 import com.surimap.ui.theme.PoliFgMuted
 import com.surimap.ui.theme.PoliWarning
 import com.surimap.ui.theme.SuriMapTheme
+import com.surimap.ui.navigation.SearchMapDeepLink
 
 enum class IncidentAlertType {
     PERSON_FOUND,
@@ -94,6 +95,7 @@ sealed interface IncidentFcmRoute {
         val eventId: String,
         val incidentId: String,
         val markerId: String,
+        val searchMapRoute: String,
         val alert: IncidentAlertUiState
     ) : Alert
 
@@ -130,6 +132,7 @@ object IncidentFcmRouteMapper {
             eventId = eventId,
             incidentId = incidentId,
             markerId = markerId,
+            searchMapRoute = SearchMapDeepLink.markerFocusRoute(markerId),
             alert = alert
         )
     }

@@ -8,6 +8,11 @@ import com.surimap.core.sync.HarnessSyncStatus
 import com.surimap.core.sync.LocalWriteOperation
 import com.surimap.core.sync.OutboxStatus
 import com.surimap.core.sync.SyncClient
+import com.surimap.testing.incidentIdFixture
+import com.surimap.testing.operationIdFixture
+import com.surimap.testing.opIdFixture
+import com.surimap.testing.pathIdFixture
+import com.surimap.testing.policePhoneIdFixture
 import java.time.Instant
 import kotlinx.coroutines.runBlocking
 import okhttp3.Call
@@ -32,7 +37,8 @@ class SearchPathRepositoryTest {
 
         repository.startSearchPath(
             StartSearchPathCommand(
-                operationId = "op-path-start-001",
+                operationId = operationIdFixture("path-start-001"),
+                searchPathId = PATH_ID,
                 incidentId = INCIDENT_ID,
                 opId = OP_ID,
                 policePhoneId = POLICE_PHONE_ID,
@@ -45,7 +51,7 @@ class SearchPathRepositoryTest {
         )
 
         val operation = syncClient.lastOperation!!
-        assertEquals("op-path-start-001", operation.operationId)
+        assertEquals(operationIdFixture("path-start-001"), operation.operationId)
         assertEquals(INCIDENT_ID, operation.incidentId)
         assertEquals(OP_ID, operation.opId)
         assertEquals(POLICE_PHONE_ID, operation.policePhoneId)
@@ -58,9 +64,9 @@ class SearchPathRepositoryTest {
         assertEquals(120L, operation.clockOffsetMs)
         assertEquals(CLOCK_SYNCED_AT, operation.clockSyncedAt)
         assertEquals("search_path", operation.entityType)
-        assertNull(operation.entityId)
+        assertEquals(PATH_ID, operation.entityId)
         assertEquals(
-            """{"incidentId":"$INCIDENT_ID","opId":"$OP_ID","clientTs":"2026-05-11T06:00:00Z","clockOffsetMs":120}""",
+            """{"searchPathId":"$PATH_ID","incidentId":"$INCIDENT_ID","opId":"$OP_ID","clientTs":"2026-05-11T06:00:00Z","clockOffsetMs":120}""",
             operation.payload
         )
         assertTrue(operation.bodyHash.startsWith("sha256:"))
@@ -73,7 +79,7 @@ class SearchPathRepositoryTest {
 
         repository.endSearchPath(
             EndSearchPathCommand(
-                operationId = "op-path-end-001",
+                operationId = operationIdFixture("path-end-001"),
                 incidentId = INCIDENT_ID,
                 opId = OP_ID,
                 searchPathId = PATH_ID,
@@ -102,7 +108,7 @@ class SearchPathRepositoryTest {
 
         repository.appendPathBatch(
             AppendPathBatchCommand(
-                operationId = "op-path-batch-001",
+                operationId = operationIdFixture("path-batch-001"),
                 incidentId = INCIDENT_ID,
                 opId = OP_ID,
                 searchPathId = PATH_ID,
@@ -233,10 +239,10 @@ class SearchPathRepositoryTest {
     }
 
     private companion object {
-        const val INCIDENT_ID = "inc-precinct-first-001"
-        const val OP_ID = "op-precinct-first-001"
-        const val PATH_ID = "path-precinct-first-001"
-        const val POLICE_PHONE_ID = "phone-precinct-001"
+        val INCIDENT_ID = incidentIdFixture("precinct-first-001")
+        val OP_ID = opIdFixture("precinct-first-001")
+        val PATH_ID = pathIdFixture("precinct-first-001")
+        val POLICE_PHONE_ID = policePhoneIdFixture("precinct-001")
         val CLIENT_TS: Instant = Instant.parse("2026-05-11T06:00:00Z")
         val CLOCK_SYNCED_AT: Instant = Instant.parse("2026-05-11T05:59:30Z")
     }

@@ -3,6 +3,11 @@ package com.surimap.core.offline
 import androidx.work.Data
 import androidx.work.ListenableWorker
 import androidx.work.testing.TestListenableWorkerBuilder
+import com.surimap.core.sync.LocalSyncRuntime
+import com.surimap.core.sync.OutboxReplayWorkRequest
+import com.surimap.testing.incidentIdFixture
+import com.surimap.testing.manifestIdFixture
+import com.surimap.testing.policePhoneIdFixture
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -19,13 +24,16 @@ class OfflinePackageDownloadWorkerTest {
     @After
     fun tearDown() {
         OfflinePackageDownloadRuntime.installer = null
+        LocalSyncRuntime.outboxReplayScheduler = null
     }
 
     @Test
     fun workerDelegatesManifestInstallToRuntimeInstaller() = runBlocking {
         val installs = mutableListOf<OfflinePackageWorkerInstallRequest>()
+        val replayRequests = mutableListOf<OutboxReplayWorkRequest>()
         OfflinePackageDownloadRuntime.installer =
             OfflinePackageWorkerInstaller { request -> installs += request }
+        LocalSyncRuntime.outboxReplayScheduler = { request -> replayRequests += request }
         val worker =
             TestListenableWorkerBuilder<OfflinePackageDownloadWorker>(
                 RuntimeEnvironment.getApplication()
@@ -35,6 +43,9 @@ class OfflinePackageDownloadWorkerTest {
                         .putString("incidentId", INCIDENT_ID)
                         .putString("policePhoneId", POLICE_PHONE_ID)
                         .putString("manifestId", MANIFEST_ID)
+                        .putString("accessToken", "bootstrap-token-1")
+                        .putLong("clockOffsetMs", 120L)
+                        .putString("clockSyncedAt", "2026-05-11T06:00:00.120Z")
                         .build()
                 )
                 .build()
@@ -46,9 +57,20 @@ class OfflinePackageDownloadWorkerTest {
             OfflinePackageWorkerInstallRequest(
                 incidentId = INCIDENT_ID,
                 policePhoneId = POLICE_PHONE_ID,
-                manifestId = MANIFEST_ID
+                manifestId = MANIFEST_ID,
+                accessToken = "bootstrap-token-1",
+                clockOffsetMs = 120L,
+                clockSyncedAt = "2026-05-11T06:00:00.120Z"
             ),
             installs.single()
+        )
+        assertEquals(
+            OutboxReplayWorkRequest(
+                incidentId = INCIDENT_ID,
+                policePhoneId = POLICE_PHONE_ID,
+                accessToken = "bootstrap-token-1"
+            ),
+            replayRequests.single()
         )
     }
 
@@ -63,8 +85,8 @@ class OfflinePackageDownloadWorkerTest {
     }
 
     private companion object {
-        const val INCIDENT_ID = "inc-precinct-first-001"
-        const val POLICE_PHONE_ID = "phone-precinct-001"
-        const val MANIFEST_ID = "pkg-precinct-first-rev-18"
+        val INCIDENT_ID = incidentIdFixture("precinct-first-001")
+        val POLICE_PHONE_ID = policePhoneIdFixture("precinct-001")
+        val MANIFEST_ID = manifestIdFixture("precinct-first-rev-18")
     }
 }

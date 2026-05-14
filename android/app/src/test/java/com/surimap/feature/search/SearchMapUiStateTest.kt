@@ -1,8 +1,11 @@
 package com.surimap.feature.search
 
 import com.surimap.feature.search.ui.SearchLifecycleStatus
+import com.surimap.feature.search.ui.SearchLayerKind
+import com.surimap.feature.search.ui.SearchMapLayerUiState
 import com.surimap.feature.search.ui.SearchMapSyncStatus
 import com.surimap.feature.search.ui.SearchMapUiState
+import com.surimap.testing.markerIdFixture
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -74,5 +77,63 @@ class SearchMapUiStateTest {
         assertTrue(state.showHandoverPrompt)
         assertTrue(state.visibleText().any { it.contains("미전송 2건 처리 불가") })
         assertTrue(state.visibleText().any { it.contains("이전 근무 기록 있음") })
+    }
+
+    @Test
+    fun activeSearchMapCanOpenHandoverEvenWithoutUnreadPrompt() {
+        val state = SearchMapUiState.active(hasUnreadHandover = false)
+
+        assertFalse(state.showHandoverPrompt)
+        assertTrue(state.visibleText().contains("인수인계"))
+    }
+
+    @Test
+    fun markerFocusDeeplinkHighlightsTargetMarkerWithoutChangingWriteAvailability() {
+        val state =
+            SearchMapUiState.active().copy(
+                layers =
+                listOf(
+                    SearchMapLayerUiState(
+                        label = "실종자 발견",
+                        kind = SearchLayerKind.Marker,
+                        highlighted = false,
+                        overlayId = MARKER_ID,
+                        geoJson = """{"type":"Point","coordinates":[126.91,37.51]}"""
+                    )
+                )
+            ).withFocusedMarker(MARKER_ID)
+
+        assertEquals(MARKER_ID, state.focusedMarkerId)
+        assertTrue(state.focusedMarkerLayer!!.highlighted)
+        assertEquals(37.509, state.focusedMarkerViewportBounds!!.south, 0.000001)
+        assertEquals(126.909, state.focusedMarkerViewportBounds.west, 0.000001)
+        assertEquals(37.511, state.focusedMarkerViewportBounds.north, 0.000001)
+        assertEquals(126.911, state.focusedMarkerViewportBounds.east, 0.000001)
+        assertTrue(state.visibleText().any { it.contains("마커 포커스 · 실종자 발견") })
+        assertTrue(state.canCreateMarker)
+        assertTrue(state.canWritePath)
+    }
+
+    @Test
+    fun liveMarkerLayerWithoutFcmFocusCanOpenMarkerDetail() {
+        val state =
+            SearchMapUiState.active().copy(
+                layers =
+                    listOf(
+                        SearchMapLayerUiState(
+                            label = "지원 요청",
+                            kind = SearchLayerKind.Marker,
+                            overlayId = MARKER_ID,
+                            geoJson = """{"type":"Point","coordinates":[126.91,37.51]}"""
+                        )
+                    )
+            )
+
+        assertEquals(MARKER_ID, state.markerDetailTargetId)
+        assertTrue(state.visibleText().contains("마커 상세"))
+    }
+
+    private companion object {
+        val MARKER_ID = markerIdFixture("person-found-001")
     }
 }

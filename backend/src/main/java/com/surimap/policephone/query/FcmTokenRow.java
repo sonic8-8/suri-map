@@ -10,4 +10,16 @@ public record FcmTokenRow(
     String tokenCiphertext,
     String tokenHash,
     FcmTokenStatus status,
-    long version) {}
+    long version) {
+
+  public FcmTokenRow(
+      UUID id,
+      UUID policePhoneId,
+      String appInstanceId,
+      String tokenCiphertext,
+      String tokenHash,
+      FcmTokenStatus status,
+      Long version) {
+    this(id, policePhoneId, appInstanceId, tokenCiphertext, tokenHash, status, version == null ? 0L : version);
+  }
+}

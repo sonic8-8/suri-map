@@ -1,0 +1,56 @@
+package com.surimap.feature.marker
+
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class MarkerDetailRouteWiringTest {
+
+    @Test
+    fun markerDetailRouteLoadsActualMarkerAndEnqueuesUpdateDeleteWrites() {
+        val source = java.io.File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+
+        assertFalse(source.contains("state = sampleMarkerDetailState()"))
+        assertFalse(source.contains("import com.surimap.feature.marker.ui.sampleMarkerDetailState"))
+        assertTrue(source.contains("MarkerDetailDeepLink.RoutePattern"))
+        assertTrue(source.contains("MarkerDetailStateLoader"))
+        assertTrue(source.contains("MarkerRepository"))
+        assertTrue(source.contains("listMarkers"))
+        assertTrue(source.contains("MarkerLocalRecorder"))
+        assertTrue(source.contains("updateMarker"))
+        assertTrue(source.contains("deleteMarker"))
+        assertTrue(source.contains("markerDetailState.toMarkerUpsertInput()"))
+        assertTrue(source.contains("MarkerSaveStatus.PendingOutbox"))
+        assertTrue(source.contains("MarkerSaveStatus.Failed"))
+    }
+
+    @Test
+    fun markerDetailRouteConnectsPhotoUploadCoordinatorToAddPhotoAction() {
+        val source = java.io.File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+
+        assertTrue(source.contains("MarkerPhotoUiUploadCoordinator"))
+        assertTrue(source.contains("HttpObjectStorageUploader"))
+        assertTrue(source.contains("photoUploadCoordinator.upload"))
+        assertTrue(source.contains("MarkerPhotoUploadPayload"))
+        assertFalse(source.contains("onAddPhoto = {},"))
+    }
+
+    @Test
+    fun markerDetailPhotoUploadRefreshesClockBeforeOutboxAttach() {
+        val source = java.io.File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+
+        val beginPhotoUploadIndex = source.indexOf("fun beginPhotoUpload")
+        val payloadIndex =
+            source.indexOf("val payload = context.markerPhotoUploadPayload", beginPhotoUploadIndex)
+        val clockSyncIndex =
+            source.indexOf(
+                "clockSyncState.syncClockForIncident(sessionContext.incidentId, policePhoneContext)",
+                beginPhotoUploadIndex
+            )
+
+        assertTrue(beginPhotoUploadIndex >= 0)
+        assertTrue(payloadIndex >= 0)
+        assertTrue(clockSyncIndex >= 0)
+        assertTrue(clockSyncIndex < payloadIndex)
+    }
+}

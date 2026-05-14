@@ -3,10 +3,14 @@ package com.surimap.core.offline
 import android.content.Context
 import com.surimap.core.database.SuriMapDatabase
 import com.surimap.core.database.SuriMapDatabaseProvider
+import com.surimap.core.network.AccessTokenProvider
+import com.surimap.core.network.NoAccessTokenProvider
 import com.surimap.core.network.SuriMapApiClient
 import com.surimap.core.sync.RoomSyncClient
+import com.surimap.core.sync.toClockInstantOrNull
 import java.io.IOException
 import java.time.Instant
+import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Call
@@ -77,8 +81,8 @@ class RoomOfflinePackageWorkerInstaller(
         issuedAt: Long
     ): OfflinePackageInstallationProgressCommand {
         val clientTs = Instant.ofEpochMilli(issuedAt)
-        val operationId =
-            "offline-package-installation:${request.incidentId}:${request.policePhoneId}:${plan.manifestId}:$issuedAt"
+        val operationKey = "offline-package-installation:${request.incidentId}:${request.policePhoneId}:${plan.manifestId}:$issuedAt"
+        val operationId = UUID.nameUUIDFromBytes(operationKey.toByteArray(Charsets.UTF_8)).toString()
         return OfflinePackageInstallationProgressCommand(
             operationId = operationId,
             incidentId = request.incidentId,
@@ -89,8 +93,8 @@ class RoomOfflinePackageWorkerInstaller(
             manifestVersion = plan.manifestVersion,
             version = issuedAt,
             clientTs = clientTs,
-            clockOffsetMs = 0L,
-            clockSyncedAt = clientTs,
+            clockOffsetMs = request.clockOffsetMs ?: 0L,
+            clockSyncedAt = request.clockSyncedAt?.toClockInstantOrNull() ?: clientTs,
             items = statuses
         )
     }
@@ -98,16 +102,22 @@ class RoomOfflinePackageWorkerInstaller(
     companion object {
         fun fromContext(
             context: Context,
-            apiBaseUrl: String
+            apiBaseUrl: String,
+            accessTokenProvider: AccessTokenProvider = NoAccessTokenProvider
         ): RoomOfflinePackageWorkerInstaller {
             val database = SuriMapDatabaseProvider.database(context)
-            val fetcher = OfflinePackageHttpByteFetcher(apiBaseUrl = apiBaseUrl)
+            val fetcher =
+                OfflinePackageHttpByteFetcher(
+                    apiBaseUrl = apiBaseUrl,
+                    accessTokenProvider = accessTokenProvider
+                )
             return RoomOfflinePackageWorkerInstaller(
                 database = database,
                 repository =
                 OfflinePackageRepository(
                     syncClient = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()),
-                    apiClient = SuriMapApiClient(baseUrl = apiBaseUrl)
+                    apiClient = SuriMapApiClient(baseUrl = apiBaseUrl),
+                    accessTokenProvider = accessTokenProvider
                 ),
                 fetchBytes = fetcher::fetch
             )
@@ -117,6 +127,7 @@ class RoomOfflinePackageWorkerInstaller(
 
 class OfflinePackageHttpByteFetcher(
     private val apiBaseUrl: String,
+    private val accessTokenProvider: AccessTokenProvider = NoAccessTokenProvider,
     private val callFactory: Call.Factory = OkHttpClient()
 ) {
     suspend fun fetch(item: OfflinePackageDownloadItem): ByteArray = withContext(Dispatchers.IO) {
@@ -124,10 +135,17 @@ class OfflinePackageHttpByteFetcher(
             ?: throw IOException("download_url_required")
         val request =
             Request.Builder()
-                .url(resolveDownloadUrl(downloadUrl))
+                .url(resolveDownloadUrl(item, downloadUrl))
                 .header("X-Client-Channel", "APP")
-                .build()
-        val response = callFactory.newCall(request).execute()
+        accessTokenProvider.accessToken()
+            ?.takeIf(String::isNotBlank)
+            ?.let { token ->
+                request.header(
+                    "Authorization",
+                    if (token.startsWith("Bearer ")) token else "Bearer $token"
+                )
+            }
+        val response = callFactory.newCall(request.build()).execute()
         response.use {
             if (!it.isSuccessful) {
                 throw IOException("tile_unavailable")
@@ -136,12 +154,24 @@ class OfflinePackageHttpByteFetcher(
         }
     }
 
-    private fun resolveDownloadUrl(downloadUrl: String): String {
+    private fun resolveDownloadUrl(item: OfflinePackageDownloadItem, downloadUrl: String): String {
         if (downloadUrl.startsWith("http://") || downloadUrl.startsWith("https://")) {
             return downloadUrl
         }
         val tileBaseUrl = apiBaseUrl.trimEnd('/').removeSuffix("/api")
+        if (downloadUrl.startsWith("local://tiles/")) {
+            return tileBaseUrl + item.canonicalTilePathFromItemKey()
+        }
         val path = if (downloadUrl.startsWith("/")) downloadUrl else "/$downloadUrl"
         return tileBaseUrl + path
+    }
+
+    private fun OfflinePackageDownloadItem.canonicalTilePathFromItemKey(): String {
+        val parts = itemKey.split(":")
+        if (parts.size == 5 && parts[0] == "tile") {
+            val (_, style, z, x, y) = parts
+            return "/tiles/$style/$z/$x/$y.pbf"
+        }
+        throw IOException("tile_url_unresolvable")
     }
 }

@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface OutboxDao {
@@ -26,6 +27,10 @@ interface OutboxDao {
           AND police_phone_id = :policePhoneId
           AND idempotency_status IN ('PENDING', 'FAILED_RETRYABLE')
           AND local_mirror_status IN ('PENDING_SEND', 'FAILED')
+          AND NOT (
+            idempotency_status = 'FAILED_RETRYABLE'
+            AND last_error IN ('police_phone_required', 'http_401')
+          )
           AND (
             (
               incident_closed_at IS NULL
@@ -48,6 +53,28 @@ interface OutboxDao {
         now: Long,
         minClockSyncedAt: Long
     ): List<OutboxEntity>
+
+    @Query(
+        """
+        UPDATE android_outbox_row
+        SET idempotency_status = 'PENDING',
+            local_mirror_status = 'PENDING_SEND',
+            next_attempt_at = :now
+        WHERE incident_id = :incidentId
+          AND police_phone_id = :policePhoneId
+          AND idempotency_status = 'FAILED_RETRYABLE'
+          AND local_mirror_status = 'FAILED'
+          AND last_error IN ('police_phone_required', 'http_401')
+          AND incident_closed_at IS NULL
+          AND clock_synced_at >= :minClockSyncedAt
+        """
+    )
+    suspend fun requeueAccessRepairRequiredRows(
+        incidentId: String,
+        policePhoneId: String,
+        now: Long,
+        minClockSyncedAt: Long
+    ): Int
 
     @Query(
         """
@@ -75,6 +102,23 @@ interface OutboxDao {
 
     @Query(
         """
+        UPDATE local_marker
+        SET sync_status = :syncStatus,
+            updated_at_millis = :updatedAtMillis
+        WHERE outbox_id = :outboxId
+        """
+    )
+    suspend fun markLocalMarkerSyncStatusByOutboxId(
+        outboxId: String,
+        syncStatus: String,
+        updatedAtMillis: Long
+    ): Int
+
+    @Query("DELETE FROM local_write_draft WHERE draftId = :outboxId")
+    suspend fun deleteLocalWriteDraftByOutboxId(outboxId: String): Int
+
+    @Query(
+        """
         SELECT
           COALESCE(SUM(CASE WHEN idempotency_status IN ('PENDING', 'SENDING') THEN 1 ELSE 0 END), 0)
             AS pending_count,
@@ -99,6 +143,33 @@ interface OutboxDao {
         incidentId: String,
         policePhoneId: String
     ): OutboxStatusSummary
+
+    @Query(
+        """
+        SELECT
+          COALESCE(SUM(CASE WHEN idempotency_status IN ('PENDING', 'SENDING') THEN 1 ELSE 0 END), 0)
+            AS pending_count,
+          COALESCE(SUM(CASE WHEN idempotency_status = 'FAILED_RETRYABLE' THEN 1 ELSE 0 END), 0)
+            AS retryable_count,
+          COALESCE(SUM(CASE WHEN idempotency_status = 'FAILED_FINAL' THEN 1 ELSE 0 END), 0)
+            AS final_failed_count,
+          MIN(
+            CASE
+              WHEN idempotency_status IN ('PENDING', 'SENDING', 'FAILED_RETRYABLE')
+              THEN client_requested_at
+              ELSE NULL
+            END
+          ) AS oldest_pending_client_requested_at
+        FROM android_outbox_row
+        WHERE incident_id = :incidentId
+          AND police_phone_id = :policePhoneId
+          AND idempotency_status NOT IN ('ACKED', 'PURGED')
+        """
+    )
+    fun observeStatusSummary(
+        incidentId: String,
+        policePhoneId: String
+    ): Flow<OutboxStatusSummary>
 
     @Query(
         """

@@ -19,7 +19,17 @@
 
 `mock-112/src/main/resources/seed/precinct-first-scenario.json`은 현재 구현 참고값이다. canonical mock 112 payload는 `confirmed.mock112SourceContract`로 승격되었으며 implementation seed가 catalog와 어긋나면 implementation seed를 catalog에 맞춘다.
 
-mock 112 payload의 `accountId`는 외부/fixture 계정 코드(`acct-*`)를 참조할 수 있지만, 서버 내부 `account.id`와 모든 `*_account_id` FK는 UUID를 사용한다. 구현은 mock 112 계정 코드를 S1-2 계정 UUID로 매핑해 `incident_assignment.account_id`에 저장한다. `incidentRole`은 `S1-1` `incident_assignment.incident_role` 값을 참조한다. 새 ID·새 role을 mock 112 payload용으로 만들지 않는다.
+mock 112 payload의 `accountCode`는 외부/fixture 계정 코드(`acct-*`)를 참조하지만, 서버 내부 `account.id`와 모든 `*_account_id` FK는 UUID를 사용한다. 구현은 mock 112 계정 코드를 S1-2 계정 UUID로 매핑해 `incident_assignment.account_id`에 저장한다. `incidentRole`은 `S1-1` `incident_assignment.incident_role` 값을 참조한다. 새 ID·새 role을 mock 112 payload용으로 만들지 않는다.
+
+## ID / Alias 원칙
+
+JSON fixture에서 UUID도 문자열로 표현되지만, 의미상 DB PK/FK 또는 public API 식별자인 `id`, `*Id`, `*Ids` 필드는 UUID 형식 문자열이어야 한다. 사람이 읽기 위한 하네스 별칭이나 외부 입력값은 `*Alias`, `*Code`, `fixtureId`, `itemKey`, `boardRowId`, `eventId`, `outboxId`처럼 식별자 종류가 드러나는 별도 필드명으로 둔다.
+
+- UUID로 둔다: `incidentId`, `opId`, `accountId`, `policePhoneId`, `manifestId`, `operationId`, `entityId`, `payloadId`, DB-backed query/API response id.
+- alias/code로 둔다: `incidentAlias`, `opAlias`, `accountCode`, `policePhoneCode`, `manifestAlias`, mock 112 외부 key, local tile/cache key.
+- projection/local key로 둔다: board row id, event fixture id, outbox row id, idempotency key, package item key, `local://tiles/...`.
+
+애매한 경우에는 `docs/db-design/db-design-readable.md`의 엔티티 컬럼이 UUID인지 먼저 확인한다. UUID 컬럼이면 fixture alias를 같은 `*Id` 필드에 넣지 않고 UUID 필드와 `*Alias`/`*Code` 필드를 분리한다.
 
 ## Confirmed Catalog
 
@@ -50,8 +60,8 @@ mock 112 payload의 `accountId`는 외부/fixture 계정 코드(`acct-*`)를 참
 | `evt-s5-person-found-001` | 인원 발견 notification event | SC-08 | L2, L5, L6 | `S5.json` | `common-fixtures.json` | event fixture 단계에서 로드 | 공통 데이터 | all assigned recipient fixture와 연결 |
 | `bs-inc-precinct-first-001` | board API 응답 기준 row 집합 | SC-02, SC-03, SC-05, SC-06, SC-08, SC-09, SC-10, SC-11, SC-12 | L2, L3, L5, L6 | `S3-2.json`, `S2.json`, `S1-2.json`, `S8.json` | `common-fixtures.json` | board probe 단계에서 로드 | 공통 데이터 | overall_search_area, area, police_phone_freshness, handover, summary rows 포함 |
 | `rr-precinct-001` | SC-10 radio report fixture | SC-10 | L1, L3, L6 | `harness-scenarios.md §6` | `common-fixtures.json` | command flow 단계에서 로드 | 공통 데이터 | `decisionId`와 함께 검증 |
-| `memo-precinct-handover-001` | OP1 handover memo seed | SC-10 | L1, L3, L6 | `harness-scenarios.md §6`, `S8.json` | `common-fixtures.json` | incident seed와 함께 로드 | 공통 데이터 | board handover row와 연결 |
-| `memo-precinct-op2-001` | SC-11 handover memo fixture | SC-11 | L3, L6 | `S8.json` | `common-fixtures.json` | OP2 fixture 단계에서 로드 | 공통 데이터 | owner-spec S4 event 기대값 포함 |
+| `memo-precinct-handover-001` | OP1 handover memo seed | SC-10 | L1, L3, L6 | `harness-scenarios.md §6`, `S3-2.json` | `common-fixtures.json` | incident seed와 함께 로드 | 공통 데이터 | OP1 seed 보존과 board handover row 기준. SC-11 OP2 memo fixture와 전역 치환하지 않는다 |
+| `memo-precinct-op2-001` | SC-11 OP2 handover memo fixture | SC-11 | L3, L6 | `S8.json` | `common-fixtures.json` | OP2 fixture 단계에서 로드 | 공통 데이터 | owner-spec S4 event 기대값 포함. OP1 seed `memo-precinct-handover-001`와 다른 row |
 | `summary-precinct-op2-001` | SC-11 AI summary fixture | SC-11 | L3, L6 | `S8.json` | `common-fixtures.json` | OP2 fixture 단계에서 로드 | 공통 데이터 | 금지 문구는 `negativeOnlyInputs.forbiddenPhraseResponse`로만 제공 |
 
 ## Confirmed ID Index

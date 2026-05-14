@@ -1,5 +1,10 @@
 package com.surimap.core.marker
 
+import com.surimap.core.network.AccessTokenProvider
+import com.surimap.core.network.NoAccessTokenProvider
+import com.surimap.core.network.SuriMapApiClient
+import com.surimap.core.network.SuriMapApiRequest
+import com.surimap.core.network.SuriMapApiResponse
 import com.surimap.core.sync.DependencyGroup
 import com.surimap.core.sync.EnqueueResult
 import com.surimap.core.sync.LocalWriteOperation
@@ -101,8 +106,17 @@ data class PhotoAttachCommand(
     val parentOperationId: String? = null
 )
 
+data class MarkerReadQuery(
+    val incidentId: String,
+    val opId: String? = null,
+    val type: String? = null,
+    val status: String? = null
+)
+
 class MarkerRepository(
-    private val syncClient: SyncClient
+    private val syncClient: SyncClient? = null,
+    private val apiClient: SuriMapApiClient = SuriMapApiClient(),
+    private val accessTokenProvider: AccessTokenProvider = NoAccessTokenProvider
 ) {
     suspend fun createMarker(command: CreateMarkerCommand): EnqueueResult {
         val payload = jsonObject(
@@ -190,8 +204,19 @@ class MarkerRepository(
         )
     }
 
+    suspend fun listMarkers(query: MarkerReadQuery): SuriMapApiResponse {
+        return apiClient.execute(
+            SuriMapApiRequest(
+                method = "GET",
+                path = markerReadQueryPath(query),
+                accessToken = accessTokenProvider.accessToken()
+            )
+        )
+    }
+
     private suspend fun enqueue(operation: LocalWriteOperation): EnqueueResult {
-        return syncClient.enqueue(operation)
+        val client = requireNotNull(syncClient) { "SyncClient is required for marker writes" }
+        return client.enqueue(operation)
     }
 
     private fun CreateMarkerCommand.toOperation(
@@ -323,6 +348,18 @@ class MarkerRepository(
             entityType = "marker_photo",
             parentOperationId = parentOperationId
         )
+    }
+
+    private fun markerReadQueryPath(query: MarkerReadQuery): String {
+        val queryPairs = listOfNotNull(
+            "incidentId" to query.incidentId,
+            query.opId?.let { "opId" to it },
+            query.type?.let { "type" to it },
+            query.status?.let { "status" to it }
+        )
+        return "/api/markers?${queryPairs.joinToString("&") { (key, value) ->
+            "${encodeQueryValue(key)}=${encodeQueryValue(value)}"
+        }}"
     }
 }
 

@@ -58,6 +58,7 @@
 | `GET /api/incidents/{incidentId}/board` | S3-2 | 부분 | `IncidentBoardController`가 `BoardAssembler` 기반 response shape, WEB/incident guard, `@RecordLocationAccess` audit, S2/S3-1/S5/S7/S8의 현재 구현된 query source row collector를 제공. `sinceVersion`은 full snapshot reload watermark로만 취급하며 source-owner delta/minVersion 필터로 쓰지 않는다. | 아직 source owner가 없는 `toast`/`handover_status`/`police_phone_freshness` 세부 source 정리 |
 | `GET /api/incidents/{incidentId}/board/search-areas/{searchAreaId}/popup` | S3-2 | 부분 | `IncidentBoardController`, `BoardAreaPopupQueryService`가 WEB/incident guard와 미완료/완료 분리 DTO를 제공 | account display name 등 추가 표시명은 S1-2/S1-1 read contract 확장 필요 |
 | `GET /api/incidents/{incidentId}/events` | S4 | 구현 | `EventStreamController` | FE fetch 기반 SSE adapter 추가됨 |
+| `GET /api/markers` | S5 | 구현 | `MarkerController` | Android live marker overlay 연결됨 |
 | `POST /api/markers` | S5 | 구현 | `MarkerController` | Android write operation builder 필요 |
 | `PATCH /api/markers/{markerId}` | S5 | 구현 | `MarkerController` | Android/Web policy client 필요 |
 | `DELETE /api/markers/{markerId}` | S5 | 구현 | `MarkerController` | Android/Web policy client 필요 |

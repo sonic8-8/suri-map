@@ -1,0 +1,27 @@
+{
+  "options": {
+    "paths": {
+      "root": "",
+      "styles": "styles",
+      "mbtiles": "data"
+    },
+    "frontPage": false,
+    "serveAllStyles": false,
+    "serveAllFonts": false,
+    "serveStaticMaps": false,
+    "allowRemoteMarkerIcons": false,
+    "pbfAlias": "pbf"
+  },
+  "styles": {
+    "osm-local": {
+      "style": "osm-local/style.json",
+      "serve_rendered": false,
+      "serve_data": true
+    }
+  },
+  "data": {
+    "osm-local": {
+      "mbtiles": "osm-local.mbtiles"
+    }
+  }
+}

@@ -2,12 +2,16 @@ package com.surimap.board;
 
 import com.surimap.handover.query.HandoverMemoQuery;
 import com.surimap.handover.query.HandoverMemoRow;
+import com.surimap.incident.domain.IncidentRecord;
+import com.surimap.incident.repository.IncidentMapper;
 import com.surimap.maparea.geometry.geojson.GeoJsonPolygon;
 import com.surimap.maparea.query.OverallSearchAreaResult;
 import com.surimap.maparea.query.SearchAreaFilters;
 import com.surimap.maparea.query.SearchAreaQuery;
 import com.surimap.maparea.query.SearchAreaRow;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
+import com.surimap.marker.notification.query.MarkerNotificationToastQuery;
+import com.surimap.marker.notification.query.MarkerNotificationToastRow;
 import com.surimap.marker.query.MarkerPhotoSummary;
 import com.surimap.marker.query.MarkerQuery;
 import com.surimap.marker.query.MarkerQueryFilters;
@@ -20,11 +24,19 @@ import com.surimap.path.PathExcludedPoint;
 import com.surimap.path.PathQueryRow;
 import com.surimap.path.SearchPathSegment;
 import com.surimap.path.SearchPathService;
+import com.surimap.policephone.PolicePhoneFreshnessStatus;
+import com.surimap.policephone.query.PolicePhoneFreshnessQuery;
+import com.surimap.policephone.query.PolicePhoneFreshnessRow;
+import com.surimap.retention.purge.IncidentDataPurgeRun;
+import com.surimap.retention.purge.IncidentDataPurgeStatus;
+import com.surimap.retention.purge.IncidentDataPurgeStore;
+import com.surimap.retention.purge.LocalPurgeState;
 import com.surimap.summary.SearchHistorySummaryMapper;
 import com.surimap.summary.SearchHistorySummaryRow;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HexFormat;
@@ -33,7 +45,9 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,22 +59,55 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
 
   private final ObjectProvider<SearchAreaQuery> searchAreaQuery;
   private final ObjectProvider<SearchPathService> searchPathService;
+  private final ObjectProvider<PolicePhoneFreshnessQuery> policePhoneFreshnessQuery;
   private final MarkerQuery markerQuery;
   private final PackageBadgeBoardAssembler packageBadgeBoardAssembler;
   private final OperationalPeriodQuery operationalPeriodQuery;
   private final HandoverMemoQuery handoverMemoQuery;
   private final SearchHistorySummaryMapper searchHistorySummaryMapper;
+  private final ObjectProvider<IncidentMapper> incidentMapper;
+  private final ObjectProvider<IncidentDataPurgeStore> purgeStore;
+  private final ObjectProvider<MarkerNotificationToastQuery> toastQuery;
 
   public DefaultIncidentBoardSourceRowCollector(
       ObjectProvider<SearchAreaQuery> searchAreaQuery,
       ObjectProvider<SearchPathService> searchPathService,
+      ObjectProvider<PolicePhoneFreshnessQuery> policePhoneFreshnessQuery,
       MarkerQuery markerQuery,
       OfflinePackageInstallationQuery offlinePackageInstallationQuery,
       OperationalPeriodQuery operationalPeriodQuery,
       HandoverMemoQuery handoverMemoQuery,
       SearchHistorySummaryMapper searchHistorySummaryMapper) {
+    this(
+        searchAreaQuery,
+        searchPathService,
+        policePhoneFreshnessQuery,
+        markerQuery,
+        offlinePackageInstallationQuery,
+        operationalPeriodQuery,
+        handoverMemoQuery,
+        searchHistorySummaryMapper,
+        null,
+        null,
+        null);
+  }
+
+  @Autowired
+  public DefaultIncidentBoardSourceRowCollector(
+      ObjectProvider<SearchAreaQuery> searchAreaQuery,
+      ObjectProvider<SearchPathService> searchPathService,
+      ObjectProvider<PolicePhoneFreshnessQuery> policePhoneFreshnessQuery,
+      MarkerQuery markerQuery,
+      OfflinePackageInstallationQuery offlinePackageInstallationQuery,
+      OperationalPeriodQuery operationalPeriodQuery,
+      HandoverMemoQuery handoverMemoQuery,
+      SearchHistorySummaryMapper searchHistorySummaryMapper,
+      ObjectProvider<IncidentMapper> incidentMapper,
+      ObjectProvider<IncidentDataPurgeStore> purgeStore,
+      ObjectProvider<MarkerNotificationToastQuery> toastQuery) {
     this.searchAreaQuery = searchAreaQuery;
     this.searchPathService = searchPathService;
+    this.policePhoneFreshnessQuery = policePhoneFreshnessQuery;
     this.markerQuery = Objects.requireNonNull(markerQuery, "markerQuery must not be null");
     this.packageBadgeBoardAssembler =
         new PackageBadgeBoardAssembler(
@@ -72,6 +119,9 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
         Objects.requireNonNull(handoverMemoQuery, "handoverMemoQuery must not be null");
     this.searchHistorySummaryMapper =
         Objects.requireNonNull(searchHistorySummaryMapper, "searchHistorySummaryMapper must not be null");
+    this.incidentMapper = incidentMapper;
+    this.purgeStore = purgeStore;
+    this.toastQuery = toastQuery;
   }
 
   @Override
@@ -83,12 +133,17 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     List<UUID> selectedOpIds = selectedOpIds(context.requestedOpIds(), activeOpId);
 
     List<BoardSourceRow> rows = new ArrayList<>();
+    Optional<BoardSourceRow> terminalRow = incidentTerminalRow(context.incidentId());
     collectSearchAreaRows(context, selectedOpIds, rows);
     collectPathRows(context, selectedOpIds, rows);
+    collectPolicePhoneFreshnessRows(context, rows, terminalRow.isPresent());
     collectMarkerRows(context, selectedOpIds, rows);
+    collectToastRows(context, rows);
     collectPackageRows(context, rows);
+    collectIncidentTerminalRow(context, rows, terminalRow);
     collectOperationalPeriodRows(context, rows);
     collectHandoverMemoRows(context, selectedOpIds, rows);
+    collectHandoverStatusRows(context, selectedOpIds, rows);
     collectSearchHistorySummaryRows(context, selectedOpIds, rows);
 
     return new IncidentBoardSourceRowSnapshot(
@@ -163,11 +218,41 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
                 .forEach(rows::add));
   }
 
+  private void collectPolicePhoneFreshnessRows(
+      BoardSourceRowContext context, List<BoardSourceRow> rows, boolean terminalIncident) {
+    if (!context.includes("police_phone_freshness") || terminalIncident) {
+      return;
+    }
+    PolicePhoneFreshnessQuery query = policePhoneFreshnessQuery.getIfAvailable();
+    if (query == null) {
+      return;
+    }
+    query.byIncident(context.incidentId()).stream().map(this::freshnessRow).forEach(rows::add);
+  }
+
   private void collectPackageRows(BoardSourceRowContext context, List<BoardSourceRow> rows) {
     if (!context.includes("package_badge")) {
       return;
     }
     rows.addAll(packageBadgeBoardAssembler.sourceRowsByIncident(context.incidentId().toString()));
+  }
+
+  private void collectToastRows(BoardSourceRowContext context, List<BoardSourceRow> rows) {
+    if (!context.includes("toast")) {
+      return;
+    }
+    MarkerNotificationToastQuery query = toastQuery == null ? null : toastQuery.getIfAvailable();
+    if (query == null) {
+      return;
+    }
+    query.byIncident(context.incidentId()).stream().map(this::toastRow).forEach(rows::add);
+  }
+
+  private void collectIncidentTerminalRow(
+      BoardSourceRowContext context, List<BoardSourceRow> rows, Optional<BoardSourceRow> terminalRow) {
+    if (context.includes("incident_terminal")) {
+      terminalRow.ifPresent(rows::add);
+    }
   }
 
   private void collectOperationalPeriodRows(BoardSourceRowContext context, List<BoardSourceRow> rows) {
@@ -201,6 +286,25 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
             handoverMemoQuery.byContext(context.incidentId(), opId, null, null).stream()
                 .map(this::handoverMemoRow)
                 .forEach(rows::add));
+  }
+
+  private void collectHandoverStatusRows(
+      BoardSourceRowContext context, List<UUID> selectedOpIds, List<BoardSourceRow> rows) {
+    if (!context.includes("handover_status") || selectedOpIds.isEmpty()) {
+      return;
+    }
+    UUID opId = selectedOpIds.get(0);
+    OperationalPeriodRow opRow =
+        operationalPeriodQuery.list(context.incidentId()).stream()
+            .filter(row -> row.opId().equals(opId))
+            .findFirst()
+            .orElse(null);
+    if (opRow == null) {
+      return;
+    }
+    List<HandoverMemoRow> memos =
+        handoverMemoQuery.byContext(context.incidentId(), opId, "OPERATIONAL_PERIOD", opId);
+    rows.add(handoverStatusRow(context.incidentId(), opRow, memos));
   }
 
   private void collectSearchHistorySummaryRows(
@@ -353,6 +457,40 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
         payload);
   }
 
+  private BoardSourceRow handoverStatusRow(
+      UUID incidentId, OperationalPeriodRow opRow, List<HandoverMemoRow> memos) {
+    String handoverStatus = memos.isEmpty() ? "NEEDS_MEMO" : "READY";
+    long version =
+        Math.max(
+            opRow.version(),
+            memos.stream().mapToLong(HandoverMemoRow::version).max().orElse(opRow.version()));
+    String latestEventId =
+        memos.stream()
+            .max(java.util.Comparator.comparingLong(HandoverMemoRow::version))
+            .map(memo -> eventId("S8", "handover-memo", memo.memoId().toString(), memo.version()))
+            .orElse(eventId("S8", "handover-status", opRow.opId().toString(), version));
+    Map<String, Object> payload = new LinkedHashMap<>();
+    payload.put("incidentId", incidentId.toString());
+    payload.put("opId", opRow.opId().toString());
+    payload.put("handoverStatus", handoverStatus);
+    payload.put("handoverMemoCount", memos.size());
+    return sourceRow(
+        "handover_status",
+        "S8",
+        incidentId.toString(),
+        "board-handover-status-" + incidentId,
+        handoverStatus,
+        version,
+        opRow.sequenceNo(),
+        latestEventId,
+        sourceHash(
+            "handover_status",
+            incidentId + ":" + opRow.opId() + ":" + memos.size(),
+            version,
+            handoverStatus),
+        payload);
+  }
+
   private BoardSourceRow searchHistorySummaryRow(SearchHistorySummaryRow row) {
     Map<String, Object> payload = new LinkedHashMap<>();
     putUuid(payload, "opId", row.opId());
@@ -370,6 +508,103 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
         row.version(),
         eventId("S8", "search-history-summary", row.summaryId().toString(), row.version()),
         row.sourceHash(),
+        payload);
+  }
+
+  private Optional<BoardSourceRow> incidentTerminalRow(UUID incidentId) {
+    IncidentMapper query = incidentMapper == null ? null : incidentMapper.getIfAvailable();
+    if (query == null) {
+      return Optional.empty();
+    }
+    return query
+        .findByIncidentId(incidentId)
+        .filter(incident -> !"OPEN".equals(incident.getStatus()))
+        .map(incident -> incidentTerminalRow(incident, purgeRun(incidentId)));
+  }
+
+  private IncidentDataPurgeRun purgeRun(UUID incidentId) {
+    IncidentDataPurgeStore store = purgeStore == null ? null : purgeStore.getIfAvailable();
+    if (store == null) {
+      return null;
+    }
+    return store.findByIncidentId(incidentId).orElse(null);
+  }
+
+  private BoardSourceRow incidentTerminalRow(IncidentRecord incident, IncidentDataPurgeRun purgeRun) {
+    String terminalStatus = terminalStatus(incident, purgeRun);
+    long version =
+        purgeRun == null ? incident.getVersion() : Math.max(incident.getVersion(), purgeRun.version());
+    Map<String, Object> payload = new LinkedHashMap<>();
+    payload.put("incidentId", incident.getId().toString());
+    payload.put("terminalStatus", terminalStatus);
+    payload.put("closedStatus", closedStatus(terminalStatus));
+    payload.put("closedAt", incident.getClosedAt() == null ? null : incident.getClosedAt().toString());
+    payload.put("writeDisabledReason", "PURGED".equals(terminalStatus) ? "purged" : "incident_closed");
+    payload.put("localPurgeState", localPurgeState(purgeRun));
+    return sourceRow(
+        "incident_terminal",
+        purgeRun == null ? "S1-1" : "S1-3",
+        incident.getId().toString(),
+        "board-incident-terminal-" + incident.getId(),
+        terminalStatus,
+        version,
+        version,
+        terminalEventId(incident, purgeRun, version),
+        sourceHash("incident_terminal", incident.getId().toString(), version, terminalStatus),
+        payload);
+  }
+
+  private BoardSourceRow toastRow(MarkerNotificationToastRow row) {
+    Map<String, Object> payload = new LinkedHashMap<>();
+    payload.put("type", row.notificationType());
+    payload.put("markerId", row.markerId().toString());
+    payload.put("incidentId", row.incidentId().toString());
+    putUuid(payload, "opId", row.opId());
+    putUuid(payload, "policePhoneId", row.policePhoneId());
+    payload.put("createdAt", row.createdAt());
+    return sourceRow(
+        "toast",
+        "S5",
+        row.notificationId().toString(),
+        "board-toast-" + row.notificationId(),
+        row.status(),
+        row.version(),
+        row.version(),
+        row.latestEventId() == null
+            ? eventId("S5", "toast", row.notificationId().toString(), row.version())
+            : row.latestEventId().toString(),
+        sourceHash("toast", row.notificationId().toString(), row.version(), row.status()),
+        payload);
+  }
+
+  private BoardSourceRow freshnessRow(PolicePhoneFreshnessRow row) {
+    String status = row.derivedFreshness().name();
+    Map<String, Object> payload = new LinkedHashMap<>();
+    payload.put("policePhoneId", row.policePhoneId().toString());
+    payload.put("accountId", row.accountId());
+    payload.put("accountType", row.accountType().name());
+    payload.put("organizationType", row.organizationType().name());
+    payload.put("incidentId", row.incidentId().toString());
+    putUuid(payload, "opId", row.opId());
+    payload.put("freshness", frontendFreshness(row.derivedFreshness()));
+    payload.put("freshnessStatus", status);
+    payload.put("lastHeartbeatAt", row.lastHeartbeatAt());
+    payload.put("lastSyncAt", row.lastSyncAt());
+    if (row.lastHeartbeatAt() != null) {
+      payload.put("elapsedSeconds", Duration.between(row.lastHeartbeatAt(), Instant.now()).toSeconds());
+    }
+    return sourceRow(
+        "police_phone_freshness",
+        "S1-2",
+        row.policePhoneId().toString(),
+        "board-PolicePhone-freshness-" + row.policePhoneId(),
+        status,
+        row.version(),
+        row.heartbeatSequence(),
+        row.latestEventId() == null
+            ? eventId("S1-2", "police-phone-freshness", row.policePhoneId().toString(), row.version())
+            : row.latestEventId().toString(),
+        sourceHash("police_phone_freshness", row.policePhoneId().toString(), row.version(), status),
         payload);
   }
 
@@ -464,6 +699,55 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
 
   private static String sourceHash(String slot, String id, long version, String status) {
     return hash(slot + "|" + id + "|" + status + "|" + version);
+  }
+
+  private static String frontendFreshness(PolicePhoneFreshnessStatus status) {
+    return switch (status) {
+      case ONLINE -> "normal";
+      case STALE -> "stale";
+      case LOST -> "lost";
+    };
+  }
+
+  private static String terminalStatus(IncidentRecord incident, IncidentDataPurgeRun purgeRun) {
+    if (purgeRun != null && purgeRun.status() == IncidentDataPurgeStatus.COMPLETED) {
+      return "PURGED";
+    }
+    if (purgeRun != null) {
+      return "PURGE_PENDING";
+    }
+    return "CLOSED";
+  }
+
+  private static String closedStatus(String terminalStatus) {
+    return switch (terminalStatus) {
+      case "PURGED" -> "purged";
+      case "PURGE_PENDING" -> "purge_pending";
+      case "CLOSED" -> "closed";
+      default -> "not_closed";
+    };
+  }
+
+  private static String localPurgeState(IncidentDataPurgeRun purgeRun) {
+    if (purgeRun == null) {
+      return "not_started";
+    }
+    LocalPurgeState state = purgeRun.localPurgeState();
+    return switch (state) {
+      case NOT_STARTED -> "not_started";
+      case PURGE_PENDING -> "queued";
+      case WAITING_FOR_SYNC -> "in_progress";
+      case LOCAL_PURGED -> "completed";
+      case FAILED_RETRYABLE -> "failed_retryable";
+    };
+  }
+
+  private static String terminalEventId(
+      IncidentRecord incident, IncidentDataPurgeRun purgeRun, long version) {
+    if (purgeRun == null) {
+      return eventId("S1-1", "incident-closed", incident.getId().toString(), version);
+    }
+    return eventId("S1-3", "incident-purged", purgeRun.purgeRunId().toString(), version);
   }
 
   private static String eventId(String sourceSpec, String sourceType, String id, long version) {

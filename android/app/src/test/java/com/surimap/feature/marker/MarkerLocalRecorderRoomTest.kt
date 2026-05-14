@@ -2,7 +2,14 @@ package com.surimap.feature.marker
 
 import androidx.room.Room
 import com.surimap.core.database.SuriMapDatabase
+import com.surimap.core.sync.HarnessSyncStatus
+import com.surimap.core.sync.NoopOutboxSender
+import com.surimap.core.sync.OutboxSender
+import com.surimap.core.sync.OutboxStatus
+import com.surimap.core.sync.RoomOutboxReplay
 import com.surimap.core.sync.RoomSyncClient
+import com.surimap.core.sync.SendResult
+import com.surimap.core.sync.SyncClient
 import com.surimap.feature.marker.data.MarkerLocation
 import com.surimap.feature.marker.data.MarkerPhotoAttachInput
 import com.surimap.feature.marker.data.MarkerPhotoUploadUrlInput
@@ -10,10 +17,18 @@ import com.surimap.feature.marker.data.MarkerWriteContext
 import com.surimap.feature.marker.data.MarkerWriteResult
 import com.surimap.feature.marker.data.MarkerLocalRecorder
 import com.surimap.feature.marker.data.MarkerUpsertInput
+import com.surimap.testing.incidentIdFixture
+import com.surimap.testing.markerIdFixture
+import com.surimap.testing.operationIdFixture
+import com.surimap.testing.opIdFixture
+import com.surimap.testing.photoIdFixture
+import com.surimap.testing.policePhoneIdFixture
 import java.time.Instant
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -39,10 +54,45 @@ class MarkerLocalRecorderRoomTest {
     }
 
     @Test
+    fun markerReplayAckClearsDraftAndMarksLocalMarkerSynced() = runBlocking {
+        val replayEligibleTs = Instant.ofEpochMilli(System.currentTimeMillis())
+        val recorder =
+            MarkerLocalRecorder(
+                syncClient = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()),
+                localMarkerDao = database.localMarkerDao(),
+                now = { replayEligibleTs },
+                clockSyncedAt = { replayEligibleTs },
+                sequenceSource = sequenceSource(50),
+                idFactory = idFactory()
+            )
+        val replay = RoomOutboxReplay(database.outboxDao(), NoopOutboxSender)
+
+        val create =
+            recorder.createMarker(
+                context = CONTEXT,
+                input = MarkerUpsertInput(type = "CLUE", location = LOCATION, memo = "등산로 입구 제보")
+            ) as MarkerWriteResult.Enqueued
+
+        assertNotNull(database.localWriteDraftDao().findById(create.outboxId))
+
+        replay.flushPending(policePhoneId = POLICE_PHONE_ID, incidentId = INCIDENT_ID)
+
+        val row = database.outboxDao().findById(create.outboxId)!!
+        assertEquals(OutboxStatus.ACKED.name, row.idempotencyStatus)
+        assertEquals(HarnessSyncStatus.SYNCED.name, row.localMirrorStatus)
+        assertNull(database.localWriteDraftDao().findById(create.outboxId))
+        assertEquals(
+            HarnessSyncStatus.SYNCED.name,
+            database.localMarkerDao().findByOutboxId(create.outboxId)!!.syncStatus
+        )
+    }
+
+    @Test
     fun markerAndPhotoWritesPersistPendingOutboxRowsBeforeNetworkReplay() = runBlocking {
         val recorder =
             MarkerLocalRecorder(
                 syncClient = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()),
+                localMarkerDao = database.localMarkerDao(),
                 now = { CLIENT_TS },
                 sequenceSource = sequenceSource(50),
                 idFactory = idFactory()
@@ -115,6 +165,82 @@ class MarkerLocalRecorderRoomTest {
         assertEquals("marker", draft!!.entityType)
         assertEquals(create.operationId, draft.operationId)
         assertTrue(draft.payload.contains("\"type\":\"CLUE\""))
+
+        val pendingMarkers = database.localMarkerDao().findPendingByIncidentAndPolicePhone(INCIDENT_ID, POLICE_PHONE_ID)
+        assertEquals(1, pendingMarkers.size)
+        assertEquals(create.operationId, pendingMarkers.single().localMarkerId)
+        assertEquals("CLUE", pendingMarkers.single().type)
+        assertEquals(126.9565, pendingMarkers.single().lon, 0.0)
+        assertEquals(37.5712, pendingMarkers.single().lat, 0.0)
+        assertEquals("PENDING_SEND", pendingMarkers.single().syncStatus)
+    }
+
+    @Test
+    fun markerCreateReplayMarksLocalMarkerSynced() = runBlocking {
+        val replayableClientTs = Instant.ofEpochMilli(System.currentTimeMillis())
+        val recorder =
+            MarkerLocalRecorder(
+                syncClient = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()),
+                localMarkerDao = database.localMarkerDao(),
+                now = { replayableClientTs },
+                sequenceSource = sequenceSource(80),
+                idFactory = idFactory()
+            )
+        val create =
+            recorder.createMarker(
+                context = CONTEXT,
+                input = MarkerUpsertInput(type = "CLUE", location = LOCATION, memo = "등산로 입구 제보")
+            ) as MarkerWriteResult.Enqueued
+        val replay =
+            RoomOutboxReplay(
+                database.outboxDao(),
+                OutboxSender { SendResult.ACKED }
+            )
+
+        replay.flushPending(policePhoneId = POLICE_PHONE_ID, incidentId = INCIDENT_ID)
+
+        val row = database.outboxDao().findByIncidentId(INCIDENT_ID).single()
+        assertEquals("ACKED", row.idempotencyStatus)
+        assertEquals("SYNCED", row.localMirrorStatus)
+        assertEquals("SYNCED", database.localMarkerDao().findById(create.operationId)!!.syncStatus)
+        assertTrue(database.localMarkerDao().findPendingByIncidentAndPolicePhone(INCIDENT_ID, POLICE_PHONE_ID).isEmpty())
+    }
+
+    @Test
+    fun markerCreateKeepsLocalMarkerSyncedWhenReplayAcksBeforeLocalMarkerInsert() = runBlocking {
+        val replayableClientTs = Instant.ofEpochMilli(System.currentTimeMillis())
+        val roomSyncClient = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao())
+        val replay =
+            RoomOutboxReplay(
+                database.outboxDao(),
+                OutboxSender { SendResult.ACKED }
+            )
+        val replayBeforeLocalMarkerInsert =
+            SyncClient { writeOperation ->
+                val result = roomSyncClient.enqueue(writeOperation)
+                replay.flushPending(policePhoneId = POLICE_PHONE_ID, incidentId = INCIDENT_ID)
+                result
+            }
+        val recorder =
+            MarkerLocalRecorder(
+                syncClient = replayBeforeLocalMarkerInsert,
+                localMarkerDao = database.localMarkerDao(),
+                now = { replayableClientTs },
+                sequenceSource = sequenceSource(90),
+                idFactory = idFactory()
+            )
+
+        val create =
+            recorder.createMarker(
+                context = CONTEXT,
+                input = MarkerUpsertInput(type = "CLUE", location = LOCATION, memo = "등산로 입구 제보")
+            ) as MarkerWriteResult.Enqueued
+
+        val row = database.outboxDao().findByIncidentId(INCIDENT_ID).single()
+        assertEquals("ACKED", row.idempotencyStatus)
+        assertEquals("SYNCED", row.localMirrorStatus)
+        assertEquals("SYNCED", database.localMarkerDao().findById(create.operationId)!!.syncStatus)
+        assertTrue(database.localMarkerDao().findPendingByIncidentAndPolicePhone(INCIDENT_ID, POLICE_PHONE_ID).isEmpty())
     }
 
     private fun sequenceSource(first: Long): () -> Long {
@@ -124,15 +250,15 @@ class MarkerLocalRecorderRoomTest {
 
     private fun idFactory(): (String) -> String {
         var next = 1
-        return { prefix -> "$prefix-${next.toString().padStart(3, '0')}".also { next++ } }
+        return { prefix -> operationIdFixture("${prefix.removePrefix("op-")}-${next.toString().padStart(3, '0')}").also { next++ } }
     }
 
     private companion object {
-        const val INCIDENT_ID = "inc-precinct-first-001"
-        const val OP_ID = "op-precinct-first-001"
-        const val MARKER_ID = "mk-precinct-clue-001"
-        const val PHOTO_ID = "photo-precinct-clue-001"
-        const val POLICE_PHONE_ID = "phone-precinct-001"
+        val INCIDENT_ID = incidentIdFixture("precinct-first-001")
+        val OP_ID = opIdFixture("precinct-first-001")
+        val MARKER_ID = markerIdFixture("precinct-clue-001")
+        val PHOTO_ID = photoIdFixture("precinct-clue-001")
+        val POLICE_PHONE_ID = policePhoneIdFixture("precinct-001")
         val CLIENT_TS: Instant = Instant.parse("2026-05-11T06:00:00Z")
         val LOCATION = MarkerLocation(lon = 126.9565, lat = 37.5712)
         val CONTEXT =

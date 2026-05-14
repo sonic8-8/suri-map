@@ -10,7 +10,7 @@ import com.surimap.common.auth.RequirePolicePhoneRegistered;
 import com.surimap.common.auth.SuriMapAuthentication;
 import com.surimap.common.auth.guard.ChannelNotAllowedException;
 import com.surimap.common.auth.guard.PolicePhoneRequiredException;
-import com.surimap.policephone.InMemoryPolicePhoneFixtureStore;
+import com.surimap.policephone.PolicePhonePersistenceService;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
@@ -23,10 +23,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class FcmTokenController {
 
-  private final InMemoryPolicePhoneFixtureStore fixtureStore;
+  private final PolicePhonePersistenceService policePhonePersistenceService;
 
-  public FcmTokenController(InMemoryPolicePhoneFixtureStore fixtureStore) {
-    this.fixtureStore = fixtureStore;
+  public FcmTokenController(PolicePhonePersistenceService policePhonePersistenceService) {
+    this.policePhonePersistenceService = policePhonePersistenceService;
   }
 
   @PostMapping("/api/fcm/tokens")
@@ -37,11 +37,12 @@ public class FcmTokenController {
   public ResponseEntity<FcmTokenResponse> register(
       @RequestHeader(value = "X-PolicePhone-Id", required = false) String policePhoneIdHeader,
       @Valid @RequestBody FcmTokenRequest request) {
-    UUID policePhoneId = validatePolicePhoneBinding(policePhoneIdHeader, currentAuthentication());
+    SuriMapAuthentication auth = currentAuthentication();
+    UUID policePhoneId = validatePolicePhoneBinding(policePhoneIdHeader, auth);
     return ResponseEntity.ok(
         FcmTokenResponse.from(
-            fixtureStore.registerFcmToken(
-                policePhoneId, request.getAppInstanceId(), request.getToken())));
+            policePhonePersistenceService.registerFcmToken(
+                policePhoneId, auth.getAccountId(), request.getAppInstanceId(), request.getToken())));
   }
 
   private SuriMapAuthentication currentAuthentication() {

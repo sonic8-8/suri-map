@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.surimap.marker.adapter.MarkerRuntimeGuardMapper">
+
+    <select id="findIncidentStatus" resultType="string">
+        SELECT status
+        FROM incident
+        WHERE id = #{incidentId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+        LIMIT 1
+    </select>
+
+    <select id="findCurrentOpId" resultType="java.util.UUID">
+        SELECT id
+        FROM operational_period
+        WHERE incident_id = #{incidentId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND status = 'ACTIVE'
+        LIMIT 1
+    </select>
+
+    <select id="countActiveAssignmentsByAccountId" resultType="int">
+        SELECT COUNT(*)
+        FROM incident_assignment
+        WHERE account_id = #{accountId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND revoked_at IS NULL
+    </select>
+
+    <select id="countActiveIncidentAssignment" resultType="int">
+        SELECT COUNT(*)
+        FROM incident_assignment
+        WHERE incident_id = #{incidentId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND account_id = #{accountId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND revoked_at IS NULL
+    </select>
+
+    <select id="countRegisteredPolicePhoneForAccount" resultType="int">
+        SELECT COUNT(*)
+        FROM police_phone
+        WHERE id = #{policePhoneId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND account_id = #{accountId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND status = 'ACTIVE'
+          AND registered = TRUE
+    </select>
+
+    <select id="countPolicePhoneAssignmentToIncident" resultType="int">
+        SELECT COUNT(*)
+        FROM police_phone pp
+        JOIN incident_assignment ia
+            ON ia.account_id = pp.account_id
+           AND ia.revoked_at IS NULL
+        WHERE pp.id = #{policePhoneId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND pp.status = 'ACTIVE'
+          AND pp.registered = TRUE
+          AND ia.incident_id = #{incidentId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+    </select>
+</mapper>

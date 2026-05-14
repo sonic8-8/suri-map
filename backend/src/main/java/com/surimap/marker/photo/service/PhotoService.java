@@ -17,6 +17,7 @@ import com.surimap.marker.photo.port.ObjectStoragePort;
 import com.surimap.marker.photo.port.PhotoEventPublisher;
 import com.surimap.marker.photo.port.PhotoWriteGuardPort;
 import com.surimap.marker.photo.repository.PhotoRepository;
+import com.surimap.marker.repository.MarkerRepository;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
 import java.nio.charset.StandardCharsets;
@@ -51,11 +52,38 @@ public class PhotoService {
   private final PhotoRepository photoRepository;
   private final PhotoWriteGuardPort photoWriteGuardPort;
   private final PhotoEventPublisher photoEventPublisher;
+  private final MarkerRepository markerRepository;
   private final Clock clock;
   private final ObjectKeyGenerator objectKeyGenerator = new ObjectKeyGenerator();
   private final IdempotentResponseCache idempotentResponseCache;
 
   @Autowired
+  public PhotoService(
+      ObjectStoragePort storagePort,
+      PhotoRepository photoRepository,
+      PhotoWriteGuardPort photoWriteGuardPort,
+      PhotoEventPublisher photoEventPublisher,
+      MarkerRepository markerRepository,
+      ObjectProvider<IdempotentResponseCache> idempotentResponseCacheProvider) {
+    this(
+        storagePort,
+        photoRepository,
+        photoWriteGuardPort,
+        photoEventPublisher,
+        markerRepository,
+        Clock.systemUTC(),
+        idempotentResponseCacheProvider.getIfAvailable());
+  }
+
+  public PhotoService(
+      ObjectStoragePort storagePort,
+      PhotoRepository photoRepository,
+      PhotoWriteGuardPort photoWriteGuardPort,
+      PhotoEventPublisher photoEventPublisher,
+      Clock clock) {
+    this(storagePort, photoRepository, photoWriteGuardPort, photoEventPublisher, null, clock, null);
+  }
+
   public PhotoService(
       ObjectStoragePort storagePort,
       PhotoRepository photoRepository,
@@ -67,17 +95,9 @@ public class PhotoService {
         photoRepository,
         photoWriteGuardPort,
         photoEventPublisher,
+        null,
         Clock.systemUTC(),
         idempotentResponseCacheProvider.getIfAvailable());
-  }
-
-  public PhotoService(
-      ObjectStoragePort storagePort,
-      PhotoRepository photoRepository,
-      PhotoWriteGuardPort photoWriteGuardPort,
-      PhotoEventPublisher photoEventPublisher,
-      Clock clock) {
-    this(storagePort, photoRepository, photoWriteGuardPort, photoEventPublisher, clock, null);
   }
 
   private PhotoService(
@@ -85,12 +105,14 @@ public class PhotoService {
       PhotoRepository photoRepository,
       PhotoWriteGuardPort photoWriteGuardPort,
       PhotoEventPublisher photoEventPublisher,
+      MarkerRepository markerRepository,
       Clock clock,
       IdempotentResponseCache idempotentResponseCache) {
     this.storagePort = Objects.requireNonNull(storagePort);
     this.photoRepository = Objects.requireNonNull(photoRepository);
     this.photoWriteGuardPort = Objects.requireNonNull(photoWriteGuardPort);
     this.photoEventPublisher = Objects.requireNonNull(photoEventPublisher);
+    this.markerRepository = markerRepository;
     this.clock = Objects.requireNonNull(clock);
     this.idempotentResponseCache = idempotentResponseCache;
   }
@@ -193,6 +215,7 @@ public class PhotoService {
     photo.attach(clock.instant(), request.width(), request.height());
     photoRepository.save(photo);
     long markerVersion = markerContext.markerVersion() + 1L;
+    bumpParentMarkerVersion(markerId, markerContext.markerVersion(), markerVersion);
     var response =
         new PhotoAttachResponse(
             photo.id(), photo.status().name(), photo.version(), markerId, markerVersion);
@@ -307,9 +330,21 @@ public class PhotoService {
             markerContext.incidentId(),
             markerContext.opId(),
             markerContext.policePhoneId(),
-            markerContext.markerStatus(),
+            "UPDATED",
             markerVersion,
             new PhotoDelta(photo.id(), photo.status().name(), photo.version())));
+  }
+
+  private void bumpParentMarkerVersion(UUID markerId, long expectedVersion, long markerVersion) {
+    if (markerRepository == null) {
+      return;
+    }
+    int updated =
+        markerRepository.updateMarkerStatusVersion(
+            markerId, expectedVersion, "UPDATED", markerVersion);
+    if (updated != 1) {
+      throw conflict("write_conflict");
+    }
   }
 
   private PhotoApiException conflict(String error) {

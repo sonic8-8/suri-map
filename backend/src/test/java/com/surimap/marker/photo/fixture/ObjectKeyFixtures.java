@@ -12,7 +12,7 @@ public final class ObjectKeyFixtures {
   public static final UUID PHOTO_ID = UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccccccc");
 
   public static final String EXPECTED_HARNESS_JPEG_KEY =
-      "markers/inc-precinct-first-001/mk-precinct-clue-001/photo-precinct-clue-001.jpg";
+      "markers/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001/55555555-5555-5555-5555-555555550001/55555555-5555-5555-5555-555555550101.jpg";
 
   public static final String EXPECTED_JPEG_KEY =
       "markers/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/cccccccc-cccc-cccc-cccc-cccccccccccc.jpg";

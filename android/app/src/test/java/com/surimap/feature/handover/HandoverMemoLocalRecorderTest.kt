@@ -26,7 +26,7 @@ class HandoverMemoLocalRecorderTest {
                 syncClient = syncClient,
                 now = { CLIENT_TS },
                 sequenceSource = { 70L },
-                idFactory = { prefix -> "$prefix-001" }
+                idFactory = { OP_MEMO_CREATE_ID }
             )
 
         val result =
@@ -41,12 +41,12 @@ class HandoverMemoLocalRecorderTest {
             ) as HandoverWriteResult.Enqueued
 
         val operation = syncClient.operations.single()
-        assertEquals("op-handover-memo-001", result.operationId)
+        assertEquals(OP_MEMO_CREATE_ID, result.operationId)
         assertEquals(DependencyGroup.HANDOVER_MEMO, operation.dependencyGroup)
         assertEquals("POST", operation.method)
         assertEquals("/api/handover-memos", operation.endpoint)
         assertEquals("handover_memo", operation.entityType)
-        assertEquals("idem-op-handover-memo-001", operation.idempotencyKey)
+        assertEquals("idem-$OP_MEMO_CREATE_ID", operation.idempotencyKey)
         assertEquals(70L, operation.sequence)
         assertEquals(0L, operation.clockOffsetMs)
         assertEquals(CLIENT_TS, operation.clockSyncedAt)
@@ -107,10 +107,11 @@ class HandoverMemoLocalRecorderTest {
     }
 
     private companion object {
-        const val INCIDENT_ID = "inc-precinct-first-001"
-        const val OP_ID = "op-precinct-first-001"
-        const val DUTY_SHIFT_ID = "shift-precinct-first-001"
-        const val POLICE_PHONE_ID = "phone-precinct-001"
+        const val INCIDENT_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001"
+        const val OP_ID = "88888888-8888-8888-8888-888888880001"
+        const val DUTY_SHIFT_ID = "77777777-7777-7777-7777-777777770001"
+        const val POLICE_PHONE_ID = "50000000-0000-0000-0000-000000000001"
+        const val OP_MEMO_CREATE_ID = "33333333-3333-4333-8333-333333333001"
         val CLIENT_TS: Instant = Instant.parse("2026-05-11T06:00:00Z")
         val CONTEXT =
             HandoverWriteContext(

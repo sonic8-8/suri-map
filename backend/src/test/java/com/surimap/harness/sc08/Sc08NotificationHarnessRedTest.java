@@ -44,15 +44,14 @@ class Sc08NotificationHarnessRedTest {
 
     Object markerEvent = call(result, "markerCreatedEvent");
     assertThat(value(markerEvent, "type")).isEqualTo("MARKER_CREATED");
-    assertThat(value(markerEvent, "id")).isNotEqualTo(NotificationFixtures.SUPPORT_MARKER_ID);
+    assertThat(value(markerEvent, "id")).isEqualTo(NotificationFixtures.SUPPORT_MARKER_ID);
     assertThat(value(markerEvent, "fixtureMarkerId"))
-        .isEqualTo(NotificationFixtures.SUPPORT_MARKER_ID);
+        .isEqualTo(NotificationFixtures.SUPPORT_MARKER_ALIAS);
     assertThat(value(markerEvent, "markerType")).isEqualTo("SUPPORT_REQUEST");
     assertThat(value(markerEvent, "status")).isEqualTo("ACTIVE");
     assertThat(value(markerEvent, "version")).isEqualTo("1");
-    assertThat(value(markerEvent, "opId")).isNotEqualTo(NotificationFixtures.OP_ID);
-    assertThat(value(markerEvent, "policePhoneId"))
-        .isNotEqualTo(NotificationFixtures.POLICE_PHONE_ID);
+    assertThat(value(markerEvent, "opId")).isEqualTo(NotificationFixtures.OP_ID);
+    assertThat(value(markerEvent, "policePhoneId")).isEqualTo(NotificationFixtures.POLICE_PHONE_ID);
     assertThat(booleanValue(markerEvent, "eventDispatchJobCaptured")).isTrue();
     assertThat(value(markerEvent, "eventDispatchEntityId")).isEqualTo(value(markerEvent, "id"));
     assertThat(booleanValue(markerEvent, "ssePayloadCaptured")).isTrue();
@@ -62,15 +61,13 @@ class Sc08NotificationHarnessRedTest {
     assertThat(value(notificationEvent, "eventId"))
         .isEqualTo(NotificationFixtures.SUPPORT_EVENT_ID);
     assertThat(value(notificationEvent, "type")).isEqualTo("SUPPORT_REQUEST_CREATED");
-    assertThat(value(notificationEvent, "id"))
-        .isNotEqualTo(NotificationFixtures.SUPPORT_NOTIFICATION_ID);
+    assertThat(value(notificationEvent, "id")).isEqualTo(NotificationFixtures.SUPPORT_NOTIFICATION_ID);
     assertThat(value(notificationEvent, "fixtureNotificationId"))
-        .isEqualTo(NotificationFixtures.SUPPORT_NOTIFICATION_ID);
+        .isEqualTo(NotificationFixtures.SUPPORT_NOTIFICATION_ALIAS);
     assertThat(value(notificationEvent, "markerId")).isEqualTo(value(markerEvent, "id"));
     assertThat(value(notificationEvent, "fixtureMarkerId"))
-        .isEqualTo(NotificationFixtures.SUPPORT_MARKER_ID);
-    assertThat(value(notificationEvent, "incidentId"))
-        .isNotEqualTo(NotificationFixtures.INCIDENT_ID);
+        .isEqualTo(NotificationFixtures.SUPPORT_MARKER_ALIAS);
+    assertThat(value(notificationEvent, "incidentId")).isEqualTo(NotificationFixtures.INCIDENT_ID);
     assertThat(value(notificationEvent, "status")).isEqualTo("SNAPSHOT_CREATED");
     assertThat(value(notificationEvent, "version")).isEqualTo("1");
     assertThat(value(notificationEvent, "opId")).isEqualTo(value(markerEvent, "opId"));
@@ -123,15 +120,14 @@ class Sc08NotificationHarnessRedTest {
 
     Object markerEvent = call(result, "markerCreatedEvent");
     assertThat(value(markerEvent, "type")).isEqualTo("MARKER_CREATED");
-    assertThat(value(markerEvent, "id")).isNotEqualTo(NotificationFixtures.PERSON_FOUND_MARKER_ID);
+    assertThat(value(markerEvent, "id")).isEqualTo(NotificationFixtures.PERSON_FOUND_MARKER_ID);
     assertThat(value(markerEvent, "fixtureMarkerId"))
-        .isEqualTo(NotificationFixtures.PERSON_FOUND_MARKER_ID);
+        .isEqualTo(NotificationFixtures.PERSON_FOUND_MARKER_ALIAS);
     assertThat(value(markerEvent, "markerType")).isEqualTo("PERSON_FOUND");
     assertThat(value(markerEvent, "status")).isEqualTo("ACTIVE");
     assertThat(value(markerEvent, "version")).isEqualTo("1");
-    assertThat(value(markerEvent, "opId")).isNotEqualTo(NotificationFixtures.OP_ID);
-    assertThat(value(markerEvent, "policePhoneId"))
-        .isNotEqualTo(NotificationFixtures.POLICE_PHONE_ID);
+    assertThat(value(markerEvent, "opId")).isEqualTo(NotificationFixtures.OP_ID);
+    assertThat(value(markerEvent, "policePhoneId")).isEqualTo(NotificationFixtures.POLICE_PHONE_ID);
     assertThat(booleanValue(markerEvent, "eventDispatchJobCaptured")).isTrue();
     assertThat(value(markerEvent, "eventDispatchEntityId")).isEqualTo(value(markerEvent, "id"));
     assertThat(booleanValue(markerEvent, "ssePayloadCaptured")).isTrue();
@@ -142,14 +138,13 @@ class Sc08NotificationHarnessRedTest {
         .isEqualTo(NotificationFixtures.PERSON_FOUND_EVENT_ID);
     assertThat(value(notificationEvent, "type")).isEqualTo("PERSON_FOUND");
     assertThat(value(notificationEvent, "id"))
-        .isNotEqualTo(NotificationFixtures.PERSON_FOUND_NOTIFICATION_ID);
-    assertThat(value(notificationEvent, "fixtureNotificationId"))
         .isEqualTo(NotificationFixtures.PERSON_FOUND_NOTIFICATION_ID);
+    assertThat(value(notificationEvent, "fixtureNotificationId"))
+        .isEqualTo(NotificationFixtures.PERSON_FOUND_NOTIFICATION_ALIAS);
     assertThat(value(notificationEvent, "markerId")).isEqualTo(value(markerEvent, "id"));
     assertThat(value(notificationEvent, "fixtureMarkerId"))
-        .isEqualTo(NotificationFixtures.PERSON_FOUND_MARKER_ID);
-    assertThat(value(notificationEvent, "incidentId"))
-        .isNotEqualTo(NotificationFixtures.INCIDENT_ID);
+        .isEqualTo(NotificationFixtures.PERSON_FOUND_MARKER_ALIAS);
+    assertThat(value(notificationEvent, "incidentId")).isEqualTo(NotificationFixtures.INCIDENT_ID);
     assertThat(value(notificationEvent, "status")).isEqualTo("SNAPSHOT_CREATED");
     assertThat(value(notificationEvent, "version")).isEqualTo("1");
     assertThat(value(notificationEvent, "opId")).isEqualTo(value(markerEvent, "opId"));
@@ -294,11 +289,11 @@ class Sc08NotificationHarnessRedTest {
     assertThat(value(board, "eventId")).isEqualTo(expectedEventId);
     assertThat(value(board, "type")).isEqualTo(expectedType);
     assertThat(value(board, "id"))
-        .isEqualTo(value(notificationEvent, "id"))
-        .isNotEqualTo(expectedFixtureNotificationId);
+      .isEqualTo(value(notificationEvent, "id"))
+        .isEqualTo(expectedFixtureNotificationId);
     assertThat(value(board, "markerId"))
-        .isEqualTo(value(notificationEvent, "markerId"))
-        .isNotEqualTo(expectedFixtureMarkerId);
+      .isEqualTo(value(notificationEvent, "markerId"))
+        .isEqualTo(expectedFixtureMarkerId);
     assertThat(value(board, "incidentId")).isEqualTo(value(notificationEvent, "incidentId"));
     assertThat(value(board, "opId")).isEqualTo(value(notificationEvent, "opId"));
     assertThat(value(board, "policePhoneId")).isEqualTo(value(notificationEvent, "policePhoneId"));

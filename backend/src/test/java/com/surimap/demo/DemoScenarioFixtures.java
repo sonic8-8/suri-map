@@ -104,9 +104,17 @@ public final class DemoScenarioFixtures {
   public static final long OP2_VERSION = OperationalPeriodFixtures.NEW_OP_VERSION;
   public static final Instant OP2_STARTED_AT = OperationalPeriodFixtures.NEW_OP_STARTED_AT;
 
-  // ── handover memo (SC-10/SC-11) ──────────────────────────────────────────
+  // ── handover memo (SC-10 seed / SC-11 OP2) ───────────────────────────────
 
-  /** SC-10 Step-5 / SC-11 기준: 인수인계 메모 */
+  /** SC-10 seed 기준: OP1에 보존되는 초동 인수인계 메모 */
+  public static final String SC10_HANDOVER_MEMO_ALIAS = "memo-precinct-handover-001";
+
+  public static final UUID SC10_HANDOVER_MEMO_ID =
+      UUID.fromString("eeeeeeee-eeee-eeee-eeee-eeeeeeee0001");
+  public static final String SC10_HANDOVER_MEMO_BOARD_EVENT_ID =
+      "evt-s8-handover-created-001";
+
+  /** SC-11 기준: OP2 인수인계 메모 write/convergence fixture */
   public static final String HANDOVER_MEMO_ALIAS = HandoverMemoFixtures.MEMO_ALIAS;
 
   public static final UUID HANDOVER_MEMO_ID = HandoverMemoFixtures.MEMO_ID;
@@ -165,7 +173,8 @@ public final class DemoScenarioFixtures {
       "AREA (id=" + AREA_ALIAS + ") ACTIVE 상태 확인",
       "ASSIGNMENT (id=" + ASSIGNMENT_ALIAS + ") ACTIVE, assignee=" + PRECINCT_CMD_ALIAS,
       "OP2 전환 요청: reason=RE_SEARCH, reasonMemo=null",
-      "HANDOVER_MEMO (id=" + HANDOVER_MEMO_ALIAS + ") OP2 소속 ACTIVE 확인",
+      "SC10_HANDOVER_MEMO (id=" + SC10_HANDOVER_MEMO_ALIAS + ") OP1 소속 보존 확인",
+      "SC11_HANDOVER_MEMO (id=" + HANDOVER_MEMO_ALIAS + ") OP2 소속 ACTIVE 확인",
       "SUMMARY evidence에 금지 문구(다음 구역 추천/누락 확정/위험도 높음/자동 판단) 미포함 확인"
   );
 

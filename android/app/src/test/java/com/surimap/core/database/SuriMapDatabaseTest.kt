@@ -2,6 +2,12 @@ package com.surimap.core.database
 
 import androidx.room.Room
 import com.surimap.core.sync.DependencyGroup
+import com.surimap.testing.incidentIdFixture
+import com.surimap.testing.manifestIdFixture
+import com.surimap.testing.policePhoneIdFixture
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -48,6 +54,7 @@ class SuriMapDatabaseTest {
         assertTrue(tableNames.contains("android_outbox_row"))
         assertTrue(tableNames.contains("android_sync_status"))
         assertTrue(tableNames.contains("local_write_draft"))
+        assertTrue(tableNames.contains("local_marker"))
         assertFalse(tableNames.contains("sync_status"))
     }
 
@@ -149,11 +156,13 @@ class SuriMapDatabaseTest {
 
     @Test
     fun syncStatusIsKeyedByPolicePhoneAndAllowsSharedIncident() = runBlocking {
-        val incidentId = "inc-precinct-first-001"
+        val incidentId = incidentIdFixture("precinct-first-001")
+        val phoneId = policePhoneIdFixture("precinct-phone-01")
+        val carId = policePhoneIdFixture("precinct-car-01")
 
         database.syncStatusDao().upsert(
             SyncStatusEntity(
-                policePhoneId = "dev-precinct-phone-01",
+                policePhoneId = phoneId,
                 incidentId = incidentId,
                 pendingCount = 1,
                 retryableCount = 0,
@@ -163,7 +172,7 @@ class SuriMapDatabaseTest {
         )
         database.syncStatusDao().upsert(
             SyncStatusEntity(
-                policePhoneId = "dev-precinct-car-01",
+                policePhoneId = carId,
                 incidentId = incidentId,
                 pendingCount = 2,
                 retryableCount = 1,
@@ -176,7 +185,7 @@ class SuriMapDatabaseTest {
 
         assertEquals(2, statuses.size)
         assertEquals(
-            setOf("dev-precinct-phone-01", "dev-precinct-car-01"),
+            setOf(phoneId, carId),
             statuses.map { it.policePhoneId }.toSet()
         )
     }
@@ -210,9 +219,9 @@ class SuriMapDatabaseTest {
 
         database.offlinePackageInstallationDao().upsert(
             OfflinePackageInstallationEntity(
-                incidentId = "inc-precinct-first-001",
-                policePhoneId = "phone-precinct-001",
-                manifestId = "pkg-precinct-first-rev-18",
+                incidentId = INCIDENT_ID,
+                policePhoneId = POLICE_PHONE_ID,
+                manifestId = MANIFEST_ID,
                 manifestVersion = 18,
                 status = "READY",
                 totalItems = 7,
@@ -225,12 +234,175 @@ class SuriMapDatabaseTest {
         )
 
         val status = database.offlinePackageInstallationDao().find(
-            incidentId = "inc-precinct-first-001",
-            policePhoneId = "phone-precinct-001"
+            incidentId = INCIDENT_ID,
+            policePhoneId = POLICE_PHONE_ID
         )
 
         assertEquals(18, status!!.manifestVersion)
         assertTrue(status.readyForOfflineUse)
+    }
+
+    @Test
+    fun offlinePackageInstallationDaoEmitsReadyStatusForPackageRouteRefresh() = runBlocking {
+        val observed = async {
+            database.offlinePackageInstallationDao()
+                .observe(incidentId = INCIDENT_ID, policePhoneId = POLICE_PHONE_ID)
+                .filterNotNull()
+                .first { status -> status.status == "READY" && status.readyForOfflineUse }
+        }
+
+        database.offlinePackageInstallationDao().upsert(
+            OfflinePackageInstallationEntity(
+                incidentId = INCIDENT_ID,
+                policePhoneId = POLICE_PHONE_ID,
+                manifestId = MANIFEST_ID,
+                manifestVersion = 18,
+                status = "READY",
+                totalItems = 7,
+                completedItems = 7,
+                failedItems = 0,
+                version = 4,
+                readyForOfflineUse = true,
+                updatedAt = 2_000L
+            )
+        )
+
+        val status = observed.await()
+
+        assertEquals(MANIFEST_ID, status.manifestId)
+        assertEquals(18, status.manifestVersion)
+        assertEquals(7, status.completedItems)
+    }
+
+    @Test
+    fun localMarkerSchemaStoresPendingMarkerMirrorForMapRendering() = runBlocking {
+        assertEquals(
+            listOf(
+                ColumnSpec("local_marker_id", nullable = false, primaryKey = true),
+                ColumnSpec("outbox_id", nullable = false),
+                ColumnSpec("operation_id", nullable = false),
+                ColumnSpec("incident_id", nullable = false),
+                ColumnSpec("op_id", nullable = false),
+                ColumnSpec("police_phone_id", nullable = false),
+                ColumnSpec("type", nullable = false),
+                ColumnSpec("support_request_type", nullable = true),
+                ColumnSpec("memo", nullable = true),
+                ColumnSpec("lon", nullable = false),
+                ColumnSpec("lat", nullable = false),
+                ColumnSpec("sync_status", nullable = false),
+                ColumnSpec("created_at_millis", nullable = false),
+                ColumnSpec("updated_at_millis", nullable = false)
+            ),
+            tableColumns("local_marker")
+        )
+
+        database.localMarkerDao().upsert(
+            LocalMarkerEntity(
+                localMarkerId = MARKER_ID,
+                outboxId = "outbox-marker-001",
+                operationId = "22222222-2222-4222-8222-222222222001",
+                incidentId = INCIDENT_ID,
+                opId = "88888888-8888-8888-8888-888888880001",
+                policePhoneId = POLICE_PHONE_ID,
+                type = "CLUE",
+                supportRequestType = null,
+                memo = "수동 조정 좌표",
+                lon = 126.970321,
+                lat = 37.580321,
+                syncStatus = "PENDING_SEND",
+                createdAtMillis = 1_000L,
+                updatedAtMillis = 1_000L
+            )
+        )
+        database.outboxDao().upsert(
+            markerOutboxEntity(
+                outboxId = "outbox-marker-001",
+                operationId = "22222222-2222-4222-8222-222222222001",
+                idempotencyStatus = "PENDING",
+                localMirrorStatus = "PENDING_SEND"
+            )
+        )
+
+        val pending = database.localMarkerDao().findPendingByIncidentAndPolicePhone(INCIDENT_ID, POLICE_PHONE_ID)
+
+        assertEquals(listOf(MARKER_ID), pending.map { it.localMarkerId })
+        assertEquals(126.970321, pending.single().lon, 0.0)
+        assertEquals(
+            IndexSpec(unique = false, columns = listOf("incident_id", "police_phone_id", "sync_status")),
+            indexSpec("local_marker", "idx_local_marker_pending")
+        )
+        assertEquals(
+            IndexSpec(unique = true, columns = listOf("operation_id")),
+            indexSpec("local_marker", "ux_local_marker_operation")
+        )
+    }
+
+    @Test
+    fun localMarkerDaoExcludesSyncedAndPurgedRowsFromPendingMapSource() = runBlocking {
+        database.localMarkerDao().upsert(
+            LocalMarkerEntity(
+                localMarkerId = MARKER_ID,
+                outboxId = "outbox-marker-001",
+                operationId = "22222222-2222-4222-8222-222222222001",
+                incidentId = INCIDENT_ID,
+                opId = "88888888-8888-8888-8888-888888880001",
+                policePhoneId = POLICE_PHONE_ID,
+                type = "CLUE",
+                lon = 126.970321,
+                lat = 37.580321,
+                syncStatus = "SYNCED",
+                createdAtMillis = 1_000L,
+                updatedAtMillis = 1_000L
+            )
+        )
+        database.outboxDao().upsert(
+            markerOutboxEntity(
+                outboxId = "outbox-marker-001",
+                operationId = "22222222-2222-4222-8222-222222222001",
+                idempotencyStatus = "ACKED",
+                localMirrorStatus = "SYNCED"
+            )
+        )
+
+        val pending = database.localMarkerDao().findPendingByIncidentAndPolicePhone(INCIDENT_ID, POLICE_PHONE_ID)
+
+        assertTrue(pending.isEmpty())
+    }
+
+    @Test
+    fun migration3To4CreatesLocalMarkerMirrorTable() {
+        val writableDatabase = database.openHelper.writableDatabase
+        writableDatabase.execSQL("DROP TABLE IF EXISTS local_marker")
+
+        SuriMapDatabaseProvider.MIGRATION_3_4.migrate(writableDatabase)
+
+        assertEquals(
+            listOf(
+                ColumnSpec("local_marker_id", nullable = false, primaryKey = true),
+                ColumnSpec("outbox_id", nullable = false),
+                ColumnSpec("operation_id", nullable = false),
+                ColumnSpec("incident_id", nullable = false),
+                ColumnSpec("op_id", nullable = false),
+                ColumnSpec("police_phone_id", nullable = false),
+                ColumnSpec("type", nullable = false),
+                ColumnSpec("support_request_type", nullable = true),
+                ColumnSpec("memo", nullable = true),
+                ColumnSpec("lon", nullable = false),
+                ColumnSpec("lat", nullable = false),
+                ColumnSpec("sync_status", nullable = false),
+                ColumnSpec("created_at_millis", nullable = false),
+                ColumnSpec("updated_at_millis", nullable = false)
+            ),
+            tableColumns("local_marker")
+        )
+        assertEquals(
+            IndexSpec(unique = false, columns = listOf("incident_id", "police_phone_id", "sync_status")),
+            indexSpec("local_marker", "idx_local_marker_pending")
+        )
+        assertEquals(
+            IndexSpec(unique = true, columns = listOf("operation_id")),
+            indexSpec("local_marker", "ux_local_marker_operation")
+        )
     }
 
     @Test
@@ -256,9 +428,9 @@ class SuriMapDatabaseTest {
         database.offlinePackageItemStatusDao().upsertAll(
             listOf(
                 OfflinePackageItemStatusEntity(
-                    incidentId = "inc-precinct-first-001",
-                    policePhoneId = "phone-precinct-001",
-                    manifestId = "pkg-precinct-first-rev-18",
+                    incidentId = INCIDENT_ID,
+                    policePhoneId = POLICE_PHONE_ID,
+                    manifestId = MANIFEST_ID,
                     itemKey = "incident-meta",
                     manifestVersion = 18,
                     itemType = "INCIDENT_META",
@@ -270,9 +442,9 @@ class SuriMapDatabaseTest {
                     updatedAt = 1_000L
                 ),
                 OfflinePackageItemStatusEntity(
-                    incidentId = "inc-precinct-first-001",
-                    policePhoneId = "phone-precinct-001",
-                    manifestId = "pkg-precinct-first-rev-18",
+                    incidentId = INCIDENT_ID,
+                    policePhoneId = POLICE_PHONE_ID,
+                    manifestId = MANIFEST_ID,
                     itemKey = "tile-1",
                     manifestVersion = 18,
                     itemType = "TILE",
@@ -284,9 +456,9 @@ class SuriMapDatabaseTest {
                     updatedAt = 1_100L
                 ),
                 OfflinePackageItemStatusEntity(
-                    incidentId = "inc-precinct-first-001",
-                    policePhoneId = "phone-precinct-002",
-                    manifestId = "pkg-precinct-first-rev-18",
+                    incidentId = INCIDENT_ID,
+                    policePhoneId = POLICE_PHONE_2_ID,
+                    manifestId = MANIFEST_ID,
                     itemKey = "tile-1",
                     manifestVersion = 18,
                     itemType = "TILE",
@@ -301,9 +473,9 @@ class SuriMapDatabaseTest {
         )
 
         val items = database.offlinePackageItemStatusDao().findByManifest(
-            incidentId = "inc-precinct-first-001",
-            policePhoneId = "phone-precinct-001",
-            manifestId = "pkg-precinct-first-rev-18"
+            incidentId = INCIDENT_ID,
+            policePhoneId = POLICE_PHONE_ID,
+            manifestId = MANIFEST_ID
         )
 
         assertEquals(listOf("incident-meta", "tile-1"), items.map { it.itemKey })
@@ -373,4 +545,40 @@ class SuriMapDatabaseTest {
     private data class ColumnSpec(val name: String, val nullable: Boolean, val primaryKey: Boolean = false)
 
     private data class IndexSpec(val unique: Boolean, val columns: List<String>)
+
+    private fun markerOutboxEntity(
+        outboxId: String,
+        operationId: String,
+        idempotencyStatus: String,
+        localMirrorStatus: String
+    ): OutboxEntity =
+        OutboxEntity(
+            outboxId = outboxId,
+            operationId = operationId,
+            incidentId = INCIDENT_ID,
+            opId = "88888888-8888-8888-8888-888888880001",
+            policePhoneId = POLICE_PHONE_ID,
+            dependencyGroup = DependencyGroup.MARKER.name,
+            sequence = 1L,
+            requestMethod = "POST",
+            requestPath = "/api/markers",
+            payloadJson = "{}",
+            requestBodyHash = "sha256:marker",
+            idempotencyKey = "idem-$operationId",
+            idempotencyStatus = idempotencyStatus,
+            localMirrorStatus = localMirrorStatus,
+            attemptCount = 0,
+            nextAttemptAt = 1_000L,
+            clientRequestedAt = 1_000L,
+            clockOffsetMs = 0L,
+            clockSyncedAt = 1_000L
+        )
+
+    private companion object {
+        val INCIDENT_ID = incidentIdFixture("precinct-first-001")
+        val POLICE_PHONE_ID = policePhoneIdFixture("precinct-001")
+        val POLICE_PHONE_2_ID = policePhoneIdFixture("precinct-002")
+        val MANIFEST_ID = manifestIdFixture("precinct-first-rev-18")
+        val MARKER_ID = "22222222-2222-4222-8222-222222222001"
+    }
 }

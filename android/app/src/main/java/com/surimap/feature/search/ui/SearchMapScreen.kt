@@ -111,7 +111,8 @@ data class SearchMapUiState(
     val layers: List<SearchMapLayerUiState>,
     val viewportBounds: SearchMapViewportBounds? = null,
     val handoverPrompt: HandoverPromptUiState?,
-    val incidentAlert: IncidentAlertUiState? = null
+    val incidentAlert: IncidentAlertUiState? = null,
+    val focusedMarkerId: String? = null
 ) {
     val canWritePath: Boolean = lifecycleStatus == SearchLifecycleStatus.Active
     val canCreateMarker: Boolean = lifecycleStatus == SearchLifecycleStatus.Active
@@ -119,6 +120,26 @@ data class SearchMapUiState(
         lifecycleStatus == SearchLifecycleStatus.Active || lifecycleStatus == SearchLifecycleStatus.Paused
     val shouldOpenBlockedOutbox: Boolean = blockedOutboxCount > 0
     val showHandoverPrompt: Boolean = handoverPrompt?.shouldShow == true
+    val focusedMarkerLayer: SearchMapLayerUiState? =
+        focusedMarkerId
+            ?.takeIf(String::isNotBlank)
+            ?.let { markerId ->
+                layers.firstOrNull { layer -> layer.kind == SearchLayerKind.Marker && layer.overlayId == markerId }
+                    ?.copy(highlighted = true)
+            }
+    val markerDetailTargetId: String? =
+        focusedMarkerId?.takeIf(String::isNotBlank)
+            ?: layers.firstOrNull { layer -> layer.kind == SearchLayerKind.Marker && !layer.overlayId.isNullOrBlank() }
+                ?.overlayId
+    val markerFocusLabel: String? =
+        focusedMarkerId
+            ?.takeIf(String::isNotBlank)
+            ?.let { markerId ->
+                val label = focusedMarkerLayer?.label ?: markerId
+                "마커 포커스 · $label"
+            }
+    val focusedMarkerViewportBounds: SearchMapViewportBounds? =
+        focusedMarkerLayer?.geoJson?.pointViewportBounds()
 
     val syncLabel: String =
         when (syncStatus) {
@@ -171,16 +192,22 @@ data class SearchMapUiState(
             add(primaryActionLabel)
             add(if (canWritePath) "경로 기록 가능" else "경로 기록 차단")
             add(if (canCreateMarker) "마커 생성 가능" else "마커 생성 차단")
+            add("인수인계")
             add("마커 생성")
             if (showHandoverPrompt) {
                 add("이전 근무 기록 있음")
             }
+            markerFocusLabel?.let(::add)
+            markerDetailTargetId?.let { add("마커 상세") }
             incidentAlert?.visibleText()?.forEach(::add)
             if (blockedOutboxCount > 0) {
                 add("미전송 ${blockedOutboxCount}건 처리 불가")
             }
             layers.forEach { add(it.label) }
         }
+
+    fun withFocusedMarker(markerId: String?): SearchMapUiState =
+        copy(focusedMarkerId = markerId?.takeIf(String::isNotBlank))
 
     companion object {
         fun active(
@@ -271,6 +298,7 @@ fun SearchMapScreen(
     onOpenBlockedOutbox: () -> Unit,
     onDismissIncidentAlert: () -> Unit,
     onOpenIncidentAlertMarker: (String) -> Unit,
+    onOpenFocusedMarkerDetail: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxSize().background(PoliBgBase)) {
@@ -309,6 +337,7 @@ fun SearchMapScreen(
             SearchMapShell(
                 state = state,
                 mapState = mapState,
+                onOpenFocusedMarkerDetail = onOpenFocusedMarkerDetail,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -317,6 +346,7 @@ fun SearchMapScreen(
             state = state,
             onPrimaryLifecycleAction = onPrimaryLifecycleAction,
             onStopSearch = onStopSearch,
+            onOpenHandover = onOpenHandover,
             onCreateMarker = onCreateMarker
         )
     }
@@ -363,6 +393,7 @@ private fun BlockedOutboxNotice(state: SearchMapUiState, onOpenBlockedOutbox: ()
 private fun SearchMapShell(
     state: SearchMapUiState,
     mapState: MapLibreRuntimeMapState,
+    onOpenFocusedMarkerDetail: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var mapLoadFailure by remember { mutableStateOf<String?>(null) }
@@ -379,6 +410,17 @@ private fun SearchMapShell(
             modifier = Modifier.align(Alignment.TopStart).padding(PoliDimens.Space3),
             verticalArrangement = Arrangement.spacedBy(PoliDimens.Space2)
         ) {
+            state.markerFocusLabel?.let { focusLabel ->
+                PoliChip(text = focusLabel, variant = PoliChipVariant.Bad)
+            }
+            state.markerDetailTargetId?.takeIf(String::isNotBlank)?.let { markerId ->
+                PoliButton(
+                    text = "마커 상세",
+                    onClick = { onOpenFocusedMarkerDetail(markerId) },
+                    size = PoliButtonSize.Small,
+                    variant = PoliButtonVariant.Secondary
+                )
+            }
             state.layers.forEach { layer ->
                 PoliChip(
                     text = layer.label,
@@ -438,6 +480,7 @@ private fun SearchBottomPanel(
     state: SearchMapUiState,
     onPrimaryLifecycleAction: () -> Unit,
     onStopSearch: () -> Unit,
+    onOpenHandover: () -> Unit,
     onCreateMarker: () -> Unit
 ) {
     Column(
@@ -470,13 +513,22 @@ private fun SearchBottomPanel(
                 variant = PoliButtonVariant.Danger
             )
         }
-        PoliButton(
-            text = "마커 생성",
-            onClick = onCreateMarker,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = state.canCreateMarker,
-            size = PoliButtonSize.Large
-        )
+        Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
+            PoliButton(
+                text = "인수인계",
+                onClick = onOpenHandover,
+                modifier = Modifier.weight(1f),
+                variant = PoliButtonVariant.Secondary,
+                size = PoliButtonSize.Large
+            )
+            PoliButton(
+                text = "마커 생성",
+                onClick = onCreateMarker,
+                modifier = Modifier.weight(1.25f),
+                enabled = state.canCreateMarker,
+                size = PoliButtonSize.Large
+            )
+        }
     }
 }
 
@@ -548,7 +600,7 @@ private val SearchMapUiState.syncVariant: PoliChipVariant
 private fun SearchMapUiState.toRuntimeMapState(base: MapLibreRuntimeMapState): MapLibreRuntimeMapState {
     return base.copy(
         initialBounds =
-        viewportBounds?.let { bounds ->
+        (focusedMarkerViewportBounds ?: viewportBounds)?.let { bounds ->
             MapLibreViewportBounds(
                 south = bounds.south,
                 west = bounds.west,
@@ -559,11 +611,13 @@ private fun SearchMapUiState.toRuntimeMapState(base: MapLibreRuntimeMapState): M
         geometryOverlays =
         layers.mapNotNull { layer ->
             val geoJson = layer.geoJson?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+            val focused = focusedMarkerId != null && layer.kind == SearchLayerKind.Marker && layer.overlayId == focusedMarkerId
             MapLibreGeometryOverlay(
                 id = layer.overlayId ?: layer.label,
                 kind = layer.kind.toMapLibreGeometryOverlayKind(),
                 geoJson = geoJson,
-                highlighted = layer.highlighted
+                highlighted = layer.highlighted || focused,
+                label = layer.label
             )
         }
     )
@@ -577,6 +631,22 @@ private fun SearchLayerKind.toMapLibreGeometryOverlayKind(): MapLibreGeometryOve
         SearchLayerKind.Path -> MapLibreGeometryOverlayKind.Path
         SearchLayerKind.Marker -> MapLibreGeometryOverlayKind.Marker
     }
+
+private fun String.pointViewportBounds(): SearchMapViewportBounds? {
+    val match = POINT_COORDINATES.find(this) ?: return null
+    val lon = match.groupValues[1].toDoubleOrNull() ?: return null
+    val lat = match.groupValues[2].toDoubleOrNull() ?: return null
+    val delta = MARKER_FOCUS_BOUNDS_DELTA
+    return SearchMapViewportBounds(
+        south = lat - delta,
+        west = lon - delta,
+        north = lat + delta,
+        east = lon + delta
+    )
+}
+
+private val POINT_COORDINATES = Regex(""""coordinates"\s*:\s*\[\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*]""")
+private const val MARKER_FOCUS_BOUNDS_DELTA = 0.001
 
 fun sampleSearchMapState(): SearchMapUiState =
     SearchMapUiState.active(
@@ -600,7 +670,8 @@ private fun SearchMapScreenPreview() {
             onOpenHandover = {},
             onOpenBlockedOutbox = {},
             onDismissIncidentAlert = {},
-            onOpenIncidentAlertMarker = {}
+            onOpenIncidentAlertMarker = {},
+            onOpenFocusedMarkerDetail = {}
         )
     }
 }

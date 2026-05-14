@@ -26,7 +26,7 @@ class AuthPolicePhoneHarnessRunnerRedTest {
     AuthPolicePhoneHarnessRunner runner =
         AuthPolicePhoneHarnessRunner.mock(AuthPolicePhoneHarnessFixtures.precinctTeamApp());
 
-    assertThat(runner.context().accountId()).isEqualTo("acct-precinct-team");
+    assertThat(runner.context().accountCode()).isEqualTo("acct-precinct-team");
     assertThat(runner.context().channel()).isEqualTo(Channel.APP);
     assertThat(runner.context().authorities()).containsExactly("MEMBER");
     assertThat(runner.policePhone().alias()).isEqualTo("dev-precinct-phone-01");

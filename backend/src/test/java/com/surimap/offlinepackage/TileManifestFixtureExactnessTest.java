@@ -17,7 +17,7 @@ class TileManifestFixtureExactnessTest {
   void tile_manifest_identity_range_and_blob_template_match_harness_constants() {
     TileManifest tileManifest = OfflinePackageManifestFixtures.tileManifest();
 
-    assertThat(tileManifest.manifestId()).isEqualTo("tile-manifest-inc-precinct-001");
+    assertThat(tileManifest.manifestId()).isEqualTo(OfflinePackageManifestFixtures.MANIFEST_ID);
     assertThat(tileManifest.styleId()).isEqualTo("osm-local");
     assertThat(tileManifest.overallAreaHash()).isEqualTo("overall-area-hash-precinct-current");
     assertThat(tileManifest.blobUriTemplate())

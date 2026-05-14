@@ -1,6 +1,8 @@
 package com.surimap.feature.search
 
+import com.surimap.core.database.LocalMarkerEntity
 import com.surimap.core.database.OutboxStatusSummary
+import com.surimap.core.marker.MarkerReadQuery
 import com.surimap.core.network.SuriMapApiResponse
 import com.surimap.core.path.SearchPathQuery
 import com.surimap.feature.search.data.SearchMapSessionContext
@@ -9,6 +11,13 @@ import com.surimap.feature.search.ui.SearchLifecycleStatus
 import com.surimap.feature.search.ui.SearchLayerKind
 import com.surimap.feature.search.ui.SearchMapSyncStatus
 import com.surimap.feature.search.ui.SearchMapViewportBounds
+import com.surimap.testing.areaIdFixture
+import com.surimap.testing.dutyShiftIdFixture
+import com.surimap.testing.incidentIdFixture
+import com.surimap.testing.markerIdFixture
+import com.surimap.testing.opIdFixture
+import com.surimap.testing.pathIdFixture
+import com.surimap.testing.policePhoneIdFixture
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -25,16 +34,16 @@ class SearchMapStateLoaderTest {
         val state =
             fallbackOnlyLoader().load(
                 SearchMapSessionContext(
-                    incidentId = "inc-precinct-first-001",
-                    currentOpId = "op-precinct-first-001",
-                    currentDutyShiftId = "shift-precinct-day-001"
+                    incidentId = INCIDENT_ID,
+                    currentOpId = OP_ID,
+                    currentDutyShiftId = DUTY_SHIFT_ID
                 )
             )
 
         assertEquals(SearchLifecycleStatus.Active, state.lifecycleStatus)
-        assertEquals("inc-precinct-first-001", state.incidentTitle)
-        assertEquals("OP op-precinct-first-001", state.opLabel)
-        assertEquals("DutyShift shift-precinct-day-001", state.dutyShiftLabel)
+        assertEquals(INCIDENT_ID, state.incidentTitle)
+        assertEquals("OP $OP_ID", state.opLabel)
+        assertEquals("DutyShift $DUTY_SHIFT_ID", state.dutyShiftLabel)
         assertTrue(state.canWritePath)
         assertTrue(state.canCreateMarker)
         assertFalse(state.visibleText().any { it.contains("광주 북구 산악 실종") })
@@ -46,14 +55,14 @@ class SearchMapStateLoaderTest {
         val loader =
             SearchMapStateLoader(
                 incidentDetail = { incidentId ->
-                    assertEquals("inc-precinct-first-001", incidentId)
+                    assertEquals(INCIDENT_ID, incidentId)
                     SuriMapApiResponse(
                         statusCode = 200,
                         body =
                         """
                         {
-                          "id": "inc-precinct-first-001",
-                          "incidentId": "inc-precinct-first-001",
+                          "id": "$INCIDENT_ID",
+                          "incidentId": "$INCIDENT_ID",
                           "title": "광주 북구 산악 실종",
                           "status": "OPEN",
                           "version": 8,
@@ -74,9 +83,9 @@ class SearchMapStateLoaderTest {
         val state =
             loader.load(
                 SearchMapSessionContext(
-                    incidentId = "inc-precinct-first-001",
-                    currentOpId = "op-precinct-first-001",
-                    currentDutyShiftId = "shift-precinct-day-001"
+                    incidentId = INCIDENT_ID,
+                    currentOpId = OP_ID,
+                    currentDutyShiftId = DUTY_SHIFT_ID
                 )
             )
 
@@ -100,13 +109,13 @@ class SearchMapStateLoaderTest {
         val state =
             loader.load(
                 SearchMapSessionContext(
-                    incidentId = "inc-precinct-first-001",
+                    incidentId = INCIDENT_ID,
                     currentOpId = null,
                     currentDutyShiftId = null
                 )
             )
 
-        assertEquals("inc-precinct-first-001", state.incidentTitle)
+        assertEquals(INCIDENT_ID, state.incidentTitle)
         assertEquals(SearchLifecycleStatus.OpRequired, state.lifecycleStatus)
         assertFalse(state.canCreateMarker)
     }
@@ -119,8 +128,8 @@ class SearchMapStateLoaderTest {
                 overallSearchArea = { notFoundResponse() },
                 opSearchAreas = { _, _ -> notFoundResponse() },
                 outboxSummary = { incidentId, policePhoneId ->
-                    assertEquals("inc-precinct-first-001", incidentId)
-                    assertEquals("phone-precinct-001", policePhoneId)
+                    assertEquals(INCIDENT_ID, incidentId)
+                    assertEquals(POLICE_PHONE_ID, policePhoneId)
                     OutboxStatusSummary(
                         pendingCount = 2,
                         retryableCount = 1,
@@ -134,10 +143,10 @@ class SearchMapStateLoaderTest {
         val state =
             loader.load(
                 SearchMapSessionContext(
-                    incidentId = "inc-precinct-first-001",
-                    currentOpId = "op-precinct-first-001",
-                    currentDutyShiftId = "shift-precinct-day-001",
-                    policePhoneId = "phone-precinct-001"
+                    incidentId = INCIDENT_ID,
+                    currentOpId = OP_ID,
+                    currentDutyShiftId = DUTY_SHIFT_ID,
+                    policePhoneId = POLICE_PHONE_ID
                 )
             )
 
@@ -167,14 +176,14 @@ class SearchMapStateLoaderTest {
             SearchMapStateLoader(
                 incidentDetail = { SuriMapApiResponse(statusCode = 404, body = null, errorCode = null) },
                 overallSearchArea = { incidentId ->
-                    assertEquals("inc-precinct-first-001", incidentId)
+                    assertEquals(INCIDENT_ID, incidentId)
                     SuriMapApiResponse(
                         statusCode = 200,
                         body =
                         """
                         {
-                          "id": "area-overall-001",
-                          "incidentId": "inc-precinct-first-001",
+                          "id": "$OVERALL_AREA_ID",
+                          "incidentId": "$INCIDENT_ID",
                           "areaLevel": "OVERALL",
                           "status": "ACTIVE",
                           "version": 3,
@@ -189,9 +198,9 @@ class SearchMapStateLoaderTest {
         val state =
             loader.load(
                 SearchMapSessionContext(
-                    incidentId = "inc-precinct-first-001",
-                    currentOpId = "op-precinct-first-001",
-                    currentDutyShiftId = "shift-precinct-day-001"
+                    incidentId = INCIDENT_ID,
+                    currentOpId = OP_ID,
+                    currentDutyShiftId = DUTY_SHIFT_ID
                 )
             )
 
@@ -235,8 +244,8 @@ class SearchMapStateLoaderTest {
                         body =
                         """
                         {
-                          "id": "area-overall-001",
-                          "incidentId": "inc-precinct-first-001",
+                          "id": "$OVERALL_AREA_ID",
+                          "incidentId": "$INCIDENT_ID",
                           "status": "ACTIVE",
                           "geometry": $areaGeometry
                         }
@@ -245,19 +254,19 @@ class SearchMapStateLoaderTest {
                     )
                 },
                 opSearchAreas = { incidentId, opId ->
-                    assertEquals("inc-precinct-first-001", incidentId)
-                    assertEquals("op-precinct-first-001", opId)
+                    assertEquals(INCIDENT_ID, incidentId)
+                    assertEquals(OP_ID, opId)
                     SuriMapApiResponse(
                         statusCode = 200,
                         body =
                         """
                         {
-                          "incidentId": "inc-precinct-first-001",
+                          "incidentId": "$INCIDENT_ID",
                           "sourceVersion": 9,
                           "areas": [
                             {
-                              "id": "area-unit-001",
-                              "opId": "op-precinct-first-001",
+                              "id": "$UNIT_AREA_ID",
+                              "opId": "$OP_ID",
                               "areaLevel": "UNIT",
                               "name": "기동대 1부대",
                               "status": "ACTIVE",
@@ -265,9 +274,9 @@ class SearchMapStateLoaderTest {
                               "geometry": $areaGeometry
                             },
                             {
-                              "id": "area-team-001",
-                              "opId": "op-precinct-first-001",
-                              "parentAreaId": "area-unit-001",
+                              "id": "$TEAM_AREA_ID",
+                              "opId": "$OP_ID",
+                              "parentAreaId": "$UNIT_AREA_ID",
                               "areaLevel": "TEAM",
                               "name": "A팀 담당 구역",
                               "status": "ACTIVE",
@@ -285,9 +294,9 @@ class SearchMapStateLoaderTest {
         val state =
             loader.load(
                 SearchMapSessionContext(
-                    incidentId = "inc-precinct-first-001",
-                    currentOpId = "op-precinct-first-001",
-                    currentDutyShiftId = "shift-precinct-day-001"
+                    incidentId = INCIDENT_ID,
+                    currentOpId = OP_ID,
+                    currentDutyShiftId = DUTY_SHIFT_ID
                 )
             )
 
@@ -295,11 +304,11 @@ class SearchMapStateLoaderTest {
         assertEquals(SearchLayerKind.Overall, state.layers[0].kind)
         assertEquals(SearchLayerKind.Unit, state.layers[1].kind)
         assertEquals("기동대 1부대", state.layers[1].label)
-        assertEquals("area-unit-001", state.layers[1].overlayId)
+        assertEquals(UNIT_AREA_ID, state.layers[1].overlayId)
         assertTrue(state.layers[1].geoJson!!.contains("\"Polygon\""))
         assertEquals(SearchLayerKind.Team, state.layers[2].kind)
         assertEquals("A팀 담당 구역", state.layers[2].label)
-        assertEquals("area-team-001", state.layers[2].overlayId)
+        assertEquals(TEAM_AREA_ID, state.layers[2].overlayId)
         assertTrue(state.layers[2].highlighted)
     }
 
@@ -338,8 +347,8 @@ class SearchMapStateLoaderTest {
                         body =
                         """
                         {
-                          "id": "area-overall-001",
-                          "incidentId": "inc-precinct-first-001",
+                          "id": "$OVERALL_AREA_ID",
+                          "incidentId": "$INCIDENT_ID",
                           "status": "ACTIVE",
                           "geometry": $areaGeometry
                         }
@@ -355,8 +364,8 @@ class SearchMapStateLoaderTest {
                         {
                           "areas": [
                             {
-                              "id": "area-team-001",
-                              "opId": "op-precinct-first-001",
+                              "id": "$TEAM_AREA_ID",
+                              "opId": "$OP_ID",
                               "areaLevel": "TEAM",
                               "name": "A팀 담당 구역",
                               "status": "ACTIVE",
@@ -369,9 +378,9 @@ class SearchMapStateLoaderTest {
                     )
                 },
                 searchPaths = { query ->
-                    assertEquals("inc-precinct-first-001", query.incidentId)
-                    assertEquals("op-precinct-first-001", query.opId)
-                    assertEquals("phone-precinct-001", query.policePhoneId)
+                    assertEquals(INCIDENT_ID, query.incidentId)
+                    assertEquals(OP_ID, query.opId)
+                    assertEquals(POLICE_PHONE_ID, query.policePhoneId)
                     assertEquals(true, query.includeGeometry)
                     assertEquals("RENDER_SIMPLIFIED", query.geometryMode)
                     assertEquals("startedAtAsc", query.sort)
@@ -383,12 +392,12 @@ class SearchMapStateLoaderTest {
                         {
                           "paths": [
                             {
-                              "id": "path-001",
-                              "status": "ACTIVE",
+                              "id": "$PATH_ID",
+                              "status": "RECORDING",
                               "version": 12,
-                              "incidentId": "inc-precinct-first-001",
-                              "opId": "op-precinct-first-001",
-                              "policePhoneId": "phone-precinct-001",
+                              "incidentId": "$INCIDENT_ID",
+                              "opId": "$OP_ID",
+                              "policePhoneId": "$POLICE_PHONE_ID",
                               "geometryMode": "RENDER_SIMPLIFIED",
                               "geometry": $pathGeometry
                             }
@@ -403,10 +412,10 @@ class SearchMapStateLoaderTest {
         val state =
             loader.load(
                 SearchMapSessionContext(
-                    incidentId = "inc-precinct-first-001",
-                    currentOpId = "op-precinct-first-001",
-                    currentDutyShiftId = "shift-precinct-day-001",
-                    policePhoneId = "phone-precinct-001"
+                    incidentId = INCIDENT_ID,
+                    currentOpId = OP_ID,
+                    currentDutyShiftId = DUTY_SHIFT_ID,
+                    policePhoneId = POLICE_PHONE_ID
                 )
             )
 
@@ -414,7 +423,7 @@ class SearchMapStateLoaderTest {
         assertEquals(SearchLayerKind.Team, state.layers[1].kind)
         assertEquals(SearchLayerKind.Path, state.layers[2].kind)
         assertEquals("현재 경로", state.layers[2].label)
-        assertEquals("path-001", state.layers[2].overlayId)
+        assertEquals(PATH_ID, state.layers[2].overlayId)
         assertTrue(state.layers[2].highlighted)
         assertTrue(state.layers[2].geoJson!!.contains("\"LineString\""))
         assertEquals("경로 1개 표시", state.movementSummary)
@@ -437,9 +446,9 @@ class SearchMapStateLoaderTest {
         val state =
             loader.load(
                 SearchMapSessionContext(
-                    incidentId = "inc-precinct-first-001",
-                    currentOpId = "op-precinct-first-001",
-                    currentDutyShiftId = "shift-precinct-day-001",
+                    incidentId = INCIDENT_ID,
+                    currentOpId = OP_ID,
+                    currentDutyShiftId = DUTY_SHIFT_ID,
                     policePhoneId = null
                 )
             )
@@ -469,7 +478,7 @@ class SearchMapStateLoaderTest {
                 overallSearchArea = {
                     SuriMapApiResponse(
                         statusCode = 200,
-                        body = """{"id":"area-overall-001","geometry":$areaGeometry}""",
+                        body = """{"id":"$OVERALL_AREA_ID","geometry":$areaGeometry}""",
                         errorCode = null
                     )
                 },
@@ -486,10 +495,10 @@ class SearchMapStateLoaderTest {
         val state =
             loader.load(
                 SearchMapSessionContext(
-                    incidentId = "inc-precinct-first-001",
-                    currentOpId = "op-precinct-first-001",
-                    currentDutyShiftId = "shift-precinct-day-001",
-                    policePhoneId = "phone-precinct-001"
+                    incidentId = INCIDENT_ID,
+                    currentOpId = OP_ID,
+                    currentDutyShiftId = DUTY_SHIFT_ID,
+                    policePhoneId = POLICE_PHONE_ID
                 )
             )
 
@@ -530,7 +539,7 @@ class SearchMapStateLoaderTest {
                         {
                           "paths": [
                             {
-                              "id": "path-001",
+                              "id": "$PATH_ID",
                               "status": "ACTIVE",
                               "geometry": $pathGeometry
                             }
@@ -541,21 +550,21 @@ class SearchMapStateLoaderTest {
                     )
                 },
                 initialMarkers = { incidentId, policePhoneId ->
-                    assertEquals("inc-precinct-first-001", incidentId)
-                    assertEquals("phone-precinct-001", policePhoneId)
+                    assertEquals(INCIDENT_ID, incidentId)
+                    assertEquals(POLICE_PHONE_ID, policePhoneId)
                     SuriMapApiResponse(
                         statusCode = 200,
                         body =
                         """
                         {
                           "manifestId": "manifest-001",
-                          "incidentId": "inc-precinct-first-001",
+                          "incidentId": "$INCIDENT_ID",
                           "manifestVersion": 7,
                           "initialMarkers": [
                             {
-                              "id": "mk-clue-001",
-                              "incidentId": "inc-precinct-first-001",
-                              "opId": "op-precinct-first-001",
+                              "id": "$MARKER_ID",
+                              "incidentId": "$INCIDENT_ID",
+                              "opId": "$OP_ID",
                               "type": "CLUE",
                               "status": "ACTIVE",
                               "version": 3,
@@ -573,19 +582,136 @@ class SearchMapStateLoaderTest {
         val state =
             loader.load(
                 SearchMapSessionContext(
-                    incidentId = "inc-precinct-first-001",
-                    currentOpId = "op-precinct-first-001",
-                    currentDutyShiftId = "shift-precinct-day-001",
-                    policePhoneId = "phone-precinct-001"
+                    incidentId = INCIDENT_ID,
+                    currentOpId = OP_ID,
+                    currentDutyShiftId = DUTY_SHIFT_ID,
+                    policePhoneId = POLICE_PHONE_ID
                 )
             )
 
         assertEquals(SearchLayerKind.Path, state.layers[2].kind)
         assertEquals(SearchLayerKind.Marker, state.layers[3].kind)
         assertEquals("단서", state.layers[3].label)
-        assertEquals("mk-clue-001", state.layers[3].overlayId)
+        assertEquals(MARKER_ID, state.layers[3].overlayId)
         assertTrue(state.layers[3].highlighted)
         assertTrue(state.layers[3].geoJson!!.contains("\"Point\""))
+    }
+
+    @Test
+    fun liveMarkerReadMapsToMarkerOverlaysAndSkipsInitialManifestFallback() = runBlocking {
+        var initialMarkersCalled = false
+        val markerLocation =
+            """
+            {
+              "type": "Point",
+              "coordinates": [126.916000, 37.516000]
+            }
+            """.trimIndent()
+        val loader =
+            SearchMapStateLoader(
+                incidentDetail = { notFoundResponse() },
+                overallSearchArea = { notFoundResponse() },
+                opSearchAreas = { _, _ -> notFoundResponse() },
+                searchPaths = { notFoundResponse() },
+                liveMarkers = { query: MarkerReadQuery ->
+                    assertEquals(INCIDENT_ID, query.incidentId)
+                    assertEquals(OP_ID, query.opId)
+                    SuriMapApiResponse(
+                        statusCode = 200,
+                        body =
+                        """
+                        {
+                          "incidentId": "$INCIDENT_ID",
+                          "markers": [
+                            {
+                              "id": "$MARKER_ID",
+                              "incidentId": "$INCIDENT_ID",
+                              "opId": "$OP_ID",
+                              "type": "CLUE",
+                              "status": "UPDATED",
+                              "version": 5,
+                              "location": $markerLocation,
+                              "memo": "서버 최신 마커"
+                            }
+                          ]
+                        }
+                        """.trimIndent(),
+                        errorCode = null
+                    )
+                },
+                initialMarkers = { _, _ ->
+                    initialMarkersCalled = true
+                    notFoundResponse()
+                }
+            )
+
+        val state =
+            loader.load(
+                SearchMapSessionContext(
+                    incidentId = INCIDENT_ID,
+                    currentOpId = OP_ID,
+                    currentDutyShiftId = DUTY_SHIFT_ID,
+                    policePhoneId = POLICE_PHONE_ID
+                )
+            )
+
+        val marker = state.layers.single { it.kind == SearchLayerKind.Marker }
+        assertFalse(initialMarkersCalled)
+        assertEquals("단서", marker.label)
+        assertEquals(MARKER_ID, marker.overlayId)
+        assertTrue(marker.highlighted)
+        assertTrue(marker.geoJson!!.contains("126.916"))
+        assertTrue(marker.geoJson!!.contains("37.516"))
+    }
+
+    @Test
+    fun pendingLocalMarkersRenderBeforeServerReplay() = runBlocking {
+        val loader =
+            SearchMapStateLoader(
+                incidentDetail = { notFoundResponse() },
+                overallSearchArea = { notFoundResponse() },
+                opSearchAreas = { _, _ -> notFoundResponse() },
+                searchPaths = { notFoundResponse() },
+                initialMarkers = { _, _ -> notFoundResponse() },
+                pendingMarkers = { incidentId, policePhoneId ->
+                    assertEquals(INCIDENT_ID, incidentId)
+                    assertEquals(POLICE_PHONE_ID, policePhoneId)
+                    listOf(
+                        LocalMarkerEntity(
+                            localMarkerId = MARKER_ID,
+                            outboxId = "outbox-marker-001",
+                            operationId = "22222222-2222-4222-8222-222222222001",
+                            incidentId = INCIDENT_ID,
+                            opId = OP_ID,
+                            policePhoneId = POLICE_PHONE_ID,
+                            type = "CLUE",
+                            supportRequestType = null,
+                            memo = "수동 조정 좌표",
+                            lon = 126.970321,
+                            lat = 37.580321,
+                            syncStatus = "PENDING_SEND",
+                            createdAtMillis = 1_000L,
+                            updatedAtMillis = 1_000L
+                        )
+                    )
+                }
+            )
+
+        val state =
+            loader.load(
+                SearchMapSessionContext(
+                    incidentId = INCIDENT_ID,
+                    currentOpId = OP_ID,
+                    currentDutyShiftId = DUTY_SHIFT_ID,
+                    policePhoneId = POLICE_PHONE_ID
+                )
+            )
+
+        val marker = state.layers.single { it.kind == SearchLayerKind.Marker }
+        assertEquals("단서 · 전송 대기", marker.label)
+        assertEquals(MARKER_ID, marker.overlayId)
+        assertTrue(marker.highlighted)
+        assertTrue(marker.geoJson!!.contains("[126.970321,37.580321]"))
     }
 
     @Test
@@ -605,9 +731,9 @@ class SearchMapStateLoaderTest {
 
         loader.load(
             SearchMapSessionContext(
-                incidentId = "inc-precinct-first-001",
-                currentOpId = "op-precinct-first-001",
-                currentDutyShiftId = "shift-precinct-day-001",
+                incidentId = INCIDENT_ID,
+                currentOpId = OP_ID,
+                currentDutyShiftId = DUTY_SHIFT_ID,
                 policePhoneId = null
             )
         )
@@ -633,9 +759,9 @@ class SearchMapStateLoaderTest {
         val state =
             loader.load(
                 SearchMapSessionContext(
-                    incidentId = "inc-precinct-first-001",
-                    currentOpId = "op-precinct-first-001",
-                    currentDutyShiftId = "shift-precinct-day-001"
+                    incidentId = INCIDENT_ID,
+                    currentOpId = OP_ID,
+                    currentDutyShiftId = DUTY_SHIFT_ID
                 )
             )
 
@@ -660,9 +786,9 @@ class SearchMapStateLoaderTest {
         val state =
             loader.load(
                 SearchMapSessionContext(
-                    incidentId = "inc-precinct-first-001",
+                    incidentId = INCIDENT_ID,
                     currentOpId = null,
-                    currentDutyShiftId = "shift-precinct-day-001"
+                    currentDutyShiftId = DUTY_SHIFT_ID
                 )
             )
 
@@ -676,7 +802,7 @@ class SearchMapStateLoaderTest {
         val state =
             fallbackOnlyLoader().load(
                 SearchMapSessionContext(
-                    incidentId = "inc-precinct-first-001",
+                    incidentId = INCIDENT_ID,
                     currentOpId = null,
                     currentDutyShiftId = null
                 )
@@ -706,14 +832,30 @@ class SearchMapStateLoaderTest {
         assertTrue(source.contains("SearchPathRepository"))
         assertTrue(source.contains("listSearchPaths"))
         assertTrue(source.contains("SearchPathLocalRecorder"))
+        assertTrue(source.contains("SearchPathGpsBatchRecorder"))
+        assertTrue(source.contains("AndroidLocationUpdates"))
+        assertTrue(source.contains("recordFix"))
+        assertTrue(source.contains("gpsBatchRecorder.flush"))
+        assertTrue(source.contains("gpsBatchRecorder.clear"))
+        assertTrue(source.contains("ClockSyncState"))
+        assertTrue(source.contains("syncClockForIncident"))
+        assertTrue(source.contains("clockOffsetMs = clockSyncState::clockOffsetMs"))
+        assertTrue(source.contains("clockSyncedAt = clockSyncState::clockSyncedAt"))
         assertTrue(source.contains("RoomSyncClient(database.outboxDao(), database.localWriteDraftDao())"))
         assertTrue(source.contains("SearchLifecycleStatus.Stopped"))
         assertFalse(source.contains("onPrimaryLifecycleAction = {}"))
         assertFalse(source.contains("onStopSearch = {}"))
         assertTrue(source.contains("MarkerLocalRecorder"))
+        assertTrue(source.contains("MarkerRepository"))
+        assertTrue(source.contains("listMarkers"))
+        assertTrue(source.contains("onOpenFocusedMarkerDetail"))
+        assertTrue(source.contains("MarkerDetailDeepLink.route(markerId)"))
         assertTrue(source.contains("createMarker"))
         assertTrue(source.contains("MarkerUpsertInput"))
         assertTrue(source.contains("markerCreationLocation"))
+        assertTrue(source.contains("localMarkerDao"))
+        assertTrue(source.contains("toMarkerUpsertInput()"))
+        assertFalse(source.contains("toMarkerUpsertInput(searchMapState.markerCreationLocation())"))
         assertFalse(source.contains("onSave = { markerSheetOpen = false }"))
         assertTrue(source.contains("OfflinePackageRepository"))
         assertTrue(source.contains("initialMarkers"))
@@ -728,4 +870,16 @@ class SearchMapStateLoaderTest {
 
     private fun notFoundResponse(): SuriMapApiResponse =
         SuriMapApiResponse(statusCode = 404, body = null, errorCode = null)
+
+    private companion object {
+        val INCIDENT_ID = incidentIdFixture("precinct-first-001")
+        val OP_ID = opIdFixture("precinct-first-001")
+        val DUTY_SHIFT_ID = dutyShiftIdFixture("precinct-day-001")
+        val POLICE_PHONE_ID = policePhoneIdFixture("precinct-001")
+        val OVERALL_AREA_ID = areaIdFixture("overall-001")
+        val UNIT_AREA_ID = areaIdFixture("unit-001")
+        val TEAM_AREA_ID = areaIdFixture("team-001")
+        val PATH_ID = pathIdFixture("001")
+        val MARKER_ID = markerIdFixture("clue-001")
+    }
 }

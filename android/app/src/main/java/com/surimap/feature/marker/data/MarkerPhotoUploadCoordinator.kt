@@ -1,8 +1,17 @@
 package com.surimap.feature.marker.data
 
+import com.surimap.core.network.AccessTokenProvider
+import com.surimap.core.network.NoAccessTokenProvider
+import com.surimap.core.network.SuriMapApiClient
+import com.surimap.core.network.SuriMapApiRequest
+import com.surimap.core.network.SuriMapNetworkException
 import com.surimap.core.sync.SyncClient
+import com.surimap.core.sync.jsonNumber
+import com.surimap.core.sync.jsonObject
+import com.surimap.core.sync.jsonString
 import java.io.IOException
 import java.net.URI
+import java.net.URLEncoder
 import java.time.Instant
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
@@ -120,7 +129,7 @@ class MarkerPhotoUploadCoordinator(
     clockOffsetMs: () -> Long? = { 0L },
     clockSyncedAt: () -> Instant? = { now() },
     sequenceSource: () -> Long = { System.currentTimeMillis() },
-    idFactory: (String) -> String = { prefix -> "$prefix-${UUID.randomUUID()}" }
+    idFactory: (String) -> String = { _ -> UUID.randomUUID().toString() }
 ) {
     private val recorder =
         MarkerLocalRecorder(
@@ -256,6 +265,87 @@ class MarkerPhotoUploadCoordinator(
     }
 }
 
+class MarkerPhotoUiUploadCoordinator(
+    syncClient: SyncClient,
+    private val apiClient: SuriMapApiClient = SuriMapApiClient(),
+    private val accessTokenProvider: AccessTokenProvider = NoAccessTokenProvider,
+    uploader: ObjectStorageUploader,
+    now: () -> Instant = { Instant.now() },
+    clockOffsetMs: () -> Long? = { 0L },
+    clockSyncedAt: () -> Instant? = { now() },
+    sequenceSource: () -> Long = { System.currentTimeMillis() },
+    idFactory: (String) -> String = { _ -> UUID.randomUUID().toString() }
+) {
+    private val idFactory = idFactory
+    private val coordinator =
+        MarkerPhotoUploadCoordinator(
+            syncClient = syncClient,
+            uploader = uploader,
+            now = now,
+            clockOffsetMs = clockOffsetMs,
+            clockSyncedAt = clockSyncedAt,
+            sequenceSource = sequenceSource,
+            idFactory = idFactory
+        )
+
+    suspend fun upload(
+        context: MarkerWriteContext,
+        payload: MarkerPhotoUploadPayload
+    ): MarkerPhotoUploadResult {
+        if (!context.hasRequiredFields()) {
+            return MarkerPhotoUploadResult.Blocked
+        }
+        val markerId = payload.markerId?.takeIf(String::isNotBlank) ?: return MarkerPhotoUploadResult.Blocked
+        val contentType = payload.contentType?.takeIf(String::isNotBlank) ?: return MarkerPhotoUploadResult.Blocked
+        if (!payload.sizeBytes.isAllowedPhotoSize()) {
+            return MarkerPhotoUploadResult.Blocked
+        }
+        val uploadUrlOperationId = idFactory("op-photo-upload-url")
+
+        val response =
+            try {
+                apiClient.execute(
+                    SuriMapApiRequest(
+                        method = "POST",
+                        path = "/api/markers/${encodePathSegment(markerId)}/photos/upload-url",
+                        body =
+                        jsonObject(
+                            "contentType" to jsonString(contentType),
+                            "sizeBytes" to jsonNumber(payload.sizeBytes),
+                            "checksumSha256" to payload.checksumSha256?.takeIf(String::isNotBlank)?.let(::jsonString)
+                        ),
+                        accessToken = accessTokenProvider.accessToken(),
+                        policePhoneId = context.policePhoneId,
+                        idempotencyKey = "idem-$uploadUrlOperationId"
+                    )
+                )
+            } catch (exception: SuriMapNetworkException) {
+                return MarkerPhotoUploadResult.UploadFailed("network_error")
+            }
+        if (!response.isSuccessful) {
+            return MarkerPhotoUploadResult.UploadFailed(response.errorCode ?: "http_${response.statusCode}")
+        }
+        val uploadUrlResponse =
+            MarkerPhotoUploadUrlResponseInput.fromJson(markerId = markerId, body = response.body)
+                ?: return MarkerPhotoUploadResult.UploadFailed("invalid_upload_url_response")
+        return coordinator.uploadObjectAndAttach(
+            context = context,
+            response = uploadUrlResponse,
+            payload = payload,
+            parentOperationId = uploadUrlOperationId
+        )
+    }
+
+    private fun MarkerWriteContext.hasRequiredFields(): Boolean =
+        !incidentId.isNullOrBlank() && !opId.isNullOrBlank() && !policePhoneId.isNullOrBlank()
+
+    private fun Long.isAllowedPhotoSize(): Boolean = this in 1..MAX_PHOTO_BYTES
+
+    private companion object {
+        const val MAX_PHOTO_BYTES = 10_485_760L
+    }
+}
+
 private fun String.stringField(name: String): String? =
     JSON_STRING_FIELD.format(name).find(this)?.groupValues?.get(1)?.takeIf(String::isNotBlank)
 
@@ -263,3 +353,6 @@ private fun String.longField(name: String): Long? =
     JSON_LONG_FIELD.format(name).find(this)?.groupValues?.get(1)?.toLongOrNull()
 
 private fun Regex.format(fieldName: String): Regex = Regex(pattern.format(Regex.escape(fieldName)))
+
+private fun encodePathSegment(value: String): String =
+    URLEncoder.encode(value, Charsets.UTF_8.toString()).replace("+", "%20")

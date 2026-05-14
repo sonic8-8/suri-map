@@ -244,7 +244,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Headers: `Authorization`, `Idempotency-Key`, `X-PolicePhone-Id`
 - Guard: `app-police-phone`, `incident-read`, `write-common`, `@RequireCurrentOp`
 - Idempotency-Key: yes
-- Request: `incidentId`, `opId`, `clientTs`, optional `clockOffsetMs`
+- Request: `incidentId`, `opId`, `clientTs`, optional `searchPathId`, `clockOffsetMs`
 - Response: `201 {id, incidentId, opId, policePhoneId, version, status}`
 - Errors: `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`, `op_required`, `op_mismatch`
 
@@ -347,6 +347,19 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Note: Android product client는 EventSource를 만들지 않고 FCM data message와 REST/Outbox 복구 경로를 사용한다.
 
 ### 4.6 Marker / Photo
+
+#### GET `/api/markers`
+
+- Owner: S5
+- Source spec: `GET /markers`
+- Consumer: APP, WEB, S3-2
+- Headers: `Authorization`
+- Guard: `public-session`, `incident-read`, `@RecordLocationAccess`
+- Idempotency-Key: no
+- Request: query `incidentId`, optional `opId`, `type`, `status`
+- Response: `200 {incidentId, markers:[{id, incidentId, opId, accountId, policePhoneId, type, supportRequestType, source, status, version, location, memo, occurredAt, photoSummary:[{photoId, status, version, contentType, sizeBytes, attachedAt}]}]}`
+- Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`
+- Note: 기본 조회는 `ACTIVE`, `UPDATED` marker만 반환한다. `photoSummary`는 `ATTACHED` 사진만 `attachedAt` 오름차순으로 포함한다.
 
 #### POST `/api/markers`
 
@@ -633,6 +646,7 @@ Tileserver는 Spring Boot JSON API가 아니므로 `/api` prefix를 붙이지 �
 | `PATCH /search-path-segments/{segmentId}` | path variable 축약 | `PATCH /api/search-path-segments/{searchPathSegmentId}` |
 | `POST /search-paths/batch` | `/api` prefix 없음 | `POST /api/search-paths/batch` |
 | `GET /events?incidentId={incidentId}` | 필수 사건 scope가 query string에 있음 | `GET /api/incidents/{incidentId}/events` |
+| `GET /markers` | `/api` prefix 없음 | `GET /api/markers` |
 | `POST /markers/{markerId}/photos/upload-url` | `/api` prefix 없음 | `POST /api/markers/{markerId}/photos/upload-url` |
 | `POST /markers/{markerId}/photos/presign` | S5 기준 용어가 아님 | `POST /api/markers/{markerId}/photos/upload-url` |
 | `POST /markers/{markerId}/photos/{photoId}/attach` | `/api` prefix 없음 | `POST /api/markers/{markerId}/photos/{photoId}/attach` |

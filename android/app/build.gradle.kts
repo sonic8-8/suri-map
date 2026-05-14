@@ -3,6 +3,33 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.google.services) apply false
+}
+
+fun String.quotedBuildConfig(): String =
+    "\"" + replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+
+val fixtureAccountCode = providers
+    .gradleProperty("suriMapFixtureAccountCode")
+    .orElse("acct-precinct-team")
+    .get()
+val fixturePassword = providers
+    .gradleProperty("suriMapFixturePassword")
+    .orElse("fixture")
+    .get()
+val fixturePolicePhoneCode = providers
+    .gradleProperty("suriMapFixturePolicePhoneCode")
+    .orElse("dev-precinct-phone-01")
+    .get()
+val debugApiBaseUrl = providers
+    .gradleProperty("suriMapDebugApiBaseUrl")
+    .orElse(providers.gradleProperty("suriMapApiBaseUrl"))
+    .orElse("http://127.0.0.1:8080")
+    .get()
+val hasGoogleServicesJson = layout.projectDirectory.file("google-services.json").asFile.exists()
+
+if (hasGoogleServicesJson) {
+    apply(plugin = "com.google.gms.google-services")
 }
 
 ksp {
@@ -28,9 +55,20 @@ android {
             .orElse("http://10.0.2.2:8080")
             .get()
         buildConfigField("String", "SURI_MAP_API_BASE_URL", "\"$suriMapApiBaseUrl\"")
+        buildConfigField("boolean", "SURI_MAP_FIREBASE_MESSAGING_ENABLED", hasGoogleServicesJson.toString())
+
+        buildConfigField("String", "SURI_MAP_FIXTURE_ACCOUNT_CODE", "\"\"")
+        buildConfigField("String", "SURI_MAP_FIXTURE_PASSWORD", "\"\"")
+        buildConfigField("String", "SURI_MAP_FIXTURE_POLICE_PHONE_CODE", "\"\"")
     }
 
     buildTypes {
+        debug {
+            buildConfigField("String", "SURI_MAP_API_BASE_URL", debugApiBaseUrl.quotedBuildConfig())
+            buildConfigField("String", "SURI_MAP_FIXTURE_ACCOUNT_CODE", fixtureAccountCode.quotedBuildConfig())
+            buildConfigField("String", "SURI_MAP_FIXTURE_PASSWORD", fixturePassword.quotedBuildConfig())
+            buildConfigField("String", "SURI_MAP_FIXTURE_POLICE_PHONE_CODE", fixturePolicePhoneCode.quotedBuildConfig())
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
@@ -84,6 +122,8 @@ dependencies {
     ksp(libs.androidx.room.compiler)
 
     implementation(libs.androidx.work.runtime.ktx)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
     implementation(libs.maplibre.android)
     implementation(libs.okhttp)
 

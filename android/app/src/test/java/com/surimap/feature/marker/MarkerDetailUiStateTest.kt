@@ -13,6 +13,7 @@ class MarkerDetailUiStateTest {
         val own = MarkerDetailUiState.ownMarker()
 
         assertTrue(own.canEdit)
+        assertTrue(own.canSave)
         assertTrue(own.canDelete)
         assertTrue(own.visibleText().any { it.contains("저장") })
         assertTrue(own.visibleText().any { it.contains("삭제") })
@@ -28,6 +29,18 @@ class MarkerDetailUiStateTest {
         assertTrue(readonly.visibleText().any { it.contains("읽기 전용") })
         assertFalse(readonly.visibleText().any { it == "저장" })
         assertFalse(readonly.visibleText().any { it == "삭제" })
+    }
+
+    @Test
+    fun unavailableMarkerDisablesMutationActionsAndShowsFailureStatus() {
+        val unavailable = MarkerDetailUiState.unavailable("missing-marker")
+
+        assertFalse(unavailable.canEdit)
+        assertFalse(unavailable.canSave)
+        assertFalse(unavailable.canDelete)
+        assertTrue(unavailable.visibleText().any { it.contains("읽기 전용") })
+        assertTrue(unavailable.visibleText().any { it.contains("조회 실패") })
+        assertTrue(unavailable.visibleText().any { it.contains("저장 실패") })
     }
 
     @Test

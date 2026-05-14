@@ -6,6 +6,8 @@ import com.surimap.feature.marker.ui.MarkerPhotoStage
 import com.surimap.feature.marker.ui.MarkerSaveStatus
 import com.surimap.feature.marker.ui.MarkerType
 import com.surimap.feature.marker.ui.SupportRequestType
+import com.surimap.feature.marker.ui.withCurrentLocation
+import com.surimap.feature.marker.ui.withManualLocation
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -38,6 +40,29 @@ class MarkerCreateSheetUiStateTest {
         assertTrue(support.canSave)
         assertEquals("type", support.markerTypePayloadName)
         assertEquals("supportRequestType", support.supportRequestPayloadName)
+    }
+
+    @Test
+    fun manualLocationAdjustmentKeepsChosenPointForMarkerPayload() {
+        val state =
+            MarkerCreateSheetUiState.default(selectedType = MarkerType.CLUE)
+                .withCurrentLocation(lon = 126.970100, lat = 37.580100)
+                .withManualLocation(lon = 126.970321, lat = 37.580321)
+
+        assertTrue(state.manualLocationAdjusted)
+        assertEquals("location", state.locationPayloadName)
+        assertEquals(126.970321, state.selectedLocation!!.lon, 0.0)
+        assertEquals(37.580321, state.selectedLocation.lat, 0.0)
+        assertEquals("수동 조정 · 37.580321, 126.970321", state.locationLabel)
+        assertTrue(state.visibleText().any { it.contains("수동 조정") })
+    }
+
+    @Test
+    fun missingLocationBlocksSaveBecauseLocationIsRequiredMarkerField() {
+        val state = MarkerCreateSheetUiState.default().copy(selectedLocation = null)
+
+        assertFalse(state.selectedLocationIsValid)
+        assertFalse(state.canSave)
     }
 
     @Test

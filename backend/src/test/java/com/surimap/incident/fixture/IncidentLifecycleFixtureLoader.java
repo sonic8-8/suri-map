@@ -40,6 +40,7 @@ public final class IncidentLifecycleFixtureLoader {
       values.add(
           new IncidentLifecycleFixtureStates.FailureCategoryRow(
               requiredText(row, "operationId"),
+              requiredText(row, "operationAlias"),
               requiredText(row, "lastError"),
               requiredText(row, "userSafeFailureCategory"),
               requiredBoolean(row, "retryable")));

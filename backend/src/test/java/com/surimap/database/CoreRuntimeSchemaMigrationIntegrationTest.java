@@ -58,6 +58,8 @@ class CoreRuntimeSchemaMigrationIntegrationTest {
         assertColumnType(connection, "police_phone", "id", "uuid");
         assertColumnType(connection, "police_phone", "account_id", "uuid");
         assertColumnType(connection, "police_phone", "registered", "bool");
+        assertColumnType(connection, "police_phone", "heartbeat_sequence", "int8");
+        assertColumnType(connection, "police_phone", "last_heartbeat_event_id", "uuid");
         assertColumnType(connection, "police_phone", "version", "int8");
         assertColumnType(connection, "refresh_token", "account_id", "uuid");
         assertColumnType(connection, "fcm_token", "police_phone_id", "uuid");
@@ -100,6 +102,69 @@ class CoreRuntimeSchemaMigrationIntegrationTest {
         assertIndexExists(connection, "search_path", "idx_search_path_geom");
         assertIndexExists(connection, "search_path_segment", "idx_search_path_segment_geom");
         assertIndexExists(connection, "idempotency_record", "ux_idempotency_record_key_path_method");
+      }
+    }
+  }
+
+  @Test
+  @DisplayName("incident source_incident_id migration normalizes legacy smoke alias before UUID cast")
+  void incidentSourceIncidentIdMigrationNormalizesLegacySmokeAlias() throws Exception {
+    try (PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>(POSTGIS_IMAGE)) {
+      postgres.start();
+
+      Flyway.configure()
+          .dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
+          .locations("classpath:db/migration")
+          .target("20260513.006")
+          .load()
+          .migrate();
+
+      try (Connection connection =
+          DriverManager.getConnection(
+              postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())) {
+        try (var statement = connection.createStatement()) {
+          statement.executeUpdate(
+              """
+              INSERT INTO incident (
+                  id, source_incident_id, title, status, opened_at,
+                  version, created_at, updated_at
+              )
+              VALUES (
+                  '10000000-0000-4000-8000-000000000001',
+                  'smoke-incident-001',
+                  'Smoke incident',
+                  'OPEN',
+                  CURRENT_TIMESTAMP,
+                  1,
+                  CURRENT_TIMESTAMP,
+                  CURRENT_TIMESTAMP
+              )
+              """);
+        }
+      }
+
+      Flyway.configure()
+          .dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
+          .locations("classpath:db/migration")
+          .load()
+          .migrate();
+
+      try (Connection connection =
+          DriverManager.getConnection(
+              postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())) {
+        assertColumnType(connection, "incident", "source_incident_id", "uuid");
+        try (var statement =
+            connection.prepareStatement(
+                """
+                SELECT source_incident_id::text
+                FROM incident
+                WHERE id = '10000000-0000-4000-8000-000000000001'::uuid
+                """)) {
+          try (ResultSet result = statement.executeQuery()) {
+            assertThat(result.next()).isTrue();
+            assertThat(result.getString(1)).isEqualTo("00000000-0000-0000-0000-000000000001");
+          }
+        }
       }
     }
   }
