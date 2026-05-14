@@ -267,6 +267,7 @@ class OfflinePackageManifestSourceIntegrationTest {
             OP_ID,
             OVERALL_AREA_ID,
             "ACTIVE",
+            "TEAM",
             6L,
             polygon(
                 "126.955",
@@ -367,6 +368,7 @@ class OfflinePackageManifestSourceIntegrationTest {
             opId,
             overallAreaId,
             "ACTIVE",
+            "TEAM",
             6L,
             polygon(
                 "126.955",
