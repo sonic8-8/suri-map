@@ -1,7 +1,7 @@
 import { getApiBaseUrl } from '../config';
 import { mockAuthApiClient } from './mockApiClient';
 
-const USE_MOCK_AUTH_API = true; // TODO: 실제 auth API로 돌아갈 때 false로 변경한다.
+const USE_MOCK_AUTH_API = false;
 
 export type ApiErrorBody = {
   error?: string;
@@ -119,7 +119,7 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
       throw new ApiNetworkError(error);
     }
 
-    if (response.status === 401 && !isMockAuthApiMode()) {
+    if (response.status === 401) {
       clearExpiredApiSession();
     }
     return parseResponse<TResponse>(response);
@@ -260,8 +260,17 @@ function isErrorBody(body: unknown): body is { error: string } {
   );
 }
 
-function getStoredAccessToken() {
-  return sessionStorage.getItem('suriMapAccessToken') ?? import.meta.env.VITE_API_ACCESS_TOKEN;
+export function getStoredAccessToken() {
+  const accessToken = sessionStorage.getItem('suriMapAccessToken') ?? import.meta.env.VITE_API_ACCESS_TOKEN;
+  if (!accessToken) {
+    return null;
+  }
+
+  if (!isMockAuthApiMode() && accessToken.startsWith('mock-auth:')) {
+    return null;
+  }
+
+  return accessToken;
 }
 
 function clientForPath(path: string) {

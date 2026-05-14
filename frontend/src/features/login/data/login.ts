@@ -1,5 +1,5 @@
 import { authApi } from '../../auth/api/authApi';
-import { ApiError, ApiHttpError } from '../../../shared/api/client';
+import { ApiError, ApiHttpError, getStoredAccessToken } from '../../../shared/api/client';
 import type { LoginAccount, LoginOrganizationType, LoginRole } from '../presentation/types/login';
 
 const ACCOUNT_DISPLAY_NAMES: Record<string, string> = {
@@ -61,7 +61,7 @@ export async function logoutCurrentSession(): Promise<void> {
 }
 
 export function readStoredLoginAccount(): LoginAccount | null {
-  const accessToken = sessionStorage.getItem('suriMapAccessToken');
+  const accessToken = getStoredAccessToken();
   const sessionId = sessionStorage.getItem('suriMapSessionId');
   const rawAccount = sessionStorage.getItem('suriMapCurrentAccount');
 

@@ -3,6 +3,7 @@ package com.surimap.config;
 import com.surimap.account.security.AuthSessionAuthenticationFilter;
 import com.surimap.account.service.AuthSessionService;
 import com.surimap.common.auth.SuriMapAuthentication;
+import jakarta.servlet.DispatcherType;
 import java.util.List;
 import java.util.function.Supplier;
 import org.springframework.beans.factory.ObjectProvider;
@@ -34,9 +35,12 @@ public class SecurityConfig {
         .cors(Customizer.withDefaults())
         .authorizeHttpRequests(
             auth ->
-                auth.requestMatchers(
+                auth.dispatcherTypeMatchers(DispatcherType.ERROR)
+                    .permitAll()
+                    .requestMatchers(
                         "/api/health",
                         "/api/auth/login",
+                        "/error",
                         "/actuator/health",
                         "/actuator/prometheus")
                     .permitAll()

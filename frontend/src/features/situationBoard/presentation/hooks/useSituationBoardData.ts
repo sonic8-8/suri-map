@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { CompletedAreaDraft } from '../../../../shared/model/areaDraft';
+import { getStoredAccessToken } from '../../../../shared/api/client';
 import type { SituationBoardResponseDto } from '../../data/getSituationBoard';
 import { useIncidentBoardQuery, incidentBoardQueryKeys } from '../../../board/api/incidentBoardApi';
 import { openIncidentBoardEventStream } from '../../../board/api/incidentBoardEventStream';
@@ -64,10 +65,7 @@ export function useSituationBoardData(
     const connect = () => {
       if (cancelled) return;
 
-      const accessToken =
-        sessionStorage.getItem('suriMapAccessToken') ??
-        (import.meta.env.VITE_API_ACCESS_TOKEN as string | undefined) ??
-        undefined;
+      const accessToken = getStoredAccessToken();
 
       const queryKey = incidentBoardQueryKeys.detail({ incidentId });
 

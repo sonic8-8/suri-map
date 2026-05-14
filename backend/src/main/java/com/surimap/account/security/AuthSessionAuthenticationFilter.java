@@ -20,7 +20,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 public class AuthSessionAuthenticationFilter extends OncePerRequestFilter {
 
-  private static final boolean ACCEPT_MOCK_AUTH_TOKEN = true; // TODO: 실제 auth API로 돌아갈 때 false로 변경한다.
+  private static final boolean ACCEPT_MOCK_AUTH_TOKEN = false;
   private static final String MOCK_AUTH_PREFIX = "mock-auth:";
   private static final Map<String, MockAccount> MOCK_ACCOUNTS =
       Map.ofEntries(

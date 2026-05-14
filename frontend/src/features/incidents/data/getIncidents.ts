@@ -1,4 +1,4 @@
-import { ApiError, apiRequest } from '../../../shared/api/client';
+import { ApiError, apiRequest, getStoredAccessToken } from '../../../shared/api/client';
 
 export type IncidentListItemDto = {
   id: string;
@@ -14,7 +14,7 @@ export type IncidentListResponseDto = {
 };
 
 export function getIncidents() {
-  const accessToken = sessionStorage.getItem('suriMapAccessToken') ?? import.meta.env.VITE_API_ACCESS_TOKEN;
+  const accessToken = getStoredAccessToken();
   if (!accessToken) {
     throw new ApiError(401, 'unauthorized');
   }
