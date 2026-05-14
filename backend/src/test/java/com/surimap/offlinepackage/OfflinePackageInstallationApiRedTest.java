@@ -31,7 +31,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 /** L6-T06A RED tests for S7 offline_package_installation API and event publication. */
-@SpringBootTest
+@SpringBootTest(properties = "tileserver.mode=fixture")
 @AutoConfigureMockMvc(addFilters = false)
 @ActiveProfiles("test")
 @DisplayName("L6-T06A offline_package_installation API/event RED")
@@ -52,7 +52,8 @@ class OfflinePackageInstallationApiRedTest {
 
   @Test
   @DisplayName("manifest tileItems expose checksums aligned with local tile fixture blobs")
-  void manifest_tile_items_expose_checksums_aligned_with_local_tile_fixture_blobs() throws Exception {
+  void manifest_tile_items_expose_checksums_aligned_with_local_tile_fixture_blobs()
+      throws Exception {
     String body =
         mockMvc
             .perform(
@@ -223,7 +224,8 @@ class OfflinePackageInstallationApiRedTest {
         .anySatisfy(
             row -> {
               assertThat(row.id()).isEqualTo(OfflinePackageInstallationFixtures.INSTALLATION_ID);
-              assertThat(row.policePhoneId()).isEqualTo(OfflinePackageManifestFixtures.POLICE_PHONE_ID);
+              assertThat(row.policePhoneId())
+                  .isEqualTo(OfflinePackageManifestFixtures.POLICE_PHONE_ID);
             })
         .anySatisfy(
             row -> {

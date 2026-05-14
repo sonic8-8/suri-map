@@ -3,7 +3,9 @@ package com.surimap.offlinepackage.service;
 import com.surimap.offlinepackage.dto.TileBlobResponse;
 import com.surimap.offlinepackage.dto.TileStyleResponse;
 import com.surimap.offlinepackage.exception.TileUnavailableException;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -108,59 +110,83 @@ public class TileserverGlTileService implements TileService {
     if (sources == null || layers == null) {
       throw new TileUnavailableException();
     }
-    String glyphs = glyphUrl(body.get("glyphs"));
-    validateLocalTileSources(sources);
-    return new TileStyleResponse(version.intValue(), sources, layers, metadata, glyphs);
+    String glyphs = normalizeGlyphUrl(body.get("glyphs"));
+    return new TileStyleResponse(
+        version.intValue(), normalizeTileSources(sources), layers, metadata, glyphs);
   }
 
-  private static void validateLocalTileSources(Map<String, ?> sources) {
-    for (Object sourceValue : sources.values()) {
-      if (!(sourceValue instanceof Map<?, ?> source)) {
-        continue;
-      }
-      Object tiles = source.get("tiles");
-      if (!(tiles instanceof List<?> tileUrls)) {
-        continue;
-      }
-      for (Object tileUrl : tileUrls) {
-        if (!(tileUrl instanceof String url) || !url.startsWith("/tiles/")) {
-          throw new TileUnavailableException();
-        }
+  private Map<String, Object> normalizeTileSources(Map<String, ?> sources) {
+    Map<String, Object> normalized = new LinkedHashMap<>();
+    for (Map.Entry<String, ?> entry : sources.entrySet()) {
+      Object sourceValue = entry.getValue();
+      if (sourceValue instanceof Map<?, ?> source) {
+        normalized.put(entry.getKey(), normalizeTileSource(source));
+      } else {
+        normalized.put(entry.getKey(), sourceValue);
       }
     }
+    return normalized;
   }
 
-  private String glyphUrl(Object glyphs) {
+  private Map<String, Object> normalizeTileSource(Map<?, ?> source) {
+    Map<String, Object> normalized = new LinkedHashMap<>();
+    for (Map.Entry<?, ?> entry : source.entrySet()) {
+      if (!(entry.getKey() instanceof String key)) {
+        continue;
+      }
+      Object value = entry.getValue();
+      normalized.put(
+          key,
+          "tiles".equals(key) && value instanceof List<?> tiles ? normalizeTileUrls(tiles) : value);
+    }
+    return normalized;
+  }
+
+  private List<String> normalizeTileUrls(List<?> tiles) {
+    List<String> normalized = new ArrayList<>();
+    for (Object tileUrl : tiles) {
+      if (!(tileUrl instanceof String url)) {
+        throw new TileUnavailableException();
+      }
+      normalized.add(normalizeTileUrl(url));
+    }
+    return normalized;
+  }
+
+  private String normalizeTileUrl(String url) {
+    String value = stripTileserverBaseUrl(url);
+    if (value.startsWith("/tiles/")) {
+      return value;
+    }
+    if (value.startsWith("/data/")) {
+      return "/tiles/" + value.substring("/data/".length());
+    }
+    throw new TileUnavailableException();
+  }
+
+  private String normalizeGlyphUrl(Object glyphs) {
     if (glyphs == null) {
       return null;
     }
     if (!(glyphs instanceof String glyphUrl)) {
       throw new TileUnavailableException();
     }
-    String path = glyphPath(glyphUrl);
-    if (path.startsWith(PUBLIC_GLYPH_PREFIX)) {
-      return path;
+    String value = stripTileserverBaseUrl(glyphUrl);
+    if (value.startsWith(PUBLIC_GLYPH_PREFIX)) {
+      return value;
     }
-    if (path.startsWith(NATIVE_GLYPH_PREFIX)) {
-      return "/tiles" + path;
+    if (value.startsWith(NATIVE_GLYPH_PREFIX)) {
+      return "/tiles" + value;
     }
     throw new TileUnavailableException();
   }
 
-  private String glyphPath(String glyphUrl) {
-    if (glyphUrl.startsWith("http://") || glyphUrl.startsWith("https://")) {
-      String baseUrl = normalizedBaseUrl();
-      if (!glyphUrl.startsWith(baseUrl + "/")) {
-        throw new TileUnavailableException();
-      }
-      int schemeEnd = glyphUrl.indexOf("://") + 3;
-      int pathStart = glyphUrl.indexOf('/', schemeEnd);
-      if (pathStart < 0) {
-        throw new TileUnavailableException();
-      }
-      return glyphUrl.substring(pathStart);
+  private String stripTileserverBaseUrl(String url) {
+    String baseUrl = normalizedBaseUrl();
+    if (!baseUrl.isBlank() && url.startsWith(baseUrl + "/")) {
+      return url.substring(baseUrl.length());
     }
-    return glyphUrl;
+    return url;
   }
 
   private String normalizedBaseUrl() {

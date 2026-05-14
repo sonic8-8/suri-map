@@ -4,6 +4,7 @@ import com.surimap.account.AccountIdentityCatalog;
 import com.surimap.incident.domain.IncidentRecord;
 import com.surimap.incident.domain.MissingPersonRecord;
 import com.surimap.incident.repository.IncidentMapper;
+import com.surimap.maparea.geometry.geojson.GeoJsonPolygon;
 import com.surimap.maparea.query.OverallSearchAreaResult;
 import com.surimap.maparea.query.SearchAreaAssignmentQuery;
 import com.surimap.maparea.query.SearchAreaCollection;
@@ -25,13 +26,17 @@ import com.surimap.offlinepackage.dto.OfflinePackageManifestResponse.OverallSear
 import com.surimap.offlinepackage.dto.OfflinePackageManifestResponse.PackageItem;
 import com.surimap.offlinepackage.dto.OfflinePackageManifestResponse.PolicePhoneContext;
 import com.surimap.offlinepackage.dto.OfflinePackageManifestResponse.TileItem;
+import com.surimap.offlinepackage.dto.TileBlobResponse;
 import com.surimap.offlinepackage.exception.OfflinePackageApiException;
+import com.surimap.offlinepackage.exception.TileUnavailableException;
 import com.surimap.offlinepackage.query.OfflinePackageInstallationStatus;
 import com.surimap.offlinepackage.repository.OfflinePackageInstallationRecord;
 import com.surimap.offlinepackage.repository.OfflinePackageManifestRecord;
 import com.surimap.offlinepackage.repository.OfflinePackageMapper;
 import com.surimap.operationalperiod.query.OperationalPeriodQuery;
 import com.surimap.operationalperiod.query.OperationalPeriodRow;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -50,9 +55,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.zip.GZIPInputStream;
 import org.locationtech.jts.geom.Point;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Repository;
@@ -72,6 +78,9 @@ public class OfflinePackageRepository {
   public static final int INSTALLATION_VERSION = 3;
   public static final int SEQUENCE = 901;
   public static final OffsetDateTime SERVER_TS = OffsetDateTime.parse("2026-04-28T09:00:41+09:00");
+  private static final String TILE_STYLE_ID = "osm-local";
+  private static final int TILE_MIN_Z = 15;
+  private static final int TILE_MAX_Z = 16;
   private static final String INCIDENT_DB_ID = INCIDENT_ID;
   private static final String OP_ALIAS = "op-precinct-001-op1";
   private static final String OP_DB_ID = "88888888-8888-8888-8888-888888880001";
@@ -123,15 +132,21 @@ public class OfflinePackageRepository {
   private final SearchAreaQuery searchAreaQuery;
   private final SearchAreaAssignmentQuery assignmentQuery;
   private final MarkerQuery markerQuery;
+  private final TileService tileService;
 
   public OfflinePackageRepository(OfflinePackageMapper mapper) {
+    this(mapper, new LocalTileService());
+  }
+
+  public OfflinePackageRepository(OfflinePackageMapper mapper, TileService tileService) {
     this(
         mapper,
         (IncidentMapper) null,
         (OperationalPeriodQuery) null,
         (SearchAreaQuery) null,
         (SearchAreaAssignmentQuery) null,
-        (MarkerQuery) null);
+        (MarkerQuery) null,
+        tileService);
   }
 
   @Autowired
@@ -141,14 +156,16 @@ public class OfflinePackageRepository {
       ObjectProvider<OperationalPeriodQuery> operationalPeriodQuery,
       ObjectProvider<SearchAreaQuery> searchAreaQuery,
       ObjectProvider<SearchAreaAssignmentQuery> assignmentQuery,
-      ObjectProvider<MarkerQuery> markerQuery) {
+      ObjectProvider<MarkerQuery> markerQuery,
+      ObjectProvider<TileService> tileService) {
     this(
         mapper,
         incidentMapper == null ? null : incidentMapper.getIfAvailable(),
         operationalPeriodQuery == null ? null : operationalPeriodQuery.getIfAvailable(),
         searchAreaQuery == null ? null : searchAreaQuery.getIfAvailable(),
         assignmentQuery == null ? null : assignmentQuery.getIfAvailable(),
-        markerQuery == null ? null : markerQuery.getIfAvailable());
+        markerQuery == null ? null : markerQuery.getIfAvailable(),
+        tileService == null ? null : tileService.getIfAvailable(LocalTileService::new));
   }
 
   private OfflinePackageRepository(
@@ -157,13 +174,15 @@ public class OfflinePackageRepository {
       OperationalPeriodQuery operationalPeriodQuery,
       SearchAreaQuery searchAreaQuery,
       SearchAreaAssignmentQuery assignmentQuery,
-      MarkerQuery markerQuery) {
+      MarkerQuery markerQuery,
+      TileService tileService) {
     this.mapper = mapper;
     this.incidentMapper = incidentMapper;
     this.operationalPeriodQuery = operationalPeriodQuery;
     this.searchAreaQuery = searchAreaQuery;
     this.assignmentQuery = assignmentQuery;
     this.markerQuery = markerQuery;
+    this.tileService = tileService == null ? new LocalTileService() : tileService;
   }
 
   public synchronized OfflinePackageManifestResponse manifest(
@@ -256,9 +275,7 @@ public class OfflinePackageRepository {
             "인왕산 북측 산책로 입구",
             OffsetDateTime.parse("2026-04-28T08:30:00+09:00")),
         List.of(new OperationalPeriod(OP_DB_ID, publicIncidentId, 1, "ACTIVE", 1L)),
-        List.of(
-            new AssignedArea(
-                ASSIGNED_AREA_DB_ID, publicIncidentId, OP_DB_ID, "ASSIGNED", 1L)),
+        List.of(new AssignedArea(ASSIGNED_AREA_DB_ID, publicIncidentId, OP_DB_ID, "ASSIGNED", 1L)),
         List.of(
             new InitialMarker(
                 "mk-precinct-clue-001",
@@ -273,7 +290,7 @@ public class OfflinePackageRepository {
             "ACTIVE",
             "overall-area-hash-precinct-current",
             overallSearchAreaPolygon()),
-        tileItems(),
+        fixtureTileItems(),
         fixturePackageItems(itemState, publicManifestId, publicOverallSearchAreaId));
   }
 
@@ -313,17 +330,15 @@ public class OfflinePackageRepository {
             .filter(op -> "ACTIVE".equals(op.status()))
             .findFirst()
             .orElse(operationalPeriods.get(0));
-    SearchAreaCollection opAreas = searchAreaQuery.byOp(currentOp.opId(), SearchAreaFilters.empty());
+    SearchAreaCollection opAreas =
+        searchAreaQuery.byOp(currentOp.opId(), SearchAreaFilters.empty());
     Map<UUID, SearchAreaRow> areasById =
         opAreas == null
             ? Map.of()
             : opAreas.areas().stream()
                 .collect(
                     Collectors.toMap(
-                        SearchAreaRow::id,
-                        row -> row,
-                        (left, right) -> left,
-                        LinkedHashMap::new));
+                        SearchAreaRow::id, row -> row, (left, right) -> left, LinkedHashMap::new));
     var queriedAssignments = assignmentQuery.byOp(currentOp.opId());
     Set<UUID> assignedAreaIds =
         queriedAssignments == null
@@ -349,7 +364,8 @@ public class OfflinePackageRepository {
             markers.stream()
                 .filter(marker -> marker.location() != null)
                 .sorted(
-                    Comparator.comparing(MarkerView::occurredAt, Comparator.nullsLast(Comparator.naturalOrder()))
+                    Comparator.comparing(
+                            MarkerView::occurredAt, Comparator.nullsLast(Comparator.naturalOrder()))
                         .thenComparing(MarkerView::id))
                 .toList()));
   }
@@ -412,9 +428,13 @@ public class OfflinePackageRepository {
             source.overallSearchArea().incidentId().toString(),
             "OVERALL",
             source.overallSearchArea().status(),
-            sourceHash("overall:" + source.overallSearchArea().id() + ":" + source.overallSearchArea().version()),
+            sourceHash(
+                "overall:"
+                    + source.overallSearchArea().id()
+                    + ":"
+                    + source.overallSearchArea().version()),
             source.overallSearchArea().geometry().outerRing()),
-        tileItems(),
+        tileItems(source.overallSearchArea().geometry()),
         sourcePackageItems(itemState, manifestId, source));
   }
 
@@ -500,7 +520,8 @@ public class OfflinePackageRepository {
       return List.of();
     }
 
-    List<String> changedStatusIds = mapper.findStaleCandidateInstallationIds(current.id().toString());
+    List<String> changedStatusIds =
+        mapper.findStaleCandidateInstallationIds(current.id().toString());
     int nextManifestVersion = current.manifestVersion() + 1;
     String nextManifestId = nextManifestId(nextManifestVersion);
     mapper.insertNextManifestFrom(
@@ -741,22 +762,47 @@ public class OfflinePackageRepository {
     return new PackageItem(itemKey, itemType, status, sourceVersion, sourceHash);
   }
 
-  private static List<TileItem> tileItems() {
+  private List<TileItem> fixtureTileItems() {
     return LocalTileService.manifestTiles().stream()
-        .map(tile -> tile(tile.z(), tile.x(), tile.y(), tile.checksum(), tile.bytes()))
+        .map(tile -> tile(tile.styleId(), tile.z(), tile.x(), tile.y()))
         .toList();
   }
 
-  private static TileItem tile(int z, int x, int y, String checksum, int bytes) {
+  private List<TileItem> tileItems(GeoJsonPolygon overallSearchArea) {
+    if (tileService instanceof LocalTileService) {
+      return fixtureTileItems();
+    }
+    return OverallSearchAreaTileCoverage.covering(
+            overallSearchArea, TILE_STYLE_ID, TILE_MIN_Z, TILE_MAX_Z)
+        .stream()
+        .map(tile -> tile(tile.styleId(), tile.z(), tile.x(), tile.y()))
+        .toList();
+  }
+
+  private TileItem tile(String styleId, int z, int x, int y) {
+    TileBlobResponse blob = tileService.getTile(styleId, z, x, y);
+    byte[] downloadableBytes = downloadableBytes(blob);
     return new TileItem(
-        "tile:osm-local:%d:%d:%d".formatted(z, x, y),
-        "osm-local",
+        "tile:%s:%d:%d:%d".formatted(styleId, z, x, y),
+        styleId,
         z,
         x,
         y,
         "local://tiles/%s/%d/%d/%d.pbf".formatted(INCIDENT_ALIAS, z, x, y),
-        checksum,
-        bytes);
+        prefixedSha256(downloadableBytes),
+        downloadableBytes.length);
+  }
+
+  private static byte[] downloadableBytes(TileBlobResponse blob) {
+    byte[] bytes = blob.bytes();
+    if (!"gzip".equalsIgnoreCase(blob.contentEncoding())) {
+      return bytes;
+    }
+    try (GZIPInputStream gzip = new GZIPInputStream(new ByteArrayInputStream(bytes))) {
+      return gzip.readAllBytes();
+    } catch (IOException exception) {
+      throw new TileUnavailableException();
+    }
   }
 
   private static List<List<BigDecimal>> overallSearchAreaPolygon() {
@@ -778,6 +824,15 @@ public class OfflinePackageRepository {
 
   private static String prefixedSourceHash(String source) {
     return "sha256:" + sourceHash(source);
+  }
+
+  private static String prefixedSha256(byte[] bytes) {
+    try {
+      MessageDigest digest = MessageDigest.getInstance("SHA-256");
+      return "sha256:" + HexFormat.of().formatHex(digest.digest(bytes));
+    } catch (NoSuchAlgorithmException exception) {
+      throw new IllegalStateException("SHA-256 digest is unavailable", exception);
+    }
   }
 
   private static String sourceHash(String source) {
