@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Runtime preflight for the L4-D01 physical device gate.
 
-This script intentionally fails when fewer than two physical Android devices are
-available. Emulators are not accepted as L4-D01 final evidence devices.
+The L4-D01 runtime gate was downscoped on 2026-05-14 to the available one
+physical Android PolicePhone plus one board session. Emulators are still ignored
+so the physical-device count cannot be satisfied by an AVD.
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ import sys
 from dataclasses import dataclass
 
 
-DEFAULT_MIN_PHYSICAL_DEVICES = 2
+DEFAULT_MIN_PHYSICAL_DEVICES = 1
 
 
 @dataclass(frozen=True)
@@ -86,7 +87,7 @@ def main() -> int:
         "--min-physical-devices",
         type=int,
         default=DEFAULT_MIN_PHYSICAL_DEVICES,
-        help="minimum physical Android device count required for L4-D01 final run",
+        help="minimum physical Android device count required for L4-D01 run",
     )
     args = parser.parse_args()
 
@@ -112,11 +113,11 @@ def main() -> int:
 
     if len(physical_devices) < args.min_physical_devices:
         print(
-            "BLOCKED: L4-D01 final evidence requires "
+            "BLOCKED: L4-D01 evidence requires "
             f"{args.min_physical_devices} physical Android devices; "
             f"found {len(physical_devices)}."
         )
-        print("Emulators are not accepted as second PolicePhone final evidence.")
+        print("Emulators are ignored and do not count as physical PolicePhone evidence.")
         return 2
 
     print("PASS: L4-D01 physical Android device preflight satisfied.")

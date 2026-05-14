@@ -1,0 +1,19 @@
+         check_name          | duplicate_groups
+-----------------------------+------------------
+ duplicate check search_path |                0
+(1 row)
+
+       check_name       | duplicate_groups
+------------------------+------------------
+ duplicate check marker |                0
+(1 row)
+
+             check_name             | duplicate_groups
+------------------------------------+------------------
+ duplicate check event_dispatch_job |                1
+(1 row)
+
+             check_name             | duplicate_groups
+------------------------------------+------------------
+ duplicate check idempotency_record |                0
+(1 row)
