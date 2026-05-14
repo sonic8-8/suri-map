@@ -59,19 +59,20 @@ object NoAuthBootstrapCredentialsProvider : AuthBootstrapCredentialsProvider {
 class DebugManagedConfigurationOverrideProvider(
     private val isDebugBuild: Boolean = BuildConfig.DEBUG,
     private val apiBaseUrl: String = BuildConfig.SURI_MAP_API_BASE_URL,
-    private val fixtureAccountCode: String = BuildConfig.SURI_MAP_FIXTURE_ACCOUNT_CODE,
-    private val fixturePassword: String = BuildConfig.SURI_MAP_FIXTURE_PASSWORD,
-    private val fixturePolicePhoneCode: String = BuildConfig.SURI_MAP_FIXTURE_POLICE_PHONE_CODE
+    private val debugBootstrapAccountCode: String = BuildConfig.SURI_MAP_DEBUG_BOOTSTRAP_ACCOUNT_CODE,
+    private val debugBootstrapPassword: String = BuildConfig.SURI_MAP_DEBUG_BOOTSTRAP_PASSWORD,
+    private val debugBootstrapPolicePhoneCode: String = BuildConfig.SURI_MAP_DEBUG_BOOTSTRAP_POLICE_PHONE_CODE
 ) : ManagedConfigurationOverrideProvider {
     override fun read(): ManagedPolicePhoneConfig? {
         if (!isDebugBuild || apiBaseUrl.isBlank()) {
             return null
         }
+        // Debug bootstrap only replaces Knox managed config while feature data still comes from server APIs.
         val credentials =
             AuthBootstrapCredentials(
-                accountCode = fixtureAccountCode,
-                password = fixturePassword,
-                policePhoneCode = fixturePolicePhoneCode
+                accountCode = debugBootstrapAccountCode,
+                password = debugBootstrapPassword,
+                policePhoneCode = debugBootstrapPolicePhoneCode
             )
         if (!credentials.isUsable()) {
             return null
@@ -87,13 +88,13 @@ class DebugManagedConfigurationOverrideProvider(
 object BuildConfigAuthBootstrapCredentialsProvider : AuthBootstrapCredentialsProvider {
     override fun credentials(config: ManagedPolicePhoneConfig): AuthBootstrapCredentials? {
         val policePhoneCode =
-            BuildConfig.SURI_MAP_FIXTURE_POLICE_PHONE_CODE
+            BuildConfig.SURI_MAP_DEBUG_BOOTSTRAP_POLICE_PHONE_CODE
                 .takeIf(String::isNotBlank)
                 ?: config.policePhoneId?.takeIf(String::isNotBlank)
         val credentials =
             AuthBootstrapCredentials(
-                accountCode = BuildConfig.SURI_MAP_FIXTURE_ACCOUNT_CODE,
-                password = BuildConfig.SURI_MAP_FIXTURE_PASSWORD,
+                accountCode = BuildConfig.SURI_MAP_DEBUG_BOOTSTRAP_ACCOUNT_CODE,
+                password = BuildConfig.SURI_MAP_DEBUG_BOOTSTRAP_PASSWORD,
                 policePhoneCode = policePhoneCode.orEmpty()
             )
         return credentials.takeIf(AuthBootstrapCredentials::isUsable)
