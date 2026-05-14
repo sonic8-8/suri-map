@@ -408,10 +408,14 @@ public class SearchAreaApiService implements SearchAreaQuery {
             validatePolygon(child);
           }
 
-          SearchAreaRecord cancelled =
-              parent.withMutation(
-                  CANCELLED, parent.historyCount() + 1, parent.version() + 1, parent.geometry());
-          searchAreas.put(cancelled.id(), cancelled);
+          boolean overallParent = OVERALL.equals(parent.areaLevel());
+          SearchAreaRecord responseParent = parent;
+          if (!overallParent) {
+            responseParent =
+                parent.withMutation(
+                    CANCELLED, parent.historyCount() + 1, parent.version() + 1, parent.geometry());
+            searchAreas.put(responseParent.id(), responseParent);
+          }
 
           String childAreaLevel = OVERALL.equals(parent.areaLevel()) ? UNIT : TEAM;
           List<SearchAreaRecord> children = new ArrayList<>();
@@ -433,8 +437,8 @@ public class SearchAreaApiService implements SearchAreaQuery {
           }
 
           return new SearchAreaSplitResponse(
-              cancelled.id(),
-              toResponse(cancelled),
+              responseParent.id(),
+              toResponse(responseParent),
               children.stream().map(SearchAreaRecord::id).toList(),
               children.stream().map(this::toResponse).toList());
         });
@@ -715,26 +719,29 @@ public class SearchAreaApiService implements SearchAreaQuery {
     Instant now = Instant.now();
     UUID changedByAccountId =
         actorAccountId().orElseGet(() -> fallbackChangedByAccountId(parent.incidentId()));
-    long parentNextVersion = parent.version() + 1;
-    int updated =
-        searchAreaMapper.updateMutation(
-            searchAreaId, CANCELLED, parent.geometry(), parentNextVersion, now);
-    if (updated != 1) {
-      throw SearchAreaApiException.writeConflict();
+    boolean overallParent = OVERALL.equals(parent.areaLevel());
+    if (!overallParent) {
+      long parentNextVersion = parent.version() + 1;
+      int updated =
+          searchAreaMapper.updateMutation(
+              searchAreaId, CANCELLED, parent.geometry(), parentNextVersion, now);
+      if (updated != 1) {
+        throw SearchAreaApiException.writeConflict();
+      }
+      searchAreaMapper.insertHistory(
+          new SearchAreaHistoryPersistenceRecord(
+              UUID.randomUUID(),
+              searchAreaId,
+              "STATUS_CHANGED",
+              parent.status(),
+              CANCELLED,
+              parent.geometry(),
+              parent.geometry(),
+              request.memo(),
+              changedByAccountId,
+              request.clientTs().toInstant(),
+              now));
     }
-    searchAreaMapper.insertHistory(
-        new SearchAreaHistoryPersistenceRecord(
-            UUID.randomUUID(),
-            searchAreaId,
-            "STATUS_CHANGED",
-            parent.status(),
-            CANCELLED,
-            parent.geometry(),
-            parent.geometry(),
-            request.memo(),
-            changedByAccountId,
-            request.clientTs().toInstant(),
-            now));
 
     List<SearchAreaResponse> children = new ArrayList<>();
     for (GeoJsonPolygon childGeometry : request.children()) {
@@ -787,9 +794,11 @@ public class SearchAreaApiService implements SearchAreaQuery {
     }
 
     SearchAreaReadRecord updatedParent =
-        searchAreaMapper
-            .findById(searchAreaId)
-            .orElseThrow(SearchAreaApiException::writeConflict);
+        overallParent
+            ? parent
+            : searchAreaMapper
+                .findById(searchAreaId)
+                .orElseThrow(SearchAreaApiException::writeConflict);
     SearchAreaRecord memoryParent =
         new SearchAreaRecord(
             updatedParent.id(),
