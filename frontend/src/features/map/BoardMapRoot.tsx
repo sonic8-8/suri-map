@@ -1,7 +1,7 @@
 import maplibregl from 'maplibre-gl';
 import { useEffect, useRef } from 'react';
 import { getTileBaseUrl } from '../../shared/config';
-import { useBoardDisplayStore } from '../board/model/boardDisplayStore';
+import { useBoardDisplayStore } from '../situationBoard/model/boardDisplayStore';
 
 const tileBaseUrl = getTileBaseUrl();
 const tileBaseUrlObject = new URL(tileBaseUrl, window.location.origin);
