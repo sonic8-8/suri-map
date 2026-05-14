@@ -32,6 +32,7 @@ import {
 import type { OperationalPeriod } from '../../../situationBoard/presentation/constants/mockSituationBoard';
 import { HandoverOperationalPeriodSelector } from '../components/HandoverOperationalPeriodSelector';
 import { HandoverComparisonMap } from '../components/HandoverComparisonMap';
+import { type MarkerNotification } from '../../../../shared/ui';
 import styles from './HandoverPage.module.css';
 
 type HandoverPageProps = {
@@ -39,6 +40,10 @@ type HandoverPageProps = {
   sharedMapMode?: boolean;
   incidentId: string;
   currentUserAccount: LoginAccount;
+  markerNotificationIndex: number;
+  markerNotifications: MarkerNotification[];
+  onCloseMarkerNotifications: () => void;
+  onMoveMarkerNotification: (nextIndex: number) => void;
   onOpenIncidentList: () => void;
   onOpenSituationBoard: () => void;
   onOpenOfflinePackage: () => void;
@@ -80,6 +85,10 @@ export function HandoverPage({
   sharedMapMode = false,
   incidentId,
   currentUserAccount,
+  markerNotificationIndex,
+  markerNotifications,
+  onCloseMarkerNotifications,
+  onMoveMarkerNotification,
   onOpenIncidentList,
   onOpenSituationBoard,
   onOpenOfflinePackage,
@@ -381,6 +390,10 @@ export function HandoverPage({
         incidentContext={incidentContext}
         timestampLabel={timestampLabel}
         onOpenIncidentList={onOpenIncidentList}
+        markerNotificationIndex={markerNotificationIndex}
+        markerNotifications={markerNotifications}
+        onCloseMarkerNotifications={onCloseMarkerNotifications}
+        onMoveMarkerNotification={onMoveMarkerNotification}
         onOpenSituationBoard={onOpenSituationBoard}
         onOpenOfflinePackage={onOpenOfflinePackage}
       />
@@ -525,12 +538,13 @@ export function HandoverPage({
       </div>
 
       {isComparisonPopupOpen ? createPortal(
-        <div className={styles.modalOverlay} role="presentation">
+        <div className={styles.modalOverlay} role="presentation" onMouseDown={(event) => event.stopPropagation()}>
           <section
             className={`${styles.modal} ${styles.comparisonModal}`}
             role="dialog"
             aria-modal="true"
             aria-labelledby="op-comparison-popup-title"
+            onMouseDown={(event) => event.stopPropagation()}
           >
             <div className={styles.modalHeader}>
               <h2 id="op-comparison-popup-title">OP 비교</h2>
@@ -618,9 +632,19 @@ export function HandoverPage({
         document.body,
       ) : null}
 
-      {isCreateOpModalOpen ? (
-        <div className={styles.modalOverlay} role="presentation">
-          <section className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="create-op-modal-title">
+      {isCreateOpModalOpen ? createPortal(
+        <div
+          className={styles.modalOverlay}
+          role="presentation"
+          onMouseDown={(event) => event.stopPropagation()}
+        >
+          <section
+            className={styles.modal}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-op-modal-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
             <div className={styles.modalHeader}>
               <h2 id="create-op-modal-title">새 OP 열기</h2>
               <button type="button" aria-label="닫기" onClick={closeCreateOpModal} disabled={isCreatingOp}>
@@ -685,7 +709,8 @@ export function HandoverPage({
               </button>
             </div>
           </section>
-        </div>
+        </div>,
+        document.body,
       ) : null}
     </main>
   );

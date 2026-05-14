@@ -640,6 +640,7 @@
   place-items: center;
   padding: 24px;
   background: rgb(5 12 23 / 58%);
+  pointer-events: auto;
 }
 
 .modal {
