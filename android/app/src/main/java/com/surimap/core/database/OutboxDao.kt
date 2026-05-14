@@ -56,6 +56,28 @@ interface OutboxDao {
 
     @Query(
         """
+        UPDATE android_outbox_row
+        SET idempotency_status = 'PENDING',
+            local_mirror_status = 'PENDING_SEND',
+            next_attempt_at = :now
+        WHERE incident_id = :incidentId
+          AND police_phone_id = :policePhoneId
+          AND idempotency_status = 'FAILED_RETRYABLE'
+          AND local_mirror_status = 'FAILED'
+          AND last_error IN ('police_phone_required', 'http_401')
+          AND incident_closed_at IS NULL
+          AND clock_synced_at >= :minClockSyncedAt
+        """
+    )
+    suspend fun requeueAccessRepairRequiredRows(
+        incidentId: String,
+        policePhoneId: String,
+        now: Long,
+        minClockSyncedAt: Long
+    ): Int
+
+    @Query(
+        """
         SELECT COUNT(*) FROM android_outbox_row
         WHERE incident_id = :incidentId
           AND police_phone_id = :policePhoneId

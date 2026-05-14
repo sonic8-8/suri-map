@@ -70,7 +70,7 @@ class OutboxReplayScheduler(
         ) {
             return
         }
-        enqueueUniqueWork(request.uniqueWorkName, ExistingWorkPolicy.APPEND_OR_REPLACE, request.toWorkRequest())
+        enqueueUniqueWork(request.uniqueWorkName, ExistingWorkPolicy.REPLACE, request.toWorkRequest())
     }
 }
 
@@ -146,6 +146,7 @@ class OutboxWorker(appContext: Context, workerParameters: WorkerParameters) :
                 baseUrl = apiBaseUrl,
                 accessTokenProvider = AccessTokenProvider { accessToken }
             ),
+            accessRepairAvailable = { !accessToken.isNullOrBlank() },
             enableRetryJitter = !BuildConfig.DEBUG
         )
     }

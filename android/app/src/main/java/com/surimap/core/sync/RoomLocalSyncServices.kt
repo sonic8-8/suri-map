@@ -124,6 +124,7 @@ class RoomOutboxReplay(
     private val outboxDao: OutboxDao,
     private val sender: OutboxSender,
     private val idempotencyReplayGate: InMemoryIdempotencyReplayGate = InMemoryIdempotencyReplayGate(),
+    private val accessRepairAvailable: () -> Boolean = { false },
     private val enableRetryJitter: Boolean = false
 ) : OutboxReplay {
     private val staleClockSyncAfterMs = 300_000L
@@ -132,6 +133,9 @@ class RoomOutboxReplay(
         val now = System.currentTimeMillis()
         val minClockSyncedAt = now - staleClockSyncAfterMs
         outboxDao.rejectPostCloseRows(incidentId, policePhoneId)
+        if (accessRepairAvailable()) {
+            outboxDao.requeueAccessRepairRequiredRows(incidentId, policePhoneId, now, minClockSyncedAt)
+        }
         val candidates = outboxDao.findReplayCandidates(incidentId, policePhoneId, now, minClockSyncedAt)
         var attemptedCount = 0
         var ackedCount = 0
