@@ -83,4 +83,40 @@ class HandoverUiStateTest {
         assertTrue(source.contains("SearchHistorySummaryReadRepository"))
         assertTrue(source.contains("createMemo"))
     }
+
+    @Test
+    fun handoverMemoSaveRefreshesClockBeforeOutboxWrite() {
+        val source = File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+
+        val routeIndex = source.indexOf("private fun HandoverMemoRoute")
+        val createMemoIndex = source.indexOf("recorder.createMemo", routeIndex)
+        val clockSyncIndex =
+            source.indexOf(
+                "clockSyncState.syncClockForIncident(sessionContext.incidentId, policePhoneContext)",
+                source.indexOf("onSave =", routeIndex)
+            )
+
+        assertTrue(routeIndex >= 0)
+        assertTrue(createMemoIndex >= 0)
+        assertTrue(clockSyncIndex >= 0)
+        assertTrue(clockSyncIndex < createMemoIndex)
+    }
+
+    @Test
+    fun dutyShiftEndRefreshesClockBeforeOutboxWrite() {
+        val source = File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+
+        val routeIndex = source.indexOf("private fun HandoverSummaryRoute")
+        val endIndex = source.indexOf("dutyShiftRecorder.end", routeIndex)
+        val clockSyncIndex =
+            source.indexOf(
+                "clockSyncState.syncClockForIncident(sessionContext.incidentId, policePhoneContext)",
+                source.indexOf("onEndDutyShift =", routeIndex)
+            )
+
+        assertTrue(routeIndex >= 0)
+        assertTrue(endIndex >= 0)
+        assertTrue(clockSyncIndex >= 0)
+        assertTrue(clockSyncIndex < endIndex)
+    }
 }

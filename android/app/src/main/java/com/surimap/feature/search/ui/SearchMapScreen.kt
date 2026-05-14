@@ -192,6 +192,7 @@ data class SearchMapUiState(
             add(primaryActionLabel)
             add(if (canWritePath) "경로 기록 가능" else "경로 기록 차단")
             add(if (canCreateMarker) "마커 생성 가능" else "마커 생성 차단")
+            add("인수인계")
             add("마커 생성")
             if (showHandoverPrompt) {
                 add("이전 근무 기록 있음")
@@ -345,6 +346,7 @@ fun SearchMapScreen(
             state = state,
             onPrimaryLifecycleAction = onPrimaryLifecycleAction,
             onStopSearch = onStopSearch,
+            onOpenHandover = onOpenHandover,
             onCreateMarker = onCreateMarker
         )
     }
@@ -478,6 +480,7 @@ private fun SearchBottomPanel(
     state: SearchMapUiState,
     onPrimaryLifecycleAction: () -> Unit,
     onStopSearch: () -> Unit,
+    onOpenHandover: () -> Unit,
     onCreateMarker: () -> Unit
 ) {
     Column(
@@ -510,13 +513,22 @@ private fun SearchBottomPanel(
                 variant = PoliButtonVariant.Danger
             )
         }
-        PoliButton(
-            text = "마커 생성",
-            onClick = onCreateMarker,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = state.canCreateMarker,
-            size = PoliButtonSize.Large
-        )
+        Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
+            PoliButton(
+                text = "인수인계",
+                onClick = onOpenHandover,
+                modifier = Modifier.weight(1f),
+                variant = PoliButtonVariant.Secondary,
+                size = PoliButtonSize.Large
+            )
+            PoliButton(
+                text = "마커 생성",
+                onClick = onCreateMarker,
+                modifier = Modifier.weight(1.25f),
+                enabled = state.canCreateMarker,
+                size = PoliButtonSize.Large
+            )
+        }
     }
 }
 
