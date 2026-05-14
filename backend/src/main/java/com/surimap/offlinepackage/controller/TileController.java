@@ -96,7 +96,11 @@ public class TileController {
       }
     }
     return new TileStyleResponse(
-        style.version(), sources, style.layers(), style.metadata(), style.glyphs());
+        style.version(),
+        sources,
+        style.layers(),
+        style.metadata(),
+        absoluteGlyphUrl(style.glyphs(), origin));
   }
 
   private static String requestOrigin(HttpServletRequest request) {
@@ -133,5 +137,12 @@ public class TileController {
       }
     }
     return urls;
+  }
+
+  private static String absoluteGlyphUrl(String glyphs, String origin) {
+    if (glyphs == null) {
+      return null;
+    }
+    return glyphs.startsWith("/tiles/") ? origin + glyphs : glyphs;
   }
 }

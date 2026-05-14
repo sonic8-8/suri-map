@@ -38,6 +38,7 @@ import com.surimap.core.fcm.SharedPreferencesFcmRegistrationStateStore
 import com.surimap.core.incident.IncidentReadRepository
 import com.surimap.core.location.AndroidLocationUpdates
 import com.surimap.core.map.MapLibreRuntimeMapState
+import com.surimap.core.map.MapLibreViewportBounds
 import com.surimap.core.marker.MarkerRepository
 import com.surimap.core.network.AuthPhoneApiClient
 import com.surimap.core.network.OutboxRequeueNetworkRequest
@@ -145,7 +146,13 @@ import kotlinx.coroutines.launch
 @Composable
 fun SuriMapApp() {
     val navController = rememberNavController()
-    val incidentSessionState = remember { IncidentSessionState() }
+    val incidentSessionState =
+        remember {
+            IncidentSessionState(
+                initialIncidentContext = debugMapOnlyIncidentContext(),
+                initialPolicePhoneContext = debugMapOnlyPolicePhoneContext()
+            )
+        }
     val clockSyncState = remember { ClockSyncState() }
     var incidentClosed by remember { mutableStateOf<IncidentClosedOverlayState?>(null) }
     var blockedQueue by remember { mutableStateOf<BlockedQueueToastState?>(null) }
@@ -173,7 +180,7 @@ fun SuriMapApp() {
             FcmRegistrationEffect(policePhoneContext = incidentSessionState.policePhoneContext)
             NavHost(
                 navController = navController,
-                startDestination = PolicePhoneRoute.AuthBootstrap.route,
+                startDestination = debugStartDestination(),
                 modifier = Modifier.fillMaxSize()
             ) {
                 composable(PolicePhoneRoute.AuthBootstrap.route) {
@@ -1717,8 +1724,52 @@ private fun PolicePhoneContext?.toMapLibreRuntimeMapState(): MapLibreRuntimeMapS
     MapLibreRuntimeMapState(
         apiBaseUrl = this?.tileBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL,
         policePhoneId = this?.policePhoneId,
-        accessToken = this?.accessToken
+        accessToken = this?.accessToken,
+        initialBounds =
+        if (BuildConfig.SURI_MAP_DEBUG_MAP_ONLY) {
+            DebugMapOnlyGwangjuBounds
+        } else {
+            null
+        }
     )
+
+private val DebugMapOnlyGwangjuBounds =
+    MapLibreViewportBounds(
+        south = 35.052595,
+        west = 126.647507,
+        north = 35.256837,
+        east = 127.017482
+    )
+
+private fun debugStartDestination(): String =
+    if (BuildConfig.SURI_MAP_DEBUG_MAP_ONLY) {
+        PolicePhoneRoute.SearchMap.route
+    } else {
+        PolicePhoneRoute.AuthBootstrap.route
+    }
+
+private fun debugMapOnlyIncidentContext(): IncidentContext? {
+    if (!BuildConfig.SURI_MAP_DEBUG_MAP_ONLY) return null
+    val incidentId = BuildConfig.SURI_MAP_DEBUG_MAP_ONLY_INCIDENT_ID.takeIf(String::isNotBlank) ?: return null
+    return IncidentContext(
+        incidentId = incidentId,
+        currentOpId = BuildConfig.SURI_MAP_DEBUG_MAP_ONLY_OP_ID.takeIf(String::isNotBlank),
+        currentDutyShiftId = BuildConfig.SURI_MAP_DEBUG_MAP_ONLY_DUTY_SHIFT_ID.takeIf(String::isNotBlank)
+    )
+}
+
+private fun debugMapOnlyPolicePhoneContext(): PolicePhoneContext? {
+    if (!BuildConfig.SURI_MAP_DEBUG_MAP_ONLY) return null
+    val policePhoneId = BuildConfig.SURI_MAP_DEBUG_MAP_ONLY_POLICE_PHONE_ID.takeIf(String::isNotBlank) ?: return null
+    val apiBaseUrl = BuildConfig.SURI_MAP_API_BASE_URL
+    return PolicePhoneContext(
+        policePhoneId = policePhoneId,
+        apiBaseUrl = apiBaseUrl,
+        tileBaseUrl = apiBaseUrl,
+        objectStorageBaseUrl = apiBaseUrl,
+        accessToken = BuildConfig.SURI_MAP_DEBUG_MAP_ONLY_ACCESS_TOKEN.takeIf(String::isNotBlank)
+    )
+}
 
 private fun NavHostController.navigateToSingleTop(route: PolicePhoneRoute) {
     navigateToSingleTop(route.route)

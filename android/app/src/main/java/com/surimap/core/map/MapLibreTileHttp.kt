@@ -1,10 +1,13 @@
 package com.surimap.core.map
 
+import android.util.Log
 import com.surimap.BuildConfig
 import okhttp3.Call
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.maplibre.android.module.http.HttpRequestUtil
+
+private const val MAP_LIBRE_TILE_LOG_TAG = "SuriMapTiles"
 
 class MapLibreTileCallFactory(
     private val delegate: Call.Factory = OkHttpClient(),
@@ -15,7 +18,11 @@ class MapLibreTileCallFactory(
     private val normalizedTileBaseUrl = tileBaseUrl.trimEnd('/').removeSuffix("/api")
 
     override fun newCall(request: Request): Call {
-        return delegate.newCall(request.withTileHeadersIfNeeded())
+        val tileRequest = request.withTileHeadersIfNeeded()
+        if (BuildConfig.DEBUG && tileRequest.url.toString().startsWith("$normalizedTileBaseUrl/tiles/")) {
+            logTileRequest(tileRequest)
+        }
+        return delegate.newCall(tileRequest)
     }
 
     private fun Request.withTileHeadersIfNeeded(): Request {
@@ -41,6 +48,16 @@ class MapLibreTileCallFactory(
 
 object MapLibreTileHttpInstaller {
     fun install(callFactory: Call.Factory) {
+        if (BuildConfig.DEBUG) {
+            HttpRequestUtil.setLogEnabled(true)
+            HttpRequestUtil.setPrintRequestUrlOnFailure(true)
+        }
         HttpRequestUtil.setOkHttpClient(callFactory)
+    }
+}
+
+private fun logTileRequest(request: Request) {
+    runCatching {
+        Log.d(MAP_LIBRE_TILE_LOG_TAG, "MapLibre request ${request.method} ${request.url.encodedPath}")
     }
 }

@@ -82,6 +82,35 @@ class TileserverGlTileServiceTest {
   }
 
   @Test
+  @DisplayName("tileserver-gl이 절대 /fonts glyph URL로 바꿔도 public /tiles/fonts 경로로 정규화한다")
+  void getStyleNormalizesNativeTileserverGlyphUrl() {
+    server
+        .expect(requestTo("http://tileserver-gl:8080/styles/osm-local/style.json"))
+        .andRespond(
+            withSuccess(
+                """
+                {
+                  "version": 8,
+                  "glyphs": "http://tileserver-gl:8080/fonts/{fontstack}/{range}.pbf",
+                  "sources": {
+                    "osm-local": {
+                      "type": "vector",
+                      "tiles": ["/tiles/osm-local/{z}/{x}/{y}.pbf"]
+                    }
+                  },
+                  "layers": [],
+                  "metadata": {}
+                }
+                """,
+                MediaType.APPLICATION_JSON));
+
+    TileStyleResponse style = tileService.getStyle("osm-local");
+
+    assertThat(style.glyphs()).isEqualTo("/tiles/fonts/{fontstack}/{range}.pbf");
+    server.verify();
+  }
+
+  @Test
   @DisplayName("외부 tile URL이 포함된 style은 거부한다")
 	  void getStyleRejectsExternalTileUrls() {
     server

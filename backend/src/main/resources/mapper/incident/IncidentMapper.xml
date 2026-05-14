@@ -50,7 +50,7 @@
             closed_by_account_id,
             version
         FROM "incident"
-        WHERE CAST(source_incident_id AS VARCHAR) = #{sourceIncidentId}
+        WHERE source_incident_id = #{sourceIncidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
     </select>
 
     <select id="findByIncidentId" resultMap="incidentRecordMap">
