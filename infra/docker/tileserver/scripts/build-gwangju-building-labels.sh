@@ -6,7 +6,7 @@ SOURCE_DIR="${1:-${GWANGJU_TOPO_SOURCE_DIR:-${TILESERVER_DIR}/source/gwangju-con
 OUTPUT_DIR="${2:-${TILESERVER_DIR}/data}"
 WORK_DIR="${WORK_DIR:-/tmp/suri-map-gwangju-building-labels}"
 GDAL_IMAGE="${GDAL_IMAGE:-ghcr.io/osgeo/gdal:ubuntu-small-latest}"
-TIPPECANOE_IMAGE="${TIPPECANOE_IMAGE:-ghcr.io/felt/tippecanoe:latest}"
+TIPPECANOE_IMAGE="${TIPPECANOE_IMAGE:-morlov/tippecanoe:latest}"
 
 mkdir -p "$OUTPUT_DIR" "$WORK_DIR"
 rm -f "$WORK_DIR"/*.geojsonseq
