@@ -52,12 +52,17 @@ pipeline {
     environment {
         FRONTEND_IMAGE = 'suri-map-frontend:develop'
         BACKEND_IMAGE = 'suri-map-backend:develop'
+        MOCK_112_IMAGE = 'suri-map-mock-112:develop'
         BACKEND_TEST_IMAGE = 'suri-map-backend-test:develop'
         BACKEND_TEST_ARTIFACT_DIR = 'ci-artifacts/backend-test'
         COMPOSE_FILE = 'infra/docker/docker-compose.runtime.yml'
         ENV_FILE = '.env.runtime'
         FRONTEND_HOST_PORT = '3000'
         BACKEND_HOST_PORT = '8081'
+        MOCK_112_HOST_PORT = '18112'
+        MOCK_112_ENABLED = 'true'
+        MOCK_112_BASE_URL = 'http://mock-112:18112'
+        MOCK_112_POLLING_INTERVAL = '5000'
         TILESERVER_HOST_PORT = '8082'
         TILESERVER_DATA_DIR = '/home/ubuntu/infra/tileserver'
         TILESERVER_MODE = 'tileserver-gl'
@@ -218,6 +223,21 @@ pipeline {
                         '''
                     }
                 }
+
+                stage('Mock 112 Image') {
+                    steps {
+                        script {
+                            env.FAILED_STAGE = 'Build Runtime Images'
+                        }
+
+                        sh '''
+                            docker build \
+                              -t ${MOCK_112_IMAGE} \
+                              -f mock-112/Dockerfile \
+                              mock-112
+                        '''
+                    }
+                }
             }
         }
 
@@ -230,8 +250,13 @@ pipeline {
                 writeFile file: env.ENV_FILE, text: """
 FRONTEND_IMAGE=${env.FRONTEND_IMAGE}
 BACKEND_IMAGE=${env.BACKEND_IMAGE}
+MOCK_112_IMAGE=${env.MOCK_112_IMAGE}
 FRONTEND_HOST_PORT=${env.FRONTEND_HOST_PORT}
 BACKEND_HOST_PORT=${env.BACKEND_HOST_PORT}
+MOCK_112_HOST_PORT=${env.MOCK_112_HOST_PORT}
+MOCK_112_ENABLED=${env.MOCK_112_ENABLED}
+MOCK_112_BASE_URL=${env.MOCK_112_BASE_URL}
+MOCK_112_POLLING_INTERVAL=${env.MOCK_112_POLLING_INTERVAL}
 TILESERVER_HOST_PORT=${env.TILESERVER_HOST_PORT}
 TILESERVER_DATA_DIR=${env.TILESERVER_DATA_DIR}
 TILESERVER_MODE=${env.TILESERVER_MODE}
@@ -253,11 +278,11 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=${env.SPRING_JPA_HIBERNATE_DDL_AUTO}
 
                     if [ -f "${TILESERVER_DATA_DIR}/data/osm-local.mbtiles" ] \
                       && [ -f "${TILESERVER_DATA_DIR}/data/gwangju-building-labels.mbtiles" ]; then
-                      COMPOSE_SERVICES="postgis backend tileserver-gl frontend"
+                      COMPOSE_SERVICES="postgis mock-112 backend tileserver-gl frontend"
                     else
                       echo "tileserver_mbtiles=missing required=osm-local.mbtiles,gwangju-building-labels.mbtiles dir=${TILESERVER_DATA_DIR}/data"
                       echo "tileserver-gl deployment skipped until the environment-specific MBTiles files are placed."
-                      COMPOSE_SERVICES="postgis backend frontend"
+                      COMPOSE_SERVICES="postgis mock-112 backend frontend"
                     fi
 
                     docker compose \
@@ -288,6 +313,22 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=${env.SPRING_JPA_HIBERNATE_DDL_AUTO}
                     if [ "${frontend_ready}" != "true" ]; then
                       echo "frontend_health=timeout"
                       docker logs --tail=200 suri-map-frontend || true
+                      exit 1
+                    fi
+
+                    mock112_ready=false
+                    for i in $(seq 1 30); do
+                      if docker exec suri-map-mock-112 wget -qO- http://127.0.0.1:18112/mock-112/health >/dev/null; then
+                        echo "mock112_health=ready"
+                        mock112_ready=true
+                        break
+                      fi
+                      sleep 2
+                    done
+
+                    if [ "${mock112_ready}" != "true" ]; then
+                      echo "mock112_health=timeout"
+                      docker logs --tail=200 suri-map-mock-112 || true
                       exit 1
                     fi
 

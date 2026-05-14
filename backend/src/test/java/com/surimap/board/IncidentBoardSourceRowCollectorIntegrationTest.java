@@ -551,7 +551,16 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
     public List<OfflinePackageInstallationStatus> byIncident(String incidentId) {
       return List.of(
           new OfflinePackageInstallationStatus(
-              "pkg-status-test-001", incidentId, PHONE_ID.toString(), "READY", 7L, 701L, 1, true));
+              "pkg-status-test-001",
+              incidentId,
+              PHONE_ID.toString(),
+              "dev-board-phone-01",
+              "상황판 팀폰",
+              "READY",
+              7L,
+              701L,
+              1,
+              true));
     }
   }
 
