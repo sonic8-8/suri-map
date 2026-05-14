@@ -81,22 +81,6 @@ export type HandoverStatusRow = S8BoardCursor & {
   readonly readyForHandover: boolean;
 };
 
-export type SearchHistorySummaryRow = S8BoardCursor & {
-  readonly slot: 'search_history_summary';
-  readonly summaryId: string;
-  readonly opId: string;
-  readonly status: 'GENERATING' | 'READY' | 'FAILED';
-  readonly displayStatus: 'READY' | 'UNAVAILABLE';
-  readonly summaryText: string | null;
-  readonly sourceSnapshotHash: string;
-  readonly generatedAt: string | null;
-  readonly retryCta: string | null;
-  readonly evidenceLinks: readonly {
-    readonly label: string;
-    readonly href: string;
-  }[];
-};
-
 export type S8SlotProps<Row> = {
   readonly rows: readonly Row[];
   readonly loadState?: S8SlotLoadState;
@@ -104,11 +88,6 @@ export type S8SlotProps<Row> = {
 
 export type S8StatusSlotProps = {
   readonly row: HandoverStatusRow | null;
-  readonly loadState?: S8SlotLoadState;
-};
-
-export type SearchHistorySummarySlotProps = {
-  readonly row: SearchHistorySummaryRow | null;
   readonly loadState?: S8SlotLoadState;
 };
 

@@ -1,0 +1,224 @@
+/* 좌측 패널 전체 래퍼: 고정 폭과 접기/펼치기 애니메이션을 담당한다. */
+.panel {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 15;
+  --left-panel-width: 360px;
+  width: var(--left-panel-width);
+  min-width: var(--left-panel-width);
+  min-height: 0;
+  padding: 0;
+  border-right: 1px solid var(--suri-board-border);
+  border-radius: 0 8px 8px 0;
+  background: var(--suri-board-panel-bg);
+  box-shadow: 6px 0 18px rgb(0 0 0 / 18%);
+  transform: translateX(0);
+  transition: transform 180ms ease;
+}
+
+/* 좌측 패널이 접혔을 때 화면 밖으로 밀어내는 상태. */
+.panelCollapsed {
+  padding: 0;
+  transform: translateX(-100%);
+}
+
+/* 좌측 패널 본문 오른쪽 상단에 놓는 텍스트형 패널 접기 버튼. */
+.panelCollapseButton {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 18;
+  padding: 0;
+  border: 0;
+  color: var(--suri-board-fg-secondary);
+  background: transparent;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+/* 접기 버튼 hover 상태. */
+.panelCollapseButton:hover {
+  color: var(--suri-board-primary-hi);
+}
+
+/* 접기 버튼 키보드 포커스 상태. */
+.panelCollapseButton:focus-visible {
+  outline: 2px solid var(--suri-board-primary-hi);
+  outline-offset: 2px;
+}
+
+/* 패널 내부 본문: 상단 여백과 내부 스크롤 영역을 분리한다. */
+.content {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  padding: 42px 2px 12px 12px;
+  overflow: hidden;
+}
+
+/* 좌측 패널 페이지 전환 컨테이너: 탭 전환 시 각 페이지 내부 상태를 유지한다. */
+.page {
+  height: 100%;
+  min-height: 0;
+}
+
+.page[hidden] {
+  display: none;
+}
+
+/* 좌측 패널 전용 세로 스크롤 영역. */
+.scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  height: 100%;
+  min-height: 0;
+  padding-right: 5px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-color: var(--suri-board-left-scrollbar-thumb) var(--suri-board-left-scrollbar-track);
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+/* 좌측 패널 스크롤바 너비. */
+.scroll::-webkit-scrollbar {
+  width: 10px;
+}
+
+/* 좌측 패널 스크롤바 트랙. */
+.scroll::-webkit-scrollbar-track {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* 좌측 패널 스크롤바 thumb. */
+.scroll::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--suri-board-left-scrollbar-thumb);
+  background-clip: content-box;
+}
+
+/* 좌측 패널 스크롤바 hover 상태. */
+.scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--suri-board-left-scrollbar-thumb-hover);
+}
+
+/* 좌측 패널 페이지 인덱스 탭 묶음. 패널이 접혀도 지도 위에 남아 클릭 가능하다. */
+.areaModePanel {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--suri-board-primary-hi) 42%, var(--suri-board-border));
+  border-radius: 8px;
+  color: var(--suri-board-fg-secondary);
+  background: color-mix(in srgb, var(--suri-board-primary-soft) 40%, var(--suri-board-panel-surface));
+}
+
+.areaModePanel div {
+  display: grid;
+  gap: 4px;
+}
+
+.areaModePanel strong {
+  color: var(--suri-board-fg-primary);
+  font-size: 14px;
+}
+
+.areaModePanel span {
+  color: var(--suri-board-fg-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.areaModeButton {
+  min-height: 36px;
+  border: 1px solid color-mix(in srgb, var(--suri-board-primary-hi) 64%, var(--suri-board-border));
+  border-radius: 6px;
+  color: var(--suri-board-primary-hi);
+  background: color-mix(in srgb, var(--suri-board-primary-soft) 70%, transparent);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.areaModeButton:hover {
+  background: color-mix(in srgb, var(--suri-board-primary-hi) 16%, var(--suri-board-panel-surface));
+}
+
+.areaModeButton:focus-visible {
+  outline: 2px solid var(--suri-board-primary-hi);
+  outline-offset: 2px;
+}
+
+.indexTabs {
+  position: absolute;
+  z-index: 20;
+  top: 42px;
+  right: -37px;
+  display: grid;
+  gap: 0;
+}
+
+/* 패널 페이지를 선택하거나 현재 페이지를 접고 펼치는 손잡이 버튼. */
+.indexTab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 68px;
+  padding: 0;
+  border: 1px solid var(--suri-board-border);
+  border-left: 1px solid var(--suri-board-panel-surface);
+  border-radius: 0 10px 10px 0;
+  color: var(--suri-board-fg-primary);
+  background: linear-gradient(
+    90deg,
+    var(--suri-board-panel-surface),
+    color-mix(in srgb, var(--suri-board-panel-muted-bg) 82%, var(--suri-board-panel-surface))
+  );
+  box-shadow:
+    4px 0 12px rgb(0 0 0 / 22%),
+    inset 1px 0 0 color-mix(in srgb, var(--suri-board-primary-hi) 24%, transparent);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+}
+
+.indexTab + .indexTab {
+  margin-top: -1px;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.indexTab:has(+ .indexTab) {
+  border-bottom-right-radius: 0;
+}
+
+/* 접기/펼치기 손잡이 hover 상태. */
+.indexTab:hover {
+  border-color: var(--suri-board-primary-hi);
+  color: var(--suri-board-fg-primary);
+  background: var(--suri-board-panel-muted-bg);
+}
+
+/* 현재 선택된 좌측 패널 페이지 탭. */
+.indexTabActive {
+  border-color: color-mix(in srgb, var(--suri-board-primary-hi) 74%, var(--suri-board-border));
+  color: var(--suri-board-primary-hi);
+  background: color-mix(in srgb, var(--suri-board-primary-soft) 64%, var(--suri-board-panel-surface));
+}
+
+/* 키보드 포커스가 들어왔을 때 손잡이를 강조한다. */
+.indexTab:focus-visible {
+  outline: 2px solid var(--suri-board-primary-hi);
+  outline-offset: 2px;
+}

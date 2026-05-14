@@ -34,6 +34,8 @@
             <arg column="id" javaType="string"/>
             <arg column="incident_id" javaType="string"/>
             <arg column="police_phone_id" javaType="string"/>
+            <arg column="police_phone_code" javaType="string"/>
+            <arg column="police_phone_name" javaType="string"/>
             <arg column="status" javaType="string"/>
             <arg column="version" javaType="_long"/>
             <arg column="sequence_number" javaType="_long"/>
@@ -273,6 +275,8 @@
             i.id,
             m.incident_id,
             i.police_phone_id,
+            pp.phone_code AS police_phone_code,
+            pp.display_name AS police_phone_name,
             i.status,
             i.version,
             901 AS sequence_number,
@@ -281,6 +285,7 @@
             i.status = 'READY' AS ready_for_offline_use
         FROM offline_package_installation i
         JOIN offline_package_manifest m ON m.id = i.offline_package_manifest_id
+        LEFT JOIN police_phone pp ON pp.id = i.police_phone_id
         WHERE i.offline_package_manifest_id = CAST(#{manifestId} AS UUID)
         ORDER BY i.police_phone_id
     </select>
@@ -290,6 +295,8 @@
             i.id,
             m.incident_id,
             i.police_phone_id,
+            pp.phone_code AS police_phone_code,
+            pp.display_name AS police_phone_name,
             i.status,
             i.version,
             901 AS sequence_number,
@@ -298,6 +305,7 @@
             i.status = 'READY' AS ready_for_offline_use
         FROM offline_package_installation i
         JOIN offline_package_manifest m ON m.id = i.offline_package_manifest_id
+        LEFT JOIN police_phone pp ON pp.id = i.police_phone_id
         WHERE i.id IN
         <foreach collection="ids" item="id" open="(" separator="," close=")">
             CAST(#{id} AS UUID)
@@ -316,6 +324,8 @@
             i.id,
             m.incident_id,
             i.police_phone_id,
+            pp.phone_code AS police_phone_code,
+            pp.display_name AS police_phone_name,
             i.status,
             i.version,
             901 AS sequence_number,
@@ -325,6 +335,7 @@
         FROM offline_package_installation i
         JOIN offline_package_manifest m ON m.id = i.offline_package_manifest_id
         JOIN latest_manifest ON latest_manifest.incident_id = m.incident_id
+        LEFT JOIN police_phone pp ON pp.id = i.police_phone_id
         WHERE m.incident_id = CAST(#{incidentId} AS UUID)
         ORDER BY
             CASE i.status

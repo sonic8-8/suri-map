@@ -11,6 +11,8 @@ import com.surimap.incident.repository.IncidentMapper;
 import com.surimap.maparea.geometry.geojson.GeoJsonPolygon;
 import com.surimap.maparea.query.OverallSearchAreaResult;
 import com.surimap.maparea.query.SearchAreaCollection;
+import com.surimap.maparea.query.SearchAreaAssignmentQuery;
+import com.surimap.maparea.query.SearchAreaAssignmentRow;
 import com.surimap.maparea.query.SearchAreaFilters;
 import com.surimap.maparea.query.SearchAreaQuery;
 import com.surimap.maparea.query.SearchAreaRow;
@@ -70,6 +72,10 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
   private static final UUID MARKER_ID = UUID.fromString("50000000-0000-4000-8000-000000000001");
   private static final UUID PHONE_ID = UUID.fromString("60000000-0000-4000-8000-000000000001");
   private static final UUID ACCOUNT_ID = UUID.fromString("70000000-0000-4000-8000-000000000001");
+  private static final UUID ASSIGNED_BY_ACCOUNT_ID =
+      UUID.fromString("70000000-0000-4000-8000-000000000002");
+  private static final UUID ASSIGNMENT_ID =
+      UUID.fromString("71000000-0000-4000-8000-000000000001");
   private static final UUID MEMO_ID = UUID.fromString("80000000-0000-4000-8000-000000000001");
   private static final UUID SUMMARY_ID = UUID.fromString("90000000-0000-4000-8000-000000000001");
   private static final UUID PURGE_RUN_ID =
@@ -144,6 +150,41 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
     assertThat(row(snapshot, "handover_status").payload()).containsEntry("handoverStatus", "READY");
     assertThat(row(snapshot, "search_history_summary").payload())
         .containsEntry("summaryText", "searched ridge trail and checked shelter");
+  }
+
+  @Test
+  @DisplayName("area rows include area level and active assignment context")
+  void area_rows_include_area_level_and_active_assignment_context() {
+    DefaultIncidentBoardSourceRowCollector collector =
+        new DefaultIncidentBoardSourceRowCollector(
+            provider(new FakeSearchAreaQuery()),
+            provider(searchPathService()),
+            provider(new FakePolicePhoneFreshnessQuery()),
+            new CapturingMarkerQuery(),
+            new FakePackageQuery(),
+            new FakeOperationalPeriodQuery(),
+            new FakeHandoverMemoQuery(),
+            new FakeSummaryMapper(),
+            provider(null),
+            provider(null),
+            provider(null),
+            provider(new FakeSearchAreaAssignmentQuery()));
+
+    IncidentBoardSourceRowSnapshot snapshot =
+        collector.collect(new BoardSourceRowContext(INCIDENT_ID, List.of(OP_ID), List.of("area"), null));
+
+    Map<String, Object> payload = row(snapshot, "area").payload();
+    assertThat(payload).containsEntry("areaLevel", "TEAM");
+    @SuppressWarnings("unchecked")
+    List<Map<String, Object>> assignedAccounts =
+        (List<Map<String, Object>>) payload.get("assignedAccounts");
+    assertThat(assignedAccounts).hasSize(1);
+    assertThat(assignedAccounts.get(0))
+        .containsEntry("assignmentId", ASSIGNMENT_ID.toString())
+        .containsEntry("accountId", ACCOUNT_ID.toString())
+        .containsEntry("displayName", ACCOUNT_ID.toString())
+        .containsEntry("assignedByAccountId", ASSIGNED_BY_ACCOUNT_ID.toString())
+        .containsEntry("status", "ACTIVE");
   }
 
   @Test
@@ -377,6 +418,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
           OP_ID,
           null,
           "ACTIVE",
+          "TEAM",
           5L,
           polygon(),
           List.of(
@@ -386,6 +428,27 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
               new BigDecimal("37.572000")),
           STARTED_AT,
           1L);
+    }
+  }
+
+  private static final class FakeSearchAreaAssignmentQuery implements SearchAreaAssignmentQuery {
+    @Override
+    public List<SearchAreaAssignmentRow> byOp(UUID opId) {
+      return List.of(
+          new SearchAreaAssignmentRow(
+              ASSIGNMENT_ID,
+              AREA_ID,
+              ACCOUNT_ID,
+              ASSIGNED_BY_ACCOUNT_ID,
+              STARTED_AT,
+              null,
+              "ACTIVE",
+              4L));
+    }
+
+    @Override
+    public List<SearchAreaAssignmentRow> byArea(UUID searchAreaId) {
+      return List.of();
     }
   }
 

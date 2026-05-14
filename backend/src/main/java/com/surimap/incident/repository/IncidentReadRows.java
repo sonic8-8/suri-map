@@ -60,7 +60,9 @@ public final class IncidentReadRows {
   /** 상세 응답의 incident 핵심 상태 row. */
   public static class DetailRow {
     private UUID id;
+    private String title;
     private String status;
+    private Instant openedAt;
     private long version;
 
     public UUID getId() {
@@ -71,12 +73,28 @@ public final class IncidentReadRows {
       this.id = id;
     }
 
+    public String getTitle() {
+      return title;
+    }
+
+    public void setTitle(String title) {
+      this.title = title;
+    }
+
     public String getStatus() {
       return status;
     }
 
     public void setStatus(String status) {
       this.status = status;
+    }
+
+    public Instant getOpenedAt() {
+      return openedAt;
+    }
+
+    public void setOpenedAt(Instant openedAt) {
+      this.openedAt = openedAt;
     }
 
     public long getVersion() {
@@ -189,7 +207,11 @@ public final class IncidentReadRows {
   /** 상세 응답에 붙는 active incident_assignment row. */
   public static class AssignmentRow {
     private String accountId;
+    private String accountDisplayName;
+    private String accountType;
+    private String organizationType;
     private String incidentRole;
+    private Instant assignedAt;
 
     public String getAccountId() {
       return accountId;
@@ -199,12 +221,44 @@ public final class IncidentReadRows {
       this.accountId = accountId;
     }
 
+    public String getAccountDisplayName() {
+      return accountDisplayName;
+    }
+
+    public void setAccountDisplayName(String accountDisplayName) {
+      this.accountDisplayName = accountDisplayName;
+    }
+
+    public String getAccountType() {
+      return accountType;
+    }
+
+    public void setAccountType(String accountType) {
+      this.accountType = accountType;
+    }
+
+    public String getOrganizationType() {
+      return organizationType;
+    }
+
+    public void setOrganizationType(String organizationType) {
+      this.organizationType = organizationType;
+    }
+
     public String getIncidentRole() {
       return incidentRole;
     }
 
     public void setIncidentRole(String incidentRole) {
       this.incidentRole = incidentRole;
+    }
+
+    public Instant getAssignedAt() {
+      return assignedAt;
+    }
+
+    public void setAssignedAt(Instant assignedAt) {
+      this.assignedAt = assignedAt;
     }
   }
 

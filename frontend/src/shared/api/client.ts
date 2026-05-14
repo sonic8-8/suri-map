@@ -1,4 +1,11 @@
 import { getApiBaseUrl } from '../config';
+import { mockAuthApiClient } from './mockApiClient';
+
+const USE_MOCK_AUTH_API = false;
+
+export type ApiErrorBody = {
+  error?: string;
+};
 
 export type ApiHttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE' | 'PUT';
 
@@ -13,6 +20,7 @@ export interface ApiRequestOptions<TBody = unknown> {
   headers?: HeadersInit;
   signal?: AbortSignal;
   accessToken?: string | null;
+  idempotencyKey?: string;
 }
 
 export interface ApiClientOptions {
@@ -35,6 +43,13 @@ export class ApiHttpError extends Error {
   }
 }
 
+export class ApiError extends ApiHttpError {
+  constructor(status: number, code: string, body: unknown = { error: code }) {
+    super(status, code, body);
+    this.name = 'ApiError';
+  }
+}
+
 export class ApiNetworkError extends Error {
   readonly code = 'network_error';
   readonly cause: unknown;
@@ -45,6 +60,8 @@ export class ApiNetworkError extends Error {
     this.cause = cause;
   }
 }
+
+export const API_UNAUTHORIZED_EVENT = 'suri-map-api-unauthorized';
 
 export interface ApiClient {
   request<TResponse, TBody = unknown>(
@@ -66,6 +83,14 @@ export interface ApiClient {
     path: string,
     options?: Omit<ApiRequestOptions<TBody>, 'method'>,
   ): Promise<TResponse>;
+}
+
+export function createIdempotencyKey(prefix: string) {
+  if (globalThis.crypto?.randomUUID) {
+    return `${prefix}-${globalThis.crypto.randomUUID()}`;
+  }
+
+  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 export function createApiClient(options: ApiClientOptions = {}): ApiClient {
@@ -93,6 +118,10 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
     } catch (error) {
       throw new ApiNetworkError(error);
     }
+
+    if (response.status === 401) {
+      clearExpiredApiSession();
+    }
     return parseResponse<TResponse>(response);
   }
 
@@ -107,14 +136,48 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
   };
 }
 
-export const apiClient = createApiClient();
+export function isMockAuthApiMode() {
+  return USE_MOCK_AUTH_API;
+}
+
+const realApiClient = createApiClient({
+  getAccessToken: getStoredAccessToken,
+});
+
+export const apiClient: ApiClient = {
+  request: (path, requestOptions) => clientForPath(path).request(path, requestOptions),
+  get: (path, requestOptions) => clientForPath(path).get(path, requestOptions),
+  post: (path, body, requestOptions) => clientForPath(path).post(path, body, requestOptions),
+  patch: (path, body, requestOptions) => clientForPath(path).patch(path, body, requestOptions),
+  delete: (path, requestOptions) => clientForPath(path).delete(path, requestOptions),
+};
+
+export async function apiRequest<TResponse>(path: string, options: ApiRequestOptions = {}): Promise<TResponse> {
+  try {
+    return await apiClient.request<TResponse>(path, {
+      ...options,
+      accessToken: options.accessToken ?? getStoredAccessToken(),
+    });
+  } catch (error) {
+    if (error instanceof ApiHttpError) {
+      throw new ApiError(error.status, error.code, error.body);
+    }
+    throw error;
+  }
+}
 
 function requestHeaders<TBody>(
   getAccessToken: ApiClientOptions['getAccessToken'],
   options: ApiRequestOptions<TBody>,
 ): Headers {
   const headers = new Headers(options.headers);
+  headers.set('Accept', 'application/json');
   headers.set('X-Client-Channel', 'WEB');
+
+  if (options.idempotencyKey) {
+    headers.set('Idempotency-Key', options.idempotencyKey);
+  }
+
   const token = options.accessToken ?? getAccessToken?.();
   if (token) {
     headers.set('Authorization', token.startsWith('Bearer ') ? token : `Bearer ${token}`);
@@ -173,6 +236,7 @@ async function parseBody(response: Response): Promise<unknown> {
   if (!text) {
     return undefined;
   }
+
   const contentType = response.headers.get('Content-Type') ?? '';
   if (!contentType.includes('application/json')) {
     return text;
@@ -194,4 +258,36 @@ function isErrorBody(body: unknown): body is { error: string } {
     && 'error' in body
     && typeof body.error === 'string'
   );
+}
+
+export function getStoredAccessToken() {
+  const accessToken = sessionStorage.getItem('suriMapAccessToken') ?? import.meta.env.VITE_API_ACCESS_TOKEN;
+  if (!accessToken) {
+    return null;
+  }
+
+  if (!isMockAuthApiMode() && accessToken.startsWith('mock-auth:')) {
+    return null;
+  }
+
+  return accessToken;
+}
+
+function clientForPath(path: string) {
+  if (isMockAuthApiMode() && isAuthApiPath(path)) {
+    return mockAuthApiClient;
+  }
+  return realApiClient;
+}
+
+function isAuthApiPath(path: string) {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  return normalizedPath === '/auth/login' || normalizedPath === '/auth/logout';
+}
+
+function clearExpiredApiSession() {
+  sessionStorage.removeItem('suriMapAccessToken');
+  sessionStorage.removeItem('suriMapCurrentAccount');
+  sessionStorage.removeItem('suriMapSessionId');
+  window.dispatchEvent(new CustomEvent(API_UNAUTHORIZED_EVENT));
 }

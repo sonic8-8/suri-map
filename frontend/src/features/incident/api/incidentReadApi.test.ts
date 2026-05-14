@@ -28,7 +28,9 @@ describe('incident read API', () => {
     const detail: IncidentDetailResponse = {
       id: 'inc-precinct-first-001',
       incidentId: 'inc-precinct-first-001',
+      title: '종로구 인왕산 실종 신고',
       status: 'OPEN',
+      openedAt: '2026-04-28T00:00:00Z',
       version: 3,
       missingPerson: null,
       assignments: [],

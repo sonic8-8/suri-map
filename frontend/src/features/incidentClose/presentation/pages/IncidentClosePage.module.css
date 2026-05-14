@@ -1,0 +1,709 @@
+/* 사건 종료 페이지 전체 레이아웃 */
+/* .page 스타일 */
+.page{
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
+  overflow: hidden;
+  color: var(--suri-board-fg-primary);
+  background: var(--suri-board-page-bg);
+}
+
+/* 상단 고정 헤더 묶음 */
+/* .header 스타일 */
+.header{
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  background: var(--suri-board-page-bg);
+}
+
+/* 제품 브랜드와 화면 제목을 담는 상단 바 */
+/* .productNav 스타일 */
+.productNav{
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: var(--suri-board-header-top-height);
+  flex-shrink: 0;
+  gap: 8px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--suri-board-border);
+  background: color-mix(in srgb, var(--suri-board-panel-bg) 95%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+/* 좌측 브랜드 표식 */
+/* .brand 스타일 */
+.brand{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--suri-board-fg-primary);
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+/* 브랜드 아이콘 크기 */
+/* .brand svg 스타일 */
+.brand svg{
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  color: var(--suri-board-fg-primary);
+}
+
+/* 브랜드 아이콘 채움색 */
+/* .brandMark 스타일 */
+.brandMark{
+  fill: var(--suri-board-primary);
+}
+
+/* 상단 가운데 화면 제목 */
+/* .headerCenterTitle 스타일 */
+.headerCenterTitle{
+  position: absolute;
+  left: 50%;
+  color: var(--suri-board-fg-primary);
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+/* 우측 메타 정보 영역 */
+/* .meta 스타일 */
+.meta{
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--suri-board-fg-muted);
+  font-size: var(--suri-board-header-meta-font-size);
+  white-space: nowrap;
+}
+
+/* 메타 정보 안의 강조 숫자 */
+/* .meta b 스타일 */
+.meta b{
+  color: var(--suri-board-fg-primary);
+  font-weight: 700;
+}
+
+/* 메타 항목 구분선 */
+/* .metaDivider 스타일 */
+.metaDivider{
+  width: 1px;
+  height: 20px;
+  background: var(--suri-board-border);
+}
+
+/* 상단 우측 버튼 공통 스타일 */
+.logoutButton,
+/* .secondaryButton 스타일 */
+.secondaryButton{
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--suri-board-fg-muted) 34%, transparent);
+  border-radius: 6px;
+  color: var(--suri-board-fg-secondary);
+  background: color-mix(in srgb, var(--suri-board-panel-surface) 42%, transparent);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+/* 상단 버튼과 보조 버튼의 hover 상태 */
+.logoutButton:hover,
+/* .secondaryButton:hover 스타일 */
+.secondaryButton:hover{
+  border-color: color-mix(in srgb, var(--suri-board-primary-hi) 42%, var(--suri-board-fg-muted));
+  color: var(--suri-board-fg-primary);
+  background: var(--suri-board-panel-surface);
+}
+
+/* 사건 요약과 액션을 보여주는 두 번째 헤더 줄 */
+/* .contextBar 스타일 */
+.actionRow .secondaryButton,
+.modalActions .secondaryButton{
+  border-color: color-mix(in srgb, var(--color-border-strong) 72%, var(--color-border-default));
+  color: var(--color-fg-primary);
+  background: #f2f7fc;
+}
+
+.actionRow .secondaryButton:hover,
+.modalActions .secondaryButton:hover{
+  border-color: color-mix(in srgb, var(--suri-board-primary-hi) 28%, var(--color-border-strong));
+  color: var(--color-fg-primary);
+  background: #e7eef7;
+}
+
+.contextBar{
+  display: flex;
+  align-items: center;
+  min-height: 64px;
+  flex-shrink: 0;
+  gap: 16px;
+  padding: 0 20px;
+  border-bottom: 1px solid #c1d6ec;
+  background:
+    linear-gradient(180deg, #b4c3d3 0%, #dae3ee 100%),
+    #c3cfdd;
+}
+
+/* 좌측 사건 식별 정보 묶음 */
+/* .contextMain 스타일 */
+.contextMain{
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* 사건명과 ID를 세로로 쌓는 영역 */
+/* .contextTitle 스타일 */
+.contextTitle{
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* 사건 제목 텍스트 */
+/* .contextTitle strong 스타일 */
+.contextTitle strong{
+  overflow: hidden;
+  color: var(--color-fg-primary);
+  font-size: 20px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 보조 라벨과 메타 라벨 */
+.contextTitle span,
+/* .contextMetrics span 스타일 */
+.contextMetrics span{
+  color: var(--color-fg-muted);
+  font-size: 12px;
+}
+
+/* 중간 구분선 */
+/* .contextDivider 스타일 */
+.contextDivider{
+  width: 1px;
+  height: 32px;
+  flex: 0 0 auto;
+  background: #9fb0c2;
+}
+
+/* 사건 상태 수치를 가로로 나열 */
+/* .contextMetrics 스타일 */
+.contextMetrics{
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  min-width: 0;
+  color: var(--color-fg-secondary);
+  font-size: 14px;
+}
+
+/* 각 수치 묶음 */
+/* .contextMetrics > div 스타일 */
+.contextMetrics > div{
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* 수치 강조 텍스트 */
+/* .contextMetrics strong 스타일 */
+.contextMetrics strong{
+  overflow: hidden;
+  color: var(--color-fg-primary);
+  font-size: 14px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 우측 종료 목록 버튼 영역 */
+/* .contextActions 스타일 */
+.contextActions{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* 컨텍스트 바 안에서 더 크게 쓰는 버튼 */
+/* .contextActions .secondaryButton 스타일 */
+.contextActions .secondaryButton{
+  min-height: 44px;
+  padding: 0 18px;
+  border-color: #4f7198;
+  color: var(--suri-board-fg-primary);
+  background: linear-gradient(180deg, #37628e 0%, #2b537c 56%, #21466d 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 18%),
+    0 2px 7px rgb(21 47 76 / 26%);
+}
+
+/* 본문 스크롤 영역 */
+/* .content 스타일 */
+.content{
+  min-height: 0;
+  overflow: auto;
+  background: #f4f6f8;
+  scrollbar-color: var(--suri-board-left-scrollbar-thumb) transparent;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+/* 본문 스크롤바 폭 */
+/* .content::-webkit-scrollbar 스타일 */
+.content::-webkit-scrollbar{
+  width: 10px;
+}
+
+/* 본문 스크롤바 손잡이 */
+/* .content::-webkit-scrollbar-thumb 스타일 */
+.content::-webkit-scrollbar-thumb{
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--suri-board-left-scrollbar-thumb);
+  background-clip: content-box;
+}
+
+/* 본문 카드의 최대 폭과 상단 여백 */
+/* .contentInner 스타일 */
+.contentInner{
+  display: grid;
+  width: min(960px, 100%);
+  margin: 0 auto;
+  padding: 70px 20px 20px;
+}
+
+/* 종료 전/후 카드의 공통 표면 */
+.closePanel,
+/* .tombstonePanel 스타일 */
+.tombstonePanel{
+  display: grid;
+  gap: 18px;
+  padding: 18px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 8px;
+  color: var(--color-fg-primary);
+  background: var(--color-bg-surface);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 6%);
+}
+
+/* 종료 후 배경을 더 중립적으로 낮춘 카드 */
+/* .tombstonePanel 스타일 */
+.tombstonePanel{
+  background: #eef1f4;
+}
+
+/* 카드 상단 제목과 상태 배지 행 */
+/* .panelHeader 스타일 */
+.panelHeader{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+/* 카드 메인 제목 */
+/* .panelHeader h1 스타일 */
+.panelHeader h1{
+  margin: 0;
+  color: var(--color-fg-primary);
+  font-size: 23px;
+  font-weight: 900;
+  line-height: 1.15;
+}
+
+/* 보조 문구 라벨 */
+/* .eyebrow 스타일 */
+.eyebrow{
+  margin: 0 0 4px;
+  color: var(--color-fg-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+/* tombstone의 종료 스탬프 */
+/* .stamp 스타일 */
+.stamp{
+  justify-self: start;
+  border: 1px solid color-mix(in srgb, var(--color-border-strong) 58%, var(--color-border-default));
+  border-radius: 4px;
+  min-height: 26px;
+  padding: 0 10px;
+  font-size: 12px;
+  color: #ffffff;
+  background: #717171;
+}
+
+/* 사건 요약을 2열로 보여주는 메타 그리드 */
+/* .summaryGrid 스타일 */
+.summaryGrid{
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 16px;
+  margin: 0;
+}
+
+/* 요약 행 단위 정렬 */
+/* .summaryGrid div 스타일 */
+.summaryGrid div{
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border-default) 72%, transparent);
+}
+
+/* 요약 항목 라벨 */
+/* .summaryGrid dt 스타일 */
+.summaryGrid dt{
+  color: var(--color-fg-muted);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* 요약 항목 값 */
+/* .summaryGrid dd 스타일 */
+.summaryGrid dd{
+  overflow: hidden;
+  margin: 0;
+  color: var(--color-fg-primary);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 전체 폭을 써야 하는 요약 항목 */
+/* .wideSummaryItem 스타일 */
+.wideSummaryItem{
+  grid-column: 1 / -1;
+}
+
+/* 종료 전 경고와 종료 후 안내 박스 */
+.warningBox,
+/* .neutralNotice 스타일 */
+.neutralNotice{
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 7px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+/* 종료 전 위험 안내 */
+/* .warningBox 스타일 */
+.warningBox{
+  border: 1px solid color-mix(in srgb, #d63a3a 62%, var(--color-border-default));
+  color: var(--color-fg-primary);
+  background: #fce9e9;
+}
+
+/* 경고 문장 강조 */
+/* .warningBox strong 스타일 */
+.warningBox strong{
+  color: #b22f2f;
+  font-size: 17px;
+  line-height: 1.6;
+}
+
+/* 종료 후 중립 안내 */
+/* .neutralNotice 스타일 */
+.neutralNotice{
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-fg-secondary);
+  background: #f8f8f8;
+}
+
+/* 본문 하단과 모달의 버튼 묶음 */
+.actionRow,
+/* .modalActions 스타일 */
+.modalActions{
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* 사건 종료 같은 파괴적 액션 버튼 */
+/* .dangerButton 스타일 */
+.dangerButton{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 20px;
+  border: 1px solid #b22f2f;
+  border-radius: 7px;
+  color: #ffffff;
+  background: #d63a3a;
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+/* 위험 버튼 hover */
+/* .dangerButton:hover:not(:disabled) 스타일 */
+.dangerButton:hover:not(:disabled){
+  border-color: #9f2828;
+  background: #b22f2f;
+}
+
+/* 위험 버튼 비활성 상태 */
+/* .dangerButton:disabled 스타일 */
+.dangerButton:disabled{
+  border-color: var(--color-border-strong);
+  color: var(--color-fg-muted);
+  background: #d8d8d8;
+  cursor: not-allowed;
+}
+
+/* 종료 후 파기 상태 목록 */
+/* .purgeSection 스타일 */
+.purgeSection{
+  display: grid;
+  gap: 10px;
+}
+
+/* 파기 상태 섹션 제목 */
+/* .purgeSection h2 스타일 */
+.purgeSection h2{
+  margin: 0;
+  color: var(--color-fg-primary);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+/* 파기 항목 리스트 */
+/* .purgeList 스타일 */
+.purgeList{
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* 파기 항목 한 줄 */
+/* .purgeList li 스타일 */
+.purgeList li{
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--color-border-strong);
+  color: var(--color-fg-secondary);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+/* 리스트 마지막 항목의 구분선 제거 */
+/* .purgeList li:last-child 스타일 */
+.purgeList li:last-child{
+  border-bottom: 0;
+}
+
+/* 파기 상태 칩 공통 */
+.purgeCompleted,
+/* .purgePending 스타일 */
+.purgePending{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+/* 완료 상태 칩 */
+/* .purgeCompleted 스타일 */
+.purgeCompleted{
+  border: 1px solid color-mix(in srgb, var(--suri-board-success) 42%, var(--color-border-default));
+  color: #1f8754;
+  background: #e5f4ec;
+}
+
+/* 대기 상태 칩 */
+/* .purgePending 스타일 */
+.purgePending{
+  border: 1px solid color-mix(in srgb, var(--krds-ops-warning) 42%, var(--color-border-default));
+  color: #b86b00;
+  background: #fcf1e2;
+}
+
+/* 종료 확인 모달 배경 */
+/* .modalOverlay 스타일 */
+.modalOverlay{
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(0 0 0 / 52%);
+}
+
+/* 종료 확정 다이얼로그 본체 */
+/* .modal 스타일 */
+.modal{
+  display: grid;
+  gap: 16px;
+  width: min(440px, 100%);
+  padding: 22px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 12px;
+  color: var(--color-fg-primary);
+  background: var(--color-bg-surface);
+  box-shadow: 0 20px 40px rgb(0 0 0 / 16%);
+}
+
+/* 모달 제목 */
+/* .modal h2 스타일 */
+.modal h2{
+  margin: 0;
+  color: #b22f2f;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+/* 모달 안내 문단 */
+/* .modal p 스타일 */
+.modal p{
+  margin: 0;
+  color: var(--color-fg-secondary);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* 모달 안의 강조 텍스트 */
+/* .modal b 스타일 */
+.modal b{
+  color: var(--color-fg-primary);
+}
+
+/* 모달 입력 라벨 */
+/* .confirmLabel 스타일 */
+.confirmLabel{
+  display: grid;
+  gap: 6px;
+  color: var(--color-fg-secondary);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+/* 종료 확인 문자열 입력 필드 */
+/* .confirmLabel input 스타일 */
+.confirmLabel input{
+  width: 100%;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1.5px solid #717171;
+  border-radius: 6px;
+  color: var(--color-fg-primary);
+  background: var(--color-bg-surface);
+}
+
+/* 입력 필드 포커스 표시 */
+/* .confirmLabel input:focus 스타일 */
+.confirmLabel input:focus{
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+  outline-offset: 2px;
+}
+
+/* 태블릿 이하에서는 상단 메타를 압축 */
+/* @media (max-width: 960px) 스타일 */
+@media (max-width: 960px){
+  /* .productNav 스타일 */
+  .productNav{
+    justify-content: space-between;
+  }
+
+  /* .headerCenterTitle 스타일 */
+
+  .headerCenterTitle{
+    position: static;
+    transform: none;
+  }
+
+  .meta,
+  /* .contextMetrics 스타일 */
+  .contextMetrics{
+    display: none;
+  }
+}
+
+/* 모바일에서는 카드 배치와 여백을 다시 줄임 */
+/* @media (max-width: 640px) 스타일 */
+@media (max-width: 640px){
+  /* .contextBar 스타일 */
+  .contextBar{
+    gap: 10px;
+    padding: 10px 12px;
+  }
+
+  .contextDivider,
+  /* .contextActions 스타일 */
+  .contextActions{
+    display: none;
+  }
+
+  /* .contentInner 스타일 */
+
+  .contentInner{
+    padding: 24px 12px 12px;
+  }
+
+  /* .summaryGrid 스타일 */
+
+  .summaryGrid{
+    grid-template-columns: 1fr;
+  }
+
+  /* .summaryGrid div 스타일 */
+
+  .summaryGrid div{
+    grid-template-columns: 96px minmax(0, 1fr);
+  }
+
+  .panelHeader,
+  .actionRow,
+  /* .modalActions 스타일 */
+  .modalActions{
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+
+

@@ -1,0 +1,10 @@
+/* 레이어 토글 버튼들이 줄바꿈되는 배치. */
+.toggleList {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.toggleList > button {
+  width: 100%;
+}

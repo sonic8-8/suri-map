@@ -233,6 +233,26 @@ public class SearchAreaApiService implements SearchAreaQuery {
           .orElseThrow(SearchAreaApiException::overallSearchAreaRequired);
     }
 
+    if (persistentReadAvailable()) {
+      List<String> statusFilter = status != null ? List.of(status) : null;
+      boolean includeCancelled = CANCELLED.equals(status);
+      SearchAreaFilters filters = new SearchAreaFilters(statusFilter, opId, null, null, null, includeCancelled);
+      searchAreaMapper.findByIncident(incidentId, filters).forEach(dbRecord -> {
+        SearchAreaRecord record = new SearchAreaRecord(
+            dbRecord.id(),
+            dbRecord.incidentId(),
+            dbRecord.operationalPeriodId(),
+            dbRecord.parentSearchAreaId(),
+            dbRecord.areaLevel(),
+            dbRecord.status(),
+            dbRecord.historyCount(),
+            dbRecord.version(),
+            toGeoJsonPolygon(dbRecord.geometry()),
+            dbRecord.updatedAt());
+        searchAreas.put(dbRecord.id(), record);
+      });
+    }
+
     List<SearchAreaRecord> records =
         searchAreas.values().stream()
             .filter(area -> incidentId.equals(area.incidentId()))
@@ -393,6 +413,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
                   CANCELLED, parent.historyCount() + 1, parent.version() + 1, parent.geometry());
           searchAreas.put(cancelled.id(), cancelled);
 
+          String childAreaLevel = OVERALL.equals(parent.areaLevel()) ? UNIT : TEAM;
           List<SearchAreaRecord> children = new ArrayList<>();
           for (GeoJsonPolygon geometry : request.children()) {
             SearchAreaRecord child =
@@ -401,7 +422,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
                     parent.incidentId(),
                     parent.opId(),
                     parent.id(),
-                    parent.areaLevel(),
+                    childAreaLevel,
                     ACTIVE,
                     1L,
                     1L,
@@ -719,13 +740,14 @@ public class SearchAreaApiService implements SearchAreaQuery {
     for (GeoJsonPolygon childGeometry : request.children()) {
       UUID childId = UUID.randomUUID();
       Polygon childPolygon = toJtsPolygon(childGeometry);
+      String childAreaLevel = OVERALL.equals(parent.areaLevel()) ? UNIT : TEAM;
       SearchAreaPersistenceRecord childRow =
           new SearchAreaPersistenceRecord(
               childId,
               parent.operationalPeriodId(),
               parent.id(),
-              searchAreaName(parent.areaLevel(), request.memo()),
-              parent.areaLevel(),
+              searchAreaName(childAreaLevel, request.memo()),
+              childAreaLevel,
               childPolygon,
               ACTIVE,
               1L,
@@ -918,6 +940,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
         record.opId(),
         record.parentAreaId(),
         record.status(),
+        record.areaLevel(),
         record.version(),
         record.geometry(),
         computeBbox(record.geometry()),
@@ -933,6 +956,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
         record.operationalPeriodId(),
         record.parentSearchAreaId(),
         record.status(),
+        record.areaLevel(),
         record.version(),
         geometry,
         computeBbox(geometry),

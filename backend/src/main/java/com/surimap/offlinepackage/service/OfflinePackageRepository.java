@@ -375,7 +375,7 @@ public class OfflinePackageRepository {
             incidentId,
             source.incident().getStatus(),
             "OPEN".equals(source.incident().getStatus()) ? "CURRENT" : "TERMINAL",
-            source.incident().getSourceIncidentId()),
+            source.incident().getSourceIncidentId().toString()),
         missingPersonFromSource(source.missingPerson()),
         source.operationalPeriods().stream()
             .map(
@@ -463,6 +463,8 @@ public class OfflinePackageRepository {
             record.id().toString(),
             record.incidentId().toString(),
             record.policePhoneId().toString(),
+            policePhoneCode(record.policePhoneId().toString()),
+            policePhoneName(record.policePhoneId().toString()),
             record.status(),
             record.version(),
             record.sequence(),
@@ -812,6 +814,12 @@ public class OfflinePackageRepository {
         installationPublicId(status.id()),
         incidentPublicId(status.incidentId()),
         policePhonePublicId(status.policePhoneId()),
+        status.policePhoneCode() == null
+            ? policePhoneCode(status.policePhoneId())
+            : status.policePhoneCode(),
+        status.policePhoneName() == null
+            ? policePhoneName(status.policePhoneId())
+            : status.policePhoneName(),
         status.status(),
         status.version(),
         status.sequence(),
@@ -879,6 +887,44 @@ public class OfflinePackageRepository {
 
   private static String policePhonePublicId(String value) {
     return policePhoneDbId(value);
+  }
+
+  private static String policePhoneCode(String value) {
+    String dbId = policePhoneDbId(value);
+    return KNOWN_DB_IDS_BY_ALIAS.entrySet().stream()
+        .filter(entry -> entry.getValue().equals(dbId) && entry.getKey().startsWith("dev-"))
+        .map(Map.Entry::getKey)
+        .findFirst()
+        .orElse(null);
+  }
+
+  private static String policePhoneName(String value) {
+    String code = policePhoneCode(value);
+    if (POLICE_PHONE_CODE.equals(code)) {
+      return "Precinct team phone";
+    }
+    if ("dev-precinct-cmd-phone-01".equals(code)) {
+      return "Precinct commander phone";
+    }
+    if ("dev-precinct-car-01".equals(code)) {
+      return "Precinct patrol phone";
+    }
+    if ("dev-alpha-cmd-phone-01".equals(code)) {
+      return "Missing commander phone";
+    }
+    if ("dev-alpha-phone-01".equals(code)) {
+      return "Missing team phone";
+    }
+    if ("dev-support-cmd-phone-01".equals(code)) {
+      return "Support commander phone";
+    }
+    if ("dev-support-car-01".equals(code)) {
+      return "Support patrol phone";
+    }
+    if ("dev-support-phone-01".equals(code)) {
+      return "Support team phone";
+    }
+    return null;
   }
 
   private static boolean isUuid(String value) {

@@ -72,7 +72,9 @@ public class IncidentReadQueryService {
     return Detail.active(
         row.getId(),
         row.getId(),
+        row.getTitle(),
         row.getStatus(),
+        row.getOpenedAt(),
         row.getVersion(),
         missingPerson.map(this::toMissingPerson).orElse(null),
         assignments.stream().map(this::toAssignment).toList());
@@ -102,6 +104,12 @@ public class IncidentReadQueryService {
   }
 
   private Assignment toAssignment(AssignmentRow row) {
-    return new Assignment(row.getAccountId(), row.getIncidentRole());
+    return new Assignment(
+        row.getAccountId(),
+        row.getAccountDisplayName(),
+        row.getAccountType(),
+        row.getOrganizationType(),
+        row.getIncidentRole(),
+        row.getAssignedAt());
   }
 }

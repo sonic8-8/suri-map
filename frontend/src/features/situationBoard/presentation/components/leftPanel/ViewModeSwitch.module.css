@@ -1,0 +1,6 @@
+/* 보기 모드 버튼을 2열로 나란히 배치한다. */
+.viewModeSwitch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}

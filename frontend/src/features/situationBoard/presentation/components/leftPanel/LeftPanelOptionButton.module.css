@@ -1,0 +1,77 @@
+/* 좌측 패널에서 재사용하는 옵션 버튼의 공통 베이스. */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: 0 8px;
+  border: 1px solid var(--suri-board-option-default-border);
+  border-radius: 4px;
+  color: var(--suri-board-option-default-fg);
+  background: var(--suri-board-option-default-bg);
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.2;
+}
+
+/* 텍스트형 옵션 버튼 높이. */
+.text {
+  min-height: 44px;
+}
+
+/* 아이콘형 옵션 버튼 레이아웃. */
+.icon {
+  position: relative;
+  justify-content: flex-start;
+  gap: 7px;
+  min-height: 44px;
+  text-align: left;
+}
+
+/* 펼침 표시가 있을 때 오른쪽 화살표 아이콘 여백을 확보한다. */
+.icon[aria-expanded] {
+  padding-right: 22px;
+}
+
+/* 아이콘형 버튼 라벨은 한 줄로 유지하고 말줄임 처리한다. */
+.icon span {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 선택된 옵션 버튼 강조 상태. */
+.optionButtonSelected {
+  border-color: var(--suri-board-primary-hi);
+  color: var(--suri-board-fg-primary);
+  background: var(--suri-board-primary-soft);
+  font-weight: 500;
+  box-shadow:
+    inset 0 0 0 1px var(--suri-board-primary-hi),
+    0 0 0 1px color-mix(in srgb, var(--suri-board-primary) 58%, transparent);
+}
+
+/* 펼침 화살표의 기본 위치와 전환 효과. */
+.expandIcon {
+  position: absolute;
+  top: 50%;
+  right: 5px;
+  color: var(--suri-board-fg-muted);
+  transform: translateY(-50%);
+  transition: transform 120ms ease;
+}
+
+/* 펼쳐진 상태에서는 화살표를 뒤집는다. */
+.button[aria-expanded="true"] .expandIcon {
+  transform: translateY(-50%) rotate(180deg);
+}
+
+/* 지원 요청처럼 더 촘촘하게 보여야 하는 아이콘형 버튼 변형. */
+.compactIcon {
+  justify-content: center;
+  gap: 5px;
+  min-height: 38px;
+  padding: 0 6px;
+  text-align: center;
+}

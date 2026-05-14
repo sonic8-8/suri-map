@@ -591,7 +591,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 
 - `EventHub.publish(event)`
 - `EventFanout.dispatch(outboxRow)`
-- `GET /events?incidentId={incidentId}`
+- `GET /api/incidents/{incidentId}/events`
 - `BaseEvent`
 - `event_outbox.schema.json`
 - `sse_event_log.schema.json`
@@ -615,7 +615,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 **acceptance_hints**
 
 - `EventHub.publish(PublishRequest)` stages `event_outbox` inside the caller domain transaction and preserves the `BaseEvent` envelope. Commit 이후 전송·재시도는 `EventFanout.dispatch`/worker가 수행한다.
-- `GET /events?incidentId={incidentId}` authenticates incident access, supports Last-Event-ID replay, and deduplicates by `eventId`.
+- `GET /api/incidents/{incidentId}/events` authenticates incident access, supports Last-Event-ID replay, and deduplicates by `eventId`.
 - `EventFanout.dispatch` owns SSE delivery, FCM delivery port calls, board refetch signal delivery, retries, and failure injection points.
 - `INCIDENT_PURGED` removes replay data for the incident and prevents later SSE replay from old logs.
 

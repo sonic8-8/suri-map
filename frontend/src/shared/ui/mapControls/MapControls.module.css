@@ -1,0 +1,53 @@
+.toolbar {
+  position: absolute;
+  z-index: 6;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  color: #ffffff;
+  background: linear-gradient(180deg, #163967 0%, #12335f 55%, #0f2c53 100%);
+}
+
+.button:hover {
+  background: linear-gradient(180deg, #1f4779 0%, #173e70 55%, #12335f 100%);
+}
+
+.button:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+.buttonActive {
+  border-color: #8fc0ff;
+  color: #ffffff;
+  background: linear-gradient(180deg, #245f9d 0%, #1e548c 55%, #174778 100%);
+}
+
+.button svg {
+  width: 22px;
+  height: 22px;
+}
+
+@media (max-width: 560px) {
+  .toolbar {
+    top: 24px;
+    right: 24px;
+  }
+}

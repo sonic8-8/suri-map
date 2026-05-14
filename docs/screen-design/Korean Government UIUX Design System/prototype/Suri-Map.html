@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<title>Suri-Map · 통합 프로토타입</title>
+<meta name="viewport" content="width=1440"/>
+<link rel="stylesheet" href="../colors_and_type.css"/>
+<style>
+  html, body { margin: 0; padding: 0; background: #0E1320; color: #E8ECF5;
+    font-family: 'Pretendard GOV', 'Pretendard', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased; }
+  * { box-sizing: border-box; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: #0E1320; }
+  ::-webkit-scrollbar-thumb { background: #2A3450; border-radius: 999px; }
+  ::-webkit-scrollbar-thumb:hover { background: #3B4666; }
+  @keyframes sm-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: 0.55; transform: scale(1.08); }
+  }
+
+  /* Top product nav */
+  .product-nav {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(14, 19, 32, 0.95); backdrop-filter: blur(8px);
+    border-bottom: 1px solid #2A3450;
+    display: flex; align-items: center; padding: 0 20px; height: 52px; gap: 8px;
+  }
+  .product-nav .brand {
+    display: flex; align-items: center; gap: 8px;
+    font-weight: 800; font-size: 15px; color: #E8ECF5;
+    letter-spacing: 0.3px; padding-right: 16px;
+    border-right: 1px solid #2A3450; height: 100%;
+  }
+  .product-nav .brand small { color: #7A86A8; font-weight: 600; font-size: 11px; letter-spacing: 0.4px; }
+  .product-nav .nav-btn {
+    padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 700;
+    background: transparent; border: 1px solid transparent; color: #A9B1C9; cursor: pointer;
+    font-family: inherit;
+  }
+  .product-nav .nav-btn:hover { background: #1A2238; color: #E8ECF5; }
+  .product-nav .nav-btn.active { background: rgba(59,130,246,0.15); color: #60A5FA; border-color: rgba(59,130,246,0.4); }
+  .product-nav .right { margin-left: auto; display: flex; gap: 8px; align-items: center; color: #7A86A8; font-size: 12px; }
+
+  /* Polifon page background */
+  .polifon-page {
+    min-height: calc(100vh - 52px);
+    background:
+      radial-gradient(ellipse at top, #1A2238 0%, #0E1320 70%);
+    padding: 32px 20px 60px;
+  }
+  .polifon-grid {
+    display: grid; grid-template-columns: repeat(3, max-content); gap: 32px;
+    justify-content: center; max-width: 1300px; margin: 0 auto;
+  }
+  .page-intro {
+    max-width: 1100px; margin: 0 auto 32px; text-align: center;
+  }
+  .page-intro h1 { font-size: 26px; font-weight: 800; margin: 0 0 6px; }
+  .page-intro p { color: #A9B1C9; font-size: 14px; margin: 0; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<!-- Tweaks defaults (single inline block) -->
+<script>
+  window.SM_TWEAKS = /*EDITMODE-BEGIN*/{
+    "currentUser": "실종팀 1팀장 박OO",
+    "showLegend": true
+  }/*EDITMODE-END*/;
+</script>
+
+<!-- React + Babel -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<!-- Data + utilities (vanilla JS, must come first) -->
+<script src="data.js"></script>
+
+<!-- Components (Babel JSX) -->
+<script type="text/babel" src="shared.jsx"></script>
+<script type="text/babel" src="map.jsx"></script>
+<script type="text/babel" src="overlay.jsx"></script>
+<script type="text/babel" src="situation-board.jsx"></script>
+<script type="text/babel" src="screens.jsx"></script>
+<script type="text/babel" src="polifon.jsx"></script>
+<script type="text/babel" src="flow-frames.jsx"></script>
+<script type="text/babel" src="flow-content.jsx"></script>
+
+<!-- App root -->
+<div id="root"></div>
+
+<script type="text/babel">
+function App() {
+  const [page, setPage] = React.useState('board');
+  // page: board | list | opcompare | areas | handover | offline | polifon
+
+  const screens = window.SM_SCREENS;
+
+  React.useEffect(() => {
+    // sync page from URL hash so deep linking works
+    const fromHash = () => {
+      const h = window.location.hash.replace('#', '');
+      if (h) setPage(h);
+    };
+    fromHash();
+    window.addEventListener('hashchange', fromHash);
+    return () => window.removeEventListener('hashchange', fromHash);
+  }, []);
+
+  const navigate = (p) => {
+    setPage(p);
+    window.history.replaceState(null, '', `#${p}`);
+    window.scrollTo(0, 0);
+  };
+
+  return (
+    <div data-screen-label={`Suri-Map / ${page}`}>
+      <nav className="product-nav">
+        <div className="brand">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+            <path d="M11 1.5 L19.5 5 V11 C19.5 15.5 16 19.3 11 20.5 C6 19.3 2.5 15.5 2.5 11 V5 Z" fill="#3B82F6"/>
+            <path d="M11 6.5 a4.5 4.5 0 1 0 0 9 a4.5 4.5 0 1 0 0 -9 z M11 9 v3.5 M11 14 v.1" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" fill="none"/>
+          </svg>
+          <div>Suri-Map <small>· 실종자 수색 통합 프로토타입</small></div>
+        </div>
+        {[
+          ['board', '상황판'],
+          ['list', '사건 목록'],
+          ['opcompare', 'OP 비교'],
+          ['areas', '구역 분할'],
+          ['handover', '인수인계'],
+          ['offline', '오프라인 패키지'],
+          ['polifon', '폴리폰 앱'],
+          ['flows', '사용 흐름'],
+        ].map(([k, label]) => (
+          <button key={k} onClick={() => navigate(k)} className={`nav-btn ${page === k ? 'active' : ''}`}>{label}</button>
+        ))}
+        <div className="right">
+          <span>현재 사용자: <b style={{ color: '#E8ECF5' }}>{window.SM_TWEAKS.currentUser}</b></span>
+          <span style={{ width: 1, height: 20, background: '#2A3450' }}/>
+          <span>2026-05-04 16:42 KST · mock</span>
+        </div>
+      </nav>
+
+      {page === 'board'     && <screens.SituationBoard onNavigate={navigate}/>}
+      {page === 'list'      && <screens.IncidentList   onBack={() => navigate('board')} onOpen={navigate}/>}
+      {page === 'opcompare' && <screens.OPCompare      onBack={() => navigate('board')}/>}
+      {page === 'areas'     && <screens.AreaDivider    onBack={() => navigate('board')}/>}
+      {page === 'handover'  && <screens.HandoverSummary onBack={() => navigate('board')}/>}
+      {page === 'offline'   && <screens.OfflinePackage onBack={() => navigate('board')}/>}
+      {page === 'polifon'   && <PoliPage/>}
+      {page === 'flows'     && <FlowsPage/>}
+    </div>
+  );
+}
+
+function PoliPage() {
+  const { PoliSearch, PoliMarker, PoliQueue } = window.SM_POLI;
+  return (
+    <div className="polifon-page">
+      <div className="page-intro">
+        <h1>폴리폰 (현장 단말 앱)</h1>
+        <p>러기드 업무폰에 설치되어, 현장 인원이 수색 시작·일시정지·종료, 마커 작성, 오프라인 동기화를 수행합니다. 단말 별 GPS·마커·사진은 자동으로 상황판에 반영됩니다.</p>
+      </div>
+      <div className="polifon-grid">
+        <PoliSearch/>
+        <PoliMarker/>
+        <PoliQueue/>
+      </div>
+    </div>
+  );
+}
+
+function FlowsPage() {
+  const F = window.SM_FLOWS;
+  return (
+    <div style={{ background: '#0E1320' }}>
+      <div style={{ padding: '40px 32px 8px', maxWidth: 1100, margin: '0 auto', textAlign: 'center' }}>
+        <h1 style={{ fontSize: 28, fontWeight: 800, margin: '0 0 8px' }}>Suri-Map · 주요 사용 흐름</h1>
+        <p style={{ color: '#A9B1C9', fontSize: 14, margin: 0, lineHeight: 1.7 }}>
+          웹 상황판과 폴리폰 앱이 한 사건을 함께 다루는 6가지 핵심 시나리오입니다.<br/>
+          각 단계의 버튼을 눌러 시뮬레이션해 보세요. 각 흐름의 상태는 독립적입니다.
+        </p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: 18 }}>
+          {[
+            ['f1','01 · 사건 → 출동'],
+            ['f2','02 · OP·구역 할당'],
+            ['f3','03 · 마커·동기화'],
+            ['f4','04 · 오프라인'],
+            ['f5','05 · OP 인수인계'],
+            ['f6','06 · 발견·종결'],
+          ].map(([id, label]) => (
+            <a key={id} href={`#${id}`} style={{
+              padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 700,
+              background: 'rgba(59,130,246,0.12)', color: '#60A5FA',
+              border: '1px solid rgba(59,130,246,0.4)', textDecoration: 'none',
+            }}>{label}</a>
+          ))}
+        </div>
+      </div>
+      <F.Flow1/>
+      <F.Flow2/>
+      <F.Flow3/>
+      <F.Flow4/>
+      <F.Flow5/>
+      <F.Flow6/>
+      <div style={{ padding: 32, textAlign: 'center', color: '#525C7A', fontSize: 11 }}>
+        — 모든 시각·좌표·이름은 mock입니다. 시계는 2026-05-04 16:42 KST에 고정.
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+
+</body>
+</html>

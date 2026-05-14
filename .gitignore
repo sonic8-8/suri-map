@@ -7,11 +7,12 @@ Thumbs.db
 .idea/
 .vscode/
 *.iml
+*.Zone.Identifier
 
 # Local environment
 .env
-.env.*
-!.env.example
+.env
+!.env
 !.env.*.example
 .codex/*
 !.codex/
@@ -93,8 +94,13 @@ __pycache__/
 
 # Personal planning notes
 TODO.md
+personal-files/
+
 # Added by code-review-graph
 .code-review-graph/
 
 # Local knowledge graph outputs
 graphify-out/
+
+.tmp/*
+.playwright-mcp/*

@@ -6,7 +6,7 @@
     "owner": "1",
     "character": "domain",
     "created": "2026-04-24",
-    "updated": "2026-04-28"
+    "updated": "2026-05-13"
   },
   "context_refs": {
     "prd": [
@@ -535,8 +535,18 @@
                 "format": "uuid",
                 "description": "id와 같은 UUID를 담는 호환 alias다."
               },
+              "title": {
+                "type": "string"
+              },
               "status": {
                 "type": "string"
+              },
+              "openedAt": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
               },
               "version": {
                 "type": "integer"
@@ -557,8 +567,31 @@
                       "type": "string",
                       "format": "uuid"
                     },
+                    "accountDisplayName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "account.display_name. 계정 fixture가 없으면 null이다."
+                    },
+                    "accountType": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "organizationType": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "incidentRole": {
                       "type": "string"
+                    },
+                    "assignedAt": {
+                      "type": "string",
+                      "format": "date-time"
                     }
                   }
                 }

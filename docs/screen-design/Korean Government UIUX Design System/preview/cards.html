@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>Cards</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin:0; padding:24px; background:#F8F8F8; font-family: var(--gov-font-body); color: var(--gov-fg-1); }
+  .row { display:grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .card { background:#fff; border:1px solid var(--gov-border-2); border-radius: 8px; padding: 24px; }
+  .card .meta { font-size:13px; color: var(--gov-fg-3); margin-bottom: 6px; }
+  .card .title { font-size: 19px; font-weight:700; margin: 0 0 8px 0; }
+  .card p { margin: 0; font-size: 15px; color: var(--gov-fg-3); }
+  .card.shadow { border: 0; box-shadow: var(--gov-shadow-2); }
+  .badge { display:inline-block; padding: 0 8px; border-radius: 4px; font-size: 13px; line-height: 22px; background: var(--gov-primary-pastel); color: var(--gov-primary-hover); margin-bottom: 8px; }
+</style></head>
+<body>
+<div class="row">
+  <div class="card">
+    <span class="badge">정책뉴스</span>
+    <h3 class="title">디지털플랫폼정부 추진계획 발표</h3>
+    <p>국민이 원하는 정부서비스를 한 곳에서 제공합니다.</p>
+  </div>
+  <div class="card shadow">
+    <div class="meta">2026.04.21 · 행정안전부</div>
+    <h3 class="title">민원24 통합 안내</h3>
+    <p>온라인으로 신청 가능한 서비스 1,200여 종.</p>
+  </div>
+</div>
+</body></html>

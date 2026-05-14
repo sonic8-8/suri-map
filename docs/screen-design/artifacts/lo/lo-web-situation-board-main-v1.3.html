@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>Low-fi · Web 사건 상황판 메인 v1.3</title>
+<style>
+  /*
+    v1.3 변경:
+    - 마커 시각 = 의미 SVG 아이콘 + 짧은 텍스트 라벨 칩 (7종: CLUE/PERSON_FOUND/FIELD_CONDITION/SUPPORT(DRONE/POLICE_DOG/OTHER)/NOTE(운영 메모))
+    - 마커 라벨 표시 정책: 좌측 패널 토글 (default ON / 줌 기반 자동은 high-fi)
+    - 폴리폰 라벨 = screen-labels §2 정렬 ("지구대 팀 폴리폰" 등)
+    - 우측 트리 stale 표기 = "12분 전 동기화"
+    - 최근 마커 "발견 · 단서 의류" → "단서 · 의류"
+    - 헤더 권한 표기: command role default. permission_partial은 review variant
+  */
+  html, body { margin: 0; padding: 0; }
+  * { box-sizing: border-box; font-family: Pretendard, "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; }
+  body { background: #fff; }
+  .canvas { width: 1920px; height: 1080px; background: #fff; display: grid; grid-template-rows: 64px 1fr; grid-template-columns: 280px 1fr 360px; }
+
+  /* 헤더 */
+  .header { grid-column: 1 / -1; border-bottom: 1px solid #999; display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; padding: 0 16px; gap: 16px; }
+  .h-logo { width: 40px; height: 40px; border: 1px solid #666; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; }
+  .h-incident { display: flex; gap: 16px; align-items: center; font-size: 12px; }
+  .h-incident .group { display: flex; flex-direction: column; gap: 2px; }
+  .h-incident .group .label { font-size: 10px; color: #666; }
+  .h-incident .group .value { font-size: 13px; font-weight: bold; }
+  .h-status { border: 1px solid #000; padding: 4px 12px; font-size: 12px; font-weight: bold; }
+  .h-actions { display: flex; gap: 8px; font-size: 12px; }
+  .h-actions button { border: 1px solid #999; background: #fff; padding: 6px 12px; font-size: 12px; font-family: inherit; cursor: pointer; }
+
+  /* 좌측 */
+  .left { border-right: 1px solid #999; padding: 16px 12px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+  .section-title { font-size: 12px; font-weight: bold; color: #333; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+
+  .op-list { border: 1px solid #ccc; max-height: 220px; overflow-y: auto; }
+  .op-item { padding: 8px 10px; border-bottom: 1px solid #eee; font-size: 12px; display: grid; grid-template-columns: 16px 1fr auto; gap: 8px; align-items: center; cursor: pointer; }
+  .op-item:last-child { border-bottom: 0; }
+  .op-item .check { width: 14px; height: 14px; border: 1px solid #666; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; }
+  .op-item.selected .check::before { content: '✓'; }
+  .op-item.current { background: #f0f0f0; border-left: 3px solid #000; }
+  .op-item.current .check { border-color: #000; background: #000; color: #fff; }
+  .op-item.current .check::before { content: '●'; }
+  .op-item .label { display: flex; flex-direction: column; gap: 2px; }
+  .op-item .label .reason { font-size: 10px; color: #666; }
+  .op-item .time { font-size: 10px; color: #666; }
+  .op-list .scroll-hint { padding: 6px; font-size: 11px; color: #666; text-align: center; border-top: 1px solid #eee; }
+  .op-list .legend { padding: 6px 10px; font-size: 10px; color: #666; background: #fafafa; border-bottom: 1px solid #eee; }
+
+  .toggles { display: flex; flex-direction: column; gap: 4px; }
+  .toggle { font-size: 12px; padding: 6px 8px; border: 1px solid #ccc; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+  .toggle.on { border-color: #000; font-weight: bold; }
+
+  /* 마커 필터: 5종 카테고리 + sub-type은 sub-row */
+  .marker-filter { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+  .marker-chip { font-size: 11px; padding: 6px 8px; border: 1px solid #ccc; text-align: left; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+  .marker-chip.on { border-color: #000; font-weight: bold; }
+  .marker-chip svg { width: 14px; height: 14px; flex-shrink: 0; }
+  .marker-sub { padding-left: 16px; display: flex; flex-direction: column; gap: 2px; margin-top: 2px; }
+  .marker-sub-chip { font-size: 10px; padding: 3px 6px; border: 1px solid #ddd; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+  .marker-sub-chip svg { width: 11px; height: 11px; flex-shrink: 0; }
+
+  .view-mode { display: flex; gap: 4px; }
+  .view-mode .item { flex: 1; padding: 6px 8px; font-size: 11px; border: 1px solid #ccc; text-align: center; cursor: pointer; }
+  .view-mode .item.on { border-color: #000; font-weight: bold; }
+
+  .nav-links { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+  .nav-links a { padding: 6px 8px; border: 1px solid #ccc; text-decoration: none; color: #000; cursor: pointer; }
+
+  /* 지도 */
+  .map { position: relative; background: #f7f7f7; overflow: hidden; }
+  .map-canvas { position: absolute; inset: 0; background:
+    linear-gradient(transparent 50%, rgba(0,0,0,0.04) 50%) 0 0 / 100% 80px,
+    linear-gradient(90deg, transparent 50%, rgba(0,0,0,0.04) 50%) 0 0 / 80px 100%; }
+  .map-label-base { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 14px; color: #999; pointer-events: none; }
+
+  /* 구역 3계층 */
+  .area-overall { position: absolute; left: 80px; top: 80px; width: 1100px; height: 780px; border: 3px dashed #000; }
+  .area-overall .label { position: absolute; top: -24px; left: 0; font-size: 12px; font-weight: bold; background: #fff; padding: 3px 8px; border: 2px solid #000; }
+  .area-unit { position: absolute; border: 2px solid #333; background: rgba(0,0,0,0.02); }
+  .area-unit .unit-label { position: absolute; top: -22px; left: 4px; font-size: 11px; font-weight: bold; background: #fff; padding: 2px 8px; border: 1px solid #333; }
+  .area-team { position: absolute; border: 1px solid #666; background: rgba(0,0,0,0.05); font-size: 11px; padding: 6px; display: flex; flex-direction: column; justify-content: space-between; }
+  .area-team.completed { background: repeating-linear-gradient(45deg, transparent, transparent 6px, rgba(0,0,0,0.10) 6px, rgba(0,0,0,0.10) 8px); }
+  .area-team .area-meta { font-size: 10px; color: #333; line-height: 1.3; }
+
+  /* 경로 */
+  .path { position: absolute; height: 3px; background: #333; transform-origin: left center; }
+  .path.walk { background: repeating-linear-gradient(90deg, #333 0 8px, transparent 8px 12px); height: 2px; }
+  .path.mine { height: 5px; background: #000; box-shadow: 0 0 0 2px #fff; }
+  .path.overlay { opacity: 0.4; background: repeating-linear-gradient(90deg, #666 0 4px, transparent 4px 8px); height: 2px; }
+
+  /* 폴리폰 */
+  .phone { position: absolute; width: 14px; height: 14px; border: 2px solid #333; background: #fff; border-radius: 50%; transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: center; }
+  .phone .label { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); font-size: 10px; background: #fff; padding: 1px 4px; border: 1px solid #999; white-space: nowrap; }
+  .phone.stale { border-style: dashed; }
+  .phone.lost { border-style: dotted; opacity: 0.6; }
+  .phone.mine { border-width: 3px; box-shadow: 0 0 0 3px rgba(0,0,0,0.15); }
+
+  /* === v1.3 마커 = SVG 아이콘 + 라벨 칩 === */
+  .marker {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    display: flex; flex-direction: column; align-items: center;
+    gap: 2px;
+    cursor: pointer;
+    pointer-events: auto;
+  }
+  .marker .icon-bg {
+    width: 26px; height: 26px;
+    background: #fff;
+    border: 1.5px solid #333;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  }
+  .marker.found .icon-bg {
+    border-width: 2.5px;
+    box-shadow: 0 0 0 3px rgba(0,0,0,0.15), 0 1px 2px rgba(0,0,0,0.2);
+  }
+  .marker svg { width: 16px; height: 16px; }
+  .marker .chip {
+    background: #fff;
+    border: 1px solid #999;
+    border-radius: 8px;
+    padding: 1px 6px;
+    font-size: 10px;
+    font-weight: 600;
+    white-space: nowrap;
+    color: #1d1d1d;
+  }
+  .marker.found .chip {
+    border: 1.5px solid #000;
+    font-weight: 700;
+  }
+  /* 마커 라벨 숨김 옵션 (좌측 패널 토글로 제어 가정) */
+  .markers-no-labels .marker .chip { display: none; }
+
+  .marker-cluster { position: absolute; width: 28px; height: 28px; border: 2px solid #333; background: #fff; border-radius: 50%; transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; }
+
+  /* 지도 오버레이 */
+  .map-overlay { position: absolute; background: rgba(255,255,255,0.95); border: 1px solid #999; padding: 8px; font-size: 11px; }
+  .map-controls { right: 16px; top: 16px; display: flex; flex-direction: column; gap: 4px; }
+  .map-controls button { width: auto; min-width: 56px; height: 32px; border: 1px solid #999; background: #fff; cursor: pointer; font-size: 11px; padding: 0 8px; font-family: inherit; }
+
+  .map-legend { left: 16px; bottom: 16px; display: flex; flex-direction: column; gap: 4px; max-width: 320px; }
+  .map-legend .row { display: flex; gap: 6px; align-items: center; font-size: 11px; }
+  .map-legend svg { width: 12px; height: 12px; }
+  .map-legend .swatch { width: 16px; height: 4px; background: #333; }
+  .map-legend .swatch.walk { background: repeating-linear-gradient(90deg, #333 0 4px, transparent 4px 6px); }
+  .map-legend .swatch.mine { height: 6px; background: #000; box-shadow: 0 0 0 1px #fff inset; }
+  .map-legend .swatch.overlay { background: repeating-linear-gradient(90deg, #666 0 3px, transparent 3px 6px); opacity: 0.6; }
+  .map-legend .area-swatch { width: 18px; height: 12px; }
+  .map-legend .area-swatch.overall { border: 2px dashed #000; }
+  .map-legend .area-swatch.unit { border: 2px solid #333; background: rgba(0,0,0,0.02); }
+  .map-legend .area-swatch.team { border: 1px solid #666; background: rgba(0,0,0,0.05); }
+  .map-legend .area-swatch.completed { border: 1px solid #666; background: repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.10) 3px, rgba(0,0,0,0.10) 5px); }
+
+  .op-overlay-panel { right: 16px; bottom: 16px; padding: 10px; max-width: 240px; display: flex; flex-direction: column; gap: 6px; }
+  .op-overlay-panel .title { font-size: 11px; font-weight: bold; }
+  .op-overlay-panel .selected-list { font-size: 10px; color: #333; line-height: 1.4; }
+  .op-overlay-panel button { font-size: 10px; padding: 4px 8px; border: 1px solid #333; background: #fff; cursor: pointer; font-family: inherit; }
+
+  /* 우측 */
+  .right { border-left: 1px solid #999; padding: 16px 12px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+  .phone-list { display: flex; flex-direction: column; gap: 6px; }
+  .phone-row { border: 1px solid #ccc; padding: 8px; font-size: 12px; display: grid; grid-template-columns: 12px 1fr auto; gap: 8px; align-items: center; cursor: pointer; }
+  .phone-row.mine { border: 2px solid #000; }
+  .phone-row .indicator { width: 8px; height: 8px; border: 1px solid #333; border-radius: 50%; }
+  .phone-row.stale .indicator { border-style: dashed; }
+  .phone-row.lost .indicator { border-style: dotted; opacity: 0.5; }
+  .phone-row .meta { display: flex; flex-direction: column; gap: 2px; }
+  .phone-row .meta .name { font-weight: bold; }
+  .phone-row .meta .sub { font-size: 10px; color: #666; }
+  .phone-row .freshness { font-size: 10px; padding: 2px 6px; border: 1px solid #999; }
+
+  /* 구역 트리 (UNIT 접기/펼치기 추가) */
+  .area-tree { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+  .area-node { border: 1px solid #ccc; padding: 8px; }
+  .area-node.overall { border-width: 2px; border-color: #000; background: #f8f8f8; }
+  .area-node .row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+  .area-node .row .name { font-weight: bold; }
+  .area-node .row .sub { font-size: 10px; color: #666; margin-top: 2px; }
+  .area-node .state { font-size: 10px; padding: 2px 6px; border: 1px solid #999; flex-shrink: 0; }
+  .area-children { padding-left: 12px; margin-top: 6px; border-left: 2px solid #ccc; display: flex; flex-direction: column; gap: 4px; }
+  .area-child { border: 1px solid #ccc; padding: 6px 8px; }
+  .area-child .child-header { display: grid; grid-template-columns: 14px 1fr auto; gap: 6px; align-items: center; cursor: pointer; }
+  .area-child .toggle-btn { width: 14px; height: 14px; border: 1px solid #666; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; font-weight: bold; }
+  .area-child.collapsed .area-grandchildren { display: none; }
+  .area-grandchildren { padding-left: 12px; margin-top: 4px; border-left: 1px dashed #ccc; display: flex; flex-direction: column; gap: 3px; }
+  .area-grandchild { border: 1px solid #ddd; padding: 4px 6px; font-size: 11px; display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center; }
+  .area-grandchild.completed { background: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.05) 4px, rgba(0,0,0,0.05) 6px); }
+  .area-grandchild .sub { font-size: 9px; color: #666; }
+  .area-grandchild .state { font-size: 9px; padding: 1px 4px; }
+
+  /* 최근 마커 */
+  .marker-list { display: flex; flex-direction: column; gap: 4px; }
+  .marker-list-row { border: 1px solid #ccc; padding: 6px 8px; font-size: 12px; display: grid; grid-template-columns: 18px 1fr auto; gap: 8px; align-items: center; cursor: pointer; }
+  .marker-list-row svg { width: 14px; height: 14px; flex-shrink: 0; }
+  .marker-list-row .time { font-size: 10px; color: #666; }
+
+  .package-badge { border: 1px dashed #666; padding: 8px; font-size: 11px; }
+  .package-badge .title { font-weight: bold; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+
+<!--
+  v1.3 default state, command role 가정.
+  permission_partial · 다른 상태 variant는 lo-web-situation-board-main-v1.3-review.html 참조.
+-->
+
+<!-- ===== SVG 아이콘 정의 (재사용) ===== -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none;">
+  <!-- CLUE: 돋보기 (단서 = 조사한 결과) -->
+  <symbol id="ic-clue" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="11" cy="11" r="6"/>
+    <line x1="15.5" y1="15.5" x2="20" y2="20"/>
+  </symbol>
+  <!-- PERSON_FOUND: 사람 + 체크 -->
+  <symbol id="ic-found" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="9" cy="7" r="3"/>
+    <path d="M3 21v-1a6 6 0 0 1 12 0v1"/>
+    <path d="M16 13l2 2 4-4"/>
+  </symbol>
+  <!-- FIELD_CONDITION: 산/언덕 -->
+  <symbol id="ic-field" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 19l5-9 4 7 3-5 6 7z"/>
+    <circle cx="8" cy="7" r="1.5" fill="currentColor"/>
+  </symbol>
+  <!-- SUPPORT_REQUEST · DRONE: 드론 quadcopter -->
+  <symbol id="ic-drone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="9" y="9" width="6" height="6" rx="1"/>
+    <line x1="9" y1="9" x2="5" y2="5"/>
+    <line x1="15" y1="9" x2="19" y2="5"/>
+    <line x1="9" y1="15" x2="5" y2="19"/>
+    <line x1="15" y1="15" x2="19" y2="19"/>
+    <circle cx="5" cy="5" r="1.5"/>
+    <circle cx="19" cy="5" r="1.5"/>
+    <circle cx="5" cy="19" r="1.5"/>
+    <circle cx="19" cy="19" r="1.5"/>
+  </symbol>
+  <!-- SUPPORT_REQUEST · POLICE_DOG: 개 -->
+  <symbol id="ic-dog" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5 6l3 4v8h3v-3h2v3h3v-7l3-3-1-3-3 2h-6z"/>
+    <circle cx="9" cy="13" r="0.6" fill="currentColor"/>
+    <circle cx="15" cy="13" r="0.6" fill="currentColor"/>
+  </symbol>
+  <!-- SUPPORT_REQUEST · OTHER: 손 들기 -->
+  <symbol id="ic-hand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 11V5a1.5 1.5 0 0 1 3 0v6"/>
+    <path d="M12 11V4a1.5 1.5 0 0 1 3 0v7"/>
+    <path d="M15 11V6a1.5 1.5 0 0 1 3 0v8a6 6 0 0 1-12 0V9a1.5 1.5 0 0 1 3 0v2"/>
+  </symbol>
+  <!-- NOTE: 메모지 -->
+  <symbol id="ic-note" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5 4h10l4 4v12H5z"/>
+    <path d="M15 4v4h4"/>
+    <line x1="8" y1="13" x2="15" y2="13"/>
+    <line x1="8" y1="16" x2="13" y2="16"/>
+  </symbol>
+</svg>
+
+<div class="canvas">
+
+  <!-- 헤더 -->
+  <div class="header">
+    <div class="h-logo">SM</div>
+    <div class="h-incident">
+      <div class="group">
+        <span class="label">사건</span>
+        <span class="value">[사건 ID] · [실종자 이름] · 60대 여</span>
+      </div>
+      <div class="group">
+        <span class="label">마지막 목격</span>
+        <span class="value">광주 북구 ○○ · 13:20</span>
+      </div>
+      <div class="group">
+        <span class="label">현장 지휘관</span>
+        <span class="value">실종팀 간부 · 기동대장 · 지구대 팀장</span>
+      </div>
+    </div>
+    <div class="h-status">진행 중 · 현재 OP 3차 · 재수색</div>
+    <div class="h-actions">
+      <button>인수인계 메모</button>
+      <button>수색 이력 요약</button>
+      <button>구역 편집</button>
+      <button>사건 목록</button>
+    </div>
+  </div>
+
+  <!-- 좌측 -->
+  <aside class="left">
+    <div>
+      <div class="section-title"><span>OP (수색 차수)</span></div>
+      <div class="op-list">
+        <div class="legend">현재 OP는 강조. 비교하려면 과거 OP를 선택.</div>
+        <div class="op-item current">
+          <span class="check"></span>
+          <span class="label">
+            <span><b>OP 3차</b> · 재수색</span>
+            <span class="reason">현재 OP · 진행 중</span>
+          </span>
+          <span class="time">14:20–</span>
+        </div>
+        <div class="op-item selected">
+          <span class="check"></span>
+          <span class="label">
+            <span>OP 2차 · 수색 범위 변경</span>
+            <span class="reason">비교 선택됨</span>
+          </span>
+          <span class="time">11:40–14:18</span>
+        </div>
+        <div class="op-item">
+          <span class="check"></span>
+          <span class="label">
+            <span>OP 1차 · 초기</span>
+            <span class="reason">종료</span>
+          </span>
+          <span class="time">09:12–11:35</span>
+        </div>
+        <div class="scroll-hint">↓ 더 보기 (재수색 진행 시 누적)</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title"><span>레이어</span></div>
+      <div class="toggles">
+        <div class="toggle on"><span>차량 구간</span><span>표시</span></div>
+        <div class="toggle on"><span>도보 구간</span><span>표시</span></div>
+        <div class="toggle on"><span>전체 수색 구역</span><span>표시</span></div>
+        <div class="toggle on"><span>부대 구역</span><span>표시</span></div>
+        <div class="toggle on"><span>팀 구역</span><span>표시</span></div>
+        <div class="toggle on"><span>마커 라벨</span><span>표시</span></div>
+        <div class="toggle"><span>지형 마커</span><span>숨김</span></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title"><span>마커 유형</span></div>
+      <div class="marker-filter">
+        <div class="marker-chip on">
+          <svg><use href="#ic-clue"/></svg><span>단서</span>
+        </div>
+        <div class="marker-chip on">
+          <svg><use href="#ic-found"/></svg><span>발견</span>
+        </div>
+        <div class="marker-chip on">
+          <svg><use href="#ic-field"/></svg><span>지형</span>
+        </div>
+        <div class="marker-chip on" style="grid-column: 1 / -1;">
+          <svg><use href="#ic-hand"/></svg><span>지원 요청 (3종)</span>
+        </div>
+        <div class="marker-chip on">
+          <svg><use href="#ic-note"/></svg><span>운영 메모</span>
+        </div>
+      </div>
+      <div class="marker-sub">
+        <div class="marker-sub-chip"><svg><use href="#ic-drone"/></svg><span>드론</span></div>
+        <div class="marker-sub-chip"><svg><use href="#ic-dog"/></svg><span>경찰견</span></div>
+        <div class="marker-sub-chip"><svg><use href="#ic-hand"/></svg><span>기타 지원</span></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title"><span>보기 모드</span></div>
+      <div class="view-mode">
+        <div class="item on">전체</div>
+        <div class="item">단순 보기</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title"><span>다른 화면</span></div>
+      <div class="nav-links">
+        <a>구역 편집 / 분할 / 할당</a>
+        <a>OP 비교 / 인수인계</a>
+        <a>차량·도보 보정</a>
+        <a>오프라인 패키지 상태</a>
+      </div>
+    </div>
+  </aside>
+
+  <!-- 지도 -->
+  <main class="map">
+    <div class="map-canvas"></div>
+    <div class="map-label-base">[지도 베이스맵 영역]</div>
+
+    <!-- OVERALL -->
+    <div class="area-overall">
+      <span class="label">전체 수색 구역 · 실종팀 간부 · 14:25 갱신</span>
+    </div>
+
+    <!-- UNIT 1 -->
+    <div class="area-unit" style="left:140px; top:160px; width:520px; height:340px;">
+      <span class="unit-label">부대 구역 · 기동대 1부대</span>
+    </div>
+    <div class="area-team" style="left:160px; top:200px; width:230px; height:140px;">
+      <div>
+        <div><b>팀 A</b> · 활성</div>
+        <div class="area-meta">배정: 기동대 1부대 A팀 폴리폰<br>최근 갱신 1분 전</div>
+      </div>
+      <div class="area-meta">기록 경로 3개</div>
+    </div>
+    <div class="area-team" style="left:400px; top:200px; width:240px; height:140px;">
+      <div>
+        <div><b>팀 B</b> · 활성</div>
+        <div class="area-meta">배정: 기동대 1부대 B팀 폴리폰<br>최근 갱신 방금</div>
+      </div>
+      <div class="area-meta">기록 경로 2개</div>
+    </div>
+    <div class="area-team completed" style="left:160px; top:350px; width:230px; height:130px;">
+      <div>
+        <div><b>팀 C</b> · 완료</div>
+        <div class="area-meta">완료: 기동대장 · 14:02<br>배정: 기동대 1부대 C팀 폴리폰</div>
+      </div>
+      <div class="area-meta">기록 경로 5개</div>
+    </div>
+    <div class="area-team" style="left:400px; top:350px; width:240px; height:130px;">
+      <div>
+        <div><b>팀 D</b> · 활성</div>
+        <div class="area-meta">배정: 기동대 1부대 D팀 폴리폰<br>12분 전 동기화</div>
+      </div>
+      <div class="area-meta">기록 경로 1개</div>
+    </div>
+
+    <!-- UNIT 2 -->
+    <div class="area-unit" style="left:140px; top:520px; width:520px; height:320px;">
+      <span class="unit-label">부대 구역 · 기동대 2부대</span>
+    </div>
+    <div class="area-team" style="left:160px; top:560px; width:230px; height:130px;">
+      <div>
+        <div><b>팀 A</b> · 활성</div>
+        <div class="area-meta">배정: 기동대 2부대 A팀 폴리폰<br>최근 갱신 방금</div>
+      </div>
+      <div class="area-meta">기록 경로 2개</div>
+    </div>
+    <div class="area-team" style="left:400px; top:560px; width:240px; height:130px;">
+      <div>
+        <div><b>팀 B</b> · 활성</div>
+        <div class="area-meta">배정: 기동대 2부대 B팀 폴리폰<br>최근 갱신 1분 전</div>
+      </div>
+      <div class="area-meta">기록 경로 3개</div>
+    </div>
+    <div class="area-team" style="left:160px; top:700px; width:480px; height:120px;">
+      <div>
+        <div><b>팀 C</b> · 활성</div>
+        <div class="area-meta">배정: 기동대 2부대 C팀 폴리폰<br>8분 전 동기화</div>
+      </div>
+      <div class="area-meta">기록 경로 4개</div>
+    </div>
+
+    <!-- UNIT 3 -->
+    <div class="area-unit" style="left:700px; top:200px; width:460px; height:640px;">
+      <span class="unit-label">부대 구역 · 광주 북구 지구대</span>
+      <div style="position:absolute; left:20px; top:24px; font-size:10px; color:#666; background:#fff; padding:2px 6px; border:1px dashed #999;">단일 운용 (팀 분할 없음)</div>
+    </div>
+
+    <!-- 경로 -->
+    <div class="path mine" style="left:300px; top:280px; width:200px; transform: rotate(20deg);"></div>
+    <div class="path" style="left:550px; top:240px; width:120px; transform: rotate(-10deg);"></div>
+    <div class="path walk" style="left:220px; top:580px; width:300px; transform: rotate(15deg);"></div>
+    <div class="path walk" style="left:600px; top:600px; width:140px; transform: rotate(-30deg);"></div>
+    <div class="path overlay" style="left:340px; top:380px; width:240px; transform: rotate(5deg);"></div>
+    <div class="path overlay" style="left:500px; top:340px; width:160px; transform: rotate(35deg);"></div>
+
+    <!-- 폴리폰 -->
+    <div class="phone mine" style="left:380px; top:300px;"><span class="label">실종팀 폴리폰 (운용 중)</span></div>
+    <div class="phone" style="left:280px; top:260px;"><span class="label">기동1-A 팀 · 방금</span></div>
+    <div class="phone" style="left:500px; top:260px;"><span class="label">기동1-B 팀 · 방금</span></div>
+    <div class="phone" style="left:280px; top:410px;"><span class="label">기동1-C 팀 · 14:02 종료</span></div>
+    <div class="phone stale" style="left:520px; top:410px;"><span class="label">기동1-D 팀 · 12분 전 동기화</span></div>
+    <div class="phone" style="left:280px; top:620px;"><span class="label">기동2-A 팀 · 방금</span></div>
+    <div class="phone" style="left:520px; top:620px;"><span class="label">기동2-B 팀 · 1분 전</span></div>
+    <div class="phone stale" style="left:400px; top:760px;"><span class="label">기동2-C 팀 · 8분 전 동기화</span></div>
+    <div class="phone" style="left:880px; top:440px;"><span class="label">지구대 팀 폴리폰</span></div>
+    <div class="phone" style="left:920px; top:380px;"><span class="label">지구대 순찰차 폴리폰</span></div>
+    <div class="phone" style="left:780px; top:580px;"><span class="label">지구대 순찰차 폴리폰 2 · 1분 전</span></div>
+    <div class="phone lost" style="left:1000px; top:320px;"><span class="label">기동2-D 팀 · 위치 끊김 27분</span></div>
+
+    <!-- === 마커 (아이콘 + 라벨 칩) === -->
+    <div class="marker" style="left:330px; top:280px;">
+      <span class="icon-bg"><svg><use href="#ic-clue"/></svg></span>
+      <span class="chip">단서</span>
+    </div>
+    <div class="marker" style="left:580px; top:230px;">
+      <span class="icon-bg"><svg><use href="#ic-clue"/></svg></span>
+      <span class="chip">단서</span>
+    </div>
+    <div class="marker found" style="left:460px; top:330px;">
+      <span class="icon-bg"><svg><use href="#ic-found"/></svg></span>
+      <span class="chip">발견</span>
+    </div>
+    <div class="marker" style="left:240px; top:540px;">
+      <span class="icon-bg"><svg><use href="#ic-field"/></svg></span>
+      <span class="chip">지형</span>
+    </div>
+    <div class="marker" style="left:720px; top:430px;">
+      <span class="icon-bg"><svg><use href="#ic-drone"/></svg></span>
+      <span class="chip">드론</span>
+    </div>
+    <div class="marker" style="left:870px; top:540px;">
+      <span class="icon-bg"><svg><use href="#ic-dog"/></svg></span>
+      <span class="chip">경찰견</span>
+    </div>
+    <div class="marker" style="left:380px; top:480px;">
+      <span class="icon-bg"><svg><use href="#ic-note"/></svg></span>
+      <span class="chip">메모</span>
+    </div>
+    <div class="marker" style="left:600px; top:680px;">
+      <span class="icon-bg"><svg><use href="#ic-note"/></svg></span>
+      <span class="chip">메모</span>
+    </div>
+    <div class="marker" style="left:850px; top:360px;">
+      <span class="icon-bg"><svg><use href="#ic-clue"/></svg></span>
+      <span class="chip">단서</span>
+    </div>
+    <div class="marker-cluster" style="left:500px; top:410px;">8</div>
+
+    <!-- 지도 컨트롤 -->
+    <div class="map-overlay map-controls">
+      <button>확대</button>
+      <button>축소</button>
+      <button>현재</button>
+      <button>전체</button>
+    </div>
+
+    <!-- 범례 -->
+    <div class="map-overlay map-legend">
+      <div class="row"><span class="area-swatch overall"></span><span>전체 수색 구역 (OVERALL)</span></div>
+      <div class="row"><span class="area-swatch unit"></span><span>부대 구역 (UNIT) · 실종팀이 분할</span></div>
+      <div class="row"><span class="area-swatch team"></span><span>팀 구역 (TEAM) · 부대장이 분할</span></div>
+      <div class="row"><span class="area-swatch completed"></span><span>팀 구역 · 완료 처리</span></div>
+      <div class="row" style="margin-top:4px;"><span class="swatch"></span><span>차량 구간</span></div>
+      <div class="row"><span class="swatch walk"></span><span>도보 구간</span></div>
+      <div class="row"><span class="swatch mine"></span><span>운용 중인 폴리폰</span></div>
+      <div class="row"><span class="swatch overlay"></span><span>비교 OP 경로</span></div>
+      <div class="row" style="margin-top:4px;"><span style="display:inline-block;width:10px;height:10px;border:2px solid #333;border-radius:50%;background:#fff;"></span><span>정상 (60초 이내 동기화)</span></div>
+      <div class="row"><span style="display:inline-block;width:10px;height:10px;border:2px dashed #333;border-radius:50%;background:#fff;"></span><span>1분 이상 미동기</span></div>
+      <div class="row"><span style="display:inline-block;width:10px;height:10px;border:2px dotted #333;border-radius:50%;background:#fff;opacity:0.5;"></span><span>5분 이상 위치 끊김</span></div>
+      <div class="row" style="margin-top:4px;"><svg><use href="#ic-clue"/></svg><span>단서</span> <svg><use href="#ic-found"/></svg><span>발견</span> <svg><use href="#ic-field"/></svg><span>지형</span></div>
+      <div class="row"><svg><use href="#ic-drone"/></svg><span>드론</span> <svg><use href="#ic-dog"/></svg><span>경찰견</span> <svg><use href="#ic-hand"/></svg><span>기타 지원</span> <svg><use href="#ic-note"/></svg><span>메모</span></div>
+    </div>
+
+    <!-- OP overlay -->
+    <div class="map-overlay op-overlay-panel">
+      <div class="title">비교 OP (1개)</div>
+      <div class="selected-list">· OP 2차 · 수색 범위 변경 (점선)</div>
+      <div style="display:flex; gap:4px;">
+        <button>모두 해제</button>
+        <button>OP 선택 추가</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- 우측 -->
+  <aside class="right">
+    <div>
+      <div class="section-title"><span>폴리폰 (운용 중) · 12대</span></div>
+      <div class="phone-list">
+        <div class="phone-row mine">
+          <span class="indicator"></span>
+          <span class="meta"><span class="name">실종팀 폴리폰</span><span class="sub">실종팀 간부 · 운용 중</span></span>
+          <span class="freshness">방금</span>
+        </div>
+        <div class="phone-row">
+          <span class="indicator"></span>
+          <span class="meta"><span class="name">기동대 1부대 A팀 폴리폰</span><span class="sub">팀 폴리폰</span></span>
+          <span class="freshness">방금</span>
+        </div>
+        <div class="phone-row stale">
+          <span class="indicator"></span>
+          <span class="meta"><span class="name">기동대 1부대 D팀 폴리폰</span><span class="sub">12분 전 동기화</span></span>
+          <span class="freshness">12분 전</span>
+        </div>
+        <div class="phone-row">
+          <span class="indicator"></span>
+          <span class="meta"><span class="name">기동대 2부대 A팀 폴리폰</span><span class="sub">팀 폴리폰</span></span>
+          <span class="freshness">방금</span>
+        </div>
+        <div class="phone-row stale">
+          <span class="indicator"></span>
+          <span class="meta"><span class="name">기동대 2부대 C팀 폴리폰</span><span class="sub">8분 전 동기화</span></span>
+          <span class="freshness">8분 전</span>
+        </div>
+        <div class="phone-row lost">
+          <span class="indicator"></span>
+          <span class="meta"><span class="name">기동대 2부대 D팀 폴리폰</span><span class="sub">위치 끊김 27분</span></span>
+          <span class="freshness">27분</span>
+        </div>
+        <div class="phone-row">
+          <span class="indicator"></span>
+          <span class="meta"><span class="name">지구대 팀 폴리폰</span><span class="sub">광주 북구 지구대</span></span>
+          <span class="freshness">방금</span>
+        </div>
+        <div class="phone-row">
+          <span class="indicator"></span>
+          <span class="meta"><span class="name">지구대 순찰차 폴리폰</span><span class="sub">광주 북구 지구대</span></span>
+          <span class="freshness">3분 전</span>
+        </div>
+        <div style="font-size:11px;color:#666;text-align:center;padding:4px;">↓ 4대 더 (스크롤)</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title"><span>수색 구역 (계층)</span></div>
+      <div class="area-tree">
+        <div class="area-node overall">
+          <div class="row">
+            <div>
+              <div class="name">전체 수색 구역</div>
+              <div class="sub">실종팀 간부 · 14:25 갱신</div>
+            </div>
+            <span class="state">활성</span>
+          </div>
+          <div class="area-children">
+            <!-- UNIT 1 (펼침) -->
+            <div class="area-child">
+              <div class="child-header">
+                <span class="toggle-btn">−</span>
+                <div>
+                  <div class="name">기동대 1부대</div>
+                  <div class="sub">분할자: 실종팀 간부 · 13:50 · 4팀</div>
+                </div>
+                <span class="state">활성</span>
+              </div>
+              <div class="area-grandchildren">
+                <div class="area-grandchild">
+                  <div>팀 A · 기동대 1부대 A팀 폴리폰<div class="sub">경로 기록 중 · 1분 전 동기화</div></div>
+                  <span class="state">활성</span>
+                </div>
+                <div class="area-grandchild">
+                  <div>팀 B · 기동대 1부대 B팀 폴리폰<div class="sub">경로 기록 중 · 방금 동기화</div></div>
+                  <span class="state">활성</span>
+                </div>
+                <div class="area-grandchild completed">
+                  <div>팀 C · 기동대 1부대 C팀 폴리폰<div class="sub">완료 · 14:02 (기동대장)</div></div>
+                  <span class="state">완료</span>
+                </div>
+                <div class="area-grandchild">
+                  <div>팀 D · 기동대 1부대 D팀 폴리폰<div class="sub">12분 전 동기화</div></div>
+                  <span class="state">활성</span>
+                </div>
+              </div>
+            </div>
+            <!-- UNIT 2 (접힘 예시) -->
+            <div class="area-child collapsed">
+              <div class="child-header">
+                <span class="toggle-btn">+</span>
+                <div>
+                  <div class="name">기동대 2부대</div>
+                  <div class="sub">분할자: 실종팀 간부 · 13:55 · 3팀 (펼치기)</div>
+                </div>
+                <span class="state">활성</span>
+              </div>
+              <div class="area-grandchildren">
+                <div class="area-grandchild">팀 A · 기동대 2부대 A팀 폴리폰</div>
+                <div class="area-grandchild">팀 B · 기동대 2부대 B팀 폴리폰</div>
+                <div class="area-grandchild">팀 C · 기동대 2부대 C팀 폴리폰</div>
+              </div>
+            </div>
+            <!-- UNIT 3 -->
+            <div class="area-child">
+              <div class="child-header">
+                <span class="toggle-btn" style="visibility:hidden;">·</span>
+                <div>
+                  <div class="name">광주 북구 지구대</div>
+                  <div class="sub">단일 운용 (팀 분할 없음)</div>
+                </div>
+                <span class="state">활성</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title"><span>최근 마커 (4)</span></div>
+      <div class="marker-list">
+        <div class="marker-list-row">
+          <svg><use href="#ic-clue"/></svg>
+          <span><b>단서</b> · 의류<div style="font-size:10px;color:#666;">실종팀 폴리폰 · 14:18</div></span>
+          <span class="time">3분 전</span>
+        </div>
+        <div class="marker-list-row">
+          <svg><use href="#ic-drone"/></svg>
+          <span><b>드론</b> 지원 요청<div style="font-size:10px;color:#666;">기동대 2부대 D팀 폴리폰 · 14:22</div></span>
+          <span class="time">방금</span>
+        </div>
+        <div class="marker-list-row">
+          <svg><use href="#ic-clue"/></svg>
+          <span><b>단서</b> · 신발 자국<div style="font-size:10px;color:#666;">기동대 1부대 A팀 폴리폰 · 14:05</div></span>
+          <span class="time">15분 전</span>
+        </div>
+        <div class="marker-list-row">
+          <svg><use href="#ic-note"/></svg>
+          <span><b>메모</b> · 개천 건넘 불가<div style="font-size:10px;color:#666;">지구대 순찰차 폴리폰 · 13:40</div></span>
+          <span class="time">40분 전</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="package-badge">
+      <div class="title">주의 · 오프라인 패키지 미완료 1대</div>
+      <div>기동대 2부대 D팀 폴리폰: 타일 다운로드 진행 중</div>
+    </div>
+  </aside>
+
+</div>
+
+</body>
+</html>

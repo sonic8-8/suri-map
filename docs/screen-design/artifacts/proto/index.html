@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>Suri-Map · 시연 프로토타입</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: Pretendard, "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; }
+  body { background: #f0f2f5; color: #1d1d1d; padding: 32px; line-height: 1.6; }
+  .container { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 28px; margin-bottom: 8px; }
+  .subtitle { color: #666; font-size: 14px; margin-bottom: 24px; }
+  .panel { background: #fff; border: 1px solid #d8d8d8; padding: 24px; margin-bottom: 16px; }
+  h2 { font-size: 18px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #eee; }
+  ol { padding-left: 20px; margin-bottom: 16px; }
+  ol li { margin-bottom: 12px; font-size: 14px; }
+  ol li b { color: #246BEB; }
+  .step-cta { display: inline-block; padding: 10px 20px; background: #246BEB; color: #fff; text-decoration: none; border-radius: 6px; font-weight: 700; margin-top: 16px; font-size: 14px; }
+  .step-cta:hover { background: #1D56BC; }
+
+  .screen-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .screen-list a { padding: 12px 14px; background: #f8f8f8; border: 1px solid #d8d8d8; border-radius: 6px; text-decoration: none; color: #1d1d1d; font-size: 13px; }
+  .screen-list a:hover { background: #EFF5FF; border-color: #246BEB; }
+  .screen-list a .platform { font-size: 10px; color: #666; display: block; margin-bottom: 2px; }
+  .screen-list a .name { font-weight: 600; }
+
+  .reset-btn { background: transparent; border: 1px solid #999; color: #666; font-family: inherit; padding: 6px 12px; font-size: 12px; border-radius: 4px; cursor: pointer; margin-left: 8px; }
+  .badge { display: inline-block; padding: 2px 8px; background: #EFF5FF; color: #246BEB; border-radius: 4px; font-size: 11px; font-weight: 600; margin-right: 4px; }
+
+  .hint { background: #FCF1E2; border: 1px solid #E8881A; padding: 12px 16px; border-radius: 6px; font-size: 13px; color: #1d1d1d; margin-bottom: 16px; }
+  .hint b { color: #E8881A; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>Suri-Map · 시연 프로토타입</h1>
+<p class="subtitle">PRD §5.1 12단계 시범 시나리오 → 핵심 7단계 인터랙티브 흐름</p>
+
+<div class="hint">
+  <b>사용 방법:</b> 아래 시연 흐름의 1단계부터 순서대로 진행. 각 화면에서 정해진 액션을 하면 자동으로 다음 화면으로 이동. 상태(마커·사건 등)는 localStorage에 저장되어 화면 간 공유됨. <button class="reset-btn" onclick="if(confirm('상태를 초기화하시겠습니까?')) { localStorage.clear(); location.reload(); }">상태 초기화</button>
+</div>
+
+<div class="panel">
+<h2>시연 흐름 (Demo Flow)</h2>
+<ol>
+  <li>
+    <span class="badge">Step 1</span> <b>로그인</b> (실종팀 간부)<br>
+    실종팀 간부 계정으로 웹 상황판에 로그인합니다.
+  </li>
+  <li>
+    <span class="badge">Step 2</span> <b>사건 가져오기</b> (실종팀 간부)<br>
+    mock 112 배정 사건을 가져옵니다. OP1이 자동 생성됩니다. (SC-01)
+  </li>
+  <li>
+    <span class="badge">Step 3</span> <b>사건 상황판 진입 + 구역 분할</b> (실종팀 간부)<br>
+    상황판에서 사건 상태를 확인하고, OVERALL → UNIT → TEAM 구역을 분할·배정합니다. (SC-04)
+  </li>
+  <li>
+    <span class="badge">Step 4</span> <b>폴리폰 사건 진입 + 패키지 다운로드</b> (기동대 A팀)<br>
+    배정된 폴리폰에서 사건을 선택하고 오프라인 패키지를 다운로드합니다. (SC-03)
+  </li>
+  <li>
+    <span class="badge">Step 5</span> <b>현장 수색 + 마커 생성</b> (기동대 A팀)<br>
+    수색을 시작하고 단서 마커를 생성합니다. (SC-05, SC-06)
+  </li>
+  <li>
+    <span class="badge">Step 6</span> <b>상황판 즉시 반영 확인</b> (실종팀 간부)<br>
+    웹 상황판에서 방금 생성된 마커가 표시되는지 확인합니다. (SSE 시뮬)
+  </li>
+  <li>
+    <span class="badge">Step 7</span> <b>사건 종료</b> (실종팀 간부)<br>
+    사건을 종료하고 sanitized tombstone을 확인합니다. (SC-12)
+  </li>
+</ol>
+<a class="step-cta" href="./screens/01-web-login.html">시연 시작 (Step 1)</a>
+</div>
+
+<div class="panel">
+<h2>화면 목록 (개별 진입)</h2>
+<p style="font-size:13px; color:#666; margin-bottom:12px;">시연 흐름 외에도 개별 화면을 직접 열어볼 수 있습니다.</p>
+<div class="screen-list">
+  <a href="./screens/01-web-login.html"><span class="platform">Web · Step 1</span><span class="name">로그인</span></a>
+  <a href="./screens/02-web-incident-list.html"><span class="platform">Web · Step 2</span><span class="name">사건 목록 + 가져오기</span></a>
+  <a href="./screens/03-web-area-edit.html"><span class="platform">Web · Step 3</span><span class="name">구역 편집</span></a>
+  <a href="./screens/04-polifon-incident-select.html"><span class="platform">Polifon · Step 4</span><span class="name">사건 선택</span></a>
+  <a href="./screens/05-polifon-package-download.html"><span class="platform">Polifon · Step 4</span><span class="name">패키지 다운로드</span></a>
+  <a href="./screens/05b-hero2-search-map.html"><span class="platform">Polifon · Step 5 (Hero 2)</span><span class="name">수색 중 지도</span></a>
+  <a href="./screens/05c-hero3-marker-sheet.html"><span class="platform">Polifon · Step 5 (Hero 3)</span><span class="name">마커 생성 바텀시트</span></a>
+  <a href="./screens/06-hero1-with-marker.html"><span class="platform">Web · Step 6 (Hero 1)</span><span class="name">상황판 마커 반영</span></a>
+  <a href="./screens/07-web-incident-close.html"><span class="platform">Web · Step 7</span><span class="name">사건 종료</span></a>
+  <a href="../lo/lo-web-situation-board-main-v1.3.html" style="background:#f0f0f0;"><span class="platform">Hero 1 단독</span><span class="name">상황판 (raw)</span></a>
+  <a href="../lo/lo-polifon-search-map-v1.html" style="background:#f0f0f0;"><span class="platform">Hero 2 단독</span><span class="name">수색 지도 (raw)</span></a>
+  <a href="../lo/lo-polifon-marker-bottomsheet-v1.html" style="background:#f0f0f0;"><span class="platform">Hero 3 단독</span><span class="name">마커 시트 (raw)</span></a>
+</div>
+</div>
+
+<div class="panel">
+<h2>참고</h2>
+<ul style="padding-left:20px; font-size:13px;">
+  <li><b>Hero 3개</b>는 <code>artifacts/lo/</code>의 정교한 mock을 그대로 사용합니다.</li>
+  <li><b>비-Hero 화면</b>은 <code>artifacts/proto/screens/</code>에 인터랙티브 단순 HTML로 추가됩니다.</li>
+  <li><b>상태 공유</b>: localStorage 키 = <code>suri-map-proto-state</code>. 사건 가져오기·마커 생성·종료 등 액션이 누적됨.</li>
+  <li><b>흐름 외 화면</b> (W4 OP비교, W5 마커상세, W6 보정, W7 패키지상태, P4 미전송큐, P5 로컬경고, P6 정리, M1~M5 모달)은 <a href="../../wireframes.md">wireframes.md</a> 참조.</li>
+</ul>
+</div>
+
+</div>
+</body>
+</html>

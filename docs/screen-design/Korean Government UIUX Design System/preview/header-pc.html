@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>Header — PC</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin:0; padding:0; background:#fff; font-family: var(--gov-font-body); color: var(--gov-fg-1); transform-origin: top left; transform: scale(0.55); width: 1820px; }
+  .gov-strip { background: var(--gov-fg-1); color: #fff; height: 36px; display:flex; align-items:center; padding: 0 200px; font-size: 13px; gap: 16px; }
+  .gov-strip .seal { width: 18px; height: 18px; border-radius: 999px; background: #fff; display:inline-block; }
+  .util { height: 48px; display:flex; align-items:center; padding: 0 200px; gap: 24px; justify-content: flex-end; font-size: 13px; color: var(--gov-fg-3); border-bottom: 1px solid var(--gov-border-1); }
+  .util a { color: inherit; }
+  .main { height: 96px; padding: 0 200px; display:flex; align-items:center; justify-content: space-between; }
+  .logo { font-weight: 700; font-size: 28px; }
+  .logo .accent { color: var(--gov-primary); }
+  .nav { display:flex; gap: 56px; font-size: 19px; font-weight: 700; }
+  .nav a { color: var(--gov-fg-1); padding: 12px 0; }
+  .nav a.active { color: var(--gov-primary); border-bottom: 3px solid var(--gov-primary); }
+  .actions { display:flex; gap: 8px; }
+  .icon-btn { width: 40px; height: 40px; border-radius: 8px; border: 1px solid var(--gov-border-2); background: #fff; display:inline-flex; align-items:center; justify-content:center; }
+</style></head>
+<body>
+<div class="gov-strip"><span class="seal"></span> 대한민국정부 OFFICIAL</div>
+<div class="util"><a>회원가입</a><a>로그인</a><a>마이페이지</a><a>지원</a><a>한국어</a></div>
+<div class="main">
+  <div class="logo">정부<span class="accent">24</span></div>
+  <nav class="nav">
+    <a class="active">서비스</a><a>정책정보</a><a>기관소개</a><a>고객센터</a><a>새소식</a>
+  </nav>
+  <div class="actions">
+    <button class="icon-btn" aria-label="검색">🔍</button>
+    <button class="icon-btn" aria-label="메뉴">≡</button>
+  </div>
+</div>
+</body></html>

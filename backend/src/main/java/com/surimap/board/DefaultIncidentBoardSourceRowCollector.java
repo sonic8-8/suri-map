@@ -6,6 +6,8 @@ import com.surimap.incident.domain.IncidentRecord;
 import com.surimap.incident.repository.IncidentMapper;
 import com.surimap.maparea.geometry.geojson.GeoJsonPolygon;
 import com.surimap.maparea.query.OverallSearchAreaResult;
+import com.surimap.maparea.query.SearchAreaAssignmentQuery;
+import com.surimap.maparea.query.SearchAreaAssignmentRow;
 import com.surimap.maparea.query.SearchAreaFilters;
 import com.surimap.maparea.query.SearchAreaQuery;
 import com.surimap.maparea.query.SearchAreaRow;
@@ -58,6 +60,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
   private static final String EMPTY_BOARD_GEOMETRY_HASH = "hash-board-geometry-current";
 
   private final ObjectProvider<SearchAreaQuery> searchAreaQuery;
+  private final ObjectProvider<SearchAreaAssignmentQuery> searchAreaAssignmentQuery;
   private final ObjectProvider<SearchPathService> searchPathService;
   private final ObjectProvider<PolicePhoneFreshnessQuery> policePhoneFreshnessQuery;
   private final MarkerQuery markerQuery;
@@ -89,6 +92,34 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
         searchHistorySummaryMapper,
         null,
         null,
+        null,
+        null);
+  }
+
+  public DefaultIncidentBoardSourceRowCollector(
+      ObjectProvider<SearchAreaQuery> searchAreaQuery,
+      ObjectProvider<SearchPathService> searchPathService,
+      ObjectProvider<PolicePhoneFreshnessQuery> policePhoneFreshnessQuery,
+      MarkerQuery markerQuery,
+      OfflinePackageInstallationQuery offlinePackageInstallationQuery,
+      OperationalPeriodQuery operationalPeriodQuery,
+      HandoverMemoQuery handoverMemoQuery,
+      SearchHistorySummaryMapper searchHistorySummaryMapper,
+      ObjectProvider<IncidentMapper> incidentMapper,
+      ObjectProvider<IncidentDataPurgeStore> purgeStore,
+      ObjectProvider<MarkerNotificationToastQuery> toastQuery) {
+    this(
+        searchAreaQuery,
+        searchPathService,
+        policePhoneFreshnessQuery,
+        markerQuery,
+        offlinePackageInstallationQuery,
+        operationalPeriodQuery,
+        handoverMemoQuery,
+        searchHistorySummaryMapper,
+        incidentMapper,
+        purgeStore,
+        toastQuery,
         null);
   }
 
@@ -104,8 +135,10 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
       SearchHistorySummaryMapper searchHistorySummaryMapper,
       ObjectProvider<IncidentMapper> incidentMapper,
       ObjectProvider<IncidentDataPurgeStore> purgeStore,
-      ObjectProvider<MarkerNotificationToastQuery> toastQuery) {
+      ObjectProvider<MarkerNotificationToastQuery> toastQuery,
+      ObjectProvider<SearchAreaAssignmentQuery> searchAreaAssignmentQuery) {
     this.searchAreaQuery = searchAreaQuery;
+    this.searchAreaAssignmentQuery = searchAreaAssignmentQuery;
     this.searchPathService = searchPathService;
     this.policePhoneFreshnessQuery = policePhoneFreshnessQuery;
     this.markerQuery = Objects.requireNonNull(markerQuery, "markerQuery must not be null");
@@ -161,18 +194,27 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     }
     if (context.includes("area")) {
       if (selectedOpIds.isEmpty()) {
-        query
-            .byIncident(context.incidentId(), searchAreaFilters(null, null))
-            .areas()
-            .stream()
-            .map(this::areaRow)
+        List<SearchAreaRow> areaRows =
+            query
+                .byIncident(context.incidentId(), searchAreaFilters(null, null))
+                .areas();
+        Map<UUID, List<SearchAreaAssignmentRow>> assignmentsByAreaId =
+            assignmentsByAreaId(areaRows.stream().map(SearchAreaRow::opId).filter(Objects::nonNull).toList());
+        areaRows.stream()
+            .filter(row -> !"OVERALL".equals(row.areaLevel()))
+            .map(row -> areaRow(row, assignmentsByAreaId.getOrDefault(row.id(), List.of())))
             .forEach(rows::add);
       } else {
         selectedOpIds.forEach(
-            opId ->
-                query.byOp(opId, searchAreaFilters(null, null)).areas().stream()
-                    .map(this::areaRow)
-                    .forEach(rows::add));
+            opId -> {
+              List<SearchAreaRow> areaRows = query.byOp(opId, searchAreaFilters(null, null)).areas();
+              Map<UUID, List<SearchAreaAssignmentRow>> assignmentsByAreaId =
+                  assignmentsByAreaId(List.of(opId));
+              areaRows.stream()
+                  .filter(row -> !"OVERALL".equals(row.areaLevel()))
+                  .map(row -> areaRow(row, assignmentsByAreaId.getOrDefault(row.id(), List.of())))
+                  .forEach(rows::add);
+            });
       }
     }
   }
@@ -324,6 +366,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
   private BoardSourceRow overallSearchAreaRow(OverallSearchAreaResult row) {
     Map<String, Object> payload = new LinkedHashMap<>();
     payload.put("incidentId", row.incidentId().toString());
+    payload.put("areaLevel", "OVERALL");
     payload.put("geometryHash", sourceHash("overall_search_area", row.id().toString(), row.version(), row.status()));
     payload.put("geometry", row.geometry());
     payload.put("bbox", row.bbox());
@@ -341,27 +384,94 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
         payload);
   }
 
-  private BoardSourceRow areaRow(SearchAreaRow row) {
+  private BoardSourceRow areaRow(SearchAreaRow row, List<SearchAreaAssignmentRow> assignments) {
     Map<String, Object> payload = new LinkedHashMap<>();
+    long version = areaRowVersion(row, assignments);
+    String latestEventId = areaLatestEventId(row, assignments);
     payload.put("incidentId", row.incidentId().toString());
     putUuid(payload, "opId", row.opId());
     putUuid(payload, "parentAreaId", row.parentAreaId());
+    payload.put("areaLevel", row.areaLevel());
     payload.put("geometryHash", sourceHash("area", row.id().toString(), row.version(), row.status()));
     payload.put("geometry", row.geometry());
     payload.put("bbox", row.bbox());
     payload.put("updatedAt", row.updatedAt());
     payload.put("historyCount", row.historyCount());
+    payload.put("assignedAccounts", assignments.stream().map(this::assignmentPayload).toList());
     return sourceRow(
         "area",
         "S2",
         row.id().toString(),
         "board-area-" + row.id(),
         row.status(),
-        row.version(),
-        row.version(),
-        eventId("S2", "area", row.id().toString(), row.version()),
-        String.valueOf(payload.get("geometryHash")),
+        version,
+        version,
+        latestEventId,
+        sourceHash("area", row.id() + "|" + assignmentFingerprint(assignments), version, row.status()),
         payload);
+  }
+
+  private static long areaRowVersion(SearchAreaRow row, List<SearchAreaAssignmentRow> assignments) {
+    return Math.max(
+        row.version(), assignments.stream().mapToLong(SearchAreaAssignmentRow::version).max().orElse(row.version()));
+  }
+
+  private static String areaLatestEventId(SearchAreaRow row, List<SearchAreaAssignmentRow> assignments) {
+    SearchAreaAssignmentRow latestAssignment =
+        assignments.stream()
+            .max(java.util.Comparator.comparingLong(SearchAreaAssignmentRow::version))
+            .orElse(null);
+    if (latestAssignment != null && latestAssignment.version() > row.version()) {
+      return eventId(
+          "S2", "search-area-assignment", latestAssignment.id().toString(), latestAssignment.version());
+    }
+    return eventId("S2", "area", row.id().toString(), row.version());
+  }
+
+  private static String assignmentFingerprint(List<SearchAreaAssignmentRow> assignments) {
+    if (assignments.isEmpty()) {
+      return "no-assignments";
+    }
+    return String.join(
+        "|",
+        assignments.stream()
+            .map(row -> row.id() + ":" + row.assignedAccountId() + ":" + row.status() + ":" + row.version())
+            .sorted()
+            .toList());
+  }
+
+  private Map<UUID, List<SearchAreaAssignmentRow>> assignmentsByAreaId(List<UUID> opIds) {
+    SearchAreaAssignmentQuery query =
+        searchAreaAssignmentQuery == null ? null : searchAreaAssignmentQuery.getIfAvailable();
+    if (query == null || opIds.isEmpty()) {
+      return Map.of();
+    }
+    Map<UUID, List<SearchAreaAssignmentRow>> assignmentsByAreaId = new LinkedHashMap<>();
+    opIds.stream()
+        .filter(Objects::nonNull)
+        .distinct()
+        .forEach(
+            opId ->
+                query.byOp(opId).stream()
+                    .filter(row -> "ACTIVE".equals(row.status()))
+                    .forEach(
+                        row ->
+                            assignmentsByAreaId
+                                .computeIfAbsent(row.searchAreaId(), ignored -> new ArrayList<>())
+                                .add(row)));
+    return assignmentsByAreaId;
+  }
+
+  private Map<String, Object> assignmentPayload(SearchAreaAssignmentRow row) {
+    Map<String, Object> payload = new LinkedHashMap<>();
+    payload.put("assignmentId", row.id().toString());
+    payload.put("accountId", row.assignedAccountId().toString());
+    payload.put("displayName", row.assignedAccountId().toString());
+    putUuid(payload, "assignedByAccountId", row.assignedByAccountId());
+    payload.put("assignedAt", row.assignedAt());
+    payload.put("status", row.status());
+    payload.put("version", row.version());
+    return payload;
   }
 
   private BoardSourceRow pathRow(PathQueryRow row) {

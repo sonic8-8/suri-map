@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>Step 2 · Web 사건 목록 + 가져오기</title>
+<script src="../state.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: Pretendard, "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; }
+  html, body { height: 100%; }
+  body { background: #F8F8F8; color: #1d1d1d; }
+
+  .header { background: #fff; border-bottom: 1px solid #D8D8D8; padding: 0 24px; height: 64px; display: flex; align-items: center; gap: 16px; }
+  .header .logo { width: 40px; height: 40px; border: 1px solid #246BEB; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #246BEB; font-size: 12px; }
+  .header .title { font-size: 17px; font-weight: 700; flex: 1; }
+  .header .user { font-size: 13px; color: #555; }
+  .header .import-cta { background: #246BEB; color: #fff; border: 0; padding: 10px 18px; border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer; font-family: inherit; }
+  .header .import-cta:hover { background: #1D56BC; }
+
+  .filters { background: #fff; border-bottom: 1px solid #D8D8D8; padding: 12px 24px; display: flex; gap: 8px; align-items: center; }
+  .filter-chip { padding: 6px 14px; border: 1px solid #D8D8D8; border-radius: 999px; font-size: 12px; cursor: pointer; background: #fff; font-family: inherit; }
+  .filter-chip.active { background: #EFF5FF; border-color: #246BEB; color: #246BEB; font-weight: 600; }
+
+  .content { padding: 24px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; max-width: 1400px; margin: 0 auto; }
+
+  .card { background: #fff; border: 1px solid #D8D8D8; border-radius: 8px; padding: 20px; cursor: pointer; transition: all 0.15s; }
+  .card:hover { border-color: #246BEB; box-shadow: 0 2px 8px rgba(36,107,235,0.1); }
+  .card .id { font-size: 12px; color: #8E8E8E; font-family: ui-monospace, monospace; }
+  .card .name { font-size: 17px; font-weight: 700; margin: 4px 0; }
+  .card .location { font-size: 13px; color: #555; margin-bottom: 12px; }
+  .card .status-row { display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid #eee; }
+  .card .status { font-size: 12px; font-weight: 600; }
+  .card .status.active { color: #1F8754; }
+  .card .updated { font-size: 11px; color: #8E8E8E; }
+  .card .badge { display: inline-block; padding: 2px 8px; background: #EFF5FF; color: #246BEB; border-radius: 4px; font-size: 10px; font-weight: 600; margin-top: 6px; }
+
+  .empty-state { grid-column: 1 / -1; padding: 64px; text-align: center; color: #8E8E8E; font-size: 14px; }
+
+  /* 가져오기 모달 */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: none; align-items: center; justify-content: center; z-index: 100; }
+  .modal-overlay.show { display: flex; }
+  .modal { background: #fff; border-radius: 12px; width: 480px; max-height: 70vh; overflow: hidden; display: flex; flex-direction: column; }
+  .modal-header { padding: 16px 20px; border-bottom: 1px solid #D8D8D8; display: flex; justify-content: space-between; align-items: center; }
+  .modal-header .title { font-size: 17px; font-weight: 700; }
+  .modal-header .close { background: transparent; border: 0; font-size: 18px; cursor: pointer; color: #555; }
+  .modal-body { flex: 1; overflow-y: auto; padding: 12px 0; }
+  .modal-row { padding: 14px 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .modal-row:last-child { border-bottom: 0; }
+  .modal-row .info .id { font-size: 11px; color: #8E8E8E; font-family: ui-monospace, monospace; }
+  .modal-row .info .name { font-size: 14px; font-weight: 600; margin: 2px 0; }
+  .modal-row .info .meta { font-size: 11px; color: #555; }
+  .modal-row .import-btn { background: #246BEB; color: #fff; border: 0; padding: 8px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
+  .modal-row .import-btn:disabled { background: #d8d8d8; cursor: default; }
+  .modal-row .imported { font-size: 11px; color: #1F8754; font-weight: 600; }
+  .modal-footer { padding: 12px 20px; border-top: 1px solid #D8D8D8; font-size: 11px; color: #8E8E8E; display: flex; justify-content: space-between; }
+
+  .demo-hint { position: fixed; bottom: 16px; right: 16px; max-width: 320px; background: #FCF1E2; border: 1px solid #E8881A; padding: 10px 14px; font-size: 12px; border-radius: 6px; }
+  .demo-hint b { color: #E8881A; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">SM</div>
+  <div class="title">Suri-Map · 사건 목록</div>
+  <div class="user" id="userInfo">실종팀 김 간부 ▾</div>
+  <button class="import-cta" onclick="openModal()">+ 사건 가져오기</button>
+</div>
+
+<div class="filters">
+  <span class="filter-chip active">진행 중</span>
+  <span class="filter-chip">종료</span>
+  <span class="filter-chip">내가 배정된</span>
+  <span class="filter-chip">내가 가져온</span>
+</div>
+
+<div class="content">
+  <div class="grid" id="grid"></div>
+</div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="title">mock 112 배정 후보</span>
+      <button class="close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-footer">
+      <span>마지막 polling: 14:25</span>
+      <span id="modalHint">가져오기를 클릭하면 사건 목록에 추가됩니다</span>
+    </div>
+  </div>
+</div>
+
+<div class="demo-hint">
+  <b>시연 가이드:</b> 우상단 [+ 사건 가져오기] → 첫 사건 [가져오기] → 추가된 카드 클릭하여 상황판 진입
+</div>
+
+<script>
+  renderProtoBar(2, 7, './03-web-area-edit.html');
+
+  let state = getState();
+
+  function render() {
+    const grid = document.getElementById('grid');
+    const imported = state.importedIncidents || [];
+    if (imported.length === 0) {
+      grid.innerHTML = '<div class="empty-state">아직 가져온 사건이 없습니다.<br>우상단 [+ 사건 가져오기] 버튼을 눌러 시작하세요.</div>';
+    } else {
+      grid.innerHTML = imported.map(inc => `
+        <div class="card" onclick="enterIncident('${inc.id}')">
+          <div class="id">사건 ${inc.id}</div>
+          <div class="name">${inc.missing}</div>
+          <div class="location">${inc.location} · 진입점</div>
+          <span class="badge">내가 가져온</span>
+          <div class="status-row">
+            <span class="status active">진행 중 · OP 1차</span>
+            <span class="updated">${inc.assignedAt} 가져옴</span>
+          </div>
+        </div>
+      `).join('');
+    }
+  }
+
+  function openModal() {
+    const modal = document.getElementById('modal');
+    modal.classList.add('show');
+    const body = document.getElementById('modalBody');
+    body.innerHTML = state.incidents.map(inc => `
+      <div class="modal-row">
+        <div class="info">
+          <div class="id">${inc.id}</div>
+          <div class="name">${inc.missing}</div>
+          <div class="meta">${inc.location} · ${inc.assignedAt} 배정</div>
+        </div>
+        ${inc.imported
+          ? '<span class="imported">✓ 가져옴</span>'
+          : `<button class="import-btn" onclick="importIncident('${inc.id}')">가져오기</button>`
+        }
+      </div>
+    `).join('');
+  }
+
+  function closeModal() {
+    document.getElementById('modal').classList.remove('show');
+  }
+
+  function importIncident(id) {
+    state.incidents = state.incidents.map(i => i.id === id ? { ...i, imported: true } : i);
+    const inc = state.incidents.find(i => i.id === id);
+    state.importedIncidents = [...(state.importedIncidents || []), inc];
+    state.activeIncidentId = id;
+    state.step = 2;
+    saveState(state);
+    closeModal();
+    render();
+    alert(`사건 ${id} 가져오기 완료!\n\nOP 1차가 자동 생성되었습니다.\n\n사건 카드를 클릭하여 상황판으로 진입하세요.`);
+  }
+
+  function enterIncident(id) {
+    state.activeIncidentId = id;
+    state.step = 3;
+    saveState(state);
+    location.href = './03-web-area-edit.html';
+  }
+
+  render();
+</script>
+</body>
+</html>
