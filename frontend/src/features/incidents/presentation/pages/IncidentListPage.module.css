@@ -472,7 +472,7 @@
 /* 카드 메타 정보 한 줄의 라벨/값 배치다. */
 .metaRow {
   display: grid;
-  grid-template-columns: 78px minmax(0, 1fr);
+  grid-template-columns: 112px minmax(0, 1fr);
   align-items: baseline;
   gap: 8px;
   min-width: 0;

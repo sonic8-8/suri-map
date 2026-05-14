@@ -55,7 +55,7 @@ export function IncidentImportModal({
         {!canImport ? (
           <div className={styles.modalBody}>
             <div className={styles.modalPermissionDenied}>
-              <p>현재 계정에는 사건 가져오기 권한이 없습니다.</p>
+              <p>현재 계정은 사건 가져오기를 수행할 수 없습니다.</p>
               <button type="button" className={styles.modalImportButton} onClick={onClose}>
                 확인
               </button>
@@ -65,7 +65,7 @@ export function IncidentImportModal({
           <>
             {isOffline ? (
               <div className={styles.modalOfflineBanner}>
-                네트워크 연결이 끊겨 사건을 가져올 수 없습니다.
+                오프라인 상태에서는 사건을 가져올 수 없습니다.
               </div>
             ) : null}
             <div className={styles.modalBody}>
@@ -99,7 +99,7 @@ export function IncidentImportModal({
               {errorMessage ? <div className={styles.modalErrorMessage}>{errorMessage}</div> : null}
             </div>
             <footer className={styles.modalFooter}>
-              <span>mock 112 배정 사건의 sourceIncidentId를 입력하면 사건과 OP1이 생성됩니다.</span>
+              <span>mock 112 배정 사건의 sourceIncidentId를 입력하면 OP1과 기본 배정이 생성됩니다.</span>
             </footer>
           </>
         )}

@@ -27,7 +27,9 @@ describe('OfflinePackageStatusPage', () => {
     vi.mocked(getIncidentDetail).mockResolvedValue({
       id: 'inc-precinct-first-001',
       incidentId: 'inc-precinct-first-001',
+      title: '광산구 실종 신고',
       status: 'OPEN',
+      openedAt: '2026-05-14T00:30:00Z',
       version: 3,
       missingPerson: {
         incidentId: 'inc-precinct-first-001',
@@ -37,7 +39,16 @@ describe('OfflinePackageStatusPage', () => {
         lastSeenLocationText: '광산구',
         lastSeenAt: '2026-05-14T01:00:00Z',
       },
-      assignments: [{ accountId: 'acct-001', incidentRole: 'INCIDENT_COMMANDER' }],
+      assignments: [
+        {
+          accountId: 'acct-001',
+          accountDisplayName: '상황실',
+          accountType: 'COMMAND',
+          organizationType: 'POLICE_SUBSTATION',
+          incidentRole: 'INCIDENT_COMMANDER',
+          assignedAt: '2026-05-14T00:30:00Z',
+        },
+      ],
     });
     vi.mocked(useIncidentBoardQuery).mockReturnValue(boardQueryResult());
     vi.mocked(useOfflinePackageManifestQuery).mockReturnValue(manifestQueryResult(offlinePackageManifest()));

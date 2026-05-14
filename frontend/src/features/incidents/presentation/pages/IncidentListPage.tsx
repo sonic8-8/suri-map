@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { incidentCommandApi } from '../../../incident/api/incidentCommandApi';
-import { incidentReadApi, type IncidentListItem } from '../../../incident/api/incidentReadApi';
+import {
+  incidentReadApi,
+  type ActiveIncidentDetailResponse,
+  type IncidentAssignmentSummary,
+  type IncidentDetailResponse,
+  type IncidentListItem,
+} from '../../../incident/api/incidentReadApi';
 import { IncidentImportCompleteDialog } from '../../../incidentImport/presentation/components/IncidentImportCompleteDialog';
 import { IncidentImportModal } from '../../../incidentImport/presentation/components/IncidentImportModal';
 import type { LoginAccount } from '../../../login/presentation/types/login';
@@ -12,7 +18,7 @@ import styles from './IncidentListPage.module.css';
 
 const INCIDENT_LIST_PAGE_SIZE = 12;
 const IMPORT_INCOMPLETE_ERROR_MESSAGE =
-  '사건 가져오기가 완료되지 않았습니다. 목록을 새로고침한 뒤 다시 시도해 주세요.';
+  '사건 가져오기는 완료됐지만 목록에서 확인되지 않습니다. 목록을 새로고침한 뒤 다시 확인해 주세요.';
 
 function canImportIncident(account: LoginAccount): boolean {
   return (
@@ -27,12 +33,17 @@ type IncidentListPageProps = {
   currentUserAccount: LoginAccount;
 };
 
+type IncidentCardSource = {
+  item: IncidentListItem;
+  detail: IncidentDetailResponse | null;
+};
+
 function getStatusTone(status: IncidentStatus): StatusBadgeTone {
   return status === '진행 중' ? 'active' : 'closed';
 }
 
 function getIncidentStatus(status: string): IncidentStatus {
-  return status === 'CLOSED' ? '종료' : '진행 중';
+  return status === 'CLOSED' ? '종료됨' : '진행 중';
 }
 
 function getImportErrorMessage(error: unknown) {
@@ -42,25 +53,25 @@ function getImportErrorMessage(error: unknown) {
     }
 
     if (error.code === 'idempotency_mismatch') {
-      return '같은 Idempotency-Key로 다른 요청 본문이 감지되었습니다. 다시 시도해 주세요.';
+      return '같은 Idempotency-Key로 다른 요청이 처리됐습니다. 다시 시도해 주세요.';
     }
 
     if (error.code === 'write_conflict') {
-      return '사건 가져오기 상태가 충돌했습니다. 목록을 새로고침한 뒤 다시 시도해 주세요.';
+      return '사건 가져오기 상태가 변경됐습니다. 목록을 새로고침한 뒤 다시 시도해 주세요.';
     }
 
     if (error.code === 'role_denied') {
-      return '현재 계정에는 사건 가져오기 권한이 없습니다.';
+      return '현재 계정은 사건 가져오기를 수행할 수 없습니다.';
     }
 
     if (error.code === 'channel_not_allowed') {
-      return '웹 채널에서 허용되지 않는 사건 가져오기 요청입니다.';
+      return '웹 채널에서 허용되지 않은 사건 가져오기 요청입니다.';
     }
 
-    return `사건 가져오기를 처리하지 못했습니다. (${error.code})`;
+    return `사건 가져오기에 실패했습니다. (${error.code})`;
   }
 
-  return '사건 가져오기를 처리하지 못했습니다.';
+  return '사건 가져오기에 실패했습니다.';
 }
 
 function getListErrorMessage(error: unknown) {
@@ -69,14 +80,14 @@ function getListErrorMessage(error: unknown) {
       return '웹 채널에서 사건 목록을 조회할 수 없습니다.';
     }
 
-    return `배정 사건 목록을 불러오지 못했습니다. (${error.code})`;
+    return `배정된 사건 목록을 불러오지 못했습니다. (${error.code})`;
   }
 
-  return '배정 사건 목록을 불러오지 못했습니다.';
+  return '배정된 사건 목록을 불러오지 못했습니다.';
 }
 
 function getListErrorHelp(errorMessage: string) {
-  return errorMessage ? '잠시 후 다시 시도하거나 로그인 상태를 확인해 주세요.' : '';
+  return errorMessage ? '네트워크 상태와 API 응답을 확인한 뒤 다시 시도해 주세요.' : '';
 }
 
 function formatKstDateTime(date: Date) {
@@ -100,26 +111,127 @@ function formatKstDateTime(date: Date) {
   return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute} KST`;
 }
 
-function createIncidentCard(item: IncidentListItem): IncidentCard {
-  const status = getIncidentStatus(item.status);
+async function loadIncidentCards(): Promise<{ cards: IncidentCard[]; items: IncidentListItem[] }> {
+  const response = await incidentReadApi.list();
+  const sources = await Promise.all(
+    response.items.map(async (item): Promise<IncidentCardSource> => {
+      try {
+        return { item, detail: await incidentReadApi.detail(item.incidentId) };
+      } catch {
+        return { item, detail: null };
+      }
+    }),
+  );
 
+  return {
+    cards: sources.map(createIncidentCard),
+    items: response.items,
+  };
+}
+
+function createIncidentCard({ item, detail }: IncidentCardSource): IncidentCard {
+  if (isActiveIncidentDetail(detail)) {
+    return createActiveIncidentCard(item, detail);
+  }
+
+  const status = getIncidentStatus(item.status);
   return {
     id: item.incidentId,
     title: item.title,
     status,
-    location: `사건 ID ${item.incidentId}`,
-    timeKind: item.closedAt ? '종료 시각' : '개시 시각',
+    lastSeenLocationLabel: `사건 ID ${item.incidentId}`,
+    lastSeenAtLabel: '-',
+    timeKind: item.closedAt ? '종료 시각' : '접수 시각',
     timeLabel: item.closedAt ? formatKstDateTime(new Date(item.closedAt)) : '-',
-    currentPhase: `version ${item.version}`,
+    currentPhase: `v${item.version}`,
     assignedOrganization: '-',
     assignedTeam: '-',
   };
 }
 
+function createActiveIncidentCard(item: IncidentListItem, detail: ActiveIncidentDetailResponse): IncidentCard {
+  const missingPerson = detail.missingPerson;
+  const assignmentSummary = summarizeAssignments(detail.assignments);
+  const displayName = missingPerson?.displayName?.trim() || null;
+  const lastSeenLocation = missingPerson?.lastSeenLocationText?.trim() || null;
+  const lastSeenAt = missingPerson?.lastSeenAt ? formatKstDateTime(new Date(missingPerson.lastSeenAt)) : null;
+
+  return {
+    id: item.incidentId,
+    title: detail.title || item.title,
+    status: getIncidentStatus(detail.status),
+    lastSeenLocationLabel: lastSeenLocation ?? `사건 ID ${item.incidentId}`,
+    lastSeenAtLabel: lastSeenAt ?? '-',
+    timeKind: '접수 시각',
+    timeLabel: detail.openedAt ? formatKstDateTime(new Date(detail.openedAt)) : '-',
+    currentPhase: displayName ? `실종자 ${displayName}` : `v${detail.version}`,
+    assignedOrganization: assignmentSummary.organization,
+    assignedTeam: assignmentSummary.team,
+  };
+}
+
+function summarizeAssignments(assignments: readonly IncidentAssignmentSummary[]) {
+  if (assignments.length === 0) {
+    return {
+      organization: '배정 없음',
+      team: '배정 없음',
+    };
+  }
+
+  const displayNames = assignments
+    .map((assignment) => assignment.accountDisplayName?.trim())
+    .filter((value): value is string => Boolean(value));
+  const roleCounts = countBy(assignments.map((assignment) => formatIncidentRole(assignment.incidentRole)));
+  const organizationCounts = countBy(assignments.map((assignment) => formatOrganizationType(assignment.organizationType)));
+
+  return {
+    organization: formatCountSummary(organizationCounts),
+    team: displayNames.length > 0 ? formatNameSummary(displayNames, assignments.length) : formatCountSummary(roleCounts),
+  };
+}
+
+function countBy(values: readonly string[]) {
+  return values.reduce<Record<string, number>>((counts, value) => {
+    counts[value] = (counts[value] ?? 0) + 1;
+    return counts;
+  }, {});
+}
+
+function formatCountSummary(counts: Record<string, number>) {
+  return Object.entries(counts)
+    .map(([label, count]) => `${label} ${count}`)
+    .join(', ');
+}
+
+function formatNameSummary(displayNames: readonly string[], totalCount: number) {
+  const [firstName] = displayNames;
+  if (!firstName) return `${totalCount}명 배정`;
+  const extraCount = totalCount - 1;
+  return extraCount > 0 ? `${firstName} 외 ${extraCount}명` : firstName;
+}
+
+function formatIncidentRole(role: string) {
+  if (role === 'MEMBER') return '대원';
+  if (role === 'FIELD_COMMANDER') return '현장지휘';
+  if (role === 'INCIDENT_COMMANDER') return '사건지휘';
+  return role || '역할미상';
+}
+
+function formatOrganizationType(type: string | null) {
+  if (type === 'MISSING_TEAM') return '실종팀';
+  if (type === 'SUPPORT_UNIT') return '지원부서';
+  if (type === 'POLICE_SUBSTATION') return '파출소';
+  return type || '조직미상';
+}
+
+function isActiveIncidentDetail(detail: IncidentDetailResponse | null): detail is ActiveIncidentDetailResponse {
+  return detail?.status === 'OPEN' && 'assignments' in detail;
+}
+
 export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUserAccount }: IncidentListPageProps) {
   const [pageNumber, setPageNumber] = useState(1);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [isOffline, setIsOffline] = useState(() => !navigator.onLine);
+  const [isOffline, setIsOffline] = useState(() => (typeof navigator === 'undefined' ? false : !navigator.onLine));
   const [now, setNow] = useState(() => new Date());
   const [incidents, setIncidents] = useState<IncidentCard[]>([]);
   const [importedSourceIncidentIds, setImportedSourceIncidentIds] = useState<string[]>([]);
@@ -145,10 +257,10 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
       setListErrorMessage('');
 
       try {
-        const response = await incidentReadApi.list();
+        const result = await loadIncidentCards();
 
         if (!ignore) {
-          setIncidents(response.items.map(createIncidentCard));
+          setIncidents(result.cards);
         }
       } catch (error) {
         if (!ignore) {
@@ -195,10 +307,10 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
   const currentTimeLabel = formatKstDateTime(now);
 
   const reloadAssignedIncidents = async () => {
-    const response = await incidentReadApi.list();
-    setIncidents(response.items.map(createIncidentCard));
+    const result = await loadIncidentCards();
+    setIncidents(result.cards);
     setListErrorMessage('');
-    return response.items;
+    return result.items;
   };
 
   const handleImportIncident = async (sourceIncidentId: string) => {
@@ -236,7 +348,7 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
   return (
     <main className={styles.page}>
       <header className={styles.header}>
-        <nav className={styles.productNav} aria-label="사건 목록 탐색">
+        <nav className={styles.productNav} aria-label="사건 목록 메뉴">
           <div className={styles.brand}>
             <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
               <path
@@ -263,7 +375,7 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
           </button>
           <div className={styles.meta}>
             <span>
-              현재 계정 <b>{currentUserLabel}</b>
+              계정 <b>{currentUserLabel}</b>
             </span>
             <span className={styles.metaDivider} aria-hidden="true" />
             <span>{currentTimeLabel}</span>
@@ -277,14 +389,14 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
         <section className={styles.listContextBar} aria-label="사건 목록 요약">
           <div className={styles.listContextMain}>
             <div className={styles.listContextTitle}>
-              <strong>배정 사건 목록</strong>
+              <strong>배정된 사건 목록</strong>
             </div>
           </div>
           <span className={styles.listContextDivider} aria-hidden="true" />
           <div className={styles.listContextMetrics}>
             <div>
-              <span>진행 중 배정 사건</span>
-              <strong>{incidents.length}건</strong>
+              <span>진행 중 사건</span>
+              <strong>{incidents.filter((incident) => incident.status === '진행 중').length}건</strong>
             </div>
           </div>
           <div className={styles.listContextActions}>
@@ -308,7 +420,7 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
             <div className={styles.emptyState}>
               <strong>
                 {isLoadingIncidents
-                  ? '배정 사건 목록을 불러오는 중입니다.'
+                  ? '배정된 사건 목록을 불러오는 중입니다.'
                   : listErrorMessage || '진행 중인 배정 사건이 없습니다.'}
               </strong>
               <span>
@@ -326,13 +438,12 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
               {visibleIncidents.map((incident) => (
                 <article
                   key={incident.id}
-                  className={`${styles.card}${incident.status === '종료' ? ` ${styles.cardClosed}` : ''}`}
+                  className={`${styles.card}${incident.status === '종료됨' ? ` ${styles.cardClosed}` : ''}`}
                 >
                   <div className={styles.cardHeader}>
                     <div className={styles.cardIdentity}>
                       <div className={styles.cardId}>{incident.id}</div>
                       <h2 className={styles.cardTitle}>{incident.title}</h2>
-                      <div className={styles.cardLocation}>{incident.location}</div>
                       <span className={styles.importedBadge}>배정 사건</span>
                     </div>
                     <StatusBadge status={incident.status} tone={getStatusTone(incident.status)} />
@@ -350,19 +461,27 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
 
                   <div className={styles.cardMetaGrid}>
                     <div className={styles.metaRow}>
+                      <span>마지막 확인 장소</span>
+                      <strong>{incident.lastSeenLocationLabel}</strong>
+                    </div>
+                    <div className={styles.metaRow}>
+                      <span>마지막 확인 시각</span>
+                      <strong>{incident.lastSeenAtLabel}</strong>
+                    </div>
+                    <div className={styles.metaRow}>
                       <span>{incident.timeKind}</span>
                       <strong>{incident.timeLabel}</strong>
                     </div>
                     <div className={styles.metaRow}>
-                      <span>버전</span>
+                      <span>상세</span>
                       <strong>{incident.currentPhase}</strong>
                     </div>
                     <div className={styles.metaRow}>
-                      <span>배정 조직</span>
+                      <span>조직</span>
                       <strong>{incident.assignedOrganization}</strong>
                     </div>
                     <div className={styles.metaRow}>
-                      <span>배정 팀</span>
+                      <span>배정</span>
                       <strong>{incident.assignedTeam}</strong>
                     </div>
                   </div>
