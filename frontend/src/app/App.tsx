@@ -107,18 +107,41 @@ function AreaEditRedirectRoute() {
 
 type HandoverRouteProps = {
   currentUserAccount: LoginAccount;
+  markerNotificationIndex: number;
+  markerNotifications: MarkerNotification[];
+  onCloseMarkerNotifications: () => void;
+  onMarkerNotification: (notification: MarkerNotification) => void;
+  onMoveMarkerNotification: (nextIndex: number) => void;
   onOperationalPeriodCreated: (incidentId: string) => void;
   onOpenOfflinePackage: (incidentId: string) => void;
 };
 
-function HandoverRoute({ currentUserAccount, onOperationalPeriodCreated, onOpenOfflinePackage }: HandoverRouteProps) {
+function HandoverRoute({
+  currentUserAccount,
+  markerNotificationIndex,
+  markerNotifications,
+  onCloseMarkerNotifications,
+  onMarkerNotification,
+  onMoveMarkerNotification,
+  onOperationalPeriodCreated,
+  onOpenOfflinePackage,
+}: HandoverRouteProps) {
   const incidentId = useRouteIncidentId();
   const navigate = useNavigate();
+  useIncidentMarkerNotifications({
+    incidentId,
+    enabled: true,
+    onNotification: onMarkerNotification,
+  });
 
   return (
     <HandoverPage
       incidentId={incidentId}
       currentUserAccount={currentUserAccount}
+      markerNotificationIndex={markerNotificationIndex}
+      markerNotifications={markerNotifications}
+      onCloseMarkerNotifications={onCloseMarkerNotifications}
+      onMoveMarkerNotification={onMoveMarkerNotification}
       onOpenIncidentList={() => navigate(ROUTES.incidentList)}
       onOpenSituationBoard={() => navigate(getIncidentBoardPath(incidentId))}
       onOpenOfflinePackage={() => onOpenOfflinePackage(incidentId)}
@@ -133,6 +156,7 @@ type OfflinePackageRouteProps = {
   markerNotifications: MarkerNotification[];
   onCloseMarkerNotifications: () => void;
   onMoveMarkerNotification: (nextIndex: number) => void;
+  onMarkerNotification: (notification: MarkerNotification) => void;
   onOpenOfflinePackage: (incidentId: string) => void;
 };
 
@@ -142,10 +166,16 @@ function OfflinePackageRoute({
   markerNotifications,
   onCloseMarkerNotifications,
   onMoveMarkerNotification,
+  onMarkerNotification,
   onOpenOfflinePackage,
 }: OfflinePackageRouteProps) {
   const incidentId = useRouteIncidentId();
   const navigate = useNavigate();
+  useIncidentMarkerNotifications({
+    incidentId,
+    enabled: true,
+    onNotification: onMarkerNotification,
+  });
 
   return (
     <OfflinePackageStatusPage
@@ -296,6 +326,11 @@ export function App() {
           currentUserAccount ? (
             <HandoverRoute
               currentUserAccount={currentUserAccount}
+              markerNotificationIndex={markerNotificationIndex}
+              markerNotifications={markerNotifications}
+              onCloseMarkerNotifications={closeMarkerNotifications}
+              onMarkerNotification={addMarkerNotification}
+              onMoveMarkerNotification={moveMarkerNotification}
               onOpenOfflinePackage={(nextIncidentId) => navigate(getIncidentOfflinePackagePath(nextIncidentId))}
               onOperationalPeriodCreated={refreshOperationalPeriodViews}
             />
@@ -314,6 +349,7 @@ export function App() {
               markerNotifications={markerNotifications}
               onCloseMarkerNotifications={closeMarkerNotifications}
               onMoveMarkerNotification={moveMarkerNotification}
+              onMarkerNotification={addMarkerNotification}
               onOpenOfflinePackage={(nextIncidentId) => navigate(getIncidentOfflinePackagePath(nextIncidentId))}
             />
           ) : (

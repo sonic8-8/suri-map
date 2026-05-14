@@ -106,6 +106,10 @@ export function SituationBoardPage({
             sharedMapMode
             incidentId={incidentId}
             currentUserAccount={currentUserAccount}
+            markerNotificationIndex={markerNotificationIndex}
+            markerNotifications={markerNotifications}
+            onCloseMarkerNotifications={onCloseMarkerNotifications}
+            onMoveMarkerNotification={onMoveMarkerNotification}
             onOpenIncidentList={onOpenIncidentList}
             onOpenSituationBoard={boardState.closeHandoverWorkspace}
             onOpenOfflinePackage={onOpenOfflinePackage}
