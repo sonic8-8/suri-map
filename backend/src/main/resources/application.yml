@@ -2,7 +2,8 @@ spring:
   application:
     name: suri-map-api
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/surimap}
+    #TODO 윈도우 환경을 위한 명시적 localhost 설정. mr 시 수정
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://127.0.0.1:5432/surimap}
     username: ${SPRING_DATASOURCE_USERNAME:surimap}
     password: ${SPRING_DATASOURCE_PASSWORD:surimap}
   flyway:
