@@ -23,7 +23,9 @@ public sealed interface IncidentDetailResponse
   record Active(
       UUID id,
       UUID incidentId,
+      String title,
       String status,
+      Instant openedAt,
       long version,
       IncidentDetailMissingPersonSummaryResponse missingPerson,
       List<IncidentAssignmentResponse> assignments)
@@ -36,7 +38,9 @@ public sealed interface IncidentDetailResponse
       return new Active(
           detail.id(),
           detail.incidentId(),
+          detail.title(),
           detail.status(),
+          detail.openedAt(),
           detail.version(),
           IncidentDetailMissingPersonSummaryResponse.from(detail.missingPerson()),
           detail.assignments().stream().map(IncidentAssignmentResponse::from).toList());
