@@ -4,6 +4,7 @@ import androidx.work.BackoffPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequest
+import com.surimap.BuildConfig
 import com.surimap.testing.incidentIdFixture
 import com.surimap.testing.policePhoneIdFixture
 import java.time.Instant
@@ -15,7 +16,7 @@ import org.junit.Test
 class OutboxReplaySchedulerTest {
 
     @Test
-    fun schedulesUniqueReplayWorkWithIncidentPhoneAndAuthContext() {
+    fun schedulesReplayWorkWithBuildTypeNetworkConstraint() {
         val enqueued = mutableListOf<EnqueuedWork>()
         val scheduler =
             OutboxReplayScheduler { name, policy, request ->
@@ -38,9 +39,54 @@ class OutboxReplaySchedulerTest {
         assertEquals(POLICE_PHONE_ID, work.request.workSpec.input.getString(OutboxWorker.KEY_POLICE_PHONE_ID))
         assertEquals("https://suri-map.internal", work.request.workSpec.input.getString(OutboxWorker.KEY_API_BASE_URL))
         assertEquals("bootstrap-token-1", work.request.workSpec.input.getString(OutboxWorker.KEY_ACCESS_TOKEN))
-        assertEquals(NetworkType.CONNECTED, work.request.workSpec.constraints.requiredNetworkType)
+        assertEquals(
+            if (BuildConfig.DEBUG) NetworkType.NOT_REQUIRED else NetworkType.CONNECTED,
+            work.request.workSpec.constraints.requiredNetworkType
+        )
         assertEquals(BackoffPolicy.EXPONENTIAL, work.request.workSpec.backoffPolicy)
         assertEquals(10_000L, work.request.workSpec.backoffDelayDuration)
+    }
+
+    @Test
+    fun canRelaxConnectedNetworkConstraintForDeviceSmoke() {
+        val enqueued = mutableListOf<EnqueuedWork>()
+        val scheduler =
+            OutboxReplayScheduler { name, policy, request ->
+                enqueued += EnqueuedWork(name, policy, request)
+            }
+
+        scheduler.schedule(
+            OutboxReplayWorkRequest(
+                incidentId = INCIDENT_ID,
+                policePhoneId = POLICE_PHONE_ID,
+                apiBaseUrl = "https://suri-map.internal",
+                requireConnectedNetworkConstraint = false
+            )
+        )
+
+        val work = enqueued.single()
+        assertEquals(NetworkType.NOT_REQUIRED, work.request.workSpec.constraints.requiredNetworkType)
+    }
+
+    @Test
+    fun canPreserveConnectedNetworkConstraintForReleasePolicy() {
+        val enqueued = mutableListOf<EnqueuedWork>()
+        val scheduler =
+            OutboxReplayScheduler { name, policy, request ->
+                enqueued += EnqueuedWork(name, policy, request)
+            }
+
+        scheduler.schedule(
+            OutboxReplayWorkRequest(
+                incidentId = INCIDENT_ID,
+                policePhoneId = POLICE_PHONE_ID,
+                apiBaseUrl = "https://suri-map.internal",
+                requireConnectedNetworkConstraint = true
+            )
+        )
+
+        val work = enqueued.single()
+        assertEquals(NetworkType.CONNECTED, work.request.workSpec.constraints.requiredNetworkType)
     }
 
     @Test

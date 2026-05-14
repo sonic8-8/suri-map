@@ -63,6 +63,7 @@ class IncidentListStateLoaderTest {
         assertEquals(INCIDENT_ID, incident.incidentId)
         assertEquals("광주 북구 산악 실종", incident.title)
         assertEquals("상태 OPEN · v7", incident.summary)
+        assertEquals("근무 시작 후 사건 열기", state.primaryOpenLabel)
         assertEquals(INCIDENT_ID, context.incidentId)
         assertNull(context.currentOpId)
         assertNull(context.currentDutyShiftId)
@@ -98,6 +99,16 @@ class IncidentListStateLoaderTest {
 
         assertEquals(IncidentListStatus.Offline, state.status)
         assertFalse(state.canRefresh)
+    }
+
+    @Test
+    fun appIncidentRouteStartsDutyShiftWhenNoActiveShift() {
+        val source = java.io.File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+
+        assertTrue(source.contains("DutyShiftLocalRecorder"))
+        assertTrue(source.contains("resolvedContext.currentDutyShiftId.isNullOrBlank()"))
+        assertTrue(source.contains("dutyShiftRecorder.start"))
+        assertTrue(source.contains("resolvedContext.toDutyShiftWriteContext(policePhoneContext)"))
     }
 
     private fun loaderFor(response: Response): IncidentListStateLoader {

@@ -3,6 +3,7 @@ package com.surimap.feature.search.data
 import com.surimap.core.database.LocalMarkerEntity
 import com.surimap.core.database.OutboxStatusSummary
 import com.surimap.core.incident.IncidentReadRepository
+import com.surimap.core.marker.MarkerReadQuery
 import com.surimap.core.network.SuriMapApiResponse
 import com.surimap.core.offline.OfflinePackageManifestQuery
 import com.surimap.core.offline.OfflinePackageRepository
@@ -38,6 +39,9 @@ class SearchMapStateLoader(
     private val searchPaths: suspend (SearchPathQuery) -> SuriMapApiResponse = { query ->
         SearchPathRepository().listSearchPaths(query)
     },
+    private val liveMarkers: suspend (MarkerReadQuery) -> SuriMapApiResponse = {
+        SuriMapApiResponse(statusCode = 404, body = null, errorCode = null)
+    },
     private val initialMarkers: suspend (String, String) -> SuriMapApiResponse = { incidentId, policePhoneId ->
         OfflinePackageRepository().manifest(
             OfflinePackageManifestQuery(
@@ -53,7 +57,14 @@ class SearchMapStateLoader(
     suspend fun load(context: SearchMapSessionContext): SearchMapUiState {
         val areaState = withOpSearchAreas(context, withOverallSearchArea(context, fallback(context)))
         val mapState = withSearchPaths(context, areaState)
-        val markerState = withPendingMarkers(context, withInitialMarkers(context, mapState))
+        val liveMarkerResult = withLiveMarkers(context, mapState)
+        val serverMarkerState =
+            if (liveMarkerResult.loaded) {
+                liveMarkerResult.state
+            } else {
+                withInitialMarkers(context, mapState)
+            }
+        val markerState = withPendingMarkers(context, serverMarkerState)
         val incidentId = context.incidentId?.takeIf(String::isNotBlank) ?: return markerState
         val response = runCatching { incidentDetail(incidentId) }.getOrNull() ?: return markerState
         if (!response.isSuccessful || response.body.isNullOrBlank()) {
@@ -212,6 +223,29 @@ class SearchMapStateLoader(
         return state.copy(layers = state.layers + markerLayers)
     }
 
+    private suspend fun withLiveMarkers(
+        context: SearchMapSessionContext,
+        state: SearchMapUiState
+    ): LiveMarkerLoadResult {
+        val incidentId = context.incidentId?.takeIf(String::isNotBlank) ?: return LiveMarkerLoadResult(state, false)
+        val opId = context.currentOpId?.takeIf(String::isNotBlank) ?: return LiveMarkerLoadResult(state, false)
+        val response =
+            runCatching {
+                liveMarkers(
+                    MarkerReadQuery(
+                        incidentId = incidentId,
+                        opId = opId
+                    )
+                )
+            }.getOrNull()
+                ?: return LiveMarkerLoadResult(state, false)
+        if (!response.isSuccessful || response.body.isNullOrBlank()) {
+            return LiveMarkerLoadResult(state, false)
+        }
+        val markerLayers = liveMarkerLayers(response.body)
+        return LiveMarkerLoadResult(state.copy(layers = state.layers + markerLayers), true)
+    }
+
     private suspend fun withPendingMarkers(
         context: SearchMapSessionContext,
         state: SearchMapUiState
@@ -323,6 +357,33 @@ class SearchMapStateLoader(
         }
     }
 
+    private fun liveMarkerLayers(body: String): List<SearchMapLayerUiState> {
+        val root = runCatching { JSONObject(body) }.getOrNull() ?: return emptyList()
+        val markers = root.optJSONArray("markers") ?: root.optJSONArray("items") ?: return emptyList()
+        return buildList {
+            repeat(markers.length()) { index ->
+                val marker = markers.optJSONObject(index) ?: return@repeat
+                val status = marker.optString("status").uppercase()
+                if (status == "DELETED") {
+                    return@repeat
+                }
+                val location = marker.optJSONObject("location") ?: marker.optJSONObject("geometry") ?: return@repeat
+                if (!location.optString("type").equals("Point", ignoreCase = true)) {
+                    return@repeat
+                }
+                add(
+                    SearchMapLayerUiState(
+                        label = marker.markerLabel(),
+                        kind = SearchLayerKind.Marker,
+                        highlighted = true,
+                        overlayId = marker.optString("id").ifBlank { "live-marker-$index" },
+                        geoJson = location.toString()
+                    )
+                )
+            }
+        }
+    }
+
     private fun List<LocalMarkerEntity>.pendingMarkerLayers(): List<SearchMapLayerUiState> =
         map { marker ->
             SearchMapLayerUiState(
@@ -344,7 +405,7 @@ class SearchMapStateLoader(
                 if (!geometry.optString("type").equals("LineString", ignoreCase = true)) {
                     return@repeat
                 }
-                val active = path.optString("status").uppercase() == "ACTIVE"
+                val active = path.optString("status").uppercase() in setOf("ACTIVE", "RECORDING")
                 add(
                     SearchMapLayerUiState(
                         label = if (active) "현재 경로" else "기존 경로",
@@ -461,3 +522,8 @@ class SearchMapStateLoader(
         const val MILLIS_PER_MINUTE = 60_000L
     }
 }
+
+private data class LiveMarkerLoadResult(
+    val state: SearchMapUiState,
+    val loaded: Boolean
+)

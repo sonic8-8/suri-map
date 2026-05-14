@@ -1,7 +1,9 @@
 package com.surimap.path.controller;
 
 import static org.hamcrest.Matchers.is;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -68,6 +70,7 @@ class PathControllerTest {
                     {
                       "incidentId": "10000000-0000-0000-0000-000000000001",
                       "opId": "70000000-0000-0000-0000-000000000001",
+                      "searchPathId": "81000000-0000-0000-0000-000000000001",
                       "clientTs": "2026-04-28T09:00:00+09:00",
                       "clockOffsetMs": 0
                     }
@@ -79,6 +82,8 @@ class PathControllerTest {
         .andExpect(jsonPath("$.policePhoneId", is(POLICE_PHONE_ID.toString())))
         .andExpect(jsonPath("$.version", is(1)))
         .andExpect(jsonPath("$.status", is("RECORDING")));
+
+    verify(service).start(argThat(request -> SEARCH_PATH_ID.equals(request.searchPathId())));
   }
 
   @Test

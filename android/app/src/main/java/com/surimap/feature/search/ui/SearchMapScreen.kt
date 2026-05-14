@@ -127,6 +127,10 @@ data class SearchMapUiState(
                 layers.firstOrNull { layer -> layer.kind == SearchLayerKind.Marker && layer.overlayId == markerId }
                     ?.copy(highlighted = true)
             }
+    val markerDetailTargetId: String? =
+        focusedMarkerId?.takeIf(String::isNotBlank)
+            ?: layers.firstOrNull { layer -> layer.kind == SearchLayerKind.Marker && !layer.overlayId.isNullOrBlank() }
+                ?.overlayId
     val markerFocusLabel: String? =
         focusedMarkerId
             ?.takeIf(String::isNotBlank)
@@ -188,11 +192,13 @@ data class SearchMapUiState(
             add(primaryActionLabel)
             add(if (canWritePath) "경로 기록 가능" else "경로 기록 차단")
             add(if (canCreateMarker) "마커 생성 가능" else "마커 생성 차단")
+            add("인수인계")
             add("마커 생성")
             if (showHandoverPrompt) {
                 add("이전 근무 기록 있음")
             }
             markerFocusLabel?.let(::add)
+            markerDetailTargetId?.let { add("마커 상세") }
             incidentAlert?.visibleText()?.forEach(::add)
             if (blockedOutboxCount > 0) {
                 add("미전송 ${blockedOutboxCount}건 처리 불가")
@@ -292,6 +298,7 @@ fun SearchMapScreen(
     onOpenBlockedOutbox: () -> Unit,
     onDismissIncidentAlert: () -> Unit,
     onOpenIncidentAlertMarker: (String) -> Unit,
+    onOpenFocusedMarkerDetail: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxSize().background(PoliBgBase)) {
@@ -330,6 +337,7 @@ fun SearchMapScreen(
             SearchMapShell(
                 state = state,
                 mapState = mapState,
+                onOpenFocusedMarkerDetail = onOpenFocusedMarkerDetail,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -338,6 +346,7 @@ fun SearchMapScreen(
             state = state,
             onPrimaryLifecycleAction = onPrimaryLifecycleAction,
             onStopSearch = onStopSearch,
+            onOpenHandover = onOpenHandover,
             onCreateMarker = onCreateMarker
         )
     }
@@ -384,6 +393,7 @@ private fun BlockedOutboxNotice(state: SearchMapUiState, onOpenBlockedOutbox: ()
 private fun SearchMapShell(
     state: SearchMapUiState,
     mapState: MapLibreRuntimeMapState,
+    onOpenFocusedMarkerDetail: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var mapLoadFailure by remember { mutableStateOf<String?>(null) }
@@ -402,6 +412,14 @@ private fun SearchMapShell(
         ) {
             state.markerFocusLabel?.let { focusLabel ->
                 PoliChip(text = focusLabel, variant = PoliChipVariant.Bad)
+            }
+            state.markerDetailTargetId?.takeIf(String::isNotBlank)?.let { markerId ->
+                PoliButton(
+                    text = "마커 상세",
+                    onClick = { onOpenFocusedMarkerDetail(markerId) },
+                    size = PoliButtonSize.Small,
+                    variant = PoliButtonVariant.Secondary
+                )
             }
             state.layers.forEach { layer ->
                 PoliChip(
@@ -462,6 +480,7 @@ private fun SearchBottomPanel(
     state: SearchMapUiState,
     onPrimaryLifecycleAction: () -> Unit,
     onStopSearch: () -> Unit,
+    onOpenHandover: () -> Unit,
     onCreateMarker: () -> Unit
 ) {
     Column(
@@ -494,13 +513,22 @@ private fun SearchBottomPanel(
                 variant = PoliButtonVariant.Danger
             )
         }
-        PoliButton(
-            text = "마커 생성",
-            onClick = onCreateMarker,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = state.canCreateMarker,
-            size = PoliButtonSize.Large
-        )
+        Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
+            PoliButton(
+                text = "인수인계",
+                onClick = onOpenHandover,
+                modifier = Modifier.weight(1f),
+                variant = PoliButtonVariant.Secondary,
+                size = PoliButtonSize.Large
+            )
+            PoliButton(
+                text = "마커 생성",
+                onClick = onCreateMarker,
+                modifier = Modifier.weight(1.25f),
+                enabled = state.canCreateMarker,
+                size = PoliButtonSize.Large
+            )
+        }
     }
 }
 
@@ -642,7 +670,8 @@ private fun SearchMapScreenPreview() {
             onOpenHandover = {},
             onOpenBlockedOutbox = {},
             onDismissIncidentAlert = {},
-            onOpenIncidentAlertMarker = {}
+            onOpenIncidentAlertMarker = {},
+            onOpenFocusedMarkerDetail = {}
         )
     }
 }

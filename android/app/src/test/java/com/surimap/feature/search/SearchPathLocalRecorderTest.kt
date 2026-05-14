@@ -38,6 +38,7 @@ class SearchPathLocalRecorderTest {
         assertEquals(listOf("/api/search-paths", "/api/search-paths/batch", "/api/search-paths/$PATH_ID"), syncClient.operations.map { it.endpoint })
         assertTrue(syncClient.operations.all { it.dependencyGroup == DependencyGroup.PATH })
         assertEquals(OP_START_ID, start.operationId)
+        assertEquals(PATH_ID, start.entityId)
         assertEquals(OP_BATCH_ID, batch.operationId)
         assertEquals(OP_END_ID, end.operationId)
     }
@@ -129,7 +130,7 @@ class SearchPathLocalRecorderTest {
     }
 
     private fun idFactory(): (String) -> String {
-        val ids = listOf(OP_START_ID, OP_BATCH_ID, OP_END_ID)
+        val ids = listOf(OP_START_ID, PATH_ID, OP_BATCH_ID, OP_END_ID)
         var next = 0
         return { ids[next++] }
     }

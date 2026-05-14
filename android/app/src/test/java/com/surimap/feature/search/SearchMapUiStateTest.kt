@@ -80,6 +80,14 @@ class SearchMapUiStateTest {
     }
 
     @Test
+    fun activeSearchMapCanOpenHandoverEvenWithoutUnreadPrompt() {
+        val state = SearchMapUiState.active(hasUnreadHandover = false)
+
+        assertFalse(state.showHandoverPrompt)
+        assertTrue(state.visibleText().contains("인수인계"))
+    }
+
+    @Test
     fun markerFocusDeeplinkHighlightsTargetMarkerWithoutChangingWriteAvailability() {
         val state =
             SearchMapUiState.active().copy(
@@ -104,6 +112,25 @@ class SearchMapUiStateTest {
         assertTrue(state.visibleText().any { it.contains("마커 포커스 · 실종자 발견") })
         assertTrue(state.canCreateMarker)
         assertTrue(state.canWritePath)
+    }
+
+    @Test
+    fun liveMarkerLayerWithoutFcmFocusCanOpenMarkerDetail() {
+        val state =
+            SearchMapUiState.active().copy(
+                layers =
+                    listOf(
+                        SearchMapLayerUiState(
+                            label = "지원 요청",
+                            kind = SearchLayerKind.Marker,
+                            overlayId = MARKER_ID,
+                            geoJson = """{"type":"Point","coordinates":[126.91,37.51]}"""
+                        )
+                    )
+            )
+
+        assertEquals(MARKER_ID, state.markerDetailTargetId)
+        assertTrue(state.visibleText().contains("마커 상세"))
     }
 
     private companion object {

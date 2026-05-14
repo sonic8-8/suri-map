@@ -44,8 +44,7 @@ class PublicRouteContractTest {
 
     assertThat(
             effectivePaths.stream()
-                .filter(path -> !path.startsWith("/tiles/"))
-                .filter(path -> !path.startsWith("/actuator/"))
+                .filter(path -> !isNonJsonApplicationRoute(path))
                 .collect(Collectors.toList()))
         .as("non-tile application routes must use the canonical /api JSON prefix")
         .allMatch(path -> path.startsWith("/api/"));
@@ -118,5 +117,11 @@ class PublicRouteContractTest {
       return contextPath.isBlank() ? "/" : contextPath;
     }
     return contextPath + (controllerPath.startsWith("/") ? controllerPath : "/" + controllerPath);
+  }
+
+  private static boolean isNonJsonApplicationRoute(String path) {
+    return path.startsWith("/tiles/")
+        || path.startsWith("/actuator/")
+        || path.startsWith("/mock-upload/");
   }
 }

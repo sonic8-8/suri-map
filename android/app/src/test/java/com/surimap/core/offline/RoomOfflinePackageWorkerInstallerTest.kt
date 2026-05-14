@@ -22,6 +22,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import java.nio.charset.StandardCharsets
+import java.time.Instant
 import java.util.UUID
 import kotlin.reflect.KClass
 
@@ -57,7 +58,9 @@ class RoomOfflinePackageWorkerInstallerTest {
             OfflinePackageWorkerInstallRequest(
                 incidentId = INCIDENT_ID,
                 policePhoneId = POLICE_PHONE_ID,
-                manifestId = MANIFEST_ID
+                manifestId = MANIFEST_ID,
+                clockOffsetMs = 125L,
+                clockSyncedAt = CLOCK_SYNCED_AT.toString()
             )
         )
 
@@ -68,18 +71,21 @@ class RoomOfflinePackageWorkerInstallerTest {
         )
         val installation = database.offlinePackageInstallationDao().find(INCIDENT_ID, POLICE_PHONE_ID)
         val outboxRows = database.outboxDao().findByIncidentId(INCIDENT_ID)
+        val outboxRow = outboxRows.single()
 
         assertEquals(listOf("incident-meta", "tile-1"), items.map { it.itemKey })
         assertTrue(items.all { it.status == "DOWNLOADED" || it.status == "SKIPPED" })
         assertEquals("READY", installation!!.status)
         assertTrue(installation.readyForOfflineUse)
-        assertEquals("PACKAGE_INSTALLATION", outboxRows.single().dependencyGroup)
-        assertEquals("e54c8c5a-802f-352d-b366-ee430f0bbea5", outboxRows.single().operationId)
+        assertEquals("PACKAGE_INSTALLATION", outboxRow.dependencyGroup)
+        assertEquals("e54c8c5a-802f-352d-b366-ee430f0bbea5", outboxRow.operationId)
+        assertEquals(125L, outboxRow.clockOffsetMs)
+        assertEquals(CLOCK_SYNCED_AT.toEpochMilli(), outboxRow.clockSyncedAt)
         assertEquals(
             "/api/incidents/$INCIDENT_ID/offline-package/installations",
-            outboxRows.single().requestPath
+            outboxRow.requestPath
         )
-        val draft = database.localWriteDraftDao().findById(outboxRows.single().outboxId)
+        val draft = database.localWriteDraftDao().findById(outboxRow.outboxId)
         assertEquals("offline_package_installation", draft!!.entityType)
         assertEquals(expectedInstallationEntityId(), draft.entityId)
     }
@@ -334,6 +340,7 @@ class RoomOfflinePackageWorkerInstallerTest {
         const val INCIDENT_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001"
         const val POLICE_PHONE_ID = "50000000-0000-0000-0000-000000000001"
         const val MANIFEST_ID = "77777777-0000-4000-8000-000000000701"
+        val CLOCK_SYNCED_AT: Instant = Instant.parse("2026-05-11T06:00:00.125Z")
 
         fun expectedInstallationEntityId(): String =
             UUID.nameUUIDFromBytes(

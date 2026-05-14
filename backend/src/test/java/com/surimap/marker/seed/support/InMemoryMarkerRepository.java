@@ -57,6 +57,21 @@ public final class InMemoryMarkerRepository implements MarkerRepository {
   }
 
   @Override
+  public int updateMarkerStatusVersion(
+      UUID markerId, long expectedVersion, String status, long version) {
+    MarkerRecord marker = records.get(markerId);
+    if (marker == null || marker.getVersion() != expectedVersion) {
+      return 0;
+    }
+    if (MarkerStatus.DELETED.name().equals(marker.getStatus())) {
+      return 0;
+    }
+    marker.setStatus(status);
+    marker.setVersion(version);
+    return 1;
+  }
+
+  @Override
   public int deleteMarker(MarkerDeleteRecord record) {
     MarkerRecord marker = records.get(record.id());
     if (marker == null || marker.getVersion() != record.expectedVersion()) {

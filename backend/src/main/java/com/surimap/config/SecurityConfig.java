@@ -42,7 +42,8 @@ public class SecurityConfig {
                         "/api/auth/login",
                         "/error",
                         "/actuator/health",
-                        "/actuator/prometheus")
+                        "/actuator/prometheus",
+                        "/mock-upload/**")
                     .permitAll()
                     .anyRequest()
                     .access(SecurityConfig::hasSuriMapAuthentication))
@@ -56,7 +57,7 @@ public class SecurityConfig {
 
     return http.build();
   }
-
+  //TODO 프론트 권한 테스트용으로 추가하였으므로, 추후 인증
   @Bean
   CorsConfigurationSource corsConfigurationSource() {
     CorsConfiguration configuration = new CorsConfiguration();

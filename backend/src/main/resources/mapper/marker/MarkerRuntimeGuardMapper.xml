@@ -11,6 +11,14 @@
         LIMIT 1
     </select>
 
+    <select id="findCurrentOpId" resultType="java.util.UUID">
+        SELECT id
+        FROM operational_period
+        WHERE incident_id = #{incidentId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND status = 'ACTIVE'
+        LIMIT 1
+    </select>
+
     <select id="countActiveAssignmentsByAccountId" resultType="int">
         SELECT COUNT(*)
         FROM incident_assignment

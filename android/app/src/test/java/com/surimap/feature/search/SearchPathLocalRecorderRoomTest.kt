@@ -6,9 +6,9 @@ import com.surimap.core.sync.RoomSyncClient
 import com.surimap.feature.search.data.SearchPathLocalRecorder
 import com.surimap.feature.search.data.SearchPathWriteContext
 import com.surimap.testing.incidentIdFixture
-import com.surimap.testing.operationIdFactory
 import com.surimap.testing.operationIdFixture
 import com.surimap.testing.opIdFixture
+import com.surimap.testing.pathIdFixture
 import com.surimap.testing.policePhoneIdFixture
 import java.time.Instant
 import kotlinx.coroutines.runBlocking
@@ -44,7 +44,13 @@ class SearchPathLocalRecorderRoomTest {
                 syncClient = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()),
                 now = { CLIENT_TS },
                 sequenceSource = { 42L },
-                idFactory = operationIdFactory("path-start-001")
+                idFactory = { prefix ->
+                    when (prefix) {
+                        "op-path-start" -> operationIdFixture("path-start-001")
+                        "path" -> PATH_ID
+                        else -> error("Unexpected id prefix: $prefix")
+                    }
+                }
             )
 
         recorder.start(
@@ -64,11 +70,16 @@ class SearchPathLocalRecorderRoomTest {
         assertEquals("PENDING_SEND", row.localMirrorStatus)
         assertEquals(POLICE_PHONE_ID, row.policePhoneId)
         assertEquals(OP_ID, row.opId)
+        assertEquals(
+            """{"searchPathId":"$PATH_ID","incidentId":"$INCIDENT_ID","opId":"$OP_ID","clientTs":"2026-05-11T06:00:00Z","clockOffsetMs":0}""",
+            row.payloadJson
+        )
     }
 
     private companion object {
         val INCIDENT_ID = incidentIdFixture("precinct-first-001")
         val OP_ID = opIdFixture("precinct-first-001")
+        val PATH_ID = pathIdFixture("precinct-first-001")
         val POLICE_PHONE_ID = policePhoneIdFixture("precinct-001")
         val CLIENT_TS: Instant = Instant.parse("2026-05-11T06:00:00Z")
     }

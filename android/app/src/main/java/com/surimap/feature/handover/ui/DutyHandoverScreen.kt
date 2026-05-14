@@ -36,6 +36,8 @@ data class DutyHandoverUiState(
     val sourceReadiness: SummarySourceReadiness,
     val metrics: List<HandoverMetric>,
     val records: List<HandoverRecord>,
+    val canEndDutyShift: Boolean = false,
+    val endingDutyShift: Boolean = false,
     val canRequestSummaryGeneration: Boolean = false
 ) {
     val summaryText: String =
@@ -70,7 +72,13 @@ data class DutyHandoverUiState(
                 add(it.subtitle)
                 add(it.actionLabel)
             }
+            if (canEndDutyShift) {
+                add(dutyShiftActionLabel)
+            }
         }
+
+    val dutyShiftActionLabel: String =
+        if (endingDutyShift) "종료 등록 중" else "근무 종료"
 
     companion object {
         fun ready(): DutyHandoverUiState =
@@ -187,6 +195,7 @@ fun DutyHandoverScreen(
     onBack: () -> Unit,
     onWriteMemo: () -> Unit,
     onOpenSearch: () -> Unit,
+    onEndDutyShift: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxSize()) {
@@ -237,6 +246,22 @@ fun DutyHandoverScreen(
                 variant = PoliButtonVariant.Secondary
             )
             PoliButton(text = "수색 화면", onClick = onOpenSearch, modifier = Modifier.weight(1.25f))
+        }
+        if (state.canEndDutyShift) {
+            PoliButton(
+                text = state.dutyShiftActionLabel,
+                onClick = onEndDutyShift,
+                modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        start = PoliDimens.SectionPadding,
+                        end = PoliDimens.SectionPadding,
+                        bottom = PoliDimens.SectionPadding
+                    ),
+                enabled = !state.endingDutyShift,
+                variant = PoliButtonVariant.Danger
+            )
         }
     }
 }
