@@ -1028,7 +1028,7 @@ export function AreaEditMapCanvas({
       if (isInitialized || !externalMap.isStyleLoaded()) return;
       isInitialized = true;
       addSearchAreaLayers(externalMap, buildAreaFeatureCollection());
-      addDrawingLayers(externalMap, { showCompletedDrafts: false });
+      addDrawingLayers(externalMap);
       setGeoJsonSourceData(
         externalMap,
         AREA_EDIT_COMPLETED_DRAFT_SOURCE_ID,

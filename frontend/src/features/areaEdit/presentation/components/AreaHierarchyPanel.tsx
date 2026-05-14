@@ -23,6 +23,7 @@ type AreaHierarchyPanelProps = {
   normalSelectedAreaId: string | null;
   selectedAreaId: string | null;
   unassignedPhoneCount: number;
+  splitChildCountIssueCount: number;
   canAddUnit: boolean;
   canAddTeam: boolean;
   onCancel: () => void;
@@ -89,7 +90,12 @@ function isSavedGeometryArea(area: AreaTreeNode, assignedAreaIds: Set<string>) {
   return area.geometryState === 'saved' || assignedAreaIds.has(area.id);
 }
 
-function getAreaNoticeMessage(isSaveEnabled: boolean, isSaving: boolean, unassignedAreaCount: number) {
+function getAreaNoticeMessage(
+  isSaveEnabled: boolean,
+  isSaving: boolean,
+  unassignedAreaCount: number,
+  splitChildCountIssueCount: number,
+) {
   if (isSaving) {
     return {
       title: '수색 구역을 저장하는 중입니다.',
@@ -108,6 +114,13 @@ function getAreaNoticeMessage(isSaveEnabled: boolean, isSaving: boolean, unassig
     return {
       title: `${unassignedAreaCount}개의 구역 범위 지정이 필요합니다.`,
       description: '목록에서 구역을 선택한 뒤 지도에서 범위를 그리세요.',
+    };
+  }
+
+  if (splitChildCountIssueCount > 0) {
+    return {
+      title: '분할할 하위 구역이 부족합니다.',
+      description: '같은 상위 구역 아래에 최소 2개의 하위 구역을 그린 뒤 저장하세요.',
     };
   }
 
@@ -151,6 +164,7 @@ export function AreaHierarchyPanel({
   normalSelectedAreaId,
   selectedAreaId,
   unassignedPhoneCount,
+  splitChildCountIssueCount,
   canAddUnit,
   canAddTeam,
   onCancel,
@@ -166,7 +180,12 @@ export function AreaHierarchyPanel({
   const units = areaTree.children ?? [];
   const selectedArea = flattenAreaTree(areaTree).find((area) => area.id === selectedAreaId) ?? null;
   const canAssignArea = canAssignSelectedArea(selectedArea, assignedAreaIds);
-  const noticeMessage = getAreaNoticeMessage(isSaveEnabled, isSaving, unassignedPhoneCount);
+  const noticeMessage = getAreaNoticeMessage(
+    isSaveEnabled,
+    isSaving,
+    unassignedPhoneCount,
+    splitChildCountIssueCount,
+  );
   const noticeClassName = [
     styles.unassignedNotice,
     isSaveEnabled ? styles.assignedNotice : 'suri-soft-pulse',

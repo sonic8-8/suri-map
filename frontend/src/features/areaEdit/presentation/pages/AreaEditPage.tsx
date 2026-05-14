@@ -65,6 +65,8 @@ const drawDisabledPageStates: AreaEditPageState[] = [
 ];
 const autoDismissValidationMessages = new Set(['구역 배정을 완료했습니다.', '필요한 모든 구역 배정을 저장했습니다.']);
 
+const splitChildMinimumMessage = '구역 분할은 같은 상위 구역 아래에 최소 2개의 하위 구역이 필요합니다.';
+
 async function getActiveOverallSearchArea(incidentId: string) {
   try {
     return await searchAreaApi.fetchActiveOverall(incidentId);
@@ -155,7 +157,29 @@ export function AreaEditPage({
   const requiredAreaNodes = useMemo(() => allAreaNodes.filter((area) => area.geometryState === 'pending'), [allAreaNodes]);
   const assignedAreaIds = useMemo(() => new Set(completedDrafts.map((draft) => draft.areaId)), [completedDrafts]);
   const unassignedAreaCount = requiredAreaNodes.filter((area) => !assignedAreaIds.has(area.id)).length;
-  const isAreaSaveEnabled = isCurrentOpEditable && requiredAreaNodes.length > 0 && unassignedAreaCount === 0;
+  const splitChildCountsByParentId = useMemo(() => {
+    const pendingAreaIds = new Set(requiredAreaNodes.map((area) => area.id));
+    const countsByParentId = new Map<string, number>();
+
+    for (const draft of completedDrafts) {
+      if (draft.kind === 'overall' || !pendingAreaIds.has(draft.areaId)) continue;
+
+      const parentArea = findParentArea(currentAreaTree, draft.areaId);
+      if (!parentArea) continue;
+
+      countsByParentId.set(parentArea.id, (countsByParentId.get(parentArea.id) ?? 0) + 1);
+    }
+
+    return countsByParentId;
+  }, [completedDrafts, currentAreaTree, requiredAreaNodes]);
+  const splitChildCountIssueCount = [...splitChildCountsByParentId.values()].filter(
+    (childCount) => childCount > 0 && childCount < 2,
+  ).length;
+  const isAreaSaveEnabled =
+    isCurrentOpEditable &&
+    requiredAreaNodes.length > 0 &&
+    unassignedAreaCount === 0 &&
+    splitChildCountIssueCount === 0;
   const selectedArea = allAreaNodes.find((area) => area.id === selectedAreaId) ?? null;
   const deleteConfirmArea = allAreaNodes.find((area) => area.id === deleteConfirmAreaId) ?? null;
   const isPermissionDenied = pageState === 'permission_denied';
@@ -560,6 +584,11 @@ export function AreaEditPage({
     }
 
     if (!isAreaSaveEnabled) {
+      if (unassignedAreaCount === 0 && splitChildCountIssueCount > 0) {
+        setValidationMessage(splitChildMinimumMessage);
+        return;
+      }
+
       setValidationMessage('필수 구역 배정을 모두 완료해야 저장할 수 있습니다.');
       return;
     }
@@ -601,6 +630,11 @@ export function AreaEditPage({
             [parentArea.id]: [...(groups[parentArea.id] ?? []), draft],
           };
         }, {});
+        if (Object.values(draftsByParentId).some((parentDrafts) => parentDrafts.length < 2)) {
+          setValidationMessage(splitChildMinimumMessage);
+          return;
+        }
+
         const savedChildDrafts: CompletedAreaDraft[] = [];
 
         for (const [parentAreaId, parentDrafts] of Object.entries(draftsByParentId)) {
@@ -955,6 +989,7 @@ export function AreaEditPage({
                   normalSelectedAreaId={normalSelectedAreaId}
                   selectedAreaId={selectedAreaId}
                   unassignedPhoneCount={unassignedAreaCount}
+                  splitChildCountIssueCount={splitChildCountIssueCount}
                   canAddUnit={isCurrentOpEditable && overallSearchAreaState.status === 'loaded' && !isSaving}
                   canAddTeam={isCurrentOpEditable && overallSearchAreaState.status === 'loaded' && !isSaving}
                   onCancel={handleNavToSituationBoard}

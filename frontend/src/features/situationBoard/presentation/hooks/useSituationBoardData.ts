@@ -10,7 +10,7 @@ import {
   type SearchAreaAssignedAccount,
   type SituationBoardFallbackData,
 } from '../constants/mockSituationBoard';
-import { hasOverallSearchArea, mergeSearchAreaDrafts } from '../utils/boardApiMappers';
+import { mergeSearchAreaDrafts } from '../utils/boardApiMappers';
 import { toBoardRecentMarkers } from '../utils/markerBoardMapper';
 import {
   assignRouteColorsToMovementPaths,
@@ -143,9 +143,6 @@ export function useSituationBoardData(
     isLoading: boardQuery.isLoading,
     apiBoard,
     isFallback: apiBoard === null,
-    isOverallSearchAreaMissing:
-      apiBoard !== null &&
-      !hasOverallSearchArea(apiBoard) &&
-      !savedAreaDrafts.some((draft) => draft.kind === 'overall'),
+    isOverallSearchAreaMissing: apiBoard !== null && board.searchAreaDrafts.length === 0,
   };
 }

@@ -84,9 +84,11 @@ export function buildSearchAreaTree(
   searchAreaDrafts: CompletedAreaDraft[],
 ): SearchAreaTreeNode {
   const hierarchyRoot = buildSearchAreaHierarchy(searchAreaRows);
-  if (!hierarchyRoot) return fallbackSearchAreaTree;
-
   const colorTokensByAreaId = new Map(searchAreaDrafts.map((draft) => [draft.areaId, getAreaColorToken(draft.areaId)]));
+  if (!hierarchyRoot) {
+    return buildRootlessSearchAreaTree(fallbackSearchAreaTree, searchAreaRows, colorTokensByAreaId);
+  }
+
   return toSearchAreaTreeNode(hierarchyRoot, colorTokensByAreaId);
 }
 
@@ -96,8 +98,15 @@ export function buildFallbackSearchAreaTree(
   assignmentsByAreaId: Map<string, SearchAreaAssignedAccount[]>,
 ): SearchAreaTreeNode {
   const overallDraft = searchAreaDrafts.find((draft) => draft.kind === 'overall');
-  if (!overallDraft) return fallbackSearchAreaTree;
   const childDrafts = searchAreaDrafts.filter((draft) => draft.kind !== 'overall');
+  if (!overallDraft) {
+    return {
+      ...fallbackSearchAreaTree,
+      meta: childDrafts.length > 0 ? 'OVERALL / v-' : fallbackSearchAreaTree.meta,
+      geometryState: childDrafts.length > 0 ? 'saved' : fallbackSearchAreaTree.geometryState,
+      children: childDrafts.map((draft) => toFallbackDraftTreeNode(draft, assignmentsByAreaId)),
+    };
+  }
 
   return {
     ...fallbackSearchAreaTree,
@@ -107,17 +116,59 @@ export function buildFallbackSearchAreaTree(
     status: 'ACTIVE',
     geometryState: 'saved',
     assignedAccounts: assignmentsByAreaId.get(overallDraft.areaId) ?? [],
-    children: childDrafts.map((draft) => ({
-      id: draft.areaId,
-      kind: draft.kind,
-      colorToken: getAreaColorToken(draft.areaId),
-      name: draft.label,
-      meta: createFallbackAreaMeta(draft.kind, assignmentsByAreaId.get(draft.areaId) ?? []),
-      status: 'ACTIVE',
-      geometryState: 'saved',
-      assignedAccounts: assignmentsByAreaId.get(draft.areaId) ?? [],
-      children: [],
-    })),
+    children: childDrafts.map((draft) => toFallbackDraftTreeNode(draft, assignmentsByAreaId)),
+  };
+}
+
+function buildRootlessSearchAreaTree(
+  fallbackSearchAreaTree: SearchAreaTreeNode,
+  searchAreaRows: BoardSearchAreaRow[],
+  colorTokensByAreaId: ReadonlyMap<string, AreaColorToken>,
+): SearchAreaTreeNode {
+  const nodesById = new Map<string, SearchAreaTreeNode>();
+
+  for (const row of searchAreaRows) {
+    nodesById.set(row.id, toSearchAreaTreeNode({ ...row, children: [] }, colorTokensByAreaId));
+  }
+
+  const childIds = new Set<string>();
+  for (const row of searchAreaRows) {
+    if (!row.parentAreaId) continue;
+
+    const parent = nodesById.get(row.parentAreaId);
+    const child = nodesById.get(row.id);
+    if (!parent || !child) continue;
+
+    parent.children = [...(parent.children ?? []), child];
+    childIds.add(row.id);
+  }
+
+  return {
+    ...fallbackSearchAreaTree,
+    meta: searchAreaRows.length > 0 ? 'OVERALL / v-' : fallbackSearchAreaTree.meta,
+    geometryState: searchAreaRows.length > 0 ? 'saved' : fallbackSearchAreaTree.geometryState,
+    children: searchAreaRows.flatMap((row) => {
+      const node = nodesById.get(row.id);
+      return node && !childIds.has(row.id) ? [node] : [];
+    }),
+  };
+}
+
+function toFallbackDraftTreeNode(
+  draft: CompletedAreaDraft,
+  assignmentsByAreaId: Map<string, SearchAreaAssignedAccount[]>,
+): SearchAreaTreeNode {
+  const assignedAccounts = assignmentsByAreaId.get(draft.areaId) ?? [];
+  return {
+    id: draft.areaId,
+    kind: draft.kind,
+    colorToken: getAreaColorToken(draft.areaId),
+    name: draft.label,
+    meta: createFallbackAreaMeta(draft.kind, assignedAccounts),
+    status: 'ACTIVE',
+    geometryState: 'saved',
+    assignedAccounts,
+    children: [],
   };
 }
 
