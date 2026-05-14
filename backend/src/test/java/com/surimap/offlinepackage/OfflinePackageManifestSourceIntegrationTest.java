@@ -266,6 +266,8 @@ class OfflinePackageManifestSourceIntegrationTest {
             INCIDENT_ID,
             OP_ID,
             OVERALL_AREA_ID,
+            "동적 배정 구역",
+            "TEAM",
             "ACTIVE",
             6L,
             polygon(
@@ -279,7 +281,10 @@ class OfflinePackageManifestSourceIntegrationTest {
                 "37.575"),
             List.of(),
             NOW,
-            1L);
+            1L,
+            null,
+            null,
+            null);
     when(searchAreaQuery.byOp(eq(OP_ID), any()))
         .thenReturn(new SearchAreaCollection(INCIDENT_ID, 6L, List.of(assignedArea)));
     when(assignmentQuery.byOp(OP_ID))
@@ -366,6 +371,8 @@ class OfflinePackageManifestSourceIntegrationTest {
             incidentId,
             opId,
             overallAreaId,
+            "fixture 배정 구역",
+            "TEAM",
             "ACTIVE",
             6L,
             polygon(
@@ -379,7 +386,10 @@ class OfflinePackageManifestSourceIntegrationTest {
                 "37.575"),
             List.of(),
             NOW,
-            1L);
+            1L,
+            null,
+            null,
+            null);
     when(searchAreaQuery.byOp(eq(opId), any()))
         .thenReturn(new SearchAreaCollection(incidentId, 6L, List.of(assignedArea)));
     when(assignmentQuery.byOp(opId))

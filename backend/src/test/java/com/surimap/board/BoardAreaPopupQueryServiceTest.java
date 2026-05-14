@@ -40,6 +40,7 @@ class BoardAreaPopupQueryServiceTest {
   private static final UUID ASSIGNED_BY_ACCOUNT_ID =
       UUID.fromString("11111111-1111-1111-1111-111111110004");
   private static final UUID POLICE_PHONE_ID = UUID.fromString("50000000-0000-0000-0000-000000000001");
+  private static final UUID LATEST_EVENT_ID = UUID.fromString("60000000-0000-0000-0000-000000000001");
   private static final Instant STARTED_AT = Instant.parse("2026-04-28T00:00:00Z");
   private static final Instant ASSIGNED_AT = Instant.parse("2026-04-28T00:10:00Z");
   private static final Instant UPDATED_AT = Instant.parse("2026-04-28T00:20:00Z");
@@ -226,9 +227,11 @@ class BoardAreaPopupQueryServiceTest {
               OrganizationType.POLICE_SUBSTATION,
               incidentId,
               OP_ID,
+              LATEST_EVENT_ID,
               Instant.parse("2026-04-28T00:12:00Z"),
               Instant.parse("2026-04-28T00:11:00Z"),
               4L,
+              3L,
               PolicePhoneFreshnessStatus.ONLINE));
     }
   }
