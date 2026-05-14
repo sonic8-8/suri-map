@@ -1,6 +1,8 @@
 package com.surimap.common.auth.guard;
 
-import java.util.Map;
+import java.nio.charset.StandardCharsets;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -10,7 +12,10 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class GuardExceptionHandler {
 
   @ExceptionHandler(GuardException.class)
-  ResponseEntity<Map<String, String>> handleGuardException(GuardException ex) {
-    return ResponseEntity.status(ex.getHttpStatus()).body(Map.of("error", ex.getErrorCode()));
+  ResponseEntity<byte[]> handleGuardException(GuardException ex) {
+    byte[] body = ("{\"error\":\"" + ex.getErrorCode() + "\"}").getBytes(StandardCharsets.UTF_8);
+    return ResponseEntity.status(ex.getHttpStatus())
+        .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+        .body(body);
   }
 }
