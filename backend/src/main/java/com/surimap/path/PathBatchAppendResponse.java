@@ -1,5 +1,7 @@
 package com.surimap.path;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import java.util.List;
 import java.util.UUID;
 
@@ -11,6 +13,8 @@ public record PathBatchAppendResponse(
     int acceptedPointCount,
     int excludedPointCount,
     List<PathExcludedPoint> excludedPoints,
+    @JsonSerialize(converter = LineStringGeometryJsonConverter.class)
+    @JsonDeserialize(using = LineStringCoordinatesDeserializer.class)
     List<List<Double>> geometry,
     List<SearchPathSegment> segments,
     long version,
