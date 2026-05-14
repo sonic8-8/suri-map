@@ -127,6 +127,10 @@ data class SearchMapUiState(
                 layers.firstOrNull { layer -> layer.kind == SearchLayerKind.Marker && layer.overlayId == markerId }
                     ?.copy(highlighted = true)
             }
+    val markerDetailTargetId: String? =
+        focusedMarkerId?.takeIf(String::isNotBlank)
+            ?: layers.firstOrNull { layer -> layer.kind == SearchLayerKind.Marker && !layer.overlayId.isNullOrBlank() }
+                ?.overlayId
     val markerFocusLabel: String? =
         focusedMarkerId
             ?.takeIf(String::isNotBlank)
@@ -193,6 +197,7 @@ data class SearchMapUiState(
                 add("이전 근무 기록 있음")
             }
             markerFocusLabel?.let(::add)
+            markerDetailTargetId?.let { add("마커 상세") }
             incidentAlert?.visibleText()?.forEach(::add)
             if (blockedOutboxCount > 0) {
                 add("미전송 ${blockedOutboxCount}건 처리 불가")
@@ -406,7 +411,7 @@ private fun SearchMapShell(
             state.markerFocusLabel?.let { focusLabel ->
                 PoliChip(text = focusLabel, variant = PoliChipVariant.Bad)
             }
-            state.focusedMarkerId?.takeIf(String::isNotBlank)?.let { markerId ->
+            state.markerDetailTargetId?.takeIf(String::isNotBlank)?.let { markerId ->
                 PoliButton(
                     text = "마커 상세",
                     onClick = { onOpenFocusedMarkerDetail(markerId) },

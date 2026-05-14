@@ -33,6 +33,7 @@ public class SecurityConfig {
                 auth.requestMatchers(
                         AntPathRequestMatcher.antMatcher("/api/health"),
                         AntPathRequestMatcher.antMatcher("/api/auth/login"),
+                        AntPathRequestMatcher.antMatcher("/mock-upload/**"),
                         AntPathRequestMatcher.antMatcher("/actuator/health"),
                         AntPathRequestMatcher.antMatcher("/actuator/prometheus"))
                     .permitAll()

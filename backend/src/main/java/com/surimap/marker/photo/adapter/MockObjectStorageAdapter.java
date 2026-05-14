@@ -68,6 +68,17 @@ public class MockObjectStorageAdapter implements ObjectStoragePort {
     uploaded.put(objectKey, metadata);
   }
 
+  public void simulateUpload(String objectKey, String contentType, long sizeBytes) {
+    ObjectMetadata issuedMetadata =
+        issued.getOrDefault(objectKey, new ObjectMetadata(objectKey, contentType, sizeBytes, null));
+    String resolvedContentType =
+        contentType == null || contentType.isBlank() ? issuedMetadata.contentType() : contentType;
+    uploaded.put(
+        objectKey,
+        new ObjectMetadata(
+            objectKey, resolvedContentType, sizeBytes, issuedMetadata.checksumSha256()));
+  }
+
   public void clear() {
     issued.clear();
     uploaded.clear();

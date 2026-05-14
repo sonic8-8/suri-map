@@ -106,6 +106,25 @@ class SearchMapUiStateTest {
         assertTrue(state.canWritePath)
     }
 
+    @Test
+    fun liveMarkerLayerWithoutFcmFocusCanOpenMarkerDetail() {
+        val state =
+            SearchMapUiState.active().copy(
+                layers =
+                    listOf(
+                        SearchMapLayerUiState(
+                            label = "지원 요청",
+                            kind = SearchLayerKind.Marker,
+                            overlayId = MARKER_ID,
+                            geoJson = """{"type":"Point","coordinates":[126.91,37.51]}"""
+                        )
+                    )
+            )
+
+        assertEquals(MARKER_ID, state.markerDetailTargetId)
+        assertTrue(state.visibleText().contains("마커 상세"))
+    }
+
     private companion object {
         val MARKER_ID = markerIdFixture("person-found-001")
     }

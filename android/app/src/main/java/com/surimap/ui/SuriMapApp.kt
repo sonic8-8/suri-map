@@ -945,6 +945,7 @@ private fun MarkerDetailRoute(
                 )
             )
         coroutineScope.launch {
+            clockSyncState.syncClockForIncident(sessionContext.incidentId, policePhoneContext)
             val payload = context.markerPhotoUploadPayload(markerId = current.markerId, uri = uri)
             if (payload == null) {
                 markerDetailState = markerDetailState.markPhotoFailed(localPhotoId)
