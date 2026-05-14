@@ -87,7 +87,10 @@ class TileControllerTest {
             jsonPath(
                 "$.sources.*.tiles[0]",
                 hasItem("http://suri-map.local:8080/tiles/osm-local/{z}/{x}/{y}.pbf")))
-        .andExpect(jsonPath("$.glyphs", is("/tiles/fonts/{fontstack}/{range}.pbf")))
+        .andExpect(
+            jsonPath(
+                "$.glyphs",
+                is("http://suri-map.local:8080/tiles/fonts/{fontstack}/{range}.pbf")))
         .andExpect(jsonPath("$.layers").isArray())
         .andExpect(jsonPath("$.layers.length()", greaterThan(0)))
         .andExpect(

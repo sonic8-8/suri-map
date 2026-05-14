@@ -23,6 +23,8 @@ public class TileserverGlTileService implements TileService {
 
   private static final MediaType APPLICATION_X_PROTOBUF =
       MediaType.valueOf("application/x-protobuf");
+  private static final String PUBLIC_GLYPH_PREFIX = "/tiles/fonts/";
+  private static final String NATIVE_GLYPH_PREFIX = "/fonts/";
 
   private final RestTemplate restTemplate;
   private final TileserverProperties properties;
@@ -92,7 +94,7 @@ public class TileserverGlTileService implements TileService {
   }
 
   @SuppressWarnings("unchecked")
-  private static TileStyleResponse styleResponse(Map<String, Object> body) {
+  private TileStyleResponse styleResponse(Map<String, Object> body) {
     Object versionValue = body.get("version");
     if (!(versionValue instanceof Number version)) {
       throw new TileUnavailableException();
@@ -128,13 +130,41 @@ public class TileserverGlTileService implements TileService {
     }
   }
 
-  private static String glyphUrl(Object glyphs) {
+  private String glyphUrl(Object glyphs) {
     if (glyphs == null) {
       return null;
     }
-    if (!(glyphs instanceof String glyphUrl) || !glyphUrl.startsWith("/tiles/fonts/")) {
+    if (!(glyphs instanceof String glyphUrl)) {
       throw new TileUnavailableException();
     }
+    String path = glyphPath(glyphUrl);
+    if (path.startsWith(PUBLIC_GLYPH_PREFIX)) {
+      return path;
+    }
+    if (path.startsWith(NATIVE_GLYPH_PREFIX)) {
+      return "/tiles" + path;
+    }
+    throw new TileUnavailableException();
+  }
+
+  private String glyphPath(String glyphUrl) {
+    if (glyphUrl.startsWith("http://") || glyphUrl.startsWith("https://")) {
+      String baseUrl = normalizedBaseUrl();
+      if (!glyphUrl.startsWith(baseUrl + "/")) {
+        throw new TileUnavailableException();
+      }
+      int schemeEnd = glyphUrl.indexOf("://") + 3;
+      int pathStart = glyphUrl.indexOf('/', schemeEnd);
+      if (pathStart < 0) {
+        throw new TileUnavailableException();
+      }
+      return glyphUrl.substring(pathStart);
+    }
     return glyphUrl;
+  }
+
+  private String normalizedBaseUrl() {
+    String baseUrl = properties.getBaseUrl();
+    return baseUrl == null ? "" : baseUrl.replaceAll("/+$", "");
   }
 }

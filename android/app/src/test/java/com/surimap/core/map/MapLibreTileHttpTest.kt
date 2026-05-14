@@ -39,6 +39,28 @@ class MapLibreTileHttpTest {
     }
 
     @Test
+    fun mapLibreTileRequestFactoryAddsAppHeadersForGlyphRoutes() {
+        val delegate = CapturingCallFactory()
+        val factory = MapLibreTileCallFactory(
+            delegate = delegate,
+            tileBaseUrl = "https://suri-map.example.com/api",
+            accessTokenProvider = { "access-token-1" },
+            policePhoneIdProvider = { POLICE_PHONE_ID }
+        )
+
+        factory.newCall(
+            Request.Builder()
+                .url("https://suri-map.example.com/tiles/fonts/Noto%20Sans%20CJK%20KR%20Regular/0-255.pbf")
+                .build()
+        )
+
+        val request = delegate.lastRequest!!
+        assertEquals("APP", request.header("X-Client-Channel"))
+        assertEquals("Bearer access-token-1", request.header("Authorization"))
+        assertEquals(POLICE_PHONE_ID, request.header("X-PolicePhone-Id"))
+    }
+
+    @Test
     fun mapLibreTileRequestFactoryLeavesExternalResourcesUnchanged() {
         val delegate = CapturingCallFactory()
         val factory = MapLibreTileCallFactory(
