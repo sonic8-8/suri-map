@@ -2,15 +2,26 @@ import { useState } from 'react';
 import type { AreaEditMapCanvasProps } from '../../../areaEdit/presentation/components/AreaEditMapCanvas';
 import type { InitialMapState } from '../components/map/SearchMapCanvas';
 
-export function useBoardWorkspaceMode() {
+type UseBoardWorkspaceModeParams = {
+  isAreaWorkspaceRoute?: boolean;
+  onCloseAreaWorkspaceRoute?: () => void;
+  onOpenAreaWorkspaceRoute?: () => void;
+};
+
+export function useBoardWorkspaceMode({
+  isAreaWorkspaceRoute = false,
+  onCloseAreaWorkspaceRoute,
+  onOpenAreaWorkspaceRoute,
+}: UseBoardWorkspaceModeParams = {}) {
   const [isMapExpanded, setIsMapExpanded] = useState(false);
   const [initialMapState, setInitialMapState] = useState<InitialMapState | null>(null);
   const [selectedSearchAreaId, setSelectedSearchAreaId] = useState<string | null>(null);
-  const [isAreaWorkspaceOpen, setIsAreaWorkspaceOpen] = useState(false);
+  const [isAreaWorkspaceOpenState, setIsAreaWorkspaceOpen] = useState(false);
   const [isHandoverWorkspaceOpen, setIsHandoverWorkspaceOpen] = useState(false);
   const [areaEditMapProps, setAreaEditMapProps] = useState<AreaEditMapCanvasProps | null>(null);
 
   const hasActiveOverallSearchArea = initialMapState === null || initialMapState === 'overall-ready';
+  const isAreaWorkspaceOpen = isAreaWorkspaceRoute || isAreaWorkspaceOpenState;
 
   const toggleSelectedSearchArea = (searchAreaId: string) => {
     if (!hasActiveOverallSearchArea) {
@@ -26,10 +37,21 @@ export function useBoardWorkspaceMode() {
 
   const openAreaWorkspace = () => {
     setIsHandoverWorkspaceOpen(false);
+    if (onOpenAreaWorkspaceRoute) {
+      onOpenAreaWorkspaceRoute();
+      return;
+    }
+
     setIsAreaWorkspaceOpen(true);
   };
 
   const closeAreaWorkspace = () => {
+    if (onCloseAreaWorkspaceRoute) {
+      setAreaEditMapProps(null);
+      onCloseAreaWorkspaceRoute();
+      return;
+    }
+
     setIsAreaWorkspaceOpen(false);
     setAreaEditMapProps(null);
   };

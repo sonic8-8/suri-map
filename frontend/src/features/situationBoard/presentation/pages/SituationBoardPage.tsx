@@ -1,3 +1,4 @@
+import { useCallback, useRef } from 'react';
 import { AreaEditPage } from '../../../areaEdit/presentation/pages/AreaEditPage';
 import { HandoverPage } from '../../../handover/presentation/pages/HandoverPage';
 import type { CompletedAreaDraft } from '../../../../shared/model/areaDraft';
@@ -13,10 +14,13 @@ import { isIncidentTerminalClosed, toIncidentTerminal } from '../utils/incidentT
 type SituationBoardPageProps = {
   incidentId: string;
   currentUserAccount: LoginAccount;
+  isAreaWorkspaceRoute?: boolean;
   markerNotificationIndex: number;
   markerNotifications: MarkerNotification[];
   onCloseMarkerNotifications: () => void;
   onMoveMarkerNotification: (nextIndex: number) => void;
+  onCloseAreaWorkspaceRoute?: () => void;
+  onOpenAreaWorkspaceRoute?: () => void;
   onSaveAssignedAreas: (drafts: CompletedAreaDraft[]) => void;
   onOpenOfflinePackage: () => void;
   savedAreaDrafts: CompletedAreaDraft[];
@@ -27,18 +31,28 @@ type SituationBoardPageProps = {
 export function SituationBoardPage({
   incidentId,
   currentUserAccount,
+  isAreaWorkspaceRoute = false,
   markerNotificationIndex,
   markerNotifications,
   onCloseMarkerNotifications,
   onMoveMarkerNotification,
+  onCloseAreaWorkspaceRoute,
+  onOpenAreaWorkspaceRoute,
   onSaveAssignedAreas,
   onOpenOfflinePackage,
   savedAreaDrafts,
   refreshVersion = 0,
   onOpenIncidentList,
 }: SituationBoardPageProps) {
+  const areaIncidentListNavigationHandlerRef = useRef<(() => void) | null>(null);
+  const handleAreaIncidentListNavigationChange = useCallback((handler: (() => void) | null) => {
+    areaIncidentListNavigationHandlerRef.current = handler;
+  }, []);
   const boardState = useSituationBoardPageState({
     incidentId,
+    isAreaWorkspaceRoute,
+    onCloseAreaWorkspaceRoute,
+    onOpenAreaWorkspaceRoute,
     onSaveAssignedAreas,
     refreshVersion,
     savedAreaDrafts,
@@ -56,6 +70,14 @@ export function SituationBoardPage({
     searchArea: false,
     marker: false,
   };
+  const handleOpenIncidentList = useCallback(() => {
+    if (boardState.isAreaWorkspaceOpen && areaIncidentListNavigationHandlerRef.current) {
+      areaIncidentListNavigationHandlerRef.current();
+      return;
+    }
+
+    onOpenIncidentList();
+  }, [boardState.isAreaWorkspaceOpen, onOpenIncidentList]);
 
   return (
     <main className={`situation-board-page${boardState.isMapExpanded ? ' map-expanded' : ''}`}>
@@ -71,7 +93,7 @@ export function SituationBoardPage({
           markerNotifications={markerNotifications}
           onCloseMarkerNotifications={onCloseMarkerNotifications}
           onMoveMarkerNotification={onMoveMarkerNotification}
-          onOpenIncidentList={onOpenIncidentList}
+          onOpenIncidentList={handleOpenIncidentList}
           onOpenOfflinePackage={onOpenOfflinePackage}
           onOpenSituationBoard={
             boardState.isAreaWorkspaceOpen
@@ -94,6 +116,7 @@ export function SituationBoardPage({
             markerNotifications={markerNotifications}
             onBackToSituationBoard={boardState.closeAreaWorkspace}
             onCloseMarkerNotifications={onCloseMarkerNotifications}
+            onHeaderIncidentListNavigationChange={handleAreaIncidentListNavigationChange}
             onMoveMarkerNotification={onMoveMarkerNotification}
             onOpenHandover={boardState.openHandoverWorkspace}
             onOpenIncidentList={onOpenIncidentList}
