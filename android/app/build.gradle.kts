@@ -26,6 +26,32 @@ val debugApiBaseUrl = providers
     .orElse(providers.gradleProperty("suriMapApiBaseUrl"))
     .orElse("http://127.0.0.1:8080")
     .get()
+val debugMapOnly = providers
+    .gradleProperty("suriMapDebugMapOnly")
+    .orElse("false")
+    .get()
+    .equals("true", ignoreCase = true)
+    .toString()
+val debugMapOnlyAccessToken = providers
+    .gradleProperty("suriMapDebugMapOnlyAccessToken")
+    .orElse("")
+    .get()
+val debugMapOnlyPolicePhoneId = providers
+    .gradleProperty("suriMapDebugMapOnlyPolicePhoneId")
+    .orElse("")
+    .get()
+val debugMapOnlyIncidentId = providers
+    .gradleProperty("suriMapDebugMapOnlyIncidentId")
+    .orElse("")
+    .get()
+val debugMapOnlyOpId = providers
+    .gradleProperty("suriMapDebugMapOnlyOpId")
+    .orElse("")
+    .get()
+val debugMapOnlyDutyShiftId = providers
+    .gradleProperty("suriMapDebugMapOnlyDutyShiftId")
+    .orElse("")
+    .get()
 val hasGoogleServicesJson = layout.projectDirectory.file("google-services.json").asFile.exists()
 
 if (hasGoogleServicesJson) {
@@ -60,6 +86,12 @@ android {
         buildConfigField("String", "SURI_MAP_FIXTURE_ACCOUNT_CODE", "\"\"")
         buildConfigField("String", "SURI_MAP_FIXTURE_PASSWORD", "\"\"")
         buildConfigField("String", "SURI_MAP_FIXTURE_POLICE_PHONE_CODE", "\"\"")
+        buildConfigField("boolean", "SURI_MAP_DEBUG_MAP_ONLY", "false")
+        buildConfigField("String", "SURI_MAP_DEBUG_MAP_ONLY_ACCESS_TOKEN", "\"\"")
+        buildConfigField("String", "SURI_MAP_DEBUG_MAP_ONLY_POLICE_PHONE_ID", "\"\"")
+        buildConfigField("String", "SURI_MAP_DEBUG_MAP_ONLY_INCIDENT_ID", "\"\"")
+        buildConfigField("String", "SURI_MAP_DEBUG_MAP_ONLY_OP_ID", "\"\"")
+        buildConfigField("String", "SURI_MAP_DEBUG_MAP_ONLY_DUTY_SHIFT_ID", "\"\"")
     }
 
     buildTypes {
@@ -68,6 +100,12 @@ android {
             buildConfigField("String", "SURI_MAP_FIXTURE_ACCOUNT_CODE", fixtureAccountCode.quotedBuildConfig())
             buildConfigField("String", "SURI_MAP_FIXTURE_PASSWORD", fixturePassword.quotedBuildConfig())
             buildConfigField("String", "SURI_MAP_FIXTURE_POLICE_PHONE_CODE", fixturePolicePhoneCode.quotedBuildConfig())
+            buildConfigField("boolean", "SURI_MAP_DEBUG_MAP_ONLY", debugMapOnly)
+            buildConfigField("String", "SURI_MAP_DEBUG_MAP_ONLY_ACCESS_TOKEN", debugMapOnlyAccessToken.quotedBuildConfig())
+            buildConfigField("String", "SURI_MAP_DEBUG_MAP_ONLY_POLICE_PHONE_ID", debugMapOnlyPolicePhoneId.quotedBuildConfig())
+            buildConfigField("String", "SURI_MAP_DEBUG_MAP_ONLY_INCIDENT_ID", debugMapOnlyIncidentId.quotedBuildConfig())
+            buildConfigField("String", "SURI_MAP_DEBUG_MAP_ONLY_OP_ID", debugMapOnlyOpId.quotedBuildConfig())
+            buildConfigField("String", "SURI_MAP_DEBUG_MAP_ONLY_DUTY_SHIFT_ID", debugMapOnlyDutyShiftId.quotedBuildConfig())
         }
         release {
             isMinifyEnabled = false

@@ -36,5 +36,5 @@ mock112:
     interval-ms: ${MOCK_112_POLLING_INTERVAL:5000}
 
 tileserver:
-  mode: ${TILESERVER_MODE:fixture}
+  mode: ${TILESERVER_MODE:tileserver-gl}
   base-url: ${TILESERVER_BASE_URL:http://tileserver-gl:8080}

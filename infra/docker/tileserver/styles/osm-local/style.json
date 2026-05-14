@@ -11,9 +11,15 @@
       "tiles": [
         "/tiles/osm-local/{z}/{x}/{y}.pbf"
       ],
-      "minzoom": 0,
+      "minzoom": 8,
       "maxzoom": 16,
-      "attribution": "OpenStreetMap contributors / OpenMapTiles"
+      "bounds": [
+        126.647507,
+        35.052595,
+        127.017482,
+        35.256837
+      ],
+      "attribution": "Gwangju continuous digital topographic map"
     },
     "gwangju-building-labels": {
       "type": "vector",
@@ -58,6 +64,7 @@
       "type": "fill",
       "source": "osm-local",
       "source-layer": "building",
+      "minzoom": 15,
       "paint": {
         "fill-color": "#d7d2c8",
         "fill-opacity": 0.58
@@ -70,7 +77,19 @@
       "source-layer": "boundary",
       "paint": {
         "line-color": "#8c9791",
-        "line-width": 0.8,
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          8,
+          0.7,
+          14,
+          1.2
+        ],
         "line-opacity": 0.65
       }
     },
@@ -81,7 +100,21 @@
       "source-layer": "transportation",
       "paint": {
         "line-color": "#ffffff",
-        "line-width": 1.2
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          8,
+          0.35,
+          12,
+          0.9,
+          16,
+          1.8
+        ]
       }
     },
     {

@@ -1,5 +1,6 @@
 package com.surimap.core.map
 
+import android.content.Context
 import android.os.Bundle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -22,6 +23,7 @@ import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
+import org.maplibre.android.net.ConnectivityReceiver
 import org.maplibre.android.style.expressions.Expression
 import org.maplibre.android.style.layers.Property.LINE_CAP_ROUND
 import org.maplibre.android.style.layers.Property.LINE_JOIN_ROUND
@@ -315,12 +317,12 @@ fun SuriMapLibreMap(
                 }
 
                 if (appliedStyleUrl != styleUrl) {
-                    installMapLibreTileHttp(state)
+                    installMapLibreTileHttp(context, state)
                     appliedOverlaySignature = null
                     appliedOverlayStyleIds = emptySet()
                     appliedCameraSignature = null
+                    appliedStyleUrl = styleUrl
                     mapLibreMap.setStyle(styleUrl) {
-                        appliedStyleUrl = styleUrl
                         applyRuntimeState(it)
                     }
                 } else {
@@ -333,7 +335,10 @@ fun SuriMapLibreMap(
     )
 }
 
-private fun installMapLibreTileHttp(state: MapLibreRuntimeMapState) {
+private fun installMapLibreTileHttp(context: Context, state: MapLibreRuntimeMapState) {
+    if (BuildConfig.DEBUG && state.apiBaseUrl.isLoopbackHttpBaseUrl()) {
+        ConnectivityReceiver.instance(context.applicationContext).setConnected(true)
+    }
     MapLibreTileHttpInstaller.install(
         MapLibreTileCallFactory(
             tileBaseUrl = state.apiBaseUrl,
@@ -341,6 +346,11 @@ private fun installMapLibreTileHttp(state: MapLibreRuntimeMapState) {
             policePhoneIdProvider = { state.policePhoneId }
         )
     )
+}
+
+private fun String.isLoopbackHttpBaseUrl(): Boolean {
+    val normalized = trim().lowercase()
+    return normalized.startsWith("http://127.0.0.1") || normalized.startsWith("http://localhost")
 }
 
 private val MapLibreGeometryOverlay.styleId: String
@@ -365,7 +375,7 @@ private fun MapLibreRuntimeMapState.geometryOverlaySignature(): String =
     geometryOverlays.joinToString("|") { it.signature() }
 
 private fun Style.upsertGeometryOverlay(overlay: MapLibreGeometryOverlay) {
-    val sourceJson = runCatching { overlay.featureCollectionJson() }.getOrNull() ?: return
+    val sourceJson = overlay.featureCollectionJson() ?: return
     val source = getSourceAs<GeoJsonSource>(overlay.sourceId)
     if (source == null) {
         addSource(GeoJsonSource(overlay.sourceId, sourceJson))
@@ -507,8 +517,10 @@ private fun Style.removeGeometryOverlays(styleIds: Set<String>) {
     }
 }
 
-private fun MapLibreGeometryOverlay.featureCollectionJson(): String =
-    JSONObject()
+private fun MapLibreGeometryOverlay.featureCollectionJson(): String? {
+    val geometry = runCatching { JSONObject(geoJson) }.getOrNull() ?: return null
+    if (!geometry.isRenderableGeometry()) return null
+    return JSONObject()
         .put("type", "FeatureCollection")
         .put(
             "features",
@@ -523,10 +535,66 @@ private fun MapLibreGeometryOverlay.featureCollectionJson(): String =
                             .put("highlighted", highlighted)
                             .put("label", label.orEmpty())
                     )
-                    .put("geometry", JSONObject(geoJson))
+                    .put("geometry", geometry)
             )
         )
         .toString()
+}
+
+private fun JSONObject.isRenderableGeometry(): Boolean {
+    return when (optString("type")) {
+        "Point" -> optJSONArray("coordinates")?.length() == 2
+        "MultiPoint" -> (optJSONArray("coordinates")?.length() ?: 0) > 0
+        "LineString" -> (optJSONArray("coordinates")?.length() ?: 0) >= 2
+        "MultiLineString" -> hasRenderableNestedLineCoordinates()
+        "Polygon" -> hasRenderablePolygonCoordinates()
+        "MultiPolygon" -> hasRenderableMultiPolygonCoordinates()
+        "GeometryCollection" -> hasRenderableGeometryCollection()
+        else -> false
+    }
+}
+
+private fun JSONObject.hasRenderablePolygonCoordinates(): Boolean {
+    val rings = optJSONArray("coordinates") ?: return false
+    return rings.hasRenderablePolygonRing()
+}
+
+private fun JSONObject.hasRenderableNestedLineCoordinates(): Boolean {
+    val lines = optJSONArray("coordinates") ?: return false
+    return lines.anyArray { it.length() >= 2 }
+}
+
+private fun JSONObject.hasRenderableMultiPolygonCoordinates(): Boolean {
+    val polygons = optJSONArray("coordinates") ?: return false
+    return polygons.anyArray { it.hasRenderablePolygonRing() }
+}
+
+private fun JSONObject.hasRenderableGeometryCollection(): Boolean {
+    val geometries = optJSONArray("geometries") ?: return false
+    return geometries.anyObject { it.isRenderableGeometry() }
+}
+
+private fun JSONArray.hasRenderablePolygonRing(): Boolean {
+    if (length() == 0) return false
+    val outerRing = optJSONArray(0) ?: return false
+    return outerRing.length() >= 4
+}
+
+private fun JSONArray.anyArray(predicate: (JSONArray) -> Boolean): Boolean {
+    for (index in 0 until length()) {
+        val value = optJSONArray(index) ?: continue
+        if (predicate(value)) return true
+    }
+    return false
+}
+
+private fun JSONArray.anyObject(predicate: (JSONObject) -> Boolean): Boolean {
+    for (index in 0 until length()) {
+        val value = optJSONObject(index) ?: continue
+        if (predicate(value)) return true
+    }
+    return false
+}
 
 private val MapLibreGeometryOverlay.supportsFillLayer: Boolean
     get() =

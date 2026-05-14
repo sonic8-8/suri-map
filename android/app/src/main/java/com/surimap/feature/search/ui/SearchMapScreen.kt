@@ -635,7 +635,7 @@ private fun SearchMapUiState.toRuntimeMapState(base: MapLibreRuntimeMapState): M
                 north = bounds.north,
                 east = bounds.east
             )
-        },
+        } ?: base.initialBounds,
         geometryOverlays =
         layers.mapNotNull { layer ->
             val geoJson = layer.geoJson?.takeIf(String::isNotBlank) ?: return@mapNotNull null

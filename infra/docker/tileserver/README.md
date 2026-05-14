@@ -31,8 +31,31 @@ Prepare the EC2 directory with this shape:
 ```
 
 `osm-local.mbtiles` is not committed because real map data is large and
-environment-specific. Use an OpenMapTiles-compatible MBTiles file whose layer
-names match `styles/osm-local/style.json`.
+environment-specific. For the Gwangju runtime, generate it from the Gwangju
+continuous digital topographic map so low zooms can show the full city while
+zoom 16 still carries detailed building geometry:
+
+```bash
+bash infra/docker/tileserver/scripts/build-gwangju-osm-local.sh \
+  /home/ubuntu/infra/tileserver/source/gwangju-continuous-topo/광주광역시_연속수치지형도 \
+  /home/ubuntu/infra/tileserver/data
+```
+
+The generated file uses the source-layer names consumed by
+`styles/osm-local/style.json`:
+
+```text
+landcover       N3A_G0100000 administrative district polygons
+boundary        N3A_G0100000 administrative district polygon outlines
+water           N3A_E0010001, N3A_E0032111, N3A_E0052114 water polygons
+transportation  N3L_A0020000 named or multi-lane road centerlines
+building        N3A_B0010000 building polygons
+```
+
+Base layers are built for zooms 8 through 16. Building polygons are added from
+zoom 15 through 16 so city-level tiles stay small enough for Android. Do not
+replace this with a z16-only MBTiles file; Android needs lower zoom tiles when
+fitting the full Gwangju verification viewport.
 
 `gwangju-building-labels.mbtiles` is a Gwangju-only label overlay. It contains
 one vector layer:
