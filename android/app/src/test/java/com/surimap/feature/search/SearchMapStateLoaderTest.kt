@@ -2,6 +2,7 @@ package com.surimap.feature.search
 
 import com.surimap.core.database.LocalMarkerEntity
 import com.surimap.core.database.OutboxStatusSummary
+import com.surimap.core.marker.MarkerReadQuery
 import com.surimap.core.network.SuriMapApiResponse
 import com.surimap.core.path.SearchPathQuery
 import com.surimap.feature.search.data.SearchMapSessionContext
@@ -392,7 +393,7 @@ class SearchMapStateLoaderTest {
                           "paths": [
                             {
                               "id": "$PATH_ID",
-                              "status": "ACTIVE",
+                              "status": "RECORDING",
                               "version": 12,
                               "incidentId": "$INCIDENT_ID",
                               "opId": "$OP_ID",
@@ -597,6 +598,73 @@ class SearchMapStateLoaderTest {
     }
 
     @Test
+    fun liveMarkerReadMapsToMarkerOverlaysAndSkipsInitialManifestFallback() = runBlocking {
+        var initialMarkersCalled = false
+        val markerLocation =
+            """
+            {
+              "type": "Point",
+              "coordinates": [126.916000, 37.516000]
+            }
+            """.trimIndent()
+        val loader =
+            SearchMapStateLoader(
+                incidentDetail = { notFoundResponse() },
+                overallSearchArea = { notFoundResponse() },
+                opSearchAreas = { _, _ -> notFoundResponse() },
+                searchPaths = { notFoundResponse() },
+                liveMarkers = { query: MarkerReadQuery ->
+                    assertEquals(INCIDENT_ID, query.incidentId)
+                    assertEquals(OP_ID, query.opId)
+                    SuriMapApiResponse(
+                        statusCode = 200,
+                        body =
+                        """
+                        {
+                          "incidentId": "$INCIDENT_ID",
+                          "markers": [
+                            {
+                              "id": "$MARKER_ID",
+                              "incidentId": "$INCIDENT_ID",
+                              "opId": "$OP_ID",
+                              "type": "CLUE",
+                              "status": "UPDATED",
+                              "version": 5,
+                              "location": $markerLocation,
+                              "memo": "서버 최신 마커"
+                            }
+                          ]
+                        }
+                        """.trimIndent(),
+                        errorCode = null
+                    )
+                },
+                initialMarkers = { _, _ ->
+                    initialMarkersCalled = true
+                    notFoundResponse()
+                }
+            )
+
+        val state =
+            loader.load(
+                SearchMapSessionContext(
+                    incidentId = INCIDENT_ID,
+                    currentOpId = OP_ID,
+                    currentDutyShiftId = DUTY_SHIFT_ID,
+                    policePhoneId = POLICE_PHONE_ID
+                )
+            )
+
+        val marker = state.layers.single { it.kind == SearchLayerKind.Marker }
+        assertFalse(initialMarkersCalled)
+        assertEquals("단서", marker.label)
+        assertEquals(MARKER_ID, marker.overlayId)
+        assertTrue(marker.highlighted)
+        assertTrue(marker.geoJson!!.contains("126.916"))
+        assertTrue(marker.geoJson!!.contains("37.516"))
+    }
+
+    @Test
     fun pendingLocalMarkersRenderBeforeServerReplay() = runBlocking {
         val loader =
             SearchMapStateLoader(
@@ -764,11 +832,22 @@ class SearchMapStateLoaderTest {
         assertTrue(source.contains("SearchPathRepository"))
         assertTrue(source.contains("listSearchPaths"))
         assertTrue(source.contains("SearchPathLocalRecorder"))
+        assertTrue(source.contains("SearchPathGpsBatchRecorder"))
+        assertTrue(source.contains("AndroidLocationUpdates"))
+        assertTrue(source.contains("recordFix"))
+        assertTrue(source.contains("gpsBatchRecorder.flush"))
+        assertTrue(source.contains("gpsBatchRecorder.clear"))
+        assertTrue(source.contains("ClockSyncState"))
+        assertTrue(source.contains("syncClockForIncident"))
+        assertTrue(source.contains("clockOffsetMs = clockSyncState::clockOffsetMs"))
+        assertTrue(source.contains("clockSyncedAt = clockSyncState::clockSyncedAt"))
         assertTrue(source.contains("RoomSyncClient(database.outboxDao(), database.localWriteDraftDao())"))
         assertTrue(source.contains("SearchLifecycleStatus.Stopped"))
         assertFalse(source.contains("onPrimaryLifecycleAction = {}"))
         assertFalse(source.contains("onStopSearch = {}"))
         assertTrue(source.contains("MarkerLocalRecorder"))
+        assertTrue(source.contains("MarkerRepository"))
+        assertTrue(source.contains("listMarkers"))
         assertTrue(source.contains("createMarker"))
         assertTrue(source.contains("MarkerUpsertInput"))
         assertTrue(source.contains("markerCreationLocation"))

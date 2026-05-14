@@ -2,6 +2,7 @@ package com.surimap.feature.outbox
 
 import com.surimap.feature.outbox.ui.BlockedOutboxReason
 import com.surimap.feature.outbox.ui.BlockedOutboxUiState
+import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -20,6 +21,7 @@ class BlockedOutboxUiStateTest {
         assertTrue(state.visibleText().any { it.contains("incident_closed") })
         assertTrue(state.visibleText().any { it.contains("police_phone_not_assigned") })
         assertTrue(state.visibleText().any { it.contains("retry_exhausted") })
+        assertTrue(state.visibleText().any { it.contains("지금 재시도") })
         assertTrue(state.visibleText().any { it.contains("payload_validation_failure") })
     }
 
@@ -40,9 +42,28 @@ class BlockedOutboxUiStateTest {
         val labels = BlockedOutboxReason.entries.map { it.errorCode }
 
         assertEquals(
-            listOf("incident_closed", "police_phone_not_assigned", "retry_exhausted", "payload_validation_failure"),
+            listOf(
+                "incident_closed",
+                "police_phone_not_assigned",
+                "retry_exhausted",
+                "payload_validation_failure",
+                "clock_resync_required",
+                "retryable_network",
+                "police_phone_access_required"
+            ),
             labels
         )
         assertFalse(BlockedOutboxUiState.blockedFixture().visibleText().any { it.contains("Exception") || it.contains("http_") })
+    }
+
+    @Test
+    fun appBlockedOutboxRouteUsesRoomDiagnosticsAndRequeueApiInsteadOfSampleState() {
+        val source = File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+
+        assertTrue(source.contains("BlockedOutboxStateLoader"))
+        assertTrue(source.contains("RoomOutboxRequeue"))
+        assertTrue(source.contains("OutboxRequeueNetworkRequest"))
+        assertTrue(source.contains("requeueClient.requeue"))
+        assertFalse(source.contains("BlockedOutboxRouteScreen(onBack"))
     }
 }

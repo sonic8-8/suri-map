@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.surimap.ui.components.PoliAppBar
 import com.surimap.ui.components.PoliButton
+import com.surimap.ui.components.PoliButtonSize
 import com.surimap.ui.components.PoliButtonVariant
 import com.surimap.ui.components.PoliCard
 import com.surimap.ui.components.PoliChip
@@ -49,15 +50,33 @@ enum class BlockedOutboxReason(
         errorCode = "payload_validation_failure",
         title = "저장 데이터 검증 실패",
         actionGuide = "수정 가능한 화면이 아니므로 원본 기록 보존 상태로 IT 부서에 문의하세요."
+    ),
+    ClockResyncRequired(
+        errorCode = "clock_resync_required",
+        title = "단말 시각 재동기화 필요",
+        actionGuide = "서버 시각 동기화 후 다시 전송할 수 있습니다."
+    ),
+    RetryableNetwork(
+        errorCode = "retryable_network",
+        title = "네트워크 복구 후 재시도 가능",
+        actionGuide = "내부망 연결 상태를 확인한 뒤 다시 전송하세요."
+    ),
+    PolicePhoneAccessRequired(
+        errorCode = "police_phone_access_required",
+        title = "폴리폰 접근 복구 필요",
+        actionGuide = "로그인/단말 배정 상태를 복구한 뒤 다시 전송하세요."
     )
 }
 
 data class BlockedOutboxItemUiState(
+    val operationId: String,
     val title: String,
     val timestampLabel: String,
-    val reason: BlockedOutboxReason
+    val reason: BlockedOutboxReason,
+    val retryable: Boolean = false
 ) {
     val subtitle: String = "${reason.title} (${reason.errorCode})"
+    val retryActionLabel: String? = if (retryable) "지금 재시도" else null
 }
 
 data class PendingOutboxSummaryUiState(
@@ -93,6 +112,7 @@ data class BlockedOutboxUiState(
                 add(item.timestampLabel)
                 add(item.subtitle)
                 add(item.reason.actionGuide)
+                item.retryActionLabel?.let(::add)
             }
             pendingSummary?.let { pending ->
                 add(pending.title)
@@ -108,21 +128,26 @@ data class BlockedOutboxUiState(
                 blockedItems =
                 listOf(
                     BlockedOutboxItemUiState(
+                        operationId = "op-path-001",
                         title = "경로 batch",
                         timestampLabel = "14:18 ~ 14:22",
                         reason = BlockedOutboxReason.IncidentClosed
                     ),
                     BlockedOutboxItemUiState(
+                        operationId = "op-package-001",
                         title = "패키지 상태 보고",
                         timestampLabel = "14:08",
                         reason = BlockedOutboxReason.PolicePhoneNotAssigned
                     ),
                     BlockedOutboxItemUiState(
+                        operationId = "op-photo-001",
                         title = "사진 첨부 finalize",
                         timestampLabel = "14:02",
-                        reason = BlockedOutboxReason.RetryExhausted
+                        reason = BlockedOutboxReason.RetryExhausted,
+                        retryable = true
                     ),
                     BlockedOutboxItemUiState(
+                        operationId = "op-marker-001",
                         title = "마커 수정",
                         timestampLabel = "13:58",
                         reason = BlockedOutboxReason.PayloadValidationFailure
@@ -156,6 +181,7 @@ fun BlockedOutboxScreen(
     state: BlockedOutboxUiState,
     onBack: () -> Unit,
     onOpenSupportGuide: () -> Unit,
+    onRetry: (BlockedOutboxItemUiState) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxSize()) {
@@ -181,7 +207,7 @@ fun BlockedOutboxScreen(
             verticalArrangement = Arrangement.spacedBy(PoliDimens.Space4)
         ) {
             if (state.canEnterDiagnostic) {
-                BlockedGroup(state = state)
+                BlockedGroup(state = state, onRetry = onRetry)
             } else {
                 PoliCard {
                     Text(text = "처리 불가 항목이 없습니다", style = MaterialTheme.typography.titleMedium)
@@ -219,7 +245,7 @@ fun BlockedOutboxScreen(
 }
 
 @Composable
-private fun BlockedGroup(state: BlockedOutboxUiState) {
+private fun BlockedGroup(state: BlockedOutboxUiState, onRetry: (BlockedOutboxItemUiState) -> Unit) {
     PoliCard(strong = true) {
         Text(text = "${state.headerLabel} - IT 부서 문의", style = MaterialTheme.typography.titleMedium, color = PoliWarning)
         Text(
@@ -229,7 +255,16 @@ private fun BlockedGroup(state: BlockedOutboxUiState) {
         )
         state.blockedItems.forEach { item ->
             PoliRow(title = item.title, subtitle = "${item.timestampLabel} · ${item.subtitle}") {
-                PoliChip(text = "확인 필요", variant = PoliChipVariant.Bad)
+                if (item.retryable) {
+                    PoliButton(
+                        text = item.retryActionLabel ?: "재시도",
+                        onClick = { onRetry(item) },
+                        size = PoliButtonSize.Small,
+                        variant = PoliButtonVariant.Secondary
+                    )
+                } else {
+                    PoliChip(text = "확인 필요", variant = PoliChipVariant.Bad)
+                }
             }
             Text(text = item.reason.actionGuide, style = MaterialTheme.typography.bodyMedium, color = PoliFgMuted)
         }

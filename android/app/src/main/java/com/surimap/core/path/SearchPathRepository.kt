@@ -21,6 +21,7 @@ import java.time.Instant
 
 data class StartSearchPathCommand(
     val operationId: String,
+    val searchPathId: String,
     val incidentId: String,
     val opId: String,
     val policePhoneId: String,
@@ -85,6 +86,7 @@ class SearchPathRepository(
 ) {
     suspend fun startSearchPath(command: StartSearchPathCommand): EnqueueResult {
         val payload = jsonObject(
+            "searchPathId" to jsonString(command.searchPathId),
             "incidentId" to jsonString(command.incidentId),
             "opId" to jsonString(command.opId),
             "clientTs" to jsonInstant(command.clientTs),
@@ -97,7 +99,7 @@ class SearchPathRepository(
                 endpoint = "/api/search-paths",
                 payload = payload,
                 entityType = "search_path",
-                entityId = null
+                entityId = command.searchPathId
             )
         )
     }

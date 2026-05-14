@@ -20,7 +20,8 @@ sealed interface SearchPathWriteResult {
 
     data class Enqueued(
         val operationId: String,
-        val outboxId: String
+        val outboxId: String,
+        val entityId: String? = null
     ) : SearchPathWriteResult
 }
 
@@ -37,11 +38,13 @@ class SearchPathLocalRecorder(
     suspend fun start(context: SearchPathWriteContext): SearchPathWriteResult {
         val valid = context.valid() ?: return SearchPathWriteResult.Blocked
         val operationId = idFactory("op-path-start")
+        val searchPathId = idFactory("path")
         val clientTs = now()
         val result =
             repository.startSearchPath(
                 StartSearchPathCommand(
                     operationId = operationId,
+                    searchPathId = searchPathId,
                     incidentId = valid.incidentId,
                     opId = valid.opId,
                     policePhoneId = valid.policePhoneId,
@@ -54,7 +57,8 @@ class SearchPathLocalRecorder(
             )
         return SearchPathWriteResult.Enqueued(
             operationId = result.operationId,
-            outboxId = result.outboxId
+            outboxId = result.outboxId,
+            entityId = searchPathId
         )
     }
 
@@ -86,7 +90,8 @@ class SearchPathLocalRecorder(
             )
         return SearchPathWriteResult.Enqueued(
             operationId = result.operationId,
-            outboxId = result.outboxId
+            outboxId = result.outboxId,
+            entityId = pathId
         )
     }
 
@@ -115,7 +120,8 @@ class SearchPathLocalRecorder(
             )
         return SearchPathWriteResult.Enqueued(
             operationId = result.operationId,
-            outboxId = result.outboxId
+            outboxId = result.outboxId,
+            entityId = pathId
         )
     }
 

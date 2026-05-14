@@ -58,6 +58,14 @@ data class IncidentListUiState(
                 add(incident.packageStatus)
                 add(incident.assignmentStatus)
             }
+            add(primaryOpenLabel)
+        }
+
+    val primaryOpenLabel: String =
+        when {
+            incidents.isEmpty() -> "선택한 사건 열기"
+            incidents.first().currentDutyShiftId.isNullOrBlank() -> "근무 시작 후 사건 열기"
+            else -> "선택한 사건 열기"
         }
 
     companion object {
@@ -236,7 +244,7 @@ private fun AssignedIncidentList(
             enabled = state.canRefresh
         )
         PoliButton(
-            text = "선택한 사건 열기",
+            text = state.primaryOpenLabel,
             onClick = { state.incidents.firstOrNull()?.let(onOpenIncident) },
             modifier = Modifier.fillMaxWidth()
         )

@@ -7,6 +7,13 @@
 1. `./gradlew :app:assembleDebug`
 2. 디버그 APK를 Android 12+ 실기기에 설치한다.
 3. 위치 권한, 백그라운드 위치 권한, 알림 권한을 허용한다.
+4. Knox/managed configuration 검증 전에는 debug fixture bootstrap을 사용한다.
+   - 기본 debug API URL: `http://127.0.0.1:8080`
+   - 기본 fixture account: `acct-precinct-team`
+   - 기본 fixture password: `fixture`
+   - 기본 fixture police phone: `dev-precinct-phone-01`
+   - USB 연결 실기기는 `adb reverse tcp:8080 tcp:8080` 후 실행한다.
+   - URL을 바꿔야 하면 `-PsuriMapDebugApiBaseUrl=http://<host>:<port>`로 빌드한다.
 
 ## Smoke
 

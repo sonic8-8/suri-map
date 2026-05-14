@@ -7,12 +7,6 @@ import java.util.UUID;
 /** Optional MarkerQuery.byIncident filters. Null status means ACTIVE and UPDATED only. */
 public record MarkerQueryFilters(UUID opId, MarkerType type, MarkerStatus status) {
 
-  public MarkerQueryFilters {
-    if (status == MarkerStatus.DELETED) {
-      throw new IllegalArgumentException("status filter supports ACTIVE or UPDATED only");
-    }
-  }
-
   public static MarkerQueryFilters empty() {
     return new MarkerQueryFilters(null, null, null);
   }
