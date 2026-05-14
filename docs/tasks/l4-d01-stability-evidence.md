@@ -3,9 +3,10 @@
 ## Scope
 
 This document records the current L4-D01 evidence state. It is not a final pass
-claim. L4-D01 requires physical execution with Android PolicePhone 2대 and board
-1개 for 1시간, including network on/off 10회, duplicate server row 0건, and
-convergence evidence.
+claim until the execution result section is filled. L4-D01 was downscoped on
+2026-05-14 by user approval to physical execution with Android PolicePhone 1대
+and board 1개 for 1시간, including network on/off 10회, duplicate server row
+0건, and convergence evidence.
 
 ## Run Metadata
 
@@ -14,8 +15,9 @@ convergence evidence.
 | Task | `L4-D01` |
 | Existing Jira | `S14P31C106-196` |
 | Evidence gap Jira | `S14P31C106-300` |
-| Branch | `docs/S14P31C106-300-l4-d01-blocker-refresh` |
-| Checked at | `2026-05-14T04:47:48+09:00` |
+| Branch | `docs/S14P31C106-300-l4-d01-one-device-downscope` |
+| Checked at | `2026-05-14T09:53:21+09:00` |
+| Completion scope | Downscoped to 1 physical Android PolicePhone + 1 board session by user approval on 2026-05-14. |
 | Required sources | `docs/prd.md §2.2`, `docs/prd.md §2.3`, `docs/spec/harness-scenarios.md §2 SC-05`, `docs/spec/harness-scenarios.md §2 SC-07`, `docs/spec/harness-scenarios.md §2 SC-09` |
 | Execution protocol | `docs/tasks/l4-network-switch-stability-protocol.md` |
 | Runtime preflight | `python3 docs/tasks/check_l4_d01_runtime_preflight.py --adb <adb-path>` |
@@ -29,7 +31,7 @@ convergence evidence.
 | Remote branch | BLOCKED. `feature/S14P31C106-196-stability-network-switch-validation` is an ancestor of current `origin/develop`; no L4-D01 evidence commit is ahead of develop. |
 | Repository evidence | BLOCKED. docs/tasks 하위에 L4-D01 final evidence 문서 없음. |
 | Task checklist | BLOCKED. `docs/tasks/L4-tasks.md` keeps `L4-D01` unchecked. |
-| Device availability | BLOCKED. Windows ADB currently sees one physical Android device, `SM-S901N` / `R3CT50BD92Y`, in `device` state. User-confirmed available physical Android device count is 1대, which is insufficient for the final 2-PolicePhone gate. |
+| Device availability | PASS for downscoped preflight. Windows ADB saw one physical Android device, `SM-S901N` / `R3CT50BD92Y`, in `device` state. |
 
 ## Required Final Evidence
 
@@ -37,37 +39,22 @@ The final L4-D01 pass claim must include all of the following:
 
 | Required evidence | Expected |
 |---|---|
-| 1-hour stability run result | Android PolicePhone 2대 and board 1개 stay alive for 1시간 without crash, ANR, process death, or board session loss. |
-| Network on/off 10-cycle result | Each cycle records offline entry, offline duration, recovery, and post-recovery state for both PolicePhones. |
+| 1-hour stability run result | Android PolicePhone 1대 and board 1개 stay alive for 1시간 without crash, ANR, process death, or board session loss. |
+| Network on/off 10-cycle result | Each cycle records offline entry, offline duration, recovery, and post-recovery state for the PolicePhone. |
 | Local state convergence | path, marker, and package local state converge from pending/offline states to synced or documented final states. |
 | Duplicate row verification | duplicate server row 0건 for path, marker, package/outbox replay checks after recovery. |
-| Board convergence evidence | path, marker, package_badge, and police_phone_freshness board slots converge after recovery. |
+| Board convergence evidence | path, marker, package_badge, and police_phone_freshness board slots converge for the single PolicePhone after recovery. |
 
-## Single-Device Partial Rehearsal
+## Downscope Risk
 
-The current available physical device count is 1대. A one-device run is allowed
-only as partial rehearsal evidence. It must not close `L4-D01`, transition
-`S14P31C106-300` to done, or check `docs/tasks/L4-tasks.md`.
+The 2026-05-14 downscope allows one physical PolicePhone as L4-D01 completion
+evidence. The following two-device behaviors remain outside this final claim:
 
-Partial rehearsal may capture:
-
-| Partial evidence | Scope |
-|---|---|
-| Device availability | `adb devices -l` shows exactly one Android device in `device` state. |
-| App runtime | Debug build installs and launches on the single PolicePhone without crash or ANR during the rehearsal window. |
-| Network on/off cycles | 10 cycles are executed on the single PolicePhone and each cycle records offline entry, recovery, and measured duration. |
-| Local state | path, marker, package, and outbox states are captured on the single device before offline, during offline, and after recovery. |
-| Board observation | If a board session is available, board convergence is recorded as a single-device observation only. |
-| Duplicate check | Duplicate query output may be recorded after recovery, but it does not replace the two-device final duplicate evidence. |
-
-Partial rehearsal cannot cover:
-
-| Missing final evidence | Reason |
+| Excluded evidence | Reason |
 |---|---|
 | PolicePhone A/B divergence | Only one physical PolicePhone is available. |
-| Two-device freshness comparison | `police_phone_freshness` needs two device heartbeat rows for final comparison. |
-| Full board convergence gate | Final board evidence must compare two PolicePhones and one board session over the 1-hour run. |
-| Final pass/fail | `L4-D01` requires the full 2-PolicePhone protocol. |
+| Two-device freshness comparison | `police_phone_freshness` comparison across two heartbeat rows is not covered. |
+| Multi-device board convergence gate | Board evidence covers one PolicePhone and one board session only. |
 
 ## 2026-05-14 Single-Device Partial Result
 
@@ -91,9 +78,9 @@ not reachable from the device network.
 | Duplicate server row | NOT FINAL. This run did not execute the required two-device duplicate-row gate. |
 | Board convergence | NOT FINAL. Board comparison against two PolicePhones was not possible with one physical device. |
 
-Partial verdict: app runtime survived one-device network switching, but local
-convergence is not clean. This is useful bug-finding evidence, not a final
-L4-D01 pass.
+Historical verdict: app runtime survived one-device network switching, but local
+convergence was not clean. This result is bug-finding evidence only because it
+predates the follow-up fixes and the current downscoped execution.
 
 Follow-up defects:
 
@@ -106,10 +93,9 @@ Follow-up defects:
 
 Follow-up status as of 2026-05-14: `S14P31C106-307`, `S14P31C106-308`,
 `S14P31C106-310`, `S14P31C106-312`, `S14P31C106-313`, `S14P31C106-294`,
-and `S14P31C106-314` are completed and merged into `origin/develop`
-`86aeaad`. These fixes improve the single-device baseline and tileserver
-runtime baseline, but they do not replace the required two-PolicePhone final
-evidence.
+and `S14P31C106-314` are completed and merged. These fixes improve the
+single-device baseline and tileserver runtime baseline. A fresh one-device
+execution is still required after the downscope.
 
 ## 2026-05-14 Runtime Preflight Recheck
 
@@ -119,29 +105,80 @@ Command:
 python3 docs/tasks/check_l4_d01_runtime_preflight.py --adb '/mnt/c/Users/SSAFY/AppData/Local/Android/Sdk/platform-tools/adb.exe'
 ```
 
-Result at `2026-05-14T04:47:48+09:00`: BLOCKED.
+Historical result at `2026-05-14T04:47:48+09:00`: BLOCKED under the previous
+two-device criterion.
 
-Windows ADB still reports one ready physical Android device only:
+Windows ADB reported one ready physical Android device:
 `SM_S901N` / `R3CT50BD92Y`. The runtime preflight was polled 6 times over
 about 60 seconds, and every attempt reported 1 physical device found, 2
-required. Emulators remain excluded from final PolicePhone evidence.
+required. The current downscoped preflight requires 1 physical device.
+
+## 2026-05-14 Downscoped Execution Attempt
+
+Artifacts: `docs/tasks/artifacts/l4-d01-one-device-downscope-20260514/`.
+
+Runtime setup used one physical Samsung SM-S901N (`R3CT50BD92Y`) as the APP
+PolicePhone and one Playwright browser board session. The backend used an
+isolated PostgreSQL database `surimap_l4d01_20260514`, and the app talked to
+the WSL backend through `adb reverse tcp:8080 tcp:18080`. Because the installed
+debug build uses `http://127.0.0.1:8080`, network switching in this attempt was
+implemented by removing and restoring the ADB reverse binding. This is API
+transport loss simulation, not a full cellular/Wi-Fi network-loss proof.
+
+Server fixture setup:
+
+- Incident import succeeded for incident
+  `aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001` / OP
+  `88888888-8888-8888-8888-888888880001`.
+- Active overall search area
+  `48954f0e-51ea-4c58-aa57-2b442300b503` was created through
+  `POST /api/search-areas` with `areaLevel=OVERALL`.
+- DutyShift `8d4380df-7383-46ac-a0ee-be203fae62e5` was ACTIVE for
+  PolicePhone `00000000-0000-0000-0000-000000000101`.
+
+Observed result:
+
+| Check | Result |
+|---|---|
+| App runtime baseline | PASS. Fresh app data reached the incident search map with active DutyShift, `전체 수색 구역`, `수색 기록 중`, `경로 기록 가능`, and `마커 생성 가능`. |
+| Board runtime baseline | PASS/PARTIAL. Board route opened with MapLibre tile auth after a local CORS proxy for `/tiles`; screenshot `board/current-board-screenshot.png` and board API returned `overall_search_area`, `package_badge`, and `police_phone_freshness`. The current web shell does not render board slots directly on screen. |
+| Package local state | PASS with manual flush. Fresh local package installation outbox moved from `PENDING/PENDING_SEND` to `ACKED/SYNCED` after forced WorkManager job `cmd jobscheduler run -f -n androidx.work.systemjobscheduler com.surimap 1`. |
+| Offline marker local state | PASS. With `adb reverse` removed, a SUPPORT_REQUEST/DRONE marker was saved locally as `MARKER / PENDING_SEND`; local marker `b7974c2d-e5f1-42f0-ab4f-d131aed5ea7b` was visible in `local_marker` as `PENDING_SEND`. |
+| Marker recovery | PASS. After restoring `adb reverse`, forced WorkManager job `2` replayed the marker outbox to `ACKED/SYNCED`, and `local_marker.sync_status` became `SYNCED`. |
+| Board marker convergence | PASS. `/api/incidents/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001/board` returned one `marker` slot row for server marker `fcadbbda-0841-4101-abb3-1b1da1ca6de7`, type `SUPPORT_REQUEST`, status `ACTIVE`, PolicePhone `00000000-0000-0000-0000-000000000101`. |
+| Duplicate domain row checks | PARTIAL. `search_path`, `marker`, and `idempotency_record` duplicate groups were 0 after marker recovery. |
+| Protocol duplicate event check | FAIL/PARTIAL. The protocol `event_dispatch_job` duplicate query returned one duplicate group for repeated `POLICE_PHONE_HEARTBEAT_UPDATED` events on the same PolicePhone. This came from heartbeat rechecks during setup and prevents a strict final L4-D01 PASS claim. |
+| 1-hour stability | NOT EXECUTED. This attempt stopped after the first offline marker/recovery cycle because the duplicate-event query and transport-simulation limitation already prevented final closure. |
+| Network on/off 10 cycles | NOT EXECUTED. Only cycle 1 was executed. |
+
+Additional runtime finding: the app can reach the backend through ADB reverse,
+but WorkManager's `NetworkType.CONNECTED` constraint waits for Android's
+validated internet capability. In this local transport setup the outbox replay
+jobs did not auto-run, so jobs were forced with `cmd jobscheduler run -f`.
+This is acceptable as diagnostic evidence for local replay behavior, but not as
+unassisted field-network recovery proof.
 
 ## Next Action
 
-Run `docs/tasks/l4-network-switch-stability-protocol.md` on 실제 장치 with two
-Android PolicePhone devices and one board session when the second physical
-device becomes available. Do not check L4-D01 complete until the full execution
-artifacts are captured in the repository or attached to Jira.
+Run `docs/tasks/l4-network-switch-stability-protocol.md` again on one physical
+Android PolicePhone and one board session using a transport that satisfies both
+the app API base URL and Android validated network constraints, or explicitly
+record a team-approved protocol exception for ADB reverse based transport
+simulation. Do not check L4-D01 complete until the 1-hour run, 10 network
+cycles, and duplicate/convergence evidence are captured in the repository or
+attached to Jira.
 
 Before starting the final run, execute
 `python3 docs/tasks/check_l4_d01_runtime_preflight.py --adb <adb-path>` and
-confirm it reports at least two ready physical Android devices. If it reports
-`BLOCKED`, the run can only be recorded as partial rehearsal evidence.
+confirm it reports at least one ready physical Android device. If it reports
+`BLOCKED`, the run cannot start.
 
 ## Completion Verdict
 
-Verdict: BLOCKED.
+Verdict: PARTIAL / NOT FINAL.
 
 `S14P31C106-196` is marked complete in Jira, but the repository and Jira work
-item do not contain the required physical execution evidence. `S14P31C106-300`
-tracks the missing evidence.
+item do not contain final downscoped physical execution evidence yet. The
+2026-05-14 attempt proves one-device package and marker local replay can
+converge, but it does not satisfy the 1-hour, 10-cycle, and strict duplicate
+event query gates. `S14P31C106-300` tracks the missing evidence.
