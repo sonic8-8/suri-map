@@ -246,15 +246,17 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=${env.SPRING_JPA_HIBERNATE_DDL_AUTO}
                 sh '''
                     mkdir -p \
                       "${TILESERVER_DATA_DIR}/data" \
+                      "${TILESERVER_DATA_DIR}/fonts" \
                       "${TILESERVER_DATA_DIR}/styles/osm-local"
                     cp infra/docker/tileserver/config.json "${TILESERVER_DATA_DIR}/config.json"
                     cp infra/docker/tileserver/styles/osm-local/style.json "${TILESERVER_DATA_DIR}/styles/osm-local/style.json"
 
-                    if [ -f "${TILESERVER_DATA_DIR}/data/osm-local.mbtiles" ]; then
+                    if [ -f "${TILESERVER_DATA_DIR}/data/osm-local.mbtiles" ] \
+                      && [ -f "${TILESERVER_DATA_DIR}/data/gwangju-building-labels.mbtiles" ]; then
                       COMPOSE_SERVICES="postgis backend tileserver-gl frontend"
                     else
-                      echo "tileserver_mbtiles=missing path=${TILESERVER_DATA_DIR}/data/osm-local.mbtiles"
-                      echo "tileserver-gl deployment skipped until the environment-specific MBTiles file is placed."
+                      echo "tileserver_mbtiles=missing required=osm-local.mbtiles,gwangju-building-labels.mbtiles dir=${TILESERVER_DATA_DIR}/data"
+                      echo "tileserver-gl deployment skipped until the environment-specific MBTiles files are placed."
                       COMPOSE_SERVICES="postgis backend frontend"
                     fi
 
@@ -305,7 +307,8 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=${env.SPRING_JPA_HIBERNATE_DDL_AUTO}
                       exit 1
                     fi
 
-                    if [ -f "${TILESERVER_DATA_DIR}/data/osm-local.mbtiles" ]; then
+                    if [ -f "${TILESERVER_DATA_DIR}/data/osm-local.mbtiles" ] \
+                      && [ -f "${TILESERVER_DATA_DIR}/data/gwangju-building-labels.mbtiles" ]; then
                       tileserver_ready=false
                       for i in $(seq 1 30); do
                         if docker exec suri-map-tileserver-gl node -e "require('http').get('http://127.0.0.1:8080/styles/osm-local/style.json', r => process.exit(r.statusCode >= 200 && r.statusCode < 400 ? 0 : 1)).on('error', () => process.exit(1))"; then
@@ -322,7 +325,7 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=${env.SPRING_JPA_HIBERNATE_DDL_AUTO}
                         exit 1
                       fi
                     else
-                      echo "tileserver_health=skipped reason=missing_osm_local_mbtiles"
+                      echo "tileserver_health=skipped reason=missing_required_mbtiles"
                     fi
                 '''
             }

@@ -3,7 +3,8 @@
     "paths": {
       "root": "",
       "styles": "styles",
-      "mbtiles": "data"
+      "mbtiles": "data",
+      "fonts": "fonts"
     },
     "frontPage": false,
     "serveAllStyles": false,
@@ -22,6 +23,9 @@
   "data": {
     "osm-local": {
       "mbtiles": "osm-local.mbtiles"
+    },
+    "gwangju-building-labels": {
+      "mbtiles": "gwangju-building-labels.mbtiles"
     }
   }
 }

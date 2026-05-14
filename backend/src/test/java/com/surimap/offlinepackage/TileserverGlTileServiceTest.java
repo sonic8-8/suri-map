@@ -45,9 +45,10 @@ class TileserverGlTileServiceTest {
             withSuccess(
                 """
                 {
-                  "version": 8,
-                  "sources": {
-                    "osm-local": {
+	                  "version": 8,
+	                  "glyphs": "/tiles/fonts/{fontstack}/{range}.pbf",
+	                  "sources": {
+	                    "osm-local": {
                       "type": "vector",
                       "tiles": ["/tiles/osm-local/{z}/{x}/{y}.pbf"],
                       "minzoom": 0,
@@ -71,17 +72,18 @@ class TileserverGlTileServiceTest {
 
     TileStyleResponse style = tileService.getStyle("osm-local");
 
-    assertThat(style.version()).isEqualTo(8);
-    assertThat(style.sources()).containsKey("osm-local");
-    assertThat(style.layers()).hasSize(1);
-    assertThat(style.metadata())
-        .containsEntry("attribution", "OpenStreetMap contributors / OpenMapTiles");
+	    assertThat(style.version()).isEqualTo(8);
+	    assertThat(style.sources()).containsKey("osm-local");
+	    assertThat(style.layers()).hasSize(1);
+	    assertThat(style.glyphs()).isEqualTo("/tiles/fonts/{fontstack}/{range}.pbf");
+	    assertThat(style.metadata())
+	        .containsEntry("attribution", "OpenStreetMap contributors / OpenMapTiles");
     server.verify();
   }
 
   @Test
   @DisplayName("외부 tile URL이 포함된 style은 거부한다")
-  void getStyleRejectsExternalTileUrls() {
+	  void getStyleRejectsExternalTileUrls() {
     server
         .expect(requestTo("http://tileserver-gl:8080/styles/osm-local/style.json"))
         .andRespond(
@@ -103,12 +105,40 @@ class TileserverGlTileServiceTest {
 
     assertThatThrownBy(() -> tileService.getStyle("osm-local"))
         .isInstanceOf(TileUnavailableException.class);
-    server.verify();
-  }
+	    server.verify();
+	  }
+
+	  @Test
+	  @DisplayName("외부 glyph URL이 포함된 style은 거부한다")
+	  void getStyleRejectsExternalGlyphUrl() {
+	    server
+	        .expect(requestTo("http://tileserver-gl:8080/styles/osm-local/style.json"))
+	        .andRespond(
+	            withSuccess(
+	                """
+	                {
+	                  "version": 8,
+	                  "glyphs": "https://example.com/fonts/{fontstack}/{range}.pbf",
+	                  "sources": {
+	                    "osm-local": {
+	                      "type": "vector",
+	                      "tiles": ["/tiles/osm-local/{z}/{x}/{y}.pbf"]
+	                    }
+	                  },
+	                  "layers": [],
+	                  "metadata": {}
+	                }
+	                """,
+	                MediaType.APPLICATION_JSON));
+
+	    assertThatThrownBy(() -> tileService.getStyle("osm-local"))
+	        .isInstanceOf(TileUnavailableException.class);
+	    server.verify();
+	  }
 
   @Test
   @DisplayName("gzip pbf 응답은 content encoding을 보존한다")
-  void getTilePreservesGzipContentEncoding() {
+	  void getTilePreservesGzipContentEncoding() {
     byte[] compressedTileBytes = new byte[] {0x1f, (byte) 0x8b, 0x08, 0x00};
     server
         .expect(requestTo("http://tileserver-gl:8080/data/osm-local/16/55877/25377.pbf"))
@@ -121,6 +151,21 @@ class TileserverGlTileServiceTest {
     assertThat(tile.contentType()).isEqualTo(APPLICATION_X_PROTOBUF);
     assertThat(tile.bytes()).isEqualTo(compressedTileBytes);
     assertThat(tile.contentEncoding()).isEqualTo("gzip");
-    server.verify();
-  }
-}
+	    server.verify();
+	  }
+
+	  @Test
+	  @DisplayName("glyph pbf 응답은 tileserver-gl fonts 경로에서 가져온다")
+	  void getGlyphFetchesTileserverGlFontRange() {
+	    byte[] glyphBytes = new byte[] {0x1a, 0x02, 0x08, 0x01};
+	    server
+	        .expect(requestTo("http://tileserver-gl:8080/fonts/Noto%20Sans%20CJK%20KR%20Regular/0-255.pbf"))
+	        .andRespond(withSuccess(glyphBytes, APPLICATION_X_PROTOBUF));
+
+	    TileBlobResponse glyph = tileService.getGlyph("Noto Sans CJK KR Regular", "0-255");
+
+	    assertThat(glyph.contentType()).isEqualTo(APPLICATION_X_PROTOBUF);
+	    assertThat(glyph.bytes()).isEqualTo(glyphBytes);
+	    server.verify();
+	  }
+	}

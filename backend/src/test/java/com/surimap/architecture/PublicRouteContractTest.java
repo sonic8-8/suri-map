@@ -39,7 +39,8 @@ class PublicRouteContractTest {
         .contains(
             "/api/health",
             "/api/incidents/{incidentId}/board",
-            "/tiles/styles/{styleId}.json");
+            "/tiles/styles/{styleId}.json",
+            "/tiles/fonts/{fontStack}/{range}.pbf");
     assertThat(effectivePaths).doesNotContain("/api/tiles/styles/{styleId}.json");
 
     assertThat(

@@ -56,6 +56,21 @@ public class TileController {
     return responseBuilder.body(response.getBytes());
   }
 
+  @GetMapping("/fonts/{fontStack}/{range}.pbf")
+  public ResponseEntity<byte[]> glyph(
+      @PathVariable String fontStack,
+      @PathVariable String range,
+      Authentication authentication) {
+    requirePublicSession(authentication);
+    TileBlobResponse response = tileService.getGlyph(fontStack, range);
+    ResponseEntity.BodyBuilder responseBuilder =
+        ResponseEntity.ok().contentType(response.getContentType());
+    if (response.getContentEncoding() != null && !response.getContentEncoding().isBlank()) {
+      responseBuilder.header(HttpHeaders.CONTENT_ENCODING, response.getContentEncoding());
+    }
+    return responseBuilder.body(response.getBytes());
+  }
+
   private static void requirePublicSession(Authentication authentication) {
     if (!(authentication instanceof SuriMapAuthentication suriMapAuthentication)
         || !suriMapAuthentication.isAuthenticated()
@@ -80,7 +95,8 @@ public class TileController {
         sources.put(entry.getKey(), sourceValue);
       }
     }
-    return new TileStyleResponse(style.version(), sources, style.layers(), style.metadata());
+    return new TileStyleResponse(
+        style.version(), sources, style.layers(), style.metadata(), style.glyphs());
   }
 
   private static String requestOrigin(HttpServletRequest request) {
