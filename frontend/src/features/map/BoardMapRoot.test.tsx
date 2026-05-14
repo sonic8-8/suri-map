@@ -7,6 +7,8 @@ type MapLibreTransformRequest = (url: string, resourceType?: string) => unknown;
 
 type MockMapOptions = {
   readonly style?: unknown;
+  readonly center?: unknown;
+  readonly zoom?: unknown;
   readonly attributionControl?: unknown;
   readonly transformRequest?: MapLibreTransformRequest;
 };
@@ -92,6 +94,8 @@ describe('L6-T08B BoardMapRoot local MapLibre style contract', () => {
     const mapOptions = await getOnlyMapOptions();
 
     expect(mapOptions.style).toBe('/tiles/styles/osm-local.json');
+    expect(mapOptions.center).toEqual([126.8481, 35.1603]);
+    expect(mapOptions.zoom).toBe(16);
     expect(mapOptions.attributionControl).toBe(false);
     expect(mapOptions.transformRequest).toEqual(expect.any(Function));
 

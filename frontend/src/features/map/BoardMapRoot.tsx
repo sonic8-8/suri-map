@@ -9,6 +9,8 @@ const tileBaseOrigin = tileBaseUrlObject.origin;
 const tileBasePath = tileBaseUrlObject.pathname.replace(/\/+$/, '') || '/tiles';
 const boardMapStyleUrl = `${tileBaseUrl}/styles/osm-local.json`;
 const boardMapStylePath = `${tileBasePath}/styles/osm-local.json`;
+const gwangjuDemoCenter: [number, number] = [126.8481, 35.1603];
+const gwangjuDemoZoom = 16;
 const localVectorTilePathPattern = new RegExp(
   `^${escapeRegExp(tileBasePath)}/(?:osm-local|gwangju-building-labels)/\\d+/\\d+/\\d+\\.pbf$`,
 );
@@ -86,8 +88,8 @@ export function BoardMapRoot() {
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
       style: boardMapStyleUrl,
-      center: [126.9565, 37.5712],
-      zoom: 13,
+      center: gwangjuDemoCenter,
+      zoom: gwangjuDemoZoom,
       attributionControl: false,
       transformRequest: transformLocalTileRequest,
     });

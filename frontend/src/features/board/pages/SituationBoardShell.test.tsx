@@ -109,8 +109,8 @@ describe('L6-T01A situation board shell', () => {
       expect(maplibreMock.mapInstances).toHaveLength(1);
     });
     expect(maplibreMock.mapInstances[0]?.options.style).toBe('/tiles/styles/osm-local.json');
-    expect(maplibreMock.mapInstances[0]?.options.center).toEqual([126.9565, 37.5712]);
-    expect(maplibreMock.mapInstances[0]?.options.zoom).toBe(13);
+    expect(maplibreMock.mapInstances[0]?.options.center).toEqual([126.8481, 35.1603]);
+    expect(maplibreMock.mapInstances[0]?.options.zoom).toBe(16);
     expect(screen.getByLabelText('MapLibre board map inc-map-root-001')).toBeInTheDocument();
   });
 });
