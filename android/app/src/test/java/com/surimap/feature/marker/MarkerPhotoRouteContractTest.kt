@@ -22,6 +22,19 @@ class MarkerPhotoRouteContractTest {
     }
 
     @Test
+    fun debugQaMarkerDetailButtonsOpenCameraAndAlbumLaunchers() {
+        val qaSource = File("src/debug/java/com/surimap/ui/qa/DeviceQaActivity.kt").readText()
+
+        assertTrue(qaSource.contains("ActivityResultContracts.TakePicture()"))
+        assertTrue(qaSource.contains("ActivityResultContracts.GetContent()"))
+        assertTrue(qaSource.contains("createQaMarkerPhotoCaptureUri"))
+        assertTrue(qaSource.contains("photoCapture.launch"))
+        assertTrue(qaSource.contains("photoPicker.launch(\"image/*\")"))
+        assertFalse(qaSource.contains("onCapturePhoto = {},"))
+        assertFalse(qaSource.contains("onPickPhoto = {},"))
+    }
+
+    @Test
     fun markerCreateRouteDoesNotUsePreviewSampleStateForProductionInput() {
         val appSource = File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
 

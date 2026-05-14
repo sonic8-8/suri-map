@@ -50,6 +50,7 @@ import org.maplibre.android.style.layers.PropertyFactory.symbolPlacement
 import org.maplibre.android.style.layers.PropertyFactory.textAllowOverlap
 import org.maplibre.android.style.layers.PropertyFactory.textColor
 import org.maplibre.android.style.layers.PropertyFactory.textField
+import org.maplibre.android.style.layers.PropertyFactory.textFont
 import org.maplibre.android.style.layers.PropertyFactory.textHaloBlur
 import org.maplibre.android.style.layers.PropertyFactory.textHaloColor
 import org.maplibre.android.style.layers.PropertyFactory.textHaloWidth
@@ -58,6 +59,8 @@ import org.maplibre.android.style.layers.PropertyFactory.textOffset
 import org.maplibre.android.style.layers.PropertyFactory.textOptional
 import org.maplibre.android.style.layers.PropertyFactory.textSize
 import org.maplibre.android.style.sources.GeoJsonSource
+
+private val SURI_MAP_LABEL_FONT_STACK = arrayOf("Noto Sans Regular")
 
 data class MapLibreViewportBounds(
     val south: Double,
@@ -479,6 +482,7 @@ private fun Style.upsertLabelLayer(overlay: MapLibreGeometryOverlay, paint: MapL
             SymbolLayer(overlay.labelLayerId, overlay.sourceId).withProperties(
                 symbolPlacement(overlay.labelPlacement),
                 textField(Expression.get("label")),
+                textFont(SURI_MAP_LABEL_FONT_STACK),
                 textSize(paint.textSize),
                 textColor(paint.textColor),
                 textHaloColor(paint.textHaloColor),
@@ -495,6 +499,7 @@ private fun Style.upsertLabelLayer(overlay: MapLibreGeometryOverlay, paint: MapL
     layer.setProperties(
         symbolPlacement(overlay.labelPlacement),
         textField(Expression.get("label")),
+        textFont(SURI_MAP_LABEL_FONT_STACK),
         textSize(paint.textSize),
         textColor(paint.textColor),
         textHaloColor(paint.textHaloColor),

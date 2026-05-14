@@ -1,6 +1,5 @@
 package com.surimap.marker.seed;
 
-import com.surimap.marker.domain.port.MarkerLocationValidator;
 import com.surimap.marker.repository.MarkerRepository;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
@@ -12,8 +11,7 @@ public class ReferenceMarkerSeedConfiguration {
 
   @Bean
   @ConditionalOnMissingBean(ReferenceMarkerSeed.class)
-  ReferenceMarkerSeed referenceMarkerSeed(
-      MarkerRepository markerRepository, MarkerLocationValidator markerLocationValidator) {
-    return new ReferenceMarkerSeedService(markerRepository, markerLocationValidator);
+  ReferenceMarkerSeed referenceMarkerSeed(MarkerRepository markerRepository) {
+    return new ReferenceMarkerSeedService(markerRepository);
   }
 }

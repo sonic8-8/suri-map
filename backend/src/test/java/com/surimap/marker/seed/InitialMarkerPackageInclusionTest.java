@@ -4,9 +4,7 @@ import static com.surimap.marker.seed.fixture.MarkerSeedFixtures.INCIDENT_ID;
 import static com.surimap.marker.seed.fixture.MarkerSeedFixtures.MARKER_ID;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.surimap.maparea.testdouble.SearchAreaQueryMock;
 import com.surimap.marker.domain.MarkerStatus;
-import com.surimap.marker.domain.service.MarkerLocationValidatorImpl;
 import com.surimap.marker.query.MarkerView;
 import com.surimap.marker.seed.fixture.MarkerSeedFixtures;
 import com.surimap.marker.seed.support.InMemoryMarkerRepository;
@@ -23,9 +21,7 @@ class InitialMarkerPackageInclusionTest {
   @DisplayName("offline package manifest probe는 seed marker를 initialMarkers로 포함한다")
   void offline_package_manifest_probe는_seed_marker를_initialMarkers로_포함한다() {
     InMemoryMarkerRepository repository = new InMemoryMarkerRepository();
-    ReferenceMarkerSeed referenceMarkerSeed =
-        new ReferenceMarkerSeedService(
-            repository, new MarkerLocationValidatorImpl(new SearchAreaQueryMock()));
+    ReferenceMarkerSeed referenceMarkerSeed = new ReferenceMarkerSeedService(repository);
 
     ReferenceMarkerSeedResult seedResult =
         referenceMarkerSeed.createForIncident(

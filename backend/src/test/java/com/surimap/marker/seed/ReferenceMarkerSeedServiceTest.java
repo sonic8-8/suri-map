@@ -7,17 +7,17 @@ import static com.surimap.marker.seed.fixture.MarkerSeedFixtures.OP1_ID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.surimap.maparea.testdouble.SearchAreaQueryMock;
 import com.surimap.marker.domain.MarkerSource;
 import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.domain.exception.InvalidGeometryException;
-import com.surimap.marker.domain.service.MarkerLocationValidatorImpl;
 import com.surimap.marker.query.MarkerView;
+import com.surimap.marker.seed.SeedMarker;
 import com.surimap.marker.seed.fixture.MarkerSeedFixtures;
 import com.surimap.marker.seed.support.InMemoryMarkerRepository;
 import java.util.List;
 import java.util.UUID;
+import org.locationtech.jts.geom.Point;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -27,8 +27,7 @@ class ReferenceMarkerSeedServiceTest {
 
   private final InMemoryMarkerRepository repository = new InMemoryMarkerRepository();
   private final ReferenceMarkerSeed referenceMarkerSeed =
-      new ReferenceMarkerSeedService(
-          repository, new MarkerLocationValidatorImpl(new SearchAreaQueryMock()));
+      new ReferenceMarkerSeedService(repository);
 
   @Test
   @DisplayName("incident import seed marker를 MOCK_SEED ACTIVE row로 저장한다")
@@ -75,13 +74,40 @@ class ReferenceMarkerSeedServiceTest {
   }
 
   @Test
-  @DisplayName("overall_search_area가 없는 incident seed는 저장하지 않는다")
-  void overall_search_area가_없는_incident_seed는_저장하지_않는다() {
+  @DisplayName("초기 기준점 seed는 active overall_search_area 없이도 저장한다")
+  void 초기_기준점_seed는_active_overall_search_area_없이도_저장한다() {
+    ReferenceMarkerSeedResult result =
+        referenceMarkerSeed.createForIncident(
+            UUID.randomUUID(), List.of(MarkerSeedFixtures.referenceClueSeed()));
+
+    assertThat(result.markers()).hasSize(1);
+    assertThat(repository.records()).hasSize(1);
+  }
+
+  @Test
+  @DisplayName("초기 기준점 seed 좌표 자체가 유효하지 않으면 저장하지 않는다")
+  void 초기_기준점_seed_좌표_자체가_유효하지_않으면_저장하지_않는다() {
     assertThatThrownBy(
             () ->
                 referenceMarkerSeed.createForIncident(
-                    UUID.randomUUID(), List.of(MarkerSeedFixtures.referenceClueSeed())))
+                    INCIDENT_ID,
+                    List.of(seedWithLocation(com.surimap.marker.domain.fixture.MarkerGeometryFixtures.NAN_POINT))))
         .isInstanceOf(InvalidGeometryException.class);
+
     assertThat(repository.records()).isEmpty();
+  }
+
+  private static SeedMarker seedWithLocation(Point location) {
+    return new SeedMarker(
+        MARKER_ID,
+        OP1_ID,
+        null,
+        MarkerType.CLUE,
+        null,
+        location,
+        MarkerSeedFixtures.MEMO,
+        MarkerSeedFixtures.OCCURRED_AT,
+        MarkerSeedFixtures.ACCOUNT_ID,
+        null);
   }
 }
