@@ -56,6 +56,7 @@ class TileControllerTest {
   private static final MediaType APPLICATION_X_PROTOBUF =
       MediaType.valueOf("application/x-protobuf");
   private static final byte[] LOCAL_TILE_BYTES = repeatedBytes(0xaa, 18_432);
+  private static final byte[] LOCAL_GLYPH_BYTES = repeatedBytes(0xbb, 4_096);
   private static final String ACCOUNT_ID = "11111111-1111-1111-1111-111111110003";
   private static final String POLICE_PHONE_ID = OfflinePackageManifestFixtures.POLICE_PHONE_ID;
 
@@ -86,6 +87,7 @@ class TileControllerTest {
             jsonPath(
                 "$.sources.*.tiles[0]",
                 hasItem("http://suri-map.local:8080/tiles/osm-local/{z}/{x}/{y}.pbf")))
+        .andExpect(jsonPath("$.glyphs", is("/tiles/fonts/{fontstack}/{range}.pbf")))
         .andExpect(jsonPath("$.layers").isArray())
         .andExpect(jsonPath("$.layers.length()", greaterThan(0)))
         .andExpect(
@@ -160,6 +162,23 @@ class TileControllerTest {
         .andExpect(content().contentTypeCompatibleWith(APPLICATION_X_PROTOBUF))
         .andExpect(header().string(HttpHeaders.CONTENT_ENCODING, "gzip"))
         .andExpect(content().bytes(LOCAL_TILE_BYTES));
+  }
+
+  @Test
+  @DisplayName("APP/WEB glyph pbf는 로컬 폰트 bytes와 application/x-protobuf를 반환한다")
+  void publicSessionGlyphPbfReturnsLocalFontBytes() throws Exception {
+    when(tileService.getGlyph("Noto Sans CJK KR Regular", "0-255"))
+        .thenReturn(new TileBlobResponse(APPLICATION_X_PROTOBUF, LOCAL_GLYPH_BYTES));
+
+    mockMvc
+        .perform(
+            get("/tiles/fonts/{fontStack}/{range}.pbf", "Noto Sans CJK KR Regular", "0-255")
+                .header("Authorization", AUTHORIZATION)
+                .header("X-Client-Channel", "WEB")
+                .principal(authentication(Channel.WEB)))
+        .andExpect(status().isOk())
+        .andExpect(content().contentTypeCompatibleWith(APPLICATION_X_PROTOBUF))
+        .andExpect(content().bytes(LOCAL_GLYPH_BYTES));
   }
 
   @Test
@@ -295,6 +314,7 @@ class TileControllerTest {
                 "surimap-local",
                 "source-layer",
                 "landcover")),
-        Map.of("attribution", "OpenStreetMap contributors / OpenMapTiles"));
+        Map.of("attribution", "OpenStreetMap contributors / OpenMapTiles"),
+        "/tiles/fonts/{fontstack}/{range}.pbf");
   }
 }
