@@ -345,10 +345,15 @@ export function HandoverPage({
         status: createdOperationalPeriod.status,
         sequenceNumber: createdOperationalPeriod.sequenceNumber,
         reason: createdOperationalPeriod.reason as OperationalPeriodListItem['reason'],
+        openedAt: createdOperationalPeriod.openedAt,
+        endedAt: createdOperationalPeriod.endedAt,
+        version: createdOperationalPeriod.version,
       };
       setOperationalPeriods((currentPeriods) => {
         const endedPeriods = currentPeriods.map((period) =>
-          period.id === currentOpId ? { ...period, status: 'ENDED' as const } : period,
+          period.id === currentOpId
+            ? { ...period, status: 'ENDED' as const, endedAt: createdOperationalPeriod.openedAt }
+            : period,
         );
         return [...endedPeriods.filter((period) => period.id !== createdOp.id), createdOp].sort(
           (left, right) => left.sequenceNumber - right.sequenceNumber,
@@ -947,16 +952,19 @@ function createHandoverOperationalPeriod(
   period: OperationalPeriodListItem,
   currentOpId: string | null,
 ): OperationalPeriod {
+  const startedAt = formatKstDateParts(new Date(period.openedAt));
+  const endedAt = period.endedAt ? formatKstDateParts(new Date(period.endedAt)) : null;
+
   return {
     id: period.id,
     label: formatOperationalPeriodLabel(period),
     reason: formatReasonLabel(period.reason),
     meta: formatStatusLabel(period.status),
     state: period.id === currentOpId || period.status === 'ACTIVE' ? 'current' : 'ended',
-    startDate: '-',
-    startTime: '-',
-    endDate: null,
-    endTime: null,
+    startDate: startedAt.date,
+    startTime: startedAt.time,
+    endDate: endedAt?.date ?? null,
+    endTime: endedAt?.time ?? null,
   };
 }
 

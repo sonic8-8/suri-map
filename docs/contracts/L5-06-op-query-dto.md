@@ -59,6 +59,8 @@ Authorization: Bearer {token}
       "sequenceNumber": 1,
       "status": "ACTIVE",
       "reason": "INITIAL",
+      "openedAt": "2026-04-28T09:00:00Z",
+      "endedAt": null,
       "version": 1
     }
   ]

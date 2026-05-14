@@ -93,7 +93,9 @@ class OperationalPeriodApiContractTest {
         .andExpect(jsonPath("$.status", is("ACTIVE")))
         .andExpect(jsonPath("$.reason", is("RE_SEARCH")))
         .andExpect(jsonPath("$.version", is(1)))
-        .andExpect(jsonPath("$.sequenceNumber", is(2)));
+        .andExpect(jsonPath("$.sequenceNumber", is(2)))
+        .andExpect(jsonPath("$.openedAt").exists())
+        .andExpect(jsonPath("$.endedAt").doesNotExist());
 
     verify(mapper).endActive(eq(OP1_ID), any(UUID.class), any(Instant.class), eq(2L));
     verify(mapper).insert(any(OperationalPeriod.class));
@@ -130,7 +132,10 @@ class OperationalPeriodApiContractTest {
         .andExpect(jsonPath("$.items[0].id", is(OP1_ID.toString())))
         .andExpect(jsonPath("$.items[0].status", is("ACTIVE")))
         .andExpect(jsonPath("$.items[0].reason", is("INITIAL")))
-        .andExpect(jsonPath("$.items[0].sequenceNumber", is(1)));
+        .andExpect(jsonPath("$.items[0].sequenceNumber", is(1)))
+        .andExpect(jsonPath("$.items[0].openedAt", is("2026-05-11T00:00:00Z")))
+        .andExpect(jsonPath("$.items[0].endedAt").doesNotExist())
+        .andExpect(jsonPath("$.items[0].version", is(1)));
   }
 
   @Test
