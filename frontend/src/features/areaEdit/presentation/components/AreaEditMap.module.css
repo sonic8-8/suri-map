@@ -1,0 +1,231 @@
+.map {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: #0b1320;
+}
+
+.mapCanvas {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+
+.mapToolbar,
+.legend,
+.zoomControls {
+  position: absolute;
+  z-index: 6;
+  border: 1px solid var(--suri-board-border);
+  color: var(--suri-board-fg-secondary);
+  background: color-mix(in srgb, var(--suri-board-panel-bg) 88%, transparent);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 10px 24px rgb(0 0 0 / 20%);
+}
+
+.mapToolbar {
+  top: 16px;
+  left: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.mapToolbar strong {
+  color: var(--suri-board-primary-hi);
+  font-size: 12px;
+}
+
+.zoomControls {
+  top: 16px;
+  right: 16px;
+  display: grid;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.zoomControls button {
+  width: 40px;
+  height: 40px;
+  border: 0;
+  color: var(--suri-board-fg-primary);
+  background: transparent;
+  font-size: 21px;
+  font-weight: 700;
+}
+
+.zoomControls button + button {
+  border-top: 1px solid var(--suri-board-border);
+}
+
+
+.legend {
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend i {
+  width: 18px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.drawingToolbox {
+  position: absolute;
+  z-index: 8;
+  bottom: 22px;
+  left: 50%;
+  display: inline-grid;
+  grid-auto-flow: column;
+  gap: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--suri-board-border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--suri-board-panel-bg) 92%, transparent);
+  box-shadow: 0 16px 36px rgb(0 0 0 / 26%);
+  transform: translateX(-50%);
+  backdrop-filter: blur(10px);
+}
+
+.drawingToolbox button {
+  display: inline-grid;
+  grid-template-rows: 24px auto;
+  align-items: center;
+  justify-content: center;
+  width: 82px;
+  height: 82px;
+  gap: 7px;
+  padding: 10px 8px;
+  border: 1px solid var(--suri-board-option-default-border);
+  border-radius: 12px;
+  color: var(--suri-board-fg-secondary);
+  background: var(--suri-board-panel-surface);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.drawingToolbox button svg {
+  justify-self: center;
+}
+
+.drawingToolbox button span {
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.drawingToolbox button:hover {
+  border-color: color-mix(in srgb, var(--suri-board-primary-hi) 70%, var(--suri-board-border));
+  color: var(--suri-board-fg-primary);
+  background: var(--suri-board-panel-muted-bg);
+}
+
+.drawingToolbox .activeToolButton {
+  border-color: var(--suri-board-primary-hi);
+  color: var(--suri-board-fg-primary);
+  background: color-mix(in srgb, var(--suri-board-primary-hi) 18%, var(--suri-board-panel-surface));
+}
+
+.drawingToolbox button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.stateOverlay {
+  position: absolute;
+  z-index: 7;
+  top: 72px;
+  left: 50%;
+  display: grid;
+  width: min(440px, calc(100% - 48px));
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--suri-board-primary-hi) 52%, var(--suri-board-border));
+  border-radius: 8px;
+  color: var(--suri-board-fg-secondary);
+  background: color-mix(in srgb, var(--suri-board-panel-bg) 92%, transparent);
+  box-shadow: 0 16px 36px rgb(0 0 0 / 24%);
+  transform: translateX(-50%);
+  backdrop-filter: blur(10px);
+}
+
+.stateOverlay strong {
+  color: var(--suri-board-fg-primary);
+  font-size: 15px;
+}
+
+.stateOverlay span {
+  color: var(--suri-board-fg-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.validationMessage {
+  position: absolute;
+  z-index: 9;
+  bottom: 230px;
+  left: 50%;
+  max-width: min(600px, calc(100% - 48px));
+  padding: 10px 12px;
+  border: 0 solid transparent;
+  border-radius: 8px;
+  box-shadow: 0 12px 26px rgb(0 0 0 / 19%);
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.42;
+  text-align: center;
+  transform: translateX(-50%);
+}
+
+.successMessage {
+  border-color: color-mix(in srgb, #84cc16 70%, var(--suri-board-border));
+  color: #24470b;
+  background: color-mix(in srgb, #d9f99d 82%, transparent);
+}
+
+.warningMessage {
+  border-color: color-mix(in srgb, #d9480f 58%, var(--suri-board-border));
+  color: #ffffff;
+  background: color-mix(in srgb, #ff4747 70%, transparent);
+}
+
+.infoMessage {
+  border-color: color-mix(in srgb, #d9480f 78%, var(--suri-board-border));
+  color: #fff4e6;
+  background: color-mix(in srgb, #3A3A3AFF 88%, transparent);
+}
+
+.overallSwatch {
+  border: 1.5px dashed var(--suri-board-fg-primary);
+}
+
+.unitSwatch {
+  border: 1.5px solid var(--suri-board-primary-hi);
+  background: rgba(105, 167, 255, 0.16);
+}
+
+.teamSwatch {
+  border: 1.5px solid var(--suri-board-success-hi);
+  background: rgba(82, 193, 132, 0.2);
+}

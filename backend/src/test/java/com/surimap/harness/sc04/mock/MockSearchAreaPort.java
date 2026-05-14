@@ -35,6 +35,7 @@ public class MockSearchAreaPort implements SearchAreaQuery {
             Sc04Fixtures.OP1_ID,
             /* parentAreaId= */ null,
             "ACTIVE",
+            /* areaLevel= */ null,
             Sc04Fixtures.AREA_CREATED_VERSION,
             GeometryFixtures.validSearchAreaPolygon(),
             GeometryFixtures.AREA_GEOMETRY_BBOX,

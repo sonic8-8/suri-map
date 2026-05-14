@@ -3,6 +3,7 @@ export {
   ApiNetworkError,
   apiClient,
   createApiClient,
+  isMockAuthApiMode,
 } from './client';
 
 export type {

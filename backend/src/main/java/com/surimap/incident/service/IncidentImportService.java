@@ -29,9 +29,9 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
-import org.springframework.http.HttpStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,10 +49,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class IncidentImportService {
 
+  private static final UUID PRECINCT_FIRST_SOURCE_INCIDENT_ID =
+      UUID.fromString("00000000-0000-0000-0000-000000000001");
   private static final Logger log = LoggerFactory.getLogger(IncidentImportService.class);
-
-  private static final String PRECINCT_FIRST_SOURCE_INCIDENT_ID =
-      "00000000-0000-0000-0000-000000000001";
   private static final UUID PRECINCT_FIRST_INCIDENT_ID =
       UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001");
   private static final String IMPORT_REQUEST_PATH = "/api/incidents/import";
@@ -107,8 +106,8 @@ public class IncidentImportService {
     }
 
     reserveIdempotency(command, now);
-    ExternalIncident externalIncident = fetchExternalIncident(command.sourceIncidentId());
-    String sourceIncidentId = sourceIncidentId(command, externalIncident);
+    ExternalIncident externalIncident = fetchExternalIncident(command.sourceIncidentId().toString());
+    UUID sourceIncidentId = sourceIncidentId(command, externalIncident);
     UUID incidentId = incidentIdFor(sourceIncidentId);
 
     incidentMapper.insertIncident(
@@ -205,7 +204,7 @@ public class IncidentImportService {
         now);
   }
 
-  private String requestBodyHash(String sourceIncidentId) {
+  private String requestBodyHash(UUID sourceIncidentId) {
     // 현재 import body의 의미 필드는 sourceIncidentId 하나다. 요청 필드가 늘어나면 canonical body도
     // 같이 확장해야 같은 Idempotency-Key의 body mismatch를 정확히 잡을 수 있다.
     String canonicalBody = "{\"sourceIncidentId\":\"" + sourceIncidentId + "\"}";
@@ -245,9 +244,9 @@ public class IncidentImportService {
     }
   }
 
-  private void markImported(String sourceIncidentId) {
+  private void markImported(UUID sourceIncidentId) {
     try {
-      externalIncidentAdapter.markImported(sourceIncidentId);
+      externalIncidentAdapter.markImported(sourceIncidentId.toString());
     } catch (RuntimeException exception) {
       log.warn("mock 112 imported mark failed: {}", exception.getMessage());
     }
@@ -321,16 +320,16 @@ public class IncidentImportService {
     return incident.assignments();
   }
 
-  private String sourceIncidentId(
+  private UUID sourceIncidentId(
       IncidentImportCommand command, ExternalIncident externalIncident) {
     String sourceIncidentId = externalIncident.sourceIncidentId();
     if (sourceIncidentId == null || sourceIncidentId.isBlank()) {
       return command.sourceIncidentId();
     }
-    return sourceIncidentId;
+    return UUID.fromString(sourceIncidentId);
   }
 
-  private UUID incidentIdFor(String sourceIncidentId) {
+  private UUID incidentIdFor(UUID sourceIncidentId) {
     if (PRECINCT_FIRST_SOURCE_INCIDENT_ID.equals(sourceIncidentId)) {
       // SC-01/02/10/12 대표 fixture는 다른 Lane 테스트가 같은 UUID를 참조하므로 고정 매핑을 유지한다.
       return PRECINCT_FIRST_INCIDENT_ID;

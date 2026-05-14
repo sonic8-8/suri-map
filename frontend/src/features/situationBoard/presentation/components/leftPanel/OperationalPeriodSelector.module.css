@@ -1,0 +1,250 @@
+/* OP 선택 영역 전체 컨테이너: 빠른 선택 버튼과 OP 목록을 하나의 박스 안에 묶는다. */
+.list {
+  display: grid;
+  gap: 2px;
+  --op-current-fg: #09fff8;
+}
+
+/* 전체보기/진행중 OP만 보기 같은 OP 빠른 선택 액션 행. */
+.shortcutActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 9px 2px;
+  border-bottom: 0 solid var(--suri-board-border);
+  background: var(--suri-board-panel-bg);
+}
+
+/* 링크처럼 보이는 빠른 선택 버튼 기본 스타일. */
+.shortcutButton {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: var(--suri-board-fg-secondary);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: left;
+}
+
+/* 빠른 선택 버튼 hover 상태. */
+.shortcutButton:hover {
+  color: var(--suri-board-fg-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* 현재 선택 조건과 일치하는 빠른 선택 버튼 강조 상태. */
+.shortcutActive {
+  color: var(--suri-board-primary-hi);
+  font-weight: 600;
+  text-underline-offset: 3px;
+}
+
+.shortcutButton:focus-visible {
+  outline: 2px solid var(--suri-board-primary-hi);
+  outline-offset: 3px;
+}
+
+/* OP 목록 독립 스크롤 영역: 좌측 패널 전체 스크롤과 별도로 OP 목록만 스크롤한다. */
+.scroll {
+  display: grid;
+  margin-top: -1px;
+  max-height: 240px;
+  overflow: hidden auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--suri-board-left-section-divider);
+  border-radius: 0;
+  background: var(--suri-board-panel-surface);
+  scrollbar-color: var(--suri-board-op-scrollbar-thumb) var(--suri-board-op-scrollbar-track);
+  scrollbar-width: thin;
+}
+
+.scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.scroll::-webkit-scrollbar-track {
+  background: var(--suri-board-op-scrollbar-track);
+}
+
+.scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: var(--suri-board-op-scrollbar-thumb);
+}
+
+.scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--suri-board-op-scrollbar-thumb-hover);
+}
+
+/* OP 항목 버튼 기본 레이아웃: 표시 아이콘과 OP 라벨/메타를 2열로 배치한다. */
+.option {
+  position: relative;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 13px 10px;
+  border: 0;
+  border-radius: 0;
+  color: var(--suri-board-fg-primary);
+  background: var(--suri-board-panel-surface);
+  font-size: 14px;
+  line-height: 1.3;
+  text-align: left;
+  transition:
+    background-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+/* OP 항목 hover 배경. */
+.option:hover {
+  background: color-mix(in srgb, var(--suri-board-panel-muted-bg) 58%, var(--suri-board-panel-surface));
+}
+
+/* 지도에 표시 중인 OP 항목 선택 상태. */
+.opOptionSelected {
+  background: var(--suri-board-primary-soft);
+}
+
+/* OP 항목 사이 구분선. */
+.option::after {
+  position: absolute;
+  right: 12px;
+  bottom: 0;
+  left: 47px;
+  height: 1px;
+  background: color-mix(in srgb, var(--suri-board-left-section-divider) 72%, transparent);
+  content: "";
+}
+
+/* 선택된 OP 항목 구분선 강조. */
+.opOptionSelected::after {
+  background: color-mix(in srgb, var(--suri-board-primary-hi) 36%, var(--suri-board-left-section-divider));
+}
+
+/* 선택된 OP 항목 hover 배경. */
+.opOptionSelected:hover {
+  background: color-mix(in srgb, var(--suri-board-primary) 20%, var(--suri-board-panel-surface));
+}
+
+/* OP 항목 hover 시 표시 아이콘도 함께 강조한다. */
+.option:hover .visibilityIcon {
+  color: var(--suri-board-fg-primary);
+  background: color-mix(in srgb, var(--suri-board-panel-muted-bg) 54%, var(--suri-board-panel-surface));
+}
+
+.option:focus-visible {
+  outline: none;
+}
+
+/* 키보드 포커스는 버튼 전체 대신 표시 아이콘 주변에 링을 보여준다. */
+.option:focus-visible .visibilityIcon {
+  box-shadow:
+    0 0 0 2px var(--suri-board-panel-surface),
+    0 0 0 4px color-mix(in srgb, var(--suri-board-primary-hi) 68%, transparent);
+}
+
+/* 선택된 OP 항목의 표시 아이콘 강조 상태. */
+.opOptionSelected .visibilityIcon {
+  border-color: color-mix(in srgb, var(--suri-board-primary-hi) 70%, transparent);
+  color: var(--suri-board-primary-hi);
+  background: color-mix(in srgb, var(--suri-board-primary) 24%, var(--suri-board-primary-soft));
+}
+
+/* 비활성 OP 항목이 생길 경우 표시 아이콘을 disabled 톤으로 낮춘다. */
+.option:disabled .visibilityIcon {
+  border-color: var(--suri-board-border-soft);
+  color: var(--suri-board-fg-muted);
+  background: color-mix(in srgb, var(--suri-board-panel-surface) 56%, transparent);
+  opacity: 0.62;
+}
+
+/* OP가 지도에 표시되는지 나타내는 아이콘 칸. */
+.visibilityIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: start;
+  width: 24px;
+  height: 24px;
+  margin-top: 1px;
+  border: 1px solid var(--suri-board-option-default-border);
+  border-radius: 4px;
+  color: var(--suri-board-fg-muted);
+  background: var(--suri-board-option-default-bg);
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease,
+    color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.visibilityIcon svg {
+  flex: 0 0 auto;
+}
+
+/* OP 제목/사유/메타 텍스트 묶음. */
+.label {
+  display: grid;
+  align-self: start;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* OP 차수와 사유 한 줄 표시. 길어지면 말줄임 처리한다. */
+.titleRow {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* OP 차수 텍스트 강조. */
+.label strong {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* 현재 진행 중인 OP 텍스트 강조. Header 진행중 상태와 분리된 OP 전용 상태 스타일이다. */
+.opOptionCurrent .titleRow,
+.opOptionCurrent .label strong,
+.opOptionCurrent small {
+  color: var(--op-current-fg);
+}
+
+/* OP 메타와 시간 범위를 좌우로 배치한다. */
+.metaRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* OP 메타와 시간 텍스트 공통 톤. */
+.option small,
+.option time {
+  color: var(--suri-board-fg-muted);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+/* OP 시간 범위는 숫자 폭을 고정해 행마다 흔들리지 않게 한다. */
+.option time {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.empty {
+  padding: 12px 13px;
+  color: var(--suri-board-fg-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}

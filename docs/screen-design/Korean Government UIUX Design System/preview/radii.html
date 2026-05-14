@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>Radii</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin:0; padding:24px; background:#fff; font-family: var(--gov-font-body); color: var(--gov-fg-1); }
+  .row { display:flex; gap: 16px; align-items: flex-end; }
+  .tile { display:flex; flex-direction:column; align-items:center; gap: 6px; }
+  .box { width: 84px; height: 84px; background: var(--gov-primary-pastel); border: 1px solid var(--gov-primary); }
+  .lab { font-family: var(--gov-font-mono); font-size: 11px; color: var(--gov-fg-3); }
+</style></head>
+<body>
+<div class="row">
+  <div class="tile"><div class="box" style="border-radius:4px"></div><span class="lab">xs · 4</span></div>
+  <div class="tile"><div class="box" style="border-radius:8px"></div><span class="lab">sm · 8</span></div>
+  <div class="tile"><div class="box" style="border-radius:12px"></div><span class="lab">md · 12</span></div>
+  <div class="tile"><div class="box" style="border-radius:20px"></div><span class="lab">lg · 20</span></div>
+  <div class="tile"><div class="box" style="border-radius:999px"></div><span class="lab">pill</span></div>
+</div>
+</body></html>

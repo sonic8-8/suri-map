@@ -636,7 +636,9 @@
                         "sourceSpec",
                         "sourceHash",
                         "latestEventId",
-                        "policePhoneId"
+                        "policePhoneId",
+                        "policePhoneCode",
+                        "policePhoneName"
                       ],
                       "properties": {
                         "id": {
@@ -670,6 +672,12 @@
                         "policePhoneId": {
                           "type": "string",
                           "format": "uuid"
+                        },
+                        "policePhoneCode": {
+                          "type": "string"
+                        },
+                        "policePhoneName": {
+                          "type": "string"
                         }
                       }
                     }

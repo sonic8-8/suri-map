@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>Buttons — Variants</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin:0; padding:24px; background:#fff; font-family: var(--gov-font-body); }
+  .row { display:flex; gap: 12px; align-items:center; flex-wrap: wrap; }
+  .btn { height: 48px; border-radius: 8px; padding: 0 24px; font-family: inherit; font-size: 17px; line-height: 1.5; cursor: pointer; }
+  .primary { background: var(--gov-primary); color:#fff; border:0; }
+  .primary:hover { background: var(--gov-primary-hover); }
+  .secondary { background: transparent; color: var(--gov-fg-3); border: 0; font-weight: 700; font-size: 19px; }
+  .tertiary { background: #fff; color: var(--gov-fg-1); border: 1px solid var(--gov-fg-1); }
+  .tertiary:hover { background: var(--gov-primary-pastel); border-color: var(--gov-primary); color: var(--gov-primary); }
+  .text { background: transparent; color: var(--gov-fg-1); border: 0; padding: 0 8px; }
+  .text:hover { color: var(--gov-primary); text-decoration: underline; }
+  .disabled { background: var(--gov-bg-2); color: var(--gov-fg-4); border: 0; cursor: not-allowed; }
+</style></head>
+<body>
+<div class="row">
+  <button class="btn primary">Primary</button>
+  <button class="btn tertiary">Tertiary</button>
+  <button class="btn secondary">Secondary</button>
+  <button class="btn text">Text 버튼 ›</button>
+  <button class="btn disabled">Disabled</button>
+</div>
+</body></html>

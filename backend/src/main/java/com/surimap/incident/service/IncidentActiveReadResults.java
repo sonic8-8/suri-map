@@ -33,11 +33,14 @@ public final class IncidentActiveReadResults {
     static Detail active(
         UUID id,
         UUID incidentId,
+        String title,
         String status,
+        Instant openedAt,
         long version,
         MissingPerson missingPerson,
         List<Assignment> assignments) {
-      return new Active(id, incidentId, status, version, missingPerson, assignments);
+      return new Active(
+          id, incidentId, title, status, openedAt, version, missingPerson, assignments);
     }
 
     static Detail terminal(
@@ -49,7 +52,9 @@ public final class IncidentActiveReadResults {
     record Active(
         UUID id,
         UUID incidentId,
+        String title,
         String status,
+        Instant openedAt,
         long version,
         MissingPerson missingPerson,
         List<Assignment> assignments)
@@ -92,5 +97,11 @@ public final class IncidentActiveReadResults {
       Instant lastSeenAt) {}
 
   /** 사건 접근과 표시용 incident_assignment 요약. */
-  public record Assignment(String accountId, String incidentRole) {}
+  public record Assignment(
+      String accountId,
+      String accountDisplayName,
+      String accountType,
+      String organizationType,
+      String incidentRole,
+      Instant assignedAt) {}
 }

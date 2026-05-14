@@ -145,6 +145,7 @@ public class InMemorySearchAreaQueryAdapter implements SearchAreaQuery {
         e.opId(),
         e.parentAreaId(),
         e.status(),
+        null,
         e.version(),
         e.geometry(),
         computeBbox(e.geometry()),

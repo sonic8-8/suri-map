@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>Form fields</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin:0; padding:24px; background:#fff; font-family: var(--gov-font-body); color: var(--gov-fg-1); }
+  .row { display:grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+  .field { display:flex; flex-direction:column; gap: 8px; }
+  .lbl { font-size: 15px; }
+  .req { color: var(--gov-primary-hover); }
+  .input { height: 56px; border-radius: 8px; border: 1px solid var(--gov-border-input); background: #fff; padding: 0 16px; font-size: 19px; font-family: inherit; }
+  .input::placeholder { color: var(--gov-fg-4); }
+  .input.focus { outline: 2px solid var(--gov-primary); border-color: var(--gov-primary); }
+  .hint { font-size: 15px; color: var(--gov-fg-3); display:flex; align-items:center; gap: 6px; }
+  .err { color: #CF4949; }
+</style></head>
+<body>
+<div class="row">
+  <div class="field">
+    <span class="lbl">이름 <span class="req">*</span></span>
+    <input class="input" placeholder="내용을 입력하세요">
+    <span class="hint">힌트 메시지</span>
+  </div>
+  <div class="field">
+    <span class="lbl">이메일</span>
+    <input class="input focus" value="user@gov.kr">
+    <span class="hint err">올바른 이메일 형식이 아닙니다</span>
+  </div>
+</div>
+</body></html>

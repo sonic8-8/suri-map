@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>Step 4 · Polifon 패키지 다운로드</title>
+<script src="../state.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: Pretendard, "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; }
+  html, body { height: 100%; }
+  body { background: #999; display: flex; align-items: center; justify-content: center; padding: 20px; }
+
+  .device { width: 412px; height: 892px; background: #0B0F19; color: #fff; display: grid; grid-template-rows: 32px 1fr 24px; overflow: hidden; border-radius: 24px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+
+  .status-bar { padding: 0 16px; display: flex; align-items: center; font-size: 12px; font-weight: 600; color: #E5E7EB; gap: 8px; }
+  .status-bar .right { margin-left: auto; display: flex; gap: 8px; font-size: 11px; }
+
+  .content { display: flex; flex-direction: column; overflow: hidden; }
+  .header { padding: 14px 16px; border-bottom: 1px solid #2A3240; display: flex; align-items: center; gap: 12px; }
+  .back { background: transparent; border: 0; color: #fff; font-size: 22px; cursor: pointer; }
+  .header .title { font-size: 17px; font-weight: 800; color: #fff; }
+  .header .sub { font-size: 11px; color: #9CA3AF; }
+
+  .body { flex: 1; overflow-y: auto; padding: 24px 20px; display: flex; flex-direction: column; gap: 20px; }
+
+  .progress-circle { width: 140px; height: 140px; margin: 12px auto; position: relative; }
+  .progress-circle svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .progress-circle .bg { fill: none; stroke: #2A3240; stroke-width: 10; }
+  .progress-circle .fill { fill: none; stroke: #22C55E; stroke-width: 10; stroke-linecap: round; transition: stroke-dashoffset 0.4s ease; }
+  .progress-circle .text { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .progress-circle .pct { font-size: 32px; font-weight: 800; color: #fff; }
+  .progress-circle .label { font-size: 11px; color: #9CA3AF; margin-top: 2px; }
+
+  .items { display: flex; flex-direction: column; gap: 8px; }
+  .item { display: grid; grid-template-columns: 24px 1fr auto; gap: 10px; align-items: center; padding: 10px 12px; background: #111827; border: 1px solid #2A3240; border-radius: 8px; font-size: 13px; }
+  .item .check { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #2A3240; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #fff; }
+  .item.done .check { background: #22C55E; border-color: #22C55E; }
+  .item.done .check::before { content: '✓'; }
+  .item.loading .check { border-color: #F59E0B; border-top-color: transparent; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .item .name { color: #E5E7EB; font-weight: 600; }
+  .item .size { font-size: 10px; color: #9CA3AF; }
+
+  .gesture { display: flex; align-items: center; justify-content: center; }
+  .gesture .pill { width: 130px; height: 4px; background: #6B7280; border-radius: 2px; }
+
+  .complete-msg { text-align: center; padding: 16px; background: rgba(34,197,94,0.12); border: 1px solid #22C55E; border-radius: 12px; color: #22C55E; font-weight: 700; font-size: 14px; }
+
+  .start-cta { width: 100%; padding: 18px; background: #22C55E; color: #0B0F19; border: 0; border-radius: 12px; font-family: inherit; font-weight: 800; font-size: 18px; cursor: pointer; opacity: 0; transition: opacity 0.4s; }
+  .start-cta.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="device">
+  <div class="status-bar">
+    <span>14:31</span>
+    <div class="right">
+      <span>▮▮▮</span>
+      <span>LTE</span>
+      <span>78%</span>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="header">
+      <button class="back" onclick="history.back()">←</button>
+      <div>
+        <div class="title">오프라인 패키지</div>
+        <div class="sub" id="incidentInfo"></div>
+      </div>
+    </div>
+
+    <div class="body">
+      <div class="progress-circle">
+        <svg viewBox="0 0 100 100">
+          <circle class="bg" cx="50" cy="50" r="42"/>
+          <circle class="fill" id="circleFill" cx="50" cy="50" r="42" stroke-dasharray="263.89" stroke-dashoffset="263.89"/>
+        </svg>
+        <div class="text">
+          <div class="pct" id="pct">0%</div>
+          <div class="label">진행 중</div>
+        </div>
+      </div>
+
+      <div class="items">
+        <div class="item" data-i="0"><div class="check"></div><div><div class="name">사건 메타</div><div class="size">2KB</div></div></div>
+        <div class="item" data-i="1"><div class="check"></div><div><div class="name">실종자 정보 + 사진</div><div class="size">340KB</div></div></div>
+        <div class="item" data-i="2"><div class="check"></div><div><div class="name">OP 1차</div><div class="size">1KB</div></div></div>
+        <div class="item" data-i="3"><div class="check"></div><div><div class="name">담당 구역 (팀 A)</div><div class="size">8KB</div></div></div>
+        <div class="item" data-i="4"><div class="check"></div><div><div class="name">초기 마커 3개</div><div class="size">12KB</div></div></div>
+        <div class="item" data-i="5"><div class="check"></div><div><div class="name">전체 수색 구역</div><div class="size">24KB</div></div></div>
+        <div class="item" data-i="6"><div class="check"></div><div><div class="name">지도 타일</div><div class="size">18MB</div></div></div>
+      </div>
+
+      <div id="completeBox" style="display:none;">
+        <div class="complete-msg">✓ 다운로드 완료 — 오프라인 사용 준비됨</div>
+      </div>
+
+      <button class="start-cta" id="startCta" onclick="onStart()">수색 시작 →</button>
+    </div>
+  </div>
+
+  <div class="gesture"><div class="pill"></div></div>
+</div>
+
+<script>
+  renderProtoBar(4, 7, './05b-hero2-search-map.html');
+
+  const s = getState();
+  const inc = (s.importedIncidents || []).find(i => i.id === s.activeIncidentId);
+  if (inc) {
+    document.getElementById('incidentInfo').textContent = `${inc.missing} · ${inc.location}`;
+  }
+
+  // 자동 다운로드 시뮬레이션
+  let i = 0;
+  const total = 7;
+  const items = document.querySelectorAll('.item');
+  const fillCircle = document.getElementById('circleFill');
+  const pctEl = document.getElementById('pct');
+
+  function step() {
+    if (i >= total) {
+      // 완료
+      document.getElementById('completeBox').style.display = 'block';
+      document.getElementById('startCta').classList.add('show');
+      const s2 = getState();
+      s2.packageDownloaded = true;
+      saveState(s2);
+      return;
+    }
+    items[i].classList.add('loading');
+    setTimeout(() => {
+      items[i].classList.remove('loading');
+      items[i].classList.add('done');
+      i++;
+      const pct = Math.round((i / total) * 100);
+      pctEl.textContent = pct + '%';
+      const c = 263.89;
+      fillCircle.style.strokeDashoffset = c - (c * pct / 100);
+      step();
+    }, 400 + Math.random() * 600);
+  }
+
+  setTimeout(step, 600);
+
+  function onStart() {
+    const s2 = getState();
+    s2.searchStarted = true;
+    s2.step = 5;
+    saveState(s2);
+    location.href = './05b-hero2-search-map.html';
+  }
+</script>
+</body>
+</html>

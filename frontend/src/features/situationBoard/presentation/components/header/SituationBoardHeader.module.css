@@ -1,0 +1,275 @@
+/* 헤더 전체 래퍼: 상단 네비게이션과 사건 요약을 세로로 쌓는다. */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  --header-status-fg: #8dffa9;
+  --header-status-border: rgba(36, 225, 119, 0.58);
+  --header-status-bg: rgba(35, 87, 58, 0.16);
+  border-bottom: 1px solid var(--suri-board-border);
+  background: var(--suri-board-page-bg);
+}
+
+/* 상단 첫 줄: 화면 이동 탭과 메타 정보를 배치한다. */
+.productNav {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: var(--suri-board-header-top-height);
+  flex-shrink: 0;
+  gap: 8px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--suri-board-border);
+  background: color-mix(in srgb, var(--suri-board-panel-bg) 95%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+/* 사건 목록으로 돌아가는 버튼. */
+.backButton {
+  position: relative;
+  z-index: 1;
+  min-height: 40px;
+  padding: 0 90px 0 0;
+  border: 0;
+  border-right: 1px solid var(--suri-board-border);
+  border-radius: 0;
+  color: var(--suri-board-fg-primary);
+  background: transparent;
+  font-size: var(--suri-board-header-back-font-size);
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+/* 사건 목록 버튼 hover 상태. */
+.backButton:hover {
+  color: var(--suri-board-fg-primary);
+  background: transparent;
+}
+
+/* 사건 목록 버튼 키보드 포커스 상태. */
+.backButton:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--suri-board-primary-hi) 72%, transparent);
+  outline-offset: 3px;
+}
+
+/* 상단 중앙에 배치되는 화면 이동 탭 묶음. */
+.navTabs {
+  position: absolute;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  transform: translateX(-50%);
+}
+
+/* 각 화면 이동 버튼의 기본 스타일. */
+.navButton {
+  min-height: var(--suri-board-header-nav-button-height);
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--suri-board-fg-secondary);
+  background: transparent;
+  font-size: var(--suri-board-header-nav-font-size);
+  font-weight: var(--suri-board-header-nav-font-weight);
+  white-space: nowrap;
+}
+
+/* 화면 이동 버튼 hover 상태. */
+.navButton:hover {
+  color: var(--suri-board-fg-primary);
+  background: var(--suri-board-panel-surface);
+}
+
+/* 현재 페이지 탭 강조 상태. */
+.navButtonActive {
+  border-color: color-mix(in srgb, var(--suri-board-primary) 40%, transparent);
+  color: var(--suri-board-primary-hi);
+  background: var(--suri-board-primary-soft);
+}
+
+/* 우측 메타 영역: 사용자, 시각, 브랜드를 한 줄로 보여준다. */
+.meta {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--suri-board-fg-muted);
+  font-size: var(--suri-board-header-meta-font-size);
+  white-space: nowrap;
+}
+
+/* 메타 영역 안의 강조 텍스트. */
+.meta b {
+  color: var(--suri-board-fg-primary);
+  font-weight: 700;
+}
+
+/* 메타 사이 구분선. */
+.metaDivider {
+  width: 1px;
+  height: 20px;
+  background: var(--suri-board-border);
+}
+
+/* 브랜드 로고와 이름 묶음. */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--suri-board-fg-primary);
+  font-size: var(--suri-board-header-brand-font-size);
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+/* 브랜드 아이콘은 텍스트와 함께 정렬만 담당한다. */
+.brand svg {
+  flex: 0 0 auto;
+  color: var(--suri-board-fg-primary);
+}
+
+/* 브랜드 마크 채움색. */
+.brandMark {
+  fill: var(--suri-board-primary);
+}
+
+/* 상단 두 번째 줄: 사건 상황 요약 바. */
+.incidentContextBar {
+  display: flex;
+  align-items: center;
+  min-height: 64px;
+  flex-shrink: 0;
+  gap: 16px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--suri-board-border);
+  background: var(--suri-board-header-bg);
+}
+
+/* 사건 제목과 아바타를 묶는 왼쪽 요약 블록. */
+.incidentContextMain {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* 사건 요약의 시각 기준점으로 쓰는 아바타 칩. */
+.incidentAvatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border: 1px solid var(--suri-board-border);
+  border-radius: 8px;
+  color: var(--suri-board-fg-secondary);
+  background: linear-gradient(135deg, var(--suri-board-border), var(--suri-board-panel-surface));
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* 사건 코드와 사건명을 세로로 보여주는 블록. */
+.incidentContextTitle {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* 사건 제목과 메트릭의 보조 라벨. */
+.incidentContextTitle span,
+.incidentContextMetrics span {
+  color: var(--suri-board-fg-muted);
+  font-size: 12px;
+}
+
+/* 사건 코드 라인의 자간은 기본값을 유지한다. */
+.incidentContextTitle span {
+  letter-spacing: 0;
+}
+
+/* 사건명은 잘려도 한 줄로 유지한다. */
+.incidentContextTitle strong {
+  overflow: hidden;
+  color: var(--suri-board-fg-primary);
+  font-size: 14px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 사건 요약 제목과 오른쪽 메트릭 사이의 구분선. */
+.incidentContextDivider {
+  width: 1px;
+  height: 32px;
+  flex: 0 0 auto;
+  background: var(--suri-board-border);
+}
+
+/* 실종자, 마지막 목격, 지휘관 정보를 나란히 보여주는 메트릭 행. */
+.incidentContextMetrics {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  min-width: 0;
+  color: var(--suri-board-fg-secondary);
+  font-size: 14px;
+}
+
+/* 각 메트릭 항목은 라벨과 값을 세로로 묶는다. */
+.incidentContextMetrics > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* 메트릭 값은 한 줄로 유지한다. */
+.incidentContextMetrics strong {
+  overflow: hidden;
+  color: var(--suri-board-fg-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 현재 운용 상태 배지를 우측 끝으로 밀어낸다. */
+.incidentContextActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* 헤더 전용 현재 운용 상태 배지. */
+.headerStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--header-status-border);
+  border-radius: 999px;
+  color: var(--header-status-fg);
+  background: var(--header-status-bg);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* 진행 중 상태일 때만 붙는 점 표시. */
+.headerStatusInProgress::before {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--header-status-fg);
+  content: "";
+}

@@ -132,6 +132,8 @@ public final class OfflinePackageInstallationFixtures {
         id,
         OfflinePackageManifestFixtures.INCIDENT_ID,
         policePhoneId,
+        policePhoneCode(policePhoneId),
+        policePhoneName(policePhoneId),
         status,
         version,
         SEQUENCE,
@@ -143,9 +145,33 @@ public final class OfflinePackageInstallationFixtures {
       String id,
       String incidentId,
       String policePhoneId,
+      String policePhoneCode,
+      String policePhoneName,
       String status,
       long version,
       long sequence,
       int manifestVersion,
       boolean readyForOfflineUse) {}
+
+  private static String policePhoneCode(String policePhoneId) {
+    if (OfflinePackageManifestFixtures.POLICE_PHONE_ID.equals(policePhoneId)) {
+      return OfflinePackageManifestFixtures.POLICE_PHONE_CODE;
+    }
+    if (SEEDED_PHONE_02_ID.equals(policePhoneId)) return "dev-precinct-phone-02";
+    if (SEEDED_PHONE_03_ID.equals(policePhoneId)) return "dev-precinct-phone-03";
+    if (SEEDED_PHONE_04_ID.equals(policePhoneId)) return "dev-precinct-phone-04";
+    if (SEEDED_PHONE_05_ID.equals(policePhoneId)) return "dev-precinct-phone-05";
+    return policePhoneId;
+  }
+
+  private static String policePhoneName(String policePhoneId) {
+    if (OfflinePackageManifestFixtures.POLICE_PHONE_ID.equals(policePhoneId)) {
+      return "경찰서 팀폰";
+    }
+    if (SEEDED_PHONE_02_ID.equals(policePhoneId)) return "경찰서 팀폰 02";
+    if (SEEDED_PHONE_03_ID.equals(policePhoneId)) return "경찰서 팀폰 03";
+    if (SEEDED_PHONE_04_ID.equals(policePhoneId)) return "경찰서 팀폰 04";
+    if (SEEDED_PHONE_05_ID.equals(policePhoneId)) return "경찰서 팀폰 05";
+    return policePhoneCode(policePhoneId);
+  }
 }

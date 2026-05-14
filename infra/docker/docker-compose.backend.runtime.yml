@@ -52,4 +52,3 @@ networks:
   web_net:
   db_net:
     internal: true
-

@@ -1,0 +1,134 @@
+/* ================================================================
+   Korean Government UI/UX Common Guide — Tokens
+   범정부 UI/UX 공통가이드 — 표준 프로토타입
+   ================================================================ */
+
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap");
+
+/* Official Pretendard GOV variable font (uploaded by brand owner) */
+@font-face {
+  font-family: "Pretendard GOV";
+  src: url("fonts/PretendardGOVVariable.woff2") format("woff2-variations"),
+       url("fonts/PretendardGOVVariable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* ---- Brand / Primary ---------------------------------------- */
+  --gov-primary:        rgb(36, 107, 235);   /* #246BEB */
+  --gov-primary-hover:  rgb(29, 86, 188);    /* #1D56BC */
+  --gov-primary-press:  rgb(20, 64, 145);
+  --gov-primary-pastel: rgb(239, 245, 255);  /* #EFF5FF */
+  --gov-primary-pastel-strong: rgb(211, 225, 251); /* #D3E1FB */
+
+  --gov-cover-indigo:   rgb(28, 37, 146);    /* #1C2592 — cover hero */
+
+  /* ---- Foreground (text) -------------------------------------- */
+  --gov-fg-1: rgb(29, 29, 29);     /* #1D1D1D — primary text */
+  --gov-fg-2: rgb(45, 45, 45);     /* #2D2D2D — strong */
+  --gov-fg-3: rgb(85, 85, 85);     /* #555     — secondary */
+  --gov-fg-4: rgb(142, 142, 142);  /* #8E8E8E — placeholder */
+  --gov-fg-on-primary: #ffffff;
+
+  /* ---- Surfaces ----------------------------------------------- */
+  --gov-bg-0: #ffffff;                   /* base white */
+  --gov-bg-1: rgb(248, 248, 248);        /* #F8F8F8 */
+  --gov-bg-2: rgb(240, 240, 240);        /* #F0F0F0 — footer */
+  --gov-bg-3: rgb(237, 241, 245);        /* #EDF1F5 — muted */
+  --gov-bg-dark:  rgb(32, 32, 32);       /* style-guide chrome */
+  --gov-bg-dark2: rgb(45, 45, 45);
+
+  /* ---- Borders ------------------------------------------------ */
+  --gov-border-1: rgb(228, 228, 228); /* #E4E4E4 — subtle */
+  --gov-border-2: rgb(216, 216, 216); /* #D8D8D8 — default */
+  --gov-border-3: rgb(198, 198, 198); /* #C6C6C6 — stronger */
+  --gov-border-input: rgb(113, 113, 113);
+
+  /* ---- Semantic ----------------------------------------------- */
+  --gov-link:    var(--gov-primary);
+  --gov-link-visited: var(--gov-primary-hover);
+  --gov-success: rgb(36, 130, 90);
+  --gov-warning: rgb(207, 148, 76);   /* #CF944C — from metadata */
+  --gov-danger:  rgb(207, 73, 73);
+  --gov-info:    var(--gov-primary);
+
+  /* ---- Radii -------------------------------------------------- */
+  --gov-radius-xs: 4px;
+  --gov-radius-sm: 8px;
+  --gov-radius-md: 12px;
+  --gov-radius-lg: 20px;
+  --gov-radius-pill: 999px;
+
+  /* ---- Spacing scale (8px base) ------------------------------- */
+  --gov-space-0: 0;
+  --gov-space-1: 4px;
+  --gov-space-2: 8px;
+  --gov-space-3: 12px;
+  --gov-space-4: 16px;
+  --gov-space-5: 20px;
+  --gov-space-6: 24px;
+  --gov-space-8: 32px;
+  --gov-space-10: 40px;
+  --gov-space-14: 56px;
+  --gov-space-20: 80px;
+
+  /* ---- Shadow / Elevation ------------------------------------- */
+  --gov-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --gov-shadow-2: 0 4px 12px rgba(0, 0, 0, 0.06);
+  --gov-shadow-3: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --gov-focus-ring: 0 0 0 2px var(--gov-primary);
+
+  /* ---- Type families ------------------------------------------ */
+  --gov-font-body:    "Pretendard GOV", "Pretendard", "Noto Sans KR", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif;
+  --gov-font-display: "Noto Sans KR", "Pretendard", sans-serif;
+  --gov-font-mono:    ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* ---- Type scale (rem; 1rem = 16px) -------------------------- */
+  --gov-fs-display-xl: 100px;  /* cover hero */
+  --gov-fs-display-l:  56px;
+  --gov-fs-display-m:  40px;
+  --gov-fs-h1: 32px;
+  --gov-fs-h2: 25px;
+  --gov-fs-h3: 21px;
+  --gov-fs-h4: 19px;
+  --gov-fs-body-lg: 19px;     /* large body / inputs */
+  --gov-fs-body:    17px;     /* default body */
+  --gov-fs-label:   15px;     /* labels, hints */
+  --gov-fs-caption: 13px;
+  --gov-fs-micro:   12px;
+
+  --gov-lh-display: 1.25;
+  --gov-lh-body:    1.5;
+  --gov-lh-tight:   1.3;
+}
+
+/* ---------------- Semantic typography presets ----------------- */
+.gov-body, body {
+  font-family: var(--gov-font-body);
+  font-size: var(--gov-fs-body);
+  line-height: var(--gov-lh-body);
+  color: var(--gov-fg-1);
+  -webkit-font-smoothing: antialiased;
+}
+
+.gov-display-xl { font-family: var(--gov-font-display); font-weight: 700; font-size: var(--gov-fs-display-xl); line-height: var(--gov-lh-display); }
+.gov-display-l  { font-family: var(--gov-font-display); font-weight: 700; font-size: var(--gov-fs-display-l);  line-height: var(--gov-lh-display); }
+.gov-display-m  { font-family: var(--gov-font-display); font-weight: 700; font-size: var(--gov-fs-display-m);  line-height: var(--gov-lh-display); }
+
+.gov-h1 { font-family: var(--gov-font-body); font-weight: 700; font-size: var(--gov-fs-h1); line-height: var(--gov-lh-tight); }
+.gov-h2 { font-family: var(--gov-font-body); font-weight: 700; font-size: var(--gov-fs-h2); line-height: var(--gov-lh-tight); }
+.gov-h3 { font-family: var(--gov-font-body); font-weight: 700; font-size: var(--gov-fs-h3); line-height: var(--gov-lh-tight); }
+.gov-h4 { font-family: var(--gov-font-body); font-weight: 700; font-size: var(--gov-fs-h4); line-height: var(--gov-lh-body); }
+
+.gov-body-lg  { font-size: var(--gov-fs-body-lg); line-height: var(--gov-lh-body); }
+.gov-body-md  { font-size: var(--gov-fs-body); line-height: var(--gov-lh-body); }
+.gov-label    { font-size: var(--gov-fs-label); line-height: var(--gov-lh-body); color: var(--gov-fg-1); }
+.gov-caption  { font-size: var(--gov-fs-caption); line-height: var(--gov-lh-body); color: var(--gov-fg-3); }
+.gov-micro    { font-size: var(--gov-fs-micro); line-height: var(--gov-lh-body); color: var(--gov-fg-3); }
+
+a, .gov-link { color: var(--gov-link); text-decoration: none; }
+a:hover, .gov-link:hover { color: var(--gov-link-visited); text-decoration: underline; }
+
+*:focus-visible { outline: 2px solid var(--gov-primary); outline-offset: 2px; }

@@ -1,0 +1,59 @@
+/* 지도 우상단에 세로로 쌓이는 지도 조작 버튼 그룹. */
+.toolbar {
+  position: absolute;
+  z-index: 2;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+/* 지도 위에서 또렷하게 보이는 단일 컨트롤 버튼. */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  color: #ffffff;
+  background: linear-gradient(180deg, #163967 0%, #12335f 55%, #0f2c53 100%);
+}
+
+.button:hover {
+  background: linear-gradient(180deg, #1f4779 0%, #173e70 55%, #12335f 100%);
+}
+
+.button:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+.buttonActive {
+  border-color: #8fc0ff;
+  color: #ffffff;
+  background: linear-gradient(180deg, #245f9d 0%, #1e548c 55%, #174778 100%);
+}
+
+/* 버튼 크기에 맞춰 아이콘도 함께 키운다. */
+.button svg {
+  width: 22px;
+  height: 22px;
+}
+
+@media (max-width: 560px) {
+  /* 좁은 화면에서는 우측 여백을 늘려 지도 가장자리와 겹치지 않게 한다. */
+  .toolbar {
+    top: 24px;
+    right: 24px;
+    left: 24px;
+    justify-content: space-between;
+  }
+}

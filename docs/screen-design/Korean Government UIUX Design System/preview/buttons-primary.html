@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>Buttons — Primary</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin:0; padding:24px; background:#fff; font-family: var(--gov-font-body); }
+  .row { display:flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .btn { border-radius: 8px; border: 0; padding: 0 24px; font-family: inherit; font-size: 17px; line-height: 1.5; cursor: pointer; display:inline-flex; align-items:center; gap: 6px; }
+  .btn.xl { height: 56px; padding: 0 28px; font-size: 19px; }
+  .btn.lg { height: 48px; }
+  .btn.md { height: 40px; padding: 0 16px; font-size: 15px; }
+  .btn.sm { height: 32px; padding: 0 12px; font-size: 13px; }
+  .primary { background: var(--gov-primary); color: #fff; }
+  .primary:hover { background: var(--gov-primary-hover); }
+  .lab { display:flex; flex-direction:column; gap: 4px; align-items:center; font-family: var(--gov-font-mono); font-size: 10px; color: var(--gov-fg-3); }
+</style></head>
+<body>
+<div class="row">
+  <div class="lab">xlarge<button class="btn xl primary">신청하기</button></div>
+  <div class="lab">large<button class="btn lg primary">버튼</button></div>
+  <div class="lab">medium<button class="btn md primary">버튼</button></div>
+  <div class="lab">small<button class="btn sm primary">버튼</button></div>
+</div>
+</body></html>

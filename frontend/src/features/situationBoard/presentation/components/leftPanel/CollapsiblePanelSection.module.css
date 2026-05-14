@@ -1,0 +1,40 @@
+/* 좌측 패널 안의 접힘 가능한 섹션 전체 블록. */
+.section {
+  display: grid;
+  flex: 0 0 auto;
+  gap: 12px;
+  padding-bottom: 18px;
+}
+
+/* 마지막 섹션은 아래 여백을 없애서 패널 끝과 맞춘다. */
+.section:last-child {
+  padding-bottom: 0;
+}
+
+/* 인접한 섹션 사이의 시각적 구분선과 간격. */
+.section + .section {
+  padding-top: 18px;
+  border-top: 1px solid var(--suri-board-left-section-divider);
+}
+
+/* 섹션 제목의 기본 타이포그래피. */
+.section h2 {
+  margin: 0;
+  color: var(--suri-board-fg-secondary);
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+/* 섹션 제목 행. */
+.heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* 섹션 본문 컨테이너. */
+.content {
+  min-width: 0;
+}

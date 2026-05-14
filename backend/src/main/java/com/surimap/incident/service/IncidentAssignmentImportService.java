@@ -48,7 +48,8 @@ public class IncidentAssignmentImportService {
       return Optional.empty();
     }
 
-    IncidentRecord incident = incidentMapper.findBySourceIncidentId(sourceIncidentId).orElse(null);
+    UUID parsedSourceIncidentId = parseSourceIncidentId(sourceIncidentId);
+    IncidentRecord incident = incidentMapper.findBySourceIncidentId(parsedSourceIncidentId).orElse(null);
     if (incident == null) {
       return Optional.empty();
     }
@@ -102,5 +103,14 @@ public class IncidentAssignmentImportService {
 
   private Instant toInstant(OffsetDateTime value) {
     return value == null ? null : value.toInstant();
+  }
+
+  private UUID parseSourceIncidentId(String sourceIncidentId) {
+    try {
+      return UUID.fromString(sourceIncidentId);
+    } catch (IllegalArgumentException exception) {
+      return UUID.nameUUIDFromBytes(
+          ("incident-source:" + sourceIncidentId).getBytes(StandardCharsets.UTF_8));
+    }
   }
 }

@@ -294,7 +294,7 @@ class BoardDtoAssemblyModelRedTest {
           };
       case "marker" -> new String[] {"opId", "geometry", "geometryHash"};
       case "toast" -> new String[] {"markerId"};
-      case "package_badge" -> new String[] {"policePhoneId"};
+      case "package_badge" -> new String[] {"policePhoneId", "policePhoneCode", "policePhoneName"};
       case "op_toggle", "op_history", "handover_status" -> new String[] {};
       case "handover_memo" -> new String[] {"opId"};
       case "search_history_summary" -> new String[] {"opId", "summaryText"};
@@ -631,7 +631,9 @@ class BoardDtoAssemblyModelRedTest {
         payload.put("messageKey", "support_request_created");
       }
       case "package_badge" -> {
-        payload.put("policePhoneId", "dev-precinct-phone-01");
+        payload.put("policePhoneId", "00000000-0000-0000-0000-000000000101");
+        payload.put("policePhoneCode", "dev-precinct-phone-01");
+        payload.put("policePhoneName", "경찰서 팀폰");
         payload.put("packageStatus", status);
       }
       case "op_toggle", "op_history" -> payload.put("opId", sourceResponseId);

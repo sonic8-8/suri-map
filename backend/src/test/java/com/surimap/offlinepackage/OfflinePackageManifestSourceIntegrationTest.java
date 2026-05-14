@@ -65,6 +65,10 @@ class OfflinePackageManifestSourceIntegrationTest {
   private static final UUID ASSIGNED_AREA_ID =
       UUID.fromString("cccccccc-0000-4000-8000-000000002901");
   private static final UUID MARKER_ID = UUID.fromString("55555555-0000-4000-8000-000000002901");
+  private static final UUID SOURCE_INCIDENT_ID =
+      UUID.fromString("00000000-0000-4000-8000-000000002901");
+  private static final UUID FIXTURE_SOURCE_INCIDENT_ID =
+      UUID.fromString("00000000-0000-4000-8000-000000002902");
   private static final UUID ACCOUNT_ID = UUID.fromString("11111111-1111-1111-1111-111111110003");
   private static final UUID POLICE_PHONE_ID =
       UUID.fromString("00000000-0000-0000-0000-000000000101");
@@ -104,7 +108,7 @@ class OfflinePackageManifestSourceIntegrationTest {
         service.manifest(INCIDENT_ID.toString(), POLICE_PHONE_ID.toString());
 
     assertThat(manifest.incident().incidentId()).isEqualTo(INCIDENT_ID.toString());
-    assertThat(manifest.incident().sourceFixture()).isEqualTo("mock-112-source-s7-dynamic");
+    assertThat(manifest.incident().sourceFixture()).isEqualTo(SOURCE_INCIDENT_ID.toString());
     assertThat(manifest.missingPerson().displayName()).isEqualTo("동적 실종자");
     assertThat(manifest.operationalPeriods())
         .singleElement()
@@ -226,7 +230,7 @@ class OfflinePackageManifestSourceIntegrationTest {
   private void givenSourceRows() {
     IncidentRecord incident = new IncidentRecord();
     incident.setId(INCIDENT_ID);
-    incident.setSourceIncidentId("mock-112-source-s7-dynamic");
+    incident.setSourceIncidentId(SOURCE_INCIDENT_ID);
     incident.setStatus("OPEN");
     incident.setVersion(8L);
     when(incidentMapper.findByIncidentId(INCIDENT_ID)).thenReturn(Optional.of(incident));
@@ -267,6 +271,7 @@ class OfflinePackageManifestSourceIntegrationTest {
             OP_ID,
             OVERALL_AREA_ID,
             "ACTIVE",
+            "TEAM",
             6L,
             polygon(
                 "126.955",
@@ -326,7 +331,7 @@ class OfflinePackageManifestSourceIntegrationTest {
 
     IncidentRecord incident = new IncidentRecord();
     incident.setId(incidentId);
-    incident.setSourceIncidentId("mock-112-source-s7-fixture-dynamic");
+    incident.setSourceIncidentId(FIXTURE_SOURCE_INCIDENT_ID);
     incident.setStatus("OPEN");
     incident.setVersion(8L);
     when(incidentMapper.findByIncidentId(incidentId)).thenReturn(Optional.of(incident));
@@ -367,6 +372,7 @@ class OfflinePackageManifestSourceIntegrationTest {
             opId,
             overallAreaId,
             "ACTIVE",
+            "TEAM",
             6L,
             polygon(
                 "126.955",

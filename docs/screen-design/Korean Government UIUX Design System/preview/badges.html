@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>Badges</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin:0; padding:24px; background:#fff; font-family: var(--gov-font-body); }
+  .row { display:flex; gap: 10px; align-items:center; flex-wrap: wrap; }
+  .badge { height: 24px; padding: 0 8px; border-radius: 4px; font-size: 15px; line-height: 24px; font-family: inherit; display:inline-flex; align-items:center; }
+  .pri { background: var(--gov-primary-pastel); color: var(--gov-primary-hover); }
+  .pri-solid { background: var(--gov-primary); color: #fff; }
+  .neutral { background: var(--gov-bg-2); color: var(--gov-fg-3); }
+  .success { background: #E5F4ED; color: #24825A; }
+  .warning { background: #FBF1E1; color: #B7762B; }
+  .danger { background: #FBE5E5; color: #B23838; }
+  .num { background: var(--gov-primary); color: #fff; min-width: 24px; height: 24px; padding: 0 6px; border-radius: 999px; font-size: 13px; line-height: 24px; text-align:center; font-weight:700; }
+</style></head>
+<body>
+<div class="row">
+  <span class="badge pri">진행중</span>
+  <span class="badge pri-solid">접수중</span>
+  <span class="badge neutral">마감</span>
+  <span class="badge success">완료</span>
+  <span class="badge warning">예정</span>
+  <span class="badge danger">중단</span>
+  <span class="num">10</span>
+  <span class="num">99+</span>
+</div>
+</body></html>

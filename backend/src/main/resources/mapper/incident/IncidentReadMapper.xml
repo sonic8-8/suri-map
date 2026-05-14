@@ -14,7 +14,9 @@
 
     <resultMap id="detailRowMap" type="com.surimap.incident.repository.IncidentReadRows$DetailRow">
         <id property="id" column="id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="title" column="title"/>
         <result property="status" column="status"/>
+        <result property="openedAt" column="opened_at"/>
         <result property="version" column="version"/>
     </resultMap>
 
@@ -36,7 +38,11 @@
 
     <resultMap id="assignmentRowMap" type="com.surimap.incident.repository.IncidentReadRows$AssignmentRow">
         <result property="accountId" column="account_id"/>
+        <result property="accountDisplayName" column="account_display_name"/>
+        <result property="accountType" column="account_type"/>
+        <result property="organizationType" column="organization_type"/>
         <result property="incidentRole" column="incident_role"/>
+        <result property="assignedAt" column="assigned_at"/>
     </resultMap>
 
     <resultMap id="assignmentTargetRowMap" type="com.surimap.incident.repository.IncidentReadRows$AssignmentTargetRow">
@@ -72,6 +78,8 @@
         SELECT
             i.id,
             i.status,
+            i.title,
+            i.opened_at,
             i.version
         FROM "incident" i
         INNER JOIN incident_assignment ia
@@ -129,12 +137,18 @@
 
     <select id="findActiveAssignmentsByIncidentId" resultMap="assignmentRowMap">
         SELECT
-            account_id,
-            incident_role
-        FROM incident_assignment
-        WHERE incident_id = #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
-          AND revoked_at IS NULL
-        ORDER BY assigned_at ASC, account_id ASC
+            ia.account_id,
+            a.display_name AS account_display_name,
+            a.account_type,
+            a.organization_type,
+            ia.incident_role,
+            ia.assigned_at
+        FROM incident_assignment ia
+        LEFT JOIN account a
+            ON CAST(a.id AS VARCHAR) = CAST(ia.account_id AS VARCHAR)
+        WHERE ia.incident_id = #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND ia.revoked_at IS NULL
+        ORDER BY ia.assigned_at ASC, ia.account_id ASC
     </select>
 
     <select id="findActiveAssignmentTargetsByIncidentId" resultMap="assignmentTargetRowMap">

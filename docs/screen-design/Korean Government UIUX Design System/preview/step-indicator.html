@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>Step indicator</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin:0; padding:24px; background:#fff; font-family: var(--gov-font-body); color: var(--gov-fg-1); }
+  .steps { display:flex; align-items:center; gap: 0; }
+  .step { display:flex; flex-direction:column; align-items:center; gap: 8px; flex: 1; position: relative; }
+  .dot { width: 40px; height: 40px; border-radius: 999px; display:flex; align-items:center; justify-content:center; font-weight: 700; background: #fff; color: var(--gov-fg-3); border: 1px solid var(--gov-border-3); }
+  .step.done .dot { background: var(--gov-primary); color: #fff; border-color: var(--gov-primary); }
+  .step.now .dot { background: #fff; color: var(--gov-primary); border: 2px solid var(--gov-primary); box-shadow: 0 0 0 4px var(--gov-primary-pastel); }
+  .lab { font-size: 15px; font-weight:700; color: var(--gov-fg-3); }
+  .step.now .lab, .step.done .lab { color: var(--gov-fg-1); }
+  .bar { position: absolute; left: 50%; right: -50%; top: 19px; height: 2px; background: var(--gov-border-2); z-index: -1; }
+  .step.done .bar { background: var(--gov-primary); }
+  .step:last-child .bar { display:none; }
+</style></head>
+<body>
+<div class="steps">
+  <div class="step done"><div class="dot">✓</div><span class="lab">약관동의</span><div class="bar"></div></div>
+  <div class="step done"><div class="dot">✓</div><span class="lab">정보입력</span><div class="bar"></div></div>
+  <div class="step now"><div class="dot">3</div><span class="lab">신청확인</span><div class="bar"></div></div>
+  <div class="step"><div class="dot">4</div><span class="lab">완료</span></div>
+</div>
+</body></html>

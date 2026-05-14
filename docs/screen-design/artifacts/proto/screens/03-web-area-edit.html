@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>Step 3 · Web 구역 편집</title>
+<script src="../state.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: Pretendard, "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; }
+  html, body { height: 100%; overflow: hidden; }
+  body { background: #fff; color: #1d1d1d; display: grid; grid-template-rows: 56px 1fr; }
+
+  .header { background: #fff; border-bottom: 1px solid #D8D8D8; padding: 0 16px; display: flex; align-items: center; gap: 16px; }
+  .header .logo { width: 32px; height: 32px; border: 1px solid #246BEB; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #246BEB; font-size: 11px; }
+  .header .title { font-size: 14px; font-weight: 700; flex: 1; }
+  .header .back { background: transparent; border: 1px solid #D8D8D8; padding: 6px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; font-family: inherit; }
+
+  .main { display: grid; grid-template-columns: 240px 1fr 320px; height: calc(100vh - 56px); }
+
+  .left { background: #F8F8F8; border-right: 1px solid #D8D8D8; padding: 16px 12px; display: flex; flex-direction: column; gap: 12px; }
+  .section-title { font-size: 11px; font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .tool { padding: 10px 12px; border: 1px solid #D8D8D8; border-radius: 6px; background: #fff; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; font-family: inherit; }
+  .tool.active { background: #EFF5FF; border-color: #246BEB; color: #246BEB; }
+  .tool:hover { border-color: #246BEB; }
+
+  .map { background: #f0f4f8; position: relative; overflow: hidden; }
+  .map-grid { position: absolute; inset: 0; background:
+    linear-gradient(transparent 50%, rgba(0,0,0,0.04) 50%) 0 0 / 100% 80px,
+    linear-gradient(90deg, transparent 50%, rgba(0,0,0,0.04) 50%) 0 0 / 80px 100%; }
+
+  .area-overall { position: absolute; left: 60px; top: 60px; right: 60px; bottom: 60px; border: 3px dashed #1d1d1d; }
+  .area-overall .label { position: absolute; top: -22px; left: 0; font-size: 12px; font-weight: 700; background: #fff; padding: 2px 8px; border: 2px solid #1d1d1d; border-radius: 4px; }
+
+  .area-unit { position: absolute; border: 2px solid #246BEB; background: rgba(36,107,235,0.05); }
+  .area-unit .unit-label { position: absolute; top: -20px; left: 4px; font-size: 11px; font-weight: 700; background: #fff; padding: 2px 8px; border: 1px solid #246BEB; color: #246BEB; border-radius: 4px; }
+
+  .area-team { position: absolute; border: 1.5px solid #1F8754; background: rgba(31,135,84,0.10); padding: 6px; font-size: 11px; }
+  .area-team b { font-size: 12px; }
+
+  .right { background: #fff; border-left: 1px solid #D8D8D8; padding: 16px; overflow-y: auto; }
+  .tree-node { font-size: 13px; }
+  .tree-node.overall { font-weight: 700; padding: 8px 10px; background: #f8f8f8; border: 2px solid #1d1d1d; border-radius: 6px; margin-bottom: 8px; }
+  .tree-children { padding-left: 16px; margin-top: 6px; border-left: 2px solid #D8D8D8; display: flex; flex-direction: column; gap: 4px; }
+  .tree-child { padding: 8px 10px; background: #f8f8f8; border: 1px solid #246BEB; border-radius: 6px; }
+  .tree-child .name { font-weight: 600; color: #246BEB; font-size: 12px; }
+  .tree-grandchildren { padding-left: 12px; margin-top: 6px; border-left: 1px dashed #D8D8D8; display: flex; flex-direction: column; gap: 3px; }
+  .tree-grandchild { padding: 5px 8px; font-size: 11px; border: 1px solid #D8D8D8; border-radius: 4px; background: #fff; }
+
+  .save-row { display: flex; gap: 8px; margin-top: 16px; }
+  .btn-cancel { flex: 1; padding: 10px; background: transparent; border: 1px solid #D8D8D8; border-radius: 6px; font-family: inherit; cursor: pointer; }
+  .btn-save { flex: 1; padding: 10px; background: #246BEB; color: #fff; border: 0; border-radius: 6px; font-family: inherit; font-weight: 700; cursor: pointer; }
+
+  .demo-hint { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: #FCF1E2; border: 1px solid #E8881A; padding: 10px 14px; font-size: 12px; border-radius: 6px; max-width: 600px; }
+  .demo-hint b { color: #E8881A; }
+
+  .draw-anim { animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: 0.5; } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">SM</div>
+  <div class="title">사건 #2001 · 정OO · 구역 편집 모드</div>
+  <button class="back" onclick="history.back()">← 상황판으로</button>
+</div>
+
+<div class="main">
+  <aside class="left">
+    <div class="section-title">도구</div>
+    <button class="tool active">전체 수색 구역 그리기</button>
+    <button class="tool">UNIT 분할</button>
+    <button class="tool">TEAM 분할</button>
+    <button class="tool">완료 처리</button>
+    <div style="font-size:11px; color:#8E8E8E; margin-top:8px; padding-top:8px; border-top:1px solid #D8D8D8;">
+      ⓘ 시연 모드: 자동으로 OVERALL → UNIT × 2 → TEAM × 4가 그려집니다
+    </div>
+  </aside>
+
+  <main class="map">
+    <div class="map-grid"></div>
+
+    <div class="area-overall">
+      <span class="label">전체 수색 구역 · 김 간부 · 14:30 갱신</span>
+    </div>
+
+    <div class="area-unit" id="unit1" style="left:120px; top:120px; width:300px; height:200px;">
+      <span class="unit-label">기동대 1부대</span>
+    </div>
+    <div class="area-team" style="left:140px; top:160px; width:130px; height:80px;">
+      <b>팀 A</b><br><span style="color:#555">기동대 1부대 A팀</span>
+    </div>
+    <div class="area-team" style="left:280px; top:160px; width:130px; height:80px;">
+      <b>팀 B</b><br><span style="color:#555">기동대 1부대 B팀</span>
+    </div>
+    <div class="area-team" style="left:140px; top:250px; width:270px; height:60px;">
+      <b>팀 C</b><br><span style="color:#555">기동대 1부대 C팀</span>
+    </div>
+
+    <div class="area-unit" id="unit2" style="left:480px; top:160px; width:280px; height:240px;">
+      <span class="unit-label">광주 북구 지구대</span>
+    </div>
+    <div class="area-team" style="left:500px; top:200px; width:240px; height:180px;">
+      <b>지구대 단일 운용</b><br><span style="color:#555">팀 분할 없음</span>
+    </div>
+  </main>
+
+  <aside class="right">
+    <div class="section-title">구역 트리</div>
+    <div class="tree-node overall">
+      ▼ 전체 수색 구역
+      <div style="font-size:10px; color:#8E8E8E; font-weight:400; margin-top:2px;">김 간부 · 14:30</div>
+    </div>
+    <div class="tree-children">
+      <div class="tree-child">
+        <div class="name">기동대 1부대</div>
+        <div style="font-size:10px; color:#8E8E8E;">분할 14:31 · 3팀</div>
+        <div class="tree-grandchildren">
+          <div class="tree-grandchild">팀 A · 기동대 1부대 A팀 폴리폰</div>
+          <div class="tree-grandchild">팀 B · 기동대 1부대 B팀 폴리폰</div>
+          <div class="tree-grandchild">팀 C · 기동대 1부대 C팀 폴리폰</div>
+        </div>
+      </div>
+      <div class="tree-child">
+        <div class="name">광주 북구 지구대</div>
+        <div style="font-size:10px; color:#8E8E8E;">단일 운용 (팀 분할 없음)</div>
+      </div>
+    </div>
+
+    <div class="save-row">
+      <button class="btn-cancel" onclick="history.back()">취소</button>
+      <button class="btn-save" onclick="onSave()">저장 + 진행</button>
+    </div>
+  </aside>
+</div>
+
+<div class="demo-hint">
+  <b>시연 가이드:</b> 구역이 이미 그려져 있습니다. 우측 [저장 + 진행]을 눌러 다음 단계 (폴리폰 사건 진입)로 이동.
+</div>
+
+<script>
+  renderProtoBar(3, 7, './04-polifon-incident-select.html');
+
+  function onSave() {
+    const s = getState();
+    s.areasDivided = true;
+    s.step = 4;
+    saveState(s);
+    location.href = './04-polifon-incident-select.html';
+  }
+</script>
+</body>
+</html>
