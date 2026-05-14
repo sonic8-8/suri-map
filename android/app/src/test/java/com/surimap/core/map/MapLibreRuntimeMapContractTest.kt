@@ -114,6 +114,8 @@ class MapLibreRuntimeMapContractTest {
         assertTrue(pathPaint.lineWidth > mapLibreOverlayPaint(MapLibreGeometryOverlayKind.Path, highlighted = false).lineWidth)
         assertTrue(source.contains("SymbolLayer("))
         assertTrue(source.contains("textField(Expression.get(\"label\"))"))
+        assertTrue(source.contains("textFont(SURI_MAP_LABEL_FONT_STACK)"))
+        assertTrue(source.contains("Noto Sans Regular"))
         assertTrue(source.contains("textHaloColor(paint.textHaloColor)"))
         assertTrue(source.contains("removeLayer(\"\$styleId-label\")"))
         assertTrue(searchMapSource.contains("label = layer.label"))
