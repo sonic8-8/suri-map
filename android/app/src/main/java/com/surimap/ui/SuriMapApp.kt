@@ -485,6 +485,7 @@ private fun HandoverSummaryRoute(
                     return@launch
                 }
                 endingDutyShift = true
+                clockSyncState.syncClockForIncident(sessionContext.incidentId, policePhoneContext)
                 when (
                     dutyShiftRecorder.end(
                         context = incidentContext.toDutyShiftWriteContext(policePhoneContext)
@@ -564,6 +565,7 @@ private fun HandoverMemoRoute(
         onSave = {
             coroutineScope.launch {
                 memoState = memoState.copy(saving = true)
+                clockSyncState.syncClockForIncident(sessionContext.incidentId, policePhoneContext)
                 when (
                     recorder.createMemo(
                         context = sessionContext.toHandoverWriteContext(),

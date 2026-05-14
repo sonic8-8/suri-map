@@ -80,6 +80,14 @@ class SearchMapUiStateTest {
     }
 
     @Test
+    fun activeSearchMapCanOpenHandoverEvenWithoutUnreadPrompt() {
+        val state = SearchMapUiState.active(hasUnreadHandover = false)
+
+        assertFalse(state.showHandoverPrompt)
+        assertTrue(state.visibleText().contains("인수인계"))
+    }
+
+    @Test
     fun markerFocusDeeplinkHighlightsTargetMarkerWithoutChangingWriteAvailability() {
         val state =
             SearchMapUiState.active().copy(
