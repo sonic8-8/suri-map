@@ -16,5 +16,7 @@ public interface MarkerRepository {
 
   int updateMarker(MarkerUpdateRecord record);
 
+  int updateMarkerStatusVersion(UUID markerId, long expectedVersion, String status, long version);
+
   int deleteMarker(MarkerDeleteRecord record);
 }

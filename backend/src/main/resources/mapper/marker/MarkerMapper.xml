@@ -222,6 +222,17 @@
           AND status &lt;&gt; 'DELETED'
     </update>
 
+    <update id="updateMarkerStatusVersion">
+        UPDATE marker
+        SET
+            status = #{status},
+            version = #{version},
+            updated_at = NOW()
+        WHERE id = #{markerId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND version = #{expectedVersion}
+          AND status &lt;&gt; 'DELETED'
+    </update>
+
     <update id="deleteMarker">
         UPDATE marker
         SET

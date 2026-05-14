@@ -10,6 +10,8 @@ public interface MarkerRuntimeGuardMapper {
 
   Optional<String> findIncidentStatus(@Param("incidentId") UUID incidentId);
 
+  Optional<UUID> findCurrentOpId(@Param("incidentId") UUID incidentId);
+
   int countActiveAssignmentsByAccountId(@Param("accountId") UUID accountId);
 
   int countActiveIncidentAssignment(

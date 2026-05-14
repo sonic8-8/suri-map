@@ -26,6 +26,13 @@ public interface MarkerMapper extends MarkerRepository {
   int updateMarker(@Param("record") MarkerUpdateRecord record);
 
   @Override
+  int updateMarkerStatusVersion(
+      @Param("markerId") UUID markerId,
+      @Param("expectedVersion") long expectedVersion,
+      @Param("status") String status,
+      @Param("version") long version);
+
+  @Override
   int deleteMarker(@Param("record") MarkerDeleteRecord record);
 
   List<MarkerRecord> findByIncident(

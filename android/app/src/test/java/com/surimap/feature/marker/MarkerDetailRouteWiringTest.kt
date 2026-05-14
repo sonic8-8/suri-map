@@ -34,4 +34,23 @@ class MarkerDetailRouteWiringTest {
         assertTrue(source.contains("MarkerPhotoUploadPayload"))
         assertFalse(source.contains("onAddPhoto = {},"))
     }
+
+    @Test
+    fun markerDetailPhotoUploadRefreshesClockBeforeOutboxAttach() {
+        val source = java.io.File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+
+        val beginPhotoUploadIndex = source.indexOf("fun beginPhotoUpload")
+        val payloadIndex =
+            source.indexOf("val payload = context.markerPhotoUploadPayload", beginPhotoUploadIndex)
+        val clockSyncIndex =
+            source.indexOf(
+                "clockSyncState.syncClockForIncident(sessionContext.incidentId, policePhoneContext)",
+                beginPhotoUploadIndex
+            )
+
+        assertTrue(beginPhotoUploadIndex >= 0)
+        assertTrue(payloadIndex >= 0)
+        assertTrue(clockSyncIndex >= 0)
+        assertTrue(clockSyncIndex < payloadIndex)
+    }
 }
