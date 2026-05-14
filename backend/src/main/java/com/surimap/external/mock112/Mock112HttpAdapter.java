@@ -31,11 +31,15 @@ public class Mock112HttpAdapter implements ExternalIncidentAdapter {
 
   private final RestTemplate restTemplate;
   private final Mock112Config.Mock112Properties properties;
+  private final ImportCandidateStore candidateStore;
 
   public Mock112HttpAdapter(
-      RestTemplate mock112RestTemplate, Mock112Config.Mock112Properties mock112Properties) {
+      RestTemplate mock112RestTemplate,
+      Mock112Config.Mock112Properties mock112Properties,
+      ImportCandidateStore candidateStore) {
     this.restTemplate = mock112RestTemplate;
     this.properties = mock112Properties;
+    this.candidateStore = candidateStore;
   }
 
   @Override
@@ -83,6 +87,7 @@ public class Mock112HttpAdapter implements ExternalIncidentAdapter {
     } catch (Exception e) {
       log.warn("mock 112 IMPORTED 마킹 실패 (비치명적): {}", e.getMessage());
     }
+    candidateStore.markImported(sourceIncidentId);
   }
 
   // ── 내부 매핑 ──

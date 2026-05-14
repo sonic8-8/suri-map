@@ -30,6 +30,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,6 +48,8 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class IncidentImportService {
+
+  private static final Logger log = LoggerFactory.getLogger(IncidentImportService.class);
 
   private static final String PRECINCT_FIRST_SOURCE_INCIDENT_ID =
       "00000000-0000-0000-0000-000000000001";
@@ -98,6 +102,7 @@ public class IncidentImportService {
       reserveIdempotency(command, now);
       IncidentImportResult result = toResult(existing.get());
       completeIdempotency(command, result, now);
+      markImported(existing.get().getSourceIncidentId());
       return result;
     }
 
@@ -137,6 +142,7 @@ public class IncidentImportService {
             INITIAL_VERSION,
             assignmentAccountIds);
     completeIdempotency(command, result, now);
+    markImported(sourceIncidentId);
     return result;
   }
 
@@ -236,6 +242,14 @@ public class IncidentImportService {
       return Objects.requireNonNull(externalIncidentAdapter.fetchIncident(sourceIncidentId));
     } catch (RuntimeException exception) {
       throw new IncidentImportDependencyException(exception);
+    }
+  }
+
+  private void markImported(String sourceIncidentId) {
+    try {
+      externalIncidentAdapter.markImported(sourceIncidentId);
+    } catch (RuntimeException exception) {
+      log.warn("mock 112 imported mark failed: {}", exception.getMessage());
     }
   }
 
