@@ -165,6 +165,7 @@ function activeIncidentDetail(): ActiveIncidentDetailResponse {
       incidentId: importedIncidentId,
       displayName: '홍길동',
       photoObjectKey: 'missing-person/photo.jpg',
+      photoUrl: '/mock-upload/missing-person/photo.jpg',
       appearanceText: '검은 상의',
       lastSeenLocationText: '광산구 월곡동',
       lastSeenAt: '2026-05-14T01:00:00Z',

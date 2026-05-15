@@ -41,6 +41,7 @@ export interface IncidentMissingPersonSummary {
   incidentId: string;
   displayName: string;
   photoObjectKey: string;
+  photoUrl: string | null;
   appearanceText: string;
   lastSeenLocationText: string;
   lastSeenAt: string;
