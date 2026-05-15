@@ -1,4 +1,5 @@
 import type { CompletedAreaDraft } from '../../../../shared/model/areaDraft';
+import type { AreaBbox } from '../../../../shared/model/areaDraft';
 import type { MovementPath } from '../constants/mockSituationBoard';
 import type { SituationBoardResponseDto } from '../../data/getSituationBoard';
 
@@ -31,6 +32,21 @@ export function readPolicePhoneId(row: Record<string, unknown>) {
 export function readNumber(row: Record<string, unknown>, key: string) {
   const value = row[key];
   return typeof value === 'number' ? value : null;
+}
+
+export function readBbox(row: Record<string, unknown>): AreaBbox | undefined {
+  const bbox = row.bbox;
+  if (!Array.isArray(bbox) || bbox.length < 4) return undefined;
+  const [minLon, minLat, maxLon, maxLat] = bbox;
+  if (
+    typeof minLon !== 'number' ||
+    typeof minLat !== 'number' ||
+    typeof maxLon !== 'number' ||
+    typeof maxLat !== 'number'
+  ) {
+    return undefined;
+  }
+  return [minLon, minLat, maxLon, maxLat];
 }
 
 export function readPolygonCoordinates(row: Record<string, unknown>): CompletedAreaDraft['coordinates'] | null {

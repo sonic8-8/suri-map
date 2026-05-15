@@ -1,5 +1,5 @@
 import { areaColorTokens, type AreaColorToken } from '../constants/areaColorTokens';
-import type { CompletedAreaDraft } from './areaDraft';
+import type { AreaBbox, CompletedAreaDraft } from './areaDraft';
 import type { BoardMapMarker, BoardMovementPath, BoardPosition } from './boardMapSlots';
 
 export type BoardMapMarkerType = BoardMapMarker['markerType'];
@@ -201,6 +201,9 @@ function createSearchAreaDraftFeature(
   if (options.incidentId) {
     properties.incidentId = options.incidentId;
   }
+  if (draft.bbox) {
+    properties.bbox = stringifyBbox(draft.bbox);
+  }
 
   return {
     type: 'Feature',
@@ -210,6 +213,10 @@ function createSearchAreaDraftFeature(
       coordinates: [draft.coordinates],
     },
   };
+}
+
+function stringifyBbox(bbox: AreaBbox): string {
+  return JSON.stringify(bbox);
 }
 
 function createMovementPathFeature(

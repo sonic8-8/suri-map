@@ -232,46 +232,73 @@
 .sharedMapToolbox {
   position: absolute;
   z-index: 24;
-  right: 18px;
-  bottom: 18px;
-  display: inline-flex;
-  align-items: center;
-  max-width: min(520px, calc(100% - 420px));
-  gap: 8px;
-  padding: 10px;
+  bottom: 22px;
+  left: 50%;
+  display: inline-grid;
+  grid-auto-flow: column;
+  gap: 14px;
+  padding: 10px 12px;
   border: 1px solid var(--suri-board-border);
-  border-radius: 8px;
-  color: var(--suri-board-fg-primary);
-  background: color-mix(in srgb, var(--suri-board-panel-bg) 94%, transparent);
-  box-shadow: 0 14px 34px rgb(0 0 0 / 24%);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--suri-board-panel-bg) 92%, transparent);
+  box-shadow: 0 16px 36px rgb(0 0 0 / 26%);
+  transform: translateX(-50%);
+  backdrop-filter: blur(10px);
   pointer-events: auto;
 }
 
 .sharedMapToolButton,
 .sharedMapToolButtonActive {
-  min-height: 34px;
-  padding: 0 12px;
-  border: 1px solid color-mix(in srgb, var(--suri-board-primary-hi) 42%, var(--suri-board-border));
-  border-radius: 6px;
-  color: var(--suri-board-fg-primary);
+  display: inline-grid;
+  align-items: center;
+  justify-content: center;
+  width: 82px;
+  height: 82px;
+  padding: 10px 8px;
+  border: 1px solid var(--suri-board-option-default-border);
+  border-radius: 12px;
+  color: var(--suri-board-fg-secondary);
   background: var(--suri-board-panel-surface);
   font-size: 13px;
   font-weight: 800;
 }
 
-.sharedMapToolButtonActive {
-  color: var(--suri-board-primary-hi);
-  background: var(--suri-board-primary-soft);
+.sharedMapToolButton:hover,
+.sharedMapToolButtonActive:hover {
+  border-color: color-mix(in srgb, var(--suri-board-primary-hi) 70%, var(--suri-board-border));
+  color: var(--suri-board-fg-primary);
+  background: var(--suri-board-panel-muted-bg);
 }
 
-.sharedMapToolbox span {
-  overflow: hidden;
-  max-width: 260px;
-  color: var(--suri-board-fg-secondary);
-  font-size: 12px;
-  font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.sharedMapToolButtonActive {
+  border-color: var(--suri-board-primary-hi);
+  color: var(--suri-board-fg-primary);
+  background: color-mix(in srgb, var(--suri-board-primary-hi) 18%, var(--suri-board-panel-surface));
+}
+
+.sharedMapToolButton:disabled,
+.sharedMapToolButtonActive:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.sharedMapToolbox > span {
+  position: absolute;
+  bottom: calc(100% + 16px);
+  left: 50%;
+  width: max-content;
+  max-width: min(600px, calc(100vw - 48px));
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: #fff4e6;
+  background: color-mix(in srgb, #3a3a3a 88%, transparent);
+  box-shadow: 0 12px 26px rgb(0 0 0 / 19%);
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.42;
+  text-align: center;
+  white-space: normal;
+  transform: translateX(-50%);
 }
 
 .leftPanelTabs {

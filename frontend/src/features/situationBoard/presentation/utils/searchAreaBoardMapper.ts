@@ -14,6 +14,7 @@ import type {
 import type { SituationBoardResponseDto } from '../../data/getSituationBoard';
 import {
   isRecord,
+  readBbox,
   readNumber,
   readPolicePhoneId,
   readPolygonCoordinates,
@@ -29,6 +30,7 @@ export type BoardSearchAreaRow = {
   name: string;
   version: number | null;
   coordinates: CompletedAreaDraft['coordinates'];
+  bbox?: CompletedAreaDraft['bbox'];
   assignedAccounts: SearchAreaAssignedAccount[];
 };
 
@@ -58,6 +60,7 @@ export function toSearchAreaRows(board: SituationBoardResponseDto): BoardSearchA
         name: readString(row, 'name') ?? areaLevel,
         version: readNumber(row, 'version'),
         coordinates,
+        bbox: readBbox(row),
         assignedAccounts: readAssignedAccounts(row),
       },
     ];
@@ -235,5 +238,6 @@ function toSearchAreaDraft(row: BoardSearchAreaRow): CompletedAreaDraft {
     colorToken: getAreaColorToken(row.id),
     label: row.name,
     coordinates: row.coordinates,
+    bbox: row.bbox,
   };
 }
