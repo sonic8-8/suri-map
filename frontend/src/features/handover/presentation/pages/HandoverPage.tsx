@@ -51,6 +51,7 @@ type HandoverPageProps = {
   onCloseMarkerNotifications: () => void;
   onMoveMarkerNotification: (nextIndex: number) => void;
   onOpenIncidentList: () => void;
+  onOpenIncidentDetail?: () => void;
   onOpenSituationBoard: () => void;
   onOpenOfflinePackage: () => void;
   onOperationalPeriodCreated?: () => void;
@@ -96,6 +97,7 @@ export function HandoverPage({
   onCloseMarkerNotifications,
   onMoveMarkerNotification,
   onOpenIncidentList,
+  onOpenIncidentDetail,
   onOpenSituationBoard,
   onOpenOfflinePackage,
   onOperationalPeriodCreated,
@@ -403,6 +405,7 @@ export function HandoverPage({
         incidentContext={incidentContext}
         timestampLabel={timestampLabel}
         onOpenIncidentList={onOpenIncidentList}
+        onOpenIncidentDetail={onOpenIncidentDetail}
         markerNotificationIndex={markerNotificationIndex}
         markerNotifications={markerNotifications}
         onCloseMarkerNotifications={onCloseMarkerNotifications}

@@ -35,6 +35,7 @@ describe('OfflinePackageStatusPage', () => {
         incidentId: 'inc-precinct-first-001',
         displayName: '홍길동',
         photoObjectKey: 'missing-person/photo.jpg',
+        photoUrl: '/mock-upload/missing-person/photo.jpg',
         appearanceText: '검은 상의',
         lastSeenLocationText: '광산구',
         lastSeenAt: '2026-05-14T01:00:00Z',

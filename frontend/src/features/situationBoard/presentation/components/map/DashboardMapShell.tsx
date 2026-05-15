@@ -21,6 +21,8 @@ type DashboardMapShellProps = {
   layerVisibility: LayerVisibility;
   movementPaths: MovementPath[];
   recentMarkers: RecentMarker[];
+  focusedMarkerId: string | null;
+  focusedMarkerSequence: number;
   visibleMarkerIds: string[];
   savedAreaDrafts: CompletedAreaDraft[];
   onInitialMapStateChange: (state: InitialMapState | null) => void;
@@ -39,6 +41,8 @@ export function DashboardMapShell({
   layerVisibility,
   movementPaths,
   recentMarkers,
+  focusedMarkerId,
+  focusedMarkerSequence,
   visibleMarkerIds,
   savedAreaDrafts,
   onInitialMapStateChange,
@@ -113,6 +117,8 @@ export function DashboardMapShell({
           layerVisibility={layerVisibility}
           movementPaths={movementPaths}
           recentMarkers={recentMarkers}
+          focusedMarkerId={focusedMarkerId}
+          focusedMarkerSequence={focusedMarkerSequence}
           visibleMarkerIds={visibleMarkerIds}
           savedAreaDrafts={savedAreaDrafts}
           onInitialBoundsReady={handleInitialBoundsReady}

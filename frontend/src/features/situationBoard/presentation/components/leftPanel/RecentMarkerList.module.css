@@ -70,6 +70,17 @@
   border-radius: 4px;
   color: var(--suri-board-fg-primary);
   background: var(--suri-board-panel-surface);
+  cursor: pointer;
+}
+
+.feedItem:hover {
+  border-color: var(--suri-board-primary-hi);
+  background: color-mix(in srgb, var(--suri-board-primary-soft) 42%, var(--suri-board-panel-surface));
+}
+
+.feedItem:focus-visible {
+  outline: 2px solid var(--suri-board-primary-hi);
+  outline-offset: 2px;
 }
 
 .feedItemFound {

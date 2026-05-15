@@ -25,6 +25,7 @@ describe('SituationBoardHeader', () => {
             incidentId,
             displayName: '홍길동',
             photoObjectKey: '',
+            photoUrl: null,
             appearanceText: '',
             lastSeenLocationText: '',
             lastSeenAt: '',

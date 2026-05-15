@@ -27,6 +27,7 @@ type SituationBoardHeaderProps = {
   onCloseMarkerNotifications: () => void;
   onMoveMarkerNotification: (nextIndex: number) => void;
   onOpenIncidentList: () => void;
+  onOpenIncidentDetail?: () => void;
   onOpenSituationBoard?: () => void;
   onOpenHandover?: () => void;
   onOpenOfflinePackage?: () => void;
@@ -44,6 +45,7 @@ export function SituationBoardHeader({
   onCloseMarkerNotifications,
   onMoveMarkerNotification,
   onOpenIncidentList,
+  onOpenIncidentDetail,
   onOpenSituationBoard,
   onOpenHandover,
   onOpenOfflinePackage,
@@ -63,6 +65,7 @@ export function SituationBoardHeader({
       onCloseMarkerNotifications={onCloseMarkerNotifications}
       onMoveMarkerNotification={onMoveMarkerNotification}
       onOpenHandover={onOpenHandover}
+      onOpenIncidentDetail={onOpenIncidentDetail}
       onOpenIncidentList={onOpenIncidentList}
       onOpenOfflinePackage={onOpenOfflinePackage}
       onOpenSituationBoard={onOpenSituationBoard}

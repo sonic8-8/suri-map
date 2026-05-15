@@ -4,6 +4,7 @@ export const ROUTES = {
   home: '/',
   login: '/login',
   incidentList: '/incidents',
+  incidentDetail: '/incidents/:incidentId',
   incidentBoard: '/incidents/:incidentId/board',
   incidentHandover: '/incidents/:incidentId/handover',
   incidentOfflinePackage: '/incidents/:incidentId/offline-package',
@@ -15,6 +16,10 @@ export const ROUTES = {
 
 export function getIncidentBoardPath(incidentId: string) {
   return `/incidents/${incidentId}/board`;
+}
+
+export function getIncidentDetailPath(incidentId: string) {
+  return `/incidents/${incidentId}`;
 }
 
 export function getIncidentHandoverPath(incidentId: string) {
