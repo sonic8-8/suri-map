@@ -42,8 +42,8 @@ public class PhotoService {
 
   public static final long MAX_SIZE_BYTES = 10_485_760L;
   public static final int MAX_PHOTOS_PER_MARKER = 10;
-  private static final Duration UPLOAD_URL_TTL = Duration.ofMinutes(15);
-  private static final Set<String> ALLOWED_CONTENT_TYPES =
+  public static final Duration UPLOAD_URL_TTL = Duration.ofMinutes(15);
+  public static final Set<String> ALLOWED_CONTENT_TYPES =
       Set.of("image/jpeg", "image/png", "image/webp");
   private static final Set<PhotoStatus> COUNTED_STATUSES =
       Set.of(PhotoStatus.PENDING_UPLOAD, PhotoStatus.ATTACHED);

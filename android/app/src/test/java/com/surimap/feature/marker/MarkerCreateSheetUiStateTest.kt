@@ -40,7 +40,7 @@ class MarkerCreateSheetUiStateTest {
         assertTrue(support.canSave)
         assertEquals("type", support.markerTypePayloadName)
         assertEquals("supportRequestType", support.supportRequestPayloadName)
-        assertTrue(clue.visibleText().any { it.contains("마커 저장 후 상세 화면") })
+        assertTrue(clue.visibleText().any { it.contains("마커와 사진이 함께 등록") })
     }
 
     @Test

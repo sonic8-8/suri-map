@@ -351,9 +351,10 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Headers: `Authorization`, `Idempotency-Key`, `X-PolicePhone-Id`
 - Guard: `@RequireChannel(APP)`, PolicePhone registered/assigned, incident access, current OP, idempotent write
 - Idempotency-Key: yes
-- Request: `incidentId`, `opId`, `type`, `location`, `clientTs`, optional `supportRequestType`, `memo`, `clockOffsetMs`
-- Response: `201 {id, incidentId, opId, policePhoneId, status, version}`
+- Request: optional `id`, `incidentId`, `opId`, `type`, `location`, `clientTs`, optional `supportRequestType`, `memo`, `clockOffsetMs`, `photos:[{photoId, sizeBytes, contentType, optional width, height, checksumSha256}]`
+- Response: `201 {id, incidentId, opId, policePhoneId, status, version, photos:[{photoId, status, version, markerId, markerVersion}]}`
 - Errors: `invalid_geometry`, `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`, `op_required`, `op_mismatch`
+- Note: `photos`가 있으면 `id`는 클라이언트가 미리 생성한 markerId여야 한다. 앱은 먼저 `POST /api/markers/photos/upload-url`로 object storage 업로드를 끝낸 뒤 같은 markerId와 photoId를 `POST /api/markers`에 포함해 marker create와 photo attach를 한 write로 확정한다.
 
 #### PATCH `/api/markers/{markerId}`
 
@@ -391,6 +392,19 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Response: `201 {photoId, uploadUrl, expiresAt, maxSizeBytes, version}`
 - Errors: `photo_limit_exceeded`, `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`
 - Note: response의 `uploadUrl`은 S3/MinIO-compatible presigned URL for upload다. API endpoint 이름은 storage 구현 용어인 `presign`이 아니라 클라이언트 동작인 `upload-url`로 둔다.
+
+#### POST `/api/markers/photos/upload-url`
+
+- Owner: S5
+- Source spec: `POST /markers/photos/upload-url`
+- Consumer: APP
+- Headers: `Authorization`, `Idempotency-Key`, `X-PolicePhone-Id`
+- Guard: `@RequireChannel(APP)`, PolicePhone registered/assigned, incident access, current OP, idempotent write
+- Idempotency-Key: yes
+- Request: `markerId`, `incidentId`, `opId`, `contentType`, `sizeBytes`, optional `checksumSha256`
+- Response: `201 {photoId, uploadUrl, expiresAt, maxSizeBytes, version}`
+- Errors: `photo_limit_exceeded`, `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`, `op_required`, `op_mismatch`
+- Note: 마커 생성 화면에서 사진을 먼저 업로드하기 위한 staged upload-url이다. 응답 photo row는 `PENDING_UPLOAD`이고, `POST /api/markers`의 `photos` 배열에 같은 `photoId`를 포함해야 `ATTACHED`로 확정된다.
 
 #### POST `/api/markers/{markerId}/photos/{photoId}/attach`
 
@@ -640,6 +654,7 @@ Tileserver는 Spring Boot JSON API가 아니므로 `/api` prefix를 붙이지 �
 | `GET /events?incidentId={incidentId}` | 필수 사건 scope가 query string에 있음 | `GET /api/incidents/{incidentId}/events` |
 | `GET /markers` | `/api` prefix 없음 | `GET /api/markers` |
 | `POST /markers/{markerId}/photos/upload-url` | `/api` prefix 없음 | `POST /api/markers/{markerId}/photos/upload-url` |
+| `POST /markers/photos/upload-url` | `/api` prefix 없음 | `POST /api/markers/photos/upload-url` |
 | `POST /markers/{markerId}/photos/presign` | S5 기준 용어가 아님 | `POST /api/markers/{markerId}/photos/upload-url` |
 | `POST /markers/{markerId}/photos/{photoId}/attach` | `/api` prefix 없음 | `POST /api/markers/{markerId}/photos/{photoId}/attach` |
 | `POST /markers/{markerId}/photos/{photoId}/finalize` | S5 기준 용어가 아님 | `POST /api/markers/{markerId}/photos/{photoId}/attach` |

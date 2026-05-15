@@ -1579,7 +1579,8 @@
           "dependencyGroup": "MARKER",
           "sequence": 601,
           "method": "POST",
-          "endpoint": "POST /markers"
+          "endpoint": "POST /markers",
+          "note": "marker create body may include id/photos after staged /markers/photos/upload-url upload"
         },
         {
           "operationAlias": "op-outbox-photo-001",
@@ -1602,7 +1603,7 @@
         "markerStatus": "UPDATED",
         "markerVersion": 2,
         "photoId": "55555555-5555-5555-5555-555555550101",
-        "photoStatus": "FINALIZED",
+        "photoStatus": "ATTACHED",
         "photoVersion": 2,
         "markerAlias": "mk-precinct-clue-001",
         "photoAlias": "photo-precinct-clue-001"

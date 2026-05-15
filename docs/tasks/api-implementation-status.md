@@ -61,6 +61,7 @@
 | `POST /api/markers` | S5 | 구현 | `MarkerController` | Android write operation builder 필요 |
 | `PATCH /api/markers/{markerId}` | S5 | 구현 | `MarkerController` | Android/Web policy client 필요 |
 | `DELETE /api/markers/{markerId}` | S5 | 구현 | `MarkerController` | Android/Web policy client 필요 |
+| `POST /api/markers/photos/upload-url` | S5 | 구현 | `MarkerPhotoDraftController` | Android marker create photo staging flow 필요 |
 | `POST /api/markers/{markerId}/photos/upload-url` | S5 | 구현 | `PhotoController` | Android photo upload flow 필요 |
 | `POST /api/markers/{markerId}/photos/{photoId}/attach` | S5 | 구현 | `PhotoController` | Android photo attach flow 필요 |
 | `POST /api/sync/clock` | S6 | 구현 | `SyncClockController`가 `X-PolicePhone-Id`/`police_phone_*` 계약 사용 | Android sync clock client 추가 |

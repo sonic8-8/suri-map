@@ -90,10 +90,12 @@ import com.surimap.feature.incidents.data.IncidentSessionContextResolver
 import com.surimap.feature.incidents.ui.IncidentListScreen
 import com.surimap.feature.incidents.ui.IncidentListUiState
 import com.surimap.feature.marker.data.HttpObjectStorageUploader
+import com.surimap.feature.marker.data.MarkerCreatePhotoInput
 import com.surimap.feature.marker.data.MarkerLocalRecorder
 import com.surimap.feature.marker.data.MarkerDetailSessionContext
 import com.surimap.feature.marker.data.MarkerDetailStateLoader
 import com.surimap.feature.marker.data.MarkerLocation
+import com.surimap.feature.marker.data.MarkerCreatePhotoUploadResult
 import com.surimap.feature.marker.data.MarkerPhotoUiUploadCoordinator
 import com.surimap.feature.marker.data.MarkerPhotoUploadPayload
 import com.surimap.feature.marker.data.MarkerPhotoUploadResult
@@ -103,6 +105,8 @@ import com.surimap.feature.marker.data.MarkerWriteResult
 import com.surimap.feature.marker.ui.MarkerCreateBottomSheet
 import com.surimap.feature.marker.ui.MarkerDetailScreen
 import com.surimap.feature.marker.ui.MarkerCreateSheetUiState
+import com.surimap.feature.marker.ui.MarkerPhotoStage
+import com.surimap.feature.marker.ui.MarkerPhotoUiState
 import com.surimap.feature.marker.ui.MarkerDetailPhotoStatus
 import com.surimap.feature.marker.ui.MarkerDetailPhotoUiState
 import com.surimap.feature.marker.ui.MarkerDetailUiState
@@ -137,6 +141,7 @@ import com.surimap.ui.navigation.SearchMapDeepLink
 import com.surimap.ui.navigation.accessTokenProvider
 import com.surimap.ui.theme.PoliBgBase
 import java.io.File
+import java.util.UUID
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flowOf
@@ -644,6 +649,20 @@ private fun SearchMapRoute(
             clockSyncedAt = clockSyncState::clockSyncedAt
         )
     }
+    val markerPhotoUploadCoordinator =
+        remember(syncClient, policePhoneContext?.apiBaseUrl, policePhoneContext?.accessToken, clockSyncState) {
+            MarkerPhotoUiUploadCoordinator(
+                syncClient = syncClient,
+                apiClient =
+                SuriMapApiClient(
+                    baseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
+                ),
+                accessTokenProvider = accessTokenProvider,
+                uploader = HttpObjectStorageUploader(),
+                clockOffsetMs = clockSyncState::clockOffsetMs,
+                clockSyncedAt = clockSyncState::clockSyncedAt
+            )
+        }
     val coroutineScope = rememberCoroutineScope()
     val loader =
         remember(policePhoneContext?.apiBaseUrl, policePhoneContext?.accessToken, database, outboxDao) {
@@ -736,6 +755,89 @@ private fun SearchMapRoute(
     var mapOverlaysVisible by remember { mutableStateOf(true) }
     var markerSheetOpen by remember { mutableStateOf(false) }
     var markerSheetState by remember { mutableStateOf(MarkerCreateSheetUiState.default()) }
+    var createPhotoUriById by remember { mutableStateOf<Map<String, Uri>>(emptyMap()) }
+    var pendingCreateCameraPhotoUri by remember { mutableStateOf<Uri?>(null) }
+
+    fun beginCreatePhotoUpload(uri: Uri, existingLocalId: String? = null) {
+        val current = markerSheetState
+        if (!current.canAttachPhoto && existingLocalId == null) {
+            return
+        }
+        val localId = existingLocalId ?: "local-create-photo-${System.currentTimeMillis()}"
+        val label =
+            existingLocalId?.let { id ->
+                current.photos.firstOrNull { photo -> photo.localId == id }?.fileName
+            } ?: "사진 ${current.photos.size + 1}"
+        createPhotoUriById = createPhotoUriById + (localId to uri)
+        markerSheetState =
+            current.upsertCreatePhoto(
+                MarkerPhotoUiState(
+                    localId = localId,
+                    fileName = label,
+                    stage = MarkerPhotoStage.Selected,
+                    progress = 0.1f
+                )
+            )
+        coroutineScope.launch {
+            clockSyncState.syncClockForIncident(sessionContext.incidentId, policePhoneContext)
+            val payload = context.markerPhotoUploadPayload(markerId = current.draftMarkerId, uri = uri)
+            if (payload == null) {
+                markerSheetState = markerSheetState.markCreatePhotoFailed(localId)
+                return@launch
+            }
+            markerSheetState =
+                markerSheetState.upsertCreatePhoto(
+                    MarkerPhotoUiState(
+                        localId = localId,
+                        fileName = label,
+                        stage = MarkerPhotoStage.ObjectStorageUpload,
+                        progress = 0.55f,
+                        sizeBytes = payload.sizeBytes,
+                        contentType = payload.contentType
+                    )
+                )
+            markerSheetState =
+                when (
+                    val upload =
+                        markerPhotoUploadCoordinator.uploadForCreate(
+                            context = sessionContext.toMarkerWriteContext(),
+                            payload = payload
+                        )
+                ) {
+                    MarkerCreatePhotoUploadResult.Blocked,
+                    is MarkerCreatePhotoUploadResult.UploadFailed -> markerSheetState.markCreatePhotoFailed(localId)
+
+                    is MarkerCreatePhotoUploadResult.Uploaded ->
+                        markerSheetState.upsertCreatePhoto(
+                            MarkerPhotoUiState(
+                                localId = localId,
+                                fileName = label,
+                                stage = MarkerPhotoStage.Attach,
+                                progress = 1f,
+                                photoId = upload.photoId,
+                                contentType = upload.contentType,
+                                sizeBytes = upload.sizeBytes,
+                                width = upload.width,
+                                height = upload.height,
+                                checksumSha256 = upload.checksumSha256
+                            )
+                        )
+                }
+        }
+    }
+
+    val createPhotoPicker =
+        rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+            uri?.let { selected -> beginCreatePhotoUpload(selected) }
+        }
+    val createPhotoCapture =
+        rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { captured ->
+            val capturedUri = pendingCreateCameraPhotoUri
+            pendingCreateCameraPhotoUri = null
+            if (captured && capturedUri != null) {
+                beginCreatePhotoUpload(capturedUri)
+            }
+        }
 
     LaunchedEffect(
         sessionContext.incidentId,
@@ -874,6 +976,8 @@ private fun SearchMapRoute(
                 markerSheetState =
                     MarkerCreateSheetUiState.default()
                         .withCurrentLocation(displayedSearchMapState.markerCreationLocation())
+                createPhotoUriById = emptyMap()
+                pendingCreateCameraPhotoUri = null
                 markerSheetOpen = true
             },
             onOpenHandover = { navController.navigateToSingleTop(PolicePhoneRoute.HandoverSummary) },
@@ -937,7 +1041,23 @@ private fun SearchMapRoute(
                         }
                     }
                 },
-                onRetryPhoto = {}
+                onCapturePhoto = {
+                    context.createMarkerPhotoCaptureUri(markerSheetState.draftMarkerId)?.let { uri ->
+                        pendingCreateCameraPhotoUri = uri
+                        createPhotoCapture.launch(uri)
+                    }
+                },
+                onPickPhoto = {
+                    createPhotoPicker.launch("image/*")
+                },
+                onRetryPhoto = { photo ->
+                    val uri = createPhotoUriById[photo.localId]
+                    if (uri != null) {
+                        beginCreatePhotoUpload(uri, existingLocalId = photo.localId)
+                    } else {
+                        createPhotoPicker.launch("image/*")
+                    }
+                }
             )
         }
     }
@@ -1589,6 +1709,23 @@ private fun MarkerDetailUiState.markPhotoFailed(photoId: String): MarkerDetailUi
         }
     )
 
+private fun MarkerCreateSheetUiState.upsertCreatePhoto(photo: MarkerPhotoUiState): MarkerCreateSheetUiState {
+    val nextPhotos = photos.filterNot { it.localId == photo.localId } + photo
+    return copy(photos = nextPhotos, photoCount = nextPhotos.size)
+}
+
+private fun MarkerCreateSheetUiState.markCreatePhotoFailed(localId: String): MarkerCreateSheetUiState {
+    val nextPhotos =
+        photos.map { photo ->
+            if (photo.localId == localId) {
+                photo.copy(stage = MarkerPhotoStage.ObjectStorageUpload, progress = 1f, retryAvailable = true)
+            } else {
+                photo
+            }
+        }
+    return copy(photos = nextPhotos, photoCount = nextPhotos.size)
+}
+
 private fun HandoverSessionContext.toHandoverWriteContext(): HandoverWriteContext =
     HandoverWriteContext(
         incidentId = incidentId,
@@ -1699,10 +1836,25 @@ private fun SearchMapUiState.markerCreationLocation(): MarkerLocation? =
 
 private fun MarkerCreateSheetUiState.toMarkerUpsertInput(): MarkerUpsertInput =
     MarkerUpsertInput(
+        markerId = draftMarkerId,
         type = selectedType.apiValue,
         location = selectedLocation?.let { MarkerLocation(lon = it.lon, lat = it.lat) },
         supportRequestType = supportRequestType?.apiValue,
-        memo = memo
+        memo = memo,
+        photos =
+        photos.mapNotNull { photo ->
+            val photoId = photo.photoId ?: return@mapNotNull null
+            val contentType = photo.contentType ?: return@mapNotNull null
+            val sizeBytes = photo.sizeBytes ?: return@mapNotNull null
+            MarkerCreatePhotoInput(
+                photoId = photoId,
+                sizeBytes = sizeBytes,
+                contentType = contentType,
+                width = photo.width,
+                height = photo.height,
+                checksumSha256 = photo.checksumSha256
+            )
+        }
     )
 
 private fun MarkerCreateSheetUiState.withCurrentLocation(location: MarkerLocation?): MarkerCreateSheetUiState =

@@ -14,9 +14,16 @@ import com.surimap.marker.domain.service.MarkerLocationValidatorImpl;
 import com.surimap.marker.domain.service.MarkerOpBindingValidator;
 import com.surimap.marker.dto.MarkerCreateRequest;
 import com.surimap.marker.dto.MarkerCreateResult;
+import com.surimap.marker.dto.MarkerCreatePhotoRequest;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.dto.MarkerPublishRequest;
 import com.surimap.marker.exception.MarkerApiException;
+import com.surimap.marker.photo.adapter.MockObjectStorageAdapter;
+import com.surimap.marker.photo.domain.MarkerPhoto;
+import com.surimap.marker.photo.domain.PhotoStatus;
+import com.surimap.marker.photo.dto.PublishRequest;
+import com.surimap.marker.photo.service.MarkerCreatePhotoAttachmentService;
+import com.surimap.marker.photo.support.InMemoryPhotoRepository;
 import com.surimap.marker.photo.security.SuriMapAuthentication;
 import com.surimap.marker.repository.MarkerRecord;
 import com.surimap.marker.seed.support.InMemoryMarkerRepository;
@@ -25,6 +32,7 @@ import com.surimap.marker.service.MarkerMutationContext;
 import com.surimap.marker.service.MarkerRequestContext;
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -41,6 +49,7 @@ import org.junit.jupiter.api.Test;
 class MarkerCreateServiceTest {
 
   private static final UUID MARKER_ID = UUID.fromString("55555555-5555-5555-5555-555555550071");
+  private static final UUID PHOTO_ID = UUID.fromString("55555555-5555-5555-5555-555555550172");
   private static final UUID ACCOUNT_ID = UUID.fromString("11111111-1111-1111-1111-111111110071");
   private static final UUID POLICE_PHONE_ID =
       UUID.fromString("22222222-2222-2222-2222-222222220071");
@@ -49,7 +58,10 @@ class MarkerCreateServiceTest {
   private static final Instant SERVER_TS = Instant.parse("2026-04-28T00:05:03Z");
 
   private final InMemoryMarkerRepository markerRepository = new InMemoryMarkerRepository();
+  private final InMemoryPhotoRepository photoRepository = new InMemoryPhotoRepository();
+  private final MockObjectStorageAdapter objectStorage = new MockObjectStorageAdapter();
   private final CapturingMarkerEventPublisher eventPublisher = new CapturingMarkerEventPublisher();
+  private final CapturingPhotoEventPublisher photoEventPublisher = new CapturingPhotoEventPublisher();
   private final AllowingMarkerWriteGuard guard = new AllowingMarkerWriteGuard();
   private final MarkerCreateService markerCreateService =
       new MarkerCreateService(
@@ -58,6 +70,12 @@ class MarkerCreateServiceTest {
           new MarkerOpBindingValidator(incidentId -> Optional.of(OP1_ID)),
           guard,
           eventPublisher,
+          new MarkerCreatePhotoAttachmentService(
+              photoRepository,
+              objectStorage,
+              markerRepository,
+              photoEventPublisher,
+              Clock.fixed(SERVER_TS, ZoneOffset.UTC)),
           Clock.fixed(SERVER_TS, ZoneOffset.UTC),
           () -> MARKER_ID);
 
@@ -135,6 +153,59 @@ class MarkerCreateServiceTest {
     assertThat(row.getLocation().getY()).isEqualTo(37.571201);
     assertThat(eventPublisher.published().get(0).payload().location().coordinates())
         .containsExactly(new BigDecimal("126.956501"), new BigDecimal("37.571201"));
+  }
+
+  @Test
+  @DisplayName("생성 요청에 staged photo가 있으면 marker create와 photo attach를 같은 write에서 확정한다")
+  void markerCreateAttachesStagedPhotosInSameWrite() {
+    String objectKey = "markers/" + INCIDENT_ID + "/" + MARKER_ID + "/" + PHOTO_ID + ".jpg";
+    objectStorage.generatePresignedUrl(
+        objectKey, "image/jpeg", 1_048_576L, "sha256:fixture", Duration.ofMinutes(15));
+    photoRepository.save(
+        new MarkerPhoto(
+            PHOTO_ID,
+            MARKER_ID,
+            objectKey,
+            "image/jpeg",
+            1_048_576L,
+            "sha256:fixture",
+            SERVER_TS.plus(Duration.ofMinutes(15))));
+    objectStorage.simulateUpload(objectKey);
+
+    MarkerCreateResult result =
+        markerCreateService.create(
+            new MarkerCreateRequest(
+                MARKER_ID,
+                INCIDENT_ID,
+                OP1_ID,
+                "CLUE",
+                new MarkerGeoJsonPoint(
+                    "Point", List.of(new BigDecimal("126.956500"), new BigDecimal("37.571200"))),
+                null,
+                "S14P31C106-340 photo evidence",
+                CLIENT_TS,
+                0L,
+                List.of(
+                    new MarkerCreatePhotoRequest(
+                        PHOTO_ID, 1_048_576L, "image/jpeg", 640, 480, "sha256:fixture"))),
+            context);
+
+    assertThat(result.response().id()).isEqualTo(MARKER_ID);
+    assertThat(result.response().status()).isEqualTo("UPDATED");
+    assertThat(result.response().version()).isEqualTo(2L);
+    assertThat(result.response().photos()).hasSize(1);
+    assertThat(result.response().photos().get(0).photoId()).isEqualTo(PHOTO_ID);
+    assertThat(result.response().photos().get(0).status()).isEqualTo("ATTACHED");
+    assertThat(photoRepository.findById(PHOTO_ID))
+        .get()
+        .extracting("status", "version", "width", "height")
+        .containsExactly(PhotoStatus.ATTACHED, 2L, 640, 480);
+    assertThat(markerRepository.records().get(0).getStatus()).isEqualTo("UPDATED");
+    assertThat(markerRepository.records().get(0).getVersion()).isEqualTo(2L);
+    assertThat(eventPublisher.published()).hasSize(1);
+    assertThat(photoEventPublisher.published()).hasSize(1);
+    assertThat(photoEventPublisher.published().get(0).payload().photoDelta().photoId())
+        .isEqualTo(PHOTO_ID);
   }
 
   @Nested
@@ -229,6 +300,21 @@ class MarkerCreateServiceTest {
     }
 
     List<MarkerPublishRequest> published() {
+      return published;
+    }
+  }
+
+  private static final class CapturingPhotoEventPublisher
+      implements com.surimap.marker.photo.port.PhotoEventPublisher {
+
+    private final List<PublishRequest> published = new ArrayList<>();
+
+    @Override
+    public void publish(PublishRequest request) {
+      published.add(request);
+    }
+
+    List<PublishRequest> published() {
       return published;
     }
   }
