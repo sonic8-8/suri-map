@@ -82,7 +82,7 @@ class OfflinePackageManifestContractTest {
         .isEqualTo(OfflinePackageManifestFixtures.INCIDENT_ID);
     assertThat(manifest.missingPerson().displayName()).isEqualTo("가상 실종자 001");
     assertThat(manifest.missingPerson().appearanceText()).isEqualTo("남색 점퍼, 회색 등산화");
-    assertThat(manifest.missingPerson().lastSeenLocationText()).isEqualTo("인왕산 북측 산책로 입구");
+    assertThat(manifest.missingPerson().lastSeenLocationText()).isEqualTo("무등산 서측 탐방로 입구");
     assertThat(manifestFields()).contains("missingPerson").doesNotContain("missingPersonCache");
   }
 
@@ -129,7 +129,7 @@ class OfflinePackageManifestContractTest {
             marker -> {
               assertThat(marker.markerId()).isEqualTo("mk-precinct-clue-001");
               assertThat(marker.opId()).isEqualTo(OfflinePackageManifestFixtures.OP_ID);
-              assertThat(marker.coordinate()).isEqualTo(point("126.956500", "37.571200"));
+              assertThat(marker.coordinate()).isEqualTo(point("126.913400", "35.163100"));
             });
 
     assertThat(manifest.overallSearchArea().areaId())
@@ -139,11 +139,11 @@ class OfflinePackageManifestContractTest {
         .isEqualTo("overall-area-hash-precinct-current");
     assertThat(manifest.overallSearchArea().polygon())
         .containsExactly(
-            point("126.948000", "37.565000"),
-            point("126.968000", "37.565000"),
-            point("126.968000", "37.579000"),
-            point("126.948000", "37.579000"),
-            point("126.948000", "37.565000"));
+            point("126.904000", "35.158000"),
+            point("126.923000", "35.158000"),
+            point("126.923000", "35.173000"),
+            point("126.904000", "35.173000"),
+            point("126.904000", "35.158000"));
   }
 
   @Test

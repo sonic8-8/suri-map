@@ -16,7 +16,7 @@
 | Suri-Map internal `incident.id` | (import 시 결정) | `inc-precinct-first-001` |
 | Active OP | (import 시 자동 생성) | `op-precinct-001-op1` |
 | Team alias (지구대/파출소) | — | `team-precinct-jongno` |
-| 실종자 | `가상 실종자 001` / 인왕산 북측 산책로 입구 | (개인정보, fixture ID 없음) |
+| 실종자 | `가상 실종자 001` / 무등산 서측 탐방로 입구 | (개인정보, fixture ID 없음) |
 
 > mock-112가 발급하는 식별자는 `sourceIncidentId`까지이며, 내부 ID(`inc-*`, `op-*`, `ia-*` 등)는 import 흐름이 deterministic하게 만들어 §6과 일치시킨다. 매핑 책임은 L1-T01(import API) 구현 단계에서 진다.
 
@@ -65,7 +65,7 @@ mock-112에 넣지 않고, L1 import/fixture layer가 원천 사건 ID와 seed m
 
 | index | canonical marker ID (§6) | mock-112 memo | 위치 (lon, lat) | type | source | 비고 |
 |---|---|---|---|---|---|---|
-| 0 | `mk-precinct-clue-001` | 신고자 진술 위치 | (126.9565, 37.5712) | CLUE | MOCK_SEED | 초기 기준 마커 (신고자 진술) |
+| 0 | `mk-precinct-clue-001` | 신고자 진술 위치 | (126.9134, 35.1631) | CLUE | MOCK_SEED | 초기 기준 마커 (신고자 진술) |
 
 S5 소유의 SC-06/08용 marker fixture (`mk-precinct-support-001`, `mk-precinct-person-found-001`, `mk-precinct-op-mismatch-001`)는 import seed marker가 아니라 현장 마커/알림 시나리오용이며 본 카탈로그 범위 밖이다 (`docs/spec/specs/S5.json` 참조).
 

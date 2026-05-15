@@ -264,7 +264,7 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
           id, source_incident_id, title, status, opened_at, closed_at, closed_by_account_id,
           version, created_at, updated_at
         )
-        VALUES (?, ?::uuid, '종로구 인왕산 실종 신고', 'OPEN', ?, NULL, NULL, 1, ?, ?)
+        VALUES (?, ?::uuid, '광주 무등산 실종 신고', 'OPEN', ?, NULL, NULL, 1, ?, ?)
         """,
         INCIDENT_ID,
         SOURCE_INCIDENT_ID,
@@ -281,7 +281,7 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
           last_seen_location_text, last_seen_at, imported_at
         )
         VALUES (?, '가상 실종자 001', 'photo/missing-person/sc12.jpg',
-          '남색 점퍼, 회색 등산화', '인왕산 북측 산책로 입구', ?, ?)
+          '남색 점퍼, 회색 등산화', '무등산 서측 탐방로 입구', ?, ?)
         """,
         INCIDENT_ID,
         OffsetDateTime.parse("2026-04-28T08:30:00+09:00"),
@@ -326,7 +326,7 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
           "missing_person": {
             "displayName": "가상 실종자 001",
             "photoObjectKey": "photo/missing-person/sc12.jpg",
-            "lastSeenLocationText": "인왕산 북측 산책로 입구"
+            "lastSeenLocationText": "무등산 서측 탐방로 입구"
           },
           "packageItems": [{"itemKey": "missing-person:sc12"}]
         }
@@ -440,7 +440,7 @@ class Sc12IncidentCloseDataPurgeIntegrationTest extends PostGisIntegrationTestSu
             Map.entry("localPurgeState", "completed"),
             Map.entry("missing_person", Map.of("displayName", "가상 실종자 001")),
             Map.entry("missingPerson", Map.of("photoObjectKey", "photo/missing-person/sc12.jpg")),
-            Map.entry("lastSeenLocationText", "인왕산 북측 산책로 입구"),
+            Map.entry("lastSeenLocationText", "무등산 서측 탐방로 입구"),
             Map.entry("packageReloadUrl", "/api/incidents/" + INCIDENT_ID + "/packages/reload"),
             Map.entry("streamResubscribeHint", "/api/incidents/" + INCIDENT_ID + "/events")));
   }

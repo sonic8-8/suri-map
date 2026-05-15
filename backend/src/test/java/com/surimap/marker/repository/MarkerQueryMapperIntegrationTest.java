@@ -134,7 +134,7 @@ class MarkerQueryMapperIntegrationTest extends PostGisIntegrationTestSupport {
             status,
             version
         )
-        VALUES (?, ?, ?, NULL, ?, NULL, ST_SetSRID(ST_MakePoint(126.9565, 37.5712), 4326),
+        VALUES (?, ?, ?, NULL, ?, NULL, ST_SetSRID(ST_MakePoint(126.9134, 35.1631), 4326),
                 ?, ?, ?, ?, 'APP', ?, ?)
         """,
         markerId,

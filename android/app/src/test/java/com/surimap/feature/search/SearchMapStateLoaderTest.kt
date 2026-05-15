@@ -164,11 +164,11 @@ class SearchMapStateLoaderTest {
             {
               "type": "Polygon",
               "coordinates": [[
-                [126.900000, 37.500000],
-                [127.080000, 37.500000],
-                [127.080000, 37.620000],
-                [126.900000, 37.620000],
-                [126.900000, 37.500000]
+                [126.647507, 35.052595],
+                [127.017482, 35.052595],
+                [127.017482, 35.256837],
+                [126.647507, 35.256837],
+                [126.647507, 35.052595]
               ]]
             }
             """.trimIndent()
@@ -206,10 +206,10 @@ class SearchMapStateLoaderTest {
 
         assertEquals(
             SearchMapViewportBounds(
-                south = 37.5,
-                west = 126.9,
-                north = 37.62,
-                east = 127.08
+                south = 35.052595,
+                west = 126.647507,
+                north = 35.256837,
+                east = 127.017482
             ),
             state.viewportBounds
         )

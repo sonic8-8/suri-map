@@ -28,8 +28,8 @@ describe('L6-T03B S3-1/S5 path and marker board slots', () => {
     expect(within(slot).getByText('policePhoneId')).toBeInTheDocument();
     expect(within(slot).getByText(POLICE_PHONE_ID)).toBeInTheDocument();
     expect(within(slot).getByText('LineString')).toBeInTheDocument();
-    expect(within(slot).getByText('126.956000,37.570000')).toBeInTheDocument();
-    expect(within(slot).getByText('126.958250,37.571220')).toBeInTheDocument();
+    expect(within(slot).getByText('126.913000,35.162000')).toBeInTheDocument();
+    expect(within(slot).getByText('126.915250,35.163120')).toBeInTheDocument();
     expect(within(slot).getByText(SEGMENT_VEHICLE_ID)).toBeInTheDocument();
     expect(within(slot).getByText('VEHICLE')).toBeInTheDocument();
     expect(within(slot).getByText(SEGMENT_FOOT_ID)).toBeInTheDocument();
@@ -59,7 +59,7 @@ describe('L6-T03B S3-1/S5 path and marker board slots', () => {
     expect(within(slot).getByText('opId')).toBeInTheDocument();
     expect(within(slot).getByText(OP1_ID)).toBeInTheDocument();
     expect(within(slot).getByText('Point')).toBeInTheDocument();
-    expect(within(slot).getByText('126.956500,37.571200')).toBeInTheDocument();
+    expect(within(slot).getByText('126.913400,35.163100')).toBeInTheDocument();
     expect(within(slot).getByText('신고자 진술 위치')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: forbiddenWriteButtonName })).not.toBeInTheDocument();
     expect(JSON.stringify(rows)).toBe(beforeRender);
@@ -102,14 +102,14 @@ function createPathRow(): PathSlotProps['rows'][number] {
     geometry: {
       type: 'LineString',
       coordinates: [
-        [126.956, 37.57],
-        [126.95665, 37.57018],
-        [126.9573, 37.57036],
-        [126.95785, 37.57054],
-        [126.958, 37.5707],
-        [126.95808, 37.57088],
-        [126.95816, 37.57105],
-        [126.95825, 37.57122],
+        [126.913, 35.162],
+        [126.91365, 35.16218],
+        [126.9143, 35.16236],
+        [126.91485, 35.16254],
+        [126.915, 35.1627],
+        [126.91508, 35.16288],
+        [126.91516, 35.16305],
+        [126.91525, 35.16312],
       ],
     } as const,
     segments: [
@@ -121,10 +121,10 @@ function createPathRow(): PathSlotProps['rows'][number] {
         geometry: {
           type: 'LineString',
           coordinates: [
-            [126.956, 37.57],
-            [126.95665, 37.57018],
-            [126.9573, 37.57036],
-            [126.95785, 37.57054],
+            [126.913, 35.162],
+            [126.91365, 35.16218],
+            [126.9143, 35.16236],
+            [126.91485, 35.16254],
           ],
         } as const,
         startedAt: '2026-04-28T09:00:00+09:00',
@@ -138,10 +138,10 @@ function createPathRow(): PathSlotProps['rows'][number] {
         geometry: {
           type: 'LineString',
           coordinates: [
-            [126.958, 37.5707],
-            [126.95808, 37.57088],
-            [126.95816, 37.57105],
-            [126.95825, 37.57122],
+            [126.915, 35.1627],
+            [126.91508, 35.16288],
+            [126.91516, 35.16305],
+            [126.91525, 35.16312],
           ],
         } as const,
         startedAt: '2026-04-28T09:00:20+09:00',
@@ -170,7 +170,7 @@ function createMarkerRow(): MarkerSlotProps['rows'][number] {
     geometryHash: 'marker-geometry-hash-mk-precinct-clue-current',
     geometry: {
       type: 'Point',
-      coordinates: [126.9565, 37.5712],
+      coordinates: [126.9134, 35.1631],
     } as const,
   };
 }

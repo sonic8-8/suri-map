@@ -193,7 +193,7 @@ class MissingPersonConsumerAllowlistContractTest {
             Map.entry("displayName", "가상 실종자 001"),
             Map.entry("photoObjectKey", "fixture-photo-object-key"),
             Map.entry("appearanceText", "남색 점퍼, 회색 등산화"),
-            Map.entry("lastSeenLocationText", "인왕산 북측 산책로 입구"),
+            Map.entry("lastSeenLocationText", "무등산 서측 탐방로 입구"),
             Map.entry("lastSeenAt", "2026-04-27T23:20:00Z"),
             Map.entry("importedAt", "2026-04-28T00:00:00Z"),
             Map.entry("residentRegistrationNumber", "000000-0000000"),

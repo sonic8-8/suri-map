@@ -20,10 +20,10 @@ public class LocalTileService implements TileService {
   private static final String TILE_URL = "/tiles/osm-local/{z}/{x}/{y}.pbf";
   private static final int MIN_Z = 15;
   private static final int MAX_Z = 16;
-  private static final int MIN_X = 27925;
-  private static final int MAX_X = 27960;
-  private static final int MIN_Y = 12680;
-  private static final int MAX_Y = 12720;
+  private static final int MIN_X = 27935;
+  private static final int MAX_X = 55873;
+  private static final int MIN_Y = 12960;
+  private static final int MAX_Y = 25923;
   private static final MediaType APPLICATION_X_PROTOBUF =
       MediaType.valueOf("application/x-protobuf");
   private static final byte[] MINIMAL_VECTOR_TILE_PREFIX =
@@ -47,14 +47,14 @@ public class LocalTileService implements TileService {
         0x78,
         0x02
       };
-  private static final TileKey TILE_15_27925_12680 = new TileKey(15, 27925, 12680);
-  private static final TileKey TILE_15_27926_12680 = new TileKey(15, 27926, 12680);
-  private static final TileKey TILE_16_27925_12681 = new TileKey(16, 27925, 12681);
+  private static final TileKey TILE_15_27935_12960 = new TileKey(15, 27935, 12960);
+  private static final TileKey TILE_15_27936_12960 = new TileKey(15, 27936, 12960);
+  private static final TileKey TILE_16_55870_25920 = new TileKey(16, 55870, 25920);
   private static final Map<TileKey, byte[]> TILE_BYTES =
       Map.of(
-          TILE_15_27925_12680, vectorTileFixtureBytes(TILE_15_27925_12680, 18_432),
-          TILE_15_27926_12680, vectorTileFixtureBytes(TILE_15_27926_12680, 20_480),
-          TILE_16_27925_12681, vectorTileFixtureBytes(TILE_16_27925_12681, 24_576));
+          TILE_15_27935_12960, vectorTileFixtureBytes(TILE_15_27935_12960, 18_432),
+          TILE_15_27936_12960, vectorTileFixtureBytes(TILE_15_27936_12960, 20_480),
+          TILE_16_55870_25920, vectorTileFixtureBytes(TILE_16_55870_25920, 24_576));
   private static final TileStyleResponse STYLE_RESPONSE =
       new TileStyleResponse(
           8,
@@ -148,9 +148,9 @@ public class LocalTileService implements TileService {
 
   public static List<LocalTileMetadata> manifestTiles() {
     return List.of(
-        localTileMetadata(TILE_15_27925_12680),
-        localTileMetadata(TILE_15_27926_12680),
-        localTileMetadata(TILE_16_27925_12681));
+        localTileMetadata(TILE_15_27935_12960),
+        localTileMetadata(TILE_15_27936_12960),
+        localTileMetadata(TILE_16_55870_25920));
   }
 
   private static boolean isInFixtureRange(int z, int x, int y) {

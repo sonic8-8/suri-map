@@ -327,15 +327,15 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
             new SearchPathPoint(
                 "pt-001",
                 OffsetDateTime.parse("2026-04-28T09:00:00+09:00"),
-                new BigDecimal("126.950000"),
-                new BigDecimal("37.570000"),
+                new BigDecimal("126.910000"),
+                new BigDecimal("35.162000"),
                 new BigDecimal("1.0"),
                 5),
             new SearchPathPoint(
                 "pt-002",
                 OffsetDateTime.parse("2026-04-28T09:00:05+09:00"),
-                new BigDecimal("126.951000"),
-                new BigDecimal("37.571000"),
+                new BigDecimal("126.911000"),
+                new BigDecimal("35.161000"),
                 new BigDecimal("1.1"),
                 5)));
     aggregate.bumpVersion();
@@ -367,11 +367,11 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
         "Polygon",
         List.of(
             List.of(
-                List.of(new BigDecimal("126.950000"), new BigDecimal("37.570000")),
-                List.of(new BigDecimal("126.952000"), new BigDecimal("37.570000")),
-                List.of(new BigDecimal("126.952000"), new BigDecimal("37.572000")),
-                List.of(new BigDecimal("126.950000"), new BigDecimal("37.572000")),
-                List.of(new BigDecimal("126.950000"), new BigDecimal("37.570000")))));
+                List.of(new BigDecimal("126.910000"), new BigDecimal("35.162000")),
+                List.of(new BigDecimal("126.910000"), new BigDecimal("35.162000")),
+                List.of(new BigDecimal("126.910000"), new BigDecimal("35.162000")),
+                List.of(new BigDecimal("126.910000"), new BigDecimal("35.162000")),
+                List.of(new BigDecimal("126.910000"), new BigDecimal("35.162000")))));
   }
 
   private static class FakeSearchAreaQuery implements SearchAreaQuery {
@@ -385,10 +385,10 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
               3L,
               polygon(),
               List.of(
-                  new BigDecimal("126.950000"),
-                  new BigDecimal("37.570000"),
-                  new BigDecimal("126.952000"),
-                  new BigDecimal("37.572000")),
+                  new BigDecimal("126.910000"),
+                  new BigDecimal("35.162000"),
+                  new BigDecimal("126.910000"),
+                  new BigDecimal("35.162000")),
               STARTED_AT));
     }
 
@@ -422,10 +422,10 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
           5L,
           polygon(),
           List.of(
-              new BigDecimal("126.950000"),
-              new BigDecimal("37.570000"),
-              new BigDecimal("126.952000"),
-              new BigDecimal("37.572000")),
+              new BigDecimal("126.910000"),
+              new BigDecimal("35.162000"),
+              new BigDecimal("126.910000"),
+              new BigDecimal("35.162000")),
           STARTED_AT,
           1L);
     }
@@ -516,7 +516,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
                   6L,
                   new MarkerGeoJsonPoint(
                           "Point",
-                          List.of(new BigDecimal("126.951000"), new BigDecimal("37.571000")))
+                          List.of(new BigDecimal("126.911000"), new BigDecimal("35.161000")))
                       .toPoint(),
                   "clue memo",
                   STARTED_AT,

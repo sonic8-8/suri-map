@@ -142,7 +142,8 @@ class GpsPathValidatorTest {
 
   @Test
   void activeOverallSearchArea밖이면_invalid_geometry다() {
-    var activeArea = new GpsPathValidationCriteria.GeoEnvelope(126.955000, 37.569000, 126.957000, 37.570300);
+    var activeArea =
+        new GpsPathValidationCriteria.GeoEnvelope(126.900000, 35.150000, 126.905000, 35.155000);
 
     assertThatThrownBy(
             () ->

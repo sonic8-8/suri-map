@@ -73,7 +73,7 @@ class IncidentSessionContextResolverTest {
             incidentId = INCIDENT_ID,
             currentOpId = currentOpId,
             currentDutyShiftId = null,
-            title = "종로구 인왕산 실종 신고",
+            title = "광주 무등산 실종 신고",
             summary = "상태 OPEN",
             packageStatus = "오프라인 패키지 확인 전",
             assignmentStatus = "이 폴리폰에서 선택 가능"

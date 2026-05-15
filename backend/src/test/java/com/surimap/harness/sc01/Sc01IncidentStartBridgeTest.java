@@ -106,7 +106,7 @@ class Sc01IncidentStartBridgeTest {
     verify(referenceMarkerSeed)
         .createForIncident(
             eq(INCIDENT_ID),
-            eq(List.of(new SeedMarker("CLUE", "MOCK_SEED", "신고자 진술 위치", 126.9565, 37.5712))));
+            eq(List.of(new SeedMarker("CLUE", "MOCK_SEED", "신고자 진술 위치", 126.9134, 35.1631))));
 
     ArgumentCaptor<PublishRequest> publishCaptor = ArgumentCaptor.forClass(PublishRequest.class);
     verify(eventHub, times(2)).publish(publishCaptor.capture());
@@ -128,21 +128,21 @@ class Sc01IncidentStartBridgeTest {
         .thenReturn(
             new ExternalIncident(
                 SOURCE_INCIDENT_ID,
-                "인왕산 북측 산책로 실종 신고",
+                "광주 무등산 탐방로 실종 신고",
                 OffsetDateTime.parse("2026-04-28T00:00:00Z"),
                 "READY",
                 new ExternalMissingPerson(
                     "가상 실종자 001",
                     "mock-112/missing-person/mock-112-incident-001.jpg",
                     "검은색 상의, 회색 바지",
-                    "인왕산 북측 산책로 입구",
+                    "무등산 서측 탐방로 입구",
                     OffsetDateTime.parse("2026-04-27T23:20:00Z")),
                 List.of(
                     assignment("precinct-cmd", COMMAND_ACCOUNT_CODE, "FIELD_COMMANDER"),
                     assignment("precinct-car", CAR_ACCOUNT_CODE, "MEMBER"),
                     assignment("precinct-team", TEAM_ACCOUNT_CODE, "MEMBER")),
                 List.of(
-                    new ExternalSeedMarker("CLUE", "MOCK_SEED", "신고자 진술 위치", 126.9565, 37.5712))));
+                    new ExternalSeedMarker("CLUE", "MOCK_SEED", "신고자 진술 위치", 126.9134, 35.1631))));
   }
 
   private ExternalAssignment assignment(String key, String accountId, String role) {

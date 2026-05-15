@@ -170,8 +170,8 @@ class MarkerLocalRecorderRoomTest {
         assertEquals(1, pendingMarkers.size)
         assertEquals(create.operationId, pendingMarkers.single().localMarkerId)
         assertEquals("CLUE", pendingMarkers.single().type)
-        assertEquals(126.9565, pendingMarkers.single().lon, 0.0)
-        assertEquals(37.5712, pendingMarkers.single().lat, 0.0)
+        assertEquals(126.9134, pendingMarkers.single().lon, 0.0)
+        assertEquals(35.1631, pendingMarkers.single().lat, 0.0)
         assertEquals("PENDING_SEND", pendingMarkers.single().syncStatus)
     }
 
@@ -260,7 +260,7 @@ class MarkerLocalRecorderRoomTest {
         val PHOTO_ID = photoIdFixture("precinct-clue-001")
         val POLICE_PHONE_ID = policePhoneIdFixture("precinct-001")
         val CLIENT_TS: Instant = Instant.parse("2026-05-11T06:00:00Z")
-        val LOCATION = MarkerLocation(lon = 126.9565, lat = 37.5712)
+        val LOCATION = MarkerLocation(lon = 126.9134, lat = 35.1631)
         val CONTEXT =
             MarkerWriteContext(
                 incidentId = INCIDENT_ID,

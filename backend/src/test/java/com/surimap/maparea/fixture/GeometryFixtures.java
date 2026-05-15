@@ -22,11 +22,11 @@ public final class GeometryFixtures {
   public static final String COORDINATE_ORDER = "[lon, lat]";
 
   /** SC-04 하네스 좌표가 들어와야 하는 fixture bbox(bounding box). 즉, 테스트 시나리오에서 좌표가 들어와야 하는 사각형 범위 */
-  public static final BigDecimal FIXTURE_BBOX_MIN_LON = new BigDecimal("126.900000");
+  public static final BigDecimal FIXTURE_BBOX_MIN_LON = new BigDecimal("126.647507");
 
-  public static final BigDecimal FIXTURE_BBOX_MIN_LAT = new BigDecimal("37.500000");
-  public static final BigDecimal FIXTURE_BBOX_MAX_LON = new BigDecimal("127.080000");
-  public static final BigDecimal FIXTURE_BBOX_MAX_LAT = new BigDecimal("37.620000");
+  public static final BigDecimal FIXTURE_BBOX_MIN_LAT = new BigDecimal("35.052595");
+  public static final BigDecimal FIXTURE_BBOX_MAX_LON = new BigDecimal("127.017482");
+  public static final BigDecimal FIXTURE_BBOX_MAX_LAT = new BigDecimal("35.256837");
 
   /** polygon으로 인정하는 최소 면적과 canonical 좌표 정밀도. */
   public static final int MINIMUM_POLYGON_AREA_M2 = 400;
@@ -37,39 +37,39 @@ public final class GeometryFixtures {
   /** validOverallSearchAreaRing()의 EPSG:4326 bbox: [minLon, minLat, maxLon, maxLat]. */
   public static final List<BigDecimal> BOUNDARY_GEOMETRY_BBOX =
       List.of(
-          new BigDecimal("126.948000"),
-          new BigDecimal("37.565000"),
-          new BigDecimal("126.968000"),
-          new BigDecimal("37.579000"));
+          new BigDecimal("126.904000"),
+          new BigDecimal("35.158000"),
+          new BigDecimal("126.923000"),
+          new BigDecimal("35.173000"));
 
   /** validSearchAreaRing()의 EPSG:4326 bbox: [minLon, minLat, maxLon, maxLat]. */
   public static final List<BigDecimal> AREA_GEOMETRY_BBOX =
       List.of(
-          new BigDecimal("126.952000"),
-          new BigDecimal("37.568000"),
-          new BigDecimal("126.961000"),
-          new BigDecimal("37.575000"));
+          new BigDecimal("126.910000"),
+          new BigDecimal("35.160000"),
+          new BigDecimal("126.918000"),
+          new BigDecimal("35.166000"));
 
   private GeometryFixtures() {}
 
   /** 정상 overall_search_area Polygon outer ring (harness-scenarios.md §6). */
   public static List<List<BigDecimal>> validOverallSearchAreaRing() {
     return List.of(
-        point("126.948000", "37.565000"),
-        point("126.968000", "37.565000"),
-        point("126.968000", "37.579000"),
-        point("126.948000", "37.579000"),
-        point("126.948000", "37.565000"));
+        point("126.904000", "35.158000"),
+        point("126.923000", "35.158000"),
+        point("126.923000", "35.173000"),
+        point("126.904000", "35.173000"),
+        point("126.904000", "35.158000"));
   }
 
   /** 정상 search_area Polygon outer ring (harness-scenarios.md §6). */
   public static List<List<BigDecimal>> validSearchAreaRing() {
     return List.of(
-        point("126.952000", "37.568000"),
-        point("126.961000", "37.568000"),
-        point("126.961000", "37.575000"),
-        point("126.952000", "37.575000"),
-        point("126.952000", "37.568000"));
+        point("126.910000", "35.160000"),
+        point("126.918000", "35.160000"),
+        point("126.918000", "35.166000"),
+        point("126.910000", "35.166000"),
+        point("126.910000", "35.160000"));
   }
 
   /**
@@ -78,22 +78,22 @@ public final class GeometryFixtures {
    * <p>S5 owned reference. L3는 boundary/area validation reference 용도로만 참조.
    */
   public static List<BigDecimal> referenceMarkerPoint() {
-    return point("126.956500", "37.571200");
+    return point("126.913400", "35.163100");
   }
 
   /** coord-outside-envelope: bbox 밖 좌표. 기대 동작: invalid_geometry 거부. */
   public static List<BigDecimal> invalidCoordOutsideEnvelope() {
-    return point("127.200000", "37.571200");
+    return point("127.200000", "35.163100");
   }
 
   /** coord-latlon-swapped: lat/lon 순서가 뒤바뀐 좌표. 기대 동작: invalid_geometry 거부. */
   public static List<BigDecimal> invalidCoordLatLonSwapped() {
-    return point("37.571200", "126.956500");
+    return point("35.163100", "126.913400");
   }
 
   /** precision-over-6dp: 소수점 7자리 좌표. 기대 동작: 6자리로 반올림해 canonical coordinate로 정규화. */
   public static List<BigDecimal> overPrecisionPoint() {
-    return point("126.9565007", "37.5712007");
+    return point("126.9134007", "35.1631007");
   }
 
   /** 좌표값이 docs에 고정되지 않은 invalid 케이스 이름 목록. 각 테스트가 적절한 좌표 조합을 자체 생성한다. */

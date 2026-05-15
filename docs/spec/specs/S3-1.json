@@ -1803,57 +1803,57 @@
         {
           "pointId": "gps-precinct-001",
           "clientTs": "2026-04-28T09:00:00+09:00",
-          "lon": 126.956,
-          "lat": 37.57,
+          "lon": 126.913,
+          "lat": 35.162,
           "speedMps": 13.5
         },
         {
           "pointId": "gps-precinct-002",
           "clientTs": "2026-04-28T09:00:05+09:00",
-          "lon": 126.95665,
-          "lat": 37.57018,
+          "lon": 126.91365,
+          "lat": 35.16218,
           "speedMps": 12.8
         },
         {
           "pointId": "gps-precinct-003",
           "clientTs": "2026-04-28T09:00:10+09:00",
-          "lon": 126.9573,
-          "lat": 37.57036,
+          "lon": 126.9143,
+          "lat": 35.16236,
           "speedMps": 11.9
         },
         {
           "pointId": "gps-precinct-004",
           "clientTs": "2026-04-28T09:00:15+09:00",
-          "lon": 126.95785,
-          "lat": 37.57054,
+          "lon": 126.91485,
+          "lat": 35.16254,
           "speedMps": 9.8
         },
         {
           "pointId": "gps-precinct-005",
           "clientTs": "2026-04-28T09:00:20+09:00",
-          "lon": 126.958,
-          "lat": 37.5707,
+          "lon": 126.915,
+          "lat": 35.1627,
           "speedMps": 1.6
         },
         {
           "pointId": "gps-precinct-006",
           "clientTs": "2026-04-28T09:00:25+09:00",
-          "lon": 126.95808,
-          "lat": 37.57088,
+          "lon": 126.91508,
+          "lat": 35.16288,
           "speedMps": 1.3
         },
         {
           "pointId": "gps-precinct-007",
           "clientTs": "2026-04-28T09:00:30+09:00",
-          "lon": 126.95816,
-          "lat": 37.57105,
+          "lon": 126.91516,
+          "lat": 35.16305,
           "speedMps": 1.1
         },
         {
           "pointId": "gps-precinct-008",
           "clientTs": "2026-04-28T09:00:35+09:00",
-          "lon": 126.95825,
-          "lat": 37.57122,
+          "lon": 126.91525,
+          "lat": 35.16312,
           "speedMps": 1.4
         }
       ],

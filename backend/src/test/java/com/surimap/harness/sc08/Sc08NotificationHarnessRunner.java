@@ -451,7 +451,7 @@ public class Sc08NotificationHarnessRunner {
           MarkerGeometryFixtures.OP1_ID,
           markerTypeName,
           new MarkerGeoJsonPoint(
-              "Point", List.of(new BigDecimal("126.956500"), new BigDecimal("37.571200"))),
+              "Point", List.of(new BigDecimal("126.913400"), new BigDecimal("35.163100"))),
           supportRequestType,
           markerTypeName.equals(MarkerType.SUPPORT_REQUEST.name()) ? "드론 지원 요청" : "실종자 발견",
           CLIENT_TS,

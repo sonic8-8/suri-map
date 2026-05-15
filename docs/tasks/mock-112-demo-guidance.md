@@ -169,13 +169,13 @@ mock 112 payload는 Suri-Map DB 설계로 무리 없이 변환 가능해야 한�
 ```json
 {
   "sourceIncidentId": "00000000-0000-0000-0000-000000000001",
-  "title": "종로구 인왕산 실종 신고",
+  "title": "광주 무등산 실종 신고",
   "openedAt": "2026-04-28T09:00:00+09:00",
   "missingPerson": {
     "displayName": "가상 실종자 001",
     "photoObjectKey": "mock-112/missing-person/mock-112-incident-001.jpg",
     "appearanceText": "남색 점퍼, 회색 등산화",
-    "lastSeenLocationText": "인왕산 북측 산책로 입구",
+    "lastSeenLocationText": "무등산 서측 탐방로 입구",
     "lastSeenAt": "2026-04-28T08:30:00+09:00"
   },
   "assignments": [
@@ -203,8 +203,8 @@ mock 112 payload는 Suri-Map DB 설계로 무리 없이 변환 가능해야 한�
       "type": "CLUE",
       "source": "MOCK_SEED",
       "memo": "신고자 진술 위치",
-      "lon": 126.9565,
-      "lat": 37.5712
+      "lon": 126.9134,
+      "lat": 35.1631
     }
   ]
 }

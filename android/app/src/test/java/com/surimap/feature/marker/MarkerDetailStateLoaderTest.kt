@@ -93,7 +93,7 @@ class MarkerDetailStateLoaderTest {
                           "type": "PERSON_FOUND",
                           "status": "ACTIVE",
                           "version": 3,
-                          "geometry": {"type": "Point", "coordinates": [126.95, 37.57]},
+                          "geometry": {"type": "Point", "coordinates": [126.95, 35.162]},
                           "memo": "타 단말 작성"
                         }
                       ]

@@ -139,7 +139,7 @@ class SupportRequestNotificationPolicyRedTest {
     assertThat(payloadField(payload, "recipientPolicePhoneIds"))
         .isEqualTo(NotificationFixtures.SUPPORT_RECIPIENT_POLICE_PHONE_IDS);
     assertThat(payloadField(payload, "markerType")).isEqualTo(MarkerType.SUPPORT_REQUEST.name());
-    assertThat(payloadField(payload, "locationLabel")).isEqualTo("126.956500,37.571200");
+    assertThat(payloadField(payload, "locationLabel")).isEqualTo("126.913400,35.163100");
   }
 
   @Test
@@ -169,7 +169,7 @@ class SupportRequestNotificationPolicyRedTest {
         OP1_ID,
         "SUPPORT_REQUEST",
         new MarkerGeoJsonPoint(
-            "Point", List.of(new BigDecimal("126.956500"), new BigDecimal("37.571200"))),
+            "Point", List.of(new BigDecimal("126.913400"), new BigDecimal("35.163100"))),
         "DRONE",
         "드론 지원 요청",
         CLIENT_TS,

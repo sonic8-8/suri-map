@@ -125,14 +125,14 @@ class OfflinePackageRepositoryReadOnlyQueryTest {
     incident.setVersion(1L);
     GeoJsonPolygon overallSearchArea =
         polygon(
-            "126.948000",
-            "37.565000",
-            "126.968000",
-            "37.565000",
-            "126.968000",
-            "37.579000",
-            "126.948000",
-            "37.579000");
+            "126.904000",
+            "35.158000",
+            "126.923000",
+            "35.158000",
+            "126.923000",
+            "35.173000",
+            "126.904000",
+            "35.173000");
 
     when(mapper.findCurrentManifestByIncident(incidentId.toString())).thenReturn(null);
     when(incidentMapper.findByIncidentId(incidentId)).thenReturn(Optional.of(incident));
@@ -165,10 +165,10 @@ class OfflinePackageRepositoryReadOnlyQueryTest {
     assertThat(manifest.tileItems()).hasSize(20);
     assertThat(tileKeys(manifest.tileItems()))
         .contains(
-            "tile:osm-local:15:27939:12688",
-            "tile:osm-local:15:27940:12689",
-            "tile:osm-local:16:55878:25376",
-            "tile:osm-local:16:55881:25379")
+            "tile:osm-local:15:27935:12960",
+            "tile:osm-local:15:27936:12961",
+            "tile:osm-local:16:55870:25920",
+            "tile:osm-local:16:55873:25923")
         .doesNotContain("tile:osm-local:16:27925:12681");
     assertThat(manifest.tileItems())
         .allSatisfy(

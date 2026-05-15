@@ -72,7 +72,7 @@ class MapLibreTileHttpTest {
 
         factory.newCall(
             Request.Builder()
-                .url("https://external-tiles.example.com/tiles/osm-local/15/27925/12680.pbf")
+                .url("https://external-tiles.example.com/tiles/osm-local/15/27935/12960.pbf")
                 .build()
         )
 

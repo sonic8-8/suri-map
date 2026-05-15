@@ -101,7 +101,7 @@ describe('L6-T08B BoardMapRoot local MapLibre style contract', () => {
 
     const transformRequest = mapOptions.transformRequest;
     expect(transformRequest?.('/tiles/styles/osm-local.json', 'Style')).toBeTruthy();
-    expect(transformRequest?.('/tiles/osm-local/15/27925/12680.pbf', 'Tile')).toBeTruthy();
+    expect(transformRequest?.('/tiles/osm-local/15/27935/12960.pbf', 'Tile')).toBeTruthy();
     expect(transformRequest?.('/tiles/gwangju-building-labels/16/55877/25377.pbf', 'Tile')).toBeTruthy();
     expect(transformRequest?.('/tiles/fonts/Noto%20Sans%20CJK%20KR%20Regular/0-255.pbf', 'Glyphs')).toBeTruthy();
   });
@@ -122,8 +122,8 @@ describe('L6-T08B BoardMapRoot local MapLibre style contract', () => {
         'X-Client-Channel': 'WEB',
       },
     });
-    expect(transformRequest?.('/tiles/osm-local/15/27925/12680.pbf', 'Tile')).toMatchObject({
-      url: '/tiles/osm-local/15/27925/12680.pbf',
+    expect(transformRequest?.('/tiles/osm-local/15/27935/12960.pbf', 'Tile')).toMatchObject({
+      url: '/tiles/osm-local/15/27935/12960.pbf',
       headers: {
         Authorization: 'Bearer board-map-access-token',
         'X-Client-Channel': 'WEB',
@@ -153,9 +153,9 @@ describe('L6-T08B BoardMapRoot local MapLibre style contract', () => {
 
     const transformRequest = mapOptions.transformRequest;
     const externalTileRequests = [
-      ['https://a.tile.openstreetmap.org/15/27925/12680.pbf', 'Tile'],
-      ['https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/15/27925/12680.vector.pbf', 'Tile'],
-      ['https://maps.googleapis.com/maps/api/tile/15/27925/12680.pbf', 'Tile'],
+      ['https://a.tile.openstreetmap.org/15/27935/12960.pbf', 'Tile'],
+      ['https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/15/27935/12960.vector.pbf', 'Tile'],
+      ['https://maps.googleapis.com/maps/api/tile/15/27935/12960.pbf', 'Tile'],
       ['https://example.com/tiles/osm-local/15/1/1.pbf', 'Tile'],
       ['//example.com/fonts/{fontstack}/{range}.pbf', 'Glyphs'],
       ['https://example.com/sprite.json', 'SpriteJSON'],
@@ -178,7 +178,7 @@ describe('L6-T08B BoardMapRoot local MapLibre style contract', () => {
 
     expect(() => transformRequest?.('/api/not-tiles/15/1/1.pbf', 'Tile')).toThrow(/non-local tile/i);
     expect(() => transformRequest?.('/tiles/not-osm-local/15/1/1.pbf', 'Tile')).toThrow(/non-local tile/i);
-    expect(() => transformRequest?.('/tiles/osm-local/15/27925/12680.pbf', 'Source')).toThrow(
+    expect(() => transformRequest?.('/tiles/osm-local/15/27935/12960.pbf', 'Source')).toThrow(
       /non-local tile resource/i,
     );
     expect(() => transformRequest?.('/tiles/fonts/Noto%20Sans%20CJK%20KR%20Regular/0-255.pbf', 'Source')).toThrow(
@@ -196,8 +196,8 @@ describe('L6-T08B BoardMapRoot local MapLibre style contract', () => {
     const transformRequest = mapOptions.transformRequest;
     const malformedLocalTilePaths = [
       '/tiles/osm-local/fonts/foo.pbf',
-      '/tiles/osm-local/15/27925/foo.pbf',
-      '/tiles/osm-local/15/27925/12680.png',
+      '/tiles/osm-local/15/27935/foo.pbf',
+      '/tiles/osm-local/15/27935/12960.png',
       '/tiles/gwangju-building-labels/16/55877/25377.png',
     ];
 

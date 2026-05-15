@@ -58,7 +58,7 @@ class MarkerReadServiceTest {
     assertThat(response.markers().get(0).status()).isEqualTo("ACTIVE");
     assertThat(response.markers().get(0).location().coordinates())
         .extracting(Object::toString)
-        .containsExactly("126.956500", "37.571200");
+        .containsExactly("126.913400", "35.163100");
     assertThat(response.markers().get(0).photoSummary())
         .extracting(MarkerListResponse.MarkerPhotoSummaryResponse::photoId)
         .containsExactly(PHOTO_ID);
@@ -97,7 +97,7 @@ class MarkerReadServiceTest {
                   MarkerSource.APP,
                   MarkerStatus.ACTIVE,
                   7L,
-                  GEOMETRY_FACTORY.createPoint(new Coordinate(126.9565, 37.5712)),
+                  GEOMETRY_FACTORY.createPoint(new Coordinate(126.9134, 35.1631)),
                   "등산로 입구 제보",
                   OCCURRED_AT,
                   List.of(

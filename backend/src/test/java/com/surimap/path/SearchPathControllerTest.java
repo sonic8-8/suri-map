@@ -46,7 +46,7 @@ class SearchPathControllerTest {
                 2,
                 0,
                 List.of(),
-                List.of(List.of(126.956, 37.57), List.of(126.957, 37.571)),
+                List.of(List.of(126.913, 35.162), List.of(126.914, 35.163)),
                 List.of(
                     new SearchPathSegment(
                         "seg-001",
@@ -75,8 +75,8 @@ class SearchPathControllerTest {
                       "opId":"70000000-0000-0000-0000-000000000001",
                       "pathId":"81000000-0000-0000-0000-000000000001",
                       "points":[
-                        {"pointId":"p1","lon":126.956000,"lat":37.570000,"speedMps":3.0,"horizontalAccuracyM":5,"clientTs":"2026-04-28T09:00:00+09:00"},
-                        {"pointId":"p2","lon":126.957000,"lat":37.571000,"speedMps":3.1,"horizontalAccuracyM":5,"clientTs":"2026-04-28T09:00:05+09:00"}
+                        {"pointId":"p1","lon":126.913000,"lat":35.162000,"speedMps":3.0,"horizontalAccuracyM":5,"clientTs":"2026-04-28T09:00:00+09:00"},
+                        {"pointId":"p2","lon":126.914000,"lat":35.163000,"speedMps":3.1,"horizontalAccuracyM":5,"clientTs":"2026-04-28T09:00:05+09:00"}
                       ]
                     }
                     """))
@@ -87,8 +87,8 @@ class SearchPathControllerTest {
         .andExpect(jsonPath("$.policePhoneId", is(policePhoneId.toString())))
         .andExpect(jsonPath("$.acceptedPointCount", is(2)))
         .andExpect(jsonPath("$.geometry.type", is("LineString")))
-        .andExpect(jsonPath("$.geometry.coordinates[0][0]", is(126.956)))
-        .andExpect(jsonPath("$.geometry.coordinates[0][1]", is(37.57)))
+        .andExpect(jsonPath("$.geometry.coordinates[0][0]", is(126.913)))
+        .andExpect(jsonPath("$.geometry.coordinates[0][1]", is(35.162)))
         .andExpect(jsonPath("$.version", is(2)))
         .andExpect(jsonPath("$.status", is("RECORDING")));
   }
@@ -110,7 +110,7 @@ class SearchPathControllerTest {
                       "opId":"70000000-0000-0000-0000-000000000001",
                       "pathId":"81000000-0000-0000-0000-000000000001",
                       "points":[
-                        {"pointId":"p1","lon":126.956000,"lat":37.570000,"speedMps":3.0,"horizontalAccuracyM":5,"clientTs":"2026-04-28T09:00:00+09:00"}
+                        {"pointId":"p1","lon":126.913000,"lat":35.162000,"speedMps":3.0,"horizontalAccuracyM":5,"clientTs":"2026-04-28T09:00:00+09:00"}
                       ]
                     }
                     """))
@@ -136,7 +136,7 @@ class SearchPathControllerTest {
                         policePhoneId,
                         SearchPathStatus.RECORDING,
                         2L,
-                        List.of(List.of(126.956, 37.57)),
+                        List.of(List.of(126.913, 35.162)),
                         List.of(),
                         List.of()))));
 
@@ -152,7 +152,7 @@ class SearchPathControllerTest {
         .andExpect(jsonPath("$.paths[0].opId", is(opId.toString())))
         .andExpect(jsonPath("$.paths[0].policePhoneId", is(policePhoneId.toString())))
         .andExpect(jsonPath("$.paths[0].geometry.type", is("LineString")))
-        .andExpect(jsonPath("$.paths[0].geometry.coordinates[0][0]", is(126.956)))
-        .andExpect(jsonPath("$.paths[0].geometry.coordinates[0][1]", is(37.57)));
+        .andExpect(jsonPath("$.paths[0].geometry.coordinates[0][0]", is(126.913)))
+        .andExpect(jsonPath("$.paths[0].geometry.coordinates[0][1]", is(35.162)));
   }
 }

@@ -157,7 +157,7 @@ class IncidentTerminalPackageBadgePrivacyRedTest {
             "가상 실종자",
             "photo/missing-person/purge-target.jpg",
             "lastSeenLocationText",
-            "인왕산 북측 산책로",
+            "무등산 서측 탐방로",
             "latestLocation",
             "packageReloadUrl",
             "streamResubscribeHint");
@@ -277,7 +277,7 @@ class IncidentTerminalPackageBadgePrivacyRedTest {
           "missing_person": {
             "displayName": "가상 실종자",
             "photoObjectKey": "photo/missing-person/purge-target.jpg",
-            "lastSeenLocationText": "인왕산 북측 산책로"
+            "lastSeenLocationText": "무등산 서측 탐방로"
           },
           "packageItems": [
             {"itemKey": "missing-person:%s", "itemType": "MISSING_PERSON_CACHE"}
@@ -308,10 +308,10 @@ class IncidentTerminalPackageBadgePrivacyRedTest {
             Map.entry("missing_person", Map.of("displayName", "가상 실종자")),
             Map.entry(
                 "missingPerson", Map.of("photoObjectKey", "photo/missing-person/purge-target.jpg")),
-            Map.entry("lastSeenLocationText", "인왕산 북측 산책로"),
+            Map.entry("lastSeenLocationText", "무등산 서측 탐방로"),
             Map.entry(
                 "latestLocation",
-                Map.of("type", "Point", "coordinates", List.of(126.9565, 37.5712))),
+                Map.of("type", "Point", "coordinates", List.of(126.9134, 35.1631))),
             Map.entry("packageReloadUrl", "/api/incidents/" + INCIDENT_ID + "/packages/reload"),
             Map.entry("streamResubscribeHint", "/api/incidents/" + INCIDENT_ID + "/events")));
   }
