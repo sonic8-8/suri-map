@@ -35,6 +35,27 @@ describe('incident board API', () => {
     });
   });
 
+  test('fetches package_badge slot rows for offline package status reads', async () => {
+    const response = incidentBoardResponse();
+    const client = fakeApiClient(response);
+    const api = createIncidentBoardApi(client);
+
+    await expect(
+      api.fetchIncidentBoard({
+        incidentId: 'inc-precinct-first-001',
+        includeSlots: ['package_badge', 'incident_terminal'],
+      }),
+    ).resolves.toBe(response);
+
+    expect(client.get).toHaveBeenCalledWith('/incidents/inc-precinct-first-001/board', {
+      query: {
+        opIds: undefined,
+        includeSlots: ['package_badge', 'incident_terminal'],
+        sinceVersion: undefined,
+      },
+    });
+  });
+
   test('uses stable TanStack Query key and enabled condition for board reads', async () => {
     const boardApi = {
       fetchIncidentBoard: vi.fn(async () => incidentBoardResponse()),
@@ -88,6 +109,15 @@ describe('incident board API', () => {
       version: 33,
       markerType: 'CLUE',
     });
+    expect(viewModel.rowsBySlot.package_badge[0]).toMatchObject({
+      slot: 'package_badge',
+      id: 'pkg-status-precinct-001',
+      sourceSpec: 'S7',
+      status: 'READY',
+      packageStatus: 'READY',
+      policePhoneId: '00000000-0000-0000-0000-000000000101',
+      readyForOfflineUse: true,
+    });
     expect(viewModel.cursorsBySlot.marker[0]).toMatchObject({
       id: 'marker-source-001',
       sourceHash: 'hash-s5-marker-source-001-v33',
@@ -115,6 +145,32 @@ function incidentBoardResponse(): IncidentBoardResponse {
           sourceHash: 'hash-s5-marker-source-001-v33',
           latestEventId: 'evt-s5-marker-source-001-v33',
           markerType: 'CLUE',
+        },
+      ],
+      package_badge: [
+        {
+          id: 'pkg-status-precinct-001',
+          status: 'READY',
+          version: 3,
+          sequence: 901,
+          sourceSpec: 'S7',
+          sourceHash: 'hash-s7-package-current',
+          latestEventId: 'evt-s7-package-status-001',
+          incidentId: 'inc-precinct-first-001',
+          policePhoneId: '00000000-0000-0000-0000-000000000101',
+          policePhoneCode: 'dev-precinct-phone-01',
+          policePhoneName: 'Precinct team phone',
+          packageStatus: 'READY',
+          manifestVersion: 1,
+          readyForOfflineUse: true,
+          localWarningInput: {
+            warningType: 'PACKAGE_MISSING',
+            packageStatus: 'READY',
+            manifestVersion: 1,
+            activeManifestVersion: 1,
+            raised: false,
+            reason: 'S7 package status is COMPLETE for the active manifestVersion',
+          },
         },
       ],
     },
