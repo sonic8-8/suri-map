@@ -96,18 +96,19 @@ function getAreaNoticeMessage(
   isSaving: boolean,
   unassignedAreaCount: number,
   splitChildCountIssueCount: number,
+  saveActionLabel: string,
 ) {
   if (isSaving) {
     return {
-      title: '수색 구역을 저장하는 중입니다.',
-      description: '저장이 완료될 때까지 현재 화면을 유지해 주세요.',
+      title: `${saveActionLabel} 중입니다.`,
+      description: `${saveActionLabel}이 완료될 때까지 현재 화면을 유지해 주세요.`,
     };
   }
 
   if (isSaveEnabled) {
     return {
       title: '구역 범위 지정이 완료되었습니다.',
-      description: '구역 저장 버튼을 눌러 해당 차수의 수색 구역을 확정하세요.',
+      description: `${saveActionLabel} 버튼을 눌러 해당 차수의 수색 구역을 확정하세요.`,
     };
   }
 
@@ -121,7 +122,7 @@ function getAreaNoticeMessage(
   if (splitChildCountIssueCount > 0) {
     return {
       title: '분할할 하위 구역이 부족합니다.',
-      description: '같은 상위 구역 아래에 최소 2개의 하위 구역을 그린 뒤 저장하세요.',
+      description: `같은 상위 구역 아래에 최소 2개의 하위 구역을 그린 뒤 ${saveActionLabel}을 진행하세요.`,
     };
   }
 
@@ -197,11 +198,13 @@ export function AreaHierarchyPanel({
   const units = areaTree.children ?? [];
   const selectedArea = flattenAreaTree(areaTree).find((area) => area.id === selectedAreaId) ?? null;
   const canAssignArea = canAssignSelectedArea(selectedArea, assignedAreaIds);
+  const saveActionLabel = areaTree.geometryState === 'saved' ? '구역 분할 확정' : '구역 저장';
   const noticeMessage = getAreaNoticeMessage(
     isSaveEnabled,
     isSaving,
     unassignedPhoneCount,
     splitChildCountIssueCount,
+    saveActionLabel,
   );
   const noticeClassName = [
     styles.unassignedNotice,
@@ -450,7 +453,7 @@ export function AreaHierarchyPanel({
           취소
         </button>
         <button type="button" className={styles.saveButton} disabled={!isSaveEnabled || isSaving} onClick={onSave}>
-          구역 저장
+          {saveActionLabel}
         </button>
       </footer>
     </section>
