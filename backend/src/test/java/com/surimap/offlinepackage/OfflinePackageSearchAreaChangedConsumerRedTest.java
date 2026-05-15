@@ -22,6 +22,7 @@ import com.surimap.offlinepackage.fixture.OfflinePackageManifestFixtures;
 import com.surimap.offlinepackage.query.OfflinePackageInstallationQuery;
 import com.surimap.offlinepackage.query.OfflinePackageInstallationStatus;
 import com.surimap.offlinepackage.service.OfflinePackageService;
+import com.surimap.policephone.PolicePhoneDbFixtureSupport;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,9 +60,45 @@ class OfflinePackageSearchAreaChangedConsumerRedTest {
   void seedPackageFixture() {
     jdbcTemplate.update("DELETE FROM offline_package_installation");
     jdbcTemplate.update("DELETE FROM offline_package_manifest");
+    PolicePhoneDbFixtureSupport.ensureGuardFixtures(jdbcTemplate);
+    ensurePackagePolicePhones();
     eventHub.reset();
     offlinePackageService.manifest(
         OfflinePackageManifestFixtures.INCIDENT_ID, OfflinePackageManifestFixtures.POLICE_PHONE_ID);
+  }
+
+  private void ensurePackagePolicePhones() {
+    ensurePackagePolicePhone(
+        OfflinePackageInstallationFixtures.SEEDED_PHONE_02_ID,
+        "dev-precinct-phone-02",
+        "경찰서 팀폰 02");
+    ensurePackagePolicePhone(
+        OfflinePackageInstallationFixtures.SEEDED_PHONE_05_ID,
+        "dev-precinct-phone-05",
+        "경찰서 팀폰 05");
+  }
+
+  private void ensurePackagePolicePhone(String id, String phoneCode, String displayName) {
+    jdbcTemplate.update(
+        """
+        MERGE INTO police_phone (
+            id,
+            phone_code,
+            display_name,
+            account_id,
+            status,
+            registered,
+            last_heartbeat_at,
+            last_sync_at,
+            heartbeat_sequence,
+            last_heartbeat_event_id,
+            version
+        ) KEY(id) VALUES (?, ?, ?, ?, 'ACTIVE', TRUE, NULL, NULL, 0, NULL, 1)
+        """,
+        UUID.fromString(id),
+        phoneCode,
+        displayName,
+        UUID.fromString(OfflinePackageManifestFixtures.ACCOUNT_ID));
   }
 
   @Test
@@ -245,7 +282,7 @@ class OfflinePackageSearchAreaChangedConsumerRedTest {
 
   private static String statusPhoneName(String id) {
     if (OfflinePackageInstallationFixtures.SEEDED_READY_INSTALLATION_ID.equals(id)) {
-      return "경찰서 팀폰";
+      return "종로 지구대 팀 폴리폰";
     }
     if (OfflinePackageInstallationFixtures.SEEDED_PARTIAL_INSTALLATION_ID.equals(id)) {
       return "경찰서 팀폰 02";
