@@ -113,8 +113,8 @@ class MarkerCreateServiceTest {
     assertThat(row.getOccurredAt()).isEqualTo(CLIENT_TS);
     assertThat(row.getMemo()).isEqualTo("S14P31C106-71 field clue");
     assertThat(row.getLocation().getSRID()).isEqualTo(4326);
-    assertThat(row.getLocation().getX()).isEqualTo(126.956500);
-    assertThat(row.getLocation().getY()).isEqualTo(37.571200);
+    assertThat(row.getLocation().getX()).isEqualTo(126.913400);
+    assertThat(row.getLocation().getY()).isEqualTo(35.163100);
 
     MarkerPublishRequest published = eventPublisher.published().get(0);
     assertThat(published.type()).isEqualTo("MARKER_CREATED");
@@ -126,7 +126,7 @@ class MarkerCreateServiceTest {
     assertThat(published.payload().version()).isEqualTo(1L);
     assertThat(published.payload().type()).isEqualTo("CLUE");
     assertThat(published.payload().location().coordinates())
-        .containsExactly(new BigDecimal("126.956500"), new BigDecimal("37.571200"));
+        .containsExactly(new BigDecimal("126.913400"), new BigDecimal("35.163100"));
     assertThat(published.payload().clientTs()).isEqualTo(CLIENT_TS);
     assertThat(published.payload().serverTs()).isEqualTo(SERVER_TS);
   }
@@ -140,7 +140,7 @@ class MarkerCreateServiceTest {
             OP1_ID,
             "CLUE",
             new MarkerGeoJsonPoint(
-                "Point", List.of(new BigDecimal("126.9565007"), new BigDecimal("37.5712007"))),
+                "Point", List.of(new BigDecimal("126.9134007"), new BigDecimal("35.1631007"))),
             null,
             "precision-over-6dp",
             CLIENT_TS,
@@ -149,10 +149,10 @@ class MarkerCreateServiceTest {
     markerCreateService.create(request, context);
 
     MarkerRecord row = markerRepository.records().get(0);
-    assertThat(row.getLocation().getX()).isEqualTo(126.956501);
-    assertThat(row.getLocation().getY()).isEqualTo(37.571201);
+    assertThat(row.getLocation().getX()).isEqualTo(126.913401);
+    assertThat(row.getLocation().getY()).isEqualTo(35.163101);
     assertThat(eventPublisher.published().get(0).payload().location().coordinates())
-        .containsExactly(new BigDecimal("126.956501"), new BigDecimal("37.571201"));
+        .containsExactly(new BigDecimal("126.913401"), new BigDecimal("35.163101"));
   }
 
   @Test
@@ -180,7 +180,7 @@ class MarkerCreateServiceTest {
                 OP1_ID,
                 "CLUE",
                 new MarkerGeoJsonPoint(
-                    "Point", List.of(new BigDecimal("126.956500"), new BigDecimal("37.571200"))),
+                    "Point", List.of(new BigDecimal("126.913400"), new BigDecimal("35.163100"))),
                 null,
                 "S14P31C106-340 photo evidence",
                 CLIENT_TS,
@@ -260,7 +260,7 @@ class MarkerCreateServiceTest {
               OP1_ID,
               "CLUE",
               new MarkerGeoJsonPoint(
-                  "Point", List.of(new BigDecimal("127.200000"), new BigDecimal("37.571200"))),
+                  "Point", List.of(new BigDecimal("127.200000"), new BigDecimal("35.163100"))),
               null,
               "outside envelope",
               CLIENT_TS,
@@ -282,7 +282,7 @@ class MarkerCreateServiceTest {
         OP1_ID,
         "CLUE",
         new MarkerGeoJsonPoint(
-            "Point", List.of(new BigDecimal("126.956500"), new BigDecimal("37.571200"))),
+            "Point", List.of(new BigDecimal("126.913400"), new BigDecimal("35.163100"))),
         null,
         "S14P31C106-71 field clue",
         CLIENT_TS,

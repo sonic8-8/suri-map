@@ -83,7 +83,7 @@ class OutboxHarnessIntegrationTest {
                 sequence = 502L,
                 method = "POST",
                 endpoint = "/api/search-paths/batch",
-                payload = """{"points":[{"lat":37.57,"lon":126.956}]}""",
+                payload = """{"points":[{"lat":35.162,"lon":126.913}]}""",
                 bodyHash = "sha256:path-normal-001",
                 idempotencyKey = "idem-path-001",
                 clientTs = now.minusSeconds(5),

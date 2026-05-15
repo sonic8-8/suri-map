@@ -368,7 +368,7 @@ class SearchAreaAssignmentPersistenceRedTest extends PostGisIntegrationTestSuppo
         """,
         id.toString(),
         OP_ID.toString(),
-        "POLYGON((126.9501 37.5701,126.9511 37.5701,126.9511 37.5711,126.9501 37.5711,126.9501 37.5701))",
+        "POLYGON((126.9101 35.1601,126.9111 35.1601,126.9111 35.1611,126.9101 35.1611,126.9101 35.1601))",
         version,
         COMMANDER_ID.toString(),
         nowTimestamp,

@@ -85,7 +85,7 @@ public class Sc06MarkerPhotoHarnessRunner {
     HarnessContext harness = HarnessContext.create();
     MarkerGeoJsonPoint point =
         new MarkerGeoJsonPoint(
-            "Point", List.of(new BigDecimal("126.956500"), new BigDecimal("37.571200")));
+            "Point", List.of(new BigDecimal("126.913400"), new BigDecimal("35.163100")));
 
     MarkerCreateResult markerCreate =
         harness.markerCreateService.create(markerCreateRequest(point), harness.markerContext);
@@ -235,7 +235,7 @@ public class Sc06MarkerPhotoHarnessRunner {
       harness.markerCreateService.create(
           markerCreateRequest(
               new MarkerGeoJsonPoint(
-                  "Point", List.of(new BigDecimal("127.200000"), new BigDecimal("37.571200")))),
+                  "Point", List.of(new BigDecimal("127.200000"), new BigDecimal("35.163100")))),
           harness.markerContext);
     } catch (InvalidGeometryException exception) {
       error = exception.errorCode();
@@ -253,7 +253,7 @@ public class Sc06MarkerPhotoHarnessRunner {
     int boardRowsAfter = harness.board.rows().size();
 
     return new InvalidGeometryEvidence(
-        new InvalidPointGeometryEvidence("coord-outside-envelope", "[127.200000,37.571200]"),
+        new InvalidPointGeometryEvidence("coord-outside-envelope", "[127.200000,35.163100]"),
         new RejectionEvidence(
             httpStatus,
             error,

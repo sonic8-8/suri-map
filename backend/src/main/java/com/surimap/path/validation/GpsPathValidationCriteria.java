@@ -11,7 +11,7 @@ public final class GpsPathValidationCriteria {
   public static final int CANONICAL_COORDINATE_SCALE = 6;
 
   public static final GeoEnvelope HARNESS_ENVELOPE =
-      new GeoEnvelope(126.900000, 37.500000, 127.080000, 37.620000);
+      new GeoEnvelope(126.647507, 35.052595, 127.017482, 35.256837);
 
   private GpsPathValidationCriteria() {}
 

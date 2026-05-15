@@ -48,10 +48,10 @@ class Sc05PathSegmentHarnessRedTest {
 
     Object geometry = call(result, "geometry");
     assertThat(value(geometry, "srid")).isEqualTo("EPSG:4326");
-    assertThat(value(geometry, "minLon")).isEqualTo("126.900000");
-    assertThat(value(geometry, "minLat")).isEqualTo("37.500000");
-    assertThat(value(geometry, "maxLon")).isEqualTo("127.080000");
-    assertThat(value(geometry, "maxLat")).isEqualTo("37.620000");
+    assertThat(value(geometry, "minLon")).isEqualTo("126.647507");
+    assertThat(value(geometry, "minLat")).isEqualTo("35.052595");
+    assertThat(value(geometry, "maxLon")).isEqualTo("127.017482");
+    assertThat(value(geometry, "maxLat")).isEqualTo("35.256837");
     assertThat(booleanValue(geometry, "allPointsInsideEnvelope")).isTrue();
     assertThat(booleanValue(geometry, "canonicalSixDecimalCoordinates")).isTrue();
 

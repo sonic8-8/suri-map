@@ -86,7 +86,7 @@ class MarkerControllerTest {
             OP_ID,
             "CLUE",
             new MarkerGeoJsonPoint(
-                "Point", List.of(new BigDecimal("126.956500"), new BigDecimal("37.571200"))),
+                "Point", List.of(new BigDecimal("126.913400"), new BigDecimal("35.163100"))),
             null,
             "S14P31C106-71 field clue",
             CLIENT_TS,
@@ -131,7 +131,7 @@ class MarkerControllerTest {
                         + OP_ID
                         + "\",\"type\":\"CLUE\","
                         + "\"location\":{\"type\":\"Point\","
-                        + "\"coordinates\":[126.956500,37.571200]},"
+                        + "\"coordinates\":[126.913400,35.163100]},"
                         + "\"memo\":\"S14P31C106-71 field clue\","
                         + "\"clientTs\":\"2026-04-28T00:05:00Z\","
                         + "\"clockOffsetMs\":0}"))
@@ -156,7 +156,7 @@ class MarkerControllerTest {
         new MarkerUpdateRequest(
             1L,
             new MarkerGeoJsonPoint(
-                "Point", List.of(new BigDecimal("126.956700"), new BigDecimal("37.571400"))),
+                "Point", List.of(new BigDecimal("126.913700"), new BigDecimal("35.163400"))),
             "S3-2 detail panel memo",
             "NOTE");
     MarkerMutationResult serviceResult =
@@ -196,7 +196,7 @@ class MarkerControllerTest {
                 .content(
                     "{\"version\":1,"
                         + "\"location\":{\"type\":\"Point\","
-                        + "\"coordinates\":[126.956700,37.571400]},"
+                        + "\"coordinates\":[126.913700,35.163400]},"
                         + "\"memo\":\"S3-2 detail panel memo\","
                         + "\"type\":\"NOTE\"}"))
         .andExpect(status().isOk())
@@ -279,7 +279,7 @@ class MarkerControllerTest {
                         + OP_ID
                         + "\",\"type\":\"CLUE\","
                         + "\"location\":{\"type\":\"Point\","
-                        + "\"coordinates\":[126.956500,37.571200]},"
+                        + "\"coordinates\":[126.913400,35.163100]},"
                         + "\"clientTs\":\"2026-04-28T00:05:00Z\"}"))
         .andExpect(status().isForbidden())
         .andExpect(jsonPath("$.error", is("channel_not_allowed")));

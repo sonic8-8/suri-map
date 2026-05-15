@@ -98,14 +98,14 @@ class Sc03PackageTileHarnessRedTest {
     assertThat(value(report, "tileManifestId"))
         .isEqualTo(OfflinePackageManifestFixtures.MANIFEST_ID);
     assertThat(value(report, "zoomRange")).isEqualTo("15..16");
-    assertThat(value(report, "tileKeyRange")).isEqualTo("z=15..16,x=27925..27960,y=12680..12720");
+    assertThat(value(report, "tileKeyRange")).isEqualTo("z=15..16,x=27935..55873,y=12960..25923");
     assertThat(value(report, "blobUriTemplate"))
         .isEqualTo(OfflinePackageManifestFixtures.BLOB_URI_TEMPLATE);
     assertThat(listValue(report, "localTileUris"))
         .containsExactly(
-            "local://tiles/inc-precinct-first-001/15/27925/12680.pbf",
-            "local://tiles/inc-precinct-first-001/15/27926/12680.pbf",
-            "local://tiles/inc-precinct-first-001/16/27925/12681.pbf");
+            "local://tiles/inc-precinct-first-001/15/27935/12960.pbf",
+            "local://tiles/inc-precinct-first-001/15/27936/12960.pbf",
+            "local://tiles/inc-precinct-first-001/16/55870/25920.pbf");
     assertThat(listValue(report, "failureKeys"))
         .containsExactlyInAnyOrderElementsOf(OfflinePackageManifestFixtures.FAILURE_KEYS);
     assertThat(booleanValue(report, "alignedWithHarnessScenarios")).isTrue();

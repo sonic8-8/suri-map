@@ -20,11 +20,11 @@ class OverallSearchAreaTileCoverageTest {
             "Polygon",
             List.of(
                 List.of(
-                    point("126.948000", "37.565000"),
-                    point("126.968000", "37.565000"),
-                    point("126.968000", "37.579000"),
-                    point("126.948000", "37.579000"),
-                    point("126.948000", "37.565000"))));
+                    point("126.904000", "35.158000"),
+                    point("126.923000", "35.158000"),
+                    point("126.923000", "35.173000"),
+                    point("126.904000", "35.173000"),
+                    point("126.904000", "35.158000"))));
 
     List<OverallSearchAreaTileCoverage.TileCoordinate> tiles =
         OverallSearchAreaTileCoverage.covering(polygon, "osm-local", 15, 16);
@@ -40,10 +40,10 @@ class OverallSearchAreaTileCoverageTest {
     assertThat(tiles).hasSize(20);
     assertThat(tileKeys(tiles))
         .contains(
-            "osm-local/15/27939/12688",
-            "osm-local/15/27940/12689",
-            "osm-local/16/55878/25376",
-            "osm-local/16/55881/25379");
+            "osm-local/15/27935/12960",
+            "osm-local/15/27936/12961",
+            "osm-local/16/55870/25920",
+            "osm-local/16/55873/25923");
     assertThat(tileKeys(tiles)).doesNotContain("osm-local/16/27925/12681");
   }
 

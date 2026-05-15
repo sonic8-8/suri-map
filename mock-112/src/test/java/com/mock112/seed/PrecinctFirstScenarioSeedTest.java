@@ -43,8 +43,8 @@ class PrecinctFirstScenarioSeedTest {
         assertThat(first.getType()).isEqualTo("CLUE");
         assertThat(first.getSource()).isEqualTo(EXPECTED_MARKER_SOURCE);
         assertThat(first.getMemo()).isEqualTo("신고자 진술 위치");
-        assertThat(first.getLon()).isEqualTo(126.9565);
-        assertThat(first.getLat()).isEqualTo(37.5712);
+        assertThat(first.getLon()).isEqualTo(126.9134);
+        assertThat(first.getLat()).isEqualTo(35.1631);
     }
 
     @Test

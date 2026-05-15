@@ -220,10 +220,10 @@ class GeometryValidationServiceTest {
         "Polygon",
         List.of(
             List.of(
-                point("126.950000", "37.550000"),
-                point("126.960000", "37.550000"),
-                point("126.960000", "37.560000"),
-                point("126.950000", "37.550000"))));
+                point("126.910000", "35.150000"),
+                point("126.920000", "35.150000"),
+                point("126.920000", "35.158000"),
+                point("126.910000", "35.150000"))));
   }
 
   private GeoJsonPolygon anotherValidPolygon() {
@@ -231,10 +231,10 @@ class GeometryValidationServiceTest {
         "Polygon",
         List.of(
             List.of(
-                point("126.970000", "37.550000"),
-                point("126.980000", "37.550000"),
-                point("126.980000", "37.560000"),
-                point("126.970000", "37.550000"))));
+                point("126.930000", "35.150000"),
+                point("126.940000", "35.150000"),
+                point("126.940000", "35.158000"),
+                point("126.930000", "35.150000"))));
   }
 
   private GeoJsonPolygon selfIntersectionPolygon() {
@@ -242,11 +242,11 @@ class GeometryValidationServiceTest {
         "Polygon",
         List.of(
             List.of(
-                point("126.950000", "37.550000"),
-                point("126.970000", "37.570000"),
-                point("126.950000", "37.570000"),
-                point("126.970000", "37.550000"),
-                point("126.950000", "37.550000"))));
+                point("126.910000", "35.150000"),
+                point("126.930000", "35.162000"),
+                point("126.910000", "35.162000"),
+                point("126.930000", "35.150000"),
+                point("126.910000", "35.150000"))));
   }
 
   private GeoJsonPolygon zeroAreaPolygon() {
@@ -254,14 +254,14 @@ class GeometryValidationServiceTest {
         "Polygon",
         List.of(
             List.of(
-                point("126.950000", "37.550000"),
-                point("126.960000", "37.550000"),
-                point("126.970000", "37.550000"),
-                point("126.950000", "37.550000"))));
+                point("126.910000", "35.150000"),
+                point("126.920000", "35.150000"),
+                point("126.930000", "35.150000"),
+                point("126.910000", "35.150000"))));
   }
 
   private String activeOverallAreaWkt() {
-    return "POLYGON ((126.900000 37.500000, 127.080000 37.500000, 127.080000 37.620000, 126.900000 37.620000, 126.900000 37.500000))";
+    return "POLYGON ((126.647507 35.052595, 127.017482 35.052595, 127.017482 35.256837, 126.647507 35.256837, 126.647507 35.052595))";
   }
 
   private List<BigDecimal> point(String lon, String lat) {

@@ -134,7 +134,7 @@ class OfflinePackageManifestSourceIntegrationTest {
               assertThat(marker.opId()).isEqualTo(OP_ID.toString());
               assertThat(marker.coordinate())
                   .extracting(Object::toString)
-                  .containsExactly("126.957", "37.572");
+                  .containsExactly("126.917", "35.162");
             });
     assertThat(manifest.overallSearchArea().areaId()).isEqualTo(OVERALL_AREA_ID.toString());
     assertThat(manifest.packageItems())
@@ -252,7 +252,7 @@ class OfflinePackageManifestSourceIntegrationTest {
 
     GeoJsonPolygon overallPolygon =
         polygon(
-            "126.950", "37.570", "126.970", "37.570", "126.970", "37.580", "126.950", "37.580");
+            "126.910", "35.160", "126.930", "35.160", "126.930", "35.173", "126.910", "35.173");
     when(searchAreaQuery.overallOf(INCIDENT_ID))
         .thenReturn(
             Optional.of(
@@ -274,14 +274,14 @@ class OfflinePackageManifestSourceIntegrationTest {
             "TEAM",
             6L,
             polygon(
-                "126.955",
-                "37.571",
-                "126.960",
-                "37.571",
-                "126.960",
-                "37.575",
-                "126.955",
-                "37.575"),
+                "126.915",
+                "35.161",
+                "126.920",
+                "35.161",
+                "126.920",
+                "35.166",
+                "126.915",
+                "35.166"),
             List.of(),
             NOW,
             1L);
@@ -316,7 +316,7 @@ class OfflinePackageManifestSourceIntegrationTest {
                         MarkerSource.APP,
                         MarkerStatus.ACTIVE,
                         7L,
-                        jtsPoint("126.957", "37.572"),
+                        jtsPoint("126.917", "35.162"),
                         "동적 단서",
                         NOW,
                         List.of()))));
@@ -353,7 +353,7 @@ class OfflinePackageManifestSourceIntegrationTest {
 
     GeoJsonPolygon overallPolygon =
         polygon(
-            "126.950", "37.570", "126.970", "37.570", "126.970", "37.580", "126.950", "37.580");
+            "126.910", "35.160", "126.930", "35.160", "126.930", "35.173", "126.910", "35.173");
     when(searchAreaQuery.overallOf(incidentId))
         .thenReturn(
             Optional.of(
@@ -375,14 +375,14 @@ class OfflinePackageManifestSourceIntegrationTest {
             "TEAM",
             6L,
             polygon(
-                "126.955",
-                "37.571",
-                "126.960",
-                "37.571",
-                "126.960",
-                "37.575",
-                "126.955",
-                "37.575"),
+                "126.915",
+                "35.161",
+                "126.920",
+                "35.161",
+                "126.920",
+                "35.166",
+                "126.915",
+                "35.166"),
             List.of(),
             NOW,
             1L);
@@ -417,7 +417,7 @@ class OfflinePackageManifestSourceIntegrationTest {
                         MarkerSource.APP,
                         MarkerStatus.ACTIVE,
                         7L,
-                        jtsPoint("126.957", "37.572"),
+                        jtsPoint("126.917", "35.162"),
                         "fixture 동적 단서",
                         NOW,
                         List.of()))));

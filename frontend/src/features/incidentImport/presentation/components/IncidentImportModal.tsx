@@ -9,7 +9,7 @@ type IncidentImportCandidate = {
 const DEFAULT_IMPORT_CANDIDATES: IncidentImportCandidate[] = [
   {
     sourceIncidentId: '00000000-0000-0000-0000-000000000001',
-    title: '종로구 인왕산 실종 신고',
+    title: '광주 무등산 실종 신고',
     meta: 'mock 112 배정 사건 · OP1 자동 생성 대상',
   },
 ];

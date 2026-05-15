@@ -36,27 +36,27 @@ public final class MarkerGeometryFixtures {
   public static final Polygon HARNESS_OVERALL_SEARCH_AREA =
       GF.createPolygon(
           new Coordinate[] {
-            new Coordinate(126.948000, 37.565000),
-            new Coordinate(126.968000, 37.565000),
-            new Coordinate(126.968000, 37.579000),
-            new Coordinate(126.948000, 37.579000),
-            new Coordinate(126.948000, 37.565000)
+            new Coordinate(126.904000, 35.158000),
+            new Coordinate(126.923000, 35.158000),
+            new Coordinate(126.923000, 35.173000),
+            new Coordinate(126.904000, 35.173000),
+            new Coordinate(126.904000, 35.158000)
           });
 
-  public static final Point VALID_MARKER_POINT = point(126.956500, 37.571200);
-  public static final Point OUTSIDE_ENVELOPE = point(127.200000, 37.571200);
-  public static final Point LAT_LON_SWAPPED = point(37.571200, 126.956500);
+  public static final Point VALID_MARKER_POINT = point(126.913400, 35.163100);
+  public static final Point OUTSIDE_ENVELOPE = point(127.200000, 35.163100);
+  public static final Point LAT_LON_SWAPPED = point(35.163100, 126.913400);
   public static final Point LATLON_SWAPPED = LAT_LON_SWAPPED;
-  public static final Point PRECISION_OVER_6DP = point(126.9565007, 37.5712007);
+  public static final Point PRECISION_OVER_6DP = point(126.9134007, 35.1631007);
   public static final Point NAN_POINT = point(Double.NaN, Double.NaN);
   public static final Point SRID_MISMATCH_POINT =
       new GeometryFactory(new PrecisionModel(PrecisionModel.FLOATING), 3857)
-          .createPoint(new Coordinate(126.956500, 37.571200));
+          .createPoint(new Coordinate(126.913400, 35.163100));
 
-  public static final double ENVELOPE_MIN_LON = 126.900000;
-  public static final double ENVELOPE_MIN_LAT = 37.500000;
-  public static final double ENVELOPE_MAX_LON = 127.080000;
-  public static final double ENVELOPE_MAX_LAT = 37.620000;
+  public static final double ENVELOPE_MIN_LON = 126.647507;
+  public static final double ENVELOPE_MIN_LAT = 35.052595;
+  public static final double ENVELOPE_MAX_LON = 127.017482;
+  public static final double ENVELOPE_MAX_LAT = 35.256837;
 
   private MarkerGeometryFixtures() {}
 

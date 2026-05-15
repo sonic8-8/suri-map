@@ -240,7 +240,7 @@ class MarkerLocalRecorderTest {
         const val OP_PHOTO_UPLOAD_ID = "22222222-2222-4222-8222-222222222004"
         const val OP_PHOTO_ATTACH_ID = "22222222-2222-4222-8222-222222222005"
         val CLIENT_TS: Instant = Instant.parse("2026-05-11T06:00:00Z")
-        val LOCATION = MarkerLocation(lon = 126.9565, lat = 37.5712)
+        val LOCATION = MarkerLocation(lon = 126.9134, lat = 35.1631)
         val CONTEXT =
             MarkerWriteContext(
                 incidentId = INCIDENT_ID,

@@ -78,7 +78,7 @@ class MarkerUpdateDeleteServiceTest {
             MarkerType.CLUE,
             null,
             new MarkerGeoJsonPoint(
-                    "Point", List.of(new BigDecimal("126.956500"), new BigDecimal("37.571200")))
+                    "Point", List.of(new BigDecimal("126.913400"), new BigDecimal("35.163100")))
                 .toPoint(),
             "initial clue",
             CLIENT_TS,
@@ -175,7 +175,7 @@ class MarkerUpdateDeleteServiceTest {
         new MarkerUpdateRequest(
             1L,
             new MarkerGeoJsonPoint(
-                "Point", List.of(new BigDecimal("126.9567007"), new BigDecimal("37.5714007"))),
+                "Point", List.of(new BigDecimal("126.9137007"), new BigDecimal("35.1634007"))),
             "updated clue memo",
             "NOTE");
 
@@ -191,8 +191,8 @@ class MarkerUpdateDeleteServiceTest {
     assertThat(row.getMarkerType()).isEqualTo(MarkerType.NOTE.name());
     assertThat(row.getMemo()).isEqualTo("updated clue memo");
     assertThat(row.getLocation().getSRID()).isEqualTo(4326);
-    assertThat(row.getLocation().getX()).isEqualTo(126.956701);
-    assertThat(row.getLocation().getY()).isEqualTo(37.571401);
+    assertThat(row.getLocation().getX()).isEqualTo(126.913701);
+    assertThat(row.getLocation().getY()).isEqualTo(35.163401);
 
     MarkerPublishRequest published = eventPublisher.published().get(0);
     assertThat(published.type()).isEqualTo("MARKER_UPDATED");
@@ -204,7 +204,7 @@ class MarkerUpdateDeleteServiceTest {
     assertThat(published.payload().version()).isEqualTo(2L);
     assertThat(published.payload().type()).isEqualTo("NOTE");
     assertThat(published.payload().location().coordinates())
-        .containsExactly(new BigDecimal("126.956701"), new BigDecimal("37.571401"));
+        .containsExactly(new BigDecimal("126.913701"), new BigDecimal("35.163401"));
     assertThat(published.payload().serverTs()).isEqualTo(SERVER_TS);
   }
 
@@ -286,7 +286,7 @@ class MarkerUpdateDeleteServiceTest {
             MarkerType.FIELD_CONDITION,
             null,
             new MarkerGeoJsonPoint(
-                    "Point", List.of(new BigDecimal("126.956600"), new BigDecimal("37.571300")))
+                    "Point", List.of(new BigDecimal("126.913600"), new BigDecimal("35.163300")))
                 .toPoint(),
             "initial seeded marker",
             CLIENT_TS,

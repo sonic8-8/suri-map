@@ -123,10 +123,10 @@ class SearchAreaApiServicePersistenceRedTest extends PostGisIntegrationTestSuppo
     assertThat(overall.geometry()).isEqualTo(overallPolygon());
     assertThat(overall.bbox())
         .containsExactly(
-            new BigDecimal("126.95"),
-            new BigDecimal("37.57"),
-            new BigDecimal("126.951"),
-            new BigDecimal("37.571"));
+            new BigDecimal("126.91"),
+            new BigDecimal("35.162"),
+            new BigDecimal("126.911"),
+            new BigDecimal("35.163"));
     assertThat(overall.updatedAt()).isEqualTo(SEEDED_UPDATED_AT);
   }
 
@@ -311,8 +311,8 @@ class SearchAreaApiServicePersistenceRedTest extends PostGisIntegrationTestSuppo
             new SplitSearchAreaRequest(
                 SPLIT_OP_ID,
                 List.of(
-                    polygon("126.950100", "37.570100", "0.000500", "0.001000"),
-                    polygon("126.950600", "37.570100", "0.000500", "0.001000")),
+                    polygon("126.910100", "35.160100", "0.000500", "0.001000"),
+                    polygon("126.910600", "35.160100", "0.000500", "0.001000")),
                 "분할",
                 1L,
                 CLIENT_TS.plusMinutes(20)),
@@ -438,8 +438,8 @@ class SearchAreaApiServicePersistenceRedTest extends PostGisIntegrationTestSuppo
             new SplitSearchAreaRequest(
                 OVERALL_SPLIT_CURRENT_OP_ID,
                 List.of(
-                    polygon("126.950100", "37.570100", "0.000400", "0.000800"),
-                    polygon("126.950500", "37.570100", "0.000400", "0.000800")),
+                    polygon("126.910100", "35.160100", "0.000400", "0.000800"),
+                    polygon("126.910500", "35.160100", "0.000400", "0.000800")),
                 "overall split",
                 1L,
                 CLIENT_TS.plusMinutes(21)),
@@ -668,12 +668,12 @@ class SearchAreaApiServicePersistenceRedTest extends PostGisIntegrationTestSuppo
 
   private static CreateSearchAreaRequest overallCreateRequest(UUID incidentId) {
     return new CreateSearchAreaRequest(
-        incidentId, null, "OVERALL", polygon("126.950000", "37.570000"), null, CLIENT_TS);
+        incidentId, null, "OVERALL", polygon("126.910000", "35.162000"), null, CLIENT_TS);
   }
 
   private static CreateSearchAreaRequest unitCreateRequest(UUID incidentId, UUID opId) {
     return new CreateSearchAreaRequest(
-        incidentId, opId, "UNIT", polygon("126.950100", "37.570100"), "1구역", CLIENT_TS);
+        incidentId, opId, "UNIT", polygon("126.910100", "35.160100"), "1구역", CLIENT_TS);
   }
 
   private static GeoJsonPolygon polygon(String minLon, String minLat) {
@@ -698,18 +698,18 @@ class SearchAreaApiServicePersistenceRedTest extends PostGisIntegrationTestSuppo
   }
 
   private static GeoJsonPolygon overallPolygon() {
-    return polygon("126.95", "37.57");
+    return polygon("126.91", "35.162");
   }
 
   private static GeoJsonPolygon unitPolygon() {
-    return polygon("126.9501", "37.5701");
+    return polygon("126.9101", "35.1601");
   }
 
   private static String overallWkt() {
-    return "POLYGON((126.95 37.57,126.951 37.57,126.951 37.571,126.95 37.571,126.95 37.57))";
+    return "POLYGON((126.91 35.162,126.911 35.162,126.911 35.163,126.91 35.163,126.91 35.162))";
   }
 
   private static String unitWkt() {
-    return "POLYGON((126.9501 37.5701,126.9511 37.5701,126.9511 37.5711,126.9501 37.5711,126.9501 37.5701))";
+    return "POLYGON((126.9101 35.1601,126.9111 35.1601,126.9111 35.1611,126.9101 35.1611,126.9101 35.1601))";
   }
 }

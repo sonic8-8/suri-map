@@ -134,12 +134,12 @@ class TileControllerTest {
       names = {"WEB", "APP"})
   @DisplayName("APP/WEB tile pbf는 로컬 fixture bytes와 application/x-protobuf를 반환한다")
   void publicSessionTilePbfReturnsLocalFixtureBytes(Channel channel) throws Exception {
-    when(tileService.getTile(STYLE_ID, 15, 27925, 12680))
+    when(tileService.getTile(STYLE_ID, 15, 27935, 12960))
         .thenReturn(new TileBlobResponse(APPLICATION_X_PROTOBUF, LOCAL_TILE_BYTES));
 
     mockMvc
         .perform(
-            get("/tiles/{style}/{z}/{x}/{y}.pbf", STYLE_ID, 15, 27925, 12680)
+            get("/tiles/{style}/{z}/{x}/{y}.pbf", STYLE_ID, 15, 27935, 12960)
                 .header("Authorization", AUTHORIZATION)
                 .header("X-Client-Channel", channel.name())
                 .principal(authentication(channel)))
@@ -189,7 +189,7 @@ class TileControllerTest {
   void internalTileRequestRejected() throws Exception {
     mockMvc
         .perform(
-            get("/tiles/{style}/{z}/{x}/{y}.pbf", STYLE_ID, 15, 27925, 12680)
+            get("/tiles/{style}/{z}/{x}/{y}.pbf", STYLE_ID, 15, 27935, 12960)
                 .header("Authorization", "Bearer internal-tile-session")
                 .header("X-Client-Channel", "INTERNAL")
                 .principal(authentication(Channel.INTERNAL)))
@@ -204,7 +204,7 @@ class TileControllerTest {
   @DisplayName("인증이 없는 tile 요청은 channel_not_allowed로 거부한다")
   void missingAuthenticationRejected() throws Exception {
     mockMvc
-        .perform(get("/tiles/{style}/{z}/{x}/{y}.pbf", STYLE_ID, 15, 27925, 12680))
+        .perform(get("/tiles/{style}/{z}/{x}/{y}.pbf", STYLE_ID, 15, 27935, 12960))
         .andExpect(status().isForbidden())
         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
         .andExpect(jsonPath("$.error", is("channel_not_allowed")));
@@ -221,7 +221,7 @@ class TileControllerTest {
 
     mockMvc
         .perform(
-            get("/tiles/{style}/{z}/{x}/{y}.pbf", STYLE_ID, 15, 27925, 12680)
+            get("/tiles/{style}/{z}/{x}/{y}.pbf", STYLE_ID, 15, 27935, 12960)
                 .header("Authorization", "Basic ZGV2OmRldi1wYXNzd29yZA==")
                 .principal(basicAuthentication))
         .andExpect(status().isForbidden())
@@ -250,11 +250,11 @@ class TileControllerTest {
   @Test
   @DisplayName("fixture 범위 밖 tile은 tile_unavailable 503을 반환한다")
   void unavailableTileReturnsTileUnavailable() throws Exception {
-    when(tileService.getTile(STYLE_ID, 14, 27925, 12680)).thenThrow(new TileUnavailableException());
+    when(tileService.getTile(STYLE_ID, 14, 27935, 12960)).thenThrow(new TileUnavailableException());
 
     mockMvc
         .perform(
-            get("/tiles/{style}/{z}/{x}/{y}.pbf", STYLE_ID, 14, 27925, 12680)
+            get("/tiles/{style}/{z}/{x}/{y}.pbf", STYLE_ID, 14, 27935, 12960)
                 .header("Authorization", AUTHORIZATION)
                 .header("X-Client-Channel", "WEB")
                 .principal(authentication(Channel.WEB)))

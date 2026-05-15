@@ -15,17 +15,17 @@ final class GpsPathValidationFixtures {
   static final List<GpsPointFixture> NORMAL_POINTS =
       List.of(
           point(
-              "gps-precinct-001", "2026-04-28T09:00:00+09:00", "126.956000", "37.570000", 13.5, 5),
+              "gps-precinct-001", "2026-04-28T09:00:00+09:00", "126.913000", "35.162000", 13.5, 5),
           point(
-              "gps-precinct-002", "2026-04-28T09:00:05+09:00", "126.956650", "37.570180", 12.8, 5),
+              "gps-precinct-002", "2026-04-28T09:00:05+09:00", "126.913650", "35.162180", 12.8, 5),
           point(
-              "gps-precinct-003", "2026-04-28T09:00:10+09:00", "126.957300", "37.570360", 11.9, 5),
-          point("gps-precinct-004", "2026-04-28T09:00:15+09:00", "126.957850", "37.570540", 9.8, 5),
-          point("gps-precinct-005", "2026-04-28T09:00:20+09:00", "126.958000", "37.570700", 1.6, 5),
-          point("gps-precinct-006", "2026-04-28T09:00:25+09:00", "126.958080", "37.570880", 1.3, 5),
-          point("gps-precinct-007", "2026-04-28T09:00:30+09:00", "126.958160", "37.571050", 1.1, 5),
+              "gps-precinct-003", "2026-04-28T09:00:10+09:00", "126.914300", "35.162360", 11.9, 5),
+          point("gps-precinct-004", "2026-04-28T09:00:15+09:00", "126.914850", "35.162540", 9.8, 5),
+          point("gps-precinct-005", "2026-04-28T09:00:20+09:00", "126.915000", "35.162700", 1.6, 5),
+          point("gps-precinct-006", "2026-04-28T09:00:25+09:00", "126.915080", "35.162880", 1.3, 5),
+          point("gps-precinct-007", "2026-04-28T09:00:30+09:00", "126.915160", "35.163050", 1.1, 5),
           point(
-              "gps-precinct-008", "2026-04-28T09:00:35+09:00", "126.958250", "37.571220", 1.4, 5));
+              "gps-precinct-008", "2026-04-28T09:00:35+09:00", "126.915250", "35.163120", 1.4, 5));
 
   static final List<PathSegmentFixture> NORMAL_SEGMENTS =
       List.of(
@@ -44,8 +44,8 @@ final class GpsPathValidationFixtures {
                           "gps-over-limit-%03d".formatted(index),
                           "2026-04-28T09:%02d:%02d+09:00"
                               .formatted((index - 1) / 12, ((index - 1) % 12) * 5),
-                          "126.%06d".formatted(956000 + index - 1),
-                          "37.%06d".formatted(570000 + index - 1),
+                          "126.%06d".formatted(913000 + index - 1),
+                          "35.%06d".formatted(162000 + index - 1),
                           2.0,
                           5))
               .toList(),
@@ -60,14 +60,14 @@ final class GpsPathValidationFixtures {
                   "gps-outside-001",
                   "2026-04-28T09:05:00+09:00",
                   "127.200000",
-                  "37.571200",
+                  "35.163100",
                   3.0,
                   5),
               point(
                   "gps-outside-002",
                   "2026-04-28T09:05:05+09:00",
                   "127.200100",
-                  "37.571250",
+                  "35.163150",
                   3.0,
                   5)),
           "invalid_geometry",
@@ -80,15 +80,15 @@ final class GpsPathValidationFixtures {
               point(
                   "gps-swapped-001",
                   "2026-04-28T09:06:00+09:00",
-                  "37.571200",
-                  "126.956500",
+                  "35.163100",
+                  "126.913400",
                   3.0,
                   5),
               point(
                   "gps-swapped-002",
                   "2026-04-28T09:06:05+09:00",
-                  "37.571300",
-                  "126.956600",
+                  "35.163300",
+                  "126.913600",
                   3.0,
                   5)),
           "invalid_geometry",
@@ -98,8 +98,8 @@ final class GpsPathValidationFixtures {
       new StructuralFailureFixture(
           "gps-client-ts-non-monotonic",
           List.of(
-              point("gps-ts-001", "2026-04-28T09:07:00+09:00", "126.956000", "37.570000", 3.0, 5),
-              point("gps-ts-002", "2026-04-28T09:06:55+09:00", "126.956100", "37.570100", 3.0, 5)),
+              point("gps-ts-001", "2026-04-28T09:07:00+09:00", "126.913000", "35.162000", 3.0, 5),
+              point("gps-ts-002", "2026-04-28T09:06:55+09:00", "126.913100", "35.162100", 3.0, 5)),
           "invalid_geometry",
           "clientTs strict monotonic");
 
@@ -107,9 +107,9 @@ final class GpsPathValidationFixtures {
       new StructuralFailureFixture(
           "point-null-nan",
           List.of(
-              point("gps-null-001", "2026-04-28T09:08:00+09:00", null, "37.570000", 3.0, 5),
+              point("gps-null-001", "2026-04-28T09:08:00+09:00", null, "35.162000", 3.0, 5),
               point(
-                  "gps-null-002", "2026-04-28T09:08:05+09:00", "126.956100", "37.570100", 3.0, 5)),
+                  "gps-null-002", "2026-04-28T09:08:05+09:00", "126.913100", "35.162100", 3.0, 5)),
           "invalid_geometry",
           "null or NaN coordinate is a structural failure");
 
@@ -120,15 +120,15 @@ final class GpsPathValidationFixtures {
               point(
                   "gps-precision-001",
                   "2026-04-28T09:09:00+09:00",
-                  "126.9565007",
-                  "37.5712007",
+                  "126.9134007",
+                  "35.1631007",
                   3.0,
                   5),
               point(
                   "gps-precision-002",
                   "2026-04-28T09:09:05+09:00",
-                  "126.9566007",
-                  "37.5713007",
+                  "126.9136007",
+                  "35.1633007",
                   3.0,
                   5)),
           "invalid_geometry",
@@ -142,8 +142,8 @@ final class GpsPathValidationFixtures {
               point(
                   "gps-quality-accuracy-001",
                   "2026-04-28T09:10:00+09:00",
-                  "126.956000",
-                  "37.570000",
+                  "126.913000",
+                  "35.162000",
                   3.0,
                   51)),
           OffsetDateTime.parse("2026-04-28T09:10:00+09:00"),
@@ -161,8 +161,8 @@ final class GpsPathValidationFixtures {
               point(
                   "gps-quality-skew-001",
                   "2026-04-28T09:10:35+09:00",
-                  "126.956100",
-                  "37.570100",
+                  "126.913100",
+                  "35.162100",
                   3.0,
                   5)),
           OffsetDateTime.parse("2026-04-28T09:10:00+09:00"),
@@ -180,8 +180,8 @@ final class GpsPathValidationFixtures {
               point(
                   "gps-quality-speed-negative-001",
                   "2026-04-28T09:10:10+09:00",
-                  "126.956200",
-                  "37.570200",
+                  "126.913200",
+                  "35.162200",
                   -1.0,
                   5)),
           OffsetDateTime.parse("2026-04-28T09:10:10+09:00"),
@@ -199,8 +199,8 @@ final class GpsPathValidationFixtures {
               point(
                   "gps-quality-speed-over-001",
                   "2026-04-28T09:10:10+09:00",
-                  "126.956200",
-                  "37.570200",
+                  "126.913200",
+                  "35.162200",
                   46.0,
                   5)),
           OffsetDateTime.parse("2026-04-28T09:10:10+09:00"),
@@ -218,20 +218,20 @@ final class GpsPathValidationFixtures {
               point(
                   "gps-quality-jump-prev-001",
                   "2026-04-28T09:10:10+09:00",
-                  "126.956200",
-                  "37.570200",
+                  "126.913200",
+                  "35.162200",
                   3.0,
                   5),
               point(
                   "gps-quality-jump-001",
                   "2026-04-28T09:10:15+09:00",
-                  "126.958810",
-                  "37.570200",
+                  "126.915810",
+                  "35.162200",
                   3.0,
                   5)),
           OffsetDateTime.parse("2026-04-28T09:10:15+09:00"),
           "distance > 200m between 5-second samples",
-          BigDecimal.valueOf(230),
+          BigDecimal.valueOf(237),
           BigDecimal.valueOf(GpsPathValidationCriteria.MAX_DISTANCE_JUMP_METERS_PER_FIVE_SECONDS),
           ViolationDirection.ABOVE_MAX,
           "excludedPoints");

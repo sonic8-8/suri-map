@@ -54,8 +54,8 @@ class IncidentFlowHarnessMockContractTest {
               assertThat(marker.type()).isEqualTo("CLUE");
               assertThat(marker.source()).isEqualTo("MOCK_SEED");
               assertThat(marker.memo()).isEqualTo("신고자 진술 위치");
-              assertThat(marker.lon()).isEqualTo(126.9565);
-              assertThat(marker.lat()).isEqualTo(37.5712);
+              assertThat(marker.lon()).isEqualTo(126.9134);
+              assertThat(marker.lat()).isEqualTo(35.1631);
             });
   }
 
