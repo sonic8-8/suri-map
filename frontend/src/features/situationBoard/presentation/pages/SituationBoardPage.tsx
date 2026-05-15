@@ -1,6 +1,5 @@
-import { useCallback, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useRef, useState } from 'react';
 import { AreaEditPage } from '../../../areaEdit/presentation/pages/AreaEditPage';
-import { HandoverPage } from '../../../handover/presentation/pages/HandoverPage';
 import type { CompletedAreaDraft } from '../../../../shared/model/areaDraft';
 import type { MarkerNotification } from '../../../../shared/ui';
 import type { LoginAccount } from '../../../login/presentation/types/login';
@@ -10,6 +9,12 @@ import { SituationBoardLeftPanel } from '../components/leftPanel/SituationBoardL
 import { SituationBoardMap } from '../components/map/SituationBoardMap';
 import { useSituationBoardPageState } from '../hooks/useSituationBoardPageState';
 import { isIncidentTerminalClosed, toIncidentTerminal } from '../utils/incidentTerminalBoardMapper';
+
+const HandoverPage = lazy(() =>
+  import('../../../handover/presentation/pages/HandoverPage').then((module) => ({
+    default: module.HandoverPage,
+  })),
+);
 
 type SituationBoardPageProps = {
   incidentId: string;
@@ -132,20 +137,22 @@ export function SituationBoardPage({
             onSharedMapPropsChange={boardState.setAreaEditMapProps}
           />
         ) : !isClosedTerminalBoard && boardState.isHandoverWorkspaceOpen ? (
-          <HandoverPage
-            embedded
-            sharedMapMode
-            incidentId={incidentId}
-            currentUserAccount={currentUserAccount}
-            markerNotificationIndex={markerNotificationIndex}
-            markerNotifications={markerNotifications}
-            onCloseMarkerNotifications={onCloseMarkerNotifications}
-            onMoveMarkerNotification={onMoveMarkerNotification}
-            onOpenIncidentList={onOpenIncidentList}
-            onOpenIncidentDetail={onOpenIncidentDetail}
-            onOpenSituationBoard={boardState.closeHandoverWorkspace}
-            onOpenOfflinePackage={onOpenOfflinePackage}
-          />
+          <Suspense fallback={null}>
+            <HandoverPage
+              embedded
+              sharedMapMode
+              incidentId={incidentId}
+              currentUserAccount={currentUserAccount}
+              markerNotificationIndex={markerNotificationIndex}
+              markerNotifications={markerNotifications}
+              onCloseMarkerNotifications={onCloseMarkerNotifications}
+              onMoveMarkerNotification={onMoveMarkerNotification}
+              onOpenIncidentList={onOpenIncidentList}
+              onOpenIncidentDetail={onOpenIncidentDetail}
+              onOpenSituationBoard={boardState.closeHandoverWorkspace}
+              onOpenOfflinePackage={onOpenOfflinePackage}
+            />
+          </Suspense>
         ) : boardState.isMapExpanded || isClosedTerminalBoard ? null : (
           <SituationBoardLeftPanel
             board={boardState.board}
