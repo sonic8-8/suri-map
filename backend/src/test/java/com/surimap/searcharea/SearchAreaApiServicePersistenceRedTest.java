@@ -425,9 +425,12 @@ class SearchAreaApiServicePersistenceRedTest extends PostGisIntegrationTestSuppo
             overallCreateRequest(OVERALL_SPLIT_INCIDENT_ID),
             "idem-search-area-overall-before-overall-split-248");
 
-    endOperationalPeriod(OVERALL_SPLIT_OLD_OP_ID, CLIENT_TS.plusMinutes(19));
+    endOperationalPeriod(OVERALL_SPLIT_OLD_OP_ID, CLIENT_TS.plusMinutes(19).toInstant());
     seedActiveOperationalPeriod(
-        OVERALL_SPLIT_INCIDENT_ID, OVERALL_SPLIT_CURRENT_OP_ID, 2, CLIENT_TS.plusMinutes(20));
+        OVERALL_SPLIT_INCIDENT_ID,
+        OVERALL_SPLIT_CURRENT_OP_ID,
+        2,
+        CLIENT_TS.plusMinutes(20).toInstant());
 
     SearchAreaSplitResponse response =
         service.split(
