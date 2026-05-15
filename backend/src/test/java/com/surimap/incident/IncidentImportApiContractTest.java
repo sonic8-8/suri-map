@@ -150,7 +150,7 @@ class IncidentImportApiContractTest {
     verify(referenceMarkerSeed)
         .createForIncident(
             eq(INCIDENT_ID),
-            eq(List.of(new SeedMarker("CLUE", "MOCK_SEED", "신고자 진술 위치", 126.9565, 37.5712))));
+            eq(List.of(new SeedMarker("CLUE", "MOCK_SEED", "신고자 진술 위치", 126.9134, 35.1631))));
   }
 
   @Test
@@ -251,7 +251,7 @@ class IncidentImportApiContractTest {
     verify(referenceMarkerSeed, times(1))
         .createForIncident(
             eq(INCIDENT_ID),
-            eq(List.of(new SeedMarker("CLUE", "MOCK_SEED", "신고자 진술 위치", 126.9565, 37.5712))));
+            eq(List.of(new SeedMarker("CLUE", "MOCK_SEED", "신고자 진술 위치", 126.9134, 35.1631))));
     verify(incidentEventPublisher, times(1))
         .publishIncidentCreated(any(IncidentCreatedEvent.class));
   }
@@ -408,14 +408,14 @@ class IncidentImportApiContractTest {
         .thenReturn(
             new ExternalIncident(
                 sourceIncidentId,
-                "인왕산 북측 산책로 실종 신고",
+                "광주 무등산 탐방로 실종 신고",
                 OffsetDateTime.parse("2026-04-28T00:00:00Z"),
                 "READY",
                 new ExternalMissingPerson(
                     "가상 실종자 001",
                     "mock-112/missing-person/mock-112-incident-001.jpg",
                     "검은색 상의, 회색 바지",
-                    "인왕산 북측 산책로 입구",
+                    "무등산 서측 탐방로 입구",
                     OffsetDateTime.parse("2026-04-27T23:20:00Z")),
                 List.of(
                     new ExternalAssignment(
@@ -434,7 +434,7 @@ class IncidentImportApiContractTest {
                         "MEMBER",
                         OffsetDateTime.parse("2026-04-28T00:00:00Z"))),
                 List.of(
-                    new ExternalSeedMarker("CLUE", "MOCK_SEED", "신고자 진술 위치", 126.9565, 37.5712))));
+                    new ExternalSeedMarker("CLUE", "MOCK_SEED", "신고자 진술 위치", 126.9134, 35.1631))));
   }
 
   private void givenClosedIncident(String sourceIncidentId) {
@@ -447,7 +447,7 @@ class IncidentImportApiContractTest {
         """,
         INCIDENT_ID.toString(),
         sourceIncidentId,
-        "인왕산 북측 산책로 실종 신고",
+        "광주 무등산 탐방로 실종 신고",
         Instant.parse("2026-04-28T00:00:00Z"),
         Instant.parse("2026-04-28T03:00:00Z"),
         ACCOUNT_PRECINCT_COMMANDER.toString(),

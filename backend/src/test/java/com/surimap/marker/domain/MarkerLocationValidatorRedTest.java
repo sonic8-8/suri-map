@@ -60,23 +60,23 @@ class MarkerLocationValidatorRedTest {
     @Test
     @DisplayName("하네스 marker 좌표 fixture를 문자열 단위로 고정한다")
     void harness_marker_coordinate_fixture를_고정한다() {
-      assertThat(VALID_MARKER_POINT.getX()).isEqualTo(126.956500);
-      assertThat(VALID_MARKER_POINT.getY()).isEqualTo(37.571200);
+      assertThat(VALID_MARKER_POINT.getX()).isEqualTo(126.913400);
+      assertThat(VALID_MARKER_POINT.getY()).isEqualTo(35.163100);
       assertThat(OUTSIDE_ENVELOPE.getX()).isEqualTo(127.200000);
-      assertThat(OUTSIDE_ENVELOPE.getY()).isEqualTo(37.571200);
-      assertThat(LAT_LON_SWAPPED.getX()).isEqualTo(37.571200);
-      assertThat(LAT_LON_SWAPPED.getY()).isEqualTo(126.956500);
-      assertThat(PRECISION_OVER_6DP.getX()).isEqualTo(126.9565007);
-      assertThat(PRECISION_OVER_6DP.getY()).isEqualTo(37.5712007);
+      assertThat(OUTSIDE_ENVELOPE.getY()).isEqualTo(35.163100);
+      assertThat(LAT_LON_SWAPPED.getX()).isEqualTo(35.163100);
+      assertThat(LAT_LON_SWAPPED.getY()).isEqualTo(126.913400);
+      assertThat(PRECISION_OVER_6DP.getX()).isEqualTo(126.9134007);
+      assertThat(PRECISION_OVER_6DP.getY()).isEqualTo(35.1631007);
     }
 
     @Test
     @DisplayName("fixture envelope를 고정한다")
     void fixture_envelope를_고정한다() {
-      assertThat(ENVELOPE_MIN_LON).isEqualTo(126.900000);
-      assertThat(ENVELOPE_MIN_LAT).isEqualTo(37.500000);
-      assertThat(ENVELOPE_MAX_LON).isEqualTo(127.080000);
-      assertThat(ENVELOPE_MAX_LAT).isEqualTo(37.620000);
+      assertThat(ENVELOPE_MIN_LON).isEqualTo(126.647507);
+      assertThat(ENVELOPE_MIN_LAT).isEqualTo(35.052595);
+      assertThat(ENVELOPE_MAX_LON).isEqualTo(127.017482);
+      assertThat(ENVELOPE_MAX_LAT).isEqualTo(35.256837);
     }
   }
 
@@ -93,7 +93,7 @@ class MarkerLocationValidatorRedTest {
     @Test
     @DisplayName("boundary 경계선 위 좌표는 통과한다")
     void boundary_경계선_위_좌표는_통과한다() {
-      Point edgePoint = GF.createPoint(new Coordinate(126.948000, 37.570000));
+      Point edgePoint = GF.createPoint(new Coordinate(126.904000, 35.162000));
 
       assertDoesNotThrow(() -> validator.validate(INCIDENT_ID, edgePoint));
     }
@@ -144,7 +144,7 @@ class MarkerLocationValidatorRedTest {
     @Test
     @DisplayName("경도 범위 초과 좌표는 invalid_geometry다")
     void 경도_범위_초과_좌표는_invalid_geometry다() {
-      Point outOfRange = GF.createPoint(new Coordinate(181.0, 37.571200));
+      Point outOfRange = GF.createPoint(new Coordinate(181.0, 35.163100));
 
       assertInvalidGeometry(() -> validator.validate(INCIDENT_ID, outOfRange));
     }
@@ -152,7 +152,7 @@ class MarkerLocationValidatorRedTest {
     @Test
     @DisplayName("위도 범위 초과 좌표는 invalid_geometry다")
     void 위도_범위_초과_좌표는_invalid_geometry다() {
-      Point outOfRange = GF.createPoint(new Coordinate(126.956500, 91.0));
+      Point outOfRange = GF.createPoint(new Coordinate(126.913400, 91.0));
 
       assertInvalidGeometry(() -> validator.validate(INCIDENT_ID, outOfRange));
     }

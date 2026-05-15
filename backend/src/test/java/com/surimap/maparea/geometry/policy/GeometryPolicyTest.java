@@ -18,10 +18,10 @@ class GeometryPolicyTest {
     assertThat(policy.crs()).isEqualTo("EPSG:4326");
     assertThat(policy.coordinateOrder()).isEqualTo("[lon, lat]");
 
-    assertThat(policy.minLon()).isEqualByComparingTo("126.900000");
-    assertThat(policy.minLat()).isEqualByComparingTo("37.500000");
-    assertThat(policy.maxLon()).isEqualByComparingTo("127.080000");
-    assertThat(policy.maxLat()).isEqualByComparingTo("37.620000");
+    assertThat(policy.minLon()).isEqualByComparingTo("126.647507");
+    assertThat(policy.minLat()).isEqualByComparingTo("35.052595");
+    assertThat(policy.maxLon()).isEqualByComparingTo("127.017482");
+    assertThat(policy.maxLat()).isEqualByComparingTo("35.256837");
 
     assertThat(policy.coordinatePrecisionDecimals()).isEqualTo(6);
     assertThat(policy.minimumPolygonAreaM2()).isEqualByComparingTo("400");
@@ -37,66 +37,66 @@ class GeometryPolicyTest {
 
   @Test
   void bbox_내부_좌표는_true다() {
-    assertThat(policy.containsLonLat(new BigDecimal("126.956500"), new BigDecimal("37.571200")))
+    assertThat(policy.containsLonLat(new BigDecimal("126.913400"), new BigDecimal("35.163100")))
         .isTrue();
   }
 
   @Test
   void bbox_경계값은_true다() {
-    assertThat(policy.containsLonLat(new BigDecimal("126.900000"), new BigDecimal("37.500000")))
+    assertThat(policy.containsLonLat(new BigDecimal("126.647507"), new BigDecimal("35.052595")))
         .isTrue();
 
-    assertThat(policy.containsLonLat(new BigDecimal("127.080000"), new BigDecimal("37.620000")))
+    assertThat(policy.containsLonLat(new BigDecimal("127.017482"), new BigDecimal("35.256837")))
         .isTrue();
   }
 
   @Test
   void bbox_밖_좌표는_false다() {
-    assertThat(policy.containsLonLat(new BigDecimal("127.200000"), new BigDecimal("37.571200")))
+    assertThat(policy.containsLonLat(new BigDecimal("127.200000"), new BigDecimal("35.163100")))
         .isFalse();
   }
 
   @Test
   void 유효하지_않은_경도는_false다() {
-    assertThat(policy.containsLonLat(new BigDecimal("181"), new BigDecimal("37.571200"))).isFalse();
+    assertThat(policy.containsLonLat(new BigDecimal("181"), new BigDecimal("35.163100"))).isFalse();
   }
 
   @Test
   void 유효하지_않은_위도는_false다() {
-    assertThat(policy.containsLonLat(new BigDecimal("126.956500"), new BigDecimal("91"))).isFalse();
+    assertThat(policy.containsLonLat(new BigDecimal("126.913400"), new BigDecimal("91"))).isFalse();
   }
 
   @Test
   void lat_lon_순서가_뒤집힌_좌표는_bbox_밖으로_판정된다() {
-    assertThat(policy.containsLonLat(new BigDecimal("37.571200"), new BigDecimal("126.956500")))
+    assertThat(policy.containsLonLat(new BigDecimal("35.163100"), new BigDecimal("126.913400")))
         .isFalse();
   }
 
   @Test
   void null_좌표는_false다() {
-    assertThat(policy.containsLonLat(null, new BigDecimal("37.571200"))).isFalse();
-    assertThat(policy.containsLonLat(new BigDecimal("126.956500"), null)).isFalse();
+    assertThat(policy.containsLonLat(null, new BigDecimal("35.163100"))).isFalse();
+    assertThat(policy.containsLonLat(new BigDecimal("126.913400"), null)).isFalse();
   }
 
   @Test
   void 소수점_6자리_좌표는_이미_canonical_precision이다() {
-    assertThat(policy.isAlreadyCanonicalPrecision(new BigDecimal("126.956500"))).isTrue();
+    assertThat(policy.isAlreadyCanonicalPrecision(new BigDecimal("126.913400"))).isTrue();
   }
 
   @Test
   void 끝의_0은_precision_초과로_보지_않는다() {
-    assertThat(policy.isAlreadyCanonicalPrecision(new BigDecimal("126.9565000"))).isTrue();
+    assertThat(policy.isAlreadyCanonicalPrecision(new BigDecimal("126.9134000"))).isTrue();
   }
 
   @Test
   void 소수점_7자리_좌표는_아직_canonical_precision이_아니다() {
-    assertThat(policy.isAlreadyCanonicalPrecision(new BigDecimal("126.9565007"))).isFalse();
+    assertThat(policy.isAlreadyCanonicalPrecision(new BigDecimal("126.9134007"))).isFalse();
   }
 
   @Test
   void canonicalizeCoordinate는_6자리로_반올림한다() {
-    assertThat(policy.canonicalizeCoordinate(new BigDecimal("126.9565007")))
-        .isEqualByComparingTo("126.956501");
+    assertThat(policy.canonicalizeCoordinate(new BigDecimal("126.9134007")))
+        .isEqualByComparingTo("126.913401");
   }
 
   @Test
@@ -234,10 +234,10 @@ class GeometryPolicyTest {
                     srid,
                     crs,
                     coordinateOrder,
-                    new BigDecimal("126.900000"),
-                    new BigDecimal("37.500000"),
-                    new BigDecimal("127.080000"),
-                    new BigDecimal("37.620000"),
+                    new BigDecimal("126.647507"),
+                    new BigDecimal("35.052595"),
+                    new BigDecimal("127.017482"),
+                    new BigDecimal("35.256837"),
                     precision,
                     new BigDecimal(minimumArea),
                     round,

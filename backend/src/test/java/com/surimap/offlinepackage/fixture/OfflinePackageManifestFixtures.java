@@ -33,10 +33,10 @@ public final class OfflinePackageManifestFixtures {
 
   public static final int MIN_Z = 15;
   public static final int MAX_Z = 16;
-  public static final int MIN_X = 27925;
-  public static final int MAX_X = 27960;
-  public static final int MIN_Y = 12680;
-  public static final int MAX_Y = 12720;
+  public static final int MIN_X = 27935;
+  public static final int MAX_X = 55873;
+  public static final int MIN_Y = 12960;
+  public static final int MAX_Y = 25923;
 
   public static final List<String> PACKAGE_ITEM_TYPES =
       List.of(
@@ -59,9 +59,9 @@ public final class OfflinePackageManifestFixtures {
 
   public static final List<String> EXTERNAL_TILE_URLS =
       List.of(
-          "https://a.tile.openstreetmap.org/15/27925/12680.pbf",
-          "https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/15/27925/12680.vector.pbf",
-          "https://maps.googleapis.com/maps/api/tile/15/27925/12680");
+          "https://a.tile.openstreetmap.org/15/27935/12960.pbf",
+          "https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/15/27935/12960.vector.pbf",
+          "https://maps.googleapis.com/maps/api/tile/15/27935/12960");
 
   private OfflinePackageManifestFixtures() {}
 

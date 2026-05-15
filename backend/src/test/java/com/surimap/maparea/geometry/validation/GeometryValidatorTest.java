@@ -22,12 +22,12 @@ class GeometryValidatorTest {
 
   @Test
   void point를_6자리_canonical_scale로_정규화한다() {
-    List<BigDecimal> point = List.of(new BigDecimal("126.9565"), new BigDecimal("37.5712"));
+    List<BigDecimal> point = List.of(new BigDecimal("126.9134"), new BigDecimal("35.1631"));
 
     List<BigDecimal> result = validator.validateAndCanonicalizePoint(point);
 
-    assertThat(result.get(0)).isEqualByComparingTo("126.956500");
-    assertThat(result.get(1)).isEqualByComparingTo("37.571200");
+    assertThat(result.get(0)).isEqualByComparingTo("126.913400");
+    assertThat(result.get(1)).isEqualByComparingTo("35.163100");
     assertThat(result.get(0).scale()).isEqualTo(6);
     assertThat(result.get(1).scale()).isEqualTo(6);
   }
@@ -37,15 +37,15 @@ class GeometryValidatorTest {
     List<BigDecimal> result =
         validator.validateAndCanonicalizePoint(GeometryFixtures.overPrecisionPoint());
 
-    assertThat(result.get(0)).isEqualByComparingTo("126.956501");
-    assertThat(result.get(1)).isEqualByComparingTo("37.571201");
+    assertThat(result.get(0)).isEqualByComparingTo("126.913401");
+    assertThat(result.get(1)).isEqualByComparingTo("35.163101");
     assertThat(result.get(0).scale()).isEqualTo(6);
     assertThat(result.get(1).scale()).isEqualTo(6);
   }
 
   @Test
   void 반올림_이후에도_bbox_밖이면_invalid_geometry다() {
-    List<BigDecimal> point = List.of(new BigDecimal("127.0800005"), new BigDecimal("37.5712000"));
+    List<BigDecimal> point = List.of(new BigDecimal("127.0174825"), new BigDecimal("35.1631000"));
 
     assertThatThrownBy(() -> validator.validateAndCanonicalizePoint(point))
         .isInstanceOf(InvalidGeometryException.class)
@@ -61,7 +61,7 @@ class GeometryValidatorTest {
 
   @Test
   void point가_2개_값이_아니면_invalid_geometry다() {
-    List<BigDecimal> point = List.of(new BigDecimal("126.956500"));
+    List<BigDecimal> point = List.of(new BigDecimal("126.913400"));
 
     assertThatThrownBy(() -> validator.validateAndCanonicalizePoint(point))
         .isInstanceOf(InvalidGeometryException.class)
@@ -71,7 +71,7 @@ class GeometryValidatorTest {
   @Test
   void point_내부_좌표값이_null이면_invalid_geometry다() {
     List<BigDecimal> point = new ArrayList<>();
-    point.add(new BigDecimal("126.956500"));
+    point.add(new BigDecimal("126.913400"));
     point.add(null);
 
     assertThatThrownBy(() -> validator.validateAndCanonicalizePoint(point))
@@ -81,7 +81,7 @@ class GeometryValidatorTest {
 
   @Test
   void 경도가_EPSG4326_범위를_벗어나면_invalid_geometry다() {
-    List<BigDecimal> point = List.of(new BigDecimal("181"), new BigDecimal("37.571200"));
+    List<BigDecimal> point = List.of(new BigDecimal("181"), new BigDecimal("35.163100"));
 
     assertThatThrownBy(() -> validator.validateAndCanonicalizePoint(point))
         .isInstanceOf(InvalidGeometryException.class)
@@ -90,7 +90,7 @@ class GeometryValidatorTest {
 
   @Test
   void 위도가_EPSG4326_범위를_벗어나면_invalid_geometry다() {
-    List<BigDecimal> point = List.of(new BigDecimal("126.956500"), new BigDecimal("91"));
+    List<BigDecimal> point = List.of(new BigDecimal("126.913400"), new BigDecimal("91"));
 
     assertThatThrownBy(() -> validator.validateAndCanonicalizePoint(point))
         .isInstanceOf(InvalidGeometryException.class)
@@ -99,7 +99,7 @@ class GeometryValidatorTest {
 
   @Test
   void bbox_밖_좌표는_invalid_geometry다() {
-    List<BigDecimal> point = List.of(new BigDecimal("127.200000"), new BigDecimal("37.571200"));
+    List<BigDecimal> point = List.of(new BigDecimal("127.200000"), new BigDecimal("35.163100"));
 
     assertThatThrownBy(() -> validator.validateAndCanonicalizePoint(point))
         .isInstanceOf(InvalidGeometryException.class)
@@ -108,7 +108,7 @@ class GeometryValidatorTest {
 
   @Test
   void lat_lon_순서가_뒤집힌_좌표는_invalid_geometry다() {
-    List<BigDecimal> point = List.of(new BigDecimal("37.571200"), new BigDecimal("126.956500"));
+    List<BigDecimal> point = List.of(new BigDecimal("35.163100"), new BigDecimal("126.913400"));
 
     assertThatThrownBy(() -> validator.validateAndCanonicalizePoint(point))
         .isInstanceOf(InvalidGeometryException.class);
@@ -132,9 +132,9 @@ class GeometryValidatorTest {
   void 좌표_수가_4개_미만인_ring은_invalid_geometry다() {
     List<List<BigDecimal>> ring =
         List.of(
-            point("126.950000", "37.550000"),
-            point("126.960000", "37.550000"),
-            point("126.950000", "37.550000"));
+            point("126.910000", "35.150000"),
+            point("126.920000", "35.150000"),
+            point("126.910000", "35.150000"));
 
     assertThatThrownBy(() -> validator.validateAndCanonicalizePolygonRing(ring))
         .isInstanceOf(InvalidGeometryException.class)
@@ -145,49 +145,49 @@ class GeometryValidatorTest {
   void ring을_6자리_canonical_좌표로_정규화한다() {
     List<List<BigDecimal>> ring =
         List.of(
-            point("126.95", "37.55"),
-            point("126.96", "37.55"),
-            point("126.96", "37.56"),
-            point("126.95", "37.55"));
+            point("126.91", "35.15"),
+            point("126.92", "35.15"),
+            point("126.92", "35.158"),
+            point("126.91", "35.15"));
 
     List<List<BigDecimal>> result = validator.validateAndCanonicalizePolygonRing(ring);
 
     assertThat(result).hasSize(4);
-    assertThat(result.get(0).get(0)).isEqualByComparingTo("126.950000");
-    assertThat(result.get(0).get(1)).isEqualByComparingTo("37.550000");
+    assertThat(result.get(0).get(0)).isEqualByComparingTo("126.910000");
+    assertThat(result.get(0).get(1)).isEqualByComparingTo("35.150000");
   }
 
   @Test
   void ring의_연속_중복_좌표를_제거한다() {
     List<List<BigDecimal>> ring =
         List.of(
-            point("126.950000", "37.550000"),
-            point("126.960000", "37.550000"),
-            point("126.960000", "37.550000"),
-            point("126.960000", "37.560000"),
-            point("126.950000", "37.550000"));
+            point("126.910000", "35.150000"),
+            point("126.920000", "35.150000"),
+            point("126.920000", "35.150000"),
+            point("126.920000", "35.158000"),
+            point("126.910000", "35.150000"));
 
     List<List<BigDecimal>> result = validator.validateAndCanonicalizePolygonRing(ring);
 
     assertThat(result).hasSize(4);
     assertThat(result.get(0))
-        .containsExactly(new BigDecimal("126.950000"), new BigDecimal("37.550000"));
+        .containsExactly(new BigDecimal("126.910000"), new BigDecimal("35.150000"));
     assertThat(result.get(1))
-        .containsExactly(new BigDecimal("126.960000"), new BigDecimal("37.550000"));
+        .containsExactly(new BigDecimal("126.920000"), new BigDecimal("35.150000"));
     assertThat(result.get(2))
-        .containsExactly(new BigDecimal("126.960000"), new BigDecimal("37.560000"));
+        .containsExactly(new BigDecimal("126.920000"), new BigDecimal("35.158000"));
     assertThat(result.get(3))
-        .containsExactly(new BigDecimal("126.950000"), new BigDecimal("37.550000"));
+        .containsExactly(new BigDecimal("126.910000"), new BigDecimal("35.150000"));
   }
 
   @Test
   void 정규화_이후_ring이_닫혀있지_않으면_invalid_geometry다() {
     List<List<BigDecimal>> ring =
         List.of(
-            point("126.950000", "37.550000"),
-            point("126.960000", "37.550000"),
-            point("126.960000", "37.560000"),
-            point("126.951000", "37.551000"));
+            point("126.910000", "35.150000"),
+            point("126.920000", "35.150000"),
+            point("126.920000", "35.158000"),
+            point("126.911000", "35.151000"));
 
     assertThatThrownBy(() -> validator.validateAndCanonicalizePolygonRing(ring))
         .isInstanceOf(InvalidGeometryException.class)
@@ -198,10 +198,10 @@ class GeometryValidatorTest {
   void 정규화_이후_첫좌표와_마지막좌표가_같으면_ring_closed로_인정한다() {
     List<List<BigDecimal>> ring =
         List.of(
-            point("126.950000", "37.550000"),
-            point("126.960000", "37.550000"),
-            point("126.960000", "37.560000"),
-            point("126.9500000", "37.5500000"));
+            point("126.910000", "35.150000"),
+            point("126.920000", "35.150000"),
+            point("126.920000", "35.158000"),
+            point("126.9100000", "35.1500000"));
 
     List<List<BigDecimal>> result = validator.validateAndCanonicalizePolygonRing(ring);
 

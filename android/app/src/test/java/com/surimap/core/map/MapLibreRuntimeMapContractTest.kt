@@ -36,24 +36,24 @@ class MapLibreRuntimeMapContractTest {
             MapLibreRuntimeMapState(
                 initialBounds =
                 MapLibreViewportBounds(
-                    south = 37.5,
-                    west = 126.9,
-                    north = 37.62,
-                    east = 127.08
+                    south = 35.052595,
+                    west = 126.647507,
+                    north = 35.256837,
+                    east = 127.017482
                 ),
                 geometryOverlays =
                 listOf(
                     MapLibreGeometryOverlay(
                         id = OVERALL_AREA_ID,
                         kind = MapLibreGeometryOverlayKind.Overall,
-                        geoJson = """{"type":"Polygon","coordinates":[[[126.9,37.5],[127.08,37.5],[127.08,37.62],[126.9,37.62],[126.9,37.5]]]}"""
+                        geoJson = """{"type":"Polygon","coordinates":[[[126.647507,35.052595],[127.017482,35.052595],[127.017482,35.256837],[126.647507,35.256837],[126.647507,35.052595]]]}"""
                     )
                 )
             )
 
-        assertEquals("37.5,126.9,37.62,127.08", state.initialBounds!!.signature())
-        assertEquals(37.62, state.initialBounds.toLatLngBounds().latitudeNorth, 0.0)
-        assertEquals(126.9, state.initialBounds.toLatLngBounds().longitudeWest, 0.0)
+        assertEquals("35.052595,126.647507,35.256837,127.017482", state.initialBounds!!.signature())
+        assertEquals(35.256837, state.initialBounds.toLatLngBounds().latitudeNorth, 0.0)
+        assertEquals(126.647507, state.initialBounds.toLatLngBounds().longitudeWest, 0.0)
         assertEquals(OVERALL_AREA_ID, state.geometryOverlays.single().id)
         assertEquals(MapLibreGeometryOverlayKind.Overall, state.geometryOverlays.single().kind)
         assertTrue(state.geometryOverlays.single().signature().contains("Overall:$OVERALL_AREA_ID:false"))

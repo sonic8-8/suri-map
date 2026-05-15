@@ -264,7 +264,7 @@ class MarkerPhotoIdempotencyIntegrationTest {
 
   private MarkerGeoJsonPoint point() {
     return new MarkerGeoJsonPoint(
-        "Point", List.of(new BigDecimal("126.956500"), new BigDecimal("37.571200")));
+        "Point", List.of(new BigDecimal("126.913400"), new BigDecimal("35.163100")));
   }
 
   private MarkerRequestContext markerContext(String idempotencyKey) {

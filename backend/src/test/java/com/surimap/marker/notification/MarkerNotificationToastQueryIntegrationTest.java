@@ -88,7 +88,7 @@ class MarkerNotificationToastQueryIntegrationTest extends PostGisIntegrationTest
             version
         )
         VALUES (?, ?, ?, NULL, 'SUPPORT_REQUEST', 'DRONE',
-                ST_SetSRID(ST_MakePoint(126.9565, 37.5712), 4326),
+                ST_SetSRID(ST_MakePoint(126.9134, 35.1631), 4326),
                 'support requested', ?, ?, ?, 'APP', 'ACTIVE', 2)
         """,
         markerId,

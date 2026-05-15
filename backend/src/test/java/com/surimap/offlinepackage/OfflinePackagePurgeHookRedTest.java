@@ -342,7 +342,7 @@ class OfflinePackagePurgeHookRedTest {
           "missing_person": {
             "displayName": "가상 실종자",
             "photoObjectKey": "photo/missing-person/purge-target.jpg",
-            "lastSeenLocationText": "인왕산 북측 산책로"
+            "lastSeenLocationText": "무등산 서측 탐방로"
           },
           "packageItems": [
             {"itemKey": "missing-person:%s", "itemType": "MISSING_PERSON_CACHE"}

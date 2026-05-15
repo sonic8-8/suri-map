@@ -41,7 +41,7 @@ public final class OfflinePackageManifestFixtureBuilder {
           "가상 실종자 001",
           null,
           "남색 점퍼, 회색 등산화",
-          "인왕산 북측 산책로 입구",
+          "무등산 서측 탐방로 입구",
           java.time.OffsetDateTime.parse("2026-04-28T08:30:00+09:00"));
   private List<OperationalPeriod> operationalPeriods =
       List.of(
@@ -65,7 +65,7 @@ public final class OfflinePackageManifestFixtureBuilder {
               OfflinePackageManifestFixtures.INITIAL_MARKER_ID,
               OfflinePackageManifestFixtures.INCIDENT_ID,
               OfflinePackageManifestFixtures.OP_ID,
-              point("126.956500", "37.571200"),
+              point("126.913400", "35.163100"),
               "ACTIVE"));
   private OverallSearchArea overallSearchArea =
       new OverallSearchArea(
@@ -79,21 +79,21 @@ public final class OfflinePackageManifestFixtureBuilder {
       List.of(
           tile(
               15,
-              27925,
-              12680,
-              "354260e6043ab9b70662016952da6cdc783319deae611490d0803d5b417b000c",
+              27935,
+              12960,
+              "1631a7b03c6924b5f966d85597afc394c602dd1fa214efc3e6ea0d666817b9fe",
               18432),
           tile(
               15,
-              27926,
-              12680,
-              "ffa729767ab0dd0add127c19b0b1243f553dadaf7f796a593d180d00552ea977",
+              27936,
+              12960,
+              "3012bcff12c3416907e05ead8236a213f5067da1c00f44c014fea5a803f46c05",
               20480),
           tile(
               16,
-              27925,
-              12681,
-              "64fc20008bd026acb2cc672812de4fa0f1928fc763f894c82c5ef89c2beb6165",
+              55870,
+              25920,
+              "f9965c1686fa1d08356d3fee122b95cbbe9b2f76f1764108c4bf48e31f00cd60",
               24576));
 
   private OfflinePackageManifestFixtureBuilder() {}
@@ -217,11 +217,11 @@ public final class OfflinePackageManifestFixtureBuilder {
 
   private static List<List<BigDecimal>> overallSearchAreaPolygon() {
     return List.of(
-        point("126.948000", "37.565000"),
-        point("126.968000", "37.565000"),
-        point("126.968000", "37.579000"),
-        point("126.948000", "37.579000"),
-        point("126.948000", "37.565000"));
+        point("126.904000", "35.158000"),
+        point("126.923000", "35.158000"),
+        point("126.923000", "35.173000"),
+        point("126.904000", "35.173000"),
+        point("126.904000", "35.158000"));
   }
 
   private static List<BigDecimal> point(String lon, String lat) {

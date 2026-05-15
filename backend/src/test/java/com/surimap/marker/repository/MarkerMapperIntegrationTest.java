@@ -119,8 +119,8 @@ class MarkerMapperIntegrationTest extends PostGisIntegrationTestSupport {
     assertThat(record.getPolicePhoneId()).isEqualTo(CREATE_POLICE_PHONE_ID);
     assertThat(record.getOccurredAt()).isEqualTo(CLIENT_TS);
     assertThat(record.getLocation().getSRID()).isEqualTo(4326);
-    assertThat(record.getLocation().getX()).isEqualTo(126.956500);
-    assertThat(record.getLocation().getY()).isEqualTo(37.571200);
+    assertThat(record.getLocation().getX()).isEqualTo(126.913400);
+    assertThat(record.getLocation().getY()).isEqualTo(35.163100);
   }
 
   @Test

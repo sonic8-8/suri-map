@@ -256,7 +256,7 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
           id, source_incident_id, title, status, opened_at, closed_at, closed_by_account_id,
           version, created_at, updated_at
         )
-        VALUES (?, ?::uuid, '종로구 인왕산 실종 신고', 'OPEN', ?, NULL, NULL, 1, ?, ?)
+        VALUES (?, ?::uuid, '광주 무등산 실종 신고', 'OPEN', ?, NULL, NULL, 1, ?, ?)
         """,
         INCIDENT_ID,
         SOURCE_INCIDENT_ID,
@@ -270,7 +270,7 @@ class Sc02HandoverSupportAssignmentIntegrationTest extends PostGisIntegrationTes
           last_seen_location_text, last_seen_at, imported_at
         )
         VALUES (?, '가상 실종자 001', 'mock-112/missing-person/mock-112-incident-001.jpg',
-          '남색 점퍼, 회색 등산화', '인왕산 북측 산책로 입구', ?, ?)
+          '남색 점퍼, 회색 등산화', '무등산 서측 탐방로 입구', ?, ?)
         """,
         INCIDENT_ID,
         OffsetDateTime.parse("2026-04-28T08:30:00+09:00"),

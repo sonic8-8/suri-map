@@ -218,11 +218,11 @@ class SearchAreaSplitLifecycleTest {
   private GeoJsonPolygon selfIntersectingPolygon() {
     List<List<BigDecimal>> ring =
         List.of(
-            point("126.950000", "37.570000"),
-            point("126.960000", "37.580000"),
-            point("126.960000", "37.570000"),
-            point("126.950000", "37.580000"),
-            point("126.950000", "37.570000"));
+            point("126.910000", "35.162000"),
+            point("126.920000", "35.173000"),
+            point("126.920000", "35.162000"),
+            point("126.910000", "35.173000"),
+            point("126.910000", "35.162000"));
     return new GeoJsonPolygon("Polygon", List.of(ring));
   }
 

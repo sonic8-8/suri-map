@@ -99,8 +99,8 @@ class SearchAreaApiServiceQueryTest {
             new SplitSearchAreaRequest(
                 OTHER_OP_ID,
                 List.of(
-                    polygon("126.950100", "37.570100"),
-                    polygon("126.950500", "37.570100")),
+                    polygon("126.910100", "35.160100"),
+                    polygon("126.910500", "35.160100")),
                 "overall split",
                 1L,
                 CLIENT_TS.plusMinutes(21)),
@@ -117,17 +117,17 @@ class SearchAreaApiServiceQueryTest {
 
   private static CreateSearchAreaRequest overallCreateRequest() {
     return new CreateSearchAreaRequest(
-        INCIDENT_ID, null, "OVERALL", polygon("126.950000", "37.570000"), null, CLIENT_TS);
+        INCIDENT_ID, null, "OVERALL", polygon("126.910000", "35.162000"), null, CLIENT_TS);
   }
 
   private static CreateSearchAreaRequest overallCreateRequest(UUID opId) {
     return new CreateSearchAreaRequest(
-        INCIDENT_ID, opId, "OVERALL", polygon("126.950000", "37.570000"), null, CLIENT_TS);
+        INCIDENT_ID, opId, "OVERALL", polygon("126.910000", "35.162000"), null, CLIENT_TS);
   }
 
   private static CreateSearchAreaRequest unitCreateRequest() {
     return new CreateSearchAreaRequest(
-        INCIDENT_ID, OP_ID, "UNIT", polygon("126.951000", "37.571000"), null, CLIENT_TS);
+        INCIDENT_ID, OP_ID, "UNIT", polygon("126.911000", "35.161000"), null, CLIENT_TS);
   }
 
   private static GeoJsonPolygon polygon(String minLon, String minLat) {

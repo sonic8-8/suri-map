@@ -31,13 +31,13 @@ class OfflinePackageDownloadPlanTest {
                       "payload": {"title": "광주 북구 산악 실종"}
                     },
                     {
-                      "itemKey": "tile:osm-local:15:27925:12680",
+                      "itemKey": "tile:osm-local:15:27935:12960",
                       "itemType": "TILE",
                       "status": "DOWNLOADED",
                       "sourceVersion": 18,
                       "sourceHash": "sha256:tile",
                       "tile": {
-                        "url": "/tiles/osm-local/15/27925/12680.pbf",
+                        "url": "/tiles/osm-local/15/27935/12960.pbf",
                         "checksum": "sha256:tile",
                         "bytes": 4096
                       }
@@ -49,9 +49,9 @@ class OfflinePackageDownloadPlanTest {
 
         assertEquals(MANIFEST_ID, plan!!.manifestId)
         assertEquals(18, plan.manifestVersion)
-        assertEquals(listOf("incident-meta", "tile:osm-local:15:27925:12680"), plan.items.map { it.itemKey })
+        assertEquals(listOf("incident-meta", "tile:osm-local:15:27935:12960"), plan.items.map { it.itemKey })
         assertNull(plan.items.first().downloadUrl)
-        assertEquals("/tiles/osm-local/15/27925/12680.pbf", plan.items.last().downloadUrl)
+        assertEquals("/tiles/osm-local/15/27935/12960.pbf", plan.items.last().downloadUrl)
         assertEquals(4096L, plan.items.last().bytesTotal)
 
         val statuses = plan.initialItemStatuses(INCIDENT_ID, POLICE_PHONE_ID)
@@ -76,9 +76,9 @@ class OfflinePackageDownloadPlanTest {
                     {
                       "styleId": "osm-local",
                       "z": 15,
-                      "x": 27925,
-                      "y": 12680,
-                      "url": "local://tiles/inc-precinct-first-001/15/27925/12680.pbf",
+                      "x": 27935,
+                      "y": 12960,
+                      "url": "local://tiles/inc-precinct-first-001/15/27935/12960.pbf",
                       "checksum": "sha256:tile-a",
                       "bytes": 18432
                     }
@@ -104,11 +104,11 @@ class OfflinePackageDownloadPlanTest {
             )
 
         assertEquals(
-            listOf("incident-meta", "tile:osm-local:15:27925:12680"),
+            listOf("incident-meta", "tile:osm-local:15:27935:12960"),
             plan!!.items.map { it.itemKey }
         )
         val tile = plan.items.single { it.itemType == "TILE" }
-        assertEquals("/tiles/osm-local/15/27925/12680.pbf", tile.downloadUrl)
+        assertEquals("/tiles/osm-local/15/27935/12960.pbf", tile.downloadUrl)
         assertEquals("sha256:tile-a", tile.sourceHash)
         assertEquals(18432L, tile.bytesTotal)
     }

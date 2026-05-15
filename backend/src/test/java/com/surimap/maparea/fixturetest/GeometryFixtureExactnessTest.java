@@ -24,10 +24,10 @@ class GeometryFixtureExactnessTest {
     assertThat(GeometryFixtures.CRS).isEqualTo("EPSG:4326");
     assertThat(GeometryFixtures.COORDINATE_ORDER).isEqualTo("[lon, lat]");
 
-    assertThat(GeometryFixtures.FIXTURE_BBOX_MIN_LON).isEqualTo(new BigDecimal("126.900000"));
-    assertThat(GeometryFixtures.FIXTURE_BBOX_MIN_LAT).isEqualTo(new BigDecimal("37.500000"));
-    assertThat(GeometryFixtures.FIXTURE_BBOX_MAX_LON).isEqualTo(new BigDecimal("127.080000"));
-    assertThat(GeometryFixtures.FIXTURE_BBOX_MAX_LAT).isEqualTo(new BigDecimal("37.620000"));
+    assertThat(GeometryFixtures.FIXTURE_BBOX_MIN_LON).isEqualTo(new BigDecimal("126.647507"));
+    assertThat(GeometryFixtures.FIXTURE_BBOX_MIN_LAT).isEqualTo(new BigDecimal("35.052595"));
+    assertThat(GeometryFixtures.FIXTURE_BBOX_MAX_LON).isEqualTo(new BigDecimal("127.017482"));
+    assertThat(GeometryFixtures.FIXTURE_BBOX_MAX_LAT).isEqualTo(new BigDecimal("35.256837"));
 
     assertThat(GeometryFixtures.MINIMUM_POLYGON_AREA_M2).isEqualTo(400);
     assertThat(GeometryFixtures.MINIMUM_POLYGON_AREA_M2_VALUE).isEqualTo(new BigDecimal("400"));
@@ -35,16 +35,29 @@ class GeometryFixtureExactnessTest {
   }
 
   @Test
+  @DisplayName("canonical overall_search_area는 광주 osm-local style bounds 안에 있다")
+  void canonical_overall_search_area_fits_gwangju_osm_local_bounds() {
+    assertThat(GeometryFixtures.BOUNDARY_GEOMETRY_BBOX.get(0))
+        .isGreaterThanOrEqualTo(new BigDecimal("126.647507"));
+    assertThat(GeometryFixtures.BOUNDARY_GEOMETRY_BBOX.get(1))
+        .isGreaterThanOrEqualTo(new BigDecimal("35.052595"));
+    assertThat(GeometryFixtures.BOUNDARY_GEOMETRY_BBOX.get(2))
+        .isLessThanOrEqualTo(new BigDecimal("127.017482"));
+    assertThat(GeometryFixtures.BOUNDARY_GEOMETRY_BBOX.get(3))
+        .isLessThanOrEqualTo(new BigDecimal("35.256837"));
+  }
+
+  @Test
   @DisplayName("overall_search_area fixture는 문서 좌표와 bbox 순서를 그대로 유지한다")
   void overall_search_area_fixture_exactness를_검증한다() {
     List<List<BigDecimal>> expectedRing =
         List.of(
-            point("126.948000", "37.565000"),
-            point("126.968000", "37.565000"),
-            point("126.968000", "37.579000"),
-            point("126.948000", "37.579000"),
-            point("126.948000", "37.565000"));
-    List<BigDecimal> expectedBbox = bbox("126.948000", "37.565000", "126.968000", "37.579000");
+            point("126.904000", "35.158000"),
+            point("126.923000", "35.158000"),
+            point("126.923000", "35.173000"),
+            point("126.904000", "35.173000"),
+            point("126.904000", "35.158000"));
+    List<BigDecimal> expectedBbox = bbox("126.904000", "35.158000", "126.923000", "35.173000");
 
     GeoJsonPolygon polygon = GeometryFixtures.validOverallSearchAreaPolygon();
 
@@ -60,12 +73,12 @@ class GeometryFixtureExactnessTest {
   void search_area_fixture_exactness를_검증한다() {
     List<List<BigDecimal>> expectedRing =
         List.of(
-            point("126.952000", "37.568000"),
-            point("126.961000", "37.568000"),
-            point("126.961000", "37.575000"),
-            point("126.952000", "37.575000"),
-            point("126.952000", "37.568000"));
-    List<BigDecimal> expectedBbox = bbox("126.952000", "37.568000", "126.961000", "37.575000");
+            point("126.910000", "35.160000"),
+            point("126.918000", "35.160000"),
+            point("126.918000", "35.166000"),
+            point("126.910000", "35.166000"),
+            point("126.910000", "35.160000"));
+    List<BigDecimal> expectedBbox = bbox("126.910000", "35.160000", "126.918000", "35.166000");
 
     GeoJsonPolygon polygon = GeometryFixtures.validSearchAreaPolygon();
 
@@ -79,12 +92,12 @@ class GeometryFixtureExactnessTest {
   @Test
   @DisplayName("shared marker와 invalid coordinate fixture 값을 고정한다")
   void shared_marker와_invalid_coordinate_fixture를_고정한다() {
-    assertThat(GeometryFixtures.referenceMarkerPoint()).isEqualTo(point("126.956500", "37.571200"));
+    assertThat(GeometryFixtures.referenceMarkerPoint()).isEqualTo(point("126.913400", "35.163100"));
     assertThat(GeometryFixtures.invalidCoordOutsideEnvelope())
-        .isEqualTo(point("127.200000", "37.571200"));
+        .isEqualTo(point("127.200000", "35.163100"));
     assertThat(GeometryFixtures.invalidCoordLatLonSwapped())
-        .isEqualTo(point("37.571200", "126.956500"));
-    assertThat(GeometryFixtures.overPrecisionPoint()).isEqualTo(point("126.9565007", "37.5712007"));
+        .isEqualTo(point("35.163100", "126.913400"));
+    assertThat(GeometryFixtures.overPrecisionPoint()).isEqualTo(point("126.9134007", "35.1631007"));
     assertThat(GeometryFixtures.overPrecisionPoint())
         .allSatisfy(coordinate -> assertThat(coordinate.scale()).isEqualTo(7));
 

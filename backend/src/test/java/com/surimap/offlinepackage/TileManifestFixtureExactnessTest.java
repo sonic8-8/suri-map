@@ -25,10 +25,10 @@ class TileManifestFixtureExactnessTest {
 
     assertThat(tileManifest.tileKeyRange().minZ()).isEqualTo(15);
     assertThat(tileManifest.tileKeyRange().maxZ()).isEqualTo(16);
-    assertThat(tileManifest.tileKeyRange().minX()).isEqualTo(27925);
-    assertThat(tileManifest.tileKeyRange().maxX()).isEqualTo(27960);
-    assertThat(tileManifest.tileKeyRange().minY()).isEqualTo(12680);
-    assertThat(tileManifest.tileKeyRange().maxY()).isEqualTo(12720);
+    assertThat(tileManifest.tileKeyRange().minX()).isEqualTo(27935);
+    assertThat(tileManifest.tileKeyRange().maxX()).isEqualTo(55873);
+    assertThat(tileManifest.tileKeyRange().minY()).isEqualTo(12960);
+    assertThat(tileManifest.tileKeyRange().maxY()).isEqualTo(25923);
   }
 
   @Test
@@ -37,31 +37,31 @@ class TileManifestFixtureExactnessTest {
     assertThat(OfflinePackageManifestFixtures.tileManifest().tiles())
         .containsExactly(
             new TileItem(
-                "tile:osm-local:15:27925:12680",
+                "tile:osm-local:15:27935:12960",
                 "osm-local",
                 15,
-                27925,
-                12680,
-                "local://tiles/inc-precinct-first-001/15/27925/12680.pbf",
-                "sha256:354260e6043ab9b70662016952da6cdc783319deae611490d0803d5b417b000c",
+                27935,
+                12960,
+                "local://tiles/inc-precinct-first-001/15/27935/12960.pbf",
+                "sha256:1631a7b03c6924b5f966d85597afc394c602dd1fa214efc3e6ea0d666817b9fe",
                 18432),
             new TileItem(
-                "tile:osm-local:15:27926:12680",
+                "tile:osm-local:15:27936:12960",
                 "osm-local",
                 15,
-                27926,
-                12680,
-                "local://tiles/inc-precinct-first-001/15/27926/12680.pbf",
-                "sha256:ffa729767ab0dd0add127c19b0b1243f553dadaf7f796a593d180d00552ea977",
+                27936,
+                12960,
+                "local://tiles/inc-precinct-first-001/15/27936/12960.pbf",
+                "sha256:3012bcff12c3416907e05ead8236a213f5067da1c00f44c014fea5a803f46c05",
                 20480),
             new TileItem(
-                "tile:osm-local:16:27925:12681",
+                "tile:osm-local:16:55870:25920",
                 "osm-local",
                 16,
-                27925,
-                12681,
-                "local://tiles/inc-precinct-first-001/16/27925/12681.pbf",
-                "sha256:64fc20008bd026acb2cc672812de4fa0f1928fc763f894c82c5ef89c2beb6165",
+                55870,
+                25920,
+                "local://tiles/inc-precinct-first-001/16/55870/25920.pbf",
+                "sha256:f9965c1686fa1d08356d3fee122b95cbbe9b2f76f1764108c4bf48e31f00cd60",
                 24576));
 
     assertThat(OfflinePackageManifestFixtures.tileManifest().tiles())
@@ -70,8 +70,8 @@ class TileManifestFixtureExactnessTest {
               assertThat(tile.styleId()).isEqualTo("osm-local");
               assertThat(OfflinePackageManifestFixtures.isLocalTileUri(tile.url())).isTrue();
               assertThat(tile.z()).isBetween(15, 16);
-              assertThat(tile.x()).isBetween(27925, 27960);
-              assertThat(tile.y()).isBetween(12680, 12720);
+              assertThat(tile.x()).isBetween(27935, 55873);
+              assertThat(tile.y()).isBetween(12960, 25923);
             });
   }
 

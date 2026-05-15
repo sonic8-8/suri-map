@@ -88,15 +88,15 @@ class MapTileClientTest {
         val result = client.fetchVectorTile(
             style = "osm-local",
             z = 15,
-            x = 27925,
-            y = 12680,
+            x = 27935,
+            y = 12960,
             accessToken = "access-token-1",
             policePhoneId = POLICE_PHONE_ID
         )
 
         val request = callFactory.lastRequest!!
         assertEquals(
-            "https://suri-map.example.com/tiles/osm-local/15/27925/12680.pbf",
+            "https://suri-map.example.com/tiles/osm-local/15/27935/12960.pbf",
             request.url.toString()
         )
         assertEquals("application/x-protobuf", request.header("Accept"))

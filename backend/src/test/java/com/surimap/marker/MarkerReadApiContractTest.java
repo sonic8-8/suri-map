@@ -79,7 +79,7 @@ class MarkerReadApiContractTest {
                         7L,
                         new MarkerGeoJsonPoint(
                             "Point",
-                            List.of(new BigDecimal("126.956500"), new BigDecimal("37.571200"))),
+                            List.of(new BigDecimal("126.913400"), new BigDecimal("35.163100"))),
                         "등산로 입구 제보",
                         Instant.parse("2026-05-14T00:00:01Z"),
                         List.of()))));
@@ -100,7 +100,7 @@ class MarkerReadApiContractTest {
         .andExpect(jsonPath("$.markers[0].type").value("CLUE"))
         .andExpect(jsonPath("$.markers[0].status").value("ACTIVE"))
         .andExpect(jsonPath("$.markers[0].location.type").value("Point"))
-        .andExpect(jsonPath("$.markers[0].location.coordinates[0]").value(126.9565))
+        .andExpect(jsonPath("$.markers[0].location.coordinates[0]").value(126.9134))
         .andExpect(jsonPath("$.markers[0].photoSummary").isArray());
 
     verify(incidentAccessPort).checkAccess(any());

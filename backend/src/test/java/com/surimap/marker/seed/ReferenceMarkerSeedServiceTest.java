@@ -46,8 +46,8 @@ class ReferenceMarkerSeedServiceTest {
     assertThat(marker.source()).isEqualTo(MarkerSource.MOCK_SEED);
     assertThat(marker.status()).isEqualTo(MarkerStatus.ACTIVE);
     assertThat(marker.version()).isEqualTo(1L);
-    assertThat(marker.location().getX()).isEqualTo(126.956500);
-    assertThat(marker.location().getY()).isEqualTo(37.571200);
+    assertThat(marker.location().getX()).isEqualTo(126.913400);
+    assertThat(marker.location().getY()).isEqualTo(35.163100);
     assertThat(marker.photoSummary()).isEmpty();
     assertThat(repository.records()).hasSize(1);
   }

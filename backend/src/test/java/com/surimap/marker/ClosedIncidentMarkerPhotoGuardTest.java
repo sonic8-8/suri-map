@@ -339,7 +339,7 @@ class ClosedIncidentMarkerPhotoGuardTest {
             MarkerType.CLUE,
             null,
             new MarkerGeoJsonPoint(
-                    "Point", List.of(new BigDecimal("126.956500"), new BigDecimal("37.571200")))
+                    "Point", List.of(new BigDecimal("126.913400"), new BigDecimal("35.163100")))
                 .toPoint(),
             "pre-close marker",
             CLIENT_TS,
@@ -356,7 +356,7 @@ class ClosedIncidentMarkerPhotoGuardTest {
         OP1_ID,
         "CLUE",
         new MarkerGeoJsonPoint(
-            "Point", List.of(new BigDecimal("126.956500"), new BigDecimal("37.571200"))),
+            "Point", List.of(new BigDecimal("126.913400"), new BigDecimal("35.163100"))),
         null,
         "post-close marker",
         CLIENT_TS,
@@ -369,7 +369,7 @@ class ClosedIncidentMarkerPhotoGuardTest {
         OP1_ID,
         "SUPPORT_REQUEST",
         new MarkerGeoJsonPoint(
-            "Point", List.of(new BigDecimal("126.956500"), new BigDecimal("37.571200"))),
+            "Point", List.of(new BigDecimal("126.913400"), new BigDecimal("35.163100"))),
         "DRONE",
         "post-close support request",
         CLIENT_TS,

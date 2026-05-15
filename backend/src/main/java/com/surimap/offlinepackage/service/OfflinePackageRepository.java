@@ -274,7 +274,7 @@ public class OfflinePackageRepository {
             "가상 실종자 001",
             null,
             "남색 점퍼, 회색 등산화",
-            "인왕산 북측 산책로 입구",
+            "무등산 서측 탐방로 입구",
             OffsetDateTime.parse("2026-04-28T08:30:00+09:00")),
         List.of(new OperationalPeriod(OP_DB_ID, publicIncidentId, 1, "ACTIVE", 1L)),
         List.of(new AssignedArea(ASSIGNED_AREA_DB_ID, publicIncidentId, OP_DB_ID, "ASSIGNED", 1L)),
@@ -283,7 +283,7 @@ public class OfflinePackageRepository {
                 "mk-precinct-clue-001",
                 publicIncidentId,
                 OP_DB_ID,
-                point("126.956500", "37.571200"),
+                point("126.913400", "35.163100"),
                 "ACTIVE")),
         new OverallSearchArea(
             publicOverallSearchAreaId,
@@ -809,11 +809,11 @@ public class OfflinePackageRepository {
 
   private static List<List<BigDecimal>> overallSearchAreaPolygon() {
     return List.of(
-        point("126.948000", "37.565000"),
-        point("126.968000", "37.565000"),
-        point("126.968000", "37.579000"),
-        point("126.948000", "37.579000"),
-        point("126.948000", "37.565000"));
+        point("126.904000", "35.158000"),
+        point("126.923000", "35.158000"),
+        point("126.923000", "35.173000"),
+        point("126.904000", "35.173000"),
+        point("126.904000", "35.158000"));
   }
 
   private static List<BigDecimal> point(String lon, String lat) {

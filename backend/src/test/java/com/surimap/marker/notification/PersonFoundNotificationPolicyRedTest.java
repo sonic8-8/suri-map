@@ -135,7 +135,7 @@ class PersonFoundNotificationPolicyRedTest {
     assertThat(payloadField(payload, "recipientPolicePhoneIds"))
         .isEqualTo(NotificationFixtures.PERSON_FOUND_RECIPIENT_POLICE_PHONE_IDS);
     assertThat(payloadField(payload, "markerType")).isEqualTo(MarkerType.PERSON_FOUND.name());
-    assertThat(payloadField(payload, "locationLabel")).isEqualTo("126.956500,37.571200");
+    assertThat(payloadField(payload, "locationLabel")).isEqualTo("126.913400,35.163100");
   }
 
   @Test
@@ -165,7 +165,7 @@ class PersonFoundNotificationPolicyRedTest {
         OP1_ID,
         "PERSON_FOUND",
         new MarkerGeoJsonPoint(
-            "Point", List.of(new BigDecimal("126.956500"), new BigDecimal("37.571200"))),
+            "Point", List.of(new BigDecimal("126.913400"), new BigDecimal("35.163100"))),
         null,
         "실종자 발견",
         CLIENT_TS,

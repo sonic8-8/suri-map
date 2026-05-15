@@ -25,7 +25,7 @@ public final class MarkerSeedFixtures {
   public static final UUID MARKER_ID = UUID.fromString("55555555-5555-5555-5555-555555550001");
   public static final UUID ACCOUNT_ID = UUID.fromString("11111111-1111-1111-1111-111111110003");
   public static final Instant OCCURRED_AT = Instant.parse("2026-04-28T00:05:00Z");
-  public static final Point REFERENCE_POINT = point("126.956500", "37.571200");
+  public static final Point REFERENCE_POINT = point("126.913400", "35.163100");
   public static final String MEMO = "mock 112 initial reference clue";
 
   private MarkerSeedFixtures() {}

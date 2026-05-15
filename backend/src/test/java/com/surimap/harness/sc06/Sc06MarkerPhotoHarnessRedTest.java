@@ -43,7 +43,7 @@ class Sc06MarkerPhotoHarnessRedTest {
 
     Object geometry = call(result, "geometry");
     assertThat(value(geometry, "type")).isEqualTo("Point");
-    assertThat(listValue(geometry, "coordinates")).containsExactly("126.956500", "37.571200");
+    assertThat(listValue(geometry, "coordinates")).containsExactly("126.913400", "35.163100");
     assertThat(value(geometry, "srid")).isEqualTo("EPSG:4326");
     assertThat(booleanValue(geometry, "insideCurrentOverallSearchArea")).isTrue();
 
@@ -137,7 +137,7 @@ class Sc06MarkerPhotoHarnessRedTest {
 
     Object geometry = call(result, "geometry");
     assertThat(value(geometry, "fixture")).isEqualTo("coord-outside-envelope");
-    assertThat(value(geometry, "coordinates")).isEqualTo("[127.200000,37.571200]");
+    assertThat(value(geometry, "coordinates")).isEqualTo("[127.200000,35.163100]");
 
     Object rejection = call(result, "rejection");
     assertThat(value(rejection, "httpStatus")).isEqualTo("400");

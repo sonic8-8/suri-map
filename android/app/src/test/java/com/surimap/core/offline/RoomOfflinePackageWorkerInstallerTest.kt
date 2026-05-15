@@ -118,8 +118,8 @@ class RoomOfflinePackageWorkerInstallerTest {
         )
         val installation = database.offlinePackageInstallationDao().find(INCIDENT_ID, POLICE_PHONE_ID)
 
-        assertEquals(listOf("incident-meta", "tile:osm-local:15:27925:12680"), items.map { it.itemKey })
-        assertEquals("/tiles/osm-local/15/27925/12680.pbf", fetched.single().downloadUrl)
+        assertEquals(listOf("incident-meta", "tile:osm-local:15:27935:12960"), items.map { it.itemKey })
+        assertEquals("/tiles/osm-local/15/27935/12960.pbf", fetched.single().downloadUrl)
         assertEquals("DOWNLOADED", items.single { it.itemType == "TILE" }.status)
         assertEquals(10L, items.single { it.itemType == "TILE" }.bytesTotal)
         assertEquals("READY", installation!!.status)
@@ -170,12 +170,12 @@ class RoomOfflinePackageWorkerInstallerTest {
                 itemType = "TILE",
                 sourceVersion = 18,
                 sourceHash = "sha256:irrelevant",
-                downloadUrl = "/tiles/osm-local/15/27925/12680.pbf"
+                downloadUrl = "/tiles/osm-local/15/27935/12960.pbf"
             )
         )
 
         assertEquals(
-            "https://suri-map.internal/tiles/osm-local/15/27925/12680.pbf",
+            "https://suri-map.internal/tiles/osm-local/15/27935/12960.pbf",
             callFactory.lastRequest!!.url.toString()
         )
         assertEquals("APP", callFactory.lastRequest!!.header("X-Client-Channel"))
@@ -193,16 +193,16 @@ class RoomOfflinePackageWorkerInstallerTest {
 
         fetcher.fetch(
             OfflinePackageDownloadItem(
-                itemKey = "tile:osm-local:15:27925:12680",
+                itemKey = "tile:osm-local:15:27935:12960",
                 itemType = "TILE",
                 sourceVersion = 18,
                 sourceHash = "sha256:irrelevant",
-                downloadUrl = "local://tiles/inc-precinct-first-001/15/27925/12680.pbf"
+                downloadUrl = "local://tiles/inc-precinct-first-001/15/27935/12960.pbf"
             )
         )
 
         assertEquals(
-            "https://suri-map.internal/tiles/osm-local/15/27925/12680.pbf",
+            "https://suri-map.internal/tiles/osm-local/15/27935/12960.pbf",
             callFactory.lastRequest!!.url.toString()
         )
     }
@@ -254,7 +254,7 @@ class RoomOfflinePackageWorkerInstallerTest {
               "sourceVersion": 18,
               "sourceHash": "$tileSourceHash",
               "tile": {
-                "url": "/tiles/osm-local/15/27925/12680.pbf",
+                "url": "/tiles/osm-local/15/27935/12960.pbf",
                 "checksum": "$tileSourceHash",
                 "bytes": 10
               }
@@ -273,9 +273,9 @@ class RoomOfflinePackageWorkerInstallerTest {
             {
               "styleId": "osm-local",
               "z": 15,
-              "x": 27925,
-              "y": 12680,
-              "url": "local://tiles/inc-precinct-first-001/15/27925/12680.pbf",
+              "x": 27935,
+              "y": 12960,
+              "url": "local://tiles/inc-precinct-first-001/15/27935/12960.pbf",
               "checksum": "$tileSourceHash",
               "bytes": 10
             }

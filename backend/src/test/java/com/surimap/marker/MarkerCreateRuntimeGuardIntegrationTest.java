@@ -137,7 +137,7 @@ class MarkerCreateRuntimeGuardIntegrationTest extends PostGisIntegrationTestSupp
         ) VALUES (
             ?, ?, NULL, 'Runtime overall search area', 'OVERALL',
             ST_GeomFromText(
-                'POLYGON((126.950000 37.560000,126.970000 37.560000,126.970000 37.580000,126.950000 37.580000,126.950000 37.560000))',
+                'POLYGON((126.904000 35.158000,126.923000 35.158000,126.923000 35.173000,126.904000 35.173000,126.904000 35.158000))',
                 4326
             ),
             'ACTIVE', 1, ?,
@@ -176,7 +176,7 @@ class MarkerCreateRuntimeGuardIntegrationTest extends PostGisIntegrationTestSupp
                           "type": "CLUE",
                           "location": {
                             "type": "Point",
-                            "coordinates": [126.956500, 37.571200]
+                            "coordinates": [126.913400, 35.163100]
                           },
                           "memo": "%s",
                           "clientTs": "2026-04-28T09:05:00+09:00",

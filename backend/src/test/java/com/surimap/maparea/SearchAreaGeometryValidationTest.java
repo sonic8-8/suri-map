@@ -197,18 +197,18 @@ class SearchAreaGeometryValidationTest {
    * 자기 교차 polygon (나비 형태).
    *
    * <p>GeometryFixtures.INVALID_CASES_WITHOUT_FIXED_COORDINATES에 명시된 polygon-self-intersecting 케이스.
-   * 좌표는 bbox(126.9~127.08, 37.5~37.62) 안에 위치한다.
+   * 좌표는 bbox(126.647507~127.017482, 35.052595~35.256837) 안에 위치한다.
    */
   private static GeoJsonPolygon selfIntersectingPolygon() {
     // 나비 모양: 두 삼각형이 꼭짓점에서 교차
-    // [126.950,37.570] → [126.960,37.580] → [126.960,37.570] → [126.950,37.580] → [126.950,37.570]
+    // [126.910,35.160] → [126.920,35.173] → [126.920,35.160] → [126.910,35.173] → [126.910,35.160]
     List<List<BigDecimal>> ring =
         List.of(
-            point("126.950000", "37.570000"),
-            point("126.960000", "37.580000"),
-            point("126.960000", "37.570000"),
-            point("126.950000", "37.580000"),
-            point("126.950000", "37.570000"));
+            point("126.910000", "35.162000"),
+            point("126.920000", "35.173000"),
+            point("126.920000", "35.162000"),
+            point("126.910000", "35.173000"),
+            point("126.910000", "35.162000"));
     return new GeoJsonPolygon("Polygon", List.of(ring));
   }
 
@@ -221,10 +221,10 @@ class SearchAreaGeometryValidationTest {
   private static GeoJsonPolygon unclosedRingPolygon() {
     List<List<BigDecimal>> ring =
         List.of(
-            point("126.952000", "37.568000"),
-            point("126.961000", "37.568000"),
-            point("126.961000", "37.575000"),
-            point("126.952000", "37.575000")
+            point("126.910000", "35.160000"),
+            point("126.918000", "35.160000"),
+            point("126.918000", "35.166000"),
+            point("126.910000", "35.166000")
             // 의도적으로 첫 좌표를 반복하지 않음 → unclosed ring
             );
     return new GeoJsonPolygon("Polygon", List.of(ring));
@@ -233,25 +233,25 @@ class SearchAreaGeometryValidationTest {
   /**
    * overall_search_area 밖에 위치하는 polygon.
    *
-   * <p>GeometryFixtures.invalidCoordOutsideEnvelope() 좌표를 outer ring에 포함한다. bbox(126.9~127.08,
-   * 37.5~37.62) 밖 좌표(lon=127.200000)가 포함된다.
+   * <p>GeometryFixtures.invalidCoordOutsideEnvelope() 좌표를 outer ring에 포함한다. bbox(126.647507~127.017482,
+   * 35.052595~35.256837) 밖 좌표(lon=127.200000)가 포함된다.
    */
   private static GeoJsonPolygon polygonOutsideOverall() {
     List<List<BigDecimal>> ring =
         List.of(
-            point("127.195000", "37.570000"),
-            point("127.205000", "37.570000"),
-            point("127.205000", "37.575000"),
-            point("127.195000", "37.575000"),
-            point("127.195000", "37.570000"));
+            point("127.195000", "35.162000"),
+            point("127.205000", "35.162000"),
+            point("127.205000", "35.166000"),
+            point("127.195000", "35.166000"),
+            point("127.195000", "35.162000"));
     return new GeoJsonPolygon("Polygon", List.of(ring));
   }
 
   /** overall_search_area GeoJSON polygon을 WKT 문자열로 변환한다 (테스트 편의용). */
   private static String overallSearchAreaWkt() {
     // GeometryFixtures.validOverallSearchAreaPolygon()의 좌표를 WKT로 표현
-    return "POLYGON ((126.948000 37.565000, 126.968000 37.565000, 126.968000 37.579000, "
-        + "126.948000 37.579000, 126.948000 37.565000))";
+    return "POLYGON ((126.904000 35.158000, 126.923000 35.158000, 126.923000 35.173000, "
+        + "126.904000 35.173000, 126.904000 35.158000))";
   }
 
   /** GeoJsonPolygon을 단순 WKT 문자열로 변환한다 (테스트 편의용). */
