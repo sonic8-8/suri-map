@@ -2,6 +2,8 @@ package com.surimap;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -38,6 +40,18 @@ class SecurityFilterBaselineTest {
   @Test
   void unauthenticatedApiCallIsBlocked() throws Exception {
     mockMvc.perform(get("/api/auth-harness/protected")).andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  void productionWebOriginIsAllowedForApiCorsPreflight() throws Exception {
+    mockMvc
+        .perform(
+            options("/api/auth/login")
+                .header("Origin", "https://k14c106.p.ssafy.io")
+                .header("Access-Control-Request-Method", "POST")
+                .header("Access-Control-Request-Headers", "content-type,x-client-channel"))
+        .andExpect(status().isOk())
+        .andExpect(header().string("Access-Control-Allow-Origin", "https://k14c106.p.ssafy.io"));
   }
 
   @Test

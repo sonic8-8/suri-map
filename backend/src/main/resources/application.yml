@@ -19,6 +19,10 @@ mybatis:
 server:
   port: ${SERVER_PORT:8080}
 
+surimap:
+  cors:
+    allowed-origin-patterns: ${SURI_MAP_CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*,http://127.0.0.1:*,https://k14c106.p.ssafy.io}
+
 management:
   endpoints:
     web:
