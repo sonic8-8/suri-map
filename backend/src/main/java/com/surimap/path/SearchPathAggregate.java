@@ -1,13 +1,14 @@
 package com.surimap.path;
 
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.time.OffsetDateTime;
 
 public class SearchPathAggregate {
 
   private final UUID id;
+  private final UUID dutyShiftId;
   private final UUID incidentId;
   private final UUID opId;
   private final UUID policePhoneId;
@@ -20,6 +21,7 @@ public class SearchPathAggregate {
   public SearchPathAggregate(UUID id, UUID incidentId, UUID opId, UUID policePhoneId) {
     this(
         id,
+        null,
         incidentId,
         opId,
         policePhoneId,
@@ -32,6 +34,7 @@ public class SearchPathAggregate {
 
   SearchPathAggregate(
       UUID id,
+      UUID dutyShiftId,
       UUID incidentId,
       UUID opId,
       UUID policePhoneId,
@@ -41,6 +44,7 @@ public class SearchPathAggregate {
       List<PathExcludedPoint> excludedPoints,
       List<SearchPathSegment> segments) {
     this.id = id;
+    this.dutyShiftId = dutyShiftId;
     this.incidentId = incidentId;
     this.opId = opId;
     this.policePhoneId = policePhoneId;
@@ -53,6 +57,10 @@ public class SearchPathAggregate {
 
   public UUID id() {
     return id;
+  }
+
+  public UUID dutyShiftId() {
+    return dutyShiftId;
   }
 
   public UUID incidentId() {

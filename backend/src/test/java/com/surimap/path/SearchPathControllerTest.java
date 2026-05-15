@@ -33,13 +33,14 @@ class SearchPathControllerTest {
   @DisplayName("POST /api/search-paths/batch returns 200 with append response")
   void appendBatchContract() throws Exception {
     UUID pathId = UUID.fromString("81000000-0000-0000-0000-000000000001");
+    UUID dutyShiftId = UUID.fromString("60000000-0000-0000-0000-000000000001");
     UUID opId = UUID.fromString("70000000-0000-0000-0000-000000000001");
     UUID policePhoneId = UUID.fromString("50000000-0000-0000-0000-000000000001");
     when(searchPathService.appendBatch(any(), eq(policePhoneId)))
         .thenReturn(
             new PathBatchAppendResponse(
                 pathId,
-                null,
+                dutyShiftId,
                 opId,
                 policePhoneId,
                 2,
@@ -81,6 +82,7 @@ class SearchPathControllerTest {
                     """))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id", is(pathId.toString())))
+        .andExpect(jsonPath("$.dutyShiftId", is(dutyShiftId.toString())))
         .andExpect(jsonPath("$.opId", is(opId.toString())))
         .andExpect(jsonPath("$.policePhoneId", is(policePhoneId.toString())))
         .andExpect(jsonPath("$.acceptedPointCount", is(2)))
