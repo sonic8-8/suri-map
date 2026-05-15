@@ -62,6 +62,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 public class OfflinePackageRepository {
@@ -185,6 +186,7 @@ public class OfflinePackageRepository {
     this.tileService = tileService == null ? new LocalTileService() : tileService;
   }
 
+  @Transactional
   public synchronized OfflinePackageManifestResponse manifest(
       String incidentId, String policePhoneId) {
     String incidentDbId = incidentDbId(incidentId);
@@ -494,6 +496,7 @@ public class OfflinePackageRepository {
   }
 
   public synchronized List<OfflinePackageInstallationStatus> byIncident(String incidentId) {
+    ensureFixtureManifest();
     return mapper.findStatusesByIncident(incidentDbId(incidentId)).stream()
         .map(OfflinePackageRepository::publicStatus)
         .toList();

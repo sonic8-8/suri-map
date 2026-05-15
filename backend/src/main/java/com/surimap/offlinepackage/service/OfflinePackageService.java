@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -40,6 +41,7 @@ public class OfflinePackageService implements OfflinePackageInstallationQuery {
     this.idempotentResponseCache = idempotentResponseCache;
   }
 
+  @Transactional
   public OfflinePackageManifestResponse manifest(String incidentId, String policePhoneId) {
     return repository.manifest(incidentId, policePhoneId);
   }
@@ -70,6 +72,7 @@ public class OfflinePackageService implements OfflinePackageInstallationQuery {
   }
 
   @Override
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
   public List<OfflinePackageInstallationStatus> byIncident(String incidentId) {
     return repository.byIncident(incidentId);
   }
