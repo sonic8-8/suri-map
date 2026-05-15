@@ -14,6 +14,8 @@ type SituationBoardMapProps = {
   layerVisibility: LayerVisibility;
   movementPaths: MovementPath[];
   recentMarkers: RecentMarker[];
+  focusedMarkerId: string | null;
+  focusedMarkerSequence: number;
   visibleMarkerIds: string[];
   savedAreaDrafts: CompletedAreaDraft[];
   areaEditMapProps?: AreaEditMapCanvasProps | null;
@@ -32,6 +34,8 @@ export function SituationBoardMap({
   layerVisibility,
   movementPaths,
   recentMarkers,
+  focusedMarkerId,
+  focusedMarkerSequence,
   visibleMarkerIds,
   savedAreaDrafts,
   areaEditMapProps,
@@ -51,6 +55,8 @@ export function SituationBoardMap({
         layerVisibility={layerVisibility}
         movementPaths={movementPaths}
         recentMarkers={recentMarkers}
+        focusedMarkerId={focusedMarkerId}
+        focusedMarkerSequence={focusedMarkerSequence}
         visibleMarkerIds={visibleMarkerIds}
         savedAreaDrafts={savedAreaDrafts}
         areaEditMapProps={areaEditMapProps}

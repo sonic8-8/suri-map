@@ -6,6 +6,7 @@ import styles from './RecentMarkerList.module.css';
 
 type RecentMarkerListProps = {
   recentMarkers: RecentMarker[];
+  onSelectMarker?: (markerId: string) => void;
 };
 
 type MarkerFilter = 'ALL' | MarkerTypeId | 'UNKNOWN';
@@ -19,7 +20,7 @@ const markerFilters: Array<{ value: MarkerFilter; label: string }> = [
   { value: 'NOTE', label: 'NOTE' },
 ];
 
-export function RecentMarkerList({ recentMarkers }: RecentMarkerListProps) {
+export function RecentMarkerList({ recentMarkers, onSelectMarker }: RecentMarkerListProps) {
   const [selectedFilter, setSelectedFilter] = useState<MarkerFilter>('ALL');
   const markerEvents = useMemo(
     () => [...recentMarkers].sort((current, next) => Date.parse(next.occurredAt) - Date.parse(current.occurredAt)),
@@ -67,7 +68,18 @@ export function RecentMarkerList({ recentMarkers }: RecentMarkerListProps) {
           {filteredMarkers.map((marker) => {
             const markerType = markerTypeOf(marker);
             return (
-              <li key={marker.id} className={`${styles.feedItem} ${styles[markerTypeClass(markerType)]}`}>
+              <li
+                key={marker.id}
+                className={`${styles.feedItem} ${styles[markerTypeClass(markerType)]}`}
+                role="button"
+                tabIndex={0}
+                onClick={() => onSelectMarker?.(marker.id)}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter' && event.key !== ' ') return;
+                  event.preventDefault();
+                  onSelectMarker?.(marker.id);
+                }}
+              >
                 <span className={styles.eventDot} aria-hidden="true" />
                 <div className={styles.itemBody}>
                   <div className={styles.titleRow}>

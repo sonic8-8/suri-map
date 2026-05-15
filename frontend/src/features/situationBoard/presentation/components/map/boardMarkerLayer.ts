@@ -42,6 +42,7 @@ export type MarkerInteractionHandlers = {
 };
 
 const MARKER_SOURCE_ID = 'operational-marker';
+const MARKER_CIRCLE_LAYER_ID = 'operational-marker-circle';
 const MARKER_LAYER_ID = 'operational-marker-symbol';
 const MARKER_ICON_PREFIX = 'board-marker';
 
@@ -55,7 +56,7 @@ const markerColors: Record<MarkerTypeKey, string> = {
 };
 
 const markerImagePromises = new WeakMap<maplibregl.Map, Map<string, Promise<void>>>();
-const markerLayerBoundMaps = new WeakSet<maplibregl.Map>();
+const markerLayerBoundMaps = new WeakMap<maplibregl.Map, Set<string>>();
 
 export function clearMarkerElements(markerInstances: MutableRefObject<Map<string, MarkerInstance>>) {
   markerInstances.current.clear();
@@ -220,6 +221,8 @@ function setMarkerSourceData(map: maplibregl.Map, data: MarkerFeatureCollection)
 }
 
 function addMarkerLayer(map: maplibregl.Map) {
+  addMarkerCircleLayer(map);
+
   if (map.getLayer(MARKER_LAYER_ID)) {
     raiseMarkerLayer(map);
     return;
@@ -241,54 +244,105 @@ function addMarkerLayer(map: maplibregl.Map) {
   });
 }
 
+function addMarkerCircleLayer(map: maplibregl.Map) {
+  if (map.getLayer(MARKER_CIRCLE_LAYER_ID)) {
+    return;
+  }
+
+  map.addLayer({
+    id: MARKER_CIRCLE_LAYER_ID,
+    type: 'circle',
+    source: MARKER_SOURCE_ID,
+    filter: ['==', ['get', 'isVisible'], 'true'],
+    paint: {
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 7, 14, 9, 17, 11],
+      'circle-color': [
+        'match',
+        ['get', 'markerType'],
+        'CLUE',
+        markerColors.CLUE,
+        'PERSON_FOUND',
+        markerColors.PERSON_FOUND,
+        'FIELD_CONDITION',
+        markerColors.FIELD_CONDITION,
+        'SUPPORT_REQUEST',
+        markerColors.SUPPORT_REQUEST,
+        'NOTE',
+        markerColors.NOTE,
+        markerColors.UNKNOWN,
+      ],
+      'circle-stroke-color': '#ffffff',
+      'circle-stroke-width': 2,
+      'circle-opacity': 0.92,
+    },
+  });
+}
+
 export function raiseMarkerLayer(map: maplibregl.Map) {
+  if (map.getLayer(MARKER_CIRCLE_LAYER_ID)) {
+    map.moveLayer(MARKER_CIRCLE_LAYER_ID);
+  }
   if (map.getLayer(MARKER_LAYER_ID)) {
     map.moveLayer(MARKER_LAYER_ID);
   }
 }
 
 function bindMarkerLayerEvents(map: maplibregl.Map, handlers: MarkerInteractionHandlers) {
-  if (markerLayerBoundMaps.has(map)) {
-    return;
-  }
+  const boundLayerIds = markerLayerBoundMaps.get(map) ?? new Set<string>();
 
-  map.on('mouseenter', MARKER_LAYER_ID, (event) => {
-    map.getCanvas().style.cursor = 'pointer';
-    const markerId = event.features?.[0]?.properties?.id;
-    if (typeof markerId === 'string') {
-      handlers.onHoverMarker(markerId);
+  const bindLayerEvents = (layerId: string) => {
+    if (boundLayerIds.has(layerId) || !map.getLayer(layerId)) {
+      return;
     }
-  });
 
-  map.on('mousemove', MARKER_LAYER_ID, (event) => {
-    const markerId = event.features?.[0]?.properties?.id;
-    if (typeof markerId === 'string') {
-      handlers.onHoverMarker(markerId);
-    }
-  });
+    map.on('mouseenter', layerId, (event) => {
+      map.getCanvas().style.cursor = 'pointer';
+      const markerId = event.features?.[0]?.properties?.id;
+      if (typeof markerId === 'string') {
+        handlers.onHoverMarker(markerId);
+      }
+    });
 
-  map.on('mouseleave', MARKER_LAYER_ID, () => {
-    map.getCanvas().style.cursor = '';
-    handlers.onLeaveMarker();
-  });
+    map.on('mousemove', layerId, (event) => {
+      const markerId = event.features?.[0]?.properties?.id;
+      if (typeof markerId === 'string') {
+        handlers.onHoverMarker(markerId);
+      }
+    });
 
-  map.on('click', MARKER_LAYER_ID, (event) => {
-    const markerId = event.features?.[0]?.properties?.id;
-    if (typeof markerId === 'string') {
-      event.originalEvent.stopPropagation();
-      handlers.onSelectMarker(markerId);
-    }
-  });
+    map.on('mouseleave', layerId, () => {
+      map.getCanvas().style.cursor = '';
+      handlers.onLeaveMarker();
+    });
 
-  markerLayerBoundMaps.add(map);
+    map.on('click', layerId, (event) => {
+      const markerId = event.features?.[0]?.properties?.id;
+      if (typeof markerId === 'string') {
+        event.originalEvent.stopPropagation();
+        handlers.onSelectMarker(markerId);
+      }
+    });
+
+    boundLayerIds.add(layerId);
+  };
+
+  bindLayerEvents(MARKER_CIRCLE_LAYER_ID);
+  bindLayerEvents(MARKER_LAYER_ID);
+
+  markerLayerBoundMaps.set(map, boundLayerIds);
+}
+
+function renderedMarkerLayerIds(map: maplibregl.Map) {
+  return [MARKER_LAYER_ID, MARKER_CIRCLE_LAYER_ID].filter((layerId) => map.getLayer(layerId));
 }
 
 export function hasRenderedMarkerAtPoint(map: maplibregl.Map, point: maplibregl.PointLike) {
-  if (!map.getLayer(MARKER_LAYER_ID)) {
+  const layers = renderedMarkerLayerIds(map);
+  if (layers.length === 0) {
     return false;
   }
 
-  return map.queryRenderedFeatures(point, { layers: [MARKER_LAYER_ID] }).length > 0;
+  return map.queryRenderedFeatures(point, { layers }).length > 0;
 }
 
 export function syncMarkerElements(
@@ -312,6 +366,9 @@ export function syncMarkerElements(
 
   addMarkerSource(map, markerData);
   setMarkerSourceData(map, markerData);
+  addMarkerCircleLayer(map);
+  bindMarkerLayerEvents(map, handlers);
+  raiseMarkerLayer(map);
 
   void Promise.all(requiredMarkerTypes.map((markerType) => ensureMarkerImage(map, markerType)))
     .then(() => {

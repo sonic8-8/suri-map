@@ -670,6 +670,8 @@ type SearchMapCanvasProps = {
   layerVisibility: LayerVisibility;
   movementPaths: MovementPath[];
   recentMarkers: RecentMarker[];
+  focusedMarkerId: string | null;
+  focusedMarkerSequence: number;
   visibleMarkerIds: string[];
   savedAreaDrafts: CompletedAreaDraft[];
   onInitialBoundsReady?: (bounds: LngLatBoundsLike | null) => void;
@@ -686,6 +688,8 @@ export function SearchMapCanvas({
   layerVisibility,
   movementPaths,
   recentMarkers,
+  focusedMarkerId,
+  focusedMarkerSequence,
   visibleMarkerIds,
   savedAreaDrafts,
   onInitialBoundsReady,
@@ -834,6 +838,26 @@ export function SearchMapCanvas({
       currentMarkerId && visibleMarkerIdSet.has(currentMarkerId) ? currentMarkerId : null,
     );
   }, [visibleMarkerIds]);
+
+  useEffect(() => {
+    if (!focusedMarkerId) {
+      return;
+    }
+
+    const marker = recentMarkers.find((currentMarker) => currentMarker.id === focusedMarkerId);
+    const map = mapRef.current;
+    if (!map || !marker?.coordinates) {
+      return;
+    }
+
+    setSelectedMarkerId(marker.id);
+    setHoveredMarkerId(null);
+    map.easeTo({
+      center: marker.coordinates,
+      duration: 520,
+      essential: true,
+    });
+  }, [focusedMarkerId, focusedMarkerSequence, recentMarkers]);
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {

@@ -27,6 +27,7 @@ type SituationBoardLeftPanelProps = {
   onToggleLayer: (layerId: LayerFilterId) => void;
   onToggleMarkerType: (markerType: MarkerTypeId, supportRequestType?: SupportRequestTypeId) => void;
   onSelectSearchArea: (searchAreaId: string) => void;
+  onSelectMarker: (markerId: string) => void;
   onOpenAreaEdit: () => void;
 };
 
@@ -44,6 +45,7 @@ export function SituationBoardLeftPanel({
   onToggleLayer,
   onToggleMarkerType,
   onSelectSearchArea,
+  onSelectMarker,
   onOpenAreaEdit,
 }: SituationBoardLeftPanelProps) {
   const { activePage, getIndexTabAriaLabel, handleIndexTabClick } = useLeftPanelPages({
@@ -138,7 +140,7 @@ export function SituationBoardLeftPanel({
         </div>
         <div className={styles.page} hidden={activePage !== 'marker'}>
           <div className={styles.scroll}>
-            <RecentMarkerList recentMarkers={recentMarkers} />
+            <RecentMarkerList recentMarkers={recentMarkers} onSelectMarker={onSelectMarker} />
           </div>
         </div>
       </div>
