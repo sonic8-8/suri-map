@@ -95,7 +95,7 @@ export function RecentMarkerList({ recentMarkers }: RecentMarkerListProps) {
                       <dd>{marker.coordinateLabel ?? '-'}</dd>
                     </div>
                   </dl>
-                  {marker.memo ? <p className={styles.memo}>{marker.memo}</p> : null}
+                  {marker.memo && marker.memo !== marker.summary ? <p className={styles.memo}>{marker.memo}</p> : null}
                 </div>
                 <span className={`${styles.typeBadge} ${styles[markerTypeBadgeClass(markerType)]}`}>
                   {marker.markerTypeLabel ?? markerTypeLabel(markerType)}
