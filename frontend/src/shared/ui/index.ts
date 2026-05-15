@@ -6,7 +6,7 @@ export { MapControls } from './mapControls';
 export type { MapControlsProps } from './mapControls';
 export { BoardPanel } from './boardPanel';
 export type { BoardPanelPlacement, BoardPanelProps } from './boardPanel';
-export { SuriMapPageHeader } from './suriMapPageHeader';
+export { formatIncidentContextEyebrow, formatMissingPersonIncidentTitle, SuriMapPageHeader } from './suriMapPageHeader';
 export type {
   MarkerNotification,
   SuriMapPageHeaderIncidentContext,
