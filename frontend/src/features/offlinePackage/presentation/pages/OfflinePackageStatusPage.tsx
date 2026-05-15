@@ -70,10 +70,7 @@ type ManifestGroup = {
   countLabel: string;
   statusLabel: string;
   statusTone: StatusBadgeTone;
-  itemKey: string;
-  sourceVersion: string;
-  sourceHash: string;
-  note: string;
+  detailLabel: string;
 };
 
 type TileSummary = {
@@ -81,19 +78,17 @@ type TileSummary = {
   totalBytes: number;
   styleIds: string;
   zRange: string;
-  xRange: string;
-  yRange: string;
   checksumLabel: string;
 };
 
 const manifestGroupLabels: Record<OfflinePackageItemType, string> = {
-  INCIDENT_META: '사건 메타',
-  MISSING_PERSON_CACHE: '실종자 캐시',
-  OP_LIST: '작전 기간 목록',
-  ASSIGNED_AREA: '배정 구역',
-  INITIAL_MARKER: '초기 기준 마커',
+  INCIDENT_META: '사건 정보',
+  MISSING_PERSON_CACHE: '실종자 정보',
+  OP_LIST: '작전 차수 정보',
+  ASSIGNED_AREA: '배정 수색 구역',
+  INITIAL_MARKER: '초기 마커',
   OVERALL_SEARCH_AREA: '전체 수색 구역',
-  TILE: '타일',
+  TILE: '오프라인 지도',
 };
 
 const manifestGroupOrder: readonly OfflinePackageItemType[] = [
@@ -108,6 +103,7 @@ const manifestGroupOrder: readonly OfflinePackageItemType[] = [
 
 const packageStatusLabels: Record<string, string> = {
   READY: '오프라인 사용 가능',
+  DOWNLOADING: '자동 설치 중',
   STALE: '재적재 필요',
   FAILED: '실패',
   PARTIAL: '일부 미완료',
@@ -152,6 +148,7 @@ export function OfflinePackageStatusPage({
   const manifestGroups = useMemo(() => createManifestGroups(manifestQuery.data), [manifestQuery.data]);
   const tileSummary = useMemo(() => createTileSummary(manifestQuery.data?.tileItems ?? []), [manifestQuery.data]);
   const serverTs = boardQuery.data?.serverTs ?? null;
+  const referenceNow = useMemo(() => (serverTs ? new Date(serverTs) : new Date()), [serverTs]);
   const isLoading = boardQuery.isLoading;
   const boardErrorMessage = boardQuery.isError ? '단말별 적재 상태를 불러오지 못했습니다.' : '';
 
@@ -231,14 +228,14 @@ export function OfflinePackageStatusPage({
         <section className={styles.content} aria-label="단말별 적재 상태">
           <SectionTitle
             title="단말별 적재 상태"
-            description="상황판 package_badge 슬롯 기준으로 각 PolicePhone의 현재 적재 상태를 표시합니다."
+            description="현장 단말이 오프라인에서도 수색 자료를 사용할 수 있는지 확인합니다."
           />
           {isLoading ? (
             <PackageStatusSkeleton />
           ) : boardErrorMessage ? (
             <div className={styles.emptyState} role="alert">
               <strong>{boardErrorMessage}</strong>
-              <span>상황판 package_badge 조회가 실패했습니다. 패키지 구성 목록은 별도로 확인할 수 있습니다.</span>
+              <span>단말별 상태 조회가 실패했습니다. 패키지 구성 목록은 별도로 확인할 수 있습니다.</span>
               <ActionButton label="다시 조회" onClick={() => void boardQuery.refetch()} />
             </div>
           ) : isEmpty ? (
@@ -252,11 +249,11 @@ export function OfflinePackageStatusPage({
                 <thead>
                   <tr>
                     <th scope="col">단말</th>
-                    <th scope="col">패키지 상태</th>
-                    <th scope="col">계정</th>
-                    <th scope="col">Manifest 버전</th>
-                    <th scope="col">오프라인 사용</th>
-                    <th scope="col">확인 사유</th>
+                    <th scope="col">담당</th>
+                    <th scope="col">상태</th>
+                    <th scope="col">설치 정보</th>
+                    <th scope="col">확인 내용</th>
+                    <th scope="col">조치</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -270,19 +267,19 @@ export function OfflinePackageStatusPage({
                           <span>{createDeviceMeta(row)}</span>
                         </td>
                         <td>
+                          <strong>{createAssigneeTitle(row)}</strong>
+                          <span>{createAssigneeMeta(row)}</span>
+                        </td>
+                        <td>
                           <StatusBadge
                             className={getPackageStatusBadgeClassName(statusView.tone)}
                             status={statusView.label}
                             tone={statusView.tone}
                           />
                         </td>
-                        <td>
-                          <strong>{formatAccountType(row.accountType)}</strong>
-                          <span>{formatIncidentRole(row.incidentRole)}</span>
-                        </td>
                         <td>{formatManifestVersion(row)}</td>
-                        <td>{row.readyForOfflineUse ? '사용 가능' : '패키지 미완료'}</td>
-                        <td>{row.warningRaised ? formatWarningReason(row.warningReason) : '추가 확인 없음'}</td>
+                        <td>{formatPackageCheckMessage(row)}</td>
+                        <td>{formatPackageAction(row)}</td>
                       </tr>
                     );
                   })}
@@ -295,13 +292,14 @@ export function OfflinePackageStatusPage({
         <section className={styles.content} aria-label="패키지 구성 목록">
           <SectionTitle
             title="패키지 구성 목록"
-            description="Manifest packageItems 기준으로 앱에 포함되어야 하는 사건 패키지 항목을 표시합니다."
+            description="현장 앱이 오프라인으로 보관하는 사건 자료와 지도 자료를 확인합니다."
           />
           <ManifestContent
             groups={manifestGroups}
             isError={manifestQuery.isError}
             isLoading={manifestQuery.isLoading}
             manifest={manifestQuery.data}
+            referenceNow={referenceNow}
             tileSummary={tileSummary}
             onRetry={() => void manifestQuery.refetch()}
           />
@@ -325,6 +323,7 @@ function ManifestContent({
   isError,
   isLoading,
   manifest,
+  referenceNow,
   tileSummary,
   onRetry,
 }: {
@@ -332,6 +331,7 @@ function ManifestContent({
   isError: boolean;
   isLoading: boolean;
   manifest: OfflinePackageManifestResponse | undefined;
+  referenceNow: Date;
   tileSummary: TileSummary;
   onRetry: () => void;
 }) {
@@ -343,7 +343,7 @@ function ManifestContent({
     return (
       <div className={styles.emptyState} role="alert">
         <strong>패키지 구성 목록을 불러오지 못했습니다.</strong>
-        <span>단말별 적재 상태와 별개로 manifest 조회만 실패했습니다.</span>
+        <span>단말별 적재 상태와 별개로 구성 목록 조회만 실패했습니다.</span>
         <ActionButton label="구성 목록 다시 조회" onClick={onRetry} />
       </div>
     );
@@ -353,25 +353,33 @@ function ManifestContent({
     return (
       <div className={styles.emptyState}>
         <strong>패키지 구성 목록이 없습니다.</strong>
-        <span>Manifest 조회 결과가 준비되면 구성 항목이 표시됩니다.</span>
+        <span>패키지 구성 조회 결과가 준비되면 구성 항목이 표시됩니다.</span>
       </div>
     );
   }
 
+  const manifestFreshness = createManifestFreshness(manifest, referenceNow);
+
   return (
     <div className={styles.manifestStack}>
-      <div className={styles.manifestMeta} aria-label="Manifest 메타">
+      {manifestFreshness.isExpired ? (
+        <div className={styles.manifestWarning} role="status">
+          패키지 정보가 만료되었습니다. 현장 단말은 최신 패키지를 다시 내려받아야 합니다.
+        </div>
+      ) : null}
+
+      <div className={styles.manifestMeta} aria-label="패키지 요약">
         <div>
-          <span>Manifest</span>
+          <span>패키지 버전</span>
           <strong>v{manifest.manifestVersion}</strong>
         </div>
         <div>
-          <span>만료 시각</span>
-          <strong>{formatKstDateTime(new Date(manifest.expiresAt))}</strong>
+          <span>최신 여부</span>
+          <strong>{manifestFreshness.label}</strong>
         </div>
         <div>
-          <span>패키지 Hash</span>
-          <strong>{shortHash(manifest.packageHash)}</strong>
+          <span>포함 자료</span>
+          <strong>{formatManifestItemTotal(manifest)}개</strong>
         </div>
         <div>
           <span>사건 상태</span>
@@ -384,11 +392,9 @@ function ManifestContent({
           <thead>
             <tr>
               <th scope="col">구성</th>
+              <th scope="col">포함 내용</th>
               <th scope="col">항목 수</th>
               <th scope="col">상태</th>
-              <th scope="col">대표 itemKey</th>
-              <th scope="col">sourceVersion</th>
-              <th scope="col">sourceHash</th>
             </tr>
           </thead>
           <tbody>
@@ -396,8 +402,8 @@ function ManifestContent({
               <tr key={group.type}>
                 <td>
                   <strong>{group.label}</strong>
-                  <span>{group.note}</span>
                 </td>
+                <td>{group.detailLabel}</td>
                 <td>{group.countLabel}</td>
                 <td>
                   <StatusBadge
@@ -406,9 +412,6 @@ function ManifestContent({
                     tone={group.statusTone}
                   />
                 </td>
-                <td>{group.itemKey}</td>
-                <td>{group.sourceVersion}</td>
-                <td>{group.sourceHash}</td>
               </tr>
             ))}
           </tbody>
@@ -425,23 +428,15 @@ function ManifestContent({
           <strong>{formatBytes(tileSummary.totalBytes)}</strong>
         </div>
         <div>
-          <span>styleId</span>
+          <span>지도 종류</span>
           <strong>{tileSummary.styleIds}</strong>
         </div>
         <div>
-          <span>z 범위</span>
+          <span>확대 단계</span>
           <strong>{tileSummary.zRange}</strong>
         </div>
         <div>
-          <span>x 범위</span>
-          <strong>{tileSummary.xRange}</strong>
-        </div>
-        <div>
-          <span>y 범위</span>
-          <strong>{tileSummary.yRange}</strong>
-        </div>
-        <div>
-          <span>checksum</span>
+          <span>검증 상태</span>
           <strong>{tileSummary.checksumLabel}</strong>
         </div>
       </div>
@@ -467,11 +462,13 @@ function createIncidentContext(
   );
   const assignmentLabel = assignments.length > 0 ? `${assignments.length}개 배정` : '배정 없음';
   const status = incidentDetail?.status ?? 'OPEN';
+  const incidentTitle = readIncidentTitle(incidentDetail);
+  const versionLabel = incidentDetail?.version ? `정보 버전 ${incidentDetail.version}` : '정보 버전 확인 전';
 
   return {
     avatarLabel: createAvatarLabel(displayName),
-    eyebrow: `${incidentId} / v${incidentDetail?.version ?? '-'}`,
-    title: displayName ? `${displayName} 실종 사건` : `사건 ${incidentId}`,
+    eyebrow: versionLabel,
+    title: incidentTitle ?? (displayName ? `${displayName} 실종 사건` : '오프라인 패키지 대상 사건'),
     metrics: [
       { label: '실종자', value: displayName ?? '-' },
       { label: '마지막 확인', value: lastSeenLabel },
@@ -487,10 +484,13 @@ function createTerminalIncidentContext(
   incidentDetail: IncidentDetailDto | null,
   incidentTerminal: IncidentTerminalViewModel,
 ): SuriMapPageHeaderIncidentContext {
+  const incidentTitle = readIncidentTitle(incidentDetail);
+  const versionLabel = incidentDetail?.version ? `정보 버전 ${incidentDetail.version}` : '종료 사건';
+
   return {
     avatarLabel: '종료',
-    eyebrow: `${incidentId} / v${incidentDetail?.version ?? '-'}`,
-    title: '종료된 사건',
+    eyebrow: versionLabel,
+    title: incidentTitle ?? `종료된 사건 ${formatShortId(incidentId)}`,
     metrics: [
       {
         label: '종료 시각',
@@ -535,6 +535,12 @@ function createAvatarLabel(displayName: string | null) {
   if (!displayName) return '사건';
 
   return displayName.length > 4 ? displayName.slice(0, 4) : displayName;
+}
+
+function readIncidentTitle(incidentDetail: IncidentDetailDto | null) {
+  if (!incidentDetail || !('title' in incidentDetail)) return null;
+  const title = incidentDetail.title.trim();
+  return title || null;
 }
 
 function createLastSeenLabel(lastSeenAt: string | null, lastSeenLocationText: string | null) {
@@ -613,7 +619,6 @@ function createSummary(rows: PackageBadgeRow[]): PackageSummary {
 function createManifestGroups(manifest: OfflinePackageManifestResponse | undefined): readonly ManifestGroup[] {
   return manifestGroupOrder.map((type) => {
     const items = manifest?.packageItems.filter((item) => item.itemType === type) ?? [];
-    const primary = items[0] ?? null;
     const count = countManifestSourceItems(type, manifest);
     const statusView = getManifestGroupStatus(items);
 
@@ -623,10 +628,7 @@ function createManifestGroups(manifest: OfflinePackageManifestResponse | undefin
       countLabel: `${count}개`,
       statusLabel: statusView.label,
       statusTone: statusView.tone,
-      itemKey: primary?.itemKey ?? '-',
-      sourceVersion: primary ? String(primary.sourceVersion) : '-',
-      sourceHash: primary ? shortHash(primary.sourceHash) : '-',
-      note: createManifestGroupNote(type, manifest, items),
+      detailLabel: createManifestGroupDetail(type, manifest),
     };
   });
 }
@@ -643,15 +645,40 @@ function countManifestSourceItems(type: OfflinePackageItemType, manifest: Offlin
   return manifest.incident ? 1 : 0;
 }
 
-function createManifestGroupNote(
+function createManifestGroupDetail(
   type: OfflinePackageItemType,
   manifest: OfflinePackageManifestResponse | undefined,
-  items: readonly OfflinePackagePackageItem[],
 ) {
-  if (!manifest) return 'Manifest 조회 전';
-  if (type === 'ASSIGNED_AREA' && manifest.assignedAreas.length === 0) return `${type} / 배정 구역 없음`;
-  if (items.length === 0) return `${type} / packageItems 항목 없음`;
-  return `${type} / ${items.length}개 packageItems 항목`;
+  if (!manifest) return '자료 확인 전';
+
+  if (type === 'INCIDENT_META') {
+    return `${formatIncidentStatus(manifest.incident?.status ?? '')} 사건 정보`;
+  }
+  if (type === 'MISSING_PERSON_CACHE') {
+    const name = manifest.missingPerson?.displayName?.trim() || '실종자 정보';
+    const photoLabel = manifest.missingPerson?.photoObjectKey ? '사진 포함' : '사진 없음';
+    return `${name} · ${photoLabel}`;
+  }
+  if (type === 'OP_LIST') {
+    const activeCount = manifest.operationalPeriods.filter((op) => op.status === 'ACTIVE').length;
+    return activeCount > 0 ? `진행 중인 차수 포함` : '작전 차수 기록 포함';
+  }
+  if (type === 'ASSIGNED_AREA') {
+    if (manifest.assignedAreas.length === 0) return '아직 배정된 수색 구역이 없습니다';
+    const completedCount = manifest.assignedAreas.filter((area) => area.status === 'COMPLETED').length;
+    const activeCount = manifest.assignedAreas.filter((area) => area.status === 'ACTIVE').length;
+    return `진행 ${activeCount}개 · 완료 ${completedCount}개`;
+  }
+  if (type === 'INITIAL_MARKER') {
+    return manifest.initialMarkers.length > 0 ? '초기 확인 지점 포함' : '초기 마커 없음';
+  }
+  if (type === 'OVERALL_SEARCH_AREA') {
+    return manifest.overallSearchArea ? '전체 수색 범위 포함' : '전체 수색 범위 없음';
+  }
+
+  return manifest.tileItems.length > 0
+    ? `${manifest.tileItems.length}개 지도 타일 · ${formatBytes(createTileSummary(manifest.tileItems).totalBytes)}`
+    : '오프라인 지도 없음';
 }
 
 function getManifestGroupStatus(items: readonly OfflinePackagePackageItem[]): { label: string; tone: StatusBadgeTone } {
@@ -673,8 +700,6 @@ function createTileSummary(tileItems: readonly OfflinePackageTileItem[]): TileSu
       totalBytes: 0,
       styleIds: '-',
       zRange: '-',
-      xRange: '-',
-      yRange: '-',
       checksumLabel: '없음',
     };
   }
@@ -683,10 +708,8 @@ function createTileSummary(tileItems: readonly OfflinePackageTileItem[]): TileSu
     count: tileItems.length,
     totalBytes: tileItems.reduce((sum, item) => sum + item.bytes, 0),
     styleIds: uniqueValues(tileItems.map((item) => item.styleId)).join(', '),
-    zRange: createRangeLabel(tileItems.map((item) => item.z)),
-    xRange: createRangeLabel(tileItems.map((item) => item.x)),
-    yRange: createRangeLabel(tileItems.map((item) => item.y)),
-    checksumLabel: tileItems.every((item) => Boolean(item.checksum)) ? '전체 있음' : '일부 없음',
+    zRange: `${createRangeLabel(tileItems.map((item) => item.z))}단계`,
+    checksumLabel: tileItems.every((item) => Boolean(item.checksum)) ? '검증 가능' : '일부 확인 필요',
   };
 }
 
@@ -701,28 +724,47 @@ function uniqueValues(values: readonly string[]) {
 }
 
 function createDeviceTitle(row: PackageBadgeRow) {
-  return row.accountName || row.policePhoneName || row.policePhoneCode || row.policePhoneId;
+  return row.policePhoneName || formatPhoneCode(row.policePhoneCode) || `단말 ${formatShortId(row.policePhoneId)}`;
 }
 
 function createDeviceMeta(row: PackageBadgeRow) {
   const title = createDeviceTitle(row);
-  const phoneName = row.policePhoneName && row.policePhoneName !== title ? row.policePhoneName : '';
-  const phoneCode = row.policePhoneCode && row.policePhoneCode !== title ? row.policePhoneCode : '';
-  return [phoneName, phoneCode, row.policePhoneId].filter(Boolean).join(' / ');
+  const phoneCode = formatPhoneCode(row.policePhoneCode);
+  const phoneCodeLabel = phoneCode && phoneCode !== title ? phoneCode : '';
+  const shortId = `단말 식별 ${formatShortId(row.policePhoneId)}`;
+  return [phoneCodeLabel, shortId].filter(Boolean).join(' / ');
+}
+
+function createAssigneeTitle(row: PackageBadgeRow) {
+  return row.accountName || formatOrganizationType(row.organizationType) || '담당 정보 없음';
+}
+
+function createAssigneeMeta(row: PackageBadgeRow) {
+  const role = formatIncidentRole(row.incidentRole);
+  const accountType = formatAccountType(row.accountType);
+  return [accountType, role].filter((item) => item !== '담당 유형 확인 전' && item !== '역할 확인 전').join(' / ')
+    || '담당 배정 확인 전';
 }
 
 function formatAccountType(accountType: string) {
   if (accountType === 'TEAM') return '팀 단말';
   if (accountType === 'PATROL_CAR') return '순찰차 단말';
   if (accountType === 'COMMAND') return '지휘 계정';
-  return accountType || '계정 미확인';
+  return accountType || '담당 유형 확인 전';
 }
 
 function formatIncidentRole(role: string) {
   if (role === 'MEMBER') return '수색 대원';
   if (role === 'FIELD_COMMANDER') return '현장 지휘';
   if (role === 'INCIDENT_COMMANDER') return '사건 지휘';
-  return role || '역할 미확인';
+  return role || '역할 확인 전';
+}
+
+function formatOrganizationType(organizationType: string) {
+  if (organizationType === 'MISSING_TEAM') return '실종팀';
+  if (organizationType === 'SUPPORT_UNIT') return '지원 부대';
+  if (organizationType === 'POLICE_SUBSTATION') return '지구대';
+  return '';
 }
 
 function getStatusView(row: PackageBadgeRow): { label: string; tone: StatusBadgeTone } {
@@ -731,6 +773,7 @@ function getStatusView(row: PackageBadgeRow): { label: string; tone: StatusBadge
     return { label: packageStatusLabels.READY, tone: 'active' };
   }
   if (row.packageStatus === 'STALE') return { label: packageStatusLabels.STALE, tone: 'waiting' };
+  if (row.packageStatus === 'DOWNLOADING') return { label: packageStatusLabels.DOWNLOADING, tone: 'waiting' };
   if (row.packageStatus === 'FAILED') return { label: packageStatusLabels.FAILED, tone: 'danger' };
   if (row.packageStatus === 'PARTIAL') return { label: packageStatusLabels.PARTIAL, tone: 'waiting' };
   if (row.packageStatus === 'MISSING') return { label: packageStatusLabels.MISSING, tone: 'waiting' };
@@ -740,18 +783,89 @@ function getStatusView(row: PackageBadgeRow): { label: string; tone: StatusBadge
 
 function formatManifestVersion(row: PackageBadgeRow) {
   if (row.packageStatus === 'PURGED') return '-';
-  if (row.manifestVersion === null) return '확인 전';
+  if (row.manifestVersion === null) return '설치 정보 확인 전';
   if (row.activeManifestVersion !== null && row.activeManifestVersion !== row.manifestVersion) {
-    return `v${row.manifestVersion} / 최신 v${row.activeManifestVersion}`;
+    return `설치 v${row.manifestVersion} · 최신 v${row.activeManifestVersion} 필요`;
   }
 
-  return `v${row.manifestVersion}`;
+  return `설치 v${row.manifestVersion}`;
 }
 
 function formatWarningReason(reason: string) {
   if (reason === 'manifest_stale' || reason === 'stale_manifest') return '재적재 필요';
   if (reason === 'package_incomplete' || reason === 'partial') return '패키지 미완료';
+  if (/S7|MISSING|STALE|EXPIRED|FAILED|required item/i.test(reason)) {
+    return '패키지 상태를 다시 확인해야 합니다.';
+  }
   return reason || '패키지 미완료';
+}
+
+function formatPackageCheckMessage(row: PackageBadgeRow) {
+  if (row.packageStatus === 'READY' && row.readyForOfflineUse && !row.warningRaised) {
+    return '필수 자료 설치 완료';
+  }
+  if (row.packageStatus === 'DOWNLOADING') return '앱에서 자동 설치 중';
+  if (row.packageStatus === 'STALE') return '최신 패키지 아님';
+  if (row.packageStatus === 'FAILED') return '자동 설치 실패';
+  if (row.packageStatus === 'PARTIAL') return '일부 자료 설치 실패';
+  if (row.packageStatus === 'MISSING') return '설치 보고 없음';
+  if (row.packageStatus === 'PURGED') return '사건 종료 후 자료 삭제됨';
+
+  const reason = row.warningRaised ? formatWarningReason(row.warningReason) : '';
+  return reason || '설치 상태를 확인해야 합니다.';
+}
+
+function formatPackageAction(row: PackageBadgeRow) {
+  if (row.packageStatus === 'READY' && row.readyForOfflineUse && !row.warningRaised) return '조치 없음';
+  if (row.packageStatus === 'PURGED') return '조치 없음';
+  if (row.packageStatus === 'DOWNLOADING') return '완료될 때까지 대기';
+  if (row.packageStatus === 'STALE') return '앱 연결 시 최신 패키지 재설치';
+  if (row.packageStatus === 'FAILED') return '단말 네트워크 확인 또는 수동 재시도 필요';
+  if (row.packageStatus === 'PARTIAL') return '단말 네트워크 연결 후 자동 재시도 확인';
+  if (row.packageStatus === 'MISSING') return '폴리폰에서 사건 진입 필요';
+  return '단말 상태 재확인';
+}
+
+function createManifestFreshness(manifest: OfflinePackageManifestResponse, referenceNow: Date) {
+  const expiresAt = new Date(manifest.expiresAt);
+  if (Number.isNaN(expiresAt.getTime())) {
+    return { isExpired: false, label: '만료 시각 확인 전' };
+  }
+
+  if (expiresAt.getTime() <= referenceNow.getTime()) {
+    return { isExpired: true, label: '만료됨' };
+  }
+
+  return { isExpired: false, label: `${formatKstDateTime(expiresAt)}까지 유효` };
+}
+
+function formatManifestItemTotal(manifest: OfflinePackageManifestResponse) {
+  return [
+    manifest.incident ? 1 : 0,
+    manifest.missingPerson ? 1 : 0,
+    manifest.operationalPeriods.length,
+    manifest.assignedAreas.length,
+    manifest.initialMarkers.length,
+    manifest.overallSearchArea ? 1 : 0,
+    manifest.tileItems.length,
+  ].reduce((sum, count) => sum + count, 0);
+}
+
+function formatShortId(id: string) {
+  const normalized = id.trim();
+  if (!normalized) return '확인 전';
+  const compact = normalized.replaceAll('-', '');
+  return compact.length > 4 ? compact.slice(-4).toUpperCase() : compact.toUpperCase();
+}
+
+function formatPhoneCode(phoneCode: string) {
+  const normalized = phoneCode.trim();
+  if (!normalized || isUuidLike(normalized)) return '';
+  return normalized;
+}
+
+function isUuidLike(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 }
 
 function formatIncidentStatus(status: string) {
