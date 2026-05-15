@@ -123,6 +123,8 @@ export function HandoverPage({
   const isLoadingBoard = boardQuery.isLoading;
   const boardErrorMessage = boardQuery.isError ? '수색 이력 정보를 불러오지 못했습니다.' : '';
   const summaryQuery = useSearchHistorySummaryListQuery(focusedOpId, { incidentId });
+  const isLoadingSummary = summaryQuery.isLoading || summaryQuery.isFetching;
+  const summaryErrorMessage = summaryQuery.isError ? '수색 이력 요약을 불러오지 못했습니다.' : '';
   const dutyShiftQuery = useDutyShiftListQuery({ incidentId, opId: focusedOpId ?? undefined });
   const dutyShifts = dutyShiftQuery.data?.items ?? [];
 
@@ -552,7 +554,7 @@ export function HandoverPage({
             onMouseDown={(event) => event.stopPropagation()}
           >
             <div className={styles.modalHeader}>
-              <h2 id="op-comparison-popup-title">OP 비교</h2>
+              <h2 id="op-comparison-popup-title">OP 정보</h2>
               <button type="button" aria-label="OP 비교 닫기" onClick={() => setIsComparisonPopupOpen(false)}>
                 닫기
               </button>
@@ -575,11 +577,17 @@ export function HandoverPage({
                     </div>
                     <div>
                       <dt>시작 시각</dt>
-                      <dd>-</dd>
+                      <dd>{selectedOp?.openedAt ? formatKstDateTime(new Date(selectedOp.openedAt)) : '-'}</dd>
                     </div>
                     <div>
                       <dt>종료 시각</dt>
-                      <dd>{selectedOp?.status === 'ENDED' ? '-' : '진행 중'}</dd>
+                      <dd>
+                        {selectedOp?.endedAt
+                          ? formatKstDateTime(new Date(selectedOp.endedAt))
+                          : selectedOp?.status === 'ENDED'
+                            ? '-'
+                            : '진행 중'}
+                      </dd>
                     </div>
                   </dl>
                 </section>
@@ -603,9 +611,11 @@ export function HandoverPage({
                 <section className={styles.contextBlock} aria-label="수색 이력 자동 요약">
                   <div className={styles.blockHeading}>
                     <h2>수색 이력 자동 요약</h2>
-                    <span>{isLoadingBoard ? '불러오는 중' : searchHistorySummary?.statusLabel ?? '요약 없음'}</span>
+                    <span>{isLoadingSummary ? '불러오는 중' : searchHistorySummary?.statusLabel ?? '요약 없음'}</span>
                   </div>
-                  {isLoadingBoard ? (
+                  {summaryErrorMessage ? (
+                    <div className={styles.errorText}>{summaryErrorMessage}</div>
+                  ) : isLoadingSummary ? (
                     <div className={styles.emptyState}>수색 이력 요약을 불러오는 중입니다.</div>
                   ) : searchHistorySummary?.summaryText ? (
                     <p className={styles.summaryText}>{searchHistorySummary.summaryText}</p>
