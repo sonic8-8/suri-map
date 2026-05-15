@@ -4,6 +4,12 @@ import type { GeoJsonPolygon, SearchAreaResponse as SearchAreaDto } from '../../
 import { areaTree } from '../constants/mockAreaEdit';
 import type { AreaEditPosition, AreaTreeNode, CompletedAreaDraft } from '../constants/mockAreaEdit';
 
+function toAreaBbox(bbox: number[] | undefined): CompletedAreaDraft['bbox'] {
+  if (!bbox || bbox.length < 4) return undefined;
+  const [minLon, minLat, maxLon, maxLat] = bbox;
+  return [minLon, minLat, maxLon, maxLat];
+}
+
 export function toGeoJsonPolygon(coordinates: AreaEditPosition[]): GeoJsonPolygon {
   return {
     type: 'Polygon',
@@ -35,6 +41,7 @@ export function createOverallDraft(overallArea: SearchAreaDto): CompletedAreaDra
     colorToken: getAreaColorToken(overallArea.id),
     label: areaTree.name,
     coordinates: outerRing.map((point) => [point[0], point[1]]),
+    bbox: toAreaBbox(overallArea.bbox),
   };
 }
 
@@ -49,6 +56,7 @@ export function createAreaDraft(area: SearchAreaDto, fallbackIndex: number): Com
     colorToken: getAreaColorToken(area.id),
     label: kind === 'overall' ? areaTree.name : `${kind.toUpperCase()} ${fallbackIndex}`,
     coordinates: outerRing.map((point) => [point[0], point[1]]),
+    bbox: toAreaBbox(area.bbox),
   };
 }
 

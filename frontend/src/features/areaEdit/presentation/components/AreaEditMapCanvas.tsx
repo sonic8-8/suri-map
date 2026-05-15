@@ -12,8 +12,8 @@ import { getRouteCoreColor } from '../../../../shared/model/boardMapFeatures';
 import type { AreaEditPosition, CompletedAreaDraft } from '../constants/mockAreaEdit';
 import styles from './AreaEditMapCanvas.module.css';
 
-const DEFAULT_JURISDICTION_CENTER: AreaEditPosition = [126.7525, 35.1598];
-const GWANGSAN_MANIFEST_URL = '/map-data/gwangsan/manifest.json';
+const DEFAULT_GWANGJU_CENTER: AreaEditPosition = [126.8325, 35.1547];
+const GWANGJU_BBOX: [number, number, number, number] = [126.647507, 35.052595, 127.017482, 35.256837];
 const MUDEUNGSAN_HIKING_TRAILS_URL = '/map-data/mudeungsan/trails.geojson';
 const MUDEUNGSAN_OSM_TRAILS_URL = '/map-data/mudeungsan/osm-trails.geojson';
 const MUDEUNGSAN_OSM_PEAKS_URL = '/map-data/mudeungsan/osm-peaks.geojson';
@@ -56,21 +56,6 @@ export type AreaEditMapMarker = {
   id: string;
   markerType: 'CLUE' | 'PERSON_FOUND' | 'FIELD_CONDITION' | 'SUPPORT_REQUEST' | 'NOTE' | 'UNKNOWN';
   coordinates: AreaEditPosition;
-};
-
-type GwangsanLayerId = 'boundary';
-type GwangsanMapLayerManifest = {
-  layerId: GwangsanLayerId;
-  url: string;
-  sourceCodes: string[];
-  crs: 'EPSG:4326';
-  bbox: [number, number, number, number];
-  featureCount: number;
-};
-type GwangsanMapManifest = {
-  id: string;
-  crs: 'EPSG:4326';
-  layers: GwangsanMapLayerManifest[];
 };
 
 type AreaFeatureProperties = Record<string, string>;
@@ -125,7 +110,13 @@ function toRingBounds(ring: AreaEditPosition[]): LngLatBoundsLike | null {
 
 function findOverallDraftBounds(completedDrafts: CompletedAreaDraft[]): LngLatBoundsLike | null {
   const overallDraft = completedDrafts.find((draft) => draft.kind === 'overall' && draft.coordinates.length >= 4);
-  return overallDraft ? toRingBounds(overallDraft.coordinates) : null;
+  if (!overallDraft) return null;
+  return overallDraft.bbox ? toBounds(overallDraft.bbox) : toRingBounds(overallDraft.coordinates);
+}
+
+function createOverallDraftFitSignature(draft: CompletedAreaDraft | undefined): string | null {
+  if (!draft) return null;
+  return [draft.areaId, draft.bbox?.join(',') ?? '', JSON.stringify(draft.coordinates)].join('|');
 }
 
 function addGeoJsonSource(map: maplibregl.Map, sourceId: string, data: string | AreaFeatureCollection) {
@@ -146,12 +137,6 @@ function setGeoJsonSourceData(map: maplibregl.Map, sourceId: string, data: AreaF
 function addLayer(map: maplibregl.Map, layer: LayerSpecification) {
   if (map.getLayer(layer.id)) return;
   map.addLayer(layer);
-}
-
-async function loadGwangsanManifest(): Promise<GwangsanMapManifest> {
-  const response = await fetch(GWANGSAN_MANIFEST_URL);
-  if (!response.ok) throw new Error(`Gwangsan manifest load failed: ${response.status}`);
-  return (await response.json()) as GwangsanMapManifest;
 }
 
 function addMudeungsanHikingTrailLayers(map: maplibregl.Map) {
@@ -839,7 +824,7 @@ export function AreaEditMapCanvas({
   const [floatingControlPosition, setFloatingControlPosition] = useState<{ x: number; y: number } | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
   const completedDraftsRef = useRef(completedDrafts);
-  const fittedOverallAreaIdRef = useRef<string | null>(null);
+  const fittedOverallAreaSignatureRef = useRef<string | null>(null);
   const draftPointsRef = useRef(draftPoints);
   const isDrawingRef = useRef(isDrawing);
   const activeOperationalPeriodIdRef = useRef(activeOperationalPeriodId);
@@ -940,12 +925,13 @@ export function AreaEditMapCanvas({
     }
 
     const overallDraft = completedDrafts.find((draft) => draft.kind === 'overall' && draft.coordinates.length >= 4);
-    if (!overallDraft || fittedOverallAreaIdRef.current === overallDraft.areaId) return;
+    const overallDraftFitSignature = createOverallDraftFitSignature(overallDraft);
+    if (!overallDraft || fittedOverallAreaSignatureRef.current === overallDraftFitSignature) return;
 
-    const bounds = toRingBounds(overallDraft.coordinates);
+    const bounds = findOverallDraftBounds(completedDrafts);
     if (!bounds) return;
 
-    fittedOverallAreaIdRef.current = overallDraft.areaId;
+    fittedOverallAreaSignatureRef.current = overallDraftFitSignature;
     map.fitBounds(bounds, { padding: DEFAULT_FIT_PADDING, duration: 260, maxZoom: 15 });
     onBoundsReadyRef.current?.(bounds);
   }, [completedDrafts, externalMap]);
@@ -1149,7 +1135,7 @@ export function AreaEditMapCanvas({
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
       style: createVWorldBaseStyle(vWorldApiKey),
-      center: DEFAULT_JURISDICTION_CENTER,
+      center: DEFAULT_GWANGJU_CENTER,
       zoom: INITIAL_MAP_FALLBACK_ZOOM,
       maxZoom: V_WORLD_MAX_ZOOM,
       attributionControl: false,
@@ -1179,27 +1165,27 @@ export function AreaEditMapCanvas({
       map.on('resize', updateFloatingControlPosition);
       map.on('resize', updateTooltipPosition);
 
-      void loadGwangsanManifest()
-        .then((manifest) => {
+      void Promise.resolve()
+        .then(() => {
           addMudeungsanHikingTrailLayersSafely(map);
           raiseMovementPathLayers(map);
           raiseMarkerLayers(map);
 
-          const boundaryLayer = manifest.layers.find((layer) => layer.layerId === 'boundary');
+          const fallbackBounds = toBounds(GWANGJU_BBOX);
           const overallBounds = findOverallDraftBounds(completedDraftsRef.current);
-          // TODO(area-edit): 사건 상세 계약에 좌표 필드가 생기면 active OVERALL bounds와 광산 fallback 사이에서
+          // TODO(area-edit): 사건 상세 계약에 좌표 필드가 생기면 active OVERALL bounds와 South Korea fallback 사이에서
           // 사건 좌표를 초기 지도 기준으로 사용한다. 현재 사건 상세에는 lastSeenLocationText 문자열만 있어
           // 지도 중심을 계산하면 문서 계약 밖의 추정 로직이 된다.
-          const bounds = overallBounds ?? (boundaryLayer ? toBounds(boundaryLayer.bbox) : null);
+          const bounds = overallBounds ?? fallbackBounds;
 
           if (bounds) {
             map.fitBounds(bounds, { padding: DEFAULT_FIT_PADDING, duration: 0, maxZoom: 15 });
             if (overallBounds) {
               const overallDraft = completedDraftsRef.current.find((draft) => draft.kind === 'overall');
-              fittedOverallAreaIdRef.current = overallDraft?.areaId ?? null;
+              fittedOverallAreaSignatureRef.current = createOverallDraftFitSignature(overallDraft);
             }
           } else {
-            map.setCenter(DEFAULT_JURISDICTION_CENTER);
+            map.setCenter(DEFAULT_GWANGJU_CENTER);
             map.setZoom(INITIAL_MAP_FALLBACK_ZOOM);
           }
 

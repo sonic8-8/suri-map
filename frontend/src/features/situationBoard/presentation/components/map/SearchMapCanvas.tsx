@@ -37,8 +37,8 @@ import {
 } from './boardMarkerLayer';
 import styles from './SearchMapCanvas.module.css';
 
-const DEFAULT_JURISDICTION_CENTER: [number, number] = [126.7525, 35.1598];
-const GWANGSAN_MANIFEST_URL = '/map-data/gwangsan/manifest.json';
+const DEFAULT_GWANGJU_CENTER: [number, number] = [126.8325, 35.1547];
+const GWANGJU_BBOX: [number, number, number, number] = [126.647507, 35.052595, 127.017482, 35.256837];
 const MUDEUNGSAN_HIKING_TRAILS_URL = '/map-data/mudeungsan/trails.geojson';
 const MUDEUNGSAN_OSM_TRAILS_URL = '/map-data/mudeungsan/osm-trails.geojson';
 const MUDEUNGSAN_OSM_PEAKS_URL = '/map-data/mudeungsan/osm-peaks.geojson';
@@ -60,23 +60,6 @@ const MOVEMENT_PATH_FOOT_LAYER_ID = 'operational-movement-path-foot';
 const MOVEMENT_PATH_UNKNOWN_GLOW_LAYER_ID = 'operational-movement-path-unknown-glow';
 const MOVEMENT_PATH_UNKNOWN_LAYER_ID = 'operational-movement-path-unknown';
 const INITIAL_MAP_FALLBACK_ZOOM = 12;
-
-type GwangsanLayerId = 'boundary';
-
-type GwangsanMapLayerManifest = {
-  layerId: GwangsanLayerId;
-  url: string;
-  sourceCodes: string[];
-  crs: 'EPSG:4326';
-  bbox: [number, number, number, number];
-  featureCount: number;
-};
-
-type GwangsanMapManifest = {
-  id: string;
-  crs: 'EPSG:4326';
-  layers: GwangsanMapLayerManifest[];
-};
 
 type Position = [number, number];
 type LineStringGeometry = { type: 'LineString'; coordinates: Position[] };
@@ -125,6 +108,7 @@ function createOperationalFeatureCollectionSignature(collection: OperationalFeat
         feature.properties.areaLevel ?? '',
         feature.properties.status ?? '',
         feature.properties.version ?? '',
+        feature.properties.bbox ?? '',
         JSON.stringify(feature.geometry.coordinates),
       ].join('|'),
     )
@@ -136,6 +120,29 @@ function toBounds(bbox: [number, number, number, number]): LngLatBoundsLike {
     [bbox[0], bbox[1]],
     [bbox[2], bbox[3]],
   ];
+}
+
+function parseFeatureBbox(feature: OperationalFeature): [number, number, number, number] | null {
+  const rawBbox = feature.properties.bbox;
+  if (!rawBbox) return null;
+
+  try {
+    const bbox = JSON.parse(rawBbox) as unknown;
+    if (
+      Array.isArray(bbox) &&
+      bbox.length >= 4 &&
+      typeof bbox[0] === 'number' &&
+      typeof bbox[1] === 'number' &&
+      typeof bbox[2] === 'number' &&
+      typeof bbox[3] === 'number'
+    ) {
+      return [bbox[0], bbox[1], bbox[2], bbox[3]];
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
 }
 
 function extendBounds(bounds: maplibregl.LngLatBounds, coordinates: unknown): void {
@@ -151,7 +158,15 @@ function extendBounds(bounds: maplibregl.LngLatBounds, coordinates: unknown): vo
 
 function getFeatureCollectionBounds(collection: OperationalFeatureCollection): LngLatBoundsLike | null {
   const bounds = new maplibregl.LngLatBounds();
-  collection.features.forEach((feature) => extendBounds(bounds, feature.geometry.coordinates));
+  collection.features.forEach((feature) => {
+    const bbox = parseFeatureBbox(feature);
+    if (bbox) {
+      bounds.extend([bbox[0], bbox[1]]);
+      bounds.extend([bbox[2], bbox[3]]);
+      return;
+    }
+    extendBounds(bounds, feature.geometry.coordinates);
+  });
   return bounds.isEmpty() ? null : bounds;
 }
 
@@ -188,6 +203,21 @@ function syncSearchAreaSourceData(
     OVERALL_SEARCH_AREA_SOURCE_ID,
     isVisible ? searchAreas : EMPTY_OPERATIONAL_FEATURE_COLLECTION,
   );
+}
+
+function syncSearchAreaSourceDataWhenAvailable(
+  map: maplibregl.Map,
+  searchAreas: OperationalFeatureCollection,
+  isVisible: boolean,
+) {
+  if (map.getSource(OVERALL_SEARCH_AREA_SOURCE_ID)) {
+    syncSearchAreaSourceData(map, searchAreas, isVisible);
+    return;
+  }
+
+  if (!map.loaded()) {
+    map.once('load', () => syncSearchAreaSourceData(map, searchAreas, isVisible));
+  }
 }
 
 function getAssignedSearchAreaBounds(searchAreas: OperationalFeatureCollection): LngLatBoundsLike | null {
@@ -634,14 +664,6 @@ function addMudeungsanHikingTrailLayersSafely(map: maplibregl.Map) {
   }
 }
 
-async function loadGwangsanManifest(): Promise<GwangsanMapManifest> {
-  const response = await fetch(GWANGSAN_MANIFEST_URL);
-  if (!response.ok) {
-    throw new Error(`Failed to load Gwangsan map manifest: ${response.status}`);
-  }
-  return (await response.json()) as GwangsanMapManifest;
-}
-
 type SearchMapCanvasProps = {
   activeOperationalPeriodId: string | null;
   incidentId: string;
@@ -851,12 +873,14 @@ export function SearchMapCanvas({
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !map.loaded()) {
+    if (!map) {
       return;
     }
 
-    syncSearchAreaSourceData(map, assignedSearchAreas, layerVisibilityRef.current.searchArea);
-    syncSelectedSearchArea(map, selectedSearchAreaIdRef.current);
+    syncSearchAreaSourceDataWhenAvailable(map, assignedSearchAreas, layerVisibilityRef.current.searchArea);
+    if (map.getLayer(SEARCH_AREA_LINE_LAYER_ID)) {
+      syncSelectedSearchArea(map, selectedSearchAreaIdRef.current);
+    }
     const assignedSearchAreaBounds = getAssignedSearchAreaBounds(assignedSearchAreas);
     if (!assignedSearchAreaBounds) {
       onInitialBoundsReady?.(null);
@@ -883,13 +907,15 @@ export function SearchMapCanvas({
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !map.loaded()) {
+    if (!map) {
       return;
     }
 
-    syncSearchAreaSourceData(map, assignedSearchAreasRef.current, layerVisibility.searchArea);
-    syncLayerVisibility(map, layerVisibility);
-    syncSelectedSearchArea(map, selectedSearchAreaIdRef.current);
+    syncSearchAreaSourceDataWhenAvailable(map, assignedSearchAreasRef.current, layerVisibility.searchArea);
+    if (map.getLayer(SEARCH_AREA_LINE_LAYER_ID)) {
+      syncLayerVisibility(map, layerVisibility);
+      syncSelectedSearchArea(map, selectedSearchAreaIdRef.current);
+    }
   }, [layerVisibility]);
 
   useEffect(() => {
@@ -951,7 +977,7 @@ export function SearchMapCanvas({
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
       style: createVWorldBaseStyle(vWorldApiKey),
-      center: DEFAULT_JURISDICTION_CENTER,
+      center: DEFAULT_GWANGJU_CENTER,
       zoom: INITIAL_MAP_FALLBACK_ZOOM,
       maxZoom: V_WORLD_MAX_ZOOM,
       attributionControl: false,
@@ -1008,8 +1034,8 @@ export function SearchMapCanvas({
         markerInteractionHandlers,
       );
 
-      void loadGwangsanManifest()
-        .then((manifest) => {
+      void Promise.resolve()
+        .then(() => {
           addMudeungsanHikingTrailLayersSafely(map);
           raiseMovementPathLayers(map);
           raiseMarkerLayer(map);
@@ -1017,8 +1043,7 @@ export function SearchMapCanvas({
             addRouteEditorLayers(map);
           }
 
-          const boundaryLayer = manifest.layers.find((layer) => layer.layerId === 'boundary');
-          const fallbackBounds = boundaryLayer ? toBounds(boundaryLayer.bbox) : null;
+          const fallbackBounds = toBounds(GWANGJU_BBOX);
           const initialMapResolution = resolveInitialMapView(fallbackBounds, assignedSearchAreasRef.current);
 
           onInitialBoundsReady?.(initialMapResolution.bounds);
@@ -1027,7 +1052,7 @@ export function SearchMapCanvas({
             fittedSearchAreasSignatureRef.current = createOperationalFeatureCollectionSignature(assignedSearchAreasRef.current);
             map.fitBounds(initialMapResolution.bounds, { padding: DEFAULT_FIT_PADDING, duration: 0, maxZoom: 15 });
           } else {
-            map.setCenter(DEFAULT_JURISDICTION_CENTER);
+            map.setCenter(DEFAULT_GWANGJU_CENTER);
             map.setZoom(INITIAL_MAP_FALLBACK_ZOOM);
           }
         })
@@ -1082,4 +1107,3 @@ export function SearchMapCanvas({
     </div>
   );
 }
-
