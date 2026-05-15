@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { AreaEditPage } from '../../../areaEdit/presentation/pages/AreaEditPage';
 import { HandoverPage } from '../../../handover/presentation/pages/HandoverPage';
 import type { CompletedAreaDraft } from '../../../../shared/model/areaDraft';
@@ -22,6 +22,7 @@ type SituationBoardPageProps = {
   onCloseAreaWorkspaceRoute?: () => void;
   onOpenAreaWorkspaceRoute?: () => void;
   onSaveAssignedAreas: (drafts: CompletedAreaDraft[]) => void;
+  onOpenIncidentDetail: () => void;
   onOpenOfflinePackage: () => void;
   savedAreaDrafts: CompletedAreaDraft[];
   refreshVersion?: number;
@@ -39,14 +40,19 @@ export function SituationBoardPage({
   onCloseAreaWorkspaceRoute,
   onOpenAreaWorkspaceRoute,
   onSaveAssignedAreas,
+  onOpenIncidentDetail,
   onOpenOfflinePackage,
   savedAreaDrafts,
   refreshVersion = 0,
   onOpenIncidentList,
 }: SituationBoardPageProps) {
   const areaIncidentListNavigationHandlerRef = useRef<(() => void) | null>(null);
+  const [focusedMarkerRequest, setFocusedMarkerRequest] = useState({ markerId: null as string | null, sequence: 0 });
   const handleAreaIncidentListNavigationChange = useCallback((handler: (() => void) | null) => {
     areaIncidentListNavigationHandlerRef.current = handler;
+  }, []);
+  const handleSelectMarker = useCallback((markerId: string) => {
+    setFocusedMarkerRequest((current) => ({ markerId, sequence: current.sequence + 1 }));
   }, []);
   const boardState = useSituationBoardPageState({
     incidentId,
@@ -93,6 +99,7 @@ export function SituationBoardPage({
           markerNotifications={markerNotifications}
           onCloseMarkerNotifications={onCloseMarkerNotifications}
           onMoveMarkerNotification={onMoveMarkerNotification}
+          onOpenIncidentDetail={onOpenIncidentDetail}
           onOpenIncidentList={handleOpenIncidentList}
           onOpenOfflinePackage={onOpenOfflinePackage}
           onOpenSituationBoard={
@@ -119,6 +126,7 @@ export function SituationBoardPage({
             onHeaderIncidentListNavigationChange={handleAreaIncidentListNavigationChange}
             onMoveMarkerNotification={onMoveMarkerNotification}
             onOpenHandover={boardState.openHandoverWorkspace}
+            onOpenIncidentDetail={onOpenIncidentDetail}
             onOpenIncidentList={onOpenIncidentList}
             onSaveAssignedAreas={boardState.saveAssignedAreas}
             onSharedMapPropsChange={boardState.setAreaEditMapProps}
@@ -134,6 +142,7 @@ export function SituationBoardPage({
             onCloseMarkerNotifications={onCloseMarkerNotifications}
             onMoveMarkerNotification={onMoveMarkerNotification}
             onOpenIncidentList={onOpenIncidentList}
+            onOpenIncidentDetail={onOpenIncidentDetail}
             onOpenSituationBoard={boardState.closeHandoverWorkspace}
             onOpenOfflinePackage={onOpenOfflinePackage}
           />
@@ -151,6 +160,7 @@ export function SituationBoardPage({
             onToggleLayer={boardState.toggleLayer}
             onToggleMarkerType={boardState.toggleMarkerType}
             onSelectSearchArea={boardState.toggleSelectedSearchArea}
+            onSelectMarker={handleSelectMarker}
             onOpenAreaEdit={boardState.openAreaWorkspace}
           />
         )}
@@ -163,6 +173,8 @@ export function SituationBoardPage({
           layerVisibility={isClosedTerminalBoard ? terminalLayerVisibility : boardState.layerVisibility}
           movementPaths={isClosedTerminalBoard ? [] : boardState.board.movementPaths}
           recentMarkers={isClosedTerminalBoard ? [] : boardState.mapRecentMarkers}
+          focusedMarkerId={isClosedTerminalBoard ? null : focusedMarkerRequest.markerId}
+          focusedMarkerSequence={focusedMarkerRequest.sequence}
           visibleMarkerIds={isClosedTerminalBoard ? [] : boardState.visibleMarkerIds}
           savedAreaDrafts={isClosedTerminalBoard ? [] : boardState.board.searchAreaDrafts}
           areaEditMapProps={!isClosedTerminalBoard && boardState.isAreaWorkspaceOpen ? boardState.areaEditMapProps : null}

@@ -49,13 +49,14 @@ type AreaEditPageProps = {
   onCloseMarkerNotifications: () => void;
   onMoveMarkerNotification: (nextIndex: number) => void;
   onOpenHandover: () => void;
+  onOpenIncidentDetail?: () => void;
   onOpenIncidentList: () => void;
   onHeaderIncidentListNavigationChange?: (handler: (() => void) | null) => void;
   onSaveAssignedAreas: (drafts: CompletedAreaDraft[]) => void;
   onSharedMapPropsChange?: (props: AreaEditMapCanvasProps | null) => void;
 };
 
-type PendingNavigationTarget = 'situationBoard' | 'incidentList';
+type PendingNavigationTarget = 'situationBoard' | 'incidentList' | 'incidentDetail';
 
 const drawDisabledPageStates: AreaEditPageState[] = [
   'permission_denied',
@@ -105,6 +106,7 @@ export function AreaEditPage({
   onCloseMarkerNotifications,
   onMoveMarkerNotification,
   onOpenHandover,
+  onOpenIncidentDetail,
   onOpenIncidentList,
   onHeaderIncidentListNavigationChange,
   onSaveAssignedAreas,
@@ -918,8 +920,13 @@ export function AreaEditPage({
       return;
     }
 
+    if (target === 'incidentDetail') {
+      onOpenIncidentDetail?.();
+      return;
+    }
+
     onBackToSituationBoard();
-  }, [hasDraftChanges, onBackToSituationBoard, onOpenIncidentList]);
+  }, [hasDraftChanges, onBackToSituationBoard, onOpenIncidentDetail, onOpenIncidentList]);
 
   const handleNavToSituationBoard = useCallback(() => {
     requestNavigation('situationBoard');
@@ -927,6 +934,10 @@ export function AreaEditPage({
 
   const handleNavToIncidentList = useCallback(() => {
     requestNavigation('incidentList');
+  }, [requestNavigation]);
+
+  const handleNavToIncidentDetail = useCallback(() => {
+    requestNavigation('incidentDetail');
   }, [requestNavigation]);
 
   useEffect(() => {
@@ -942,6 +953,11 @@ export function AreaEditPage({
 
     if (target === 'incidentList') {
       onOpenIncidentList();
+      return;
+    }
+
+    if (target === 'incidentDetail') {
+      onOpenIncidentDetail?.();
       return;
     }
 
@@ -1018,6 +1034,7 @@ export function AreaEditPage({
           onCloseMarkerNotifications={onCloseMarkerNotifications}
           onMoveMarkerNotification={onMoveMarkerNotification}
           onOpenHandover={onOpenHandover}
+          onOpenIncidentDetail={handleNavToIncidentDetail}
           onOpenIncidentList={handleNavToIncidentList}
           onOpenSituationBoard={handleNavToSituationBoard}
         />

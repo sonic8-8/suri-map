@@ -2,7 +2,12 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 import styles from './SuriMapPageHeader.module.css';
 
-export type SuriMapPageHeaderTabId = 'situationBoard' | 'areaEdit' | 'handover' | 'offlinePackage';
+export type SuriMapPageHeaderTabId =
+  | 'incidentDetail'
+  | 'situationBoard'
+  | 'areaEdit'
+  | 'handover'
+  | 'offlinePackage';
 
 export type MarkerNotification = {
   id: string;
@@ -36,6 +41,7 @@ export type SuriMapPageHeaderProps = {
   markerNotifications?: MarkerNotification[];
   timestampLabel?: string;
   onOpenIncidentList: () => void;
+  onOpenIncidentDetail?: () => void;
   onOpenSituationBoard?: () => void;
   onOpenHandover?: () => void;
   onOpenOfflinePackage?: () => void;
@@ -69,6 +75,7 @@ export function SuriMapPageHeader({
   markerNotificationIndex = 0,
   markerNotifications = [],
   onCloseMarkerNotifications,
+  onOpenIncidentDetail,
   onOpenIncidentList,
   onMoveMarkerNotification,
   onOpenHandover,
@@ -77,6 +84,7 @@ export function SuriMapPageHeader({
   timestampLabel = '실시간',
 }: SuriMapPageHeaderProps) {
   const navItems: NavItem[] = [
+    { id: 'incidentDetail', label: '사건 상세', onClick: onOpenIncidentDetail },
     { id: 'situationBoard', label: '상황판', onClick: onOpenSituationBoard },
     { id: 'handover', label: '인수인계', onClick: onOpenHandover },
     { id: 'offlinePackage', label: '오프라인 패키지', onClick: onOpenOfflinePackage },

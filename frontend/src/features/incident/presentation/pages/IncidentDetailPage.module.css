@@ -1,0 +1,316 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(91, 133, 154, 0.24), transparent 30rem),
+    radial-gradient(circle at 88% 18%, rgba(42, 83, 103, 0.16), transparent 26rem),
+    linear-gradient(135deg, #e7eef2 0%, #d9e4ea 46%, #edf3f6 100%);
+  color: #142129;
+}
+
+.scrollBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-color: rgba(52, 63, 73, 0.78) rgba(116, 126, 135, 0.45);
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+.scrollBody::-webkit-scrollbar {
+  width: 10px;
+}
+
+.scrollBody::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollBody::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(52, 63, 73, 0.78);
+  background-clip: content-box;
+}
+
+.scrollBody::-webkit-scrollbar-thumb:hover {
+  background: rgba(35, 45, 55, 0.9);
+}
+
+.hero {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 1rem;
+  max-width: 1520px;
+  margin: 0 auto;
+  padding: 2rem clamp(1.5rem, 3vw, 3rem) 1rem;
+}
+
+.hero h1 {
+  margin: 0.25rem 0 0;
+  font-size: clamp(2rem, 4vw, 3.6rem);
+  line-height: 0.95;
+  letter-spacing: -0.07em;
+}
+
+.hero p {
+  max-width: 42rem;
+  margin: 0.9rem 0 0;
+  color: #536773;
+  font-size: 0.98rem;
+}
+
+.kicker {
+  color: #2e6b86;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.statusCard {
+  min-width: 13rem;
+  padding: 1.15rem;
+  border: 1px solid rgba(56, 93, 113, 0.2);
+  border-radius: 1.25rem;
+  background: rgba(248, 251, 253, 0.74);
+  box-shadow: 0 1.25rem 3rem rgba(36, 64, 80, 0.12);
+}
+
+.statusCard span,
+.statusCard small {
+  display: block;
+  color: #5f7380;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.statusCard strong {
+  display: block;
+  margin: 0.4rem 0;
+  color: #245d78;
+  font-size: 1.9rem;
+  letter-spacing: -0.06em;
+}
+
+.statusCardClosed strong {
+  color: #7a3028;
+}
+
+.contentGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.25fr);
+  gap: 1rem;
+  max-width: 1520px;
+  margin: 0 auto;
+  padding: 1rem clamp(1.5rem, 3vw, 3rem) 3.5rem;
+}
+
+.panel,
+.statePanel {
+  border: 1px solid rgba(45, 74, 90, 0.13);
+  border-radius: 1.35rem;
+  background: rgba(248, 251, 253, 0.8);
+  box-shadow: 0 1.2rem 3rem rgba(36, 62, 76, 0.09);
+}
+
+.panel {
+  padding: 1.25rem;
+}
+
+.statePanel {
+  max-width: 1520px;
+  margin: 1rem auto;
+  padding: 1.5rem;
+}
+
+.statePanel button {
+  margin-top: 0.8rem;
+  border: 0;
+  border-radius: 999px;
+  background: #24485b;
+  color: #fff;
+  padding: 0.7rem 1rem;
+  font-weight: 800;
+}
+
+.sectionTitle {
+  margin-bottom: 1rem;
+}
+
+.sectionTitle h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  letter-spacing: -0.04em;
+}
+
+.sectionTitle p {
+  margin: 0.35rem 0 0;
+  color: #657782;
+  font-size: 0.86rem;
+}
+
+.detailGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+  margin: 0;
+}
+
+.detailGrid div,
+.assignmentCard dl div {
+  padding: 0.8rem;
+  border-radius: 0.95rem;
+  background: rgba(230, 239, 244, 0.78);
+}
+
+.detailRowWide {
+  grid-column: 1 / -1;
+}
+
+.detailGrid dt,
+.assignmentCard dt {
+  color: #657782;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.detailGrid dd,
+.assignmentCard dd {
+  margin: 0.25rem 0 0;
+  color: #142129;
+  font-size: 0.93rem;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.missingPersonLayout {
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr);
+  gap: 1rem;
+}
+
+.photoStub {
+  display: grid;
+  place-items: center;
+  min-height: 9rem;
+  border-radius: 1.1rem;
+  background:
+    linear-gradient(145deg, rgba(38, 88, 113, 0.96), rgba(115, 151, 169, 0.9)),
+    #2e6b86;
+  color: #fff;
+  font-size: 2rem;
+  font-weight: 900;
+  letter-spacing: -0.08em;
+}
+
+.assignmentPanel {
+  grid-column: 1 / -1;
+}
+
+.assignmentList {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.72rem;
+}
+
+.assignmentCard {
+  display: grid;
+  grid-template-columns: minmax(16rem, 1.45fr) minmax(0, 3fr);
+  gap: 1rem;
+  align-items: center;
+  border: 1px solid rgba(136, 164, 180, 0.42);
+  border-radius: 1rem;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(232, 242, 247, 0.98)),
+    #f6fafc;
+  box-shadow:
+    0 1rem 2.2rem rgba(45, 71, 88, 0.16),
+    0 0 0 1px rgba(255, 255, 255, 0.72) inset;
+  padding: 0.78rem 1rem;
+}
+
+.assignmentCard:hover {
+  border-color: rgba(96, 132, 153, 0.52);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(220, 235, 243, 0.98)),
+    #edf6fa;
+}
+
+.assignmentCard > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  margin-bottom: 0;
+  padding-right: 1rem;
+  border-right: 1px solid rgba(49, 78, 95, 0.14);
+}
+
+.assignmentCard strong {
+  overflow: hidden;
+  color: #0d2637;
+  font-size: 0.98rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assignmentCard span {
+  overflow: hidden;
+  color: #5d707c;
+  font-size: 0.78rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assignmentCard dl {
+  display: grid;
+  grid-template-columns:
+    minmax(7rem, 0.75fr)
+    minmax(8rem, 0.85fr)
+    minmax(8rem, 0.85fr)
+    minmax(12rem, 1.25fr);
+  gap: 0.85rem;
+  margin: 0;
+}
+
+.assignmentCard dl div {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.emptyState {
+  border-radius: 1rem;
+  background: rgba(230, 239, 244, 0.82);
+  color: #657782;
+  padding: 1rem;
+  font-weight: 800;
+}
+
+@media (max-width: 820px) {
+  .hero {
+    flex-direction: column;
+  }
+
+  .contentGrid,
+  .detailGrid,
+  .missingPersonLayout,
+  .assignmentCard,
+  .assignmentCard dl {
+    grid-template-columns: 1fr;
+  }
+
+  .assignmentCard > div {
+    padding-right: 0;
+    padding-bottom: 0.55rem;
+    border-right: 0;
+    border-bottom: 1px solid rgba(33, 48, 61, 0.12);
+  }
+}
