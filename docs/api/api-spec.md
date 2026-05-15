@@ -466,7 +466,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Guard: `web-command`, `incident-read`, `write-common`
 - Idempotency-Key: yes
 - Request: `incidentId`, `reason`, `clientTs`, optional `reasonMemo`, `handoverMemo`
-- Response: `201 {id, incidentId, status, reason, version, sequenceNumber}`
+- Response: `201 {id, incidentId, status, reason, version, sequenceNumber, openedAt, endedAt}`
 - Errors: `channel_not_allowed`, `role_denied`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`
 
 #### GET `/api/incidents/{incidentId}/operational-periods`
@@ -477,7 +477,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Headers: `Authorization`
 - Guard: `public-session`, `incident-read`
 - Idempotency-Key: no
-- Response: `200 {currentOpId, items}`
+- Response: `200 {currentOpId, items[{id, status, reason, sequenceNumber, openedAt, endedAt, version}]}`
 - Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`
 
 #### POST `/api/duty-shifts`

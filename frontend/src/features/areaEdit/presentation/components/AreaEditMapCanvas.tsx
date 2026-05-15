@@ -134,9 +134,13 @@ function addGeoJsonSource(map: maplibregl.Map, sourceId: string, data: string | 
 }
 
 function setGeoJsonSourceData(map: maplibregl.Map, sourceId: string, data: AreaFeatureCollection) {
-  const source = map.getSource(sourceId);
-  if (!source) return;
-  (source as GeoJSONSource).setData(data);
+  try {
+    const source = map.getSource(sourceId);
+    if (!source) return;
+    (source as GeoJSONSource).setData(data);
+  } catch {
+    // The shared board map can be removed before this embedded canvas cleanup runs.
+  }
 }
 
 function addLayer(map: maplibregl.Map, layer: LayerSpecification) {
@@ -471,6 +475,31 @@ function addDrawingLayers(map: maplibregl.Map, options: { showCompletedDrafts?: 
       'circle-stroke-width': 2.4,
     },
   });
+}
+
+function raiseDrawingLayers(map: maplibregl.Map) {
+  [
+    AREA_EDIT_COMPLETED_DRAFT_FILL_LAYER_ID,
+    AREA_EDIT_COMPLETED_DRAFT_LINE_LAYER_ID,
+    AREA_EDIT_DRAFT_FILL_LAYER_ID,
+    AREA_EDIT_DRAFT_LINE_LAYER_ID,
+    AREA_EDIT_DRAFT_VERTEX_LAYER_ID,
+  ].forEach((layerId) => {
+    if (map.getLayer(layerId)) {
+      map.moveLayer(layerId);
+    }
+  });
+}
+
+function ensureExternalDrawingLayers(map: maplibregl.Map) {
+  try {
+    addSearchAreaLayers(map, buildAreaFeatureCollection());
+    addDrawingLayers(map);
+    raiseDrawingLayers(map);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function addMovementPathLayers(map: maplibregl.Map, movementPaths: AreaFeatureCollection) {
@@ -902,7 +931,13 @@ export function AreaEditMapCanvas({
     completedDraftsRef.current = completedDrafts;
     const map = mapRef.current;
     if (!map) return;
+    if (externalMap) {
+      ensureExternalDrawingLayers(map);
+    }
     setGeoJsonSourceData(map, AREA_EDIT_COMPLETED_DRAFT_SOURCE_ID, buildCompletedDraftFeatureCollection(completedDrafts));
+    if (externalMap) {
+      raiseDrawingLayers(map);
+    }
 
     const overallDraft = completedDrafts.find((draft) => draft.kind === 'overall' && draft.coordinates.length >= 4);
     if (!overallDraft || fittedOverallAreaIdRef.current === overallDraft.areaId) return;
@@ -913,7 +948,7 @@ export function AreaEditMapCanvas({
     fittedOverallAreaIdRef.current = overallDraft.areaId;
     map.fitBounds(bounds, { padding: DEFAULT_FIT_PADDING, duration: 260, maxZoom: 15 });
     onBoundsReadyRef.current?.(bounds);
-  }, [completedDrafts]);
+  }, [completedDrafts, externalMap]);
 
   useEffect(() => {
     normalSelectedAreaIdRef.current = normalSelectedAreaId;
@@ -925,17 +960,29 @@ export function AreaEditMapCanvas({
     draftPointsRef.current = draftPoints;
     const map = mapRef.current;
     if (map) {
+      if (externalMap) {
+        ensureExternalDrawingLayers(map);
+      }
       setGeoJsonSourceData(map, AREA_EDIT_DRAFT_SOURCE_ID, buildDraftFeatureCollection(draftPoints, selectedAreaColorTokenRef.current));
+      if (externalMap) {
+        raiseDrawingLayers(map);
+      }
     }
     updateFloatingControlPosition();
-  }, [draftPoints, updateFloatingControlPosition]);
+  }, [draftPoints, externalMap, updateFloatingControlPosition]);
 
   useEffect(() => {
     selectedAreaColorTokenRef.current = selectedAreaColorToken;
     const map = mapRef.current;
     if (!map) return;
+    if (externalMap) {
+      ensureExternalDrawingLayers(map);
+    }
     setGeoJsonSourceData(map, AREA_EDIT_DRAFT_SOURCE_ID, buildDraftFeatureCollection(draftPointsRef.current, selectedAreaColorToken));
-  }, [selectedAreaColorToken]);
+    if (externalMap) {
+      raiseDrawingLayers(map);
+    }
+  }, [selectedAreaColorToken, externalMap]);
 
   useEffect(() => {
     isDrawingRef.current = isDrawing;
@@ -1025,10 +1072,9 @@ export function AreaEditMapCanvas({
     let isInitialized = false;
 
     const initializeExternalLayers = () => {
-      if (isInitialized || !externalMap.isStyleLoaded()) return;
+      if (isInitialized) return;
+      if (!ensureExternalDrawingLayers(externalMap)) return;
       isInitialized = true;
-      addSearchAreaLayers(externalMap, buildAreaFeatureCollection());
-      addDrawingLayers(externalMap);
       setGeoJsonSourceData(
         externalMap,
         AREA_EDIT_COMPLETED_DRAFT_SOURCE_ID,
@@ -1039,6 +1085,7 @@ export function AreaEditMapCanvas({
         AREA_EDIT_DRAFT_SOURCE_ID,
         buildDraftFeatureCollection(draftPointsRef.current, selectedAreaColorTokenRef.current),
       );
+      raiseDrawingLayers(externalMap);
       externalMap.setFilter(AREA_EDIT_SELECTED_FILL_LAYER_ID, ['==', ['get', 'entityId'], selectedAreaIdRef.current ?? '']);
       externalMap.on('click', AREA_EDIT_FILL_LAYER_ID, handleAreaClick);
       externalMap.on('click', AREA_EDIT_LINE_LAYER_ID, handleAreaClick);
@@ -1056,11 +1103,13 @@ export function AreaEditMapCanvas({
     } else {
       externalMap.once('load', initializeExternalLayers);
       externalMap.on('styledata', initializeExternalLayers);
+      externalMap.on('idle', initializeExternalLayers);
     }
 
     return () => {
       externalMap.off('load', initializeExternalLayers);
       externalMap.off('styledata', initializeExternalLayers);
+      externalMap.off('idle', initializeExternalLayers);
       externalMap.off('click', AREA_EDIT_FILL_LAYER_ID, handleAreaClick);
       externalMap.off('click', AREA_EDIT_LINE_LAYER_ID, handleAreaClick);
       externalMap.off('click', handleMapClick);
@@ -1070,13 +1119,21 @@ export function AreaEditMapCanvas({
       externalMap.off('zoom', updateTooltipPosition);
       externalMap.off('resize', updateFloatingControlPosition);
       externalMap.off('resize', updateTooltipPosition);
-      externalMap.getCanvas().classList.remove(styles.drawingCursor);
+      try {
+        externalMap.getCanvas().classList.remove(styles.drawingCursor);
+      } catch {
+        // The shared board map may already be disposed during route changes.
+      }
       setGeoJsonSourceData(externalMap, AREA_EDIT_COMPLETED_DRAFT_SOURCE_ID, buildAreaFeatureCollection());
       setGeoJsonSourceData(externalMap, AREA_EDIT_DRAFT_SOURCE_ID, buildAreaFeatureCollection());
       setGeoJsonSourceData(externalMap, AREA_EDIT_MARKER_SOURCE_ID, buildAreaFeatureCollection());
       setGeoJsonSourceData(externalMap, AREA_EDIT_MOVEMENT_PATH_SOURCE_ID, buildAreaFeatureCollection());
-      if (externalMap.getLayer(AREA_EDIT_SELECTED_FILL_LAYER_ID)) {
-        externalMap.setFilter(AREA_EDIT_SELECTED_FILL_LAYER_ID, ['==', ['get', 'entityId'], '']);
+      try {
+        if (externalMap.getLayer(AREA_EDIT_SELECTED_FILL_LAYER_ID)) {
+          externalMap.setFilter(AREA_EDIT_SELECTED_FILL_LAYER_ID, ['==', ['get', 'entityId'], '']);
+        }
+      } catch {
+        // The shared board map may already be disposed during route changes.
       }
       mapRef.current = null;
       onMapReadyRef.current?.(null);

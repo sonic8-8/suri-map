@@ -26,6 +26,9 @@ describe('operational period API', () => {
           status: 'ACTIVE',
           reason: 'INITIAL',
           sequenceNumber: 1,
+          openedAt: '2026-05-11T00:00:00Z',
+          endedAt: null,
+          version: 1,
         },
       ],
     };
@@ -47,6 +50,8 @@ describe('operational period API', () => {
       reason: 'RE_SEARCH',
       version: 1,
       sequenceNumber: 2,
+      openedAt: '2026-05-11T01:00:00Z',
+      endedAt: null,
     };
     const client = fakeApiClient(response);
     const api = createOperationalPeriodApi(client);
@@ -73,7 +78,17 @@ describe('operational period API', () => {
     const operationalPeriodApi = {
       list: vi.fn(async () => ({
         currentOpId: OP_ID,
-        items: [{ id: OP_ID, status: 'ACTIVE' as const, reason: 'INITIAL' as const, sequenceNumber: 1 }],
+        items: [
+          {
+            id: OP_ID,
+            status: 'ACTIVE' as const,
+            reason: 'INITIAL' as const,
+            sequenceNumber: 1,
+            openedAt: '2026-05-11T00:00:00Z',
+            endedAt: null,
+            version: 1,
+          },
+        ],
       })),
       create: vi.fn(async () => ({
         id: NEXT_OP_ID,
@@ -82,6 +97,8 @@ describe('operational period API', () => {
         reason: 'RE_SEARCH',
         version: 1,
         sequenceNumber: 2,
+        openedAt: '2026-05-11T01:00:00Z',
+        endedAt: null,
       })),
     };
 

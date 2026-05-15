@@ -51,6 +51,7 @@ function useRouteIncidentId() {
 
 type SituationBoardRouteProps = {
   currentUserAccount: LoginAccount;
+  workspace?: 'board' | 'area';
   markerNotificationIndex: number;
   markerNotifications: MarkerNotification[];
   onCloseMarkerNotifications: () => void;
@@ -63,6 +64,7 @@ type SituationBoardRouteProps = {
 
 function SituationBoardRoute({
   currentUserAccount,
+  workspace = 'board',
   markerNotificationIndex,
   markerNotifications,
   onCloseMarkerNotifications,
@@ -87,10 +89,13 @@ function SituationBoardRoute({
     <SituationBoardPage
       incidentId={incidentId}
       currentUserAccount={currentUserAccount}
+      isAreaWorkspaceRoute={workspace === 'area'}
       markerNotificationIndex={markerNotificationIndex}
       markerNotifications={markerNotifications}
       onCloseMarkerNotifications={onCloseMarkerNotifications}
       onMoveMarkerNotification={onMoveMarkerNotification}
+      onCloseAreaWorkspaceRoute={() => navigate(getIncidentBoardPath(incidentId))}
+      onOpenAreaWorkspaceRoute={() => navigate(getAreaEditPath(incidentId))}
       onOpenOfflinePackage={() => navigate(getIncidentOfflinePackagePath(incidentId))}
       onSaveAssignedAreas={(drafts) => onSaveAssignedAreas(incidentId, drafts)}
       savedAreaDrafts={savedAreaDrafts}
@@ -98,11 +103,6 @@ function SituationBoardRoute({
       onOpenIncidentList={() => navigate(ROUTES.incidentList)}
     />
   );
-}
-
-function AreaEditRedirectRoute() {
-  const incidentId = useRouteIncidentId();
-  return <Navigate to={getAreaEditPath(incidentId)} replace />;
 }
 
 type HandoverRouteProps = {
@@ -314,7 +314,18 @@ export function App() {
         path={ROUTES.areaEdit}
         element={
           currentUserAccount ? (
-            <AreaEditRedirectRoute />
+            <SituationBoardRoute
+              currentUserAccount={currentUserAccount}
+              workspace="area"
+              markerNotificationIndex={markerNotificationIndex}
+              markerNotifications={markerNotifications}
+              onCloseMarkerNotifications={closeMarkerNotifications}
+              onMarkerNotification={addMarkerNotification}
+              onMoveMarkerNotification={moveMarkerNotification}
+              onSaveAssignedAreas={saveAssignedAreas}
+              savedAreaDraftsByIncidentId={savedAreaDraftsByIncidentId}
+              opRefreshVersionByIncidentId={opRefreshVersionByIncidentId}
+            />
           ) : (
             <Navigate to={ROUTES.login} replace />
           )

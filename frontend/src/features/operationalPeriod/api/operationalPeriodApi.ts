@@ -10,6 +10,9 @@ export interface OperationalPeriodListItem {
   status: OperationalPeriodStatus;
   reason: OperationalPeriodReason;
   sequenceNumber: number;
+  openedAt: string;
+  endedAt: string | null;
+  version: number;
 }
 
 export interface OperationalPeriodListResponse {
@@ -32,6 +35,8 @@ export interface CreateOperationalPeriodResponse {
   reason: string;
   version: number;
   sequenceNumber: number;
+  openedAt: string;
+  endedAt: string | null;
 }
 
 export interface OperationalPeriodApi {

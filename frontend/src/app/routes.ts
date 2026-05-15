@@ -26,7 +26,7 @@ export function getIncidentOfflinePackagePath(incidentId: string) {
 }
 
 export function getAreaEditPath(incidentId: string) {
-  return getIncidentBoardPath(incidentId);
+  return `/incidents/${incidentId}/area-edit`;
 }
 
 export function getIncidentClosePath(incidentId: string) {

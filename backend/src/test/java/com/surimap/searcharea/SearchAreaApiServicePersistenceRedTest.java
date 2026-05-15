@@ -43,6 +43,12 @@ class SearchAreaApiServicePersistenceRedTest extends PostGisIntegrationTestSuppo
   private static final UUID SPLIT_INCIDENT_ID =
       UUID.fromString("10000000-0000-0000-0000-000000002485");
   private static final UUID SPLIT_OP_ID = UUID.fromString("70000000-0000-0000-0000-000000002485");
+  private static final UUID OVERALL_SPLIT_INCIDENT_ID =
+      UUID.fromString("10000000-0000-0000-0000-000000002486");
+  private static final UUID OVERALL_SPLIT_OLD_OP_ID =
+      UUID.fromString("70000000-0000-0000-0000-000000002486");
+  private static final UUID OVERALL_SPLIT_CURRENT_OP_ID =
+      UUID.fromString("70000000-0000-0000-0000-000000002487");
   private static final UUID COMMANDER_ID =
       UUID.fromString("11111111-1111-1111-1111-111111112481");
   private static final UUID READ_INCIDENT_ID =
@@ -410,6 +416,99 @@ class SearchAreaApiServicePersistenceRedTest extends PostGisIntegrationTestSuppo
     assertThat(splitHistoryCount).isEqualTo(2);
   }
 
+  @Test
+  @DisplayName("overall split keeps OVERALL ACTIVE and creates UNIT children across OP transition")
+  void overall_split_keeps_overall_active_and_creates_unit_children() {
+    seedOpenIncidentWithActiveOperationalPeriod(OVERALL_SPLIT_INCIDENT_ID, OVERALL_SPLIT_OLD_OP_ID);
+    SearchAreaResponse overall =
+        service.create(
+            overallCreateRequest(OVERALL_SPLIT_INCIDENT_ID),
+            "idem-search-area-overall-before-overall-split-248");
+
+    endOperationalPeriod(OVERALL_SPLIT_OLD_OP_ID, CLIENT_TS.plusMinutes(19).toInstant());
+    seedActiveOperationalPeriod(
+        OVERALL_SPLIT_INCIDENT_ID,
+        OVERALL_SPLIT_CURRENT_OP_ID,
+        2,
+        CLIENT_TS.plusMinutes(20).toInstant());
+
+    SearchAreaSplitResponse response =
+        service.split(
+            overall.id(),
+            new SplitSearchAreaRequest(
+                OVERALL_SPLIT_CURRENT_OP_ID,
+                List.of(
+                    polygon("126.950100", "37.570100", "0.000400", "0.000800"),
+                    polygon("126.950500", "37.570100", "0.000400", "0.000800")),
+                "overall split",
+                1L,
+                CLIENT_TS.plusMinutes(21)),
+            "idem-search-area-overall-split-248");
+
+    assertThat(response.parentAreaId()).isEqualTo(overall.id());
+    assertThat(response.parent().id()).isEqualTo(overall.id());
+    assertThat(response.parent().areaLevel()).isEqualTo("OVERALL");
+    assertThat(response.parent().status()).isEqualTo("ACTIVE");
+    assertThat(response.parent().version()).isEqualTo(1L);
+    assertThat(response.parent().geometry()).isEqualTo(overall.geometry());
+    assertThat(response.children())
+        .hasSize(2)
+        .allSatisfy(
+            child -> {
+              assertThat(child.parentAreaId()).isEqualTo(overall.id());
+              assertThat(child.opId()).isEqualTo(OVERALL_SPLIT_CURRENT_OP_ID);
+              assertThat(child.areaLevel()).isEqualTo("UNIT");
+              assertThat(child.status()).isEqualTo("ACTIVE");
+            });
+
+    Map<String, Object> overallRow =
+        jdbcTemplate.queryForMap(
+            """
+            SELECT status,
+                   version,
+                   ST_Equals(geometry, ST_GeomFromText(?, 4326)) AS original_geometry
+            FROM search_area
+            WHERE id = ?::uuid
+            """,
+            overallWkt(),
+            overall.id().toString());
+    assertThat(overallRow.get("status")).isEqualTo("ACTIVE");
+    assertThat(overallRow.get("version")).isEqualTo(1L);
+    assertThat(overallRow.get("original_geometry")).isEqualTo(true);
+
+    Integer parentStatusChangedHistoryCount =
+        jdbcTemplate.queryForObject(
+            """
+            SELECT COUNT(*)
+            FROM search_area_history
+            WHERE search_area_id = ?::uuid
+              AND change_type = 'STATUS_CHANGED'
+            """,
+            Integer.class,
+            overall.id().toString());
+    assertThat(parentStatusChangedHistoryCount).isZero();
+
+    Integer unitChildCount =
+        jdbcTemplate.queryForObject(
+            """
+            SELECT COUNT(*)
+            FROM search_area
+            WHERE parent_search_area_id = ?::uuid
+              AND operational_period_id = ?::uuid
+              AND area_level = 'UNIT'
+              AND status = 'ACTIVE'
+            """,
+            Integer.class,
+            overall.id().toString(),
+            OVERALL_SPLIT_CURRENT_OP_ID.toString());
+    assertThat(unitChildCount).isEqualTo(2);
+
+    Optional<OverallSearchAreaResult> activeOverall = service.overallOf(OVERALL_SPLIT_INCIDENT_ID);
+    assertThat(activeOverall).isPresent();
+    assertThat(activeOverall.orElseThrow().id()).isEqualTo(overall.id());
+    assertThat(activeOverall.orElseThrow().status()).isEqualTo("ACTIVE");
+  }
+
   private void seedOpenIncidentWithActiveOperationalPeriod() {
     seedOpenIncidentWithActiveOperationalPeriod(INCIDENT_ID, OP_ID);
   }
@@ -454,6 +553,59 @@ class SearchAreaApiServicePersistenceRedTest extends PostGisIntegrationTestSuppo
         nowTimestamp,
         nowTimestamp,
         nowTimestamp);
+  }
+
+  private void endOperationalPeriod(UUID opId, Instant endedAt) {
+    Timestamp endedAtTimestamp = Timestamp.from(endedAt);
+    jdbcTemplate.update(
+        """
+        UPDATE operational_period
+        SET status = 'ENDED',
+            ended_by_account_id = ?::uuid,
+            ended_at = ?,
+            version = version + 1,
+            updated_at = ?
+        WHERE id = ?::uuid
+        """,
+        COMMANDER_ID.toString(),
+        endedAtTimestamp,
+        endedAtTimestamp,
+        opId.toString());
+  }
+
+  private void seedActiveOperationalPeriod(
+      UUID incidentId, UUID opId, int sequenceNumber, Instant startedAt) {
+    Timestamp startedAtTimestamp = Timestamp.from(startedAt);
+    jdbcTemplate.update(
+        """
+        INSERT INTO operational_period (
+            id, incident_id, sequence_number, status, reason, reason_memo,
+            started_by_account_id, ended_by_account_id, started_at, ended_at,
+            version, created_at, updated_at
+        )
+        VALUES (?::uuid, ?::uuid, ?, 'ACTIVE', 'AREA_CHANGED', NULL,
+                ?::uuid, NULL, ?, NULL, 1, ?, ?)
+        ON CONFLICT (id) DO UPDATE
+        SET incident_id = EXCLUDED.incident_id,
+            sequence_number = EXCLUDED.sequence_number,
+            status = EXCLUDED.status,
+            reason = EXCLUDED.reason,
+            reason_memo = EXCLUDED.reason_memo,
+            started_by_account_id = EXCLUDED.started_by_account_id,
+            ended_by_account_id = EXCLUDED.ended_by_account_id,
+            started_at = EXCLUDED.started_at,
+            ended_at = EXCLUDED.ended_at,
+            version = EXCLUDED.version,
+            created_at = EXCLUDED.created_at,
+            updated_at = EXCLUDED.updated_at
+        """,
+        opId.toString(),
+        incidentId.toString(),
+        sequenceNumber,
+        COMMANDER_ID.toString(),
+        startedAtTimestamp,
+        startedAtTimestamp,
+        startedAtTimestamp);
   }
 
   private void seedSearchArea(

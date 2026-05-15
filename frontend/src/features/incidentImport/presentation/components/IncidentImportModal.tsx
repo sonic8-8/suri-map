@@ -1,10 +1,21 @@
-import { useState } from 'react';
-
 import styles from './IncidentImportModal.module.css';
 
-const DEFAULT_SOURCE_INCIDENT_ID = '00000000-0000-0000-0000-000000000001';
+type IncidentImportCandidate = {
+  sourceIncidentId: string;
+  title: string;
+  meta: string;
+};
+
+const DEFAULT_IMPORT_CANDIDATES: IncidentImportCandidate[] = [
+  {
+    sourceIncidentId: '00000000-0000-0000-0000-000000000001',
+    title: '종로구 인왕산 실종 신고',
+    meta: 'mock 112 배정 사건 · OP1 자동 생성 대상',
+  },
+];
 
 type IncidentImportModalProps = {
+  candidates?: IncidentImportCandidate[];
   importedIncidentIds: Set<string>;
   canImport: boolean;
   isOffline: boolean;
@@ -15,6 +26,7 @@ type IncidentImportModalProps = {
 };
 
 export function IncidentImportModal({
+  candidates = DEFAULT_IMPORT_CANDIDATES,
   importedIncidentIds,
   canImport,
   isOffline,
@@ -23,11 +35,6 @@ export function IncidentImportModal({
   onClose,
   onImportIncident,
 }: IncidentImportModalProps) {
-  const [sourceIncidentId, setSourceIncidentId] = useState(DEFAULT_SOURCE_INCIDENT_ID);
-  const normalizedSourceIncidentId = sourceIncidentId.trim();
-  const isImported = importedIncidentIds.has(normalizedSourceIncidentId);
-  const canSubmit = normalizedSourceIncidentId.length > 0 && !isOffline && !isImporting && !isImported;
-
   return (
     <div
       className={styles.modalOverlay}
@@ -69,37 +76,39 @@ export function IncidentImportModal({
               </div>
             ) : null}
             <div className={styles.modalBody}>
-              <form
-                className={styles.modalForm}
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  if (canSubmit) {
-                    onImportIncident(normalizedSourceIncidentId);
-                  }
-                }}
-              >
-                <label className={styles.modalField}>
-                  <span>sourceIncidentId</span>
-                  <input
-                    className={styles.modalTextInput}
-                    value={sourceIncidentId}
-                    onChange={(event) => setSourceIncidentId(event.target.value)}
-                    placeholder="가져올 sourceIncidentId를 입력하세요"
-                    spellCheck={false}
-                  />
-                </label>
-                {isImported ? (
-                  <span className={styles.modalImportedLabel}>이미 가져온 사건</span>
-                ) : (
-                  <button type="submit" className={styles.modalImportButton} disabled={!canSubmit}>
-                    {isImporting ? '가져오는 중' : '가져오기'}
-                  </button>
-                )}
-              </form>
+              {candidates.length > 0 ? (
+                candidates.map((candidate) => {
+                  const isImported = importedIncidentIds.has(candidate.sourceIncidentId);
+
+                  return (
+                    <div key={candidate.sourceIncidentId} className={styles.modalRow}>
+                      <div className={styles.modalIncidentInfo}>
+                        <div className={styles.modalIncidentId}>{candidate.sourceIncidentId}</div>
+                        <div className={styles.modalIncidentTitle}>{candidate.title}</div>
+                        <div className={styles.modalIncidentMeta}>{candidate.meta}</div>
+                      </div>
+                      {isImported ? (
+                        <span className={styles.modalImportedLabel}>이미 가져온 사건</span>
+                      ) : (
+                        <button
+                          type="button"
+                          className={styles.modalImportButton}
+                          disabled={isOffline || isImporting}
+                          onClick={() => onImportIncident(candidate.sourceIncidentId)}
+                        >
+                          {isImporting ? '가져오는 중' : '가져오기'}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })
+              ) : (
+                <div className={styles.modalEmpty}>가져올 mock 112 배정 후보가 없습니다.</div>
+              )}
               {errorMessage ? <div className={styles.modalErrorMessage}>{errorMessage}</div> : null}
             </div>
             <footer className={styles.modalFooter}>
-              <span>mock 112 배정 사건의 sourceIncidentId를 입력하면 OP1과 기본 배정이 생성됩니다.</span>
+              <span>후보의 가져오기 버튼을 누르면 해당 sourceIncidentId로 사건 가져오기 API를 호출합니다.</span>
             </footer>
           </>
         )}

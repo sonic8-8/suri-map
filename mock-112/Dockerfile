@@ -1,21 +1,25 @@
-FROM gradle:8.14.3-jdk17 AS builder
+FROM eclipse-temurin:17-jdk-alpine AS builder
+
+LABEL maintainer="suri-map-team"
+LABEL description="mock 112 simulation server"
 
 WORKDIR /workspace
 
-COPY gradlew build.gradle settings.gradle ./
-COPY gradle ./gradle
+COPY gradlew gradlew
+COPY gradle gradle
+COPY settings.gradle build.gradle ./
 
-RUN chmod +x ./gradlew
-RUN ./gradlew --no-daemon --build-cache help
+RUN chmod +x gradlew
+RUN sed -i 's/\r$//' gradlew
 
-COPY src ./src
+COPY src src
 
-RUN ./gradlew --no-daemon --build-cache bootJar
+RUN ./gradlew --no-daemon bootJar
 
 FROM eclipse-temurin:17-jre-alpine
 
 LABEL maintainer="suri-map-team"
-LABEL description="mock 112 시뮬레이터 서버"
+LABEL description="mock 112 simulation server"
 
 WORKDIR /app
 

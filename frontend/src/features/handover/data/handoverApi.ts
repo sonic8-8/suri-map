@@ -66,10 +66,10 @@ export function getOperationalPeriods(incidentId: string) {
       incidentId,
       status: period.status,
       sequenceNo: period.sequenceNumber,
-      startedAt: '',
-      endedAt: null,
+      startedAt: period.openedAt,
+      endedAt: period.endedAt,
       reason: period.reason,
-      version: 0,
+      version: period.version,
     })),
   }));
 }

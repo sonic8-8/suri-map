@@ -351,6 +351,7 @@
   justify-content: center;
   background: rgb(0 0 0 / 52%);
   backdrop-filter: blur(2px);
+  pointer-events: auto;
 }
 
 .confirmDialog {

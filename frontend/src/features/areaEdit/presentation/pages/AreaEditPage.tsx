@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { ApiError, createIdempotencyKey } from '../../../../shared/api/client';
 import { getAreaColorToken, rememberAreaColorToken } from '../../../../shared/model/areaColorRegistry';
@@ -34,7 +34,7 @@ import {
   createOverallDraft,
   toGeoJsonPolygon,
 } from '../utils/draftUtils';
-import { isPointInRing, isRingInsideParent } from '../utils/geometryUtils';
+import { isPointInRing, isPointOnSegment, isRingInsideParent, segmentsIntersect } from '../utils/geometryUtils';
 import { createIncidentContext, formatBoardTimestamp } from '../utils/incidentContextUtils';
 import styles from './AreaEditPage.module.css';
 
@@ -50,6 +50,7 @@ type AreaEditPageProps = {
   onMoveMarkerNotification: (nextIndex: number) => void;
   onOpenHandover: () => void;
   onOpenIncidentList: () => void;
+  onHeaderIncidentListNavigationChange?: (handler: (() => void) | null) => void;
   onSaveAssignedAreas: (drafts: CompletedAreaDraft[]) => void;
   onSharedMapPropsChange?: (props: AreaEditMapCanvasProps | null) => void;
 };
@@ -105,6 +106,7 @@ export function AreaEditPage({
   onMoveMarkerNotification,
   onOpenHandover,
   onOpenIncidentList,
+  onHeaderIncidentListNavigationChange,
   onSaveAssignedAreas,
   onSharedMapPropsChange,
 }: AreaEditPageProps) {
@@ -391,6 +393,92 @@ export function AreaEditPage({
     return null;
   };
 
+  const doesSegmentCrossRing = (
+    start: AreaEditPosition,
+    end: AreaEditPosition,
+    ring: AreaEditPosition[],
+    allowBoundaryTouch: boolean,
+  ) => {
+    for (let index = 0; index < ring.length - 1; index += 1) {
+      const ringStart = ring[index];
+      const ringEnd = ring[index + 1];
+      const touchesBoundary =
+        isPointOnSegment(ringStart, ringEnd, start) || isPointOnSegment(ringStart, ringEnd, end);
+
+      if ((!allowBoundaryTouch || !touchesBoundary) && segmentsIntersect(start, end, ringStart, ringEnd)) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  const validateDraftSegmentContainment = (area: AreaTreeNode, position: AreaEditPosition) => {
+    const lastPoint = draftPoints.at(-1);
+    if (!lastPoint) return null;
+
+    const parentArea = findParentArea(currentAreaTree, area.id);
+    if (parentArea) {
+      const parentDraft = completedDrafts.find((draft) => draft.areaId === parentArea.id);
+      if (!parentDraft) {
+        return '상위 수색구역 범위를 확인한 뒤 하위 수색구역을 그려주세요.';
+      }
+
+      if (doesSegmentCrossRing(lastPoint, position, parentDraft.coordinates, true)) {
+        return '하위 수색구역은 상위 수색구역 경계를 벗어나게 그릴 수 없습니다.';
+      }
+    }
+
+    const allowedContainerIds = getAncestorAreaIds(currentAreaTree, area.id);
+    const crossingDraft = completedDrafts.find(
+      (draft) =>
+        draft.areaId !== area.id &&
+        !allowedContainerIds.has(draft.areaId) &&
+        doesSegmentCrossRing(lastPoint, position, draft.coordinates, false),
+    );
+
+    if (crossingDraft) {
+      return '다른 수색구역 경계를 가로지르는 범위는 지정할 수 없습니다.';
+    }
+
+    return null;
+  };
+
+  const validateDraftSegmentSelfIntersection = (position: AreaEditPosition) => {
+    const lastPoint = draftPoints.at(-1);
+    if (!lastPoint || draftPoints.length < 3) return null;
+
+    for (let index = 0; index < draftPoints.length - 2; index += 1) {
+      const segmentStart = draftPoints[index];
+      const segmentEnd = draftPoints[index + 1];
+
+      if (segmentsIntersect(lastPoint, position, segmentStart, segmentEnd)) {
+        return '수색구역 선이 자기 자신을 가로지를 수 없습니다.';
+      }
+    }
+
+    return null;
+  };
+
+  const validateRingDoesNotCrossUnrelatedAreas = (area: AreaTreeNode, coordinates: AreaEditPosition[]) => {
+    const allowedContainerIds = getAncestorAreaIds(currentAreaTree, area.id);
+    const unrelatedDrafts = completedDrafts.filter(
+      (draft) => draft.areaId !== area.id && !allowedContainerIds.has(draft.areaId),
+    );
+
+    for (let coordinateIndex = 0; coordinateIndex < coordinates.length - 1; coordinateIndex += 1) {
+      const start = coordinates[coordinateIndex];
+      const end = coordinates[coordinateIndex + 1];
+      const crossingDraft = unrelatedDrafts.find((draft) => doesSegmentCrossRing(start, end, draft.coordinates, false));
+
+      if (crossingDraft) {
+        return '다른 수색구역 경계를 가로지르는 범위는 지정할 수 없습니다.';
+      }
+    }
+
+    return null;
+  };
+
   const handleSelectArea = (area: AreaTreeNode) => {
     setSelectedAreaId(area.id);
     setNormalSelectedAreaId(null);
@@ -511,6 +599,18 @@ export function AreaEditPage({
       return;
     }
 
+    const segmentContainmentError = validateDraftSegmentContainment(selectedArea, position);
+    if (segmentContainmentError) {
+      setValidationMessage(segmentContainmentError);
+      return;
+    }
+
+    const selfIntersectionError = validateDraftSegmentSelfIntersection(position);
+    if (selfIntersectionError) {
+      setValidationMessage(selfIntersectionError);
+      return;
+    }
+
     setDraftPoints((currentPoints) => [...currentPoints, position]);
     setValidationMessage(null);
   };
@@ -522,6 +622,12 @@ export function AreaEditPage({
     const containmentError = validateParentContainment(selectedArea, coordinates);
     if (containmentError) {
       setValidationMessage(containmentError);
+      return;
+    }
+
+    const crossingError = validateRingDoesNotCrossUnrelatedAreas(selectedArea, coordinates);
+    if (crossingError) {
+      setValidationMessage(crossingError);
       return;
     }
 
@@ -801,7 +907,7 @@ export function AreaEditPage({
     }
   };
 
-  const requestNavigation = (target: PendingNavigationTarget) => {
+  const requestNavigation = useCallback((target: PendingNavigationTarget) => {
     if (hasDraftChanges) {
       setPendingNavigationTarget(target);
       return;
@@ -813,15 +919,22 @@ export function AreaEditPage({
     }
 
     onBackToSituationBoard();
-  };
+  }, [hasDraftChanges, onBackToSituationBoard, onOpenIncidentList]);
 
-  const handleNavToSituationBoard = () => {
+  const handleNavToSituationBoard = useCallback(() => {
     requestNavigation('situationBoard');
-  };
+  }, [requestNavigation]);
 
-  const handleNavToIncidentList = () => {
+  const handleNavToIncidentList = useCallback(() => {
     requestNavigation('incidentList');
-  };
+  }, [requestNavigation]);
+
+  useEffect(() => {
+    if (!embedded || !onHeaderIncidentListNavigationChange) return;
+
+    onHeaderIncidentListNavigationChange(handleNavToIncidentList);
+    return () => onHeaderIncidentListNavigationChange(null);
+  }, [embedded, handleNavToIncidentList, onHeaderIncidentListNavigationChange]);
 
   const handleConfirmNavigation = () => {
     const target = pendingNavigationTarget;
@@ -999,6 +1112,7 @@ export function AreaEditPage({
                   onRemoveDraftUnit={handleRemoveDraftUnit}
                   onSelectArea={handleSelectArea}
                   onSave={handleSaveAreaEdit}
+                  onStartDrawing={handleStartDrawing}
                   onToggleAssignee={handleToggleAssignee}
                 />
               </AreaEditPanelShell>
