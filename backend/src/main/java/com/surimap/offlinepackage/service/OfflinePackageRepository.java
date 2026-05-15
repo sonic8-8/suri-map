@@ -496,7 +496,6 @@ public class OfflinePackageRepository {
   }
 
   public synchronized List<OfflinePackageInstallationStatus> byIncident(String incidentId) {
-    ensureFixtureManifest();
     return mapper.findStatusesByIncident(incidentDbId(incidentId)).stream()
         .map(OfflinePackageRepository::publicStatus)
         .toList();
