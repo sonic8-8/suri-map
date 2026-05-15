@@ -4,9 +4,11 @@ import com.surimap.account.security.AuthSessionAuthenticationFilter;
 import com.surimap.account.service.AuthSessionService;
 import com.surimap.common.auth.SuriMapAuthentication;
 import jakarta.servlet.DispatcherType;
+import java.util.Arrays;
 import java.util.List;
 import java.util.function.Supplier;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authorization.AuthorizationDecision;
@@ -57,21 +59,34 @@ public class SecurityConfig {
 
     return http.build();
   }
-  //TODO 프론트 권한 테스트용으로 추가하였으므로, 추후 인증
+
   @Bean
-  CorsConfigurationSource corsConfigurationSource() {
+  CorsConfigurationSource corsConfigurationSource(
+      @Value("${surimap.cors.allowed-origin-patterns}") String allowedOriginPatterns) {
     CorsConfiguration configuration = new CorsConfiguration();
-    configuration.setAllowedOriginPatterns(
-        List.of("http://localhost:*", "http://127.0.0.1:*"));
+    configuration.setAllowedOriginPatterns(splitCommaSeparatedList(allowedOriginPatterns));
     configuration.setAllowedMethods(List.of("GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"));
     configuration.setAllowedHeaders(
-        List.of("Authorization", "Content-Type", "Accept", "X-Client-Channel", "Idempotency-Key", "Last-Event-ID"));
+        List.of(
+            "Authorization",
+            "Content-Type",
+            "Accept",
+            "X-Client-Channel",
+            "Idempotency-Key",
+            "Last-Event-ID"));
     configuration.setExposedHeaders(List.of("Location"));
     configuration.setAllowCredentials(false);
 
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
     source.registerCorsConfiguration("/api/**", configuration);
     return source;
+  }
+
+  private static List<String> splitCommaSeparatedList(String value) {
+    return Arrays.stream(value.split(","))
+        .map(String::trim)
+        .filter(item -> !item.isEmpty())
+        .toList();
   }
 
   private static AuthorizationDecision hasSuriMapAuthentication(
