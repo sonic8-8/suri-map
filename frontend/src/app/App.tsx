@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { HandoverPage } from '../features/handover/presentation/pages/HandoverPage';
 import { IncidentClosePage } from '../features/incidentClose/presentation/pages/IncidentClosePage';
@@ -47,6 +47,24 @@ import {
 function useRouteIncidentId() {
   const { incidentId } = useParams();
   return incidentId ?? BOOTSTRAP_INCIDENT_ID;
+}
+
+function createCurrentRoutePath() {
+  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
+}
+
+function readLoginRedirectPath(state: unknown) {
+  if (state === null || typeof state !== 'object' || !('from' in state)) {
+    return null;
+  }
+
+  const from = (state as { from?: unknown }).from;
+
+  if (typeof from !== 'string' || !from.startsWith('/') || from.startsWith('//') || from === ROUTES.login) {
+    return null;
+  }
+
+  return from;
 }
 
 type SituationBoardRouteProps = {
@@ -208,11 +226,15 @@ function IncidentCloseRoute() {
 
 export function App() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [currentUserAccount, setCurrentUserAccount] = useState<LoginAccount | null>(() => readStoredLoginAccount());
   const [savedAreaDraftsByIncidentId, setSavedAreaDraftsByIncidentId] = useState<Record<string, CompletedAreaDraft[]>>({});
   const [opRefreshVersionByIncidentId, setOpRefreshVersionByIncidentId] = useState<Record<string, number>>({});
   const [markerNotifications, setMarkerNotifications] = useState<MarkerNotification[]>([]);
   const [markerNotificationIndex, setMarkerNotificationIndex] = useState(0);
+  const loginRedirectPath = readLoginRedirectPath(location.state);
+  const loginRedirectState = { from: `${location.pathname}${location.search}${location.hash}` };
+  const loginRedirectElement = <Navigate to={ROUTES.login} replace state={loginRedirectState} />;
 
   const closeMarkerNotifications = () => {
     setMarkerNotifications([]);
@@ -246,7 +268,7 @@ export function App() {
   useEffect(() => {
     const handleUnauthorized = () => {
       setCurrentUserAccount(null);
-      navigate(ROUTES.login, { replace: true });
+      navigate(ROUTES.login, { replace: true, state: { from: createCurrentRoutePath() } });
     };
 
     window.addEventListener(API_UNAUTHORIZED_EVENT, handleUnauthorized);
@@ -255,7 +277,7 @@ export function App() {
 
   const handleLoginSuccess = (account: LoginAccount) => {
     setCurrentUserAccount(account);
-    navigate(ROUTES.incidentList);
+    navigate(loginRedirectPath ?? ROUTES.incidentList, { replace: true });
   };
 
   const saveAssignedAreas = (incidentId: string, drafts: CompletedAreaDraft[]) => {
@@ -285,7 +307,7 @@ export function App() {
             currentUserAccount={currentUserAccount}
           />
           ) : (
-            <Navigate to={ROUTES.login} replace />
+            loginRedirectElement
           )
         }
       />
@@ -306,7 +328,7 @@ export function App() {
               opRefreshVersionByIncidentId={opRefreshVersionByIncidentId}
             />
           ) : (
-            <Navigate to={ROUTES.login} replace />
+            loginRedirectElement
           )
         }
       />
@@ -327,7 +349,7 @@ export function App() {
               opRefreshVersionByIncidentId={opRefreshVersionByIncidentId}
             />
           ) : (
-            <Navigate to={ROUTES.login} replace />
+            loginRedirectElement
           )
         }
       />
@@ -346,7 +368,7 @@ export function App() {
               onOperationalPeriodCreated={refreshOperationalPeriodViews}
             />
           ) : (
-            <Navigate to={ROUTES.login} replace />
+            loginRedirectElement
           )
         }
       />
@@ -364,7 +386,7 @@ export function App() {
               onOpenOfflinePackage={(nextIncidentId) => navigate(getIncidentOfflinePackagePath(nextIncidentId))}
             />
           ) : (
-            <Navigate to={ROUTES.login} replace />
+            loginRedirectElement
           )
         }
       />
@@ -374,7 +396,7 @@ export function App() {
           currentUserAccount ? (
             <IncidentCloseRoute />
           ) : (
-            <Navigate to={ROUTES.login} replace />
+            loginRedirectElement
           )
         }
       />
