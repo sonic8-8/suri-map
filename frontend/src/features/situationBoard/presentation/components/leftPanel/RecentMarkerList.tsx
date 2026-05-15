@@ -66,6 +66,10 @@ export function RecentMarkerList({ recentMarkers }: RecentMarkerListProps) {
         <ol className={styles.feed} aria-label="마커 목록">
           {filteredMarkers.map((marker) => {
             const markerType = markerTypeOf(marker);
+            const shouldShowMemo = Boolean(
+              marker.memo && marker.memo !== marker.summary && marker.memo !== marker.title,
+            );
+
             return (
               <li key={marker.id} className={`${styles.feedItem} ${styles[markerTypeClass(markerType)]}`}>
                 <span className={styles.eventDot} aria-hidden="true" />
@@ -76,7 +80,6 @@ export function RecentMarkerList({ recentMarkers }: RecentMarkerListProps) {
                       {marker.timeLabel}
                     </time>
                   </div>
-                  <p className={styles.itemSummary}>{marker.summary}</p>
                   <dl className={styles.metaGrid}>
                     <div>
                       <dt>OP</dt>
@@ -95,7 +98,7 @@ export function RecentMarkerList({ recentMarkers }: RecentMarkerListProps) {
                       <dd>{marker.coordinateLabel ?? '-'}</dd>
                     </div>
                   </dl>
-                  {marker.memo ? <p className={styles.memo}>{marker.memo}</p> : null}
+                  {shouldShowMemo ? <p className={styles.memo}>{marker.memo}</p> : null}
                 </div>
                 <span className={`${styles.typeBadge} ${styles[markerTypeBadgeClass(markerType)]}`}>
                   {marker.markerTypeLabel ?? markerTypeLabel(markerType)}

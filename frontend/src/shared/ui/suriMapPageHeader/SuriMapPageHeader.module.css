@@ -15,11 +15,12 @@
 /* 최상단 제품 내비게이션 바입니다. 뒤로가기, 탭, 계정/브랜드 정보를 한 줄에 배치합니다. */
 .productNav {
   position: relative;
-  display: flex;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
   align-items: center;
   height: var(--suri-board-header-top-height);
   flex-shrink: 0;
-  gap: 8px;
+  column-gap: 16px;
   padding: 0 20px;
   border-bottom: 1px solid var(--suri-board-border);
   background: color-mix(in srgb, var(--suri-board-panel-bg) 95%, transparent);
@@ -31,7 +32,7 @@
   position: relative;
   z-index: 1;
   min-height: 40px;
-  padding: 0 90px 0 0;
+  padding: 0 20px 0 0;
   border: 0;
   border-right: 1px solid var(--suri-board-border);
   border-radius: 0;
@@ -56,16 +57,21 @@
   outline-offset: 3px;
 }
 
-/* 화면 중앙에 고정되는 주요 페이지 탭 그룹입니다. */
+/* 사건 목록 버튼 다음에 이어지는 주요 페이지 탭 그룹입니다. */
 .navTabs {
-  position: absolute;
   z-index: 2;
-  left: 50%;
   display: flex;
   align-items: center;
+  justify-self: start;
   gap: 8px;
   min-width: 0;
-  transform: translateX(-50%);
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.navTabs::-webkit-scrollbar {
+  display: none;
 }
 
 /* 상황판, 구역 분할 등 상단 탭 버튼의 기본 스타일입니다. */
@@ -119,11 +125,18 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-left: auto;
+  min-width: 0;
+  max-width: min(44vw, 560px);
   flex-shrink: 0;
   color: var(--suri-board-fg-muted);
   font-size: var(--suri-board-header-meta-font-size);
   white-space: nowrap;
+}
+
+.metaAccount {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* 메타 영역 내부 강조 텍스트입니다. */

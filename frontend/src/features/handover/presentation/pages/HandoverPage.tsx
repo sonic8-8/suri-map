@@ -4,7 +4,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 
 import { ApiError, createIdempotencyKey } from '../../../../shared/api/client';
-import { BoardPanel, SuriMapPageHeader, type SuriMapPageHeaderIncidentContext } from '../../../../shared/ui';
+import {
+  BoardPanel,
+  formatIncidentContextEyebrow,
+  formatMissingPersonIncidentTitle,
+  SuriMapPageHeader,
+  type SuriMapPageHeaderIncidentContext,
+} from '../../../../shared/ui';
 import type { LoginAccount } from '../../../login/presentation/types/login';
 import {
   useIncidentBoardQuery,
@@ -742,7 +748,7 @@ function SummaryCard({ label, value, helper }: { label: string; value: string; h
 }
 
 function createIncidentContext(
-  incidentId: string,
+  _incidentId: string,
   incidentDetail: HandoverIncidentDetailDto | null,
   selectedOp: OperationalPeriodListItem | null,
 ): SuriMapPageHeaderIncidentContext {
@@ -752,8 +758,8 @@ function createIncidentContext(
 
   return {
     avatarLabel: displayName ? displayName.slice(0, 4) : '사건',
-    eyebrow: `${incidentId} · v${incidentDetail?.version ?? '-'}`,
-    title: displayName ? `${displayName} 실종 사건` : `사건 ${incidentId}`,
+    eyebrow: formatIncidentContextEyebrow(incidentDetail?.version),
+    title: formatMissingPersonIncidentTitle(displayName),
     metrics: [
       { label: '실종자', value: displayName ?? '-' },
       { label: '선택 OP', value: selectedOp ? formatOperationalPeriodLabel(selectedOp) : '-' },

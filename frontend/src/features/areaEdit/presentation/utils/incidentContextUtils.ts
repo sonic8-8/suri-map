@@ -1,7 +1,11 @@
-import type { SuriMapPageHeaderIncidentContext } from '../../../../shared/ui';
+import {
+  formatIncidentContextEyebrow,
+  formatMissingPersonIncidentTitle,
+  type SuriMapPageHeaderIncidentContext,
+} from '../../../../shared/ui';
 import type { AreaEditBoardResponseDto } from '../../data/getAreaEditBoard';
 import type { AreaEditIncidentDetailDto } from '../../data/getAreaEditIncidentDetail';
-import { isRecord, readNumber, readSlotRows, readString } from './boardReadUtils';
+import { readNumber, readSlotRows, readString } from './boardReadUtils';
 
 function formatKstDateTime(date: Date) {
   if (Number.isNaN(date.getTime())) return '-';
@@ -62,7 +66,7 @@ function createActiveOperationalPeriodLabel(board: AreaEditBoardResponseDto | nu
 }
 
 export function createIncidentContext(
-  incidentId: string,
+  _incidentId: string,
   incidentDetail: AreaEditIncidentDetailDto | null,
   board: AreaEditBoardResponseDto | null,
 ): SuriMapPageHeaderIncidentContext {
@@ -76,8 +80,8 @@ export function createIncidentContext(
 
   return {
     avatarLabel: createAvatarLabel(displayName),
-    eyebrow: `${incidentId} · v${incidentDetail?.version ?? '-'}`,
-    title: displayName ? `${displayName} 실종 사건` : `사건 ${incidentId}`,
+    eyebrow: formatIncidentContextEyebrow(incidentDetail?.version),
+    title: formatMissingPersonIncidentTitle(displayName),
     metrics: [
       { label: '실종자', value: displayName ?? '-' },
       { label: '마지막 목격', value: lastSeenLabel },
