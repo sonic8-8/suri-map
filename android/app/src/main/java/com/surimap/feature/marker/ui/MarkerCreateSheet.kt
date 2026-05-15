@@ -47,6 +47,7 @@ import com.surimap.ui.theme.PoliPrimaryFillSoft
 import com.surimap.ui.theme.PoliWarning
 import com.surimap.ui.theme.SuriMapTheme
 import java.util.Locale
+import java.util.UUID
 
 enum class MarkerType(val apiValue: String, val label: String) {
     CLUE("CLUE", "단서"),
@@ -81,7 +82,13 @@ data class MarkerPhotoUiState(
     val fileName: String,
     val stage: MarkerPhotoStage,
     val progress: Float,
+    val localId: String = UUID.randomUUID().toString(),
+    val photoId: String? = null,
+    val contentType: String? = null,
     val sizeBytes: Long? = null,
+    val width: Int? = null,
+    val height: Int? = null,
+    val checksumSha256: String? = null,
     val retryAvailable: Boolean = false
 )
 
@@ -99,6 +106,7 @@ data class MarkerLocationUiState(
 }
 
 data class MarkerCreateSheetUiState(
+    val draftMarkerId: String,
     val selectedType: MarkerType,
     val supportRequestType: SupportRequestType?,
     val memo: String,
@@ -122,15 +130,17 @@ data class MarkerCreateSheetUiState(
     val selectedLocationIsValid: Boolean = selectedLocation?.isValid == true
     val photosWithinSizeLimit: Boolean =
         photos.all { photo -> photo.sizeBytes == null || photo.sizeBytes in 1..maxPhotoBytes }
+    val photosReadyForSave: Boolean = photos.all { photo -> photo.photoId != null && !photo.retryAvailable }
     val canAttachPhoto: Boolean = photoCount < maxPhotoCount && photos.size < maxPhotoCount
     val canSave: Boolean =
         !requiresSupportRequestType &&
             selectedLocationIsValid &&
             saveStatus != MarkerSaveStatus.Saving &&
-            photosWithinSizeLimit
+            photosWithinSizeLimit &&
+            photosReadyForSave
     val opensBlockedOutbox: Boolean = false
     val photoLimitLabel: String = "사진 ${photoCount.coerceAtMost(maxPhotoCount)} / $maxPhotoCount · 파일당 10MB"
-    val photoAttachAfterSaveLabel: String = "사진은 마커 저장 후 상세 화면에서 촬영하거나 앨범에서 첨부합니다."
+    val photoAttachAfterSaveLabel: String = "촬영 또는 앨범 선택 후 저장하면 마커와 사진이 함께 등록됩니다."
     val photoLimitWarning: String? =
         when {
             !photosWithinSizeLimit -> "사진 파일은 10MB 이하만 첨부할 수 있습니다."
@@ -175,6 +185,8 @@ data class MarkerCreateSheetUiState(
             }
             add(photoLimitLabel)
             add(photoAttachAfterSaveLabel)
+            add("촬영")
+            add("앨범")
             photoLimitWarning?.let(::add)
             photos.forEach { photo ->
                 add(photo.fileName)
@@ -189,6 +201,7 @@ data class MarkerCreateSheetUiState(
             memo: String = ""
         ): MarkerCreateSheetUiState =
             MarkerCreateSheetUiState(
+                draftMarkerId = UUID.randomUUID().toString(),
                 selectedType = selectedType,
                 supportRequestType = supportRequestType,
                 memo = memo,
@@ -252,6 +265,8 @@ fun MarkerCreateBottomSheet(
     onMemoChange: (String) -> Unit,
     onSave: () -> Unit,
     onAdjustLocation: () -> Unit,
+    onCapturePhoto: () -> Unit,
+    onPickPhoto: () -> Unit,
     onRetryPhoto: (MarkerPhotoUiState) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -286,6 +301,8 @@ fun MarkerCreateBottomSheet(
                 MemoSection(state = state, onMemoChange = onMemoChange)
                 PhotoSection(
                     state = state,
+                    onCapturePhoto = onCapturePhoto,
+                    onPickPhoto = onPickPhoto,
                     onRetryPhoto = onRetryPhoto
                 )
                 SheetActions(state = state, onDismiss = onDismiss, onSave = onSave)
@@ -468,6 +485,8 @@ private fun MemoSection(state: MarkerCreateSheetUiState, onMemoChange: (String) 
 @Composable
 private fun PhotoSection(
     state: MarkerCreateSheetUiState,
+    onCapturePhoto: () -> Unit,
+    onPickPhoto: () -> Unit,
     onRetryPhoto: (MarkerPhotoUiState) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
@@ -475,6 +494,24 @@ private fun PhotoSection(
             Text(text = state.photoLimitLabel, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
         }
         Text(text = state.photoAttachAfterSaveLabel, style = MaterialTheme.typography.bodyMedium, color = PoliFgMuted)
+        Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
+            PoliButton(
+                text = "촬영",
+                onClick = onCapturePhoto,
+                modifier = Modifier.weight(1f),
+                enabled = state.canAttachPhoto,
+                size = PoliButtonSize.Small,
+                variant = PoliButtonVariant.Secondary
+            )
+            PoliButton(
+                text = "앨범",
+                onClick = onPickPhoto,
+                modifier = Modifier.weight(1f),
+                enabled = state.canAttachPhoto,
+                size = PoliButtonSize.Small,
+                variant = PoliButtonVariant.Secondary
+            )
+        }
         state.photoLimitWarning?.let { warning ->
             Text(text = warning, style = MaterialTheme.typography.bodyMedium, color = PoliWarning)
         }
@@ -564,6 +601,8 @@ private fun MarkerCreateBottomSheetPreview() {
             onMemoChange = {},
             onSave = {},
             onAdjustLocation = {},
+            onCapturePhoto = {},
+            onPickPhoto = {},
             onRetryPhoto = {}
         )
     }

@@ -77,6 +77,24 @@ sealed interface MarkerPhotoUploadResult {
     ) : MarkerPhotoUploadResult
 }
 
+sealed interface MarkerCreatePhotoUploadResult {
+    data object Blocked : MarkerCreatePhotoUploadResult
+
+    data class UploadFailed(
+        val reason: String? = null
+    ) : MarkerCreatePhotoUploadResult
+
+    data class Uploaded(
+        val markerId: String,
+        val photoId: String,
+        val contentType: String,
+        val sizeBytes: Long,
+        val width: Int? = null,
+        val height: Int? = null,
+        val checksumSha256: String? = null
+    ) : MarkerCreatePhotoUploadResult
+}
+
 data class ObjectStoragePutRequest(
     val uploadUrl: URI,
     val contentType: String,
@@ -269,7 +287,7 @@ class MarkerPhotoUiUploadCoordinator(
     syncClient: SyncClient,
     private val apiClient: SuriMapApiClient = SuriMapApiClient(),
     private val accessTokenProvider: AccessTokenProvider = NoAccessTokenProvider,
-    uploader: ObjectStorageUploader,
+    private val uploader: ObjectStorageUploader,
     now: () -> Instant = { Instant.now() },
     clockOffsetMs: () -> Long? = { 0L },
     clockSyncedAt: () -> Instant? = { now() },
@@ -336,6 +354,86 @@ class MarkerPhotoUiUploadCoordinator(
         )
     }
 
+    suspend fun uploadForCreate(
+        context: MarkerWriteContext,
+        payload: MarkerPhotoUploadPayload
+    ): MarkerCreatePhotoUploadResult {
+        if (!context.hasRequiredFields()) {
+            return MarkerCreatePhotoUploadResult.Blocked
+        }
+        val markerId = payload.markerId?.takeIf(String::isNotBlank) ?: return MarkerCreatePhotoUploadResult.Blocked
+        val incidentId = context.incidentId?.takeIf(String::isNotBlank) ?: return MarkerCreatePhotoUploadResult.Blocked
+        val opId = context.opId?.takeIf(String::isNotBlank) ?: return MarkerCreatePhotoUploadResult.Blocked
+        val contentType = payload.contentType?.takeIf(String::isNotBlank) ?: return MarkerCreatePhotoUploadResult.Blocked
+        if (!payload.sizeBytes.isAllowedPhotoSize()) {
+            return MarkerCreatePhotoUploadResult.Blocked
+        }
+        val uploadUrlOperationId = idFactory("op-marker-create-photo-upload-url")
+        val response =
+            try {
+                apiClient.execute(
+                    SuriMapApiRequest(
+                        method = "POST",
+                        path = "/api/markers/photos/upload-url",
+                        body =
+                        jsonObject(
+                            "markerId" to jsonString(markerId),
+                            "incidentId" to jsonString(incidentId),
+                            "opId" to jsonString(opId),
+                            "contentType" to jsonString(contentType),
+                            "sizeBytes" to jsonNumber(payload.sizeBytes),
+                            "checksumSha256" to payload.checksumSha256?.takeIf(String::isNotBlank)?.let(::jsonString)
+                        ),
+                        accessToken = accessTokenProvider.accessToken(),
+                        policePhoneId = context.policePhoneId,
+                        idempotencyKey = "idem-$uploadUrlOperationId"
+                    )
+                )
+            } catch (exception: SuriMapNetworkException) {
+                return MarkerCreatePhotoUploadResult.UploadFailed("network_error")
+            }
+        if (!response.isSuccessful) {
+            return MarkerCreatePhotoUploadResult.UploadFailed(response.errorCode ?: "http_${response.statusCode}")
+        }
+        val uploadUrlResponse =
+            MarkerPhotoUploadUrlResponseInput.fromJson(markerId = markerId, body = response.body)
+                ?: return MarkerCreatePhotoUploadResult.UploadFailed("invalid_upload_url_response")
+        val uploadUrl = uploadUrlResponse.uploadUrl.toUploadUri() ?: return MarkerCreatePhotoUploadResult.UploadFailed("invalid_upload_url_response")
+        val maxSizeBytes = uploadUrlResponse.maxSizeBytes
+        if (maxSizeBytes != null && (maxSizeBytes <= 0 || payload.sizeBytes > maxSizeBytes)) {
+            return MarkerCreatePhotoUploadResult.Blocked
+        }
+
+        val put =
+            try {
+                uploader.put(
+                    ObjectStoragePutRequest(
+                        uploadUrl = uploadUrl,
+                        contentType = contentType,
+                        sizeBytes = payload.sizeBytes,
+                        bytes = payload.bytes
+                    )
+                )
+            } catch (exception: CancellationException) {
+                throw exception
+            } catch (exception: Exception) {
+                return MarkerCreatePhotoUploadResult.UploadFailed(reason = exception.message)
+            }
+        return when (put) {
+            is ObjectStoragePutResult.Failure -> MarkerCreatePhotoUploadResult.UploadFailed(reason = put.reason)
+            ObjectStoragePutResult.Success ->
+                MarkerCreatePhotoUploadResult.Uploaded(
+                    markerId = markerId,
+                    photoId = uploadUrlResponse.photoId ?: return MarkerCreatePhotoUploadResult.UploadFailed("invalid_upload_url_response"),
+                    contentType = contentType,
+                    sizeBytes = payload.sizeBytes,
+                    width = payload.width,
+                    height = payload.height,
+                    checksumSha256 = payload.checksumSha256
+                )
+        }
+    }
+
     private fun MarkerWriteContext.hasRequiredFields(): Boolean =
         !incidentId.isNullOrBlank() && !opId.isNullOrBlank() && !policePhoneId.isNullOrBlank()
 
@@ -353,6 +451,24 @@ private fun String.longField(name: String): Long? =
     JSON_LONG_FIELD.format(name).find(this)?.groupValues?.get(1)?.toLongOrNull()
 
 private fun Regex.format(fieldName: String): Regex = Regex(pattern.format(Regex.escape(fieldName)))
+
+private fun String?.toUploadUri(): URI? {
+    val raw = this?.takeIf(String::isNotBlank) ?: return null
+    val uri =
+        try {
+            URI(raw)
+        } catch (_: IllegalArgumentException) {
+            return null
+        }
+    val scheme = uri.scheme ?: return null
+    if (scheme != "http" && scheme != "https") {
+        return null
+    }
+    if (uri.host.isNullOrBlank()) {
+        return null
+    }
+    return uri
+}
 
 private fun encodePathSegment(value: String): String =
     URLEncoder.encode(value, Charsets.UTF_8.toString()).replace("+", "%20")

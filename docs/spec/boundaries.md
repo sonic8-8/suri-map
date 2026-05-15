@@ -654,6 +654,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 - `POST /api/markers`
 - `PATCH /api/markers/{markerId}`
 - `DELETE /api/markers/{markerId}`
+- `POST /api/markers/photos/upload-url`
 - `POST /api/markers/{markerId}/photos/upload-url`
 - `POST /api/markers/{markerId}/photos/{photoId}/attach`
 
@@ -702,8 +703,8 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 
 **acceptance_hints**
 
-- `POST /api/markers` accepts app-channel marker writes with current OP, assigned PolicePhone, idempotency, and valid marker location.
-- Photo upload URL/attach APIs enforce count, size, and TTL limits while keeping official evidence storage out of scope.
+- `POST /api/markers` accepts app-channel marker writes with current OP, assigned PolicePhone, idempotency, valid marker location, and staged photo attach when `id/photos` are supplied.
+- Photo upload URL/attach APIs enforce count, size, and TTL limits while keeping official evidence storage out of scope. `POST /api/markers/photos/upload-url` is the marker-create staged upload-url path and `POST /api/markers/{markerId}/photos/upload-url` remains the existing marker detail path.
 - Marker create/update/delete publishes the matching `PublishRequest.*` contract and updates `MarkerQuery.byIncident`.
 - `NotificationRecipientResolver` and `NotificationPayloadFactory` produce marker-derived delivery rows or assignment FCM payload input without owning fanout orchestration.
 
@@ -1217,6 +1218,7 @@ Guard shorthand:
 | `POST /api/markers` | S5 | 앱 | HTTPS | `app-police-phone`, `incident-read`, `write-common`, `@RequireCurrentOp` | `internal-caller`: outbox replay |
 | `PATCH /api/markers/{markerId}` | S5 | 앱, 웹 | HTTPS | `field-or-web-write`, `incident-read`, `write-common`, S5 marker policy | `internal-caller`: outbox replay |
 | `DELETE /api/markers/{markerId}` | S5 | 앱, 웹 | HTTPS | `field-or-web-write`, `incident-read`, `write-common`, S5 marker policy | `internal-caller`: outbox replay |
+| `POST /api/markers/photos/upload-url` | S5 | 앱 | HTTPS | `app-police-phone`, `incident-read`, `write-common`, `@RequireCurrentOp` | - |
 | `POST /api/markers/{markerId}/photos/upload-url` | S5 | 앱 | HTTPS | `app-police-phone`, `incident-read`, `write-common` | - |
 | `POST /api/markers/{markerId}/photos/{photoId}/attach` | S5 | 앱 | HTTPS | `app-police-phone`, `incident-read`, `write-common` | `internal-caller`: outbox replay |
 | `POST /api/sync/clock` | S6 | 앱 | HTTPS | `app-police-phone` | - |
@@ -1324,7 +1326,7 @@ S3-2는 shell routing, page layout, slot mounting, shared state wiring의 owner�
 | SC-03 사건 오프라인 패키지 사전 적재 | S7, S1-1, S1-2, S2, S5, S8, S4, S3-2 | §7 `GET /api/incidents/{incidentId}/offline-package/manifest`, `POST /api/incidents/{incidentId}/offline-package/installations`, §4.4 `OFFLINE_PACKAGE_INSTALLATION_CHANGED` | §9.2 `package_badge` | S2 overall area, S5 `ReferenceMarkerSeed.createForIncident(incidentId, seedMarkers)`, S8 OP/duty shift context -> S7 manifest/installation; S7 `OfflinePackageInstallationQuery`/`OFFLINE_PACKAGE_INSTALLATION_CHANGED` -> S3-2 `package_badge` |
 | SC-04 지도 기준 범위·구역 분할·할당 | S2, S8, S1-1, S1-2, S4, S7 | `POST /api/search-areas`, `PATCH /api/search-areas/{searchAreaId}`, `POST /api/search-areas/{searchAreaId}/split`, `POST /api/search-areas/{searchAreaId}/assignments`, `SEARCH_AREA_CHANGED`, `SEARCH_AREA_ASSIGNMENT_CHANGED` | `overall_search_area`, `area` | S2 geometry + search area assignment -> S4 `EventFanout` -> S3-2 map/area slots, S7 package builder |
 | SC-05 수색 경로·PolicePhone GPS 경로 | S3-1, S1-2, S6, S8, S4, S2 | `POST /api/search-paths`, `POST /api/search-paths/batch`, `PATCH /api/search-path-segments/{searchPathSegmentId}`, `SEARCH_PATH_STARTED`, `PATH_APPENDED`, `SEARCH_PATH_SEGMENT_UPDATED`, `SearchAreaQuery.overallOf(incidentId)` | `path`, `police_phone_freshness` | S3-1 owns `search_path`/`search_path_segment` and applies `spec/boundaries.md §4.1.1 Common Geometry Rule`; S2 provides `SearchAreaQuery.overallOf(incidentId)` as validation input only; path writes through S6 Outbox -> S4 `EventFanout` -> S3-2 path slot, S8 current OP/duty shift context |
-| SC-06 현장 마커 생성 | S5, S1-2, S6, S8, S4, S2 | `POST /api/markers`, `POST /api/markers/{markerId}/photos/upload-url`, `POST /api/markers/{markerId}/photos/{photoId}/attach`, `MARKER_CREATED`, `MARKER_UPDATED`, `SearchAreaQuery.overallOf(incidentId)` | `marker` | S5 owns `marker`/`photo` and applies `spec/boundaries.md §4.1.1 Common Geometry Rule` to marker location; S2 provides `SearchAreaQuery.overallOf(incidentId)` as validation input only; marker/photo writes through S6 Outbox -> S4 `EventFanout` -> S3-2 marker slot, S8 OP context |
+| SC-06 현장 마커 생성 | S5, S1-2, S6, S8, S4, S2 | `POST /api/markers`, `POST /api/markers/photos/upload-url`, `POST /api/markers/{markerId}/photos/upload-url`, `POST /api/markers/{markerId}/photos/{photoId}/attach`, `MARKER_CREATED`, `MARKER_UPDATED`, `SearchAreaQuery.overallOf(incidentId)` | `marker` | S5 owns `marker`/`photo` and applies `spec/boundaries.md §4.1.1 Common Geometry Rule` to marker location; S2 provides `SearchAreaQuery.overallOf(incidentId)` as validation input only; marker/photo writes through S6 Outbox -> S4 `EventFanout` -> S3-2 marker slot, S8 OP context |
 | SC-07 통신 단절 중 로컬 기록 | S6, S1-2, S3-1, S5, S7 | `POST /api/sync/outbox/requeue`, local Outbox rows for `POST /api/search-paths/batch` and `POST /api/markers`, package availability from S7 manifest | - | S6 local store/Outbox -> S3-1/S5 pending writes after recovery, S7 offline package -> app local renderer |
 | SC-08 지원 요청·실종자 발견 알림 | S5, S1-1, S1-2, S4, S6, S8 | `POST /api/markers`, `SUPPORT_REQUEST_CREATED`, `PERSON_FOUND`, fixture `FcmDispatcher` | `marker`, `toast` | S5 marker/notification payload through S6 Outbox -> S4 `EventFanout` -> S3-2 marker/toast; S1-2 `FcmTokenQuery.activeByPolicePhone(policePhoneId)` -> S5 resolver/`FcmDispatcher` adapter -> app banner |
 | SC-09 통신 복구·동기화 | S6, S3-1, S5, S1-2, S3-2, S4, S7 | `POST /api/sync/outbox/requeue`, `POST /api/search-paths/batch`, `POST /api/markers`, `POST /api/incidents/{incidentId}/offline-package/installations`, `GET /api/incidents/{incidentId}/events`, `PATH_APPENDED`, `MARKER_CREATED`, `OFFLINE_PACKAGE_INSTALLATION_CHANGED` | `marker`, `path`, `police_phone_freshness`, `package_badge` | S6 Outbox flush -> S3-1/S5/S7 server rows -> S4 replay/dedupe -> S3-2 recovered board state including `package_badge` |

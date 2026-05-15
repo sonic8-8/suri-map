@@ -3,6 +3,7 @@ package com.surimap.feature.marker.data
 import com.surimap.core.database.LocalMarkerDao
 import com.surimap.core.database.LocalMarkerEntity
 import com.surimap.core.marker.CreateMarkerCommand
+import com.surimap.core.marker.CreateMarkerPhotoCommand
 import com.surimap.core.marker.DeleteMarkerCommand
 import com.surimap.core.marker.MarkerRepository
 import com.surimap.core.marker.PhotoAttachCommand
@@ -25,10 +26,21 @@ data class MarkerLocation(
 )
 
 data class MarkerUpsertInput(
+    val markerId: String? = null,
     val type: String? = null,
     val location: MarkerLocation? = null,
     val supportRequestType: String? = null,
-    val memo: String? = null
+    val memo: String? = null,
+    val photos: List<MarkerCreatePhotoInput> = emptyList()
+)
+
+data class MarkerCreatePhotoInput(
+    val photoId: String?,
+    val sizeBytes: Long,
+    val contentType: String?,
+    val width: Int? = null,
+    val height: Int? = null,
+    val checksumSha256: String? = null
 )
 
 data class MarkerPhotoUploadUrlInput(
@@ -81,11 +93,14 @@ class MarkerLocalRecorder(
             return MarkerWriteResult.Blocked
         }
         val operationId = idFactory("op-marker-create")
+        val markerId = input.markerId?.takeIf(String::isNotBlank) ?: operationId
+        val photos = input.photos.toCreatePhotoCommands() ?: return MarkerWriteResult.Blocked
         val clientTs = now()
         val result =
             repository.createMarker(
                 CreateMarkerCommand(
                     operationId = operationId,
+                    markerId = markerId,
                     incidentId = valid.incidentId,
                     opId = valid.opId,
                     policePhoneId = valid.policePhoneId,
@@ -98,7 +113,8 @@ class MarkerLocalRecorder(
                     memo = input.memo?.takeIf(String::isNotBlank),
                     clientTs = clientTs,
                     clockOffsetMs = clockOffsetMs(),
-                    clockSyncedAt = clockSyncedAt()
+                    clockSyncedAt = clockSyncedAt(),
+                    photos = photos
                 )
             )
         if (result.status != OutboxStatus.FAILED_FINAL) {
@@ -107,9 +123,9 @@ class MarkerLocalRecorder(
                 localMarkerDao?.findOutboxLocalMirrorStatus(result.outboxId)
                     ?.takeIf(String::isNotBlank)
                     ?: result.harnessStatus.name
-            localMarkerDao?.upsert(
+                localMarkerDao?.upsert(
                 LocalMarkerEntity(
-                    localMarkerId = operationId,
+                    localMarkerId = markerId,
                     outboxId = result.outboxId,
                     operationId = operationId,
                     incidentId = valid.incidentId,
@@ -295,6 +311,34 @@ class MarkerLocalRecorder(
 
     private fun Long.isAllowedPhotoSize(): Boolean = this in 1..MAX_PHOTO_BYTES
 
+    private fun List<MarkerCreatePhotoInput>.toCreatePhotoCommands(): List<CreateMarkerPhotoCommand>? {
+        if (size > MAX_PHOTO_COUNT) {
+            return null
+        }
+        val seenPhotoIds = mutableSetOf<String>()
+        return map { photo ->
+            val photoId = photo.photoId?.takeIf(String::isNotBlank) ?: return null
+            val contentType = photo.contentType?.takeIf(String::isNotBlank) ?: return null
+            if (!seenPhotoIds.add(photoId) || !photo.sizeBytes.isAllowedPhotoSize()) {
+                return null
+            }
+            if (photo.width != null && photo.width <= 0) {
+                return null
+            }
+            if (photo.height != null && photo.height <= 0) {
+                return null
+            }
+            CreateMarkerPhotoCommand(
+                photoId = photoId,
+                sizeBytes = photo.sizeBytes,
+                contentType = contentType,
+                width = photo.width,
+                height = photo.height,
+                checksumSha256 = photo.checksumSha256?.takeIf(String::isNotBlank)
+            )
+        }
+    }
+
     private fun com.surimap.core.sync.EnqueueResult.enqueued(): MarkerWriteResult.Enqueued =
         MarkerWriteResult.Enqueued(
             operationId = operationId,
@@ -309,6 +353,7 @@ class MarkerLocalRecorder(
 
     private companion object {
         const val SUPPORT_REQUEST_TYPE = "SUPPORT_REQUEST"
+        const val MAX_PHOTO_COUNT = 10
         const val MAX_PHOTO_BYTES = 10_485_760L
     }
 }

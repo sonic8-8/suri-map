@@ -39,6 +39,7 @@ class MarkerRepositoryTest {
         repository.createMarker(
             CreateMarkerCommand(
                 operationId = operationIdFixture("marker-create-001"),
+                markerId = MARKER_ID,
                 incidentId = INCIDENT_ID,
                 opId = OP_ID,
                 policePhoneId = POLICE_PHONE_ID,
@@ -49,6 +50,16 @@ class MarkerRepositoryTest {
                 lat = 37.580123,
                 supportRequestType = "DRONE",
                 memo = "계곡 북측 확인 요청",
+                photos = listOf(
+                    CreateMarkerPhotoCommand(
+                        photoId = PHOTO_ID,
+                        sizeBytes = 512_000,
+                        contentType = "image/jpeg",
+                        width = 1280,
+                        height = 960,
+                        checksumSha256 = "sha256-local-photo"
+                    )
+                ),
                 clientTs = CLIENT_TS,
                 clockOffsetMs = 90,
                 clockSyncedAt = CLOCK_SYNCED_AT
@@ -63,7 +74,7 @@ class MarkerRepositoryTest {
         assertEquals("idem-marker-create-001", operation.idempotencyKey)
         assertEquals(POLICE_PHONE_ID, operation.policePhoneId)
         assertEquals(
-            """{"incidentId":"$INCIDENT_ID","opId":"$OP_ID","type":"SUPPORT_REQUEST","location":{"type":"Point","coordinates":[126.970123,37.580123]},"supportRequestType":"DRONE","memo":"계곡 북측 확인 요청","clientTs":"2026-05-11T06:00:00Z","clockOffsetMs":90}""",
+            """{"id":"$MARKER_ID","incidentId":"$INCIDENT_ID","opId":"$OP_ID","type":"SUPPORT_REQUEST","location":{"type":"Point","coordinates":[126.970123,37.580123]},"supportRequestType":"DRONE","memo":"계곡 북측 확인 요청","clientTs":"2026-05-11T06:00:00Z","clockOffsetMs":90,"photos":[{"photoId":"$PHOTO_ID","sizeBytes":512000,"contentType":"image/jpeg","width":1280,"height":960,"checksumSha256":"sha256-local-photo"}]}""",
             operation.payload
         )
         assertTrue(operation.bodyHash.startsWith("sha256:"))

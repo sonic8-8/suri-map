@@ -21,6 +21,7 @@ import java.time.Instant
 
 data class CreateMarkerCommand(
     val operationId: String,
+    val markerId: String = operationId,
     val incidentId: String,
     val opId: String,
     val policePhoneId: String,
@@ -33,7 +34,17 @@ data class CreateMarkerCommand(
     val memo: String? = null,
     val clientTs: Instant,
     val clockOffsetMs: Long? = null,
-    val clockSyncedAt: Instant? = null
+    val clockSyncedAt: Instant? = null,
+    val photos: List<CreateMarkerPhotoCommand> = emptyList()
+)
+
+data class CreateMarkerPhotoCommand(
+    val photoId: String,
+    val sizeBytes: Long,
+    val contentType: String,
+    val width: Int? = null,
+    val height: Int? = null,
+    val checksumSha256: String? = null
 )
 
 data class UpdateMarkerCommand(
@@ -120,6 +131,7 @@ class MarkerRepository(
 ) {
     suspend fun createMarker(command: CreateMarkerCommand): EnqueueResult {
         val payload = jsonObject(
+            "id" to jsonString(command.markerId),
             "incidentId" to jsonString(command.incidentId),
             "opId" to jsonString(command.opId),
             "type" to jsonString(command.type),
@@ -127,7 +139,8 @@ class MarkerRepository(
             "supportRequestType" to command.supportRequestType?.let(::jsonString),
             "memo" to command.memo?.let(::jsonString),
             "clientTs" to jsonInstant(command.clientTs),
-            "clockOffsetMs" to command.clockOffsetMs?.let(::jsonNumber)
+            "clockOffsetMs" to command.clockOffsetMs?.let(::jsonNumber),
+            "photos" to command.photos.takeIf { it.isNotEmpty() }?.let(::createMarkerPhotos)
         )
         return enqueue(
             command.toOperation(
@@ -135,7 +148,7 @@ class MarkerRepository(
                 method = "POST",
                 endpoint = "/api/markers",
                 payload = payload,
-                entityId = null,
+                entityId = command.markerId,
                 entityType = "marker"
             )
         )
@@ -369,6 +382,20 @@ private fun markerLocation(lon: Double?, lat: Double?): String? {
     }
     return geoJsonPoint(lon, lat)
 }
+
+private fun createMarkerPhotos(photos: List<CreateMarkerPhotoCommand>): String =
+    jsonArray(
+        photos.map { photo ->
+            jsonObject(
+                "photoId" to jsonString(photo.photoId),
+                "sizeBytes" to jsonNumber(photo.sizeBytes),
+                "contentType" to jsonString(photo.contentType),
+                "width" to photo.width?.let(::jsonNumber),
+                "height" to photo.height?.let(::jsonNumber),
+                "checksumSha256" to photo.checksumSha256?.let(::jsonString)
+            )
+        }
+    )
 
 private fun geoJsonPoint(lon: Double, lat: Double): String {
     return jsonObject(
