@@ -170,6 +170,16 @@
   gap: 14px;
 }
 
+.manifestWarning {
+  padding: 12px 14px;
+  border: 1px solid rgba(250, 204, 21, 0.45);
+  border-radius: 8px;
+  color: #fde68a;
+  background: rgba(113, 63, 18, 0.22);
+  font-size: 14px;
+  font-weight: 700;
+}
+
 .manifestMeta,
 .tileSummary {
   display: grid;
@@ -182,7 +192,7 @@
 }
 
 .tileSummary {
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 .manifestMeta > div,

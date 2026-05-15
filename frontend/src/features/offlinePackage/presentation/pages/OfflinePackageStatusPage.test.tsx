@@ -55,39 +55,53 @@ describe('OfflinePackageStatusPage', () => {
     vi.mocked(useOfflinePackageManifestQuery).mockReturnValue(manifestQueryResult(offlinePackageManifest()));
   });
 
-  test('renders all manifest item types, no assigned area state, and tile summary', async () => {
+  test('renders package composition with operator-facing labels and tile summary', async () => {
     renderOfflinePackageStatusPage();
-    await screen.findByText('홍길동 실종 사건');
+    await screen.findByText('광산구 실종 신고');
 
-    for (const itemType of [
-      'INCIDENT_META',
-      'MISSING_PERSON_CACHE',
-      'OP_LIST',
-      'ASSIGNED_AREA',
-      'INITIAL_MARKER',
-      'OVERALL_SEARCH_AREA',
-      'TILE',
+    for (const label of [
+      '사건 정보',
+      '실종자 정보',
+      '작전 차수 정보',
+      '배정 수색 구역',
+      '초기 마커',
+      '전체 수색 구역',
+      '오프라인 지도',
     ]) {
-      expect(screen.getByText(new RegExp(itemType))).toBeInTheDocument();
+      expect(screen.getByText(label)).toBeInTheDocument();
     }
 
-    expect(screen.getByText(/배정 구역 없음/)).toBeInTheDocument();
+    expect(screen.getByText('아직 배정된 수색 구역이 없습니다')).toBeInTheDocument();
 
     const tileSummary = screen.getByLabelText('타일 목록 요약');
     expect(within(tileSummary).getByText('2개')).toBeInTheDocument();
     expect(within(tileSummary).getByText('3.0 KiB')).toBeInTheDocument();
     expect(within(tileSummary).getByText('osm-local')).toBeInTheDocument();
-    expect(within(tileSummary).getByText('15..16')).toBeInTheDocument();
-    expect(within(tileSummary).getByText('전체 있음')).toBeInTheDocument();
+    expect(within(tileSummary).getByText('15..16단계')).toBeInTheDocument();
+    expect(within(tileSummary).getByText('검증 가능')).toBeInTheDocument();
+
+    const pageText = document.body.textContent ?? '';
+    expect(pageText).not.toContain('INCIDENT_META');
+    expect(pageText).not.toContain('packageItems');
+    expect(pageText).not.toContain('대표 itemKey');
+    expect(pageText).not.toContain('sourceHash');
+    expect(pageText).not.toContain('패키지 Hash');
   });
 
   test('keeps package_badge device statuses visible', async () => {
     renderOfflinePackageStatusPage();
-    await screen.findByText('홍길동 실종 사건');
+    await screen.findByText('광산구 실종 신고');
 
-    expect(screen.getByText('팀장 단말')).toBeInTheDocument();
+    expect(screen.getAllByText('팀장 단말')).toHaveLength(2);
     expect(screen.getByText('오프라인 사용 가능')).toBeInTheDocument();
-    expect(screen.getAllByText('재적재 필요')).toHaveLength(2);
+    expect(screen.getByText('필수 자료 설치 완료')).toBeInTheDocument();
+    expect(screen.getByText('자동 설치 중')).toBeInTheDocument();
+    expect(screen.getByText('앱에서 자동 설치 중')).toBeInTheDocument();
+    expect(screen.getByText('완료될 때까지 대기')).toBeInTheDocument();
+    expect(screen.getByText('최신 패키지 아님')).toBeInTheDocument();
+    expect(screen.getByText('앱 연결 시 최신 패키지 재설치')).toBeInTheDocument();
+    expect(screen.getByText('자동 설치 실패')).toBeInTheDocument();
+    expect(screen.getByText('단말 네트워크 확인 또는 수동 재시도 필요')).toBeInTheDocument();
     expect(screen.getByText('실패')).toBeInTheDocument();
     expect(screen.getByText('삭제됨')).toBeInTheDocument();
   });
@@ -98,9 +112,9 @@ describe('OfflinePackageStatusPage', () => {
     );
 
     renderOfflinePackageStatusPage();
-    await screen.findByText('홍길동 실종 사건');
+    await screen.findByText('광산구 실종 신고');
 
-    expect(screen.getByText('팀장 단말')).toBeInTheDocument();
+    expect(screen.getAllByText('팀장 단말')).toHaveLength(2);
     expect(screen.getByText('패키지 구성 목록을 불러오지 못했습니다.')).toBeInTheDocument();
     expect(screen.queryByText('단말별 적재 상태를 불러오지 못했습니다.')).not.toBeInTheDocument();
   });
@@ -148,6 +162,7 @@ function boardQueryResult() {
       slots: {
         package_badge: [
           packageBadgeRow('pkg-ready', 'phone-ready', '팀장 단말', 'READY', true, false),
+          packageBadgeRow('pkg-downloading', 'phone-downloading', '자동설치 단말', 'DOWNLOADING', false, true),
           packageBadgeRow('pkg-stale', 'phone-stale', '수색1 단말', 'STALE', false, true),
           packageBadgeRow('pkg-failed', 'phone-failed', '수색2 단말', 'FAILED', false, true),
           packageBadgeRow('pkg-purged', 'phone-purged', '종료 단말', 'PURGED', false, false),
@@ -194,7 +209,7 @@ function packageBadgeRow(
     localWarningInput: {
       raised: warningRaised,
       reason: packageStatus === 'STALE' ? 'manifest_stale' : 'package_incomplete',
-      activeManifestVersion: 2,
+      activeManifestVersion: packageStatus === 'STALE' ? 2 : 1,
     },
   };
 }

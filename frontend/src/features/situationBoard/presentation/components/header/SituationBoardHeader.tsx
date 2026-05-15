@@ -1,4 +1,6 @@
 import {
+  formatIncidentContextEyebrow,
+  formatMissingPersonIncidentTitle,
   SuriMapPageHeader,
   type MarkerNotification,
   type SuriMapPageHeaderIncidentContext,
@@ -94,8 +96,8 @@ function createIncidentContext(
 
   return {
     avatarLabel: createAvatarLabel(displayName),
-    eyebrow: `${board.incidentId} · v${incidentDetail?.version ?? '-'}`,
-    title: displayName ? `${displayName} 실종 사건` : `사건 ${board.incidentId}`,
+    eyebrow: formatIncidentContextEyebrow(incidentDetail?.version),
+    title: formatMissingPersonIncidentTitle(displayName),
     metrics: [
       { label: '실종자', value: displayName ?? '-' },
       { label: '마지막 목격', value: lastSeenLabel },
@@ -107,13 +109,13 @@ function createIncidentContext(
 }
 
 function createTerminalIncidentContext(
-  board: SituationBoardFallbackData,
+  _board: SituationBoardFallbackData,
   incidentDetail: IncidentDetailDto | null,
   incidentTerminal: IncidentTerminalViewModel,
 ): SuriMapPageHeaderIncidentContext {
   return {
     avatarLabel: '종료',
-    eyebrow: `${board.incidentId} · v${incidentDetail?.version ?? '-'}`,
+    eyebrow: formatIncidentContextEyebrow(incidentDetail?.version),
     title: '종료된 사건',
     metrics: [
       {

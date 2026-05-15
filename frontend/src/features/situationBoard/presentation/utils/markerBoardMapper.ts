@@ -8,7 +8,7 @@ export function toBoardRecentMarkers(board: SituationBoardResponseDto): RecentMa
     const markerType = marker.markerType;
     const markerLabel = markerTypeLabel(markerType);
     const opLabel = toMarkerOpLabel(marker.opId, board);
-    const reporterLabel = marker.reporterLabel ?? 'Unknown reporter';
+    const reporterLabel = formatReporterLabel(marker.reporterLabel);
 
     return {
       id: marker.id,
@@ -16,7 +16,7 @@ export function toBoardRecentMarkers(board: SituationBoardResponseDto): RecentMa
       supportRequestType: marker.supportRequestType,
       markerTypeLabel: markerLabel,
       title: marker.title ?? `${markerLabel} marker`,
-      summary: marker.memo ?? `${opLabel} / ${reporterLabel}`,
+      summary: markerSummaryLabel(markerType, marker.supportRequestType, markerLabel),
       occurredAt: marker.occurredAt,
       timeLabel: toMarkerTimeLabel(marker.occurredAt),
       opLabel,
@@ -45,6 +45,37 @@ function markerTypeLabel(markerType: RecentMarker['markerType']) {
     default:
       return '마커';
   }
+}
+
+function markerSummaryLabel(
+  markerType: RecentMarker['markerType'],
+  supportRequestType: RecentMarker['supportRequestType'],
+  markerLabel: string,
+) {
+  if (markerType !== 'SUPPORT_REQUEST') return markerLabel;
+
+  switch (supportRequestType) {
+    case 'DRONE':
+      return '드론 지원 요청';
+    case 'POLICE_DOG':
+      return '경찰견 지원 요청';
+    default:
+      return '지원 요청';
+  }
+}
+
+function formatReporterLabel(value: string | null) {
+  const reporterLabel = value?.trim();
+  if (!reporterLabel || isTechnicalIdentifier(reporterLabel)) return undefined;
+  return reporterLabel;
+}
+
+function isTechnicalIdentifier(value: string) {
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
+    return true;
+  }
+
+  return /^[a-z0-9_-]+$/i.test(value) && /\d/.test(value);
 }
 
 function toMarkerTimeLabel(value: string) {

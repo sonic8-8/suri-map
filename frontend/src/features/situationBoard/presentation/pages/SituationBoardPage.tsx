@@ -109,10 +109,10 @@ export function SituationBoardPage({
           onOpenOfflinePackage={onOpenOfflinePackage}
           onOpenSituationBoard={
             boardState.isAreaWorkspaceOpen
-                ? boardState.closeAreaWorkspace
-                : boardState.isHandoverWorkspaceOpen
-                  ? boardState.closeHandoverWorkspace
-                  : undefined
+              ? boardState.closeAreaWorkspace
+              : boardState.isHandoverWorkspaceOpen
+                ? boardState.closeHandoverWorkspace
+                : undefined
           }
           onOpenHandover={isClosedTerminalBoard ? undefined : boardState.openHandoverWorkspace}
         />
@@ -184,16 +184,16 @@ export function SituationBoardPage({
           focusedMarkerSequence={focusedMarkerRequest.sequence}
           visibleMarkerIds={isClosedTerminalBoard ? [] : boardState.visibleMarkerIds}
           savedAreaDrafts={isClosedTerminalBoard ? [] : boardState.board.searchAreaDrafts}
-          areaEditMapProps={!isClosedTerminalBoard && boardState.isAreaWorkspaceOpen ? boardState.areaEditMapProps : null}
+          areaEditMapProps={
+            !isClosedTerminalBoard && boardState.isAreaWorkspaceOpen ? boardState.areaEditMapProps : null
+          }
           onInitialMapStateChange={boardState.setInitialMapState}
           onSelectSearchArea={isClosedTerminalBoard ? () => {} : boardState.toggleSelectedSearchArea}
           onToggleMapExpanded={boardState.toggleMapExpanded}
           selectedSearchAreaId={isClosedTerminalBoard ? null : boardState.selectedSearchAreaId}
         />
       </div>
-      {!boardState.isAreaWorkspaceOpen &&
-      !isClosedTerminalBoard &&
-      boardState.isOverallSearchAreaMissing ? (
+      {!boardState.isAreaWorkspaceOpen && !isClosedTerminalBoard && boardState.isOverallSearchAreaMissing ? (
         <OverallSearchAreaRequiredModal
           onOpenAreaWorkspace={boardState.openAreaWorkspace}
           onOpenIncidentList={onOpenIncidentList}

@@ -141,7 +141,6 @@
   white-space: nowrap;
 }
 
-.itemSummary,
 .memo {
   margin: 0;
   color: var(--suri-board-fg-muted);

@@ -305,7 +305,9 @@ export function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const [currentUserAccount, setCurrentUserAccount] = useState<LoginAccount | null>(() => readStoredLoginAccount());
-  const [savedAreaDraftsByIncidentId, setSavedAreaDraftsByIncidentId] = useState<Record<string, CompletedAreaDraft[]>>({});
+  const [savedAreaDraftsByIncidentId, setSavedAreaDraftsByIncidentId] = useState<Record<string, CompletedAreaDraft[]>>(
+    {},
+  );
   const [opRefreshVersionByIncidentId, setOpRefreshVersionByIncidentId] = useState<Record<string, number>>({});
   const [markerNotifications, setMarkerNotifications] = useState<MarkerNotification[]>([]);
   const [markerNotificationIndex, setMarkerNotificationIndex] = useState(0);
@@ -505,10 +507,7 @@ export function App() {
           )
         }
       />
-      <Route
-        path={ROUTES.legacyAreaEdit}
-        element={<Navigate to={getAreaEditPath(BOOTSTRAP_INCIDENT_ID)} replace />}
-      />
+      <Route path={ROUTES.legacyAreaEdit} element={<Navigate to={getAreaEditPath(BOOTSTRAP_INCIDENT_ID)} replace />} />
       <Route
         path={ROUTES.legacyIncidentClose}
         element={<Navigate to={getIncidentClosePath(BOOTSTRAP_INCIDENT_ID)} replace />}

@@ -118,7 +118,7 @@ export function SuriMapPageHeader({
           })}
         </div>
         <div className={styles.meta}>
-            <span>
+          <span className={styles.metaAccount}>
             계정 <b>{currentAccountLabel}</b>
           </span>
           <span className={styles.metaDivider} aria-hidden="true" />
