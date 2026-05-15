@@ -69,6 +69,7 @@ public class MyBatisSearchPathRepository implements SearchPathRepository {
     persistExcludedPoints(aggregate, now);
     return new SearchPathAggregate(
         aggregate.id(),
+        dutyShiftId,
         aggregate.incidentId(),
         aggregate.opId(),
         aggregate.policePhoneId(),
@@ -130,6 +131,7 @@ public class MyBatisSearchPathRepository implements SearchPathRepository {
     List<PathExcludedPoint> excludedPoints = excludedPointsFrom(record.id());
     return new SearchPathAggregate(
         record.id(),
+        record.dutyShiftId(),
         record.incidentId(),
         record.opId(),
         record.policePhoneId(),

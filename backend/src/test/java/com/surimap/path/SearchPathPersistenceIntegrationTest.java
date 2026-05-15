@@ -354,6 +354,7 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
             """,
             PATH_ID.toString());
 
+    assertThat(response.dutyShiftId()).isEqualTo(DUTY_SHIFT_ID);
     assertThat(pathRow.get("id")).isEqualTo(PATH_ID);
     assertThat(pathRow.get("duty_shift_id")).isEqualTo(DUTY_SHIFT_ID);
     assertThat(pathRow.get("status")).isEqualTo("RECORDING");

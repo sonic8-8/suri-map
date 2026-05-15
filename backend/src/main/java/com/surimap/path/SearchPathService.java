@@ -64,7 +64,7 @@ public class SearchPathService {
 
     return new PathBatchAppendResponse(
         aggregate.id(),
-        null,
+        aggregate.dutyShiftId(),
         aggregate.opId(),
         aggregate.policePhoneId(),
         validationResult.acceptedPoints().size(),
