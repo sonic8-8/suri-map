@@ -35,6 +35,7 @@ type OfflinePackageStatusPageProps = {
   onCloseMarkerNotifications: () => void;
   onMoveMarkerNotification: (nextIndex: number) => void;
   onOpenHandover: () => void;
+  onOpenIncidentDetail?: () => void;
   onOpenIncidentList: () => void;
   onOpenOfflinePackage: () => void;
 };
@@ -136,6 +137,7 @@ export function OfflinePackageStatusPage({
   onCloseMarkerNotifications,
   onMoveMarkerNotification,
   onOpenHandover,
+  onOpenIncidentDetail,
   onOpenIncidentList,
   onOpenOfflinePackage,
 }: OfflinePackageStatusPageProps) {
@@ -201,11 +203,13 @@ export function OfflinePackageStatusPage({
         onCloseMarkerNotifications={onCloseMarkerNotifications}
         onMoveMarkerNotification={onMoveMarkerNotification}
         onOpenHandover={isClosedTerminalBoard ? undefined : onOpenHandover}
+        onOpenIncidentDetail={onOpenIncidentDetail}
         onOpenIncidentList={onOpenIncidentList}
         onOpenOfflinePackage={onOpenOfflinePackage}
         onOpenSituationBoard={onBackToSituationBoard}
       />
 
+      <div className={styles.scrollBody}>
       <section className={styles.summaryBar} aria-label="오프라인 패키지 요약">
         <div>
           <span>사용 가능 단말</span>
@@ -306,6 +310,7 @@ export function OfflinePackageStatusPage({
             onRetry={() => void manifestQuery.refetch()}
           />
         </section>
+      </div>
       </div>
     </main>
   );
@@ -749,6 +754,20 @@ function formatManifestVersion(row: PackageBadgeRow) {
 }
 
 function formatWarningReason(reason: string) {
+  if (reason === 'S7 package status is MISSING, STALE, EXPIRED, or any required item failed') {
+    return '패키지 누락/만료/구버전 또는 필수 항목 실패';
+  }
+  if (reason === 'S7 package status is COMPLETE for the active manifestVersion') {
+    return '추가 확인 없음';
+  }
+  if (
+    reason.includes('MISSING') ||
+    reason.includes('STALE') ||
+    reason.includes('EXPIRED') ||
+    reason.includes('failed')
+  ) {
+    return '패키지 누락/만료/구버전 또는 필수 항목 실패';
+  }
   if (reason === 'manifest_stale' || reason === 'stale_manifest') return '재적재 필요';
   if (reason === 'package_incomplete' || reason === 'partial') return '패키지 미완료';
   return reason || '패키지 미완료';

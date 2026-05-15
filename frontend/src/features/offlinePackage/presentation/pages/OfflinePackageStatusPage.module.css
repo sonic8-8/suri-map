@@ -2,58 +2,111 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  min-height: 0;
+  min-height: 100vh;
   overflow: hidden;
-  color: var(--suri-board-fg-primary);
-  background: var(--suri-board-page-bg);
+  color: #10202a;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(52, 89, 109, 0.36), transparent 30rem),
+    radial-gradient(circle at 88% 18%, rgba(28, 61, 79, 0.28), transparent 26rem),
+    linear-gradient(135deg, #b4c5cf 0%, #a6b8c4 46%, #c5d3db 100%);
+}
+
+.scrollBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-color: rgba(52, 63, 73, 0.78) rgba(116, 126, 135, 0.66);
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+.scrollBody::-webkit-scrollbar {
+  width: 10px;
+}
+
+.scrollBody::-webkit-scrollbar-track {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.scrollBody::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(52, 63, 73, 0.78);
+  background-clip: content-box;
+}
+
+.scrollBody::-webkit-scrollbar-thumb:hover {
+  background: rgba(35, 45, 55, 0.9);
 }
 
 .summaryBar {
   display: grid;
+  box-sizing: border-box;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1px;
-  padding: 0 24px;
-  background: var(--suri-board-border);
+  gap: 1rem;
+  max-width: 1520px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 3.8rem clamp(1.5rem, 3vw, 3rem) 0;
+  background: transparent;
 }
 
 .summaryBar > div {
   display: grid;
   gap: 4px;
-  padding: 16px;
-  background: var(--suri-board-header-bg);
+  padding: 1.15rem;
+  border: 1px solid rgba(156, 181, 195, 0.42);
+  border-radius: 1.25rem;
+  background:
+    linear-gradient(145deg, rgba(228, 235, 239, 0.96), rgba(205, 216, 223, 0.96)),
+    #d6e0e6;
+  box-shadow:
+    0 1rem 2.4rem rgba(37, 59, 74, 0.16),
+    0 0 0 1px rgba(255, 255, 255, 0.72) inset;
 }
 
 .summaryBar span {
-  color: var(--suri-board-fg-muted);
-  font-size: 12px;
+  color: #5c6f7b;
+  font-size: 0.78rem;
+  font-weight: 700;
 }
 
 .summaryBar strong {
-  color: var(--suri-board-fg-primary);
-  font-size: 20px;
+  color: #122838;
+  font-size: 1.9rem;
+  line-height: 1;
+  letter-spacing: -0.06em;
 }
 
 .offlineBanner {
-  margin: 18px 24px 0;
-  padding: 12px 14px;
-  border: 1px solid rgba(250, 204, 21, 0.45);
-  border-radius: 8px;
-  color: #fde68a;
-  background: rgba(113, 63, 18, 0.22);
-  font-size: 14px;
+  box-sizing: border-box;
+  max-width: 1520px;
+  width: calc(100% - clamp(3rem, 6vw, 6rem));
+  margin: 1rem auto 0;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(146, 97, 35, 0.3);
+  border-radius: 1rem;
+  color: #7a4b11;
+  background: rgba(250, 239, 211, 0.82);
+  box-shadow: 0 1rem 2rem rgba(26, 25, 20, 0.18);
+  font-size: 0.9rem;
   font-weight: 700;
 }
 
 .contentStack {
   display: grid;
-  flex: 1 1 auto;
-  gap: 24px;
-  min-height: 0;
-  padding: 24px;
-  padding-right: 19px;
+  box-sizing: border-box;
+  gap: 6.4rem;
+  max-width: 1520px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 4.2rem clamp(1.5rem, 3vw, 3rem) 6.8rem;
   overflow-x: hidden;
-  overflow-y: auto;
-  scrollbar-color: var(--suri-board-left-scrollbar-thumb) var(--suri-board-left-scrollbar-track);
+  overflow-y: visible;
+  scrollbar-color: rgba(52, 63, 73, 0.78) rgba(116, 126, 135, 0.66);
   scrollbar-gutter: stable;
   scrollbar-width: thin;
 }
@@ -71,36 +124,45 @@
 .contentStack::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
   border-radius: 999px;
-  background: var(--suri-board-left-scrollbar-thumb);
+  background: rgba(52, 63, 73, 0.78);
   background-clip: content-box;
 }
 
 .contentStack::-webkit-scrollbar-thumb:hover {
-  background: var(--suri-board-left-scrollbar-thumb-hover);
+  background: rgba(35, 45, 55, 0.9);
 }
 
 .content {
   display: grid;
-  gap: 14px;
+  gap: 1.15rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .sectionTitle {
   display: grid;
-  gap: 4px;
+  gap: 0.45rem;
 }
 
 .sectionTitle h2 {
   margin: 0;
-  color: var(--suri-board-fg-primary);
-  font-size: 20px;
-  line-height: 1.3;
+  color: #102838;
+  font-size: clamp(2rem, 2.7vw, 2.8rem);
+  line-height: 1.12;
+  letter-spacing: -0.065em;
+  text-shadow: 0 0.75rem 2rem rgba(74, 103, 121, 0.22);
 }
 
 .sectionTitle p {
   margin: 0;
-  color: var(--suri-board-fg-muted);
-  font-size: 13px;
-  line-height: 1.5;
+  max-width: 72rem;
+  color: #435967;
+  font-size: 1rem;
+  font-weight: 650;
+  line-height: 1.55;
 }
 
 .manifestStack {
@@ -112,11 +174,11 @@
 .tileSummary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1px;
+  gap: 0.8rem;
   overflow: hidden;
-  border: 1px solid var(--suri-board-border);
-  border-radius: 8px;
-  background: var(--suri-board-border);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .tileSummary {
@@ -128,28 +190,35 @@
   display: grid;
   gap: 4px;
   min-width: 0;
-  padding: 14px 16px;
-  background: var(--suri-board-panel-bg);
+  padding: 0.8rem;
+  border-radius: 0.95rem;
+  background:
+    linear-gradient(145deg, rgba(228, 235, 239, 0.96), rgba(205, 216, 223, 0.96)),
+    #d6e0e6;
+  box-shadow: 0 0.6rem 1.4rem rgba(27, 46, 59, 0.14);
 }
 
 .manifestMeta span,
 .tileSummary span {
-  color: var(--suri-board-fg-muted);
-  font-size: 12px;
+  color: #5c6a74;
+  font-size: 0.72rem;
+  font-weight: 800;
 }
 
 .manifestMeta strong,
 .tileSummary strong {
   overflow: hidden;
-  color: var(--suri-board-fg-primary);
-  font-size: 14px;
+  color: #0f2230;
+  font-size: 0.93rem;
+  font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 @media (max-width: 960px) {
   .contentStack {
-    padding: 18px;
+    gap: 4.5rem;
+    padding: 3.2rem 1rem 5rem;
   }
 
   .manifestMeta,
@@ -161,7 +230,7 @@
 @media (max-width: 640px) {
   .summaryBar {
     grid-template-columns: 1fr;
-    padding: 0 16px;
+    padding: 1rem 1rem 0;
   }
 
   .manifestMeta,
@@ -171,11 +240,12 @@
 }
 
 .tableShell {
-  overflow: auto;
-  border: 1px solid var(--suri-board-border);
-  border-radius: 8px;
-  background: var(--suri-board-panel-bg);
-  scrollbar-color: var(--suri-board-left-scrollbar-thumb) var(--suri-board-left-scrollbar-track);
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  scrollbar-color: rgba(52, 63, 73, 0.78) rgba(116, 126, 135, 0.66);
   scrollbar-gutter: stable;
   scrollbar-width: thin;
 }
@@ -194,106 +264,267 @@
 .tableShell::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
   border-radius: 999px;
-  background: var(--suri-board-left-scrollbar-thumb);
+  background: rgba(52, 63, 73, 0.78);
   background-clip: content-box;
 }
 
 .tableShell::-webkit-scrollbar-thumb:hover {
-  background: var(--suri-board-left-scrollbar-thumb-hover);
+  background: rgba(35, 45, 55, 0.9);
 }
 
 .statusTable {
   width: 100%;
-  min-width: 840px;
+  min-width: 0;
   border-collapse: collapse;
+  display: block;
+}
+
+.statusTable thead {
+  display: none;
+}
+
+.statusTable tbody {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.62rem;
+}
+
+.statusTable tr {
+  display: grid;
+  grid-template-columns:
+    minmax(16rem, 1.7fr)
+    minmax(7rem, 0.58fr)
+    minmax(9rem, 0.82fr)
+    minmax(6.5rem, 0.48fr)
+    minmax(7rem, 0.58fr)
+    minmax(18rem, 1.85fr);
+  gap: 0.85rem;
+  align-items: stretch;
+  align-content: start;
+  min-width: 0;
+  padding: 0.78rem 1rem;
+  border: 1px solid rgba(136, 164, 180, 0.42);
+  border-radius: 1rem;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(232, 242, 247, 0.98)),
+    #f6fafc;
+  box-shadow:
+    0 1rem 2.2rem rgba(45, 71, 88, 0.16),
+    0 0 0 1px rgba(255, 255, 255, 0.72) inset;
+}
+
+.statusTable tr:hover {
+  border-color: rgba(96, 132, 153, 0.52);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(220, 235, 243, 0.98)),
+    #edf6fa;
 }
 
 .statusTable th,
 .statusTable td {
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--suri-board-border);
+  padding: 0;
+  border-bottom: 0;
   text-align: left;
   vertical-align: middle;
 }
 
 .statusTable th {
-  color: var(--suri-board-fg-muted);
-  background: var(--suri-board-header-bg);
+  color: #eef5f8;
+  background: #2b3d4c;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: 0.02em;
 }
 
 .statusTable td {
-  color: var(--suri-board-fg-secondary);
-  font-size: 14px;
+  color: #263d4c;
+  font-size: 0.92rem;
+  font-weight: 650;
+  background: transparent;
+}
+
+.statusTable tbody tr:nth-child(even) {
+  background:
+    linear-gradient(135deg, rgba(250, 253, 254, 0.98), rgba(226, 238, 244, 0.98)),
+    #f1f7fa;
+}
+
+.statusTable tbody tr:nth-child(even) td {
+  background: transparent;
+}
+
+.statusTable tbody tr:hover {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(220, 235, 243, 0.98)),
+    #edf6fa;
+}
+
+.statusTable tbody tr:hover td {
+  background: transparent;
+}
+
+.statusTable td:first-child {
+  display: grid;
+  gap: 2px;
+  align-content: center;
+  padding-right: 1rem;
+  border-right: 1px solid rgba(49, 78, 95, 0.14);
+}
+
+.statusTable td:not(:first-child) {
+  display: grid;
+  gap: 0.18rem;
+  align-content: center;
+  min-width: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.contentStack > .content:nth-of-type(2) .statusTable tr {
+  grid-template-columns:
+    minmax(15rem, 1.35fr)
+    minmax(5.5rem, 0.42fr)
+    minmax(6.75rem, 0.5fr)
+    minmax(19rem, 1.7fr)
+    minmax(7rem, 0.48fr)
+    minmax(15rem, 1.25fr);
+}
+
+.contentStack > .content:nth-of-type(2) .statusTable tbody {
+  gap: 0.95rem;
+}
+
+.statusTable td:nth-child(2) {
+  gap: 0.35rem;
+  align-items: start;
+  justify-items: start;
+}
+
+.statusTable td:nth-child(2)::before {
+  content: "패키지 상태";
+}
+
+.statusTable td:nth-child(3)::before {
+  content: "계정";
+}
+
+.statusTable td:nth-child(4)::before {
+  content: "Manifest";
+}
+
+.statusTable td:nth-child(5)::before {
+  content: "오프라인";
+}
+
+.statusTable td:nth-child(6)::before {
+  content: "경고";
+}
+
+.contentStack > .content:nth-of-type(2) .statusTable td:nth-child(2)::before {
+  content: "항목 수";
+}
+
+.contentStack > .content:nth-of-type(2) .statusTable td:nth-child(3)::before {
+  content: "상태";
+}
+
+.contentStack > .content:nth-of-type(2) .statusTable td:nth-child(4)::before {
+  content: "itemKey";
+}
+
+.contentStack > .content:nth-of-type(2) .statusTable td:nth-child(5)::before {
+  content: "sourceVersion";
+}
+
+.contentStack > .content:nth-of-type(2) .statusTable td:nth-child(6)::before {
+  content: "sourceHash";
+}
+
+.statusTable td:not(:first-child)::before {
+  color: #647a88;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
 }
 
 .statusTable td strong {
   display: block;
-  color: var(--suri-board-fg-primary);
-  font-weight: 700;
+  color: #0d2637;
+  font-size: 0.98rem;
+  font-weight: 800;
 }
 
 .statusTable td span {
   display: block;
-  margin-top: 4px;
-  color: var(--suri-board-fg-muted);
-  font-size: 12px;
+  margin-top: 2px;
+  color: #5d707c;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+@media (max-width: 900px) {
+  .statusTable tr {
+    grid-template-columns: 1fr;
+  }
+
+  .statusTable td:first-child {
+    padding-right: 0;
+    padding-bottom: 0.55rem;
+    border-right: 0;
+    border-bottom: 1px solid rgba(33, 48, 61, 0.12);
+  }
 }
 
 .statusTable td .packageStatusBadge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 0;
   width: fit-content;
   min-width: auto;
-  min-height: 30px;
+  min-height: 24px;
   margin-top: 0;
-  padding: 6px 12px;
+  padding: 4px 9px;
   border-color: var(--package-status-border);
   color: var(--package-status-fg);
   background: var(--package-status-bg);
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
 }
 
 .statusTable td .packageStatusBadge::before {
-  width: 6px;
-  height: 6px;
-  flex: 0 0 auto;
-  border-radius: 999px;
-  background: var(--package-status-fg);
-  content: "";
+  display: none;
+  content: none;
 }
 
 .packageStatusBadgeActive {
-  --package-status-fg: #8dffa9;
-  --package-status-border: rgba(36, 225, 119, 0.58);
-  --package-status-bg: rgba(35, 87, 58, 0.16);
+  --package-status-fg: #1f6f51;
+  --package-status-border: rgba(31, 111, 81, 0.28);
+  --package-status-bg: rgba(212, 239, 225, 0.96);
 }
 
 .packageStatusBadgeWaiting {
-  --package-status-fg: #fde68a;
-  --package-status-border: rgba(250, 204, 21, 0.45);
-  --package-status-bg: rgba(113, 63, 18, 0.22);
+  --package-status-fg: #84611b;
+  --package-status-border: rgba(132, 97, 27, 0.26);
+  --package-status-bg: rgba(248, 235, 198, 0.96);
 }
 
 .packageStatusBadgeDanger {
-  --package-status-fg: #ff9b9b;
-  --package-status-border: rgba(239, 68, 68, 0.52);
-  --package-status-bg: rgba(127, 29, 29, 0.22);
+  --package-status-fg: #9a322e;
+  --package-status-border: rgba(154, 50, 46, 0.28);
+  --package-status-bg: rgba(248, 221, 219, 0.96);
 }
 
 .packageStatusBadgeClosed {
-  --package-status-fg: #d2d8df;
-  --package-status-border: rgba(174, 184, 194, 0.42);
-  --package-status-bg: rgba(112, 122, 132, 0.18);
+  --package-status-fg: #586977;
+  --package-status-border: rgba(88, 105, 119, 0.24);
+  --package-status-bg: rgba(218, 229, 236, 0.96);
 }
 
 .packageStatusBadgeNeutral {
-  --package-status-fg: var(--suri-board-fg-secondary);
-  --package-status-border: var(--suri-board-border);
-  --package-status-bg: rgba(125, 139, 153, 0.12);
+  --package-status-fg: #3d505b;
+  --package-status-border: rgba(42, 75, 93, 0.18);
+  --package-status-bg: rgba(220, 233, 239, 0.92);
 }
 
 .emptyState {
@@ -301,19 +532,19 @@
   justify-items: start;
   gap: 10px;
   min-height: 220px;
-  padding: 36px;
-  border: 1px solid var(--suri-board-border);
-  border-radius: 8px;
-  background: var(--suri-board-panel-bg);
+  padding: 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.46);
+  border-radius: 1rem;
+  background: rgba(251, 252, 253, 0.94);
 }
 
 .emptyState strong {
-  color: var(--suri-board-fg-primary);
+  color: #10202a;
   font-size: 18px;
 }
 
 .emptyState span {
-  color: var(--suri-board-fg-muted);
+  color: #526976;
   font-size: 14px;
 }
 
@@ -324,13 +555,13 @@
 
 .skeletonRow {
   height: 58px;
-  border: 1px solid var(--suri-board-border);
-  border-radius: 8px;
+  border: 1px solid rgba(42, 75, 93, 0.18);
+  border-radius: 1rem;
   background: linear-gradient(
     90deg,
-    var(--suri-board-panel-bg),
-    var(--suri-board-panel-surface),
-    var(--suri-board-panel-bg)
+    rgba(238, 245, 248, 0.76),
+    rgba(218, 231, 237, 0.94),
+    rgba(238, 245, 248, 0.76)
   );
   background-size: 220% 100%;
   animation: skeletonPulse 1.2s ease-in-out infinite;
