@@ -1,7 +1,10 @@
 package com.surimap.ui.qa
 
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -11,6 +14,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.FileProvider
 import com.surimap.feature.alert.ui.IncidentAlertUiState
 import com.surimap.feature.bootstrap.ui.AuthBootstrapFailureReason
 import com.surimap.feature.bootstrap.ui.AuthBootstrapOutcome
@@ -22,6 +27,8 @@ import com.surimap.feature.handover.ui.sampleDutyHandoverState
 import com.surimap.feature.handover.ui.sampleHandoverMemoState
 import com.surimap.feature.incidents.ui.IncidentListScreen
 import com.surimap.feature.incidents.ui.sampleIncidentListState
+import com.surimap.feature.marker.ui.MarkerDetailPhotoStatus
+import com.surimap.feature.marker.ui.MarkerDetailPhotoUiState
 import com.surimap.feature.marker.ui.MarkerDetailScreen
 import com.surimap.feature.marker.ui.sampleMarkerDetailState
 import com.surimap.feature.offline.ui.OfflinePackageScreen
@@ -34,6 +41,7 @@ import com.surimap.feature.search.ui.SearchMapUiState
 import com.surimap.feature.search.ui.sampleSearchMapState
 import com.surimap.ui.theme.PoliBgBase
 import com.surimap.ui.theme.SuriMapTheme
+import java.io.File
 
 class DeviceQaActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -194,7 +202,34 @@ private fun DeviceQaScreen(route: DeviceQaRoute) {
             )
 
         DeviceQaRoute.MarkerDetail -> {
+            val context = LocalContext.current
             var state by remember { mutableStateOf(sampleMarkerDetailState()) }
+            var pendingCameraPhotoUri by remember { mutableStateOf<Uri?>(null) }
+            fun addAttachedQaPhoto(labelPrefix: String) {
+                state =
+                    state.copy(
+                        photos =
+                            state.photos +
+                                MarkerDetailPhotoUiState(
+                                    photoId = "qa-photo-${System.currentTimeMillis()}",
+                                    label = "$labelPrefix ${state.photos.size + 1}",
+                                    status = MarkerDetailPhotoStatus.Attached
+                                )
+                    )
+            }
+            val photoCapture =
+                rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { captured ->
+                    pendingCameraPhotoUri = null
+                    if (captured) {
+                        addAttachedQaPhoto("촬영 사진")
+                    }
+                }
+            val photoPicker =
+                rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+                    if (uri != null) {
+                        addAttachedQaPhoto("앨범 사진")
+                    }
+                }
             MarkerDetailScreen(
                 state = state,
                 onBack = {},
@@ -203,8 +238,13 @@ private fun DeviceQaScreen(route: DeviceQaRoute) {
                 onRequestDelete = { state = state.copy(showDeleteConfirm = true) },
                 onDismissDelete = { state = state.copy(showDeleteConfirm = false) },
                 onConfirmDelete = {},
-                onCapturePhoto = {},
-                onPickPhoto = {},
+                onCapturePhoto = {
+                    context.createQaMarkerPhotoCaptureUri(state.markerId)?.let { uri ->
+                        pendingCameraPhotoUri = uri
+                        photoCapture.launch(uri)
+                    }
+                },
+                onPickPhoto = { photoPicker.launch("image/*") },
                 onRetryPhoto = {}
             )
         }
@@ -217,3 +257,14 @@ private fun DeviceQaScreen(route: DeviceQaRoute) {
             )
     }
 }
+
+private fun android.content.Context.createQaMarkerPhotoCaptureUri(markerId: String): Uri? =
+    runCatching {
+        val imageDir = File(cacheDir, "marker-photos").apply { mkdirs() }
+        val safeMarkerId =
+            markerId
+                .filter { char -> char.isLetterOrDigit() || char == '-' || char == '_' }
+                .ifBlank { "qa-marker" }
+        val imageFile = File.createTempFile("qa-marker-$safeMarkerId-", ".jpg", imageDir)
+        FileProvider.getUriForFile(this, "$packageName.fileprovider", imageFile)
+    }.getOrNull()

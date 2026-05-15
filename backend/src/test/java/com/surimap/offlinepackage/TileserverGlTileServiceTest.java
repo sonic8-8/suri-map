@@ -227,10 +227,10 @@ class TileserverGlTileServiceTest {
     byte[] glyphBytes = new byte[] {0x1a, 0x02, 0x08, 0x01};
     server
         .expect(
-            requestTo("http://tileserver-gl:8080/fonts/Noto%20Sans%20CJK%20KR%20Regular/0-255.pbf"))
+            requestTo("http://tileserver-gl:8080/fonts/Noto%20Sans%20Regular/0-255.pbf"))
         .andRespond(withSuccess(glyphBytes, APPLICATION_X_PROTOBUF));
 
-    TileBlobResponse glyph = tileService.getGlyph("Noto Sans CJK KR Regular", "0-255");
+    TileBlobResponse glyph = tileService.getGlyph("Noto Sans Regular", "0-255");
 
     assertThat(glyph.contentType()).isEqualTo(APPLICATION_X_PROTOBUF);
     assertThat(glyph.bytes()).isEqualTo(glyphBytes);

@@ -22,7 +22,7 @@ Prepare the EC2 directory with this shape:
 │  ├─ osm-local.mbtiles
 │  └─ gwangju-building-labels.mbtiles
 ├─ fonts/
-│  └─ Noto Sans CJK KR Regular/
+│  └─ Noto Sans Regular/
 │     ├─ 0-255.pbf
 │     └─ ...
 └─ styles/
@@ -80,7 +80,7 @@ local glyph PBF files. Put Korean-capable glyphs under the font stack directory
 referenced by `style.json`, currently:
 
 ```text
-/home/ubuntu/infra/tileserver/fonts/Noto Sans CJK KR Regular/
+/home/ubuntu/infra/tileserver/fonts/Noto Sans Regular/
 ```
 
 The public Suri-Map tile contract remains:
