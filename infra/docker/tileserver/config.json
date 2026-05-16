@@ -8,7 +8,7 @@
     },
     "frontPage": false,
     "serveAllStyles": false,
-    "serveAllFonts": false,
+    "serveAllFonts": true,
     "serveStaticMaps": false,
     "allowRemoteMarkerIcons": false,
     "pbfAlias": "pbf"
