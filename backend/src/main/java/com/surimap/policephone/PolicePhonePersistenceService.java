@@ -76,7 +76,6 @@ public class PolicePhonePersistenceService
   public FcmTokenRow registerFcmToken(
       UUID policePhoneId, String accountId, String appInstanceId, String token) {
     PolicePhoneStateRow phone = registeredPhone(policePhoneId);
-    activeAssignment(policePhoneId);
     if (!phone.accountId().toString().equals(accountId)) {
       throw new PolicePhoneNotAssignedException();
     }
