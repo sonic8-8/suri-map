@@ -228,6 +228,7 @@
     {
       "username": "acct-precinct-cmd",
       "enabled": true,
+      "email": "acct-precinct-cmd@suri-map.local",
       "emailVerified": true,
       "firstName": "Precinct",
       "lastName": "Command",
@@ -262,6 +263,7 @@
     {
       "username": "acct-precinct-car",
       "enabled": true,
+      "email": "acct-precinct-car@suri-map.local",
       "emailVerified": true,
       "firstName": "Precinct",
       "lastName": "Patrol",
@@ -296,6 +298,7 @@
     {
       "username": "acct-precinct-team",
       "enabled": true,
+      "email": "acct-precinct-team@suri-map.local",
       "emailVerified": true,
       "firstName": "Precinct",
       "lastName": "Team",
@@ -330,6 +333,7 @@
     {
       "username": "acct-cmd-alpha",
       "enabled": true,
+      "email": "acct-cmd-alpha@suri-map.local",
       "emailVerified": true,
       "firstName": "Alpha",
       "lastName": "Command",
@@ -365,6 +369,7 @@
     {
       "username": "acct-team-alpha",
       "enabled": true,
+      "email": "acct-team-alpha@suri-map.local",
       "emailVerified": true,
       "firstName": "Alpha",
       "lastName": "Team",
@@ -399,6 +404,7 @@
     {
       "username": "acct-support-cmd",
       "enabled": true,
+      "email": "acct-support-cmd@suri-map.local",
       "emailVerified": true,
       "firstName": "Support",
       "lastName": "Command",
@@ -433,6 +439,7 @@
     {
       "username": "acct-support-car",
       "enabled": true,
+      "email": "acct-support-car@suri-map.local",
       "emailVerified": true,
       "firstName": "Support",
       "lastName": "Patrol",
@@ -467,6 +474,7 @@
     {
       "username": "acct-support-team",
       "enabled": true,
+      "email": "acct-support-team@suri-map.local",
       "emailVerified": true,
       "firstName": "Support",
       "lastName": "Team",

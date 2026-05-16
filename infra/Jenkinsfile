@@ -501,6 +501,36 @@ EOF
                           done
                         done
                         echo "keycloak_suri_map_claim_mappers=ready"
+
+                        ensure_demo_user_profile() {
+                          username="$1"
+                          email="${username}@suri-map.local"
+                          user_id=$(/opt/keycloak/bin/kcadm.sh get users \
+                            -r suri-map \
+                            -q username="${username}" \
+                            --fields id \
+                            --format csv \
+                            --noquotes | tail -n 1)
+                          test -n "${user_id}"
+                          /opt/keycloak/bin/kcadm.sh update "users/${user_id}" \
+                            -r suri-map \
+                            -s "email=${email}" \
+                            -s "emailVerified=true" \
+                            -s "requiredActions=[]" >/dev/null
+                        }
+
+                        for username in \
+                          acct-precinct-cmd \
+                          acct-precinct-car \
+                          acct-precinct-team \
+                          acct-cmd-alpha \
+                          acct-team-alpha \
+                          acct-support-cmd \
+                          acct-support-car \
+                          acct-support-team; do
+                          ensure_demo_user_profile "${username}"
+                        done
+                        echo "keycloak_demo_user_profiles=ready"
                       '
 
                     if docker exec suri-map-frontend wget -qO- http://keycloak:8080/keycloak/realms/master/.well-known/openid-configuration | grep -q '"issuer"'; then
