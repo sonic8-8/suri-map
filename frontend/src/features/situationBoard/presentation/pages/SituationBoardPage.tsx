@@ -55,6 +55,10 @@ export function SituationBoardPage({
 }: SituationBoardPageProps) {
   const areaIncidentListNavigationHandlerRef = useRef<(() => void) | null>(null);
   const [focusedMarkerRequest, setFocusedMarkerRequest] = useState({ markerId: null as string | null, sequence: 0 });
+  const [focusedSearchAreaRequest, setFocusedSearchAreaRequest] = useState({
+    searchAreaId: null as string | null,
+    sequence: 0,
+  });
   const [handoverMapProps, setHandoverMapProps] = useState<HandoverComparisonMapSharedProps | null>(null);
   const handleAreaIncidentListNavigationChange = useCallback((handler: (() => void) | null) => {
     areaIncidentListNavigationHandlerRef.current = handler;
@@ -71,6 +75,13 @@ export function SituationBoardPage({
     refreshVersion,
     savedAreaDrafts,
   });
+  const handleSelectSearchAreaFromPanel = useCallback(
+    (searchAreaId: string) => {
+      boardState.toggleSelectedSearchArea(searchAreaId);
+      setFocusedSearchAreaRequest((current) => ({ searchAreaId, sequence: current.sequence + 1 }));
+    },
+    [boardState],
+  );
   const incidentTerminal = boardState.apiBoard ? toIncidentTerminal(boardState.apiBoard) : null;
   const isClosedTerminalBoard = isIncidentTerminalClosed(incidentTerminal);
   const activeTab = isClosedTerminalBoard
@@ -202,7 +213,7 @@ export function SituationBoardPage({
             onToggleCollapsed={boardState.toggleLeftPanelCollapsed}
             onToggleLayer={boardState.toggleLayer}
             onToggleMarkerType={boardState.toggleMarkerType}
-            onSelectSearchArea={boardState.toggleSelectedSearchArea}
+            onSelectSearchArea={handleSelectSearchAreaFromPanel}
             onSelectMarker={handleSelectMarker}
             onOpenAreaEdit={boardState.openAreaWorkspace}
           />
@@ -218,6 +229,8 @@ export function SituationBoardPage({
           recentMarkers={isClosedTerminalBoard || isHandoverMapMode ? [] : boardState.mapRecentMarkers}
           focusedMarkerId={isClosedTerminalBoard || isHandoverMapMode ? null : focusedMarkerRequest.markerId}
           focusedMarkerSequence={focusedMarkerRequest.sequence}
+          focusedSearchAreaId={isClosedTerminalBoard || isHandoverMapMode ? null : focusedSearchAreaRequest.searchAreaId}
+          focusedSearchAreaSequence={focusedSearchAreaRequest.sequence}
           visibleMarkerIds={isClosedTerminalBoard || isHandoverMapMode ? [] : boardState.visibleMarkerIds}
           savedAreaDrafts={isClosedTerminalBoard ? [] : boardState.board.searchAreaDrafts}
           areaEditMapProps={

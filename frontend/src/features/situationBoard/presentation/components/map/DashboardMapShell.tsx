@@ -24,6 +24,8 @@ type DashboardMapShellProps = {
   recentMarkers: RecentMarker[];
   focusedMarkerId: string | null;
   focusedMarkerSequence: number;
+  focusedSearchAreaId: string | null;
+  focusedSearchAreaSequence: number;
   visibleMarkerIds: string[];
   savedAreaDrafts: CompletedAreaDraft[];
   onInitialMapStateChange: (state: InitialMapState | null) => void;
@@ -45,6 +47,8 @@ export function DashboardMapShell({
   recentMarkers,
   focusedMarkerId,
   focusedMarkerSequence,
+  focusedSearchAreaId,
+  focusedSearchAreaSequence,
   visibleMarkerIds,
   savedAreaDrafts,
   onInitialMapStateChange,
@@ -122,6 +126,8 @@ export function DashboardMapShell({
           recentMarkers={recentMarkers}
           focusedMarkerId={focusedMarkerId}
           focusedMarkerSequence={focusedMarkerSequence}
+          focusedSearchAreaId={focusedSearchAreaId}
+          focusedSearchAreaSequence={focusedSearchAreaSequence}
           visibleMarkerIds={visibleMarkerIds}
           savedAreaDrafts={savedAreaDrafts}
           onInitialBoundsReady={handleInitialBoundsReady}

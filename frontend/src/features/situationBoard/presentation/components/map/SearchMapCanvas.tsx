@@ -44,6 +44,8 @@ import styles from './SearchMapCanvas.module.css';
 const DEFAULT_GWANGJU_CENTER: [number, number] = [126.8325, 35.1547];
 const GWANGJU_BBOX: [number, number, number, number] = [126.647507, 35.052595, 127.017482, 35.256837];
 const DEFAULT_FIT_PADDING = 44;
+const FOCUSED_SEARCH_AREA_FIT_PADDING = 72;
+const FOCUSED_SEARCH_AREA_FIT_MAX_ZOOM = 16;
 const ENABLE_LOCAL_ROUTE_EDITOR = false;
 const ROUTE_EDITOR_SOURCE_ID = 'dev-route-editor-draft';
 const ROUTE_EDITOR_LINE_LAYER_ID = 'dev-route-editor-draft-line';
@@ -236,6 +238,23 @@ function getAssignedSearchAreaBounds(searchAreas: OperationalFeatureCollection):
     features: searchAreas.features.filter((feature) => feature.geometry.type === 'Polygon'),
   };
   return getFeatureCollectionBounds(availableSearchAreas);
+}
+
+function getSearchAreaBoundsById(
+  searchAreas: OperationalFeatureCollection,
+  searchAreaId: string,
+): LngLatBoundsLike | null {
+  const searchArea = searchAreas.features.find(
+    (feature) => feature.properties.entityId === searchAreaId && feature.geometry.type === 'Polygon',
+  );
+  if (!searchArea) {
+    return null;
+  }
+
+  return getFeatureCollectionBounds({
+    type: 'FeatureCollection',
+    features: [searchArea],
+  });
 }
 
 function resolveInitialMapView(
@@ -592,6 +611,8 @@ type SearchMapCanvasProps = {
   recentMarkers: RecentMarker[];
   focusedMarkerId: string | null;
   focusedMarkerSequence: number;
+  focusedSearchAreaId: string | null;
+  focusedSearchAreaSequence: number;
   visibleMarkerIds: string[];
   savedAreaDrafts: CompletedAreaDraft[];
   onInitialBoundsReady?: (bounds: LngLatBoundsLike | null) => void;
@@ -611,6 +632,8 @@ export function SearchMapCanvas({
   recentMarkers,
   focusedMarkerId,
   focusedMarkerSequence,
+  focusedSearchAreaId,
+  focusedSearchAreaSequence,
   visibleMarkerIds,
   savedAreaDrafts,
   onInitialBoundsReady,
@@ -780,6 +803,40 @@ export function SearchMapCanvas({
       essential: true,
     });
   }, [focusedMarkerId, focusedMarkerSequence, recentMarkers]);
+
+  useEffect(() => {
+    if (!focusedSearchAreaId) {
+      return;
+    }
+
+    const map = mapRef.current;
+    if (!map) {
+      return;
+    }
+
+    const focusSearchArea = () => {
+      const bounds = getSearchAreaBoundsById(assignedSearchAreas, focusedSearchAreaId);
+      if (!bounds) {
+        return;
+      }
+
+      map.fitBounds(bounds, {
+        padding: FOCUSED_SEARCH_AREA_FIT_PADDING,
+        duration: 520,
+        maxZoom: FOCUSED_SEARCH_AREA_FIT_MAX_ZOOM,
+      });
+    };
+
+    if (map.loaded()) {
+      focusSearchArea();
+      return;
+    }
+
+    map.once('load', focusSearchArea);
+    return () => {
+      map.off('load', focusSearchArea);
+    };
+  }, [assignedSearchAreas, focusedSearchAreaId, focusedSearchAreaSequence]);
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {

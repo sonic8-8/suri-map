@@ -17,6 +17,8 @@ type SituationBoardMapProps = {
   recentMarkers: RecentMarker[];
   focusedMarkerId: string | null;
   focusedMarkerSequence: number;
+  focusedSearchAreaId: string | null;
+  focusedSearchAreaSequence: number;
   visibleMarkerIds: string[];
   savedAreaDrafts: CompletedAreaDraft[];
   areaEditMapProps?: AreaEditMapCanvasProps | null;
@@ -38,6 +40,8 @@ export function SituationBoardMap({
   recentMarkers,
   focusedMarkerId,
   focusedMarkerSequence,
+  focusedSearchAreaId,
+  focusedSearchAreaSequence,
   visibleMarkerIds,
   savedAreaDrafts,
   areaEditMapProps,
@@ -60,6 +64,8 @@ export function SituationBoardMap({
         recentMarkers={recentMarkers}
         focusedMarkerId={focusedMarkerId}
         focusedMarkerSequence={focusedMarkerSequence}
+        focusedSearchAreaId={focusedSearchAreaId}
+        focusedSearchAreaSequence={focusedSearchAreaSequence}
         visibleMarkerIds={visibleMarkerIds}
         savedAreaDrafts={savedAreaDrafts}
         areaEditMapProps={areaEditMapProps}
