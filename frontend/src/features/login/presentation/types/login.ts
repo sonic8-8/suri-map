@@ -14,8 +14,3 @@ export type LoginAccount = {
   roles: LoginRole[];
   description: string;
 };
-
-export type LoginFormValues = {
-  username: string;
-  password: string;
-};

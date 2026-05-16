@@ -32,10 +32,7 @@ type OpenAssignedIncidentEventStreamOptions = {
   onMessage: (message: EventStreamMessage) => void;
 };
 
-export async function openAssignedIncidentEventStream({
-  onMessage,
-  signal,
-}: OpenAssignedIncidentEventStreamOptions) {
+export async function openAssignedIncidentEventStream({ onMessage, signal }: OpenAssignedIncidentEventStreamOptions) {
   const baseUrl = getApiBaseUrl().replace(/\/$/, '');
   await openEventStream(`${baseUrl}/incidents/events`, {}, onMessage, signal);
 }
@@ -51,12 +48,7 @@ export async function openIncidentEventStream({
   if (lastEventId) {
     headers['Last-Event-ID'] = lastEventId;
   }
-  await openEventStream(
-    `${baseUrl}/incidents/${encodeURIComponent(incidentId)}/events`,
-    headers,
-    onMessage,
-    signal,
-  );
+  await openEventStream(`${baseUrl}/incidents/${encodeURIComponent(incidentId)}/events`, headers, onMessage, signal);
 }
 
 async function openEventStream(
@@ -159,7 +151,9 @@ function dispatchSseFrame(frame: string, onMessage: (message: EventStreamMessage
 
 function clearExpiredApiSession() {
   sessionStorage.removeItem('suriMapAccessToken');
+  sessionStorage.removeItem('suriMapIdToken');
   sessionStorage.removeItem('suriMapCurrentAccount');
   sessionStorage.removeItem('suriMapSessionId');
+  sessionStorage.removeItem('suriMapTokenExpiresAt');
   window.dispatchEvent(new CustomEvent(API_UNAUTHORIZED_EVENT));
 }
