@@ -4,6 +4,7 @@ import com.surimap.account.repository.AccountLoginMapper;
 import com.surimap.account.service.AuthSessionService;
 import com.surimap.policephone.PolicePhonePersistenceService;
 import java.time.Clock;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
@@ -13,6 +14,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 public class AuthConfig {
 
   @Bean
+  @ConditionalOnProperty(
+      prefix = "surimap.auth",
+      name = "legacy-session-enabled",
+      havingValue = "true")
   AuthSessionService authSessionService(
       AccountLoginMapper accountLoginMapper,
       PolicePhonePersistenceService policePhonePersistenceService,
