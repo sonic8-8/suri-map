@@ -15,7 +15,7 @@ import {
   type BoardMapMarker,
   type BoardMovementPath,
 } from '../../../../shared/model/boardMapSlots';
-import { getRouteCoreColor } from '../../../../shared/model/boardMapFeatures';
+import { applyRouteColorsByAssignee, getRouteCoreColor } from '../../../../shared/model/boardMapFeatures';
 import { type IncidentBoardResponse, type BoardSlotName } from '../../../board/api/incidentBoardApi';
 import styles from './HandoverComparisonMap.module.css';
 
@@ -377,12 +377,11 @@ function createComparisonFeatureCollections(
   const areaRows = readSlotRows(board, 'area').filter((row) => rowBelongsToSelectedOp(row, selectedOpIdSet));
   const areaVisualStylesByAreaId = createAreaVisualStylesByAreaId([...overallRows, ...areaRows]);
   const routeColorsByAssignee = createRouteColorsByAssignee(areaRows, areaVisualStylesByAreaId);
-  const paths = createBoardMovementPaths(board)
-    .filter((path) => rowBelongsToSelectedOpId(path.opId, selectedOpIdSet))
-    .map((path) => ({
-      ...path,
-      routeColor: resolveRouteColor(path, routeColorsByAssignee.accountId, routeColorsByAssignee.policePhoneId),
-    }));
+  const paths = applyRouteColorsByAssignee(
+    createBoardMovementPaths(board),
+    routeColorsByAssignee.accountId,
+    routeColorsByAssignee.policePhoneId,
+  ).filter((path) => rowBelongsToSelectedOpId(path.opId, selectedOpIdSet));
   const markers = createBoardMapMarkers(board).filter((marker) => rowBelongsToSelectedOpId(marker.opId, selectedOpIdSet));
 
   return {
@@ -594,18 +593,6 @@ function createRouteColorsByAssignee(
   });
 
   return { accountId: routeColorsByAccountId, policePhoneId: routeColorsByPolicePhoneId };
-}
-
-function resolveRouteColor(
-  path: BoardMovementPath,
-  routeColorsByAccountId: ReadonlyMap<string, string>,
-  routeColorsByPolicePhoneId: ReadonlyMap<string, string>,
-) {
-  const accountRouteColor = path.accountId ? routeColorsByAccountId.get(path.accountId) : undefined;
-  if (accountRouteColor) return accountRouteColor;
-
-  const phoneRouteColor = path.policePhoneId ? routeColorsByPolicePhoneId.get(path.policePhoneId) : undefined;
-  return phoneRouteColor ?? path.routeColor;
 }
 
 function getOpColor(opId: string | null, selectedOpIds: string[]) {

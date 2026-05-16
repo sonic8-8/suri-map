@@ -32,6 +32,8 @@ type MovementPathFeatureOptions = {
   includeLabel?: boolean;
 };
 
+const routeFallbackPalette = Object.values(areaColorTokens).map((token) => token.lineColor);
+
 const defaultAreaColorByLevel: Record<CompletedAreaDraft['kind'], AreaColorToken> = {
   overall: 'areaColor001',
   unit: 'areaColor002',
@@ -105,7 +107,7 @@ export function applyRouteColorsByAssignee(
 ): BoardMovementPath[] {
   return movementPaths.map((path) => ({
     ...path,
-    routeColor: resolveRouteColor(path, routeColorsByAccountId, routeColorsByPolicePhoneId),
+    routeColor: resolveRouteColor(path, routeColorsByAccountId, routeColorsByPolicePhoneId) ?? getFallbackRouteColor(path),
   }));
 }
 
@@ -175,6 +177,15 @@ function resolveRouteColor(
   if (accountRouteColor) return accountRouteColor;
 
   return path.policePhoneId ? routeColorsByPolicePhoneId.get(path.policePhoneId) ?? null : null;
+}
+
+function getFallbackRouteColor(path: BoardMovementPath) {
+  const routeKey = path.policePhoneId ?? path.accountId ?? path.id;
+  return routeFallbackPalette[hashString(routeKey) % routeFallbackPalette.length];
+}
+
+function hashString(value: string) {
+  return Array.from(value).reduce((hash, char) => (hash * 31 + char.charCodeAt(0)) >>> 0, 17);
 }
 
 function createSearchAreaDraftFeature(
