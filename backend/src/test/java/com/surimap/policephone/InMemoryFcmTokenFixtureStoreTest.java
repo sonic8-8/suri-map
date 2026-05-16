@@ -1,8 +1,6 @@
 package com.surimap.policephone;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -66,14 +64,22 @@ class InMemoryFcmTokenFixtureStoreTest {
   }
 
   @Test
-  @DisplayName("unassigned police phone은 FCM token fixture 등록을 거부한다")
-  void rejects_registration_for_unassigned_police_phone() {
-    assertThatThrownBy(
-            () ->
-                fixtureStore.registerFcmToken(
-                    PolicePhoneFixtures.REGISTERED_UNASSIGNED_POLICE_PHONE_ID,
-                    "app-instance-unassigned-301",
-                    "fcm-token-unassigned-301"))
-        .isInstanceOf(com.surimap.common.auth.guard.PolicePhoneNotAssignedException.class);
+  @DisplayName("registered but unassigned police phone도 배정 수신을 위해 FCM token fixture를 등록한다")
+  void registers_token_for_unassigned_registered_police_phone() {
+    var registered =
+        fixtureStore.registerFcmToken(
+            PolicePhoneFixtures.REGISTERED_UNASSIGNED_POLICE_PHONE_ID,
+            "app-instance-unassigned-301",
+            "fcm-token-unassigned-301");
+
+    assertThat(fixtureStore.activeByPolicePhone(PolicePhoneFixtures.REGISTERED_UNASSIGNED_POLICE_PHONE_ID))
+        .singleElement()
+        .satisfies(
+            row -> {
+              assertThat(row.id()).isEqualTo(registered.id());
+              assertThat(row.appInstanceId()).isEqualTo("app-instance-unassigned-301");
+              assertThat(row.tokenCiphertext()).isEqualTo("cipher:fcm-token-unassigned-301");
+              assertThat(row.status()).isEqualTo(FcmTokenStatus.ACTIVE);
+            });
   }
 }

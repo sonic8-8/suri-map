@@ -1,5 +1,8 @@
 <resources>
     <string name="app_name">Suri-Map</string>
+    <string name="notification_incident_assignment_channel">사건 배정</string>
+    <string name="notification_incident_assignment_title">사건을 배정받았습니다</string>
+    <string name="notification_incident_assignment_text">새 배정 사건을 확인하세요</string>
     <string name="restriction_police_phone_id_title">폴리폰 ID</string>
     <string name="restriction_police_phone_id_description">관리 콘솔에서 배정한 폴리폰 식별값</string>
     <string name="restriction_api_base_url_title">내부망 API URL</string>

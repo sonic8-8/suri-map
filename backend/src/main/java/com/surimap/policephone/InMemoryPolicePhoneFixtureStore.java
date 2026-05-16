@@ -145,9 +145,6 @@ public class InMemoryPolicePhoneFixtureStore
     if (fixture == null) {
       throw new PolicePhoneNotRegisteredException();
     }
-    if (!fixture.assigned()) {
-      throw new PolicePhoneNotAssignedException();
-    }
 
     String key = activeTokenKey(policePhoneId, appInstanceId);
     UUID existingId = activeTokenIdsByPhoneAndInstance.remove(key);
