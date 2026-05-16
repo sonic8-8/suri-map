@@ -10,16 +10,12 @@ class SuriMapFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
-        val eventType = message.data["type"] ?: message.data["eventType"] ?: return
-        if (eventType != "INCIDENT_CREATED" && eventType != "INCIDENT_ASSIGNMENT_CHANGED") {
-            return
-        }
-        val incidentId = message.data["incidentId"].orEmpty()
+        val refresh = IncidentAssignmentFcmRouter.refreshPayload(message.data) ?: return
         sendBroadcast(
             Intent(IncidentAssignmentRefreshSignal.Action)
                 .setPackage(packageName)
-                .putExtra(IncidentAssignmentRefreshSignal.ExtraEventType, eventType)
-                .putExtra(IncidentAssignmentRefreshSignal.ExtraIncidentId, incidentId)
+                .putExtra(IncidentAssignmentRefreshSignal.ExtraEventType, refresh.eventType)
+                .putExtra(IncidentAssignmentRefreshSignal.ExtraIncidentId, refresh.incidentId)
         )
     }
 }
