@@ -42,9 +42,15 @@ services:
     image: ${MOCK_112_IMAGE:-suri-map-mock-112:develop}
     container_name: suri-map-mock-112
     restart: unless-stopped
+    depends_on:
+      mock112-postgres:
+        condition: service_healthy
     environment:
       SERVER_PORT: 18112
       TZ: Asia/Seoul
+      SPRING_DATASOURCE_URL: jdbc:postgresql://mock112-postgres:5432/${MOCK112_POSTGRES_DB:-mock112}
+      SPRING_DATASOURCE_USERNAME: ${MOCK112_POSTGRES_USER:-mock112}
+      SPRING_DATASOURCE_PASSWORD: ${MOCK112_POSTGRES_PASSWORD:-mock112}
       SURI_MAP_WEBHOOK_ENABLED: ${SURI_MAP_WEBHOOK_ENABLED:-true}
       SURI_MAP_WEBHOOK_URL: ${SURI_MAP_WEBHOOK_URL:-http://backend:8080/api/internal/mock-112/events}
       SURI_MAP_WEBHOOK_SECRET: ${MOCK_112_WEBHOOK_SECRET:-}
@@ -58,6 +64,7 @@ services:
       start_period: 20s
     networks:
       - web_net
+      - db_net
 
   backend:
     image: ${BACKEND_IMAGE:-suri-map-backend:develop}
@@ -116,8 +123,31 @@ services:
     networks:
       - db_net
 
+  mock112-postgres:
+    image: postgres:16-alpine
+    container_name: suri-map-mock112-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${MOCK112_POSTGRES_DB:-mock112}
+      POSTGRES_USER: ${MOCK112_POSTGRES_USER:-mock112}
+      POSTGRES_PASSWORD: ${MOCK112_POSTGRES_PASSWORD:-mock112}
+      TZ: Asia/Seoul
+    ports:
+      - "127.0.0.1:${MOCK112_POSTGRES_HOST_PORT:-15433}:5432"
+    volumes:
+      - suri_map_mock112_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${MOCK112_POSTGRES_USER:-mock112} -d ${MOCK112_POSTGRES_DB:-mock112}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - db_net
+
 volumes:
   suri_map_postgis_data:
+  suri_map_mock112_postgres_data:
 
 networks:
   web_net:

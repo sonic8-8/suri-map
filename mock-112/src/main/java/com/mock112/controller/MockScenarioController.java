@@ -3,7 +3,7 @@ package com.mock112.controller;
 import com.mock112.domain.MockAssignment;
 import com.mock112.domain.MockIncident;
 import com.mock112.seed.SeedDataLoader;
-import com.mock112.store.InMemoryIncidentStore;
+import com.mock112.store.MockIncidentStore;
 import com.mock112.webhook.SuriMapWebhookDispatcher;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -23,12 +23,12 @@ import java.util.Map;
 @RequestMapping("/mock-112")
 public class MockScenarioController {
 
-    private final InMemoryIncidentStore store;
+    private final MockIncidentStore store;
     private final SeedDataLoader seedDataLoader;
     private final SuriMapWebhookDispatcher webhookDispatcher;
 
     public MockScenarioController(
-            InMemoryIncidentStore store,
+            MockIncidentStore store,
             SeedDataLoader seedDataLoader,
             SuriMapWebhookDispatcher webhookDispatcher) {
         this.store = store;
