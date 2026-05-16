@@ -1,0 +1,348 @@
+{
+  "realm": "suri-map",
+  "displayName": "Suri-Map",
+  "enabled": true,
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "loginWithEmailAllowed": false,
+  "roles": {
+    "realm": [
+      {
+        "name": "MISSING_TEAM_COMMANDER",
+        "description": "Missing team command account"
+      },
+      {
+        "name": "FIELD_COMMANDER",
+        "description": "Field command account"
+      },
+      {
+        "name": "MEMBER",
+        "description": "Field member account"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "suri-map-web",
+      "name": "Suri-Map Web",
+      "description": "Web command dashboard public client",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "frontchannelLogout": true,
+      "redirectUris": [
+        "https://k14c106.p.ssafy.io/*",
+        "http://localhost:3000/*",
+        "http://localhost:5173/*",
+        "http://127.0.0.1:5173/*"
+      ],
+      "webOrigins": [
+        "https://k14c106.p.ssafy.io",
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      }
+    },
+    {
+      "clientId": "suri-map-android",
+      "name": "Suri-Map Android",
+      "description": "Android field app public client",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "com.surimap://auth/callback",
+        "surimap://auth/callback"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      }
+    }
+  ],
+  "users": [
+    {
+      "username": "acct-precinct-cmd",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Precinct",
+      "lastName": "Command",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "fixture",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "FIELD_COMMANDER"
+      ],
+      "attributes": {
+        "accountId": [
+          "11111111-1111-1111-1111-111111110001"
+        ],
+        "accountType": [
+          "COMMAND"
+        ],
+        "organizationType": [
+          "POLICE_SUBSTATION"
+        ],
+        "policePhoneId": [
+          "00000000-0000-0000-0000-000000000201"
+        ],
+        "policePhoneCode": [
+          "dev-precinct-cmd-phone-01"
+        ]
+      }
+    },
+    {
+      "username": "acct-precinct-car",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Precinct",
+      "lastName": "Patrol",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "fixture",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "MEMBER"
+      ],
+      "attributes": {
+        "accountId": [
+          "11111111-1111-1111-1111-111111110002"
+        ],
+        "accountType": [
+          "PATROL_CAR"
+        ],
+        "organizationType": [
+          "POLICE_SUBSTATION"
+        ],
+        "policePhoneId": [
+          "50000000-0000-0000-0000-000000000001"
+        ],
+        "policePhoneCode": [
+          "dev-precinct-car-01"
+        ]
+      }
+    },
+    {
+      "username": "acct-precinct-team",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Precinct",
+      "lastName": "Team",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "fixture",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "MEMBER"
+      ],
+      "attributes": {
+        "accountId": [
+          "11111111-1111-1111-1111-111111110003"
+        ],
+        "accountType": [
+          "TEAM"
+        ],
+        "organizationType": [
+          "POLICE_SUBSTATION"
+        ],
+        "policePhoneId": [
+          "00000000-0000-0000-0000-000000000101"
+        ],
+        "policePhoneCode": [
+          "dev-precinct-phone-01"
+        ]
+      }
+    },
+    {
+      "username": "acct-cmd-alpha",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Alpha",
+      "lastName": "Command",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "fixture",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "MISSING_TEAM_COMMANDER",
+        "FIELD_COMMANDER"
+      ],
+      "attributes": {
+        "accountId": [
+          "11111111-1111-1111-1111-111111110004"
+        ],
+        "accountType": [
+          "COMMAND"
+        ],
+        "organizationType": [
+          "MISSING_TEAM"
+        ],
+        "policePhoneId": [
+          "00000000-0000-0000-0000-000000000204"
+        ],
+        "policePhoneCode": [
+          "dev-alpha-cmd-phone-01"
+        ]
+      }
+    },
+    {
+      "username": "acct-team-alpha",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Alpha",
+      "lastName": "Team",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "fixture",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "MEMBER"
+      ],
+      "attributes": {
+        "accountId": [
+          "11111111-1111-1111-1111-111111110005"
+        ],
+        "accountType": [
+          "TEAM"
+        ],
+        "organizationType": [
+          "MISSING_TEAM"
+        ],
+        "policePhoneId": [
+          "00000000-0000-0000-0000-000000000205"
+        ],
+        "policePhoneCode": [
+          "dev-alpha-phone-01"
+        ]
+      }
+    },
+    {
+      "username": "acct-support-cmd",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Support",
+      "lastName": "Command",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "fixture",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "FIELD_COMMANDER"
+      ],
+      "attributes": {
+        "accountId": [
+          "11111111-1111-1111-1111-111111110006"
+        ],
+        "accountType": [
+          "COMMAND"
+        ],
+        "organizationType": [
+          "SUPPORT_UNIT"
+        ],
+        "policePhoneId": [
+          "00000000-0000-0000-0000-000000000206"
+        ],
+        "policePhoneCode": [
+          "dev-support-cmd-phone-01"
+        ]
+      }
+    },
+    {
+      "username": "acct-support-car",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Support",
+      "lastName": "Patrol",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "fixture",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "MEMBER"
+      ],
+      "attributes": {
+        "accountId": [
+          "11111111-1111-1111-1111-111111110007"
+        ],
+        "accountType": [
+          "PATROL_CAR"
+        ],
+        "organizationType": [
+          "SUPPORT_UNIT"
+        ],
+        "policePhoneId": [
+          "00000000-0000-0000-0000-000000000207"
+        ],
+        "policePhoneCode": [
+          "dev-support-car-01"
+        ]
+      }
+    },
+    {
+      "username": "acct-support-team",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Support",
+      "lastName": "Team",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "fixture",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "MEMBER"
+      ],
+      "attributes": {
+        "accountId": [
+          "11111111-1111-1111-1111-111111110008"
+        ],
+        "accountType": [
+          "TEAM"
+        ],
+        "organizationType": [
+          "SUPPORT_UNIT"
+        ],
+        "policePhoneId": [
+          "00000000-0000-0000-0000-000000000208"
+        ],
+        "policePhoneCode": [
+          "dev-support-phone-01"
+        ]
+      }
+    }
+  ]
+}

@@ -400,6 +400,14 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=${env.SPRING_JPA_HIBERNATE_DDL_AUTO}
                       exit 1
                     fi
 
+                    if docker exec suri-map-frontend wget -qO- http://keycloak:8080/realms/suri-map/.well-known/openid-configuration | grep -q '"issuer"'; then
+                      echo "keycloak_suri_map_realm=ready"
+                    else
+                      echo "keycloak_suri_map_realm=missing"
+                      docker logs --tail=200 suri-map-keycloak || true
+                      exit 1
+                    fi
+
                     backend_ready=false
                     for i in $(seq 1 60); do
                       if docker exec suri-map-frontend wget -qO- http://backend:8080/api/health >/dev/null; then
