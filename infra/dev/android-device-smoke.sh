@@ -370,7 +370,10 @@ prepare_tileserver_data() {
     fail "missing $TILESERVER_RUNTIME_DIR/data/gwangju-building-labels.mbtiles. Pass --tile-source or --tiles-dir."
 
   if [[ ! -f "$TILESERVER_RUNTIME_DIR/fonts/Pretendard GOV/0-255.pbf" ]]; then
-    log "warning: missing Pretendard GOV glyph PBF files; Korean map labels may not render"
+    log "generating Pretendard GOV glyph PBF files"
+    bash "$ROOT_DIR/infra/docker/tileserver/scripts/build-pretendard-gov-glyphs.sh" \
+      "$ROOT_DIR/android/app/src/main/res/font/pretendard_gov_variable.ttf" \
+      "$TILESERVER_RUNTIME_DIR/fonts/Pretendard GOV"
   fi
 }
 
