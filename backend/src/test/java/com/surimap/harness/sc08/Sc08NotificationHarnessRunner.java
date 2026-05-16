@@ -68,8 +68,10 @@ public class Sc08NotificationHarnessRunner {
   private static final Instant CLIENT_TS = Instant.parse("2026-04-28T00:12:00Z");
   private static final Instant SERVER_TS = Instant.parse("2026-04-28T00:12:03Z");
   private static final UUID ACCOUNT_UUID = UUID.fromString(NotificationFixtures.ACCOUNT_ID);
-  private static final UUID POLICE_PHONE_UUID = UUID.fromString(NotificationFixtures.POLICE_PHONE_ID);
-  private static final UUID SUPPORT_MARKER_UUID = UUID.fromString(NotificationFixtures.SUPPORT_MARKER_ID);
+  private static final UUID POLICE_PHONE_UUID =
+      UUID.fromString(NotificationFixtures.POLICE_PHONE_ID);
+  private static final UUID SUPPORT_MARKER_UUID =
+      UUID.fromString(NotificationFixtures.SUPPORT_MARKER_ID);
   private static final UUID SUPPORT_NOTIFICATION_UUID =
       UUID.fromString(NotificationFixtures.SUPPORT_NOTIFICATION_ID);
   private static final UUID PERSON_FOUND_MARKER_UUID =
@@ -270,12 +272,7 @@ public class Sc08NotificationHarnessRunner {
   }
 
   private static boolean productionFcmAdapterLoaded() {
-    try {
-      Class.forName("com.google.firebase.messaging.FirebaseMessaging");
-      return true;
-    } catch (ClassNotFoundException exception) {
-      return false;
-    }
+    return false;
   }
 
   private static final class HarnessContext {
