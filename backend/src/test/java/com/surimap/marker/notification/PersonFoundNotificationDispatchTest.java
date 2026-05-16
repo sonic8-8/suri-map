@@ -2,7 +2,6 @@ package com.surimap.marker.notification;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.surimap.marker.notification.adapter.MockFcmDispatcher;
 import com.surimap.marker.notification.adapter.MockFcmDispatcher.CapturedDispatch;
@@ -105,10 +104,19 @@ class PersonFoundNotificationDispatchTest {
   }
 
   @Test
-  @DisplayName("지원하지 않는 외부 push infrastructure를 노출하지 않는다")
-  void doesNotExposeExternalPushInfrastructure() {
-    assertThrows(
-        ClassNotFoundException.class,
-        () -> Class.forName("com.google.firebase.messaging.FirebaseMessaging"));
+  @DisplayName("기본 notification dispatch는 mock FCM 경계에서 capture로 수렴한다")
+  void defaultDispatchUsesMockFcmBoundary() {
+    MockFcmDispatcher dispatcher = new MockFcmDispatcher();
+    SupportRequestNotificationDispatchService service =
+        new SupportRequestNotificationDispatchService(dispatcher);
+
+    BoardToastEvidence toast =
+        service.dispatch(
+            NotificationFixtures.PERSON_FOUND_EVENT_ID,
+            NotificationFixtures.PERSON_FOUND_FCM_RECIPIENTS,
+            NotificationFixtures.personFoundPayload());
+
+    assertThat(toast.type()).isEqualTo("PERSON_FOUND");
+    assertThat(dispatcher.findByEventId(NotificationFixtures.PERSON_FOUND_EVENT_ID)).isPresent();
   }
 }

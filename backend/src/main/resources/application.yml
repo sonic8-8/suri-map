@@ -44,3 +44,11 @@ mock112:
 tileserver:
   mode: ${TILESERVER_MODE:tileserver-gl}
   base-url: ${TILESERVER_BASE_URL:http://tileserver-gl:8080}
+
+fcm:
+  provider: ${FCM_PROVIDER:mock}
+  firebase:
+    credentials-location: ${FIREBASE_CREDENTIALS_LOCATION:}
+    credentials-json-base64: ${FIREBASE_CREDENTIALS_JSON_BASE64:}
+    project-id: ${FIREBASE_PROJECT_ID:}
+    dry-run: ${FIREBASE_FCM_DRY_RUN:false}

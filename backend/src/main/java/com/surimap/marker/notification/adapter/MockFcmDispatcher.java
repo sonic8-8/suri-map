@@ -3,6 +3,7 @@ package com.surimap.marker.notification.adapter;
 import com.surimap.marker.notification.port.FcmDispatcherPort;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 /**
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Component;
  * <p>하네스 시나리오(SC-02, SC-08)에서 mock FCM dispatcher 미수신을 실패로 판정하는 failure injection도 지원한다.
  */
 @Component
+@ConditionalOnProperty(name = "fcm.provider", havingValue = "mock", matchIfMissing = true)
 public class MockFcmDispatcher implements FcmDispatcherPort {
 
   /** 발송된 모든 기록 */
