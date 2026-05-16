@@ -21,8 +21,8 @@ type SituationBoardLeftPanelProps = {
   savedAreaDrafts: CompletedAreaDraft[];
   recentMarkers: RecentMarker[];
   selectedLayerIds: LayerFilterId[];
-  selectedMarkerType: MarkerTypeId | null;
-  selectedSupportRequestType: SupportRequestTypeId | null;
+  selectedMarkerTypes: MarkerTypeId[];
+  selectedSupportRequestTypes: SupportRequestTypeId[];
   onToggleCollapsed: () => void;
   onToggleLayer: (layerId: LayerFilterId) => void;
   onToggleMarkerType: (markerType: MarkerTypeId, supportRequestType?: SupportRequestTypeId) => void;
@@ -39,8 +39,8 @@ export function SituationBoardLeftPanel({
   savedAreaDrafts,
   recentMarkers,
   selectedLayerIds,
-  selectedMarkerType,
-  selectedSupportRequestType,
+  selectedMarkerTypes,
+  selectedSupportRequestTypes,
   onToggleCollapsed,
   onToggleLayer,
   onToggleMarkerType,
@@ -52,6 +52,7 @@ export function SituationBoardLeftPanel({
     isCollapsed,
     onToggleCollapsed,
   });
+  const isMarkerLayerEnabled = selectedLayerIds.includes('marker');
 
   return (
     <aside
@@ -65,7 +66,8 @@ export function SituationBoardLeftPanel({
         aria-label="좌측 패널 접기"
         onClick={onToggleCollapsed}
       >
-        접기
+        <span aria-hidden="true">‹</span>
+        패널 접기
       </button>
       {/* 지도 폭은 유지한 채 좌측 패널 페이지를 선택하거나 현재 페이지를 접고 펼친다. */}
       <div className={styles.indexTabs} aria-label="좌측 패널 페이지">
@@ -112,8 +114,9 @@ export function SituationBoardLeftPanel({
             <MarkerTypeFilter
               markerTypes={board.markerTypes}
               supportMarkerTypes={board.supportMarkerTypes}
-              selectedMarkerType={selectedMarkerType}
-              selectedSupportRequestType={selectedSupportRequestType}
+              selectedMarkerTypes={selectedMarkerTypes}
+              selectedSupportRequestTypes={selectedSupportRequestTypes}
+              disabled={!isMarkerLayerEnabled}
               onToggleMarkerType={onToggleMarkerType}
             />
             <ViewModeSwitch />

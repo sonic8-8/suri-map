@@ -30,9 +30,12 @@ type SituationBoardDataState = {
   board: SituationBoardFallbackData;
   isLoading: boolean;
   isInitialLoading: boolean;
+  isInitialLoadError: boolean;
+  isInitialReconnecting: boolean;
   apiBoard: SituationBoardResponseDto | null;
   isFallback: boolean;
   isOverallSearchAreaMissing: boolean;
+  retryInitialLoad: () => void;
 };
 
 export function useSituationBoardData(
@@ -48,6 +51,7 @@ export function useSituationBoardData(
 
   const boardQuery = useIncidentBoardQuery({ incidentId });
   const apiBoard = (boardQuery.data as unknown as SituationBoardResponseDto) ?? null;
+  const hasApiBoard = apiBoard !== null;
 
   // 외부 refreshVersion 변경 시 board 재조회 (구역 저장 등)
   useEffect(() => {
@@ -58,7 +62,7 @@ export function useSituationBoardData(
 
   // SSE: 도메인 이벤트 수신 시 board 재조회
   useEffect(() => {
-    if (!incidentId) return;
+    if (!incidentId || !hasApiBoard) return;
 
     let cancelled = false;
     let activeSubscription: { close(): void } | null = null;
@@ -100,7 +104,7 @@ export function useSituationBoardData(
       cancelled = true;
       activeSubscription?.close();
     };
-  }, [incidentId, queryClient]);
+  }, [incidentId, queryClient, hasApiBoard]);
 
   const board = useMemo<SituationBoardFallbackData>(() => {
     const apiSearchAreaRows = apiBoard ? toSearchAreaRows(apiBoard) : [];
@@ -142,9 +146,14 @@ export function useSituationBoardData(
   return {
     board,
     isLoading: boardQuery.isLoading,
-    isInitialLoading: boardQuery.isLoading && apiBoard === null,
+    isInitialLoading: boardQuery.isLoading && apiBoard === null && !boardQuery.isError,
+    isInitialLoadError: boardQuery.isError && apiBoard === null,
+    isInitialReconnecting: boardQuery.isFetching && apiBoard === null,
     apiBoard,
     isFallback: apiBoard === null,
     isOverallSearchAreaMissing: apiBoard !== null && board.searchAreaDrafts.length === 0,
+    retryInitialLoad: () => {
+      void boardQuery.refetch();
+    },
   };
 }

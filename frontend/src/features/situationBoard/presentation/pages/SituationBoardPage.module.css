@@ -1,0 +1,98 @@
+/* SituationBoardPage 전용 dark navy command dashboard 토큰. */
+.page {
+  --suri-board-page-bg: #07111f;
+  --suri-board-header-bg: #0b1628;
+  --suri-board-panel-bg: #0b1628;
+  --suri-board-panel-surface: #111f35;
+  --suri-board-panel-muted-bg: #172a45;
+  --suri-board-border: rgba(148, 163, 184, 0.16);
+  --suri-board-border-strong: rgba(148, 163, 184, 0.28);
+  --suri-board-left-section-divider: rgba(148, 163, 184, 0.12);
+  --suri-board-fg-primary: #f8fafc;
+  --suri-board-fg-secondary: #cbd5e1;
+  --suri-board-fg-muted: #94a3b8;
+  --suri-board-primary: #1e3a5f;
+  --suri-board-primary-hi: #38bdf8;
+  --suri-board-primary-soft: rgba(30, 58, 95, 0.72);
+  --suri-board-option-default-bg: rgba(17, 31, 53, 0.92);
+  --suri-board-option-default-border: rgba(148, 163, 184, 0.16);
+  --suri-board-option-default-fg: #cbd5e1;
+  --suri-board-left-scrollbar-track: rgba(7, 17, 31, 0.36);
+  --suri-board-left-scrollbar-thumb: rgba(71, 85, 105, 0.7);
+  --suri-board-left-scrollbar-thumb-hover: rgba(100, 116, 139, 0.88);
+  --suri-board-op-scrollbar-track: rgba(7, 17, 31, 0.34);
+  --suri-board-op-scrollbar-thumb: rgba(71, 85, 105, 0.7);
+  --suri-board-op-scrollbar-thumb-hover: rgba(100, 116, 139, 0.88);
+  --suri-board-legend-route: #38bdf8;
+  --suri-board-legend-route-compare: rgba(56, 189, 248, 0.62);
+  --suri-board-legend-device-normal: #22c55e;
+  --suri-board-legend-device-stale: #f59e0b;
+  --suri-board-legend-device-lost: #ef4444;
+  --krds-ops-bg-surface: #0b1628;
+  --krds-ops-border-strong: rgba(148, 163, 184, 0.22);
+  --krds-ops-fg-primary: #f8fafc;
+  --krds-ops-fg-secondary: #cbd5e1;
+  background:
+    radial-gradient(circle at 22% 0%, rgba(37, 99, 235, 0.18), transparent 32%),
+    linear-gradient(180deg, #07111f 0%, #081526 48%, #07111f 100%);
+  color: var(--suri-board-fg-primary);
+}
+
+/* 기존 전역 shell class를 유지하면서 지도 주변 바탕만 남색 톤으로 보정한다. */
+.page :global(.situation-board-shell) {
+  background: #07111f;
+}
+
+.page :global(.situation-board-loading-screen) {
+  background:
+    radial-gradient(circle at 50% 42%, rgba(56, 189, 248, 0.16), transparent 28%),
+    #07111f;
+}
+
+.page :global(.situation-board-loading-spinner) {
+  border-color: rgba(148, 163, 184, 0.22);
+  border-top-color: #38bdf8;
+}
+
+.page :global(.situation-board-load-failure) {
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  max-width: 520px;
+  padding: 32px;
+  text-align: center;
+}
+
+.page :global(.situation-board-load-failure strong) {
+  color: var(--suri-board-fg-primary);
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.page :global(.situation-board-load-failure span) {
+  color: var(--suri-board-fg-secondary);
+  font-size: 20px;
+  line-height: 1.45;
+}
+
+.page :global(.situation-board-reconnect-button) {
+  min-width: 152px;
+  min-height: 56px;
+  border: 1px solid rgba(56, 189, 248, 0.55);
+  border-radius: 8px;
+  background: #0f2f4a;
+  color: #f8fafc;
+  cursor: pointer;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.page :global(.situation-board-reconnect-button:hover:not(:disabled)) {
+  background: #16466f;
+}
+
+.page :global(.situation-board-reconnect-button:disabled) {
+  cursor: wait;
+  opacity: 0.72;
+}

@@ -133,6 +133,7 @@ export function useIncidentBoardQuery(query: IncidentBoardQuery, api: IncidentBo
     queryKey: incidentBoardQueryKeys.detail(query),
     queryFn: () => api.fetchIncidentBoard({ ...query, incidentId: query.incidentId ?? '' }),
     enabled: Boolean(query.incidentId),
+    retry: false,
   });
 }
 
@@ -141,6 +142,7 @@ export function useIncidentBoard(query: IncidentBoardQuery, api: IncidentBoardAp
     queryKey: incidentBoardQueryKeys.detail(query),
     queryFn: () => api.fetchIncidentBoard({ ...query, incidentId: query.incidentId ?? '' }),
     enabled: Boolean(query.incidentId),
+    retry: false,
     select: mapIncidentBoardResponse,
   });
 }

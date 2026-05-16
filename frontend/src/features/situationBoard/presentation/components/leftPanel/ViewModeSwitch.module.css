@@ -1,6 +1,19 @@
-/* 보기 모드 버튼을 2열로 나란히 배치한다. */
+/* 보기 모드 버튼을 2열 segmented control처럼 배치한다. */
 .viewModeSwitch {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 7px;
+  gap: 8px;
+}
+
+.viewModeSwitch > button::after {
+  width: 12px;
+  height: 12px;
+  background:
+    radial-gradient(circle at 50% 50%, transparent 0 4px, rgba(109, 135, 166, 0.9) 5px 6px, transparent 7px);
+  box-shadow: none;
+}
+
+.viewModeSwitch > button[aria-pressed="true"]::after {
+  background:
+    radial-gradient(circle at 50% 50%, #2f8ee8 0 4px, rgba(47, 142, 232, 0.22) 5px 7px, transparent 8px);
 }

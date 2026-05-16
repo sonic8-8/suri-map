@@ -9,6 +9,7 @@ import { SituationBoardLeftPanel } from '../components/leftPanel/SituationBoardL
 import { SituationBoardMap } from '../components/map/SituationBoardMap';
 import type { HandoverComparisonMapSharedProps } from '../../../handover/presentation/components/HandoverComparisonMap';
 import { useSituationBoardPageState } from '../hooks/useSituationBoardPageState';
+import pageStyles from './SituationBoardPage.module.css';
 import { isIncidentTerminalClosed, toIncidentTerminal } from '../utils/incidentTerminalBoardMapper';
 
 const HandoverPage = lazy(() =>
@@ -95,7 +96,7 @@ export function SituationBoardPage({
 
   if (boardState.isInitialLoading) {
     return (
-      <main className="situation-board-page situation-board-page-loading" aria-busy="true">
+      <main className={`situation-board-page situation-board-page-loading ${pageStyles.page}`} aria-busy="true">
         <section className="situation-board-loading-screen" role="status" aria-live="polite" aria-label="Loading">
           <span className="situation-board-loading-spinner" aria-hidden="true" />
         </section>
@@ -103,8 +104,29 @@ export function SituationBoardPage({
     );
   }
 
+  if (boardState.isInitialLoadError) {
+    return (
+      <main className={`situation-board-page situation-board-page-loading ${pageStyles.page}`} aria-busy="false">
+        <section className="situation-board-loading-screen" role="alert" aria-live="assertive">
+          <div className="situation-board-load-failure">
+            <strong>상황판 서버 연결에 실패했습니다.</strong>
+            <span>네트워크 또는 서버 상태를 확인한 뒤 다시 연결하세요.</span>
+            <button
+              type="button"
+              className="situation-board-reconnect-button"
+              disabled={boardState.isInitialReconnecting}
+              onClick={boardState.retryInitialLoad}
+            >
+              {boardState.isInitialReconnecting ? '재연결 중' : '재연결'}
+            </button>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
   return (
-    <main className={`situation-board-page${boardState.isMapExpanded ? ' map-expanded' : ''}`}>
+    <main className={`situation-board-page ${pageStyles.page}${boardState.isMapExpanded ? ' map-expanded' : ''}`}>
       {boardState.isMapExpanded ? null : (
         <SituationBoardHeader
           activeTab={activeTab}
@@ -175,8 +197,8 @@ export function SituationBoardPage({
             recentMarkers={boardState.filteredRecentMarkers}
             savedAreaDrafts={boardState.board.searchAreaDrafts}
             selectedLayerIds={boardState.selectedLayerIds}
-            selectedMarkerType={boardState.selectedMarkerType}
-            selectedSupportRequestType={boardState.selectedSupportRequestType}
+            selectedMarkerTypes={boardState.selectedMarkerTypes}
+            selectedSupportRequestTypes={boardState.selectedSupportRequestTypes}
             onToggleCollapsed={boardState.toggleLeftPanelCollapsed}
             onToggleLayer={boardState.toggleLayer}
             onToggleMarkerType={boardState.toggleMarkerType}

@@ -4,7 +4,8 @@
   display: block;
   height: 100%;
   min-height: 0;
-  padding: 0;
+  padding: 10px 12px 12px 0;
+  background: #07111f;
 }
 
 /* MapLibre 캔버스, 컨트롤, 범례가 같은 좌표계를 공유하는 기준 컨테이너. */
@@ -12,11 +13,30 @@
   position: relative;
   height: 100%;
   min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 16px;
+  background: #0b1628;
+  box-shadow:
+    0 18px 42px rgb(0 0 0 / 30%),
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+.canvasShell::after {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(7, 17, 31, 0.08), transparent 22%, transparent 78%, rgba(7, 17, 31, 0.1)),
+    linear-gradient(90deg, rgba(7, 17, 31, 0.08), transparent 14%, transparent 86%, rgba(7, 17, 31, 0.08));
+  content: '';
 }
 
 @media (max-width: 860px) {
   /* 좁은 화면에서도 지도 셸이 한 칸 레이아웃을 유지하도록 한다. */
   .layout {
     grid-template-columns: 1fr;
+    padding: 8px;
   }
 }

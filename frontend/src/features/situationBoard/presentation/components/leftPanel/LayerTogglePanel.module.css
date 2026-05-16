@@ -1,10 +1,20 @@
-/* 레이어 토글 버튼들이 줄바꿈되는 배치. */
+/* 레이어 토글은 큰 파란 버튼 대신 compact toggle row로 보여준다. */
 .toggleList {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 7px;
+  grid-template-columns: 1fr;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--suri-board-left-section-divider);
+  border-radius: 8px;
+  background: rgba(8, 22, 40, 0.5);
 }
 
 .toggleList > button {
   width: 100%;
+  border-width: 0 0 1px;
+  border-radius: 0;
+}
+
+.toggleList > button:last-child {
+  border-bottom: 0;
 }

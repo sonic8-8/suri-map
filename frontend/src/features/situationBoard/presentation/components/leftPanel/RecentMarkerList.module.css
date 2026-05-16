@@ -9,13 +9,13 @@
   border-radius: 4px;
   color: var(--suri-board-fg-secondary);
   background: var(--suri-board-panel-surface);
-  font-size: 13px;
+  font-size: 17px;
   font-weight: 700;
 }
 
 .summaryBar strong {
   color: var(--suri-board-fg-primary);
-  font-size: 15px;
+  font-size: 20px;
   font-weight: 800;
 }
 
@@ -35,7 +35,7 @@
   color: var(--suri-board-fg-secondary);
   background: var(--suri-board-panel-bg);
   font: inherit;
-  font-size: 15px;
+  font-size: 18px;
   font-weight: 400;
   line-height: 1.2;
   cursor: pointer;
@@ -126,7 +126,7 @@
 
 .itemTitle {
   overflow: hidden;
-  font-size: 14px;
+  font-size: 18px;
   font-weight: 700;
   line-height: 1.35;
   text-overflow: ellipsis;
@@ -135,7 +135,7 @@
 
 .eventTime {
   color: var(--suri-board-fg-muted);
-  font-size: 13px;
+  font-size: 17px;
   line-height: 1.35;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -144,7 +144,7 @@
 .memo {
   margin: 0;
   color: var(--suri-board-fg-muted);
-  font-size: 13px;
+  font-size: 17px;
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
@@ -166,7 +166,7 @@
 
 .metaGrid dt {
   color: var(--suri-board-fg-muted);
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -174,7 +174,7 @@
   overflow: hidden;
   margin: 1px 0 0;
   color: var(--suri-board-fg-secondary);
-  font-size: 12px;
+  font-size: 15px;
   line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -187,7 +187,7 @@
   border-radius: 999px;
   color: var(--suri-board-fg-secondary);
   background: var(--suri-board-panel-bg);
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 700;
   line-height: 1.25;
   text-align: center;
@@ -228,6 +228,6 @@
   border-radius: 4px;
   color: var(--suri-board-fg-muted);
   background: var(--suri-board-panel-surface);
-  font-size: 13px;
+  font-size: 17px;
   line-height: 1.45;
 }

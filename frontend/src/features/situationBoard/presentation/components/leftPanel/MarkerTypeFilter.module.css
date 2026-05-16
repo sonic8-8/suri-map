@@ -1,23 +1,24 @@
-/* 마커 유형 버튼을 2열 칩 그리드로 배치한다. */
+/* 마커 유형 버튼을 2열 compact chip 그리드로 배치한다. */
 .markerChipList {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 7px;
+  gap: 10px;
 }
 
 /* 지원 요청 세부 유형을 분리해 보여주는 보조 영역. */
 .markerSupportGroup {
   display: grid;
-  gap: 6px;
-  margin-top: 10px;
-  padding: 8px 0 0;
+  gap: 10px;
+  margin-top: 24px;
+  padding: 0;
+  border-top: 0;
 }
 
 /* 지원 요청 섹션의 소제목. */
 .markerSupportSubtitle {
   color: var(--suri-board-fg-muted);
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 20px;
+  font-weight: 800;
   line-height: 1.35;
 }
 
@@ -25,5 +26,9 @@
 .markerSupportList {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 7px;
+  gap: 9px;
+}
+
+.markerFilterDisabled {
+  opacity: 0.46;
 }
