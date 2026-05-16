@@ -70,10 +70,10 @@ pipeline {
         TILESERVER_DATA_DIR = '/home/ubuntu/infra/tileserver'
         TILESERVER_MODE = 'tileserver-gl'
         TILESERVER_BASE_URL = 'http://tileserver-gl:8080'
-        FCM_PROVIDER = 'mock'
+        FCM_PROVIDER = 'firebase'
         FIREBASE_CREDENTIALS_LOCATION = ''
-        FIREBASE_CREDENTIALS_JSON_BASE64 = ''
-        FIREBASE_PROJECT_ID = ''
+        FIREBASE_CREDENTIALS_JSON_BASE64 = credentials('suri-map-firebase-service-account-base64')
+        FIREBASE_PROJECT_ID = 'suri-map-174b9'
         FIREBASE_FCM_DRY_RUN = 'false'
         POSTGRES_HOST_PORT = '5432'
         POSTGRES_DB = 'suri_map'
