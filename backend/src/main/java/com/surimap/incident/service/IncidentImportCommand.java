@@ -8,4 +8,18 @@ public record IncidentImportCommand(
     UUID sourceIncidentId,
     String idempotencyKey,
     String clientChannel,
-    Authentication authentication) {}
+    Authentication authentication,
+    boolean internal) {
+
+  public IncidentImportCommand(
+      UUID sourceIncidentId,
+      String idempotencyKey,
+      String clientChannel,
+      Authentication authentication) {
+    this(sourceIncidentId, idempotencyKey, clientChannel, authentication, false);
+  }
+
+  public static IncidentImportCommand internal(UUID sourceIncidentId, String idempotencyKey) {
+    return new IncidentImportCommand(sourceIncidentId, idempotencyKey, "INTERNAL", null, true);
+  }
+}

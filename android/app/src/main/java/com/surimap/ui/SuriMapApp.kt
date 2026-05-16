@@ -1,6 +1,9 @@
 package com.surimap.ui
 
 import android.content.Context
+import android.content.BroadcastReceiver
+import android.content.Intent
+import android.content.IntentFilter
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -19,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.FileProvider
+import androidx.core.content.ContextCompat
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -33,6 +37,7 @@ import com.surimap.core.database.SuriMapDatabaseProvider
 import com.surimap.core.fcm.FcmRegistrationCoordinator
 import com.surimap.core.fcm.FcmTokenProvider
 import com.surimap.core.fcm.FirebaseMessagingTokenProvider
+import com.surimap.core.fcm.IncidentAssignmentRefreshSignal
 import com.surimap.core.fcm.NoFcmTokenProvider
 import com.surimap.core.fcm.SharedPreferencesFcmRegistrationStateStore
 import com.surimap.core.incident.IncidentReadRepository
@@ -1514,6 +1519,26 @@ private fun IncidentListRoute(
     var refreshNonce by remember { mutableStateOf(0) }
     var state by remember {
         mutableStateOf(IncidentListUiState.loading(policePhoneLabel = policePhoneLabel))
+    }
+
+    DisposableEffect(context) {
+        val receiver =
+            object : BroadcastReceiver() {
+                override fun onReceive(context: Context, intent: Intent) {
+                    if (intent.action == IncidentAssignmentRefreshSignal.Action) {
+                        refreshNonce += 1
+                    }
+                }
+            }
+        ContextCompat.registerReceiver(
+            context,
+            receiver,
+            IntentFilter(IncidentAssignmentRefreshSignal.Action),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+        onDispose {
+            runCatching { context.unregisterReceiver(receiver) }
+        }
     }
 
     LaunchedEffect(refreshNonce, incidentClosed, loader, policePhoneLabel) {

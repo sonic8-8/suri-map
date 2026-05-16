@@ -5,4 +5,6 @@ import java.util.UUID;
 
 public interface FcmTokenQuery {
   List<FcmTokenRow> activeByPolicePhone(UUID policePhoneId);
+
+  List<FcmTokenRow> activeByAccounts(List<UUID> accountIds);
 }

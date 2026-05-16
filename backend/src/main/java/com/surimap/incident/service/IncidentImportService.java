@@ -85,7 +85,8 @@ public class IncidentImportService {
 
   @Transactional
   public IncidentImportResult importIncident(IncidentImportCommand command) {
-    authorizer.requireImportAllowed(command.authentication(), command.clientChannel());
+    authorizer.requireImportAllowed(
+        command.authentication(), command.clientChannel(), command.internal());
     requireIdempotencyKey(command.idempotencyKey());
     Instant now = clock.instant();
 

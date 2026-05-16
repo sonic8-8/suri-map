@@ -122,14 +122,27 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 - Owner: S1-1
 - Source spec: `POST /incidents/import`
-- Consumer: WEB command
+- Consumer: WEB command, INTERNAL webhook fallback
 - Headers: `Authorization`, `Idempotency-Key`, `X-Client-Channel`
 - Guard: `@RequireChannel(WEB)`, missing-team commander 또는 경찰 지구대/파출소 field commander
 - Idempotency-Key: yes
 - Request: `sourceIncidentId`
 - Response: `201 {id, incidentId, status, version, assignmentAccountIds}`
 - Errors: `channel_not_allowed`, `role_denied`, `idempotency_mismatch`, `write_conflict`
-- Note: mock 112 배정 사건을 내부 `incident`, `missing_person`, `incident_assignment`, OP1로 가져온다. 내부 배정 생성 API는 별도로 만들지 않는다.
+- Note: mock 112 배정 사건을 내부 `incident`, `missing_person`, `incident_assignment`, OP1로 가져온다. 내부 배정 생성 API는 별도로 만들지 않는다. 운영 기본 흐름은 `POST /api/internal/mock-112/events` webhook 자동 import이며, 이 WEB command는 재처리/운영 보조 경로다.
+
+#### POST `/api/internal/mock-112/events`
+
+- Owner: S1-1
+- Source spec: `POST /api/internal/mock-112/events`
+- Consumer: mock-112 internal webhook
+- Headers: `X-Client-Channel: INTERNAL`, `X-Mock112-Signature`, `Idempotency-Key`
+- Guard: internal secret or HMAC signature, webhook idempotency
+- Idempotency-Key: yes
+- Request: `{eventId, eventType, sourceIncidentId, occurredAt, incident?}` where `eventType` is `INCIDENT_READY` or `INCIDENT_ASSIGNMENT_CHANGED`
+- Response: `202 {eventId, eventType, sourceIncidentId, incidentId, status, version}`
+- Errors: `channel_not_allowed`, `invalid_signature`, `idempotency_mismatch`, `write_conflict`, `mock112_event_invalid`
+- Note: mock-112는 Suri-Map DB에 직접 쓰지 않고 이 internal webhook만 호출한다. `INCIDENT_READY`는 자동 import를 수행하고, `INCIDENT_ASSIGNMENT_CHANGED`는 기존 사건의 `incident_assignment`를 반영한다. 같은 `eventId` 또는 같은 112 assignment key 재전송은 중복 row 없이 같은 결과로 수렴해야 한다.
 
 #### GET `/api/incidents`
 
@@ -335,6 +348,20 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Response: `200 text/event-stream`
 - Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`, `gone_refetch_required`
 - Note: Android product client는 EventSource를 만들지 않고 FCM data message와 REST/Outbox 복구 경로를 사용한다.
+
+#### GET `/api/incidents/events`
+
+- Owner: S4
+- Source spec: `GET /incidents/events`
+- Consumer: WEB incident list / command dashboard
+- Headers: `Authorization`, optional `Last-Event-ID`
+- Guard: `public-session`, account assignment scope, `@RequireChannel(WEB)`
+- Idempotency-Key: no
+- Request: optional `lastEventId` or `Last-Event-ID`
+- Response: `200 text/event-stream`
+- Events: `INCIDENT_CREATED`, `INCIDENT_ASSIGNMENT_CHANGED`, `INCIDENT_CLOSED`
+- Errors: `channel_not_allowed`, `gone_refetch_required`
+- Note: incident 목록 단위 refetch signal이다. payload는 PII를 싣지 않고 `incidentId`, `eventId`, `type`, `version`, optional `assignmentAccountIds`처럼 REST refetch에 필요한 최소 필드만 포함한다. 상세 화면/상황판은 기존 `GET /api/incidents/{incidentId}/events`를 계속 사용한다.
 
 ### 4.6 Marker / Photo
 

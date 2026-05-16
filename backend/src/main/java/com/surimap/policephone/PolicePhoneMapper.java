@@ -50,4 +50,6 @@ public interface PolicePhoneMapper {
       @Param("version") long version);
 
   List<FcmTokenRow> findActiveTokensByPolicePhone(@Param("policePhoneId") UUID policePhoneId);
+
+  List<FcmTokenRow> findActiveTokensByAccounts(@Param("accountIds") List<UUID> accountIds);
 }

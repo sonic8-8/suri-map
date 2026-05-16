@@ -43,6 +43,9 @@ services:
       - "18112:18112"
     environment:
       SERVER_PORT: 18112
+      SURI_MAP_WEBHOOK_ENABLED: "true"
+      SURI_MAP_WEBHOOK_URL: http://backend:8080/api/internal/mock-112/events
+      SURI_MAP_WEBHOOK_SECRET: ${MOCK_112_WEBHOOK_SECRET:-}
     healthcheck:
       test: [ "CMD-SHELL", "wget -q --spider http://localhost:18112/mock-112/health || exit 1" ]
       interval: 10s

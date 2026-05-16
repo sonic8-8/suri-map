@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.surimap.incident.repository.Mock112WebhookEventMapper">
+    <resultMap id="mock112WebhookEventRecordMap" type="com.surimap.incident.domain.Mock112WebhookEventRecord">
+        <id property="eventId" column="event_id"/>
+        <result property="eventType" column="event_type"/>
+        <result property="sourceIncidentId" column="source_incident_id"
+                typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="requestBodyHash" column="request_body_hash"/>
+        <result property="webhookStatus" column="webhook_status"/>
+        <result property="incidentId" column="incident_id"
+                typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="incidentStatus" column="incident_status"/>
+        <result property="incidentVersion" column="incident_version"/>
+        <result property="responseBodyJson" column="response_body_json"/>
+    </resultMap>
+
+    <select id="findByEventId" resultMap="mock112WebhookEventRecordMap">
+        SELECT
+            event_id,
+            event_type,
+            source_incident_id,
+            request_body_hash,
+            webhook_status,
+            incident_id,
+            incident_status,
+            incident_version,
+            response_body_json
+        FROM mock112_webhook_event
+        WHERE event_id = #{eventId}
+    </select>
+
+    <insert id="insertReserved">
+        INSERT INTO mock112_webhook_event (
+            event_id,
+            event_type,
+            source_incident_id,
+            request_body_hash,
+            webhook_status,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            #{eventId},
+            #{eventType},
+            #{sourceIncidentId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{requestBodyHash},
+            'RESERVED',
+            #{now},
+            #{now}
+        )
+    </insert>
+
+    <update id="complete">
+        UPDATE mock112_webhook_event
+        SET
+            webhook_status = 'COMPLETED',
+            incident_id = #{incidentId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            incident_status = #{incidentStatus},
+            incident_version = #{incidentVersion},
+            response_body_json = #{responseBodyJson},
+            updated_at = #{now}
+        WHERE event_id = #{eventId}
+    </update>
+</mapper>

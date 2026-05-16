@@ -45,6 +45,7 @@ public class SecurityConfig {
                         "/error",
                         "/actuator/health",
                         "/actuator/prometheus",
+                        "/api/internal/mock-112/events",
                         "/mock-upload/**")
                     .permitAll()
                     .anyRequest()
@@ -72,6 +73,7 @@ public class SecurityConfig {
             "Content-Type",
             "Accept",
             "X-Client-Channel",
+            "X-Mock112-Signature",
             "Idempotency-Key",
             "Last-Event-ID"));
     configuration.setExposedHeaders(List.of("Location"));

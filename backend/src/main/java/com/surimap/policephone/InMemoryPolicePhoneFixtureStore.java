@@ -122,6 +122,19 @@ public class InMemoryPolicePhoneFixtureStore
         .toList();
   }
 
+  @Override
+  public List<FcmTokenRow> activeByAccounts(List<UUID> accountIds) {
+    if (accountIds == null || accountIds.isEmpty()) {
+      return List.of();
+    }
+    return activeTokensById.values().stream()
+        .filter(token -> accountIds.contains(token.accountId()))
+        .filter(token -> token.status() == FcmTokenStatus.ACTIVE)
+        .sorted((left, right) -> left.policePhoneId().compareTo(right.policePhoneId()))
+        .map(FcmTokenFixtureState::toRow)
+        .toList();
+  }
+
   public FcmTokenRow registerFcmToken(UUID policePhoneId, String appInstanceId, String token) {
     return registerFcmToken(policePhoneId, appInstanceId, token, clock.instant());
   }
