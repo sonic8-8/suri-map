@@ -383,7 +383,7 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=${env.SPRING_JPA_HIBERNATE_DDL_AUTO}
 
                     keycloak_ready=false
                     for i in $(seq 1 60); do
-                      if docker exec suri-map-frontend wget -qO- http://keycloak:9000/health/ready >/dev/null; then
+                      if docker exec suri-map-frontend wget -qO- http://keycloak:9000/keycloak/health/ready >/dev/null; then
                         echo "keycloak_health=ready"
                         keycloak_ready=true
                         break
@@ -397,7 +397,7 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=${env.SPRING_JPA_HIBERNATE_DDL_AUTO}
                       exit 1
                     fi
 
-                    if docker exec suri-map-frontend wget -qO- http://keycloak:8080/realms/master/.well-known/openid-configuration | grep -q '"issuer"'; then
+                    if docker exec suri-map-frontend wget -qO- http://keycloak:8080/keycloak/realms/master/.well-known/openid-configuration | grep -q '"issuer"'; then
                       echo "keycloak_oidc=ready"
                     else
                       echo "keycloak_oidc=missing"
@@ -405,10 +405,18 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=${env.SPRING_JPA_HIBERNATE_DDL_AUTO}
                       exit 1
                     fi
 
-                    if docker exec suri-map-frontend wget -qO- http://keycloak:8080/realms/suri-map/.well-known/openid-configuration | grep -q '"issuer"'; then
+                    if docker exec suri-map-frontend wget -qO- http://keycloak:8080/keycloak/realms/suri-map/.well-known/openid-configuration | grep -q '"issuer"'; then
                       echo "keycloak_suri_map_realm=ready"
                     else
                       echo "keycloak_suri_map_realm=missing"
+                      docker logs --tail=200 suri-map-keycloak || true
+                      exit 1
+                    fi
+
+                    if docker exec suri-map-frontend wget -qO- http://127.0.0.1/keycloak/realms/suri-map/.well-known/openid-configuration | grep -q '"issuer"'; then
+                      echo "keycloak_public_route=ready"
+                    else
+                      echo "keycloak_public_route=missing"
                       docker logs --tail=200 suri-map-keycloak || true
                       exit 1
                     fi
