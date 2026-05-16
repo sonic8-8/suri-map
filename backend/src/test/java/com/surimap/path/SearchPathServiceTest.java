@@ -69,6 +69,32 @@ class SearchPathServiceTest {
   }
 
   @Test
+  void getSearchPaths는_segment_geometry와_시간을_제공한다() {
+    UUID incidentId = UUID.fromString("10000000-0000-0000-0000-000000000001");
+    UUID opId = UUID.fromString("70000000-0000-0000-0000-000000000001");
+    UUID pathId = UUID.fromString("81000000-0000-0000-0000-000000000001");
+    UUID policePhoneId = UUID.fromString("50000000-0000-0000-0000-000000000001");
+
+    service.appendBatch(request(incidentId, opId, pathId), policePhoneId);
+
+    PathQueryRow path = service.query(incidentId, opId, policePhoneId).paths().get(0);
+
+    assertThat(path.segments())
+        .extracting(PathQuerySegmentRow::movementType)
+        .containsExactly(MovementType.VEHICLE, MovementType.FOOT);
+    assertThat(path.segments().get(0).geometry())
+        .containsExactly(
+            List.of(126.913, 35.162),
+            List.of(126.91365, 35.16218),
+            List.of(126.9143, 35.16236),
+            List.of(126.91485, 35.16254));
+    assertThat(path.segments().get(0).startedAt())
+        .isEqualTo(OffsetDateTime.parse("2026-04-28T09:00:00+09:00"));
+    assertThat(path.segments().get(0).endedAt())
+        .isEqualTo(OffsetDateTime.parse("2026-04-28T09:00:15+09:00"));
+  }
+
+  @Test
   void 연속3개미만_speed_run은_UNKNOWN으로_분류한다() {
     UUID incidentId = UUID.fromString("10000000-0000-0000-0000-000000000001");
     UUID opId = UUID.fromString("70000000-0000-0000-0000-000000000001");

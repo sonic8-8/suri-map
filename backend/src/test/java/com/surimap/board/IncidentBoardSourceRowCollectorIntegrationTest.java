@@ -33,8 +33,8 @@ import com.surimap.operationalperiod.query.OperationalPeriodQuery;
 import com.surimap.operationalperiod.query.OperationalPeriodRow;
 import com.surimap.path.InMemorySearchPathRepository;
 import com.surimap.path.NoopPathEventPublisher;
-import com.surimap.path.SearchPathAggregate;
-import com.surimap.path.SearchPathPoint;
+import com.surimap.path.PathBatchAppendRequest;
+import com.surimap.path.PathBatchPointRequest;
 import com.surimap.path.SearchPathService;
 import com.surimap.path.validation.GpsPathValidator;
 import com.surimap.policephone.PolicePhoneFreshnessStatus;
@@ -141,6 +141,15 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
             "search_history_summary");
     assertThat(row(snapshot, "overall_search_area").sourceSpec()).isEqualTo("S2");
     assertThat(row(snapshot, "path").sourceSpec()).isEqualTo("S3-1");
+    @SuppressWarnings("unchecked")
+    List<Map<String, Object>> pathSegments =
+        (List<Map<String, Object>>) row(snapshot, "path").payload().get("segments");
+    assertThat(pathSegments).hasSize(2);
+    assertThat(pathSegments.get(0))
+        .containsEntry("movementType", "VEHICLE")
+        .containsKey("geometry")
+        .containsKey("startedAt")
+        .containsKey("endedAt");
     assertThat(row(snapshot, "police_phone_freshness").sourceSpec()).isEqualTo("S1-2");
     assertThat(row(snapshot, "marker").sourceSpec()).isEqualTo("S5");
     assertThat(row(snapshot, "toast").payload()).containsEntry("type", "SUPPORT_REQUEST_CREATED");
@@ -321,26 +330,34 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
 
   private static SearchPathService searchPathService() {
     InMemorySearchPathRepository repository = new InMemorySearchPathRepository();
-    SearchPathAggregate aggregate = new SearchPathAggregate(PATH_ID, INCIDENT_ID, OP_ID, PHONE_ID);
-    aggregate.appendAcceptedPoints(
-        List.of(
-            new SearchPathPoint(
-                "pt-001",
-                OffsetDateTime.parse("2026-04-28T09:00:00+09:00"),
-                new BigDecimal("126.910000"),
-                new BigDecimal("35.162000"),
-                new BigDecimal("1.0"),
-                5),
-            new SearchPathPoint(
-                "pt-002",
-                OffsetDateTime.parse("2026-04-28T09:00:05+09:00"),
-                new BigDecimal("126.911000"),
-                new BigDecimal("35.161000"),
-                new BigDecimal("1.1"),
-                5)));
-    aggregate.bumpVersion();
-    repository.save(aggregate);
-    return new SearchPathService(repository, new NoopPathEventPublisher(), new GpsPathValidator());
+    SearchPathService service =
+        new SearchPathService(repository, new NoopPathEventPublisher(), new GpsPathValidator());
+    service.appendBatch(
+        new PathBatchAppendRequest(
+            INCIDENT_ID,
+            OP_ID,
+            PATH_ID,
+            List.of(
+                pathPoint("pt-001", "126.910000", "35.162000", "12.0", "2026-04-28T09:00:00+09:00"),
+                pathPoint("pt-002", "126.911000", "35.162100", "11.0", "2026-04-28T09:00:05+09:00"),
+                pathPoint("pt-003", "126.912000", "35.162200", "10.0", "2026-04-28T09:00:10+09:00"),
+                pathPoint("pt-004", "126.913000", "35.162300", "1.2", "2026-04-28T09:00:15+09:00"),
+                pathPoint("pt-005", "126.914000", "35.162400", "1.1", "2026-04-28T09:00:20+09:00"),
+                pathPoint("pt-006", "126.915000", "35.162500", "1.0", "2026-04-28T09:00:25+09:00")),
+            0L),
+        PHONE_ID);
+    return service;
+  }
+
+  private static PathBatchPointRequest pathPoint(
+      String pointId, String lon, String lat, String speedMps, String clientTs) {
+    return new PathBatchPointRequest(
+        pointId,
+        new BigDecimal(lon),
+        new BigDecimal(lat),
+        new BigDecimal(speedMps),
+        5,
+        OffsetDateTime.parse(clientTs));
   }
 
   private static <T> ObjectProvider<T> provider(T value) {

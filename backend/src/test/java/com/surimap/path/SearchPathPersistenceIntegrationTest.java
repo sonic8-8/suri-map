@@ -449,10 +449,10 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
 
     PathQueryRow queried = searchPathService.query(INCIDENT_ID, OP_ID, POLICE_PHONE_ID).paths().get(0);
     assertThat(queried.segments())
-        .extracting(SearchPathSegment::movementType)
+        .extracting(PathQuerySegmentRow::movementType)
         .containsExactly(MovementType.VEHICLE, MovementType.UNKNOWN, MovementType.VEHICLE);
-    assertThat(queried.segments().get(1).startIndex()).isEqualTo(3);
-    assertThat(queried.segments().get(1).endIndex()).isEqualTo(3);
+    assertThat(queried.segments().get(1).geometry())
+        .containsExactly(List.of(126.91485, 35.16254));
   }
 
   @Test
@@ -517,8 +517,11 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
     PathQueryRow queried = searchPathService.query(INCIDENT_ID, OP_ID, POLICE_PHONE_ID).paths().get(0);
     assertThat(queried.geometry()).hasSize(11);
     assertThat(queried.segments())
-        .extracting(SearchPathSegment::movementType)
+        .extracting(PathQuerySegmentRow::movementType)
         .containsExactly(MovementType.VEHICLE, MovementType.FOOT, MovementType.VEHICLE);
+    assertThat(queried.segments().get(0).geometry()).hasSize(4);
+    assertThat(queried.segments().get(1).geometry()).hasSize(4);
+    assertThat(queried.segments().get(2).geometry()).hasSize(3);
   }
 
   private PathBatchAppendRequest batchRequest() {

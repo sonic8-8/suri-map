@@ -133,6 +133,7 @@ class SearchPathControllerTest {
                         pathId,
                         incidentId,
                         opId,
+                        null,
                         policePhoneId,
                         SearchPathStatus.RECORDING,
                         2L,
