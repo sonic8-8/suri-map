@@ -251,6 +251,38 @@ button {
   grid-template-rows: minmax(0, 1fr);
 }
 
+.situation-board-page-loading {
+  grid-template-rows: minmax(0, 1fr);
+  place-items: center;
+}
+
+.situation-board-loading-screen {
+  display: grid;
+  justify-items: center;
+  padding: 32px;
+  color: var(--suri-board-fg-primary);
+  text-align: center;
+}
+
+.situation-board-loading-spinner {
+  width: 72px;
+  height: 72px;
+  border: 6px solid color-mix(in srgb, var(--suri-board-border) 72%, transparent);
+  border-top-color: var(--suri-board-primary-hi);
+  border-right-color: color-mix(in srgb, var(--suri-board-primary-hi) 62%, transparent);
+  border-radius: 999px;
+  box-shadow:
+    0 0 0 10px color-mix(in srgb, var(--suri-board-primary-hi) 10%, transparent),
+    0 0 32px color-mix(in srgb, var(--suri-board-primary-hi) 30%, transparent);
+  animation: situation-board-loading-spin 0.72s linear infinite;
+}
+
+@keyframes situation-board-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .situation-board-shell {
   position: relative;
   display: grid;

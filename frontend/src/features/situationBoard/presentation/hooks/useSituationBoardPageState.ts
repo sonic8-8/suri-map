@@ -27,7 +27,7 @@ export function useSituationBoardPageState({
 }: UseSituationBoardPageStateParams) {
   const { isLeftPanelCollapsed, shellClassName, toggleLeftPanelCollapsed } = useSituationBoardShell();
   const [areaRefreshVersion, setAreaRefreshVersion] = useState(0);
-  const { apiBoard, board, isOverallSearchAreaMissing } = useSituationBoardData(
+  const { apiBoard, board, isInitialLoading, isOverallSearchAreaMissing } = useSituationBoardData(
     incidentId,
     savedAreaDrafts,
     refreshVersion + areaRefreshVersion,
@@ -65,6 +65,7 @@ export function useSituationBoardPageState({
     incidentDetail,
     isAreaWorkspaceOpen: workspaceMode.isAreaWorkspaceOpen,
     isHandoverWorkspaceOpen: workspaceMode.isHandoverWorkspaceOpen,
+    isInitialLoading,
     isLeftPanelCollapsed,
     isMapExpanded: workspaceMode.isMapExpanded,
     isOverallSearchAreaMissing,

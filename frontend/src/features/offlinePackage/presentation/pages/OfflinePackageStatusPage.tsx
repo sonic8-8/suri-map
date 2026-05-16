@@ -105,7 +105,7 @@ const manifestGroupOrder: readonly OfflinePackageItemType[] = [
 const packageStatusLabels: Record<string, string> = {
   READY: '오프라인 사용 가능',
   DOWNLOADING: '자동 설치 중',
-  STALE: '재적재 필요',
+  STALE: '갱신 필요',
   FAILED: '실패',
   PARTIAL: '일부 미완료',
   MISSING: '확인 전',
@@ -187,6 +187,10 @@ export function OfflinePackageStatusPage({
   const isClosedTerminalBoard = isIncidentTerminalClosed(incidentTerminal);
   const timestampLabel = serverTs ? formatKstDateTime(new Date(serverTs)) : '동기화 전';
   const isEmpty = !isLoading && !boardErrorMessage && rows.length === 0;
+  const isPackageSummaryPlaceholder = isLoading || (Boolean(boardErrorMessage) && rows.length === 0);
+  const readyCountLabel = isPackageSummaryPlaceholder ? '-대' : `${summary.readyCount}대`;
+  const warningCountLabel = isPackageSummaryPlaceholder ? '-대' : `${summary.warningCount}대`;
+  const purgedCountLabel = isPackageSummaryPlaceholder ? '-대' : `${summary.purgedCount}대`;
 
   return (
     <main className={styles.page}>
@@ -210,15 +214,15 @@ export function OfflinePackageStatusPage({
       <section className={styles.summaryBar} aria-label="오프라인 패키지 요약">
         <div>
           <span>사용 가능 단말</span>
-          <strong>{summary.readyCount}대</strong>
+          <strong>{readyCountLabel}</strong>
         </div>
         <div>
           <span>재확인 필요 단말</span>
-          <strong>{summary.warningCount}대</strong>
+          <strong>{warningCountLabel}</strong>
         </div>
         <div>
           <span>삭제된 패키지</span>
-          <strong>{summary.purgedCount}대</strong>
+          <strong>{purgedCountLabel}</strong>
         </div>
       </section>
 
@@ -369,7 +373,7 @@ function ManifestContent({
     <div className={styles.manifestStack}>
       {manifestFreshness.isExpired ? (
         <div className={styles.manifestWarning} role="status">
-          패키지 정보가 만료되었습니다. 현장 단말은 최신 패키지를 다시 내려받아야 합니다.
+          패키지가 만료되었습니다. 현장 단말의 패키지 갱신이 필요합니다.
         </div>
       ) : null}
 
@@ -465,7 +469,11 @@ function createIncidentContext(
     missingPerson?.lastSeenAt ?? null,
     missingPerson?.lastSeenLocationText ?? null,
   );
-  const assignmentLabel = assignments.length > 0 ? `${assignments.length}개 배정` : '배정 없음';
+  const assignmentLabel = incidentDetail
+    ? assignments.length > 0
+      ? `${assignments.length}개 배정`
+      : '배정 없음'
+    : '-개';
   const status = incidentDetail?.status ?? 'OPEN';
   const incidentTitle = readIncidentTitle(incidentDetail);
   const versionLabel = incidentDetail?.version ? `정보 버전 ${incidentDetail.version}` : '정보 버전 확인 전';
@@ -811,7 +819,7 @@ function formatWarningReason(reason: string) {
   ) {
     return '패키지 누락/만료/구버전 또는 필수 항목 실패';
   }
-  if (reason === 'manifest_stale' || reason === 'stale_manifest') return '재적재 필요';
+  if (reason === 'manifest_stale' || reason === 'stale_manifest') return '갱신 필요';
   if (reason === 'package_incomplete' || reason === 'partial') return '패키지 미완료';
   if (/S7|MISSING|STALE|EXPIRED|FAILED|required item/i.test(reason)) {
     return '패키지 상태를 다시 확인해야 합니다.';
@@ -824,7 +832,7 @@ function formatPackageCheckMessage(row: PackageBadgeRow) {
     return '필수 자료 설치 완료';
   }
   if (row.packageStatus === 'DOWNLOADING') return '앱에서 자동 설치 중';
-  if (row.packageStatus === 'STALE') return '최신 패키지 아님';
+  if (row.packageStatus === 'STALE') return '업데이트 필요';
   if (row.packageStatus === 'FAILED') return '자동 설치 실패';
   if (row.packageStatus === 'PARTIAL') return '일부 자료 설치 실패';
   if (row.packageStatus === 'MISSING') return '설치 보고 없음';
@@ -838,7 +846,7 @@ function formatPackageAction(row: PackageBadgeRow) {
   if (row.packageStatus === 'READY' && row.readyForOfflineUse && !row.warningRaised) return '조치 없음';
   if (row.packageStatus === 'PURGED') return '조치 없음';
   if (row.packageStatus === 'DOWNLOADING') return '완료될 때까지 대기';
-  if (row.packageStatus === 'STALE') return '앱 연결 시 최신 패키지 재설치';
+  if (row.packageStatus === 'STALE') return '앱 연결 시 최신 패키지 갱신';
   if (row.packageStatus === 'FAILED') return '단말 네트워크 확인 또는 수동 재시도 필요';
   if (row.packageStatus === 'PARTIAL') return '단말 네트워크 연결 후 자동 재시도 확인';
   if (row.packageStatus === 'MISSING') return '폴리폰에서 사건 진입 필요';

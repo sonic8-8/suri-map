@@ -90,9 +90,11 @@ function createIncidentContext(
   const displayName = missingPerson?.displayName?.trim() || null;
   const lastSeenLabel = createLastSeenLabel(missingPerson?.lastSeenAt ?? null, missingPerson?.lastSeenLocationText ?? null);
   const assignmentLabel =
-    assignments.length > 0
-      ? `${assignments.length}개 계정`
-      : '배정 계정 없음';
+    incidentDetail && 'assignments' in incidentDetail
+      ? assignments.length > 0
+        ? `${assignments.length}개 계정`
+        : '배정 계정 없음'
+      : '-개';
 
   return {
     avatarLabel: createAvatarLabel(displayName),
