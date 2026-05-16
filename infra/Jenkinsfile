@@ -69,6 +69,7 @@ pipeline {
         KEYCLOAK_POSTGRES_PASSWORD = 'keycloak'
         KEYCLOAK_ADMIN = 'admin'
         KEYCLOAK_ADMIN_PASSWORD = 'admin'
+        KEYCLOAK_IMPORT_DIR = '/home/ubuntu/infra/keycloak/import'
         MOCK_112_ENABLED = 'true'
         MOCK_112_BASE_URL = 'http://mock-112:18112'
         MOCK_112_POLLING_INTERVAL = '5000'
@@ -280,6 +281,7 @@ KEYCLOAK_POSTGRES_USER=${env.KEYCLOAK_POSTGRES_USER}
 KEYCLOAK_POSTGRES_PASSWORD=${env.KEYCLOAK_POSTGRES_PASSWORD}
 KEYCLOAK_ADMIN=${env.KEYCLOAK_ADMIN}
 KEYCLOAK_ADMIN_PASSWORD=${env.KEYCLOAK_ADMIN_PASSWORD}
+KEYCLOAK_IMPORT_DIR=${env.KEYCLOAK_IMPORT_DIR}
 MOCK_112_ENABLED=${env.MOCK_112_ENABLED}
 MOCK_112_BASE_URL=${env.MOCK_112_BASE_URL}
 MOCK_112_POLLING_INTERVAL=${env.MOCK_112_POLLING_INTERVAL}
@@ -306,9 +308,12 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=${env.SPRING_JPA_HIBERNATE_DDL_AUTO}
                     mkdir -p \
                       "${TILESERVER_DATA_DIR}/data" \
                       "${TILESERVER_DATA_DIR}/fonts" \
-                      "${TILESERVER_DATA_DIR}/styles/osm-local"
+                      "${TILESERVER_DATA_DIR}/styles/osm-local" \
+                      "${KEYCLOAK_IMPORT_DIR}"
                     cp infra/docker/tileserver/config.json "${TILESERVER_DATA_DIR}/config.json"
                     cp infra/docker/tileserver/styles/osm-local/style.json "${TILESERVER_DATA_DIR}/styles/osm-local/style.json"
+                    cp infra/docker/keycloak/import/*.json "${KEYCLOAK_IMPORT_DIR}/"
+                    test -f "${KEYCLOAK_IMPORT_DIR}/suri-map-realm.json"
 
                     if [ -f "${TILESERVER_DATA_DIR}/data/osm-local.mbtiles" ] \
                       && [ -f "${TILESERVER_DATA_DIR}/data/gwangju-building-labels.mbtiles" ]; then

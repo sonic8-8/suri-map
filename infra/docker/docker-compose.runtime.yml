@@ -168,7 +168,7 @@ services:
       - "127.0.0.1:${KEYCLOAK_HOST_PORT:-18080}:8080"
       - "127.0.0.1:${KEYCLOAK_MANAGEMENT_HOST_PORT:-19000}:9000"
     volumes:
-      - ./keycloak/import:/opt/keycloak/data/import:ro
+      - ${KEYCLOAK_IMPORT_DIR:-./keycloak/import}:/opt/keycloak/data/import:ro
     networks:
       - web_net
       - db_net
