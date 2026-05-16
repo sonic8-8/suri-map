@@ -65,7 +65,7 @@ pipeline {
         MOCK_112_POLLING_INTERVAL = '5000'
         SURI_MAP_WEBHOOK_ENABLED = 'true'
         SURI_MAP_WEBHOOK_URL = 'http://backend:8080/api/internal/mock-112/events'
-        MOCK_112_WEBHOOK_SECRET = ''
+        MOCK112_WEBHOOK_SECRET = ''
         TILESERVER_HOST_PORT = '8082'
         TILESERVER_DATA_DIR = '/home/ubuntu/infra/tileserver'
         TILESERVER_MODE = 'tileserver-gl'
@@ -267,7 +267,7 @@ MOCK_112_BASE_URL=${env.MOCK_112_BASE_URL}
 MOCK_112_POLLING_INTERVAL=${env.MOCK_112_POLLING_INTERVAL}
 SURI_MAP_WEBHOOK_ENABLED=${env.SURI_MAP_WEBHOOK_ENABLED}
 SURI_MAP_WEBHOOK_URL=${env.SURI_MAP_WEBHOOK_URL}
-MOCK_112_WEBHOOK_SECRET=${env.MOCK_112_WEBHOOK_SECRET}
+MOCK112_WEBHOOK_SECRET=${env.MOCK112_WEBHOOK_SECRET}
 TILESERVER_HOST_PORT=${env.TILESERVER_HOST_PORT}
 TILESERVER_DATA_DIR=${env.TILESERVER_DATA_DIR}
 TILESERVER_MODE=${env.TILESERVER_MODE}
@@ -373,6 +373,14 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=${env.SPRING_JPA_HIBERNATE_DDL_AUTO}
                       docker logs --tail=200 suri-map-backend || true
                       exit 1
                     fi
+
+                    mock112_secret_hash=$(docker exec suri-map-mock-112 sh -c 'printf "%s" "${SURI_MAP_WEBHOOK_SECRET:-}" | sha256sum | cut -d" " -f1')
+                    backend_secret_hash=$(docker exec suri-map-backend sh -c 'printf "%s" "${MOCK112_WEBHOOK_SECRET:-}" | sha256sum | cut -d" " -f1')
+                    if [ "${mock112_secret_hash}" != "${backend_secret_hash}" ]; then
+                      echo "mock112_webhook_secret=hash_mismatch"
+                      exit 1
+                    fi
+                    echo "mock112_webhook_secret=matched"
 
                     if [ -f "${TILESERVER_DATA_DIR}/data/osm-local.mbtiles" ] \
                       && [ -f "${TILESERVER_DATA_DIR}/data/gwangju-building-labels.mbtiles" ]; then

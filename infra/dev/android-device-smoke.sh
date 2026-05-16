@@ -516,7 +516,7 @@ start_backend_docker() {
     -e SPRING_DATASOURCE_PASSWORD="surimap" \
     -e MOCK_112_ENABLED="true" \
     -e MOCK_112_BASE_URL="http://mock-112:18112" \
-    -e MOCK_112_WEBHOOK_SECRET="${MOCK_112_WEBHOOK_SECRET:-}" \
+    -e MOCK112_WEBHOOK_SECRET="${MOCK112_WEBHOOK_SECRET:-}" \
     -e TILESERVER_MODE="tileserver-gl" \
     -e TILESERVER_BASE_URL="http://tileserver-gl:8080" \
     "$BACKEND_IMAGE" >/dev/null
@@ -559,7 +559,7 @@ start_backend_gradle() {
     SPRING_DATASOURCE_PASSWORD="surimap" \
     MOCK_112_ENABLED="true" \
     MOCK_112_BASE_URL="http://localhost:'"$MOCK_112_PORT"'" \
-    MOCK_112_WEBHOOK_SECRET="${MOCK_112_WEBHOOK_SECRET:-}" \
+    MOCK112_WEBHOOK_SECRET="${MOCK112_WEBHOOK_SECRET:-}" \
     TILESERVER_MODE="tileserver-gl" \
     TILESERVER_BASE_URL="$3" \
     ./gradlew bootRun

@@ -37,7 +37,7 @@ mock112:
   enabled: ${MOCK_112_ENABLED:true}
   base-url: ${MOCK_112_BASE_URL:http://localhost:18112}
   webhook:
-    secret: ${MOCK_112_WEBHOOK_SECRET:}
+    secret: ${MOCK112_WEBHOOK_SECRET:}
   polling:
     interval-ms: ${MOCK_112_POLLING_INTERVAL:5000}
 

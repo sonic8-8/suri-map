@@ -68,7 +68,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${MOCK112_POSTGRES_PASSWORD:-mock112}
       SURI_MAP_WEBHOOK_ENABLED: "true"
       SURI_MAP_WEBHOOK_URL: http://backend:8080/api/internal/mock-112/events
-      SURI_MAP_WEBHOOK_SECRET: ${MOCK_112_WEBHOOK_SECRET:-}
+      SURI_MAP_WEBHOOK_SECRET: ${MOCK112_WEBHOOK_SECRET:-}
     healthcheck:
       test: [ "CMD-SHELL", "wget -q --spider http://localhost:18112/mock-112/health || exit 1" ]
       interval: 10s
