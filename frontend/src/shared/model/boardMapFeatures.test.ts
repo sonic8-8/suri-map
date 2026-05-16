@@ -2,11 +2,12 @@ import { describe, expect, test } from 'vitest';
 import {
   applyRouteColorsByAssignee,
   createMovementPathFeatureCollection,
+  createRouteColorAssigneeKey,
 } from './boardMapFeatures';
 import type { BoardMovementPath } from './boardMapSlots';
 
 describe('boardMapFeatures', () => {
-  test('담당 구역 색상이 없어도 이동 경로 fallback 색상을 부여한다', () => {
+  test('uses deterministic fallback colors when no assigned area color exists', () => {
     const paths = applyRouteColorsByAssignee(
       [
         createMovementPath({ id: 'path-a', policePhoneId: POLICE_PHONE_ID }),
@@ -22,7 +23,7 @@ describe('boardMapFeatures', () => {
     expect(paths[2].routeColor).toMatch(/^#[0-9a-f]{6}$/i);
   });
 
-  test('매칭된 담당 구역 색상은 fallback보다 우선한다', () => {
+  test('prefers account assigned area color over police phone color', () => {
     const paths = applyRouteColorsByAssignee(
       [createMovementPath({ id: 'path-a', policePhoneId: POLICE_PHONE_ID, accountId: ACCOUNT_ID })],
       new Map([[ACCOUNT_ID, '#123456']]),
@@ -32,7 +33,27 @@ describe('boardMapFeatures', () => {
     expect(paths[0].routeColor).toBe('#123456');
   });
 
-  test('fallback 색상이 적용된 이동 경로 feature는 빈 deviceColor를 만들지 않는다', () => {
+  test('uses OP scoped assignee color before unscoped assignee color', () => {
+    const paths = applyRouteColorsByAssignee(
+      [
+        createMovementPath({ id: 'path-op-a', opId: OP_ID, accountId: ACCOUNT_ID }),
+        createMovementPath({ id: 'path-op-b', opId: NEXT_OP_ID, accountId: ACCOUNT_ID }),
+      ],
+      new Map([[ACCOUNT_ID, '#999999']]),
+      new Map(),
+      {
+        accountId: new Map([
+          [createRouteColorAssigneeKey(OP_ID, ACCOUNT_ID), '#123456'],
+          [createRouteColorAssigneeKey(NEXT_OP_ID, ACCOUNT_ID), '#abcdef'],
+        ]),
+      },
+    );
+
+    expect(paths[0].routeColor).toBe('#123456');
+    expect(paths[1].routeColor).toBe('#abcdef');
+  });
+
+  test('emits non-empty device colors for movement path features using fallback color', () => {
     const [path] = applyRouteColorsByAssignee(
       [createMovementPath({ id: 'path-a', policePhoneId: POLICE_PHONE_ID })],
       new Map(),
@@ -67,5 +88,6 @@ function createMovementPath(overrides: Partial<BoardMovementPath> = {}): BoardMo
 }
 
 const OP_ID = '88888888-8888-8888-8888-888888880001';
+const NEXT_OP_ID = '88888888-8888-8888-8888-888888880002';
 const POLICE_PHONE_ID = '50000000-0000-0000-0000-000000000001';
 const ACCOUNT_ID = '10000000-0000-0000-0000-000000000001';

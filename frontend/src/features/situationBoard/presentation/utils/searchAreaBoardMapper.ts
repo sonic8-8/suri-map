@@ -24,6 +24,7 @@ import {
 
 export type BoardSearchAreaRow = {
   id: string;
+  opId: string | null;
   parentAreaId: string | null;
   areaLevel: SearchAreaHierarchyLevel;
   status: SearchAreaHierarchyStatus;
@@ -51,6 +52,7 @@ export function toSearchAreaRows(board: SituationBoardResponseDto): BoardSearchA
     return [
       {
         id,
+        opId: readString(row, 'opId') ?? readString(row, 'operationalPeriodId'),
         parentAreaId:
           readString(row, 'parentAreaId') ??
           readString(row, 'parentSearchAreaId') ??
@@ -164,6 +166,7 @@ function toFallbackDraftTreeNode(
   const assignedAccounts = assignmentsByAreaId.get(draft.areaId) ?? [];
   return {
     id: draft.areaId,
+    opId: null,
     kind: draft.kind,
     colorToken: getAreaColorToken(draft.areaId),
     name: draft.label,
@@ -181,6 +184,7 @@ function toSearchAreaTreeNode(
 ): SearchAreaTreeNode {
   return {
     id: row.id,
+    opId: row.opId,
     kind: row.areaLevel === 'OVERALL' ? 'overall' : row.areaLevel === 'TEAM' ? 'team' : 'unit',
     colorToken: colorTokensByAreaId.get(row.id) ?? getAreaColorToken(row.id),
     name: row.name,

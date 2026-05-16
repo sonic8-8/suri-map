@@ -1,6 +1,9 @@
 import { areaColorTokens } from '../../../../shared/constants/areaColorTokens';
 import type { CompletedAreaDraft } from '../../../../shared/model/areaDraft';
-import { applyRouteColorsByAssignee } from '../../../../shared/model/boardMapFeatures';
+import {
+  applyRouteColorsByAssignee,
+  createRouteColorAssigneeKey,
+} from '../../../../shared/model/boardMapFeatures';
 import { createBoardMovementPaths } from '../../../../shared/model/boardMapSlots';
 import type {
   MovementPath,
@@ -23,6 +26,10 @@ export function assignRouteColorsToMovementPaths(
     movementPaths,
     routeColorsByAssignee.accountId,
     routeColorsByAssignee.policePhoneId,
+    {
+      accountId: routeColorsByAssignee.accountOpId,
+      policePhoneId: routeColorsByAssignee.policePhoneOpId,
+    },
   );
 }
 
@@ -51,6 +58,8 @@ export function createLegendItems(
 function createRouteColorsByAssignee(searchAreaTree: SearchAreaTreeNode, searchAreaDrafts: CompletedAreaDraft[]) {
   const routeColorsByAccountId = new Map<string, string>();
   const routeColorsByPolicePhoneId = new Map<string, string>();
+  const routeColorsByAccountOpId = new Map<string, string>();
+  const routeColorsByPolicePhoneOpId = new Map<string, string>();
   const routeColorPriorityByAccountId = new Map<string, number>();
   const routeColorPriorityByPolicePhoneId = new Map<string, number>();
   const routeColorsByAreaId = new Map(
@@ -64,6 +73,9 @@ function createRouteColorsByAssignee(searchAreaTree: SearchAreaTreeNode, searchA
         routeColorsByAccountId.set(account.accountId, routeColor);
         routeColorPriorityByAccountId.set(account.accountId, depth);
       }
+      if (area.opId) {
+        routeColorsByAccountOpId.set(createRouteColorAssigneeKey(area.opId, account.accountId), routeColor);
+      }
 
       if (account.policePhoneId) {
         const currentPhonePriority = routeColorPriorityByPolicePhoneId.get(account.policePhoneId) ?? -1;
@@ -71,11 +83,19 @@ function createRouteColorsByAssignee(searchAreaTree: SearchAreaTreeNode, searchA
           routeColorsByPolicePhoneId.set(account.policePhoneId, routeColor);
           routeColorPriorityByPolicePhoneId.set(account.policePhoneId, depth);
         }
+        if (area.opId) {
+          routeColorsByPolicePhoneOpId.set(createRouteColorAssigneeKey(area.opId, account.policePhoneId), routeColor);
+        }
       }
     });
     (area.children ?? []).forEach((child) => visit(child, depth + 1));
   };
 
   visit(searchAreaTree);
-  return { accountId: routeColorsByAccountId, policePhoneId: routeColorsByPolicePhoneId };
+  return {
+    accountId: routeColorsByAccountId,
+    policePhoneId: routeColorsByPolicePhoneId,
+    accountOpId: routeColorsByAccountOpId,
+    policePhoneOpId: routeColorsByPolicePhoneOpId,
+  };
 }
