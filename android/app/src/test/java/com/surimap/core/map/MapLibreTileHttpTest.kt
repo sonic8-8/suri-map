@@ -50,7 +50,7 @@ class MapLibreTileHttpTest {
 
         factory.newCall(
             Request.Builder()
-                .url("https://suri-map.example.com/tiles/fonts/Noto%20Sans%20CJK%20KR%20Regular/0-255.pbf")
+                .url("https://suri-map.example.com/tiles/fonts/Pretendard%20GOV/0-255.pbf")
                 .build()
         )
 

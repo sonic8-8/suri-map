@@ -22,7 +22,7 @@ Prepare the EC2 directory with this shape:
 │  ├─ osm-local.mbtiles
 │  └─ gwangju-building-labels.mbtiles
 ├─ fonts/
-│  └─ Noto Sans Regular/
+│  └─ Pretendard GOV/
 │     ├─ 0-255.pbf
 │     └─ ...
 └─ styles/
@@ -80,8 +80,13 @@ local glyph PBF files. Put Korean-capable glyphs under the font stack directory
 referenced by `style.json`, currently:
 
 ```text
-/home/ubuntu/infra/tileserver/fonts/Noto Sans Regular/
+/home/ubuntu/infra/tileserver/fonts/Pretendard GOV/
 ```
+
+The application UI uses the same government design-system family through the
+Android resource `android/app/src/main/res/font/pretendard_gov_variable.ttf`.
+That APK font does not satisfy MapLibre labels by itself; TileServer GL still
+needs matching glyph PBF files under the `Pretendard GOV` font stack.
 
 The public Suri-Map tile contract remains:
 

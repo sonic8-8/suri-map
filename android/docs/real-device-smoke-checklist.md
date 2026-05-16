@@ -16,6 +16,12 @@
    - URL을 바꿔야 하면 `-PsuriMapDebugApiBaseUrl=http://<host>:<port>`로 빌드한다.
    - Knox/SSO 도입 전 인증 관문만 대체하며, 사건/지도/수색/마커/사진/인수인계 기능은 실제 API 기준으로 검증한다.
    - 명시적 값으로 빌드하려면 `-PsuriMapDebugBootstrapAccountCode=...`, `-PsuriMapDebugBootstrapPassword=...`, `-PsuriMapDebugBootstrapPolicePhoneCode=...`를 사용한다.
+5. 배포 서버 기준 검증은 로컬 backend/adb reverse 대신 다음 스크립트를 사용한다.
+   - 기본 배포 서버: `https://k14c106.p.ssafy.io`
+   - 에뮬레이터/실기기 설치: `bash infra/dev/android-deployed-device-smoke.sh --reset-app`
+   - 특정 기기 지정: `bash infra/dev/android-deployed-device-smoke.sh --device emulator-5554 --reset-app`
+   - 아직 배포 서버에 `Pretendard GOV` glyph PBF가 배치되지 않은 경우 앱 설치까지 강행하려면 `--allow-glyph-failure`를 붙인다.
+   - 스크립트는 `/api/health`, debug bootstrap login, `/tiles/styles/osm-local.json`, vector tile, `Pretendard GOV` glyph PBF를 먼저 확인한 뒤 해당 서버 URL로 debug APK를 빌드한다.
 
 ## Smoke
 
