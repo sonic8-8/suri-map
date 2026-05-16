@@ -5,6 +5,7 @@ import { logoutCurrentSession, readStoredLoginAccount } from '../features/login/
 import { LoginPage } from '../features/login/presentation/pages/LoginPage';
 import type { LoginAccount } from '../features/login/presentation/types/login';
 import { useIncidentMarkerNotifications } from '../features/markerNotifications/presentation/hooks/useIncidentMarkerNotifications';
+import { OfflinePackageStatusPage } from '../features/offlinePackage/presentation/pages/OfflinePackageStatusPage';
 import { SituationBoardPage } from '../features/situationBoard/presentation/pages/SituationBoardPage';
 import type { CompletedAreaDraft } from '../shared/model/areaDraft';
 import type { MarkerNotification } from '../shared/ui';
@@ -38,12 +39,6 @@ const IncidentDetailPage = lazy(() =>
   })),
 );
 
-const OfflinePackageStatusPage = lazy(() =>
-  import('../features/offlinePackage/presentation/pages/OfflinePackageStatusPage').then((module) => ({
-    default: module.OfflinePackageStatusPage,
-  })),
-);
-
 const IncidentClosePage = lazy(() =>
   import('../features/incidentClose/presentation/pages/IncidentClosePage').then((module) => ({
     default: module.IncidentClosePage,
@@ -51,7 +46,17 @@ const IncidentClosePage = lazy(() =>
 );
 
 function LazyRoute({ children }: { children: ReactNode }) {
-  return <Suspense fallback={null}>{children}</Suspense>;
+  return <Suspense fallback={<RouteLoadingScreen />}>{children}</Suspense>;
+}
+
+function RouteLoadingScreen() {
+  return (
+    <main className="situation-board-page situation-board-page-loading" aria-busy="true">
+      <section className="situation-board-loading-screen" role="status" aria-live="polite" aria-label="Loading page">
+        <span className="situation-board-loading-spinner" aria-hidden="true" />
+      </section>
+    </main>
+  );
 }
 
 /*
@@ -125,6 +130,10 @@ function SituationBoardRoute({
 }: SituationBoardRouteProps) {
   const incidentId = useRouteIncidentId();
   const navigate = useNavigate();
+  const openIncidentListFromHistory = useCallback(
+    () => navigate(ROUTES.incidentList, { replace: true }),
+    [navigate],
+  );
   const savedAreaDrafts = savedAreaDraftsByIncidentId[incidentId] ?? [];
   const refreshVersion = opRefreshVersionByIncidentId[incidentId] ?? 0;
 
@@ -151,6 +160,7 @@ function SituationBoardRoute({
       savedAreaDrafts={savedAreaDrafts}
       refreshVersion={refreshVersion}
       onOpenIncidentList={() => navigate(ROUTES.incidentList)}
+      onBrowserBackToIncidentList={openIncidentListFromHistory}
     />
   );
 }
@@ -178,6 +188,11 @@ function HandoverRoute({
 }: HandoverRouteProps) {
   const incidentId = useRouteIncidentId();
   const navigate = useNavigate();
+  const openIncidentListFromHistory = useCallback(
+    () => navigate(ROUTES.incidentList, { replace: true }),
+    [navigate],
+  );
+
   useIncidentMarkerNotifications({
     incidentId,
     enabled: true,
@@ -193,6 +208,7 @@ function HandoverRoute({
       onCloseMarkerNotifications={onCloseMarkerNotifications}
       onMoveMarkerNotification={onMoveMarkerNotification}
       onOpenIncidentList={() => navigate(ROUTES.incidentList)}
+      onBrowserBackToIncidentList={openIncidentListFromHistory}
       onOpenIncidentDetail={() => navigate(getIncidentDetailPath(incidentId))}
       onOpenSituationBoard={() => navigate(getIncidentBoardPath(incidentId))}
       onOpenOfflinePackage={() => onOpenOfflinePackage(incidentId)}
@@ -222,6 +238,10 @@ function OfflinePackageRoute({
 }: OfflinePackageRouteProps) {
   const incidentId = useRouteIncidentId();
   const navigate = useNavigate();
+  const openIncidentListFromHistory = useCallback(
+    () => navigate(ROUTES.incidentList, { replace: true }),
+    [navigate],
+  );
   useIncidentMarkerNotifications({
     incidentId,
     enabled: true,
@@ -240,6 +260,7 @@ function OfflinePackageRoute({
       onOpenHandover={() => navigate(getIncidentHandoverPath(incidentId))}
       onOpenIncidentDetail={() => navigate(getIncidentDetailPath(incidentId))}
       onOpenIncidentList={() => navigate(ROUTES.incidentList)}
+      onBrowserBackToIncidentList={openIncidentListFromHistory}
       onOpenOfflinePackage={() => onOpenOfflinePackage(incidentId)}
     />
   );
@@ -266,6 +287,10 @@ function IncidentDetailRoute({
 }: IncidentDetailRouteProps) {
   const incidentId = useRouteIncidentId();
   const navigate = useNavigate();
+  const openIncidentListFromHistory = useCallback(
+    () => navigate(ROUTES.incidentList, { replace: true }),
+    [navigate],
+  );
   useIncidentMarkerNotifications({
     incidentId,
     enabled: true,
@@ -282,6 +307,7 @@ function IncidentDetailRoute({
       onMoveMarkerNotification={onMoveMarkerNotification}
       onOpenHandover={() => navigate(getIncidentHandoverPath(incidentId))}
       onOpenIncidentList={() => navigate(ROUTES.incidentList)}
+      onBrowserBackToIncidentList={openIncidentListFromHistory}
       onOpenOfflinePackage={() => onOpenOfflinePackage(incidentId)}
       onOpenSituationBoard={() => navigate(getIncidentBoardPath(incidentId))}
     />

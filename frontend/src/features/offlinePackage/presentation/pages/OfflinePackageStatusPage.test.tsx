@@ -120,6 +120,17 @@ describe('OfflinePackageStatusPage', () => {
     expect(screen.queryByText('단말별 적재 상태를 불러오지 못했습니다.')).not.toBeInTheDocument();
   });
 
+  test('renders a partial manifest response without blanking the page', async () => {
+    vi.mocked(useOfflinePackageManifestQuery).mockReturnValue(
+      manifestQueryResult(partialOfflinePackageManifest()),
+    );
+
+    expect(() => renderOfflinePackageStatusPage()).not.toThrow();
+
+    expect(await screen.findByText('v4')).toBeInTheDocument();
+    expect(screen.getAllByText('0개').length).toBeGreaterThan(0);
+  });
+
   test('explains when package manifest prerequisites are not ready', async () => {
     vi.mocked(useOfflinePackageManifestQuery).mockReturnValue(
       manifestQueryResult(undefined, {
@@ -133,11 +144,11 @@ describe('OfflinePackageStatusPage', () => {
     await screen.findByText('오프라인 패키지를 아직 만들 수 없습니다.');
 
     expect(screen.getByText('현재 사건에 OP 또는 전체 수색 구역이 준비되지 않았습니다. 전체 수색 구역을 저장한 뒤 다시 조회하세요.')).toBeInTheDocument();
-    expect(screen.getAllByText('대상 단말')).toHaveLength(2);
+    expect(document.body.textContent ?? '').toContain('phone-ready');
   });
 });
 
-function renderOfflinePackageStatusPage() {
+function renderOfflinePackageStatusPage(onBrowserBackToIncidentList = vi.fn()) {
   return render(
     <OfflinePackageStatusPage
       currentUserAccount={currentUserAccount()}
@@ -149,6 +160,7 @@ function renderOfflinePackageStatusPage() {
       onMoveMarkerNotification={vi.fn()}
       onOpenHandover={vi.fn()}
       onOpenIncidentList={vi.fn()}
+      onBrowserBackToIncidentList={onBrowserBackToIncidentList}
       onOpenOfflinePackage={vi.fn()}
     />,
   );
@@ -327,6 +339,17 @@ function offlinePackageManifest(): OfflinePackageManifestResponse {
   };
 }
 
+function partialOfflinePackageManifest(): OfflinePackageManifestResponse {
+  return {
+    ...offlinePackageManifest(),
+    operationalPeriods: undefined,
+    assignedAreas: undefined,
+    initialMarkers: undefined,
+    tileItems: undefined,
+    packageItems: undefined,
+  } as unknown as OfflinePackageManifestResponse;
+}
+
 function packageItem(
   itemKey: string,
   itemType: OfflinePackageManifestResponse['packageItems'][number]['itemType'],
@@ -339,3 +362,17 @@ function packageItem(
     sourceHash: `sha256:${itemType.toLowerCase()}`,
   };
 }
+
+test('OfflinePackageStatusPage returns to the incident list when the browser back button is used', () => {
+  vi.clearAllMocks();
+  const onBrowserBackToIncidentList = vi.fn();
+
+  vi.mocked(useIncidentBoardQuery).mockReturnValue(boardQueryResult());
+  vi.mocked(useOfflinePackageManifestQuery).mockReturnValue(manifestQueryResult(offlinePackageManifest()));
+
+  renderOfflinePackageStatusPage(onBrowserBackToIncidentList);
+
+  window.dispatchEvent(new PopStateEvent('popstate'));
+
+  expect(onBrowserBackToIncidentList).toHaveBeenCalledTimes(1);
+});

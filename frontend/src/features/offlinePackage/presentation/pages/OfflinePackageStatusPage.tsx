@@ -18,13 +18,13 @@ import {
 import type { LoginAccount } from '../../../login/presentation/types/login';
 import {
   ActionButton,
-  StatusBadge,
   type MarkerNotification,
   type StatusBadgeTone,
   SuriMapPageHeader,
   type SuriMapPageHeaderIncidentContext,
 } from '../../../../shared';
 import { ApiHttpError } from '../../../../shared/api';
+import { useBrowserBackToIncidentList } from '../../../../shared/hooks/useBrowserBackToIncidentList';
 import styles from './OfflinePackageStatusPage.module.css';
 
 type OfflinePackageStatusPageProps = {
@@ -38,6 +38,7 @@ type OfflinePackageStatusPageProps = {
   onOpenHandover: () => void;
   onOpenIncidentDetail?: () => void;
   onOpenIncidentList: () => void;
+  onBrowserBackToIncidentList?: () => void;
   onOpenOfflinePackage: () => void;
 };
 
@@ -136,8 +137,10 @@ export function OfflinePackageStatusPage({
   onOpenHandover,
   onOpenIncidentDetail,
   onOpenIncidentList,
+  onBrowserBackToIncidentList,
   onOpenOfflinePackage,
 }: OfflinePackageStatusPageProps) {
+  useBrowserBackToIncidentList(onBrowserBackToIncidentList);
   const [incidentDetail, setIncidentDetail] = useState<IncidentDetailDto | null>(null);
   const [isOffline, setIsOffline] = useState(() => (typeof navigator === 'undefined' ? false : !navigator.onLine));
 
@@ -149,7 +152,7 @@ export function OfflinePackageStatusPage({
     [boardQuery.data],
   );
   const manifestGroups = useMemo(() => createManifestGroups(manifestQuery.data), [manifestQuery.data]);
-  const tileSummary = useMemo(() => createTileSummary(manifestQuery.data?.tileItems ?? []), [manifestQuery.data]);
+  const tileSummary = useMemo(() => createTileSummary(readManifestTileItems(manifestQuery.data)), [manifestQuery.data]);
   const serverTs = boardQuery.data?.serverTs ?? null;
   const referenceNow = useMemo(() => (serverTs ? new Date(serverTs) : new Date()), [serverTs]);
   const isLoading = boardQuery.isLoading;
@@ -213,18 +216,9 @@ export function OfflinePackageStatusPage({
 
       <div className={styles.scrollBody}>
       <section className={styles.summaryBar} aria-label="오프라인 패키지 요약">
-        <div>
-          <span>사용 가능 단말</span>
-          <strong>{readyCountLabel}</strong>
-        </div>
-        <div>
-          <span>재확인 필요 단말</span>
-          <strong>{warningCountLabel}</strong>
-        </div>
-        <div>
-          <span>삭제된 패키지</span>
-          <strong>{purgedCountLabel}</strong>
-        </div>
+        <SummaryMetricCard icon="▦" label="사용 가능 단말" value={readyCountLabel} tone="blue" />
+        <SummaryMetricCard icon="▯" label="재확인 필요 단말" value={warningCountLabel} tone="purple" />
+        <SummaryMetricCard icon="▣" label="삭제된 패키지" value={purgedCountLabel} tone="green" />
       </section>
 
       {isOffline ? (
@@ -232,6 +226,14 @@ export function OfflinePackageStatusPage({
           현재 브라우저가 오프라인입니다. 표시 중인 단말별 상태는 마지막 조회 결과일 수 있습니다.
         </div>
       ) : null}
+
+      <PackageReadinessSummary
+        groups={manifestGroups}
+        isLoading={manifestQuery.isLoading}
+        manifest={manifestQuery.data}
+        referenceNow={referenceNow}
+        summary={summary}
+      />
 
       <div className={styles.contentStack}>
         <section className={styles.content} aria-label="단말별 적재 상태">
@@ -253,47 +255,10 @@ export function OfflinePackageStatusPage({
               <span>앱 단말이 패키지 적재 상태를 보고하면 이 영역에 표시됩니다.</span>
             </div>
           ) : (
-            <div className={styles.tableShell}>
-              <table className={styles.statusTable}>
-                <thead>
-                  <tr>
-                    <th scope="col">단말</th>
-                    <th scope="col">담당</th>
-                    <th scope="col">상태</th>
-                    <th scope="col">설치 정보</th>
-                    <th scope="col">확인 내용</th>
-                    <th scope="col">조치</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row) => {
-                    const statusView = getStatusView(row);
-
-                    return (
-                      <tr key={row.id}>
-                        <td>
-                          <strong>{createDeviceTitle(row)}</strong>
-                          <span>{createDeviceMeta(row)}</span>
-                        </td>
-                        <td>
-                          <strong>{createAssigneeTitle(row)}</strong>
-                          <span>{createAssigneeMeta(row)}</span>
-                        </td>
-                        <td>
-                          <StatusBadge
-                            className={getPackageStatusBadgeClassName(statusView.tone)}
-                            status={statusView.label}
-                            tone={statusView.tone}
-                          />
-                        </td>
-                        <td>{formatManifestVersion(row)}</td>
-                        <td>{formatPackageCheckMessage(row)}</td>
-                        <td>{formatPackageAction(row)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            <div className={styles.deviceList}>
+              {rows.map((row) => (
+                <DeviceStatusCard key={row.id} row={row} />
+              ))}
             </div>
           )}
         </section>
@@ -327,6 +292,215 @@ function SectionTitle({ title, description }: { title: string; description: stri
       <p>{description}</p>
     </div>
   );
+}
+
+type SummaryMetricTone = 'blue' | 'purple' | 'green' | 'cyan';
+
+function SummaryMetricCard({
+  compact = false,
+  icon,
+  label,
+  tone,
+  value,
+}: {
+  compact?: boolean;
+  icon: string;
+  label: string;
+  tone: SummaryMetricTone;
+  value: string;
+}) {
+  return (
+    <div className={`${styles.summaryMetricCard} ${styles[`summaryMetricTone${capitalize(tone)}`]} ${compact ? styles.summaryMetricCardCompact : ''}`}>
+      <span className={styles.summaryMetricIcon} aria-hidden="true">{icon}</span>
+      <span className={styles.summaryMetricText}>
+        <span>{label}</span>
+        <strong>{value}</strong>
+      </span>
+    </div>
+  );
+}
+
+function PackageReadinessSummary({
+  groups,
+  isLoading,
+  manifest,
+  referenceNow,
+  summary,
+}: {
+  groups: readonly ManifestGroup[];
+  isLoading: boolean;
+  manifest: OfflinePackageManifestResponse | undefined;
+  referenceNow: Date;
+  summary: PackageSummary;
+}) {
+  if (isLoading && !manifest) {
+    return (
+      <section className={styles.readinessCard} aria-label="패키지 준비 상태">
+        <div className={styles.skeletonRow} />
+      </section>
+    );
+  }
+
+  const completedGroupCount = groups.filter((group) => group.statusTone === 'active').length;
+  const waitingGroupCount = groups.filter((group) => group.statusTone === 'waiting').length;
+  const failedGroupCount = groups.filter((group) => group.statusTone === 'danger').length;
+  const manifestFreshness = manifest ? createManifestFreshness(manifest, referenceNow) : null;
+  const refreshNeededCount = manifestFreshness?.isExpired ? 1 : 0;
+  const totalGroupCount = Math.max(groups.length, 1);
+  const progressPercent = Math.round((completedGroupCount / totalGroupCount) * 100);
+  const totalManifestItems = manifest ? formatManifestItemTotal(manifest) : 0;
+
+  return (
+    <section className={styles.readinessCard} aria-label="패키지 준비 상태">
+      <div className={styles.readinessHeader}>
+        <div>
+          <h2>패키지 준비 상태</h2>
+          <p>단말 적재 상태와 오프라인 구성 자료를 한 번에 점검합니다.</p>
+        </div>
+        <div className={styles.readinessPercent} aria-label={`패키지 구성 완료율 ${progressPercent}%`}>
+          <span>{progressPercent}%</span>
+          <small>구성 완료</small>
+        </div>
+      </div>
+
+      <div className={styles.readinessGrid}>
+        <div className={styles.progressPanel}>
+          <div className={styles.progressTrack} aria-hidden="true">
+            <span style={{ width: `${progressPercent}%` }} />
+          </div>
+          <div className={styles.readinessStats}>
+            <VisualStat icon="✓" label="완료" value={`${completedGroupCount}개`} tone="active" />
+            <VisualStat icon="◷" label="대기" value={`${waitingGroupCount}개`} tone="waiting" />
+            <VisualStat icon="↻" label="갱신 필요" value={`${refreshNeededCount + failedGroupCount}개`} tone="danger" />
+          </div>
+        </div>
+
+        <div className={styles.packageComposition}>
+          <div className={styles.packageCompositionHeader}>
+            <strong>포함 자료 구성</strong>
+            <span>총 {totalManifestItems}개</span>
+          </div>
+          <div className={styles.stackedBar} aria-label="포함 자료 구성 막대">
+            {groups.map((group, index) => {
+              const count = parseCountLabel(group.countLabel);
+              const percent = totalManifestItems > 0 ? Math.max(5, (count / totalManifestItems) * 100) : 100 / groups.length;
+              return (
+                <span
+                  key={group.type}
+                  className={styles[`stackedSegment${index % 7}`]}
+                  style={{ width: `${percent}%` }}
+                  title={`${group.label} ${group.countLabel}`}
+                />
+              );
+            })}
+          </div>
+          <div className={styles.compositionLegend}>
+            {groups.map((group) => (
+              <span key={group.type}>
+                <i aria-hidden="true">{getManifestGroupIcon(group.type)}</i>
+                {group.label.replace(' 정보', '').replace(' 수색 구역', ' 구역')} {group.countLabel}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className={styles.deviceSummaryLine}>
+        <span>단말 상태</span>
+        <strong>사용 가능 {summary.readyCount}대</strong>
+        <strong>재확인 {summary.warningCount}대</strong>
+        <strong>삭제 {summary.purgedCount}대</strong>
+      </div>
+    </section>
+  );
+}
+
+function DeviceStatusCard({ row }: { row: PackageBadgeRow }) {
+  const statusView = getStatusView(row);
+
+  return (
+    <article className={styles.deviceCard}>
+      <div className={styles.deviceIdentity}>
+        <span className={styles.deviceIcon} aria-hidden="true">▯</span>
+        <span>
+          <strong>{createDeviceTitle(row)}</strong>
+          <small>{createDeviceMeta(row)}</small>
+        </span>
+      </div>
+      <div className={styles.deviceAssignee}>
+        <span>담당</span>
+        <strong>{createAssigneeTitle(row)}</strong>
+        <small>{createAssigneeMeta(row)}</small>
+      </div>
+      <div className={styles.deviceStepper} aria-label={`${createDeviceTitle(row)} 패키지 적재 단계`}>
+        <DeviceStep icon="↓" label="설치 정보" value={formatManifestVersion(row)} tone="info" />
+        <DeviceStep icon={statusView.tone === 'danger' ? '!' : statusView.tone === 'active' ? '✓' : '◷'} label="확인 내용" value={formatPackageCheckMessage(row)} tone={statusView.tone} />
+        <DeviceStep icon={statusView.tone === 'active' ? '✓' : statusView.tone === 'danger' ? '!' : '↻'} label="상태" value={statusView.label} tone={statusView.tone} />
+        <DeviceStep icon="…" label="조치" value={formatPackageAction(row)} tone="neutral" />
+      </div>
+      <span className={styles.deviceMore} aria-hidden="true">…</span>
+    </article>
+  );
+}
+
+function DeviceStep({ icon, label, tone, value }: { icon: string; label: string; tone: StatusBadgeTone | 'info' | 'neutral'; value: string }) {
+  return (
+    <span className={`${styles.deviceStep} ${styles[`deviceStep${capitalize(tone)}`]}`}>
+      <i aria-hidden="true">{icon}</i>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </span>
+  );
+}
+
+function VisualStat({ icon, label, tone, value }: { icon: string; label: string; tone: StatusBadgeTone; value: string }) {
+  return (
+    <span className={`${styles.visualStat} ${styles[`visualStat${capitalize(tone)}`]}`}>
+      <i aria-hidden="true">{icon}</i>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </span>
+  );
+}
+
+function VisualStatusBadge({ label, tone }: { label: string; tone: StatusBadgeTone }) {
+  return (
+    <span className={`${getPackageStatusBadgeClassName(tone)} ${styles.visualStatusBadge}`}>
+      <i aria-hidden="true">{getStatusIcon(tone, label)}</i>
+      {label}
+    </span>
+  );
+}
+
+function getManifestGroupIcon(type: OfflinePackageItemType) {
+  const icons: Record<OfflinePackageItemType, string> = {
+    INCIDENT_META: '▤',
+    MISSING_PERSON_CACHE: '☻',
+    OP_LIST: '▦',
+    ASSIGNED_AREA: '▣',
+    INITIAL_MARKER: '⌖',
+    OVERALL_SEARCH_AREA: '▥',
+    TILE: '◒',
+  };
+  return icons[type];
+}
+
+function getStatusIcon(tone: StatusBadgeTone, label: string) {
+  if (tone === 'active') return '✓';
+  if (tone === 'danger') return '!';
+  if (tone === 'closed') return '×';
+  if (label.includes('대기')) return '◷';
+  if (label.includes('완료')) return '✓';
+  return '•';
+}
+
+function parseCountLabel(label: string) {
+  const match = label.match(/\d+/);
+  return match ? Number(match[0]) : 0;
+}
+
+function capitalize(value: string) {
+  return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
 }
 
 function ManifestContent({
@@ -416,16 +590,13 @@ function ManifestContent({
             {groups.map((group) => (
               <tr key={group.type}>
                 <td>
+                  <span className={styles.manifestItemIcon} aria-hidden="true">{getManifestGroupIcon(group.type)}</span>
                   <strong>{group.label}</strong>
                 </td>
                 <td>{group.detailLabel}</td>
                 <td>{group.countLabel}</td>
                 <td>
-                  <StatusBadge
-                    className={getPackageStatusBadgeClassName(group.statusTone)}
-                    status={group.statusLabel}
-                    tone={group.statusTone}
-                  />
+                  <VisualStatusBadge label={group.statusLabel} tone={group.statusTone} />
                 </td>
               </tr>
             ))}
@@ -434,26 +605,11 @@ function ManifestContent({
       </div>
 
       <div className={styles.tileSummary} aria-label="타일 목록 요약">
-        <div>
-          <span>타일 수</span>
-          <strong>{tileSummary.count}개</strong>
-        </div>
-        <div>
-          <span>총 용량</span>
-          <strong>{formatBytes(tileSummary.totalBytes)}</strong>
-        </div>
-        <div>
-          <span>지도 종류</span>
-          <strong>{tileSummary.styleIds}</strong>
-        </div>
-        <div>
-          <span>확대 단계</span>
-          <strong>{tileSummary.zRange}</strong>
-        </div>
-        <div>
-          <span>검증 상태</span>
-          <strong>{tileSummary.checksumLabel}</strong>
-        </div>
+        <SummaryMetricCard icon="▣" label="타일 수" value={`${tileSummary.count}개`} tone="blue" compact />
+        <SummaryMetricCard icon="▲" label="총 용량" value={formatBytes(tileSummary.totalBytes)} tone="purple" compact />
+        <SummaryMetricCard icon="⬡" label="지도 종류" value={tileSummary.styleIds} tone="cyan" compact />
+        <SummaryMetricCard icon="▥" label="확대 단계" value={tileSummary.zRange} tone="blue" compact />
+        <SummaryMetricCard icon="✓" label="검증 상태" value={tileSummary.checksumLabel} tone="green" compact />
       </div>
     </div>
   );
@@ -658,8 +814,10 @@ function createSummary(rows: PackageBadgeRow[]): PackageSummary {
 }
 
 function createManifestGroups(manifest: OfflinePackageManifestResponse | undefined): readonly ManifestGroup[] {
+  const packageItems = readManifestPackageItems(manifest);
+
   return manifestGroupOrder.map((type) => {
-    const items = manifest?.packageItems.filter((item) => item.itemType === type) ?? [];
+    const items = packageItems.filter((item) => item.itemType === type);
     const count = countManifestSourceItems(type, manifest);
     const statusView = getManifestGroupStatus(items);
 
@@ -677,11 +835,11 @@ function createManifestGroups(manifest: OfflinePackageManifestResponse | undefin
 function countManifestSourceItems(type: OfflinePackageItemType, manifest: OfflinePackageManifestResponse | undefined) {
   if (!manifest) return 0;
 
-  if (type === 'OP_LIST') return manifest.operationalPeriods.length;
-  if (type === 'ASSIGNED_AREA') return manifest.assignedAreas.length;
-  if (type === 'INITIAL_MARKER') return manifest.initialMarkers.length;
+  if (type === 'OP_LIST') return readManifestOperationalPeriods(manifest).length;
+  if (type === 'ASSIGNED_AREA') return readManifestAssignedAreas(manifest).length;
+  if (type === 'INITIAL_MARKER') return readManifestInitialMarkers(manifest).length;
   if (type === 'OVERALL_SEARCH_AREA') return manifest.overallSearchArea ? 1 : 0;
-  if (type === 'TILE') return manifest.tileItems.length;
+  if (type === 'TILE') return readManifestTileItems(manifest).length;
   if (type === 'MISSING_PERSON_CACHE') return manifest.missingPerson ? 1 : 0;
   return manifest.incident ? 1 : 0;
 }
@@ -692,6 +850,11 @@ function createManifestGroupDetail(
 ) {
   if (!manifest) return '자료 확인 전';
 
+  const operationalPeriods = readManifestOperationalPeriods(manifest);
+  const assignedAreas = readManifestAssignedAreas(manifest);
+  const initialMarkers = readManifestInitialMarkers(manifest);
+  const tileItems = readManifestTileItems(manifest);
+
   if (type === 'INCIDENT_META') {
     return `${formatIncidentStatus(manifest.incident?.status ?? '')} 사건 정보`;
   }
@@ -701,25 +864,45 @@ function createManifestGroupDetail(
     return `${name} · ${photoLabel}`;
   }
   if (type === 'OP_LIST') {
-    const activeCount = manifest.operationalPeriods.filter((op) => op.status === 'ACTIVE').length;
+    const activeCount = operationalPeriods.filter((op) => op.status === 'ACTIVE').length;
     return activeCount > 0 ? `진행 중인 차수 포함` : '작전 차수 기록 포함';
   }
   if (type === 'ASSIGNED_AREA') {
-    if (manifest.assignedAreas.length === 0) return '아직 배정된 수색 구역이 없습니다';
-    const completedCount = manifest.assignedAreas.filter((area) => area.status === 'COMPLETED').length;
-    const activeCount = manifest.assignedAreas.filter((area) => area.status === 'ACTIVE').length;
+    if (assignedAreas.length === 0) return '아직 배정된 수색 구역이 없습니다';
+    const completedCount = assignedAreas.filter((area) => area.status === 'COMPLETED').length;
+    const activeCount = assignedAreas.filter((area) => area.status === 'ACTIVE').length;
     return `진행 ${activeCount}개 · 완료 ${completedCount}개`;
   }
   if (type === 'INITIAL_MARKER') {
-    return manifest.initialMarkers.length > 0 ? '초기 확인 지점 포함' : '초기 마커 없음';
+    return initialMarkers.length > 0 ? '초기 확인 지점 포함' : '초기 마커 없음';
   }
   if (type === 'OVERALL_SEARCH_AREA') {
     return manifest.overallSearchArea ? '전체 수색 범위 포함' : '전체 수색 범위 없음';
   }
 
-  return manifest.tileItems.length > 0
-    ? `${manifest.tileItems.length}개 지도 타일 · ${formatBytes(createTileSummary(manifest.tileItems).totalBytes)}`
+  return tileItems.length > 0
+    ? `${tileItems.length}개 지도 타일 · ${formatBytes(createTileSummary(tileItems).totalBytes)}`
     : '오프라인 지도 없음';
+}
+
+function readManifestPackageItems(manifest: OfflinePackageManifestResponse | undefined) {
+  return Array.isArray(manifest?.packageItems) ? manifest.packageItems : [];
+}
+
+function readManifestOperationalPeriods(manifest: OfflinePackageManifestResponse | undefined) {
+  return Array.isArray(manifest?.operationalPeriods) ? manifest.operationalPeriods : [];
+}
+
+function readManifestAssignedAreas(manifest: OfflinePackageManifestResponse | undefined) {
+  return Array.isArray(manifest?.assignedAreas) ? manifest.assignedAreas : [];
+}
+
+function readManifestInitialMarkers(manifest: OfflinePackageManifestResponse | undefined) {
+  return Array.isArray(manifest?.initialMarkers) ? manifest.initialMarkers : [];
+}
+
+function readManifestTileItems(manifest: OfflinePackageManifestResponse | undefined) {
+  return Array.isArray(manifest?.tileItems) ? manifest.tileItems : [];
 }
 
 function getManifestGroupStatus(items: readonly OfflinePackagePackageItem[]): { label: string; tone: StatusBadgeTone } {
@@ -898,11 +1081,11 @@ function formatManifestItemTotal(manifest: OfflinePackageManifestResponse) {
   return [
     manifest.incident ? 1 : 0,
     manifest.missingPerson ? 1 : 0,
-    manifest.operationalPeriods.length,
-    manifest.assignedAreas.length,
-    manifest.initialMarkers.length,
+    readManifestOperationalPeriods(manifest).length,
+    readManifestAssignedAreas(manifest).length,
+    readManifestInitialMarkers(manifest).length,
     manifest.overallSearchArea ? 1 : 0,
-    manifest.tileItems.length,
+    readManifestTileItems(manifest).length,
   ].reduce((sum, count) => sum + count, 0);
 }
 
