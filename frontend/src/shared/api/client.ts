@@ -64,10 +64,7 @@ export class ApiNetworkError extends Error {
 export const API_UNAUTHORIZED_EVENT = 'suri-map-api-unauthorized';
 
 export interface ApiClient {
-  request<TResponse, TBody = unknown>(
-    path: string,
-    options?: ApiRequestOptions<TBody>,
-  ): Promise<TResponse>;
+  request<TResponse, TBody = unknown>(path: string, options?: ApiRequestOptions<TBody>): Promise<TResponse>;
   get<TResponse>(path: string, options?: Omit<ApiRequestOptions, 'method' | 'body'>): Promise<TResponse>;
   post<TResponse, TBody = unknown>(
     path: string,
@@ -128,10 +125,8 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
   return {
     request,
     get: (path, requestOptions) => request(path, { ...requestOptions, method: 'GET' }),
-    post: (path, body, requestOptions) =>
-      request(path, { ...requestOptions, method: 'POST', body }),
-    patch: (path, body, requestOptions) =>
-      request(path, { ...requestOptions, method: 'PATCH', body }),
+    post: (path, body, requestOptions) => request(path, { ...requestOptions, method: 'POST', body }),
+    patch: (path, body, requestOptions) => request(path, { ...requestOptions, method: 'PATCH', body }),
     delete: (path, requestOptions) => request(path, { ...requestOptions, method: 'DELETE' }),
   };
 }
@@ -252,17 +247,18 @@ function errorCode(body: unknown, status: number): string {
 }
 
 function isErrorBody(body: unknown): body is { error: string } {
-  return (
-    typeof body === 'object'
-    && body !== null
-    && 'error' in body
-    && typeof body.error === 'string'
-  );
+  return typeof body === 'object' && body !== null && 'error' in body && typeof body.error === 'string';
 }
 
 export function getStoredAccessToken() {
   const accessToken = sessionStorage.getItem('suriMapAccessToken') ?? import.meta.env.VITE_API_ACCESS_TOKEN;
   if (!accessToken) {
+    return null;
+  }
+
+  const expiresAt = Number(sessionStorage.getItem('suriMapTokenExpiresAt'));
+  if (Number.isFinite(expiresAt) && expiresAt <= Date.now()) {
+    clearExpiredApiSession();
     return null;
   }
 
@@ -287,7 +283,9 @@ function isAuthApiPath(path: string) {
 
 function clearExpiredApiSession() {
   sessionStorage.removeItem('suriMapAccessToken');
+  sessionStorage.removeItem('suriMapIdToken');
   sessionStorage.removeItem('suriMapCurrentAccount');
   sessionStorage.removeItem('suriMapSessionId');
+  sessionStorage.removeItem('suriMapTokenExpiresAt');
   window.dispatchEvent(new CustomEvent(API_UNAUTHORIZED_EVENT));
 }
