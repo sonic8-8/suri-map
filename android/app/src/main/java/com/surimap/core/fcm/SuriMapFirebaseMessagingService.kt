@@ -11,6 +11,7 @@ class SuriMapFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onMessageReceived(message: RemoteMessage) {
         val refresh = IncidentAssignmentFcmRouter.refreshPayload(message.data) ?: return
+        IncidentAssignmentNotification.show(applicationContext, refresh)
         sendBroadcast(
             Intent(IncidentAssignmentRefreshSignal.Action)
                 .setPackage(packageName)

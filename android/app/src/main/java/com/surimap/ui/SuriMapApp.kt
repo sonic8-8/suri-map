@@ -1,10 +1,13 @@
 package com.surimap.ui
 
-import android.content.Context
+import android.Manifest
 import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
@@ -18,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -155,6 +159,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun SuriMapApp() {
     val navController = rememberNavController()
+    var assignmentRefreshNonce by remember { mutableStateOf(0) }
     val incidentSessionState =
         remember {
             IncidentSessionState(
@@ -166,6 +171,9 @@ fun SuriMapApp() {
     var incidentClosed by remember { mutableStateOf<IncidentClosedOverlayState?>(null) }
     var blockedQueue by remember { mutableStateOf<BlockedQueueToastState?>(null) }
     var handoverMemoSaved by remember { mutableStateOf<HandoverMemoSavedToastState?>(null) }
+
+    IncidentAssignmentRefreshEffect(onRefresh = { assignmentRefreshNonce += 1 })
+    NotificationPermissionEffect()
 
     Surface(modifier = Modifier.fillMaxSize(), color = PoliBgBase) {
         AppOverlayHost(
@@ -195,7 +203,8 @@ fun SuriMapApp() {
                 composable(PolicePhoneRoute.AuthBootstrap.route) {
                     AuthBootstrapRoute(
                         incidentSessionState = incidentSessionState,
-                        navController = navController
+                        navController = navController,
+                        assignmentRefreshNonce = assignmentRefreshNonce
                     )
                 }
                 composable(PolicePhoneRoute.IncidentList.route) {
@@ -204,6 +213,7 @@ fun SuriMapApp() {
                         navController = navController,
                         incidentClosed = incidentClosed,
                         clockSyncState = clockSyncState,
+                        assignmentRefreshNonce = assignmentRefreshNonce,
                         onClearClosedOverlay = { incidentClosed = null }
                     )
                 }
@@ -284,6 +294,53 @@ fun SuriMapApp() {
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun IncidentAssignmentRefreshEffect(onRefresh: () -> Unit) {
+    val context = LocalContext.current.applicationContext
+    val currentOnRefresh by rememberUpdatedState(onRefresh)
+
+    DisposableEffect(context) {
+        val receiver =
+            object : BroadcastReceiver() {
+                override fun onReceive(context: Context, intent: Intent) {
+                    if (intent.action == IncidentAssignmentRefreshSignal.Action) {
+                        currentOnRefresh()
+                    }
+                }
+            }
+        ContextCompat.registerReceiver(
+            context,
+            receiver,
+            IntentFilter(IncidentAssignmentRefreshSignal.Action),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+        onDispose {
+            runCatching { context.unregisterReceiver(receiver) }
+        }
+    }
+}
+
+@Composable
+private fun NotificationPermissionEffect() {
+    if (!BuildConfig.SURI_MAP_FIREBASE_MESSAGING_ENABLED || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+        return
+    }
+    val context = LocalContext.current
+    val launcher =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+            // The app can still receive data messages without notification permission.
+        }
+
+    LaunchedEffect(context) {
+        if (
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
 }
@@ -1403,7 +1460,8 @@ private fun OfflinePackageRoute(
 @Composable
 private fun AuthBootstrapRoute(
     incidentSessionState: IncidentSessionState,
-    navController: NavHostController
+    navController: NavHostController,
+    assignmentRefreshNonce: Int
 ) {
     val context = LocalContext.current.applicationContext
     val managedConfigurationReader = remember(context) {
@@ -1426,7 +1484,7 @@ private fun AuthBootstrapRoute(
         mutableStateOf(AuthBootstrapUiState.checking(apiBaseUrl = BuildConfig.SURI_MAP_API_BASE_URL))
     }
 
-    LaunchedEffect(retryNonce) {
+    LaunchedEffect(retryNonce, assignmentRefreshNonce) {
         val config = bootstrapCoordinator.readConfig()
         state = AuthBootstrapUiState.checking(apiBaseUrl = config.apiBaseUrl)
         val outcome = bootstrapCoordinator.check(config)
@@ -1454,6 +1512,7 @@ private fun IncidentListRoute(
     navController: NavHostController,
     incidentClosed: IncidentClosedOverlayState?,
     clockSyncState: ClockSyncState,
+    assignmentRefreshNonce: Int,
     onClearClosedOverlay: () -> Unit
 ) {
     val policePhoneContext = incidentSessionState.policePhoneContext
@@ -1516,32 +1575,12 @@ private fun IncidentListRoute(
             }
         )
     }
-    var refreshNonce by remember { mutableStateOf(0) }
+    var manualRefreshNonce by remember { mutableStateOf(0) }
     var state by remember {
         mutableStateOf(IncidentListUiState.loading(policePhoneLabel = policePhoneLabel))
     }
 
-    DisposableEffect(context) {
-        val receiver =
-            object : BroadcastReceiver() {
-                override fun onReceive(context: Context, intent: Intent) {
-                    if (intent.action == IncidentAssignmentRefreshSignal.Action) {
-                        refreshNonce += 1
-                    }
-                }
-            }
-        ContextCompat.registerReceiver(
-            context,
-            receiver,
-            IntentFilter(IncidentAssignmentRefreshSignal.Action),
-            ContextCompat.RECEIVER_NOT_EXPORTED
-        )
-        onDispose {
-            runCatching { context.unregisterReceiver(receiver) }
-        }
-    }
-
-    LaunchedEffect(refreshNonce, incidentClosed, loader, policePhoneLabel) {
+    LaunchedEffect(assignmentRefreshNonce, manualRefreshNonce, incidentClosed, loader, policePhoneLabel) {
         state = IncidentListUiState.loading(policePhoneLabel = policePhoneLabel)
         state = loader.load().copy(showClosedDialog = incidentClosed != null)
         if (state.shouldClearIncidentContext || incidentClosed != null) {
@@ -1563,7 +1602,7 @@ private fun IncidentListRoute(
                 navController.navigateToSingleTop(PolicePhoneRoute.OfflinePackage)
             }
         },
-        onRefresh = { refreshNonce += 1 },
+        onRefresh = { manualRefreshNonce += 1 },
         onDismissClosedDialog = {
             onClearClosedOverlay()
             incidentSessionState.clearIncidentContext()

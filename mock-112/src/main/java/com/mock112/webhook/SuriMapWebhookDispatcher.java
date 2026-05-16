@@ -6,6 +6,7 @@ import com.mock112.domain.MockAssignment;
 import com.mock112.domain.MockIncident;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.OffsetDateTime;
 import java.util.HexFormat;
@@ -56,10 +57,21 @@ public class SuriMapWebhookDispatcher {
                     ? assignment.getAccountCode()
                     : assignmentKey;
             send(new SuriMapWebhookEvent(
-                    "mock112:INCIDENT_ASSIGNMENT_CHANGED:" + sourceIncidentId + ":" + eventKey,
+                    assignmentChangedEventId(sourceIncidentId, eventKey),
                     "INCIDENT_ASSIGNMENT_CHANGED",
                     sourceIncidentId,
                     OffsetDateTime.now()));
+        }
+    }
+
+    static String assignmentChangedEventId(String sourceIncidentId, String eventKey) {
+        String rawKey = sourceIncidentId + ":" + eventKey;
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            String hash = HexFormat.of().formatHex(digest.digest(rawKey.getBytes(StandardCharsets.UTF_8)));
+            return "mock112:ASSIGNMENT_CHANGED:" + hash.substring(0, 32);
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is unavailable", exception);
         }
     }
 
