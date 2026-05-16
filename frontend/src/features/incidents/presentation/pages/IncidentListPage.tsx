@@ -249,6 +249,14 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
   const visibleIncidents = incidents.slice(pageStartIndex, pageStartIndex + INCIDENT_LIST_PAGE_SIZE);
   const pageStartNumber = incidents.length === 0 ? 0 : pageStartIndex + 1;
   const pageEndNumber = Math.min(pageStartIndex + INCIDENT_LIST_PAGE_SIZE, incidents.length);
+  const isIncidentCountPlaceholder = isLoadingIncidents || (Boolean(listErrorMessage) && incidents.length === 0);
+  const activeIncidentCountLabel = isIncidentCountPlaceholder
+    ? '-건'
+    : `${incidents.filter((incident) => incident.status === '진행 중').length}건`;
+  const totalIncidentCountLabel = isIncidentCountPlaceholder ? '-건' : `${incidents.length}건`;
+  const displayedIncidentRangeLabel = isIncidentCountPlaceholder
+    ? '-건 표시'
+    : `${incidents.length === 0 ? '0' : `${pageStartNumber}-${pageEndNumber}`}건 표시`;
 
   useEffect(() => {
     let ignore = false;
@@ -421,7 +429,7 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
           <div className={styles.listContextMetrics}>
             <div>
               <span>진행 중 사건</span>
-              <strong>{incidents.filter((incident) => incident.status === '진행 중').length}건</strong>
+              <strong>{activeIncidentCountLabel}</strong>
             </div>
           </div>
           <div className={styles.listContextActions}>
@@ -518,10 +526,10 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
           <footer className={styles.paginationBar} aria-label="사건 목록 페이지 이동">
             <div className={styles.paginationSummary}>
               <span>
-                전체 <b>{incidents.length}건</b>
+                전체 <b>{totalIncidentCountLabel}</b>
               </span>
               <span className={styles.toolbarDivider} aria-hidden="true" />
-              <span>{incidents.length === 0 ? '0' : `${pageStartNumber}-${pageEndNumber}`}건 표시</span>
+              <span>{displayedIncidentRangeLabel}</span>
             </div>
 
             <div className={styles.paginationControls}>

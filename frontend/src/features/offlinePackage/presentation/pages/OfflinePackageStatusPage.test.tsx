@@ -98,8 +98,8 @@ describe('OfflinePackageStatusPage', () => {
     expect(screen.getByText('자동 설치 중')).toBeInTheDocument();
     expect(screen.getByText('앱에서 자동 설치 중')).toBeInTheDocument();
     expect(screen.getByText('완료될 때까지 대기')).toBeInTheDocument();
-    expect(screen.getByText('최신 패키지 아님')).toBeInTheDocument();
-    expect(screen.getByText('앱 연결 시 최신 패키지 재설치')).toBeInTheDocument();
+    expect(screen.getByText('업데이트 필요')).toBeInTheDocument();
+    expect(screen.getByText('앱 연결 시 최신 패키지 갱신')).toBeInTheDocument();
     expect(screen.getByText('자동 설치 실패')).toBeInTheDocument();
     expect(screen.getByText('단말 네트워크 확인 또는 수동 재시도 필요')).toBeInTheDocument();
     expect(screen.getByText('실패')).toBeInTheDocument();
