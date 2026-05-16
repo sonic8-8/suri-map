@@ -11,6 +11,10 @@ import {
   type AreaEditMapCanvasProps,
 } from '../../../../areaEdit/presentation/components/AreaEditMapCanvas';
 import {
+  HandoverComparisonMap,
+  type HandoverComparisonMapSharedProps,
+} from '../../../../handover/presentation/components/HandoverComparisonMap';
+import {
   createVWorldBaseStyle,
   V_WORLD_BASE_LAYER_ID,
   V_WORLD_BASE_OPACITY,
@@ -39,9 +43,6 @@ import styles from './SearchMapCanvas.module.css';
 
 const DEFAULT_GWANGJU_CENTER: [number, number] = [126.8325, 35.1547];
 const GWANGJU_BBOX: [number, number, number, number] = [126.647507, 35.052595, 127.017482, 35.256837];
-const MUDEUNGSAN_HIKING_TRAILS_URL = '/map-data/mudeungsan/trails.geojson';
-const MUDEUNGSAN_OSM_TRAILS_URL = '/map-data/mudeungsan/osm-trails.geojson';
-const MUDEUNGSAN_OSM_PEAKS_URL = '/map-data/mudeungsan/osm-peaks.geojson';
 const DEFAULT_FIT_PADDING = 44;
 const ENABLE_LOCAL_ROUTE_EDITOR = false;
 const ROUTE_EDITOR_SOURCE_ID = 'dev-route-editor-draft';
@@ -583,87 +584,6 @@ function syncLayerVisibility(map: maplibregl.Map, layerVisibility: LayerVisibili
   setLayerVisibility(map, MOVEMENT_PATH_COMPARE_LAYER_ID, layerVisibility.vehiclePath || layerVisibility.footPath);
 }
 
-function addMudeungsanHikingTrailLayers(map: maplibregl.Map) {
-  addGeoJsonSource(map, 'mudeungsan-hiking-trails', MUDEUNGSAN_HIKING_TRAILS_URL);
-  addGeoJsonSource(map, 'mudeungsan-osm-trails', MUDEUNGSAN_OSM_TRAILS_URL);
-  addGeoJsonSource(map, 'mudeungsan-osm-peaks', MUDEUNGSAN_OSM_PEAKS_URL);
-
-  addLayer(map, {
-    id: 'mudeungsan-osm-trails-line',
-    type: 'line',
-    source: 'mudeungsan-osm-trails',
-    paint: {
-      'line-color': '#1b6f3a',
-      'line-width': ['interpolate', ['linear'], ['zoom'], 11, 0.45, 14, 1.05, 16, 1.8],
-      'line-opacity': 0.74,
-    },
-  });
-
-  addLayer(map, {
-    id: 'mudeungsan-hiking-trails-casing',
-    type: 'line',
-    source: 'mudeungsan-hiking-trails',
-    paint: {
-      'line-color': '#ffffff',
-      'line-width': ['interpolate', ['linear'], ['zoom'], 11, 1.6, 14, 2.8, 16, 4.2],
-      'line-opacity': 0.88,
-    },
-  });
-  addLayer(map, {
-    id: 'mudeungsan-hiking-trails-line',
-    type: 'line',
-    source: 'mudeungsan-hiking-trails',
-    paint: {
-      'line-color': '#2f9e44',
-      'line-width': ['interpolate', ['linear'], ['zoom'], 11, 0.9, 14, 1.8, 16, 3],
-      'line-opacity': 0.86,
-      'line-dasharray': [1.2, 0.7],
-    },
-  });
-  addLayer(map, {
-    id: 'mudeungsan-osm-peaks-circle',
-    type: 'circle',
-    source: 'mudeungsan-osm-peaks',
-    paint: {
-      'circle-color': '#f08c00',
-      'circle-radius': ['interpolate', ['linear'], ['zoom'], 11, 2.2, 14, 3.6, 16, 5],
-      'circle-stroke-color': '#ffffff',
-      'circle-stroke-width': 1.4,
-      'circle-opacity': 0.9,
-    },
-  });
-  addLayer(map, {
-    id: 'mudeungsan-osm-peaks-label',
-    type: 'symbol',
-    source: 'mudeungsan-osm-peaks',
-    minzoom: 11.5,
-    layout: {
-      'text-field': ['get', 'name'],
-      'text-font': ['Noto Sans Regular'],
-      'text-size': ['interpolate', ['linear'], ['zoom'], 11.5, 10, 14, 11.5, 16, 13],
-      'text-offset': [0, 1.05],
-      'text-anchor': 'top',
-      'text-allow-overlap': false,
-      'text-ignore-placement': false,
-      'symbol-sort-key': ['case', ['has', 'ele'], ['to-number', ['get', 'ele']], 0],
-    },
-    paint: {
-      'text-color': '#3d2b16',
-      'text-halo-color': '#ffffff',
-      'text-halo-width': 1.35,
-      'text-halo-blur': 0.2,
-    },
-  });
-}
-
-function addMudeungsanHikingTrailLayersSafely(map: maplibregl.Map) {
-  try {
-    addMudeungsanHikingTrailLayers(map);
-  } catch (error) {
-    console.error('[map] failed to add Mudeungsan hiking trail overlay', error);
-  }
-}
-
 type SearchMapCanvasProps = {
   activeOperationalPeriodId: string | null;
   incidentId: string;
@@ -678,6 +598,7 @@ type SearchMapCanvasProps = {
   onInitialMapStateReady?: (state: InitialMapResolution['state'] | null) => void;
   onMapReady?: (map: maplibregl.Map | null) => void;
   areaEditMapProps?: AreaEditMapCanvasProps | null;
+  handoverMapProps?: HandoverComparisonMapSharedProps | null;
   selectedSearchAreaId: string | null;
   onSelectSearchArea: (searchAreaId: string) => void;
 };
@@ -696,6 +617,7 @@ export function SearchMapCanvas({
   onInitialMapStateReady,
   onMapReady,
   areaEditMapProps,
+  handoverMapProps,
   selectedSearchAreaId,
   onSelectSearchArea,
 }: SearchMapCanvasProps) {
@@ -1060,7 +982,6 @@ export function SearchMapCanvas({
 
       void Promise.resolve()
         .then(() => {
-          addMudeungsanHikingTrailLayersSafely(map);
           raiseMovementPathLayers(map);
           raiseMarkerLayer(map);
           if (isRouteEditorEnabledRef.current) {
@@ -1104,6 +1025,9 @@ export function SearchMapCanvas({
       <div ref={mapContainerRef} className={styles.canvas} />
       {areaEditMapProps && mapInstance ? (
         <AreaEditMapCanvas {...areaEditMapProps} externalMap={mapInstance} hideCanvas />
+      ) : null}
+      {handoverMapProps && mapInstance ? (
+        <HandoverComparisonMap {...handoverMapProps} externalMap={mapInstance} hideCanvas />
       ) : null}
       {false ? (
         <aside className={styles.initialMapNotice} aria-live="polite">

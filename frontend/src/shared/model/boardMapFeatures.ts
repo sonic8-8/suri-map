@@ -32,6 +32,13 @@ type MovementPathFeatureOptions = {
   includeLabel?: boolean;
 };
 
+type ScopedRouteColorMaps = {
+  accountId?: ReadonlyMap<string, string>;
+  policePhoneId?: ReadonlyMap<string, string>;
+};
+
+const routeFallbackPalette = Object.values(areaColorTokens).map((token) => token.lineColor);
+
 const defaultAreaColorByLevel: Record<CompletedAreaDraft['kind'], AreaColorToken> = {
   overall: 'areaColor001',
   unit: 'areaColor002',
@@ -102,10 +109,13 @@ export function applyRouteColorsByAssignee(
   movementPaths: BoardMovementPath[],
   routeColorsByAccountId: ReadonlyMap<string, string>,
   routeColorsByPolicePhoneId: ReadonlyMap<string, string>,
+  scopedRouteColorsByAssignee: ScopedRouteColorMaps = {},
 ): BoardMovementPath[] {
   return movementPaths.map((path) => ({
     ...path,
-    routeColor: resolveRouteColor(path, routeColorsByAccountId, routeColorsByPolicePhoneId),
+    routeColor:
+      resolveRouteColor(path, routeColorsByAccountId, routeColorsByPolicePhoneId, scopedRouteColorsByAssignee) ??
+      getFallbackRouteColor(path),
   }));
 }
 
@@ -168,13 +178,39 @@ function resolveRouteColor(
   path: BoardMovementPath,
   routeColorsByAccountId: ReadonlyMap<string, string>,
   routeColorsByPolicePhoneId: ReadonlyMap<string, string>,
+  scopedRouteColorsByAssignee: ScopedRouteColorMaps,
 ) {
   if (path.routeColor) return path.routeColor;
+
+  const scopedAccountRouteColor =
+    path.opId && path.accountId
+      ? scopedRouteColorsByAssignee.accountId?.get(createRouteColorAssigneeKey(path.opId, path.accountId))
+      : undefined;
+  if (scopedAccountRouteColor) return scopedAccountRouteColor;
+
+  const scopedPolicePhoneRouteColor =
+    path.opId && path.policePhoneId
+      ? scopedRouteColorsByAssignee.policePhoneId?.get(createRouteColorAssigneeKey(path.opId, path.policePhoneId))
+      : undefined;
+  if (scopedPolicePhoneRouteColor) return scopedPolicePhoneRouteColor;
 
   const accountRouteColor = path.accountId ? routeColorsByAccountId.get(path.accountId) : undefined;
   if (accountRouteColor) return accountRouteColor;
 
   return path.policePhoneId ? routeColorsByPolicePhoneId.get(path.policePhoneId) ?? null : null;
+}
+
+export function createRouteColorAssigneeKey(opId: string, assigneeId: string) {
+  return `${opId}:${assigneeId}`;
+}
+
+function getFallbackRouteColor(path: BoardMovementPath) {
+  const routeKey = path.policePhoneId ?? path.accountId ?? path.id;
+  return routeFallbackPalette[hashString(routeKey) % routeFallbackPalette.length];
+}
+
+function hashString(value: string) {
+  return Array.from(value).reduce((hash, char) => (hash * 31 + char.charCodeAt(0)) >>> 0, 17);
 }
 
 function createSearchAreaDraftFeature(

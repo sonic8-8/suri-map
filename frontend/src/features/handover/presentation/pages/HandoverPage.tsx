@@ -37,7 +37,7 @@ import {
 } from '../../../operationalPeriod/api/operationalPeriodApi';
 import type { OperationalPeriod } from '../../../situationBoard/presentation/constants/mockSituationBoard';
 import { HandoverOperationalPeriodSelector } from '../components/HandoverOperationalPeriodSelector';
-import { HandoverComparisonMap } from '../components/HandoverComparisonMap';
+import { HandoverComparisonMap, type HandoverComparisonMapSharedProps } from '../components/HandoverComparisonMap';
 import { type MarkerNotification } from '../../../../shared/ui';
 import styles from './HandoverPage.module.css';
 
@@ -55,6 +55,7 @@ type HandoverPageProps = {
   onOpenSituationBoard: () => void;
   onOpenOfflinePackage: () => void;
   onOperationalPeriodCreated?: () => void;
+  onSharedMapPropsChange?: (props: HandoverComparisonMapSharedProps | null) => void;
 };
 
 type EvidenceSummary = {
@@ -101,6 +102,7 @@ export function HandoverPage({
   onOpenSituationBoard,
   onOpenOfflinePackage,
   onOperationalPeriodCreated,
+  onSharedMapPropsChange,
 }: HandoverPageProps) {
   const [operationalPeriods, setOperationalPeriods] = useState<OperationalPeriodListItem[]>([]);
   const [currentOpId, setCurrentOpId] = useState<string | null>(null);
@@ -174,6 +176,15 @@ export function HandoverPage({
       generatedAt: item.generatedAt ? formatKstDateTime(new Date(item.generatedAt)) : null,
     };
   }, [summaryQuery.data, focusedOpId]);
+  const sharedMapProps = useMemo<HandoverComparisonMapSharedProps>(
+    () => ({
+      incidentId,
+      board,
+      focusedOpId,
+      selectedOpIds,
+    }),
+    [board, focusedOpId, incidentId, selectedOpIds],
+  );
   const currentAccountLabel = `${currentUserAccount.name} / ${currentUserAccount.organization}`;
   const timestampLabel = formatKstDateTime(now);
   const incidentContext = useMemo(
@@ -257,6 +268,12 @@ export function HandoverPage({
       ignore = true;
     };
   }, [focusedOpId, incidentId]);
+
+  useEffect(() => {
+    if (!sharedMapMode) return;
+    onSharedMapPropsChange?.(sharedMapProps);
+    return () => onSharedMapPropsChange?.(null);
+  }, [onSharedMapPropsChange, sharedMapMode, sharedMapProps]);
 
   async function loadMemos(opId: string, shouldIgnore = () => false) {
     setIsLoadingMemos(true);
@@ -383,11 +400,9 @@ export function HandoverPage({
   };
 
   const handleOperationalPeriodSelectionChange = (nextOpIds: string[]) => {
-    if (nextOpIds.length === 0) return;
-
     setSelectedOpIds(nextOpIds);
     setFocusedOpId((currentFocusedOpId) =>
-      currentFocusedOpId && nextOpIds.includes(currentFocusedOpId) ? currentFocusedOpId : nextOpIds[0],
+      currentFocusedOpId && nextOpIds.includes(currentFocusedOpId) ? currentFocusedOpId : nextOpIds[0] ?? null,
     );
   };
 
@@ -456,7 +471,6 @@ export function HandoverPage({
               </div>
             ) : (
               <HandoverOperationalPeriodSelector
-                allowEmptySelection={false}
                 emptyMessage="등록된 OP가 없습니다."
                 onFocusedOperationalPeriodChange={setFocusedOpId}
                 onOperationalPeriodOpen={openComparisonPopup}

@@ -15,7 +15,11 @@ import {
   type BoardMapMarker,
   type BoardMovementPath,
 } from '../../../../shared/model/boardMapSlots';
-import { getRouteCoreColor } from '../../../../shared/model/boardMapFeatures';
+import {
+  applyRouteColorsByAssignee,
+  createRouteColorAssigneeKey,
+  getRouteCoreColor,
+} from '../../../../shared/model/boardMapFeatures';
 import { type IncidentBoardResponse, type BoardSlotName } from '../../../board/api/incidentBoardApi';
 import styles from './HandoverComparisonMap.module.css';
 
@@ -27,6 +31,8 @@ export type HandoverComparisonMapProps = {
   focusedOpId: string | null;
   selectedOpIds: string[];
 };
+
+export type HandoverComparisonMapSharedProps = Omit<HandoverComparisonMapProps, 'externalMap' | 'hideCanvas'>;
 
 type Position = [number, number];
 type PolygonGeometry = { type: 'Polygon'; coordinates: Position[][] };
@@ -377,12 +383,15 @@ function createComparisonFeatureCollections(
   const areaRows = readSlotRows(board, 'area').filter((row) => rowBelongsToSelectedOp(row, selectedOpIdSet));
   const areaVisualStylesByAreaId = createAreaVisualStylesByAreaId([...overallRows, ...areaRows]);
   const routeColorsByAssignee = createRouteColorsByAssignee(areaRows, areaVisualStylesByAreaId);
-  const paths = createBoardMovementPaths(board)
-    .filter((path) => rowBelongsToSelectedOpId(path.opId, selectedOpIdSet))
-    .map((path) => ({
-      ...path,
-      routeColor: resolveRouteColor(path, routeColorsByAssignee.accountId, routeColorsByAssignee.policePhoneId),
-    }));
+  const paths = applyRouteColorsByAssignee(
+    createBoardMovementPaths(board),
+    routeColorsByAssignee.accountId,
+    routeColorsByAssignee.policePhoneId,
+    {
+      accountId: routeColorsByAssignee.accountOpId,
+      policePhoneId: routeColorsByAssignee.policePhoneOpId,
+    },
+  ).filter((path) => rowBelongsToSelectedOpId(path.opId, selectedOpIdSet));
   const markers = createBoardMapMarkers(board).filter((marker) => rowBelongsToSelectedOpId(marker.opId, selectedOpIdSet));
 
   return {
@@ -578,9 +587,12 @@ function createRouteColorsByAssignee(
 ) {
   const routeColorsByAccountId = new Map<string, string>();
   const routeColorsByPolicePhoneId = new Map<string, string>();
+  const routeColorsByAccountOpId = new Map<string, string>();
+  const routeColorsByPolicePhoneOpId = new Map<string, string>();
 
   areaRows.forEach((row) => {
     const areaId = readString(row, 'id') ?? readString(row, 'searchAreaId');
+    const opId = readRowOpId(row);
     const assignedAccounts = row.assignedAccounts;
     if (!areaId || !Array.isArray(assignedAccounts)) return;
     const routeColor = areaVisualStylesByAreaId.get(areaId)?.lineColor ?? getAreaVisualStyle(areaId).lineColor;
@@ -588,24 +600,23 @@ function createRouteColorsByAssignee(
     assignedAccounts.filter(isRecord).forEach((account) => {
       const accountId = readAccountId(account);
       const policePhoneId = readPolicePhoneId(account);
-      if (accountId) routeColorsByAccountId.set(accountId, routeColor);
-      if (policePhoneId) routeColorsByPolicePhoneId.set(policePhoneId, routeColor);
+      if (accountId) {
+        routeColorsByAccountId.set(accountId, routeColor);
+        if (opId) routeColorsByAccountOpId.set(createRouteColorAssigneeKey(opId, accountId), routeColor);
+      }
+      if (policePhoneId) {
+        routeColorsByPolicePhoneId.set(policePhoneId, routeColor);
+        if (opId) routeColorsByPolicePhoneOpId.set(createRouteColorAssigneeKey(opId, policePhoneId), routeColor);
+      }
     });
   });
 
-  return { accountId: routeColorsByAccountId, policePhoneId: routeColorsByPolicePhoneId };
-}
-
-function resolveRouteColor(
-  path: BoardMovementPath,
-  routeColorsByAccountId: ReadonlyMap<string, string>,
-  routeColorsByPolicePhoneId: ReadonlyMap<string, string>,
-) {
-  const accountRouteColor = path.accountId ? routeColorsByAccountId.get(path.accountId) : undefined;
-  if (accountRouteColor) return accountRouteColor;
-
-  const phoneRouteColor = path.policePhoneId ? routeColorsByPolicePhoneId.get(path.policePhoneId) : undefined;
-  return phoneRouteColor ?? path.routeColor;
+  return {
+    accountId: routeColorsByAccountId,
+    policePhoneId: routeColorsByPolicePhoneId,
+    accountOpId: routeColorsByAccountOpId,
+    policePhoneOpId: routeColorsByPolicePhoneOpId,
+  };
 }
 
 function getOpColor(opId: string | null, selectedOpIds: string[]) {

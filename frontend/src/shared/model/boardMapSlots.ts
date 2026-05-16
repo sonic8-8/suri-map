@@ -44,6 +44,8 @@ export function readBoardSlotRows(board: BoardResponseLike, slot: string): Recor
 export function createBoardMovementPaths(board: BoardResponseLike | null): BoardMovementPath[] {
   if (!board) return [];
 
+  const accountIdsByPolicePhoneId = createAccountIdsByPolicePhoneId(board);
+
   return readBoardSlotRows(board, 'path').flatMap((row, pathIndex) => {
     const segments = row.segments;
     if (Array.isArray(segments)) {
@@ -53,7 +55,8 @@ export function createBoardMovementPaths(board: BoardResponseLike | null): Board
 
         const rowId = readString(row, 'id') ?? readString(row, 'pathId') ?? 'path';
         const policePhoneId = readPolicePhoneId(segment) ?? readPolicePhoneId(row);
-        const accountId = readAccountId(segment) ?? readAccountId(row);
+        const accountId =
+          readAccountId(segment) ?? readAccountId(row) ?? readAccountIdByPolicePhoneId(policePhoneId, accountIdsByPolicePhoneId);
         return [
           {
             id: readString(segment, 'id') ?? readString(segment, 'segmentId') ?? `${rowId}:segment-${segmentIndex + 1}`,
@@ -78,7 +81,9 @@ export function createBoardMovementPaths(board: BoardResponseLike | null): Board
       {
         id: readString(row, 'id') ?? readString(row, 'pathId') ?? `${board.incidentId}:path-${pathIndex + 1}`,
         policePhoneId: readPolicePhoneId(row),
-        accountId: readAccountId(row),
+        accountId:
+          readAccountId(row) ??
+          readAccountIdByPolicePhoneId(readPolicePhoneId(row), accountIdsByPolicePhoneId),
         routeColor: null,
         opId: readRowOpId(row) ?? board.activeOpId ?? '',
         label: readString(row, 'label') ?? `Path ${pathIndex + 1}`,
@@ -89,6 +94,27 @@ export function createBoardMovementPaths(board: BoardResponseLike | null): Board
       },
     ];
   });
+}
+
+function createAccountIdsByPolicePhoneId(board: BoardResponseLike) {
+  const accountIdsByPolicePhoneId = new Map<string, string>();
+
+  readBoardSlotRows(board, 'police_phone_freshness').forEach((row) => {
+    const policePhoneId = readPolicePhoneId(row);
+    const accountId = readAccountId(row);
+    if (policePhoneId && accountId) {
+      accountIdsByPolicePhoneId.set(policePhoneId, accountId);
+    }
+  });
+
+  return accountIdsByPolicePhoneId;
+}
+
+function readAccountIdByPolicePhoneId(
+  policePhoneId: string | null,
+  accountIdsByPolicePhoneId: ReadonlyMap<string, string>,
+) {
+  return policePhoneId ? accountIdsByPolicePhoneId.get(policePhoneId) ?? null : null;
 }
 
 export function createBoardMapMarkers(board: BoardResponseLike | null): BoardMapMarker[] {

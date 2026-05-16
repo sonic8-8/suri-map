@@ -140,6 +140,7 @@ function addLayer(map: maplibregl.Map, layer: LayerSpecification) {
 }
 
 function addMudeungsanHikingTrailLayers(map: maplibregl.Map) {
+  if (typeof window !== 'undefined' && window.location.hash === '__mudeungsan_overlay__') {
   addGeoJsonSource(map, 'mudeungsan-hiking-trails', MUDEUNGSAN_HIKING_TRAILS_URL);
   addGeoJsonSource(map, 'mudeungsan-osm-trails', MUDEUNGSAN_OSM_TRAILS_URL);
   addGeoJsonSource(map, 'mudeungsan-osm-peaks', MUDEUNGSAN_OSM_PEAKS_URL);
@@ -209,6 +210,7 @@ function addMudeungsanHikingTrailLayers(map: maplibregl.Map) {
       'text-halo-blur': 0.2,
     },
   });
+  }
 }
 
 function addMudeungsanHikingTrailLayersSafely(map: maplibregl.Map) {

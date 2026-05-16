@@ -89,11 +89,12 @@ public class SearchPathService {
                         path.id(),
                         path.incidentId(),
                         path.opId(),
+                        path.dutyShiftId(),
                         path.policePhoneId(),
                         path.status(),
                         path.version(),
                         toGeometry(path.points()),
-                        path.segments(),
+                        toQuerySegments(path.points(), path.segments()),
                         path.excludedPoints()))
             .toList();
     return new PathQueryResponse(rows);
@@ -250,5 +251,35 @@ public class SearchPathService {
     return points.stream()
         .map(p -> List.of(p.lon().doubleValue(), p.lat().doubleValue()))
         .toList();
+  }
+
+  private List<PathQuerySegmentRow> toQuerySegments(
+      List<SearchPathPoint> points, List<SearchPathSegment> segments) {
+    return segments.stream()
+        .filter(segment -> hasValidPointRange(points, segment))
+        .map(segment -> toQuerySegment(points, segment))
+        .toList();
+  }
+
+  private PathQuerySegmentRow toQuerySegment(
+      List<SearchPathPoint> points, SearchPathSegment segment) {
+    List<SearchPathPoint> segmentPoints =
+        points.subList(segment.startIndex(), segment.endIndex() + 1);
+    return new PathQuerySegmentRow(
+        segment.id(),
+        segment.version(),
+        segment.movementType(),
+        segment.movementTypeSource(),
+        toGeometry(segmentPoints),
+        segmentPoints.get(0).clientTs(),
+        segmentPoints.get(segmentPoints.size() - 1).clientTs(),
+        segment.correctedByAccountId(),
+        segment.correctedAt());
+  }
+
+  private boolean hasValidPointRange(List<SearchPathPoint> points, SearchPathSegment segment) {
+    return segment.startIndex() >= 0
+        && segment.endIndex() >= segment.startIndex()
+        && segment.endIndex() < points.size();
   }
 }

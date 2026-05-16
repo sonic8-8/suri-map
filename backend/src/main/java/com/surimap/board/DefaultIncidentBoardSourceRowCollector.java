@@ -24,7 +24,7 @@ import com.surimap.operationalperiod.query.OperationalPeriodQuery;
 import com.surimap.operationalperiod.query.OperationalPeriodRow;
 import com.surimap.path.PathExcludedPoint;
 import com.surimap.path.PathQueryRow;
-import com.surimap.path.SearchPathSegment;
+import com.surimap.path.PathQuerySegmentRow;
 import com.surimap.path.SearchPathService;
 import com.surimap.policephone.PolicePhoneFreshnessStatus;
 import com.surimap.policephone.query.PolicePhoneFreshnessQuery;
@@ -478,6 +478,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     String status = row.status().name();
     Map<String, Object> payload = new LinkedHashMap<>();
     putUuid(payload, "opId", row.opId());
+    putUuid(payload, "dutyShiftId", row.dutyShiftId());
     putUuid(payload, "policePhoneId", row.policePhoneId());
     payload.put("geometryHash", sourceHash("path", row.id().toString(), row.version(), status));
     payload.put("geometry", Map.of("type", "LineString", "coordinates", row.geometry()));
@@ -718,16 +719,15 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
         payload);
   }
 
-  private Map<String, Object> segmentPayload(SearchPathSegment segment) {
+  private Map<String, Object> segmentPayload(PathQuerySegmentRow segment) {
     Map<String, Object> payload = new LinkedHashMap<>();
     payload.put("id", segment.id());
     payload.put("version", segment.version());
     payload.put("movementType", segment.movementType().name());
     payload.put("movementTypeSource", segment.movementTypeSource().name());
-    payload.put("startIndex", segment.startIndex());
-    payload.put("endIndex", segment.endIndex());
-    payload.put("startPointId", segment.startPointId());
-    payload.put("endPointId", segment.endPointId());
+    payload.put("geometry", Map.of("type", "LineString", "coordinates", segment.geometry()));
+    payload.put("startedAt", segment.startedAt());
+    payload.put("endedAt", segment.endedAt());
     putUuid(payload, "correctedByAccountId", segment.correctedByAccountId());
     payload.put("correctedAt", segment.correctedAt());
     return payload;

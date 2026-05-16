@@ -72,6 +72,7 @@ export type MovementPath = {
 
 export type SearchAreaTreeNode = {
   id: string;
+  opId?: string | null;
   kind: 'overall' | 'unit' | 'team';
   colorToken: AreaColorToken;
   name: string;
