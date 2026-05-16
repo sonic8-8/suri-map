@@ -292,6 +292,13 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=${env.SPRING_JPA_HIBERNATE_DDL_AUTO}
                       --env-file ${ENV_FILE} \
                       -f ${COMPOSE_FILE} \
                       up -d ${COMPOSE_SERVICES}
+
+                    if printf '%s\n' "${COMPOSE_SERVICES}" | grep -q 'tileserver-gl'; then
+                      docker compose \
+                        --env-file ${ENV_FILE} \
+                        -f ${COMPOSE_FILE} \
+                        up -d --force-recreate tileserver-gl
+                    fi
                 '''
             }
         }
