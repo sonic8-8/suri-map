@@ -95,7 +95,7 @@ services:
   keycloak:
     image: ${KEYCLOAK_IMAGE:-quay.io/keycloak/keycloak:26.6.1}
     container_name: keycloak
-    command: start-dev
+    command: ["start-dev", "--import-realm"]
     depends_on:
       keycloak-postgres:
         condition: service_healthy
@@ -112,6 +112,8 @@ services:
     ports:
       - "${KEYCLOAK_HOST_PORT:-18080}:8080"
       - "${KEYCLOAK_MANAGEMENT_HOST_PORT:-19000}:9000"
+    volumes:
+      - ./docker/keycloak/import:/opt/keycloak/data/import:ro
 
 volumes:
   surimap-frontend-node-modules:

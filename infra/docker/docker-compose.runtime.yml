@@ -149,7 +149,7 @@ services:
     image: ${KEYCLOAK_IMAGE:-quay.io/keycloak/keycloak:26.6.1}
     container_name: suri-map-keycloak
     restart: unless-stopped
-    command: start-dev
+    command: ["start-dev", "--import-realm"]
     depends_on:
       keycloak-postgres:
         condition: service_healthy
@@ -167,6 +167,8 @@ services:
     ports:
       - "127.0.0.1:${KEYCLOAK_HOST_PORT:-18080}:8080"
       - "127.0.0.1:${KEYCLOAK_MANAGEMENT_HOST_PORT:-19000}:9000"
+    volumes:
+      - ./keycloak/import:/opt/keycloak/data/import:ro
     networks:
       - web_net
       - db_net
