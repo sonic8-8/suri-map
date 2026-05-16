@@ -28,16 +28,19 @@ public class IncidentAssignmentImportService {
   private final IncidentMapper incidentMapper;
   private final IncidentLifecycleGuard incidentLifecycleGuard;
   private final IncidentEventPublisher incidentEventPublisher;
+  private final IncidentAssignmentFcmDispatchService fcmDispatchService;
   private final Clock clock;
 
   public IncidentAssignmentImportService(
       IncidentMapper incidentMapper,
       IncidentLifecycleGuard incidentLifecycleGuard,
       IncidentEventPublisher incidentEventPublisher,
+      IncidentAssignmentFcmDispatchService fcmDispatchService,
       Clock clock) {
     this.incidentMapper = incidentMapper;
     this.incidentLifecycleGuard = incidentLifecycleGuard;
     this.incidentEventPublisher = incidentEventPublisher;
+    this.fcmDispatchService = fcmDispatchService;
     this.clock = clock;
   }
 
@@ -84,6 +87,7 @@ public class IncidentAssignmentImportService {
     incidentEventPublisher.publishIncidentAssignmentChanged(
         new IncidentAssignmentChangedEvent(
             result.incidentId(), result.status(), result.version(), result.changedAccountIds()));
+    fcmDispatchService.dispatchAssignmentChanged(result);
     return Optional.of(result);
   }
 

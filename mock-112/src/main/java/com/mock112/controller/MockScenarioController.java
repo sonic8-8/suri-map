@@ -4,6 +4,7 @@ import com.mock112.domain.MockAssignment;
 import com.mock112.domain.MockIncident;
 import com.mock112.seed.SeedDataLoader;
 import com.mock112.store.InMemoryIncidentStore;
+import com.mock112.webhook.SuriMapWebhookDispatcher;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,10 +25,15 @@ public class MockScenarioController {
 
     private final InMemoryIncidentStore store;
     private final SeedDataLoader seedDataLoader;
+    private final SuriMapWebhookDispatcher webhookDispatcher;
 
-    public MockScenarioController(InMemoryIncidentStore store, SeedDataLoader seedDataLoader) {
+    public MockScenarioController(
+            InMemoryIncidentStore store,
+            SeedDataLoader seedDataLoader,
+            SuriMapWebhookDispatcher webhookDispatcher) {
         this.store = store;
         this.seedDataLoader = seedDataLoader;
+        this.webhookDispatcher = webhookDispatcher;
     }
 
     /**
@@ -38,6 +44,7 @@ public class MockScenarioController {
     public ResponseEntity<Map<String, Object>> loadPrecinctFirst() {
         try {
             MockIncident incident = seedDataLoader.loadPrecinctFirstScenario(store);
+            webhookDispatcher.sendIncidentReady(incident);
             Map<String, Object> body = new LinkedHashMap<>();
             body.put("message", "precinct-first 시나리오가 적재되었습니다.");
             body.put("sourceIncidentId", incident.getSourceIncidentId());
@@ -59,6 +66,7 @@ public class MockScenarioController {
             @PathVariable String sourceIncidentId) {
         try {
             List<MockAssignment> added = seedDataLoader.loadHandoverAssignments(store, sourceIncidentId);
+            webhookDispatcher.sendAssignmentChanged(sourceIncidentId, added);
             Map<String, Object> body = new LinkedHashMap<>();
             body.put("message", "실종팀 인계 배정이 추가되었습니다.");
             body.put("sourceIncidentId", sourceIncidentId);
@@ -80,6 +88,7 @@ public class MockScenarioController {
             @PathVariable String sourceIncidentId) {
         try {
             List<MockAssignment> added = seedDataLoader.loadSupportAssignments(store, sourceIncidentId);
+            webhookDispatcher.sendAssignmentChanged(sourceIncidentId, added);
             Map<String, Object> body = new LinkedHashMap<>();
             body.put("message", "지원 부대 배정이 추가되었습니다.");
             body.put("sourceIncidentId", sourceIncidentId);

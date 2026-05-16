@@ -13,6 +13,7 @@ import { IncidentImportModal } from '../../../incidentImport/presentation/compon
 import type { LoginAccount } from '../../../login/presentation/types/login';
 import { ActionButton, StatusBadge, type StatusBadgeTone } from '../../../../shared';
 import { ApiError, createIdempotencyKey } from '../../../../shared/api/client';
+import { openAssignedIncidentEventStream } from '../../../../shared/api/eventStream';
 import type { IncidentCard, IncidentStatus } from '../../domain/entities/Incident';
 import styles from './IncidentListPage.module.css';
 
@@ -278,6 +279,30 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
     return () => {
       ignore = true;
     };
+  }, [currentUserAccount.id]);
+
+  useEffect(() => {
+    const abortController = new AbortController();
+
+    void openAssignedIncidentEventStream({
+      signal: abortController.signal,
+      onMessage: (message) => {
+        if (
+          message.data.type === 'INCIDENT_CREATED' ||
+          message.data.type === 'INCIDENT_ASSIGNMENT_CHANGED' ||
+          message.event === 'INCIDENT_CREATED' ||
+          message.event === 'INCIDENT_ASSIGNMENT_CHANGED'
+        ) {
+          void reloadAssignedIncidents();
+        }
+      },
+    }).catch((error) => {
+      if (!abortController.signal.aborted) {
+        setListErrorMessage(getListErrorMessage(error));
+      }
+    });
+
+    return () => abortController.abort();
   }, [currentUserAccount.id]);
 
   useEffect(() => {

@@ -20,7 +20,10 @@ import org.springframework.stereotype.Component;
 @Component
 class IncidentImportAuthorizer {
 
-  void requireImportAllowed(Authentication authentication, String clientChannel) {
+  void requireImportAllowed(Authentication authentication, String clientChannel, boolean internal) {
+    if (internal && "INTERNAL".equals(clientChannel)) {
+      return;
+    }
     if (!"WEB".equals(clientChannel)) {
       throw new IncidentApiException("channel_not_allowed", HttpStatus.FORBIDDEN);
     }

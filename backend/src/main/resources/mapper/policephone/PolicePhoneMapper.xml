@@ -190,4 +190,22 @@
           AND status = 'ACTIVE'
         ORDER BY app_instance_id ASC, id ASC
     </select>
+
+    <select id="findActiveTokensByAccounts" resultMap="FcmTokenRowMap">
+        SELECT
+            id,
+            police_phone_id,
+            app_instance_id,
+            token_ciphertext,
+            token_hash,
+            status,
+            version
+        FROM fcm_token
+        WHERE status = 'ACTIVE'
+          AND account_id IN
+          <foreach item="accountId" collection="accountIds" open="(" separator="," close=")">
+              #{accountId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          </foreach>
+        ORDER BY police_phone_id ASC, app_instance_id ASC, id ASC
+    </select>
 </mapper>

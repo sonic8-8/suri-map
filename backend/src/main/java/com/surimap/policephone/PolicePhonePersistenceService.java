@@ -119,6 +119,15 @@ public class PolicePhonePersistenceService
 
   @Override
   @Transactional(readOnly = true)
+  public List<FcmTokenRow> activeByAccounts(List<UUID> accountIds) {
+    if (accountIds == null || accountIds.isEmpty()) {
+      return List.of();
+    }
+    return mapper.findActiveTokensByAccounts(accountIds);
+  }
+
+  @Override
+  @Transactional(readOnly = true)
   public List<PolicePhoneFreshnessRow> byIncident(UUID incidentId) {
     Instant now = clock.instant();
     return mapper.findFreshnessByIncident(incidentId).stream()

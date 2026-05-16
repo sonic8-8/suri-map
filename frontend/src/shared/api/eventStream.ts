@@ -27,6 +27,19 @@ type OpenIncidentEventStreamOptions = {
   onMessage: (message: EventStreamMessage) => void;
 };
 
+type OpenAssignedIncidentEventStreamOptions = {
+  signal: AbortSignal;
+  onMessage: (message: EventStreamMessage) => void;
+};
+
+export async function openAssignedIncidentEventStream({
+  onMessage,
+  signal,
+}: OpenAssignedIncidentEventStreamOptions) {
+  const baseUrl = getApiBaseUrl().replace(/\/$/, '');
+  await openEventStream(`${baseUrl}/incidents/events`, {}, onMessage, signal);
+}
+
 export async function openIncidentEventStream({
   incidentId,
   lastEventId,
@@ -34,21 +47,36 @@ export async function openIncidentEventStream({
   signal,
 }: OpenIncidentEventStreamOptions) {
   const baseUrl = getApiBaseUrl().replace(/\/$/, '');
+  const headers: Record<string, string> = {};
+  if (lastEventId) {
+    headers['Last-Event-ID'] = lastEventId;
+  }
+  await openEventStream(
+    `${baseUrl}/incidents/${encodeURIComponent(incidentId)}/events`,
+    headers,
+    onMessage,
+    signal,
+  );
+}
+
+async function openEventStream(
+  url: string,
+  extraHeaders: Record<string, string>,
+  onMessage: (message: EventStreamMessage) => void,
+  signal: AbortSignal,
+) {
   const accessToken = getStoredAccessToken();
   const headers: Record<string, string> = {
     Accept: 'text/event-stream',
     'X-Client-Channel': 'WEB',
+    ...extraHeaders,
   };
 
   if (accessToken) {
     headers.Authorization = `Bearer ${accessToken}`;
   }
 
-  if (lastEventId) {
-    headers['Last-Event-ID'] = lastEventId;
-  }
-
-  const response = await fetch(`${baseUrl}/incidents/${encodeURIComponent(incidentId)}/events`, {
+  const response = await fetch(url, {
     headers,
     signal,
   });

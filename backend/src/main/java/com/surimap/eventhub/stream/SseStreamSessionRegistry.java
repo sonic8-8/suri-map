@@ -10,6 +10,8 @@ public class SseStreamSessionRegistry {
 
   private final ConcurrentMap<UUID, CopyOnWriteArrayList<SseLiveEventSink>> sinksByIncident =
       new ConcurrentHashMap<>();
+  private final ConcurrentMap<UUID, CopyOnWriteArrayList<SseLiveEventSink>> sinksByAccount =
+      new ConcurrentHashMap<>();
 
   public AutoCloseable register(UUID incidentId, SseLiveEventSink sink) {
     sinksByIncident.computeIfAbsent(incidentId, ignored -> new CopyOnWriteArrayList<>()).add(sink);
@@ -19,6 +21,17 @@ public class SseStreamSessionRegistry {
   public void send(UUID incidentId, SseEventFrame frame) {
     sinksByIncident
         .getOrDefault(incidentId, new CopyOnWriteArrayList<>())
+        .forEach(sink -> sink.send(frame));
+  }
+
+  public AutoCloseable registerAccount(UUID accountId, SseLiveEventSink sink) {
+    sinksByAccount.computeIfAbsent(accountId, ignored -> new CopyOnWriteArrayList<>()).add(sink);
+    return () -> unregisterAccount(accountId, sink);
+  }
+
+  public void sendToAccount(UUID accountId, SseEventFrame frame) {
+    sinksByAccount
+        .getOrDefault(accountId, new CopyOnWriteArrayList<>())
         .forEach(sink -> sink.send(frame));
   }
 
@@ -42,6 +55,17 @@ public class SseStreamSessionRegistry {
     sinks.remove(sink);
     if (sinks.isEmpty()) {
       sinksByIncident.remove(incidentId, sinks);
+    }
+  }
+
+  private void unregisterAccount(UUID accountId, SseLiveEventSink sink) {
+    var sinks = sinksByAccount.get(accountId);
+    if (sinks == null) {
+      return;
+    }
+    sinks.remove(sink);
+    if (sinks.isEmpty()) {
+      sinksByAccount.remove(accountId, sinks);
     }
   }
 }
