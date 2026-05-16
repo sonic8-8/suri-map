@@ -7,6 +7,7 @@ import { OverallSearchAreaRequiredModal } from '../components/OverallSearchAreaR
 import { SituationBoardHeader } from '../components/header/SituationBoardHeader';
 import { SituationBoardLeftPanel } from '../components/leftPanel/SituationBoardLeftPanel';
 import { SituationBoardMap } from '../components/map/SituationBoardMap';
+import type { HandoverComparisonMapSharedProps } from '../../../handover/presentation/components/HandoverComparisonMap';
 import { useSituationBoardPageState } from '../hooks/useSituationBoardPageState';
 import { isIncidentTerminalClosed, toIncidentTerminal } from '../utils/incidentTerminalBoardMapper';
 
@@ -53,6 +54,7 @@ export function SituationBoardPage({
 }: SituationBoardPageProps) {
   const areaIncidentListNavigationHandlerRef = useRef<(() => void) | null>(null);
   const [focusedMarkerRequest, setFocusedMarkerRequest] = useState({ markerId: null as string | null, sequence: 0 });
+  const [handoverMapProps, setHandoverMapProps] = useState<HandoverComparisonMapSharedProps | null>(null);
   const handleAreaIncidentListNavigationChange = useCallback((handler: (() => void) | null) => {
     areaIncidentListNavigationHandlerRef.current = handler;
   }, []);
@@ -75,6 +77,7 @@ export function SituationBoardPage({
     : boardState.isHandoverWorkspaceOpen
       ? 'handover'
       : 'situationBoard';
+  const isHandoverMapMode = !isClosedTerminalBoard && boardState.isHandoverWorkspaceOpen;
   const terminalLayerVisibility = {
     vehiclePath: false,
     footPath: false,
@@ -161,6 +164,7 @@ export function SituationBoardPage({
               onOpenIncidentDetail={onOpenIncidentDetail}
               onOpenSituationBoard={boardState.closeHandoverWorkspace}
               onOpenOfflinePackage={onOpenOfflinePackage}
+              onSharedMapPropsChange={setHandoverMapProps}
             />
           </Suspense>
         ) : boardState.isMapExpanded || isClosedTerminalBoard ? null : (
@@ -182,20 +186,23 @@ export function SituationBoardPage({
           />
         )}
         <SituationBoardMap
-          activeOperationalPeriodId={isClosedTerminalBoard ? null : boardState.activeOperationalPeriodId}
+          activeOperationalPeriodId={isClosedTerminalBoard || isHandoverMapMode ? null : boardState.activeOperationalPeriodId}
           incidentId={incidentId}
           isMapExpanded={boardState.isMapExpanded}
           isTerminalBoard={isClosedTerminalBoard}
-          legendItems={isClosedTerminalBoard ? [] : boardState.board.legendItems}
-          layerVisibility={isClosedTerminalBoard ? terminalLayerVisibility : boardState.layerVisibility}
-          movementPaths={isClosedTerminalBoard ? [] : boardState.board.movementPaths}
-          recentMarkers={isClosedTerminalBoard ? [] : boardState.mapRecentMarkers}
-          focusedMarkerId={isClosedTerminalBoard ? null : focusedMarkerRequest.markerId}
+          legendItems={isClosedTerminalBoard || isHandoverMapMode ? [] : boardState.board.legendItems}
+          layerVisibility={isClosedTerminalBoard || isHandoverMapMode ? terminalLayerVisibility : boardState.layerVisibility}
+          movementPaths={isClosedTerminalBoard || isHandoverMapMode ? [] : boardState.board.movementPaths}
+          recentMarkers={isClosedTerminalBoard || isHandoverMapMode ? [] : boardState.mapRecentMarkers}
+          focusedMarkerId={isClosedTerminalBoard || isHandoverMapMode ? null : focusedMarkerRequest.markerId}
           focusedMarkerSequence={focusedMarkerRequest.sequence}
-          visibleMarkerIds={isClosedTerminalBoard ? [] : boardState.visibleMarkerIds}
+          visibleMarkerIds={isClosedTerminalBoard || isHandoverMapMode ? [] : boardState.visibleMarkerIds}
           savedAreaDrafts={isClosedTerminalBoard ? [] : boardState.board.searchAreaDrafts}
           areaEditMapProps={
             !isClosedTerminalBoard && boardState.isAreaWorkspaceOpen ? boardState.areaEditMapProps : null
+          }
+          handoverMapProps={
+            !isClosedTerminalBoard && boardState.isHandoverWorkspaceOpen ? handoverMapProps : null
           }
           onInitialMapStateChange={boardState.setInitialMapState}
           onSelectSearchArea={isClosedTerminalBoard ? () => {} : boardState.toggleSelectedSearchArea}
@@ -203,7 +210,7 @@ export function SituationBoardPage({
           selectedSearchAreaId={isClosedTerminalBoard ? null : boardState.selectedSearchAreaId}
         />
       </div>
-      {!boardState.isAreaWorkspaceOpen && !isClosedTerminalBoard && boardState.isOverallSearchAreaMissing ? (
+      {!boardState.isAreaWorkspaceOpen && !isHandoverMapMode && !isClosedTerminalBoard && boardState.isOverallSearchAreaMissing ? (
         <OverallSearchAreaRequiredModal
           onOpenAreaWorkspace={boardState.openAreaWorkspace}
           onOpenIncidentList={onOpenIncidentList}

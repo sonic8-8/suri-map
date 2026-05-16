@@ -11,6 +11,10 @@ import {
   type AreaEditMapCanvasProps,
 } from '../../../../areaEdit/presentation/components/AreaEditMapCanvas';
 import {
+  HandoverComparisonMap,
+  type HandoverComparisonMapSharedProps,
+} from '../../../../handover/presentation/components/HandoverComparisonMap';
+import {
   createVWorldBaseStyle,
   V_WORLD_BASE_LAYER_ID,
   V_WORLD_BASE_OPACITY,
@@ -678,6 +682,7 @@ type SearchMapCanvasProps = {
   onInitialMapStateReady?: (state: InitialMapResolution['state'] | null) => void;
   onMapReady?: (map: maplibregl.Map | null) => void;
   areaEditMapProps?: AreaEditMapCanvasProps | null;
+  handoverMapProps?: HandoverComparisonMapSharedProps | null;
   selectedSearchAreaId: string | null;
   onSelectSearchArea: (searchAreaId: string) => void;
 };
@@ -696,6 +701,7 @@ export function SearchMapCanvas({
   onInitialMapStateReady,
   onMapReady,
   areaEditMapProps,
+  handoverMapProps,
   selectedSearchAreaId,
   onSelectSearchArea,
 }: SearchMapCanvasProps) {
@@ -1104,6 +1110,9 @@ export function SearchMapCanvas({
       <div ref={mapContainerRef} className={styles.canvas} />
       {areaEditMapProps && mapInstance ? (
         <AreaEditMapCanvas {...areaEditMapProps} externalMap={mapInstance} hideCanvas />
+      ) : null}
+      {handoverMapProps && mapInstance ? (
+        <HandoverComparisonMap {...handoverMapProps} externalMap={mapInstance} hideCanvas />
       ) : null}
       {false ? (
         <aside className={styles.initialMapNotice} aria-live="polite">

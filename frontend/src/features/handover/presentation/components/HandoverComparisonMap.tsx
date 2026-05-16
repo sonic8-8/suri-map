@@ -28,6 +28,8 @@ export type HandoverComparisonMapProps = {
   selectedOpIds: string[];
 };
 
+export type HandoverComparisonMapSharedProps = Omit<HandoverComparisonMapProps, 'externalMap' | 'hideCanvas'>;
+
 type Position = [number, number];
 type PolygonGeometry = { type: 'Polygon'; coordinates: Position[][] };
 type LineStringGeometry = { type: 'LineString'; coordinates: Position[] };
