@@ -169,6 +169,14 @@
   background: color-mix(in srgb, var(--area-identity-color) 12%, var(--suri-board-panel-muted-bg));
 }
 
+.areaRowSelected {
+  border-color: color-mix(in srgb, var(--area-identity-color) 52%, var(--suri-board-border-strong));
+  background: color-mix(in srgb, var(--area-identity-color) 16%, var(--suri-board-panel-muted-bg));
+  box-shadow:
+    inset 3px 0 0 color-mix(in srgb, var(--area-identity-color) 78%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--area-identity-color) 34%, transparent);
+}
+
 .unitNode {
   display: grid;
   gap: 12px;

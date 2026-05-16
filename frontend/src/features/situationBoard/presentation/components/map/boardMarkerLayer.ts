@@ -1,7 +1,7 @@
 import type { MutableRefObject } from 'react';
 import maplibregl, { type GeoJSONSource } from 'maplibre-gl';
 import type { RecentMarker } from '../../constants/mockSituationBoard';
-import { markerGlyphMarkup, markerTypeGlyphName } from '../marker/MarkerGlyph';
+import { createBottomAlignedMarkerGlyphMarkup, markerTypeGlyphName } from '../marker/MarkerGlyph';
 import styles from './SearchMapCanvas.module.css';
 
 type MarkerTypeKey = 'CLUE' | 'PERSON_FOUND' | 'FIELD_CONDITION' | 'SUPPORT_REQUEST' | 'NOTE' | 'UNKNOWN';
@@ -42,9 +42,14 @@ export type MarkerInteractionHandlers = {
 };
 
 const MARKER_SOURCE_ID = 'operational-marker';
-const MARKER_CIRCLE_LAYER_ID = 'operational-marker-circle';
 const MARKER_LAYER_ID = 'operational-marker-symbol';
 const MARKER_ICON_PREFIX = 'board-marker';
+const MARKER_ICON_WIDTH = 40;
+const MARKER_ICON_HEIGHT = 46;
+const MARKER_ICON_PIXEL_RATIO = 2;
+const MARKER_GLYPH_SIZE = 21.5;
+const MARKER_GLYPH_CENTER_X = 20;
+const MARKER_GLYPH_CENTER_Y = 18.5;
 
 const markerColors: Record<MarkerTypeKey, string> = {
   CLUE: '#ffb020',
@@ -110,21 +115,33 @@ function escapeSvgValue(value: string) {
 
 function createMarkerSymbolSvg(markerType: MarkerTypeKey) {
   const color = escapeSvgValue(markerColors[markerType]);
-  const glyph = markerGlyphMarkup[markerTypeGlyphName(markerType)];
+  const glyph = createBottomAlignedMarkerGlyphMarkup(markerTypeGlyphName(markerType));
 
   return `
-    <svg xmlns="http://www.w3.org/2000/svg" width="36" height="46" viewBox="0 0 36 46">
+    <svg xmlns="http://www.w3.org/2000/svg" width="${MARKER_ICON_WIDTH * MARKER_ICON_PIXEL_RATIO}" height="${MARKER_ICON_HEIGHT * MARKER_ICON_PIXEL_RATIO}" viewBox="0 0 ${MARKER_ICON_WIDTH} ${MARKER_ICON_HEIGHT}">
       <path
-        d="M18 44C15.4 40.2 5 29.5 5 18.3C5 10.5 10.8 4 18 4s13 6.5 13 14.3C31 29.5 20.6 40.2 18 44Z"
+        d="M20 44C16.7 39.8 4 29.9 4 18.7C4 10.4 11.1 4 20 4s16 6.4 16 14.7C36 29.9 23.3 39.8 20 44Z"
         fill="${color}"
         stroke="#ffffff"
         stroke-width="2.4"
         stroke-linejoin="round"
       />
-      <circle cx="18" cy="18" r="10.2" fill="${color}" />
-      <g transform="translate(8 8) scale(0.84)" color="#ffffff" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+      <ellipse cx="20" cy="18.5" rx="12.2" ry="10.4" fill="${color}" />
+      <svg
+        x="${MARKER_GLYPH_CENTER_X - MARKER_GLYPH_SIZE / 2}"
+        y="${MARKER_GLYPH_CENTER_Y - MARKER_GLYPH_SIZE / 2}"
+        width="${MARKER_GLYPH_SIZE}"
+        height="${MARKER_GLYPH_SIZE}"
+        viewBox="0 0 24 24"
+        color="#ffffff"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
         ${glyph}
-      </g>
+      </svg>
     </svg>
   `;
 }
@@ -153,12 +170,12 @@ function ensureMarkerImage(map: maplibregl.Map, markerType: MarkerTypeKey) {
   }
 
   const imagePromise = new Promise<void>((resolve, reject) => {
-    const image = new Image(36, 46);
+    const image = new Image(MARKER_ICON_WIDTH * MARKER_ICON_PIXEL_RATIO, MARKER_ICON_HEIGHT * MARKER_ICON_PIXEL_RATIO);
     const svgUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(createMarkerSymbolSvg(markerType))}`;
 
     image.onload = () => {
       if (!map.hasImage(imageKey)) {
-        map.addImage(imageKey, image, { pixelRatio: 1 });
+        map.addImage(imageKey, image, { pixelRatio: MARKER_ICON_PIXEL_RATIO });
       }
       resolve();
     };
@@ -221,8 +238,6 @@ function setMarkerSourceData(map: maplibregl.Map, data: MarkerFeatureCollection)
 }
 
 function addMarkerLayer(map: maplibregl.Map) {
-  addMarkerCircleLayer(map);
-
   if (map.getLayer(MARKER_LAYER_ID)) {
     raiseMarkerLayer(map);
     return;
@@ -236,7 +251,7 @@ function addMarkerLayer(map: maplibregl.Map) {
     layout: {
       'icon-image': ['get', 'iconKey'],
       'icon-anchor': 'bottom',
-      'icon-size': ['interpolate', ['linear'], ['zoom'], 10, 0.86, 14, 1, 17, 1.12],
+      'icon-size': ['interpolate', ['linear'], ['zoom'], 10, 0.96, 14, 1.12, 17, 1.26],
       'icon-allow-overlap': true,
       'icon-ignore-placement': true,
       'symbol-sort-key': ['match', ['get', 'markerType'], 'PERSON_FOUND', 5, 'CLUE', 4, 'SUPPORT_REQUEST', 3, 'FIELD_CONDITION', 2, 1],
@@ -244,44 +259,7 @@ function addMarkerLayer(map: maplibregl.Map) {
   });
 }
 
-function addMarkerCircleLayer(map: maplibregl.Map) {
-  if (map.getLayer(MARKER_CIRCLE_LAYER_ID)) {
-    return;
-  }
-
-  map.addLayer({
-    id: MARKER_CIRCLE_LAYER_ID,
-    type: 'circle',
-    source: MARKER_SOURCE_ID,
-    filter: ['==', ['get', 'isVisible'], 'true'],
-    paint: {
-      'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 7, 14, 9, 17, 11],
-      'circle-color': [
-        'match',
-        ['get', 'markerType'],
-        'CLUE',
-        markerColors.CLUE,
-        'PERSON_FOUND',
-        markerColors.PERSON_FOUND,
-        'FIELD_CONDITION',
-        markerColors.FIELD_CONDITION,
-        'SUPPORT_REQUEST',
-        markerColors.SUPPORT_REQUEST,
-        'NOTE',
-        markerColors.NOTE,
-        markerColors.UNKNOWN,
-      ],
-      'circle-stroke-color': '#ffffff',
-      'circle-stroke-width': 2,
-      'circle-opacity': 0.92,
-    },
-  });
-}
-
 export function raiseMarkerLayer(map: maplibregl.Map) {
-  if (map.getLayer(MARKER_CIRCLE_LAYER_ID)) {
-    map.moveLayer(MARKER_CIRCLE_LAYER_ID);
-  }
   if (map.getLayer(MARKER_LAYER_ID)) {
     map.moveLayer(MARKER_LAYER_ID);
   }
@@ -326,14 +304,13 @@ function bindMarkerLayerEvents(map: maplibregl.Map, handlers: MarkerInteractionH
     boundLayerIds.add(layerId);
   };
 
-  bindLayerEvents(MARKER_CIRCLE_LAYER_ID);
   bindLayerEvents(MARKER_LAYER_ID);
 
   markerLayerBoundMaps.set(map, boundLayerIds);
 }
 
 function renderedMarkerLayerIds(map: maplibregl.Map) {
-  return [MARKER_LAYER_ID, MARKER_CIRCLE_LAYER_ID].filter((layerId) => map.getLayer(layerId));
+  return [MARKER_LAYER_ID].filter((layerId) => map.getLayer(layerId));
 }
 
 export function hasRenderedMarkerAtPoint(map: maplibregl.Map, point: maplibregl.PointLike) {
@@ -366,7 +343,6 @@ export function syncMarkerElements(
 
   addMarkerSource(map, markerData);
   setMarkerSourceData(map, markerData);
-  addMarkerCircleLayer(map);
   bindMarkerLayerEvents(map, handlers);
   raiseMarkerLayer(map);
 

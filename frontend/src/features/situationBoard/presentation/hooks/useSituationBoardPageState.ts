@@ -57,6 +57,10 @@ export function useSituationBoardPageState({
     setAreaRefreshVersion((currentVersion) => currentVersion + 1);
   };
 
+  const refreshAreaData = () => {
+    setAreaRefreshVersion((currentVersion) => currentVersion + 1);
+  };
+
   return {
     activeOperationalPeriodId,
     apiBoard,
@@ -64,6 +68,7 @@ export function useSituationBoardPageState({
     board,
     closeAreaWorkspace: workspaceMode.closeAreaWorkspace,
     closeHandoverWorkspace: workspaceMode.closeHandoverWorkspace,
+    clearSelectedSearchArea: workspaceMode.clearSelectedSearchArea,
     filteredRecentMarkers: layerFilters.filteredRecentMarkers,
     hasActiveOverallSearchArea: workspaceMode.hasActiveOverallSearchArea,
     incidentDetail,
@@ -80,6 +85,7 @@ export function useSituationBoardPageState({
     openAreaWorkspace: workspaceMode.openAreaWorkspace,
     openHandoverWorkspace: workspaceMode.openHandoverWorkspace,
     retryInitialLoad,
+    refreshAreaData,
     saveAssignedAreas,
     selectedLayerIds: layerFilters.selectedLayerIds,
     selectedMarkerTypes: layerFilters.selectedMarkerTypes,

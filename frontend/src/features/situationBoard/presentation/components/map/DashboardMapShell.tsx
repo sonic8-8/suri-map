@@ -3,7 +3,7 @@ import type maplibregl from 'maplibre-gl';
 import type { LngLatBoundsLike } from 'maplibre-gl';
 import { MapControls } from '../../../../../shared/ui';
 import type { CompletedAreaDraft } from '../../../../../shared/model/areaDraft';
-import type { LegendItem, MovementPath, RecentMarker } from '../../constants/mockSituationBoard';
+import type { LegendItem, MovementPath, RecentMarker, SearchAreaTreeNode } from '../../constants/mockSituationBoard';
 import { MapLegend } from './MapLegend';
 import { SearchMapCanvas, type InitialMapState, type LayerVisibility } from './SearchMapCanvas';
 import type { AreaEditMapCanvasProps } from '../../../../areaEdit/presentation/components/AreaEditMapCanvas';
@@ -31,9 +31,13 @@ type DashboardMapShellProps = {
   onInitialMapStateChange: (state: InitialMapState | null) => void;
   areaEditMapProps?: AreaEditMapCanvasProps | null;
   handoverMapProps?: HandoverComparisonMapSharedProps | null;
+  searchAreaTree: SearchAreaTreeNode;
   onToggleMapExpanded: () => void;
   selectedSearchAreaId: string | null;
   onSelectSearchArea: (searchAreaId: string) => void;
+  onOpenSearchAreaAssign: () => void;
+  onOpenSearchAreaSplit: () => void;
+  onClearSelectedSearchArea: () => void;
 };
 
 export function DashboardMapShell({
@@ -54,7 +58,11 @@ export function DashboardMapShell({
   onInitialMapStateChange,
   areaEditMapProps,
   handoverMapProps,
+  searchAreaTree,
   onSelectSearchArea,
+  onOpenSearchAreaAssign,
+  onOpenSearchAreaSplit,
+  onClearSelectedSearchArea,
   onToggleMapExpanded,
   selectedSearchAreaId,
 }: DashboardMapShellProps) {
@@ -135,7 +143,11 @@ export function DashboardMapShell({
           onMapReady={handleMapReady}
           areaEditMapProps={areaEditMapProps}
           handoverMapProps={handoverMapProps}
+          searchAreaTree={searchAreaTree}
           selectedSearchAreaId={selectedSearchAreaId}
+          onClearSelectedSearchArea={onClearSelectedSearchArea}
+          onOpenSearchAreaAssign={onOpenSearchAreaAssign}
+          onOpenSearchAreaSplit={onOpenSearchAreaSplit}
           onSelectSearchArea={onSelectSearchArea}
         />
         {isTerminalBoard ? null : <MapLegend legendItems={legendItems} />}

@@ -39,6 +39,8 @@ import {
   type MarkerInstance,
   type MarkerInteractionHandlers,
 } from './boardMarkerLayer';
+import { SearchAreaInspectorCard } from './SearchAreaInspectorCard';
+import type { SearchAreaTreeNode } from '../../constants/mockSituationBoard';
 import styles from './SearchMapCanvas.module.css';
 
 const DEFAULT_GWANGJU_CENTER: [number, number] = [126.8325, 35.1547];
@@ -620,8 +622,12 @@ type SearchMapCanvasProps = {
   onMapReady?: (map: maplibregl.Map | null) => void;
   areaEditMapProps?: AreaEditMapCanvasProps | null;
   handoverMapProps?: HandoverComparisonMapSharedProps | null;
+  searchAreaTree: SearchAreaTreeNode;
   selectedSearchAreaId: string | null;
   onSelectSearchArea: (searchAreaId: string) => void;
+  onClearSelectedSearchArea: () => void;
+  onOpenSearchAreaSplit: () => void;
+  onOpenSearchAreaAssign: () => void;
 };
 
 export function SearchMapCanvas({
@@ -641,8 +647,12 @@ export function SearchMapCanvas({
   onMapReady,
   areaEditMapProps,
   handoverMapProps,
+  searchAreaTree,
   selectedSearchAreaId,
   onSelectSearchArea,
+  onClearSelectedSearchArea,
+  onOpenSearchAreaSplit,
+  onOpenSearchAreaAssign,
 }: SearchMapCanvasProps) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -1080,6 +1090,15 @@ export function SearchMapCanvas({
   return (
     <div className={styles.surface} aria-label="Search map">
       <div ref={mapContainerRef} className={styles.canvas} />
+      {areaEditMapProps || handoverMapProps ? null : (
+        <SearchAreaInspectorCard
+          searchAreaTree={searchAreaTree}
+          selectedSearchAreaId={selectedSearchAreaId}
+          onClose={onClearSelectedSearchArea}
+          onOpenAssign={onOpenSearchAreaAssign}
+          onOpenSplit={onOpenSearchAreaSplit}
+        />
+      )}
       {areaEditMapProps && mapInstance ? (
         <AreaEditMapCanvas {...areaEditMapProps} externalMap={mapInstance} hideCanvas />
       ) : null}

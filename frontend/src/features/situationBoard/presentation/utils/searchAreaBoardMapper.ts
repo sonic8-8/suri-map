@@ -21,6 +21,7 @@ import {
   readSlotRows,
   readString,
 } from './boardApiMappers';
+import { formatAccountDisplayName } from './accountDisplayUtils';
 
 export type BoardSearchAreaRow = {
   id: string;
@@ -229,9 +230,29 @@ function readAssignedAccounts(row: Record<string, unknown>): SearchAreaAssignedA
 
   return assignedAccounts.filter(isRecord).flatMap((account) => {
     const accountId = readString(account, 'accountId');
-    const displayName = readString(account, 'displayName') ?? accountId;
-    if (!accountId || !displayName) return [];
-    return [{ accountId, displayName, policePhoneId: readPolicePhoneId(account) }];
+    if (!accountId) return [];
+
+    const assignedAccount = {
+      accountId,
+      displayName:
+        readString(account, 'displayName') ??
+        readString(account, 'accountDisplayName') ??
+        readString(account, 'accountName') ??
+        readString(account, 'name') ??
+        readString(account, 'label') ??
+        '',
+      policePhoneId: readPolicePhoneId(account),
+      incidentRole: readString(account, 'incidentRole'),
+      accountType: readString(account, 'accountType'),
+      organizationType: readString(account, 'organizationType'),
+    };
+
+    return [
+      {
+        ...assignedAccount,
+        displayName: formatAccountDisplayName(assignedAccount),
+      },
+    ];
   });
 }
 

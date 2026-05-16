@@ -31,6 +31,10 @@ export function useBoardWorkspaceMode({
     setSelectedSearchAreaId((currentSearchAreaId) => (currentSearchAreaId === searchAreaId ? null : searchAreaId));
   };
 
+  const clearSelectedSearchArea = () => {
+    setSelectedSearchAreaId(null);
+  };
+
   const toggleMapExpanded = () => {
     setIsMapExpanded((currentState) => !currentState);
   };
@@ -70,6 +74,7 @@ export function useBoardWorkspaceMode({
     areaEditMapProps,
     closeAreaWorkspace,
     closeHandoverWorkspace,
+    clearSelectedSearchArea,
     hasActiveOverallSearchArea,
     isAreaWorkspaceOpen,
     isHandoverWorkspaceOpen,

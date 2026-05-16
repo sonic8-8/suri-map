@@ -8,6 +8,7 @@ import {
 } from '../../../../../shared/model/searchAreaDisplayState';
 import type { CompletedAreaDraft } from '../../../../../shared/model/areaDraft';
 import type { SearchAreaTreeNode } from '../../constants/mockSituationBoard';
+import { formatAccountDisplayName } from '../../utils/accountDisplayUtils';
 import { CollapsiblePanelSection } from './CollapsiblePanelSection';
 import styles from './SearchAreaTree.module.css';
 
@@ -16,6 +17,7 @@ type AreaIdentityColorStyle = CSSProperties & { '--area-identity-color': string 
 type SearchAreaTreeProps = {
   hasActiveOverallSearchArea: boolean;
   savedAreaDrafts: CompletedAreaDraft[];
+  selectedSearchAreaId: string | null;
   searchAreaTree: SearchAreaTreeNode;
   onSelectSearchArea: (searchAreaId: string) => void;
 };
@@ -32,7 +34,7 @@ function getStateClassName(state: SearchAreaDisplayState) {
 }
 
 function getAssignedAccountNames(area: SearchAreaTreeNode) {
-  return (area.assignedAccounts ?? []).map((account) => account.displayName).join(', ');
+  return (area.assignedAccounts ?? []).map((account, index) => formatAccountDisplayName(account, index)).join(', ');
 }
 
 function getDisplayState(area: SearchAreaTreeNode, assignedAreaIds: Set<string>): SearchAreaDisplayState {
@@ -67,11 +69,13 @@ function AreaNode({
   area,
   assignedAreaIds,
   hasActiveOverallSearchArea,
+  selectedSearchAreaId,
   onSelectSearchArea,
 }: {
   area: SearchAreaTreeNode;
   assignedAreaIds: Set<string>;
   hasActiveOverallSearchArea: boolean;
+  selectedSearchAreaId: string | null;
   onSelectSearchArea: (searchAreaId: string) => void;
 }) {
   const children = area.children ?? [];
@@ -79,7 +83,11 @@ function AreaNode({
   const displayState = getDisplayState(area, assignedAreaIds);
   const assignedAccountNames = area.kind === 'team' ? getAssignedAccountNames(area) : '';
   const canSelectArea = hasActiveOverallSearchArea && assignedAreaIds.has(area.id);
-  const rowClassName = `${getNodeClassName(area, assignedAreaIds)} ${styles.areaRowButton}`;
+  const rowClassName = [
+    getNodeClassName(area, assignedAreaIds),
+    styles.areaRowButton,
+    selectedSearchAreaId === area.id ? styles.areaRowSelected : '',
+  ].filter(Boolean).join(' ');
   const textNameClassName = area.kind === 'team' ? styles.teamName : styles.nodeName;
   const textMetaClassName = area.kind === 'team' ? styles.teamMeta : styles.nodeMeta;
 
@@ -94,6 +102,7 @@ function AreaNode({
       role="button"
       tabIndex={0}
       aria-disabled={!canSelectArea}
+      aria-pressed={selectedSearchAreaId === area.id}
       onClick={handleSelectArea}
       onKeyDown={(event) => handleAreaRowKeyDown(event, area.id, canSelectArea, onSelectSearchArea)}
     >
@@ -120,6 +129,7 @@ function AreaNode({
                 area={child}
                 assignedAreaIds={assignedAreaIds}
                 hasActiveOverallSearchArea={hasActiveOverallSearchArea}
+                selectedSearchAreaId={selectedSearchAreaId}
                 onSelectSearchArea={onSelectSearchArea}
               />
             ))}
@@ -141,6 +151,7 @@ function AreaNode({
                 area={child}
                 assignedAreaIds={assignedAreaIds}
                 hasActiveOverallSearchArea={hasActiveOverallSearchArea}
+                selectedSearchAreaId={selectedSearchAreaId}
                 onSelectSearchArea={onSelectSearchArea}
               />
             ))}
@@ -160,6 +171,7 @@ function AreaNode({
 export function SearchAreaTree({
   hasActiveOverallSearchArea,
   savedAreaDrafts,
+  selectedSearchAreaId,
   searchAreaTree,
   onSelectSearchArea,
 }: SearchAreaTreeProps) {
@@ -177,6 +189,7 @@ export function SearchAreaTree({
           area={searchAreaTree}
           assignedAreaIds={assignedAreaIds}
           hasActiveOverallSearchArea={hasActiveOverallSearchArea}
+          selectedSearchAreaId={selectedSearchAreaId}
           onSelectSearchArea={onSelectSearchArea}
         />
       </div>

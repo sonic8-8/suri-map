@@ -87,6 +87,9 @@ export type SearchAreaAssignedAccount = {
   accountId: string;
   displayName: string;
   policePhoneId?: string | null;
+  incidentRole?: string | null;
+  accountType?: string | null;
+  organizationType?: string | null;
 };
 
 export type SituationBoardFallbackData = {
