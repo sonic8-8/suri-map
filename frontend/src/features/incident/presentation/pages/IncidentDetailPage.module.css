@@ -44,14 +44,14 @@
   gap: 1rem;
   max-width: 1520px;
   margin: 0 auto;
-  padding: 2rem clamp(1.5rem, 3vw, 3rem) 1rem;
+  padding: 1.4rem clamp(1.5rem, 3vw, 3rem) 0.8rem;
 }
 
 .hero h1 {
   margin: 0.25rem 0 0;
-  font-size: clamp(2rem, 4vw, 3.6rem);
-  line-height: 0.95;
-  letter-spacing: -0.07em;
+  font-size: clamp(1.9rem, 3vw, 2.7rem);
+  line-height: 1.12;
+  letter-spacing: 0;
 }
 
 .hero p {
@@ -65,17 +65,16 @@
   color: #2e6b86;
   font-size: 0.78rem;
   font-weight: 800;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+  letter-spacing: 0;
 }
 
 .statusCard {
   min-width: 13rem;
   padding: 1.15rem;
   border: 1px solid rgba(56, 93, 113, 0.2);
-  border-radius: 1.25rem;
+  border-radius: 8px;
   background: rgba(248, 251, 253, 0.74);
-  box-shadow: 0 1.25rem 3rem rgba(36, 64, 80, 0.12);
+  box-shadow: 0 0.8rem 2rem rgba(36, 64, 80, 0.1);
 }
 
 .statusCard span,
@@ -90,8 +89,8 @@
   display: block;
   margin: 0.4rem 0;
   color: #245d78;
-  font-size: 1.9rem;
-  letter-spacing: -0.06em;
+  font-size: 1.7rem;
+  letter-spacing: 0;
 }
 
 .statusCardClosed strong {
@@ -110,9 +109,9 @@
 .panel,
 .statePanel {
   border: 1px solid rgba(45, 74, 90, 0.13);
-  border-radius: 1.35rem;
+  border-radius: 8px;
   background: rgba(248, 251, 253, 0.8);
-  box-shadow: 0 1.2rem 3rem rgba(36, 62, 76, 0.09);
+  box-shadow: 0 0.8rem 2rem rgba(36, 62, 76, 0.08);
 }
 
 .panel {
@@ -128,7 +127,7 @@
 .statePanel button {
   margin-top: 0.8rem;
   border: 0;
-  border-radius: 999px;
+  border-radius: 6px;
   background: #24485b;
   color: #fff;
   padding: 0.7rem 1rem;
@@ -142,7 +141,7 @@
 .sectionTitle h2 {
   margin: 0;
   font-size: 1.2rem;
-  letter-spacing: -0.04em;
+  letter-spacing: 0;
 }
 
 .sectionTitle p {
@@ -161,7 +160,7 @@
 .detailGrid div,
 .assignmentCard dl div {
   padding: 0.8rem;
-  border-radius: 0.95rem;
+  border-radius: 6px;
   background: rgba(230, 239, 244, 0.78);
 }
 
@@ -193,16 +192,37 @@
 
 .photoStub {
   display: grid;
+  align-content: center;
   place-items: center;
   min-height: 9rem;
-  border-radius: 1.1rem;
+  border-radius: 8px;
   background:
     linear-gradient(145deg, rgba(38, 88, 113, 0.96), rgba(115, 151, 169, 0.9)),
     #2e6b86;
   color: #fff;
+  text-align: center;
+}
+
+.photoStub strong {
   font-size: 2rem;
   font-weight: 900;
-  letter-spacing: -0.08em;
+  letter-spacing: 0;
+}
+
+.photoFallbackLabel {
+  margin-top: 0.35rem;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.missingPersonPhoto {
+  width: 100%;
+  min-height: 9rem;
+  aspect-ratio: 1 / 1;
+  border-radius: 8px;
+  object-fit: cover;
+  background: rgba(230, 239, 244, 0.88);
 }
 
 .assignmentPanel {
@@ -221,12 +241,12 @@
   gap: 1rem;
   align-items: center;
   border: 1px solid rgba(136, 164, 180, 0.42);
-  border-radius: 1rem;
+  border-radius: 8px;
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(232, 242, 247, 0.98)),
     #f6fafc;
   box-shadow:
-    0 1rem 2.2rem rgba(45, 71, 88, 0.16),
+    0 0.7rem 1.6rem rgba(45, 71, 88, 0.12),
     0 0 0 1px rgba(255, 255, 255, 0.72) inset;
   padding: 0.78rem 1rem;
 }
@@ -284,7 +304,7 @@
 }
 
 .emptyState {
-  border-radius: 1rem;
+  border-radius: 8px;
   background: rgba(230, 239, 244, 0.82);
   color: #657782;
   padding: 1rem;
