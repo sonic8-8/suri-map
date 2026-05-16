@@ -90,6 +90,16 @@ export function SituationBoardPage({
     onOpenIncidentList();
   }, [boardState.isAreaWorkspaceOpen, onOpenIncidentList]);
 
+  if (boardState.isInitialLoading) {
+    return (
+      <main className="situation-board-page situation-board-page-loading" aria-busy="true">
+        <section className="situation-board-loading-screen" role="status" aria-live="polite" aria-label="Loading">
+          <span className="situation-board-loading-spinner" aria-hidden="true" />
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className={`situation-board-page${boardState.isMapExpanded ? ' map-expanded' : ''}`}>
       {boardState.isMapExpanded ? null : (

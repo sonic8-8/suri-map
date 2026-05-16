@@ -60,7 +60,7 @@ import org.maplibre.android.style.layers.PropertyFactory.textOptional
 import org.maplibre.android.style.layers.PropertyFactory.textSize
 import org.maplibre.android.style.sources.GeoJsonSource
 
-private val SURI_MAP_LABEL_FONT_STACK = arrayOf("Noto Sans Regular")
+private val SURI_MAP_LABEL_FONT_STACK = arrayOf("Pretendard GOV")
 
 data class MapLibreViewportBounds(
     val south: Double,

@@ -123,6 +123,40 @@ class AuthPhoneApiIntegrationTest {
   }
 
   @Test
+  @DisplayName("registered but unassigned APP session can register FCM token before assignment")
+  void unassignedRegisteredAppSessionRegistersFcmTokenBeforeAssignment() throws Exception {
+    String accessToken =
+        loginAppAccessToken("acct-unassigned-phone", "dev-unassigned-phone-01");
+
+    mockMvc
+        .perform(
+            post("/api/fcm/tokens")
+                .header("Authorization", "Bearer " + accessToken)
+                .header("X-Client-Channel", "APP")
+                .header("X-PolicePhone-Id", PolicePhoneFixtures.REGISTERED_UNASSIGNED_POLICE_PHONE_ID)
+                .contentType("application/json")
+                .content(
+                    """
+                    {
+                      "appInstanceId": "app-instance-unassigned",
+                      "token": "fcm-token-unassigned"
+                    }
+                    """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("ACTIVE"))
+        .andExpect(jsonPath("$.version").value(1));
+
+    assertThat(fcmTokenQuery.activeByPolicePhone(PolicePhoneFixtures.REGISTERED_UNASSIGNED_POLICE_PHONE_ID))
+        .singleElement()
+        .satisfies(
+            row -> {
+              assertThat(row.appInstanceId()).isEqualTo("app-instance-unassigned");
+              assertThat(row.tokenCiphertext()).isNotEqualTo("fcm-token-unassigned");
+              assertThat(row.tokenHash()).isNotBlank();
+            });
+  }
+
+  @Test
   @DisplayName("bearer APP session sends heartbeat through app-police-phone guard")
   void bearerAppSessionSendsHeartbeatThroughAppPolicePhoneGuard() throws Exception {
     String accessToken = loginAppAccessToken();
@@ -215,6 +249,10 @@ class AuthPhoneApiIntegrationTest {
   }
 
   private String loginAppAccessToken() throws Exception {
+    return loginAppAccessToken("acct-precinct-team", "dev-precinct-phone-01");
+  }
+
+  private String loginAppAccessToken(String accountCode, String policePhoneCode) throws Exception {
     MvcResult result =
         mockMvc
             .perform(
@@ -224,12 +262,13 @@ class AuthPhoneApiIntegrationTest {
                     .content(
                         """
                         {
-                          "accountCode": "acct-precinct-team",
+                          "accountCode": "%s",
                           "password": "fixture",
                           "channel": "APP",
-                          "policePhoneCode": "dev-precinct-phone-01"
+                          "policePhoneCode": "%s"
                         }
-                        """))
+                        """
+                            .formatted(accountCode, policePhoneCode)))
             .andExpect(status().isOk())
             .andReturn();
     return JsonPath.read(result.getResponse().getContentAsString(), "$.accessToken");

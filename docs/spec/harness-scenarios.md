@@ -86,30 +86,33 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
 
 ## 2. 시나리오 상세
 
-### SC-01 · 배정 사건 가져오기·초동 활성화
+### SC-01 · 배정 사건 수신·초동 활성화
 
-- **given**: 실종팀 지휘 계정 또는 지구대/파출소 지휘 계정으로 웹 로그인, mock 112 원천에 배정 사건과 실종자 기본 정보 존재
-- **when**: 지휘 계정이 웹에서 배정 사건 가져오기를 실행
+- **given**: mock 112 원천에 배정 사건과 실종자 기본 정보가 존재하고, Suri-Map backend webhook secret이 mock 112에 설정되어 있다
+- **when**: mock 112가 `INCIDENT_READY` webhook을 Suri-Map backend로 전송한다
 - **then**:
   1. 사건이 `OPEN` 상태로 등록된다.
   2. missing_person 도메인 데이터가 채워진다.
   3. 사건 참여 계정, 현장 지휘관 역할 후보, 초기 기준 마커가 시드 기준으로 구성된다.
   4. 같은 import 트랜잭션에서 S8이 OP1을 자동 생성하고 `OP_TRANSITIONED(from=null, to=OP1)` publish request를 stage한다.
-  5. 지구대/파출소 팀장 또는 당직자가 가져온 사건은 OP1을 생성하고, 배정된 지구대/파출소 팀 계정·순찰차 계정이 즉시 사건을 조회할 수 있다.
-  6. 가져오기 진행 중에는 버튼이 중복 실행되지 않도록 비활성화되고, 완료 후 OP1 생성과 배정 계정 활성화 상태가 화면에 표시된다.
+  5. 배정된 지구대/파출소 팀 계정·순찰차 계정이 즉시 사건을 조회할 수 있다.
+  6. Web 사건 목록은 계정/조직 단위 SSE refetch signal 또는 fallback refetch로 신규 사건을 표시한다.
+  7. webhook 재전송 중복이 발생해도 같은 `eventId` 또는 같은 `sourceIncidentId` 기준으로 사건, OP, assignment, seed marker가 중복 생성되지 않는다.
 - **involved_specs**: S1-1, S1-2, S4, S5, S8
 - **involved_apis**:
-  - `POST /incidents/import`
+  - `POST /api/internal/mock-112/events`
+  - `GET /incidents`
+  - `GET /incidents/events`
   - `INCIDENT_CREATED`
   - `OP_TRANSITIONED(from=null)`
 - **e2e_red_test**:
-  - "배정 사건 가져오기 호출 시 사건이 `OPEN` 상태로 전이되고 OP1이 생성된다"
-  - "지구대/파출소 지휘 계정이 가져온 사건은 지구대/파출소 팀 계정·순찰차 계정에 배정되고 OP1이 생성된다"
-  - "가져오기 진행 중 버튼은 로딩·비활성 상태가 되고 중복 클릭해도 사건과 OP가 중복 생성되지 않는다"
-  - "가져오기 완료 화면은 OP1 생성 완료와 접근 가능한 팀 계정·순찰차 계정을 사용자가 확인할 수 있게 표시한다"
-  - "가져오기 실패 시 incident/OP/assignment/event staging이 rollback되고 화면은 실패 사유와 재시도 가능 여부를 표시한다"
+  - "mock 112 INCIDENT_READY webhook 수신 시 사건이 `OPEN` 상태로 전이되고 OP1이 생성된다"
+  - "mock 112 webhook으로 생성된 사건은 지구대/파출소 팀 계정·순찰차 계정에 배정되고 OP1이 생성된다"
+  - "같은 webhook을 재전송해도 사건과 OP가 중복 생성되지 않는다"
+  - "Web 사건 목록은 수동 가져오기 없이 신규 배정 사건을 표시한다"
+  - "webhook 처리 실패 시 incident/OP/assignment/event staging이 rollback되고 실패 사유가 backend log와 webhook response에 남는다"
 - **board_merge**: 사건 목록 갱신은 독립 페이지. 상황판 진입은 SC-04 이후 검증
-- **notes**: 실제 경찰 시스템 직접 연동은 MVP 범위 밖이다. 시연은 mock 112 원천으로 검증한다. 초동 대응 사건은 실종팀이 만든 사건과 같은 domain model을 쓰되, 최초 현장 지휘관 후보와 배정 계정이 지구대/파출소 시드에서 온다는 점을 red test로 고정한다.
+- **notes**: 실제 경찰 시스템 직접 연동은 MVP 범위 밖이다. 시연은 mock 112 webhook 원천으로 검증한다. 초동 대응 사건은 실종팀이 만든 사건과 같은 domain model을 쓰되, 최초 현장 지휘관 후보와 배정 계정이 지구대/파출소 시드에서 온다는 점을 red test로 고정한다. `POST /api/incidents/import`는 운영 보조/재처리 fallback이며 SC-01 기본 경로가 아니다.
 
 ---
 
@@ -117,8 +120,8 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
 
 - **given**: 사건 `OPEN`. 지구대/파출소 초동 사건은 지구대/파출소 지휘·팀·순찰차 계정이 먼저 배정되어 있고, 실종팀 인계가 필요한 상태. 지구대/파출소 OP1에는 순찰차 경로, 도보 경로, 마커, 인수인계 메모가 seed 또는 선행 SC 결과로 존재
 - **when**:
-  1. mock 112 인계 fixture가 실종팀 인계 배정을 반영해 실종팀 지휘·팀 계정을 사건에 추가한다.
-  2. 112/mock polling/import fixture가 지원 부대 배정을 같은 사건의 `incident_assignment`로 반영한다.
+  1. mock 112가 실종팀 인계 배정을 `INCIDENT_ASSIGNMENT_CHANGED` webhook으로 전송한다.
+  2. mock 112가 지원 부대 배정을 같은 사건의 `INCIDENT_ASSIGNMENT_CHANGED` webhook으로 전송한다.
 - **then**:
   1. 지구대/파출소 초동 사건에서는 실종팀 지휘 계정·팀 계정이 사건 접근 권한을 얻는다.
   2. 기존 지구대/파출소 계정과 OP1 기록은 유지된다.
@@ -129,8 +132,9 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   7. 상황판은 실종팀 인계 완료 상태와 기존 지구대/파출소 OP1 기록 보존 상태를 같은 사건 안에서 구분해 표시한다.
 - **involved_specs**: S1-1, S1-2, S3-1, S3-2, S4, S5, S8
 - **involved_apis**:
-  - 112/mock polling/import fixture 처리
+  - `POST /api/internal/mock-112/events`
   - `GET /incidents`
+  - `GET /incidents/events`
   - `GET /incidents/{incidentId}`
   - `INCIDENT_ASSIGNMENT_CHANGED`
   - `FcmDispatcher.send`
@@ -141,18 +145,18 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   - "실종팀 지휘 계정 상황판에는 `초동 OP1`과 `실종팀 인계 완료` 상태가 표시되고 같은 사건이 중복 카드로 보이지 않는다"
   - "지원 부대 배정 시 해당 부대 계정이 사건 목록에서 사건을 볼 수 있다"
   - "지원 부대 배정 시 `INCIDENT_ASSIGNMENT_CHANGED` fanout이 신규 배정된 지원 부대 업무폰 FCM recipient와 PII 없는 payload를 mock dispatcher에 기록한다"
-  - "지원 부대 배정 import 완료 후 배정 대상과 반영 상태를 웹 화면에서 확인할 수 있다"
-  - "실종팀 인계와 지원 부대 배정 polling/import가 중복 실행되어도 같은 112 assignment key 기준으로 incident_assignment가 중복 생성되지 않는다"
-  - "실종팀 인계 또는 지원 부대 배정 import 실패 시 웹 화면은 마지막 반영 시각과 실패 사유를 표시한다"
+  - "지원 부대 배정 webhook 처리 후 배정 대상과 반영 상태를 웹 화면에서 확인할 수 있다"
+  - "실종팀 인계와 지원 부대 배정 webhook이 중복 전송되어도 같은 112 assignment key 기준으로 incident_assignment가 중복 생성되지 않는다"
+  - "실종팀 인계 또는 지원 부대 배정 webhook 처리 실패 시 backend는 실패 사유를 기록하고 Web은 마지막 수신/반영 상태와 재조회 실패를 구분한다"
   - "시드 직책이 지휘관 후보인 계정은 구역·OP 관리 권한을 얻는다"
   - "미배정 팀 계정 또는 타 팀 계정이 사건 상세를 조회하면 `403 team_not_assigned`를 응답하고 화면은 사건 내용을 렌더링하지 않는다"
   - "미배정 팀 계정 또는 타 팀 계정이 인계 상세를 조회하면 `403 team_not_assigned`를 응답하고 화면은 인수인계 메모·OP 기록을 표시하지 않는다"
   - "미배정 팀 계정 또는 타 팀 계정이 지원 배정 반영 상태를 조회하면 `403 team_not_assigned`를 응답하고 배정 후보 목록을 노출하지 않는다"
   - "웹·앱에는 지원 부대 배정 write API나 후보 선택 CTA가 노출되지 않는다"
-  - "웹 또는 앱 채널이 mock 112 인계 처리 API를 직접 호출하면 `403 channel_not_allowed`"
+  - "웹 또는 앱 채널이 mock 112 webhook API를 직접 호출하면 `403 channel_not_allowed` 또는 `invalid_signature`"
   - "mock 112 인계 fixture 반영 없이 웹 조회만 반복해도 실종팀 인계 완료 상태로 표시되지 않는다"
 - **board_merge**: `path` slot + `marker` slot + `handover_status` slot + `op_history` slot
-- **notes**: 부대·팀 편제 관리 UI와 Suri-Map 내부 지원 배정 workflow는 MVP 범위가 아니다. 실종팀 인계와 지원 부대 배정 모두 112/mock polling/import 기반 `incident_assignment` 갱신으로 검증한다.
+- **notes**: 부대·팀 편제 관리 UI와 Suri-Map 내부 지원 배정 workflow는 MVP 범위가 아니다. 실종팀 인계와 지원 부대 배정 모두 mock 112 webhook 기반 `incident_assignment` 갱신으로 검증한다.
 
 ---
 

@@ -3,6 +3,7 @@ package com.mock112.controller;
 import com.mock112.domain.MockAssignment;
 import com.mock112.domain.MockIncident;
 import com.mock112.store.InMemoryIncidentStore;
+import com.mock112.webhook.SuriMapWebhookDispatcher;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -22,9 +23,13 @@ import java.util.Map;
 public class MockIncidentController {
 
     private final InMemoryIncidentStore store;
+    private final SuriMapWebhookDispatcher webhookDispatcher;
 
-    public MockIncidentController(InMemoryIncidentStore store) {
+    public MockIncidentController(
+            InMemoryIncidentStore store,
+            SuriMapWebhookDispatcher webhookDispatcher) {
         this.store = store;
+        this.webhookDispatcher = webhookDispatcher;
     }
 
     /**
@@ -35,6 +40,7 @@ public class MockIncidentController {
     public ResponseEntity<Map<String, Object>> createIncident(@RequestBody MockIncident incident) {
         try {
             store.save(incident);
+            webhookDispatcher.sendIncidentReady(incident);
             Map<String, Object> body = new LinkedHashMap<>();
             body.put("sourceIncidentId", incident.getSourceIncidentId());
             body.put("status", incident.getStatus());
@@ -108,6 +114,9 @@ public class MockIncidentController {
             @RequestBody MockAssignment assignment) {
         try {
             boolean added = store.addAssignment(sourceIncidentId, assignment);
+            if (added) {
+                webhookDispatcher.sendAssignmentChanged(sourceIncidentId, List.of(assignment));
+            }
             Map<String, Object> body = new LinkedHashMap<>();
             body.put("sourceIncidentId", sourceIncidentId);
             body.put("externalAssignmentKey", assignment.getExternalAssignmentKey());

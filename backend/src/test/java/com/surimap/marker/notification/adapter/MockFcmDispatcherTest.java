@@ -378,15 +378,20 @@ class MockFcmDispatcherTest {
   }
 
   @Nested
-  @DisplayName("실제 FCM 의존성 차단")
-  class NoRealFcmDependency {
+  @DisplayName("기본 mock FCM 경계")
+  class DefaultMockBoundary {
 
     @Test
-    @DisplayName("Firebase Messaging SDK 없이 mock dispatcher만 사용한다")
-    void doesNotDependOnFirebaseMessagingSdk() {
-      assertThrows(
-          ClassNotFoundException.class,
-          () -> Class.forName("com.google.firebase.messaging.FirebaseMessaging"));
+    @DisplayName("mock dispatcher는 외부 호출 없이 메모리 capture만 남긴다")
+    void mockDispatcherCapturesWithoutExternalCall() {
+      DispatchResult result =
+          dispatcher.send(
+              NotificationFixtures.SUPPORT_FCM_RECIPIENTS,
+              NotificationFixtures.supportRequestPayload(),
+              NotificationFixtures.SUPPORT_EVENT_ID);
+
+      assertTrue(result.isFullySuccessful());
+      assertTrue(dispatcher.findByEventId(NotificationFixtures.SUPPORT_EVENT_ID).isPresent());
     }
   }
 }

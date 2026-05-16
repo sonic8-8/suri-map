@@ -23,15 +23,26 @@ public class EventStreamController {
   }
 
   @GetMapping(
+      value = "/api/incidents/events",
+      produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+  public ResponseEntity<?> streamAssignedIncidents() {
+    var authentication = currentWebAuthenticationOrNull();
+    if (authentication == null) {
+      return jsonError(403, "channel_not_allowed");
+    }
+    return ResponseEntity.ok()
+        .contentType(MediaType.TEXT_EVENT_STREAM)
+        .body(streamService.openAccountStream(UUID.fromString(authentication.getAccountId())));
+  }
+
+  @GetMapping(
       value = "/api/incidents/{incidentId}/events",
       produces = MediaType.TEXT_EVENT_STREAM_VALUE)
   @RequireIncidentAccess
   public ResponseEntity<?> stream(
       @PathVariable UUID incidentId,
       @RequestHeader(value = "Last-Event-ID", required = false) String lastEventId) {
-    if (!(SecurityContextHolder.getContext().getAuthentication()
-            instanceof SuriMapAuthentication authentication)
-        || authentication.getChannel() != Channel.WEB) {
+    if (currentWebAuthenticationOrNull() == null) {
       return jsonError(403, "channel_not_allowed");
     }
 
@@ -48,5 +59,14 @@ public class EventStreamController {
     return ResponseEntity.status(status)
         .contentType(MediaType.APPLICATION_JSON)
         .body(Map.of("error", errorCode));
+  }
+
+  private SuriMapAuthentication currentWebAuthenticationOrNull() {
+    if (SecurityContextHolder.getContext().getAuthentication()
+            instanceof SuriMapAuthentication authentication
+        && authentication.getChannel() == Channel.WEB) {
+      return authentication;
+    }
+    return null;
   }
 }

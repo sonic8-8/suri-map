@@ -369,8 +369,11 @@ prepare_tileserver_data() {
   [[ -f "$TILESERVER_RUNTIME_DIR/data/gwangju-building-labels.mbtiles" ]] ||
     fail "missing $TILESERVER_RUNTIME_DIR/data/gwangju-building-labels.mbtiles. Pass --tile-source or --tiles-dir."
 
-  if [[ ! -f "$TILESERVER_RUNTIME_DIR/fonts/Noto Sans Regular/0-255.pbf" ]]; then
-    log "warning: missing Noto Sans glyph PBF files; Korean map labels may not render"
+  if [[ ! -f "$TILESERVER_RUNTIME_DIR/fonts/Pretendard GOV/0-255.pbf" ]]; then
+    log "generating Pretendard GOV glyph PBF files"
+    bash "$ROOT_DIR/infra/docker/tileserver/scripts/build-pretendard-gov-glyphs.sh" \
+      "$ROOT_DIR/android/app/src/main/res/font/pretendard_gov_variable.ttf" \
+      "$TILESERVER_RUNTIME_DIR/fonts/Pretendard GOV"
   fi
 }
 
@@ -513,6 +516,7 @@ start_backend_docker() {
     -e SPRING_DATASOURCE_PASSWORD="surimap" \
     -e MOCK_112_ENABLED="true" \
     -e MOCK_112_BASE_URL="http://mock-112:18112" \
+    -e MOCK_112_WEBHOOK_SECRET="${MOCK_112_WEBHOOK_SECRET:-}" \
     -e TILESERVER_MODE="tileserver-gl" \
     -e TILESERVER_BASE_URL="http://tileserver-gl:8080" \
     "$BACKEND_IMAGE" >/dev/null
@@ -555,6 +559,7 @@ start_backend_gradle() {
     SPRING_DATASOURCE_PASSWORD="surimap" \
     MOCK_112_ENABLED="true" \
     MOCK_112_BASE_URL="http://localhost:'"$MOCK_112_PORT"'" \
+    MOCK_112_WEBHOOK_SECRET="${MOCK_112_WEBHOOK_SECRET:-}" \
     TILESERVER_MODE="tileserver-gl" \
     TILESERVER_BASE_URL="$3" \
     ./gradlew bootRun

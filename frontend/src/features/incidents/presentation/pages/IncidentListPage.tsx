@@ -13,6 +13,7 @@ import { IncidentImportModal } from '../../../incidentImport/presentation/compon
 import type { LoginAccount } from '../../../login/presentation/types/login';
 import { ActionButton, StatusBadge, type StatusBadgeTone } from '../../../../shared';
 import { ApiError, createIdempotencyKey } from '../../../../shared/api/client';
+import { openAssignedIncidentEventStream } from '../../../../shared/api/eventStream';
 import type { IncidentCard, IncidentStatus } from '../../domain/entities/Incident';
 import styles from './IncidentListPage.module.css';
 
@@ -248,6 +249,14 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
   const visibleIncidents = incidents.slice(pageStartIndex, pageStartIndex + INCIDENT_LIST_PAGE_SIZE);
   const pageStartNumber = incidents.length === 0 ? 0 : pageStartIndex + 1;
   const pageEndNumber = Math.min(pageStartIndex + INCIDENT_LIST_PAGE_SIZE, incidents.length);
+  const isIncidentCountPlaceholder = isLoadingIncidents || (Boolean(listErrorMessage) && incidents.length === 0);
+  const activeIncidentCountLabel = isIncidentCountPlaceholder
+    ? '-건'
+    : `${incidents.filter((incident) => incident.status === '진행 중').length}건`;
+  const totalIncidentCountLabel = isIncidentCountPlaceholder ? '-건' : `${incidents.length}건`;
+  const displayedIncidentRangeLabel = isIncidentCountPlaceholder
+    ? '-건 표시'
+    : `${incidents.length === 0 ? '0' : `${pageStartNumber}-${pageEndNumber}`}건 표시`;
 
   useEffect(() => {
     let ignore = false;
@@ -278,6 +287,30 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
     return () => {
       ignore = true;
     };
+  }, [currentUserAccount.id]);
+
+  useEffect(() => {
+    const abortController = new AbortController();
+
+    void openAssignedIncidentEventStream({
+      signal: abortController.signal,
+      onMessage: (message) => {
+        if (
+          message.data.type === 'INCIDENT_CREATED' ||
+          message.data.type === 'INCIDENT_ASSIGNMENT_CHANGED' ||
+          message.event === 'INCIDENT_CREATED' ||
+          message.event === 'INCIDENT_ASSIGNMENT_CHANGED'
+        ) {
+          void reloadAssignedIncidents();
+        }
+      },
+    }).catch((error) => {
+      if (!abortController.signal.aborted) {
+        setListErrorMessage(getListErrorMessage(error));
+      }
+    });
+
+    return () => abortController.abort();
   }, [currentUserAccount.id]);
 
   useEffect(() => {
@@ -396,7 +429,7 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
           <div className={styles.listContextMetrics}>
             <div>
               <span>진행 중 사건</span>
-              <strong>{incidents.filter((incident) => incident.status === '진행 중').length}건</strong>
+              <strong>{activeIncidentCountLabel}</strong>
             </div>
           </div>
           <div className={styles.listContextActions}>
@@ -493,10 +526,10 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
           <footer className={styles.paginationBar} aria-label="사건 목록 페이지 이동">
             <div className={styles.paginationSummary}>
               <span>
-                전체 <b>{incidents.length}건</b>
+                전체 <b>{totalIncidentCountLabel}</b>
               </span>
               <span className={styles.toolbarDivider} aria-hidden="true" />
-              <span>{incidents.length === 0 ? '0' : `${pageStartNumber}-${pageEndNumber}`}건 표시</span>
+              <span>{displayedIncidentRangeLabel}</span>
             </div>
 
             <div className={styles.paginationControls}>

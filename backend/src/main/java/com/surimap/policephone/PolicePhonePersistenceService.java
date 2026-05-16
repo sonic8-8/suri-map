@@ -76,7 +76,6 @@ public class PolicePhonePersistenceService
   public FcmTokenRow registerFcmToken(
       UUID policePhoneId, String accountId, String appInstanceId, String token) {
     PolicePhoneStateRow phone = registeredPhone(policePhoneId);
-    activeAssignment(policePhoneId);
     if (!phone.accountId().toString().equals(accountId)) {
       throw new PolicePhoneNotAssignedException();
     }
@@ -115,6 +114,15 @@ public class PolicePhonePersistenceService
   @Transactional(readOnly = true)
   public List<FcmTokenRow> activeByPolicePhone(UUID policePhoneId) {
     return mapper.findActiveTokensByPolicePhone(policePhoneId);
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public List<FcmTokenRow> activeByAccounts(List<UUID> accountIds) {
+    if (accountIds == null || accountIds.isEmpty()) {
+      return List.of();
+    }
+    return mapper.findActiveTokensByAccounts(accountIds);
   }
 
   @Override

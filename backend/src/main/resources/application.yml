@@ -19,6 +19,10 @@ mybatis:
 server:
   port: ${SERVER_PORT:8080}
 
+surimap:
+  cors:
+    allowed-origin-patterns: ${SURI_MAP_CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*,http://127.0.0.1:*,https://k14c106.p.ssafy.io}
+
 management:
   endpoints:
     web:
@@ -32,9 +36,19 @@ management:
 mock112:
   enabled: ${MOCK_112_ENABLED:true}
   base-url: ${MOCK_112_BASE_URL:http://localhost:18112}
+  webhook:
+    secret: ${MOCK_112_WEBHOOK_SECRET:}
   polling:
     interval-ms: ${MOCK_112_POLLING_INTERVAL:5000}
 
 tileserver:
   mode: ${TILESERVER_MODE:tileserver-gl}
   base-url: ${TILESERVER_BASE_URL:http://tileserver-gl:8080}
+
+fcm:
+  provider: ${FCM_PROVIDER:mock}
+  firebase:
+    credentials-location: ${FIREBASE_CREDENTIALS_LOCATION:}
+    credentials-json-base64: ${FIREBASE_CREDENTIALS_JSON_BASE64:}
+    project-id: ${FIREBASE_PROJECT_ID:}
+    dry-run: ${FIREBASE_FCM_DRY_RUN:false}

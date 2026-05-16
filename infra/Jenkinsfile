@@ -63,10 +63,18 @@ pipeline {
         MOCK_112_ENABLED = 'true'
         MOCK_112_BASE_URL = 'http://mock-112:18112'
         MOCK_112_POLLING_INTERVAL = '5000'
+        SURI_MAP_WEBHOOK_ENABLED = 'true'
+        SURI_MAP_WEBHOOK_URL = 'http://backend:8080/api/internal/mock-112/events'
+        MOCK_112_WEBHOOK_SECRET = ''
         TILESERVER_HOST_PORT = '8082'
         TILESERVER_DATA_DIR = '/home/ubuntu/infra/tileserver'
         TILESERVER_MODE = 'tileserver-gl'
         TILESERVER_BASE_URL = 'http://tileserver-gl:8080'
+        FCM_PROVIDER = 'firebase'
+        FIREBASE_CREDENTIALS_LOCATION = ''
+        FIREBASE_CREDENTIALS_JSON_BASE64 = credentials('suri-map-firebase-service-account-base64')
+        FIREBASE_PROJECT_ID = 'suri-map-174b9'
+        FIREBASE_FCM_DRY_RUN = 'false'
         POSTGRES_HOST_PORT = '5432'
         POSTGRES_DB = 'suri_map'
         POSTGRES_USER = 'suri_map_user'
@@ -257,10 +265,18 @@ MOCK_112_HOST_PORT=${env.MOCK_112_HOST_PORT}
 MOCK_112_ENABLED=${env.MOCK_112_ENABLED}
 MOCK_112_BASE_URL=${env.MOCK_112_BASE_URL}
 MOCK_112_POLLING_INTERVAL=${env.MOCK_112_POLLING_INTERVAL}
+SURI_MAP_WEBHOOK_ENABLED=${env.SURI_MAP_WEBHOOK_ENABLED}
+SURI_MAP_WEBHOOK_URL=${env.SURI_MAP_WEBHOOK_URL}
+MOCK_112_WEBHOOK_SECRET=${env.MOCK_112_WEBHOOK_SECRET}
 TILESERVER_HOST_PORT=${env.TILESERVER_HOST_PORT}
 TILESERVER_DATA_DIR=${env.TILESERVER_DATA_DIR}
 TILESERVER_MODE=${env.TILESERVER_MODE}
 TILESERVER_BASE_URL=${env.TILESERVER_BASE_URL}
+FCM_PROVIDER=${env.FCM_PROVIDER}
+FIREBASE_CREDENTIALS_LOCATION=${env.FIREBASE_CREDENTIALS_LOCATION}
+FIREBASE_CREDENTIALS_JSON_BASE64=${env.FIREBASE_CREDENTIALS_JSON_BASE64}
+FIREBASE_PROJECT_ID=${env.FIREBASE_PROJECT_ID}
+FIREBASE_FCM_DRY_RUN=${env.FIREBASE_FCM_DRY_RUN}
 POSTGRES_HOST_PORT=${env.POSTGRES_HOST_PORT}
 POSTGRES_DB=${env.POSTGRES_DB}
 POSTGRES_USER=${env.POSTGRES_USER}
@@ -278,6 +294,9 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=${env.SPRING_JPA_HIBERNATE_DDL_AUTO}
 
                     if [ -f "${TILESERVER_DATA_DIR}/data/osm-local.mbtiles" ] \
                       && [ -f "${TILESERVER_DATA_DIR}/data/gwangju-building-labels.mbtiles" ]; then
+                      bash infra/docker/tileserver/scripts/build-pretendard-gov-glyphs.sh \
+                        android/app/src/main/res/font/pretendard_gov_variable.ttf \
+                        "${TILESERVER_DATA_DIR}/fonts/Pretendard GOV"
                       COMPOSE_SERVICES="postgis mock-112 backend tileserver-gl frontend"
                     else
                       echo "tileserver_mbtiles=missing required=osm-local.mbtiles,gwangju-building-labels.mbtiles dir=${TILESERVER_DATA_DIR}/data"
@@ -289,6 +308,13 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=${env.SPRING_JPA_HIBERNATE_DDL_AUTO}
                       --env-file ${ENV_FILE} \
                       -f ${COMPOSE_FILE} \
                       up -d ${COMPOSE_SERVICES}
+
+                    if printf '%s\n' "${COMPOSE_SERVICES}" | grep -q 'tileserver-gl'; then
+                      docker compose \
+                        --env-file ${ENV_FILE} \
+                        -f ${COMPOSE_FILE} \
+                        up -d --force-recreate tileserver-gl
+                    fi
                 '''
             }
         }
@@ -362,6 +388,14 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=${env.SPRING_JPA_HIBERNATE_DDL_AUTO}
 
                       if [ "${tileserver_ready}" != "true" ]; then
                         echo "tileserver_health=timeout"
+                        docker logs --tail=200 suri-map-tileserver-gl || true
+                        exit 1
+                      fi
+
+                      if docker exec suri-map-tileserver-gl node -e "require('http').get('http://127.0.0.1:8080/fonts/Pretendard%20GOV/0-255.pbf', r => process.exit(r.statusCode >= 200 && r.statusCode < 400 ? 0 : 1)).on('error', () => process.exit(1))"; then
+                        echo "tileserver_glyphs=ready"
+                      else
+                        echo "tileserver_glyphs=missing font_stack=Pretendard GOV range=0-255.pbf"
                         docker logs --tail=200 suri-map-tileserver-gl || true
                         exit 1
                       fi

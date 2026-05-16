@@ -246,7 +246,7 @@ mock 112 payload는 Suri-Map DB 설계로 무리 없이 변환 가능해야 한�
 
 사건, OP1, `incident_assignment`, 초기 마커가 중복 생성되면 안 된다.
 
-### 인계/지원 배정 polling
+### 인계/지원 배정 webhook
 
 `docs/spec/harness-scenarios.md`는 같은 112 assignment key 기준으로 `incident_assignment`가 중복 생성되지 않아야 한다고 본다.
 
@@ -266,42 +266,44 @@ DB에 `external_assignment_key` 컬럼을 추가하려면 `docs/db-design`과 S1
 - Suri-Map에 사건 직접 생성 UI를 만들지 않는다.
 - Suri-Map product API로 지원 부대 배정 생성/수정 API를 만들지 않는다.
 - `/api/incident-imports` 같은 새 canonical resource를 만들지 않는다.
-- mock 112에 사건이 등록되자마자 Suri-Map `incident` row를 자동 생성하지 않는다.
+- mock 112가 Suri-Map DB에 직접 쓰지 않는다.
+- WEB/APP 채널이 mock 112 webhook API를 직접 호출하도록 만들지 않는다.
 - `sourceIncidentId`와 Suri-Map 내부 `incidentId`를 혼용하지 않는다.
 - 개인 사용자 식별자를 `incident_assignment` 기준으로 쓰지 않는다.
 - 실제 개인정보나 실제 사건 자료를 mock 112 seed, fixture, 로그에 넣지 않는다.
 
 ### 주의할 점
 
-Suri-Map 웹에서 “새 배정 사건 도착”을 보여주려면 후보 목록을 노출하는 화면/endpoint가 필요하다. 현재 `docs/api/api-spec.md`에는 이 후보 목록 product API가 정의되어 있지 않다.
+Suri-Map 웹에서 “새 배정 사건 도착”을 즉시 보여주려면 후보 목록 API가 아니라 계정/조직 단위 refetch signal이 필요하다. 현재 기준은 `GET /api/incidents/events` SSE가 신규 사건/배정 변경을 알리고, Web은 `/api/incidents`를 refetch해 최종 상태를 표시하는 것이다.
 
-따라서 1차 구현은 다음 중 하나로 제한하는 것이 안전하다.
+따라서 1차 구현은 다음으로 제한하는 것이 안전하다.
 
-1. **시연/dev 전용 패널**
-   - mock 112 후보 목록을 보여주는 dev/demo 화면으로만 둔다.
-   - product API로 문서화하지 않는다.
-   - 실제 import는 반드시 `POST /api/incidents/import`를 사용한다.
-   - 기본은 독립 mock 112 서버의 admin 화면을 그대로 쓰는 것이다.
+1. **webhook 자동 import**
+   - mock 112 `INCIDENT_READY`는 `POST /api/internal/mock-112/events`로 들어와 자동 import된다.
+   - 같은 `eventId` 또는 같은 `sourceIncidentId` 재전송은 중복 row 없이 수렴한다.
+   - 기존 `POST /api/incidents/import`는 운영 보조/재처리 fallback으로 둔다.
 
-2. **sourceIncidentId 직접 입력/선택**
-   - mock 112 화면에서 생성된 `sourceIncidentId`를 Suri-Map 가져오기 UI에서 선택하거나 입력한다.
-   - polling 감지는 로그/상태 배지 수준으로 보여준다.
+2. **Web refetch signal**
+   - Web은 `GET /api/incidents/events` SSE를 구독한다.
+   - SSE payload는 PII 없는 refetch signal이며, UI source of truth는 `/api/incidents` 응답이다.
 
-후보 목록을 정식 제품 기능으로 만들려면 `docs/api/api-spec.md`와 `docs/spec` 변경 승인이 먼저 필요하다.
+3. **Android FCM + REST recovery**
+   - Android는 SSE를 만들지 않는다.
+   - 신규 배정은 FCM data message로 알리고, 앱은 `/api/incidents` refetch로 최종 상태를 복구한다.
 
 ## PASS 기준
 
 - mock 112에 등록한 사건이 Suri-Map에서 import 가능해야 한다.
 - mock 112 서버가 Suri-Map DB에 직접 쓰지 않아야 한다.
-- import 요청은 `POST /api/incidents/import`와 `sourceIncidentId`를 사용해야 한다.
-- import 성공 시 `incident`, `missing_person`, `incident_assignment`, OP1이 생성되어야 한다.
+- 기본 import는 `POST /api/internal/mock-112/events` `INCIDENT_READY` webhook으로 자동 수행되어야 한다.
+- webhook import 성공 시 `incident`, `missing_person`, `incident_assignment`, OP1이 생성되어야 한다.
 - 같은 `sourceIncidentId`를 다시 import해도 사건, OP, assignment가 중복 생성되지 않아야 한다.
 - OP1 생성 실패를 주입하면 전체 import가 rollback되어야 한다.
-- 지원 부대 배정은 Suri-Map 직접 API가 아니라 mock 112 polling/import로만 반영되어야 한다.
+- 지원 부대 배정은 Suri-Map 직접 API가 아니라 mock 112 webhook으로만 반영되어야 한다.
 - 지원 부대 배정 반영 후 `INCIDENT_ASSIGNMENT_CHANGED`가 발행되어야 한다.
 - 같은 `externalAssignmentKey` 또는 같은 active `incident_id + account_id` 배정이 중복 반영되지 않아야 한다.
 - 웹/앱에는 지원 부대 배정 write CTA가 노출되지 않아야 한다.
 
 ## 대원에게 전달할 한 문장
 
-mock 112는 Suri-Map 안에서 사건을 만드는 기능이 아니라, 외부 112 시스템처럼 사건과 배정 변경을 흘려주는 시연용 원천 시스템이다. Suri-Map은 그 원천 사건을 `sourceIncidentId`로 가져오고, 내부 사건 생성은 기존 `POST /api/incidents/import` 계약으로만 처리해야 한다.
+mock 112는 Suri-Map 안에서 사건을 만드는 기능이 아니라, 외부 112 시스템처럼 사건과 배정 변경을 흘려주는 시연용 원천 시스템이다. Suri-Map은 `POST /api/internal/mock-112/events` webhook으로 원천 사건을 수신하고, 내부 사건 생성은 `sourceIncidentId` 기준의 자동 import use case로만 처리해야 한다.

@@ -186,9 +186,9 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 
 **acceptance_hints**
 
-- `POST /api/incidents/import` creates `incident`, `missing_person`, `incident_assignment`, OP1, and emits `INCIDENT_CREATED` only after the domain write is committed.
+- `POST /api/internal/mock-112/events` is the default mock-112 ingestion path. `INCIDENT_READY` creates `incident`, `missing_person`, `incident_assignment`, OP1, and emits `INCIDENT_CREATED` only after the domain write is committed. `POST /api/incidents/import` remains a WEB command fallback for manual replay/ops support.
 - Incident lifecycle rejects writes before `OPEN` with `incident_bootstrapping` and after close with `incident_closed`.
-- Suri-Map public API does not expose assignment or commander mutation endpoints; mock 112 polling/import updates `incident_assignment`.
+- Suri-Map public API does not expose assignment or commander mutation endpoints; mock-112 webhook ingestion updates `incident_assignment`. Polling is allowed only as a dev/fallback adapter, not as the primary runtime path.
 - `POST /api/incidents/{incidentId}/close` is terminal, exposes `IncidentTerminalSnapshot.closed`, and triggers purge orchestration without re-open support.
 
 **excluded**
@@ -724,7 +724,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 - `notification_delivery`는 알림 저장 엔티티이며 pending/status/version을 기록한다.
 - 지원 요청 알림은 실종팀 지휘 계정과 현장 지휘관 역할 계정 우선이다.
 - 실종자 발견 알림은 사건 배정 계정·단말 전체 대상이다.
-- 지원 부대 배정 알림은 `INCIDENT_ASSIGNMENT_CHANGED` fanout 시 신규 배정된 `TEAM`, `PATROL_CAR` 계정의 활성 PolicePhone에만 FCM data message로 전달한다. 이 알림은 `notification_delivery` row를 만들지 않으며, 지휘 계정 policePhoneId는 Android FCM recipient로 고정하지 않는다.
+- 지원 부대 배정 알림은 `INCIDENT_ASSIGNMENT_CHANGED` fanout 시 신규 배정된 `TEAM`, `PATROL_CAR` 계정의 활성 PolicePhone에만 FCM data message로 전달한다. 이 알림은 `notification_delivery` row를 만들지 않으며, 지휘 계정 policePhoneId는 Android FCM recipient로 고정하지 않는다. Android는 FCM 수신 후 최종 상태를 `/api/incidents` REST refetch로 수렴한다.
 - Web toast와 FCM push는 별도 저장 엔티티가 아니라 S4 `EventFanout`과 S5 notification payload/recipient 및 `FcmDispatcher` adapter의 전달 계약이다.
 - FCM fanout orchestration은 S5가 소유하지 않는다. S5는 S4가 호출할 수 있는 `FcmDispatcher` port와 fixture/mock adapter를 제공하며, 실제 외부 FCM 없이 대체 가능해야 한다.
 
@@ -1214,6 +1214,8 @@ Guard shorthand:
 | `PATCH /api/search-path-segments/{searchPathSegmentId}` | S3-1 | 웹 | HTTPS | `web-command`, `incident-read`, `write-common` | - |
 | `GET /api/incidents/{incidentId}/board` | S3-2 | 웹 | HTTPS | `public-session`, `incident-read`, `@RecordLocationAccess` | - |
 | `GET /api/incidents/{incidentId}/events` | S4 | 웹, S3-2 | SSE/HTTPS | `public-session`, `incident-read`, `@RequireChannel(WEB)` | `internal-caller`: event fanout replay |
+| `GET /api/incidents/events` | S4 | 웹 | SSE/HTTPS | `public-session`, account assignment scope, `@RequireChannel(WEB)` | `internal-caller`: incident list refetch signal |
+| `POST /api/internal/mock-112/events` | S1-1 | mock-112 internal | HTTPS | internal signature, webhook idempotency | `internal-caller`: mock-112 event ingestion |
 | `GET /api/markers` | S5 | 앱, 웹, S3-2 | HTTPS | `public-session`, `incident-read`, `@RecordLocationAccess` | - |
 | `POST /api/markers` | S5 | 앱 | HTTPS | `app-police-phone`, `incident-read`, `write-common`, `@RequireCurrentOp` | `internal-caller`: outbox replay |
 | `PATCH /api/markers/{markerId}` | S5 | 앱, 웹 | HTTPS | `field-or-web-write`, `incident-read`, `write-common`, S5 marker policy | `internal-caller`: outbox replay |
@@ -1321,8 +1323,8 @@ S3-2는 shell routing, page layout, slot mounting, shared state wiring의 owner�
 
 | Scenario | involved Specs | API/Event | S3-2 slot | provider -> consumer |
 |---|---|---|---|---|
-| SC-01 배정 사건 가져오기·초동 활성화 | S1-1, S1-2, S4, S5, S8 | `POST /api/incidents/import`, `INCIDENT_CREATED`, `INCIDENT_ASSIGNMENT_CHANGED`, `OP_TRANSITIONED(from=null)` | - | S1-1 mock 112 import -> `incident_assignment` 반영 -> S8 OP1 자동 생성 -> S4 `EventFanout`; S1-1 assignment -> S1-2 access guard; S5 `ReferenceMarkerSeed.createForIncident(incidentId, seedMarkers)` |
-| SC-02 실종팀 인계·지원 부대 배정 | S1-1, S1-2, S3-1, S3-2, S4, S5, S8 | 112/mock polling import, `GET /api/search-paths`, `GET /api/handover-memos`, `INCIDENT_ASSIGNMENT_CHANGED` | `path`, `marker`, `handover_status`, `op_history` | S1-1 `incident_assignment` 반영 -> S4 `EventFanout` -> S3-2 handover/status slots; `INCIDENT_ASSIGNMENT_CHANGED` fanout은 S1-2 `FcmTokenQuery.activeByPolicePhone(policePhoneId)`와 S5 resolver/payload factory/`FcmDispatcher` adapter를 통해 신규 배정 계정이 운용 중인 활성 `policePhoneId`에 PII 없는 배정 FCM을 보낸다 |
+| SC-01 배정 사건 가져오기·초동 활성화 | S1-1, S1-2, S4, S5, S8 | `POST /api/internal/mock-112/events`, `INCIDENT_CREATED`, `INCIDENT_ASSIGNMENT_CHANGED`, `OP_TRANSITIONED(from=null)` | - | mock-112 `INCIDENT_READY` webhook -> S1-1 자동 import 및 `incident_assignment` 반영 -> S8 OP1 자동 생성 -> S4 `EventFanout`; S1-1 assignment -> S1-2 access guard; S5 `ReferenceMarkerSeed.createForIncident(incidentId, seedMarkers)` |
+| SC-02 실종팀 인계·지원 부대 배정 | S1-1, S1-2, S3-1, S3-2, S4, S5, S8 | mock-112 `INCIDENT_ASSIGNMENT_CHANGED` webhook, `GET /api/search-paths`, `GET /api/handover-memos`, `INCIDENT_ASSIGNMENT_CHANGED` | `path`, `marker`, `handover_status`, `op_history` | S1-1 `incident_assignment` 반영 -> S4 `EventFanout` -> Web account-scope SSE refetch and S3-2 handover/status slots; `INCIDENT_ASSIGNMENT_CHANGED` fanout은 S1-2 `FcmTokenQuery.activeByPolicePhone(policePhoneId)`와 S5 resolver/payload factory/`FcmDispatcher` adapter를 통해 신규 배정 계정이 운용 중인 활성 `policePhoneId`에 PII 없는 배정 FCM을 보낸다 |
 | SC-03 사건 오프라인 패키지 사전 적재 | S7, S1-1, S1-2, S2, S5, S8, S4, S3-2 | §7 `GET /api/incidents/{incidentId}/offline-package/manifest`, `POST /api/incidents/{incidentId}/offline-package/installations`, §4.4 `OFFLINE_PACKAGE_INSTALLATION_CHANGED` | §9.2 `package_badge` | S2 overall area, S5 `ReferenceMarkerSeed.createForIncident(incidentId, seedMarkers)`, S8 OP/duty shift context -> S7 manifest/installation; S7 `OfflinePackageInstallationQuery`/`OFFLINE_PACKAGE_INSTALLATION_CHANGED` -> S3-2 `package_badge` |
 | SC-04 지도 기준 범위·구역 분할·할당 | S2, S8, S1-1, S1-2, S4, S7 | `POST /api/search-areas`, `PATCH /api/search-areas/{searchAreaId}`, `POST /api/search-areas/{searchAreaId}/split`, `POST /api/search-areas/{searchAreaId}/assignments`, `SEARCH_AREA_CHANGED`, `SEARCH_AREA_ASSIGNMENT_CHANGED` | `overall_search_area`, `area` | S2 geometry + search area assignment -> S4 `EventFanout` -> S3-2 map/area slots, S7 package builder |
 | SC-05 수색 경로·PolicePhone GPS 경로 | S3-1, S1-2, S6, S8, S4, S2 | `POST /api/search-paths`, `POST /api/search-paths/batch`, `PATCH /api/search-path-segments/{searchPathSegmentId}`, `SEARCH_PATH_STARTED`, `PATH_APPENDED`, `SEARCH_PATH_SEGMENT_UPDATED`, `SearchAreaQuery.overallOf(incidentId)` | `path`, `police_phone_freshness` | S3-1 owns `search_path`/`search_path_segment` and applies `spec/boundaries.md §4.1.1 Common Geometry Rule`; S2 provides `SearchAreaQuery.overallOf(incidentId)` as validation input only; path writes through S6 Outbox -> S4 `EventFanout` -> S3-2 path slot, S8 current OP/duty shift context |
