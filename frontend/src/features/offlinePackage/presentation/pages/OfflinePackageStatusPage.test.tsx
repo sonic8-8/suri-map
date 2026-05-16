@@ -6,6 +6,7 @@ import { getIncidentDetail } from '../../../situationBoard/data/getIncidentDetai
 import { useOfflinePackageManifestQuery } from '../../api/offlinePackageApi';
 import type { OfflinePackageManifestResponse } from '../../api/offlinePackageApi';
 import type { LoginAccount } from '../../../login/presentation/types/login';
+import { ApiHttpError } from '../../../../shared/api';
 import { OfflinePackageStatusPage } from './OfflinePackageStatusPage';
 
 vi.mock('../../../board/api/incidentBoardApi', () => ({
@@ -117,6 +118,22 @@ describe('OfflinePackageStatusPage', () => {
     expect(screen.getAllByText('팀장 단말')).toHaveLength(2);
     expect(screen.getByText('패키지 구성 목록을 불러오지 못했습니다.')).toBeInTheDocument();
     expect(screen.queryByText('단말별 적재 상태를 불러오지 못했습니다.')).not.toBeInTheDocument();
+  });
+
+  test('explains when package manifest prerequisites are not ready', async () => {
+    vi.mocked(useOfflinePackageManifestQuery).mockReturnValue(
+      manifestQueryResult(undefined, {
+        error: new ApiHttpError(409, 'package_manifest_not_ready', { error: 'package_manifest_not_ready' }),
+        isError: true,
+        refetch: vi.fn(),
+      }),
+    );
+
+    renderOfflinePackageStatusPage();
+    await screen.findByText('오프라인 패키지를 아직 만들 수 없습니다.');
+
+    expect(screen.getByText('현재 사건에 OP 또는 전체 수색 구역이 준비되지 않았습니다. 전체 수색 구역을 저장한 뒤 다시 조회하세요.')).toBeInTheDocument();
+    expect(screen.getAllByText('대상 단말')).toHaveLength(2);
   });
 });
 

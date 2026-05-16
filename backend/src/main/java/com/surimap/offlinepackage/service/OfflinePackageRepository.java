@@ -203,7 +203,7 @@ public class OfflinePackageRepository {
       current = mapper.findCurrentManifestByIncident(incidentDbId);
     }
     if (current == null) {
-      throw new IllegalArgumentException("offline package manifest not found: " + incidentId);
+      throw new OfflinePackageApiException("package_manifest_not_ready", HttpStatus.CONFLICT);
     }
     if (PURGED_MANIFEST_HASH.equals(current.manifestHash())
         || (mapper.countActiveInstallationsByManifest(current.id().toString()) == 0

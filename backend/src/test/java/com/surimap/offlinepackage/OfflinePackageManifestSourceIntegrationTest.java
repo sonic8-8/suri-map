@@ -1,6 +1,7 @@
 package com.surimap.offlinepackage;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
@@ -26,6 +27,7 @@ import com.surimap.offlinepackage.dto.OfflinePackageInstallationReportRequest;
 import com.surimap.offlinepackage.dto.OfflinePackageInstallationResponse;
 import com.surimap.offlinepackage.dto.OfflinePackageManifestResponse;
 import com.surimap.offlinepackage.dto.TileBlobResponse;
+import com.surimap.offlinepackage.exception.OfflinePackageApiException;
 import com.surimap.offlinepackage.service.LocalTileService;
 import com.surimap.offlinepackage.service.OfflinePackageRepository;
 import com.surimap.offlinepackage.service.OfflinePackageService;
@@ -48,6 +50,7 @@ import org.locationtech.jts.geom.GeometryFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
@@ -180,6 +183,21 @@ class OfflinePackageManifestSourceIntegrationTest {
 
               assertThat(blob.bytes()).hasSize(tile.bytes());
               assertThat(sha256(blob.bytes())).isEqualTo(tile.checksum());
+            });
+  }
+
+  @Test
+  @DisplayName("manifest source prerequisites missing returns package_manifest_not_ready")
+  void manifestSourcePrerequisitesMissingReturnsManifestNotReady() {
+    UUID incidentId = UUID.fromString("10000000-0000-4000-8000-000000002999");
+    when(incidentMapper.findByIncidentId(incidentId)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> service.manifest(incidentId.toString(), POLICE_PHONE_ID.toString()))
+        .isInstanceOfSatisfying(
+            OfflinePackageApiException.class,
+            exception -> {
+              assertThat(exception.errorCode()).isEqualTo("package_manifest_not_ready");
+              assertThat(exception.status()).isEqualTo(HttpStatus.CONFLICT);
             });
   }
 
