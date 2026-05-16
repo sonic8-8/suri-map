@@ -68,7 +68,7 @@ pipeline {
         KEYCLOAK_POSTGRES_USER = 'keycloak'
         KEYCLOAK_POSTGRES_PASSWORD = 'keycloak'
         KEYCLOAK_ADMIN = 'admin'
-        KEYCLOAK_ADMIN_PASSWORD = 'admin'
+        KEYCLOAK_ADMIN_PASSWORD = credentials('suri-map-keycloak-admin-password')
         KEYCLOAK_IMPORT_DIR = '/home/ubuntu/infra/keycloak/import'
         MOCK_112_ENABLED = 'true'
         MOCK_112_BASE_URL = 'http://mock-112:18112'
@@ -396,6 +396,45 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=${env.SPRING_JPA_HIBERNATE_DDL_AUTO}
                       docker logs --tail=200 suri-map-keycloak || true
                       exit 1
                     fi
+
+                    docker exec \
+                      -e KEYCLOAK_ADMIN="${KEYCLOAK_ADMIN}" \
+                      -e KEYCLOAK_ADMIN_PASSWORD="${KEYCLOAK_ADMIN_PASSWORD}" \
+                      suri-map-keycloak \
+                      sh -ec '
+                        server_url="http://127.0.0.1:8080/keycloak"
+                        if /opt/keycloak/bin/kcadm.sh config credentials \
+                          --server "${server_url}" \
+                          --realm master \
+                          --user "${KEYCLOAK_ADMIN}" \
+                          --password "${KEYCLOAK_ADMIN_PASSWORD}" >/dev/null 2>&1; then
+                          echo "keycloak_admin_password=current"
+                          exit 0
+                        fi
+
+                        /opt/keycloak/bin/kcadm.sh config credentials \
+                          --server "${server_url}" \
+                          --realm master \
+                          --user "${KEYCLOAK_ADMIN}" \
+                          --password admin >/dev/null
+                        admin_id=$(/opt/keycloak/bin/kcadm.sh get users \
+                          -r master \
+                          -q username="${KEYCLOAK_ADMIN}" \
+                          --fields id \
+                          --format csv \
+                          --noquotes | tail -n 1)
+                        test -n "${admin_id}"
+                        /opt/keycloak/bin/kcadm.sh set-password \
+                          -r master \
+                          --userid "${admin_id}" \
+                          --new-password "${KEYCLOAK_ADMIN_PASSWORD}" >/dev/null
+                        /opt/keycloak/bin/kcadm.sh config credentials \
+                          --server "${server_url}" \
+                          --realm master \
+                          --user "${KEYCLOAK_ADMIN}" \
+                          --password "${KEYCLOAK_ADMIN_PASSWORD}" >/dev/null
+                        echo "keycloak_admin_password=rotated"
+                      '
 
                     if docker exec suri-map-frontend wget -qO- http://keycloak:8080/keycloak/realms/master/.well-known/openid-configuration | grep -q '"issuer"'; then
                       echo "keycloak_oidc=ready"
