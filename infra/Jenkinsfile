@@ -53,6 +53,7 @@ pipeline {
         FRONTEND_IMAGE = 'suri-map-frontend:develop'
         BACKEND_IMAGE = 'suri-map-backend:develop'
         MOCK_112_IMAGE = 'suri-map-mock-112:develop'
+        KEYCLOAK_IMAGE = 'quay.io/keycloak/keycloak:26.6.1'
         BACKEND_TEST_IMAGE = 'suri-map-backend-test:develop'
         BACKEND_TEST_ARTIFACT_DIR = 'ci-artifacts/backend-test'
         COMPOSE_FILE = 'infra/docker/docker-compose.runtime.yml'
@@ -60,6 +61,14 @@ pipeline {
         FRONTEND_HOST_PORT = '3000'
         BACKEND_HOST_PORT = '8081'
         MOCK_112_HOST_PORT = '18112'
+        KEYCLOAK_HOST_PORT = '18080'
+        KEYCLOAK_MANAGEMENT_HOST_PORT = '19000'
+        KEYCLOAK_POSTGRES_HOST_PORT = '15434'
+        KEYCLOAK_POSTGRES_DB = 'keycloak'
+        KEYCLOAK_POSTGRES_USER = 'keycloak'
+        KEYCLOAK_POSTGRES_PASSWORD = 'keycloak'
+        KEYCLOAK_ADMIN = 'admin'
+        KEYCLOAK_ADMIN_PASSWORD = 'admin'
         MOCK_112_ENABLED = 'true'
         MOCK_112_BASE_URL = 'http://mock-112:18112'
         MOCK_112_POLLING_INTERVAL = '5000'
@@ -259,9 +268,18 @@ pipeline {
 FRONTEND_IMAGE=${env.FRONTEND_IMAGE}
 BACKEND_IMAGE=${env.BACKEND_IMAGE}
 MOCK_112_IMAGE=${env.MOCK_112_IMAGE}
+KEYCLOAK_IMAGE=${env.KEYCLOAK_IMAGE}
 FRONTEND_HOST_PORT=${env.FRONTEND_HOST_PORT}
 BACKEND_HOST_PORT=${env.BACKEND_HOST_PORT}
 MOCK_112_HOST_PORT=${env.MOCK_112_HOST_PORT}
+KEYCLOAK_HOST_PORT=${env.KEYCLOAK_HOST_PORT}
+KEYCLOAK_MANAGEMENT_HOST_PORT=${env.KEYCLOAK_MANAGEMENT_HOST_PORT}
+KEYCLOAK_POSTGRES_HOST_PORT=${env.KEYCLOAK_POSTGRES_HOST_PORT}
+KEYCLOAK_POSTGRES_DB=${env.KEYCLOAK_POSTGRES_DB}
+KEYCLOAK_POSTGRES_USER=${env.KEYCLOAK_POSTGRES_USER}
+KEYCLOAK_POSTGRES_PASSWORD=${env.KEYCLOAK_POSTGRES_PASSWORD}
+KEYCLOAK_ADMIN=${env.KEYCLOAK_ADMIN}
+KEYCLOAK_ADMIN_PASSWORD=${env.KEYCLOAK_ADMIN_PASSWORD}
 MOCK_112_ENABLED=${env.MOCK_112_ENABLED}
 MOCK_112_BASE_URL=${env.MOCK_112_BASE_URL}
 MOCK_112_POLLING_INTERVAL=${env.MOCK_112_POLLING_INTERVAL}
@@ -297,11 +315,11 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=${env.SPRING_JPA_HIBERNATE_DDL_AUTO}
                       bash infra/docker/tileserver/scripts/build-pretendard-gov-glyphs.sh \
                         android/app/src/main/res/font/pretendard_gov_variable.ttf \
                         "${TILESERVER_DATA_DIR}/fonts/Pretendard GOV"
-                      COMPOSE_SERVICES="postgis mock-112 backend tileserver-gl frontend"
+                      COMPOSE_SERVICES="postgis mock-112 keycloak backend tileserver-gl frontend"
                     else
                       echo "tileserver_mbtiles=missing required=osm-local.mbtiles,gwangju-building-labels.mbtiles dir=${TILESERVER_DATA_DIR}/data"
                       echo "tileserver-gl deployment skipped until the environment-specific MBTiles files are placed."
-                      COMPOSE_SERVICES="postgis mock-112 backend frontend"
+                      COMPOSE_SERVICES="postgis mock-112 keycloak backend frontend"
                     fi
 
                     docker compose \
@@ -355,6 +373,30 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=${env.SPRING_JPA_HIBERNATE_DDL_AUTO}
                     if [ "${mock112_ready}" != "true" ]; then
                       echo "mock112_health=timeout"
                       docker logs --tail=200 suri-map-mock-112 || true
+                      exit 1
+                    fi
+
+                    keycloak_ready=false
+                    for i in $(seq 1 60); do
+                      if docker exec suri-map-frontend wget -qO- http://keycloak:9000/health/ready >/dev/null; then
+                        echo "keycloak_health=ready"
+                        keycloak_ready=true
+                        break
+                      fi
+                      sleep 2
+                    done
+
+                    if [ "${keycloak_ready}" != "true" ]; then
+                      echo "keycloak_health=timeout"
+                      docker logs --tail=200 suri-map-keycloak || true
+                      exit 1
+                    fi
+
+                    if docker exec suri-map-frontend wget -qO- http://keycloak:8080/realms/master/.well-known/openid-configuration | grep -q '"issuer"'; then
+                      echo "keycloak_oidc=ready"
+                    else
+                      echo "keycloak_oidc=missing"
+                      docker logs --tail=200 suri-map-keycloak || true
                       exit 1
                     fi
 
