@@ -29,6 +29,7 @@ import {
 type SituationBoardDataState = {
   board: SituationBoardFallbackData;
   isLoading: boolean;
+  isInitialLoading: boolean;
   apiBoard: SituationBoardResponseDto | null;
   isFallback: boolean;
   isOverallSearchAreaMissing: boolean;
@@ -141,6 +142,7 @@ export function useSituationBoardData(
   return {
     board,
     isLoading: boardQuery.isLoading,
+    isInitialLoading: boardQuery.isLoading && apiBoard === null,
     apiBoard,
     isFallback: apiBoard === null,
     isOverallSearchAreaMissing: apiBoard !== null && board.searchAreaDrafts.length === 0,
