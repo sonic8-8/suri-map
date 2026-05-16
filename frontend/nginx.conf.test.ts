@@ -4,6 +4,10 @@ import { describe, expect, test } from 'vitest';
 describe('frontend nginx runtime routing', () => {
   const nginxConfig = readFileSync('nginx.conf', 'utf8');
 
+  test('uses relative redirects behind the EC2 TLS reverse proxy', () => {
+    expect(nginxConfig).toContain('absolute_redirect off;');
+  });
+
   test('proxies mock-112 public route before SPA fallback', () => {
     const mockRouteIndex = nginxConfig.indexOf('location /mock-112/');
     const fallbackIndex = nginxConfig.indexOf('try_files $uri $uri/ /index.html;');
