@@ -1,4 +1,4 @@
-/* 좌측 패널 전체 래퍼: dark navy command dashboard 톤의 고정 폭 패널. */
+/* 좌측 패널 전체 래퍼 */
 .panel {
   position: absolute;
   top: 0;
@@ -9,7 +9,7 @@
   --suri-board-primary-hi: #2f8ee8;
   --suri-board-primary-soft: rgba(16, 43, 77, 0.82);
   --suri-board-success: #8ab89b;
-  --suri-board-panel-bg: rgba(7, 18, 33, 0.96);
+  --suri-board-panel-bg: #071221;
   --suri-board-panel-surface: rgba(11, 27, 48, 0.88);
   --suri-board-panel-muted-bg: rgba(13, 33, 58, 0.92);
   --suri-board-border: rgba(71, 102, 140, 0.34);
@@ -33,71 +33,52 @@
   backdrop-filter: none;
 }
 
-/* 좌측 패널이 접혔을 때 화면 밖으로 밀어내는 상태. */
 .panelCollapsed {
   padding: 0;
   transform: translateX(-100%);
 }
 
-/* 좌측 패널 맨 아래에 놓는 footer형 패널 접기 버튼. */
 .panelCollapseButton {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  top: 10px;
+  right: 10px;
+  bottom: auto;
   z-index: 18;
   display: inline-flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 10px;
-  width: 100%;
-  min-height: 58px;
-  padding: 0 22px;
+  min-height: 0;
+  padding: 0;
   border: 0;
-  border-top: 1px solid var(--suri-board-left-section-divider);
   border-radius: 0;
-  color: var(--suri-board-fg-secondary);
-  background: rgba(5, 14, 27, 0.72);
-  font-size: 18px;
+  color: rgba(215, 228, 242, 0.78);
+  background: transparent;
+  font-size: 14px;
   font-weight: 800;
   line-height: 1.2;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
+  text-decoration: none;
 }
 
-/* 접기 버튼 hover 상태. */
 .panelCollapseButton:hover {
-  border-top-color: color-mix(in srgb, var(--suri-board-primary-hi) 28%, var(--suri-board-border));
   color: var(--suri-board-fg-primary);
-  background: color-mix(in srgb, var(--suri-board-panel-muted-bg) 52%, var(--suri-board-panel-bg));
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
-/* 접기 버튼 키보드 포커스 상태. */
 .panelCollapseButton:focus-visible {
   outline: 2px solid var(--suri-board-primary-hi);
   outline-offset: 2px;
 }
 
-.panelCollapseButton span {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  color: var(--suri-board-fg-primary);
-  font-size: 26px;
-  line-height: 1;
-}
-
-/* 패널 내부 본문: 상단 여백과 내부 스크롤 영역을 분리한다. */
 .content {
   position: relative;
   height: 100%;
   min-height: 0;
-  padding: 24px 16px 76px;
+  padding: 44px 12px 76px 16px;
   overflow: hidden;
 }
 
-/* 좌측 패널 페이지 전환 컨테이너: 탭 전환 시 각 페이지 내부 상태를 유지한다. */
 .page {
   height: 100%;
   min-height: 0;
@@ -107,14 +88,13 @@
   display: none;
 }
 
-/* 좌측 패널 전용 세로 스크롤 영역. */
 .scroll {
   display: flex;
   flex-direction: column;
   gap: 0;
   height: 100%;
   min-height: 0;
-  padding-right: 6px;
+  padding-right: 0;
   overflow-x: hidden;
   overflow-y: auto;
   scrollbar-color: var(--suri-board-left-scrollbar-thumb) var(--suri-board-left-scrollbar-track);
@@ -122,19 +102,26 @@
   scrollbar-width: thin;
 }
 
-/* 좌측 패널 스크롤바 너비. */
+.filterPage {
+  --suri-board-option-default-bg: rgba(9, 24, 43, 0.9);
+  --suri-board-option-default-border: rgba(68, 104, 144, 0.52);
+}
+
+.filterScroll {
+  gap: 0;
+  padding-right: 0;
+}
+
 .scroll::-webkit-scrollbar {
   width: 10px;
 }
 
-/* 좌측 패널 스크롤바 트랙. */
 .scroll::-webkit-scrollbar-track {
   border: 0;
   background: transparent;
   box-shadow: none;
 }
 
-/* 좌측 패널 스크롤바 thumb. */
 .scroll::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
   border-radius: 999px;
@@ -142,12 +129,10 @@
   background-clip: content-box;
 }
 
-/* 좌측 패널 스크롤바 hover 상태. */
 .scroll::-webkit-scrollbar-thumb:hover {
   background: var(--suri-board-left-scrollbar-thumb-hover);
 }
 
-/* 구역 작업 안내 카드. */
 .areaModePanel {
   display: grid;
   gap: 12px;
@@ -196,64 +181,83 @@
   outline-offset: 2px;
 }
 
-/* 좌측 패널 페이지 인덱스 탭 묶음. 패널이 접혀도 지도 위에 남아 클릭 가능하다. */
-.indexTabs {
+.tabButtons {
   position: absolute;
   z-index: 20;
   top: 52px;
-  right: -42px;
+  right: -76px;
   display: grid;
-  gap: 4px;
+  gap: 6px;
 }
 
-/* 패널 페이지를 선택하거나 현재 페이지를 접고 펼치는 손잡이 버튼. */
-.indexTab {
-  display: inline-flex;
+.tabButton {
+  display: grid;
   align-items: center;
-  justify-content: center;
-  width: 46px;
-  height: 82px;
-  padding: 0;
+  justify-items: center;
+  gap: 5px;
+  width: 66px;
+  height: 66px;
+  padding: 9px 7px 8px;
   border: 1px solid var(--suri-board-border);
   border-left: 1px solid rgba(5, 14, 27, 0.86);
-  border-radius: 0 8px 8px 0;
+  border-radius: 8px;
   color: var(--suri-board-fg-secondary);
   background: rgba(8, 22, 40, 0.92);
   box-shadow: 4px 0 12px rgb(0 0 0 / 18%);
-  font-size: 17px;
+  font-size: 13px;
   font-weight: 800;
-  line-height: 1;
-  writing-mode: vertical-rl;
-  text-orientation: upright;
+  line-height: 1.1;
+  letter-spacing: 0;
+  transition:
+    border-color 140ms ease,
+    background 140ms ease,
+    box-shadow 140ms ease,
+    color 140ms ease,
+    transform 140ms ease;
 }
 
-.indexTab + .indexTab {
-  margin-top: 0;
-}
-
-.indexTab:has(+ .indexTab) {
-  border-bottom-right-radius: 8px;
-}
-
-/* 접기/펼치기 손잡이 hover 상태. */
-.indexTab:hover {
+.tabButton:hover {
   border-color: color-mix(in srgb, var(--suri-board-primary-hi) 28%, var(--suri-board-border));
   color: var(--suri-board-fg-primary);
   background: var(--suri-board-panel-muted-bg);
+  transform: translateX(1px);
 }
 
-/* 현재 선택된 좌측 패널 페이지 탭. */
-.indexTabActive {
+.tabButtonActive {
   border-color: color-mix(in srgb, var(--suri-board-primary-hi) 44%, var(--suri-board-border));
   color: #dcecff;
   background: rgba(10, 34, 61, 0.96);
   box-shadow:
     4px 0 12px rgb(0 0 0 / 22%),
-    inset 2px 0 0 var(--suri-board-primary-hi);
+    inset 0 0 0 1px var(--suri-board-primary-hi);
 }
 
-/* 키보드 포커스가 들어왔을 때 손잡이를 강조한다. */
-.indexTab:focus-visible {
+.tabButton:focus-visible {
   outline: 2px solid var(--suri-board-primary-hi);
   outline-offset: 2px;
+}
+
+.tabIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+}
+
+.tabIcon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.tabLabel {
+  overflow: hidden;
+  min-width: 0;
+  color: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

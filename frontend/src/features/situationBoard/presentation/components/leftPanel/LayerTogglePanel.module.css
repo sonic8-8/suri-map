@@ -1,20 +1,22 @@
 /* 레이어 토글은 큰 파란 버튼 대신 compact toggle row로 보여준다. */
+.filterSection {
+  gap: 10px;
+  padding-bottom: 28px;
+}
+
+.filterSection.filterSection h2 {
+  color: #cbdcef;
+  font-size: 17px;
+  line-height: 1.2;
+}
+
 .toggleList {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 0;
-  overflow: hidden;
-  border: 1px solid var(--suri-board-left-section-divider);
-  border-radius: 8px;
-  background: rgba(8, 22, 40, 0.5);
+  gap: 8px;
 }
 
 .toggleList > button {
   width: 100%;
-  border-width: 0 0 1px;
-  border-radius: 0;
-}
-
-.toggleList > button:last-child {
-  border-bottom: 0;
+  min-height: 48px;
 }

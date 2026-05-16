@@ -1,15 +1,41 @@
 /* 마커 유형 버튼을 2열 compact chip 그리드로 배치한다. */
+.filterSection {
+  gap: 10px;
+  padding-bottom: 18px;
+  padding-top: 22px;
+  border-top: 1px solid var(--suri-board-left-section-divider);
+}
+
+.filterSection.filterSection h2 {
+  color: #cbdcef;
+  font-size: 17px;
+  line-height: 1.2;
+}
+
 .markerChipList {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
+}
+
+.markerButton {
+  padding: 4px 3px;
+}
+
+.markerButton span {
+  font-size: 16px;
+}
+
+.markerButton svg {
+  width: 28px;
+  height: 28px;
 }
 
 /* 지원 요청 세부 유형을 분리해 보여주는 보조 영역. */
 .markerSupportGroup {
   display: grid;
-  gap: 10px;
-  margin-top: 24px;
+  gap: 8px;
+  margin-top: 40px;
   padding: 0;
   border-top: 0;
 }
@@ -17,16 +43,16 @@
 /* 지원 요청 섹션의 소제목. */
 .markerSupportSubtitle {
   color: var(--suri-board-fg-muted);
-  font-size: 20px;
+  font-size: 17px;
   font-weight: 800;
-  line-height: 1.35;
+  line-height: 1.2;
 }
 
 /* 지원 요청 세부 유형을 3칸으로 균형 배치한다. */
 .markerSupportList {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 9px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .markerFilterDisabled {

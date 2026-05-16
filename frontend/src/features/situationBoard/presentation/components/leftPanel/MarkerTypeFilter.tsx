@@ -1,7 +1,6 @@
 import type { MarkerFilterOption, MarkerTypeId, SupportRequestTypeId } from '../../constants/mockSituationBoard';
 import { CollapsiblePanelSection } from './CollapsiblePanelSection';
 import { LeftPanelOptionButton } from './LeftPanelOptionButton';
-import optionStyles from './LeftPanelOptionButton.module.css';
 import { MarkerGlyph } from '../marker/MarkerGlyph';
 import styles from './MarkerTypeFilter.module.css';
 
@@ -23,7 +22,10 @@ export function MarkerTypeFilter({
   onToggleMarkerType,
 }: MarkerTypeFilterProps) {
   return (
-    <CollapsiblePanelSection title="마커 종류" className={disabled ? styles.markerFilterDisabled : undefined}>
+    <CollapsiblePanelSection
+      title="마커 종류"
+      className={[styles.filterSection, disabled ? styles.markerFilterDisabled : undefined].filter(Boolean).join(' ')}
+    >
       <div className={styles.markerChipList}>
         {markerTypes
           .filter(({ markerType }) => markerType !== 'SUPPORT_REQUEST')
@@ -33,13 +35,14 @@ export function MarkerTypeFilter({
             return (
               <LeftPanelOptionButton
                 key={markerType}
-                label={label}
-                selected={isSelected}
-                variant="icon"
-                icon={<MarkerGlyph name={icon} size={24} />}
-                disabled={disabled}
-                onClick={() => onToggleMarkerType(markerType)}
-              />
+              label={label}
+              selected={isSelected}
+              variant="icon"
+              icon={<MarkerGlyph name={icon} size={24} />}
+              className={styles.markerButton}
+              disabled={disabled}
+              onClick={() => onToggleMarkerType(markerType)}
+            />
             );
           })}
       </div>
@@ -58,7 +61,7 @@ export function MarkerTypeFilter({
                 selected={isSelected}
                 variant="icon"
                 icon={<MarkerGlyph name={icon} size={22} />}
-                className={optionStyles.compactIcon}
+                className={styles.markerButton}
                 disabled={disabled}
                 onClick={() => onToggleMarkerType('SUPPORT_REQUEST', supportRequestType)}
               />

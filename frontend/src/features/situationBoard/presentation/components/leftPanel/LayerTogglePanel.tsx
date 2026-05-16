@@ -20,7 +20,7 @@ type LayerTogglePanelProps = {
 
 export function LayerTogglePanel({ layerOptions, selectedLayerIds, onToggleLayer }: LayerTogglePanelProps) {
   return (
-    <CollapsiblePanelSection title="레이어">
+    <CollapsiblePanelSection title="레이어" className={styles.filterSection}>
       <div className={styles.toggleList}>
         {layerOptions.map((layerOption) => {
           const isSelected = selectedLayerIds.includes(layerOption.id);
