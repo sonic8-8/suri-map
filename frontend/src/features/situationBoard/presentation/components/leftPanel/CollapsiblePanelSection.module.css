@@ -1,29 +1,29 @@
-/* 좌측 패널 안의 접힘 가능한 섹션 전체 블록. */
+/* 좌측 패널 안의 섹션 전체 블록. 섹션은 박스가 아니라 구분선으로만 나눈다. */
 .section {
   display: grid;
   flex: 0 0 auto;
-  gap: 12px;
-  padding-bottom: 18px;
+  gap: 14px;
+  padding: 0 0 26px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
-/* 마지막 섹션은 아래 여백을 없애서 패널 끝과 맞춘다. */
-.section:last-child {
-  padding-bottom: 0;
-}
-
-/* 인접한 섹션 사이의 시각적 구분선과 간격. */
+/* 인접한 섹션은 카드 박스 없이 얇은 구분선으로만 분리한다. */
 .section + .section {
-  padding-top: 18px;
-  border-top: 1px solid var(--suri-board-left-section-divider);
+  padding-top: 2px;
+  border-top: 0;
 }
 
 /* 섹션 제목의 기본 타이포그래피. */
 .section h2 {
   margin: 0;
-  color: var(--suri-board-fg-secondary);
-  font-size: 17px;
-  font-weight: 700;
+  color: #c9d9eb;
+  font-size: 21px;
+  font-weight: 800;
   line-height: 1.35;
+  letter-spacing: 0;
 }
 
 /* 섹션 제목 행. */

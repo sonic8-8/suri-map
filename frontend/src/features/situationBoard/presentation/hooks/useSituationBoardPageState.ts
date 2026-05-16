@@ -27,11 +27,15 @@ export function useSituationBoardPageState({
 }: UseSituationBoardPageStateParams) {
   const { isLeftPanelCollapsed, shellClassName, toggleLeftPanelCollapsed } = useSituationBoardShell();
   const [areaRefreshVersion, setAreaRefreshVersion] = useState(0);
-  const { apiBoard, board, isInitialLoading, isOverallSearchAreaMissing } = useSituationBoardData(
-    incidentId,
-    savedAreaDrafts,
-    refreshVersion + areaRefreshVersion,
-  );
+  const {
+    apiBoard,
+    board,
+    isInitialLoadError,
+    isInitialLoading,
+    isInitialReconnecting,
+    isOverallSearchAreaMissing,
+    retryInitialLoad,
+  } = useSituationBoardData(incidentId, savedAreaDrafts, refreshVersion + areaRefreshVersion);
   const incidentDetail = useIncidentDetail(incidentId);
   const workspaceMode = useBoardWorkspaceMode({
     isAreaWorkspaceRoute,
@@ -65,7 +69,9 @@ export function useSituationBoardPageState({
     incidentDetail,
     isAreaWorkspaceOpen: workspaceMode.isAreaWorkspaceOpen,
     isHandoverWorkspaceOpen: workspaceMode.isHandoverWorkspaceOpen,
+    isInitialLoadError,
     isInitialLoading,
+    isInitialReconnecting,
     isLeftPanelCollapsed,
     isMapExpanded: workspaceMode.isMapExpanded,
     isOverallSearchAreaMissing,
@@ -73,11 +79,12 @@ export function useSituationBoardPageState({
     mapRecentMarkers: layerFilters.mapRecentMarkers,
     openAreaWorkspace: workspaceMode.openAreaWorkspace,
     openHandoverWorkspace: workspaceMode.openHandoverWorkspace,
+    retryInitialLoad,
     saveAssignedAreas,
     selectedLayerIds: layerFilters.selectedLayerIds,
-    selectedMarkerType: layerFilters.selectedMarkerType,
+    selectedMarkerTypes: layerFilters.selectedMarkerTypes,
     selectedSearchAreaId: workspaceMode.selectedSearchAreaId,
-    selectedSupportRequestType: layerFilters.selectedSupportRequestType,
+    selectedSupportRequestTypes: layerFilters.selectedSupportRequestTypes,
     setAreaEditMapProps: workspaceMode.setAreaEditMapProps,
     setInitialMapState: workspaceMode.setInitialMapState,
     shellClassName,

@@ -24,6 +24,7 @@ import {
   SuriMapPageHeader,
   type SuriMapPageHeaderIncidentContext,
 } from '../../../../shared';
+import { ApiHttpError } from '../../../../shared/api';
 import styles from './OfflinePackageStatusPage.module.css';
 
 type OfflinePackageStatusPageProps = {
@@ -304,6 +305,7 @@ export function OfflinePackageStatusPage({
           />
           <ManifestContent
             groups={manifestGroups}
+            error={manifestQuery.error}
             isError={manifestQuery.isError}
             isLoading={manifestQuery.isLoading}
             manifest={manifestQuery.data}
@@ -329,6 +331,7 @@ function SectionTitle({ title, description }: { title: string; description: stri
 
 function ManifestContent({
   groups,
+  error,
   isError,
   isLoading,
   manifest,
@@ -337,6 +340,7 @@ function ManifestContent({
   onRetry,
 }: {
   groups: readonly ManifestGroup[];
+  error: unknown;
   isError: boolean;
   isLoading: boolean;
   manifest: OfflinePackageManifestResponse | undefined;
@@ -349,10 +353,12 @@ function ManifestContent({
   }
 
   if (isError) {
+    const message = getOfflinePackageManifestErrorMessage(error);
+
     return (
       <div className={styles.emptyState} role="alert">
-        <strong>패키지 구성 목록을 불러오지 못했습니다.</strong>
-        <span>단말별 적재 상태와 별개로 구성 목록 조회만 실패했습니다.</span>
+        <strong>{message.title}</strong>
+        <span>{message.description}</span>
         <ActionButton label="구성 목록 다시 조회" onClick={onRetry} />
       </div>
     );
@@ -451,6 +457,28 @@ function ManifestContent({
       </div>
     </div>
   );
+}
+
+function getOfflinePackageManifestErrorMessage(error: unknown) {
+  if (error instanceof ApiHttpError) {
+    if (error.code === 'package_manifest_not_ready') {
+      return {
+        title: '오프라인 패키지를 아직 만들 수 없습니다.',
+        description: '현재 사건에 OP 또는 전체 수색 구역이 준비되지 않았습니다. 전체 수색 구역을 저장한 뒤 다시 조회하세요.',
+      };
+    }
+    if (error.code === 'package_purged') {
+      return {
+        title: '오프라인 패키지가 삭제되었습니다.',
+        description: '종료 또는 파기 처리된 사건이라 패키지 구성 목록을 다시 내려받을 수 없습니다.',
+      };
+    }
+  }
+
+  return {
+    title: '패키지 구성 목록을 불러오지 못했습니다.',
+    description: '단말별 적재 상태와 별개로 구성 목록 조회만 실패했습니다.',
+  };
 }
 
 function createIncidentContext(

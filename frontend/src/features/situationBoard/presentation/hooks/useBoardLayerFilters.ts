@@ -13,6 +13,9 @@ type UseBoardLayerFiltersParams = {
   recentMarkers: RecentMarker[];
 };
 
+const DEFAULT_SELECTED_MARKER_TYPES: MarkerTypeId[] = ['CLUE', 'PERSON_FOUND', 'FIELD_CONDITION', 'NOTE'];
+const DEFAULT_SELECTED_SUPPORT_REQUEST_TYPES: SupportRequestTypeId[] = ['DRONE', 'POLICE_DOG', 'OTHER'];
+
 export function useBoardLayerFilters({
   incidentId,
   layerOptions,
@@ -23,8 +26,10 @@ export function useBoardLayerFilters({
     [layerOptions],
   );
   const [selectedLayerIds, setSelectedLayerIds] = useState<LayerFilterId[]>(defaultSelectedLayerIds);
-  const [selectedMarkerType, setSelectedMarkerType] = useState<MarkerTypeId | null>(null);
-  const [selectedSupportRequestType, setSelectedSupportRequestType] = useState<SupportRequestTypeId | null>(null);
+  const [selectedMarkerTypes, setSelectedMarkerTypes] = useState<MarkerTypeId[]>(DEFAULT_SELECTED_MARKER_TYPES);
+  const [selectedSupportRequestTypes, setSelectedSupportRequestTypes] = useState<SupportRequestTypeId[]>(
+    DEFAULT_SELECTED_SUPPORT_REQUEST_TYPES,
+  );
 
   const mapRecentMarkers = useMemo(
     () =>
@@ -37,12 +42,15 @@ export function useBoardLayerFilters({
   const filteredRecentMarkers = useMemo(
     () =>
       mapRecentMarkers.filter((marker) => {
-        if (selectedMarkerType === null) return true;
-        if (marker.markerType !== selectedMarkerType) return false;
-        if (selectedMarkerType !== 'SUPPORT_REQUEST' || selectedSupportRequestType === null) return true;
-        return marker.supportRequestType === selectedSupportRequestType;
+        if (marker.markerType === 'SUPPORT_REQUEST') {
+          return marker.supportRequestType
+            ? selectedSupportRequestTypes.includes(marker.supportRequestType)
+            : selectedSupportRequestTypes.length > 0;
+        }
+
+        return selectedMarkerTypes.includes(marker.markerType as MarkerTypeId);
       }),
-    [mapRecentMarkers, selectedMarkerType, selectedSupportRequestType],
+    [mapRecentMarkers, selectedMarkerTypes, selectedSupportRequestTypes],
   );
   const visibleMarkerIds = useMemo(
     () => filteredRecentMarkers.map((marker) => marker.id),
@@ -67,12 +75,22 @@ export function useBoardLayerFilters({
   };
 
   const toggleMarkerType = (markerType: MarkerTypeId, supportRequestType?: SupportRequestTypeId) => {
-    const nextSupportRequestType = markerType === 'SUPPORT_REQUEST' ? supportRequestType ?? null : null;
-    const isSameMarkerFilter =
-      selectedMarkerType === markerType && selectedSupportRequestType === nextSupportRequestType;
+    if (markerType === 'SUPPORT_REQUEST') {
+      if (!supportRequestType) return;
 
-    setSelectedMarkerType(isSameMarkerFilter ? null : markerType);
-    setSelectedSupportRequestType(isSameMarkerFilter ? null : nextSupportRequestType);
+      setSelectedSupportRequestTypes((currentSupportRequestTypes) =>
+        currentSupportRequestTypes.includes(supportRequestType)
+          ? currentSupportRequestTypes.filter((currentSupportRequestType) => currentSupportRequestType !== supportRequestType)
+          : [...currentSupportRequestTypes, supportRequestType],
+      );
+      return;
+    }
+
+    setSelectedMarkerTypes((currentMarkerTypes) =>
+      currentMarkerTypes.includes(markerType)
+        ? currentMarkerTypes.filter((currentMarkerType) => currentMarkerType !== markerType)
+        : [...currentMarkerTypes, markerType],
+    );
   };
 
   useEffect(() => {
@@ -80,8 +98,8 @@ export function useBoardLayerFilters({
   }, [defaultSelectedLayerIds, incidentId]);
 
   useEffect(() => {
-    setSelectedMarkerType(null);
-    setSelectedSupportRequestType(null);
+    setSelectedMarkerTypes(DEFAULT_SELECTED_MARKER_TYPES);
+    setSelectedSupportRequestTypes(DEFAULT_SELECTED_SUPPORT_REQUEST_TYPES);
   }, [incidentId]);
 
   return {
@@ -89,8 +107,8 @@ export function useBoardLayerFilters({
     layerVisibility,
     mapRecentMarkers,
     selectedLayerIds,
-    selectedMarkerType,
-    selectedSupportRequestType,
+    selectedMarkerTypes,
+    selectedSupportRequestTypes,
     toggleLayer,
     toggleMarkerType,
     visibleMarkerIds,

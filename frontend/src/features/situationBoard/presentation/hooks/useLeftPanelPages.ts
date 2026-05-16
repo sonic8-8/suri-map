@@ -16,7 +16,7 @@ type UseLeftPanelPagesParams = {
 export function useLeftPanelPages({ isCollapsed, onToggleCollapsed }: UseLeftPanelPagesParams) {
   const [activePage, setActivePage] = useState<LeftPanelPage>('filter');
 
-  const getIndexTabAriaLabel = (page: LeftPanelPage) => {
+  const getLeftPanelTabAriaLabel = (page: LeftPanelPage) => {
     const label = labelByPage[page];
 
     if (activePage !== page) {
@@ -26,7 +26,7 @@ export function useLeftPanelPages({ isCollapsed, onToggleCollapsed }: UseLeftPan
     return `${label} 패널 ${isCollapsed ? '펼치기' : '접기'}`;
   };
 
-  const handleIndexTabClick = (page: LeftPanelPage) => {
+  const handleLeftPanelTabClick = (page: LeftPanelPage) => {
     if (activePage === page) {
       onToggleCollapsed();
       return;
@@ -41,7 +41,7 @@ export function useLeftPanelPages({ isCollapsed, onToggleCollapsed }: UseLeftPan
 
   return {
     activePage,
-    getIndexTabAriaLabel,
-    handleIndexTabClick,
+    getLeftPanelTabAriaLabel,
+    handleLeftPanelTabClick,
   };
 }

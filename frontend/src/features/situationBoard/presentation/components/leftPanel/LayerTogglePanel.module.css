@@ -1,10 +1,22 @@
-/* 레이어 토글 버튼들이 줄바꿈되는 배치. */
+/* 레이어 토글은 큰 파란 버튼 대신 compact toggle row로 보여준다. */
+.filterSection {
+  gap: 10px;
+  padding-bottom: 28px;
+}
+
+.filterSection.filterSection h2 {
+  color: #cbdcef;
+  font-size: 17px;
+  line-height: 1.2;
+}
+
 .toggleList {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 7px;
+  grid-template-columns: 1fr;
+  gap: 8px;
 }
 
 .toggleList > button {
   width: 100%;
+  min-height: 48px;
 }

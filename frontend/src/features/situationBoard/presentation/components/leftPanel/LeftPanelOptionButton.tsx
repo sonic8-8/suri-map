@@ -11,6 +11,7 @@ type LeftPanelOptionButtonProps = {
   icon?: ReactNode;
   expanded?: boolean;
   hasDisclosure?: boolean;
+  disabled?: boolean;
   className?: string;
   onClick: () => void;
 };
@@ -23,6 +24,7 @@ export function LeftPanelOptionButton({
   icon,
   expanded,
   hasDisclosure = false,
+  disabled = false,
   className,
   onClick,
 }: LeftPanelOptionButtonProps) {
@@ -42,6 +44,7 @@ export function LeftPanelOptionButton({
       className={buttonClassName}
       aria-pressed={selected}
       aria-expanded={hasDisclosure ? expanded : undefined}
+      disabled={disabled}
       onClick={onClick}
     >
       {/* 펼침 가능한 항목일 때만 보조 화살표를 보여준다. */}

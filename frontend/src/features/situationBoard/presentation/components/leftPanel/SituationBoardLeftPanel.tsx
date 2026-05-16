@@ -1,9 +1,10 @@
-import { useLeftPanelPages } from '../../hooks/useLeftPanelPages';
+import type { CSSProperties, ReactNode } from 'react';
+import { Filter, Map, MapPin } from 'lucide-react';
+import { useLeftPanelPages, type LeftPanelPage } from '../../hooks/useLeftPanelPages';
 import { LayerTogglePanel } from './LayerTogglePanel';
 import { MarkerTypeFilter } from './MarkerTypeFilter';
 import { RecentMarkerList } from './RecentMarkerList';
 import { SearchAreaTree } from './SearchAreaTree';
-import { ViewModeSwitch } from './ViewModeSwitch';
 import type { CompletedAreaDraft } from '../../../../../shared/model/areaDraft';
 import type {
   LayerFilterId,
@@ -14,6 +15,34 @@ import type {
 } from '../../constants/mockSituationBoard';
 import styles from './SituationBoardLeftPanel.module.css';
 
+const leftPanelTabs: Array<{
+  page: LeftPanelPage;
+  label: string;
+  icon: ReactNode;
+}> = [
+  {
+    page: 'filter',
+    label: '필터',
+    icon: <Filter size={18} strokeWidth={2.2} aria-hidden="true" />,
+  },
+  {
+    page: 'area',
+    label: '구역',
+    icon: <Map size={18} strokeWidth={2.2} aria-hidden="true" />,
+  },
+  {
+    page: 'marker',
+    label: '마커',
+    icon: <MapPin size={18} strokeWidth={2.2} aria-hidden="true" />,
+  },
+];
+
+const leftPanelWidthByPage: Record<LeftPanelPage, string> = {
+  filter: '224px',
+  area: '420px',
+  marker: '360px',
+};
+
 type SituationBoardLeftPanelProps = {
   board: SituationBoardFallbackData;
   hasActiveOverallSearchArea: boolean;
@@ -21,8 +50,8 @@ type SituationBoardLeftPanelProps = {
   savedAreaDrafts: CompletedAreaDraft[];
   recentMarkers: RecentMarker[];
   selectedLayerIds: LayerFilterId[];
-  selectedMarkerType: MarkerTypeId | null;
-  selectedSupportRequestType: SupportRequestTypeId | null;
+  selectedMarkerTypes: MarkerTypeId[];
+  selectedSupportRequestTypes: SupportRequestTypeId[];
   onToggleCollapsed: () => void;
   onToggleLayer: (layerId: LayerFilterId) => void;
   onToggleMarkerType: (markerType: MarkerTypeId, supportRequestType?: SupportRequestTypeId) => void;
@@ -31,7 +60,6 @@ type SituationBoardLeftPanelProps = {
   onOpenAreaEdit: () => void;
 };
 
-// 좌측 패널은 OP, 레이어, 마커, 보기 모드를 한 덩어리로 묶어 보여준다.
 export function SituationBoardLeftPanel({
   board,
   hasActiveOverallSearchArea,
@@ -39,8 +67,8 @@ export function SituationBoardLeftPanel({
   savedAreaDrafts,
   recentMarkers,
   selectedLayerIds,
-  selectedMarkerType,
-  selectedSupportRequestType,
+  selectedMarkerTypes,
+  selectedSupportRequestTypes,
   onToggleCollapsed,
   onToggleLayer,
   onToggleMarkerType,
@@ -48,14 +76,19 @@ export function SituationBoardLeftPanel({
   onSelectMarker,
   onOpenAreaEdit,
 }: SituationBoardLeftPanelProps) {
-  const { activePage, getIndexTabAriaLabel, handleIndexTabClick } = useLeftPanelPages({
+  const { activePage, getLeftPanelTabAriaLabel, handleLeftPanelTabClick } = useLeftPanelPages({
     isCollapsed,
     onToggleCollapsed,
   });
+  const isMarkerLayerEnabled = selectedLayerIds.includes('marker');
+  const panelStyle = {
+    '--left-panel-width': leftPanelWidthByPage[activePage],
+  } as CSSProperties;
 
   return (
     <aside
       className={`${styles.panel}${isCollapsed ? ` ${styles.panelCollapsed}` : ''}`}
+      style={panelStyle}
       aria-label="상황판 좌측 패널"
       aria-expanded={!isCollapsed}
     >
@@ -65,45 +98,31 @@ export function SituationBoardLeftPanel({
         aria-label="좌측 패널 접기"
         onClick={onToggleCollapsed}
       >
-        접기
+        패널 접기
       </button>
-      {/* 지도 폭은 유지한 채 좌측 패널 페이지를 선택하거나 현재 페이지를 접고 펼친다. */}
-      <div className={styles.indexTabs} aria-label="좌측 패널 페이지">
-        <button
-          type="button"
-          className={`${styles.indexTab}${activePage === 'filter' ? ` ${styles.indexTabActive}` : ''}`}
-          aria-label={getIndexTabAriaLabel('filter')}
-          aria-pressed={activePage === 'filter'}
-          aria-expanded={activePage === 'filter' ? !isCollapsed : undefined}
-          onClick={() => handleIndexTabClick('filter')}
-        >
-          필터
-        </button>
-        <button
-          type="button"
-          className={`${styles.indexTab}${activePage === 'area' ? ` ${styles.indexTabActive}` : ''}`}
-          aria-label={getIndexTabAriaLabel('area')}
-          aria-pressed={activePage === 'area'}
-          aria-expanded={activePage === 'area' ? !isCollapsed : undefined}
-          onClick={() => handleIndexTabClick('area')}
-        >
-          구역
-        </button>
-        <button
-          type="button"
-          className={`${styles.indexTab}${activePage === 'marker' ? ` ${styles.indexTabActive}` : ''}`}
-          aria-label={getIndexTabAriaLabel('marker')}
-          aria-pressed={activePage === 'marker'}
-          aria-expanded={activePage === 'marker' ? !isCollapsed : undefined}
-          onClick={() => handleIndexTabClick('marker')}
-        >
-          마커
-        </button>
+      <div className={styles.tabButtons} aria-label="좌측 패널 페이지">
+        {leftPanelTabs.map((tab) => {
+          const isSelected = activePage === tab.page;
+
+          return (
+            <button
+              key={tab.page}
+              type="button"
+              className={`${styles.tabButton}${isSelected ? ` ${styles.tabButtonActive}` : ''}`}
+              aria-label={getLeftPanelTabAriaLabel(tab.page)}
+              aria-pressed={isSelected}
+              aria-expanded={isSelected ? !isCollapsed : undefined}
+              onClick={() => handleLeftPanelTabClick(tab.page)}
+            >
+              <span className={styles.tabIcon}>{tab.icon}</span>
+              <span className={styles.tabLabel}>{tab.label}</span>
+            </button>
+          );
+        })}
       </div>
-      {/* 내부는 독립 스크롤로 유지하고, 섹션 컴포넌트들을 세로로 쌓는다. */}
       <div className={styles.content}>
-        <div className={styles.page} hidden={activePage !== 'filter'}>
-          <div className={styles.scroll}>
+        <div className={`${styles.page} ${styles.filterPage}`} hidden={activePage !== 'filter'}>
+          <div className={`${styles.scroll} ${styles.filterScroll}`}>
             <LayerTogglePanel
               layerOptions={board.layerOptions}
               selectedLayerIds={selectedLayerIds}
@@ -112,11 +131,11 @@ export function SituationBoardLeftPanel({
             <MarkerTypeFilter
               markerTypes={board.markerTypes}
               supportMarkerTypes={board.supportMarkerTypes}
-              selectedMarkerType={selectedMarkerType}
-              selectedSupportRequestType={selectedSupportRequestType}
+              selectedMarkerTypes={selectedMarkerTypes}
+              selectedSupportRequestTypes={selectedSupportRequestTypes}
+              disabled={!isMarkerLayerEnabled}
               onToggleMarkerType={onToggleMarkerType}
             />
-            <ViewModeSwitch />
           </div>
         </div>
         <div className={styles.page} hidden={activePage !== 'area'}>
