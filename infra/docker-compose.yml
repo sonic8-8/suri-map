@@ -36,13 +36,36 @@ services:
       timeout: 5s
       retries: 5
 
+  mock112-postgres:
+    image: postgres:16-alpine
+    container_name: mock112-postgres
+    environment:
+      POSTGRES_DB: ${MOCK112_POSTGRES_DB:-mock112}
+      POSTGRES_USER: ${MOCK112_POSTGRES_USER:-mock112}
+      POSTGRES_PASSWORD: ${MOCK112_POSTGRES_PASSWORD:-mock112}
+    ports:
+      - "${MOCK112_POSTGRES_HOST_PORT:-15433}:5432"
+    volumes:
+      - mock112-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${MOCK112_POSTGRES_USER:-mock112} -d ${MOCK112_POSTGRES_DB:-mock112}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   mock-112:
     build: ../mock-112
     container_name: mock-112
+    depends_on:
+      mock112-postgres:
+        condition: service_healthy
     ports:
-      - "18112:18112"
+      - "${MOCK_112_HOST_PORT:-18112}:18112"
     environment:
       SERVER_PORT: 18112
+      SPRING_DATASOURCE_URL: jdbc:postgresql://mock112-postgres:5432/${MOCK112_POSTGRES_DB:-mock112}
+      SPRING_DATASOURCE_USERNAME: ${MOCK112_POSTGRES_USER:-mock112}
+      SPRING_DATASOURCE_PASSWORD: ${MOCK112_POSTGRES_PASSWORD:-mock112}
       SURI_MAP_WEBHOOK_ENABLED: "true"
       SURI_MAP_WEBHOOK_URL: http://backend:8080/api/internal/mock-112/events
       SURI_MAP_WEBHOOK_SECRET: ${MOCK_112_WEBHOOK_SECRET:-}
@@ -55,3 +78,4 @@ services:
 volumes:
   surimap-frontend-node-modules:
   surimap-postgres-data:
+  mock112-postgres-data:
