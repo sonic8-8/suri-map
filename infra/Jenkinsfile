@@ -278,6 +278,9 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=${env.SPRING_JPA_HIBERNATE_DDL_AUTO}
 
                     if [ -f "${TILESERVER_DATA_DIR}/data/osm-local.mbtiles" ] \
                       && [ -f "${TILESERVER_DATA_DIR}/data/gwangju-building-labels.mbtiles" ]; then
+                      bash infra/docker/tileserver/scripts/build-pretendard-gov-glyphs.sh \
+                        android/app/src/main/res/font/pretendard_gov_variable.ttf \
+                        "${TILESERVER_DATA_DIR}/fonts/Pretendard GOV"
                       COMPOSE_SERVICES="postgis mock-112 backend tileserver-gl frontend"
                     else
                       echo "tileserver_mbtiles=missing required=osm-local.mbtiles,gwangju-building-labels.mbtiles dir=${TILESERVER_DATA_DIR}/data"
@@ -362,6 +365,14 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=${env.SPRING_JPA_HIBERNATE_DDL_AUTO}
 
                       if [ "${tileserver_ready}" != "true" ]; then
                         echo "tileserver_health=timeout"
+                        docker logs --tail=200 suri-map-tileserver-gl || true
+                        exit 1
+                      fi
+
+                      if docker exec suri-map-tileserver-gl node -e "require('http').get('http://127.0.0.1:8080/fonts/Pretendard%20GOV/0-255.pbf', r => process.exit(r.statusCode >= 200 && r.statusCode < 400 ? 0 : 1)).on('error', () => process.exit(1))"; then
+                        echo "tileserver_glyphs=ready"
+                      else
+                        echo "tileserver_glyphs=missing font_stack=Pretendard GOV range=0-255.pbf"
                         docker logs --tail=200 suri-map-tileserver-gl || true
                         exit 1
                       fi
