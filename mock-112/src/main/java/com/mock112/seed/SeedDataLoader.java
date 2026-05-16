@@ -6,7 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.mock112.domain.MockAssignment;
 import com.mock112.domain.MockIncident;
-import com.mock112.store.InMemoryIncidentStore;
+import com.mock112.store.MockIncidentStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.io.ClassPathResource;
@@ -37,7 +37,7 @@ public class SeedDataLoader {
      * precinct-first 시나리오를 적재한다.
      * 초동 배정만 포함하고, 인계/지원 배정은 별도 API로 추가한다.
      */
-    public MockIncident loadPrecinctFirstScenario(InMemoryIncidentStore store) {
+    public MockIncident loadPrecinctFirstScenario(MockIncidentStore store) {
         try {
             JsonNode root = loadSeedJson("seed/precinct-first-scenario.json");
             MockIncident incident = mapper.treeToValue(root, MockIncident.class);
@@ -53,7 +53,7 @@ public class SeedDataLoader {
     /**
      * 실종팀 인계 배정을 사건에 추가한다.
      */
-    public List<MockAssignment> loadHandoverAssignments(InMemoryIncidentStore store, String sourceIncidentId) {
+    public List<MockAssignment> loadHandoverAssignments(MockIncidentStore store, String sourceIncidentId) {
         try {
             JsonNode root = loadSeedJson("seed/precinct-first-scenario.json");
             JsonNode handoverNode = root.get("handoverAssignments");
@@ -75,7 +75,7 @@ public class SeedDataLoader {
     /**
      * 지원 부대 배정을 사건에 추가한다.
      */
-    public List<MockAssignment> loadSupportAssignments(InMemoryIncidentStore store, String sourceIncidentId) {
+    public List<MockAssignment> loadSupportAssignments(MockIncidentStore store, String sourceIncidentId) {
         try {
             JsonNode root = loadSeedJson("seed/precinct-first-scenario.json");
             JsonNode supportNode = root.get("supportAssignments");

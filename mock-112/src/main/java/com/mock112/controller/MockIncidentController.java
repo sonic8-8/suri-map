@@ -2,7 +2,7 @@ package com.mock112.controller;
 
 import com.mock112.domain.MockAssignment;
 import com.mock112.domain.MockIncident;
-import com.mock112.store.InMemoryIncidentStore;
+import com.mock112.store.MockIncidentStore;
 import com.mock112.webhook.SuriMapWebhookDispatcher;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,11 +22,11 @@ import java.util.Map;
 @RequestMapping("/mock-112/incidents")
 public class MockIncidentController {
 
-    private final InMemoryIncidentStore store;
+    private final MockIncidentStore store;
     private final SuriMapWebhookDispatcher webhookDispatcher;
 
     public MockIncidentController(
-            InMemoryIncidentStore store,
+            MockIncidentStore store,
             SuriMapWebhookDispatcher webhookDispatcher) {
         this.store = store;
         this.webhookDispatcher = webhookDispatcher;
