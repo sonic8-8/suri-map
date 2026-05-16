@@ -22,6 +22,7 @@ describe('frontend nginx runtime routing', () => {
     expect(keycloakRouteIndex).toBeGreaterThan(-1);
     expect(keycloakAdminRouteIndex).toBeGreaterThan(-1);
     expect(fallbackIndex).toBeGreaterThan(-1);
+    expect(nginxConfig).toContain('return 308 /keycloak/realms/suri-map/account/;');
     expect(keycloakAdminRouteIndex).toBeLessThan(keycloakRouteIndex);
     expect(keycloakRouteIndex).toBeLessThan(fallbackIndex);
     expect(nginxConfig).toContain('proxy_pass http://keycloak:8080;');
