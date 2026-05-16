@@ -369,8 +369,8 @@ prepare_tileserver_data() {
   [[ -f "$TILESERVER_RUNTIME_DIR/data/gwangju-building-labels.mbtiles" ]] ||
     fail "missing $TILESERVER_RUNTIME_DIR/data/gwangju-building-labels.mbtiles. Pass --tile-source or --tiles-dir."
 
-  if [[ ! -f "$TILESERVER_RUNTIME_DIR/fonts/Noto Sans Regular/0-255.pbf" ]]; then
-    log "warning: missing Noto Sans glyph PBF files; Korean map labels may not render"
+  if [[ ! -f "$TILESERVER_RUNTIME_DIR/fonts/Pretendard GOV/0-255.pbf" ]]; then
+    log "warning: missing Pretendard GOV glyph PBF files; Korean map labels may not render"
   fi
 }
 

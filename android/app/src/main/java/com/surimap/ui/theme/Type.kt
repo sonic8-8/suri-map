@@ -3,13 +3,24 @@ package com.surimap.ui.theme
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.surimap.R
+
+private val PretendardGovFontFamily =
+    FontFamily(
+        Font(R.font.pretendard_gov_variable, FontWeight.Normal),
+        Font(R.font.pretendard_gov_variable, FontWeight.Medium),
+        Font(R.font.pretendard_gov_variable, FontWeight.SemiBold),
+        Font(R.font.pretendard_gov_variable, FontWeight.Bold),
+        Font(R.font.pretendard_gov_variable, FontWeight.ExtraBold)
+    )
 
 private val baseTextStyle =
     TextStyle(
-        fontFamily = FontFamily.SansSerif,
+        fontFamily = PretendardGovFontFamily,
         platformStyle = PlatformTextStyle(includeFontPadding = false)
     )
 
