@@ -1,6 +1,8 @@
 package com.surimap.config;
 
 import com.surimap.account.security.AuthSessionAuthenticationFilter;
+import com.surimap.account.security.OidcBearerAuthenticationFilter;
+import com.surimap.account.security.OidcIdentityAuthenticationConverter;
 import com.surimap.account.service.AuthSessionService;
 import com.surimap.common.auth.SuriMapAuthentication;
 import jakarta.servlet.DispatcherType;
@@ -9,6 +11,7 @@ import java.util.List;
 import java.util.function.Supplier;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authorization.AuthorizationDecision;
@@ -18,6 +21,10 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtDecoders;
+import org.springframework.security.oauth2.jwt.JwtValidators;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
@@ -32,7 +39,11 @@ public class SecurityConfig {
 
   @Bean
   SecurityFilterChain securityFilterChain(
-      HttpSecurity http, ObjectProvider<AuthSessionService> authSessionService) throws Exception {
+      HttpSecurity http,
+      ObjectProvider<AuthSessionService> authSessionService,
+      ObjectProvider<JwtDecoder> keycloakJwtDecoder,
+      ObjectProvider<OidcIdentityAuthenticationConverter> oidcIdentityAuthenticationConverter)
+      throws Exception {
     http.csrf(csrf -> csrf.disable())
         .cors(Customizer.withDefaults())
         .authorizeHttpRequests(
@@ -57,8 +68,30 @@ public class SecurityConfig {
             http.addFilterBefore(
                 new AuthSessionAuthenticationFilter(service),
                 UsernamePasswordAuthenticationFilter.class));
+    JwtDecoder jwtDecoder = keycloakJwtDecoder.getIfAvailable();
+    OidcIdentityAuthenticationConverter converter =
+        oidcIdentityAuthenticationConverter.getIfAvailable();
+    if (jwtDecoder != null && converter != null) {
+      http.addFilterBefore(
+          new OidcBearerAuthenticationFilter(jwtDecoder, converter),
+          UsernamePasswordAuthenticationFilter.class);
+    }
 
     return http.build();
+  }
+
+  @Bean
+  @ConditionalOnExpression(
+      "T(org.springframework.util.StringUtils).hasText('${surimap.auth.keycloak.issuer-uri:}')")
+  JwtDecoder keycloakJwtDecoder(
+      @Value("${surimap.auth.keycloak.issuer-uri}") String issuerUri,
+      @Value("${surimap.auth.keycloak.jwk-set-uri:}") String jwkSetUri) {
+    if (jwkSetUri != null && !jwkSetUri.isBlank()) {
+      NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
+      decoder.setJwtValidator(JwtValidators.createDefaultWithIssuer(issuerUri));
+      return decoder;
+    }
+    return JwtDecoders.fromIssuerLocation(issuerUri);
   }
 
   @Bean
