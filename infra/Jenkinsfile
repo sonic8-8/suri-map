@@ -266,6 +266,23 @@ pipeline {
             steps {
                 script {
                     env.FAILED_STAGE = 'Deploy Runtime'
+                    env.MOCK112_INTERNAL_API_TOKEN = sh(
+                        script: '''
+                            set -eu
+                            token_file=/home/ubuntu/infra/.mock112_internal_api_token
+                            mkdir -p "$(dirname "${token_file}")"
+                            if [ ! -s "${token_file}" ]; then
+                              umask 077
+                              if command -v openssl >/dev/null 2>&1; then
+                                openssl rand -hex 32 > "${token_file}"
+                              else
+                                date +%s%N | sha256sum | cut -d" " -f1 > "${token_file}"
+                              fi
+                            fi
+                            cat "${token_file}"
+                        ''',
+                        returnStdout: true
+                    ).trim()
                 }
 
                 writeFile file: env.ENV_FILE, text: """
@@ -294,6 +311,7 @@ MOCK_112_POLLING_INTERVAL=${env.MOCK_112_POLLING_INTERVAL}
 SURI_MAP_WEBHOOK_ENABLED=${env.SURI_MAP_WEBHOOK_ENABLED}
 SURI_MAP_WEBHOOK_URL=${env.SURI_MAP_WEBHOOK_URL}
 MOCK112_WEBHOOK_SECRET=${env.MOCK112_WEBHOOK_SECRET}
+MOCK112_INTERNAL_API_TOKEN=${env.MOCK112_INTERNAL_API_TOKEN}
 TILESERVER_HOST_PORT=${env.TILESERVER_HOST_PORT}
 TILESERVER_DATA_DIR=${env.TILESERVER_DATA_DIR}
 TILESERVER_MODE=${env.TILESERVER_MODE}

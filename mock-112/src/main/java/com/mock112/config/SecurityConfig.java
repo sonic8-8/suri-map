@@ -1,18 +1,25 @@
 package com.mock112.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 public class SecurityConfig {
 
     @Bean
-    SecurityFilterChain mock112SecurityFilterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain mock112SecurityFilterChain(
+            HttpSecurity http,
+            @Value("${mock112.internal-api.token:}") String internalApiToken) throws Exception {
         http.csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())
+                .addFilterBefore(
+                        new InternalApiTokenAuthenticationFilter(internalApiToken),
+                        UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/mock-112/health",
