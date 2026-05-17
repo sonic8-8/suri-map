@@ -508,17 +508,9 @@ EOF
                         done
                         echo "keycloak_suri_map_claim_mappers=ready"
 
-                        web_client_uuid=$(/opt/keycloak/bin/kcadm.sh get clients \
-                          -r suri-map \
-                          -q clientId="suri-map-web" \
-                          --fields id \
-                          --format csv \
-                          --noquotes | tail -n 1)
-                        test -n "${web_client_uuid}"
-                        /opt/keycloak/bin/kcadm.sh update "clients/${web_client_uuid}" \
-                          -r suri-map \
-                          -s "attributes.login_theme=suri-map" >/dev/null
-                        echo "keycloak_suri_map_web_login_theme=suri-map"
+                        /opt/keycloak/bin/kcadm.sh update realms/suri-map \
+                          -s "loginTheme=suri-map" >/dev/null
+                        echo "keycloak_suri_map_login_theme=suri-map"
 
                         ensure_demo_user_profile() {
                           username="$1"
