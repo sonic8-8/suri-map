@@ -523,12 +523,14 @@ function createMarkerHoverTooltip(marker: RecentMarker) {
 }
 
 function createMarkerClickPopup(marker: RecentMarker, handlers: MarkerInteractionHandlers) {
+  const markerType = markerTypeKey(marker.markerType);
   const popup = document.createElement('div');
   popup.className = styles.markerPopup;
   popup.setAttribute('role', 'dialog');
   popup.setAttribute('aria-label', marker.title);
   popup.addEventListener('click', (event) => event.stopPropagation());
   popup.addEventListener('pointerdown', (event) => event.stopPropagation());
+  popup.style.setProperty('--marker-color', markerColors[markerType]);
 
   const header = document.createElement('div');
   header.className = styles.markerPopupHeader;
@@ -602,6 +604,11 @@ function replaceMarkerPopup(
     .setDOMContent(content)
     .setLngLat(marker.coordinates)
     .addTo(map);
+
+  const popupElement = popupRef.current.getElement();
+  if (popupElement) {
+    popupElement.style.zIndex = '80';
+  }
 }
 
 export function syncMarkerPopups(
