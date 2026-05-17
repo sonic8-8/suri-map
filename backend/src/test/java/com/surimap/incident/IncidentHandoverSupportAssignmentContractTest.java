@@ -51,7 +51,6 @@ import org.springframework.test.web.servlet.MockMvc;
       "CREATE TABLE IF NOT EXISTS search_path_seed_probe (id VARCHAR(80) PRIMARY KEY, incident_id VARCHAR(36) NOT NULL, op_id VARCHAR(36) NOT NULL)",
       "CREATE TABLE IF NOT EXISTS marker_seed_probe (id VARCHAR(80) PRIMARY KEY, incident_id VARCHAR(36) NOT NULL, op_id VARCHAR(36) NOT NULL)",
       "CREATE TABLE IF NOT EXISTS handover_memo_seed_probe (id VARCHAR(80) PRIMARY KEY, incident_id VARCHAR(36) NOT NULL, op_id VARCHAR(36) NOT NULL)",
-      "DELETE FROM refresh_token",
       "DELETE FROM police_phone",
       "DELETE FROM account",
       "DELETE FROM handover_memo_seed_probe",

@@ -35,7 +35,6 @@
 │     └─ search_history_summary       [OP 또는 근무 구간 요약]
 
 운영 엔티티
-├─ refresh_token                      [account 참조]
 ├─ fcm_token                          [police_phone 참조]
 ├─ marker_notification                [marker에서 파생된 알림 스냅샷]
 ├─ idempotency_record                 [사건 쓰기 요청 중복 처리]
@@ -613,34 +612,9 @@ Android Room 로컬 엔티티
 
 ### 인증과 푸시 채널
 
-#### refresh_token
-
-`account_id`와 `police_phone_id`는 사람이 읽는 alias가 아니라 DB 내부 UUID 식별자를 저장한다.
-
-**PRD 근거**
-
-- PRD §8.4 `인증/권한`
-- PRD §8.4 `폴리폰 장기 로그인 유지`
-
-**연관 관계**
-
-- 하나의 `account`는 여러 개의 `refresh_token`을 가진다. (1:N)
-- 하나의 `refresh_token`은 하나의 `account`에 속한다. (N:1)
-- 하나의 `refresh_token`은 앱 로그인인 경우 하나의 `police_phone`에 연결된다. 웹 로그인에서는 없을 수 있다. (N:1, nullable)
-
-**주요 컬럼**
-
-- `id`: refresh token 식별자
-- `account_id`: token을 발급받은 계정
-- `police_phone_id`: 앱 로그인에 사용된 폴리폰
-- `token_hash`: refresh token 원문 대신 저장하는 해시
-- `expires_at`: token 만료 시각
-- `revoked_at`: 로그아웃 또는 회수 시각
-- `created_at`: 발급 시각
-
-**설명**
-
-`refresh_token`은 로그인 연장을 위한 토큰 저장소다. 전체 세션 상태를 별도 테이블로 관리하지 않고, refresh token hash만 PostgreSQL에 저장한다.
+인증 토큰 발급과 refresh token 관리는 Keycloak/OIDC가 담당한다. Suri-Map 운영 DB는 자체
+`refresh_token` 테이블을 소유하지 않고, API 요청 시 Keycloak access token의 claim을 검증해
+`account`/`police_phone` 컨텍스트로 사용한다.
 
 #### fcm_token
 

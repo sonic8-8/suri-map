@@ -81,7 +81,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Flow: Authorization Code + PKCE
 - API credential: `Authorization: Bearer {Keycloak access token}`
 - Required claims: `accountId`, `accountType`, `organizationType`; APP requires `policePhoneId`
-- Note: legacy `/api/auth/login` and `/api/auth/logout` are migration-only endpoints and are not canonical public API after OIDC cutover.
+- Note: legacy `/api/auth/login` and `/api/auth/logout` are removed from the public API after OIDC cutover.
 
 #### POST `/api/fcm/tokens`
 

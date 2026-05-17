@@ -54,6 +54,11 @@ services:
       SURI_MAP_WEBHOOK_ENABLED: ${SURI_MAP_WEBHOOK_ENABLED:-true}
       SURI_MAP_WEBHOOK_URL: ${SURI_MAP_WEBHOOK_URL:-http://backend:8080/api/internal/mock-112/events}
       SURI_MAP_WEBHOOK_SECRET: ${MOCK112_WEBHOOK_SECRET:-}
+      MOCK112_KEYCLOAK_CLIENT_ID: ${MOCK112_KEYCLOAK_CLIENT_ID:-suri-map-mock112}
+      MOCK112_KEYCLOAK_AUTHORIZATION_URI: ${MOCK112_KEYCLOAK_AUTHORIZATION_URI:-https://k14c106.p.ssafy.io/keycloak/realms/suri-map/protocol/openid-connect/auth}
+      MOCK112_KEYCLOAK_TOKEN_URI: ${MOCK112_KEYCLOAK_TOKEN_URI:-http://keycloak:8080/keycloak/realms/suri-map/protocol/openid-connect/token}
+      MOCK112_KEYCLOAK_JWK_SET_URI: ${MOCK112_KEYCLOAK_JWK_SET_URI:-http://keycloak:8080/keycloak/realms/suri-map/protocol/openid-connect/certs}
+      MOCK112_KEYCLOAK_USER_INFO_URI: ${MOCK112_KEYCLOAK_USER_INFO_URI:-http://keycloak:8080/keycloak/realms/suri-map/protocol/openid-connect/userinfo}
     ports:
       - "127.0.0.1:${MOCK_112_HOST_PORT:-18112}:18112"
     healthcheck:
@@ -92,7 +97,6 @@ services:
       MOCK112_WEBHOOK_SECRET: ${MOCK112_WEBHOOK_SECRET:-}
       SURI_MAP_KEYCLOAK_ISSUER_URI: ${SURI_MAP_KEYCLOAK_ISSUER_URI:-}
       SURI_MAP_KEYCLOAK_JWK_SET_URI: ${SURI_MAP_KEYCLOAK_JWK_SET_URI:-}
-      SURI_MAP_LEGACY_SESSION_ENABLED: ${SURI_MAP_LEGACY_SESSION_ENABLED:-false}
       FCM_PROVIDER: ${FCM_PROVIDER:-mock}
       FIREBASE_CREDENTIALS_LOCATION: ${FIREBASE_CREDENTIALS_LOCATION:-}
       FIREBASE_CREDENTIALS_JSON_BASE64: ${FIREBASE_CREDENTIALS_JSON_BASE64:-}

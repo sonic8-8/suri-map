@@ -12,6 +12,8 @@
 
 별도 서버로 간다면 mock 112 조작 화면도 Suri-Map 웹 안에 넣기보다 mock 112 쪽에 두는 것이 맞다. 다만 별도 React/Vite 프론트 프로젝트까지 만들 필요는 낮다. 1차 권장은 mock 112 서버가 작은 admin HTML 화면을 함께 제공하는 방식이다.
 
+배포 public route로 `/mock-112/`를 열 때는 mock 112 서버 자체에 Keycloak OAuth2 login을 붙인다. Suri-Map backend가 mock 112 UI/API를 프록시하지 않고, frontend nginx는 `/mock-112/`를 별도 mock 112 서버로 전달만 한다. `/mock-112/health`는 컨테이너 healthcheck와 배포 smoke를 위해 공개할 수 있지만, seed/reset/배정 변경 API는 로그인 세션이 필요해야 한다.
+
 ## 기준 문서
 
 - `docs/spec/boundaries.md`
@@ -38,6 +40,7 @@ mock 112를 별도 프로세스 또는 별도 container로 띄운다.
 - mock 112는 Suri-Map DB에 직접 접근하지 않는다.
 - Suri-Map은 HTTP polling/import adapter로만 mock 112 데이터를 가져온다.
 - mock 112 조작 화면이 필요하면 mock 112 서버가 자체 admin 화면을 서빙한다.
+- 배포 public route로 노출되는 조작 화면과 상태 변경 API는 Keycloak 로그인 뒤에 둔다.
 
 Spring Boot로 만들어도 되고, Node/Express 같은 가벼운 서버로 만들어도 된다. 팀이 Spring Boot에 익숙하고 백엔드 에이전트가 맡는다면 별도 Spring Boot mock 서버가 가장 설명하기 쉽다.
 

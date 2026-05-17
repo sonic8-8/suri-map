@@ -37,8 +37,7 @@
 
 | API | Owner | Backend | 근거 | 후속 작업 |
 |---|---:|---|---|---|
-| `POST /api/auth/login` | S1-2 | 구현 | `AuthController`, `AuthSessionAuthenticationFilter` | FE/Android headless client 추가됨 |
-| `POST /api/auth/logout` | S1-2 | 구현 | `AuthController` | FE/Android headless client 추가됨 |
+| Keycloak/OIDC login/logout | S1-2 | 구현 | Keycloak Authorization Code + PKCE, Spring Security JWT/JWKS 검증 | `/api/auth/login`, `/api/auth/logout` 자체 session API 제거 |
 | `POST /api/fcm/tokens` | S1-2 | 구현 | `FcmTokenController` | Android headless client 추가됨 |
 | `POST /api/police-phones/{policePhoneId}/heartbeat` | S1-2 | 구현 | `PolicePhoneHeartbeatController` | Android headless client 추가됨 |
 | `POST /api/incidents/import` | S1-1 | 구현 | `IncidentImportController` | Web command client 필요 |

@@ -2,7 +2,7 @@
 
 이 문서는 `db-design-readable.md`의 최종 엔티티 관계를 Mermaid ERD로 표현한다.
 
-- 백엔드 PostgreSQL 엔티티 수: 27
+- 백엔드 PostgreSQL 엔티티 수: 26
 - Android Room 로컬 엔티티: `android_outbox`, `android_sync_status`는 백엔드 ERD에서 제외
 - 이 ERD는 팀 공유용 관계도이며, 상세 타입, nullable, 제약, 인덱스는 후속 Flyway migration 작성 시 이 문서와 spec 문서를 함께 기준으로 확정한다.
 
@@ -13,8 +13,6 @@ erDiagram
     account ||--o{ incident_assignment : assigned
     incident ||--o{ operational_period : has
 
-    account ||--o{ refresh_token : issues
-    police_phone ||--o{ refresh_token : uses
     account ||--o{ fcm_token : registers
     police_phone ||--o{ fcm_token : owns
 
@@ -106,15 +104,6 @@ erDiagram
         VARCHAR account_type
         VARCHAR organization_type
         VARCHAR status
-    }
-
-    refresh_token {
-        UUID id PK
-        UUID account_id FK
-        UUID police_phone_id FK
-        TEXT token_hash
-        TIMESTAMPTZ expires_at
-        TIMESTAMPTZ revoked_at
     }
 
     police_phone {
