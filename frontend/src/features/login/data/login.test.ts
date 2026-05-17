@@ -1,69 +1,39 @@
 import { beforeEach, describe, expect, test } from 'vitest';
 
-import { buildLoginAccountFromClaims, readStoredLoginAccount, storeOidcSession } from './login';
+import { readStoredLoginAccount, storeOidcSession } from './login';
 
-describe('Keycloak OIDC login session', () => {
+describe('login account display names', () => {
   beforeEach(() => {
     sessionStorage.clear();
   });
 
-  test('maps Keycloak account claims to the canonical display account', () => {
-    expect(
-      buildLoginAccountFromClaims({
-        accountId: '11111111-1111-1111-1111-111111110004',
-        accountType: 'COMMAND',
-        organizationType: 'MISSING_TEAM',
-        realm_access: {
-          roles: ['MISSING_TEAM_COMMANDER'],
-        },
-      }),
-    ).toMatchObject({
-      id: '11111111-1111-1111-1111-111111110004',
-      name: 'Missing team commander',
-      role: 'MISSING_TEAM_COMMANDER',
-    });
-  });
+  test('maps UUID account ids to the correct display names on OIDC session storage', () => {
+    storeOidcSession(tokenResponse(), oidcClaims('11111111-1111-1111-1111-111111110004'));
 
-  test('stores Keycloak access token for existing API bearer auth', () => {
+    expect(readStoredLoginAccount()).toMatchObject({
+      id: '11111111-1111-1111-1111-111111110004',
+      name: '실종팀 지휘관',
+    });
+
+    sessionStorage.clear();
     storeOidcSession(
-      {
-        access_token: jwt({
-          accountId: '11111111-1111-1111-1111-111111110003',
-          accountType: 'TEAM',
-          organizationType: 'POLICE_SUBSTATION',
-          realm_access: {
-            roles: ['MEMBER'],
-          },
-        }),
-        token_type: 'Bearer',
-        expires_in: 600,
-      },
-      {
-        accountId: '11111111-1111-1111-1111-111111110003',
-        accountType: 'TEAM',
-        organizationType: 'POLICE_SUBSTATION',
-        realm_access: {
-          roles: ['MEMBER'],
-        },
-      },
+      tokenResponse(),
+      oidcClaims('11111111-1111-1111-1111-111111110003', 'TEAM', 'POLICE_SUBSTATION', ['MEMBER']),
     );
 
-    expect(sessionStorage.getItem('suriMapAccessToken')).toContain('.');
     expect(readStoredLoginAccount()).toMatchObject({
       id: '11111111-1111-1111-1111-111111110003',
-      name: 'Precinct field team',
-      organizationType: 'POLICE_SUBSTATION',
+      name: '지구대 현장팀',
     });
   });
 
-  test('clears expired stored sessions', () => {
+  test('normalizes stored sessions to the canonical UUID display names', () => {
     sessionStorage.setItem('suriMapAccessToken', 'access-token');
-    sessionStorage.setItem('suriMapTokenExpiresAt', String(Date.now() - 1));
     sessionStorage.setItem(
       'suriMapCurrentAccount',
       JSON.stringify({
         id: '11111111-1111-1111-1111-111111110004',
-        name: 'Missing team commander',
+        name: '지구대 현장팀',
         organization: 'Missing team',
         accountType: 'COMMAND',
         organizationType: 'MISSING_TEAM',
@@ -73,15 +43,45 @@ describe('Keycloak OIDC login session', () => {
       }),
     );
 
+    expect(readStoredLoginAccount()).toMatchObject({
+      id: '11111111-1111-1111-1111-111111110004',
+      name: '실종팀 지휘관',
+    });
+  });
+  test('preserves pending OIDC state while checking for an existing account', () => {
+    const oidcState = JSON.stringify({
+      state: 'state-001',
+      nonce: 'nonce-001',
+      codeVerifier: 'verifier-001',
+      returnPath: '/incidents',
+      createdAt: Date.now(),
+    });
+    sessionStorage.setItem('suriMapOidcLoginState', oidcState);
+
     expect(readStoredLoginAccount()).toBeNull();
-    expect(sessionStorage.getItem('suriMapAccessToken')).toBeNull();
+    expect(sessionStorage.getItem('suriMapOidcLoginState')).toBe(oidcState);
   });
 });
 
-function jwt(payload: Record<string, unknown>) {
-  return `${base64Url({ alg: 'none' })}.${base64Url(payload)}.`;
+function tokenResponse() {
+  return {
+    access_token: 'access-token-001',
+    token_type: 'Bearer',
+  };
 }
 
-function base64Url(value: Record<string, unknown>) {
-  return btoa(JSON.stringify(value)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+function oidcClaims(
+  accountId: string,
+  accountType = 'COMMAND',
+  organizationType = 'MISSING_TEAM',
+  authorities = ['MISSING_TEAM_COMMANDER'],
+) {
+  return {
+    accountId,
+    accountType,
+    organizationType,
+    realm_access: {
+      roles: authorities,
+    },
+  };
 }

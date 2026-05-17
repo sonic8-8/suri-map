@@ -1,4 +1,6 @@
-import { useMemo, useState } from 'react';
+﻿import { useMemo, useState } from 'react';
+
+import { SuriMapLogo } from '../../../../shared';
 
 import { incidentCommandApi } from '../../../incident/api/incidentCommandApi';
 import { mockIncidentCloseSummary, mockIncidentTombstone } from '../constants/mockIncidentClose';
@@ -71,19 +73,7 @@ export function IncidentClosePage({ incidentId, onBackToIncidents, onOpenLogin }
       <header className={styles.header}>
         <nav className={styles.productNav} aria-label="사건 종료 화면 상단">
           <div className={styles.brand}>
-            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
-              <path
-                className={styles.brandMark}
-                d="M11 1.5 L19.5 5 V11 C19.5 15.5 16 19.3 11 20.5 C6 19.3 2.5 15.5 2.5 11 V5 Z"
-              />
-              <path
-                d="M11 6.5 a4.5 4.5 0 1 0 0 9 a4.5 4.5 0 1 0 0 -9 z M11 9 v3.5 M11 14 v.1"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                fill="none"
-              />
-            </svg>
+            <SuriMapLogo className={styles.brandMark} size={26} />
             <div>Suri-Map</div>
           </div>
           <div className={styles.headerCenterTitle} aria-current="page">
@@ -300,3 +290,4 @@ function getCloseErrorMessage(error: unknown) {
 
   return '사건 종료 처리에 실패했습니다.';
 }
+

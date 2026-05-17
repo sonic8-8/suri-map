@@ -1,13 +1,19 @@
 import { render, screen, within } from '@testing-library/react';
 import { describe, expect, test } from 'vitest';
 
+import { createIncidentScopedFallbackBoard } from '../../constants/mockSituationBoard';
 import type { RecentMarker } from '../../constants/mockSituationBoard';
 import { RecentMarkerList } from './RecentMarkerList';
 
 describe('RecentMarkerList', () => {
   test('shows marker cards without technical type summaries or duplicate memo text', () => {
+    const board = createIncidentScopedFallbackBoard('incident-001');
+
     render(
       <RecentMarkerList
+        incidentId={board.incidentId}
+        markerTypes={board.markerTypes}
+        supportMarkerTypes={board.supportMarkerTypes}
         recentMarkers={[
           createMarker({
             id: 'marker-drone-support',

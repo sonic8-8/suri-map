@@ -66,7 +66,7 @@ describe('IncidentDetailPage', () => {
   });
 });
 
-function renderIncidentDetailPage(incidentId: string) {
+function renderIncidentDetailPage(incidentId: string, onBrowserBackToIncidentList = vi.fn()) {
   return render(
     <IncidentDetailPage
       currentUserAccount={currentUserAccount()}
@@ -77,6 +77,7 @@ function renderIncidentDetailPage(incidentId: string) {
       onMoveMarkerNotification={vi.fn()}
       onOpenHandover={vi.fn()}
       onOpenIncidentList={vi.fn()}
+      onBrowserBackToIncidentList={onBrowserBackToIncidentList}
       onOpenOfflinePackage={vi.fn()}
       onOpenSituationBoard={vi.fn()}
     />,
@@ -153,3 +154,16 @@ function closedIncidentDetail(): TerminalIncidentDetailResponse {
     },
   };
 }
+
+test('IncidentDetailPage returns to the incident list when the browser back button is used', () => {
+  vi.clearAllMocks();
+  const detail = activeIncidentDetail();
+  const onBrowserBackToIncidentList = vi.fn();
+  vi.mocked(useIncidentDetailQuery).mockReturnValue(incidentDetailQueryResult(detail));
+
+  renderIncidentDetailPage(detail.incidentId, onBrowserBackToIncidentList);
+
+  window.dispatchEvent(new PopStateEvent('popstate'));
+
+  expect(onBrowserBackToIncidentList).toHaveBeenCalledTimes(1);
+});

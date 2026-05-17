@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { areaColorTokens } from '../../../../shared/constants/areaColorTokens';
 import type { CompletedAreaDraft } from '../../../../shared/model/areaDraft';
+import { resolveRouteColorByGeometry } from '../../../../shared/model/routeAreaColorMatcher';
 import type { MovementPath, SearchAreaTreeNode } from '../constants/mockSituationBoard';
 import { assignRouteColorsToMovementPaths } from './movementPathBoardMapper';
 
@@ -32,6 +33,86 @@ describe('assignRouteColorsToMovementPaths', () => {
 
     expect(paths[0].routeColor).toBe(areaColorTokens.areaColor003.lineColor);
     expect(paths[1].routeColor).toBe(areaColorTokens.areaColor006.lineColor);
+  });
+
+  test('uses the actual route geometry area color over stale assignee mapping', () => {
+    expect(
+      resolveRouteColorByGeometry(
+        [[126.9162, 35.1625], [126.917, 35.1625]],
+        [
+          {
+            id: AREA_ID,
+            opId: OP_ID,
+            kind: 'team',
+            coordinates: [
+              [126.913, 35.162],
+              [126.914, 35.162],
+              [126.914, 35.163],
+              [126.913, 35.163],
+              [126.913, 35.162],
+            ],
+            lineColor: areaColorTokens.areaColor003.lineColor,
+          },
+          {
+            id: NEXT_AREA_ID,
+            opId: OP_ID,
+            kind: 'team',
+            coordinates: [
+              [126.916, 35.162],
+              [126.918, 35.162],
+              [126.918, 35.163],
+              [126.916, 35.163],
+              [126.916, 35.162],
+            ],
+            lineColor: areaColorTokens.areaColor006.lineColor,
+          },
+        ],
+        OP_ID,
+      ),
+    ).toBe(areaColorTokens.areaColor006.lineColor);
+
+    const paths = assignRouteColorsToMovementPaths(
+      [createMovementPath({ coordinates: [[126.9162, 35.1625], [126.917, 35.1625]] })],
+      {
+        id: 'overall',
+        kind: 'overall',
+        colorToken: 'areaColor001',
+        name: 'overall',
+        meta: 'OVERALL',
+        status: 'ACTIVE',
+        geometryState: 'saved',
+        children: [
+          createAreaNode({ id: AREA_ID, opId: OP_ID, colorToken: 'areaColor003' }),
+          createAreaNode({ id: NEXT_AREA_ID, opId: OP_ID, colorToken: 'areaColor006', assignedAccounts: [] }),
+        ],
+      },
+      [
+        createDraft({
+          areaId: AREA_ID,
+          colorToken: 'areaColor003',
+          coordinates: [
+            [126.913, 35.162],
+            [126.914, 35.162],
+            [126.914, 35.163],
+            [126.913, 35.163],
+            [126.913, 35.162],
+          ],
+        }),
+        createDraft({
+          areaId: NEXT_AREA_ID,
+          colorToken: 'areaColor006',
+          coordinates: [
+            [126.916, 35.162],
+            [126.918, 35.162],
+            [126.918, 35.163],
+            [126.916, 35.163],
+            [126.916, 35.162],
+          ],
+        }),
+      ],
+    );
+
+    expect(paths[0].routeColor).toBe(areaColorTokens.areaColor006.lineColor);
   });
 });
 

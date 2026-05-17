@@ -1,4 +1,4 @@
-import { ApiError } from '../../../shared/api/client';
+import { ApiHttpError } from '../../../shared/api/client';
 import {
   searchAreaApi,
   type GeoJsonPolygon as GeoJsonPolygonDto,
@@ -12,7 +12,10 @@ export async function getActiveOverallSearchArea(incidentId: string) {
   try {
     return await searchAreaApi.fetchActiveOverall(incidentId);
   } catch (error) {
-    if (error instanceof ApiError && error.status === 409 && error.code === 'overall_search_area_required') {
+    if (
+      error instanceof ApiHttpError &&
+      (error.code === 'overall_search_area_required' || error.status === 404)
+    ) {
       return null;
     }
 

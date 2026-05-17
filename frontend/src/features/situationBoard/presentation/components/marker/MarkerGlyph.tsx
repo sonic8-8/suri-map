@@ -2,6 +2,12 @@ import styles from './MarkerGlyph.module.css';
 
 export type MarkerGlyphName = 'clue' | 'dog' | 'drone' | 'field' | 'found' | 'hand' | 'note';
 
+export type MarkerGlyphPlacement = {
+  translateX: number;
+  translateY: number;
+  scale?: number;
+};
+
 interface MarkerGlyphProps {
   name: MarkerGlyphName;
   size?: number;
@@ -16,6 +22,16 @@ export const markerGlyphMarkup: Record<MarkerGlyphName, string> = {
   found: '<circle cx="9" cy="7" r="3" /><path d="M3 21v-1a6 6 0 0 1 12 0v1" /><path d="M16 13l2 2 4-4" />',
   hand: '<path d="M9 11V5a1.5 1.5 0 0 1 3 0v6" /><path d="M12 11V4a1.5 1.5 0 0 1 3 0v7" /><path d="M15 11V6a1.5 1.5 0 0 1 3 0v8a6 6 0 0 1-12 0V9a1.5 1.5 0 0 1 3 0v2" />',
   note: '<path d="M5 4h10l4 4v12H5z" /><path d="M15 4v4h4" /><line x1="8" y1="13" x2="15" y2="13" /><line x1="8" y1="16" x2="13" y2="16" />',
+};
+
+export const markerGlyphPlacement: Record<MarkerGlyphName, MarkerGlyphPlacement> = {
+  clue: { translateX: -0.5, translateY: 0.5 },
+  dog: { translateX: 0.5, translateY: 2.5 },
+  drone: { translateX: 0, translateY: 0 },
+  field: { translateX: 0, translateY: 1.5 },
+  found: { translateX: -0.5, translateY: 0 },
+  hand: { translateX: 0, translateY: 6.5 },
+  note: { translateX: 0, translateY: 0.5 },
 };
 
 export function markerTypeGlyphName(markerType: string | null | undefined): MarkerGlyphName {
@@ -35,8 +51,20 @@ export function markerTypeGlyphName(markerType: string | null | undefined): Mark
   }
 }
 
+export function createBottomAlignedMarkerGlyphMarkup(name: MarkerGlyphName) {
+  const placement = markerGlyphPlacement[name];
+  const transform = [
+    `translate(${placement.translateX} ${placement.translateY})`,
+    placement.scale && placement.scale !== 1 ? `scale(${placement.scale})` : null,
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  return `<g transform="${transform}">${markerGlyphMarkup[name]}</g>`;
+}
+
 export function createMarkerGlyphSvgMarkup(name: MarkerGlyphName, size = 14) {
-  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${markerGlyphMarkup[name]}</svg>`;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${createBottomAlignedMarkerGlyphMarkup(name)}</svg>`;
 }
 
 export function MarkerGlyph({ name, size = 14 }: MarkerGlyphProps) {
@@ -52,7 +80,7 @@ export function MarkerGlyph({ name, size = 14 }: MarkerGlyphProps) {
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
-      dangerouslySetInnerHTML={{ __html: markerGlyphMarkup[name] }}
+      dangerouslySetInnerHTML={{ __html: createBottomAlignedMarkerGlyphMarkup(name) }}
     />
   );
 }

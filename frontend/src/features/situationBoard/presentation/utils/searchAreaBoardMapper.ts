@@ -21,6 +21,7 @@ import {
   readSlotRows,
   readString,
 } from './boardApiMappers';
+import { formatAccountDisplayName } from './accountDisplayUtils';
 
 export type BoardSearchAreaRow = {
   id: string;
@@ -89,7 +90,7 @@ export function buildSearchAreaTree(
   searchAreaDrafts: CompletedAreaDraft[],
 ): SearchAreaTreeNode {
   const hierarchyRoot = buildSearchAreaHierarchy(searchAreaRows);
-  const colorTokensByAreaId = new Map(searchAreaDrafts.map((draft) => [draft.areaId, getAreaColorToken(draft.areaId)]));
+  const colorTokensByAreaId = new Map(searchAreaDrafts.map((draft) => [draft.areaId, draft.colorToken]));
   if (!hierarchyRoot) {
     return buildRootlessSearchAreaTree(fallbackSearchAreaTree, searchAreaRows, colorTokensByAreaId);
   }
@@ -107,7 +108,7 @@ export function buildFallbackSearchAreaTree(
   if (!overallDraft) {
     return {
       ...fallbackSearchAreaTree,
-      meta: childDrafts.length > 0 ? 'OVERALL / v-' : fallbackSearchAreaTree.meta,
+      meta: childDrafts.length > 0 ? '전체 / v-' : fallbackSearchAreaTree.meta,
       geometryState: childDrafts.length > 0 ? 'saved' : fallbackSearchAreaTree.geometryState,
       children: childDrafts.map((draft) => toFallbackDraftTreeNode(draft, assignmentsByAreaId)),
     };
@@ -116,7 +117,7 @@ export function buildFallbackSearchAreaTree(
   return {
     ...fallbackSearchAreaTree,
     id: overallDraft.areaId,
-    colorToken: getAreaColorToken(overallDraft.areaId),
+    colorToken: overallDraft.colorToken,
     name: overallDraft.label,
     status: 'ACTIVE',
     geometryState: 'saved',
@@ -150,7 +151,7 @@ function buildRootlessSearchAreaTree(
 
   return {
     ...fallbackSearchAreaTree,
-    meta: searchAreaRows.length > 0 ? 'OVERALL / v-' : fallbackSearchAreaTree.meta,
+    meta: searchAreaRows.length > 0 ? '전체 / v-' : fallbackSearchAreaTree.meta,
     geometryState: searchAreaRows.length > 0 ? 'saved' : fallbackSearchAreaTree.geometryState,
     children: searchAreaRows.flatMap((row) => {
       const node = nodesById.get(row.id);
@@ -168,7 +169,7 @@ function toFallbackDraftTreeNode(
     id: draft.areaId,
     opId: null,
     kind: draft.kind,
-    colorToken: getAreaColorToken(draft.areaId),
+    colorToken: draft.colorToken,
     name: draft.label,
     meta: createFallbackAreaMeta(draft.kind, assignedAccounts),
     status: 'ACTIVE',
@@ -198,16 +199,29 @@ function toSearchAreaTreeNode(
 
 function createAreaMeta(row: BoardSearchAreaRow) {
   const versionLabel = row.version ? `v${row.version}` : 'v-';
-  if (row.areaLevel !== 'TEAM') return `${row.areaLevel} / ${versionLabel}`;
+  if (row.areaLevel === 'OVERALL') return `전체 수색 구역 / ${versionLabel}`;
+  const assignedAccountNames = row.assignedAccounts.map((account) => account.displayName).join(', ');
+  if (assignedAccountNames.length > 0) return `${assignedAccountNames} / ${versionLabel}`;
+  return `${formatAreaLevelFallbackLabel(row.areaLevel)} / ${versionLabel}`;
+  if (row.areaLevel === 'OVERALL') return `전체 수색 구역 / ${versionLabel}`;
   if (row.assignedAccounts.length === 0) return `${row.areaLevel} / 담당 계정 필요 / ${versionLabel}`;
   return `${row.areaLevel} / 담당 ${row.assignedAccounts.map((account) => account.displayName).join(', ')} / ${versionLabel}`;
 }
 
 function createFallbackAreaMeta(kind: CompletedAreaDraft['kind'], assignedAccounts: SearchAreaAssignedAccount[]) {
-  if (kind !== 'team') return kind === 'overall' ? 'OVERALL' : 'UNIT';
-  const levelLabel = kind === 'team' ? 'TEAM' : 'UNIT';
+  if (kind === 'overall') return '전체 수색 구역';
+  const assignedAccountNames = assignedAccounts.map((account) => account.displayName).join(', ');
+  if (assignedAccountNames.length > 0) return assignedAccountNames;
+  return kind === 'unit' ? '부대' : '팀';
+  const levelLabel = '';
   if (assignedAccounts.length === 0) return `${levelLabel} / 담당 계정 필요`;
   return `${levelLabel} / 담당 ${assignedAccounts.map((account) => account.displayName).join(', ')}`;
+}
+
+function formatAreaLevelFallbackLabel(areaLevel: SearchAreaHierarchyLevel) {
+  if (areaLevel === 'OVERALL') return '전체 수색 구역';
+  if (areaLevel === 'UNIT') return '부대';
+  return '팀';
 }
 
 function readSearchAreaLevel(
@@ -229,9 +243,29 @@ function readAssignedAccounts(row: Record<string, unknown>): SearchAreaAssignedA
 
   return assignedAccounts.filter(isRecord).flatMap((account) => {
     const accountId = readString(account, 'accountId');
-    const displayName = readString(account, 'displayName') ?? accountId;
-    if (!accountId || !displayName) return [];
-    return [{ accountId, displayName, policePhoneId: readPolicePhoneId(account) }];
+    if (!accountId) return [];
+
+    const assignedAccount = {
+      accountId,
+      displayName:
+        readString(account, 'displayName') ??
+        readString(account, 'accountDisplayName') ??
+        readString(account, 'accountName') ??
+        readString(account, 'name') ??
+        readString(account, 'label') ??
+        '',
+      policePhoneId: readPolicePhoneId(account),
+      incidentRole: readString(account, 'incidentRole'),
+      accountType: readString(account, 'accountType'),
+      organizationType: readString(account, 'organizationType'),
+    };
+
+    return [
+      {
+        ...assignedAccount,
+        displayName: formatAccountDisplayName(assignedAccount),
+      },
+    ];
   });
 }
 

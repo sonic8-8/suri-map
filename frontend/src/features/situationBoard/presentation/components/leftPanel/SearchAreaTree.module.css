@@ -15,6 +15,71 @@
   --area-box-meta: var(--suri-board-fg-muted);
 }
 
+.summaryPanel {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: stretch;
+  overflow: hidden;
+  margin-bottom: 18px;
+  border: 1px solid var(--suri-board-border);
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(9, 24, 43, 0.96), rgba(7, 19, 33, 0.98));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 3%);
+}
+
+.summaryMetric {
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: 2px;
+  min-width: 0;
+  padding: 11px 8px 12px;
+  text-align: center;
+}
+
+.summaryMetric + .summaryMetric {
+  border-left: 1px solid var(--suri-board-left-section-divider);
+}
+
+.summaryMetricBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  color: var(--summary-metric-accent);
+  background: color-mix(in srgb, var(--summary-metric-accent) 16%, var(--suri-board-panel-bg));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--summary-metric-accent) 28%, transparent);
+}
+
+.summaryMetricBadge svg {
+  width: 18px;
+  height: 18px;
+}
+
+.summaryMetricLabel {
+  overflow: hidden;
+  min-width: 0;
+  color: var(--suri-board-fg-muted);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.summaryMetricValue {
+  overflow: hidden;
+  min-width: 0;
+  color: var(--summary-metric-accent);
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .requiredNotice {
   padding: 10px 11px;
   border: 1px solid color-mix(in srgb, #d9b45f 42%, var(--suri-board-border));
@@ -76,6 +141,28 @@
 }
 
 /* 활성/완료 같은 상태를 작게 고정 표시한다. */
+.nodeDetails {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-left: 15px;
+}
+
+.nodeDetails span {
+  max-width: 100%;
+  overflow: hidden;
+  padding: 3px 6px;
+  border: 1px solid color-mix(in srgb, var(--area-identity-color) 18%, var(--suri-board-border));
+  border-radius: 4px;
+  color: var(--suri-board-fg-secondary);
+  background: color-mix(in srgb, var(--area-identity-color) 5%, var(--suri-board-panel-bg));
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .stateBadge {
   min-width: 42px;
   padding: 4px 8px;
@@ -167,6 +254,14 @@
 .areaRowButton:hover {
   border-color: color-mix(in srgb, var(--area-identity-color) 36%, var(--suri-board-border-strong));
   background: color-mix(in srgb, var(--area-identity-color) 12%, var(--suri-board-panel-muted-bg));
+}
+
+.areaRowSelected {
+  border-color: color-mix(in srgb, var(--area-identity-color) 52%, var(--suri-board-border-strong));
+  background: color-mix(in srgb, var(--area-identity-color) 16%, var(--suri-board-panel-muted-bg));
+  box-shadow:
+    inset 3px 0 0 color-mix(in srgb, var(--area-identity-color) 78%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--area-identity-color) 34%, transparent);
 }
 
 .unitNode {

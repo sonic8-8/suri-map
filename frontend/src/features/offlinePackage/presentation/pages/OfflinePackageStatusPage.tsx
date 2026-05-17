@@ -1,4 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
+import {
+  Car,
+  CheckCircle2,
+  Clock3,
+  FileText,
+  Grid3X3,
+  HardDrive,
+  Map,
+  MapPin,
+  MapPinned,
+  RefreshCcw,
+  Smartphone,
+  Trash2,
+  UserRound,
+} from 'lucide-react';
 
 import { useIncidentBoardQuery } from '../../../board/api/incidentBoardApi';
 import { useOfflinePackageManifestQuery } from '../../api/offlinePackageApi';
@@ -25,6 +40,7 @@ import {
   type SuriMapPageHeaderIncidentContext,
 } from '../../../../shared';
 import { ApiHttpError } from '../../../../shared/api';
+import { useBrowserBackToIncidentList } from '../../../../shared/hooks/useBrowserBackToIncidentList';
 import styles from './OfflinePackageStatusPage.module.css';
 
 type OfflinePackageStatusPageProps = {
@@ -33,6 +49,7 @@ type OfflinePackageStatusPageProps = {
   markerNotificationIndex: number;
   markerNotifications: MarkerNotification[];
   onBackToSituationBoard: () => void;
+  onBrowserBackToIncidentList?: () => void;
   onCloseMarkerNotifications: () => void;
   onMoveMarkerNotification: (nextIndex: number) => void;
   onOpenHandover: () => void;
@@ -79,8 +96,6 @@ type TileSummary = {
   count: number;
   totalBytes: number;
   styleIds: string;
-  zRange: string;
-  checksumLabel: string;
 };
 
 const manifestGroupLabels: Record<OfflinePackageItemType, string> = {
@@ -131,6 +146,7 @@ export function OfflinePackageStatusPage({
   markerNotificationIndex,
   markerNotifications,
   onBackToSituationBoard,
+  onBrowserBackToIncidentList,
   onCloseMarkerNotifications,
   onMoveMarkerNotification,
   onOpenHandover,
@@ -140,6 +156,8 @@ export function OfflinePackageStatusPage({
 }: OfflinePackageStatusPageProps) {
   const [incidentDetail, setIncidentDetail] = useState<IncidentDetailDto | null>(null);
   const [isOffline, setIsOffline] = useState(() => (typeof navigator === 'undefined' ? false : !navigator.onLine));
+
+  useBrowserBackToIncidentList(onBrowserBackToIncidentList);
 
   const boardQuery = useIncidentBoardQuery({ incidentId, includeSlots: ['package_badge', 'incident_terminal'] });
   const manifestQuery = useOfflinePackageManifestQuery({ incidentId });
@@ -214,16 +232,31 @@ export function OfflinePackageStatusPage({
       <div className={styles.scrollBody}>
       <section className={styles.summaryBar} aria-label="오프라인 패키지 요약">
         <div>
-          <span>사용 가능 단말</span>
-          <strong>{readyCountLabel}</strong>
+          <span className={`${styles.summaryIcon} ${styles.summaryIconReady}`} aria-hidden="true">
+            <CheckCircle2 className={styles.summaryIconGlyph} size={46} strokeWidth={2.1} />
+          </span>
+          <div className={styles.summaryMetric}>
+            <span>사용 가능 단말</span>
+            <strong>{readyCountLabel}</strong>
+          </div>
         </div>
         <div>
-          <span>재확인 필요 단말</span>
-          <strong>{warningCountLabel}</strong>
+          <span className={`${styles.summaryIcon} ${styles.summaryIconWarning}`} aria-hidden="true">
+            <RefreshCcw className={styles.summaryIconGlyph} size={46} strokeWidth={2.1} />
+          </span>
+          <div className={styles.summaryMetric}>
+            <span>재확인 필요 단말</span>
+            <strong>{warningCountLabel}</strong>
+          </div>
         </div>
         <div>
-          <span>삭제된 패키지</span>
-          <strong>{purgedCountLabel}</strong>
+          <span className={`${styles.summaryIcon} ${styles.summaryIconPurged}`} aria-hidden="true">
+            <Trash2 className={styles.summaryIconGlyph} size={46} strokeWidth={2.1} />
+          </span>
+          <div className={styles.summaryMetric}>
+            <span>삭제된 패키지</span>
+            <strong>{purgedCountLabel}</strong>
+          </div>
         </div>
       </section>
 
@@ -272,7 +305,12 @@ export function OfflinePackageStatusPage({
                     return (
                       <tr key={row.id}>
                         <td>
-                          <strong>{createDeviceTitle(row)}</strong>
+                          <div className={styles.deviceRowTitle}>
+                            <span className={createDeviceIconClassName(row.accountType)} aria-hidden="true">
+                              <DeviceTypeIcon accountType={row.accountType} />
+                            </span>
+                            <strong>{createDeviceTitle(row)}</strong>
+                          </div>
                           <span>{createDeviceMeta(row)}</span>
                         </td>
                         <td>
@@ -327,6 +365,25 @@ function SectionTitle({ title, description }: { title: string; description: stri
       <p>{description}</p>
     </div>
   );
+}
+
+function ManifestGroupIcon({ type }: { type: OfflinePackageItemType }) {
+  switch (type) {
+    case 'INCIDENT_META':
+      return <FileText className={styles.manifestGroupIconGlyph} size={30} strokeWidth={2.2} />;
+    case 'MISSING_PERSON_CACHE':
+      return <UserRound className={styles.manifestGroupIconGlyph} size={30} strokeWidth={2.2} />;
+    case 'OP_LIST':
+      return <Clock3 className={styles.manifestGroupIconGlyph} size={30} strokeWidth={2.2} />;
+    case 'ASSIGNED_AREA':
+      return <MapPinned className={styles.manifestGroupIconGlyph} size={30} strokeWidth={2.2} />;
+    case 'INITIAL_MARKER':
+      return <MapPin className={styles.manifestGroupIconGlyph} size={30} strokeWidth={2.2} />;
+    case 'OVERALL_SEARCH_AREA':
+      return <Map className={styles.manifestGroupIconGlyph} size={30} strokeWidth={2.2} />;
+    case 'TILE':
+      return <Grid3X3 className={styles.manifestGroupIconGlyph} size={30} strokeWidth={2.2} />;
+  }
 }
 
 function ManifestContent({
@@ -412,11 +469,16 @@ function ManifestContent({
               <th scope="col">상태</th>
             </tr>
           </thead>
-          <tbody>
+              <tbody>
             {groups.map((group) => (
               <tr key={group.type}>
                 <td>
-                  <strong>{group.label}</strong>
+                  <div className={styles.manifestRowTitle}>
+                    <span className={manifestGroupIconClassName(group.type)} aria-hidden="true">
+                      <ManifestGroupIcon type={group.type} />
+                    </span>
+                    <strong>{group.label}</strong>
+                  </div>
                 </td>
                 <td>{group.detailLabel}</td>
                 <td>{group.countLabel}</td>
@@ -435,24 +497,31 @@ function ManifestContent({
 
       <div className={styles.tileSummary} aria-label="타일 목록 요약">
         <div>
-          <span>타일 수</span>
-          <strong>{tileSummary.count}개</strong>
+          <span className={`${styles.tileSummaryIcon} ${styles.tileSummaryIconCount}`} aria-hidden="true">
+            <Grid3X3 className={styles.tileSummaryIconGlyph} size={42} strokeWidth={2.1} />
+          </span>
+          <div className={styles.tileSummaryMetric}>
+            <span>타일 수</span>
+            <strong>{tileSummary.count}개</strong>
+          </div>
         </div>
         <div>
-          <span>총 용량</span>
-          <strong>{formatBytes(tileSummary.totalBytes)}</strong>
+          <span className={`${styles.tileSummaryIcon} ${styles.tileSummaryIconBytes}`} aria-hidden="true">
+            <HardDrive className={styles.tileSummaryIconGlyph} size={42} strokeWidth={2.1} />
+          </span>
+          <div className={styles.tileSummaryMetric}>
+            <span>총 용량</span>
+            <strong>{formatBytes(tileSummary.totalBytes)}</strong>
+          </div>
         </div>
         <div>
-          <span>지도 종류</span>
-          <strong>{tileSummary.styleIds}</strong>
-        </div>
-        <div>
-          <span>확대 단계</span>
-          <strong>{tileSummary.zRange}</strong>
-        </div>
-        <div>
-          <span>검증 상태</span>
-          <strong>{tileSummary.checksumLabel}</strong>
+          <span className={`${styles.tileSummaryIcon} ${styles.tileSummaryIconMap}`} aria-hidden="true">
+            <Map className={styles.tileSummaryIconGlyph} size={42} strokeWidth={2.1} />
+          </span>
+          <div className={styles.tileSummaryMetric}>
+            <span>지도 종류</span>
+            <strong>{tileSummary.styleIds}</strong>
+          </div>
         </div>
       </div>
     </div>
@@ -606,9 +675,8 @@ function PackageStatusSkeleton() {
 }
 
 function readPackageBadgeRows(value: unknown): PackageBadgeRow[] {
-  if (!Array.isArray(value)) return [];
-
-  return value.map(readPackageBadgeRow).filter((row): row is PackageBadgeRow => row !== null);
+  const values = Array.isArray(value) ? value : value ? [value] : [];
+  return values.map(readPackageBadgeRow).filter((row): row is PackageBadgeRow => row !== null);
 }
 
 function readPackageBadgeRow(value: unknown): PackageBadgeRow | null {
@@ -734,14 +802,31 @@ function getManifestGroupStatus(items: readonly OfflinePackagePackageItem[]): { 
   return { label: '대기', tone: 'waiting' };
 }
 
+function manifestGroupIconClassName(type: OfflinePackageItemType) {
+  switch (type) {
+    case 'INCIDENT_META':
+      return `${styles.manifestGroupIcon} ${styles.manifestGroupIconIncidentMeta}`;
+    case 'MISSING_PERSON_CACHE':
+      return `${styles.manifestGroupIcon} ${styles.manifestGroupIconMissingPerson}`;
+    case 'OP_LIST':
+      return `${styles.manifestGroupIcon} ${styles.manifestGroupIconOpList}`;
+    case 'ASSIGNED_AREA':
+      return `${styles.manifestGroupIcon} ${styles.manifestGroupIconAssignedArea}`;
+    case 'INITIAL_MARKER':
+      return `${styles.manifestGroupIcon} ${styles.manifestGroupIconInitialMarker}`;
+    case 'OVERALL_SEARCH_AREA':
+      return `${styles.manifestGroupIcon} ${styles.manifestGroupIconOverallSearchArea}`;
+    case 'TILE':
+      return `${styles.manifestGroupIcon} ${styles.manifestGroupIconTile}`;
+  }
+}
+
 function createTileSummary(tileItems: readonly OfflinePackageTileItem[]): TileSummary {
   if (tileItems.length === 0) {
     return {
       count: 0,
       totalBytes: 0,
       styleIds: '-',
-      zRange: '-',
-      checksumLabel: '없음',
     };
   }
 
@@ -749,15 +834,7 @@ function createTileSummary(tileItems: readonly OfflinePackageTileItem[]): TileSu
     count: tileItems.length,
     totalBytes: tileItems.reduce((sum, item) => sum + item.bytes, 0),
     styleIds: uniqueValues(tileItems.map((item) => item.styleId)).join(', '),
-    zRange: `${createRangeLabel(tileItems.map((item) => item.z))}단계`,
-    checksumLabel: tileItems.every((item) => Boolean(item.checksum)) ? '검증 가능' : '일부 확인 필요',
   };
-}
-
-function createRangeLabel(values: readonly number[]) {
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  return min === max ? String(min) : `${min}..${max}`;
 }
 
 function uniqueValues(values: readonly string[]) {
@@ -919,6 +996,20 @@ function formatPhoneCode(phoneCode: string) {
   return normalized;
 }
 
+function DeviceTypeIcon({ accountType }: { accountType: string }) {
+  if (accountType === 'PATROL_CAR') {
+    return <Car className={styles.deviceTypeIconGlyph} size={22} strokeWidth={2.2} />;
+  }
+
+  return <Smartphone className={styles.deviceTypeIconGlyph} size={22} strokeWidth={2.2} />;
+}
+
+function createDeviceIconClassName(accountType: string) {
+  return accountType === 'PATROL_CAR'
+    ? `${styles.deviceTypeIcon} ${styles.deviceTypeIconPatrolCar}`
+    : `${styles.deviceTypeIcon} ${styles.deviceTypeIconPhone}`;
+}
+
 function isUuidLike(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 }
@@ -927,11 +1018,6 @@ function formatIncidentStatus(status: string) {
   if (status === 'OPEN') return '진행 중';
   if (status === 'CLOSED') return '종료';
   return status || '-';
-}
-
-function shortHash(hash: string) {
-  if (!hash) return '-';
-  return hash.length > 20 ? `${hash.slice(0, 17)}...` : hash;
 }
 
 function formatBytes(bytes: number) {

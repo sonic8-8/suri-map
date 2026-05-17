@@ -13,6 +13,7 @@ import {
   type MarkerNotification,
   type SuriMapPageHeaderIncidentContext,
 } from '../../../../shared/ui';
+import { useBrowserBackToIncidentList } from '../../../../shared/hooks/useBrowserBackToIncidentList';
 import styles from './IncidentDetailPage.module.css';
 
 type IncidentDetailPageProps = {
@@ -24,6 +25,7 @@ type IncidentDetailPageProps = {
   onMoveMarkerNotification: (nextIndex: number) => void;
   onOpenHandover: () => void;
   onOpenIncidentList: () => void;
+  onBrowserBackToIncidentList?: () => void;
   onOpenOfflinePackage: () => void;
   onOpenSituationBoard: () => void;
 };
@@ -37,9 +39,11 @@ export function IncidentDetailPage({
   onMoveMarkerNotification,
   onOpenHandover,
   onOpenIncidentList,
+  onBrowserBackToIncidentList,
   onOpenOfflinePackage,
   onOpenSituationBoard,
 }: IncidentDetailPageProps) {
+  useBrowserBackToIncidentList(onBrowserBackToIncidentList);
   const detailQuery = useIncidentDetailQuery(incidentId);
   const detail = detailQuery.data ?? null;
   const currentAccountLabel = `${currentUserAccount.name} / ${currentUserAccount.organization}`;

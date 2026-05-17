@@ -23,12 +23,24 @@ export function useBoardWorkspaceMode({
   const hasActiveOverallSearchArea = initialMapState === null || initialMapState === 'overall-ready';
   const isAreaWorkspaceOpen = isAreaWorkspaceRoute || isAreaWorkspaceOpenState;
 
+  const selectSearchArea = (searchAreaId: string) => {
+    if (!hasActiveOverallSearchArea) {
+      return;
+    }
+
+    setSelectedSearchAreaId(searchAreaId);
+  };
+
   const toggleSelectedSearchArea = (searchAreaId: string) => {
     if (!hasActiveOverallSearchArea) {
       return;
     }
 
     setSelectedSearchAreaId((currentSearchAreaId) => (currentSearchAreaId === searchAreaId ? null : searchAreaId));
+  };
+
+  const clearSelectedSearchArea = () => {
+    setSelectedSearchAreaId(null);
   };
 
   const toggleMapExpanded = () => {
@@ -70,6 +82,7 @@ export function useBoardWorkspaceMode({
     areaEditMapProps,
     closeAreaWorkspace,
     closeHandoverWorkspace,
+    clearSelectedSearchArea,
     hasActiveOverallSearchArea,
     isAreaWorkspaceOpen,
     isHandoverWorkspaceOpen,
@@ -77,6 +90,7 @@ export function useBoardWorkspaceMode({
     openAreaWorkspace,
     openHandoverWorkspace,
     selectedSearchAreaId,
+    selectSearchArea,
     setAreaEditMapProps,
     setInitialMapState,
     toggleMapExpanded,

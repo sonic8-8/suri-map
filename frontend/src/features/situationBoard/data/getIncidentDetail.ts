@@ -11,7 +11,11 @@ export type IncidentDetailMissingPersonDto = {
 
 export type IncidentAssignmentDto = {
   accountId: string;
+  accountDisplayName?: string | null;
+  accountType?: string | null;
+  organizationType?: string | null;
   incidentRole: string;
+  assignedAt?: string;
 };
 
 export type ActiveIncidentDetailDto = {
