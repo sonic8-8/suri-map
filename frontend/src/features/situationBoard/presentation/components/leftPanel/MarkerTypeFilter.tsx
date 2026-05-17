@@ -1,7 +1,7 @@
 import type { MarkerFilterOption, MarkerTypeId, SupportRequestTypeId } from '../../constants/mockSituationBoard';
+import { MarkerGlyph } from '../marker/MarkerGlyph';
 import { CollapsiblePanelSection } from './CollapsiblePanelSection';
 import { LeftPanelOptionButton } from './LeftPanelOptionButton';
-import { MarkerGlyph } from '../marker/MarkerGlyph';
 import styles from './MarkerTypeFilter.module.css';
 
 type MarkerTypeFilterProps = {
@@ -10,6 +10,7 @@ type MarkerTypeFilterProps = {
   selectedMarkerTypes: MarkerTypeId[];
   selectedSupportRequestTypes: SupportRequestTypeId[];
   disabled?: boolean;
+  compact?: boolean;
   onToggleMarkerType: (markerType: MarkerTypeId, supportRequestType?: SupportRequestTypeId) => void;
 };
 
@@ -19,14 +20,21 @@ export function MarkerTypeFilter({
   selectedMarkerTypes,
   selectedSupportRequestTypes,
   disabled = false,
+  compact = false,
   onToggleMarkerType,
 }: MarkerTypeFilterProps) {
   return (
     <CollapsiblePanelSection
-      title="마커 종류"
-      className={[styles.filterSection, disabled ? styles.markerFilterDisabled : undefined].filter(Boolean).join(' ')}
+      title="마커 유형"
+      className={[
+        styles.filterSection,
+        compact ? styles.compactFilterSection : undefined,
+        disabled ? styles.markerFilterDisabled : undefined,
+      ]
+        .filter(Boolean)
+        .join(' ')}
     >
-      <div className={styles.markerChipList}>
+      <div className={compact ? styles.compactMarkerChipList : styles.markerChipList}>
         {markerTypes
           .filter(({ markerType }) => markerType !== 'SUPPORT_REQUEST')
           .map(({ markerType, label, icon }) => {
@@ -35,20 +43,23 @@ export function MarkerTypeFilter({
             return (
               <LeftPanelOptionButton
                 key={markerType}
-              label={label}
-              selected={isSelected}
-              variant="icon"
-              icon={<MarkerGlyph name={icon} size={24} />}
-              className={styles.markerButton}
-              disabled={disabled}
-              onClick={() => onToggleMarkerType(markerType)}
-            />
+                label={label}
+                selected={isSelected}
+                variant="icon"
+                icon={<MarkerGlyph name={icon} size={compact ? 24 : 28} />}
+                className={compact ? styles.compactMarkerButton : styles.markerButton}
+                disabled={disabled}
+                onClick={() => onToggleMarkerType(markerType)}
+              />
             );
           })}
       </div>
-      <div className={styles.markerSupportGroup}>
+      <div className={compact ? styles.compactMarkerSupportGroup : styles.markerSupportGroup}>
         <span className={styles.markerSupportSubtitle}>지원 요청</span>
-        <div className={styles.markerSupportList} aria-label="지원 요청 유형">
+        <div
+          className={compact ? styles.compactMarkerSupportList : styles.markerSupportList}
+          aria-label="지원 요청 유형"
+        >
           {supportMarkerTypes.map(({ supportRequestType, label, icon }) => {
             const isSelected = Boolean(
               supportRequestType && selectedSupportRequestTypes.includes(supportRequestType),
@@ -60,8 +71,8 @@ export function MarkerTypeFilter({
                 label={label}
                 selected={isSelected}
                 variant="icon"
-                icon={<MarkerGlyph name={icon} size={22} />}
-                className={styles.markerButton}
+                icon={<MarkerGlyph name={icon} size={compact ? 20 : 22} />}
+                className={compact ? styles.compactMarkerButton : styles.markerButton}
                 disabled={disabled}
                 onClick={() => onToggleMarkerType('SUPPORT_REQUEST', supportRequestType)}
               />

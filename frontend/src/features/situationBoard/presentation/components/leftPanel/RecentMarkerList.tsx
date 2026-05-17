@@ -40,6 +40,9 @@ export function RecentMarkerList({
     () =>
       markerEvents.filter((marker) => {
         const markerType = markerTypeOf(marker);
+        if (markerType === 'UNKNOWN') {
+          return false;
+        }
 
         if (markerType === 'SUPPORT_REQUEST') {
           return marker.supportRequestType
@@ -97,6 +100,7 @@ export function RecentMarkerList({
         supportMarkerTypes={supportMarkerTypes}
         selectedMarkerTypes={selectedMarkerTypes}
         selectedSupportRequestTypes={selectedSupportRequestTypes}
+        compact
         onToggleMarkerType={handleToggleMarkerType}
       />
 
