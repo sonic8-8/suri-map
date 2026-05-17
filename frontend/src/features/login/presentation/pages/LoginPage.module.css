@@ -75,6 +75,19 @@
   display: block;
 }
 
+.redirectMessage {
+  min-height: 46px;
+  padding: 14px 16px;
+  border: 1px solid #d8e1eb;
+  border-radius: 8px;
+  color: var(--color-fg-secondary);
+  background: #f7f9fc;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+}
+
 /* 라벨과 입력칸 한 쌍의 하단 간격을 만든다. */
 .fieldGroup {
   margin-bottom: 16px;

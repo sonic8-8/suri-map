@@ -70,6 +70,7 @@ pipeline {
         KEYCLOAK_ADMIN = 'admin'
         KEYCLOAK_ADMIN_PASSWORD = credentials('suri-map-keycloak-admin-password')
         KEYCLOAK_IMPORT_DIR = '/home/ubuntu/infra/keycloak/import'
+        KEYCLOAK_THEME_DIR = '/home/ubuntu/infra/keycloak/themes'
         SURI_MAP_KEYCLOAK_ISSUER_URI = 'https://k14c106.p.ssafy.io/keycloak/realms/suri-map'
         SURI_MAP_KEYCLOAK_JWK_SET_URI = 'http://keycloak:8080/keycloak/realms/suri-map/protocol/openid-connect/certs'
         SURI_MAP_LEGACY_SESSION_ENABLED = 'true'
@@ -285,6 +286,7 @@ KEYCLOAK_POSTGRES_PASSWORD=${env.KEYCLOAK_POSTGRES_PASSWORD}
 KEYCLOAK_ADMIN=${env.KEYCLOAK_ADMIN}
 KEYCLOAK_ADMIN_PASSWORD=${env.KEYCLOAK_ADMIN_PASSWORD}
 KEYCLOAK_IMPORT_DIR=${env.KEYCLOAK_IMPORT_DIR}
+KEYCLOAK_THEME_DIR=${env.KEYCLOAK_THEME_DIR}
 SURI_MAP_KEYCLOAK_ISSUER_URI=${env.SURI_MAP_KEYCLOAK_ISSUER_URI}
 SURI_MAP_KEYCLOAK_JWK_SET_URI=${env.SURI_MAP_KEYCLOAK_JWK_SET_URI}
 SURI_MAP_LEGACY_SESSION_ENABLED=${env.SURI_MAP_LEGACY_SESSION_ENABLED}
@@ -315,11 +317,15 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=${env.SPRING_JPA_HIBERNATE_DDL_AUTO}
                       "${TILESERVER_DATA_DIR}/data" \
                       "${TILESERVER_DATA_DIR}/fonts" \
                       "${TILESERVER_DATA_DIR}/styles/osm-local" \
-                      "${KEYCLOAK_IMPORT_DIR}"
+                      "${KEYCLOAK_IMPORT_DIR}" \
+                      "${KEYCLOAK_THEME_DIR}"
                     cp infra/docker/tileserver/config.json "${TILESERVER_DATA_DIR}/config.json"
                     cp infra/docker/tileserver/styles/osm-local/style.json "${TILESERVER_DATA_DIR}/styles/osm-local/style.json"
                     cp infra/docker/keycloak/import/*.json "${KEYCLOAK_IMPORT_DIR}/"
+                    rm -rf "${KEYCLOAK_THEME_DIR}/suri-map"
+                    cp -R infra/docker/keycloak/themes/suri-map "${KEYCLOAK_THEME_DIR}/suri-map"
                     test -f "${KEYCLOAK_IMPORT_DIR}/suri-map-realm.json"
+                    test -f "${KEYCLOAK_THEME_DIR}/suri-map/login/theme.properties"
 
                     if [ -f "${TILESERVER_DATA_DIR}/data/osm-local.mbtiles" ] \
                       && [ -f "${TILESERVER_DATA_DIR}/data/gwangju-building-labels.mbtiles" ]; then
@@ -501,6 +507,18 @@ EOF
                           done
                         done
                         echo "keycloak_suri_map_claim_mappers=ready"
+
+                        web_client_uuid=$(/opt/keycloak/bin/kcadm.sh get clients \
+                          -r suri-map \
+                          -q clientId="suri-map-web" \
+                          --fields id \
+                          --format csv \
+                          --noquotes | tail -n 1)
+                        test -n "${web_client_uuid}"
+                        /opt/keycloak/bin/kcadm.sh update "clients/${web_client_uuid}" \
+                          -r suri-map \
+                          -s "attributes.login_theme=suri-map" >/dev/null
+                        echo "keycloak_suri_map_web_login_theme=suri-map"
 
                         ensure_demo_user_profile() {
                           username="$1"
