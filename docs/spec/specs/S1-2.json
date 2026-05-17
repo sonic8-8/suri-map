@@ -200,68 +200,6 @@
         }
       },
       {
-        "name": "refresh_token",
-        "owner_spec": "S1-2",
-        "description": "refresh token hash 저장소. 앱 로그인은 PolicePhone를 포함하고 웹 로그인은 police_phone_id가 null일 수 있다.",
-        "fields": [
-          {
-            "name": "id",
-            "type": "UUID",
-            "nullable": false,
-            "pk": true
-          },
-          {
-            "name": "account_id",
-            "type": "UUID",
-            "nullable": false
-          },
-          {
-            "name": "police_phone_id",
-            "type": "UUID",
-            "nullable": true
-          },
-          {
-            "name": "token_hash",
-            "type": "TEXT",
-            "nullable": false
-          },
-          {
-            "name": "expires_at",
-            "type": "TIMESTAMPTZ",
-            "nullable": false
-          },
-          {
-            "name": "revoked_at",
-            "type": "TIMESTAMPTZ",
-            "nullable": true
-          },
-          {
-            "name": "created_at",
-            "type": "TIMESTAMPTZ",
-            "nullable": false
-          }
-        ],
-        "indexes": [
-          {
-            "name": "idx_refresh_token_account",
-            "columns": [
-              "account_id"
-            ]
-          },
-          {
-            "name": "idx_refresh_token_police_phone",
-            "columns": [
-              "police_phone_id"
-            ]
-          }
-        ],
-        "spatial": {
-          "enabled": false,
-          "type": "POINT",
-          "srid": 4326
-        }
-      },
-      {
         "name": "police_phone",
         "owner_spec": "S1-2",
         "description": "현장 앱이 설치된 경찰 업무용 스마트폰. 계정과 분리된 물리 단말이며 위치·경로 기록의 단말 맥락이다.",
@@ -450,29 +388,6 @@
     ],
     "state_machines": [
       {
-        "entity": "refresh_token",
-        "field": "status",
-        "states": [
-          "ACTIVE",
-          "EXPIRED",
-          "REVOKED"
-        ],
-        "transitions": [
-          {
-            "from": "ACTIVE",
-            "to": "EXPIRED",
-            "trigger": "session ttl reached",
-            "guard": "server time >= expires_at"
-          },
-          {
-            "from": "ACTIVE",
-            "to": "REVOKED",
-            "trigger": "POST /auth/logout",
-            "guard": "same account or internal system caller"
-          }
-        ]
-      },
-      {
         "entity": "fcm_token",
         "field": "status",
         "states": [
@@ -495,116 +410,6 @@
   },
   "api_contracts": {
     "provided": [
-      {
-        "method": "POST",
-        "path": "/auth/login",
-        "summary": "앱 또는 웹 세션을 생성하고 SecurityContext를 반환한다.",
-        "auth": "public-session: @RequireChannel(APP,WEB). 앱 PolicePhone binding은 API Index 기준 guard가 아니며, policePhoneCode가 제공되면 post-login/session binding으로 검증한다.",
-        "idempotent": false,
-        "required_headers": [
-          "X-Client-Channel"
-        ],
-        "request_schema": {
-          "type": "object",
-          "required": [
-            "accountCode",
-            "password",
-            "channel"
-          ],
-          "properties": {
-            "accountCode": {
-              "type": "string"
-            },
-            "password": {
-              "type": "string"
-            },
-            "channel": {
-              "type": "string",
-              "enum": [
-                "APP",
-                "WEB"
-              ]
-            },
-            "policePhoneCode": {
-              "type": "string",
-              "nullable": true
-            }
-          }
-        },
-        "response_schema": {
-          "200": {
-            "type": "object",
-            "required": [
-              "sessionId",
-              "accessToken",
-              "securityContext"
-            ],
-            "properties": {
-              "sessionId": {
-                "type": "string",
-                "format": "uuid"
-              },
-              "accessToken": {
-                "type": "string"
-              },
-              "securityContext": {
-                "$ref": "#/service_contracts/security_context"
-              }
-            }
-          }
-        },
-        "errors": [
-          {
-            "code": 403,
-            "case": "channel_not_allowed",
-            "body": {
-              "error": "channel_not_allowed"
-            }
-          }
-        ]
-      },
-      {
-        "method": "POST",
-        "path": "/auth/logout",
-        "summary": "현재 세션을 REVOKED로 전환하고 앱 세션이면 active FCM token을 무효화한다.",
-        "auth": "@RequireChannel(APP,WEB)",
-        "idempotent": false,
-        "required_headers": [
-          "Authorization",
-          "X-Client-Channel"
-        ],
-        "request_schema": {
-          "type": "object",
-          "properties": {
-            "sessionId": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        },
-        "response_schema": {
-          "200": {
-            "type": "object",
-            "properties": {
-              "status": {
-                "type": "string",
-                "enum": [
-                  "REVOKED"
-                ]
-              }
-            }
-          }
-        },
-        "errors": [
-          {
-            "code": 403,
-            "case": "channel_not_allowed",
-            "body": {
-              "error": "channel_not_allowed"
-            }
-          }
-        ]
-      },
       {
         "method": "POST",
         "path": "/fcm/tokens",
@@ -1065,7 +870,7 @@
       {
         "name": "PolicePhoneQuery.byAccount(accountId)",
         "classification": "internal_helper",
-        "returns": "현재 로그인 세션/account binding 기준의 registered PolicePhone 목록. boundaries.md provides에 없는 public contract가 아니며, refresh_token.police_phone_id는 현재 로그인 세션의 active PolicePhone 선택에만 사용한다."
+        "returns": "Keycloak/OIDC accountId 기준의 registered PolicePhone 목록. boundaries.md provides에 없는 public contract가 아니며, APP 요청의 active PolicePhone 선택은 JWT policePhoneId claim과 X-PolicePhone-Id guard로 검증한다."
       },
       {
         "name": "RolePolicyQuery.forIncident(incidentId, accountId)",
@@ -1091,8 +896,8 @@
       "package": "com.surimap.security",
       "modules": [
         {
-          "name": "AuthController",
-          "responsibility": "login/logout API"
+          "name": "OidcBearerAuthenticationFilter",
+          "responsibility": "Keycloak access token을 검증하고 SuriMapAuthentication으로 변환"
         },
         {
           "name": "PolicePhoneController",
@@ -1223,9 +1028,9 @@
       "fr_refs": [
         "FR-01"
       ],
-      "given": "ACTIVE account와 registered PolicePhone fixture가 존재한다.",
-      "when": "앱 또는 웹에서 POST /auth/login을 호출한다.",
-      "then": "public-session guard 기준으로 SecurityContext.accountId, accountType, organizationType, authorities, channel이 채워진 세션이 생성된다. 앱 policePhoneCode 검증은 post-login/session binding으로 처리하며 API Index 변경 전까지 login public guard로 확정하지 않는다.",
+      "given": "ACTIVE account와 registered PolicePhone fixture가 Keycloak user attribute와 운영 DB seed에 일치한다.",
+      "when": "앱 또는 웹이 Keycloak Authorization Code + PKCE 로그인 후 API에 bearer token을 보낸다.",
+      "then": "JWT claim 기준으로 SecurityContext.accountId, accountType, organizationType, authorities, channel이 채워진다. APP은 policePhoneId claim과 X-PolicePhone-Id가 일치해야 한다.",
       "priority": "critical"
     },
     {
@@ -1411,24 +1216,24 @@
   "tdd_red_tests": {
     "backend": [
       {
-        "name": "loginCreatesSecurityContextForAppPolicePhone",
+        "name": "keycloakJwtCreatesSecurityContextForAppPolicePhone",
         "framework": "JUnit 5",
-        "scenario": "앱 로그인 성공 시 accountType, organizationType, authorities, channel, policePhoneId가 포함된 SecurityContext를 반환한다."
+        "scenario": "APP Keycloak access token의 accountType, organizationType, authorities, channel, policePhoneId claim이 SuriMapAuthentication으로 변환된다."
       },
       {
-        "name": "loginFollowsPublicSessionGuardOnly",
+        "name": "legacyAuthSessionEndpointsAreNotExposed",
         "framework": "JUnit 5",
-        "scenario": "POST /auth/login은 API Index public-session 기준으로 channel_not_allowed만 catalog public guard error로 검증하고, police_phone_required/police_phone_not_registered 및 catalog 밖 auth failure code를 login guard error로 확정하지 않는다."
+        "scenario": "POST /api/auth/login 및 /api/auth/logout은 public API로 노출되지 않고 Keycloak/OIDC 엔드포인트만 로그인/로그아웃 진입점으로 사용한다."
       },
       {
-        "name": "postLoginPolicePhoneBindingDoesNotDriftApiIndex",
+        "name": "appPolicePhoneClaimMustBePresentForAppChannel",
         "framework": "JUnit 5",
-        "scenario": "policePhoneCode가 제공된 APP login은 세션 binding 검증으로만 처리하며, API Index가 바뀌기 전까지 police_phone_not_registered를 login public guard error로 노출하지 않는다."
+        "scenario": "APP channel bearer token에 policePhoneId claim이 없으면 인증을 수용하지 않고 app-police-phone API에 진입하지 않는다."
       },
       {
-        "name": "disabledOrInvalidLoginIsRejected",
+        "name": "legacyRefreshTokenTableIsDropped",
         "framework": "JUnit 5",
-        "scenario": "DISABLED account 또는 잘못된 password/accountCode는 refresh_token row를 만들지 않는다. public error code 매핑은 Error Catalog 결정 전까지 S1-2 JSON public errors에 노출하지 않는다."
+        "scenario": "Keycloak/OIDC 전환 후 자체 refresh_token 테이블은 새 Flyway migration으로 제거되고 런타임 mapper/service에서 사용하지 않는다."
       },
       {
         "name": "policePhoneHeaderMustMatchSessionPolicePhone",
@@ -1611,7 +1416,6 @@
       "role enum 변경 시 S1-1, S2, S5, S8 owner LGTM",
       "guard annotation 추가 시 API Index와 boundaries.md §8 갱신. role matrix policy 또는 api_guard_alias 변경 시 관련 API owner와 S1-1 owner LGTM",
       "POLICE_PHONE_HEARTBEAT_UPDATED payload 변경 시 S3-2, S4 owner LGTM",
-      "POST /auth/login에 police_phone_required/police_phone_not_registered를 public guard error로 추가하려면 API Index public-session 기준 변경 review가 필요하다.",
       "RolePolicyQuery를 public provides로 승격하려면 boundaries.md provides 갱신과 소비 Spec owner LGTM이 필요하다."
     ]
   },
@@ -1636,13 +1440,6 @@
       "owner": "L2 + L5",
       "deadline": "1주차",
       "related_gap": "ADR-0005"
-    },
-    {
-      "id": "OI-S1-2-05",
-      "issue": "POST /auth/login의 앱 PolicePhone binding을 public API guard로 확정할지, post-login/session binding으로 유지할지 API Index 기준 수정이 필요하다. 기준 변경 전에는 police_phone_required/police_phone_not_registered를 login public error로 추가하지 않는다.",
-      "owner": "L2",
-      "deadline": "Spec 단계",
-      "related_gap": "API Index public-session drift"
     },
     {
       "id": "OI-S1-2-06",

@@ -14,6 +14,7 @@ BACKEND_CONTAINER="${BACKEND_CONTAINER:-surimap-local-backend}"
 TILESERVER_IMAGE="${TILESERVER_IMAGE:-maptiler/tileserver-gl:latest}"
 TILESERVER_CONTAINER="${TILESERVER_CONTAINER:-surimap-local-tileserver-gl}"
 TILESERVER_RUNTIME_DIR="${TILESERVER_RUNTIME_DIR:-$ROOT_DIR/.agents/scratch/gwangju-tiles-runtime}"
+WEB_ACCESS_TOKEN="${WEB_ACCESS_TOKEN:-}"
 
 ADB="${ADB:-}"
 DEVICE_SERIAL="${DEVICE_SERIAL:-}"
@@ -76,6 +77,9 @@ Options:
   --no-launch              Do not launch com.surimap.
   --stop-tiles-on-exit     Stop the script-owned tileserver container on exit.
   -h, --help               Show this help.
+
+Environment:
+  WEB_ACCESS_TOKEN         Optional Keycloak WEB access token for protected tile proxy validation.
 
 Examples:
   bash infra/dev/android-device-smoke.sh
@@ -169,19 +173,20 @@ connect_container_to_network_alias() {
   docker network connect --alias "$alias" "$network" "$container" >/dev/null 2>&1 || true
 }
 
-json_field() {
-  local field="$1"
-  python3 -c '
-import json
-import sys
+hmac_sha256() {
+  local secret="$1"
+  local body="$2"
+  BODY="$body" SECRET="$secret" python3 -c '
+import hmac
+import hashlib
+import os
 
-field = sys.argv[1]
-data = json.load(sys.stdin)
-value = data
-for part in field.split("."):
-    value = value[part]
-print(value)
-' "$field"
+print(hmac.new(
+    os.environ["SECRET"].encode("utf-8"),
+    os.environ["BODY"].encode("utf-8"),
+    hashlib.sha256,
+).hexdigest())
+'
 }
 
 curl_status() {
@@ -506,6 +511,7 @@ start_backend_docker() {
   docker run -d \
     --name "$BACKEND_CONTAINER" \
     --network "$network" \
+    --network-alias backend \
     -p "127.0.0.1:$BACKEND_PORT:8080" \
     -e SPRING_PROFILES_ACTIVE="prod" \
     -e SERVER_PORT="8080" \
@@ -517,7 +523,6 @@ start_backend_docker() {
     -e MOCK_112_ENABLED="true" \
     -e MOCK_112_BASE_URL="http://mock-112:18112" \
     -e MOCK112_WEBHOOK_SECRET="${MOCK112_WEBHOOK_SECRET:-}" \
-    -e SURI_MAP_LEGACY_SESSION_ENABLED="true" \
     -e TILESERVER_MODE="tileserver-gl" \
     -e TILESERVER_BASE_URL="http://tileserver-gl:8080" \
     "$BACKEND_IMAGE" >/dev/null
@@ -561,7 +566,6 @@ start_backend_gradle() {
     MOCK_112_ENABLED="true" \
     MOCK_112_BASE_URL="http://localhost:'"$MOCK_112_PORT"'" \
     MOCK112_WEBHOOK_SECRET="${MOCK112_WEBHOOK_SECRET:-}" \
-    SURI_MAP_LEGACY_SESSION_ENABLED="true" \
     TILESERVER_MODE="tileserver-gl" \
     TILESERVER_BASE_URL="$3" \
     ./gradlew bootRun
@@ -593,18 +597,6 @@ start_backend() {
   esac
 }
 
-login_web() {
-  local body
-  body="$(
-    curl -fsS \
-      -H 'Content-Type: application/json' \
-      -H 'X-Client-Channel: WEB' \
-      -d '{"accountCode":"acct-precinct-cmd","password":"fixture","channel":"WEB"}' \
-      "http://127.0.0.1:$BACKEND_PORT/api/auth/login"
-  )"
-  printf '%s' "$body" | json_field accessToken
-}
-
 seed_runtime_data() {
   [[ "$SKIP_SEED" -eq 0 ]] || return 0
 
@@ -624,86 +616,94 @@ seed_runtime_data() {
   fi
   rm -f "$seed_body"
 
-  local token
-  token="$(login_web)"
-
-  log "importing fixture incident"
-  local import_body
-  import_body="$(mktemp)"
-  local import_status
-  import_status="$(
-    curl_status "$import_body" \
-      -X POST \
-      -H 'Content-Type: application/json' \
-      -H 'X-Client-Channel: WEB' \
-      -H "Authorization: Bearer $token" \
-      -H "Idempotency-Key: dev-import-$SOURCE_INCIDENT_ID-$(date +%Y%m%d%H%M%S)" \
-      -d '{"sourceIncidentId":"'"$SOURCE_INCIDENT_ID"'"}' \
-      "http://127.0.0.1:$BACKEND_PORT/api/incidents/import"
-  )"
-  if [[ "$import_status" != "201" && "$import_status" != "200" ]]; then
-    cat "$import_body" >&2 || true
-    rm -f "$import_body"
-    fail "incident import failed with HTTP $import_status"
-  fi
-  rm -f "$import_body"
+  import_seed_incident_via_webhook
 
   [[ "$ENSURE_OVERALL" -eq 1 ]] || return 0
-  ensure_overall_area "$token"
+  ensure_overall_area
 }
 
-ensure_overall_area() {
-  local token="$1"
+import_seed_incident_via_webhook() {
+  log "importing fixture incident through mock-112 internal webhook"
+  local event_id="android-smoke:INCIDENT_READY:$SOURCE_INCIDENT_ID"
+  local body
+  body="$(
+    cat <<JSON
+{"eventId":"$event_id","eventType":"INCIDENT_READY","sourceIncidentId":"$SOURCE_INCIDENT_ID","occurredAt":"$(date -u +%Y-%m-%dT%H:%M:%SZ)"}
+JSON
+  )"
   local response_file
   response_file="$(mktemp)"
+  local signature_headers=()
+  if [[ -n "${MOCK112_WEBHOOK_SECRET:-}" ]]; then
+    signature_headers=(-H "X-Mock112-Signature: sha256=$(hmac_sha256 "$MOCK112_WEBHOOK_SECRET" "$body")")
+  fi
 
   local status
   status="$(
     curl_status "$response_file" \
-      -H 'X-Client-Channel: WEB' \
-      -H "Authorization: Bearer $token" \
-      "http://127.0.0.1:$BACKEND_PORT/api/search-areas?incidentId=$INCIDENT_ID&areaLevel=OVERALL&status=ACTIVE"
-  )"
-
-  if [[ "$status" == "200" ]]; then
-    log "ACTIVE OVERALL search_area already exists"
-    rm -f "$response_file"
-    return 0
-  fi
-
-  log "creating ACTIVE OVERALL search_area"
-  local client_ts
-  client_ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  local payload
-  payload="$(
-    cat <<JSON
-{"incidentId":"$INCIDENT_ID","opId":"$OP_ID","areaLevel":"OVERALL","geometry":{"type":"Polygon","coordinates":[[[126.904000,35.158000],[126.923000,35.158000],[126.923000,35.173000],[126.904000,35.173000],[126.904000,35.158000]]]},"memo":"local Android smoke overall","clientTs":"$client_ts"}
-JSON
-  )"
-
-  status="$(
-    curl_status "$response_file" \
       -X POST \
       -H 'Content-Type: application/json' \
-      -H 'X-Client-Channel: WEB' \
-      -H "Authorization: Bearer $token" \
-      -H "Idempotency-Key: dev-overall-$INCIDENT_ID-$(date +%Y%m%d%H%M%S)" \
-      -d "$payload" \
-      "http://127.0.0.1:$BACKEND_PORT/api/search-areas"
+      -H 'X-Client-Channel: INTERNAL' \
+      -H "Idempotency-Key: $event_id" \
+      "${signature_headers[@]}" \
+      -d "$body" \
+      "http://127.0.0.1:$BACKEND_PORT/api/internal/mock-112/events"
   )"
-  if [[ "$status" != "201" && "$status" != "200" ]]; then
+  if [[ "$status" != "202" && "$status" != "200" ]]; then
     cat "$response_file" >&2 || true
     rm -f "$response_file"
-    fail "overall search_area creation failed with HTTP $status"
+    fail "mock-112 webhook import failed with HTTP $status"
   fi
   rm -f "$response_file"
 }
 
+ensure_overall_area() {
+  log "ensuring ACTIVE OVERALL search_area through local postgres seed"
+  docker exec -i surimap-postgres psql -U surimap -d surimap -v ON_ERROR_STOP=1 >/dev/null <<SQL
+INSERT INTO search_area (
+    id,
+    operational_period_id,
+    parent_search_area_id,
+    name,
+    area_level,
+    geometry,
+    status,
+    version,
+    created_by_account_id,
+    created_at,
+    updated_at
+)
+VALUES (
+    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb0001'::uuid,
+    '$OP_ID'::uuid,
+    NULL,
+    'local Android smoke overall',
+    'OVERALL',
+    ST_GeomFromText(
+        'POLYGON((126.904000 35.158000,126.923000 35.158000,126.923000 35.173000,126.904000 35.173000,126.904000 35.158000))',
+        4326
+    ),
+    'ACTIVE',
+    1,
+    '11111111-1111-1111-1111-111111110001'::uuid,
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+)
+ON CONFLICT (id) DO UPDATE SET
+    operational_period_id = EXCLUDED.operational_period_id,
+    geometry = EXCLUDED.geometry,
+    status = 'ACTIVE',
+    updated_at = CURRENT_TIMESTAMP;
+SQL
+}
+
 validate_tile_proxy() {
   [[ "$SKIP_TILES" -eq 0 ]] || return 0
+  if [[ -z "$WEB_ACCESS_TOKEN" ]]; then
+    log "skipping protected backend tile proxy validation because WEB_ACCESS_TOKEN is not set"
+    return 0
+  fi
 
-  local token
-  token="$(login_web)"
   local response_file
   response_file="$(mktemp)"
 
@@ -711,7 +711,7 @@ validate_tile_proxy() {
   style_status="$(
     curl_status "$response_file" \
       -H 'X-Client-Channel: WEB' \
-      -H "Authorization: Bearer $token" \
+      -H "Authorization: Bearer $WEB_ACCESS_TOKEN" \
       "http://127.0.0.1:$BACKEND_PORT/tiles/styles/osm-local.json"
   )"
   if [[ "$style_status" != "200" ]]; then
@@ -724,7 +724,7 @@ validate_tile_proxy() {
   tile_status="$(
     curl_status "$response_file" \
       -H 'X-Client-Channel: WEB' \
-      -H "Authorization: Bearer $token" \
+      -H "Authorization: Bearer $WEB_ACCESS_TOKEN" \
       "http://127.0.0.1:$BACKEND_PORT/tiles/osm-local/16/55870/25920.pbf"
   )"
   if [[ "$tile_status" != "200" ]]; then
