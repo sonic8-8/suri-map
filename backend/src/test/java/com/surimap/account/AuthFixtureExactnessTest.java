@@ -2,16 +2,28 @@ package com.surimap.account;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.surimap.account.fixture.AccountPolicePhoneFixtures;
+import com.surimap.account.fixture.AccountPolicePhoneFixtures.AccountFixture;
 import com.surimap.account.fixture.AccountPolicePhoneSeedLoader;
 import com.surimap.account.fixture.RoleChannelMatrixFixtures;
 import com.surimap.common.auth.AccountType;
 import com.surimap.common.auth.OrganizationType;
 import com.surimap.common.auth.Role;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class AuthFixtureExactnessTest {
+
+  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   @Test
   @DisplayName("account and policePhone fixture IDs stay UUID while harness codes stay aliases")
@@ -103,5 +115,95 @@ class AuthFixtureExactnessTest {
     assertThat(RoleChannelMatrixFixtures.rule("마커 수정·삭제").allowedChannels())
         .containsExactlyInAnyOrder("APP", "WEB");
     assertThat(RoleChannelMatrixFixtures.rule("상황판 조회").requiredRoleText()).isEqualTo("사건 배정 계정");
+  }
+
+  @Test
+  @DisplayName("Keycloak demo realm users match auth account and policePhone fixtures")
+  void keycloak_demo_realm_users_match_auth_account_and_policePhone_fixtures() throws IOException {
+    JsonNode realm =
+        readJson(Path.of("..", "infra", "docker", "keycloak", "import", "suri-map-realm.json"));
+    Map<String, JsonNode> usersByUsername =
+        iterable(realm.path("users")).stream()
+            .collect(Collectors.toMap(user -> text(user, "username"), Function.identity()));
+
+    assertThat(usersByUsername.keySet())
+        .containsExactlyInAnyOrderElementsOf(
+            AccountPolicePhoneFixtures.accountsIncludingUnassigned().stream()
+                .map(AccountFixture::accountCode)
+                .toList());
+
+    for (AccountFixture fixture : AccountPolicePhoneFixtures.accountsIncludingUnassigned()) {
+      JsonNode user = usersByUsername.get(fixture.accountCode());
+      assertThat(attribute(user, "accountId")).isEqualTo(fixture.id().toString());
+      assertThat(attribute(user, "accountType")).isEqualTo(fixture.accountType().name());
+      assertThat(attribute(user, "organizationType")).isEqualTo(fixture.organizationType().name());
+      assertThat(attribute(user, "policePhoneId")).isEqualTo(fixture.policePhoneId().toString());
+      assertThat(attribute(user, "policePhoneCode")).isEqualTo(fixture.policePhoneCode());
+      assertThat(textSet(user.path("realmRoles")))
+          .containsExactlyInAnyOrderElementsOf(
+              fixture.roles().stream().map(Role::name).collect(Collectors.toSet()));
+    }
+  }
+
+  @Test
+  @DisplayName("production account policePhone seed keeps auth fixture IDs and aliases")
+  void production_account_policePhone_seed_keeps_auth_fixture_ids_and_aliases() throws IOException {
+    String seedSql =
+        Files.readString(
+                Path.of(
+                    "src",
+                    "main",
+                    "resources",
+                    "db",
+                    "migration",
+                    "V20260513_006__ensure_account_police_phone_fixtures.sql"))
+            + "\n"
+            + Files.readString(
+                Path.of(
+                    "src",
+                    "main",
+                    "resources",
+                    "db",
+                    "migration",
+                    "V20260513_008__police_phone_db_persistence_state.sql"));
+
+    for (AccountFixture fixture : AccountPolicePhoneFixtures.accountsIncludingUnassigned()) {
+      assertThat(seedSql).contains("'" + fixture.id() + "'");
+      assertThat(seedSql).contains("'" + fixture.accountCode() + "'");
+      assertThat(seedSql).contains("'" + fixture.accountType().name() + "'");
+      assertThat(seedSql).contains("'" + fixture.organizationType().name() + "'");
+      assertThat(seedSql).contains("'" + fixture.policePhoneId() + "'");
+      assertThat(seedSql).contains("'" + fixture.policePhoneCode() + "'");
+    }
+  }
+
+  private static JsonNode readJson(Path path) throws IOException {
+    return OBJECT_MAPPER.readTree(path.toFile());
+  }
+
+  private static java.util.List<JsonNode> iterable(JsonNode node) {
+    assertThat(node.isArray()).isTrue();
+    java.util.List<JsonNode> values = new java.util.ArrayList<>();
+    node.forEach(values::add);
+    return values;
+  }
+
+  private static String text(JsonNode node, String field) {
+    JsonNode value = node.path(field);
+    assertThat(value.isTextual()).isTrue();
+    return value.asText();
+  }
+
+  private static String attribute(JsonNode user, String name) {
+    JsonNode values = user.path("attributes").path(name);
+    assertThat(values.isArray()).isTrue();
+    assertThat(values).hasSize(1);
+    assertThat(values.get(0).isTextual()).isTrue();
+    return values.get(0).asText();
+  }
+
+  private static Set<String> textSet(JsonNode node) {
+    assertThat(node.isArray()).isTrue();
+    return iterable(node).stream().map(JsonNode::asText).collect(Collectors.toSet());
   }
 }
