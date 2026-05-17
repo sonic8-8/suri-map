@@ -156,6 +156,18 @@ class GpsPathValidatorTest {
   }
 
   @Test
+  void activeOverallSearchArea없으면_하네스_범위_내_초동_경로는_허용한다() {
+    var serverReceivedAt = OffsetDateTime.parse("2026-04-28T09:00:20+09:00");
+
+    var result =
+        validator.validateBatch(
+            toPoints(GpsPathValidationFixtures.NORMAL_POINTS), serverReceivedAt, null);
+
+    assertThat(result.acceptedPoints()).hasSize(8);
+    assertThat(result.excludedPoints()).isEmpty();
+  }
+
+  @Test
   void 정상fixture는_acceptedPoints로_유지된다() {
     var serverReceivedAt = OffsetDateTime.parse("2026-04-28T09:00:20+09:00");
 

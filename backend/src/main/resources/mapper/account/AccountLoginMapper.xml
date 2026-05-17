@@ -22,17 +22,6 @@
         </constructor>
     </resultMap>
 
-    <resultMap id="AuthSessionRowMap" type="com.surimap.account.repository.AuthSessionRow">
-        <constructor>
-            <arg column="session_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
-            <arg column="account_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
-            <arg column="police_phone_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
-            <arg column="channel" javaType="com.surimap.common.auth.Channel"/>
-            <arg column="account_type" javaType="com.surimap.common.auth.AccountType"/>
-            <arg column="organization_type" javaType="com.surimap.common.auth.OrganizationType"/>
-        </constructor>
-    </resultMap>
-
     <select id="findActiveAccountByLoginId" resultMap="AccountLoginRowMap">
         SELECT id, login_id, password_hash, account_type, organization_type
         FROM account
@@ -60,73 +49,4 @@
           AND status = 'ACTIVE'
     </select>
 
-    <insert id="insertRefreshToken">
-        INSERT INTO refresh_token (
-            id,
-            account_id,
-            police_phone_id,
-            channel,
-            token_hash,
-            expires_at,
-            created_at
-        )
-        VALUES (
-            #{id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
-            #{accountId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
-            #{policePhoneId,jdbcType=OTHER,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
-            #{channel},
-            #{tokenHash},
-            #{expiresAt},
-            #{createdAt}
-        )
-    </insert>
-
-    <sql id="SessionSelectColumns">
-        rt.id AS session_id,
-        a.id AS account_id,
-        rt.police_phone_id,
-        rt.channel,
-        a.account_type,
-        a.organization_type
-    </sql>
-
-    <select id="findActiveSessionByTokenHash" resultMap="AuthSessionRowMap">
-        SELECT
-        <include refid="SessionSelectColumns"/>
-        FROM refresh_token rt
-        JOIN account a ON a.id = rt.account_id
-        LEFT JOIN police_phone pp ON CAST(pp.id AS VARCHAR) = CAST(rt.police_phone_id AS VARCHAR)
-        WHERE rt.token_hash = #{tokenHash}
-          AND rt.revoked_at IS NULL
-          AND rt.expires_at > #{now}
-          AND a.status = 'ACTIVE'
-          AND (rt.police_phone_id IS NULL OR pp.status = 'ACTIVE')
-    </select>
-
-    <select id="findActiveSessionBySessionId" resultMap="AuthSessionRowMap">
-        SELECT
-        <include refid="SessionSelectColumns"/>
-        FROM refresh_token rt
-        JOIN account a ON a.id = rt.account_id
-        LEFT JOIN police_phone pp ON CAST(pp.id AS VARCHAR) = CAST(rt.police_phone_id AS VARCHAR)
-        WHERE rt.id = #{sessionId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
-          AND rt.revoked_at IS NULL
-          AND rt.expires_at > #{now}
-          AND a.status = 'ACTIVE'
-          AND (rt.police_phone_id IS NULL OR pp.status = 'ACTIVE')
-    </select>
-
-    <update id="revokeByTokenHash">
-        UPDATE refresh_token
-        SET revoked_at = #{revokedAt}
-        WHERE token_hash = #{tokenHash}
-          AND revoked_at IS NULL
-    </update>
-
-    <update id="revokeBySessionId">
-        UPDATE refresh_token
-        SET revoked_at = #{revokedAt}
-        WHERE id = #{sessionId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
-          AND revoked_at IS NULL
-    </update>
 </mapper>

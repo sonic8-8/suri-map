@@ -16,6 +16,7 @@ import com.surimap.testing.incidentIdFixture
 import com.surimap.testing.markerIdFixture
 import com.surimap.ui.AppOverlayState
 import com.surimap.ui.IncidentClosedOverlayState
+import com.surimap.ui.SearchPathEndedToastState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -76,6 +77,9 @@ class AndroidUiScenarioCoverageTest {
 
         val terminalOverlay = AppOverlayState(incidentClosed = IncidentClosedOverlayState(hasDraft = true))
         assertTrue(terminalOverlay.incidentClosed!!.hasDraft)
+
+        val searchPathEndedOverlay = AppOverlayState(searchPathEnded = SearchPathEndedToastState(pendingSync = true))
+        assertTrue(searchPathEndedOverlay.searchPathEnded!!.pendingSync)
     }
 
     @Test

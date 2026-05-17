@@ -203,7 +203,7 @@ class SearchMapStateLoader(
         return state.copy(
             movementSummary = "경로 ${pathLayers.size}개 표시",
             layers = state.layers + pathLayers
-        )
+        ).withViewportFromLayers(pathLayers)
     }
 
     private suspend fun withInitialMarkers(
@@ -220,7 +220,7 @@ class SearchMapStateLoader(
         if (markerLayers.isEmpty()) {
             return state
         }
-        return state.copy(layers = state.layers + markerLayers)
+        return state.copy(layers = state.layers + markerLayers).withViewportFromLayers(markerLayers)
     }
 
     private suspend fun withLiveMarkers(
@@ -243,7 +243,10 @@ class SearchMapStateLoader(
             return LiveMarkerLoadResult(state, false)
         }
         val markerLayers = liveMarkerLayers(response.body)
-        return LiveMarkerLoadResult(state.copy(layers = state.layers + markerLayers), true)
+        return LiveMarkerLoadResult(
+            state.copy(layers = state.layers + markerLayers).withViewportFromLayers(markerLayers),
+            true
+        )
     }
 
     private suspend fun withPendingMarkers(
@@ -259,7 +262,7 @@ class SearchMapStateLoader(
         if (markerLayers.isEmpty()) {
             return state
         }
-        return state.copy(layers = state.layers + markerLayers)
+        return state.copy(layers = state.layers + markerLayers).withViewportFromLayers(markerLayers)
     }
 
     private fun detailState(
@@ -485,18 +488,47 @@ class SearchMapStateLoader(
             }
         }
 
+        return viewportBounds(geometry)
+    }
+
+    private fun viewportBounds(geometry: JSONObject): SearchMapViewportBounds? {
         val points = mutableListOf<Pair<Double, Double>>()
         geometry.optJSONArray("coordinates")?.collectPositions(points)
-        if (points.isEmpty()) {
+        return points.toViewportBounds()
+    }
+
+    private fun SearchMapUiState.withViewportFromLayers(
+        candidateLayers: List<SearchMapLayerUiState>
+    ): SearchMapUiState {
+        if (viewportBounds != null) {
+            return this
+        }
+        val points = mutableListOf<Pair<Double, Double>>()
+        candidateLayers.forEach { layer ->
+            val geoJson = layer.geoJson?.takeIf(String::isNotBlank) ?: return@forEach
+            val geometry = runCatching { JSONObject(geoJson) }.getOrNull() ?: return@forEach
+            geometry.optJSONArray("coordinates")?.collectPositions(points)
+        }
+        return points.toViewportBounds()?.let { bounds -> copy(viewportBounds = bounds) } ?: this
+    }
+
+    private fun List<Pair<Double, Double>>.toViewportBounds(): SearchMapViewportBounds? {
+        if (isEmpty()) {
             return null
         }
-        val longitudes = points.map { it.first }
-        val latitudes = points.map { it.second }
+        val longitudes = map { it.first }
+        val latitudes = map { it.second }
+        val south = latitudes.minOrNull() ?: return null
+        val west = longitudes.minOrNull() ?: return null
+        val north = latitudes.maxOrNull() ?: return null
+        val east = longitudes.maxOrNull() ?: return null
+        val latDelta = if (south == north) POINT_VIEWPORT_DELTA else 0.0
+        val lonDelta = if (west == east) POINT_VIEWPORT_DELTA else 0.0
         return SearchMapViewportBounds(
-            south = latitudes.minOrNull() ?: return null,
-            west = longitudes.minOrNull() ?: return null,
-            north = latitudes.maxOrNull() ?: return null,
-            east = longitudes.maxOrNull() ?: return null
+            south = south - latDelta,
+            west = west - lonDelta,
+            north = north + latDelta,
+            east = east + lonDelta
         ).takeIf { it.hasFiniteEdges() }
     }
 
@@ -520,6 +552,7 @@ class SearchMapStateLoader(
 
     private companion object {
         const val MILLIS_PER_MINUTE = 60_000L
+        const val POINT_VIEWPORT_DELTA = 0.003
     }
 }
 

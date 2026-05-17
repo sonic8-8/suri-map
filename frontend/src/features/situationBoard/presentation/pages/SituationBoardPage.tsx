@@ -268,12 +268,16 @@ export function SituationBoardPage({
           selectedSearchAreaId={isClosedTerminalBoard ? null : boardState.selectedSearchAreaId}
         />
       </div>
-      {!boardState.isAreaWorkspaceOpen && !isHandoverMapMode && !isClosedTerminalBoard && boardState.isOverallSearchAreaMissing ? (
-        <OverallSearchAreaRequiredModal
-          onOpenAreaWorkspace={boardState.openAreaWorkspace}
-          onOpenIncidentList={onOpenIncidentList}
-        />
-      ) : null}
+      {/*
+        전체 수색구역 미지정 사건도 상황판 진입은 허용한다.
+        수색 범위 결정 모달은 수색구역 분할/배정 흐름에서 다시 연결할 수 있도록 컴포넌트만 보존한다.
+        {!boardState.isAreaWorkspaceOpen && !isHandoverMapMode && !isClosedTerminalBoard && boardState.isOverallSearchAreaMissing ? (
+          <OverallSearchAreaRequiredModal
+            onOpenAreaWorkspace={boardState.openAreaWorkspace}
+            onOpenIncidentList={onOpenIncidentList}
+          />
+        ) : null}
+      */}
     </main>
   );
 }

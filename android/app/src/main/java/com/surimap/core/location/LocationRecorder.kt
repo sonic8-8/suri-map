@@ -38,6 +38,20 @@ class AndroidLocationUpdates(
     private val context: Context,
     private val now: () -> Instant = { Instant.now() }
 ) : LocationUpdates {
+    fun lastKnownFix(): GpsLocationFix? {
+        if (!hasLocationPermission()) {
+            return null
+        }
+        val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+            ?: return null
+        return activeProviders(locationManager)
+            .mapNotNull { provider ->
+                runCatching { locationManager.getLastKnownLocation(provider) }.getOrNull()
+            }
+            .maxByOrNull(Location::getTime)
+            ?.toGpsLocationFix(now)
+    }
+
     override fun start(onFix: (GpsLocationFix) -> Unit): LocationUpdatesHandle {
         if (!hasLocationPermission()) {
             return LocationUpdatesHandle {}
@@ -72,11 +86,11 @@ class AndroidLocationUpdates(
             ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
     private fun activeProvider(locationManager: LocationManager): String? =
-        when {
-            locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) -> LocationManager.GPS_PROVIDER
-            locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER) -> LocationManager.NETWORK_PROVIDER
-            else -> null
-        }
+        activeProviders(locationManager).firstOrNull()
+
+    private fun activeProviders(locationManager: LocationManager): List<String> =
+        listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
+            .filter { provider -> runCatching { locationManager.isProviderEnabled(provider) }.getOrDefault(false) }
 
     private companion object {
         const val LOCATION_SAMPLE_INTERVAL_MS = 5_000L

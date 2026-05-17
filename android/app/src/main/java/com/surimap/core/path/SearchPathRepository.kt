@@ -15,6 +15,8 @@ import com.surimap.core.sync.jsonInstant
 import com.surimap.core.sync.jsonNumber
 import com.surimap.core.sync.jsonObject
 import com.surimap.core.sync.jsonString
+import java.math.BigDecimal
+import java.math.RoundingMode
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.time.Instant
@@ -232,12 +234,19 @@ class SearchPathRepository(
     private fun pathPointJson(point: PathPoint): String {
         return jsonObject(
             "pointId" to jsonString(point.pointId),
-            "lon" to jsonNumber(point.lon),
-            "lat" to jsonNumber(point.lat),
+            "lon" to jsonCoordinate(point.lon),
+            "lat" to jsonCoordinate(point.lat),
             "speedMps" to point.speedMps?.let(::jsonNumber),
             "horizontalAccuracyM" to point.horizontalAccuracyM?.let(::jsonNumber),
             "clientTs" to jsonInstant(point.clientTs)
         )
+    }
+
+    private fun jsonCoordinate(value: Double): String {
+        return BigDecimal.valueOf(value)
+            .setScale(GPS_COORDINATE_SCALE, RoundingMode.HALF_UP)
+            .stripTrailingZeros()
+            .toPlainString()
     }
 
     private fun searchPathQueryPath(query: SearchPathQuery): String {
@@ -263,3 +272,5 @@ private fun encodePathSegment(value: String): String = encodeQueryValue(value).r
 private fun encodeQueryValue(value: String): String {
     return URLEncoder.encode(value, StandardCharsets.UTF_8.toString())
 }
+
+private const val GPS_COORDINATE_SCALE = 6

@@ -2,6 +2,7 @@ package com.surimap.marker;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -10,12 +11,17 @@ import com.jayway.jsonpath.JsonPath;
 import com.surimap.account.AccountIdentityCatalog;
 import com.surimap.maparea.support.PostGisIntegrationTestSupport;
 import com.surimap.policephone.PolicePhoneFixtures;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -35,6 +41,7 @@ class MarkerCreateRuntimeGuardIntegrationTest extends PostGisIntegrationTestSupp
   private static final String MARKER_MEMO = "S14P31C106-303 runtime marker";
 
   @Autowired private MockMvc mockMvc;
+  @MockitoBean private JwtDecoder jwtDecoder;
 
   @BeforeEach
   void setUpRuntimeFixture() {
@@ -155,8 +162,8 @@ class MarkerCreateRuntimeGuardIntegrationTest extends PostGisIntegrationTestSupp
   }
 
   @Test
-  @DisplayName("APP bearer session can create marker with production runtime guards")
-  void appBearerSessionCanCreateMarkerWithProductionRuntimeGuards() throws Exception {
+  @DisplayName("APP OIDC bearer can create marker with production runtime guards")
+  void appOidcBearerCanCreateMarkerWithProductionRuntimeGuards() throws Exception {
     String accessToken = loginAppAccessToken();
 
     MvcResult result =
@@ -219,24 +226,18 @@ class MarkerCreateRuntimeGuardIntegrationTest extends PostGisIntegrationTestSupp
     assertThat(eventRows).isEqualTo(1);
   }
 
-  private String loginAppAccessToken() throws Exception {
-    MvcResult result =
-        mockMvc
-            .perform(
-                post("/api/auth/login")
-                    .header("X-Client-Channel", "APP")
-                    .contentType("application/json")
-                    .content(
-                        """
-                        {
-                          "accountCode": "acct-precinct-team",
-                          "password": "fixture",
-                          "channel": "APP",
-                          "policePhoneCode": "dev-precinct-phone-01"
-                        }
-                        """))
-            .andExpect(status().isOk())
-            .andReturn();
-    return JsonPath.read(result.getResponse().getContentAsString(), "$.accessToken");
+  private String loginAppAccessToken() {
+    String accessToken = "header.marker-runtime.signature";
+    when(jwtDecoder.decode(accessToken))
+        .thenReturn(
+            Jwt.withTokenValue(accessToken)
+                .header("alg", "RS256")
+                .claim("accountId", AccountIdentityCatalog.PRECINCT_TEAM_ID.toString())
+                .claim("accountType", "TEAM")
+                .claim("organizationType", "POLICE_SUBSTATION")
+                .claim("policePhoneId", PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID.toString())
+                .claim("realm_access", Map.of("roles", List.of("MEMBER")))
+                .build());
+    return accessToken;
   }
 }

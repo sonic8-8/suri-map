@@ -23,6 +23,7 @@ import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
 import okio.Timeout
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -146,6 +147,39 @@ class SearchPathRepositoryTest {
             """{"incidentId":"$INCIDENT_ID","opId":"$OP_ID","pathId":"$PATH_ID","points":[{"pointId":"pt-001","lon":126.969123,"lat":37.579123,"speedMps":1.4,"horizontalAccuracyM":5,"clientTs":"2026-05-11T06:00:00Z"},{"pointId":"pt-002","lon":126.969223,"lat":37.579223,"speedMps":1.5,"horizontalAccuracyM":6,"clientTs":"2026-05-11T06:00:05Z"}],"clockOffsetMs":120}""",
             operation.payload
         )
+    }
+
+    @Test
+    fun appendPathBatchNormalizesGpsCoordinatesToBackendPrecision() = runBlocking {
+        val syncClient = CapturingSyncClient()
+        val repository = SearchPathRepository(syncClient = syncClient)
+
+        repository.appendPathBatch(
+            AppendPathBatchCommand(
+                operationId = operationIdFixture("path-batch-precision-001"),
+                incidentId = INCIDENT_ID,
+                opId = OP_ID,
+                searchPathId = PATH_ID,
+                policePhoneId = POLICE_PHONE_ID,
+                idempotencyKey = "idem-path-batch-precision-001",
+                sequence = 13,
+                points = listOf(
+                    PathPoint(
+                        pointId = "pt-precision-001",
+                        lon = 126.89209833333334,
+                        lat = 35.17379833333333,
+                        clientTs = Instant.parse("2026-05-11T06:00:00Z")
+                    )
+                )
+            )
+        )
+
+        val operation = syncClient.lastOperation!!
+        assertEquals(
+            """{"incidentId":"$INCIDENT_ID","opId":"$OP_ID","pathId":"$PATH_ID","points":[{"pointId":"pt-precision-001","lon":126.892098,"lat":35.173798,"clientTs":"2026-05-11T06:00:00Z"}]}""",
+            operation.payload
+        )
+        assertFalse(operation.payload.contains("333333"))
     }
 
     @Test

@@ -308,8 +308,8 @@ Android toolchain은 Kotlin + Gradle Kotlin DSL + AGP 8.13.x, minSdk 31, targetS
   - Mapper interface + XML mapper를 기본으로 사용하고, Flyway schema와 spec entity 계약을 기준으로 mapper를 작성
   - PostGIS geometry는 공용 TypeHandler를 통해 JTS Geometry 또는 명시적 GeoJSON DTO로 변환
   - MVP 범위에서는 Spring Data JPA/Hibernate ORM을 도입하지 않음
-- **Refresh token 저장소는 PostgreSQL**
-  - `refresh_token` 테이블에 저장하고 Redis는 세션/토큰 저장소로 사용하지 않는다.
+- **인증 토큰 저장소는 Keycloak/OIDC**
+  - Suri-Map API는 refresh token을 직접 저장하지 않고 Keycloak access token의 JWT/JWKS 검증만 수행한다.
 - **UUID 식별자**
   - 백엔드와 Android 로컬/동기화 경계 모두 UUID를 기본 식별자로 사용해 오프라인 생성, 재전송, merge fixture를 같은 키 체계로 검증한다.
 - **Redis는 MVP에서 도입하지 않음** (상세는 ADR)
@@ -322,7 +322,6 @@ Android toolchain은 Kotlin + Gradle Kotlin DSL + AGP 8.13.x, minSdk 31, targetS
 | `missing_person` | 사건 수행에 필요한 실종자 도메인 데이터. 장기 보존 원본은 112 계열 시스템으로 가정하되 MVP는 mock/seed 사용 |
 | `incident_assignment` | 112/mock polling/import로 반영되는 사건 접근·참여 배정. Suri-Map 내부 지원 배정 workflow는 제공하지 않음 |
 | `account` | 팀 계정·순찰차 계정·지휘 계정. 소속/계정 유형/역할 fixture를 가진 인증 주체 |
-| `refresh_token` | PostgreSQL에 저장하는 앱·웹 refresh token. Redis를 토큰 저장소로 사용하지 않음 |
 | `police_phone` | 팀 업무폰 또는 순찰차 업무폰. 계정과 분리된 경로·동기화·FCM 주체 |
 | `fcm_token` | `police_phone` 기준 FCM token 저장소 |
 | `incident_data_purge` | 사건 종료 후 개인정보·위치·오프라인 패키지 파기 진행 상태 |

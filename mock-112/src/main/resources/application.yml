@@ -11,9 +11,29 @@ spring:
     default-property-inclusion: non_null
     serialization:
       write-dates-as-timestamps: false
+  security:
+    oauth2:
+      client:
+        registration:
+          keycloak:
+            client-id: ${MOCK112_KEYCLOAK_CLIENT_ID:suri-map-mock112}
+            client-authentication-method: none
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/mock-112/login/oauth2/code/{registrationId}"
+            scope:
+              - openid
+              - profile
+        provider:
+          keycloak:
+            authorization-uri: ${MOCK112_KEYCLOAK_AUTHORIZATION_URI:http://localhost:18080/keycloak/realms/suri-map/protocol/openid-connect/auth}
+            token-uri: ${MOCK112_KEYCLOAK_TOKEN_URI:http://localhost:18080/keycloak/realms/suri-map/protocol/openid-connect/token}
+            jwk-set-uri: ${MOCK112_KEYCLOAK_JWK_SET_URI:http://localhost:18080/keycloak/realms/suri-map/protocol/openid-connect/certs}
+            user-info-uri: ${MOCK112_KEYCLOAK_USER_INFO_URI:http://localhost:18080/keycloak/realms/suri-map/protocol/openid-connect/userinfo}
+            user-name-attribute: preferred_username
 
 server:
   port: ${SERVER_PORT:18112}
+  forward-headers-strategy: framework
 
 logging:
   level:
@@ -24,3 +44,7 @@ suri-map:
     enabled: ${SURI_MAP_WEBHOOK_ENABLED:false}
     url: ${SURI_MAP_WEBHOOK_URL:http://backend:8080/api/internal/mock-112/events}
     secret: ${SURI_MAP_WEBHOOK_SECRET:${MOCK112_WEBHOOK_SECRET:}}
+
+mock112:
+  internal-api:
+    token: ${MOCK112_INTERNAL_API_TOKEN:}

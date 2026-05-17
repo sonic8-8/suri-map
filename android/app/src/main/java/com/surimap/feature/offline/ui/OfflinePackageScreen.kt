@@ -37,6 +37,7 @@ enum class OfflinePackageDownloadStatus {
     AutoRetryExhausted,
     Partial,
     Ready,
+    SearchAreaPending,
     Offline,
     Stale,
     PermissionDenied
@@ -180,6 +181,22 @@ data class OfflinePackageUiState(
                 canManualRetry = false,
                 retryLabel = null,
                 message = "내부망 연결이 없어 오프라인 패키지 manifest를 확인하지 못했습니다."
+            )
+
+        fun searchAreaPending(incidentTitle: String = "선택한 사건"): OfflinePackageUiState =
+            OfflinePackageUiState(
+                incidentTitle = incidentTitle,
+                manifestRevision = 0,
+                knownManifestRevision = null,
+                status = OfflinePackageDownloadStatus.SearchAreaPending,
+                packageItems = defaultPackageItems(),
+                readyForOfflineUse = false,
+                autoOpenSearchMap = false,
+                requiresLimitedOpenConfirmation = false,
+                shouldDownloadPackage = false,
+                canManualRetry = false,
+                retryLabel = null,
+                message = "전체 수색구역 지정 전입니다. 사건 확인과 현장 기록은 가능하며, 오프라인 패키지는 수색구역 지정 후 받을 수 있습니다."
             )
 
         fun permissionDenied(incidentTitle: String = "선택한 사건"): OfflinePackageUiState =
@@ -441,7 +458,8 @@ private fun StatusBanner(state: OfflinePackageUiState) {
         when (state.status) {
             OfflinePackageDownloadStatus.Partial,
             OfflinePackageDownloadStatus.Offline,
-            OfflinePackageDownloadStatus.Stale -> PoliBannerVariant.Warn
+            OfflinePackageDownloadStatus.Stale,
+            OfflinePackageDownloadStatus.SearchAreaPending -> PoliBannerVariant.Warn
             OfflinePackageDownloadStatus.AutoRetryExhausted,
             OfflinePackageDownloadStatus.PermissionDenied -> PoliBannerVariant.Bad
             else -> PoliBannerVariant.Info
@@ -530,6 +548,7 @@ private val OfflinePackageUiState.statusLabel: String
             OfflinePackageDownloadStatus.AutoRetryExhausted -> "재시도 필요"
             OfflinePackageDownloadStatus.Partial -> "부분 성공"
             OfflinePackageDownloadStatus.Ready -> "준비 완료"
+            OfflinePackageDownloadStatus.SearchAreaPending -> "수색구역 대기"
             OfflinePackageDownloadStatus.Offline -> "오프라인"
             OfflinePackageDownloadStatus.Stale -> "만료"
             OfflinePackageDownloadStatus.PermissionDenied -> "권한 없음"
@@ -543,6 +562,7 @@ private val OfflinePackageUiState.statusVariant: PoliChipVariant
             OfflinePackageDownloadStatus.ManifestChanged,
             OfflinePackageDownloadStatus.Downloading,
             OfflinePackageDownloadStatus.AutoRetryInProgress,
+            OfflinePackageDownloadStatus.SearchAreaPending,
             OfflinePackageDownloadStatus.Partial,
             OfflinePackageDownloadStatus.Offline,
             OfflinePackageDownloadStatus.Stale -> PoliChipVariant.Warn

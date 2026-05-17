@@ -20,7 +20,7 @@
 - 경로 주체: 개인이 아니라 팀 업무폰/순찰차 업무폰 `police_phone` (ADR-0025)
 - OP/인수인계: OP별 경로·마커·구역 상태·메모·수색 이력 요약 (ADR-0029)
 - 112/mock·seed polling/import 기반 사건·지원 배정 반영, 내부 지원 배정 workflow 없음 (ADR-0030)
-- Refresh token은 PostgreSQL `refresh_token`에 저장하고 Redis는 사용하지 않음 (ADR-0006)
+- Refresh token은 Keycloak/OIDC에 위임하고 Suri-Map API/Redis에는 저장하지 않음 (ADR-0006)
 - 별도 board DB 없이 원본 테이블 기반 API assembly + SSE refetch 신호 사용 (ADR-0033)
 - 서버와 Android 동기화 경계는 UUID 식별자를 기본으로 사용 (ADR-0036)
 - ADR 문서 구조: 현재 구현 기준과 archive 분리 (ADR-0032)
@@ -194,7 +194,7 @@ WebSocket은 MVP 범위 외.
 ### Decision
 
 - MVP에서는 Redis를 도입하지 않는다
-- Refresh token은 PostgreSQL `refresh_token` 테이블에 저장하고 Redis를 토큰 저장소로 사용하지 않는다.
+- Refresh token은 Suri-Map API가 직접 저장하지 않고 Keycloak/OIDC에 위임한다. Redis는 토큰 저장소로 사용하지 않는다.
 
 ### 도입 검토 시점
 

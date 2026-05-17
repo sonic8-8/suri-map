@@ -41,7 +41,6 @@ class CoreRuntimeSchemaMigrationIntegrationTest {
             List.of(
                 "account",
                 "police_phone",
-                "refresh_token",
                 "fcm_token",
                 "search_area_assignment",
                 "search_path",
@@ -61,7 +60,6 @@ class CoreRuntimeSchemaMigrationIntegrationTest {
         assertColumnType(connection, "police_phone", "heartbeat_sequence", "int8");
         assertColumnType(connection, "police_phone", "last_heartbeat_event_id", "uuid");
         assertColumnType(connection, "police_phone", "version", "int8");
-        assertColumnType(connection, "refresh_token", "account_id", "uuid");
         assertColumnType(connection, "fcm_token", "police_phone_id", "uuid");
         assertColumnType(connection, "search_area_assignment", "search_area_id", "uuid");
         assertColumnType(connection, "search_path", "duty_shift_id", "uuid");
@@ -102,6 +100,7 @@ class CoreRuntimeSchemaMigrationIntegrationTest {
         assertIndexExists(connection, "search_path", "idx_search_path_geom");
         assertIndexExists(connection, "search_path_segment", "idx_search_path_segment_geom");
         assertIndexExists(connection, "idempotency_record", "ux_idempotency_record_key_path_method");
+        assertTableDoesNotExist(connection, "refresh_token");
       }
     }
   }
@@ -187,6 +186,26 @@ class CoreRuntimeSchemaMigrationIntegrationTest {
           assertThat(result.next()).isTrue();
           assertThat(result.getBoolean(1)).as("table %s exists", tableName).isTrue();
         }
+      }
+    }
+  }
+
+  private static void assertTableDoesNotExist(Connection connection, String tableName)
+      throws SQLException {
+    try (var statement =
+        connection.prepareStatement(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                FROM information_schema.tables
+                WHERE table_schema = 'public'
+                  AND table_name = ?
+            )
+            """)) {
+      statement.setString(1, tableName);
+      try (ResultSet result = statement.executeQuery()) {
+        assertThat(result.next()).isTrue();
+        assertThat(result.getBoolean(1)).as("table %s does not exist", tableName).isFalse();
       }
     }
   }

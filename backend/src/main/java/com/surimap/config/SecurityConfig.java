@@ -1,9 +1,7 @@
 package com.surimap.config;
 
-import com.surimap.account.security.AuthSessionAuthenticationFilter;
 import com.surimap.account.security.OidcBearerAuthenticationFilter;
 import com.surimap.account.security.OidcIdentityAuthenticationConverter;
-import com.surimap.account.service.AuthSessionService;
 import com.surimap.common.auth.SuriMapAuthentication;
 import jakarta.servlet.DispatcherType;
 import java.util.Arrays;
@@ -40,12 +38,8 @@ public class SecurityConfig {
   @Bean
   SecurityFilterChain securityFilterChain(
       HttpSecurity http,
-      ObjectProvider<AuthSessionService> authSessionService,
       ObjectProvider<JwtDecoder> keycloakJwtDecoder,
-      ObjectProvider<OidcIdentityAuthenticationConverter> oidcIdentityAuthenticationConverter,
-      @Value("${surimap.auth.local-dev.enabled:true}") boolean localDevAuthEnabled,
-      @Value("${surimap.auth.local-dev.access-token:dev-local-access-token}")
-          String localDevAccessToken)
+      ObjectProvider<OidcIdentityAuthenticationConverter> oidcIdentityAuthenticationConverter)
       throws Exception {
     http.csrf(csrf -> csrf.disable())
         .cors(Customizer.withDefaults())
@@ -55,7 +49,6 @@ public class SecurityConfig {
                     .permitAll()
                     .requestMatchers(
                         "/api/health",
-                        "/api/auth/login",
                         "/error",
                         "/actuator/health",
                         "/actuator/prometheus",
@@ -66,10 +59,6 @@ public class SecurityConfig {
                     .access(SecurityConfig::hasSuriMapAuthentication))
         .httpBasic(Customizer.withDefaults());
 
-    http.addFilterBefore(
-        new AuthSessionAuthenticationFilter(
-            authSessionService.getIfAvailable(), localDevAuthEnabled, localDevAccessToken),
-        UsernamePasswordAuthenticationFilter.class);
     JwtDecoder jwtDecoder = keycloakJwtDecoder.getIfAvailable();
     OidcIdentityAuthenticationConverter converter =
         oidcIdentityAuthenticationConverter.getIfAvailable();
