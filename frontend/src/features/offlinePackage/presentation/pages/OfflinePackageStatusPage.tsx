@@ -1,28 +1,42 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Car,
   CheckCircle2,
-  Clock3,
-  FileText,
   Grid3X3,
   HardDrive,
   Map,
-  MapPin,
-  MapPinned,
   RefreshCcw,
-  Smartphone,
   Trash2,
-  UserRound,
 } from 'lucide-react';
 
 import { useIncidentBoardQuery } from '../../../board/api/incidentBoardApi';
 import { useOfflinePackageManifestQuery } from '../../api/offlinePackageApi';
+import {
+  createDeviceIconClassName,
+  DeviceTypeIcon,
+  ManifestGroupIcon,
+  manifestGroupIconClassName,
+  SectionTitle,
+} from '../components/OfflinePackageStatusAtoms';
 import type {
   OfflinePackageItemType,
   OfflinePackageManifestResponse,
   OfflinePackagePackageItem,
-  OfflinePackageTileItem,
 } from '../../api/offlinePackageApi';
+import {
+  createPackageLoadGauge,
+  createSummary,
+  createTileSummary,
+  formatBytes,
+  formatKstDateTime,
+  isRecord,
+  readBoolean,
+  readNumber,
+  readString,
+  type ManifestGroup,
+  type PackageBadgeRow,
+  type PackageLoadGaugeSummary,
+  type TileSummary,
+} from '../model/offlinePackageStatusView';
 import { getIncidentDetail, type IncidentDetailDto } from '../../../situationBoard/data/getIncidentDetail';
 import type { SituationBoardResponseDto } from '../../../situationBoard/data/getSituationBoard';
 import {
@@ -57,52 +71,6 @@ type OfflinePackageStatusPageProps = {
   onOpenIncidentDetail?: () => void;
   onOpenIncidentList: () => void;
   onOpenOfflinePackage: () => void;
-};
-
-type PackageBadgeRow = {
-  id: string;
-  incidentId: string;
-  policePhoneId: string;
-  policePhoneCode: string;
-  policePhoneName: string;
-  accountId: string;
-  accountName: string;
-  accountType: string;
-  organizationType: string;
-  incidentRole: string;
-  packageStatus: string;
-  manifestVersion: number | null;
-  activeManifestVersion: number | null;
-  readyForOfflineUse: boolean;
-  warningRaised: boolean;
-  warningReason: string;
-};
-
-type PackageSummary = {
-  readyCount: number;
-  warningCount: number;
-  purgedCount: number;
-};
-
-type ManifestGroup = {
-  type: OfflinePackageItemType;
-  label: string;
-  countLabel: string;
-  statusLabel: string;
-  statusTone: StatusBadgeTone;
-  detailLabel: string;
-};
-
-type TileSummary = {
-  count: number;
-  totalBytes: number;
-  styleIds: string;
-};
-
-type PackageLoadGaugeSummary = {
-  loadedCount: number;
-  totalCount: number;
-  percentage: number;
 };
 
 const manifestGroupLabels: Record<OfflinePackageItemType, string> = {
@@ -382,15 +350,6 @@ export function OfflinePackageStatusPage({
   );
 }
 
-function SectionTitle({ title, description }: { title: string; description: string }) {
-  return (
-    <div className={styles.sectionTitle}>
-      <h2>{title}</h2>
-      <p>{description}</p>
-    </div>
-  );
-}
-
 function PackageLoadGauge({ gauge }: { gauge: PackageLoadGaugeSummary }) {
   const progress = Math.max(0, Math.min(100, gauge.percentage));
 
@@ -419,25 +378,6 @@ function PackageLoadGauge({ gauge }: { gauge: PackageLoadGaugeSummary }) {
       </div>
     </div>
   );
-}
-
-function ManifestGroupIcon({ type }: { type: OfflinePackageItemType }) {
-  switch (type) {
-    case 'INCIDENT_META':
-      return <FileText className={styles.manifestGroupIconGlyph} size={30} strokeWidth={2.2} />;
-    case 'MISSING_PERSON_CACHE':
-      return <UserRound className={styles.manifestGroupIconGlyph} size={30} strokeWidth={2.2} />;
-    case 'OP_LIST':
-      return <Clock3 className={styles.manifestGroupIconGlyph} size={30} strokeWidth={2.2} />;
-    case 'ASSIGNED_AREA':
-      return <MapPinned className={styles.manifestGroupIconGlyph} size={30} strokeWidth={2.2} />;
-    case 'INITIAL_MARKER':
-      return <MapPin className={styles.manifestGroupIconGlyph} size={30} strokeWidth={2.2} />;
-    case 'OVERALL_SEARCH_AREA':
-      return <Map className={styles.manifestGroupIconGlyph} size={30} strokeWidth={2.2} />;
-    case 'TILE':
-      return <Grid3X3 className={styles.manifestGroupIconGlyph} size={30} strokeWidth={2.2} />;
-  }
 }
 
 function ManifestContent({
@@ -762,43 +702,6 @@ function readPackageBadgeRow(value: unknown): PackageBadgeRow | null {
   };
 }
 
-function createSummary(rows: PackageBadgeRow[]): PackageSummary {
-  return rows.reduce<PackageSummary>(
-    (summary, row) => {
-      if (row.packageStatus === 'PURGED') {
-        summary.purgedCount += 1;
-      } else if (row.packageStatus === 'READY' && row.readyForOfflineUse && !row.warningRaised) {
-        summary.readyCount += 1;
-      } else {
-        summary.warningCount += 1;
-      }
-
-      return summary;
-    },
-    { readyCount: 0, warningCount: 0, purgedCount: 0 },
-  );
-}
-
-function createPackageLoadGauge(rows: PackageBadgeRow[]): PackageLoadGaugeSummary {
-  const targetPolicePhones = new Set<string>();
-  const loadedPolicePhones = new Set<string>();
-
-  for (const row of rows) {
-    targetPolicePhones.add(row.policePhoneId);
-    if (isLoadedPackageRow(row)) loadedPolicePhones.add(row.policePhoneId);
-  }
-
-  const totalCount = targetPolicePhones.size;
-  const loadedCount = loadedPolicePhones.size;
-  const percentage = totalCount === 0 ? 0 : Math.round((loadedCount / totalCount) * 100);
-
-  return { loadedCount, totalCount, percentage };
-}
-
-function isLoadedPackageRow(row: PackageBadgeRow) {
-  return row.packageStatus === 'READY' && row.readyForOfflineUse && !row.warningRaised;
-}
-
 function createManifestGroups(manifest: OfflinePackageManifestResponse | undefined): readonly ManifestGroup[] {
   return manifestGroupOrder.map((type) => {
     const items = manifest?.packageItems.filter((item) => item.itemType === type) ?? [];
@@ -874,45 +777,6 @@ function getManifestGroupStatus(items: readonly OfflinePackagePackageItem[]): { 
     return { label: '일부 미완료', tone: 'waiting' };
   }
   return { label: '대기', tone: 'waiting' };
-}
-
-function manifestGroupIconClassName(type: OfflinePackageItemType) {
-  switch (type) {
-    case 'INCIDENT_META':
-      return `${styles.manifestGroupIcon} ${styles.manifestGroupIconIncidentMeta}`;
-    case 'MISSING_PERSON_CACHE':
-      return `${styles.manifestGroupIcon} ${styles.manifestGroupIconMissingPerson}`;
-    case 'OP_LIST':
-      return `${styles.manifestGroupIcon} ${styles.manifestGroupIconOpList}`;
-    case 'ASSIGNED_AREA':
-      return `${styles.manifestGroupIcon} ${styles.manifestGroupIconAssignedArea}`;
-    case 'INITIAL_MARKER':
-      return `${styles.manifestGroupIcon} ${styles.manifestGroupIconInitialMarker}`;
-    case 'OVERALL_SEARCH_AREA':
-      return `${styles.manifestGroupIcon} ${styles.manifestGroupIconOverallSearchArea}`;
-    case 'TILE':
-      return `${styles.manifestGroupIcon} ${styles.manifestGroupIconTile}`;
-  }
-}
-
-function createTileSummary(tileItems: readonly OfflinePackageTileItem[]): TileSummary {
-  if (tileItems.length === 0) {
-    return {
-      count: 0,
-      totalBytes: 0,
-      styleIds: '-',
-    };
-  }
-
-  return {
-    count: tileItems.length,
-    totalBytes: tileItems.reduce((sum, item) => sum + item.bytes, 0),
-    styleIds: uniqueValues(tileItems.map((item) => item.styleId)).join(', '),
-  };
-}
-
-function uniqueValues(values: readonly string[]) {
-  return [...new Set(values.filter(Boolean))];
 }
 
 function createDeviceTitle(row: PackageBadgeRow) {
@@ -1070,20 +934,6 @@ function formatPhoneCode(phoneCode: string) {
   return normalized;
 }
 
-function DeviceTypeIcon({ accountType }: { accountType: string }) {
-  if (accountType === 'PATROL_CAR') {
-    return <Car className={styles.deviceTypeIconGlyph} size={22} strokeWidth={2.2} />;
-  }
-
-  return <Smartphone className={styles.deviceTypeIconGlyph} size={22} strokeWidth={2.2} />;
-}
-
-function createDeviceIconClassName(accountType: string) {
-  return accountType === 'PATROL_CAR'
-    ? `${styles.deviceTypeIcon} ${styles.deviceTypeIconPatrolCar}`
-    : `${styles.deviceTypeIcon} ${styles.deviceTypeIconPhone}`;
-}
-
 function isUuidLike(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 }
@@ -1092,51 +942,4 @@ function formatIncidentStatus(status: string) {
   if (status === 'OPEN') return '진행 중';
   if (status === 'CLOSED') return '종료';
   return status || '-';
-}
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  const kib = bytes / 1024;
-  if (kib < 1024) return `${kib.toFixed(1)} KiB`;
-  return `${(kib / 1024).toFixed(1)} MiB`;
-}
-
-function formatKstDateTime(date: Date) {
-  if (Number.isNaN(date.getTime())) return '-';
-
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Seoul',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  })
-    .formatToParts(date)
-    .reduce<Record<string, string>>((dateParts, part) => {
-      dateParts[part.type] = part.value;
-      return dateParts;
-    }, {});
-
-  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute} KST`;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function readString(row: Record<string, unknown>, key: string) {
-  const value = row[key];
-  return typeof value === 'string' ? value : null;
-}
-
-function readNumber(row: Record<string, unknown>, key: string) {
-  const value = row[key];
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
-function readBoolean(row: Record<string, unknown>, key: string) {
-  const value = row[key];
-  return typeof value === 'boolean' ? value : false;
 }
