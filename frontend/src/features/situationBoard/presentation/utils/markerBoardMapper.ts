@@ -27,6 +27,7 @@ export function toBoardRecentMarkers(board: SituationBoardResponseDto): RecentMa
       summary,
       occurredAt: marker.occurredAt,
       timeLabel: toMarkerTimeLabel(marker.occurredAt),
+      opId: marker.opId,
       opLabel,
       reporterLabel,
       sourceLabel: marker.sourceLabel ?? 'board',

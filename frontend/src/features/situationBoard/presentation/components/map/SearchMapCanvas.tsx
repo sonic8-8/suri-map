@@ -29,7 +29,7 @@ import {
   type BoardMapFeatureCollection,
   type BoardMapGeometry,
 } from '../../../../../shared/model/boardMapFeatures';
-import type { MovementPath, RecentMarker } from '../../constants/mockSituationBoard';
+import type { MovementPath, OperationalPeriod, RecentMarker } from '../../constants/mockSituationBoard';
 import {
   clearMarkerElements,
   hasRenderedMarkerAtPoint,
@@ -612,6 +612,7 @@ type SearchMapCanvasProps = {
   layerVisibility: LayerVisibility;
   movementPaths: MovementPath[];
   recentMarkers: RecentMarker[];
+  operationalPeriods: OperationalPeriod[];
   focusedMarkerId: string | null;
   focusedMarkerSequence: number;
   focusedSearchAreaId: string | null;
@@ -637,6 +638,7 @@ export function SearchMapCanvas({
   layerVisibility,
   movementPaths,
   recentMarkers,
+  operationalPeriods,
   focusedMarkerId,
   focusedMarkerSequence,
   focusedSearchAreaId,
@@ -768,12 +770,12 @@ export function SearchMapCanvas({
     searchAreaPopupSearchAreaIdRef.current = null;
     setSearchAreaPopupLngLat(null);
     removeSearchAreaPopup();
-  }, [removeSearchAreaPopup]);
+    onClearSelectedSearchArea();
+  }, [onClearSelectedSearchArea, removeSearchAreaPopup]);
 
   const handleCloseSearchAreaPopup = useCallback(() => {
     closeSearchAreaPopup();
-    onClearSelectedSearchArea();
-  }, [closeSearchAreaPopup, onClearSelectedSearchArea]);
+  }, [closeSearchAreaPopup]);
 
   const handleOpenSearchAreaSplit = useCallback(() => {
     closeSearchAreaPopup();
@@ -810,6 +812,7 @@ export function SearchMapCanvas({
         return;
       }
 
+      onClearSelectedSearchArea();
       closeSearchAreaPopup();
     };
 
@@ -849,6 +852,10 @@ export function SearchMapCanvas({
         variant="mapPopup"
         searchAreaTree={searchAreaTree}
         selectedSearchAreaId={selectedSearchAreaId}
+        savedAreaDrafts={savedAreaDrafts}
+        movementPaths={movementPaths}
+        recentMarkers={recentMarkers}
+        operationalPeriods={operationalPeriods}
         onClose={handleCloseSearchAreaPopup}
         onOpenAssign={handleOpenSearchAreaAssign}
         onOpenSplit={handleOpenSearchAreaSplit}
@@ -864,6 +871,7 @@ export function SearchMapCanvas({
     searchAreaPopupLngLat,
     searchAreaTree,
     selectedSearchAreaId,
+    operationalPeriods,
   ]);
 
   useEffect(() => () => removeSearchAreaPopup(), [removeSearchAreaPopup]);
@@ -1148,10 +1156,14 @@ export function SearchMapCanvas({
         }
 
         if (!map.getLayer(SEARCH_AREA_FILL_LAYER_ID) || !map.getLayer(SEARCH_AREA_LINE_LAYER_ID)) {
+          onClearSelectedSearchArea();
+          closeSearchAreaPopup();
           return;
         }
 
         if (!layerVisibilityRef.current.searchArea) {
+          onClearSelectedSearchArea();
+          closeSearchAreaPopup();
           return;
         }
 
@@ -1164,6 +1176,7 @@ export function SearchMapCanvas({
           setSearchAreaPopupLngLat(event.lngLat);
           return;
         }
+        onClearSelectedSearchArea();
         closeSearchAreaPopup();
         return;
       }

@@ -156,18 +156,19 @@ export function HandoverPage({
   useBrowserBackToIncidentList(onBrowserBackToIncidentList, !embedded);
   const queryClient = useQueryClient();
   const stableBoardRef = useRef<SituationBoardResponseDto | null>(null);
+  const effectiveBoardSnapshot = sharedMapMode ? null : boardSnapshot;
   const requestedBoardOpIds = useMemo(
     () => uniqueNonEmptyStrings([...selectedOpIds, ...(focusedOpId ? [focusedOpId] : [])]),
     [focusedOpId, selectedOpIds],
   );
   const boardQuery = useIncidentBoardQuery({
-    incidentId: boardSnapshot ? null : incidentId,
-    opIds: !boardSnapshot && requestedBoardOpIds.length > 0 ? requestedBoardOpIds : undefined,
+    incidentId: effectiveBoardSnapshot ? null : incidentId,
+    opIds: !effectiveBoardSnapshot && requestedBoardOpIds.length > 0 ? requestedBoardOpIds : undefined,
   });
   const board = useMemo<IncidentBoardResponse | null>(() => {
-    if (boardSnapshot) {
-      stableBoardRef.current = boardSnapshot as unknown as SituationBoardResponseDto;
-      return boardSnapshot as unknown as IncidentBoardResponse;
+    if (effectiveBoardSnapshot) {
+      stableBoardRef.current = effectiveBoardSnapshot as unknown as SituationBoardResponseDto;
+      return effectiveBoardSnapshot as unknown as IncidentBoardResponse;
     }
 
     const mergedBoard = mergeWithPreviousCriticalSlots(
@@ -180,7 +181,7 @@ export function HandoverPage({
     }
 
     return mergedBoard as unknown as IncidentBoardResponse | null;
-  }, [boardQuery.data, boardSnapshot]);
+  }, [boardQuery.data, effectiveBoardSnapshot]);
   const effectiveSelectedOpIds = useMemo(
     () => resolveSelectedOpIds(board, selectedOpIds),
     [board, selectedOpIds],
@@ -310,7 +311,12 @@ export function HandoverPage({
         setCurrentOpId(response.currentOpId);
         const initialOpId = response.currentOpId ?? response.items[0]?.id ?? null;
         setFocusedOpId(initialOpId);
-        setSelectedOpIds(initialOpId ? [initialOpId] : []);
+        const initialSelectedOpIds = uniqueNonEmptyStrings(
+          [...response.items]
+            .sort((left, right) => right.sequenceNumber - left.sequenceNumber)
+            .map((period) => period.id),
+        );
+        setSelectedOpIds(initialSelectedOpIds.length > 0 ? initialSelectedOpIds : initialOpId ? [initialOpId] : []);
       } catch (error) {
         if (!ignore) {
           setOpErrorMessage(getApiErrorMessage(error, 'OP 목록을 불러오지 못했습니다.'));
@@ -459,7 +465,7 @@ export function HandoverPage({
       });
       setCurrentOpId(createdOp.id);
       setFocusedOpId(createdOp.id);
-      setSelectedOpIds([createdOp.id]);
+      setSelectedOpIds((currentSelectedOpIds) => uniqueNonEmptyStrings([createdOp.id, ...currentSelectedOpIds]));
       setIsCreateOpModalOpen(false);
       onOperationalPeriodCreated?.();
       void queryClient.invalidateQueries({ queryKey: incidentBoardQueryKeys.all });

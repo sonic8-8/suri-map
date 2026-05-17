@@ -41,6 +41,7 @@ export type RecentMarker = {
   summary: string;
   occurredAt: string;
   timeLabel: string;
+  opId?: string | null;
   opLabel?: string;
   reporterLabel?: string;
   sourceLabel?: string;

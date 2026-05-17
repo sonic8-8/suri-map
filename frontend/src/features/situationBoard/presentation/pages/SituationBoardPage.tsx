@@ -194,7 +194,6 @@ export function SituationBoardPage({
           <HandoverPage
             embedded
             sharedMapMode
-            boardSnapshot={boardState.apiBoard}
             incidentId={incidentId}
             currentUserAccount={currentUserAccount}
             markerNotificationIndex={markerNotificationIndex}
@@ -205,6 +204,7 @@ export function SituationBoardPage({
             onOpenIncidentDetail={onOpenIncidentDetail}
             onOpenSituationBoard={boardState.closeHandoverWorkspace}
             onOpenOfflinePackage={onOpenOfflinePackage}
+            onSharedMapPropsChange={boardState.setHandoverMapProps}
           />
         ) : boardState.isMapExpanded || isClosedTerminalBoard ? null : (
           <SituationBoardLeftPanel
@@ -245,6 +245,7 @@ export function SituationBoardPage({
           layerVisibility={isClosedTerminalBoard ? terminalLayerVisibility : boardState.layerVisibility}
           movementPaths={isClosedTerminalBoard ? [] : boardState.board.movementPaths}
           recentMarkers={isClosedTerminalBoard ? [] : boardState.mapRecentMarkers}
+          operationalPeriods={isClosedTerminalBoard ? [] : boardState.board.operationalPeriods}
           focusedMarkerId={isClosedTerminalBoard ? null : focusedMarkerRequest.markerId}
           focusedMarkerSequence={focusedMarkerRequest.sequence}
           focusedSearchAreaId={isClosedTerminalBoard ? null : focusedSearchAreaRequest.searchAreaId}
@@ -254,7 +255,7 @@ export function SituationBoardPage({
           areaEditMapProps={
             !isClosedTerminalBoard && boardState.isAreaWorkspaceOpen ? boardState.areaEditMapProps : null
           }
-          handoverMapProps={null}
+          handoverMapProps={!isClosedTerminalBoard && boardState.isHandoverWorkspaceOpen ? boardState.handoverMapProps : null}
           searchAreaTree={boardState.board.searchAreaTree}
           onInitialMapStateChange={boardState.setInitialMapState}
           onOpenSearchAreaAssign={handleOpenSearchAreaAssignment}
