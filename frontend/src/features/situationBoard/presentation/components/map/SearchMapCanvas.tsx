@@ -16,6 +16,16 @@ import {
   type HandoverComparisonMapSharedProps,
 } from '../../../../handover/presentation/components/HandoverComparisonMap';
 import {
+  applySearchAreaStatuses,
+  EMPTY_OPERATIONAL_FEATURE_COLLECTION,
+  createOperationalFeatureCollectionSignature,
+  getAssignedSearchAreaBounds,
+  getSearchAreaBoundsById,
+  resolveInitialMapView,
+  toBounds,
+  type Position,
+} from './searchMapCanvasData';
+import {
   createVWorldBaseStyle,
   V_WORLD_BASE_LAYER_ID,
   V_WORLD_BASE_OPACITY,
@@ -29,7 +39,7 @@ import {
   type BoardMapFeatureCollection,
   type BoardMapGeometry,
 } from '../../../../../shared/model/boardMapFeatures';
-import type { MovementPath, RecentMarker } from '../../constants/mockSituationBoard';
+import type { MovementPath, OperationalPeriod, RecentMarker } from '../../constants/mockSituationBoard';
 import {
   clearMarkerElements,
   hasRenderedMarkerAtPoint,
@@ -55,7 +65,52 @@ const ROUTE_EDITOR_LINE_LAYER_ID = 'dev-route-editor-draft-line';
 const ROUTE_EDITOR_POINT_LAYER_ID = 'dev-route-editor-draft-point';
 const OVERALL_SEARCH_AREA_SOURCE_ID = 'operational-overall_search_area';
 const SEARCH_AREA_FILL_LAYER_ID = 'operational-overall_search_area-fill';
-const SEARCH_AREA_LINE_LAYER_ID = 'operational-overall_search_area-line';
+const SEARCH_AREA_COMPLETED_HATCH_PATTERN_ID = 'operational-completed-search-area-hatch';
+const SEARCH_AREA_COMPLETED_HATCH_LAYER_ID = 'operational-overall_search_area-completed-hatch';
+const SEARCH_AREA_LINE_LAYER_IDS = {
+  overall: 'operational-overall_search_area-line-overall',
+  unit: 'operational-overall_search_area-line-unit',
+  team: 'operational-overall_search_area-line-team',
+} as const;
+const SEARCH_AREA_LINE_LAYER_ORDER = [
+  SEARCH_AREA_LINE_LAYER_IDS.overall,
+  SEARCH_AREA_LINE_LAYER_IDS.unit,
+  SEARCH_AREA_LINE_LAYER_IDS.team,
+] as const;
+const SEARCH_AREA_RENDER_LAYER_IDS = [
+  SEARCH_AREA_FILL_LAYER_ID,
+  SEARCH_AREA_COMPLETED_HATCH_LAYER_ID,
+  ...SEARCH_AREA_LINE_LAYER_ORDER,
+];
+const SEARCH_AREA_LINE_LAYER_STYLES: Array<{
+  id: (typeof SEARCH_AREA_LINE_LAYER_ORDER)[number];
+  areaLevel: SearchAreaLevel;
+  lineWidth: number;
+  lineOpacity: number;
+  lineGapWidth?: number;
+  lineDasharray?: [number, number];
+}> = [
+  {
+    id: SEARCH_AREA_LINE_LAYER_IDS.overall,
+    areaLevel: 'OVERALL',
+    lineWidth: 2,
+    lineOpacity: 0.92,
+    lineDasharray: [2, 1.2],
+  },
+  {
+    id: SEARCH_AREA_LINE_LAYER_IDS.unit,
+    areaLevel: 'UNIT',
+    lineWidth: 1,
+    lineGapWidth: 3,
+    lineOpacity: 0.98,
+  },
+  {
+    id: SEARCH_AREA_LINE_LAYER_IDS.team,
+    areaLevel: 'TEAM',
+    lineWidth: 1,
+    lineOpacity: 0.98,
+  },
+];
 const MOVEMENT_PATH_SOURCE_ID = 'operational-movement-path';
 const MOVEMENT_PATH_COMPARE_HIGHLIGHT_LAYER_ID = 'operational-movement-path-compare-highlight';
 const MOVEMENT_PATH_COMPARE_LAYER_ID = 'operational-movement-path-compare';
@@ -67,12 +122,12 @@ const MOVEMENT_PATH_UNKNOWN_GLOW_LAYER_ID = 'operational-movement-path-unknown-g
 const MOVEMENT_PATH_UNKNOWN_LAYER_ID = 'operational-movement-path-unknown';
 const INITIAL_MAP_FALLBACK_ZOOM = 12;
 
-type Position = [number, number];
 type LineStringGeometry = { type: 'LineString'; coordinates: Position[] };
 type PointGeometry = { type: 'Point'; coordinates: Position };
 type OperationalGeometry = BoardMapGeometry;
 type OperationalFeature = BoardMapFeature;
 type OperationalFeatureCollection = BoardMapFeatureCollection;
+type SearchAreaLevel = 'OVERALL' | 'UNIT' | 'TEAM';
 type RouteEditorFeatureCollection = {
   type: 'FeatureCollection';
   features: Array<
@@ -100,81 +155,6 @@ export type LayerVisibility = {
   searchArea: boolean;
   marker: boolean;
 };
-
-const EMPTY_OPERATIONAL_FEATURE_COLLECTION: OperationalFeatureCollection = {
-  type: 'FeatureCollection',
-  features: [],
-};
-
-function createOperationalFeatureCollectionSignature(collection: OperationalFeatureCollection): string {
-  return collection.features
-    .map((feature) =>
-      [
-        feature.properties.entityId,
-        feature.properties.areaLevel ?? '',
-        feature.properties.status ?? '',
-        feature.properties.version ?? '',
-        feature.properties.bbox ?? '',
-        JSON.stringify(feature.geometry.coordinates),
-      ].join('|'),
-    )
-    .join(';');
-}
-
-function toBounds(bbox: [number, number, number, number]): LngLatBoundsLike {
-  return [
-    [bbox[0], bbox[1]],
-    [bbox[2], bbox[3]],
-  ];
-}
-
-function parseFeatureBbox(feature: OperationalFeature): [number, number, number, number] | null {
-  const rawBbox = feature.properties.bbox;
-  if (!rawBbox) return null;
-
-  try {
-    const bbox = JSON.parse(rawBbox) as unknown;
-    if (
-      Array.isArray(bbox) &&
-      bbox.length >= 4 &&
-      typeof bbox[0] === 'number' &&
-      typeof bbox[1] === 'number' &&
-      typeof bbox[2] === 'number' &&
-      typeof bbox[3] === 'number'
-    ) {
-      return [bbox[0], bbox[1], bbox[2], bbox[3]];
-    }
-  } catch {
-    return null;
-  }
-
-  return null;
-}
-
-function extendBounds(bounds: maplibregl.LngLatBounds, coordinates: unknown): void {
-  if (!Array.isArray(coordinates)) {
-    return;
-  }
-  if (typeof coordinates[0] === 'number' && typeof coordinates[1] === 'number') {
-    bounds.extend(coordinates as Position);
-    return;
-  }
-  coordinates.forEach((item) => extendBounds(bounds, item));
-}
-
-function getFeatureCollectionBounds(collection: OperationalFeatureCollection): LngLatBoundsLike | null {
-  const bounds = new maplibregl.LngLatBounds();
-  collection.features.forEach((feature) => {
-    const bbox = parseFeatureBbox(feature);
-    if (bbox) {
-      bounds.extend([bbox[0], bbox[1]]);
-      bounds.extend([bbox[2], bbox[3]]);
-      return;
-    }
-    extendBounds(bounds, feature.geometry.coordinates);
-  });
-  return bounds.isEmpty() ? null : bounds;
-}
 
 function addGeoJsonSource(
   map: maplibregl.Map,
@@ -226,57 +206,34 @@ function syncSearchAreaSourceDataWhenAvailable(
   }
 }
 
-function getAssignedSearchAreaBounds(searchAreas: OperationalFeatureCollection): LngLatBoundsLike | null {
-  const overallSearchAreas: OperationalFeatureCollection = {
-    type: 'FeatureCollection',
-    features: searchAreas.features.filter((feature) => feature.geometry.type === 'Polygon' && feature.properties.areaLevel === 'OVERALL'),
-  };
-  const overallSearchAreaBounds = getFeatureCollectionBounds(overallSearchAreas);
-  if (overallSearchAreaBounds) {
-    return overallSearchAreaBounds;
-  }
-
-  const availableSearchAreas: OperationalFeatureCollection = {
-    type: 'FeatureCollection',
-    features: searchAreas.features.filter((feature) => feature.geometry.type === 'Polygon'),
-  };
-  return getFeatureCollectionBounds(availableSearchAreas);
+function hasSearchAreaLayers(map: maplibregl.Map) {
+  return SEARCH_AREA_RENDER_LAYER_IDS.every((layerId) => Boolean(map.getLayer(layerId)));
 }
 
-function getSearchAreaBoundsById(
-  searchAreas: OperationalFeatureCollection,
-  searchAreaId: string,
-): LngLatBoundsLike | null {
-  const searchArea = searchAreas.features.find(
-    (feature) => feature.properties.entityId === searchAreaId && feature.geometry.type === 'Polygon',
-  );
-  if (!searchArea) {
-    return null;
+function addCompletedSearchAreaHatchPattern(map: maplibregl.Map) {
+  if (map.hasImage(SEARCH_AREA_COMPLETED_HATCH_PATTERN_ID)) {
+    return;
   }
 
-  return getFeatureCollectionBounds({
-    type: 'FeatureCollection',
-    features: [searchArea],
-  });
-}
-
-function resolveInitialMapView(
-  fallbackBounds: LngLatBoundsLike | null,
-  assignedSearchAreas: OperationalFeatureCollection,
-): InitialMapResolution {
-  const assignedSearchAreaBounds = getAssignedSearchAreaBounds(assignedSearchAreas);
-  if (assignedSearchAreaBounds) {
-    return {
-      state: 'overall-ready',
-      bounds: assignedSearchAreaBounds,
-      overallSearchArea: assignedSearchAreas,
-    };
+  const canvas = document.createElement('canvas');
+  canvas.width = 16;
+  canvas.height = 16;
+  const context = canvas.getContext('2d');
+  if (!context) {
+    return;
   }
 
-  return {
-    state: 'fallback',
-    bounds: fallbackBounds,
-  };
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.strokeStyle = 'rgba(15, 23, 42, 0.46)';
+  context.lineWidth = 1;
+  context.beginPath();
+  context.moveTo(-4, 16);
+  context.lineTo(16, -4);
+  context.moveTo(0, 20);
+  context.lineTo(20, 0);
+  context.stroke();
+
+  map.addImage(SEARCH_AREA_COMPLETED_HATCH_PATTERN_ID, context.getImageData(0, 0, canvas.width, canvas.height));
 }
 
 function addLayer(map: maplibregl.Map, layer: LayerSpecification) {
@@ -366,8 +323,9 @@ function syncBaseMapOpacity(map: maplibregl.Map) {
   applyBaseRasterOpacity(map);
 }
 
-function addOverallSearchAreaLayer(map: maplibregl.Map, overallSearchArea: OperationalFeatureCollection) {
+function addSearchAreaLayers(map: maplibregl.Map, overallSearchArea: OperationalFeatureCollection) {
   addGeoJsonSource(map, OVERALL_SEARCH_AREA_SOURCE_ID, overallSearchArea);
+  addCompletedSearchAreaHatchPattern(map);
 
   addLayer(map, {
     id: SEARCH_AREA_FILL_LAYER_ID,
@@ -378,16 +336,32 @@ function addOverallSearchAreaLayer(map: maplibregl.Map, overallSearchArea: Opera
       'fill-opacity': 0.12,
     },
   });
+
   addLayer(map, {
-    id: SEARCH_AREA_LINE_LAYER_ID,
-    type: 'line',
+    id: SEARCH_AREA_COMPLETED_HATCH_LAYER_ID,
+    type: 'fill',
     source: OVERALL_SEARCH_AREA_SOURCE_ID,
+    filter: ['==', ['get', 'status'], 'COMPLETED'],
     paint: {
-      'line-color': ['get', 'lineColor'],
-      'line-width': ['to-number', ['get', 'lineWidth']],
-      'line-opacity': ['to-number', ['get', 'lineOpacity']],
-      'line-dasharray': [2, 1.2],
+      'fill-pattern': SEARCH_AREA_COMPLETED_HATCH_PATTERN_ID,
+      'fill-opacity': 0.45,
     },
+  });
+
+  SEARCH_AREA_LINE_LAYER_STYLES.forEach((style) => {
+    addLayer(map, {
+      id: style.id,
+      type: 'line',
+      source: OVERALL_SEARCH_AREA_SOURCE_ID,
+      filter: ['==', ['get', 'areaLevel'], style.areaLevel],
+      paint: {
+        'line-color': ['get', 'lineColor'],
+        'line-width': style.lineWidth,
+        'line-opacity': style.lineOpacity,
+        ...(style.lineGapWidth ? { 'line-gap-width': style.lineGapWidth } : {}),
+        ...(style.lineDasharray ? { 'line-dasharray': style.lineDasharray } : {}),
+      },
+    });
   });
 }
 
@@ -570,19 +544,15 @@ function raiseMovementPathLayers(map: maplibregl.Map) {
 }
 
 function syncSelectedSearchArea(map: maplibregl.Map, selectedSearchAreaId: string | null) {
-  if (!map.getLayer(SEARCH_AREA_FILL_LAYER_ID) || !map.getLayer(SEARCH_AREA_LINE_LAYER_ID)) {
+  if (!hasSearchAreaLayers(map)) {
     return;
   }
 
   const selectedFilter = selectedSearchAreaId ? ['==', ['get', 'entityId'], selectedSearchAreaId] : false;
   map.setPaintProperty(SEARCH_AREA_FILL_LAYER_ID, 'fill-opacity', ['case', selectedFilter, 0.28, 0.12]);
-  map.setPaintProperty(SEARCH_AREA_LINE_LAYER_ID, 'line-width', [
-    'case',
-    selectedFilter,
-    ['+', ['to-number', ['get', 'lineWidth']], 1.4],
-    ['to-number', ['get', 'lineWidth']],
-  ]);
-  map.setPaintProperty(SEARCH_AREA_LINE_LAYER_ID, 'line-opacity', ['case', selectedFilter, 1, ['to-number', ['get', 'lineOpacity']]]);
+  SEARCH_AREA_LINE_LAYER_STYLES.forEach((style) => {
+    map.setPaintProperty(style.id, 'line-opacity', ['case', selectedFilter, 1, style.lineOpacity]);
+  });
 }
 
 function setLayerVisibility(map: maplibregl.Map, layerId: string, isVisible: boolean) {
@@ -595,7 +565,8 @@ function setLayerVisibility(map: maplibregl.Map, layerId: string, isVisible: boo
 
 function syncLayerVisibility(map: maplibregl.Map, layerVisibility: LayerVisibility) {
   setLayerVisibility(map, SEARCH_AREA_FILL_LAYER_ID, layerVisibility.searchArea);
-  setLayerVisibility(map, SEARCH_AREA_LINE_LAYER_ID, layerVisibility.searchArea);
+  setLayerVisibility(map, SEARCH_AREA_COMPLETED_HATCH_LAYER_ID, layerVisibility.searchArea);
+  SEARCH_AREA_LINE_LAYER_ORDER.forEach((layerId) => setLayerVisibility(map, layerId, layerVisibility.searchArea));
   setLayerVisibility(map, MOVEMENT_PATH_COMPARE_HIGHLIGHT_LAYER_ID, layerVisibility.vehiclePath || layerVisibility.footPath);
   setLayerVisibility(map, MOVEMENT_PATH_VEHICLE_GLOW_LAYER_ID, layerVisibility.vehiclePath);
   setLayerVisibility(map, MOVEMENT_PATH_VEHICLE_LAYER_ID, layerVisibility.vehiclePath);
@@ -612,6 +583,7 @@ type SearchMapCanvasProps = {
   layerVisibility: LayerVisibility;
   movementPaths: MovementPath[];
   recentMarkers: RecentMarker[];
+  operationalPeriods: OperationalPeriod[];
   focusedMarkerId: string | null;
   focusedMarkerSequence: number;
   focusedSearchAreaId: string | null;
@@ -637,6 +609,7 @@ export function SearchMapCanvas({
   layerVisibility,
   movementPaths,
   recentMarkers,
+  operationalPeriods,
   focusedMarkerId,
   focusedMarkerSequence,
   focusedSearchAreaId,
@@ -662,9 +635,12 @@ export function SearchMapCanvas({
   const areaEditMapPropsRef = useRef(areaEditMapProps);
   const layerVisibilityRef = useRef(layerVisibility);
   const recentMarkersRef = useRef(recentMarkers);
+  const visibleMarkerIdsRef = useRef(visibleMarkerIds);
   const markerInstancesRef = useRef<Map<string, MarkerInstance>>(new Map());
   const hoverMarkerPopupRef = useRef<maplibregl.Popup | null>(null);
   const selectedMarkerPopupRef = useRef<maplibregl.Popup | null>(null);
+  const hoveredMarkerIdRef = useRef<string | null>(null);
+  const selectedMarkerIdRef = useRef<string | null>(null);
   const onSelectSearchAreaRef = useRef(onSelectSearchArea);
   const [routeEditorCoordinates, setRouteEditorCoordinates] = useState<Position[]>([]);
   const [mapInstance, setMapInstance] = useState<maplibregl.Map | null>(null);
@@ -678,8 +654,8 @@ export function SearchMapCanvas({
   const searchAreaPopupSearchAreaIdRef = useRef<string | null>(null);
   const isRouteEditorEnabled = isRouteEditorEnabledRef.current;
   const assignedSearchAreas = useMemo(
-    () => createSearchAreaDraftFeatureCollection(savedAreaDrafts, { incidentId, includeSlot: true }),
-    [incidentId, savedAreaDrafts],
+    () => applySearchAreaStatuses(createSearchAreaDraftFeatureCollection(savedAreaDrafts, { incidentId, includeSlot: true }), searchAreaTree),
+    [incidentId, savedAreaDrafts, searchAreaTree],
   );
   const movementPathFeatures = useMemo(
     () =>
@@ -707,6 +683,18 @@ export function SearchMapCanvas({
   useEffect(() => {
     selectedSearchAreaIdRef.current = selectedSearchAreaId;
   }, [selectedSearchAreaId]);
+
+  useEffect(() => {
+    visibleMarkerIdsRef.current = visibleMarkerIds;
+  }, [visibleMarkerIds]);
+
+  useEffect(() => {
+    hoveredMarkerIdRef.current = hoveredMarkerId;
+  }, [hoveredMarkerId]);
+
+  useEffect(() => {
+    selectedMarkerIdRef.current = selectedMarkerId;
+  }, [selectedMarkerId]);
 
   useEffect(() => {
     if (selectedSearchAreaId !== null) {
@@ -753,12 +741,12 @@ export function SearchMapCanvas({
     searchAreaPopupSearchAreaIdRef.current = null;
     setSearchAreaPopupLngLat(null);
     removeSearchAreaPopup();
-  }, [removeSearchAreaPopup]);
+    onClearSelectedSearchArea();
+  }, [onClearSelectedSearchArea, removeSearchAreaPopup]);
 
   const handleCloseSearchAreaPopup = useCallback(() => {
     closeSearchAreaPopup();
-    onClearSelectedSearchArea();
-  }, [closeSearchAreaPopup, onClearSelectedSearchArea]);
+  }, [closeSearchAreaPopup]);
 
   const handleOpenSearchAreaSplit = useCallback(() => {
     closeSearchAreaPopup();
@@ -795,6 +783,7 @@ export function SearchMapCanvas({
         return;
       }
 
+      onClearSelectedSearchArea();
       closeSearchAreaPopup();
     };
 
@@ -834,6 +823,10 @@ export function SearchMapCanvas({
         variant="mapPopup"
         searchAreaTree={searchAreaTree}
         selectedSearchAreaId={selectedSearchAreaId}
+        savedAreaDrafts={savedAreaDrafts}
+        movementPaths={movementPaths}
+        recentMarkers={recentMarkers}
+        operationalPeriods={operationalPeriods}
         onClose={handleCloseSearchAreaPopup}
         onOpenAssign={handleOpenSearchAreaAssign}
         onOpenSplit={handleOpenSearchAreaSplit}
@@ -849,6 +842,7 @@ export function SearchMapCanvas({
     searchAreaPopupLngLat,
     searchAreaTree,
     selectedSearchAreaId,
+    operationalPeriods,
   ]);
 
   useEffect(() => () => removeSearchAreaPopup(), [removeSearchAreaPopup]);
@@ -867,8 +861,10 @@ export function SearchMapCanvas({
       markerInstancesRef,
       layerVisibility.marker,
       markerInteractionHandlers,
+      hoveredMarkerId,
+      selectedMarkerId,
     );
-  }, [layerVisibility, markerInteractionHandlers, visibleMarkerIds]);
+  }, [hoveredMarkerId, layerVisibility, markerInteractionHandlers, selectedMarkerId, visibleMarkerIds]);
 
   useEffect(() => {
     recentMarkersRef.current = recentMarkers;
@@ -884,8 +880,10 @@ export function SearchMapCanvas({
       markerInstancesRef,
       layerVisibilityRef.current.marker,
       markerInteractionHandlers,
+      hoveredMarkerId,
+      selectedMarkerId,
     );
-  }, [markerInteractionHandlers, recentMarkers, visibleMarkerIds]);
+  }, [hoveredMarkerId, markerInteractionHandlers, recentMarkers, selectedMarkerId, visibleMarkerIds]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -1012,7 +1010,7 @@ export function SearchMapCanvas({
     }
 
     syncSearchAreaSourceDataWhenAvailable(map, assignedSearchAreas, layerVisibilityRef.current.searchArea);
-    if (map.getLayer(SEARCH_AREA_LINE_LAYER_ID)) {
+    if (hasSearchAreaLayers(map)) {
       syncSelectedSearchArea(map, selectedSearchAreaIdRef.current);
     }
     const assignedSearchAreaBounds = getAssignedSearchAreaBounds(assignedSearchAreas);
@@ -1046,7 +1044,7 @@ export function SearchMapCanvas({
     }
 
     syncSearchAreaSourceDataWhenAvailable(map, assignedSearchAreasRef.current, layerVisibility.searchArea);
-    if (map.getLayer(SEARCH_AREA_LINE_LAYER_ID)) {
+    if (hasSearchAreaLayers(map)) {
       syncLayerVisibility(map, layerVisibility);
       syncSelectedSearchArea(map, selectedSearchAreaIdRef.current);
     }
@@ -1128,15 +1126,19 @@ export function SearchMapCanvas({
           return;
         }
 
-        if (!map.getLayer(SEARCH_AREA_FILL_LAYER_ID) || !map.getLayer(SEARCH_AREA_LINE_LAYER_ID)) {
+        if (!hasSearchAreaLayers(map)) {
+          onClearSelectedSearchArea();
+          closeSearchAreaPopup();
           return;
         }
 
         if (!layerVisibilityRef.current.searchArea) {
+          onClearSelectedSearchArea();
+          closeSearchAreaPopup();
           return;
         }
 
-        const features = map.queryRenderedFeatures(event.point, { layers: [SEARCH_AREA_FILL_LAYER_ID, SEARCH_AREA_LINE_LAYER_ID] });
+        const features = map.queryRenderedFeatures(event.point, { layers: SEARCH_AREA_RENDER_LAYER_IDS });
         const searchAreaId = features.find((feature) => typeof feature.properties?.entityId === 'string')?.properties
           ?.entityId;
         if (typeof searchAreaId === 'string') {
@@ -1145,6 +1147,7 @@ export function SearchMapCanvas({
           setSearchAreaPopupLngLat(event.lngLat);
           return;
         }
+        onClearSelectedSearchArea();
         closeSearchAreaPopup();
         return;
       }
@@ -1160,17 +1163,19 @@ export function SearchMapCanvas({
       syncBaseMapOpacity(map);
       const currentAssignedSearchAreas = assignedSearchAreasRef.current;
       const currentMovementPathFeatures = movementPathFeaturesRef.current;
-      addOverallSearchAreaLayer(map, currentAssignedSearchAreas);
+      addSearchAreaLayers(map, currentAssignedSearchAreas);
       addMovementPathLayers(map, currentMovementPathFeatures);
       syncSelectedSearchArea(map, selectedSearchAreaIdRef.current);
       syncLayerVisibility(map, layerVisibilityRef.current);
       syncMarkerElements(
         map,
         recentMarkersRef.current,
-        visibleMarkerIds,
+        visibleMarkerIdsRef.current,
         markerInstancesRef,
         layerVisibilityRef.current.marker,
         markerInteractionHandlers,
+        hoveredMarkerIdRef.current,
+        selectedMarkerIdRef.current,
       );
 
       void Promise.resolve()

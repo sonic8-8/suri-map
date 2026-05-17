@@ -6,6 +6,7 @@ import type {
   RecentMarker,
   SupportRequestTypeId,
 } from '../../constants/mockSituationBoard';
+import { MarkerGlyph, type MarkerGlyphName } from '../marker/MarkerGlyph';
 import { CollapsiblePanelSection } from './CollapsiblePanelSection';
 import { MarkerTypeFilter } from './MarkerTypeFilter';
 import styles from './RecentMarkerList.module.css';
@@ -91,7 +92,7 @@ export function RecentMarkerList({
           건
         </span>
         <span>
-          강조 <strong>{emphasisCount}</strong>
+          중요 <strong>{emphasisCount}</strong>
         </span>
       </div>
 
@@ -105,11 +106,15 @@ export function RecentMarkerList({
       />
 
       {filteredMarkers.length === 0 ? (
-        <div className={styles.emptyState}>표시할 마커가 없습니다.</div>
+        <div className={styles.emptyState}>아직 마커가 없습니다.</div>
       ) : (
         <ol className={styles.feed} aria-label="마커 목록">
           {filteredMarkers.map((marker) => {
             const markerType = markerTypeOf(marker);
+            const markerLabel = marker.markerTypeLabel ?? markerTypeLabel(markerType);
+            const summary = getMarkerSummary(marker, markerLabel);
+            const detailChips = getMarkerDetailChips(marker);
+            const markerIconName = getMarkerIconName(markerType, marker.supportRequestType);
             const shouldShowMemo = Boolean(
               marker.memo && marker.memo !== marker.summary && marker.memo !== marker.title,
             );
@@ -127,37 +132,31 @@ export function RecentMarkerList({
                   onSelectMarker?.(marker.id);
                 }}
               >
-                <span className={styles.eventDot} aria-hidden="true" />
                 <div className={styles.itemBody}>
                   <div className={styles.titleRow}>
-                    <strong className={styles.itemTitle}>{marker.title}</strong>
+                    <span className={styles.identityGroup}>
+                      <span className={styles.markerIconBadge} aria-hidden="true">
+                        <MarkerGlyph name={markerIconName} size={16} />
+                      </span>
+                      <span className={styles.typeBadge}>{markerLabel}</span>
+                    </span>
                     <time className={styles.eventTime} dateTime={marker.occurredAt}>
                       {marker.timeLabel}
                     </time>
                   </div>
-                  <dl className={styles.metaGrid}>
-                    <div>
-                      <dt>OP</dt>
-                      <dd>{marker.opLabel ?? '-'}</dd>
+                  <strong className={styles.itemTitle}>{marker.title}</strong>
+                  {summary ? <span className={styles.itemMeta}>{summary}</span> : null}
+                  {detailChips.length > 0 ? (
+                    <div className={styles.detailChips} aria-label="마커 세부 정보">
+                      {detailChips.map((chip) => (
+                        <span key={chip} className={styles.detailChip}>
+                          {chip}
+                        </span>
+                      ))}
                     </div>
-                    <div>
-                      <dt>보고</dt>
-                      <dd>{marker.reporterLabel ?? '-'}</dd>
-                    </div>
-                    <div>
-                      <dt>출처</dt>
-                      <dd>{marker.sourceLabel ?? '-'}</dd>
-                    </div>
-                    <div>
-                      <dt>좌표</dt>
-                      <dd>{marker.coordinateLabel ?? '-'}</dd>
-                    </div>
-                  </dl>
+                  ) : null}
                   {shouldShowMemo ? <p className={styles.memo}>{marker.memo}</p> : null}
                 </div>
-                <span className={`${styles.typeBadge} ${styles[markerTypeBadgeClass(markerType)]}`}>
-                  {marker.markerTypeLabel ?? markerTypeLabel(markerType)}
-                </span>
               </li>
             );
           })}
@@ -169,11 +168,16 @@ export function RecentMarkerList({
 
 function markerTypeOf(marker: RecentMarker): MarkerTypeId | 'UNKNOWN' {
   if (marker.markerType && marker.markerType !== 'UNKNOWN') return marker.markerType;
-  if (marker.eventType === '단서') return 'CLUE';
-  if (marker.eventType === '발견') return 'PERSON_FOUND';
-  if (marker.eventType === '지형') return 'FIELD_CONDITION';
-  if (marker.eventType === '지원 요청') return 'SUPPORT_REQUEST';
-  if (marker.eventType === 'NOTE' || marker.eventType === '메모' || marker.eventType === '운영 메모') return 'NOTE';
+  if (marker.supportRequestType) return 'SUPPORT_REQUEST';
+
+  const sourceText = [marker.markerTypeLabel, marker.eventType].filter(Boolean).join(' ');
+  if (sourceText.includes('지원 요청') || sourceText.includes('드론') || sourceText.includes('경찰견')) {
+    return 'SUPPORT_REQUEST';
+  }
+  if (sourceText.includes('단서')) return 'CLUE';
+  if (sourceText.includes('발견')) return 'PERSON_FOUND';
+  if (sourceText.includes('지형')) return 'FIELD_CONDITION';
+  if (sourceText.includes('메모')) return 'NOTE';
   return 'UNKNOWN';
 }
 
@@ -196,28 +200,58 @@ function markerTypeLabel(markerType: MarkerTypeId | 'UNKNOWN') {
 
 function markerTypeClass(markerType: MarkerTypeId | 'UNKNOWN') {
   switch (markerType) {
+    case 'CLUE':
+      return 'feedItemClue';
     case 'PERSON_FOUND':
       return 'feedItemFound';
+    case 'FIELD_CONDITION':
+      return 'feedItemField';
     case 'SUPPORT_REQUEST':
       return 'feedItemSupport';
+    case 'NOTE':
+      return 'feedItemNote';
     default:
-      return 'feedItemDefault';
+      return 'feedItemUnknown';
   }
 }
 
-function markerTypeBadgeClass(markerType: MarkerTypeId | 'UNKNOWN') {
+function getMarkerIconName(
+  markerType: MarkerTypeId | 'UNKNOWN',
+  supportRequestType?: SupportRequestTypeId | null,
+): MarkerGlyphName {
   switch (markerType) {
     case 'CLUE':
-      return 'typeClue';
+      return 'clue';
     case 'PERSON_FOUND':
-      return 'typeFound';
+      return 'found';
     case 'FIELD_CONDITION':
-      return 'typeField';
+      return 'field';
     case 'SUPPORT_REQUEST':
-      return 'typeSupport';
+      if (supportRequestType === 'DRONE') return 'drone';
+      if (supportRequestType === 'POLICE_DOG') return 'dog';
+      if (supportRequestType === 'OTHER') return 'handHelping';
+      return 'hand';
     case 'NOTE':
-      return 'typeNote';
     default:
-      return 'typeUnknown';
+      return 'note';
   }
+}
+
+function getMarkerSummary(marker: RecentMarker, markerLabel: string) {
+  if (
+    marker.summary &&
+    marker.summary !== marker.title &&
+    marker.summary !== marker.memo &&
+    marker.summary !== markerLabel
+  ) {
+    return marker.summary;
+  }
+
+  return null;
+}
+
+function getMarkerDetailChips(marker: RecentMarker) {
+  return [marker.opLabel, marker.reporterLabel, marker.sourceLabel, marker.coordinateLabel].filter(
+    (value): value is string => Boolean(value),
+  );
 }

@@ -21,7 +21,7 @@ export type MarkerFilterOption = {
   markerType: MarkerTypeId;
   supportRequestType?: SupportRequestTypeId;
   label: string;
-  icon: 'clue' | 'found' | 'field' | 'note' | 'hand' | 'drone' | 'dog';
+  icon: 'clue' | 'found' | 'field' | 'note' | 'hand' | 'handHelping' | 'drone' | 'dog';
 };
 
 export type LayerFilterId = 'vehicle_path' | 'foot_path' | 'search_area' | 'marker';
@@ -41,6 +41,7 @@ export type RecentMarker = {
   summary: string;
   occurredAt: string;
   timeLabel: string;
+  opId?: string | null;
   opLabel?: string;
   reporterLabel?: string;
   sourceLabel?: string;
@@ -124,7 +125,7 @@ const markerTypes: MarkerFilterOption[] = [
 const supportMarkerTypes: MarkerFilterOption[] = [
   { markerType: 'SUPPORT_REQUEST', supportRequestType: 'DRONE', label: '드론', icon: 'drone' },
   { markerType: 'SUPPORT_REQUEST', supportRequestType: 'POLICE_DOG', label: '경찰견', icon: 'dog' },
-  { markerType: 'SUPPORT_REQUEST', supportRequestType: 'OTHER', label: '기타', icon: 'hand' },
+  { markerType: 'SUPPORT_REQUEST', supportRequestType: 'OTHER', label: '기타', icon: 'handHelping' },
 ];
 
 const legendItems: LegendItem[] = [

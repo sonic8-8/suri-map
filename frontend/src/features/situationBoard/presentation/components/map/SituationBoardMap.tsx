@@ -3,7 +3,13 @@ import type { InitialMapState, LayerVisibility } from './SearchMapCanvas';
 import type { AreaEditMapCanvasProps } from '../../../../areaEdit/presentation/components/AreaEditMapCanvas';
 import type { HandoverComparisonMapSharedProps } from '../../../../handover/presentation/components/HandoverComparisonMap';
 import type { CompletedAreaDraft } from '../../../../../shared/model/areaDraft';
-import type { LegendItem, MovementPath, RecentMarker, SearchAreaTreeNode } from '../../constants/mockSituationBoard';
+import type {
+  LegendItem,
+  MovementPath,
+  OperationalPeriod,
+  RecentMarker,
+  SearchAreaTreeNode,
+} from '../../constants/mockSituationBoard';
 import styles from './SituationBoardMap.module.css';
 
 type SituationBoardMapProps = {
@@ -15,6 +21,7 @@ type SituationBoardMapProps = {
   layerVisibility: LayerVisibility;
   movementPaths: MovementPath[];
   recentMarkers: RecentMarker[];
+  operationalPeriods: OperationalPeriod[];
   focusedMarkerId: string | null;
   focusedMarkerSequence: number;
   focusedSearchAreaId: string | null;
@@ -42,6 +49,7 @@ export function SituationBoardMap({
   layerVisibility,
   movementPaths,
   recentMarkers,
+  operationalPeriods,
   focusedMarkerId,
   focusedMarkerSequence,
   focusedSearchAreaId,
@@ -70,6 +78,7 @@ export function SituationBoardMap({
         layerVisibility={layerVisibility}
         movementPaths={movementPaths}
         recentMarkers={recentMarkers}
+        operationalPeriods={operationalPeriods}
         focusedMarkerId={focusedMarkerId}
         focusedMarkerSequence={focusedMarkerSequence}
         focusedSearchAreaId={focusedSearchAreaId}

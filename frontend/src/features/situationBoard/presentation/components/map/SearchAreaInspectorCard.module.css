@@ -5,7 +5,7 @@
   top: 16px;
   left: 50%;
   z-index: 4;
-  width: min(448px, calc(100% - 32px));
+  width: min(500px, calc(100% - 32px));
   pointer-events: none;
   transform: translateX(-50%);
 }
@@ -13,23 +13,25 @@
 .mapPopup {
   --area-identity-color: #2563eb;
 
-  width: min(448px, calc(100vw - 40px));
+  width: min(500px, calc(100vw - 40px));
   pointer-events: auto;
 }
 
 .card {
   position: relative;
   display: grid;
-  gap: 12px;
-  padding: 14px 14px 13px;
+  gap: 14px;
+  padding: 18px 18px 16px;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--area-identity-color) 22%, rgba(148, 163, 184, 0.24));
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.97);
-  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.16);
+  border: 1px solid rgba(101, 198, 228, 0.52);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 252, 255, 0.95));
+  box-shadow:
+    0 18px 36px rgba(15, 23, 42, 0.14),
+    0 0 0 1px rgba(255, 255, 255, 0.7) inset;
   color: #172033;
   pointer-events: auto;
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(14px);
   animation: inspectorCardEnter 150ms ease-out;
 }
 
@@ -39,35 +41,55 @@
   animation: none;
 }
 
-.accentBar {
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  height: 3px;
-  background: var(--area-identity-color);
-}
-
 .header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
+}
+
+.headerMain {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.titleBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 52px;
+  height: 52px;
+  margin-top: 2px;
+  border-radius: 16px 16px 16px 6px;
+  border: 1px solid color-mix(in srgb, var(--area-identity-color) 36%, rgba(255, 255, 255, 0.16));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--area-identity-color) 24%, rgba(255, 255, 255, 0.98)),
+    color-mix(in srgb, var(--area-identity-color) 14%, rgba(248, 252, 255, 0.96))
+  );
+  color: color-mix(in srgb, var(--area-identity-color) 82%, #1f2937);
+  box-shadow:
+    0 12px 24px color-mix(in srgb, var(--area-identity-color) 16%, rgba(15, 23, 42, 0.16)),
+    0 0 0 1px rgba(255, 255, 255, 0.32) inset;
 }
 
 .titleBlock {
   display: grid;
-  gap: 6px;
+  gap: 7px;
   min-width: 0;
+  padding-top: 2px;
 }
 
 .title {
+  display: -webkit-box;
   overflow: hidden;
   color: #0f172a;
-  display: -webkit-box;
-  font-size: 17px;
+  font-size: 24px;
   font-weight: 900;
-  line-height: 1.3;
+  line-height: 1.12;
   overflow-wrap: anywhere;
   text-overflow: clip;
   -webkit-box-orient: vertical;
@@ -78,43 +100,63 @@
 .pillRow {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
 
-.pill {
+.chip {
   display: inline-flex;
   align-items: center;
-  min-height: 26px;
-  padding: 0 9px;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid rgba(148, 163, 184, 0.26);
   border-radius: 999px;
-  font-size: 12px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
+  color: #244a9b;
+  font-size: 13px;
   font-weight: 800;
   line-height: 1;
+  white-space: nowrap;
 }
 
-.kindPill {
-  background: #e8eefc;
-  color: #244a9b;
+.chipIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.chipLabel {
+  line-height: 1.1;
+}
+
+.infoChip {
+  color: #21406f;
 }
 
 .statusNeutral {
+  border-color: rgba(148, 163, 184, 0.28);
   background: #eef2f7;
-  color: #526071;
+  color: #546274;
 }
 
 .statusActive {
-  background: #dff3ea;
-  color: #1f6a45;
+  border-color: rgba(91, 194, 146, 0.28);
+  background: #e3f6eb;
+  color: #1f744c;
 }
 
 .statusClosed {
-  background: #e8edf4;
-  color: #49566a;
+  border-color: rgba(148, 163, 184, 0.26);
+  background: #edf2f7;
+  color: #4f5f72;
 }
 
 .statusDanger {
-  background: #fde8e8;
-  color: #b42318;
+  border-color: rgba(248, 113, 113, 0.24);
+  background: #fcecec;
+  color: #b91c1c;
 }
 
 .iconCloseButton {
@@ -122,12 +164,12 @@
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   padding: 0;
   border: 1px solid rgba(148, 163, 184, 0.28);
-  border-radius: 8px;
-  background: rgba(248, 250, 252, 0.9);
+  border-radius: 10px;
+  background: rgba(248, 250, 252, 0.94);
   color: #334155;
   cursor: pointer;
 }
@@ -138,93 +180,181 @@
 
 .summaryRow {
   display: grid;
-  gap: 10px;
+  gap: 12px;
 }
 
-.assignmentList {
+.timeSection,
+.activitySection {
+  display: grid;
+  gap: 6px;
+}
+
+.sectionLabel {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.timePanel {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) 1px minmax(0, 0.85fr);
+  align-items: stretch;
+  padding: 12px 14px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 12px;
+  background: rgba(247, 250, 255, 0.96);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.timeRangeMetric {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  min-width: 0;
+  padding-right: 12px;
+}
+
+.timeRangeBody {
   display: grid;
   gap: 8px;
+  min-width: 0;
+  padding-top: 2px;
 }
 
-.assignmentEntry {
+.timeRangeRow {
   display: grid;
-  gap: 2px;
-  padding: 10px 11px;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 8px;
-  background: rgba(248, 250, 252, 0.92);
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: baseline;
+  min-width: 0;
 }
 
-.assignmentEntryTitle {
+.timeRangeLabel {
+  color: #64758b;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
+.timeRangeValue {
+  color: #172033;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.timeMetric {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  min-width: 0;
+  padding-left: 12px;
+}
+
+.timeMetricIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  background: rgba(37, 99, 235, 0.08);
+  color: #2c68ad;
+}
+
+.timeMetricBody {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.timeMetricLabel {
+  color: #64758b;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
+.timeMetricValue {
+  color: #172033;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.timeDivider {
+  width: 1px;
+  background: rgba(148, 163, 184, 0.28);
+}
+
+.activityCard {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding: 12px 13px;
+  border: 1px solid rgba(96, 165, 250, 0.24);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(240, 246, 255, 0.96), rgba(248, 251, 255, 0.92));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.activityIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #2f86e3, #1f6ad1);
+  color: #ffffff;
+  box-shadow: 0 8px 18px rgba(47, 134, 227, 0.22);
+}
+
+.activityBody {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding-top: 1px;
+}
+
+.activityTitle {
   color: #0f172a;
-  font-size: 13px;
+  font-size: 17px;
   font-weight: 900;
   line-height: 1.35;
   overflow-wrap: anywhere;
 }
 
-.assignmentEntryMeta {
-  color: #526071;
-  font-size: 12px;
+.activityMeta {
+  color: #5c6d80;
+  font-size: 14px;
   font-weight: 700;
-  line-height: 1.45;
+  line-height: 1.35;
   overflow-wrap: anywhere;
 }
 
-.assignmentEmpty {
-  padding: 10px 11px;
+.activityEmpty {
+  padding: 12px 13px;
   border: 1px dashed rgba(148, 163, 184, 0.28);
-  border-radius: 8px;
-  background: rgba(248, 250, 252, 0.74);
+  border-radius: 12px;
+  background: rgba(248, 250, 252, 0.76);
   color: #64748b;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1.45;
-}
-
-.summaryItem,
-.breadcrumbRow {
-  display: grid;
-  gap: 5px;
-}
-
-.detailGrid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.summaryLabel {
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0;
-  text-transform: uppercase;
-}
-
-.summaryValue {
-  color: #172033;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.5;
   overflow-wrap: anywhere;
-}
-
-.breadcrumbValue {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.breadcrumbChunk {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: #334155;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.4;
-  white-space: nowrap;
 }
 
 .actions {
@@ -240,13 +370,13 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 36px;
-  padding: 0 12px;
+  min-height: 44px;
+  padding: 0 14px;
   border: 1px solid rgba(148, 163, 184, 0.28);
-  border-radius: 8px;
-  font-size: 13px;
+  border-radius: 10px;
+  font-size: 15px;
   font-weight: 800;
-  line-height: 1;
+  line-height: 1.1;
   cursor: pointer;
 }
 
@@ -260,6 +390,7 @@
 .actionButtonPrimary {
   background: #1e3a5f;
   color: #f8fafc;
+  box-shadow: 0 8px 18px rgba(30, 58, 95, 0.18);
 }
 
 .actionButtonPrimary:not(:disabled):hover {
@@ -267,7 +398,7 @@
 }
 
 .actionButtonSecondary {
-  background: #f8fafc;
+  background: rgba(255, 255, 255, 0.96);
   color: #172033;
 }
 
@@ -309,13 +440,61 @@
     width: calc(100% - 24px);
   }
 
+  .card {
+    gap: 12px;
+    padding: 16px 16px 14px;
+  }
+
+  .header {
+    gap: 10px;
+  }
+
+  .headerMain {
+    gap: 10px;
+  }
+
+  .titleBadge {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px 14px 14px 5px;
+  }
+
+  .title {
+    font-size: 22px;
+  }
+
+  .pillRow {
+    gap: 6px;
+  }
+
+  .timePanel {
+    grid-template-columns: 1fr;
+    gap: 0;
+    padding: 12px;
+  }
+
+  .timeDivider {
+    display: none;
+  }
+
+  .timeRangeMetric {
+    padding-right: 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+  }
+
+  .timeRangeBody {
+    padding-top: 0;
+  }
+
+  .timeMetric {
+    padding-left: 0;
+    padding-top: 10px;
+  }
+
   .actions {
     display: grid;
     grid-template-columns: 1fr 1fr;
-  }
-
-  .detailGrid {
-    grid-template-columns: 1fr;
   }
 
   .actionButtonPrimary,

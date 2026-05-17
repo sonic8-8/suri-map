@@ -1,5 +1,4 @@
-import { type KeyboardEvent, useState } from 'react';
-import { Ban, Layers } from 'lucide-react';
+import { type KeyboardEvent, type MouseEvent, useState } from 'react';
 
 import { CollapsiblePanelSection } from '../../../situationBoard/presentation/components/leftPanel/CollapsiblePanelSection';
 import opStyles from '../../../situationBoard/presentation/components/leftPanel/OperationalPeriodSelector.module.css';
@@ -30,7 +29,7 @@ function formatOperationalPeriodTime(period: OperationalPeriod) {
 
 export function HandoverOperationalPeriodSelector({
   allowEmptySelection = true,
-  emptyMessage = '표시할 OP가 없습니다.',
+  emptyMessage = '등록된 OP가 없습니다.',
   onFocusedOperationalPeriodChange,
   onOperationalPeriodOpen,
   onSelectedOperationalPeriodIdsChange,
@@ -72,6 +71,14 @@ export function HandoverOperationalPeriodSelector({
     onOperationalPeriodOpen(periodId);
   };
 
+  const handleRowClick = (event: MouseEvent<HTMLDivElement>, periodId: string) => {
+    if (event.target instanceof Element && event.target.closest('button')) {
+      return;
+    }
+
+    openOperationalPeriod(periodId);
+  };
+
   const handleOpenKeyDown = (event: KeyboardEvent<HTMLDivElement>, periodId: string) => {
     if (event.target !== event.currentTarget) return;
     if (event.key !== 'Enter' && event.key !== ' ') return;
@@ -88,9 +95,9 @@ export function HandoverOperationalPeriodSelector({
             const isSelected = selectedIds.includes(period.id);
             const timeText = formatOperationalPeriodTime(period);
             const optionClassName = [
-              opStyles.option,
-              isSelected ? opStyles.opOptionSelected : undefined,
-              period.state === 'current' ? opStyles.opOptionCurrent : undefined,
+              styles.option,
+              isSelected ? styles.opOptionSelected : undefined,
+              period.state === 'current' ? styles.opOptionCurrent : undefined,
             ]
               .filter(Boolean)
               .join(' ');
@@ -101,23 +108,9 @@ export function HandoverOperationalPeriodSelector({
                 className={optionClassName}
                 role="button"
                 tabIndex={0}
-                onClick={() => openOperationalPeriod(period.id)}
+                onClick={(event) => handleRowClick(event, period.id)}
                 onKeyDown={(event) => handleOpenKeyDown(event, period.id)}
               >
-                <button
-                  type="button"
-                  className={styles.visibilityButton}
-                  aria-label={`${period.label} 표시 전환`}
-                  aria-pressed={isSelected}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    toggleOperationalPeriod(period.id);
-                  }}
-                >
-                  <span className={opStyles.visibilityIcon} aria-hidden="true">
-                    {isSelected ? <Layers size={16} /> : <Ban size={16} />}
-                  </span>
-                </button>
                 <span className={opStyles.label}>
                   <span className={opStyles.titleRow}>
                     <strong>{period.label}</strong> / {period.reason}
@@ -127,6 +120,20 @@ export function HandoverOperationalPeriodSelector({
                     <time>{timeText}</time>
                   </span>
                 </span>
+                <button
+                  type="button"
+                  className={styles.switchButton}
+                  aria-label={`${period.label} 표시 전환`}
+                  aria-pressed={isSelected}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    toggleOperationalPeriod(period.id);
+                  }}
+                >
+                  <span className={styles.switchTrack} aria-hidden="true">
+                    <span className={styles.switchThumb} />
+                  </span>
+                </button>
               </div>
             );
           })}
