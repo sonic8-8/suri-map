@@ -22,6 +22,11 @@ server:
 surimap:
   cors:
     allowed-origin-patterns: ${SURI_MAP_CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*,http://127.0.0.1:*,https://k14c106.p.ssafy.io}
+  auth:
+    legacy-session-enabled: ${SURI_MAP_LEGACY_SESSION_ENABLED:false}
+    keycloak:
+      issuer-uri: ${SURI_MAP_KEYCLOAK_ISSUER_URI:}
+      jwk-set-uri: ${SURI_MAP_KEYCLOAK_JWK_SET_URI:}
 
 management:
   endpoints:

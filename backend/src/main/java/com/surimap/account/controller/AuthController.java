@@ -8,6 +8,7 @@ import com.surimap.account.service.AuthSessionService;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.RequireChannel;
 import jakarta.validation.Valid;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -15,6 +16,10 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
+@ConditionalOnProperty(
+    prefix = "surimap.auth",
+    name = "legacy-session-enabled",
+    havingValue = "true")
 public class AuthController {
 
   private final AuthSessionService authSessionService;

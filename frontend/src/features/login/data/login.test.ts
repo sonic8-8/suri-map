@@ -1,51 +1,69 @@
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { beforeEach, describe, expect, test } from 'vitest';
 
-import { authApi, type AuthLoginResponse } from '../../auth/api/authApi';
-import { loginWithAccount, readStoredLoginAccount } from './login';
+import { buildLoginAccountFromClaims, readStoredLoginAccount, storeOidcSession } from './login';
 
-vi.mock('../../auth/api/authApi', () => ({
-  authApi: {
-    login: vi.fn(),
-    logout: vi.fn(),
-  },
-}));
-
-describe('login account display names', () => {
+describe('Keycloak OIDC login session', () => {
   beforeEach(() => {
     sessionStorage.clear();
-    vi.clearAllMocks();
   });
 
-  test('maps UUID account ids to the correct display names on login', async () => {
-    vi.mocked(authApi.login).mockResolvedValueOnce(
-      loginResponse('11111111-1111-1111-1111-111111110004'),
-    );
-
-    await expect(loginWithAccount('acct-cmd-alpha', 'fixture')).resolves.toMatchObject({
+  test('maps Keycloak account claims to the canonical display account', () => {
+    expect(
+      buildLoginAccountFromClaims({
+        accountId: '11111111-1111-1111-1111-111111110004',
+        accountType: 'COMMAND',
+        organizationType: 'MISSING_TEAM',
+        realm_access: {
+          roles: ['MISSING_TEAM_COMMANDER'],
+        },
+      }),
+    ).toMatchObject({
       id: '11111111-1111-1111-1111-111111110004',
       name: 'Missing team commander',
-    });
-
-    vi.mocked(authApi.login).mockResolvedValueOnce(
-      loginResponse('11111111-1111-1111-1111-111111110003', 'TEAM', 'POLICE_SUBSTATION', [
-        'MEMBER',
-      ]),
-    );
-
-    await expect(loginWithAccount('acct-precinct-team', 'fixture')).resolves.toMatchObject({
-      id: '11111111-1111-1111-1111-111111110003',
-      name: 'Precinct field team',
+      role: 'MISSING_TEAM_COMMANDER',
     });
   });
 
-  test('normalizes stored sessions to the canonical UUID display names', () => {
+  test('stores Keycloak access token for existing API bearer auth', () => {
+    storeOidcSession(
+      {
+        access_token: jwt({
+          accountId: '11111111-1111-1111-1111-111111110003',
+          accountType: 'TEAM',
+          organizationType: 'POLICE_SUBSTATION',
+          realm_access: {
+            roles: ['MEMBER'],
+          },
+        }),
+        token_type: 'Bearer',
+        expires_in: 600,
+      },
+      {
+        accountId: '11111111-1111-1111-1111-111111110003',
+        accountType: 'TEAM',
+        organizationType: 'POLICE_SUBSTATION',
+        realm_access: {
+          roles: ['MEMBER'],
+        },
+      },
+    );
+
+    expect(sessionStorage.getItem('suriMapAccessToken')).toContain('.');
+    expect(readStoredLoginAccount()).toMatchObject({
+      id: '11111111-1111-1111-1111-111111110003',
+      name: 'Precinct field team',
+      organizationType: 'POLICE_SUBSTATION',
+    });
+  });
+
+  test('clears expired stored sessions', () => {
     sessionStorage.setItem('suriMapAccessToken', 'access-token');
-    sessionStorage.setItem('suriMapSessionId', 'session-id');
+    sessionStorage.setItem('suriMapTokenExpiresAt', String(Date.now() - 1));
     sessionStorage.setItem(
       'suriMapCurrentAccount',
       JSON.stringify({
         id: '11111111-1111-1111-1111-111111110004',
-        name: 'Precinct field team',
+        name: 'Missing team commander',
         organization: 'Missing team',
         accountType: 'COMMAND',
         organizationType: 'MISSING_TEAM',
@@ -55,28 +73,15 @@ describe('login account display names', () => {
       }),
     );
 
-    expect(readStoredLoginAccount()).toMatchObject({
-      id: '11111111-1111-1111-1111-111111110004',
-      name: 'Missing team commander',
-    });
+    expect(readStoredLoginAccount()).toBeNull();
+    expect(sessionStorage.getItem('suriMapAccessToken')).toBeNull();
   });
 });
 
-function loginResponse(
-  accountId: string,
-  accountType: AuthLoginResponse['securityContext']['accountType'] = 'COMMAND',
-  organizationType: AuthLoginResponse['securityContext']['organizationType'] = 'MISSING_TEAM',
-  authorities: AuthLoginResponse['securityContext']['authorities'] = ['MISSING_TEAM_COMMANDER'],
-): AuthLoginResponse {
-  return {
-    sessionId: 'session-001',
-    accessToken: 'access-token-001',
-    securityContext: {
-      accountId,
-      accountType,
-      organizationType,
-      channel: 'WEB',
-      authorities,
-    },
-  };
+function jwt(payload: Record<string, unknown>) {
+  return `${base64Url({ alg: 'none' })}.${base64Url(payload)}.`;
+}
+
+function base64Url(value: Record<string, unknown>) {
+  return btoa(JSON.stringify(value)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }

@@ -48,7 +48,84 @@
       ],
       "attributes": {
         "pkce.code.challenge.method": "S256"
-      }
+      },
+      "protocolMappers": [
+        {
+          "name": "accountId",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "accountId",
+            "claim.name": "accountId",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "false"
+          }
+        },
+        {
+          "name": "accountType",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "accountType",
+            "claim.name": "accountType",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "false"
+          }
+        },
+        {
+          "name": "organizationType",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "organizationType",
+            "claim.name": "organizationType",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "false"
+          }
+        },
+        {
+          "name": "policePhoneId",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "policePhoneId",
+            "claim.name": "policePhoneId",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "false"
+          }
+        },
+        {
+          "name": "policePhoneCode",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "policePhoneCode",
+            "claim.name": "policePhoneCode",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "false"
+          }
+        }
+      ]
     },
     {
       "clientId": "suri-map-android",
@@ -67,13 +144,91 @@
       ],
       "attributes": {
         "pkce.code.challenge.method": "S256"
-      }
+      },
+      "protocolMappers": [
+        {
+          "name": "accountId",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "accountId",
+            "claim.name": "accountId",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "false"
+          }
+        },
+        {
+          "name": "accountType",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "accountType",
+            "claim.name": "accountType",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "false"
+          }
+        },
+        {
+          "name": "organizationType",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "organizationType",
+            "claim.name": "organizationType",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "false"
+          }
+        },
+        {
+          "name": "policePhoneId",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "policePhoneId",
+            "claim.name": "policePhoneId",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "false"
+          }
+        },
+        {
+          "name": "policePhoneCode",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "policePhoneCode",
+            "claim.name": "policePhoneCode",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "false"
+          }
+        }
+      ]
     }
   ],
   "users": [
     {
       "username": "acct-precinct-cmd",
       "enabled": true,
+      "email": "acct-precinct-cmd@suri-map.local",
       "emailVerified": true,
       "firstName": "Precinct",
       "lastName": "Command",
@@ -108,6 +263,7 @@
     {
       "username": "acct-precinct-car",
       "enabled": true,
+      "email": "acct-precinct-car@suri-map.local",
       "emailVerified": true,
       "firstName": "Precinct",
       "lastName": "Patrol",
@@ -142,6 +298,7 @@
     {
       "username": "acct-precinct-team",
       "enabled": true,
+      "email": "acct-precinct-team@suri-map.local",
       "emailVerified": true,
       "firstName": "Precinct",
       "lastName": "Team",
@@ -176,6 +333,7 @@
     {
       "username": "acct-cmd-alpha",
       "enabled": true,
+      "email": "acct-cmd-alpha@suri-map.local",
       "emailVerified": true,
       "firstName": "Alpha",
       "lastName": "Command",
@@ -211,6 +369,7 @@
     {
       "username": "acct-team-alpha",
       "enabled": true,
+      "email": "acct-team-alpha@suri-map.local",
       "emailVerified": true,
       "firstName": "Alpha",
       "lastName": "Team",
@@ -245,6 +404,7 @@
     {
       "username": "acct-support-cmd",
       "enabled": true,
+      "email": "acct-support-cmd@suri-map.local",
       "emailVerified": true,
       "firstName": "Support",
       "lastName": "Command",
@@ -279,6 +439,7 @@
     {
       "username": "acct-support-car",
       "enabled": true,
+      "email": "acct-support-car@suri-map.local",
       "emailVerified": true,
       "firstName": "Support",
       "lastName": "Patrol",
@@ -313,6 +474,7 @@
     {
       "username": "acct-support-team",
       "enabled": true,
+      "email": "acct-support-team@suri-map.local",
       "emailVerified": true,
       "firstName": "Support",
       "lastName": "Team",

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { resolveApiProxyTarget, resolveTileProxyTarget } from './vite.config';
+import { resolveApiProxyTarget, resolveKeycloakProxyTarget, resolveTileProxyTarget } from './vite.config';
 
 describe('vite dev proxy targets', () => {
   test('routes /api and default /tiles proxy to the same backend origin', () => {
@@ -17,5 +17,9 @@ describe('vite dev proxy targets', () => {
     expect(resolveTileProxyTarget('http://localhost:8080/api', 'http://localhost:8081/tiles')).toBe(
       'http://localhost:8081',
     );
+  });
+
+  test('routes /keycloak proxy to the Keycloak origin', () => {
+    expect(resolveKeycloakProxyTarget('http://localhost:18080/keycloak')).toBe('http://localhost:18080');
   });
 });

@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 
-import { logoutCurrentSession, readStoredLoginAccount } from '../features/login/data/login';
+import { completeKeycloakLogin, logoutCurrentSession, readStoredLoginAccount } from '../features/login/data/login';
 import { LoginPage } from '../features/login/presentation/pages/LoginPage';
 import type { LoginAccount } from '../features/login/presentation/types/login';
 import { useIncidentMarkerNotifications } from '../features/markerNotifications/presentation/hooks/useIncidentMarkerNotifications';
@@ -327,6 +327,39 @@ function IncidentCloseRoute() {
   );
 }
 
+type AuthCallbackRouteProps = {
+  onLoginSuccess: (account: LoginAccount, returnPath: string) => void;
+  onLoginFailure: () => void;
+};
+
+function AuthCallbackRoute({ onLoginSuccess, onLoginFailure }: AuthCallbackRouteProps) {
+  useEffect(() => {
+    let isActive = true;
+
+    completeKeycloakLogin()
+      .then(({ account, returnPath }) => {
+        if (isActive) {
+          onLoginSuccess(account, returnPath);
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          onLoginFailure();
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [onLoginFailure, onLoginSuccess]);
+
+  return (
+    <main>
+      <div>로그인 처리 중</div>
+    </main>
+  );
+}
+
 export function App() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -380,10 +413,18 @@ export function App() {
     return () => window.removeEventListener(API_UNAUTHORIZED_EVENT, handleUnauthorized);
   }, [navigate]);
 
-  const handleLoginSuccess = (account: LoginAccount) => {
-    setCurrentUserAccount(account);
-    navigate(loginRedirectPath ?? ROUTES.incidentList, { replace: true });
-  };
+  const handleOidcCallbackSuccess = useCallback(
+    (account: LoginAccount, returnPath: string) => {
+      setCurrentUserAccount(account);
+      navigate(returnPath, { replace: true });
+    },
+    [navigate],
+  );
+
+  const handleOidcCallbackFailure = useCallback(() => {
+    setCurrentUserAccount(null);
+    navigate(ROUTES.login, { replace: true });
+  }, [navigate]);
 
   const saveAssignedAreas = (incidentId: string, drafts: CompletedAreaDraft[]) => {
     setSavedAreaDraftsByIncidentId((currentDraftsByIncidentId) => ({
@@ -418,7 +459,13 @@ export function App() {
           )
         }
       />
-      <Route path={ROUTES.login} element={<LoginPage onLoginSuccess={handleLoginSuccess} />} />
+      <Route path={ROUTES.login} element={<LoginPage redirectPath={loginRedirectPath ?? ROUTES.incidentList} />} />
+      <Route
+        path={ROUTES.authCallback}
+        element={
+          <AuthCallbackRoute onLoginSuccess={handleOidcCallbackSuccess} onLoginFailure={handleOidcCallbackFailure} />
+        }
+      />
       <Route
         path={ROUTES.incidentDetail}
         element={

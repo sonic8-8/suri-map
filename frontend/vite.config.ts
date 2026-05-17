@@ -8,6 +8,7 @@ export default defineConfig(({ mode }) => {
   const frontendEnv = loadEnv(mode, process.cwd(), '');
   const env = { ...rootEnv, ...frontendEnv };
   const apiBaseUrl = env.VITE_API_BASE_URL ?? 'http://localhost:8080/api';
+  const keycloakBaseUrl = env.VITE_KEYCLOAK_BASE_URL ?? 'http://localhost:18080/keycloak';
   const vWorldApiKey = env.V_WORLD_API_KEY ?? env.VITE_V_WORLD_API_KEY ?? '';
   const tileBaseUrl = env.VITE_TILE_BASE_URL ?? `${resolveApiProxyTarget(apiBaseUrl)}/tiles`;
 
@@ -21,6 +22,7 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       port: 5173,
+      strictPort: true,
       proxy: {
         '/api': {
           target: resolveApiProxyTarget(apiBaseUrl),
@@ -29,6 +31,10 @@ export default defineConfig(({ mode }) => {
         },
         '/tiles': {
           target: resolveTileProxyTarget(apiBaseUrl, tileBaseUrl),
+          changeOrigin: true,
+        },
+        '/keycloak': {
+          target: resolveKeycloakProxyTarget(keycloakBaseUrl),
           changeOrigin: true,
         },
       },
@@ -53,7 +59,13 @@ export function resolveTileProxyTarget(apiBaseUrl: string, tileBaseUrl: string) 
   return resolveApiProxyTarget(apiBaseUrl);
 }
 
-function stripBrowserBasicAuthChallenge(proxy: { on: (event: 'proxyRes', handler: (proxyRes: { headers: Record<string, unknown> }) => void) => void }) {
+export function resolveKeycloakProxyTarget(keycloakBaseUrl: string) {
+  return keycloakBaseUrl.replace(/\/keycloak\/?$/, '').replace(/\/+$/, '');
+}
+
+function stripBrowserBasicAuthChallenge(proxy: {
+  on: (event: 'proxyRes', handler: (proxyRes: { headers: Record<string, unknown> }) => void) => void;
+}) {
   proxy.on('proxyRes', (proxyRes) => {
     delete proxyRes.headers['www-authenticate'];
   });

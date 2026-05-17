@@ -3,6 +3,7 @@ export const BOOTSTRAP_INCIDENT_ID = 'inc-precinct-first-001';
 export const ROUTES = {
   home: '/',
   login: '/login',
+  authCallback: '/auth/callback',
   incidentList: '/incidents',
   incidentDetail: '/incidents/:incidentId',
   incidentBoard: '/incidents/:incidentId/board',

@@ -517,6 +517,7 @@ start_backend_docker() {
     -e MOCK_112_ENABLED="true" \
     -e MOCK_112_BASE_URL="http://mock-112:18112" \
     -e MOCK112_WEBHOOK_SECRET="${MOCK112_WEBHOOK_SECRET:-}" \
+    -e SURI_MAP_LEGACY_SESSION_ENABLED="true" \
     -e TILESERVER_MODE="tileserver-gl" \
     -e TILESERVER_BASE_URL="http://tileserver-gl:8080" \
     "$BACKEND_IMAGE" >/dev/null
@@ -560,6 +561,7 @@ start_backend_gradle() {
     MOCK_112_ENABLED="true" \
     MOCK_112_BASE_URL="http://localhost:'"$MOCK_112_PORT"'" \
     MOCK112_WEBHOOK_SECRET="${MOCK112_WEBHOOK_SECRET:-}" \
+    SURI_MAP_LEGACY_SESSION_ENABLED="true" \
     TILESERVER_MODE="tileserver-gl" \
     TILESERVER_BASE_URL="$3" \
     ./gradlew bootRun

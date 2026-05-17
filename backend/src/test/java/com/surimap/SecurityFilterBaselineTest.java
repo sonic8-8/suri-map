@@ -1,5 +1,6 @@
 package com.surimap;
 
+import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
@@ -7,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.surimap.account.security.KeycloakJwtAuthenticationConverter;
 import com.surimap.common.auth.AccountType;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.OrganizationType;
@@ -16,21 +18,30 @@ import com.surimap.common.health.HealthController;
 import com.surimap.config.SecurityConfig;
 import com.surimap.support.auth.WithMockAccount;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @WebMvcTest(controllers = HealthController.class)
-@Import({SecurityConfig.class, SecurityFilterBaselineTest.AuthHarnessController.class})
+@Import({
+  SecurityConfig.class,
+  KeycloakJwtAuthenticationConverter.class,
+  SecurityFilterBaselineTest.AuthHarnessController.class
+})
 class SecurityFilterBaselineTest {
 
   @Autowired private MockMvc mockMvc;
+  @MockitoBean private JwtDecoder jwtDecoder;
 
   @Test
   void healthEndpointIsAccessibleWithoutAuth() throws Exception {
@@ -76,6 +87,61 @@ class SecurityFilterBaselineTest {
         .andExpect(jsonPath("$.organizationType").value("MISSING_TEAM"))
         .andExpect(jsonPath("$.channel").value("APP"))
         .andExpect(jsonPath("$.policePhoneId").value("dev-precinct-phone-01"))
+        .andExpect(jsonPath("$.authorities[0]").value("MEMBER"));
+  }
+
+  @Test
+  void keycloakJwtCarriesTypedWebSecurityContext() throws Exception {
+    String accessToken = "header.payload.signature";
+    when(jwtDecoder.decode(accessToken))
+        .thenReturn(
+            Jwt.withTokenValue(accessToken)
+                .header("alg", "RS256")
+                .claim("accountId", "11111111-1111-1111-1111-111111110001")
+                .claim("accountType", "COMMAND")
+                .claim("organizationType", "POLICE_SUBSTATION")
+                .claim("realm_access", Map.of("roles", List.of("FIELD_COMMANDER")))
+                .build());
+
+    mockMvc
+        .perform(
+            get("/api/auth-harness/context")
+                .header("Authorization", "Bearer " + accessToken)
+                .header("X-Client-Channel", "WEB"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.accountId").value("11111111-1111-1111-1111-111111110001"))
+        .andExpect(jsonPath("$.accountType").value("COMMAND"))
+        .andExpect(jsonPath("$.organizationType").value("POLICE_SUBSTATION"))
+        .andExpect(jsonPath("$.channel").value("WEB"))
+        .andExpect(jsonPath("$.policePhoneId").isEmpty())
+        .andExpect(jsonPath("$.authorities[0]").value("FIELD_COMMANDER"));
+  }
+
+  @Test
+  void keycloakJwtCarriesTypedAppPolicePhoneSecurityContext() throws Exception {
+    String accessToken = "header.app.signature";
+    when(jwtDecoder.decode(accessToken))
+        .thenReturn(
+            Jwt.withTokenValue(accessToken)
+                .header("alg", "RS256")
+                .claim("accountId", "11111111-1111-1111-1111-111111110003")
+                .claim("accountType", "TEAM")
+                .claim("organizationType", "POLICE_SUBSTATION")
+                .claim("policePhoneId", "00000000-0000-0000-0000-000000000101")
+                .claim("realm_access", Map.of("roles", List.of("MEMBER")))
+                .build());
+
+    mockMvc
+        .perform(
+            get("/api/auth-harness/context")
+                .header("Authorization", "Bearer " + accessToken)
+                .header("X-Client-Channel", "APP"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.accountId").value("11111111-1111-1111-1111-111111110003"))
+        .andExpect(jsonPath("$.accountType").value("TEAM"))
+        .andExpect(jsonPath("$.organizationType").value("POLICE_SUBSTATION"))
+        .andExpect(jsonPath("$.channel").value("APP"))
+        .andExpect(jsonPath("$.policePhoneId").value("00000000-0000-0000-0000-000000000101"))
         .andExpect(jsonPath("$.authorities[0]").value("MEMBER"));
   }
 

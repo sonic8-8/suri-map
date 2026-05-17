@@ -8,6 +8,14 @@ export function getApiBaseUrl() {
   return import.meta.env.VITE_API_BASE_URL ?? '/api';
 }
 
+export function getKeycloakIssuerUrl() {
+  return normalizeBaseUrl(import.meta.env.VITE_KEYCLOAK_ISSUER_URL ?? '/keycloak/realms/suri-map');
+}
+
+export function getKeycloakClientId() {
+  return import.meta.env.VITE_KEYCLOAK_CLIENT_ID ?? 'suri-map-web';
+}
+
 export function getTileBaseUrl() {
   return normalizeBaseUrl(import.meta.env.VITE_TILE_BASE_URL ?? '/tiles');
 }

@@ -68,8 +68,11 @@ pipeline {
         KEYCLOAK_POSTGRES_USER = 'keycloak'
         KEYCLOAK_POSTGRES_PASSWORD = 'keycloak'
         KEYCLOAK_ADMIN = 'admin'
-        KEYCLOAK_ADMIN_PASSWORD = 'admin'
+        KEYCLOAK_ADMIN_PASSWORD = credentials('suri-map-keycloak-admin-password')
         KEYCLOAK_IMPORT_DIR = '/home/ubuntu/infra/keycloak/import'
+        SURI_MAP_KEYCLOAK_ISSUER_URI = 'https://k14c106.p.ssafy.io/keycloak/realms/suri-map'
+        SURI_MAP_KEYCLOAK_JWK_SET_URI = 'http://keycloak:8080/keycloak/realms/suri-map/protocol/openid-connect/certs'
+        SURI_MAP_LEGACY_SESSION_ENABLED = 'true'
         MOCK_112_ENABLED = 'true'
         MOCK_112_BASE_URL = 'http://mock-112:18112'
         MOCK_112_POLLING_INTERVAL = '5000'
@@ -282,6 +285,9 @@ KEYCLOAK_POSTGRES_PASSWORD=${env.KEYCLOAK_POSTGRES_PASSWORD}
 KEYCLOAK_ADMIN=${env.KEYCLOAK_ADMIN}
 KEYCLOAK_ADMIN_PASSWORD=${env.KEYCLOAK_ADMIN_PASSWORD}
 KEYCLOAK_IMPORT_DIR=${env.KEYCLOAK_IMPORT_DIR}
+SURI_MAP_KEYCLOAK_ISSUER_URI=${env.SURI_MAP_KEYCLOAK_ISSUER_URI}
+SURI_MAP_KEYCLOAK_JWK_SET_URI=${env.SURI_MAP_KEYCLOAK_JWK_SET_URI}
+SURI_MAP_LEGACY_SESSION_ENABLED=${env.SURI_MAP_LEGACY_SESSION_ENABLED}
 MOCK_112_ENABLED=${env.MOCK_112_ENABLED}
 MOCK_112_BASE_URL=${env.MOCK_112_BASE_URL}
 MOCK_112_POLLING_INTERVAL=${env.MOCK_112_POLLING_INTERVAL}
@@ -396,6 +402,136 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=${env.SPRING_JPA_HIBERNATE_DDL_AUTO}
                       docker logs --tail=200 suri-map-keycloak || true
                       exit 1
                     fi
+
+                    docker exec \
+                      -e KEYCLOAK_ADMIN="${KEYCLOAK_ADMIN}" \
+                      -e KEYCLOAK_ADMIN_PASSWORD="${KEYCLOAK_ADMIN_PASSWORD}" \
+                      suri-map-keycloak \
+                      sh -ec '
+                        server_url="http://127.0.0.1:8080/keycloak"
+                        if /opt/keycloak/bin/kcadm.sh config credentials \
+                          --server "${server_url}" \
+                          --realm master \
+                          --user "${KEYCLOAK_ADMIN}" \
+                          --password "${KEYCLOAK_ADMIN_PASSWORD}" >/dev/null 2>&1; then
+                          echo "keycloak_admin_password=current"
+                          exit 0
+                        fi
+
+                        /opt/keycloak/bin/kcadm.sh config credentials \
+                          --server "${server_url}" \
+                          --realm master \
+                          --user "${KEYCLOAK_ADMIN}" \
+                          --password admin >/dev/null
+                        admin_id=$(/opt/keycloak/bin/kcadm.sh get users \
+                          -r master \
+                          -q username="${KEYCLOAK_ADMIN}" \
+                          --fields id \
+                          --format csv \
+                          --noquotes | tail -n 1)
+                        test -n "${admin_id}"
+                        /opt/keycloak/bin/kcadm.sh set-password \
+                          -r master \
+                          --userid "${admin_id}" \
+                          --new-password "${KEYCLOAK_ADMIN_PASSWORD}" >/dev/null
+                        /opt/keycloak/bin/kcadm.sh config credentials \
+                          --server "${server_url}" \
+                          --realm master \
+                          --user "${KEYCLOAK_ADMIN}" \
+                          --password "${KEYCLOAK_ADMIN_PASSWORD}" >/dev/null
+                        echo "keycloak_admin_password=rotated"
+                      '
+
+                    docker exec \
+                      -e KEYCLOAK_ADMIN="${KEYCLOAK_ADMIN}" \
+                      -e KEYCLOAK_ADMIN_PASSWORD="${KEYCLOAK_ADMIN_PASSWORD}" \
+                      suri-map-keycloak \
+                      sh -ec '
+                        server_url="http://127.0.0.1:8080/keycloak"
+                        /opt/keycloak/bin/kcadm.sh config credentials \
+                          --server "${server_url}" \
+                          --realm master \
+                          --user "${KEYCLOAK_ADMIN}" \
+                          --password "${KEYCLOAK_ADMIN_PASSWORD}" >/dev/null
+
+                        ensure_mapper() {
+                          client_id="$1"
+                          attr="$2"
+                          client_uuid=$(/opt/keycloak/bin/kcadm.sh get clients \
+                            -r suri-map \
+                            -q clientId="${client_id}" \
+                            --fields id \
+                            --format csv \
+                            --noquotes | tail -n 1)
+                          test -n "${client_uuid}"
+                          if /opt/keycloak/bin/kcadm.sh get \
+                            "clients/${client_uuid}/protocol-mappers/models" \
+                            -r suri-map \
+                            --fields name \
+                            --format csv \
+                            --noquotes | grep -Fxq "${attr}"; then
+                            return 0
+                          fi
+                          cat >"/tmp/${client_id}-${attr}-mapper.json" <<EOF
+{
+  "name": "${attr}",
+  "protocol": "openid-connect",
+  "protocolMapper": "oidc-usermodel-attribute-mapper",
+  "consentRequired": false,
+  "config": {
+    "user.attribute": "${attr}",
+    "claim.name": "${attr}",
+    "jsonType.label": "String",
+    "id.token.claim": "true",
+    "access.token.claim": "true",
+    "userinfo.token.claim": "true",
+    "multivalued": "false"
+  }
+}
+EOF
+                          /opt/keycloak/bin/kcadm.sh create \
+                            "clients/${client_uuid}/protocol-mappers/models" \
+                            -r suri-map \
+                            -f "/tmp/${client_id}-${attr}-mapper.json" >/dev/null
+                        }
+
+                        for client in suri-map-web suri-map-android; do
+                          for attr in accountId accountType organizationType policePhoneId policePhoneCode; do
+                            ensure_mapper "${client}" "${attr}"
+                          done
+                        done
+                        echo "keycloak_suri_map_claim_mappers=ready"
+
+                        ensure_demo_user_profile() {
+                          username="$1"
+                          email="${username}@suri-map.local"
+                          user_id=$(/opt/keycloak/bin/kcadm.sh get users \
+                            -r suri-map \
+                            -q username="${username}" \
+                            --fields id \
+                            --format csv \
+                            --noquotes | tail -n 1)
+                          test -n "${user_id}"
+                          /opt/keycloak/bin/kcadm.sh update "users/${user_id}" \
+                            -r suri-map \
+                            -s "email=${email}" \
+                            -s "emailVerified=true" \
+                            -s "requiredActions=[]" >/dev/null
+                        }
+
+                        for username in \
+                          acct-precinct-cmd \
+                          acct-precinct-car \
+                          acct-precinct-team \
+                          acct-cmd-alpha \
+                          acct-team-alpha \
+                          acct-support-cmd \
+                          acct-support-car \
+                          acct-support-team; do
+                          ensure_demo_user_profile "${username}"
+                        done
+                        echo "keycloak_demo_user_profiles=ready"
+                      '
 
                     if docker exec suri-map-frontend wget -qO- http://keycloak:8080/keycloak/realms/master/.well-known/openid-configuration | grep -q '"issuer"'; then
                       echo "keycloak_oidc=ready"
