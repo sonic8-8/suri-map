@@ -27,6 +27,7 @@ type MarkerFeatureCollection = {
 export type MarkerInstance = {
   imageKey: string;
   markerType: MarkerTypeKey;
+  photoBadge: maplibregl.Marker | null;
 };
 
 type MarkerPopupRefs = {
@@ -64,6 +65,9 @@ const markerImagePromises = new WeakMap<maplibregl.Map, Map<string, Promise<void
 const markerLayerBoundMaps = new WeakMap<maplibregl.Map, Set<string>>();
 
 export function clearMarkerElements(markerInstances: MutableRefObject<Map<string, MarkerInstance>>) {
+  markerInstances.current.forEach((instance) => {
+    instance.photoBadge?.remove();
+  });
   markerInstances.current.clear();
 }
 
@@ -217,6 +221,30 @@ function createMarkerFeatureCollection(recentMarkers: RecentMarker[], visibleMar
   };
 }
 
+function hasMarkerPhoto(marker: RecentMarker) {
+  return Boolean(marker.photoThumbnailUrl) || (typeof marker.photoCount === 'number' && marker.photoCount > 0);
+}
+
+function createMarkerPhotoBadge(marker: RecentMarker) {
+  const badge = document.createElement('div');
+  badge.className = styles.markerPhotoBadge;
+  badge.setAttribute('aria-hidden', 'true');
+
+  if (marker.photoThumbnailUrl) {
+    const image = document.createElement('img');
+    image.className = styles.markerPhotoBadgeImage;
+    image.src = marker.photoThumbnailUrl;
+    image.alt = '';
+    image.loading = 'lazy';
+    image.decoding = 'async';
+    badge.append(image);
+    return badge;
+  }
+
+  badge.classList.add(styles.markerPhotoBadgeFallback);
+  return badge;
+}
+
 function addMarkerSource(map: maplibregl.Map, data: MarkerFeatureCollection) {
   if (map.getSource(MARKER_SOURCE_ID)) {
     return;
@@ -332,12 +360,26 @@ export function syncMarkerElements(
 ) {
   const markerData = createMarkerFeatureCollection(recentMarkers, isVisible ? visibleMarkerIds : []);
   const requiredMarkerTypes = Array.from(new Set(markerData.features.map((feature) => feature.properties.markerType)));
+  const visibleMarkerIdSet = new Set(isVisible ? visibleMarkerIds : []);
 
-  markerInstances.current.clear();
+  clearMarkerElements(markerInstances);
   markerData.features.forEach((feature) => {
+    const marker = recentMarkers.find((currentMarker) => currentMarker.id === feature.properties.id);
+    const photoBadge =
+      marker?.coordinates && visibleMarkerIdSet.has(marker.id) && hasMarkerPhoto(marker)
+        ? new maplibregl.Marker({
+            element: createMarkerPhotoBadge(marker),
+            anchor: 'center',
+            offset: [15, -36],
+          })
+            .setLngLat(marker.coordinates)
+            .addTo(map)
+        : null;
+
     markerInstances.current.set(feature.properties.id, {
       imageKey: feature.properties.iconKey,
       markerType: feature.properties.markerType,
+      photoBadge,
     });
   });
 
@@ -392,7 +434,7 @@ function markerTimeLine(marker: RecentMarker) {
 }
 
 function markerPhotoCountText(marker: RecentMarker) {
-  return typeof marker.photoCount === 'number' ? `사진 ${marker.photoCount}장` : null;
+  return typeof marker.photoCount === 'number' && marker.photoCount > 0 ? `사진 ${marker.photoCount}장` : null;
 }
 
 function createMarkerHoverTooltip(marker: RecentMarker) {

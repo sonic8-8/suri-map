@@ -48,6 +48,7 @@ export type RecentMarker = {
   coordinates?: [number, number];
   memo?: string | null;
   photoCount?: number;
+  photoThumbnailUrl?: string | null;
 };
 
 export type LegendItem = {
