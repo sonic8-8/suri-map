@@ -17,6 +17,10 @@ import {
   manifestGroupIconClassName,
   SectionTitle,
 } from '../components/OfflinePackageStatusAtoms';
+import {
+  PackageLoadGauge as OfflinePackageLoadGauge,
+  PackageStatusSkeleton as OfflinePackageStatusSkeleton,
+} from '../components/OfflinePackageStatusWidgets';
 import type {
   OfflinePackageItemType,
   OfflinePackageManifestResponse,
@@ -34,7 +38,6 @@ import {
   readString,
   type ManifestGroup,
   type PackageBadgeRow,
-  type PackageLoadGaugeSummary,
   type TileSummary,
 } from '../model/offlinePackageStatusView';
 import { getIncidentDetail, type IncidentDetailDto } from '../../../situationBoard/data/getIncidentDetail';
@@ -262,7 +265,7 @@ export function OfflinePackageStatusPage({
             description="현장 단말이 오프라인에서도 수색 자료를 사용할 수 있는지 확인합니다."
           />
           {isLoading ? (
-            <PackageStatusSkeleton />
+            <OfflinePackageStatusSkeleton />
           ) : boardErrorMessage ? (
             <div className={styles.emptyState} role="alert">
               <strong>{boardErrorMessage}</strong>
@@ -276,7 +279,7 @@ export function OfflinePackageStatusPage({
             </div>
           ) : (
             <>
-              <PackageLoadGauge gauge={packageLoadGauge} />
+            <OfflinePackageLoadGauge gauge={packageLoadGauge} />
               <div className={styles.tableShell}>
                 <table className={styles.statusTable}>
                   <thead>
@@ -350,36 +353,6 @@ export function OfflinePackageStatusPage({
   );
 }
 
-function PackageLoadGauge({ gauge }: { gauge: PackageLoadGaugeSummary }) {
-  const progress = Math.max(0, Math.min(100, gauge.percentage));
-
-  return (
-    <div className={styles.packageLoadGauge} aria-label="필수 패키지 전체 적재율">
-      <div className={styles.packageLoadGaugeDial} aria-hidden="true">
-        <svg className={styles.packageLoadGaugeSvg} viewBox="0 0 200 120" focusable="false">
-          <path className={styles.packageLoadGaugeTrack} d="M 20 100 A 80 80 0 0 1 180 100" pathLength={100} />
-          <path
-            className={styles.packageLoadGaugeProgress}
-            d="M 20 100 A 80 80 0 0 1 180 100"
-            pathLength={100}
-            style={{ strokeDasharray: `${progress} 100` }}
-          />
-        </svg>
-        <div className={styles.packageLoadGaugeCenter}>
-          <strong>{progress}%</strong>
-        </div>
-      </div>
-      <div className={styles.packageLoadGaugeText}>
-        <span>필수 패키지 전체 적재율</span>
-        <strong>전 폴리폰 기준</strong>
-        <small>
-          {gauge.loadedCount} / {gauge.totalCount}대 적재
-        </small>
-      </div>
-    </div>
-  );
-}
-
 function ManifestContent({
   groups,
   error,
@@ -400,7 +373,7 @@ function ManifestContent({
   onRetry: () => void;
 }) {
   if (isLoading) {
-    return <PackageStatusSkeleton />;
+    return <OfflinePackageStatusSkeleton />;
   }
 
   if (isError) {
@@ -656,16 +629,6 @@ function createLastSeenLabel(lastSeenAt: string | null, lastSeenLocationText: st
   }
 
   return timeLabel ?? locationLabel ?? '-';
-}
-
-function PackageStatusSkeleton() {
-  return (
-    <div className={styles.skeletonList} aria-label="오프라인 패키지 상태를 불러오는 중">
-      {Array.from({ length: 5 }, (_, index) => (
-        <div key={index} className={styles.skeletonRow} />
-      ))}
-    </div>
-  );
 }
 
 function readPackageBadgeRows(value: unknown): PackageBadgeRow[] {
