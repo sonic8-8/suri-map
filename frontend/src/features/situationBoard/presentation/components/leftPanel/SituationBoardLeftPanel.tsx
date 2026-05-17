@@ -323,7 +323,13 @@ export function SituationBoardLeftPanel({
         </div>
         <div className={styles.page} hidden={activePage !== 'marker'}>
           <div className={styles.scroll}>
-            <RecentMarkerList recentMarkers={recentMarkers} onSelectMarker={onSelectMarker} />
+            <RecentMarkerList
+              incidentId={incidentId}
+              recentMarkers={recentMarkers}
+              markerTypes={board.markerTypes}
+              supportMarkerTypes={board.supportMarkerTypes}
+              onSelectMarker={onSelectMarker}
+            />
           </div>
         </div>
       </div>
