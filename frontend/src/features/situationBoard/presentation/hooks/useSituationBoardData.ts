@@ -3,7 +3,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { CompletedAreaDraft } from '../../../../shared/model/areaDraft';
 import { getStoredAccessToken } from '../../../../shared/api/client';
 import type { SituationBoardResponseDto } from '../../data/getSituationBoard';
-import { useIncidentBoardQuery, incidentBoardQueryKeys } from '../../../board/api/incidentBoardApi';
+import {
+  useIncidentBoardQuery,
+  incidentBoardQueryKeys,
+  type BoardSlotName,
+} from '../../../board/api/incidentBoardApi';
 import { openIncidentBoardEventStream } from '../../../board/api/incidentBoardEventStream';
 import {
   createIncidentScopedFallbackBoard,
@@ -32,6 +36,7 @@ type SituationBoardDataState = {
   isInitialLoading: boolean;
   isInitialLoadError: boolean;
   isInitialReconnecting: boolean;
+  syncStatus: { label: string; tone: 'syncing' | 'stale' | 'error' } | null;
   apiBoard: SituationBoardResponseDto | null;
   isFallback: boolean;
   isOverallSearchAreaMissing: boolean;
@@ -50,8 +55,25 @@ export function useSituationBoardData(
   const fallbackBoard = useMemo(() => createIncidentScopedFallbackBoard(incidentId), [incidentId]);
 
   const boardQuery = useIncidentBoardQuery({ incidentId });
-  const apiBoard = (boardQuery.data as unknown as SituationBoardResponseDto) ?? null;
+  const rawApiBoard = (boardQuery.data as unknown as SituationBoardResponseDto) ?? null;
+  const stableApiBoardRef = useRef<SituationBoardResponseDto | null>(null);
+  const { apiBoard, hasBackfilledCriticalSlots } = useMemo(() => {
+    const merged = mergeWithPreviousCriticalSlots(rawApiBoard, stableApiBoardRef.current);
+    if (merged) {
+      stableApiBoardRef.current = merged;
+    }
+    return {
+      apiBoard: merged,
+      hasBackfilledCriticalSlots: Boolean(rawApiBoard && merged && merged !== rawApiBoard),
+    };
+  }, [rawApiBoard]);
   const hasApiBoard = apiBoard !== null;
+  const syncStatus = createBoardSyncStatus({
+    hasApiBoard,
+    hasBackfilledCriticalSlots,
+    isError: boardQuery.isError,
+    isFetching: boardQuery.isFetching,
+  });
 
   // 외부 refreshVersion 변경 시 board 재조회 (구역 저장 등)
   useEffect(() => {
@@ -149,6 +171,7 @@ export function useSituationBoardData(
     isInitialLoading: boardQuery.isLoading && apiBoard === null && !boardQuery.isError,
     isInitialLoadError: boardQuery.isError && apiBoard === null,
     isInitialReconnecting: boardQuery.isFetching && apiBoard === null,
+    syncStatus,
     apiBoard,
     isFallback: apiBoard === null,
     isOverallSearchAreaMissing: apiBoard !== null && board.searchAreaDrafts.length === 0,
@@ -156,4 +179,98 @@ export function useSituationBoardData(
       void boardQuery.refetch();
     },
   };
+}
+
+function createBoardSyncStatus({
+  hasApiBoard,
+  hasBackfilledCriticalSlots,
+  isError,
+  isFetching,
+}: {
+  hasApiBoard: boolean;
+  hasBackfilledCriticalSlots: boolean;
+  isError: boolean;
+  isFetching: boolean;
+}): SituationBoardDataState['syncStatus'] {
+  if (!hasApiBoard) {
+    return null;
+  }
+
+  if (isError) {
+    return { label: '동기화 실패 · 이전 데이터 표시', tone: 'error' };
+  }
+
+  if (hasBackfilledCriticalSlots) {
+    return { label: '일부 슬롯 지연 · 이전 데이터 보존', tone: 'stale' };
+  }
+
+  if (isFetching) {
+    return { label: '동기화 중', tone: 'syncing' };
+  }
+
+  return null;
+}
+
+const CRITICAL_BOARD_SLOTS: readonly BoardSlotName[] = [
+  'overall_search_area',
+  'area',
+  'path',
+  'marker',
+  'op_history',
+  'handover_memo',
+  'handover_status',
+  'search_history_summary',
+  'package_badge',
+  'incident_terminal',
+];
+
+export function mergeWithPreviousCriticalSlots(
+  current: SituationBoardResponseDto | null,
+  previous: SituationBoardResponseDto | null,
+) {
+  if (!current || !previous || current.incidentId !== previous.incidentId) {
+    return current;
+  }
+
+  const slots = { ...current.slots };
+  const slotSources = { ...current.slotSources };
+  const sourceVersions = { ...current.sourceVersions };
+  const sourceHashes = { ...current.sourceHashes };
+  let changed = false;
+
+  CRITICAL_BOARD_SLOTS.forEach((slot) => {
+    if (isMissingSlot(slots[slot]) && !isMissingSlot(previous.slots[slot])) {
+      slots[slot] = previous.slots[slot];
+      changed = true;
+    }
+
+    if (isMissingSlot(slotSources[slot]) && !isMissingSlot(previous.slotSources[slot])) {
+      slotSources[slot] = previous.slotSources[slot];
+      changed = true;
+    }
+
+    if (isMissingSlot(sourceVersions[slot]) && !isMissingSlot(previous.sourceVersions[slot])) {
+      sourceVersions[slot] = previous.sourceVersions[slot];
+      changed = true;
+    }
+
+    if (isMissingSlot(sourceHashes[slot]) && !isMissingSlot(previous.sourceHashes[slot])) {
+      sourceHashes[slot] = previous.sourceHashes[slot];
+      changed = true;
+    }
+  });
+
+  return changed
+    ? {
+        ...current,
+        slots,
+        slotSources,
+        sourceVersions,
+        sourceHashes,
+      }
+    : current;
+}
+
+function isMissingSlot(value: unknown) {
+  return value === null || value === undefined;
 }

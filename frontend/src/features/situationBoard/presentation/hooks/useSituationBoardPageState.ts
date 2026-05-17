@@ -35,6 +35,7 @@ export function useSituationBoardPageState({
     isInitialReconnecting,
     isOverallSearchAreaMissing,
     retryInitialLoad,
+    syncStatus,
   } = useSituationBoardData(incidentId, savedAreaDrafts, refreshVersion + areaRefreshVersion);
   const incidentDetail = useIncidentDetail(incidentId);
   const workspaceMode = useBoardWorkspaceMode({
@@ -94,6 +95,7 @@ export function useSituationBoardPageState({
     setAreaEditMapProps: workspaceMode.setAreaEditMapProps,
     setInitialMapState: workspaceMode.setInitialMapState,
     shellClassName,
+    syncStatus,
     toggleLayer: layerFilters.toggleLayer,
     toggleLeftPanelCollapsed,
     toggleMapExpanded: workspaceMode.toggleMapExpanded,

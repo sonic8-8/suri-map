@@ -1,4 +1,6 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+﻿import { ChevronLeft, ChevronRight } from 'lucide-react';
+
+import { SuriMapLogo } from '../suriMapLogo';
 
 import styles from './SuriMapPageHeader.module.css';
 
@@ -33,12 +35,18 @@ export type SuriMapPageHeaderIncidentContext = {
   statusTone?: 'active' | 'terminal';
 };
 
+export type SuriMapPageHeaderSyncStatus = {
+  label: string;
+  tone: 'syncing' | 'stale' | 'error';
+};
+
 export type SuriMapPageHeaderProps = {
   activeTab: SuriMapPageHeaderTabId;
   currentAccountLabel?: string;
   incidentContext?: SuriMapPageHeaderIncidentContext;
   markerNotificationIndex?: number;
   markerNotifications?: MarkerNotification[];
+  syncStatus?: SuriMapPageHeaderSyncStatus | null;
   timestampLabel?: string;
   onOpenIncidentList: () => void;
   onOpenIncidentDetail?: () => void;
@@ -74,6 +82,7 @@ export function SuriMapPageHeader({
   incidentContext = DEFAULT_INCIDENT_CONTEXT,
   markerNotificationIndex = 0,
   markerNotifications = [],
+  syncStatus = null,
   onCloseMarkerNotifications,
   onOpenIncidentDetail,
   onOpenIncidentList,
@@ -125,19 +134,7 @@ export function SuriMapPageHeader({
           <span>{timestampLabel}</span>
           <span className={styles.metaDivider} aria-hidden="true" />
           <div className={styles.brand}>
-            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
-              <path
-                className={styles.brandMark}
-                d="M11 1.5 L19.5 5 V11 C19.5 15.5 16 19.3 11 20.5 C6 19.3 2.5 15.5 2.5 11 V5 Z"
-              />
-              <path
-                d="M11 6.5 a4.5 4.5 0 1 0 0 9 a4.5 4.5 0 1 0 0 -9 z M11 9 v3.5 M11 14 v.1"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                fill="none"
-              />
-            </svg>
+            <SuriMapLogo className={styles.brandMark} size={22} />
             <div>Suri-Map</div>
           </div>
         </div>
@@ -167,6 +164,9 @@ export function SuriMapPageHeader({
           ))}
         </div>
         <div className={styles.incidentContextActions}>
+          {syncStatus ? (
+            <div className={`${styles.syncStatus} ${syncStatusClassName(syncStatus.tone)}`}>{syncStatus.label}</div>
+          ) : null}
           <div
             className={`${styles.headerStatus} ${
               incidentContext.statusTone === 'terminal'
@@ -241,4 +241,10 @@ export function SuriMapPageHeader({
       ) : null}
     </header>
   );
+}
+
+function syncStatusClassName(tone: SuriMapPageHeaderSyncStatus['tone']) {
+  if (tone === 'syncing') return styles.syncStatusSyncing;
+  if (tone === 'stale') return styles.syncStatusStale;
+  return styles.syncStatusError;
 }

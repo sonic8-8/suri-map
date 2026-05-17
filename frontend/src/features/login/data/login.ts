@@ -48,6 +48,9 @@ export type CompleteKeycloakLoginResult = {
   returnPath: string;
 };
 
+let pendingKeycloakLoginCallbackUrl: string | null = null;
+let pendingKeycloakLogin: Promise<CompleteKeycloakLoginResult> | null = null;
+
 export async function startKeycloakLogin(returnPath: string) {
   clearLoginSession();
 
@@ -67,6 +70,27 @@ export async function startKeycloakLogin(returnPath: string) {
 export async function completeKeycloakLogin(
   callbackUrl: string = window.location.href,
   fetchImpl: typeof fetch = fetch,
+): Promise<CompleteKeycloakLoginResult> {
+  if (fetchImpl === fetch && pendingKeycloakLoginCallbackUrl === callbackUrl && pendingKeycloakLogin) {
+    return pendingKeycloakLogin;
+  }
+
+  const loginPromise = completeKeycloakLoginOnce(callbackUrl, fetchImpl);
+  if (fetchImpl === fetch) {
+    pendingKeycloakLoginCallbackUrl = callbackUrl;
+    pendingKeycloakLogin = loginPromise.finally(() => {
+      pendingKeycloakLoginCallbackUrl = null;
+      pendingKeycloakLogin = null;
+    });
+    return pendingKeycloakLogin;
+  }
+
+  return loginPromise;
+}
+
+async function completeKeycloakLoginOnce(
+  callbackUrl: string,
+  fetchImpl: typeof fetch,
 ): Promise<CompleteKeycloakLoginResult> {
   const callback = new URL(callbackUrl);
   const code = callback.searchParams.get('code');
@@ -132,6 +156,7 @@ export function clearLoginSession() {
   sessionStorage.removeItem(ID_TOKEN_STORAGE_KEY);
   sessionStorage.removeItem(CURRENT_ACCOUNT_STORAGE_KEY);
   sessionStorage.removeItem(TOKEN_EXPIRES_AT_STORAGE_KEY);
+  sessionStorage.removeItem(OIDC_LOGIN_STATE_STORAGE_KEY);
   sessionStorage.removeItem('suriMapSessionId');
 }
 

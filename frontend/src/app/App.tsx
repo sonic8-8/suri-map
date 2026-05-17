@@ -4,6 +4,7 @@ import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 're
 import { completeKeycloakLogin, logoutCurrentSession, readStoredLoginAccount } from '../features/login/data/login';
 import { LoginPage } from '../features/login/presentation/pages/LoginPage';
 import type { LoginAccount } from '../features/login/presentation/types/login';
+import { HandoverPage } from '../features/handover/presentation/pages/HandoverPage';
 import { useIncidentMarkerNotifications } from '../features/markerNotifications/presentation/hooks/useIncidentMarkerNotifications';
 import { OfflinePackageStatusPage } from '../features/offlinePackage/presentation/pages/OfflinePackageStatusPage';
 import { SituationBoardPage } from '../features/situationBoard/presentation/pages/SituationBoardPage';
@@ -24,12 +25,6 @@ import {
 const IncidentListPage = lazy(() =>
   import('../features/incidents/presentation/pages/IncidentListPage').then((module) => ({
     default: module.IncidentListPage,
-  })),
-);
-
-const HandoverPage = lazy(() =>
-  import('../features/handover/presentation/pages/HandoverPage').then((module) => ({
-    default: module.HandoverPage,
   })),
 );
 

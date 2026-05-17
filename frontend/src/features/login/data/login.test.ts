@@ -1,38 +1,27 @@
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { beforeEach, describe, expect, test } from 'vitest';
 
-import { authApi, type AuthLoginResponse } from '../../auth/api/authApi';
-import { loginWithAccount, readStoredLoginAccount } from './login';
-
-vi.mock('../../auth/api/authApi', () => ({
-  authApi: {
-    login: vi.fn(),
-    logout: vi.fn(),
-  },
-}));
+import { readStoredLoginAccount, storeOidcSession } from './login';
 
 describe('login account display names', () => {
   beforeEach(() => {
     sessionStorage.clear();
-    vi.clearAllMocks();
   });
 
-  test('maps UUID account ids to the correct display names on login', async () => {
-    vi.mocked(authApi.login).mockResolvedValueOnce(
-      loginResponse('11111111-1111-1111-1111-111111110004'),
-    );
+  test('maps UUID account ids to the correct display names on OIDC session storage', () => {
+    storeOidcSession(tokenResponse(), oidcClaims('11111111-1111-1111-1111-111111110004'));
 
-    await expect(loginWithAccount('acct-cmd-alpha', 'fixture')).resolves.toMatchObject({
+    expect(readStoredLoginAccount()).toMatchObject({
       id: '11111111-1111-1111-1111-111111110004',
       name: '실종팀 지휘관',
     });
 
-    vi.mocked(authApi.login).mockResolvedValueOnce(
-      loginResponse('11111111-1111-1111-1111-111111110003', 'TEAM', 'POLICE_SUBSTATION', [
-        'MEMBER',
-      ]),
+    sessionStorage.clear();
+    storeOidcSession(
+      tokenResponse(),
+      oidcClaims('11111111-1111-1111-1111-111111110003', 'TEAM', 'POLICE_SUBSTATION', ['MEMBER']),
     );
 
-    await expect(loginWithAccount('acct-precinct-team', 'fixture')).resolves.toMatchObject({
+    expect(readStoredLoginAccount()).toMatchObject({
       id: '11111111-1111-1111-1111-111111110003',
       name: '지구대 현장팀',
     });
@@ -62,21 +51,25 @@ describe('login account display names', () => {
   });
 });
 
-function loginResponse(
-  accountId: string,
-  accountType: AuthLoginResponse['securityContext']['accountType'] = 'COMMAND',
-  organizationType: AuthLoginResponse['securityContext']['organizationType'] = 'MISSING_TEAM',
-  authorities: AuthLoginResponse['securityContext']['authorities'] = ['MISSING_TEAM_COMMANDER'],
-): AuthLoginResponse {
+function tokenResponse() {
   return {
-    sessionId: 'session-001',
-    accessToken: 'access-token-001',
-    securityContext: {
-      accountId,
-      accountType,
-      organizationType,
-      channel: 'WEB',
-      authorities,
+    access_token: 'access-token-001',
+    token_type: 'Bearer',
+  };
+}
+
+function oidcClaims(
+  accountId: string,
+  accountType = 'COMMAND',
+  organizationType = 'MISSING_TEAM',
+  authorities = ['MISSING_TEAM_COMMANDER'],
+) {
+  return {
+    accountId,
+    accountType,
+    organizationType,
+    realm_access: {
+      roles: authorities,
     },
   };
 }

@@ -1,0 +1,50 @@
+import { describe, expect, test } from 'vitest';
+
+import type { SituationBoardResponseDto } from '../../data/getSituationBoard';
+import { mergeWithPreviousCriticalSlots } from './useSituationBoardData';
+
+describe('useSituationBoardData', () => {
+  test('keeps previous critical slots when a refetch response omits them', () => {
+    const previous = boardResponse({
+      marker: [{ id: 'marker-001', markerType: 'CLUE' }],
+      path: [{ id: 'path-001', pathType: 'FOOT' }],
+    });
+    const current = boardResponse({
+      area: [{ id: 'area-001', areaLevel: 'UNIT' }],
+    });
+
+    const merged = mergeWithPreviousCriticalSlots(current, previous);
+
+    expect(merged?.slots.marker).toEqual(previous.slots.marker);
+    expect(merged?.slots.path).toEqual(previous.slots.path);
+    expect(merged?.slots.area).toEqual(current.slots.area);
+  });
+
+  test('does not keep previous critical slots for a different incident', () => {
+    const previous = boardResponse({ marker: [{ id: 'marker-001' }] });
+    const current = {
+      ...boardResponse({}),
+      incidentId: 'incident-002',
+    };
+
+    const merged = mergeWithPreviousCriticalSlots(current, previous);
+
+    expect(merged).toBe(current);
+    expect(merged?.slots.marker).toBeUndefined();
+  });
+});
+
+function boardResponse(slots: Record<string, unknown>): SituationBoardResponseDto {
+  return {
+    incidentId: 'incident-001',
+    boardResponseVersion: 1,
+    serverTs: '2026-05-01T00:00:00Z',
+    activeOpId: 'op-001',
+    selectedOpIds: ['op-001'],
+    slots,
+    sourceVersions: {},
+    geometryHash: null,
+    sourceHashes: {},
+    slotSources: {},
+  };
+}

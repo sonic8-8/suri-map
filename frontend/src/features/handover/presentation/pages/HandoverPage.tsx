@@ -10,6 +10,7 @@ import {
   formatMissingPersonIncidentTitle,
   SuriMapPageHeader,
   type SuriMapPageHeaderIncidentContext,
+  type SuriMapPageHeaderSyncStatus,
 } from '../../../../shared/ui';
 import type { LoginAccount } from '../../../login/presentation/types/login';
 import {
@@ -224,6 +225,17 @@ export function HandoverPage({
     () => createIncidentContext(incidentId, incidentDetail, selectedOp),
     [incidentId, incidentDetail, selectedOp],
   );
+  const syncStatus = createHandoverSyncStatus({
+    boardHasData: board !== null,
+    boardIsError: boardQuery.isError,
+    boardIsFetching: boardQuery.isFetching,
+    hasMemoError: Boolean(memoErrorMessage),
+    hasOpError: Boolean(opErrorMessage),
+    hasSummaryError: summaryQuery.isError,
+    isLoadingMemos,
+    isLoadingOps,
+    isLoadingSummary,
+  });
   const canCreateOperationalPeriod = hasOperationalPeriodCommandPermission(currentUserAccount);
   const canSubmitNewOp =
     canCreateOperationalPeriod &&
@@ -238,13 +250,12 @@ export function HandoverPage({
   useEffect(() => {
     let ignore = false;
 
-    setIncidentDetail(null);
     void getHandoverIncidentDetail(incidentId)
       .then((detail) => {
         if (!ignore) setIncidentDetail(detail);
       })
       .catch(() => {
-        if (!ignore) setIncidentDetail(null);
+        // Keep the last successful incident context visible on transient read failures.
       });
 
     return () => {
@@ -258,10 +269,6 @@ export function HandoverPage({
     const loadOperationalPeriods = async () => {
       setIsLoadingOps(true);
       setOpErrorMessage('');
-      setOperationalPeriods([]);
-      setCurrentOpId(null);
-      setFocusedOpId(null);
-      setSelectedOpIds([]);
 
       try {
         const response = await operationalPeriodApi.list(incidentId);
@@ -290,7 +297,6 @@ export function HandoverPage({
 
   useEffect(() => {
     if (!focusedOpId) {
-      setMemos([]);
       return;
     }
 
@@ -451,6 +457,7 @@ export function HandoverPage({
         activeTab="handover"
         currentAccountLabel={currentAccountLabel}
         incidentContext={incidentContext}
+        syncStatus={syncStatus}
         timestampLabel={timestampLabel}
         onOpenIncidentList={onOpenIncidentList}
         onOpenIncidentDetail={onOpenIncidentDetail}
@@ -1007,6 +1014,40 @@ function createIncidentContext(
     ],
     statusLabel: `${status} · ${selectedOp ? formatOperationalPeriodLabel(selectedOp) : 'OP 없음'}`,
   };
+}
+
+function createHandoverSyncStatus({
+  boardHasData,
+  boardIsError,
+  boardIsFetching,
+  hasMemoError,
+  hasOpError,
+  hasSummaryError,
+  isLoadingMemos,
+  isLoadingOps,
+  isLoadingSummary,
+}: {
+  boardHasData: boolean;
+  boardIsError: boolean;
+  boardIsFetching: boolean;
+  hasMemoError: boolean;
+  hasOpError: boolean;
+  hasSummaryError: boolean;
+  isLoadingMemos: boolean;
+  isLoadingOps: boolean;
+  isLoadingSummary: boolean;
+}): SuriMapPageHeaderSyncStatus | null {
+  if (boardIsError || hasMemoError || hasOpError || hasSummaryError) {
+    return boardHasData
+      ? { label: '일부 동기화 실패 · 이전 데이터 표시', tone: 'stale' }
+      : { label: '동기화 실패', tone: 'error' };
+  }
+
+  if (boardIsFetching || isLoadingMemos || isLoadingOps || isLoadingSummary) {
+    return { label: '동기화 중', tone: 'syncing' };
+  }
+
+  return null;
 }
 
 function createHandoverMemoTargetOptions(
