@@ -177,6 +177,7 @@ fun SuriMapApp() {
     var incidentClosed by remember { mutableStateOf<IncidentClosedOverlayState?>(null) }
     var blockedQueue by remember { mutableStateOf<BlockedQueueToastState?>(null) }
     var handoverMemoSaved by remember { mutableStateOf<HandoverMemoSavedToastState?>(null) }
+    var searchPathEnded by remember { mutableStateOf<SearchPathEndedToastState?>(null) }
 
     IncidentAssignmentRefreshEffect(onRefresh = { assignmentRefreshNonce += 1 })
     NotificationPermissionEffect()
@@ -187,7 +188,8 @@ fun SuriMapApp() {
             AppOverlayState(
                 incidentClosed = incidentClosed,
                 blockedQueue = blockedQueue,
-                handoverMemoSaved = handoverMemoSaved
+                handoverMemoSaved = handoverMemoSaved,
+                searchPathEnded = searchPathEnded
             ),
             onDismissIncidentClosed = {
                 incidentClosed = null
@@ -198,7 +200,8 @@ fun SuriMapApp() {
                 blockedQueue = null
                 navController.navigateToSingleTop(PolicePhoneRoute.BlockedOutbox)
             },
-            onDismissHandoverMemoSaved = { handoverMemoSaved = null }
+            onDismissHandoverMemoSaved = { handoverMemoSaved = null },
+            onDismissSearchPathEnded = { searchPathEnded = null }
         ) {
             FcmRegistrationEffect(policePhoneContext = incidentSessionState.policePhoneContext)
             NavHost(
@@ -248,6 +251,9 @@ fun SuriMapApp() {
                         clockSyncState = clockSyncState,
                         onOpenBlockedOutbox = {
                             blockedQueue = BlockedQueueToastState(blockedCount = 2)
+                        },
+                        onSearchPathEnded = {
+                            searchPathEnded = SearchPathEndedToastState(pendingSync = true)
                         }
                     )
                 }
@@ -675,7 +681,8 @@ private fun SearchMapRoute(
     navController: NavHostController,
     focusMarkerId: String? = null,
     clockSyncState: ClockSyncState,
-    onOpenBlockedOutbox: () -> Unit
+    onOpenBlockedOutbox: () -> Unit,
+    onSearchPathEnded: () -> Unit
 ) {
     val incidentContext = incidentSessionState.incidentContext
     val policePhoneContext = incidentSessionState.policePhoneContext
@@ -944,6 +951,15 @@ private fun SearchMapRoute(
             mapOverlaysVisible = mapOverlaysVisible
         ).withCurrentLocationViewport(latestLocationFix)
 
+    LaunchedEffect(displayedLifecycle, sessionContext.incidentId, sessionContext.policePhoneId, policePhoneContext?.accessToken) {
+        if (displayedLifecycle == SearchLifecycleStatus.Active) {
+            while (true) {
+                clockSyncState.syncClockForIncident(sessionContext.incidentId, policePhoneContext)
+                delay(ACTIVE_SEARCH_CLOCK_RESYNC_INTERVAL_MS)
+            }
+        }
+    }
+
     LaunchedEffect(locationUpdates, sessionContext.incidentId, sessionContext.policePhoneId) {
         latestLocationFix = locationUpdates.lastKnownFix()
     }
@@ -1038,10 +1054,13 @@ private fun SearchMapRoute(
                         searchPathId = pathId
                     )
                     gpsBatchRecorder.clear()
-                    searchPathRecorder.end(
+                    val result = searchPathRecorder.end(
                         context = sessionContext.toSearchPathWriteContext(),
                         searchPathId = pathId
                     )
+                    if (result is SearchPathWriteResult.Enqueued) {
+                        onSearchPathEnded()
+                    }
                     recordingSession = recordingSession.stop(now)
                     elapsedTickerNowMs = now
                 }
@@ -1098,6 +1117,7 @@ private fun SearchMapRoute(
                 onSave = {
                     coroutineScope.launch {
                         markerSheetState = markerSheetState.copy(saveStatus = MarkerSaveStatus.Saving)
+                        clockSyncState.syncClockForIncident(sessionContext.incidentId, policePhoneContext)
                         when (
                             markerRecorder.createMarker(
                                 context = sessionContext.toMarkerWriteContext(),
@@ -2062,3 +2082,5 @@ private fun NavHostController.navigateToIncidentListRoot() {
         launchSingleTop = true
     }
 }
+
+private const val ACTIVE_SEARCH_CLOCK_RESYNC_INTERVAL_MS = 240_000L
