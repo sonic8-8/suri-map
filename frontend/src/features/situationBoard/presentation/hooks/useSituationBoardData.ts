@@ -160,7 +160,7 @@ export function useSituationBoardData(
       searchAreaTree,
       searchAreaDrafts,
       movementPaths,
-      recentMarkers: apiRecentMarkers.length > 0 ? apiRecentMarkers : fallbackBoard.recentMarkers,
+      recentMarkers: apiRecentMarkers,
       legendItems: createLegendItems(fallbackBoard.legendItems, movementPaths),
     };
   }, [apiBoard, fallbackBoard, savedAreaDrafts]);
@@ -215,7 +215,8 @@ const CRITICAL_BOARD_SLOTS: readonly BoardSlotName[] = [
   'overall_search_area',
   'area',
   'path',
-  'marker',
+  'police_phone_freshness',
+  'op_toggle',
   'op_history',
   'handover_memo',
   'handover_status',
@@ -239,12 +240,12 @@ export function mergeWithPreviousCriticalSlots(
   let changed = false;
 
   CRITICAL_BOARD_SLOTS.forEach((slot) => {
-    if (isMissingSlot(slots[slot]) && !isMissingSlot(previous.slots[slot])) {
+    if (shouldKeepPreviousSlot(slots[slot], previous.slots[slot])) {
       slots[slot] = previous.slots[slot];
       changed = true;
     }
 
-    if (isMissingSlot(slotSources[slot]) && !isMissingSlot(previous.slotSources[slot])) {
+    if (shouldKeepPreviousSlot(slotSources[slot], previous.slotSources[slot])) {
       slotSources[slot] = previous.slotSources[slot];
       changed = true;
     }
@@ -273,4 +274,28 @@ export function mergeWithPreviousCriticalSlots(
 
 function isMissingSlot(value: unknown) {
   return value === null || value === undefined;
+}
+
+function shouldKeepPreviousSlot(currentValue: unknown, previousValue: unknown) {
+  if (isMissingSlot(currentValue)) {
+    return !isMissingSlot(previousValue);
+  }
+
+  if (isEmptySlotValue(currentValue)) {
+    return !isMissingSlot(previousValue) && !isEmptySlotValue(previousValue);
+  }
+
+  return false;
+}
+
+function isEmptySlotValue(value: unknown) {
+  if (Array.isArray(value)) {
+    return value.length === 0;
+  }
+
+  return isRecord(value) && Object.keys(value).length === 0;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

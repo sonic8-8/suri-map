@@ -1,5 +1,5 @@
 import { type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
-import { CircleCheck, CircleMinus, ClipboardList, Flag } from 'lucide-react';
+import { Car, CircleMinus, ClipboardList, Phone } from 'lucide-react';
 
 import { areaColorTokens, type AreaColorToken } from '../../../../../shared/constants/areaColorTokens';
 import {
@@ -24,7 +24,7 @@ type SearchAreaTreeProps = {
   onSelectSearchArea: (searchAreaId: string) => void;
 };
 
-type SummaryMetricTone = 'blue' | 'green' | 'muted';
+type SummaryMetricTone = 'blue' | 'cyan' | 'green' | 'muted';
 
 type SummaryMetricStyle = CSSProperties & {
   '--summary-metric-accent': string;
@@ -39,6 +39,7 @@ type SummaryMetricProps = {
 
 const summaryMetricToneStyles = {
   blue: { '--summary-metric-accent': 'var(--suri-board-primary-hi)' },
+  cyan: { '--summary-metric-accent': '#38bdf8' },
   green: { '--summary-metric-accent': 'var(--suri-board-success)' },
   muted: { '--summary-metric-accent': 'rgba(150, 163, 184, 0.94)' },
 } satisfies Record<SummaryMetricTone, SummaryMetricStyle>;
@@ -81,6 +82,14 @@ function getLeafAreas(searchAreaTree: SearchAreaTreeNode) {
 
 function getAssignedCount(area: SearchAreaTreeNode) {
   return area.assignedAccounts?.length ?? 0;
+}
+
+function hasPolicePhoneAssignment(area: SearchAreaTreeNode) {
+  return getAssignedCount(area) > 0 && !hasPatrolCarAssignment(area);
+}
+
+function hasPatrolCarAssignment(area: SearchAreaTreeNode) {
+  return (area.assignedAccounts ?? []).some((account) => account.accountType === 'PATROL_CAR');
 }
 
 function getDisplayState(area: SearchAreaTreeNode, assignedAreaIds: Set<string>): SearchAreaDisplayState {
@@ -275,36 +284,36 @@ export function SearchAreaTree({
 }: SearchAreaTreeProps) {
   const assignedAreaIds = new Set(savedAreaDrafts.map((draft) => draft.areaId));
   const leafAreas = getLeafAreas(searchAreaTree);
-  const assignedLeafCount = leafAreas.filter((area) => getAssignedCount(area) > 0).length;
-  const pendingLeafCount = leafAreas.filter((area) => getAssignedCount(area) === 0).length;
-  const childAreaCount = flattenAreaTree(searchAreaTree).filter((area) => area.kind !== 'overall').length;
-  const pendingLeafLabel = pendingLeafCount === 0 ? '없음' : `${pendingLeafCount}개`;
+  const policePhoneLeafCount = leafAreas.filter(hasPolicePhoneAssignment).length;
+  const patrolCarLeafCount = leafAreas.filter(hasPatrolCarAssignment).length;
+  const unassignedLeafCount = leafAreas.filter((area) => getAssignedCount(area) === 0).length;
+  const unassignedLeafLabel = unassignedLeafCount === 0 ? '없음' : `${unassignedLeafCount}개`;
 
   return (
     <CollapsiblePanelSection title="수색 구역">
       <div className={`${styles.tree}${hasActiveOverallSearchArea ? '' : ` ${styles.treeDisabled}`}`}>
         <div className={styles.summaryPanel} aria-label="수색구역 요약">
           <SummaryMetric
-            label="등록 구역"
-            value={`${childAreaCount}개`}
+            label="전체 구역"
+            value={`${leafAreas.length}개`}
             tone="blue"
             icon={<ClipboardList size={18} strokeWidth={2.2} />}
           />
           <SummaryMetric
-            label="최종 구역"
-            value={`${leafAreas.length}개`}
-            tone="blue"
-            icon={<Flag size={18} strokeWidth={2.2} />}
+            label="폴리폰"
+            value={`${policePhoneLeafCount}개`}
+            tone="cyan"
+            icon={<Phone size={18} strokeWidth={2.2} />}
           />
           <SummaryMetric
-            label="배정 완료"
-            value={`${assignedLeafCount}개`}
+            label="순찰차"
+            value={`${patrolCarLeafCount}개`}
             tone="green"
-            icon={<CircleCheck size={18} strokeWidth={2.2} />}
+            icon={<Car size={18} strokeWidth={2.2} />}
           />
           <SummaryMetric
             label="미배정"
-            value={pendingLeafLabel}
+            value={unassignedLeafLabel}
             tone="muted"
             icon={<CircleMinus size={18} strokeWidth={2.2} />}
           />
