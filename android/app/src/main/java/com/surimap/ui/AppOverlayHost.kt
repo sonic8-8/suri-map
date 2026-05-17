@@ -25,7 +25,8 @@ import com.surimap.ui.theme.PoliFgMuted
 data class AppOverlayState(
     val incidentClosed: IncidentClosedOverlayState? = null,
     val blockedQueue: BlockedQueueToastState? = null,
-    val handoverMemoSaved: HandoverMemoSavedToastState? = null
+    val handoverMemoSaved: HandoverMemoSavedToastState? = null,
+    val searchPathEnded: SearchPathEndedToastState? = null
 )
 
 data class IncidentClosedOverlayState(
@@ -40,12 +41,17 @@ data class HandoverMemoSavedToastState(
     val pendingSync: Boolean
 )
 
+data class SearchPathEndedToastState(
+    val pendingSync: Boolean
+)
+
 @Composable
 fun AppOverlayHost(
     state: AppOverlayState,
     onDismissIncidentClosed: () -> Unit,
     onOpenBlockedQueue: () -> Unit,
     onDismissHandoverMemoSaved: () -> Unit,
+    onDismissSearchPathEnded: () -> Unit,
     content: @Composable BoxScope.() -> Unit
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
@@ -66,6 +72,16 @@ fun AppOverlayHost(
                 text = if (toast.pendingSync) "인수인계 메모 저장됨 · 미전송" else "인수인계 메모 저장됨",
                 actionText = "확인",
                 onAction = onDismissHandoverMemoSaved,
+                modifier = Modifier.align(Alignment.TopCenter).padding(PoliDimens.SectionPadding),
+                variant = PoliBannerVariant.Info
+            )
+        }
+
+        state.searchPathEnded?.let { toast ->
+            PoliToast(
+                text = if (toast.pendingSync) "수색 경로 종료 요청 저장됨 · 미전송" else "수색 경로가 종료되었습니다",
+                actionText = "확인",
+                onAction = onDismissSearchPathEnded,
                 modifier = Modifier.align(Alignment.TopCenter).padding(PoliDimens.SectionPadding),
                 variant = PoliBannerVariant.Info
             )
