@@ -42,7 +42,7 @@
   color: var(--suri-board-fg-primary);
   background: transparent;
   font-family: inherit;
-  font-size: 22px;
+  font-size: 27px;
   font-weight: 800;
   line-height: 1.2;
   white-space: nowrap;
@@ -89,7 +89,7 @@
   align-items: center;
   gap: 10px;
   color: var(--suri-board-fg-primary);
-  font-size: 20px;
+  font-size: 23px;
   font-weight: 900;
   letter-spacing: 0;
   white-space: nowrap;

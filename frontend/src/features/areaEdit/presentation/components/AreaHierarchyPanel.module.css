@@ -1,4 +1,4 @@
-﻿.panelContent {
+.panelContent {
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
   min-width: 0;
@@ -13,39 +13,41 @@
 }
 
 .header strong {
-  color: var(--suri-board-fg-muted);
-  font-size: 22px;
+  color: #c9d9eb;
+  font-size: 21px;
+  font-weight: 800;
+  line-height: 1.35;
+  letter-spacing: 0;
 }
 
 .unassignedNotice {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
   align-items: center;
-  margin: 30px 8px 20px;
-  padding: 11px 12px;
-  border: 1px solid #dc2626;
+  margin: 24px 5px 18px;
+  padding: 10px 11px;
+  border: 1px solid color-mix(in srgb, #d9b45f 42%, var(--suri-board-border));
   border-radius: 4px;
-  color: #fff;
-  background: #ca5858;
+  color: var(--suri-board-fg-secondary);
+  background: color-mix(in srgb, #d9b45f 12%, var(--suri-board-panel-surface));
   text-align: center;
 }
 
 .unassignedNotice span {
   min-width: 0;
-  color: #fff;
-  font-size: 15px;
-  font-weight: 600;
+  color: inherit;
+  font-size: 16px;
+  font-weight: 700;
   line-height: 1.45;
 }
 
 .assignedNotice {
-  border-color: #84cc16;
-  color: #24470b;
-  background: #acef6b;
+  border-color: color-mix(in srgb, #84cc16 42%, var(--suri-board-border));
+  color: #dcfce7;
+  background: color-mix(in srgb, #84cc16 12%, var(--suri-board-panel-surface));
 }
 
 .assignedNotice span {
-  color: #24470b;
+  color: inherit;
 }
 
 .tree {
@@ -58,31 +60,130 @@
   overflow-x: hidden;
   overflow-y: auto;
   --area-identity-color: var(--area-color-001, #2563eb);
-  --area-box-text: #07111f;
-  --area-box-meta: #3d4c5f;
+  --area-box-text: var(--suri-board-fg-primary);
+  --area-box-meta: var(--suri-board-fg-muted);
+  --area-tree-completed-bg: color-mix(in srgb, var(--suri-board-fg-muted) 12%, var(--suri-board-panel-surface));
   scrollbar-color: var(--suri-board-left-scrollbar-thumb) transparent;
   scrollbar-width: thin;
 }
 
 .rootNode {
   display: grid;
-  gap: 18px;
+  gap: 14px;
+  min-width: 0;
 }
 
-.addUnitButton {
-  display: none;
+.rootActionRow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  width: 100%;
+}
+
+.ghostChildSlot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 68px;
+  min-width: 0;
+}
+
+.ghostChildCard {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  min-width: 0;
+  min-height: 56px;
+  padding: 10px 11px;
+  border: 1px dashed color-mix(in srgb, var(--area-identity-color) 26%, var(--suri-board-border));
+  border-radius: 4px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--area-identity-color) 5%, transparent), transparent),
+    color-mix(in srgb, var(--area-identity-color) 4%, var(--suri-board-panel-surface));
+  opacity: 0.46;
+}
+
+.ghostChildTitle {
+  overflow: hidden;
+  padding-left: 9px;
+  border-left: 6px solid var(--area-identity-color);
+  color: var(--area-box-text);
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ghostChildSubtitle {
+  overflow: hidden;
+  padding-left: 15px;
+  color: var(--area-box-meta);
+  font-size: 15px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ghostChildAddButton {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--suri-board-primary-hi) 38%, var(--suri-board-border));
+  border-radius: 999px;
+  color: var(--suri-board-fg-primary);
+  background:
+    radial-gradient(circle at 30% 28%, rgba(255, 255, 255, 0.18), transparent 55%),
+    color-mix(in srgb, var(--suri-board-primary-soft) 68%, var(--suri-board-panel-surface));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 8%),
+    0 8px 16px rgb(0 0 0 / 14%);
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+}
+
+.ghostChildAddButton:hover {
+  border-color: color-mix(in srgb, var(--suri-board-primary-hi) 52%, var(--suri-board-border-strong));
+  background:
+    radial-gradient(circle at 30% 28%, rgba(255, 255, 255, 0.2), transparent 55%),
+    color-mix(in srgb, var(--suri-board-primary-hi) 18%, var(--suri-board-panel-surface));
+  transform: translate(-50%, calc(-50% - 1px));
+}
+
+.ghostChildAddButton:focus-visible {
+  outline: 2px solid var(--suri-board-primary-hi);
+  outline-offset: 2px;
 }
 
 .inlineActionButton {
-  min-height: 42px;
+  min-height: 34px;
   margin: -8px 0 0 28px;
-  border: 1px solid color-mix(in srgb, var(--suri-board-primary-hi) 58%, var(--suri-board-border));
+  padding: 0 12px;
+  border: 1px solid var(--suri-board-option-default-border);
   border-radius: 4px;
-  color: var(--suri-board-panel-bg);
-  background: var(--suri-board-primary-hi);
-  font-size: 15px;
+  color: var(--suri-board-fg-primary);
+  background: color-mix(in srgb, var(--suri-board-primary-soft) 62%, var(--suri-board-panel-surface));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 3%);
+  font-size: 14px;
   font-weight: 800;
   letter-spacing: 0;
+}
+
+.inlineActionButton:hover {
+  border-color: color-mix(in srgb, var(--suri-board-primary-hi) 36%, var(--suri-board-border));
+  background: color-mix(in srgb, var(--suri-board-primary-hi) 16%, var(--suri-board-panel-surface));
+}
+
+.inlineActionButton:focus-visible {
+  outline: 2px solid var(--suri-board-primary-hi);
+  outline-offset: 2px;
 }
 
 .inlineActionButton:disabled {
@@ -94,37 +195,49 @@
 
 .nodeRow,
 .unitToggle,
-.unitStaticRow {
+.unitStaticRow,
+.teamNode {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
+  align-items: start;
+  gap: 10px;
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
-  padding: 8px 9px;
-  border: 1px solid color-mix(in srgb, var(--area-identity-color) 44%, #d7e0ec);
+  padding: 10px 11px;
+  border: 1px solid color-mix(in srgb, var(--area-identity-color) 24%, var(--suri-board-border));
   border-radius: 4px;
-  background: color-mix(in srgb, var(--area-identity-color) 10%, #f8fbff);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 72%),
-    0 1px 0 rgb(0 0 0 / 8%);
+  color: inherit;
+  background: color-mix(in srgb, var(--area-identity-color) 8%, var(--suri-board-panel-surface));
+  background-clip: padding-box;
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--area-identity-color) 64%, transparent);
   text-align: left;
   cursor: pointer;
 }
 
-.unitToggle {
-  background: color-mix(in srgb, var(--area-identity-color) 9%, #f8fbff);
+.nodeRow:hover,
+.unitToggle:hover,
+.unitStaticRow:hover,
+.teamNode:hover {
+  border-color: color-mix(in srgb, var(--area-identity-color) 36%, var(--suri-board-border-strong));
+  background: color-mix(in srgb, var(--area-identity-color) 12%, var(--suri-board-panel-muted-bg));
 }
 
-.unitToggle,
-.unitStaticRow {
-  padding-right: 9px;
+.nodeRow:focus-visible,
+.unitToggle:focus-visible,
+.unitStaticRow:focus-visible,
+.teamNode:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--area-identity-color) 52%, var(--suri-board-fg-primary));
+  outline-offset: 2px;
 }
 
-.unitActionRow:has(.removeDraftUnitButton) .unitToggle,
-.unitActionRow:has(.removeDraftUnitButton) .unitStaticRow {
-  padding-right: 28px;
+.nodeRow:disabled,
+.unitToggle:disabled,
+.unitStaticRow:disabled,
+.teamNode:disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
 }
 
 .nodeText {
@@ -139,18 +252,18 @@
   padding-left: 9px;
   border-left: 6px solid var(--area-identity-color);
   color: var(--area-box-text);
-  font-size: 14px;
+  font-size: 19px;
   line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .nodeName {
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .teamName {
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .nodeMeta,
@@ -158,17 +271,50 @@
   overflow: hidden;
   padding-left: 15px;
   color: var(--area-box-meta);
-  font-size: 13px;
+  font-size: 17px;
   line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .nodeStatusRow {
-  display: flex;
-  justify-content: flex-end;
-  min-width: 0;
-  max-width: 100%;
+  display: grid;
+  align-content: start;
+  justify-items: end;
+  gap: 4px;
+  min-width: max-content;
+}
+
+.stateBadge {
+  min-width: 42px;
+  padding: 4px 8px;
+  border: 1px solid var(--suri-board-border);
+  border-radius: 999px;
+  color: var(--suri-board-fg-secondary);
+  background: var(--suri-board-panel-surface);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.stateActive {
+  border-color: var(--suri-board-success);
+  color: var(--suri-board-success);
+  background: color-mix(in srgb, var(--suri-board-success) 15%, var(--suri-board-panel-surface));
+}
+
+.stateCompleted {
+  border-color: color-mix(in srgb, var(--suri-board-fg-muted) 76%, var(--suri-board-border));
+  color: var(--suri-board-fg-secondary);
+  background: var(--area-tree-completed-bg);
+}
+
+.stateRequired {
+  border-color: color-mix(in srgb, #d97706 72%, var(--suri-board-border));
+  color: #f59e0b;
+  background: color-mix(in srgb, #f59e0b 14%, var(--suri-board-panel-surface));
 }
 
 .unitList {
@@ -177,6 +323,7 @@
   gap: 18px;
   margin-left: 0;
   padding-left: 28px;
+  overflow: visible;
 }
 
 .unitList::before {
@@ -195,6 +342,20 @@
   gap: 12px;
 }
 
+.unitNode::before,
+.teamNode::before {
+  position: absolute;
+  left: -19px;
+  width: 17px;
+  height: 1px;
+  background: color-mix(in srgb, var(--suri-board-fg-muted) 62%, var(--suri-board-border));
+  content: "";
+}
+
+.unitNode::before {
+  top: 20px;
+}
+
 .unitActionRow {
   position: relative;
   display: block;
@@ -209,7 +370,7 @@
   height: auto;
   padding: 0;
   border: 0;
-  color: #7f1d1d;
+  color: #fda4af;
   background: transparent;
   font-size: 13px;
   font-weight: 800;
@@ -219,42 +380,33 @@
 }
 
 .removeDraftUnitButton:hover {
-  color: #dc2626;
+  color: #fb7185;
 }
 
-.inactiveNode .unitToggle,
-.inactiveNode .unitStaticRow,
-.inactiveNode.teamNode {
-  border-color: color-mix(in srgb, var(--area-identity-color) 38%, #d7e0ec);
-  background: color-mix(in srgb, var(--area-identity-color) 8%, #f8fbff);
+.selectedNode {
+  border-color: color-mix(in srgb, var(--area-identity-color) 52%, var(--suri-board-border-strong));
+  background: color-mix(in srgb, var(--area-identity-color) 16%, var(--suri-board-panel-muted-bg));
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 52%),
-    0 1px 0 rgb(0 0 0 / 5%);
+    inset 3px 0 0 color-mix(in srgb, var(--area-identity-color) 78%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--area-identity-color) 34%, transparent);
 }
 
-.inactiveNode .teamNode {
-  border-color: color-mix(in srgb, var(--area-identity-color) 34%, #d7e0ec);
-  background: color-mix(in srgb, var(--area-identity-color) 7%, #fbfdff);
+.mapSelectedNode {
+  border-color: color-mix(in srgb, var(--area-identity-color) 52%, var(--suri-board-border-strong));
+  outline: 2px solid color-mix(in srgb, var(--area-identity-color) 52%, var(--suri-board-fg-primary));
+  outline-offset: 2px;
 }
 
-.inactiveNode .nodeName,
-.inactiveNode .teamName {
-  opacity: 0.74;
+.assignedNode {
+  border-color: color-mix(in srgb, var(--suri-board-fg-muted) 34%, var(--suri-board-border));
+  background: color-mix(in srgb, var(--suri-board-fg-muted) 10%, var(--suri-board-panel-surface));
+  box-shadow:
+    inset 3px 0 0 color-mix(in srgb, var(--area-identity-color) 48%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 4%);
 }
 
-.inactiveNode .nodeMeta,
-.inactiveNode .teamMeta {
-  opacity: 0.68;
-}
-
-.unitNode::before {
-  position: absolute;
-  top: 20px;
-  left: -19px;
-  width: 17px;
-  height: 1px;
-  background: color-mix(in srgb, var(--suri-board-fg-muted) 62%, var(--suri-board-border));
-  content: "";
+.assignedNode:hover {
+  background: color-mix(in srgb, var(--suri-board-fg-muted) 14%, var(--suri-board-panel-muted-bg));
 }
 
 .teamList {
@@ -275,73 +427,9 @@
   content: "";
 }
 
-.teamNode {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  box-sizing: border-box;
-  padding: 6px 7px;
-  border: 1px solid color-mix(in srgb, var(--area-identity-color) 36%, #d7e0ec);
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--area-identity-color) 8%, #fbfdff);
-  background-clip: padding-box;
-  text-align: left;
-  cursor: pointer;
-}
-
-.nodeRow:disabled,
-.unitToggle:disabled,
-.unitStaticRow:disabled,
-.teamNode:disabled {
-  cursor: not-allowed;
-}
-
-.selectedNode {
-  border-color: var(--area-identity-color);
-  background: color-mix(in srgb, var(--area-identity-color) 20%, #f8fbff);
-  box-shadow:
-    inset 0 0 0 2px color-mix(in srgb, var(--area-identity-color) 74%, transparent),
-    0 8px 18px rgb(0 0 0 / 16%);
-}
-
-.mapSelectedNode {
-  border-color: var(--area-identity-color);
-  border-width: 3px;
-  outline: 2px solid color-mix(in srgb, var(--area-identity-color) 34%, transparent);
-  outline-offset: 2px;
-}
-
-.assignedNode {
-  border-color: #cfd6df;
-  background: #a8a8a8;
-  box-shadow:
-    inset 0 1px 0 rgba(149, 149, 149, 0.7),
-    0 1px 0 rgb(0 0 0 / 6%);
-}
-
-.assignedNode:hover {
-  background: #e8edf3;
-}
-
-.assignedBadge {
-  border-color: #9ad36f;
-  color: #2f6b16;
-  background: #d9f99d;
-}
-
 .teamNode::before {
-  position: absolute;
   top: 18px;
-  left: -19px;
   z-index: -1;
-  width: 17px;
-  height: 1px;
-  background: color-mix(in srgb, var(--suri-board-fg-muted) 62%, var(--suri-board-border));
-  content: "";
 }
 
 .assignmentPanel {
@@ -349,9 +437,10 @@
   gap: 10px;
   margin: 4px 5px 12px 0;
   padding: 12px;
-  border: 1px solid var(--suri-board-left-section-divider);
+  border: 1px solid var(--suri-board-border);
   border-radius: 4px;
-  background: color-mix(in srgb, var(--suri-board-panel-bg) 92%, #ffffff);
+  background: color-mix(in srgb, var(--suri-board-panel-surface) 92%, var(--suri-board-panel-bg));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 3%);
 }
 
 .assignmentHeader {
@@ -361,21 +450,23 @@
 }
 
 .assignmentHeader strong {
-  color: var(--suri-board-fg-muted);
-  font-size: 14px;
+  color: var(--suri-board-fg-primary);
+  font-size: 19px;
+  font-weight: 800;
+  line-height: 1.25;
 }
 
 .assignmentHeader span {
   overflow: hidden;
   color: var(--suri-board-fg-secondary);
-  font-size: 13px;
+  font-size: 16px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .assignmentList {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -383,19 +474,21 @@
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
-  padding: 8px;
-  border: 1px solid color-mix(in srgb, var(--suri-board-border) 76%, transparent);
+  padding: 9px 10px;
+  border: 1px solid var(--suri-board-option-default-border);
   border-radius: 4px;
-  background: color-mix(in srgb, var(--suri-board-border) 24%, transparent);
+  color: var(--suri-board-option-default-fg);
+  background: var(--suri-board-option-default-bg);
   cursor: pointer;
 }
 
 .assignmentItem input {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   margin: 0;
+  accent-color: var(--suri-board-primary-hi);
 }
 
 .assignmentText {
@@ -404,22 +497,23 @@
   min-width: 0;
 }
 
-.assignmentText strong,
-.assignmentText span {
+.assignmentText strong {
   overflow: hidden;
+  color: var(--suri-board-fg-primary);
+  font-size: 16px;
+  font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.assignmentText strong {
-  color: var(--suri-board-fg-muted);
-  font-size: 13px;
-}
-
 .assignmentText span,
 .assignmentEmpty {
-  color: var(--suri-board-fg-secondary);
-  font-size: 12px;
+  overflow: hidden;
+  color: var(--suri-board-fg-muted);
+  font-size: 14px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .assignmentEmpty {
@@ -427,20 +521,28 @@
 }
 
 .assignmentSaveButton {
-  min-height: 38px;
-  border: 1px solid color-mix(in srgb, var(--suri-board-primary-hi) 58%, var(--suri-board-border));
+  min-height: 42px;
+  border: 1px solid color-mix(in srgb, var(--suri-board-primary-hi) 34%, var(--suri-board-border));
   border-radius: 4px;
-  color: var(--suri-board-panel-bg);
-  background: var(--suri-board-primary-hi);
-  font-size: 14px;
+  color: var(--suri-board-fg-primary);
+  background: color-mix(in srgb, var(--suri-board-primary-soft) 70%, var(--suri-board-panel-surface));
+  font-size: 16px;
   font-weight: 800;
 }
 
 .assignmentSaveButton:disabled {
-  border-color: var(--suri-board-option-default-border);
-  color: color-mix(in srgb, var(--suri-board-fg-muted) 76%, var(--suri-board-panel-bg));
-  background: color-mix(in srgb, var(--suri-board-border) 62%, transparent);
   cursor: not-allowed;
+  opacity: 0.56;
+}
+
+.assignmentSaveButton:not(:disabled):hover {
+  border-color: color-mix(in srgb, var(--suri-board-primary-hi) 48%, var(--suri-board-border));
+  background: color-mix(in srgb, var(--suri-board-primary-soft) 80%, var(--suri-board-panel-surface));
+}
+
+.assignmentSaveButton:focus-visible {
+  outline: 2px solid var(--suri-board-primary-hi);
+  outline-offset: 2px;
 }
 
 .actions {
@@ -453,10 +555,11 @@
 
 .cancelButton,
 .saveButton {
-  min-height: 58px;
-  border-radius: 8px;
-  font-size: 19px;
+  min-height: 54px;
+  border-radius: 6px;
+  font-size: 17px;
   font-weight: 800;
+  letter-spacing: 0;
 }
 
 .cancelButton {
@@ -465,16 +568,27 @@
   background: transparent;
 }
 
+.cancelButton:hover {
+  border-color: color-mix(in srgb, var(--suri-board-primary-hi) 22%, var(--suri-board-border));
+  color: var(--suri-board-fg-primary);
+  background: color-mix(in srgb, var(--suri-board-panel-surface) 82%, var(--suri-board-panel-bg));
+}
+
+.cancelButton:focus-visible,
+.saveButton:focus-visible {
+  outline: 2px solid var(--suri-board-primary-hi);
+  outline-offset: 2px;
+}
+
 .saveButton {
   border: 1px solid color-mix(in srgb, var(--suri-board-primary-hi) 72%, var(--suri-board-border));
-  color: var(--suri-board-panel-bg);
-  background: var(--suri-board-primary-hi);
+  color: var(--suri-board-fg-primary);
+  background: color-mix(in srgb, var(--suri-board-primary-soft) 74%, var(--suri-board-panel-surface));
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 22%);
-  letter-spacing: 0;
 }
 
 .saveButton:hover {
-  background: color-mix(in srgb, var(--suri-board-primary-hi) 88%, #ffffff);
+  background: color-mix(in srgb, var(--suri-board-primary-soft) 88%, var(--suri-board-panel-surface));
 }
 
 .saveButton:disabled {

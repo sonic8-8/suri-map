@@ -1,11 +1,10 @@
-﻿import { type CSSProperties } from 'react';
-import { StatusBadge } from '../../../../shared/ui/statusBadge';
+import { type CSSProperties } from 'react';
+import { Plus } from 'lucide-react';
 import { areaColorTokens, type AreaColorToken } from '../../../../shared/constants/areaColorTokens';
 import {
   getSearchAreaDisplayState,
   type SearchAreaDisplayState,
   searchAreaDisplayStateLabel,
-  searchAreaDisplayStateTone,
 } from '../../../../shared/model/searchAreaDisplayState';
 import type { AreaTreeNode } from '../constants/mockAreaEdit';
 import { isAssignableSearchAreaLeaf, isSavedGeometryArea } from '../utils/areaAssignmentUtils';
@@ -25,7 +24,9 @@ type AreaHierarchyPanelProps = {
   normalSelectedAreaId: string | null;
   selectedAreaId: string | null;
   unassignedPhoneCount: number;
-  splitChildCountIssueCount: number;
+  splitChildAreaCount: number;
+  splitChildRangeMissingCount: number;
+  isSplitFlow: boolean;
   canAddUnit: boolean;
   canAddTeam: boolean;
   onCancel: () => void;
@@ -63,16 +64,22 @@ function getNodeClassName(
   area: AreaTreeNode,
   selectedAreaId: string | null,
   normalSelectedAreaId: string | null,
-  assignedAreaIds: Set<string>,
-  assignedAccountCountsByAreaId: ReadonlyMap<string, number>,
+  displayState: SearchAreaDisplayState,
 ) {
   const classNames = [baseClassName];
   if (area.id === selectedAreaId) classNames.push(styles.selectedNode);
   if (area.id === normalSelectedAreaId) classNames.push(styles.mapSelectedNode);
-  if (getDisplayState(area, assignedAreaIds, assignedAccountCountsByAreaId) === 'geometrySaved') {
+  if (displayState === 'geometrySaved') {
     classNames.push(styles.assignedNode);
   }
   return classNames.join(' ');
+}
+
+function getStateClassName(state: SearchAreaDisplayState) {
+  if (state === 'completed' || state === 'cancelled') return `${styles.stateBadge} ${styles.stateCompleted}`;
+  if (state === 'assignmentDone' || state === 'geometrySaved') return `${styles.stateBadge} ${styles.stateActive}`;
+  if (state === 'assignmentPending' || state === 'geometryPending') return `${styles.stateBadge} ${styles.stateRequired}`;
+  return styles.stateBadge;
 }
 
 function getDisplayState(
@@ -94,10 +101,12 @@ function isSelectableArea(area: AreaTreeNode, assignedAreaIds: Set<string>) {
 }
 
 function getAreaNoticeMessage(
+  isSplitFlow: boolean,
   isSaveEnabled: boolean,
   isSaving: boolean,
   unassignedAreaCount: number,
-  splitChildCountIssueCount: number,
+  splitChildAreaCount: number,
+  splitChildRangeMissingCount: number,
   saveActionLabel: string,
 ) {
   if (isSaving) {
@@ -107,49 +116,60 @@ function getAreaNoticeMessage(
     };
   }
 
+  if (isSplitFlow) {
+    if (splitChildAreaCount < 2) {
+      return {
+        title: "구역을 분할하려면 2개 이상의 하위 구역을 추가해 주세요.",
+        description: "하위 구역이 2개 이상이어야 구역 분할을 확정할 수 있습니다.",
+      };
+    }
+
+    if (splitChildRangeMissingCount > 0) {
+      return {
+        title: "추가한 모든 하위 구역의 범위를 지정해 주세요.",
+        description: "모든 하위 구역에 범위가 지정되어야 구역 분할을 확정할 수 있습니다.",
+      };
+    }
+
+    return {
+      title: "모든 하위 구역의 범위가 지정되었습니다.",
+      description: `${saveActionLabel} 버튼을 눌러 구역 분할을 확정할 수 있습니다.`,
+    };
+  }
+
   if (isSaveEnabled) {
     return {
-      title: '구역 범위 지정이 완료되었습니다.',
-      description: `${saveActionLabel} 버튼을 눌러 해당 차수의 수색 구역을 확정하세요.`,
+      title: "구역 지정이 완료되었습니다.",
+      description: `${saveActionLabel} 버튼을 눌러 해당 차수의 수색 구역을 확정해 주세요.`,
     };
   }
 
   if (unassignedAreaCount > 0) {
     return {
-      title: `${unassignedAreaCount}개의 구역 범위 지정이 필요합니다.`,
-      description: '목록에서 구역을 선택한 뒤 지도에서 범위를 그리세요.',
-    };
-  }
-
-  if (splitChildCountIssueCount > 0) {
-    return {
-      title: '분할할 하위 구역이 부족합니다.',
-      description: `같은 상위 구역 아래에 최소 2개의 하위 구역을 그린 뒤 ${saveActionLabel}을 진행하세요.`,
+      title: `${unassignedAreaCount}개의 구역 범위를 지정해 주세요.`,
+      description: "지도에서 범위를 그린 뒤 저장을 진행해 주세요.",
     };
   }
 
   return {
-    title: '범위를 지정할 구역이 없습니다.',
-    description: '구역 구조를 불러온 뒤 다시 시도해 주세요.',
+    title: "구역 범위를 확인해 주세요.",
+    description: "구역 구조를 다시 불러오거나 범위 지정 상태를 확인해 주세요.",
   };
 }
 
-function canShowAddUnitAction(area: AreaTreeNode, selectedAreaId: string | null, canAddUnit: boolean) {
-  return canAddUnit && area.kind === 'overall' && area.id === selectedAreaId && (area.children ?? []).length === 0;
+function canShowAddUnitAction(area: AreaTreeNode, canAddUnit: boolean) {
+  return canAddUnit && area.kind === 'overall';
 }
 
 function canShowAddTeamAction(
   area: AreaTreeNode,
-  selectedAreaId: string | null,
   canAddTeam: boolean,
   assignedAccountCountsByAreaId: ReadonlyMap<string, number>,
 ) {
   return (
     canAddTeam &&
     area.kind === 'unit' &&
-    area.id === selectedAreaId &&
     area.geometryState === 'saved' &&
-    (area.children ?? []).length === 0 &&
     (assignedAccountCountsByAreaId.get(area.id) ?? 0) === 0
   );
 }
@@ -177,6 +197,31 @@ function canAssignSelectedArea(area: AreaTreeNode | null, assignedAreaIds: Set<s
   return isAssignableSearchAreaLeaf(area, assignedAreaIds);
 }
 
+type GhostChildSlotProps = {
+  label: string;
+  onClick: () => void;
+};
+
+function GhostChildSlot({ label, onClick }: GhostChildSlotProps) {
+  return (
+    <div className={styles.ghostChildSlot}>
+      <div className={styles.ghostChildCard} aria-hidden="true">
+        <strong className={styles.ghostChildTitle}>{label}</strong>
+        <span className={styles.ghostChildSubtitle}>새 하위 구역</span>
+      </div>
+      <button
+        type="button"
+        className={styles.ghostChildAddButton}
+        aria-label={label}
+        title={label}
+        onClick={onClick}
+      >
+        <Plus size={18} aria-hidden="true" />
+      </button>
+    </div>
+  );
+}
+
 export function AreaHierarchyPanel({
   areaTree,
   assignedAreaIds,
@@ -190,7 +235,9 @@ export function AreaHierarchyPanel({
   normalSelectedAreaId,
   selectedAreaId,
   unassignedPhoneCount,
-  splitChildCountIssueCount,
+  splitChildAreaCount,
+  splitChildRangeMissingCount,
+  isSplitFlow,
   canAddUnit,
   canAddTeam,
   onCancel,
@@ -209,10 +256,12 @@ export function AreaHierarchyPanel({
   const canAssignArea = isAssignmentEnabled && canAssignSelectedArea(selectedArea, assignedAreaIds);
   const saveActionLabel = areaTree.geometryState === 'saved' ? '구역 분할 확정' : '구역 저장';
   const noticeMessage = getAreaNoticeMessage(
+    isSplitFlow,
     isSaveEnabled,
     isSaving,
     unassignedPhoneCount,
-    splitChildCountIssueCount,
+    splitChildAreaCount,
+    splitChildRangeMissingCount,
     saveActionLabel,
   );
   const noticeClassName = [
@@ -220,6 +269,8 @@ export function AreaHierarchyPanel({
     isSaveEnabled ? styles.assignedNotice : 'suri-soft-pulse',
   ].join(' ');
   const canSelectOverallArea = canAddUnit && areaTree.kind === 'overall';
+  const rootDisplayState = getDisplayState(areaTree, assignedAreaIds, assignedAccountCountsByAreaId);
+  const showAddUnitAction = canShowAddUnitAction(areaTree, canAddUnit);
 
   return (
     <section className={styles.panelContent} aria-label="수색 구역 배정 패널">
@@ -254,45 +305,30 @@ export function AreaHierarchyPanel({
       ) : null}
 
       <div className={styles.tree}>
-        <button type="button" className={styles.addUnitButton} disabled={!canAddUnit} onClick={onAddUnit}>
-          UNIT 추가
-        </button>
         <div className={styles.rootNode} style={getAreaIdentityColorStyle(areaTree.colorToken)}>
-          <button
-            type="button"
-            className={getNodeClassName(
-              styles.nodeRow,
-              areaTree,
-              selectedAreaId,
-              normalSelectedAreaId,
-              assignedAreaIds,
-              assignedAccountCountsByAreaId,
-            )}
-            disabled={!isSelectableArea(areaTree, assignedAreaIds) && !canSelectOverallArea}
-            aria-pressed={areaTree.id === selectedAreaId}
-            onClick={() => onSelectArea(areaTree)}
-          >
-            <span className={styles.nodeText}>
-              <strong className={styles.nodeName}>{areaTree.name}</strong>
-              <span className={styles.nodeMeta}>{areaTree.meta}</span>
-            </span>
-            <span className={styles.nodeStatusRow}>
-              <StatusBadge
-                status={searchAreaDisplayStateLabel[getDisplayState(areaTree, assignedAreaIds, assignedAccountCountsByAreaId)]}
-                tone={searchAreaDisplayStateTone[getDisplayState(areaTree, assignedAreaIds, assignedAccountCountsByAreaId)]}
-                className={
-                  getDisplayState(areaTree, assignedAreaIds, assignedAccountCountsByAreaId) === 'geometrySaved'
-                    ? styles.assignedBadge
-                    : undefined
-                }
-              />
-            </span>
-          </button>
-          {canShowAddUnitAction(areaTree, selectedAreaId, canAddUnit) ? (
-            <button type="button" className={styles.inlineActionButton} onClick={onAddUnit}>
-              UNIT 추가
+          <div className={styles.rootActionRow}>
+            <button
+              type="button"
+              className={getNodeClassName(
+                styles.nodeRow,
+                areaTree,
+                selectedAreaId,
+                normalSelectedAreaId,
+                rootDisplayState,
+              )}
+              disabled={!isSelectableArea(areaTree, assignedAreaIds) && !canSelectOverallArea}
+              aria-pressed={areaTree.id === selectedAreaId}
+              onClick={() => onSelectArea(areaTree)}
+            >
+              <span className={styles.nodeText}>
+                <strong className={styles.nodeName}>{areaTree.name}</strong>
+                <span className={styles.nodeMeta}>{areaTree.meta}</span>
+              </span>
+              <span className={styles.nodeStatusRow}>
+                <span className={getStateClassName(rootDisplayState)}>{searchAreaDisplayStateLabel[rootDisplayState]}</span>
+              </span>
             </button>
-          ) : null}
+          </div>
           {canShowBoundaryAction(areaTree, selectedAreaId, assignedAreaIds, isAssignmentEnabled) ? (
             <button type="button" className={styles.inlineActionButton} onClick={onStartDrawing}>
               범위 지정
@@ -302,6 +338,7 @@ export function AreaHierarchyPanel({
             {units.map((unit) => {
               const teams = unit.children ?? [];
               const hasTeams = teams.length > 0;
+              const unitDisplayState = getDisplayState(unit, assignedAreaIds, assignedAccountCountsByAreaId);
 
               return (
                 <div key={unit.id} className={styles.unitNode} style={getAreaIdentityColorStyle(unit.colorToken)}>
@@ -313,8 +350,7 @@ export function AreaHierarchyPanel({
                         unit,
                         selectedAreaId,
                         normalSelectedAreaId,
-                        assignedAreaIds,
-                        assignedAccountCountsByAreaId,
+                        unitDisplayState,
                       )}
                       disabled={!isSelectableArea(unit, assignedAreaIds) && !canAddTeam}
                       aria-pressed={unit.id === selectedAreaId}
@@ -325,15 +361,7 @@ export function AreaHierarchyPanel({
                         <span className={styles.nodeMeta}>{unit.meta}</span>
                       </span>
                       <span className={styles.nodeStatusRow}>
-                        <StatusBadge
-                          status={searchAreaDisplayStateLabel[getDisplayState(unit, assignedAreaIds, assignedAccountCountsByAreaId)]}
-                          tone={searchAreaDisplayStateTone[getDisplayState(unit, assignedAreaIds, assignedAccountCountsByAreaId)]}
-                          className={
-                            getDisplayState(unit, assignedAreaIds, assignedAccountCountsByAreaId) === 'geometrySaved'
-                              ? styles.assignedBadge
-                              : undefined
-                          }
-                        />
+                        <span className={getStateClassName(unitDisplayState)}>{searchAreaDisplayStateLabel[unitDisplayState]}</span>
                       </span>
                     </button>
                     {unit.geometryState === 'pending' ? (
@@ -347,73 +375,67 @@ export function AreaHierarchyPanel({
                       </button>
                     ) : null}
                   </div>
-                  {canShowAddTeamAction(unit, selectedAreaId, canAddTeam, assignedAccountCountsByAreaId) ? (
-                    <button type="button" className={styles.inlineActionButton} onClick={() => onAddTeam(unit.id)}>
-                      TEAM 추가
-                    </button>
-                  ) : null}
                   {canShowBoundaryAction(unit, selectedAreaId, assignedAreaIds, isAssignmentEnabled) ? (
                     <button type="button" className={styles.inlineActionButton} onClick={onStartDrawing}>
                       범위 지정
                     </button>
                   ) : null}
-                  {hasTeams ? (
+                  {hasTeams || canShowAddTeamAction(unit, canAddTeam, assignedAccountCountsByAreaId) ? (
                     <div className={styles.teamList}>
-                      {teams.map((team) => (
-                        <div key={team.id} className={styles.unitActionRow}>
-                          <button
-                            type="button"
-                            className={getNodeClassName(
-                              styles.teamNode,
-                              team,
-                              selectedAreaId,
-                              normalSelectedAreaId,
-                              assignedAreaIds,
-                              assignedAccountCountsByAreaId,
-                            )}
-                            style={getAreaIdentityColorStyle(team.colorToken)}
-                            disabled={!isSelectableArea(team, assignedAreaIds) && !isSavedGeometryArea(team, assignedAreaIds)}
-                            aria-pressed={team.id === selectedAreaId}
-                            onClick={() => onSelectArea(team)}
-                          >
-                            <span className={styles.nodeText}>
-                              <strong className={styles.teamName}>{team.name}</strong>
-                              <span className={styles.teamMeta}>{team.meta}</span>
-                            </span>
-                            <span className={styles.nodeStatusRow}>
-                              <StatusBadge
-                                status={searchAreaDisplayStateLabel[getDisplayState(team, assignedAreaIds, assignedAccountCountsByAreaId)]}
-                                tone={searchAreaDisplayStateTone[getDisplayState(team, assignedAreaIds, assignedAccountCountsByAreaId)]}
-                                className={
-                                  getDisplayState(team, assignedAreaIds, assignedAccountCountsByAreaId) === 'geometrySaved'
-                                    ? styles.assignedBadge
-                                    : undefined
-                                }
-                              />
-                            </span>
-                          </button>
-                          {team.geometryState === 'pending' ? (
+                      {teams.map((team) => {
+                        const teamDisplayState = getDisplayState(team, assignedAreaIds, assignedAccountCountsByAreaId);
+
+                        return (
+                          <div key={team.id} className={styles.unitActionRow}>
                             <button
                               type="button"
-                              className={styles.removeDraftUnitButton}
-                              aria-label={`${team.name} 삭제`}
-                              onClick={() => onRemoveDraftUnit(team.id)}
+                              className={getNodeClassName(
+                                styles.teamNode,
+                                team,
+                                selectedAreaId,
+                                normalSelectedAreaId,
+                                teamDisplayState,
+                              )}
+                              style={getAreaIdentityColorStyle(team.colorToken)}
+                              disabled={!isSelectableArea(team, assignedAreaIds) && !isSavedGeometryArea(team, assignedAreaIds)}
+                              aria-pressed={team.id === selectedAreaId}
+                              onClick={() => onSelectArea(team)}
                             >
-                              X
+                              <span className={styles.nodeText}>
+                                <strong className={styles.teamName}>{team.name}</strong>
+                                <span className={styles.teamMeta}>{team.meta}</span>
+                              </span>
+                              <span className={styles.nodeStatusRow}>
+                                <span className={getStateClassName(teamDisplayState)}>{searchAreaDisplayStateLabel[teamDisplayState]}</span>
+                              </span>
                             </button>
-                          ) : null}
-                          {canShowBoundaryAction(team, selectedAreaId, assignedAreaIds, isAssignmentEnabled) ? (
-                            <button type="button" className={styles.inlineActionButton} onClick={onStartDrawing}>
-                              범위 지정
-                            </button>
-                          ) : null}
-                        </div>
-                      ))}
+                            {team.geometryState === 'pending' ? (
+                              <button
+                                type="button"
+                                className={styles.removeDraftUnitButton}
+                                aria-label={`${team.name} 삭제`}
+                                onClick={() => onRemoveDraftUnit(team.id)}
+                              >
+                                X
+                              </button>
+                            ) : null}
+                            {canShowBoundaryAction(team, selectedAreaId, assignedAreaIds, isAssignmentEnabled) ? (
+                              <button type="button" className={styles.inlineActionButton} onClick={onStartDrawing}>
+                                범위 지정
+                              </button>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                      {canShowAddTeamAction(unit, canAddTeam, assignedAccountCountsByAreaId) ? (
+                        <GhostChildSlot label="TEAM 추가" onClick={() => onAddTeam(unit.id)} />
+                      ) : null}
                     </div>
                   ) : null}
                 </div>
               );
             })}
+            {showAddUnitAction ? <GhostChildSlot label="UNIT 추가" onClick={onAddUnit} /> : null}
           </div>
         </div>
       </div>
