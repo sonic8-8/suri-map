@@ -10,9 +10,9 @@ export default defineConfig(({ mode }) => {
   const env = { ...rootEnv, ...frontendEnv };
   const apiBaseUrl = env.VITE_API_BASE_URL ?? '/api';
   const apiProxyTarget = env.VITE_API_PROXY_TARGET ?? resolveDefaultApiProxyTarget(apiBaseUrl);
-  const keycloakBaseUrl = env.VITE_KEYCLOAK_BASE_URL ?? 'http://localhost:18080/keycloak';
+  const keycloakProxyTarget = env.VITE_KEYCLOAK_PROXY_TARGET ?? 'https://k14c106.p.ssafy.io/keycloak';
   const vWorldApiKey = env.V_WORLD_API_KEY ?? env.VITE_V_WORLD_API_KEY ?? '';
-  const tileBaseUrl = env.VITE_TILE_BASE_URL ?? `${resolveApiProxyTarget(apiProxyTarget)}/tiles`;
+  const tileBaseUrl = env.VITE_TILE_BASE_URL ?? 'https://k14c106.p.ssafy.io/tiles';
 
   return {
     plugins: [react()],
@@ -23,7 +23,7 @@ export default defineConfig(({ mode }) => {
       __V_WORLD_API_KEY__: JSON.stringify(vWorldApiKey),
     },
     server: {
-      port: 5174,
+      port: 5173,
       strictPort: true,
       proxy: {
         '/api': {
@@ -36,8 +36,8 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
         },
         '/keycloak': {
-          target: resolveKeycloakProxyTarget(keycloakBaseUrl),
-          changeOrigin: false,
+          target: resolveKeycloakProxyTarget(keycloakProxyTarget),
+          changeOrigin: true,
           configure: configureKeycloakProxy,
         },
       },
@@ -99,7 +99,7 @@ function getRequestHost(hostHeader: string | string[] | undefined) {
     return hostHeader.trim();
   }
 
-  return 'localhost:5174';
+  return '127.0.0.1:5173';
 }
 
 function getRequestPort(host: string) {

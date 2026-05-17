@@ -1,8 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
-import { ApiHttpError, ApiNetworkError, createApiClient } from './client';
+import { ApiHttpError, ApiNetworkError, createApiClient, getStoredAccessToken } from './client';
 
 describe('createApiClient', () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    localStorage.clear();
+  });
+
   it('adds WEB channel, bearer token, JSON body, and query params', async () => {
     const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
     const fetchImpl: typeof fetch = async (input, init) => {
@@ -92,6 +97,19 @@ describe('createApiClient', () => {
   });
 });
 
+describe('stored access tokens', () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    localStorage.clear();
+  });
+
+  it('ignores JWTs from a different Keycloak issuer', () => {
+    sessionStorage.setItem('suriMapAccessToken', makeJwt({ iss: 'http://127.0.0.1:5174/keycloak/realms/suri-map' }));
+
+    expect(getStoredAccessToken()).toBeNull();
+  });
+});
+
 function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(body), {
     ...init,
@@ -103,3 +121,13 @@ function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
 }
 
 const MARKER_ID = '55555555-5555-5555-5555-555555550001';
+
+function makeJwt(payload: Record<string, unknown>) {
+  return `${base64UrlEncode(JSON.stringify({ alg: 'none', typ: 'JWT' }))}.${base64UrlEncode(
+    JSON.stringify(payload),
+  )}.signature`;
+}
+
+function base64UrlEncode(value: string) {
+  return btoa(value).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}

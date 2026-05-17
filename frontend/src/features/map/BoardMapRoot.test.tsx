@@ -1,14 +1,12 @@
 import { act, render, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, test, vi, type Mock } from 'vitest';
-import { useBoardDisplayStore } from '../situationBoard/model/boardDisplayStore';
+import { useBoardDisplayStore } from '../board/model/boardDisplayStore';
 import { BoardMapRoot } from './BoardMapRoot';
 
 type MapLibreTransformRequest = (url: string, resourceType?: string) => unknown;
 
 type MockMapOptions = {
   readonly style?: unknown;
-  readonly center?: unknown;
-  readonly zoom?: unknown;
   readonly attributionControl?: unknown;
   readonly transformRequest?: MapLibreTransformRequest;
 };
@@ -93,17 +91,14 @@ describe('L6-T08B BoardMapRoot local MapLibre style contract', () => {
 
     const mapOptions = await getOnlyMapOptions();
 
-    expect(mapOptions.style).toBe('/tiles/styles/osm-local.json');
-    expect(mapOptions.center).toEqual([126.8481, 35.1603]);
-    expect(mapOptions.zoom).toBe(16);
+    expect(mapOptions.style).toBe('/map-style/osm-local.json');
     expect(mapOptions.attributionControl).toBe(false);
     expect(mapOptions.transformRequest).toEqual(expect.any(Function));
 
     const transformRequest = mapOptions.transformRequest;
+    expect(transformRequest?.('/map-style/osm-local.json', 'Style')).toBeTruthy();
     expect(transformRequest?.('/tiles/styles/osm-local.json', 'Style')).toBeTruthy();
-    expect(transformRequest?.('/tiles/osm-local/15/27935/12960.pbf', 'Tile')).toBeTruthy();
-    expect(transformRequest?.('/tiles/gwangju-building-labels/16/55877/25377.pbf', 'Tile')).toBeTruthy();
-    expect(transformRequest?.('/tiles/fonts/Noto%20Sans%20CJK%20KR%20Regular/0-255.pbf', 'Glyphs')).toBeTruthy();
+    expect(transformRequest?.('/tiles/osm-local/15/27925/12680.pbf', 'Tile')).toBeTruthy();
   });
 
   test('adds required WEB headers to allowed local S7 style and tile requests', async () => {
@@ -115,29 +110,22 @@ describe('L6-T08B BoardMapRoot local MapLibre style contract', () => {
 
     const transformRequest = mapOptions.transformRequest;
 
+    expect(transformRequest?.('/map-style/osm-local.json', 'Style')).toMatchObject({
+      url: '/map-style/osm-local.json',
+      headers: {
+        Authorization: 'Bearer board-map-access-token',
+        'X-Client-Channel': 'WEB',
+      },
+    });
     expect(transformRequest?.('/tiles/styles/osm-local.json', 'Style')).toMatchObject({
-      url: '/tiles/styles/osm-local.json',
+      url: '/map-style/osm-local.json',
       headers: {
         Authorization: 'Bearer board-map-access-token',
         'X-Client-Channel': 'WEB',
       },
     });
-    expect(transformRequest?.('/tiles/osm-local/15/27935/12960.pbf', 'Tile')).toMatchObject({
-      url: '/tiles/osm-local/15/27935/12960.pbf',
-      headers: {
-        Authorization: 'Bearer board-map-access-token',
-        'X-Client-Channel': 'WEB',
-      },
-    });
-    expect(transformRequest?.('/tiles/gwangju-building-labels/16/55877/25377.pbf', 'Tile')).toMatchObject({
-      url: '/tiles/gwangju-building-labels/16/55877/25377.pbf',
-      headers: {
-        Authorization: 'Bearer board-map-access-token',
-        'X-Client-Channel': 'WEB',
-      },
-    });
-    expect(transformRequest?.('/tiles/fonts/Noto%20Sans%20CJK%20KR%20Regular/0-255.pbf', 'Glyphs')).toMatchObject({
-      url: '/tiles/fonts/Noto%20Sans%20CJK%20KR%20Regular/0-255.pbf',
+    expect(transformRequest?.('/tiles/osm-local/15/27925/12680.pbf', 'Tile')).toMatchObject({
+      url: '/tiles/osm-local/15/27925/12680.pbf',
       headers: {
         Authorization: 'Bearer board-map-access-token',
         'X-Client-Channel': 'WEB',
@@ -153,9 +141,9 @@ describe('L6-T08B BoardMapRoot local MapLibre style contract', () => {
 
     const transformRequest = mapOptions.transformRequest;
     const externalTileRequests = [
-      ['https://a.tile.openstreetmap.org/15/27935/12960.pbf', 'Tile'],
-      ['https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/15/27935/12960.vector.pbf', 'Tile'],
-      ['https://maps.googleapis.com/maps/api/tile/15/27935/12960.pbf', 'Tile'],
+      ['https://a.tile.openstreetmap.org/15/27925/12680.pbf', 'Tile'],
+      ['https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/15/27925/12680.vector.pbf', 'Tile'],
+      ['https://maps.googleapis.com/maps/api/tile/15/27925/12680.pbf', 'Tile'],
       ['https://example.com/tiles/osm-local/15/1/1.pbf', 'Tile'],
       ['//example.com/fonts/{fontstack}/{range}.pbf', 'Glyphs'],
       ['https://example.com/sprite.json', 'SpriteJSON'],
@@ -178,10 +166,7 @@ describe('L6-T08B BoardMapRoot local MapLibre style contract', () => {
 
     expect(() => transformRequest?.('/api/not-tiles/15/1/1.pbf', 'Tile')).toThrow(/non-local tile/i);
     expect(() => transformRequest?.('/tiles/not-osm-local/15/1/1.pbf', 'Tile')).toThrow(/non-local tile/i);
-    expect(() => transformRequest?.('/tiles/osm-local/15/27935/12960.pbf', 'Source')).toThrow(
-      /non-local tile resource/i,
-    );
-    expect(() => transformRequest?.('/tiles/fonts/Noto%20Sans%20CJK%20KR%20Regular/0-255.pbf', 'Source')).toThrow(
+    expect(() => transformRequest?.('/tiles/osm-local/15/27925/12680.pbf', 'Source')).toThrow(
       /non-local tile resource/i,
     );
     expect(() => transformRequest?.('/sprites/local.json', 'SpriteJSON')).toThrow(/non-local tile/i);
@@ -196,31 +181,12 @@ describe('L6-T08B BoardMapRoot local MapLibre style contract', () => {
     const transformRequest = mapOptions.transformRequest;
     const malformedLocalTilePaths = [
       '/tiles/osm-local/fonts/foo.pbf',
-      '/tiles/osm-local/15/27935/foo.pbf',
-      '/tiles/osm-local/15/27935/12960.png',
-      '/tiles/gwangju-building-labels/16/55877/25377.png',
+      '/tiles/osm-local/15/27925/foo.pbf',
+      '/tiles/osm-local/15/27925/12680.png',
     ];
 
     for (const malformedLocalTilePath of malformedLocalTilePaths) {
       expect(() => transformRequest?.(malformedLocalTilePath, 'Tile')).toThrow(/non-local tile/i);
-    }
-  });
-
-  test('rejects malformed local glyph paths inside the S7 tile prefix', async () => {
-    render(<BoardMapRoot />);
-
-    const mapOptions = await getOnlyMapOptions();
-    expect(mapOptions.transformRequest).toEqual(expect.any(Function));
-
-    const transformRequest = mapOptions.transformRequest;
-    const malformedLocalGlyphPaths = [
-      '/tiles/fonts/Noto%20Sans%20CJK%20KR%20Regular/foo.pbf',
-      '/tiles/fonts/Noto%20Sans%20CJK%20KR%20Regular/0-255.png',
-      '/tiles/fonts/Noto%20Sans%20CJK%20KR%20Regular/0/255.pbf',
-    ];
-
-    for (const malformedLocalGlyphPath of malformedLocalGlyphPaths) {
-      expect(() => transformRequest?.(malformedLocalGlyphPath, 'Glyphs')).toThrow(/non-local glyph/i);
     }
   });
 

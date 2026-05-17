@@ -9,6 +9,7 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
@@ -47,7 +48,6 @@ import com.surimap.core.fcm.NoFcmTokenProvider
 import com.surimap.core.fcm.SharedPreferencesFcmRegistrationStateStore
 import com.surimap.core.incident.IncidentReadRepository
 import com.surimap.core.location.AndroidLocationUpdates
-import com.surimap.core.location.GpsLocationFix
 import com.surimap.core.map.MapLibreRuntimeMapState
 import com.surimap.core.map.MapLibreViewportBounds
 import com.surimap.core.marker.MarkerRepository
@@ -146,7 +146,7 @@ import com.surimap.feature.search.ui.SearchLayerKind
 import com.surimap.feature.search.ui.SearchLifecycleStatus
 import com.surimap.feature.search.ui.SearchMapScreen
 import com.surimap.feature.search.ui.SearchMapUiState
-import com.surimap.feature.search.ui.SearchMapViewportBounds
+import com.surimap.feature.showcase.ui.ShowcaseScreen
 import com.surimap.ui.navigation.IncidentContext
 import com.surimap.ui.navigation.IncidentSessionState
 import com.surimap.ui.navigation.MarkerDetailDeepLink
@@ -154,6 +154,7 @@ import com.surimap.ui.navigation.PolicePhoneContext
 import com.surimap.ui.navigation.PolicePhoneRoute
 import com.surimap.ui.navigation.SearchMapDeepLink
 import com.surimap.ui.navigation.accessTokenProvider
+import com.surimap.ui.session.SuriMapSessionSnapshotStore
 import com.surimap.ui.theme.PoliBgBase
 import java.io.File
 import java.util.UUID
@@ -162,22 +163,39 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 
+private const val AUTH_BOOTSTRAP_LOG_TAG = "AuthBootstrap"
+
 @Composable
 fun SuriMapApp() {
+    if (BuildConfig.SURI_MAP_DEBUG_SHOWCASE) {
+        ShowcaseScreen(modifier = Modifier.fillMaxSize())
+        return
+    }
+    val context = LocalContext.current.applicationContext
     val navController = rememberNavController()
     var assignmentRefreshNonce by remember { mutableStateOf(0) }
+    val sessionSnapshotStore = remember(context) { SuriMapSessionSnapshotStore(context) }
+    val persistedSessionSnapshot = remember(sessionSnapshotStore) { sessionSnapshotStore.load() }
     val incidentSessionState =
         remember {
             IncidentSessionState(
-                initialIncidentContext = debugMapOnlyIncidentContext(),
-                initialPolicePhoneContext = debugMapOnlyPolicePhoneContext()
+                initialIncidentContext =
+                persistedSessionSnapshot?.toIncidentContext() ?: debugMapOnlyIncidentContext(),
+                initialPolicePhoneContext =
+                persistedSessionSnapshot?.toPolicePhoneContext() ?: debugMapOnlyPolicePhoneContext()
             )
         }
     val clockSyncState = remember { ClockSyncState() }
     var incidentClosed by remember { mutableStateOf<IncidentClosedOverlayState?>(null) }
     var blockedQueue by remember { mutableStateOf<BlockedQueueToastState?>(null) }
     var handoverMemoSaved by remember { mutableStateOf<HandoverMemoSavedToastState?>(null) }
-    var searchPathEnded by remember { mutableStateOf<SearchPathEndedToastState?>(null) }
+
+    LaunchedEffect(incidentSessionState.incidentContext, incidentSessionState.policePhoneContext) {
+        sessionSnapshotStore.save(
+            incidentContext = incidentSessionState.incidentContext,
+            policePhoneContext = incidentSessionState.policePhoneContext
+        )
+    }
 
     IncidentAssignmentRefreshEffect(onRefresh = { assignmentRefreshNonce += 1 })
     NotificationPermissionEffect()
@@ -188,8 +206,7 @@ fun SuriMapApp() {
             AppOverlayState(
                 incidentClosed = incidentClosed,
                 blockedQueue = blockedQueue,
-                handoverMemoSaved = handoverMemoSaved,
-                searchPathEnded = searchPathEnded
+                handoverMemoSaved = handoverMemoSaved
             ),
             onDismissIncidentClosed = {
                 incidentClosed = null
@@ -200,8 +217,7 @@ fun SuriMapApp() {
                 blockedQueue = null
                 navController.navigateToSingleTop(PolicePhoneRoute.BlockedOutbox)
             },
-            onDismissHandoverMemoSaved = { handoverMemoSaved = null },
-            onDismissSearchPathEnded = { searchPathEnded = null }
+            onDismissHandoverMemoSaved = { handoverMemoSaved = null }
         ) {
             FcmRegistrationEffect(policePhoneContext = incidentSessionState.policePhoneContext)
             NavHost(
@@ -251,9 +267,6 @@ fun SuriMapApp() {
                         clockSyncState = clockSyncState,
                         onOpenBlockedOutbox = {
                             blockedQueue = BlockedQueueToastState(blockedCount = 2)
-                        },
-                        onSearchPathEnded = {
-                            searchPathEnded = SearchPathEndedToastState(pendingSync = true)
                         }
                     )
                 }
@@ -681,8 +694,7 @@ private fun SearchMapRoute(
     navController: NavHostController,
     focusMarkerId: String? = null,
     clockSyncState: ClockSyncState,
-    onOpenBlockedOutbox: () -> Unit,
-    onSearchPathEnded: () -> Unit
+    onOpenBlockedOutbox: () -> Unit
 ) {
     val incidentContext = incidentSessionState.incidentContext
     val policePhoneContext = incidentSessionState.policePhoneContext
@@ -832,7 +844,6 @@ private fun SearchMapRoute(
     var markerSheetState by remember { mutableStateOf(MarkerCreateSheetUiState.default()) }
     var createPhotoUriById by remember { mutableStateOf<Map<String, Uri>>(emptyMap()) }
     var pendingCreateCameraPhotoUri by remember { mutableStateOf<Uri?>(null) }
-    var latestLocationFix by remember { mutableStateOf<GpsLocationFix?>(null) }
 
     fun beginCreatePhotoUpload(uri: Uri, existingLocalId: String? = null) {
         val current = markerSheetState
@@ -949,20 +960,7 @@ private fun SearchMapRoute(
             elapsedLabel = recordingSession.elapsedLabel(elapsedTickerNowMs),
             bottomPanelExpanded = bottomPanelExpanded,
             mapOverlaysVisible = mapOverlaysVisible
-        ).withCurrentLocationViewport(latestLocationFix)
-
-    LaunchedEffect(displayedLifecycle, sessionContext.incidentId, sessionContext.policePhoneId, policePhoneContext?.accessToken) {
-        if (displayedLifecycle == SearchLifecycleStatus.Active) {
-            while (true) {
-                clockSyncState.syncClockForIncident(sessionContext.incidentId, policePhoneContext)
-                delay(ACTIVE_SEARCH_CLOCK_RESYNC_INTERVAL_MS)
-            }
-        }
-    }
-
-    LaunchedEffect(locationUpdates, sessionContext.incidentId, sessionContext.policePhoneId) {
-        latestLocationFix = locationUpdates.lastKnownFix()
-    }
+        )
 
     LaunchedEffect(displayedLifecycle, activeSearchPathId) {
         if (displayedLifecycle == SearchLifecycleStatus.Active && activeSearchPathId != null) {
@@ -987,7 +985,6 @@ private fun SearchMapRoute(
         } else {
             val handle =
                 locationUpdates.start { fix ->
-                    latestLocationFix = fix
                     coroutineScope.launch {
                         gpsBatchRecorder.recordFix(
                             context = sessionContext.toSearchPathWriteContext(),
@@ -1054,13 +1051,10 @@ private fun SearchMapRoute(
                         searchPathId = pathId
                     )
                     gpsBatchRecorder.clear()
-                    val result = searchPathRecorder.end(
+                    searchPathRecorder.end(
                         context = sessionContext.toSearchPathWriteContext(),
                         searchPathId = pathId
                     )
-                    if (result is SearchPathWriteResult.Enqueued) {
-                        onSearchPathEnded()
-                    }
                     recordingSession = recordingSession.stop(now)
                     elapsedTickerNowMs = now
                 }
@@ -1117,7 +1111,6 @@ private fun SearchMapRoute(
                 onSave = {
                     coroutineScope.launch {
                         markerSheetState = markerSheetState.copy(saveStatus = MarkerSaveStatus.Saving)
-                        clockSyncState.syncClockForIncident(sessionContext.incidentId, policePhoneContext)
                         when (
                             markerRecorder.createMarker(
                                 context = sessionContext.toMarkerWriteContext(),
@@ -1506,11 +1499,17 @@ private fun AuthBootstrapRoute(
     val coroutineScope = rememberCoroutineScope()
     val oidcLoginLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            Log.d(
+                AUTH_BOOTSTRAP_LOG_TAG,
+                "login activity resultCode=${result.resultCode} hasData=${result.data != null} data=${result.data?.dataString}"
+            )
             if (result.resultCode == Activity.RESULT_OK && result.data != null) {
                 coroutineScope.launch {
                     oidcSession = oidcLoginClient.completeLogin(result.data!!)
                     retryNonce += 1
                 }
+            } else {
+                Log.w(AUTH_BOOTSTRAP_LOG_TAG, "login activity returned without a usable response")
             }
         }
     DisposableEffect(oidcLoginClient) {
@@ -1659,7 +1658,7 @@ private fun IncidentListRoute(
                     dutyShiftRecorder.start(resolvedContext.toDutyShiftWriteContext(policePhoneContext))
                 }
                 incidentSessionState.activateIncidentContext(resolvedContext)
-                navController.navigateToSingleTop(PolicePhoneRoute.SearchMap)
+                navController.navigateToSingleTop(PolicePhoneRoute.OfflinePackage)
             }
         },
         onRefresh = { manualRefreshNonce += 1 },
@@ -1958,22 +1957,6 @@ private fun SearchMapUiState.markerCreationLocation(): MarkerLocation? =
         )
     }
 
-private fun SearchMapUiState.withCurrentLocationViewport(fix: GpsLocationFix?): SearchMapUiState {
-    if (viewportBounds != null || fix == null) {
-        return this
-    }
-    val delta = CURRENT_LOCATION_VIEWPORT_DELTA
-    return copy(
-        viewportBounds =
-        SearchMapViewportBounds(
-            south = fix.lat - delta,
-            west = fix.lon - delta,
-            north = fix.lat + delta,
-            east = fix.lon + delta
-        )
-    )
-}
-
 private fun MarkerCreateSheetUiState.toMarkerUpsertInput(): MarkerUpsertInput =
     MarkerUpsertInput(
         markerId = draftMarkerId,
@@ -2032,8 +2015,6 @@ private val DebugMapOnlyGwangjuBounds =
         east = 127.017482
     )
 
-private const val CURRENT_LOCATION_VIEWPORT_DELTA = 0.003
-
 private fun debugStartDestination(): String =
     if (BuildConfig.SURI_MAP_DEBUG_MAP_ONLY) {
         PolicePhoneRoute.SearchMap.route
@@ -2082,5 +2063,3 @@ private fun NavHostController.navigateToIncidentListRoot() {
         launchSingleTop = true
     }
 }
-
-private const val ACTIVE_SEARCH_CLOCK_RESYNC_INTERVAL_MS = 240_000L

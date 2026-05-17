@@ -1,4 +1,4 @@
-import { getApiBaseUrl } from '../config';
+import { getApiBaseUrl, getKeycloakIssuerUrl, isLocalDevAccessToken } from '../config';
 
 export type ApiErrorBody = {
   error?: string;
@@ -113,7 +113,7 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
       throw new ApiNetworkError(error);
     }
 
-    if (response.status === 401) {
+    if (response.status === 401 && !isLocalDevAccessToken(readAuthorizationToken(headers))) {
       clearExpiredApiSession();
     }
     return parseResponse<TResponse>(response);
@@ -171,6 +171,15 @@ function requestHeaders<TBody>(
     headers.set('Authorization', token.startsWith('Bearer ') ? token : `Bearer ${token}`);
   }
   return headers;
+}
+
+function readAuthorizationToken(headers: Headers) {
+  const authorization = headers.get('Authorization');
+  if (!authorization) {
+    return null;
+  }
+
+  return authorization.startsWith('Bearer ') ? authorization.slice('Bearer '.length) : authorization;
 }
 
 function buildUrl(baseUrl: string, path: string, query?: ApiQuery): string {
@@ -244,22 +253,78 @@ function isErrorBody(body: unknown): body is { error: string } {
 }
 
 export function getStoredAccessToken() {
-  const accessToken = sessionStorage.getItem('suriMapAccessToken') ?? import.meta.env.VITE_API_ACCESS_TOKEN;
-  if (!accessToken) {
-    return null;
+  return (
+    readStoredAccessTokenFromStorage(window.localStorage, false)
+    ?? readStoredAccessTokenFromStorage(window.sessionStorage, true)
+    ?? import.meta.env.VITE_API_ACCESS_TOKEN
+    ?? null
+  );
+}
+
+export function getStoredSessionAccessToken() {
+  return readStoredAccessTokenFromStorage(window.sessionStorage, true);
+}
+
+function readStoredAccessTokenFromStorage(storage: Storage, checkExpiry: boolean) {
+  for (const storageKey of BROWSER_ACCESS_TOKEN_STORAGE_KEYS) {
+    const accessToken = storage.getItem(storageKey);
+    if (!accessToken) {
+      continue;
+    }
+
+    if (!isUsableStoredAccessToken(accessToken, checkExpiry)) {
+      continue;
+    }
+
+    return accessToken;
   }
 
-  const expiresAt = Number(sessionStorage.getItem('suriMapTokenExpiresAt'));
-  if (Number.isFinite(expiresAt) && expiresAt <= Date.now()) {
-    clearExpiredApiSession();
-    return null;
-  }
+  return null;
+}
 
+function isUsableStoredAccessToken(accessToken: string, checkExpiry: boolean) {
   if (accessToken.startsWith('mock-auth:')) {
+    return false;
+  }
+
+  if (checkExpiry) {
+    const rawExpiresAt = sessionStorage.getItem('suriMapTokenExpiresAt');
+    if (rawExpiresAt) {
+      const expiresAt = Number(rawExpiresAt);
+      if (Number.isFinite(expiresAt) && expiresAt <= Date.now()) {
+        return false;
+      }
+    }
+  }
+
+  return isCompatibleJwtAccessToken(accessToken);
+}
+
+function isCompatibleJwtAccessToken(accessToken: string) {
+  const tokenSegments = accessToken.split('.');
+  if (tokenSegments.length !== 3) {
+    return true;
+  }
+
+  const issuer = decodeJwtIssuer(accessToken);
+  return issuer === getKeycloakIssuerUrl();
+}
+
+function decodeJwtIssuer(token: string) {
+  const [, payload] = token.split('.');
+  if (!payload) {
     return null;
   }
 
-  return accessToken;
+  try {
+    const normalizedPayload = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const paddedPayload = normalizedPayload.padEnd(Math.ceil(normalizedPayload.length / 4) * 4, '=');
+    const bytes = Uint8Array.from(atob(paddedPayload), (character) => character.charCodeAt(0));
+    const claims = JSON.parse(new TextDecoder().decode(bytes)) as { iss?: unknown };
+    return typeof claims.iss === 'string' ? claims.iss : null;
+  } catch {
+    return null;
+  }
 }
 
 function clearExpiredApiSession() {
@@ -269,3 +334,5 @@ function clearExpiredApiSession() {
   sessionStorage.removeItem('suriMapTokenExpiresAt');
   window.dispatchEvent(new CustomEvent(API_UNAUTHORIZED_EVENT));
 }
+
+const BROWSER_ACCESS_TOKEN_STORAGE_KEYS = ['accessToken', 'access_token', 'suriMapAccessToken'] as const;
