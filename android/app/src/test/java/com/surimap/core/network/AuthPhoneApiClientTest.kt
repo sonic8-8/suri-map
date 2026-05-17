@@ -16,60 +16,6 @@ import kotlin.reflect.KClass
 class AuthPhoneApiClientTest {
 
     @Test
-    fun loginUsesCanonicalAuthPathWithoutBearerToken() = runBlocking {
-        val callFactory = CapturingCallFactory(response = response(200))
-        val client = AuthPhoneApiClient(
-            apiClient = SuriMapApiClient(
-                baseUrl = "https://suri-map.example.com",
-                callFactory = callFactory
-            )
-        )
-
-        client.login(
-            AuthLoginNetworkRequest(
-                accountCode = "acct-precinct-team",
-                password = "fixture",
-                channel = "APP",
-                policePhoneCode = "dev-precinct-phone-01"
-            )
-        )
-
-        val request = callFactory.lastRequest!!
-        assertEquals("POST", request.method)
-        assertEquals("https://suri-map.example.com/api/auth/login", request.url.toString())
-        assertEquals("APP", request.header("X-Client-Channel"))
-        assertNull(request.header("Authorization"))
-        assertNull(request.header("X-PolicePhone-Id"))
-        assertNull(request.header("Idempotency-Key"))
-        assertEquals(
-            """{"accountCode":"acct-precinct-team","password":"fixture","channel":"APP","policePhoneCode":"dev-precinct-phone-01"}""",
-            readRequestBody(request)
-        )
-    }
-
-    @Test
-    fun logoutUsesBearerTokenAndOptionalSessionId() = runBlocking {
-        val callFactory = CapturingCallFactory(response = response(200))
-        val client = AuthPhoneApiClient(
-            apiClient = SuriMapApiClient(
-                baseUrl = "https://suri-map.example.com",
-                callFactory = callFactory
-            ),
-            accessTokenProvider = AccessTokenProvider { "token-1" }
-        )
-
-        client.logout(AuthLogoutNetworkRequest(sessionId = "session-001"))
-
-        val request = callFactory.lastRequest!!
-        assertEquals("POST", request.method)
-        assertEquals("https://suri-map.example.com/api/auth/logout", request.url.toString())
-        assertEquals("APP", request.header("X-Client-Channel"))
-        assertEquals("Bearer token-1", request.header("Authorization"))
-        assertNull(request.header("Idempotency-Key"))
-        assertEquals("""{"sessionId":"session-001"}""", readRequestBody(request))
-    }
-
-    @Test
     fun fcmTokenRegistrationUsesAppPolicePhoneHeadersWithoutIdempotencyKey() = runBlocking {
         val callFactory = CapturingCallFactory(response = response(200))
         val client = AuthPhoneApiClient(

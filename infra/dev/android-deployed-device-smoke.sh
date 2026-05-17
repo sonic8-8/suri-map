@@ -4,9 +4,6 @@ set -Eeuo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 BACKEND_URL="${BACKEND_URL:-https://k14c106.p.ssafy.io}"
-ACCOUNT_CODE="${SURI_MAP_DEBUG_BOOTSTRAP_ACCOUNT_CODE:-acct-precinct-team}"
-PASSWORD="${SURI_MAP_DEBUG_BOOTSTRAP_PASSWORD:-fixture}"
-POLICE_PHONE_CODE="${SURI_MAP_DEBUG_BOOTSTRAP_POLICE_PHONE_CODE:-dev-precinct-phone-01}"
 POLICE_PHONE_ID="${SURI_MAP_DEBUG_POLICE_PHONE_ID:-00000000-0000-0000-0000-000000000101}"
 ADB="${ADB:-}"
 DEVICE_SERIAL="${DEVICE_SERIAL:-}"
@@ -47,19 +44,23 @@ fail() {
   exit 1
 }
 
-json_field() {
-  local field="$1"
-  python3 -c '
-import json
-import sys
+http_status() {
+  curl -sS -o /dev/null -w '%{http_code}' "$1" || true
+}
 
-field = sys.argv[1]
-data = json.load(sys.stdin)
-value = data
-for part in field.split("."):
-    value = value[part]
-print(value)
-' "$field"
+require_reachable_or_auth_protected() {
+  local url="$1"
+  local label="$2"
+  local status
+  status="$(http_status "$url")"
+  case "$status" in
+    2*|401)
+      log "$label route is reachable (HTTP $status)"
+      ;;
+    *)
+      fail "$label is not reachable: $url (HTTP ${status:-curl_failed})"
+      ;;
+  esac
 }
 
 parse_args() {
@@ -173,35 +174,23 @@ validate_backend() {
   curl -fsS "$BACKEND_URL/api/health" >/dev/null ||
     fail "backend health is not reachable: $BACKEND_URL/api/health"
 
-  local login_response
-  login_response="$(
-    curl -fsS -X POST "$BACKEND_URL/api/auth/login" \
-      -H 'Content-Type: application/json' \
-      -H 'X-Client-Channel: APP' \
-      -d "{\"accountCode\":\"$ACCOUNT_CODE\",\"password\":\"$PASSWORD\",\"channel\":\"APP\",\"policePhoneCode\":\"$POLICE_PHONE_CODE\"}"
-  )" || fail "debug bootstrap login failed against $BACKEND_URL"
+  curl -fsS "$BACKEND_URL/keycloak/realms/suri-map/.well-known/openid-configuration" >/dev/null ||
+    fail "Keycloak OIDC discovery is not reachable through deployed route"
 
-  local token
-  token="$(printf '%s' "$login_response" | json_field accessToken)"
-  [[ -n "$token" ]] || fail "debug bootstrap login did not return accessToken"
+  require_reachable_or_auth_protected "$BACKEND_URL/tiles/styles/osm-local.json" "tile style"
+  require_reachable_or_auth_protected "$BACKEND_URL/tiles/osm-local/13/6984/3172.pbf" "vector tile"
 
-  local headers=(
-    -H "Authorization: Bearer $token"
-    -H 'X-Client-Channel: APP'
-    -H "X-PolicePhone-Id: $POLICE_PHONE_ID"
-  )
-  curl -fsS "$BACKEND_URL/tiles/styles/osm-local.json" "${headers[@]}" >/dev/null ||
-    fail "tile style is not reachable through deployed backend"
-  curl -fsS "$BACKEND_URL/tiles/osm-local/13/6984/3172.pbf" "${headers[@]}" >/dev/null ||
-    fail "vector tile is not reachable through deployed backend"
-
-  if ! curl -fsS "$BACKEND_URL/tiles/fonts/Pretendard%20GOV/0-255.pbf" "${headers[@]}" >/dev/null; then
+  local glyph_status
+  glyph_status="$(http_status "$BACKEND_URL/tiles/fonts/Pretendard%20GOV/0-255.pbf")"
+  if [[ "$glyph_status" != 2* && "$glyph_status" != "401" ]]; then
     [[ "$ALLOW_GLYPH_FAILURE" -eq 1 ]] ||
-      fail "Pretendard GOV glyph PBF is not reachable through deployed backend"
-    log "warning: deployed Pretendard GOV glyph PBF is missing; map labels may not render"
+      fail "Pretendard GOV glyph PBF is not reachable through deployed backend (HTTP ${glyph_status:-curl_failed})"
+    log "warning: deployed Pretendard GOV glyph PBF is missing or not routed; map labels may not render"
+  else
+    log "Pretendard GOV glyph route is reachable (HTTP $glyph_status)"
   fi
 
-  log "deployed backend, debug login, tile style, and vector tile are ready"
+  log "deployed backend, OIDC discovery, tile style, and vector tile are ready"
 }
 
 build_apk() {
@@ -211,9 +200,8 @@ build_apk() {
     cd "$ROOT_DIR/android"
     ./gradlew :app:assembleDebug \
       -PsuriMapDebugApiBaseUrl="$BACKEND_URL" \
-      -PsuriMapDebugBootstrapAccountCode="$ACCOUNT_CODE" \
-      -PsuriMapDebugBootstrapPassword="$PASSWORD" \
-      -PsuriMapDebugBootstrapPolicePhoneCode="$POLICE_PHONE_CODE"
+      -PsuriMapKeycloakIssuerUrl="$BACKEND_URL/keycloak/realms/suri-map" \
+      -PsuriMapDebugBootstrapPolicePhoneId="$POLICE_PHONE_ID"
   )
 }
 

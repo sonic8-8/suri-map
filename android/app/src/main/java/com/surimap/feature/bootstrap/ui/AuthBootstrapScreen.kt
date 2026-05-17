@@ -43,7 +43,8 @@ enum class AuthBootstrapFailureReason {
     NotManagedPhone,
     InternalNetworkUnavailable,
     ServerRejectedPhone,
-    ManagedConfigMissing
+    ManagedConfigMissing,
+    AuthenticationRequired
 }
 
 sealed interface AuthBootstrapOutcome {
@@ -63,7 +64,8 @@ data class AuthBootstrapUiState(
     val apiBaseUrl: String,
     val primaryActionLabel: String = "확인 중",
     val retryEnabled: Boolean = false,
-    val shouldEnterIncidentList: Boolean = false
+    val shouldEnterIncidentList: Boolean = false,
+    val requiresAuthentication: Boolean = false
 ) {
     fun visibleText(): List<String> =
         buildList {
@@ -124,23 +126,40 @@ data class AuthBootstrapUiState(
                     AuthBootstrapFailureReason.InternalNetworkUnavailable -> "내부망 연결을 확인하세요"
                     AuthBootstrapFailureReason.ServerRejectedPhone -> "이 폴리폰으로 접속할 수 없습니다. IT 부서 문의"
                     AuthBootstrapFailureReason.ManagedConfigMissing -> "관리 설정이 없습니다. IT 부서 문의"
+                    AuthBootstrapFailureReason.AuthenticationRequired -> "계정 인증이 필요합니다"
                 }
-            val retryable = reason == AuthBootstrapFailureReason.InternalNetworkUnavailable
+            val retryable =
+                reason == AuthBootstrapFailureReason.InternalNetworkUnavailable ||
+                    reason == AuthBootstrapFailureReason.AuthenticationRequired
             return AuthBootstrapUiState(
                 progress =
                 when (reason) {
                     AuthBootstrapFailureReason.NotManagedPhone,
                     AuthBootstrapFailureReason.ManagedConfigMissing -> 0.2f
                     AuthBootstrapFailureReason.InternalNetworkUnavailable -> 0.55f
+                    AuthBootstrapFailureReason.AuthenticationRequired -> 0.7f
                     AuthBootstrapFailureReason.ServerRejectedPhone -> 0.8f
                 },
-                title = "접속 확인 실패",
-                description = "사건 정보는 접속 확인 후 표시됩니다.",
+                title = if (reason == AuthBootstrapFailureReason.AuthenticationRequired) "로그인 필요" else "접속 확인 실패",
+                description =
+                if (reason == AuthBootstrapFailureReason.AuthenticationRequired) {
+                    "관리 단말과 내부망 확인이 완료되었습니다. 계정 인증 후 사건 목록으로 이동합니다."
+                } else {
+                    "사건 정보는 접속 확인 후 표시됩니다."
+                },
                 steps = failureSteps(reason),
                 failureMessage = message,
                 apiBaseUrl = apiBaseUrl,
-                primaryActionLabel = if (retryable) "네트워크 다시 확인" else "IT 부서 문의",
-                retryEnabled = retryable
+                primaryActionLabel =
+                if (reason == AuthBootstrapFailureReason.AuthenticationRequired) {
+                    "로그인"
+                } else if (retryable) {
+                    "네트워크 다시 확인"
+                } else {
+                    "IT 부서 문의"
+                },
+                retryEnabled = retryable,
+                requiresAuthentication = reason == AuthBootstrapFailureReason.AuthenticationRequired
             )
         }
 
@@ -166,6 +185,13 @@ data class AuthBootstrapUiState(
                         AuthCheckStep("관리 폴리폰 확인", "관리 설정 확인", AuthStepState.Done),
                         AuthCheckStep("내부망 연결", "API 도달 확인", AuthStepState.Done),
                         AuthCheckStep("접속 권한 확인", "폴리폰 상태 확인", AuthStepState.Failed)
+                    )
+
+                AuthBootstrapFailureReason.AuthenticationRequired ->
+                    listOf(
+                        AuthCheckStep("관리 폴리폰 확인", "관리 설정 확인", AuthStepState.Done),
+                        AuthCheckStep("내부망 연결", "API 도달 확인", AuthStepState.Done),
+                        AuthCheckStep("접속 권한 확인", "Keycloak 인증 대기", AuthStepState.Checking)
                     )
             }
     }

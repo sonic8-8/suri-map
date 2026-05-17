@@ -1,6 +1,7 @@
 package com.surimap.ui
 
 import android.Manifest
+import android.app.Activity
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -73,11 +74,14 @@ import com.surimap.core.sync.RoomOutboxRequeue
 import com.surimap.core.sync.RoomSyncClient
 import com.surimap.core.sync.SchedulingSyncClient
 import com.surimap.feature.bootstrap.data.AndroidManagedConfigurationReader
+import com.surimap.feature.bootstrap.data.AndroidOidcLoginClient
 import com.surimap.feature.bootstrap.data.AuthBootstrapCoordinator
+import com.surimap.feature.bootstrap.data.AuthBootstrapEnvironmentCheck
 import com.surimap.feature.bootstrap.data.AuthBootstrapServerCheck
-import com.surimap.feature.bootstrap.data.BuildConfigAuthBootstrapCredentialsProvider
 import com.surimap.feature.bootstrap.data.ManagedPolicePhoneConfig
+import com.surimap.feature.bootstrap.data.NetworkAuthBootstrapEnvironmentCheck
 import com.surimap.feature.bootstrap.data.NetworkPolicePhoneBootstrapServerCheck
+import com.surimap.feature.bootstrap.data.OidcLoginSession
 import com.surimap.feature.bootstrap.ui.AuthBootstrapOutcome
 import com.surimap.feature.bootstrap.ui.AuthBootstrapScreen
 import com.surimap.feature.bootstrap.ui.AuthBootstrapUiState
@@ -1463,23 +1467,44 @@ private fun AuthBootstrapRoute(
     navController: NavHostController,
     assignmentRefreshNonce: Int
 ) {
-    val context = LocalContext.current.applicationContext
-    val managedConfigurationReader = remember(context) {
-        AndroidManagedConfigurationReader(context = context)
+    val context = LocalContext.current
+    val appContext = context.applicationContext
+    val managedConfigurationReader = remember(appContext) {
+        AndroidManagedConfigurationReader(context = appContext)
     }
-    val bootstrapCoordinator = remember(managedConfigurationReader) {
+    var oidcSession by remember { mutableStateOf<OidcLoginSession?>(null) }
+    var retryNonce by remember { mutableStateOf(0) }
+    val oidcLoginClient = remember(appContext) { AndroidOidcLoginClient(appContext) }
+    val coroutineScope = rememberCoroutineScope()
+    val oidcLoginLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK && result.data != null) {
+                coroutineScope.launch {
+                    oidcSession = oidcLoginClient.completeLogin(result.data!!)
+                    retryNonce += 1
+                }
+            }
+        }
+    DisposableEffect(oidcLoginClient) {
+        onDispose { oidcLoginClient.dispose() }
+    }
+    val bootstrapCoordinator = remember(managedConfigurationReader, oidcSession?.accessToken) {
         AuthBootstrapCoordinator(
             managedConfigurationReader = managedConfigurationReader,
+            environmentCheck =
+            AuthBootstrapEnvironmentCheck { config ->
+                NetworkAuthBootstrapEnvironmentCheck(apiClient = SuriMapApiClient(baseUrl = config.apiBaseUrl))
+                    .verify(config)
+            },
             serverCheck =
             AuthBootstrapServerCheck { config ->
                 NetworkPolicePhoneBootstrapServerCheck(
                     apiClient = SuriMapApiClient(baseUrl = config.apiBaseUrl),
-                    credentialsProvider = BuildConfigAuthBootstrapCredentialsProvider
+                    accessTokenProvider = { oidcSession?.accessToken }
                 ).verify(config)
             }
         )
     }
-    var retryNonce by remember { mutableStateOf(0) }
     var state by remember {
         mutableStateOf(AuthBootstrapUiState.checking(apiBaseUrl = BuildConfig.SURI_MAP_API_BASE_URL))
     }
@@ -1487,10 +1512,11 @@ private fun AuthBootstrapRoute(
     LaunchedEffect(retryNonce, assignmentRefreshNonce) {
         val config = bootstrapCoordinator.readConfig()
         state = AuthBootstrapUiState.checking(apiBaseUrl = config.apiBaseUrl)
-        val outcome = bootstrapCoordinator.check(config)
+        val effectiveConfig = oidcSession?.policePhoneId?.let { config.copy(policePhoneId = it) } ?: config
+        val outcome = bootstrapCoordinator.check(effectiveConfig)
         state = AuthBootstrapUiState.fromOutcome(outcome = outcome, apiBaseUrl = config.apiBaseUrl)
         if (outcome is AuthBootstrapOutcome.Ready && state.shouldEnterIncidentList) {
-            incidentSessionState.activatePolicePhoneContext(config.toPolicePhoneContext(outcome))
+            incidentSessionState.activatePolicePhoneContext(effectiveConfig.toPolicePhoneContext(outcome))
             navController.navigate(PolicePhoneRoute.IncidentList.route) {
                 popUpTo(PolicePhoneRoute.AuthBootstrap.route) {
                     inclusive = true
@@ -1502,7 +1528,13 @@ private fun AuthBootstrapRoute(
 
     AuthBootstrapScreen(
         state = state,
-        onRetry = { retryNonce += 1 }
+        onRetry = {
+            if (state.requiresAuthentication) {
+                oidcLoginLauncher.launch(oidcLoginClient.createAuthorizationIntent(bootstrapCoordinator.readConfig().apiBaseUrl))
+            } else {
+                retryNonce += 1
+            }
+        }
     )
 }
 
