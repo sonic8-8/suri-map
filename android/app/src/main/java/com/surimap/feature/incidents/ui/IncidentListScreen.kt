@@ -1,16 +1,20 @@
 package com.surimap.feature.incidents.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import com.surimap.ui.components.PoliAppBar
 import com.surimap.ui.components.PoliBanner
@@ -222,14 +226,17 @@ private fun AssignedIncidentList(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier.padding(horizontal = PoliDimens.SectionPadding),
+        modifier =
+            modifier
+                .padding(horizontal = PoliDimens.SectionPadding)
+                .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(PoliDimens.Space4)
     ) {
         if (state.status == IncidentListStatus.Stale) {
             PoliBanner(text = state.message ?: "마지막 갱신 정보입니다", variant = PoliBannerVariant.Warn)
         }
         state.incidents.forEach { incident ->
-            IncidentCard(incident)
+            IncidentCard(incident = incident, onClick = { onOpenIncident(incident) })
         }
         Text(
             text = "활성 배정은 보통 1건입니다. 동시에 2건이 보이면 배정 변경 중인 짧은 전환 상태입니다.",
@@ -252,8 +259,18 @@ private fun AssignedIncidentList(
 }
 
 @Composable
-private fun IncidentCard(incident: AssignedIncidentUiModel) {
-    PoliCard(strong = true) {
+private fun IncidentCard(incident: AssignedIncidentUiModel, onClick: () -> Unit) {
+    PoliCard(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(
+                    onClickLabel = "사건 열기",
+                    role = Role.Button,
+                    onClick = onClick
+                ),
+        strong = true
+    ) {
         Text(text = incident.title, style = MaterialTheme.typography.titleMedium)
         Text(text = incident.summary, style = MaterialTheme.typography.bodyMedium, color = PoliFgMuted)
         PoliRow(title = "패키지 상태", subtitle = incident.packageStatus) {
