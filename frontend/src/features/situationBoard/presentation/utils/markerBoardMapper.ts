@@ -1,6 +1,6 @@
 import { createBoardMapMarkers } from '../../../../shared/model/boardMapSlots';
-import type { RecentMarker } from '../constants/mockSituationBoard';
 import type { SituationBoardResponseDto } from '../../data/getSituationBoard';
+import type { RecentMarker } from '../constants/mockSituationBoard';
 import { toMarkerOpLabel } from './operationalPeriodBoardMapper';
 
 export function toBoardRecentMarkers(board: SituationBoardResponseDto): RecentMarker[] {
@@ -9,14 +9,22 @@ export function toBoardRecentMarkers(board: SituationBoardResponseDto): RecentMa
     const markerLabel = markerTypeLabel(markerType);
     const opLabel = toMarkerOpLabel(marker.opId, board);
     const reporterLabel = formatReporterLabel(marker.reporterLabel);
+    const summary = markerSummaryLabel(markerType, marker.supportRequestType, markerLabel);
 
     return {
       id: marker.id,
       markerType,
       supportRequestType: marker.supportRequestType,
       markerTypeLabel: markerLabel,
-      title: marker.title ?? `${markerLabel} marker`,
-      summary: markerSummaryLabel(markerType, marker.supportRequestType, markerLabel),
+      title: resolveMarkerTitle(
+        marker.title,
+        summary,
+        marker.memo,
+        markerType,
+        marker.supportRequestType,
+        markerLabel,
+      ),
+      summary,
       occurredAt: marker.occurredAt,
       timeLabel: toMarkerTimeLabel(marker.occurredAt),
       opLabel,
@@ -42,10 +50,43 @@ function markerTypeLabel(markerType: RecentMarker['markerType']) {
     case 'SUPPORT_REQUEST':
       return '지원 요청';
     case 'NOTE':
-      return 'NOTE';
+      return '메모';
     default:
       return '마커';
   }
+}
+
+function resolveMarkerTitle(
+  title: string | null,
+  summary: string,
+  memo: string | null,
+  markerType: RecentMarker['markerType'],
+  supportRequestType: RecentMarker['supportRequestType'],
+  markerLabel: string,
+) {
+  const explicitTitle = normalizeTitle(title);
+  if (explicitTitle && !isGenericMarkerTitle(explicitTitle, markerLabel, summary)) {
+    return explicitTitle;
+  }
+
+  if (markerType === 'SUPPORT_REQUEST' && summary) {
+    return summary;
+  }
+
+  const memoTitle = buildTitleFromText(memo);
+  if (memoTitle) {
+    return memoTitle;
+  }
+
+  if (summary && summary !== markerLabel) {
+    return summary;
+  }
+
+  if (supportRequestType) {
+    return summary || markerLabel;
+  }
+
+  return markerLabel;
 }
 
 function markerSummaryLabel(
@@ -63,6 +104,43 @@ function markerSummaryLabel(
     default:
       return '지원 요청';
   }
+}
+
+function normalizeTitle(value: string | null) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+function isGenericMarkerTitle(title: string, markerLabel: string, summary: string) {
+  const normalizedTitle = title.toLowerCase();
+  const normalizedMarkerLabel = markerLabel.toLowerCase();
+  const normalizedSummary = summary.toLowerCase();
+
+  return (
+    normalizedTitle === normalizedMarkerLabel ||
+    normalizedTitle === normalizedSummary ||
+    normalizedTitle === 'note' ||
+    normalizedTitle === 'note marker' ||
+    normalizedTitle === '메모' ||
+    normalizedTitle === '메모 marker' ||
+    normalizedTitle === `${normalizedMarkerLabel} marker` ||
+    normalizedTitle.endsWith(' marker')
+  );
+}
+
+function buildTitleFromText(value: string | null) {
+  const text = value?.trim();
+  if (!text) return null;
+
+  const firstLine = text.split(/\r?\n/)[0]?.trim() ?? '';
+  if (!firstLine) return null;
+
+  return truncateTitle(firstLine);
+}
+
+function truncateTitle(value: string, maxLength = 34) {
+  if (value.length <= maxLength) return value;
+  return `${value.slice(0, maxLength - 1).trimEnd()}…`;
 }
 
 function formatReporterLabel(value: string | null) {

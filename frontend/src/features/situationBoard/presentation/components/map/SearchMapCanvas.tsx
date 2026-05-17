@@ -662,9 +662,12 @@ export function SearchMapCanvas({
   const areaEditMapPropsRef = useRef(areaEditMapProps);
   const layerVisibilityRef = useRef(layerVisibility);
   const recentMarkersRef = useRef(recentMarkers);
+  const visibleMarkerIdsRef = useRef(visibleMarkerIds);
   const markerInstancesRef = useRef<Map<string, MarkerInstance>>(new Map());
   const hoverMarkerPopupRef = useRef<maplibregl.Popup | null>(null);
   const selectedMarkerPopupRef = useRef<maplibregl.Popup | null>(null);
+  const hoveredMarkerIdRef = useRef<string | null>(null);
+  const selectedMarkerIdRef = useRef<string | null>(null);
   const onSelectSearchAreaRef = useRef(onSelectSearchArea);
   const [routeEditorCoordinates, setRouteEditorCoordinates] = useState<Position[]>([]);
   const [mapInstance, setMapInstance] = useState<maplibregl.Map | null>(null);
@@ -707,6 +710,18 @@ export function SearchMapCanvas({
   useEffect(() => {
     selectedSearchAreaIdRef.current = selectedSearchAreaId;
   }, [selectedSearchAreaId]);
+
+  useEffect(() => {
+    visibleMarkerIdsRef.current = visibleMarkerIds;
+  }, [visibleMarkerIds]);
+
+  useEffect(() => {
+    hoveredMarkerIdRef.current = hoveredMarkerId;
+  }, [hoveredMarkerId]);
+
+  useEffect(() => {
+    selectedMarkerIdRef.current = selectedMarkerId;
+  }, [selectedMarkerId]);
 
   useEffect(() => {
     if (selectedSearchAreaId !== null) {
@@ -867,8 +882,10 @@ export function SearchMapCanvas({
       markerInstancesRef,
       layerVisibility.marker,
       markerInteractionHandlers,
+      hoveredMarkerId,
+      selectedMarkerId,
     );
-  }, [layerVisibility, markerInteractionHandlers, visibleMarkerIds]);
+  }, [hoveredMarkerId, layerVisibility, markerInteractionHandlers, selectedMarkerId, visibleMarkerIds]);
 
   useEffect(() => {
     recentMarkersRef.current = recentMarkers;
@@ -884,8 +901,10 @@ export function SearchMapCanvas({
       markerInstancesRef,
       layerVisibilityRef.current.marker,
       markerInteractionHandlers,
+      hoveredMarkerId,
+      selectedMarkerId,
     );
-  }, [markerInteractionHandlers, recentMarkers, visibleMarkerIds]);
+  }, [hoveredMarkerId, markerInteractionHandlers, recentMarkers, selectedMarkerId, visibleMarkerIds]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -1167,10 +1186,12 @@ export function SearchMapCanvas({
       syncMarkerElements(
         map,
         recentMarkersRef.current,
-        visibleMarkerIds,
+        visibleMarkerIdsRef.current,
         markerInstancesRef,
         layerVisibilityRef.current.marker,
         markerInteractionHandlers,
+        hoveredMarkerIdRef.current,
+        selectedMarkerIdRef.current,
       );
 
       void Promise.resolve()

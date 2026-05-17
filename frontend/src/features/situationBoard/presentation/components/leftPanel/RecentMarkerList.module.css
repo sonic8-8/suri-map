@@ -21,7 +21,7 @@
 
 .feed {
   display: grid;
-  gap: 7px;
+  gap: 10px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -29,53 +29,49 @@
 
 .feedItem {
   display: grid;
-  grid-template-columns: 8px minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
-  padding: 8px 9px;
-  border: 1px solid var(--suri-board-border);
+  padding: 10px 11px;
+  border: 1px solid color-mix(in srgb, var(--marker-identity-color) 24%, var(--suri-board-border));
   border-radius: 4px;
   color: var(--suri-board-fg-primary);
-  background: var(--suri-board-panel-surface);
+  background: color-mix(in srgb, var(--marker-identity-color) 8%, var(--suri-board-panel-surface));
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--marker-identity-color) 64%, transparent);
   cursor: pointer;
 }
 
 .feedItem:hover {
-  border-color: var(--suri-board-primary-hi);
-  background: color-mix(in srgb, var(--suri-board-primary-soft) 42%, var(--suri-board-panel-surface));
+  border-color: color-mix(in srgb, var(--marker-identity-color) 36%, var(--suri-board-border-strong));
+  background: color-mix(in srgb, var(--marker-identity-color) 12%, var(--suri-board-panel-muted-bg));
 }
 
 .feedItem:focus-visible {
-  outline: 2px solid var(--suri-board-primary-hi);
+  outline: 2px solid color-mix(in srgb, var(--marker-identity-color) 56%, var(--suri-board-fg-primary));
   outline-offset: 2px;
 }
 
+.feedItemClue {
+  --marker-identity-color: #ffb020;
+}
+
 .feedItemFound {
-  border-color: color-mix(in srgb, #22c55e 54%, var(--suri-board-border));
+  --marker-identity-color: #22c55e;
+}
+
+.feedItemField {
+  --marker-identity-color: #94a3b8;
 }
 
 .feedItemSupport {
-  border-color: color-mix(in srgb, #d9b45f 58%, var(--suri-board-border));
+  --marker-identity-color: #d9b45f;
 }
 
-.eventDot {
-  width: 8px;
-  height: 8px;
-  margin-top: 5px;
-  border-radius: 999px;
-  background: var(--suri-board-primary-hi);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--suri-board-primary-hi) 14%, transparent);
+.feedItemNote {
+  --marker-identity-color: #3b82f6;
 }
 
-.feedItemFound .eventDot {
-  background: #22c55e;
-  box-shadow: 0 0 0 3px rgb(34 197 94 / 18%);
-}
-
-.feedItemSupport .eventDot {
-  background: #d9b45f;
-  box-shadow: 0 0 0 3px rgb(217 180 95 / 18%);
+.feedItemUnknown {
+  --marker-identity-color: #64748b;
 }
 
 .itemBody {
@@ -87,107 +83,116 @@
 .titleRow {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: baseline;
-  gap: 8px;
+  align-items: center;
+  gap: 10px;
   min-width: 0;
 }
 
+.identityGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.markerIconBadge {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid color-mix(in srgb, var(--marker-identity-color) 64%, #0f172a);
+  border-radius: 999px;
+  color: #f8fafc;
+  background: color-mix(in srgb, var(--marker-identity-color) 84%, #0f172a 16%);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 10%),
+    0 0 0 1px rgb(15 23 42 / 12%);
+}
+
+.markerIconBadge svg {
+  width: 16px;
+  height: 16px;
+}
+
 .itemTitle {
+  display: block;
   overflow: hidden;
-  font-size: 18px;
-  font-weight: 700;
+  min-width: 0;
+  color: var(--suri-board-fg-primary);
+  font-size: 19px;
+  font-weight: 800;
   line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.eventTime {
-  color: var(--suri-board-fg-muted);
-  font-size: 17px;
+.itemMeta {
+  display: block;
+  overflow: hidden;
+  min-width: 0;
+  color: color-mix(in srgb, var(--marker-identity-color) 28%, var(--suri-board-fg-muted));
+  font-size: 16px;
   line-height: 1.35;
-  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detailChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.detailChip {
+  overflow: hidden;
+  max-width: 100%;
+  padding: 3px 6px;
+  border: 1px solid color-mix(in srgb, var(--marker-identity-color) 18%, var(--suri-board-border));
+  border-radius: 4px;
+  color: var(--suri-board-fg-secondary);
+  background: color-mix(in srgb, var(--marker-identity-color) 5%, var(--suri-board-panel-bg));
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .memo {
   margin: 0;
-  color: var(--suri-board-fg-muted);
-  font-size: 17px;
+  color: var(--suri-board-fg-secondary);
+  font-size: 16px;
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
 
-.memo {
-  color: var(--suri-board-fg-secondary);
-}
-
-.metaGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
-  margin: 0;
-}
-
-.metaGrid div {
-  min-width: 0;
-}
-
-.metaGrid dt {
+.eventTime {
   color: var(--suri-board-fg-muted);
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.metaGrid dd {
-  overflow: hidden;
-  margin: 1px 0 0;
-  color: var(--suri-board-fg-secondary);
   font-size: 15px;
-  line-height: 1.35;
-  text-overflow: ellipsis;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
 .typeBadge {
-  max-width: 78px;
-  padding: 3px 7px;
-  border: 1px solid var(--suri-board-border);
+  display: block;
+  flex: 0 1 auto;
+  overflow: hidden;
+  max-width: 100%;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid color-mix(in srgb, var(--marker-identity-color) 68%, var(--suri-board-border));
   border-radius: 999px;
-  color: var(--suri-board-fg-secondary);
-  background: var(--suri-board-panel-bg);
-  font-size: 15px;
+  color: color-mix(in srgb, var(--marker-identity-color) 70%, var(--suri-board-fg-primary));
+  background: color-mix(in srgb, var(--marker-identity-color) 14%, var(--suri-board-panel-bg));
+  font-size: 14px;
   font-weight: 700;
   line-height: 1.25;
   text-align: center;
-  white-space: normal;
-}
-
-.typeClue {
-  border-color: color-mix(in srgb, #ffb020 72%, var(--suri-board-border));
-  color: #ffd18a;
-  background: color-mix(in srgb, #4a3412 48%, var(--suri-board-panel-bg));
-}
-
-.typeFound {
-  border-color: color-mix(in srgb, #22c55e 68%, var(--suri-board-border));
-  color: #8ef0ae;
-  background: color-mix(in srgb, #123820 52%, var(--suri-board-panel-bg));
-}
-
-.typeField {
-  border-color: color-mix(in srgb, #94a3b8 70%, var(--suri-board-border));
-  color: #cbd5e1;
-}
-
-.typeSupport {
-  border-color: color-mix(in srgb, #d9b45f 68%, var(--suri-board-border));
-  color: #f2cc72;
-  background: color-mix(in srgb, #3a2b13 56%, var(--suri-board-panel-bg));
-}
-
-.typeNote {
-  border-color: color-mix(in srgb, #3b82f6 68%, var(--suri-board-border));
-  color: #93c5fd;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .emptyState {

@@ -6,7 +6,7 @@ import type { RecentMarker } from '../../constants/mockSituationBoard';
 import { RecentMarkerList } from './RecentMarkerList';
 
 describe('RecentMarkerList', () => {
-  test('shows marker cards without technical type summaries or duplicate memo text', () => {
+  test('왼쪽 아이콘과 배지를 보여주면서 제목은 유지한다', () => {
     const board = createIncidentScopedFallbackBoard('incident-001');
 
     render(
@@ -18,16 +18,17 @@ describe('RecentMarkerList', () => {
           createMarker({
             id: 'marker-drone-support',
             markerType: 'SUPPORT_REQUEST',
+            supportRequestType: 'DRONE',
             markerTypeLabel: '지원 요청',
-            title: 'request aerial check over roof line',
+            title: '드론 촬영 요청',
             summary: '드론 지원 요청',
-            memo: 'request aerial check over roof line',
+            memo: '헬기 촬영 확인 요청',
           }),
           createMarker({
             id: 'marker-field-condition',
             markerType: 'FIELD_CONDITION',
             markerTypeLabel: '지형',
-            title: 'patrol car blocked by construction barrier',
+            title: '공사 펜스로 차량 통행 불가',
             summary: '지형',
             memo: null,
           }),
@@ -35,14 +36,18 @@ describe('RecentMarkerList', () => {
       />,
     );
 
-    const droneMarker = screen.getByText('request aerial check over roof line').closest('li');
+    const droneMarker = screen.getByText('드론 촬영 요청').closest('li');
     expect(droneMarker).not.toBeNull();
-    expect(within(droneMarker as HTMLElement).queryByText('드론 지원 요청')).not.toBeInTheDocument();
+    expect(droneMarker?.querySelector('svg')).not.toBeNull();
+    expect(within(droneMarker as HTMLElement).getByText('드론 지원 요청')).toBeInTheDocument();
     expect(within(droneMarker as HTMLElement).getByText('지원 요청')).toBeInTheDocument();
-    expect(within(droneMarker as HTMLElement).queryAllByText('request aerial check over roof line')).toHaveLength(1);
+    expect(within(droneMarker as HTMLElement).getByText('OP 2차')).toBeInTheDocument();
+    expect(within(droneMarker as HTMLElement).getByText('드론 촬영 요청')).toBeInTheDocument();
 
-    const fieldMarker = screen.getByText('patrol car blocked by construction barrier').closest('li');
+    const fieldMarker = screen.getByText('공사 펜스로 차량 통행 불가').closest('li');
     expect(fieldMarker).not.toBeNull();
+    expect(fieldMarker?.querySelector('svg')).not.toBeNull();
+    expect(within(fieldMarker as HTMLElement).getByText('공사 펜스로 차량 통행 불가')).toBeInTheDocument();
     expect(within(fieldMarker as HTMLElement).getByText('지형')).toBeInTheDocument();
   });
 });
@@ -52,8 +57,8 @@ function createMarker(overrides: Partial<RecentMarker>): RecentMarker {
     id: 'marker',
     markerType: 'NOTE',
     markerTypeLabel: '메모',
-    title: 'marker title',
-    summary: 'marker summary',
+    title: '마커 제목',
+    summary: '마커 요약',
     occurredAt: '2026-05-15T03:20:00Z',
     timeLabel: '12:20',
     opLabel: 'OP 2차',

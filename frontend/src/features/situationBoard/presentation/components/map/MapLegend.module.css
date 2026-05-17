@@ -228,35 +228,35 @@
 
 /* 단서 마커 색상. */
 .markerClue {
-  background: #60a5fa;
+  background: #f59e0b;
 }
 
 /* 발견 마커 색상. */
 .markerFound {
-  background: #f87171;
+  background: #ef4444;
 }
 
 /* 지형 마커 색상. */
 .markerField {
-  background: #86efac;
+  background: #22c55e;
 }
 
 /* 드론 지원 요청 색상. */
 .markerDrone {
-  background: #f97316;
+  background: #06b6d4;
 }
 
 /* 경찰견 지원 요청 색상. */
 .markerDog {
-  background: #fbbf24;
+  background: #a855f7;
 }
 
 /* 기타 지원 요청 색상. */
 .markerSupport {
-  background: #a78bfa;
+  background: #8b5cf6;
 }
 
 /* 운영 메모 색상. */
 .markerNote {
-  background: #94a3b8;
+  background: #3b82f6;
 }
