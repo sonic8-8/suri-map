@@ -38,6 +38,8 @@ class OfflinePackageStateLoader(
                 )
             when {
                 response.isSuccessful -> manifestState(response.body, localStatus, knownRevision)
+                response.errorCode in MANIFEST_NOT_READY_ERROR_CODES ->
+                    OfflinePackageUiState.searchAreaPending(incidentTitle = incidentId)
                 response.errorCode in PERMISSION_ERROR_CODES ->
                     OfflinePackageUiState.permissionDenied(incidentTitle = incidentId)
                 else -> OfflinePackageUiState.unavailable(incidentTitle = incidentId)
@@ -215,6 +217,12 @@ class OfflinePackageStateLoader(
         }
 
     private companion object {
+        val MANIFEST_NOT_READY_ERROR_CODES =
+            setOf(
+                "package_manifest_not_ready",
+                "overall_search_area_required"
+            )
+
         val PERMISSION_ERROR_CODES =
             setOf(
                 "police_phone_required",

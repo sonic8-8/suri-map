@@ -662,6 +662,13 @@ class SearchMapStateLoaderTest {
         assertTrue(marker.highlighted)
         assertTrue(marker.geoJson!!.contains("126.916"))
         assertTrue(marker.geoJson!!.contains("37.516"))
+        assertViewportBounds(
+            state.viewportBounds,
+            south = 37.513,
+            west = 126.913,
+            north = 37.519,
+            east = 126.919
+        )
     }
 
     @Test
@@ -712,6 +719,13 @@ class SearchMapStateLoaderTest {
         assertEquals(MARKER_ID, marker.overlayId)
         assertTrue(marker.highlighted)
         assertTrue(marker.geoJson!!.contains("[126.970321,37.580321]"))
+        assertViewportBounds(
+            state.viewportBounds,
+            south = 37.577321,
+            west = 126.967321,
+            north = 37.583321,
+            east = 126.973321
+        )
     }
 
     @Test
@@ -834,6 +848,9 @@ class SearchMapStateLoaderTest {
         assertTrue(source.contains("SearchPathLocalRecorder"))
         assertTrue(source.contains("SearchPathGpsBatchRecorder"))
         assertTrue(source.contains("AndroidLocationUpdates"))
+        assertTrue(source.contains("latestLocationFix"))
+        assertTrue(source.contains("lastKnownFix"))
+        assertTrue(source.contains("withCurrentLocationViewport"))
         assertTrue(source.contains("recordFix"))
         assertTrue(source.contains("gpsBatchRecorder.flush"))
         assertTrue(source.contains("gpsBatchRecorder.clear"))
@@ -870,6 +887,20 @@ class SearchMapStateLoaderTest {
 
     private fun notFoundResponse(): SuriMapApiResponse =
         SuriMapApiResponse(statusCode = 404, body = null, errorCode = null)
+
+    private fun assertViewportBounds(
+        actual: SearchMapViewportBounds?,
+        south: Double,
+        west: Double,
+        north: Double,
+        east: Double
+    ) {
+        requireNotNull(actual)
+        assertEquals(south, actual.south, 0.000001)
+        assertEquals(west, actual.west, 0.000001)
+        assertEquals(north, actual.north, 0.000001)
+        assertEquals(east, actual.east, 0.000001)
+    }
 
     private companion object {
         val INCIDENT_ID = incidentIdFixture("precinct-first-001")

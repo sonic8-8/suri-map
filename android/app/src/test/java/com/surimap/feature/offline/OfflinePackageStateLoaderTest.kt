@@ -125,6 +125,25 @@ class OfflinePackageStateLoaderTest {
     }
 
     @Test
+    fun packageManifestNotReadyMapsToSearchAreaPendingState() = runBlocking {
+        val loader =
+            loaderFor(
+                response(
+                    409,
+                    """{"error":"package_manifest_not_ready"}"""
+                )
+            )
+
+        val state = loader.load()
+
+        assertEquals(OfflinePackageDownloadStatus.SearchAreaPending, state.status)
+        assertFalse(state.shouldDownloadPackage)
+        assertFalse(state.autoOpenSearchMap)
+        assertFalse(state.canManualRetry)
+        assertTrue(state.visibleText().any { it.contains("수색구역 지정 전") })
+    }
+
+    @Test
     fun networkFailureMapsToOfflineStateWithoutAutoOpeningMap() = runBlocking {
         val loader =
             OfflinePackageStateLoader(

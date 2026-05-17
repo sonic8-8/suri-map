@@ -47,6 +47,7 @@ import com.surimap.core.fcm.NoFcmTokenProvider
 import com.surimap.core.fcm.SharedPreferencesFcmRegistrationStateStore
 import com.surimap.core.incident.IncidentReadRepository
 import com.surimap.core.location.AndroidLocationUpdates
+import com.surimap.core.location.GpsLocationFix
 import com.surimap.core.map.MapLibreRuntimeMapState
 import com.surimap.core.map.MapLibreViewportBounds
 import com.surimap.core.marker.MarkerRepository
@@ -145,6 +146,7 @@ import com.surimap.feature.search.ui.SearchLayerKind
 import com.surimap.feature.search.ui.SearchLifecycleStatus
 import com.surimap.feature.search.ui.SearchMapScreen
 import com.surimap.feature.search.ui.SearchMapUiState
+import com.surimap.feature.search.ui.SearchMapViewportBounds
 import com.surimap.ui.navigation.IncidentContext
 import com.surimap.ui.navigation.IncidentSessionState
 import com.surimap.ui.navigation.MarkerDetailDeepLink
@@ -823,6 +825,7 @@ private fun SearchMapRoute(
     var markerSheetState by remember { mutableStateOf(MarkerCreateSheetUiState.default()) }
     var createPhotoUriById by remember { mutableStateOf<Map<String, Uri>>(emptyMap()) }
     var pendingCreateCameraPhotoUri by remember { mutableStateOf<Uri?>(null) }
+    var latestLocationFix by remember { mutableStateOf<GpsLocationFix?>(null) }
 
     fun beginCreatePhotoUpload(uri: Uri, existingLocalId: String? = null) {
         val current = markerSheetState
@@ -939,7 +942,11 @@ private fun SearchMapRoute(
             elapsedLabel = recordingSession.elapsedLabel(elapsedTickerNowMs),
             bottomPanelExpanded = bottomPanelExpanded,
             mapOverlaysVisible = mapOverlaysVisible
-        )
+        ).withCurrentLocationViewport(latestLocationFix)
+
+    LaunchedEffect(locationUpdates, sessionContext.incidentId, sessionContext.policePhoneId) {
+        latestLocationFix = locationUpdates.lastKnownFix()
+    }
 
     LaunchedEffect(displayedLifecycle, activeSearchPathId) {
         if (displayedLifecycle == SearchLifecycleStatus.Active && activeSearchPathId != null) {
@@ -964,6 +971,7 @@ private fun SearchMapRoute(
         } else {
             val handle =
                 locationUpdates.start { fix ->
+                    latestLocationFix = fix
                     coroutineScope.launch {
                         gpsBatchRecorder.recordFix(
                             context = sessionContext.toSearchPathWriteContext(),
@@ -1631,7 +1639,7 @@ private fun IncidentListRoute(
                     dutyShiftRecorder.start(resolvedContext.toDutyShiftWriteContext(policePhoneContext))
                 }
                 incidentSessionState.activateIncidentContext(resolvedContext)
-                navController.navigateToSingleTop(PolicePhoneRoute.OfflinePackage)
+                navController.navigateToSingleTop(PolicePhoneRoute.SearchMap)
             }
         },
         onRefresh = { manualRefreshNonce += 1 },
@@ -1930,6 +1938,22 @@ private fun SearchMapUiState.markerCreationLocation(): MarkerLocation? =
         )
     }
 
+private fun SearchMapUiState.withCurrentLocationViewport(fix: GpsLocationFix?): SearchMapUiState {
+    if (viewportBounds != null || fix == null) {
+        return this
+    }
+    val delta = CURRENT_LOCATION_VIEWPORT_DELTA
+    return copy(
+        viewportBounds =
+        SearchMapViewportBounds(
+            south = fix.lat - delta,
+            west = fix.lon - delta,
+            north = fix.lat + delta,
+            east = fix.lon + delta
+        )
+    )
+}
+
 private fun MarkerCreateSheetUiState.toMarkerUpsertInput(): MarkerUpsertInput =
     MarkerUpsertInput(
         markerId = draftMarkerId,
@@ -1987,6 +2011,8 @@ private val DebugMapOnlyGwangjuBounds =
         north = 35.256837,
         east = 127.017482
     )
+
+private const val CURRENT_LOCATION_VIEWPORT_DELTA = 0.003
 
 private fun debugStartDestination(): String =
     if (BuildConfig.SURI_MAP_DEBUG_MAP_ONLY) {
