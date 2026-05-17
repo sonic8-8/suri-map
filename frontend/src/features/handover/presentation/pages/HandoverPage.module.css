@@ -105,50 +105,6 @@
   background: var(--suri-board-left-scrollbar-thumb-hover);
 }
 
-.leftPanelTabs {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 5px;
-  width: 100%;
-}
-
-.leftPanelTab {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-width: 0;
-  min-height: 34px;
-  padding: 0 8px;
-  border: 1px solid var(--handover-border-soft);
-  border-radius: 6px;
-  color: var(--suri-board-fg-secondary);
-  background: var(--handover-panel-surface);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 800;
-  line-height: 1.2;
-  cursor: pointer;
-}
-
-.leftPanelTab span {
-  color: var(--suri-board-primary-hi);
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.leftPanelTabActive {
-  border-color: var(--suri-board-primary-hi);
-  color: var(--suri-board-fg-primary);
-  background: var(--suri-board-primary-soft);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--suri-board-primary-hi) 34%, transparent);
-}
-
-.leftPanelTab:focus-visible {
-  outline: 2px solid var(--suri-board-primary-hi);
-  outline-offset: 2px;
-}
-
 .leftPanelPage {
   display: flex;
   flex-direction: column;
@@ -160,15 +116,11 @@
 }
 
 .historyPanelBody {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-}
-
-.panelTitle {
-  color: var(--suri-board-fg-primary);
-  font-size: 14px;
-  font-weight: 850;
 }
 
 .opList,
@@ -314,10 +266,37 @@
 }
 
 .historyContent {
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-color: var(--suri-board-left-scrollbar-thumb) var(--suri-board-left-scrollbar-track);
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
   display: grid;
   align-content: start;
   gap: 14px;
   padding: 18px 18px 22px;
+}
+
+.historyContent::-webkit-scrollbar {
+  width: 10px;
+}
+
+.historyContent::-webkit-scrollbar-track {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.historyContent::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--suri-board-left-scrollbar-thumb);
+  background-clip: content-box;
+}
+
+.historyContent::-webkit-scrollbar-thumb:hover {
+  background: var(--suri-board-left-scrollbar-thumb-hover);
 }
 
 .embeddedPage .historyContent {
@@ -584,6 +563,13 @@
   background: var(--handover-panel-surface);
 }
 
+.historyContent .memoComposer {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
 .memoComposer textarea {
   min-height: 104px;
   resize: vertical;
@@ -670,6 +656,10 @@
   align-content: start;
   gap: 8px;
   padding: 0 0 16px;
+}
+
+.historyContent .memoList {
+  padding: 0;
 }
 
 .memoItem {

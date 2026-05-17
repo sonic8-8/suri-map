@@ -41,6 +41,12 @@ import {
 import type { OperationalPeriod } from '../../../situationBoard/presentation/constants/mockSituationBoard';
 import { HandoverOperationalPeriodSelector } from '../components/HandoverOperationalPeriodSelector';
 import { HandoverComparisonMap, type HandoverComparisonMapSharedProps } from '../components/HandoverComparisonMap';
+import { HandoverSummaryCard } from '../components/HandoverSummaryCard';
+import {
+  HandoverMemoSection,
+  type HandoverMemoItemView,
+  type HandoverMemoTargetOption,
+} from '../components/HandoverMemoSection';
 import { type MarkerNotification } from '../../../../shared/ui';
 import { useBrowserBackToIncidentList } from '../../../../shared/hooks/useBrowserBackToIncidentList';
 import styles from './HandoverPage.module.css';
@@ -80,14 +86,6 @@ type SearchHistorySummaryView = {
   summaryText: string | null;
   generatedAt: string | null;
   sourceHash: string | null;
-};
-
-type HandoverMemoTargetOption = {
-  key: string;
-  targetType: HandoverMemoTargetType;
-  targetId: string;
-  label: string;
-  description: string;
 };
 
 type HandoverStatusView = {
@@ -138,7 +136,6 @@ export function HandoverPage({
   const [incidentDetail, setIncidentDetail] = useState<HandoverIncidentDetailDto | null>(null);
   const [now, setNow] = useState(() => new Date());
   const [content, setContent] = useState('');
-  const [leftPanelTab, setLeftPanelTab] = useState<'op' | 'handoverMemo'>('op');
   const [isComparisonPopupOpen, setIsComparisonPopupOpen] = useState(false);
   const [isCreateOpModalOpen, setIsCreateOpModalOpen] = useState(false);
   const [newOpReason, setNewOpReason] = useState<CreateOperationalPeriodReason>('RE_SEARCH');
@@ -213,6 +210,18 @@ export function HandoverPage({
   const memoTargetOptions = useMemo(
     () => createHandoverMemoTargetOptions(board, selectedOp, dutyShifts),
     [board, selectedOp, dutyShifts],
+  );
+  const selectedOpMemoItems = useMemo<HandoverMemoItemView[]>(
+    () =>
+      selectedOpMemos.map((memo) => ({
+        id: memo.id,
+        content: memo.content,
+        targetLabel: formatMemoTargetLabel(memo, memoTargetOptions),
+        createdAtLabel: formatKstDateTime(new Date(memo.createdAt)),
+        createdByAccountId: memo.createdByAccountId,
+        version: memo.version,
+      })),
+    [memoTargetOptions, selectedOpMemos],
   );
   const selectedMemoTarget = useMemo(
     () => memoTargetOptions.find((option) => option.key === selectedMemoTargetKey) ?? memoTargetOptions[0] ?? null,
@@ -515,32 +524,9 @@ export function HandoverPage({
           className={styles.opPanel}
           bodyClassName={styles.opPanelBody}
           placement="left"
-          header={(
-            <div className={styles.leftPanelTabs} role="tablist" aria-label="인수인계 좌측 패널">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={leftPanelTab === 'op'}
-                className={`${styles.leftPanelTab}${leftPanelTab === 'op' ? ` ${styles.leftPanelTabActive}` : ''}`}
-                onClick={() => setLeftPanelTab('op')}
-              >
-                OP
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={leftPanelTab === 'handoverMemo'}
-                className={`${styles.leftPanelTab}${leftPanelTab === 'handoverMemo' ? ` ${styles.leftPanelTabActive}` : ''}`}
-                onClick={() => setLeftPanelTab('handoverMemo')}
-              >
-                인수인계 메모
-                <span>{selectedOpMemos.length}</span>
-              </button>
-            </div>
-          )}
         >
 
-          <div className={styles.leftPanelPage} hidden={leftPanelTab !== 'op'}>
+          <div className={styles.leftPanelPage}>
             {opErrorMessage ? <div className={styles.errorText}>{opErrorMessage}</div> : null}
 
             {isLoadingOps ? (
@@ -573,64 +559,6 @@ export function HandoverPage({
             </div>
           </div>
 
-          <div className={styles.leftPanelPage} hidden={leftPanelTab !== 'handoverMemo'}>
-            <div className={styles.memoComposer}>
-              <label className={styles.memoTargetField}>
-                <span>메모 대상</span>
-                <select
-                  value={selectedMemoTarget?.key ?? ''}
-                  onChange={(event) => setSelectedMemoTargetKey(event.target.value)}
-                  disabled={!focusedOpId || isSubmitting || memoTargetOptions.length === 0}
-                >
-                  {memoTargetOptions.map((option) => (
-                    <option key={option.key} value={option.key}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                {selectedMemoTarget ? <small>{selectedMemoTarget.description}</small> : null}
-              </label>
-              <textarea
-                value={content}
-                onChange={(event) => setContent(event.target.value)}
-                placeholder="인계할 현장 맥락을 입력하세요."
-                maxLength={1000}
-                disabled={!focusedOpId || isSubmitting}
-              />
-              <div className={styles.composerFooter}>
-                <span>{content.trim().length}/1000</span>
-                <button
-                  type="button"
-                  onClick={handleSubmit}
-                  disabled={!focusedOpId || !selectedMemoTarget || content.trim().length === 0 || isSubmitting}
-                >
-                  {isSubmitting ? '저장 중' : '메모 저장'}
-                </button>
-              </div>
-            </div>
-
-            {memoErrorMessage ? <div className={styles.errorText}>{memoErrorMessage}</div> : null}
-
-            <div className={styles.memoList}>
-              {isLoadingMemos ? (
-                <div className={styles.emptyState}>인수인계 메모를 불러오는 중입니다.</div>
-              ) : selectedOpMemos.length === 0 ? (
-                <div className={styles.emptyState}>작성된 인수인계 메모가 없습니다.</div>
-              ) : (
-                selectedOpMemos.map((memo) => (
-                  <article key={memo.id} className={styles.memoItem}>
-                    <p>{memo.content}</p>
-                    <div>
-                      <span className={styles.memoTargetBadge}>{formatMemoTargetLabel(memo, memoTargetOptions)}</span>
-                      <span>{formatKstDateTime(new Date(memo.createdAt))}</span>
-                      <span>작성 계정 {memo.createdByAccountId}</span>
-                      <span>v{memo.version}</span>
-                    </div>
-                  </article>
-                ))
-              )}
-            </div>
-          </div>
         </BoardPanel>
 
         {sharedMapMode ? null : (
@@ -649,7 +577,6 @@ export function HandoverPage({
           ariaLabel="인수인계 상시 확인 패널"
           className={styles.historyPanel}
           bodyClassName={styles.historyPanelBody}
-          header={<strong className={styles.panelTitle}>인계 확인</strong>}
           placement="right"
         >
           <div className={styles.historyContent}>
@@ -676,6 +603,20 @@ export function HandoverPage({
                 </dl>
               </div>
             </section>
+
+            <HandoverMemoSection
+              focusedOpId={focusedOpId}
+              memoTargetOptions={memoTargetOptions}
+              selectedMemoTarget={selectedMemoTarget}
+              memoItems={selectedOpMemoItems}
+              content={content}
+              isLoadingMemos={isLoadingMemos}
+              isSubmitting={isSubmitting}
+              memoErrorMessage={memoErrorMessage}
+              onContentChange={setContent}
+              onSelectedMemoTargetKeyChange={setSelectedMemoTargetKey}
+              onSubmit={handleSubmit}
+            />
 
             <section className={styles.contextBlock} aria-label="수색 이력 요약">
               <div className={styles.blockHeading}>
@@ -795,10 +736,10 @@ export function HandoverPage({
                   {boardErrorMessage ? <div className={styles.errorText}>{boardErrorMessage}</div> : null}
 
                   <div className={styles.summaryGrid}>
-                    <SummaryCard label="수색 경로" value={`${evidenceSummary.pathCount}건`} helper="차량·도보 구간 기준" />
-                    <SummaryCard label="배정 구역" value={`${evidenceSummary.areaCount}건`} helper={evidenceSummary.overallAreaStatus} />
-                    <SummaryCard label="마커" value={`${evidenceSummary.markerCount}건`} helper="단서·발견·운영 메모" />
-                    <SummaryCard label="수색 이력 요약" value={`${evidenceSummary.summaryCount}건`} helper="요약 생성 결과" />
+                    <HandoverSummaryCard label="수색 경로" value={`${evidenceSummary.pathCount}건`} helper="차량·도보 구간 기준" />
+                    <HandoverSummaryCard label="배정 구역" value={`${evidenceSummary.areaCount}건`} helper={evidenceSummary.overallAreaStatus} />
+                    <HandoverSummaryCard label="마커" value={`${evidenceSummary.markerCount}건`} helper="단서·발견·운영 메모" />
+                    <HandoverSummaryCard label="수색 이력 요약" value={`${evidenceSummary.summaryCount}건`} helper="요약 생성 결과" />
                   </div>
                 </section>
 
@@ -922,16 +863,6 @@ export function HandoverPage({
         document.body,
       ) : null}
     </main>
-  );
-}
-
-function SummaryCard({ label, value, helper }: { label: string; value: string; helper: string }) {
-  return (
-    <article className={styles.summaryCard}>
-      <span>{label}</span>
-      <strong>{value}</strong>
-      <small>{helper}</small>
-    </article>
   );
 }
 
