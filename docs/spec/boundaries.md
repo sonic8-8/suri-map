@@ -167,7 +167,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 
 **consumes**
 
-- S1-2: account, role, channel, session
+- S1-2: account, role, channel, Keycloak/OIDC token identity
 - S1-3: purge orchestration
 - S4: `EventHub.publish`
 - S5: `ReferenceMarkerSeed.createForIncident(incidentId, seedMarkers)`
@@ -213,14 +213,12 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 **owns**
 
 - `account`
-- `account_session`
+- Keycloak/OIDC realm/client/claim contract
 - `police_phone`
 - `fcm_token`
 - account type: `TEAM`, `PATROL_CAR`, `COMMAND`
 - affiliation: `MISSING_TEAM`, `SUPPORT_UNIT`, `LOCAL_POLICE`
 - role: `MISSING_TEAM_COMMANDER`, `FIELD_COMMANDER`, `MEMBER`
-- `POST /api/auth/login`
-- `POST /api/auth/logout`
 - `POST /api/fcm/tokens`
 - `POST /api/police-phones/{policePhoneId}/heartbeat`
 
@@ -1184,7 +1182,7 @@ Consumers는 앱·웹·단말·S3-2 등 제품 흐름에서 직접 호출하는 
 
 Guard shorthand:
 
-- `public-session`: `@RequireChannel(APP,WEB)` -> `channel_not_allowed`
+- `public-session`: Keycloak/OIDC bearer token + `@RequireChannel(APP,WEB)` -> `channel_not_allowed`
 - `incident-read`: `@RequireIncidentAccess` -> `incident_access_denied`, `team_not_assigned`
 - `web-command`: `@RequireChannel(WEB)`, `@RequireRole` -> `channel_not_allowed`, `role_denied`
 - `app-police-phone`: `@RequireChannel(APP)`, `@RequirePolicePhone`, `@RequirePolicePhoneRegistered`, `@RequirePolicePhoneAssigned` -> `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`
@@ -1194,8 +1192,6 @@ Guard shorthand:
 
 | API | Owner | consumers | channel | guards / failure codes | internal caller |
 |---|---|---|---|---|---|
-| `POST /api/auth/login` | S1-2 | 앱, 웹 | HTTPS | `public-session` | - |
-| `POST /api/auth/logout` | S1-2 | 앱, 웹 | HTTPS | `public-session` | - |
 | `POST /api/fcm/tokens` | S1-2 | 앱 | HTTPS | `app-police-phone` | - |
 | `POST /api/police-phones/{policePhoneId}/heartbeat` | S1-2 | 앱 | HTTPS | `app-police-phone` | - |
 | `POST /api/incidents/import` | S1-1 | 웹 지휘 계정 | HTTPS | `web-command` | `internal-caller`: seed/mock bootstrap |
