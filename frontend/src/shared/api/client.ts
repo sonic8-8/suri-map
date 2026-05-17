@@ -1,4 +1,8 @@
-import { getApiBaseUrl } from '../config';
+import { getApiBaseUrl, getKeycloakIssuerUrl, isLocalDevAccessToken } from '../config';
+
+export type ApiErrorBody = {
+  error?: string;
+};
 
 export type ApiHttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE' | 'PUT';
 
@@ -13,6 +17,7 @@ export interface ApiRequestOptions<TBody = unknown> {
   headers?: HeadersInit;
   signal?: AbortSignal;
   accessToken?: string | null;
+  idempotencyKey?: string;
 }
 
 export interface ApiClientOptions {
@@ -35,6 +40,13 @@ export class ApiHttpError extends Error {
   }
 }
 
+export class ApiError extends ApiHttpError {
+  constructor(status: number, code: string, body: unknown = { error: code }) {
+    super(status, code, body);
+    this.name = 'ApiError';
+  }
+}
+
 export class ApiNetworkError extends Error {
   readonly code = 'network_error';
   readonly cause: unknown;
@@ -46,11 +58,10 @@ export class ApiNetworkError extends Error {
   }
 }
 
+export const API_UNAUTHORIZED_EVENT = 'suri-map-api-unauthorized';
+
 export interface ApiClient {
-  request<TResponse, TBody = unknown>(
-    path: string,
-    options?: ApiRequestOptions<TBody>,
-  ): Promise<TResponse>;
+  request<TResponse, TBody = unknown>(path: string, options?: ApiRequestOptions<TBody>): Promise<TResponse>;
   get<TResponse>(path: string, options?: Omit<ApiRequestOptions, 'method' | 'body'>): Promise<TResponse>;
   post<TResponse, TBody = unknown>(
     path: string,
@@ -66,6 +77,14 @@ export interface ApiClient {
     path: string,
     options?: Omit<ApiRequestOptions<TBody>, 'method'>,
   ): Promise<TResponse>;
+}
+
+export function createIdempotencyKey(prefix: string) {
+  if (globalThis.crypto?.randomUUID) {
+    return `${prefix}-${globalThis.crypto.randomUUID()}`;
+  }
+
+  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 export function createApiClient(options: ApiClientOptions = {}): ApiClient {
@@ -93,33 +112,74 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
     } catch (error) {
       throw new ApiNetworkError(error);
     }
+
+    if (response.status === 401 && !isLocalDevAccessToken(readAuthorizationToken(headers))) {
+      clearExpiredApiSession();
+    }
     return parseResponse<TResponse>(response);
   }
 
   return {
     request,
     get: (path, requestOptions) => request(path, { ...requestOptions, method: 'GET' }),
-    post: (path, body, requestOptions) =>
-      request(path, { ...requestOptions, method: 'POST', body }),
-    patch: (path, body, requestOptions) =>
-      request(path, { ...requestOptions, method: 'PATCH', body }),
+    post: (path, body, requestOptions) => request(path, { ...requestOptions, method: 'POST', body }),
+    patch: (path, body, requestOptions) => request(path, { ...requestOptions, method: 'PATCH', body }),
     delete: (path, requestOptions) => request(path, { ...requestOptions, method: 'DELETE' }),
   };
 }
 
-export const apiClient = createApiClient();
+const realApiClient = createApiClient({
+  getAccessToken: getStoredAccessToken,
+});
+
+export const apiClient: ApiClient = {
+  request: (path, requestOptions) => realApiClient.request(path, requestOptions),
+  get: (path, requestOptions) => realApiClient.get(path, requestOptions),
+  post: (path, body, requestOptions) => realApiClient.post(path, body, requestOptions),
+  patch: (path, body, requestOptions) => realApiClient.patch(path, body, requestOptions),
+  delete: (path, requestOptions) => realApiClient.delete(path, requestOptions),
+};
+
+export async function apiRequest<TResponse>(path: string, options: ApiRequestOptions = {}): Promise<TResponse> {
+  try {
+    return await apiClient.request<TResponse>(path, {
+      ...options,
+      accessToken: options.accessToken ?? getStoredAccessToken(),
+    });
+  } catch (error) {
+    if (error instanceof ApiHttpError) {
+      throw new ApiError(error.status, error.code, error.body);
+    }
+    throw error;
+  }
+}
 
 function requestHeaders<TBody>(
   getAccessToken: ApiClientOptions['getAccessToken'],
   options: ApiRequestOptions<TBody>,
 ): Headers {
   const headers = new Headers(options.headers);
+  headers.set('Accept', 'application/json');
   headers.set('X-Client-Channel', 'WEB');
+
+  if (options.idempotencyKey) {
+    headers.set('Idempotency-Key', options.idempotencyKey);
+  }
+
   const token = options.accessToken ?? getAccessToken?.();
   if (token) {
     headers.set('Authorization', token.startsWith('Bearer ') ? token : `Bearer ${token}`);
   }
   return headers;
+}
+
+function readAuthorizationToken(headers: Headers) {
+  const authorization = headers.get('Authorization');
+  if (!authorization) {
+    return null;
+  }
+
+  return authorization.startsWith('Bearer ') ? authorization.slice('Bearer '.length) : authorization;
 }
 
 function buildUrl(baseUrl: string, path: string, query?: ApiQuery): string {
@@ -173,6 +233,7 @@ async function parseBody(response: Response): Promise<unknown> {
   if (!text) {
     return undefined;
   }
+
   const contentType = response.headers.get('Content-Type') ?? '';
   if (!contentType.includes('application/json')) {
     return text;
@@ -188,10 +249,90 @@ function errorCode(body: unknown, status: number): string {
 }
 
 function isErrorBody(body: unknown): body is { error: string } {
+  return typeof body === 'object' && body !== null && 'error' in body && typeof body.error === 'string';
+}
+
+export function getStoredAccessToken() {
   return (
-    typeof body === 'object'
-    && body !== null
-    && 'error' in body
-    && typeof body.error === 'string'
+    readStoredAccessTokenFromStorage(window.localStorage, false)
+    ?? readStoredAccessTokenFromStorage(window.sessionStorage, true)
+    ?? import.meta.env.VITE_API_ACCESS_TOKEN
+    ?? null
   );
 }
+
+export function getStoredSessionAccessToken() {
+  return readStoredAccessTokenFromStorage(window.sessionStorage, true);
+}
+
+function readStoredAccessTokenFromStorage(storage: Storage, checkExpiry: boolean) {
+  for (const storageKey of BROWSER_ACCESS_TOKEN_STORAGE_KEYS) {
+    const accessToken = storage.getItem(storageKey);
+    if (!accessToken) {
+      continue;
+    }
+
+    if (!isUsableStoredAccessToken(accessToken, checkExpiry)) {
+      continue;
+    }
+
+    return accessToken;
+  }
+
+  return null;
+}
+
+function isUsableStoredAccessToken(accessToken: string, checkExpiry: boolean) {
+  if (accessToken.startsWith('mock-auth:')) {
+    return false;
+  }
+
+  if (checkExpiry) {
+    const rawExpiresAt = sessionStorage.getItem('suriMapTokenExpiresAt');
+    if (rawExpiresAt) {
+      const expiresAt = Number(rawExpiresAt);
+      if (Number.isFinite(expiresAt) && expiresAt <= Date.now()) {
+        return false;
+      }
+    }
+  }
+
+  return isCompatibleJwtAccessToken(accessToken);
+}
+
+function isCompatibleJwtAccessToken(accessToken: string) {
+  const tokenSegments = accessToken.split('.');
+  if (tokenSegments.length !== 3) {
+    return true;
+  }
+
+  const issuer = decodeJwtIssuer(accessToken);
+  return issuer === getKeycloakIssuerUrl();
+}
+
+function decodeJwtIssuer(token: string) {
+  const [, payload] = token.split('.');
+  if (!payload) {
+    return null;
+  }
+
+  try {
+    const normalizedPayload = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const paddedPayload = normalizedPayload.padEnd(Math.ceil(normalizedPayload.length / 4) * 4, '=');
+    const bytes = Uint8Array.from(atob(paddedPayload), (character) => character.charCodeAt(0));
+    const claims = JSON.parse(new TextDecoder().decode(bytes)) as { iss?: unknown };
+    return typeof claims.iss === 'string' ? claims.iss : null;
+  } catch {
+    return null;
+  }
+}
+
+function clearExpiredApiSession() {
+  sessionStorage.removeItem('suriMapAccessToken');
+  sessionStorage.removeItem('suriMapIdToken');
+  sessionStorage.removeItem('suriMapCurrentAccount');
+  sessionStorage.removeItem('suriMapTokenExpiresAt');
+  window.dispatchEvent(new CustomEvent(API_UNAUTHORIZED_EVENT));
+}
+
+const BROWSER_ACCESS_TOKEN_STORAGE_KEYS = ['accessToken', 'access_token', 'suriMapAccessToken'] as const;

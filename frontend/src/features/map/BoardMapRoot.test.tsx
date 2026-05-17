@@ -91,11 +91,12 @@ describe('L6-T08B BoardMapRoot local MapLibre style contract', () => {
 
     const mapOptions = await getOnlyMapOptions();
 
-    expect(mapOptions.style).toBe('/tiles/styles/osm-local.json');
+    expect(mapOptions.style).toBe('/map-style/osm-local.json');
     expect(mapOptions.attributionControl).toBe(false);
     expect(mapOptions.transformRequest).toEqual(expect.any(Function));
 
     const transformRequest = mapOptions.transformRequest;
+    expect(transformRequest?.('/map-style/osm-local.json', 'Style')).toBeTruthy();
     expect(transformRequest?.('/tiles/styles/osm-local.json', 'Style')).toBeTruthy();
     expect(transformRequest?.('/tiles/osm-local/15/27925/12680.pbf', 'Tile')).toBeTruthy();
   });
@@ -109,8 +110,15 @@ describe('L6-T08B BoardMapRoot local MapLibre style contract', () => {
 
     const transformRequest = mapOptions.transformRequest;
 
+    expect(transformRequest?.('/map-style/osm-local.json', 'Style')).toMatchObject({
+      url: '/map-style/osm-local.json',
+      headers: {
+        Authorization: 'Bearer board-map-access-token',
+        'X-Client-Channel': 'WEB',
+      },
+    });
     expect(transformRequest?.('/tiles/styles/osm-local.json', 'Style')).toMatchObject({
-      url: '/tiles/styles/osm-local.json',
+      url: '/map-style/osm-local.json',
       headers: {
         Authorization: 'Bearer board-map-access-token',
         'X-Client-Channel': 'WEB',

@@ -1,8 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
-import { ApiHttpError, ApiNetworkError, createApiClient } from './client';
+import { ApiHttpError, ApiNetworkError, createApiClient, getStoredAccessToken } from './client';
 
 describe('createApiClient', () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    localStorage.clear();
+  });
+
   it('adds WEB channel, bearer token, JSON body, and query params', async () => {
     const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
     const fetchImpl: typeof fetch = async (input, init) => {
@@ -38,7 +43,7 @@ describe('createApiClient', () => {
       fetch: async () => new Response(null, { status: 204 }),
     });
 
-    await expect(client.delete<undefined>('/auth/logout')).resolves.toBeUndefined();
+    await expect(client.delete<undefined>('/incidents/inc-001')).resolves.toBeUndefined();
   });
 
   it('supports JSON body on DELETE commands', async () => {
@@ -47,15 +52,15 @@ describe('createApiClient', () => {
       baseUrl: '/api',
       fetch: async (input, init) => {
         calls.push({ input, init });
-        return jsonResponse({ id: 'mk-precinct-clue-001', status: 'DELETED', version: 5 });
+        return jsonResponse({ id: MARKER_ID, status: 'DELETED', version: 5 });
       },
     });
 
-    await client.delete('/markers/mk-precinct-clue-001', {
+    await client.delete(`/markers/${MARKER_ID}`, {
       body: { version: 4, reason: 'duplicated' },
     });
 
-    expect(calls[0]?.input).toBe('/api/markers/mk-precinct-clue-001');
+    expect(calls[0]?.input).toBe(`/api/markers/${MARKER_ID}`);
     expect(calls[0]?.init?.method).toBe('DELETE');
     expect(calls[0]?.init?.body).toBe('{"version":4,"reason":"duplicated"}');
     const headers = new Headers(calls[0]?.init?.headers);
@@ -92,6 +97,19 @@ describe('createApiClient', () => {
   });
 });
 
+describe('stored access tokens', () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    localStorage.clear();
+  });
+
+  it('ignores JWTs from a different Keycloak issuer', () => {
+    sessionStorage.setItem('suriMapAccessToken', makeJwt({ iss: 'http://127.0.0.1:5174/keycloak/realms/suri-map' }));
+
+    expect(getStoredAccessToken()).toBeNull();
+  });
+});
+
 function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(body), {
     ...init,
@@ -100,4 +118,16 @@ function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
       ...init.headers,
     },
   });
+}
+
+const MARKER_ID = '55555555-5555-5555-5555-555555550001';
+
+function makeJwt(payload: Record<string, unknown>) {
+  return `${base64UrlEncode(JSON.stringify({ alg: 'none', typ: 'JWT' }))}.${base64UrlEncode(
+    JSON.stringify(payload),
+  )}.signature`;
+}
+
+function base64UrlEncode(value: string) {
+  return btoa(value).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }

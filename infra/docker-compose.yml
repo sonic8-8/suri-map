@@ -5,8 +5,10 @@ services:
     working_dir: /workspace/frontend
     command: sh -c "npm ci && npm run dev -- --host 0.0.0.0"
     environment:
-      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080/api}
-      VITE_TILE_BASE_URL: ${VITE_TILE_BASE_URL:-http://localhost:8082}
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+      VITE_API_PROXY_TARGET: ${VITE_API_PROXY_TARGET:-http://host.docker.internal:8080/api}
+      VITE_KEYCLOAK_PROXY_TARGET: ${VITE_KEYCLOAK_PROXY_TARGET:-https://k14c106.p.ssafy.io/keycloak}
+      VITE_TILE_BASE_URL: ${VITE_TILE_BASE_URL:-https://k14c106.p.ssafy.io/tiles}
     ports:
       - "5173:5173"
     volumes:
@@ -31,7 +33,24 @@ services:
     volumes:
       - surimap-postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-surimap} -d ${POSTGRES_DB:-surimap}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-surimap} -d ${POSTGRES_DB:-surimap}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mock112-postgres:
+    image: postgres:16-alpine
+    container_name: mock112-postgres
+    environment:
+      POSTGRES_DB: ${MOCK112_POSTGRES_DB:-mock112}
+      POSTGRES_USER: ${MOCK112_POSTGRES_USER:-mock112}
+      POSTGRES_PASSWORD: ${MOCK112_POSTGRES_PASSWORD:-mock112}
+    ports:
+      - "${MOCK112_POSTGRES_HOST_PORT:-15433}:5432"
+    volumes:
+      - mock112-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${MOCK112_POSTGRES_USER:-mock112} -d ${MOCK112_POSTGRES_DB:-mock112}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -39,16 +58,76 @@ services:
   mock-112:
     build: ../mock-112
     container_name: mock-112
+    depends_on:
+      mock112-postgres:
+        condition: service_healthy
     ports:
-      - "18112:18112"
+      - "${MOCK_112_HOST_PORT:-18112}:18112"
     environment:
       SERVER_PORT: 18112
+      SPRING_DATASOURCE_URL: jdbc:postgresql://mock112-postgres:5432/${MOCK112_POSTGRES_DB:-mock112}
+      SPRING_DATASOURCE_USERNAME: ${MOCK112_POSTGRES_USER:-mock112}
+      SPRING_DATASOURCE_PASSWORD: ${MOCK112_POSTGRES_PASSWORD:-mock112}
+      SURI_MAP_WEBHOOK_ENABLED: "true"
+      SURI_MAP_WEBHOOK_URL: http://backend:8080/api/internal/mock-112/events
+      SURI_MAP_WEBHOOK_SECRET: ${MOCK112_WEBHOOK_SECRET:-}
+      MOCK112_INTERNAL_API_TOKEN: ${MOCK112_INTERNAL_API_TOKEN:-local-dev-mock112-internal}
+      MOCK112_KEYCLOAK_CLIENT_ID: ${MOCK112_KEYCLOAK_CLIENT_ID:-suri-map-mock112}
+      MOCK112_KEYCLOAK_AUTHORIZATION_URI: ${MOCK112_KEYCLOAK_AUTHORIZATION_URI:-http://localhost:18080/keycloak/realms/suri-map/protocol/openid-connect/auth}
+      MOCK112_KEYCLOAK_TOKEN_URI: ${MOCK112_KEYCLOAK_TOKEN_URI:-http://keycloak:8080/keycloak/realms/suri-map/protocol/openid-connect/token}
+      MOCK112_KEYCLOAK_JWK_SET_URI: ${MOCK112_KEYCLOAK_JWK_SET_URI:-http://keycloak:8080/keycloak/realms/suri-map/protocol/openid-connect/certs}
+      MOCK112_KEYCLOAK_USER_INFO_URI: ${MOCK112_KEYCLOAK_USER_INFO_URI:-http://keycloak:8080/keycloak/realms/suri-map/protocol/openid-connect/userinfo}
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:18112/mock-112/health || exit 1"]
+      test: [ "CMD-SHELL", "wget -q --spider http://localhost:18112/mock-112/health || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 3
 
+  keycloak-postgres:
+    image: postgres:16-alpine
+    container_name: keycloak-postgres
+    environment:
+      POSTGRES_DB: ${KEYCLOAK_POSTGRES_DB:-keycloak}
+      POSTGRES_USER: ${KEYCLOAK_POSTGRES_USER:-keycloak}
+      POSTGRES_PASSWORD: ${KEYCLOAK_POSTGRES_PASSWORD:-keycloak}
+    ports:
+      - "${KEYCLOAK_POSTGRES_HOST_PORT:-15434}:5432"
+    volumes:
+      - keycloak-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${KEYCLOAK_POSTGRES_USER:-keycloak} -d ${KEYCLOAK_POSTGRES_DB:-keycloak}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  keycloak:
+    image: ${KEYCLOAK_IMAGE:-quay.io/keycloak/keycloak:26.6.1}
+    container_name: keycloak
+    command: ["start-dev", "--import-realm"]
+    depends_on:
+      keycloak-postgres:
+        condition: service_healthy
+    environment:
+      KC_DB: postgres
+      KC_DB_URL_HOST: keycloak-postgres
+      KC_DB_URL_DATABASE: ${KEYCLOAK_POSTGRES_DB:-keycloak}
+      KC_DB_USERNAME: ${KEYCLOAK_POSTGRES_USER:-keycloak}
+      KC_DB_PASSWORD: ${KEYCLOAK_POSTGRES_PASSWORD:-keycloak}
+      KC_HEALTH_ENABLED: "true"
+      KC_HTTP_ENABLED: "true"
+      KC_HTTP_RELATIVE_PATH: /keycloak
+      KC_PROXY_HEADERS: xforwarded
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+    ports:
+      - "${KEYCLOAK_HOST_PORT:-18080}:8080"
+      - "${KEYCLOAK_MANAGEMENT_HOST_PORT:-19000}:9000"
+    volumes:
+      - ./docker/keycloak/import:/opt/keycloak/data/import:ro
+      - ./docker/keycloak/themes:/opt/keycloak/themes:ro
+
 volumes:
   surimap-frontend-node-modules:
   surimap-postgres-data:
+  mock112-postgres-data:
+  keycloak-postgres-data:
