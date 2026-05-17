@@ -91,6 +91,7 @@ export function useSituationBoardPageState({
     selectedLayerIds: layerFilters.selectedLayerIds,
     selectedMarkerTypes: layerFilters.selectedMarkerTypes,
     selectedSearchAreaId: workspaceMode.selectedSearchAreaId,
+    selectSearchArea: workspaceMode.selectSearchArea,
     selectedSupportRequestTypes: layerFilters.selectedSupportRequestTypes,
     setAreaEditMapProps: workspaceMode.setAreaEditMapProps,
     setInitialMapState: workspaceMode.setInitialMapState,

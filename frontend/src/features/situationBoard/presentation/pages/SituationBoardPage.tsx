@@ -264,7 +264,7 @@ export function SituationBoardPage({
           onOpenSearchAreaAssign={handleOpenSearchAreaAssignment}
           onOpenSearchAreaSplit={boardState.openAreaWorkspace}
           onClearSelectedSearchArea={boardState.clearSelectedSearchArea}
-          onSelectSearchArea={isClosedTerminalBoard ? () => {} : boardState.toggleSelectedSearchArea}
+          onSelectSearchArea={isClosedTerminalBoard ? () => {} : boardState.selectSearchArea}
           onToggleMapExpanded={boardState.toggleMapExpanded}
           selectedSearchAreaId={isClosedTerminalBoard ? null : boardState.selectedSearchAreaId}
         />

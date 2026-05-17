@@ -164,14 +164,7 @@ export function getRouteCoreColor(routeColor: string | null | undefined): string
   if (!routeColor) return '';
 
   const normalizedColor = normalizeHexColor(routeColor);
-  if (!normalizedColor) return routeColor;
-
-  const red = Number.parseInt(normalizedColor.slice(1, 3), 16);
-  const green = Number.parseInt(normalizedColor.slice(3, 5), 16);
-  const blue = Number.parseInt(normalizedColor.slice(5, 7), 16);
-  const darkenRatio = 0.72;
-
-  return `#${toHexChannel(red * darkenRatio)}${toHexChannel(green * darkenRatio)}${toHexChannel(blue * darkenRatio)}`;
+  return normalizedColor ?? routeColor;
 }
 
 function resolveRouteColor(
@@ -302,9 +295,4 @@ function normalizeHexColor(color: string): string | null {
   }
 
   return null;
-}
-
-function toHexChannel(value: number): string {
-  const roundedValue = Math.max(0, Math.min(255, Math.round(value)));
-  return roundedValue.toString(16).padStart(2, '0');
 }

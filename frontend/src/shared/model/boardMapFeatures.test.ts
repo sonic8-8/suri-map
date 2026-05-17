@@ -66,6 +66,16 @@ describe('boardMapFeatures', () => {
     expect(collection.features[0].properties.deviceColor).toMatch(/^#[0-9a-f]{6}$/i);
     expect(collection.features[0].properties.routeCoreColor).toMatch(/^#[0-9a-f]{6}$/i);
   });
+
+  test('keeps rendered route core color identical to the assigned area color', () => {
+    const collection = createMovementPathFeatureCollection(
+      [createMovementPath({ routeColor: '#12abef' })],
+      OP_ID,
+    );
+
+    expect(collection.features[0].properties.deviceColor).toBe('#12abef');
+    expect(collection.features[0].properties.routeCoreColor).toBe('#12abef');
+  });
 });
 
 function createMovementPath(overrides: Partial<BoardMovementPath> = {}): BoardMovementPath {

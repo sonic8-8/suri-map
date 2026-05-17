@@ -1,4 +1,6 @@
+import type { CSSProperties } from 'react';
 import { ChevronRight, Scissors, UsersRound, X } from 'lucide-react';
+import { areaColorTokens } from '../../../../../shared/constants/areaColorTokens';
 import type { SearchAreaDisplayState } from '../../../../../shared/model/searchAreaDisplayState';
 import {
   getSearchAreaDisplayState,
@@ -14,6 +16,7 @@ type SearchAreaTone = 'active' | 'closed' | 'neutral' | 'danger';
 type SearchAreaInspectorCardProps = {
   searchAreaTree: SearchAreaTreeNode;
   selectedSearchAreaId: string | null;
+  variant?: 'layer' | 'mapPopup';
   onClose: () => void;
   onOpenSplit: () => void;
   onOpenAssign: () => void;
@@ -97,6 +100,7 @@ function getStatusToneClassName(tone: SearchAreaTone) {
 export function SearchAreaInspectorCard({
   searchAreaTree,
   selectedSearchAreaId,
+  variant = 'layer',
   onClose,
   onOpenSplit,
   onOpenAssign,
@@ -133,9 +137,13 @@ export function SearchAreaInspectorCard({
       : '담당 계정 배정';
   const splitSummary = getSplitSummary(isAssigned, hasChildAreas);
   const assignmentSummary = getAssignmentSummary(isAssigned, isAssignableLeafArea);
+  const rootClassName = variant === 'mapPopup' ? styles.mapPopup : styles.layer;
+  const rootStyle: CSSProperties & { '--area-identity-color': string } = {
+    '--area-identity-color': `var(${areaColorTokens[selectedSearchArea.colorToken].cssVariable})`,
+  };
 
   return (
-    <aside className={styles.layer} aria-live="polite">
+    <aside className={rootClassName} style={rootStyle} aria-live="polite">
       <section className={styles.card} aria-label="선택된 수색구역 정보">
         <div className={styles.accentBar} aria-hidden="true" />
         <header className={styles.header}>

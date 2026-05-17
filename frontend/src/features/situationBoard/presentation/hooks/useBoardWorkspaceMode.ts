@@ -23,6 +23,14 @@ export function useBoardWorkspaceMode({
   const hasActiveOverallSearchArea = initialMapState === null || initialMapState === 'overall-ready';
   const isAreaWorkspaceOpen = isAreaWorkspaceRoute || isAreaWorkspaceOpenState;
 
+  const selectSearchArea = (searchAreaId: string) => {
+    if (!hasActiveOverallSearchArea) {
+      return;
+    }
+
+    setSelectedSearchAreaId(searchAreaId);
+  };
+
   const toggleSelectedSearchArea = (searchAreaId: string) => {
     if (!hasActiveOverallSearchArea) {
       return;
@@ -82,6 +90,7 @@ export function useBoardWorkspaceMode({
     openAreaWorkspace,
     openHandoverWorkspace,
     selectedSearchAreaId,
+    selectSearchArea,
     setAreaEditMapProps,
     setInitialMapState,
     toggleMapExpanded,
