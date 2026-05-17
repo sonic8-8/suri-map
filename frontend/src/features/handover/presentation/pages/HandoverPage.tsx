@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
@@ -19,6 +19,8 @@ import {
   type BoardSlotName,
   incidentBoardQueryKeys,
 } from '../../../board/api/incidentBoardApi';
+import { mergeWithPreviousCriticalSlots } from '../../../situationBoard/presentation/hooks/useSituationBoardData';
+import type { SituationBoardResponseDto } from '../../../situationBoard/data/getSituationBoard';
 import {
   getHandoverIncidentDetail,
   type HandoverIncidentDetailDto,
@@ -46,6 +48,7 @@ import styles from './HandoverPage.module.css';
 type HandoverPageProps = {
   embedded?: boolean;
   sharedMapMode?: boolean;
+  boardSnapshot?: SituationBoardResponseDto | null;
   incidentId: string;
   currentUserAccount: LoginAccount;
   markerNotificationIndex: number;
@@ -112,6 +115,7 @@ const opReasonOptions: Array<{ value: CreateOperationalPeriodReason; label: stri
 export function HandoverPage({
   embedded = false,
   sharedMapMode = false,
+  boardSnapshot = null,
   incidentId,
   currentUserAccount,
   markerNotificationIndex,
@@ -151,10 +155,36 @@ export function HandoverPage({
 
   useBrowserBackToIncidentList(onBrowserBackToIncidentList, !embedded);
   const queryClient = useQueryClient();
-  const boardQuery = useIncidentBoardQuery({ incidentId });
-  const board = boardQuery.data ?? null;
-  const effectiveSelectedOpIds =
-    selectedOpIds.length > 0 ? selectedOpIds : board?.selectedOpIds ? [...board.selectedOpIds] : [];
+  const stableBoardRef = useRef<SituationBoardResponseDto | null>(null);
+  const requestedBoardOpIds = useMemo(
+    () => uniqueNonEmptyStrings([...selectedOpIds, ...(focusedOpId ? [focusedOpId] : [])]),
+    [focusedOpId, selectedOpIds],
+  );
+  const boardQuery = useIncidentBoardQuery({
+    incidentId: boardSnapshot ? null : incidentId,
+    opIds: !boardSnapshot && requestedBoardOpIds.length > 0 ? requestedBoardOpIds : undefined,
+  });
+  const board = useMemo<IncidentBoardResponse | null>(() => {
+    if (boardSnapshot) {
+      stableBoardRef.current = boardSnapshot as unknown as SituationBoardResponseDto;
+      return boardSnapshot as unknown as IncidentBoardResponse;
+    }
+
+    const mergedBoard = mergeWithPreviousCriticalSlots(
+      (boardQuery.data ?? null) as SituationBoardResponseDto | null,
+      stableBoardRef.current,
+    );
+
+    if (mergedBoard) {
+      stableBoardRef.current = mergedBoard;
+    }
+
+    return mergedBoard as unknown as IncidentBoardResponse | null;
+  }, [boardQuery.data, boardSnapshot]);
+  const effectiveSelectedOpIds = useMemo(
+    () => resolveSelectedOpIds(board, selectedOpIds),
+    [board, selectedOpIds],
+  );
   const isLoadingBoard = boardQuery.isLoading;
   const boardErrorMessage = boardQuery.isError ? '수색 이력 정보를 불러오지 못했습니다.' : '';
   const summaryQuery = useSearchHistorySummaryListQuery(focusedOpId, { incidentId });
@@ -518,7 +548,7 @@ export function HandoverPage({
                 onOperationalPeriodOpen={openComparisonPopup}
                 onSelectedOperationalPeriodIdsChange={handleOperationalPeriodSelectionChange}
                 operationalPeriods={handoverOperationalPeriods}
-                selectedOperationalPeriodIds={selectedOpIds}
+                selectedOperationalPeriodIds={effectiveSelectedOpIds}
               />
             )}
 
@@ -603,7 +633,7 @@ export function HandoverPage({
               incidentId={incidentId}
               board={board}
               focusedOpId={focusedOpId}
-              selectedOpIds={selectedOpIds}
+              selectedOpIds={effectiveSelectedOpIds}
             />
           </section>
         )}
@@ -1232,6 +1262,60 @@ function filterRowsBySelectedOps(rows: Record<string, unknown>[], selectedOpIds:
     const rowOpId = readString(row, 'opId') ?? readString(row, 'operationalPeriodId');
     return rowOpId === null || selectedOpIdSet.has(rowOpId);
   });
+}
+
+function resolveSelectedOpIds(board: IncidentBoardResponse | null, selectedOpIds: string[]) {
+  const explicitSelectedOpIds = uniqueNonEmptyStrings(selectedOpIds);
+  if (explicitSelectedOpIds.length > 0) {
+    return explicitSelectedOpIds;
+  }
+
+  if (!board) {
+    return [];
+  }
+
+  const collectedOpIds = collectBoardOpIds(board);
+  if (collectedOpIds.length > 0) {
+    return collectedOpIds;
+  }
+
+  if (board.selectedOpIds && board.selectedOpIds.length > 0) {
+    return uniqueNonEmptyStrings([...board.selectedOpIds]);
+  }
+
+  return [];
+}
+
+function collectBoardOpIds(board: IncidentBoardResponse) {
+  const opIds = new Set<string>();
+
+  if (board.activeOpId) {
+    opIds.add(board.activeOpId);
+  }
+
+  ([
+    'op_history',
+    'area',
+    'path',
+    'marker',
+    'op_toggle',
+    'handover_memo',
+    'handover_status',
+    'search_history_summary',
+  ] as BoardSlotName[]).forEach((slot) => {
+    readSlotRows(board, slot).forEach((row) => {
+      const opId = readString(row, 'opId') ?? readString(row, 'operationalPeriodId');
+      if (opId) {
+        opIds.add(opId);
+      }
+    });
+  });
+
+  return [...opIds];
+}
+
+function uniqueNonEmptyStrings(values: string[]) {
+  return [...new Set(values.filter((value) => value.trim().length > 0))];
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
