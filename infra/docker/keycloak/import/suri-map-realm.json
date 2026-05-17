@@ -506,6 +506,41 @@
           "dev-support-phone-01"
         ]
       }
+    },
+    {
+      "username": "acct-unassigned-phone",
+      "enabled": true,
+      "email": "acct-unassigned-phone@suri-map.local",
+      "emailVerified": true,
+      "firstName": "Unassigned",
+      "lastName": "Phone",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "fixture",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "MEMBER"
+      ],
+      "attributes": {
+        "accountId": [
+          "11111111-1111-1111-1111-111111110009"
+        ],
+        "accountType": [
+          "TEAM"
+        ],
+        "organizationType": [
+          "POLICE_SUBSTATION"
+        ],
+        "policePhoneId": [
+          "00000000-0000-0000-0000-000000000301"
+        ],
+        "policePhoneCode": [
+          "dev-unassigned-phone-01"
+        ]
+      }
     }
   ]
 }
