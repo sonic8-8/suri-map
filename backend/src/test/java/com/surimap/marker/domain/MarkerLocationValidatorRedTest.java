@@ -164,9 +164,9 @@ class MarkerLocationValidatorRedTest {
     }
 
     @Test
-    @DisplayName("active overall_search_area가 없으면 invalid_geometry다")
-    void active_overall_search_area가_없으면_invalid_geometry다() {
-      assertInvalidGeometry(() -> validator.validate(UUID.randomUUID(), VALID_MARKER_POINT));
+    @DisplayName("active overall_search_area가 없어도 초동 마커 좌표는 통과한다")
+    void active_overall_search_area가_없어도_초동_마커_좌표는_통과한다() {
+      assertDoesNotThrow(() -> validator.validate(UUID.randomUUID(), VALID_MARKER_POINT));
     }
   }
 
