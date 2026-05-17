@@ -280,7 +280,8 @@
 }
 
 .markerMapTooltip :global(.maplibregl-popup-content),
-.markerMapPopup :global(.maplibregl-popup-content) {
+.markerMapPopup :global(.maplibregl-popup-content),
+.searchAreaMapPopup :global(.maplibregl-popup-content) {
   padding: 0;
   border-radius: 0;
   background: transparent;
@@ -288,8 +289,13 @@
 }
 
 .markerMapTooltip :global(.maplibregl-popup-tip),
-.markerMapPopup :global(.maplibregl-popup-tip) {
+.markerMapPopup :global(.maplibregl-popup-tip),
+.searchAreaMapPopup :global(.maplibregl-popup-tip) {
   border-top-color: #ffffff;
+}
+
+.searchAreaMapPopup {
+  z-index: 25;
 }
 
 .markerTooltip,

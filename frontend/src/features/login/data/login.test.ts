@@ -29,7 +29,6 @@ describe('login account display names', () => {
 
   test('normalizes stored sessions to the canonical UUID display names', () => {
     sessionStorage.setItem('suriMapAccessToken', 'access-token');
-    sessionStorage.setItem('suriMapSessionId', 'session-id');
     sessionStorage.setItem(
       'suriMapCurrentAccount',
       JSON.stringify({

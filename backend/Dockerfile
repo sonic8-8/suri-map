@@ -11,6 +11,7 @@ RUN ./gradlew --no-daemon --build-cache help
 FROM base AS source
 COPY backend/src ./src
 COPY docs /docs
+COPY infra/docker/keycloak/import/suri-map-realm.json /infra/docker/keycloak/import/suri-map-realm.json
 
 FROM source AS tester
 RUN ./gradlew --no-daemon --build-cache test jacocoTestReport

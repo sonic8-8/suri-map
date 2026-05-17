@@ -90,7 +90,7 @@ export function buildSearchAreaTree(
   searchAreaDrafts: CompletedAreaDraft[],
 ): SearchAreaTreeNode {
   const hierarchyRoot = buildSearchAreaHierarchy(searchAreaRows);
-  const colorTokensByAreaId = new Map(searchAreaDrafts.map((draft) => [draft.areaId, getAreaColorToken(draft.areaId)]));
+  const colorTokensByAreaId = new Map(searchAreaDrafts.map((draft) => [draft.areaId, draft.colorToken]));
   if (!hierarchyRoot) {
     return buildRootlessSearchAreaTree(fallbackSearchAreaTree, searchAreaRows, colorTokensByAreaId);
   }
@@ -117,7 +117,7 @@ export function buildFallbackSearchAreaTree(
   return {
     ...fallbackSearchAreaTree,
     id: overallDraft.areaId,
-    colorToken: getAreaColorToken(overallDraft.areaId),
+    colorToken: overallDraft.colorToken,
     name: overallDraft.label,
     status: 'ACTIVE',
     geometryState: 'saved',
@@ -169,7 +169,7 @@ function toFallbackDraftTreeNode(
     id: draft.areaId,
     opId: null,
     kind: draft.kind,
-    colorToken: getAreaColorToken(draft.areaId),
+    colorToken: draft.colorToken,
     name: draft.label,
     meta: createFallbackAreaMeta(draft.kind, assignedAccounts),
     status: 'ACTIVE',

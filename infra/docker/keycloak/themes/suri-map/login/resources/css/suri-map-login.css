@@ -46,7 +46,7 @@ body {
 }
 
 #kc-header {
-  margin: 0 0 32px;
+  margin: 0 0 8px;
   padding: 0;
 }
 
@@ -85,14 +85,6 @@ body {
   display: none;
 }
 
-#kc-header-wrapper::after {
-  color: var(--suri-login-secondary);
-  content: "지휘 상황판 계정으로 로그인";
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 1.35;
-}
-
 .pf-v5-c-login__main,
 .card-pf {
   padding: 0 !important;
@@ -102,7 +94,10 @@ body {
 }
 
 .pf-v5-c-login__main-header {
-  display: none !important;
+  display: block !important;
+  margin: 0 0 24px;
+  padding: 0 !important;
+  text-align: center;
 }
 
 .pf-v5-c-login__main-body,
@@ -112,15 +107,19 @@ body {
 }
 
 #kc-page-title {
-  position: absolute !important;
-  width: 1px;
-  height: 1px;
+  position: static !important;
+  width: auto;
+  height: auto;
   padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
+  margin: 0;
+  overflow: visible;
+  clip: auto;
   border: 0;
-  white-space: nowrap;
+  color: var(--suri-login-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  white-space: normal;
 }
 
 #kc-form {
@@ -280,6 +279,8 @@ body {
 
 .pf-v5-c-login__main-footer,
 #kc-info {
+  box-sizing: border-box;
+  width: 100%;
   margin: 0;
   padding: 0;
   background: transparent;
@@ -293,23 +294,26 @@ body {
   display: none;
 }
 
-.pf-v5-c-login__main-footer::before,
-#kc-info-wrapper::before {
+#kc-info-wrapper {
   display: block;
+  box-sizing: border-box;
+  width: 100%;
   margin-top: 24px;
   padding-top: 16px;
   border-top: 1px solid #eeeeee;
-  color: var(--suri-login-muted);
-  content: "등록된 지휘 계정으로만 접속할 수 있습니다.";
-  font-size: 12px;
-  line-height: 1.35;
-  text-align: center;
   flex: none;
 }
 
-#kc-info-wrapper,
+.suri-login-help {
+  margin: 0;
+  color: var(--suri-login-muted);
+  font-size: 12px;
+  line-height: 1.35;
+  text-align: center;
+}
+
 #kc-info-wrapper > * {
-  display: none;
+  display: block;
 }
 
 @media (max-width: 520px) {

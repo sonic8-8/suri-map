@@ -9,22 +9,22 @@ plugins {
 fun String.quotedBuildConfig(): String =
     "\"" + replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
-val debugBootstrapAccountCode = providers
-    .gradleProperty("suriMapDebugBootstrapAccountCode")
-    .orElse("acct-precinct-team")
-    .get()
-val debugBootstrapPassword = providers
-    .gradleProperty("suriMapDebugBootstrapPassword")
-    .orElse("fixture")
-    .get()
-val debugBootstrapPolicePhoneCode = providers
-    .gradleProperty("suriMapDebugBootstrapPolicePhoneCode")
-    .orElse("dev-precinct-phone-01")
+val debugBootstrapPolicePhoneId = providers
+    .gradleProperty("suriMapDebugBootstrapPolicePhoneId")
+    .orElse("00000000-0000-0000-0000-000000000101")
     .get()
 val debugApiBaseUrl = providers
     .gradleProperty("suriMapDebugApiBaseUrl")
     .orElse(providers.gradleProperty("suriMapApiBaseUrl"))
     .orElse("http://127.0.0.1:8080")
+    .get()
+val keycloakIssuerUrl = providers
+    .gradleProperty("suriMapKeycloakIssuerUrl")
+    .orElse("")
+    .get()
+val keycloakClientId = providers
+    .gradleProperty("suriMapKeycloakClientId")
+    .orElse("suri-map-android")
     .get()
 val debugMapOnly = providers
     .gradleProperty("suriMapDebugMapOnly")
@@ -75,17 +75,19 @@ android {
         versionName = "0.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        manifestPlaceholders["appAuthRedirectScheme"] = "com.surimap"
 
         val suriMapApiBaseUrl = providers
             .gradleProperty("suriMapApiBaseUrl")
             .orElse("http://10.0.2.2:8080")
             .get()
         buildConfigField("String", "SURI_MAP_API_BASE_URL", "\"$suriMapApiBaseUrl\"")
+        buildConfigField("String", "SURI_MAP_KEYCLOAK_ISSUER_URL", "\"\"")
+        buildConfigField("String", "SURI_MAP_KEYCLOAK_CLIENT_ID", "\"suri-map-android\"")
+        buildConfigField("String", "SURI_MAP_KEYCLOAK_REDIRECT_URI", "\"com.surimap://auth/callback\"")
         buildConfigField("boolean", "SURI_MAP_FIREBASE_MESSAGING_ENABLED", hasGoogleServicesJson.toString())
 
-        buildConfigField("String", "SURI_MAP_DEBUG_BOOTSTRAP_ACCOUNT_CODE", "\"\"")
-        buildConfigField("String", "SURI_MAP_DEBUG_BOOTSTRAP_PASSWORD", "\"\"")
-        buildConfigField("String", "SURI_MAP_DEBUG_BOOTSTRAP_POLICE_PHONE_CODE", "\"\"")
+        buildConfigField("String", "SURI_MAP_DEBUG_BOOTSTRAP_POLICE_PHONE_ID", "\"\"")
         buildConfigField("boolean", "SURI_MAP_DEBUG_MAP_ONLY", "false")
         buildConfigField("String", "SURI_MAP_DEBUG_MAP_ONLY_ACCESS_TOKEN", "\"\"")
         buildConfigField("String", "SURI_MAP_DEBUG_MAP_ONLY_POLICE_PHONE_ID", "\"\"")
@@ -97,9 +99,10 @@ android {
     buildTypes {
         debug {
             buildConfigField("String", "SURI_MAP_API_BASE_URL", debugApiBaseUrl.quotedBuildConfig())
-            buildConfigField("String", "SURI_MAP_DEBUG_BOOTSTRAP_ACCOUNT_CODE", debugBootstrapAccountCode.quotedBuildConfig())
-            buildConfigField("String", "SURI_MAP_DEBUG_BOOTSTRAP_PASSWORD", debugBootstrapPassword.quotedBuildConfig())
-            buildConfigField("String", "SURI_MAP_DEBUG_BOOTSTRAP_POLICE_PHONE_CODE", debugBootstrapPolicePhoneCode.quotedBuildConfig())
+            buildConfigField("String", "SURI_MAP_KEYCLOAK_ISSUER_URL", keycloakIssuerUrl.quotedBuildConfig())
+            buildConfigField("String", "SURI_MAP_KEYCLOAK_CLIENT_ID", keycloakClientId.quotedBuildConfig())
+            buildConfigField("String", "SURI_MAP_KEYCLOAK_REDIRECT_URI", "\"com.surimap://auth/callback\"")
+            buildConfigField("String", "SURI_MAP_DEBUG_BOOTSTRAP_POLICE_PHONE_ID", debugBootstrapPolicePhoneId.quotedBuildConfig())
             buildConfigField("boolean", "SURI_MAP_DEBUG_MAP_ONLY", debugMapOnly)
             buildConfigField("String", "SURI_MAP_DEBUG_MAP_ONLY_ACCESS_TOKEN", debugMapOnlyAccessToken.quotedBuildConfig())
             buildConfigField("String", "SURI_MAP_DEBUG_MAP_ONLY_POLICE_PHONE_ID", debugMapOnlyPolicePhoneId.quotedBuildConfig())
@@ -164,6 +167,7 @@ dependencies {
     implementation(libs.firebase.messaging)
     implementation(libs.maplibre.android)
     implementation(libs.okhttp)
+    implementation(libs.appauth)
 
     testImplementation(libs.junit4)
     testImplementation(libs.robolectric)

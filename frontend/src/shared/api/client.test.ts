@@ -38,7 +38,7 @@ describe('createApiClient', () => {
       fetch: async () => new Response(null, { status: 204 }),
     });
 
-    await expect(client.delete<undefined>('/auth/logout')).resolves.toBeUndefined();
+    await expect(client.delete<undefined>('/incidents/inc-001')).resolves.toBeUndefined();
   });
 
   it('supports JSON body on DELETE commands', async () => {

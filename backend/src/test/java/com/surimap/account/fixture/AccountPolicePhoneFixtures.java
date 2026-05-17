@@ -7,7 +7,9 @@ import com.surimap.common.auth.Role;
 import java.util.List;
 import java.util.UUID;
 
-/** S1-2 account/police_phone harness fixture IDs and codes from docs/spec/harness-scenarios.md §6. */
+/**
+ * S1-2 account/police_phone harness fixture IDs and codes from docs/spec/harness-scenarios.md §6.
+ */
 public final class AccountPolicePhoneFixtures {
 
   public static final String INCIDENT_ALIAS = "inc-precinct-first-001";
@@ -101,6 +103,17 @@ public final class AccountPolicePhoneFixtures {
           OrganizationType.SUPPORT_UNIT,
           List.of(Role.MEMBER));
 
+  private static final AccountFixture UNASSIGNED_PHONE =
+      new AccountFixture(
+          AccountIdentityCatalog.UNASSIGNED_PHONE_ID,
+          AccountIdentityCatalog.UNASSIGNED_PHONE_CODE,
+          "team-precinct-jongno",
+          UUID.fromString("00000000-0000-0000-0000-000000000301"),
+          "dev-unassigned-phone-01",
+          AccountType.TEAM,
+          OrganizationType.POLICE_SUBSTATION,
+          List.of(Role.MEMBER));
+
   private AccountPolicePhoneFixtures() {}
 
   public static List<AccountFixture> accounts() {
@@ -113,6 +126,19 @@ public final class AccountPolicePhoneFixtures {
         SUPPORT_COMMANDER,
         SUPPORT_PATROL,
         SUPPORT_TEAM);
+  }
+
+  public static List<AccountFixture> accountsIncludingUnassigned() {
+    return List.of(
+        PRECINCT_COMMANDER,
+        PRECINCT_PATROL,
+        PRECINCT_TEAM,
+        ALPHA_COMMANDER,
+        ALPHA_TEAM,
+        SUPPORT_COMMANDER,
+        SUPPORT_PATROL,
+        SUPPORT_TEAM,
+        UNASSIGNED_PHONE);
   }
 
   public static List<PolicePhoneFixture> policePhones() {
@@ -154,6 +180,10 @@ public final class AccountPolicePhoneFixtures {
 
   public static AccountFixture alphaCommander() {
     return ALPHA_COMMANDER;
+  }
+
+  public static AccountFixture unassignedPhone() {
+    return UNASSIGNED_PHONE;
   }
 
   public record AccountFixture(

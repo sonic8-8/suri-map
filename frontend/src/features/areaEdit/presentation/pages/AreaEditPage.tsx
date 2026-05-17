@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { ApiError, createIdempotencyKey } from '../../../../shared/api/client';
+import { ApiError, ApiHttpError, createIdempotencyKey } from '../../../../shared/api/client';
 import { getAreaColorToken, rememberAreaColorToken } from '../../../../shared/model/areaColorRegistry';
 import {
   SuriMapPageHeader,
@@ -74,8 +74,9 @@ async function getActiveOverallSearchArea(incidentId: string) {
   try {
     return await searchAreaApi.fetchActiveOverall(incidentId);
   } catch (error) {
-    if (error instanceof ApiError && error.code === 'overall_search_area_required') return null;
-    if (error instanceof ApiError && error.status === 404) return null;
+    if (error instanceof ApiHttpError && (error.code === 'overall_search_area_required' || error.status === 404)) {
+      return null;
+    }
     throw error;
   }
 }
@@ -143,8 +144,11 @@ export function AreaEditPage({
     [currentOverallArea, unitAreaNodes],
   );
   const isIncidentClosed = incidentDetail?.status === 'CLOSED';
+  const isOverallSearchAreaCreationMode = overallSearchAreaState.status === 'missing' && !savedOverallArea;
+  const isOverallSearchAreaCreationEditable = !isIncidentClosed && isOverallSearchAreaCreationMode;
   const isCurrentOpEditable =
     incidentDetail !== null && currentOpLoadState === 'loaded' && currentOpId !== null && !isIncidentClosed;
+  const isAreaEditActionEnabled = isOverallSearchAreaCreationEditable || isCurrentOpEditable;
   const pageState: AreaEditPageState = isIncidentClosed
     ? 'incident_closed'
     : currentOpLoadState === 'error'
@@ -182,14 +186,15 @@ export function AreaEditPage({
   ).length;
   const hasPendingAreaDrafts = requiredAreaNodes.length > 0;
   const isAreaSaveEnabled =
-    isCurrentOpEditable &&
+    isAreaEditActionEnabled &&
     hasPendingAreaDrafts &&
     unassignedAreaCount === 0 &&
     splitChildCountIssueCount === 0;
   const selectedArea = allAreaNodes.find((area) => area.id === selectedAreaId) ?? null;
   const deleteConfirmArea = allAreaNodes.find((area) => area.id === deleteConfirmAreaId) ?? null;
   const isPermissionDenied = pageState === 'permission_denied';
-  const isDrawToolDisabled = !isCurrentOpEditable || drawDisabledPageStates.includes(pageState);
+  const isDrawToolDisabled =
+    !isAreaEditActionEnabled || (!isOverallSearchAreaCreationMode && drawDisabledPageStates.includes(pageState));
   const isClosedDraft = draftPoints.length >= 4 && draftPoints[0] === draftPoints[draftPoints.length - 1];
   const canCompleteDraft = isDrawing && isClosedDraft;
   const currentAccountLabel = `${currentUserAccount.name} / ${currentUserAccount.organization}`;
@@ -283,15 +288,26 @@ export function AreaEditPage({
   }, [incidentId, currentOpId, currentOpLoadState, currentOverallArea]);
 
   useEffect(() => {
-    if (isCurrentOpEditable) return;
+    if (isAreaEditActionEnabled) return;
 
     setIsDrawing(false);
     setDraftPoints([]);
-  }, [isCurrentOpEditable]);
+  }, [isAreaEditActionEnabled]);
+
+  useEffect(() => {
+    if (!isOverallSearchAreaCreationEditable) {
+      return;
+    }
+
+    setSelectedAreaId(areaTree.id);
+    setIsDrawing(true);
+    setValidationMessage('전체 수색 구역이 없어 바로 그리기 모드로 진입합니다. 지도를 클릭해 범위를 그려주세요.');
+  }, [isOverallSearchAreaCreationEditable]);
 
   const getEditDisabledValidationMessage = () => {
-    if (!incidentDetail) return '사건 정보를 불러온 뒤 구역을 편집할 수 있습니다.';
     if (isIncidentClosed) return '종료된 사건에서는 수색 구역을 편집할 수 없습니다.';
+    if (isOverallSearchAreaCreationMode) return null;
+    if (!incidentDetail) return '사건 정보를 불러온 뒤 구역을 편집할 수 있습니다.';
     if (currentOpLoadState === 'loading') return '현재 OP 정보를 불러온 뒤 구역을 편집할 수 있습니다.';
     if (currentOpLoadState === 'error') return '현재 OP 정보를 불러오지 못해 구역을 편집할 수 없습니다.';
     if (!currentOpId) return '진행 중인 OP가 없어 구역을 편집할 수 없습니다.';

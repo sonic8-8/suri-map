@@ -1,7 +1,4 @@
 import { getApiBaseUrl, isLocalDevAccessToken } from '../config';
-import { mockAuthApiClient } from './mockApiClient';
-
-const USE_MOCK_AUTH_API = false;
 
 export type ApiErrorBody = {
   error?: string;
@@ -131,20 +128,16 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
   };
 }
 
-export function isMockAuthApiMode() {
-  return USE_MOCK_AUTH_API;
-}
-
 const realApiClient = createApiClient({
   getAccessToken: getStoredAccessToken,
 });
 
 export const apiClient: ApiClient = {
-  request: (path, requestOptions) => clientForPath(path).request(path, requestOptions),
-  get: (path, requestOptions) => clientForPath(path).get(path, requestOptions),
-  post: (path, body, requestOptions) => clientForPath(path).post(path, body, requestOptions),
-  patch: (path, body, requestOptions) => clientForPath(path).patch(path, body, requestOptions),
-  delete: (path, requestOptions) => clientForPath(path).delete(path, requestOptions),
+  request: (path, requestOptions) => realApiClient.request(path, requestOptions),
+  get: (path, requestOptions) => realApiClient.get(path, requestOptions),
+  post: (path, body, requestOptions) => realApiClient.post(path, body, requestOptions),
+  patch: (path, body, requestOptions) => realApiClient.patch(path, body, requestOptions),
+  delete: (path, requestOptions) => realApiClient.delete(path, requestOptions),
 };
 
 export async function apiRequest<TResponse>(path: string, options: ApiRequestOptions = {}): Promise<TResponse> {
@@ -271,30 +264,17 @@ export function getStoredAccessToken() {
     return null;
   }
 
-  if (!isMockAuthApiMode() && accessToken.startsWith('mock-auth:')) {
+  if (accessToken.startsWith('mock-auth:')) {
     return null;
   }
 
   return accessToken;
 }
 
-function clientForPath(path: string) {
-  if (isMockAuthApiMode() && isAuthApiPath(path)) {
-    return mockAuthApiClient;
-  }
-  return realApiClient;
-}
-
-function isAuthApiPath(path: string) {
-  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-  return normalizedPath === '/auth/login' || normalizedPath === '/auth/logout';
-}
-
 function clearExpiredApiSession() {
   sessionStorage.removeItem('suriMapAccessToken');
   sessionStorage.removeItem('suriMapIdToken');
   sessionStorage.removeItem('suriMapCurrentAccount');
-  sessionStorage.removeItem('suriMapSessionId');
   sessionStorage.removeItem('suriMapTokenExpiresAt');
   window.dispatchEvent(new CustomEvent(API_UNAUTHORIZED_EVENT));
 }

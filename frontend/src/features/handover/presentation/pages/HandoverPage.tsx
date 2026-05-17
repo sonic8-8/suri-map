@@ -151,8 +151,10 @@ export function HandoverPage({
 
   useBrowserBackToIncidentList(onBrowserBackToIncidentList, !embedded);
   const queryClient = useQueryClient();
-  const boardQuery = useIncidentBoardQuery({ incidentId, opIds: selectedOpIds });
+  const boardQuery = useIncidentBoardQuery({ incidentId });
   const board = boardQuery.data ?? null;
+  const effectiveSelectedOpIds =
+    selectedOpIds.length > 0 ? selectedOpIds : board?.selectedOpIds ? [...board.selectedOpIds] : [];
   const isLoadingBoard = boardQuery.isLoading;
   const boardErrorMessage = boardQuery.isError ? '수색 이력 정보를 불러오지 못했습니다.' : '';
   const summaryQuery = useSearchHistorySummaryListQuery(focusedOpId, { incidentId });
@@ -186,8 +188,8 @@ export function HandoverPage({
     [memoTargetOptions, selectedMemoTargetKey],
   );
   const evidenceSummary = useMemo(
-    () => createEvidenceSummary(board, selectedOpIds, summaryQuery.data?.items.length ?? 0),
-    [board, selectedOpIds, summaryQuery.data],
+    () => createEvidenceSummary(board, effectiveSelectedOpIds, summaryQuery.data?.items.length ?? 0),
+    [board, effectiveSelectedOpIds, summaryQuery.data],
   );
   const searchHistorySummary = useMemo((): SearchHistorySummaryView | null => {
     if (!summaryQuery.data || !focusedOpId) return null;
@@ -207,17 +209,17 @@ export function HandoverPage({
     [board, selectedOp, selectedOpMemos.length],
   );
   const sourceRecords = useMemo(
-    () => createSourceRecords(board, selectedOpIds, selectedOpMemos, memoTargetOptions),
-    [board, memoTargetOptions, selectedOpIds, selectedOpMemos],
+    () => createSourceRecords(board, effectiveSelectedOpIds, selectedOpMemos, memoTargetOptions),
+    [board, effectiveSelectedOpIds, memoTargetOptions, selectedOpMemos],
   );
   const sharedMapProps = useMemo<HandoverComparisonMapSharedProps>(
     () => ({
       incidentId,
       board,
       focusedOpId,
-      selectedOpIds,
+      selectedOpIds: effectiveSelectedOpIds,
     }),
-    [board, focusedOpId, incidentId, selectedOpIds],
+    [board, effectiveSelectedOpIds, focusedOpId, incidentId],
   );
   const currentAccountLabel = `${currentUserAccount.name} / ${currentUserAccount.organization}`;
   const timestampLabel = formatKstDateTime(now);

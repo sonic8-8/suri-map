@@ -153,7 +153,6 @@ function clearExpiredApiSession() {
   sessionStorage.removeItem('suriMapAccessToken');
   sessionStorage.removeItem('suriMapIdToken');
   sessionStorage.removeItem('suriMapCurrentAccount');
-  sessionStorage.removeItem('suriMapSessionId');
   sessionStorage.removeItem('suriMapTokenExpiresAt');
   window.dispatchEvent(new CustomEvent(API_UNAUTHORIZED_EVENT));
 }

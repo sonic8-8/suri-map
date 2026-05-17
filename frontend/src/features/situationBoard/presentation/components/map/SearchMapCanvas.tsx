@@ -1,5 +1,6 @@
 ﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import { useCallback } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
 import maplibregl, {
   type GeoJSONSource,
   type LayerSpecification,
@@ -669,6 +670,12 @@ export function SearchMapCanvas({
   const [mapInstance, setMapInstance] = useState<maplibregl.Map | null>(null);
   const [hoveredMarkerId, setHoveredMarkerId] = useState<string | null>(null);
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
+  const [searchAreaPopupLngLat, setSearchAreaPopupLngLat] = useState<maplibregl.LngLatLike | null>(null);
+  const searchAreaPopupRootRef = useRef<HTMLElement | null>(null);
+  const searchAreaPopupRef = useRef<maplibregl.Popup | null>(null);
+  const searchAreaPopupContentRootRef = useRef<Root | null>(null);
+  const searchAreaPopupContentElementRef = useRef<HTMLDivElement | null>(null);
+  const searchAreaPopupSearchAreaIdRef = useRef<string | null>(null);
   const isRouteEditorEnabled = isRouteEditorEnabledRef.current;
   const assignedSearchAreas = useMemo(
     () => createSearchAreaDraftFeatureCollection(savedAreaDrafts, { incidentId, includeSlot: true }),
@@ -702,6 +709,17 @@ export function SearchMapCanvas({
   }, [selectedSearchAreaId]);
 
   useEffect(() => {
+    if (selectedSearchAreaId !== null) {
+      if (searchAreaPopupSearchAreaIdRef.current === selectedSearchAreaId) {
+        return;
+      }
+    }
+
+    searchAreaPopupSearchAreaIdRef.current = null;
+    setSearchAreaPopupLngLat(null);
+  }, [selectedSearchAreaId]);
+
+  useEffect(() => {
     areaEditMapPropsRef.current = areaEditMapProps;
   }, [areaEditMapProps]);
 
@@ -722,6 +740,36 @@ export function SearchMapCanvas({
     setSelectedMarkerId(null);
   }, []);
 
+  const removeSearchAreaPopup = useCallback(() => {
+    searchAreaPopupContentRootRef.current?.unmount();
+    searchAreaPopupContentRootRef.current = null;
+    searchAreaPopupContentElementRef.current = null;
+    searchAreaPopupRef.current?.remove();
+    searchAreaPopupRef.current = null;
+    searchAreaPopupRootRef.current = null;
+  }, []);
+
+  const closeSearchAreaPopup = useCallback(() => {
+    searchAreaPopupSearchAreaIdRef.current = null;
+    setSearchAreaPopupLngLat(null);
+    removeSearchAreaPopup();
+  }, [removeSearchAreaPopup]);
+
+  const handleCloseSearchAreaPopup = useCallback(() => {
+    closeSearchAreaPopup();
+    onClearSelectedSearchArea();
+  }, [closeSearchAreaPopup, onClearSelectedSearchArea]);
+
+  const handleOpenSearchAreaSplit = useCallback(() => {
+    closeSearchAreaPopup();
+    onOpenSearchAreaSplit();
+  }, [closeSearchAreaPopup, onOpenSearchAreaSplit]);
+
+  const handleOpenSearchAreaAssign = useCallback(() => {
+    closeSearchAreaPopup();
+    onOpenSearchAreaAssign();
+  }, [closeSearchAreaPopup, onOpenSearchAreaAssign]);
+
   const markerInteractionHandlers = useMemo<MarkerInteractionHandlers>(
     () => ({
       onHoverMarker: handleHoverMarker,
@@ -731,6 +779,79 @@ export function SearchMapCanvas({
     }),
     [handleCloseSelectedMarker, handleHoverMarker, handleLeaveMarker, handleSelectMarker],
   );
+
+  useEffect(() => {
+    if (!searchAreaPopupLngLat) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      if (searchAreaPopupRootRef.current?.contains(target)) {
+        return;
+      }
+
+      closeSearchAreaPopup();
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown, true);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown, true);
+    };
+  }, [closeSearchAreaPopup, searchAreaPopupLngLat]);
+
+  useEffect(() => {
+    const map = mapInstance;
+    if (!map || !searchAreaPopupLngLat || !selectedSearchAreaId || areaEditMapProps) {
+      removeSearchAreaPopup();
+      return;
+    }
+
+    if (!searchAreaPopupContentElementRef.current) {
+      const contentElement = document.createElement('div');
+      searchAreaPopupRootRef.current = contentElement;
+      searchAreaPopupContentElementRef.current = contentElement;
+      searchAreaPopupContentRootRef.current = createRoot(contentElement);
+      searchAreaPopupRef.current = new maplibregl.Popup({
+        anchor: 'bottom',
+        closeButton: false,
+        closeOnClick: false,
+        className: styles.searchAreaMapPopup,
+        maxWidth: 'none',
+        offset: [0, -12],
+      })
+        .setDOMContent(contentElement)
+        .addTo(map);
+    }
+
+    searchAreaPopupRef.current?.setLngLat(searchAreaPopupLngLat);
+    searchAreaPopupContentRootRef.current?.render(
+      <SearchAreaInspectorCard
+        variant="mapPopup"
+        searchAreaTree={searchAreaTree}
+        selectedSearchAreaId={selectedSearchAreaId}
+        onClose={handleCloseSearchAreaPopup}
+        onOpenAssign={handleOpenSearchAreaAssign}
+        onOpenSplit={handleOpenSearchAreaSplit}
+      />,
+    );
+  }, [
+    areaEditMapProps,
+    handleCloseSearchAreaPopup,
+    handleOpenSearchAreaAssign,
+    handleOpenSearchAreaSplit,
+    mapInstance,
+    removeSearchAreaPopup,
+    searchAreaPopupLngLat,
+    searchAreaTree,
+    selectedSearchAreaId,
+  ]);
+
+  useEffect(() => () => removeSearchAreaPopup(), [removeSearchAreaPopup]);
 
   useEffect(() => {
     layerVisibilityRef.current = layerVisibility;
@@ -1003,6 +1124,7 @@ export function SearchMapCanvas({
     const handleMapClick = (event: maplibregl.MapMouseEvent) => {
       if (!isRouteEditorEnabledRef.current) {
         if (areaEditMapPropsRef.current || hasRenderedMarkerAtPoint(map, event.point)) {
+          closeSearchAreaPopup();
           return;
         }
 
@@ -1018,8 +1140,12 @@ export function SearchMapCanvas({
         const searchAreaId = features.find((feature) => typeof feature.properties?.entityId === 'string')?.properties
           ?.entityId;
         if (typeof searchAreaId === 'string') {
+          searchAreaPopupSearchAreaIdRef.current = searchAreaId;
           onSelectSearchAreaRef.current(searchAreaId);
+          setSearchAreaPopupLngLat(event.lngLat);
+          return;
         }
+        closeSearchAreaPopup();
         return;
       }
 
