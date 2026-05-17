@@ -7,10 +7,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrlPattern;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.mockito.Mockito.when;
 
 import com.mock112.seed.SeedDataLoader;
 import com.mock112.store.MockIncidentStore;
 import com.mock112.webhook.SuriMapWebhookDispatcher;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,11 +32,13 @@ import org.springframework.test.web.servlet.MockMvc;
             "spring.security.oauth2.client.provider.keycloak.token-uri=http://keycloak/keycloak/realms/suri-map/protocol/openid-connect/token",
             "spring.security.oauth2.client.provider.keycloak.jwk-set-uri=http://keycloak/keycloak/realms/suri-map/protocol/openid-connect/certs",
             "spring.security.oauth2.client.provider.keycloak.user-info-uri=http://keycloak/keycloak/realms/suri-map/protocol/openid-connect/userinfo",
-            "spring.security.oauth2.client.provider.keycloak.user-name-attribute=preferred_username"
+            "spring.security.oauth2.client.provider.keycloak.user-name-attribute=preferred_username",
+            "mock112.internal-api.token=test-internal-token"
         },
         controllers = {
             Mock112UiController.class,
-            MockScenarioController.class
+            MockScenarioController.class,
+            MockIncidentController.class
         })
 @Import(com.mock112.config.SecurityConfig.class)
 class Mock112UiRouteTest {
@@ -98,5 +102,25 @@ class Mock112UiRouteTest {
         mockMvc.perform(get("/mock-112/health"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("UP"));
+    }
+
+    @Test
+    @DisplayName("미인증 mock-112 사건 API 접근은 Keycloak 로그인으로 보낸다")
+    void mock112IncidentApiRequiresAuthenticationWithoutInternalToken() throws Exception {
+        mockMvc.perform(get("/mock-112/incidents").queryParam("status", "READY"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrlPattern("**/mock-112/oauth2/authorization/keycloak"));
+    }
+
+    @Test
+    @DisplayName("backend 내부 토큰이 있으면 mock-112 사건 API를 조회할 수 있다")
+    void internalTokenAllowsMock112IncidentApi() throws Exception {
+        when(store.findByStatus("READY")).thenReturn(List.of());
+
+        mockMvc.perform(get("/mock-112/incidents")
+                        .queryParam("status", "READY")
+                        .header("X-Internal-Service-Token", "test-internal-token"))
+                .andExpect(status().isOk())
+                .andExpect(content().json("[]"));
     }
 }
