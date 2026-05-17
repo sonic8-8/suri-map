@@ -280,6 +280,8 @@ body {
 
 .pf-v5-c-login__main-footer,
 #kc-info {
+  box-sizing: border-box;
+  width: 100%;
   margin: 0;
   padding: 0;
   background: transparent;
@@ -296,6 +298,8 @@ body {
 .pf-v5-c-login__main-footer::before,
 #kc-info-wrapper::before {
   display: block;
+  box-sizing: border-box;
+  width: 100%;
   margin-top: 24px;
   padding-top: 16px;
   border-top: 1px solid #eeeeee;
