@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Plus } from 'lucide-react';
+import { CheckCircle2, ClipboardList, MapPin, Plus, Route, StickyNote } from 'lucide-react';
 
 import { ApiError, createIdempotencyKey } from '../../../../shared/api/client';
 import {
@@ -254,6 +254,7 @@ export function HandoverPage({
   );
   const sharedMapProps = useMemo<HandoverComparisonMapSharedProps>(
     () => ({
+      baseMapMode: 'shared-base-map',
       incidentId,
       board,
       focusedOpId,
@@ -320,11 +321,13 @@ export function HandoverPage({
         setCurrentOpId(response.currentOpId);
         const initialOpId = response.currentOpId ?? response.items[0]?.id ?? null;
         setFocusedOpId(initialOpId);
-        const initialSelectedOpIds = uniqueNonEmptyStrings(
-          [...response.items]
-            .sort((left, right) => right.sequenceNumber - left.sequenceNumber)
-            .map((period) => period.id),
-        );
+        const initialSelectedOpIds = sharedMapMode
+          ? uniqueNonEmptyStrings([response.currentOpId ?? response.items[0]?.id ?? null])
+          : uniqueNonEmptyStrings(
+              [...response.items]
+                .sort((left, right) => right.sequenceNumber - left.sequenceNumber)
+                .map((period) => period.id),
+            );
         setSelectedOpIds(initialSelectedOpIds.length > 0 ? initialSelectedOpIds : initialOpId ? [initialOpId] : []);
       } catch (error) {
         if (!ignore) {
@@ -563,12 +566,40 @@ export function HandoverPage({
 
         {sharedMapMode ? null : (
           <section className={styles.mapArea} aria-label="선택 OP overlay 지도">
-            <HandoverComparisonMap
-              incidentId={incidentId}
-              board={board}
-              focusedOpId={focusedOpId}
-              selectedOpIds={effectiveSelectedOpIds}
-            />
+            <div className={styles.mapViewport}>
+              <HandoverComparisonMap
+                incidentId={incidentId}
+                board={board}
+                focusedOpId={focusedOpId}
+                selectedOpIds={effectiveSelectedOpIds}
+              />
+            </div>
+            <section className={styles.currentOpSummaryBar} aria-label="현재 OP 요약">
+              <div>
+                <span>현재 OP 요약</span>
+                <strong>{selectedOp ? formatOperationalPeriodLabel(selectedOp) : '-'}</strong>
+              </div>
+              <div>
+                <span>수색 시작</span>
+                <strong>{selectedOp?.openedAt ? formatKstDateParts(new Date(selectedOp.openedAt)).dateTime : '-'}</strong>
+              </div>
+              <div>
+                <span>경과 시간</span>
+                <strong>{selectedOp ? formatElapsedLabel(selectedOp, now) : '-'}</strong>
+              </div>
+              <div>
+                <span>배정 구역</span>
+                <strong>{evidenceSummary.areaCount}건</strong>
+              </div>
+              <div>
+                <span>수색 경로</span>
+                <strong>{evidenceSummary.pathCount}건</strong>
+              </div>
+              <div>
+                <span>마커</span>
+                <strong>{evidenceSummary.markerCount}건</strong>
+              </div>
+            </section>
           </section>
         )}
 
@@ -580,28 +611,39 @@ export function HandoverPage({
           placement="right"
         >
           <div className={styles.historyContent}>
-            <section className={styles.contextBlock} aria-label="인계 상태">
-              <div className={styles.blockHeading}>
-                <h2>인계 상태</h2>
-                <span>{handoverStatus.statusLabel}</span>
+            <section className={styles.briefingHero} aria-label="인수인계 브리핑">
+              <div className={styles.briefingHeader}>
+                <div>
+                  <span className={styles.briefingEyebrow}>{handoverStatus.currentOpLabel}</span>
+                  <h2>{handoverStatus.currentOpLabel} 인수인계 브리핑</h2>
+                </div>
+                <span className={styles.briefingNeedBadge}>{handoverStatus.statusLabel}</span>
               </div>
-              <div className={styles.statusStack}>
-                <strong>{handoverStatus.helperText}</strong>
-                <dl className={styles.compactMetaGrid}>
-                  <div>
-                    <dt>현재 OP</dt>
-                    <dd>{handoverStatus.currentOpLabel}</dd>
-                  </div>
-                  <div>
-                    <dt>메모</dt>
-                    <dd>{handoverStatus.openMemoCount}건</dd>
-                  </div>
-                  <div>
-                    <dt>최신 메모</dt>
-                    <dd>{handoverStatus.latestMemoLabel}</dd>
-                  </div>
-                </dl>
+
+              <div className={styles.briefingChips}>
+                <span className={styles.briefingChipSuccess}>
+                  <CheckCircle2 size={14} aria-hidden="true" />
+                  {selectedOp?.status ? formatStatusLabel(selectedOp.status) : '상태 없음'}
+                </span>
+                <span>
+                  <StickyNote size={14} aria-hidden="true" />
+                  메모 {handoverStatus.openMemoCount}건
+                </span>
+                <span>
+                  <Route size={14} aria-hidden="true" />
+                  경로 {evidenceSummary.pathCount}건
+                </span>
+                <span>
+                  <MapPin size={14} aria-hidden="true" />
+                  마커 {evidenceSummary.markerCount}건
+                </span>
+                <span>
+                  <ClipboardList size={14} aria-hidden="true" />
+                  구역 {evidenceSummary.areaCount}건
+                </span>
               </div>
+
+              <p className={styles.briefingHelper}>{handoverStatus.helperText}</p>
             </section>
 
             <HandoverMemoSection
@@ -655,14 +697,14 @@ export function HandoverPage({
               </dl>
             </section>
 
-            <section className={styles.contextBlock} aria-label="원본 근거">
+            <section className={styles.contextBlock} aria-label="관련 지도 항목">
               <div className={styles.blockHeading}>
-                <h2>원본 근거</h2>
+                <h2>관련 지도 항목</h2>
                 <span>{sourceRecords.length}건</span>
               </div>
               {boardErrorMessage ? <div className={styles.errorText}>{boardErrorMessage}</div> : null}
               {sourceRecords.length === 0 ? (
-                <div className={styles.emptyState}>선택한 OP에 표시할 원본 근거가 없습니다.</div>
+                <div className={styles.emptyState}>선택한 OP에 표시할 관련 지도 항목이 없습니다.</div>
               ) : (
                 <ol className={styles.sourceList}>
                   {sourceRecords.slice(0, 8).map((record) => (
@@ -1355,6 +1397,17 @@ function formatSummaryReadinessLabel(readiness: string) {
   return labels[readiness] ?? readiness;
 }
 
+function formatElapsedLabel(period: OperationalPeriodListItem, now: Date) {
+  const start = new Date(period.openedAt).getTime();
+  const end = period.endedAt ? new Date(period.endedAt).getTime() : now.getTime();
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return '-';
+
+  const totalMinutes = Math.max(0, Math.floor((end - start) / 60_000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return hours > 0 ? `${hours}시간 ${minutes}분` : `${minutes}분`;
+}
+
 function formatKstDateTime(date: Date) {
   if (Number.isNaN(date.getTime())) return '-';
 
@@ -1378,7 +1431,7 @@ function formatKstDateTime(date: Date) {
 
 function formatKstDateParts(date: Date) {
   if (Number.isNaN(date.getTime())) {
-    return { date: '-', time: '-' };
+    return { date: '-', time: '-', dateTime: '-' };
   }
 
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -1398,6 +1451,7 @@ function formatKstDateParts(date: Date) {
   return {
     date: `${parts.month}.${parts.day}`,
     time: `${parts.hour}:${parts.minute}`,
+    dateTime: `${parts.month}.${parts.day} ${parts.hour}:${parts.minute}`,
   };
 }
 

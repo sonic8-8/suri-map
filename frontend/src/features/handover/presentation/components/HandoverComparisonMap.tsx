@@ -27,6 +27,7 @@ import {
 import styles from './HandoverComparisonMap.module.css';
 
 export type HandoverComparisonMapProps = {
+  baseMapMode?: 'standalone' | 'shared-base-map' | 'shared-situation-board';
   externalMap?: maplibregl.Map | null;
   hideCanvas?: boolean;
   incidentId: string;
@@ -46,13 +47,21 @@ const AREA_SOURCE_ID = 'handover-comparison-area';
 const PATH_SOURCE_ID = 'handover-comparison-path';
 const MARKER_SOURCE_ID = 'handover-comparison-marker';
 const OVERALL_AREA_FILL_LAYER_ID = 'handover-comparison-overall-area-fill';
+const OVERALL_AREA_COMPLETED_HATCH_LAYER_ID = 'handover-comparison-overall-area-completed-hatch';
 const OVERALL_AREA_LINE_LAYER_ID = 'handover-comparison-overall-area-line';
 const AREA_FILL_LAYER_ID = 'handover-comparison-area-fill';
-const AREA_LINE_LAYER_ID = 'handover-comparison-area-line';
+const AREA_COMPLETED_HATCH_PATTERN_ID = 'handover-comparison-completed-area-hatch';
+const AREA_COMPLETED_HATCH_LAYER_ID = 'handover-comparison-area-completed-hatch';
+const AREA_LINE_LAYER_IDS = {
+  overall: 'handover-comparison-area-line-overall',
+  unit: 'handover-comparison-area-line-unit',
+  team: 'handover-comparison-area-line-team',
+} as const;
 const PATH_GLOW_LAYER_ID = 'handover-comparison-path-glow';
 const PATH_LINE_LAYER_ID = 'handover-comparison-path-line';
 
 export function HandoverComparisonMap({
+  baseMapMode = 'standalone',
   externalMap = null,
   hideCanvas = false,
   incidentId,
@@ -65,7 +74,12 @@ export function HandoverComparisonMap({
   const boundsRef = useRef<LngLatBoundsLike | null>(null);
   const scheduledFitTimerRef = useRef<number | null>(null);
   const markerInstancesRef = useRef<Map<string, MarkerInstance>>(new Map());
+  const isSharedSituationBoardMap = baseMapMode === 'shared-situation-board';
   const overallAreaFeatures = useMemo(() => createOverallAreaFeatureCollection(board, incidentId), [board, incidentId]);
+  const visibleOverallAreaFeatures = useMemo(
+    () => (isSharedSituationBoardMap ? emptyFeatureCollection() : overallAreaFeatures),
+    [isSharedSituationBoardMap, overallAreaFeatures],
+  );
   const featureCollections = useMemo(
     () => createComparisonFeatureCollections(board, incidentId, selectedOpIds, focusedOpId),
     [board, focusedOpId, incidentId, selectedOpIds],
@@ -82,11 +96,11 @@ export function HandoverComparisonMap({
     [],
   );
   const featureCollectionsRef = useRef(featureCollections);
-  const overallAreaFeaturesRef = useRef(overallAreaFeatures);
+  const overallAreaFeaturesRef = useRef(visibleOverallAreaFeatures);
   const boardMarkersRef = useRef(boardMarkers);
   const visibleMarkerIdsRef = useRef(visibleMarkerIds);
   const hasVisibleEvidence =
-    overallAreaFeatures.features.length > 0 ||
+    visibleOverallAreaFeatures.features.length > 0 ||
     featureCollections.areas.features.length > 0 ||
     featureCollections.paths.features.length > 0 ||
     featureCollections.markers.features.length > 0;
@@ -96,8 +110,8 @@ export function HandoverComparisonMap({
   }, [featureCollections]);
 
   useEffect(() => {
-    overallAreaFeaturesRef.current = overallAreaFeatures;
-  }, [overallAreaFeatures]);
+    overallAreaFeaturesRef.current = visibleOverallAreaFeatures;
+  }, [visibleOverallAreaFeatures]);
 
   useEffect(() => {
     boardMarkersRef.current = boardMarkers;
@@ -227,11 +241,11 @@ export function HandoverComparisonMap({
     if (!map || !map.loaded()) return;
 
     addComparisonLayers(map);
-    syncOverallAreaSource(map, overallAreaFeatures);
+    syncOverallAreaSource(map, visibleOverallAreaFeatures);
     syncComparisonSources(map, featureCollections);
     syncMarkerElements(map, boardMarkers, visibleMarkerIds, markerInstancesRef, true, markerInteractionHandlers);
     boundsRef.current = getCollectionsBounds({
-      areas: combineFeatureCollections(overallAreaFeatures, featureCollections.areas),
+      areas: combineFeatureCollections(visibleOverallAreaFeatures, featureCollections.areas),
       paths: featureCollections.paths,
       markers: featureCollections.markers,
     });
@@ -245,9 +259,9 @@ export function HandoverComparisonMap({
     externalMap,
     featureCollections,
     markerInteractionHandlers,
-    overallAreaFeatures,
     scheduleFitToEvidence,
     visibleMarkerIds,
+    visibleOverallAreaFeatures,
   ]);
 
   return (
@@ -265,7 +279,7 @@ export function HandoverComparisonMap({
         </button>
       </div>
 
-      {!hasVisibleEvidence ? (
+      {!isSharedSituationBoardMap && !hasVisibleEvidence ? (
         <aside className={styles.emptyOverlay} aria-live="polite">
           <strong>표시할 OP 기록이 없습니다.</strong>
           <span>선택한 OP에 경로, 구역, 마커 기록이 있으면 이 지도에 함께 표시됩니다.</span>
@@ -295,6 +309,7 @@ function addComparisonLayers(map: maplibregl.Map) {
   addGeoJsonSource(map, AREA_SOURCE_ID, emptyFeatureCollection());
   addGeoJsonSource(map, PATH_SOURCE_ID, emptyFeatureCollection());
   addGeoJsonSource(map, MARKER_SOURCE_ID, emptyFeatureCollection());
+  addCompletedAreaHatchPattern(map);
 
   addLayer(map, {
     id: OVERALL_AREA_FILL_LAYER_ID,
@@ -303,6 +318,17 @@ function addComparisonLayers(map: maplibregl.Map) {
     paint: {
       'fill-color': ['get', 'fillColor'],
       'fill-opacity': 0.12,
+    },
+  });
+
+  addLayer(map, {
+    id: OVERALL_AREA_COMPLETED_HATCH_LAYER_ID,
+    type: 'fill',
+    source: OVERALL_AREA_SOURCE_ID,
+    filter: ['==', ['get', 'status'], 'COMPLETED'],
+    paint: {
+      'fill-pattern': AREA_COMPLETED_HATCH_PATTERN_ID,
+      'fill-opacity': 0.45,
     },
   });
 
@@ -329,14 +355,51 @@ function addComparisonLayers(map: maplibregl.Map) {
   });
 
   addLayer(map, {
-    id: AREA_LINE_LAYER_ID,
+    id: AREA_COMPLETED_HATCH_LAYER_ID,
+    type: 'fill',
+    source: AREA_SOURCE_ID,
+    filter: ['==', ['get', 'status'], 'COMPLETED'],
+    paint: {
+      'fill-pattern': AREA_COMPLETED_HATCH_PATTERN_ID,
+      'fill-opacity': 0.45,
+    },
+  });
+
+  addLayer(map, {
+    id: AREA_LINE_LAYER_IDS.overall,
     type: 'line',
     source: AREA_SOURCE_ID,
+    filter: ['==', ['get', 'areaLevel'], 'OVERALL'],
     paint: {
       'line-color': ['get', 'lineColor'],
-      'line-width': ['to-number', ['get', 'lineWidth']],
-      'line-opacity': ['to-number', ['get', 'lineOpacity']],
+      'line-width': 2,
+      'line-opacity': 0.92,
       'line-dasharray': [2, 1.2],
+    },
+  } as LayerSpecification);
+
+  addLayer(map, {
+    id: AREA_LINE_LAYER_IDS.unit,
+    type: 'line',
+    source: AREA_SOURCE_ID,
+    filter: ['==', ['get', 'areaLevel'], 'UNIT'],
+    paint: {
+      'line-color': ['get', 'lineColor'],
+      'line-width': 1,
+      'line-gap-width': 3,
+      'line-opacity': 0.98,
+    },
+  } as LayerSpecification);
+
+  addLayer(map, {
+    id: AREA_LINE_LAYER_IDS.team,
+    type: 'line',
+    source: AREA_SOURCE_ID,
+    filter: ['==', ['get', 'areaLevel'], 'TEAM'],
+    paint: {
+      'line-color': ['get', 'lineColor'],
+      'line-width': 1,
+      'line-opacity': 0.98,
     },
   } as LayerSpecification);
 
@@ -371,6 +434,32 @@ function addComparisonLayers(map: maplibregl.Map) {
       'line-opacity': ['to-number', ['get', 'lineOpacity']],
     },
   } as LayerSpecification);
+}
+
+function addCompletedAreaHatchPattern(map: maplibregl.Map) {
+  if (map.hasImage(AREA_COMPLETED_HATCH_PATTERN_ID)) {
+    return;
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 16;
+  canvas.height = 16;
+  const context = canvas.getContext('2d');
+  if (!context) {
+    return;
+  }
+
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.strokeStyle = 'rgba(15, 23, 42, 0.46)';
+  context.lineWidth = 1;
+  context.beginPath();
+  context.moveTo(-4, 16);
+  context.lineTo(16, -4);
+  context.moveTo(0, 20);
+  context.lineTo(20, 0);
+  context.stroke();
+
+  map.addImage(AREA_COMPLETED_HATCH_PATTERN_ID, context.getImageData(0, 0, canvas.width, canvas.height));
 }
 
 function syncOverallAreaSource(map: maplibregl.Map, data: ComparisonFeatureCollection) {

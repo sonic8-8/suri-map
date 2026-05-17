@@ -155,6 +155,7 @@ function createAreaFeature(
 
   const opId = readRowOpId(row);
   const areaLevel = readString(row, 'areaLevel') ?? defaultAreaLevel;
+  const status = readString(row, 'status') ?? '';
   const areaId = readString(row, 'id') ?? readString(row, 'searchAreaId') ?? `area-${index}`;
   const visualStyle = areaVisualStylesByAreaId?.get(areaId) ?? getAreaVisualStyle(areaId);
   const areaKind = areaLevel === 'OVERALL' ? 'overall' : areaLevel === 'TEAM' ? 'team' : 'unit';
@@ -168,11 +169,12 @@ function createAreaFeature(
         incidentId,
         opId: opId ?? '',
         areaLevel,
+        status,
         fillColor: visualStyle.fillColor,
         lineColor: visualStyle.lineColor,
         fillOpacity: Math.max(visualStyle.fillOpacity, 0.18),
         lineOpacity: 0.98,
-        lineWidth: areaKind === 'overall' ? 3 : areaKind === 'unit' ? 2.6 : 2.2,
+        lineWidth: areaKind === 'overall' ? 2 : 1,
       },
       geometry,
     },

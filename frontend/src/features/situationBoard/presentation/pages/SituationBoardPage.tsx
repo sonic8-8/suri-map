@@ -14,6 +14,13 @@ import pageStyles from './SituationBoardPage.module.css';
 import { isIncidentTerminalClosed, toIncidentTerminal } from '../utils/incidentTerminalBoardMapper';
 import { useBrowserBackToIncidentList } from '../../../../shared/hooks/useBrowserBackToIncidentList';
 
+const HIDDEN_MAP_LAYER_VISIBILITY = {
+  vehiclePath: false,
+  footPath: false,
+  searchArea: false,
+  marker: false,
+};
+
 type SituationBoardPageProps = {
   incidentId: string;
   currentUserAccount: LoginAccount;
@@ -90,12 +97,7 @@ export function SituationBoardPage({
       ? 'handover'
       : 'situationBoard';
   const isHandoverMapMode = !isClosedTerminalBoard && boardState.isHandoverWorkspaceOpen;
-  const terminalLayerVisibility = {
-    vehiclePath: false,
-    footPath: false,
-    searchArea: false,
-    marker: false,
-  };
+  const shouldHideSituationBoardMapData = isClosedTerminalBoard || isHandoverMapMode;
   const handleOpenIncidentList = useCallback(() => {
     if (boardState.isAreaWorkspaceOpen && areaIncidentListNavigationHandlerRef.current) {
       areaIncidentListNavigationHandlerRef.current();
@@ -237,21 +239,21 @@ export function SituationBoardPage({
           />
         )}
         <SituationBoardMap
-          activeOperationalPeriodId={isClosedTerminalBoard ? null : boardState.activeOperationalPeriodId}
+          activeOperationalPeriodId={shouldHideSituationBoardMapData ? null : boardState.activeOperationalPeriodId}
           incidentId={incidentId}
           isMapExpanded={boardState.isMapExpanded}
           isTerminalBoard={isClosedTerminalBoard}
-          legendItems={isClosedTerminalBoard ? [] : boardState.board.legendItems}
-          layerVisibility={isClosedTerminalBoard ? terminalLayerVisibility : boardState.layerVisibility}
-          movementPaths={isClosedTerminalBoard ? [] : boardState.board.movementPaths}
-          recentMarkers={isClosedTerminalBoard ? [] : boardState.mapRecentMarkers}
-          operationalPeriods={isClosedTerminalBoard ? [] : boardState.board.operationalPeriods}
-          focusedMarkerId={isClosedTerminalBoard ? null : focusedMarkerRequest.markerId}
+          legendItems={shouldHideSituationBoardMapData ? [] : boardState.board.legendItems}
+          layerVisibility={shouldHideSituationBoardMapData ? HIDDEN_MAP_LAYER_VISIBILITY : boardState.layerVisibility}
+          movementPaths={shouldHideSituationBoardMapData ? [] : boardState.board.movementPaths}
+          recentMarkers={shouldHideSituationBoardMapData ? [] : boardState.mapRecentMarkers}
+          operationalPeriods={shouldHideSituationBoardMapData ? [] : boardState.board.operationalPeriods}
+          focusedMarkerId={shouldHideSituationBoardMapData ? null : focusedMarkerRequest.markerId}
           focusedMarkerSequence={focusedMarkerRequest.sequence}
-          focusedSearchAreaId={isClosedTerminalBoard ? null : focusedSearchAreaRequest.searchAreaId}
+          focusedSearchAreaId={shouldHideSituationBoardMapData ? null : focusedSearchAreaRequest.searchAreaId}
           focusedSearchAreaSequence={focusedSearchAreaRequest.sequence}
-          visibleMarkerIds={isClosedTerminalBoard ? [] : boardState.visibleMarkerIds}
-          savedAreaDrafts={isClosedTerminalBoard ? [] : boardState.board.searchAreaDrafts}
+          visibleMarkerIds={shouldHideSituationBoardMapData ? [] : boardState.visibleMarkerIds}
+          savedAreaDrafts={shouldHideSituationBoardMapData ? [] : boardState.board.searchAreaDrafts}
           areaEditMapProps={
             !isClosedTerminalBoard && boardState.isAreaWorkspaceOpen ? boardState.areaEditMapProps : null
           }

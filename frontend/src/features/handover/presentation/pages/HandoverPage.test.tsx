@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 import type { LoginAccount } from '../../../login/presentation/types/login';
 import { getHandoverIncidentDetail } from '../../data/getHandoverIncidentDetail';
 import { HandoverPage } from './HandoverPage';
-import { useIncidentBoardQuery } from '../../../board/api/incidentBoardApi';
+import { useIncidentBoardQuery, type IncidentBoardResponse } from '../../../board/api/incidentBoardApi';
 import { handoverApi, useDutyShiftListQuery, useSearchHistorySummaryListQuery } from '../../../operationalPeriod/api/handoverApi';
 import { operationalPeriodApi } from '../../../operationalPeriod/api/operationalPeriodApi';
 
@@ -107,13 +107,100 @@ describe('HandoverPage', () => {
       }),
     );
   });
+
+  test('shared map mode lets the handover overlay own the current OP layer', async () => {
+    const onSharedMapPropsChange = vi.fn();
+    vi.mocked(operationalPeriodApi.list).mockResolvedValue({
+      currentOpId: 'op-current',
+      items: [
+        operationalPeriod({ id: 'op-current', status: 'ACTIVE', sequenceNumber: 2, endedAt: null }),
+        operationalPeriod({ id: 'op-past', status: 'ENDED', sequenceNumber: 1, endedAt: '2026-05-17T01:00:00Z' }),
+      ],
+    });
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <HandoverPage
+          embedded
+          sharedMapMode
+          currentUserAccount={currentUserAccount()}
+          incidentId={INCIDENT_ID}
+          markerNotificationIndex={0}
+          markerNotifications={[]}
+          onCloseMarkerNotifications={vi.fn()}
+          onMoveMarkerNotification={vi.fn()}
+          onOpenIncidentList={vi.fn()}
+          onOpenIncidentDetail={vi.fn()}
+          onOpenOfflinePackage={vi.fn()}
+          onOpenSituationBoard={vi.fn()}
+          onSharedMapPropsChange={onSharedMapPropsChange}
+        />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() =>
+      expect(onSharedMapPropsChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          baseMapMode: 'shared-base-map',
+          selectedOpIds: ['op-current'],
+        }),
+      ),
+    );
+  });
+
+  test('shared map mode does not exclude board active OPs from overlay props', async () => {
+    const onSharedMapPropsChange = vi.fn();
+    vi.mocked(useIncidentBoardQuery).mockReturnValue(
+      boardQueryResult(
+        incidentBoardResponse(1, {
+          activeOpId: 'op-board-active',
+        }),
+      ),
+    );
+    vi.mocked(operationalPeriodApi.list).mockResolvedValue({
+      currentOpId: 'op-api-current',
+      items: [
+        operationalPeriod({ id: 'op-api-current', status: 'ACTIVE', sequenceNumber: 3, endedAt: null }),
+        operationalPeriod({ id: 'op-board-active', status: 'ENDED', sequenceNumber: 2, endedAt: '2026-05-17T02:00:00Z' }),
+        operationalPeriod({ id: 'op-past', status: 'ENDED', sequenceNumber: 1, endedAt: '2026-05-17T01:00:00Z' }),
+      ],
+    });
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <HandoverPage
+          embedded
+          sharedMapMode
+          currentUserAccount={currentUserAccount()}
+          incidentId={INCIDENT_ID}
+          markerNotificationIndex={0}
+          markerNotifications={[]}
+          onCloseMarkerNotifications={vi.fn()}
+          onMoveMarkerNotification={vi.fn()}
+          onOpenIncidentList={vi.fn()}
+          onOpenIncidentDetail={vi.fn()}
+          onOpenOfflinePackage={vi.fn()}
+          onOpenSituationBoard={vi.fn()}
+          onSharedMapPropsChange={onSharedMapPropsChange}
+        />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() =>
+      expect(onSharedMapPropsChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          selectedOpIds: ['op-api-current'],
+        }),
+      ),
+    );
+  });
 });
 
 const INCIDENT_ID = 'incident-handover-001';
 
-function boardQueryResult() {
+function boardQueryResult(data = incidentBoardResponse(1)) {
   return {
-    data: incidentBoardResponse(1),
+    data,
     isError: false,
     isFetching: false,
     isLoading: false,
@@ -121,7 +208,17 @@ function boardQueryResult() {
   } as any;
 }
 
-function incidentBoardResponse(boardResponseVersion: number) {
+function incidentBoardResponse(
+  boardResponseVersion: number,
+  overrides: Partial<IncidentBoardResponse> = {},
+): IncidentBoardResponse {
+  return {
+    ...incidentBoardResponseBase(boardResponseVersion),
+    ...overrides,
+  };
+}
+
+function incidentBoardResponseBase(boardResponseVersion: number): IncidentBoardResponse {
   return {
     incidentId: INCIDENT_ID,
     boardResponseVersion,
@@ -137,7 +234,24 @@ function incidentBoardResponse(boardResponseVersion: number) {
 }
 
 function boardSnapshot(boardResponseVersion: number) {
-  return incidentBoardResponse(boardResponseVersion);
+  return incidentBoardResponse(boardResponseVersion) as any;
+}
+
+function operationalPeriod(overrides: {
+  id: string;
+  status: 'ACTIVE' | 'ENDED';
+  sequenceNumber: number;
+  endedAt: string | null;
+}) {
+  return {
+    id: overrides.id,
+    status: overrides.status,
+    reason: overrides.sequenceNumber === 1 ? 'INITIAL' : 'RE_SEARCH',
+    sequenceNumber: overrides.sequenceNumber,
+    openedAt: '2026-05-17T00:00:00Z',
+    endedAt: overrides.endedAt,
+    version: 1,
+  } as const;
 }
 
 function currentUserAccount(): LoginAccount {
