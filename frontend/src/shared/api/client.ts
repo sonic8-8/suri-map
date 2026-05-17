@@ -1,4 +1,4 @@
-import { getApiBaseUrl, isLocalDevAccessToken } from '../config';
+import { getApiBaseUrl } from '../config';
 
 export type ApiErrorBody = {
   error?: string;
@@ -113,7 +113,7 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
       throw new ApiNetworkError(error);
     }
 
-    if (response.status === 401 && !isLocalDevAccessToken(readAuthorizationToken(headers))) {
+    if (response.status === 401) {
       clearExpiredApiSession();
     }
     return parseResponse<TResponse>(response);
@@ -171,15 +171,6 @@ function requestHeaders<TBody>(
     headers.set('Authorization', token.startsWith('Bearer ') ? token : `Bearer ${token}`);
   }
   return headers;
-}
-
-function readAuthorizationToken(headers: Headers) {
-  const authorization = headers.get('Authorization');
-  if (!authorization) {
-    return null;
-  }
-
-  return authorization.startsWith('Bearer ') ? authorization.slice('Bearer '.length) : authorization;
 }
 
 function buildUrl(baseUrl: string, path: string, query?: ApiQuery): string {

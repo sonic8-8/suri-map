@@ -1,9 +1,4 @@
-import {
-  getKeycloakClientId,
-  getKeycloakIssuerUrl,
-  getLocalDevAccessToken,
-  isLocalDevLoginEnabled,
-} from '../../../shared/config';
+import { getKeycloakClientId, getKeycloakIssuerUrl } from '../../../shared/config';
 import type { LoginAccount, LoginOrganizationType, LoginRole } from '../presentation/types/login';
 
 const ACCESS_TOKEN_STORAGE_KEY = 'suriMapAccessToken';
@@ -11,7 +6,6 @@ const ID_TOKEN_STORAGE_KEY = 'suriMapIdToken';
 const CURRENT_ACCOUNT_STORAGE_KEY = 'suriMapCurrentAccount';
 const TOKEN_EXPIRES_AT_STORAGE_KEY = 'suriMapTokenExpiresAt';
 const OIDC_LOGIN_STATE_STORAGE_KEY = 'suriMapOidcLoginState';
-const LOCAL_DEV_ACCOUNT_ID = '11111111-1111-1111-1111-111111110001';
 
 const ACCOUNT_DISPLAY_NAMES: Record<string, string> = {
   '11111111-1111-1111-1111-111111110001': '지구대 지휘관',
@@ -75,27 +69,7 @@ export async function startKeycloakLogin(returnPath: string) {
 }
 
 export async function startLocalDevLogin(returnPath: string) {
-  if (!isLocalDevLoginEnabled()) {
-    throw new Error('local_dev_login_disabled');
-  }
-
-  const sanitizedReturnPath = sanitizeReturnPath(returnPath) ?? '/incidents';
-  clearLoginSession();
-  const account: LoginAccount = {
-    id: LOCAL_DEV_ACCOUNT_ID,
-    name: accountDisplayName(LOCAL_DEV_ACCOUNT_ID),
-    organization: 'Police substation',
-    accountType: 'COMMAND',
-    organizationType: 'POLICE_SUBSTATION',
-    role: 'FIELD_COMMANDER',
-    roles: ['FIELD_COMMANDER'],
-    description: 'Local development account',
-  };
-
-  sessionStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, getLocalDevAccessToken());
-  sessionStorage.setItem(TOKEN_EXPIRES_AT_STORAGE_KEY, String(Date.now() + 24 * 60 * 60 * 1000));
-  sessionStorage.setItem(CURRENT_ACCOUNT_STORAGE_KEY, JSON.stringify(account));
-  window.location.assign(sanitizedReturnPath);
+  return startKeycloakLogin(returnPath);
 }
 
 export async function completeKeycloakLogin(
@@ -169,7 +143,12 @@ export function readStoredLoginAccount(): LoginAccount | null {
   const accessToken = sessionStorage.getItem(ACCESS_TOKEN_STORAGE_KEY);
   const rawAccount = sessionStorage.getItem(CURRENT_ACCOUNT_STORAGE_KEY);
 
-  if (!accessToken || !rawAccount || isStoredTokenExpired()) {
+  if (!accessToken || !rawAccount) {
+    clearStoredLoginAccountSession();
+    return null;
+  }
+
+  if (isStoredTokenExpired()) {
     clearStoredLoginAccountSession();
     return null;
   }

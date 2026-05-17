@@ -17,15 +17,7 @@ export function getKeycloakClientId() {
 }
 
 export function isLocalDevLoginEnabled() {
-  return import.meta.env.DEV && import.meta.env.VITE_ENABLE_LOCAL_DEV_LOGIN !== 'false';
-}
-
-export function getLocalDevAccessToken() {
-  return import.meta.env.VITE_LOCAL_DEV_ACCESS_TOKEN ?? 'dev-local-access-token';
-}
-
-export function isLocalDevAccessToken(accessToken: string | null | undefined) {
-  return Boolean(accessToken) && accessToken === getLocalDevAccessToken();
+  return import.meta.env.DEV && import.meta.env.VITE_ENABLE_LOCAL_DEV_LOGIN === 'true';
 }
 
 export function getTileBaseUrl() {
