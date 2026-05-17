@@ -1,4 +1,4 @@
--- Suri-Map frontend mock data set #2.
+﻿-- Suri-Map frontend mock data set #2.
 -- Uses only the default seed accounts and PolicePhones.
 -- Seeds active FCM tokens for the default APP phones used by login/push flows.
 -- All incident, area, marker, and route coordinates are inside Gwangju Metropolitan City.
@@ -920,7 +920,7 @@ INSERT INTO search_history_summary (
 )
 VALUES
   ('50000000-0000-0000-0000-000000002101', '88888888-8888-8888-8888-888888882101', NULL, 'READY', '무등산 OP1: 도보팀과 지원차량이 증심사 입구, 상가길, 공영주차장을 확인했고 장갑 단서와 공사 펜스 현장상태가 기록됨.', 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'READY', '11111111-1111-1111-1111-111111110001', '2026-05-16T08:34:00+09:00', 1, '2026-05-16T08:33:00+09:00', '2026-05-16T08:34:00+09:00'),
-  ('50000000-0000-0000-0000-000000002102', '88888888-8888-8888-8888-888888882102', NULL, 'READY', '무등산 OP2: 북측 산책로 경로와 능선 방향 드론 지원 요청이 추가되었고, GPS distance jump 1건을 제외함.', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', 'STALE', '11111111-1111-1111-1111-111111110001', '2026-05-16T09:47:00+09:00', 2, '2026-05-16T09:46:00+09:00', '2026-05-16T09:47:00+09:00'),
+  ('50000000-0000-0000-0000-000000002102', '88888888-8888-8888-8888-888888882102', NULL, 'READY', '무등산 OP2: 북측 산책로 경로와 능선 방향 드론 지원 요청이 추가되었고, GPS 지점 변동 1건을 제외함.', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', 'STALE', '11111111-1111-1111-1111-111111110001', '2026-05-16T09:47:00+09:00', 2, '2026-05-16T09:46:00+09:00', '2026-05-16T09:47:00+09:00'),
   ('50000000-0000-0000-0000-000000002103', '88888888-8888-8888-8888-888888882103', '10000000-0000-0000-0000-000000002104', 'GENERATING', NULL, 'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc', 'PENDING_SYNC', '11111111-1111-1111-1111-111111110001', NULL, 1, '2026-05-16T10:26:00+09:00', '2026-05-16T10:26:00+09:00'),
   ('50000000-0000-0000-0000-000000002201', '88888888-8888-8888-8888-888888882201', NULL, 'READY', '광주천 OP1: 양림 골목과 서측 제방 확인 후 동측 제방 재확인이 필요해 OP2로 전환됨.', 'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'READY', '11111111-1111-1111-1111-111111110001', '2026-05-16T09:19:00+09:00', 1, '2026-05-16T09:18:00+09:00', '2026-05-16T09:19:00+09:00'),
   ('50000000-0000-0000-0000-000000002202', '88888888-8888-8888-8888-888888882202', NULL, 'FAILED', NULL, 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee', 'PENDING_SYNC', '11111111-1111-1111-1111-111111110001', NULL, 1, '2026-05-16T10:10:00+09:00', '2026-05-16T10:11:00+09:00'),
