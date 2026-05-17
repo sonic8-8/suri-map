@@ -8,6 +8,8 @@ import com.surimap.handover.query.HandoverMemoQuery;
 import com.surimap.handover.query.HandoverMemoRow;
 import com.surimap.incident.domain.IncidentRecord;
 import com.surimap.incident.repository.IncidentMapper;
+import com.surimap.incident.repository.IncidentReadMapper;
+import com.surimap.incident.repository.IncidentReadRows.AssignmentRow;
 import com.surimap.maparea.geometry.geojson.GeoJsonPolygon;
 import com.surimap.maparea.query.OverallSearchAreaResult;
 import com.surimap.maparea.query.SearchAreaCollection;
@@ -76,6 +78,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
       UUID.fromString("70000000-0000-4000-8000-000000000002");
   private static final UUID ASSIGNMENT_ID =
       UUID.fromString("71000000-0000-4000-8000-000000000001");
+  private static final String ACCOUNT_DISPLAY_NAME = "종로 지구대 순찰차";
   private static final UUID MEMO_ID = UUID.fromString("80000000-0000-4000-8000-000000000001");
   private static final UUID SUMMARY_ID = UUID.fromString("90000000-0000-4000-8000-000000000001");
   private static final UUID PURGE_RUN_ID =
@@ -97,6 +100,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
             new FakeHandoverMemoQuery(),
             new FakeSummaryMapper(),
             provider(null),
+            provider(new FakeIncidentReadMapper()),
             provider(null),
             provider(new FakeToastQuery()));
 
@@ -175,6 +179,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
             new FakeHandoverMemoQuery(),
             new FakeSummaryMapper(),
             provider(null),
+            provider(new FakeIncidentReadMapper()),
             provider(null),
             provider(null),
             provider(new FakeSearchAreaAssignmentQuery()));
@@ -191,7 +196,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
     assertThat(assignedAccounts.get(0))
         .containsEntry("assignmentId", ASSIGNMENT_ID.toString())
         .containsEntry("accountId", ACCOUNT_ID.toString())
-        .containsEntry("displayName", ACCOUNT_ID.toString())
+        .containsEntry("displayName", ACCOUNT_DISPLAY_NAME)
         .containsEntry("assignedByAccountId", ASSIGNED_BY_ACCOUNT_ID.toString())
         .containsEntry("status", "ACTIVE");
   }
@@ -287,6 +292,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
             new FakeHandoverMemoQuery(),
             new FakeSummaryMapper(),
             provider(incidentMapper),
+            provider(null),
             provider(purgeStore),
             provider(null));
 
@@ -465,6 +471,60 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
 
     @Override
     public List<SearchAreaAssignmentRow> byArea(UUID searchAreaId) {
+      return List.of();
+    }
+  }
+
+  private static final class FakeIncidentReadMapper implements IncidentReadMapper {
+    @Override
+    public List<com.surimap.incident.repository.IncidentReadRows.ListRow> findActiveListByAccountId(
+        UUID accountId, String status) {
+      return List.of();
+    }
+
+    @Override
+    public Optional<com.surimap.incident.repository.IncidentReadRows.DetailRow> findActiveDetailByIncidentIdAndAccountId(
+        UUID incidentId, UUID accountId) {
+      return Optional.empty();
+    }
+
+    @Override
+    public Optional<com.surimap.incident.repository.IncidentReadRows.TerminalDetailRow> findTerminalDetailByIncidentIdAndAccountId(
+        UUID incidentId, UUID accountId) {
+      return Optional.empty();
+    }
+
+    @Override
+    public int countIncidentById(UUID incidentId) {
+      return 0;
+    }
+
+    @Override
+    public int countActiveAssignmentsByAccountId(UUID accountId) {
+      return 0;
+    }
+
+    @Override
+    public Optional<com.surimap.incident.repository.IncidentReadRows.MissingPersonRow> findMissingPersonByIncidentId(
+        UUID incidentId) {
+      return Optional.empty();
+    }
+
+    @Override
+    public List<AssignmentRow> findActiveAssignmentsByIncidentId(UUID incidentId) {
+      AssignmentRow row = new AssignmentRow();
+      row.setAccountId(ACCOUNT_ID.toString());
+      row.setAccountDisplayName(ACCOUNT_DISPLAY_NAME);
+      row.setAccountType("PATROL_CAR");
+      row.setOrganizationType("POLICE_SUBSTATION");
+      row.setIncidentRole("MEMBER");
+      row.setAssignedAt(STARTED_AT);
+      return List.of(row);
+    }
+
+    @Override
+    public List<com.surimap.incident.repository.IncidentReadRows.AssignmentTargetRow> findActiveAssignmentTargetsByIncidentId(
+        UUID incidentId) {
       return List.of();
     }
   }

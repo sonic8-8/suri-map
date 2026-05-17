@@ -42,7 +42,10 @@ public class SecurityConfig {
       HttpSecurity http,
       ObjectProvider<AuthSessionService> authSessionService,
       ObjectProvider<JwtDecoder> keycloakJwtDecoder,
-      ObjectProvider<OidcIdentityAuthenticationConverter> oidcIdentityAuthenticationConverter)
+      ObjectProvider<OidcIdentityAuthenticationConverter> oidcIdentityAuthenticationConverter,
+      @Value("${surimap.auth.local-dev.enabled:true}") boolean localDevAuthEnabled,
+      @Value("${surimap.auth.local-dev.access-token:dev-local-access-token}")
+          String localDevAccessToken)
       throws Exception {
     http.csrf(csrf -> csrf.disable())
         .cors(Customizer.withDefaults())
@@ -63,11 +66,10 @@ public class SecurityConfig {
                     .access(SecurityConfig::hasSuriMapAuthentication))
         .httpBasic(Customizer.withDefaults());
 
-    authSessionService.ifAvailable(
-        service ->
-            http.addFilterBefore(
-                new AuthSessionAuthenticationFilter(service),
-                UsernamePasswordAuthenticationFilter.class));
+    http.addFilterBefore(
+        new AuthSessionAuthenticationFilter(
+            authSessionService.getIfAvailable(), localDevAuthEnabled, localDevAccessToken),
+        UsernamePasswordAuthenticationFilter.class);
     JwtDecoder jwtDecoder = keycloakJwtDecoder.getIfAvailable();
     OidcIdentityAuthenticationConverter converter =
         oidcIdentityAuthenticationConverter.getIfAvailable();

@@ -1,4 +1,9 @@
-import { getKeycloakClientId, getKeycloakIssuerUrl } from '../../../shared/config';
+import {
+  getKeycloakClientId,
+  getKeycloakIssuerUrl,
+  getLocalDevAccessToken,
+  isLocalDevLoginEnabled,
+} from '../../../shared/config';
 import type { LoginAccount, LoginOrganizationType, LoginRole } from '../presentation/types/login';
 
 const ACCESS_TOKEN_STORAGE_KEY = 'suriMapAccessToken';
@@ -6,16 +11,17 @@ const ID_TOKEN_STORAGE_KEY = 'suriMapIdToken';
 const CURRENT_ACCOUNT_STORAGE_KEY = 'suriMapCurrentAccount';
 const TOKEN_EXPIRES_AT_STORAGE_KEY = 'suriMapTokenExpiresAt';
 const OIDC_LOGIN_STATE_STORAGE_KEY = 'suriMapOidcLoginState';
+const LOCAL_DEV_ACCOUNT_ID = '11111111-1111-1111-1111-111111110001';
 
 const ACCOUNT_DISPLAY_NAMES: Record<string, string> = {
-  '11111111-1111-1111-1111-111111110001': 'Precinct commander',
-  '11111111-1111-1111-1111-111111110002': 'Precinct patrol car',
-  '11111111-1111-1111-1111-111111110003': 'Precinct field team',
-  '11111111-1111-1111-1111-111111110004': 'Missing team commander',
-  '11111111-1111-1111-1111-111111110005': 'Missing field team',
-  '11111111-1111-1111-1111-111111110006': 'Support unit commander',
-  '11111111-1111-1111-1111-111111110007': 'Support patrol car',
-  '11111111-1111-1111-1111-111111110008': 'Support field team',
+  '11111111-1111-1111-1111-111111110001': '지구대 지휘관',
+  '11111111-1111-1111-1111-111111110002': '지구대 순찰차',
+  '11111111-1111-1111-1111-111111110003': '지구대 현장팀',
+  '11111111-1111-1111-1111-111111110004': '실종팀 지휘관',
+  '11111111-1111-1111-1111-111111110005': '실종팀 현장팀',
+  '11111111-1111-1111-1111-111111110006': '지원부대 지휘관',
+  '11111111-1111-1111-1111-111111110007': '지원부대 순찰차',
+  '11111111-1111-1111-1111-111111110008': '지원부대 현장팀',
 };
 
 type OidcLoginState = {
@@ -48,14 +54,18 @@ export type CompleteKeycloakLoginResult = {
   returnPath: string;
 };
 
+let pendingKeycloakLoginCallbackUrl: string | null = null;
+let pendingKeycloakLogin: Promise<CompleteKeycloakLoginResult> | null = null;
+
 export async function startKeycloakLogin(returnPath: string) {
+  const sanitizedReturnPath = sanitizeReturnPath(returnPath) ?? '/incidents';
   clearLoginSession();
 
   const loginState: OidcLoginState = {
     state: createRandomString(),
     nonce: createRandomString(),
     codeVerifier: createRandomString(64),
-    returnPath: sanitizeReturnPath(returnPath) ?? '/incidents',
+    returnPath: sanitizedReturnPath,
     createdAt: Date.now(),
   };
   sessionStorage.setItem(OIDC_LOGIN_STATE_STORAGE_KEY, JSON.stringify(loginState));
@@ -64,9 +74,54 @@ export async function startKeycloakLogin(returnPath: string) {
   window.location.assign(buildAuthorizeUrl(loginState, codeChallenge));
 }
 
+export async function startLocalDevLogin(returnPath: string) {
+  if (!isLocalDevLoginEnabled()) {
+    throw new Error('local_dev_login_disabled');
+  }
+
+  const sanitizedReturnPath = sanitizeReturnPath(returnPath) ?? '/incidents';
+  clearLoginSession();
+  const account: LoginAccount = {
+    id: LOCAL_DEV_ACCOUNT_ID,
+    name: accountDisplayName(LOCAL_DEV_ACCOUNT_ID),
+    organization: 'Police substation',
+    accountType: 'COMMAND',
+    organizationType: 'POLICE_SUBSTATION',
+    role: 'FIELD_COMMANDER',
+    roles: ['FIELD_COMMANDER'],
+    description: 'Local development account',
+  };
+
+  sessionStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, getLocalDevAccessToken());
+  sessionStorage.setItem(TOKEN_EXPIRES_AT_STORAGE_KEY, String(Date.now() + 24 * 60 * 60 * 1000));
+  sessionStorage.setItem(CURRENT_ACCOUNT_STORAGE_KEY, JSON.stringify(account));
+  window.location.assign(sanitizedReturnPath);
+}
+
 export async function completeKeycloakLogin(
   callbackUrl: string = window.location.href,
   fetchImpl: typeof fetch = fetch,
+): Promise<CompleteKeycloakLoginResult> {
+  if (fetchImpl === fetch && pendingKeycloakLoginCallbackUrl === callbackUrl && pendingKeycloakLogin) {
+    return pendingKeycloakLogin;
+  }
+
+  const loginPromise = completeKeycloakLoginOnce(callbackUrl, fetchImpl);
+  if (fetchImpl === fetch) {
+    pendingKeycloakLoginCallbackUrl = callbackUrl;
+    pendingKeycloakLogin = loginPromise.finally(() => {
+      pendingKeycloakLoginCallbackUrl = null;
+      pendingKeycloakLogin = null;
+    });
+    return pendingKeycloakLogin;
+  }
+
+  return loginPromise;
+}
+
+async function completeKeycloakLoginOnce(
+  callbackUrl: string,
+  fetchImpl: typeof fetch,
 ): Promise<CompleteKeycloakLoginResult> {
   const callback = new URL(callbackUrl);
   const code = callback.searchParams.get('code');
@@ -115,19 +170,24 @@ export function readStoredLoginAccount(): LoginAccount | null {
   const rawAccount = sessionStorage.getItem(CURRENT_ACCOUNT_STORAGE_KEY);
 
   if (!accessToken || !rawAccount || isStoredTokenExpired()) {
-    clearLoginSession();
+    clearStoredLoginAccountSession();
     return null;
   }
 
   try {
     return normalizeLoginAccount(JSON.parse(rawAccount) as LoginAccount);
   } catch {
-    clearLoginSession();
+    clearStoredLoginAccountSession();
     return null;
   }
 }
 
 export function clearLoginSession() {
+  clearStoredLoginAccountSession();
+  sessionStorage.removeItem(OIDC_LOGIN_STATE_STORAGE_KEY);
+}
+
+function clearStoredLoginAccountSession() {
   sessionStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
   sessionStorage.removeItem(ID_TOKEN_STORAGE_KEY);
   sessionStorage.removeItem(CURRENT_ACCOUNT_STORAGE_KEY);

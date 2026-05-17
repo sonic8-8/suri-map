@@ -1,4 +1,4 @@
-/* 상황판 상단 전체 헤더 영역을 화면 상단에 고정하고 상태 색상 변수를 정의합니다. */
+﻿/* 상황판 상단 전체 헤더 영역을 화면 상단에 고정하고 상태 색상 변수를 정의합니다. */
 .header {
   position: sticky;
   top: 0;
@@ -490,4 +490,36 @@
   .meta {
     display: none;
   }
+}
+
+.syncStatus {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid rgba(144, 164, 174, 0.48);
+  border-radius: 999px;
+  color: #c9d5dc;
+  background: rgba(85, 104, 116, 0.18);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.syncStatusSyncing {
+  border-color: rgba(94, 193, 255, 0.46);
+  color: #9fdeff;
+  background: rgba(35, 108, 150, 0.18);
+}
+
+.syncStatusStale {
+  border-color: rgba(255, 193, 94, 0.5);
+  color: #ffd28a;
+  background: rgba(143, 94, 26, 0.2);
+}
+
+.syncStatusError {
+  border-color: rgba(255, 115, 115, 0.5);
+  color: #ffb0b0;
+  background: rgba(146, 48, 48, 0.2);
 }

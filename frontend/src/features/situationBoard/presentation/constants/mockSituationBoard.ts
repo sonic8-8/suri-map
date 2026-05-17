@@ -48,6 +48,7 @@ export type RecentMarker = {
   coordinates?: [number, number];
   memo?: string | null;
   photoCount?: number;
+  photoThumbnailUrl?: string | null;
 };
 
 export type LegendItem = {
@@ -87,6 +88,9 @@ export type SearchAreaAssignedAccount = {
   accountId: string;
   displayName: string;
   policePhoneId?: string | null;
+  incidentRole?: string | null;
+  accountType?: string | null;
+  organizationType?: string | null;
 };
 
 export type SituationBoardFallbackData = {

@@ -6,7 +6,6 @@ export function useIncidentDetail(incidentId: string) {
 
   useEffect(() => {
     let isActive = true;
-    setIncidentDetail(null);
 
     void getIncidentDetail(incidentId)
       .then((detail) => {
@@ -14,8 +13,7 @@ export function useIncidentDetail(incidentId: string) {
         setIncidentDetail(detail);
       })
       .catch(() => {
-        if (!isActive) return;
-        setIncidentDetail(null);
+        // Keep the last successful incident context visible on transient read failures.
       });
 
     return () => {

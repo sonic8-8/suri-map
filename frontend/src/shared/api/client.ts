@@ -1,4 +1,4 @@
-import { getApiBaseUrl } from '../config';
+import { getApiBaseUrl, isLocalDevAccessToken } from '../config';
 import { mockAuthApiClient } from './mockApiClient';
 
 const USE_MOCK_AUTH_API = false;
@@ -116,7 +116,7 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
       throw new ApiNetworkError(error);
     }
 
-    if (response.status === 401) {
+    if (response.status === 401 && !isLocalDevAccessToken(readAuthorizationToken(headers))) {
       clearExpiredApiSession();
     }
     return parseResponse<TResponse>(response);
@@ -178,6 +178,15 @@ function requestHeaders<TBody>(
     headers.set('Authorization', token.startsWith('Bearer ') ? token : `Bearer ${token}`);
   }
   return headers;
+}
+
+function readAuthorizationToken(headers: Headers) {
+  const authorization = headers.get('Authorization');
+  if (!authorization) {
+    return null;
+  }
+
+  return authorization.startsWith('Bearer ') ? authorization.slice('Bearer '.length) : authorization;
 }
 
 function buildUrl(baseUrl: string, path: string, query?: ApiQuery): string {

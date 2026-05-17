@@ -8,6 +8,8 @@ import {
   searchAreaDisplayStateTone,
 } from '../../../../shared/model/searchAreaDisplayState';
 import type { AreaTreeNode } from '../constants/mockAreaEdit';
+import { isAssignableSearchAreaLeaf, isSavedGeometryArea } from '../utils/areaAssignmentUtils';
+import { formatAccountDisplayName, formatAccountMeta } from '../../../situationBoard/presentation/utils/accountDisplayUtils';
 import styles from './AreaHierarchyPanel.module.css';
 
 type AreaHierarchyPanelProps = {
@@ -39,7 +41,11 @@ type AreaHierarchyPanelProps = {
 
 type AreaAssignmentCandidate = {
   accountId: string;
+  accountDisplayName?: string | null;
+  accountType?: string | null;
+  organizationType?: string | null;
   incidentRole: string;
+  assignedAt?: string;
 };
 
 type AreaIdentityColorStyle = CSSProperties & {
@@ -87,10 +93,6 @@ function isSelectableArea(area: AreaTreeNode, assignedAreaIds: Set<string>) {
   return area.status !== 'COMPLETED' && area.status !== 'CANCELLED' && !isSavedGeometryArea(area, assignedAreaIds);
 }
 
-function isSavedGeometryArea(area: AreaTreeNode, assignedAreaIds: Set<string>) {
-  return area.geometryState === 'saved' || assignedAreaIds.has(area.id);
-}
-
 function getAreaNoticeMessage(
   isSaveEnabled: boolean,
   isSaving: boolean,
@@ -133,11 +135,23 @@ function getAreaNoticeMessage(
 }
 
 function canShowAddUnitAction(area: AreaTreeNode, selectedAreaId: string | null, canAddUnit: boolean) {
-  return canAddUnit && area.kind === 'overall' && area.id === selectedAreaId;
+  return canAddUnit && area.kind === 'overall' && area.id === selectedAreaId && (area.children ?? []).length === 0;
 }
 
-function canShowAddTeamAction(area: AreaTreeNode, selectedAreaId: string | null, canAddTeam: boolean) {
-  return canAddTeam && area.kind === 'unit' && area.id === selectedAreaId && area.geometryState === 'saved';
+function canShowAddTeamAction(
+  area: AreaTreeNode,
+  selectedAreaId: string | null,
+  canAddTeam: boolean,
+  assignedAccountCountsByAreaId: ReadonlyMap<string, number>,
+) {
+  return (
+    canAddTeam &&
+    area.kind === 'unit' &&
+    area.id === selectedAreaId &&
+    area.geometryState === 'saved' &&
+    (area.children ?? []).length === 0 &&
+    (assignedAccountCountsByAreaId.get(area.id) ?? 0) === 0
+  );
 }
 
 function canShowBoundaryAction(
@@ -160,12 +174,7 @@ function flattenAreaTree(root: AreaTreeNode): AreaTreeNode[] {
 }
 
 function canAssignSelectedArea(area: AreaTreeNode | null, assignedAreaIds: Set<string>) {
-  if (!area || area.kind !== 'team') return false;
-  return isSavedGeometryArea(area, assignedAreaIds);
-}
-
-function formatAccountLabel(accountId: string) {
-  return accountId.length > 13 ? `${accountId.slice(0, 8)}...${accountId.slice(-4)}` : accountId;
+  return isAssignableSearchAreaLeaf(area, assignedAreaIds);
 }
 
 export function AreaHierarchyPanel({
@@ -197,7 +206,7 @@ export function AreaHierarchyPanel({
   const shouldShowUnassignedNotice = false;
   const units = areaTree.children ?? [];
   const selectedArea = flattenAreaTree(areaTree).find((area) => area.id === selectedAreaId) ?? null;
-  const canAssignArea = canAssignSelectedArea(selectedArea, assignedAreaIds);
+  const canAssignArea = isAssignmentEnabled && canAssignSelectedArea(selectedArea, assignedAreaIds);
   const saveActionLabel = areaTree.geometryState === 'saved' ? '구역 분할 확정' : '구역 저장';
   const noticeMessage = getAreaNoticeMessage(
     isSaveEnabled,
@@ -338,7 +347,7 @@ export function AreaHierarchyPanel({
                       </button>
                     ) : null}
                   </div>
-                  {canShowAddTeamAction(unit, selectedAreaId, canAddTeam) ? (
+                  {canShowAddTeamAction(unit, selectedAreaId, canAddTeam, assignedAccountCountsByAreaId) ? (
                     <button type="button" className={styles.inlineActionButton} onClick={() => onAddTeam(unit.id)}>
                       TEAM 추가
                     </button>
@@ -424,8 +433,8 @@ export function AreaHierarchyPanel({
                     onChange={() => onToggleAssignee(candidate.accountId)}
                   />
                   <span className={styles.assignmentText}>
-                    <strong>{formatAccountLabel(candidate.accountId)}</strong>
-                    <span>{candidate.incidentRole}</span>
+                    <strong>{formatAccountDisplayName(candidate)}</strong>
+                    <span>{formatAccountMeta(candidate)}</span>
                   </span>
                 </label>
               ))}

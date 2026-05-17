@@ -10,6 +10,7 @@ import {
   formatMissingPersonIncidentTitle,
   SuriMapPageHeader,
   type SuriMapPageHeaderIncidentContext,
+  type SuriMapPageHeaderSyncStatus,
 } from '../../../../shared/ui';
 import type { LoginAccount } from '../../../login/presentation/types/login';
 import {
@@ -39,6 +40,7 @@ import type { OperationalPeriod } from '../../../situationBoard/presentation/con
 import { HandoverOperationalPeriodSelector } from '../components/HandoverOperationalPeriodSelector';
 import { HandoverComparisonMap, type HandoverComparisonMapSharedProps } from '../components/HandoverComparisonMap';
 import { type MarkerNotification } from '../../../../shared/ui';
+import { useBrowserBackToIncidentList } from '../../../../shared/hooks/useBrowserBackToIncidentList';
 import styles from './HandoverPage.module.css';
 
 type HandoverPageProps = {
@@ -51,6 +53,7 @@ type HandoverPageProps = {
   onCloseMarkerNotifications: () => void;
   onMoveMarkerNotification: (nextIndex: number) => void;
   onOpenIncidentList: () => void;
+  onBrowserBackToIncidentList?: () => void;
   onOpenIncidentDetail?: () => void;
   onOpenSituationBoard: () => void;
   onOpenOfflinePackage: () => void;
@@ -69,8 +72,11 @@ type EvidenceSummary = {
 
 type SearchHistorySummaryView = {
   statusLabel: string;
+  readinessLabel: string;
+  isFinal: boolean;
   summaryText: string | null;
   generatedAt: string | null;
+  sourceHash: string | null;
 };
 
 type HandoverMemoTargetOption = {
@@ -79,6 +85,21 @@ type HandoverMemoTargetOption = {
   targetId: string;
   label: string;
   description: string;
+};
+
+type HandoverStatusView = {
+  statusLabel: string;
+  helperText: string;
+  latestMemoLabel: string;
+  openMemoCount: number;
+  currentOpLabel: string;
+};
+
+type SourceRecordView = {
+  key: string;
+  label: string;
+  meta: string;
+  detail: string;
 };
 
 const DEFAULT_MEMO_TARGET_TYPE = 'OPERATIONAL_PERIOD' as const;
@@ -98,6 +119,7 @@ export function HandoverPage({
   onCloseMarkerNotifications,
   onMoveMarkerNotification,
   onOpenIncidentList,
+  onBrowserBackToIncidentList,
   onOpenIncidentDetail,
   onOpenSituationBoard,
   onOpenOfflinePackage,
@@ -127,6 +149,7 @@ export function HandoverPage({
   const [memoErrorMessage, setMemoErrorMessage] = useState('');
   const [createOpErrorMessage, setCreateOpErrorMessage] = useState('');
 
+  useBrowserBackToIncidentList(onBrowserBackToIncidentList, !embedded);
   const queryClient = useQueryClient();
   const boardQuery = useIncidentBoardQuery({ incidentId, opIds: selectedOpIds });
   const board = boardQuery.data ?? null;
@@ -171,11 +194,22 @@ export function HandoverPage({
     const item = summaryQuery.data.items.find((it) => it.scopeId === focusedOpId) ?? null;
     if (!item) return null;
     return {
-      statusLabel: item.displayStatus === 'READY' ? '생성 완료' : '요약 실패',
+      statusLabel: formatSummaryDisplayStatusLabel(item.displayStatus),
+      readinessLabel: formatSummaryReadinessLabel(item.sourceReadiness),
+      isFinal: item.sourceReadiness === 'READY',
       summaryText: item.content ?? null,
       generatedAt: item.generatedAt ? formatKstDateTime(new Date(item.generatedAt)) : null,
+      sourceHash: item.sourceHash || null,
     };
   }, [summaryQuery.data, focusedOpId]);
+  const handoverStatus = useMemo(
+    () => createHandoverStatusView(board, selectedOp, selectedOpMemos.length),
+    [board, selectedOp, selectedOpMemos.length],
+  );
+  const sourceRecords = useMemo(
+    () => createSourceRecords(board, selectedOpIds, selectedOpMemos, memoTargetOptions),
+    [board, memoTargetOptions, selectedOpIds, selectedOpMemos],
+  );
   const sharedMapProps = useMemo<HandoverComparisonMapSharedProps>(
     () => ({
       incidentId,
@@ -191,6 +225,17 @@ export function HandoverPage({
     () => createIncidentContext(incidentId, incidentDetail, selectedOp),
     [incidentId, incidentDetail, selectedOp],
   );
+  const syncStatus = createHandoverSyncStatus({
+    boardHasData: board !== null,
+    boardIsError: boardQuery.isError,
+    boardIsFetching: boardQuery.isFetching,
+    hasMemoError: Boolean(memoErrorMessage),
+    hasOpError: Boolean(opErrorMessage),
+    hasSummaryError: summaryQuery.isError,
+    isLoadingMemos,
+    isLoadingOps,
+    isLoadingSummary,
+  });
   const canCreateOperationalPeriod = hasOperationalPeriodCommandPermission(currentUserAccount);
   const canSubmitNewOp =
     canCreateOperationalPeriod &&
@@ -205,13 +250,12 @@ export function HandoverPage({
   useEffect(() => {
     let ignore = false;
 
-    setIncidentDetail(null);
     void getHandoverIncidentDetail(incidentId)
       .then((detail) => {
         if (!ignore) setIncidentDetail(detail);
       })
       .catch(() => {
-        if (!ignore) setIncidentDetail(null);
+        // Keep the last successful incident context visible on transient read failures.
       });
 
     return () => {
@@ -225,10 +269,6 @@ export function HandoverPage({
     const loadOperationalPeriods = async () => {
       setIsLoadingOps(true);
       setOpErrorMessage('');
-      setOperationalPeriods([]);
-      setCurrentOpId(null);
-      setFocusedOpId(null);
-      setSelectedOpIds([]);
 
       try {
         const response = await operationalPeriodApi.list(incidentId);
@@ -257,7 +297,6 @@ export function HandoverPage({
 
   useEffect(() => {
     if (!focusedOpId) {
-      setMemos([]);
       return;
     }
 
@@ -418,6 +457,7 @@ export function HandoverPage({
         activeTab="handover"
         currentAccountLabel={currentAccountLabel}
         incidentContext={incidentContext}
+        syncStatus={syncStatus}
         timestampLabel={timestampLabel}
         onOpenIncidentList={onOpenIncidentList}
         onOpenIncidentDetail={onOpenIncidentDetail}
@@ -565,6 +605,99 @@ export function HandoverPage({
             />
           </section>
         )}
+
+        <BoardPanel
+          as="aside"
+          ariaLabel="인수인계 상시 확인 패널"
+          className={styles.historyPanel}
+          bodyClassName={styles.historyPanelBody}
+          header={<strong className={styles.panelTitle}>인계 확인</strong>}
+          placement="right"
+        >
+          <div className={styles.historyContent}>
+            <section className={styles.contextBlock} aria-label="인계 상태">
+              <div className={styles.blockHeading}>
+                <h2>인계 상태</h2>
+                <span>{handoverStatus.statusLabel}</span>
+              </div>
+              <div className={styles.statusStack}>
+                <strong>{handoverStatus.helperText}</strong>
+                <dl className={styles.compactMetaGrid}>
+                  <div>
+                    <dt>현재 OP</dt>
+                    <dd>{handoverStatus.currentOpLabel}</dd>
+                  </div>
+                  <div>
+                    <dt>메모</dt>
+                    <dd>{handoverStatus.openMemoCount}건</dd>
+                  </div>
+                  <div>
+                    <dt>최신 메모</dt>
+                    <dd>{handoverStatus.latestMemoLabel}</dd>
+                  </div>
+                </dl>
+              </div>
+            </section>
+
+            <section className={styles.contextBlock} aria-label="수색 이력 요약">
+              <div className={styles.blockHeading}>
+                <h2>수색 이력 요약</h2>
+                <span>{isLoadingSummary ? '불러오는 중' : searchHistorySummary?.statusLabel ?? '요약 없음'}</span>
+              </div>
+              {summaryErrorMessage ? (
+                <div className={styles.errorText}>{summaryErrorMessage}</div>
+              ) : isLoadingSummary ? (
+                <div className={styles.emptyState}>수색 이력 요약을 불러오는 중입니다.</div>
+              ) : searchHistorySummary?.summaryText && searchHistorySummary.isFinal ? (
+                <p className={styles.summaryText}>{searchHistorySummary.summaryText}</p>
+              ) : searchHistorySummary?.summaryText ? (
+                <>
+                  <p className={styles.summaryText}>{searchHistorySummary.summaryText}</p>
+                  <div className={styles.emptyState}>최종 요약으로 확정되지 않았습니다.</div>
+                </>
+              ) : searchHistorySummary ? (
+                <div className={styles.emptyState}>요약을 생성하지 못했습니다. 원본 기록을 확인하세요.</div>
+              ) : (
+                <div className={styles.emptyState}>생성된 수색 이력 요약이 없습니다.</div>
+              )}
+              <dl className={styles.summaryMetaGrid}>
+                <div>
+                  <dt>소스 상태</dt>
+                  <dd>{searchHistorySummary?.readinessLabel ?? '-'}</dd>
+                </div>
+                <div>
+                  <dt>생성 시각</dt>
+                  <dd>{searchHistorySummary?.generatedAt ?? '-'}</dd>
+                </div>
+                <div>
+                  <dt>소스 해시</dt>
+                  <dd>{searchHistorySummary?.sourceHash ? shortId(searchHistorySummary.sourceHash) : '-'}</dd>
+                </div>
+              </dl>
+            </section>
+
+            <section className={styles.contextBlock} aria-label="원본 근거">
+              <div className={styles.blockHeading}>
+                <h2>원본 근거</h2>
+                <span>{sourceRecords.length}건</span>
+              </div>
+              {boardErrorMessage ? <div className={styles.errorText}>{boardErrorMessage}</div> : null}
+              {sourceRecords.length === 0 ? (
+                <div className={styles.emptyState}>선택한 OP에 표시할 원본 근거가 없습니다.</div>
+              ) : (
+                <ol className={styles.sourceList}>
+                  {sourceRecords.slice(0, 8).map((record) => (
+                    <li key={record.key}>
+                      <strong>{record.label}</strong>
+                      <span>{record.meta}</span>
+                      <p>{record.detail}</p>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </section>
+          </div>
+        </BoardPanel>
       </div>
 
       {isComparisonPopupOpen ? createPortal(
@@ -764,6 +897,103 @@ function SummaryCard({ label, value, helper }: { label: string; value: string; h
   );
 }
 
+function createHandoverStatusView(
+  board: IncidentBoardResponse | null,
+  selectedOp: OperationalPeriodListItem | null,
+  memoCountFallback: number,
+): HandoverStatusView {
+  const selectedOpId = selectedOp?.id ?? null;
+  const statusRows = board ? readSlotRows(board, 'handover_status') : [];
+  const statusRow =
+    statusRows.find((row) => readString(row, 'currentOpId') === selectedOpId) ?? statusRows[statusRows.length - 1] ?? null;
+  const readyForHandover = statusRow ? readBoolean(statusRow, 'readyForHandover') ?? false : memoCountFallback > 0;
+  const openMemoCount = statusRow ? readNumber(statusRow, 'openMemoCount') ?? memoCountFallback : memoCountFallback;
+  const latestMemoAt = statusRow ? readString(statusRow, 'latestMemoAt') : null;
+  const status = statusRow ? readString(statusRow, 'status') : null;
+
+  return {
+    statusLabel: formatHandoverStatusLabel(status, readyForHandover, openMemoCount),
+    helperText: readyForHandover
+      ? '인계 기준 기록을 확인할 수 있습니다.'
+      : openMemoCount > 0
+        ? '인계 메모와 원본 기록을 확인해야 합니다.'
+        : '선택한 OP에 인수인계 메모가 없습니다.',
+    latestMemoLabel: latestMemoAt ? formatKstDateTime(new Date(latestMemoAt)) : '-',
+    openMemoCount,
+    currentOpLabel: selectedOp ? formatOperationalPeriodLabel(selectedOp) : '-',
+  };
+}
+
+function createSourceRecords(
+  board: IncidentBoardResponse | null,
+  selectedOpIds: string[],
+  memos: HandoverMemoListItem[],
+  memoTargetOptions: HandoverMemoTargetOption[],
+): SourceRecordView[] {
+  const records: SourceRecordView[] = [];
+
+  if (board) {
+    filterRowsBySelectedOps(readSlotRows(board, 'op_history'), selectedOpIds).forEach((row) => {
+      const opId = readString(row, 'opId') ?? readString(row, 'id') ?? 'op-history';
+      const sequenceNumber = readNumber(row, 'sequenceNumber');
+      const areaIds = readUnknownArray(row, 'areaIds');
+      const policePhoneIds = readUnknownArray(row, 'policePhoneIds');
+      records.push({
+        key: `op-history:${opId}:${readString(row, 'latestEventId') ?? ''}`,
+        label: sequenceNumber ? `OP ${sequenceNumber}차 이력` : 'OP 이력',
+        meta: `${areaIds.length}개 구역 / ${policePhoneIds.length}개 폴리폰`,
+        detail: `event=${readString(row, 'latestEventId') ?? '-'} / version=${readNumber(row, 'version') ?? '-'}`,
+      });
+    });
+
+    filterRowsBySelectedOps(readSlotRows(board, 'area'), selectedOpIds).forEach((row) => {
+      const areaId = readString(row, 'searchAreaId') ?? readString(row, 'id') ?? 'area';
+      const areaLevel = readString(row, 'areaLevel') ?? readString(row, 'level') ?? 'SEARCH_AREA';
+      const areaName = readString(row, 'name') ?? readString(row, 'areaName') ?? shortId(areaId);
+      records.push({
+        key: `area:${areaId}`,
+        label: formatAreaLevelLabel(areaLevel),
+        meta: formatStatusLabel(readString(row, 'status') ?? '-'),
+        detail: areaName,
+      });
+    });
+
+    filterRowsBySelectedOps(readSlotRows(board, 'path'), selectedOpIds).forEach((row) => {
+      const pathId = readString(row, 'pathId') ?? readString(row, 'id') ?? 'path';
+      const policePhoneId = readString(row, 'policePhoneId');
+      records.push({
+        key: `path:${pathId}`,
+        label: '수색 경로',
+        meta: policePhoneId ? `폴리폰 ${shortId(policePhoneId)}` : formatStatusLabel(readString(row, 'status') ?? '-'),
+        detail: `pathId=${shortId(pathId)}`,
+      });
+    });
+
+    filterRowsBySelectedOps(readSlotRows(board, 'marker'), selectedOpIds).forEach((row) => {
+      const markerId = readString(row, 'markerId') ?? readString(row, 'id') ?? 'marker';
+      const markerType = readString(row, 'markerType') ?? readString(row, 'type') ?? 'MARKER';
+      const memo = readString(row, 'memo') ?? readString(row, 'title') ?? `markerId=${shortId(markerId)}`;
+      records.push({
+        key: `marker:${markerId}`,
+        label: formatMarkerTypeLabel(markerType),
+        meta: readString(row, 'occurredAt') ? formatKstDateTime(new Date(readString(row, 'occurredAt') ?? '')) : shortId(markerId),
+        detail: memo,
+      });
+    });
+  }
+
+  memos.forEach((memo) => {
+    records.push({
+      key: `memo:${memo.id}`,
+      label: '인수인계 메모',
+      meta: formatMemoTargetLabel(memo, memoTargetOptions),
+      detail: memo.content,
+    });
+  });
+
+  return records;
+}
+
 function createIncidentContext(
   _incidentId: string,
   incidentDetail: HandoverIncidentDetailDto | null,
@@ -784,6 +1014,40 @@ function createIncidentContext(
     ],
     statusLabel: `${status} · ${selectedOp ? formatOperationalPeriodLabel(selectedOp) : 'OP 없음'}`,
   };
+}
+
+function createHandoverSyncStatus({
+  boardHasData,
+  boardIsError,
+  boardIsFetching,
+  hasMemoError,
+  hasOpError,
+  hasSummaryError,
+  isLoadingMemos,
+  isLoadingOps,
+  isLoadingSummary,
+}: {
+  boardHasData: boolean;
+  boardIsError: boolean;
+  boardIsFetching: boolean;
+  hasMemoError: boolean;
+  hasOpError: boolean;
+  hasSummaryError: boolean;
+  isLoadingMemos: boolean;
+  isLoadingOps: boolean;
+  isLoadingSummary: boolean;
+}): SuriMapPageHeaderSyncStatus | null {
+  if (boardIsError || hasMemoError || hasOpError || hasSummaryError) {
+    return boardHasData
+      ? { label: '일부 동기화 실패 · 이전 데이터 표시', tone: 'stale' }
+      : { label: '동기화 실패', tone: 'error' };
+  }
+
+  if (boardIsFetching || isLoadingMemos || isLoadingOps || isLoadingSummary) {
+    return { label: '동기화 중', tone: 'syncing' };
+  }
+
+  return null;
 }
 
 function createHandoverMemoTargetOptions(
@@ -977,6 +1241,21 @@ function readString(row: Record<string, unknown>, key: string) {
   return typeof value === 'string' ? value : null;
 }
 
+function readNumber(row: Record<string, unknown>, key: string) {
+  const value = row[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function readBoolean(row: Record<string, unknown>, key: string) {
+  const value = row[key];
+  return typeof value === 'boolean' ? value : null;
+}
+
+function readUnknownArray(row: Record<string, unknown>, key: string) {
+  const value = row[key];
+  return Array.isArray(value) ? value : [];
+}
+
 function hasOperationalPeriodCommandPermission(account: LoginAccount) {
   return account.roles.includes('MISSING_TEAM_COMMANDER') || account.roles.includes('FIELD_COMMANDER');
 }
@@ -1020,8 +1299,37 @@ function formatStatusLabel(status: string) {
     ACTIVE: '진행 중',
     CLOSED: '종료',
     ENDED: '종료',
+    READY: '준비됨',
+    NEEDS_MEMO: '메모 필요',
+    STALE_REFETCH: '갱신 대기',
+    FAILED: '실패',
+    GENERATING: '생성 중',
   };
   return labels[status] ?? status;
+}
+
+function formatHandoverStatusLabel(status: string | null, readyForHandover: boolean, memoCount: number) {
+  if (status) return formatStatusLabel(status);
+  if (readyForHandover) return '준비됨';
+  return memoCount > 0 ? '확인 필요' : '메모 필요';
+}
+
+function formatSummaryDisplayStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    LOADING: '생성 중',
+    READY: '생성 완료',
+    UNAVAILABLE: '요약 없음',
+  };
+  return labels[status] ?? status;
+}
+
+function formatSummaryReadinessLabel(readiness: string) {
+  const labels: Record<string, string> = {
+    PENDING_SYNC: '동기화 대기',
+    READY: '소스 준비됨',
+    STALE: '갱신 대기',
+  };
+  return labels[readiness] ?? readiness;
 }
 
 function formatKstDateTime(date: Date) {

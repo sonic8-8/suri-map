@@ -133,50 +133,127 @@
   background: var(--suri-board-left-scrollbar-thumb-hover);
 }
 
-.areaModePanel {
+.assignmentPanel {
   display: grid;
   gap: 12px;
-  margin: 0;
+  margin-top: 12px;
   padding: 16px;
   border: 1px solid var(--suri-board-left-section-divider);
   border-radius: 8px;
-  color: var(--suri-board-fg-secondary);
   background: var(--suri-board-panel-surface);
-  box-shadow: none;
 }
 
-.areaModePanel div {
+.assignmentHeader {
   display: grid;
   gap: 4px;
 }
 
-.areaModePanel strong {
+.assignmentHeader strong {
   color: var(--suri-board-fg-primary);
-  font-size: 20px;
+  font-size: 19px;
+  font-weight: 800;
+  line-height: 1.25;
 }
 
-.areaModePanel span {
+.assignmentHeader span,
+.assignmentNotice,
+.assignmentStatus {
   color: var(--suri-board-fg-secondary);
-  font-size: 17px;
-  line-height: 1.45;
+  font-size: 16px;
+  line-height: 1.4;
 }
 
-.areaModeButton {
-  min-height: 52px;
-  border: 1px solid color-mix(in srgb, var(--suri-board-primary-hi) 28%, var(--suri-board-border));
+.assignmentBackButton {
+  justify-self: start;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--suri-board-option-default-border);
   border-radius: 6px;
-  color: var(--suri-board-fg-primary);
-  background: color-mix(in srgb, var(--suri-board-primary-soft) 64%, var(--suri-board-panel-surface));
-  font-size: 18px;
+  color: var(--suri-board-fg-secondary);
+  background: var(--suri-board-option-default-bg);
+  font-size: 15px;
   font-weight: 800;
 }
 
-.areaModeButton:hover {
-  border-color: color-mix(in srgb, var(--suri-board-primary-hi) 42%, var(--suri-board-border));
-  background: color-mix(in srgb, var(--suri-board-primary-soft) 74%, var(--suri-board-panel-surface));
+.assignmentBackButton:hover {
+  border-color: color-mix(in srgb, var(--suri-board-primary-hi) 34%, var(--suri-board-border));
+  color: var(--suri-board-fg-primary);
 }
 
-.areaModeButton:focus-visible {
+.assignmentBackButton:focus-visible {
+  outline: 2px solid var(--suri-board-primary-hi);
+  outline-offset: 2px;
+}
+
+.assignmentList {
+  display: grid;
+  gap: 8px;
+}
+
+.assignmentItem {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 9px 10px;
+  border: 1px solid var(--suri-board-option-default-border);
+  border-radius: 6px;
+  color: var(--suri-board-option-default-fg);
+  background: var(--suri-board-option-default-bg);
+}
+
+.assignmentItem input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--suri-board-primary-hi);
+}
+
+.assignmentText {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.assignmentText strong {
+  overflow: hidden;
+  color: var(--suri-board-fg-primary);
+  font-size: 16px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assignmentText span {
+  overflow: hidden;
+  color: var(--suri-board-fg-muted);
+  font-size: 14px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assignmentSaveButton {
+  min-height: 48px;
+  border: 1px solid color-mix(in srgb, var(--suri-board-primary-hi) 34%, var(--suri-board-border));
+  border-radius: 6px;
+  color: var(--suri-board-fg-primary);
+  background: color-mix(in srgb, var(--suri-board-primary-soft) 70%, var(--suri-board-panel-surface));
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.assignmentSaveButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.56;
+}
+
+.assignmentSaveButton:not(:disabled):hover {
+  border-color: color-mix(in srgb, var(--suri-board-primary-hi) 48%, var(--suri-board-border));
+  background: color-mix(in srgb, var(--suri-board-primary-soft) 80%, var(--suri-board-panel-surface));
+}
+
+.assignmentSaveButton:focus-visible {
   outline: 2px solid var(--suri-board-primary-hi);
   outline-offset: 2px;
 }

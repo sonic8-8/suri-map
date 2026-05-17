@@ -1,0 +1,271 @@
+.layer {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  z-index: 4;
+  width: min(448px, calc(100% - 32px));
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.card {
+  position: relative;
+  display: grid;
+  gap: 10px;
+  padding: 12px 12px 11px;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.16);
+  color: #172033;
+  pointer-events: auto;
+  backdrop-filter: blur(12px);
+  animation: inspectorCardEnter 150ms ease-out;
+}
+
+.accentBar {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #1e3a5f 0%, #2d6cdf 52%, #0f766e 100%);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.titleBlock {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.title {
+  overflow: hidden;
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pillRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.kindPill {
+  background: #e8eefc;
+  color: #244a9b;
+}
+
+.statusNeutral {
+  background: #eef2f7;
+  color: #526071;
+}
+
+.statusActive {
+  background: #dff3ea;
+  color: #1f6a45;
+}
+
+.statusClosed {
+  background: #e8edf4;
+  color: #49566a;
+}
+
+.statusDanger {
+  background: #fde8e8;
+  color: #b42318;
+}
+
+.iconCloseButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 8px;
+  background: rgba(248, 250, 252, 0.9);
+  color: #334155;
+  cursor: pointer;
+}
+
+.iconCloseButton:hover {
+  background: #eef2f7;
+}
+
+.summaryRow {
+  display: grid;
+  gap: 8px;
+}
+
+.summaryItem,
+.breadcrumbRow {
+  display: grid;
+  gap: 4px;
+}
+
+.detailGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.summaryLabel {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.summaryValue {
+  color: #172033;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.breadcrumbValue {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.breadcrumbChunk {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.actionButtonPrimary,
+.actionButtonSecondary,
+.actionButtonTertiary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.actionButtonPrimary:disabled,
+.actionButtonSecondary:disabled,
+.actionButtonTertiary:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.actionButtonPrimary {
+  background: #1e3a5f;
+  color: #f8fafc;
+}
+
+.actionButtonPrimary:not(:disabled):hover {
+  background: #274c78;
+}
+
+.actionButtonSecondary {
+  background: #f8fafc;
+  color: #172033;
+}
+
+.actionButtonSecondary:not(:disabled):hover {
+  background: #edf5f8;
+}
+
+.actionButtonTertiary {
+  margin-left: auto;
+  background: transparent;
+  color: #475569;
+}
+
+.actionButtonTertiary:not(:disabled):hover {
+  background: #f1f5f9;
+}
+
+@keyframes inspectorCardEnter {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    animation: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .layer {
+    top: 84px;
+    width: calc(100% - 24px);
+  }
+
+  .actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .detailGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .actionButtonPrimary,
+  .actionButtonSecondary {
+    width: 100%;
+  }
+
+  .actionButtonTertiary {
+    grid-column: 1 / -1;
+    width: 100%;
+    margin-left: 0;
+  }
+}

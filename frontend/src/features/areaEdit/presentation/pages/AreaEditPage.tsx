@@ -34,6 +34,7 @@ import {
   createOverallDraft,
   toGeoJsonPolygon,
 } from '../utils/draftUtils';
+import { isSearchAreaLeafNode } from '../utils/areaAssignmentUtils';
 import { isPointInRing, isPointOnSegment, isRingInsideParent, segmentsIntersect } from '../utils/geometryUtils';
 import { createIncidentContext, formatBoardTimestamp } from '../utils/incidentContextUtils';
 import styles from './AreaEditPage.module.css';
@@ -179,9 +180,10 @@ export function AreaEditPage({
   const splitChildCountIssueCount = [...splitChildCountsByParentId.values()].filter(
     (childCount) => childCount > 0 && childCount < 2,
   ).length;
+  const hasPendingAreaDrafts = requiredAreaNodes.length > 0;
   const isAreaSaveEnabled =
     isCurrentOpEditable &&
-    requiredAreaNodes.length > 0 &&
+    hasPendingAreaDrafts &&
     unassignedAreaCount === 0 &&
     splitChildCountIssueCount === 0;
   const selectedArea = allAreaNodes.find((area) => area.id === selectedAreaId) ?? null;
@@ -201,6 +203,10 @@ export function AreaEditPage({
     [incidentDetail],
   );
   const assignedAccountCountsByAreaId = useMemo(() => createAssignedAccountCountsByAreaId(board), [board]);
+  const hasAssignedAccounts = useCallback(
+    (areaId: string) => (assignedAccountCountsByAreaId.get(areaId) ?? 0) > 0,
+    [assignedAccountCountsByAreaId],
+  );
   const movementPaths = useMemo<AreaEditMovementPath[]>(
     () => createAreaEditMovementPaths(board, completedDrafts),
     [board, completedDrafts],
@@ -242,8 +248,11 @@ export function AreaEditPage({
       setUnitAreaNodes([]);
       setSelectedAreaId(areaTree.id);
       setDraftPoints([]);
-      setIsDrawing(false);
+      setIsDrawing(true);
       setHasDraftChanges(false);
+      setNormalSelectedAreaId(null);
+      setNormalSelectedAreaPosition(null);
+      setValidationMessage('전체 수색 구역이 없어 바로 그리기 모드로 진입합니다. 지도를 클릭해 범위를 그려주세요.');
     }
   }, [overallSearchAreaState, savedOverallArea]);
 
@@ -301,6 +310,11 @@ export function AreaEditPage({
       return;
     }
 
+    if ((currentAreaTree.children ?? []).length > 0) {
+      setValidationMessage('이미 하위 구역이 저장된 전체 수색 구역은 다시 분할할 수 없습니다.');
+      return;
+    }
+
     const unitNode = createPendingAreaNode('unit', unitAreaNodes.length + 1);
 
     setUnitAreaNodes((currentNodes) => [...currentNodes, unitNode]);
@@ -319,6 +333,16 @@ export function AreaEditPage({
     const parentUnit = unitAreaNodes.find((unit) => unit.id === parentUnitId);
     if (!parentUnit || parentUnit.geometryState !== 'saved') {
       setValidationMessage('저장된 UNIT 구역을 선택한 뒤 TEAM 구역을 추가할 수 있습니다.');
+      return;
+    }
+
+    if (hasAssignedAccounts(parentUnit.id)) {
+      setValidationMessage('담당 계정 배정이 끝난 구역은 다시 분할할 수 없습니다.');
+      return;
+    }
+
+    if ((parentUnit.children ?? []).length > 0) {
+      setValidationMessage('이미 하위 구역이 저장된 수색 구역은 다시 분할할 수 없습니다.');
       return;
     }
 
@@ -557,6 +581,11 @@ export function AreaEditPage({
     }
 
     if (!selectedArea || selectedArea.kind === 'overall') {
+      if ((currentAreaTree.children ?? []).length > 0) {
+        setValidationMessage('이미 하위 구역이 저장된 전체 수색 구역은 다시 분할할 수 없습니다.');
+        return;
+      }
+
       const unitNode = createPendingAreaNode('unit', unitAreaNodes.length + 1);
       setUnitAreaNodes((currentNodes) => [...currentNodes, unitNode]);
       setSelectedAreaId(unitNode.id);
@@ -566,6 +595,16 @@ export function AreaEditPage({
     }
 
     if (selectedArea.kind === 'unit' && selectedArea.geometryState === 'saved') {
+      if (hasAssignedAccounts(selectedArea.id)) {
+        setValidationMessage('담당 계정 배정이 끝난 구역은 다시 분할할 수 없습니다.');
+        return;
+      }
+
+      if ((selectedArea.children ?? []).length > 0) {
+        setValidationMessage('이미 하위 구역이 저장된 수색 구역은 다시 분할할 수 없습니다.');
+        return;
+      }
+
       const teamNode = createPendingAreaNode('team', (selectedArea.children ?? []).length + 1);
       setUnitAreaNodes((currentNodes) =>
         currentNodes.map((unit) =>
@@ -754,6 +793,17 @@ export function AreaEditPage({
             return;
           }
 
+          if (hasAssignedAccounts(parentArea.id)) {
+            setValidationMessage('담당 계정 배정이 끝난 구역은 다시 분할할 수 없습니다.');
+            return;
+          }
+
+          const existingChildCount = (parentArea.children ?? []).filter((child) => !pendingAreaIds.has(child.id)).length;
+          if (existingChildCount > 0) {
+            setValidationMessage('이미 하위 구역이 저장된 수색 구역은 다시 분할할 수 없습니다.');
+            return;
+          }
+
           const splitResponse = await searchAreaApi.split(parentAreaId, {
             opId: currentOpId,
             children: parentDrafts.map((draft) => toGeoJsonPolygon(draft.coordinates)),
@@ -790,9 +840,11 @@ export function AreaEditPage({
         );
         setUnitAreaNodes(unitNodes);
         setCompletedDrafts(refreshedCompletedDrafts);
-        setSelectedAreaId(savedChildDrafts[0]?.areaId ?? null);
-        setValidationMessage('하위 수색 구역 분할을 저장했습니다. 저장된 구역을 선택해 담당 계정을 배정하세요.');
+        setSelectedAreaId(null);
+        setSelectedAssigneeAccountIds(new Set());
+        setValidationMessage('하위 수색 구역 분할을 저장했습니다.');
         await reloadBoard();
+        onBackToSituationBoard();
         return;
       }
 
@@ -860,8 +912,13 @@ export function AreaEditPage({
       return;
     }
 
-    if (!selectedArea || selectedArea.kind !== 'team') {
-      setValidationMessage('담당 계정을 배정할 TEAM 구역을 먼저 선택하세요.');
+    if (!isSearchAreaLeafNode(selectedArea)) {
+      setValidationMessage('담당 계정을 배정할 최종 수색 구역을 먼저 선택하세요.');
+      return;
+    }
+
+    if (hasPendingAreaDrafts) {
+      setValidationMessage('구역 분할을 먼저 확정한 뒤 담당 계정을 배정하세요.');
       return;
     }
 
@@ -1112,7 +1169,7 @@ export function AreaEditPage({
                   assignedAccountCountsByAreaId={assignedAccountCountsByAreaId}
                   assignmentCandidates={assignmentCandidates}
                   selectedAssigneeAccountIds={selectedAssigneeAccountIds}
-                  isAssignmentEnabled={isCurrentOpEditable}
+                  isAssignmentEnabled={false}
                   isSaveEnabled={isAreaSaveEnabled}
                   isSaving={isSaving}
                   isAssigningArea={isAssigningArea}
