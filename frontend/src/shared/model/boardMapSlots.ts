@@ -32,6 +32,7 @@ export type BoardMapMarker = {
   reporterLabel: string | null;
   sourceLabel: string | null;
   photoCount: number;
+  photoThumbnailUrl: string | null;
 };
 
 export function readBoardSlotRows(board: BoardResponseLike, slot: string): Record<string, unknown>[] {
@@ -150,6 +151,7 @@ export function createBoardMapMarkers(board: BoardResponseLike | null): BoardMap
           readString(row, 'policePhoneId'),
         sourceLabel: readString(row, 'source'),
         photoCount: readNumber(row, 'photoCount') ?? readPhotoCount(row),
+        photoThumbnailUrl: readPhotoThumbnailUrl(row),
       },
     ];
   });
@@ -243,8 +245,42 @@ function readAccountId(row: Record<string, unknown>) {
 }
 
 function readPhotoCount(row: Record<string, unknown>) {
+  const photoSummary = row.photoSummary;
+  if (Array.isArray(photoSummary)) return photoSummary.length;
+
   const photos = row.photos;
   return Array.isArray(photos) ? photos.length : 0;
+}
+
+function readPhotoThumbnailUrl(row: Record<string, unknown>) {
+  return (
+    readDisplayUrl(row) ??
+    readDisplayUrlFromCollection(row.photoSummary) ??
+    readDisplayUrlFromCollection(row.photos)
+  );
+}
+
+function readDisplayUrlFromCollection(value: unknown) {
+  if (!Array.isArray(value)) return null;
+
+  for (const item of value) {
+    if (!isRecord(item)) continue;
+    const displayUrl = readDisplayUrl(item);
+    if (displayUrl) return displayUrl;
+  }
+
+  return null;
+}
+
+function readDisplayUrl(row: Record<string, unknown>) {
+  return (
+    readString(row, 'photoThumbnailUrl') ??
+    readString(row, 'thumbnailUrl') ??
+    readString(row, 'photoUrl') ??
+    readString(row, 'imageUrl') ??
+    readString(row, 'contentUrl') ??
+    readString(row, 'url')
+  );
 }
 
 function isPosition(value: unknown): value is BoardPosition {

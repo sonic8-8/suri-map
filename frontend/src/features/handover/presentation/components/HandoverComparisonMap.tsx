@@ -20,6 +20,10 @@ import {
   createRouteColorAssigneeKey,
   getRouteCoreColor,
 } from '../../../../shared/model/boardMapFeatures';
+import {
+  resolveRouteColorByGeometry,
+  type RouteAreaColorCandidate,
+} from '../../../../shared/model/routeAreaColorMatcher';
 import { type IncidentBoardResponse, type BoardSlotName } from '../../../board/api/incidentBoardApi';
 import styles from './HandoverComparisonMap.module.css';
 
@@ -382,6 +386,7 @@ function createComparisonFeatureCollections(
   const overallRows = readSlotRows(board, 'overall_search_area');
   const areaRows = readSlotRows(board, 'area').filter((row) => rowBelongsToSelectedOp(row, selectedOpIdSet));
   const areaVisualStylesByAreaId = createAreaVisualStylesByAreaId([...overallRows, ...areaRows]);
+  const areaColorCandidates = createRouteAreaColorCandidates([...overallRows, ...areaRows], areaVisualStylesByAreaId);
   const routeColorsByAssignee = createRouteColorsByAssignee(areaRows, areaVisualStylesByAreaId);
   const paths = applyRouteColorsByAssignee(
     createBoardMovementPaths(board),
@@ -391,7 +396,12 @@ function createComparisonFeatureCollections(
       accountId: routeColorsByAssignee.accountOpId,
       policePhoneId: routeColorsByAssignee.policePhoneOpId,
     },
-  ).filter((path) => rowBelongsToSelectedOpId(path.opId, selectedOpIdSet));
+  )
+    .map((path) => ({
+      ...path,
+      routeColor: resolveRouteColorByGeometry(path.coordinates, areaColorCandidates, path.opId) ?? path.routeColor,
+    }))
+    .filter((path) => rowBelongsToSelectedOpId(path.opId, selectedOpIdSet));
   const markers = createBoardMapMarkers(board).filter((marker) => rowBelongsToSelectedOpId(marker.opId, selectedOpIdSet));
 
   return {
@@ -617,6 +627,30 @@ function createRouteColorsByAssignee(
     accountOpId: routeColorsByAccountOpId,
     policePhoneOpId: routeColorsByPolicePhoneOpId,
   };
+}
+
+function createRouteAreaColorCandidates(
+  areaRows: Record<string, unknown>[],
+  areaVisualStylesByAreaId: ReadonlyMap<string, AreaVisualStyle>,
+): RouteAreaColorCandidate[] {
+  return areaRows.flatMap((row, index): RouteAreaColorCandidate[] => {
+    const geometry = readGeometry(row);
+    if (!geometry || geometry.type !== 'Polygon') return [];
+
+    const areaId = readString(row, 'id') ?? readString(row, 'searchAreaId') ?? `area-${index}`;
+    const opId = readRowOpId(row);
+    const areaLevel = readString(row, 'areaLevel') ?? 'UNIT';
+    const areaKind = areaLevel === 'OVERALL' ? 'overall' : areaLevel === 'TEAM' ? 'team' : 'unit';
+    return [
+      {
+        id: areaId,
+        opId,
+        kind: areaKind,
+        coordinates: geometry.coordinates[0],
+        lineColor: areaVisualStylesByAreaId.get(areaId)?.lineColor ?? getAreaVisualStyle(areaId).lineColor,
+      },
+    ];
+  });
 }
 
 function getOpColor(opId: string | null, selectedOpIds: string[]) {

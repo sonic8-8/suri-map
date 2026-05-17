@@ -1,63 +1,68 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
-import { clearLoginSession, startKeycloakLogin } from '../../data/login';
+import { SuriMapLogo } from '../../../../shared';
+import { isLocalDevLoginEnabled } from '../../../../shared/config';
+
+import { startKeycloakLogin, startLocalDevLogin } from '../../data/login';
 import styles from './LoginPage.module.css';
 
 type LoginPageProps = {
   redirectPath: string;
+  initialErrorMessage?: string;
 };
 
 function getLoginErrorMessage(error: unknown) {
   if (error instanceof Error) {
-    return `로그인 요청을 처리하지 못했습니다. (${error.message})`;
+    return `로그인 요청을 시작하지 못했습니다. (${error.message})`;
   }
 
-  return '로그인 요청을 처리하지 못했습니다.';
+  return '로그인 요청을 시작하지 못했습니다.';
 }
 
-export function LoginPage({ redirectPath }: LoginPageProps) {
-  const [errorMessage, setErrorMessage] = useState('');
+export function LoginPage({ redirectPath, initialErrorMessage = '' }: LoginPageProps) {
+  const [errorMessage, setErrorMessage] = useState(initialErrorMessage);
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const showLocalDevLogin = isLocalDevLoginEnabled();
 
-  useEffect(() => {
-    let isActive = true;
-    clearLoginSession();
+  const handleLogin = () => {
+    setIsRedirecting(true);
+    setErrorMessage('');
 
     startKeycloakLogin(redirectPath).catch((error) => {
-      if (isActive) {
-        setErrorMessage(getLoginErrorMessage(error));
-      }
+      setIsRedirecting(false);
+      setErrorMessage(getLoginErrorMessage(error));
     });
+  };
 
-    return () => {
-      isActive = false;
-    };
-  }, [redirectPath]);
+  const handleLocalDevLogin = () => {
+    setIsRedirecting(true);
+    setErrorMessage('');
+
+    startLocalDevLogin(redirectPath).catch((error) => {
+      setIsRedirecting(false);
+      setErrorMessage(getLoginErrorMessage(error));
+    });
+  };
 
   return (
     <main className={styles.page}>
       <section className={styles.loginCard} aria-label="Suri-Map 로그인">
         <div className={styles.logo}>
-          <div className={styles.logoMark} aria-hidden="true">
-            <svg width="30" height="30" viewBox="0 0 22 22" fill="none">
-              <path
-                className={styles.brandMark}
-                d="M11 1.5 L19.5 5 V11 C19.5 15.5 16 19.3 11 20.5 C6 19.3 2.5 15.5 2.5 11 V5 Z"
-              />
-              <path
-                d="M11 6.5 a4.5 4.5 0 1 0 0 9 a4.5 4.5 0 1 0 0 -9 z M11 9 v3.5 M11 14 v.1"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                fill="none"
-              />
-            </svg>
-          </div>
+          <SuriMapLogo className={styles.brandMark} size={84} variant="brand" />
           <div className={styles.title}>Suri-Map</div>
           <div className={styles.subtitle}>지휘 상황판 계정으로 로그인</div>
         </div>
 
         <div className={styles.loginForm}>
-          <div className={styles.redirectMessage}>로그인 화면으로 이동 중</div>
+          <button type="button" className={styles.loginButton} disabled={isRedirecting} onClick={handleLogin}>
+            {isRedirecting ? 'SSO 로그인으로 이동 중' : '기관 SSO 로그인'}
+          </button>
+
+          {showLocalDevLogin ? (
+            <button type="button" className={styles.devLoginButton} disabled={isRedirecting} onClick={handleLocalDevLogin}>
+              Local dev login
+            </button>
+          ) : null}
 
           {errorMessage ? <div className={styles.errorMessage}>{errorMessage}</div> : null}
         </div>

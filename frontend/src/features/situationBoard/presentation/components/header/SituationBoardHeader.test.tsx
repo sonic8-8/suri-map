@@ -50,7 +50,7 @@ describe('SituationBoardHeader', () => {
 function currentUserAccount(): LoginAccount {
   return {
     id: 'acct-missing-team-commander',
-    name: 'Missing team commander',
+    name: '실종팀 지휘관',
     organization: 'Missing team',
     accountType: 'COMMAND',
     organizationType: 'MISSING_TEAM',

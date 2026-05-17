@@ -1,0 +1,331 @@
+.layer {
+  --area-identity-color: #2563eb;
+
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  z-index: 4;
+  width: min(448px, calc(100% - 32px));
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.mapPopup {
+  --area-identity-color: #2563eb;
+
+  width: min(448px, calc(100vw - 40px));
+  pointer-events: auto;
+}
+
+.card {
+  position: relative;
+  display: grid;
+  gap: 12px;
+  padding: 14px 14px 13px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--area-identity-color) 22%, rgba(148, 163, 184, 0.24));
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.16);
+  color: #172033;
+  pointer-events: auto;
+  backdrop-filter: blur(12px);
+  animation: inspectorCardEnter 150ms ease-out;
+}
+
+.mapPopup .card {
+  width: 100%;
+  overflow: hidden;
+  animation: none;
+}
+
+.accentBar {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 3px;
+  background: var(--area-identity-color);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.titleBlock {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.title {
+  overflow: hidden;
+  color: #0f172a;
+  display: -webkit-box;
+  font-size: 17px;
+  font-weight: 900;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+}
+
+.pillRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.kindPill {
+  background: #e8eefc;
+  color: #244a9b;
+}
+
+.statusNeutral {
+  background: #eef2f7;
+  color: #526071;
+}
+
+.statusActive {
+  background: #dff3ea;
+  color: #1f6a45;
+}
+
+.statusClosed {
+  background: #e8edf4;
+  color: #49566a;
+}
+
+.statusDanger {
+  background: #fde8e8;
+  color: #b42318;
+}
+
+.iconCloseButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 8px;
+  background: rgba(248, 250, 252, 0.9);
+  color: #334155;
+  cursor: pointer;
+}
+
+.iconCloseButton:hover {
+  background: #eef2f7;
+}
+
+.summaryRow {
+  display: grid;
+  gap: 10px;
+}
+
+.assignmentList {
+  display: grid;
+  gap: 8px;
+}
+
+.assignmentEntry {
+  display: grid;
+  gap: 2px;
+  padding: 10px 11px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+  background: rgba(248, 250, 252, 0.92);
+}
+
+.assignmentEntryTitle {
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.assignmentEntryMeta {
+  color: #526071;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.assignmentEmpty {
+  padding: 10px 11px;
+  border: 1px dashed rgba(148, 163, 184, 0.28);
+  border-radius: 8px;
+  background: rgba(248, 250, 252, 0.74);
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.summaryItem,
+.breadcrumbRow {
+  display: grid;
+  gap: 5px;
+}
+
+.detailGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.summaryLabel {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.summaryValue {
+  color: #172033;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.breadcrumbValue {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.breadcrumbChunk {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.actionButtonPrimary,
+.actionButtonSecondary,
+.actionButtonTertiary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.actionButtonPrimary:disabled,
+.actionButtonSecondary:disabled,
+.actionButtonTertiary:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.actionButtonPrimary {
+  background: #1e3a5f;
+  color: #f8fafc;
+}
+
+.actionButtonPrimary:not(:disabled):hover {
+  background: #274c78;
+}
+
+.actionButtonSecondary {
+  background: #f8fafc;
+  color: #172033;
+}
+
+.actionButtonSecondary:not(:disabled):hover {
+  background: #edf5f8;
+}
+
+.actionButtonTertiary {
+  margin-left: auto;
+  background: transparent;
+  color: #475569;
+}
+
+.actionButtonTertiary:not(:disabled):hover {
+  background: #f1f5f9;
+}
+
+@keyframes inspectorCardEnter {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    animation: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .layer {
+    top: 84px;
+    width: calc(100% - 24px);
+  }
+
+  .actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .detailGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .actionButtonPrimary,
+  .actionButtonSecondary {
+    width: 100%;
+  }
+
+  .actionButtonTertiary {
+    grid-column: 1 / -1;
+    width: 100%;
+    margin-left: 0;
+  }
+}

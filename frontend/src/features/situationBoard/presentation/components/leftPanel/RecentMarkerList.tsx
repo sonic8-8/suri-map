@@ -1,39 +1,87 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-import type { MarkerTypeId, RecentMarker } from '../../constants/mockSituationBoard';
+import type {
+  MarkerFilterOption,
+  MarkerTypeId,
+  RecentMarker,
+  SupportRequestTypeId,
+} from '../../constants/mockSituationBoard';
 import { CollapsiblePanelSection } from './CollapsiblePanelSection';
+import { MarkerTypeFilter } from './MarkerTypeFilter';
 import styles from './RecentMarkerList.module.css';
 
 type RecentMarkerListProps = {
+  incidentId: string;
   recentMarkers: RecentMarker[];
+  markerTypes: MarkerFilterOption[];
+  supportMarkerTypes: MarkerFilterOption[];
   onSelectMarker?: (markerId: string) => void;
 };
 
-type MarkerFilter = 'ALL' | MarkerTypeId | 'UNKNOWN';
+const DEFAULT_SELECTED_MARKER_TYPES: MarkerTypeId[] = ['CLUE', 'PERSON_FOUND', 'FIELD_CONDITION', 'NOTE'];
+const DEFAULT_SELECTED_SUPPORT_REQUEST_TYPES: SupportRequestTypeId[] = ['DRONE', 'POLICE_DOG', 'OTHER'];
 
-const markerFilters: Array<{ value: MarkerFilter; label: string }> = [
-  { value: 'ALL', label: '전체' },
-  { value: 'CLUE', label: '단서' },
-  { value: 'PERSON_FOUND', label: '발견' },
-  { value: 'FIELD_CONDITION', label: '지형' },
-  { value: 'SUPPORT_REQUEST', label: '지원 요청' },
-  { value: 'NOTE', label: 'NOTE' },
-];
-
-export function RecentMarkerList({ recentMarkers, onSelectMarker }: RecentMarkerListProps) {
-  const [selectedFilter, setSelectedFilter] = useState<MarkerFilter>('ALL');
+export function RecentMarkerList({
+  incidentId,
+  recentMarkers,
+  markerTypes,
+  supportMarkerTypes,
+  onSelectMarker,
+}: RecentMarkerListProps) {
+  const [selectedMarkerTypes, setSelectedMarkerTypes] = useState<MarkerTypeId[]>(DEFAULT_SELECTED_MARKER_TYPES);
+  const [selectedSupportRequestTypes, setSelectedSupportRequestTypes] = useState<SupportRequestTypeId[]>(
+    DEFAULT_SELECTED_SUPPORT_REQUEST_TYPES,
+  );
   const markerEvents = useMemo(
     () => [...recentMarkers].sort((current, next) => Date.parse(next.occurredAt) - Date.parse(current.occurredAt)),
     [recentMarkers],
   );
-  const filteredMarkers = markerEvents.filter((marker) => {
-    if (selectedFilter === 'ALL') return true;
-    return markerTypeOf(marker) === selectedFilter;
-  });
+  const filteredMarkers = useMemo(
+    () =>
+      markerEvents.filter((marker) => {
+        const markerType = markerTypeOf(marker);
+        if (markerType === 'UNKNOWN') {
+          return false;
+        }
+
+        if (markerType === 'SUPPORT_REQUEST') {
+          return marker.supportRequestType
+            ? selectedSupportRequestTypes.includes(marker.supportRequestType)
+            : selectedSupportRequestTypes.length > 0;
+        }
+
+        return selectedMarkerTypes.includes(markerType);
+      }),
+    [markerEvents, selectedMarkerTypes, selectedSupportRequestTypes],
+  );
   const emphasisCount = markerEvents.filter((marker) => {
     const markerType = markerTypeOf(marker);
     return markerType === 'PERSON_FOUND' || markerType === 'SUPPORT_REQUEST';
   }).length;
+
+  useEffect(() => {
+    setSelectedMarkerTypes(DEFAULT_SELECTED_MARKER_TYPES);
+    setSelectedSupportRequestTypes(DEFAULT_SELECTED_SUPPORT_REQUEST_TYPES);
+  }, [incidentId]);
+
+  const handleToggleMarkerType = (markerType: MarkerTypeId, supportRequestType?: SupportRequestTypeId) => {
+    if (markerType === 'SUPPORT_REQUEST') {
+      if (!supportRequestType) return;
+
+      setSelectedSupportRequestTypes((currentSupportRequestTypes) =>
+        currentSupportRequestTypes.includes(supportRequestType)
+          ? currentSupportRequestTypes.filter((currentSupportRequestType) => currentSupportRequestType !== supportRequestType)
+          : [...currentSupportRequestTypes, supportRequestType],
+      );
+      return;
+    }
+
+    setSelectedMarkerTypes((currentMarkerTypes) =>
+      currentMarkerTypes.includes(markerType)
+        ? currentMarkerTypes.filter((currentMarkerType) => currentMarkerType !== markerType)
+        : [...currentMarkerTypes, markerType],
+    );
+  };
 
   return (
     <CollapsiblePanelSection title="마커">
@@ -47,19 +95,14 @@ export function RecentMarkerList({ recentMarkers, onSelectMarker }: RecentMarker
         </span>
       </div>
 
-      <div className={styles.filterGrid} aria-label="마커 유형 필터">
-        {markerFilters.map((filter) => (
-          <button
-            key={filter.value}
-            type="button"
-            className={`${styles.filterButton}${selectedFilter === filter.value ? ` ${styles.filterButtonActive}` : ''}`}
-            aria-pressed={selectedFilter === filter.value}
-            onClick={() => setSelectedFilter(filter.value)}
-          >
-            {filter.label}
-          </button>
-        ))}
-      </div>
+      <MarkerTypeFilter
+        markerTypes={markerTypes}
+        supportMarkerTypes={supportMarkerTypes}
+        selectedMarkerTypes={selectedMarkerTypes}
+        selectedSupportRequestTypes={selectedSupportRequestTypes}
+        compact
+        onToggleMarkerType={handleToggleMarkerType}
+      />
 
       {filteredMarkers.length === 0 ? (
         <div className={styles.emptyState}>표시할 마커가 없습니다.</div>
@@ -124,15 +167,17 @@ export function RecentMarkerList({ recentMarkers, onSelectMarker }: RecentMarker
   );
 }
 
-function markerTypeOf(marker: RecentMarker): MarkerFilter {
-  if (marker.markerType) return marker.markerType;
+function markerTypeOf(marker: RecentMarker): MarkerTypeId | 'UNKNOWN' {
+  if (marker.markerType && marker.markerType !== 'UNKNOWN') return marker.markerType;
   if (marker.eventType === '단서') return 'CLUE';
   if (marker.eventType === '발견') return 'PERSON_FOUND';
+  if (marker.eventType === '지형') return 'FIELD_CONDITION';
   if (marker.eventType === '지원 요청') return 'SUPPORT_REQUEST';
+  if (marker.eventType === 'NOTE' || marker.eventType === '메모' || marker.eventType === '운영 메모') return 'NOTE';
   return 'UNKNOWN';
 }
 
-function markerTypeLabel(markerType: MarkerFilter) {
+function markerTypeLabel(markerType: MarkerTypeId | 'UNKNOWN') {
   switch (markerType) {
     case 'CLUE':
       return '단서';
@@ -143,13 +188,13 @@ function markerTypeLabel(markerType: MarkerFilter) {
     case 'SUPPORT_REQUEST':
       return '지원 요청';
     case 'NOTE':
-      return 'NOTE';
+      return '운영 메모';
     default:
       return '마커';
   }
 }
 
-function markerTypeClass(markerType: MarkerFilter) {
+function markerTypeClass(markerType: MarkerTypeId | 'UNKNOWN') {
   switch (markerType) {
     case 'PERSON_FOUND':
       return 'feedItemFound';
@@ -160,7 +205,7 @@ function markerTypeClass(markerType: MarkerFilter) {
   }
 }
 
-function markerTypeBadgeClass(markerType: MarkerFilter) {
+function markerTypeBadgeClass(markerType: MarkerTypeId | 'UNKNOWN') {
   switch (markerType) {
     case 'CLUE':
       return 'typeClue';

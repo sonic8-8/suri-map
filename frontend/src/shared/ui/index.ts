@@ -6,11 +6,14 @@ export { MapControls } from './mapControls';
 export type { MapControlsProps } from './mapControls';
 export { BoardPanel } from './boardPanel';
 export type { BoardPanelPlacement, BoardPanelProps } from './boardPanel';
+export { SuriMapLogo } from './suriMapLogo';
+export type { SuriMapLogoProps } from './suriMapLogo';
 export { formatIncidentContextEyebrow, formatMissingPersonIncidentTitle, SuriMapPageHeader } from './suriMapPageHeader';
 export type {
   MarkerNotification,
   SuriMapPageHeaderIncidentContext,
   SuriMapPageHeaderMetric,
   SuriMapPageHeaderProps,
+  SuriMapPageHeaderSyncStatus,
   SuriMapPageHeaderTabId,
 } from './suriMapPageHeader';

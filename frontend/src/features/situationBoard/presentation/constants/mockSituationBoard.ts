@@ -48,6 +48,7 @@ export type RecentMarker = {
   coordinates?: [number, number];
   memo?: string | null;
   photoCount?: number;
+  photoThumbnailUrl?: string | null;
 };
 
 export type LegendItem = {
@@ -87,6 +88,9 @@ export type SearchAreaAssignedAccount = {
   accountId: string;
   displayName: string;
   policePhoneId?: string | null;
+  incidentRole?: string | null;
+  accountType?: string | null;
+  organizationType?: string | null;
 };
 
 export type SituationBoardFallbackData = {
@@ -151,7 +155,6 @@ function suffixId(incidentId: string, suffix: string) {
 
 export function createIncidentScopedFallbackBoard(incidentId: string): SituationBoardFallbackData {
   const hash = hashIncidentId(incidentId);
-  const markerMinute = String(12 + (hash % 38)).padStart(2, '0');
 
   return {
     incidentId,
@@ -183,29 +186,7 @@ export function createIncidentScopedFallbackBoard(incidentId: string): Situation
     },
     searchAreaDrafts: [],
     movementPaths: [],
-    recentMarkers: [
-      {
-        id: suffixId(incidentId, 'marker-clue'),
-        markerType: 'CLUE',
-        markerTypeLabel: '단서',
-        eventType: '단서',
-        title: '단서 마커 추가',
-        summary: `${incidentId} 수색 구역 내 신고 위치 확인`,
-        occurredAt: `2026-05-10T14:${markerMinute}:00+09:00`,
-        timeLabel: `14:${markerMinute}`,
-      },
-      {
-        id: suffixId(incidentId, 'marker-support'),
-        markerType: 'SUPPORT_REQUEST',
-        supportRequestType: 'OTHER',
-        markerTypeLabel: '지원 요청',
-        eventType: '지원 요청',
-        title: '지원 요청 마커 추가',
-        summary: '현장 지원 요청 접수',
-        occurredAt: `2026-05-10T13:${markerMinute}:00+09:00`,
-        timeLabel: `13:${markerMinute}`,
-      },
-    ],
+    recentMarkers: [],
     legendItems,
   };
 }

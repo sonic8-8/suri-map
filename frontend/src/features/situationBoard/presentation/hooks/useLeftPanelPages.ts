@@ -1,5 +1,3 @@
-import { useState } from 'react';
-
 export type LeftPanelPage = 'filter' | 'area' | 'marker';
 
 const labelByPage: Record<LeftPanelPage, string> = {
@@ -9,13 +7,18 @@ const labelByPage: Record<LeftPanelPage, string> = {
 };
 
 type UseLeftPanelPagesParams = {
+  activePage: LeftPanelPage;
   isCollapsed: boolean;
+  onActivePageChange: (page: LeftPanelPage) => void;
   onToggleCollapsed: () => void;
 };
 
-export function useLeftPanelPages({ isCollapsed, onToggleCollapsed }: UseLeftPanelPagesParams) {
-  const [activePage, setActivePage] = useState<LeftPanelPage>('filter');
-
+export function useLeftPanelPages({
+  activePage,
+  isCollapsed,
+  onActivePageChange,
+  onToggleCollapsed,
+}: UseLeftPanelPagesParams) {
   const getLeftPanelTabAriaLabel = (page: LeftPanelPage) => {
     const label = labelByPage[page];
 
@@ -32,7 +35,7 @@ export function useLeftPanelPages({ isCollapsed, onToggleCollapsed }: UseLeftPan
       return;
     }
 
-    setActivePage(page);
+    onActivePageChange(page);
 
     if (isCollapsed) {
       onToggleCollapsed();

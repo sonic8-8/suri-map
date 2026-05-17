@@ -1,5 +1,6 @@
 -- Suri-Map frontend mock data set #2.
 -- Uses only the default seed accounts and PolicePhones.
+-- Seeds active FCM tokens for the default APP phones used by login/push flows.
 -- All incident, area, marker, and route coordinates are inside Gwangju Metropolitan City.
 
 SET client_encoding = 'UTF8';
@@ -7,13 +8,15 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 
 BEGIN;
 
--- Remove previous test2 rows, including older test2-only account/phone fixtures.
+-- Remove previous test2 rows, including older test2-only account/phone fixtures and seeded FCM tokens.
 DELETE FROM fcm_token
 WHERE id IN (
   '63000000-0000-0000-0000-000000000401',
   '63000000-0000-0000-0000-000000000402',
   '63000000-0000-0000-0000-000000000403',
-  '63000000-0000-0000-0000-000000000404'
+  '63000000-0000-0000-0000-000000000404',
+  '88a85e54-a2d7-a03b-9f46-058d62461c6e',
+  '902c01ba-b31d-2d37-8ea0-958398409c54'
 )
 OR police_phone_id IN (
   '00000000-0000-0000-0000-000000000401',
@@ -21,7 +24,9 @@ OR police_phone_id IN (
   '00000000-0000-0000-0000-000000000403',
   '00000000-0000-0000-0000-000000000404',
   '00000000-0000-0000-0000-000000000405',
-  '00000000-0000-0000-0000-000000000406'
+  '00000000-0000-0000-0000-000000000406',
+  '00000000-0000-0000-0000-000000000101',
+  '50000000-0000-0000-0000-000000000001'
 );
 
 DELETE FROM refresh_token
@@ -350,6 +355,58 @@ WHERE id IN (
   '00000000-0000-0000-0000-000000000207',
   '00000000-0000-0000-0000-000000000208'
 );
+
+INSERT INTO fcm_token (
+  id,
+  account_id,
+  police_phone_id,
+  app_instance_id,
+  token_hash,
+  token_ciphertext,
+  status,
+  created_at,
+  last_registered_at,
+  revoked_at,
+  version
+)
+VALUES
+  (
+    '88a85e54-a2d7-a03b-9f46-058d62461c6e',
+    '11111111-1111-1111-1111-111111110003',
+    '00000000-0000-0000-0000-000000000101',
+    'app-instance-assigned-101',
+    'e2c2d72eeb9954f9e2dc41c3cad292177dbc91265265452b7584660fae688cda',
+    'cipher:fcm-token-assigned-101',
+    'ACTIVE',
+    '2026-05-16T10:31:00+09:00',
+    '2026-05-16T10:31:00+09:00',
+    NULL,
+    1
+  ),
+  (
+    '902c01ba-b31d-2d37-8ea0-958398409c54',
+    '11111111-1111-1111-1111-111111110003',
+    '50000000-0000-0000-0000-000000000001',
+    'app-instance-path-500',
+    'b72cea932c0782376e463fad3fbca7d66e0bd2d3381f359c4c198159ed67f130',
+    'cipher:fcm-token-path-500',
+    'ACTIVE',
+    '2026-05-16T10:31:00+09:00',
+    '2026-05-16T10:31:00+09:00',
+    NULL,
+    1
+  )
+ON CONFLICT (id) DO UPDATE SET
+  account_id = EXCLUDED.account_id,
+  police_phone_id = EXCLUDED.police_phone_id,
+  app_instance_id = EXCLUDED.app_instance_id,
+  token_hash = EXCLUDED.token_hash,
+  token_ciphertext = EXCLUDED.token_ciphertext,
+  status = EXCLUDED.status,
+  created_at = EXCLUDED.created_at,
+  last_registered_at = EXCLUDED.last_registered_at,
+  revoked_at = EXCLUDED.revoked_at,
+  version = EXCLUDED.version;
 
 INSERT INTO incident (
   id,

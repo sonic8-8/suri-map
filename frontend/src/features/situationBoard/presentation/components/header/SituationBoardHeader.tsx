@@ -4,6 +4,7 @@ import {
   SuriMapPageHeader,
   type MarkerNotification,
   type SuriMapPageHeaderIncidentContext,
+  type SuriMapPageHeaderSyncStatus,
   type SuriMapPageHeaderTabId,
 } from '../../../../../shared/ui';
 import type { LoginAccount } from '../../../../login/presentation/types/login';
@@ -24,6 +25,7 @@ type SituationBoardHeaderProps = {
   incidentTerminal: IncidentTerminalViewModel | null;
   markerNotificationIndex: number;
   markerNotifications: MarkerNotification[];
+  syncStatus?: SuriMapPageHeaderSyncStatus | null;
   onCloseMarkerNotifications: () => void;
   onMoveMarkerNotification: (nextIndex: number) => void;
   onOpenIncidentList: () => void;
@@ -42,6 +44,7 @@ export function SituationBoardHeader({
   incidentTerminal,
   markerNotificationIndex,
   markerNotifications,
+  syncStatus,
   onCloseMarkerNotifications,
   onMoveMarkerNotification,
   onOpenIncidentList,
@@ -61,6 +64,7 @@ export function SituationBoardHeader({
       incidentContext={incidentContext}
       markerNotificationIndex={markerNotificationIndex}
       markerNotifications={markerNotifications}
+      syncStatus={syncStatus}
       timestampLabel={timestampLabel}
       onCloseMarkerNotifications={onCloseMarkerNotifications}
       onMoveMarkerNotification={onMoveMarkerNotification}

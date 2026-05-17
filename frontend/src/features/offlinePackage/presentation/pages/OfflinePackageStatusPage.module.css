@@ -53,7 +53,9 @@
 
 .summaryBar > div {
   display: grid;
-  gap: 4px;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 1.05rem;
   padding: 1.25rem;
   border: 1px solid rgba(156, 181, 195, 0.42);
   border-radius: 1.25rem;
@@ -65,17 +67,54 @@
     0 0 0 1px rgba(255, 255, 255, 0.72) inset;
 }
 
-.summaryBar span {
+.summaryMetric {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.summaryIcon {
+  display: inline-grid;
+  place-items: center;
+  width: 3.7rem;
+  height: 3.7rem;
+}
+
+.summaryIconGlyph {
+  display: block;
+  flex: none;
+  width: 2.875rem;
+  height: 2.875rem;
+  color: currentColor;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+
+.summaryIconReady {
+  color: #087047;
+}
+
+.summaryIconWarning {
+  color: #905008;
+}
+
+.summaryIconPurged {
+  color: #48525b;
+}
+
+.summaryMetric span {
   color: #5c6f7b;
-  font-size: 0.86rem;
+  font-size: 1.05rem;
   font-weight: 700;
 }
 
 .summaryBar strong {
   color: #122838;
-  font-size: 2.1rem;
+  font-size: 2.6rem;
   line-height: 1;
-  letter-spacing: -0.06em;
+  letter-spacing: 0;
 }
 
 .offlineBanner {
@@ -89,7 +128,7 @@
   color: #7a4b11;
   background: rgba(250, 239, 211, 0.82);
   box-shadow: 0 1rem 2rem rgba(26, 25, 20, 0.18);
-  font-size: 0.9rem;
+  font-size: 1.08rem;
   font-weight: 700;
 }
 
@@ -147,9 +186,9 @@
 .sectionTitle h2 {
   margin: 0;
   color: #102838;
-  font-size: clamp(2.15rem, 2.85vw, 3rem);
+  font-size: 2.7rem;
   line-height: 1.12;
-  letter-spacing: -0.065em;
+  letter-spacing: 0;
   text-shadow: 0 0.75rem 2rem rgba(74, 103, 121, 0.22);
 }
 
@@ -157,7 +196,7 @@
   margin: 0;
   max-width: 72rem;
   color: #435967;
-  font-size: 1.08rem;
+  font-size: 1.25rem;
   font-weight: 650;
   line-height: 1.55;
 }
@@ -176,7 +215,7 @@
   border-radius: 8px;
   color: #8f2f24;
   background: rgba(255, 232, 218, 0.95);
-  font-size: 15px;
+  font-size: 1.08rem;
   font-weight: 700;
   box-shadow: 0 0.8rem 1.8rem rgba(119, 54, 39, 0.14);
 }
@@ -193,7 +232,7 @@
 }
 
 .tileSummary {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .manifestMeta > div,
@@ -209,18 +248,61 @@
   box-shadow: 0 0.6rem 1.4rem rgba(27, 46, 59, 0.14);
 }
 
+.tileSummary > div {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.tileSummaryMetric {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.tileSummaryIcon {
+  display: inline-grid;
+  place-items: center;
+  width: 3.35rem;
+  height: 3.35rem;
+}
+
+.tileSummaryIconGlyph {
+  display: block;
+  flex: none;
+  width: 2.625rem;
+  height: 2.625rem;
+  color: currentColor;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+
+.tileSummaryIconCount {
+  color: #1b6686;
+}
+
+.tileSummaryIconBytes {
+  color: #5d5f8f;
+}
+
+.tileSummaryIconMap {
+  color: #2f6f54;
+}
+
 .manifestMeta span,
-.tileSummary span {
+.tileSummaryMetric span {
   color: #5c6a74;
-  font-size: 0.8rem;
+  font-size: 1rem;
   font-weight: 800;
 }
 
 .manifestMeta strong,
-.tileSummary strong {
+.tileSummaryMetric strong {
   overflow: hidden;
   color: #0f2230;
-  font-size: 1.02rem;
+  font-size: 1.28rem;
   font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -342,14 +424,14 @@
 .statusTable th {
   color: #eef5f8;
   background: #2b3d4c;
-  font-size: 13px;
+  font-size: 1.02rem;
   font-weight: 800;
   letter-spacing: 0.02em;
 }
 
 .statusTable td {
   color: #263d4c;
-  font-size: 1rem;
+  font-size: 1.16rem;
   font-weight: 650;
   background: transparent;
 }
@@ -376,10 +458,96 @@
 
 .statusTable td:first-child {
   display: grid;
-  gap: 2px;
+  gap: 0;
   align-content: center;
   padding-right: 1rem;
   border-right: 1px solid rgba(49, 78, 95, 0.14);
+}
+
+.deviceRowTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  min-width: 0;
+}
+
+.deviceTypeIcon {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 2.15rem;
+  height: 2.15rem;
+}
+
+.deviceTypeIconGlyph {
+  width: 1.55rem;
+  height: 1.55rem;
+  color: currentColor;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+
+.deviceTypeIconPatrolCar {
+  color: #0b7a75;
+}
+
+.deviceTypeIconPhone {
+  color: #2b537c;
+}
+
+.manifestRowTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.manifestGroupIcon {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+.manifestGroupIconGlyph {
+  width: 1.9rem;
+  height: 1.9rem;
+  color: currentColor;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+
+.manifestGroupIconIncidentMeta {
+  color: #1b6686;
+}
+
+.manifestGroupIconMissingPerson {
+  color: #8a5b11;
+}
+
+.manifestGroupIconOpList {
+  color: #2f6f54;
+}
+
+.manifestGroupIconAssignedArea {
+  color: #3d5f71;
+}
+
+.manifestGroupIconInitialMarker {
+  color: #0b7a75;
+}
+
+.manifestGroupIconOverallSearchArea {
+  color: #48525b;
+}
+
+.manifestGroupIconTile {
+  color: #2b537c;
 }
 
 .statusTable td:not(:first-child) {
@@ -445,15 +613,15 @@
 
 .statusTable td:not(:first-child)::before {
   color: #647a88;
-  font-size: 0.74rem;
+  font-size: 0.92rem;
   font-weight: 800;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .statusTable td strong {
   display: block;
   color: #0d2637;
-  font-size: 1.08rem;
+  font-size: 1.32rem;
   font-weight: 800;
 }
 
@@ -461,7 +629,7 @@
   display: block;
   margin-top: 2px;
   color: #5d707c;
-  font-size: 0.86rem;
+  font-size: 1.05rem;
   font-weight: 650;
 }
 
@@ -490,7 +658,7 @@
   border-color: var(--package-status-border);
   color: var(--package-status-fg);
   background: var(--package-status-bg);
-  font-size: 13px;
+  font-size: 1rem;
   font-weight: 700;
 }
 
@@ -542,12 +710,12 @@
 
 .emptyState strong {
   color: #10202a;
-  font-size: 19px;
+  font-size: 1.38rem;
 }
 
 .emptyState span {
   color: #526976;
-  font-size: 15px;
+  font-size: 1.08rem;
 }
 
 .skeletonList {

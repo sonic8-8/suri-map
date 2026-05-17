@@ -5,5 +5,6 @@ export type {
   SuriMapPageHeaderIncidentContext,
   SuriMapPageHeaderMetric,
   SuriMapPageHeaderProps,
+  SuriMapPageHeaderSyncStatus,
   SuriMapPageHeaderTabId,
 } from './SuriMapPageHeader';

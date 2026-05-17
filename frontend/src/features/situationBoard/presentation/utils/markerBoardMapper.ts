@@ -26,6 +26,7 @@ export function toBoardRecentMarkers(board: SituationBoardResponseDto): RecentMa
       coordinates: marker.coordinates,
       memo: marker.memo,
       photoCount: marker.photoCount,
+      photoThumbnailUrl: marker.photoThumbnailUrl,
     };
   });
 }

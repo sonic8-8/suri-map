@@ -5,6 +5,10 @@ import {
   createRouteColorAssigneeKey,
 } from '../../../../shared/model/boardMapFeatures';
 import { createBoardMovementPaths } from '../../../../shared/model/boardMapSlots';
+import {
+  resolveRouteColorByGeometry,
+  type RouteAreaColorCandidate,
+} from '../../../../shared/model/routeAreaColorMatcher';
 import type {
   MovementPath,
   SearchAreaTreeNode,
@@ -22,7 +26,8 @@ export function assignRouteColorsToMovementPaths(
   searchAreaDrafts: CompletedAreaDraft[],
 ) {
   const routeColorsByAssignee = createRouteColorsByAssignee(searchAreaTree, searchAreaDrafts);
-  return applyRouteColorsByAssignee(
+  const areaColorCandidates = createRouteAreaColorCandidates(searchAreaTree, searchAreaDrafts);
+  const assigneeColoredPaths = applyRouteColorsByAssignee(
     movementPaths,
     routeColorsByAssignee.accountId,
     routeColorsByAssignee.policePhoneId,
@@ -31,6 +36,11 @@ export function assignRouteColorsToMovementPaths(
       policePhoneId: routeColorsByAssignee.policePhoneOpId,
     },
   );
+
+  return assigneeColoredPaths.map((path) => ({
+    ...path,
+    routeColor: resolveRouteColorByGeometry(path.coordinates, areaColorCandidates, path.opId) ?? path.routeColor,
+  }));
 }
 
 export function createLegendItems(
@@ -98,4 +108,28 @@ function createRouteColorsByAssignee(searchAreaTree: SearchAreaTreeNode, searchA
     accountOpId: routeColorsByAccountOpId,
     policePhoneOpId: routeColorsByPolicePhoneOpId,
   };
+}
+
+function createRouteAreaColorCandidates(
+  searchAreaTree: SearchAreaTreeNode,
+  searchAreaDrafts: CompletedAreaDraft[],
+): RouteAreaColorCandidate[] {
+  const draftsByAreaId = new Map(searchAreaDrafts.map((draft) => [draft.areaId, draft]));
+  const candidates: RouteAreaColorCandidate[] = [];
+  const visit = (area: SearchAreaTreeNode) => {
+    const draft = draftsByAreaId.get(area.id);
+    if (draft) {
+      candidates.push({
+        id: draft.areaId,
+        opId: area.opId,
+        kind: draft.kind,
+        coordinates: draft.coordinates,
+        lineColor: areaColorTokens[draft.colorToken].lineColor,
+      });
+    }
+    (area.children ?? []).forEach(visit);
+  };
+
+  visit(searchAreaTree);
+  return candidates;
 }

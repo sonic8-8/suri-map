@@ -1,4 +1,4 @@
-/* 마커 유형 버튼을 2열 compact chip 그리드로 배치한다. */
+/* 좌측 패널에서 재사용하는 옵션 버튼의 공통 베이스. */
 .filterSection {
   gap: 10px;
   padding-bottom: 18px;
@@ -48,11 +48,49 @@
   line-height: 1.2;
 }
 
-/* 지원 요청 세부 유형을 3칸으로 균형 배치한다. */
+/* 지원 요청 세부 유형을 2칸으로 균형 배치한다. */
 .markerSupportList {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+}
+
+/* 마커 탭에서만 쓰는 compact 변형. */
+.compactFilterSection {
+  gap: 8px;
+}
+
+.compactMarkerChipList {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.compactMarkerButton {
+  padding: 3px 2px;
+}
+
+.compactMarkerButton span {
+  font-size: 14px;
+}
+
+.compactMarkerButton svg {
+  width: 24px;
+  height: 24px;
+}
+
+.compactMarkerSupportGroup {
+  display: grid;
+  gap: 8px;
+  margin-top: 22px;
+  padding: 0;
+  border-top: 0;
+}
+
+.compactMarkerSupportList {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
 }
 
 .markerFilterDisabled {
