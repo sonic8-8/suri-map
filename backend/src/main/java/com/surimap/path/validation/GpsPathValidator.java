@@ -16,7 +16,7 @@ public class GpsPathValidator {
 
   public GpsPathValidationResult validateBatch(
       List<GpsPathPoint> points, OffsetDateTime serverReceivedAt) {
-    return validateBatch(points, serverReceivedAt, GpsPathValidationCriteria.HARNESS_ENVELOPE);
+    return validateBatch(points, serverReceivedAt, null);
   }
 
   public GpsPathValidationResult validateBatch(
@@ -106,6 +106,10 @@ public class GpsPathValidator {
             && canonicalLat.compareTo(BigDecimal.valueOf(envelope.maxLat())) <= 0;
     if (!inEnvelope) {
       throw new InvalidGpsPathBatchException("point outside harness envelope");
+    }
+
+    if (activeOverallAreaEnvelope == null) {
+      return;
     }
 
     boolean inActiveOverallArea =

@@ -97,14 +97,19 @@ class OfflinePackageUiStateTest {
         val offline = OfflinePackageUiState.offline(incidentTitle = "inc-001")
         val permissionDenied = OfflinePackageUiState.permissionDenied(incidentTitle = "inc-001")
         val unavailable = OfflinePackageUiState.unavailable(incidentTitle = "inc-001")
+        val searchAreaPending = OfflinePackageUiState.searchAreaPending(incidentTitle = "inc-001")
 
         assertEquals(OfflinePackageDownloadStatus.Offline, offline.status)
         assertEquals(OfflinePackageDownloadStatus.PermissionDenied, permissionDenied.status)
         assertEquals(OfflinePackageDownloadStatus.AutoRetryExhausted, unavailable.status)
+        assertEquals(OfflinePackageDownloadStatus.SearchAreaPending, searchAreaPending.status)
         assertFalse(offline.shouldDownloadPackage)
         assertFalse(permissionDenied.shouldDownloadPackage)
+        assertFalse(searchAreaPending.shouldDownloadPackage)
         assertFalse(offline.autoOpenSearchMap)
         assertFalse(permissionDenied.autoOpenSearchMap)
+        assertFalse(searchAreaPending.autoOpenSearchMap)
+        assertTrue(searchAreaPending.visibleText().any { it.contains("수색구역 지정 전") })
         assertTrue(unavailable.canManualRetry)
     }
 

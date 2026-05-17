@@ -19,7 +19,7 @@ import org.locationtech.jts.geom.PrecisionModel;
  * 마커 위치 검증 구현체.
  *
  * <p>검증 순서: 1. null/empty/SRID 체크 2. 좌표 유효성 (NaN, range) 3. precision 6자리 canonical 정규화 4.
- * SearchAreaQuery.overallOf 기반 overall_search_area 포함 확인
+ * active overall_search_area가 있으면 포함 확인
  *
  * @see docs/spec/specs/S5.json
  * @see docs/spec/boundaries.md
@@ -76,8 +76,10 @@ public class MarkerLocationValidatorImpl implements MarkerLocationValidator {
         searchAreaQuery
             .overallOf(incidentId)
             .map(result -> toPolygon(result.geometry()))
-            .orElseThrow(
-                () -> new InvalidGeometryException("active overall_search_area is required"));
+            .orElse(null);
+    if (overallSearchArea == null) {
+      return;
+    }
 
     if (!overallSearchArea.covers(normalizedPoint)) {
       throw new InvalidGeometryException(

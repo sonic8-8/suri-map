@@ -259,6 +259,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Request: `incidentId`, `opId`, `clientTs`, optional `searchPathId`, `clockOffsetMs`
 - Response: `201 {id, incidentId, opId, policePhoneId, version, status}`
 - Errors: `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`, `op_required`, `op_mismatch`
+- Note: 전체 수색구역은 초동 경로 시작의 선행조건이 아니다. 전체 수색구역이 있으면 구역 밖 좌표는 정책에 따라 검토/제외 대상으로 다룰 수 있지만, 수색구역 미지정 상태의 APP 초동 기록을 막지 않는다.
 
 #### PATCH `/api/search-paths/{searchPathId}`
 
@@ -285,7 +286,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Response: `200 {id, dutyShiftId, opId, policePhoneId, acceptedPointCount, excludedPointCount, excludedPoints[{pointId, reason, clientTs}], geometry, segments, version, status}`
 - `excludedPoints.reason`: `low_accuracy`, `clock_skew`, `invalid_speed`, `distance_jump`
 - Errors: `invalid_geometry`, `clock_skew_exceeded`, `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`, `op_required`, `op_mismatch`
-- Note: S6 Outbox `request_path`와 harness가 이 path를 기준으로 replay한다.
+- Note: S6 Outbox `request_path`와 harness가 이 path를 기준으로 replay한다. 전체 수색구역이 없으면 하네스/운영 허용 범위 내 좌표를 초동 경로로 수신한다.
 
 #### GET `/api/search-paths`
 
@@ -380,7 +381,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Request: optional `id`, `incidentId`, `opId`, `type`, `location`, `clientTs`, optional `supportRequestType`, `memo`, `clockOffsetMs`, `photos:[{photoId, sizeBytes, contentType, optional width, height, checksumSha256}]`
 - Response: `201 {id, incidentId, opId, policePhoneId, status, version, photos:[{photoId, status, version, markerId, markerVersion}]}`
 - Errors: `invalid_geometry`, `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`, `op_required`, `op_mismatch`
-- Note: `photos`가 있으면 `id`는 클라이언트가 미리 생성한 markerId여야 한다. 앱은 먼저 `POST /api/markers/photos/upload-url`로 object storage 업로드를 끝낸 뒤 같은 markerId와 photoId를 `POST /api/markers`에 포함해 marker create와 photo attach를 한 write로 확정한다.
+- Note: `photos`가 있으면 `id`는 클라이언트가 미리 생성한 markerId여야 한다. 앱은 먼저 `POST /api/markers/photos/upload-url`로 object storage 업로드를 끝낸 뒤 같은 markerId와 photoId를 `POST /api/markers`에 포함해 marker create와 photo attach를 한 write로 확정한다. 전체 수색구역은 현장 마커 생성의 선행조건이 아니며, 전체 수색구역이 있으면 좌표 포함 여부를 추가 검증한다.
 
 #### PATCH `/api/markers/{markerId}`
 
@@ -481,7 +482,8 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Idempotency-Key: no
 - Query: optional `policePhoneId`, `knownManifestRevision`
 - Response: `200 {manifestId, incidentId, manifestVersion, expiresAt, packageHash, incident, missingPerson, operationalPeriods, assignedAreas, initialMarkers, overallSearchArea, tileItems, packageItems}`
-- Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `overall_search_area_required`, `tile_unavailable`
+- Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `package_manifest_not_ready`, `overall_search_area_required`, `tile_unavailable`
+- Note: 오프라인 패키지는 전체 수색구역과 타일 기준 범위가 준비된 뒤 생성된다. 수색구역 미지정 상태의 manifest 요청은 `409 {error: "package_manifest_not_ready"}` 또는 기존 호환 오류 `overall_search_area_required`로 응답할 수 있으며, APP은 이를 사건 진입 실패가 아닌 패키지 대기 상태로 표시한다.
 
 #### POST `/api/incidents/{incidentId}/offline-package/installations`
 
