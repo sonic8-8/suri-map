@@ -3,11 +3,12 @@ package com.surimap.feature.bootstrap
 import com.surimap.core.network.AccessTokenProvider
 import com.surimap.core.network.SuriMapApiClient
 import com.surimap.feature.bootstrap.data.AuthBootstrapCoordinator
+import com.surimap.feature.bootstrap.data.AuthBootstrapEnvironmentCheck
 import com.surimap.feature.bootstrap.data.AuthBootstrapServerCheck
 import com.surimap.feature.bootstrap.data.AndroidManagedConfigurationReader
-import com.surimap.feature.bootstrap.data.AuthBootstrapCredentials
 import com.surimap.feature.bootstrap.data.DebugManagedConfigurationOverrideProvider
 import com.surimap.feature.bootstrap.data.ManagedPolicePhoneConfig
+import com.surimap.feature.bootstrap.data.NetworkAuthBootstrapEnvironmentCheck
 import com.surimap.feature.bootstrap.data.NetworkPolicePhoneBootstrapServerCheck
 import com.surimap.feature.bootstrap.ui.AuthBootstrapFailureReason
 import com.surimap.feature.bootstrap.ui.AuthBootstrapOutcome
@@ -114,6 +115,24 @@ class AuthBootstrapContractTest {
     }
 
     @Test
+    fun androidOidcSetupUsesAppAuthAndDeepLinkCallbackWithoutPasswordGrantBuildFields() {
+        val appBuild = File("build.gradle.kts").readText()
+        val versionCatalog = File("../gradle/libs.versions.toml").readText()
+        val manifest = File("src/main/AndroidManifest.xml").readText()
+
+        assertTrue(versionCatalog.contains("appauth"))
+        assertTrue(appBuild.contains("implementation(libs.appauth)"))
+        assertTrue(appBuild.contains("SURI_MAP_KEYCLOAK_ISSUER_URL"))
+        assertTrue(appBuild.contains("SURI_MAP_KEYCLOAK_CLIENT_ID"))
+        assertTrue(appBuild.contains("SURI_MAP_KEYCLOAK_REDIRECT_URI"))
+        assertTrue(manifest.contains("""android:scheme="com.surimap""""))
+        assertTrue(manifest.contains("""android:host="auth""""))
+        assertTrue(manifest.contains("""android:path="/callback""""))
+        assertFalse(appBuild.contains("SURI_MAP_DEBUG_BOOTSTRAP_PASSWORD"))
+        assertFalse(appBuild.contains("SURI_MAP_DEBUG_BOOTSTRAP_ACCOUNT_CODE"))
+    }
+
+    @Test
     fun managedPolicePhoneConfigCarriesFutureTileAndStorageSettingsWithoutVendorCoupling() {
         val config =
             ManagedPolicePhoneConfig(
@@ -168,6 +187,21 @@ class AuthBootstrapContractTest {
         assertFalse(state.visibleText().any { it.contains("실종") })
         assertFalse(state.visibleText().any { it.contains("OP") })
         assertFalse(state.visibleText().any { it.contains("배정 사건") })
+    }
+
+    @Test
+    fun authenticationRequiredStatePromptsKeycloakLoginAfterManagedChecks() {
+        val state = AuthBootstrapUiState.fromOutcome(
+            outcome = AuthBootstrapOutcome.Blocked(AuthBootstrapFailureReason.AuthenticationRequired),
+            apiBaseUrl = "https://suri-map.internal"
+        )
+
+        assertFalse(state.shouldEnterIncidentList)
+        assertTrue(state.requiresAuthentication)
+        assertEquals("계정 인증이 필요합니다", state.failureMessage)
+        assertEquals("로그인", state.primaryActionLabel)
+        assertTrue(state.visibleText().any { it.contains("로그인") })
+        assertFalse(state.visibleText().any { it.contains("비밀번호") })
     }
 
     @Test
@@ -228,9 +262,7 @@ class AuthBootstrapContractTest {
                 DebugManagedConfigurationOverrideProvider(
                     isDebugBuild = true,
                     apiBaseUrl = "http://127.0.0.1:8080",
-                    debugBootstrapAccountCode = "acct-precinct-team",
-                    debugBootstrapPassword = "debug-password",
-                    debugBootstrapPolicePhoneCode = "dev-precinct-phone-01"
+                    debugBootstrapPolicePhoneId = POLICE_PHONE_ID
                 )
             )
         var checkedConfig: ManagedPolicePhoneConfig? = null
@@ -246,8 +278,8 @@ class AuthBootstrapContractTest {
 
         val outcome = coordinator.check()
 
-        assertEquals(AuthBootstrapOutcome.Ready(policePhoneId = "dev-precinct-phone-01"), outcome)
-        assertEquals("dev-precinct-phone-01", checkedConfig?.policePhoneId)
+        assertEquals(AuthBootstrapOutcome.Ready(policePhoneId = POLICE_PHONE_ID), outcome)
+        assertEquals(POLICE_PHONE_ID, checkedConfig?.policePhoneId)
         assertEquals("http://127.0.0.1:8080", checkedConfig?.apiBaseUrl)
         assertEquals(true, checkedConfig?.isManagedPhone)
     }
@@ -264,9 +296,7 @@ class AuthBootstrapContractTest {
                     DebugManagedConfigurationOverrideProvider(
                         isDebugBuild = true,
                         apiBaseUrl = "http://127.0.0.1:8080",
-                        debugBootstrapAccountCode = "",
-                        debugBootstrapPassword = "debug-password",
-                        debugBootstrapPolicePhoneCode = "dev-precinct-phone-01"
+                        debugBootstrapPolicePhoneId = ""
                     )
                 ),
                 serverCheck =
@@ -288,9 +318,7 @@ class AuthBootstrapContractTest {
             DebugManagedConfigurationOverrideProvider(
                 isDebugBuild = false,
                 apiBaseUrl = "http://127.0.0.1:8080",
-                debugBootstrapAccountCode = "acct-precinct-team",
-                debugBootstrapPassword = "debug-password",
-                debugBootstrapPolicePhoneCode = "dev-precinct-phone-01"
+                debugBootstrapPolicePhoneId = POLICE_PHONE_ID
             )
 
         assertNull(override.read())
@@ -361,26 +389,8 @@ class AuthBootstrapContractTest {
     }
 
     @Test
-    fun networkServerCheckLogsInWithDebugBootstrapCredentialsBeforeHeartbeat() = runBlocking {
-        val callFactory =
-            CapturingCallFactory(
-                responses =
-                listOf(
-                    response(
-                        200,
-                        """
-                        {
-                          "sessionId": "session-1",
-                          "accessToken": "bootstrap-token-1",
-                          "securityContext": {
-                            "policePhoneId": "$POLICE_PHONE_ID"
-                          }
-                        }
-                        """.trimIndent()
-                    ),
-                    response(200, """{"status":"ACTIVE"}""")
-                )
-            )
+    fun networkServerCheckRequiresOidcAccessTokenWithoutCallingLegacyLogin() = runBlocking {
+        val callFactory = CapturingCallFactory(response = response(200, """{"status":"ACTIVE"}"""))
         val serverCheck =
             NetworkPolicePhoneBootstrapServerCheck(
                 apiClient =
@@ -388,13 +398,6 @@ class AuthBootstrapContractTest {
                     baseUrl = "https://suri-map.internal",
                     callFactory = callFactory
                 ),
-                credentialsProvider = {
-                    AuthBootstrapCredentials(
-                        accountCode = "acct-precinct-team",
-                        password = "debug-password",
-                        policePhoneCode = "dev-precinct-phone-01"
-                    )
-                },
                 clock = Clock.fixed(Instant.parse("2026-05-11T07:00:00Z"), ZoneOffset.UTC)
             )
 
@@ -406,27 +409,11 @@ class AuthBootstrapContractTest {
                 )
             )
 
-        val requests = callFactory.requests
         assertEquals(
-            AuthBootstrapOutcome.Ready(
-                policePhoneId = POLICE_PHONE_ID,
-                accessToken = "bootstrap-token-1"
-            ),
+            AuthBootstrapOutcome.Blocked(AuthBootstrapFailureReason.AuthenticationRequired),
             outcome
         )
-        assertEquals("POST", requests[0].method)
-        assertEquals("https://suri-map.internal/api/auth/login", requests[0].url.toString())
-        assertEquals("APP", requests[0].header("X-Client-Channel"))
-        assertEquals(
-            """{"accountCode":"acct-precinct-team","password":"debug-password","channel":"APP","policePhoneCode":"dev-precinct-phone-01"}""",
-            readRequestBody(requests[0])
-        )
-        assertEquals(
-            "https://suri-map.internal/api/police-phones/$POLICE_PHONE_ID/heartbeat",
-            requests[1].url.toString()
-        )
-        assertEquals("Bearer bootstrap-token-1", requests[1].header("Authorization"))
-        assertEquals(POLICE_PHONE_ID, requests[1].header("X-PolicePhone-Id"))
+        assertTrue(callFactory.requests.isEmpty())
     }
 
     @Test
@@ -439,7 +426,8 @@ class AuthBootstrapContractTest {
                     callFactory = CapturingCallFactory(
                         response = response(403, """{"error":"police_phone_not_assigned"}""")
                     )
-                )
+                ),
+                accessTokenProvider = AccessTokenProvider { "token-1" }
             )
         val offlineCheck =
             NetworkPolicePhoneBootstrapServerCheck(
@@ -447,7 +435,8 @@ class AuthBootstrapContractTest {
                 SuriMapApiClient(
                     baseUrl = "https://suri-map.internal",
                     callFactory = FailingCallFactory()
-                )
+                ),
+                accessTokenProvider = AccessTokenProvider { "token-1" }
             )
         val config =
             ManagedPolicePhoneConfig(
@@ -466,31 +455,63 @@ class AuthBootstrapContractTest {
     }
 
     @Test
-    fun networkServerCheckMapsDebugBootstrapLoginIoFailureWithoutCrashing() = runBlocking {
-        val serverCheck =
-            NetworkPolicePhoneBootstrapServerCheck(
-                apiClient =
-                SuriMapApiClient(
-                    baseUrl = "http://127.0.0.1:8080",
-                    callFactory = FailingCallFactory()
-                ),
-                credentialsProvider = {
-                    AuthBootstrapCredentials(
-                        accountCode = "acct-precinct-team",
-                        password = "debug-password",
-                        policePhoneCode = "dev-precinct-phone-01"
+    fun coordinatorRunsEnvironmentCheckBeforeAuthenticationRequired() = runBlocking {
+        var serverCalled = false
+        val coordinator =
+            AuthBootstrapCoordinator(
+                managedConfigurationReader = {
+                    ManagedPolicePhoneConfig(
+                        policePhoneId = POLICE_PHONE_ID,
+                        apiBaseUrl = "http://127.0.0.1:8080"
                     )
+                },
+                environmentCheck =
+                AuthBootstrapEnvironmentCheck {
+                    AuthBootstrapOutcome.Blocked(AuthBootstrapFailureReason.InternalNetworkUnavailable)
+                },
+                serverCheck =
+                AuthBootstrapServerCheck {
+                    serverCalled = true
+                    AuthBootstrapOutcome.Blocked(AuthBootstrapFailureReason.AuthenticationRequired)
                 }
             )
 
         assertEquals(
             AuthBootstrapOutcome.Blocked(AuthBootstrapFailureReason.InternalNetworkUnavailable),
-            serverCheck.verify(
-                ManagedPolicePhoneConfig(
-                    policePhoneId = "dev-precinct-phone-01",
-                    apiBaseUrl = "http://127.0.0.1:8080"
+            coordinator.check()
+        )
+        assertFalse(serverCalled)
+    }
+
+    @Test
+    fun networkEnvironmentCheckUsesHealthBeforeLoginAndMapsNetworkFailure() = runBlocking {
+        val successFactory = CapturingCallFactory(response = response(200, """{"status":"ok"}"""))
+        val successCheck =
+            NetworkAuthBootstrapEnvironmentCheck(
+                apiClient = SuriMapApiClient(
+                    baseUrl = "https://suri-map.internal",
+                    callFactory = successFactory
                 )
             )
+        val failingCheck =
+            NetworkAuthBootstrapEnvironmentCheck(
+                apiClient = SuriMapApiClient(
+                    baseUrl = "https://suri-map.internal",
+                    callFactory = FailingCallFactory()
+                )
+            )
+        val config =
+            ManagedPolicePhoneConfig(
+                policePhoneId = POLICE_PHONE_ID,
+                apiBaseUrl = "https://suri-map.internal"
+            )
+
+        assertNull(successCheck.verify(config))
+        assertEquals("GET", successFactory.lastRequest!!.method)
+        assertEquals("https://suri-map.internal/api/health", successFactory.lastRequest!!.url.toString())
+        assertEquals(
+            AuthBootstrapOutcome.Blocked(AuthBootstrapFailureReason.InternalNetworkUnavailable),
+            failingCheck.verify(config)
         )
     }
 

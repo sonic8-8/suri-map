@@ -17,6 +17,9 @@
 ### 2.1 Channel과 인증
 
 - `X-Client-Channel`은 `APP` 또는 `WEB`이다. spec에서 header가 빠진 endpoint도 channel guard가 있으면 같은 기준으로 검증한다.
+- 공개 API 인증은 Keycloak `suri-map` realm의 OIDC access token을 `Authorization: Bearer {jwt}`로 전달하는 것을 기준으로 한다.
+- WEB은 Keycloak Authorization Code + PKCE redirect 흐름으로 로그인하고, APP은 MDM/managed config와 내부망 확인 후 Custom Tabs/AppAuth Authorization Code + PKCE 흐름으로 로그인한다.
+- access token에는 `accountId`, `accountType`, `organizationType`이 있어야 하며, APP channel은 추가로 `policePhoneId` claim이 있어야 한다.
 - APP 전용 write는 `@RequireChannel(APP)`, PolicePhone guard, 사건 배정 guard를 통과해야 한다.
 - WEB 지휘 write는 `@RequireChannel(WEB)`, role guard, 사건 접근 guard를 통과해야 한다.
 - 서버 내부 호출자와 S1-3 purge/audit/query port는 public API가 아니다.
@@ -26,7 +29,7 @@
 - Domain write, outbox replay 대상 write, 사건 lifecycle write는 `Idempotency-Key` header를 사용한다.
 - 같은 key와 같은 body는 cached response를 재사용한다.
 - 같은 key와 다른 body는 `idempotency_mismatch`를 반환하고 새 row나 event를 만들지 않는다.
-- `GET`, login/logout, heartbeat, token 등록, clock sync는 `Idempotency-Key`를 요구하지 않는다.
+- `GET`, OIDC login/logout redirect, heartbeat, token 등록, clock sync는 `Idempotency-Key`를 요구하지 않는다.
 
 ### 2.3 Error response
 
@@ -49,7 +52,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 | URL 용어 | 결정 |
 |---|---|
-| `auth/login`, `auth/logout` | S1-2의 login/logout API를 유지한다. `sessions` resource를 새로 만들지 않는다. |
+| `auth/login`, `auth/logout` | 자체 session API는 Keycloak/OIDC 전환 이후 canonical public API가 아니다. 로그인/로그아웃은 Keycloak realm endpoint와 client redirect 흐름으로 처리한다. |
 | `incidents/import` | mock 112 사건 가져오기 command로 유지한다. `incident-imports` resource를 만들지 않는다. |
 | `incidents/{incidentId}/close` | 사건 종료 command로 유지한다. `closure` resource를 만들지 않는다. |
 | `search-areas` + `areaLevel=OVERALL` | DB 설계상 `overall_search_area`는 별도 table/resource가 아니라 `search_area.area_level = OVERALL`이다. 전체 수색 구역도 `/api/search-areas`에서 생성·조회·수정한다. |
@@ -67,30 +70,18 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 ### 4.1 Auth / Account / PolicePhone
 
-#### POST `/api/auth/login`
+#### Keycloak/OIDC login/logout
 
 - Owner: S1-2
-- Source spec: `POST /auth/login`
 - Consumer: APP, WEB
-- Headers: `X-Client-Channel`
-- Guard: `public-session`, `@RequireChannel(APP,WEB)`
-- Idempotency-Key: no
-- Request: `accountCode`, `password`, `channel`, optional `policePhoneCode`
-- Response: `200 {sessionId, accessToken, securityContext}`
-- Errors: `channel_not_allowed`
-- Note: 인증 세션을 발급한다. URL은 `sessions`로 바꾸지 않는다. `accountCode`/`policePhoneCode`는 사람이 입력하거나 fixture가 참조하는 문자열 코드이고, `securityContext.accountId`는 내부 `account.id` UUID 문자열이다.
-
-#### POST `/api/auth/logout`
-
-- Owner: S1-2
-- Source spec: `POST /auth/logout`
-- Consumer: APP, WEB
-- Headers: `Authorization`, `X-Client-Channel`
-- Guard: `@RequireChannel(APP,WEB)`
-- Idempotency-Key: no
-- Request: optional `sessionId`
-- Response: `200 {status}`
-- Errors: `channel_not_allowed`
+- Login entrypoint: `/keycloak/realms/suri-map/protocol/openid-connect/auth`
+- Token endpoint: `/keycloak/realms/suri-map/protocol/openid-connect/token`
+- Logout endpoint: `/keycloak/realms/suri-map/protocol/openid-connect/logout`
+- Client: `suri-map-web`, `suri-map-android`
+- Flow: Authorization Code + PKCE
+- API credential: `Authorization: Bearer {Keycloak access token}`
+- Required claims: `accountId`, `accountType`, `organizationType`; APP requires `policePhoneId`
+- Note: legacy `/api/auth/login` and `/api/auth/logout` are migration-only endpoints and are not canonical public API after OIDC cutover.
 
 #### POST `/api/fcm/tokens`
 
@@ -670,8 +661,6 @@ Tileserver는 Spring Boot JSON API가 아니므로 `/api` prefix를 붙이지 �
 
 | 현재 표현 | 문제 | Canonical URL |
 |---|---|---|
-| `POST /auth/login` | `/api` prefix 없음 | `POST /api/auth/login` |
-| `POST /auth/logout` | `/api` prefix 없음 | `POST /api/auth/logout` |
 | `POST /fcm/tokens` | `/api` prefix 없음 | `POST /api/fcm/tokens` |
 | `POST /police-phones/{policePhoneId}/heartbeat` | `/api` prefix 없음 | `POST /api/police-phones/{policePhoneId}/heartbeat` |
 | `POST /incidents/import` | `/api` prefix 없음 | `POST /api/incidents/import` |

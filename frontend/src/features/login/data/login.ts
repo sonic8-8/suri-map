@@ -192,7 +192,6 @@ function clearStoredLoginAccountSession() {
   sessionStorage.removeItem(ID_TOKEN_STORAGE_KEY);
   sessionStorage.removeItem(CURRENT_ACCOUNT_STORAGE_KEY);
   sessionStorage.removeItem(TOKEN_EXPIRES_AT_STORAGE_KEY);
-  sessionStorage.removeItem('suriMapSessionId');
 }
 
 export function storeOidcSession(tokenResponse: KeycloakTokenResponse, claims: JwtClaims) {
