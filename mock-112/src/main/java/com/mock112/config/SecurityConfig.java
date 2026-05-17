@@ -14,7 +14,12 @@ public class SecurityConfig {
         http.csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/mock-112/health", "/error").permitAll()
+                        .requestMatchers(
+                                "/mock-112/health",
+                                "/mock-112/oauth2/authorization/**",
+                                "/mock-112/login/oauth2/code/**",
+                                "/error")
+                        .permitAll()
                         .anyRequest().authenticated())
                 .oauth2Login(oauth2 -> oauth2
                         .loginPage("/mock-112/oauth2/authorization/keycloak")
@@ -22,7 +27,8 @@ public class SecurityConfig {
                                 endpoint.baseUri("/mock-112/oauth2/authorization"))
                         .redirectionEndpoint(endpoint ->
                                 endpoint.baseUri("/mock-112/login/oauth2/code/*"))
-                        .defaultSuccessUrl("/mock-112/", true))
+                        .defaultSuccessUrl("/mock-112/", true)
+                        .failureUrl("/mock-112/oauth2/authorization/keycloak"))
                 .logout(logout -> logout
                         .logoutUrl("/mock-112/logout")
                         .logoutSuccessUrl("/mock-112/"));
