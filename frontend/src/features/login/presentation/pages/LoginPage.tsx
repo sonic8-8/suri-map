@@ -17,25 +17,21 @@ function getLoginErrorMessage(error: unknown) {
 
 export function LoginPage({ redirectPath }: LoginPageProps) {
   const [errorMessage, setErrorMessage] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
+    let isActive = true;
     clearLoginSession();
-  }, []);
 
-  const handleLoginClick = async () => {
-    setIsSubmitting(true);
-    setErrorMessage('');
+    startKeycloakLogin(redirectPath).catch((error) => {
+      if (isActive) {
+        setErrorMessage(getLoginErrorMessage(error));
+      }
+    });
 
-    try {
-      await startKeycloakLogin(redirectPath);
-    } catch (error) {
-      setErrorMessage(getLoginErrorMessage(error));
-      setIsSubmitting(false);
-    } finally {
-      // Successful login leaves this page through browser redirect.
-    }
-  };
+    return () => {
+      isActive = false;
+    };
+  }, [redirectPath]);
 
   return (
     <main className={styles.page}>
@@ -61,9 +57,7 @@ export function LoginPage({ redirectPath }: LoginPageProps) {
         </div>
 
         <div className={styles.loginForm}>
-          <button type="button" className={styles.loginButton} disabled={isSubmitting} onClick={handleLoginClick}>
-            {isSubmitting ? '로그인 이동 중' : '기관 SSO 로그인'}
-          </button>
+          <div className={styles.redirectMessage}>로그인 화면으로 이동 중</div>
 
           {errorMessage ? <div className={styles.errorMessage}>{errorMessage}</div> : null}
         </div>

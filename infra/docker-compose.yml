@@ -119,6 +119,7 @@ services:
       - "${KEYCLOAK_MANAGEMENT_HOST_PORT:-19000}:9000"
     volumes:
       - ./docker/keycloak/import:/opt/keycloak/data/import:ro
+      - ./docker/keycloak/themes:/opt/keycloak/themes:ro
 
 volumes:
   surimap-frontend-node-modules:
