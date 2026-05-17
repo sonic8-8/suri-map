@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="brandPin" x1="156" y1="80" x2="356" y2="456" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1b3055" />
+      <stop offset="0.55" stop-color="#10213d" />
+      <stop offset="1" stop-color="#08111f" />
+    </linearGradient>
+    <linearGradient id="goldWing" x1="88" y1="250" x2="204" y2="356" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fde98d" />
+      <stop offset="0.45" stop-color="#f0c744" />
+      <stop offset="1" stop-color="#c58a16" />
+    </linearGradient>
+    <linearGradient id="goldWingRight" x1="308" y1="250" x2="424" y2="356" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fde98d" />
+      <stop offset="0.45" stop-color="#f0c744" />
+      <stop offset="1" stop-color="#c58a16" />
+    </linearGradient>
+    <linearGradient id="redTop" x1="202" y1="154" x2="310" y2="214" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ec2140" />
+      <stop offset="1" stop-color="#b80e27" />
+    </linearGradient>
+    <linearGradient id="blueBottom" x1="206" y1="232" x2="310" y2="302" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1e63b3" />
+      <stop offset="1" stop-color="#17427f" />
+    </linearGradient>
+    <filter id="shadow" x="64" y="56" width="384" height="392" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="14" stdDeviation="14" flood-color="#07101f" flood-opacity="0.28" />
+    </filter>
+  </defs>
+
+  <g filter="url(#shadow)">
+    <path
+      d="M256 82C181 82 120 143 120 218c0 109 136 212 136 212s136-103 136-212C392 143 331 82 256 82Z"
+      fill="url(#brandPin)"
+      stroke="#ffffff"
+      stroke-opacity="0.82"
+      stroke-width="5"
+      stroke-linejoin="round"
+    />
+
+    <path
+      d="M98 275c30-17 60-25 90-24-11 11-18 24-22 40-8 3-16 7-24 11-9 6-16 12-23 19-10-16-16-32-21-46Z"
+      fill="url(#goldWing)"
+    />
+    <path
+      d="M118 318c32-9 60-10 85-2-10 7-19 15-27 25-6 8-11 17-15 27-16-12-29-28-43-50Z"
+      fill="url(#goldWing)"
+      opacity="0.96"
+    />
+    <path
+      d="M414 275c-30-17-60-25-90-24 11 11 18 24 22 40 8 3 16 7 24 11 9 6 16 12 23 19 10-16 16-32 21-46Z"
+      fill="url(#goldWingRight)"
+    />
+    <path
+      d="M394 318c-32-9-60-10-85-2 10 7 19 15 27 25 6 8 11 17 15 27 16-12 29-28 43-50Z"
+      fill="url(#goldWingRight)"
+      opacity="0.96"
+    />
+
+    <circle cx="256" cy="220" r="72" fill="#f7f8fb" opacity="0.96" />
+    <path d="M195 214c4-32 30-55 61-55 26 0 48 14 58 35-15 7-31 10-48 10-23 0-45-4-71 10Z" fill="url(#redTop)" />
+    <path d="M314 229c0 35-29 63-64 63-13 0-25-4-35-10 11-7 21-16 29-28 14-18 40-31 70-25Z" fill="url(#blueBottom)" />
+
+    <path
+      d="M190 228c14-12 31-18 52-18 18 0 35 5 49 15-11 9-21 20-28 33-10 17-21 30-35 39-15-10-26-24-33-42-3-9-2-19-5-27Z"
+      fill="#0f1e3a"
+      stroke="#f0c744"
+      stroke-width="6"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M258 247c15-8 30-8 43 1 8 6 13 13 16 22-7 4-15 6-24 6-9 0-17-2-25-6-8-4-14-10-18-18 2-2 5-4 8-5Z"
+      fill="#0b1730"
+      stroke="#f0c744"
+      stroke-width="5"
+      stroke-linejoin="round"
+    />
+    <circle cx="303" cy="226" r="18" fill="#fde5a8" stroke="#f0c744" stroke-width="6" />
+    <circle cx="306" cy="226" r="6" fill="#1a2038" />
+    <path d="M290 228h18" stroke="#1a2038" stroke-width="4" stroke-linecap="round" />
+    <path d="M283 239c13 6 28 6 42 0" stroke="#f0c744" stroke-width="5" stroke-linecap="round" />
+
+    <path d="M320 248c18 2 34 8 48 20-4 7-9 14-16 19-12-10-27-15-44-17 3-8 7-15 12-22Z" fill="#0f1e3a" stroke="#f0c744" stroke-width="5" stroke-linejoin="round" />
+    <path d="M239 311c-6 18-5 36 4 52-16-4-28-14-37-28 6-11 15-20 28-27 2 1 4 2 5 3Z" fill="#0f1e3a" stroke="#f0c744" stroke-width="5" stroke-linejoin="round" />
+
+    <path d="M256 334v94" stroke="#09111f" stroke-width="18" stroke-linecap="round" />
+    <path d="M256 334v94" stroke="#f0c744" stroke-opacity="0.45" stroke-width="4" stroke-linecap="round" />
+  </g>
+</svg>

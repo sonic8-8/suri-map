@@ -1,12 +1,12 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
+import { startKeycloakLogin, startLocalDevLogin } from '../../data/login';
 import { LoginPage } from './LoginPage';
-import { clearLoginSession, startKeycloakLogin } from '../../data/login';
 
 vi.mock('../../data/login', () => ({
-  clearLoginSession: vi.fn(),
   startKeycloakLogin: vi.fn(),
+  startLocalDevLogin: vi.fn(),
 }));
 
 describe('LoginPage', () => {
@@ -14,14 +14,25 @@ describe('LoginPage', () => {
     vi.clearAllMocks();
   });
 
-  test('redirects to the Keycloak login form without showing an intermediate SSO button', async () => {
+  test('starts Keycloak login only when the SSO button is clicked', async () => {
     vi.mocked(startKeycloakLogin).mockResolvedValueOnce(undefined);
 
     render(<LoginPage redirectPath="/incidents" />);
 
-    expect(clearLoginSession).toHaveBeenCalledTimes(1);
+    expect(startKeycloakLogin).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: '기관 SSO 로그인' }));
+
     await waitFor(() => expect(startKeycloakLogin).toHaveBeenCalledWith('/incidents'));
-    expect(screen.queryByRole('button', { name: '기관 SSO 로그인' })).not.toBeInTheDocument();
-    expect(screen.getByText('로그인 화면으로 이동 중')).toBeInTheDocument();
+  });
+
+  test('starts local dev login from the development bypass button', () => {
+    vi.mocked(startLocalDevLogin).mockResolvedValueOnce(undefined);
+
+    render(<LoginPage redirectPath="/incidents" />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Local dev login' }));
+
+    expect(startLocalDevLogin).toHaveBeenCalledWith('/incidents');
   });
 });

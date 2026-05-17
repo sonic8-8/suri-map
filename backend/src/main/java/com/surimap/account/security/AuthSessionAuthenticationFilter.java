@@ -21,6 +21,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class AuthSessionAuthenticationFilter extends OncePerRequestFilter {
 
   private static final boolean ACCEPT_MOCK_AUTH_TOKEN = false;
+  private static final String DEFAULT_LOCAL_DEV_ACCESS_TOKEN = "dev-local-access-token";
   private static final String MOCK_AUTH_PREFIX = "mock-auth:";
   private static final Map<String, MockAccount> MOCK_ACCOUNTS =
       Map.ofEntries(
@@ -53,9 +54,17 @@ public class AuthSessionAuthenticationFilter extends OncePerRequestFilter {
               new MockAccount(AccountType.TEAM, OrganizationType.MISSING_TEAM)));
 
   private final AuthSessionService authSessionService;
+  private final boolean localDevAuthEnabled;
+  private final String localDevAccessToken;
 
-  public AuthSessionAuthenticationFilter(AuthSessionService authSessionService) {
+  public AuthSessionAuthenticationFilter(
+      AuthSessionService authSessionService, boolean localDevAuthEnabled, String localDevAccessToken) {
     this.authSessionService = authSessionService;
+    this.localDevAuthEnabled = localDevAuthEnabled;
+    this.localDevAccessToken =
+        localDevAccessToken == null || localDevAccessToken.isBlank()
+            ? DEFAULT_LOCAL_DEV_ACCESS_TOKEN
+            : localDevAccessToken.trim();
   }
 
   @Override
@@ -71,12 +80,36 @@ public class AuthSessionAuthenticationFilter extends OncePerRequestFilter {
   }
 
   private Optional<SuriMapAuthentication> authenticate(String accessToken) {
+    if (isLocalDevAccessToken(accessToken)) {
+      return Optional.of(localDevAuthentication());
+    }
+
     if (ACCEPT_MOCK_AUTH_TOKEN && accessToken.startsWith(MOCK_AUTH_PREFIX)) {
       return mockAuthentication(accessToken);
     }
 
+    if (authSessionService == null) {
+      return Optional.empty();
+    }
+
     // TODO: Add a security filter test that proves WEB Bearer sessions can access protected APIs.
     return authSessionService.authenticate(accessToken);
+  }
+
+  private boolean isLocalDevAccessToken(String accessToken) {
+    return localDevAuthEnabled && localDevAccessToken.equals(accessToken);
+  }
+
+  private static SuriMapAuthentication localDevAuthentication() {
+    var accountType = AccountType.COMMAND;
+    var organizationType = OrganizationType.POLICE_SUBSTATION;
+    return new SuriMapAuthentication(
+        "11111111-1111-1111-1111-111111110001",
+        accountType,
+        organizationType,
+        Channel.WEB,
+        null,
+        authorities(accountType, organizationType));
   }
 
   private static Optional<SuriMapAuthentication> mockAuthentication(String accessToken) {

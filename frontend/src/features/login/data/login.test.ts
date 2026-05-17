@@ -49,6 +49,19 @@ describe('login account display names', () => {
       name: '실종팀 지휘관',
     });
   });
+  test('preserves pending OIDC state while checking for an existing account', () => {
+    const oidcState = JSON.stringify({
+      state: 'state-001',
+      nonce: 'nonce-001',
+      codeVerifier: 'verifier-001',
+      returnPath: '/incidents',
+      createdAt: Date.now(),
+    });
+    sessionStorage.setItem('suriMapOidcLoginState', oidcState);
+
+    expect(readStoredLoginAccount()).toBeNull();
+    expect(sessionStorage.getItem('suriMapOidcLoginState')).toBe(oidcState);
+  });
 });
 
 function tokenResponse() {

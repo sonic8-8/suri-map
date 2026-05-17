@@ -25,6 +25,7 @@ import {
   type SuriMapPageHeaderIncidentContext,
 } from '../../../../shared';
 import { ApiHttpError } from '../../../../shared/api';
+import { useBrowserBackToIncidentList } from '../../../../shared/hooks/useBrowserBackToIncidentList';
 import styles from './OfflinePackageStatusPage.module.css';
 
 type OfflinePackageStatusPageProps = {
@@ -33,6 +34,7 @@ type OfflinePackageStatusPageProps = {
   markerNotificationIndex: number;
   markerNotifications: MarkerNotification[];
   onBackToSituationBoard: () => void;
+  onBrowserBackToIncidentList?: () => void;
   onCloseMarkerNotifications: () => void;
   onMoveMarkerNotification: (nextIndex: number) => void;
   onOpenHandover: () => void;
@@ -131,6 +133,7 @@ export function OfflinePackageStatusPage({
   markerNotificationIndex,
   markerNotifications,
   onBackToSituationBoard,
+  onBrowserBackToIncidentList,
   onCloseMarkerNotifications,
   onMoveMarkerNotification,
   onOpenHandover,
@@ -140,6 +143,8 @@ export function OfflinePackageStatusPage({
 }: OfflinePackageStatusPageProps) {
   const [incidentDetail, setIncidentDetail] = useState<IncidentDetailDto | null>(null);
   const [isOffline, setIsOffline] = useState(() => (typeof navigator === 'undefined' ? false : !navigator.onLine));
+
+  useBrowserBackToIncidentList(onBrowserBackToIncidentList);
 
   const boardQuery = useIncidentBoardQuery({ incidentId, includeSlots: ['package_badge', 'incident_terminal'] });
   const manifestQuery = useOfflinePackageManifestQuery({ incidentId });
@@ -927,11 +932,6 @@ function formatIncidentStatus(status: string) {
   if (status === 'OPEN') return '진행 중';
   if (status === 'CLOSED') return '종료';
   return status || '-';
-}
-
-function shortHash(hash: string) {
-  if (!hash) return '-';
-  return hash.length > 20 ? `${hash.slice(0, 17)}...` : hash;
 }
 
 function formatBytes(bytes: number) {

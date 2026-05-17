@@ -16,6 +16,18 @@ export function getKeycloakClientId() {
   return import.meta.env.VITE_KEYCLOAK_CLIENT_ID ?? 'suri-map-web';
 }
 
+export function isLocalDevLoginEnabled() {
+  return import.meta.env.DEV && import.meta.env.VITE_ENABLE_LOCAL_DEV_LOGIN !== 'false';
+}
+
+export function getLocalDevAccessToken() {
+  return import.meta.env.VITE_LOCAL_DEV_ACCESS_TOKEN ?? 'dev-local-access-token';
+}
+
+export function isLocalDevAccessToken(accessToken: string | null | undefined) {
+  return Boolean(accessToken) && accessToken === getLocalDevAccessToken();
+}
+
 export function getTileBaseUrl() {
   return normalizeBaseUrl(import.meta.env.VITE_TILE_BASE_URL ?? '/tiles');
 }

@@ -7,6 +7,7 @@ import {
   searchAreaDisplayStateLabel,
 } from '../../../../../shared/model/searchAreaDisplayState';
 import type { CompletedAreaDraft } from '../../../../../shared/model/areaDraft';
+import { formatSearchAreaKindLabel } from '../../../../../shared/model/searchAreaLabels';
 import type { SearchAreaTreeNode } from '../../constants/mockSituationBoard';
 import { formatAccountDisplayName } from '../../utils/accountDisplayUtils';
 import { CollapsiblePanelSection } from './CollapsiblePanelSection';
@@ -139,6 +140,11 @@ function AreaNode({
   const structureLabel = getStructureLabel(area);
   const assignmentLabel = getAssignmentLabel(area);
   const nextActionLabel = getNextActionLabel(area, displayState);
+  const areaTitle =
+    area.kind === 'overall'
+      ? formatSearchAreaKindLabel(area.kind)
+      : assignedAccountNames || area.name;
+  const areaKindLabel = null;
   const rowClassName = [
     getNodeClassName(area, assignedAreaIds),
     styles.areaRowButton,
@@ -163,14 +169,13 @@ function AreaNode({
       onKeyDown={(event) => handleAreaRowKeyDown(event, area.id, canSelectArea, onSelectSearchArea)}
     >
       <span className={styles.nodeText}>
-        <strong className={textNameClassName}>{area.name}</strong>
-        <span className={textMetaClassName}>{getAreaKindLabel(area.kind)}</span>
+        <strong className={textNameClassName}>{areaTitle}</strong>
+        {areaKindLabel ? <span className={textMetaClassName}>{areaKindLabel}</span> : null}
         <span className={styles.nodeDetails}>
           <span>{structureLabel}</span>
           <span>{assignmentLabel}</span>
           <span>{nextActionLabel}</span>
         </span>
-        {assignedAccountNames ? <span className={styles.assignmentNames}>{assignedAccountNames}</span> : null}
       </span>
       <span className={styles.badgeColumn}>
         <span className={getStateClassName(displayState)}>{searchAreaDisplayStateLabel[displayState]}</span>

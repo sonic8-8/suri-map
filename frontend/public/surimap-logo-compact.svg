@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <defs>
+    <linearGradient id="compactPin" x1="26" y1="16" x2="102" y2="112" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#16315a" />
+      <stop offset="1" stop-color="#0b1830" />
+    </linearGradient>
+  </defs>
+
+  <path
+    d="M64 12C42 12 24 30 24 52c0 28 40 64 40 64s40-36 40-64c0-22-18-40-40-40Z"
+    fill="url(#compactPin)"
+    stroke="#ffffff"
+    stroke-width="4"
+    stroke-linejoin="round"
+  />
+  <circle cx="64" cy="52" r="18" fill="#f7f8fb" />
+  <path d="M48 51c3-12 12-20 22-20 8 0 15 4 19 11-6 3-13 4-20 4-9 0-16 1-21 5Z" fill="#d81f3c" />
+  <path d="M84 60c0 11-9 20-20 20-4 0-8-1-11-3 4-3 8-7 10-12 5-8 13-13 21-13Z" fill="#1d63b5" />
+</svg>
