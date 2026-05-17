@@ -1,4 +1,5 @@
-﻿import { type CSSProperties, type KeyboardEvent } from 'react';
+import { type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
+import { CircleCheck, CircleMinus, ClipboardList, Flag } from 'lucide-react';
 
 import { areaColorTokens, type AreaColorToken } from '../../../../../shared/constants/areaColorTokens';
 import {
@@ -22,6 +23,25 @@ type SearchAreaTreeProps = {
   searchAreaTree: SearchAreaTreeNode;
   onSelectSearchArea: (searchAreaId: string) => void;
 };
+
+type SummaryMetricTone = 'blue' | 'green' | 'muted';
+
+type SummaryMetricStyle = CSSProperties & {
+  '--summary-metric-accent': string;
+};
+
+type SummaryMetricProps = {
+  label: string;
+  value: string;
+  icon: ReactNode;
+  tone: SummaryMetricTone;
+};
+
+const summaryMetricToneStyles = {
+  blue: { '--summary-metric-accent': 'var(--suri-board-primary-hi)' },
+  green: { '--summary-metric-accent': 'var(--suri-board-success)' },
+  muted: { '--summary-metric-accent': 'rgba(150, 163, 184, 0.94)' },
+} satisfies Record<SummaryMetricTone, SummaryMetricStyle>;
 
 function getAreaIdentityColorStyle(colorToken: AreaColorToken): AreaIdentityColorStyle {
   return { '--area-identity-color': `var(${areaColorTokens[colorToken].cssVariable})` };
@@ -105,6 +125,18 @@ function getNextActionLabel(area: SearchAreaTreeNode, displayState: SearchAreaDi
   if (assignedCount > 0) return '담당 배정 완료';
   if (area.kind === 'overall') return '구역 분할 필요';
   return '담당 배정 필요';
+}
+
+function SummaryMetric({ label, value, icon, tone }: SummaryMetricProps) {
+  return (
+    <div className={styles.summaryMetric} style={summaryMetricToneStyles[tone] as CSSProperties}>
+      <span className={styles.summaryMetricBadge} aria-hidden="true">
+        {icon}
+      </span>
+      <span className={styles.summaryMetricLabel}>{label}</span>
+      <strong className={styles.summaryMetricValue}>{value}</strong>
+    </div>
+  );
 }
 
 function handleAreaRowKeyDown(
@@ -246,27 +278,36 @@ export function SearchAreaTree({
   const assignedLeafCount = leafAreas.filter((area) => getAssignedCount(area) > 0).length;
   const pendingLeafCount = leafAreas.filter((area) => getAssignedCount(area) === 0).length;
   const childAreaCount = flattenAreaTree(searchAreaTree).filter((area) => area.kind !== 'overall').length;
+  const pendingLeafLabel = pendingLeafCount === 0 ? '없음' : `${pendingLeafCount}개`;
 
   return (
     <CollapsiblePanelSection title="수색 구역">
       <div className={`${styles.tree}${hasActiveOverallSearchArea ? '' : ` ${styles.treeDisabled}`}`}>
         <div className={styles.summaryPanel} aria-label="수색구역 요약">
-          <div className={styles.summaryItem}>
-            <span>등록 구역</span>
-            <strong>{childAreaCount}개</strong>
-          </div>
-          <div className={styles.summaryItem}>
-            <span>최종 구역</span>
-            <strong>{leafAreas.length}개</strong>
-          </div>
-          <div className={styles.summaryItem}>
-            <span>배정 완료</span>
-            <strong>{assignedLeafCount}개</strong>
-          </div>
-          <div className={`${styles.summaryItem}${pendingLeafCount > 0 ? ` ${styles.summaryItemWarning}` : ''}`}>
-            <span>미배정</span>
-            <strong>{pendingLeafCount}개</strong>
-          </div>
+          <SummaryMetric
+            label="등록 구역"
+            value={`${childAreaCount}개`}
+            tone="blue"
+            icon={<ClipboardList size={18} strokeWidth={2.2} />}
+          />
+          <SummaryMetric
+            label="최종 구역"
+            value={`${leafAreas.length}개`}
+            tone="blue"
+            icon={<Flag size={18} strokeWidth={2.2} />}
+          />
+          <SummaryMetric
+            label="배정 완료"
+            value={`${assignedLeafCount}개`}
+            tone="green"
+            icon={<CircleCheck size={18} strokeWidth={2.2} />}
+          />
+          <SummaryMetric
+            label="미배정"
+            value={pendingLeafLabel}
+            tone="muted"
+            icon={<CircleMinus size={18} strokeWidth={2.2} />}
+          />
         </div>
         {assignedAreaIds.size === 0 ? (
           <div className={styles.requiredNotice}>
