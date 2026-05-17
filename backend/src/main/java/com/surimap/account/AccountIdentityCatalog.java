@@ -14,6 +14,7 @@ public final class AccountIdentityCatalog {
   public static final String SUPPORT_COMMANDER_CODE = "acct-support-cmd";
   public static final String SUPPORT_PATROL_CODE = "acct-support-car";
   public static final String SUPPORT_TEAM_CODE = "acct-support-team";
+  public static final String UNASSIGNED_PHONE_CODE = "acct-unassigned-phone";
 
   public static final UUID PRECINCT_COMMANDER_ID =
       UUID.fromString("11111111-1111-1111-1111-111111110001");
@@ -31,6 +32,8 @@ public final class AccountIdentityCatalog {
       UUID.fromString("11111111-1111-1111-1111-111111110007");
   public static final UUID SUPPORT_TEAM_ID =
       UUID.fromString("11111111-1111-1111-1111-111111110008");
+  public static final UUID UNASSIGNED_PHONE_ID =
+      UUID.fromString("11111111-1111-1111-1111-111111110009");
 
   private static final Map<String, UUID> IDS_BY_CODE =
       Map.of(
@@ -41,7 +44,8 @@ public final class AccountIdentityCatalog {
           ALPHA_TEAM_CODE, ALPHA_TEAM_ID,
           SUPPORT_COMMANDER_CODE, SUPPORT_COMMANDER_ID,
           SUPPORT_PATROL_CODE, SUPPORT_PATROL_ID,
-          SUPPORT_TEAM_CODE, SUPPORT_TEAM_ID);
+          SUPPORT_TEAM_CODE, SUPPORT_TEAM_ID,
+          UNASSIGNED_PHONE_CODE, UNASSIGNED_PHONE_ID);
 
   private AccountIdentityCatalog() {}
 
