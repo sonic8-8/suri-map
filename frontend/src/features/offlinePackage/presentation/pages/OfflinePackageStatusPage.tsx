@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Car,
   CheckCircle2,
@@ -31,6 +31,7 @@ import {
   type IncidentTerminalViewModel,
 } from '../../../situationBoard/presentation/utils/incidentTerminalBoardMapper';
 import type { LoginAccount } from '../../../login/presentation/types/login';
+import { mergeWithPreviousCriticalSlots } from '../../../situationBoard/presentation/hooks/useSituationBoardData';
 import {
   ActionButton,
   StatusBadge,
@@ -156,19 +157,32 @@ export function OfflinePackageStatusPage({
 }: OfflinePackageStatusPageProps) {
   const [incidentDetail, setIncidentDetail] = useState<IncidentDetailDto | null>(null);
   const [isOffline, setIsOffline] = useState(() => (typeof navigator === 'undefined' ? false : !navigator.onLine));
+  const stableBoardRef = useRef<SituationBoardResponseDto | null>(null);
 
   useBrowserBackToIncidentList(onBrowserBackToIncidentList);
 
   const boardQuery = useIncidentBoardQuery({ incidentId, includeSlots: ['package_badge', 'incident_terminal'] });
   const manifestQuery = useOfflinePackageManifestQuery({ incidentId });
-  const rows = useMemo(() => readPackageBadgeRows(boardQuery.data?.slots.package_badge), [boardQuery.data]);
+  const board = useMemo<SituationBoardResponseDto | null>(() => {
+    const mergedBoard = mergeWithPreviousCriticalSlots(
+      (boardQuery.data ?? null) as SituationBoardResponseDto | null,
+      stableBoardRef.current,
+    );
+
+    if (mergedBoard) {
+      stableBoardRef.current = mergedBoard;
+    }
+
+    return mergedBoard;
+  }, [boardQuery.data]);
+  const rows = useMemo(() => readPackageBadgeRows(board?.slots.package_badge), [board]);
   const incidentTerminal = useMemo(
-    () => (boardQuery.data ? toIncidentTerminal(boardQuery.data as unknown as SituationBoardResponseDto) : null),
-    [boardQuery.data],
+    () => (board ? toIncidentTerminal(board as unknown as SituationBoardResponseDto) : null),
+    [board],
   );
   const manifestGroups = useMemo(() => createManifestGroups(manifestQuery.data), [manifestQuery.data]);
   const tileSummary = useMemo(() => createTileSummary(manifestQuery.data?.tileItems ?? []), [manifestQuery.data]);
-  const serverTs = boardQuery.data?.serverTs ?? null;
+  const serverTs = board?.serverTs ?? null;
   const referenceNow = useMemo(() => (serverTs ? new Date(serverTs) : new Date()), [serverTs]);
   const isLoading = boardQuery.isLoading;
   const boardErrorMessage = boardQuery.isError ? '단말별 적재 상태를 불러오지 못했습니다.' : '';

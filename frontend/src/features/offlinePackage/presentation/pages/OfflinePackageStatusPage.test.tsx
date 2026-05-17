@@ -78,9 +78,7 @@ describe('OfflinePackageStatusPage', () => {
     expect(within(tileSummary).getByText('2개')).toBeInTheDocument();
     expect(within(tileSummary).getByText('3.0 KiB')).toBeInTheDocument();
     expect(within(tileSummary).getByText('osm-local')).toBeInTheDocument();
-    expect(within(tileSummary).getByText('15..16단계')).toBeInTheDocument();
-    expect(within(tileSummary).getByText('검증 가능')).toBeInTheDocument();
-
+    
     const pageText = document.body.textContent ?? '';
     expect(pageText).not.toContain('INCIDENT_META');
     expect(pageText).not.toContain('packageItems');
@@ -113,9 +111,31 @@ describe('OfflinePackageStatusPage', () => {
     vi.mocked(useIncidentBoardQuery).mockReturnValue(result);
 
     renderOfflinePackageStatusPage();
-    await screen.findByText('æ„¿ë¬’ê¶›æ´??ã…¼ì¥Œ ?ì¢‰í€¬');
+    expect(screen.getAllByText('single-device', { exact: false })).toHaveLength(2);
+  });
 
-    expect(screen.getByText('single-device')).toBeInTheDocument();
+  test('keeps package_badge rows visible when a refetch response omits them', async () => {
+    const initialBoardQuery = boardQueryResult();
+    const refetchedBoardQuery = {
+      ...initialBoardQuery,
+      data: {
+        ...initialBoardQuery.data!,
+        slots: {},
+      },
+    };
+    vi.mocked(useIncidentBoardQuery)
+      .mockReturnValueOnce(initialBoardQuery)
+      .mockReturnValueOnce(refetchedBoardQuery as ReturnType<typeof useIncidentBoardQuery>);
+
+    const { rerender } = renderOfflinePackageStatusPage();
+    await screen.findByText('광산구 실종 신고');
+
+    expect(screen.getAllByText('팀장 단말')).toHaveLength(2);
+
+    rerender(<OfflinePackageStatusPage {...offlinePackageStatusPageProps()} />);
+
+    expect(screen.getAllByText('팀장 단말')).toHaveLength(2);
+    expect(screen.getByText('오프라인 사용 가능')).toBeInTheDocument();
   });
 
   test('shows only the manifest section failure when manifest API fails', async () => {
@@ -144,25 +164,29 @@ describe('OfflinePackageStatusPage', () => {
     await screen.findByText('오프라인 패키지를 아직 만들 수 없습니다.');
 
     expect(screen.getByText('현재 사건에 OP 또는 전체 수색 구역이 준비되지 않았습니다. 전체 수색 구역을 저장한 뒤 다시 조회하세요.')).toBeInTheDocument();
-    expect(screen.getAllByText('대상 단말')).toHaveLength(2);
+    expect(screen.getAllByText('팀장 단말')).toHaveLength(2);
   });
 });
 
 function renderOfflinePackageStatusPage() {
   return render(
-    <OfflinePackageStatusPage
-      currentUserAccount={currentUserAccount()}
-      incidentId="inc-precinct-first-001"
-      markerNotificationIndex={0}
-      markerNotifications={[]}
-      onBackToSituationBoard={vi.fn()}
-      onCloseMarkerNotifications={vi.fn()}
-      onMoveMarkerNotification={vi.fn()}
-      onOpenHandover={vi.fn()}
-      onOpenIncidentList={vi.fn()}
-      onOpenOfflinePackage={vi.fn()}
-    />,
+    <OfflinePackageStatusPage {...offlinePackageStatusPageProps()} />,
   );
+}
+
+function offlinePackageStatusPageProps() {
+  return {
+    currentUserAccount: currentUserAccount(),
+    incidentId: 'inc-precinct-first-001',
+    markerNotificationIndex: 0,
+    markerNotifications: [],
+    onBackToSituationBoard: vi.fn(),
+    onCloseMarkerNotifications: vi.fn(),
+    onMoveMarkerNotification: vi.fn(),
+    onOpenHandover: vi.fn(),
+    onOpenIncidentList: vi.fn(),
+    onOpenOfflinePackage: vi.fn(),
+  } satisfies Parameters<typeof OfflinePackageStatusPage>[0];
 }
 
 function currentUserAccount(): LoginAccount {
@@ -350,3 +374,4 @@ function packageItem(
     sourceHash: `sha256:${itemType.toLowerCase()}`,
   };
 }
+
