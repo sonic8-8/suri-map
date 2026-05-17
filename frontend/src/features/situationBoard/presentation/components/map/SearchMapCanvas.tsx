@@ -16,6 +16,16 @@ import {
   type HandoverComparisonMapSharedProps,
 } from '../../../../handover/presentation/components/HandoverComparisonMap';
 import {
+  applySearchAreaStatuses,
+  EMPTY_OPERATIONAL_FEATURE_COLLECTION,
+  createOperationalFeatureCollectionSignature,
+  getAssignedSearchAreaBounds,
+  getSearchAreaBoundsById,
+  resolveInitialMapView,
+  toBounds,
+  type Position,
+} from './searchMapCanvasData';
+import {
   createVWorldBaseStyle,
   V_WORLD_BASE_LAYER_ID,
   V_WORLD_BASE_OPACITY,
@@ -112,7 +122,6 @@ const MOVEMENT_PATH_UNKNOWN_GLOW_LAYER_ID = 'operational-movement-path-unknown-g
 const MOVEMENT_PATH_UNKNOWN_LAYER_ID = 'operational-movement-path-unknown';
 const INITIAL_MAP_FALLBACK_ZOOM = 12;
 
-type Position = [number, number];
 type LineStringGeometry = { type: 'LineString'; coordinates: Position[] };
 type PointGeometry = { type: 'Point'; coordinates: Position };
 type OperationalGeometry = BoardMapGeometry;
@@ -146,81 +155,6 @@ export type LayerVisibility = {
   searchArea: boolean;
   marker: boolean;
 };
-
-const EMPTY_OPERATIONAL_FEATURE_COLLECTION: OperationalFeatureCollection = {
-  type: 'FeatureCollection',
-  features: [],
-};
-
-function createOperationalFeatureCollectionSignature(collection: OperationalFeatureCollection): string {
-  return collection.features
-    .map((feature) =>
-      [
-        feature.properties.entityId,
-        feature.properties.areaLevel ?? '',
-        feature.properties.status ?? '',
-        feature.properties.version ?? '',
-        feature.properties.bbox ?? '',
-        JSON.stringify(feature.geometry.coordinates),
-      ].join('|'),
-    )
-    .join(';');
-}
-
-function toBounds(bbox: [number, number, number, number]): LngLatBoundsLike {
-  return [
-    [bbox[0], bbox[1]],
-    [bbox[2], bbox[3]],
-  ];
-}
-
-function parseFeatureBbox(feature: OperationalFeature): [number, number, number, number] | null {
-  const rawBbox = feature.properties.bbox;
-  if (!rawBbox) return null;
-
-  try {
-    const bbox = JSON.parse(rawBbox) as unknown;
-    if (
-      Array.isArray(bbox) &&
-      bbox.length >= 4 &&
-      typeof bbox[0] === 'number' &&
-      typeof bbox[1] === 'number' &&
-      typeof bbox[2] === 'number' &&
-      typeof bbox[3] === 'number'
-    ) {
-      return [bbox[0], bbox[1], bbox[2], bbox[3]];
-    }
-  } catch {
-    return null;
-  }
-
-  return null;
-}
-
-function extendBounds(bounds: maplibregl.LngLatBounds, coordinates: unknown): void {
-  if (!Array.isArray(coordinates)) {
-    return;
-  }
-  if (typeof coordinates[0] === 'number' && typeof coordinates[1] === 'number') {
-    bounds.extend(coordinates as Position);
-    return;
-  }
-  coordinates.forEach((item) => extendBounds(bounds, item));
-}
-
-function getFeatureCollectionBounds(collection: OperationalFeatureCollection): LngLatBoundsLike | null {
-  const bounds = new maplibregl.LngLatBounds();
-  collection.features.forEach((feature) => {
-    const bbox = parseFeatureBbox(feature);
-    if (bbox) {
-      bounds.extend([bbox[0], bbox[1]]);
-      bounds.extend([bbox[2], bbox[3]]);
-      return;
-    }
-    extendBounds(bounds, feature.geometry.coordinates);
-  });
-  return bounds.isEmpty() ? null : bounds;
-}
 
 function addGeoJsonSource(
   map: maplibregl.Map,
@@ -300,83 +234,6 @@ function addCompletedSearchAreaHatchPattern(map: maplibregl.Map) {
   context.stroke();
 
   map.addImage(SEARCH_AREA_COMPLETED_HATCH_PATTERN_ID, context.getImageData(0, 0, canvas.width, canvas.height));
-}
-
-function collectSearchAreaStatuses(searchAreaTree: SearchAreaTreeNode, statusesByAreaId = new Map<string, SearchAreaTreeNode['status']>()) {
-  statusesByAreaId.set(searchAreaTree.id, searchAreaTree.status);
-  searchAreaTree.children?.forEach((childArea) => collectSearchAreaStatuses(childArea, statusesByAreaId));
-  return statusesByAreaId;
-}
-
-function applySearchAreaStatuses(
-  searchAreas: OperationalFeatureCollection,
-  searchAreaTree: SearchAreaTreeNode,
-): OperationalFeatureCollection {
-  const statusesByAreaId = collectSearchAreaStatuses(searchAreaTree);
-
-  return {
-    type: 'FeatureCollection',
-    features: searchAreas.features.map((feature) => ({
-      ...feature,
-      properties: {
-        ...feature.properties,
-        status: statusesByAreaId.get(feature.properties.entityId) ?? feature.properties.status,
-      },
-    })),
-  };
-}
-
-function getAssignedSearchAreaBounds(searchAreas: OperationalFeatureCollection): LngLatBoundsLike | null {
-  const overallSearchAreas: OperationalFeatureCollection = {
-    type: 'FeatureCollection',
-    features: searchAreas.features.filter((feature) => feature.geometry.type === 'Polygon' && feature.properties.areaLevel === 'OVERALL'),
-  };
-  const overallSearchAreaBounds = getFeatureCollectionBounds(overallSearchAreas);
-  if (overallSearchAreaBounds) {
-    return overallSearchAreaBounds;
-  }
-
-  const availableSearchAreas: OperationalFeatureCollection = {
-    type: 'FeatureCollection',
-    features: searchAreas.features.filter((feature) => feature.geometry.type === 'Polygon'),
-  };
-  return getFeatureCollectionBounds(availableSearchAreas);
-}
-
-function getSearchAreaBoundsById(
-  searchAreas: OperationalFeatureCollection,
-  searchAreaId: string,
-): LngLatBoundsLike | null {
-  const searchArea = searchAreas.features.find(
-    (feature) => feature.properties.entityId === searchAreaId && feature.geometry.type === 'Polygon',
-  );
-  if (!searchArea) {
-    return null;
-  }
-
-  return getFeatureCollectionBounds({
-    type: 'FeatureCollection',
-    features: [searchArea],
-  });
-}
-
-function resolveInitialMapView(
-  fallbackBounds: LngLatBoundsLike | null,
-  assignedSearchAreas: OperationalFeatureCollection,
-): InitialMapResolution {
-  const assignedSearchAreaBounds = getAssignedSearchAreaBounds(assignedSearchAreas);
-  if (assignedSearchAreaBounds) {
-    return {
-      state: 'overall-ready',
-      bounds: assignedSearchAreaBounds,
-      overallSearchArea: assignedSearchAreas,
-    };
-  }
-
-  return {
-    state: 'fallback',
-    bounds: fallbackBounds,
-  };
 }
 
 function addLayer(map: maplibregl.Map, layer: LayerSpecification) {
