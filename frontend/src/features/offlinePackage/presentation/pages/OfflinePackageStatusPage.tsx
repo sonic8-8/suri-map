@@ -99,6 +99,12 @@ type TileSummary = {
   styleIds: string;
 };
 
+type PackageLoadGaugeSummary = {
+  loadedCount: number;
+  totalCount: number;
+  percentage: number;
+};
+
 const manifestGroupLabels: Record<OfflinePackageItemType, string> = {
   INCIDENT_META: '사건 정보',
   MISSING_PERSON_CACHE: '실종자 정보',
@@ -215,6 +221,7 @@ export function OfflinePackageStatusPage({
   }, []);
 
   const summary = useMemo(() => createSummary(rows), [rows]);
+  const packageLoadGauge = useMemo(() => createPackageLoadGauge(rows), [rows]);
   const currentAccountLabel = `${currentUserAccount.name} / ${currentUserAccount.organization}`;
   const incidentContext = createIncidentContext(incidentId, incidentDetail, incidentTerminal);
   const isClosedTerminalBoard = isIncidentTerminalClosed(incidentTerminal);
@@ -300,53 +307,56 @@ export function OfflinePackageStatusPage({
               <span>앱 단말이 패키지 적재 상태를 보고하면 이 영역에 표시됩니다.</span>
             </div>
           ) : (
-            <div className={styles.tableShell}>
-              <table className={styles.statusTable}>
-                <thead>
-                  <tr>
-                    <th scope="col">단말</th>
-                    <th scope="col">담당</th>
-                    <th scope="col">상태</th>
-                    <th scope="col">설치 정보</th>
-                    <th scope="col">확인 내용</th>
-                    <th scope="col">조치</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row) => {
-                    const statusView = getStatusView(row);
+            <>
+              <PackageLoadGauge gauge={packageLoadGauge} />
+              <div className={styles.tableShell}>
+                <table className={styles.statusTable}>
+                  <thead>
+                    <tr>
+                      <th scope="col">단말</th>
+                      <th scope="col">담당</th>
+                      <th scope="col">상태</th>
+                      <th scope="col">설치 정보</th>
+                      <th scope="col">확인 내용</th>
+                      <th scope="col">조치</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row) => {
+                      const statusView = getStatusView(row);
 
-                    return (
-                      <tr key={row.id}>
-                        <td>
-                          <div className={styles.deviceRowTitle}>
-                            <span className={createDeviceIconClassName(row.accountType)} aria-hidden="true">
-                              <DeviceTypeIcon accountType={row.accountType} />
-                            </span>
-                            <strong>{createDeviceTitle(row)}</strong>
-                          </div>
-                          <span>{createDeviceMeta(row)}</span>
-                        </td>
-                        <td>
-                          <strong>{createAssigneeTitle(row)}</strong>
-                          <span>{createAssigneeMeta(row)}</span>
-                        </td>
-                        <td>
-                          <StatusBadge
-                            className={getPackageStatusBadgeClassName(statusView.tone)}
-                            status={statusView.label}
-                            tone={statusView.tone}
-                          />
-                        </td>
-                        <td>{formatManifestVersion(row)}</td>
-                        <td>{formatPackageCheckMessage(row)}</td>
-                        <td>{formatPackageAction(row)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                      return (
+                        <tr key={row.id}>
+                          <td>
+                            <div className={styles.deviceRowTitle}>
+                              <span className={createDeviceIconClassName(row.accountType)} aria-hidden="true">
+                                <DeviceTypeIcon accountType={row.accountType} />
+                              </span>
+                              <strong>{createDeviceTitle(row)}</strong>
+                            </div>
+                            <span>{createDeviceMeta(row)}</span>
+                          </td>
+                          <td>
+                            <strong>{createAssigneeTitle(row)}</strong>
+                            <span>{createAssigneeMeta(row)}</span>
+                          </td>
+                          <td>
+                            <StatusBadge
+                              className={getPackageStatusBadgeClassName(statusView.tone)}
+                              status={statusView.label}
+                              tone={statusView.tone}
+                            />
+                          </td>
+                          <td>{formatManifestVersion(row)}</td>
+                          <td>{formatPackageCheckMessage(row)}</td>
+                          <td>{formatPackageAction(row)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </section>
 
@@ -377,6 +387,36 @@ function SectionTitle({ title, description }: { title: string; description: stri
     <div className={styles.sectionTitle}>
       <h2>{title}</h2>
       <p>{description}</p>
+    </div>
+  );
+}
+
+function PackageLoadGauge({ gauge }: { gauge: PackageLoadGaugeSummary }) {
+  const progress = Math.max(0, Math.min(100, gauge.percentage));
+
+  return (
+    <div className={styles.packageLoadGauge} aria-label="필수 패키지 전체 적재율">
+      <div className={styles.packageLoadGaugeDial} aria-hidden="true">
+        <svg className={styles.packageLoadGaugeSvg} viewBox="0 0 200 120" focusable="false">
+          <path className={styles.packageLoadGaugeTrack} d="M 20 100 A 80 80 0 0 1 180 100" pathLength={100} />
+          <path
+            className={styles.packageLoadGaugeProgress}
+            d="M 20 100 A 80 80 0 0 1 180 100"
+            pathLength={100}
+            style={{ strokeDasharray: `${progress} 100` }}
+          />
+        </svg>
+        <div className={styles.packageLoadGaugeCenter}>
+          <strong>{progress}%</strong>
+        </div>
+      </div>
+      <div className={styles.packageLoadGaugeText}>
+        <span>필수 패키지 전체 적재율</span>
+        <strong>전 폴리폰 기준</strong>
+        <small>
+          {gauge.loadedCount} / {gauge.totalCount}대 적재
+        </small>
+      </div>
     </div>
   );
 }
@@ -737,6 +777,26 @@ function createSummary(rows: PackageBadgeRow[]): PackageSummary {
     },
     { readyCount: 0, warningCount: 0, purgedCount: 0 },
   );
+}
+
+function createPackageLoadGauge(rows: PackageBadgeRow[]): PackageLoadGaugeSummary {
+  const targetPolicePhones = new Set<string>();
+  const loadedPolicePhones = new Set<string>();
+
+  for (const row of rows) {
+    targetPolicePhones.add(row.policePhoneId);
+    if (isLoadedPackageRow(row)) loadedPolicePhones.add(row.policePhoneId);
+  }
+
+  const totalCount = targetPolicePhones.size;
+  const loadedCount = loadedPolicePhones.size;
+  const percentage = totalCount === 0 ? 0 : Math.round((loadedCount / totalCount) * 100);
+
+  return { loadedCount, totalCount, percentage };
+}
+
+function isLoadedPackageRow(row: PackageBadgeRow) {
+  return row.packageStatus === 'READY' && row.readyForOfflineUse && !row.warningRaised;
 }
 
 function createManifestGroups(manifest: OfflinePackageManifestResponse | undefined): readonly ManifestGroup[] {

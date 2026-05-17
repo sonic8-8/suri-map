@@ -56,6 +56,25 @@ describe('OfflinePackageStatusPage', () => {
     vi.mocked(useOfflinePackageManifestQuery).mockReturnValue(manifestQueryResult(offlinePackageManifest()));
   });
 
+  test('renders the load gauge using the loaded police phone ratio', async () => {
+    vi.mocked(useIncidentBoardQuery).mockReturnValue(
+      boardQueryResultWithRows([
+        packageBadgeRow('pkg-ready-1', 'phone-1', '단말 1', 'READY', true, false),
+        packageBadgeRow('pkg-ready-2', 'phone-2', '단말 2', 'READY', true, false),
+        packageBadgeRow('pkg-ready-3', 'phone-3', '단말 3', 'READY', true, false),
+        packageBadgeRow('pkg-stale', 'phone-4', '단말 4', 'STALE', false, true),
+      ]),
+    );
+
+    renderOfflinePackageStatusPage();
+    await screen.findByText('광산구 실종 신고');
+
+    expect(screen.getByText('필수 패키지 전체 적재율')).toBeInTheDocument();
+    expect(screen.getByText('전 폴리폰 기준')).toBeInTheDocument();
+    expect(screen.getByText('75%')).toBeInTheDocument();
+    expect(screen.getByText('3 / 4대 적재')).toBeInTheDocument();
+  });
+
   test('renders package composition with operator-facing labels and tile summary', async () => {
     renderOfflinePackageStatusPage();
     await screen.findByText('광산구 실종 신고');
@@ -78,7 +97,7 @@ describe('OfflinePackageStatusPage', () => {
     expect(within(tileSummary).getByText('2개')).toBeInTheDocument();
     expect(within(tileSummary).getByText('3.0 KiB')).toBeInTheDocument();
     expect(within(tileSummary).getByText('osm-local')).toBeInTheDocument();
-    
+
     const pageText = document.body.textContent ?? '';
     expect(pageText).not.toContain('INCIDENT_META');
     expect(pageText).not.toContain('packageItems');
@@ -203,6 +222,10 @@ function currentUserAccount(): LoginAccount {
 }
 
 function boardQueryResult() {
+  return boardQueryResultWithRows(defaultPackageBadgeRows());
+}
+
+function boardQueryResultWithRows(packageBadgeRows: ReturnType<typeof packageBadgeRow>[]) {
   return {
     data: {
       incidentId: 'inc-precinct-first-001',
@@ -212,13 +235,7 @@ function boardQueryResult() {
       selectedOpIds: ['op-001'],
       geometryHash: 'hash-geometry',
       slots: {
-        package_badge: [
-          packageBadgeRow('pkg-ready', 'phone-ready', '팀장 단말', 'READY', true, false),
-          packageBadgeRow('pkg-downloading', 'phone-downloading', '자동설치 단말', 'DOWNLOADING', false, true),
-          packageBadgeRow('pkg-stale', 'phone-stale', '수색1 단말', 'STALE', false, true),
-          packageBadgeRow('pkg-failed', 'phone-failed', '수색2 단말', 'FAILED', false, true),
-          packageBadgeRow('pkg-purged', 'phone-purged', '종료 단말', 'PURGED', false, false),
-        ],
+        package_badge: packageBadgeRows,
       },
       slotSources: {},
       sourceVersions: {},
@@ -227,7 +244,17 @@ function boardQueryResult() {
     isLoading: false,
     isError: false,
     refetch: vi.fn(),
-  } as unknown as ReturnType<typeof useIncidentBoardQuery>;
+    } as unknown as ReturnType<typeof useIncidentBoardQuery>;
+}
+
+function defaultPackageBadgeRows() {
+  return [
+    packageBadgeRow('pkg-ready', 'phone-ready', '팀장 단말', 'READY', true, false),
+    packageBadgeRow('pkg-downloading', 'phone-downloading', '자동설치 단말', 'DOWNLOADING', false, true),
+    packageBadgeRow('pkg-stale', 'phone-stale', '수색1 단말', 'STALE', false, true),
+    packageBadgeRow('pkg-failed', 'phone-failed', '수색2 단말', 'FAILED', false, true),
+    packageBadgeRow('pkg-purged', 'phone-purged', '종료 단말', 'PURGED', false, false),
+  ];
 }
 
 function packageBadgeRow(
