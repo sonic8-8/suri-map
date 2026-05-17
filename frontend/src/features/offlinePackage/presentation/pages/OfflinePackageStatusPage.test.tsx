@@ -107,6 +107,17 @@ describe('OfflinePackageStatusPage', () => {
     expect(screen.getByText('삭제됨')).toBeInTheDocument();
   });
 
+  test('keeps package_badge device statuses visible when the slot is a single object', async () => {
+    const result = boardQueryResult();
+    result.data!.slots.package_badge = packageBadgeRow('pkg-single', 'phone-single', 'single-device', 'READY', true, false);
+    vi.mocked(useIncidentBoardQuery).mockReturnValue(result);
+
+    renderOfflinePackageStatusPage();
+    await screen.findByText('æ„¿ë¬’ê¶›æ´??ã…¼ì¥Œ ?ì¢‰í€¬');
+
+    expect(screen.getByText('single-device')).toBeInTheDocument();
+  });
+
   test('shows only the manifest section failure when manifest API fails', async () => {
     vi.mocked(useOfflinePackageManifestQuery).mockReturnValue(
       manifestQueryResult(undefined, { isError: true, refetch: vi.fn() }),
