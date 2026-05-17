@@ -186,7 +186,6 @@ export function AreaEditPage({
     hasPendingAreaDrafts &&
     unassignedAreaCount === 0 &&
     splitChildCountIssueCount === 0;
-  const isSearchAreaAssignmentEnabled = isCurrentOpEditable && !hasPendingAreaDrafts && !isSaving;
   const selectedArea = allAreaNodes.find((area) => area.id === selectedAreaId) ?? null;
   const deleteConfirmArea = allAreaNodes.find((area) => area.id === deleteConfirmAreaId) ?? null;
   const isPermissionDenied = pageState === 'permission_denied';
@@ -249,8 +248,11 @@ export function AreaEditPage({
       setUnitAreaNodes([]);
       setSelectedAreaId(areaTree.id);
       setDraftPoints([]);
-      setIsDrawing(false);
+      setIsDrawing(true);
       setHasDraftChanges(false);
+      setNormalSelectedAreaId(null);
+      setNormalSelectedAreaPosition(null);
+      setValidationMessage('전체 수색 구역이 없어 바로 그리기 모드로 진입합니다. 지도를 클릭해 범위를 그려주세요.');
     }
   }, [overallSearchAreaState, savedOverallArea]);
 
