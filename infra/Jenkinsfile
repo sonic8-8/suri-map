@@ -73,7 +73,6 @@ pipeline {
         KEYCLOAK_THEME_DIR = '/home/ubuntu/infra/keycloak/themes'
         SURI_MAP_KEYCLOAK_ISSUER_URI = 'https://k14c106.p.ssafy.io/keycloak/realms/suri-map'
         SURI_MAP_KEYCLOAK_JWK_SET_URI = 'http://keycloak:8080/keycloak/realms/suri-map/protocol/openid-connect/certs'
-        SURI_MAP_LEGACY_SESSION_ENABLED = 'false'
         MOCK_112_ENABLED = 'true'
         MOCK_112_BASE_URL = 'http://mock-112:18112'
         MOCK_112_POLLING_INTERVAL = '5000'
@@ -289,7 +288,6 @@ KEYCLOAK_IMPORT_DIR=${env.KEYCLOAK_IMPORT_DIR}
 KEYCLOAK_THEME_DIR=${env.KEYCLOAK_THEME_DIR}
 SURI_MAP_KEYCLOAK_ISSUER_URI=${env.SURI_MAP_KEYCLOAK_ISSUER_URI}
 SURI_MAP_KEYCLOAK_JWK_SET_URI=${env.SURI_MAP_KEYCLOAK_JWK_SET_URI}
-SURI_MAP_LEGACY_SESSION_ENABLED=${env.SURI_MAP_LEGACY_SESSION_ENABLED}
 MOCK_112_ENABLED=${env.MOCK_112_ENABLED}
 MOCK_112_BASE_URL=${env.MOCK_112_BASE_URL}
 MOCK_112_POLLING_INTERVAL=${env.MOCK_112_POLLING_INTERVAL}
@@ -651,14 +649,13 @@ EOF
                       grafana/k6:latest run \
                       --out "json=/results/k6-results.json" \
                       --env BASE_URL="http://localhost:${BACKEND_HOST_PORT}" \
-                      --env INCIDENT_ID="inc-precinct-first-001" \
-                      --env POLICE_PHONE_ID="dev-alpha-phone-01" \
-                      --env WEB_ACCOUNT_CODE="acct-cmd-alpha" \
-                      --env APP_ACCOUNT_CODE="acct-team-alpha" \
-                      --env FIXTURE_PASSWORD="fixture" \
+                      --env INCIDENT_ID="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001" \
+                      --env POLICE_PHONE_ID="00000000-0000-0000-0000-000000000205" \
+                      --env WEB_ACCESS_TOKEN="${K6_WEB_ACCESS_TOKEN:-}" \
+                      --env APP_ACCESS_TOKEN="${K6_APP_ACCESS_TOKEN:-}" \
                       --env SMOKE_DURATION="${K6_SMOKE_DURATION:-30s}" \
-                      --env WEB_AUTH_P95_MS="${K6_WEB_AUTH_P95_MS:-2000}" \
-                      --env APP_AUTH_P95_MS="${K6_APP_AUTH_P95_MS:-2000}" \
+                      --env WEB_API_P95_MS="${K6_WEB_API_P95_MS:-2000}" \
+                      --env APP_API_P95_MS="${K6_APP_API_P95_MS:-2000}" \
                       --env SSE_P95_MS="${K6_SSE_P95_MS:-15000}" \
                       --env HTTP_FAIL_RATE="${K6_HTTP_FAIL_RATE:-0.05}" \
                       /scripts/smoke.js \

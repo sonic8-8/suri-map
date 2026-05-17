@@ -4,6 +4,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -57,12 +58,31 @@ class SecurityFilterBaselineTest {
   void productionWebOriginIsAllowedForApiCorsPreflight() throws Exception {
     mockMvc
         .perform(
-            options("/api/auth/login")
+            options("/api/incidents")
                 .header("Origin", "https://k14c106.p.ssafy.io")
                 .header("Access-Control-Request-Method", "POST")
                 .header("Access-Control-Request-Headers", "content-type,x-client-channel"))
         .andExpect(status().isOk())
         .andExpect(header().string("Access-Control-Allow-Origin", "https://k14c106.p.ssafy.io"));
+  }
+
+  @Test
+  void legacyAuthSessionEndpointsAreNotExposed() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/auth/login")
+                .header("X-Client-Channel", "WEB")
+                .contentType("application/json")
+                .content("{}"))
+        .andExpect(status().isUnauthorized());
+
+    mockMvc
+        .perform(
+            post("/api/auth/logout")
+                .header("X-Client-Channel", "WEB")
+                .contentType("application/json")
+                .content("{}"))
+        .andExpect(status().isUnauthorized());
   }
 
   @Test
