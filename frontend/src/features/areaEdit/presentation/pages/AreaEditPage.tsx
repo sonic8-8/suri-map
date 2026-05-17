@@ -124,6 +124,7 @@ export function AreaEditPage({
   const [savedOverallArea, setSavedOverallArea] = useState<SearchAreaDto | null>(null);
   const [isMapExpanded, setIsMapExpanded] = useState(false);
   const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
+  const [activeChildAddAreaId, setActiveChildAddAreaId] = useState<string | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [draftPoints, setDraftPoints] = useState<AreaEditPosition[]>([]);
   const [completedDrafts, setCompletedDrafts] = useState<CompletedAreaDraft[]>([]);
@@ -231,6 +232,7 @@ export function AreaEditPage({
       setCompletedDrafts(overallDraft ? [overallDraft] : []);
       setUnitAreaNodes([]);
       setSelectedAreaId(null);
+      setActiveChildAddAreaId(null);
       setDraftPoints([]);
       setIsDrawing(false);
       setHasDraftChanges(false);
@@ -241,6 +243,7 @@ export function AreaEditPage({
       setCompletedDrafts([]);
       setUnitAreaNodes([]);
       setSelectedAreaId(areaTree.id);
+      setActiveChildAddAreaId(null);
       setDraftPoints([]);
       setIsDrawing(true);
       setHasDraftChanges(false);
@@ -366,6 +369,7 @@ export function AreaEditPage({
     setNormalSelectedAreaId(null);
     setNormalSelectedAreaPosition(null);
     setSelectedAreaId((currentSelectedAreaId) => (currentSelectedAreaId === areaId ? null : currentSelectedAreaId));
+    setActiveChildAddAreaId((currentActiveChildAddAreaId) => (currentActiveChildAddAreaId === areaId ? null : currentActiveChildAddAreaId));
     setValidationMessage('저장 전 UNIT 구역을 삭제했습니다.');
     setHasDraftChanges(true);
   };
@@ -570,12 +574,14 @@ export function AreaEditPage({
     if (!currentOverallArea) {
       setSelectedAreaId(currentAreaTree.id);
       beginDrawing();
+      setActiveChildAddAreaId(null);
       return;
     }
 
     if (!selectedArea || selectedArea.kind === 'overall') {
       const unitNode = createPendingAreaNode('unit', unitAreaNodes.length + 1);
       setUnitAreaNodes((currentNodes) => [...currentNodes, unitNode]);
+      setActiveChildAddAreaId(currentAreaTree.id);
       setHasDraftChanges(true);
       beginDrawing('새 UNIT 구역을 추가했습니다. 지도 위에 꼭짓점을 찍어 범위를 지정하세요.');
       return;
@@ -593,6 +599,7 @@ export function AreaEditPage({
           unit.id === selectedArea.id ? { ...unit, children: [...(unit.children ?? []), teamNode] } : unit,
         ),
       );
+      setActiveChildAddAreaId(selectedArea.id);
       setHasDraftChanges(true);
       beginDrawing('새 TEAM 구역을 추가했습니다. UNIT 안에 꼭짓점을 찍어 범위를 지정하세요.');
       return;
@@ -1159,6 +1166,7 @@ export function AreaEditPage({
                   splitChildAreaCount={splitChildAreaCount}
                   splitChildRangeMissingCount={splitChildRangeMissingCount}
                   isSplitFlow={isSplitFlow}
+                  activeChildAddAreaId={activeChildAddAreaId}
                   canAddUnit={isCurrentOpEditable && overallSearchAreaState.status === 'loaded' && !isSaving}
                   canAddTeam={isCurrentOpEditable && overallSearchAreaState.status === 'loaded' && !isSaving}
                   onCancel={handleNavToSituationBoard}

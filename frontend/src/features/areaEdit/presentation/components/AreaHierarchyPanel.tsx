@@ -27,6 +27,7 @@ type AreaHierarchyPanelProps = {
   splitChildAreaCount: number;
   splitChildRangeMissingCount: number;
   isSplitFlow: boolean;
+  activeChildAddAreaId: string | null;
   canAddUnit: boolean;
   canAddTeam: boolean;
   onCancel: () => void;
@@ -165,12 +166,14 @@ function canShowAddTeamAction(
   area: AreaTreeNode,
   canAddTeam: boolean,
   assignedAccountCountsByAreaId: ReadonlyMap<string, number>,
+  activeChildAddAreaId: string | null,
 ) {
   return (
     canAddTeam &&
     area.kind === 'unit' &&
     area.geometryState === 'saved' &&
-    (assignedAccountCountsByAreaId.get(area.id) ?? 0) === 0
+    (assignedAccountCountsByAreaId.get(area.id) ?? 0) === 0 &&
+    area.id === activeChildAddAreaId
   );
 }
 
@@ -238,6 +241,7 @@ export function AreaHierarchyPanel({
   splitChildAreaCount,
   splitChildRangeMissingCount,
   isSplitFlow,
+  activeChildAddAreaId,
   canAddUnit,
   canAddTeam,
   onCancel,
@@ -270,7 +274,7 @@ export function AreaHierarchyPanel({
   ].join(' ');
   const canSelectOverallArea = canAddUnit && areaTree.kind === 'overall';
   const rootDisplayState = getDisplayState(areaTree, assignedAreaIds, assignedAccountCountsByAreaId);
-  const showAddUnitAction = canShowAddUnitAction(areaTree, canAddUnit);
+  const showAddUnitAction = canShowAddUnitAction(areaTree, canAddUnit) && areaTree.id === activeChildAddAreaId;
 
   return (
     <section className={styles.panelContent} aria-label="수색 구역 배정 패널">
@@ -380,7 +384,7 @@ export function AreaHierarchyPanel({
                       범위 지정
                     </button>
                   ) : null}
-                  {hasTeams || canShowAddTeamAction(unit, canAddTeam, assignedAccountCountsByAreaId) ? (
+                  {hasTeams || canShowAddTeamAction(unit, canAddTeam, assignedAccountCountsByAreaId, activeChildAddAreaId) ? (
                     <div className={styles.teamList}>
                       {teams.map((team) => {
                         const teamDisplayState = getDisplayState(team, assignedAreaIds, assignedAccountCountsByAreaId);
@@ -427,7 +431,7 @@ export function AreaHierarchyPanel({
                           </div>
                         );
                       })}
-                      {canShowAddTeamAction(unit, canAddTeam, assignedAccountCountsByAreaId) ? (
+                      {canShowAddTeamAction(unit, canAddTeam, assignedAccountCountsByAreaId, activeChildAddAreaId) ? (
                         <GhostChildSlot label="TEAM 추가" onClick={() => onAddTeam(unit.id)} />
                       ) : null}
                     </div>
