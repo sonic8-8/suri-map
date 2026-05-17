@@ -1,6 +1,7 @@
 {
   "realm": "suri-map",
   "displayName": "Suri-Map",
+  "loginTheme": "suri-map",
   "enabled": true,
   "registrationAllowed": false,
   "resetPasswordAllowed": false,

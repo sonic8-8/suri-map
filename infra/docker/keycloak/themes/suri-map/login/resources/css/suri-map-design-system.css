@@ -1,0 +1,55 @@
+@font-face {
+  font-family: "Pretendard GOV";
+  src: url("../fonts/PretendardGOVVariable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* Copied from frontend/src/shared/tokens.css */
+  --color-fg-primary: #1d1d1d;
+  --color-fg-secondary: #555555;
+  --color-fg-muted: #8e8e8e;
+  --color-bg-page: #f8f8f8;
+  --color-bg-surface: #ffffff;
+  --color-bg-subtle: #edf1f5;
+  --color-border-default: #e4e4e4;
+  --color-border-strong: #c6c6c6;
+  --color-primary: #246beb;
+  --color-primary-hover: #1d56bc;
+  --color-primary-pressed: #144091;
+  --color-primary-soft: #eff5ff;
+  --color-primary-soft-strong: #d3e1fb;
+
+  /* Copied from frontend/src/app/styles.css shared operational aliases. */
+  --krds-ops-bg-base: var(--color-bg-page);
+  --krds-ops-bg-surface: var(--color-bg-surface);
+  --krds-ops-bg-muted: var(--color-bg-subtle);
+  --krds-ops-fg-primary: var(--color-fg-primary);
+  --krds-ops-fg-secondary: var(--color-fg-secondary);
+  --krds-ops-fg-muted: var(--color-fg-muted);
+  --krds-ops-border: var(--color-border-default);
+  --krds-ops-border-strong: var(--color-border-strong);
+  --krds-ops-primary: var(--color-primary);
+  --krds-ops-primary-pastel: var(--color-primary-soft);
+  --krds-ops-radius-panel: 6px;
+  --suri-board-fg-primary: #f2f6fb;
+  --suri-board-primary-hi: #4bbfff;
+}
+
+html,
+body,
+button,
+input,
+select,
+textarea {
+  font-family:
+    "Pretendard GOV",
+    Pretendard,
+    -apple-system,
+    BlinkMacSystemFont,
+    system-ui,
+    sans-serif;
+  letter-spacing: 0;
+}
