@@ -1,7 +1,6 @@
 package com.surimap;
 
 import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -23,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -50,7 +50,11 @@ class SecurityFilterBaselineTest {
 
   @Test
   void unauthenticatedApiCallIsBlocked() throws Exception {
-    mockMvc.perform(get("/api/auth-harness/protected")).andExpect(status().isUnauthorized());
+    mockMvc
+        .perform(get("/api/auth-harness/protected"))
+        .andExpect(status().isUnauthorized())
+        .andExpect(header().doesNotExist(HttpHeaders.WWW_AUTHENTICATE))
+        .andExpect(jsonPath("$.error").value("unauthorized"));
   }
 
   @Test
@@ -85,10 +89,14 @@ class SecurityFilterBaselineTest {
   }
 
   @Test
-  void basicPrincipalIsForbiddenFromProtectedApi() throws Exception {
+  void unsupportedBasicAuthHeaderDoesNotTriggerBrowserPrompt() throws Exception {
     mockMvc
-        .perform(get("/api/auth-harness/protected").with(httpBasic("dev", "dev-password")))
-        .andExpect(status().isForbidden());
+        .perform(
+            get("/api/auth-harness/protected")
+                .header(HttpHeaders.AUTHORIZATION, "Basic ZGV2OmRldi1wYXNzd29yZA=="))
+        .andExpect(status().isUnauthorized())
+        .andExpect(header().doesNotExist(HttpHeaders.WWW_AUTHENTICATE))
+        .andExpect(jsonPath("$.error").value("unauthorized"));
   }
 
   @Test
