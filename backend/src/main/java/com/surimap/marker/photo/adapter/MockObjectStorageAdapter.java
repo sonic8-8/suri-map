@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 /**
@@ -14,6 +15,10 @@ import org.springframework.stereotype.Component;
  * @see harness-scenarios.md §6 mock object storage fixture
  */
 @Component
+@ConditionalOnProperty(
+    name = "surimap.object-storage.provider",
+    havingValue = "mock",
+    matchIfMissing = true)
 public class MockObjectStorageAdapter implements ObjectStoragePort {
 
   private static final String MOCK_BASE_URL = "http://127.0.0.1:18080/mock-upload/";
