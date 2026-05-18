@@ -93,7 +93,7 @@ class OfflinePackageUiStateTest {
     }
 
     @Test
-    fun offlineAndPermissionStatesDoNotStartDownloadOrOpenMap() {
+    fun offlineAndPermissionStatesDoNotStartDownloadOrOpenMapAutomatically() {
         val offline = OfflinePackageUiState.offline(incidentTitle = "inc-001")
         val permissionDenied = OfflinePackageUiState.permissionDenied(incidentTitle = "inc-001")
         val unavailable = OfflinePackageUiState.unavailable(incidentTitle = "inc-001")
@@ -110,6 +110,8 @@ class OfflinePackageUiStateTest {
         assertFalse(permissionDenied.autoOpenSearchMap)
         assertFalse(searchAreaPending.autoOpenSearchMap)
         assertTrue(searchAreaPending.visibleText().any { it.contains("수색구역 지정 전") })
+        assertTrue(searchAreaPending.canOpenSearchMap)
+        assertTrue(searchAreaPending.visibleText().any { it.contains("현장 기록 열기") })
         assertTrue(unavailable.canManualRetry)
     }
 
