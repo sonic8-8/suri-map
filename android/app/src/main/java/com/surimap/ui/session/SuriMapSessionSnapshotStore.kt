@@ -16,8 +16,7 @@ data class SuriMapSessionSnapshot(
     val policePhoneId: String? = null,
     val apiBaseUrl: String? = null,
     val tileBaseUrl: String? = null,
-    val objectStorageBaseUrl: String? = null,
-    val accessToken: String? = null
+    val objectStorageBaseUrl: String? = null
 ) {
     fun toSearchMapSessionContext(): SearchMapSessionContext? {
         val normalizedIncidentId = incidentId?.takeIf(String::isNotBlank) ?: return null
@@ -29,7 +28,10 @@ data class SuriMapSessionSnapshot(
         )
     }
 
-    fun toPolicePhoneContext(): PolicePhoneContext? {
+    fun toPolicePhoneContext(
+        accessToken: String? = null,
+        accessTokenExpiresAtEpochMs: Long? = null
+    ): PolicePhoneContext? {
         val normalizedPolicePhoneId = policePhoneId?.takeIf(String::isNotBlank) ?: return null
         val normalizedApiBaseUrl = apiBaseUrl?.takeIf(String::isNotBlank) ?: return null
         val normalizedTileBaseUrl = tileBaseUrl?.takeIf(String::isNotBlank) ?: normalizedApiBaseUrl
@@ -40,7 +42,8 @@ data class SuriMapSessionSnapshot(
             apiBaseUrl = normalizedApiBaseUrl,
             tileBaseUrl = normalizedTileBaseUrl,
             objectStorageBaseUrl = normalizedObjectStorageBaseUrl,
-            accessToken = accessToken?.takeIf(String::isNotBlank)
+            accessToken = accessToken?.takeIf(String::isNotBlank),
+            accessTokenExpiresAtEpochMs = accessTokenExpiresAtEpochMs
         )
     }
 
@@ -60,8 +63,7 @@ data class SuriMapSessionSnapshot(
             policePhoneId.isNullOrBlank() &&
             apiBaseUrl.isNullOrBlank() &&
             tileBaseUrl.isNullOrBlank() &&
-            objectStorageBaseUrl.isNullOrBlank() &&
-            accessToken.isNullOrBlank()
+            objectStorageBaseUrl.isNullOrBlank()
     }
 
     fun toJson(): String =
@@ -73,7 +75,6 @@ data class SuriMapSessionSnapshot(
             .put("apiBaseUrl", apiBaseUrl)
             .put("tileBaseUrl", tileBaseUrl)
             .put("objectStorageBaseUrl", objectStorageBaseUrl)
-            .put("accessToken", accessToken)
             .toString()
 
     companion object {
@@ -86,8 +87,7 @@ data class SuriMapSessionSnapshot(
                     policePhoneId = policePhoneContext?.policePhoneId?.takeIf(String::isNotBlank),
                     apiBaseUrl = policePhoneContext?.apiBaseUrl?.takeIf(String::isNotBlank),
                     tileBaseUrl = policePhoneContext?.tileBaseUrl?.takeIf(String::isNotBlank),
-                    objectStorageBaseUrl = policePhoneContext?.objectStorageBaseUrl?.takeIf(String::isNotBlank),
-                    accessToken = policePhoneContext?.accessToken?.takeIf(String::isNotBlank)
+                    objectStorageBaseUrl = policePhoneContext?.objectStorageBaseUrl?.takeIf(String::isNotBlank)
                 )
             return snapshot.takeUnless(SuriMapSessionSnapshot::isEmpty)
         }
@@ -101,8 +101,7 @@ data class SuriMapSessionSnapshot(
                 policePhoneId = json.optString("policePhoneId").takeIf(String::isNotBlank),
                 apiBaseUrl = json.optString("apiBaseUrl").takeIf(String::isNotBlank),
                 tileBaseUrl = json.optString("tileBaseUrl").takeIf(String::isNotBlank),
-                objectStorageBaseUrl = json.optString("objectStorageBaseUrl").takeIf(String::isNotBlank),
-                accessToken = json.optString("accessToken").takeIf(String::isNotBlank)
+                objectStorageBaseUrl = json.optString("objectStorageBaseUrl").takeIf(String::isNotBlank)
             ).takeUnless(SuriMapSessionSnapshot::isEmpty)
         }
     }

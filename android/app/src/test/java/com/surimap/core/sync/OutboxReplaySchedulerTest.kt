@@ -10,6 +10,7 @@ import com.surimap.testing.policePhoneIdFixture
 import java.time.Instant
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -27,8 +28,7 @@ class OutboxReplaySchedulerTest {
             OutboxReplayWorkRequest(
                 incidentId = INCIDENT_ID,
                 policePhoneId = POLICE_PHONE_ID,
-                apiBaseUrl = "https://suri-map.internal",
-                accessToken = "bootstrap-token-1"
+                apiBaseUrl = "https://suri-map.internal"
             )
         )
 
@@ -38,7 +38,7 @@ class OutboxReplaySchedulerTest {
         assertEquals(INCIDENT_ID, work.request.workSpec.input.getString(OutboxWorker.KEY_INCIDENT_ID))
         assertEquals(POLICE_PHONE_ID, work.request.workSpec.input.getString(OutboxWorker.KEY_POLICE_PHONE_ID))
         assertEquals("https://suri-map.internal", work.request.workSpec.input.getString(OutboxWorker.KEY_API_BASE_URL))
-        assertEquals("bootstrap-token-1", work.request.workSpec.input.getString(OutboxWorker.KEY_ACCESS_TOKEN))
+        assertNull(work.request.workSpec.input.getString("accessToken"))
         assertEquals(
             if (BuildConfig.DEBUG) NetworkType.NOT_REQUIRED else NetworkType.CONNECTED,
             work.request.workSpec.constraints.requiredNetworkType
@@ -125,8 +125,7 @@ class OutboxReplaySchedulerTest {
             SchedulingSyncClient(
                 delegate = delegate,
                 scheduleReplay = { scheduled += it },
-                apiBaseUrl = "https://suri-map.internal",
-                accessToken = "bootstrap-token-1"
+                apiBaseUrl = "https://suri-map.internal"
             )
 
         client.enqueue(appWriteOperation())
@@ -136,8 +135,7 @@ class OutboxReplaySchedulerTest {
                 OutboxReplayWorkRequest(
                     incidentId = INCIDENT_ID,
                     policePhoneId = POLICE_PHONE_ID,
-                    apiBaseUrl = "https://suri-map.internal",
-                    accessToken = "bootstrap-token-1"
+                    apiBaseUrl = "https://suri-map.internal"
                 )
             ),
             scheduled
@@ -159,8 +157,7 @@ class OutboxReplaySchedulerTest {
                     )
                 },
                 scheduleReplay = { scheduled = true },
-                apiBaseUrl = "https://suri-map.internal",
-                accessToken = "bootstrap-token-1"
+                apiBaseUrl = "https://suri-map.internal"
             )
 
         client.enqueue(appWriteOperation())

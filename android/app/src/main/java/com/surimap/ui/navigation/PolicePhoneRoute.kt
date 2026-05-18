@@ -43,7 +43,8 @@ data class PolicePhoneContext(
     val tileBaseUrl: String,
     val objectStorageBaseUrl: String,
     val allowedHosts: Set<String> = emptySet(),
-    val accessToken: String? = null
+    val accessToken: String? = null,
+    val accessTokenExpiresAtEpochMs: Long? = null
 )
 
 fun PolicePhoneContext?.accessTokenProvider(): AccessTokenProvider =
@@ -69,5 +70,10 @@ class IncidentSessionState(
 
     fun clearIncidentContext() {
         incidentContext = null
+    }
+
+    fun clearPolicePhoneContext() {
+        incidentContext = null
+        policePhoneContext = null
     }
 }
