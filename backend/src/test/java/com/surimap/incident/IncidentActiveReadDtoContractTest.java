@@ -48,14 +48,17 @@ import org.springframework.test.web.servlet.MockMvc;
       "INSERT INTO \"incident\" (id, source_incident_id, title, status, opened_at, closed_at, closed_by_account_id, version, created_at, updated_at) VALUES ('10000000-0000-4000-8000-000000000001', '00000000-0000-0000-0000-000000000001', '광주 무등산 실종 신고', 'OPEN', '2026-04-28T09:00:00+09:00', NULL, NULL, 3, '2026-04-28T09:00:00+09:00', '2026-04-28T10:30:00+09:00')",
       "INSERT INTO \"incident\" (id, source_incident_id, title, status, opened_at, closed_at, closed_by_account_id, version, created_at, updated_at) VALUES ('10000000-0000-4000-8000-000000000002', '00000000-0000-0000-0000-000000000003', '미배정 OPEN 사건', 'OPEN', '2026-04-28T09:10:00+09:00', NULL, NULL, 1, '2026-04-28T09:10:00+09:00', '2026-04-28T09:10:00+09:00')",
       "INSERT INTO \"incident\" (id, source_incident_id, title, status, opened_at, closed_at, closed_by_account_id, version, created_at, updated_at) VALUES ('10000000-0000-4000-8000-000000000005', '00000000-0000-0000-0000-000000000004', '실종자 row 없는 OPEN 사건', 'OPEN', '2026-04-28T09:20:00+09:00', NULL, NULL, 2, '2026-04-28T09:20:00+09:00', '2026-04-28T09:20:00+09:00')",
+      "INSERT INTO \"incident\" (id, source_incident_id, title, status, opened_at, closed_at, closed_by_account_id, version, created_at, updated_at) VALUES ('10000000-0000-4000-8000-000000000006', '00000000-0000-0000-0000-000000000006', '실종팀 대원 배정 OPEN 사건', 'OPEN', '2026-04-28T09:30:00+09:00', NULL, NULL, 4, '2026-04-28T09:30:00+09:00', '2026-04-28T09:30:00+09:00')",
       "INSERT INTO missing_person (incident_id, display_name, photo_object_key, appearance_text, last_seen_location_text, last_seen_at, imported_at) VALUES ('10000000-0000-4000-8000-000000000001', '가상 실종자 001', 'mock-112/missing-person/001', '남색 점퍼, 회색 등산화', '무등산 서측 탐방로 입구', '2026-04-28T08:30:00+09:00', '2026-04-28T09:00:00+09:00')",
+      "INSERT INTO missing_person (incident_id, display_name, photo_object_key, appearance_text, last_seen_location_text, last_seen_at, imported_at) VALUES ('10000000-0000-4000-8000-000000000006', '가상 실종자 006', NULL, '검정 점퍼', '광주천 산책로', '2026-04-28T09:00:00+09:00', '2026-04-28T09:30:00+09:00')",
       "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('20000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', '11111111-1111-1111-1111-111111110001', 'FIELD_COMMANDER', '2026-04-28T09:00:00+09:00', NULL, '2026-04-28T09:00:00+09:00', '2026-04-28T09:00:00+09:00')",
       "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('20000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000001', '11111111-1111-1111-1111-111111110002', 'MEMBER', '2026-04-28T09:05:00+09:00', NULL, '2026-04-28T09:05:00+09:00', '2026-04-28T09:05:00+09:00')",
       "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('20000000-0000-4000-8000-000000000003', '10000000-0000-4000-8000-000000000001', '11111111-1111-1111-1111-111111110003', 'MEMBER', '2026-04-28T09:10:00+09:00', NULL, '2026-04-28T09:10:00+09:00', '2026-04-28T09:10:00+09:00')",
       "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('20000000-0000-4000-8000-000000000004', '10000000-0000-4000-8000-000000000001', '11111111-1111-1111-1111-111111110004', 'INCIDENT_COMMANDER', '2026-04-28T10:30:00+09:00', NULL, '2026-04-28T10:30:00+09:00', '2026-04-28T10:30:00+09:00')",
       "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('20000000-0000-4000-8000-000000000005', '10000000-0000-4000-8000-000000000001', '11111111-1111-1111-1111-111111110005', 'MEMBER', '2026-04-28T10:35:00+09:00', NULL, '2026-04-28T10:35:00+09:00', '2026-04-28T10:35:00+09:00')",
       "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('20000000-0000-4000-8000-000000000006', '10000000-0000-4000-8000-000000000002', '11111111-1111-1111-1111-111111119901', 'MEMBER', '2026-04-28T09:15:00+09:00', NULL, '2026-04-28T09:15:00+09:00', '2026-04-28T09:15:00+09:00')",
-      "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('20000000-0000-4000-8000-000000000007', '10000000-0000-4000-8000-000000000005', '11111111-1111-1111-1111-111111119902', 'MEMBER', '2026-04-28T09:20:00+09:00', NULL, '2026-04-28T09:20:00+09:00', '2026-04-28T09:20:00+09:00')"
+      "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('20000000-0000-4000-8000-000000000007', '10000000-0000-4000-8000-000000000005', '11111111-1111-1111-1111-111111119902', 'MEMBER', '2026-04-28T09:20:00+09:00', NULL, '2026-04-28T09:20:00+09:00', '2026-04-28T09:20:00+09:00')",
+      "INSERT INTO incident_assignment (id, incident_id, account_id, incident_role, assigned_at, revoked_at, created_at, updated_at) VALUES ('20000000-0000-4000-8000-000000000008', '10000000-0000-4000-8000-000000000006', '11111111-1111-1111-1111-111111110005', 'MEMBER', '2026-04-28T09:30:00+09:00', NULL, '2026-04-28T09:30:00+09:00', '2026-04-28T09:30:00+09:00')"
     })
 @DisplayName("L1-T05A GET /api/incidents active read DTO 계약")
 class IncidentActiveReadDtoContractTest {
@@ -64,6 +67,8 @@ class IncidentActiveReadDtoContractTest {
       UUID.fromString("10000000-0000-4000-8000-000000000001");
   private static final UUID OPEN_NO_MISSING_INCIDENT_ID =
       UUID.fromString("10000000-0000-4000-8000-000000000005");
+  private static final UUID OPEN_MISSING_TEAM_MEMBER_INCIDENT_ID =
+      UUID.fromString("10000000-0000-4000-8000-000000000006");
   private static final Set<String> ACTIVE_LIST_ITEM_FIELDS =
       Set.of("id", "incidentId", "title", "status", "version", "closedAt");
   private static final Set<String> ACTIVE_DETAIL_FIELDS =
@@ -147,6 +152,65 @@ class IncidentActiveReadDtoContractTest {
     assertThat(item.path("closedAt").isNull()).isTrue();
     assertNoTerminalOrPurgeFields(item);
     assertNoDetailOnlyFields(item);
+  }
+
+  @Test
+  @WithMockAccount(
+      accountType = AccountType.COMMAND,
+      organizationType = OrganizationType.MISSING_TEAM,
+      channel = Channel.WEB,
+      accountId = "acct-cmd-alpha",
+      roles = {Role.MISSING_TEAM_COMMANDER, Role.FIELD_COMMANDER})
+  @DisplayName("GET /api/incidents는 WEB 지휘 계정에 같은 조직 유형의 OPEN 사건 목록을 반환한다")
+  void list_returns_organization_open_incidents_for_web_commander() throws Exception {
+    JsonNode body =
+        readJson(
+            mockMvc
+                .perform(
+                    get("/api/incidents")
+                        .header("Authorization", "Bearer web-active-list")
+                        .header("X-Client-Channel", "WEB"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(StandardCharsets.UTF_8));
+
+    JsonNode items = body.get("items");
+    assertThat(items).isNotNull();
+    assertThat(items.isArray()).isTrue();
+    assertThat(items).hasSize(2);
+    assertThat(items.findValues("incidentId").stream().map(JsonNode::asText).toList())
+        .containsExactly(
+            OPEN_MISSING_TEAM_MEMBER_INCIDENT_ID.toString(), OPEN_ASSIGNED_INCIDENT_ID.toString());
+  }
+
+  @Test
+  @WithMockAccount(
+      accountType = AccountType.COMMAND,
+      organizationType = OrganizationType.MISSING_TEAM,
+      channel = Channel.WEB,
+      accountId = "acct-cmd-alpha",
+      roles = {Role.MISSING_TEAM_COMMANDER, Role.FIELD_COMMANDER})
+  @DisplayName("GET /api/incidents/{incidentId}는 WEB 지휘 계정의 조직 범위 사건 상세를 반환한다")
+  void detail_returns_organization_incident_for_web_commander() throws Exception {
+    JsonNode body =
+        readJson(
+            mockMvc
+                .perform(
+                    get("/api/incidents/{incidentId}", OPEN_MISSING_TEAM_MEMBER_INCIDENT_ID)
+                        .header("Authorization", "Bearer web-active-detail")
+                        .header("X-Client-Channel", "WEB"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(StandardCharsets.UTF_8));
+
+    assertThat(fieldNames(body)).isEqualTo(ACTIVE_DETAIL_FIELDS);
+    assertThat(body.path("incidentId").asText())
+        .isEqualTo(OPEN_MISSING_TEAM_MEMBER_INCIDENT_ID.toString());
+    assertThat(body.path("title").asText()).isEqualTo("실종팀 대원 배정 OPEN 사건");
+    assertThat(body.path("missingPerson").path("displayName").asText()).isEqualTo("가상 실종자 006");
+    assertThat(body.path("assignments")).hasSize(1);
   }
 
   @Test

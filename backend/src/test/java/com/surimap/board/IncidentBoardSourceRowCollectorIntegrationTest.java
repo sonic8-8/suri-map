@@ -483,14 +483,32 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
     }
 
     @Override
+    public List<com.surimap.incident.repository.IncidentReadRows.ListRow> findActiveListByOrganizationType(
+        String organizationType, String status) {
+      return List.of();
+    }
+
+    @Override
     public Optional<com.surimap.incident.repository.IncidentReadRows.DetailRow> findActiveDetailByIncidentIdAndAccountId(
         UUID incidentId, UUID accountId) {
       return Optional.empty();
     }
 
     @Override
+    public Optional<com.surimap.incident.repository.IncidentReadRows.DetailRow> findActiveDetailByIncidentIdAndOrganizationType(
+        UUID incidentId, String organizationType) {
+      return Optional.empty();
+    }
+
+    @Override
     public Optional<com.surimap.incident.repository.IncidentReadRows.TerminalDetailRow> findTerminalDetailByIncidentIdAndAccountId(
         UUID incidentId, UUID accountId) {
+      return Optional.empty();
+    }
+
+    @Override
+    public Optional<com.surimap.incident.repository.IncidentReadRows.TerminalDetailRow> findTerminalDetailByIncidentIdAndOrganizationType(
+        UUID incidentId, String organizationType) {
       return Optional.empty();
     }
 
