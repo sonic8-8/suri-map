@@ -1131,12 +1131,26 @@ private fun SearchMapRoute(
                                 searchPathId = activeSearchPathId
                             )
                             gpsBatchRecorder.clear()
-                            recordingSession = recordingSession.pause(now)
-                            elapsedTickerNowMs = now
+                            val pauseResult =
+                                searchPathRecorder.pause(
+                                    context = sessionContext.toSearchPathWriteContext(),
+                                    searchPathId = activeSearchPathId
+                                )
+                            if (pauseResult is SearchPathWriteResult.Enqueued) {
+                                recordingSession = recordingSession.pause(now)
+                                elapsedTickerNowMs = now
+                            }
                         }
                         SearchLifecycleStatus.Paused -> {
-                            recordingSession = recordingSession.resume(now)
-                            elapsedTickerNowMs = now
+                            val resumeResult =
+                                searchPathRecorder.resume(
+                                    context = sessionContext.toSearchPathWriteContext(),
+                                    searchPathId = activeSearchPathId
+                                )
+                            if (resumeResult is SearchPathWriteResult.Enqueued) {
+                                recordingSession = recordingSession.resume(now)
+                                elapsedTickerNowMs = now
+                            }
                         }
                         SearchLifecycleStatus.OpRequired,
                         SearchLifecycleStatus.OpTransition -> {

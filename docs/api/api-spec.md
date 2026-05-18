@@ -274,9 +274,10 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Headers: `Authorization`, `Idempotency-Key`, `X-PolicePhone-Id`
 - Guard: `app-police-phone`, `incident-read`, `write-common`, `@RequireCurrentOp`
 - Idempotency-Key: yes
-- Request: `action`, `clientTs`, optional `clockOffsetMs`
+- Request: `action` (`PAUSE`, `RESUME`, `END`), `clientTs`, optional `clockOffsetMs`
 - Response: `200 {id, version, status}`
 - Errors: `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`, `op_required`, `op_mismatch`
+- Note: `PAUSE`는 `RECORDING -> PAUSED`, `RESUME`은 `PAUSED -> RECORDING`, `END`는 `RECORDING|PAUSED -> ENDED` 전이만 허용한다. 모든 전이는 `search_path_lifecycle_event`에 `STARTED`/`PAUSED`/`RESUMED`/`ENDED` 감사 이력으로 남긴다.
 
 #### POST `/api/search-paths/batch`
 
