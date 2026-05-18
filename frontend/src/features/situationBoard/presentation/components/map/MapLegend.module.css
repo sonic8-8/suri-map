@@ -140,11 +140,10 @@
 }
 
 .rowSelected .swatch {
-  filter: brightness(1.55) saturate(1.15);
+  filter: brightness(1.08) saturate(1.08);
   box-shadow:
-    0 0 0 1px rgba(248, 250, 252, 0.26),
-    0 0 10px rgba(248, 250, 252, 0.12),
-    inset 0 0 0 999px rgba(248, 250, 252, 0.08);
+    0 0 0 1px rgba(248, 250, 252, 0.24),
+    0 0 0 3px rgba(56, 189, 248, 0.1);
 }
 
 .rowDisabled {
@@ -331,7 +330,7 @@
 
 /* 경찰견 지원 요청 색상. */
 .markerDog {
-  background: #a855f7;
+  background: #f472b6;
 }
 
 /* 기타 지원 요청 색상. */
