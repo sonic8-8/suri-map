@@ -11,7 +11,6 @@ data class OfflinePackageDownloadWorkRequest(
     val policePhoneId: String,
     val manifestId: String,
     val apiBaseUrl: String,
-    val accessToken: String? = null,
     val clockOffsetMs: Long? = null,
     val clockSyncedAt: String? = null
 ) {
@@ -26,7 +25,6 @@ data class OfflinePackageDownloadWorkRequest(
                 OfflinePackageDownloadWorker.KEY_MANIFEST_ID to manifestId,
                 OfflinePackageDownloadWorker.KEY_API_BASE_URL to apiBaseUrl
             )
-        accessToken?.let { input += OfflinePackageDownloadWorker.KEY_ACCESS_TOKEN to it }
         clockOffsetMs?.let { input += OfflinePackageDownloadWorker.KEY_CLOCK_OFFSET_MS to it }
         clockSyncedAt?.let { input += OfflinePackageDownloadWorker.KEY_CLOCK_SYNCED_AT to it }
         return OneTimeWorkRequestBuilder<OfflinePackageDownloadWorker>()

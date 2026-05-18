@@ -39,6 +39,7 @@ import androidx.work.WorkManager
 import com.surimap.BuildConfig
 import com.surimap.core.database.OfflinePackageInstallationEntity
 import com.surimap.core.database.OfflinePackageItemStatusEntity
+import com.surimap.core.auth.OidcSessionStateStore
 import com.surimap.core.database.SuriMapDatabaseProvider
 import com.surimap.core.fcm.FcmRegistrationCoordinator
 import com.surimap.core.fcm.FcmTokenProvider
@@ -167,6 +168,8 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 
 private const val AUTH_BOOTSTRAP_LOG_TAG = "AuthBootstrap"
+private const val ACCESS_TOKEN_REFRESH_SKEW_MS = 60_000L
+private const val ACCESS_TOKEN_REFRESH_FALLBACK_MS = 4 * 60 * 1_000L
 
 @Composable
 fun SuriMapApp() {
@@ -178,6 +181,13 @@ fun SuriMapApp() {
     val navController = rememberNavController()
     var assignmentRefreshNonce by remember { mutableStateOf(0) }
     val sessionSnapshotStore = remember(context) { SuriMapSessionSnapshotStore(context) }
+    val oidcSessionStateStore = remember(context) { OidcSessionStateStore(context) }
+    var oidcAuthStateJson by remember(oidcSessionStateStore) {
+        mutableStateOf(oidcSessionStateStore.load())
+    }
+    val persistedOidcSession = remember(oidcAuthStateJson) {
+        AndroidOidcLoginClient.sessionFromAuthStateJson(oidcAuthStateJson)
+    }
     val persistedSessionSnapshot = remember(sessionSnapshotStore) { sessionSnapshotStore.load() }
     val incidentSessionState =
         remember {
@@ -185,7 +195,10 @@ fun SuriMapApp() {
                 initialIncidentContext =
                 persistedSessionSnapshot?.toIncidentContext() ?: debugMapOnlyIncidentContext(),
                 initialPolicePhoneContext =
-                persistedSessionSnapshot?.toPolicePhoneContext() ?: debugMapOnlyPolicePhoneContext()
+                persistedSessionSnapshot?.toPolicePhoneContext(
+                    accessToken = persistedOidcSession?.accessToken,
+                    accessTokenExpiresAtEpochMs = persistedOidcSession?.accessTokenExpiresAtEpochMs
+                ) ?: debugMapOnlyPolicePhoneContext()
             )
         }
     val clockSyncState = remember { ClockSyncState() }
@@ -201,6 +214,23 @@ fun SuriMapApp() {
         )
     }
 
+    OidcSessionRefreshEffect(
+        policePhoneContext = incidentSessionState.policePhoneContext,
+        authStateJson = oidcAuthStateJson,
+        onSessionRefreshed = { oidcSession ->
+            oidcSessionStateStore.save(oidcSession.authStateJson)
+            oidcAuthStateJson = oidcSession.authStateJson
+            incidentSessionState.policePhoneContext
+                ?.withOidcSession(oidcSession)
+                ?.let(incidentSessionState::activatePolicePhoneContext)
+        },
+        onSessionExpired = {
+            oidcSessionStateStore.clear()
+            oidcAuthStateJson = null
+            incidentSessionState.clearPolicePhoneContext()
+            navController.navigateToAuthBootstrapRoot()
+        }
+    )
     IncidentAssignmentRefreshEffect(onRefresh = { assignmentRefreshNonce += 1 })
     NotificationPermissionEffect()
 
@@ -235,7 +265,16 @@ fun SuriMapApp() {
                     AuthBootstrapRoute(
                         incidentSessionState = incidentSessionState,
                         navController = navController,
-                        assignmentRefreshNonce = assignmentRefreshNonce
+                        assignmentRefreshNonce = assignmentRefreshNonce,
+                        onOidcSessionChanged = { oidcSession ->
+                            if (oidcSession == null) {
+                                oidcSessionStateStore.clear()
+                                oidcAuthStateJson = null
+                            } else {
+                                oidcSessionStateStore.save(oidcSession.authStateJson)
+                                oidcAuthStateJson = oidcSession.authStateJson
+                            }
+                        }
                     )
                 }
                 composable(PolicePhoneRoute.IncidentList.route) {
@@ -330,6 +369,54 @@ fun SuriMapApp() {
             }
         }
     }
+}
+
+@Composable
+private fun OidcSessionRefreshEffect(
+    policePhoneContext: PolicePhoneContext?,
+    authStateJson: String?,
+    onSessionRefreshed: (OidcLoginSession) -> Unit,
+    onSessionExpired: () -> Unit
+) {
+    val context = LocalContext.current.applicationContext
+    val oidcLoginClient = remember(context) { AndroidOidcLoginClient(context) }
+    val currentContext by rememberUpdatedState(policePhoneContext)
+    val currentOnSessionRefreshed by rememberUpdatedState(onSessionRefreshed)
+    val currentOnSessionExpired by rememberUpdatedState(onSessionExpired)
+
+    DisposableEffect(oidcLoginClient) {
+        onDispose { oidcLoginClient.dispose() }
+    }
+
+    LaunchedEffect(
+        oidcLoginClient,
+        policePhoneContext?.apiBaseUrl,
+        authStateJson,
+        policePhoneContext?.accessTokenExpiresAtEpochMs
+    ) {
+        while (true) {
+            val contextSnapshot = currentContext ?: return@LaunchedEffect
+            val stateJson = authStateJson?.takeIf(String::isNotBlank) ?: return@LaunchedEffect
+            delay(accessTokenRefreshDelayMs(contextSnapshot.accessTokenExpiresAtEpochMs))
+
+            if (currentContext == null) return@LaunchedEffect
+            val refreshedSession = oidcLoginClient.refresh(stateJson)
+            if (refreshedSession == null) {
+                currentOnSessionExpired()
+                return@LaunchedEffect
+            }
+            currentOnSessionRefreshed(refreshedSession)
+        }
+    }
+}
+
+private fun accessTokenRefreshDelayMs(accessTokenExpiresAtEpochMs: Long?): Long {
+    val now = System.currentTimeMillis()
+    val refreshAt =
+        accessTokenExpiresAtEpochMs
+            ?.minus(ACCESS_TOKEN_REFRESH_SKEW_MS)
+            ?: now + ACCESS_TOKEN_REFRESH_FALLBACK_MS
+    return (refreshAt - now).coerceAtLeast(0L)
 }
 
 @Composable
@@ -503,8 +590,7 @@ private fun BlockedOutboxRoute(
                     OutboxReplayWorkRequest(
                         incidentId = incidentId,
                         policePhoneId = row.policePhoneId,
-                        apiBaseUrl = apiBaseUrl,
-                        accessToken = policePhoneContext?.accessToken
+                        apiBaseUrl = apiBaseUrl
                     )
                 )
                 refreshNonce += 1
@@ -534,8 +620,7 @@ private fun HandoverSummaryRoute(
             SchedulingSyncClient(
                 delegate = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()),
                 scheduleReplay = outboxReplayScheduler::schedule,
-                apiBaseUrl = apiBaseUrl,
-                accessToken = policePhoneContext?.accessToken
+                apiBaseUrl = apiBaseUrl
             )
         }
     val dutyShiftRecorder = remember(syncClient, clockSyncState) {
@@ -635,12 +720,11 @@ private fun HandoverMemoRoute(
         OutboxReplayScheduler(WorkManager.getInstance(context))
     }
     val syncClient =
-        remember(database, outboxReplayScheduler, policePhoneContext?.apiBaseUrl, policePhoneContext?.accessToken) {
+        remember(database, outboxReplayScheduler, policePhoneContext?.apiBaseUrl) {
             SchedulingSyncClient(
                 delegate = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()),
                 scheduleReplay = outboxReplayScheduler::schedule,
-                apiBaseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL,
-                accessToken = policePhoneContext?.accessToken
+                apiBaseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
             )
         }
     val recorder = remember(syncClient, clockSyncState) {
@@ -717,12 +801,11 @@ private fun SearchMapRoute(
         OutboxReplayScheduler(WorkManager.getInstance(context))
     }
     val syncClient =
-        remember(database, outboxReplayScheduler, policePhoneContext?.apiBaseUrl, policePhoneContext?.accessToken) {
+        remember(database, outboxReplayScheduler, policePhoneContext?.apiBaseUrl) {
             SchedulingSyncClient(
                 delegate = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()),
                 scheduleReplay = outboxReplayScheduler::schedule,
-                apiBaseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL,
-                accessToken = policePhoneContext?.accessToken
+                apiBaseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
             )
         }
     val searchPathRecorder = remember(syncClient, clockSyncState) {
@@ -1191,12 +1274,11 @@ private fun MarkerDetailRoute(
     val apiBaseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
     val accessTokenProvider = policePhoneContext.accessTokenProvider()
     val syncClient =
-        remember(database, outboxReplayScheduler, apiBaseUrl, policePhoneContext?.accessToken) {
+        remember(database, outboxReplayScheduler, apiBaseUrl) {
             SchedulingSyncClient(
                 delegate = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()),
                 scheduleReplay = outboxReplayScheduler::schedule,
-                apiBaseUrl = apiBaseUrl,
-                accessToken = policePhoneContext?.accessToken
+                apiBaseUrl = apiBaseUrl
             )
         }
     val markerRecorder = remember(syncClient, clockSyncState) {
@@ -1475,7 +1557,6 @@ private fun OfflinePackageRoute(
                                 policePhoneId = policePhoneContext.policePhoneId,
                                 manifestId = plan.manifestId,
                                 apiBaseUrl = policePhoneContext.apiBaseUrl,
-                                accessToken = policePhoneContext.accessToken,
                                 clockOffsetMs = clockSnapshot.clockOffsetMs,
                                 clockSyncedAt = clockSnapshot.clockSyncedAt?.toString()
                             )
@@ -1509,7 +1590,8 @@ private fun OfflinePackageRoute(
 private fun AuthBootstrapRoute(
     incidentSessionState: IncidentSessionState,
     navController: NavHostController,
-    assignmentRefreshNonce: Int
+    assignmentRefreshNonce: Int,
+    onOidcSessionChanged: (OidcLoginSession?) -> Unit
 ) {
     val context = LocalContext.current
     val appContext = context.applicationContext
@@ -1528,7 +1610,9 @@ private fun AuthBootstrapRoute(
             )
             if (result.resultCode == Activity.RESULT_OK && result.data != null) {
                 coroutineScope.launch {
-                    oidcSession = oidcLoginClient.completeLogin(result.data!!)
+                    val completedSession = oidcLoginClient.completeLogin(result.data!!)
+                    oidcSession = completedSession
+                    onOidcSessionChanged(completedSession)
                     retryNonce += 1
                 }
             } else {
@@ -1565,7 +1649,7 @@ private fun AuthBootstrapRoute(
         val outcome = bootstrapCoordinator.check(config)
         state = AuthBootstrapUiState.fromOutcome(outcome = outcome, apiBaseUrl = config.apiBaseUrl)
         if (outcome is AuthBootstrapOutcome.Ready && state.shouldEnterIncidentList) {
-            incidentSessionState.activatePolicePhoneContext(config.toPolicePhoneContext(outcome))
+            incidentSessionState.activatePolicePhoneContext(config.toPolicePhoneContext(outcome, oidcSession))
             navController.navigate(PolicePhoneRoute.IncidentList.route) {
                 popUpTo(PolicePhoneRoute.AuthBootstrap.route) {
                     inclusive = true
@@ -1605,12 +1689,11 @@ private fun IncidentListRoute(
         OutboxReplayScheduler(WorkManager.getInstance(context))
     }
     val syncClient =
-        remember(database, outboxReplayScheduler, policePhoneContext?.apiBaseUrl, policePhoneContext?.accessToken) {
+        remember(database, outboxReplayScheduler, policePhoneContext?.apiBaseUrl) {
             SchedulingSyncClient(
                 delegate = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()),
                 scheduleReplay = outboxReplayScheduler::schedule,
-                apiBaseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL,
-                accessToken = policePhoneContext?.accessToken
+                apiBaseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
             )
         }
     val dutyShiftRecorder = remember(syncClient, clockSyncState) {
@@ -1691,16 +1774,26 @@ private fun IncidentListRoute(
     )
 }
 
-private fun ManagedPolicePhoneConfig.toPolicePhoneContext(outcome: AuthBootstrapOutcome.Ready): PolicePhoneContext {
+private fun ManagedPolicePhoneConfig.toPolicePhoneContext(
+    outcome: AuthBootstrapOutcome.Ready,
+    oidcSession: OidcLoginSession?
+): PolicePhoneContext {
     return PolicePhoneContext(
         policePhoneId = outcome.policePhoneId,
         apiBaseUrl = apiBaseUrl,
         tileBaseUrl = tileBaseUrl,
         objectStorageBaseUrl = objectStorageBaseUrl,
         allowedHosts = allowedHosts,
-        accessToken = outcome.accessToken
+        accessToken = outcome.accessToken,
+        accessTokenExpiresAtEpochMs = oidcSession?.accessTokenExpiresAtEpochMs
     )
 }
+
+private fun PolicePhoneContext.withOidcSession(oidcSession: OidcLoginSession): PolicePhoneContext =
+    copy(
+        accessToken = oidcSession.accessToken,
+        accessTokenExpiresAtEpochMs = oidcSession.accessTokenExpiresAtEpochMs
+    )
 
 private suspend fun ClockSyncState.syncClockForIncident(
     incidentId: String?,
@@ -2111,6 +2204,15 @@ private fun NavHostController.navigateToSingleTop(route: String) {
 private fun NavHostController.navigateToIncidentListRoot() {
     navigate(PolicePhoneRoute.IncidentList.route) {
         popUpTo(PolicePhoneRoute.IncidentList.route) {
+            inclusive = true
+        }
+        launchSingleTop = true
+    }
+}
+
+private fun NavHostController.navigateToAuthBootstrapRoot() {
+    navigate(PolicePhoneRoute.AuthBootstrap.route) {
+        popUpTo(graph.startDestinationId) {
             inclusive = true
         }
         launchSingleTop = true

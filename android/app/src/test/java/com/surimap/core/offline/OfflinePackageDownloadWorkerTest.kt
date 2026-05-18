@@ -3,6 +3,7 @@ package com.surimap.core.offline
 import androidx.work.Data
 import androidx.work.ListenableWorker
 import androidx.work.testing.TestListenableWorkerBuilder
+import com.surimap.core.network.AccessTokenProvider
 import com.surimap.core.sync.LocalSyncRuntime
 import com.surimap.core.sync.OutboxReplayWorkRequest
 import com.surimap.testing.incidentIdFixture
@@ -25,6 +26,7 @@ class OfflinePackageDownloadWorkerTest {
     fun tearDown() {
         OfflinePackageDownloadRuntime.installer = null
         LocalSyncRuntime.outboxReplayScheduler = null
+        LocalSyncRuntime.accessTokenProvider = null
     }
 
     @Test
@@ -34,6 +36,7 @@ class OfflinePackageDownloadWorkerTest {
         OfflinePackageDownloadRuntime.installer =
             OfflinePackageWorkerInstaller { request -> installs += request }
         LocalSyncRuntime.outboxReplayScheduler = { request -> replayRequests += request }
+        LocalSyncRuntime.accessTokenProvider = AccessTokenProvider { "bootstrap-token-1" }
         val worker =
             TestListenableWorkerBuilder<OfflinePackageDownloadWorker>(
                 RuntimeEnvironment.getApplication()
@@ -43,7 +46,6 @@ class OfflinePackageDownloadWorkerTest {
                         .putString("incidentId", INCIDENT_ID)
                         .putString("policePhoneId", POLICE_PHONE_ID)
                         .putString("manifestId", MANIFEST_ID)
-                        .putString("accessToken", "bootstrap-token-1")
                         .putLong("clockOffsetMs", 120L)
                         .putString("clockSyncedAt", "2026-05-11T06:00:00.120Z")
                         .build()
@@ -58,7 +60,6 @@ class OfflinePackageDownloadWorkerTest {
                 incidentId = INCIDENT_ID,
                 policePhoneId = POLICE_PHONE_ID,
                 manifestId = MANIFEST_ID,
-                accessToken = "bootstrap-token-1",
                 clockOffsetMs = 120L,
                 clockSyncedAt = "2026-05-11T06:00:00.120Z"
             ),
@@ -67,8 +68,7 @@ class OfflinePackageDownloadWorkerTest {
         assertEquals(
             OutboxReplayWorkRequest(
                 incidentId = INCIDENT_ID,
-                policePhoneId = POLICE_PHONE_ID,
-                accessToken = "bootstrap-token-1"
+                policePhoneId = POLICE_PHONE_ID
             ),
             replayRequests.single()
         )

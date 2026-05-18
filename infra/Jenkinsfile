@@ -801,8 +801,14 @@ EOF
                         echo "keycloak_suri_map_claim_mappers=ready"
 
                         /opt/keycloak/bin/kcadm.sh update realms/suri-map \
-                          -s "loginTheme=suri-map" >/dev/null
+                          -s "loginTheme=suri-map" \
+                          -s "accessTokenLifespan=7200" \
+                          -s "ssoSessionIdleTimeout=28800" \
+                          -s "ssoSessionMaxLifespan=43200" \
+                          -s "clientSessionIdleTimeout=28800" \
+                          -s "clientSessionMaxLifespan=43200" >/dev/null
                         echo "keycloak_suri_map_login_theme=suri-map"
+                        echo "keycloak_suri_map_session_policy=ready"
 
                         ensure_demo_user_profile() {
                           username="$1"
