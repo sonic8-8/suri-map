@@ -83,6 +83,7 @@ pipeline {
         TILESERVER_DATA_DIR = '/home/ubuntu/infra/tileserver'
         TILESERVER_MODE = 'tileserver-gl'
         TILESERVER_BASE_URL = 'http://tileserver-gl:8080'
+        V_WORLD_API_KEY = credentials('suri-map-vworld-api-key')
         FCM_PROVIDER = 'firebase'
         FIREBASE_CREDENTIALS_LOCATION = ''
         FIREBASE_CREDENTIALS_JSON_BASE64 = credentials('suri-map-firebase-service-account-base64')
@@ -223,6 +224,7 @@ pipeline {
 
                         sh '''
                             docker build \
+                              --build-arg V_WORLD_API_KEY="${V_WORLD_API_KEY:-}" \
                               -t ${FRONTEND_IMAGE} \
                               -f frontend/Dockerfile \
                               frontend
