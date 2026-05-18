@@ -302,7 +302,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Guard: `public-session`, `incident-read`, `@RecordLocationAccess`
 - Idempotency-Key: no
 - Query: `incidentId`, `opId`, `policePhoneId`, `includeGeometry`, `geometryMode`, `sinceVersion`, `limit`, `sort`, `movementType`
-- Response: `200 {paths}`
+- Response: `200 {paths[{id, incidentId, opId, dutyShiftId, policePhoneId, status, startedAt, endedAt, version, geometry, segments, excludedPoints}]}`
 - Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`
 
 #### PATCH `/api/search-path-segments/{searchPathSegmentId}`

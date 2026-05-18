@@ -48,6 +48,7 @@ import com.surimap.core.fcm.NoFcmTokenProvider
 import com.surimap.core.fcm.SharedPreferencesFcmRegistrationStateStore
 import com.surimap.core.incident.IncidentReadRepository
 import com.surimap.core.location.AndroidLocationUpdates
+import com.surimap.core.location.GpsLocationFix
 import com.surimap.core.map.MapLibreRuntimeMapState
 import com.surimap.core.map.MapLibreViewportBounds
 import com.surimap.core.marker.MarkerRepository
@@ -144,8 +145,10 @@ import com.surimap.feature.search.data.SearchPathWriteResult
 import com.surimap.feature.search.data.SearchRecordingSessionState
 import com.surimap.feature.search.ui.SearchLayerKind
 import com.surimap.feature.search.ui.SearchLifecycleStatus
+import com.surimap.feature.search.ui.SearchMapLayerUiState
 import com.surimap.feature.search.ui.SearchMapScreen
 import com.surimap.feature.search.ui.SearchMapUiState
+import com.surimap.feature.search.ui.SearchMapViewportBounds
 import com.surimap.feature.showcase.ui.ShowcaseScreen
 import com.surimap.ui.navigation.IncidentContext
 import com.surimap.ui.navigation.IncidentSessionState
@@ -847,6 +850,7 @@ private fun SearchMapRoute(
     }
     var bottomPanelExpanded by remember { mutableStateOf(false) }
     var mapOverlaysVisible by remember { mutableStateOf(true) }
+    var latestLocationFix by remember { mutableStateOf<GpsLocationFix?>(null) }
     var markerSheetOpen by remember { mutableStateOf(false) }
     var markerSheetState by remember { mutableStateOf(MarkerCreateSheetUiState.default()) }
     var createPhotoUriById by remember { mutableStateOf<Map<String, Uri>>(emptyMap()) }
@@ -940,6 +944,7 @@ private fun SearchMapRoute(
         policePhoneContext?.accessToken
     ) {
         clockSyncState.syncClockForIncident(sessionContext.incidentId, policePhoneContext)
+        latestLocationFix = locationUpdates.lastKnownFix()
     }
 
     LaunchedEffect(loader, sessionContext, focusMarkerId) {
@@ -956,6 +961,7 @@ private fun SearchMapRoute(
     }
 
     val serverActiveSearchPathId = searchMapState.activeSearchPathId()
+    val serverActiveSearchPathStartedAtMs = searchMapState.activeSearchPathStartedAtEpochMs
     val displayedLifecycle = recordingSession.displayedLifecycle(
         baseLifecycleStatus = searchMapState.lifecycleStatus,
         serverActiveSearchPathId = serverActiveSearchPathId
@@ -967,12 +973,17 @@ private fun SearchMapRoute(
             elapsedLabel = recordingSession.elapsedLabel(elapsedTickerNowMs),
             bottomPanelExpanded = bottomPanelExpanded,
             mapOverlaysVisible = mapOverlaysVisible
-        )
+        ).withCurrentLocationViewport(latestLocationFix)
 
-    LaunchedEffect(displayedLifecycle, activeSearchPathId) {
+    LaunchedEffect(displayedLifecycle, activeSearchPathId, serverActiveSearchPathStartedAtMs) {
         if (displayedLifecycle == SearchLifecycleStatus.Active && activeSearchPathId != null) {
             val now = System.currentTimeMillis()
-            recordingSession = recordingSession.ensureActiveStarted(now)
+            recordingSession =
+                recordingSession.ensureActiveStarted(
+                    searchPathId = activeSearchPathId,
+                    nowMs = now,
+                    serverStartedAtMs = serverActiveSearchPathStartedAtMs
+                )
             elapsedTickerNowMs = now
             while (true) {
                 delay(1_000L)
@@ -992,6 +1003,7 @@ private fun SearchMapRoute(
         } else {
             val handle =
                 locationUpdates.start { fix ->
+                    latestLocationFix = fix
                     coroutineScope.launch {
                         gpsBatchRecorder.recordFix(
                             context = sessionContext.toSearchPathWriteContext(),
@@ -1957,7 +1969,38 @@ private data class HandoverTargetContext(
 )
 
 private fun com.surimap.feature.search.ui.SearchMapUiState.activeSearchPathId(): String? =
-    layers.firstOrNull { layer -> layer.kind == SearchLayerKind.Path && layer.highlighted }?.overlayId
+    activeSearchPathId?.takeIf(String::isNotBlank)
+        ?: layers.firstOrNull { layer -> layer.kind == SearchLayerKind.Path && layer.highlighted }?.overlayId
+
+private fun SearchMapUiState.withCurrentLocationViewport(fix: GpsLocationFix?): SearchMapUiState {
+    val normalizedFix = fix ?: return this
+    val currentLocationLayer =
+        SearchMapLayerUiState(
+            label =
+            normalizedFix.bearingDegrees
+                ?.let { bearing -> "현재 위치 · ${bearing.toInt()}°" }
+                ?: "현재 위치",
+            kind = SearchLayerKind.CurrentLocation,
+            highlighted = true,
+            overlayId = "current-location",
+            geoJson = """{"type":"Point","coordinates":[${normalizedFix.lon},${normalizedFix.lat}]}"""
+        )
+    val nextLayers = layers.filterNot { layer -> layer.kind == SearchLayerKind.CurrentLocation } + currentLocationLayer
+    if (viewportBounds != null) {
+        return copy(layers = nextLayers)
+    }
+    val delta = 0.002
+    return copy(
+        layers = nextLayers,
+        viewportBounds =
+        SearchMapViewportBounds(
+            south = normalizedFix.lat - delta,
+            west = normalizedFix.lon - delta,
+            north = normalizedFix.lat + delta,
+            east = normalizedFix.lon + delta
+        )
+    )
+}
 
 private fun SearchMapUiState.markerCreationLocation(): MarkerLocation? =
     viewportBounds?.let { bounds ->

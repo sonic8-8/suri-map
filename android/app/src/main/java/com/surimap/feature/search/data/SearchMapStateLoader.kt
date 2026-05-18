@@ -16,6 +16,7 @@ import com.surimap.feature.search.ui.SearchMapLayerUiState
 import com.surimap.feature.search.ui.SearchMapSyncStatus
 import com.surimap.feature.search.ui.SearchMapUiState
 import com.surimap.feature.search.ui.SearchMapViewportBounds
+import java.time.Instant
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -196,14 +197,23 @@ class SearchMapStateLoader(
         if (!response.isSuccessful || response.body.isNullOrBlank()) {
             return state
         }
-        val pathLayers = searchPathLayers(response.body)
-        if (pathLayers.isEmpty()) {
+        val pathLayerResult = searchPathLayers(response.body)
+        if (pathLayerResult.layers.isEmpty() && pathLayerResult.activePathId.isNullOrBlank()) {
             return state
         }
-        return state.copy(
-            movementSummary = "경로 ${pathLayers.size}개 표시",
-            layers = state.layers + pathLayers
-        ).withViewportFromLayers(pathLayers)
+        val nextState =
+            state.copy(
+                movementSummary =
+                if (pathLayerResult.layers.isEmpty()) {
+                    state.movementSummary
+                } else {
+                    "경로 ${pathLayerResult.layers.size}개 표시"
+                },
+                layers = state.layers + pathLayerResult.layers,
+                activeSearchPathId = pathLayerResult.activePathId,
+                activeSearchPathStartedAtEpochMs = pathLayerResult.activeStartedAtEpochMs
+            )
+        return nextState.withViewportFromLayers(pathLayerResult.layers)
     }
 
     private suspend fun withInitialMarkers(
@@ -398,17 +408,23 @@ class SearchMapStateLoader(
             )
         }
 
-    private fun searchPathLayers(body: String): List<SearchMapLayerUiState> {
-        val root = runCatching { JSONObject(body) }.getOrNull() ?: return emptyList()
-        val paths = root.optJSONArray("paths") ?: root.optJSONArray("items") ?: return emptyList()
-        return buildList {
+    private fun searchPathLayers(body: String): SearchPathLayerResult {
+        val root = runCatching { JSONObject(body) }.getOrNull() ?: return SearchPathLayerResult()
+        val paths = root.optJSONArray("paths") ?: root.optJSONArray("items") ?: return SearchPathLayerResult()
+        var activePathId: String? = null
+        var activeStartedAtEpochMs: Long? = null
+        val layers = buildList {
             repeat(paths.length()) { index ->
                 val path = paths.optJSONObject(index) ?: return@repeat
+                val active = path.optString("status").uppercase() in setOf("ACTIVE", "RECORDING")
+                if (active) {
+                    activePathId = path.optString("id").takeIf(String::isNotBlank) ?: activePathId
+                    activeStartedAtEpochMs = path.instantMillis("startedAt") ?: activeStartedAtEpochMs
+                }
                 val geometry = path.optJSONObject("geometry") ?: return@repeat
                 if (!geometry.optString("type").equals("LineString", ignoreCase = true)) {
                     return@repeat
                 }
-                val active = path.optString("status").uppercase() in setOf("ACTIVE", "RECORDING")
                 add(
                     SearchMapLayerUiState(
                         label = if (active) "현재 경로" else "기존 경로",
@@ -420,7 +436,18 @@ class SearchMapStateLoader(
                 )
             }
         }
+        return SearchPathLayerResult(
+            layers = layers,
+            activePathId = activePathId,
+            activeStartedAtEpochMs = activeStartedAtEpochMs
+        )
     }
+
+    private data class SearchPathLayerResult(
+        val layers: List<SearchMapLayerUiState> = emptyList(),
+        val activePathId: String? = null,
+        val activeStartedAtEpochMs: Long? = null
+    )
 
     private fun JSONObject.searchLayerKind(): SearchLayerKind? {
         val areaLevel =
@@ -454,6 +481,7 @@ class SearchMapStateLoader(
                     SearchLayerKind.Team -> "팀 담당 구역"
                     SearchLayerKind.Path -> "수색 경로"
                     SearchLayerKind.Marker -> "마커"
+                    SearchLayerKind.CurrentLocation -> "현재 위치"
                 }
             }
     }
@@ -464,6 +492,18 @@ class SearchMapStateLoader(
             .ifBlank {
                 optString("type").markerTypeLabel()
             }
+    }
+
+    private fun JSONObject.instantMillis(name: String): Long? {
+        val value =
+            optString(name).ifBlank {
+                when (name) {
+                    "startedAt" -> optString("started_at")
+                    "endedAt" -> optString("ended_at")
+                    else -> ""
+                }
+            }
+        return runCatching { Instant.parse(value).toEpochMilli() }.getOrNull()
     }
 
     private fun String.markerTypeLabel(): String =
