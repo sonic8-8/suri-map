@@ -6,11 +6,13 @@ export type BoardResponseLike = {
 };
 
 export type BoardPosition = [number, number];
+export type BoardPolicePhoneFreshnessStatus = 'ONLINE' | 'STALE' | 'LOST' | 'UNKNOWN';
 
 export type BoardMovementPath = {
   id: string;
   policePhoneId: string | null;
   accountId: string | null;
+  freshnessStatus: BoardPolicePhoneFreshnessStatus;
   routeColor: string | null;
   opId: string;
   label: string;
@@ -46,6 +48,7 @@ export function createBoardMovementPaths(board: BoardResponseLike | null): Board
   if (!board) return [];
 
   const accountIdsByPolicePhoneId = createAccountIdsByPolicePhoneId(board);
+  const freshnessStatusByPolicePhoneId = createFreshnessStatusByPolicePhoneId(board);
 
   return readBoardSlotRows(board, 'path').flatMap((row, pathIndex) => {
     const segments = row.segments;
@@ -63,6 +66,7 @@ export function createBoardMovementPaths(board: BoardResponseLike | null): Board
             id: readString(segment, 'id') ?? readString(segment, 'segmentId') ?? `${rowId}:segment-${segmentIndex + 1}`,
             policePhoneId,
             accountId,
+            freshnessStatus: readFreshnessStatusByPolicePhoneId(policePhoneId, freshnessStatusByPolicePhoneId),
             routeColor: null,
             opId: readRowOpId(segment) ?? readRowOpId(row) ?? board.activeOpId ?? '',
             label: readString(segment, 'label') ?? readString(row, 'label') ?? `Path ${pathIndex + 1}`,
@@ -85,6 +89,7 @@ export function createBoardMovementPaths(board: BoardResponseLike | null): Board
         accountId:
           readAccountId(row) ??
           readAccountIdByPolicePhoneId(readPolicePhoneId(row), accountIdsByPolicePhoneId),
+        freshnessStatus: readFreshnessStatusByPolicePhoneId(readPolicePhoneId(row), freshnessStatusByPolicePhoneId),
         routeColor: null,
         opId: readRowOpId(row) ?? board.activeOpId ?? '',
         label: readString(row, 'label') ?? `Path ${pathIndex + 1}`,
@@ -111,11 +116,32 @@ function createAccountIdsByPolicePhoneId(board: BoardResponseLike) {
   return accountIdsByPolicePhoneId;
 }
 
+function createFreshnessStatusByPolicePhoneId(board: BoardResponseLike) {
+  const freshnessStatusByPolicePhoneId = new Map<string, BoardPolicePhoneFreshnessStatus>();
+
+  readBoardSlotRows(board, 'police_phone_freshness').forEach((row) => {
+    const policePhoneId = readPolicePhoneId(row);
+    const freshnessStatus = readPolicePhoneFreshnessStatus(row);
+    if (policePhoneId && freshnessStatus) {
+      freshnessStatusByPolicePhoneId.set(policePhoneId, freshnessStatus);
+    }
+  });
+
+  return freshnessStatusByPolicePhoneId;
+}
+
 function readAccountIdByPolicePhoneId(
   policePhoneId: string | null,
   accountIdsByPolicePhoneId: ReadonlyMap<string, string>,
 ) {
   return policePhoneId ? accountIdsByPolicePhoneId.get(policePhoneId) ?? null : null;
+}
+
+function readFreshnessStatusByPolicePhoneId(
+  policePhoneId: string | null,
+  freshnessStatusByPolicePhoneId: ReadonlyMap<string, BoardPolicePhoneFreshnessStatus>,
+) {
+  return policePhoneId ? freshnessStatusByPolicePhoneId.get(policePhoneId) ?? 'UNKNOWN' : 'UNKNOWN';
 }
 
 export function createBoardMapMarkers(board: BoardResponseLike | null): BoardMapMarker[] {
@@ -242,6 +268,25 @@ function readPolicePhoneId(row: Record<string, unknown>) {
 
 function readAccountId(row: Record<string, unknown>) {
   return readString(row, 'accountId') ?? readString(row, 'account_id');
+}
+
+function readPolicePhoneFreshnessStatus(row: Record<string, unknown>): BoardPolicePhoneFreshnessStatus | null {
+  const freshnessStatus =
+    readString(row, 'freshnessStatus') ??
+    readString(row, 'status') ??
+    readString(row, 'freshness');
+
+  switch (freshnessStatus?.toUpperCase()) {
+    case 'ONLINE':
+    case 'NORMAL':
+      return 'ONLINE';
+    case 'STALE':
+      return 'STALE';
+    case 'LOST':
+      return 'LOST';
+    default:
+      return null;
+  }
 }
 
 function readPhotoCount(row: Record<string, unknown>) {

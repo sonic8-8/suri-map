@@ -1,4 +1,6 @@
+import type { CSSProperties } from 'react';
 import type { MarkerFilterOption, MarkerTypeId, SupportRequestTypeId } from '../../constants/mockSituationBoard';
+import { getMarkerLegendColor } from '../../../../../shared/constants/markerLegendColors';
 import { MarkerGlyph } from '../marker/MarkerGlyph';
 import { CollapsiblePanelSection } from './CollapsiblePanelSection';
 import { LeftPanelOptionButton } from './LeftPanelOptionButton';
@@ -39,6 +41,7 @@ export function MarkerTypeFilter({
           .filter(({ markerType }) => markerType !== 'SUPPORT_REQUEST')
           .map(({ markerType, label, icon }) => {
             const isSelected = selectedMarkerTypes.includes(markerType);
+            const markerStyle = { '--marker-identity-color': getMarkerLegendColor(markerType) } as CSSProperties;
 
             return (
               <LeftPanelOptionButton
@@ -49,6 +52,7 @@ export function MarkerTypeFilter({
                 icon={<MarkerGlyph name={icon} size={compact ? 24 : 28} />}
                 className={compact ? styles.compactMarkerButton : styles.markerButton}
                 disabled={disabled}
+                style={markerStyle}
                 onClick={() => onToggleMarkerType(markerType)}
               />
             );
@@ -64,6 +68,9 @@ export function MarkerTypeFilter({
             const isSelected = Boolean(
               supportRequestType && selectedSupportRequestTypes.includes(supportRequestType),
             );
+            const markerStyle = {
+              '--marker-identity-color': getMarkerLegendColor('SUPPORT_REQUEST', supportRequestType),
+            } as CSSProperties;
 
             return (
               <LeftPanelOptionButton
@@ -74,6 +81,7 @@ export function MarkerTypeFilter({
                 icon={<MarkerGlyph name={icon} size={compact ? 20 : 22} />}
                 className={compact ? styles.compactMarkerButton : styles.markerButton}
                 disabled={disabled}
+                style={markerStyle}
                 onClick={() => onToggleMarkerType('SUPPORT_REQUEST', supportRequestType)}
               />
             );

@@ -61,6 +61,21 @@ describe('createBoardMovementPaths', () => {
 
     expect(paths.map((path) => path.accountId)).toEqual([ACCOUNT_ID, ACCOUNT_ID]);
   });
+
+  test('hydrates path freshness status from police phone freshness slot', () => {
+    const board = createBoardWithPathSegments();
+    board.slots.police_phone_freshness = [
+      {
+        policePhoneId: POLICE_PHONE_ID,
+        accountId: ACCOUNT_ID,
+        freshnessStatus: 'STALE',
+      },
+    ];
+
+    const paths = createBoardMovementPaths(board);
+
+    expect(paths.map((path) => path.freshnessStatus)).toEqual(['STALE', 'STALE']);
+  });
 });
 
 function createBoardWithPathSegments(): BoardResponseLike {

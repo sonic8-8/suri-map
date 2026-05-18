@@ -1,6 +1,7 @@
 import type { MutableRefObject } from 'react';
 import maplibregl, { type GeoJSONSource } from 'maplibre-gl';
 import type { RecentMarker } from '../../constants/mockSituationBoard';
+import { getMarkerLegendColor } from '../../../../../shared/constants/markerLegendColors';
 import {
   createMarkerShellSvgMarkup,
   markerTypeGlyphName,
@@ -56,15 +57,6 @@ const MARKER_ICON_PREFIX = 'board-marker';
 const MARKER_ICON_WIDTH = 40;
 const MARKER_ICON_HEIGHT = 46;
 const MARKER_ICON_PIXEL_RATIO = 2;
-
-const markerColors: Record<MarkerTypeKey, string> = {
-  CLUE: '#f59e0b',
-  PERSON_FOUND: '#ef4444',
-  FIELD_CONDITION: '#22c55e',
-  SUPPORT_REQUEST: '#8b5cf6',
-  NOTE: '#3b82f6',
-  UNKNOWN: '#94a3b8',
-};
 
 const markerTypeSortOrder: Record<MarkerTypeKey, number> = {
   PERSON_FOUND: 5,
@@ -169,7 +161,7 @@ export function createMarkerSymbolSvg(
   glyphName: MarkerGlyphName = markerTypeGlyphName(markerType),
 ) {
   return createMarkerShellSvgMarkup({
-    accentColor: markerColors[markerType],
+    accentColor: getMarkerLegendColor(markerType, null, glyphName),
     icon: glyphName,
     state: markerState,
   });
@@ -524,13 +516,14 @@ function createMarkerHoverTooltip(marker: RecentMarker) {
 
 function createMarkerClickPopup(marker: RecentMarker, handlers: MarkerInteractionHandlers) {
   const markerType = markerTypeKey(marker.markerType);
+  const glyphName = markerGlyphName(marker);
   const popup = document.createElement('div');
   popup.className = styles.markerPopup;
   popup.setAttribute('role', 'dialog');
   popup.setAttribute('aria-label', marker.title);
   popup.addEventListener('click', (event) => event.stopPropagation());
   popup.addEventListener('pointerdown', (event) => event.stopPropagation());
-  popup.style.setProperty('--marker-color', markerColors[markerType]);
+  popup.style.setProperty('--marker-color', getMarkerLegendColor(markerType, marker.supportRequestType, glyphName));
 
   const header = document.createElement('div');
   header.className = styles.markerPopupHeader;

@@ -5,10 +5,15 @@ import type { HandoverComparisonMapSharedProps } from '../../../../handover/pres
 import type { CompletedAreaDraft } from '../../../../../shared/model/areaDraft';
 import type {
   LegendItem,
+  LayerFilterId,
+  MarkerTypeId,
   MovementPath,
   OperationalPeriod,
+  PolicePhoneLegendFilterId,
   RecentMarker,
+  SearchAreaLegendFilterId,
   SearchAreaTreeNode,
+  SupportRequestTypeId,
 } from '../../constants/mockSituationBoard';
 import styles from './SituationBoardMap.module.css';
 
@@ -19,6 +24,11 @@ type SituationBoardMapProps = {
   isTerminalBoard?: boolean;
   legendItems: LegendItem[];
   layerVisibility: LayerVisibility;
+  selectedLayerIds: LayerFilterId[];
+  selectedMarkerTypes: MarkerTypeId[];
+  selectedPolicePhoneLegendFilters: PolicePhoneLegendFilterId[];
+  selectedSearchAreaLegendFilters: SearchAreaLegendFilterId[];
+  selectedSupportRequestTypes: SupportRequestTypeId[];
   movementPaths: MovementPath[];
   recentMarkers: RecentMarker[];
   operationalPeriods: OperationalPeriod[];
@@ -32,6 +42,10 @@ type SituationBoardMapProps = {
   handoverMapProps?: HandoverComparisonMapSharedProps | null;
   searchAreaTree: SearchAreaTreeNode;
   onInitialMapStateChange: (state: InitialMapState | null) => void;
+  onToggleLayer: (layerId: LayerFilterId) => void;
+  onToggleMarkerType: (markerType: MarkerTypeId, supportRequestType?: SupportRequestTypeId) => void;
+  onTogglePolicePhoneLegendFilter: (filterId: PolicePhoneLegendFilterId) => void;
+  onToggleSearchAreaLegendFilter: (filterId: SearchAreaLegendFilterId) => void;
   onOpenSearchAreaAssign: () => void;
   onOpenSearchAreaSplit: () => void;
   onClearSelectedSearchArea: () => void;
@@ -47,6 +61,11 @@ export function SituationBoardMap({
   isTerminalBoard = false,
   legendItems,
   layerVisibility,
+  selectedLayerIds,
+  selectedMarkerTypes,
+  selectedPolicePhoneLegendFilters,
+  selectedSearchAreaLegendFilters,
+  selectedSupportRequestTypes,
   movementPaths,
   recentMarkers,
   operationalPeriods,
@@ -60,6 +79,10 @@ export function SituationBoardMap({
   handoverMapProps,
   searchAreaTree,
   onInitialMapStateChange,
+  onToggleLayer,
+  onToggleMarkerType,
+  onTogglePolicePhoneLegendFilter,
+  onToggleSearchAreaLegendFilter,
   onClearSelectedSearchArea,
   onOpenSearchAreaAssign,
   onOpenSearchAreaSplit,
@@ -76,6 +99,11 @@ export function SituationBoardMap({
         isTerminalBoard={isTerminalBoard}
         legendItems={legendItems}
         layerVisibility={layerVisibility}
+        selectedLayerIds={selectedLayerIds}
+        selectedMarkerTypes={selectedMarkerTypes}
+        selectedPolicePhoneLegendFilters={selectedPolicePhoneLegendFilters}
+        selectedSearchAreaLegendFilters={selectedSearchAreaLegendFilters}
+        selectedSupportRequestTypes={selectedSupportRequestTypes}
         movementPaths={movementPaths}
         recentMarkers={recentMarkers}
         operationalPeriods={operationalPeriods}
@@ -89,6 +117,10 @@ export function SituationBoardMap({
         handoverMapProps={handoverMapProps}
         searchAreaTree={searchAreaTree}
         onInitialMapStateChange={onInitialMapStateChange}
+        onToggleLayer={onToggleLayer}
+        onToggleMarkerType={onToggleMarkerType}
+        onTogglePolicePhoneLegendFilter={onTogglePolicePhoneLegendFilter}
+        onToggleSearchAreaLegendFilter={onToggleSearchAreaLegendFilter}
         onClearSelectedSearchArea={onClearSelectedSearchArea}
         onOpenSearchAreaAssign={onOpenSearchAreaAssign}
         onOpenSearchAreaSplit={onOpenSearchAreaSplit}

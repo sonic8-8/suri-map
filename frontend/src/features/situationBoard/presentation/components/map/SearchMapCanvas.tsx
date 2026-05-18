@@ -39,7 +39,13 @@ import {
   type BoardMapFeatureCollection,
   type BoardMapGeometry,
 } from '../../../../../shared/model/boardMapFeatures';
-import type { MovementPath, OperationalPeriod, RecentMarker } from '../../constants/mockSituationBoard';
+import type {
+  MovementPath,
+  OperationalPeriod,
+  PolicePhoneLegendFilterId,
+  RecentMarker,
+  SearchAreaLegendFilterId,
+} from '../../constants/mockSituationBoard';
 import {
   clearMarkerElements,
   hasRenderedMarkerAtPoint,
@@ -577,6 +583,63 @@ function syncLayerVisibility(map: maplibregl.Map, layerVisibility: LayerVisibili
   setLayerVisibility(map, MOVEMENT_PATH_COMPARE_LAYER_ID, layerVisibility.vehiclePath || layerVisibility.footPath);
 }
 
+function filterSearchAreasByLegendFilters(
+  searchAreas: OperationalFeatureCollection,
+  selectedFilterIds: SearchAreaLegendFilterId[],
+): OperationalFeatureCollection {
+  const selectedFilterIdSet = new Set(selectedFilterIds);
+
+  return {
+    type: 'FeatureCollection',
+    features: searchAreas.features.filter((feature) => {
+      if (feature.properties.areaLevel === 'OVERALL') {
+        return selectedFilterIdSet.has('overall_area');
+      }
+
+      if (feature.properties.areaLevel === 'UNIT') {
+        return selectedFilterIdSet.has('unit_area');
+      }
+
+      if (feature.properties.areaLevel === 'TEAM' && feature.properties.status === 'COMPLETED') {
+        return selectedFilterIdSet.has('completed_team_area');
+      }
+
+      if (feature.properties.areaLevel === 'TEAM') {
+        return selectedFilterIdSet.has('team_area');
+      }
+
+      return true;
+    }),
+  };
+}
+
+function filterMovementPathsByPolicePhoneLegendFilters(
+  movementPaths: OperationalFeatureCollection,
+  selectedFilterIds: PolicePhoneLegendFilterId[],
+): OperationalFeatureCollection {
+  const selectedFilterIdSet = new Set(selectedFilterIds);
+
+  return {
+    type: 'FeatureCollection',
+    features: movementPaths.features.filter((feature) => {
+      if (feature.properties.isActiveOp === 'true' && !selectedFilterIdSet.has('active_phone')) {
+        return false;
+      }
+
+      switch (feature.properties.freshnessStatus) {
+        case 'ONLINE':
+          return selectedFilterIdSet.has('phone_online');
+        case 'STALE':
+          return selectedFilterIdSet.has('phone_stale');
+        case 'LOST':
+          return selectedFilterIdSet.has('phone_lost');
+        default:
+          return true;
+      }
+    }),
+  };
+}
+
 type SearchMapCanvasProps = {
   activeOperationalPeriodId: string | null;
   incidentId: string;
@@ -590,6 +653,8 @@ type SearchMapCanvasProps = {
   focusedSearchAreaSequence: number;
   visibleMarkerIds: string[];
   savedAreaDrafts: CompletedAreaDraft[];
+  selectedPolicePhoneLegendFilters: PolicePhoneLegendFilterId[];
+  selectedSearchAreaLegendFilters: SearchAreaLegendFilterId[];
   onInitialBoundsReady?: (bounds: LngLatBoundsLike | null) => void;
   onInitialMapStateReady?: (state: InitialMapResolution['state'] | null) => void;
   onMapReady?: (map: maplibregl.Map | null) => void;
@@ -616,6 +681,8 @@ export function SearchMapCanvas({
   focusedSearchAreaSequence,
   visibleMarkerIds,
   savedAreaDrafts,
+  selectedPolicePhoneLegendFilters,
+  selectedSearchAreaLegendFilters,
   onInitialBoundsReady,
   onInitialMapStateReady,
   onMapReady,
@@ -657,6 +724,10 @@ export function SearchMapCanvas({
     () => applySearchAreaStatuses(createSearchAreaDraftFeatureCollection(savedAreaDrafts, { incidentId, includeSlot: true }), searchAreaTree),
     [incidentId, savedAreaDrafts, searchAreaTree],
   );
+  const visibleAssignedSearchAreas = useMemo(
+    () => filterSearchAreasByLegendFilters(assignedSearchAreas, selectedSearchAreaLegendFilters),
+    [assignedSearchAreas, selectedSearchAreaLegendFilters],
+  );
   const movementPathFeatures = useMemo(
     () =>
       createMovementPathFeatureCollection(movementPaths, activeOperationalPeriodId, {
@@ -664,21 +735,25 @@ export function SearchMapCanvas({
       }),
     [activeOperationalPeriodId, movementPaths],
   );
+  const visibleMovementPathFeatures = useMemo(
+    () => filterMovementPathsByPolicePhoneLegendFilters(movementPathFeatures, selectedPolicePhoneLegendFilters),
+    [movementPathFeatures, selectedPolicePhoneLegendFilters],
+  );
   const assignedSearchAreasSignature = useMemo(
     () => createOperationalFeatureCollectionSignature(assignedSearchAreas),
     [assignedSearchAreas],
   );
-  const assignedSearchAreasRef = useRef(assignedSearchAreas);
-  const movementPathFeaturesRef = useRef(movementPathFeatures);
+  const assignedSearchAreasRef = useRef(visibleAssignedSearchAreas);
+  const movementPathFeaturesRef = useRef(visibleMovementPathFeatures);
   const fittedSearchAreasSignatureRef = useRef<string | null>(null);
 
   useEffect(() => {
-    assignedSearchAreasRef.current = assignedSearchAreas;
-  }, [assignedSearchAreas]);
+    assignedSearchAreasRef.current = visibleAssignedSearchAreas;
+  }, [visibleAssignedSearchAreas]);
 
   useEffect(() => {
-    movementPathFeaturesRef.current = movementPathFeatures;
-  }, [movementPathFeatures]);
+    movementPathFeaturesRef.current = visibleMovementPathFeatures;
+  }, [visibleMovementPathFeatures]);
 
   useEffect(() => {
     selectedSearchAreaIdRef.current = selectedSearchAreaId;
@@ -944,7 +1019,7 @@ export function SearchMapCanvas({
     }
 
     const focusSearchArea = () => {
-      const bounds = getSearchAreaBoundsById(assignedSearchAreas, focusedSearchAreaId);
+      const bounds = getSearchAreaBoundsById(visibleAssignedSearchAreas, focusedSearchAreaId);
       if (!bounds) {
         return;
       }
@@ -965,7 +1040,7 @@ export function SearchMapCanvas({
     return () => {
       map.off('load', focusSearchArea);
     };
-  }, [assignedSearchAreas, focusedSearchAreaId, focusedSearchAreaSequence]);
+  }, [visibleAssignedSearchAreas, focusedSearchAreaId, focusedSearchAreaSequence]);
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
@@ -1000,8 +1075,8 @@ export function SearchMapCanvas({
       return;
     }
 
-    setOperationalGeoJsonSourceData(map, MOVEMENT_PATH_SOURCE_ID, movementPathFeatures);
-  }, [movementPathFeatures]);
+    setOperationalGeoJsonSourceData(map, MOVEMENT_PATH_SOURCE_ID, visibleMovementPathFeatures);
+  }, [visibleMovementPathFeatures]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -1009,7 +1084,7 @@ export function SearchMapCanvas({
       return;
     }
 
-    syncSearchAreaSourceDataWhenAvailable(map, assignedSearchAreas, layerVisibilityRef.current.searchArea);
+    syncSearchAreaSourceDataWhenAvailable(map, visibleAssignedSearchAreas, layerVisibilityRef.current.searchArea);
     if (hasSearchAreaLayers(map)) {
       syncSelectedSearchArea(map, selectedSearchAreaIdRef.current);
     }
@@ -1026,7 +1101,7 @@ export function SearchMapCanvas({
       fittedSearchAreasSignatureRef.current = assignedSearchAreasSignature;
       map.fitBounds(assignedSearchAreaBounds, { padding: DEFAULT_FIT_PADDING, duration: 420, maxZoom: 15 });
     }
-  }, [assignedSearchAreas, assignedSearchAreasSignature, onInitialBoundsReady, onInitialMapStateReady]);
+  }, [assignedSearchAreas, assignedSearchAreasSignature, onInitialBoundsReady, onInitialMapStateReady, visibleAssignedSearchAreas]);
 
   useEffect(() => {
     const map = mapRef.current;

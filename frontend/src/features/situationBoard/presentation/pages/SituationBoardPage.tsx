@@ -60,7 +60,7 @@ export function SituationBoardPage({
 }: SituationBoardPageProps) {
   useBrowserBackToIncidentList(onBrowserBackToIncidentList);
   const areaIncidentListNavigationHandlerRef = useRef<(() => void) | null>(null);
-  const [leftPanelPage, setLeftPanelPage] = useState<LeftPanelPage>('filter');
+  const [leftPanelPage, setLeftPanelPage] = useState<LeftPanelPage>('area');
   const [areaPanelMode, setAreaPanelMode] = useState<'tree' | 'assignment'>('tree');
   const [focusedMarkerRequest, setFocusedMarkerRequest] = useState({ markerId: null as string | null, sequence: 0 });
   const [focusedSearchAreaRequest, setFocusedSearchAreaRequest] = useState({
@@ -245,6 +245,11 @@ export function SituationBoardPage({
           isTerminalBoard={isClosedTerminalBoard}
           legendItems={boardState.board.legendItems}
           layerVisibility={shouldHideSituationBoardMapData ? HIDDEN_MAP_LAYER_VISIBILITY : boardState.layerVisibility}
+          selectedLayerIds={boardState.selectedLayerIds}
+          selectedMarkerTypes={boardState.selectedMarkerTypes}
+          selectedPolicePhoneLegendFilters={boardState.selectedPolicePhoneLegendFilters}
+          selectedSearchAreaLegendFilters={boardState.selectedSearchAreaLegendFilters}
+          selectedSupportRequestTypes={boardState.selectedSupportRequestTypes}
           movementPaths={shouldHideSituationBoardMapData ? [] : boardState.board.movementPaths}
           recentMarkers={shouldHideSituationBoardMapData ? [] : boardState.mapRecentMarkers}
           operationalPeriods={shouldHideSituationBoardMapData ? [] : boardState.board.operationalPeriods}
@@ -260,6 +265,10 @@ export function SituationBoardPage({
           handoverMapProps={!isClosedTerminalBoard && boardState.isHandoverWorkspaceOpen ? boardState.handoverMapProps : null}
           searchAreaTree={boardState.board.searchAreaTree}
           onInitialMapStateChange={boardState.setInitialMapState}
+          onToggleLayer={boardState.toggleLayer}
+          onToggleMarkerType={boardState.toggleMarkerType}
+          onTogglePolicePhoneLegendFilter={boardState.togglePolicePhoneLegendFilter}
+          onToggleSearchAreaLegendFilter={boardState.toggleSearchAreaLegendFilter}
           onOpenSearchAreaAssign={handleOpenSearchAreaAssignment}
           onOpenSearchAreaSplit={boardState.openAreaWorkspace}
           onClearSelectedSearchArea={boardState.clearSelectedSearchArea}
