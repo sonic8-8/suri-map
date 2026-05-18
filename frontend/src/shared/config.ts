@@ -36,6 +36,10 @@ export function getTileBaseUrl() {
   return normalizePublicTileBaseUrl(import.meta.env.VITE_TILE_BASE_URL ?? '/tiles');
 }
 
+export function getVWorldApiKey() {
+  return __V_WORLD_API_KEY__;
+}
+
 function normalizeBaseUrl(baseUrl: string, fallback: string) {
   const normalized = baseUrl.trim().replace(/\/+$/, '');
   return normalized || fallback;
