@@ -124,7 +124,7 @@ data class AuthBootstrapUiState(
                 when (reason) {
                     AuthBootstrapFailureReason.NotManagedPhone -> "관리 단말이 아닙니다. IT 부서 문의"
                     AuthBootstrapFailureReason.InternalNetworkUnavailable -> "내부망 연결을 확인하세요"
-                    AuthBootstrapFailureReason.ServerRejectedPhone -> "이 폴리폰으로 접속할 수 없습니다. IT 부서 문의"
+                    AuthBootstrapFailureReason.ServerRejectedPhone -> "단말 등록 또는 사건 배정 상태를 확인하세요. 계속되면 관리자에게 문의하세요"
                     AuthBootstrapFailureReason.ManagedConfigMissing -> "관리 설정이 없습니다. IT 부서 문의"
                     AuthBootstrapFailureReason.AuthenticationRequired -> "계정 인증이 필요합니다"
                 }
@@ -140,7 +140,12 @@ data class AuthBootstrapUiState(
                     AuthBootstrapFailureReason.AuthenticationRequired -> 0.7f
                     AuthBootstrapFailureReason.ServerRejectedPhone -> 0.8f
                 },
-                title = if (reason == AuthBootstrapFailureReason.AuthenticationRequired) "로그인 필요" else "접속 확인 실패",
+                title =
+                when (reason) {
+                    AuthBootstrapFailureReason.AuthenticationRequired -> "로그인 필요"
+                    AuthBootstrapFailureReason.ServerRejectedPhone -> "단말 확인 필요"
+                    else -> "접속 확인 실패"
+                },
                 description =
                 if (reason == AuthBootstrapFailureReason.AuthenticationRequired) {
                     "관리 단말과 내부망 확인이 완료되었습니다. 계정 인증 후 사건 목록으로 이동합니다."

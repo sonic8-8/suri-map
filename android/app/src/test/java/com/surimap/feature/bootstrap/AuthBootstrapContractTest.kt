@@ -154,7 +154,7 @@ class AuthBootstrapContractTest {
             mapOf(
                 AuthBootstrapFailureReason.NotManagedPhone to "관리 단말이 아닙니다. IT 부서 문의",
                 AuthBootstrapFailureReason.InternalNetworkUnavailable to "내부망 연결을 확인하세요",
-                AuthBootstrapFailureReason.ServerRejectedPhone to "이 폴리폰으로 접속할 수 없습니다. IT 부서 문의",
+                AuthBootstrapFailureReason.ServerRejectedPhone to "단말 등록 또는 사건 배정 상태를 확인하세요. 계속되면 관리자에게 문의하세요",
                 AuthBootstrapFailureReason.ManagedConfigMissing to "관리 설정이 없습니다. IT 부서 문의"
             )
 
@@ -166,6 +166,9 @@ class AuthBootstrapContractTest {
 
             assertFalse(state.shouldEnterIncidentList)
             assertEquals(message, state.failureMessage)
+            if (reason == AuthBootstrapFailureReason.ServerRejectedPhone) {
+                assertEquals("단말 확인 필요", state.title)
+            }
             assertFalse(state.visibleText().any { it.contains("로그인") })
             assertFalse(state.visibleText().any { it.contains("비밀번호") })
             assertFalse(state.visibleText().any { it.contains("바인딩") })
