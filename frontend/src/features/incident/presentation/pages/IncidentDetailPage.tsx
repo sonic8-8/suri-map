@@ -1,4 +1,16 @@
 import { useMemo } from 'react';
+import {
+  CalendarClock,
+  CheckCircle2,
+  ClipboardList,
+  Eye,
+  FileText,
+  Hash,
+  Timer,
+  UserRoundSearch,
+  UsersRound,
+  type LucideIcon,
+} from 'lucide-react';
 
 import {
   useIncidentDetailQuery,
@@ -53,32 +65,33 @@ export function IncidentDetailPage({
 
   return (
     <main className={styles.page}>
-      <SuriMapPageHeader
-        activeTab="incidentDetail"
-        currentAccountLabel={currentAccountLabel}
-        incidentContext={incidentContext}
-        markerNotificationIndex={markerNotificationIndex}
-        markerNotifications={markerNotifications}
-        timestampLabel={timestampLabel}
-        onCloseMarkerNotifications={onCloseMarkerNotifications}
-        onMoveMarkerNotification={onMoveMarkerNotification}
-        onOpenHandover={isClosed ? undefined : onOpenHandover}
-        onOpenIncidentList={onOpenIncidentList}
-        onOpenOfflinePackage={onOpenOfflinePackage}
-        onOpenSituationBoard={onOpenSituationBoard}
-      />
+      <div className={styles.headerTheme}>
+        <SuriMapPageHeader
+          activeTab="incidentDetail"
+          currentAccountLabel={currentAccountLabel}
+          incidentContext={incidentContext}
+          markerNotificationIndex={markerNotificationIndex}
+          markerNotifications={markerNotifications}
+          timestampLabel={timestampLabel}
+          onCloseMarkerNotifications={onCloseMarkerNotifications}
+          onMoveMarkerNotification={onMoveMarkerNotification}
+          onOpenHandover={isClosed ? undefined : onOpenHandover}
+          onOpenIncidentList={onOpenIncidentList}
+          onOpenOfflinePackage={onOpenOfflinePackage}
+          onOpenSituationBoard={onOpenSituationBoard}
+        />
+      </div>
 
       <div className={styles.scrollBody}>
         <section className={styles.hero} aria-label="사건 상세 요약">
-          <div>
-            <span className={styles.kicker}>사건 상세</span>
+          <div className={styles.heroCopy}>
+            <span className={styles.kicker}>▣ 실종 사건</span>
             <h1>{createPageTitle(detail)}</h1>
             <p>지휘 판단에 필요한 사건 상태, 실종자 정보, 참여 계정을 확인합니다.</p>
           </div>
-          <div className={`${styles.statusCard}${isClosed ? ` ${styles.statusCardClosed}` : ''}`}>
-            <span>진행 상태</span>
-            <strong>{isClosed ? '종료' : '진행 중'}</strong>
-            <small>{detail ? formatIncidentContextEyebrow(detail.version) : '정보 확인 중'}</small>
+          <div className={styles.heroStatusGrid}>
+            <HeroMetric label="진행 상태" value={isClosed ? '종료' : '진행 중'} tone={isClosed ? 'closed' : 'active'} />
+            <HeroMetric label="정보 버전" value={detail ? formatIncidentContextEyebrow(detail.version) : '확인 중'} />
           </div>
         </section>
 
@@ -86,24 +99,31 @@ export function IncidentDetailPage({
           <div className={styles.statePanel}>사건 상세 정보를 불러오는 중입니다.</div>
         ) : detailQuery.isError ? (
           <div className={styles.statePanel} role="alert">
-            <strong>사건 상세 정보를 불러오지 못했습니다.</strong>
-            <button type="button" onClick={() => void detailQuery.refetch()}>
-              다시 조회
-            </button>
+            <strong>페이지를 표시하지 못했습니다.</strong>
+            <p>일시적인 화면 오류가 발생했습니다. 다시 불러오거나 사건 목록으로 돌아간 뒤 다시 열어주세요.</p>
+            <div className={styles.statePanelActions}>
+              <button type="button" className={styles.statePanelPrimaryButton} onClick={() => void detailQuery.refetch()}>
+                다시 불러오기
+              </button>
+              <button type="button" className={styles.statePanelSecondaryButton} onClick={onOpenIncidentList}>
+                사건 목록으로 돌아가기
+              </button>
+            </div>
           </div>
         ) : detail ? (
           <div className={styles.contentGrid}>
             <section className={styles.panel} aria-label="사건 정보">
-              <SectionTitle title="사건 정보" description="사건 진행 상태와 주요 시각입니다." />
-              <dl className={styles.detailGrid}>
-                <DetailRow label="진행 상태" value={detail.status === 'CLOSED' ? '종료' : '진행 중'} />
+              <SectionTitle icon="▤" title="사건 정보" description="사건 진행 상태와 주요 시각입니다." />
+              <dl className={styles.definitionList}>
+                <DetailRow label="진행 상태" value={detail.status === 'CLOSED' ? '종료' : '진행 중'} tone={detail.status === 'CLOSED' ? 'closed' : 'active'} />
                 <DetailRow label="정보 버전" value={formatIncidentContextEyebrow(detail.version)} />
                 {'openedAt' in detail ? <DetailRow label="접수 시각" value={formatNullableDate(detail.openedAt)} /> : null}
                 {'closedAt' in detail ? <DetailRow label="종료 시각" value={formatNullableDate(detail.closedAt)} /> : null}
-                {'title' in detail ? <DetailRow label="사건명" value={detail.title} wide /> : null}
+                {'title' in detail ? <DetailRow label="사건명" value={detail.title} /> : null}
                 {'writeDisabledReason' in detail ? (
-                  <DetailRow label="수정 제한" value={formatWriteDisabledReason(detail.writeDisabledReason)} wide />
+                  <DetailRow label="수정 제한" value={formatWriteDisabledReason(detail.writeDisabledReason)} />
                 ) : null}
+                {'assignments' in detail ? <DetailRow label="참여 계정" value={`${detail.assignments.length}개`} /> : null}
               </dl>
             </section>
 
@@ -113,31 +133,9 @@ export function IncidentDetailPage({
               <TerminalPanel detail={detail} />
             )}
 
-            {'assignments' in detail ? (
-              <section className={`${styles.panel} ${styles.assignmentPanel}`} aria-label="참여 계정">
-                <SectionTitle title="참여 계정" description="사건에 참여 중인 계정과 역할입니다." />
-                {detail.assignments.length > 0 ? (
-                  <div className={styles.assignmentList}>
-                    {detail.assignments.map((assignment) => (
-                      <article key={`${assignment.accountId}-${assignment.incidentRole}`} className={styles.assignmentCard}>
-                        <div>
-                          <strong>{formatAssignmentDisplayName(assignment)}</strong>
-                          <span>{formatAssignmentSubLabel(assignment)}</span>
-                        </div>
-                        <dl>
-                          <DetailRow label="역할" value={formatIncidentRole(assignment.incidentRole)} />
-                          <DetailRow label="계정 구분" value={formatAccountType(assignment.accountType)} />
-                          <DetailRow label="소속" value={formatOrganizationType(assignment.organizationType)} />
-                          <DetailRow label="배정 시각" value={formatNullableDate(assignment.assignedAt)} />
-                        </dl>
-                      </article>
-                    ))}
-                  </div>
-                ) : (
-                  <div className={styles.emptyState}>참여 계정이 없습니다.</div>
-                )}
-              </section>
-            ) : null}
+            {'assignments' in detail ? <AssignmentPanel assignments={detail.assignments} /> : null}
+
+            <IncidentSummaryPanel detail={detail} nowLabel={timestampLabel} />
           </div>
         ) : null}
       </div>
@@ -145,12 +143,21 @@ export function IncidentDetailPage({
   );
 }
 
+function HeroMetric({ label, value, tone }: { label: string; value: string; tone?: 'active' | 'closed' }) {
+  return (
+    <div className={styles.heroMetric}>
+      <span>{tone === 'active' ? '● ' : ''}{label}</span>
+      <strong className={tone === 'active' ? styles.valueActive : tone === 'closed' ? styles.valueClosed : undefined}>{value}</strong>
+    </div>
+  );
+}
+
 function MissingPersonPanel({ detail }: { detail: Extract<IncidentDetailResponse, { status: 'OPEN' }> }) {
   const missingPerson = detail.missingPerson;
 
   return (
-    <section className={styles.panel} aria-label="실종자 정보">
-      <SectionTitle title="실종자 정보" description="현장 확인에 필요한 실종자 요약입니다." />
+    <section className={`${styles.panel} ${styles.missingPanel}`} aria-label="실종자 정보">
+      <SectionTitle icon="♙" title="실종자 정보" description="현장 확인에 필요한 실종자 요약입니다." />
       {missingPerson ? (
         <div className={styles.missingPersonLayout}>
           {missingPerson.photoUrl ? (
@@ -161,16 +168,18 @@ function MissingPersonPanel({ detail }: { detail: Extract<IncidentDetailResponse
             />
           ) : (
             <div className={styles.photoStub} aria-label="실종자 사진 미리보기 없음">
-              <strong>{missingPerson.displayName.slice(0, 2)}</strong>
-              <span className={styles.photoFallbackLabel}>사진 미리보기 없음</span>
+              <span className={styles.photoIcon}>
+                <UserRoundSearch size={52} strokeWidth={1.8} aria-hidden="true" />
+              </span>
+              <span className={styles.photoFallbackLabel}>사진 없음</span>
             </div>
           )}
-          <dl className={styles.detailGrid}>
+          <dl className={styles.definitionList}>
             <DetailRow label="이름" value={missingPerson.displayName} />
             <DetailRow label="사진" value={formatPhotoStatus(missingPerson)} />
             <DetailRow label="최종 목격 시각" value={formatNullableDate(missingPerson.lastSeenAt)} />
-            <DetailRow label="최종 목격 장소" value={missingPerson.lastSeenLocationText} wide />
-            <DetailRow label="인상착의" value={missingPerson.appearanceText} wide />
+            <DetailRow label="최종 목격 장소" value={missingPerson.lastSeenLocationText} />
+            <DetailRow label="인상착의" value={missingPerson.appearanceText} />
           </dl>
         </div>
       ) : (
@@ -182,46 +191,182 @@ function MissingPersonPanel({ detail }: { detail: Extract<IncidentDetailResponse
 
 function TerminalPanel({ detail }: { detail: Extract<IncidentDetailResponse, { status: 'CLOSED' }> }) {
   return (
-    <section className={styles.panel} aria-label="종료 정보">
-      <SectionTitle title="종료 정보" description="종료된 사건의 열람 상태입니다." />
-      <dl className={styles.detailGrid}>
-        <DetailRow label="진행 상태" value="종료" />
+    <section className={`${styles.panel} ${styles.missingPanel}`} aria-label="종료 정보">
+      <SectionTitle icon="▧" title="종료 정보" description="종료된 사건의 열람 상태입니다." />
+      <dl className={styles.definitionList}>
+        <DetailRow label="진행 상태" value="종료" tone="closed" />
         <DetailRow label="기록 상태" value={formatTerminalRecordStatus(detail.terminalSnapshot.status)} />
         <DetailRow label="종료 시각" value={formatNullableDate(detail.terminalSnapshot.closedAt)} />
-        <DetailRow
-          label="수정 제한"
-          value={formatWriteDisabledReason(detail.terminalSnapshot.writeDisabledReason)}
-          wide
-        />
+        <DetailRow label="수정 제한" value={formatWriteDisabledReason(detail.terminalSnapshot.writeDisabledReason)} />
       </dl>
     </section>
   );
 }
 
-function SectionTitle({ title, description }: { title: string; description: string }) {
+function AssignmentPanel({ assignments }: { assignments: IncidentAssignmentSummary[] }) {
+  return (
+    <section className={`${styles.panel} ${styles.assignmentPanel}`} aria-label="참여 계정">
+      <SectionTitle icon="♚" title="참여 계정" description="사건에 참여 중인 계정과 역할입니다." />
+      {assignments.length > 0 ? (
+        <div className={styles.assignmentTable}>
+          <div className={styles.assignmentHeader}>
+            <span>지구대 / 기관</span>
+            <span>역할</span>
+            <span>계정 구분</span>
+            <span>소속</span>
+            <span>배정 시각</span>
+          </div>
+          {assignments.map((assignment) => (
+            <article key={`${assignment.accountId}-${assignment.incidentRole}`} className={styles.assignmentRow}>
+              <strong>{formatAssignmentDisplayName(assignment)}</strong>
+              <span><Badge>{formatIncidentRole(assignment.incidentRole)}</Badge></span>
+              <span>{formatAccountType(assignment.accountType)}</span>
+              <span>{formatOrganizationType(assignment.organizationType)}</span>
+              <span>{formatNullableDate(assignment.assignedAt)}</span>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <div className={styles.emptyState}>참여 계정이 없습니다.</div>
+      )}
+    </section>
+  );
+}
+
+function IncidentSummaryPanel({ detail, nowLabel }: { detail: IncidentDetailResponse; nowLabel: string }) {
+  const openedAt = 'openedAt' in detail ? detail.openedAt : null;
+  const missingPerson = 'missingPerson' in detail ? detail.missingPerson : null;
+  const assignments = 'assignments' in detail ? detail.assignments : [];
+  const lastSeenAt = missingPerson?.lastSeenAt ?? null;
+
+  return (
+    <section className={`${styles.panel} ${styles.summaryPanel}`} aria-label="사건 요약">
+      <SectionTitle icon="▥" title="사건 요약" description="주요 정보와 현황을 한눈에 확인합니다." />
+      <div className={styles.summaryMetrics}>
+        <SummaryMetric icon="▣" label="접수 시각" value={formatDateOnly(openedAt)} subValue={formatTimeOnly(openedAt)} />
+        <SummaryMetric icon="◷" label="최종 목격 시각" value={formatDateOnly(lastSeenAt)} subValue={formatTimeOnly(lastSeenAt)} />
+        <SummaryMetric icon="⌛" label="경과 시간" value={formatElapsedSince(openedAt)} subValue={`기준: ${nowLabel}`} />
+        <SummaryMetric icon="♚" label="참여 계정" value={`${assignments.length}개`} subValue={formatAssignmentRoleSummary(assignments)} />
+        <SummaryMetric icon="▤" label="정보 버전" value={formatIncidentContextEyebrow(detail.version)} subValue="최신 정보" />
+      </div>
+    </section>
+  );
+}
+
+function SummaryMetric({ icon, label, value, subValue }: { icon: string; label: string; value: string; subValue: string }) {
+  const Icon = getSummaryMetricIcon(icon, label);
+
+  return (
+    <div className={styles.summaryMetric}>
+      <span className={styles.summaryIcon} aria-hidden="true">
+        <Icon size={22} strokeWidth={2.1} />
+      </span>
+      <div>
+        <span>{label}</span>
+        <strong>{value}</strong>
+        <small>{subValue}</small>
+      </div>
+    </div>
+  );
+}
+
+function SectionTitle({ icon, title, description }: { icon: string; title: string; description: string }) {
+  const Icon = getSectionIcon(icon, title);
+
   return (
     <div className={styles.sectionTitle}>
-      <h2>{title}</h2>
+      <h2><span aria-hidden="true"><Icon size={20} strokeWidth={2.2} /></span>{title}</h2>
       <p>{description}</p>
     </div>
   );
 }
 
+function getSectionIcon(icon: string, title: string): LucideIcon {
+  switch (icon) {
+    case '\u2659':
+      return UserRoundSearch;
+    case '\u25a7':
+      return CheckCircle2;
+    case '\u265a':
+      return UsersRound;
+    case '\u25a5':
+      return ClipboardList;
+    default:
+      break;
+  }
+
+  switch (icon) {
+    case 'â™™':
+      return UserRoundSearch;
+    case 'â–§':
+      return CheckCircle2;
+    case 'â™š':
+      return UsersRound;
+    case 'â–¥':
+      return ClipboardList;
+    default:
+      break;
+  }
+  if (icon === 'â™™' || title.includes('ì‹¤ì¢…')) return UserRoundSearch;
+  if (icon === 'â–§' || title.includes('ì¢…ë£Œ')) return CheckCircle2;
+  if (icon === 'â™š' || title.includes('ì°¸ì—¬')) return UsersRound;
+  if (icon === 'â–¥' || title.includes('ìš”ì•½')) return ClipboardList;
+  return FileText;
+}
+
+function getSummaryMetricIcon(icon: string, label: string): LucideIcon {
+  switch (icon) {
+    case '\u25f7':
+      return Eye;
+    case '\u231b':
+      return Timer;
+    case '\u265a':
+      return UsersRound;
+    case '\u25a4':
+      return Hash;
+    default:
+      break;
+  }
+
+  switch (icon) {
+    case 'â—·':
+      return Eye;
+    case 'âŒ›':
+      return Timer;
+    case 'â™š':
+      return UsersRound;
+    case 'â–¤':
+      return Hash;
+    default:
+      break;
+  }
+  if (icon === 'â—·' || label.includes('ëª©ê²©')) return Eye;
+  if (icon === 'âŒ›' || label.includes('ê²½ê³¼')) return Timer;
+  if (icon === 'â™š' || label.includes('ì°¸ì—¬')) return UsersRound;
+  if (icon === 'â–¤' || label.includes('ë²„ì „')) return Hash;
+  return CalendarClock;
+}
+
 function DetailRow({
   label,
   value,
-  wide = false,
+  tone,
 }: {
   label: string;
   value: string | null | undefined;
-  wide?: boolean;
+  tone?: 'active' | 'closed';
 }) {
+  const displayValue = value?.trim() || '-';
   return (
-    <div className={wide ? styles.detailRowWide : undefined}>
+    <div>
       <dt>{label}</dt>
-      <dd>{value?.trim() || '-'}</dd>
+      <dd>{tone ? <Badge tone={tone}>{displayValue}</Badge> : displayValue}</dd>
     </div>
   );
+}
+
+function Badge({ children, tone = 'neutral' }: { children: string; tone?: 'active' | 'closed' | 'neutral' }) {
+  return <span className={`${styles.badge} ${tone === 'active' ? styles.badgeActive : tone === 'closed' ? styles.badgeClosed : ''}`}>{children}</span>;
 }
 
 function createIncidentContext(detail: IncidentDetailResponse | null): SuriMapPageHeaderIncidentContext {
@@ -275,6 +420,44 @@ function formatNullableDate(value: string | null | undefined) {
   return value ? formatKstDateTime(new Date(value)) : '-';
 }
 
+function formatDateOnly(value: string | null | undefined) {
+  if (!value) return '-';
+  const formatted = formatKstDateTime(new Date(value));
+  return formatted === '-' ? '-' : formatted.slice(0, 10);
+}
+
+function formatTimeOnly(value: string | null | undefined) {
+  if (!value) return '-';
+  const formatted = formatKstDateTime(new Date(value));
+  return formatted === '-' ? '-' : formatted.slice(11);
+}
+
+function formatElapsedSince(value: string | null | undefined) {
+  if (!value) return '-';
+  const startedAt = new Date(value).getTime();
+  if (Number.isNaN(startedAt)) return '-';
+  const diffMs = Math.max(0, Date.now() - startedAt);
+  const totalMinutes = Math.floor(diffMs / 60000);
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+  if (days > 0) return `${days}일 ${hours}시간`;
+  if (hours > 0) return `${hours}시간 ${minutes}분`;
+  return `${minutes}분`;
+}
+
+function formatAssignmentRoleSummary(assignments: IncidentAssignmentSummary[]) {
+  const field = assignments.filter((assignment) => assignment.incidentRole === 'FIELD_COMMANDER').length;
+  const support = assignments.filter((assignment) => assignment.incidentRole === 'MEMBER').length;
+  const commander = assignments.filter((assignment) => assignment.incidentRole === 'INCIDENT_COMMANDER').length;
+  const values = [
+    commander > 0 ? `지휘 ${commander}` : null,
+    field > 0 ? `현장 ${field}` : null,
+    support > 0 ? `지원 ${support}` : null,
+  ].filter(Boolean);
+  return values.join(' · ') || '역할 확인 필요';
+}
+
 function formatKstDateTime(date: Date) {
   if (Number.isNaN(date.getTime())) return '-';
 
@@ -313,16 +496,6 @@ function formatAssignmentDisplayName(assignment: IncidentAssignmentSummary) {
   ].filter((value) => value !== '-');
 
   return values.join(' ') || '참여 계정';
-}
-
-function formatAssignmentSubLabel(assignment: IncidentAssignmentSummary) {
-  const values = [
-    formatOrganizationType(assignment.organizationType),
-    formatAccountType(assignment.accountType),
-    formatIncidentRole(assignment.incidentRole),
-  ].filter((value) => value !== '-');
-
-  return values.join(' · ') || '역할 확인 필요';
 }
 
 function formatAccountType(value: string | null) {
