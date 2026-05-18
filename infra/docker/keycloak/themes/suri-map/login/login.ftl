@@ -3,11 +3,18 @@
 <#import "buttons.ftl" as buttons>
 <#import "social-providers.ftl" as identityProviders>
 <#import "passkeys.ftl" as passkeys>
+<#assign suriClientId=(client.clientId)!''>
+<#assign loginAccountTitleKey="loginAccountTitle">
+<#assign suriLoginHelpKey="suriLoginHelp">
+<#if suriClientId == "suri-map-android">
+    <#assign loginAccountTitleKey="loginAccountTitleAndroid">
+    <#assign suriLoginHelpKey="suriLoginHelpAndroid">
+</#if>
 <@layout.registrationLayout displayMessage=!messagesPerField.existsError('username','password') displayInfo=true; section>
 <!-- template: login.ftl -->
 
     <#if section = "header">
-        ${msg("loginAccountTitle")}
+        ${msg(loginAccountTitleKey)}
     <#elseif section = "form">
         <div id="kc-form">
           <div id="kc-form-wrapper">
@@ -44,7 +51,7 @@
             <@identityProviders.show social=social/>
         </#if>
     <#elseif section = "info" >
-        <p id="suri-login-help" class="suri-login-help">${msg("suriLoginHelp")}</p>
+        <p id="suri-login-help" class="suri-login-help">${msg(suriLoginHelpKey)}</p>
     </#if>
 
 </@layout.registrationLayout>
