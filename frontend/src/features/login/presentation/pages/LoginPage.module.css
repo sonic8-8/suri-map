@@ -7,18 +7,21 @@
   padding: 24px;
   overflow: auto;
   color: var(--color-fg-primary);
-  background: var(--color-bg-page);
+  background: #0f2742;
 }
 
 /* 로그인 폼을 담는 카드 컨테이너다. */
 .loginCard {
-  width: 400px;
+  width: 440px;
   max-width: 100%;
   padding: 48px 40px;
   border: 1px solid var(--color-border-default);
-  border-radius: 8px;
+  border-radius: 24px;
   background: var(--color-bg-surface);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+  box-shadow:
+    0 22px 54px rgb(2 12 27 / 26%),
+    0 6px 18px rgb(2 12 27 / 14%);
+  transform: translateY(-32px);
 }
 
 /* 로고, 서비스명, 보조 문구를 세로로 정렬하는 영역이다. */
@@ -52,24 +55,25 @@
 /* 로고 SVG의 강조 도형 색상이다. */
 .brandMark {
   display: block;
-  width: 84px;
-  height: 84px;
+  width: clamp(220px, 62vw, 280px);
+  height: clamp(220px, 62vw, 280px);
   object-fit: contain;
-  filter: drop-shadow(0 8px 18px rgb(14 27 49 / 24%));
+  filter: blur(0.35px);
 }
 
 /* 로그인 카드의 서비스명 제목이다. */
 .title {
   color: var(--color-fg-primary);
-  font-size: 19px;
-  font-weight: 800;
-  line-height: 1.2;
+  font-size: 36px;
+  font-weight: 900;
+  line-height: 1.1;
 }
 
 /* 서비스명 아래의 보조 설명 문구다. */
 .subtitle {
   color: var(--color-fg-secondary);
-  font-size: 12px;
+  font-size: 18px;
+  font-weight: 800;
   line-height: 1.35;
 }
 
@@ -85,7 +89,7 @@
   border-radius: 8px;
   color: var(--color-fg-secondary);
   background: #f7f9fc;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   line-height: 1.25;
   text-align: center;
@@ -101,7 +105,7 @@
   display: block;
   margin-bottom: 6px;
   color: var(--color-fg-secondary);
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 650;
   line-height: 1.25;
 }
@@ -115,7 +119,7 @@
   border-radius: 8px;
   color: var(--color-fg-primary);
   background: var(--color-bg-surface);
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 550;
   outline: none;
 }
@@ -129,7 +133,7 @@
 /* 로그인 제출 버튼의 기본 모양이다. */
 .loginButton {
   width: 100%;
-  min-height: 46px;
+  min-height: 52px;
   margin-top: 8px;
   border: 1px solid #4f7198;
   border-radius: 8px;
@@ -138,7 +142,7 @@
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 18%),
     0 2px 7px rgb(21 47 76 / 22%);
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 800;
   line-height: 1.2;
 }
@@ -159,13 +163,13 @@
 /* 로그인 실패 등 오류 메시지 텍스트다. */
 .devLoginButton {
   width: 100%;
-  min-height: 42px;
+  min-height: 48px;
   margin-top: 10px;
   border: 1px dashed #8a9bae;
   border-radius: 8px;
   color: #315474;
   background: #f7f9fc;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 800;
   line-height: 1.2;
 }
@@ -184,8 +188,9 @@
 .errorMessage {
   margin-top: 8px;
   color: #d63a3a;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
+  text-align: center;
 }
 
 /* 로그인 카드 하단의 도움말/안내 문구 영역이다. */
@@ -194,9 +199,10 @@
   padding-top: 16px;
   border-top: 1px solid #eeeeee;
   color: var(--color-fg-muted);
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.35;
   text-align: center;
+  font-weight: bold;
 }
 
 /* 작은 화면에서 로그인 카드가 위쪽부터 자연스럽게 보이도록 조정한다. */
@@ -208,5 +214,19 @@
 
   .loginCard {
     padding: 36px 24px;
+    transform: translateY(-16px);
+  }
+
+  .brandMark {
+    width: min(232px, 76vw);
+    height: min(232px, 76vw);
+  }
+
+  .title {
+    font-size: 32px;
+  }
+
+  .subtitle {
+    font-size: 16px;
   }
 }
