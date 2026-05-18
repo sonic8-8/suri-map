@@ -50,7 +50,7 @@
       "앱이 보낸 GPS batch를 search_path LineString과 search_path_segment로 누적",
       "GPS 속도 기반 VEHICLE|FOOT|UNKNOWN segment 자동 분리",
       "웹 상황판에서 이미 저장된 search_path_segment.type만 수동 보정",
-      "PATH_APPENDED, SEARCH_PATH_STARTED, SEARCH_PATH_ENDED, SEARCH_PATH_SEGMENT_UPDATED 이벤트 payload 발행 요청",
+      "PATH_APPENDED, SEARCH_PATH_STARTED, SEARCH_PATH_PAUSED, SEARCH_PATH_RESUMED, SEARCH_PATH_ENDED, SEARCH_PATH_SEGMENT_UPDATED 이벤트 payload 발행 요청",
       "GET /search-paths 및 PathQuery.byIncident/byOp/byPolicePhone read model 제공",
       "PolicePhone 기준 현재 운용 궤도 강조에 필요한 policePhoneId, pathId, opId 제공"
     ],
@@ -111,7 +111,7 @@
     {
       "id": "FR-34",
       "summary": "수색 경로 기록을 사건·OP에 연결된 세션 단위로 관리한다.",
-      "handling": "search_path state machine은 RECORDING, ENDED만 저장한다. 기록을 멈춘 뒤 다시 시작하면 새 search_path row를 만든다."
+      "handling": "search_path state machine은 RECORDING, PAUSED, ENDED를 저장한다. 일시정지/재개는 같은 search_path의 lifecycle event로 남기고, 종료 뒤 다시 시작하면 새 search_path row를 만든다."
     },
     {
       "id": "FR-35",
@@ -141,7 +141,7 @@
             "name": "status",
             "type": "VARCHAR(24)",
             "nullable": false,
-            "note": "RECORDING|ENDED"
+            "note": "RECORDING|PAUSED|ENDED"
           },
           {
             "name": "started_at",
@@ -311,11 +311,30 @@
         "field": "status",
         "states": [
           "RECORDING",
+          "PAUSED",
           "ENDED"
         ],
         "transitions": [
           {
             "from": "RECORDING",
+            "to": "PAUSED",
+            "trigger": "PATCH /search-paths/{searchPathId} PAUSE",
+            "guard": "same incident, same PolicePhone, current OP"
+          },
+          {
+            "from": "PAUSED",
+            "to": "RECORDING",
+            "trigger": "PATCH /search-paths/{searchPathId} RESUME",
+            "guard": "same incident, same PolicePhone, current OP"
+          },
+          {
+            "from": "RECORDING",
+            "to": "ENDED",
+            "trigger": "PATCH /search-paths/{searchPathId} END",
+            "guard": "same incident, same PolicePhone, current OP"
+          },
+          {
+            "from": "PAUSED",
             "to": "ENDED",
             "trigger": "PATCH /search-paths/{searchPathId} END",
             "guard": "same incident, same PolicePhone, current OP"
@@ -461,7 +480,7 @@
       {
         "method": "PATCH",
         "path": "/search-paths/{searchPathId}",
-        "summary": "수색 경로를 종료한다.",
+        "summary": "수색 경로를 일시정지, 재개, 종료한다.",
         "auth": "guard aliases app-police-phone + incident-read + write-common + @RequireCurrentOp",
         "idempotent": true,
         "required_headers": [
@@ -479,6 +498,8 @@
             "action": {
               "type": "string",
               "enum": [
+                "PAUSE",
+                "RESUME",
                 "END"
               ]
             },
@@ -505,6 +526,8 @@
               "status": {
                 "type": "string",
                 "enum": [
+                  "RECORDING",
+                  "PAUSED",
                   "ENDED"
                 ]
               }
@@ -1586,7 +1609,7 @@
         },
         {
           "operation": "PATCH_SESSION",
-          "shape": "PATCH /search-paths/{searchPathId} body {action,clientTs,clockOffsetMs}"
+          "shape": "PATCH /search-paths/{searchPathId} body {action=PAUSE|RESUME|END,clientTs,clockOffsetMs}"
         },
         {
           "operation": "APPEND_PATH_BATCH",

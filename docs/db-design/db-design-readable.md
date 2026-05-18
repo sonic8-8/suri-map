@@ -28,7 +28,8 @@
 │     │  └─ search_area_history       [search_area 변경 이력]
 │     ├─ search_path                  [duty_shift 하위 수색 경로]
 │     │  ├─ search_path_segment       [search_path 하위 경로 구간]
-│     │  └─ search_path_excluded_point [품질 저하로 경로 도형에서 제외된 GPS point]
+│     │  ├─ search_path_excluded_point [품질 저하로 경로 도형에서 제외된 GPS point]
+│     │  └─ search_path_lifecycle_event [수색 시작/일시정지/재개/종료 이력]
 │     ├─ marker                       [OP 하위 현장 마커]
 │     │  └─ photo                     [marker 하위 첨부 사진]
 │     ├─ handover_memo                [OP/근무/경로/구역/마커에 붙는 메모]
@@ -394,12 +395,13 @@ Android Room 로컬 엔티티
 - 하나의 `search_path`는 하나의 `duty_shift`에 속한다. (N:1)
 - 하나의 `search_path`는 여러 개의 `search_path_segment`를 가진다. (1:N)
 - 하나의 `search_path`는 여러 개의 `search_path_excluded_point`를 가진다. (1:N)
+- 하나의 `search_path`는 여러 개의 `search_path_lifecycle_event`를 가진다. (1:N)
 
 **주요 컬럼**
 
 - `id`: 수색 경로 식별자
 - `duty_shift_id`: 경로가 기록된 근무 구간
-- `status`: 경로 기록 상태
+- `status`: 경로 기록 상태 (`RECORDING`, `PAUSED`, `ENDED`)
 - `started_at`: 경로 기록 시작 시각
 - `ended_at`: 경로 기록 종료 시각
 - `geometry`: 지도에 표시할 경로 LineString
@@ -409,7 +411,35 @@ Android Room 로컬 엔티티
 
 **설명**
 
-`search_path`는 수색 시작/종료 버튼으로 만들어지는 하나의 수색 경로다. 근무 구간 전체는 `duty_shift`, 실제 GPS 기록 단위는 `search_path`가 맡는다.
+`search_path`는 수색 시작/일시정지/재개/종료 버튼으로 관리되는 하나의 수색 경로다. 근무 구간 전체는 `duty_shift`, 실제 GPS 기록 단위는 `search_path`가 맡는다. 일시정지는 경로 공백이 의도된 운영 상태였음을 남기는 상태이며, 상세 전이 이력은 `search_path_lifecycle_event`가 가진다.
+
+#### search_path_lifecycle_event
+
+**PRD 근거**
+
+- PRD §5.1 시나리오 5 `수색 시작 및 GPS 기록`
+- PRD §7.7 FR-34 `수색 시작/종료 단위 관리`
+
+**연관 관계**
+
+- 하나의 `search_path`는 여러 개의 `search_path_lifecycle_event`를 가진다. (1:N)
+- 하나의 `search_path_lifecycle_event`는 하나의 `search_path`에 속한다. (N:1)
+- 하나의 `police_phone`은 여러 개의 `search_path_lifecycle_event`를 발생시킬 수 있다. (1:N)
+
+**주요 컬럼**
+
+- `id`: 수색 경로 lifecycle event 식별자
+- `search_path_id`: 전이가 발생한 수색 경로
+- `event_type`: `STARTED`, `PAUSED`, `RESUMED`, `ENDED`
+- `client_ts`: 폴리폰에서 전이를 요청한 시각
+- `server_received_at`: 서버가 전이를 기록한 시각
+- `actor_police_phone_id`: 전이를 요청한 폴리폰
+- `version`: 전이 후 `search_path.version`
+- `created_at`: 이력 row 생성 시각
+
+**설명**
+
+`search_path_lifecycle_event`는 경로 선이 끊긴 시간이 실제 GPS 누락인지, 사용자가 수색 기록을 일시정지한 것인지 구분하기 위한 감사 이력이다. 현재 상태는 `search_path.status`가 가지고, 상태가 어떻게 바뀌었는지는 이 테이블이 가진다.
 
 #### search_path_segment
 

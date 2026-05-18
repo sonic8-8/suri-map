@@ -74,6 +74,13 @@ public class LocalTileService implements TileService {
           List.of(
               Map.of(
                   "id",
+                  "local-fixture-background",
+                  "type",
+                  "background",
+                  "paint",
+                  Map.of("background-color", "#edf2e8")),
+              Map.of(
+                  "id",
                   "landcover-fill",
                   "type",
                   "fill",
@@ -104,20 +111,7 @@ public class LocalTileService implements TileService {
                   "source-layer",
                   "transportation",
                   "paint",
-                  Map.of("line-color", "#ffffff", "line-width", 1.2)),
-              Map.of(
-                  "id",
-                  "place-label",
-                  "type",
-                  "symbol",
-                  "source",
-                  STYLE_ID,
-                  "source-layer",
-                  "place",
-                  "layout",
-                  Map.of("text-field", List.of("get", "name"), "text-size", 12),
-                  "paint",
-                  Map.of("text-color", "#2b3740"))),
+                  Map.of("line-color", "#ffffff", "line-width", 1.2))),
           Map.of("attribution", "OpenStreetMap contributors / OpenMapTiles"));
 
   @Override

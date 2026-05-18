@@ -19,7 +19,7 @@ import org.junit.Test
 class SearchPathLocalRecorderTest {
 
     @Test
-    fun startBatchAndEndEnqueuePathOperationsInOrder() = runBlocking {
+    fun startBatchPauseResumeAndEndEnqueuePathOperationsInOrder() = runBlocking {
         val syncClient = CapturingSyncClient()
         val recorder =
             SearchPathLocalRecorder(
@@ -31,15 +31,43 @@ class SearchPathLocalRecorderTest {
 
         val start = recorder.start(CONTEXT) as SearchPathWriteResult.Enqueued
         val batch = recorder.appendBatch(CONTEXT, PATH_ID, points()) as SearchPathWriteResult.Enqueued
+        val pause = recorder.pause(CONTEXT, PATH_ID) as SearchPathWriteResult.Enqueued
+        val resume = recorder.resume(CONTEXT, PATH_ID) as SearchPathWriteResult.Enqueued
         val end = recorder.end(CONTEXT, PATH_ID) as SearchPathWriteResult.Enqueued
 
-        assertEquals(listOf(OP_START_ID, OP_BATCH_ID, OP_END_ID), syncClient.operations.map { it.operationId })
-        assertEquals(listOf(10L, 11L, 12L), syncClient.operations.map { it.sequence })
-        assertEquals(listOf("/api/search-paths", "/api/search-paths/batch", "/api/search-paths/$PATH_ID"), syncClient.operations.map { it.endpoint })
+        assertEquals(
+            listOf(OP_START_ID, OP_BATCH_ID, OP_PAUSE_ID, OP_RESUME_ID, OP_END_ID),
+            syncClient.operations.map { it.operationId }
+        )
+        assertEquals(listOf(10L, 11L, 12L, 13L, 14L), syncClient.operations.map { it.sequence })
+        assertEquals(
+            listOf(
+                "/api/search-paths",
+                "/api/search-paths/batch",
+                "/api/search-paths/$PATH_ID",
+                "/api/search-paths/$PATH_ID",
+                "/api/search-paths/$PATH_ID"
+            ),
+            syncClient.operations.map { it.endpoint }
+        )
+        assertEquals(
+            listOf(
+                null,
+                null,
+                """{"action":"PAUSE","clientTs":"2026-05-11T06:00:00Z","clockOffsetMs":0}""",
+                """{"action":"RESUME","clientTs":"2026-05-11T06:00:00Z","clockOffsetMs":0}""",
+                """{"action":"END","clientTs":"2026-05-11T06:00:00Z","clockOffsetMs":0}"""
+            ),
+            syncClient.operations.map { operation ->
+                operation.payload.takeIf { it.contains(""""action":""") }
+            }
+        )
         assertTrue(syncClient.operations.all { it.dependencyGroup == DependencyGroup.PATH })
         assertEquals(OP_START_ID, start.operationId)
         assertEquals(PATH_ID, start.entityId)
         assertEquals(OP_BATCH_ID, batch.operationId)
+        assertEquals(OP_PAUSE_ID, pause.operationId)
+        assertEquals(OP_RESUME_ID, resume.operationId)
         assertEquals(OP_END_ID, end.operationId)
     }
 
@@ -130,7 +158,7 @@ class SearchPathLocalRecorderTest {
     }
 
     private fun idFactory(): (String) -> String {
-        val ids = listOf(OP_START_ID, PATH_ID, OP_BATCH_ID, OP_END_ID)
+        val ids = listOf(OP_START_ID, PATH_ID, OP_BATCH_ID, OP_PAUSE_ID, OP_RESUME_ID, OP_END_ID)
         var next = 0
         return { ids[next++] }
     }
@@ -142,7 +170,9 @@ class SearchPathLocalRecorderTest {
         const val POLICE_PHONE_ID = "50000000-0000-0000-0000-000000000001"
         const val OP_START_ID = "11111111-1111-4111-8111-111111111001"
         const val OP_BATCH_ID = "11111111-1111-4111-8111-111111111002"
-        const val OP_END_ID = "11111111-1111-4111-8111-111111111003"
+        const val OP_PAUSE_ID = "11111111-1111-4111-8111-111111111003"
+        const val OP_RESUME_ID = "11111111-1111-4111-8111-111111111004"
+        const val OP_END_ID = "11111111-1111-4111-8111-111111111005"
         val CLIENT_TS: Instant = Instant.parse("2026-05-11T06:00:00Z")
         val CONTEXT =
             SearchPathWriteContext(

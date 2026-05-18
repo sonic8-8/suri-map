@@ -448,11 +448,15 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 - `PATH_APPENDED`
 - `PATH_SEGMENT_UPDATED`
 - `SEARCH_PATH_STARTED`
+- `SEARCH_PATH_PAUSED`
+- `SEARCH_PATH_RESUMED`
 - `SEARCH_PATH_ENDED`
-- `events/search_path_lifecycle.payload.schema.json` for `SEARCH_PATH_STARTED`, `SEARCH_PATH_ENDED`
+- `events/search_path_lifecycle.payload.schema.json` for `SEARCH_PATH_STARTED`, `SEARCH_PATH_PAUSED`, `SEARCH_PATH_RESUMED`, `SEARCH_PATH_ENDED`
 - `events/search_path.payload.schema.json` for `PATH_APPENDED`
 - `events/path_segment.payload.schema.json` for `PATH_SEGMENT_UPDATED`
 - `PublishRequest.SEARCH_PATH_STARTED`
+- `PublishRequest.SEARCH_PATH_PAUSED`
+- `PublishRequest.SEARCH_PATH_RESUMED`
 - `PublishRequest.SEARCH_PATH_ENDED`
 - `PublishRequest.PATH_APPENDED`
 - `PublishRequest.PATH_SEGMENT_UPDATED`
@@ -1033,6 +1037,8 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 | `SEARCH_AREA_CHANGED` | S2 | S3-2, S7 |
 | `SEARCH_AREA_ASSIGNMENT_CHANGED` | S2 | S3-2, S7 |
 | `SEARCH_PATH_STARTED` | S3-1 | S3-2 |
+| `SEARCH_PATH_PAUSED` | S3-1 | S3-2, S8 |
+| `SEARCH_PATH_RESUMED` | S3-1 | S3-2, S8 |
 | `SEARCH_PATH_ENDED` | S3-1 | S3-2, S8 |
 | `PATH_APPENDED` | S3-1 | S3-2 |
 | `PATH_SEGMENT_UPDATED` | S3-1 | S3-2, S8 |
@@ -1058,6 +1064,8 @@ Event payload는 REST response DTO, S6 `write_operation.schema.json`, S4 outbox/
 | `SEARCH_AREA_CHANGED` | `events/search_area.payload.schema.json` | 1 | `id`, `incidentId`, `status`, `version`, `geometry`, `serverTs` |
 | `SEARCH_AREA_ASSIGNMENT_CHANGED` | `events/search_area.payload.schema.json` | 1 | `id`, `incidentId`, `status`, `version` |
 | `SEARCH_PATH_STARTED` | `events/search_path_lifecycle.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `policePhoneId`, `sequence` |
+| `SEARCH_PATH_PAUSED` | `events/search_path_lifecycle.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `policePhoneId`, `sequence` |
+| `SEARCH_PATH_RESUMED` | `events/search_path_lifecycle.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `policePhoneId`, `sequence` |
 | `SEARCH_PATH_ENDED` | `events/search_path_lifecycle.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `policePhoneId`, `sequence` |
 | `PATH_APPENDED` | `events/search_path.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `policePhoneId`, `sequence` |
 | `PATH_SEGMENT_UPDATED` | `events/path_segment.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `policePhoneId`, `sequence` |
