@@ -259,6 +259,7 @@ function currentUserAccount(): LoginAccount {
     id: 'acct-handover-001',
     name: 'Test Commander',
     organization: 'Test Station',
+    rank: '경위',
     accountType: 'COMMAND',
     organizationType: 'POLICE_SUBSTATION',
     role: 'FIELD_COMMANDER',

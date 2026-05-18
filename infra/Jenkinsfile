@@ -83,6 +83,7 @@ pipeline {
         TILESERVER_DATA_DIR = '/home/ubuntu/infra/tileserver'
         TILESERVER_MODE = 'tileserver-gl'
         TILESERVER_BASE_URL = 'http://tileserver-gl:8080'
+        V_WORLD_API_KEY = credentials('suri-map-vworld-api-key')
         FCM_PROVIDER = 'firebase'
         FIREBASE_CREDENTIALS_LOCATION = ''
         FIREBASE_CREDENTIALS_JSON_BASE64 = credentials('suri-map-firebase-service-account-base64')
@@ -223,6 +224,7 @@ pipeline {
 
                         sh '''
                             docker build \
+                              --build-arg V_WORLD_API_KEY="${V_WORLD_API_KEY:-}" \
                               -t ${FRONTEND_IMAGE} \
                               -f frontend/Dockerfile \
                               frontend
@@ -476,6 +478,183 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=${env.SPRING_JPA_HIBERNATE_DDL_AUTO}
                           --user "${KEYCLOAK_ADMIN}" \
                           --password "${KEYCLOAK_ADMIN_PASSWORD}" >/dev/null
 
+                        ensure_user_profile_claim_attributes() {
+                          cat >"/tmp/suri-map-user-profile.json" <<EOF
+{
+  "attributes": [
+    {
+      "name": "username",
+      "displayName": "username",
+      "validations": {
+        "length": {
+          "min": 3,
+          "max": 255
+        },
+        "username-prohibited-characters": {},
+        "up-username-not-idn-homograph": {}
+      },
+      "permissions": {
+        "view": ["admin", "user"],
+        "edit": ["admin", "user"]
+      },
+      "multivalued": false
+    },
+    {
+      "name": "email",
+      "displayName": "email",
+      "validations": {
+        "email": {},
+        "length": {
+          "max": 255
+        }
+      },
+      "required": {
+        "roles": ["user"]
+      },
+      "permissions": {
+        "view": ["admin", "user"],
+        "edit": ["admin", "user"]
+      },
+      "multivalued": false
+    },
+    {
+      "name": "firstName",
+      "displayName": "firstName",
+      "validations": {
+        "length": {
+          "max": 255
+        },
+        "person-name-prohibited-characters": {}
+      },
+      "required": {
+        "roles": ["user"]
+      },
+      "permissions": {
+        "view": ["admin", "user"],
+        "edit": ["admin", "user"]
+      },
+      "multivalued": false
+    },
+    {
+      "name": "lastName",
+      "displayName": "lastName",
+      "validations": {
+        "length": {
+          "max": 255
+        },
+        "person-name-prohibited-characters": {}
+      },
+      "permissions": {
+        "view": ["admin", "user"],
+        "edit": ["admin", "user"]
+      },
+      "multivalued": false
+    },
+    {
+      "name": "accountId",
+      "displayName": "accountId",
+      "permissions": {
+        "view": ["admin", "user"],
+        "edit": ["admin"]
+      },
+      "multivalued": false
+    },
+    {
+      "name": "accountCode",
+      "displayName": "accountCode",
+      "permissions": {
+        "view": ["admin", "user"],
+        "edit": ["admin"]
+      },
+      "multivalued": false
+    },
+    {
+      "name": "personName",
+      "displayName": "personName",
+      "permissions": {
+        "view": ["admin", "user"],
+        "edit": ["admin"]
+      },
+      "multivalued": false
+    },
+    {
+      "name": "displayName",
+      "displayName": "displayName",
+      "permissions": {
+        "view": ["admin", "user"],
+        "edit": ["admin"]
+      },
+      "multivalued": false
+    },
+    {
+      "name": "accountType",
+      "displayName": "accountType",
+      "permissions": {
+        "view": ["admin", "user"],
+        "edit": ["admin"]
+      },
+      "multivalued": false
+    },
+    {
+      "name": "organizationType",
+      "displayName": "organizationType",
+      "permissions": {
+        "view": ["admin", "user"],
+        "edit": ["admin"]
+      },
+      "multivalued": false
+    },
+    {
+      "name": "organizationCode",
+      "displayName": "organizationCode",
+      "permissions": {
+        "view": ["admin", "user"],
+        "edit": ["admin"]
+      },
+      "multivalued": false
+    },
+    {
+      "name": "organizationName",
+      "displayName": "organizationName",
+      "permissions": {
+        "view": ["admin", "user"],
+        "edit": ["admin"]
+      },
+      "multivalued": false
+    },
+    {
+      "name": "rankCode",
+      "displayName": "rankCode",
+      "permissions": {
+        "view": ["admin", "user"],
+        "edit": ["admin"]
+      },
+      "multivalued": false
+    },
+    {
+      "name": "rankName",
+      "displayName": "rankName",
+      "permissions": {
+        "view": ["admin", "user"],
+        "edit": ["admin"]
+      },
+      "multivalued": false
+    }
+  ],
+  "groups": [
+    {
+      "name": "user-metadata",
+      "displayHeader": "User metadata",
+      "displayDescription": "Attributes, which refer to user metadata"
+    }
+  ]
+}
+EOF
+                          /opt/keycloak/bin/kcadm.sh update users/profile \
+                            -r suri-map \
+                            -f "/tmp/suri-map-user-profile.json" >/dev/null
+                        }
+
                         ensure_mock112_client() {
                           client_uuid=$(/opt/keycloak/bin/kcadm.sh get clients \
                             -r suri-map \
@@ -518,6 +697,9 @@ EOF
                               -f "/tmp/suri-map-mock112-client.json" >/dev/null
                           fi
                         }
+
+                        ensure_user_profile_claim_attributes
+                        echo "keycloak_suri_map_user_profile=ready"
 
                         ensure_mock112_client
                         echo "keycloak_suri_map_mock112_client=ready"
@@ -563,8 +745,8 @@ EOF
                             -f "/tmp/${client_id}-${attr}-mapper.json" >/dev/null
                         }
 
-                        for client in suri-map-web suri-map-android; do
-                          for attr in accountId accountType organizationType policePhoneId policePhoneCode; do
+                        for client in suri-map-web suri-map-android suri-map-mock112; do
+                          for attr in accountId accountCode personName displayName accountType organizationType organizationCode organizationName rankCode rankName; do
                             ensure_mapper "${client}" "${attr}"
                           done
                         done
@@ -577,18 +759,176 @@ EOF
                         ensure_demo_user_profile() {
                           username="$1"
                           email="${username}@suri-map.local"
+                          case "${username}" in
+                            acct-precinct-cmd)
+                              account_id="11111111-1111-1111-1111-111111110001"
+                              account_type="COMMAND"
+                              organization_type="POLICE_SUBSTATION"
+                              person_name="김도현"
+                              organization_code="GWANGJU_GWANGSAN_SUWAN_PATROL_DIVISION"
+                              organization_name="광주광산경찰서 수완지구대"
+                              rank_code="INSPECTOR"
+                              rank_name="경위"
+                              ;;
+                            acct-precinct-car)
+                              account_id="11111111-1111-1111-1111-111111110002"
+                              account_type="PATROL_CAR"
+                              organization_type="POLICE_SUBSTATION"
+                              person_name="박민수"
+                              organization_code="GWANGJU_GWANGSAN_SUWAN_PATROL_DIVISION"
+                              organization_name="광주광산경찰서 수완지구대"
+                              rank_code="SERGEANT"
+                              rank_name="경사"
+                              ;;
+                            acct-precinct-team)
+                              account_id="11111111-1111-1111-1111-111111110003"
+                              account_type="TEAM"
+                              organization_type="POLICE_SUBSTATION"
+                              person_name="이준호"
+                              organization_code="GWANGJU_GWANGSAN_SUWAN_PATROL_DIVISION"
+                              organization_name="광주광산경찰서 수완지구대"
+                              rank_code="POLICE_OFFICER"
+                              rank_name="순경"
+                              ;;
+                            acct-cmd-alpha)
+                              account_id="11111111-1111-1111-1111-111111110004"
+                              account_type="COMMAND"
+                              organization_type="MISSING_TEAM"
+                              person_name="정서윤"
+                              organization_code="GWANGJU_POLICE_WOMEN_JUVENILE_MISSING_TEAM"
+                              organization_name="광주경찰청 여성청소년과 실종팀"
+                              rank_code="SENIOR_INSPECTOR"
+                              rank_name="경감"
+                              ;;
+                            acct-team-alpha)
+                              account_id="11111111-1111-1111-1111-111111110005"
+                              account_type="TEAM"
+                              organization_type="MISSING_TEAM"
+                              person_name="최지훈"
+                              organization_code="GWANGJU_POLICE_WOMEN_JUVENILE_MISSING_TEAM"
+                              organization_name="광주경찰청 여성청소년과 실종팀"
+                              rank_code="SERGEANT"
+                              rank_name="경사"
+                              ;;
+                            acct-support-cmd)
+                              account_id="11111111-1111-1111-1111-111111110006"
+                              account_type="COMMAND"
+                              organization_type="SUPPORT_UNIT"
+                              person_name="강현우"
+                              organization_code="GWANGJU_POLICE_MOBILE_UNIT"
+                              organization_name="광주경찰청 기동대"
+                              rank_code="INSPECTOR"
+                              rank_name="경위"
+                              ;;
+                            acct-support-car)
+                              account_id="11111111-1111-1111-1111-111111110007"
+                              account_type="PATROL_CAR"
+                              organization_type="SUPPORT_UNIT"
+                              person_name="윤태영"
+                              organization_code="GWANGJU_POLICE_MOBILE_UNIT"
+                              organization_name="광주경찰청 기동대"
+                              rank_code="SERGEANT"
+                              rank_name="경사"
+                              ;;
+                            acct-support-team)
+                              account_id="11111111-1111-1111-1111-111111110008"
+                              account_type="TEAM"
+                              organization_type="SUPPORT_UNIT"
+                              person_name="오민재"
+                              organization_code="GWANGJU_POLICE_MOBILE_UNIT"
+                              organization_name="광주경찰청 기동대"
+                              rank_code="POLICE_OFFICER"
+                              rank_name="순경"
+                              ;;
+                            acct-unassigned-phone)
+                              account_id="11111111-1111-1111-1111-111111110009"
+                              account_type="TEAM"
+                              organization_type="POLICE_SUBSTATION"
+                              person_name="한지민"
+                              organization_code="GWANGJU_GWANGSAN_SUWAN_PATROL_DIVISION"
+                              organization_name="광주광산경찰서 수완지구대"
+                              rank_code="POLICE_OFFICER"
+                              rank_name="순경"
+                              ;;
+                          esac
+                          display_name="${organization_name} ${rank_name} ${person_name}"
                           user_id=$(/opt/keycloak/bin/kcadm.sh get users \
                             -r suri-map \
                             -q username="${username}" \
                             --fields id \
                             --format csv \
                             --noquotes | tail -n 1)
-                          test -n "${user_id}"
+                          if [ -z "${user_id}" ]; then
+                            cat > "/tmp/${username}-create.json" <<CREATE_JSON
+{
+  "username": "${username}",
+  "enabled": true,
+  "email": "${email}",
+  "emailVerified": true,
+  "firstName": "${person_name}",
+  "lastName": "",
+  "credentials": [
+    {
+      "type": "password",
+      "value": "fixture",
+      "temporary": false
+    }
+  ],
+  "attributes": {
+    "accountId": ["${account_id}"],
+    "accountType": ["${account_type}"],
+    "organizationType": ["${organization_type}"],
+    "accountCode": ["${username}"],
+    "personName": ["${person_name}"],
+    "displayName": ["${display_name}"],
+    "organizationCode": ["${organization_code}"],
+    "organizationName": ["${organization_name}"],
+    "rankCode": ["${rank_code}"],
+    "rankName": ["${rank_name}"],
+    "dutyPositionCode": [],
+    "dutyPositionName": []
+  },
+  "requiredActions": []
+}
+CREATE_JSON
+                            /opt/keycloak/bin/kcadm.sh create users \
+                              -r suri-map \
+                              -f "/tmp/${username}-create.json" >/dev/null
+                            user_id=$(/opt/keycloak/bin/kcadm.sh get users \
+                              -r suri-map \
+                              -q username="${username}" \
+                              --fields id \
+                              --format csv \
+                              --noquotes | tail -n 1)
+                            test -n "${user_id}"
+                          fi
+                          cat > "/tmp/${username}-profile.json" <<PROFILE_JSON
+{
+  "enabled": true,
+  "email": "${email}",
+  "emailVerified": true,
+  "firstName": "${person_name}",
+  "lastName": "",
+  "attributes": {
+    "accountId": ["${account_id}"],
+    "accountType": ["${account_type}"],
+    "organizationType": ["${organization_type}"],
+    "accountCode": ["${username}"],
+    "personName": ["${person_name}"],
+    "displayName": ["${display_name}"],
+    "organizationCode": ["${organization_code}"],
+    "organizationName": ["${organization_name}"],
+    "rankCode": ["${rank_code}"],
+    "rankName": ["${rank_name}"],
+    "dutyPositionCode": [],
+    "dutyPositionName": []
+  },
+  "requiredActions": []
+}
+PROFILE_JSON
                           /opt/keycloak/bin/kcadm.sh update "users/${user_id}" \
                             -r suri-map \
-                            -s "email=${email}" \
-                            -s "emailVerified=true" \
-                            -s "requiredActions=[]" >/dev/null
+                            -f "/tmp/${username}-profile.json" >/dev/null
                         }
 
                         for username in \
@@ -599,7 +939,8 @@ EOF
                           acct-team-alpha \
                           acct-support-cmd \
                           acct-support-car \
-                          acct-support-team; do
+                          acct-support-team \
+                          acct-unassigned-phone; do
                           ensure_demo_user_profile "${username}"
                         done
                         echo "keycloak_demo_user_profiles=ready"

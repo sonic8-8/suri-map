@@ -19,11 +19,20 @@ public interface IncidentReadMapper {
   List<ListRow> findActiveListByAccountId(
       @Param("accountId") UUID accountId, @Param("status") String status);
 
+  List<ListRow> findActiveListByOrganizationType(
+      @Param("organizationType") String organizationType, @Param("status") String status);
+
   Optional<DetailRow> findActiveDetailByIncidentIdAndAccountId(
       @Param("incidentId") UUID incidentId, @Param("accountId") UUID accountId);
 
+  Optional<DetailRow> findActiveDetailByIncidentIdAndOrganizationType(
+      @Param("incidentId") UUID incidentId, @Param("organizationType") String organizationType);
+
   Optional<TerminalDetailRow> findTerminalDetailByIncidentIdAndAccountId(
       @Param("incidentId") UUID incidentId, @Param("accountId") UUID accountId);
+
+  Optional<TerminalDetailRow> findTerminalDetailByIncidentIdAndOrganizationType(
+      @Param("incidentId") UUID incidentId, @Param("organizationType") String organizationType);
 
   int countIncidentById(@Param("incidentId") UUID incidentId);
 

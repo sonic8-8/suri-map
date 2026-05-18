@@ -19,7 +19,9 @@
 - `X-Client-Channel`은 `APP` 또는 `WEB`이다. spec에서 header가 빠진 endpoint도 channel guard가 있으면 같은 기준으로 검증한다.
 - 공개 API 인증은 Keycloak `suri-map` realm의 OIDC access token을 `Authorization: Bearer {jwt}`로 전달하는 것을 기준으로 한다.
 - WEB은 Keycloak Authorization Code + PKCE redirect 흐름으로 로그인하고, APP은 MDM/managed config와 내부망 확인 후 Custom Tabs/AppAuth Authorization Code + PKCE 흐름으로 로그인한다.
-- access token에는 `accountId`, `accountType`, `organizationType`이 있어야 하며, APP channel은 추가로 `policePhoneId` claim이 있어야 한다.
+- access token에는 `accountId`, `accountType`, `organizationType`이 있어야 한다. APP channel의 폴리폰 식별자는 token claim이 아니라 MDM/managed config에서 읽은 `X-PolicePhone-Id` header로 전달한다.
+- 표시용 claim은 `accountCode`, `personName`, `displayName`, `organizationCode`, `organizationName`, `rankCode`, `rankName`을 사용한다. `organizationName`은 `광주경찰청 여성청소년과 실종팀`처럼 시연 계정이 실제로 속한 운용 leaf 조직 경로를 담고, `displayName`은 `소속 + 계급 + 이름` 조합의 UI label이다. `displayName`은 권한 판정에는 쓰지 않는다. 권한 판정은 `accountId`, `accountType`, `organizationType`, `X-PolicePhone-Id`, 사건 배정, backend-derived Suri-Map role 기준으로 수행한다. `MISSING_TEAM_COMMANDER`, `FIELD_COMMANDER`, `MEMBER` 같은 role은 Keycloak/기관 SSO role claim이 아니라 Suri-Map backend가 계정 유형·소속·사건 배정으로 파생하는 API 접근 제어용 authority다.
+- 계급, 직책, 소속의 source of truth는 Keycloak/기관 SSO claim이다. Suri-Map 운영 DB의 `account` 값은 사건 배정 FK와 조회 성능을 위한 local projection이며, 기관 계급/직책/전역 권한을 결정하지 않는다. `police_phone`은 MDM/단말 관리 원천의 로컬 투영이며 인증 서버 계정 claim이 아니다.
 - APP 전용 write는 `@RequireChannel(APP)`, PolicePhone guard, 사건 배정 guard를 통과해야 한다.
 - WEB 지휘 write는 `@RequireChannel(WEB)`, role guard, 사건 접근 guard를 통과해야 한다.
 - 서버 내부 호출자와 S1-3 purge/audit/query port는 public API가 아니다.
@@ -80,7 +82,9 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Client: `suri-map-web`, `suri-map-android`
 - Flow: Authorization Code + PKCE
 - API credential: `Authorization: Bearer {Keycloak access token}`
-- Required claims: `accountId`, `accountType`, `organizationType`; APP requires `policePhoneId`
+- Required claims: `accountId`, `accountType`, `organizationType`
+- Display claims: `accountCode`, `personName`, `displayName`, `organizationCode`, `organizationName`, `rankCode`, `rankName`
+- APP PolicePhone binding: MDM/managed config -> `X-PolicePhone-Id`; Keycloak access token does not carry `policePhoneId`/`policePhoneCode`.
 - Note: legacy `/api/auth/login` and `/api/auth/logout` are removed from the public API after OIDC cutover.
 
 #### POST `/api/fcm/tokens`
@@ -141,7 +145,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Source spec: `GET /incidents`
 - Consumer: APP, WEB, S3-2
 - Headers: `Authorization`, `X-Client-Channel`
-- Guard: `@RequireChannel(APP,WEB)`
+- Guard: `@RequireChannel(APP,WEB)`. APP와 WEB 일반 계정은 현재 계정의 active `incident_assignment` 범위만 조회한다. WEB `COMMAND` 계정은 지휘 상황판 기본 목록에서 같은 `organizationType`의 active 배정이 있는 OPEN 사건을 조회한다.
 - Idempotency-Key: no
 - Query: optional `status`
 - Response: `200 {items...}` from S1-1 incident list schema
@@ -154,6 +158,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Consumer: APP, WEB, S3-2
 - Headers: `Authorization`, `X-Client-Channel`
 - Guard: `@RequireChannel(APP,WEB)`, `@RequireIncidentAccess`
+- Scope: APP와 WEB 일반 계정은 현재 계정의 active `incident_assignment`를 요구한다. WEB `COMMAND` 계정은 같은 `organizationType`의 active 배정이 있는 사건까지 상세 조회할 수 있다.
 - Idempotency-Key: no
 - Response: `200 {id, incidentId, title, status, openedAt, version, missingPerson, assignments}`
 - `missingPerson`: OPEN 사건에서 실종자 기본 정보를 반환한다. CLOSED 사건은 실종자 PII를 제거해 `missingPerson`을 반환하지 않거나 `null`로 둔다.

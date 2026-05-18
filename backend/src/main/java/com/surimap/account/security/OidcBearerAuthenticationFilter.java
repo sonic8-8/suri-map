@@ -30,15 +30,22 @@ public class OidcBearerAuthenticationFilter extends OncePerRequestFilter {
     if (SecurityContextHolder.getContext().getAuthentication() == null) {
       accessToken(request.getHeader("Authorization"))
           .filter(OidcBearerAuthenticationFilter::isJwt)
-          .flatMap(accessToken -> authenticate(accessToken, request.getHeader("X-Client-Channel")))
+          .flatMap(
+              accessToken ->
+                  authenticate(
+                      accessToken,
+                      request.getHeader("X-Client-Channel"),
+                      request.getHeader("X-PolicePhone-Id")))
           .ifPresent(SecurityContextHolder.getContext()::setAuthentication);
     }
     filterChain.doFilter(request, response);
   }
 
-  private Optional<SuriMapAuthentication> authenticate(String accessToken, String channelHeader) {
+  private Optional<SuriMapAuthentication> authenticate(
+      String accessToken, String channelHeader, String policePhoneHeader) {
     try {
-      return authenticationConverter.convert(jwtDecoder.decode(accessToken), channelHeader);
+      return authenticationConverter.convert(
+          jwtDecoder.decode(accessToken), channelHeader, policePhoneHeader);
     } catch (JwtException exception) {
       return Optional.empty();
     }

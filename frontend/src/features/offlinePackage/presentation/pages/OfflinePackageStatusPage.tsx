@@ -193,7 +193,7 @@ export function OfflinePackageStatusPage({
 
   const summary = useMemo(() => createSummary(rows), [rows]);
   const packageLoadGauge = useMemo(() => createPackageLoadGauge(rows), [rows]);
-  const currentAccountLabel = `${currentUserAccount.name} / ${currentUserAccount.organization}`;
+  const currentAccountLabel = currentUserAccount.name;
   const incidentContext = createIncidentContext(incidentId, incidentDetail, incidentTerminal);
   const isClosedTerminalBoard = isIncidentTerminalClosed(incidentTerminal);
   const timestampLabel = serverTs ? formatKstDateTime(new Date(serverTs)) : '동기화 전';

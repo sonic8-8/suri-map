@@ -1,8 +1,7 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 
 import { SuriMapLogo } from '../../../../shared';
 
-import { incidentCommandApi } from '../../../incident/api/incidentCommandApi';
 import {
   incidentReadApi,
   type ActiveIncidentDetailResponse,
@@ -10,25 +9,14 @@ import {
   type IncidentDetailResponse,
   type IncidentListItem,
 } from '../../../incident/api/incidentReadApi';
-import { IncidentImportCompleteDialog } from '../../../incidentImport/presentation/components/IncidentImportCompleteDialog';
-import { IncidentImportModal } from '../../../incidentImport/presentation/components/IncidentImportModal';
 import type { LoginAccount } from '../../../login/presentation/types/login';
 import { ActionButton, StatusBadge, type StatusBadgeTone } from '../../../../shared';
-import { ApiError, createIdempotencyKey } from '../../../../shared/api/client';
+import { ApiError } from '../../../../shared/api/client';
 import { openAssignedIncidentEventStream } from '../../../../shared/api/eventStream';
 import type { IncidentCard, IncidentStatus } from '../../domain/entities/Incident';
 import styles from './IncidentListPage.module.css';
 
 const INCIDENT_LIST_PAGE_SIZE = 12;
-const IMPORT_INCOMPLETE_ERROR_MESSAGE =
-  '사건 가져오기는 완료됐지만 목록에서 확인되지 않습니다. 목록을 새로고침한 뒤 다시 확인해 주세요.';
-
-function canImportIncident(account: LoginAccount): boolean {
-  return (
-    account.role === 'MISSING_TEAM_COMMANDER' ||
-    (account.role === 'FIELD_COMMANDER' && account.organizationType === 'POLICE_SUBSTATION')
-  );
-}
 
 type IncidentListPageProps = {
   onOpenSituationBoard: (incidentId: string) => void;
@@ -49,44 +37,16 @@ function getIncidentStatus(status: string): IncidentStatus {
   return status === 'CLOSED' ? '종료됨' : '진행 중';
 }
 
-function getImportErrorMessage(error: unknown) {
-  if (error instanceof ApiError) {
-    if (error.code === 'external_incident_adapter_unavailable') {
-      return 'mock 112 adapter에서 사건을 가져오지 못했습니다. sourceIncidentId를 확인해 주세요.';
-    }
-
-    if (error.code === 'idempotency_mismatch') {
-      return '같은 Idempotency-Key로 다른 요청이 처리됐습니다. 다시 시도해 주세요.';
-    }
-
-    if (error.code === 'write_conflict') {
-      return '사건 가져오기 상태가 변경됐습니다. 목록을 새로고침한 뒤 다시 시도해 주세요.';
-    }
-
-    if (error.code === 'role_denied') {
-      return '현재 계정은 사건 가져오기를 수행할 수 없습니다.';
-    }
-
-    if (error.code === 'channel_not_allowed') {
-      return '웹 채널에서 허용되지 않은 사건 가져오기 요청입니다.';
-    }
-
-    return `사건 가져오기에 실패했습니다. (${error.code})`;
-  }
-
-  return '사건 가져오기에 실패했습니다.';
-}
-
 function getListErrorMessage(error: unknown) {
   if (error instanceof ApiError) {
     if (error.code === 'channel_not_allowed') {
       return '웹 채널에서 사건 목록을 조회할 수 없습니다.';
     }
 
-    return `배정된 사건 목록을 불러오지 못했습니다. (${error.code})`;
+    return `사건 목록을 불러오지 못했습니다. (${error.code})`;
   }
 
-  return '배정된 사건 목록을 불러오지 못했습니다.';
+  return '사건 목록을 불러오지 못했습니다.';
 }
 
 function getListErrorHelp(errorMessage: string) {
@@ -185,11 +145,14 @@ function summarizeAssignments(assignments: readonly IncidentAssignmentSummary[])
     .map((assignment) => assignment.accountDisplayName?.trim())
     .filter((value): value is string => Boolean(value));
   const roleCounts = countBy(assignments.map((assignment) => formatIncidentRole(assignment.incidentRole)));
-  const organizationCounts = countBy(assignments.map((assignment) => formatOrganizationType(assignment.organizationType)));
+  const organizationCounts = countBy(
+    assignments.map((assignment) => formatOrganizationType(assignment.organizationType)),
+  );
 
   return {
     organization: formatCountSummary(organizationCounts),
-    team: displayNames.length > 0 ? formatNameSummary(displayNames, assignments.length) : formatCountSummary(roleCounts),
+    team:
+      displayNames.length > 0 ? formatNameSummary(displayNames, assignments.length) : formatCountSummary(roleCounts),
   };
 }
 
@@ -233,18 +196,11 @@ function isActiveIncidentDetail(detail: IncidentDetailResponse | null): detail i
 
 export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUserAccount }: IncidentListPageProps) {
   const [pageNumber, setPageNumber] = useState(1);
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [isOffline, setIsOffline] = useState(() => (typeof navigator === 'undefined' ? false : !navigator.onLine));
   const [now, setNow] = useState(() => new Date());
   const [incidents, setIncidents] = useState<IncidentCard[]>([]);
-  const [importedSourceIncidentIds, setImportedSourceIncidentIds] = useState<string[]>([]);
-  const [importCompleteIncidentId, setImportCompleteIncidentId] = useState<string | null>(null);
-  const [importErrorMessage, setImportErrorMessage] = useState('');
   const [listErrorMessage, setListErrorMessage] = useState('');
-  const [isImporting, setIsImporting] = useState(false);
   const [isLoadingIncidents, setIsLoadingIncidents] = useState(false);
 
-  const importedSourceIncidentIdSet = useMemo(() => new Set(importedSourceIncidentIds), [importedSourceIncidentIds]);
   const totalPages = Math.max(1, Math.ceil(incidents.length / INCIDENT_LIST_PAGE_SIZE));
   const activePage = Math.min(pageNumber, totalPages);
   const pageStartIndex = (activePage - 1) * INCIDENT_LIST_PAGE_SIZE;
@@ -322,23 +278,11 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
   }, [activePage, pageNumber]);
 
   useEffect(() => {
-    const handleOnline = () => setIsOffline(false);
-    const handleOffline = () => setIsOffline(true);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
-
-  useEffect(() => {
     const intervalId = window.setInterval(() => setNow(new Date()), 30_000);
     return () => window.clearInterval(intervalId);
   }, []);
 
-  const canImport = canImportIncident(currentUserAccount);
-  const currentUserLabel = `${currentUserAccount.name} / ${currentUserAccount.organization}`;
+  const currentUserLabel = currentUserAccount.name;
   const currentTimeLabel = formatKstDateTime(now);
 
   const reloadAssignedIncidents = async () => {
@@ -346,38 +290,6 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
     setIncidents(result.cards);
     setListErrorMessage('');
     return result.items;
-  };
-
-  const handleImportIncident = async (sourceIncidentId: string) => {
-    setIsImporting(true);
-    setImportErrorMessage('');
-
-    try {
-      const response = await incidentCommandApi.importIncident(
-        { sourceIncidentId },
-        createIdempotencyKey('incident-import'),
-      );
-      const assignedIncidents = await reloadAssignedIncidents();
-      const isImportedIncidentAvailable = assignedIncidents.some(
-        (incident) => incident.id === response.id || incident.incidentId === response.incidentId,
-      );
-
-      if (!isImportedIncidentAvailable) {
-        setImportErrorMessage(IMPORT_INCOMPLETE_ERROR_MESSAGE);
-        return;
-      }
-
-      setImportedSourceIncidentIds((currentIds) =>
-        currentIds.includes(sourceIncidentId) ? currentIds : [...currentIds, sourceIncidentId],
-      );
-      setPageNumber(1);
-      setImportCompleteIncidentId(response.incidentId);
-      setIsImportModalOpen(false);
-    } catch (error) {
-      setImportErrorMessage(getImportErrorMessage(error));
-    } finally {
-      setIsImporting(false);
-    }
   };
 
   return (
@@ -412,7 +324,7 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
         <section className={styles.listContextBar} aria-label="사건 목록 요약">
           <div className={styles.listContextMain}>
             <div className={styles.listContextTitle}>
-              <strong>배정된 사건 목록</strong>
+              <strong>운영 사건 목록</strong>
             </div>
           </div>
           <span className={styles.listContextDivider} aria-hidden="true" />
@@ -423,16 +335,11 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
             </div>
           </div>
           <div className={styles.listContextActions}>
-            {canImport && (
-              <ActionButton
-                label="사건 가져오기"
-                onClick={() => {
-                  setImportErrorMessage('');
-                  setIsImportModalOpen(true);
-                }}
-                disabled={isOffline}
-              />
-            )}
+            <ActionButton
+              label="새로고침"
+              onClick={() => void reloadAssignedIncidents()}
+              disabled={isLoadingIncidents}
+            />
           </div>
         </section>
       </header>
@@ -443,17 +350,15 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
             <div className={styles.emptyState}>
               <strong>
                 {isLoadingIncidents
-                  ? '배정된 사건 목록을 불러오는 중입니다.'
-                  : listErrorMessage || '진행 중인 배정 사건이 없습니다.'}
+                  ? '사건 목록을 불러오는 중입니다.'
+                  : listErrorMessage || '진행 중인 운영 사건이 없습니다.'}
               </strong>
               <span>
                 {listErrorMessage
                   ? getListErrorHelp(listErrorMessage)
-                  : incidents.length === 0 && canImport
-                    ? '사건 가져오기로 mock 112 배정 사건을 가져올 수 있습니다.'
-                    : incidents.length === 0
-                      ? '현재 계정에 진행 중인 배정 사건이 없습니다.'
-                      : ''}
+                  : incidents.length === 0
+                    ? 'mock 112에서 배정된 사건은 자동으로 반영됩니다.'
+                    : ''}
               </span>
             </div>
           ) : (
@@ -563,25 +468,6 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
           </footer>
         </div>
       </section>
-
-      {isImportModalOpen ? (
-        <IncidentImportModal
-          importedIncidentIds={importedSourceIncidentIdSet}
-          canImport={canImport}
-          isOffline={isOffline}
-          isImporting={isImporting}
-          errorMessage={importErrorMessage}
-          onClose={() => setIsImportModalOpen(false)}
-          onImportIncident={handleImportIncident}
-        />
-      ) : null}
-
-      {importCompleteIncidentId ? (
-        <IncidentImportCompleteDialog
-          incidentId={importCompleteIncidentId}
-          onConfirm={() => setImportCompleteIncidentId(null)}
-        />
-      ) : null}
     </main>
   );
 }

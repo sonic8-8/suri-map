@@ -1,5 +1,8 @@
 package com.surimap.incident.service;
 
+import com.surimap.common.auth.AccountType;
+import com.surimap.common.auth.Channel;
+import com.surimap.common.auth.SuriMapAuthentication;
 import com.surimap.common.auth.guard.IncidentAccessDeniedException;
 import com.surimap.incident.repository.IncidentReadMapper;
 import com.surimap.incident.repository.IncidentReadRows.AssignmentRow;
@@ -28,22 +31,31 @@ public class IncidentReadQueryService {
   }
 
   @Transactional(readOnly = true)
-  public ListResult findActiveIncidents(UUID accountId, String status) {
+  public ListResult findActiveIncidents(SuriMapAuthentication auth, String status) {
     return new ListResult(
-        incidentReadMapper.findActiveListByAccountId(accountId, status).stream()
+        activeListRows(auth, status).stream()
             .map(this::toListItem)
             .toList());
   }
 
   @Transactional(readOnly = true)
-  public Optional<Detail> findIncidentDetail(UUID incidentId, UUID accountId) {
-    var detail = incidentReadMapper.findActiveDetailByIncidentIdAndAccountId(incidentId, accountId);
+  public Optional<Detail> findIncidentDetail(UUID incidentId, SuriMapAuthentication auth) {
+    var detail =
+        webCommandScope(auth)
+            ? incidentReadMapper.findActiveDetailByIncidentIdAndOrganizationType(
+                incidentId, auth.getOrganizationType().name())
+            : incidentReadMapper.findActiveDetailByIncidentIdAndAccountId(
+                incidentId, UUID.fromString(auth.getAccountId()));
     if (detail.isPresent()) {
       return detail.map(row -> toDetail(row, activeMissingPerson(row), activeAssignments(row)));
     }
 
     var terminalDetail =
-        incidentReadMapper.findTerminalDetailByIncidentIdAndAccountId(incidentId, accountId);
+        webCommandScope(auth)
+            ? incidentReadMapper.findTerminalDetailByIncidentIdAndOrganizationType(
+                incidentId, auth.getOrganizationType().name())
+            : incidentReadMapper.findTerminalDetailByIncidentIdAndAccountId(
+                incidentId, UUID.fromString(auth.getAccountId()));
     if (terminalDetail.isPresent()) {
       return terminalDetail.map(this::toTerminalDetail);
     }
@@ -53,6 +65,18 @@ public class IncidentReadQueryService {
       throw new IncidentAccessDeniedException();
     }
     return Optional.empty();
+  }
+
+  private java.util.List<ListRow> activeListRows(SuriMapAuthentication auth, String status) {
+    if (webCommandScope(auth)) {
+      return incidentReadMapper.findActiveListByOrganizationType(
+          auth.getOrganizationType().name(), status);
+    }
+    return incidentReadMapper.findActiveListByAccountId(UUID.fromString(auth.getAccountId()), status);
+  }
+
+  private boolean webCommandScope(SuriMapAuthentication auth) {
+    return auth.getChannel() == Channel.WEB && auth.getAccountType() == AccountType.COMMAND;
   }
 
   private ListItem toListItem(ListRow row) {
