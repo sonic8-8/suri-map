@@ -88,11 +88,22 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  border: 0;
+  padding: 0;
   color: var(--suri-board-fg-primary);
+  background: transparent;
+  font: inherit;
   font-size: 23px;
   font-weight: 900;
   letter-spacing: 0;
+  text-align: left;
   white-space: nowrap;
+  cursor: pointer;
+}
+
+.brand:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--suri-board-primary-hi) 72%, transparent);
+  outline-offset: 4px;
 }
 
 /* 브랜드 아이콘 크기와 색상을 고정한다. */
@@ -166,8 +177,14 @@
 
 /* 목록 제목 하단의 작은 지표 텍스트다. */
 .listContextMetrics span {
-  color: var(--color-fg-muted);
-  font-size: 12px;
+  color: #1f2937;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.listContextMetricLabel {
+  color: var(--color-fg-secondary);
 }
 
 /* 목록 컨텍스트의 주요 제목 텍스트다. */
@@ -195,22 +212,26 @@
   gap: 24px;
   min-width: 0;
   color: var(--color-fg-secondary);
-  font-size: 14px;
+  font-size: 16px;
+  white-space: nowrap;
 }
 
 /* 각 목록 요약 지표의 라벨과 값을 세로로 배치한다. */
 .listContextMetrics > div {
-  display: grid;
-  gap: 2px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
   min-width: 0;
+  white-space: nowrap;
 }
 
 /* 목록 요약 지표의 값 텍스트다. */
 .listContextMetrics strong {
   overflow: hidden;
   color: var(--color-fg-primary);
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -338,7 +359,6 @@
 }
 
 /* 종료된 카드 안의 보조 텍스트 색상을 낮춘다. */
-.cardClosed .cardId,
 .cardClosed .metaRow span {
   color: var(--color-fg-muted);
 }
@@ -359,10 +379,20 @@
   min-width: 0;
 }
 
+/* 카드 우상단 상태 배지를 모서리 쪽으로 살짝 붙인다. */
+.cardStatusBadge {
+  margin: 0;
+  transform: none;
+  min-width: 68px;
+  min-height: 28px;
+  font-size: 13px;
+}
+
 /* 카드 안의 사건 ID, 제목, 위치 정보를 세로로 묶는다. */
 .cardIdentity {
   display: grid;
   gap: 10px;
+  width: 100%;
   min-width: 0;
 }
 
@@ -372,25 +402,100 @@
 }
 
 /* 외부 사건 ID를 고정폭 글꼴로 표시한다. */
-.cardId {
-  overflow: hidden;
-  color: var(--color-fg-muted);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  font-size: 15px;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.3;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 /* 카드의 사건 제목 텍스트다. */
 .cardTitle {
-  overflow: hidden;
   margin: 0;
   color: var(--color-fg-primary);
-  font-size: 26px;
+  font-size: 21px;
   font-weight: 800;
-  line-height: 1.2;
+  width: 100%;
+  line-height: 1.18;
+}
+
+/* 카드 제목은 2줄까지만 보여주고, 넘치면 말줄임한다. */
+.cardTitle .tooltipText {
+  display: -webkit-box;
+  overflow: hidden;
+  white-space: normal;
+  text-overflow: ellipsis;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
+}
+
+.tooltipAnchor {
+  position: relative;
+  z-index: 0;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  color: inherit;
+  font: inherit;
+}
+
+.tooltipAnchor[data-tooltip] {
+  cursor: default;
+}
+
+.tooltipAnchor[data-tooltip]:hover,
+.tooltipAnchor[data-tooltip]:focus-within {
+  z-index: 3;
+}
+
+.tooltipAnchor[data-tooltip]::before,
+.tooltipAnchor[data-tooltip]::after {
+  position: absolute;
+  left: 50%;
+  z-index: 10;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease;
+}
+
+.tooltipAnchor[data-tooltip]::before {
+  content: '';
+  bottom: calc(100% + 4px);
+  border: 6px solid transparent;
+  border-top-color: rgba(15, 23, 42, 0.96);
+  transform: translateX(-50%) translateY(4px);
+}
+
+.tooltipAnchor[data-tooltip]::after {
+  content: attr(data-tooltip);
+  bottom: calc(100% + 10px);
+  max-width: min(640px, calc(100vw - 32px));
+  padding: 8px 10px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 9px;
+  background: rgba(15, 23, 42, 0.96);
+  box-shadow: 0 16px 32px rgb(15 23 42 / 24%);
+  color: #f8fafc;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  backdrop-filter: blur(8px);
+  transform: translateX(-50%) translateY(4px);
+}
+
+.tooltipAnchor[data-tooltip]:hover::before,
+.tooltipAnchor[data-tooltip]:hover::after,
+.tooltipAnchor[data-tooltip]:focus-within::before,
+.tooltipAnchor[data-tooltip]:focus-within::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.tooltipText {
+  display: block;
+  overflow: hidden;
+  width: 100%;
+  color: inherit;
+  font: inherit;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -399,7 +504,7 @@
 .cardLocation {
   overflow: hidden;
   color: var(--color-fg-secondary);
-  font-size: 18px;
+  font-size: 15px;
   line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -408,12 +513,12 @@
 /* 이미 가져온 사건임을 표시하는 배지다. */
 .importedBadge {
   justify-self: start;
-  padding: 6px 12px;
+  padding: 4px 10px;
   border: 1px solid color-mix(in srgb, #4f7198 42%, var(--color-border-default));
   border-radius: 4px;
   color: #315474;
   background: color-mix(in srgb, #dfe8f2 72%, var(--color-bg-surface));
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 800;
   line-height: 1.2;
   white-space: nowrap;
@@ -421,6 +526,13 @@
 
 /* 카드 하단 액션 버튼 행이다. */
 .cardActionRow {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 2px;
+}
+
+/* ìƒí™©íŒìœ¼ë¡œ ì´ë™í•˜ëŠ” ì£¼ìš” ë²„íŠ¼ì€ ì•¡ì…˜ í–‰ì—ì„œ ë³´ì´ë„ë¡ ë°°ì¹˜í•œë‹¤. */
+.cardIdentity .boardButton {
   display: none;
 }
 
@@ -429,15 +541,16 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  justify-self: start;
-  min-height: 50px;
-  padding: 0 26px;
+  width: fit-content;
+  margin-left: auto;
+  min-height: 42px;
+  padding: 0 18px;
   border: 1px solid #c66a19;
   border-radius: 7px;
   color: #ffffff;
   background: linear-gradient(180deg, #e47b1c 0%, #d97018 100%);
   box-shadow: 0 1px 2px rgb(91 47 13 / 14%);
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 800;
   line-height: 1.2;
   white-space: nowrap;
@@ -457,41 +570,41 @@
   outline-offset: 3px;
 }
 
-/* 카드 하단의 상세 메타 정보를 세로 그리드로 배치한다. */
+/* 카드 하단의 상세 메타 정보를 2열 그리드로 배치한다. */
 .cardMetaGrid {
   display: grid;
-  gap: 14px;
-  padding-top: 20px;
+  grid-template-columns: max-content minmax(0, 1fr);
+  column-gap: 16px;
+  row-gap: 12px;
+  align-items: baseline;
+  padding-top: 18px;
   border-top: 1px solid var(--color-border-default);
 }
 
 /* 카드 메타 정보 한 줄의 라벨/값 배치다. */
 .metaRow {
-  display: grid;
-  grid-template-columns: 150px minmax(0, 1fr);
-  align-items: baseline;
-  gap: 14px;
-  min-width: 0;
+  display: contents;
 }
 
 /* 카드 메타 정보 라벨 텍스트다. */
 .metaRow span {
   color: var(--color-fg-muted);
-  font-size: 16px;
-  line-height: 1.35;
+  font-size: 15px;
+  line-height: 1.4;
   white-space: nowrap;
 }
 
 /* 카드 메타 정보 값 텍스트다. */
 .metaRow strong {
-  overflow: hidden;
-  color: var(--color-fg-secondary);
-  font-size: 17px;
+  display: block;
+  min-width: 0;
+  color: #334155;
+  font-size: 16px;
   font-weight: 700;
-  line-height: 1.35;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.4;
 }
+
+/* 첫 메타 줄 값은 라벨과의 간격을 조금 더 벌린다. */
 
 /* 필터 결과가 없을 때 표시하는 안내 문구다. */
 /* 전체 목록이 비었을 때 표시하는 빈 상태 패널이다. */
@@ -510,24 +623,24 @@
 /* 빈 상태 패널의 강조 문구다. */
 .emptyState strong {
   color: var(--color-fg-primary);
-  font-size: 16px;
+  font-size: 15px;
 }
 
 .emptyState .emptyStateFilterText {
   color: var(--color-fg-muted);
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 650;
 }
 
 /* 빈 상태 패널의 보조 설명이다. */
 .emptyState span {
-  font-size: 13px;
+  font-size: 12px;
 }
 
 /* 페이지 번호와 이전/다음 버튼을 담는 하단 페이지네이션 바다. */
 .paginationBar {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 12px;
   min-height: 54px;
@@ -631,6 +744,7 @@
   }
 
   .paginationBar {
+    display: flex;
     align-items: flex-start;
     flex-direction: column;
   }
@@ -667,5 +781,16 @@
   .listContextDivider,
   .listContextActions {
     display: none;
+  }
+
+  .cardTitle {
+    font-size: 19px;
+  }
+
+  .cardLocation,
+  .boardButton,
+  .metaRow span,
+  .metaRow strong {
+    font-size: 13px;
   }
 }

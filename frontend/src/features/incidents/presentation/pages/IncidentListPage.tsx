@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { SuriMapLogo } from '../../../../shared';
 
@@ -28,6 +28,39 @@ type IncidentCardSource = {
   item: IncidentListItem;
   detail: IncidentDetailResponse | null;
 };
+
+type TruncatedTooltipTextProps = {
+  value: string;
+};
+
+function TruncatedTooltipText({ value }: TruncatedTooltipTextProps) {
+  const textRef = useRef<HTMLSpanElement | null>(null);
+  const [isOverflowing, setIsOverflowing] = useState(false);
+
+  useEffect(() => {
+    const updateOverflowState = () => {
+      const element = textRef.current;
+      if (!element) return;
+
+      const nextIsOverflowing =
+        element.scrollWidth > element.clientWidth + 1 || element.scrollHeight > element.clientHeight + 1;
+      setIsOverflowing((current) => (current === nextIsOverflowing ? current : nextIsOverflowing));
+    };
+
+    updateOverflowState();
+    window.addEventListener('resize', updateOverflowState);
+
+    return () => window.removeEventListener('resize', updateOverflowState);
+  }, [value]);
+
+  return (
+    <span className={styles.tooltipAnchor} data-tooltip={isOverflowing ? value : undefined}>
+      <span ref={textRef} className={styles.tooltipText}>
+        {value}
+      </span>
+    </span>
+  );
+}
 
 function getStatusTone(status: IncidentStatus): StatusBadgeTone {
   return status === '진행 중' ? 'active' : 'closed';
@@ -71,7 +104,7 @@ function formatKstDateTime(date: Date) {
       return dateParts;
     }, {});
 
-  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute} KST`;
+  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`;
 }
 
 async function loadIncidentCards(): Promise<{ cards: IncidentCard[]; items: IncidentListItem[] }> {
@@ -102,7 +135,7 @@ function createIncidentCard({ item, detail }: IncidentCardSource): IncidentCard 
     id: item.incidentId,
     title: item.title,
     status,
-    lastSeenLocationLabel: `사건 ID ${item.incidentId}`,
+    lastSeenLocationLabel: '-',
     lastSeenAtLabel: '-',
     timeKind: item.closedAt ? '종료 시각' : '접수 시각',
     timeLabel: item.closedAt ? formatKstDateTime(new Date(item.closedAt)) : '-',
@@ -123,7 +156,7 @@ function createActiveIncidentCard(item: IncidentListItem, detail: ActiveIncident
     id: item.incidentId,
     title: detail.title || item.title,
     status: getIncidentStatus(detail.status),
-    lastSeenLocationLabel: lastSeenLocation ?? `사건 ID ${item.incidentId}`,
+    lastSeenLocationLabel: lastSeenLocation ?? '-',
     lastSeenAtLabel: lastSeenAt ?? '-',
     timeKind: '접수 시각',
     timeLabel: detail.openedAt ? formatKstDateTime(new Date(detail.openedAt)) : '-',
@@ -296,10 +329,10 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
     <main className={styles.page}>
       <header className={styles.header}>
         <nav className={styles.productNav} aria-label="사건 목록 메뉴">
-          <div className={styles.brand}>
+          <button type="button" className={styles.brand} onClick={() => window.location.reload()}>
             <SuriMapLogo className={styles.brandMark} size={26} />
             <div>Suri-Map</div>
-          </div>
+          </button>
           <button
             type="button"
             className={styles.headerCenterTitle}
@@ -310,7 +343,7 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
           </button>
           <div className={styles.meta}>
             <span>
-              계정 <b>{currentUserLabel}</b>
+              <b>{currentUserLabel}</b>
             </span>
             <span className={styles.metaDivider} aria-hidden="true" />
             <span>{currentTimeLabel}</span>
@@ -330,7 +363,7 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
           <span className={styles.listContextDivider} aria-hidden="true" />
           <div className={styles.listContextMetrics}>
             <div>
-              <span>진행 중 사건</span>
+              <span className={styles.listContextMetricLabel}>진행 중 사건</span>
               <strong>{activeIncidentCountLabel}</strong>
             </div>
           </div>
@@ -370,8 +403,26 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
                 >
                   <div className={styles.cardHeader}>
                     <div className={styles.cardIdentity}>
-                      <div className={styles.cardId}>{incident.id}</div>
-                      <h2 className={styles.cardTitle}>{incident.title}</h2>
+                      <h2 className={styles.cardTitle}>
+                        <TruncatedTooltipText value={incident.title} />
+                      </h2>
+                      <span className={styles.importedBadge}>배정 사건</span>
+                    </div>
+                    <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'flex-end',
+          gap: '12px',
+          minWidth: 0,
+        }}
+      >
+                      <StatusBadge
+                        status={incident.status}
+                        tone={getStatusTone(incident.status)}
+                        size="sm"
+                        className={styles.cardStatusBadge}
+                      />
                       <button
                         type="button"
                         className={styles.boardButton}
@@ -379,45 +430,33 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
                       >
                         상황판 열기
                       </button>
-                      <span className={styles.importedBadge}>배정 사건</span>
                     </div>
-                    <StatusBadge status={incident.status} tone={getStatusTone(incident.status)} />
-                  </div>
-
-                  <div className={styles.cardActionRow}>
-                    <button
-                      type="button"
-                      className={styles.boardButton}
-                      onClick={() => onOpenSituationBoard(incident.id)}
-                    >
-                      상황판 열기
-                    </button>
                   </div>
 
                   <div className={styles.cardMetaGrid}>
                     <div className={styles.metaRow}>
                       <span>마지막 확인 장소</span>
-                      <strong>{incident.lastSeenLocationLabel}</strong>
+                      <strong><TruncatedTooltipText value={incident.lastSeenLocationLabel} /></strong>
                     </div>
                     <div className={styles.metaRow}>
                       <span>마지막 확인 시각</span>
-                      <strong>{incident.lastSeenAtLabel}</strong>
+                      <strong><TruncatedTooltipText value={incident.lastSeenAtLabel} /></strong>
                     </div>
                     <div className={styles.metaRow}>
                       <span>{incident.timeKind}</span>
-                      <strong>{incident.timeLabel}</strong>
+                      <strong><TruncatedTooltipText value={incident.timeLabel} /></strong>
                     </div>
                     <div className={styles.metaRow}>
                       <span>상세</span>
-                      <strong>{incident.currentPhase}</strong>
+                      <strong><TruncatedTooltipText value={incident.currentPhase} /></strong>
                     </div>
                     <div className={styles.metaRow}>
                       <span>조직</span>
-                      <strong>{incident.assignedOrganization}</strong>
+                      <strong><TruncatedTooltipText value={incident.assignedOrganization} /></strong>
                     </div>
                     <div className={styles.metaRow}>
                       <span>배정</span>
-                      <strong>{incident.assignedTeam}</strong>
+                      <strong><TruncatedTooltipText value={incident.assignedTeam} /></strong>
                     </div>
                   </div>
                 </article>
@@ -426,14 +465,6 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
           )}
 
           <footer className={styles.paginationBar} aria-label="사건 목록 페이지 이동">
-            <div className={styles.paginationSummary}>
-              <span>
-                전체 <b>{totalIncidentCountLabel}</b>
-              </span>
-              <span className={styles.toolbarDivider} aria-hidden="true" />
-              <span>{displayedIncidentRangeLabel}</span>
-            </div>
-
             <div className={styles.paginationControls}>
               <button
                 type="button"
@@ -464,6 +495,14 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
               >
                 다음
               </button>
+            </div>
+
+            <div className={styles.paginationSummary}>
+              <span>
+                전체 <b>{totalIncidentCountLabel}</b>
+              </span>
+              <span className={styles.toolbarDivider} aria-hidden="true" />
+              <span>{displayedIncidentRangeLabel}</span>
             </div>
           </footer>
         </div>
