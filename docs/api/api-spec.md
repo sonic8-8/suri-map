@@ -145,7 +145,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Source spec: `GET /incidents`
 - Consumer: APP, WEB, S3-2
 - Headers: `Authorization`, `X-Client-Channel`
-- Guard: `@RequireChannel(APP,WEB)`
+- Guard: `@RequireChannel(APP,WEB)`. APP와 WEB 일반 계정은 현재 계정의 active `incident_assignment` 범위만 조회한다. WEB `COMMAND` 계정은 지휘 상황판 기본 목록에서 같은 `organizationType`의 active 배정이 있는 OPEN 사건을 조회한다.
 - Idempotency-Key: no
 - Query: optional `status`
 - Response: `200 {items...}` from S1-1 incident list schema
@@ -158,6 +158,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Consumer: APP, WEB, S3-2
 - Headers: `Authorization`, `X-Client-Channel`
 - Guard: `@RequireChannel(APP,WEB)`, `@RequireIncidentAccess`
+- Scope: APP와 WEB 일반 계정은 현재 계정의 active `incident_assignment`를 요구한다. WEB `COMMAND` 계정은 같은 `organizationType`의 active 배정이 있는 사건까지 상세 조회할 수 있다.
 - Idempotency-Key: no
 - Response: `200 {id, incidentId, title, status, openedAt, version, missingPerson, assignments}`
 - `missingPerson`: OPEN 사건에서 실종자 기본 정보를 반환한다. CLOSED 사건은 실종자 PII를 제거해 `missingPerson`을 반환하지 않거나 `null`로 둔다.

@@ -1,7 +1,6 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
-import { incidentCommandApi } from '../../../incident/api/incidentCommandApi';
 import {
   incidentReadApi,
   type ActiveIncidentDetailResponse,
@@ -10,12 +9,6 @@ import {
 import type { LoginAccount } from '../../../login/presentation/types/login';
 import { IncidentListPage } from './IncidentListPage';
 
-vi.mock('../../../incident/api/incidentCommandApi', () => ({
-  incidentCommandApi: {
-    importIncident: vi.fn(),
-  },
-}));
-
 vi.mock('../../../incident/api/incidentReadApi', () => ({
   incidentReadApi: {
     list: vi.fn(),
@@ -23,8 +16,11 @@ vi.mock('../../../incident/api/incidentReadApi', () => ({
   },
 }));
 
+vi.mock('../../../../shared/api/eventStream', () => ({
+  openAssignedIncidentEventStream: vi.fn(async () => undefined),
+}));
+
 const importedIncidentId = 'inc-precinct-first-001';
-const defaultSourceIncidentId = '00000000-0000-0000-0000-000000000001';
 
 describe('IncidentListPage', () => {
   beforeEach(() => {
@@ -62,66 +58,21 @@ describe('IncidentListPage', () => {
     expect(screen.getByText('v1')).toBeInTheDocument();
   });
 
-  test('keeps the import dialog open when imported incident is not visible after reload', async () => {
-    vi.mocked(incidentReadApi.list)
-      .mockResolvedValueOnce(incidentListResponse([]))
-      .mockResolvedValueOnce(incidentListResponse([]));
-    vi.mocked(incidentCommandApi.importIncident).mockResolvedValueOnce({
-      id: importedIncidentId,
-      incidentId: importedIncidentId,
-      status: 'OPEN',
-      version: 1,
-      assignmentAccountIds: ['acct-missing-team-commander'],
-    });
+  test('does not show manual incident import controls in the operational incident list', async () => {
+    vi.mocked(incidentReadApi.list).mockResolvedValueOnce(incidentListResponse([]));
 
     renderIncidentListPage();
     await waitFor(() => expect(incidentReadApi.list).toHaveBeenCalledTimes(1));
 
-    fireEvent.click(screen.getByRole('button', { name: '사건 가져오기' }));
-    const importDialog = screen.getByRole('dialog', { name: '사건 가져오기' });
-    fireEvent.click(within(importDialog).getByRole('button', { name: '가져오기' }));
-
-    await screen.findByText('사건 가져오기는 완료됐지만 목록에서 확인되지 않습니다. 목록을 새로고침한 뒤 다시 확인해 주세요.');
-    expect(screen.getByRole('dialog', { name: '사건 가져오기' })).toBeInTheDocument();
-    expect(within(importDialog).getByRole('button', { name: '가져오기' })).toBeEnabled();
-  });
-
-  test('marks the default source incident as imported after successful import', async () => {
-    vi.mocked(incidentReadApi.list)
-      .mockResolvedValueOnce(incidentListResponse([]))
-      .mockResolvedValueOnce(incidentListResponse([importedIncident()]));
-    vi.mocked(incidentReadApi.detail).mockResolvedValueOnce(activeIncidentDetail());
-    vi.mocked(incidentCommandApi.importIncident).mockResolvedValueOnce({
-      id: importedIncidentId,
-      incidentId: importedIncidentId,
-      status: 'OPEN',
-      version: 1,
-      assignmentAccountIds: ['acct-missing-team-commander'],
-    });
-
-    renderIncidentListPage();
-    await waitFor(() => expect(incidentReadApi.list).toHaveBeenCalledTimes(1));
-
-    fireEvent.click(screen.getByRole('button', { name: '사건 가져오기' }));
-    fireEvent.click(within(screen.getByRole('dialog', { name: '사건 가져오기' })).getByRole('button', { name: '가져오기' }));
-
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '사건 가져오기' })).not.toBeInTheDocument());
-    fireEvent.click(screen.getByRole('button', { name: '확인' }));
-    fireEvent.click(screen.getByRole('button', { name: '사건 가져오기' }));
-
-    const importDialog = screen.getByRole('dialog', { name: '사건 가져오기' });
-    expect(within(importDialog).getByDisplayValue(defaultSourceIncidentId)).toBeInTheDocument();
-    expect(within(importDialog).getByText('이미 가져온 사건')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '사건 가져오기' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: '사건 가져오기' })).not.toBeInTheDocument();
+    expect(screen.getByText('mock 112에서 배정된 사건은 자동으로 반영됩니다.')).toBeInTheDocument();
   });
 });
 
 function renderIncidentListPage() {
   return render(
-    <IncidentListPage
-      currentUserAccount={currentUserAccount()}
-      onOpenLogin={vi.fn()}
-      onOpenSituationBoard={vi.fn()}
-    />,
+    <IncidentListPage currentUserAccount={currentUserAccount()} onOpenLogin={vi.fn()} onOpenSituationBoard={vi.fn()} />,
   );
 }
 
@@ -135,7 +86,7 @@ function currentUserAccount(): LoginAccount {
     organizationType: 'MISSING_TEAM',
     role: 'MISSING_TEAM_COMMANDER',
     roles: ['MISSING_TEAM_COMMANDER'],
-    description: '사건 가져오기 가능 계정',
+    description: '실종팀 지휘 계정',
   };
 }
 
