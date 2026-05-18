@@ -42,13 +42,13 @@
   --suri-board-fg-primary: #f2f6fb;
   --suri-board-fg-secondary: #b8c6d8;
   --suri-board-fg-muted: #9aacc3;
-  --suri-board-header-top-height: 52px;
-  --suri-board-header-back-font-size: 19px;
-  --suri-board-header-brand-font-size: 17px;
-  --suri-board-header-meta-font-size: 14px;
-  --suri-board-header-nav-font-size: 16px;
+  --suri-board-header-top-height: 58px;
+  --suri-board-header-back-font-size: 22px;
+  --suri-board-header-brand-font-size: 20px;
+  --suri-board-header-meta-font-size: 16px;
+  --suri-board-header-nav-font-size: 19px;
   --suri-board-header-nav-font-weight: 700;
-  --suri-board-header-nav-button-height: 36px;
+  --suri-board-header-nav-button-height: 42px;
   --suri-board-option-default-bg: var(--suri-board-panel-muted-bg);
   --suri-board-option-default-border: color-mix(
     in srgb,

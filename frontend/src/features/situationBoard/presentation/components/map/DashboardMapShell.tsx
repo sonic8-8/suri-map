@@ -3,7 +3,13 @@ import type maplibregl from 'maplibre-gl';
 import type { LngLatBoundsLike } from 'maplibre-gl';
 import { MapControls } from '../../../../../shared/ui';
 import type { CompletedAreaDraft } from '../../../../../shared/model/areaDraft';
-import type { LegendItem, MovementPath, RecentMarker, SearchAreaTreeNode } from '../../constants/mockSituationBoard';
+import type {
+  LegendItem,
+  MovementPath,
+  OperationalPeriod,
+  RecentMarker,
+  SearchAreaTreeNode,
+} from '../../constants/mockSituationBoard';
 import { MapLegend } from './MapLegend';
 import { SearchMapCanvas, type InitialMapState, type LayerVisibility } from './SearchMapCanvas';
 import type { AreaEditMapCanvasProps } from '../../../../areaEdit/presentation/components/AreaEditMapCanvas';
@@ -22,6 +28,7 @@ type DashboardMapShellProps = {
   layerVisibility: LayerVisibility;
   movementPaths: MovementPath[];
   recentMarkers: RecentMarker[];
+  operationalPeriods: OperationalPeriod[];
   focusedMarkerId: string | null;
   focusedMarkerSequence: number;
   focusedSearchAreaId: string | null;
@@ -49,6 +56,7 @@ export function DashboardMapShell({
   layerVisibility,
   movementPaths,
   recentMarkers,
+  operationalPeriods,
   focusedMarkerId,
   focusedMarkerSequence,
   focusedSearchAreaId,
@@ -132,6 +140,7 @@ export function DashboardMapShell({
           layerVisibility={layerVisibility}
           movementPaths={movementPaths}
           recentMarkers={recentMarkers}
+          operationalPeriods={operationalPeriods}
           focusedMarkerId={focusedMarkerId}
           focusedMarkerSequence={focusedMarkerSequence}
           focusedSearchAreaId={focusedSearchAreaId}

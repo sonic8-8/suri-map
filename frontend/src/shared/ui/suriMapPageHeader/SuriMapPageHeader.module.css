@@ -248,7 +248,7 @@
 .incidentContextTitle span,
 .incidentContextMetrics span {
   color: var(--suri-board-fg-muted);
-  font-size: 12px;
+  font-size: 14px;
 }
 
 /* 사건 ID 라벨의 자간을 기본값으로 유지합니다. */
@@ -260,7 +260,7 @@
 .incidentContextTitle strong {
   overflow: hidden;
   color: var(--suri-board-fg-primary);
-  font-size: 14px;
+  font-size: 17px;
   font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -281,7 +281,7 @@
   gap: 24px;
   min-width: 0;
   color: var(--suri-board-fg-secondary);
-  font-size: 14px;
+  font-size: 16px;
 }
 
 /* 각 지표의 라벨과 값을 세로로 쌓습니다. */
@@ -295,7 +295,7 @@
 .incidentContextMetrics strong {
   overflow: hidden;
   color: var(--suri-board-fg-secondary);
-  font-size: 14px;
+  font-size: 17px;
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -320,7 +320,7 @@
   border-radius: 999px;
   color: var(--header-status-fg);
   background: var(--header-status-bg);
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
 }
 

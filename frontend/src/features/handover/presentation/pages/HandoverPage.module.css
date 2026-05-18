@@ -105,50 +105,6 @@
   background: var(--suri-board-left-scrollbar-thumb-hover);
 }
 
-.leftPanelTabs {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 5px;
-  width: 100%;
-}
-
-.leftPanelTab {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-width: 0;
-  min-height: 34px;
-  padding: 0 8px;
-  border: 1px solid var(--handover-border-soft);
-  border-radius: 6px;
-  color: var(--suri-board-fg-secondary);
-  background: var(--handover-panel-surface);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 800;
-  line-height: 1.2;
-  cursor: pointer;
-}
-
-.leftPanelTab span {
-  color: var(--suri-board-primary-hi);
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.leftPanelTabActive {
-  border-color: var(--suri-board-primary-hi);
-  color: var(--suri-board-fg-primary);
-  background: var(--suri-board-primary-soft);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--suri-board-primary-hi) 34%, transparent);
-}
-
-.leftPanelTab:focus-visible {
-  outline: 2px solid var(--suri-board-primary-hi);
-  outline-offset: 2px;
-}
-
 .leftPanelPage {
   display: flex;
   flex-direction: column;
@@ -160,15 +116,11 @@
 }
 
 .historyPanelBody {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-}
-
-.panelTitle {
-  color: var(--suri-board-fg-primary);
-  font-size: 14px;
-  font-weight: 850;
 }
 
 .opList,
@@ -314,10 +266,37 @@
 }
 
 .historyContent {
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-color: var(--suri-board-left-scrollbar-thumb) var(--suri-board-left-scrollbar-track);
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
   display: grid;
   align-content: start;
   gap: 14px;
   padding: 18px 18px 22px;
+}
+
+.historyContent::-webkit-scrollbar {
+  width: 10px;
+}
+
+.historyContent::-webkit-scrollbar-track {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.historyContent::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--suri-board-left-scrollbar-thumb);
+  background-clip: content-box;
+}
+
+.historyContent::-webkit-scrollbar-thumb:hover {
+  background: var(--suri-board-left-scrollbar-thumb-hover);
 }
 
 .embeddedPage .historyContent {
@@ -584,6 +563,13 @@
   background: var(--handover-panel-surface);
 }
 
+.historyContent .memoComposer {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
 .memoComposer textarea {
   min-height: 104px;
   resize: vertical;
@@ -670,6 +656,10 @@
   align-content: start;
   gap: 8px;
   padding: 0 0 16px;
+}
+
+.historyContent .memoList {
+  padding: 0;
 }
 
 .memoItem {
@@ -1054,5 +1044,429 @@
 
   .modalActions {
     flex-direction: column-reverse;
+  }
+}
+
+/* 인수인계 브리핑형 레이아웃 보정: 기능/데이터는 유지하고 화면 위계만 조정 */
+.shell {
+  grid-template-columns: 300px minmax(0, 1fr) 500px;
+  background: #0a1828;
+}
+
+.embeddedPage .shell {
+  grid-template-columns: 300px minmax(0, 1fr) 500px;
+}
+
+.opPanel {
+  width: 300px;
+  min-width: 300px;
+  background: #07111f;
+}
+
+.historyPanel {
+  width: 500px;
+  min-width: 500px;
+  background: #f8fbff;
+  border-left: 1px solid rgba(15, 23, 42, 0.14);
+  box-shadow: -18px 0 42px rgba(15, 23, 42, 0.18);
+}
+
+.historyPanelBody {
+  background: linear-gradient(180deg, #f8fbff 0%, #eef5fb 100%);
+  color: #102033;
+}
+
+.historyContent {
+  gap: 14px;
+  padding: 16px;
+  scrollbar-color: rgba(60, 83, 110, 0.34) transparent;
+}
+
+.mapArea {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: #e8eef4;
+}
+
+.mapViewport {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.mapViewport > * {
+  width: 100%;
+  height: 100%;
+}
+
+.currentOpSummaryBar {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0;
+  min-height: 96px;
+  margin: 0;
+  border-top: 1px solid rgba(30, 58, 95, 0.36);
+  background: linear-gradient(180deg, rgba(10, 31, 54, 0.96) 0%, rgba(8, 25, 45, 0.98) 100%);
+  box-shadow: 0 -12px 32px rgba(2, 6, 23, 0.18);
+}
+
+.currentOpSummaryBar div {
+  display: grid;
+  align-content: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 14px 18px;
+  border-right: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.currentOpSummaryBar div:last-child {
+  border-right: 0;
+}
+
+.currentOpSummaryBar span {
+  color: #89a6bf;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.currentOpSummaryBar strong {
+  overflow: hidden;
+  color: #f8fbff;
+  font-size: 18px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.briefingHero,
+.historyContent .contextBlock {
+  border: 1px solid rgba(186, 202, 218, 0.86);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+}
+
+.briefingHero {
+  display: grid;
+  gap: 16px;
+  padding: 22px 22px 18px;
+}
+
+.briefingHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.briefingHeader h2 {
+  margin: 3px 0 0;
+  color: #102033;
+  font-size: 25px;
+  font-weight: 950;
+  letter-spacing: -0.03em;
+  line-height: 1.18;
+}
+
+.briefingEyebrow {
+  color: #41617f;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.briefingNeedBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  color: #c66a00;
+  background: #fff1da;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.briefingChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.briefingChips span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid #d7e2ec;
+  border-radius: 8px;
+  color: #24405e;
+  background: #f6f9fc;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.briefingChips svg {
+  color: #2563eb;
+  flex: 0 0 auto;
+}
+
+.briefingChips .briefingChipSuccess {
+  border-color: #bfe8d1;
+  color: #0b7a45;
+  background: #ecfdf3;
+}
+
+.briefingChips .briefingChipSuccess svg {
+  color: #16a34a;
+}
+
+.briefingHelper {
+  margin: 0;
+  color: #38546e;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.55;
+}
+
+.historyContent .contextBlock {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.historyContent .blockHeading {
+  align-items: center;
+}
+
+.historyContent .blockHeading h2 {
+  color: #102033;
+  font-size: 18px;
+  font-weight: 950;
+  letter-spacing: -0.02em;
+}
+
+.historyContent .blockHeading span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  color: #42607b;
+  background: #eef4f9;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.historyContent .memoComposer {
+  display: grid;
+  gap: 10px;
+}
+
+.historyContent .memoTargetField {
+  color: #38546e;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.historyContent .memoTargetField select,
+.historyContent .memoComposer textarea {
+  border: 1px solid #d7e2ec;
+  color: #102033;
+  background: #f8fbff;
+}
+
+.historyContent .memoTargetField select {
+  min-height: 40px;
+  border-radius: 10px;
+  padding: 0 12px;
+  font-weight: 800;
+}
+
+.historyContent .memoTargetField small {
+  color: #6d8498;
+}
+
+.historyContent .memoComposer textarea {
+  min-height: 112px;
+  border-radius: 12px;
+  padding: 14px;
+  color: #102033;
+  line-height: 1.6;
+}
+
+.historyContent .memoComposer textarea::placeholder {
+  color: #8498aa;
+}
+
+.historyContent .composerFooter {
+  color: #6d8498;
+  font-weight: 800;
+}
+
+.historyContent .composerFooter button {
+  min-height: 38px;
+  border-color: #172a66;
+  border-radius: 9px;
+  color: #ffffff;
+  background: linear-gradient(180deg, #1c347a 0%, #142666 100%);
+  box-shadow: 0 8px 16px rgba(20, 38, 102, 0.16);
+}
+
+.historyContent .composerFooter button:not(:disabled):hover {
+  background: linear-gradient(180deg, #25428d 0%, #1b3177 100%);
+}
+
+.historyContent .composerFooter button:disabled {
+  border-color: #d7e2ec;
+  color: #8798a7;
+  background: #edf3f8;
+  box-shadow: none;
+}
+
+.historyContent .memoList {
+  gap: 10px;
+  padding: 0;
+}
+
+.historyContent .memoItem {
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #d7e2ec;
+  border-radius: 12px;
+  background: #f8fbff;
+  box-shadow: none;
+}
+
+.historyContent .memoItem p {
+  color: #102033;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.historyContent .memoItem div {
+  color: #6d8498;
+}
+
+.historyContent .memoTargetBadge {
+  border-color: #b9dcff;
+  color: #0b63b6;
+  background: #eaf5ff;
+}
+
+.historyContent .summaryText {
+  color: #102033;
+  font-size: 14px;
+  line-height: 1.72;
+}
+
+.historyContent .summaryMetaGrid {
+  gap: 8px;
+}
+
+.historyContent .summaryMetaGrid div,
+.historyContent .compactMetaGrid div {
+  border: 1px solid #d7e2ec;
+  border-radius: 10px;
+  background: #f8fbff;
+}
+
+.historyContent .summaryMetaGrid dt,
+.historyContent .compactMetaGrid dt {
+  color: #6d8498;
+}
+
+.historyContent .summaryMetaGrid dd,
+.historyContent .compactMetaGrid dd {
+  color: #102033;
+}
+
+.historyContent .sourceList {
+  gap: 0;
+  border: 1px solid #d7e2ec;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.historyContent .sourceList li {
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 12px;
+  row-gap: 5px;
+  padding: 12px 14px;
+  border: 0;
+  border-bottom: 1px solid #e4ebf2;
+  border-radius: 0;
+  background: #ffffff;
+}
+
+.historyContent .sourceList li:last-child {
+  border-bottom: 0;
+}
+
+.historyContent .sourceList strong {
+  color: #102033;
+  font-size: 14px;
+}
+
+.historyContent .sourceList span {
+  justify-self: end;
+  color: #24405e;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.historyContent .sourceList p {
+  grid-column: 1 / -1;
+  color: #5a7085;
+  font-size: 12px;
+}
+
+.historyContent .emptyState {
+  border: 1px solid #d7e2ec;
+  color: #5a7085;
+  background: #f8fbff;
+}
+
+.historyContent .errorText {
+  border-color: #ffc9c3;
+  color: #b42318;
+  background: #fff1ef;
+}
+
+@media (max-width: 1280px) {
+  .shell {
+    grid-template-columns: 280px minmax(0, 1fr) 430px;
+  }
+
+  .opPanel {
+    width: 280px;
+    min-width: 280px;
+  }
+
+  .historyPanel {
+    width: 430px;
+    min-width: 430px;
+  }
+
+  .currentOpSummaryBar {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 980px) {
+  .historyPanel {
+    width: auto;
+    min-width: 0;
+    border-left: 0;
+  }
+
+  .currentOpSummaryBar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
