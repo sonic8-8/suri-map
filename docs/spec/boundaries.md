@@ -448,11 +448,15 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 - `PATH_APPENDED`
 - `PATH_SEGMENT_UPDATED`
 - `SEARCH_PATH_STARTED`
+- `SEARCH_PATH_PAUSED`
+- `SEARCH_PATH_RESUMED`
 - `SEARCH_PATH_ENDED`
-- `events/search_path_lifecycle.payload.schema.json` for `SEARCH_PATH_STARTED`, `SEARCH_PATH_ENDED`
+- `events/search_path_lifecycle.payload.schema.json` for `SEARCH_PATH_STARTED`, `SEARCH_PATH_PAUSED`, `SEARCH_PATH_RESUMED`, `SEARCH_PATH_ENDED`
 - `events/search_path.payload.schema.json` for `PATH_APPENDED`
 - `events/path_segment.payload.schema.json` for `PATH_SEGMENT_UPDATED`
 - `PublishRequest.SEARCH_PATH_STARTED`
+- `PublishRequest.SEARCH_PATH_PAUSED`
+- `PublishRequest.SEARCH_PATH_RESUMED`
 - `PublishRequest.SEARCH_PATH_ENDED`
 - `PublishRequest.PATH_APPENDED`
 - `PublishRequest.PATH_SEGMENT_UPDATED`
@@ -890,6 +894,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 - `GET /api/duty-shifts`
 - `POST /api/handover-memos`
 - `GET /api/handover-memos`
+- `GET /api/operational-periods/{operationalPeriodId}/handover-timeline`
 - `GET /api/operational-periods/{operationalPeriodId}/search-history-summaries`
 - `SearchHistorySummaryGenerationJob` (server-side trigger only)
 
@@ -939,6 +944,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 - OP1 is created during incident bootstrap; OP2 and later require Web command authorization and an allowed creation reason.
 - Search area assignment writes are owned by S2. S8 consumes `SearchAreaAssignmentQuery.byOp` for OP history and summary input only.
 - Handover memo writes support app and Web channels, preserve context, and emit `HANDOVER_MEMO_CREATED`.
+- Handover timeline is APP/WEB read-only and merges path/marker/memo/summary source rows for replay/report rendering without exposing `accountId` or `policePhoneId`.
 - Search history summary generation uses only OP/path/marker/memo history and leaves manual memo and OP comparison usable on failure.
 
 **excluded**
@@ -1031,6 +1037,8 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 | `SEARCH_AREA_CHANGED` | S2 | S3-2, S7 |
 | `SEARCH_AREA_ASSIGNMENT_CHANGED` | S2 | S3-2, S7 |
 | `SEARCH_PATH_STARTED` | S3-1 | S3-2 |
+| `SEARCH_PATH_PAUSED` | S3-1 | S3-2, S8 |
+| `SEARCH_PATH_RESUMED` | S3-1 | S3-2, S8 |
 | `SEARCH_PATH_ENDED` | S3-1 | S3-2, S8 |
 | `PATH_APPENDED` | S3-1 | S3-2 |
 | `PATH_SEGMENT_UPDATED` | S3-1 | S3-2, S8 |
@@ -1056,6 +1064,8 @@ Event payload는 REST response DTO, S6 `write_operation.schema.json`, S4 outbox/
 | `SEARCH_AREA_CHANGED` | `events/search_area.payload.schema.json` | 1 | `id`, `incidentId`, `status`, `version`, `geometry`, `serverTs` |
 | `SEARCH_AREA_ASSIGNMENT_CHANGED` | `events/search_area.payload.schema.json` | 1 | `id`, `incidentId`, `status`, `version` |
 | `SEARCH_PATH_STARTED` | `events/search_path_lifecycle.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `policePhoneId`, `sequence` |
+| `SEARCH_PATH_PAUSED` | `events/search_path_lifecycle.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `policePhoneId`, `sequence` |
+| `SEARCH_PATH_RESUMED` | `events/search_path_lifecycle.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `policePhoneId`, `sequence` |
 | `SEARCH_PATH_ENDED` | `events/search_path_lifecycle.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `policePhoneId`, `sequence` |
 | `PATH_APPENDED` | `events/search_path.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `policePhoneId`, `sequence` |
 | `PATH_SEGMENT_UPDATED` | `events/path_segment.payload.schema.json` | 1 | `id`, `status`, `version`, `opId`, `policePhoneId`, `sequence` |
@@ -1237,6 +1247,7 @@ Guard shorthand:
 | `GET /api/duty-shifts` | S8 | 앱, 웹, S3-2 | HTTPS | `public-session`, `incident-read` | - |
 | `POST /api/handover-memos` | S8 | 앱, 웹 | HTTPS | `field-or-web-write`, `incident-read`, `write-common` | - |
 | `GET /api/handover-memos` | S8 | 앱, 웹, S3-2 | HTTPS | `public-session`, `incident-read` | - |
+| `GET /api/operational-periods/{operationalPeriodId}/handover-timeline` | S8 | 앱, 웹, S3-2 | HTTPS | `public-session`, `incident-read` | 리플레이/보고서용 read-only timeline. 계정 ID와 PolicePhone ID는 응답에 노출하지 않는다 |
 | `GET /api/operational-periods/{operationalPeriodId}/search-history-summaries` | S8 | 앱, 웹, S3-2 | HTTPS | `public-session`, `incident-read` | - |
 
 ---

@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.surimap.app.service.path.AppSearchPathCommandService;
 import com.surimap.app.service.path.request.EndSearchPathServiceRequest;
+import com.surimap.app.service.path.request.PatchSearchPathServiceRequest;
+import com.surimap.app.service.path.request.SearchPathLifecycleAction;
 import com.surimap.app.service.path.request.StartSearchPathServiceRequest;
 import com.surimap.domain.path.port.PolicePhoneGuard;
 import com.surimap.domain.path.port.SearchPathEventPublisher;
@@ -57,7 +59,8 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
   @BeforeEach
   void cleanAndSeedPathContext() {
     jdbcTemplate.execute("TRUNCATE TABLE idempotency_record");
-    jdbcTemplate.execute("TRUNCATE TABLE search_path_excluded_point, search_path_segment, search_path");
+    jdbcTemplate.execute(
+        "TRUNCATE TABLE search_path_lifecycle_event, search_path_excluded_point, search_path_segment, search_path");
     jdbcTemplate.update("DELETE FROM duty_shift WHERE id = ?::uuid", DUTY_SHIFT_ID.toString());
     jdbcTemplate.update("DELETE FROM operational_period WHERE id = ?::uuid", OP_ID.toString());
     jdbcTemplate.update(
@@ -225,6 +228,66 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
     assertThat(row.get("status")).isEqualTo("ENDED");
     assertThat(row.get("ended_at")).isNotNull();
     assertThat(row.get("version")).isEqualTo(2L);
+  }
+
+  @Test
+  @DisplayName("pause and resume update persisted status and leave lifecycle event audit")
+  void pause_resume_persist_status_and_lifecycle_events() {
+    var created =
+        appCommandService.start(
+            new StartSearchPathServiceRequest(
+                INCIDENT_ID, OP_ID, POLICE_PHONE_ID, STARTED_AT, "idem-path-start-lifecycle"));
+    AppSearchPathCommandService restartedService =
+        new AppSearchPathCommandService(
+            operationalPeriodQuery, policePhoneGuard, searchPathEventPublisher, searchPathMapper);
+
+    var paused =
+        restartedService.patch(
+            created.id(),
+            POLICE_PHONE_ID,
+            new PatchSearchPathServiceRequest(
+                SearchPathLifecycleAction.PAUSE,
+                STARTED_AT.plusSeconds(30),
+                "idem-path-pause-lifecycle"));
+    var resumed =
+        restartedService.patch(
+            created.id(),
+            POLICE_PHONE_ID,
+            new PatchSearchPathServiceRequest(
+                SearchPathLifecycleAction.RESUME,
+                STARTED_AT.plusSeconds(45),
+                "idem-path-resume-lifecycle"));
+
+    Map<String, Object> row =
+        jdbcTemplate.queryForMap(
+            """
+            SELECT status,
+                   ended_at,
+                   version
+            FROM search_path
+            WHERE id = ?::uuid
+            """,
+            created.id().toString());
+    List<Map<String, Object>> lifecycleRows =
+        jdbcTemplate.queryForList(
+            """
+            SELECT event_type,
+                   version
+            FROM search_path_lifecycle_event
+            WHERE search_path_id = ?::uuid
+            ORDER BY version ASC
+            """,
+            created.id().toString());
+
+    assertThat(paused.status().name()).isEqualTo("PAUSED");
+    assertThat(resumed.status().name()).isEqualTo("RECORDING");
+    assertThat(row.get("status")).isEqualTo("RECORDING");
+    assertThat(row.get("ended_at")).isNull();
+    assertThat(row.get("version")).isEqualTo(3L);
+    assertThat(lifecycleRows)
+        .extracting(lifecycle -> lifecycle.get("event_type"))
+        .containsExactly("STARTED", "PAUSED", "RESUMED");
+    assertThat(lifecycleRows).extracting(lifecycle -> lifecycle.get("version")).containsExactly(1L, 2L, 3L);
   }
 
   @Test

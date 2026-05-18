@@ -66,6 +66,7 @@ public final class HandoverMemoQueryMock implements HandoverMemoQuery {
         f.memoId(),
         f.incidentId(),
         f.opId(),
+        null,
         f.targetType(),
         f.targetId(),
         f.content(),

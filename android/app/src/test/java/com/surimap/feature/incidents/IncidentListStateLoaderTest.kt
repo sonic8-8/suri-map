@@ -63,7 +63,8 @@ class IncidentListStateLoaderTest {
         assertEquals(INCIDENT_ID, incident.incidentId)
         assertEquals("광주 북구 산악 실종", incident.title)
         assertEquals("상태 OPEN · v7", incident.summary)
-        assertEquals("근무 시작 후 사건 열기", state.primaryOpenLabel)
+        assertEquals("현장 기록 열기", state.primaryOpenLabel)
+        assertTrue(state.visibleText().contains("현장 기록 열기"))
         assertEquals(INCIDENT_ID, context.incidentId)
         assertNull(context.currentOpId)
         assertNull(context.currentDutyShiftId)
@@ -109,6 +110,8 @@ class IncidentListStateLoaderTest {
         assertTrue(source.contains("resolvedContext.currentDutyShiftId.isNullOrBlank()"))
         assertTrue(source.contains("dutyShiftRecorder.start"))
         assertTrue(source.contains("resolvedContext.toDutyShiftWriteContext(policePhoneContext)"))
+        assertTrue(source.contains("route = PolicePhoneRoute.SearchMap"))
+        assertTrue(source.contains("onOpenOfflinePackage"))
     }
 
     private fun loaderFor(response: Response): IncidentListStateLoader {

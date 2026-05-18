@@ -2,15 +2,19 @@ package com.surimap.feature.search.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -30,9 +34,11 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.surimap.R
 import com.surimap.core.map.MapLibreRuntimeMapState
 import com.surimap.core.map.MapLibreGeometryOverlay
 import com.surimap.core.map.MapLibreGeometryOverlayKind
@@ -107,6 +113,12 @@ data class SearchMapLayerUiState(
     val geoJson: String? = null
 )
 
+data class SearchMapAreaFocusTarget(
+    val label: String,
+    val kind: SearchLayerKind,
+    val overlayId: String?
+)
+
 data class SearchMapUiState(
     val incidentTitle: String,
     val missingPersonSummary: String,
@@ -156,6 +168,16 @@ data class SearchMapUiState(
             }
     val focusedMarkerViewportBounds: SearchMapViewportBounds? =
         focusedMarkerLayer?.geoJson?.pointViewportBounds()
+    val canFocusOverallSearchArea: Boolean =
+        layers.any { layer -> layer.kind == SearchLayerKind.Overall && !layer.geoJson.isNullOrBlank() }
+    val canFocusUnitSearchArea: Boolean =
+        layers.any { layer -> layer.kind == SearchLayerKind.Unit && !layer.geoJson.isNullOrBlank() }
+    val canFocusTeamSearchArea: Boolean =
+        layers.any { layer -> layer.kind == SearchLayerKind.Team && !layer.geoJson.isNullOrBlank() }
+    val canOpenMarkerDetail: Boolean = !markerDetailTargetId.isNullOrBlank()
+    val overallSearchAreaTargets: List<SearchMapAreaFocusTarget> = areaFocusTargets(SearchLayerKind.Overall)
+    val unitSearchAreaTargets: List<SearchMapAreaFocusTarget> = areaFocusTargets(SearchLayerKind.Unit)
+    val teamSearchAreaTargets: List<SearchMapAreaFocusTarget> = areaFocusTargets(SearchLayerKind.Team)
 
     val syncLabel: String =
         when (syncStatus) {
@@ -201,31 +223,69 @@ data class SearchMapUiState(
             add(missingPersonSummary)
             add(opLabel)
             add(dutyShiftLabel)
-            add(assignmentLabel)
+            assignmentLabel.takeIf(String::isNotBlank)?.let(::add)
             add(syncLabel)
             add(lifecycleTitle)
             add(lifecycleMessage)
-            add(primaryActionLabel)
             add(if (canWritePath) "경로 기록 가능" else "경로 기록 차단")
             add(if (canCreateMarker) "마커 생성 가능" else "마커 생성 차단")
             add(if (bottomPanelExpanded) "지도 정보 펼침" else "지도 정보 접힘")
             add(if (mapOverlaysVisible) "지도 오버레이 표시" else "지도 오버레이 숨김")
-            add("인수인계")
-            add("마커 생성")
+            if (mapOverlaysVisible) {
+                add("전체 수색구역")
+                add("부대 수색구역")
+                add("팀 담당구역")
+                add("마커 상세")
+                unitSearchAreaTargets.forEach { add(it.label) }
+                teamSearchAreaTargets.forEach { add(it.label) }
+            }
+            if (bottomPanelExpanded) {
+                add(primaryActionLabel)
+                if (canStopSearch) {
+                    add("종료")
+                }
+                add("인수인계")
+                add("마커 생성")
+            }
             if (showHandoverPrompt) {
                 add("이전 근무 기록 있음")
             }
             markerFocusLabel?.let(::add)
-            markerDetailTargetId?.let { add("마커 상세") }
             incidentAlert?.visibleText()?.forEach(::add)
             if (blockedOutboxCount > 0) {
                 add("미전송 ${blockedOutboxCount}건 처리 불가")
             }
-            layers.forEach { add(it.label) }
         }
 
     fun withFocusedMarker(markerId: String?): SearchMapUiState =
         copy(focusedMarkerId = markerId?.takeIf(String::isNotBlank))
+
+    fun centerOnSearchLayer(kind: SearchLayerKind, overlayId: String? = null): SearchMapUiState {
+        val bounds =
+            layers.firstOrNull { layer ->
+                layer.kind == kind &&
+                    !layer.geoJson.isNullOrBlank() &&
+                    (overlayId == null || layer.overlayId == overlayId)
+            }
+                ?.geoJson
+                ?.geometryViewportBounds()
+                ?: return this
+        return copy(
+            viewportBounds = bounds,
+            focusedMarkerId = null
+        )
+    }
+
+    private fun areaFocusTargets(kind: SearchLayerKind): List<SearchMapAreaFocusTarget> =
+        layers
+            .filter { layer -> layer.kind == kind && !layer.geoJson.isNullOrBlank() }
+            .mapIndexed { index, layer ->
+                SearchMapAreaFocusTarget(
+                    label = layer.label.takeIf(String::isNotBlank) ?: "${kind.areaLabel()} ${index + 1}",
+                    kind = kind,
+                    overlayId = layer.overlayId
+                )
+            }
 
     companion object {
         fun active(
@@ -278,11 +338,11 @@ data class SearchMapUiState(
             incidentAlert: IncidentAlertUiState? = null
         ): SearchMapUiState =
             SearchMapUiState(
-                incidentTitle = "광주 북구 산악 실종",
-                missingPersonSummary = "60대 여 · 회색 점퍼",
-                opLabel = "OP 3차 · 재수색",
-                dutyShiftLabel = "DutyShift · 14:00 인계",
-                assignmentLabel = "담당: 기동대 1부대 A팀",
+                incidentTitle = "광주 북구 무등산 증심사 계곡 일대 실종자 수색",
+                missingPersonSummary = "60대 여성 · 회색 점퍼 · 검은 바지 · 치매 증상 · 보행 느림",
+                opLabel = "OP 3차",
+                dutyShiftLabel = "",
+                assignmentLabel = "기동대 1부대 A팀 담당 구역",
                 syncStatus = syncStatus,
                 lifecycleStatus = lifecycleStatus,
                 unsentCount = unsentCount,
@@ -318,6 +378,8 @@ fun SearchMapScreen(
     onDismissIncidentAlert: () -> Unit,
     onOpenIncidentAlertMarker: (String) -> Unit,
     onOpenFocusedMarkerDetail: (String) -> Unit,
+    onCenterCurrentLocation: () -> Unit,
+    onFocusSearchArea: (SearchLayerKind, String?) -> Unit,
     onToggleBottomPanel: () -> Unit,
     onToggleMapOverlays: () -> Unit,
     modifier: Modifier = Modifier
@@ -360,6 +422,8 @@ fun SearchMapScreen(
                 mapState = mapState,
                 showMapPreview = showMapPreview,
                 onOpenFocusedMarkerDetail = onOpenFocusedMarkerDetail,
+                onCenterCurrentLocation = onCenterCurrentLocation,
+                onFocusSearchArea = onFocusSearchArea,
                 onToggleMapOverlays = onToggleMapOverlays,
                 modifier = Modifier.weight(1f)
             )
@@ -465,10 +529,13 @@ private fun SearchMapShell(
     mapState: MapLibreRuntimeMapState,
     showMapPreview: Boolean,
     onOpenFocusedMarkerDetail: (String) -> Unit,
+    onCenterCurrentLocation: () -> Unit,
+    onFocusSearchArea: (SearchLayerKind, String?) -> Unit,
     onToggleMapOverlays: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val runtimeMapState = state.toRuntimeMapState(mapState)
+    var expandedAreaKind by remember { mutableStateOf<SearchLayerKind?>(null) }
 
     Box(modifier = modifier.fillMaxWidth().background(PoliBgInput)) {
         if (showMapPreview) {
@@ -488,44 +555,67 @@ private fun SearchMapShell(
             modifier = Modifier.align(Alignment.TopStart).padding(PoliDimens.Space3),
             verticalArrangement = Arrangement.spacedBy(PoliDimens.Space2)
         ) {
-            PoliButton(
-                text = if (state.mapOverlaysVisible) "오버레이 숨김" else "오버레이 표시",
-                onClick = onToggleMapOverlays,
-                size = PoliButtonSize.Small,
-                variant = PoliButtonVariant.Secondary
+            MapOverlayToggle(
+                visible = state.mapOverlaysVisible,
+                onClick = onToggleMapOverlays
             )
             if (state.mapOverlaysVisible) {
                 state.markerFocusLabel?.let { focusLabel ->
                     PoliChip(text = focusLabel, variant = PoliChipVariant.Bad)
                 }
-                PoliChip(
-                    text = "${state.layers.size}개 레이어",
-                    variant = PoliChipVariant.Neutral
+                AreaFocusGroup(
+                    title = "전체 수색구역",
+                    targets = state.overallSearchAreaTargets,
+                    expanded = expandedAreaKind == SearchLayerKind.Overall,
+                    onToggleExpanded = {
+                        expandedAreaKind =
+                            if (expandedAreaKind == SearchLayerKind.Overall) null else SearchLayerKind.Overall
+                    },
+                    onFocus = { target ->
+                        expandedAreaKind = null
+                        onFocusSearchArea(target.kind, target.overlayId)
+                    }
                 )
-                PoliChip(
-                    text = "${state.layers.count { it.highlighted }}개 활성",
-                    variant = PoliChipVariant.Outbox
+                AreaFocusGroup(
+                    title = "부대 수색구역",
+                    targets = state.unitSearchAreaTargets,
+                    expanded = expandedAreaKind == SearchLayerKind.Unit,
+                    onToggleExpanded = {
+                        expandedAreaKind =
+                            if (expandedAreaKind == SearchLayerKind.Unit) null else SearchLayerKind.Unit
+                    },
+                    onFocus = { target ->
+                        expandedAreaKind = null
+                        onFocusSearchArea(target.kind, target.overlayId)
+                    }
                 )
-                state.markerDetailTargetId?.takeIf(String::isNotBlank)?.let { markerId ->
-                    PoliButton(
-                        text = "마커 상세",
-                        onClick = { onOpenFocusedMarkerDetail(markerId) },
-                        size = PoliButtonSize.Small,
-                        variant = PoliButtonVariant.Secondary
-                    )
-                }
+                AreaFocusGroup(
+                    title = "팀 담당구역",
+                    targets = state.teamSearchAreaTargets,
+                    expanded = expandedAreaKind == SearchLayerKind.Team,
+                    onToggleExpanded = {
+                        expandedAreaKind =
+                            if (expandedAreaKind == SearchLayerKind.Team) null else SearchLayerKind.Team
+                    },
+                    onFocus = { target ->
+                        expandedAreaKind = null
+                        onFocusSearchArea(target.kind, target.overlayId)
+                    }
+                )
+                MarkerDetailButton(
+                    onClick =
+                    state.markerDetailTargetId
+                        ?.takeIf { state.canOpenMarkerDetail }
+                        ?.let { markerId -> { onOpenFocusedMarkerDetail(markerId) } },
+                    enabled = state.canOpenMarkerDetail
+                )
             }
         }
 
-        Column(
-            modifier = Modifier.align(Alignment.TopEnd).padding(PoliDimens.Space3),
-            verticalArrangement = Arrangement.spacedBy(PoliDimens.Space2)
-        ) {
-            MapControlButton(text = "+")
-            MapControlButton(text = "-")
-            MapControlButton(text = "중")
-        }
-
+        CurrentLocationButton(
+            onClick = onCenterCurrentLocation,
+            modifier = Modifier.align(Alignment.BottomEnd).padding(PoliDimens.Space4)
+        )
     }
 }
 
@@ -760,16 +850,121 @@ private fun SearchMapPreviewScene(
     }
 }
 @Composable
-private fun MapControlButton(text: String) {
-    Surface(
-        modifier = Modifier.size(PoliDimens.TouchMin),
-        shape = MaterialTheme.shapes.medium,
-        color = PoliBgSurface,
-        contentColor = PoliFgSecondary,
-        border = androidx.compose.foundation.BorderStroke(1.dp, PoliBorderStrong)
+private fun MapOverlayToggle(visible: Boolean, onClick: () -> Unit) {
+    MapActionButton(
+        text = if (visible) "정보 숨김" else "정보 표시",
+        onClick = onClick
+    )
+}
+
+@Composable
+private fun MarkerDetailButton(onClick: (() -> Unit)?, enabled: Boolean) {
+    MapActionButton(
+        text = "마커 상세",
+        onClick = onClick,
+        accent = enabled,
+        enabled = enabled
+    )
+}
+
+@Composable
+private fun AreaFocusGroup(
+    title: String,
+    targets: List<SearchMapAreaFocusTarget>,
+    expanded: Boolean,
+    onToggleExpanded: () -> Unit,
+    onFocus: (SearchMapAreaFocusTarget) -> Unit
+) {
+    val enabled = targets.isNotEmpty()
+    val singleTarget = targets.singleOrNull()
+    MapActionButton(
+        text =
+        when {
+            targets.size > 1 -> "$title ${targets.size}"
+            else -> title
+        },
+        onClick =
+        when {
+            !enabled -> null
+            singleTarget != null -> { { onFocus(singleTarget) } }
+            else -> onToggleExpanded
+        },
+        enabled = enabled
+    )
+    if (expanded && targets.size > 1) {
+        targets.forEachIndexed { index, target ->
+            MapActionButton(
+                text = "${index + 1}. ${target.label}",
+                onClick = { onFocus(target) },
+                accent = true
+            )
+        }
+    }
+}
+
+@Composable
+private fun CurrentLocationButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.size(56.dp).clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            Text(text = text, style = MaterialTheme.typography.labelMedium)
+        Icon(
+            painter = painterResource(id = R.drawable.ic_my_location),
+            contentDescription = "내 위치",
+            tint = Color.Unspecified,
+            modifier = Modifier.size(38.dp)
+        )
+    }
+}
+
+@Composable
+private fun MapActionButton(
+    text: String,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    accent: Boolean = false,
+    enabled: Boolean = true
+) {
+    val buttonModifier =
+        modifier
+            .heightIn(min = 34.dp)
+            .then(
+                if (enabled && onClick != null) {
+                    Modifier.clickable(onClick = onClick)
+                } else {
+                    Modifier
+                }
+            )
+    Surface(
+        modifier = buttonModifier,
+        shape = MaterialTheme.shapes.small,
+        color = PoliBgSurface,
+        contentColor =
+        when {
+            !enabled -> PoliFgMuted
+            accent -> PoliCurrent
+            else -> PoliFgSecondary
+        },
+        border =
+        androidx.compose.foundation.BorderStroke(
+            1.dp,
+            when {
+                !enabled -> PoliBorder
+                accent -> PoliCurrent
+                else -> PoliBorderStrong
+            }
+        )
+    ) {
+        Box(
+            modifier = Modifier.padding(horizontal = 10.dp).widthIn(min = 72.dp, max = 122.dp).height(34.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
@@ -943,8 +1138,18 @@ private fun SearchLayerKind.toMapLibreGeometryOverlayKind(): MapLibreGeometryOve
         SearchLayerKind.CurrentLocation -> MapLibreGeometryOverlayKind.CurrentLocation
     }
 
+private fun SearchLayerKind.areaLabel(): String =
+    when (this) {
+        SearchLayerKind.Overall -> "전체 수색구역"
+        SearchLayerKind.Unit -> "부대 수색구역"
+        SearchLayerKind.Team -> "팀 담당구역"
+        SearchLayerKind.Path -> "수색 경로"
+        SearchLayerKind.Marker -> "마커"
+        SearchLayerKind.CurrentLocation -> "현재 위치"
+    }
+
 private fun String.pointViewportBounds(): SearchMapViewportBounds? {
-    val match = POINT_COORDINATES.find(this) ?: return null
+    val match = COORDINATE_PAIR.find(this) ?: return null
     val lon = match.groupValues[1].toDoubleOrNull() ?: return null
     val lat = match.groupValues[2].toDoubleOrNull() ?: return null
     val delta = MARKER_FOCUS_BOUNDS_DELTA
@@ -956,7 +1161,47 @@ private fun String.pointViewportBounds(): SearchMapViewportBounds? {
     )
 }
 
-private val POINT_COORDINATES = Regex(""""coordinates"\s*:\s*\[\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*]""")
+private fun String.geometryViewportBounds(): SearchMapViewportBounds? =
+    COORDINATE_PAIR.findAll(this)
+        .mapNotNull { match ->
+            val longitude = match.groupValues[1].toDoubleOrNull()
+            val latitude = match.groupValues[2].toDoubleOrNull()
+            if (longitude != null && latitude != null && longitude.isFinite() && latitude.isFinite()) {
+                longitude to latitude
+            } else {
+                null
+            }
+        }
+        .toList()
+        .toViewportBounds()
+
+private fun List<Pair<Double, Double>>.toViewportBounds(): SearchMapViewportBounds? {
+    if (isEmpty()) {
+        return null
+    }
+
+    val longitudes = map { it.first }
+    val latitudes = map { it.second }
+    val south = latitudes.minOrNull() ?: return null
+    val west = longitudes.minOrNull() ?: return null
+    val north = latitudes.maxOrNull() ?: return null
+    val east = longitudes.maxOrNull() ?: return null
+    val latDelta = if (south == north) MARKER_FOCUS_BOUNDS_DELTA else 0.0
+    val lonDelta = if (west == east) MARKER_FOCUS_BOUNDS_DELTA else 0.0
+    return SearchMapViewportBounds(
+        south = south - latDelta,
+        west = west - lonDelta,
+        north = north + latDelta,
+        east = east + lonDelta
+    ).takeIf { bounds ->
+        bounds.south.isFinite() &&
+            bounds.west.isFinite() &&
+            bounds.north.isFinite() &&
+            bounds.east.isFinite()
+    }
+}
+
+private val COORDINATE_PAIR = Regex("""\[\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*]""")
 private const val MARKER_FOCUS_BOUNDS_DELTA = 0.001
 
 fun sampleSearchMapState(): SearchMapUiState =
@@ -984,6 +1229,8 @@ private fun SearchMapScreenPreview() {
             onDismissIncidentAlert = {},
             onOpenIncidentAlertMarker = {},
             onOpenFocusedMarkerDetail = {},
+            onCenterCurrentLocation = {},
+            onFocusSearchArea = { _, _ -> },
             onToggleBottomPanel = {},
             onToggleMapOverlays = {}
         )

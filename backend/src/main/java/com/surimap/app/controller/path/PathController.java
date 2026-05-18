@@ -46,11 +46,8 @@ public class PathController {
       @RequestBody PatchSearchPathRequest request) {
     requireIdempotencyKey(idempotencyKey);
     UUID policePhoneId = HeaderParsers.parsePolicePhoneId(policePhoneIdHeader);
-    if (request.action() == null || !"END".equalsIgnoreCase(request.action())) {
-      throw new SearchPathGuardException("write_conflict");
-    }
-    var ended = service.end(searchPathId, policePhoneId, request.toServiceRequest(idempotencyKey));
-    return ResponseEntity.ok(PatchSearchPathResponse.from(ended));
+    var patched = service.patch(searchPathId, policePhoneId, request.toServiceRequest(idempotencyKey));
+    return ResponseEntity.ok(PatchSearchPathResponse.from(patched));
   }
 
   private void requireIdempotencyKey(String idempotencyKey) {

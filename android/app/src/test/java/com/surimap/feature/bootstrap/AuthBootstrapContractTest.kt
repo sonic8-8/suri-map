@@ -213,10 +213,32 @@ class AuthBootstrapContractTest {
 
         assertFalse(state.shouldEnterIncidentList)
         assertTrue(state.requiresAuthentication)
-        assertEquals("계정 인증이 필요합니다.", state.failureMessage)
+        assertEquals("수리맵 계정 인증이 필요합니다.", state.failureMessage)
+        assertEquals("계정 로그인 필요", state.title)
         assertEquals("로그인", state.primaryActionLabel)
+        assertTrue(state.visibleText().any { it.contains("수리맵 계정") })
         assertTrue(state.visibleText().any { it.contains("로그인") })
         assertFalse(state.visibleText().any { it.contains("비밀번호") })
+    }
+
+    @Test
+    fun keycloakLoginThemeUsesAndroidSpecificFieldAppCopy() {
+        val loginTemplate = File("../../infra/docker/keycloak/themes/suri-map/login/login.ftl").readText()
+        val koreanMessages = File("../../infra/docker/keycloak/themes/suri-map/login/messages/messages_ko.properties").readText()
+        val englishMessages = File("../../infra/docker/keycloak/themes/suri-map/login/messages/messages_en.properties").readText()
+
+        assertTrue(loginTemplate.contains("suri-map-android"))
+        assertTrue(loginTemplate.contains("loginAccountTitleAndroid"))
+        assertTrue(loginTemplate.contains("suriLoginHelpAndroid"))
+        assertTrue(koreanMessages.contains("loginAccountTitleAndroid=수리맵 계정으로 로그인"))
+        assertTrue(koreanMessages.contains("suriLoginHelpAndroid=등록된 수리맵 계정으로 현장 앱에 접속합니다."))
+        assertTrue(englishMessages.contains("loginAccountTitleAndroid=수리맵 계정으로 로그인"))
+        assertTrue(englishMessages.contains("suriLoginHelpAndroid=등록된 수리맵 계정으로 현장 앱에 접속합니다."))
+        assertFalse(
+            koreanMessages.lineSequence()
+                .filter { line -> line.startsWith("loginAccountTitleAndroid=") || line.startsWith("suriLoginHelpAndroid=") }
+                .any { line -> line.contains("지휘 상황판") || line.contains("지휘 계정") }
+        )
     }
 
     @Test

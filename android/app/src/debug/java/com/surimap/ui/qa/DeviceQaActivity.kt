@@ -117,6 +117,7 @@ private fun DeviceQaScreen(route: DeviceQaRoute) {
             IncidentListScreen(
                 state = sampleIncidentListState(),
                 onOpenIncident = {},
+                onOpenOfflinePackage = {},
                 onRefresh = {},
                 onDismissClosedDialog = {}
             )
@@ -144,6 +145,8 @@ private fun DeviceQaScreen(route: DeviceQaRoute) {
                 onDismissIncidentAlert = {},
                 onOpenIncidentAlertMarker = {},
                 onOpenFocusedMarkerDetail = {},
+                onCenterCurrentLocation = {},
+                onFocusSearchArea = { _, _ -> },
                 onToggleBottomPanel = {},
                 onToggleMapOverlays = {},
                 showMapPreview = true
@@ -167,6 +170,8 @@ private fun DeviceQaScreen(route: DeviceQaRoute) {
                 onDismissIncidentAlert = {},
                 onOpenIncidentAlertMarker = {},
                 onOpenFocusedMarkerDetail = {},
+                onCenterCurrentLocation = {},
+                onFocusSearchArea = { _, _ -> },
                 onToggleBottomPanel = {},
                 onToggleMapOverlays = {},
                 showMapPreview = true
@@ -206,6 +211,8 @@ private fun DeviceQaScreen(route: DeviceQaRoute) {
                 onDismissIncidentAlert = {},
                 onOpenIncidentAlertMarker = {},
                 onOpenFocusedMarkerDetail = {},
+                onCenterCurrentLocation = {},
+                onFocusSearchArea = { _, _ -> },
                 onToggleBottomPanel = {},
                 onToggleMapOverlays = {},
                 showMapPreview = true
@@ -335,6 +342,8 @@ private fun LiveSearchMapQaScreen() {
                 onDismissIncidentAlert = {},
                 onOpenIncidentAlertMarker = {},
                 onOpenFocusedMarkerDetail = {},
+                onCenterCurrentLocation = {},
+                onFocusSearchArea = { _, _ -> },
                 onToggleBottomPanel = {},
                 onToggleMapOverlays = {},
                 showMapPreview = false
