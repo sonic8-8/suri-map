@@ -88,7 +88,8 @@ enum class SearchLayerKind {
     Unit,
     Team,
     Path,
-    Marker
+    Marker,
+    CurrentLocation
 }
 
 data class SearchMapViewportBounds(
@@ -125,7 +126,9 @@ data class SearchMapUiState(
     val incidentAlert: IncidentAlertUiState? = null,
     val focusedMarkerId: String? = null,
     val bottomPanelExpanded: Boolean = true,
-    val mapOverlaysVisible: Boolean = true
+    val mapOverlaysVisible: Boolean = true,
+    val activeSearchPathId: String? = null,
+    val activeSearchPathStartedAtEpochMs: Long? = null
 ) {
     val canWritePath: Boolean = lifecycleStatus == SearchLifecycleStatus.Active
     val canCreateMarker: Boolean = lifecycleStatus == SearchLifecycleStatus.Active
@@ -937,6 +940,7 @@ private fun SearchLayerKind.toMapLibreGeometryOverlayKind(): MapLibreGeometryOve
         SearchLayerKind.Team -> MapLibreGeometryOverlayKind.Team
         SearchLayerKind.Path -> MapLibreGeometryOverlayKind.Path
         SearchLayerKind.Marker -> MapLibreGeometryOverlayKind.Marker
+        SearchLayerKind.CurrentLocation -> MapLibreGeometryOverlayKind.CurrentLocation
     }
 
 private fun String.pointViewportBounds(): SearchMapViewportBounds? {

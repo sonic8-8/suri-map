@@ -79,6 +79,8 @@ class SearchPathServiceTest {
 
     PathQueryRow path = service.query(incidentId, opId, policePhoneId).paths().get(0);
 
+    assertThat(path.startedAt()).isEqualTo(OffsetDateTime.parse("2026-04-28T09:00:00+09:00").toInstant());
+    assertThat(path.endedAt()).isNull();
     assertThat(path.segments())
         .extracting(PathQuerySegmentRow::movementType)
         .containsExactly(MovementType.VEHICLE, MovementType.FOOT);

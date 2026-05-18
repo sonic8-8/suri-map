@@ -78,7 +78,8 @@ enum class MapLibreGeometryOverlayKind {
     Unit,
     Team,
     Path,
-    Marker
+    Marker,
+    CurrentLocation
 }
 
 data class MapLibreGeometryOverlay(
@@ -215,6 +216,26 @@ internal fun mapLibreOverlayPaint(
                 textHaloBlur = 0.35f,
                 textSize = 12.0f,
                 textOffset = listOf(0.0f, 1.15f)
+            )
+
+        MapLibreGeometryOverlayKind.CurrentLocation ->
+            MapLibreOverlayPaint(
+                fillColor = "#0284C7",
+                fillOpacity = 0.0f,
+                lineColor = "#0284C7",
+                lineWidth = 0.0f,
+                lineOpacity = 0.0f,
+                circleColor = "#0EA5E9",
+                circleRadius = 7.5f + markerBoost,
+                circleOpacity = 0.98f,
+                circleStrokeColor = "#FFFFFF",
+                circleStrokeWidth = 2.75f,
+                textColor = "#075985",
+                textHaloColor = "#FFFFFF",
+                textHaloWidth = 2.25f,
+                textHaloBlur = 0.35f,
+                textSize = 12.0f,
+                textOffset = listOf(0.0f, 1.2f)
             )
     }
 }
@@ -609,6 +630,7 @@ private val MapLibreGeometryOverlay.supportsFillLayer: Boolean
             MapLibreGeometryOverlayKind.Team -> true
             MapLibreGeometryOverlayKind.Path -> false
             MapLibreGeometryOverlayKind.Marker -> false
+            MapLibreGeometryOverlayKind.CurrentLocation -> false
         }
 
 private val MapLibreGeometryOverlay.supportsLineLayer: Boolean
@@ -619,6 +641,7 @@ private val MapLibreGeometryOverlay.supportsLineLayer: Boolean
             MapLibreGeometryOverlayKind.Team -> true
             MapLibreGeometryOverlayKind.Path -> true
             MapLibreGeometryOverlayKind.Marker -> false
+            MapLibreGeometryOverlayKind.CurrentLocation -> false
         }
 
 private val MapLibreGeometryOverlay.supportsCircleLayer: Boolean
@@ -629,6 +652,7 @@ private val MapLibreGeometryOverlay.supportsCircleLayer: Boolean
             MapLibreGeometryOverlayKind.Team -> false
             MapLibreGeometryOverlayKind.Path -> false
             MapLibreGeometryOverlayKind.Marker -> true
+            MapLibreGeometryOverlayKind.CurrentLocation -> true
         }
 
 private val MapLibreGeometryOverlay.supportsLabelLayer: Boolean
