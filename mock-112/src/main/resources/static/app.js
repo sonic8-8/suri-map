@@ -1,6 +1,32 @@
 // mock 112 Admin — vanilla JS
 const BASE = '';  // same-origin (서버가 static을 서빙)
 
+const UNIT_ASSIGNMENT_GROUPS = {
+    precinct: {
+        label: '광주광산경찰서 수완지구대',
+        members: [
+            { key: 'precinct-cmd', accountCode: 'acct-precinct-cmd', incidentRole: 'FIELD_COMMANDER' },
+            { key: 'precinct-car', accountCode: 'acct-precinct-car', incidentRole: 'MEMBER' },
+            { key: 'precinct-team', accountCode: 'acct-precinct-team', incidentRole: 'MEMBER' }
+        ]
+    },
+    missingTeam: {
+        label: '광주경찰청 여성청소년과 실종팀',
+        members: [
+            { key: 'cmd-alpha', accountCode: 'acct-cmd-alpha', incidentRole: 'INCIDENT_COMMANDER' },
+            { key: 'team-alpha', accountCode: 'acct-team-alpha', incidentRole: 'MEMBER' }
+        ]
+    },
+    supportUnit: {
+        label: '광주경찰청 기동대',
+        members: [
+            { key: 'support-cmd', accountCode: 'acct-support-cmd', incidentRole: 'FIELD_COMMANDER' },
+            { key: 'support-car', accountCode: 'acct-support-car', incidentRole: 'MEMBER' },
+            { key: 'support-team', accountCode: 'acct-support-team', incidentRole: 'MEMBER' }
+        ]
+    }
+};
+
 // ── 유틸 ──
 function showToast(message, type = 'info') {
     const container = document.getElementById('toastContainer');
@@ -18,6 +44,30 @@ async function api(method, path, body) {
     const data = await res.json();
     if (!res.ok) throw { status: res.status, data };
     return data;
+}
+
+function groupOptionsHtml() {
+    return Object.entries(UNIT_ASSIGNMENT_GROUPS)
+        .map(([value, group]) => `<option value="${value}">${group.label}</option>`)
+        .join('');
+}
+
+function assignmentPayloads(sourceIncidentId, group, assignedAt) {
+    return group.members.map(member => ({
+        externalAssignmentKey: `${sourceIncidentId}:${member.key}`,
+        accountCode: member.accountCode,
+        incidentRole: member.incidentRole,
+        assignedAt
+    }));
+}
+
+function populateAssignmentGroupOptions() {
+    const select = document.getElementById('inputInitialAssignmentGroup');
+    if (!select) {
+        return;
+    }
+    select.innerHTML = groupOptionsHtml();
+    select.value = 'precinct';
 }
 
 // ── 사건 목록 로드 ──
@@ -44,6 +94,8 @@ function renderIncidents(incidents) {
             : '실종자 정보 없음';
         const assignCount = (inc.assignments || []).length;
         const markerCount = (inc.seedMarkers || []).length;
+        const selectId = `assignGroup-${inc.sourceIncidentId}`;
+        const groupOptions = groupOptionsHtml();
         return `
         <div class="incident-item ${statusClass}">
             <div class="incident-header">
@@ -56,13 +108,19 @@ function renderIncidents(incidents) {
             <div class="incident-meta">
                 👤 ${personInfo} · 배정 ${assignCount}명 · 마커 ${markerCount}개
             </div>
+            <div class="assignment-control">
+                <select id="${selectId}" aria-label="배정 대상 조직">
+                    ${groupOptions}
+                </select>
+                <button class="btn btn-sm btn-primary" onclick="assignGroup('${inc.sourceIncidentId}')">
+                    조직 배정
+                </button>
+            </div>
             <div class="incident-actions">
-                <button class="btn btn-sm btn-warning" onclick="handover('${inc.sourceIncidentId}')"
-                    ${inc.status === 'IMPORTED' ? 'disabled' : ''}>
+                <button class="btn btn-sm btn-warning" onclick="handover('${inc.sourceIncidentId}')">
                     🔄 실종팀 인계
                 </button>
-                <button class="btn btn-sm btn-success" onclick="addSupport('${inc.sourceIncidentId}')"
-                    ${inc.status === 'IMPORTED' ? 'disabled' : ''}>
+                <button class="btn btn-sm btn-success" onclick="addSupport('${inc.sourceIncidentId}')">
                     🚓 지원 부대 배정
                 </button>
                 <button class="btn btn-sm btn-primary" onclick="copyId('${inc.sourceIncidentId}')">
@@ -88,16 +146,23 @@ async function createIncident(e) {
     const personName = document.getElementById('inputPersonName').value.trim();
     const appearance = document.getElementById('inputAppearance').value.trim();
     const lastSeen = document.getElementById('inputLastSeen').value.trim();
+    const initialGroupKey = document.getElementById('inputInitialAssignmentGroup').value;
+    const initialGroup = UNIT_ASSIGNMENT_GROUPS[initialGroupKey];
+    if (!initialGroup) {
+        showToast('초기 배정 조직을 선택하세요.', 'error');
+        return;
+    }
+    const openedAt = new Date().toISOString();
 
     const body = {
         sourceIncidentId, title,
-        openedAt: new Date().toISOString(),
+        openedAt,
         missingPerson: {
             displayName: personName || '미입력',
             appearanceText: appearance || '',
             lastSeenLocationText: lastSeen || ''
         },
-        assignments: [],
+        assignments: assignmentPayloads(sourceIncidentId, initialGroup, openedAt),
         seedMarkers: []
     };
 
@@ -143,6 +208,30 @@ async function addSupport(sourceIncidentId) {
     }
 }
 
+async function assignGroup(sourceIncidentId) {
+    const select = document.getElementById(`assignGroup-${sourceIncidentId}`);
+    const group = UNIT_ASSIGNMENT_GROUPS[select?.value];
+    if (!group) {
+        showToast('배정 대상 조직을 선택하세요.', 'error');
+        return;
+    }
+    try {
+        const assignedAt = new Date().toISOString();
+        const results = await Promise.all(assignmentPayloads(sourceIncidentId, group, assignedAt).map(assignment => api(
+            'POST',
+            `/mock-112/incidents/${sourceIncidentId}/assignments`,
+            assignment
+        )));
+        const added = results.filter(result => result.added).length;
+        const skipped = results.length - added;
+        const skippedText = skipped > 0 ? `, 기존 배정 ${skipped}건 유지` : '';
+        showToast(`${group.label} 배정 완료: 신규 ${added}건${skippedText}`, 'success');
+        await loadIncidents();
+    } catch (e) {
+        showToast(`조직 배정 실패: ${e.data?.message || '알 수 없는 오류'}`, 'error');
+    }
+}
+
 // ── 초기화 ──
 async function resetAll() {
     if (!confirm('모든 mock 112 데이터를 초기화합니다. 계속하시겠습니까?')) return;
@@ -182,6 +271,7 @@ async function loadHealth() {
 
 // ── 초기화·자동 갱신 ──
 document.addEventListener('DOMContentLoaded', () => {
+    populateAssignmentGroupOptions();
     loadIncidents();
     loadHealth();
     // 5초마다 자동 갱신

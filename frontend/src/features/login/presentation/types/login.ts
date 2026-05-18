@@ -8,6 +8,7 @@ export type LoginAccount = {
   id: string;
   name: string;
   organization: string;
+  rank: string;
   accountType: LoginAccountType;
   organizationType: LoginOrganizationType;
   role: LoginRole;

@@ -97,6 +97,7 @@ public class SecurityConfig {
             "Content-Type",
             "Accept",
             "X-Client-Channel",
+            "X-PolicePhone-Id",
             "X-Mock112-Signature",
             "Idempotency-Key",
             "Last-Event-ID"));

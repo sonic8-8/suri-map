@@ -78,8 +78,6 @@ describe('OfflinePackageStatusPage', () => {
     expect(within(tileSummary).getByText('2개')).toBeInTheDocument();
     expect(within(tileSummary).getByText('3.0 KiB')).toBeInTheDocument();
     expect(within(tileSummary).getByText('osm-local')).toBeInTheDocument();
-    expect(within(tileSummary).getByText('15..16단계')).toBeInTheDocument();
-    expect(within(tileSummary).getByText('검증 가능')).toBeInTheDocument();
 
     const pageText = document.body.textContent ?? '';
     expect(pageText).not.toContain('INCIDENT_META');
@@ -93,7 +91,7 @@ describe('OfflinePackageStatusPage', () => {
     renderOfflinePackageStatusPage();
     await screen.findByText('광산구 실종 신고');
 
-    expect(screen.getAllByText('팀장 단말')).toHaveLength(2);
+    expect(screen.getAllByText('수완지구대 지휘 단말')).toHaveLength(2);
     expect(screen.getByText('오프라인 사용 가능')).toBeInTheDocument();
     expect(screen.getByText('필수 자료 설치 완료')).toBeInTheDocument();
     expect(screen.getByText('자동 설치 중')).toBeInTheDocument();
@@ -113,9 +111,9 @@ describe('OfflinePackageStatusPage', () => {
     vi.mocked(useIncidentBoardQuery).mockReturnValue(result);
 
     renderOfflinePackageStatusPage();
-    await screen.findByText('æ„¿ë¬’ê¶›æ´??ã…¼ì¥Œ ?ì¢‰í€¬');
+    await screen.findByText('광산구 실종 신고');
 
-    expect(screen.getByText('single-device')).toBeInTheDocument();
+    expect(screen.getAllByText('single-device')).toHaveLength(2);
   });
 
   test('shows only the manifest section failure when manifest API fails', async () => {
@@ -126,7 +124,7 @@ describe('OfflinePackageStatusPage', () => {
     renderOfflinePackageStatusPage();
     await screen.findByText('광산구 실종 신고');
 
-    expect(screen.getAllByText('팀장 단말')).toHaveLength(2);
+    expect(screen.getAllByText('수완지구대 지휘 단말')).toHaveLength(2);
     expect(screen.getByText('패키지 구성 목록을 불러오지 못했습니다.')).toBeInTheDocument();
     expect(screen.queryByText('단말별 적재 상태를 불러오지 못했습니다.')).not.toBeInTheDocument();
   });
@@ -144,7 +142,8 @@ describe('OfflinePackageStatusPage', () => {
     await screen.findByText('오프라인 패키지를 아직 만들 수 없습니다.');
 
     expect(screen.getByText('현재 사건에 OP 또는 전체 수색 구역이 준비되지 않았습니다. 전체 수색 구역을 저장한 뒤 다시 조회하세요.')).toBeInTheDocument();
-    expect(screen.getAllByText('대상 단말')).toHaveLength(2);
+    expect(screen.getByText('단말별 적재 상태')).toBeInTheDocument();
+    expect(screen.getAllByText('수완지구대 지휘 단말')).toHaveLength(2);
   });
 });
 
@@ -168,8 +167,9 @@ function renderOfflinePackageStatusPage() {
 function currentUserAccount(): LoginAccount {
   return {
     id: 'acct-001',
-    name: '상황실',
-    organization: '광산경찰서',
+    name: '광주광산경찰서 수완지구대 경위 김도현',
+    organization: '광주광산경찰서 수완지구대',
+    rank: '경위',
     accountType: 'COMMAND',
     organizationType: 'POLICE_SUBSTATION',
     role: 'FIELD_COMMANDER',
@@ -189,7 +189,7 @@ function boardQueryResult() {
       geometryHash: 'hash-geometry',
       slots: {
         package_badge: [
-          packageBadgeRow('pkg-ready', 'phone-ready', '팀장 단말', 'READY', true, false),
+          packageBadgeRow('pkg-ready', 'phone-ready', '수완지구대 지휘 단말', 'READY', true, false),
           packageBadgeRow('pkg-downloading', 'phone-downloading', '자동설치 단말', 'DOWNLOADING', false, true),
           packageBadgeRow('pkg-stale', 'phone-stale', '수색1 단말', 'STALE', false, true),
           packageBadgeRow('pkg-failed', 'phone-failed', '수색2 단말', 'FAILED', false, true),

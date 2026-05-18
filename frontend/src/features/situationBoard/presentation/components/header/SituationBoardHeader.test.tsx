@@ -50,8 +50,9 @@ describe('SituationBoardHeader', () => {
 function currentUserAccount(): LoginAccount {
   return {
     id: 'acct-missing-team-commander',
-    name: '실종팀 지휘관',
-    organization: 'Missing team',
+    name: '광주경찰청 여성청소년과 실종팀 경감 정서윤',
+    organization: '광주경찰청 여성청소년과 실종팀',
+    rank: '경감',
     accountType: 'COMMAND',
     organizationType: 'MISSING_TEAM',
     role: 'FIELD_COMMANDER',

@@ -218,7 +218,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 - `fcm_token`
 - account type: `TEAM`, `PATROL_CAR`, `COMMAND`
 - affiliation: `MISSING_TEAM`, `SUPPORT_UNIT`, `LOCAL_POLICE`
-- role: `MISSING_TEAM_COMMANDER`, `FIELD_COMMANDER`, `MEMBER`
+- backend-derived Suri-Map role: `MISSING_TEAM_COMMANDER`, `FIELD_COMMANDER`, `MEMBER`
 - `POST /api/fcm/tokens`
 - `POST /api/police-phones/{policePhoneId}/heartbeat`
 
@@ -229,7 +229,10 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 - `SecurityContext.affiliation`
 - `SecurityContext.roles`
 - `SecurityContext.channel`
-- `SecurityContext.policePhoneId`
+- `SecurityContext.policePhoneId`: APP request의 `X-PolicePhone-Id`로 바인딩한 현재 폴리폰. Keycloak/기관 SSO 계정 claim이 아니다.
+- Keycloak display claims: `accountCode`, `personName`, `displayName`, `organizationCode`, `organizationName`, `rankCode`, `rankName`
+- `personName`은 사람 이름 원문이고, `organizationName`은 `광주경찰청 여성청소년과 실종팀`처럼 운용 leaf 조직 경로이며, `displayName`은 화면 식별용 `소속 + 계급 + 이름` label이다. `displayName`은 권한·배정 source of truth가 아니다.
+- Keycloak/기관 SSO claim이 계급·직책·소속의 source of truth다. Suri-Map `account` row와 `incident_assignment.incident_role`은 사건 접근과 사건 내 운용 역할을 위한 local projection이며, 기관 계급·직책·전역 권한을 결정하지 않는다. `MISSING_TEAM_COMMANDER`, `FIELD_COMMANDER`, `MEMBER` 같은 Suri-Map role은 Keycloak/기관 SSO role이 아니라 Suri-Map backend가 계정 유형·소속·사건 배정으로 파생하는 API 접근 제어용 authority다. `police_phone`은 MDM/단말 관리 원천의 로컬 투영이다.
 - `@RequireIncidentAccess`
 - `@RequireRole`
 - `@RequireChannel`

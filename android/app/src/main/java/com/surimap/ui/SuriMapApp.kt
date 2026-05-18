@@ -1540,11 +1540,10 @@ private fun AuthBootstrapRoute(
     LaunchedEffect(retryNonce, assignmentRefreshNonce) {
         val config = bootstrapCoordinator.readConfig()
         state = AuthBootstrapUiState.checking(apiBaseUrl = config.apiBaseUrl)
-        val effectiveConfig = oidcSession?.policePhoneId?.let { config.copy(policePhoneId = it) } ?: config
-        val outcome = bootstrapCoordinator.check(effectiveConfig)
+        val outcome = bootstrapCoordinator.check(config)
         state = AuthBootstrapUiState.fromOutcome(outcome = outcome, apiBaseUrl = config.apiBaseUrl)
         if (outcome is AuthBootstrapOutcome.Ready && state.shouldEnterIncidentList) {
-            incidentSessionState.activatePolicePhoneContext(effectiveConfig.toPolicePhoneContext(outcome))
+            incidentSessionState.activatePolicePhoneContext(config.toPolicePhoneContext(outcome))
             navController.navigate(PolicePhoneRoute.IncidentList.route) {
                 popUpTo(PolicePhoneRoute.AuthBootstrap.route) {
                     inclusive = true

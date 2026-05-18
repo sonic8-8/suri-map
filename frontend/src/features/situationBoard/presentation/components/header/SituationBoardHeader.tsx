@@ -53,7 +53,7 @@ export function SituationBoardHeader({
   onOpenHandover,
   onOpenOfflinePackage,
 }: SituationBoardHeaderProps) {
-  const currentAccountLabel = `${currentUserAccount.name} / ${currentUserAccount.organization}`;
+  const currentAccountLabel = currentUserAccount.name;
   const timestampLabel = apiBoard?.serverTs ? formatKstDateTime(new Date(apiBoard.serverTs)) : '동기화 전';
   const incidentContext = createIncidentContext(board, incidentDetail, incidentTerminal);
 

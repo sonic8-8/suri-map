@@ -46,7 +46,7 @@ export function IncidentDetailPage({
   useBrowserBackToIncidentList(onBrowserBackToIncidentList);
   const detailQuery = useIncidentDetailQuery(incidentId);
   const detail = detailQuery.data ?? null;
-  const currentAccountLabel = `${currentUserAccount.name} / ${currentUserAccount.organization}`;
+  const currentAccountLabel = currentUserAccount.name;
   const timestampLabel = formatKstDateTime(new Date());
   const incidentContext = useMemo(() => createIncidentContext(detail), [detail]);
   const isClosed = detail?.status === 'CLOSED';
