@@ -10,6 +10,28 @@ function toAreaBbox(bbox: number[] | undefined): CompletedAreaDraft['bbox'] {
   return [minLon, minLat, maxLon, maxLat];
 }
 
+function readPolygonOuterRing(geometry: unknown): AreaEditPosition[] | null {
+  if (!isRecord(geometry) || geometry.type !== 'Polygon' || !Array.isArray(geometry.coordinates)) {
+    return null;
+  }
+
+  const outerRing = geometry.coordinates[0];
+  if (!Array.isArray(outerRing)) {
+    return null;
+  }
+
+  const coordinates = outerRing.filter(isPosition);
+  return coordinates.length >= 4 ? coordinates : null;
+}
+
+function isPosition(value: unknown): value is AreaEditPosition {
+  return Array.isArray(value) && value.length >= 2 && typeof value[0] === 'number' && typeof value[1] === 'number';
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 export function toGeoJsonPolygon(coordinates: AreaEditPosition[]): GeoJsonPolygon {
   return {
     type: 'Polygon',
@@ -32,8 +54,8 @@ export function createOverallAreaTree(overallArea: SearchAreaDto | null, unitAre
 }
 
 export function createOverallDraft(overallArea: SearchAreaDto): CompletedAreaDraft | null {
-  const outerRing = overallArea.geometry.coordinates[0];
-  if (!outerRing || outerRing.length < 4) return null;
+  const outerRing = readPolygonOuterRing(overallArea.geometry);
+  if (!outerRing) return null;
 
   return {
     areaId: overallArea.id,
@@ -46,8 +68,8 @@ export function createOverallDraft(overallArea: SearchAreaDto): CompletedAreaDra
 }
 
 export function createAreaDraft(area: SearchAreaDto, fallbackIndex: number): CompletedAreaDraft | null {
-  const outerRing = area.geometry.coordinates[0];
-  if (!outerRing || outerRing.length < 4) return null;
+  const outerRing = readPolygonOuterRing(area.geometry);
+  if (!outerRing) return null;
 
   const kind = area.areaLevel === 'TEAM' ? 'team' : area.parentAreaId ? 'unit' : 'overall';
   return {

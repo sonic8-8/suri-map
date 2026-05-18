@@ -30,6 +30,7 @@ import { findParentArea, flattenAreaTree, getAncestorAreaIds, getAreaAndDescenda
 import { createAssignedAccountCountsByAreaId, createAreaEditMapMarkers, createAreaEditMovementPaths } from '../utils/boardReadUtils';
 import {
   createAreaEditTreeState,
+  createAreaDraft,
   createOverallAreaTree,
   createOverallDraft,
   toGeoJsonPolygon,
@@ -804,13 +805,20 @@ export function AreaEditPage({
           });
 
           savedChildDrafts.push(
-            ...splitResponse.children.map((child, index) => ({
-              areaId: child.id,
-              kind: child.areaLevel === 'TEAM' ? 'team' as const : 'unit' as const,
-              colorToken: rememberAreaColorToken(child.id, parentDrafts[index]?.colorToken ?? getAreaColorToken(child.id)),
-              label: parentDrafts[index]?.label ?? `${parentArea.kind === 'unit' ? 'TEAM' : 'UNIT'} ${index + 1}`,
-              coordinates: child.geometry.coordinates[0].map((point) => [point[0], point[1]] as AreaEditPosition),
-            })),
+            ...splitResponse.children.flatMap((child, index) => {
+              const draft = createAreaDraft(child, index + 1);
+              if (!draft) {
+                return [];
+              }
+
+              return [
+                {
+                  ...draft,
+                  colorToken: rememberAreaColorToken(child.id, parentDrafts[index]?.colorToken ?? draft.colorToken),
+                  label: parentDrafts[index]?.label ?? draft.label,
+                },
+              ];
+            }),
           );
         }
 
