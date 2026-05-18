@@ -217,7 +217,8 @@ fun SuriMapApp() {
                 blockedQueue = null
                 navController.navigateToSingleTop(PolicePhoneRoute.BlockedOutbox)
             },
-            onDismissHandoverMemoSaved = { handoverMemoSaved = null }
+            onDismissHandoverMemoSaved = { handoverMemoSaved = null },
+            onDismissSearchPathEnded = {}
         ) {
             FcmRegistrationEffect(policePhoneContext = incidentSessionState.policePhoneContext)
             NavHost(
