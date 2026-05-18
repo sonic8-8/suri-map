@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 import styles from './LeftPanelOptionButton.module.css';
 
@@ -13,6 +13,7 @@ type LeftPanelOptionButtonProps = {
   hasDisclosure?: boolean;
   disabled?: boolean;
   className?: string;
+  style?: CSSProperties;
   onClick: () => void;
 };
 
@@ -26,6 +27,7 @@ export function LeftPanelOptionButton({
   hasDisclosure = false,
   disabled = false,
   className,
+  style,
   onClick,
 }: LeftPanelOptionButtonProps) {
   const buttonClassName = [
@@ -45,6 +47,7 @@ export function LeftPanelOptionButton({
       aria-pressed={selected}
       aria-expanded={hasDisclosure ? expanded : undefined}
       disabled={disabled}
+      style={style}
       onClick={onClick}
     >
       {/* 펼침 가능한 항목일 때만 보조 화살표를 보여준다. */}

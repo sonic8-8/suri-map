@@ -111,7 +111,7 @@
   flex: 0 0 auto;
   width: 26px;
   height: 26px;
-  color: var(--suri-board-fg-secondary);
+  color: var(--marker-identity-color, var(--suri-board-fg-secondary));
 }
 
 /* 선택된 옵션 버튼 강조 상태. */
@@ -127,13 +127,17 @@
 }
 
 .icon.optionButtonSelected {
-  border-color: rgba(47, 142, 232, 0.78);
-  background: rgba(12, 35, 62, 0.96);
-  box-shadow: inset 0 0 0 1px rgba(47, 142, 232, 0.12);
+  border-color: var(--suri-board-border-strong);
+  background: color-mix(in srgb, var(--suri-board-panel-muted-bg) 72%, var(--suri-board-panel-surface));
+  box-shadow: inset 0 0 0 1px rgba(248, 250, 252, 0.08);
+}
+
+.icon.optionButtonSelected:hover {
+  background: color-mix(in srgb, var(--suri-board-panel-muted-bg) 62%, var(--suri-board-panel-surface));
 }
 
 .optionButtonSelected svg {
-  color: var(--suri-board-fg-primary);
+  color: var(--marker-identity-color, var(--suri-board-fg-primary));
 }
 
 /* 펼침 화살표의 기본 위치와 전환 효과. */
