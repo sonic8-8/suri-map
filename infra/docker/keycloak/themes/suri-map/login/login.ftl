@@ -9,6 +9,9 @@
 <#if suriClientId == "suri-map-android">
     <#assign loginAccountTitleKey="loginAccountTitleAndroid">
     <#assign suriLoginHelpKey="suriLoginHelpAndroid">
+<#elseif suriClientId == "suri-map-mock112">
+    <#assign loginAccountTitleKey="loginAccountTitleMock112">
+    <#assign suriLoginHelpKey="suriLoginHelpMock112">
 </#if>
 <@layout.registrationLayout displayMessage=!messagesPerField.existsError('username','password') displayInfo=true; section>
 <!-- template: login.ftl -->
