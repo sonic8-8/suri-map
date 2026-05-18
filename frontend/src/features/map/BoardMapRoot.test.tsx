@@ -1,6 +1,6 @@
 import { act, render, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, test, vi, type Mock } from 'vitest';
-import { useBoardDisplayStore } from '../board/model/boardDisplayStore';
+import { useBoardDisplayStore } from '../situationBoard/model/boardDisplayStore';
 import { BoardMapRoot } from './BoardMapRoot';
 
 type MapLibreTransformRequest = (url: string, resourceType?: string) => unknown;

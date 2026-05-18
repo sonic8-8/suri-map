@@ -123,9 +123,11 @@ export function DashboardMapShell({
     };
   }, [isMapExpanded]);
 
+  const canvasShellClassName = `${styles.canvasShell}${handoverMapProps ? ` ${styles.handoverCanvasShell}` : ''}`;
+
   return (
     <div className={styles.layout}>
-      <div className={styles.canvasShell}>
+      <div className={canvasShellClassName}>
         <MapControls
           canFitIncidentSearchArea={!isTerminalBoard}
           isMapExpanded={isMapExpanded}
