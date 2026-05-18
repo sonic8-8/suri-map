@@ -1254,11 +1254,8 @@ private fun SearchMapRoute(
                     )
                 }
             },
-            onFocusOverallSearchArea = {
-                searchMapState = searchMapState.centerOnSearchLayer(SearchLayerKind.Overall)
-            },
-            onFocusUnitSearchArea = {
-                searchMapState = searchMapState.centerOnSearchLayer(SearchLayerKind.Unit)
+            onFocusSearchArea = { kind, overlayId ->
+                searchMapState = searchMapState.centerOnSearchLayer(kind, overlayId)
             },
             onToggleBottomPanel = { bottomPanelExpanded = !bottomPanelExpanded },
             onToggleMapOverlays = { mapOverlaysVisible = !mapOverlaysVisible }

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -112,6 +113,12 @@ data class SearchMapLayerUiState(
     val geoJson: String? = null
 )
 
+data class SearchMapAreaFocusTarget(
+    val label: String,
+    val kind: SearchLayerKind,
+    val overlayId: String?
+)
+
 data class SearchMapUiState(
     val incidentTitle: String,
     val missingPersonSummary: String,
@@ -165,7 +172,12 @@ data class SearchMapUiState(
         layers.any { layer -> layer.kind == SearchLayerKind.Overall && !layer.geoJson.isNullOrBlank() }
     val canFocusUnitSearchArea: Boolean =
         layers.any { layer -> layer.kind == SearchLayerKind.Unit && !layer.geoJson.isNullOrBlank() }
+    val canFocusTeamSearchArea: Boolean =
+        layers.any { layer -> layer.kind == SearchLayerKind.Team && !layer.geoJson.isNullOrBlank() }
     val canOpenMarkerDetail: Boolean = !markerDetailTargetId.isNullOrBlank()
+    val overallSearchAreaTargets: List<SearchMapAreaFocusTarget> = areaFocusTargets(SearchLayerKind.Overall)
+    val unitSearchAreaTargets: List<SearchMapAreaFocusTarget> = areaFocusTargets(SearchLayerKind.Unit)
+    val teamSearchAreaTargets: List<SearchMapAreaFocusTarget> = areaFocusTargets(SearchLayerKind.Team)
 
     val syncLabel: String =
         when (syncStatus) {
@@ -222,7 +234,10 @@ data class SearchMapUiState(
             if (mapOverlaysVisible) {
                 add("전체 수색구역")
                 add("부대 수색구역")
+                add("팀 담당구역")
                 add("마커 상세")
+                unitSearchAreaTargets.forEach { add(it.label) }
+                teamSearchAreaTargets.forEach { add(it.label) }
             }
             if (bottomPanelExpanded) {
                 add(primaryActionLabel)
@@ -245,9 +260,13 @@ data class SearchMapUiState(
     fun withFocusedMarker(markerId: String?): SearchMapUiState =
         copy(focusedMarkerId = markerId?.takeIf(String::isNotBlank))
 
-    fun centerOnSearchLayer(kind: SearchLayerKind): SearchMapUiState {
+    fun centerOnSearchLayer(kind: SearchLayerKind, overlayId: String? = null): SearchMapUiState {
         val bounds =
-            layers.firstOrNull { layer -> layer.kind == kind && !layer.geoJson.isNullOrBlank() }
+            layers.firstOrNull { layer ->
+                layer.kind == kind &&
+                    !layer.geoJson.isNullOrBlank() &&
+                    (overlayId == null || layer.overlayId == overlayId)
+            }
                 ?.geoJson
                 ?.geometryViewportBounds()
                 ?: return this
@@ -256,6 +275,17 @@ data class SearchMapUiState(
             focusedMarkerId = null
         )
     }
+
+    private fun areaFocusTargets(kind: SearchLayerKind): List<SearchMapAreaFocusTarget> =
+        layers
+            .filter { layer -> layer.kind == kind && !layer.geoJson.isNullOrBlank() }
+            .mapIndexed { index, layer ->
+                SearchMapAreaFocusTarget(
+                    label = layer.label.takeIf(String::isNotBlank) ?: "${kind.areaLabel()} ${index + 1}",
+                    kind = kind,
+                    overlayId = layer.overlayId
+                )
+            }
 
     companion object {
         fun active(
@@ -349,8 +379,7 @@ fun SearchMapScreen(
     onOpenIncidentAlertMarker: (String) -> Unit,
     onOpenFocusedMarkerDetail: (String) -> Unit,
     onCenterCurrentLocation: () -> Unit,
-    onFocusOverallSearchArea: () -> Unit,
-    onFocusUnitSearchArea: () -> Unit,
+    onFocusSearchArea: (SearchLayerKind, String?) -> Unit,
     onToggleBottomPanel: () -> Unit,
     onToggleMapOverlays: () -> Unit,
     modifier: Modifier = Modifier
@@ -394,8 +423,7 @@ fun SearchMapScreen(
                 showMapPreview = showMapPreview,
                 onOpenFocusedMarkerDetail = onOpenFocusedMarkerDetail,
                 onCenterCurrentLocation = onCenterCurrentLocation,
-                onFocusOverallSearchArea = onFocusOverallSearchArea,
-                onFocusUnitSearchArea = onFocusUnitSearchArea,
+                onFocusSearchArea = onFocusSearchArea,
                 onToggleMapOverlays = onToggleMapOverlays,
                 modifier = Modifier.weight(1f)
             )
@@ -502,12 +530,12 @@ private fun SearchMapShell(
     showMapPreview: Boolean,
     onOpenFocusedMarkerDetail: (String) -> Unit,
     onCenterCurrentLocation: () -> Unit,
-    onFocusOverallSearchArea: () -> Unit,
-    onFocusUnitSearchArea: () -> Unit,
+    onFocusSearchArea: (SearchLayerKind, String?) -> Unit,
     onToggleMapOverlays: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val runtimeMapState = state.toRuntimeMapState(mapState)
+    var expandedAreaKind by remember { mutableStateOf<SearchLayerKind?>(null) }
 
     Box(modifier = modifier.fillMaxWidth().background(PoliBgInput)) {
         if (showMapPreview) {
@@ -535,15 +563,44 @@ private fun SearchMapShell(
                 state.markerFocusLabel?.let { focusLabel ->
                     PoliChip(text = focusLabel, variant = PoliChipVariant.Bad)
                 }
-                MapActionButton(
-                    text = "전체 수색구역",
-                    onClick = onFocusOverallSearchArea,
-                    enabled = state.canFocusOverallSearchArea
+                AreaFocusGroup(
+                    title = "전체 수색구역",
+                    targets = state.overallSearchAreaTargets,
+                    expanded = expandedAreaKind == SearchLayerKind.Overall,
+                    onToggleExpanded = {
+                        expandedAreaKind =
+                            if (expandedAreaKind == SearchLayerKind.Overall) null else SearchLayerKind.Overall
+                    },
+                    onFocus = { target ->
+                        expandedAreaKind = null
+                        onFocusSearchArea(target.kind, target.overlayId)
+                    }
                 )
-                MapActionButton(
-                    text = "부대 수색구역",
-                    onClick = onFocusUnitSearchArea,
-                    enabled = state.canFocusUnitSearchArea
+                AreaFocusGroup(
+                    title = "부대 수색구역",
+                    targets = state.unitSearchAreaTargets,
+                    expanded = expandedAreaKind == SearchLayerKind.Unit,
+                    onToggleExpanded = {
+                        expandedAreaKind =
+                            if (expandedAreaKind == SearchLayerKind.Unit) null else SearchLayerKind.Unit
+                    },
+                    onFocus = { target ->
+                        expandedAreaKind = null
+                        onFocusSearchArea(target.kind, target.overlayId)
+                    }
+                )
+                AreaFocusGroup(
+                    title = "팀 담당구역",
+                    targets = state.teamSearchAreaTargets,
+                    expanded = expandedAreaKind == SearchLayerKind.Team,
+                    onToggleExpanded = {
+                        expandedAreaKind =
+                            if (expandedAreaKind == SearchLayerKind.Team) null else SearchLayerKind.Team
+                    },
+                    onFocus = { target ->
+                        expandedAreaKind = null
+                        onFocusSearchArea(target.kind, target.overlayId)
+                    }
                 )
                 MarkerDetailButton(
                     onClick =
@@ -811,6 +868,41 @@ private fun MarkerDetailButton(onClick: (() -> Unit)?, enabled: Boolean) {
 }
 
 @Composable
+private fun AreaFocusGroup(
+    title: String,
+    targets: List<SearchMapAreaFocusTarget>,
+    expanded: Boolean,
+    onToggleExpanded: () -> Unit,
+    onFocus: (SearchMapAreaFocusTarget) -> Unit
+) {
+    val enabled = targets.isNotEmpty()
+    val singleTarget = targets.singleOrNull()
+    MapActionButton(
+        text =
+        when {
+            targets.size > 1 -> "$title ${targets.size}"
+            else -> title
+        },
+        onClick =
+        when {
+            !enabled -> null
+            singleTarget != null -> { { onFocus(singleTarget) } }
+            else -> onToggleExpanded
+        },
+        enabled = enabled
+    )
+    if (expanded && targets.size > 1) {
+        targets.forEachIndexed { index, target ->
+            MapActionButton(
+                text = "${index + 1}. ${target.label}",
+                onClick = { onFocus(target) },
+                accent = true
+            )
+        }
+    }
+}
+
+@Composable
 private fun CurrentLocationButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier.size(56.dp).clickable(onClick = onClick),
@@ -835,7 +927,7 @@ private fun MapActionButton(
 ) {
     val buttonModifier =
         modifier
-            .heightIn(min = PoliDimens.TouchMin)
+            .heightIn(min = 34.dp)
             .then(
                 if (enabled && onClick != null) {
                     Modifier.clickable(onClick = onClick)
@@ -864,10 +956,15 @@ private fun MapActionButton(
         )
     ) {
         Box(
-            modifier = Modifier.padding(horizontal = 14.dp).widthIn(min = 88.dp, max = 132.dp).heightIn(min = PoliDimens.TouchMin),
+            modifier = Modifier.padding(horizontal = 10.dp).widthIn(min = 72.dp, max = 122.dp).height(34.dp),
             contentAlignment = Alignment.Center
         ) {
-            Text(text = text, style = MaterialTheme.typography.labelMedium)
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
@@ -1041,6 +1138,16 @@ private fun SearchLayerKind.toMapLibreGeometryOverlayKind(): MapLibreGeometryOve
         SearchLayerKind.CurrentLocation -> MapLibreGeometryOverlayKind.CurrentLocation
     }
 
+private fun SearchLayerKind.areaLabel(): String =
+    when (this) {
+        SearchLayerKind.Overall -> "전체 수색구역"
+        SearchLayerKind.Unit -> "부대 수색구역"
+        SearchLayerKind.Team -> "팀 담당구역"
+        SearchLayerKind.Path -> "수색 경로"
+        SearchLayerKind.Marker -> "마커"
+        SearchLayerKind.CurrentLocation -> "현재 위치"
+    }
+
 private fun String.pointViewportBounds(): SearchMapViewportBounds? {
     val match = COORDINATE_PAIR.find(this) ?: return null
     val lon = match.groupValues[1].toDoubleOrNull() ?: return null
@@ -1123,8 +1230,7 @@ private fun SearchMapScreenPreview() {
             onOpenIncidentAlertMarker = {},
             onOpenFocusedMarkerDetail = {},
             onCenterCurrentLocation = {},
-            onFocusOverallSearchArea = {},
-            onFocusUnitSearchArea = {},
+            onFocusSearchArea = { _, _ -> },
             onToggleBottomPanel = {},
             onToggleMapOverlays = {}
         )
