@@ -47,8 +47,8 @@ export function LoginPage({ redirectPath, initialErrorMessage = '' }: LoginPageP
       <section className={styles.loginCard} aria-label="Suri-Map 로그인">
         <div className={styles.logo}>
           <img className={styles.brandMark} src={suriMapLogoUrl} alt="" aria-hidden="true" />
-          <div className={styles.title}>Suri-Map</div>
-          <div className={styles.subtitle}>지휘 상황판 계정으로 로그인</div>
+          <div className={styles.subtitle}>Suri Map</div>
+          <div className={styles.title}>수리맵</div>
         </div>
 
         <div className={styles.loginForm}>
@@ -57,7 +57,12 @@ export function LoginPage({ redirectPath, initialErrorMessage = '' }: LoginPageP
           </button>
 
           {showLocalDevLogin ? (
-            <button type="button" className={styles.devLoginButton} disabled={isRedirecting} onClick={handleLocalDevLogin}>
+            <button
+              type="button"
+              className={styles.devLoginButton}
+              disabled={isRedirecting}
+              onClick={handleLocalDevLogin}
+            >
               Local dev login
             </button>
           ) : null}
