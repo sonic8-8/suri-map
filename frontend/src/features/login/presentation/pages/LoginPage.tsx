@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { SuriMapLogo } from '../../../../shared';
+import suriMapLogoUrl from '../../../../assets/Icon/SuriMap_Logo.svg';
 import { isLocalDevLoginEnabled } from '../../../../shared/config';
 
 import { startKeycloakLogin, startLocalDevLogin } from '../../data/login';
@@ -11,12 +11,8 @@ type LoginPageProps = {
   initialErrorMessage?: string;
 };
 
-function getLoginErrorMessage(error: unknown) {
-  if (error instanceof Error) {
-    return `로그인 요청을 시작하지 못했습니다. (${error.message})`;
-  }
-
-  return '로그인 요청을 시작하지 못했습니다.';
+function getLoginErrorMessage() {
+  return '로그인 요청에 실패했습니다. 잠시 후 다시 시도해 주세요.';
 }
 
 export function LoginPage({ redirectPath, initialErrorMessage = '' }: LoginPageProps) {
@@ -29,8 +25,9 @@ export function LoginPage({ redirectPath, initialErrorMessage = '' }: LoginPageP
     setErrorMessage('');
 
     startKeycloakLogin(redirectPath).catch((error) => {
+      console.error('Failed to start login', error);
       setIsRedirecting(false);
-      setErrorMessage(getLoginErrorMessage(error));
+      setErrorMessage(getLoginErrorMessage());
     });
   };
 
@@ -39,8 +36,9 @@ export function LoginPage({ redirectPath, initialErrorMessage = '' }: LoginPageP
     setErrorMessage('');
 
     startLocalDevLogin(redirectPath).catch((error) => {
+      console.error('Failed to start local dev login', error);
       setIsRedirecting(false);
-      setErrorMessage(getLoginErrorMessage(error));
+      setErrorMessage(getLoginErrorMessage());
     });
   };
 
@@ -48,7 +46,7 @@ export function LoginPage({ redirectPath, initialErrorMessage = '' }: LoginPageP
     <main className={styles.page}>
       <section className={styles.loginCard} aria-label="Suri-Map 로그인">
         <div className={styles.logo}>
-          <SuriMapLogo className={styles.brandMark} size={84} variant="brand" />
+          <img className={styles.brandMark} src={suriMapLogoUrl} alt="" aria-hidden="true" />
           <div className={styles.title}>Suri-Map</div>
           <div className={styles.subtitle}>지휘 상황판 계정으로 로그인</div>
         </div>
