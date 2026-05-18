@@ -21,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -73,9 +74,9 @@ enum class MarkerSaveStatus {
 
 enum class MarkerPhotoStage(val label: String) {
     Selected("선택됨"),
-    UploadUrl("upload-url 발급"),
-    ObjectStorageUpload("object storage 업로드"),
-    Attach("attach")
+    UploadUrl("업로드 준비"),
+    ObjectStorageUpload("사진 업로드"),
+    Attach("마커에 첨부")
 }
 
 data class MarkerPhotoUiState(
@@ -139,6 +140,14 @@ data class MarkerCreateSheetUiState(
             photosWithinSizeLimit &&
             photosReadyForSave
     val opensBlockedOutbox: Boolean = false
+    val locationSourceLabel: String =
+        when (locationSource) {
+            MarkerLocationSource.Current -> "지도 중심 기준"
+            MarkerLocationSource.Manual -> "사용자 지정 위치"
+        }
+    val locationActionLabel: String = "지도 중심으로 지정"
+    val locationHelpLabel: String =
+        "지도를 움직여 원하는 지점을 화면 가운데에 둔 뒤 이 버튼을 누르면, 그 중심점이 마커 위치로 저장됩니다."
     val photoLimitLabel: String = "사진 ${photoCount.coerceAtMost(maxPhotoCount)} / $maxPhotoCount · 파일당 10MB"
     val photoAttachAfterSaveLabel: String = "촬영 또는 앨범 선택 후 저장하면 마커와 사진이 함께 등록됩니다."
     val photoLimitWarning: String? =
@@ -161,18 +170,18 @@ data class MarkerCreateSheetUiState(
         buildList {
             add("마커 생성")
             add(statusLabel)
+            add(locationSourceLabel)
             add(locationLabel)
+            add(locationActionLabel)
             add(createdAtLabel)
             add(authorLabel)
             MarkerType.entries.forEach { type ->
                 add(type.label)
-                add(type.apiValue)
             }
             if (selectedType == MarkerType.SUPPORT_REQUEST) {
                 add("지원 요청 유형")
                 SupportRequestType.entries.forEach { type ->
                     add(type.label)
-                    add(type.apiValue)
                 }
             }
             if (requiresSupportRequestType) {
@@ -210,7 +219,7 @@ data class MarkerCreateSheetUiState(
                 saveStatus = MarkerSaveStatus.Editing,
                 selectedLocation = MarkerLocationUiState(lon = 126.913400, lat = 35.163100),
                 locationSource = MarkerLocationSource.Current,
-                locationLabel = "현재 위치 · 35.163100, 126.913400",
+                locationLabel = "위도 35.163100 · 경도 126.913400",
                 createdAtLabel = "기록 시각 · 14:24 자동 입력",
                 authorLabel = "작성 · 기동대 1부대 A팀 폴리폰"
             )
@@ -243,18 +252,18 @@ fun MarkerCreateSheetUiState.withCurrentLocation(lon: Double, lat: Double): Mark
     copy(
         selectedLocation = MarkerLocationUiState(lon = lon, lat = lat),
         locationSource = MarkerLocationSource.Current,
-        locationLabel = markerLocationLabel(prefix = "지도 중심", lon = lon, lat = lat)
+        locationLabel = markerLocationLabel(lon = lon, lat = lat)
     )
 
 fun MarkerCreateSheetUiState.withManualLocation(lon: Double, lat: Double): MarkerCreateSheetUiState =
     copy(
         selectedLocation = MarkerLocationUiState(lon = lon, lat = lat),
         locationSource = MarkerLocationSource.Manual,
-        locationLabel = markerLocationLabel(prefix = "수동 조정", lon = lon, lat = lat)
+        locationLabel = markerLocationLabel(lon = lon, lat = lat)
     )
 
-private fun markerLocationLabel(prefix: String, lon: Double, lat: Double): String =
-    String.format(Locale.US, "%s · %.6f, %.6f", prefix, lat, lon)
+private fun markerLocationLabel(lon: Double, lat: Double): String =
+    String.format(Locale.US, "위도 %.6f · 경도 %.6f", lat, lon)
 
 @Composable
 fun MarkerCreateBottomSheet(
@@ -328,7 +337,7 @@ private fun SheetHeader(state: MarkerCreateSheetUiState, onDismiss: () -> Unit) 
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(PoliDimens.Space1)) {
             Text(text = "마커 생성", style = MaterialTheme.typography.titleLarge)
             Text(
-                text = "유형 선택만으로 현재 위치와 시각이 자동 입력됩니다.",
+                text = "유형, 위치, 시각을 확인하고 저장하세요.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = PoliFgMuted,
                 maxLines = 2,
@@ -343,15 +352,59 @@ private fun SheetHeader(state: MarkerCreateSheetUiState, onDismiss: () -> Unit) 
 @Composable
 private fun AutoInfoCard(state: MarkerCreateSheetUiState, onAdjustLocation: () -> Unit) {
     PoliCard(strong = true) {
-        PoliRow(title = "위치", subtitle = state.locationLabel)
+        Text(text = "자동 입력 정보", style = MaterialTheme.typography.titleMedium)
+        MarkerInfoRow(title = "위치", primary = state.locationSourceLabel, secondary = state.locationLabel)
         PoliButton(
-            text = if (state.manualLocationAdjusted) "지도 중심 재적용" else "위치 조정",
+            text = state.locationActionLabel,
             onClick = onAdjustLocation,
+            modifier = Modifier.fillMaxWidth(),
             size = PoliButtonSize.Small,
             variant = PoliButtonVariant.Secondary
         )
-        PoliRow(title = "시각", subtitle = state.createdAtLabel)
-        PoliRow(title = "작성", subtitle = state.authorLabel)
+        MarkerInfoRow(title = "시각", primary = state.createdAtLabel)
+        MarkerInfoRow(title = "작성", primary = state.authorLabel)
+    }
+}
+
+@Composable
+private fun MarkerInfoRow(
+    title: String,
+    primary: String,
+    modifier: Modifier = Modifier,
+    secondary: String? = null
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = PoliBgInput,
+        contentColor = PoliFgPrimary,
+        border = BorderStroke(1.dp, PoliBorder)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(PoliDimens.Space3),
+            verticalArrangement = Arrangement.spacedBy(PoliDimens.Space1),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(text = title, style = MaterialTheme.typography.labelSmall, color = PoliFgMuted)
+            Text(
+                text = primary,
+                style = MaterialTheme.typography.labelLarge,
+                color = PoliFgPrimary,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            secondary?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = PoliFgSecondary,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
     }
 }
 
@@ -414,12 +467,17 @@ private fun MarkerTypeButton(
         border = BorderStroke(1.dp, if (selected) PoliPrimaryBorder else PoliBorder)
     ) {
         Column(
-            modifier = Modifier.padding(PoliDimens.Space3),
-            verticalArrangement = Arrangement.spacedBy(PoliDimens.Space1),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 76.dp).padding(PoliDimens.Space3),
+            verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(text = type.label, style = MaterialTheme.typography.labelLarge)
-            Text(text = type.apiValue, style = MaterialTheme.typography.labelSmall, color = PoliFgMuted)
+            Text(
+                text = type.label,
+                style = MaterialTheme.typography.titleMedium,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }

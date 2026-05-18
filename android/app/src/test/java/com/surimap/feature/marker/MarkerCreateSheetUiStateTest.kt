@@ -54,8 +54,11 @@ class MarkerCreateSheetUiStateTest {
         assertEquals("location", state.locationPayloadName)
         assertEquals(126.970321, state.selectedLocation!!.lon, 0.0)
         assertEquals(37.580321, state.selectedLocation.lat, 0.0)
-        assertEquals("수동 조정 · 37.580321, 126.970321", state.locationLabel)
-        assertTrue(state.visibleText().any { it.contains("수동 조정") })
+        assertEquals("위도 37.580321 · 경도 126.970321", state.locationLabel)
+        assertEquals("사용자 지정 위치", state.locationSourceLabel)
+        assertEquals("지도 중심으로 지정", state.locationActionLabel)
+        assertTrue(state.visibleText().any { it.contains("지도 중심") })
+        assertFalse(state.visibleText().any { it.contains("원하는 지점을 화면 가운데") })
     }
 
     @Test
@@ -96,9 +99,19 @@ class MarkerCreateSheetUiStateTest {
             listOf(MarkerPhotoStage.UploadUrl, MarkerPhotoStage.ObjectStorageUpload, MarkerPhotoStage.Attach),
             state.photos.map { it.stage }
         )
-        assertTrue(state.visibleText().any { it.contains("upload-url") })
-        assertTrue(state.visibleText().any { it.contains("object storage 업로드") })
-        assertTrue(state.visibleText().any { it.contains("attach") })
+        assertTrue(state.visibleText().any { it.contains("업로드 준비") })
+        assertTrue(state.visibleText().any { it.contains("사진 업로드") })
+        assertTrue(state.visibleText().any { it.contains("마커에 첨부") })
+    }
+
+    @Test
+    fun markerCreateUiTextUsesFieldLabelsInsteadOfRawEnumValues() {
+        val state = MarkerCreateSheetUiState.default(selectedType = MarkerType.PERSON_FOUND)
+
+        assertTrue(state.visibleText().contains("실종자 발견"))
+        assertFalse(state.visibleText().contains("PERSON_FOUND"))
+        assertFalse(state.visibleText().contains("FIELD_CONDITION"))
+        assertFalse(state.visibleText().contains("SUPPORT_REQUEST"))
     }
 
     @Test
