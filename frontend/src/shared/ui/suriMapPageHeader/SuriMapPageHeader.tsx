@@ -1,4 +1,6 @@
-﻿import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { SuriMapLogo } from '../suriMapLogo';
 
@@ -48,11 +50,13 @@ export type SuriMapPageHeaderProps = {
   markerNotifications?: MarkerNotification[];
   syncStatus?: SuriMapPageHeaderSyncStatus | null;
   timestampLabel?: string;
+  showIncidentContextBar?: boolean;
   onOpenIncidentList: () => void;
   onOpenIncidentDetail?: () => void;
   onOpenSituationBoard?: () => void;
   onOpenHandover?: () => void;
   onOpenOfflinePackage?: () => void;
+  onOpenLogin?: () => void;
   onCloseMarkerNotifications?: () => void;
   onMoveMarkerNotification?: (nextIndex: number) => void;
 };
@@ -62,6 +66,44 @@ type NavItem = {
   label: string;
   onClick?: () => void;
 };
+
+type TruncatedTooltipTextProps = {
+  value: string;
+  children?: ReactNode;
+  anchorClassName?: string;
+  textClassName?: string;
+};
+
+function TruncatedTooltipText({ value, children = value, anchorClassName, textClassName }: TruncatedTooltipTextProps) {
+  const textRef = useRef<HTMLSpanElement | null>(null);
+  const [isOverflowing, setIsOverflowing] = useState(false);
+
+  useEffect(() => {
+    const updateOverflowState = () => {
+      const element = textRef.current;
+      if (!element) return;
+
+      const nextIsOverflowing = element.scrollWidth > element.clientWidth + 1;
+      setIsOverflowing((current) => (current === nextIsOverflowing ? current : nextIsOverflowing));
+    };
+
+    updateOverflowState();
+    window.addEventListener('resize', updateOverflowState);
+
+    return () => window.removeEventListener('resize', updateOverflowState);
+  }, [value]);
+
+  return (
+    <span
+      className={`${styles.tooltipAnchor}${anchorClassName ? ` ${anchorClassName}` : ''}`}
+      data-tooltip={isOverflowing ? value : undefined}
+    >
+      <span ref={textRef} className={`${styles.tooltipText}${textClassName ? ` ${textClassName}` : ''}`}>
+        {children}
+      </span>
+    </span>
+  );
+}
 
 const DEFAULT_INCIDENT_CONTEXT: SuriMapPageHeaderIncidentContext = {
   avatarLabel: '사건',
@@ -83,12 +125,14 @@ export function SuriMapPageHeader({
   markerNotificationIndex = 0,
   markerNotifications = [],
   syncStatus = null,
+  showIncidentContextBar = true,
   onCloseMarkerNotifications,
   onOpenIncidentDetail,
   onOpenIncidentList,
   onMoveMarkerNotification,
   onOpenHandover,
   onOpenOfflinePackage,
+  onOpenLogin,
   onOpenSituationBoard,
   timestampLabel = '실시간',
 }: SuriMapPageHeaderProps) {
@@ -105,6 +149,10 @@ export function SuriMapPageHeader({
   return (
     <header className={styles.header}>
       <nav className={styles.productNav} aria-label="Suri-Map 내비게이션">
+        <button type="button" className={styles.brand} onClick={onOpenIncidentList}>
+          <SuriMapLogo className={styles.brandMark} size={26} />
+          <div>Suri-Map</div>
+        </button>
         <button type="button" className={styles.backButton} onClick={onOpenIncidentList}>
           사건 목록
         </button>
@@ -127,19 +175,23 @@ export function SuriMapPageHeader({
           })}
         </div>
         <div className={styles.meta}>
-          <span className={styles.metaAccount}>
-            계정 <b>{currentAccountLabel}</b>
-          </span>
+          <TruncatedTooltipText anchorClassName={styles.metaAccount} textClassName={styles.metaAccountText} value={currentAccountLabel}>
+            <b>{currentAccountLabel}</b>
+          </TruncatedTooltipText>
           <span className={styles.metaDivider} aria-hidden="true" />
           <span>{timestampLabel}</span>
-          <span className={styles.metaDivider} aria-hidden="true" />
-          <div className={styles.brand}>
-            <SuriMapLogo className={styles.brandMark} size={22} />
-            <div>Suri-Map</div>
-          </div>
+          {onOpenLogin ? (
+            <>
+              <span className={styles.metaDivider} aria-hidden="true" />
+              <button type="button" className={styles.logoutButton} onClick={onOpenLogin}>
+                로그아웃
+              </button>
+            </>
+          ) : null}
         </div>
       </nav>
-      <section
+      {showIncidentContextBar ? (
+        <section
         className={`${styles.incidentContextBar} ${
           incidentContext.statusTone === 'terminal' ? styles.incidentContextBarTerminal : ''
         }`}
@@ -151,7 +203,7 @@ export function SuriMapPageHeader({
           </div>
           <div className={styles.incidentContextTitle}>
             <span>{incidentContext.eyebrow}</span>
-            <strong>{incidentContext.title}</strong>
+            <TruncatedTooltipText anchorClassName={styles.incidentContextTitleValueAnchor} textClassName={styles.incidentContextTitleValue} value={incidentContext.title} />
           </div>
         </div>
         <span className={styles.incidentContextDivider} aria-hidden="true" />
@@ -159,7 +211,7 @@ export function SuriMapPageHeader({
           {incidentContext.metrics.map(({ label, value }) => (
             <div key={label}>
               <span>{label}</span>
-              <strong>{value}</strong>
+              <TruncatedTooltipText anchorClassName={styles.incidentContextMetricValueAnchor} textClassName={styles.incidentContextMetricValue} value={value} />
             </div>
           ))}
         </div>
@@ -178,7 +230,8 @@ export function SuriMapPageHeader({
             {incidentContext.statusLabel}
           </div>
         </div>
-      </section>
+        </section>
+      ) : null}
       {activeMarkerNotification ? (
         <section className={styles.markerPopup} role="alertdialog" aria-label="마커 알림" aria-live="assertive">
           {hasPreviousMarkerNotification ? (

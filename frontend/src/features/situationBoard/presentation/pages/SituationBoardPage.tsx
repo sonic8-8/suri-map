@@ -34,6 +34,7 @@ type SituationBoardPageProps = {
   onSaveAssignedAreas: (drafts: CompletedAreaDraft[]) => void;
   onOpenIncidentDetail: () => void;
   onOpenOfflinePackage: () => void;
+  onOpenLogin?: () => void;
   savedAreaDrafts: CompletedAreaDraft[];
   refreshVersion?: number;
   onOpenIncidentList: () => void;
@@ -53,6 +54,7 @@ export function SituationBoardPage({
   onSaveAssignedAreas,
   onOpenIncidentDetail,
   onOpenOfflinePackage,
+  onOpenLogin,
   savedAreaDrafts,
   refreshVersion = 0,
   onOpenIncidentList,
@@ -96,6 +98,8 @@ export function SituationBoardPage({
     : boardState.isHandoverWorkspaceOpen
       ? 'handover'
       : 'situationBoard';
+  const activeOperationalPeriodLabel =
+    boardState.board.operationalPeriods.find((operationalPeriod) => operationalPeriod.state === 'current')?.label ?? null;
   const isHandoverMapMode = !isClosedTerminalBoard && boardState.isHandoverWorkspaceOpen;
   const shouldHideSituationBoardMapData = isClosedTerminalBoard || isHandoverMapMode;
   const handleOpenIncidentList = useCallback(() => {
@@ -151,10 +155,9 @@ export function SituationBoardPage({
         <SituationBoardHeader
           activeTab={activeTab}
           apiBoard={boardState.apiBoard}
-          board={boardState.board}
+          activeOperationalPeriodLabel={activeOperationalPeriodLabel}
           currentUserAccount={currentUserAccount}
           incidentDetail={boardState.incidentDetail}
-          incidentTerminal={incidentTerminal}
           markerNotificationIndex={markerNotificationIndex}
           markerNotifications={markerNotifications}
           syncStatus={boardState.syncStatus}
@@ -163,6 +166,7 @@ export function SituationBoardPage({
           onOpenIncidentDetail={onOpenIncidentDetail}
           onOpenIncidentList={handleOpenIncidentList}
           onOpenOfflinePackage={onOpenOfflinePackage}
+          onOpenLogin={onOpenLogin}
           onOpenSituationBoard={
             boardState.isAreaWorkspaceOpen
               ? boardState.closeAreaWorkspace

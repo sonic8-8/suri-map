@@ -51,6 +51,7 @@ import type { LoginAccount } from '../../../login/presentation/types/login';
 import { mergeWithPreviousCriticalSlots } from '../../../situationBoard/presentation/hooks/useSituationBoardData';
 import {
   ActionButton,
+  createSharedIncidentContext,
   StatusBadge,
   type MarkerNotification,
   type StatusBadgeTone,
@@ -74,6 +75,7 @@ type OfflinePackageStatusPageProps = {
   onOpenIncidentDetail?: () => void;
   onOpenIncidentList: () => void;
   onOpenOfflinePackage: () => void;
+  onOpenLogin?: () => void;
 };
 
 const manifestGroupLabels: Record<OfflinePackageItemType, string> = {
@@ -131,6 +133,7 @@ export function OfflinePackageStatusPage({
   onOpenIncidentDetail,
   onOpenIncidentList,
   onOpenOfflinePackage,
+  onOpenLogin,
 }: OfflinePackageStatusPageProps) {
   const [incidentDetail, setIncidentDetail] = useState<IncidentDetailDto | null>(null);
   const [isOffline, setIsOffline] = useState(() => (typeof navigator === 'undefined' ? false : !navigator.onLine));
@@ -194,7 +197,11 @@ export function OfflinePackageStatusPage({
   const summary = useMemo(() => createSummary(rows), [rows]);
   const packageLoadGauge = useMemo(() => createPackageLoadGauge(rows), [rows]);
   const currentAccountLabel = currentUserAccount.name;
-  const incidentContext = createIncidentContext(incidentId, incidentDetail, incidentTerminal);
+  const activeOperationalPeriod = manifestQuery.data?.operationalPeriods.find((period) => period.status === 'ACTIVE') ?? null;
+  const incidentContext = createSharedIncidentContext({
+    ...(incidentDetail ?? {}),
+    activeOperationalPeriodLabel: activeOperationalPeriod ? `OP ${activeOperationalPeriod.sequenceNumber}차` : null,
+  });
   const isClosedTerminalBoard = isIncidentTerminalClosed(incidentTerminal);
   const timestampLabel = serverTs ? formatKstDateTime(new Date(serverTs)) : '동기화 전';
   const isEmpty = !isLoading && !boardErrorMessage && rows.length === 0;
@@ -219,6 +226,7 @@ export function OfflinePackageStatusPage({
           onOpenIncidentDetail={onOpenIncidentDetail}
           onOpenIncidentList={onOpenIncidentList}
           onOpenOfflinePackage={onOpenOfflinePackage}
+          onOpenLogin={onOpenLogin}
           onOpenSituationBoard={onBackToSituationBoard}
         />
       </div>

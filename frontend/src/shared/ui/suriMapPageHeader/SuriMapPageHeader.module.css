@@ -1,4 +1,4 @@
-﻿/* 상황판 상단 전체 헤더 영역을 화면 상단에 고정하고 상태 색상 변수를 정의합니다. */
+/* 상황판 상단 전체 헤더 영역을 화면 상단에 고정하고 상태 색상 변수를 정의합니다. */
 .header {
   position: sticky;
   top: 0;
@@ -16,7 +16,7 @@
 .productNav {
   position: relative;
   display: grid;
-  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  grid-template-columns: max-content max-content minmax(0, 1fr) max-content;
   align-items: center;
   height: var(--suri-board-header-top-height);
   flex-shrink: 0;
@@ -135,8 +135,87 @@
 
 .metaAccount {
   min-width: 0;
+  flex: 0 1 auto;
+}
+
+.metaAccountText {
+  min-width: 0;
+}
+
+.tooltipAnchor {
+  position: relative;
+  z-index: 0;
+  display: block;
+  min-width: 0;
+  color: inherit;
+  font: inherit;
+}
+
+.tooltipText {
+  display: block;
   overflow: hidden;
+  width: 100%;
+  color: inherit;
+  font: inherit;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tooltipAnchor[data-tooltip] {
+  cursor: default;
+}
+
+.tooltipAnchor[data-tooltip]:hover,
+.tooltipAnchor[data-tooltip]:focus-within {
+  z-index: 3;
+}
+
+.tooltipAnchor[data-tooltip]::before,
+.tooltipAnchor[data-tooltip]::after {
+  position: absolute;
+  left: 50%;
+  z-index: 10;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease;
+}
+
+.tooltipAnchor[data-tooltip]::before {
+  content: '';
+  bottom: calc(100% + 4px);
+  border: 6px solid transparent;
+  border-top-color: rgba(15, 23, 42, 0.96);
+  transform: translateX(-50%) translateY(4px);
+}
+
+.tooltipAnchor[data-tooltip]::after {
+  content: attr(data-tooltip);
+  bottom: calc(100% + 10px);
+  max-width: min(640px, calc(100vw - 32px));
+  padding: 8px 10px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 9px;
+  background: rgba(15, 23, 42, 0.96);
+  box-shadow: 0 16px 32px rgb(15 23 42 / 24%);
+  color: #f8fafc;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  backdrop-filter: blur(8px);
+  transform: translateX(-50%) translateY(4px);
+}
+
+.tooltipAnchor[data-tooltip]:hover::before,
+.tooltipAnchor[data-tooltip]:hover::after,
+.tooltipAnchor[data-tooltip]:focus-within::before,
+.tooltipAnchor[data-tooltip]:focus-within::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
 /* 메타 영역 내부 강조 텍스트입니다. */
@@ -156,17 +235,30 @@
 .brand {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  border: 0;
+  padding: 0;
   color: var(--suri-board-fg-primary);
-  font-size: var(--suri-board-header-brand-font-size);
-  font-weight: 800;
-  letter-spacing: 0.3px;
+  background: transparent;
+  font: inherit;
+  font-size: 23px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-align: left;
   white-space: nowrap;
+  cursor: pointer;
+}
+
+.brand:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--suri-board-primary-hi) 72%, transparent);
+  outline-offset: 4px;
 }
 
 /* 브랜드 아이콘 SVG가 줄어들지 않도록 고정합니다. */
 .brand svg {
   flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
   color: var(--suri-board-fg-primary);
 }
 
@@ -199,13 +291,13 @@
   background: #555f69;
 }
 
-.incidentContextBarTerminal .incidentContextTitle span,
-.incidentContextBarTerminal .incidentContextMetrics span {
+.incidentContextBarTerminal .incidentContextTitle > span:not(.incidentContextTitleValueAnchor),
+.incidentContextBarTerminal .incidentContextMetrics > div > span:not(.incidentContextMetricValueAnchor) {
   color: #b8c0c8;
 }
 
-.incidentContextBarTerminal .incidentContextTitle strong,
-.incidentContextBarTerminal .incidentContextMetrics strong {
+.incidentContextBarTerminal .incidentContextTitleValue,
+.incidentContextBarTerminal .incidentContextMetricValue {
   color: #f1f4f7;
 }
 
@@ -245,19 +337,23 @@
 }
 
 /* 사건 보조 라벨과 지표 라벨의 공통 작은 텍스트 스타일입니다. */
-.incidentContextTitle span,
-.incidentContextMetrics span {
+.incidentContextTitle > span:not(.incidentContextTitleValueAnchor),
+.incidentContextMetrics > div > span:not(.incidentContextMetricValueAnchor) {
   color: var(--suri-board-fg-muted);
   font-size: 14px;
 }
 
 /* 사건 ID 라벨의 자간을 기본값으로 유지합니다. */
-.incidentContextTitle span {
+.incidentContextTitle > span:not(.incidentContextTitleValueAnchor) {
   letter-spacing: 0;
 }
 
 /* 사건명 텍스트입니다. 긴 사건명은 한 줄 말줄임 처리합니다. */
-.incidentContextTitle strong {
+.incidentContextTitleValueAnchor {
+  min-width: 0;
+}
+
+.incidentContextTitleValue {
   overflow: hidden;
   color: var(--suri-board-fg-primary);
   font-size: 17px;
@@ -292,7 +388,11 @@
 }
 
 /* 지표 값 텍스트입니다. 긴 값은 한 줄 말줄임 처리합니다. */
-.incidentContextMetrics strong {
+.incidentContextMetricValueAnchor {
+  min-width: 0;
+}
+
+.incidentContextMetricValue {
   overflow: hidden;
   color: var(--suri-board-fg-secondary);
   font-size: 17px;
@@ -314,7 +414,6 @@
 .headerStatus {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
   padding: 6px 12px;
   border: 1px solid var(--header-status-border);
   border-radius: 999px;
@@ -322,15 +421,6 @@
   background: var(--header-status-bg);
   font-size: 16px;
   font-weight: 700;
-}
-
-/* 운영 중 상태 앞에 붙는 작은 점 표시입니다. */
-.headerStatusInProgress::before {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: var(--header-status-fg);
-  content: "";
 }
 
 /* 종료된 사건 상태는 진행 중 점을 제거하고 read-only 상태로 표시합니다. */

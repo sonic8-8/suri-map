@@ -6,6 +6,7 @@ import { CheckCircle2, ClipboardList, MapPin, Plus, Route, StickyNote } from 'lu
 import { ApiError, createIdempotencyKey } from '../../../../shared/api/client';
 import {
   BoardPanel,
+  createSharedIncidentContext,
   formatIncidentContextEyebrow,
   formatMissingPersonIncidentTitle,
   SuriMapPageHeader,
@@ -67,6 +68,7 @@ type HandoverPageProps = {
   onOpenIncidentDetail?: () => void;
   onOpenSituationBoard: () => void;
   onOpenOfflinePackage: () => void;
+  onOpenLogin?: () => void;
   onOperationalPeriodCreated?: () => void;
   onSharedMapPropsChange?: (props: HandoverComparisonMapSharedProps | null) => void;
 };
@@ -126,6 +128,7 @@ export function HandoverPage({
   onOpenIncidentDetail,
   onOpenSituationBoard,
   onOpenOfflinePackage,
+  onOpenLogin,
   onOperationalPeriodCreated,
   onSharedMapPropsChange,
 }: HandoverPageProps) {
@@ -264,11 +267,14 @@ export function HandoverPage({
     [board, effectiveSelectedOpIds, focusedOpId, incidentId],
   );
   const currentAccountLabel = currentUserAccount.name;
-  const timestampLabel = formatKstDateTime(now);
-  const incidentContext = useMemo(
-    () => createIncidentContext(incidentId, incidentDetail, selectedOp),
-    [incidentId, incidentDetail, selectedOp],
-  );
+  const timestampLabel = board?.serverTs ? formatKstDateTime(new Date(board.serverTs)) : '동기화 전';
+  const currentOperationalPeriod = currentOpId
+    ? operationalPeriods.find((period) => period.id === currentOpId) ?? null
+    : null;
+  const incidentContext = createSharedIncidentContext({
+    ...(incidentDetail ?? {}),
+    activeOperationalPeriodLabel: currentOperationalPeriod ? formatOperationalPeriodLabel(currentOperationalPeriod) : null,
+  });
   const syncStatus = createHandoverSyncStatus({
     boardHasData: board !== null,
     boardIsError: boardQuery.isError,
@@ -518,6 +524,7 @@ export function HandoverPage({
         onMoveMarkerNotification={onMoveMarkerNotification}
         onOpenSituationBoard={onOpenSituationBoard}
         onOpenOfflinePackage={onOpenOfflinePackage}
+        onOpenLogin={onOpenLogin}
       />
       )}
 
@@ -1427,7 +1434,7 @@ function formatKstDateTime(date: Date) {
       return dateParts;
     }, {});
 
-  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute} KST`;
+  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`;
 }
 
 function formatKstDateParts(date: Date) {

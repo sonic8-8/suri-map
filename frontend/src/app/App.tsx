@@ -76,7 +76,6 @@ class RouteErrorBoundary extends Component<RouteErrorBoundaryProps, RouteErrorBo
       this.setState({ error: null });
     }
   }
-
   render() {
     if (!this.state.error) {
       return this.props.children;
@@ -164,6 +163,7 @@ type SituationBoardRouteProps = {
   onSaveAssignedAreas: (incidentId: string, drafts: CompletedAreaDraft[]) => void;
   savedAreaDraftsByIncidentId: Record<string, CompletedAreaDraft[]>;
   opRefreshVersionByIncidentId: Record<string, number>;
+  onOpenLogin: () => void;
 };
 
 function SituationBoardRoute({
@@ -177,6 +177,7 @@ function SituationBoardRoute({
   onSaveAssignedAreas,
   savedAreaDraftsByIncidentId,
   opRefreshVersionByIncidentId,
+  onOpenLogin,
 }: SituationBoardRouteProps) {
   const incidentId = useRouteIncidentId();
   const navigate = useNavigate();
@@ -206,6 +207,7 @@ function SituationBoardRoute({
       onOpenAreaWorkspaceRoute={() => navigate(getAreaEditPath(incidentId))}
       onOpenIncidentDetail={() => navigate(getIncidentDetailPath(incidentId))}
       onOpenOfflinePackage={() => navigate(getIncidentOfflinePackagePath(incidentId))}
+      onOpenLogin={onOpenLogin}
       onSaveAssignedAreas={(drafts) => onSaveAssignedAreas(incidentId, drafts)}
       savedAreaDrafts={savedAreaDrafts}
       refreshVersion={refreshVersion}
@@ -224,6 +226,7 @@ type HandoverRouteProps = {
   onMoveMarkerNotification: (nextIndex: number) => void;
   onOperationalPeriodCreated: (incidentId: string) => void;
   onOpenOfflinePackage: (incidentId: string) => void;
+  onOpenLogin: () => void;
 };
 
 function HandoverRoute({
@@ -235,6 +238,7 @@ function HandoverRoute({
   onMoveMarkerNotification,
   onOperationalPeriodCreated,
   onOpenOfflinePackage,
+  onOpenLogin,
 }: HandoverRouteProps) {
   const incidentId = useRouteIncidentId();
   const navigate = useNavigate();
@@ -262,6 +266,7 @@ function HandoverRoute({
       onOpenIncidentDetail={() => navigate(getIncidentDetailPath(incidentId))}
       onOpenSituationBoard={() => navigate(getIncidentBoardPath(incidentId))}
       onOpenOfflinePackage={() => onOpenOfflinePackage(incidentId)}
+      onOpenLogin={onOpenLogin}
       onOperationalPeriodCreated={() => onOperationalPeriodCreated(incidentId)}
     />
   );
@@ -275,6 +280,7 @@ type OfflinePackageRouteProps = {
   onMoveMarkerNotification: (nextIndex: number) => void;
   onMarkerNotification: (notification: MarkerNotification) => void;
   onOpenOfflinePackage: (incidentId: string) => void;
+  onOpenLogin: () => void;
 };
 
 function OfflinePackageRoute({
@@ -285,6 +291,7 @@ function OfflinePackageRoute({
   onMoveMarkerNotification,
   onMarkerNotification,
   onOpenOfflinePackage,
+  onOpenLogin,
 }: OfflinePackageRouteProps) {
   const incidentId = useRouteIncidentId();
   const navigate = useNavigate();
@@ -312,6 +319,7 @@ function OfflinePackageRoute({
       onOpenIncidentList={() => navigate(ROUTES.incidentList)}
       onBrowserBackToIncidentList={openIncidentListFromHistory}
       onOpenOfflinePackage={() => onOpenOfflinePackage(incidentId)}
+      onOpenLogin={onOpenLogin}
     />
   );
 }
@@ -324,6 +332,7 @@ type IncidentDetailRouteProps = {
   onMarkerNotification: (notification: MarkerNotification) => void;
   onMoveMarkerNotification: (nextIndex: number) => void;
   onOpenOfflinePackage: (incidentId: string) => void;
+  onOpenLogin: () => void;
 };
 
 function IncidentDetailRoute({
@@ -334,6 +343,7 @@ function IncidentDetailRoute({
   onMarkerNotification,
   onMoveMarkerNotification,
   onOpenOfflinePackage,
+  onOpenLogin,
 }: IncidentDetailRouteProps) {
   const incidentId = useRouteIncidentId();
   const navigate = useNavigate();
@@ -360,6 +370,7 @@ function IncidentDetailRoute({
       onBrowserBackToIncidentList={openIncidentListFromHistory}
       onOpenOfflinePackage={() => onOpenOfflinePackage(incidentId)}
       onOpenSituationBoard={() => navigate(getIncidentBoardPath(incidentId))}
+      onOpenLogin={onOpenLogin}
     />
   );
 }
@@ -547,6 +558,7 @@ export function App() {
                 onMarkerNotification={addMarkerNotification}
                 onMoveMarkerNotification={moveMarkerNotification}
                 onOpenOfflinePackage={(nextIncidentId) => navigate(getIncidentOfflinePackagePath(nextIncidentId))}
+                onOpenLogin={openLogin}
               />
             </LazyRoute>
           ) : (
@@ -568,6 +580,7 @@ export function App() {
               onSaveAssignedAreas={saveAssignedAreas}
               savedAreaDraftsByIncidentId={savedAreaDraftsByIncidentId}
               opRefreshVersionByIncidentId={opRefreshVersionByIncidentId}
+              onOpenLogin={openLogin}
             />
           ) : (
             loginRedirectElement
@@ -589,6 +602,7 @@ export function App() {
               onSaveAssignedAreas={saveAssignedAreas}
               savedAreaDraftsByIncidentId={savedAreaDraftsByIncidentId}
               opRefreshVersionByIncidentId={opRefreshVersionByIncidentId}
+              onOpenLogin={openLogin}
             />
           ) : (
             loginRedirectElement
@@ -608,6 +622,7 @@ export function App() {
               onMoveMarkerNotification={moveMarkerNotification}
               onOpenOfflinePackage={(nextIncidentId) => navigate(getIncidentOfflinePackagePath(nextIncidentId))}
               onOperationalPeriodCreated={refreshOperationalPeriodViews}
+              onOpenLogin={openLogin}
             />
           ) : (
             loginRedirectElement
@@ -626,6 +641,7 @@ export function App() {
               onMoveMarkerNotification={moveMarkerNotification}
               onMarkerNotification={addMarkerNotification}
               onOpenOfflinePackage={(nextIncidentId) => navigate(getIncidentOfflinePackagePath(nextIncidentId))}
+              onOpenLogin={openLogin}
             />
           ) : (
             loginRedirectElement
