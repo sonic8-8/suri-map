@@ -7,7 +7,7 @@
 
 | 항목 | 값 |
 |---|---|
-| 실행 시각 | 2026-05-14 00:28:04-00:30:36 KST |
+| 실행 시각 | 2026-05-14 00:28:04-00:30:36  |
 | 기기 | Samsung SM-S901N |
 | Android | 16, SDK 36 |
 | 앱 | `com.surimap`, `com.surimap/.MainActivity` |

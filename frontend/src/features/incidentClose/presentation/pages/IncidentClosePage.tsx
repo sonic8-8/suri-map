@@ -84,7 +84,7 @@ export function IncidentClosePage({ incidentId, onBackToIncidents, onOpenLogin }
               운영 채널 <b>WEB</b>
             </span>
             <span className={styles.metaDivider} aria-hidden="true" />
-            <span>2026-05-06 18:42 KST · mock</span>
+            <span>2026-05-06 18:42 · mock</span>
             <span className={styles.metaDivider} aria-hidden="true" />
             <button type="button" className={styles.logoutButton} onClick={onOpenLogin}>
               로그아웃
@@ -290,4 +290,3 @@ function getCloseErrorMessage(error: unknown) {
 
   return '사건 종료 처리에 실패했습니다.';
 }
-

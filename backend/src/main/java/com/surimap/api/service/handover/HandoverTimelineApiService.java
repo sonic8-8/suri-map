@@ -1,0 +1,580 @@
+package com.surimap.api.service.handover;
+
+import com.surimap.api.controller.handover.response.HandoverTimelineResponse;
+import com.surimap.api.controller.handover.response.HandoverTimelineResponse.ActorResponse;
+import com.surimap.api.controller.handover.response.HandoverTimelineResponse.EventResponse;
+import com.surimap.api.controller.handover.response.HandoverTimelineResponse.MetricsResponse;
+import com.surimap.api.controller.handover.response.HandoverTimelineResponse.PathResponse;
+import com.surimap.api.controller.handover.response.HandoverTimelineResponse.PointResponse;
+import com.surimap.api.controller.handover.response.HandoverTimelineResponse.ScopeResponse;
+import com.surimap.api.controller.summary.response.SearchHistorySummaryItemResponse;
+import com.surimap.dutyshift.DutyShift;
+import com.surimap.dutyshift.DutyShiftMapper;
+import com.surimap.handover.query.HandoverMemoQuery;
+import com.surimap.handover.query.HandoverMemoRow;
+import com.surimap.marker.query.MarkerQuery;
+import com.surimap.marker.query.MarkerQueryFilters;
+import com.surimap.marker.query.MarkerView;
+import com.surimap.path.MovementType;
+import com.surimap.path.SearchPathAggregate;
+import com.surimap.path.SearchPathPoint;
+import com.surimap.path.SearchPathRepository;
+import com.surimap.path.SearchPathSegment;
+import com.surimap.summary.SearchHistorySummaryMapper;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class HandoverTimelineApiService {
+
+  private static final List<String> ACTOR_COLORS =
+      List.of("blue", "green", "yellow", "pink", "purple", "gray");
+
+  private final SearchPathRepository searchPathRepository;
+  private final MarkerQuery markerQuery;
+  private final HandoverMemoQuery handoverMemoQuery;
+  private final SearchHistorySummaryMapper searchHistorySummaryMapper;
+  private final DutyShiftMapper dutyShiftMapper;
+
+  public HandoverTimelineApiService(
+      SearchPathRepository searchPathRepository,
+      MarkerQuery markerQuery,
+      HandoverMemoQuery handoverMemoQuery,
+      SearchHistorySummaryMapper searchHistorySummaryMapper,
+      DutyShiftMapper dutyShiftMapper) {
+    this.searchPathRepository =
+        Objects.requireNonNull(searchPathRepository, "searchPathRepository must not be null");
+    this.markerQuery = Objects.requireNonNull(markerQuery, "markerQuery must not be null");
+    this.handoverMemoQuery =
+        Objects.requireNonNull(handoverMemoQuery, "handoverMemoQuery must not be null");
+    this.searchHistorySummaryMapper =
+        Objects.requireNonNull(
+            searchHistorySummaryMapper, "searchHistorySummaryMapper must not be null");
+    this.dutyShiftMapper =
+        Objects.requireNonNull(dutyShiftMapper, "dutyShiftMapper must not be null");
+  }
+
+  @Transactional(readOnly = true)
+  public HandoverTimelineResponse get(
+      UUID incidentId,
+      UUID operationalPeriodId,
+      String scopeType,
+      UUID dutyShiftId,
+      Instant startAt,
+      Instant endAt,
+      Boolean includeOtherActors) {
+    Scope scope =
+        Scope.resolve(
+            incidentId,
+            operationalPeriodId,
+            scopeType,
+            dutyShiftId,
+            startAt,
+            endAt,
+            includeOtherActors,
+            dutyShiftMapper);
+    List<SearchPathAggregate> paths = scopedPaths(incidentId, operationalPeriodId, scope);
+    List<MarkerView> markers = scopedMarkers(incidentId, operationalPeriodId, scope);
+    List<HandoverMemoRow> memos = scopedMemos(incidentId, operationalPeriodId, scope);
+
+    ActorRegistry actors = new ActorRegistry();
+    List<PathResponse> pathResponses = pathResponses(paths, actors);
+    List<EventResponse> events = events(paths, markers, memos, actors);
+    MetricsResponse metrics = metrics(paths, markers, memos, scope, operationalPeriodId);
+    SearchHistorySummaryItemResponse summary = summary(operationalPeriodId, incidentId, scope);
+
+    return new HandoverTimelineResponse(
+        incidentId,
+        operationalPeriodId,
+        new ScopeResponse(scope.type(), scope.dutyShiftId(), scope.startedAt(), scope.endedAt()),
+        actors.responses(),
+        pathResponses,
+        events,
+        metrics,
+        summary);
+  }
+
+  private List<SearchPathAggregate> scopedPaths(UUID incidentId, UUID opId, Scope scope) {
+    return searchPathRepository.findAll().stream()
+        .filter(path -> incidentId.equals(path.incidentId()))
+        .filter(path -> opId.equals(path.opId()))
+        .filter(path -> scope.includes(path.dutyShiftId(), path.startedAt(), path.endedAt()))
+        .sorted(Comparator.comparing(HandoverTimelineApiService::pathStartOrEpoch))
+        .toList();
+  }
+
+  private List<MarkerView> scopedMarkers(UUID incidentId, UUID opId, Scope scope) {
+    return markerQuery
+        .byIncident(incidentId, new MarkerQueryFilters(opId, null, null))
+        .markers()
+        .stream()
+        .filter(
+            marker ->
+                scope.includes(marker.dutyShiftId(), marker.occurredAt(), marker.occurredAt()))
+        .toList();
+  }
+
+  private List<HandoverMemoRow> scopedMemos(UUID incidentId, UUID opId, Scope scope) {
+    return handoverMemoQuery.byContext(incidentId, opId, null, null).stream()
+        .filter(memo -> scope.includes(memo.dutyShiftId(), memo.createdAt(), memo.createdAt()))
+        .toList();
+  }
+
+  private List<PathResponse> pathResponses(List<SearchPathAggregate> paths, ActorRegistry actors) {
+    List<PathResponse> responses = new ArrayList<>();
+    for (SearchPathAggregate path : paths) {
+      String actorId = actors.actorFor(path.policePhoneId(), "현장 기록자");
+      responses.add(
+          new PathResponse(
+              path.id(),
+              actorId,
+              mode(path.segments()),
+              path.startedAt(),
+              path.endedAt(),
+              path.points().stream()
+                  .map(
+                      point ->
+                          new PointResponse(
+                              instant(point.clientTs()),
+                              point.lat(),
+                              point.lon(),
+                              point.horizontalAccuracyM()))
+                  .toList()));
+    }
+    return responses;
+  }
+
+  private List<EventResponse> events(
+      List<SearchPathAggregate> paths,
+      List<MarkerView> markers,
+      List<HandoverMemoRow> memos,
+      ActorRegistry actors) {
+    List<EventResponse> events = new ArrayList<>();
+    for (SearchPathAggregate path : paths) {
+      String actorId = actors.actorFor(path.policePhoneId(), "현장 기록자");
+      Instant startedAt = path.startedAt();
+      if (startedAt != null) {
+        events.add(
+            new EventResponse(
+                "path-start-" + path.id(),
+                startedAt,
+                "PATH_START",
+                actorId,
+                "경로 시작",
+                Map.of("pathId", path.id().toString())));
+      }
+      for (SearchPathSegment segment : path.segments()) {
+        Instant segmentStartedAt = segmentStartedAt(path.points(), segment);
+        if (segmentStartedAt != null) {
+          events.add(
+              new EventResponse(
+                  "path-segment-" + segment.id(),
+                  segmentStartedAt,
+                  "PATH_SEGMENT",
+                  actorId,
+                  movementLabel(segment.movementType()),
+                  Map.of(
+                      "pathId", path.id().toString(),
+                      "segmentId", segment.id(),
+                      "movementType", segment.movementType().name())));
+        }
+      }
+      if (path.endedAt() != null) {
+        events.add(
+            new EventResponse(
+                "path-end-" + path.id(),
+                path.endedAt(),
+                "PATH_END",
+                actorId,
+                "경로 종료",
+                Map.of("pathId", path.id().toString())));
+      }
+    }
+    for (MarkerView marker : markers) {
+      String actorId = actors.actorFor(marker.policePhoneId(), "현장 기록자");
+      events.add(
+          new EventResponse(
+              "marker-" + marker.id(),
+              marker.occurredAt(),
+              "MARKER",
+              actorId,
+              "마커 기록",
+              markerDetail(marker)));
+    }
+    for (HandoverMemoRow memo : memos) {
+      String actorId = actors.actorFor(memo.createdByAccountId(), "메모 작성자");
+      events.add(
+          new EventResponse(
+              "handover-memo-" + memo.memoId(),
+              memo.createdAt(),
+              "HANDOVER_MEMO",
+              actorId,
+              "인수인계 메모",
+              Map.of(
+                  "memoId",
+                  memo.memoId().toString(),
+                  "targetType",
+                  memo.targetType(),
+                  "targetId",
+                  memo.targetId() == null ? "" : memo.targetId().toString(),
+                  "content",
+                  memo.content())));
+    }
+    return events.stream()
+        .filter(event -> event.occurredAt() != null)
+        .sorted(
+            Comparator.comparing(EventResponse::occurredAt)
+                .thenComparingInt(event -> eventRank(event.type()))
+                .thenComparing(EventResponse::eventId))
+        .toList();
+  }
+
+  private static int eventRank(String type) {
+    return switch (type) {
+      case "PATH_START" -> 0;
+      case "PATH_SEGMENT" -> 1;
+      case "MARKER" -> 2;
+      case "HANDOVER_MEMO" -> 3;
+      case "PATH_END" -> 4;
+      default -> 9;
+    };
+  }
+
+  private Map<String, Object> markerDetail(MarkerView marker) {
+    Map<String, Object> detail = new LinkedHashMap<>();
+    detail.put("markerId", marker.id().toString());
+    detail.put("markerType", marker.type().name());
+    if (marker.supportRequestType() != null) {
+      detail.put("supportRequestType", marker.supportRequestType().name());
+    }
+    if (marker.memo() != null && !marker.memo().isBlank()) {
+      detail.put("memo", marker.memo());
+    }
+    if (marker.location() != null) {
+      detail.put(
+          "location",
+          Map.of(
+              "lat", BigDecimal.valueOf(marker.location().getY()),
+              "lng", BigDecimal.valueOf(marker.location().getX())));
+    }
+    detail.put("photoCount", marker.photoSummary().size());
+    return detail;
+  }
+
+  private MetricsResponse metrics(
+      List<SearchPathAggregate> paths,
+      List<MarkerView> markers,
+      List<HandoverMemoRow> memos,
+      Scope scope,
+      UUID opId) {
+    long totalDistance = 0L;
+    long walkingDistance = 0L;
+    long drivingDistance = 0L;
+    int stoppedSegments = 0;
+    Instant first = null;
+    Instant last = null;
+
+    for (SearchPathAggregate path : paths) {
+      List<SearchPathPoint> points = path.points();
+      first = min(first, path.startedAt());
+      last = max(last, path.endedAt());
+      totalDistance += distanceMeters(points);
+      for (SearchPathSegment segment : path.segments()) {
+        long segmentDistance = segmentDistanceMeters(points, segment);
+        if (segment.movementType() == MovementType.FOOT) {
+          walkingDistance += segmentDistance;
+        } else if (segment.movementType() == MovementType.VEHICLE) {
+          drivingDistance += segmentDistance;
+        } else if (segmentDistance == 0L) {
+          stoppedSegments += 1;
+        }
+      }
+    }
+    Instant durationStart = scope.startedAt() == null ? first : scope.startedAt();
+    Instant durationEnd = scope.endedAt() == null ? last : scope.endedAt();
+    BigDecimal averageSpeed = averageSpeedKmh(totalDistance, durationStart, durationEnd);
+    return new MetricsResponse(
+        totalDistance,
+        walkingDistance,
+        drivingDistance,
+        averageSpeed,
+        stoppedSegments,
+        markers.size(),
+        memos.size(),
+        syncStatus(opId, scope));
+  }
+
+  private SearchHistorySummaryItemResponse summary(UUID opId, UUID incidentId, Scope scope) {
+    if ("RANGE".equals(scope.type())) {
+      return null;
+    }
+    UUID dutyShiftId = "DUTY_SHIFT".equals(scope.type()) ? scope.dutyShiftId() : null;
+    return searchHistorySummaryMapper
+        .findByOp(opId, incidentId, scope.type(), scope.scopeId(opId), dutyShiftId, null)
+        .stream()
+        .findFirst()
+        .map(SearchHistorySummaryItemResponse::from)
+        .orElse(null);
+  }
+
+  private String syncStatus(UUID opId, Scope scope) {
+    if ("RANGE".equals(scope.type())) {
+      return "READY";
+    }
+    UUID dutyShiftId = "DUTY_SHIFT".equals(scope.type()) ? scope.dutyShiftId() : null;
+    var summaries =
+        searchHistorySummaryMapper.findByOp(
+            opId, scope.incidentId(), scope.type(), scope.scopeId(opId), dutyShiftId, null);
+    if (summaries.stream().anyMatch(row -> "PENDING_SYNC".equals(row.sourceReadiness()))) {
+      return "PENDING_SYNC";
+    }
+    if (summaries.stream().anyMatch(row -> "STALE".equals(row.sourceReadiness()))) {
+      return "STALE";
+    }
+    return "READY";
+  }
+
+  private static String mode(List<SearchPathSegment> segments) {
+    List<MovementType> modes =
+        segments.stream().map(SearchPathSegment::movementType).distinct().toList();
+    if (modes.size() == 1) {
+      return modes.get(0).name();
+    }
+    return modes.isEmpty() ? "UNKNOWN" : "MIXED";
+  }
+
+  private static String movementLabel(MovementType movementType) {
+    return switch (movementType) {
+      case FOOT -> "도보 구간";
+      case VEHICLE -> "차량 구간";
+      case UNKNOWN -> "이동 구간";
+    };
+  }
+
+  private static Instant segmentStartedAt(List<SearchPathPoint> points, SearchPathSegment segment) {
+    if (segment.startIndex() < 0 || segment.startIndex() >= points.size()) {
+      return null;
+    }
+    return instant(points.get(segment.startIndex()).clientTs());
+  }
+
+  private static long segmentDistanceMeters(
+      List<SearchPathPoint> points, SearchPathSegment segment) {
+    if (segment.startIndex() < 0
+        || segment.endIndex() >= points.size()
+        || segment.endIndex() < segment.startIndex()) {
+      return 0L;
+    }
+    return distanceMeters(points.subList(segment.startIndex(), segment.endIndex() + 1));
+  }
+
+  private static long distanceMeters(List<SearchPathPoint> points) {
+    double distance = 0.0d;
+    for (int i = 1; i < points.size(); i++) {
+      SearchPathPoint previous = points.get(i - 1);
+      SearchPathPoint current = points.get(i);
+      distance +=
+          haversineMeters(
+              previous.lat().doubleValue(),
+              previous.lon().doubleValue(),
+              current.lat().doubleValue(),
+              current.lon().doubleValue());
+    }
+    return Math.round(distance);
+  }
+
+  private static double haversineMeters(double lat1, double lon1, double lat2, double lon2) {
+    double earthRadiusMeters = 6_371_000.0d;
+    double dLat = Math.toRadians(lat2 - lat1);
+    double dLon = Math.toRadians(lon2 - lon1);
+    double a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2)
+            + Math.cos(Math.toRadians(lat1))
+                * Math.cos(Math.toRadians(lat2))
+                * Math.sin(dLon / 2)
+                * Math.sin(dLon / 2);
+    return earthRadiusMeters * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  private static BigDecimal averageSpeedKmh(
+      long distanceMeters, Instant startedAt, Instant endedAt) {
+    if (distanceMeters <= 0L
+        || startedAt == null
+        || endedAt == null
+        || !endedAt.isAfter(startedAt)) {
+      return BigDecimal.ZERO.setScale(1);
+    }
+    double hours = Duration.between(startedAt, endedAt).toMillis() / 3_600_000.0d;
+    return BigDecimal.valueOf(distanceMeters / 1000.0d / hours).setScale(1, RoundingMode.HALF_UP);
+  }
+
+  private static Instant pathStartOrEpoch(SearchPathAggregate path) {
+    return path.startedAt() == null ? Instant.EPOCH : path.startedAt();
+  }
+
+  private static Instant instant(OffsetDateTime value) {
+    return value == null ? null : value.toInstant();
+  }
+
+  private static Instant min(Instant left, Instant right) {
+    if (left == null) {
+      return right;
+    }
+    if (right == null) {
+      return left;
+    }
+    return left.isBefore(right) ? left : right;
+  }
+
+  private static Instant max(Instant left, Instant right) {
+    if (left == null) {
+      return right;
+    }
+    if (right == null) {
+      return left;
+    }
+    return left.isAfter(right) ? left : right;
+  }
+
+  private static final class ActorRegistry {
+    private static final String UNKNOWN_ACTOR_ID = "actor-unknown";
+
+    private final Map<UUID, ActorResponse> actors = new LinkedHashMap<>();
+    private boolean unknownActorReferenced;
+
+    private String actorFor(UUID sourceId, String displayPrefix) {
+      if (sourceId == null) {
+        unknownActorReferenced = true;
+        return UNKNOWN_ACTOR_ID;
+      }
+      return actors
+          .computeIfAbsent(
+              sourceId,
+              ignored -> {
+                int index = actors.size() + 1;
+                return new ActorResponse(
+                    actorId(sourceId),
+                    displayPrefix + " " + index,
+                    ACTOR_COLORS.get((index - 1) % ACTOR_COLORS.size()));
+              })
+          .actorId();
+    }
+
+    private List<ActorResponse> responses() {
+      List<ActorResponse> responses = new ArrayList<>();
+      if (unknownActorReferenced) {
+        responses.add(new ActorResponse(UNKNOWN_ACTOR_ID, "알 수 없는 기록자", "gray"));
+      }
+      responses.addAll(actors.values());
+      return List.copyOf(responses);
+    }
+
+    private static String actorId(UUID sourceId) {
+      UUID hashed =
+          UUID.nameUUIDFromBytes(("handover-actor:" + sourceId).getBytes(StandardCharsets.UTF_8));
+      return "actor-" + hashed;
+    }
+  }
+
+  private record Scope(
+      UUID incidentId,
+      String type,
+      UUID dutyShiftId,
+      Instant startedAt,
+      Instant endedAt,
+      boolean includeOtherActors) {
+
+    private static Scope resolve(
+        UUID incidentId,
+        UUID opId,
+        String scopeType,
+        UUID dutyShiftId,
+        Instant startAt,
+        Instant endAt,
+        Boolean includeOtherActors,
+        DutyShiftMapper dutyShiftMapper) {
+      String type =
+          scopeType == null || scopeType.isBlank()
+              ? "DUTY_SHIFT"
+              : scopeType.toUpperCase(Locale.ROOT);
+      if ("RANGE".equals(type)) {
+        if (startAt == null || endAt == null || !endAt.isAfter(startAt)) {
+          throw HandoverApiException.writeConflict();
+        }
+        return new Scope(
+            incidentId, type, null, startAt, endAt, Boolean.TRUE.equals(includeOtherActors));
+      }
+      if ("OP".equals(type)) {
+        return new Scope(incidentId, type, null, null, null, true);
+      }
+      if (!"DUTY_SHIFT".equals(type)) {
+        throw HandoverApiException.writeConflict();
+      }
+      DutyShift dutyShift =
+          dutyShiftId == null
+              ? dutyShiftMapper.findByFilters(incidentId, opId, null, null, null).stream()
+                  .findFirst()
+                  .orElse(null)
+              : dutyShiftMapper.findById(dutyShiftId).orElse(null);
+      if (dutyShift == null
+          || !incidentId.equals(dutyShift.getIncidentId())
+          || !opId.equals(dutyShift.getOpId())) {
+        throw HandoverApiException.writeConflict();
+      }
+      return new Scope(
+          incidentId,
+          type,
+          dutyShift.getId(),
+          dutyShift.getStartedAt(),
+          dutyShift.getEndedAt(),
+          Boolean.TRUE.equals(includeOtherActors));
+    }
+
+    private UUID scopeId(UUID opId) {
+      return "DUTY_SHIFT".equals(type) ? dutyShiftId : opId;
+    }
+
+    private boolean includes(UUID rowDutyShiftId, Instant rowStart, Instant rowEnd) {
+      if ("DUTY_SHIFT".equals(type) && rowDutyShiftId != null) {
+        return dutyShiftId.equals(rowDutyShiftId)
+            || (includeOtherActors && overlaps(rowStart, rowEnd));
+      }
+      if ("DUTY_SHIFT".equals(type)) {
+        return overlaps(rowStart, rowEnd);
+      }
+      if ("RANGE".equals(type)) {
+        return overlaps(rowStart, rowEnd);
+      }
+      return true;
+    }
+
+    private boolean overlaps(Instant rowStart, Instant rowEnd) {
+      if (startedAt == null && endedAt == null) {
+        return true;
+      }
+      if (rowStart == null && rowEnd == null) {
+        return true;
+      }
+      Instant effectiveStart = rowStart == null ? rowEnd : rowStart;
+      Instant effectiveEnd = rowEnd == null ? rowStart : rowEnd;
+      if (startedAt != null && effectiveEnd != null && effectiveEnd.isBefore(startedAt)) {
+        return false;
+      }
+      return endedAt == null || effectiveStart == null || !effectiveStart.isAfter(endedAt);
+    }
+  }
+}

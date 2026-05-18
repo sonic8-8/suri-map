@@ -103,6 +103,46 @@ class SearchPathRepositoryTest {
     }
 
     @Test
+    fun patchSearchPathEnqueuesPauseAndResumeActions() = runBlocking {
+        val syncClient = CapturingSyncClient()
+        val repository = SearchPathRepository(syncClient = syncClient)
+
+        repository.patchSearchPath(
+            PatchSearchPathCommand(
+                operationId = operationIdFixture("path-pause-001"),
+                incidentId = INCIDENT_ID,
+                opId = OP_ID,
+                searchPathId = PATH_ID,
+                policePhoneId = POLICE_PHONE_ID,
+                action = SearchPathLifecycleAction.PAUSE,
+                idempotencyKey = "idem-path-pause-001",
+                sequence = 11,
+                clientTs = CLIENT_TS
+            )
+        )
+        repository.patchSearchPath(
+            PatchSearchPathCommand(
+                operationId = operationIdFixture("path-resume-001"),
+                incidentId = INCIDENT_ID,
+                opId = OP_ID,
+                searchPathId = PATH_ID,
+                policePhoneId = POLICE_PHONE_ID,
+                action = SearchPathLifecycleAction.RESUME,
+                idempotencyKey = "idem-path-resume-001",
+                sequence = 12,
+                clientTs = CLIENT_TS.plusSeconds(60)
+            )
+        )
+
+        val pause = syncClient.operations[0]
+        val resume = syncClient.operations[1]
+        assertEquals("/api/search-paths/$PATH_ID", pause.endpoint)
+        assertEquals("""{"action":"PAUSE","clientTs":"2026-05-11T06:00:00Z"}""", pause.payload)
+        assertEquals("""{"action":"RESUME","clientTs":"2026-05-11T06:01:00Z"}""", resume.payload)
+        assertTrue(syncClient.operations.all { it.dependencyGroup == DependencyGroup.PATH })
+    }
+
+    @Test
     fun appendPathBatchEnqueuesBatchOperationWithPoints() = runBlocking {
         val syncClient = CapturingSyncClient()
         val repository = SearchPathRepository(syncClient = syncClient)
@@ -221,9 +261,11 @@ class SearchPathRepositoryTest {
 
     private class CapturingSyncClient : SyncClient {
         var lastOperation: LocalWriteOperation? = null
+        val operations = mutableListOf<LocalWriteOperation>()
 
         override suspend fun enqueue(writeOperation: LocalWriteOperation): EnqueueResult {
             lastOperation = writeOperation
+            operations += writeOperation
             return EnqueueResult(
                 outboxId = "outbox-001",
                 operationId = writeOperation.operationId,

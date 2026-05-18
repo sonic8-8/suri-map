@@ -46,6 +46,9 @@ public class SearchPathService {
                     repository.save(
                         new SearchPathAggregate(
                             request.pathId(), request.incidentId(), request.opId(), policePhoneId)));
+    if (aggregate.status() != SearchPathStatus.RECORDING) {
+      throw new SearchPathApiException("write_conflict");
+    }
 
     int pointOffset = aggregate.points().size();
     int segmentOffset = aggregate.segments().size();

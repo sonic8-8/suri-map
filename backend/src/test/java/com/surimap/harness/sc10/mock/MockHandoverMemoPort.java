@@ -32,6 +32,7 @@ public class MockHandoverMemoPort implements HandoverMemoCreateCommand, Handover
         Sc10Fixtures.MEMO_ID,
         request.incidentId(),
         request.opId(),
+        null,
         request.memoTargetType(),
         request.memoTargetId() != null ? request.memoTargetId() : request.opId(),
         request.content(),

@@ -1,14 +1,19 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type maplibregl from 'maplibre-gl';
 import type { LngLatBoundsLike } from 'maplibre-gl';
 import { MapControls } from '../../../../../shared/ui';
 import type { CompletedAreaDraft } from '../../../../../shared/model/areaDraft';
 import type {
   LegendItem,
+  LayerFilterId,
+  MarkerTypeId,
   MovementPath,
   OperationalPeriod,
+  PolicePhoneLegendFilterId,
   RecentMarker,
+  SearchAreaLegendFilterId,
   SearchAreaTreeNode,
+  SupportRequestTypeId,
 } from '../../constants/mockSituationBoard';
 import { MapLegend } from './MapLegend';
 import { SearchMapCanvas, type InitialMapState, type LayerVisibility } from './SearchMapCanvas';
@@ -19,6 +24,8 @@ import styles from './DashboardMapShell.module.css';
 const INCIDENT_FIT_PADDING = 44;
 const INCIDENT_FIT_MAX_ZOOM = 15;
 
+type LegendAvailabilityByClassName = Partial<Record<string, boolean>>;
+
 type DashboardMapShellProps = {
   activeOperationalPeriodId: string | null;
   incidentId: string;
@@ -26,6 +33,11 @@ type DashboardMapShellProps = {
   isTerminalBoard?: boolean;
   legendItems: LegendItem[];
   layerVisibility: LayerVisibility;
+  selectedLayerIds: LayerFilterId[];
+  selectedMarkerTypes: MarkerTypeId[];
+  selectedPolicePhoneLegendFilters: PolicePhoneLegendFilterId[];
+  selectedSearchAreaLegendFilters: SearchAreaLegendFilterId[];
+  selectedSupportRequestTypes: SupportRequestTypeId[];
   movementPaths: MovementPath[];
   recentMarkers: RecentMarker[];
   operationalPeriods: OperationalPeriod[];
@@ -36,6 +48,10 @@ type DashboardMapShellProps = {
   visibleMarkerIds: string[];
   savedAreaDrafts: CompletedAreaDraft[];
   onInitialMapStateChange: (state: InitialMapState | null) => void;
+  onToggleLayer: (layerId: LayerFilterId) => void;
+  onToggleMarkerType: (markerType: MarkerTypeId, supportRequestType?: SupportRequestTypeId) => void;
+  onTogglePolicePhoneLegendFilter: (filterId: PolicePhoneLegendFilterId) => void;
+  onToggleSearchAreaLegendFilter: (filterId: SearchAreaLegendFilterId) => void;
   areaEditMapProps?: AreaEditMapCanvasProps | null;
   handoverMapProps?: HandoverComparisonMapSharedProps | null;
   searchAreaTree: SearchAreaTreeNode;
@@ -54,6 +70,11 @@ export function DashboardMapShell({
   isTerminalBoard = false,
   legendItems,
   layerVisibility,
+  selectedLayerIds,
+  selectedMarkerTypes,
+  selectedPolicePhoneLegendFilters,
+  selectedSearchAreaLegendFilters,
+  selectedSupportRequestTypes,
   movementPaths,
   recentMarkers,
   operationalPeriods,
@@ -64,6 +85,10 @@ export function DashboardMapShell({
   visibleMarkerIds,
   savedAreaDrafts,
   onInitialMapStateChange,
+  onToggleLayer,
+  onToggleMarkerType,
+  onTogglePolicePhoneLegendFilter,
+  onToggleSearchAreaLegendFilter,
   areaEditMapProps,
   handoverMapProps,
   searchAreaTree,
@@ -77,6 +102,17 @@ export function DashboardMapShell({
   const mapRef = useRef<maplibregl.Map | null>(null);
   const initialBoundsRef = useRef<LngLatBoundsLike | null>(null);
   const hasHandoverWorkspace = Boolean(handoverMapProps);
+  const legendAvailabilityByClassName = useMemo(
+    () =>
+      createLegendAvailabilityByClassName({
+        activeOperationalPeriodId,
+        movementPaths,
+        recentMarkers,
+        savedAreaDrafts,
+        searchAreaTree,
+      }),
+    [activeOperationalPeriodId, movementPaths, recentMarkers, savedAreaDrafts, searchAreaTree],
+  );
 
   const handleMapReady = useCallback((map: maplibregl.Map | null) => {
     mapRef.current = map;
@@ -151,6 +187,8 @@ export function DashboardMapShell({
           focusedSearchAreaSequence={focusedSearchAreaSequence}
           visibleMarkerIds={visibleMarkerIds}
           savedAreaDrafts={savedAreaDrafts}
+          selectedPolicePhoneLegendFilters={selectedPolicePhoneLegendFilters}
+          selectedSearchAreaLegendFilters={selectedSearchAreaLegendFilters}
           onInitialBoundsReady={handleInitialBoundsReady}
           onInitialMapStateReady={onInitialMapStateChange}
           onMapReady={handleMapReady}
@@ -167,9 +205,76 @@ export function DashboardMapShell({
           <MapLegend
             className={hasHandoverWorkspace ? styles.rightPanelAwareLegend : undefined}
             legendItems={legendItems}
+            legendAvailabilityByClassName={legendAvailabilityByClassName}
+            selectedLayerIds={selectedLayerIds}
+            selectedMarkerTypes={selectedMarkerTypes}
+            selectedPolicePhoneLegendFilters={selectedPolicePhoneLegendFilters}
+            selectedSearchAreaLegendFilters={selectedSearchAreaLegendFilters}
+            selectedSupportRequestTypes={selectedSupportRequestTypes}
+            onToggleLayer={onToggleLayer}
+            onToggleMarkerType={onToggleMarkerType}
+            onTogglePolicePhoneLegendFilter={onTogglePolicePhoneLegendFilter}
+            onToggleSearchAreaLegendFilter={onToggleSearchAreaLegendFilter}
           />
         )}
       </div>
     </div>
   );
+}
+
+function createLegendAvailabilityByClassName({
+  activeOperationalPeriodId,
+  movementPaths,
+  recentMarkers,
+  savedAreaDrafts,
+  searchAreaTree,
+}: {
+  activeOperationalPeriodId: string | null;
+  movementPaths: MovementPath[];
+  recentMarkers: RecentMarker[];
+  savedAreaDrafts: CompletedAreaDraft[];
+  searchAreaTree: SearchAreaTreeNode;
+}): LegendAvailabilityByClassName {
+  const searchAreaStatusById = collectSearchAreaStatusById(searchAreaTree);
+
+  return {
+    'legend-swatch area-overall': savedAreaDrafts.some((draft) => draft.kind === 'overall'),
+    'legend-swatch area-unit': savedAreaDrafts.some((draft) => draft.kind === 'unit'),
+    'legend-swatch area-team': savedAreaDrafts.some(
+      (draft) => draft.kind === 'team' && searchAreaStatusById.get(draft.areaId) !== 'COMPLETED',
+    ),
+    'legend-swatch area-completed': savedAreaDrafts.some(
+      (draft) => draft.kind === 'team' && searchAreaStatusById.get(draft.areaId) === 'COMPLETED',
+    ),
+    'legend-swatch route-vehicle': movementPaths.some((path) => path.movementType === 'VEHICLE'),
+    'legend-swatch route-walk': movementPaths.some((path) => path.movementType === 'FOOT'),
+    'legend-swatch device-active': movementPaths.some(
+      (path) => path.policePhoneId && path.opId === activeOperationalPeriodId,
+    ),
+    'legend-swatch device-normal': movementPaths.some((path) => path.freshnessStatus === 'ONLINE'),
+    'legend-swatch device-stale': movementPaths.some((path) => path.freshnessStatus === 'STALE'),
+    'legend-swatch device-lost': movementPaths.some((path) => path.freshnessStatus === 'LOST'),
+    'legend-swatch marker-clue': recentMarkers.some((marker) => marker.markerType === 'CLUE'),
+    'legend-swatch marker-found': recentMarkers.some((marker) => marker.markerType === 'PERSON_FOUND'),
+    'legend-swatch marker-field': recentMarkers.some((marker) => marker.markerType === 'FIELD_CONDITION'),
+    'legend-swatch marker-drone': recentMarkers.some(
+      (marker) => marker.markerType === 'SUPPORT_REQUEST' && marker.supportRequestType === 'DRONE',
+    ),
+    'legend-swatch marker-dog': recentMarkers.some(
+      (marker) => marker.markerType === 'SUPPORT_REQUEST' && marker.supportRequestType === 'POLICE_DOG',
+    ),
+    'legend-swatch marker-support': recentMarkers.some(
+      (marker) => marker.markerType === 'SUPPORT_REQUEST' && marker.supportRequestType === 'OTHER',
+    ),
+    'legend-swatch marker-note': recentMarkers.some((marker) => marker.markerType === 'NOTE'),
+  };
+}
+
+function collectSearchAreaStatusById(
+  searchArea: SearchAreaTreeNode,
+  statusById = new Map<string, SearchAreaTreeNode['status']>(),
+) {
+  statusById.set(searchArea.id, searchArea.status);
+  searchArea.children?.forEach((childArea) => collectSearchAreaStatusById(childArea, statusById));
+  return statusById;
 }

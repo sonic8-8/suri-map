@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 
 import type {
   MarkerFilterOption,
@@ -6,6 +6,7 @@ import type {
   RecentMarker,
   SupportRequestTypeId,
 } from '../../constants/mockSituationBoard';
+import { getMarkerLegendColor } from '../../../../../shared/constants/markerLegendColors';
 import { MarkerGlyph, type MarkerGlyphName } from '../marker/MarkerGlyph';
 import { CollapsiblePanelSection } from './CollapsiblePanelSection';
 import { MarkerTypeFilter } from './MarkerTypeFilter';
@@ -55,10 +56,6 @@ export function RecentMarkerList({
       }),
     [markerEvents, selectedMarkerTypes, selectedSupportRequestTypes],
   );
-  const emphasisCount = markerEvents.filter((marker) => {
-    const markerType = markerTypeOf(marker);
-    return markerType === 'PERSON_FOUND' || markerType === 'SUPPORT_REQUEST';
-  }).length;
 
   useEffect(() => {
     setSelectedMarkerTypes(DEFAULT_SELECTED_MARKER_TYPES);
@@ -85,17 +82,7 @@ export function RecentMarkerList({
   };
 
   return (
-    <CollapsiblePanelSection title="마커">
-      <div className={styles.summaryBar} aria-label="마커 요약">
-        <span>
-          <strong>{markerEvents.length}</strong>
-          건
-        </span>
-        <span>
-          중요 <strong>{emphasisCount}</strong>
-        </span>
-      </div>
-
+    <CollapsiblePanelSection title="">
       <MarkerTypeFilter
         markerTypes={markerTypes}
         supportMarkerTypes={supportMarkerTypes}
@@ -115,6 +102,8 @@ export function RecentMarkerList({
             const summary = getMarkerSummary(marker, markerLabel);
             const detailChips = getMarkerDetailChips(marker);
             const markerIconName = getMarkerIconName(markerType, marker.supportRequestType);
+            const markerIdentityColor = getMarkerLegendColor(marker.markerType, marker.supportRequestType, markerIconName);
+            const markerStyle = { '--marker-identity-color': markerIdentityColor } as CSSProperties;
             const shouldShowMemo = Boolean(
               marker.memo && marker.memo !== marker.summary && marker.memo !== marker.title,
             );
@@ -123,6 +112,7 @@ export function RecentMarkerList({
               <li
                 key={marker.id}
                 className={`${styles.feedItem} ${styles[markerTypeClass(markerType)]}`}
+                style={markerStyle}
                 role="button"
                 tabIndex={0}
                 onClick={() => onSelectMarker?.(marker.id)}

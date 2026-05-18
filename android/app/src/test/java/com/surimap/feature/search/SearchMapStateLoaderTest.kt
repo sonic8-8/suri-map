@@ -36,13 +36,14 @@ class SearchMapStateLoaderTest {
                 SearchMapSessionContext(
                     incidentId = INCIDENT_ID,
                     currentOpId = OP_ID,
+                    currentOpLabel = "OP 2차",
                     currentDutyShiftId = DUTY_SHIFT_ID
                 )
             )
 
         assertEquals(SearchLifecycleStatus.Active, state.lifecycleStatus)
         assertEquals(INCIDENT_ID, state.incidentTitle)
-        assertEquals("OP $OP_ID", state.opLabel)
+        assertEquals("OP 2차", state.opLabel)
         assertEquals("DutyShift $DUTY_SHIFT_ID", state.dutyShiftLabel)
         assertTrue(state.canWritePath)
         assertTrue(state.canCreateMarker)
@@ -310,6 +311,7 @@ class SearchMapStateLoaderTest {
         assertEquals("A팀 담당 구역", state.layers[2].label)
         assertEquals(TEAM_AREA_ID, state.layers[2].overlayId)
         assertTrue(state.layers[2].highlighted)
+        assertEquals("A팀 담당 구역", state.assignmentLabel)
     }
 
     @Test
@@ -784,7 +786,8 @@ class SearchMapStateLoaderTest {
 
         assertEquals(null, state.viewportBounds)
         assertTrue(state.layers.all { layer -> layer.geoJson == null })
-        assertTrue(state.visibleText().any { it == "담당 구역 확인 중" })
+        assertFalse(state.visibleText().any { it == "담당 구역 확인 중" })
+        assertTrue(state.assignmentLabel.isBlank())
     }
 
     @Test

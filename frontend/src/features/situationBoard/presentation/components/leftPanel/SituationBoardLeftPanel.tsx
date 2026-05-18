@@ -19,11 +19,16 @@ import type {
 import { formatAccountDisplayName, formatAccountMeta } from '../../utils/accountDisplayUtils';
 import styles from './SituationBoardLeftPanel.module.css';
 
-const leftPanelTabs: Array<{
+type LeftPanelTab = {
   page: LeftPanelPage;
   label: string;
   icon: ReactNode;
-}> = [
+};
+
+const legacyFilterPage: LeftPanelPage = 'filter';
+
+const allLeftPanelTabs: LeftPanelTab[] = [
+  // 희수의 피땀눈물로만든 필터 묘지: 범례 필터로 이관되어 필터 탭은 숨긴다.
   {
     page: 'filter',
     label: '필터',
@@ -41,11 +46,15 @@ const leftPanelTabs: Array<{
   },
 ];
 
+const leftPanelTabs = allLeftPanelTabs.filter((tab) => tab.page !== legacyFilterPage);
+
 const leftPanelWidthByPage: Record<LeftPanelPage, string> = {
   filter: '224px',
   area: '420px',
-  marker: '360px',
+  marker: '420px',
 };
+
+const shouldShowLegacyFilterPanel = false;
 
 type SituationBoardLeftPanelProps = {
   board: SituationBoardFallbackData;
@@ -243,7 +252,9 @@ export function SituationBoardLeftPanel({
         })}
       </div>
       <div className={styles.content}>
-        <div className={`${styles.page} ${styles.filterPage}`} hidden={activePage !== 'filter'}>
+        {/* 희수의 피땀눈물로만든 필터 묘지 */}
+        {shouldShowLegacyFilterPanel ? (
+          <div className={`${styles.page} ${styles.filterPage}`} hidden={activePage !== 'filter'}>
           <div className={`${styles.scroll} ${styles.filterScroll}`}>
             <LayerTogglePanel
               layerOptions={board.layerOptions}
@@ -259,7 +270,8 @@ export function SituationBoardLeftPanel({
               onToggleMarkerType={onToggleMarkerType}
             />
           </div>
-        </div>
+          </div>
+        ) : null}
         <div className={styles.page} hidden={activePage !== 'area'}>
           <div className={styles.scroll}>
             {areaMode === 'tree' ? (

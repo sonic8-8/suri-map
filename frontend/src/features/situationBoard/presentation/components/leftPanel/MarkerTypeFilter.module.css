@@ -3,13 +3,12 @@
   gap: 10px;
   padding-bottom: 18px;
   padding-top: 22px;
-  border-top: 1px solid var(--suri-board-left-section-divider);
 }
 
 .filterSection.filterSection h2 {
   color: #cbdcef;
-  font-size: 17px;
-  line-height: 1.2;
+  font-size: 21px;
+  line-height: 1.35;
 }
 
 .markerChipList {
@@ -42,17 +41,18 @@
 
 /* 지원 요청 섹션의 소제목. */
 .markerSupportSubtitle {
-  color: var(--suri-board-fg-muted);
-  font-size: 17px;
+  color: #cbdcef;
+  font-size: 21px;
   font-weight: 800;
-  line-height: 1.2;
+  line-height: 1.35;
 }
 
 /* 지원 요청 세부 유형을 2칸으로 균형 배치한다. */
 .markerSupportList {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, 86px);
   gap: 8px;
+  justify-content: center;
 }
 
 /* 마커 탭에서만 쓰는 compact 변형. */
@@ -63,34 +63,36 @@
 .compactMarkerChipList {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
+  gap: 8px;
 }
 
 .compactMarkerButton {
-  padding: 3px 2px;
+  padding: 4px 3px;
 }
 
 .compactMarkerButton span {
-  font-size: 14px;
+  font-size: 15px;
 }
 
 .compactMarkerButton svg {
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
 }
 
 .compactMarkerSupportGroup {
   display: grid;
   gap: 8px;
-  margin-top: 22px;
+  margin-top: 32px;
   padding: 0;
   border-top: 0;
 }
 
 .compactMarkerSupportList {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
+  width: calc(75% - 2px);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  justify-self: center;
 }
 
 .markerFilterDisabled {

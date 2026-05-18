@@ -6,8 +6,13 @@ export const V_WORLD_BASE_OPACITY = 1;
 
 const V_WORLD_TILE_SIZE = 256;
 const V_WORLD_BASE_SOURCE_ID = 'vworld-base-raster';
+const LOCAL_TILE_STYLE_URL = '/map-style/osm-local.json';
 
-export function createVWorldBaseStyle(apiKey: string): StyleSpecification {
+export function createVWorldBaseStyle(apiKey: string): StyleSpecification | string {
+  if (!apiKey.trim()) {
+    return LOCAL_TILE_STYLE_URL;
+  }
+
   return {
     version: 8,
     glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',

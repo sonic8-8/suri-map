@@ -2,7 +2,7 @@ spring:
   application:
     name: suri-map-api
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/surimap}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/surimap}
     username: ${SPRING_DATASOURCE_USERNAME:surimap}
     password: ${SPRING_DATASOURCE_PASSWORD:surimap}
   flyway:
@@ -24,8 +24,8 @@ surimap:
     allowed-origin-patterns: ${SURI_MAP_CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*,http://127.0.0.1:*,https://k14c106.p.ssafy.io}
   auth:
     keycloak:
-      issuer-uri: ${SURI_MAP_KEYCLOAK_ISSUER_URI:https://k14c106.p.ssafy.io/keycloak/realms/suri-map}
-      jwk-set-uri: ${SURI_MAP_KEYCLOAK_JWK_SET_URI:https://k14c106.p.ssafy.io/keycloak/realms/suri-map/protocol/openid-connect/certs}
+      issuer-uri: ${SURI_MAP_KEYCLOAK_ISSUER_URI:http://localhost:5174/keycloak/realms/suri-map}
+      jwk-set-uri: ${SURI_MAP_KEYCLOAK_JWK_SET_URI:http://localhost:5174/keycloak/realms/suri-map/protocol/openid-connect/certs}
   object-storage:
     provider: ${SURI_MAP_OBJECT_STORAGE_PROVIDER:mock}
     endpoint: ${SURI_MAP_OBJECT_STORAGE_ENDPOINT:http://localhost:9000}

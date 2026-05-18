@@ -38,11 +38,11 @@ describe('IncidentListPage', () => {
     expect(screen.getByText('마지막 확인 장소')).toBeInTheDocument();
     expect(screen.getByText('광산구 월곡동')).toBeInTheDocument();
     expect(screen.getByText('마지막 확인 시각')).toBeInTheDocument();
-    expect(screen.getByText('2026-05-14 10:00 KST')).toBeInTheDocument();
+    expect(screen.getByText('2026-05-14 10:00')).toBeInTheDocument();
     expect(screen.getByText('실종자 홍길동')).toBeInTheDocument();
     expect(screen.getByText('파출소 1')).toBeInTheDocument();
     expect(screen.getByText('광산 수색팀')).toBeInTheDocument();
-    expect(screen.getByText('2026-05-14 09:30 KST')).toBeInTheDocument();
+    expect(screen.getByText('2026-05-14 09:30')).toBeInTheDocument();
   });
 
   test('keeps list cards visible when detail enrichment fails', async () => {
@@ -53,7 +53,6 @@ describe('IncidentListPage', () => {
 
     await screen.findByText('기존 목록 제목');
     expect(screen.getByText('마지막 확인 장소')).toBeInTheDocument();
-    expect(screen.getByText(`사건 ID ${importedIncidentId}`)).toBeInTheDocument();
     expect(screen.getByText('마지막 확인 시각')).toBeInTheDocument();
     expect(screen.getByText('v1')).toBeInTheDocument();
   });

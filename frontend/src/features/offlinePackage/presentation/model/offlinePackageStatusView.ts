@@ -94,7 +94,7 @@ export function formatKstDateTime(date: Date) {
       return dateParts;
     }, {});
 
-  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute} KST`;
+  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`;
 }
 
 export function createSummary(rows: PackageBadgeRow[]): PackageSummary {
@@ -134,8 +134,12 @@ function isLoadedPackageRow(row: PackageBadgeRow) {
   return row.packageStatus === 'READY' && row.readyForOfflineUse && !row.warningRaised;
 }
 
-export function createTileSummary(tileItems: readonly OfflinePackageTileItem[]): TileSummary {
-  if (tileItems.length === 0) {
+export function createTileSummary(tileItems: readonly OfflinePackageTileItem[] | null | undefined): TileSummary {
+  const safeTileItems = Array.isArray(tileItems)
+    ? tileItems.filter((item) => item && Number.isFinite(item.bytes))
+    : [];
+
+  if (safeTileItems.length === 0) {
     return {
       count: 0,
       totalBytes: 0,
@@ -144,9 +148,9 @@ export function createTileSummary(tileItems: readonly OfflinePackageTileItem[]):
   }
 
   return {
-    count: tileItems.length,
-    totalBytes: tileItems.reduce((sum, item) => sum + item.bytes, 0),
-    styleIds: uniqueValues(tileItems.map((item) => item.styleId)).join(', '),
+    count: safeTileItems.length,
+    totalBytes: safeTileItems.reduce((sum, item) => sum + item.bytes, 0),
+    styleIds: uniqueValues(safeTileItems.map((item) => item.styleId)).join(', '),
   };
 }
 

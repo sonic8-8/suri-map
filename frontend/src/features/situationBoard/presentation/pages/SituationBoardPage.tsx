@@ -34,6 +34,7 @@ type SituationBoardPageProps = {
   onSaveAssignedAreas: (drafts: CompletedAreaDraft[]) => void;
   onOpenIncidentDetail: () => void;
   onOpenOfflinePackage: () => void;
+  onOpenLogin?: () => void;
   savedAreaDrafts: CompletedAreaDraft[];
   refreshVersion?: number;
   onOpenIncidentList: () => void;
@@ -53,6 +54,7 @@ export function SituationBoardPage({
   onSaveAssignedAreas,
   onOpenIncidentDetail,
   onOpenOfflinePackage,
+  onOpenLogin,
   savedAreaDrafts,
   refreshVersion = 0,
   onOpenIncidentList,
@@ -60,7 +62,7 @@ export function SituationBoardPage({
 }: SituationBoardPageProps) {
   useBrowserBackToIncidentList(onBrowserBackToIncidentList);
   const areaIncidentListNavigationHandlerRef = useRef<(() => void) | null>(null);
-  const [leftPanelPage, setLeftPanelPage] = useState<LeftPanelPage>('filter');
+  const [leftPanelPage, setLeftPanelPage] = useState<LeftPanelPage>('area');
   const [areaPanelMode, setAreaPanelMode] = useState<'tree' | 'assignment'>('tree');
   const [focusedMarkerRequest, setFocusedMarkerRequest] = useState({ markerId: null as string | null, sequence: 0 });
   const [focusedSearchAreaRequest, setFocusedSearchAreaRequest] = useState({
@@ -96,6 +98,8 @@ export function SituationBoardPage({
     : boardState.isHandoverWorkspaceOpen
       ? 'handover'
       : 'situationBoard';
+  const activeOperationalPeriodLabel =
+    boardState.board.operationalPeriods.find((operationalPeriod) => operationalPeriod.state === 'current')?.label ?? null;
   const isHandoverMapMode = !isClosedTerminalBoard && boardState.isHandoverWorkspaceOpen;
   const shouldHideSituationBoardMapData = isClosedTerminalBoard || isHandoverMapMode;
   const handleOpenIncidentList = useCallback(() => {
@@ -151,10 +155,9 @@ export function SituationBoardPage({
         <SituationBoardHeader
           activeTab={activeTab}
           apiBoard={boardState.apiBoard}
-          board={boardState.board}
+          activeOperationalPeriodLabel={activeOperationalPeriodLabel}
           currentUserAccount={currentUserAccount}
           incidentDetail={boardState.incidentDetail}
-          incidentTerminal={incidentTerminal}
           markerNotificationIndex={markerNotificationIndex}
           markerNotifications={markerNotifications}
           syncStatus={boardState.syncStatus}
@@ -163,6 +166,7 @@ export function SituationBoardPage({
           onOpenIncidentDetail={onOpenIncidentDetail}
           onOpenIncidentList={handleOpenIncidentList}
           onOpenOfflinePackage={onOpenOfflinePackage}
+          onOpenLogin={onOpenLogin}
           onOpenSituationBoard={
             boardState.isAreaWorkspaceOpen
               ? boardState.closeAreaWorkspace
@@ -245,6 +249,11 @@ export function SituationBoardPage({
           isTerminalBoard={isClosedTerminalBoard}
           legendItems={boardState.board.legendItems}
           layerVisibility={shouldHideSituationBoardMapData ? HIDDEN_MAP_LAYER_VISIBILITY : boardState.layerVisibility}
+          selectedLayerIds={boardState.selectedLayerIds}
+          selectedMarkerTypes={boardState.selectedMarkerTypes}
+          selectedPolicePhoneLegendFilters={boardState.selectedPolicePhoneLegendFilters}
+          selectedSearchAreaLegendFilters={boardState.selectedSearchAreaLegendFilters}
+          selectedSupportRequestTypes={boardState.selectedSupportRequestTypes}
           movementPaths={shouldHideSituationBoardMapData ? [] : boardState.board.movementPaths}
           recentMarkers={shouldHideSituationBoardMapData ? [] : boardState.mapRecentMarkers}
           operationalPeriods={shouldHideSituationBoardMapData ? [] : boardState.board.operationalPeriods}
@@ -260,6 +269,10 @@ export function SituationBoardPage({
           handoverMapProps={!isClosedTerminalBoard && boardState.isHandoverWorkspaceOpen ? boardState.handoverMapProps : null}
           searchAreaTree={boardState.board.searchAreaTree}
           onInitialMapStateChange={boardState.setInitialMapState}
+          onToggleLayer={boardState.toggleLayer}
+          onToggleMarkerType={boardState.toggleMarkerType}
+          onTogglePolicePhoneLegendFilter={boardState.togglePolicePhoneLegendFilter}
+          onToggleSearchAreaLegendFilter={boardState.toggleSearchAreaLegendFilter}
           onOpenSearchAreaAssign={handleOpenSearchAreaAssignment}
           onOpenSearchAreaSplit={boardState.openAreaWorkspace}
           onClearSelectedSearchArea={boardState.clearSelectedSearchArea}

@@ -1,7 +1,7 @@
 # API 구현 현황표
 
 작성일: 2026-05-11
-최종 갱신: 2026-05-12 KST
+최종 갱신: 2026-05-18 
 
 ## 목적
 
@@ -76,6 +76,7 @@
 | `GET /api/duty-shifts` | S8 | 부분 | `DutyShiftQueryController`, Web API client, Android read repository 추가 | board slot source provider 연결 |
 | `POST /api/handover-memos` | S8 | 부분 | `HandoverMemoController`, MyBatis `handover_memo` write, EventHub publish, Web client, Android outbox repository 추가 | durable idempotency와 board source provider 연결 |
 | `GET /api/handover-memos` | S8 | 부분 | `HandoverMemoController`, `HandoverMemoMapper`, Web/Android read client 추가 | S3-2 handover slot source provider 연결 |
+| `GET /api/operational-periods/{operationalPeriodId}/handover-timeline` | S8 | 구현 | `HandoverTimelineController`, `HandoverTimelineApiService`, path/marker/memo/summary timeline merge, actor PII masking | Web/Android 리플레이·보고서 화면 client 연결 |
 | `GET /api/operational-periods/{operationalPeriodId}/search-history-summaries` | S8 | 부분 | `SearchHistorySummaryController`, MyBatis read mapper, Web/Android read client, 서버 내부 generation enqueue 추가 | provider 실행과 READY/FAILED 전환, STALE 재생성 계산 보강 |
 | `GET /tiles/styles/{styleId}.json` | S7 | 구현 | `TileController` | FE `/tiles` proxy와 Android MapLibre style client 추가됨 |
 | `GET /tiles/{style}/{z}/{x}/{y}.pbf` | S7 | 구현 | `TileController` | Android MapLibre tile request header adapter 추가됨 |

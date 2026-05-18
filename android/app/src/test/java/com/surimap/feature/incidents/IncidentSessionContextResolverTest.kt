@@ -25,7 +25,7 @@ class IncidentSessionContextResolverTest {
                     assertEquals(INCIDENT_ID, incidentId)
                     SuriMapApiResponse(
                         statusCode = 200,
-                        body = """{"currentOpId":"$OP_ID","items":[]}""",
+                        body = """{"currentOpId":"$OP_ID","items":[{"id":"$OP_ID","sequenceNumber":2}]}""",
                         errorCode = null
                     )
                 }
@@ -35,6 +35,7 @@ class IncidentSessionContextResolverTest {
 
         assertEquals(INCIDENT_ID, context.incidentId)
         assertEquals(OP_ID, context.currentOpId)
+        assertEquals("OP 2차", context.currentOpLabel)
         assertNull(context.currentDutyShiftId)
     }
 
@@ -45,7 +46,7 @@ class IncidentSessionContextResolverTest {
                 operationalPeriods = {
                     SuriMapApiResponse(
                         statusCode = 200,
-                        body = """{"currentOpId":"$OP_ID","items":[]}""",
+                        body = """{"currentOpId":"$OP_ID","items":[{"id":"$OP_ID","sequenceNumber":1}]}""",
                         errorCode = null
                     )
                 },
@@ -65,6 +66,7 @@ class IncidentSessionContextResolverTest {
         val context = resolver.resolve(incident(currentOpId = null), policePhoneId = POLICE_PHONE_ID)
 
         assertEquals(OP_ID, context.currentOpId)
+        assertEquals("OP 1차", context.currentOpLabel)
         assertEquals(DUTY_SHIFT_ID, context.currentDutyShiftId)
     }
 

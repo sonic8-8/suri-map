@@ -5,7 +5,7 @@ import type { SituationBoardResponseDto } from '../../data/getSituationBoard';
 
 export function readSlotRows(board: SituationBoardResponseDto, slot: string): Record<string, unknown>[] {
   const value = board.slots[slot];
-  if (isRecord(value)) return [value];
+  if (isRecord(value) && Object.keys(value).length > 0) return [value];
   if (!Array.isArray(value)) return [];
   return value.filter(isRecord);
 }

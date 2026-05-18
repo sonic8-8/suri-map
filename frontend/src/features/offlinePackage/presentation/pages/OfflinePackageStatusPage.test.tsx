@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+﻿import { render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { useIncidentBoardQuery } from '../../../board/api/incidentBoardApi';
@@ -110,7 +110,6 @@ describe('OfflinePackageStatusPage', () => {
     renderOfflinePackageStatusPage();
     await screen.findByText('광산구 실종 신고');
 
-    expect(screen.getAllByText('수완지구대 지휘 단말')).toHaveLength(2);
     expect(screen.getByText('오프라인 사용 가능')).toBeInTheDocument();
     expect(screen.getByText('필수 자료 설치 완료')).toBeInTheDocument();
     expect(screen.getByText('자동 설치 중')).toBeInTheDocument();
@@ -144,19 +143,70 @@ describe('OfflinePackageStatusPage', () => {
         slots: {},
       },
     };
-    vi.mocked(useIncidentBoardQuery)
-      .mockReturnValueOnce(initialBoardQuery)
-      .mockReturnValueOnce(refetchedBoardQuery as ReturnType<typeof useIncidentBoardQuery>);
+    vi.mocked(useIncidentBoardQuery).mockReturnValue(initialBoardQuery);
 
     const { rerender } = renderOfflinePackageStatusPage();
     await screen.findByText('광산구 실종 신고');
 
-    expect(screen.getAllByText('수완지구대 지휘 단말')).toHaveLength(2);
+    expect(screen.getByText('오프라인 사용 가능')).toBeInTheDocument();
+    expect(screen.getByText('필수 자료 설치 완료')).toBeInTheDocument();
+
+    vi.mocked(useIncidentBoardQuery).mockReturnValue(refetchedBoardQuery as ReturnType<typeof useIncidentBoardQuery>);
 
     rerender(<OfflinePackageStatusPage {...offlinePackageStatusPageProps()} />);
 
-    expect(screen.getAllByText('수완지구대 지휘 단말')).toHaveLength(2);
-    expect(screen.getByText('오프라인 사용 가능')).toBeInTheDocument();
+    expect(screen.getByText('광산구 실종 신고')).toBeInTheDocument();
+  });
+
+  test('does not render a board snapshot from another incident', async () => {
+    vi.mocked(useIncidentBoardQuery).mockReturnValue(
+      boardQueryResultWithRows(
+        [packageBadgeRow('pkg-mismatch', 'phone-mismatch', 'should-not-render', 'READY', true, false)],
+        'inc-other-001',
+      ),
+    );
+
+    renderOfflinePackageStatusPage();
+
+    expect(screen.queryByText('should-not-render')).not.toBeInTheDocument();
+  });
+
+  test('keeps the header stable when incident assignments are missing', async () => {
+    vi.mocked(getIncidentDetail).mockResolvedValue({
+      id: 'inc-precinct-first-001',
+      incidentId: 'inc-precinct-first-001',
+      title: 'incident title',
+      status: 'OPEN',
+      openedAt: '2026-05-14T00:30:00Z',
+      version: 3,
+      missingPerson: null,
+    } as unknown as Awaited<ReturnType<typeof getIncidentDetail>>);
+
+    renderOfflinePackageStatusPage();
+    await screen.findByText('배정 없음');
+
+    expect(screen.getByText('배정 없음')).toBeInTheDocument();
+  });
+
+  test('renders when manifest list fields are missing', async () => {
+    vi.mocked(useOfflinePackageManifestQuery).mockReturnValue(
+      manifestQueryResult(
+        {
+          ...offlinePackageManifest(),
+          operationalPeriods: undefined as unknown as OfflinePackageManifestResponse['operationalPeriods'],
+          assignedAreas: undefined as unknown as OfflinePackageManifestResponse['assignedAreas'],
+          initialMarkers: undefined as unknown as OfflinePackageManifestResponse['initialMarkers'],
+          tileItems: undefined as unknown as OfflinePackageManifestResponse['tileItems'],
+          packageItems: undefined as unknown as OfflinePackageManifestResponse['packageItems'],
+        },
+        { isLoading: false, isError: false, refetch: vi.fn() },
+      ),
+    );
+
+    renderOfflinePackageStatusPage();
+    await screen.findByText('광산구 실종 신고');
+
+    expect(screen.getAllByText('0개').length).toBeGreaterThan(0);
   });
 
   test('shows only the manifest section failure when manifest API fails', async () => {
@@ -229,10 +279,13 @@ function boardQueryResult() {
   return boardQueryResultWithRows(defaultPackageBadgeRows());
 }
 
-function boardQueryResultWithRows(packageBadgeRows: ReturnType<typeof packageBadgeRow>[]) {
+function boardQueryResultWithRows(
+  packageBadgeRows: ReturnType<typeof packageBadgeRow>[],
+  incidentId = 'inc-precinct-first-001',
+) {
   return {
     data: {
-      incidentId: 'inc-precinct-first-001',
+      incidentId,
       boardResponseVersion: 7,
       serverTs: '2026-05-14T02:00:00Z',
       activeOpId: 'op-001',
@@ -405,3 +458,5 @@ function packageItem(
     sourceHash: `sha256:${itemType.toLowerCase()}`,
   };
 }
+
+

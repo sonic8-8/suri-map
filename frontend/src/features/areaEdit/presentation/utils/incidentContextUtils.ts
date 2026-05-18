@@ -25,7 +25,7 @@ function formatKstDateTime(date: Date) {
       return dateParts;
     }, {});
 
-  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute} KST`;
+  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`;
 }
 
 export function formatKstDateTimeFromString(isoString: string) {

@@ -24,6 +24,7 @@ data class SearchMapSessionContext(
     val incidentId: String?,
     val currentOpId: String?,
     val currentDutyShiftId: String?,
+    val currentOpLabel: String? = null,
     val policePhoneId: String? = null
 )
 
@@ -91,13 +92,15 @@ class SearchMapStateLoader(
         return SearchMapUiState(
             incidentTitle = incidentTitle,
             missingPersonSummary = "실종자 정보 확인 중",
-            opLabel = context.currentOpId?.takeIf(String::isNotBlank)?.let { opId -> "OP $opId" } ?: "OP 확인 필요",
+            opLabel = context.currentOpLabel?.takeIf(String::isNotBlank)
+                ?: context.currentOpId?.takeIf(String::isNotBlank)?.let { opId -> "OP $opId" }
+                ?: "OP 확인 필요",
             dutyShiftLabel =
             context.currentDutyShiftId
                 ?.takeIf(String::isNotBlank)
                 ?.let { dutyShiftId -> "DutyShift $dutyShiftId" }
                 ?: "DutyShift 확인 필요",
-            assignmentLabel = "담당 구역 확인 중",
+            assignmentLabel = "",
             syncStatus =
             if (normalUnsentCount > 0) {
                 SearchMapSyncStatus.Offline
@@ -166,6 +169,7 @@ class SearchMapStateLoader(
             return state
         }
         return state.copy(
+            assignmentLabel = opLayers.assignmentLabel() ?: state.assignmentLabel,
             layers =
             state.layers
                 .filterNot { layer -> layer.kind != SearchLayerKind.Overall && layer.geoJson == null } + opLayers
@@ -210,6 +214,7 @@ class SearchMapStateLoader(
                     "경로 ${pathLayerResult.layers.size}개 표시"
                 },
                 layers = state.layers + pathLayerResult.layers,
+                lifecycleStatus = pathLayerResult.activeLifecycleStatus ?: state.lifecycleStatus,
                 activeSearchPathId = pathLayerResult.activePathId,
                 activeSearchPathStartedAtEpochMs = pathLayerResult.activeStartedAtEpochMs
             )
@@ -288,7 +293,9 @@ class SearchMapStateLoader(
                 }
             },
             missingPersonSummary = missingPersonSummary(json.optJSONObject("missingPerson")),
-            opLabel = context.currentOpId?.takeIf(String::isNotBlank)?.let { opId -> "OP $opId" } ?: fallback.opLabel,
+            opLabel = context.currentOpLabel?.takeIf(String::isNotBlank)
+                ?: context.currentOpId?.takeIf(String::isNotBlank)?.let { opId -> "OP $opId" }
+                ?: fallback.opLabel,
             dutyShiftLabel =
             context.currentDutyShiftId
                 ?.takeIf(String::isNotBlank)
@@ -408,18 +415,31 @@ class SearchMapStateLoader(
             )
         }
 
+    private fun List<SearchMapLayerUiState>.assignmentLabel(): String? =
+        firstOrNull { layer -> layer.kind == SearchLayerKind.Team }
+            ?.label
+            ?.takeIf(String::isNotBlank)
+
     private fun searchPathLayers(body: String): SearchPathLayerResult {
         val root = runCatching { JSONObject(body) }.getOrNull() ?: return SearchPathLayerResult()
         val paths = root.optJSONArray("paths") ?: root.optJSONArray("items") ?: return SearchPathLayerResult()
         var activePathId: String? = null
         var activeStartedAtEpochMs: Long? = null
+        var activeLifecycleStatus: SearchLifecycleStatus? = null
         val layers = buildList {
             repeat(paths.length()) { index ->
                 val path = paths.optJSONObject(index) ?: return@repeat
-                val active = path.optString("status").uppercase() in setOf("ACTIVE", "RECORDING")
+                val status = path.optString("status").uppercase()
+                val active = status in setOf("ACTIVE", "RECORDING", "PAUSED")
                 if (active) {
                     activePathId = path.optString("id").takeIf(String::isNotBlank) ?: activePathId
                     activeStartedAtEpochMs = path.instantMillis("startedAt") ?: activeStartedAtEpochMs
+                    activeLifecycleStatus =
+                        if (status == "PAUSED") {
+                            SearchLifecycleStatus.Paused
+                        } else {
+                            SearchLifecycleStatus.Active
+                        }
                 }
                 val geometry = path.optJSONObject("geometry") ?: return@repeat
                 if (!geometry.optString("type").equals("LineString", ignoreCase = true)) {
@@ -439,14 +459,16 @@ class SearchMapStateLoader(
         return SearchPathLayerResult(
             layers = layers,
             activePathId = activePathId,
-            activeStartedAtEpochMs = activeStartedAtEpochMs
+            activeStartedAtEpochMs = activeStartedAtEpochMs,
+            activeLifecycleStatus = activeLifecycleStatus
         )
     }
 
     private data class SearchPathLayerResult(
         val layers: List<SearchMapLayerUiState> = emptyList(),
         val activePathId: String? = null,
-        val activeStartedAtEpochMs: Long? = null
+        val activeStartedAtEpochMs: Long? = null,
+        val activeLifecycleStatus: SearchLifecycleStatus? = null
     )
 
     private fun JSONObject.searchLayerKind(): SearchLayerKind? {

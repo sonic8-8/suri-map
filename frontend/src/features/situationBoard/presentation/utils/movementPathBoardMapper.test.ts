@@ -154,6 +154,7 @@ function createMovementPath(overrides: Partial<MovementPath>): MovementPath {
     id: 'path-a',
     policePhoneId: POLICE_PHONE_ID,
     accountId: ACCOUNT_ID,
+    freshnessStatus: 'UNKNOWN',
     routeColor: null,
     opId: OP_ID,
     label: 'Path A',

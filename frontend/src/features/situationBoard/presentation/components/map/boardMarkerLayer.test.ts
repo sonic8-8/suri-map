@@ -12,6 +12,8 @@ describe('boardMarkerLayer marker visuals', () => {
     expect(createMarkerSymbolSvg('CLUE', 'base')).toContain('#f59e0b');
     expect(createMarkerSymbolSvg('PERSON_FOUND', 'base')).toContain('#ef4444');
     expect(createMarkerSymbolSvg('FIELD_CONDITION', 'base')).toContain('#22c55e');
+    expect(createMarkerSymbolSvg('SUPPORT_REQUEST', 'base', 'drone')).toContain('#06b6d4');
+    expect(createMarkerSymbolSvg('SUPPORT_REQUEST', 'base', 'dog')).toContain('#f472b6');
     expect(createMarkerSymbolSvg('SUPPORT_REQUEST', 'base')).toContain('#8b5cf6');
     expect(createMarkerSymbolSvg('NOTE', 'base')).toContain('#3b82f6');
     expect(createMarkerSymbolSvg('UNKNOWN', 'base')).toContain('#94a3b8');

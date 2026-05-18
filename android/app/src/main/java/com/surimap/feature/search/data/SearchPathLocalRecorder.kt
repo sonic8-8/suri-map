@@ -1,8 +1,9 @@
 package com.surimap.feature.search.data
 
 import com.surimap.core.path.AppendPathBatchCommand
-import com.surimap.core.path.EndSearchPathCommand
 import com.surimap.core.path.PathPoint
+import com.surimap.core.path.PatchSearchPathCommand
+import com.surimap.core.path.SearchPathLifecycleAction
 import com.surimap.core.path.SearchPathRepository
 import com.surimap.core.path.StartSearchPathCommand
 import com.surimap.core.sync.SyncClient
@@ -98,19 +99,55 @@ class SearchPathLocalRecorder(
     suspend fun end(
         context: SearchPathWriteContext,
         searchPathId: String?
+    ): SearchPathWriteResult =
+        patchLifecycle(
+            context = context,
+            searchPathId = searchPathId,
+            action = SearchPathLifecycleAction.END,
+            operationPrefix = "op-path-end"
+        )
+
+    suspend fun pause(
+        context: SearchPathWriteContext,
+        searchPathId: String?
+    ): SearchPathWriteResult =
+        patchLifecycle(
+            context = context,
+            searchPathId = searchPathId,
+            action = SearchPathLifecycleAction.PAUSE,
+            operationPrefix = "op-path-pause"
+        )
+
+    suspend fun resume(
+        context: SearchPathWriteContext,
+        searchPathId: String?
+    ): SearchPathWriteResult =
+        patchLifecycle(
+            context = context,
+            searchPathId = searchPathId,
+            action = SearchPathLifecycleAction.RESUME,
+            operationPrefix = "op-path-resume"
+        )
+
+    private suspend fun patchLifecycle(
+        context: SearchPathWriteContext,
+        searchPathId: String?,
+        action: SearchPathLifecycleAction,
+        operationPrefix: String
     ): SearchPathWriteResult {
         val valid = context.valid() ?: return SearchPathWriteResult.Blocked
         val pathId = searchPathId?.takeIf(String::isNotBlank) ?: return SearchPathWriteResult.Blocked
-        val operationId = idFactory("op-path-end")
+        val operationId = idFactory(operationPrefix)
         val clientTs = now()
         val result =
-            repository.endSearchPath(
-                EndSearchPathCommand(
+            repository.patchSearchPath(
+                PatchSearchPathCommand(
                     operationId = operationId,
                     incidentId = valid.incidentId,
                     opId = valid.opId,
                     searchPathId = pathId,
                     policePhoneId = valid.policePhoneId,
+                    action = action,
                     idempotencyKey = "idem-$operationId",
                     sequence = sequenceSource(),
                     clientTs = clientTs,

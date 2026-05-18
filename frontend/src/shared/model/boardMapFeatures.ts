@@ -259,6 +259,7 @@ function createMovementPathFeature(
     opId: path.opId,
     policePhoneId: path.policePhoneId ?? '',
     accountId: path.accountId ?? '',
+    freshnessStatus: path.freshnessStatus,
     deviceColor: path.routeColor ?? options.fallbackColor ?? '',
     routeCoreColor: getRouteCoreColor(path.routeColor ?? options.fallbackColor),
     movementType: path.movementType,

@@ -40,6 +40,7 @@ type IncidentDetailPageProps = {
   onBrowserBackToIncidentList?: () => void;
   onOpenOfflinePackage: () => void;
   onOpenSituationBoard: () => void;
+  onOpenLogin?: () => void;
 };
 
 export function IncidentDetailPage({
@@ -54,6 +55,7 @@ export function IncidentDetailPage({
   onBrowserBackToIncidentList,
   onOpenOfflinePackage,
   onOpenSituationBoard,
+  onOpenLogin,
 }: IncidentDetailPageProps) {
   useBrowserBackToIncidentList(onBrowserBackToIncidentList);
   const detailQuery = useIncidentDetailQuery(incidentId);
@@ -72,12 +74,14 @@ export function IncidentDetailPage({
           incidentContext={incidentContext}
           markerNotificationIndex={markerNotificationIndex}
           markerNotifications={markerNotifications}
+          showIncidentContextBar={false}
           timestampLabel={timestampLabel}
           onCloseMarkerNotifications={onCloseMarkerNotifications}
           onMoveMarkerNotification={onMoveMarkerNotification}
           onOpenHandover={isClosed ? undefined : onOpenHandover}
           onOpenIncidentList={onOpenIncidentList}
           onOpenOfflinePackage={onOpenOfflinePackage}
+          onOpenLogin={onOpenLogin}
           onOpenSituationBoard={onOpenSituationBoard}
         />
       </div>
@@ -477,7 +481,7 @@ function formatKstDateTime(date: Date) {
       return dateParts;
     }, {});
 
-  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute} KST`;
+  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`;
 }
 
 function formatPhotoStatus(missingPerson: IncidentMissingPersonSummary) {
