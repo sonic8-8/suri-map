@@ -50,7 +50,7 @@ import java.util.UUID;
 /** Test-local SC-05 path/segment harness runner. */
 public class Sc05PathSegmentHarnessRunner {
 
-  private static final ZoneOffset KST = ZoneOffset.ofHours(9);
+  private static final ZoneOffset SEOUL_OFFSET = ZoneOffset.ofHours(9);
   private static final DateTimeFormatter OFFSET_SECONDS =
       DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX");
   private static final String SCENARIO_ID = "SC-05";
@@ -833,7 +833,7 @@ public class Sc05PathSegmentHarnessRunner {
   }
 
   private static String formatKst(Instant instant) {
-    return OffsetDateTime.ofInstant(instant, KST).toString();
+    return OffsetDateTime.ofInstant(instant, SEOUL_OFFSET).toString();
   }
 
   private record QualityProbe(
