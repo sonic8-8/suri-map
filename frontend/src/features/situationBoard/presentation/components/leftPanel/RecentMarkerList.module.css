@@ -3,25 +3,25 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 12px;
-  padding: 9px 10px;
+  margin-bottom: 14px;
+  padding: 11px 12px;
   border: 1px solid var(--suri-board-border);
   border-radius: 4px;
   color: var(--suri-board-fg-secondary);
   background: var(--suri-board-panel-surface);
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 700;
 }
 
 .summaryBar strong {
   color: var(--suri-board-fg-primary);
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 800;
 }
 
 .feed {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -29,9 +29,9 @@
 
 .feedItem {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   min-width: 0;
-  padding: 10px 11px;
+  padding: 12px 13px;
   border: 1px solid color-mix(in srgb, var(--marker-identity-color) 24%, var(--suri-board-border));
   border-radius: 4px;
   color: var(--suri-board-fg-primary);
@@ -76,7 +76,7 @@
 
 .itemBody {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -84,14 +84,14 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   min-width: 0;
 }
 
 .identityGroup {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -100,8 +100,8 @@
   flex: none;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border: 1px solid color-mix(in srgb, var(--marker-identity-color) 64%, #0f172a);
   border-radius: 999px;
   color: #f8fafc;
@@ -112,8 +112,8 @@
 }
 
 .markerIconBadge svg {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
 }
 
 .itemTitle {
@@ -121,7 +121,7 @@
   overflow: hidden;
   min-width: 0;
   color: var(--suri-board-fg-primary);
-  font-size: 19px;
+  font-size: 20px;
   font-weight: 800;
   line-height: 1.35;
   text-overflow: ellipsis;
@@ -133,7 +133,7 @@
   overflow: hidden;
   min-width: 0;
   color: color-mix(in srgb, var(--marker-identity-color) 28%, var(--suri-board-fg-muted));
-  font-size: 16px;
+  font-size: 17px;
   line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -148,12 +148,12 @@
 .detailChip {
   overflow: hidden;
   max-width: 100%;
-  padding: 3px 6px;
+  padding: 4px 8px;
   border: 1px solid color-mix(in srgb, var(--marker-identity-color) 18%, var(--suri-board-border));
   border-radius: 4px;
   color: var(--suri-board-fg-secondary);
   background: color-mix(in srgb, var(--marker-identity-color) 5%, var(--suri-board-panel-bg));
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   line-height: 1.25;
   text-overflow: ellipsis;
@@ -163,14 +163,14 @@
 .memo {
   margin: 0;
   color: var(--suri-board-fg-secondary);
-  font-size: 16px;
+  font-size: 17px;
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
 
 .eventTime {
   color: var(--suri-board-fg-muted);
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.2;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -182,12 +182,12 @@
   overflow: hidden;
   max-width: 100%;
   min-width: 0;
-  padding: 4px 8px;
+  padding: 5px 10px;
   border: 1px solid color-mix(in srgb, var(--marker-identity-color) 68%, var(--suri-board-border));
   border-radius: 999px;
   color: color-mix(in srgb, var(--marker-identity-color) 70%, var(--suri-board-fg-primary));
   background: color-mix(in srgb, var(--marker-identity-color) 14%, var(--suri-board-panel-bg));
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   line-height: 1.25;
   text-align: center;
@@ -196,11 +196,11 @@
 }
 
 .emptyState {
-  padding: 12px;
+  padding: 14px;
   border: 1px solid var(--suri-board-border);
   border-radius: 4px;
   color: var(--suri-board-fg-muted);
   background: var(--suri-board-panel-surface);
-  font-size: 17px;
+  font-size: 18px;
   line-height: 1.45;
 }

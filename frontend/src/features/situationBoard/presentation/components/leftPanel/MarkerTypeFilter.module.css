@@ -63,35 +63,35 @@
 .compactMarkerChipList {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
+  gap: 8px;
 }
 
 .compactMarkerButton {
-  padding: 3px 2px;
+  padding: 4px 3px;
 }
 
 .compactMarkerButton span {
-  font-size: 14px;
+  font-size: 15px;
 }
 
 .compactMarkerButton svg {
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
 }
 
 .compactMarkerSupportGroup {
   display: grid;
   gap: 8px;
-  margin-top: 28px;
+  margin-top: 32px;
   padding: 0;
   border-top: 0;
 }
 
 .compactMarkerSupportList {
   display: grid;
-  width: calc(75% - 1.5px);
+  width: calc(75% - 2px);
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
+  gap: 8px;
   justify-self: center;
 }
 

@@ -51,7 +51,7 @@ const leftPanelTabs = allLeftPanelTabs.filter((tab) => tab.page !== legacyFilter
 const leftPanelWidthByPage: Record<LeftPanelPage, string> = {
   filter: '224px',
   area: '420px',
-  marker: '360px',
+  marker: '420px',
 };
 
 const shouldShowLegacyFilterPanel = false;
