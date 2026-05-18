@@ -7,6 +7,7 @@ import androidx.work.ListenableWorker
 import androidx.work.testing.SynchronousExecutor
 import androidx.work.testing.TestListenableWorkerBuilder
 import androidx.work.testing.WorkManagerTestInitHelper
+import com.surimap.core.network.AccessTokenProvider
 import com.surimap.testing.incidentIdFixture
 import com.surimap.testing.policePhoneIdFixture
 import kotlinx.coroutines.runBlocking
@@ -27,6 +28,7 @@ class OutboxWorkerTest {
         LocalSyncRuntime.outboxReplay = null
         LocalSyncRuntime.outboxReplayProvider = null
         LocalSyncRuntime.outboxReplayScheduler = null
+        LocalSyncRuntime.accessTokenProvider = null
     }
 
     @Test
@@ -71,6 +73,7 @@ class OutboxWorkerTest {
                     }
                 }
             }
+        LocalSyncRuntime.accessTokenProvider = AccessTokenProvider { "bootstrap-token-1" }
         val worker = TestListenableWorkerBuilder<OutboxWorker>(
             RuntimeEnvironment.getApplication()
         )
@@ -79,7 +82,6 @@ class OutboxWorkerTest {
                     .putString(OutboxWorker.KEY_INCIDENT_ID, INCIDENT_ID)
                     .putString(OutboxWorker.KEY_POLICE_PHONE_ID, POLICE_PHONE_ID)
                     .putString(OutboxWorker.KEY_API_BASE_URL, "https://suri-map.internal")
-                    .putString(OutboxWorker.KEY_ACCESS_TOKEN, "bootstrap-token-1")
                     .build()
             )
             .build()

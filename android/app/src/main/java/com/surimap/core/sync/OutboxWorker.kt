@@ -12,6 +12,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.surimap.BuildConfig
+import com.surimap.core.auth.OidcAccessTokenProvider
 import com.surimap.core.database.SuriMapDatabaseProvider
 import com.surimap.core.network.AccessTokenProvider
 import com.surimap.core.network.AndroidNetworkFactory
@@ -21,7 +22,6 @@ data class OutboxReplayWorkRequest(
     val incidentId: String,
     val policePhoneId: String,
     val apiBaseUrl: String = BuildConfig.SURI_MAP_API_BASE_URL,
-    val accessToken: String? = null,
     val requireConnectedNetworkConstraint: Boolean = !BuildConfig.DEBUG
 ) {
     val uniqueWorkName: String = "outbox-replay-$incidentId-$policePhoneId"
@@ -32,8 +32,7 @@ data class OutboxReplayWorkRequest(
                 workDataOf(
                     OutboxWorker.KEY_INCIDENT_ID to incidentId,
                     OutboxWorker.KEY_POLICE_PHONE_ID to policePhoneId,
-                    OutboxWorker.KEY_API_BASE_URL to apiBaseUrl,
-                    OutboxWorker.KEY_ACCESS_TOKEN to accessToken
+                    OutboxWorker.KEY_API_BASE_URL to apiBaseUrl
                 )
             )
             .setConstraints(
@@ -77,8 +76,7 @@ class OutboxReplayScheduler(
 class SchedulingSyncClient(
     private val delegate: SyncClient,
     private val scheduleReplay: (OutboxReplayWorkRequest) -> Unit,
-    private val apiBaseUrl: String,
-    private val accessToken: String? = null
+    private val apiBaseUrl: String
 ) : SyncClient {
     override suspend fun enqueue(writeOperation: LocalWriteOperation): EnqueueResult {
         val result = delegate.enqueue(writeOperation)
@@ -87,8 +85,7 @@ class SchedulingSyncClient(
                 OutboxReplayWorkRequest(
                     incidentId = writeOperation.incidentId,
                     policePhoneId = writeOperation.policePhoneId,
-                    apiBaseUrl = apiBaseUrl,
-                    accessToken = accessToken
+                    apiBaseUrl = apiBaseUrl
                 )
             )
         }
@@ -108,6 +105,7 @@ object LocalSyncRuntime {
     var outboxReplay: OutboxReplay? = null
     var outboxReplayProvider: OutboxReplayProvider? = null
     var outboxReplayScheduler: ((OutboxReplayWorkRequest) -> Unit)? = null
+    var accessTokenProvider: AccessTokenProvider? = null
 }
 
 class OutboxWorker(appContext: Context, workerParameters: WorkerParameters) :
@@ -119,10 +117,12 @@ class OutboxWorker(appContext: Context, workerParameters: WorkerParameters) :
         val apiBaseUrl = inputData.getString(KEY_API_BASE_URL)
             ?.takeIf(String::isNotBlank)
             ?: BuildConfig.SURI_MAP_API_BASE_URL
-        val accessToken = inputData.getString(KEY_ACCESS_TOKEN)?.takeIf(String::isNotBlank)
         if (incidentId == null || policePhoneId == null) {
             return Result.failure()
         }
+        val accessTokenProvider = LocalSyncRuntime.accessTokenProvider
+            ?: OidcAccessTokenProvider(applicationContext)
+        val accessToken = accessTokenProvider.accessToken()
         val replay = LocalSyncRuntime.outboxReplay
             ?: LocalSyncRuntime.outboxReplayProvider?.create(applicationContext, apiBaseUrl, accessToken)
             ?: createRoomOutboxReplay(applicationContext, apiBaseUrl, accessToken)
@@ -155,6 +155,5 @@ class OutboxWorker(appContext: Context, workerParameters: WorkerParameters) :
         const val KEY_INCIDENT_ID = "incidentId"
         const val KEY_POLICE_PHONE_ID = "policePhoneId"
         const val KEY_API_BASE_URL = "apiBaseUrl"
-        const val KEY_ACCESS_TOKEN = "accessToken"
     }
 }
