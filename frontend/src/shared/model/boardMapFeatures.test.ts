@@ -76,6 +76,15 @@ describe('boardMapFeatures', () => {
     expect(collection.features[0].properties.deviceColor).toBe('#12abef');
     expect(collection.features[0].properties.routeCoreColor).toBe('#12abef');
   });
+
+  test('emits police phone freshness status on movement path features', () => {
+    const collection = createMovementPathFeatureCollection(
+      [createMovementPath({ freshnessStatus: 'LOST' })],
+      OP_ID,
+    );
+
+    expect(collection.features[0].properties.freshnessStatus).toBe('LOST');
+  });
 });
 
 function createMovementPath(overrides: Partial<BoardMovementPath> = {}): BoardMovementPath {
@@ -83,6 +92,7 @@ function createMovementPath(overrides: Partial<BoardMovementPath> = {}): BoardMo
     id: 'path-a',
     policePhoneId: null,
     accountId: null,
+    freshnessStatus: 'UNKNOWN',
     routeColor: null,
     opId: OP_ID,
     label: 'Path A',

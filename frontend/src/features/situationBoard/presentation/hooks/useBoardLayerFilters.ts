@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import type {
   LayerFilterId,
   MarkerTypeId,
+  PolicePhoneLegendFilterId,
   RecentMarker,
+  SearchAreaLegendFilterId,
   SituationBoardFallbackData,
   SupportRequestTypeId,
 } from '../constants/mockSituationBoard';
@@ -15,6 +17,18 @@ type UseBoardLayerFiltersParams = {
 
 const DEFAULT_SELECTED_MARKER_TYPES: MarkerTypeId[] = ['CLUE', 'PERSON_FOUND', 'FIELD_CONDITION', 'NOTE'];
 const DEFAULT_SELECTED_SUPPORT_REQUEST_TYPES: SupportRequestTypeId[] = ['DRONE', 'POLICE_DOG', 'OTHER'];
+const DEFAULT_SELECTED_SEARCH_AREA_LEGEND_FILTERS: SearchAreaLegendFilterId[] = [
+  'overall_area',
+  'unit_area',
+  'team_area',
+  'completed_team_area',
+];
+const DEFAULT_SELECTED_POLICE_PHONE_LEGEND_FILTERS: PolicePhoneLegendFilterId[] = [
+  'active_phone',
+  'phone_online',
+  'phone_stale',
+  'phone_lost',
+];
 
 export function useBoardLayerFilters({
   incidentId,
@@ -29,6 +43,12 @@ export function useBoardLayerFilters({
   const [selectedMarkerTypes, setSelectedMarkerTypes] = useState<MarkerTypeId[]>(DEFAULT_SELECTED_MARKER_TYPES);
   const [selectedSupportRequestTypes, setSelectedSupportRequestTypes] = useState<SupportRequestTypeId[]>(
     DEFAULT_SELECTED_SUPPORT_REQUEST_TYPES,
+  );
+  const [selectedSearchAreaLegendFilters, setSelectedSearchAreaLegendFilters] = useState<SearchAreaLegendFilterId[]>(
+    DEFAULT_SELECTED_SEARCH_AREA_LEGEND_FILTERS,
+  );
+  const [selectedPolicePhoneLegendFilters, setSelectedPolicePhoneLegendFilters] = useState<PolicePhoneLegendFilterId[]>(
+    DEFAULT_SELECTED_POLICE_PHONE_LEGEND_FILTERS,
   );
 
   const mapRecentMarkers = useMemo(
@@ -93,6 +113,22 @@ export function useBoardLayerFilters({
     );
   };
 
+  const toggleSearchAreaLegendFilter = (filterId: SearchAreaLegendFilterId) => {
+    setSelectedSearchAreaLegendFilters((currentFilterIds) =>
+      currentFilterIds.includes(filterId)
+        ? currentFilterIds.filter((currentFilterId) => currentFilterId !== filterId)
+        : [...currentFilterIds, filterId],
+    );
+  };
+
+  const togglePolicePhoneLegendFilter = (filterId: PolicePhoneLegendFilterId) => {
+    setSelectedPolicePhoneLegendFilters((currentFilterIds) =>
+      currentFilterIds.includes(filterId)
+        ? currentFilterIds.filter((currentFilterId) => currentFilterId !== filterId)
+        : [...currentFilterIds, filterId],
+    );
+  };
+
   useEffect(() => {
     setSelectedLayerIds(defaultSelectedLayerIds);
   }, [defaultSelectedLayerIds, incidentId]);
@@ -100,6 +136,8 @@ export function useBoardLayerFilters({
   useEffect(() => {
     setSelectedMarkerTypes(DEFAULT_SELECTED_MARKER_TYPES);
     setSelectedSupportRequestTypes(DEFAULT_SELECTED_SUPPORT_REQUEST_TYPES);
+    setSelectedSearchAreaLegendFilters(DEFAULT_SELECTED_SEARCH_AREA_LEGEND_FILTERS);
+    setSelectedPolicePhoneLegendFilters(DEFAULT_SELECTED_POLICE_PHONE_LEGEND_FILTERS);
   }, [incidentId]);
 
   return {
@@ -108,9 +146,13 @@ export function useBoardLayerFilters({
     mapRecentMarkers,
     selectedLayerIds,
     selectedMarkerTypes,
+    selectedPolicePhoneLegendFilters,
+    selectedSearchAreaLegendFilters,
     selectedSupportRequestTypes,
     toggleLayer,
     toggleMarkerType,
+    togglePolicePhoneLegendFilter,
+    toggleSearchAreaLegendFilter,
     visibleMarkerIds,
   };
 }

@@ -91,6 +91,8 @@ export function useSituationBoardPageState({
     saveAssignedAreas,
     selectedLayerIds: layerFilters.selectedLayerIds,
     selectedMarkerTypes: layerFilters.selectedMarkerTypes,
+    selectedPolicePhoneLegendFilters: layerFilters.selectedPolicePhoneLegendFilters,
+    selectedSearchAreaLegendFilters: layerFilters.selectedSearchAreaLegendFilters,
     selectedSearchAreaId: workspaceMode.selectedSearchAreaId,
     selectSearchArea: workspaceMode.selectSearchArea,
     selectedSupportRequestTypes: layerFilters.selectedSupportRequestTypes,
@@ -103,6 +105,8 @@ export function useSituationBoardPageState({
     toggleLeftPanelCollapsed,
     toggleMapExpanded: workspaceMode.toggleMapExpanded,
     toggleMarkerType: layerFilters.toggleMarkerType,
+    togglePolicePhoneLegendFilter: layerFilters.togglePolicePhoneLegendFilter,
+    toggleSearchAreaLegendFilter: layerFilters.toggleSearchAreaLegendFilter,
     toggleSelectedSearchArea: workspaceMode.toggleSelectedSearchArea,
     visibleMarkerIds: layerFilters.visibleMarkerIds,
   };
