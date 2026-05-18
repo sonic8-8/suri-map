@@ -104,6 +104,7 @@ import com.surimap.feature.handover.ui.HandoverMemoTarget
 import com.surimap.feature.handover.ui.HandoverMemoUiState
 import com.surimap.feature.incidents.data.IncidentListStateLoader
 import com.surimap.feature.incidents.data.IncidentSessionContextResolver
+import com.surimap.feature.incidents.ui.AssignedIncidentUiModel
 import com.surimap.feature.incidents.ui.IncidentListScreen
 import com.surimap.feature.incidents.ui.IncidentListUiState
 import com.surimap.feature.marker.data.HttpObjectStorageUploader
@@ -1781,14 +1782,30 @@ private fun IncidentListRoute(
         state = state,
         onOpenIncident = { incident ->
             coroutineScope.launch {
-                val resolvedContext =
-                    contextResolver.resolve(incident, policePhoneId = policePhoneContext?.policePhoneId)
-                clockSyncState.syncClockForIncident(resolvedContext.incidentId, policePhoneContext)
-                if (resolvedContext.currentDutyShiftId.isNullOrBlank()) {
-                    dutyShiftRecorder.start(resolvedContext.toDutyShiftWriteContext(policePhoneContext))
-                }
-                incidentSessionState.activateIncidentContext(resolvedContext)
-                navController.navigateToSingleTop(PolicePhoneRoute.OfflinePackage)
+                openIncidentRoute(
+                    incident = incident,
+                    policePhoneContext = policePhoneContext,
+                    contextResolver = contextResolver,
+                    clockSyncState = clockSyncState,
+                    dutyShiftRecorder = dutyShiftRecorder,
+                    incidentSessionState = incidentSessionState,
+                    navController = navController,
+                    route = PolicePhoneRoute.SearchMap
+                )
+            }
+        },
+        onOpenOfflinePackage = { incident ->
+            coroutineScope.launch {
+                openIncidentRoute(
+                    incident = incident,
+                    policePhoneContext = policePhoneContext,
+                    contextResolver = contextResolver,
+                    clockSyncState = clockSyncState,
+                    dutyShiftRecorder = dutyShiftRecorder,
+                    incidentSessionState = incidentSessionState,
+                    navController = navController,
+                    route = PolicePhoneRoute.OfflinePackage
+                )
             }
         },
         onRefresh = { manualRefreshNonce += 1 },
@@ -1797,6 +1814,26 @@ private fun IncidentListRoute(
             incidentSessionState.clearIncidentContext()
         }
     )
+}
+
+private suspend fun openIncidentRoute(
+    incident: AssignedIncidentUiModel,
+    policePhoneContext: PolicePhoneContext?,
+    contextResolver: IncidentSessionContextResolver,
+    clockSyncState: ClockSyncState,
+    dutyShiftRecorder: DutyShiftLocalRecorder,
+    incidentSessionState: IncidentSessionState,
+    navController: NavHostController,
+    route: PolicePhoneRoute
+) {
+    val resolvedContext =
+        contextResolver.resolve(incident, policePhoneId = policePhoneContext?.policePhoneId)
+    clockSyncState.syncClockForIncident(resolvedContext.incidentId, policePhoneContext)
+    if (resolvedContext.currentDutyShiftId.isNullOrBlank()) {
+        dutyShiftRecorder.start(resolvedContext.toDutyShiftWriteContext(policePhoneContext))
+    }
+    incidentSessionState.activateIncidentContext(resolvedContext)
+    navController.navigateToSingleTop(route)
 }
 
 private fun ManagedPolicePhoneConfig.toPolicePhoneContext(

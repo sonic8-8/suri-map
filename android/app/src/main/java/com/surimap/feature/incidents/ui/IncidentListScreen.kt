@@ -68,8 +68,7 @@ data class IncidentListUiState(
     val primaryOpenLabel: String =
         when {
             incidents.isEmpty() -> "선택한 사건 열기"
-            incidents.first().currentDutyShiftId.isNullOrBlank() -> "근무 시작 후 사건 열기"
-            else -> "선택한 사건 열기"
+            else -> "현장 기록 열기"
         }
 
     companion object {
@@ -150,6 +149,7 @@ data class AssignedIncidentUiModel(
 fun IncidentListScreen(
     state: IncidentListUiState,
     onOpenIncident: (AssignedIncidentUiModel) -> Unit,
+    onOpenOfflinePackage: (AssignedIncidentUiModel) -> Unit,
     onRefresh: () -> Unit,
     onDismissClosedDialog: () -> Unit,
     modifier: Modifier = Modifier
@@ -199,6 +199,7 @@ fun IncidentListScreen(
                     AssignedIncidentList(
                         state = state,
                         onOpenIncident = onOpenIncident,
+                        onOpenOfflinePackage = onOpenOfflinePackage,
                         onRefresh = onRefresh,
                         modifier = Modifier.weight(1f)
                     )
@@ -222,6 +223,7 @@ fun IncidentListScreen(
 private fun AssignedIncidentList(
     state: IncidentListUiState,
     onOpenIncident: (AssignedIncidentUiModel) -> Unit,
+    onOpenOfflinePackage: (AssignedIncidentUiModel) -> Unit,
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -236,7 +238,11 @@ private fun AssignedIncidentList(
             PoliBanner(text = state.message ?: "마지막 갱신 정보입니다", variant = PoliBannerVariant.Warn)
         }
         state.incidents.forEach { incident ->
-            IncidentCard(incident = incident, onClick = { onOpenIncident(incident) })
+            IncidentCard(
+                incident = incident,
+                onOpenIncident = { onOpenIncident(incident) },
+                onOpenOfflinePackage = { onOpenOfflinePackage(incident) }
+            )
         }
         Text(
             text = "활성 배정은 보통 1건입니다. 동시에 2건이 보이면 배정 변경 중인 짧은 전환 상태입니다.",
@@ -259,26 +265,41 @@ private fun AssignedIncidentList(
 }
 
 @Composable
-private fun IncidentCard(incident: AssignedIncidentUiModel, onClick: () -> Unit) {
+private fun IncidentCard(
+    incident: AssignedIncidentUiModel,
+    onOpenIncident: () -> Unit,
+    onOpenOfflinePackage: () -> Unit
+) {
     PoliCard(
         modifier =
             Modifier
                 .fillMaxWidth()
                 .clickable(
-                    onClickLabel = "사건 열기",
+                    onClickLabel = "현장 기록 열기",
                     role = Role.Button,
-                    onClick = onClick
+                    onClick = onOpenIncident
                 ),
         strong = true
     ) {
         Text(text = incident.title, style = MaterialTheme.typography.titleMedium)
         Text(text = incident.summary, style = MaterialTheme.typography.bodyMedium, color = PoliFgMuted)
         PoliRow(title = "패키지 상태", subtitle = incident.packageStatus) {
-            PoliChip(text = "준비됨", variant = PoliChipVariant.Good)
+            PoliChip(text = "확인", variant = PoliChipVariant.Neutral)
         }
         PoliRow(title = "현재 폴리폰 배정", subtitle = incident.assignmentStatus) {
             PoliChip(text = "활성", variant = PoliChipVariant.Good)
         }
+        PoliButton(
+            text = "현장 기록 열기",
+            onClick = onOpenIncident,
+            modifier = Modifier.fillMaxWidth()
+        )
+        PoliButton(
+            text = "오프라인 패키지",
+            onClick = onOpenOfflinePackage,
+            modifier = Modifier.fillMaxWidth(),
+            variant = PoliButtonVariant.Secondary
+        )
     }
 }
 
@@ -336,6 +357,7 @@ private fun IncidentListPreview() {
         IncidentListScreen(
             state = sampleIncidentListState(),
             onOpenIncident = {},
+            onOpenOfflinePackage = {},
             onRefresh = {},
             onDismissClosedDialog = {}
         )

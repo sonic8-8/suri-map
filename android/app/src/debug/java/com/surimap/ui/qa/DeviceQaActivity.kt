@@ -117,6 +117,7 @@ private fun DeviceQaScreen(route: DeviceQaRoute) {
             IncidentListScreen(
                 state = sampleIncidentListState(),
                 onOpenIncident = {},
+                onOpenOfflinePackage = {},
                 onRefresh = {},
                 onDismissClosedDialog = {}
             )
