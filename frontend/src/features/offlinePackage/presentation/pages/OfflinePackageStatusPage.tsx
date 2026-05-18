@@ -25,6 +25,7 @@ import type {
   OfflinePackageItemType,
   OfflinePackageManifestResponse,
   OfflinePackagePackageItem,
+  OfflinePackageTileItem,
 } from '../../api/offlinePackageApi';
 import {
   createPackageLoadGauge,
@@ -143,9 +144,13 @@ export function OfflinePackageStatusPage({
 
   const boardQuery = useIncidentBoardQuery({ incidentId, includeSlots: ['package_badge', 'incident_terminal'] });
   const manifestQuery = useOfflinePackageManifestQuery({ incidentId });
+  const currentBoard = useMemo<SituationBoardResponseDto | null>(() => {
+    const data = (boardQuery.data ?? null) as SituationBoardResponseDto | null;
+    return data && data.incidentId === incidentId ? data : null;
+  }, [boardQuery.data, incidentId]);
   const board = useMemo<SituationBoardResponseDto | null>(() => {
     const mergedBoard = mergeWithPreviousCriticalSlots(
-      (boardQuery.data ?? null) as SituationBoardResponseDto | null,
+      currentBoard,
       stableBoardRef.current,
     );
 
@@ -154,14 +159,25 @@ export function OfflinePackageStatusPage({
     }
 
     return mergedBoard;
-  }, [boardQuery.data]);
+  }, [currentBoard]);
+
+  useEffect(() => {
+    stableBoardRef.current = null;
+    setIncidentDetail(null);
+  }, [incidentId]);
+
   const rows = useMemo(() => readPackageBadgeRows(board?.slots.package_badge), [board]);
   const incidentTerminal = useMemo(
     () => (board ? toIncidentTerminal(board as unknown as SituationBoardResponseDto) : null),
     [board],
   );
-  const manifestGroups = useMemo(() => createManifestGroups(manifestQuery.data), [manifestQuery.data]);
-  const tileSummary = useMemo(() => createTileSummary(manifestQuery.data?.tileItems ?? []), [manifestQuery.data]);
+  const currentManifest = useMemo<OfflinePackageManifestResponse | null>(() => {
+    const data = manifestQuery.data ?? null;
+    return data && data.incidentId === incidentId ? data : null;
+  }, [incidentId, manifestQuery.data]);
+  const currentTileItems = useMemo(() => readOfflinePackageTileItems(currentManifest?.tileItems), [currentManifest]);
+  const manifestGroups = useMemo(() => createManifestGroups(currentManifest ?? undefined), [currentManifest]);
+  const tileSummary = useMemo(() => createTileSummary(currentTileItems), [currentTileItems]);
   const serverTs = board?.serverTs ?? null;
   const referenceNow = useMemo(() => (serverTs ? new Date(serverTs) : new Date()), [serverTs]);
   const isLoading = boardQuery.isLoading;
@@ -351,7 +367,7 @@ export function OfflinePackageStatusPage({
             error={manifestQuery.error}
             isError={manifestQuery.isError}
             isLoading={manifestQuery.isLoading}
-            manifest={manifestQuery.data}
+            manifest={currentManifest ?? undefined}
             referenceNow={referenceNow}
             tileSummary={tileSummary}
             onRetry={() => void manifestQuery.refetch()}
@@ -537,7 +553,7 @@ function createIncidentContext(
   }
 
   const missingPerson = incidentDetail && 'missingPerson' in incidentDetail ? incidentDetail.missingPerson : null;
-  const assignments = incidentDetail && 'assignments' in incidentDetail ? incidentDetail.assignments : [];
+  const assignments = readIncidentAssignments(incidentDetail);
   const displayName = missingPerson?.displayName?.trim() || null;
   const lastSeenLabel = createLastSeenLabel(
     missingPerson?.lastSeenAt ?? null,
@@ -646,6 +662,18 @@ function readPackageBadgeRows(value: unknown): PackageBadgeRow[] {
   return values.map(readPackageBadgeRow).filter((row): row is PackageBadgeRow => row !== null);
 }
 
+function readIncidentAssignments(incidentDetail: IncidentDetailDto | null): readonly unknown[] {
+  if (!incidentDetail || !('assignments' in incidentDetail)) {
+    return [];
+  }
+
+  return readReadonlyArray((incidentDetail as { assignments?: readonly unknown[] | null }).assignments);
+}
+
+function readReadonlyArray<T>(value: unknown): readonly T[] {
+  return Array.isArray(value) ? (value as readonly T[]) : [];
+}
+
 function readPackageBadgeRow(value: unknown): PackageBadgeRow | null {
   if (!isRecord(value)) return null;
 
@@ -676,8 +704,9 @@ function readPackageBadgeRow(value: unknown): PackageBadgeRow | null {
 }
 
 function createManifestGroups(manifest: OfflinePackageManifestResponse | undefined): readonly ManifestGroup[] {
+  const packageItems = readOfflinePackagePackageItems(manifest?.packageItems);
   return manifestGroupOrder.map((type) => {
-    const items = manifest?.packageItems.filter((item) => item.itemType === type) ?? [];
+    const items = packageItems.filter((item) => item.itemType === type);
     const count = countManifestSourceItems(type, manifest);
     const statusView = getManifestGroupStatus(items);
 
@@ -695,11 +724,11 @@ function createManifestGroups(manifest: OfflinePackageManifestResponse | undefin
 function countManifestSourceItems(type: OfflinePackageItemType, manifest: OfflinePackageManifestResponse | undefined) {
   if (!manifest) return 0;
 
-  if (type === 'OP_LIST') return manifest.operationalPeriods.length;
-  if (type === 'ASSIGNED_AREA') return manifest.assignedAreas.length;
-  if (type === 'INITIAL_MARKER') return manifest.initialMarkers.length;
+  if (type === 'OP_LIST') return readStatusRows(manifest.operationalPeriods).length;
+  if (type === 'ASSIGNED_AREA') return readStatusRows(manifest.assignedAreas).length;
+  if (type === 'INITIAL_MARKER') return readReadonlyArray(manifest.initialMarkers).length;
   if (type === 'OVERALL_SEARCH_AREA') return manifest.overallSearchArea ? 1 : 0;
-  if (type === 'TILE') return manifest.tileItems.length;
+  if (type === 'TILE') return readOfflinePackageTileItems(manifest.tileItems).length;
   if (type === 'MISSING_PERSON_CACHE') return manifest.missingPerson ? 1 : 0;
   return manifest.incident ? 1 : 0;
 }
@@ -719,24 +748,26 @@ function createManifestGroupDetail(
     return `${name} · ${photoLabel}`;
   }
   if (type === 'OP_LIST') {
-    const activeCount = manifest.operationalPeriods.filter((op) => op.status === 'ACTIVE').length;
+    const activeCount = readStatusRows(manifest.operationalPeriods).filter((op) => op.status === 'ACTIVE').length;
     return activeCount > 0 ? `진행 중인 차수 포함` : '작전 차수 기록 포함';
   }
   if (type === 'ASSIGNED_AREA') {
-    if (manifest.assignedAreas.length === 0) return '아직 배정된 수색 구역이 없습니다';
-    const completedCount = manifest.assignedAreas.filter((area) => area.status === 'COMPLETED').length;
-    const activeCount = manifest.assignedAreas.filter((area) => area.status === 'ACTIVE').length;
+    const assignedAreas = readStatusRows(manifest.assignedAreas);
+    if (assignedAreas.length === 0) return '아직 배정된 수색 구역이 없습니다';
+    const completedCount = assignedAreas.filter((area) => area.status === 'COMPLETED').length;
+    const activeCount = assignedAreas.filter((area) => area.status === 'ACTIVE').length;
     return `진행 ${activeCount}개 · 완료 ${completedCount}개`;
   }
   if (type === 'INITIAL_MARKER') {
-    return manifest.initialMarkers.length > 0 ? '초기 확인 지점 포함' : '초기 마커 없음';
+    return readReadonlyArray(manifest.initialMarkers).length > 0 ? '초기 확인 지점 포함' : '초기 마커 없음';
   }
   if (type === 'OVERALL_SEARCH_AREA') {
     return manifest.overallSearchArea ? '전체 수색 범위 포함' : '전체 수색 범위 없음';
   }
 
-  return manifest.tileItems.length > 0
-    ? `${manifest.tileItems.length}개 지도 타일 · ${formatBytes(createTileSummary(manifest.tileItems).totalBytes)}`
+  const tileItems = readOfflinePackageTileItems(manifest.tileItems);
+  return tileItems.length > 0
+    ? `${tileItems.length}개 지도 타일 · ${formatBytes(createTileSummary(tileItems).totalBytes)}`
     : '오프라인 지도 없음';
 }
 
@@ -886,12 +917,39 @@ function formatManifestItemTotal(manifest: OfflinePackageManifestResponse) {
   return [
     manifest.incident ? 1 : 0,
     manifest.missingPerson ? 1 : 0,
-    manifest.operationalPeriods.length,
-    manifest.assignedAreas.length,
-    manifest.initialMarkers.length,
+    readReadonlyArray(manifest.operationalPeriods).length,
+    readReadonlyArray(manifest.assignedAreas).length,
+    readReadonlyArray(manifest.initialMarkers).length,
     manifest.overallSearchArea ? 1 : 0,
-    manifest.tileItems.length,
+    readOfflinePackageTileItems(manifest.tileItems).length,
   ].reduce((sum, count) => sum + count, 0);
+}
+
+function readOfflinePackagePackageItems(value: unknown): readonly OfflinePackagePackageItem[] {
+  return readReadonlyArray<unknown>(value).filter(isOfflinePackagePackageItem);
+}
+
+function isOfflinePackagePackageItem(value: unknown): value is OfflinePackagePackageItem {
+  return isRecord(value) && typeof value.itemType === 'string' && typeof value.status === 'string';
+}
+
+function readOfflinePackageTileItems(value: unknown): readonly OfflinePackageTileItem[] {
+  return readReadonlyArray<unknown>(value).filter(isOfflinePackageTileItem);
+}
+
+function isOfflinePackageTileItem(value: unknown): value is OfflinePackageTileItem {
+  return (
+    isRecord(value) &&
+    typeof value.styleId === 'string' &&
+    typeof value.bytes === 'number' &&
+    Number.isFinite(value.bytes)
+  );
+}
+
+function readStatusRows(value: unknown): ReadonlyArray<{ status: string }> {
+  return readReadonlyArray<unknown>(value).filter(
+    (item): item is { status: string } => isRecord(item) && typeof item.status === 'string',
+  );
 }
 
 function formatShortId(id: string) {

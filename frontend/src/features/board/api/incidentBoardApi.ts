@@ -110,10 +110,7 @@ export const incidentBoardQueryKeys = {
       ...incidentBoardQueryKeys.all,
       'detail',
       query.incidentId ?? '',
-      {
-        includeSlots: sortedValues(query.includeSlots),
-        opIds: sortedValues(query.opIds),
-      },
+      incidentBoardQueryKeyParams(query),
     ] as const,
 };
 
@@ -133,7 +130,8 @@ export function useIncidentBoardQuery(query: IncidentBoardQuery, api: IncidentBo
     queryKey: incidentBoardQueryKeys.detail(query),
     queryFn: () => api.fetchIncidentBoard({ ...query, incidentId: query.incidentId ?? '' }),
     enabled: Boolean(query.incidentId),
-    placeholderData: (previousData) => previousData,
+    placeholderData: (previousData) =>
+      query.incidentId && previousData?.incidentId === query.incidentId ? previousData : undefined,
     retry: false,
   });
 }
@@ -143,7 +141,8 @@ export function useIncidentBoard(query: IncidentBoardQuery, api: IncidentBoardAp
     queryKey: incidentBoardQueryKeys.detail(query),
     queryFn: () => api.fetchIncidentBoard({ ...query, incidentId: query.incidentId ?? '' }),
     enabled: Boolean(query.incidentId),
-    placeholderData: (previousData) => previousData,
+    placeholderData: (previousData) =>
+      query.incidentId && previousData?.incidentId === query.incidentId ? previousData : undefined,
     retry: false,
     select: mapIncidentBoardResponse,
   });
@@ -193,6 +192,14 @@ function requireIncidentId(incidentId: string | null | undefined): string {
 
 function sortedValues<TValue extends string>(values: readonly TValue[] | undefined): readonly TValue[] {
   return [...(values ?? [])].sort();
+}
+
+function incidentBoardQueryKeyParams(query: IncidentBoardQuery) {
+  return {
+    includeSlots: sortedValues(query.includeSlots),
+    opIds: sortedValues(query.opIds),
+    sinceVersion: query.sinceVersion ?? null,
+  };
 }
 
 function boardSlots(): readonly BoardSlotName[] {
