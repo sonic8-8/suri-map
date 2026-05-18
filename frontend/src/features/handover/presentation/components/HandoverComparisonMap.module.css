@@ -18,6 +18,11 @@
   pointer-events: none;
 }
 
+.externalSurface .toolbar,
+.externalSurface .legend {
+  display: none;
+}
+
 .canvas {
   position: absolute;
   inset: 0;

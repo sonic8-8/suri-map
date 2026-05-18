@@ -41,15 +41,33 @@
   content: '';
 }
 
+.rightPanelAwareControl {
+  right: calc(500px + 16px);
+}
+
+.rightPanelAwareLegend {
+  right: calc(500px + 16px);
+}
+
 @media (max-width: 1280px) {
   .handoverCanvasShell {
     --suri-map-floating-right: 556px;
+  }
+
+  .rightPanelAwareControl,
+  .rightPanelAwareLegend {
+    right: calc(430px + 16px);
   }
 }
 
 @media (max-width: 980px) {
   .handoverCanvasShell {
     --suri-map-floating-right: 16px;
+  }
+
+  .rightPanelAwareControl,
+  .rightPanelAwareLegend {
+    right: 16px;
   }
 }
 

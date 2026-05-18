@@ -76,6 +76,7 @@ export function DashboardMapShell({
 }: DashboardMapShellProps) {
   const mapRef = useRef<maplibregl.Map | null>(null);
   const initialBoundsRef = useRef<LngLatBoundsLike | null>(null);
+  const hasHandoverWorkspace = Boolean(handoverMapProps);
 
   const handleMapReady = useCallback((map: maplibregl.Map | null) => {
     mapRef.current = map;
@@ -130,6 +131,7 @@ export function DashboardMapShell({
       <div className={canvasShellClassName}>
         <MapControls
           canFitIncidentSearchArea={!isTerminalBoard}
+          className={hasHandoverWorkspace ? styles.rightPanelAwareControl : undefined}
           isMapExpanded={isMapExpanded}
           onFitIncidentSearchArea={handleFitIncidentSearchArea}
           onToggleMapExpanded={onToggleMapExpanded}
@@ -161,7 +163,12 @@ export function DashboardMapShell({
           onOpenSearchAreaSplit={onOpenSearchAreaSplit}
           onSelectSearchArea={onSelectSearchArea}
         />
-        {isTerminalBoard ? null : <MapLegend legendItems={legendItems} />}
+        {isTerminalBoard ? null : (
+          <MapLegend
+            className={hasHandoverWorkspace ? styles.rightPanelAwareLegend : undefined}
+            legendItems={legendItems}
+          />
+        )}
       </div>
     </div>
   );
