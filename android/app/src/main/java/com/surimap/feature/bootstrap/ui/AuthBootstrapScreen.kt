@@ -3,15 +3,14 @@ package com.surimap.feature.bootstrap.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import com.surimap.ui.components.PoliBanner
 import com.surimap.ui.components.PoliBannerVariant
@@ -21,7 +20,6 @@ import com.surimap.ui.components.PoliButtonVariant
 import com.surimap.ui.components.PoliCard
 import com.surimap.ui.components.PoliChip
 import com.surimap.ui.components.PoliChipVariant
-import com.surimap.ui.components.PoliProgress
 import com.surimap.ui.components.PoliRow
 import com.surimap.ui.theme.PoliDimens
 import com.surimap.ui.theme.PoliFgMuted
@@ -63,7 +61,9 @@ data class AuthBootstrapUiState(
     val failureMessage: String? = null,
     val apiBaseUrl: String,
     val primaryActionLabel: String = "확인 중",
+    val actionGuideText: String? = null,
     val retryEnabled: Boolean = false,
+    val exitEnabled: Boolean = false,
     val shouldEnterIncidentList: Boolean = false,
     val requiresAuthentication: Boolean = false
 ) {
@@ -74,6 +74,7 @@ data class AuthBootstrapUiState(
             add(apiBaseUrl)
             failureMessage?.let(::add)
             add(primaryActionLabel)
+            actionGuideText?.let(::add)
             steps.forEach { step ->
                 add(step.title)
                 add(step.subtitle)
@@ -122,15 +123,13 @@ data class AuthBootstrapUiState(
         ): AuthBootstrapUiState {
             val message =
                 when (reason) {
-                    AuthBootstrapFailureReason.NotManagedPhone -> "관리 단말이 아닙니다. IT 부서 문의"
-                    AuthBootstrapFailureReason.InternalNetworkUnavailable -> "내부망 연결을 확인하세요"
-                    AuthBootstrapFailureReason.ServerRejectedPhone -> "이 폴리폰으로 접속할 수 없습니다. IT 부서 문의"
-                    AuthBootstrapFailureReason.ManagedConfigMissing -> "관리 설정이 없습니다. IT 부서 문의"
-                    AuthBootstrapFailureReason.AuthenticationRequired -> "계정 인증이 필요합니다"
+                    AuthBootstrapFailureReason.NotManagedPhone -> "관리 단말이 아닙니다.\nIT 부서로 문의 바랍니다."
+                    AuthBootstrapFailureReason.InternalNetworkUnavailable -> "내부망 연결을 확인하세요."
+                    AuthBootstrapFailureReason.ServerRejectedPhone -> "해당 폴리폰으로 접속할 수 없습니다.\n단말 등록 또는 사건 배정 상태를 확인하세요.\n계속되면 IT 부서로 문의 바랍니다."
+                    AuthBootstrapFailureReason.ManagedConfigMissing -> "관리 설정이 없습니다.\nIT 부서로 문의 바랍니다."
+                    AuthBootstrapFailureReason.AuthenticationRequired -> "수리맵 계정 인증이 필요합니다."
                 }
-            val retryable =
-                reason == AuthBootstrapFailureReason.InternalNetworkUnavailable ||
-                    reason == AuthBootstrapFailureReason.AuthenticationRequired
+            val retryable = reason == AuthBootstrapFailureReason.AuthenticationRequired
             return AuthBootstrapUiState(
                 progress =
                 when (reason) {
@@ -140,10 +139,15 @@ data class AuthBootstrapUiState(
                     AuthBootstrapFailureReason.AuthenticationRequired -> 0.7f
                     AuthBootstrapFailureReason.ServerRejectedPhone -> 0.8f
                 },
-                title = if (reason == AuthBootstrapFailureReason.AuthenticationRequired) "로그인 필요" else "접속 확인 실패",
+                title =
+                when (reason) {
+                    AuthBootstrapFailureReason.AuthenticationRequired -> "계정 로그인 필요"
+                    AuthBootstrapFailureReason.ServerRejectedPhone -> "단말 확인 필요"
+                    else -> "접속 확인 실패"
+                },
                 description =
                 if (reason == AuthBootstrapFailureReason.AuthenticationRequired) {
-                    "관리 단말과 내부망 확인이 완료되었습니다. 계정 인증 후 사건 목록으로 이동합니다."
+                    "관리 단말과 내부망 확인이 완료되었습니다.\n수리맵 계정으로 로그인하면 사건 목록으로 이동합니다."
                 } else {
                     "사건 정보는 접속 확인 후 표시됩니다."
                 },
@@ -151,14 +155,19 @@ data class AuthBootstrapUiState(
                 failureMessage = message,
                 apiBaseUrl = apiBaseUrl,
                 primaryActionLabel =
-                if (reason == AuthBootstrapFailureReason.AuthenticationRequired) {
-                    "로그인"
-                } else if (retryable) {
-                    "네트워크 다시 확인"
-                } else {
-                    "IT 부서 문의"
+                when (reason) {
+                    AuthBootstrapFailureReason.AuthenticationRequired -> "로그인"
+                    AuthBootstrapFailureReason.ServerRejectedPhone -> "앱 종료"
+                    else -> "확인 필요"
+                },
+                actionGuideText =
+                when (reason) {
+                    AuthBootstrapFailureReason.AuthenticationRequired -> null
+                    AuthBootstrapFailureReason.InternalNetworkUnavailable -> "네트워크 상태를 확인해 주세요."
+                    else -> null
                 },
                 retryEnabled = retryable,
+                exitEnabled = reason == AuthBootstrapFailureReason.ServerRejectedPhone,
                 requiresAuthentication = reason == AuthBootstrapFailureReason.AuthenticationRequired
             )
         }
@@ -168,30 +177,30 @@ data class AuthBootstrapUiState(
                 AuthBootstrapFailureReason.NotManagedPhone,
                 AuthBootstrapFailureReason.ManagedConfigMissing ->
                     listOf(
-                        AuthCheckStep("관리 폴리폰 확인", "관리 설정 확인", AuthStepState.Failed),
-                        AuthCheckStep("내부망 연결", "API 도달 확인", AuthStepState.Checking),
-                        AuthCheckStep("접속 권한 확인", "폴리폰 상태 확인", AuthStepState.Checking)
+                        AuthCheckStep("관리 폴리폰 확인", "", AuthStepState.Failed),
+                        AuthCheckStep("내부망 연결", "", AuthStepState.Checking),
+                        AuthCheckStep("접속 권한 확인", "", AuthStepState.Checking)
                     )
 
                 AuthBootstrapFailureReason.InternalNetworkUnavailable ->
                     listOf(
-                        AuthCheckStep("관리 폴리폰 확인", "관리 설정 확인", AuthStepState.Done),
-                        AuthCheckStep("내부망 연결", "API 도달 확인", AuthStepState.Failed),
-                        AuthCheckStep("접속 권한 확인", "폴리폰 상태 확인", AuthStepState.Checking)
+                        AuthCheckStep("관리 폴리폰 확인", "", state = AuthStepState.Done),
+                        AuthCheckStep("내부망 연결", "", AuthStepState.Failed),
+                        AuthCheckStep("접속 권한 확인", "", AuthStepState.Checking)
                     )
 
                 AuthBootstrapFailureReason.ServerRejectedPhone ->
                     listOf(
-                        AuthCheckStep("관리 폴리폰 확인", "관리 설정 확인", AuthStepState.Done),
-                        AuthCheckStep("내부망 연결", "API 도달 확인", AuthStepState.Done),
-                        AuthCheckStep("접속 권한 확인", "폴리폰 상태 확인", AuthStepState.Failed)
+                        AuthCheckStep("관리 폴리폰 확인", "", AuthStepState.Done),
+                        AuthCheckStep("내부망 연결", "", AuthStepState.Done),
+                        AuthCheckStep("접속 권한 확인", "", AuthStepState.Failed)
                     )
 
                 AuthBootstrapFailureReason.AuthenticationRequired ->
                     listOf(
-                        AuthCheckStep("관리 폴리폰 확인", "관리 설정 확인", AuthStepState.Done),
-                        AuthCheckStep("내부망 연결", "API 도달 확인", AuthStepState.Done),
-                        AuthCheckStep("접속 권한 확인", "Keycloak 인증 대기", AuthStepState.Checking)
+                        AuthCheckStep("관리 폴리폰 확인", "", AuthStepState.Done),
+                        AuthCheckStep("내부망 연결", "", AuthStepState.Done),
+                        AuthCheckStep("접속 권한 확인", "", AuthStepState.Checking)
                     )
             }
     }
@@ -201,6 +210,7 @@ data class AuthBootstrapUiState(
 fun AuthBootstrapScreen(
     state: AuthBootstrapUiState,
     onRetry: () -> Unit = {},
+    onExit: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -212,50 +222,67 @@ fun AuthBootstrapScreen(
                 PoliBrandMark()
                 Column(verticalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
                     Text(text = "수리맵", style = MaterialTheme.typography.displaySmall)
-                    Text(text = "현장 입력 앱", style = MaterialTheme.typography.bodyMedium, color = PoliFgMuted)
+                    // Text(text = "현장 입력 앱", style = MaterialTheme.typography.bodyMedium, color = PoliFgMuted)
                 }
             }
 
             PoliCard {
                 Text(text = state.title, style = MaterialTheme.typography.titleMedium)
                 Text(text = state.description, style = MaterialTheme.typography.bodyMedium, color = PoliFgMuted)
-                Text(text = "내부망 API: ${state.apiBaseUrl}", style = MaterialTheme.typography.labelMedium, color = PoliFgMuted)
+                // Text(text = "내부망 API: ${state.apiBaseUrl}", style = MaterialTheme.typography.labelMedium, color = PoliFgMuted)
             }
 
             PoliCard {
-                PoliProgress(progress = state.progress)
-                Spacer(modifier = Modifier.height(PoliDimens.Space2))
                 state.steps.forEach { step ->
-                    PoliRow(title = step.title, subtitle = step.subtitle) {
+                    PoliRow(title = step.title) {
                         PoliChip(text = step.state.label, variant = step.state.chipVariant)
                     }
                 }
             }
 
             if (state.failureMessage != null) {
-                PoliBanner(text = state.failureMessage, variant = PoliBannerVariant.Bad)
+                PoliBanner(
+                    text = state.failureMessage,
+                    variant = PoliBannerVariant.Bad,
+                    textAlign = TextAlign.Center
+                )
             } else {
                 PoliBanner(
-                    text = "확인 완료 시 사건 선택 화면으로 자동 이동합니다. 사건 상세는 접속 확인 전 표시하지 않습니다.",
+                    text = "확인 완료 시 사건 선택 화면으로 자동 이동합니다.\n사건 상세는 접속 확인 전 표시하지 않습니다.",
                     variant = PoliBannerVariant.Warn
                 )
             }
         }
 
-        PoliButton(
-            text = state.primaryActionLabel,
-            onClick = onRetry,
-            modifier = Modifier.fillMaxWidth(),
-            variant = if (state.failureMessage == null) PoliButtonVariant.Secondary else PoliButtonVariant.Danger,
-            enabled = state.retryEnabled
-        )
+        if (state.retryEnabled || state.requiresAuthentication) {
+            PoliButton(
+                text = state.primaryActionLabel,
+                onClick = onRetry,
+                modifier = Modifier.fillMaxWidth(),
+                variant = if (state.failureMessage == null) PoliButtonVariant.Secondary else PoliButtonVariant.Danger,
+                enabled = state.retryEnabled
+            )
+        } else if (state.exitEnabled) {
+            PoliButton(
+                text = state.primaryActionLabel,
+                onClick = onExit,
+                modifier = Modifier.fillMaxWidth(),
+                variant = PoliButtonVariant.Danger
+            )
+        } else if (state.failureMessage != null && state.actionGuideText != null) {
+            PoliBanner(
+                text = state.actionGuideText,
+                variant = PoliBannerVariant.Bad,
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 
 private val AuthStepState.label: String
     get() =
         when (this) {
-            AuthStepState.Done -> "확인"
+            AuthStepState.Done -> "완료"
             AuthStepState.Checking -> "확인 중"
             AuthStepState.Failed -> "실패"
         }

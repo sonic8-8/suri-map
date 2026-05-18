@@ -32,6 +32,7 @@ class SearchMapCurrentLocationViewportTest {
                 GpsLocationFix(
                     lon = 126.912345,
                     lat = 35.176543,
+                    bearingDegrees = null,
                     speedMps = null,
                     horizontalAccuracyM = 8,
                     capturedAt = Instant.parse("2026-05-18T09:00:00Z")

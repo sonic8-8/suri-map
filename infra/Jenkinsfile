@@ -54,6 +54,7 @@ pipeline {
         BACKEND_IMAGE = 'suri-map-backend:develop'
         MOCK_112_IMAGE = 'suri-map-mock-112:develop'
         KEYCLOAK_IMAGE = 'quay.io/keycloak/keycloak:26.6.1'
+        OBJECT_STORAGE_IMAGE = 'minio/minio:latest'
         BACKEND_TEST_IMAGE = 'suri-map-backend-test:develop'
         BACKEND_TEST_ARTIFACT_DIR = 'ci-artifacts/backend-test'
         COMPOSE_FILE = 'infra/docker/docker-compose.runtime.yml'
@@ -73,6 +74,13 @@ pipeline {
         KEYCLOAK_THEME_DIR = '/home/ubuntu/infra/keycloak/themes'
         SURI_MAP_KEYCLOAK_ISSUER_URI = 'https://k14c106.p.ssafy.io/keycloak/realms/suri-map'
         SURI_MAP_KEYCLOAK_JWK_SET_URI = 'http://keycloak:8080/keycloak/realms/suri-map/protocol/openid-connect/certs'
+        OBJECT_STORAGE_HOST_PORT = '9000'
+        OBJECT_STORAGE_CONSOLE_HOST_PORT = '9001'
+        SURI_MAP_OBJECT_STORAGE_PROVIDER = 's3-compatible'
+        SURI_MAP_OBJECT_STORAGE_ENDPOINT = 'http://object-storage:9000'
+        SURI_MAP_OBJECT_STORAGE_PUBLIC_ENDPOINT = 'https://k14c106.p.ssafy.io'
+        SURI_MAP_OBJECT_STORAGE_BUCKET = 'suri-map-photo'
+        SURI_MAP_OBJECT_STORAGE_REGION = 'us-east-1'
         MOCK_112_ENABLED = 'true'
         MOCK_112_BASE_URL = 'http://mock-112:18112'
         MOCK_112_POLLING_INTERVAL = '5000'
@@ -83,6 +91,7 @@ pipeline {
         TILESERVER_DATA_DIR = '/home/ubuntu/infra/tileserver'
         TILESERVER_MODE = 'tileserver-gl'
         TILESERVER_BASE_URL = 'http://tileserver-gl:8080'
+        V_WORLD_API_KEY = credentials('suri-map-vworld-api-key')
         FCM_PROVIDER = 'firebase'
         FIREBASE_CREDENTIALS_LOCATION = ''
         FIREBASE_CREDENTIALS_JSON_BASE64 = credentials('suri-map-firebase-service-account-base64')
@@ -223,6 +232,7 @@ pipeline {
 
                         sh '''
                             docker build \
+                              --build-arg V_WORLD_API_KEY="${V_WORLD_API_KEY:-}" \
                               -t ${FRONTEND_IMAGE} \
                               -f frontend/Dockerfile \
                               frontend
@@ -283,6 +293,36 @@ pipeline {
                         ''',
                         returnStdout: true
                     ).trim()
+                    env.SURI_MAP_OBJECT_STORAGE_ACCESS_KEY = sh(
+                        script: '''
+                            set -eu
+                            key_file=/home/ubuntu/infra/.object_storage_access_key
+                            mkdir -p "$(dirname "${key_file}")"
+                            if [ ! -s "${key_file}" ]; then
+                              umask 077
+                              echo "surimap$(date +%s%N | sha256sum | cut -c1-16)" > "${key_file}"
+                            fi
+                            cat "${key_file}"
+                        ''',
+                        returnStdout: true
+                    ).trim()
+                    env.SURI_MAP_OBJECT_STORAGE_SECRET_KEY = sh(
+                        script: '''
+                            set -eu
+                            secret_file=/home/ubuntu/infra/.object_storage_secret_key
+                            mkdir -p "$(dirname "${secret_file}")"
+                            if [ ! -s "${secret_file}" ]; then
+                              umask 077
+                              if command -v openssl >/dev/null 2>&1; then
+                                openssl rand -hex 32 > "${secret_file}"
+                              else
+                                date +%s%N | sha256sum | cut -d" " -f1 > "${secret_file}"
+                              fi
+                            fi
+                            cat "${secret_file}"
+                        ''',
+                        returnStdout: true
+                    ).trim()
                 }
 
                 writeFile file: env.ENV_FILE, text: """
@@ -290,6 +330,7 @@ FRONTEND_IMAGE=${env.FRONTEND_IMAGE}
 BACKEND_IMAGE=${env.BACKEND_IMAGE}
 MOCK_112_IMAGE=${env.MOCK_112_IMAGE}
 KEYCLOAK_IMAGE=${env.KEYCLOAK_IMAGE}
+OBJECT_STORAGE_IMAGE=${env.OBJECT_STORAGE_IMAGE}
 FRONTEND_HOST_PORT=${env.FRONTEND_HOST_PORT}
 BACKEND_HOST_PORT=${env.BACKEND_HOST_PORT}
 MOCK_112_HOST_PORT=${env.MOCK_112_HOST_PORT}
@@ -305,6 +346,15 @@ KEYCLOAK_IMPORT_DIR=${env.KEYCLOAK_IMPORT_DIR}
 KEYCLOAK_THEME_DIR=${env.KEYCLOAK_THEME_DIR}
 SURI_MAP_KEYCLOAK_ISSUER_URI=${env.SURI_MAP_KEYCLOAK_ISSUER_URI}
 SURI_MAP_KEYCLOAK_JWK_SET_URI=${env.SURI_MAP_KEYCLOAK_JWK_SET_URI}
+OBJECT_STORAGE_HOST_PORT=${env.OBJECT_STORAGE_HOST_PORT}
+OBJECT_STORAGE_CONSOLE_HOST_PORT=${env.OBJECT_STORAGE_CONSOLE_HOST_PORT}
+SURI_MAP_OBJECT_STORAGE_PROVIDER=${env.SURI_MAP_OBJECT_STORAGE_PROVIDER}
+SURI_MAP_OBJECT_STORAGE_ENDPOINT=${env.SURI_MAP_OBJECT_STORAGE_ENDPOINT}
+SURI_MAP_OBJECT_STORAGE_PUBLIC_ENDPOINT=${env.SURI_MAP_OBJECT_STORAGE_PUBLIC_ENDPOINT}
+SURI_MAP_OBJECT_STORAGE_BUCKET=${env.SURI_MAP_OBJECT_STORAGE_BUCKET}
+SURI_MAP_OBJECT_STORAGE_ACCESS_KEY=${env.SURI_MAP_OBJECT_STORAGE_ACCESS_KEY}
+SURI_MAP_OBJECT_STORAGE_SECRET_KEY=${env.SURI_MAP_OBJECT_STORAGE_SECRET_KEY}
+SURI_MAP_OBJECT_STORAGE_REGION=${env.SURI_MAP_OBJECT_STORAGE_REGION}
 MOCK_112_ENABLED=${env.MOCK_112_ENABLED}
 MOCK_112_BASE_URL=${env.MOCK_112_BASE_URL}
 MOCK_112_POLLING_INTERVAL=${env.MOCK_112_POLLING_INTERVAL}
@@ -348,11 +398,11 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=${env.SPRING_JPA_HIBERNATE_DDL_AUTO}
                       bash infra/docker/tileserver/scripts/build-pretendard-gov-glyphs.sh \
                         android/app/src/main/res/font/pretendard_gov_variable.ttf \
                         "${TILESERVER_DATA_DIR}/fonts/Pretendard GOV"
-                      COMPOSE_SERVICES="postgis mock-112 keycloak backend tileserver-gl frontend"
+                      COMPOSE_SERVICES="postgis mock-112 keycloak object-storage backend tileserver-gl frontend"
                     else
                       echo "tileserver_mbtiles=missing required=osm-local.mbtiles,gwangju-building-labels.mbtiles dir=${TILESERVER_DATA_DIR}/data"
                       echo "tileserver-gl deployment skipped until the environment-specific MBTiles files are placed."
-                      COMPOSE_SERVICES="postgis mock-112 keycloak backend frontend"
+                      COMPOSE_SERVICES="postgis mock-112 keycloak object-storage backend frontend"
                     fi
 
                     docker compose \
@@ -751,8 +801,14 @@ EOF
                         echo "keycloak_suri_map_claim_mappers=ready"
 
                         /opt/keycloak/bin/kcadm.sh update realms/suri-map \
-                          -s "loginTheme=suri-map" >/dev/null
+                          -s "loginTheme=suri-map" \
+                          -s "accessTokenLifespan=7200" \
+                          -s "ssoSessionIdleTimeout=28800" \
+                          -s "ssoSessionMaxLifespan=43200" \
+                          -s "clientSessionIdleTimeout=28800" \
+                          -s "clientSessionMaxLifespan=43200" >/dev/null
                         echo "keycloak_suri_map_login_theme=suri-map"
+                        echo "keycloak_suri_map_session_policy=ready"
 
                         ensure_demo_user_profile() {
                           username="$1"
@@ -965,6 +1021,22 @@ PROFILE_JSON
                     else
                       echo "keycloak_public_route=missing"
                       docker logs --tail=200 suri-map-keycloak || true
+                      exit 1
+                    fi
+
+                    object_storage_ready=false
+                    for i in $(seq 1 30); do
+                      if docker exec suri-map-frontend wget -qO- http://object-storage:9000/minio/health/ready >/dev/null; then
+                        echo "object_storage_health=ready"
+                        object_storage_ready=true
+                        break
+                      fi
+                      sleep 2
+                    done
+
+                    if [ "${object_storage_ready}" != "true" ]; then
+                      echo "object_storage_health=timeout"
+                      docker logs --tail=200 suri-map-object-storage || true
                       exit 1
                     fi
 

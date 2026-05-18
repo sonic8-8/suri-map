@@ -3,6 +3,7 @@ package com.surimap.feature.bootstrap.data
 import android.content.Context
 import android.content.RestrictionsManager
 import android.os.Bundle
+import android.util.Log
 import com.surimap.BuildConfig
 import com.surimap.core.network.AccessTokenProvider
 import com.surimap.core.network.NoAccessTokenProvider
@@ -12,6 +13,8 @@ import com.surimap.core.network.SuriMapNetworkException
 import com.surimap.feature.bootstrap.ui.AuthBootstrapFailureReason
 import com.surimap.feature.bootstrap.ui.AuthBootstrapOutcome
 import java.time.Clock
+
+private const val TAG = "AuthBootstrap"
 
 data class ManagedPolicePhoneConfig(
     val policePhoneId: String?,
@@ -137,6 +140,10 @@ class NetworkPolicePhoneBootstrapServerCheck(
                 ?: return AuthBootstrapOutcome.Blocked(AuthBootstrapFailureReason.AuthenticationRequired)
             val policePhoneId = config.policePhoneId
                 ?: return AuthBootstrapOutcome.Blocked(AuthBootstrapFailureReason.ManagedConfigMissing)
+            Log.d(
+                TAG,
+                "heartbeat bootstrap request policePhoneId=$policePhoneId accessTokenPresent=${accessToken.isNotBlank()}"
+            )
             val response =
                 apiClient.execute(
                     SuriMapApiRequest(
@@ -149,11 +156,20 @@ class NetworkPolicePhoneBootstrapServerCheck(
                 )
 
             if (response.isSuccessful) {
+                Log.d(
+                    TAG,
+                    "heartbeat bootstrap succeeded status=${response.statusCode} body=${response.body}"
+                )
                 AuthBootstrapOutcome.Ready(policePhoneId = policePhoneId, accessToken = accessToken)
             } else {
+                Log.w(
+                    TAG,
+                    "heartbeat bootstrap failed status=${response.statusCode} error=${response.errorCode} body=${response.body}"
+                )
                 AuthBootstrapOutcome.Blocked(mapError(response.errorCode))
             }
         } catch (_: SuriMapNetworkException) {
+            Log.w(TAG, "heartbeat bootstrap network error")
             AuthBootstrapOutcome.Blocked(AuthBootstrapFailureReason.InternalNetworkUnavailable)
         }
     }
@@ -181,11 +197,17 @@ class NetworkAuthBootstrapEnvironmentCheck(
                     )
                 )
             if (response.isSuccessful) {
+                Log.d(TAG, "health check succeeded status=${response.statusCode}")
                 null
             } else {
+                Log.w(
+                    TAG,
+                    "health check failed status=${response.statusCode} error=${response.errorCode} body=${response.body}"
+                )
                 AuthBootstrapOutcome.Blocked(AuthBootstrapFailureReason.InternalNetworkUnavailable)
             }
-        } catch (_: SuriMapNetworkException) {
+        } catch (exception: SuriMapNetworkException) {
+            Log.w(TAG, "health check network error", exception)
             AuthBootstrapOutcome.Blocked(AuthBootstrapFailureReason.InternalNetworkUnavailable)
         }
     }

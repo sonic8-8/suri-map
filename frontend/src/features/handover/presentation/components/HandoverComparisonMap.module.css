@@ -3,8 +3,8 @@
   min-height: 0;
   height: 100%;
   overflow: hidden;
-  border: 1px solid var(--suri-board-border);
-  border-radius: 8px;
+  border: 0;
+  border-radius: 0;
   background: #eef2f6;
 }
 
@@ -16,6 +16,11 @@
   border-radius: 0;
   background: transparent;
   pointer-events: none;
+}
+
+.externalSurface .toolbar,
+.externalSurface .legend {
+  display: none;
 }
 
 .canvas {
@@ -30,35 +35,49 @@
   right: 14px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 
 .toolbar button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 42px;
-  border: 2px solid rgba(255, 255, 255, 0.9);
+  width: 54px;
+  height: 54px;
+  border: 1px solid var(--suri-board-border, rgba(148, 163, 184, 0.2));
   border-radius: 8px;
-  color: #ffffff;
-  background: linear-gradient(180deg, #163967 0%, #12335f 55%, #0f2c53 100%);
+  color: var(--suri-board-fg-secondary, #cbd5e1);
+  background: rgba(8, 22, 40, 0.92);
+  box-shadow: 4px 0 12px rgb(0 0 0 / 18%);
   cursor: pointer;
   pointer-events: auto;
+  transition:
+    border-color 140ms ease,
+    background 140ms ease,
+    box-shadow 140ms ease,
+    color 140ms ease,
+    transform 140ms ease;
 }
 
 .toolbar button:hover {
-  background: linear-gradient(180deg, #1f4779 0%, #173e70 55%, #12335f 100%);
+  border-color: color-mix(in srgb, var(--suri-board-primary-hi, #38bdf8) 28%, var(--suri-board-border, rgba(148, 163, 184, 0.2)));
+  color: var(--suri-board-fg-primary, #f8fafc);
+  background: var(--suri-board-panel-muted-bg, rgba(13, 33, 58, 0.92));
+  transform: translateX(1px);
 }
 
 .toolbar button:focus-visible {
-  outline: 2px solid #ffffff;
+  outline: 2px solid var(--suri-board-primary-hi, #38bdf8);
   outline-offset: 2px;
 }
 
 .toolbar svg {
-  width: 20px;
-  height: 20px;
+  width: 26px;
+  height: 26px;
+}
+
+.externalSurface .toolbar {
+  display: none;
 }
 
 .emptyOverlay,
@@ -96,8 +115,10 @@
   bottom: 14px;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 12px;
-  padding: 10px 12px;
+  gap: 7px 12px;
+  max-width: 330px;
+  padding: 12px;
+  border-radius: 14px;
   font-size: 12px;
   font-weight: 700;
 }
@@ -105,13 +126,14 @@
 .legendItem {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   color: #344052;
+  line-height: 1.25;
 }
 
 .legendSwatch {
-  width: 18px;
-  height: 8px;
+  width: 16px;
+  height: 4px;
   border-radius: 999px;
   background: #2563eb;
 }

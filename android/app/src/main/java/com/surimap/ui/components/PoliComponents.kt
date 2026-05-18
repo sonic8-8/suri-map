@@ -28,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.surimap.ui.theme.PoliBgElevated
@@ -175,7 +176,8 @@ fun PoliChip(
 fun PoliBanner(
     text: String,
     modifier: Modifier = Modifier,
-    variant: PoliBannerVariant = PoliBannerVariant.Info
+    variant: PoliBannerVariant = PoliBannerVariant.Info,
+    textAlign: TextAlign = TextAlign.Start
 ) {
     val border =
         when (variant) {
@@ -199,8 +201,9 @@ fun PoliBanner(
     ) {
         Text(
             text = text,
-            modifier = Modifier.padding(PoliDimens.Space4),
-            style = MaterialTheme.typography.bodyMedium
+            modifier = Modifier.fillMaxWidth().padding(PoliDimens.Space4),
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = textAlign
         )
     }
 }
@@ -229,7 +232,7 @@ fun PoliCard(
 @Composable
 fun PoliRow(
     title: String,
-    subtitle: String,
+    subtitle: String? = null,
     modifier: Modifier = Modifier,
     trailing: (@Composable RowScope.() -> Unit)? = null
 ) {
@@ -246,13 +249,15 @@ fun PoliRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodyMedium,
-                color = PoliFgMuted,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
+            if (!subtitle.isNullOrBlank()) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = PoliFgMuted,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
         trailing?.invoke(this)
     }

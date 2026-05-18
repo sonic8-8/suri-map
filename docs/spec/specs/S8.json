@@ -57,6 +57,7 @@
       "OP 생성 사유 INITIAL, RE_SEARCH, AREA_CHANGED, OTHER 기록",
       "OP 수준 담당 배정 조회와 OP 히스토리 맥락 제공",
       "OP/경로/구역 단위 handover_memo 생성·조회",
+      "DutyShift/OP/range 단위 handover timeline read model 제공",
       "OP·경로·마커·구역 상태·메모 기반 수색 이력 요약 생성과 실패 상태 관리",
       "OperationalPeriodQuery, HandoverMemoQuery, HandoverStatusSnapshot, SearchHistorySummaryQuery 제공",
       "OP_TRANSITIONED, HANDOVER_MEMO_CREATED, SEARCH_HISTORY_SUMMARY_CHANGED 이벤트 payload 생성 요청",
@@ -1183,6 +1184,112 @@
             "body": "{\"error\": \"team_not_assigned\"}"
           }
         ]
+      },
+      {
+        "method": "GET",
+        "path": "/operational-periods/{operationalPeriodId}/handover-timeline",
+        "summary": "이전 근무 확인 리플레이/보고서용 timeline 조회",
+        "auth": "guard aliases public-session + incident-read",
+        "idempotent": false,
+        "required_headers": [
+          "Authorization"
+        ],
+        "request_schema": {
+          "type": "object",
+          "required": [
+            "incidentId"
+          ],
+          "properties": {
+            "incidentId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "scopeType": {
+              "type": "string",
+              "enum": [
+                "DUTY_SHIFT",
+                "OP",
+                "RANGE"
+              ]
+            },
+            "dutyShiftId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "startAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "endAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "includeOtherActors": {
+              "type": "boolean"
+            }
+          }
+        },
+        "response_schema": {
+          "200": {
+            "type": "object",
+            "properties": {
+              "incidentId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "operationalPeriodId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "scope": {
+                "type": "object"
+              },
+              "actors": {
+                "type": "array",
+                "description": "actorId/displayName/colorKey만 포함한다. accountId와 policePhoneId는 노출하지 않는다."
+              },
+              "paths": {
+                "type": "array",
+                "description": "pathId, actorId, mode, startedAt, endedAt, points[{at,lat,lng,accuracyMeters}]"
+              },
+              "events": {
+                "type": "array",
+                "description": "PATH_START/PATH_SEGMENT/PATH_END/MARKER/HANDOVER_MEMO를 occurredAt 순서로 병합한다."
+              },
+              "metrics": {
+                "type": "object",
+                "description": "distanceMeters, walkingDistanceMeters, drivingDistanceMeters, averageSpeedKmh, stoppedSegmentCount, markerCount, handoverMemoCount, syncStatus"
+              },
+              "summary": {
+                "type": "object",
+                "description": "선택 scope에 대응하는 safe search_history_summary item. 없으면 null."
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "code": 403,
+            "case": "channel_not_allowed",
+            "body": "{\"error\": \"channel_not_allowed\"}"
+          },
+          {
+            "code": 403,
+            "case": "incident_access_denied",
+            "body": "{\"error\": \"incident_access_denied\"}"
+          },
+          {
+            "code": 403,
+            "case": "team_not_assigned",
+            "body": "{\"error\": \"team_not_assigned\"}"
+          },
+          {
+            "code": 409,
+            "case": "write_conflict",
+            "body": "{\"error\": \"write_conflict\"}"
+          }
+        ],
+        "channel_note": "APP/WEB/S3-2 read-only 조회 계약이다. AI 생성이나 retry를 트리거하지 않으며 source prompt, provider secret, accountId, policePhoneId를 노출하지 않는다."
       },
       {
         "method": "GET",

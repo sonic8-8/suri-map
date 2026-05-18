@@ -274,9 +274,10 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Headers: `Authorization`, `Idempotency-Key`, `X-PolicePhone-Id`
 - Guard: `app-police-phone`, `incident-read`, `write-common`, `@RequireCurrentOp`
 - Idempotency-Key: yes
-- Request: `action`, `clientTs`, optional `clockOffsetMs`
+- Request: `action` (`PAUSE`, `RESUME`, `END`), `clientTs`, optional `clockOffsetMs`
 - Response: `200 {id, version, status}`
 - Errors: `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`, `op_required`, `op_mismatch`
+- Note: `PAUSE`는 `RECORDING -> PAUSED`, `RESUME`은 `PAUSED -> RECORDING`, `END`는 `RECORDING|PAUSED -> ENDED` 전이만 허용한다. 모든 전이는 `search_path_lifecycle_event`에 `STARTED`/`PAUSED`/`RESUMED`/`ENDED` 감사 이력으로 남긴다.
 
 #### POST `/api/search-paths/batch`
 
@@ -302,7 +303,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Guard: `public-session`, `incident-read`, `@RecordLocationAccess`
 - Idempotency-Key: no
 - Query: `incidentId`, `opId`, `policePhoneId`, `includeGeometry`, `geometryMode`, `sinceVersion`, `limit`, `sort`, `movementType`
-- Response: `200 {paths}`
+- Response: `200 {paths[{id, incidentId, opId, dutyShiftId, policePhoneId, status, startedAt, endedAt, version, geometry, segments, excludedPoints}]}`
 - Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`
 
 #### PATCH `/api/search-path-segments/{searchPathSegmentId}`
@@ -604,6 +605,24 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
   - APP duty shift end is a handover boundary write. Android/S6 replay must not send it before lower-sequence path, marker, photo finalize, and handover memo writes for the same `incidentId`/`policePhoneId`/`opId` are `ACKED` or `FAILED_FINAL`/`PURGED`.
   - The server computes a summary `sourceHash` from committed OP, duty shift, path, marker, area, and handover memo source rows. While the handover boundary is not ready, the public read response remains `GENERATING` with `sourceReadiness=PENDING_SYNC`.
   - If a late committed source row changes `sourceHash` after a summary is `READY` or `FAILED`, the existing summary is treated as stale and server-side regeneration is enqueued. Clients still do not call a retry endpoint.
+
+#### GET `/api/operational-periods/{operationalPeriodId}/handover-timeline`
+
+- Owner: S8
+- Source spec: `GET /operational-periods/{operationalPeriodId}/handover-timeline`
+- Consumer: APP, WEB, S3-2
+- Headers: `Authorization`
+- Guard: `public-session`, `incident-read`
+- Idempotency-Key: no
+- Query: `incidentId`, optional `scopeType` (`DUTY_SHIFT`, `OP`, `RANGE`), optional `dutyShiftId`, optional `startAt`, `endAt`, optional `includeOtherActors`
+- Response: `200 {incidentId, operationalPeriodId, scope, actors, paths, events, metrics, summary}`.
+  - `actors[]` exposes only replay-local `actorId`, `displayName`, and `colorKey`; it must not expose `accountId` or `policePhoneId`.
+  - `paths[]` includes `pathId`, replay `actorId`, movement `mode`, `startedAt`, `endedAt`, and raw points `{at, lat, lng, accuracyMeters}` for interpolation.
+  - `events[]` merges path start/segment/end, marker, and handover memo records in `occurredAt` order.
+  - `metrics` includes deterministic `distanceMeters`, `walkingDistanceMeters`, `drivingDistanceMeters`, `averageSpeedKmh`, `stoppedSegmentCount`, `markerCount`, `handoverMemoCount`, `syncStatus`.
+  - `summary` is the safe `search-history-summaries` item for the selected OP or duty shift when available.
+- Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`, `write_conflict`
+- Channel rule: APP and WEB are read-only. This endpoint does not trigger AI generation or retry and does not expose source prompts, provider secrets, account IDs, or police phone IDs.
 
 #### GET `/api/operational-periods/{operationalPeriodId}/search-history-summaries`
 

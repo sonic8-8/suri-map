@@ -24,8 +24,16 @@ surimap:
     allowed-origin-patterns: ${SURI_MAP_CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*,http://127.0.0.1:*,https://k14c106.p.ssafy.io}
   auth:
     keycloak:
-      issuer-uri: ${SURI_MAP_KEYCLOAK_ISSUER_URI:}
-      jwk-set-uri: ${SURI_MAP_KEYCLOAK_JWK_SET_URI:}
+      issuer-uri: ${SURI_MAP_KEYCLOAK_ISSUER_URI:https://k14c106.p.ssafy.io/keycloak/realms/suri-map}
+      jwk-set-uri: ${SURI_MAP_KEYCLOAK_JWK_SET_URI:https://k14c106.p.ssafy.io/keycloak/realms/suri-map/protocol/openid-connect/certs}
+  object-storage:
+    provider: ${SURI_MAP_OBJECT_STORAGE_PROVIDER:mock}
+    endpoint: ${SURI_MAP_OBJECT_STORAGE_ENDPOINT:http://localhost:9000}
+    public-endpoint: ${SURI_MAP_OBJECT_STORAGE_PUBLIC_ENDPOINT:}
+    bucket: ${SURI_MAP_OBJECT_STORAGE_BUCKET:suri-map-photo}
+    access-key: ${SURI_MAP_OBJECT_STORAGE_ACCESS_KEY:minioadmin}
+    secret-key: ${SURI_MAP_OBJECT_STORAGE_SECRET_KEY:minioadmin}
+    region: ${SURI_MAP_OBJECT_STORAGE_REGION:us-east-1}
 
 management:
   endpoints:
@@ -49,7 +57,7 @@ mock112:
 
 tileserver:
   mode: ${TILESERVER_MODE:tileserver-gl}
-  base-url: ${TILESERVER_BASE_URL:http://tileserver-gl:8080}
+  base-url: ${TILESERVER_BASE_URL:http://localhost:8082}
 
 fcm:
   provider: ${FCM_PROVIDER:mock}

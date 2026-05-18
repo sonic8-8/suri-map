@@ -12,18 +12,18 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtDecoders;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
-import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
@@ -57,7 +57,17 @@ public class SecurityConfig {
                     .permitAll()
                     .anyRequest()
                     .access(SecurityConfig::hasSuriMapAuthentication))
-        .httpBasic(Customizer.withDefaults());
+        .exceptionHandling(
+            exceptionHandling ->
+                exceptionHandling.authenticationEntryPoint(
+                    (request, response, authenticationException) -> {
+                      response.setStatus(HttpStatus.UNAUTHORIZED.value());
+                      response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                      response.getWriter().write("{\"error\":\"unauthorized\"}");
+                    }))
+        .httpBasic(AbstractHttpConfigurer::disable)
+        .formLogin(AbstractHttpConfigurer::disable)
+        .logout(AbstractHttpConfigurer::disable);
 
     JwtDecoder jwtDecoder = keycloakJwtDecoder.getIfAvailable();
     OidcIdentityAuthenticationConverter converter =
@@ -121,11 +131,5 @@ public class SecurityConfig {
     var current = authentication.get();
     return new AuthorizationDecision(
         current instanceof SuriMapAuthentication && current.isAuthenticated());
-  }
-
-  @Bean
-  UserDetailsService userDetailsService() {
-    var user = User.withUsername("dev").password("{noop}dev-password").roles("DEVELOPER").build();
-    return new InMemoryUserDetailsManager(user);
   }
 }

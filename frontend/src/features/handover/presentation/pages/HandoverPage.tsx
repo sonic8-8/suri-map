@@ -49,6 +49,7 @@ import {
 } from '../components/HandoverMemoSection';
 import { type MarkerNotification } from '../../../../shared/ui';
 import { useBrowserBackToIncidentList } from '../../../../shared/hooks/useBrowserBackToIncidentList';
+import pageStyles from '../../../situationBoard/presentation/pages/SituationBoardPage.module.css';
 import styles from './HandoverPage.module.css';
 
 type HandoverPageProps = {
@@ -501,7 +502,7 @@ export function HandoverPage({
   };
 
   return (
-    <main className={embedded ? styles.embeddedPage : 'situation-board-page'}>
+    <main className={embedded ? styles.embeddedPage : `situation-board-page ${pageStyles.page}`}>
       {embedded ? null : (
       <SuriMapPageHeader
         activeTab="handover"

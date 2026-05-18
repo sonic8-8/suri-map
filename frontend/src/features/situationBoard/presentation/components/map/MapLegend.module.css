@@ -2,7 +2,7 @@
 .legend {
   position: absolute;
   z-index: 2;
-  right: 16px;
+  right: var(--suri-map-floating-right, 16px);
   bottom: 16px;
   display: grid;
   gap: 10px;

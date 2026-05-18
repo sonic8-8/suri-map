@@ -1,4 +1,4 @@
-import { getApiBaseUrl, isLocalDevAccessToken } from '../config';
+import { getApiBaseUrl } from '../config';
 import { API_UNAUTHORIZED_EVENT, getStoredAccessToken } from './client';
 
 export type SuriMapEventEnvelope = {
@@ -74,7 +74,7 @@ async function openEventStream(
   });
 
   if (!response.ok) {
-    if (response.status === 401 && !isLocalDevAccessToken(accessToken)) {
+    if (response.status === 401) {
       clearExpiredApiSession();
     }
     throw new Error(`event_stream_http_${response.status}`);

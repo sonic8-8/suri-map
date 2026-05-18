@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.surimap.support.auth.GuardPortTestStubs;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -125,6 +126,7 @@ class SearchPathControllerTest {
     UUID opId = UUID.fromString("70000000-0000-0000-0000-000000000001");
     UUID policePhoneId = UUID.fromString("50000000-0000-0000-0000-000000000001");
     UUID pathId = UUID.fromString("81000000-0000-0000-0000-000000000001");
+    Instant startedAt = Instant.parse("2026-05-18T04:53:12.331Z");
     when(searchPathService.query(eq(incidentId), eq(opId), eq(policePhoneId)))
         .thenReturn(
             new PathQueryResponse(
@@ -136,6 +138,8 @@ class SearchPathControllerTest {
                         null,
                         policePhoneId,
                         SearchPathStatus.RECORDING,
+                        startedAt,
+                        null,
                         2L,
                         List.of(List.of(126.913, 35.162)),
                         List.of(),
@@ -152,6 +156,7 @@ class SearchPathControllerTest {
         .andExpect(jsonPath("$.paths[0].incidentId", is(incidentId.toString())))
         .andExpect(jsonPath("$.paths[0].opId", is(opId.toString())))
         .andExpect(jsonPath("$.paths[0].policePhoneId", is(policePhoneId.toString())))
+        .andExpect(jsonPath("$.paths[0].startedAt", is("2026-05-18T04:53:12.331Z")))
         .andExpect(jsonPath("$.paths[0].geometry.type", is("LineString")))
         .andExpect(jsonPath("$.paths[0].geometry.coordinates[0][0]", is(126.913)))
         .andExpect(jsonPath("$.paths[0].geometry.coordinates[0][1]", is(35.162)));

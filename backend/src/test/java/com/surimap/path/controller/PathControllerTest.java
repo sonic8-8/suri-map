@@ -90,7 +90,7 @@ class PathControllerTest {
   @DisplayName("PATCH /api/search-paths/{searchPathId} action END returns 200")
   void end_path_contract() throws Exception {
     when(
-            service.end(
+            service.patch(
                 org.mockito.ArgumentMatchers.eq(SEARCH_PATH_ID),
                 org.mockito.ArgumentMatchers.eq(POLICE_PHONE_ID),
                 org.mockito.ArgumentMatchers.any()))
@@ -126,6 +126,84 @@ class PathControllerTest {
   }
 
   @Test
+  @DisplayName("PATCH /api/search-paths/{searchPathId} action PAUSE returns 200")
+  void pause_path_contract() throws Exception {
+    when(
+            service.patch(
+                org.mockito.ArgumentMatchers.eq(SEARCH_PATH_ID),
+                org.mockito.ArgumentMatchers.eq(POLICE_PHONE_ID),
+                org.mockito.ArgumentMatchers.any()))
+        .thenReturn(
+            new SearchPath(
+                SEARCH_PATH_ID,
+                INCIDENT_ID,
+                OP_ID,
+                POLICE_PHONE_ID,
+                SearchPathStatus.PAUSED,
+                2L,
+                Instant.parse("2026-04-28T00:00:00Z"),
+                null));
+
+    mockMvc
+        .perform(
+            patch("/api/search-paths/{searchPathId}", SEARCH_PATH_ID)
+                .header("X-PolicePhone-Id", POLICE_PHONE_ID.toString())
+                .header("Idempotency-Key", "idem-path-pause-001")
+                .contentType("application/json")
+                .content(
+                    """
+                    {
+                      "action": "PAUSE",
+                      "clientTs": "2026-04-28T09:05:00+09:00",
+                      "clockOffsetMs": 0
+                    }
+                    """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id", is(SEARCH_PATH_ID.toString())))
+        .andExpect(jsonPath("$.version", is(2)))
+        .andExpect(jsonPath("$.status", is("PAUSED")));
+  }
+
+  @Test
+  @DisplayName("PATCH /api/search-paths/{searchPathId} action RESUME returns 200")
+  void resume_path_contract() throws Exception {
+    when(
+            service.patch(
+                org.mockito.ArgumentMatchers.eq(SEARCH_PATH_ID),
+                org.mockito.ArgumentMatchers.eq(POLICE_PHONE_ID),
+                org.mockito.ArgumentMatchers.any()))
+        .thenReturn(
+            new SearchPath(
+                SEARCH_PATH_ID,
+                INCIDENT_ID,
+                OP_ID,
+                POLICE_PHONE_ID,
+                SearchPathStatus.RECORDING,
+                3L,
+                Instant.parse("2026-04-28T00:00:00Z"),
+                null));
+
+    mockMvc
+        .perform(
+            patch("/api/search-paths/{searchPathId}", SEARCH_PATH_ID)
+                .header("X-PolicePhone-Id", POLICE_PHONE_ID.toString())
+                .header("Idempotency-Key", "idem-path-resume-001")
+                .contentType("application/json")
+                .content(
+                    """
+                    {
+                      "action": "RESUME",
+                      "clientTs": "2026-04-28T09:06:00+09:00",
+                      "clockOffsetMs": 0
+                    }
+                    """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id", is(SEARCH_PATH_ID.toString())))
+        .andExpect(jsonPath("$.version", is(3)))
+        .andExpect(jsonPath("$.status", is("RECORDING")));
+  }
+
+  @Test
   @DisplayName("missing X-PolicePhone-Id returns police_phone_required")
   void missing_police_phone_header() throws Exception {
     mockMvc
@@ -157,7 +235,7 @@ class PathControllerTest {
                 .content(
                     """
                     {
-                      "action": "PAUSE",
+                      "action": "HOLD",
                       "clientTs": "2026-04-28T09:10:00+09:00"
                     }
                     """))

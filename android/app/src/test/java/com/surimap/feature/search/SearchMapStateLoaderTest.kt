@@ -400,6 +400,7 @@ class SearchMapStateLoaderTest {
                               "incidentId": "$INCIDENT_ID",
                               "opId": "$OP_ID",
                               "policePhoneId": "$POLICE_PHONE_ID",
+                              "startedAt": "2026-05-18T04:53:12.331Z",
                               "geometryMode": "RENDER_SIMPLIFIED",
                               "geometry": $pathGeometry
                             }
@@ -426,9 +427,11 @@ class SearchMapStateLoaderTest {
         assertEquals(SearchLayerKind.Path, state.layers[2].kind)
         assertEquals("현재 경로", state.layers[2].label)
         assertEquals(PATH_ID, state.layers[2].overlayId)
+        assertEquals(PATH_ID, state.activeSearchPathId)
         assertTrue(state.layers[2].highlighted)
         assertTrue(state.layers[2].geoJson!!.contains("\"LineString\""))
         assertEquals("경로 1개 표시", state.movementSummary)
+        assertEquals(1779079992331L, state.activeSearchPathStartedAtEpochMs)
     }
 
     @Test

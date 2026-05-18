@@ -47,6 +47,26 @@ data class EndSearchPathCommand(
     val clockSyncedAt: Instant? = null
 )
 
+enum class SearchPathLifecycleAction {
+    PAUSE,
+    RESUME,
+    END
+}
+
+data class PatchSearchPathCommand(
+    val operationId: String,
+    val incidentId: String,
+    val opId: String,
+    val searchPathId: String,
+    val policePhoneId: String,
+    val action: SearchPathLifecycleAction,
+    val idempotencyKey: String,
+    val sequence: Long,
+    val clientTs: Instant,
+    val clockOffsetMs: Long? = null,
+    val clockSyncedAt: Instant? = null
+)
+
 data class AppendPathBatchCommand(
     val operationId: String,
     val incidentId: String,
@@ -107,8 +127,26 @@ class SearchPathRepository(
     }
 
     suspend fun endSearchPath(command: EndSearchPathCommand): EnqueueResult {
+        return patchSearchPath(
+            PatchSearchPathCommand(
+                operationId = command.operationId,
+                incidentId = command.incidentId,
+                opId = command.opId,
+                searchPathId = command.searchPathId,
+                policePhoneId = command.policePhoneId,
+                action = SearchPathLifecycleAction.END,
+                idempotencyKey = command.idempotencyKey,
+                sequence = command.sequence,
+                clientTs = command.clientTs,
+                clockOffsetMs = command.clockOffsetMs,
+                clockSyncedAt = command.clockSyncedAt
+            )
+        )
+    }
+
+    suspend fun patchSearchPath(command: PatchSearchPathCommand): EnqueueResult {
         val payload = jsonObject(
-            "action" to jsonString("END"),
+            "action" to jsonString(command.action.name),
             "clientTs" to jsonInstant(command.clientTs),
             "clockOffsetMs" to command.clockOffsetMs?.let(::jsonNumber)
         )
@@ -182,6 +220,25 @@ class SearchPathRepository(
     }
 
     private fun EndSearchPathCommand.toOperation(
+        method: String,
+        endpoint: String,
+        payload: String
+    ): LocalWriteOperation =
+        PatchSearchPathCommand(
+            operationId = operationId,
+            incidentId = incidentId,
+            opId = opId,
+            searchPathId = searchPathId,
+            policePhoneId = policePhoneId,
+            action = SearchPathLifecycleAction.END,
+            idempotencyKey = idempotencyKey,
+            sequence = sequence,
+            clientTs = clientTs,
+            clockOffsetMs = clockOffsetMs,
+            clockSyncedAt = clockSyncedAt
+        ).toOperation(method, endpoint, payload)
+
+    private fun PatchSearchPathCommand.toOperation(
         method: String,
         endpoint: String,
         payload: String

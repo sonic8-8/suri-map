@@ -11,984 +11,984 @@ BEGIN;
 -- Remove previous test2 rows, including older test2-only account/phone fixtures and seeded FCM tokens.
 DELETE FROM fcm_token
 WHERE id IN (
-  '63000000-0000-0000-0000-000000000401',
-  '63000000-0000-0000-0000-000000000402',
-  '63000000-0000-0000-0000-000000000403',
-  '63000000-0000-0000-0000-000000000404',
-  '88a85e54-a2d7-a03b-9f46-058d62461c6e',
-  '902c01ba-b31d-2d37-8ea0-958398409c54'
-)
-OR police_phone_id IN (
-  '00000000-0000-0000-0000-000000000401',
-  '00000000-0000-0000-0000-000000000402',
-  '00000000-0000-0000-0000-000000000403',
-  '00000000-0000-0000-0000-000000000404',
-  '00000000-0000-0000-0000-000000000405',
-  '00000000-0000-0000-0000-000000000406',
-  '00000000-0000-0000-0000-000000000101',
-  '50000000-0000-0000-0000-000000000001'
-);
+             '63000000-0000-0000-0000-000000000401',
+             '63000000-0000-0000-0000-000000000402',
+             '63000000-0000-0000-0000-000000000403',
+             '63000000-0000-0000-0000-000000000404',
+             '88a85e54-a2d7-a03b-9f46-058d62461c6e',
+             '902c01ba-b31d-2d37-8ea0-958398409c54'
+    )
+   OR police_phone_id IN (
+                          '00000000-0000-0000-0000-000000000401',
+                          '00000000-0000-0000-0000-000000000402',
+                          '00000000-0000-0000-0000-000000000403',
+                          '00000000-0000-0000-0000-000000000404',
+                          '00000000-0000-0000-0000-000000000405',
+                          '00000000-0000-0000-0000-000000000406',
+                          '00000000-0000-0000-0000-000000000101',
+                          '50000000-0000-0000-0000-000000000001'
+    );
 
 DELETE FROM offline_package_installation
 WHERE offline_package_manifest_id IN (
-  '70000000-0000-0000-0000-000000002101',
-  '70000000-0000-0000-0000-000000002201',
-  '70000000-0000-0000-0000-000000002401',
-  '70000000-0000-0000-0000-000000002501'
-)
-OR offline_package_manifest_id IN (
-  SELECT id
-  FROM offline_package_manifest
-  WHERE incident_id IN (
-    '8d5b4a0b-7f72-43c4-a5d8-7ff3be3d1c01',
-    'e2f0dc65-5e14-4a4c-9bf6-93453443f7d2',
-    '6a28ddad-6a5b-4b2b-a676-fac5c2a3656f',
-    'bd57c6d4-a791-4617-b15b-40dd0a5137aa',
-    '9f7911d7-7c68-4c4d-9d66-8df46e0f36fb'
-  )
+                                      '70000000-0000-0000-0000-000000002101',
+                                      '70000000-0000-0000-0000-000000002201',
+                                      '70000000-0000-0000-0000-000000002401',
+                                      '70000000-0000-0000-0000-000000002501'
+    )
+   OR offline_package_manifest_id IN (
+    SELECT id
+    FROM offline_package_manifest
+    WHERE incident_id IN (
+                          '8d5b4a0b-7f72-43c4-a5d8-7ff3be3d1c01',
+                          'e2f0dc65-5e14-4a4c-9bf6-93453443f7d2',
+                          '6a28ddad-6a5b-4b2b-a676-fac5c2a3656f',
+                          'bd57c6d4-a791-4617-b15b-40dd0a5137aa',
+                          '9f7911d7-7c68-4c4d-9d66-8df46e0f36fb'
+        )
 );
 
 DELETE FROM offline_package_manifest
 WHERE id IN (
-  '70000000-0000-0000-0000-000000002101',
-  '70000000-0000-0000-0000-000000002201',
-  '70000000-0000-0000-0000-000000002401',
-  '70000000-0000-0000-0000-000000002501'
-)
-OR incident_id IN (
-  '8d5b4a0b-7f72-43c4-a5d8-7ff3be3d1c01',
-  'e2f0dc65-5e14-4a4c-9bf6-93453443f7d2',
-  '6a28ddad-6a5b-4b2b-a676-fac5c2a3656f',
-  'bd57c6d4-a791-4617-b15b-40dd0a5137aa',
-  '9f7911d7-7c68-4c4d-9d66-8df46e0f36fb',
-  'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2501'
-);
+             '70000000-0000-0000-0000-000000002101',
+             '70000000-0000-0000-0000-000000002201',
+             '70000000-0000-0000-0000-000000002401',
+             '70000000-0000-0000-0000-000000002501'
+    )
+   OR incident_id IN (
+                      '8d5b4a0b-7f72-43c4-a5d8-7ff3be3d1c01',
+                      'e2f0dc65-5e14-4a4c-9bf6-93453443f7d2',
+                      '6a28ddad-6a5b-4b2b-a676-fac5c2a3656f',
+                      'bd57c6d4-a791-4617-b15b-40dd0a5137aa',
+                      '9f7911d7-7c68-4c4d-9d66-8df46e0f36fb',
+                      'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2501'
+    );
 
 DELETE FROM search_history_summary
 WHERE operational_period_id BETWEEN '88888888-8888-8888-8888-888888882101' AND '88888888-8888-8888-8888-888888882599'
-OR operational_period_id IN (
-  '4bfe3a19-1270-4924-b581-ef7c4fc7d101',
-  '6389d8a2-0acf-42d5-b74f-2f24e32d1f59',
-  'b1c5e0ef-f662-4c0b-b6de-7e17dfd3e4b4',
-  '78a8df07-3248-4fa3-b2df-7d9b8cb36daa',
-  'fcdd5f52-8f07-4e49-9a5d-e3231a1afe76',
-  'a3a1c010-4437-4878-87ce-f0bd7841fe75',
-  'f550b765-6216-46d1-8e58-ed0fb33ff97d'
-);
+   OR operational_period_id IN (
+                                '4bfe3a19-1270-4924-b581-ef7c4fc7d101',
+                                '6389d8a2-0acf-42d5-b74f-2f24e32d1f59',
+                                'b1c5e0ef-f662-4c0b-b6de-7e17dfd3e4b4',
+                                '78a8df07-3248-4fa3-b2df-7d9b8cb36daa',
+                                'fcdd5f52-8f07-4e49-9a5d-e3231a1afe76',
+                                'a3a1c010-4437-4878-87ce-f0bd7841fe75',
+                                'f550b765-6216-46d1-8e58-ed0fb33ff97d'
+    );
 
 DELETE FROM handover_memo
 WHERE operational_period_id BETWEEN '88888888-8888-8888-8888-888888882101' AND '88888888-8888-8888-8888-888888882599'
-OR operational_period_id IN (
-  '4bfe3a19-1270-4924-b581-ef7c4fc7d101',
-  '6389d8a2-0acf-42d5-b74f-2f24e32d1f59',
-  'b1c5e0ef-f662-4c0b-b6de-7e17dfd3e4b4',
-  '78a8df07-3248-4fa3-b2df-7d9b8cb36daa',
-  'fcdd5f52-8f07-4e49-9a5d-e3231a1afe76',
-  'a3a1c010-4437-4878-87ce-f0bd7841fe75',
-  'f550b765-6216-46d1-8e58-ed0fb33ff97d'
-);
+   OR operational_period_id IN (
+                                '4bfe3a19-1270-4924-b581-ef7c4fc7d101',
+                                '6389d8a2-0acf-42d5-b74f-2f24e32d1f59',
+                                'b1c5e0ef-f662-4c0b-b6de-7e17dfd3e4b4',
+                                '78a8df07-3248-4fa3-b2df-7d9b8cb36daa',
+                                'fcdd5f52-8f07-4e49-9a5d-e3231a1afe76',
+                                'a3a1c010-4437-4878-87ce-f0bd7841fe75',
+                                'f550b765-6216-46d1-8e58-ed0fb33ff97d'
+    );
 
 DELETE FROM marker_notification
 WHERE marker_id IN (
-  SELECT id
-  FROM marker
-  WHERE operational_period_id BETWEEN '88888888-8888-8888-8888-888888882101' AND '88888888-8888-8888-8888-888888882599'
-     OR operational_period_id IN (
-       '4bfe3a19-1270-4924-b581-ef7c4fc7d101',
-       '6389d8a2-0acf-42d5-b74f-2f24e32d1f59',
-       'b1c5e0ef-f662-4c0b-b6de-7e17dfd3e4b4',
-       '78a8df07-3248-4fa3-b2df-7d9b8cb36daa',
-       'fcdd5f52-8f07-4e49-9a5d-e3231a1afe76',
-       'a3a1c010-4437-4878-87ce-f0bd7841fe75',
-       'f550b765-6216-46d1-8e58-ed0fb33ff97d'
-     )
+    SELECT id
+    FROM marker
+    WHERE operational_period_id BETWEEN '88888888-8888-8888-8888-888888882101' AND '88888888-8888-8888-8888-888888882599'
+       OR operational_period_id IN (
+                                    '4bfe3a19-1270-4924-b581-ef7c4fc7d101',
+                                    '6389d8a2-0acf-42d5-b74f-2f24e32d1f59',
+                                    'b1c5e0ef-f662-4c0b-b6de-7e17dfd3e4b4',
+                                    '78a8df07-3248-4fa3-b2df-7d9b8cb36daa',
+                                    'fcdd5f52-8f07-4e49-9a5d-e3231a1afe76',
+                                    'a3a1c010-4437-4878-87ce-f0bd7841fe75',
+                                    'f550b765-6216-46d1-8e58-ed0fb33ff97d'
+        )
 );
 
 DELETE FROM photo
 WHERE marker_id IN (
-  SELECT id
-  FROM marker
-  WHERE operational_period_id BETWEEN '88888888-8888-8888-8888-888888882101' AND '88888888-8888-8888-8888-888888882599'
-     OR operational_period_id IN (
-       '4bfe3a19-1270-4924-b581-ef7c4fc7d101',
-       '6389d8a2-0acf-42d5-b74f-2f24e32d1f59',
-       'b1c5e0ef-f662-4c0b-b6de-7e17dfd3e4b4',
-       '78a8df07-3248-4fa3-b2df-7d9b8cb36daa',
-       'fcdd5f52-8f07-4e49-9a5d-e3231a1afe76',
-       'a3a1c010-4437-4878-87ce-f0bd7841fe75',
-       'f550b765-6216-46d1-8e58-ed0fb33ff97d'
-     )
+    SELECT id
+    FROM marker
+    WHERE operational_period_id BETWEEN '88888888-8888-8888-8888-888888882101' AND '88888888-8888-8888-8888-888888882599'
+       OR operational_period_id IN (
+                                    '4bfe3a19-1270-4924-b581-ef7c4fc7d101',
+                                    '6389d8a2-0acf-42d5-b74f-2f24e32d1f59',
+                                    'b1c5e0ef-f662-4c0b-b6de-7e17dfd3e4b4',
+                                    '78a8df07-3248-4fa3-b2df-7d9b8cb36daa',
+                                    'fcdd5f52-8f07-4e49-9a5d-e3231a1afe76',
+                                    'a3a1c010-4437-4878-87ce-f0bd7841fe75',
+                                    'f550b765-6216-46d1-8e58-ed0fb33ff97d'
+        )
 );
 
 DELETE FROM marker
 WHERE operational_period_id BETWEEN '88888888-8888-8888-8888-888888882101' AND '88888888-8888-8888-8888-888888882599'
-OR operational_period_id IN (
-  '4bfe3a19-1270-4924-b581-ef7c4fc7d101',
-  '6389d8a2-0acf-42d5-b74f-2f24e32d1f59',
-  'b1c5e0ef-f662-4c0b-b6de-7e17dfd3e4b4',
-  '78a8df07-3248-4fa3-b2df-7d9b8cb36daa',
-  'fcdd5f52-8f07-4e49-9a5d-e3231a1afe76',
-  'a3a1c010-4437-4878-87ce-f0bd7841fe75',
-  'f550b765-6216-46d1-8e58-ed0fb33ff97d'
-);
+   OR operational_period_id IN (
+                                '4bfe3a19-1270-4924-b581-ef7c4fc7d101',
+                                '6389d8a2-0acf-42d5-b74f-2f24e32d1f59',
+                                'b1c5e0ef-f662-4c0b-b6de-7e17dfd3e4b4',
+                                '78a8df07-3248-4fa3-b2df-7d9b8cb36daa',
+                                'fcdd5f52-8f07-4e49-9a5d-e3231a1afe76',
+                                'a3a1c010-4437-4878-87ce-f0bd7841fe75',
+                                'f550b765-6216-46d1-8e58-ed0fb33ff97d'
+    );
 
 DELETE FROM search_path_excluded_point
 WHERE search_path_id IN (
-  SELECT sp.id
-  FROM search_path sp
-  JOIN duty_shift ds ON ds.id = sp.duty_shift_id
-  WHERE ds.operational_period_id BETWEEN '88888888-8888-8888-8888-888888882101' AND '88888888-8888-8888-8888-888888882599'
-     OR ds.operational_period_id IN (
-       '4bfe3a19-1270-4924-b581-ef7c4fc7d101',
-       '6389d8a2-0acf-42d5-b74f-2f24e32d1f59',
-       'b1c5e0ef-f662-4c0b-b6de-7e17dfd3e4b4',
-       '78a8df07-3248-4fa3-b2df-7d9b8cb36daa',
-       'fcdd5f52-8f07-4e49-9a5d-e3231a1afe76',
-       'a3a1c010-4437-4878-87ce-f0bd7841fe75',
-       'f550b765-6216-46d1-8e58-ed0fb33ff97d'
-     )
+    SELECT sp.id
+    FROM search_path sp
+             JOIN duty_shift ds ON ds.id = sp.duty_shift_id
+    WHERE ds.operational_period_id BETWEEN '88888888-8888-8888-8888-888888882101' AND '88888888-8888-8888-8888-888888882599'
+       OR ds.operational_period_id IN (
+                                       '4bfe3a19-1270-4924-b581-ef7c4fc7d101',
+                                       '6389d8a2-0acf-42d5-b74f-2f24e32d1f59',
+                                       'b1c5e0ef-f662-4c0b-b6de-7e17dfd3e4b4',
+                                       '78a8df07-3248-4fa3-b2df-7d9b8cb36daa',
+                                       'fcdd5f52-8f07-4e49-9a5d-e3231a1afe76',
+                                       'a3a1c010-4437-4878-87ce-f0bd7841fe75',
+                                       'f550b765-6216-46d1-8e58-ed0fb33ff97d'
+        )
 );
 
 DELETE FROM search_path_segment
 WHERE search_path_id IN (
-  SELECT sp.id
-  FROM search_path sp
-  JOIN duty_shift ds ON ds.id = sp.duty_shift_id
-  WHERE ds.operational_period_id BETWEEN '88888888-8888-8888-8888-888888882101' AND '88888888-8888-8888-8888-888888882599'
-     OR ds.operational_period_id IN (
-       '4bfe3a19-1270-4924-b581-ef7c4fc7d101',
-       '6389d8a2-0acf-42d5-b74f-2f24e32d1f59',
-       'b1c5e0ef-f662-4c0b-b6de-7e17dfd3e4b4',
-       '78a8df07-3248-4fa3-b2df-7d9b8cb36daa',
-       'fcdd5f52-8f07-4e49-9a5d-e3231a1afe76',
-       'a3a1c010-4437-4878-87ce-f0bd7841fe75',
-       'f550b765-6216-46d1-8e58-ed0fb33ff97d'
-     )
+    SELECT sp.id
+    FROM search_path sp
+             JOIN duty_shift ds ON ds.id = sp.duty_shift_id
+    WHERE ds.operational_period_id BETWEEN '88888888-8888-8888-8888-888888882101' AND '88888888-8888-8888-8888-888888882599'
+       OR ds.operational_period_id IN (
+                                       '4bfe3a19-1270-4924-b581-ef7c4fc7d101',
+                                       '6389d8a2-0acf-42d5-b74f-2f24e32d1f59',
+                                       'b1c5e0ef-f662-4c0b-b6de-7e17dfd3e4b4',
+                                       '78a8df07-3248-4fa3-b2df-7d9b8cb36daa',
+                                       'fcdd5f52-8f07-4e49-9a5d-e3231a1afe76',
+                                       'a3a1c010-4437-4878-87ce-f0bd7841fe75',
+                                       'f550b765-6216-46d1-8e58-ed0fb33ff97d'
+        )
 );
 
 DELETE FROM search_path
 WHERE duty_shift_id IN (
-  SELECT id
-  FROM duty_shift
-  WHERE operational_period_id BETWEEN '88888888-8888-8888-8888-888888882101' AND '88888888-8888-8888-8888-888888882599'
-     OR operational_period_id IN (
-       '4bfe3a19-1270-4924-b581-ef7c4fc7d101',
-       '6389d8a2-0acf-42d5-b74f-2f24e32d1f59',
-       'b1c5e0ef-f662-4c0b-b6de-7e17dfd3e4b4',
-       '78a8df07-3248-4fa3-b2df-7d9b8cb36daa',
-       'fcdd5f52-8f07-4e49-9a5d-e3231a1afe76',
-       'a3a1c010-4437-4878-87ce-f0bd7841fe75',
-       'f550b765-6216-46d1-8e58-ed0fb33ff97d'
-     )
+    SELECT id
+    FROM duty_shift
+    WHERE operational_period_id BETWEEN '88888888-8888-8888-8888-888888882101' AND '88888888-8888-8888-8888-888888882599'
+       OR operational_period_id IN (
+                                    '4bfe3a19-1270-4924-b581-ef7c4fc7d101',
+                                    '6389d8a2-0acf-42d5-b74f-2f24e32d1f59',
+                                    'b1c5e0ef-f662-4c0b-b6de-7e17dfd3e4b4',
+                                    '78a8df07-3248-4fa3-b2df-7d9b8cb36daa',
+                                    'fcdd5f52-8f07-4e49-9a5d-e3231a1afe76',
+                                    'a3a1c010-4437-4878-87ce-f0bd7841fe75',
+                                    'f550b765-6216-46d1-8e58-ed0fb33ff97d'
+        )
 );
 
 DELETE FROM duty_shift
 WHERE operational_period_id BETWEEN '88888888-8888-8888-8888-888888882101' AND '88888888-8888-8888-8888-888888882599'
-OR operational_period_id IN (
-  '4bfe3a19-1270-4924-b581-ef7c4fc7d101',
-  '6389d8a2-0acf-42d5-b74f-2f24e32d1f59',
-  'b1c5e0ef-f662-4c0b-b6de-7e17dfd3e4b4',
-  '78a8df07-3248-4fa3-b2df-7d9b8cb36daa',
-  'fcdd5f52-8f07-4e49-9a5d-e3231a1afe76',
-  'a3a1c010-4437-4878-87ce-f0bd7841fe75',
-  'f550b765-6216-46d1-8e58-ed0fb33ff97d'
-);
+   OR operational_period_id IN (
+                                '4bfe3a19-1270-4924-b581-ef7c4fc7d101',
+                                '6389d8a2-0acf-42d5-b74f-2f24e32d1f59',
+                                'b1c5e0ef-f662-4c0b-b6de-7e17dfd3e4b4',
+                                '78a8df07-3248-4fa3-b2df-7d9b8cb36daa',
+                                'fcdd5f52-8f07-4e49-9a5d-e3231a1afe76',
+                                'a3a1c010-4437-4878-87ce-f0bd7841fe75',
+                                'f550b765-6216-46d1-8e58-ed0fb33ff97d'
+    );
 
 DELETE FROM search_area_assignment
 WHERE search_area_id IN (
-  SELECT id
-  FROM search_area
-  WHERE operational_period_id BETWEEN '88888888-8888-8888-8888-888888882101' AND '88888888-8888-8888-8888-888888882599'
-     OR operational_period_id IN (
-       '4bfe3a19-1270-4924-b581-ef7c4fc7d101',
-       '6389d8a2-0acf-42d5-b74f-2f24e32d1f59',
-       'b1c5e0ef-f662-4c0b-b6de-7e17dfd3e4b4',
-       '78a8df07-3248-4fa3-b2df-7d9b8cb36daa',
-       'fcdd5f52-8f07-4e49-9a5d-e3231a1afe76',
-       'a3a1c010-4437-4878-87ce-f0bd7841fe75',
-       'f550b765-6216-46d1-8e58-ed0fb33ff97d'
-     )
+    SELECT id
+    FROM search_area
+    WHERE operational_period_id BETWEEN '88888888-8888-8888-8888-888888882101' AND '88888888-8888-8888-8888-888888882599'
+       OR operational_period_id IN (
+                                    '4bfe3a19-1270-4924-b581-ef7c4fc7d101',
+                                    '6389d8a2-0acf-42d5-b74f-2f24e32d1f59',
+                                    'b1c5e0ef-f662-4c0b-b6de-7e17dfd3e4b4',
+                                    '78a8df07-3248-4fa3-b2df-7d9b8cb36daa',
+                                    'fcdd5f52-8f07-4e49-9a5d-e3231a1afe76',
+                                    'a3a1c010-4437-4878-87ce-f0bd7841fe75',
+                                    'f550b765-6216-46d1-8e58-ed0fb33ff97d'
+        )
 );
 
 DELETE FROM search_area_history
 WHERE search_area_id IN (
-  SELECT id
-  FROM search_area
-  WHERE operational_period_id BETWEEN '88888888-8888-8888-8888-888888882101' AND '88888888-8888-8888-8888-888888882599'
-     OR operational_period_id IN (
-       '4bfe3a19-1270-4924-b581-ef7c4fc7d101',
-       '6389d8a2-0acf-42d5-b74f-2f24e32d1f59',
-       'b1c5e0ef-f662-4c0b-b6de-7e17dfd3e4b4',
-       '78a8df07-3248-4fa3-b2df-7d9b8cb36daa',
-       'fcdd5f52-8f07-4e49-9a5d-e3231a1afe76',
-       'a3a1c010-4437-4878-87ce-f0bd7841fe75',
-       'f550b765-6216-46d1-8e58-ed0fb33ff97d'
-     )
+    SELECT id
+    FROM search_area
+    WHERE operational_period_id BETWEEN '88888888-8888-8888-8888-888888882101' AND '88888888-8888-8888-8888-888888882599'
+       OR operational_period_id IN (
+                                    '4bfe3a19-1270-4924-b581-ef7c4fc7d101',
+                                    '6389d8a2-0acf-42d5-b74f-2f24e32d1f59',
+                                    'b1c5e0ef-f662-4c0b-b6de-7e17dfd3e4b4',
+                                    '78a8df07-3248-4fa3-b2df-7d9b8cb36daa',
+                                    'fcdd5f52-8f07-4e49-9a5d-e3231a1afe76',
+                                    'a3a1c010-4437-4878-87ce-f0bd7841fe75',
+                                    'f550b765-6216-46d1-8e58-ed0fb33ff97d'
+        )
 );
 
 DELETE FROM search_area
 WHERE operational_period_id BETWEEN '88888888-8888-8888-8888-888888882101' AND '88888888-8888-8888-8888-888888882599'
-OR operational_period_id IN (
-  '4bfe3a19-1270-4924-b581-ef7c4fc7d101',
-  '6389d8a2-0acf-42d5-b74f-2f24e32d1f59',
-  'b1c5e0ef-f662-4c0b-b6de-7e17dfd3e4b4',
-  '78a8df07-3248-4fa3-b2df-7d9b8cb36daa',
-  'fcdd5f52-8f07-4e49-9a5d-e3231a1afe76',
-  'a3a1c010-4437-4878-87ce-f0bd7841fe75',
-  'f550b765-6216-46d1-8e58-ed0fb33ff97d'
-);
+   OR operational_period_id IN (
+                                '4bfe3a19-1270-4924-b581-ef7c4fc7d101',
+                                '6389d8a2-0acf-42d5-b74f-2f24e32d1f59',
+                                'b1c5e0ef-f662-4c0b-b6de-7e17dfd3e4b4',
+                                '78a8df07-3248-4fa3-b2df-7d9b8cb36daa',
+                                'fcdd5f52-8f07-4e49-9a5d-e3231a1afe76',
+                                'a3a1c010-4437-4878-87ce-f0bd7841fe75',
+                                'f550b765-6216-46d1-8e58-ed0fb33ff97d'
+    );
 
 DELETE FROM operational_period
 WHERE incident_id BETWEEN 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101' AND 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2599'
-OR incident_id IN (
-  '8d5b4a0b-7f72-43c4-a5d8-7ff3be3d1c01',
-  'e2f0dc65-5e14-4a4c-9bf6-93453443f7d2',
-  '6a28ddad-6a5b-4b2b-a676-fac5c2a3656f',
-  'bd57c6d4-a791-4617-b15b-40dd0a5137aa',
-  '9f7911d7-7c68-4c4d-9d66-8df46e0f36fb'
-);
+   OR incident_id IN (
+                      '8d5b4a0b-7f72-43c4-a5d8-7ff3be3d1c01',
+                      'e2f0dc65-5e14-4a4c-9bf6-93453443f7d2',
+                      '6a28ddad-6a5b-4b2b-a676-fac5c2a3656f',
+                      'bd57c6d4-a791-4617-b15b-40dd0a5137aa',
+                      '9f7911d7-7c68-4c4d-9d66-8df46e0f36fb'
+    );
 
 DELETE FROM incident_assignment
 WHERE incident_id BETWEEN 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101' AND 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2599'
-OR incident_id IN (
-  '8d5b4a0b-7f72-43c4-a5d8-7ff3be3d1c01',
-  'e2f0dc65-5e14-4a4c-9bf6-93453443f7d2',
-  '6a28ddad-6a5b-4b2b-a676-fac5c2a3656f',
-  'bd57c6d4-a791-4617-b15b-40dd0a5137aa',
-  '9f7911d7-7c68-4c4d-9d66-8df46e0f36fb'
-);
+   OR incident_id IN (
+                      '8d5b4a0b-7f72-43c4-a5d8-7ff3be3d1c01',
+                      'e2f0dc65-5e14-4a4c-9bf6-93453443f7d2',
+                      '6a28ddad-6a5b-4b2b-a676-fac5c2a3656f',
+                      'bd57c6d4-a791-4617-b15b-40dd0a5137aa',
+                      '9f7911d7-7c68-4c4d-9d66-8df46e0f36fb'
+    );
 
 DELETE FROM missing_person
 WHERE incident_id BETWEEN 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101' AND 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2599'
-OR incident_id IN (
-  '8d5b4a0b-7f72-43c4-a5d8-7ff3be3d1c01',
-  'e2f0dc65-5e14-4a4c-9bf6-93453443f7d2',
-  '6a28ddad-6a5b-4b2b-a676-fac5c2a3656f',
-  'bd57c6d4-a791-4617-b15b-40dd0a5137aa',
-  '9f7911d7-7c68-4c4d-9d66-8df46e0f36fb'
-);
+   OR incident_id IN (
+                      '8d5b4a0b-7f72-43c4-a5d8-7ff3be3d1c01',
+                      'e2f0dc65-5e14-4a4c-9bf6-93453443f7d2',
+                      '6a28ddad-6a5b-4b2b-a676-fac5c2a3656f',
+                      'bd57c6d4-a791-4617-b15b-40dd0a5137aa',
+                      '9f7911d7-7c68-4c4d-9d66-8df46e0f36fb'
+    );
 
 DELETE FROM incident
 WHERE id BETWEEN 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101' AND 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2599'
-OR id IN (
-  '8d5b4a0b-7f72-43c4-a5d8-7ff3be3d1c01',
-  'e2f0dc65-5e14-4a4c-9bf6-93453443f7d2',
-  '6a28ddad-6a5b-4b2b-a676-fac5c2a3656f',
-  'bd57c6d4-a791-4617-b15b-40dd0a5137aa',
-  '9f7911d7-7c68-4c4d-9d66-8df46e0f36fb'
-);
+   OR id IN (
+             '8d5b4a0b-7f72-43c4-a5d8-7ff3be3d1c01',
+             'e2f0dc65-5e14-4a4c-9bf6-93453443f7d2',
+             '6a28ddad-6a5b-4b2b-a676-fac5c2a3656f',
+             'bd57c6d4-a791-4617-b15b-40dd0a5137aa',
+             '9f7911d7-7c68-4c4d-9d66-8df46e0f36fb'
+    );
 
 DELETE FROM police_phone
 WHERE id IN (
-  '00000000-0000-0000-0000-000000000401',
-  '00000000-0000-0000-0000-000000000402',
-  '00000000-0000-0000-0000-000000000403',
-  '00000000-0000-0000-0000-000000000404',
-  '00000000-0000-0000-0000-000000000405',
-  '00000000-0000-0000-0000-000000000406'
-);
+             '00000000-0000-0000-0000-000000000401',
+             '00000000-0000-0000-0000-000000000402',
+             '00000000-0000-0000-0000-000000000403',
+             '00000000-0000-0000-0000-000000000404',
+             '00000000-0000-0000-0000-000000000405',
+             '00000000-0000-0000-0000-000000000406'
+    );
 
 DELETE FROM account
 WHERE id IN (
-  '11111111-1111-1111-1111-111111110401',
-  '11111111-1111-1111-1111-111111110402',
-  '11111111-1111-1111-1111-111111110403',
-  '11111111-1111-1111-1111-111111110404',
-  '11111111-1111-1111-1111-111111110405',
-  '11111111-1111-1111-1111-111111110406'
-);
+             '11111111-1111-1111-1111-111111110401',
+             '11111111-1111-1111-1111-111111110402',
+             '11111111-1111-1111-1111-111111110403',
+             '11111111-1111-1111-1111-111111110404',
+             '11111111-1111-1111-1111-111111110405',
+             '11111111-1111-1111-1111-111111110406'
+    );
 
 -- Keep default phones fresh enough for board freshness and route checks.
 UPDATE police_phone
 SET
-  registered = TRUE,
-  last_heartbeat_at = CASE id
-    WHEN '50000000-0000-0000-0000-000000000001' THEN '2026-05-16T10:26:00+09:00'::timestamptz
-    WHEN '00000000-0000-0000-0000-000000000101' THEN '2026-05-16T10:29:00+09:00'::timestamptz
-    WHEN '00000000-0000-0000-0000-000000000205' THEN '2026-05-16T10:31:00+09:00'::timestamptz
-    WHEN '00000000-0000-0000-0000-000000000207' THEN '2026-05-16T10:27:00+09:00'::timestamptz
-    WHEN '00000000-0000-0000-0000-000000000208' THEN '2026-05-16T10:22:00+09:00'::timestamptz
-    ELSE last_heartbeat_at
-  END,
-  last_sync_at = CASE id
-    WHEN '50000000-0000-0000-0000-000000000001' THEN '2026-05-16T10:21:00+09:00'::timestamptz
-    WHEN '00000000-0000-0000-0000-000000000101' THEN '2026-05-16T10:24:00+09:00'::timestamptz
-    WHEN '00000000-0000-0000-0000-000000000205' THEN '2026-05-16T10:25:00+09:00'::timestamptz
-    WHEN '00000000-0000-0000-0000-000000000207' THEN '2026-05-16T10:18:00+09:00'::timestamptz
-    WHEN '00000000-0000-0000-0000-000000000208' THEN '2026-05-16T10:10:00+09:00'::timestamptz
-    ELSE last_sync_at
-  END,
-  heartbeat_sequence = CASE id
-    WHEN '50000000-0000-0000-0000-000000000001' THEN 142
-    WHEN '00000000-0000-0000-0000-000000000101' THEN 188
-    WHEN '00000000-0000-0000-0000-000000000205' THEN 213
-    WHEN '00000000-0000-0000-0000-000000000207' THEN 119
-    WHEN '00000000-0000-0000-0000-000000000208' THEN 97
-    ELSE heartbeat_sequence
-  END,
-  version = CASE id
-    WHEN '50000000-0000-0000-0000-000000000001' THEN 12
-    WHEN '00000000-0000-0000-0000-000000000101' THEN 14
-    WHEN '00000000-0000-0000-0000-000000000205' THEN 16
-    WHEN '00000000-0000-0000-0000-000000000207' THEN 11
-    WHEN '00000000-0000-0000-0000-000000000208' THEN 9
-    ELSE version
-  END,
-  updated_at = '2026-05-16T10:31:00+09:00'
+    registered = TRUE,
+    last_heartbeat_at = CASE id
+                            WHEN '50000000-0000-0000-0000-000000000001' THEN '2026-05-16T10:26:00+09:00'::timestamptz
+                            WHEN '00000000-0000-0000-0000-000000000101' THEN '2026-05-16T10:29:00+09:00'::timestamptz
+                            WHEN '00000000-0000-0000-0000-000000000205' THEN '2026-05-16T10:31:00+09:00'::timestamptz
+                            WHEN '00000000-0000-0000-0000-000000000207' THEN '2026-05-16T10:27:00+09:00'::timestamptz
+                            WHEN '00000000-0000-0000-0000-000000000208' THEN '2026-05-16T10:22:00+09:00'::timestamptz
+                            ELSE last_heartbeat_at
+        END,
+    last_sync_at = CASE id
+                       WHEN '50000000-0000-0000-0000-000000000001' THEN '2026-05-16T10:21:00+09:00'::timestamptz
+                       WHEN '00000000-0000-0000-0000-000000000101' THEN '2026-05-16T10:24:00+09:00'::timestamptz
+                       WHEN '00000000-0000-0000-0000-000000000205' THEN '2026-05-16T10:25:00+09:00'::timestamptz
+                       WHEN '00000000-0000-0000-0000-000000000207' THEN '2026-05-16T10:18:00+09:00'::timestamptz
+                       WHEN '00000000-0000-0000-0000-000000000208' THEN '2026-05-16T10:10:00+09:00'::timestamptz
+                       ELSE last_sync_at
+        END,
+    heartbeat_sequence = CASE id
+                             WHEN '50000000-0000-0000-0000-000000000001' THEN 142
+                             WHEN '00000000-0000-0000-0000-000000000101' THEN 188
+                             WHEN '00000000-0000-0000-0000-000000000205' THEN 213
+                             WHEN '00000000-0000-0000-0000-000000000207' THEN 119
+                             WHEN '00000000-0000-0000-0000-000000000208' THEN 97
+                             ELSE heartbeat_sequence
+        END,
+    version = CASE id
+                  WHEN '50000000-0000-0000-0000-000000000001' THEN 12
+                  WHEN '00000000-0000-0000-0000-000000000101' THEN 14
+                  WHEN '00000000-0000-0000-0000-000000000205' THEN 16
+                  WHEN '00000000-0000-0000-0000-000000000207' THEN 11
+                  WHEN '00000000-0000-0000-0000-000000000208' THEN 9
+                  ELSE version
+        END,
+    updated_at = '2026-05-16T10:31:00+09:00'
 WHERE id IN (
-  '50000000-0000-0000-0000-000000000001',
-  '00000000-0000-0000-0000-000000000101',
-  '00000000-0000-0000-0000-000000000205',
-  '00000000-0000-0000-0000-000000000207',
-  '00000000-0000-0000-0000-000000000208'
-);
+             '50000000-0000-0000-0000-000000000001',
+             '00000000-0000-0000-0000-000000000101',
+             '00000000-0000-0000-0000-000000000205',
+             '00000000-0000-0000-0000-000000000207',
+             '00000000-0000-0000-0000-000000000208'
+    );
 
 INSERT INTO fcm_token (
-  id,
-  account_id,
-  police_phone_id,
-  app_instance_id,
-  token_hash,
-  token_ciphertext,
-  status,
-  created_at,
-  last_registered_at,
-  revoked_at,
-  version
+    id,
+    account_id,
+    police_phone_id,
+    app_instance_id,
+    token_hash,
+    token_ciphertext,
+    status,
+    created_at,
+    last_registered_at,
+    revoked_at,
+    version
 )
 VALUES
-  (
-    '88a85e54-a2d7-a03b-9f46-058d62461c6e',
-    '11111111-1111-1111-1111-111111110003',
-    '00000000-0000-0000-0000-000000000101',
-    'app-instance-assigned-101',
-    'e2c2d72eeb9954f9e2dc41c3cad292177dbc91265265452b7584660fae688cda',
-    'cipher:fcm-token-assigned-101',
-    'ACTIVE',
-    '2026-05-16T10:31:00+09:00',
-    '2026-05-16T10:31:00+09:00',
-    NULL,
-    1
-  ),
-  (
-    '902c01ba-b31d-2d37-8ea0-958398409c54',
-    '11111111-1111-1111-1111-111111110003',
-    '50000000-0000-0000-0000-000000000001',
-    'app-instance-path-500',
-    'b72cea932c0782376e463fad3fbca7d66e0bd2d3381f359c4c198159ed67f130',
-    'cipher:fcm-token-path-500',
-    'ACTIVE',
-    '2026-05-16T10:31:00+09:00',
-    '2026-05-16T10:31:00+09:00',
-    NULL,
-    1
-  )
+    (
+        '88a85e54-a2d7-a03b-9f46-058d62461c6e',
+        '11111111-1111-1111-1111-111111110003',
+        '00000000-0000-0000-0000-000000000101',
+        'app-instance-assigned-101',
+        'e2c2d72eeb9954f9e2dc41c3cad292177dbc91265265452b7584660fae688cda',
+        'cipher:fcm-token-assigned-101',
+        'ACTIVE',
+        '2026-05-16T10:31:00+09:00',
+        '2026-05-16T10:31:00+09:00',
+        NULL,
+        1
+    ),
+    (
+        '902c01ba-b31d-2d37-8ea0-958398409c54',
+        '11111111-1111-1111-1111-111111110003',
+        '50000000-0000-0000-0000-000000000001',
+        'app-instance-path-500',
+        'b72cea932c0782376e463fad3fbca7d66e0bd2d3381f359c4c198159ed67f130',
+        'cipher:fcm-token-path-500',
+        'ACTIVE',
+        '2026-05-16T10:31:00+09:00',
+        '2026-05-16T10:31:00+09:00',
+        NULL,
+        1
+    )
 ON CONFLICT (id) DO UPDATE SET
-  account_id = EXCLUDED.account_id,
-  police_phone_id = EXCLUDED.police_phone_id,
-  app_instance_id = EXCLUDED.app_instance_id,
-  token_hash = EXCLUDED.token_hash,
-  token_ciphertext = EXCLUDED.token_ciphertext,
-  status = EXCLUDED.status,
-  created_at = EXCLUDED.created_at,
-  last_registered_at = EXCLUDED.last_registered_at,
-  revoked_at = EXCLUDED.revoked_at,
-  version = EXCLUDED.version;
+                               account_id = EXCLUDED.account_id,
+                               police_phone_id = EXCLUDED.police_phone_id,
+                               app_instance_id = EXCLUDED.app_instance_id,
+                               token_hash = EXCLUDED.token_hash,
+                               token_ciphertext = EXCLUDED.token_ciphertext,
+                               status = EXCLUDED.status,
+                               created_at = EXCLUDED.created_at,
+                               last_registered_at = EXCLUDED.last_registered_at,
+                               revoked_at = EXCLUDED.revoked_at,
+                               version = EXCLUDED.version;
 
 INSERT INTO incident (
-  id,
-  source_incident_id,
-  title,
-  status,
-  opened_at,
-  closed_at,
-  closed_by_account_id,
-  version,
-  created_at,
-  updated_at
+    id,
+    source_incident_id,
+    title,
+    status,
+    opened_at,
+    closed_at,
+    closed_by_account_id,
+    version,
+    created_at,
+    updated_at
 )
 VALUES
-  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101', '00000000-0000-0000-0000-000000002101', '무등산 증심사 계곡 실종자 수색', 'OPEN', '2026-05-16T06:42:00+09:00', NULL, NULL, 8, '2026-05-16T06:42:00+09:00', '2026-05-16T10:31:00+09:00'),
-  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2201', '00000000-0000-0000-0000-000000002201', '광주천 양림동 산책로 실종자 수색', 'OPEN', '2026-05-16T08:05:00+09:00', NULL, NULL, 5, '2026-05-16T08:05:00+09:00', '2026-05-16T10:19:00+09:00'),
-  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2301', '00000000-0000-0000-0000-000000002301', '광주송정역 환승권역 실종자 수색', 'OPEN', '2026-05-16T09:24:00+09:00', NULL, NULL, 2, '2026-05-16T09:24:00+09:00', '2026-05-16T10:05:00+09:00'),
-  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2401', '00000000-0000-0000-0000-000000002401', '광주호 호수생태원 주변 수색 종료 사건', 'CLOSED', '2026-05-15T14:10:00+09:00', '2026-05-15T17:32:00+09:00', '11111111-1111-1111-1111-111111110001', 7, '2026-05-15T14:10:00+09:00', '2026-05-15T17:32:00+09:00'),
-  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2501', '00000000-0000-0000-0000-000000002501', '수완지구 신고 접수 직후 구역 미설정 사건', 'OPEN', '2026-05-16T10:12:00+09:00', NULL, NULL, 1, '2026-05-16T10:12:00+09:00', '2026-05-16T10:12:00+09:00')
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101', '00000000-0000-0000-0000-000000002101', '무등산 증심사 계곡 실종자 수색', 'OPEN', '2026-05-16T06:42:00+09:00', NULL, NULL, 8, '2026-05-16T06:42:00+09:00', '2026-05-16T10:31:00+09:00'),
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2201', '00000000-0000-0000-0000-000000002201', '광주천 양림동 산책로 실종자 수색', 'OPEN', '2026-05-16T08:05:00+09:00', NULL, NULL, 5, '2026-05-16T08:05:00+09:00', '2026-05-16T10:19:00+09:00'),
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2301', '00000000-0000-0000-0000-000000002301', '광주송정역 환승권역 실종자 수색', 'OPEN', '2026-05-16T09:24:00+09:00', NULL, NULL, 2, '2026-05-16T09:24:00+09:00', '2026-05-16T10:05:00+09:00'),
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2401', '00000000-0000-0000-0000-000000002401', '광주호 호수생태원 주변 수색 종료 사건', 'CLOSED', '2026-05-15T14:10:00+09:00', '2026-05-15T17:32:00+09:00', '11111111-1111-1111-1111-111111110001', 7, '2026-05-15T14:10:00+09:00', '2026-05-15T17:32:00+09:00'),
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2501', '00000000-0000-0000-0000-000000002501', '수완지구 신고 접수 직후 구역 미설정 사건', 'OPEN', '2026-05-16T10:12:00+09:00', NULL, NULL, 1, '2026-05-16T10:12:00+09:00', '2026-05-16T10:12:00+09:00')
 ON CONFLICT (id) DO UPDATE SET
-  source_incident_id = EXCLUDED.source_incident_id,
-  title = EXCLUDED.title,
-  status = EXCLUDED.status,
-  opened_at = EXCLUDED.opened_at,
-  closed_at = EXCLUDED.closed_at,
-  closed_by_account_id = EXCLUDED.closed_by_account_id,
-  version = EXCLUDED.version,
-  updated_at = EXCLUDED.updated_at;
+                               source_incident_id = EXCLUDED.source_incident_id,
+                               title = EXCLUDED.title,
+                               status = EXCLUDED.status,
+                               opened_at = EXCLUDED.opened_at,
+                               closed_at = EXCLUDED.closed_at,
+                               closed_by_account_id = EXCLUDED.closed_by_account_id,
+                               version = EXCLUDED.version,
+                               updated_at = EXCLUDED.updated_at;
 
 INSERT INTO missing_person (
-  incident_id,
-  display_name,
-  photo_object_key,
-  appearance_text,
-  last_seen_location_text,
-  last_seen_at,
-  imported_at
+    incident_id,
+    display_name,
+    photo_object_key,
+    appearance_text,
+    last_seen_location_text,
+    last_seen_at,
+    imported_at
 )
 VALUES
-  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101', '실종자 T2-무등-01', 'mock-112/missing-person/gwangju-mudeung-01.jpg', '남색 등산 조끼, 회색 모자, 검은 등산화', '무등산 증심사 입구 버스정류장', '2026-05-16T06:10:00+09:00', '2026-05-16T06:42:00+09:00'),
-  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2201', '실종자 T2-광주천-01', 'mock-112/missing-person/gwangju-stream-01.jpg', '베이지색 바람막이, 흰 운동화, 작은 천가방', '양림동 펭귄마을에서 광주천 방향', '2026-05-16T07:35:00+09:00', '2026-05-16T08:05:00+09:00'),
-  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2301', '실종자 T2-송정-01', 'mock-112/missing-person/gwangju-songjeong-01.jpg', '검은 후드, 청바지, 빨간 캐리어', '광주송정역 택시 승강장', '2026-05-16T08:48:00+09:00', '2026-05-16T09:24:00+09:00'),
-  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2401', '실종자 T2-호수-01', 'mock-112/missing-person/gwangju-lake-01.jpg', '초록색 점퍼, 검은 우산, 회색 운동화', '광주호 호수생태원 관찰데크', '2026-05-15T13:30:00+09:00', '2026-05-15T14:10:00+09:00'),
-  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2501', '실종자 T2-수완-01', 'mock-112/missing-person/gwangju-suwan-01.jpg', '회색 후드티, 검은 바지, 흰색 이어폰', '수완호수공원 북측 편의점', '2026-05-16T09:50:00+09:00', '2026-05-16T10:12:00+09:00')
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101', '실종자 T2-무등-01', 'mock-112/missing-person/gwangju-mudeung-01.jpg', '남색 등산 조끼, 회색 모자, 검은 등산화', '무등산 증심사 입구 버스정류장', '2026-05-16T06:10:00+09:00', '2026-05-16T06:42:00+09:00'),
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2201', '실종자 T2-광주천-01', 'mock-112/missing-person/gwangju-stream-01.jpg', '베이지색 바람막이, 흰 운동화, 작은 천가방', '양림동 펭귄마을에서 광주천 방향', '2026-05-16T07:35:00+09:00', '2026-05-16T08:05:00+09:00'),
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2301', '실종자 T2-송정-01', 'mock-112/missing-person/gwangju-songjeong-01.jpg', '검은 후드, 청바지, 빨간 캐리어', '광주송정역 택시 승강장', '2026-05-16T08:48:00+09:00', '2026-05-16T09:24:00+09:00'),
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2401', '실종자 T2-호수-01', 'mock-112/missing-person/gwangju-lake-01.jpg', '초록색 점퍼, 검은 우산, 회색 운동화', '광주호 호수생태원 관찰데크', '2026-05-15T13:30:00+09:00', '2026-05-15T14:10:00+09:00'),
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2501', '실종자 T2-수완-01', 'mock-112/missing-person/gwangju-suwan-01.jpg', '회색 후드티, 검은 바지, 흰색 이어폰', '수완호수공원 북측 편의점', '2026-05-16T09:50:00+09:00', '2026-05-16T10:12:00+09:00')
 ON CONFLICT (incident_id) DO UPDATE SET
-  display_name = EXCLUDED.display_name,
-  photo_object_key = EXCLUDED.photo_object_key,
-  appearance_text = EXCLUDED.appearance_text,
-  last_seen_location_text = EXCLUDED.last_seen_location_text,
-  last_seen_at = EXCLUDED.last_seen_at,
-  imported_at = EXCLUDED.imported_at;
+                                        display_name = EXCLUDED.display_name,
+                                        photo_object_key = EXCLUDED.photo_object_key,
+                                        appearance_text = EXCLUDED.appearance_text,
+                                        last_seen_location_text = EXCLUDED.last_seen_location_text,
+                                        last_seen_at = EXCLUDED.last_seen_at,
+                                        imported_at = EXCLUDED.imported_at;
 
 INSERT INTO incident_assignment (
-  id,
-  incident_id,
-  account_id,
-  incident_role,
-  assigned_at,
-  revoked_at,
-  created_at,
-  updated_at
+    id,
+    incident_id,
+    account_id,
+    incident_role,
+    assigned_at,
+    revoked_at,
+    created_at,
+    updated_at
 )
 VALUES
-  ('11110000-0000-0000-0000-000000002101', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101', '11111111-1111-1111-1111-111111110001', 'INCIDENT_COMMANDER', '2026-05-16T06:42:00+09:00', NULL, '2026-05-16T06:42:00+09:00', '2026-05-16T06:42:00+09:00'),
-  ('11110000-0000-0000-0000-000000002102', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101', '11111111-1111-1111-1111-111111110003', 'MEMBER', '2026-05-16T06:48:00+09:00', NULL, '2026-05-16T06:48:00+09:00', '2026-05-16T06:48:00+09:00'),
-  ('11110000-0000-0000-0000-000000002103', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101', '11111111-1111-1111-1111-111111110005', 'FIELD_COMMANDER', '2026-05-16T06:50:00+09:00', NULL, '2026-05-16T06:50:00+09:00', '2026-05-16T06:50:00+09:00'),
-  ('11110000-0000-0000-0000-000000002104', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101', '11111111-1111-1111-1111-111111110007', 'MEMBER', '2026-05-16T07:02:00+09:00', NULL, '2026-05-16T07:02:00+09:00', '2026-05-16T07:02:00+09:00'),
-  ('11110000-0000-0000-0000-000000002105', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101', '11111111-1111-1111-1111-111111110008', 'MEMBER', '2026-05-16T08:20:00+09:00', NULL, '2026-05-16T08:20:00+09:00', '2026-05-16T08:20:00+09:00'),
-  ('11110000-0000-0000-0000-000000002201', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2201', '11111111-1111-1111-1111-111111110001', 'INCIDENT_COMMANDER', '2026-05-16T08:05:00+09:00', NULL, '2026-05-16T08:05:00+09:00', '2026-05-16T08:05:00+09:00'),
-  ('11110000-0000-0000-0000-000000002202', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2201', '11111111-1111-1111-1111-111111110002', 'MEMBER', '2026-05-16T08:08:00+09:00', NULL, '2026-05-16T08:08:00+09:00', '2026-05-16T08:08:00+09:00'),
-  ('11110000-0000-0000-0000-000000002203', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2201', '11111111-1111-1111-1111-111111110005', 'FIELD_COMMANDER', '2026-05-16T08:12:00+09:00', NULL, '2026-05-16T08:12:00+09:00', '2026-05-16T08:12:00+09:00'),
-  ('11110000-0000-0000-0000-000000002204', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2201', '11111111-1111-1111-1111-111111110007', 'MEMBER', '2026-05-16T08:22:00+09:00', NULL, '2026-05-16T08:22:00+09:00', '2026-05-16T08:22:00+09:00'),
-  ('11110000-0000-0000-0000-000000002301', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2301', '11111111-1111-1111-1111-111111110001', 'INCIDENT_COMMANDER', '2026-05-16T09:24:00+09:00', NULL, '2026-05-16T09:24:00+09:00', '2026-05-16T09:24:00+09:00'),
-  ('11110000-0000-0000-0000-000000002302', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2301', '11111111-1111-1111-1111-111111110002', 'FIELD_COMMANDER', '2026-05-16T09:27:00+09:00', NULL, '2026-05-16T09:27:00+09:00', '2026-05-16T09:27:00+09:00'),
-  ('11110000-0000-0000-0000-000000002303', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2301', '11111111-1111-1111-1111-111111110005', 'MEMBER', '2026-05-16T09:32:00+09:00', NULL, '2026-05-16T09:32:00+09:00', '2026-05-16T09:32:00+09:00'),
-  ('11110000-0000-0000-0000-000000002401', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2401', '11111111-1111-1111-1111-111111110001', 'INCIDENT_COMMANDER', '2026-05-15T14:10:00+09:00', NULL, '2026-05-15T14:10:00+09:00', '2026-05-15T14:10:00+09:00'),
-  ('11110000-0000-0000-0000-000000002402', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2401', '11111111-1111-1111-1111-111111110003', 'FIELD_COMMANDER', '2026-05-15T14:12:00+09:00', NULL, '2026-05-15T14:12:00+09:00', '2026-05-15T14:12:00+09:00'),
-  ('11110000-0000-0000-0000-000000002403', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2401', '11111111-1111-1111-1111-111111110008', 'MEMBER', '2026-05-15T14:20:00+09:00', NULL, '2026-05-15T14:20:00+09:00', '2026-05-15T14:20:00+09:00'),
-  ('11110000-0000-0000-0000-000000002501', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2501', '11111111-1111-1111-1111-111111110001', 'INCIDENT_COMMANDER', '2026-05-16T10:12:00+09:00', NULL, '2026-05-16T10:12:00+09:00', '2026-05-16T10:12:00+09:00'),
-  ('11110000-0000-0000-0000-000000002502', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2501', '11111111-1111-1111-1111-111111110005', 'FIELD_COMMANDER', '2026-05-16T10:13:00+09:00', NULL, '2026-05-16T10:13:00+09:00', '2026-05-16T10:13:00+09:00')
+    ('11110000-0000-0000-0000-000000002101', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101', '11111111-1111-1111-1111-111111110001', 'INCIDENT_COMMANDER', '2026-05-16T06:42:00+09:00', NULL, '2026-05-16T06:42:00+09:00', '2026-05-16T06:42:00+09:00'),
+    ('11110000-0000-0000-0000-000000002102', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101', '11111111-1111-1111-1111-111111110003', 'MEMBER', '2026-05-16T06:48:00+09:00', NULL, '2026-05-16T06:48:00+09:00', '2026-05-16T06:48:00+09:00'),
+    ('11110000-0000-0000-0000-000000002103', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101', '11111111-1111-1111-1111-111111110005', 'FIELD_COMMANDER', '2026-05-16T06:50:00+09:00', NULL, '2026-05-16T06:50:00+09:00', '2026-05-16T06:50:00+09:00'),
+    ('11110000-0000-0000-0000-000000002104', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101', '11111111-1111-1111-1111-111111110007', 'MEMBER', '2026-05-16T07:02:00+09:00', NULL, '2026-05-16T07:02:00+09:00', '2026-05-16T07:02:00+09:00'),
+    ('11110000-0000-0000-0000-000000002105', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101', '11111111-1111-1111-1111-111111110008', 'MEMBER', '2026-05-16T08:20:00+09:00', NULL, '2026-05-16T08:20:00+09:00', '2026-05-16T08:20:00+09:00'),
+    ('11110000-0000-0000-0000-000000002201', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2201', '11111111-1111-1111-1111-111111110001', 'INCIDENT_COMMANDER', '2026-05-16T08:05:00+09:00', NULL, '2026-05-16T08:05:00+09:00', '2026-05-16T08:05:00+09:00'),
+    ('11110000-0000-0000-0000-000000002202', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2201', '11111111-1111-1111-1111-111111110009', 'MEMBER', '2026-05-16T08:08:00+09:00', NULL, '2026-05-16T08:08:00+09:00', '2026-05-16T08:08:00+09:00'),
+    ('11110000-0000-0000-0000-000000002203', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2201', '11111111-1111-1111-1111-111111110005', 'FIELD_COMMANDER', '2026-05-16T08:12:00+09:00', NULL, '2026-05-16T08:12:00+09:00', '2026-05-16T08:12:00+09:00'),
+    ('11110000-0000-0000-0000-000000002204', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2201', '11111111-1111-1111-1111-111111110007', 'MEMBER', '2026-05-16T08:22:00+09:00', NULL, '2026-05-16T08:22:00+09:00', '2026-05-16T08:22:00+09:00'),
+    ('11110000-0000-0000-0000-000000002301', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2301', '11111111-1111-1111-1111-111111110001', 'INCIDENT_COMMANDER', '2026-05-16T09:24:00+09:00', NULL, '2026-05-16T09:24:00+09:00', '2026-05-16T09:24:00+09:00'),
+    ('11110000-0000-0000-0000-000000002302', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2301', '11111111-1111-1111-1111-111111110009', 'FIELD_COMMANDER', '2026-05-16T09:27:00+09:00', NULL, '2026-05-16T09:27:00+09:00', '2026-05-16T09:27:00+09:00'),
+    ('11110000-0000-0000-0000-000000002303', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2301', '11111111-1111-1111-1111-111111110005', 'MEMBER', '2026-05-16T09:32:00+09:00', NULL, '2026-05-16T09:32:00+09:00', '2026-05-16T09:32:00+09:00'),
+    ('11110000-0000-0000-0000-000000002401', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2401', '11111111-1111-1111-1111-111111110001', 'INCIDENT_COMMANDER', '2026-05-15T14:10:00+09:00', NULL, '2026-05-15T14:10:00+09:00', '2026-05-15T14:10:00+09:00'),
+    ('11110000-0000-0000-0000-000000002402', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2401', '11111111-1111-1111-1111-111111110003', 'FIELD_COMMANDER', '2026-05-15T14:12:00+09:00', NULL, '2026-05-15T14:12:00+09:00', '2026-05-15T14:12:00+09:00'),
+    ('11110000-0000-0000-0000-000000002403', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2401', '11111111-1111-1111-1111-111111110008', 'MEMBER', '2026-05-15T14:20:00+09:00', NULL, '2026-05-15T14:20:00+09:00', '2026-05-15T14:20:00+09:00'),
+    ('11110000-0000-0000-0000-000000002501', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2501', '11111111-1111-1111-1111-111111110001', 'INCIDENT_COMMANDER', '2026-05-16T10:12:00+09:00', NULL, '2026-05-16T10:12:00+09:00', '2026-05-16T10:12:00+09:00'),
+    ('11110000-0000-0000-0000-000000002502', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2501', '11111111-1111-1111-1111-111111110005', 'FIELD_COMMANDER', '2026-05-16T10:13:00+09:00', NULL, '2026-05-16T10:13:00+09:00', '2026-05-16T10:13:00+09:00')
 ON CONFLICT (id) DO UPDATE SET
-  incident_id = EXCLUDED.incident_id,
-  account_id = EXCLUDED.account_id,
-  incident_role = EXCLUDED.incident_role,
-  assigned_at = EXCLUDED.assigned_at,
-  revoked_at = EXCLUDED.revoked_at,
-  updated_at = EXCLUDED.updated_at;
+                               incident_id = EXCLUDED.incident_id,
+                               account_id = EXCLUDED.account_id,
+                               incident_role = EXCLUDED.incident_role,
+                               assigned_at = EXCLUDED.assigned_at,
+                               revoked_at = EXCLUDED.revoked_at,
+                               updated_at = EXCLUDED.updated_at;
 
 INSERT INTO operational_period (
-  id,
-  incident_id,
-  sequence_number,
-  status,
-  reason,
-  reason_memo,
-  started_by_account_id,
-  ended_by_account_id,
-  started_at,
-  ended_at,
-  version,
-  created_at,
-  updated_at
+    id,
+    incident_id,
+    sequence_number,
+    status,
+    reason,
+    reason_memo,
+    started_by_account_id,
+    ended_by_account_id,
+    started_at,
+    ended_at,
+    version,
+    created_at,
+    updated_at
 )
 VALUES
-  ('88888888-8888-8888-8888-888888882101', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101', 1, 'ENDED', 'INITIAL', NULL, NULL, '11111111-1111-1111-1111-111111110001', '2026-05-16T06:45:00+09:00', '2026-05-16T08:35:00+09:00', 4, '2026-05-16T06:45:00+09:00', '2026-05-16T08:35:00+09:00'),
-  ('88888888-8888-8888-8888-888888882102', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101', 2, 'ENDED', 'AREA_CHANGED', '증심사 상가 뒤편 제보 반영으로 북측 능선 구역을 분리', '11111111-1111-1111-1111-111111110001', '11111111-1111-1111-1111-111111110001', '2026-05-16T08:38:00+09:00', '2026-05-16T09:48:00+09:00', 3, '2026-05-16T08:38:00+09:00', '2026-05-16T09:48:00+09:00'),
-  ('88888888-8888-8888-8888-888888882103', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101', 3, 'ACTIVE', 'RE_SEARCH', '계곡 합류부와 공영주차장 주변 재수색', '11111111-1111-1111-1111-111111110001', NULL, '2026-05-16T09:50:00+09:00', NULL, 2, '2026-05-16T09:50:00+09:00', '2026-05-16T10:31:00+09:00'),
-  ('88888888-8888-8888-8888-888888882201', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2201', 1, 'ENDED', 'INITIAL', NULL, NULL, '11111111-1111-1111-1111-111111110001', '2026-05-16T08:08:00+09:00', '2026-05-16T09:20:00+09:00', 3, '2026-05-16T08:08:00+09:00', '2026-05-16T09:20:00+09:00'),
-  ('88888888-8888-8888-8888-888888882202', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2201', 2, 'ACTIVE', 'OTHER', 'CCTV 확인 후 광주천 동측 제방과 양림 골목을 동시 수색', '11111111-1111-1111-1111-111111110001', NULL, '2026-05-16T09:23:00+09:00', NULL, 2, '2026-05-16T09:23:00+09:00', '2026-05-16T10:19:00+09:00'),
-  ('88888888-8888-8888-8888-888888882301', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2301', 1, 'ACTIVE', 'INITIAL', NULL, NULL, NULL, '2026-05-16T09:26:00+09:00', NULL, 1, '2026-05-16T09:26:00+09:00', '2026-05-16T10:05:00+09:00'),
-  ('88888888-8888-8888-8888-888888882401', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2401', 1, 'ENDED', 'INITIAL', NULL, NULL, '11111111-1111-1111-1111-111111110001', '2026-05-15T14:12:00+09:00', '2026-05-15T16:02:00+09:00', 3, '2026-05-15T14:12:00+09:00', '2026-05-15T16:02:00+09:00'),
-  ('88888888-8888-8888-8888-888888882402', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2401', 2, 'ENDED', 'RE_SEARCH', '호수 북측 산책로 마지막 확인', '11111111-1111-1111-1111-111111110001', '11111111-1111-1111-1111-111111110001', '2026-05-15T16:10:00+09:00', '2026-05-15T17:28:00+09:00', 2, '2026-05-15T16:10:00+09:00', '2026-05-15T17:28:00+09:00'),
-  ('88888888-8888-8888-8888-888888882501', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2501', 1, 'ACTIVE', 'INITIAL', NULL, NULL, NULL, '2026-05-16T10:13:00+09:00', NULL, 1, '2026-05-16T10:13:00+09:00', '2026-05-16T10:13:00+09:00')
+    ('88888888-8888-8888-8888-888888882101', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101', 1, 'ENDED', 'INITIAL', NULL, NULL, '11111111-1111-1111-1111-111111110001', '2026-05-16T06:45:00+09:00', '2026-05-16T08:35:00+09:00', 4, '2026-05-16T06:45:00+09:00', '2026-05-16T08:35:00+09:00'),
+    ('88888888-8888-8888-8888-888888882102', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101', 2, 'ENDED', 'AREA_CHANGED', '증심사 상가 뒤편 제보 반영으로 북측 능선 구역을 분리', '11111111-1111-1111-1111-111111110001', '11111111-1111-1111-1111-111111110001', '2026-05-16T08:38:00+09:00', '2026-05-16T09:48:00+09:00', 3, '2026-05-16T08:38:00+09:00', '2026-05-16T09:48:00+09:00'),
+    ('88888888-8888-8888-8888-888888882103', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101', 3, 'ACTIVE', 'RE_SEARCH', '계곡 합류부와 공영주차장 주변 재수색', '11111111-1111-1111-1111-111111110001', NULL, '2026-05-16T09:50:00+09:00', NULL, 2, '2026-05-16T09:50:00+09:00', '2026-05-16T10:31:00+09:00'),
+    ('88888888-8888-8888-8888-888888882201', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2201', 1, 'ENDED', 'INITIAL', NULL, NULL, '11111111-1111-1111-1111-111111110001', '2026-05-16T08:08:00+09:00', '2026-05-16T09:20:00+09:00', 3, '2026-05-16T08:08:00+09:00', '2026-05-16T09:20:00+09:00'),
+    ('88888888-8888-8888-8888-888888882202', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2201', 2, 'ACTIVE', 'OTHER', 'CCTV 확인 후 광주천 동측 제방과 양림 골목을 동시 수색', '11111111-1111-1111-1111-111111110001', NULL, '2026-05-16T09:23:00+09:00', NULL, 2, '2026-05-16T09:23:00+09:00', '2026-05-16T10:19:00+09:00'),
+    ('88888888-8888-8888-8888-888888882301', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2301', 1, 'ACTIVE', 'INITIAL', NULL, NULL, NULL, '2026-05-16T09:26:00+09:00', NULL, 1, '2026-05-16T09:26:00+09:00', '2026-05-16T10:05:00+09:00'),
+    ('88888888-8888-8888-8888-888888882401', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2401', 1, 'ENDED', 'INITIAL', NULL, NULL, '11111111-1111-1111-1111-111111110001', '2026-05-15T14:12:00+09:00', '2026-05-15T16:02:00+09:00', 3, '2026-05-15T14:12:00+09:00', '2026-05-15T16:02:00+09:00'),
+    ('88888888-8888-8888-8888-888888882402', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2401', 2, 'ENDED', 'RE_SEARCH', '호수 북측 산책로 마지막 확인', '11111111-1111-1111-1111-111111110001', '11111111-1111-1111-1111-111111110001', '2026-05-15T16:10:00+09:00', '2026-05-15T17:28:00+09:00', 2, '2026-05-15T16:10:00+09:00', '2026-05-15T17:28:00+09:00'),
+    ('88888888-8888-8888-8888-888888882501', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2501', 1, 'ACTIVE', 'INITIAL', NULL, NULL, NULL, '2026-05-16T10:13:00+09:00', NULL, 1, '2026-05-16T10:13:00+09:00', '2026-05-16T10:13:00+09:00')
 ON CONFLICT (id) DO UPDATE SET
-  incident_id = EXCLUDED.incident_id,
-  sequence_number = EXCLUDED.sequence_number,
-  status = EXCLUDED.status,
-  reason = EXCLUDED.reason,
-  reason_memo = EXCLUDED.reason_memo,
-  started_by_account_id = EXCLUDED.started_by_account_id,
-  ended_by_account_id = EXCLUDED.ended_by_account_id,
-  started_at = EXCLUDED.started_at,
-  ended_at = EXCLUDED.ended_at,
-  version = EXCLUDED.version,
-  updated_at = EXCLUDED.updated_at;
+                               incident_id = EXCLUDED.incident_id,
+                               sequence_number = EXCLUDED.sequence_number,
+                               status = EXCLUDED.status,
+                               reason = EXCLUDED.reason,
+                               reason_memo = EXCLUDED.reason_memo,
+                               started_by_account_id = EXCLUDED.started_by_account_id,
+                               ended_by_account_id = EXCLUDED.ended_by_account_id,
+                               started_at = EXCLUDED.started_at,
+                               ended_at = EXCLUDED.ended_at,
+                               version = EXCLUDED.version,
+                               updated_at = EXCLUDED.updated_at;
 
 INSERT INTO duty_shift (
-  id,
-  operational_period_id,
-  incident_assignment_id,
-  police_phone_id,
-  status,
-  started_by_account_id,
-  ended_by_account_id,
-  started_at,
-  ended_at,
-  version,
-  created_at,
-  updated_at
+    id,
+    operational_period_id,
+    incident_assignment_id,
+    police_phone_id,
+    status,
+    started_by_account_id,
+    ended_by_account_id,
+    started_at,
+    ended_at,
+    version,
+    created_at,
+    updated_at
 )
 VALUES
-  ('10000000-0000-0000-0000-000000002101', '88888888-8888-8888-8888-888888882101', '11110000-0000-0000-0000-000000002102', '00000000-0000-0000-0000-000000000101', 'ENDED', '11111111-1111-1111-1111-111111110001', '11111111-1111-1111-1111-111111110001', '2026-05-16T06:58:00+09:00', '2026-05-16T08:28:00+09:00', 3, '2026-05-16T06:58:00+09:00', '2026-05-16T08:28:00+09:00'),
-  ('10000000-0000-0000-0000-000000002102', '88888888-8888-8888-8888-888888882101', '11110000-0000-0000-0000-000000002104', '00000000-0000-0000-0000-000000000207', 'ENDED', '11111111-1111-1111-1111-111111110001', '11111111-1111-1111-1111-111111110001', '2026-05-16T07:05:00+09:00', '2026-05-16T08:30:00+09:00', 2, '2026-05-16T07:05:00+09:00', '2026-05-16T08:30:00+09:00'),
-  ('10000000-0000-0000-0000-000000002103', '88888888-8888-8888-8888-888888882102', '11110000-0000-0000-0000-000000002103', '00000000-0000-0000-0000-000000000205', 'ENDED', '11111111-1111-1111-1111-111111110001', '11111111-1111-1111-1111-111111110001', '2026-05-16T08:42:00+09:00', '2026-05-16T09:44:00+09:00', 2, '2026-05-16T08:42:00+09:00', '2026-05-16T09:44:00+09:00'),
-  ('10000000-0000-0000-0000-000000002104', '88888888-8888-8888-8888-888888882103', '11110000-0000-0000-0000-000000002103', '00000000-0000-0000-0000-000000000205', 'ACTIVE', '11111111-1111-1111-1111-111111110001', NULL, '2026-05-16T09:54:00+09:00', NULL, 1, '2026-05-16T09:54:00+09:00', '2026-05-16T10:31:00+09:00'),
-  ('10000000-0000-0000-0000-000000002105', '88888888-8888-8888-8888-888888882103', '11110000-0000-0000-0000-000000002105', '00000000-0000-0000-0000-000000000208', 'ACTIVE', '11111111-1111-1111-1111-111111110001', NULL, '2026-05-16T10:00:00+09:00', NULL, 1, '2026-05-16T10:00:00+09:00', '2026-05-16T10:22:00+09:00'),
-  ('10000000-0000-0000-0000-000000002201', '88888888-8888-8888-8888-888888882201', '11110000-0000-0000-0000-000000002202', '50000000-0000-0000-0000-000000000001', 'ENDED', '11111111-1111-1111-1111-111111110001', '11111111-1111-1111-1111-111111110001', '2026-05-16T08:14:00+09:00', '2026-05-16T09:14:00+09:00', 2, '2026-05-16T08:14:00+09:00', '2026-05-16T09:14:00+09:00'),
-  ('10000000-0000-0000-0000-000000002202', '88888888-8888-8888-8888-888888882202', '11110000-0000-0000-0000-000000002203', '00000000-0000-0000-0000-000000000205', 'ACTIVE', '11111111-1111-1111-1111-111111110001', NULL, '2026-05-16T09:28:00+09:00', NULL, 1, '2026-05-16T09:28:00+09:00', '2026-05-16T10:19:00+09:00'),
-  ('10000000-0000-0000-0000-000000002203', '88888888-8888-8888-8888-888888882202', '11110000-0000-0000-0000-000000002204', '00000000-0000-0000-0000-000000000207', 'ACTIVE', '11111111-1111-1111-1111-111111110001', NULL, '2026-05-16T09:35:00+09:00', NULL, 1, '2026-05-16T09:35:00+09:00', '2026-05-16T10:18:00+09:00'),
-  ('10000000-0000-0000-0000-000000002301', '88888888-8888-8888-8888-888888882301', '11110000-0000-0000-0000-000000002302', '50000000-0000-0000-0000-000000000001', 'ACTIVE', '11111111-1111-1111-1111-111111110001', NULL, '2026-05-16T09:32:00+09:00', NULL, 1, '2026-05-16T09:32:00+09:00', '2026-05-16T10:05:00+09:00'),
-  ('10000000-0000-0000-0000-000000002302', '88888888-8888-8888-8888-888888882301', '11110000-0000-0000-0000-000000002303', '00000000-0000-0000-0000-000000000205', 'ACTIVE', '11111111-1111-1111-1111-111111110001', NULL, '2026-05-16T09:40:00+09:00', NULL, 1, '2026-05-16T09:40:00+09:00', '2026-05-16T10:03:00+09:00'),
-  ('10000000-0000-0000-0000-000000002401', '88888888-8888-8888-8888-888888882401', '11110000-0000-0000-0000-000000002402', '00000000-0000-0000-0000-000000000101', 'ENDED', '11111111-1111-1111-1111-111111110001', '11111111-1111-1111-1111-111111110001', '2026-05-15T14:25:00+09:00', '2026-05-15T15:55:00+09:00', 2, '2026-05-15T14:25:00+09:00', '2026-05-15T15:55:00+09:00'),
-  ('10000000-0000-0000-0000-000000002402', '88888888-8888-8888-8888-888888882402', '11110000-0000-0000-0000-000000002403', '00000000-0000-0000-0000-000000000208', 'ENDED', '11111111-1111-1111-1111-111111110001', '11111111-1111-1111-1111-111111110001', '2026-05-15T16:16:00+09:00', '2026-05-15T17:20:00+09:00', 2, '2026-05-15T16:16:00+09:00', '2026-05-15T17:20:00+09:00')
+    ('10000000-0000-0000-0000-000000002101', '88888888-8888-8888-8888-888888882101', '11110000-0000-0000-0000-000000002102', '00000000-0000-0000-0000-000000000101', 'ENDED', '11111111-1111-1111-1111-111111110001', '11111111-1111-1111-1111-111111110001', '2026-05-16T06:58:00+09:00', '2026-05-16T08:28:00+09:00', 3, '2026-05-16T06:58:00+09:00', '2026-05-16T08:28:00+09:00'),
+    ('10000000-0000-0000-0000-000000002102', '88888888-8888-8888-8888-888888882101', '11110000-0000-0000-0000-000000002104', '00000000-0000-0000-0000-000000000207', 'ENDED', '11111111-1111-1111-1111-111111110001', '11111111-1111-1111-1111-111111110001', '2026-05-16T07:05:00+09:00', '2026-05-16T08:30:00+09:00', 2, '2026-05-16T07:05:00+09:00', '2026-05-16T08:30:00+09:00'),
+    ('10000000-0000-0000-0000-000000002103', '88888888-8888-8888-8888-888888882102', '11110000-0000-0000-0000-000000002103', '00000000-0000-0000-0000-000000000205', 'ENDED', '11111111-1111-1111-1111-111111110001', '11111111-1111-1111-1111-111111110001', '2026-05-16T08:42:00+09:00', '2026-05-16T09:44:00+09:00', 2, '2026-05-16T08:42:00+09:00', '2026-05-16T09:44:00+09:00'),
+    ('10000000-0000-0000-0000-000000002104', '88888888-8888-8888-8888-888888882103', '11110000-0000-0000-0000-000000002103', '00000000-0000-0000-0000-000000000205', 'ACTIVE', '11111111-1111-1111-1111-111111110001', NULL, '2026-05-16T09:54:00+09:00', NULL, 1, '2026-05-16T09:54:00+09:00', '2026-05-16T10:31:00+09:00'),
+    ('10000000-0000-0000-0000-000000002105', '88888888-8888-8888-8888-888888882103', '11110000-0000-0000-0000-000000002105', '00000000-0000-0000-0000-000000000208', 'ACTIVE', '11111111-1111-1111-1111-111111110001', NULL, '2026-05-16T10:00:00+09:00', NULL, 1, '2026-05-16T10:00:00+09:00', '2026-05-16T10:22:00+09:00'),
+    ('10000000-0000-0000-0000-000000002201', '88888888-8888-8888-8888-888888882201', '11110000-0000-0000-0000-000000002202', '50000000-0000-0000-0000-000000000001', 'ENDED', '11111111-1111-1111-1111-111111110001', '11111111-1111-1111-1111-111111110001', '2026-05-16T08:14:00+09:00', '2026-05-16T09:14:00+09:00', 2, '2026-05-16T08:14:00+09:00', '2026-05-16T09:14:00+09:00'),
+    ('10000000-0000-0000-0000-000000002202', '88888888-8888-8888-8888-888888882202', '11110000-0000-0000-0000-000000002203', '00000000-0000-0000-0000-000000000205', 'ACTIVE', '11111111-1111-1111-1111-111111110001', NULL, '2026-05-16T09:28:00+09:00', NULL, 1, '2026-05-16T09:28:00+09:00', '2026-05-16T10:19:00+09:00'),
+    ('10000000-0000-0000-0000-000000002203', '88888888-8888-8888-8888-888888882202', '11110000-0000-0000-0000-000000002204', '00000000-0000-0000-0000-000000000207', 'ACTIVE', '11111111-1111-1111-1111-111111110001', NULL, '2026-05-16T09:35:00+09:00', NULL, 1, '2026-05-16T09:35:00+09:00', '2026-05-16T10:18:00+09:00'),
+    ('10000000-0000-0000-0000-000000002301', '88888888-8888-8888-8888-888888882301', '11110000-0000-0000-0000-000000002302', '50000000-0000-0000-0000-000000000001', 'ACTIVE', '11111111-1111-1111-1111-111111110001', NULL, '2026-05-16T09:32:00+09:00', NULL, 1, '2026-05-16T09:32:00+09:00', '2026-05-16T10:05:00+09:00'),
+    ('10000000-0000-0000-0000-000000002302', '88888888-8888-8888-8888-888888882301', '11110000-0000-0000-0000-000000002303', '00000000-0000-0000-0000-000000000205', 'ACTIVE', '11111111-1111-1111-1111-111111110001', NULL, '2026-05-16T09:40:00+09:00', NULL, 1, '2026-05-16T09:40:00+09:00', '2026-05-16T10:03:00+09:00'),
+    ('10000000-0000-0000-0000-000000002401', '88888888-8888-8888-8888-888888882401', '11110000-0000-0000-0000-000000002402', '00000000-0000-0000-0000-000000000101', 'ENDED', '11111111-1111-1111-1111-111111110001', '11111111-1111-1111-1111-111111110001', '2026-05-15T14:25:00+09:00', '2026-05-15T15:55:00+09:00', 2, '2026-05-15T14:25:00+09:00', '2026-05-15T15:55:00+09:00'),
+    ('10000000-0000-0000-0000-000000002402', '88888888-8888-8888-8888-888888882402', '11110000-0000-0000-0000-000000002403', '00000000-0000-0000-0000-000000000208', 'ENDED', '11111111-1111-1111-1111-111111110001', '11111111-1111-1111-1111-111111110001', '2026-05-15T16:16:00+09:00', '2026-05-15T17:20:00+09:00', 2, '2026-05-15T16:16:00+09:00', '2026-05-15T17:20:00+09:00')
 ON CONFLICT (id) DO UPDATE SET
-  operational_period_id = EXCLUDED.operational_period_id,
-  incident_assignment_id = EXCLUDED.incident_assignment_id,
-  police_phone_id = EXCLUDED.police_phone_id,
-  status = EXCLUDED.status,
-  started_by_account_id = EXCLUDED.started_by_account_id,
-  ended_by_account_id = EXCLUDED.ended_by_account_id,
-  started_at = EXCLUDED.started_at,
-  ended_at = EXCLUDED.ended_at,
-  version = EXCLUDED.version,
-  updated_at = EXCLUDED.updated_at;
+                               operational_period_id = EXCLUDED.operational_period_id,
+                               incident_assignment_id = EXCLUDED.incident_assignment_id,
+                               police_phone_id = EXCLUDED.police_phone_id,
+                               status = EXCLUDED.status,
+                               started_by_account_id = EXCLUDED.started_by_account_id,
+                               ended_by_account_id = EXCLUDED.ended_by_account_id,
+                               started_at = EXCLUDED.started_at,
+                               ended_at = EXCLUDED.ended_at,
+                               version = EXCLUDED.version,
+                               updated_at = EXCLUDED.updated_at;
 
 INSERT INTO search_area (
-  id,
-  operational_period_id,
-  parent_search_area_id,
-  name,
-  area_level,
-  geometry,
-  status,
-  version,
-  created_by_account_id,
-  created_at,
-  updated_at
+    id,
+    operational_period_id,
+    parent_search_area_id,
+    name,
+    area_level,
+    geometry,
+    status,
+    version,
+    created_by_account_id,
+    created_at,
+    updated_at
 )
 VALUES
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2101', '88888888-8888-8888-8888-888888882101', NULL, 'OP1 전체 - 증심사 입구와 계곡 초입', 'OVERALL', ST_GeomFromText('POLYGON((126.9156 35.1266,126.9348 35.1266,126.9348 35.1408,126.9156 35.1408,126.9156 35.1266))', 4326), 'COMPLETED', 2, '11111111-1111-1111-1111-111111110001', '2026-05-16T06:50:00+09:00', '2026-05-16T08:30:00+09:00'),
-  ('cccccccc-cccc-cccc-cccc-cccccccc2101', '88888888-8888-8888-8888-888888882101', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2101', '증심사 상가길 도보 구역', 'TEAM', ST_GeomFromText('POLYGON((126.9180 35.1281,126.9258 35.1281,126.9258 35.1346,126.9180 35.1346,126.9180 35.1281))', 4326), 'COMPLETED', 2, '11111111-1111-1111-1111-111111110001', '2026-05-16T06:52:00+09:00', '2026-05-16T08:18:00+09:00'),
-  ('cccccccc-cccc-cccc-cccc-cccccccc2102', '88888888-8888-8888-8888-888888882101', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2101', '공영주차장 순찰차 구역', 'UNIT', ST_GeomFromText('POLYGON((126.9258 35.1280,126.9335 35.1280,126.9335 35.1378,126.9258 35.1378,126.9258 35.1280))', 4326), 'COMPLETED', 1, '11111111-1111-1111-1111-111111110001', '2026-05-16T06:55:00+09:00', '2026-05-16T08:25:00+09:00'),
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2102', '88888888-8888-8888-8888-888888882102', NULL, 'OP2 전체 - 북측 산책로와 능선 진입부', 'OVERALL', ST_GeomFromText('POLYGON((126.9195 35.1342,126.9458 35.1342,126.9458 35.1500,126.9195 35.1500,126.9195 35.1342))', 4326), 'COMPLETED', 2, '11111111-1111-1111-1111-111111110001', '2026-05-16T08:38:00+09:00', '2026-05-16T09:46:00+09:00'),
-  ('cccccccc-cccc-cccc-cccc-cccccccc2103', '88888888-8888-8888-8888-888888882102', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2102', '북측 산책로 수색팀 구역', 'TEAM', ST_GeomFromText('POLYGON((126.9218 35.1362,126.9347 35.1362,126.9347 35.1460,126.9218 35.1460,126.9218 35.1362))', 4326), 'COMPLETED', 2, '11111111-1111-1111-1111-111111110001', '2026-05-16T08:40:00+09:00', '2026-05-16T09:42:00+09:00'),
-  ('cccccccc-cccc-cccc-cccc-cccccccc2104', '88888888-8888-8888-8888-888888882102', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2102', '드론 요청 대기 능선 구역', 'UNIT', ST_GeomFromText('POLYGON((126.9347 35.1370,126.9442 35.1370,126.9442 35.1488,126.9347 35.1488,126.9347 35.1370))', 4326), 'COMPLETED', 1, '11111111-1111-1111-1111-111111110001', '2026-05-16T08:44:00+09:00', '2026-05-16T09:46:00+09:00'),
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2103', '88888888-8888-8888-8888-888888882103', NULL, 'OP3 전체 - 계곡 합류부 재수색', 'OVERALL', ST_GeomFromText('POLYGON((126.9230 35.1270,126.9485 35.1270,126.9485 35.1435,126.9230 35.1435,126.9230 35.1270))', 4326), 'ACTIVE', 1, '11111111-1111-1111-1111-111111110001', '2026-05-16T09:50:00+09:00', '2026-05-16T10:31:00+09:00'),
-  ('cccccccc-cccc-cccc-cccc-cccccccc2105', '88888888-8888-8888-8888-888888882103', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2103', '계곡 합류부 도보 재수색', 'TEAM', ST_GeomFromText('POLYGON((126.9258 35.1284,126.9366 35.1284,126.9366 35.1372,126.9258 35.1372,126.9258 35.1284))', 4326), 'ACTIVE', 1, '11111111-1111-1111-1111-111111110001', '2026-05-16T09:52:00+09:00', '2026-05-16T10:31:00+09:00'),
-  ('cccccccc-cccc-cccc-cccc-cccccccc2106', '88888888-8888-8888-8888-888888882103', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2103', '지원팀 주차장 외곽 확인', 'UNIT', ST_GeomFromText('POLYGON((126.9366 35.1280,126.9470 35.1280,126.9470 35.1400,126.9366 35.1400,126.9366 35.1280))', 4326), 'ACTIVE', 1, '11111111-1111-1111-1111-111111110001', '2026-05-16T09:55:00+09:00', '2026-05-16T10:22:00+09:00'),
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2201', '88888888-8888-8888-8888-888888882201', NULL, 'OP1 전체 - 양림동과 광주천 서측', 'OVERALL', ST_GeomFromText('POLYGON((126.9050 35.1375,126.9228 35.1375,126.9228 35.1496,126.9050 35.1496,126.9050 35.1375))', 4326), 'COMPLETED', 2, '11111111-1111-1111-1111-111111110001', '2026-05-16T08:08:00+09:00', '2026-05-16T09:18:00+09:00'),
-  ('cccccccc-cccc-cccc-cccc-cccccccc2201', '88888888-8888-8888-8888-888888882201', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2201', '펭귄마을 골목 구역', 'TEAM', ST_GeomFromText('POLYGON((126.9075 35.1390,126.9144 35.1390,126.9144 35.1468,126.9075 35.1468,126.9075 35.1390))', 4326), 'COMPLETED', 1, '11111111-1111-1111-1111-111111110001', '2026-05-16T08:10:00+09:00', '2026-05-16T09:12:00+09:00'),
-  ('cccccccc-cccc-cccc-cccc-cccccccc2202', '88888888-8888-8888-8888-888888882201', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2201', '광주천 서측 제방 구역', 'UNIT', ST_GeomFromText('POLYGON((126.9144 35.1383,126.9215 35.1383,126.9215 35.1489,126.9144 35.1489,126.9144 35.1383))', 4326), 'COMPLETED', 1, '11111111-1111-1111-1111-111111110001', '2026-05-16T08:12:00+09:00', '2026-05-16T09:14:00+09:00'),
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2202', '88888888-8888-8888-8888-888888882202', NULL, 'OP2 전체 - 광주천 동측과 양림 골목 재확인', 'OVERALL', ST_GeomFromText('POLYGON((126.9100 35.1362,126.9275 35.1362,126.9275 35.1506,126.9100 35.1506,126.9100 35.1362))', 4326), 'ACTIVE', 1, '11111111-1111-1111-1111-111111110001', '2026-05-16T09:23:00+09:00', '2026-05-16T10:19:00+09:00'),
-  ('cccccccc-cccc-cccc-cccc-cccccccc2203', '88888888-8888-8888-8888-888888882202', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2202', '동측 제방 도보 구역', 'TEAM', ST_GeomFromText('POLYGON((126.9140 35.1374,126.9220 35.1374,126.9220 35.1485,126.9140 35.1485,126.9140 35.1374))', 4326), 'ACTIVE', 1, '11111111-1111-1111-1111-111111110001', '2026-05-16T09:25:00+09:00', '2026-05-16T10:19:00+09:00'),
-  ('cccccccc-cccc-cccc-cccc-cccccccc2204', '88888888-8888-8888-8888-888888882202', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2202', '양림 골목 순찰차 접근 구역', 'UNIT', ST_GeomFromText('POLYGON((126.9220 35.1372,126.9268 35.1372,126.9268 35.1492,126.9220 35.1492,126.9220 35.1372))', 4326), 'ACTIVE', 1, '11111111-1111-1111-1111-111111110001', '2026-05-16T09:30:00+09:00', '2026-05-16T10:18:00+09:00'),
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2301', '88888888-8888-8888-8888-888888882301', NULL, 'OP1 전체 - 광주송정역 환승권역', 'OVERALL', ST_GeomFromText('POLYGON((126.7850 35.1348,126.8038 35.1348,126.8038 35.1448,126.7850 35.1448,126.7850 35.1348))', 4326), 'ACTIVE', 1, '11111111-1111-1111-1111-111111110001', '2026-05-16T09:26:00+09:00', '2026-05-16T10:05:00+09:00'),
-  ('cccccccc-cccc-cccc-cccc-cccccccc2301', '88888888-8888-8888-8888-888888882301', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2301', '역 전면 택시 승강장 구역', 'UNIT', ST_GeomFromText('POLYGON((126.7880 35.1360,126.7954 35.1360,126.7954 35.1435,126.7880 35.1435,126.7880 35.1360))', 4326), 'ACTIVE', 1, '11111111-1111-1111-1111-111111110001', '2026-05-16T09:28:00+09:00', '2026-05-16T10:05:00+09:00'),
-  ('cccccccc-cccc-cccc-cccc-cccccccc2302', '88888888-8888-8888-8888-888888882301', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2301', '역 뒤편 상가 보행 구역', 'TEAM', ST_GeomFromText('POLYGON((126.7954 35.1362,126.8025 35.1362,126.8025 35.1442,126.7954 35.1442,126.7954 35.1362))', 4326), 'ACTIVE', 1, '11111111-1111-1111-1111-111111110001', '2026-05-16T09:31:00+09:00', '2026-05-16T10:03:00+09:00'),
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2401', '88888888-8888-8888-8888-888888882401', NULL, 'OP1 전체 - 광주호 호수생태원 남측', 'OVERALL', ST_GeomFromText('POLYGON((126.9290 35.1750,126.9506 35.1750,126.9506 35.1940,126.9290 35.1940,126.9290 35.1750))', 4326), 'COMPLETED', 2, '11111111-1111-1111-1111-111111110001', '2026-05-15T14:12:00+09:00', '2026-05-15T16:00:00+09:00'),
-  ('cccccccc-cccc-cccc-cccc-cccccccc2401', '88888888-8888-8888-8888-888888882401', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2401', '호수생태원 데크 구역', 'TEAM', ST_GeomFromText('POLYGON((126.9320 35.1770,126.9415 35.1770,126.9415 35.1888,126.9320 35.1888,126.9320 35.1770))', 4326), 'COMPLETED', 2, '11111111-1111-1111-1111-111111110001', '2026-05-15T14:15:00+09:00', '2026-05-15T15:50:00+09:00'),
-  ('cccccccc-cccc-cccc-cccc-cccccccc2402', '88888888-8888-8888-8888-888888882401', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2401', '남측 주차장 지원 구역', 'UNIT', ST_GeomFromText('POLYGON((126.9415 35.1772,126.9492 35.1772,126.9492 35.1918,126.9415 35.1918,126.9415 35.1772))', 4326), 'COMPLETED', 1, '11111111-1111-1111-1111-111111110001', '2026-05-15T14:18:00+09:00', '2026-05-15T15:55:00+09:00'),
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2402', '88888888-8888-8888-8888-888888882402', NULL, 'OP2 전체 - 광주호 북측 산책로', 'OVERALL', ST_GeomFromText('POLYGON((126.9360 35.1870,126.9565 35.1870,126.9565 35.2035,126.9360 35.2035,126.9360 35.1870))', 4326), 'COMPLETED', 1, '11111111-1111-1111-1111-111111110001', '2026-05-15T16:10:00+09:00', '2026-05-15T17:22:00+09:00'),
-  ('cccccccc-cccc-cccc-cccc-cccccccc2403', '88888888-8888-8888-8888-888888882402', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2402', '북측 산책로 재확인 구역', 'TEAM', ST_GeomFromText('POLYGON((126.9384 35.1892,126.9538 35.1892,126.9538 35.2010,126.9384 35.2010,126.9384 35.1892))', 4326), 'COMPLETED', 1, '11111111-1111-1111-1111-111111110001', '2026-05-15T16:12:00+09:00', '2026-05-15T17:20:00+09:00')
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2101', '88888888-8888-8888-8888-888888882101', NULL, 'OP1 전체 - 증심사 입구와 계곡 초입', 'OVERALL', ST_GeomFromText('POLYGON((126.9156 35.1266,126.9348 35.1266,126.9348 35.1408,126.9156 35.1408,126.9156 35.1266))', 4326), 'COMPLETED', 2, '11111111-1111-1111-1111-111111110001', '2026-05-16T06:50:00+09:00', '2026-05-16T08:30:00+09:00'),
+    ('cccccccc-cccc-cccc-cccc-cccccccc2101', '88888888-8888-8888-8888-888888882101', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2101', '증심사 상가길 도보 구역', 'TEAM', ST_GeomFromText('POLYGON((126.9180 35.1281,126.9258 35.1281,126.9258 35.1346,126.9180 35.1346,126.9180 35.1281))', 4326), 'COMPLETED', 2, '11111111-1111-1111-1111-111111110001', '2026-05-16T06:52:00+09:00', '2026-05-16T08:18:00+09:00'),
+    ('cccccccc-cccc-cccc-cccc-cccccccc2102', '88888888-8888-8888-8888-888888882101', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2101', '공영주차장 순찰차 구역', 'UNIT', ST_GeomFromText('POLYGON((126.9258 35.1280,126.9335 35.1280,126.9335 35.1378,126.9258 35.1378,126.9258 35.1280))', 4326), 'COMPLETED', 1, '11111111-1111-1111-1111-111111110001', '2026-05-16T06:55:00+09:00', '2026-05-16T08:25:00+09:00'),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2102', '88888888-8888-8888-8888-888888882102', NULL, 'OP2 전체 - 북측 산책로와 능선 진입부', 'OVERALL', ST_GeomFromText('POLYGON((126.9195 35.1342,126.9458 35.1342,126.9458 35.1500,126.9195 35.1500,126.9195 35.1342))', 4326), 'COMPLETED', 2, '11111111-1111-1111-1111-111111110001', '2026-05-16T08:38:00+09:00', '2026-05-16T09:46:00+09:00'),
+    ('cccccccc-cccc-cccc-cccc-cccccccc2103', '88888888-8888-8888-8888-888888882102', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2102', '북측 산책로 수색팀 구역', 'TEAM', ST_GeomFromText('POLYGON((126.9218 35.1362,126.9347 35.1362,126.9347 35.1460,126.9218 35.1460,126.9218 35.1362))', 4326), 'COMPLETED', 2, '11111111-1111-1111-1111-111111110001', '2026-05-16T08:40:00+09:00', '2026-05-16T09:42:00+09:00'),
+    ('cccccccc-cccc-cccc-cccc-cccccccc2104', '88888888-8888-8888-8888-888888882102', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2102', '드론 요청 대기 능선 구역', 'UNIT', ST_GeomFromText('POLYGON((126.9347 35.1370,126.9442 35.1370,126.9442 35.1488,126.9347 35.1488,126.9347 35.1370))', 4326), 'COMPLETED', 1, '11111111-1111-1111-1111-111111110001', '2026-05-16T08:44:00+09:00', '2026-05-16T09:46:00+09:00'),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2103', '88888888-8888-8888-8888-888888882103', NULL, 'OP3 전체 - 계곡 합류부 재수색', 'OVERALL', ST_GeomFromText('POLYGON((126.9230 35.1270,126.9485 35.1270,126.9485 35.1435,126.9230 35.1435,126.9230 35.1270))', 4326), 'ACTIVE', 1, '11111111-1111-1111-1111-111111110001', '2026-05-16T09:50:00+09:00', '2026-05-16T10:31:00+09:00'),
+    ('cccccccc-cccc-cccc-cccc-cccccccc2105', '88888888-8888-8888-8888-888888882103', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2103', '계곡 합류부 도보 재수색', 'TEAM', ST_GeomFromText('POLYGON((126.9258 35.1284,126.9366 35.1284,126.9366 35.1372,126.9258 35.1372,126.9258 35.1284))', 4326), 'ACTIVE', 1, '11111111-1111-1111-1111-111111110001', '2026-05-16T09:52:00+09:00', '2026-05-16T10:31:00+09:00'),
+    ('cccccccc-cccc-cccc-cccc-cccccccc2106', '88888888-8888-8888-8888-888888882103', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2103', '지원팀 주차장 외곽 확인', 'UNIT', ST_GeomFromText('POLYGON((126.9366 35.1280,126.9470 35.1280,126.9470 35.1400,126.9366 35.1400,126.9366 35.1280))', 4326), 'ACTIVE', 1, '11111111-1111-1111-1111-111111110001', '2026-05-16T09:55:00+09:00', '2026-05-16T10:22:00+09:00'),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2201', '88888888-8888-8888-8888-888888882201', NULL, 'OP1 전체 - 양림동과 광주천 서측', 'OVERALL', ST_GeomFromText('POLYGON((126.9050 35.1375,126.9228 35.1375,126.9228 35.1496,126.9050 35.1496,126.9050 35.1375))', 4326), 'COMPLETED', 2, '11111111-1111-1111-1111-111111110001', '2026-05-16T08:08:00+09:00', '2026-05-16T09:18:00+09:00'),
+    ('cccccccc-cccc-cccc-cccc-cccccccc2201', '88888888-8888-8888-8888-888888882201', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2201', '펭귄마을 골목 구역', 'TEAM', ST_GeomFromText('POLYGON((126.9075 35.1390,126.9144 35.1390,126.9144 35.1468,126.9075 35.1468,126.9075 35.1390))', 4326), 'COMPLETED', 1, '11111111-1111-1111-1111-111111110001', '2026-05-16T08:10:00+09:00', '2026-05-16T09:12:00+09:00'),
+    ('cccccccc-cccc-cccc-cccc-cccccccc2202', '88888888-8888-8888-8888-888888882201', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2201', '광주천 서측 제방 구역', 'UNIT', ST_GeomFromText('POLYGON((126.9144 35.1383,126.9215 35.1383,126.9215 35.1489,126.9144 35.1489,126.9144 35.1383))', 4326), 'COMPLETED', 1, '11111111-1111-1111-1111-111111110001', '2026-05-16T08:12:00+09:00', '2026-05-16T09:14:00+09:00'),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2202', '88888888-8888-8888-8888-888888882202', NULL, 'OP2 전체 - 광주천 동측과 양림 골목 재확인', 'OVERALL', ST_GeomFromText('POLYGON((126.9100 35.1362,126.9275 35.1362,126.9275 35.1506,126.9100 35.1506,126.9100 35.1362))', 4326), 'ACTIVE', 1, '11111111-1111-1111-1111-111111110001', '2026-05-16T09:23:00+09:00', '2026-05-16T10:19:00+09:00'),
+    ('cccccccc-cccc-cccc-cccc-cccccccc2203', '88888888-8888-8888-8888-888888882202', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2202', '동측 제방 도보 구역', 'TEAM', ST_GeomFromText('POLYGON((126.9140 35.1374,126.9220 35.1374,126.9220 35.1485,126.9140 35.1485,126.9140 35.1374))', 4326), 'ACTIVE', 1, '11111111-1111-1111-1111-111111110001', '2026-05-16T09:25:00+09:00', '2026-05-16T10:19:00+09:00'),
+    ('cccccccc-cccc-cccc-cccc-cccccccc2204', '88888888-8888-8888-8888-888888882202', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2202', '양림 골목 순찰차 접근 구역', 'UNIT', ST_GeomFromText('POLYGON((126.9220 35.1372,126.9268 35.1372,126.9268 35.1492,126.9220 35.1492,126.9220 35.1372))', 4326), 'ACTIVE', 1, '11111111-1111-1111-1111-111111110001', '2026-05-16T09:30:00+09:00', '2026-05-16T10:18:00+09:00'),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2301', '88888888-8888-8888-8888-888888882301', NULL, 'OP1 전체 - 광주송정역 환승권역', 'OVERALL', ST_GeomFromText('POLYGON((126.7850 35.1348,126.8038 35.1348,126.8038 35.1448,126.7850 35.1448,126.7850 35.1348))', 4326), 'ACTIVE', 1, '11111111-1111-1111-1111-111111110001', '2026-05-16T09:26:00+09:00', '2026-05-16T10:05:00+09:00'),
+    ('cccccccc-cccc-cccc-cccc-cccccccc2301', '88888888-8888-8888-8888-888888882301', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2301', '역 전면 택시 승강장 구역', 'UNIT', ST_GeomFromText('POLYGON((126.7880 35.1360,126.7954 35.1360,126.7954 35.1435,126.7880 35.1435,126.7880 35.1360))', 4326), 'ACTIVE', 1, '11111111-1111-1111-1111-111111110001', '2026-05-16T09:28:00+09:00', '2026-05-16T10:05:00+09:00'),
+    ('cccccccc-cccc-cccc-cccc-cccccccc2302', '88888888-8888-8888-8888-888888882301', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2301', '역 뒤편 상가 보행 구역', 'TEAM', ST_GeomFromText('POLYGON((126.7954 35.1362,126.8025 35.1362,126.8025 35.1442,126.7954 35.1442,126.7954 35.1362))', 4326), 'ACTIVE', 1, '11111111-1111-1111-1111-111111110001', '2026-05-16T09:31:00+09:00', '2026-05-16T10:03:00+09:00'),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2401', '88888888-8888-8888-8888-888888882401', NULL, 'OP1 전체 - 광주호 호수생태원 남측', 'OVERALL', ST_GeomFromText('POLYGON((126.9290 35.1750,126.9506 35.1750,126.9506 35.1940,126.9290 35.1940,126.9290 35.1750))', 4326), 'COMPLETED', 2, '11111111-1111-1111-1111-111111110001', '2026-05-15T14:12:00+09:00', '2026-05-15T16:00:00+09:00'),
+    ('cccccccc-cccc-cccc-cccc-cccccccc2401', '88888888-8888-8888-8888-888888882401', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2401', '호수생태원 데크 구역', 'TEAM', ST_GeomFromText('POLYGON((126.9320 35.1770,126.9415 35.1770,126.9415 35.1888,126.9320 35.1888,126.9320 35.1770))', 4326), 'COMPLETED', 2, '11111111-1111-1111-1111-111111110001', '2026-05-15T14:15:00+09:00', '2026-05-15T15:50:00+09:00'),
+    ('cccccccc-cccc-cccc-cccc-cccccccc2402', '88888888-8888-8888-8888-888888882401', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2401', '남측 주차장 지원 구역', 'UNIT', ST_GeomFromText('POLYGON((126.9415 35.1772,126.9492 35.1772,126.9492 35.1918,126.9415 35.1918,126.9415 35.1772))', 4326), 'COMPLETED', 1, '11111111-1111-1111-1111-111111110001', '2026-05-15T14:18:00+09:00', '2026-05-15T15:55:00+09:00'),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2402', '88888888-8888-8888-8888-888888882402', NULL, 'OP2 전체 - 광주호 북측 산책로', 'OVERALL', ST_GeomFromText('POLYGON((126.9360 35.1870,126.9565 35.1870,126.9565 35.2035,126.9360 35.2035,126.9360 35.1870))', 4326), 'COMPLETED', 1, '11111111-1111-1111-1111-111111110001', '2026-05-15T16:10:00+09:00', '2026-05-15T17:22:00+09:00'),
+    ('cccccccc-cccc-cccc-cccc-cccccccc2403', '88888888-8888-8888-8888-888888882402', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2402', '북측 산책로 재확인 구역', 'TEAM', ST_GeomFromText('POLYGON((126.9384 35.1892,126.9538 35.1892,126.9538 35.2010,126.9384 35.2010,126.9384 35.1892))', 4326), 'COMPLETED', 1, '11111111-1111-1111-1111-111111110001', '2026-05-15T16:12:00+09:00', '2026-05-15T17:20:00+09:00')
 ON CONFLICT (id) DO UPDATE SET
-  operational_period_id = EXCLUDED.operational_period_id,
-  parent_search_area_id = EXCLUDED.parent_search_area_id,
-  name = EXCLUDED.name,
-  area_level = EXCLUDED.area_level,
-  geometry = EXCLUDED.geometry,
-  status = EXCLUDED.status,
-  version = EXCLUDED.version,
-  created_by_account_id = EXCLUDED.created_by_account_id,
-  updated_at = EXCLUDED.updated_at;
+                               operational_period_id = EXCLUDED.operational_period_id,
+                               parent_search_area_id = EXCLUDED.parent_search_area_id,
+                               name = EXCLUDED.name,
+                               area_level = EXCLUDED.area_level,
+                               geometry = EXCLUDED.geometry,
+                               status = EXCLUDED.status,
+                               version = EXCLUDED.version,
+                               created_by_account_id = EXCLUDED.created_by_account_id,
+                               updated_at = EXCLUDED.updated_at;
 
 INSERT INTO search_area_assignment (
-  id,
-  search_area_id,
-  assigned_account_id,
-  assigned_by_account_id,
-  assigned_at,
-  revoked_at,
-  status,
-  memo,
-  created_at,
-  updated_at
+    id,
+    search_area_id,
+    assigned_account_id,
+    assigned_by_account_id,
+    assigned_at,
+    revoked_at,
+    status,
+    memo,
+    created_at,
+    updated_at
 )
 VALUES
-  ('12120000-0000-0000-0000-000000002101', 'cccccccc-cccc-cccc-cccc-cccccccc2101', '11111111-1111-1111-1111-111111110003', '11111111-1111-1111-1111-111111110001', '2026-05-16T06:52:00+09:00', NULL, 'ACTIVE', '상가길과 계곡 초입 도보 확인', '2026-05-16T06:52:00+09:00', '2026-05-16T08:18:00+09:00'),
-  ('12120000-0000-0000-0000-000000002102', 'cccccccc-cccc-cccc-cccc-cccccccc2102', '11111111-1111-1111-1111-111111110007', '11111111-1111-1111-1111-111111110001', '2026-05-16T06:55:00+09:00', NULL, 'ACTIVE', '공영주차장과 차량 접근로 확인', '2026-05-16T06:55:00+09:00', '2026-05-16T08:25:00+09:00'),
-  ('12120000-0000-0000-0000-000000002103', 'cccccccc-cccc-cccc-cccc-cccccccc2103', '11111111-1111-1111-1111-111111110005', '11111111-1111-1111-1111-111111110001', '2026-05-16T08:40:00+09:00', NULL, 'ACTIVE', '북측 산책로 제보 지점 집중', '2026-05-16T08:40:00+09:00', '2026-05-16T09:42:00+09:00'),
-  ('12120000-0000-0000-0000-000000002104', 'cccccccc-cccc-cccc-cccc-cccccccc2104', '11111111-1111-1111-1111-111111110007', '11111111-1111-1111-1111-111111110001', '2026-05-16T08:44:00+09:00', NULL, 'ACTIVE', '능선 진입부 드론 지원 요청 대기', '2026-05-16T08:44:00+09:00', '2026-05-16T09:46:00+09:00'),
-  ('12120000-0000-0000-0000-000000002105', 'cccccccc-cccc-cccc-cccc-cccccccc2105', '11111111-1111-1111-1111-111111110005', '11111111-1111-1111-1111-111111110001', '2026-05-16T09:52:00+09:00', NULL, 'ACTIVE', '계곡 합류부 도보 재수색', '2026-05-16T09:52:00+09:00', '2026-05-16T10:31:00+09:00'),
-  ('12120000-0000-0000-0000-000000002106', 'cccccccc-cccc-cccc-cccc-cccccccc2106', '11111111-1111-1111-1111-111111110008', '11111111-1111-1111-1111-111111110001', '2026-05-16T09:55:00+09:00', NULL, 'ACTIVE', '지원팀이 주차장 외곽과 안내소 뒤편 확인', '2026-05-16T09:55:00+09:00', '2026-05-16T10:22:00+09:00'),
-  ('12120000-0000-0000-0000-000000002201', 'cccccccc-cccc-cccc-cccc-cccccccc2201', '11111111-1111-1111-1111-111111110005', '11111111-1111-1111-1111-111111110001', '2026-05-16T08:10:00+09:00', NULL, 'ACTIVE', '펭귄마을 골목과 담장 뒤편 확인', '2026-05-16T08:10:00+09:00', '2026-05-16T09:12:00+09:00'),
-  ('12120000-0000-0000-0000-000000002202', 'cccccccc-cccc-cccc-cccc-cccccccc2202', '11111111-1111-1111-1111-111111110002', '11111111-1111-1111-1111-111111110001', '2026-05-16T08:12:00+09:00', NULL, 'ACTIVE', '광주천 서측 제방 차량 순찰', '2026-05-16T08:12:00+09:00', '2026-05-16T09:14:00+09:00'),
-  ('12120000-0000-0000-0000-000000002203', 'cccccccc-cccc-cccc-cccc-cccccccc2203', '11111111-1111-1111-1111-111111110005', '11111111-1111-1111-1111-111111110001', '2026-05-16T09:25:00+09:00', NULL, 'ACTIVE', '동측 제방과 계단 하부 확인', '2026-05-16T09:25:00+09:00', '2026-05-16T10:19:00+09:00'),
-  ('12120000-0000-0000-0000-000000002204', 'cccccccc-cccc-cccc-cccc-cccccccc2204', '11111111-1111-1111-1111-111111110007', '11111111-1111-1111-1111-111111110001', '2026-05-16T09:30:00+09:00', NULL, 'ACTIVE', '차량 접근 가능한 골목과 CCTV 위치 확인', '2026-05-16T09:30:00+09:00', '2026-05-16T10:18:00+09:00'),
-  ('12120000-0000-0000-0000-000000002301', 'cccccccc-cccc-cccc-cccc-cccccccc2301', '11111111-1111-1111-1111-111111110002', '11111111-1111-1111-1111-111111110001', '2026-05-16T09:28:00+09:00', NULL, 'ACTIVE', '택시 승강장, 버스정류장, 역 전면 순환로', '2026-05-16T09:28:00+09:00', '2026-05-16T10:05:00+09:00'),
-  ('12120000-0000-0000-0000-000000002302', 'cccccccc-cccc-cccc-cccc-cccccccc2302', '11111111-1111-1111-1111-111111110005', '11111111-1111-1111-1111-111111110001', '2026-05-16T09:31:00+09:00', NULL, 'ACTIVE', '상가 보행로와 골목 도보 확인', '2026-05-16T09:31:00+09:00', '2026-05-16T10:03:00+09:00'),
-  ('12120000-0000-0000-0000-000000002401', 'cccccccc-cccc-cccc-cccc-cccccccc2401', '11111111-1111-1111-1111-111111110003', '11111111-1111-1111-1111-111111110001', '2026-05-15T14:15:00+09:00', NULL, 'ACTIVE', '호수생태원 데크와 관찰로', '2026-05-15T14:15:00+09:00', '2026-05-15T15:50:00+09:00'),
-  ('12120000-0000-0000-0000-000000002402', 'cccccccc-cccc-cccc-cccc-cccccccc2402', '11111111-1111-1111-1111-111111110008', '11111111-1111-1111-1111-111111110001', '2026-05-15T14:18:00+09:00', NULL, 'ACTIVE', '남측 주차장과 화장실 주변', '2026-05-15T14:18:00+09:00', '2026-05-15T15:55:00+09:00'),
-  ('12120000-0000-0000-0000-000000002403', 'cccccccc-cccc-cccc-cccc-cccccccc2403', '11111111-1111-1111-1111-111111110008', '11111111-1111-1111-1111-111111110001', '2026-05-15T16:12:00+09:00', NULL, 'ACTIVE', '북측 산책로 마지막 재확인', '2026-05-15T16:12:00+09:00', '2026-05-15T17:20:00+09:00')
+    ('12120000-0000-0000-0000-000000002101', 'cccccccc-cccc-cccc-cccc-cccccccc2101', '11111111-1111-1111-1111-111111110003', '11111111-1111-1111-1111-111111110001', '2026-05-16T06:52:00+09:00', NULL, 'ACTIVE', '상가길과 계곡 초입 도보 확인', '2026-05-16T06:52:00+09:00', '2026-05-16T08:18:00+09:00'),
+    ('12120000-0000-0000-0000-000000002102', 'cccccccc-cccc-cccc-cccc-cccccccc2102', '11111111-1111-1111-1111-111111110007', '11111111-1111-1111-1111-111111110001', '2026-05-16T06:55:00+09:00', NULL, 'ACTIVE', '공영주차장과 차량 접근로 확인', '2026-05-16T06:55:00+09:00', '2026-05-16T08:25:00+09:00'),
+    ('12120000-0000-0000-0000-000000002103', 'cccccccc-cccc-cccc-cccc-cccccccc2103', '11111111-1111-1111-1111-111111110005', '11111111-1111-1111-1111-111111110001', '2026-05-16T08:40:00+09:00', NULL, 'ACTIVE', '북측 산책로 제보 지점 집중', '2026-05-16T08:40:00+09:00', '2026-05-16T09:42:00+09:00'),
+    ('12120000-0000-0000-0000-000000002104', 'cccccccc-cccc-cccc-cccc-cccccccc2104', '11111111-1111-1111-1111-111111110007', '11111111-1111-1111-1111-111111110001', '2026-05-16T08:44:00+09:00', NULL, 'ACTIVE', '능선 진입부 드론 지원 요청 대기', '2026-05-16T08:44:00+09:00', '2026-05-16T09:46:00+09:00'),
+    ('12120000-0000-0000-0000-000000002105', 'cccccccc-cccc-cccc-cccc-cccccccc2105', '11111111-1111-1111-1111-111111110005', '11111111-1111-1111-1111-111111110001', '2026-05-16T09:52:00+09:00', NULL, 'ACTIVE', '계곡 합류부 도보 재수색', '2026-05-16T09:52:00+09:00', '2026-05-16T10:31:00+09:00'),
+    ('12120000-0000-0000-0000-000000002106', 'cccccccc-cccc-cccc-cccc-cccccccc2106', '11111111-1111-1111-1111-111111110008', '11111111-1111-1111-1111-111111110001', '2026-05-16T09:55:00+09:00', NULL, 'ACTIVE', '지원팀이 주차장 외곽과 안내소 뒤편 확인', '2026-05-16T09:55:00+09:00', '2026-05-16T10:22:00+09:00'),
+    ('12120000-0000-0000-0000-000000002201', 'cccccccc-cccc-cccc-cccc-cccccccc2201', '11111111-1111-1111-1111-111111110005', '11111111-1111-1111-1111-111111110001', '2026-05-16T08:10:00+09:00', NULL, 'ACTIVE', '펭귄마을 골목과 담장 뒤편 확인', '2026-05-16T08:10:00+09:00', '2026-05-16T09:12:00+09:00'),
+    ('12120000-0000-0000-0000-000000002202', 'cccccccc-cccc-cccc-cccc-cccccccc2202', '11111111-1111-1111-1111-111111110009', '11111111-1111-1111-1111-111111110001', '2026-05-16T08:12:00+09:00', NULL, 'ACTIVE', '광주천 서측 제방 차량 순찰', '2026-05-16T08:12:00+09:00', '2026-05-16T09:14:00+09:00'),
+    ('12120000-0000-0000-0000-000000002203', 'cccccccc-cccc-cccc-cccc-cccccccc2203', '11111111-1111-1111-1111-111111110005', '11111111-1111-1111-1111-111111110001', '2026-05-16T09:25:00+09:00', NULL, 'ACTIVE', '동측 제방과 계단 하부 확인', '2026-05-16T09:25:00+09:00', '2026-05-16T10:19:00+09:00'),
+    ('12120000-0000-0000-0000-000000002204', 'cccccccc-cccc-cccc-cccc-cccccccc2204', '11111111-1111-1111-1111-111111110007', '11111111-1111-1111-1111-111111110001', '2026-05-16T09:30:00+09:00', NULL, 'ACTIVE', '차량 접근 가능한 골목과 CCTV 위치 확인', '2026-05-16T09:30:00+09:00', '2026-05-16T10:18:00+09:00'),
+    ('12120000-0000-0000-0000-000000002301', 'cccccccc-cccc-cccc-cccc-cccccccc2301', '11111111-1111-1111-1111-111111110009', '11111111-1111-1111-1111-111111110001', '2026-05-16T09:28:00+09:00', NULL, 'ACTIVE', '택시 승강장, 버스정류장, 역 전면 순환로', '2026-05-16T09:28:00+09:00', '2026-05-16T10:05:00+09:00'),
+    ('12120000-0000-0000-0000-000000002302', 'cccccccc-cccc-cccc-cccc-cccccccc2302', '11111111-1111-1111-1111-111111110005', '11111111-1111-1111-1111-111111110001', '2026-05-16T09:31:00+09:00', NULL, 'ACTIVE', '상가 보행로와 골목 도보 확인', '2026-05-16T09:31:00+09:00', '2026-05-16T10:03:00+09:00'),
+    ('12120000-0000-0000-0000-000000002401', 'cccccccc-cccc-cccc-cccc-cccccccc2401', '11111111-1111-1111-1111-111111110003', '11111111-1111-1111-1111-111111110001', '2026-05-15T14:15:00+09:00', NULL, 'ACTIVE', '호수생태원 데크와 관찰로', '2026-05-15T14:15:00+09:00', '2026-05-15T15:50:00+09:00'),
+    ('12120000-0000-0000-0000-000000002402', 'cccccccc-cccc-cccc-cccc-cccccccc2402', '11111111-1111-1111-1111-111111110008', '11111111-1111-1111-1111-111111110001', '2026-05-15T14:18:00+09:00', NULL, 'ACTIVE', '남측 주차장과 화장실 주변', '2026-05-15T14:18:00+09:00', '2026-05-15T15:55:00+09:00'),
+    ('12120000-0000-0000-0000-000000002403', 'cccccccc-cccc-cccc-cccc-cccccccc2403', '11111111-1111-1111-1111-111111110008', '11111111-1111-1111-1111-111111110001', '2026-05-15T16:12:00+09:00', NULL, 'ACTIVE', '북측 산책로 마지막 재확인', '2026-05-15T16:12:00+09:00', '2026-05-15T17:20:00+09:00')
 ON CONFLICT (id) DO UPDATE SET
-  search_area_id = EXCLUDED.search_area_id,
-  assigned_account_id = EXCLUDED.assigned_account_id,
-  assigned_by_account_id = EXCLUDED.assigned_by_account_id,
-  assigned_at = EXCLUDED.assigned_at,
-  revoked_at = EXCLUDED.revoked_at,
-  status = EXCLUDED.status,
-  memo = EXCLUDED.memo,
-  updated_at = EXCLUDED.updated_at;
+                               search_area_id = EXCLUDED.search_area_id,
+                               assigned_account_id = EXCLUDED.assigned_account_id,
+                               assigned_by_account_id = EXCLUDED.assigned_by_account_id,
+                               assigned_at = EXCLUDED.assigned_at,
+                               revoked_at = EXCLUDED.revoked_at,
+                               status = EXCLUDED.status,
+                               memo = EXCLUDED.memo,
+                               updated_at = EXCLUDED.updated_at;
 
 INSERT INTO search_path (
-  id,
-  duty_shift_id,
-  status,
-  started_at,
-  ended_at,
-  geometry,
-  version,
-  created_at,
-  updated_at
+    id,
+    duty_shift_id,
+    status,
+    started_at,
+    ended_at,
+    geometry,
+    version,
+    created_at,
+    updated_at
 )
 VALUES
-  ('20000000-0000-0000-0000-000000002101', '10000000-0000-0000-0000-000000002101', 'ENDED', '2026-05-16T07:01:00+09:00', '2026-05-16T08:25:00+09:00', ST_GeomFromText('LINESTRING(126.9190 35.1290,126.9212 35.1310,126.9230 35.1330,126.9246 35.1340,126.9256 35.1344)', 4326), 3, '2026-05-16T07:01:00+09:00', '2026-05-16T08:25:00+09:00'),
-  ('20000000-0000-0000-0000-000000002102', '10000000-0000-0000-0000-000000002102', 'ENDED', '2026-05-16T07:08:00+09:00', '2026-05-16T08:22:00+09:00', ST_GeomFromText('LINESTRING(126.9262 35.1291,126.9290 35.1304,126.9315 35.1326,126.9327 35.1352,126.9308 35.1370)', 4326), 2, '2026-05-16T07:08:00+09:00', '2026-05-16T08:22:00+09:00'),
-  ('20000000-0000-0000-0000-000000002103', '10000000-0000-0000-0000-000000002103', 'ENDED', '2026-05-16T08:45:00+09:00', '2026-05-16T09:42:00+09:00', ST_GeomFromText('LINESTRING(126.9226 35.1365,126.9266 35.1388,126.9303 35.1410,126.9335 35.1432,126.9344 35.1456)', 4326), 2, '2026-05-16T08:45:00+09:00', '2026-05-16T09:42:00+09:00'),
-  ('20000000-0000-0000-0000-000000002104', '10000000-0000-0000-0000-000000002104', 'RECORDING', '2026-05-16T09:56:00+09:00', NULL, ST_GeomFromText('LINESTRING(126.9260 35.1290,126.9295 35.1315,126.9332 35.1337,126.9354 35.1361)', 4326), 1, '2026-05-16T09:56:00+09:00', '2026-05-16T10:31:00+09:00'),
-  ('20000000-0000-0000-0000-000000002105', '10000000-0000-0000-0000-000000002105', 'RECORDING', '2026-05-16T10:02:00+09:00', NULL, ST_GeomFromText('LINESTRING(126.9380 35.1294,126.9410 35.1310,126.9438 35.1340,126.9454 35.1375)', 4326), 1, '2026-05-16T10:02:00+09:00', '2026-05-16T10:22:00+09:00'),
-  ('20000000-0000-0000-0000-000000002201', '10000000-0000-0000-0000-000000002201', 'ENDED', '2026-05-16T08:16:00+09:00', '2026-05-16T09:12:00+09:00', ST_GeomFromText('LINESTRING(126.9146 35.1400,126.9167 35.1421,126.9189 35.1440,126.9202 35.1460,126.9209 35.1480)', 4326), 2, '2026-05-16T08:16:00+09:00', '2026-05-16T09:12:00+09:00'),
-  ('20000000-0000-0000-0000-000000002202', '10000000-0000-0000-0000-000000002202', 'RECORDING', '2026-05-16T09:30:00+09:00', NULL, ST_GeomFromText('LINESTRING(126.9142 35.1380,126.9168 35.1405,126.9192 35.1435,126.9215 35.1468)', 4326), 1, '2026-05-16T09:30:00+09:00', '2026-05-16T10:19:00+09:00'),
-  ('20000000-0000-0000-0000-000000002203', '10000000-0000-0000-0000-000000002203', 'RECORDING', '2026-05-16T09:38:00+09:00', NULL, ST_GeomFromText('LINESTRING(126.9224 35.1382,126.9248 35.1408,126.9254 35.1442,126.9262 35.1480)', 4326), 1, '2026-05-16T09:38:00+09:00', '2026-05-16T10:18:00+09:00'),
-  ('20000000-0000-0000-0000-000000002301', '10000000-0000-0000-0000-000000002301', 'RECORDING', '2026-05-16T09:34:00+09:00', NULL, ST_GeomFromText('LINESTRING(126.7886 35.1372,126.7909 35.1390,126.7933 35.1411,126.7948 35.1430)', 4326), 1, '2026-05-16T09:34:00+09:00', '2026-05-16T10:05:00+09:00'),
-  ('20000000-0000-0000-0000-000000002302', '10000000-0000-0000-0000-000000002302', 'RECORDING', '2026-05-16T09:42:00+09:00', NULL, ST_GeomFromText('LINESTRING(126.7962 35.1370,126.7984 35.1394,126.8005 35.1418,126.8016 35.1438)', 4326), 1, '2026-05-16T09:42:00+09:00', '2026-05-16T10:03:00+09:00'),
-  ('20000000-0000-0000-0000-000000002401', '10000000-0000-0000-0000-000000002401', 'ENDED', '2026-05-15T14:28:00+09:00', '2026-05-15T15:52:00+09:00', ST_GeomFromText('LINESTRING(126.9325 35.1782,126.9362 35.1811,126.9390 35.1834,126.9405 35.1840)', 4326), 2, '2026-05-15T14:28:00+09:00', '2026-05-15T15:52:00+09:00'),
-  ('20000000-0000-0000-0000-000000002402', '10000000-0000-0000-0000-000000002402', 'ENDED', '2026-05-15T16:18:00+09:00', '2026-05-15T17:18:00+09:00', ST_GeomFromText('LINESTRING(126.9418 35.1902,126.9440 35.1906,126.9462 35.1909,126.9480 35.1911,126.9484 35.1910)', 4326), 2, '2026-05-15T16:18:00+09:00', '2026-05-15T17:18:00+09:00')
+    ('20000000-0000-0000-0000-000000002101', '10000000-0000-0000-0000-000000002101', 'ENDED', '2026-05-16T07:01:00+09:00', '2026-05-16T08:25:00+09:00', ST_GeomFromText('LINESTRING(126.9190 35.1290,126.9212 35.1310,126.9230 35.1330,126.9246 35.1340,126.9256 35.1344)', 4326), 3, '2026-05-16T07:01:00+09:00', '2026-05-16T08:25:00+09:00'),
+    ('20000000-0000-0000-0000-000000002102', '10000000-0000-0000-0000-000000002102', 'ENDED', '2026-05-16T07:08:00+09:00', '2026-05-16T08:22:00+09:00', ST_GeomFromText('LINESTRING(126.9262 35.1291,126.9290 35.1304,126.9315 35.1326,126.9327 35.1352,126.9308 35.1370)', 4326), 2, '2026-05-16T07:08:00+09:00', '2026-05-16T08:22:00+09:00'),
+    ('20000000-0000-0000-0000-000000002103', '10000000-0000-0000-0000-000000002103', 'ENDED', '2026-05-16T08:45:00+09:00', '2026-05-16T09:42:00+09:00', ST_GeomFromText('LINESTRING(126.9226 35.1365,126.9266 35.1388,126.9303 35.1410,126.9335 35.1432,126.9344 35.1456)', 4326), 2, '2026-05-16T08:45:00+09:00', '2026-05-16T09:42:00+09:00'),
+    ('20000000-0000-0000-0000-000000002104', '10000000-0000-0000-0000-000000002104', 'RECORDING', '2026-05-16T09:56:00+09:00', NULL, ST_GeomFromText('LINESTRING(126.9260 35.1290,126.9295 35.1315,126.9332 35.1337,126.9354 35.1361)', 4326), 1, '2026-05-16T09:56:00+09:00', '2026-05-16T10:31:00+09:00'),
+    ('20000000-0000-0000-0000-000000002105', '10000000-0000-0000-0000-000000002105', 'RECORDING', '2026-05-16T10:02:00+09:00', NULL, ST_GeomFromText('LINESTRING(126.9380 35.1294,126.9410 35.1310,126.9438 35.1340,126.9454 35.1375)', 4326), 1, '2026-05-16T10:02:00+09:00', '2026-05-16T10:22:00+09:00'),
+    ('20000000-0000-0000-0000-000000002201', '10000000-0000-0000-0000-000000002201', 'ENDED', '2026-05-16T08:16:00+09:00', '2026-05-16T09:12:00+09:00', ST_GeomFromText('LINESTRING(126.9146 35.1400,126.9167 35.1421,126.9189 35.1440,126.9202 35.1460,126.9209 35.1480)', 4326), 2, '2026-05-16T08:16:00+09:00', '2026-05-16T09:12:00+09:00'),
+    ('20000000-0000-0000-0000-000000002202', '10000000-0000-0000-0000-000000002202', 'RECORDING', '2026-05-16T09:30:00+09:00', NULL, ST_GeomFromText('LINESTRING(126.9142 35.1380,126.9168 35.1405,126.9192 35.1435,126.9215 35.1468)', 4326), 1, '2026-05-16T09:30:00+09:00', '2026-05-16T10:19:00+09:00'),
+    ('20000000-0000-0000-0000-000000002203', '10000000-0000-0000-0000-000000002203', 'RECORDING', '2026-05-16T09:38:00+09:00', NULL, ST_GeomFromText('LINESTRING(126.9224 35.1382,126.9248 35.1408,126.9254 35.1442,126.9262 35.1480)', 4326), 1, '2026-05-16T09:38:00+09:00', '2026-05-16T10:18:00+09:00'),
+    ('20000000-0000-0000-0000-000000002301', '10000000-0000-0000-0000-000000002301', 'RECORDING', '2026-05-16T09:34:00+09:00', NULL, ST_GeomFromText('LINESTRING(126.7886 35.1372,126.7909 35.1390,126.7933 35.1411,126.7948 35.1430)', 4326), 1, '2026-05-16T09:34:00+09:00', '2026-05-16T10:05:00+09:00'),
+    ('20000000-0000-0000-0000-000000002302', '10000000-0000-0000-0000-000000002302', 'RECORDING', '2026-05-16T09:42:00+09:00', NULL, ST_GeomFromText('LINESTRING(126.7962 35.1370,126.7984 35.1394,126.8005 35.1418,126.8016 35.1438)', 4326), 1, '2026-05-16T09:42:00+09:00', '2026-05-16T10:03:00+09:00'),
+    ('20000000-0000-0000-0000-000000002401', '10000000-0000-0000-0000-000000002401', 'ENDED', '2026-05-15T14:28:00+09:00', '2026-05-15T15:52:00+09:00', ST_GeomFromText('LINESTRING(126.9325 35.1782,126.9362 35.1811,126.9390 35.1834,126.9405 35.1840)', 4326), 2, '2026-05-15T14:28:00+09:00', '2026-05-15T15:52:00+09:00'),
+    ('20000000-0000-0000-0000-000000002402', '10000000-0000-0000-0000-000000002402', 'ENDED', '2026-05-15T16:18:00+09:00', '2026-05-15T17:18:00+09:00', ST_GeomFromText('LINESTRING(126.9418 35.1902,126.9440 35.1906,126.9462 35.1909,126.9480 35.1911,126.9484 35.1910)', 4326), 2, '2026-05-15T16:18:00+09:00', '2026-05-15T17:18:00+09:00')
 ON CONFLICT (id) DO UPDATE SET
-  duty_shift_id = EXCLUDED.duty_shift_id,
-  status = EXCLUDED.status,
-  started_at = EXCLUDED.started_at,
-  ended_at = EXCLUDED.ended_at,
-  geometry = EXCLUDED.geometry,
-  version = EXCLUDED.version,
-  updated_at = EXCLUDED.updated_at;
+                               duty_shift_id = EXCLUDED.duty_shift_id,
+                               status = EXCLUDED.status,
+                               started_at = EXCLUDED.started_at,
+                               ended_at = EXCLUDED.ended_at,
+                               geometry = EXCLUDED.geometry,
+                               version = EXCLUDED.version,
+                               updated_at = EXCLUDED.updated_at;
 
 INSERT INTO search_path_segment (
-  id,
-  search_path_id,
-  movement_type,
-  movement_type_source,
-  geometry,
-  started_at,
-  ended_at,
-  corrected_by_account_id,
-  corrected_at,
-  version,
-  created_at,
-  updated_at
+    id,
+    search_path_id,
+    movement_type,
+    movement_type_source,
+    geometry,
+    started_at,
+    ended_at,
+    corrected_by_account_id,
+    corrected_at,
+    version,
+    created_at,
+    updated_at
 )
 VALUES
-  ('21000000-0000-0000-0000-000000002101', '20000000-0000-0000-0000-000000002101', 'FOOT', 'AUTO', ST_GeomFromText('LINESTRING(126.9190 35.1290,126.9212 35.1310,126.9230 35.1330)', 4326), '2026-05-16T07:01:00+09:00', '2026-05-16T07:35:00+09:00', NULL, NULL, 1, '2026-05-16T07:01:00+09:00', '2026-05-16T07:35:00+09:00'),
-  ('21000000-0000-0000-0000-000000002102', '20000000-0000-0000-0000-000000002101', 'FOOT', 'MANUAL', ST_GeomFromText('LINESTRING(126.9230 35.1330,126.9246 35.1340,126.9256 35.1344)', 4326), '2026-05-16T07:36:00+09:00', '2026-05-16T08:25:00+09:00', '11111111-1111-1111-1111-111111110001', '2026-05-16T08:20:00+09:00', 2, '2026-05-16T07:36:00+09:00', '2026-05-16T08:25:00+09:00'),
-  ('21000000-0000-0000-0000-000000002103', '20000000-0000-0000-0000-000000002102', 'VEHICLE', 'AUTO', ST_GeomFromText('LINESTRING(126.9262 35.1291,126.9290 35.1304,126.9315 35.1326)', 4326), '2026-05-16T07:08:00+09:00', '2026-05-16T07:40:00+09:00', NULL, NULL, 1, '2026-05-16T07:08:00+09:00', '2026-05-16T07:40:00+09:00'),
-  ('21000000-0000-0000-0000-000000002104', '20000000-0000-0000-0000-000000002102', 'FOOT', 'AUTO', ST_GeomFromText('LINESTRING(126.9315 35.1326,126.9327 35.1352,126.9308 35.1370)', 4326), '2026-05-16T07:42:00+09:00', '2026-05-16T08:22:00+09:00', NULL, NULL, 1, '2026-05-16T07:42:00+09:00', '2026-05-16T08:22:00+09:00'),
-  ('21000000-0000-0000-0000-000000002105', '20000000-0000-0000-0000-000000002103', 'FOOT', 'AUTO', ST_GeomFromText('LINESTRING(126.9226 35.1365,126.9266 35.1388,126.9303 35.1410)', 4326), '2026-05-16T08:45:00+09:00', '2026-05-16T09:12:00+09:00', NULL, NULL, 1, '2026-05-16T08:45:00+09:00', '2026-05-16T09:12:00+09:00'),
-  ('21000000-0000-0000-0000-000000002106', '20000000-0000-0000-0000-000000002103', 'UNKNOWN', 'MANUAL', ST_GeomFromText('LINESTRING(126.9303 35.1410,126.9335 35.1432,126.9344 35.1456)', 4326), '2026-05-16T09:13:00+09:00', '2026-05-16T09:42:00+09:00', '11111111-1111-1111-1111-111111110001', '2026-05-16T09:39:00+09:00', 2, '2026-05-16T09:13:00+09:00', '2026-05-16T09:42:00+09:00'),
-  ('21000000-0000-0000-0000-000000002107', '20000000-0000-0000-0000-000000002104', 'FOOT', 'AUTO', ST_GeomFromText('LINESTRING(126.9260 35.1290,126.9295 35.1315,126.9332 35.1337,126.9354 35.1361)', 4326), '2026-05-16T09:56:00+09:00', '2026-05-16T10:31:00+09:00', NULL, NULL, 1, '2026-05-16T09:56:00+09:00', '2026-05-16T10:31:00+09:00'),
-  ('21000000-0000-0000-0000-000000002108', '20000000-0000-0000-0000-000000002105', 'FOOT', 'AUTO', ST_GeomFromText('LINESTRING(126.9380 35.1294,126.9410 35.1310,126.9438 35.1340,126.9454 35.1375)', 4326), '2026-05-16T10:02:00+09:00', '2026-05-16T10:22:00+09:00', NULL, NULL, 1, '2026-05-16T10:02:00+09:00', '2026-05-16T10:22:00+09:00'),
-  ('21000000-0000-0000-0000-000000002201', '20000000-0000-0000-0000-000000002201', 'VEHICLE', 'AUTO', ST_GeomFromText('LINESTRING(126.9146 35.1400,126.9167 35.1421,126.9189 35.1440)', 4326), '2026-05-16T08:16:00+09:00', '2026-05-16T08:45:00+09:00', NULL, NULL, 1, '2026-05-16T08:16:00+09:00', '2026-05-16T08:45:00+09:00'),
-  ('21000000-0000-0000-0000-000000002202', '20000000-0000-0000-0000-000000002201', 'FOOT', 'AUTO', ST_GeomFromText('LINESTRING(126.9189 35.1440,126.9202 35.1460,126.9209 35.1480)', 4326), '2026-05-16T08:46:00+09:00', '2026-05-16T09:12:00+09:00', NULL, NULL, 1, '2026-05-16T08:46:00+09:00', '2026-05-16T09:12:00+09:00'),
-  ('21000000-0000-0000-0000-000000002203', '20000000-0000-0000-0000-000000002202', 'FOOT', 'AUTO', ST_GeomFromText('LINESTRING(126.9142 35.1380,126.9168 35.1405,126.9192 35.1435,126.9215 35.1468)', 4326), '2026-05-16T09:30:00+09:00', '2026-05-16T10:19:00+09:00', NULL, NULL, 1, '2026-05-16T09:30:00+09:00', '2026-05-16T10:19:00+09:00'),
-  ('21000000-0000-0000-0000-000000002204', '20000000-0000-0000-0000-000000002203', 'VEHICLE', 'AUTO', ST_GeomFromText('LINESTRING(126.9224 35.1382,126.9248 35.1408,126.9254 35.1442,126.9262 35.1480)', 4326), '2026-05-16T09:38:00+09:00', '2026-05-16T10:18:00+09:00', NULL, NULL, 1, '2026-05-16T09:38:00+09:00', '2026-05-16T10:18:00+09:00'),
-  ('21000000-0000-0000-0000-000000002301', '20000000-0000-0000-0000-000000002301', 'VEHICLE', 'AUTO', ST_GeomFromText('LINESTRING(126.7886 35.1372,126.7909 35.1390,126.7933 35.1411,126.7948 35.1430)', 4326), '2026-05-16T09:34:00+09:00', '2026-05-16T10:05:00+09:00', NULL, NULL, 1, '2026-05-16T09:34:00+09:00', '2026-05-16T10:05:00+09:00'),
-  ('21000000-0000-0000-0000-000000002302', '20000000-0000-0000-0000-000000002302', 'FOOT', 'AUTO', ST_GeomFromText('LINESTRING(126.7962 35.1370,126.7984 35.1394,126.8005 35.1418,126.8016 35.1438)', 4326), '2026-05-16T09:42:00+09:00', '2026-05-16T10:03:00+09:00', NULL, NULL, 1, '2026-05-16T09:42:00+09:00', '2026-05-16T10:03:00+09:00'),
-  ('21000000-0000-0000-0000-000000002401', '20000000-0000-0000-0000-000000002401', 'FOOT', 'AUTO', ST_GeomFromText('LINESTRING(126.9325 35.1782,126.9362 35.1811,126.9390 35.1834)', 4326), '2026-05-15T14:28:00+09:00', '2026-05-15T15:05:00+09:00', NULL, NULL, 1, '2026-05-15T14:28:00+09:00', '2026-05-15T15:05:00+09:00'),
-  ('21000000-0000-0000-0000-000000002402', '20000000-0000-0000-0000-000000002401', 'FOOT', 'AUTO', ST_GeomFromText('LINESTRING(126.9390 35.1834,126.9400 35.1838,126.9405 35.1840)', 4326), '2026-05-15T15:06:00+09:00', '2026-05-15T15:52:00+09:00', NULL, NULL, 1, '2026-05-15T15:06:00+09:00', '2026-05-15T15:52:00+09:00'),
-  ('21000000-0000-0000-0000-000000002403', '20000000-0000-0000-0000-000000002402', 'FOOT', 'AUTO', ST_GeomFromText('LINESTRING(126.9418 35.1902,126.9440 35.1906,126.9462 35.1909,126.9480 35.1911,126.9484 35.1910)', 4326), '2026-05-15T16:18:00+09:00', '2026-05-15T17:18:00+09:00', NULL, NULL, 1, '2026-05-15T16:18:00+09:00', '2026-05-15T17:18:00+09:00')
+    ('21000000-0000-0000-0000-000000002101', '20000000-0000-0000-0000-000000002101', 'FOOT', 'AUTO', ST_GeomFromText('LINESTRING(126.9190 35.1290,126.9212 35.1310,126.9230 35.1330)', 4326), '2026-05-16T07:01:00+09:00', '2026-05-16T07:35:00+09:00', NULL, NULL, 1, '2026-05-16T07:01:00+09:00', '2026-05-16T07:35:00+09:00'),
+    ('21000000-0000-0000-0000-000000002102', '20000000-0000-0000-0000-000000002101', 'FOOT', 'MANUAL', ST_GeomFromText('LINESTRING(126.9230 35.1330,126.9246 35.1340,126.9256 35.1344)', 4326), '2026-05-16T07:36:00+09:00', '2026-05-16T08:25:00+09:00', '11111111-1111-1111-1111-111111110001', '2026-05-16T08:20:00+09:00', 2, '2026-05-16T07:36:00+09:00', '2026-05-16T08:25:00+09:00'),
+    ('21000000-0000-0000-0000-000000002103', '20000000-0000-0000-0000-000000002102', 'VEHICLE', 'AUTO', ST_GeomFromText('LINESTRING(126.9262 35.1291,126.9290 35.1304,126.9315 35.1326)', 4326), '2026-05-16T07:08:00+09:00', '2026-05-16T07:40:00+09:00', NULL, NULL, 1, '2026-05-16T07:08:00+09:00', '2026-05-16T07:40:00+09:00'),
+    ('21000000-0000-0000-0000-000000002104', '20000000-0000-0000-0000-000000002102', 'FOOT', 'AUTO', ST_GeomFromText('LINESTRING(126.9315 35.1326,126.9327 35.1352,126.9308 35.1370)', 4326), '2026-05-16T07:42:00+09:00', '2026-05-16T08:22:00+09:00', NULL, NULL, 1, '2026-05-16T07:42:00+09:00', '2026-05-16T08:22:00+09:00'),
+    ('21000000-0000-0000-0000-000000002105', '20000000-0000-0000-0000-000000002103', 'FOOT', 'AUTO', ST_GeomFromText('LINESTRING(126.9226 35.1365,126.9266 35.1388,126.9303 35.1410)', 4326), '2026-05-16T08:45:00+09:00', '2026-05-16T09:12:00+09:00', NULL, NULL, 1, '2026-05-16T08:45:00+09:00', '2026-05-16T09:12:00+09:00'),
+    ('21000000-0000-0000-0000-000000002106', '20000000-0000-0000-0000-000000002103', 'UNKNOWN', 'MANUAL', ST_GeomFromText('LINESTRING(126.9303 35.1410,126.9335 35.1432,126.9344 35.1456)', 4326), '2026-05-16T09:13:00+09:00', '2026-05-16T09:42:00+09:00', '11111111-1111-1111-1111-111111110001', '2026-05-16T09:39:00+09:00', 2, '2026-05-16T09:13:00+09:00', '2026-05-16T09:42:00+09:00'),
+    ('21000000-0000-0000-0000-000000002107', '20000000-0000-0000-0000-000000002104', 'FOOT', 'AUTO', ST_GeomFromText('LINESTRING(126.9260 35.1290,126.9295 35.1315,126.9332 35.1337,126.9354 35.1361)', 4326), '2026-05-16T09:56:00+09:00', '2026-05-16T10:31:00+09:00', NULL, NULL, 1, '2026-05-16T09:56:00+09:00', '2026-05-16T10:31:00+09:00'),
+    ('21000000-0000-0000-0000-000000002108', '20000000-0000-0000-0000-000000002105', 'FOOT', 'AUTO', ST_GeomFromText('LINESTRING(126.9380 35.1294,126.9410 35.1310,126.9438 35.1340,126.9454 35.1375)', 4326), '2026-05-16T10:02:00+09:00', '2026-05-16T10:22:00+09:00', NULL, NULL, 1, '2026-05-16T10:02:00+09:00', '2026-05-16T10:22:00+09:00'),
+    ('21000000-0000-0000-0000-000000002201', '20000000-0000-0000-0000-000000002201', 'VEHICLE', 'AUTO', ST_GeomFromText('LINESTRING(126.9146 35.1400,126.9167 35.1421,126.9189 35.1440)', 4326), '2026-05-16T08:16:00+09:00', '2026-05-16T08:45:00+09:00', NULL, NULL, 1, '2026-05-16T08:16:00+09:00', '2026-05-16T08:45:00+09:00'),
+    ('21000000-0000-0000-0000-000000002202', '20000000-0000-0000-0000-000000002201', 'FOOT', 'AUTO', ST_GeomFromText('LINESTRING(126.9189 35.1440,126.9202 35.1460,126.9209 35.1480)', 4326), '2026-05-16T08:46:00+09:00', '2026-05-16T09:12:00+09:00', NULL, NULL, 1, '2026-05-16T08:46:00+09:00', '2026-05-16T09:12:00+09:00'),
+    ('21000000-0000-0000-0000-000000002203', '20000000-0000-0000-0000-000000002202', 'FOOT', 'AUTO', ST_GeomFromText('LINESTRING(126.9142 35.1380,126.9168 35.1405,126.9192 35.1435,126.9215 35.1468)', 4326), '2026-05-16T09:30:00+09:00', '2026-05-16T10:19:00+09:00', NULL, NULL, 1, '2026-05-16T09:30:00+09:00', '2026-05-16T10:19:00+09:00'),
+    ('21000000-0000-0000-0000-000000002204', '20000000-0000-0000-0000-000000002203', 'VEHICLE', 'AUTO', ST_GeomFromText('LINESTRING(126.9224 35.1382,126.9248 35.1408,126.9254 35.1442,126.9262 35.1480)', 4326), '2026-05-16T09:38:00+09:00', '2026-05-16T10:18:00+09:00', NULL, NULL, 1, '2026-05-16T09:38:00+09:00', '2026-05-16T10:18:00+09:00'),
+    ('21000000-0000-0000-0000-000000002301', '20000000-0000-0000-0000-000000002301', 'VEHICLE', 'AUTO', ST_GeomFromText('LINESTRING(126.7886 35.1372,126.7909 35.1390,126.7933 35.1411,126.7948 35.1430)', 4326), '2026-05-16T09:34:00+09:00', '2026-05-16T10:05:00+09:00', NULL, NULL, 1, '2026-05-16T09:34:00+09:00', '2026-05-16T10:05:00+09:00'),
+    ('21000000-0000-0000-0000-000000002302', '20000000-0000-0000-0000-000000002302', 'FOOT', 'AUTO', ST_GeomFromText('LINESTRING(126.7962 35.1370,126.7984 35.1394,126.8005 35.1418,126.8016 35.1438)', 4326), '2026-05-16T09:42:00+09:00', '2026-05-16T10:03:00+09:00', NULL, NULL, 1, '2026-05-16T09:42:00+09:00', '2026-05-16T10:03:00+09:00'),
+    ('21000000-0000-0000-0000-000000002401', '20000000-0000-0000-0000-000000002401', 'FOOT', 'AUTO', ST_GeomFromText('LINESTRING(126.9325 35.1782,126.9362 35.1811,126.9390 35.1834)', 4326), '2026-05-15T14:28:00+09:00', '2026-05-15T15:05:00+09:00', NULL, NULL, 1, '2026-05-15T14:28:00+09:00', '2026-05-15T15:05:00+09:00'),
+    ('21000000-0000-0000-0000-000000002402', '20000000-0000-0000-0000-000000002401', 'FOOT', 'AUTO', ST_GeomFromText('LINESTRING(126.9390 35.1834,126.9400 35.1838,126.9405 35.1840)', 4326), '2026-05-15T15:06:00+09:00', '2026-05-15T15:52:00+09:00', NULL, NULL, 1, '2026-05-15T15:06:00+09:00', '2026-05-15T15:52:00+09:00'),
+    ('21000000-0000-0000-0000-000000002403', '20000000-0000-0000-0000-000000002402', 'FOOT', 'AUTO', ST_GeomFromText('LINESTRING(126.9418 35.1902,126.9440 35.1906,126.9462 35.1909,126.9480 35.1911,126.9484 35.1910)', 4326), '2026-05-15T16:18:00+09:00', '2026-05-15T17:18:00+09:00', NULL, NULL, 1, '2026-05-15T16:18:00+09:00', '2026-05-15T17:18:00+09:00')
 ON CONFLICT (id) DO UPDATE SET
-  search_path_id = EXCLUDED.search_path_id,
-  movement_type = EXCLUDED.movement_type,
-  movement_type_source = EXCLUDED.movement_type_source,
-  geometry = EXCLUDED.geometry,
-  started_at = EXCLUDED.started_at,
-  ended_at = EXCLUDED.ended_at,
-  corrected_by_account_id = EXCLUDED.corrected_by_account_id,
-  corrected_at = EXCLUDED.corrected_at,
-  version = EXCLUDED.version,
-  updated_at = EXCLUDED.updated_at;
+                               search_path_id = EXCLUDED.search_path_id,
+                               movement_type = EXCLUDED.movement_type,
+                               movement_type_source = EXCLUDED.movement_type_source,
+                               geometry = EXCLUDED.geometry,
+                               started_at = EXCLUDED.started_at,
+                               ended_at = EXCLUDED.ended_at,
+                               corrected_by_account_id = EXCLUDED.corrected_by_account_id,
+                               corrected_at = EXCLUDED.corrected_at,
+                               version = EXCLUDED.version,
+                               updated_at = EXCLUDED.updated_at;
 
 INSERT INTO search_path_excluded_point (
-  id,
-  search_path_id,
-  point_id,
-  reason,
-  client_ts,
-  created_at,
-  updated_at
+    id,
+    search_path_id,
+    point_id,
+    reason,
+    client_ts,
+    created_at,
+    updated_at
 )
 VALUES
-  ('22000000-0000-0000-0000-000000002101', '20000000-0000-0000-0000-000000002101', 't2-mudeung-op1-team-gps-0017', 'low_accuracy', '2026-05-16T07:28:12+09:00', '2026-05-16T07:28:20+09:00', '2026-05-16T07:28:20+09:00'),
-  ('22000000-0000-0000-0000-000000002103', '20000000-0000-0000-0000-000000002103', 't2-mudeung-op2-team-gps-0044', 'distance_jump', '2026-05-16T09:15:40+09:00', '2026-05-16T09:15:50+09:00', '2026-05-16T09:15:50+09:00'),
-  ('22000000-0000-0000-0000-000000002202', '20000000-0000-0000-0000-000000002202', 't2-stream-op2-team-gps-0022', 'clock_skew', '2026-05-16T09:58:06+09:00', '2026-05-16T09:58:12+09:00', '2026-05-16T09:58:12+09:00'),
-  ('22000000-0000-0000-0000-000000002301', '20000000-0000-0000-0000-000000002301', 't2-songjeong-car-gps-0012', 'invalid_speed', '2026-05-16T09:51:30+09:00', '2026-05-16T09:51:35+09:00', '2026-05-16T09:51:35+09:00')
+    ('22000000-0000-0000-0000-000000002101', '20000000-0000-0000-0000-000000002101', 't2-mudeung-op1-team-gps-0017', 'low_accuracy', '2026-05-16T07:28:12+09:00', '2026-05-16T07:28:20+09:00', '2026-05-16T07:28:20+09:00'),
+    ('22000000-0000-0000-0000-000000002103', '20000000-0000-0000-0000-000000002103', 't2-mudeung-op2-team-gps-0044', 'distance_jump', '2026-05-16T09:15:40+09:00', '2026-05-16T09:15:50+09:00', '2026-05-16T09:15:50+09:00'),
+    ('22000000-0000-0000-0000-000000002202', '20000000-0000-0000-0000-000000002202', 't2-stream-op2-team-gps-0022', 'clock_skew', '2026-05-16T09:58:06+09:00', '2026-05-16T09:58:12+09:00', '2026-05-16T09:58:12+09:00'),
+    ('22000000-0000-0000-0000-000000002301', '20000000-0000-0000-0000-000000002301', 't2-songjeong-car-gps-0012', 'invalid_speed', '2026-05-16T09:51:30+09:00', '2026-05-16T09:51:35+09:00', '2026-05-16T09:51:35+09:00')
 ON CONFLICT (id) DO UPDATE SET
-  search_path_id = EXCLUDED.search_path_id,
-  point_id = EXCLUDED.point_id,
-  reason = EXCLUDED.reason,
-  client_ts = EXCLUDED.client_ts,
-  updated_at = EXCLUDED.updated_at;
+                               search_path_id = EXCLUDED.search_path_id,
+                               point_id = EXCLUDED.point_id,
+                               reason = EXCLUDED.reason,
+                               client_ts = EXCLUDED.client_ts,
+                               updated_at = EXCLUDED.updated_at;
 
 INSERT INTO marker (
-  id,
-  incident_id,
-  operational_period_id,
-  duty_shift_id,
-  marker_type,
-  support_request_type,
-  location,
-  memo,
-  occurred_at,
-  created_by_account_id,
-  police_phone_id,
-  marker_source,
-  status,
-  version,
-  created_at,
-  updated_at
+    id,
+    incident_id,
+    operational_period_id,
+    duty_shift_id,
+    marker_type,
+    support_request_type,
+    location,
+    memo,
+    occurred_at,
+    created_by_account_id,
+    police_phone_id,
+    marker_source,
+    status,
+    version,
+    created_at,
+    updated_at
 )
 VALUES
-  ('30000000-0000-0000-0000-000000002101', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101', '88888888-8888-8888-8888-888888882101', '10000000-0000-0000-0000-000000002101', 'CLUE', NULL, ST_SetSRID(ST_MakePoint(126.9234, 35.1336), 4326), '상가 뒤편 계단에서 검은 장갑 발견', '2026-05-16T07:32:00+09:00', '11111111-1111-1111-1111-111111110003', '00000000-0000-0000-0000-000000000101', 'APP', 'ACTIVE', 1, '2026-05-16T07:32:00+09:00', '2026-05-16T07:32:00+09:00'),
-  ('30000000-0000-0000-0000-000000002102', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101', '88888888-8888-8888-8888-888888882101', '10000000-0000-0000-0000-000000002102', 'FIELD_CONDITION', NULL, ST_SetSRID(ST_MakePoint(126.9312, 35.1348), 4326), '주차장 동측 진입로 공사 펜스 설치, 차량 우회 필요', '2026-05-16T07:55:00+09:00', '11111111-1111-1111-1111-111111110007', '00000000-0000-0000-0000-000000000207', 'APP', 'UPDATED', 2, '2026-05-16T07:55:00+09:00', '2026-05-16T08:02:00+09:00'),
-  ('30000000-0000-0000-0000-000000002103', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101', '88888888-8888-8888-8888-888888882102', '10000000-0000-0000-0000-000000002103', 'NOTE', NULL, ST_SetSRID(ST_MakePoint(126.9369, 35.1442), 4326), '등산객 제보: 08:20경 북측 산책로에서 유사 인상착의 목격', '2026-05-16T09:05:00+09:00', '11111111-1111-1111-1111-111111110005', '00000000-0000-0000-0000-000000000205', 'APP', 'ACTIVE', 1, '2026-05-16T09:05:00+09:00', '2026-05-16T09:05:00+09:00'),
-  ('30000000-0000-0000-0000-000000002104', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101', '88888888-8888-8888-8888-888888882102', '10000000-0000-0000-0000-000000002103', 'SUPPORT_REQUEST', 'DRONE', ST_SetSRID(ST_MakePoint(126.9410, 35.1464), 4326), '능선 방향 시야 확보를 위한 드론 열화상 확인 요청', '2026-05-16T09:22:00+09:00', '11111111-1111-1111-1111-111111110005', '00000000-0000-0000-0000-000000000205', 'APP', 'ACTIVE', 1, '2026-05-16T09:22:00+09:00', '2026-05-16T09:22:00+09:00'),
-  ('30000000-0000-0000-0000-000000002105', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101', '88888888-8888-8888-8888-888888882103', '10000000-0000-0000-0000-000000002104', 'FIELD_CONDITION', NULL, ST_SetSRID(ST_MakePoint(126.9338, 35.1340), 4326), '계곡 합류부 미끄러운 바위, 도보 접근만 가능', '2026-05-16T10:08:00+09:00', '11111111-1111-1111-1111-111111110005', '00000000-0000-0000-0000-000000000205', 'APP', 'ACTIVE', 1, '2026-05-16T10:08:00+09:00', '2026-05-16T10:08:00+09:00'),
-  ('30000000-0000-0000-0000-000000002106', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101', '88888888-8888-8888-8888-888888882103', '10000000-0000-0000-0000-000000002105', 'CLUE', NULL, ST_SetSRID(ST_MakePoint(126.9435, 35.1352), 4326), '안내소 뒤편에서 물병 발견, 사진 업로드 대기', '2026-05-16T10:17:00+09:00', '11111111-1111-1111-1111-111111110008', '00000000-0000-0000-0000-000000000208', 'APP', 'ACTIVE', 1, '2026-05-16T10:17:00+09:00', '2026-05-16T10:17:00+09:00'),
-  ('30000000-0000-0000-0000-000000002201', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2201', '88888888-8888-8888-8888-888888882201', '10000000-0000-0000-0000-000000002201', 'NOTE', NULL, ST_SetSRID(ST_MakePoint(126.9138, 35.1439), 4326), '펭귄마을 주민 제보 접수, 광주천 방향 이동 가능성', '2026-05-16T08:42:00+09:00', '11111111-1111-1111-1111-111111110002', '50000000-0000-0000-0000-000000000001', 'APP', 'ACTIVE', 1, '2026-05-16T08:42:00+09:00', '2026-05-16T08:42:00+09:00'),
-  ('30000000-0000-0000-0000-000000002202', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2201', '88888888-8888-8888-8888-888888882202', '10000000-0000-0000-0000-000000002202', 'CLUE', NULL, ST_SetSRID(ST_MakePoint(126.9188, 35.1436), 4326), '동측 제방 벤치 아래 흰색 이어폰 케이스 발견', '2026-05-16T09:46:00+09:00', '11111111-1111-1111-1111-111111110005', '00000000-0000-0000-0000-000000000205', 'APP', 'ACTIVE', 1, '2026-05-16T09:46:00+09:00', '2026-05-16T09:46:00+09:00'),
-  ('30000000-0000-0000-0000-000000002203', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2201', '88888888-8888-8888-8888-888888882202', '10000000-0000-0000-0000-000000002203', 'SUPPORT_REQUEST', 'POLICE_DOG', ST_SetSRID(ST_MakePoint(126.9256, 35.1455), 4326), '좁은 골목 후각 추적 지원 요청', '2026-05-16T10:02:00+09:00', '11111111-1111-1111-1111-111111110007', '00000000-0000-0000-0000-000000000207', 'APP', 'ACTIVE', 1, '2026-05-16T10:02:00+09:00', '2026-05-16T10:02:00+09:00'),
-  ('30000000-0000-0000-0000-000000002301', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2301', '88888888-8888-8888-8888-888888882301', '10000000-0000-0000-0000-000000002301', 'FIELD_CONDITION', NULL, ST_SetSRID(ST_MakePoint(126.7928, 35.1410), 4326), '역 전면 혼잡, 차량 경로는 외곽 순환로로 제한', '2026-05-16T09:48:00+09:00', '11111111-1111-1111-1111-111111110002', '50000000-0000-0000-0000-000000000001', 'APP', 'ACTIVE', 1, '2026-05-16T09:48:00+09:00', '2026-05-16T09:48:00+09:00'),
-  ('30000000-0000-0000-0000-000000002302', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2301', '88888888-8888-8888-8888-888888882301', '10000000-0000-0000-0000-000000002302', 'NOTE', NULL, ST_SetSRID(ST_MakePoint(126.8002, 35.1415), 4326), '편의점 CCTV 확인 필요, 09:05 유사 인상착의 통과', '2026-05-16T09:56:00+09:00', '11111111-1111-1111-1111-111111110005', '00000000-0000-0000-0000-000000000205', 'APP', 'ACTIVE', 1, '2026-05-16T09:56:00+09:00', '2026-05-16T09:56:00+09:00'),
-  ('30000000-0000-0000-0000-000000002401', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2401', '88888888-8888-8888-8888-888888882401', '10000000-0000-0000-0000-000000002401', 'CLUE', NULL, ST_SetSRID(ST_MakePoint(126.9405, 35.1840), 4326), '관찰데크 주변에서 우산 발견, 보호자 확인 완료', '2026-05-15T15:02:00+09:00', '11111111-1111-1111-1111-111111110003', '00000000-0000-0000-0000-000000000101', 'APP', 'UPDATED', 2, '2026-05-15T15:02:00+09:00', '2026-05-15T15:18:00+09:00'),
-  ('30000000-0000-0000-0000-000000002402', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2401', '88888888-8888-8888-8888-888888882402', '10000000-0000-0000-0000-000000002402', 'PERSON_FOUND', NULL, ST_SetSRID(ST_MakePoint(126.9484, 35.1910), 4326), '북측 산책로에서 대상자 발견, 119 인계 완료', '2026-05-15T17:08:00+09:00', '11111111-1111-1111-1111-111111110008', '00000000-0000-0000-0000-000000000208', 'APP', 'ACTIVE', 1, '2026-05-15T17:08:00+09:00', '2026-05-15T17:08:00+09:00')
+    ('30000000-0000-0000-0000-000000002101', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101', '88888888-8888-8888-8888-888888882101', '10000000-0000-0000-0000-000000002101', 'CLUE', NULL, ST_SetSRID(ST_MakePoint(126.9234, 35.1336), 4326), '상가 뒤편 계단에서 검은 장갑 발견', '2026-05-16T07:32:00+09:00', '11111111-1111-1111-1111-111111110003', '00000000-0000-0000-0000-000000000101', 'APP', 'ACTIVE', 1, '2026-05-16T07:32:00+09:00', '2026-05-16T07:32:00+09:00'),
+    ('30000000-0000-0000-0000-000000002102', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101', '88888888-8888-8888-8888-888888882101', '10000000-0000-0000-0000-000000002102', 'FIELD_CONDITION', NULL, ST_SetSRID(ST_MakePoint(126.9312, 35.1348), 4326), '주차장 동측 진입로 공사 펜스 설치, 차량 우회 필요', '2026-05-16T07:55:00+09:00', '11111111-1111-1111-1111-111111110007', '00000000-0000-0000-0000-000000000207', 'APP', 'UPDATED', 2, '2026-05-16T07:55:00+09:00', '2026-05-16T08:02:00+09:00'),
+    ('30000000-0000-0000-0000-000000002103', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101', '88888888-8888-8888-8888-888888882102', '10000000-0000-0000-0000-000000002103', 'NOTE', NULL, ST_SetSRID(ST_MakePoint(126.9369, 35.1442), 4326), '등산객 제보: 08:20경 북측 산책로에서 유사 인상착의 목격', '2026-05-16T09:05:00+09:00', '11111111-1111-1111-1111-111111110005', '00000000-0000-0000-0000-000000000205', 'APP', 'ACTIVE', 1, '2026-05-16T09:05:00+09:00', '2026-05-16T09:05:00+09:00'),
+    ('30000000-0000-0000-0000-000000002104', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101', '88888888-8888-8888-8888-888888882102', '10000000-0000-0000-0000-000000002103', 'SUPPORT_REQUEST', 'DRONE', ST_SetSRID(ST_MakePoint(126.9410, 35.1464), 4326), '능선 방향 시야 확보를 위한 드론 열화상 확인 요청', '2026-05-16T09:22:00+09:00', '11111111-1111-1111-1111-111111110005', '00000000-0000-0000-0000-000000000205', 'APP', 'ACTIVE', 1, '2026-05-16T09:22:00+09:00', '2026-05-16T09:22:00+09:00'),
+    ('30000000-0000-0000-0000-000000002105', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101', '88888888-8888-8888-8888-888888882103', '10000000-0000-0000-0000-000000002104', 'FIELD_CONDITION', NULL, ST_SetSRID(ST_MakePoint(126.9338, 35.1340), 4326), '계곡 합류부 미끄러운 바위, 도보 접근만 가능', '2026-05-16T10:08:00+09:00', '11111111-1111-1111-1111-111111110005', '00000000-0000-0000-0000-000000000205', 'APP', 'ACTIVE', 1, '2026-05-16T10:08:00+09:00', '2026-05-16T10:08:00+09:00'),
+    ('30000000-0000-0000-0000-000000002106', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101', '88888888-8888-8888-8888-888888882103', '10000000-0000-0000-0000-000000002105', 'CLUE', NULL, ST_SetSRID(ST_MakePoint(126.9435, 35.1352), 4326), '안내소 뒤편에서 물병 발견, 사진 업로드 대기', '2026-05-16T10:17:00+09:00', '11111111-1111-1111-1111-111111110008', '00000000-0000-0000-0000-000000000208', 'APP', 'ACTIVE', 1, '2026-05-16T10:17:00+09:00', '2026-05-16T10:17:00+09:00'),
+    ('30000000-0000-0000-0000-000000002201', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2201', '88888888-8888-8888-8888-888888882201', '10000000-0000-0000-0000-000000002201', 'NOTE', NULL, ST_SetSRID(ST_MakePoint(126.9138, 35.1439), 4326), '펭귄마을 주민 제보 접수, 광주천 방향 이동 가능성', '2026-05-16T08:42:00+09:00', '11111111-1111-1111-1111-111111110009', '50000000-0000-0000-0000-000000000001', 'APP', 'ACTIVE', 1, '2026-05-16T08:42:00+09:00', '2026-05-16T08:42:00+09:00'),
+    ('30000000-0000-0000-0000-000000002202', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2201', '88888888-8888-8888-8888-888888882202', '10000000-0000-0000-0000-000000002202', 'CLUE', NULL, ST_SetSRID(ST_MakePoint(126.9188, 35.1436), 4326), '동측 제방 벤치 아래 흰색 이어폰 케이스 발견', '2026-05-16T09:46:00+09:00', '11111111-1111-1111-1111-111111110005', '00000000-0000-0000-0000-000000000205', 'APP', 'ACTIVE', 1, '2026-05-16T09:46:00+09:00', '2026-05-16T09:46:00+09:00'),
+    ('30000000-0000-0000-0000-000000002203', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2201', '88888888-8888-8888-8888-888888882202', '10000000-0000-0000-0000-000000002203', 'SUPPORT_REQUEST', 'POLICE_DOG', ST_SetSRID(ST_MakePoint(126.9256, 35.1455), 4326), '좁은 골목 후각 추적 지원 요청', '2026-05-16T10:02:00+09:00', '11111111-1111-1111-1111-111111110007', '00000000-0000-0000-0000-000000000207', 'APP', 'ACTIVE', 1, '2026-05-16T10:02:00+09:00', '2026-05-16T10:02:00+09:00'),
+    ('30000000-0000-0000-0000-000000002301', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2301', '88888888-8888-8888-8888-888888882301', '10000000-0000-0000-0000-000000002301', 'FIELD_CONDITION', NULL, ST_SetSRID(ST_MakePoint(126.7928, 35.1410), 4326), '역 전면 혼잡, 차량 경로는 외곽 순환로로 제한', '2026-05-16T09:48:00+09:00', '11111111-1111-1111-1111-111111110009', '50000000-0000-0000-0000-000000000001', 'APP', 'ACTIVE', 1, '2026-05-16T09:48:00+09:00', '2026-05-16T09:48:00+09:00'),
+    ('30000000-0000-0000-0000-000000002302', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2301', '88888888-8888-8888-8888-888888882301', '10000000-0000-0000-0000-000000002302', 'NOTE', NULL, ST_SetSRID(ST_MakePoint(126.8002, 35.1415), 4326), '편의점 CCTV 확인 필요, 09:05 유사 인상착의 통과', '2026-05-16T09:56:00+09:00', '11111111-1111-1111-1111-111111110005', '00000000-0000-0000-0000-000000000205', 'APP', 'ACTIVE', 1, '2026-05-16T09:56:00+09:00', '2026-05-16T09:56:00+09:00'),
+    ('30000000-0000-0000-0000-000000002401', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2401', '88888888-8888-8888-8888-888888882401', '10000000-0000-0000-0000-000000002401', 'CLUE', NULL, ST_SetSRID(ST_MakePoint(126.9405, 35.1840), 4326), '관찰데크 주변에서 우산 발견, 보호자 확인 완료', '2026-05-15T15:02:00+09:00', '11111111-1111-1111-1111-111111110003', '00000000-0000-0000-0000-000000000101', 'APP', 'UPDATED', 2, '2026-05-15T15:02:00+09:00', '2026-05-15T15:18:00+09:00'),
+    ('30000000-0000-0000-0000-000000002402', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2401', '88888888-8888-8888-8888-888888882402', '10000000-0000-0000-0000-000000002402', 'PERSON_FOUND', NULL, ST_SetSRID(ST_MakePoint(126.9484, 35.1910), 4326), '북측 산책로에서 대상자 발견, 119 인계 완료', '2026-05-15T17:08:00+09:00', '11111111-1111-1111-1111-111111110008', '00000000-0000-0000-0000-000000000208', 'APP', 'ACTIVE', 1, '2026-05-15T17:08:00+09:00', '2026-05-15T17:08:00+09:00')
 ON CONFLICT (id) DO UPDATE SET
-  incident_id = EXCLUDED.incident_id,
-  operational_period_id = EXCLUDED.operational_period_id,
-  duty_shift_id = EXCLUDED.duty_shift_id,
-  marker_type = EXCLUDED.marker_type,
-  support_request_type = EXCLUDED.support_request_type,
-  location = EXCLUDED.location,
-  memo = EXCLUDED.memo,
-  occurred_at = EXCLUDED.occurred_at,
-  created_by_account_id = EXCLUDED.created_by_account_id,
-  police_phone_id = EXCLUDED.police_phone_id,
-  marker_source = EXCLUDED.marker_source,
-  status = EXCLUDED.status,
-  version = EXCLUDED.version,
-  updated_at = EXCLUDED.updated_at;
+                               incident_id = EXCLUDED.incident_id,
+                               operational_period_id = EXCLUDED.operational_period_id,
+                               duty_shift_id = EXCLUDED.duty_shift_id,
+                               marker_type = EXCLUDED.marker_type,
+                               support_request_type = EXCLUDED.support_request_type,
+                               location = EXCLUDED.location,
+                               memo = EXCLUDED.memo,
+                               occurred_at = EXCLUDED.occurred_at,
+                               created_by_account_id = EXCLUDED.created_by_account_id,
+                               police_phone_id = EXCLUDED.police_phone_id,
+                               marker_source = EXCLUDED.marker_source,
+                               status = EXCLUDED.status,
+                               version = EXCLUDED.version,
+                               updated_at = EXCLUDED.updated_at;
 
 INSERT INTO photo (
-  id,
-  marker_id,
-  object_key,
-  status,
-  attached_at,
-  content_type,
-  size_bytes,
-  width,
-  height,
-  checksum_sha256,
-  captured_at,
-  upload_url_expires_at,
-  version,
-  created_at,
-  updated_at,
-  deleted_at
+    id,
+    marker_id,
+    object_key,
+    status,
+    attached_at,
+    content_type,
+    size_bytes,
+    width,
+    height,
+    checksum_sha256,
+    captured_at,
+    upload_url_expires_at,
+    version,
+    created_at,
+    updated_at,
+    deleted_at
 )
 VALUES
-  ('31000000-0000-0000-0000-000000002101', '30000000-0000-0000-0000-000000002101', 'mock/test2/gwangju/mudeung/glove-stair.jpg', 'ATTACHED', '2026-05-16T07:34:00+09:00', 'image/jpeg', 482104, 1280, 960, '1111111111111111111111111111111111111111111111111111111111111111', '2026-05-16T07:32:30+09:00', NULL, 1, '2026-05-16T07:33:00+09:00', '2026-05-16T07:34:00+09:00', NULL),
-  ('31000000-0000-0000-0000-000000002104', '30000000-0000-0000-0000-000000002104', 'mock/test2/gwangju/mudeung/drone-request-ridge.jpg', 'PENDING_UPLOAD', NULL, 'image/jpeg', 318004, 1024, 768, '2222222222222222222222222222222222222222222222222222222222222222', '2026-05-16T09:22:20+09:00', '2026-05-16T10:22:20+09:00', 1, '2026-05-16T09:22:30+09:00', '2026-05-16T09:22:30+09:00', NULL),
-  ('31000000-0000-0000-0000-000000002106', '30000000-0000-0000-0000-000000002106', 'mock/test2/gwangju/mudeung/water-bottle.jpg', 'PENDING_UPLOAD', NULL, 'image/jpeg', 408512, 1280, 960, '3333333333333333333333333333333333333333333333333333333333333333', '2026-05-16T10:17:10+09:00', '2026-05-16T11:17:10+09:00', 1, '2026-05-16T10:17:20+09:00', '2026-05-16T10:17:20+09:00', NULL),
-  ('31000000-0000-0000-0000-000000002202', '30000000-0000-0000-0000-000000002202', 'mock/test2/gwangju/stream/earphone-case.jpg', 'ATTACHED', '2026-05-16T09:47:00+09:00', 'image/jpeg', 391210, 1280, 960, '4444444444444444444444444444444444444444444444444444444444444444', '2026-05-16T09:46:10+09:00', NULL, 1, '2026-05-16T09:46:30+09:00', '2026-05-16T09:47:00+09:00', NULL),
-  ('31000000-0000-0000-0000-000000002401', '30000000-0000-0000-0000-000000002401', 'mock/test2/gwangju/lake/umbrella-deck.jpg', 'ATTACHED', '2026-05-15T15:04:00+09:00', 'image/jpeg', 552912, 1440, 1080, '5555555555555555555555555555555555555555555555555555555555555555', '2026-05-15T15:02:20+09:00', NULL, 1, '2026-05-15T15:03:00+09:00', '2026-05-15T15:04:00+09:00', NULL),
-  ('31000000-0000-0000-0000-000000002402', '30000000-0000-0000-0000-000000002402', 'mock/test2/gwangju/lake/person-found.jpg', 'ATTACHED', '2026-05-15T17:10:00+09:00', 'image/jpeg', 600120, 1440, 1080, '6666666666666666666666666666666666666666666666666666666666666666', '2026-05-15T17:08:30+09:00', NULL, 1, '2026-05-15T17:09:00+09:00', '2026-05-15T17:10:00+09:00', NULL)
+    ('31000000-0000-0000-0000-000000002101', '30000000-0000-0000-0000-000000002101', 'mock/test2/gwangju/mudeung/glove-stair.jpg', 'ATTACHED', '2026-05-16T07:34:00+09:00', 'image/jpeg', 482104, 1280, 960, '1111111111111111111111111111111111111111111111111111111111111111', '2026-05-16T07:32:30+09:00', NULL, 1, '2026-05-16T07:33:00+09:00', '2026-05-16T07:34:00+09:00', NULL),
+    ('31000000-0000-0000-0000-000000002104', '30000000-0000-0000-0000-000000002104', 'mock/test2/gwangju/mudeung/drone-request-ridge.jpg', 'PENDING_UPLOAD', NULL, 'image/jpeg', 318004, 1024, 768, '2222222222222222222222222222222222222222222222222222222222222222', '2026-05-16T09:22:20+09:00', '2026-05-16T10:22:20+09:00', 1, '2026-05-16T09:22:30+09:00', '2026-05-16T09:22:30+09:00', NULL),
+    ('31000000-0000-0000-0000-000000002106', '30000000-0000-0000-0000-000000002106', 'mock/test2/gwangju/mudeung/water-bottle.jpg', 'PENDING_UPLOAD', NULL, 'image/jpeg', 408512, 1280, 960, '3333333333333333333333333333333333333333333333333333333333333333', '2026-05-16T10:17:10+09:00', '2026-05-16T11:17:10+09:00', 1, '2026-05-16T10:17:20+09:00', '2026-05-16T10:17:20+09:00', NULL),
+    ('31000000-0000-0000-0000-000000002202', '30000000-0000-0000-0000-000000002202', 'mock/test2/gwangju/stream/earphone-case.jpg', 'ATTACHED', '2026-05-16T09:47:00+09:00', 'image/jpeg', 391210, 1280, 960, '4444444444444444444444444444444444444444444444444444444444444444', '2026-05-16T09:46:10+09:00', NULL, 1, '2026-05-16T09:46:30+09:00', '2026-05-16T09:47:00+09:00', NULL),
+    ('31000000-0000-0000-0000-000000002401', '30000000-0000-0000-0000-000000002401', 'mock/test2/gwangju/lake/umbrella-deck.jpg', 'ATTACHED', '2026-05-15T15:04:00+09:00', 'image/jpeg', 552912, 1440, 1080, '5555555555555555555555555555555555555555555555555555555555555555', '2026-05-15T15:02:20+09:00', NULL, 1, '2026-05-15T15:03:00+09:00', '2026-05-15T15:04:00+09:00', NULL),
+    ('31000000-0000-0000-0000-000000002402', '30000000-0000-0000-0000-000000002402', 'mock/test2/gwangju/lake/person-found.jpg', 'ATTACHED', '2026-05-15T17:10:00+09:00', 'image/jpeg', 600120, 1440, 1080, '6666666666666666666666666666666666666666666666666666666666666666', '2026-05-15T17:08:30+09:00', NULL, 1, '2026-05-15T17:09:00+09:00', '2026-05-15T17:10:00+09:00', NULL)
 ON CONFLICT (id) DO UPDATE SET
-  marker_id = EXCLUDED.marker_id,
-  object_key = EXCLUDED.object_key,
-  status = EXCLUDED.status,
-  attached_at = EXCLUDED.attached_at,
-  content_type = EXCLUDED.content_type,
-  size_bytes = EXCLUDED.size_bytes,
-  width = EXCLUDED.width,
-  height = EXCLUDED.height,
-  checksum_sha256 = EXCLUDED.checksum_sha256,
-  captured_at = EXCLUDED.captured_at,
-  upload_url_expires_at = EXCLUDED.upload_url_expires_at,
-  version = EXCLUDED.version,
-  updated_at = EXCLUDED.updated_at,
-  deleted_at = EXCLUDED.deleted_at;
+                               marker_id = EXCLUDED.marker_id,
+                               object_key = EXCLUDED.object_key,
+                               status = EXCLUDED.status,
+                               attached_at = EXCLUDED.attached_at,
+                               content_type = EXCLUDED.content_type,
+                               size_bytes = EXCLUDED.size_bytes,
+                               width = EXCLUDED.width,
+                               height = EXCLUDED.height,
+                               checksum_sha256 = EXCLUDED.checksum_sha256,
+                               captured_at = EXCLUDED.captured_at,
+                               upload_url_expires_at = EXCLUDED.upload_url_expires_at,
+                               version = EXCLUDED.version,
+                               updated_at = EXCLUDED.updated_at,
+                               deleted_at = EXCLUDED.deleted_at;
 
 INSERT INTO marker_notification (
-  id,
-  marker_id,
-  notification_type,
-  recipient_rule,
-  recipient_account_ids,
-  recipient_police_phone_ids,
-  notification_payload,
-  status,
-  version,
-  created_at
+    id,
+    marker_id,
+    notification_type,
+    recipient_rule,
+    recipient_account_ids,
+    recipient_police_phone_ids,
+    notification_payload,
+    status,
+    version,
+    created_at
 )
 VALUES
-  ('32000000-0000-0000-0000-000000002104', '30000000-0000-0000-0000-000000002104', 'SUPPORT_REQUEST_CREATED', 'COMMANDERS_AND_FIELD_COMMANDERS', ARRAY['11111111-1111-1111-1111-111111110001','11111111-1111-1111-1111-111111110005']::uuid[], ARRAY['00000000-0000-0000-0000-000000000205']::uuid[], '{"fixture":"test2","region":"gwangju","markerType":"SUPPORT_REQUEST","supportRequestType":"DRONE"}', 'SNAPSHOT_CREATED', 1, '2026-05-16T09:22:05+09:00'),
-  ('32000000-0000-0000-0000-000000002203', '30000000-0000-0000-0000-000000002203', 'SUPPORT_REQUEST_CREATED', 'ALL_INCIDENT_ASSIGNED', ARRAY['11111111-1111-1111-1111-111111110001','11111111-1111-1111-1111-111111110005','11111111-1111-1111-1111-111111110007']::uuid[], ARRAY['00000000-0000-0000-0000-000000000205','00000000-0000-0000-0000-000000000207']::uuid[], '{"fixture":"test2","region":"gwangju","markerType":"SUPPORT_REQUEST","supportRequestType":"POLICE_DOG"}', 'SNAPSHOT_CREATED', 1, '2026-05-16T10:02:05+09:00'),
-  ('32000000-0000-0000-0000-000000002402', '30000000-0000-0000-0000-000000002402', 'PERSON_FOUND', 'ALL_INCIDENT_ASSIGNED', ARRAY['11111111-1111-1111-1111-111111110001','11111111-1111-1111-1111-111111110003','11111111-1111-1111-1111-111111110008']::uuid[], ARRAY['00000000-0000-0000-0000-000000000101','00000000-0000-0000-0000-000000000208']::uuid[], '{"fixture":"test2","region":"gwangju","markerType":"PERSON_FOUND"}', 'SNAPSHOT_CREATED', 1, '2026-05-15T17:08:05+09:00')
+    ('32000000-0000-0000-0000-000000002104', '30000000-0000-0000-0000-000000002104', 'SUPPORT_REQUEST_CREATED', 'COMMANDERS_AND_FIELD_COMMANDERS', ARRAY['11111111-1111-1111-1111-111111110001','11111111-1111-1111-1111-111111110005']::uuid[], ARRAY['00000000-0000-0000-0000-000000000205']::uuid[], '{"fixture":"test2","region":"gwangju","markerType":"SUPPORT_REQUEST","supportRequestType":"DRONE"}', 'SNAPSHOT_CREATED', 1, '2026-05-16T09:22:05+09:00'),
+    ('32000000-0000-0000-0000-000000002203', '30000000-0000-0000-0000-000000002203', 'SUPPORT_REQUEST_CREATED', 'ALL_INCIDENT_ASSIGNED', ARRAY['11111111-1111-1111-1111-111111110001','11111111-1111-1111-1111-111111110005','11111111-1111-1111-1111-111111110007']::uuid[], ARRAY['00000000-0000-0000-0000-000000000205','00000000-0000-0000-0000-000000000207']::uuid[], '{"fixture":"test2","region":"gwangju","markerType":"SUPPORT_REQUEST","supportRequestType":"POLICE_DOG"}', 'SNAPSHOT_CREATED', 1, '2026-05-16T10:02:05+09:00'),
+    ('32000000-0000-0000-0000-000000002402', '30000000-0000-0000-0000-000000002402', 'PERSON_FOUND', 'ALL_INCIDENT_ASSIGNED', ARRAY['11111111-1111-1111-1111-111111110001','11111111-1111-1111-1111-111111110003','11111111-1111-1111-1111-111111110008']::uuid[], ARRAY['00000000-0000-0000-0000-000000000101','00000000-0000-0000-0000-000000000208']::uuid[], '{"fixture":"test2","region":"gwangju","markerType":"PERSON_FOUND"}', 'SNAPSHOT_CREATED', 1, '2026-05-15T17:08:05+09:00')
 ON CONFLICT (id) DO UPDATE SET
-  marker_id = EXCLUDED.marker_id,
-  notification_type = EXCLUDED.notification_type,
-  recipient_rule = EXCLUDED.recipient_rule,
-  recipient_account_ids = EXCLUDED.recipient_account_ids,
-  recipient_police_phone_ids = EXCLUDED.recipient_police_phone_ids,
-  notification_payload = EXCLUDED.notification_payload,
-  status = EXCLUDED.status,
-  version = EXCLUDED.version;
+                               marker_id = EXCLUDED.marker_id,
+                               notification_type = EXCLUDED.notification_type,
+                               recipient_rule = EXCLUDED.recipient_rule,
+                               recipient_account_ids = EXCLUDED.recipient_account_ids,
+                               recipient_police_phone_ids = EXCLUDED.recipient_police_phone_ids,
+                               notification_payload = EXCLUDED.notification_payload,
+                               status = EXCLUDED.status,
+                               version = EXCLUDED.version;
 
 INSERT INTO handover_memo (
-  id,
-  operational_period_id,
-  memo_target_type,
-  memo_target_id,
-  content,
-  created_by_account_id,
-  duty_shift_id,
-  status,
-  version,
-  created_at,
-  updated_at
+    id,
+    operational_period_id,
+    memo_target_type,
+    memo_target_id,
+    content,
+    created_by_account_id,
+    duty_shift_id,
+    status,
+    version,
+    created_at,
+    updated_at
 )
 VALUES
-  ('40000000-0000-0000-0000-000000002101', '88888888-8888-8888-8888-888888882101', 'OPERATIONAL_PERIOD', '88888888-8888-8888-8888-888888882101', 'OP1에서 증심사 상가길과 주차장 초동 확인 완료. 북측 산책로 제보 반영 필요.', '11111111-1111-1111-1111-111111110001', NULL, 'ACTIVE', 1, '2026-05-16T08:31:00+09:00', '2026-05-16T08:31:00+09:00'),
-  ('40000000-0000-0000-0000-000000002102', '88888888-8888-8888-8888-888888882102', 'SEARCH_AREA', 'cccccccc-cccc-cccc-cccc-cccccccc2104', '드론 지원 요청 후 능선 방향 접근은 현장 지휘 확인 전까지 보류.', '11111111-1111-1111-1111-111111110005', '10000000-0000-0000-0000-000000002103', 'ACTIVE', 1, '2026-05-16T09:44:00+09:00', '2026-05-16T09:44:00+09:00'),
-  ('40000000-0000-0000-0000-000000002103', '88888888-8888-8888-8888-888888882103', 'DUTY_SHIFT', '10000000-0000-0000-0000-000000002105', '지원팀은 안내소 뒤편 물병 발견 지점을 유지하고 사진 업로드 완료 후 재보고.', '11111111-1111-1111-1111-111111110008', '10000000-0000-0000-0000-000000002105', 'ACTIVE', 1, '2026-05-16T10:20:00+09:00', '2026-05-16T10:20:00+09:00'),
-  ('40000000-0000-0000-0000-000000002201', '88888888-8888-8888-8888-888888882201', 'OPERATIONAL_PERIOD', '88888888-8888-8888-8888-888888882201', '광주천 서측은 이상 없음. CCTV 확인 결과 동측 제방으로 OP2 전환.', '11111111-1111-1111-1111-111111110001', NULL, 'ACTIVE', 1, '2026-05-16T09:18:00+09:00', '2026-05-16T09:18:00+09:00'),
-  ('40000000-0000-0000-0000-000000002202', '88888888-8888-8888-8888-888888882202', 'MARKER', '30000000-0000-0000-0000-000000002203', '경찰견 지원 요청은 골목 폭이 좁아 차량 진입 불가 지점에서 생성됨.', '11111111-1111-1111-1111-111111110007', '10000000-0000-0000-0000-000000002203', 'ACTIVE', 1, '2026-05-16T10:04:00+09:00', '2026-05-16T10:04:00+09:00'),
-  ('40000000-0000-0000-0000-000000002301', '88888888-8888-8888-8888-888888882301', 'SEARCH_PATH', '20000000-0000-0000-0000-000000002301', '광주송정역 전면 차량 경로는 혼잡으로 외곽만 통과. 후면 상가 도보팀과 교차 확인 필요.', '11111111-1111-1111-1111-111111110002', '10000000-0000-0000-0000-000000002301', 'ACTIVE', 1, '2026-05-16T10:02:00+09:00', '2026-05-16T10:02:00+09:00'),
-  ('40000000-0000-0000-0000-000000002401', '88888888-8888-8888-8888-888888882402', 'MARKER', '30000000-0000-0000-0000-000000002402', '발견 지점과 OP2 경로를 종료 기록으로 남김. 종료 사건 지도에서 재현 확인 필요.', '11111111-1111-1111-1111-111111110001', '10000000-0000-0000-0000-000000002402', 'ACTIVE', 1, '2026-05-15T17:20:00+09:00', '2026-05-15T17:20:00+09:00'),
-  ('40000000-0000-0000-0000-000000002501', '88888888-8888-8888-8888-888888882501', 'OPERATIONAL_PERIOD', '88888888-8888-8888-8888-888888882501', '수완지구는 OP1만 열린 상태로, 수색구역 배정 전 현장 확인과 팀 배치가 필요한 상태다.', '11111111-1111-1111-1111-111111110001', NULL, 'ACTIVE', 1, '2026-05-16T10:14:00+09:00', '2026-05-16T10:14:00+09:00')
+    ('40000000-0000-0000-0000-000000002101', '88888888-8888-8888-8888-888888882101', 'OPERATIONAL_PERIOD', '88888888-8888-8888-8888-888888882101', 'OP1에서 증심사 상가길과 주차장 초동 확인 완료. 북측 산책로 제보 반영 필요.', '11111111-1111-1111-1111-111111110001', NULL, 'ACTIVE', 1, '2026-05-16T08:31:00+09:00', '2026-05-16T08:31:00+09:00'),
+    ('40000000-0000-0000-0000-000000002102', '88888888-8888-8888-8888-888888882102', 'SEARCH_AREA', 'cccccccc-cccc-cccc-cccc-cccccccc2104', '드론 지원 요청 후 능선 방향 접근은 현장 지휘 확인 전까지 보류.', '11111111-1111-1111-1111-111111110005', '10000000-0000-0000-0000-000000002103', 'ACTIVE', 1, '2026-05-16T09:44:00+09:00', '2026-05-16T09:44:00+09:00'),
+    ('40000000-0000-0000-0000-000000002103', '88888888-8888-8888-8888-888888882103', 'DUTY_SHIFT', '10000000-0000-0000-0000-000000002105', '지원팀은 안내소 뒤편 물병 발견 지점을 유지하고 사진 업로드 완료 후 재보고.', '11111111-1111-1111-1111-111111110008', '10000000-0000-0000-0000-000000002105', 'ACTIVE', 1, '2026-05-16T10:20:00+09:00', '2026-05-16T10:20:00+09:00'),
+    ('40000000-0000-0000-0000-000000002201', '88888888-8888-8888-8888-888888882201', 'OPERATIONAL_PERIOD', '88888888-8888-8888-8888-888888882201', '광주천 서측은 이상 없음. CCTV 확인 결과 동측 제방으로 OP2 전환.', '11111111-1111-1111-1111-111111110001', NULL, 'ACTIVE', 1, '2026-05-16T09:18:00+09:00', '2026-05-16T09:18:00+09:00'),
+    ('40000000-0000-0000-0000-000000002202', '88888888-8888-8888-8888-888888882202', 'MARKER', '30000000-0000-0000-0000-000000002203', '경찰견 지원 요청은 골목 폭이 좁아 차량 진입 불가 지점에서 생성됨.', '11111111-1111-1111-1111-111111110007', '10000000-0000-0000-0000-000000002203', 'ACTIVE', 1, '2026-05-16T10:04:00+09:00', '2026-05-16T10:04:00+09:00'),
+    ('40000000-0000-0000-0000-000000002301', '88888888-8888-8888-8888-888888882301', 'SEARCH_PATH', '20000000-0000-0000-0000-000000002301', '광주송정역 전면 차량 경로는 혼잡으로 외곽만 통과. 후면 상가 도보팀과 교차 확인 필요.', '11111111-1111-1111-1111-111111110009', '10000000-0000-0000-0000-000000002301', 'ACTIVE', 1, '2026-05-16T10:02:00+09:00', '2026-05-16T10:02:00+09:00'),
+    ('40000000-0000-0000-0000-000000002401', '88888888-8888-8888-8888-888888882402', 'MARKER', '30000000-0000-0000-0000-000000002402', '발견 지점과 OP2 경로를 종료 기록으로 남김. 종료 사건 지도에서 재현 확인 필요.', '11111111-1111-1111-1111-111111110001', '10000000-0000-0000-0000-000000002402', 'ACTIVE', 1, '2026-05-15T17:20:00+09:00', '2026-05-15T17:20:00+09:00'),
+    ('40000000-0000-0000-0000-000000002501', '88888888-8888-8888-8888-888888882501', 'OPERATIONAL_PERIOD', '88888888-8888-8888-8888-888888882501', '수완지구는 OP1만 열린 상태로, 수색구역 배정 전 현장 확인과 팀 배치가 필요한 상태다.', '11111111-1111-1111-1111-111111110001', NULL, 'ACTIVE', 1, '2026-05-16T10:14:00+09:00', '2026-05-16T10:14:00+09:00')
 ON CONFLICT (id) DO UPDATE SET
-  operational_period_id = EXCLUDED.operational_period_id,
-  memo_target_type = EXCLUDED.memo_target_type,
-  memo_target_id = EXCLUDED.memo_target_id,
-  content = EXCLUDED.content,
-  created_by_account_id = EXCLUDED.created_by_account_id,
-  duty_shift_id = EXCLUDED.duty_shift_id,
-  status = EXCLUDED.status,
-  version = EXCLUDED.version,
-  updated_at = EXCLUDED.updated_at;
+                               operational_period_id = EXCLUDED.operational_period_id,
+                               memo_target_type = EXCLUDED.memo_target_type,
+                               memo_target_id = EXCLUDED.memo_target_id,
+                               content = EXCLUDED.content,
+                               created_by_account_id = EXCLUDED.created_by_account_id,
+                               duty_shift_id = EXCLUDED.duty_shift_id,
+                               status = EXCLUDED.status,
+                               version = EXCLUDED.version,
+                               updated_at = EXCLUDED.updated_at;
 
 INSERT INTO search_history_summary (
-  id,
-  operational_period_id,
-  duty_shift_id,
-  generation_status,
-  content,
-  source_data_hash,
-  source_readiness,
-  requested_by_account_id,
-  generated_at,
-  version,
-  created_at,
-  updated_at
+    id,
+    operational_period_id,
+    duty_shift_id,
+    generation_status,
+    content,
+    source_data_hash,
+    source_readiness,
+    requested_by_account_id,
+    generated_at,
+    version,
+    created_at,
+    updated_at
 )
 VALUES
-  ('50000000-0000-0000-0000-000000002101', '88888888-8888-8888-8888-888888882101', NULL, 'READY', '무등산 OP1: 도보팀과 지원차량이 증심사 입구, 상가길, 공영주차장을 확인했고 장갑 단서와 공사 펜스 현장상태가 기록됨.', 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'READY', '11111111-1111-1111-1111-111111110001', '2026-05-16T08:34:00+09:00', 1, '2026-05-16T08:33:00+09:00', '2026-05-16T08:34:00+09:00'),
-  ('50000000-0000-0000-0000-000000002102', '88888888-8888-8888-8888-888888882102', NULL, 'READY', '무등산 OP2: 북측 산책로 경로와 능선 방향 드론 지원 요청이 추가되었고, GPS 지점 변동 1건을 제외함.', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', 'STALE', '11111111-1111-1111-1111-111111110001', '2026-05-16T09:47:00+09:00', 2, '2026-05-16T09:46:00+09:00', '2026-05-16T09:47:00+09:00'),
-  ('50000000-0000-0000-0000-000000002103', '88888888-8888-8888-8888-888888882103', '10000000-0000-0000-0000-000000002104', 'GENERATING', NULL, 'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc', 'PENDING_SYNC', '11111111-1111-1111-1111-111111110001', NULL, 1, '2026-05-16T10:26:00+09:00', '2026-05-16T10:26:00+09:00'),
-  ('50000000-0000-0000-0000-000000002201', '88888888-8888-8888-8888-888888882201', NULL, 'READY', '광주천 OP1: 양림 골목과 서측 제방 확인 후 동측 제방 재확인이 필요해 OP2로 전환됨.', 'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'READY', '11111111-1111-1111-1111-111111110001', '2026-05-16T09:19:00+09:00', 1, '2026-05-16T09:18:00+09:00', '2026-05-16T09:19:00+09:00'),
-  ('50000000-0000-0000-0000-000000002202', '88888888-8888-8888-8888-888888882202', NULL, 'READY', '광주천 OP2: 동측 제방과 양림 골목을 재확인했고, 차량 접근 경로와 CCTV 위치를 점검했다.', 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee', 'READY', '11111111-1111-1111-1111-111111110001', '2026-05-16T10:11:00+09:00', 1, '2026-05-16T10:10:00+09:00', '2026-05-16T10:11:00+09:00'),
-  ('50000000-0000-0000-0000-000000002301', '88888888-8888-8888-8888-888888882301', NULL, 'GENERATING', NULL, 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff', 'PENDING_SYNC', '11111111-1111-1111-1111-111111110001', NULL, 1, '2026-05-16T10:03:00+09:00', '2026-05-16T10:03:00+09:00'),
-  ('50000000-0000-0000-0000-000000002401', '88888888-8888-8888-8888-888888882402', NULL, 'READY', '광주호 종료 사건: OP2에서 북측 산책로 재확인 후 대상자를 발견했고 PERSON_FOUND 마커와 종료 경로가 남아 있음.', '9999999999999999999999999999999999999999999999999999999999999999', 'READY', '11111111-1111-1111-1111-111111110001', '2026-05-15T17:24:00+09:00', 1, '2026-05-15T17:23:00+09:00', '2026-05-15T17:24:00+09:00'),
-  ('50000000-0000-0000-0000-000000002501', '88888888-8888-8888-8888-888888882501', NULL, 'READY', '수완지구 OP1은 수색구역 배정 전 상태로, 접수 직후 위치 확인과 인원 배치가 우선인 상황이다.', 'abababababababababababababababababababababababababababababababab', 'READY', '11111111-1111-1111-1111-111111110001', '2026-05-16T10:15:00+09:00', 1, '2026-05-16T10:14:30+09:00', '2026-05-16T10:15:00+09:00')
+    ('50000000-0000-0000-0000-000000002101', '88888888-8888-8888-8888-888888882101', NULL, 'READY', '무등산 OP1: 도보팀과 지원차량이 증심사 입구, 상가길, 공영주차장을 확인했고 장갑 단서와 공사 펜스 현장상태가 기록됨.', 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'READY', '11111111-1111-1111-1111-111111110001', '2026-05-16T08:34:00+09:00', 1, '2026-05-16T08:33:00+09:00', '2026-05-16T08:34:00+09:00'),
+    ('50000000-0000-0000-0000-000000002102', '88888888-8888-8888-8888-888888882102', NULL, 'READY', '무등산 OP2: 북측 산책로 경로와 능선 방향 드론 지원 요청이 추가되었고, GPS 지점 변동 1건을 제외함.', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', 'STALE', '11111111-1111-1111-1111-111111110001', '2026-05-16T09:47:00+09:00', 2, '2026-05-16T09:46:00+09:00', '2026-05-16T09:47:00+09:00'),
+    ('50000000-0000-0000-0000-000000002103', '88888888-8888-8888-8888-888888882103', '10000000-0000-0000-0000-000000002104', 'GENERATING', NULL, 'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc', 'PENDING_SYNC', '11111111-1111-1111-1111-111111110001', NULL, 1, '2026-05-16T10:26:00+09:00', '2026-05-16T10:26:00+09:00'),
+    ('50000000-0000-0000-0000-000000002201', '88888888-8888-8888-8888-888888882201', NULL, 'READY', '광주천 OP1: 양림 골목과 서측 제방 확인 후 동측 제방 재확인이 필요해 OP2로 전환됨.', 'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'READY', '11111111-1111-1111-1111-111111110001', '2026-05-16T09:19:00+09:00', 1, '2026-05-16T09:18:00+09:00', '2026-05-16T09:19:00+09:00'),
+    ('50000000-0000-0000-0000-000000002202', '88888888-8888-8888-8888-888888882202', NULL, 'READY', '광주천 OP2: 동측 제방과 양림 골목을 재확인했고, 차량 접근 경로와 CCTV 위치를 점검했다.', 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee', 'READY', '11111111-1111-1111-1111-111111110001', '2026-05-16T10:11:00+09:00', 1, '2026-05-16T10:10:00+09:00', '2026-05-16T10:11:00+09:00'),
+    ('50000000-0000-0000-0000-000000002301', '88888888-8888-8888-8888-888888882301', NULL, 'GENERATING', NULL, 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff', 'PENDING_SYNC', '11111111-1111-1111-1111-111111110001', NULL, 1, '2026-05-16T10:03:00+09:00', '2026-05-16T10:03:00+09:00'),
+    ('50000000-0000-0000-0000-000000002401', '88888888-8888-8888-8888-888888882402', NULL, 'READY', '광주호 종료 사건: OP2에서 북측 산책로 재확인 후 대상자를 발견했고 PERSON_FOUND 마커와 종료 경로가 남아 있음.', '9999999999999999999999999999999999999999999999999999999999999999', 'READY', '11111111-1111-1111-1111-111111110001', '2026-05-15T17:24:00+09:00', 1, '2026-05-15T17:23:00+09:00', '2026-05-15T17:24:00+09:00'),
+    ('50000000-0000-0000-0000-000000002501', '88888888-8888-8888-8888-888888882501', NULL, 'READY', '수완지구 OP1은 수색구역 배정 전 상태로, 접수 직후 위치 확인과 인원 배치가 우선인 상황이다.', 'abababababababababababababababababababababababababababababababab', 'READY', '11111111-1111-1111-1111-111111110001', '2026-05-16T10:15:00+09:00', 1, '2026-05-16T10:14:30+09:00', '2026-05-16T10:15:00+09:00')
 ON CONFLICT (id) DO UPDATE SET
-  operational_period_id = EXCLUDED.operational_period_id,
-  duty_shift_id = EXCLUDED.duty_shift_id,
-  generation_status = EXCLUDED.generation_status,
-  content = EXCLUDED.content,
-  source_data_hash = EXCLUDED.source_data_hash,
-  source_readiness = EXCLUDED.source_readiness,
-  requested_by_account_id = EXCLUDED.requested_by_account_id,
-  generated_at = EXCLUDED.generated_at,
-  version = EXCLUDED.version,
-  updated_at = EXCLUDED.updated_at;
+                               operational_period_id = EXCLUDED.operational_period_id,
+                               duty_shift_id = EXCLUDED.duty_shift_id,
+                               generation_status = EXCLUDED.generation_status,
+                               content = EXCLUDED.content,
+                               source_data_hash = EXCLUDED.source_data_hash,
+                               source_readiness = EXCLUDED.source_readiness,
+                               requested_by_account_id = EXCLUDED.requested_by_account_id,
+                               generated_at = EXCLUDED.generated_at,
+                               version = EXCLUDED.version,
+                               updated_at = EXCLUDED.updated_at;
 
 INSERT INTO offline_package_manifest (
-  id,
-  incident_id,
-  manifest_version,
-  operational_period_id,
-  overall_search_area_id,
-  overall_search_area_version,
-  manifest_hash,
-  manifest_format_version,
-  manifest_payload,
-  expires_at,
-  created_at,
-  updated_at
+    id,
+    incident_id,
+    manifest_version,
+    operational_period_id,
+    overall_search_area_id,
+    overall_search_area_version,
+    manifest_hash,
+    manifest_format_version,
+    manifest_payload,
+    expires_at,
+    created_at,
+    updated_at
 )
 VALUES
-  ('70000000-0000-0000-0000-000000002101', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101', 3, '88888888-8888-8888-8888-888888882103', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2103', 1, '1111111111111111111111111111111111111111111111111111111111111111', 1, '{"fixture":"test2","region":"gwangju","incident":"mudeung","tiles":["mudeung-op3"],"routes":5,"markers":6}'::jsonb, '2026-05-17T10:00:00+09:00', '2026-05-16T09:53:00+09:00', '2026-05-16T10:31:00+09:00'),
-  ('70000000-0000-0000-0000-000000002201', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2201', 2, '88888888-8888-8888-8888-888888882202', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2202', 1, '2222222222222222222222222222222222222222222222222222222222222222', 1, '{"fixture":"test2","region":"gwangju","incident":"gwangju-stream","tiles":["stream-op2"],"routes":3,"markers":3}'::jsonb, '2026-05-17T10:00:00+09:00', '2026-05-16T09:24:00+09:00', '2026-05-16T10:19:00+09:00'),
-  ('70000000-0000-0000-0000-000000002401', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2401', 2, '88888888-8888-8888-8888-888888882402', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2402', 1, '3333333333333333333333333333333333333333333333333333333333333333', 1, '{"fixture":"test2","region":"gwangju","incident":"gwangju-lake","tiles":["lake-op2"],"routes":2,"markers":2}'::jsonb, '2026-05-16T23:59:00+09:00', '2026-05-15T16:11:00+09:00', '2026-05-15T17:24:00+09:00')
+    ('70000000-0000-0000-0000-000000002101', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2101', 3, '88888888-8888-8888-8888-888888882103', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2103', 1, '1111111111111111111111111111111111111111111111111111111111111111', 1, '{"fixture":"test2","region":"gwangju","incident":"mudeung","tiles":["mudeung-op3"],"routes":5,"markers":6}'::jsonb, '2026-05-17T10:00:00+09:00', '2026-05-16T09:53:00+09:00', '2026-05-16T10:31:00+09:00'),
+    ('70000000-0000-0000-0000-000000002201', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2201', 2, '88888888-8888-8888-8888-888888882202', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2202', 1, '2222222222222222222222222222222222222222222222222222222222222222', 1, '{"fixture":"test2","region":"gwangju","incident":"gwangju-stream","tiles":["stream-op2"],"routes":3,"markers":3}'::jsonb, '2026-05-17T10:00:00+09:00', '2026-05-16T09:24:00+09:00', '2026-05-16T10:19:00+09:00'),
+    ('70000000-0000-0000-0000-000000002401', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa2401', 2, '88888888-8888-8888-8888-888888882402', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbb2402', 1, '3333333333333333333333333333333333333333333333333333333333333333', 1, '{"fixture":"test2","region":"gwangju","incident":"gwangju-lake","tiles":["lake-op2"],"routes":2,"markers":2}'::jsonb, '2026-05-16T23:59:00+09:00', '2026-05-15T16:11:00+09:00', '2026-05-15T17:24:00+09:00')
 ON CONFLICT (id) DO UPDATE SET
-  incident_id = EXCLUDED.incident_id,
-  manifest_version = EXCLUDED.manifest_version,
-  operational_period_id = EXCLUDED.operational_period_id,
-  overall_search_area_id = EXCLUDED.overall_search_area_id,
-  overall_search_area_version = EXCLUDED.overall_search_area_version,
-  manifest_hash = EXCLUDED.manifest_hash,
-  manifest_format_version = EXCLUDED.manifest_format_version,
-  manifest_payload = EXCLUDED.manifest_payload,
-  expires_at = EXCLUDED.expires_at,
-  updated_at = EXCLUDED.updated_at;
+                               incident_id = EXCLUDED.incident_id,
+                               manifest_version = EXCLUDED.manifest_version,
+                               operational_period_id = EXCLUDED.operational_period_id,
+                               overall_search_area_id = EXCLUDED.overall_search_area_id,
+                               overall_search_area_version = EXCLUDED.overall_search_area_version,
+                               manifest_hash = EXCLUDED.manifest_hash,
+                               manifest_format_version = EXCLUDED.manifest_format_version,
+                               manifest_payload = EXCLUDED.manifest_payload,
+                               expires_at = EXCLUDED.expires_at,
+                               updated_at = EXCLUDED.updated_at;
 
 INSERT INTO offline_package_installation (
-  id,
-  offline_package_manifest_id,
-  police_phone_id,
-  last_reported_by_account_id,
-  status,
-  total_item_count,
-  completed_item_count,
-  failed_item_count,
-  failed_item_keys,
-  last_error_code,
-  last_reported_at,
-  version,
-  created_at,
-  updated_at
+    id,
+    offline_package_manifest_id,
+    police_phone_id,
+    last_reported_by_account_id,
+    status,
+    total_item_count,
+    completed_item_count,
+    failed_item_count,
+    failed_item_keys,
+    last_error_code,
+    last_reported_at,
+    version,
+    created_at,
+    updated_at
 )
 VALUES
-  ('71000000-0000-0000-0000-000000002101', '70000000-0000-0000-0000-000000002101', '00000000-0000-0000-0000-000000000205', '11111111-1111-1111-1111-111111110005', 'READY', 48, 48, 0, ARRAY[]::text[], NULL, '2026-05-16T10:25:00+09:00', 3, '2026-05-16T09:54:00+09:00', '2026-05-16T10:25:00+09:00'),
-  ('71000000-0000-0000-0000-000000002102', '70000000-0000-0000-0000-000000002101', '00000000-0000-0000-0000-000000000208', '11111111-1111-1111-1111-111111110008', 'PARTIAL', 48, 39, 2, ARRAY['tiles/mudeung/16/56012/25844.pbf','photos/pending/water-bottle.jpg']::text[], 'network_timeout', '2026-05-16T10:20:00+09:00', 2, '2026-05-16T10:01:00+09:00', '2026-05-16T10:20:00+09:00'),
-  ('71000000-0000-0000-0000-000000002201', '70000000-0000-0000-0000-000000002201', '00000000-0000-0000-0000-000000000207', '11111111-1111-1111-1111-111111110007', 'DOWNLOADING', 36, 24, 0, ARRAY[]::text[], NULL, '2026-05-16T10:16:00+09:00', 2, '2026-05-16T09:33:00+09:00', '2026-05-16T10:16:00+09:00'),
-  ('71000000-0000-0000-0000-000000002401', '70000000-0000-0000-0000-000000002401', '00000000-0000-0000-0000-000000000101', '11111111-1111-1111-1111-111111110003', 'STALE', 30, 30, 0, ARRAY[]::text[], NULL, '2026-05-15T17:21:00+09:00', 2, '2026-05-15T16:12:00+09:00', '2026-05-15T17:21:00+09:00')
+    ('71000000-0000-0000-0000-000000002101', '70000000-0000-0000-0000-000000002101', '00000000-0000-0000-0000-000000000205', '11111111-1111-1111-1111-111111110005', 'READY', 48, 48, 0, ARRAY[]::text[], NULL, '2026-05-16T10:25:00+09:00', 3, '2026-05-16T09:54:00+09:00', '2026-05-16T10:25:00+09:00'),
+    ('71000000-0000-0000-0000-000000002102', '70000000-0000-0000-0000-000000002101', '00000000-0000-0000-0000-000000000208', '11111111-1111-1111-1111-111111110008', 'PARTIAL', 48, 39, 2, ARRAY['tiles/mudeung/16/56012/25844.pbf','photos/pending/water-bottle.jpg']::text[], 'network_timeout', '2026-05-16T10:20:00+09:00', 2, '2026-05-16T10:01:00+09:00', '2026-05-16T10:20:00+09:00'),
+    ('71000000-0000-0000-0000-000000002201', '70000000-0000-0000-0000-000000002201', '00000000-0000-0000-0000-000000000207', '11111111-1111-1111-1111-111111110007', 'DOWNLOADING', 36, 24, 0, ARRAY[]::text[], NULL, '2026-05-16T10:16:00+09:00', 2, '2026-05-16T09:33:00+09:00', '2026-05-16T10:16:00+09:00'),
+    ('71000000-0000-0000-0000-000000002401', '70000000-0000-0000-0000-000000002401', '00000000-0000-0000-0000-000000000101', '11111111-1111-1111-1111-111111110003', 'STALE', 30, 30, 0, ARRAY[]::text[], NULL, '2026-05-15T17:21:00+09:00', 2, '2026-05-15T16:12:00+09:00', '2026-05-15T17:21:00+09:00')
 ON CONFLICT (id) DO UPDATE SET
-  offline_package_manifest_id = EXCLUDED.offline_package_manifest_id,
-  police_phone_id = EXCLUDED.police_phone_id,
-  last_reported_by_account_id = EXCLUDED.last_reported_by_account_id,
-  status = EXCLUDED.status,
-  total_item_count = EXCLUDED.total_item_count,
-  completed_item_count = EXCLUDED.completed_item_count,
-  failed_item_count = EXCLUDED.failed_item_count,
-  failed_item_keys = EXCLUDED.failed_item_keys,
-  last_error_code = EXCLUDED.last_error_code,
-  last_reported_at = EXCLUDED.last_reported_at,
-  version = EXCLUDED.version,
-  updated_at = EXCLUDED.updated_at;
+                               offline_package_manifest_id = EXCLUDED.offline_package_manifest_id,
+                               police_phone_id = EXCLUDED.police_phone_id,
+                               last_reported_by_account_id = EXCLUDED.last_reported_by_account_id,
+                               status = EXCLUDED.status,
+                               total_item_count = EXCLUDED.total_item_count,
+                               completed_item_count = EXCLUDED.completed_item_count,
+                               failed_item_count = EXCLUDED.failed_item_count,
+                               failed_item_keys = EXCLUDED.failed_item_keys,
+                               last_error_code = EXCLUDED.last_error_code,
+                               last_reported_at = EXCLUDED.last_reported_at,
+                               version = EXCLUDED.version,
+                               updated_at = EXCLUDED.updated_at;
 
 COMMIT;
