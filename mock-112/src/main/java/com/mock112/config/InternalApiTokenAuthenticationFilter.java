@@ -46,6 +46,9 @@ final class InternalApiTokenAuthenticationFilter extends OncePerRequestFilter {
         if (StringUtils.hasText(contextPath) && path.startsWith(contextPath)) {
             path = path.substring(contextPath.length());
         }
-        return path.equals("/mock-112/incidents") || path.startsWith("/mock-112/incidents/");
+        return path.equals("/mock-112/incidents")
+                || path.startsWith("/mock-112/incidents/")
+                || path.startsWith("/mock-112/scenarios/")
+                || path.equals("/mock-112/reset");
     }
 }

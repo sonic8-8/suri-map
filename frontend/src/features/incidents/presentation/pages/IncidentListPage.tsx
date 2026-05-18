@@ -338,7 +338,7 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
   }, []);
 
   const canImport = canImportIncident(currentUserAccount);
-  const currentUserLabel = `${currentUserAccount.name} / ${currentUserAccount.organization}`;
+  const currentUserLabel = currentUserAccount.name;
   const currentTimeLabel = formatKstDateTime(now);
 
   const reloadAssignedIncidents = async () => {
@@ -578,4 +578,3 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
     </main>
   );
 }
-

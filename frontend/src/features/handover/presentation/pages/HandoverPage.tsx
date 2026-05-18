@@ -262,7 +262,7 @@ export function HandoverPage({
     }),
     [board, effectiveSelectedOpIds, focusedOpId, incidentId],
   );
-  const currentAccountLabel = `${currentUserAccount.name} / ${currentUserAccount.organization}`;
+  const currentAccountLabel = currentUserAccount.name;
   const timestampLabel = formatKstDateTime(now);
   const incidentContext = useMemo(
     () => createIncidentContext(incidentId, incidentDetail, selectedOp),

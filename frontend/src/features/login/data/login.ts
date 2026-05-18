@@ -13,17 +13,6 @@ const TOKEN_EXPIRES_AT_STORAGE_KEY = 'suriMapTokenExpiresAt';
 const OIDC_LOGIN_STATE_STORAGE_KEY = 'suriMapOidcLoginState';
 const LOCAL_DEV_ACCOUNT_ID = '11111111-1111-1111-1111-111111110001';
 
-const ACCOUNT_DISPLAY_NAMES: Record<string, string> = {
-  '11111111-1111-1111-1111-111111110001': '지구대 지휘관',
-  '11111111-1111-1111-1111-111111110002': '지구대 순찰차',
-  '11111111-1111-1111-1111-111111110003': '지구대 현장팀',
-  '11111111-1111-1111-1111-111111110004': '실종팀 지휘관',
-  '11111111-1111-1111-1111-111111110005': '실종팀 현장팀',
-  '11111111-1111-1111-1111-111111110006': '지원부대 지휘관',
-  '11111111-1111-1111-1111-111111110007': '지원부대 순찰차',
-  '11111111-1111-1111-1111-111111110008': '지원부대 현장팀',
-};
-
 type OidcLoginState = {
   state: string;
   nonce: string;
@@ -41,11 +30,13 @@ type KeycloakTokenResponse = {
 
 type JwtClaims = {
   accountId?: unknown;
+  accountCode?: unknown;
+  personName?: unknown;
+  displayName?: unknown;
   accountType?: unknown;
   organizationType?: unknown;
-  realm_access?: {
-    roles?: unknown;
-  };
+  organizationName?: unknown;
+  rankName?: unknown;
   nonce?: unknown;
 };
 
@@ -83,8 +74,9 @@ export async function startLocalDevLogin(returnPath: string) {
   clearLoginSession();
   const account: LoginAccount = {
     id: LOCAL_DEV_ACCOUNT_ID,
-    name: accountDisplayName(LOCAL_DEV_ACCOUNT_ID),
-    organization: 'Police substation',
+    name: '광주광산경찰서 수완지구대 경위 김도현',
+    organization: '광주광산경찰서 수완지구대',
+    rank: '경위',
     accountType: 'COMMAND',
     organizationType: 'POLICE_SUBSTATION',
     role: 'FIELD_COMMANDER',
@@ -210,12 +202,17 @@ export function buildLoginAccountFromClaims(claims: JwtClaims): LoginAccount {
   const accountId = stringClaim(claims.accountId);
   const accountType = stringClaim(claims.accountType) as LoginAccount['accountType'];
   const organizationType = stringClaim(claims.organizationType) as LoginOrganizationType;
-  const roles = roleClaims(claims);
+  const organization = optionalStringClaim(claims.organizationName) ?? organizationLabel(organizationType);
+  const rank = optionalStringClaim(claims.rankName) ?? '';
+  const personName = optionalStringClaim(claims.personName) ?? optionalStringClaim(claims.accountCode) ?? accountId;
+  const name = optionalStringClaim(claims.displayName) ?? formatAccountDisplayName(organization, rank, personName);
+  const roles = derivedRoles(accountType, organizationType);
 
   return {
     id: accountId,
-    name: accountDisplayName(accountId),
-    organization: organizationLabel(organizationType),
+    name,
+    organization,
+    rank,
     accountType,
     organizationType,
     role: roles[0] ?? 'MEMBER',
@@ -343,17 +340,21 @@ function stringClaim(value: unknown) {
   return value;
 }
 
-function roleClaims(claims: JwtClaims): LoginRole[] {
-  const roles = claims.realm_access?.roles;
-  if (!Array.isArray(roles)) {
-    return ['MEMBER'];
-  }
-
-  return roles.filter(isLoginRole);
+function optionalStringClaim(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
-function isLoginRole(role: unknown): role is LoginRole {
-  return role === 'MISSING_TEAM_COMMANDER' || role === 'FIELD_COMMANDER' || role === 'MEMBER';
+function derivedRoles(
+  accountType: LoginAccount['accountType'],
+  organizationType: LoginOrganizationType,
+): LoginRole[] {
+  if (accountType === 'COMMAND' && organizationType === 'MISSING_TEAM') {
+    return ['MISSING_TEAM_COMMANDER', 'FIELD_COMMANDER'];
+  }
+  if (accountType === 'COMMAND') {
+    return ['FIELD_COMMANDER'];
+  }
+  return ['MEMBER'];
 }
 
 function isStoredTokenExpired() {
@@ -369,23 +370,28 @@ function isStoredTokenExpired() {
 function organizationLabel(organizationType: LoginOrganizationType) {
   switch (organizationType) {
     case 'MISSING_TEAM':
-      return 'Missing team';
+      return '실종팀';
     case 'POLICE_SUBSTATION':
-      return 'Police substation';
+      return '지구대/파출소';
     case 'SUPPORT_UNIT':
-      return 'Support unit';
+      return '지원 부서';
   }
 }
 
 function normalizeLoginAccount(account: LoginAccount): LoginAccount {
+  const organization = account.organization || organizationLabel(account.organizationType);
+  const legacyAccount = account as LoginAccount & { position?: string };
+  const rank = account.rank ?? legacyAccount.position ?? '';
   return {
     ...account,
-    name: accountDisplayName(account.id),
+    organization,
+    rank,
+    name: account.name || formatAccountDisplayName(organization, rank, account.id),
   };
 }
 
-function accountDisplayName(accountId: string) {
-  return ACCOUNT_DISPLAY_NAMES[accountId] ?? accountId;
+function formatAccountDisplayName(organization: string, rank: string, personName: string) {
+  return [organization, rank, personName].map((item) => item.trim()).filter(Boolean).join(' ');
 }
 
 function sanitizeReturnPath(returnPath: string) {

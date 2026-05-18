@@ -187,7 +187,7 @@ export function AreaEditPage({
     !isAreaEditActionEnabled || (!isOverallSearchAreaCreationMode && drawDisabledPageStates.includes(pageState));
   const isClosedDraft = draftPoints.length >= 4 && draftPoints[0] === draftPoints[draftPoints.length - 1];
   const canCompleteDraft = isDrawing && isClosedDraft;
-  const currentAccountLabel = `${currentUserAccount.name} / ${currentUserAccount.organization}`;
+  const currentAccountLabel = currentUserAccount.name;
   const timestampLabel = formatBoardTimestamp(board);
   const incidentContext = useMemo<SuriMapPageHeaderIncidentContext>(
     () => createIncidentContext(incidentId, incidentDetail, board),

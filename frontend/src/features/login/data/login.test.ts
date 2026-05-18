@@ -7,34 +7,58 @@ describe('login account display names', () => {
     sessionStorage.clear();
   });
 
-  test('maps UUID account ids to the correct display names on OIDC session storage', () => {
-    storeOidcSession(tokenResponse(), oidcClaims('11111111-1111-1111-1111-111111110004'));
+  test('uses OIDC displayName composed from organization, rank, and person name', () => {
+    storeOidcSession(
+      tokenResponse(),
+      oidcClaims({
+        accountId: '11111111-1111-1111-1111-111111110004',
+        accountType: 'COMMAND',
+        organizationType: 'MISSING_TEAM',
+        organizationName: '광주경찰청 여성청소년과 실종팀',
+        rankName: '경감',
+        personName: '정서윤',
+        displayName: '광주경찰청 여성청소년과 실종팀 경감 정서윤',
+      }),
+    );
 
     expect(readStoredLoginAccount()).toMatchObject({
       id: '11111111-1111-1111-1111-111111110004',
-      name: '실종팀 지휘관',
+      name: '광주경찰청 여성청소년과 실종팀 경감 정서윤',
+      organization: '광주경찰청 여성청소년과 실종팀',
+      rank: '경감',
+      role: 'MISSING_TEAM_COMMANDER',
     });
 
     sessionStorage.clear();
     storeOidcSession(
       tokenResponse(),
-      oidcClaims('11111111-1111-1111-1111-111111110003', 'TEAM', 'POLICE_SUBSTATION', ['MEMBER']),
+      oidcClaims({
+        accountId: '11111111-1111-1111-1111-111111110003',
+        accountType: 'TEAM',
+        organizationType: 'POLICE_SUBSTATION',
+        organizationName: '광주광산경찰서 수완지구대',
+        rankName: '순경',
+        personName: '이준호',
+        displayName: '광주광산경찰서 수완지구대 순경 이준호',
+      }),
     );
 
     expect(readStoredLoginAccount()).toMatchObject({
       id: '11111111-1111-1111-1111-111111110003',
-      name: '지구대 현장팀',
+      name: '광주광산경찰서 수완지구대 순경 이준호',
+      role: 'MEMBER',
     });
   });
 
-  test('normalizes stored sessions to the canonical UUID display names', () => {
+  test('normalizes stored sessions without replacing claim-based display names with UUID labels', () => {
     sessionStorage.setItem('suriMapAccessToken', 'access-token');
     sessionStorage.setItem(
       'suriMapCurrentAccount',
       JSON.stringify({
         id: '11111111-1111-1111-1111-111111110004',
-        name: '지구대 현장팀',
-        organization: 'Missing team',
+        name: '광주경찰청 여성청소년과 실종팀 경감 정서윤',
+        organization: '광주경찰청 여성청소년과 실종팀',
+        rank: '경감',
         accountType: 'COMMAND',
         organizationType: 'MISSING_TEAM',
         role: 'MISSING_TEAM_COMMANDER',
@@ -45,7 +69,7 @@ describe('login account display names', () => {
 
     expect(readStoredLoginAccount()).toMatchObject({
       id: '11111111-1111-1111-1111-111111110004',
-      name: '실종팀 지휘관',
+      name: '광주경찰청 여성청소년과 실종팀 경감 정서윤',
     });
   });
   test('preserves pending OIDC state while checking for an existing account', () => {
@@ -70,18 +94,22 @@ function tokenResponse() {
   };
 }
 
-function oidcClaims(
-  accountId: string,
-  accountType = 'COMMAND',
-  organizationType = 'MISSING_TEAM',
-  authorities = ['MISSING_TEAM_COMMANDER'],
-) {
+function oidcClaims(options: {
+  accountId: string;
+  accountType?: string;
+  organizationType?: string;
+  organizationName?: string;
+  rankName?: string;
+  personName?: string;
+  displayName?: string;
+}) {
   return {
-    accountId,
-    accountType,
-    organizationType,
-    realm_access: {
-      roles: authorities,
-    },
+    accountId: options.accountId,
+    accountType: options.accountType ?? 'COMMAND',
+    organizationType: options.organizationType ?? 'MISSING_TEAM',
+    organizationName: options.organizationName,
+    rankName: options.rankName,
+    personName: options.personName,
+    displayName: options.displayName,
   };
 }

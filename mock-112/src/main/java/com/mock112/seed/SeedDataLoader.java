@@ -45,6 +45,8 @@ public class SeedDataLoader {
             store.save(incident);
             log.info("Precinct-first scenario loaded: {}", incident.getSourceIncidentId());
             return incident;
+        } catch (IllegalArgumentException e) {
+            throw e;
         } catch (Exception e) {
             throw new RuntimeException("Failed to load precinct-first scenario seed", e);
         }
@@ -67,6 +69,8 @@ public class SeedDataLoader {
             }
             log.info("Handover assignments loaded for {}: {} entries", sourceIncidentId, assignments.size());
             return assignments;
+        } catch (IllegalArgumentException e) {
+            throw e;
         } catch (Exception e) {
             throw new RuntimeException("Failed to load handover assignments", e);
         }
@@ -89,6 +93,8 @@ public class SeedDataLoader {
             }
             log.info("Support assignments loaded for {}: {} entries", sourceIncidentId, assignments.size());
             return assignments;
+        } catch (IllegalArgumentException e) {
+            throw e;
         } catch (Exception e) {
             throw new RuntimeException("Failed to load support assignments", e);
         }

@@ -87,8 +87,9 @@ function renderIncidentDetailPage(incidentId: string, onBrowserBackToIncidentLis
 function currentUserAccount(): LoginAccount {
   return {
     id: 'acct-command-alpha',
-    name: '상황실',
-    organization: '광산경찰서',
+    name: '광주광산경찰서 수완지구대 경위 김도현',
+    organization: '광주광산경찰서 수완지구대',
+    rank: '경위',
     accountType: 'COMMAND',
     organizationType: 'POLICE_SUBSTATION',
     role: 'FIELD_COMMANDER',

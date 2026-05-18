@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import com.surimap.BuildConfig
-import java.util.Base64
 import kotlin.coroutines.resume
 import kotlinx.coroutines.suspendCancellableCoroutine
 import net.openid.appauth.AuthState
@@ -14,13 +13,11 @@ import net.openid.appauth.AuthorizationResponse
 import net.openid.appauth.AuthorizationService
 import net.openid.appauth.AuthorizationServiceConfiguration
 import net.openid.appauth.ResponseTypeValues
-import org.json.JSONObject
 
 data class OidcLoginSession(
     val accessToken: String,
     val refreshToken: String?,
-    val idToken: String?,
-    val policePhoneId: String?
+    val idToken: String?
 )
 
 class AndroidOidcLoginClient(
@@ -54,8 +51,7 @@ class AndroidOidcLoginClient(
                             OidcLoginSession(
                                 accessToken = it,
                                 refreshToken = tokenResponse.refreshToken,
-                                idToken = tokenResponse.idToken,
-                                policePhoneId = it.jwtStringClaim("policePhoneId")
+                                idToken = tokenResponse.idToken
                             )
                         }
                 )
@@ -85,13 +81,4 @@ class AndroidOidcLoginClient(
             .setScopes("openid", "profile")
             .build()
     }
-}
-
-private fun String.jwtStringClaim(name: String): String? {
-    val payload = split('.').getOrNull(1) ?: return null
-    val paddedPayload = payload.padEnd(payload.length + (4 - payload.length % 4) % 4, '=')
-    return runCatching {
-        val decoded = String(Base64.getUrlDecoder().decode(paddedPayload), Charsets.UTF_8)
-        JSONObject(decoded).optString(name).takeIf(String::isNotBlank)
-    }.getOrNull()
 }

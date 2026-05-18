@@ -19,7 +19,6 @@ import com.surimap.common.health.HealthController;
 import com.surimap.config.SecurityConfig;
 import com.surimap.support.auth.WithMockAccount;
 import java.util.List;
-import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -120,7 +119,6 @@ class SecurityFilterBaselineTest {
                 .claim("accountId", "11111111-1111-1111-1111-111111110001")
                 .claim("accountType", "COMMAND")
                 .claim("organizationType", "POLICE_SUBSTATION")
-                .claim("realm_access", Map.of("roles", List.of("FIELD_COMMANDER")))
                 .build());
 
     mockMvc
@@ -147,15 +145,14 @@ class SecurityFilterBaselineTest {
                 .claim("accountId", "11111111-1111-1111-1111-111111110003")
                 .claim("accountType", "TEAM")
                 .claim("organizationType", "POLICE_SUBSTATION")
-                .claim("policePhoneId", "00000000-0000-0000-0000-000000000101")
-                .claim("realm_access", Map.of("roles", List.of("MEMBER")))
                 .build());
 
     mockMvc
         .perform(
             get("/api/auth-harness/context")
                 .header("Authorization", "Bearer " + accessToken)
-                .header("X-Client-Channel", "APP"))
+                .header("X-Client-Channel", "APP")
+                .header("X-PolicePhone-Id", "00000000-0000-0000-0000-000000000101"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.accountId").value("11111111-1111-1111-1111-111111110003"))
         .andExpect(jsonPath("$.accountType").value("TEAM"))

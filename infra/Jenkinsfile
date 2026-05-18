@@ -563,8 +563,8 @@ EOF
                             -f "/tmp/${client_id}-${attr}-mapper.json" >/dev/null
                         }
 
-                        for client in suri-map-web suri-map-android; do
-                          for attr in accountId accountType organizationType policePhoneId policePhoneCode; do
+                        for client in suri-map-web suri-map-android suri-map-mock112; do
+                          for attr in accountId accountCode personName displayName accountType organizationType organizationCode organizationName rankCode rankName; do
                             ensure_mapper "${client}" "${attr}"
                           done
                         done
@@ -577,6 +577,72 @@ EOF
                         ensure_demo_user_profile() {
                           username="$1"
                           email="${username}@suri-map.local"
+                          case "${username}" in
+                            acct-precinct-cmd)
+                              person_name="김도현"
+                              organization_code="GWANGJU_GWANGSAN_SUWAN_PATROL_DIVISION"
+                              organization_name="광주광산경찰서 수완지구대"
+                              rank_code="INSPECTOR"
+                              rank_name="경위"
+                              ;;
+                            acct-precinct-car)
+                              person_name="박민수"
+                              organization_code="GWANGJU_GWANGSAN_SUWAN_PATROL_DIVISION"
+                              organization_name="광주광산경찰서 수완지구대"
+                              rank_code="SERGEANT"
+                              rank_name="경사"
+                              ;;
+                            acct-precinct-team)
+                              person_name="이준호"
+                              organization_code="GWANGJU_GWANGSAN_SUWAN_PATROL_DIVISION"
+                              organization_name="광주광산경찰서 수완지구대"
+                              rank_code="POLICE_OFFICER"
+                              rank_name="순경"
+                              ;;
+                            acct-cmd-alpha)
+                              person_name="정서윤"
+                              organization_code="GWANGJU_POLICE_WOMEN_JUVENILE_MISSING_TEAM"
+                              organization_name="광주경찰청 여성청소년과 실종팀"
+                              rank_code="SENIOR_INSPECTOR"
+                              rank_name="경감"
+                              ;;
+                            acct-team-alpha)
+                              person_name="최지훈"
+                              organization_code="GWANGJU_POLICE_WOMEN_JUVENILE_MISSING_TEAM"
+                              organization_name="광주경찰청 여성청소년과 실종팀"
+                              rank_code="SERGEANT"
+                              rank_name="경사"
+                              ;;
+                            acct-support-cmd)
+                              person_name="강현우"
+                              organization_code="GWANGJU_POLICE_MOBILE_UNIT"
+                              organization_name="광주경찰청 기동대"
+                              rank_code="INSPECTOR"
+                              rank_name="경위"
+                              ;;
+                            acct-support-car)
+                              person_name="윤태영"
+                              organization_code="GWANGJU_POLICE_MOBILE_UNIT"
+                              organization_name="광주경찰청 기동대"
+                              rank_code="SERGEANT"
+                              rank_name="경사"
+                              ;;
+                            acct-support-team)
+                              person_name="오민재"
+                              organization_code="GWANGJU_POLICE_MOBILE_UNIT"
+                              organization_name="광주경찰청 기동대"
+                              rank_code="POLICE_OFFICER"
+                              rank_name="순경"
+                              ;;
+                            acct-unassigned-phone)
+                              person_name="한지민"
+                              organization_code="GWANGJU_GWANGSAN_SUWAN_PATROL_DIVISION"
+                              organization_name="광주광산경찰서 수완지구대"
+                              rank_code="POLICE_OFFICER"
+                              rank_name="순경"
+                              ;;
+                          esac
+                          display_name="${organization_name} ${rank_name} ${person_name}"
                           user_id=$(/opt/keycloak/bin/kcadm.sh get users \
                             -r suri-map \
                             -q username="${username}" \
@@ -588,6 +654,17 @@ EOF
                             -r suri-map \
                             -s "email=${email}" \
                             -s "emailVerified=true" \
+                            -s "firstName=${person_name}" \
+                            -s "lastName=" \
+                            -s "attributes.accountCode=[\"${username}\"]" \
+                            -s "attributes.personName=[\"${person_name}\"]" \
+                            -s "attributes.displayName=[\"${display_name}\"]" \
+                            -s "attributes.organizationCode=[\"${organization_code}\"]" \
+                            -s "attributes.organizationName=[\"${organization_name}\"]" \
+                            -s "attributes.rankCode=[\"${rank_code}\"]" \
+                            -s "attributes.rankName=[\"${rank_name}\"]" \
+                            -s "attributes.dutyPositionCode=[]" \
+                            -s "attributes.dutyPositionName=[]" \
                             -s "requiredActions=[]" >/dev/null
                         }
 
@@ -599,7 +676,8 @@ EOF
                           acct-team-alpha \
                           acct-support-cmd \
                           acct-support-car \
-                          acct-support-team; do
+                          acct-support-team \
+                          acct-unassigned-phone; do
                           ensure_demo_user_profile "${username}"
                         done
                         echo "keycloak_demo_user_profiles=ready"
