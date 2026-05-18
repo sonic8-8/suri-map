@@ -55,7 +55,6 @@ public class PolicePhonePersistenceService
   public PolicePhoneHeartbeatResult recordHeartbeat(
       PolicePhoneHeartbeatServiceRequest request, Instant receivedAt) {
     PolicePhoneStateRow before = registeredPhone(request.policePhoneId());
-    validateAccountBinding(before, request);
     PolicePhoneAssignmentRow assignment = activeAssignment(request.policePhoneId());
 
     if (request.sequence() <= before.heartbeatSequence()) {
@@ -147,15 +146,6 @@ public class PolicePhonePersistenceService
     return mapper
         .findActiveAssignmentByPolicePhone(policePhoneId)
         .orElseThrow(PolicePhoneNotAssignedException::new);
-  }
-
-  private static void validateAccountBinding(
-      PolicePhoneStateRow phone, PolicePhoneHeartbeatServiceRequest request) {
-    if (!phone.accountId().toString().equals(request.accountId())
-        || phone.accountType() != request.accountType()
-        || phone.organizationType() != request.organizationType()) {
-      throw new PolicePhoneNotAssignedException();
-    }
   }
 
   private static PolicePhoneHeartbeatResult toHeartbeatResult(

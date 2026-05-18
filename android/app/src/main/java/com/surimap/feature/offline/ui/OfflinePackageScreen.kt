@@ -62,7 +62,8 @@ data class OfflinePackageUiState(
     val shouldDownloadPackage: Boolean,
     val canManualRetry: Boolean,
     val retryLabel: String?,
-    val message: String
+    val message: String,
+    val canOpenSearchMap: Boolean = false
 ) {
     val overallProgress: Float =
         if (packageItems.isEmpty()) {
@@ -91,6 +92,9 @@ data class OfflinePackageUiState(
             }
             if (requiresLimitedOpenConfirmation) {
                 add("제한 안내 후 열기")
+            }
+            if (canOpenSearchMap) {
+                add("현장 기록 열기")
             }
             if (canManualRetry) {
                 add("수동 재시도")
@@ -196,7 +200,8 @@ data class OfflinePackageUiState(
                 shouldDownloadPackage = false,
                 canManualRetry = false,
                 retryLabel = null,
-                message = "전체 수색구역 지정 전입니다. 사건 확인과 현장 기록은 가능하며, 오프라인 패키지는 수색구역 지정 후 받을 수 있습니다."
+                message = "전체 수색구역 지정 전입니다. 사건 확인과 현장 기록은 가능하며, 오프라인 패키지는 수색구역 지정 후 받을 수 있습니다.",
+                canOpenSearchMap = true
             )
 
         fun permissionDenied(incidentTitle: String = "선택한 사건"): OfflinePackageUiState =
@@ -523,7 +528,9 @@ private fun ActionBar(
         modifier = Modifier.fillMaxWidth().padding(PoliDimens.SectionPadding),
         verticalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
     ) {
-        if (state.requiresLimitedOpenConfirmation) {
+        if (state.canOpenSearchMap) {
+            PoliButton(text = "현장 기록 열기", onClick = onOpenSearchMap, modifier = Modifier.fillMaxWidth())
+        } else if (state.requiresLimitedOpenConfirmation) {
             PoliButton(text = "제한 안내 후 열기", onClick = onOpenSearchMap, modifier = Modifier.fillMaxWidth())
         }
         if (state.canManualRetry) {

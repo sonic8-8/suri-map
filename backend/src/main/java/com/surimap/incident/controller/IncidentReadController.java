@@ -36,7 +36,7 @@ public class IncidentReadController {
     var auth = currentAuthentication();
     return ResponseEntity.ok(
         IncidentListResponse.from(
-            incidentReadQueryService.findActiveIncidents(UUID.fromString(auth.getAccountId()), status)));
+            incidentReadQueryService.findActiveIncidents(auth, status)));
   }
 
   @GetMapping("/{incidentId}")
@@ -46,7 +46,7 @@ public class IncidentReadController {
     var auth = currentAuthentication();
     // 접근 범위는 service SQL의 incident_assignment 필터로 좁히고, CLOSED는 sanitized DTO만 반환한다.
     return incidentReadQueryService
-        .findIncidentDetail(incidentId, UUID.fromString(auth.getAccountId()))
+        .findIncidentDetail(incidentId, auth)
         .map(IncidentDetailResponse::from)
         .map(ResponseEntity::ok)
         .orElseGet(() -> ResponseEntity.notFound().build());

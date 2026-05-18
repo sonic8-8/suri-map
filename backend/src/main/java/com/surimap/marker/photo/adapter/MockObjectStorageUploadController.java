@@ -2,6 +2,7 @@ package com.surimap.marker.photo.adapter;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.nio.charset.StandardCharsets;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -12,6 +13,10 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriUtils;
 
 @RestController
+@ConditionalOnProperty(
+    name = "surimap.object-storage.provider",
+    havingValue = "mock",
+    matchIfMissing = true)
 public class MockObjectStorageUploadController {
 
   private static final String UPLOAD_PREFIX = "/mock-upload/";

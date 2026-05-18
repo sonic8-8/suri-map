@@ -43,26 +43,8 @@ export function assignRouteColorsToMovementPaths(
   }));
 }
 
-export function createLegendItems(
-  baseLegendItems: SituationBoardFallbackData['legendItems'],
-  movementPaths: MovementPath[],
-) {
-  const deviceRouteItems = new Map<string, SituationBoardFallbackData['legendItems'][number]>();
-
-  movementPaths.forEach((path) => {
-    if (!path.routeColor) return;
-    const deviceKey = path.policePhoneId ?? path.id;
-    if (deviceRouteItems.has(deviceKey)) return;
-
-    deviceRouteItems.set(deviceKey, {
-      label: path.policePhoneId ? `${path.policePhoneId} 경로` : `${path.label} 경로`,
-      className: 'legend-swatch device-route',
-      color: path.routeColor,
-      lineStyle: path.movementType === 'FOOT' ? 'dashed' : 'solid',
-    });
-  });
-
-  return [...baseLegendItems, ...deviceRouteItems.values()];
+export function createLegendItems(baseLegendItems: SituationBoardFallbackData['legendItems']) {
+  return baseLegendItems;
 }
 
 function createRouteColorsByAssignee(searchAreaTree: SearchAreaTreeNode, searchAreaDrafts: CompletedAreaDraft[]) {

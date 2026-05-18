@@ -1,15 +1,19 @@
-// TODO: VWorld 키가 웹 번들에 노출되는 구조이므로 도메인 제한 또는 서버 프록시 적용 여부를 확인한다.
-// VWorld 키는 클라이언트 번들에서 직접 읽을 수 있도록 Vite define으로 주입한다.
-export function getVWorldApiKey() {
-  return __V_WORLD_API_KEY__;
-}
-
 export function getApiBaseUrl() {
   return import.meta.env.VITE_API_BASE_URL ?? '/api';
 }
 
 export function getKeycloakIssuerUrl() {
-  return normalizeBaseUrl(import.meta.env.VITE_KEYCLOAK_ISSUER_URL ?? '/keycloak/realms/suri-map');
+  return normalizeBaseUrl(
+    import.meta.env.VITE_KEYCLOAK_ISSUER_URL ?? 'https://k14c106.p.ssafy.io/keycloak/realms/suri-map',
+    'https://k14c106.p.ssafy.io/keycloak/realms/suri-map',
+  );
+}
+
+export function getKeycloakAuthBaseUrl() {
+  return normalizeKeycloakRealmUrl(
+    import.meta.env.VITE_KEYCLOAK_BASE_URL ?? getKeycloakIssuerUrl(),
+    getKeycloakIssuerUrl(),
+  );
 }
 
 export function getKeycloakClientId() {
@@ -17,7 +21,7 @@ export function getKeycloakClientId() {
 }
 
 export function isLocalDevLoginEnabled() {
-  return import.meta.env.DEV && import.meta.env.VITE_ENABLE_LOCAL_DEV_LOGIN !== 'false';
+  return import.meta.env.DEV && import.meta.env.VITE_ENABLE_LOCAL_DEV_LOGIN === 'true';
 }
 
 export function getLocalDevAccessToken() {
@@ -29,10 +33,41 @@ export function isLocalDevAccessToken(accessToken: string | null | undefined) {
 }
 
 export function getTileBaseUrl() {
-  return normalizeBaseUrl(import.meta.env.VITE_TILE_BASE_URL ?? '/tiles');
+  return normalizePublicTileBaseUrl(import.meta.env.VITE_TILE_BASE_URL ?? '/tiles');
 }
 
-function normalizeBaseUrl(baseUrl: string) {
+export function getVWorldApiKey() {
+  return __V_WORLD_API_KEY__;
+}
+
+function normalizeBaseUrl(baseUrl: string, fallback: string) {
   const normalized = baseUrl.trim().replace(/\/+$/, '');
-  return normalized || '/tiles';
+  return normalized || fallback;
+}
+
+function normalizeKeycloakRealmUrl(baseUrl: string, fallback: string) {
+  const normalized = normalizeBaseUrl(baseUrl, fallback);
+  if (normalized.endsWith('/realms/suri-map')) {
+    return normalized;
+  }
+
+  if (normalized.endsWith('/keycloak')) {
+    return `${normalized}/realms/suri-map`;
+  }
+
+  return normalized;
+}
+
+function normalizePublicTileBaseUrl(baseUrl: string) {
+  const normalized = baseUrl.trim().replace(/\/+$/, '');
+  if (!normalized) {
+    return '/tiles';
+  }
+
+  if (/^https?:\/\//.test(normalized)) {
+    const pathname = new URL(normalized).pathname.replace(/\/+$/, '');
+    return pathname === '/tiles' ? pathname : '/tiles';
+  }
+
+  return normalized === '/tiles' ? normalized : '/tiles';
 }

@@ -11,7 +11,7 @@ describe('useSituationBoardData', () => {
     expect(board.recentMarkers).toEqual([]);
   });
 
-  test('keeps previous critical slots except marker when a refetch response omits them', () => {
+  test('keeps previous critical slots when a refetch response omits them', () => {
     const previous = boardResponse({
       marker: [{ id: 'marker-001', markerType: 'CLUE' }],
       path: [{ id: 'path-001', pathType: 'FOOT' }],
@@ -22,14 +22,32 @@ describe('useSituationBoardData', () => {
 
     const merged = mergeWithPreviousCriticalSlots(current, previous);
 
-    expect(merged?.slots.marker).toBeUndefined();
+    expect(merged?.slots.marker).toEqual(previous.slots.marker);
     expect(merged?.slots.path).toEqual(previous.slots.path);
     expect(merged?.slots.area).toEqual(current.slots.area);
   });
 
-  test('does not keep previous marker slot when a refetch response omits it', () => {
+  test('keeps previous critical slots when a refetch response returns empty collections', () => {
     const previous = boardResponse({
       marker: [{ id: 'marker-001', markerType: 'CLUE' }],
+      path: [{ id: 'path-001', pathType: 'FOOT' }],
+    });
+    const current = boardResponse({
+      marker: [],
+      path: {},
+      area: [{ id: 'area-001', areaLevel: 'UNIT' }],
+    });
+
+    const merged = mergeWithPreviousCriticalSlots(current, previous);
+
+    expect(merged?.slots.marker).toEqual(previous.slots.marker);
+    expect(merged?.slots.path).toEqual(previous.slots.path);
+  });
+
+  test('keeps package badge and terminal slots when a refetch response omits them', () => {
+    const previous = boardResponse({
+      package_badge: [{ id: 'package-001', status: 'READY', version: 1, sequence: 1 }],
+      incident_terminal: [{ id: 'terminal-001', status: 'OPEN', version: 1, sequence: 1 }],
     });
     const current = boardResponse({
       area: [{ id: 'area-001', areaLevel: 'UNIT' }],
@@ -37,7 +55,8 @@ describe('useSituationBoardData', () => {
 
     const merged = mergeWithPreviousCriticalSlots(current, previous);
 
-    expect(merged?.slots.marker).toBeUndefined();
+    expect(merged?.slots.package_badge).toEqual(previous.slots.package_badge);
+    expect(merged?.slots.incident_terminal).toEqual(previous.slots.incident_terminal);
   });
 
   test('does not keep previous critical slots for a different incident', () => {

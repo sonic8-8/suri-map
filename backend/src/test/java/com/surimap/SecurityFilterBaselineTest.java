@@ -1,7 +1,6 @@
 package com.surimap;
 
 import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -19,11 +18,11 @@ import com.surimap.common.health.HealthController;
 import com.surimap.config.SecurityConfig;
 import com.surimap.support.auth.WithMockAccount;
 import java.util.List;
-import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -51,7 +50,11 @@ class SecurityFilterBaselineTest {
 
   @Test
   void unauthenticatedApiCallIsBlocked() throws Exception {
-    mockMvc.perform(get("/api/auth-harness/protected")).andExpect(status().isUnauthorized());
+    mockMvc
+        .perform(get("/api/auth-harness/protected"))
+        .andExpect(status().isUnauthorized())
+        .andExpect(header().doesNotExist(HttpHeaders.WWW_AUTHENTICATE))
+        .andExpect(jsonPath("$.error").value("unauthorized"));
   }
 
   @Test
@@ -86,10 +89,14 @@ class SecurityFilterBaselineTest {
   }
 
   @Test
-  void basicPrincipalIsForbiddenFromProtectedApi() throws Exception {
+  void unsupportedBasicAuthHeaderDoesNotTriggerBrowserPrompt() throws Exception {
     mockMvc
-        .perform(get("/api/auth-harness/protected").with(httpBasic("dev", "dev-password")))
-        .andExpect(status().isForbidden());
+        .perform(
+            get("/api/auth-harness/protected")
+                .header(HttpHeaders.AUTHORIZATION, "Basic ZGV2OmRldi1wYXNzd29yZA=="))
+        .andExpect(status().isUnauthorized())
+        .andExpect(header().doesNotExist(HttpHeaders.WWW_AUTHENTICATE))
+        .andExpect(jsonPath("$.error").value("unauthorized"));
   }
 
   @Test
@@ -120,7 +127,6 @@ class SecurityFilterBaselineTest {
                 .claim("accountId", "11111111-1111-1111-1111-111111110001")
                 .claim("accountType", "COMMAND")
                 .claim("organizationType", "POLICE_SUBSTATION")
-                .claim("realm_access", Map.of("roles", List.of("FIELD_COMMANDER")))
                 .build());
 
     mockMvc
@@ -147,15 +153,14 @@ class SecurityFilterBaselineTest {
                 .claim("accountId", "11111111-1111-1111-1111-111111110003")
                 .claim("accountType", "TEAM")
                 .claim("organizationType", "POLICE_SUBSTATION")
-                .claim("policePhoneId", "00000000-0000-0000-0000-000000000101")
-                .claim("realm_access", Map.of("roles", List.of("MEMBER")))
                 .build());
 
     mockMvc
         .perform(
             get("/api/auth-harness/context")
                 .header("Authorization", "Bearer " + accessToken)
-                .header("X-Client-Channel", "APP"))
+                .header("X-Client-Channel", "APP")
+                .header("X-PolicePhone-Id", "00000000-0000-0000-0000-000000000101"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.accountId").value("11111111-1111-1111-1111-111111110003"))
         .andExpect(jsonPath("$.accountType").value("TEAM"))
@@ -203,6 +208,17 @@ class SecurityFilterBaselineTest {
       roles = Role.FIELD_COMMANDER)
   void mockTeamFieldCommanderIsForbiddenFromFieldCommandEndpoint() throws Exception {
     mockMvc.perform(get("/api/auth-harness/field-command")).andExpect(status().isForbidden());
+  }
+
+  @Test
+  void localDevBearerTokenDoesNotBypassSecurity() throws Exception {
+    mockMvc
+        .perform(
+            get("/api/auth-harness/protected")
+                .header("Authorization", "Bearer dev-local-access-token")
+                .header("Host", "localhost:8080")
+                .header("X-Client-Channel", "WEB"))
+        .andExpect(status().isUnauthorized());
   }
 
   @Test

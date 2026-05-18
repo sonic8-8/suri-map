@@ -22,6 +22,18 @@ describe('frontend nginx runtime routing', () => {
     expect(nginxConfig).toContain('proxy_set_header X-Forwarded-Port $mock112_forwarded_port;');
   });
 
+  test('proxies S3-compatible object-storage bucket route before SPA fallback', () => {
+    const uploadRouteIndex = nginxConfig.indexOf('location /suri-map-photo/');
+    const fallbackIndex = nginxConfig.indexOf('try_files $uri $uri/ /index.html;');
+
+    expect(uploadRouteIndex).toBeGreaterThan(-1);
+    expect(fallbackIndex).toBeGreaterThan(-1);
+    expect(uploadRouteIndex).toBeLessThan(fallbackIndex);
+    expect(nginxConfig).toContain('return 308 /suri-map-photo/;');
+    expect(nginxConfig).toContain('proxy_request_buffering off;');
+    expect(nginxConfig).toContain('proxy_pass http://object-storage:9000;');
+  });
+
   test('proxies Keycloak public route before SPA fallback including admin console', () => {
     const keycloakRouteIndex = nginxConfig.indexOf('location /keycloak/ {');
     const fallbackIndex = nginxConfig.indexOf('try_files $uri $uri/ /index.html;');

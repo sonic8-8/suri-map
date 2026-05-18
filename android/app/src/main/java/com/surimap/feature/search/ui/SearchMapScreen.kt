@@ -1,6 +1,7 @@
 package com.surimap.feature.search.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +21,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -54,6 +64,7 @@ import com.surimap.ui.theme.PoliFgMuted
 import com.surimap.ui.theme.PoliFgPrimary
 import com.surimap.ui.theme.PoliFgSecondary
 import com.surimap.ui.theme.PoliPrimaryBorder
+import com.surimap.ui.theme.PoliSuccess
 import com.surimap.ui.theme.PoliWarning
 import com.surimap.ui.theme.SuriMapTheme
 
@@ -77,7 +88,8 @@ enum class SearchLayerKind {
     Unit,
     Team,
     Path,
-    Marker
+    Marker,
+    CurrentLocation
 }
 
 data class SearchMapViewportBounds(
@@ -114,7 +126,9 @@ data class SearchMapUiState(
     val incidentAlert: IncidentAlertUiState? = null,
     val focusedMarkerId: String? = null,
     val bottomPanelExpanded: Boolean = true,
-    val mapOverlaysVisible: Boolean = true
+    val mapOverlaysVisible: Boolean = true,
+    val activeSearchPathId: String? = null,
+    val activeSearchPathStartedAtEpochMs: Long? = null
 ) {
     val canWritePath: Boolean = lifecycleStatus == SearchLifecycleStatus.Active
     val canCreateMarker: Boolean = lifecycleStatus == SearchLifecycleStatus.Active
@@ -294,6 +308,7 @@ data class SearchMapUiState(
 fun SearchMapScreen(
     state: SearchMapUiState,
     mapState: MapLibreRuntimeMapState = MapLibreRuntimeMapState(),
+    showMapPreview: Boolean = false,
     onBack: () -> Unit,
     onPrimaryLifecycleAction: () -> Unit,
     onStopSearch: () -> Unit,
@@ -343,6 +358,7 @@ fun SearchMapScreen(
             SearchMapShell(
                 state = state,
                 mapState = mapState,
+                showMapPreview = showMapPreview,
                 onOpenFocusedMarkerDetail = onOpenFocusedMarkerDetail,
                 onToggleMapOverlays = onToggleMapOverlays,
                 modifier = Modifier.weight(1f)
@@ -362,24 +378,70 @@ fun SearchMapScreen(
 
 @Composable
 private fun SearchMapHeader(state: SearchMapUiState, onBack: () -> Unit) {
-    PoliAppBar(
-        title = state.missingPersonSummary,
-        subtitle = "${state.incidentTitle} · ${state.opLabel}",
-        showBack = true,
-        onBack = onBack,
-        trailing = {
-            PoliChip(text = state.syncLabel, variant = state.syncVariant)
+    Column(verticalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
+        PoliAppBar(
+            title = state.missingPersonSummary,
+            subtitle = state.incidentTitle,
+            showBack = true,
+            onBack = onBack
+        )
+        PoliCard(
+            modifier = Modifier.padding(horizontal = PoliDimens.SectionPadding),
+            strong = true
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
+                PoliRow(
+                    title = state.opLabel,
+                    subtitle = state.lifecycleTitle
+                ) {
+                    PoliChip(text = state.syncLabel, variant = state.syncVariant)
+                }
+                Text(
+                    text = state.lifecycleMessage,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = PoliFgMuted
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
+                    SearchMapMiniStat(
+                        label = "근무",
+                        value = state.dutyShiftLabel,
+                        modifier = Modifier.weight(1f)
+                    )
+                    SearchMapMiniStat(
+                        label = "담당",
+                        value = state.assignmentLabel,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
         }
-    )
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = PoliDimens.SectionPadding),
-        verticalArrangement = Arrangement.spacedBy(PoliDimens.Space2)
-    ) {
-        PoliChip(text = state.dutyShiftLabel, variant = PoliChipVariant.Neutral)
-        PoliChip(text = state.assignmentLabel, variant = PoliChipVariant.Outbox)
     }
 }
 
+@Composable
+private fun SearchMapMiniStat(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(PoliDimens.Space1)
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = PoliFgMuted
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleSmall,
+            color = PoliFgPrimary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
 @Composable
 private fun BlockedOutboxNotice(state: SearchMapUiState, onOpenBlockedOutbox: () -> Unit) {
     PoliCard(modifier = Modifier.padding(horizontal = PoliDimens.SectionPadding), strong = true) {
@@ -401,26 +463,33 @@ private fun BlockedOutboxNotice(state: SearchMapUiState, onOpenBlockedOutbox: ()
 private fun SearchMapShell(
     state: SearchMapUiState,
     mapState: MapLibreRuntimeMapState,
+    showMapPreview: Boolean,
     onOpenFocusedMarkerDetail: (String) -> Unit,
     onToggleMapOverlays: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var mapLoadFailure by remember { mutableStateOf<String?>(null) }
     val runtimeMapState = state.toRuntimeMapState(mapState)
 
     Box(modifier = modifier.fillMaxWidth().background(PoliBgInput)) {
-        SuriMapLibreMap(
-            state = runtimeMapState,
-            modifier = Modifier.fillMaxSize(),
-            onLoadFailed = { reason -> mapLoadFailure = reason }
-        )
+        if (showMapPreview) {
+            SearchMapPreviewScene(
+                state = state,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            SuriMapLibreMap(
+                state = runtimeMapState,
+                modifier = Modifier.fillMaxSize(),
+                onLoadFailed = {}
+            )
+        }
 
         Column(
             modifier = Modifier.align(Alignment.TopStart).padding(PoliDimens.Space3),
             verticalArrangement = Arrangement.spacedBy(PoliDimens.Space2)
         ) {
             PoliButton(
-                text = if (state.mapOverlaysVisible) "정보 숨김" else "정보 표시",
+                text = if (state.mapOverlaysVisible) "오버레이 숨김" else "오버레이 표시",
                 onClick = onToggleMapOverlays,
                 size = PoliButtonSize.Small,
                 variant = PoliButtonVariant.Secondary
@@ -429,18 +498,20 @@ private fun SearchMapShell(
                 state.markerFocusLabel?.let { focusLabel ->
                     PoliChip(text = focusLabel, variant = PoliChipVariant.Bad)
                 }
+                PoliChip(
+                    text = "${state.layers.size}개 레이어",
+                    variant = PoliChipVariant.Neutral
+                )
+                PoliChip(
+                    text = "${state.layers.count { it.highlighted }}개 활성",
+                    variant = PoliChipVariant.Outbox
+                )
                 state.markerDetailTargetId?.takeIf(String::isNotBlank)?.let { markerId ->
                     PoliButton(
                         text = "마커 상세",
                         onClick = { onOpenFocusedMarkerDetail(markerId) },
                         size = PoliButtonSize.Small,
                         variant = PoliButtonVariant.Secondary
-                    )
-                }
-                state.layers.forEach { layer ->
-                    PoliChip(
-                        text = layer.label,
-                        variant = if (layer.highlighted) PoliChipVariant.Outbox else PoliChipVariant.Neutral
                     )
                 }
             }
@@ -452,31 +523,242 @@ private fun SearchMapShell(
         ) {
             MapControlButton(text = "+")
             MapControlButton(text = "-")
-            MapControlButton(text = "층")
+            MapControlButton(text = "중")
         }
 
-        Surface(
-            modifier = Modifier.align(Alignment.BottomEnd).padding(PoliDimens.Space4).size(56.dp),
-            shape = MaterialTheme.shapes.extraLarge,
-            color = PoliBgSurface,
-            contentColor = PoliCurrent,
-            border = androidx.compose.foundation.BorderStroke(1.dp, PoliCurrent)
+    }
+}
+
+@Composable
+private fun SearchMapPreviewScene(
+    state: SearchMapUiState,
+    modifier: Modifier = Modifier
+) {
+    Box(modifier = modifier) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val width = size.width
+            val height = size.height
+            val minDimension = size.minDimension
+
+            drawRect(
+                brush =
+                Brush.verticalGradient(
+                    colors =
+                    listOf(
+                        Color(0xFF0B1421),
+                        Color(0xFF13263B),
+                        Color(0xFF0A1220)
+                    )
+                )
+            )
+
+            drawCircle(
+                color = PoliCurrent.copy(alpha = 0.12f),
+                radius = minDimension * 0.34f,
+                center = Offset(width * 0.82f, height * 0.18f)
+            )
+            drawCircle(
+                color = PoliSuccess.copy(alpha = 0.08f),
+                radius = minDimension * 0.26f,
+                center = Offset(width * 0.22f, height * 0.72f)
+            )
+            drawCircle(
+                color = PoliWarning.copy(alpha = 0.08f),
+                radius = minDimension * 0.20f,
+                center = Offset(width * 0.60f, height * 0.66f)
+            )
+
+            val gridColor = Color.White.copy(alpha = 0.05f)
+            val verticalStep = (width / 8f).coerceAtLeast(72f)
+            var x = 0f
+            while (x <= width) {
+                drawLine(
+                    color = gridColor,
+                    start = Offset(x, 0f),
+                    end = Offset(x, height),
+                    strokeWidth = 1f
+                )
+                x += verticalStep
+            }
+            val horizontalStep = (height / 7f).coerceAtLeast(72f)
+            var y = 0f
+            while (y <= height) {
+                drawLine(
+                    color = gridColor,
+                    start = Offset(0f, y),
+                    end = Offset(width, y),
+                    strokeWidth = 1f
+                )
+                y += horizontalStep
+            }
+
+            drawRoundRect(
+                color = Color(0x1122D3EE),
+                topLeft = Offset(width * 0.08f, height * 0.20f),
+                size = Size(width * 0.32f, height * 0.18f),
+                cornerRadius = CornerRadius(36f, 36f)
+            )
+            drawRoundRect(
+                color = Color(0x0C22C55E),
+                topLeft = Offset(width * 0.50f, height * 0.30f),
+                size = Size(width * 0.28f, height * 0.20f),
+                cornerRadius = CornerRadius(32f, 32f)
+            )
+            drawRoundRect(
+                color = Color(0x10F59E0B),
+                topLeft = Offset(width * 0.18f, height * 0.54f),
+                size = Size(width * 0.18f, height * 0.12f),
+                cornerRadius = CornerRadius(24f, 24f)
+            )
+
+            val streetA =
+                Path().apply {
+                    moveTo(width * 0.05f, height * 0.28f)
+                    cubicTo(
+                        width * 0.20f, height * 0.24f,
+                        width * 0.34f, height * 0.30f,
+                        width * 0.48f, height * 0.26f
+                    )
+                    cubicTo(
+                        width * 0.60f, height * 0.22f,
+                        width * 0.70f, height * 0.18f,
+                        width * 0.95f, height * 0.24f
+                    )
+                }
+            drawPath(
+                path = streetA,
+                color = Color.White.copy(alpha = 0.20f),
+                style = Stroke(width = 14f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+            )
+            drawPath(
+                path = streetA,
+                color = Color(0xFF9FB2C8).copy(alpha = 0.12f),
+                style = Stroke(width = 5f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+            )
+
+            val streetB =
+                Path().apply {
+                    moveTo(width * 0.18f, height * 0.06f)
+                    cubicTo(
+                        width * 0.25f, height * 0.20f,
+                        width * 0.22f, height * 0.34f,
+                        width * 0.30f, height * 0.48f
+                    )
+                    cubicTo(
+                        width * 0.38f, height * 0.63f,
+                        width * 0.42f, height * 0.75f,
+                        width * 0.36f, height * 0.94f
+                    )
+                }
+            drawPath(
+                path = streetB,
+                color = Color.White.copy(alpha = 0.16f),
+                style = Stroke(width = 10f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+            )
+
+            val route =
+                Path().apply {
+                    moveTo(width * 0.12f, height * 0.76f)
+                    cubicTo(
+                        width * 0.22f, height * 0.67f,
+                        width * 0.30f, height * 0.58f,
+                        width * 0.42f, height * 0.62f
+                    )
+                    cubicTo(
+                        width * 0.55f, height * 0.66f,
+                        width * 0.63f, height * 0.50f,
+                        width * 0.72f, height * 0.42f
+                    )
+                    cubicTo(
+                        width * 0.79f, height * 0.35f,
+                        width * 0.87f, height * 0.30f,
+                        width * 0.93f, height * 0.28f
+                    )
+                }
+            drawPath(
+                path = route,
+                color = PoliCurrent.copy(alpha = 0.22f),
+                style = Stroke(width = 18f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+            )
+            drawPath(
+                path = route,
+                color = PoliCurrent.copy(alpha = 0.92f),
+                style = Stroke(width = 7f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+            )
+
+            val markerPoints =
+                listOf(
+                    Offset(width * 0.18f, height * 0.72f),
+                    Offset(width * 0.43f, height * 0.62f),
+                    Offset(width * 0.72f, height * 0.42f),
+                    Offset(width * 0.93f, height * 0.28f)
+                )
+            markerPoints.forEachIndexed { index, point ->
+                val accent =
+                    when (index) {
+                        0 -> PoliSuccess
+                        1 -> PoliCurrent
+                        2 -> PoliWarning
+                        else -> PoliEmphasis
+                    }
+                drawCircle(color = Color.Black.copy(alpha = 0.28f), radius = 9f, center = point)
+                drawCircle(color = accent.copy(alpha = 0.95f), radius = 6.2f, center = point)
+                drawCircle(color = Color.White.copy(alpha = 0.72f), radius = 2.1f, center = point)
+            }
+
+            drawCircle(
+                color = PoliCurrent.copy(alpha = 0.22f),
+                radius = 26f,
+                center = Offset(width * 0.72f, height * 0.42f),
+                style = Stroke(width = 3f)
+            )
+            drawCircle(
+                color = PoliCurrent.copy(alpha = 0.10f),
+                radius = 52f,
+                center = Offset(width * 0.72f, height * 0.42f),
+                style = Stroke(width = 2f)
+            )
+        }
+
+        Column(
+            modifier = Modifier.align(Alignment.TopStart).padding(PoliDimens.Space3),
+            verticalArrangement = Arrangement.spacedBy(PoliDimens.Space2)
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(text = "내\n위치", style = MaterialTheme.typography.labelMedium)
+            PoliChip(text = "지도 미리보기", variant = PoliChipVariant.Good)
+            PoliChip(text = "실제 타일 지도 비율", variant = PoliChipVariant.Neutral)
+        }
+
+        Column(
+            modifier = Modifier.align(Alignment.TopEnd).padding(PoliDimens.Space3),
+            verticalArrangement = Arrangement.spacedBy(PoliDimens.Space2),
+            horizontalAlignment = Alignment.End
+        ) {
+            PoliChip(text = state.syncLabel, variant = state.syncVariant)
+            if (state.mapOverlaysVisible) {
+                PoliChip(
+                    text = "오버레이 ${state.layers.count { it.highlighted }}개",
+                    variant = PoliChipVariant.Outbox
+                )
             }
         }
 
-        mapLoadFailure?.let {
-            PoliBanner(
-                text = "지도 로드 실패 · 기록은 계속 가능합니다.",
-                variant = PoliBannerVariant.Warn,
-                modifier = Modifier.align(Alignment.BottomStart).padding(PoliDimens.Space4)
+        Column(
+            modifier = Modifier.align(Alignment.BottomStart).padding(PoliDimens.Space4),
+            verticalArrangement = Arrangement.spacedBy(PoliDimens.Space1)
+        ) {
+            Text(
+                text = "여기에 실제 지도 타일이 들어간다",
+                style = MaterialTheme.typography.labelLarge,
+                color = PoliFgPrimary
+            )
+            Text(
+                text = "경로 선, 마커, 경계선은 이 영역 위에 겹쳐진다",
+                style = MaterialTheme.typography.labelMedium,
+                color = PoliFgMuted
             )
         }
     }
 }
-
 @Composable
 private fun MapControlButton(text: String) {
     Surface(
@@ -658,6 +940,7 @@ private fun SearchLayerKind.toMapLibreGeometryOverlayKind(): MapLibreGeometryOve
         SearchLayerKind.Team -> MapLibreGeometryOverlayKind.Team
         SearchLayerKind.Path -> MapLibreGeometryOverlayKind.Path
         SearchLayerKind.Marker -> MapLibreGeometryOverlayKind.Marker
+        SearchLayerKind.CurrentLocation -> MapLibreGeometryOverlayKind.CurrentLocation
     }
 
 private fun String.pointViewportBounds(): SearchMapViewportBounds? {
@@ -691,6 +974,7 @@ private fun SearchMapScreenPreview() {
     SuriMapTheme {
         SearchMapScreen(
             state = sampleSearchMapState(),
+            showMapPreview = true,
             onBack = {},
             onPrimaryLifecycleAction = {},
             onStopSearch = {},

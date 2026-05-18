@@ -1,5 +1,6 @@
 package com.surimap.path;
 
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -12,6 +13,8 @@ public class SearchPathAggregate {
   private final UUID incidentId;
   private final UUID opId;
   private final UUID policePhoneId;
+  private Instant startedAt;
+  private Instant endedAt;
   private SearchPathStatus status;
   private long version;
   private final List<SearchPathPoint> points;
@@ -25,6 +28,8 @@ public class SearchPathAggregate {
         incidentId,
         opId,
         policePhoneId,
+        null,
+        null,
         SearchPathStatus.RECORDING,
         1L,
         new ArrayList<>(),
@@ -43,11 +48,29 @@ public class SearchPathAggregate {
       List<SearchPathPoint> points,
       List<PathExcludedPoint> excludedPoints,
       List<SearchPathSegment> segments) {
+    this(id, dutyShiftId, incidentId, opId, policePhoneId, null, null, status, version, points, excludedPoints, segments);
+  }
+
+  SearchPathAggregate(
+      UUID id,
+      UUID dutyShiftId,
+      UUID incidentId,
+      UUID opId,
+      UUID policePhoneId,
+      Instant startedAt,
+      Instant endedAt,
+      SearchPathStatus status,
+      long version,
+      List<SearchPathPoint> points,
+      List<PathExcludedPoint> excludedPoints,
+      List<SearchPathSegment> segments) {
     this.id = id;
     this.dutyShiftId = dutyShiftId;
     this.incidentId = incidentId;
     this.opId = opId;
     this.policePhoneId = policePhoneId;
+    this.startedAt = startedAt;
+    this.endedAt = endedAt;
     this.status = status;
     this.version = version;
     this.points = new ArrayList<>(points);
@@ -79,6 +102,17 @@ public class SearchPathAggregate {
     return status;
   }
 
+  public Instant startedAt() {
+    if (startedAt != null) {
+      return startedAt;
+    }
+    return points.stream().map(SearchPathPoint::clientTs).findFirst().map(OffsetDateTime::toInstant).orElse(null);
+  }
+
+  public Instant endedAt() {
+    return endedAt;
+  }
+
   public long version() {
     return version;
   }
@@ -96,6 +130,9 @@ public class SearchPathAggregate {
   }
 
   public void appendAcceptedPoints(List<SearchPathPoint> acceptedPoints) {
+    if (startedAt == null && !acceptedPoints.isEmpty()) {
+      startedAt = acceptedPoints.get(0).clientTs().toInstant();
+    }
     points.addAll(acceptedPoints);
   }
 

@@ -3,7 +3,13 @@ import type maplibregl from 'maplibre-gl';
 import type { LngLatBoundsLike } from 'maplibre-gl';
 import { MapControls } from '../../../../../shared/ui';
 import type { CompletedAreaDraft } from '../../../../../shared/model/areaDraft';
-import type { LegendItem, MovementPath, RecentMarker, SearchAreaTreeNode } from '../../constants/mockSituationBoard';
+import type {
+  LegendItem,
+  MovementPath,
+  OperationalPeriod,
+  RecentMarker,
+  SearchAreaTreeNode,
+} from '../../constants/mockSituationBoard';
 import { MapLegend } from './MapLegend';
 import { SearchMapCanvas, type InitialMapState, type LayerVisibility } from './SearchMapCanvas';
 import type { AreaEditMapCanvasProps } from '../../../../areaEdit/presentation/components/AreaEditMapCanvas';
@@ -22,6 +28,7 @@ type DashboardMapShellProps = {
   layerVisibility: LayerVisibility;
   movementPaths: MovementPath[];
   recentMarkers: RecentMarker[];
+  operationalPeriods: OperationalPeriod[];
   focusedMarkerId: string | null;
   focusedMarkerSequence: number;
   focusedSearchAreaId: string | null;
@@ -49,6 +56,7 @@ export function DashboardMapShell({
   layerVisibility,
   movementPaths,
   recentMarkers,
+  operationalPeriods,
   focusedMarkerId,
   focusedMarkerSequence,
   focusedSearchAreaId,
@@ -68,6 +76,7 @@ export function DashboardMapShell({
 }: DashboardMapShellProps) {
   const mapRef = useRef<maplibregl.Map | null>(null);
   const initialBoundsRef = useRef<LngLatBoundsLike | null>(null);
+  const hasHandoverWorkspace = Boolean(handoverMapProps);
 
   const handleMapReady = useCallback((map: maplibregl.Map | null) => {
     mapRef.current = map;
@@ -115,11 +124,14 @@ export function DashboardMapShell({
     };
   }, [isMapExpanded]);
 
+  const canvasShellClassName = `${styles.canvasShell}${handoverMapProps ? ` ${styles.handoverCanvasShell}` : ''}`;
+
   return (
     <div className={styles.layout}>
-      <div className={styles.canvasShell}>
+      <div className={canvasShellClassName}>
         <MapControls
           canFitIncidentSearchArea={!isTerminalBoard}
+          className={hasHandoverWorkspace ? styles.rightPanelAwareControl : undefined}
           isMapExpanded={isMapExpanded}
           onFitIncidentSearchArea={handleFitIncidentSearchArea}
           onToggleMapExpanded={onToggleMapExpanded}
@@ -132,6 +144,7 @@ export function DashboardMapShell({
           layerVisibility={layerVisibility}
           movementPaths={movementPaths}
           recentMarkers={recentMarkers}
+          operationalPeriods={operationalPeriods}
           focusedMarkerId={focusedMarkerId}
           focusedMarkerSequence={focusedMarkerSequence}
           focusedSearchAreaId={focusedSearchAreaId}
@@ -150,7 +163,12 @@ export function DashboardMapShell({
           onOpenSearchAreaSplit={onOpenSearchAreaSplit}
           onSelectSearchArea={onSelectSearchArea}
         />
-        {isTerminalBoard ? null : <MapLegend legendItems={legendItems} />}
+        {isTerminalBoard ? null : (
+          <MapLegend
+            className={hasHandoverWorkspace ? styles.rightPanelAwareLegend : undefined}
+            legendItems={legendItems}
+          />
+        )}
       </div>
     </div>
   );

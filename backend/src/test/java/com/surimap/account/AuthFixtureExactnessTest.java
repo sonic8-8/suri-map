@@ -24,6 +24,18 @@ import org.junit.jupiter.api.Test;
 class AuthFixtureExactnessTest {
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  private static final Set<String> REQUIRED_KEYCLOAK_USER_ATTRIBUTE_CLAIMS =
+      Set.of(
+          "accountId",
+          "accountCode",
+          "personName",
+          "displayName",
+          "accountType",
+          "organizationType",
+          "organizationCode",
+          "organizationName",
+          "rankCode",
+          "rankName");
 
   @Test
   @DisplayName("account and policePhone fixture IDs stay UUID while harness codes stay aliases")
@@ -118,8 +130,9 @@ class AuthFixtureExactnessTest {
   }
 
   @Test
-  @DisplayName("Keycloak demo realm users match auth account and policePhone fixtures")
-  void keycloak_demo_realm_users_match_auth_account_and_policePhone_fixtures() throws IOException {
+  @DisplayName("Keycloak demo realm users expose account identity claims without policePhone claims")
+  void keycloak_demo_realm_users_expose_account_identity_claims_without_policePhone_claims()
+      throws IOException {
     JsonNode realm =
         readJson(Path.of("..", "infra", "docker", "keycloak", "import", "suri-map-realm.json"));
     Map<String, JsonNode> usersByUsername =
@@ -135,13 +148,31 @@ class AuthFixtureExactnessTest {
     for (AccountFixture fixture : AccountPolicePhoneFixtures.accountsIncludingUnassigned()) {
       JsonNode user = usersByUsername.get(fixture.accountCode());
       assertThat(attribute(user, "accountId")).isEqualTo(fixture.id().toString());
+      assertThat(attribute(user, "accountCode")).isEqualTo(fixture.accountCode());
+      assertThat(attribute(user, "personName")).isEqualTo(personName(fixture.accountCode()));
+      assertThat(attribute(user, "displayName")).isEqualTo(displayName(fixture));
       assertThat(attribute(user, "accountType")).isEqualTo(fixture.accountType().name());
       assertThat(attribute(user, "organizationType")).isEqualTo(fixture.organizationType().name());
-      assertThat(attribute(user, "policePhoneId")).isEqualTo(fixture.policePhoneId().toString());
-      assertThat(attribute(user, "policePhoneCode")).isEqualTo(fixture.policePhoneCode());
-      assertThat(textSet(user.path("realmRoles")))
-          .containsExactlyInAnyOrderElementsOf(
-              fixture.roles().stream().map(Role::name).collect(Collectors.toSet()));
+      assertThat(attribute(user, "organizationCode")).isEqualTo(organizationCode(fixture));
+      assertThat(attribute(user, "organizationName")).isEqualTo(organizationName(fixture));
+      assertThat(attribute(user, "rankCode")).isEqualTo(rankCode(fixture.accountCode()));
+      assertThat(attribute(user, "rankName")).isEqualTo(rankName(fixture.accountCode()));
+      assertThat(user.has("realmRoles")).isFalse();
+      assertThat(user.path("attributes").has("policePhoneId")).isFalse();
+      assertThat(user.path("attributes").has("policePhoneCode")).isFalse();
+      assertThat(user.path("attributes").has("dutyPositionCode")).isFalse();
+      assertThat(user.path("attributes").has("dutyPositionName")).isFalse();
+    }
+
+    for (String clientId : Set.of("suri-map-web", "suri-map-android", "suri-map-mock112")) {
+      JsonNode client =
+          iterable(realm.path("clients")).stream()
+              .filter(candidate -> text(candidate, "clientId").equals(clientId))
+              .findFirst()
+              .orElseThrow();
+      assertThat(protocolMapperNames(client))
+          .containsAll(REQUIRED_KEYCLOAK_USER_ATTRIBUTE_CLAIMS)
+          .doesNotContain("policePhoneId", "policePhoneCode", "dutyPositionCode", "dutyPositionName");
     }
   }
 
@@ -202,8 +233,69 @@ class AuthFixtureExactnessTest {
     return values.get(0).asText();
   }
 
-  private static Set<String> textSet(JsonNode node) {
-    assertThat(node.isArray()).isTrue();
-    return iterable(node).stream().map(JsonNode::asText).collect(Collectors.toSet());
+  private static Set<String> protocolMapperNames(JsonNode client) {
+    return iterable(client.path("protocolMappers")).stream()
+        .map(mapper -> text(mapper, "name"))
+        .collect(Collectors.toSet());
   }
+
+  private static String personName(String accountCode) {
+    return switch (accountCode) {
+      case "acct-precinct-cmd" -> "김도현";
+      case "acct-precinct-car" -> "박민수";
+      case "acct-precinct-team" -> "이준호";
+      case "acct-cmd-alpha" -> "정서윤";
+      case "acct-team-alpha" -> "최지훈";
+      case "acct-support-cmd" -> "강현우";
+      case "acct-support-car" -> "윤태영";
+      case "acct-support-team" -> "오민재";
+      case "acct-unassigned-phone" -> "한지민";
+      default -> throw new IllegalArgumentException("unknown accountCode: " + accountCode);
+    };
+  }
+
+  private static String displayName(AccountFixture fixture) {
+    return organizationName(fixture)
+        + " "
+        + rankName(fixture.accountCode())
+        + " "
+        + personName(fixture.accountCode());
+  }
+
+  private static String organizationCode(AccountFixture fixture) {
+    return switch (fixture.organizationType()) {
+      case POLICE_SUBSTATION -> "GWANGJU_GWANGSAN_SUWAN_PATROL_DIVISION";
+      case MISSING_TEAM -> "GWANGJU_POLICE_WOMEN_JUVENILE_MISSING_TEAM";
+      case SUPPORT_UNIT -> "GWANGJU_POLICE_MOBILE_UNIT";
+    };
+  }
+
+  private static String organizationName(AccountFixture fixture) {
+    return switch (fixture.organizationType()) {
+      case POLICE_SUBSTATION -> "광주광산경찰서 수완지구대";
+      case MISSING_TEAM -> "광주경찰청 여성청소년과 실종팀";
+      case SUPPORT_UNIT -> "광주경찰청 기동대";
+    };
+  }
+
+  private static String rankCode(String accountCode) {
+    return switch (accountCode) {
+      case "acct-cmd-alpha" -> "SENIOR_INSPECTOR";
+      case "acct-precinct-cmd", "acct-support-cmd" -> "INSPECTOR";
+      case "acct-precinct-car", "acct-team-alpha", "acct-support-car" -> "SERGEANT";
+      case "acct-precinct-team", "acct-support-team", "acct-unassigned-phone" -> "POLICE_OFFICER";
+      default -> throw new IllegalArgumentException("unknown accountCode: " + accountCode);
+    };
+  }
+
+  private static String rankName(String accountCode) {
+    return switch (rankCode(accountCode)) {
+      case "SENIOR_INSPECTOR" -> "경감";
+      case "INSPECTOR" -> "경위";
+      case "SERGEANT" -> "경사";
+      case "POLICE_OFFICER" -> "순경";
+      default -> throw new IllegalArgumentException("unknown rank for accountCode: " + accountCode);
+    };
+  }
+
 }

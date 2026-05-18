@@ -36,8 +36,8 @@ class RuntimePhotoWriteGuardAdapterTest {
       new RuntimePhotoWriteGuardAdapter(markerRepository, guardMapper);
 
   @Test
-  @DisplayName("APP 배정 단말은 current OP marker의 upload-url 권한을 얻는다")
-  void assignedAppPolicePhoneCanRequestUploadUrlForCurrentOpMarker() {
+  @DisplayName("APP 배정 계정과 등록 단말은 current OP marker의 upload-url 권한을 얻는다")
+  void assignedAppAccountWithRegisteredPolicePhoneCanRequestUploadUrlForCurrentOpMarker() {
     markerRepository.marker = activeMarker();
     guardMapper.currentOpId = OP_ID;
 
@@ -45,8 +45,7 @@ class RuntimePhotoWriteGuardAdapterTest {
 
     assertThat(context)
         .isEqualTo(
-            new PhotoMarkerContext(
-                INCIDENT_ID, MARKER_ID, OP_ID, POLICE_PHONE_ID, "ACTIVE", 1L));
+            new PhotoMarkerContext(INCIDENT_ID, MARKER_ID, OP_ID, POLICE_PHONE_ID, "ACTIVE", 1L));
   }
 
   @Test
@@ -62,16 +61,16 @@ class RuntimePhotoWriteGuardAdapterTest {
   }
 
   @Test
-  @DisplayName("사건에 배정되지 않은 PolicePhone은 photo attach가 거부된다")
-  void unassignedPolicePhoneCannotAttachPhoto() {
+  @DisplayName("등록되지 않은 PolicePhone은 photo attach가 거부된다")
+  void unregisteredPolicePhoneCannotAttachPhoto() {
     markerRepository.marker = activeMarker();
     guardMapper.currentOpId = OP_ID;
-    guardMapper.policePhoneAssignedToIncidentCount = 0;
+    guardMapper.registeredPolicePhoneCount = 0;
 
     assertThatThrownBy(() -> adapter.requireAttachAccess(MARKER_ID, PHOTO_ID, requestContext()))
         .isInstanceOf(PhotoApiException.class)
         .extracting("error")
-        .isEqualTo("police_phone_not_assigned");
+        .isEqualTo("police_phone_not_registered");
   }
 
   private static PhotoRequestContext requestContext() {
@@ -132,8 +131,7 @@ class RuntimePhotoWriteGuardAdapterTest {
     private UUID currentOpId = OP_ID;
     private int activeAssignmentsByAccountCount = 1;
     private int activeIncidentAssignmentCount = 1;
-    private int registeredPolicePhoneForAccountCount = 1;
-    private int policePhoneAssignedToIncidentCount = 1;
+    private int registeredPolicePhoneCount = 1;
 
     @Override
     public Optional<String> findIncidentStatus(UUID incidentId) {
@@ -156,13 +154,8 @@ class RuntimePhotoWriteGuardAdapterTest {
     }
 
     @Override
-    public int countRegisteredPolicePhoneForAccount(UUID policePhoneId, UUID accountId) {
-      return registeredPolicePhoneForAccountCount;
-    }
-
-    @Override
-    public int countPolicePhoneAssignmentToIncident(UUID policePhoneId, UUID incidentId) {
-      return policePhoneAssignedToIncidentCount;
+    public int countRegisteredPolicePhone(UUID policePhoneId) {
+      return registeredPolicePhoneCount;
     }
   }
 }

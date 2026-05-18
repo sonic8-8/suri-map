@@ -161,7 +161,7 @@ export function useSituationBoardData(
       searchAreaDrafts,
       movementPaths,
       recentMarkers: apiRecentMarkers,
-      legendItems: createLegendItems(fallbackBoard.legendItems, movementPaths),
+      legendItems: createLegendItems(fallbackBoard.legendItems),
     };
   }, [apiBoard, fallbackBoard, savedAreaDrafts]);
 
@@ -215,6 +215,7 @@ const CRITICAL_BOARD_SLOTS: readonly BoardSlotName[] = [
   'overall_search_area',
   'area',
   'path',
+  'marker',
   'police_phone_freshness',
   'op_toggle',
   'op_history',

@@ -1,6 +1,7 @@
 package com.mock112.seed;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -97,5 +98,33 @@ class PrecinctFirstScenarioSeedTest {
                 .allSatisfy(assignment -> assertThat(assignment.hasNonNull("accountCode")).isTrue());
         assertThat(assignments)
                 .allSatisfy(assignment -> assertThat(assignment.has("accountId")).isFalse());
+    }
+
+    @Test
+    @DisplayName("대표 시나리오 중복 적재 오류는 IllegalArgumentException으로 유지한다")
+    void duplicatePrecinctFirstScenarioKeepsDomainError() {
+        SeedDataLoader loader = new SeedDataLoader();
+        InMemoryIncidentStore store = new InMemoryIncidentStore();
+
+        loader.loadPrecinctFirstScenario(store);
+
+        assertThatThrownBy(() -> loader.loadPrecinctFirstScenario(store))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("sourceIncidentId already exists");
+    }
+
+    @Test
+    @DisplayName("없는 사건의 인계/지원 배정 오류는 IllegalArgumentException으로 유지한다")
+    void missingIncidentAssignmentKeepsDomainError() {
+        SeedDataLoader loader = new SeedDataLoader();
+        InMemoryIncidentStore store = new InMemoryIncidentStore();
+        String missingSourceIncidentId = "00000000-0000-0000-0000-000000009999";
+
+        assertThatThrownBy(() -> loader.loadHandoverAssignments(store, missingSourceIncidentId))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Incident not found");
+        assertThatThrownBy(() -> loader.loadSupportAssignments(store, missingSourceIncidentId))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Incident not found");
     }
 }

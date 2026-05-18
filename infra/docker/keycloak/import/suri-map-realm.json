@@ -3,25 +3,14 @@
   "displayName": "Suri-Map",
   "loginTheme": "suri-map",
   "enabled": true,
+  "accessTokenLifespan": 7200,
+  "ssoSessionIdleTimeout": 28800,
+  "ssoSessionMaxLifespan": 43200,
+  "clientSessionIdleTimeout": 28800,
+  "clientSessionMaxLifespan": 43200,
   "registrationAllowed": false,
   "resetPasswordAllowed": false,
   "loginWithEmailAllowed": false,
-  "roles": {
-    "realm": [
-      {
-        "name": "MISSING_TEAM_COMMANDER",
-        "description": "Missing team command account"
-      },
-      {
-        "name": "FIELD_COMMANDER",
-        "description": "Field command account"
-      },
-      {
-        "name": "MEMBER",
-        "description": "Field member account"
-      }
-    ]
-  },
   "clients": [
     {
       "clientId": "suri-map-web",
@@ -67,6 +56,51 @@
           }
         },
         {
+          "name": "accountCode",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "accountCode",
+            "claim.name": "accountCode",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "false"
+          }
+        },
+        {
+          "name": "personName",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "personName",
+            "claim.name": "personName",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "false"
+          }
+        },
+        {
+          "name": "displayName",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "displayName",
+            "claim.name": "displayName",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "false"
+          }
+        },
+        {
           "name": "accountType",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-usermodel-attribute-mapper",
@@ -97,13 +131,13 @@
           }
         },
         {
-          "name": "policePhoneId",
+          "name": "organizationCode",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-usermodel-attribute-mapper",
           "consentRequired": false,
           "config": {
-            "user.attribute": "policePhoneId",
-            "claim.name": "policePhoneId",
+            "user.attribute": "organizationCode",
+            "claim.name": "organizationCode",
             "jsonType.label": "String",
             "id.token.claim": "true",
             "access.token.claim": "true",
@@ -112,13 +146,43 @@
           }
         },
         {
-          "name": "policePhoneCode",
+          "name": "organizationName",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-usermodel-attribute-mapper",
           "consentRequired": false,
           "config": {
-            "user.attribute": "policePhoneCode",
-            "claim.name": "policePhoneCode",
+            "user.attribute": "organizationName",
+            "claim.name": "organizationName",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "false"
+          }
+        },
+        {
+          "name": "rankCode",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "rankCode",
+            "claim.name": "rankCode",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "false"
+          }
+        },
+        {
+          "name": "rankName",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "rankName",
+            "claim.name": "rankName",
             "jsonType.label": "String",
             "id.token.claim": "true",
             "access.token.claim": "true",
@@ -163,6 +227,51 @@
           }
         },
         {
+          "name": "accountCode",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "accountCode",
+            "claim.name": "accountCode",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "false"
+          }
+        },
+        {
+          "name": "personName",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "personName",
+            "claim.name": "personName",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "false"
+          }
+        },
+        {
+          "name": "displayName",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "displayName",
+            "claim.name": "displayName",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "false"
+          }
+        },
+        {
           "name": "accountType",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-usermodel-attribute-mapper",
@@ -193,13 +302,13 @@
           }
         },
         {
-          "name": "policePhoneId",
+          "name": "organizationCode",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-usermodel-attribute-mapper",
           "consentRequired": false,
           "config": {
-            "user.attribute": "policePhoneId",
-            "claim.name": "policePhoneId",
+            "user.attribute": "organizationCode",
+            "claim.name": "organizationCode",
             "jsonType.label": "String",
             "id.token.claim": "true",
             "access.token.claim": "true",
@@ -208,13 +317,43 @@
           }
         },
         {
-          "name": "policePhoneCode",
+          "name": "organizationName",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-usermodel-attribute-mapper",
           "consentRequired": false,
           "config": {
-            "user.attribute": "policePhoneCode",
-            "claim.name": "policePhoneCode",
+            "user.attribute": "organizationName",
+            "claim.name": "organizationName",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "false"
+          }
+        },
+        {
+          "name": "rankCode",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "rankCode",
+            "claim.name": "rankCode",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "false"
+          }
+        },
+        {
+          "name": "rankName",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "rankName",
+            "claim.name": "rankName",
             "jsonType.label": "String",
             "id.token.claim": "true",
             "access.token.claim": "true",
@@ -245,6 +384,158 @@
         "https://k14c106.p.ssafy.io",
         "http://localhost:18112",
         "http://127.0.0.1:18112"
+      ],
+      "protocolMappers": [
+        {
+          "name": "accountId",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "accountId",
+            "claim.name": "accountId",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "false"
+          }
+        },
+        {
+          "name": "accountCode",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "accountCode",
+            "claim.name": "accountCode",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "false"
+          }
+        },
+        {
+          "name": "personName",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "personName",
+            "claim.name": "personName",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "false"
+          }
+        },
+        {
+          "name": "displayName",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "displayName",
+            "claim.name": "displayName",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "false"
+          }
+        },
+        {
+          "name": "accountType",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "accountType",
+            "claim.name": "accountType",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "false"
+          }
+        },
+        {
+          "name": "organizationType",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "organizationType",
+            "claim.name": "organizationType",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "false"
+          }
+        },
+        {
+          "name": "organizationCode",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "organizationCode",
+            "claim.name": "organizationCode",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "false"
+          }
+        },
+        {
+          "name": "organizationName",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "organizationName",
+            "claim.name": "organizationName",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "false"
+          }
+        },
+        {
+          "name": "rankCode",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "rankCode",
+            "claim.name": "rankCode",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "false"
+          }
+        },
+        {
+          "name": "rankName",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "rankName",
+            "claim.name": "rankName",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "false"
+          }
+        }
       ]
     }
   ],
@@ -254,17 +545,14 @@
       "enabled": true,
       "email": "acct-precinct-cmd@suri-map.local",
       "emailVerified": true,
-      "firstName": "Precinct",
-      "lastName": "Command",
+      "firstName": "김도현",
+      "lastName": "",
       "credentials": [
         {
           "type": "password",
           "value": "fixture",
           "temporary": false
         }
-      ],
-      "realmRoles": [
-        "FIELD_COMMANDER"
       ],
       "attributes": {
         "accountId": [
@@ -276,11 +564,26 @@
         "organizationType": [
           "POLICE_SUBSTATION"
         ],
-        "policePhoneId": [
-          "00000000-0000-0000-0000-000000000201"
+        "accountCode": [
+          "acct-precinct-cmd"
         ],
-        "policePhoneCode": [
-          "dev-precinct-cmd-phone-01"
+        "organizationName": [
+          "광주광산경찰서 수완지구대"
+        ],
+        "organizationCode": [
+          "GWANGJU_GWANGSAN_SUWAN_PATROL_DIVISION"
+        ],
+        "rankCode": [
+          "INSPECTOR"
+        ],
+        "rankName": [
+          "경위"
+        ],
+        "personName": [
+          "김도현"
+        ],
+        "displayName": [
+          "광주광산경찰서 수완지구대 경위 김도현"
         ]
       }
     },
@@ -289,17 +592,14 @@
       "enabled": true,
       "email": "acct-precinct-car@suri-map.local",
       "emailVerified": true,
-      "firstName": "Precinct",
-      "lastName": "Patrol",
+      "firstName": "박민수",
+      "lastName": "",
       "credentials": [
         {
           "type": "password",
           "value": "fixture",
           "temporary": false
         }
-      ],
-      "realmRoles": [
-        "MEMBER"
       ],
       "attributes": {
         "accountId": [
@@ -311,11 +611,26 @@
         "organizationType": [
           "POLICE_SUBSTATION"
         ],
-        "policePhoneId": [
-          "50000000-0000-0000-0000-000000000001"
+        "accountCode": [
+          "acct-precinct-car"
         ],
-        "policePhoneCode": [
-          "dev-precinct-car-01"
+        "organizationName": [
+          "광주광산경찰서 수완지구대"
+        ],
+        "organizationCode": [
+          "GWANGJU_GWANGSAN_SUWAN_PATROL_DIVISION"
+        ],
+        "rankCode": [
+          "SERGEANT"
+        ],
+        "rankName": [
+          "경사"
+        ],
+        "personName": [
+          "박민수"
+        ],
+        "displayName": [
+          "광주광산경찰서 수완지구대 경사 박민수"
         ]
       }
     },
@@ -324,17 +639,14 @@
       "enabled": true,
       "email": "acct-precinct-team@suri-map.local",
       "emailVerified": true,
-      "firstName": "Precinct",
-      "lastName": "Team",
+      "firstName": "이준호",
+      "lastName": "",
       "credentials": [
         {
           "type": "password",
           "value": "fixture",
           "temporary": false
         }
-      ],
-      "realmRoles": [
-        "MEMBER"
       ],
       "attributes": {
         "accountId": [
@@ -346,11 +658,26 @@
         "organizationType": [
           "POLICE_SUBSTATION"
         ],
-        "policePhoneId": [
-          "00000000-0000-0000-0000-000000000101"
+        "accountCode": [
+          "acct-precinct-team"
         ],
-        "policePhoneCode": [
-          "dev-precinct-phone-01"
+        "organizationName": [
+          "광주광산경찰서 수완지구대"
+        ],
+        "organizationCode": [
+          "GWANGJU_GWANGSAN_SUWAN_PATROL_DIVISION"
+        ],
+        "rankCode": [
+          "POLICE_OFFICER"
+        ],
+        "rankName": [
+          "순경"
+        ],
+        "personName": [
+          "이준호"
+        ],
+        "displayName": [
+          "광주광산경찰서 수완지구대 순경 이준호"
         ]
       }
     },
@@ -359,18 +686,14 @@
       "enabled": true,
       "email": "acct-cmd-alpha@suri-map.local",
       "emailVerified": true,
-      "firstName": "Alpha",
-      "lastName": "Command",
+      "firstName": "정서윤",
+      "lastName": "",
       "credentials": [
         {
           "type": "password",
           "value": "fixture",
           "temporary": false
         }
-      ],
-      "realmRoles": [
-        "MISSING_TEAM_COMMANDER",
-        "FIELD_COMMANDER"
       ],
       "attributes": {
         "accountId": [
@@ -382,11 +705,26 @@
         "organizationType": [
           "MISSING_TEAM"
         ],
-        "policePhoneId": [
-          "00000000-0000-0000-0000-000000000204"
+        "accountCode": [
+          "acct-cmd-alpha"
         ],
-        "policePhoneCode": [
-          "dev-alpha-cmd-phone-01"
+        "organizationName": [
+          "광주경찰청 여성청소년과 실종팀"
+        ],
+        "organizationCode": [
+          "GWANGJU_POLICE_WOMEN_JUVENILE_MISSING_TEAM"
+        ],
+        "rankCode": [
+          "SENIOR_INSPECTOR"
+        ],
+        "rankName": [
+          "경감"
+        ],
+        "personName": [
+          "정서윤"
+        ],
+        "displayName": [
+          "광주경찰청 여성청소년과 실종팀 경감 정서윤"
         ]
       }
     },
@@ -395,17 +733,14 @@
       "enabled": true,
       "email": "acct-team-alpha@suri-map.local",
       "emailVerified": true,
-      "firstName": "Alpha",
-      "lastName": "Team",
+      "firstName": "최지훈",
+      "lastName": "",
       "credentials": [
         {
           "type": "password",
           "value": "fixture",
           "temporary": false
         }
-      ],
-      "realmRoles": [
-        "MEMBER"
       ],
       "attributes": {
         "accountId": [
@@ -417,11 +752,26 @@
         "organizationType": [
           "MISSING_TEAM"
         ],
-        "policePhoneId": [
-          "00000000-0000-0000-0000-000000000205"
+        "accountCode": [
+          "acct-team-alpha"
         ],
-        "policePhoneCode": [
-          "dev-alpha-phone-01"
+        "organizationName": [
+          "광주경찰청 여성청소년과 실종팀"
+        ],
+        "organizationCode": [
+          "GWANGJU_POLICE_WOMEN_JUVENILE_MISSING_TEAM"
+        ],
+        "rankCode": [
+          "SERGEANT"
+        ],
+        "rankName": [
+          "경사"
+        ],
+        "personName": [
+          "최지훈"
+        ],
+        "displayName": [
+          "광주경찰청 여성청소년과 실종팀 경사 최지훈"
         ]
       }
     },
@@ -430,17 +780,14 @@
       "enabled": true,
       "email": "acct-support-cmd@suri-map.local",
       "emailVerified": true,
-      "firstName": "Support",
-      "lastName": "Command",
+      "firstName": "강현우",
+      "lastName": "",
       "credentials": [
         {
           "type": "password",
           "value": "fixture",
           "temporary": false
         }
-      ],
-      "realmRoles": [
-        "FIELD_COMMANDER"
       ],
       "attributes": {
         "accountId": [
@@ -452,11 +799,26 @@
         "organizationType": [
           "SUPPORT_UNIT"
         ],
-        "policePhoneId": [
-          "00000000-0000-0000-0000-000000000206"
+        "accountCode": [
+          "acct-support-cmd"
         ],
-        "policePhoneCode": [
-          "dev-support-cmd-phone-01"
+        "organizationName": [
+          "광주경찰청 기동대"
+        ],
+        "organizationCode": [
+          "GWANGJU_POLICE_MOBILE_UNIT"
+        ],
+        "rankCode": [
+          "INSPECTOR"
+        ],
+        "rankName": [
+          "경위"
+        ],
+        "personName": [
+          "강현우"
+        ],
+        "displayName": [
+          "광주경찰청 기동대 경위 강현우"
         ]
       }
     },
@@ -465,17 +827,14 @@
       "enabled": true,
       "email": "acct-support-car@suri-map.local",
       "emailVerified": true,
-      "firstName": "Support",
-      "lastName": "Patrol",
+      "firstName": "윤태영",
+      "lastName": "",
       "credentials": [
         {
           "type": "password",
           "value": "fixture",
           "temporary": false
         }
-      ],
-      "realmRoles": [
-        "MEMBER"
       ],
       "attributes": {
         "accountId": [
@@ -487,11 +846,26 @@
         "organizationType": [
           "SUPPORT_UNIT"
         ],
-        "policePhoneId": [
-          "00000000-0000-0000-0000-000000000207"
+        "accountCode": [
+          "acct-support-car"
         ],
-        "policePhoneCode": [
-          "dev-support-car-01"
+        "organizationName": [
+          "광주경찰청 기동대"
+        ],
+        "organizationCode": [
+          "GWANGJU_POLICE_MOBILE_UNIT"
+        ],
+        "rankCode": [
+          "SERGEANT"
+        ],
+        "rankName": [
+          "경사"
+        ],
+        "personName": [
+          "윤태영"
+        ],
+        "displayName": [
+          "광주경찰청 기동대 경사 윤태영"
         ]
       }
     },
@@ -500,17 +874,14 @@
       "enabled": true,
       "email": "acct-support-team@suri-map.local",
       "emailVerified": true,
-      "firstName": "Support",
-      "lastName": "Team",
+      "firstName": "오민재",
+      "lastName": "",
       "credentials": [
         {
           "type": "password",
           "value": "fixture",
           "temporary": false
         }
-      ],
-      "realmRoles": [
-        "MEMBER"
       ],
       "attributes": {
         "accountId": [
@@ -522,11 +893,26 @@
         "organizationType": [
           "SUPPORT_UNIT"
         ],
-        "policePhoneId": [
-          "00000000-0000-0000-0000-000000000208"
+        "accountCode": [
+          "acct-support-team"
         ],
-        "policePhoneCode": [
-          "dev-support-phone-01"
+        "organizationName": [
+          "광주경찰청 기동대"
+        ],
+        "organizationCode": [
+          "GWANGJU_POLICE_MOBILE_UNIT"
+        ],
+        "rankCode": [
+          "POLICE_OFFICER"
+        ],
+        "rankName": [
+          "순경"
+        ],
+        "personName": [
+          "오민재"
+        ],
+        "displayName": [
+          "광주경찰청 기동대 순경 오민재"
         ]
       }
     },
@@ -535,17 +921,14 @@
       "enabled": true,
       "email": "acct-unassigned-phone@suri-map.local",
       "emailVerified": true,
-      "firstName": "Unassigned",
-      "lastName": "Phone",
+      "firstName": "한지민",
+      "lastName": "",
       "credentials": [
         {
           "type": "password",
           "value": "fixture",
           "temporary": false
         }
-      ],
-      "realmRoles": [
-        "MEMBER"
       ],
       "attributes": {
         "accountId": [
@@ -557,11 +940,26 @@
         "organizationType": [
           "POLICE_SUBSTATION"
         ],
-        "policePhoneId": [
-          "00000000-0000-0000-0000-000000000301"
+        "accountCode": [
+          "acct-unassigned-phone"
         ],
-        "policePhoneCode": [
-          "dev-unassigned-phone-01"
+        "organizationName": [
+          "광주광산경찰서 수완지구대"
+        ],
+        "organizationCode": [
+          "GWANGJU_GWANGSAN_SUWAN_PATROL_DIVISION"
+        ],
+        "rankCode": [
+          "POLICE_OFFICER"
+        ],
+        "rankName": [
+          "순경"
+        ],
+        "personName": [
+          "한지민"
+        ],
+        "displayName": [
+          "광주광산경찰서 수완지구대 순경 한지민"
         ]
       }
     }

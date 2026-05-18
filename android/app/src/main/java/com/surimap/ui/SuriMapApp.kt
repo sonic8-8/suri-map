@@ -4,11 +4,13 @@ import android.Manifest
 import android.app.Activity
 import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
@@ -38,6 +40,7 @@ import androidx.work.WorkManager
 import com.surimap.BuildConfig
 import com.surimap.core.database.OfflinePackageInstallationEntity
 import com.surimap.core.database.OfflinePackageItemStatusEntity
+import com.surimap.core.auth.OidcSessionStateStore
 import com.surimap.core.database.SuriMapDatabaseProvider
 import com.surimap.core.fcm.FcmRegistrationCoordinator
 import com.surimap.core.fcm.FcmTokenProvider
@@ -144,9 +147,11 @@ import com.surimap.feature.search.data.SearchPathWriteResult
 import com.surimap.feature.search.data.SearchRecordingSessionState
 import com.surimap.feature.search.ui.SearchLayerKind
 import com.surimap.feature.search.ui.SearchLifecycleStatus
+import com.surimap.feature.search.ui.SearchMapLayerUiState
 import com.surimap.feature.search.ui.SearchMapScreen
 import com.surimap.feature.search.ui.SearchMapUiState
 import com.surimap.feature.search.ui.SearchMapViewportBounds
+import com.surimap.feature.showcase.ui.ShowcaseScreen
 import com.surimap.ui.navigation.IncidentContext
 import com.surimap.ui.navigation.IncidentSessionState
 import com.surimap.ui.navigation.MarkerDetailDeepLink
@@ -154,6 +159,7 @@ import com.surimap.ui.navigation.PolicePhoneContext
 import com.surimap.ui.navigation.PolicePhoneRoute
 import com.surimap.ui.navigation.SearchMapDeepLink
 import com.surimap.ui.navigation.accessTokenProvider
+import com.surimap.ui.session.SuriMapSessionSnapshotStore
 import com.surimap.ui.theme.PoliBgBase
 import java.io.File
 import java.util.UUID
@@ -162,22 +168,70 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 
+private const val AUTH_BOOTSTRAP_LOG_TAG = "AuthBootstrap"
+private const val ACCESS_TOKEN_REFRESH_SKEW_MS = 60_000L
+private const val ACCESS_TOKEN_REFRESH_FALLBACK_MS = 4 * 60 * 1_000L
+
 @Composable
 fun SuriMapApp() {
+    if (BuildConfig.SURI_MAP_DEBUG_SHOWCASE) {
+        ShowcaseScreen(modifier = Modifier.fillMaxSize())
+        return
+    }
+    val context = LocalContext.current.applicationContext
     val navController = rememberNavController()
     var assignmentRefreshNonce by remember { mutableStateOf(0) }
+    val sessionSnapshotStore = remember(context) { SuriMapSessionSnapshotStore(context) }
+    val oidcSessionStateStore = remember(context) { OidcSessionStateStore(context) }
+    var oidcAuthStateJson by remember(oidcSessionStateStore) {
+        mutableStateOf(oidcSessionStateStore.load())
+    }
+    val persistedOidcSession = remember(oidcAuthStateJson) {
+        AndroidOidcLoginClient.sessionFromAuthStateJson(oidcAuthStateJson)
+    }
+    val persistedSessionSnapshot = remember(sessionSnapshotStore) { sessionSnapshotStore.load() }
     val incidentSessionState =
         remember {
             IncidentSessionState(
-                initialIncidentContext = debugMapOnlyIncidentContext(),
-                initialPolicePhoneContext = debugMapOnlyPolicePhoneContext()
+                initialIncidentContext =
+                persistedSessionSnapshot?.toIncidentContext() ?: debugMapOnlyIncidentContext(),
+                initialPolicePhoneContext =
+                persistedSessionSnapshot?.toPolicePhoneContext(
+                    accessToken = persistedOidcSession?.accessToken,
+                    accessTokenExpiresAtEpochMs = persistedOidcSession?.accessTokenExpiresAtEpochMs
+                ) ?: debugMapOnlyPolicePhoneContext()
             )
         }
     val clockSyncState = remember { ClockSyncState() }
     var incidentClosed by remember { mutableStateOf<IncidentClosedOverlayState?>(null) }
     var blockedQueue by remember { mutableStateOf<BlockedQueueToastState?>(null) }
     var handoverMemoSaved by remember { mutableStateOf<HandoverMemoSavedToastState?>(null) }
+    var searchPathEnded by remember { mutableStateOf<SearchPathEndedToastState?>(null) }
 
+    LaunchedEffect(incidentSessionState.incidentContext, incidentSessionState.policePhoneContext) {
+        sessionSnapshotStore.save(
+            incidentContext = incidentSessionState.incidentContext,
+            policePhoneContext = incidentSessionState.policePhoneContext
+        )
+    }
+
+    OidcSessionRefreshEffect(
+        policePhoneContext = incidentSessionState.policePhoneContext,
+        authStateJson = oidcAuthStateJson,
+        onSessionRefreshed = { oidcSession ->
+            oidcSessionStateStore.save(oidcSession.authStateJson)
+            oidcAuthStateJson = oidcSession.authStateJson
+            incidentSessionState.policePhoneContext
+                ?.withOidcSession(oidcSession)
+                ?.let(incidentSessionState::activatePolicePhoneContext)
+        },
+        onSessionExpired = {
+            oidcSessionStateStore.clear()
+            oidcAuthStateJson = null
+            incidentSessionState.clearPolicePhoneContext()
+            navController.navigateToAuthBootstrapRoot()
+        }
+    )
     IncidentAssignmentRefreshEffect(onRefresh = { assignmentRefreshNonce += 1 })
     NotificationPermissionEffect()
 
@@ -187,7 +241,8 @@ fun SuriMapApp() {
             AppOverlayState(
                 incidentClosed = incidentClosed,
                 blockedQueue = blockedQueue,
-                handoverMemoSaved = handoverMemoSaved
+                handoverMemoSaved = handoverMemoSaved,
+                searchPathEnded = searchPathEnded
             ),
             onDismissIncidentClosed = {
                 incidentClosed = null
@@ -198,7 +253,8 @@ fun SuriMapApp() {
                 blockedQueue = null
                 navController.navigateToSingleTop(PolicePhoneRoute.BlockedOutbox)
             },
-            onDismissHandoverMemoSaved = { handoverMemoSaved = null }
+            onDismissHandoverMemoSaved = { handoverMemoSaved = null },
+            onDismissSearchPathEnded = { searchPathEnded = null }
         ) {
             FcmRegistrationEffect(policePhoneContext = incidentSessionState.policePhoneContext)
             NavHost(
@@ -210,7 +266,16 @@ fun SuriMapApp() {
                     AuthBootstrapRoute(
                         incidentSessionState = incidentSessionState,
                         navController = navController,
-                        assignmentRefreshNonce = assignmentRefreshNonce
+                        assignmentRefreshNonce = assignmentRefreshNonce,
+                        onOidcSessionChanged = { oidcSession ->
+                            if (oidcSession == null) {
+                                oidcSessionStateStore.clear()
+                                oidcAuthStateJson = null
+                            } else {
+                                oidcSessionStateStore.save(oidcSession.authStateJson)
+                                oidcAuthStateJson = oidcSession.authStateJson
+                            }
+                        }
                     )
                 }
                 composable(PolicePhoneRoute.IncidentList.route) {
@@ -248,6 +313,9 @@ fun SuriMapApp() {
                         clockSyncState = clockSyncState,
                         onOpenBlockedOutbox = {
                             blockedQueue = BlockedQueueToastState(blockedCount = 2)
+                        },
+                        onSearchPathEnded = { pendingSync ->
+                            searchPathEnded = SearchPathEndedToastState(pendingSync = pendingSync)
                         }
                     )
                 }
@@ -302,6 +370,54 @@ fun SuriMapApp() {
             }
         }
     }
+}
+
+@Composable
+private fun OidcSessionRefreshEffect(
+    policePhoneContext: PolicePhoneContext?,
+    authStateJson: String?,
+    onSessionRefreshed: (OidcLoginSession) -> Unit,
+    onSessionExpired: () -> Unit
+) {
+    val context = LocalContext.current.applicationContext
+    val oidcLoginClient = remember(context) { AndroidOidcLoginClient(context) }
+    val currentContext by rememberUpdatedState(policePhoneContext)
+    val currentOnSessionRefreshed by rememberUpdatedState(onSessionRefreshed)
+    val currentOnSessionExpired by rememberUpdatedState(onSessionExpired)
+
+    DisposableEffect(oidcLoginClient) {
+        onDispose { oidcLoginClient.dispose() }
+    }
+
+    LaunchedEffect(
+        oidcLoginClient,
+        policePhoneContext?.apiBaseUrl,
+        authStateJson,
+        policePhoneContext?.accessTokenExpiresAtEpochMs
+    ) {
+        while (true) {
+            val contextSnapshot = currentContext ?: return@LaunchedEffect
+            val stateJson = authStateJson?.takeIf(String::isNotBlank) ?: return@LaunchedEffect
+            delay(accessTokenRefreshDelayMs(contextSnapshot.accessTokenExpiresAtEpochMs))
+
+            if (currentContext == null) return@LaunchedEffect
+            val refreshedSession = oidcLoginClient.refresh(stateJson)
+            if (refreshedSession == null) {
+                currentOnSessionExpired()
+                return@LaunchedEffect
+            }
+            currentOnSessionRefreshed(refreshedSession)
+        }
+    }
+}
+
+private fun accessTokenRefreshDelayMs(accessTokenExpiresAtEpochMs: Long?): Long {
+    val now = System.currentTimeMillis()
+    val refreshAt =
+        accessTokenExpiresAtEpochMs
+            ?.minus(ACCESS_TOKEN_REFRESH_SKEW_MS)
+            ?: now + ACCESS_TOKEN_REFRESH_FALLBACK_MS
+    return (refreshAt - now).coerceAtLeast(0L)
 }
 
 @Composable
@@ -475,8 +591,7 @@ private fun BlockedOutboxRoute(
                     OutboxReplayWorkRequest(
                         incidentId = incidentId,
                         policePhoneId = row.policePhoneId,
-                        apiBaseUrl = apiBaseUrl,
-                        accessToken = policePhoneContext?.accessToken
+                        apiBaseUrl = apiBaseUrl
                     )
                 )
                 refreshNonce += 1
@@ -506,8 +621,7 @@ private fun HandoverSummaryRoute(
             SchedulingSyncClient(
                 delegate = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()),
                 scheduleReplay = outboxReplayScheduler::schedule,
-                apiBaseUrl = apiBaseUrl,
-                accessToken = policePhoneContext?.accessToken
+                apiBaseUrl = apiBaseUrl
             )
         }
     val dutyShiftRecorder = remember(syncClient, clockSyncState) {
@@ -607,12 +721,11 @@ private fun HandoverMemoRoute(
         OutboxReplayScheduler(WorkManager.getInstance(context))
     }
     val syncClient =
-        remember(database, outboxReplayScheduler, policePhoneContext?.apiBaseUrl, policePhoneContext?.accessToken) {
+        remember(database, outboxReplayScheduler, policePhoneContext?.apiBaseUrl) {
             SchedulingSyncClient(
                 delegate = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()),
                 scheduleReplay = outboxReplayScheduler::schedule,
-                apiBaseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL,
-                accessToken = policePhoneContext?.accessToken
+                apiBaseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
             )
         }
     val recorder = remember(syncClient, clockSyncState) {
@@ -675,7 +788,8 @@ private fun SearchMapRoute(
     navController: NavHostController,
     focusMarkerId: String? = null,
     clockSyncState: ClockSyncState,
-    onOpenBlockedOutbox: () -> Unit
+    onOpenBlockedOutbox: () -> Unit,
+    onSearchPathEnded: (pendingSync: Boolean) -> Unit
 ) {
     val incidentContext = incidentSessionState.incidentContext
     val policePhoneContext = incidentSessionState.policePhoneContext
@@ -688,12 +802,11 @@ private fun SearchMapRoute(
         OutboxReplayScheduler(WorkManager.getInstance(context))
     }
     val syncClient =
-        remember(database, outboxReplayScheduler, policePhoneContext?.apiBaseUrl, policePhoneContext?.accessToken) {
+        remember(database, outboxReplayScheduler, policePhoneContext?.apiBaseUrl) {
             SchedulingSyncClient(
                 delegate = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()),
                 scheduleReplay = outboxReplayScheduler::schedule,
-                apiBaseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL,
-                accessToken = policePhoneContext?.accessToken
+                apiBaseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
             )
         }
     val searchPathRecorder = remember(syncClient, clockSyncState) {
@@ -821,11 +934,11 @@ private fun SearchMapRoute(
     }
     var bottomPanelExpanded by remember { mutableStateOf(false) }
     var mapOverlaysVisible by remember { mutableStateOf(true) }
+    var latestLocationFix by remember { mutableStateOf<GpsLocationFix?>(null) }
     var markerSheetOpen by remember { mutableStateOf(false) }
     var markerSheetState by remember { mutableStateOf(MarkerCreateSheetUiState.default()) }
     var createPhotoUriById by remember { mutableStateOf<Map<String, Uri>>(emptyMap()) }
     var pendingCreateCameraPhotoUri by remember { mutableStateOf<Uri?>(null) }
-    var latestLocationFix by remember { mutableStateOf<GpsLocationFix?>(null) }
 
     fun beginCreatePhotoUpload(uri: Uri, existingLocalId: String? = null) {
         val current = markerSheetState
@@ -915,6 +1028,7 @@ private fun SearchMapRoute(
         policePhoneContext?.accessToken
     ) {
         clockSyncState.syncClockForIncident(sessionContext.incidentId, policePhoneContext)
+        latestLocationFix = locationUpdates.lastKnownFix()
     }
 
     LaunchedEffect(loader, sessionContext, focusMarkerId) {
@@ -931,6 +1045,7 @@ private fun SearchMapRoute(
     }
 
     val serverActiveSearchPathId = searchMapState.activeSearchPathId()
+    val serverActiveSearchPathStartedAtMs = searchMapState.activeSearchPathStartedAtEpochMs
     val displayedLifecycle = recordingSession.displayedLifecycle(
         baseLifecycleStatus = searchMapState.lifecycleStatus,
         serverActiveSearchPathId = serverActiveSearchPathId
@@ -944,14 +1059,15 @@ private fun SearchMapRoute(
             mapOverlaysVisible = mapOverlaysVisible
         ).withCurrentLocationViewport(latestLocationFix)
 
-    LaunchedEffect(locationUpdates, sessionContext.incidentId, sessionContext.policePhoneId) {
-        latestLocationFix = locationUpdates.lastKnownFix()
-    }
-
-    LaunchedEffect(displayedLifecycle, activeSearchPathId) {
+    LaunchedEffect(displayedLifecycle, activeSearchPathId, serverActiveSearchPathStartedAtMs) {
         if (displayedLifecycle == SearchLifecycleStatus.Active && activeSearchPathId != null) {
             val now = System.currentTimeMillis()
-            recordingSession = recordingSession.ensureActiveStarted(now)
+            recordingSession =
+                recordingSession.ensureActiveStarted(
+                    searchPathId = activeSearchPathId,
+                    nowMs = now,
+                    serverStartedAtMs = serverActiveSearchPathStartedAtMs
+                )
             elapsedTickerNowMs = now
             while (true) {
                 delay(1_000L)
@@ -1038,12 +1154,16 @@ private fun SearchMapRoute(
                         searchPathId = pathId
                     )
                     gpsBatchRecorder.clear()
-                    searchPathRecorder.end(
-                        context = sessionContext.toSearchPathWriteContext(),
-                        searchPathId = pathId
-                    )
+                    val endResult =
+                        searchPathRecorder.end(
+                            context = sessionContext.toSearchPathWriteContext(),
+                            searchPathId = pathId
+                        )
                     recordingSession = recordingSession.stop(now)
                     elapsedTickerNowMs = now
+                    if (endResult is SearchPathWriteResult.Enqueued) {
+                        onSearchPathEnded(true)
+                    }
                 }
             },
             onCreateMarker = {
@@ -1155,12 +1275,11 @@ private fun MarkerDetailRoute(
     val apiBaseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
     val accessTokenProvider = policePhoneContext.accessTokenProvider()
     val syncClient =
-        remember(database, outboxReplayScheduler, apiBaseUrl, policePhoneContext?.accessToken) {
+        remember(database, outboxReplayScheduler, apiBaseUrl) {
             SchedulingSyncClient(
                 delegate = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()),
                 scheduleReplay = outboxReplayScheduler::schedule,
-                apiBaseUrl = apiBaseUrl,
-                accessToken = policePhoneContext?.accessToken
+                apiBaseUrl = apiBaseUrl
             )
         }
     val markerRecorder = remember(syncClient, clockSyncState) {
@@ -1439,7 +1558,6 @@ private fun OfflinePackageRoute(
                                 policePhoneId = policePhoneContext.policePhoneId,
                                 manifestId = plan.manifestId,
                                 apiBaseUrl = policePhoneContext.apiBaseUrl,
-                                accessToken = policePhoneContext.accessToken,
                                 clockOffsetMs = clockSnapshot.clockOffsetMs,
                                 clockSyncedAt = clockSnapshot.clockSyncedAt?.toString()
                             )
@@ -1473,7 +1591,8 @@ private fun OfflinePackageRoute(
 private fun AuthBootstrapRoute(
     incidentSessionState: IncidentSessionState,
     navController: NavHostController,
-    assignmentRefreshNonce: Int
+    assignmentRefreshNonce: Int,
+    onOidcSessionChanged: (OidcLoginSession?) -> Unit
 ) {
     val context = LocalContext.current
     val appContext = context.applicationContext
@@ -1486,11 +1605,19 @@ private fun AuthBootstrapRoute(
     val coroutineScope = rememberCoroutineScope()
     val oidcLoginLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            Log.d(
+                AUTH_BOOTSTRAP_LOG_TAG,
+                "login activity resultCode=${result.resultCode} hasData=${result.data != null} data=${result.data?.dataString}"
+            )
             if (result.resultCode == Activity.RESULT_OK && result.data != null) {
                 coroutineScope.launch {
-                    oidcSession = oidcLoginClient.completeLogin(result.data!!)
+                    val completedSession = oidcLoginClient.completeLogin(result.data!!)
+                    oidcSession = completedSession
+                    onOidcSessionChanged(completedSession)
                     retryNonce += 1
                 }
+            } else {
+                Log.w(AUTH_BOOTSTRAP_LOG_TAG, "login activity returned without a usable response")
             }
         }
     DisposableEffect(oidcLoginClient) {
@@ -1520,11 +1647,10 @@ private fun AuthBootstrapRoute(
     LaunchedEffect(retryNonce, assignmentRefreshNonce) {
         val config = bootstrapCoordinator.readConfig()
         state = AuthBootstrapUiState.checking(apiBaseUrl = config.apiBaseUrl)
-        val effectiveConfig = oidcSession?.policePhoneId?.let { config.copy(policePhoneId = it) } ?: config
-        val outcome = bootstrapCoordinator.check(effectiveConfig)
+        val outcome = bootstrapCoordinator.check(config)
         state = AuthBootstrapUiState.fromOutcome(outcome = outcome, apiBaseUrl = config.apiBaseUrl)
         if (outcome is AuthBootstrapOutcome.Ready && state.shouldEnterIncidentList) {
-            incidentSessionState.activatePolicePhoneContext(effectiveConfig.toPolicePhoneContext(outcome))
+            incidentSessionState.activatePolicePhoneContext(config.toPolicePhoneContext(outcome, oidcSession))
             navController.navigate(PolicePhoneRoute.IncidentList.route) {
                 popUpTo(PolicePhoneRoute.AuthBootstrap.route) {
                     inclusive = true
@@ -1542,9 +1668,19 @@ private fun AuthBootstrapRoute(
             } else {
                 retryNonce += 1
             }
+        },
+        onExit = {
+            context.findActivity()?.finish()
         }
     )
 }
+
+private tailrec fun Context.findActivity(): Activity? =
+    when (this) {
+        is Activity -> this
+        is ContextWrapper -> baseContext.findActivity()
+        else -> null
+    }
 
 @Composable
 private fun IncidentListRoute(
@@ -1564,12 +1700,11 @@ private fun IncidentListRoute(
         OutboxReplayScheduler(WorkManager.getInstance(context))
     }
     val syncClient =
-        remember(database, outboxReplayScheduler, policePhoneContext?.apiBaseUrl, policePhoneContext?.accessToken) {
+        remember(database, outboxReplayScheduler, policePhoneContext?.apiBaseUrl) {
             SchedulingSyncClient(
                 delegate = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()),
                 scheduleReplay = outboxReplayScheduler::schedule,
-                apiBaseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL,
-                accessToken = policePhoneContext?.accessToken
+                apiBaseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
             )
         }
     val dutyShiftRecorder = remember(syncClient, clockSyncState) {
@@ -1639,7 +1774,7 @@ private fun IncidentListRoute(
                     dutyShiftRecorder.start(resolvedContext.toDutyShiftWriteContext(policePhoneContext))
                 }
                 incidentSessionState.activateIncidentContext(resolvedContext)
-                navController.navigateToSingleTop(PolicePhoneRoute.SearchMap)
+                navController.navigateToSingleTop(PolicePhoneRoute.OfflinePackage)
             }
         },
         onRefresh = { manualRefreshNonce += 1 },
@@ -1650,16 +1785,26 @@ private fun IncidentListRoute(
     )
 }
 
-private fun ManagedPolicePhoneConfig.toPolicePhoneContext(outcome: AuthBootstrapOutcome.Ready): PolicePhoneContext {
+private fun ManagedPolicePhoneConfig.toPolicePhoneContext(
+    outcome: AuthBootstrapOutcome.Ready,
+    oidcSession: OidcLoginSession?
+): PolicePhoneContext {
     return PolicePhoneContext(
         policePhoneId = outcome.policePhoneId,
         apiBaseUrl = apiBaseUrl,
         tileBaseUrl = tileBaseUrl,
         objectStorageBaseUrl = objectStorageBaseUrl,
         allowedHosts = allowedHosts,
-        accessToken = outcome.accessToken
+        accessToken = outcome.accessToken,
+        accessTokenExpiresAtEpochMs = oidcSession?.accessTokenExpiresAtEpochMs
     )
 }
+
+private fun PolicePhoneContext.withOidcSession(oidcSession: OidcLoginSession): PolicePhoneContext =
+    copy(
+        accessToken = oidcSession.accessToken,
+        accessTokenExpiresAtEpochMs = oidcSession.accessTokenExpiresAtEpochMs
+    )
 
 private suspend fun ClockSyncState.syncClockForIncident(
     incidentId: String?,
@@ -1928,7 +2073,38 @@ private data class HandoverTargetContext(
 )
 
 private fun com.surimap.feature.search.ui.SearchMapUiState.activeSearchPathId(): String? =
-    layers.firstOrNull { layer -> layer.kind == SearchLayerKind.Path && layer.highlighted }?.overlayId
+    activeSearchPathId?.takeIf(String::isNotBlank)
+        ?: layers.firstOrNull { layer -> layer.kind == SearchLayerKind.Path && layer.highlighted }?.overlayId
+
+private fun SearchMapUiState.withCurrentLocationViewport(fix: GpsLocationFix?): SearchMapUiState {
+    val normalizedFix = fix ?: return this
+    val currentLocationLayer =
+        SearchMapLayerUiState(
+            label =
+            normalizedFix.bearingDegrees
+                ?.let { bearing -> "현재 위치 · ${bearing.toInt()}°" }
+                ?: "현재 위치",
+            kind = SearchLayerKind.CurrentLocation,
+            highlighted = true,
+            overlayId = "current-location",
+            geoJson = """{"type":"Point","coordinates":[${normalizedFix.lon},${normalizedFix.lat}]}"""
+        )
+    val nextLayers = layers.filterNot { layer -> layer.kind == SearchLayerKind.CurrentLocation } + currentLocationLayer
+    if (viewportBounds != null) {
+        return copy(layers = nextLayers)
+    }
+    val delta = 0.002
+    return copy(
+        layers = nextLayers,
+        viewportBounds =
+        SearchMapViewportBounds(
+            south = normalizedFix.lat - delta,
+            west = normalizedFix.lon - delta,
+            north = normalizedFix.lat + delta,
+            east = normalizedFix.lon + delta
+        )
+    )
+}
 
 private fun SearchMapUiState.markerCreationLocation(): MarkerLocation? =
     viewportBounds?.let { bounds ->
@@ -1937,22 +2113,6 @@ private fun SearchMapUiState.markerCreationLocation(): MarkerLocation? =
             lat = (bounds.south + bounds.north) / 2.0
         )
     }
-
-private fun SearchMapUiState.withCurrentLocationViewport(fix: GpsLocationFix?): SearchMapUiState {
-    if (viewportBounds != null || fix == null) {
-        return this
-    }
-    val delta = CURRENT_LOCATION_VIEWPORT_DELTA
-    return copy(
-        viewportBounds =
-        SearchMapViewportBounds(
-            south = fix.lat - delta,
-            west = fix.lon - delta,
-            north = fix.lat + delta,
-            east = fix.lon + delta
-        )
-    )
-}
 
 private fun MarkerCreateSheetUiState.toMarkerUpsertInput(): MarkerUpsertInput =
     MarkerUpsertInput(
@@ -2012,8 +2172,6 @@ private val DebugMapOnlyGwangjuBounds =
         east = 127.017482
     )
 
-private const val CURRENT_LOCATION_VIEWPORT_DELTA = 0.003
-
 private fun debugStartDestination(): String =
     if (BuildConfig.SURI_MAP_DEBUG_MAP_ONLY) {
         PolicePhoneRoute.SearchMap.route
@@ -2057,6 +2215,15 @@ private fun NavHostController.navigateToSingleTop(route: String) {
 private fun NavHostController.navigateToIncidentListRoot() {
     navigate(PolicePhoneRoute.IncidentList.route) {
         popUpTo(PolicePhoneRoute.IncidentList.route) {
+            inclusive = true
+        }
+        launchSingleTop = true
+    }
+}
+
+private fun NavHostController.navigateToAuthBootstrapRoot() {
+    navigate(PolicePhoneRoute.AuthBootstrap.route) {
+        popUpTo(graph.startDestinationId) {
             inclusive = true
         }
         launchSingleTop = true

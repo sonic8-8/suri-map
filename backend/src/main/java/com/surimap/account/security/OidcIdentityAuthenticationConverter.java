@@ -6,5 +6,5 @@ import org.springframework.security.oauth2.jwt.Jwt;
 
 public interface OidcIdentityAuthenticationConverter {
 
-  Optional<SuriMapAuthentication> convert(Jwt jwt, String channelHeader);
+  Optional<SuriMapAuthentication> convert(Jwt jwt, String channelHeader, String policePhoneHeader);
 }

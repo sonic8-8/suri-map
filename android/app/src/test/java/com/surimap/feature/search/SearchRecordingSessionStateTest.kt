@@ -25,6 +25,20 @@ class SearchRecordingSessionStateTest {
     }
 
     @Test
+    fun serverActivePathUsesServerStartedAtForElapsedRestoration() {
+        val restored =
+            SearchRecordingSessionState()
+                .ensureActiveStarted(
+                    searchPathId = "server-path-1",
+                    nowMs = 120_000L,
+                    serverStartedAtMs = 30_000L
+                )
+
+        assertEquals("01:30", restored.elapsedLabel(nowMs = 120_000L))
+        assertEquals("server-path-1", restored.effectiveSearchPathId(serverActiveSearchPathId = null))
+    }
+
+    @Test
     fun startPauseResumeAndStopKeepElapsedTimeDeterministic() {
         val started = SearchRecordingSessionState().start("path-1", nowMs = 1_000L)
 

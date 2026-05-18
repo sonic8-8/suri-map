@@ -2,7 +2,7 @@
 .legend {
   position: absolute;
   z-index: 2;
-  right: 16px;
+  right: var(--suri-map-floating-right, 16px);
   bottom: 16px;
   display: grid;
   gap: 10px;
@@ -97,12 +97,14 @@
   width: 16px;
   height: 10px;
   flex: 0 0 auto;
+  box-sizing: border-box;
   border: 1px solid rgba(203, 213, 225, 0.7);
   background: rgba(17, 31, 53, 0.9);
 }
 
 /* 전체 수색 구역 경계 표시. */
 .areaOverall {
+  width: 18px;
   height: 12px;
   border: 2px dashed #38bdf8;
   background: transparent;
@@ -110,13 +112,15 @@
 
 /* 부대 단위 수색 구역 경계 표시. */
 .areaUnit {
+  width: 18px;
   height: 12px;
-  border: 2px solid #cbd5e1;
+  border: 3px double #cbd5e1;
   background: rgba(203, 213, 225, 0.06);
 }
 
 /* 팀 단위 수색 구역 경계 표시. */
 .areaTeam {
+  width: 18px;
   height: 12px;
   border: 1px solid #94a3b8;
   background: rgba(148, 163, 184, 0.08);
@@ -124,15 +128,18 @@
 
 /* 완료 처리된 팀 구역의 해칭 표시. */
 .areaCompleted {
+  width: 18px;
   height: 12px;
   border: 1px solid #94a3b8;
   background:
     repeating-linear-gradient(
       45deg,
       transparent,
-      transparent 3px,
-      rgba(148, 163, 184, 0.24) 3px,
-      rgba(148, 163, 184, 0.24) 5px
+      transparent 5px,
+      rgba(148, 163, 184, 0.46) 5px,
+      rgba(148, 163, 184, 0.46) 6px,
+      transparent 6px,
+      transparent 10px
     );
 }
 
@@ -228,35 +235,35 @@
 
 /* 단서 마커 색상. */
 .markerClue {
-  background: #60a5fa;
+  background: #f59e0b;
 }
 
 /* 발견 마커 색상. */
 .markerFound {
-  background: #f87171;
+  background: #ef4444;
 }
 
 /* 지형 마커 색상. */
 .markerField {
-  background: #86efac;
+  background: #22c55e;
 }
 
 /* 드론 지원 요청 색상. */
 .markerDrone {
-  background: #f97316;
+  background: #06b6d4;
 }
 
 /* 경찰견 지원 요청 색상. */
 .markerDog {
-  background: #fbbf24;
+  background: #a855f7;
 }
 
 /* 기타 지원 요청 색상. */
 .markerSupport {
-  background: #a78bfa;
+  background: #8b5cf6;
 }
 
 /* 운영 메모 색상. */
 .markerNote {
-  background: #94a3b8;
+  background: #3b82f6;
 }

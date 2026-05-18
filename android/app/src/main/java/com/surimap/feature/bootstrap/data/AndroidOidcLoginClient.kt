@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import com.surimap.BuildConfig
-import java.util.Base64
 import kotlin.coroutines.resume
 import kotlinx.coroutines.suspendCancellableCoroutine
 import net.openid.appauth.AuthState
@@ -14,13 +13,12 @@ import net.openid.appauth.AuthorizationResponse
 import net.openid.appauth.AuthorizationService
 import net.openid.appauth.AuthorizationServiceConfiguration
 import net.openid.appauth.ResponseTypeValues
-import org.json.JSONObject
 
 data class OidcLoginSession(
     val accessToken: String,
-    val refreshToken: String?,
     val idToken: String?,
-    val policePhoneId: String?
+    val accessTokenExpiresAtEpochMs: Long?,
+    val authStateJson: String
 )
 
 class AndroidOidcLoginClient(
@@ -53,11 +51,37 @@ class AndroidOidcLoginClient(
                         ?.let {
                             OidcLoginSession(
                                 accessToken = it,
-                                refreshToken = tokenResponse.refreshToken,
                                 idToken = tokenResponse.idToken,
-                                policePhoneId = it.jwtStringClaim("policePhoneId")
+                                accessTokenExpiresAtEpochMs = tokenResponse.accessTokenExpirationTime,
+                                authStateJson = authState.jsonSerializeString()
                             )
                         }
+                )
+            }
+        }
+    }
+
+    suspend fun refresh(authStateJson: String): OidcLoginSession? {
+        val authState =
+            runCatching { AuthState.jsonDeserialize(authStateJson) }.getOrNull() ?: return null
+        return suspendCancellableCoroutine { continuation ->
+            authState.performActionWithFreshTokens(authorizationService) action@ { accessToken, idToken, exception ->
+                if (exception != null) {
+                    continuation.resume(null)
+                    return@action
+                }
+                val refreshedAccessToken = accessToken?.takeIf(String::isNotBlank)
+                if (refreshedAccessToken == null) {
+                    continuation.resume(null)
+                    return@action
+                }
+                continuation.resume(
+                    OidcLoginSession(
+                        accessToken = refreshedAccessToken,
+                        idToken = idToken,
+                        accessTokenExpiresAtEpochMs = authState.accessTokenExpirationTime,
+                        authStateJson = authState.jsonSerializeString()
+                    )
                 )
             }
         }
@@ -68,16 +92,8 @@ class AndroidOidcLoginClient(
     }
 
     private fun authorizationRequest(apiBaseUrl: String): AuthorizationRequest {
-        val issuerUrl = keycloakIssuerUrl(apiBaseUrl).trimEnd('/')
-        val serviceConfiguration =
-            AuthorizationServiceConfiguration(
-                Uri.parse("$issuerUrl/protocol/openid-connect/auth"),
-                Uri.parse("$issuerUrl/protocol/openid-connect/token"),
-                null,
-                Uri.parse("$issuerUrl/protocol/openid-connect/logout")
-            )
         return AuthorizationRequest.Builder(
-            serviceConfiguration,
+            serviceConfiguration(apiBaseUrl),
             BuildConfig.SURI_MAP_KEYCLOAK_CLIENT_ID,
             ResponseTypeValues.CODE,
             Uri.parse(BuildConfig.SURI_MAP_KEYCLOAK_REDIRECT_URI)
@@ -85,13 +101,31 @@ class AndroidOidcLoginClient(
             .setScopes("openid", "profile")
             .build()
     }
-}
 
-private fun String.jwtStringClaim(name: String): String? {
-    val payload = split('.').getOrNull(1) ?: return null
-    val paddedPayload = payload.padEnd(payload.length + (4 - payload.length % 4) % 4, '=')
-    return runCatching {
-        val decoded = String(Base64.getUrlDecoder().decode(paddedPayload), Charsets.UTF_8)
-        JSONObject(decoded).optString(name).takeIf(String::isNotBlank)
-    }.getOrNull()
+    private fun serviceConfiguration(apiBaseUrl: String): AuthorizationServiceConfiguration {
+        val issuerUrl = keycloakIssuerUrl(apiBaseUrl).trimEnd('/')
+        return AuthorizationServiceConfiguration(
+            Uri.parse("$issuerUrl/protocol/openid-connect/auth"),
+            Uri.parse("$issuerUrl/protocol/openid-connect/token"),
+            null,
+            Uri.parse("$issuerUrl/protocol/openid-connect/logout")
+        )
+    }
+
+    companion object {
+        fun sessionFromAuthStateJson(authStateJson: String?): OidcLoginSession? {
+            val authState =
+                authStateJson
+                    ?.takeIf(String::isNotBlank)
+                    ?.let { runCatching { AuthState.jsonDeserialize(it) }.getOrNull() }
+                    ?: return null
+            val accessToken = authState.accessToken?.takeIf(String::isNotBlank) ?: return null
+            return OidcLoginSession(
+                accessToken = accessToken,
+                idToken = authState.idToken,
+                accessTokenExpiresAtEpochMs = authState.accessTokenExpirationTime,
+                authStateJson = authState.jsonSerializeString()
+            )
+        }
+    }
 }

@@ -1,7 +1,9 @@
 package com.mock112.controller;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oauth2Login;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -9,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.mockito.Mockito.when;
 
+import com.mock112.domain.MockIncident;
 import com.mock112.seed.SeedDataLoader;
 import com.mock112.store.MockIncidentStore;
 import com.mock112.webhook.SuriMapWebhookDispatcher;
@@ -73,6 +76,7 @@ class Mock112UiRouteTest {
         mockMvc.perform(get("/mock-112/").with(oauth2Login()))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("mock 112 관제 시스템")))
+                .andExpect(content().string(containsString("inputInitialAssignmentGroup")))
                 .andExpect(content().string(containsString("app.js")));
     }
 
@@ -89,7 +93,10 @@ class Mock112UiRouteTest {
     void mock112PrefixServesStaticAssets() throws Exception {
         mockMvc.perform(get("/mock-112/app.js").with(oauth2Login()))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("loadIncidents")));
+                .andExpect(content().string(containsString("loadIncidents")))
+                .andExpect(content().string(containsString("UNIT_ASSIGNMENT_GROUPS")))
+                .andExpect(content().string(containsString("assignGroup")))
+                .andExpect(content().string(not(containsString("inc.status === 'IMPORTED' ? 'disabled'"))));
 
         mockMvc.perform(get("/mock-112/style.css").with(oauth2Login()))
                 .andExpect(status().isOk())
@@ -122,5 +129,30 @@ class Mock112UiRouteTest {
                         .header("X-Internal-Service-Token", "test-internal-token"))
                 .andExpect(status().isOk())
                 .andExpect(content().json("[]"));
+    }
+
+    @Test
+    @DisplayName("backend 내부 토큰이 있으면 mock-112 시나리오 seed API를 실행할 수 있다")
+    void internalTokenAllowsMock112ScenarioSeedApi() throws Exception {
+        MockIncident incident = new MockIncident();
+        incident.setSourceIncidentId("00000000-0000-0000-0000-000000000001");
+        incident.setStatus("READY");
+        when(seedDataLoader.loadPrecinctFirstScenario(store)).thenReturn(incident);
+
+        mockMvc.perform(post("/mock-112/scenarios/precinct-first")
+                        .header("X-Internal-Service-Token", "test-internal-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sourceIncidentId").value("00000000-0000-0000-0000-000000000001"));
+    }
+
+    @Test
+    @DisplayName("시나리오 seed 중복은 500이 아니라 bad_request로 응답한다")
+    void duplicateScenarioSeedReturnsBadRequest() throws Exception {
+        when(seedDataLoader.loadPrecinctFirstScenario(store))
+                .thenThrow(new IllegalArgumentException("sourceIncidentId already exists"));
+
+        mockMvc.perform(post("/mock-112/scenarios/precinct-first").with(oauth2Login()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("already_loaded"));
     }
 }

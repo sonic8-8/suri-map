@@ -73,6 +73,32 @@
         ORDER BY i.opened_at DESC, i.id ASC
     </select>
 
+    <select id="findActiveListByOrganizationType" resultMap="listRowMap">
+        <!-- WEB 지휘 계정은 같은 운용 조직 유형에 배정된 OPEN 사건을 상황판 목록으로 조회한다. -->
+        SELECT
+            i.id,
+            i.title,
+            i.status,
+            i.version,
+            i.closed_at
+        FROM "incident" i
+        WHERE i.status = 'OPEN'
+          AND EXISTS (
+              SELECT 1
+              FROM incident_assignment ia
+              INNER JOIN account a
+                  ON CAST(a.id AS VARCHAR) = CAST(ia.account_id AS VARCHAR)
+              WHERE ia.incident_id = i.id
+                AND ia.revoked_at IS NULL
+                AND a.status = 'ACTIVE'
+                AND a.organization_type = #{organizationType}
+          )
+        <if test="status != null and status != ''">
+          AND UPPER(#{status}) = 'OPEN'
+        </if>
+        ORDER BY i.opened_at DESC, i.id ASC
+    </select>
+
     <select id="findActiveDetailByIncidentIdAndAccountId" resultMap="detailRowMap">
         <!-- 상세 row는 active 사건과 현재 계정의 active 배정이 동시에 맞을 때만 반환한다. -->
         SELECT
@@ -91,6 +117,30 @@
         LIMIT 1
     </select>
 
+    <select id="findActiveDetailByIncidentIdAndOrganizationType" resultMap="detailRowMap">
+        <!-- WEB 지휘 계정 상세는 같은 운용 조직 유형의 active assignment가 있는 사건까지 허용한다. -->
+        SELECT
+            i.id,
+            i.status,
+            i.title,
+            i.opened_at,
+            i.version
+        FROM "incident" i
+        WHERE i.id = #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND i.status = 'OPEN'
+          AND EXISTS (
+              SELECT 1
+              FROM incident_assignment ia
+              INNER JOIN account a
+                  ON CAST(a.id AS VARCHAR) = CAST(ia.account_id AS VARCHAR)
+              WHERE ia.incident_id = i.id
+                AND ia.revoked_at IS NULL
+                AND a.status = 'ACTIVE'
+                AND a.organization_type = #{organizationType}
+          )
+        LIMIT 1
+    </select>
+
     <select id="findTerminalDetailByIncidentIdAndAccountId" resultMap="terminalDetailRowMap">
         <!-- 종료 상세는 실종자/배정 row를 조립하지 않고 terminal 상태 필드만 읽는다. -->
         SELECT
@@ -105,6 +155,29 @@
         WHERE i.id = #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
           AND ia.account_id = #{accountId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
           AND i.status = 'CLOSED'
+        LIMIT 1
+    </select>
+
+    <select id="findTerminalDetailByIncidentIdAndOrganizationType" resultMap="terminalDetailRowMap">
+        <!-- WEB 지휘 계정의 종료 상세도 같은 운용 조직 유형의 배정 이력 범위로 제한한다. -->
+        SELECT
+            i.id,
+            i.status,
+            i.version,
+            i.closed_at
+        FROM "incident" i
+        WHERE i.id = #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND i.status = 'CLOSED'
+          AND EXISTS (
+              SELECT 1
+              FROM incident_assignment ia
+              INNER JOIN account a
+                  ON CAST(a.id AS VARCHAR) = CAST(ia.account_id AS VARCHAR)
+              WHERE ia.incident_id = i.id
+                AND ia.revoked_at IS NULL
+                AND a.status = 'ACTIVE'
+                AND a.organization_type = #{organizationType}
+          )
         LIMIT 1
     </select>
 

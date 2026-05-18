@@ -1,7 +1,12 @@
 import type { MutableRefObject } from 'react';
 import maplibregl, { type GeoJSONSource } from 'maplibre-gl';
 import type { RecentMarker } from '../../constants/mockSituationBoard';
-import { createBottomAlignedMarkerGlyphMarkup, markerTypeGlyphName } from '../marker/MarkerGlyph';
+import {
+  createMarkerShellSvgMarkup,
+  markerTypeGlyphName,
+  type MarkerGlyphName,
+  type MarkerShellState,
+} from '../marker/MarkerGlyph';
 import styles from './SearchMapCanvas.module.css';
 
 type MarkerTypeKey = 'CLUE' | 'PERSON_FOUND' | 'FIELD_CONDITION' | 'SUPPORT_REQUEST' | 'NOTE' | 'UNKNOWN';
@@ -11,8 +16,11 @@ type MarkerFeature = {
   properties: {
     id: string;
     markerType: MarkerTypeKey;
+    markerState: MarkerShellState;
+    glyphName: MarkerGlyphName;
     iconKey: string;
     isVisible: 'true' | 'false';
+    sortKey: number;
   };
   geometry: {
     type: 'Point';
@@ -48,17 +56,29 @@ const MARKER_ICON_PREFIX = 'board-marker';
 const MARKER_ICON_WIDTH = 40;
 const MARKER_ICON_HEIGHT = 46;
 const MARKER_ICON_PIXEL_RATIO = 2;
-const MARKER_GLYPH_SIZE = 21.5;
-const MARKER_GLYPH_CENTER_X = 20;
-const MARKER_GLYPH_CENTER_Y = 18.5;
 
 const markerColors: Record<MarkerTypeKey, string> = {
-  CLUE: '#ffb020',
-  PERSON_FOUND: '#d63a3a',
-  FIELD_CONDITION: '#64748b',
-  SUPPORT_REQUEST: '#a855f7',
+  CLUE: '#f59e0b',
+  PERSON_FOUND: '#ef4444',
+  FIELD_CONDITION: '#22c55e',
+  SUPPORT_REQUEST: '#8b5cf6',
   NOTE: '#3b82f6',
-  UNKNOWN: '#334155',
+  UNKNOWN: '#94a3b8',
+};
+
+const markerTypeSortOrder: Record<MarkerTypeKey, number> = {
+  PERSON_FOUND: 5,
+  CLUE: 4,
+  SUPPORT_REQUEST: 3,
+  FIELD_CONDITION: 2,
+  NOTE: 1,
+  UNKNOWN: 0,
+};
+
+const markerStateSortOrder: Record<MarkerShellState, number> = {
+  base: 0,
+  hover: 1000,
+  selected: 2000,
 };
 
 const markerImagePromises = new WeakMap<maplibregl.Map, Map<string, Promise<void>>>();
@@ -109,45 +129,50 @@ function markerTypeDisplayName(marker: RecentMarker) {
   }
 }
 
-function markerIconKey(markerType: MarkerTypeKey) {
-  return `${MARKER_ICON_PREFIX}-${markerType.toLowerCase()}`;
+function markerIconKey(markerType: MarkerTypeKey, glyphName: MarkerGlyphName, markerState: MarkerShellState = 'base') {
+  const baseKey = `${MARKER_ICON_PREFIX}-${markerType.toLowerCase()}-${glyphName.toLowerCase()}`;
+  return markerState === 'base' ? baseKey : `${baseKey}-${markerState}`;
 }
 
-function escapeSvgValue(value: string) {
-  return value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+function markerSortKey(markerType: MarkerTypeKey, markerState: MarkerShellState) {
+  return markerStateSortOrder[markerState] + markerTypeSortOrder[markerType];
 }
 
-function createMarkerSymbolSvg(markerType: MarkerTypeKey) {
-  const color = escapeSvgValue(markerColors[markerType]);
-  const glyph = createBottomAlignedMarkerGlyphMarkup(markerTypeGlyphName(markerType));
+export function resolveMarkerVisualState(
+  markerId: string,
+  hoveredMarkerId: string | null,
+  selectedMarkerId: string | null,
+): MarkerShellState {
+  if (markerId === selectedMarkerId) {
+    return 'selected';
+  }
 
-  return `
-    <svg xmlns="http://www.w3.org/2000/svg" width="${MARKER_ICON_WIDTH * MARKER_ICON_PIXEL_RATIO}" height="${MARKER_ICON_HEIGHT * MARKER_ICON_PIXEL_RATIO}" viewBox="0 0 ${MARKER_ICON_WIDTH} ${MARKER_ICON_HEIGHT}">
-      <path
-        d="M20 44C16.7 39.8 4 29.9 4 18.7C4 10.4 11.1 4 20 4s16 6.4 16 14.7C36 29.9 23.3 39.8 20 44Z"
-        fill="${color}"
-        stroke="#ffffff"
-        stroke-width="2.4"
-        stroke-linejoin="round"
-      />
-      <ellipse cx="20" cy="18.5" rx="12.2" ry="10.4" fill="${color}" />
-      <svg
-        x="${MARKER_GLYPH_CENTER_X - MARKER_GLYPH_SIZE / 2}"
-        y="${MARKER_GLYPH_CENTER_Y - MARKER_GLYPH_SIZE / 2}"
-        width="${MARKER_GLYPH_SIZE}"
-        height="${MARKER_GLYPH_SIZE}"
-        viewBox="0 0 24 24"
-        color="#ffffff"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2.5"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      >
-        ${glyph}
-      </svg>
-    </svg>
-  `;
+  if (markerId === hoveredMarkerId) {
+    return 'hover';
+  }
+
+  return 'base';
+}
+
+function markerGlyphName(marker: RecentMarker) {
+  if (marker.markerType === 'SUPPORT_REQUEST') {
+    if (marker.supportRequestType === 'POLICE_DOG') return 'dog';
+    if (marker.supportRequestType === 'OTHER') return 'handHelping';
+  }
+
+  return markerTypeGlyphName(marker.markerType);
+}
+
+export function createMarkerSymbolSvg(
+  markerType: MarkerTypeKey,
+  markerState: MarkerShellState,
+  glyphName: MarkerGlyphName = markerTypeGlyphName(markerType),
+) {
+  return createMarkerShellSvgMarkup({
+    accentColor: markerColors[markerType],
+    icon: glyphName,
+    state: markerState,
+  });
 }
 
 function getMapImagePromiseStore(map: maplibregl.Map) {
@@ -161,8 +186,13 @@ function getMapImagePromiseStore(map: maplibregl.Map) {
   return nextStore;
 }
 
-function ensureMarkerImage(map: maplibregl.Map, markerType: MarkerTypeKey) {
-  const imageKey = markerIconKey(markerType);
+function ensureMarkerImage(
+  map: maplibregl.Map,
+  markerType: MarkerTypeKey,
+  glyphName: MarkerGlyphName,
+  markerState: MarkerShellState,
+) {
+  const imageKey = markerIconKey(markerType, glyphName, markerState);
   if (map.hasImage(imageKey)) {
     return Promise.resolve();
   }
@@ -175,7 +205,7 @@ function ensureMarkerImage(map: maplibregl.Map, markerType: MarkerTypeKey) {
 
   const imagePromise = new Promise<void>((resolve, reject) => {
     const image = new Image(MARKER_ICON_WIDTH * MARKER_ICON_PIXEL_RATIO, MARKER_ICON_HEIGHT * MARKER_ICON_PIXEL_RATIO);
-    const svgUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(createMarkerSymbolSvg(markerType))}`;
+    const svgUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(createMarkerSymbolSvg(markerType, markerState, glyphName))}`;
 
     image.onload = () => {
       if (!map.hasImage(imageKey)) {
@@ -183,7 +213,10 @@ function ensureMarkerImage(map: maplibregl.Map, markerType: MarkerTypeKey) {
       }
       resolve();
     };
-    image.onerror = () => reject(new Error(`마커 아이콘 이미지를 불러오지 못했습니다: ${imageKey}`));
+    image.onerror = () => {
+      imagePromises.delete(imageKey);
+      reject(new Error(`Failed to register marker image: ${imageKey}`));
+    };
     image.src = svgUrl;
   });
 
@@ -191,7 +224,12 @@ function ensureMarkerImage(map: maplibregl.Map, markerType: MarkerTypeKey) {
   return imagePromise;
 }
 
-function createMarkerFeatureCollection(recentMarkers: RecentMarker[], visibleMarkerIds: string[]): MarkerFeatureCollection {
+function createMarkerFeatureCollection(
+  recentMarkers: RecentMarker[],
+  visibleMarkerIds: string[],
+  hoveredMarkerId: string | null,
+  selectedMarkerId: string | null,
+): MarkerFeatureCollection {
   const visibleMarkerIdSet = new Set(visibleMarkerIds);
 
   return {
@@ -202,14 +240,19 @@ function createMarkerFeatureCollection(recentMarkers: RecentMarker[], visibleMar
       }
 
       const markerType = markerTypeKey(marker.markerType);
+      const glyphName = markerGlyphName(marker);
+      const markerState = resolveMarkerVisualState(marker.id, hoveredMarkerId, selectedMarkerId);
       return [
         {
           type: 'Feature' as const,
           properties: {
             id: marker.id,
             markerType,
-            iconKey: markerIconKey(markerType),
+            glyphName,
+            markerState,
+            iconKey: markerIconKey(markerType, glyphName, markerState),
             isVisible: visibleMarkerIdSet.has(marker.id) ? 'true' : 'false',
+            sortKey: markerSortKey(markerType, markerState),
           },
           geometry: {
             type: 'Point' as const,
@@ -282,7 +325,7 @@ function addMarkerLayer(map: maplibregl.Map) {
       'icon-size': ['interpolate', ['linear'], ['zoom'], 10, 0.96, 14, 1.12, 17, 1.26],
       'icon-allow-overlap': true,
       'icon-ignore-placement': true,
-      'symbol-sort-key': ['match', ['get', 'markerType'], 'PERSON_FOUND', 5, 'CLUE', 4, 'SUPPORT_REQUEST', 3, 'FIELD_CONDITION', 2, 1],
+      'symbol-sort-key': ['get', 'sortKey'],
     },
   });
 }
@@ -357,9 +400,23 @@ export function syncMarkerElements(
   markerInstances: MutableRefObject<Map<string, MarkerInstance>>,
   isVisible: boolean,
   handlers: MarkerInteractionHandlers,
+  hoveredMarkerId: string | null = null,
+  selectedMarkerId: string | null = null,
 ) {
-  const markerData = createMarkerFeatureCollection(recentMarkers, isVisible ? visibleMarkerIds : []);
-  const requiredMarkerTypes = Array.from(new Set(markerData.features.map((feature) => feature.properties.markerType)));
+  const markerData = createMarkerFeatureCollection(
+    recentMarkers,
+    isVisible ? visibleMarkerIds : [],
+    hoveredMarkerId,
+    selectedMarkerId,
+  );
+  const requiredMarkerImages = Array.from(
+    new Set(
+      markerData.features.map(
+        (feature) =>
+          `${feature.properties.markerType}:${feature.properties.glyphName}:${feature.properties.markerState}`,
+      ),
+    ),
+  );
   const visibleMarkerIdSet = new Set(isVisible ? visibleMarkerIds : []);
 
   clearMarkerElements(markerInstances);
@@ -388,7 +445,16 @@ export function syncMarkerElements(
   bindMarkerLayerEvents(map, handlers);
   raiseMarkerLayer(map);
 
-  void Promise.all(requiredMarkerTypes.map((markerType) => ensureMarkerImage(map, markerType)))
+  void Promise.all(
+    requiredMarkerImages.map((markerImageKey) => {
+      const [markerType, glyphName, markerState] = markerImageKey.split(':') as [
+        MarkerTypeKey,
+        MarkerGlyphName,
+        MarkerShellState,
+      ];
+      return ensureMarkerImage(map, markerType, glyphName, markerState);
+    }),
+  )
     .then(() => {
       if (!map.getSource(MARKER_SOURCE_ID)) {
         return;
@@ -457,12 +523,14 @@ function createMarkerHoverTooltip(marker: RecentMarker) {
 }
 
 function createMarkerClickPopup(marker: RecentMarker, handlers: MarkerInteractionHandlers) {
+  const markerType = markerTypeKey(marker.markerType);
   const popup = document.createElement('div');
   popup.className = styles.markerPopup;
   popup.setAttribute('role', 'dialog');
   popup.setAttribute('aria-label', marker.title);
   popup.addEventListener('click', (event) => event.stopPropagation());
   popup.addEventListener('pointerdown', (event) => event.stopPropagation());
+  popup.style.setProperty('--marker-color', markerColors[markerType]);
 
   const header = document.createElement('div');
   header.className = styles.markerPopupHeader;
@@ -536,6 +604,11 @@ function replaceMarkerPopup(
     .setDOMContent(content)
     .setLngLat(marker.coordinates)
     .addTo(map);
+
+  const popupElement = popupRef.current.getElement();
+  if (popupElement) {
+    popupElement.style.zIndex = '80';
+  }
 }
 
 export function syncMarkerPopups(
