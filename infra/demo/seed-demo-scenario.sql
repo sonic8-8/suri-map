@@ -1,0 +1,605 @@
+-- Suri-Map demo scenario seed.
+--
+-- Target: PostgreSQL/PostGIS schema from origin/develop.
+-- Usage:
+--   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/demo/seed-demo-scenario.sql
+--
+-- This script intentionally uses synthetic people and places. It reuses the
+-- stable account and police_phone rows from the development fixtures, then
+-- recreates only the demo incident graph owned by DEMO_INCIDENT_ID.
+
+BEGIN;
+
+CREATE EXTENSION IF NOT EXISTS postgis;
+
+-- Demo incident root:
+--   DEMO_INCIDENT_ID        d0000000-0000-4000-8000-000000000001
+--   DEMO_SOURCE_INCIDENT_ID d0000000-0000-4000-8000-000000000101
+
+DELETE FROM location_data_access_audit
+WHERE incident_id = 'd0000000-0000-4000-8000-000000000001';
+
+DELETE FROM event_dispatch_job
+WHERE incident_id = 'd0000000-0000-4000-8000-000000000001';
+
+DELETE FROM marker_notification
+WHERE marker_id IN (
+    SELECT id
+    FROM marker
+    WHERE incident_id = 'd0000000-0000-4000-8000-000000000001'
+);
+
+DELETE FROM photo
+WHERE marker_id IN (
+    SELECT id
+    FROM marker
+    WHERE incident_id = 'd0000000-0000-4000-8000-000000000001'
+);
+
+DELETE FROM marker
+WHERE incident_id = 'd0000000-0000-4000-8000-000000000001';
+
+DELETE FROM search_path_excluded_point
+WHERE search_path_id IN (
+    SELECT sp.id
+    FROM search_path sp
+    JOIN duty_shift ds ON ds.id = sp.duty_shift_id
+    JOIN operational_period op ON op.id = ds.operational_period_id
+    WHERE op.incident_id = 'd0000000-0000-4000-8000-000000000001'
+);
+
+DELETE FROM search_path_segment
+WHERE search_path_id IN (
+    SELECT sp.id
+    FROM search_path sp
+    JOIN duty_shift ds ON ds.id = sp.duty_shift_id
+    JOIN operational_period op ON op.id = ds.operational_period_id
+    WHERE op.incident_id = 'd0000000-0000-4000-8000-000000000001'
+);
+
+DELETE FROM search_path
+WHERE duty_shift_id IN (
+    SELECT ds.id
+    FROM duty_shift ds
+    JOIN operational_period op ON op.id = ds.operational_period_id
+    WHERE op.incident_id = 'd0000000-0000-4000-8000-000000000001'
+);
+
+DELETE FROM search_history_summary
+WHERE operational_period_id IN (
+    SELECT id
+    FROM operational_period
+    WHERE incident_id = 'd0000000-0000-4000-8000-000000000001'
+);
+
+DELETE FROM handover_memo
+WHERE operational_period_id IN (
+    SELECT id
+    FROM operational_period
+    WHERE incident_id = 'd0000000-0000-4000-8000-000000000001'
+);
+
+DELETE FROM duty_shift
+WHERE operational_period_id IN (
+    SELECT id
+    FROM operational_period
+    WHERE incident_id = 'd0000000-0000-4000-8000-000000000001'
+);
+
+DELETE FROM offline_package_installation
+WHERE offline_package_manifest_id IN (
+    SELECT id
+    FROM offline_package_manifest
+    WHERE incident_id = 'd0000000-0000-4000-8000-000000000001'
+);
+
+DELETE FROM offline_package_manifest
+WHERE incident_id = 'd0000000-0000-4000-8000-000000000001';
+
+DELETE FROM search_area_assignment
+WHERE search_area_id IN (
+    SELECT area.id
+    FROM search_area area
+    JOIN operational_period op ON op.id = area.operational_period_id
+    WHERE op.incident_id = 'd0000000-0000-4000-8000-000000000001'
+);
+
+DELETE FROM search_area_history
+WHERE search_area_id IN (
+    SELECT area.id
+    FROM search_area area
+    JOIN operational_period op ON op.id = area.operational_period_id
+    WHERE op.incident_id = 'd0000000-0000-4000-8000-000000000001'
+);
+
+DELETE FROM search_area
+WHERE operational_period_id IN (
+    SELECT id
+    FROM operational_period
+    WHERE incident_id = 'd0000000-0000-4000-8000-000000000001'
+);
+
+DELETE FROM operational_period
+WHERE incident_id = 'd0000000-0000-4000-8000-000000000001';
+
+DELETE FROM incident_assignment
+WHERE incident_id = 'd0000000-0000-4000-8000-000000000001';
+
+DELETE FROM missing_person
+WHERE incident_id = 'd0000000-0000-4000-8000-000000000001';
+
+DELETE FROM incident
+WHERE id = 'd0000000-0000-4000-8000-000000000001';
+
+INSERT INTO account (
+    id,
+    login_id,
+    password_hash,
+    display_name,
+    account_type,
+    organization_type,
+    status,
+    created_at,
+    updated_at
+)
+VALUES
+    ('11111111-1111-1111-1111-111111110001', 'acct-precinct-cmd', '{noop}fixture', '광주광산경찰서 수완지구대 경위 김도현', 'COMMAND', 'POLICE_SUBSTATION', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('11111111-1111-1111-1111-111111110002', 'acct-precinct-car', '{noop}fixture', '광주광산경찰서 수완지구대 경사 박민수', 'PATROL_CAR', 'POLICE_SUBSTATION', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('11111111-1111-1111-1111-111111110003', 'acct-precinct-team', '{noop}fixture', '광주광산경찰서 수완지구대 순경 이준호', 'TEAM', 'POLICE_SUBSTATION', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('11111111-1111-1111-1111-111111110004', 'acct-cmd-alpha', '{noop}fixture', '광주경찰청 여성청소년과 실종팀 경감 정서윤', 'COMMAND', 'MISSING_TEAM', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('11111111-1111-1111-1111-111111110005', 'acct-team-alpha', '{noop}fixture', '광주경찰청 여성청소년과 실종팀 경사 최지훈', 'TEAM', 'MISSING_TEAM', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('11111111-1111-1111-1111-111111110006', 'acct-support-cmd', '{noop}fixture', '광주경찰청 기동대 경위 강현우', 'COMMAND', 'SUPPORT_UNIT', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('11111111-1111-1111-1111-111111110007', 'acct-support-car', '{noop}fixture', '광주경찰청 기동대 경사 윤태영', 'PATROL_CAR', 'SUPPORT_UNIT', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('11111111-1111-1111-1111-111111110008', 'acct-support-team', '{noop}fixture', '광주경찰청 기동대 순경 오민재', 'TEAM', 'SUPPORT_UNIT', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT (id) DO UPDATE SET
+    login_id = EXCLUDED.login_id,
+    password_hash = EXCLUDED.password_hash,
+    display_name = EXCLUDED.display_name,
+    account_type = EXCLUDED.account_type,
+    organization_type = EXCLUDED.organization_type,
+    status = EXCLUDED.status,
+    updated_at = CURRENT_TIMESTAMP;
+
+INSERT INTO police_phone (
+    id,
+    phone_code,
+    display_name,
+    account_id,
+    status,
+    registered,
+    last_heartbeat_at,
+    last_sync_at,
+    version,
+    heartbeat_sequence,
+    last_heartbeat_event_id,
+    created_at,
+    updated_at
+)
+VALUES
+    ('00000000-0000-0000-0000-000000000201', 'dev-precinct-cmd-phone-01', '수완지구대 지휘 단말', '11111111-1111-1111-1111-111111110001', 'ACTIVE', FALSE, NULL, NULL, 2, 0, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('50000000-0000-0000-0000-000000000001', 'dev-precinct-car-01', '수완지구대 순찰차 단말', '11111111-1111-1111-1111-111111110002', 'ACTIVE', TRUE, CURRENT_TIMESTAMP - INTERVAL '45 seconds', CURRENT_TIMESTAMP - INTERVAL '40 seconds', 8, 1208, 'd0000000-0000-4000-8000-000000009102', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('00000000-0000-0000-0000-000000000101', 'dev-precinct-phone-01', '수완지구대 현장 단말', '11111111-1111-1111-1111-111111110003', 'ACTIVE', TRUE, CURRENT_TIMESTAMP - INTERVAL '25 seconds', CURRENT_TIMESTAMP - INTERVAL '20 seconds', 12, 1212, 'd0000000-0000-4000-8000-000000009103', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('00000000-0000-0000-0000-000000000204', 'dev-alpha-cmd-phone-01', '여성청소년과 실종팀 지휘 단말', '11111111-1111-1111-1111-111111110004', 'ACTIVE', FALSE, NULL, NULL, 2, 0, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('00000000-0000-0000-0000-000000000205', 'dev-alpha-phone-01', '여성청소년과 실종팀 현장 단말', '11111111-1111-1111-1111-111111110005', 'ACTIVE', TRUE, CURRENT_TIMESTAMP - INTERVAL '2 minutes', CURRENT_TIMESTAMP - INTERVAL '90 seconds', 7, 1207, 'd0000000-0000-4000-8000-000000009105', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('00000000-0000-0000-0000-000000000206', 'dev-support-cmd-phone-01', '기동대 지휘 단말', '11111111-1111-1111-1111-111111110006', 'ACTIVE', FALSE, NULL, NULL, 2, 0, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('00000000-0000-0000-0000-000000000207', 'dev-support-car-01', '기동대 차량 단말', '11111111-1111-1111-1111-111111110007', 'ACTIVE', TRUE, CURRENT_TIMESTAMP - INTERVAL '6 minutes', CURRENT_TIMESTAMP - INTERVAL '5 minutes', 6, 1206, 'd0000000-0000-4000-8000-000000009107', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('00000000-0000-0000-0000-000000000208', 'dev-support-phone-01', '기동대 현장 단말', '11111111-1111-1111-1111-111111110008', 'ACTIVE', TRUE, NULL, NULL, 4, 0, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT (id) DO UPDATE SET
+    phone_code = EXCLUDED.phone_code,
+    display_name = EXCLUDED.display_name,
+    account_id = EXCLUDED.account_id,
+    status = EXCLUDED.status,
+    registered = EXCLUDED.registered,
+    last_heartbeat_at = EXCLUDED.last_heartbeat_at,
+    last_sync_at = EXCLUDED.last_sync_at,
+    version = EXCLUDED.version,
+    heartbeat_sequence = EXCLUDED.heartbeat_sequence,
+    last_heartbeat_event_id = EXCLUDED.last_heartbeat_event_id,
+    updated_at = CURRENT_TIMESTAMP;
+
+INSERT INTO incident (
+    id,
+    source_incident_id,
+    title,
+    status,
+    opened_at,
+    closed_at,
+    closed_by_account_id,
+    version,
+    created_at,
+    updated_at
+)
+VALUES (
+    'd0000000-0000-4000-8000-000000000001',
+    'd0000000-0000-4000-8000-000000000101',
+    '광주 광산구 황룡강 생태길 실종 신고',
+    'OPEN',
+    '2026-05-18T09:52:00+09:00',
+    NULL,
+    NULL,
+    3,
+    '2026-05-18T09:52:00+09:00',
+    '2026-05-18T12:22:00+09:00'
+);
+
+INSERT INTO missing_person (
+    incident_id,
+    display_name,
+    photo_object_key,
+    appearance_text,
+    last_seen_location_text,
+    last_seen_at,
+    imported_at
+)
+VALUES (
+    'd0000000-0000-4000-8000-000000000001',
+    '김하은',
+    'mock-upload/missing-person/demo-kim-haeun-profile.jpg',
+    '키 162cm, 회색 바람막이, 검은 운동화, 남색 백팩 착용',
+    '광주 광산구 송산유원지 북측 황룡강 생태길 입구',
+    '2026-05-18T09:35:00+09:00',
+    '2026-05-18T09:52:00+09:00'
+);
+
+INSERT INTO incident_assignment (
+    id,
+    incident_id,
+    account_id,
+    incident_role,
+    assigned_at,
+    revoked_at,
+    created_at,
+    updated_at
+)
+VALUES
+    ('d0000000-0000-4000-8000-000000000301', 'd0000000-0000-4000-8000-000000000001', '11111111-1111-1111-1111-111111110001', 'FIELD_COMMANDER', '2026-05-18T09:55:00+09:00', NULL, '2026-05-18T09:55:00+09:00', '2026-05-18T09:55:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000302', 'd0000000-0000-4000-8000-000000000001', '11111111-1111-1111-1111-111111110002', 'MEMBER', '2026-05-18T09:56:00+09:00', NULL, '2026-05-18T09:56:00+09:00', '2026-05-18T09:56:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000303', 'd0000000-0000-4000-8000-000000000001', '11111111-1111-1111-1111-111111110003', 'MEMBER', '2026-05-18T09:56:00+09:00', NULL, '2026-05-18T09:56:00+09:00', '2026-05-18T09:56:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000304', 'd0000000-0000-4000-8000-000000000001', '11111111-1111-1111-1111-111111110004', 'INCIDENT_COMMANDER', '2026-05-18T10:44:00+09:00', NULL, '2026-05-18T10:44:00+09:00', '2026-05-18T10:44:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000305', 'd0000000-0000-4000-8000-000000000001', '11111111-1111-1111-1111-111111110005', 'MEMBER', '2026-05-18T10:45:00+09:00', NULL, '2026-05-18T10:45:00+09:00', '2026-05-18T10:45:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000306', 'd0000000-0000-4000-8000-000000000001', '11111111-1111-1111-1111-111111110006', 'FIELD_COMMANDER', '2026-05-18T10:48:00+09:00', NULL, '2026-05-18T10:48:00+09:00', '2026-05-18T10:48:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000307', 'd0000000-0000-4000-8000-000000000001', '11111111-1111-1111-1111-111111110007', 'MEMBER', '2026-05-18T10:48:00+09:00', NULL, '2026-05-18T10:48:00+09:00', '2026-05-18T10:48:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000308', 'd0000000-0000-4000-8000-000000000001', '11111111-1111-1111-1111-111111110008', 'MEMBER', '2026-05-18T10:48:00+09:00', NULL, '2026-05-18T10:48:00+09:00', '2026-05-18T10:48:00+09:00');
+
+INSERT INTO operational_period (
+    id,
+    incident_id,
+    sequence_number,
+    status,
+    reason,
+    reason_memo,
+    started_by_account_id,
+    ended_by_account_id,
+    started_at,
+    ended_at,
+    version,
+    created_at,
+    updated_at
+)
+VALUES
+    ('d0000000-0000-4000-8000-000000000201', 'd0000000-0000-4000-8000-000000000001', 1, 'ENDED', 'INITIAL', '초동 수색과 최초 신고 지점 확인', '11111111-1111-1111-1111-111111110001', '11111111-1111-1111-1111-111111110004', '2026-05-18T10:05:00+09:00', '2026-05-18T11:18:00+09:00', 2, '2026-05-18T10:05:00+09:00', '2026-05-18T11:18:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000202', 'd0000000-0000-4000-8000-000000000001', 2, 'ACTIVE', 'RE_SEARCH', '북측 산책로와 하천 제방 구간을 이어 확인', '11111111-1111-1111-1111-111111110004', NULL, '2026-05-18T11:25:00+09:00', NULL, 3, '2026-05-18T11:25:00+09:00', '2026-05-18T12:22:00+09:00');
+
+INSERT INTO search_area (
+    id,
+    operational_period_id,
+    parent_search_area_id,
+    name,
+    area_level,
+    geometry,
+    status,
+    version,
+    created_by_account_id,
+    created_at,
+    updated_at
+)
+VALUES
+    ('d0000000-0000-4000-8000-000000000401', 'd0000000-0000-4000-8000-000000000201', NULL, 'OP1 황룡강 생태길 전체 구역', 'OVERALL', ST_SetSRID(ST_GeomFromText('POLYGON((126.742000 35.151000,126.768000 35.151000,126.768000 35.170000,126.742000 35.170000,126.742000 35.151000))'), 4326), 'COMPLETED', 2, '11111111-1111-1111-1111-111111110001', '2026-05-18T10:08:00+09:00', '2026-05-18T11:18:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000402', 'd0000000-0000-4000-8000-000000000202', NULL, 'OP2 황룡강 생태길 전체 구역', 'OVERALL', ST_SetSRID(ST_GeomFromText('POLYGON((126.742000 35.151000,126.768000 35.151000,126.768000 35.170000,126.742000 35.170000,126.742000 35.151000))'), 4326), 'ACTIVE', 3, '11111111-1111-1111-1111-111111110004', '2026-05-18T11:25:00+09:00', '2026-05-18T12:22:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000411', 'd0000000-0000-4000-8000-000000000202', 'd0000000-0000-4000-8000-000000000402', 'A구역 송산유원지 진입로', 'UNIT', ST_SetSRID(ST_GeomFromText('POLYGON((126.742500 35.151500,126.754800 35.151500,126.754800 35.169300,126.742500 35.169300,126.742500 35.151500))'), 4326), 'ACTIVE', 3, '11111111-1111-1111-1111-111111110004', '2026-05-18T11:28:00+09:00', '2026-05-18T12:18:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000412', 'd0000000-0000-4000-8000-000000000202', 'd0000000-0000-4000-8000-000000000402', 'B구역 황룡강 제방 동측', 'UNIT', ST_SetSRID(ST_GeomFromText('POLYGON((126.754800 35.151500,126.767500 35.151500,126.767500 35.169300,126.754800 35.169300,126.754800 35.151500))'), 4326), 'ACTIVE', 2, '11111111-1111-1111-1111-111111110004', '2026-05-18T11:28:00+09:00', '2026-05-18T12:18:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000421', 'd0000000-0000-4000-8000-000000000202', 'd0000000-0000-4000-8000-000000000411', 'A-1 산책로 입구 주변', 'TEAM', ST_SetSRID(ST_GeomFromText('POLYGON((126.743000 35.152000,126.750000 35.152000,126.750000 35.160500,126.743000 35.160500,126.743000 35.152000))'), 4326), 'COMPLETED', 2, '11111111-1111-1111-1111-111111110004', '2026-05-18T11:30:00+09:00', '2026-05-18T12:03:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000422', 'd0000000-0000-4000-8000-000000000202', 'd0000000-0000-4000-8000-000000000411', 'A-2 북측 수풀 경계', 'TEAM', ST_SetSRID(ST_GeomFromText('POLYGON((126.750000 35.152000,126.754300 35.152000,126.754300 35.168700,126.750000 35.168700,126.750000 35.152000))'), 4326), 'ACTIVE', 3, '11111111-1111-1111-1111-111111110004', '2026-05-18T11:30:00+09:00', '2026-05-18T12:20:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000423', 'd0000000-0000-4000-8000-000000000202', 'd0000000-0000-4000-8000-000000000412', 'B-1 제방 도로와 자전거길', 'TEAM', ST_SetSRID(ST_GeomFromText('POLYGON((126.755300 35.152000,126.767000 35.152000,126.767000 35.168700,126.755300 35.168700,126.755300 35.152000))'), 4326), 'ACTIVE', 2, '11111111-1111-1111-1111-111111110004', '2026-05-18T11:30:00+09:00', '2026-05-18T12:20:00+09:00');
+
+INSERT INTO search_area_history (
+    id,
+    search_area_id,
+    change_type,
+    previous_status,
+    next_status,
+    previous_geometry,
+    next_geometry,
+    change_memo,
+    changed_by_account_id,
+    changed_at,
+    created_at
+)
+VALUES
+    ('d0000000-0000-4000-8000-000000000441', 'd0000000-0000-4000-8000-000000000402', 'CREATED', NULL, 'ACTIVE', NULL, ST_SetSRID(ST_GeomFromText('POLYGON((126.742000 35.151000,126.768000 35.151000,126.768000 35.170000,126.742000 35.170000,126.742000 35.151000))'), 4326), 'OP2 전체 수색 구역 생성', '11111111-1111-1111-1111-111111110004', '2026-05-18T11:25:00+09:00', '2026-05-18T11:25:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000442', 'd0000000-0000-4000-8000-000000000421', 'STATUS_CHANGED', 'ACTIVE', 'COMPLETED', NULL, NULL, '산책로 입구와 주차장 주변 확인 완료', '11111111-1111-1111-1111-111111110001', '2026-05-18T12:03:00+09:00', '2026-05-18T12:03:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000443', 'd0000000-0000-4000-8000-000000000422', 'CREATED', NULL, 'ACTIVE', NULL, ST_SetSRID(ST_GeomFromText('POLYGON((126.750000 35.152000,126.754300 35.152000,126.754300 35.168700,126.750000 35.168700,126.750000 35.152000))'), 4326), '북측 수풀 경계 확인 구역 생성', '11111111-1111-1111-1111-111111110004', '2026-05-18T11:30:00+09:00', '2026-05-18T11:30:00+09:00');
+
+INSERT INTO search_area_assignment (
+    id,
+    search_area_id,
+    assigned_account_id,
+    assigned_by_account_id,
+    assigned_at,
+    revoked_at,
+    status,
+    memo,
+    created_at,
+    updated_at
+)
+VALUES
+    ('d0000000-0000-4000-8000-000000000451', 'd0000000-0000-4000-8000-000000000421', '11111111-1111-1111-1111-111111110003', '11111111-1111-1111-1111-111111110001', '2026-05-18T11:31:00+09:00', NULL, 'ACTIVE', '산책로 입구와 주차장 주변 확인', '2026-05-18T11:31:00+09:00', '2026-05-18T12:03:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000452', 'd0000000-0000-4000-8000-000000000422', '11111111-1111-1111-1111-111111110005', '11111111-1111-1111-1111-111111110004', '2026-05-18T11:31:00+09:00', NULL, 'ACTIVE', '북측 수풀 경계 도보 확인', '2026-05-18T11:31:00+09:00', '2026-05-18T12:20:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000453', 'd0000000-0000-4000-8000-000000000423', '11111111-1111-1111-1111-111111110002', '11111111-1111-1111-1111-111111110001', '2026-05-18T11:31:00+09:00', NULL, 'ACTIVE', '제방 도로 차량 순찰', '2026-05-18T11:31:00+09:00', '2026-05-18T12:16:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000454', 'd0000000-0000-4000-8000-000000000423', '11111111-1111-1111-1111-111111110007', '11111111-1111-1111-1111-111111110006', '2026-05-18T11:38:00+09:00', NULL, 'ACTIVE', '제방 동측 차량 진입 지원', '2026-05-18T11:38:00+09:00', '2026-05-18T12:16:00+09:00');
+
+INSERT INTO duty_shift (
+    id,
+    operational_period_id,
+    incident_assignment_id,
+    police_phone_id,
+    status,
+    started_by_account_id,
+    ended_by_account_id,
+    started_at,
+    ended_at,
+    version,
+    created_at,
+    updated_at
+)
+VALUES
+    ('d0000000-0000-4000-8000-000000000501', 'd0000000-0000-4000-8000-000000000202', 'd0000000-0000-4000-8000-000000000303', '00000000-0000-0000-0000-000000000101', 'ACTIVE', '11111111-1111-1111-1111-111111110001', NULL, '2026-05-18T11:31:00+09:00', NULL, 4, '2026-05-18T11:31:00+09:00', '2026-05-18T12:21:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000502', 'd0000000-0000-4000-8000-000000000202', 'd0000000-0000-4000-8000-000000000302', '50000000-0000-0000-0000-000000000001', 'ENDED', '11111111-1111-1111-1111-111111110001', '11111111-1111-1111-1111-111111110001', '2026-05-18T11:31:00+09:00', '2026-05-18T12:16:00+09:00', 2, '2026-05-18T11:31:00+09:00', '2026-05-18T12:16:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000503', 'd0000000-0000-4000-8000-000000000202', 'd0000000-0000-4000-8000-000000000305', '00000000-0000-0000-0000-000000000205', 'ACTIVE', '11111111-1111-1111-1111-111111110004', NULL, '2026-05-18T11:34:00+09:00', NULL, 3, '2026-05-18T11:34:00+09:00', '2026-05-18T12:20:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000504', 'd0000000-0000-4000-8000-000000000202', 'd0000000-0000-4000-8000-000000000307', '00000000-0000-0000-0000-000000000207', 'ACTIVE', '11111111-1111-1111-1111-111111110006', NULL, '2026-05-18T11:40:00+09:00', NULL, 2, '2026-05-18T11:40:00+09:00', '2026-05-18T12:16:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000505', 'd0000000-0000-4000-8000-000000000202', 'd0000000-0000-4000-8000-000000000308', '00000000-0000-0000-0000-000000000208', 'ACTIVE', '11111111-1111-1111-1111-111111110006', NULL, '2026-05-18T11:42:00+09:00', NULL, 1, '2026-05-18T11:42:00+09:00', '2026-05-18T12:10:00+09:00');
+
+INSERT INTO search_path (
+    id,
+    duty_shift_id,
+    status,
+    started_at,
+    ended_at,
+    geometry,
+    version,
+    created_at,
+    updated_at
+)
+VALUES
+    ('d0000000-0000-4000-8000-000000000601', 'd0000000-0000-4000-8000-000000000502', 'ENDED', '2026-05-18T11:32:00+09:00', '2026-05-18T12:14:00+09:00', ST_SetSRID(ST_GeomFromText('LINESTRING(126.755500 35.153000,126.759000 35.155500,126.763000 35.158500,126.766200 35.163200)'), 4326), 2, '2026-05-18T11:32:00+09:00', '2026-05-18T12:14:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000602', 'd0000000-0000-4000-8000-000000000501', 'RECORDING', '2026-05-18T11:36:00+09:00', NULL, ST_SetSRID(ST_GeomFromText('LINESTRING(126.744200 35.153200,126.746800 35.156000,126.748900 35.159800,126.750100 35.160200)'), 4326), 4, '2026-05-18T11:36:00+09:00', '2026-05-18T12:21:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000603', 'd0000000-0000-4000-8000-000000000503', 'ENDED', '2026-05-18T11:38:00+09:00', '2026-05-18T12:08:00+09:00', ST_SetSRID(ST_GeomFromText('LINESTRING(126.750600 35.162200,126.751800 35.164000,126.753200 35.166200,126.754000 35.168100)'), 4326), 2, '2026-05-18T11:38:00+09:00', '2026-05-18T12:08:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000604', 'd0000000-0000-4000-8000-000000000504', 'ENDED', '2026-05-18T11:44:00+09:00', '2026-05-18T12:15:00+09:00', ST_SetSRID(ST_GeomFromText('LINESTRING(126.756500 35.167600,126.760200 35.166500,126.764100 35.164900,126.766500 35.162800)'), 4326), 2, '2026-05-18T11:44:00+09:00', '2026-05-18T12:15:00+09:00');
+
+INSERT INTO search_path_segment (
+    id,
+    search_path_id,
+    movement_type,
+    movement_type_source,
+    geometry,
+    started_at,
+    ended_at,
+    corrected_by_account_id,
+    corrected_at,
+    version,
+    created_at,
+    updated_at
+)
+VALUES
+    ('d0000000-0000-4000-8000-000000000611', 'd0000000-0000-4000-8000-000000000601', 'VEHICLE', 'AUTO', ST_SetSRID(ST_GeomFromText('LINESTRING(126.755500 35.153000,126.759000 35.155500,126.763000 35.158500,126.766200 35.163200)'), 4326), '2026-05-18T11:32:00+09:00', '2026-05-18T12:14:00+09:00', NULL, NULL, 2, '2026-05-18T11:32:00+09:00', '2026-05-18T12:14:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000612', 'd0000000-0000-4000-8000-000000000602', 'FOOT', 'AUTO', ST_SetSRID(ST_GeomFromText('LINESTRING(126.744200 35.153200,126.746800 35.156000,126.748900 35.159800,126.750100 35.160200)'), 4326), '2026-05-18T11:36:00+09:00', '2026-05-18T12:21:00+09:00', NULL, NULL, 4, '2026-05-18T11:36:00+09:00', '2026-05-18T12:21:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000613', 'd0000000-0000-4000-8000-000000000603', 'FOOT', 'AUTO', ST_SetSRID(ST_GeomFromText('LINESTRING(126.750600 35.162200,126.751800 35.164000,126.753200 35.166200,126.754000 35.168100)'), 4326), '2026-05-18T11:38:00+09:00', '2026-05-18T12:08:00+09:00', NULL, NULL, 2, '2026-05-18T11:38:00+09:00', '2026-05-18T12:08:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000614', 'd0000000-0000-4000-8000-000000000604', 'VEHICLE', 'AUTO', ST_SetSRID(ST_GeomFromText('LINESTRING(126.756500 35.167600,126.760200 35.166500,126.764100 35.164900,126.766500 35.162800)'), 4326), '2026-05-18T11:44:00+09:00', '2026-05-18T12:15:00+09:00', NULL, NULL, 2, '2026-05-18T11:44:00+09:00', '2026-05-18T12:15:00+09:00');
+
+INSERT INTO marker (
+    id,
+    incident_id,
+    operational_period_id,
+    duty_shift_id,
+    marker_type,
+    support_request_type,
+    location,
+    memo,
+    occurred_at,
+    created_by_account_id,
+    police_phone_id,
+    marker_source,
+    status,
+    version,
+    created_at,
+    updated_at
+)
+VALUES
+    ('d0000000-0000-4000-8000-000000000701', 'd0000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000202', 'd0000000-0000-4000-8000-000000000501', 'CLUE', NULL, ST_SetSRID(ST_MakePoint(126.749200, 35.159700), 4326), '산책로 난간 아래에서 남색 천 조각 확인', '2026-05-18T11:58:00+09:00', '11111111-1111-1111-1111-111111110003', '00000000-0000-0000-0000-000000000101', 'APP', 'ACTIVE', 2, '2026-05-18T11:58:00+09:00', '2026-05-18T12:05:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000702', 'd0000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000202', 'd0000000-0000-4000-8000-000000000503', 'FIELD_CONDITION', NULL, ST_SetSRID(ST_MakePoint(126.753600, 35.166400), 4326), '하천 방향 수풀 밀집, 2인 1조 도보 확인 중', '2026-05-18T12:02:00+09:00', '11111111-1111-1111-1111-111111110005', '00000000-0000-0000-0000-000000000205', 'APP', 'ACTIVE', 1, '2026-05-18T12:02:00+09:00', '2026-05-18T12:02:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000703', 'd0000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000202', 'd0000000-0000-4000-8000-000000000505', 'SUPPORT_REQUEST', 'DRONE', ST_SetSRID(ST_MakePoint(126.762800, 35.165300), 4326), '제방 너머 갈대밭 상공 확인을 위한 드론 지원 요청', '2026-05-18T12:10:00+09:00', '11111111-1111-1111-1111-111111110008', '00000000-0000-0000-0000-000000000208', 'APP', 'ACTIVE', 1, '2026-05-18T12:10:00+09:00', '2026-05-18T12:10:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000704', 'd0000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000202', NULL, 'NOTE', NULL, ST_SetSRID(ST_MakePoint(126.746000, 35.154500), 4326), '보호자 진술 기준 마지막 목격 방향은 북동쪽 산책로', '2026-05-18T12:12:00+09:00', '11111111-1111-1111-1111-111111110001', NULL, 'WEB', 'ACTIVE', 1, '2026-05-18T12:12:00+09:00', '2026-05-18T12:12:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000705', 'd0000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000202', 'd0000000-0000-4000-8000-000000000501', 'SUPPORT_REQUEST', 'POLICE_DOG', ST_SetSRID(ST_MakePoint(126.751200, 35.163200), 4326), '천 조각 발견 지점 주변 냄새 추적 지원 요청', '2026-05-18T12:18:00+09:00', '11111111-1111-1111-1111-111111110003', '00000000-0000-0000-0000-000000000101', 'APP', 'ACTIVE', 1, '2026-05-18T12:18:00+09:00', '2026-05-18T12:18:00+09:00');
+
+INSERT INTO photo (
+    id,
+    marker_id,
+    object_key,
+    status,
+    attached_at,
+    content_type,
+    size_bytes,
+    width,
+    height,
+    checksum_sha256,
+    captured_at,
+    upload_url_expires_at,
+    version,
+    created_at,
+    updated_at,
+    deleted_at
+)
+VALUES (
+    'd0000000-0000-4000-8000-000000000711',
+    'd0000000-0000-4000-8000-000000000701',
+    'mock-upload/markers/demo-hwangryonggang-blue-fabric.jpg',
+    'ATTACHED',
+    '2026-05-18T12:04:00+09:00',
+    'image/jpeg',
+    684231,
+    1440,
+    1080,
+    repeat('a', 64),
+    '2026-05-18T11:59:00+09:00',
+    NULL,
+    2,
+    '2026-05-18T11:59:00+09:00',
+    '2026-05-18T12:04:00+09:00',
+    NULL
+);
+
+INSERT INTO marker_notification (
+    id,
+    marker_id,
+    notification_type,
+    recipient_rule,
+    recipient_account_ids,
+    recipient_police_phone_ids,
+    notification_payload,
+    status,
+    version,
+    created_at
+)
+VALUES (
+    'd0000000-0000-4000-8000-000000000721',
+    'd0000000-0000-4000-8000-000000000703',
+    'SUPPORT_REQUEST_CREATED',
+    'COMMANDERS_AND_FIELD_COMMANDERS',
+    ARRAY[
+        '11111111-1111-1111-1111-111111110001'::uuid,
+        '11111111-1111-1111-1111-111111110004'::uuid,
+        '11111111-1111-1111-1111-111111110006'::uuid
+    ],
+    ARRAY[
+        '00000000-0000-0000-0000-000000000201'::uuid,
+        '00000000-0000-0000-0000-000000000204'::uuid,
+        '00000000-0000-0000-0000-000000000206'::uuid
+    ],
+    jsonb_build_object(
+        'incidentId', 'd0000000-0000-4000-8000-000000000001',
+        'markerId', 'd0000000-0000-4000-8000-000000000703',
+        'markerType', 'SUPPORT_REQUEST',
+        'supportRequestType', 'DRONE',
+        'memo', '제방 너머 갈대밭 상공 확인을 위한 드론 지원 요청'
+    ),
+    'SNAPSHOT_CREATED',
+    1,
+    '2026-05-18T12:10:00+09:00'
+);
+
+INSERT INTO offline_package_manifest (
+    id,
+    incident_id,
+    manifest_version,
+    operational_period_id,
+    overall_search_area_id,
+    overall_search_area_version,
+    manifest_hash,
+    manifest_format_version,
+    manifest_payload,
+    expires_at,
+    created_at,
+    updated_at
+)
+VALUES (
+    'd0000000-0000-4000-8000-000000000801',
+    'd0000000-0000-4000-8000-000000000001',
+    2,
+    'd0000000-0000-4000-8000-000000000202',
+    'd0000000-0000-4000-8000-000000000402',
+    3,
+    repeat('b', 64),
+    1,
+    jsonb_build_object(
+        'incidentId', 'd0000000-0000-4000-8000-000000000001',
+        'opId', 'd0000000-0000-4000-8000-000000000202',
+        'manifestVersion', 2,
+        'areaCount', 6,
+        'markerCount', 5,
+        'tileRegion', jsonb_build_object('name', 'gwangju-gwangsan-hwangryonggang', 'minZoom', 13, 'maxZoom', 16)
+    ),
+    '2026-05-19T12:00:00+09:00',
+    '2026-05-18T11:26:00+09:00',
+    '2026-05-18T12:16:00+09:00'
+);
+
+INSERT INTO offline_package_installation (
+    id,
+    offline_package_manifest_id,
+    police_phone_id,
+    last_reported_by_account_id,
+    status,
+    total_item_count,
+    completed_item_count,
+    failed_item_count,
+    failed_item_keys,
+    last_error_code,
+    last_reported_at,
+    version,
+    created_at,
+    updated_at
+)
+VALUES
+    ('d0000000-0000-4000-8000-000000000811', 'd0000000-0000-4000-8000-000000000801', '00000000-0000-0000-0000-000000000101', '11111111-1111-1111-1111-111111110003', 'READY', 24, 24, 0, ARRAY[]::text[], NULL, '2026-05-18T11:44:00+09:00', 4, '2026-05-18T11:26:00+09:00', '2026-05-18T11:44:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000812', 'd0000000-0000-4000-8000-000000000801', '00000000-0000-0000-0000-000000000205', '11111111-1111-1111-1111-111111110005', 'PARTIAL', 24, 20, 1, ARRAY['tiles:gwangju-gwangsan:16/55742/25341'], 'tile_download_retryable', '2026-05-18T12:00:00+09:00', 3, '2026-05-18T11:26:00+09:00', '2026-05-18T12:00:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000813', 'd0000000-0000-4000-8000-000000000801', '50000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111110002', 'READY', 24, 24, 0, ARRAY[]::text[], NULL, '2026-05-18T11:50:00+09:00', 3, '2026-05-18T11:26:00+09:00', '2026-05-18T11:50:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000814', 'd0000000-0000-4000-8000-000000000801', '00000000-0000-0000-0000-000000000207', '11111111-1111-1111-1111-111111110007', 'STALE', 24, 24, 0, ARRAY[]::text[], 'manifest_version_outdated', '2026-05-18T11:52:00+09:00', 2, '2026-05-18T11:26:00+09:00', '2026-05-18T11:52:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000815', 'd0000000-0000-4000-8000-000000000801', '00000000-0000-0000-0000-000000000208', '11111111-1111-1111-1111-111111110008', 'FAILED', 24, 12, 3, ARRAY['tiles:gwangju-gwangsan:15/27870/12691', 'style:gwangju-labels', 'manifest:checksum'], 'checksum_mismatch', '2026-05-18T12:08:00+09:00', 2, '2026-05-18T11:26:00+09:00', '2026-05-18T12:08:00+09:00');
+
+INSERT INTO handover_memo (
+    id,
+    operational_period_id,
+    memo_target_type,
+    memo_target_id,
+    content,
+    created_by_account_id,
+    duty_shift_id,
+    status,
+    version,
+    created_at,
+    updated_at
+)
+VALUES
+    ('d0000000-0000-4000-8000-000000000901', 'd0000000-0000-4000-8000-000000000202', 'OPERATIONAL_PERIOD', 'd0000000-0000-4000-8000-000000000202', 'OP1에서 산책로 입구와 주차장 주변을 확인했다. OP2는 북측 수풀 경계와 제방 동측 차량 진입로를 이어 확인한다.', '11111111-1111-1111-1111-111111110004', NULL, 'ACTIVE', 2, '2026-05-18T11:25:00+09:00', '2026-05-18T11:35:00+09:00'),
+    ('d0000000-0000-4000-8000-000000000902', 'd0000000-0000-4000-8000-000000000202', 'MARKER', 'd0000000-0000-4000-8000-000000000701', '천 조각 위치는 하천 방향 난간 아래이며 사진 1건이 첨부되어 있다.', '11111111-1111-1111-1111-111111110003', 'd0000000-0000-4000-8000-000000000501', 'ACTIVE', 1, '2026-05-18T12:05:00+09:00', '2026-05-18T12:05:00+09:00');
+
+INSERT INTO search_history_summary (
+    id,
+    operational_period_id,
+    duty_shift_id,
+    generation_status,
+    content,
+    source_data_hash,
+    source_readiness,
+    requested_by_account_id,
+    generated_at,
+    version,
+    created_at,
+    updated_at
+)
+VALUES (
+    'd0000000-0000-4000-8000-000000000911',
+    'd0000000-0000-4000-8000-000000000202',
+    NULL,
+    'READY',
+    'OP1 종료 후 OP2에서는 황룡강 생태길 북측 수풀 경계와 제방 동측 도로를 중심으로 확인이 이어졌다. 수완지구대 현장팀은 산책로 입구에서 천 조각을 기록했고, 실종팀 현장팀은 북측 수풀 경계의 현장 상태를 남겼다. 기동대는 제방 동측 차량 진입과 드론 지원 요청을 공유했다.',
+    repeat('c', 64),
+    'READY',
+    '11111111-1111-1111-1111-111111110004',
+    '2026-05-18T12:22:00+09:00',
+    2,
+    '2026-05-18T12:21:00+09:00',
+    '2026-05-18T12:22:00+09:00'
+);
+
+COMMIT;
