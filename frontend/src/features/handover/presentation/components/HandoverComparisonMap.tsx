@@ -123,11 +123,7 @@ export function HandoverComparisonMap({
     const bounds = boundsRef.current;
     if (!map || !bounds) return;
 
-    map.fitBounds(bounds, {
-      padding: FIT_PADDING,
-      duration: 420,
-      maxZoom: FIT_MAX_ZOOM,
-    });
+    fitMapToBounds(map, bounds);
   }, []);
 
   const scheduleFitToEvidence = useCallback((map: maplibregl.Map, bounds: LngLatBoundsLike | null) => {
@@ -149,43 +145,52 @@ export function HandoverComparisonMap({
     if (!containerRef.current) return;
 
     const apiKey = getVWorldApiKey();
-    const map = new maplibregl.Map({
-      container: containerRef.current,
-      style: createVWorldBaseStyle(apiKey),
-      center: DEFAULT_JURISDICTION_CENTER,
-      zoom: DEFAULT_ZOOM,
-      maxZoom: V_WORLD_MAX_ZOOM,
-      attributionControl: false,
-    });
+    let map: maplibregl.Map;
+    try {
+      map = new maplibregl.Map({
+        container: containerRef.current,
+        style: createVWorldBaseStyle(apiKey),
+        center: DEFAULT_JURISDICTION_CENTER,
+        zoom: DEFAULT_ZOOM,
+        maxZoom: V_WORLD_MAX_ZOOM,
+        attributionControl: false,
+      });
+    } catch (error) {
+      console.error('Failed to initialize handover comparison map', error);
+      return;
+    }
 
     mapRef.current = map;
     map.once('load', () => {
+      if (mapRef.current !== map) return;
       const latestFeatureCollections = featureCollectionsRef.current;
       const latestOverallAreaFeatures = overallAreaFeaturesRef.current;
-      addComparisonLayers(map);
-      syncOverallAreaSource(map, latestOverallAreaFeatures);
-      syncComparisonSources(map, latestFeatureCollections);
-      syncMarkerElements(
-        map,
-        boardMarkersRef.current,
-        visibleMarkerIdsRef.current,
-        markerInstancesRef,
-        true,
-        markerInteractionHandlers,
-      );
-      boundsRef.current = getCollectionsBounds({
-        areas: combineFeatureCollections(latestOverallAreaFeatures, latestFeatureCollections.areas),
-        paths: latestFeatureCollections.paths,
-        markers: latestFeatureCollections.markers,
-      });
-      fitMapToBounds(map, boundsRef.current);
+      runMapMutation(() => {
+        addComparisonLayers(map);
+        syncOverallAreaSource(map, latestOverallAreaFeatures);
+        syncComparisonSources(map, latestFeatureCollections);
+        syncMarkerElements(
+          map,
+          boardMarkersRef.current,
+          visibleMarkerIdsRef.current,
+          markerInstancesRef,
+          true,
+          markerInteractionHandlers,
+        );
+        boundsRef.current = getCollectionsBounds({
+          areas: combineFeatureCollections(latestOverallAreaFeatures, latestFeatureCollections.areas),
+          paths: latestFeatureCollections.paths,
+          markers: latestFeatureCollections.markers,
+        });
+        fitMapToBounds(map, boundsRef.current);
+      }, 'Failed to initialize handover comparison layers');
     });
 
     return () => {
       clearScheduledFit(scheduledFitTimerRef);
       clearMarkerElements(markerInstancesRef);
       mapRef.current = null;
-      map.remove();
+      runMapMutation(() => map.remove(), 'Failed to remove handover comparison map');
     };
   }, [externalMap, markerInteractionHandlers]);
 
@@ -195,25 +200,28 @@ export function HandoverComparisonMap({
     mapRef.current = externalMap;
 
     const initializeExternalLayers = () => {
+      if (mapRef.current !== externalMap) return;
       const latestFeatureCollections = featureCollectionsRef.current;
       const latestOverallAreaFeatures = overallAreaFeaturesRef.current;
-      addComparisonLayers(externalMap);
-      syncOverallAreaSource(externalMap, latestOverallAreaFeatures);
-      syncComparisonSources(externalMap, latestFeatureCollections);
-      syncMarkerElements(
-        externalMap,
-        boardMarkersRef.current,
-        visibleMarkerIdsRef.current,
-        markerInstancesRef,
-        true,
-        markerInteractionHandlers,
-      );
-      boundsRef.current = getCollectionsBounds({
-        areas: combineFeatureCollections(latestOverallAreaFeatures, latestFeatureCollections.areas),
-        paths: latestFeatureCollections.paths,
-        markers: latestFeatureCollections.markers,
-      });
-      scheduleFitToEvidence(externalMap, boundsRef.current);
+      runMapMutation(() => {
+        addComparisonLayers(externalMap);
+        syncOverallAreaSource(externalMap, latestOverallAreaFeatures);
+        syncComparisonSources(externalMap, latestFeatureCollections);
+        syncMarkerElements(
+          externalMap,
+          boardMarkersRef.current,
+          visibleMarkerIdsRef.current,
+          markerInstancesRef,
+          true,
+          markerInteractionHandlers,
+        );
+        boundsRef.current = getCollectionsBounds({
+          areas: combineFeatureCollections(latestOverallAreaFeatures, latestFeatureCollections.areas),
+          paths: latestFeatureCollections.paths,
+          markers: latestFeatureCollections.markers,
+        });
+        scheduleFitToEvidence(externalMap, boundsRef.current);
+      }, 'Failed to initialize external handover comparison layers');
     };
 
     if (externalMap.loaded()) {
@@ -226,12 +234,14 @@ export function HandoverComparisonMap({
       clearScheduledFit(scheduledFitTimerRef);
       clearMarkerElements(markerInstancesRef);
       externalMap.off('load', initializeExternalLayers);
-      syncOverallAreaSource(externalMap, emptyFeatureCollection());
-      syncComparisonSources(externalMap, {
-        areas: emptyFeatureCollection(),
-        paths: emptyFeatureCollection(),
-        markers: emptyFeatureCollection(),
-      });
+      runMapMutation(() => {
+        syncOverallAreaSource(externalMap, emptyFeatureCollection());
+        syncComparisonSources(externalMap, {
+          areas: emptyFeatureCollection(),
+          paths: emptyFeatureCollection(),
+          markers: emptyFeatureCollection(),
+        });
+      }, 'Failed to clear external handover comparison layers');
       mapRef.current = null;
     };
   }, [externalMap, markerInteractionHandlers, scheduleFitToEvidence]);
@@ -240,20 +250,22 @@ export function HandoverComparisonMap({
     const map = mapRef.current;
     if (!map || !map.loaded()) return;
 
-    addComparisonLayers(map);
-    syncOverallAreaSource(map, visibleOverallAreaFeatures);
-    syncComparisonSources(map, featureCollections);
-    syncMarkerElements(map, boardMarkers, visibleMarkerIds, markerInstancesRef, true, markerInteractionHandlers);
-    boundsRef.current = getCollectionsBounds({
-      areas: combineFeatureCollections(visibleOverallAreaFeatures, featureCollections.areas),
-      paths: featureCollections.paths,
-      markers: featureCollections.markers,
-    });
-    if (externalMap) {
-      scheduleFitToEvidence(map, boundsRef.current);
-    } else {
-      fitMapToBounds(map, boundsRef.current);
-    }
+    runMapMutation(() => {
+      addComparisonLayers(map);
+      syncOverallAreaSource(map, visibleOverallAreaFeatures);
+      syncComparisonSources(map, featureCollections);
+      syncMarkerElements(map, boardMarkers, visibleMarkerIds, markerInstancesRef, true, markerInteractionHandlers);
+      boundsRef.current = getCollectionsBounds({
+        areas: combineFeatureCollections(visibleOverallAreaFeatures, featureCollections.areas),
+        paths: featureCollections.paths,
+        markers: featureCollections.markers,
+      });
+      if (externalMap) {
+        scheduleFitToEvidence(map, boundsRef.current);
+      } else {
+        fitMapToBounds(map, boundsRef.current);
+      }
+    }, 'Failed to sync handover comparison map');
   }, [
     boardMarkers,
     externalMap,
@@ -491,12 +503,23 @@ function syncComparisonSources(
 function setGeoJsonSourceData(map: maplibregl.Map, sourceId: string, data: ComparisonFeatureCollection) {
   const source = map.getSource(sourceId);
   if (!source || !('setData' in source)) return;
-  (source as GeoJSONSource).setData(data);
+  runMapMutation(() => (source as GeoJSONSource).setData(data), `Failed to update source ${sourceId}`);
 }
 
 function fitMapToBounds(map: maplibregl.Map, bounds: LngLatBoundsLike | null) {
   if (bounds) {
-    map.fitBounds(bounds, { padding: FIT_PADDING, duration: 420, maxZoom: FIT_MAX_ZOOM });
+    runMapMutation(
+      () => map.fitBounds(bounds, { padding: FIT_PADDING, duration: 420, maxZoom: FIT_MAX_ZOOM }),
+      'Failed to fit handover comparison map',
+    );
+  }
+}
+
+function runMapMutation(mutate: () => void, message: string) {
+  try {
+    mutate();
+  } catch (error) {
+    console.warn(message, error);
   }
 }
 
