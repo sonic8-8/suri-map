@@ -76,7 +76,7 @@
 }
 
 .opPanelBody {
-  padding: 12px 6px 12px 10px;
+  padding: 34px 6px 12px 10px;
   overflow-x: hidden;
   overflow-y: auto;
   scrollbar-color: var(--suri-board-left-scrollbar-thumb) var(--suri-board-left-scrollbar-track);
@@ -226,9 +226,9 @@
 
 .opPanelFooter {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   margin-top: auto;
-  padding: 14px 6px 2px 0;
+  padding: 18px 6px 4px 0;
 }
 
 .opPanelFooter span {
@@ -241,17 +241,22 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
-  min-height: 42px;
-  border: 1px solid var(--suri-board-primary-hi);
+  min-height: 64px;
+  border: 2px solid var(--suri-board-primary-hi);
   border-radius: 8px;
   color: var(--suri-board-panel-bg);
   background: var(--suri-board-primary-hi);
   font: inherit;
-  font-size: 14px;
+  font-size: 17px;
   font-weight: 850;
   cursor: pointer;
+}
+
+.createOpButton svg {
+  width: 20px;
+  height: 20px;
 }
 
 .createOpButton:hover {
@@ -1049,12 +1054,12 @@
 
 /* 인수인계 브리핑형 레이아웃 보정: 기능/데이터는 유지하고 화면 위계만 조정 */
 .shell {
-  grid-template-columns: 300px minmax(0, 1fr) 500px;
+  grid-template-columns: 300px minmax(0, 1fr) 540px;
   background: #0a1828;
 }
 
 .embeddedPage .shell {
-  grid-template-columns: 300px minmax(0, 1fr) 500px;
+  grid-template-columns: 300px minmax(0, 1fr) 540px;
 }
 
 .opPanel {
@@ -1064,11 +1069,19 @@
 }
 
 .historyPanel {
-  width: 500px;
-  min-width: 500px;
+  width: 540px;
+  min-width: 540px;
   background: #f8fbff;
-  border-left: 1px solid rgba(15, 23, 42, 0.14);
-  box-shadow: -18px 0 42px rgba(15, 23, 42, 0.18);
+  border-left: 0;
+  box-shadow:
+    -22px 0 52px rgba(15, 23, 42, 0.14),
+    -4px 0 16px rgba(15, 23, 42, 0.08);
+}
+
+.embeddedPage .historyPanel {
+  justify-self: end;
+  width: 540px;
+  min-width: 540px;
 }
 
 .historyPanelBody {
@@ -1441,7 +1454,7 @@
 
 @media (max-width: 1280px) {
   .shell {
-    grid-template-columns: 280px minmax(0, 1fr) 430px;
+    grid-template-columns: 280px minmax(0, 1fr) 540px;
   }
 
   .opPanel {
@@ -1449,9 +1462,10 @@
     min-width: 280px;
   }
 
-  .historyPanel {
-    width: 430px;
-    min-width: 430px;
+  .historyPanel,
+  .embeddedPage .historyPanel {
+    width: 540px;
+    min-width: 540px;
   }
 
   .currentOpSummaryBar {
@@ -1460,7 +1474,19 @@
 }
 
 @media (max-width: 980px) {
-  .historyPanel {
+  .shell,
+  .embeddedPage .shell {
+    grid-template-columns: 1fr;
+  }
+
+  .opPanel {
+    width: auto;
+    min-width: 0;
+  }
+
+  .historyPanel,
+  .embeddedPage .historyPanel {
+    justify-self: stretch;
     width: auto;
     min-width: 0;
     border-left: 0;

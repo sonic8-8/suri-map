@@ -205,21 +205,23 @@ export function OfflinePackageStatusPage({
 
   return (
     <main className={styles.page}>
-      <SuriMapPageHeader
-        activeTab="offlinePackage"
-        currentAccountLabel={currentAccountLabel}
-        incidentContext={incidentContext}
-        markerNotificationIndex={markerNotificationIndex}
-        markerNotifications={markerNotifications}
-        timestampLabel={timestampLabel}
-        onCloseMarkerNotifications={onCloseMarkerNotifications}
-        onMoveMarkerNotification={onMoveMarkerNotification}
-        onOpenHandover={isClosedTerminalBoard ? undefined : onOpenHandover}
-        onOpenIncidentDetail={onOpenIncidentDetail}
-        onOpenIncidentList={onOpenIncidentList}
-        onOpenOfflinePackage={onOpenOfflinePackage}
-        onOpenSituationBoard={onBackToSituationBoard}
-      />
+      <div className={styles.headerTheme}>
+        <SuriMapPageHeader
+          activeTab="offlinePackage"
+          currentAccountLabel={currentAccountLabel}
+          incidentContext={incidentContext}
+          markerNotificationIndex={markerNotificationIndex}
+          markerNotifications={markerNotifications}
+          timestampLabel={timestampLabel}
+          onCloseMarkerNotifications={onCloseMarkerNotifications}
+          onMoveMarkerNotification={onMoveMarkerNotification}
+          onOpenHandover={isClosedTerminalBoard ? undefined : onOpenHandover}
+          onOpenIncidentDetail={onOpenIncidentDetail}
+          onOpenIncidentList={onOpenIncidentList}
+          onOpenOfflinePackage={onOpenOfflinePackage}
+          onOpenSituationBoard={onBackToSituationBoard}
+        />
+      </div>
 
       <div className={styles.scrollBody}>
       <section className={styles.summaryBar} aria-label="오프라인 패키지 요약">

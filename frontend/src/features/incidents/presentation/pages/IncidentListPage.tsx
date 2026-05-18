@@ -372,6 +372,13 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
                     <div className={styles.cardIdentity}>
                       <div className={styles.cardId}>{incident.id}</div>
                       <h2 className={styles.cardTitle}>{incident.title}</h2>
+                      <button
+                        type="button"
+                        className={styles.boardButton}
+                        onClick={() => onOpenSituationBoard(incident.id)}
+                      >
+                        상황판 열기
+                      </button>
                       <span className={styles.importedBadge}>배정 사건</span>
                     </div>
                     <StatusBadge status={incident.status} tone={getStatusTone(incident.status)} />

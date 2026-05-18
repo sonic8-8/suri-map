@@ -203,6 +203,17 @@ class SecurityFilterBaselineTest {
   }
 
   @Test
+  void localDevBearerTokenDoesNotBypassSecurity() throws Exception {
+    mockMvc
+        .perform(
+            get("/api/auth-harness/protected")
+                .header("Authorization", "Bearer dev-local-access-token")
+                .header("Host", "localhost:8080")
+                .header("X-Client-Channel", "WEB"))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
   @WithMockAccount(
       channel = Channel.WEB,
       accountType = AccountType.COMMAND,

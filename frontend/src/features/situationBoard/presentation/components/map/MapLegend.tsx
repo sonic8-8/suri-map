@@ -4,6 +4,7 @@ import type { LegendItem } from '../../constants/mockSituationBoard';
 import styles from './MapLegend.module.css';
 
 type MapLegendProps = {
+  className?: string;
   legendItems: LegendItem[];
 };
 
@@ -42,15 +43,16 @@ function getLegendSwatchStyle(item: LegendItem): LegendSwatchStyle | undefined {
   return item.color ? { '--legend-device-route-color': item.color } : undefined;
 }
 
-export function MapLegend({ legendItems }: MapLegendProps) {
+export function MapLegend({ className, legendItems }: MapLegendProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const rootClassName = `${styles.legend}${isCollapsed ? ` ${styles.collapsed}` : ''}${className ? ` ${className}` : ''}`;
 
   const handleToggleCollapsed = () => {
     setIsCollapsed((currentState) => !currentState);
   };
 
   return (
-    <section className={`${styles.legend}${isCollapsed ? ` ${styles.collapsed}` : ''}`} aria-labelledby="map-legend-title">
+    <section className={rootClassName} aria-labelledby="map-legend-title">
       <button
         type="button"
         className={styles.toggle}

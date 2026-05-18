@@ -1,3 +1,11 @@
+.opListScroll {
+  gap: 8px;
+  padding: 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+}
+
 .option {
   position: relative;
   display: grid;
@@ -5,11 +13,11 @@
   align-items: center;
   gap: 12px;
   width: 100%;
-  padding: 13px 15px 12px;
-  border: 0;
-  border-radius: 0;
+  padding: 14px 15px;
+  border: 1px solid var(--suri-board-left-section-divider);
+  border-radius: 10px;
   color: var(--suri-board-fg-primary);
-  background: var(--suri-board-panel-surface);
+  background: color-mix(in srgb, var(--suri-board-panel-surface) 88%, transparent);
   font-size: 15px;
   line-height: 1.3;
   text-align: left;
@@ -19,21 +27,18 @@
 }
 
 .option:hover {
-  background: color-mix(in srgb, var(--suri-board-panel-muted-bg) 58%, var(--suri-board-panel-surface));
+  border-color: color-mix(in srgb, var(--suri-board-primary-hi) 24%, var(--suri-board-left-section-divider));
+  background: color-mix(in srgb, var(--suri-board-panel-muted-bg) 62%, var(--suri-board-panel-surface));
 }
 
 .option::after {
-  position: absolute;
-  right: 12px;
-  bottom: 0;
-  left: 15px;
-  height: 1px;
-  background: color-mix(in srgb, var(--suri-board-left-section-divider) 72%, transparent);
-  content: '';
+  content: none;
 }
 
 .opOptionSelected {
-  background: var(--suri-board-primary-soft);
+  border-color: color-mix(in srgb, var(--suri-board-primary-hi) 48%, var(--suri-board-left-section-divider));
+  background: color-mix(in srgb, var(--suri-board-primary-soft) 72%, var(--suri-board-panel-surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--suri-board-primary-hi) 14%, transparent);
 }
 
 .opOptionSelected::after {
@@ -111,4 +116,3 @@
   background: #dcecff;
   transform: translateX(20px);
 }
-

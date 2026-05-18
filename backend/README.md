@@ -25,6 +25,15 @@ Then run the API from `backend/` with the project wrapper:
 ./gradlew bootRun
 ```
 
+No extra environment variables are required for the default local setup.
+The backend uses these auth defaults:
+
+- Keycloak issuer at `https://k14c106.p.ssafy.io/keycloak/realms/suri-map`
+- Keycloak JWK set at `https://k14c106.p.ssafy.io/keycloak/realms/suri-map/protocol/openid-connect/certs`
+- TileServer GL at `http://localhost:8082`
+
+If you want to point at a different auth or tile endpoint, override the matching environment variables before running.
+
 Run tests:
 
 ```bash

@@ -1,0 +1,163 @@
+{
+  "version": 8,
+  "name": "Suri-Map OSM Local",
+  "metadata": {
+    "attribution": "OpenStreetMap contributors / OpenMapTiles / Gwangju continuous digital topographic map"
+  },
+  "glyphs": "/tiles/fonts/{fontstack}/{range}.pbf",
+  "sources": {
+    "osm-local": {
+      "type": "vector",
+      "tiles": [
+        "/tiles/osm-local/{z}/{x}/{y}.pbf"
+      ],
+      "minzoom": 8,
+      "maxzoom": 16,
+      "bounds": [
+        126.647507,
+        35.052595,
+        127.017482,
+        35.256837
+      ],
+      "attribution": "Gwangju continuous digital topographic map"
+    },
+    "gwangju-building-labels": {
+      "type": "vector",
+      "tiles": [
+        "/tiles/gwangju-building-labels/{z}/{x}/{y}.pbf"
+      ],
+      "minzoom": 16,
+      "maxzoom": 16,
+      "attribution": "Gwangju continuous digital topographic map"
+    }
+  },
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": {
+        "background-color": "#edf1e8"
+      }
+    },
+    {
+      "id": "landcover-fill",
+      "type": "fill",
+      "source": "osm-local",
+      "source-layer": "landcover",
+      "paint": {
+        "fill-color": "#dfe8d7",
+        "fill-opacity": 0.72
+      }
+    },
+    {
+      "id": "water-fill",
+      "type": "fill",
+      "source": "osm-local",
+      "source-layer": "water",
+      "paint": {
+        "fill-color": "#9bc7d9",
+        "fill-opacity": 0.82
+      }
+    },
+    {
+      "id": "building-fill",
+      "type": "fill",
+      "source": "osm-local",
+      "source-layer": "building",
+      "minzoom": 15,
+      "paint": {
+        "fill-color": "#d7d2c8",
+        "fill-opacity": 0.58
+      }
+    },
+    {
+      "id": "boundary-line",
+      "type": "line",
+      "source": "osm-local",
+      "source-layer": "boundary",
+      "paint": {
+        "line-color": "#8c9791",
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          8,
+          0.7,
+          14,
+          1.2
+        ],
+        "line-opacity": 0.65
+      }
+    },
+    {
+      "id": "road-line",
+      "type": "line",
+      "source": "osm-local",
+      "source-layer": "transportation",
+      "paint": {
+        "line-color": "#ffffff",
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          8,
+          0.35,
+          12,
+          0.9,
+          16,
+          1.8
+        ]
+      }
+    },
+    {
+      "id": "gwangju-building-name-label",
+      "type": "symbol",
+      "source": "gwangju-building-labels",
+      "source-layer": "building_labels",
+      "minzoom": 16,
+      "filter": [
+        "has",
+        "name"
+      ],
+      "layout": {
+        "text-field": [
+          "get",
+          "name"
+        ],
+        "text-font": [
+          "Pretendard GOV"
+        ],
+        "text-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          16,
+          10,
+          18,
+          13
+        ],
+        "text-anchor": "center",
+        "text-allow-overlap": false,
+        "text-ignore-placement": false,
+        "text-optional": true
+      },
+      "paint": {
+        "text-color": "#253238",
+        "text-halo-color": "rgba(255, 255, 255, 0.88)",
+        "text-halo-width": 1.2
+      }
+    }
+  ]
+}

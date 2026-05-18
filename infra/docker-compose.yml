@@ -5,11 +5,10 @@ services:
     working_dir: /workspace/frontend
     command: sh -c "npm ci && npm run dev -- --host 0.0.0.0"
     environment:
-      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080/api}
-      VITE_KEYCLOAK_BASE_URL: ${VITE_KEYCLOAK_BASE_URL:-http://localhost:18080/keycloak}
-      VITE_KEYCLOAK_CLIENT_ID: ${VITE_KEYCLOAK_CLIENT_ID:-suri-map-web}
-      VITE_KEYCLOAK_ISSUER_URL: ${VITE_KEYCLOAK_ISSUER_URL:-/keycloak/realms/suri-map}
-      VITE_TILE_BASE_URL: ${VITE_TILE_BASE_URL:-http://localhost:8082}
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+      VITE_API_PROXY_TARGET: ${VITE_API_PROXY_TARGET:-http://host.docker.internal:8080/api}
+      VITE_KEYCLOAK_PROXY_TARGET: ${VITE_KEYCLOAK_PROXY_TARGET:-https://k14c106.p.ssafy.io/keycloak}
+      VITE_TILE_BASE_URL: ${VITE_TILE_BASE_URL:-https://k14c106.p.ssafy.io/tiles}
     ports:
       - "5173:5173"
     volumes:

@@ -161,7 +161,7 @@ export function useSituationBoardData(
       searchAreaDrafts,
       movementPaths,
       recentMarkers: apiRecentMarkers,
-      legendItems: createLegendItems(fallbackBoard.legendItems, movementPaths),
+      legendItems: createLegendItems(fallbackBoard.legendItems),
     };
   }, [apiBoard, fallbackBoard, savedAreaDrafts]);
 

@@ -243,7 +243,7 @@ export function SituationBoardPage({
           incidentId={incidentId}
           isMapExpanded={boardState.isMapExpanded}
           isTerminalBoard={isClosedTerminalBoard}
-          legendItems={shouldHideSituationBoardMapData ? [] : boardState.board.legendItems}
+          legendItems={boardState.board.legendItems}
           layerVisibility={shouldHideSituationBoardMapData ? HIDDEN_MAP_LAYER_VISIBILITY : boardState.layerVisibility}
           movementPaths={shouldHideSituationBoardMapData ? [] : boardState.board.movementPaths}
           recentMarkers={shouldHideSituationBoardMapData ? [] : boardState.mapRecentMarkers}
