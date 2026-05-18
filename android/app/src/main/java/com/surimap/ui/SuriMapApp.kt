@@ -189,6 +189,7 @@ fun SuriMapApp() {
     var incidentClosed by remember { mutableStateOf<IncidentClosedOverlayState?>(null) }
     var blockedQueue by remember { mutableStateOf<BlockedQueueToastState?>(null) }
     var handoverMemoSaved by remember { mutableStateOf<HandoverMemoSavedToastState?>(null) }
+    var searchPathEnded by remember { mutableStateOf<SearchPathEndedToastState?>(null) }
 
     LaunchedEffect(incidentSessionState.incidentContext, incidentSessionState.policePhoneContext) {
         sessionSnapshotStore.save(
@@ -206,7 +207,8 @@ fun SuriMapApp() {
             AppOverlayState(
                 incidentClosed = incidentClosed,
                 blockedQueue = blockedQueue,
-                handoverMemoSaved = handoverMemoSaved
+                handoverMemoSaved = handoverMemoSaved,
+                searchPathEnded = searchPathEnded
             ),
             onDismissIncidentClosed = {
                 incidentClosed = null
@@ -218,7 +220,7 @@ fun SuriMapApp() {
                 navController.navigateToSingleTop(PolicePhoneRoute.BlockedOutbox)
             },
             onDismissHandoverMemoSaved = { handoverMemoSaved = null },
-            onDismissSearchPathEnded = {}
+            onDismissSearchPathEnded = { searchPathEnded = null }
         ) {
             FcmRegistrationEffect(policePhoneContext = incidentSessionState.policePhoneContext)
             NavHost(
@@ -268,6 +270,9 @@ fun SuriMapApp() {
                         clockSyncState = clockSyncState,
                         onOpenBlockedOutbox = {
                             blockedQueue = BlockedQueueToastState(blockedCount = 2)
+                        },
+                        onSearchPathEnded = { pendingSync ->
+                            searchPathEnded = SearchPathEndedToastState(pendingSync = pendingSync)
                         }
                     )
                 }
@@ -695,7 +700,8 @@ private fun SearchMapRoute(
     navController: NavHostController,
     focusMarkerId: String? = null,
     clockSyncState: ClockSyncState,
-    onOpenBlockedOutbox: () -> Unit
+    onOpenBlockedOutbox: () -> Unit,
+    onSearchPathEnded: (pendingSync: Boolean) -> Unit
 ) {
     val incidentContext = incidentSessionState.incidentContext
     val policePhoneContext = incidentSessionState.policePhoneContext
@@ -1052,12 +1058,16 @@ private fun SearchMapRoute(
                         searchPathId = pathId
                     )
                     gpsBatchRecorder.clear()
-                    searchPathRecorder.end(
-                        context = sessionContext.toSearchPathWriteContext(),
-                        searchPathId = pathId
-                    )
+                    val endResult =
+                        searchPathRecorder.end(
+                            context = sessionContext.toSearchPathWriteContext(),
+                            searchPathId = pathId
+                        )
                     recordingSession = recordingSession.stop(now)
                     elapsedTickerNowMs = now
+                    if (endResult is SearchPathWriteResult.Enqueued) {
+                        onSearchPathEnded(true)
+                    }
                 }
             },
             onCreateMarker = {
