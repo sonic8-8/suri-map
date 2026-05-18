@@ -460,6 +460,7 @@ class S8HandoverApiContractTest {
         MEMO_ID,
         INCIDENT_ID,
         OP_ID,
+        DUTY_SHIFT_ID,
         "OPERATIONAL_PERIOD",
         OP_ID,
         "OP 전환 인수인계",

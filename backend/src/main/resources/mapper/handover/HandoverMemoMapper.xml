@@ -29,6 +29,7 @@
             <arg column="memo_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
             <arg column="incident_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
             <arg column="op_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="duty_shift_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
             <arg column="target_type" javaType="java.lang.String"/>
             <arg column="target_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
             <arg column="content" javaType="java.lang.String"/>
@@ -43,6 +44,7 @@
             hm.id AS memo_id,
             op.incident_id,
             hm.operational_period_id AS op_id,
+            hm.duty_shift_id,
             hm.memo_target_type AS target_type,
             hm.memo_target_id AS target_id,
             hm.content,

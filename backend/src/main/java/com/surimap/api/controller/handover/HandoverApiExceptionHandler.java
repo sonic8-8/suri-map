@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
       AppDutyShiftController.class,
       DutyShiftQueryController.class,
       HandoverMemoController.class,
+      HandoverTimelineController.class,
       SearchHistorySummaryController.class
     })
 public class HandoverApiExceptionHandler {
