@@ -210,6 +210,7 @@ class SearchMapStateLoader(
                     "경로 ${pathLayerResult.layers.size}개 표시"
                 },
                 layers = state.layers + pathLayerResult.layers,
+                lifecycleStatus = pathLayerResult.activeLifecycleStatus ?: state.lifecycleStatus,
                 activeSearchPathId = pathLayerResult.activePathId,
                 activeSearchPathStartedAtEpochMs = pathLayerResult.activeStartedAtEpochMs
             )
@@ -413,13 +414,21 @@ class SearchMapStateLoader(
         val paths = root.optJSONArray("paths") ?: root.optJSONArray("items") ?: return SearchPathLayerResult()
         var activePathId: String? = null
         var activeStartedAtEpochMs: Long? = null
+        var activeLifecycleStatus: SearchLifecycleStatus? = null
         val layers = buildList {
             repeat(paths.length()) { index ->
                 val path = paths.optJSONObject(index) ?: return@repeat
-                val active = path.optString("status").uppercase() in setOf("ACTIVE", "RECORDING")
+                val status = path.optString("status").uppercase()
+                val active = status in setOf("ACTIVE", "RECORDING", "PAUSED")
                 if (active) {
                     activePathId = path.optString("id").takeIf(String::isNotBlank) ?: activePathId
                     activeStartedAtEpochMs = path.instantMillis("startedAt") ?: activeStartedAtEpochMs
+                    activeLifecycleStatus =
+                        if (status == "PAUSED") {
+                            SearchLifecycleStatus.Paused
+                        } else {
+                            SearchLifecycleStatus.Active
+                        }
                 }
                 val geometry = path.optJSONObject("geometry") ?: return@repeat
                 if (!geometry.optString("type").equals("LineString", ignoreCase = true)) {
@@ -439,14 +448,16 @@ class SearchMapStateLoader(
         return SearchPathLayerResult(
             layers = layers,
             activePathId = activePathId,
-            activeStartedAtEpochMs = activeStartedAtEpochMs
+            activeStartedAtEpochMs = activeStartedAtEpochMs,
+            activeLifecycleStatus = activeLifecycleStatus
         )
     }
 
     private data class SearchPathLayerResult(
         val layers: List<SearchMapLayerUiState> = emptyList(),
         val activePathId: String? = null,
-        val activeStartedAtEpochMs: Long? = null
+        val activeStartedAtEpochMs: Long? = null,
+        val activeLifecycleStatus: SearchLifecycleStatus? = null
     )
 
     private fun JSONObject.searchLayerKind(): SearchLayerKind? {

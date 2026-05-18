@@ -45,6 +45,18 @@
         </constructor>
     </resultMap>
 
+    <resultMap id="searchPathLifecycleEventReadRecordMap" type="com.surimap.path.SearchPathLifecycleEventReadRecord">
+        <constructor>
+            <arg column="id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="search_path_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="event_type" javaType="string"/>
+            <arg column="client_ts" javaType="java.time.Instant"/>
+            <arg column="server_received_at" javaType="java.time.Instant"/>
+            <arg column="actor_police_phone_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="version" javaType="_long"/>
+        </constructor>
+    </resultMap>
+
     <select id="findActiveDutyShiftId" resultType="java.util.UUID">
         SELECT ds.id
         FROM duty_shift ds
@@ -98,6 +110,52 @@
             updated_at = #{updatedAt}
         WHERE id = #{id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
     </update>
+
+    <update id="updateLifecycleStatus">
+        UPDATE search_path
+        SET status = #{status},
+            ended_at = #{endedAt},
+            version = #{version},
+            updated_at = #{updatedAt}
+        WHERE id = #{id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+    </update>
+
+    <insert id="insertLifecycleEvent" parameterType="com.surimap.path.SearchPathLifecycleEventPersistenceRecord">
+        INSERT INTO search_path_lifecycle_event (
+            id,
+            search_path_id,
+            event_type,
+            client_ts,
+            server_received_at,
+            actor_police_phone_id,
+            version,
+            created_at
+        )
+        VALUES (
+            #{id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{searchPathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{eventType},
+            #{clientTs},
+            #{serverReceivedAt},
+            #{actorPolicePhoneId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{version},
+            #{createdAt}
+        )
+    </insert>
+
+    <select id="findLifecycleEventsByPathId" resultMap="searchPathLifecycleEventReadRecordMap">
+        SELECT
+            id,
+            search_path_id,
+            event_type,
+            client_ts,
+            server_received_at,
+            actor_police_phone_id,
+            version
+        FROM search_path_lifecycle_event
+        WHERE search_path_id = #{pathId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+        ORDER BY version ASC, client_ts ASC, id ASC
+    </select>
 
     <sql id="searchPathReadColumns">
         sp.id,

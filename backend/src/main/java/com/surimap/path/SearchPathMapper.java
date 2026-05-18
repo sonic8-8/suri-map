@@ -23,9 +23,20 @@ public interface SearchPathMapper {
       @Param("version") long version,
       @Param("updatedAt") Instant updatedAt);
 
+  int updateLifecycleStatus(
+      @Param("id") UUID id,
+      @Param("status") String status,
+      @Param("endedAt") Instant endedAt,
+      @Param("version") long version,
+      @Param("updatedAt") Instant updatedAt);
+
   Optional<SearchPathReadRecord> findPathById(@Param("id") UUID id);
 
   List<SearchPathReadRecord> findAllPaths();
+
+  void insertLifecycleEvent(SearchPathLifecycleEventPersistenceRecord record);
+
+  List<SearchPathLifecycleEventReadRecord> findLifecycleEventsByPathId(@Param("pathId") UUID pathId);
 
   void deleteSegments(@Param("pathId") UUID pathId);
 
