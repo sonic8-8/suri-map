@@ -5,9 +5,9 @@
   right: var(--suri-map-floating-right, 16px);
   bottom: 16px;
   display: grid;
-  gap: 10px;
-  max-width: 330px;
-  padding: 12px;
+  gap: 16px;
+  max-width: 440px;
+  padding: 18px 20px;
   border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: 14px;
   background:
@@ -25,15 +25,19 @@
 
 .toggle {
   display: flex;
-  min-width: 108px;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
   padding: 0;
   border: 0;
   background: transparent;
   color: var(--suri-board-fg-primary);
   cursor: pointer;
+}
+
+.toggleExpanded {
+  justify-self: end;
+  justify-content: flex-end;
+  padding: 4px 4px 0 0;
 }
 
 .toggle svg {
@@ -52,8 +56,9 @@
 
 .collapsed .toggle {
   position: relative;
+  min-width: 114px;
   justify-content: center;
-  padding: 10px 32px 10px 12px;
+  padding: 11px 36px 11px 14px;
 }
 
 .collapsed .toggle svg {
@@ -61,29 +66,95 @@
   right: 10px;
 }
 
-.legend h2 {
+.toggleLabel {
   margin: 0;
   color: var(--suri-board-fg-primary);
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 800;
+  line-height: 1;
 }
 
 /* 범례 항목을 2열로 촘촘하게 배치한다. */
 .list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 7px 12px;
+  gap: 12px 18px;
 }
 
 /* 개별 범례 행. */
 .row {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 10px;
+  width: 100%;
+  min-height: 34px;
+  padding: 5px 7px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
   min-width: 0;
   color: var(--suri-board-fg-secondary);
-  font-size: 12px;
-  line-height: 1.25;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.35;
+  text-align: left;
+  transition:
+    background 140ms ease,
+    color 140ms ease,
+    opacity 140ms ease;
+}
+
+.rowButton {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.rowButton:disabled {
+  cursor: not-allowed;
+}
+
+.rowButton:hover {
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--suri-board-fg-primary);
+}
+
+.rowButton:disabled:hover {
+  background: transparent;
+  color: var(--suri-board-fg-secondary);
+}
+
+.rowButton:focus-visible {
+  outline: 2px solid var(--suri-board-primary-hi);
+  outline-offset: 2px;
+}
+
+.rowSelected {
+  background: rgba(148, 163, 184, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(248, 250, 252, 0.08);
+  color: var(--suri-board-fg-primary);
+  font-weight: 700;
+}
+
+.rowSelected.rowButton:hover {
+  background: rgba(148, 163, 184, 0.22);
+}
+
+.rowSelected .swatch {
+  filter: brightness(1.55) saturate(1.15);
+  box-shadow:
+    0 0 0 1px rgba(248, 250, 252, 0.26),
+    0 0 10px rgba(248, 250, 252, 0.12),
+    inset 0 0 0 999px rgba(248, 250, 252, 0.08);
+}
+
+.rowDisabled {
+  color: rgba(203, 213, 225, 0.72);
+  opacity: 0.62;
+  font-weight: 500;
+}
+
+.rowStatic {
+  cursor: default;
 }
 
 /* 긴 범례 텍스트가 행 레이아웃을 밀지 않도록 한다. */
@@ -94,52 +165,57 @@
 /* 모든 범례 swatch의 공통 크기와 기본 테두리. */
 .swatch {
   display: inline-flex;
-  width: 16px;
-  height: 10px;
+  width: 22px;
+  height: 16px;
   flex: 0 0 auto;
   box-sizing: border-box;
   border: 1px solid rgba(203, 213, 225, 0.7);
   background: rgba(17, 31, 53, 0.9);
+  transition:
+    filter 140ms ease,
+    box-shadow 140ms ease,
+    border-color 140ms ease,
+    background 140ms ease;
 }
 
 /* 전체 수색 구역 경계 표시. */
 .areaOverall {
-  width: 18px;
-  height: 12px;
+  width: 24px;
+  height: 18px;
   border: 2px dashed #38bdf8;
   background: transparent;
 }
 
 /* 부대 단위 수색 구역 경계 표시. */
 .areaUnit {
-  width: 18px;
-  height: 12px;
+  width: 24px;
+  height: 18px;
   border: 3px double #cbd5e1;
   background: rgba(203, 213, 225, 0.06);
 }
 
 /* 팀 단위 수색 구역 경계 표시. */
 .areaTeam {
-  width: 18px;
-  height: 12px;
+  width: 24px;
+  height: 18px;
   border: 1px solid #94a3b8;
   background: rgba(148, 163, 184, 0.08);
 }
 
 /* 완료 처리된 팀 구역의 해칭 표시. */
 .areaCompleted {
-  width: 18px;
-  height: 12px;
+  width: 24px;
+  height: 18px;
   border: 1px solid #94a3b8;
   background:
     repeating-linear-gradient(
       45deg,
-      transparent,
-      transparent 5px,
-      rgba(148, 163, 184, 0.46) 5px,
-      rgba(148, 163, 184, 0.46) 6px,
+      transparent 0,
       transparent 6px,
-      transparent 10px
+      rgba(148, 163, 184, 0.46) 6px,
+      rgba(148, 163, 184, 0.46) 8px,
+      transparent 8px,
+      transparent 13px
     );
 }
 
@@ -147,7 +223,7 @@
 .routeVehicle,
 .routeWalk,
 .routeCompare {
-  height: 4px;
+  height: 7px;
   border: 0;
   background: var(--suri-board-legend-route);
 }
@@ -157,8 +233,8 @@
   background:
     repeating-linear-gradient(
       90deg,
-      var(--suri-board-legend-route) 0 4px,
-      transparent 4px 7px
+      var(--suri-board-legend-route) 0 6px,
+      transparent 6px 10px
     );
 }
 
@@ -167,14 +243,14 @@
   background:
     repeating-linear-gradient(
       90deg,
-      var(--suri-board-legend-route-compare) 0 3px,
-      transparent 3px 6px
+      var(--suri-board-legend-route-compare) 0 5px,
+      transparent 5px 9px
     );
   opacity: 0.7;
 }
 
 .deviceRoute {
-  height: 4px;
+  height: 7px;
   border: 0;
   background: var(--legend-device-route-color);
 }
@@ -183,14 +259,14 @@
   background:
     repeating-linear-gradient(
       90deg,
-      var(--legend-device-route-color) 0 4px,
-      transparent 4px 7px
+      var(--legend-device-route-color) 0 6px,
+      transparent 6px 10px
     );
 }
 
 /* 운용 중인 폴리폰의 강조 선 표시. */
 .deviceActive {
-  height: 6px;
+  height: 9px;
   border-color: rgba(248, 250, 252, 0.82);
   background: #f8fafc;
   box-shadow: 0 0 0 1px #f8fafc;
@@ -200,20 +276,20 @@
 .deviceNormal,
 .deviceStale,
 .deviceLost {
-  width: 10px;
-  height: 10px;
+  width: 16px;
+  height: 16px;
   border: 2px solid var(--suri-board-legend-device-normal);
   border-radius: 999px;
   background: rgba(11, 22, 40, 0.96);
 }
 
-/* 1분 이상 미동기 폴리폰 표시. */
+/* 1분 이상 통신 지연 폴리폰 표시. */
 .deviceStale {
   border-color: var(--suri-board-legend-device-stale);
   border-style: dashed;
 }
 
-/* 5분 이상 위치 끊김 폴리폰 표시. */
+/* 5분 이상 통신 끊김 폴리폰 표시. */
 .deviceLost {
   border-color: var(--suri-board-legend-device-lost);
   border-style: dotted;
@@ -228,8 +304,8 @@
 .markerDog,
 .markerSupport,
 .markerNote {
-  width: 10px;
-  height: 10px;
+  width: 16px;
+  height: 16px;
   border-radius: 3px;
 }
 
