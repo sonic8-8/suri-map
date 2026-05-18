@@ -650,22 +650,29 @@ EOF
                             --format csv \
                             --noquotes | tail -n 1)
                           test -n "${user_id}"
+                          cat > "/tmp/${username}-profile.json" <<PROFILE_JSON
+{
+  "email": "${email}",
+  "emailVerified": true,
+  "firstName": "${person_name}",
+  "lastName": "",
+  "attributes": {
+    "accountCode": ["${username}"],
+    "personName": ["${person_name}"],
+    "displayName": ["${display_name}"],
+    "organizationCode": ["${organization_code}"],
+    "organizationName": ["${organization_name}"],
+    "rankCode": ["${rank_code}"],
+    "rankName": ["${rank_name}"],
+    "dutyPositionCode": [],
+    "dutyPositionName": []
+  },
+  "requiredActions": []
+}
+PROFILE_JSON
                           /opt/keycloak/bin/kcadm.sh update "users/${user_id}" \
                             -r suri-map \
-                            -s "email=${email}" \
-                            -s "emailVerified=true" \
-                            -s "firstName=${person_name}" \
-                            -s "lastName=" \
-                            -s "attributes.accountCode=[\"${username}\"]" \
-                            -s "attributes.personName=[\"${person_name}\"]" \
-                            -s "attributes.displayName=[\"${display_name}\"]" \
-                            -s "attributes.organizationCode=[\"${organization_code}\"]" \
-                            -s "attributes.organizationName=[\"${organization_name}\"]" \
-                            -s "attributes.rankCode=[\"${rank_code}\"]" \
-                            -s "attributes.rankName=[\"${rank_name}\"]" \
-                            -s "attributes.dutyPositionCode=[]" \
-                            -s "attributes.dutyPositionName=[]" \
-                            -s "requiredActions=[]" >/dev/null
+                            -f "/tmp/${username}-profile.json" >/dev/null
                         }
 
                         for username in \
