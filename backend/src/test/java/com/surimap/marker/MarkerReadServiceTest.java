@@ -90,6 +90,7 @@ class MarkerReadServiceTest {
                   MARKER_ID,
                   incidentId,
                   OP_ID,
+                  null,
                   ACCOUNT_ID,
                   POLICE_PHONE_ID,
                   MarkerType.CLUE,

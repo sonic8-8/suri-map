@@ -14,6 +14,7 @@ public record MarkerView(
     UUID id,
     UUID incidentId,
     UUID opId,
+    UUID dutyShiftId,
     UUID accountId,
     UUID policePhoneId,
     MarkerType type,
