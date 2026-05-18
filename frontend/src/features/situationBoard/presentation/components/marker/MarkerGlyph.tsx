@@ -100,9 +100,9 @@ const markerShellPath = 'M20 44C16.7 39.8 4 29.9 4 18.7C4 10.4 11.1 4 20 4s16 6.
 const markerShellWidth = 40;
 const markerShellHeight = 46;
 const markerShellRasterScale = 2;
-const markerIconSize = 21.5;
+const markerIconSize = 20;
 const markerIconCenterX = 20;
-const markerIconCenterY = 18.5;
+const markerIconCenterY = 18.25;
 const markerSelectedGlowColor = '#38bdf8';
 const markerIconScale = markerIconSize / 24;
 
