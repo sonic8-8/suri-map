@@ -9,7 +9,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -282,6 +284,7 @@ fun MarkerDetailScreen(
         Column(modifier = Modifier.fillMaxSize()) {
             PoliAppBar(
                 title = "마커 상세",
+                modifier = Modifier.statusBarsPadding(),
                 subtitle = "${state.markerId} · ${state.permissionLabel}",
                 showBack = true,
                 onBack = onBack,
@@ -449,7 +452,7 @@ private fun MarkerDetailActions(
     onRequestDelete: () -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(PoliDimens.SectionPadding),
+        modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(PoliDimens.SectionPadding),
         horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
     ) {
         if (state.canEdit) {
