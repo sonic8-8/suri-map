@@ -140,6 +140,7 @@ export function useOfflinePackageManifestQuery(
     queryKey: offlinePackageQueryKeys.manifest(query.incidentId),
     queryFn: () => api.fetchOfflinePackageManifest(query.incidentId ?? ''),
     enabled: Boolean(query.incidentId),
-    placeholderData: (previousData) => previousData,
+    placeholderData: (previousData) =>
+      query.incidentId && previousData?.incidentId === query.incidentId ? previousData : undefined,
   });
 }
