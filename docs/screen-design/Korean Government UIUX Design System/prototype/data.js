@@ -6,7 +6,7 @@
 // =========================================================================
 
 window.SM_DATA = (function () {
-  // Fixed clock for the prototype: 2026-05-04 16:42 KST
+  // Fixed clock for the prototype: 2026-05-04 16:42
   const NOW = new Date('2026-05-04T16:42:00+09:00');
 
   const minutesAgo = (m) => {
