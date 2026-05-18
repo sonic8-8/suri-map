@@ -10,7 +10,7 @@ import {
 describe('MarkerGlyph', () => {
   it('applies a shared bottom-aligned transform for each glyph', () => {
     expect(createBottomAlignedMarkerGlyphMarkup('hand')).toContain('translate(0 6.5)');
-    expect(createBottomAlignedMarkerGlyphMarkup('handHelping')).toContain('translate(0 1.5) scale(0.95)');
+    expect(createBottomAlignedMarkerGlyphMarkup('handHelping')).toContain('translate(0 0.5) scale(0.95)');
     expect(createBottomAlignedMarkerGlyphMarkup('dog')).toContain('translate(0 -0.5) scale(0.95)');
     expect(createBottomAlignedMarkerGlyphMarkup('drone')).toContain('translate(0 0)');
   });
@@ -21,8 +21,8 @@ describe('MarkerGlyph', () => {
 
   it('uses centered placement for glyphs inside the map marker shell', () => {
     expect(createMarkerShellGlyphMarkup('hand')).toContain('translate(0 -2) scale(0.94)');
-    expect(createMarkerShellGlyphMarkup('handHelping')).toContain('translate(0 -0.5) scale(0.86)');
-    expect(createMarkerShellGlyphMarkup('dog')).toContain('translate(0 -0.4) scale(0.86)');
+    expect(createMarkerShellGlyphMarkup('handHelping')).toContain('translate(0 -1.5) scale(0.86)');
+    expect(createMarkerShellGlyphMarkup('dog')).toContain('translate(0 0)');
     expect(createMarkerShellGlyphMarkup('note')).toContain('translate(0 -0.5)');
   });
 

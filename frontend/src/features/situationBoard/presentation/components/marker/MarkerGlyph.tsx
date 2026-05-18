@@ -79,18 +79,18 @@ export const markerGlyphPlacement: Record<MarkerGlyphName, MarkerGlyphPlacement>
   field: { translateX: 0, translateY: 1.5 },
   found: { translateX: -0.5, translateY: 0 },
   hand: { translateX: 0, translateY: 6.5 },
-  handHelping: { translateX: 0, translateY: 1.5, scale: 0.95 },
+  handHelping: { translateX: 0, translateY: 0.5, scale: 0.95 },
   note: { translateX: 0, translateY: 0.5 },
 };
 
 export const markerShellGlyphPlacement: Record<MarkerGlyphName, MarkerGlyphPlacement> = {
   clue: { translateX: 0, translateY: 0 },
-  dog: { translateX: 0, translateY: -0.4, scale: 0.86 },
+  dog: { translateX: 0, translateY: 0 },
   drone: { translateX: 0, translateY: 0 },
   field: { translateX: 0, translateY: -0.5 },
   found: { translateX: 0, translateY: -0.5 },
   hand: { translateX: 0, translateY: -2, scale: 0.94 },
-  handHelping: { translateX: 0, translateY: -0.5, scale: 0.86 },
+  handHelping: { translateX: 0, translateY: -1.5, scale: 0.86 },
   note: { translateX: 0, translateY: -0.5 },
 };
 
