@@ -19,9 +19,18 @@ class IncidentSessionContextResolver(
 ) {
     suspend fun resolve(incident: AssignedIncidentUiModel, policePhoneId: String? = null): IncidentContext {
         val currentContext = incident.toIncidentContext()
-        val currentOpId = currentContext.currentOpId?.takeIf(String::isNotBlank)
-            ?: loadCurrentOpId(incident.incidentId)
-        val opContext = currentOpId?.let { currentContext.copy(currentOpId = it) } ?: currentContext
+        val resolvedCurrentOp = loadCurrentOp(incident.incidentId)
+        val currentOpId = currentContext.currentOpId?.takeIf(String::isNotBlank) ?: resolvedCurrentOp?.id
+        val currentOpLabel = currentContext.currentOpLabel?.takeIf(String::isNotBlank) ?: resolvedCurrentOp?.label
+        val opContext =
+            if (currentOpId != null || currentOpLabel != null) {
+                currentContext.copy(
+                    currentOpId = currentOpId,
+                    currentOpLabel = currentOpLabel
+                )
+            } else {
+                currentContext
+            }
         if (!opContext.currentDutyShiftId.isNullOrBlank()) {
             return opContext
         }
@@ -34,13 +43,18 @@ class IncidentSessionContextResolver(
         return opContext.copy(currentDutyShiftId = dutyShiftId)
     }
 
-    private suspend fun loadCurrentOpId(incidentId: String): String? {
+    private suspend fun loadCurrentOp(incidentId: String): ResolvedCurrentOp? {
         val response = runCatching { operationalPeriods(incidentId) }.getOrNull() ?: return null
         if (!response.isSuccessful || response.body.isNullOrBlank()) {
             return null
         }
         return runCatching {
-            JSONObject(response.body).optString("currentOpId").takeIf(String::isNotBlank)
+            val json = JSONObject(response.body)
+            val currentOpId = json.optString("currentOpId").takeIf(String::isNotBlank) ?: return@runCatching null
+            ResolvedCurrentOp(
+                id = currentOpId,
+                label = resolveCurrentOpLabel(json.optJSONArray("items"), currentOpId)
+            )
         }.getOrNull()
     }
 
@@ -85,4 +99,26 @@ class IncidentSessionContextResolver(
         }
         return null
     }
+
+    private fun resolveCurrentOpLabel(items: JSONArray?, currentOpId: String): String? {
+        if (items == null) {
+            return null
+        }
+        repeat(items.length()) { index ->
+            val item = items.optJSONObject(index) ?: return@repeat
+            if (item.optString("id") != currentOpId) {
+                return@repeat
+            }
+            val sequenceNumber = item.optInt("sequenceNumber", -1)
+            if (sequenceNumber > 0) {
+                return "OP ${sequenceNumber}차"
+            }
+        }
+        return null
+    }
+
+    private data class ResolvedCurrentOp(
+        val id: String,
+        val label: String?
+    )
 }
