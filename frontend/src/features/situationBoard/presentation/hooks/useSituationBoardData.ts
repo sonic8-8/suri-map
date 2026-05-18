@@ -56,17 +56,20 @@ export function useSituationBoardData(
 
   const boardQuery = useIncidentBoardQuery({ incidentId });
   const rawApiBoard = (boardQuery.data as unknown as SituationBoardResponseDto) ?? null;
+  const currentApiBoard = useMemo<SituationBoardResponseDto | null>(() => {
+    return rawApiBoard && rawApiBoard.incidentId === incidentId ? rawApiBoard : null;
+  }, [incidentId, rawApiBoard]);
   const stableApiBoardRef = useRef<SituationBoardResponseDto | null>(null);
   const { apiBoard, hasBackfilledCriticalSlots } = useMemo(() => {
-    const merged = mergeWithPreviousCriticalSlots(rawApiBoard, stableApiBoardRef.current);
+    const merged = mergeWithPreviousCriticalSlots(currentApiBoard, stableApiBoardRef.current);
     if (merged) {
       stableApiBoardRef.current = merged;
     }
     return {
       apiBoard: merged,
-      hasBackfilledCriticalSlots: Boolean(rawApiBoard && merged && merged !== rawApiBoard),
+      hasBackfilledCriticalSlots: Boolean(currentApiBoard && merged && merged !== currentApiBoard),
     };
-  }, [rawApiBoard]);
+  }, [currentApiBoard]);
   const hasApiBoard = apiBoard !== null;
   const syncStatus = createBoardSyncStatus({
     hasApiBoard,
@@ -127,6 +130,11 @@ export function useSituationBoardData(
       activeSubscription?.close();
     };
   }, [incidentId, queryClient, hasApiBoard]);
+
+  useEffect(() => {
+    stableApiBoardRef.current = null;
+    lastEventIdRef.current = null;
+  }, [incidentId]);
 
   const board = useMemo<SituationBoardFallbackData>(() => {
     const apiSearchAreaRows = apiBoard ? toSearchAreaRows(apiBoard) : [];
