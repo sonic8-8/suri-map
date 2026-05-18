@@ -51,12 +51,26 @@ data class SearchRecordingSessionState(
             accumulatedElapsedMs = 0L
         )
 
-    fun ensureActiveStarted(nowMs: Long): SearchRecordingSessionState =
-        if (activeStartedAtMs == null) {
-            copy(activeStartedAtMs = nowMs)
+    fun ensureActiveStarted(
+        searchPathId: String?,
+        nowMs: Long,
+        serverStartedAtMs: Long?
+    ): SearchRecordingSessionState {
+        val normalizedPathId = searchPathId?.takeIf(String::isNotBlank)
+        val nextStartedAt = serverStartedAtMs ?: nowMs
+        return if (
+            activeStartedAtMs == null ||
+            (normalizedPathId != null && activeLocalSearchPathId != null && activeLocalSearchPathId != normalizedPathId)
+        ) {
+            copy(
+                activeLocalSearchPathId = normalizedPathId ?: activeLocalSearchPathId,
+                activeStartedAtMs = nextStartedAt,
+                accumulatedElapsedMs = 0L
+            )
         } else {
             this
         }
+    }
 
     fun pause(nowMs: Long): SearchRecordingSessionState =
         copy(

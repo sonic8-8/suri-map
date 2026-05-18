@@ -138,6 +138,7 @@ class SearchPathGpsBatchRecorderTest {
         GpsLocationFix(
             lon = 126.970000 + (second * 0.00001),
             lat = 37.580000 + (second * 0.00001),
+            bearingDegrees = null,
             speedMps = 1.4,
             horizontalAccuracyM = 5,
             capturedAt = CLIENT_TS.plusSeconds(second)

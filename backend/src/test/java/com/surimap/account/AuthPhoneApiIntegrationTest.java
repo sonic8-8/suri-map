@@ -8,6 +8,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.surimap.common.auth.AccountType;
+import com.surimap.common.auth.OrganizationType;
 import com.surimap.eventhub.port.EventHub;
 import com.surimap.policephone.PolicePhoneFixtures;
 import com.surimap.policephone.PolicePhoneHeartbeatUpdatedPublishRequest;
@@ -149,6 +151,41 @@ class AuthPhoneApiIntegrationTest {
   }
 
   @Test
+  @DisplayName("APP OIDC heartbeat accepts a trusted police phone independently from operator account")
+  void appHeartbeatAcceptsTrustedPolicePhoneIndependentlyFromOperatorAccount() throws Exception {
+    String accessToken =
+        appAccessToken(
+            "commander-phone",
+            AccountIdentityCatalog.PRECINCT_COMMANDER_ID,
+            AccountType.COMMAND,
+            OrganizationType.POLICE_SUBSTATION,
+            PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID);
+
+    mockMvc
+        .perform(
+            post(
+                    "/api/police-phones/{policePhoneId}/heartbeat",
+                    PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID)
+                .header("Authorization", "Bearer " + accessToken)
+                .header("X-Client-Channel", "APP")
+                .header("X-PolicePhone-Id", PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID)
+                .contentType("application/json")
+                .content(
+                    """
+                    {
+                      "clientTs": "2026-05-08T09:01:00+09:00",
+                      "sequence": 2,
+                      "lastSyncAt": "2026-05-08T09:00:30+09:00"
+                    }
+                    """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("ONLINE"))
+        .andExpect(
+            jsonPath("$.policePhoneId").value(PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID.toString()))
+        .andExpect(jsonPath("$.sequence").value(2));
+  }
+
+  @Test
   @DisplayName("WEB OIDC session cannot call APP FCM token API")
   void webOidcSessionCannotCallAppFcmTokenApi() throws Exception {
     String accessToken = webAccessToken();
@@ -177,14 +214,24 @@ class AuthPhoneApiIntegrationTest {
   }
 
   private String appAccessToken(String suffix, UUID accountId, UUID policePhoneId) {
+    return appAccessToken(
+        suffix, accountId, AccountType.TEAM, OrganizationType.POLICE_SUBSTATION, policePhoneId);
+  }
+
+  private String appAccessToken(
+      String suffix,
+      UUID accountId,
+      AccountType accountType,
+      OrganizationType organizationType,
+      UUID policePhoneId) {
     String accessToken = "header.app-" + suffix + ".signature";
     when(jwtDecoder.decode(accessToken))
         .thenReturn(
             Jwt.withTokenValue(accessToken)
                 .header("alg", "RS256")
                 .claim("accountId", accountId.toString())
-                .claim("accountType", "TEAM")
-                .claim("organizationType", "POLICE_SUBSTATION")
+                .claim("accountType", accountType.name())
+                .claim("organizationType", organizationType.name())
                 .claim("policePhoneId", policePhoneId.toString())
                 .claim("realm_access", Map.of("roles", List.of("MEMBER")))
                 .build());

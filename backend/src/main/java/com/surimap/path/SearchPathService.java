@@ -92,6 +92,8 @@ public class SearchPathService {
                         path.dutyShiftId(),
                         path.policePhoneId(),
                         path.status(),
+                        path.startedAt(),
+                        path.endedAt(),
                         path.version(),
                         toGeometry(path.points()),
                         toQuerySegments(path.points(), path.segments()),

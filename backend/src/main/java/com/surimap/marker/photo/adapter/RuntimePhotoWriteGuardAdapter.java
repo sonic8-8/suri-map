@@ -50,8 +50,7 @@ public class RuntimePhotoWriteGuardAdapter implements PhotoWriteGuardPort {
 
     requireOpenIncident(marker.getIncidentId());
     requireAccountAssignment(marker.getIncidentId(), accountId);
-    requireRegisteredPolicePhone(policePhoneId, accountId);
-    requirePolicePhoneAssignedToIncident(policePhoneId, marker.getIncidentId());
+    requireRegisteredPolicePhone(policePhoneId);
     requireCurrentOp(marker);
 
     return new PhotoMarkerContext(
@@ -107,18 +106,10 @@ public class RuntimePhotoWriteGuardAdapter implements PhotoWriteGuardPort {
     }
   }
 
-  private void requireRegisteredPolicePhone(UUID policePhoneId, UUID accountId) {
+  private void requireRegisteredPolicePhone(UUID policePhoneId) {
     if (policePhoneId == null
-        || markerRuntimeGuardMapper.countRegisteredPolicePhoneForAccount(policePhoneId, accountId)
-            == 0) {
+        || markerRuntimeGuardMapper.countRegisteredPolicePhone(policePhoneId) == 0) {
       throw new PhotoApiException("police_phone_not_registered", HttpStatus.FORBIDDEN);
-    }
-  }
-
-  private void requirePolicePhoneAssignedToIncident(UUID policePhoneId, UUID incidentId) {
-    if (markerRuntimeGuardMapper.countPolicePhoneAssignmentToIncident(policePhoneId, incidentId)
-        == 0) {
-      throw new PhotoApiException("police_phone_not_assigned", HttpStatus.FORBIDDEN);
     }
   }
 

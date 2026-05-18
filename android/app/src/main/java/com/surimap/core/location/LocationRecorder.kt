@@ -21,6 +21,7 @@ interface LocationRecorder {
 data class GpsLocationFix(
     val lon: Double,
     val lat: Double,
+    val bearingDegrees: Double?,
     val speedMps: Double?,
     val horizontalAccuracyM: Int?,
     val capturedAt: Instant
@@ -101,6 +102,7 @@ private fun Location.toGpsLocationFix(now: () -> Instant): GpsLocationFix =
     GpsLocationFix(
         lon = longitude,
         lat = latitude,
+        bearingDegrees = if (hasBearing()) bearing.toDouble() else null,
         speedMps = if (hasSpeed()) speed.toDouble() else null,
         horizontalAccuracyM = if (hasAccuracy()) accuracy.toInt() else null,
         capturedAt = time.takeIf { it > 0L }?.let(Instant::ofEpochMilli) ?: now()

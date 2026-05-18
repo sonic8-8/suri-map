@@ -26,6 +26,14 @@ surimap:
     keycloak:
       issuer-uri: ${SURI_MAP_KEYCLOAK_ISSUER_URI:https://k14c106.p.ssafy.io/keycloak/realms/suri-map}
       jwk-set-uri: ${SURI_MAP_KEYCLOAK_JWK_SET_URI:https://k14c106.p.ssafy.io/keycloak/realms/suri-map/protocol/openid-connect/certs}
+  object-storage:
+    provider: ${SURI_MAP_OBJECT_STORAGE_PROVIDER:mock}
+    endpoint: ${SURI_MAP_OBJECT_STORAGE_ENDPOINT:http://localhost:9000}
+    public-endpoint: ${SURI_MAP_OBJECT_STORAGE_PUBLIC_ENDPOINT:}
+    bucket: ${SURI_MAP_OBJECT_STORAGE_BUCKET:suri-map-photo}
+    access-key: ${SURI_MAP_OBJECT_STORAGE_ACCESS_KEY:minioadmin}
+    secret-key: ${SURI_MAP_OBJECT_STORAGE_SECRET_KEY:minioadmin}
+    region: ${SURI_MAP_OBJECT_STORAGE_REGION:us-east-1}
 
 management:
   endpoints:
