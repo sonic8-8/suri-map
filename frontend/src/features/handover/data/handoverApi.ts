@@ -61,7 +61,7 @@ export type CreateHandoverMemoResponseDto = {
 export function getOperationalPeriods(incidentId: string) {
   return operationalPeriodApi.list(incidentId).then((response): OperationalPeriodsResponseDto => ({
     currentOpId: response.currentOpId,
-    items: response.items.map((period) => ({
+    items: readReadonlyArray(response.items).map((period) => ({
       opId: period.id,
       incidentId,
       status: period.status,
@@ -85,7 +85,7 @@ export function getHandoverMemos(params: {
   memoTargetId?: string;
 }) {
   return handoverApi.listHandoverMemos(params).then((response): HandoverMemosResponseDto => ({
-    items: response.items.map((memo) => ({
+    items: readReadonlyArray(response.items).map((memo) => ({
       memoId: memo.id,
       incidentId: memo.incidentId,
       opId: memo.opId,
@@ -101,4 +101,8 @@ export function getHandoverMemos(params: {
 
 export function createHandoverMemo(request: CreateHandoverMemoRequestDto) {
   return handoverApi.createHandoverMemo(request, createIdempotencyKey('handover-memo'));
+}
+
+function readReadonlyArray<T>(value: readonly T[] | null | undefined): readonly T[] {
+  return Array.isArray(value) ? value : [];
 }

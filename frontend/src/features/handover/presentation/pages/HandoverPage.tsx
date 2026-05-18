@@ -33,6 +33,7 @@ import {
   useSearchHistorySummaryListQuery,
   useDutyShiftListQuery,
   type DutyShiftResponse,
+  type SearchHistorySummaryItem,
 } from '../../../operationalPeriod/api/handoverApi';
 import {
   operationalPeriodApi,
@@ -157,23 +158,34 @@ export function HandoverPage({
   useBrowserBackToIncidentList(onBrowserBackToIncidentList, !embedded);
   const queryClient = useQueryClient();
   const stableBoardRef = useRef<SituationBoardResponseDto | null>(null);
+  const incidentStateRef = useRef(incidentId);
   const effectiveBoardSnapshot = sharedMapMode ? null : boardSnapshot;
+  const currentBoardSnapshot = useMemo<SituationBoardResponseDto | null>(() => {
+    return effectiveBoardSnapshot && effectiveBoardSnapshot.incidentId === incidentId ? effectiveBoardSnapshot : null;
+  }, [effectiveBoardSnapshot, incidentId]);
+  const isStaleIncidentState = incidentStateRef.current !== incidentId;
+  const activeFocusedOpId = isStaleIncidentState ? null : focusedOpId;
+  const activeSelectedOpIds = isStaleIncidentState ? [] : selectedOpIds;
   const requestedBoardOpIds = useMemo(
-    () => uniqueNonEmptyStrings([...selectedOpIds, ...(focusedOpId ? [focusedOpId] : [])]),
-    [focusedOpId, selectedOpIds],
+    () => uniqueNonEmptyStrings([...activeSelectedOpIds, ...(activeFocusedOpId ? [activeFocusedOpId] : [])]),
+    [activeFocusedOpId, activeSelectedOpIds],
   );
   const boardQuery = useIncidentBoardQuery({
-    incidentId: effectiveBoardSnapshot ? null : incidentId,
-    opIds: !effectiveBoardSnapshot && requestedBoardOpIds.length > 0 ? requestedBoardOpIds : undefined,
+    incidentId: currentBoardSnapshot ? null : incidentId,
+    opIds: !currentBoardSnapshot && requestedBoardOpIds.length > 0 ? requestedBoardOpIds : undefined,
   });
+  const currentBoard = useMemo<IncidentBoardResponse | null>(() => {
+    const data = (boardQuery.data ?? null) as IncidentBoardResponse | null;
+    return data && data.incidentId === incidentId ? data : null;
+  }, [boardQuery.data, incidentId]);
   const board = useMemo<IncidentBoardResponse | null>(() => {
-    if (effectiveBoardSnapshot) {
-      stableBoardRef.current = effectiveBoardSnapshot as unknown as SituationBoardResponseDto;
-      return effectiveBoardSnapshot as unknown as IncidentBoardResponse;
+    if (currentBoardSnapshot) {
+      stableBoardRef.current = currentBoardSnapshot as unknown as SituationBoardResponseDto;
+      return currentBoardSnapshot as unknown as IncidentBoardResponse;
     }
 
     const mergedBoard = mergeWithPreviousCriticalSlots(
-      (boardQuery.data ?? null) as SituationBoardResponseDto | null,
+      currentBoard as SituationBoardResponseDto | null,
       stableBoardRef.current,
     );
 
@@ -182,22 +194,23 @@ export function HandoverPage({
     }
 
     return mergedBoard as unknown as IncidentBoardResponse | null;
-  }, [boardQuery.data, effectiveBoardSnapshot]);
+  }, [currentBoard, currentBoardSnapshot]);
   const effectiveSelectedOpIds = useMemo(
-    () => resolveSelectedOpIds(board, selectedOpIds),
-    [board, selectedOpIds],
+    () => resolveSelectedOpIds(board, activeSelectedOpIds),
+    [activeSelectedOpIds, board],
   );
   const isLoadingBoard = boardQuery.isLoading;
   const boardErrorMessage = boardQuery.isError ? '수색 이력 정보를 불러오지 못했습니다.' : '';
-  const summaryQuery = useSearchHistorySummaryListQuery(focusedOpId, { incidentId });
+  const summaryQuery = useSearchHistorySummaryListQuery(activeFocusedOpId, { incidentId });
   const isLoadingSummary = summaryQuery.isLoading || summaryQuery.isFetching;
   const summaryErrorMessage = summaryQuery.isError ? '수색 이력 요약을 불러오지 못했습니다.' : '';
-  const dutyShiftQuery = useDutyShiftListQuery({ incidentId, opId: focusedOpId ?? undefined });
-  const dutyShifts = dutyShiftQuery.data?.items ?? [];
+  const dutyShiftQuery = useDutyShiftListQuery({ incidentId, opId: activeFocusedOpId ?? undefined });
+  const dutyShifts = useMemo(() => readDutyShiftItems(dutyShiftQuery.data?.items), [dutyShiftQuery.data]);
+  const summaryItems = useMemo(() => readSearchHistorySummaryItems(summaryQuery.data?.items), [summaryQuery.data]);
 
   const selectedOp = useMemo(
-    () => operationalPeriods.find((period) => period.id === focusedOpId) ?? null,
-    [focusedOpId, operationalPeriods],
+    () => operationalPeriods.find((period) => period.id === activeFocusedOpId) ?? null,
+    [activeFocusedOpId, operationalPeriods],
   );
   const displayedOperationalPeriods = useMemo(
     () => [...operationalPeriods].sort((left, right) => right.sequenceNumber - left.sequenceNumber),
@@ -208,8 +221,8 @@ export function HandoverPage({
     [currentOpId, displayedOperationalPeriods],
   );
   const selectedOpMemos = useMemo(
-    () => memos.filter((memo) => memo.opId === focusedOpId),
-    [focusedOpId, memos],
+    () => memos.filter((memo) => memo.opId === activeFocusedOpId),
+    [activeFocusedOpId, memos],
   );
   const memoTargetOptions = useMemo(
     () => createHandoverMemoTargetOptions(board, selectedOp, dutyShifts),
@@ -232,12 +245,12 @@ export function HandoverPage({
     [memoTargetOptions, selectedMemoTargetKey],
   );
   const evidenceSummary = useMemo(
-    () => createEvidenceSummary(board, effectiveSelectedOpIds, summaryQuery.data?.items.length ?? 0),
-    [board, effectiveSelectedOpIds, summaryQuery.data],
+    () => createEvidenceSummary(board, effectiveSelectedOpIds, summaryItems.length),
+    [board, effectiveSelectedOpIds, summaryItems.length],
   );
   const searchHistorySummary = useMemo((): SearchHistorySummaryView | null => {
-    if (!summaryQuery.data || !focusedOpId) return null;
-    const item = summaryQuery.data.items.find((it) => it.scopeId === focusedOpId) ?? null;
+    if (!activeFocusedOpId) return null;
+    const item = summaryItems.find((it) => it.scopeId === activeFocusedOpId) ?? null;
     if (!item) return null;
     return {
       statusLabel: formatSummaryDisplayStatusLabel(item.displayStatus),
@@ -247,7 +260,7 @@ export function HandoverPage({
       generatedAt: item.generatedAt ? formatKstDateTime(new Date(item.generatedAt)) : null,
       sourceHash: item.sourceHash || null,
     };
-  }, [summaryQuery.data, focusedOpId]);
+  }, [activeFocusedOpId, summaryItems]);
   const handoverStatus = useMemo(
     () => createHandoverStatusView(board, selectedOp, selectedOpMemos.length),
     [board, selectedOp, selectedOpMemos.length],
@@ -261,10 +274,10 @@ export function HandoverPage({
       baseMapMode: 'shared-base-map',
       incidentId,
       board,
-      focusedOpId,
+      focusedOpId: activeFocusedOpId,
       selectedOpIds: effectiveSelectedOpIds,
     }),
-    [board, effectiveSelectedOpIds, focusedOpId, incidentId],
+    [activeFocusedOpId, board, effectiveSelectedOpIds, incidentId],
   );
   const currentAccountLabel = currentUserAccount.name;
   const timestampLabel = board?.serverTs ? formatKstDateTime(new Date(board.serverTs)) : '동기화 전';
@@ -291,6 +304,29 @@ export function HandoverPage({
     canCreateOperationalPeriod &&
     !isCreatingOp &&
     (newOpReason !== 'OTHER' || newOpReasonMemo.trim().length > 0);
+
+  useEffect(() => {
+    incidentStateRef.current = incidentId;
+    stableBoardRef.current = null;
+    setIncidentDetail(null);
+    setOperationalPeriods([]);
+    setCurrentOpId(null);
+    setFocusedOpId(null);
+    setSelectedOpIds([]);
+    setMemos([]);
+    setContent('');
+    setIsComparisonPopupOpen(false);
+    setIsCreateOpModalOpen(false);
+    setNewOpReason('RE_SEARCH');
+    setNewOpReasonMemo('');
+    setNewOpHandoverMemo('');
+    setSelectedMemoTargetKey('');
+    setOpErrorMessage('');
+    setMemoErrorMessage('');
+    setCreateOpErrorMessage('');
+    setIsSubmitting(false);
+    setIsCreatingOp(false);
+  }, [incidentId]);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => setNow(new Date()), 30_000);
@@ -324,14 +360,15 @@ export function HandoverPage({
         const response = await operationalPeriodApi.list(incidentId);
         if (ignore) return;
 
-        setOperationalPeriods(response.items);
+        const responseItems = readOperationalPeriodItems(response.items);
+        setOperationalPeriods(responseItems);
         setCurrentOpId(response.currentOpId);
-        const initialOpId = response.currentOpId ?? response.items[0]?.id ?? null;
+        const initialOpId = response.currentOpId ?? responseItems[0]?.id ?? null;
         setFocusedOpId(initialOpId);
         const initialSelectedOpIds = sharedMapMode
-          ? uniqueNonEmptyStrings([response.currentOpId ?? response.items[0]?.id ?? null])
+          ? uniqueNonEmptyStrings([response.currentOpId ?? responseItems[0]?.id ?? null])
           : uniqueNonEmptyStrings(
-              [...response.items]
+              [...responseItems]
                 .sort((left, right) => right.sequenceNumber - left.sequenceNumber)
                 .map((period) => period.id),
             );
@@ -353,17 +390,17 @@ export function HandoverPage({
   }, [incidentId]);
 
   useEffect(() => {
-    if (!focusedOpId) {
+    if (!activeFocusedOpId) {
       return;
     }
 
     let ignore = false;
-    void loadMemos(focusedOpId, () => ignore);
+    void loadMemos(activeFocusedOpId, () => ignore);
 
     return () => {
       ignore = true;
     };
-  }, [focusedOpId, incidentId]);
+  }, [activeFocusedOpId, incidentId]);
 
   useEffect(() => {
     if (!sharedMapMode) return;
@@ -380,7 +417,7 @@ export function HandoverPage({
         incidentId,
         opId,
       });
-      if (!shouldIgnore()) setMemos(response.items);
+      if (!shouldIgnore()) setMemos(readHandoverMemoItems(response.items));
     } catch (error) {
       if (!shouldIgnore()) {
         setMemoErrorMessage(getApiErrorMessage(error, '인수인계 메모를 불러오지 못했습니다.'));
@@ -392,7 +429,7 @@ export function HandoverPage({
 
   const handleSubmit = async () => {
     const trimmedContent = content.trim();
-    if (!focusedOpId || !selectedMemoTarget || !trimmedContent) return;
+    if (!activeFocusedOpId || !selectedMemoTarget || !trimmedContent) return;
 
     setIsSubmitting(true);
     setMemoErrorMessage('');
@@ -400,14 +437,14 @@ export function HandoverPage({
     try {
       await handoverApi.createHandoverMemo({
         incidentId,
-        opId: focusedOpId,
+        opId: activeFocusedOpId,
         memoTargetType: selectedMemoTarget.targetType,
         memoTargetId: selectedMemoTarget.targetId,
         content: trimmedContent,
         clientTs: new Date().toISOString(),
       }, createIdempotencyKey('handover-memo'));
       setContent('');
-      await loadMemos(focusedOpId);
+      await loadMemos(activeFocusedOpId);
     } catch (error) {
       setMemoErrorMessage(getApiErrorMessage(error, '인수인계 메모 저장에 실패했습니다.'));
     } finally {
@@ -416,9 +453,9 @@ export function HandoverPage({
   };
 
   useEffect(() => {
-    setSelectedMemoTargetKey(focusedOpId ? createMemoTargetKey(DEFAULT_MEMO_TARGET_TYPE, focusedOpId) : '');
+    setSelectedMemoTargetKey(activeFocusedOpId ? createMemoTargetKey(DEFAULT_MEMO_TARGET_TYPE, activeFocusedOpId) : '');
     setContent('');
-  }, [focusedOpId]);
+  }, [activeFocusedOpId]);
 
   useEffect(() => {
     if (memoTargetOptions.length === 0) {
@@ -578,7 +615,7 @@ export function HandoverPage({
               <HandoverComparisonMap
                 incidentId={incidentId}
                 board={board}
-                focusedOpId={focusedOpId}
+                focusedOpId={activeFocusedOpId}
                 selectedOpIds={effectiveSelectedOpIds}
               />
             </div>
@@ -655,7 +692,7 @@ export function HandoverPage({
             </section>
 
             <HandoverMemoSection
-              focusedOpId={focusedOpId}
+              focusedOpId={activeFocusedOpId}
               memoTargetOptions={memoTargetOptions}
               selectedMemoTarget={selectedMemoTarget}
               memoItems={selectedOpMemoItems}
@@ -1239,7 +1276,7 @@ function readSlotRows(board: IncidentBoardResponse, slot: BoardSlotName): Record
   const raw = board.slots[slot] as unknown;
   if (!raw) return [];
   if (Array.isArray(raw)) return (raw as unknown[]).filter(isRecord);
-  return isRecord(raw) ? [raw] : [];
+  return isRecord(raw) && Object.keys(raw).length > 0 ? [raw] : [];
 }
 
 function filterRowsBySelectedOps(rows: Record<string, unknown>[], selectedOpIds: string[]) {
@@ -1327,6 +1364,78 @@ function readBoolean(row: Record<string, unknown>, key: string) {
 function readUnknownArray(row: Record<string, unknown>, key: string) {
   const value = row[key];
   return Array.isArray(value) ? value : [];
+}
+
+function readReadonlyArray<T>(value: unknown): T[] {
+  return Array.isArray(value) ? (value as T[]) : [];
+}
+
+function readOperationalPeriodItems(value: unknown): OperationalPeriodListItem[] {
+  return readReadonlyArray<unknown>(value).filter(isOperationalPeriodListItem);
+}
+
+function isOperationalPeriodListItem(value: unknown): value is OperationalPeriodListItem {
+  return (
+    isRecord(value) &&
+    typeof value.id === 'string' &&
+    typeof value.status === 'string' &&
+    typeof value.reason === 'string' &&
+    typeof value.sequenceNumber === 'number' &&
+    Number.isFinite(value.sequenceNumber) &&
+    typeof value.openedAt === 'string' &&
+    (typeof value.endedAt === 'string' || value.endedAt === null) &&
+    typeof value.version === 'number' &&
+    Number.isFinite(value.version)
+  );
+}
+
+function readHandoverMemoItems(value: unknown): HandoverMemoListItem[] {
+  return readReadonlyArray<unknown>(value).filter(isHandoverMemoListItem);
+}
+
+function isHandoverMemoListItem(value: unknown): value is HandoverMemoListItem {
+  return (
+    isRecord(value) &&
+    typeof value.id === 'string' &&
+    typeof value.incidentId === 'string' &&
+    typeof value.opId === 'string' &&
+    typeof value.memoTargetType === 'string' &&
+    typeof value.content === 'string' &&
+    typeof value.createdByAccountId === 'string' &&
+    typeof value.createdAt === 'string' &&
+    typeof value.version === 'number' &&
+    Number.isFinite(value.version)
+  );
+}
+
+function readDutyShiftItems(value: unknown): DutyShiftResponse[] {
+  return readReadonlyArray<unknown>(value).filter(isDutyShiftResponse);
+}
+
+function isDutyShiftResponse(value: unknown): value is DutyShiftResponse {
+  return (
+    isRecord(value) &&
+    typeof value.id === 'string' &&
+    typeof value.incidentId === 'string' &&
+    typeof value.opId === 'string' &&
+    typeof value.policePhoneId === 'string' &&
+    typeof value.status === 'string' &&
+    typeof value.version === 'number' &&
+    Number.isFinite(value.version)
+  );
+}
+
+function readSearchHistorySummaryItems(value: unknown): SearchHistorySummaryItem[] {
+  return readReadonlyArray<unknown>(value).filter(isSearchHistorySummaryItem);
+}
+
+function isSearchHistorySummaryItem(value: unknown): value is SearchHistorySummaryItem {
+  return (
+    isRecord(value) &&
+    typeof value.scopeId === 'string' &&
+    typeof value.displayStatus === 'string' &&
+    typeof value.sourceReadiness === 'string'
+  );
 }
 
 function hasOperationalPeriodCommandPermission(account: LoginAccount) {
