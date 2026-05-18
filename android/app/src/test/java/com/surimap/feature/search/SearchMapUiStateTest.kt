@@ -8,6 +8,7 @@ import com.surimap.feature.search.ui.SearchMapUiState
 import com.surimap.testing.markerIdFixture
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -21,6 +22,7 @@ class SearchMapUiStateTest {
         assertTrue(active.canWritePath)
         assertTrue(active.canCreateMarker)
         assertEquals("일시정지", active.primaryActionLabel)
+        assertTrue(active.visibleText().contains("OP 3차"))
         assertTrue(active.visibleText().any { it.contains("마커 생성") })
     }
 
@@ -145,6 +147,75 @@ class SearchMapUiStateTest {
         assertFalse(state.mapOverlaysVisible)
         assertTrue(state.visibleText().contains("지도 정보 접힘"))
         assertTrue(state.visibleText().contains("지도 오버레이 숨김"))
+        assertFalse(state.visibleText().contains("일시정지"))
+        assertFalse(state.visibleText().contains("종료"))
+        assertFalse(state.visibleText().contains("인수인계"))
+        assertFalse(state.visibleText().contains("마커 생성"))
+    }
+
+    @Test
+    fun mapOverlayActionsStayVisibleEvenWhenIncidentHasNoAreaOrMarkerGeometry() {
+        val state =
+            SearchMapUiState.active().copy(
+                layers = emptyList(),
+                mapOverlaysVisible = true
+            )
+
+        assertFalse(state.canFocusOverallSearchArea)
+        assertFalse(state.canFocusUnitSearchArea)
+        assertFalse(state.canOpenMarkerDetail)
+        assertTrue(state.visibleText().contains("전체 수색구역"))
+        assertTrue(state.visibleText().contains("부대 수색구역"))
+        assertTrue(state.visibleText().contains("마커 상세"))
+    }
+
+    @Test
+    fun searchAreaButtonsRecenterViewportAndClearMarkerFocus() {
+        val state =
+            SearchMapUiState.active().copy(
+                focusedMarkerId = MARKER_ID,
+                layers =
+                    listOf(
+                        SearchMapLayerUiState(
+                            label = "전체 수색 구역",
+                            kind = SearchLayerKind.Overall,
+                            geoJson =
+                                """{"type":"Polygon","coordinates":[[[126.90,35.15],[126.94,35.15],[126.94,35.19],[126.90,35.19],[126.90,35.15]]]}"""
+                        ),
+                        SearchMapLayerUiState(
+                            label = "부대 수색 구역",
+                            kind = SearchLayerKind.Unit,
+                            geoJson =
+                                """{"type":"Polygon","coordinates":[[[126.91,35.16],[126.93,35.16],[126.93,35.18],[126.91,35.18],[126.91,35.16]]]}"""
+                        ),
+                        SearchMapLayerUiState(
+                            label = "단서",
+                            kind = SearchLayerKind.Marker,
+                            overlayId = MARKER_ID,
+                            geoJson = """{"type":"Point","coordinates":[126.905,35.155]}"""
+                        )
+                    )
+            )
+
+        val overall = state.centerOnSearchLayer(SearchLayerKind.Overall)
+        val unit = state.centerOnSearchLayer(SearchLayerKind.Unit)
+
+        assertNull(overall.focusedMarkerId)
+        assertEquals(35.15, overall.viewportBounds!!.south, 0.000001)
+        assertEquals(126.90, overall.viewportBounds.west, 0.000001)
+        assertEquals(35.19, overall.viewportBounds.north, 0.000001)
+        assertEquals(126.94, overall.viewportBounds.east, 0.000001)
+        assertNull(unit.focusedMarkerId)
+        assertEquals(35.16, unit.viewportBounds!!.south, 0.000001)
+        assertEquals(126.91, unit.viewportBounds.west, 0.000001)
+        assertEquals(35.18, unit.viewportBounds.north, 0.000001)
+        assertEquals(126.93, unit.viewportBounds.east, 0.000001)
+        assertTrue(state.canFocusOverallSearchArea)
+        assertTrue(state.canFocusUnitSearchArea)
+        assertTrue(state.canOpenMarkerDetail)
+        assertTrue(state.visibleText().contains("전체 수색구역"))
+        assertTrue(state.visibleText().contains("부대 수색구역"))
+        assertTrue(state.visibleText().contains("마커 상세"))
     }
 
     private companion object {

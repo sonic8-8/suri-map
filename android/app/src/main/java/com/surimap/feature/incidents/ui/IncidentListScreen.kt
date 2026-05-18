@@ -132,6 +132,7 @@ data class IncidentListUiState(
 data class AssignedIncidentUiModel(
     val incidentId: String,
     val currentOpId: String? = null,
+    val currentOpLabel: String? = null,
     val currentDutyShiftId: String? = null,
     val title: String,
     val summary: String,
@@ -142,6 +143,7 @@ data class AssignedIncidentUiModel(
         IncidentContext(
             incidentId = incidentId,
             currentOpId = currentOpId,
+            currentOpLabel = currentOpLabel,
             currentDutyShiftId = currentDutyShiftId
         )
 }

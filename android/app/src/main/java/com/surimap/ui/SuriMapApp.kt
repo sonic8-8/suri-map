@@ -833,6 +833,30 @@ private fun SearchMapRoute(
     var createPhotoUriById by remember { mutableStateOf<Map<String, Uri>>(emptyMap()) }
     var pendingCreateCameraPhotoUri by remember { mutableStateOf<Uri?>(null) }
     var latestLocationFix by remember { mutableStateOf<GpsLocationFix?>(null) }
+    var pendingCurrentLocationCenter by remember { mutableStateOf(false) }
+    val currentPendingCurrentLocationCenter by rememberUpdatedState(pendingCurrentLocationCenter)
+
+    fun centerMapOnCurrentLocation(fix: GpsLocationFix) {
+        latestLocationFix = fix
+        pendingCurrentLocationCenter = false
+        searchMapState = searchMapState.withFocusedMarker(null).centerOnCurrentLocation(fix)
+    }
+
+    fun requestCurrentLocationCenter() {
+        val lastKnownFix = latestLocationFix ?: locationUpdates.lastKnownFix()
+        if (lastKnownFix != null) {
+            centerMapOnCurrentLocation(lastKnownFix)
+        } else {
+            pendingCurrentLocationCenter = true
+        }
+    }
+
+    val locationPermissionLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grantResults ->
+            if (grantResults.values.any { it }) {
+                requestCurrentLocationCenter()
+            }
+        }
 
     fun beginCreatePhotoUpload(uri: Uri, existingLocalId: String? = null) {
         val current = markerSheetState
@@ -988,6 +1012,9 @@ private fun SearchMapRoute(
             val handle =
                 locationUpdates.start { fix ->
                     latestLocationFix = fix
+                    if (currentPendingCurrentLocationCenter) {
+                        centerMapOnCurrentLocation(fix)
+                    }
                     coroutineScope.launch {
                         gpsBatchRecorder.recordFix(
                             context = sessionContext.toSearchPathWriteContext(),
@@ -1005,6 +1032,20 @@ private fun SearchMapRoute(
                     )
                     gpsBatchRecorder.clear()
                 }
+            }
+        }
+    }
+
+    DisposableEffect(locationUpdates, pendingCurrentLocationCenter, displayedLifecycle, activeSearchPathId) {
+        if (!pendingCurrentLocationCenter || (displayedLifecycle == SearchLifecycleStatus.Active && activeSearchPathId != null)) {
+            onDispose {}
+        } else {
+            val handle =
+                locationUpdates.start { fix ->
+                    centerMapOnCurrentLocation(fix)
+                }
+            onDispose {
+                handle.stop()
             }
         }
     }
@@ -1084,6 +1125,24 @@ private fun SearchMapRoute(
             },
             onOpenFocusedMarkerDetail = { markerId ->
                 navController.navigateToSingleTop(MarkerDetailDeepLink.route(markerId))
+            },
+            onCenterCurrentLocation = {
+                if (context.hasLocationPermission()) {
+                    requestCurrentLocationCenter()
+                } else {
+                    locationPermissionLauncher.launch(
+                        arrayOf(
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION
+                        )
+                    )
+                }
+            },
+            onFocusOverallSearchArea = {
+                searchMapState = searchMapState.centerOnSearchLayer(SearchLayerKind.Overall)
+            },
+            onFocusUnitSearchArea = {
+                searchMapState = searchMapState.centerOnSearchLayer(SearchLayerKind.Unit)
             },
             onToggleBottomPanel = { bottomPanelExpanded = !bottomPanelExpanded },
             onToggleMapOverlays = { mapOverlaysVisible = !mapOverlaysVisible }
@@ -1728,6 +1787,7 @@ private fun IncidentContext?.toSearchMapSessionContext(policePhoneContext: Polic
     SearchMapSessionContext(
         incidentId = this?.incidentId,
         currentOpId = this?.currentOpId,
+        currentOpLabel = this?.currentOpLabel,
         currentDutyShiftId = this?.currentDutyShiftId,
         policePhoneId = policePhoneContext?.policePhoneId
     )
@@ -1957,20 +2017,18 @@ private fun SearchMapUiState.markerCreationLocation(): MarkerLocation? =
         )
     }
 
+internal fun SearchMapUiState.centerOnCurrentLocation(fix: GpsLocationFix): SearchMapUiState {
+    return copy(
+        viewportBounds = fix.toSearchMapViewportBounds(),
+        focusedMarkerId = null
+    )
+}
+
 private fun SearchMapUiState.withCurrentLocationViewport(fix: GpsLocationFix?): SearchMapUiState {
     if (viewportBounds != null || fix == null) {
         return this
     }
-    val delta = CURRENT_LOCATION_VIEWPORT_DELTA
-    return copy(
-        viewportBounds =
-        SearchMapViewportBounds(
-            south = fix.lat - delta,
-            west = fix.lon - delta,
-            north = fix.lat + delta,
-            east = fix.lon + delta
-        )
-    )
+    return copy(viewportBounds = fix.toSearchMapViewportBounds())
 }
 
 private fun MarkerCreateSheetUiState.toMarkerUpsertInput(): MarkerUpsertInput =
@@ -2010,6 +2068,20 @@ private fun MarkerCreateSheetUiState.withManualLocation(location: MarkerLocation
         withManualLocation(lon = location.lon, lat = location.lat)
     }
 
+private fun GpsLocationFix.toSearchMapViewportBounds(): SearchMapViewportBounds {
+    val delta = CURRENT_LOCATION_VIEWPORT_DELTA
+    return SearchMapViewportBounds(
+        south = lat - delta,
+        west = lon - delta,
+        north = lat + delta,
+        east = lon + delta
+    )
+}
+
+private fun Context.hasLocationPermission(): Boolean =
+    ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+        ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
 private fun PolicePhoneContext?.toMapLibreRuntimeMapState(): MapLibreRuntimeMapState =
     MapLibreRuntimeMapState(
         apiBaseUrl = this?.tileBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL,
@@ -2046,6 +2118,7 @@ private fun debugMapOnlyIncidentContext(): IncidentContext? {
     return IncidentContext(
         incidentId = incidentId,
         currentOpId = BuildConfig.SURI_MAP_DEBUG_MAP_ONLY_OP_ID.takeIf(String::isNotBlank),
+        currentOpLabel = null,
         currentDutyShiftId = BuildConfig.SURI_MAP_DEBUG_MAP_ONLY_DUTY_SHIFT_ID.takeIf(String::isNotBlank)
     )
 }

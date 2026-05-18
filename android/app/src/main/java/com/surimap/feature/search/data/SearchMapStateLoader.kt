@@ -22,6 +22,7 @@ import org.json.JSONObject
 data class SearchMapSessionContext(
     val incidentId: String?,
     val currentOpId: String?,
+    val currentOpLabel: String? = null,
     val currentDutyShiftId: String?,
     val policePhoneId: String? = null
 )
@@ -90,13 +91,15 @@ class SearchMapStateLoader(
         return SearchMapUiState(
             incidentTitle = incidentTitle,
             missingPersonSummary = "실종자 정보 확인 중",
-            opLabel = context.currentOpId?.takeIf(String::isNotBlank)?.let { opId -> "OP $opId" } ?: "OP 확인 필요",
+            opLabel = context.currentOpLabel?.takeIf(String::isNotBlank)
+                ?: context.currentOpId?.takeIf(String::isNotBlank)?.let { opId -> "OP $opId" }
+                ?: "OP 확인 필요",
             dutyShiftLabel =
             context.currentDutyShiftId
                 ?.takeIf(String::isNotBlank)
                 ?.let { dutyShiftId -> "DutyShift $dutyShiftId" }
                 ?: "DutyShift 확인 필요",
-            assignmentLabel = "담당 구역 확인 중",
+            assignmentLabel = "",
             syncStatus =
             if (normalUnsentCount > 0) {
                 SearchMapSyncStatus.Offline
@@ -165,6 +168,7 @@ class SearchMapStateLoader(
             return state
         }
         return state.copy(
+            assignmentLabel = opLayers.assignmentLabel() ?: state.assignmentLabel,
             layers =
             state.layers
                 .filterNot { layer -> layer.kind != SearchLayerKind.Overall && layer.geoJson == null } + opLayers
@@ -278,7 +282,9 @@ class SearchMapStateLoader(
                 }
             },
             missingPersonSummary = missingPersonSummary(json.optJSONObject("missingPerson")),
-            opLabel = context.currentOpId?.takeIf(String::isNotBlank)?.let { opId -> "OP $opId" } ?: fallback.opLabel,
+            opLabel = context.currentOpLabel?.takeIf(String::isNotBlank)
+                ?: context.currentOpId?.takeIf(String::isNotBlank)?.let { opId -> "OP $opId" }
+                ?: fallback.opLabel,
             dutyShiftLabel =
             context.currentDutyShiftId
                 ?.takeIf(String::isNotBlank)
@@ -397,6 +403,11 @@ class SearchMapStateLoader(
                 geoJson = """{"type":"Point","coordinates":[${marker.lon},${marker.lat}]}"""
             )
         }
+
+    private fun List<SearchMapLayerUiState>.assignmentLabel(): String? =
+        firstOrNull { layer -> layer.kind == SearchLayerKind.Team }
+            ?.label
+            ?.takeIf(String::isNotBlank)
 
     private fun searchPathLayers(body: String): List<SearchMapLayerUiState> {
         val root = runCatching { JSONObject(body) }.getOrNull() ?: return emptyList()

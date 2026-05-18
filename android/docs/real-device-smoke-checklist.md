@@ -2,6 +2,8 @@
 
 `L4-B01` 범위에서는 feature behavior가 아니라 실행 기반만 확인한다.
 
+Android UI 로컬 개발은 배포 도메인 backend/tile/auth에 연결하는 [local-emulator-dev.md](local-emulator-dev.md)의 Recommended UI Dev Setup을 따른다. 로컬 backend + Docker Postgres 조합은 같은 문서의 Optional Local Backend Setup을 사용한다.
+
 ## Preflight
 
 1. `./gradlew :app:assembleDebug`
