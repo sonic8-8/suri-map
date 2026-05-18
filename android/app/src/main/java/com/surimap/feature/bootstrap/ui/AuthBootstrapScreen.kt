@@ -127,7 +127,7 @@ data class AuthBootstrapUiState(
                     AuthBootstrapFailureReason.InternalNetworkUnavailable -> "내부망 연결을 확인하세요."
                     AuthBootstrapFailureReason.ServerRejectedPhone -> "해당 폴리폰으로 접속할 수 없습니다.\n단말 등록 또는 사건 배정 상태를 확인하세요.\n계속되면 IT 부서로 문의 바랍니다."
                     AuthBootstrapFailureReason.ManagedConfigMissing -> "관리 설정이 없습니다.\nIT 부서로 문의 바랍니다."
-                    AuthBootstrapFailureReason.AuthenticationRequired -> "계정 인증이 필요합니다."
+                    AuthBootstrapFailureReason.AuthenticationRequired -> "수리맵 계정 인증이 필요합니다."
                 }
             val retryable = reason == AuthBootstrapFailureReason.AuthenticationRequired
             return AuthBootstrapUiState(
@@ -141,13 +141,13 @@ data class AuthBootstrapUiState(
                 },
                 title =
                 when (reason) {
-                    AuthBootstrapFailureReason.AuthenticationRequired -> "로그인 필요"
+                    AuthBootstrapFailureReason.AuthenticationRequired -> "계정 로그인 필요"
                     AuthBootstrapFailureReason.ServerRejectedPhone -> "단말 확인 필요"
                     else -> "접속 확인 실패"
                 },
                 description =
                 if (reason == AuthBootstrapFailureReason.AuthenticationRequired) {
-                    "관리 단말과 내부망 확인이 완료되었습니다.\n계정 인증 후 사건 목록으로 이동합니다."
+                    "관리 단말과 내부망 확인이 완료되었습니다.\n수리맵 계정으로 로그인하면 사건 목록으로 이동합니다."
                 } else {
                     "사건 정보는 접속 확인 후 표시됩니다."
                 },
