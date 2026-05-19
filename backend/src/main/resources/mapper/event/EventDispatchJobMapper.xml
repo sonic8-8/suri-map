@@ -5,11 +5,26 @@
 
 <mapper namespace="com.surimap.eventhub.adapter.EventDispatchJobMapper">
 
+    <resultMap id="EventDispatchJobDispatchRecordMap" type="com.surimap.eventhub.adapter.EventDispatchJobDispatchRecord">
+        <constructor>
+            <arg column="id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="event_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="incident_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="event_type" javaType="java.lang.String"/>
+            <arg column="payload_format_version" javaType="_int"/>
+            <arg column="payload_json" javaType="java.lang.String"/>
+            <arg column="source_entity_type" javaType="java.lang.String"/>
+            <arg column="source_entity_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="occurred_at" javaType="java.time.Instant"/>
+        </constructor>
+    </resultMap>
+
     <!-- S4.json §domain_model.entities[0]: event_dispatch_job outbox INSERT -->
     <!-- AC-S4-01: caller domain transaction 안에서 원자적으로 보존된다. -->
     <!-- dispatch_status: DEFAULT 'PENDING' (DDL 기본값 사용) -->
     <insert id="insert" parameterType="com.surimap.eventhub.adapter.EventDispatchJobRow">
         INSERT INTO event_dispatch_job (
+            id,
             event_id,
             incident_id,
             event_type,
@@ -20,6 +35,7 @@
             occurred_at
         )
         VALUES (
+            #{id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
             #{eventId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
             #{incidentId, typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
             #{eventType},
@@ -30,5 +46,61 @@
             #{occurredAt}
         )
     </insert>
+
+    <select id="claimById" resultMap="EventDispatchJobDispatchRecordMap">
+        UPDATE event_dispatch_job
+        SET dispatch_status = #{claimStatus}
+        WHERE id = #{id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND dispatch_status = 'PENDING'
+        RETURNING
+            id,
+            event_id,
+            incident_id,
+            event_type,
+            payload_format_version,
+            payload::text AS payload_json,
+            source_entity_type,
+            source_entity_id,
+            occurred_at
+    </select>
+
+    <select id="claimPending" resultMap="EventDispatchJobDispatchRecordMap">
+        WITH claimed AS (
+            SELECT id
+            FROM event_dispatch_job
+            WHERE dispatch_status = 'PENDING'
+            ORDER BY created_at, id
+            LIMIT #{limit}
+            FOR UPDATE SKIP LOCKED
+        )
+        UPDATE event_dispatch_job job
+        SET dispatch_status = #{claimStatus}
+        FROM claimed
+        WHERE job.id = claimed.id
+        RETURNING
+            job.id,
+            job.event_id,
+            job.incident_id,
+            job.event_type,
+            job.payload_format_version,
+            job.payload::text AS payload_json,
+            job.source_entity_type,
+            job.source_entity_id,
+            job.occurred_at
+    </select>
+
+    <update id="markCompleted">
+        UPDATE event_dispatch_job
+        SET dispatch_status = #{completedStatus}
+        WHERE id = #{id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND dispatch_status = 'DISPATCHING'
+    </update>
+
+    <update id="markFailed">
+        UPDATE event_dispatch_job
+        SET dispatch_status = #{failedStatus}
+        WHERE id = #{id, typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND dispatch_status = 'DISPATCHING'
+    </update>
 
 </mapper>

@@ -77,6 +77,26 @@ class DbEventHubFanoutTest {
     public void insert(EventDispatchJobRow row) {
       rows.add(row);
     }
+
+    @Override
+    public EventDispatchJobDispatchRecord claimById(UUID id, String claimStatus) {
+      return null;
+    }
+
+    @Override
+    public List<EventDispatchJobDispatchRecord> claimPending(int limit, String claimStatus) {
+      return List.of();
+    }
+
+    @Override
+    public int markCompleted(UUID id, String completedStatus) {
+      return 0;
+    }
+
+    @Override
+    public int markFailed(UUID id, String failedStatus) {
+      return 0;
+    }
   }
 
   private static final class CapturingSearchAreaChangedConsumer implements DomainEventConsumer {
