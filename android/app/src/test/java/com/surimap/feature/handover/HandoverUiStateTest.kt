@@ -51,7 +51,7 @@ class HandoverUiStateTest {
         assertEquals(DutyHandoverTab.Report, report.selectedTab)
         assertTrue(initial.visibleText().any { it.contains("리플레이") })
         assertTrue(report.visibleText().any { it.contains("보고서") })
-        assertTrue(report.visibleText().any { it.contains("서버 인수인계 요약") })
+        assertTrue(report.visibleText().any { it.contains("이전 근무 요약") })
 
         listOf(initial, report).forEach { state ->
             assertFalse(state.visibleText().any { it.contains("추천") })
@@ -67,7 +67,7 @@ class HandoverUiStateTest {
         assertEquals(
             listOf(
                 "근무 개요",
-                "서버 인수인계 요약",
+                "이전 근무 요약",
                 "이동 통계",
                 "발견·기록 시간순",
                 "인수인계 메모",

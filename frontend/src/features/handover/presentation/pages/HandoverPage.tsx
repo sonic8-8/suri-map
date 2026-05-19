@@ -94,6 +94,8 @@ type EvidenceSummary = {
 };
 
 type SearchHistorySummaryView = {
+  scopeType: 'OP';
+  heading: string;
   statusLabel: string;
   readinessLabel: string;
   isFinal: boolean;
@@ -228,11 +230,23 @@ export function HandoverPage({
     const initialSelectedOpId = currentOpId ?? board?.activeOpId ?? null;
     return initialSelectedOpId ? [initialSelectedOpId] : [];
   }, [activeSelectedOpIds, board?.activeOpId, currentOpId, isOpSelectionHydrated]);
+  const focusedOpEvidenceIds = useMemo(
+    () => (activeFocusedOpId ? [activeFocusedOpId] : effectiveSelectedOpIds.slice(0, 1)),
+    [activeFocusedOpId, effectiveSelectedOpIds],
+  );
   const isLoadingBoard = boardQuery.isLoading;
   const boardErrorMessage = boardQuery.isError ? '수색 이력 정보를 불러오지 못했습니다.' : '';
-  const summaryQuery = useSearchHistorySummaryListQuery(activeFocusedOpId, { incidentId });
+  const summaryQueryParams = useMemo(
+    () => ({
+      incidentId,
+      scopeType: 'OP' as const,
+      scopeId: activeFocusedOpId ?? undefined,
+    }),
+    [activeFocusedOpId, incidentId],
+  );
+  const summaryQuery = useSearchHistorySummaryListQuery(activeFocusedOpId, summaryQueryParams);
   const isLoadingSummary = summaryQuery.isLoading || summaryQuery.isFetching;
-  const summaryErrorMessage = summaryQuery.isError ? '수색 이력 요약을 불러오지 못했습니다.' : '';
+  const summaryErrorMessage = summaryQuery.isError ? 'OP 결과 브리핑을 불러오지 못했습니다.' : '';
   const dutyShiftQuery = useDutyShiftListQuery({ incidentId, opId: activeFocusedOpId ?? undefined });
   const dutyShifts = useMemo(() => readDutyShiftItems(dutyShiftQuery.data?.items), [dutyShiftQuery.data]);
   const summaryItems = useMemo(() => readSearchHistorySummaryItems(summaryQuery.data?.items), [summaryQuery.data]);
@@ -283,14 +297,16 @@ export function HandoverPage({
     [memoTargetOptions, selectedMemoTargetKey],
   );
   const evidenceSummary = useMemo(
-    () => createEvidenceSummary(board, effectiveSelectedOpIds, summaryItems.length),
-    [board, effectiveSelectedOpIds, summaryItems.length],
+    () => createEvidenceSummary(board, focusedOpEvidenceIds, summaryItems.length),
+    [board, focusedOpEvidenceIds, summaryItems.length],
   );
   const searchHistorySummary = useMemo((): SearchHistorySummaryView | null => {
     if (!activeFocusedOpId) return null;
-    const item = summaryItems.find((it) => it.scopeId === activeFocusedOpId) ?? null;
+    const item = summaryItems.find((it) => it.scopeType === 'OP' && it.scopeId === activeFocusedOpId) ?? null;
     if (!item) return null;
     return {
+      scopeType: 'OP',
+      heading: 'OP 결과 브리핑',
       statusLabel: formatSummaryDisplayStatusLabel(item.displayStatus),
       readinessLabel: formatSummaryReadinessLabel(item.sourceReadiness),
       isFinal: item.sourceReadiness === 'READY',
@@ -304,8 +320,8 @@ export function HandoverPage({
     [board, selectedOp, selectedOpMemos.length],
   );
   const sourceRecords = useMemo(
-    () => createSourceRecords(board, effectiveSelectedOpIds, selectedOpMemos, memoTargetOptions),
-    [board, effectiveSelectedOpIds, memoTargetOptions, selectedOpMemos],
+    () => createSourceRecords(board, focusedOpEvidenceIds, selectedOpMemos, memoTargetOptions),
+    [board, focusedOpEvidenceIds, memoTargetOptions, selectedOpMemos],
   );
   const floatingRightPanelWidthPx = isMapExpanded ? 0 : historyPanelWidthPx;
   const sharedMapProps = useMemo<HandoverComparisonMapSharedProps>(
@@ -762,17 +778,17 @@ export function HandoverPage({
         >
           <BoardPanel
             as="aside"
-            ariaLabel="인수인계 상시 확인 패널"
+            ariaLabel="OP 브리핑 상시 확인 패널"
             className={`${styles.historyPanel}${isMapExpanded ? ` ${styles.historyPanelCollapsed}` : ''}`}
             bodyClassName={styles.historyPanelBody}
             placement="right"
           >
             <div className={styles.historyContent}>
-            <section className={styles.briefingHero} aria-label="인수인계 브리핑">
+            <section className={styles.briefingHero} aria-label="OP 결과 브리핑">
               <div className={styles.briefingHeader}>
                 <div>
                   <span className={styles.briefingEyebrow}>{handoverStatus.currentOpLabel}</span>
-                  <h2>{handoverStatus.currentOpLabel} 인수인계 브리핑</h2>
+                  <h2>{handoverStatus.currentOpLabel} OP 결과 브리핑</h2>
                 </div>
                 <span className={styles.briefingNeedBadge}>{handoverStatus.statusLabel}</span>
               </div>
@@ -817,15 +833,15 @@ export function HandoverPage({
               onSubmit={handleSubmit}
             />
 
-            <section className={styles.contextBlock} aria-label="수색 이력 요약">
+            <section className={styles.contextBlock} aria-label="OP 결과 브리핑">
               <div className={styles.blockHeading}>
-                <h2>수색 이력 요약</h2>
+                <h2>{searchHistorySummary?.heading ?? 'OP 결과 브리핑'}</h2>
                 <span>{isLoadingSummary ? '불러오는 중' : searchHistorySummary?.statusLabel ?? '요약 없음'}</span>
               </div>
               {summaryErrorMessage ? (
                 <div className={styles.errorText}>{summaryErrorMessage}</div>
               ) : isLoadingSummary ? (
-                <div className={styles.emptyState}>수색 이력 요약을 불러오는 중입니다.</div>
+                <div className={styles.emptyState}>OP 결과 브리핑을 불러오는 중입니다.</div>
               ) : searchHistorySummary?.summaryText && searchHistorySummary.isFinal ? (
                 <p className={styles.summaryText}>{searchHistorySummary.summaryText}</p>
               ) : searchHistorySummary?.summaryText ? (
@@ -836,11 +852,11 @@ export function HandoverPage({
               ) : searchHistorySummary ? (
                 <div className={styles.emptyState}>요약을 생성하지 못했습니다. 원본 기록을 확인하세요.</div>
               ) : (
-                <div className={styles.emptyState}>생성된 수색 이력 요약이 없습니다.</div>
+                <div className={styles.emptyState}>생성된 OP 결과 브리핑이 없습니다.</div>
               )}
               <dl className={styles.summaryMetaGrid}>
                 <div>
-                  <dt>소스 상태</dt>
+                  <dt>근거 상태</dt>
                   <dd>{searchHistorySummary?.readinessLabel ?? '-'}</dd>
                 </div>
                 <div>
@@ -848,7 +864,7 @@ export function HandoverPage({
                   <dd>{searchHistorySummary?.generatedAt ?? '-'}</dd>
                 </div>
                 <div>
-                  <dt>소스 해시</dt>
+                  <dt>근거 해시</dt>
                   <dd>{searchHistorySummary?.sourceHash ? shortId(searchHistorySummary.sourceHash) : '-'}</dd>
                 </div>
               </dl>
@@ -1393,6 +1409,7 @@ function readSearchHistorySummaryItems(value: unknown): SearchHistorySummaryItem
 function isSearchHistorySummaryItem(value: unknown): value is SearchHistorySummaryItem {
   return (
     isRecord(value) &&
+    (value.scopeType === 'OP' || value.scopeType === 'DUTY_SHIFT') &&
     typeof value.scopeId === 'string' &&
     typeof value.displayStatus === 'string' &&
     typeof value.sourceReadiness === 'string'

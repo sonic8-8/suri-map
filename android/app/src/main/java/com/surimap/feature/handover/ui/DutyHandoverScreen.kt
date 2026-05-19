@@ -97,7 +97,7 @@ data class DutyHandoverUiState(
             add(subtitle)
             DutyHandoverTab.entries.forEach { add(it.label) }
             add(selectedTab.label)
-            add("서버 인수인계 요약")
+            add(DUTY_SHIFT_SUMMARY_TITLE)
             add(summaryStatus.label)
             add(generatedAtLabel)
             add(summaryText)
@@ -335,7 +335,7 @@ private val HandoverReplaySections =
 private val HandoverReportSections =
     listOf(
         "근무 개요",
-        "서버 인수인계 요약",
+        DUTY_SHIFT_SUMMARY_TITLE,
         "이동 통계",
         "발견·기록 시간순",
         "인수인계 메모",
@@ -710,7 +710,7 @@ private fun SummaryCard(state: DutyHandoverUiState) {
     PoliCard(strong = true) {
         Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
-                Text(text = "서버 인수인계 요약", style = MaterialTheme.typography.titleMedium)
+                Text(text = DUTY_SHIFT_SUMMARY_TITLE, style = MaterialTheme.typography.titleMedium)
                 Text(text = state.generatedAtLabel, style = MaterialTheme.typography.bodyMedium, color = PoliFgMuted)
             }
             PoliChip(text = state.summaryStatus.label, variant = state.summaryStatus.variant)
@@ -747,6 +747,8 @@ private val SummarySourceReadiness.reportLabel: String
             SummarySourceReadiness.Ready -> "동기화 완료"
             SummarySourceReadiness.Stale -> "기록 갱신 필요"
         }
+
+private const val DUTY_SHIFT_SUMMARY_TITLE = "이전 근무 요약"
 
 private val SummarySourceReadiness.reportCopy: String
     get() =

@@ -248,6 +248,109 @@ describe('HandoverPage', () => {
     expect(screen.getByRole('button', { name: /^OP 2/ })).toHaveAttribute('aria-pressed', 'true');
   });
 
+  test('OP briefing renders only OP scoped summary and keeps rail counts focused on the opened OP', async () => {
+    vi.mocked(useIncidentBoardQuery).mockReturnValue(
+      boardQueryResult(
+        incidentBoardResponse(1, {
+          slots: {
+            path: [
+              boardSlotRow({ id: 'path-current', opId: 'op-current' }),
+              boardSlotRow({ id: 'path-past', opId: 'op-past' }),
+            ],
+            marker: [
+              boardSlotRow({ id: 'marker-current', opId: 'op-current' }),
+              boardSlotRow({ id: 'marker-past', opId: 'op-past' }),
+            ],
+            area: [
+              boardSlotRow({ id: 'area-current', opId: 'op-current' }),
+              boardSlotRow({ id: 'area-past', opId: 'op-past' }),
+            ],
+          },
+        }),
+      ),
+    );
+    vi.mocked(operationalPeriodApi.list).mockResolvedValue({
+      currentOpId: 'op-current',
+      items: [
+        operationalPeriod({ id: 'op-current', status: 'ACTIVE', sequenceNumber: 2, endedAt: null }),
+        operationalPeriod({ id: 'op-past', status: 'ENDED', sequenceNumber: 1, endedAt: '2026-05-17T01:00:00Z' }),
+      ],
+    });
+    vi.mocked(useSearchHistorySummaryListQuery).mockReturnValue({
+      data: {
+        items: [
+          {
+            summaryId: 'summary-op-current',
+            opId: 'op-current',
+            scopeType: 'OP',
+            scopeId: 'op-current',
+            status: 'READY',
+            displayStatus: 'READY',
+            content: 'OP 2차 결과 브리핑입니다.',
+            sourceReadiness: 'READY',
+            sourceHash: 'a'.repeat(64),
+            generatedAt: '2026-05-17T02:30:00Z',
+            version: 1,
+          },
+          {
+            summaryId: 'summary-duty-current',
+            opId: 'op-current',
+            scopeType: 'DUTY_SHIFT',
+            scopeId: 'duty-current',
+            dutyShiftId: 'duty-current',
+            status: 'READY',
+            displayStatus: 'READY',
+            content: '근무 인수인계 요약입니다.',
+            sourceReadiness: 'READY',
+            sourceHash: 'b'.repeat(64),
+            generatedAt: '2026-05-17T02:20:00Z',
+            version: 1,
+          },
+        ],
+      },
+      isError: false,
+      isFetching: false,
+      isLoading: false,
+    } as any);
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <HandoverPage
+          currentUserAccount={currentUserAccount()}
+          incidentId={INCIDENT_ID}
+          markerNotificationIndex={0}
+          markerNotifications={[]}
+          onCloseMarkerNotifications={vi.fn()}
+          onMoveMarkerNotification={vi.fn()}
+          onOpenIncidentList={vi.fn()}
+          onOpenIncidentDetail={vi.fn()}
+          onOpenOfflinePackage={vi.fn()}
+          onOpenSituationBoard={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() =>
+      expect(vi.mocked(useSearchHistorySummaryListQuery)).toHaveBeenCalledWith(
+        'op-current',
+        expect.objectContaining({
+          incidentId: INCIDENT_ID,
+          scopeType: 'OP',
+          scopeId: 'op-current',
+        }),
+      ),
+    );
+
+    expect(await screen.findByText('OP 2차 결과 브리핑입니다.')).toBeInTheDocument();
+    expect(screen.queryByText('근무 인수인계 요약입니다.')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /^OP 1차/ }));
+    await waitFor(() => expect(screen.getByTestId('handover-map')).toHaveAttribute('data-selected-op-ids', 'op-current|op-past'));
+    expect(screen.getByText('경로 1건')).toBeInTheDocument();
+    expect(screen.getByText('마커 1건')).toBeInTheDocument();
+    expect(screen.getByText('구역 1건')).toBeInTheDocument();
+  });
+
   test('op visibility toggle can be cleared and refuses a third visible OP', async () => {
     vi.mocked(operationalPeriodApi.list).mockResolvedValue({
       currentOpId: 'op-current',
@@ -512,6 +615,19 @@ function incidentBoardResponseBase(boardResponseVersion: number): IncidentBoardR
     slotSources: {},
     sourceVersions: {},
     sourceHashes: {},
+  };
+}
+
+function boardSlotRow({ id, opId }: { id: string; opId: string }) {
+  return {
+    id,
+    opId,
+    status: 'READY',
+    version: 1,
+    sequence: 1,
+    sourceSpec: 'S8',
+    sourceHash: `${id}-hash`,
+    latestEventId: `${id}-event`,
   };
 }
 

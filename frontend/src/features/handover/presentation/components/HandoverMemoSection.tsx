@@ -48,7 +48,7 @@ export function HandoverMemoSection({
   return (
     <section className={styles.contextBlock} aria-label="인수인계 메모">
       <div className={styles.blockHeading}>
-        <h2>다음 OP 전달 메모</h2>
+        <h2>OP·근무 인수인계 메모</h2>
         <span>{memoItems.length > 0 ? `${memoItems.length}건` : '메모 필요'}</span>
       </div>
 
@@ -71,7 +71,7 @@ export function HandoverMemoSection({
         <textarea
           value={content}
           onChange={(event) => onContentChange(event.target.value)}
-          placeholder="다음 수색 차수에서 반드시 확인해야 할 내용, 위험 구간, 미완료 사항을 입력하세요."
+          placeholder="선택한 OP 또는 근무 구간에 남길 현장 기록을 입력하세요."
           maxLength={1000}
           disabled={!focusedOpId || isSubmitting}
         />
