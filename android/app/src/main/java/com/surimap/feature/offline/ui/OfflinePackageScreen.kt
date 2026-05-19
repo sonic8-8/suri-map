@@ -12,7 +12,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.surimap.ui.components.PoliAppBar
@@ -127,7 +126,7 @@ data class OfflinePackageUiState(
                 shouldDownloadPackage = false,
                 canManualRetry = false,
                 retryLabel = null,
-                message = "오프라인 패키지 manifest를 확인하고 있습니다."
+                message = "오프라인 패키지를 확인하고 있습니다."
             )
 
         fun manifestLoaded(
@@ -201,7 +200,7 @@ data class OfflinePackageUiState(
                 shouldDownloadPackage = false,
                 canManualRetry = false,
                 retryLabel = null,
-                message = "전체 수색구역 지정 전입니다. 사건 확인과 현장 기록은 가능하며, 오프라인 패키지는 수색구역 지정 후 받을 수 있습니다.",
+                message = "전체 수색구역 지정 전입니다.\n사건 확인과 현장 기록은 가능하며, 오프라인 패키지는 수색구역 지정 후 받을 수 있습니다.",
                 canOpenSearchMap = true
             )
 
@@ -252,12 +251,13 @@ data class OfflinePackageUiState(
                 status = OfflinePackageDownloadStatus.ManifestCurrent,
                 packageItems = completeItems(),
                 readyForOfflineUse = true,
-                autoOpenSearchMap = true,
+                autoOpenSearchMap = false,
                 requiresLimitedOpenConfirmation = false,
                 shouldDownloadPackage = false,
                 canManualRetry = false,
                 retryLabel = null,
-                message = "manifest 변경이 없어 수색 지도로 이동합니다."
+                // message = "manifest 변경이 없어 수색 지도로 이동합니다."
+                message = "오프라인 데이터가 최신 상태입니다."
             )
 
         fun manifestChanged(
@@ -316,12 +316,12 @@ data class OfflinePackageUiState(
                 status = OfflinePackageDownloadStatus.Ready,
                 packageItems = completeItems(),
                 readyForOfflineUse = true,
-                autoOpenSearchMap = true,
+                autoOpenSearchMap = false,
                 requiresLimitedOpenConfirmation = false,
                 shouldDownloadPackage = false,
                 canManualRetry = false,
                 retryLabel = null,
-                message = "100% 완료되었습니다. 오프라인 사용 준비가 끝나 수색 지도로 이동합니다."
+                message = "오프라인 사용 준비가 완료되었습니다."
             )
 
         fun partial(
@@ -420,12 +420,6 @@ fun OfflinePackageScreen(
     onRetryFailedItems: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    LaunchedEffect(state.autoOpenSearchMap, state.readyForOfflineUse, state.status) {
-        if (state.autoOpenSearchMap && state.readyForOfflineUse) {
-            onOpenSearchMap()
-        }
-    }
-
     Column(modifier = modifier.fillMaxSize().safeDrawingPadding()) {
         PoliAppBar(
             title = "오프라인 패키지",

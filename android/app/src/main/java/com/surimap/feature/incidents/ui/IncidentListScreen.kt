@@ -179,7 +179,7 @@ fun IncidentListScreen(
 
                 state.status == IncidentListStatus.Error ->
                     MessageIncidentList(
-                        title = state.message ?: "사건 목록을 불러오지 못했습니다",
+                        title = state.message ?: "사건 목록을 불러오지 못했습니다.",
                         body = "내부망 연결 상태를 확인한 뒤 다시 시도하세요.",
                         actionText = "다시 시도",
                         onAction = onRefresh,
@@ -211,7 +211,7 @@ fun IncidentListScreen(
 
         if (state.showClosedDialog) {
             PoliDialog(
-                title = "사건이 종료되었습니다",
+                title = "사건이 종료되었습니다.",
                 body = "종료된 사건에는 더 이상 입력할 수 없습니다. 작성 중인 내용은 저장되지 않으며 로컬 정리는 백그라운드에서 진행됩니다.",
                 primaryText = "확인",
                 onPrimary = onDismissClosedDialog,
@@ -238,7 +238,7 @@ private fun AssignedIncidentList(
         verticalArrangement = Arrangement.spacedBy(PoliDimens.Space4)
     ) {
         if (state.status == IncidentListStatus.Stale) {
-            PoliBanner(text = state.message ?: "마지막 갱신 정보입니다", variant = PoliBannerVariant.Warn)
+            PoliBanner(text = state.message ?: "마지막 갱신 정보입니다.", variant = PoliBannerVariant.Warn)
         }
         state.incidents.forEach { incident ->
             IncidentCard(
@@ -247,22 +247,13 @@ private fun AssignedIncidentList(
                 onOpenOfflinePackage = { onOpenOfflinePackage(incident) }
             )
         }
-        Text(
-            text = "활성 배정은 보통 1건입니다. 동시에 2건이 보이면 배정 변경 중인 짧은 전환 상태입니다.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = PoliFgMuted
-        )
+
         PoliButton(
             text = "새로고침",
             onClick = onRefresh,
             modifier = Modifier.fillMaxWidth(),
             variant = PoliButtonVariant.Secondary,
             enabled = state.canRefresh
-        )
-        PoliButton(
-            text = state.primaryOpenLabel,
-            onClick = { state.incidents.firstOrNull()?.let(onOpenIncident) },
-            modifier = Modifier.fillMaxWidth()
         )
     }
 }
