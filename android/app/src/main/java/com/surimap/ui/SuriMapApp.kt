@@ -2393,13 +2393,14 @@ private fun SearchMapUiState.withCurrentLocationViewport(fix: GpsLocationFix?): 
     val currentLocationLayer =
         SearchMapLayerUiState(
             label =
-            normalizedFix.bearingDegrees
+            normalizedFix.bearingDegrees?.normalizeBearingDegrees()
                 ?.let { bearing -> "현재 위치 · ${bearing.toInt()}°" }
                 ?: "현재 위치",
             kind = SearchLayerKind.CurrentLocation,
             highlighted = true,
             overlayId = "current-location",
-            geoJson = """{"type":"Point","coordinates":[${normalizedFix.lon},${normalizedFix.lat}]}"""
+            geoJson = """{"type":"Point","coordinates":[${normalizedFix.lon},${normalizedFix.lat}]}""",
+            bearingDegrees = normalizedFix.bearingDegrees?.normalizeBearingDegrees()
         )
     val nextLayers = layers.filterNot { layer -> layer.kind == SearchLayerKind.CurrentLocation } + currentLocationLayer
     if (viewportBounds != null) {
@@ -2440,6 +2441,11 @@ private fun GpsLocationFix.toSearchMapViewportBounds(): SearchMapViewportBounds 
         north = lat + delta,
         east = lon + delta
     )
+}
+
+private fun Double.normalizeBearingDegrees(): Double {
+    val normalized = this % 360.0
+    return if (normalized < 0.0) normalized + 360.0 else normalized
 }
 
 private fun Context.hasLocationPermission(): Boolean =

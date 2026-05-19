@@ -93,6 +93,28 @@ class MapLibreRuntimeMapContractTest {
     }
 
     @Test
+    fun currentLocationBearingAddsRotatedHeadingIndicatorLayer() {
+        val overlay =
+            MapLibreGeometryOverlay(
+                id = "current-location",
+                kind = MapLibreGeometryOverlayKind.CurrentLocation,
+                highlighted = true,
+                label = "현재 위치 · 92°",
+                bearingDegrees = 92.0,
+                geoJson = """{"type":"Point","coordinates":[126.91,37.51]}"""
+            )
+        val source = File("src/main/java/com/surimap/core/map/MapLibreRuntimeMap.kt").readText()
+
+        assertTrue(overlay.signature().contains("CurrentLocation:current-location:true:현재 위치 · 92°:92.0"))
+        assertTrue(source.contains("headingLayerId"))
+        assertTrue(source.contains("supportsHeadingLayer"))
+        assertTrue(source.contains("textField(Expression.get(\"headingGlyph\"))"))
+        assertTrue(source.contains("textRotate(Expression.get(\"bearingDegrees\"))"))
+        assertTrue(source.contains("put(\"headingGlyph\", \"\\u25B2\")"))
+        assertTrue(source.contains("removeLayer(\"\$styleId-heading\")"))
+    }
+
+    @Test
     fun overlayPaintContractAddsReadableLabelsAndHighContrastHalo() {
         val labeledOverlay =
             MapLibreGeometryOverlay(

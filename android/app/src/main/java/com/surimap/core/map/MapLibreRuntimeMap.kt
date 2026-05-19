@@ -57,6 +57,7 @@ import org.maplibre.android.style.layers.PropertyFactory.textHaloWidth
 import org.maplibre.android.style.layers.PropertyFactory.textIgnorePlacement
 import org.maplibre.android.style.layers.PropertyFactory.textOffset
 import org.maplibre.android.style.layers.PropertyFactory.textOptional
+import org.maplibre.android.style.layers.PropertyFactory.textRotate
 import org.maplibre.android.style.layers.PropertyFactory.textSize
 import org.maplibre.android.style.sources.GeoJsonSource
 
@@ -87,9 +88,10 @@ data class MapLibreGeometryOverlay(
     val kind: MapLibreGeometryOverlayKind,
     val geoJson: String,
     val highlighted: Boolean = false,
-    val label: String? = null
+    val label: String? = null,
+    val bearingDegrees: Double? = null
 ) {
-    fun signature(): String = "${kind.name}:$id:$highlighted:${label.orEmpty()}:$geoJson"
+    fun signature(): String = "${kind.name}:$id:$highlighted:${label.orEmpty()}:${bearingDegrees ?: ""}:$geoJson"
 }
 
 internal data class MapLibreOverlayPaint(
@@ -395,6 +397,9 @@ private val MapLibreGeometryOverlay.circleLayerId: String
 private val MapLibreGeometryOverlay.labelLayerId: String
     get() = "$styleId-label"
 
+private val MapLibreGeometryOverlay.headingLayerId: String
+    get() = "$styleId-heading"
+
 private fun MapLibreRuntimeMapState.geometryOverlaySignature(): String =
     geometryOverlays.joinToString("|") { it.signature() }
 
@@ -423,6 +428,11 @@ private fun Style.upsertGeometryOverlay(overlay: MapLibreGeometryOverlay) {
         upsertCircleLayer(overlay, paint)
     } else {
         removeLayer(overlay.circleLayerId)
+    }
+    if (overlay.supportsHeadingLayer) {
+        upsertHeadingLayer(overlay, paint)
+    } else {
+        removeLayer(overlay.headingLayerId)
     }
     if (overlay.supportsLabelLayer) {
         upsertLabelLayer(overlay, paint)
@@ -496,6 +506,43 @@ private fun Style.upsertCircleLayer(overlay: MapLibreGeometryOverlay, paint: Map
     )
 }
 
+private fun Style.upsertHeadingLayer(overlay: MapLibreGeometryOverlay, paint: MapLibreOverlayPaint) {
+    val layer = getLayer(overlay.headingLayerId)
+    if (layer == null) {
+        addLayer(
+            SymbolLayer(overlay.headingLayerId, overlay.sourceId).withProperties(
+                symbolPlacement(SYMBOL_PLACEMENT_POINT),
+                textField(Expression.get("headingGlyph")),
+                textSize(18.0f),
+                textColor(paint.textColor),
+                textHaloColor(paint.textHaloColor),
+                textHaloWidth(paint.textHaloWidth),
+                textHaloBlur(paint.textHaloBlur),
+                textRotate(Expression.get("bearingDegrees")),
+                textOffset(arrayOf(0.0f, -0.45f)),
+                textAllowOverlap(true),
+                textIgnorePlacement(true),
+                textOptional(false)
+            )
+        )
+        return
+    }
+    layer.setProperties(
+        symbolPlacement(SYMBOL_PLACEMENT_POINT),
+        textField(Expression.get("headingGlyph")),
+        textSize(18.0f),
+        textColor(paint.textColor),
+        textHaloColor(paint.textHaloColor),
+        textHaloWidth(paint.textHaloWidth),
+        textHaloBlur(paint.textHaloBlur),
+        textRotate(Expression.get("bearingDegrees")),
+        textOffset(arrayOf(0.0f, -0.45f)),
+        textAllowOverlap(true),
+        textIgnorePlacement(true),
+        textOptional(false)
+    )
+}
+
 private fun Style.upsertLabelLayer(overlay: MapLibreGeometryOverlay, paint: MapLibreOverlayPaint) {
     val layer = getLayer(overlay.labelLayerId)
     if (layer == null) {
@@ -536,6 +583,7 @@ private fun Style.upsertLabelLayer(overlay: MapLibreGeometryOverlay, paint: MapL
 private fun Style.removeGeometryOverlays(styleIds: Set<String>) {
     styleIds.forEach { styleId ->
         removeLayer("$styleId-label")
+        removeLayer("$styleId-heading")
         removeLayer("$styleId-circle")
         removeLayer("$styleId-line")
         removeLayer("$styleId-fill")
@@ -560,6 +608,12 @@ private fun MapLibreGeometryOverlay.featureCollectionJson(): String? {
                             .put("kind", kind.name)
                             .put("highlighted", highlighted)
                             .put("label", label.orEmpty())
+                            .apply {
+                                bearingDegrees?.let { bearing ->
+                                    put("bearingDegrees", bearing)
+                                    put("headingGlyph", "\u25B2")
+                                }
+                            }
                     )
                     .put("geometry", geometry)
             )
@@ -658,6 +712,10 @@ private val MapLibreGeometryOverlay.supportsCircleLayer: Boolean
 private val MapLibreGeometryOverlay.supportsLabelLayer: Boolean
     get() =
         !label.isNullOrBlank()
+
+private val MapLibreGeometryOverlay.supportsHeadingLayer: Boolean
+    get() =
+        kind == MapLibreGeometryOverlayKind.CurrentLocation && bearingDegrees != null
 
 private val MapLibreGeometryOverlay.labelPlacement: String
     get() =
