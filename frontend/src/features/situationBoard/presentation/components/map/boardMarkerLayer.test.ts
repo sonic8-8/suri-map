@@ -1,9 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import type maplibregl from 'maplibre-gl';
 import {
   createMarkerSymbolSvg,
   getNearestMarkerIdAtPoint,
   getRenderedMarkerIdAtPoint,
   resolveMarkerVisualState,
+  syncMarkerElementsWhenAvailable,
 } from './boardMarkerLayer';
 
 describe('boardMarkerLayer marker visuals', () => {
@@ -83,4 +85,90 @@ describe('boardMarkerLayer marker visuals', () => {
     expect(selectedMarkup).toContain('opacity="0.45"');
     expect(selectedMarkup).toContain('M20 44C16.7 39.8 4 29.9 4 18.7C4 10.4 11.1 4 20 4s16 6.4 16 14.7C36 29.9 23.3 39.8 20 44Z');
   });
+
+  it('updates an existing marker source even while map.loaded() is false', () => {
+    const source = { setData: vi.fn() };
+    const map = createMarkerMap({ source, loaded: false, styleLoaded: false });
+
+    const cleanup = syncMarkerElementsWhenAvailable(
+      map as unknown as maplibregl.Map,
+      [],
+      [],
+      { current: new Map() },
+      true,
+      markerHandlers(),
+    );
+
+    expect(source.setData).toHaveBeenCalledWith({ type: 'FeatureCollection', features: [] });
+    expect(map.once).not.toHaveBeenCalled();
+    expect(cleanup).toBeUndefined();
+  });
+
+  it('defers marker source sync until map load when the source is not registered yet', () => {
+    const source = { setData: vi.fn() };
+    const state: { source: typeof source | null; loadHandler?: () => void } = { source: null };
+    const map = createMarkerMap({
+      getSource: () => state.source,
+      loaded: false,
+      styleLoaded: false,
+      once: vi.fn((_event: string, handler: () => void) => {
+        state.loadHandler = handler;
+      }),
+    });
+
+    const cleanup = syncMarkerElementsWhenAvailable(
+      map as unknown as maplibregl.Map,
+      [],
+      [],
+      { current: new Map() },
+      true,
+      markerHandlers(),
+    );
+    state.source = source;
+    state.loadHandler?.();
+
+    expect(map.once).toHaveBeenCalledWith('load', expect.any(Function));
+    expect(source.setData).toHaveBeenCalledWith({ type: 'FeatureCollection', features: [] });
+
+    cleanup?.();
+    expect(map.off).toHaveBeenCalledWith('load', expect.any(Function));
+  });
 });
+
+function markerHandlers() {
+  return {
+    onHoverMarker: vi.fn(),
+    onLeaveMarker: vi.fn(),
+    onSelectMarker: vi.fn(),
+    onCloseSelectedMarker: vi.fn(),
+  };
+}
+
+function createMarkerMap({
+  source = null,
+  getSource,
+  loaded = true,
+  styleLoaded = true,
+  once = vi.fn(),
+}: {
+  source?: { setData: ReturnType<typeof vi.fn> } | null;
+  getSource?: (sourceId: string) => unknown;
+  loaded?: boolean;
+  styleLoaded?: boolean;
+  once?: ReturnType<typeof vi.fn>;
+}) {
+  return {
+    getSource: getSource ?? vi.fn(() => source),
+    addSource: vi.fn(),
+    getLayer: vi.fn(() => false),
+    addLayer: vi.fn(),
+    moveLayer: vi.fn(),
+    on: vi.fn(),
+    once,
+    off: vi.fn(),
+    loaded: vi.fn(() => loaded),
+    isStyleLoaded: vi.fn(() => styleLoaded),
+    hasImage: vi.fn(() => false),
+    addImage: vi.fn(),
+  };
+}

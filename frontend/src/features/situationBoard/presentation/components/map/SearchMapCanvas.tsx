@@ -53,6 +53,7 @@ import {
   removeMarkerPopup,
   raiseMarkerLayer,
   syncMarkerElements,
+  syncMarkerElementsWhenAvailable,
   syncMarkerPopups,
   type MarkerInstance,
   type MarkerInteractionHandlers,
@@ -963,11 +964,11 @@ export function SearchMapCanvas({
   useEffect(() => {
     layerVisibilityRef.current = layerVisibility;
     const map = mapRef.current;
-    if (!map || !map.loaded()) {
+    if (!map) {
       return;
     }
 
-    syncMarkerElements(
+    return syncMarkerElementsWhenAvailable(
       map,
       recentMarkersRef.current,
       visibleMarkerIds,
@@ -982,11 +983,11 @@ export function SearchMapCanvas({
   useEffect(() => {
     recentMarkersRef.current = recentMarkers;
     const map = mapRef.current;
-    if (!map || !map.loaded()) {
+    if (!map) {
       return;
     }
 
-    syncMarkerElements(
+    return syncMarkerElementsWhenAvailable(
       map,
       recentMarkers,
       visibleMarkerIds,
