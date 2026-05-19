@@ -193,11 +193,14 @@
         SELECT jsonb_build_object(
             'schemaVersion', 1,
             'briefingKind',
-                CASE
-                    WHEN #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler} IS NULL
-                    THEN 'OP_SUMMARY'
-                    ELSE 'DUTY_SHIFT_HANDOVER'
-                END,
+                <choose>
+                    <when test="dutyShiftId == null">
+                        'OP_SUMMARY'
+                    </when>
+                    <otherwise>
+                        'DUTY_SHIFT_HANDOVER'
+                    </otherwise>
+                </choose>,
             'operationalPeriod', jsonb_build_object(
                 'opId', op.id::text,
                 'sequenceNumber', op.sequence_number,
@@ -206,18 +209,26 @@
                 'endedAt', op.ended_at,
                 'reason', op.reason
             ),
-            'dutyShift', (
-                SELECT jsonb_build_object(
-                    'dutyShiftId', ds.id::text,
-                    'status', ds.status,
-                    'startedAt', ds.started_at,
-                    'endedAt', ds.ended_at
-                )
-                FROM duty_shift ds
-                WHERE ds.id = #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
-                  AND ds.operational_period_id = op.id
-                LIMIT 1
-            ),
+            'dutyShift',
+                <choose>
+                    <when test="dutyShiftId == null">
+                        NULL
+                    </when>
+                    <otherwise>
+                        (
+                            SELECT jsonb_build_object(
+                                'dutyShiftId', ds.id::text,
+                                'status', ds.status,
+                                'startedAt', ds.started_at,
+                                'endedAt', ds.ended_at
+                            )
+                            FROM duty_shift ds
+                            WHERE ds.id = #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+                              AND ds.operational_period_id = op.id
+                            LIMIT 1
+                        )
+                    </otherwise>
+                </choose>,
             'metrics', jsonb_build_object(
                 'dutyShiftCount', (
                     SELECT COUNT(*)
@@ -329,11 +340,15 @@
             ), '[]'::jsonb),
             'sourceRefs', jsonb_build_object(
                 'opId', op.id::text,
-                'dutyShiftId', CASE
-                    WHEN #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler} IS NULL
-                    THEN NULL
-                    ELSE #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}::text
-                END,
+                'dutyShiftId',
+                    <choose>
+                        <when test="dutyShiftId == null">
+                            NULL
+                        </when>
+                        <otherwise>
+                            #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}::text
+                        </otherwise>
+                    </choose>,
                 'pathIds', COALESCE((SELECT jsonb_agg(id::text ORDER BY id::text) FROM scoped_paths), '[]'::jsonb),
                 'markerIds', COALESCE((SELECT jsonb_agg(id::text ORDER BY id::text) FROM scoped_markers), '[]'::jsonb),
                 'memoIds', COALESCE((SELECT jsonb_agg(id::text ORDER BY id::text) FROM scoped_memos), '[]'::jsonb)
