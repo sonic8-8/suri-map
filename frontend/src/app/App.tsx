@@ -4,7 +4,6 @@ import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 're
 import { completeKeycloakLogin, logoutCurrentSession, readStoredLoginAccount } from '../features/login/data/login';
 import { LoginPage } from '../features/login/presentation/pages/LoginPage';
 import type { LoginAccount } from '../features/login/presentation/types/login';
-import { HandoverPage } from '../features/handover/presentation/pages/HandoverPage';
 import { SearchHistoryPage } from '../features/searchHistory/presentation/pages/SearchHistoryPage';
 import { useIncidentMarkerNotifications } from '../features/markerNotifications/presentation/hooks/useIncidentMarkerNotifications';
 import { OfflinePackageStatusPage } from '../features/offlinePackage/presentation/pages/OfflinePackageStatusPage';
@@ -239,46 +238,9 @@ type HandoverRouteProps = {
   onOpenLogin: () => void;
 };
 
-function HandoverRoute({
-  currentUserAccount,
-  markerNotificationIndex,
-  markerNotifications,
-  onCloseMarkerNotifications,
-  onMarkerNotification,
-  onMoveMarkerNotification,
-  onOperationalPeriodCreated,
-  onOpenOfflinePackage,
-  onOpenLogin,
-}: HandoverRouteProps) {
+function HandoverRoute(_props: HandoverRouteProps) {
   const incidentId = useRouteIncidentId();
-  const navigate = useNavigate();
-  const openIncidentListFromHistory = useCallback(() => navigate(ROUTES.incidentList, { replace: true }), [navigate]);
-
-  useIncidentMarkerNotifications({
-    incidentId,
-    enabled: true,
-    onNotification: onMarkerNotification,
-  });
-
-  return (
-    <HandoverPage
-      incidentId={incidentId}
-      currentUserAccount={currentUserAccount}
-      markerNotificationIndex={markerNotificationIndex}
-      markerNotifications={markerNotifications}
-      onCloseMarkerNotifications={onCloseMarkerNotifications}
-      onMoveMarkerNotification={onMoveMarkerNotification}
-      onOpenIncidentList={() => navigate(ROUTES.incidentList)}
-      onBrowserBackToIncidentList={openIncidentListFromHistory}
-      onOpenIncidentDetail={() => navigate(getIncidentDetailPath(incidentId))}
-      onOpenSituationBoard={() => navigate(getIncidentBoardPath(incidentId))}
-      onOpenHandover={() => navigate(getIncidentHandoverPath(incidentId))}
-      onOpenSearchHistory={() => navigate(getIncidentSearchHistoryPath(incidentId))}
-      onOpenOfflinePackage={() => onOpenOfflinePackage(incidentId)}
-      onOpenLogin={onOpenLogin}
-      onOperationalPeriodCreated={() => onOperationalPeriodCreated(incidentId)}
-    />
-  );
+  return <Navigate to={getIncidentSearchHistoryPath(incidentId)} replace />;
 }
 
 function SearchHistoryRoute({

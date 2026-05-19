@@ -42,7 +42,11 @@ import {
   type OpComparisonRegionFact,
   type OpComparisonResponse,
 } from '../../../operationalPeriod/api/opComparisonApi';
-import type { OperationalPeriod } from '../../../situationBoard/presentation/constants/mockSituationBoard';
+import {
+  createIncidentScopedFallbackBoard,
+  type OperationalPeriod,
+} from '../../../situationBoard/presentation/constants/mockSituationBoard';
+import { MapLegend } from '../../../situationBoard/presentation/components/map/MapLegend';
 import { HandoverOperationalPeriodSelector } from '../components/HandoverOperationalPeriodSelector';
 import { HandoverComparisonMap, type HandoverComparisonMapSharedProps } from '../components/HandoverComparisonMap';
 import { HandoverSummaryCard } from '../components/HandoverSummaryCard';
@@ -364,6 +368,10 @@ export function OperationalPeriodReviewWorkspace({
     [activeFocusedOpId, board, effectiveSelectedOpIds, floatingRightPanelWidthPx, incidentId, selectedSourceRecordKey],
   );
   const currentAccountLabel = currentUserAccount.name;
+  const handoverLegendItems = useMemo(
+    () => createIncidentScopedFallbackBoard(incidentId).legendItems,
+    [incidentId],
+  );
   const timestampLabel = board?.serverTs ? formatKstDateTime(new Date(board.serverTs)) : '동기화 전';
   const currentOperationalPeriod = currentOpId
     ? (operationalPeriods.find((period) => period.id === currentOpId) ?? null)
@@ -389,6 +397,7 @@ export function OperationalPeriodReviewWorkspace({
   const canSubmitNewOp =
     canCreateOperationalPeriod && !isCreatingOp && (newOpReason !== 'OTHER' || newOpReasonMemo.trim().length > 0);
   const comparisonSelectionKey = effectiveSelectedOpIds.join('|');
+  const canOpenComparisonMode = isSearchHistoryView && effectiveSelectedOpIds.length >= 2;
   const comparisonHighlightGeometryGeojson = useMemo(() => {
     if (!comparisonAnalysis || !selectedComparisonRegionFactId) return null;
     return (
@@ -431,7 +440,10 @@ export function OperationalPeriodReviewWorkspace({
     setComparisonAnalysis(null);
     setSelectedComparisonRegionFactId(null);
     setComparisonErrorMessage('');
-  }, [comparisonSelectionKey, incidentId]);
+    if (isSearchHistoryView) {
+      setSearchHistoryDetailTab(effectiveSelectedOpIds.length >= 2 ? 'comparison' : 'summary');
+    }
+  }, [comparisonSelectionKey, effectiveSelectedOpIds.length, incidentId, isSearchHistoryView]);
 
   useEffect(() => {
     setSelectedSourceRecordKey(null);
@@ -715,6 +727,10 @@ export function OperationalPeriodReviewWorkspace({
   const handleToggleMapExpanded = () => {
     setIsLocalMapExpanded((currentState) => !currentState);
   };
+  const handleOpenComparisonMode = () => {
+    if (!canOpenComparisonMode) return;
+    setSearchHistoryDetailTab('comparison');
+  };
   return (
     <main
       className={
@@ -798,13 +814,23 @@ export function OperationalPeriodReviewWorkspace({
                 incidentId={incidentId}
                 board={board}
                 isMapExpanded={isMapExpanded}
-                rightPanelWidthPx={floatingRightPanelWidthPx}
                 focusedOpId={activeFocusedOpId}
                 selectedOpIds={effectiveSelectedOpIds}
                 comparisonHighlightGeometryGeojson={comparisonHighlightGeometryGeojson}
                 highlightedSourceRecordKey={selectedSourceRecordKey}
                 onToggleMapExpanded={handleToggleMapExpanded}
               />
+              {canOpenComparisonMode && searchHistoryDetailTab === 'summary' ? (
+                <button
+                  type="button"
+                  className={styles.mapComparisonButton}
+                  aria-label="OP 비교 열기"
+                  onClick={handleOpenComparisonMode}
+                >
+                  OP 비교
+                </button>
+              ) : null}
+              <MapLegend className={styles.mapLegend} legendItems={handoverLegendItems} />
             </div>
             {/* currentOpSummaryBar temporarily disabled */}
           </section>
@@ -986,6 +1012,20 @@ export function OperationalPeriodReviewWorkspace({
                           </ol>
                         )}
                       </section>
+
+                      <HandoverMemoSection
+                        focusedOpId={activeFocusedOpId}
+                        memoTargetOptions={memoTargetOptions}
+                        selectedMemoTarget={selectedMemoTarget}
+                        memoItems={selectedOpMemoItems}
+                        content={content}
+                        isLoadingMemos={isLoadingMemos}
+                        isSubmitting={isSubmitting}
+                        memoErrorMessage={memoErrorMessage}
+                        onContentChange={setContent}
+                        onSelectedMemoTargetKeyChange={setSelectedMemoTargetKey}
+                        onSubmit={handleSubmit}
+                      />
                     </div>
                   ) : (
                     <div
@@ -994,6 +1034,16 @@ export function OperationalPeriodReviewWorkspace({
                       aria-labelledby="search-history-comparison-tab"
                       className={styles.searchHistoryTabPanel}
                     >
+                      <div className={styles.comparisonModeBar}>
+                        <span>선택한 2개 OP를 비교합니다.</span>
+                        <button
+                          type="button"
+                          className={styles.secondaryButton}
+                          onClick={() => setSearchHistoryDetailTab('summary')}
+                        >
+                          OP 요약으로 돌아가기
+                        </button>
+                      </div>
                       <ComparisonAnalysisPanel
                         incidentId={incidentId}
                         selectedOperationalPeriodIds={effectiveSelectedOpIds}
