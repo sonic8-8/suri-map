@@ -166,7 +166,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
                   Instant.now());
           searchAreas.put(created.id(), created);
           SearchAreaResponse response = toResponse(created);
-          publishSearchAreaChangedIfOverall(response, created.updatedAt());
+          publishSearchAreaChanged(response, created.updatedAt());
           return response;
         });
   }
@@ -235,7 +235,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
             now);
     searchAreas.put(created.id(), created);
     SearchAreaResponse response = toResponse(created);
-    publishSearchAreaChangedIfOverall(response, now);
+    publishSearchAreaChanged(response, now);
     return response;
   }
 
@@ -389,7 +389,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
                   nextStatus, existing.historyCount() + 1, existing.version() + 1, geometry);
           searchAreas.put(updated.id(), updated);
           SearchAreaResponse response = toResponse(updated);
-          publishSearchAreaChangedIfOverall(response, updated.updatedAt());
+          publishSearchAreaChanged(response, updated.updatedAt());
           return response;
         });
   }
@@ -433,6 +433,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
                 parent.withMutation(
                     CANCELLED, parent.historyCount() + 1, parent.version() + 1, parent.geometry());
             searchAreas.put(responseParent.id(), responseParent);
+            publishSearchAreaChanged(toResponse(responseParent), responseParent.updatedAt());
           }
 
           String childAreaLevel = overallParent ? UNIT : TEAM;
@@ -453,6 +454,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
                     Instant.now());
             searchAreas.put(child.id(), child);
             children.add(child);
+            publishSearchAreaChanged(toResponse(child), child.updatedAt());
           }
 
           return new SearchAreaSplitResponse(
@@ -501,6 +503,8 @@ public class SearchAreaApiService implements SearchAreaQuery {
           searchAreas.put(updated.id(), updated);
           List<UUID> assignmentIds =
               request.assigneeAccountIds().stream().map(ignored -> UUID.randomUUID()).toList();
+          publishSearchAreaAssignmentChanged(
+              updated, assignmentIds, request.assigneeAccountIds(), updated.updatedAt());
           return new SearchAreaAssignmentResponse(
               updated.id(), updated.opId(), assignmentIds, updated.version());
         });
@@ -584,6 +588,8 @@ public class SearchAreaApiService implements SearchAreaQuery {
             toGeoJsonPolygon(updatedRecord.geometry()),
             updatedRecord.updatedAt());
     searchAreas.put(memoryRecord.id(), memoryRecord);
+    publishSearchAreaAssignmentChanged(
+        memoryRecord, assignmentIds, request.assigneeAccountIds(), now);
 
     return Optional.of(
         new SearchAreaAssignmentResponse(
@@ -709,7 +715,7 @@ public class SearchAreaApiService implements SearchAreaQuery {
             updatedRecord.updatedAt());
     searchAreas.put(memoryRecord.id(), memoryRecord);
     SearchAreaResponse response = toResponse(updatedRecord);
-    publishSearchAreaChangedIfOverall(response, now);
+    publishSearchAreaChanged(response, now);
     return Optional.of(response);
   }
 
@@ -812,7 +818,9 @@ public class SearchAreaApiService implements SearchAreaQuery {
               childGeometry,
               childRecord.updatedAt());
       searchAreas.put(memoryChild.id(), memoryChild);
-      children.add(toResponse(childRecord));
+      SearchAreaResponse childResponse = toResponse(childRecord);
+      children.add(childResponse);
+      publishSearchAreaChanged(childResponse, now);
     }
 
     SearchAreaReadRecord updatedParent =
@@ -834,6 +842,9 @@ public class SearchAreaApiService implements SearchAreaQuery {
             toGeoJsonPolygon(updatedParent.geometry()),
             updatedParent.updatedAt());
     searchAreas.put(memoryParent.id(), memoryParent);
+    if (!overallParent) {
+      publishSearchAreaChanged(toResponse(updatedParent), now);
+    }
 
     return Optional.of(
         new SearchAreaSplitResponse(
@@ -930,21 +941,28 @@ public class SearchAreaApiService implements SearchAreaQuery {
         record.updatedAt());
   }
 
-  private void publishSearchAreaChangedIfOverall(SearchAreaResponse response, Instant occurredAt) {
-    if (!OVERALL.equals(response.areaLevel())) {
-      return;
-    }
+  private void publishSearchAreaChanged(SearchAreaResponse response, Instant occurredAt) {
     Map<String, Object> payload = new LinkedHashMap<>();
     payload.put("id", response.id().toString());
     payload.put("incidentId", response.incidentId().toString());
+    if (response.opId() != null) {
+      payload.put("opId", response.opId().toString());
+    }
+    if (response.parentAreaId() != null) {
+      payload.put("parentAreaId", response.parentAreaId().toString());
+    }
+    payload.put("areaLevel", response.areaLevel());
     payload.put("status", response.status());
     payload.put("version", response.version());
     payload.put("sequence", response.version());
-    payload.put(
-        "overallAreaHash",
-        fingerprint(
-            "overall-search-area:" + response.id() + ":" + response.version(),
-            response.geometry()));
+    payload.put("geometry", response.geometry());
+    if (OVERALL.equals(response.areaLevel())) {
+      payload.put(
+          "overallAreaHash",
+          fingerprint(
+              "overall-search-area:" + response.id() + ":" + response.version(),
+              response.geometry()));
+    }
     payload.put("serverTs", occurredAt.toString());
     eventHub.publish(
         new PublishRequest(
@@ -954,6 +972,41 @@ public class SearchAreaApiService implements SearchAreaQuery {
             1,
             "search_area",
             response.id(),
+            occurredAt,
+            payload));
+  }
+
+  private void publishSearchAreaAssignmentChanged(
+      SearchAreaRecord area,
+      List<UUID> assignmentIds,
+      List<UUID> assigneeAccountIds,
+      Instant occurredAt) {
+    UUID sourceId =
+        assignmentIds == null || assignmentIds.isEmpty() ? area.id() : assignmentIds.get(0);
+    Map<String, Object> payload = new LinkedHashMap<>();
+    payload.put("id", sourceId.toString());
+    payload.put("incidentId", area.incidentId().toString());
+    if (area.opId() != null) {
+      payload.put("opId", area.opId().toString());
+    }
+    payload.put("searchAreaId", area.id().toString());
+    payload.put(
+        "assignedAccountIds",
+        assigneeAccountIds == null
+            ? List.of()
+            : assigneeAccountIds.stream().map(UUID::toString).toList());
+    payload.put("status", ACTIVE);
+    payload.put("version", area.version());
+    payload.put("sequence", area.version());
+    payload.put("serverTs", occurredAt.toString());
+    eventHub.publish(
+        new PublishRequest(
+            stableUuid("event:SEARCH_AREA_ASSIGNMENT_CHANGED:" + area.id() + ":" + area.version()),
+            area.incidentId(),
+            "SEARCH_AREA_ASSIGNMENT_CHANGED",
+            1,
+            "search_area_assignment",
+            sourceId,
             occurredAt,
             payload));
   }

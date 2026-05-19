@@ -116,7 +116,8 @@ data class SearchMapLayerUiState(
     val kind: SearchLayerKind,
     val highlighted: Boolean = false,
     val overlayId: String? = null,
-    val geoJson: String? = null
+    val geoJson: String? = null,
+    val assignedToCurrentPhone: Boolean = false
 )
 
 data class SearchMapAreaFocusTarget(

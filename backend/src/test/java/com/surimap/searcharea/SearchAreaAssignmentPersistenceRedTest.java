@@ -163,6 +163,24 @@ class SearchAreaAssignmentPersistenceRedTest extends PostGisIntegrationTestSuppo
           assertThat(row.status()).isEqualTo("ACTIVE");
           assertThat(row.version()).isEqualTo(5L);
         });
+
+    Map<String, Object> eventRow =
+        jdbcTemplate.queryForMap(
+            """
+            SELECT event_type, source_entity_type, source_entity_id, payload
+            FROM event_dispatch_job
+            WHERE incident_id = ?::uuid
+              AND event_type = 'SEARCH_AREA_ASSIGNMENT_CHANGED'
+              AND source_entity_id = ?::uuid
+            """,
+            INCIDENT_ID.toString(),
+            response.assignmentIds().get(0).toString());
+    assertThat(eventRow.get("event_type")).isEqualTo("SEARCH_AREA_ASSIGNMENT_CHANGED");
+    assertThat(eventRow.get("source_entity_type")).isEqualTo("search_area_assignment");
+    assertThat(eventRow.get("payload").toString())
+        .contains(AREA_ID.toString())
+        .contains(ASSIGNEE_ONE.toString())
+        .contains(ASSIGNEE_TWO.toString());
   }
 
   @Test

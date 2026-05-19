@@ -9,12 +9,16 @@ import static org.mockito.Mockito.when;
 
 import com.surimap.incident.domain.IncidentRecord;
 import com.surimap.incident.repository.IncidentMapper;
+import com.surimap.common.auth.AccountType;
+import com.surimap.common.auth.OrganizationType;
 import com.surimap.maparea.geometry.geojson.GeoJsonPolygon;
 import com.surimap.maparea.query.OverallSearchAreaResult;
 import com.surimap.maparea.query.SearchAreaAssignmentQuery;
+import com.surimap.maparea.query.SearchAreaAssignmentRow;
 import com.surimap.maparea.query.SearchAreaCollection;
 import com.surimap.maparea.query.SearchAreaFilters;
 import com.surimap.maparea.query.SearchAreaQuery;
+import com.surimap.maparea.query.SearchAreaRow;
 import com.surimap.marker.query.MarkerQuery;
 import com.surimap.marker.query.MarkerQueryFilters;
 import com.surimap.marker.query.MarkerQueryResult;
@@ -27,6 +31,8 @@ import com.surimap.offlinepackage.service.OfflinePackageRepository;
 import com.surimap.offlinepackage.service.TileService;
 import com.surimap.operationalperiod.query.OperationalPeriodQuery;
 import com.surimap.operationalperiod.query.OperationalPeriodRow;
+import com.surimap.policephone.PolicePhoneMapper;
+import com.surimap.policephone.PolicePhoneStateRow;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -179,6 +185,125 @@ class OfflinePackageRepositoryReadOnlyQueryTest {
             });
   }
 
+  @Test
+  @DisplayName("source manifest exposes only areas assigned to the requested police phone account")
+  void sourceManifestAssignedAreasAreFilteredByPolicePhoneAccount() {
+    UUID incidentId = UUID.fromString("10000000-0000-4000-8000-000000003201");
+    UUID opId = UUID.fromString("88888888-0000-4000-8000-000000003201");
+    UUID overallAreaId = UUID.fromString("bbbbbbbb-0000-4000-8000-000000003201");
+    UUID phoneId = UUID.fromString("00000000-0000-4000-8000-000000003201");
+    UUID phoneAccountId = UUID.fromString("11111111-0000-4000-8000-000000003201");
+    UUID otherAccountId = UUID.fromString("11111111-0000-4000-8000-000000003202");
+    UUID assignedAreaId = UUID.fromString("cccccccc-0000-4000-8000-000000003201");
+    UUID otherAreaId = UUID.fromString("cccccccc-0000-4000-8000-000000003202");
+    OfflinePackageMapper mapper = Mockito.mock(OfflinePackageMapper.class);
+    IncidentMapper incidentMapper = Mockito.mock(IncidentMapper.class);
+    OperationalPeriodQuery operationalPeriodQuery = Mockito.mock(OperationalPeriodQuery.class);
+    SearchAreaQuery searchAreaQuery = Mockito.mock(SearchAreaQuery.class);
+    SearchAreaAssignmentQuery assignmentQuery = Mockito.mock(SearchAreaAssignmentQuery.class);
+    MarkerQuery markerQuery = Mockito.mock(MarkerQuery.class);
+    PolicePhoneMapper policePhoneMapper = Mockito.mock(PolicePhoneMapper.class);
+    OfflinePackageRepository repository =
+        new OfflinePackageRepository(
+            mapper,
+            provider(incidentMapper),
+            provider(operationalPeriodQuery),
+            provider(searchAreaQuery),
+            provider(assignmentQuery),
+            provider(markerQuery),
+            provider(policePhoneMapper),
+            provider(new GzipFixtureTileService()));
+    IncidentRecord incident = new IncidentRecord();
+    incident.setId(incidentId);
+    incident.setSourceIncidentId(UUID.fromString("00000000-0000-4000-8000-000000003201"));
+    incident.setStatus("OPEN");
+    incident.setVersion(1L);
+    GeoJsonPolygon geometry =
+        polygon(
+            "126.904000",
+            "35.158000",
+            "126.923000",
+            "35.158000",
+            "126.923000",
+            "35.173000",
+            "126.904000",
+            "35.173000");
+
+    when(mapper.findCurrentManifestByIncident(incidentId.toString())).thenReturn(null);
+    when(incidentMapper.findByIncidentId(incidentId)).thenReturn(Optional.of(incident));
+    when(incidentMapper.findMissingPersonByIncidentId(incidentId)).thenReturn(Optional.empty());
+    when(policePhoneMapper.findActiveById(phoneId))
+        .thenReturn(
+            Optional.of(
+                new PolicePhoneStateRow(
+                    phoneId,
+                    phoneAccountId,
+                    AccountType.TEAM,
+                    OrganizationType.POLICE_SUBSTATION,
+                    true,
+                    "ACTIVE",
+                    null,
+                    null,
+                    null,
+                    0L,
+                    1L)));
+    when(operationalPeriodQuery.list(incidentId))
+        .thenReturn(
+            List.of(
+                new OperationalPeriodRow(
+                    opId, incidentId, "ACTIVE", 1, Instant.EPOCH, null, null, 1L)));
+    when(searchAreaQuery.overallOf(incidentId))
+        .thenReturn(
+            Optional.of(
+                new OverallSearchAreaResult(
+                    overallAreaId,
+                    incidentId,
+                    "ACTIVE",
+                    1L,
+                    geometry,
+                    List.of(),
+                    Instant.EPOCH)));
+    when(searchAreaQuery.byOp(eq(opId), any(SearchAreaFilters.class)))
+        .thenReturn(
+            new SearchAreaCollection(
+                incidentId,
+                1L,
+                List.of(
+                    areaRow(assignedAreaId, incidentId, opId, overallAreaId, geometry),
+                    areaRow(otherAreaId, incidentId, opId, overallAreaId, geometry))));
+    when(assignmentQuery.byOp(opId))
+        .thenReturn(
+            List.of(
+                new SearchAreaAssignmentRow(
+                    UUID.randomUUID(),
+                    assignedAreaId,
+                    phoneAccountId,
+                    phoneAccountId,
+                    Instant.EPOCH,
+                    null,
+                    "ACTIVE",
+                    1L),
+                new SearchAreaAssignmentRow(
+                    UUID.randomUUID(),
+                    otherAreaId,
+                    otherAccountId,
+                    otherAccountId,
+                    Instant.EPOCH,
+                    null,
+                    "ACTIVE",
+                    1L)));
+    when(markerQuery.byIncident(eq(incidentId), any(MarkerQueryFilters.class)))
+        .thenReturn(new MarkerQueryResult(incidentId, List.of()));
+
+    OfflinePackageManifestResponse manifest = repository.manifest(incidentId.toString(), phoneId.toString());
+
+    assertThat(manifest.assignedAreas())
+        .extracting(OfflinePackageManifestResponse.AssignedArea::areaId)
+        .containsExactly(assignedAreaId.toString());
+    assertThat(manifest.policePhoneContext().policePhoneId()).isEqualTo(phoneId.toString());
+    assertThat(manifest.policePhoneContext().accountId()).isEqualTo(phoneAccountId.toString());
+  }
+
   private static byte[] tilePayload(String style, int z, int x, int y) {
     return "downloaded:%s:%d:%d:%d".formatted(style, z, x, y).getBytes(StandardCharsets.UTF_8);
   }
@@ -193,6 +318,22 @@ class OfflinePackageRepositoryReadOnlyQueryTest {
 
   private static List<BigDecimal> point(String lon, String lat) {
     return List.of(new BigDecimal(lon), new BigDecimal(lat));
+  }
+
+  private static SearchAreaRow areaRow(
+      UUID areaId, UUID incidentId, UUID opId, UUID parentAreaId, GeoJsonPolygon geometry) {
+    return new SearchAreaRow(
+        areaId,
+        incidentId,
+        opId,
+        parentAreaId,
+        "ACTIVE",
+        "TEAM",
+        1L,
+        geometry,
+        List.of(),
+        Instant.EPOCH,
+        1L);
   }
 
   private static List<String> tileKeys(List<OfflinePackageManifestResponse.TileItem> tiles) {

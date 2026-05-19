@@ -882,7 +882,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
   }
 
   private static SearchAreaFilters searchAreaFilters(UUID opId, Long minVersion) {
-    return new SearchAreaFilters(null, opId, null, minVersion, null, false);
+    return new SearchAreaFilters(null, opId, null, minVersion, null, true);
   }
 
   private static void putUuid(Map<String, Object> payload, String key, UUID value) {
