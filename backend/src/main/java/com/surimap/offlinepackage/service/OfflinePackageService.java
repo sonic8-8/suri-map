@@ -12,6 +12,8 @@ import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -56,15 +58,17 @@ public class OfflinePackageService implements OfflinePackageInstallationQuery {
         200,
         OfflinePackageInstallationResponse.class,
         () -> {
-          OfflinePackageInstallationStatus status = repository.saveStatus(incidentId, request);
-          eventHub.publish(publishRequest(status));
+          OffsetDateTime serverTs = serverNow();
+          OfflinePackageInstallationStatus status =
+              repository.saveStatus(incidentId, request, serverTs);
+          eventHub.publish(publishRequest(status, serverTs.toInstant()));
           return new OfflinePackageInstallationResponse(
               status.id(),
               status.status(),
               status.version(),
               status.manifestVersion(),
               status.readyForOfflineUse(),
-              OfflinePackageRepository.SERVER_TS);
+              serverTs);
         },
         response ->
             new ResponseMetadata(
@@ -101,10 +105,11 @@ public class OfflinePackageService implements OfflinePackageInstallationQuery {
     repository
         .staleReadyAndPartialForOverallAreaChange(
             incidentId, overallSearchAreaId, overallSearchAreaVersion, sourceHash)
-        .forEach(status -> eventHub.publish(publishRequest(status)));
+        .forEach(status -> eventHub.publish(publishRequest(status, serverNow().toInstant())));
   }
 
-  private static PublishRequest publishRequest(OfflinePackageInstallationStatus status) {
+  private static PublishRequest publishRequest(
+      OfflinePackageInstallationStatus status, java.time.Instant occurredAt) {
     return new PublishRequest(
         stableUuid("event:" + EVENT_TYPE + ":" + status.id() + ":" + status.version()),
         stableUuid("incident:" + status.incidentId()),
@@ -112,8 +117,12 @@ public class OfflinePackageService implements OfflinePackageInstallationQuery {
         1,
         SOURCE_ENTITY_TYPE,
         stableUuid(SOURCE_ENTITY_TYPE + ":" + status.id()),
-        OfflinePackageRepository.SERVER_TS.toInstant(),
+        occurredAt,
         payload(status));
+  }
+
+  private static OffsetDateTime serverNow() {
+    return OffsetDateTime.now(ZoneOffset.UTC);
   }
 
   private static Map<String, Object> payload(OfflinePackageInstallationStatus status) {
