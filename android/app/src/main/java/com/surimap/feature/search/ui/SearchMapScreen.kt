@@ -137,6 +137,7 @@ data class SearchMapUiState(
     val handoverPrompt: HandoverPromptUiState?,
     val incidentAlert: IncidentAlertUiState? = null,
     val focusedMarkerId: String? = null,
+    val topHeaderExpanded: Boolean = false,
     val bottomPanelExpanded: Boolean = true,
     val mapOverlaysVisible: Boolean = true,
     val activeSearchPathId: String? = null,
@@ -189,6 +190,8 @@ data class SearchMapUiState(
             }
             SearchMapSyncStatus.Sending -> "전송 중 · $unsentCount"
         }
+    val assignmentDisplayLabel: String =
+        assignmentLabel.takeIf(String::isNotBlank) ?: "담당구역 미배정"
 
     val lifecycleTitle: String =
         when (lifecycleStatus) {
@@ -222,9 +225,9 @@ data class SearchMapUiState(
             add(incidentTitle)
             add(missingPersonSummary)
             add(opLabel)
-            add(dutyShiftLabel)
-            assignmentLabel.takeIf(String::isNotBlank)?.let(::add)
+            add(assignmentDisplayLabel)
             add(syncLabel)
+            add(if (topHeaderExpanded) "상단 정보 펼침" else "상단 정보 접힘")
             add(lifecycleTitle)
             add(lifecycleMessage)
             add(if (canWritePath) "경로 기록 가능" else "경로 기록 차단")
@@ -380,12 +383,13 @@ fun SearchMapScreen(
     onOpenFocusedMarkerDetail: (String) -> Unit,
     onCenterCurrentLocation: () -> Unit,
     onFocusSearchArea: (SearchLayerKind, String?) -> Unit,
+    onToggleHeaderPanel: () -> Unit,
     onToggleBottomPanel: () -> Unit,
     onToggleMapOverlays: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxSize().background(PoliBgBase)) {
-        SearchMapHeader(state = state, onBack = onBack)
+        SearchMapHeader(state = state, onBack = onBack, onToggleExpanded = onToggleHeaderPanel)
 
         Column(
             modifier = Modifier.weight(1f),
@@ -414,14 +418,12 @@ fun SearchMapScreen(
                     modifier = Modifier.padding(horizontal = PoliDimens.SectionPadding)
                 )
             }
-            if (state.shouldOpenBlockedOutbox) {
-                BlockedOutboxNotice(state = state, onOpenBlockedOutbox = onOpenBlockedOutbox)
-            }
             SearchMapShell(
                 state = state,
                 mapState = mapState,
                 showMapPreview = showMapPreview,
                 onOpenFocusedMarkerDetail = onOpenFocusedMarkerDetail,
+                onOpenBlockedOutbox = onOpenBlockedOutbox,
                 onCenterCurrentLocation = onCenterCurrentLocation,
                 onFocusSearchArea = onFocusSearchArea,
                 onToggleMapOverlays = onToggleMapOverlays,
@@ -441,7 +443,7 @@ fun SearchMapScreen(
 }
 
 @Composable
-private fun SearchMapHeader(state: SearchMapUiState, onBack: () -> Unit) {
+private fun SearchMapHeader(state: SearchMapUiState, onBack: () -> Unit, onToggleExpanded: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
         PoliAppBar(
             title = state.missingPersonSummary,
@@ -450,7 +452,10 @@ private fun SearchMapHeader(state: SearchMapUiState, onBack: () -> Unit) {
             onBack = onBack
         )
         PoliCard(
-            modifier = Modifier.padding(horizontal = PoliDimens.SectionPadding),
+            modifier =
+                Modifier
+                    .padding(horizontal = PoliDimens.SectionPadding)
+                    .clickable(onClick = onToggleExpanded),
             strong = true
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
@@ -461,64 +466,20 @@ private fun SearchMapHeader(state: SearchMapUiState, onBack: () -> Unit) {
                     PoliChip(text = state.syncLabel, variant = state.syncVariant)
                 }
                 Text(
-                    text = state.lifecycleMessage,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = PoliFgMuted
+                    text = "담당 · ${state.assignmentDisplayLabel}",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = PoliFgPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
-                    SearchMapMiniStat(
-                        label = "근무",
-                        value = state.dutyShiftLabel,
-                        modifier = Modifier.weight(1f)
-                    )
-                    SearchMapMiniStat(
-                        label = "담당",
-                        value = state.assignmentLabel,
-                        modifier = Modifier.weight(1f)
+                if (state.topHeaderExpanded) {
+                    Text(
+                        text = state.lifecycleMessage,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = PoliFgMuted
                     )
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun SearchMapMiniStat(
-    label: String,
-    value: String,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(PoliDimens.Space1)
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = PoliFgMuted
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleSmall,
-            color = PoliFgPrimary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
-@Composable
-private fun BlockedOutboxNotice(state: SearchMapUiState, onOpenBlockedOutbox: () -> Unit) {
-    PoliCard(modifier = Modifier.padding(horizontal = PoliDimens.SectionPadding), strong = true) {
-        PoliRow(
-            title = "미전송 ${state.blockedOutboxCount}건 처리 불가",
-            subtitle = "정상 대기 큐가 아니라 사용자 조치가 필요한 항목입니다."
-        ) {
-            PoliButton(
-                text = "진단 확인",
-                onClick = onOpenBlockedOutbox,
-                size = PoliButtonSize.Small,
-                variant = PoliButtonVariant.Secondary
-            )
         }
     }
 }
@@ -529,6 +490,7 @@ private fun SearchMapShell(
     mapState: MapLibreRuntimeMapState,
     showMapPreview: Boolean,
     onOpenFocusedMarkerDetail: (String) -> Unit,
+    onOpenBlockedOutbox: () -> Unit,
     onCenterCurrentLocation: () -> Unit,
     onFocusSearchArea: (SearchLayerKind, String?) -> Unit,
     onToggleMapOverlays: () -> Unit,
@@ -610,6 +572,18 @@ private fun SearchMapShell(
                     enabled = state.canOpenMarkerDetail
                 )
             }
+        }
+
+        if (state.shouldOpenBlockedOutbox) {
+            PoliChip(
+                text = "처리불가 ${state.blockedOutboxCount}건",
+                variant = PoliChipVariant.Bad,
+                modifier =
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(PoliDimens.Space3)
+                        .clickable(onClick = onOpenBlockedOutbox)
+            )
         }
 
         CurrentLocationButton(
@@ -1231,6 +1205,7 @@ private fun SearchMapScreenPreview() {
             onOpenFocusedMarkerDetail = {},
             onCenterCurrentLocation = {},
             onFocusSearchArea = { _, _ -> },
+            onToggleHeaderPanel = {},
             onToggleBottomPanel = {},
             onToggleMapOverlays = {}
         )

@@ -416,7 +416,8 @@ class SearchMapStateLoader(
         }
 
     private fun List<SearchMapLayerUiState>.assignmentLabel(): String? =
-        firstOrNull { layer -> layer.kind == SearchLayerKind.Team }
+        (firstOrNull { layer -> layer.kind == SearchLayerKind.Team }
+            ?: firstOrNull { layer -> layer.kind == SearchLayerKind.Unit })
             ?.label
             ?.takeIf(String::isNotBlank)
 

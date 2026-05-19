@@ -147,6 +147,7 @@ private fun DeviceQaScreen(route: DeviceQaRoute) {
                 onOpenFocusedMarkerDetail = {},
                 onCenterCurrentLocation = {},
                 onFocusSearchArea = { _, _ -> },
+                onToggleHeaderPanel = {},
                 onToggleBottomPanel = {},
                 onToggleMapOverlays = {},
                 showMapPreview = true
@@ -172,6 +173,7 @@ private fun DeviceQaScreen(route: DeviceQaRoute) {
                 onOpenFocusedMarkerDetail = {},
                 onCenterCurrentLocation = {},
                 onFocusSearchArea = { _, _ -> },
+                onToggleHeaderPanel = {},
                 onToggleBottomPanel = {},
                 onToggleMapOverlays = {},
                 showMapPreview = true
@@ -213,6 +215,7 @@ private fun DeviceQaScreen(route: DeviceQaRoute) {
                 onOpenFocusedMarkerDetail = {},
                 onCenterCurrentLocation = {},
                 onFocusSearchArea = { _, _ -> },
+                onToggleHeaderPanel = {},
                 onToggleBottomPanel = {},
                 onToggleMapOverlays = {},
                 showMapPreview = true
@@ -344,6 +347,7 @@ private fun LiveSearchMapQaScreen() {
                 onOpenFocusedMarkerDetail = {},
                 onCenterCurrentLocation = {},
                 onFocusSearchArea = { _, _ -> },
+                onToggleHeaderPanel = {},
                 onToggleBottomPanel = {},
                 onToggleMapOverlays = {},
                 showMapPreview = false

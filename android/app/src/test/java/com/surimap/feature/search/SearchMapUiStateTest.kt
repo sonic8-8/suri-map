@@ -82,6 +82,26 @@ class SearchMapUiStateTest {
     }
 
     @Test
+    fun searchMapHeaderTextShowsAssignmentWithoutDutyShiftIdentifier() {
+        val assigned =
+            SearchMapUiState.active().copy(
+                dutyShiftLabel = "DutyShift 00000000-0000-0000-0000-000000000101",
+                assignmentLabel = "A팀 담당 구역"
+            )
+        val unassigned =
+            SearchMapUiState.active().copy(
+                dutyShiftLabel = "DutyShift 00000000-0000-0000-0000-000000000101",
+                assignmentLabel = ""
+            )
+
+        assertEquals("A팀 담당 구역", assigned.assignmentDisplayLabel)
+        assertTrue(assigned.visibleText().contains("A팀 담당 구역"))
+        assertFalse(assigned.visibleText().any { it.contains("DutyShift") })
+        assertEquals("담당구역 미배정", unassigned.assignmentDisplayLabel)
+        assertTrue(unassigned.visibleText().contains("담당구역 미배정"))
+    }
+
+    @Test
     fun activeSearchMapCanOpenHandoverEvenWithoutUnreadPrompt() {
         val state = SearchMapUiState.active(hasUnreadHandover = false)
 
