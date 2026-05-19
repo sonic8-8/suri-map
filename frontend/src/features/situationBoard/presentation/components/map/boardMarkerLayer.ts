@@ -531,6 +531,48 @@ export function syncMarkerElements(
     });
 }
 
+export function syncMarkerElementsWhenAvailable(
+  map: maplibregl.Map,
+  recentMarkers: RecentMarker[],
+  visibleMarkerIds: string[],
+  markerInstances: MutableRefObject<Map<string, MarkerInstance>>,
+  isVisible: boolean,
+  handlers: MarkerInteractionHandlers,
+  hoveredMarkerId: string | null = null,
+  selectedMarkerId: string | null = null,
+) {
+  if (map.getSource(MARKER_SOURCE_ID) || map.loaded() || map.isStyleLoaded()) {
+    syncMarkerElements(
+      map,
+      recentMarkers,
+      visibleMarkerIds,
+      markerInstances,
+      isVisible,
+      handlers,
+      hoveredMarkerId,
+      selectedMarkerId,
+    );
+    return undefined;
+  }
+
+  const syncWhenLoaded = () => {
+    syncMarkerElements(
+      map,
+      recentMarkers,
+      visibleMarkerIds,
+      markerInstances,
+      isVisible,
+      handlers,
+      hoveredMarkerId,
+      selectedMarkerId,
+    );
+  };
+  map.once('load', syncWhenLoaded);
+  return () => {
+    map.off('load', syncWhenLoaded);
+  };
+}
+
 export function removeMarkerPopup(popupRef: MutableRefObject<maplibregl.Popup | null>) {
   popupRef.current?.remove();
   popupRef.current = null;
