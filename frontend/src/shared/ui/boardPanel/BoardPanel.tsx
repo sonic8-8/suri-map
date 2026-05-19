@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 import styles from './BoardPanel.module.css';
 
@@ -13,6 +13,7 @@ export type BoardPanelProps = {
   footer?: ReactNode;
   header?: ReactNode;
   placement?: BoardPanelPlacement;
+  style?: CSSProperties;
 };
 
 export function BoardPanel({
@@ -24,12 +25,13 @@ export function BoardPanel({
   footer,
   header,
   placement = 'center',
+  style,
 }: BoardPanelProps) {
   const panelClassName = [styles.panel, styles[placement], className].filter(Boolean).join(' ');
   const bodyClassNames = [styles.body, bodyClassName].filter(Boolean).join(' ');
 
   return (
-    <Component className={panelClassName} aria-label={ariaLabel}>
+    <Component className={panelClassName} aria-label={ariaLabel} style={style}>
       {header ? <div className={styles.header}>{header}</div> : null}
       <div className={bodyClassNames}>{children}</div>
       {footer ? <div className={styles.footer}>{footer}</div> : null}

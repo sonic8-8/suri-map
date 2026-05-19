@@ -65,6 +65,7 @@ import styles from './HandoverPage.module.css';
 
 type HandoverPageProps = {
   embedded?: boolean;
+  isMapExpanded?: boolean;
   sharedMapMode?: boolean;
   boardSnapshot?: SituationBoardResponseDto | null;
   incidentId: string;
@@ -125,6 +126,7 @@ const opReasonOptions: Array<{ value: CreateOperationalPeriodReason; label: stri
 
 export function HandoverPage({
   embedded = false,
+  isMapExpanded: isMapExpandedProp,
   sharedMapMode = false,
   boardSnapshot = null,
   incidentId,
@@ -144,6 +146,7 @@ export function HandoverPage({
 }: HandoverPageProps) {
   const historyPanelWrapperRef = useRef<HTMLDivElement | null>(null);
   const [historyPanelWidthPx, setHistoryPanelWidthPx] = useState(440);
+  const [isLocalMapExpanded, setIsLocalMapExpanded] = useState(false);
   const [operationalPeriods, setOperationalPeriods] = useState<OperationalPeriodListItem[]>([]);
   const [currentOpId, setCurrentOpId] = useState<string | null>(null);
   const [focusedOpId, setFocusedOpId] = useState<string | null>(null);
@@ -167,6 +170,7 @@ export function HandoverPage({
   const [memoErrorMessage, setMemoErrorMessage] = useState('');
   const [createOpErrorMessage, setCreateOpErrorMessage] = useState('');
   const [comparisonErrorMessage, setComparisonErrorMessage] = useState('');
+  const isMapExpanded = isMapExpandedProp ?? isLocalMapExpanded;
 
   useBrowserBackToIncidentList(onBrowserBackToIncidentList, !embedded);
   const queryClient = useQueryClient();
@@ -354,6 +358,7 @@ export function HandoverPage({
     setSelectedMemoTargetKey('');
     setComparisonAnalysis(null);
     setSelectedComparisonRegionFactId(null);
+    setIsLocalMapExpanded(false);
     setOpErrorMessage('');
     setMemoErrorMessage('');
     setCreateOpErrorMessage('');
@@ -405,14 +410,7 @@ export function HandoverPage({
         setCurrentOpId(response.currentOpId);
         const initialOpId = response.currentOpId ?? responseItems[0]?.id ?? null;
         setFocusedOpId(initialOpId);
-        const initialSelectedOpIds = sharedMapMode
-          ? uniqueNonEmptyStrings([response.currentOpId ?? responseItems[0]?.id ?? null])
-          : uniqueNonEmptyStrings(
-              [...responseItems]
-                .sort((left, right) => right.sequenceNumber - left.sequenceNumber)
-                .map((period) => period.id),
-            );
-        setSelectedOpIds(initialSelectedOpIds.length > 0 ? initialSelectedOpIds : initialOpId ? [initialOpId] : []);
+        setSelectedOpIds(initialOpId ? [initialOpId] : []);
       } catch (error) {
         if (!ignore) {
           setOpErrorMessage(getApiErrorMessage(error, 'OP 목록을 불러오지 못했습니다.'));
@@ -469,7 +467,7 @@ export function HandoverPage({
     observer.observe(element);
 
     return () => observer.disconnect();
-  }, []);
+  }, [isMapExpanded]);
 
   async function loadMemos(opId: string, shouldIgnore = () => false) {
     setIsLoadingMemos(true);
@@ -624,9 +622,18 @@ export function HandoverPage({
   const handleComparisonRegionFactSelect = (fact: OpComparisonRegionFact) => {
     setSelectedComparisonRegionFactId((currentFactId) => (currentFactId === fact.factId ? null : fact.factId));
   };
+  const handleToggleMapExpanded = () => {
+    setIsLocalMapExpanded((currentState) => !currentState);
+  };
   return (
-    <main className={embedded ? styles.embeddedPage : `situation-board-page ${pageStyles.page}`}>
-      {embedded ? null : (
+    <main
+      className={
+        embedded
+          ? styles.embeddedPage
+          : `situation-board-page ${pageStyles.page}${isMapExpanded ? ` ${styles.mapExpandedPage}` : ''}`
+      }
+    >
+      {embedded || isMapExpanded ? null : (
       <SuriMapPageHeader
         activeTab="handover"
         currentAccountLabel={currentAccountLabel}
@@ -645,11 +652,11 @@ export function HandoverPage({
       />
       )}
 
-      <div className={styles.shell}>
+      <div className={`${styles.shell}${isMapExpanded ? ` ${styles.shellExpanded}` : ''}`}>
         <BoardPanel
           as="aside"
           ariaLabel="인수인계 좌측 패널"
-          className={styles.opPanel}
+          className={`${styles.opPanel}${isMapExpanded ? ` ${styles.opPanelCollapsed}` : ''}`}
           bodyClassName={styles.opPanelBody}
           placement="left"
         >
@@ -695,9 +702,11 @@ export function HandoverPage({
               <HandoverComparisonMap
                 incidentId={incidentId}
                 board={board}
+                isMapExpanded={isMapExpanded}
                 focusedOpId={activeFocusedOpId}
                 selectedOpIds={effectiveSelectedOpIds}
                 comparisonHighlightGeometryGeojson={comparisonHighlightGeometryGeojson}
+                onToggleMapExpanded={handleToggleMapExpanded}
               />
               <div className={styles.mapAnalysisDock}>
                 <ComparisonAnalysisPanel
@@ -717,11 +726,14 @@ export function HandoverPage({
           </section>
         )}
 
-        <div ref={historyPanelWrapperRef} className={styles.historyPanelWrapper}>
+        <div
+          ref={historyPanelWrapperRef}
+          className={styles.historyPanelWrapper}
+        >
           <BoardPanel
             as="aside"
             ariaLabel="인수인계 상시 확인 패널"
-            className={styles.historyPanel}
+            className={`${styles.historyPanel}${isMapExpanded ? ` ${styles.historyPanelCollapsed}` : ''}`}
             bodyClassName={styles.historyPanelBody}
             placement="right"
           >

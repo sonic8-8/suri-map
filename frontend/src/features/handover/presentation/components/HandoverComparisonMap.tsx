@@ -30,15 +30,20 @@ export type HandoverComparisonMapProps = {
   baseMapMode?: 'standalone' | 'shared-base-map' | 'shared-situation-board';
   externalMap?: maplibregl.Map | null;
   hideCanvas?: boolean;
+  isMapExpanded?: boolean;
   rightPanelWidthPx?: number;
   incidentId: string;
   board: IncidentBoardResponse | null;
   focusedOpId: string | null;
   selectedOpIds: string[];
   comparisonHighlightGeometryGeojson?: string | null;
+  onToggleMapExpanded?: () => void;
 };
 
-export type HandoverComparisonMapSharedProps = Omit<HandoverComparisonMapProps, 'externalMap' | 'hideCanvas'>;
+export type HandoverComparisonMapSharedProps = Omit<
+  HandoverComparisonMapProps,
+  'externalMap' | 'hideCanvas' | 'isMapExpanded' | 'onToggleMapExpanded'
+>;
 
 const DEFAULT_JURISDICTION_CENTER: Position = [126.7525, 35.1598];
 const DEFAULT_ZOOM = 12;
@@ -69,11 +74,13 @@ export function HandoverComparisonMap({
   baseMapMode = 'standalone',
   externalMap = null,
   hideCanvas = false,
+  isMapExpanded = false,
   incidentId,
   board,
   focusedOpId,
   selectedOpIds,
   comparisonHighlightGeometryGeojson = null,
+  onToggleMapExpanded = () => {},
 }: HandoverComparisonMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -297,14 +304,30 @@ export function HandoverComparisonMap({
     visibleOverallAreaFeatures,
   ]);
 
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) {
+      return;
+    }
+
+    map.resize();
+    const resizeTimer = window.setTimeout(() => {
+      map.resize();
+    }, 220);
+
+    return () => {
+      window.clearTimeout(resizeTimer);
+    };
+  }, [isMapExpanded]);
+
   return (
     <div className={`${styles.surface}${hideCanvas ? ` ${styles.externalSurface}` : ''}`} aria-label="OP 비교 지도">
       {hideCanvas ? null : <div ref={containerRef} className={styles.canvas} />}
       {hideCanvas ? null : (
         <MapControls
-          isMapExpanded={false}
+          isMapExpanded={isMapExpanded}
           onFitIncidentSearchArea={fitToEvidence}
-          onToggleMapExpanded={() => {}}
+          onToggleMapExpanded={onToggleMapExpanded}
           onZoomIn={() => mapRef.current?.zoomIn()}
           onZoomOut={() => mapRef.current?.zoomOut()}
         />
