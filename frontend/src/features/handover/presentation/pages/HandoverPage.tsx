@@ -40,10 +40,18 @@ import {
   type CreateOperationalPeriodReason,
   type OperationalPeriodListItem,
 } from '../../../operationalPeriod/api/operationalPeriodApi';
+import {
+  useCreateOpComparisonMutation,
+  type OpComparisonResponse,
+} from '../../../operationalPeriod/api/opComparisonApi';
 import type { OperationalPeriod } from '../../../situationBoard/presentation/constants/mockSituationBoard';
 import { HandoverOperationalPeriodSelector } from '../components/HandoverOperationalPeriodSelector';
 import { HandoverComparisonMap, type HandoverComparisonMapSharedProps } from '../components/HandoverComparisonMap';
 import { HandoverSummaryCard } from '../components/HandoverSummaryCard';
+import {
+  ComparisonAnalysisPanel,
+  type ComparisonOperationalPeriodOption,
+} from '../components/ComparisonAnalysisPanel';
 import {
   HandoverMemoSection,
   type HandoverMemoItemView,
@@ -147,6 +155,7 @@ export function HandoverPage({
   const [newOpReasonMemo, setNewOpReasonMemo] = useState('');
   const [newOpHandoverMemo, setNewOpHandoverMemo] = useState('');
   const [selectedMemoTargetKey, setSelectedMemoTargetKey] = useState('');
+  const [comparisonAnalysis, setComparisonAnalysis] = useState<OpComparisonResponse | null>(null);
   const [isLoadingOps, setIsLoadingOps] = useState(false);
   const [isLoadingMemos, setIsLoadingMemos] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -154,9 +163,11 @@ export function HandoverPage({
   const [opErrorMessage, setOpErrorMessage] = useState('');
   const [memoErrorMessage, setMemoErrorMessage] = useState('');
   const [createOpErrorMessage, setCreateOpErrorMessage] = useState('');
+  const [comparisonErrorMessage, setComparisonErrorMessage] = useState('');
 
   useBrowserBackToIncidentList(onBrowserBackToIncidentList, !embedded);
   const queryClient = useQueryClient();
+  const createComparisonMutation = useCreateOpComparisonMutation();
   const stableBoardRef = useRef<SituationBoardResponseDto | null>(null);
   const incidentStateRef = useRef(incidentId);
   const effectiveBoardSnapshot = sharedMapMode ? null : boardSnapshot;
@@ -214,6 +225,15 @@ export function HandoverPage({
   );
   const displayedOperationalPeriods = useMemo(
     () => [...operationalPeriods].sort((left, right) => right.sequenceNumber - left.sequenceNumber),
+    [operationalPeriods],
+  );
+  const comparisonOperationalPeriods = useMemo<ComparisonOperationalPeriodOption[]>(
+    () =>
+      operationalPeriods.map((period) => ({
+        id: period.id,
+        label: formatOperationalPeriodLabel(period),
+        statusLabel: formatStatusLabel(period.status),
+      })),
     [operationalPeriods],
   );
   const handoverOperationalPeriods = useMemo(
@@ -304,6 +324,7 @@ export function HandoverPage({
     canCreateOperationalPeriod &&
     !isCreatingOp &&
     (newOpReason !== 'OTHER' || newOpReasonMemo.trim().length > 0);
+  const comparisonSelectionKey = effectiveSelectedOpIds.join('|');
 
   useEffect(() => {
     incidentStateRef.current = incidentId;
@@ -321,12 +342,19 @@ export function HandoverPage({
     setNewOpReasonMemo('');
     setNewOpHandoverMemo('');
     setSelectedMemoTargetKey('');
+    setComparisonAnalysis(null);
     setOpErrorMessage('');
     setMemoErrorMessage('');
     setCreateOpErrorMessage('');
+    setComparisonErrorMessage('');
     setIsSubmitting(false);
     setIsCreatingOp(false);
   }, [incidentId]);
+
+  useEffect(() => {
+    setComparisonAnalysis(null);
+    setComparisonErrorMessage('');
+  }, [comparisonSelectionKey, incidentId]);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => setNow(new Date()), 30_000);
@@ -542,6 +570,24 @@ export function HandoverPage({
   const openComparisonPopup = (periodId: string) => {
     setFocusedOpId(periodId);
     setIsComparisonPopupOpen(true);
+  };
+
+  const handleCreateComparisonAnalysis = async () => {
+    if (effectiveSelectedOpIds.length < 2) return;
+
+    setComparisonErrorMessage('');
+    try {
+      const response = await createComparisonMutation.mutateAsync({
+        request: {
+          incidentId,
+          operationalPeriodIds: effectiveSelectedOpIds,
+        },
+        idempotencyKey: createIdempotencyKey('op-comparison'),
+      });
+      setComparisonAnalysis(response);
+    } catch (error) {
+      setComparisonErrorMessage(getApiErrorMessage(error, 'OP 비교 분석을 생성하지 못했습니다.'));
+    }
   };
 
   return (
@@ -829,6 +875,16 @@ export function HandoverPage({
                     <HandoverSummaryCard label="수색 이력 요약" value={`${evidenceSummary.summaryCount}건`} helper="요약 생성 결과" />
                   </div>
                 </section>
+
+                <ComparisonAnalysisPanel
+                  incidentId={incidentId}
+                  selectedOperationalPeriodIds={effectiveSelectedOpIds}
+                  operationalPeriods={comparisonOperationalPeriods}
+                  analysis={comparisonAnalysis}
+                  isCreating={createComparisonMutation.isPending}
+                  errorMessage={comparisonErrorMessage}
+                  onCreateAnalysis={handleCreateComparisonAnalysis}
+                />
 
                 <section className={styles.contextBlock} aria-label="수색 이력 자동 요약">
                   <div className={styles.blockHeading}>
