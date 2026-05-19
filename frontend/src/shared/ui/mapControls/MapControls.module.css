@@ -11,6 +11,9 @@
   background: transparent;
   box-shadow: none;
   backdrop-filter: none;
+  transition:
+    right 180ms ease,
+    top 180ms ease;
 }
 
 .button {

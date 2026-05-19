@@ -79,11 +79,13 @@ vi.mock('../components/HandoverComparisonMap', () => ({
     comparisonHighlightGeometryGeojson,
     isMapExpanded = false,
     onToggleMapExpanded = () => {},
+    rightPanelWidthPx = null,
     selectedOpIds = [],
   }: {
     comparisonHighlightGeometryGeojson?: string | null;
     isMapExpanded?: boolean;
     onToggleMapExpanded?: () => void;
+    rightPanelWidthPx?: number | null;
     selectedOpIds?: string[];
   }) => (
     <div
@@ -91,6 +93,7 @@ vi.mock('../components/HandoverComparisonMap', () => ({
       data-highlight={comparisonHighlightGeometryGeojson ?? ''}
       data-selected-op-ids={selectedOpIds.join('|')}
       data-is-map-expanded={String(isMapExpanded)}
+      data-right-panel-width={rightPanelWidthPx ?? ''}
     >
       <button
         type="button"
@@ -245,6 +248,58 @@ describe('HandoverPage', () => {
     expect(screen.getByRole('button', { name: /^OP 2/ })).toHaveAttribute('aria-pressed', 'true');
   });
 
+  test('op visibility toggle can be cleared and refuses a third visible OP', async () => {
+    vi.mocked(operationalPeriodApi.list).mockResolvedValue({
+      currentOpId: 'op-current',
+      items: [
+        operationalPeriod({ id: 'op-current', status: 'ACTIVE', sequenceNumber: 4, endedAt: null }),
+        operationalPeriod({ id: 'op-second', status: 'ENDED', sequenceNumber: 3, endedAt: '2026-05-17T03:00:00Z' }),
+        operationalPeriod({ id: 'op-third', status: 'ENDED', sequenceNumber: 2, endedAt: '2026-05-17T02:00:00Z' }),
+        operationalPeriod({ id: 'op-fourth', status: 'ENDED', sequenceNumber: 1, endedAt: '2026-05-17T01:00:00Z' }),
+      ],
+    });
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <HandoverPage
+          currentUserAccount={currentUserAccount()}
+          incidentId={INCIDENT_ID}
+          markerNotificationIndex={0}
+          markerNotifications={[]}
+          onCloseMarkerNotifications={vi.fn()}
+          onMoveMarkerNotification={vi.fn()}
+          onOpenIncidentList={vi.fn()}
+          onOpenIncidentDetail={vi.fn()}
+          onOpenOfflinePackage={vi.fn()}
+          onOpenSituationBoard={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    const currentOpButton = await screen.findByRole('button', { name: /^OP 4차/ });
+    const secondOpButton = screen.getByRole('button', { name: /^OP 3차/ });
+    const thirdOpButton = screen.getByRole('button', { name: /^OP 2차/ });
+    const fourthOpButton = screen.getByRole('button', { name: /^OP 1차/ });
+
+    expect(currentOpButton).toHaveAttribute('aria-pressed', 'true');
+
+    fireEvent.click(currentOpButton);
+    await waitFor(() => expect(screen.getByTestId('handover-map')).toHaveAttribute('data-selected-op-ids', ''));
+    expect(currentOpButton).toHaveAttribute('aria-pressed', 'false');
+
+    fireEvent.click(secondOpButton);
+    fireEvent.click(thirdOpButton);
+    await waitFor(() => expect(screen.getByTestId('handover-map')).toHaveAttribute('data-selected-op-ids', 'op-second|op-third'));
+
+    fireEvent.click(fourthOpButton);
+
+    await waitFor(() =>
+      expect(screen.getByText('OP는 최대 2개까지 동시에 표시할 수 있습니다.')).toBeInTheDocument(),
+    );
+    expect(screen.getByTestId('handover-map')).toHaveAttribute('data-selected-op-ids', 'op-second|op-third');
+    expect(fourthOpButton).toHaveAttribute('aria-pressed', 'false');
+  });
+
   test('shared map mode does not exclude board active OPs from overlay props', async () => {
     const onSharedMapPropsChange = vi.fn();
     vi.mocked(useIncidentBoardQuery).mockReturnValue(
@@ -357,7 +412,7 @@ describe('HandoverPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'map fullscreen expand' }));
 
     await waitFor(() => expect(screen.getByTestId('handover-map')).toHaveAttribute('data-is-map-expanded', 'true'));
-    expect(screen.queryAllByRole('complementary')).toHaveLength(0);
+    await waitFor(() => expect(screen.getByTestId('handover-map')).toHaveAttribute('data-right-panel-width', '0'));
     expect(screen.queryByRole('button', { name: 'Suri-Map' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'map fullscreen collapse' })).toBeInTheDocument();
   });

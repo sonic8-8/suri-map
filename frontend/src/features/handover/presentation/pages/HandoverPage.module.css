@@ -750,6 +750,18 @@
   margin: 14px;
 }
 
+.selectionNotice {
+  margin: 0 14px 10px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--suri-board-primary-hi) 32%, var(--handover-border-soft));
+  border-radius: 8px;
+  color: var(--suri-board-fg-secondary);
+  background: color-mix(in srgb, var(--suri-board-primary-soft) 26%, var(--handover-panel-surface));
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
 .modalOverlay {
   position: fixed;
   z-index: 80;

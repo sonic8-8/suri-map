@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, type MutableRefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef, type CSSProperties, type MutableRefObject } from 'react';
 import maplibregl, {
   type GeoJSONSource,
   type LayerSpecification,
@@ -75,6 +75,7 @@ export function HandoverComparisonMap({
   externalMap = null,
   hideCanvas = false,
   isMapExpanded = false,
+  rightPanelWidthPx,
   incidentId,
   board,
   focusedOpId,
@@ -88,10 +89,16 @@ export function HandoverComparisonMap({
   const scheduledFitTimerRef = useRef<number | null>(null);
   const markerInstancesRef = useRef<Map<string, MarkerInstance>>(new Map());
   const isSharedSituationBoardMap = baseMapMode === 'shared-situation-board';
+  const surfaceStyle = useMemo<CSSProperties>(() => {
+    return {
+      display: 'contents',
+      ...(rightPanelWidthPx == null ? {} : { '--handover-right-panel-width': `${rightPanelWidthPx}px` }),
+    } as CSSProperties;
+  }, [rightPanelWidthPx]);
   const overallAreaFeatures = useMemo(() => createOverallAreaFeatureCollection(board, incidentId), [board, incidentId]);
   const visibleOverallAreaFeatures = useMemo(
-    () => (isSharedSituationBoardMap ? emptyFeatureCollection() : overallAreaFeatures),
-    [isSharedSituationBoardMap, overallAreaFeatures],
+    () => (isSharedSituationBoardMap || selectedOpIds.length === 0 ? emptyFeatureCollection() : overallAreaFeatures),
+    [isSharedSituationBoardMap, overallAreaFeatures, selectedOpIds.length],
   );
   const featureCollections = useMemo(
     () => createComparisonFeatureCollections(board, incidentId, selectedOpIds, focusedOpId),
@@ -321,7 +328,11 @@ export function HandoverComparisonMap({
   }, [isMapExpanded]);
 
   return (
-    <div className={`${styles.surface}${hideCanvas ? ` ${styles.externalSurface}` : ''}`} aria-label="OP 비교 지도">
+    <div
+      className={`${styles.surface}${hideCanvas ? ` ${styles.externalSurface}` : ''}`}
+      style={surfaceStyle}
+      aria-label="handover comparison map"
+    >
       {hideCanvas ? null : <div ref={containerRef} className={styles.canvas} />}
       {hideCanvas ? null : (
         <MapControls
@@ -334,15 +345,15 @@ export function HandoverComparisonMap({
       )}
       {!isSharedSituationBoardMap && !hasVisibleEvidence ? (
         <aside className={styles.emptyOverlay} aria-live="polite">
-          <strong>표시할 OP 기록이 없습니다.</strong>
-          <span>선택한 OP에 경로, 구역, 마커 기록이 있으면 이 지도에 함께 표시됩니다.</span>
+          <strong>현재 OP 데이터가 없습니다.</strong>
+          <span>OP를 최대 2개까지 켜면 수색 경로, 구역, 마커가 표시됩니다.</span>
         </aside>
       ) : null}
 
-      <div className={styles.legend} aria-label="OP 비교 범례">
+      <div className={styles.legend} aria-label="OP comparison legend">
         <span className={styles.legendItem}>
           <span className={styles.legendSwatch} />
-          현재 선택 OP
+          현재 OP
         </span>
         <span className={styles.legendItem}>
           <span className={styles.legendSwatchCompare} />
@@ -356,7 +367,6 @@ export function HandoverComparisonMap({
     </div>
   );
 }
-
 function addComparisonLayers(map: maplibregl.Map) {
   addGeoJsonSource(map, OVERALL_AREA_SOURCE_ID, emptyFeatureCollection());
   addGeoJsonSource(map, AREA_SOURCE_ID, emptyFeatureCollection());
