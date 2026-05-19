@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, type MutableRefObject } from 'react';
-import { Focus, Minus, Plus } from 'lucide-react';
 import maplibregl, {
   type GeoJSONSource,
   type LayerSpecification,
@@ -7,6 +6,7 @@ import maplibregl, {
 } from 'maplibre-gl';
 
 import { getVWorldApiKey } from '../../../../shared/config';
+import { MapControls } from '../../../../shared/ui';
 import { createVWorldBaseStyle, V_WORLD_MAX_ZOOM } from '../../../../shared/map/vworldBaseMap';
 import {
   createComparisonBoardMarkers,
@@ -30,6 +30,7 @@ export type HandoverComparisonMapProps = {
   baseMapMode?: 'standalone' | 'shared-base-map' | 'shared-situation-board';
   externalMap?: maplibregl.Map | null;
   hideCanvas?: boolean;
+  rightPanelWidthPx?: number;
   incidentId: string;
   board: IncidentBoardResponse | null;
   focusedOpId: string | null;
@@ -118,18 +119,6 @@ export function HandoverComparisonMap({
     visibleMarkerIdsRef.current = visibleMarkerIds;
   }, [boardMarkers, visibleMarkerIds]);
 
-  const fitToEvidence = useCallback(() => {
-    const map = mapRef.current;
-    const bounds = boundsRef.current;
-    if (!map || !bounds) return;
-
-    map.fitBounds(bounds, {
-      padding: FIT_PADDING,
-      duration: 420,
-      maxZoom: FIT_MAX_ZOOM,
-    });
-  }, []);
-
   const scheduleFitToEvidence = useCallback((map: maplibregl.Map, bounds: LngLatBoundsLike | null) => {
     if (!bounds) return;
 
@@ -142,6 +131,14 @@ export function HandoverComparisonMap({
       if (mapRef.current !== map || !map.loaded()) return;
       fitMapToBounds(map, bounds);
     }, 0);
+  }, []);
+
+  const fitToEvidence = useCallback(() => {
+    const map = mapRef.current;
+    const bounds = boundsRef.current;
+    if (!map || !bounds) return;
+
+    fitMapToBounds(map, bounds);
   }, []);
 
   useEffect(() => {
@@ -267,18 +264,15 @@ export function HandoverComparisonMap({
   return (
     <div className={`${styles.surface}${hideCanvas ? ` ${styles.externalSurface}` : ''}`} aria-label="OP 비교 지도">
       {hideCanvas ? null : <div ref={containerRef} className={styles.canvas} />}
-      <div className={styles.toolbar} aria-label="지도 조작">
-        <button type="button" title="선택 OP 범위 보기" onClick={fitToEvidence}>
-          <Focus aria-hidden="true" />
-        </button>
-        <button type="button" title="확대" onClick={() => mapRef.current?.zoomIn()}>
-          <Plus aria-hidden="true" />
-        </button>
-        <button type="button" title="축소" onClick={() => mapRef.current?.zoomOut()}>
-          <Minus aria-hidden="true" />
-        </button>
-      </div>
-
+      {hideCanvas ? null : (
+        <MapControls
+          isMapExpanded={false}
+          onFitIncidentSearchArea={fitToEvidence}
+          onToggleMapExpanded={() => {}}
+          onZoomIn={() => mapRef.current?.zoomIn()}
+          onZoomOut={() => mapRef.current?.zoomOut()}
+        />
+      )}
       {!isSharedSituationBoardMap && !hasVisibleEvidence ? (
         <aside className={styles.emptyOverlay} aria-live="polite">
           <strong>표시할 OP 기록이 없습니다.</strong>
