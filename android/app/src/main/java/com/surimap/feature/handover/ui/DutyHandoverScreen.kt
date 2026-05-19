@@ -2,6 +2,7 @@ package com.surimap.feature.handover.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -44,6 +45,18 @@ data class DutyHandoverUiState(
     val endingDutyShift: Boolean = false,
     val canRequestSummaryGeneration: Boolean = false
 ) {
+    val reportSectionTitles: List<String> = HandoverReportSections
+
+    val handoverMemoRecords: List<HandoverRecord> =
+        records.filter { record ->
+            record.title.contains("메모") || record.subtitle.contains("메모")
+        }
+
+    val markerPhotoRecords: List<HandoverRecord> =
+        records.filter { record ->
+            record.title.contains("마커") && record.subtitle.contains("사진")
+        }
+
     val summaryText: String =
         summary ?: summaryStatus.emptyCopy
 
@@ -67,6 +80,20 @@ data class DutyHandoverUiState(
             add(generatedAtLabel)
             add(summaryText)
             summaryActionLabel?.let(::add)
+            if (selectedTab == DutyHandoverTab.Report) {
+                addAll(reportSectionTitles)
+                add(sourceReadiness.reportLabel)
+                handoverMemoRecords.forEach {
+                    add(it.title)
+                    add(it.subtitle)
+                    add(it.actionLabel)
+                }
+                markerPhotoRecords.forEach {
+                    add(it.title)
+                    add(it.subtitle)
+                    add(it.actionLabel)
+                }
+            }
             add("타임라인")
             add("원본 기록")
             metrics.forEach {
@@ -186,6 +213,17 @@ enum class DutyHandoverTab(val label: String) {
 data class HandoverMetric(val value: String, val label: String)
 data class HandoverRecord(val title: String, val subtitle: String, val actionLabel: String)
 
+private val HandoverReportSections =
+    listOf(
+        "근무 개요",
+        "서버 인수인계 요약",
+        "이동 통계",
+        "발견·기록 시간순",
+        "인수인계 메모",
+        "마커 사진",
+        "동기화 상태"
+    )
+
 data class HandoverPromptUiState(
     val currentDutyShiftStartedAt: Instant?,
     val lastSeenHandoverAt: Instant? = null
@@ -287,34 +325,66 @@ private fun ReplayTab(state: DutyHandoverUiState) {
             color = PoliFgMuted
         )
         if (state.metrics.isNotEmpty()) {
-            Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
-                state.metrics.forEach { metric ->
-                    PoliField(label = metric.label, value = metric.value, modifier = Modifier.weight(1f))
-                }
-            }
+            MetricRow(metrics = state.metrics)
         }
     }
-    RecordCard(title = "타임라인", state = state)
+    RecordCard(title = "타임라인", records = state.records)
 }
 
 @Composable
 private fun ReportTab(state: DutyHandoverUiState) {
+    ReportSectionCard(title = "근무 개요") {
+        PoliField(label = "대상", value = state.subtitle)
+        PoliField(label = "기록 기준", value = state.generatedAtLabel)
+    }
     SummaryCard(state)
-    RecordCard(title = "원본 기록", state = state)
+    ReportSectionCard(title = "이동 통계") {
+        if (state.metrics.isEmpty()) {
+            EmptyReportText("이동 통계 없음")
+        } else {
+            MetricRow(metrics = state.metrics)
+        }
+    }
+    RecordCard(title = "발견·기록 시간순", records = state.records)
+    RecordCard(
+        title = "인수인계 메모",
+        records = state.handoverMemoRecords,
+        emptyText = "인수인계 메모 없음"
+    )
+    RecordCard(
+        title = "마커 사진",
+        records = state.markerPhotoRecords,
+        emptyText = "연결된 마커 사진 없음"
+    )
+    ReportSectionCard(title = "동기화 상태") {
+        PoliChip(text = state.sourceReadiness.reportLabel, variant = state.sourceReadiness.variant)
+        Text(
+            text = state.sourceReadiness.reportCopy,
+            style = MaterialTheme.typography.bodyMedium,
+            color = PoliFgMuted
+        )
+    }
 }
 
 @Composable
-private fun RecordCard(title: String, state: DutyHandoverUiState) {
+private fun ReportSectionCard(title: String, content: @Composable ColumnScope.() -> Unit) {
     PoliCard {
         Text(text = title, style = MaterialTheme.typography.titleMedium)
-        if (state.records.isEmpty()) {
-            Text(
-                text = "이전 기록 없음",
-                style = MaterialTheme.typography.bodyMedium,
-                color = PoliFgMuted
-            )
+        content()
+    }
+}
+
+@Composable
+private fun RecordCard(
+    title: String,
+    records: List<HandoverRecord>,
+    emptyText: String = "이전 기록 없음"
+) {
+    ReportSectionCard(title = title) {
+        if (records.isEmpty()) {
+            EmptyReportText(emptyText)
         } else {
-            state.records.forEach { record ->
+            records.forEach { record ->
                 PoliRow(title = record.title, subtitle = record.subtitle) {
                     PoliChip(text = record.actionLabel)
                 }
@@ -337,15 +407,50 @@ private fun SummaryCard(state: DutyHandoverUiState) {
         state.summaryActionLabel?.let { actionLabel ->
             PoliChip(text = actionLabel, variant = PoliChipVariant.Outbox)
         }
-        if (state.metrics.isNotEmpty()) {
-            Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
-                state.metrics.forEach { metric ->
-                    PoliField(label = metric.label, value = metric.value, modifier = Modifier.weight(1f))
-                }
-            }
+    }
+}
+
+@Composable
+private fun MetricRow(metrics: List<HandoverMetric>) {
+    Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
+        metrics.forEach { metric ->
+            PoliField(label = metric.label, value = metric.value, modifier = Modifier.weight(1f))
         }
     }
 }
+
+@Composable
+private fun EmptyReportText(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodyMedium,
+        color = PoliFgMuted
+    )
+}
+
+private val SummarySourceReadiness.reportLabel: String
+    get() =
+        when (this) {
+            SummarySourceReadiness.PendingSync -> "동기화 대기"
+            SummarySourceReadiness.Ready -> "동기화 완료"
+            SummarySourceReadiness.Stale -> "기록 갱신 필요"
+        }
+
+private val SummarySourceReadiness.reportCopy: String
+    get() =
+        when (this) {
+            SummarySourceReadiness.PendingSync -> "서버 반영 전 기록이 있어 원본 기록을 함께 확인합니다."
+            SummarySourceReadiness.Ready -> "서버 기록 기준으로 보고서를 표시합니다."
+            SummarySourceReadiness.Stale -> "새 기록 반영 전 상태입니다. 원본 기록을 함께 확인합니다."
+        }
+
+private val SummarySourceReadiness.variant: PoliChipVariant
+    get() =
+        when (this) {
+            SummarySourceReadiness.PendingSync -> PoliChipVariant.Outbox
+            SummarySourceReadiness.Ready -> PoliChipVariant.Good
+            SummarySourceReadiness.Stale -> PoliChipVariant.Warn
+        }
 
 private val SearchHistorySummaryStatus.label: String
     get() =

@@ -58,6 +58,38 @@ class HandoverUiStateTest {
     }
 
     @Test
+    fun reportTabExposesOnlyMvpSectionsWithoutPdfOrEmptyRecommendationSlot() {
+        val report = DutyHandoverUiState.ready().selectTab(DutyHandoverTab.Report)
+
+        assertEquals(
+            listOf(
+                "근무 개요",
+                "서버 인수인계 요약",
+                "이동 통계",
+                "발견·기록 시간순",
+                "인수인계 메모",
+                "마커 사진",
+                "동기화 상태"
+            ),
+            report.reportSectionTitles
+        )
+        report.reportSectionTitles.forEach { sectionTitle ->
+            assertTrue(report.visibleText().any { it.contains(sectionTitle) })
+        }
+        assertEquals(listOf("운영 메모 · 북측 진입로"), report.handoverMemoRecords.map { it.title })
+        assertTrue(report.visibleText().any { it.contains("동기화 완료") })
+        assertTrue(report.visibleText().any { it.contains("사진 2장") })
+
+        listOf(report).forEach { state ->
+            assertFalse(state.visibleText().any { it.contains("PDF") })
+            assertFalse(state.visibleText().any { it.contains("권장") })
+            assertFalse(state.visibleText().any { it.contains("추천") })
+            assertFalse(state.visibleText().any { it.contains("위험") })
+            assertFalse(state.visibleText().any { it.contains("미수색") })
+        }
+    }
+
+    @Test
     fun handoverMemoTargetsIncludeAllS8ContextsAndNoAiAction() {
         val state = HandoverMemoUiState.default(offline = true)
 
