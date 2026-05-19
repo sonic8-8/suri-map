@@ -1401,19 +1401,6 @@ export function SearchMapCanvas({
           </section>
         </div>
       ) : null}
-      {areaEditMapProps || handoverMapProps ? null : (
-        <SearchAreaInspectorCard
-          searchAreaTree={searchAreaTree}
-          selectedSearchAreaId={selectedSearchAreaId}
-          savedAreaDrafts={savedAreaDrafts}
-          movementPaths={movementPaths}
-          recentMarkers={recentMarkers}
-          operationalPeriods={operationalPeriods}
-          onClose={onClearSelectedSearchArea}
-          onOpenAssign={onOpenSearchAreaAssign}
-          onOpenSplit={onOpenSearchAreaSplit}
-        />
-      )}
       {areaEditMapProps && mapInstance ? (
         <AreaEditMapCanvas {...areaEditMapProps} externalMap={mapInstance} hideCanvas />
       ) : null}
