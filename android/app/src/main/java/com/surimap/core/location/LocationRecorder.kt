@@ -59,25 +59,36 @@ class AndroidLocationUpdates(
         }
         val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
             ?: return LocationUpdatesHandle {}
-        val provider = activeProvider(locationManager) ?: return LocationUpdatesHandle {}
+        val providers = activeProviders(locationManager)
+        if (providers.isEmpty()) {
+            return LocationUpdatesHandle {}
+        }
         val listener =
             object : LocationListener {
                 override fun onLocationChanged(location: Location) {
                     onFix(location.toGpsLocationFix(now))
                 }
             }
-        return try {
-            locationManager.requestLocationUpdates(
-                provider,
-                LOCATION_SAMPLE_INTERVAL_MS,
-                0f,
-                listener,
-                Looper.getMainLooper()
-            )
+        var registered = false
+        providers.forEach { provider ->
+            try {
+                locationManager.requestLocationUpdates(
+                    provider,
+                    LOCATION_SAMPLE_INTERVAL_MS,
+                    0f,
+                    listener,
+                    Looper.getMainLooper()
+                )
+                registered = true
+            } catch (_: SecurityException) {
+                Unit
+            } catch (_: IllegalArgumentException) {
+                Unit
+            }
+        }
+        return if (registered) {
             LocationUpdatesHandle { runCatching { locationManager.removeUpdates(listener) } }
-        } catch (_: SecurityException) {
-            LocationUpdatesHandle {}
-        } catch (_: IllegalArgumentException) {
+        } else {
             LocationUpdatesHandle {}
         }
     }
@@ -85,9 +96,6 @@ class AndroidLocationUpdates(
     private fun hasLocationPermission(): Boolean =
         ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
             ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-
-    private fun activeProvider(locationManager: LocationManager): String? =
-        activeProviders(locationManager).firstOrNull()
 
     private fun activeProviders(locationManager: LocationManager): List<String> =
         listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)

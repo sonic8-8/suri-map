@@ -1283,6 +1283,7 @@ private fun SearchMapRoute(
                     val now = System.currentTimeMillis()
                     when (displayedLifecycle) {
                         SearchLifecycleStatus.Stopped -> {
+                            clockSyncState.syncClockForIncident(sessionContext.incidentId, policePhoneContext)
                             val result = searchPathRecorder.start(sessionContext.toSearchPathWriteContext())
                             if (result is SearchPathWriteResult.Enqueued) {
                                 recordingSession = recordingSession.start(result.entityId, now)
@@ -1295,6 +1296,7 @@ private fun SearchMapRoute(
                                 searchPathId = activeSearchPathId
                             )
                             gpsBatchRecorder.clear()
+                            clockSyncState.syncClockForIncident(sessionContext.incidentId, policePhoneContext)
                             val pauseResult =
                                 searchPathRecorder.pause(
                                     context = sessionContext.toSearchPathWriteContext(),
@@ -1306,6 +1308,7 @@ private fun SearchMapRoute(
                             }
                         }
                         SearchLifecycleStatus.Paused -> {
+                            clockSyncState.syncClockForIncident(sessionContext.incidentId, policePhoneContext)
                             val resumeResult =
                                 searchPathRecorder.resume(
                                     context = sessionContext.toSearchPathWriteContext(),
@@ -1332,6 +1335,7 @@ private fun SearchMapRoute(
                         searchPathId = pathId
                     )
                     gpsBatchRecorder.clear()
+                    clockSyncState.syncClockForIncident(sessionContext.incidentId, policePhoneContext)
                     val endResult =
                         searchPathRecorder.end(
                             context = sessionContext.toSearchPathWriteContext(),

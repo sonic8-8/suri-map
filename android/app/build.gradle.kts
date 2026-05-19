@@ -26,6 +26,15 @@ val keycloakClientId = providers
     .gradleProperty("suriMapKeycloakClientId")
     .orElse("suri-map-android")
     .get()
+val suriMapVersionCode = providers
+    .gradleProperty("suriMapVersionCode")
+    .map(String::toInt)
+    .orElse(1)
+    .get()
+val suriMapVersionName = providers
+    .gradleProperty("suriMapVersionName")
+    .orElse("0.1.0")
+    .get()
 val debugMapOnly = providers
     .gradleProperty("suriMapDebugMapOnly")
     .orElse("false")
@@ -77,8 +86,8 @@ android {
         applicationId = "com.surimap"
         minSdk = 31
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = suriMapVersionCode
+        versionName = suriMapVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders["appAuthRedirectScheme"] = "com.surimap"
