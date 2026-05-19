@@ -102,6 +102,7 @@ import com.surimap.feature.handover.data.HandoverWriteContext
 import com.surimap.feature.handover.data.HandoverWriteResult
 import com.surimap.feature.handover.ui.DutyHandoverScreen
 import com.surimap.feature.handover.ui.DutyHandoverTab
+import com.surimap.feature.handover.ui.HandoverReplayControlUiState
 import com.surimap.feature.handover.ui.HandoverMemoScreen
 import com.surimap.feature.handover.ui.HandoverMemoTarget
 import com.surimap.feature.handover.ui.HandoverMemoUiState
@@ -661,6 +662,7 @@ private fun HandoverSummaryRoute(
         mutableStateOf(loader.fallback(sessionContext))
     }
     var selectedHandoverTab by remember(sessionContext) { mutableStateOf(DutyHandoverTab.Replay) }
+    var replayControlState by remember(sessionContext) { mutableStateOf(HandoverReplayControlUiState()) }
     var endingDutyShift by remember(sessionContext) { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
@@ -668,6 +670,8 @@ private fun HandoverSummaryRoute(
         handoverState = loader.fallback(sessionContext)
         handoverState = loader.load(sessionContext)
     }
+    val replayControlDurationMs = handoverState.replayControl.displayDurationMs
+    val currentReplayControl = replayControlState.withDuration(replayControlDurationMs)
     LaunchedEffect(
         sessionContext.incidentId,
         sessionContext.policePhoneId,
@@ -681,6 +685,7 @@ private fun HandoverSummaryRoute(
         state =
         handoverState.copy(
             selectedTab = selectedHandoverTab,
+            replayControl = currentReplayControl,
             canEndDutyShift = !sessionContext.dutyShiftId.isNullOrBlank(),
             endingDutyShift = endingDutyShift
         ),
@@ -688,6 +693,18 @@ private fun HandoverSummaryRoute(
         onWriteMemo = { navController.navigateToSingleTop(PolicePhoneRoute.HandoverMemo) },
         onOpenSearch = { navController.navigateToSingleTop(PolicePhoneRoute.SearchMap) },
         onSelectTab = { selectedHandoverTab = it },
+        onReplayPlayPause = {
+            replayControlState = currentReplayControl.togglePlaying()
+        },
+        onReplaySeek = { playheadMs ->
+            replayControlState = currentReplayControl.seekTo(playheadMs)
+        },
+        onReplaySpeedSelect = { speed ->
+            replayControlState = currentReplayControl.selectSpeed(speed)
+        },
+        onReplayCameraModeSelect = { cameraMode ->
+            replayControlState = currentReplayControl.selectCameraMode(cameraMode)
+        },
         onEndDutyShift = {
             coroutineScope.launch {
                 if (endingDutyShift) {

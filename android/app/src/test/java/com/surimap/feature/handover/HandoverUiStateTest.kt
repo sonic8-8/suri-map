@@ -2,9 +2,12 @@ package com.surimap.feature.handover
 
 import com.surimap.feature.handover.ui.DutyHandoverUiState
 import com.surimap.feature.handover.ui.DutyHandoverTab
+import com.surimap.feature.handover.ui.HandoverReplayControlUiState
 import com.surimap.feature.handover.ui.HandoverMemoTarget
 import com.surimap.feature.handover.ui.HandoverMemoUiState
 import com.surimap.feature.handover.ui.HandoverPromptUiState
+import com.surimap.feature.handover.domain.HandoverReplayCameraMode
+import com.surimap.feature.handover.domain.HandoverReplaySpeed
 import java.io.File
 import java.time.Instant
 import org.junit.Assert.assertEquals
@@ -110,13 +113,67 @@ class HandoverUiStateTest {
         listOf(replay).forEach { state ->
             assertFalse(state.visibleText().any { it.contains("다른 근무자") })
             assertFalse(state.visibleText().any { it.contains("임의") })
-            assertFalse(state.visibleText().any { it.contains("일시정지") })
-            assertFalse(state.visibleText().any { it.contains("속도") })
-            assertFalse(state.visibleText().any { it.contains("카메라") })
             assertFalse(state.visibleText().any { it.contains("추천") })
             assertFalse(state.visibleText().any { it.contains("위험") })
             assertFalse(state.visibleText().any { it.contains("미수색") })
         }
+    }
+
+    @Test
+    fun replayTabExposesHoistedPlaybackControlsWithoutExpandingReplayScope() {
+        val replay =
+            DutyHandoverUiState.ready()
+                .selectTab(DutyHandoverTab.Replay)
+                .copy(
+                    replayControl =
+                    HandoverReplayControlUiState(
+                        playing = true,
+                        displayPlayheadMs = 16_000L,
+                        displayDurationMs = 120_000L,
+                        speed = HandoverReplaySpeed.X16,
+                        cameraMode = HandoverReplayCameraMode.FollowPlayhead
+                    )
+                )
+
+        assertEquals("일시정지", replay.replayControl.playPauseLabel)
+        assertEquals("00:16", replay.replayControl.currentTimeLabel)
+        assertEquals("02:00", replay.replayControl.durationLabel)
+        listOf("리플레이 컨트롤", "00:16 / 02:00", "속도", "1x", "4x", "16x", "60x", "카메라", "전체", "추적", "자유")
+            .forEach { text ->
+                assertTrue(replay.visibleText().any { it.contains(text) })
+            }
+
+        listOf(replay).forEach { state ->
+            assertFalse(state.visibleText().any { it.contains("다른 근무자") })
+            assertFalse(state.visibleText().any { it.contains("임의") })
+            assertFalse(state.visibleText().any { it.contains("추천") })
+            assertFalse(state.visibleText().any { it.contains("위험") })
+            assertFalse(state.visibleText().any { it.contains("미수색") })
+        }
+    }
+
+    @Test
+    fun replayControlClampsSeekAndPreservesSelectedMode() {
+        val control =
+            HandoverReplayControlUiState(displayDurationMs = 120_000L)
+                .togglePlaying()
+                .seekTo(160_000L)
+                .selectSpeed(HandoverReplaySpeed.X60)
+                .selectCameraMode(HandoverReplayCameraMode.Free)
+
+        assertTrue(control.playing)
+        assertEquals(120_000L, control.displayPlayheadMs)
+        assertEquals("02:00", control.currentTimeLabel)
+        assertEquals("02:00", control.durationLabel)
+        assertEquals(1f, control.sliderPosition)
+        assertEquals(HandoverReplaySpeed.X60, control.speed)
+        assertEquals(HandoverReplayCameraMode.Free, control.cameraMode)
+
+        val shortened = control.withDuration(30_000L)
+
+        assertEquals(30_000L, shortened.displayDurationMs)
+        assertEquals(30_000L, shortened.displayPlayheadMs)
+        assertEquals("00:30", shortened.timeRangeLabel.substringAfter(" / "))
     }
 
     @Test
@@ -181,6 +238,25 @@ class HandoverUiStateTest {
         assertTrue(routeIndex >= 0)
         assertTrue(tabStateIndex > routeIndex)
         assertTrue(onSelectTabIndex > tabStateIndex)
+    }
+
+    @Test
+    fun appHandoverRouteOwnsReplayControlStateForP6A() {
+        val source = File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+
+        val routeIndex = source.indexOf("private fun HandoverSummaryRoute")
+        val replayStateIndex = source.indexOf("replayControlState", routeIndex)
+        val playPauseIndex = source.indexOf("onReplayPlayPause =", routeIndex)
+        val seekIndex = source.indexOf("onReplaySeek =", routeIndex)
+        val speedIndex = source.indexOf("onReplaySpeedSelect =", routeIndex)
+        val cameraIndex = source.indexOf("onReplayCameraModeSelect =", routeIndex)
+
+        assertTrue(routeIndex >= 0)
+        assertTrue(replayStateIndex > routeIndex)
+        assertTrue(playPauseIndex > replayStateIndex)
+        assertTrue(seekIndex > replayStateIndex)
+        assertTrue(speedIndex > replayStateIndex)
+        assertTrue(cameraIndex > replayStateIndex)
     }
 
     @Test
