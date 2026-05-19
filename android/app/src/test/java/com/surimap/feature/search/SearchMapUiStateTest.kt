@@ -6,6 +6,7 @@ import com.surimap.feature.search.ui.SearchMapLayerUiState
 import com.surimap.feature.search.ui.SearchMapSyncStatus
 import com.surimap.feature.search.ui.SearchMapUiState
 import com.surimap.testing.markerIdFixture
+import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -79,6 +80,10 @@ class SearchMapUiStateTest {
         assertTrue(state.showHandoverPrompt)
         assertTrue(state.visibleText().any { it.contains("미전송 2건 처리 불가") })
         assertTrue(state.visibleText().any { it.contains("이전 근무 기록 있음") })
+        assertTrue(state.visibleText().any { it.contains("확인") })
+        assertFalse(state.visibleText().any { it.contains("추천") })
+        assertFalse(state.visibleText().any { it.contains("위험") })
+        assertFalse(state.visibleText().any { it.contains("미수색") })
     }
 
     @Test
@@ -107,6 +112,32 @@ class SearchMapUiStateTest {
 
         assertFalse(state.showHandoverPrompt)
         assertTrue(state.visibleText().contains("인수인계"))
+    }
+
+    @Test
+    fun appSearchMapRouteOwnsHandoverPromptSeenStateForP5EntryBanner() {
+        val source = File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+
+        val routeIndex = source.indexOf("private fun SearchMapRoute")
+        val currentShiftStartedIndex = source.indexOf("currentDutyShiftStartedAt", routeIndex)
+        val lastSeenIndex = source.indexOf("lastSeenHandoverAt", routeIndex)
+        val promptIndex = source.indexOf("HandoverPromptUiState(", routeIndex)
+        val readSeenIndex = source.indexOf("readLastSeenHandoverAt", routeIndex)
+        val openHandoverIndex = source.indexOf("fun openHandoverFromSearchMap", routeIndex)
+        val writeSeenIndex = source.indexOf("writeLastSeenHandoverAt", openHandoverIndex)
+        val navigateIndex = source.indexOf("navigateToSingleTop(PolicePhoneRoute.HandoverSummary)", openHandoverIndex)
+
+        assertTrue(routeIndex >= 0)
+        assertTrue(currentShiftStartedIndex > routeIndex)
+        assertTrue(lastSeenIndex > routeIndex)
+        assertTrue(promptIndex > lastSeenIndex)
+        assertTrue(readSeenIndex > routeIndex)
+        assertTrue(openHandoverIndex > routeIndex)
+        assertTrue(writeSeenIndex > openHandoverIndex)
+        assertTrue(navigateIndex > writeSeenIndex)
+        assertFalse(source.contains("다음 투입"))
+        assertFalse(source.contains("미수색"))
+        assertFalse(source.contains("위험도"))
     }
 
     @Test
