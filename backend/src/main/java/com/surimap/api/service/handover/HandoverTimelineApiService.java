@@ -17,14 +17,14 @@ import com.surimap.marker.query.MarkerQueryFilters;
 import com.surimap.marker.query.MarkerView;
 import com.surimap.path.MovementType;
 import com.surimap.path.SearchPathAggregate;
+import com.surimap.path.SearchPathMetrics;
+import com.surimap.path.SearchPathMetricsCalculator;
 import com.surimap.path.SearchPathPoint;
 import com.surimap.path.SearchPathRepository;
 import com.surimap.path.SearchPathSegment;
 import com.surimap.summary.SearchHistorySummaryMapper;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -49,6 +49,7 @@ public class HandoverTimelineApiService {
   private final HandoverMemoQuery handoverMemoQuery;
   private final SearchHistorySummaryMapper searchHistorySummaryMapper;
   private final DutyShiftMapper dutyShiftMapper;
+  private final SearchPathMetricsCalculator metricsCalculator = new SearchPathMetricsCalculator();
 
   public HandoverTimelineApiService(
       SearchPathRepository searchPathRepository,
@@ -281,38 +282,14 @@ public class HandoverTimelineApiService {
       List<HandoverMemoRow> memos,
       Scope scope,
       UUID opId) {
-    long totalDistance = 0L;
-    long walkingDistance = 0L;
-    long drivingDistance = 0L;
-    int stoppedSegments = 0;
-    Instant first = null;
-    Instant last = null;
-
-    for (SearchPathAggregate path : paths) {
-      List<SearchPathPoint> points = path.points();
-      first = min(first, path.startedAt());
-      last = max(last, path.endedAt());
-      totalDistance += distanceMeters(points);
-      for (SearchPathSegment segment : path.segments()) {
-        long segmentDistance = segmentDistanceMeters(points, segment);
-        if (segment.movementType() == MovementType.FOOT) {
-          walkingDistance += segmentDistance;
-        } else if (segment.movementType() == MovementType.VEHICLE) {
-          drivingDistance += segmentDistance;
-        } else if (segmentDistance == 0L) {
-          stoppedSegments += 1;
-        }
-      }
-    }
-    Instant durationStart = scope.startedAt() == null ? first : scope.startedAt();
-    Instant durationEnd = scope.endedAt() == null ? last : scope.endedAt();
-    BigDecimal averageSpeed = averageSpeedKmh(totalDistance, durationStart, durationEnd);
+    SearchPathMetrics pathMetrics =
+        metricsCalculator.calculate(paths, scope.startedAt(), scope.endedAt());
     return new MetricsResponse(
-        totalDistance,
-        walkingDistance,
-        drivingDistance,
-        averageSpeed,
-        stoppedSegments,
+        pathMetrics.distanceMeters(),
+        pathMetrics.walkingDistanceMeters(),
+        pathMetrics.drivingDistanceMeters(),
+        pathMetrics.averageSpeedKmh(),
+        pathMetrics.stoppedSegmentCount(),
         markers.size(),
         memos.size(),
         syncStatus(opId, scope));
@@ -372,82 +349,12 @@ public class HandoverTimelineApiService {
     return instant(points.get(segment.startIndex()).clientTs());
   }
 
-  private static long segmentDistanceMeters(
-      List<SearchPathPoint> points, SearchPathSegment segment) {
-    if (segment.startIndex() < 0
-        || segment.endIndex() >= points.size()
-        || segment.endIndex() < segment.startIndex()) {
-      return 0L;
-    }
-    return distanceMeters(points.subList(segment.startIndex(), segment.endIndex() + 1));
-  }
-
-  private static long distanceMeters(List<SearchPathPoint> points) {
-    double distance = 0.0d;
-    for (int i = 1; i < points.size(); i++) {
-      SearchPathPoint previous = points.get(i - 1);
-      SearchPathPoint current = points.get(i);
-      distance +=
-          haversineMeters(
-              previous.lat().doubleValue(),
-              previous.lon().doubleValue(),
-              current.lat().doubleValue(),
-              current.lon().doubleValue());
-    }
-    return Math.round(distance);
-  }
-
-  private static double haversineMeters(double lat1, double lon1, double lat2, double lon2) {
-    double earthRadiusMeters = 6_371_000.0d;
-    double dLat = Math.toRadians(lat2 - lat1);
-    double dLon = Math.toRadians(lon2 - lon1);
-    double a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2)
-            + Math.cos(Math.toRadians(lat1))
-                * Math.cos(Math.toRadians(lat2))
-                * Math.sin(dLon / 2)
-                * Math.sin(dLon / 2);
-    return earthRadiusMeters * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  }
-
-  private static BigDecimal averageSpeedKmh(
-      long distanceMeters, Instant startedAt, Instant endedAt) {
-    if (distanceMeters <= 0L
-        || startedAt == null
-        || endedAt == null
-        || !endedAt.isAfter(startedAt)) {
-      return BigDecimal.ZERO.setScale(1);
-    }
-    double hours = Duration.between(startedAt, endedAt).toMillis() / 3_600_000.0d;
-    return BigDecimal.valueOf(distanceMeters / 1000.0d / hours).setScale(1, RoundingMode.HALF_UP);
-  }
-
   private static Instant pathStartOrEpoch(SearchPathAggregate path) {
     return path.startedAt() == null ? Instant.EPOCH : path.startedAt();
   }
 
   private static Instant instant(OffsetDateTime value) {
     return value == null ? null : value.toInstant();
-  }
-
-  private static Instant min(Instant left, Instant right) {
-    if (left == null) {
-      return right;
-    }
-    if (right == null) {
-      return left;
-    }
-    return left.isBefore(right) ? left : right;
-  }
-
-  private static Instant max(Instant left, Instant right) {
-    if (left == null) {
-      return right;
-    }
-    if (right == null) {
-      return left;
-    }
-    return left.isAfter(right) ? left : right;
   }
 
   private static final class ActorRegistry {
