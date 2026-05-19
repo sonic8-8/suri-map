@@ -58,6 +58,8 @@ class SearchAreaApiServicePersistenceRedTest extends PostGisIntegrationTestSuppo
       UUID.fromString("20000000-0000-0000-0000-000000002482");
   private static final UUID READ_UNIT_ID =
       UUID.fromString("30000000-0000-0000-0000-000000002482");
+  private static final UUID READ_CANCELLED_UNIT_ID =
+      UUID.fromString("30000000-0000-0000-0000-000000002489");
   private static final OffsetDateTime CLIENT_TS =
       OffsetDateTime.parse("2026-05-12T09:00:00+09:00");
   private static final Instant SEEDED_UPDATED_AT = Instant.parse("2026-05-12T01:30:00Z");
@@ -178,6 +180,29 @@ class SearchAreaApiServicePersistenceRedTest extends PostGisIntegrationTestSuppo
     assertThat(unit.geometry()).isEqualTo(unitPolygon());
     assertThat(unit.historyCount()).isEqualTo(2L);
     assertThat(unit.updatedAt()).isEqualTo(SEEDED_UPDATED_AT.plusSeconds(60));
+  }
+
+  @Test
+  @DisplayName("byOp includes CANCELLED rows when includeCancelled is true")
+  void byOp_includes_cancelled_rows_when_requested() {
+    seedOpenIncidentWithActiveOperationalPeriod(READ_INCIDENT_ID, READ_OP_ID);
+    seedSearchArea(
+        READ_CANCELLED_UNIT_ID,
+        READ_OP_ID,
+        null,
+        "UNIT-CANCELLED",
+        "UNIT",
+        "CANCELLED",
+        2L,
+        unitWkt(),
+        SEEDED_UPDATED_AT.plusSeconds(90));
+
+    SearchAreaCollection collection =
+        service.byOp(READ_OP_ID, new SearchAreaFilters(null, null, null, null, null, true));
+
+    assertThat(collection.areas())
+        .extracting(SearchAreaRow::id)
+        .contains(READ_CANCELLED_UNIT_ID);
   }
 
   @Test
