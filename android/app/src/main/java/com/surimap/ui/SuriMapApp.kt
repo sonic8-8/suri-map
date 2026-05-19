@@ -67,6 +67,7 @@ import com.surimap.core.offline.OfflinePackageItemStatus
 import com.surimap.core.offline.OfflinePackageManifestQuery
 import com.surimap.core.offline.OfflinePackageRepository
 import com.surimap.core.offline.toOfflinePackageItemStatusEntity
+import com.surimap.core.operationalperiod.DutyShiftQuery
 import com.surimap.core.operationalperiod.DutyShiftRepository
 import com.surimap.core.operationalperiod.HandoverMemoRepository
 import com.surimap.core.operationalperiod.OperationalPeriodReadRepository
@@ -103,6 +104,7 @@ import com.surimap.feature.handover.data.HandoverWriteResult
 import com.surimap.feature.handover.ui.DutyHandoverScreen
 import com.surimap.feature.handover.ui.DutyHandoverTab
 import com.surimap.feature.handover.ui.HandoverReplayControlUiState
+import com.surimap.feature.handover.ui.HandoverPromptUiState
 import com.surimap.feature.handover.ui.HandoverMemoScreen
 import com.surimap.feature.handover.ui.HandoverMemoTarget
 import com.surimap.feature.handover.ui.HandoverMemoUiState
@@ -172,15 +174,19 @@ import com.surimap.ui.navigation.accessTokenProvider
 import com.surimap.ui.session.SuriMapSessionSnapshotStore
 import com.surimap.ui.theme.PoliBgBase
 import java.io.File
+import java.time.Instant
 import java.util.UUID
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
+import org.json.JSONArray
+import org.json.JSONObject
 
 private const val AUTH_BOOTSTRAP_LOG_TAG = "AuthBootstrap"
 private const val ACCESS_TOKEN_REFRESH_SKEW_MS = 60_000L
 private const val ACCESS_TOKEN_REFRESH_FALLBACK_MS = 4 * 60 * 1_000L
+private const val HANDOVER_PROMPT_PREFS_NAME = "suri_map_handover_prompt_seen"
 
 @Composable
 fun SuriMapApp() {
@@ -827,6 +833,16 @@ private fun SearchMapRoute(
     val outboxDao = remember(database) { database.outboxDao() }
     val sessionContext = incidentContext.toSearchMapSessionContext(policePhoneContext)
     val accessTokenProvider = policePhoneContext.accessTokenProvider()
+    val dutyShiftReadRepository =
+        remember(policePhoneContext?.apiBaseUrl, policePhoneContext?.accessToken) {
+            DutyShiftRepository(
+                apiClient =
+                SuriMapApiClient(
+                    baseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
+                ),
+                accessTokenProvider = accessTokenProvider
+            )
+        }
     val outboxReplayScheduler = remember(context) {
         OutboxReplayScheduler(WorkManager.getInstance(context))
     }
@@ -972,6 +988,12 @@ private fun SearchMapRoute(
     ) {
         mutableStateOf(System.currentTimeMillis())
     }
+    var currentDutyShiftStartedAt by remember(sessionContext) {
+        mutableStateOf<Instant?>(null)
+    }
+    var lastSeenHandoverAt by remember(sessionContext) {
+        mutableStateOf(context.readLastSeenHandoverAt(sessionContext))
+    }
     var bottomPanelExpanded by remember { mutableStateOf(false) }
     var topHeaderExpanded by remember { mutableStateOf(false) }
     var latestLocationFix by remember { mutableStateOf<GpsLocationFix?>(null) }
@@ -1000,6 +1022,13 @@ private fun SearchMapRoute(
         } else {
             pendingCurrentLocationCenter = true
         }
+    }
+
+    fun openHandoverFromSearchMap() {
+        val seenAt = currentDutyShiftStartedAt ?: Instant.now()
+        context.writeLastSeenHandoverAt(sessionContext, seenAt)
+        lastSeenHandoverAt = seenAt
+        navController.navigateToSingleTop(PolicePhoneRoute.HandoverSummary)
     }
 
     val locationPermissionLauncher =
@@ -1100,6 +1129,17 @@ private fun SearchMapRoute(
         latestLocationFix = locationUpdates.lastKnownFix()
     }
 
+    LaunchedEffect(
+        dutyShiftReadRepository,
+        sessionContext.incidentId,
+        sessionContext.currentOpId,
+        sessionContext.currentDutyShiftId,
+        sessionContext.policePhoneId
+    ) {
+        currentDutyShiftStartedAt = dutyShiftReadRepository.currentDutyShiftStartedAt(sessionContext)
+        lastSeenHandoverAt = context.readLastSeenHandoverAt(sessionContext)
+    }
+
     LaunchedEffect(loader, sessionContext, focusMarkerId) {
         searchMapState = loader.fallback(sessionContext).withFocusedMarker(focusMarkerId)
         val incidentId = sessionContext.incidentId?.takeIf(String::isNotBlank)
@@ -1120,12 +1160,18 @@ private fun SearchMapRoute(
         serverActiveSearchPathId = serverActiveSearchPathId
     )
     val activeSearchPathId = recordingSession.effectiveSearchPathId(serverActiveSearchPathId)
+    val handoverPromptState =
+        HandoverPromptUiState(
+            currentDutyShiftStartedAt = currentDutyShiftStartedAt,
+            lastSeenHandoverAt = lastSeenHandoverAt
+        )
     val displayedSearchMapState =
         searchMapState.copy(
             lifecycleStatus = displayedLifecycle,
             elapsedLabel = recordingSession.elapsedLabel(elapsedTickerNowMs),
             topHeaderExpanded = topHeaderExpanded,
-            bottomPanelExpanded = bottomPanelExpanded
+            bottomPanelExpanded = bottomPanelExpanded,
+            handoverPrompt = handoverPromptState
         ).withCurrentLocationViewport(latestLocationFix)
     val currentAssignedBoundaries by rememberUpdatedState(displayedSearchMapState.assignedTeamSearchAreaBoundaries())
 
@@ -1306,7 +1352,7 @@ private fun SearchMapRoute(
                 pendingCreateCameraPhotoUri = null
                 markerSheetOpen = true
             },
-            onOpenHandover = { navController.navigateToSingleTop(PolicePhoneRoute.HandoverSummary) },
+            onOpenHandover = { openHandoverFromSearchMap() },
             onOpenBlockedOutbox = onOpenBlockedOutbox,
             onDismissIncidentAlert = {
                 searchMapState = searchMapState.copy(incidentAlert = null)
@@ -2041,6 +2087,90 @@ private fun IncidentContext?.toSearchMapSessionContext(policePhoneContext: Polic
         currentOpLabel = this?.currentOpLabel,
         policePhoneId = policePhoneContext?.policePhoneId
     )
+
+private suspend fun DutyShiftRepository.currentDutyShiftStartedAt(context: SearchMapSessionContext): Instant? {
+    val incidentId = context.incidentId?.takeIf(String::isNotBlank) ?: return null
+    val opId = context.currentOpId?.takeIf(String::isNotBlank) ?: return null
+    val policePhoneId = context.policePhoneId?.takeIf(String::isNotBlank) ?: return null
+    val response =
+        runCatching {
+            listDutyShifts(
+                DutyShiftQuery(
+                    incidentId = incidentId,
+                    opId = opId,
+                    policePhoneId = policePhoneId,
+                    status = "ACTIVE"
+                )
+            )
+        }.getOrNull() ?: return null
+    if (!response.isSuccessful || response.body.isNullOrBlank()) {
+        return null
+    }
+    return activeDutyShiftItem(response.body, context.currentDutyShiftId)?.startedAtInstant()
+}
+
+private fun activeDutyShiftItem(body: String, currentDutyShiftId: String?): JSONObject? {
+    val items = dutyShiftItems(body)
+    val expectedDutyShiftId = currentDutyShiftId?.takeIf(String::isNotBlank)
+    repeat(items.length()) { index ->
+        val item = items.optJSONObject(index) ?: return@repeat
+        val status = item.optString("status")
+        val itemId = item.optString("id").ifBlank { item.optString("dutyShiftId") }
+        val active = status.isBlank() || status.equals("ACTIVE", ignoreCase = true)
+        val matchesCurrent = expectedDutyShiftId == null || itemId == expectedDutyShiftId
+        if (active && matchesCurrent) {
+            return item
+        }
+    }
+    return null
+}
+
+private fun dutyShiftItems(body: String): JSONArray {
+    val trimmed = body.trim()
+    return runCatching {
+        if (trimmed.startsWith("[")) {
+            JSONArray(trimmed)
+        } else {
+            JSONObject(trimmed).optJSONArray("items") ?: JSONArray()
+        }
+    }.getOrElse { JSONArray() }
+}
+
+private fun JSONObject.startedAtInstant(): Instant? {
+    val startedAt =
+        optString("startedAt")
+            .ifBlank { optString("started_at") }
+            .ifBlank { optString("startTime") }
+    return startedAt.takeIf(String::isNotBlank)?.let { value ->
+        runCatching { Instant.parse(value) }.getOrNull()
+    }
+}
+
+private fun Context.readLastSeenHandoverAt(context: SearchMapSessionContext): Instant? {
+    val key = context.handoverSeenKey() ?: return null
+    val value =
+        getSharedPreferences(HANDOVER_PROMPT_PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(key, null)
+            ?: return null
+    return runCatching { Instant.parse(value) }.getOrNull()
+}
+
+private fun Context.writeLastSeenHandoverAt(context: SearchMapSessionContext, seenAt: Instant) {
+    val key = context.handoverSeenKey() ?: return
+    getSharedPreferences(HANDOVER_PROMPT_PREFS_NAME, Context.MODE_PRIVATE)
+        .edit()
+        .putString(key, seenAt.toString())
+        .apply()
+}
+
+private fun SearchMapSessionContext.handoverSeenKey(): String? {
+    val incidentId = incidentId?.takeIf(String::isNotBlank) ?: return null
+    val dutyShiftId = currentDutyShiftId?.takeIf(String::isNotBlank) ?: return null
+    val policePhoneId = policePhoneId?.takeIf(String::isNotBlank) ?: return null
+    val opId = currentOpId?.takeIf(String::isNotBlank) ?: "op-unknown"
+    return listOf("last_seen_handover_at", incidentId, opId, dutyShiftId, policePhoneId)
+        .joinToString(separator = ":")
+}
 
 private fun IncidentContext?.toMarkerDetailSessionContext(
     policePhoneContext: PolicePhoneContext?,

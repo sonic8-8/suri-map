@@ -255,9 +255,15 @@ data class SearchMapUiState(
                 }
                 add("인수인계")
                 add("마커 생성")
+            } else if (
+                lifecycleStatus == SearchLifecycleStatus.OpRequired ||
+                lifecycleStatus == SearchLifecycleStatus.OpTransition
+            ) {
+                add(primaryActionLabel)
             }
             if (showHandoverPrompt) {
                 add("이전 근무 기록 있음")
+                add("확인")
             }
             markerFocusLabel?.let(::add)
             incidentAlert?.visibleText()?.forEach(::add)
