@@ -53,6 +53,7 @@ public abstract class PostGisIntegrationTestSupport {
 
   @BeforeEach
   void cleanS2Tables() {
-    jdbcTemplate.execute("TRUNCATE TABLE search_area_assignment, search_area_history, search_area");
+    jdbcTemplate.execute(
+        "TRUNCATE TABLE search_area_boundary_alert, search_area_assignment, search_area_history, search_area");
   }
 }

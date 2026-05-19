@@ -25,7 +25,8 @@
 │     ├─ duty_shift                   [OP 하위 근무 구간, incident_assignment/police_phone 참조]
 │     ├─ search_area                  [OP 하위 수색 구역, 하위 구역 자기참조 가능]
 │     │  ├─ search_area_assignment    [search_area-account 중간 테이블]
-│     │  └─ search_area_history       [search_area 변경 이력]
+│     │  ├─ search_area_history       [search_area 변경 이력]
+│     │  └─ search_area_boundary_alert [담당 TEAM 구역 경계 확인 이벤트]
 │     ├─ search_path                  [duty_shift 하위 수색 경로]
 │     │  ├─ search_path_segment       [search_path 하위 경로 구간]
 │     │  ├─ search_path_excluded_point [품질 저하로 경로 도형에서 제외된 GPS point]
@@ -679,6 +680,41 @@ Android Room 로컬 엔티티
 `fcm_token`은 Android 폴리폰에 푸시를 보내기 위한 토큰이다. 웹 상황판은 FCM이 아니라 SSE를 사용한다.
 
 ### 알림
+
+#### search_area_boundary_alert
+
+**PRD 근거**
+
+- PRD §7.2 FR-36 `담당 구역 경계 확인`
+- PRD §5.1 시나리오 5 `수색 경로·PolicePhone GPS 경로`
+
+**연관 관계**
+
+- 하나의 `incident`는 여러 개의 `search_area_boundary_alert`를 가진다. (1:N)
+- 하나의 `operational_period`는 여러 개의 `search_area_boundary_alert`를 가진다. (1:N)
+- 하나의 `search_area`는 여러 개의 `search_area_boundary_alert`를 가진다. (1:N)
+- 하나의 `police_phone`은 여러 개의 `search_area_boundary_alert`를 남길 수 있다. (1:N)
+- 하나의 `search_path`는 0개 이상의 `search_area_boundary_alert`와 연결될 수 있다. (1:N)
+
+**주요 컬럼**
+
+- `id`: 담당 구역 경계 확인 이벤트 식별자
+- `incident_id`: 이벤트가 속한 사건
+- `operational_period_id`: 이벤트가 발생한 OP
+- `search_area_id`: 기준이 된 TEAM 수색구역
+- `police_phone_id`: 위치를 수집한 폴리폰
+- `search_path_id`: 수색 중인 경로. 경로 기록 전/후 이벤트는 비어 있을 수 있다
+- `alert_type`: `OUTSIDE_ASSIGNED_AREA`, `REENTERED_ASSIGNED_AREA`
+- `status`: 이벤트 저장 상태
+- `location`: GPS 기준 현재 위치
+- `client_ts`: 단말 수집 시각
+- `server_received_at`: 서버 수신 시각
+- `version`: 이벤트 버전
+- `created_at`: 생성 시각
+
+**설명**
+
+`search_area_boundary_alert`는 현장 단말이 담당 TEAM 구역 경계 밖 위치로 표시됐다는 사실을 운영 참고용으로 남기는 이벤트다. 이 데이터는 징계성 위반 판단이나 다음 수색 구역 추천이 아니라, 현장 앱의 중립적인 경계 확인 안내와 FCM data message 재전파를 위한 기준이다.
 
 #### marker_notification
 

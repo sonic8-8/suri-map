@@ -11,6 +11,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
@@ -47,6 +48,7 @@ import com.surimap.core.fcm.FcmTokenProvider
 import com.surimap.core.fcm.FirebaseMessagingTokenProvider
 import com.surimap.core.fcm.IncidentAssignmentRefreshSignal
 import com.surimap.core.fcm.NoFcmTokenProvider
+import com.surimap.core.fcm.SearchAreaBoundaryAlertNotification
 import com.surimap.core.fcm.SharedPreferencesFcmRegistrationStateStore
 import com.surimap.core.incident.IncidentReadRepository
 import com.surimap.core.location.AndroidLocationUpdates
@@ -141,11 +143,16 @@ import com.surimap.feature.outbox.ui.BlockedOutboxScreen
 import com.surimap.feature.outbox.ui.BlockedOutboxUiState
 import com.surimap.feature.search.data.SearchMapSessionContext
 import com.surimap.feature.search.data.SearchMapStateLoader
+import com.surimap.feature.search.data.SearchAreaBoundaryAlertLocalRecorder
 import com.surimap.feature.search.data.SearchPathGpsBatchRecorder
 import com.surimap.feature.search.data.SearchPathLocalRecorder
 import com.surimap.feature.search.data.SearchPathWriteContext
 import com.surimap.feature.search.data.SearchPathWriteResult
 import com.surimap.feature.search.data.SearchRecordingSessionState
+import com.surimap.feature.search.domain.AssignedSearchAreaBoundary
+import com.surimap.feature.search.domain.SearchAreaBoundaryFix
+import com.surimap.feature.search.domain.SearchAreaBoundaryMonitor
+import com.surimap.feature.search.domain.SearchAreaBoundarySignal
 import com.surimap.feature.search.ui.SearchLayerKind
 import com.surimap.feature.search.ui.SearchLifecycleStatus
 import com.surimap.feature.search.ui.SearchMapLayerUiState
@@ -820,6 +827,13 @@ private fun SearchMapRoute(
     val gpsBatchRecorder = remember(searchPathRecorder) {
         SearchPathGpsBatchRecorder(searchPathRecorder)
     }
+    val boundaryAlertRecorder = remember(syncClient, clockSyncState) {
+        SearchAreaBoundaryAlertLocalRecorder(
+            syncClient = syncClient,
+            clockOffsetMs = clockSyncState::clockOffsetMs,
+            clockSyncedAt = clockSyncState::clockSyncedAt
+        )
+    }
     val locationUpdates = remember(context) {
         AndroidLocationUpdates(context)
     }
@@ -936,6 +950,7 @@ private fun SearchMapRoute(
     var bottomPanelExpanded by remember { mutableStateOf(false) }
     var mapOverlaysVisible by remember { mutableStateOf(true) }
     var latestLocationFix by remember { mutableStateOf<GpsLocationFix?>(null) }
+    val boundaryMonitor = remember { SearchAreaBoundaryMonitor() }
     var markerSheetOpen by remember { mutableStateOf(false) }
     var markerSheetState by remember { mutableStateOf(MarkerCreateSheetUiState.default()) }
     var createPhotoUriById by remember { mutableStateOf<Map<String, Uri>>(emptyMap()) }
@@ -1083,6 +1098,7 @@ private fun SearchMapRoute(
             bottomPanelExpanded = bottomPanelExpanded,
             mapOverlaysVisible = mapOverlaysVisible
         ).withCurrentLocationViewport(latestLocationFix)
+    val currentAssignedBoundaries by rememberUpdatedState(displayedSearchMapState.assignedTeamSearchAreaBoundaries())
 
     LaunchedEffect(displayedLifecycle, activeSearchPathId, serverActiveSearchPathStartedAtMs) {
         if (displayedLifecycle == SearchLifecycleStatus.Active && activeSearchPathId != null) {
@@ -1115,6 +1131,37 @@ private fun SearchMapRoute(
                     latestLocationFix = fix
                     if (currentPendingCurrentLocationCenter) {
                         centerMapOnCurrentLocation(fix)
+                    }
+                    when (
+                        val signal = boundaryMonitor.evaluate(
+                            boundaries = currentAssignedBoundaries,
+                            fix = SearchAreaBoundaryFix(lon = fix.lon, lat = fix.lat),
+                            nowMs = System.currentTimeMillis()
+                        )
+                    ) {
+                        is SearchAreaBoundarySignal.Exited -> {
+                            SearchAreaBoundaryAlertNotification.showLocalExit(
+                                context,
+                                signal.boundary.label,
+                                signal.boundary.searchAreaId
+                            )
+                            Toast.makeText(
+                                context,
+                                "GPS 기준 현재 위치가 ${signal.boundary.label} 경계 밖으로 표시됩니다.",
+                                Toast.LENGTH_LONG
+                            ).show()
+                            coroutineScope.launch {
+                                boundaryAlertRecorder.outsideAssignedArea(
+                                    context = sessionContext.toSearchPathWriteContext(),
+                                    boundary = signal.boundary,
+                                    searchPathId = activeSearchPathId,
+                                    fix = fix
+                                )
+                            }
+                        }
+
+                        is SearchAreaBoundarySignal.Reentered,
+                        null -> Unit
                     }
                     coroutineScope.launch {
                         gpsBatchRecorder.recordFix(
@@ -2212,6 +2259,17 @@ internal fun SearchMapUiState.centerOnCurrentLocation(fix: GpsLocationFix): Sear
         viewportBounds = fix.toSearchMapViewportBounds(),
         focusedMarkerId = null
     )
+
+private fun SearchMapUiState.assignedTeamSearchAreaBoundaries(): List<AssignedSearchAreaBoundary> =
+    layers
+        .filter { layer -> layer.kind == SearchLayerKind.Team && !layer.geoJson.isNullOrBlank() }
+        .map { layer ->
+            AssignedSearchAreaBoundary(
+                searchAreaId = layer.overlayId.orEmpty(),
+                label = layer.label.ifBlank { "담당 구역" },
+                geoJson = layer.geoJson.orEmpty()
+            )
+        }
 
 private fun GpsLocationFix.toSearchMapViewportBounds(): SearchMapViewportBounds {
     val delta = 0.003

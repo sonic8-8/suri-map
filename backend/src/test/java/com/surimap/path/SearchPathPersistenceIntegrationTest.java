@@ -60,7 +60,7 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
   void cleanAndSeedPathContext() {
     jdbcTemplate.execute("TRUNCATE TABLE idempotency_record");
     jdbcTemplate.execute(
-        "TRUNCATE TABLE search_path_lifecycle_event, search_path_excluded_point, search_path_segment, search_path");
+        "TRUNCATE TABLE search_area_boundary_alert, search_path_lifecycle_event, search_path_excluded_point, search_path_segment, search_path");
     jdbcTemplate.update("DELETE FROM duty_shift WHERE id = ?::uuid", DUTY_SHIFT_ID.toString());
     jdbcTemplate.update("DELETE FROM operational_period WHERE id = ?::uuid", OP_ID.toString());
     jdbcTemplate.update(
