@@ -6,8 +6,10 @@ import com.mock112.domain.MockAssignment;
 import com.mock112.domain.MockIncident;
 import com.mock112.domain.MockMissingPerson;
 import com.mock112.domain.MockSeedMarker;
+import com.mock112.seed.SeedDataLoader;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -70,6 +72,35 @@ class JdbcIncidentStoreTest {
         assertThat(found.getAssignments())
                 .extracting(MockAssignment::getExternalAssignmentKey)
                 .containsExactly("assign-9902-01", "assign-9902-02");
+    }
+
+    @Test
+    @DisplayName("인계·지원 seed 배정은 대상 sourceIncidentId별 externalAssignmentKey로 저장된다")
+    void seedFollowUpAssignmentsAreScopedToTargetSourceIncidentId() {
+        SeedDataLoader loader = new SeedDataLoader();
+        MockIncident canonical = loader.loadPrecinctFirstScenario(store);
+        loader.loadHandoverAssignments(store, canonical.getSourceIncidentId());
+        loader.loadSupportAssignments(store, canonical.getSourceIncidentId());
+
+        String sourceIncidentId = "00000000-0000-0000-0000-000000009904";
+        MockIncident dynamicIncident = newIncident(sourceIncidentId);
+        dynamicIncident.setAssignments(List.of());
+        dynamicIncident.setSeedMarkers(List.of());
+        store.save(dynamicIncident);
+
+        List<MockAssignment> handover = loader.loadHandoverAssignments(store, sourceIncidentId);
+        List<MockAssignment> support = loader.loadSupportAssignments(store, sourceIncidentId);
+
+        assertThat(handover).hasSize(2);
+        assertThat(support).hasSize(3);
+        assertThat(store.findById(sourceIncidentId).orElseThrow().getAssignments())
+                .extracting(MockAssignment::getExternalAssignmentKey)
+                .containsExactlyInAnyOrder(
+                        sourceIncidentId + ":cmd-alpha",
+                        sourceIncidentId + ":team-alpha",
+                        sourceIncidentId + ":support-cmd",
+                        sourceIncidentId + ":support-car",
+                        sourceIncidentId + ":support-team");
     }
 
     @Test
