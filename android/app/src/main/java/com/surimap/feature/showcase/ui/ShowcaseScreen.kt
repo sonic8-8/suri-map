@@ -529,7 +529,7 @@ private fun showcaseState(): SearchMapUiState =
         dutyShiftLabel = "근무조 · 14:00-18:00",
         assignmentLabel = "담당: 기동대 1부대 A팀",
         elapsedLabel = "04:21",
-        movementSummary = "도보 1.2 km · GPS 5초 수집 · 전송 10초",
+        movementSummary = "도보 1.2 km",
         layers =
         listOf(
             SearchMapLayerUiState("전체 수색 구역", SearchLayerKind.Overall, overlayId = "overall"),
@@ -568,7 +568,7 @@ private fun SearchMapSyncStatus.toChipVariant(): PoliChipVariant =
 
 private fun SearchLifecycleStatus.showcaseLabel(): String =
     when (this) {
-        SearchLifecycleStatus.Active -> "수색 기록 중"
+        SearchLifecycleStatus.Active -> "현장 기록"
         SearchLifecycleStatus.Paused -> "수색 일시정지"
         SearchLifecycleStatus.Stopped -> "수색 종료"
         SearchLifecycleStatus.OpRequired -> "OP 확인 필요"

@@ -36,7 +36,7 @@ class AndroidUiScenarioCoverageTest {
         val activeMap = SearchMapUiState.active()
         assertTrue(activeMap.canWritePath)
         assertTrue(activeMap.canCreateMarker)
-        assertTrue(activeMap.visibleText().contains("GPS 5초 수집 · 서버 전송 10초 batch 기준"))
+        assertFalse(activeMap.visibleText().any { it.contains("GPS 5초") || it.contains("수색 기록 중") })
 
         val offlineMap = SearchMapUiState.offline(unsentCount = 4, oldestPendingMinutes = 15)
         assertEquals("미전송 4 · 15분", offlineMap.syncLabel)

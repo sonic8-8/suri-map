@@ -957,7 +957,6 @@ private fun SearchMapRoute(
     }
     var bottomPanelExpanded by remember { mutableStateOf(false) }
     var topHeaderExpanded by remember { mutableStateOf(false) }
-    var mapOverlaysVisible by remember { mutableStateOf(true) }
     var latestLocationFix by remember { mutableStateOf<GpsLocationFix?>(null) }
     val boundaryMonitor = remember(
         sessionContext.incidentId,
@@ -1109,8 +1108,7 @@ private fun SearchMapRoute(
             lifecycleStatus = displayedLifecycle,
             elapsedLabel = recordingSession.elapsedLabel(elapsedTickerNowMs),
             topHeaderExpanded = topHeaderExpanded,
-            bottomPanelExpanded = bottomPanelExpanded,
-            mapOverlaysVisible = mapOverlaysVisible
+            bottomPanelExpanded = bottomPanelExpanded
         ).withCurrentLocationViewport(latestLocationFix)
     val currentAssignedBoundaries by rememberUpdatedState(displayedSearchMapState.assignedTeamSearchAreaBoundaries())
 
@@ -1319,8 +1317,7 @@ private fun SearchMapRoute(
                 searchMapState = searchMapState.centerOnSearchLayer(kind, overlayId)
             },
             onToggleHeaderPanel = { topHeaderExpanded = !topHeaderExpanded },
-            onToggleBottomPanel = { bottomPanelExpanded = !bottomPanelExpanded },
-            onToggleMapOverlays = { mapOverlaysVisible = !mapOverlaysVisible }
+            onToggleBottomPanel = { bottomPanelExpanded = !bottomPanelExpanded }
         )
         if (markerSheetOpen) {
             MarkerCreateBottomSheet(
