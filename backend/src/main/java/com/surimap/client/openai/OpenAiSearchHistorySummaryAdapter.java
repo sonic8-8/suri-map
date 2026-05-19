@@ -51,7 +51,8 @@ public class OpenAiSearchHistorySummaryAdapter implements SearchHistorySummaryPo
           "photoobjectkey",
           "uploadurl");
   private static final Pattern URL_PATTERN = Pattern.compile("https?://\\S+");
-  private static final Pattern SENTENCE_TERMINATOR_PATTERN = Pattern.compile("[.!?。！？]+");
+  private static final Pattern SENTENCE_TERMINATOR_PATTERN =
+      Pattern.compile("[.!?。！？]+(?:[\"')\\]]+)?(?=\\s|$)");
   private static final Pattern UUID_PATTERN =
       Pattern.compile(
           "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
