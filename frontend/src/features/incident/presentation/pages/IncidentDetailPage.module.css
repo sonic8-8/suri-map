@@ -157,7 +157,7 @@
 
 .contentGrid {
   display: grid;
-  grid-template-columns: minmax(26rem, 0.92fr) minmax(32rem, 1.12fr) minmax(25rem, 0.88fr);
+  grid-template-columns: minmax(28rem, 1fr) minmax(36rem, 1.2fr);
   gap: 1rem;
   max-width: 1880px;
   margin: 0 auto;
@@ -312,6 +312,45 @@
   overflow-wrap: anywhere;
 }
 
+.additionalNotice {
+  display: grid;
+  gap: 0.62rem;
+  margin-top: 1rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid #d8e3ea;
+  border-radius: 0.9rem;
+  background: rgba(241, 247, 251, 0.86);
+}
+
+.additionalNoticeHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: #17365d;
+}
+
+.additionalNoticeHeader h3 {
+  margin: 0;
+  color: #0f2238;
+  font-size: 1rem;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.additionalNotice p {
+  margin: 0;
+  color: #334155;
+  font-size: 0.98rem;
+  font-weight: 750;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.additionalNoticeEmpty {
+  color: #64748b !important;
+}
+
 .badge {
   display: inline-flex;
   align-items: center;
@@ -395,7 +434,7 @@
 }
 
 .assignmentPanel {
-  grid-column: span 1;
+  grid-column: 1 / -1;
 }
 
 .assignmentTable {
@@ -446,8 +485,83 @@
   white-space: nowrap;
 }
 
+.assignmentPagination {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.8rem;
+  padding: 0.75rem 0.9rem 0;
+}
+
+.assignmentPaginationInfo {
+  justify-self: start;
+  color: #526579;
+  font-size: 0.94rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.assignmentPaginationControls {
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.28rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.assignmentPaginationButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-width: 2.25rem;
+  min-height: 2.25rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid #d8e3ea;
+  border-radius: 0.58rem;
+  color: #17365d;
+  background: #f8fbfd;
+  font-size: 0.92rem;
+  font-weight: 850;
+  line-height: 1;
+  transition:
+    border-color 140ms ease,
+    background 140ms ease,
+    color 140ms ease,
+    transform 140ms ease;
+}
+
+.assignmentPaginationButton:hover:not(:disabled) {
+  border-color: #93c5fd;
+  background: #eff6ff;
+  color: #0f2238;
+  transform: translateY(-1px);
+}
+
+.assignmentPaginationButtonActive,
+.assignmentPaginationButtonActive:hover:not(:disabled) {
+  border-color: #17365d;
+  background: #17365d;
+  color: #ffffff;
+  transform: none;
+}
+
+.assignmentPaginationButton:focus-visible {
+  outline: 2px solid #38bdf8;
+  outline-offset: 2px;
+}
+
+.assignmentPaginationButton:disabled {
+  cursor: not-allowed;
+  color: #94a3b8;
+  background: #f1f5f9;
+  opacity: 0.72;
+}
+
 .summaryPanel {
-  grid-column: 1 / span 2;
+  grid-column: 1 / -1;
 }
 
 .summaryMetrics {
@@ -577,5 +691,19 @@
   .summaryMetric:last-child {
     border-right: 0;
     border-bottom: 1px solid #d8e3ea;
+  }
+
+  .assignmentPagination {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .assignmentPaginationControls {
+    grid-column: 1;
+    justify-content: center;
+  }
+
+  .assignmentPaginationInfo {
+    justify-self: center;
   }
 }

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   CalendarClock,
   CheckCircle2,
@@ -18,6 +18,10 @@ import {
   type IncidentDetailResponse,
   type IncidentMissingPersonSummary,
 } from '../../api/incidentReadApi';
+import {
+  useOperationalPeriodListQuery,
+  type OperationalPeriodListResponse,
+} from '../../../operationalPeriod/api/operationalPeriodApi';
 import type { LoginAccount } from '../../../login/presentation/types/login';
 import {
   formatIncidentContextEyebrow,
@@ -27,6 +31,9 @@ import {
 } from '../../../../shared/ui';
 import { useBrowserBackToIncidentList } from '../../../../shared/hooks/useBrowserBackToIncidentList';
 import styles from './IncidentDetailPage.module.css';
+
+// TODO: Replace client-side slicing with an incident assignment paging API.
+const ASSIGNMENT_PAGE_SIZE = 5;
 
 type IncidentDetailPageProps = {
   incidentId: string;
@@ -59,11 +66,17 @@ export function IncidentDetailPage({
 }: IncidentDetailPageProps) {
   useBrowserBackToIncidentList(onBrowserBackToIncidentList);
   const detailQuery = useIncidentDetailQuery(incidentId);
+  const operationalPeriodQuery = useOperationalPeriodListQuery(incidentId);
   const detail = detailQuery.data ?? null;
   const currentAccountLabel = currentUserAccount.name;
   const timestampLabel = formatKstDateTime(new Date());
   const incidentContext = useMemo(() => createIncidentContext(detail), [detail]);
   const isClosed = detail?.status === 'CLOSED';
+  const searchRoundLabel = formatSearchRound(
+    operationalPeriodQuery.data,
+    operationalPeriodQuery.isLoading,
+    operationalPeriodQuery.isError,
+  );
 
   return (
     <main className={styles.page}>
@@ -89,13 +102,14 @@ export function IncidentDetailPage({
       <div className={styles.scrollBody}>
         <section className={styles.hero} aria-label="사건 상세 요약">
           <div className={styles.heroCopy}>
+            {/* TODO: 백엔드 코드에 사건 유형 필드와 API 응답을 추가한 뒤 하드코딩 라벨을 해당 값으로 교체한다. */}
             <span className={styles.kicker}>▣ 실종 사건</span>
             <h1>{createPageTitle(detail)}</h1>
             <p>지휘 판단에 필요한 사건 상태, 실종자 정보, 참여 계정을 확인합니다.</p>
           </div>
           <div className={styles.heroStatusGrid}>
             <HeroMetric label="진행 상태" value={isClosed ? '종료' : '진행 중'} tone={isClosed ? 'closed' : 'active'} />
-            <HeroMetric label="정보 버전" value={detail ? formatIncidentContextEyebrow(detail.version) : '확인 중'} />
+            <HeroMetric label="수색 차수" value={searchRoundLabel} />
           </div>
         </section>
 
@@ -120,7 +134,7 @@ export function IncidentDetailPage({
               <SectionTitle icon="▤" title="사건 정보" description="사건 진행 상태와 주요 시각입니다." />
               <dl className={styles.definitionList}>
                 <DetailRow label="진행 상태" value={detail.status === 'CLOSED' ? '종료' : '진행 중'} tone={detail.status === 'CLOSED' ? 'closed' : 'active'} />
-                <DetailRow label="정보 버전" value={formatIncidentContextEyebrow(detail.version)} />
+                <DetailRow label="수색 차수" value={searchRoundLabel} />
                 {'openedAt' in detail ? <DetailRow label="접수 시각" value={formatNullableDate(detail.openedAt)} /> : null}
                 {'closedAt' in detail ? <DetailRow label="종료 시각" value={formatNullableDate(detail.closedAt)} /> : null}
                 {'title' in detail ? <DetailRow label="사건명" value={detail.title} /> : null}
@@ -129,6 +143,7 @@ export function IncidentDetailPage({
                 ) : null}
                 {'assignments' in detail ? <DetailRow label="참여 계정" value={`${detail.assignments.length}개`} /> : null}
               </dl>
+              <AdditionalNotice title="특이 사항" value={readAdditionalNotice(detail)} />
             </section>
 
             {'missingPerson' in detail ? (
@@ -137,7 +152,7 @@ export function IncidentDetailPage({
               <TerminalPanel detail={detail} />
             )}
 
-            {'assignments' in detail ? <AssignmentPanel assignments={detail.assignments} /> : null}
+            {'assignments' in detail ? <AssignmentPanel incidentId={detail.incidentId} assignments={detail.assignments} /> : null}
 
             <IncidentSummaryPanel detail={detail} nowLabel={timestampLabel} />
           </div>
@@ -189,6 +204,7 @@ function MissingPersonPanel({ detail }: { detail: Extract<IncidentDetailResponse
       ) : (
         <div className={styles.emptyState}>실종자 요약 정보가 없습니다.</div>
       )}
+      <AdditionalNotice title="특이 사항" value={readAdditionalNotice(missingPerson)} />
     </section>
   );
 }
@@ -207,29 +223,104 @@ function TerminalPanel({ detail }: { detail: Extract<IncidentDetailResponse, { s
   );
 }
 
-function AssignmentPanel({ assignments }: { assignments: IncidentAssignmentSummary[] }) {
+function AssignmentPanel({ incidentId, assignments }: { incidentId: string; assignments: IncidentAssignmentSummary[] }) {
+  const [assignmentPage, setAssignmentPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(assignments.length / ASSIGNMENT_PAGE_SIZE));
+  const currentPage = Math.min(assignmentPage, totalPages);
+  const pageStart = (currentPage - 1) * ASSIGNMENT_PAGE_SIZE;
+  const visibleAssignments = assignments.slice(pageStart, pageStart + ASSIGNMENT_PAGE_SIZE);
+  const hasPagination = assignments.length > ASSIGNMENT_PAGE_SIZE;
+
+  useEffect(() => {
+    setAssignmentPage(1);
+  }, [incidentId, assignments.length]);
+
   return (
     <section className={`${styles.panel} ${styles.assignmentPanel}`} aria-label="참여 계정">
       <SectionTitle icon="♚" title="참여 계정" description="사건에 참여 중인 계정과 역할입니다." />
       {assignments.length > 0 ? (
-        <div className={styles.assignmentTable}>
-          <div className={styles.assignmentHeader}>
-            <span>지구대 / 기관</span>
-            <span>역할</span>
-            <span>계정 구분</span>
-            <span>소속</span>
-            <span>배정 시각</span>
+        <>
+          <div className={styles.assignmentTable}>
+            <div className={styles.assignmentHeader}>
+              <span>지구대 / 기관</span>
+              <span>역할</span>
+              <span>계정 구분</span>
+              <span>소속</span>
+              <span>배정 시각</span>
+            </div>
+            {visibleAssignments.map((assignment) => (
+              <article key={`${assignment.accountId}-${assignment.incidentRole}`} className={styles.assignmentRow}>
+                <strong>{formatAssignmentDisplayName(assignment)}</strong>
+                <span><Badge>{formatIncidentRole(assignment.incidentRole)}</Badge></span>
+                <span>{formatAccountType(assignment.accountType)}</span>
+                <span>{formatOrganizationType(assignment.organizationType)}</span>
+                <span>{formatNullableDate(assignment.assignedAt)}</span>
+              </article>
+            ))}
           </div>
-          {assignments.map((assignment) => (
-            <article key={`${assignment.accountId}-${assignment.incidentRole}`} className={styles.assignmentRow}>
-              <strong>{formatAssignmentDisplayName(assignment)}</strong>
-              <span><Badge>{formatIncidentRole(assignment.incidentRole)}</Badge></span>
-              <span>{formatAccountType(assignment.accountType)}</span>
-              <span>{formatOrganizationType(assignment.organizationType)}</span>
-              <span>{formatNullableDate(assignment.assignedAt)}</span>
-            </article>
-          ))}
-        </div>
+          {hasPagination ? (
+            <div className={styles.assignmentPagination}>
+              <div className={styles.assignmentPaginationControls}>
+                <button
+                  type="button"
+                  className={styles.assignmentPaginationButton}
+                  onClick={() => setAssignmentPage(1)}
+                  disabled={currentPage <= 1}
+                  aria-label="첫 페이지"
+                >
+                  {'<<'}
+                </button>
+                <button
+                  type="button"
+                  className={styles.assignmentPaginationButton}
+                  onClick={() => setAssignmentPage((current) => Math.max(1, current - 1))}
+                  disabled={currentPage <= 1}
+                  aria-label="이전 페이지"
+                >
+                  {'<'}
+                </button>
+                {Array.from({ length: totalPages }, (_, index) => {
+                  const pageNumber = index + 1;
+
+                  return (
+                    <button
+                      key={pageNumber}
+                      type="button"
+                      className={`${styles.assignmentPaginationButton} ${
+                        pageNumber === currentPage ? styles.assignmentPaginationButtonActive : ''
+                      }`}
+                      onClick={() => setAssignmentPage(pageNumber)}
+                      aria-current={pageNumber === currentPage ? 'page' : undefined}
+                    >
+                      {pageNumber}
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  className={styles.assignmentPaginationButton}
+                  onClick={() => setAssignmentPage((current) => Math.min(totalPages, current + 1))}
+                  disabled={currentPage >= totalPages}
+                  aria-label="다음 페이지"
+                >
+                  {'>'}
+                </button>
+                <button
+                  type="button"
+                  className={styles.assignmentPaginationButton}
+                  onClick={() => setAssignmentPage(totalPages)}
+                  disabled={currentPage >= totalPages}
+                  aria-label="마지막 페이지"
+                >
+                  {'>>'}
+                </button>
+              </div>
+              <span className={styles.assignmentPaginationInfo}>
+                {pageStart + 1}-{Math.min(pageStart + ASSIGNMENT_PAGE_SIZE, assignments.length)} / {assignments.length}
+              </span>
+            </div>
+          ) : null}
+        </>
       ) : (
         <div className={styles.emptyState}>참여 계정이 없습니다.</div>
       )}
@@ -285,6 +376,18 @@ function SectionTitle({ icon, title, description }: { icon: string; title: strin
   );
 }
 
+function AdditionalNotice({ title, value }: { title: string; value: string | null }) {
+  return (
+    <section className={styles.additionalNotice} aria-label={title}>
+      <div className={styles.additionalNoticeHeader}>
+        <ClipboardList size={18} strokeWidth={2.2} aria-hidden="true" />
+        <h3>{title}</h3>
+      </div>
+      <p className={value ? undefined : styles.additionalNoticeEmpty}>{value ?? '등록된 추가 전달 사항이 없습니다.'}</p>
+    </section>
+  );
+}
+
 function getSectionIcon(icon: string, title: string): LucideIcon {
   switch (icon) {
     case '\u2659':
@@ -316,6 +419,28 @@ function getSectionIcon(icon: string, title: string): LucideIcon {
   if (icon === 'â™š' || title.includes('ì°¸ì—¬')) return UsersRound;
   if (icon === 'â–¥' || title.includes('ìš”ì•½')) return ClipboardList;
   return FileText;
+}
+
+function readAdditionalNotice(source: unknown) {
+  if (!source || typeof source !== 'object') return null;
+  const record = source as Record<string, unknown>;
+  const keys = [
+    'additionalNotice',
+    'additionalNote',
+    'additionalNotes',
+    'additionalInformation',
+    'additionalMessage',
+    'notice',
+    'memo',
+    'remark',
+  ];
+
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+
+  return null;
 }
 
 function getSummaryMetricIcon(icon: string, label: string): LucideIcon {
@@ -410,6 +535,25 @@ function createPageTitle(detail: IncidentDetailResponse | null) {
   if (!detail) return '사건 정보를 불러오는 중';
   if (detail.status === 'CLOSED') return '종료된 실종 사건';
   return detail.title || `${detail.missingPerson?.displayName ?? '실종자'} 실종 사건`;
+}
+
+function formatSearchRound(
+  response: OperationalPeriodListResponse | undefined,
+  isLoading: boolean,
+  isError: boolean,
+) {
+  if (isLoading) return '확인 중';
+  if (isError) return '확인 실패';
+
+  const periods = response?.items ?? [];
+  if (periods.length === 0) return '미지정';
+
+  const currentPeriod =
+    periods.find((period) => period.id === response?.currentOpId) ??
+    periods.find((period) => period.status === 'ACTIVE') ??
+    [...periods].sort((left, right) => right.sequenceNumber - left.sequenceNumber)[0];
+
+  return currentPeriod ? `${currentPeriod.sequenceNumber}차` : '미지정';
 }
 
 function createLastSeenLabel(lastSeenAt: string | undefined, lastSeenLocationText: string | undefined) {
