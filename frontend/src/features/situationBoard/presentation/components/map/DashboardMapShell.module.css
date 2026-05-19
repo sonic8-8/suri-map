@@ -1,4 +1,4 @@
-/* 지도 캔버스와 지도 위 오버레이 컨트롤을 담는 최상위 래퍼. */
+/* 지도 캔버스와 컨트롤을 담는 최상위 섹션 */
 .layout {
   position: relative;
   display: block;
@@ -8,7 +8,7 @@
   background: #07111f;
 }
 
-/* MapLibre 캔버스, 컨트롤, 범례가 같은 좌표계를 공유하는 기준 컨테이너. */
+/* MapLibre 캔버스 컨트롤이 공유하는 기준 컨테이너 */
 .canvasShell {
   --suri-map-floating-right: 16px;
 
@@ -23,7 +23,7 @@
 }
 
 .handoverCanvasShell {
-  --suri-map-floating-right: 556px;
+  --suri-map-floating-right: calc(var(--handover-right-panel-width, 0px) + 24px);
 
   border-color: transparent;
   border-radius: 0;
@@ -41,38 +41,7 @@
   content: '';
 }
 
-.rightPanelAwareControl {
-  right: calc(500px + 16px);
-}
-
-.rightPanelAwareLegend {
-  right: calc(500px + 16px);
-}
-
-@media (max-width: 1280px) {
-  .handoverCanvasShell {
-    --suri-map-floating-right: 556px;
-  }
-
-  .rightPanelAwareControl,
-  .rightPanelAwareLegend {
-    right: calc(430px + 16px);
-  }
-}
-
-@media (max-width: 980px) {
-  .handoverCanvasShell {
-    --suri-map-floating-right: 16px;
-  }
-
-  .rightPanelAwareControl,
-  .rightPanelAwareLegend {
-    right: 16px;
-  }
-}
-
 @media (max-width: 860px) {
-  /* 좁은 화면에서도 지도 셸이 한 칸 레이아웃을 유지하도록 한다. */
   .layout {
     grid-template-columns: 1fr;
   }

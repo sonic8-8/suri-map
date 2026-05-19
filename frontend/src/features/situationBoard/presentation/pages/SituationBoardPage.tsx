@@ -246,6 +246,7 @@ export function SituationBoardPage({
           activeOperationalPeriodId={shouldHideSituationBoardMapData ? null : boardState.activeOperationalPeriodId}
           incidentId={incidentId}
           isMapExpanded={boardState.isMapExpanded}
+          isHandoverWorkspaceOpen={boardState.isHandoverWorkspaceOpen}
           isTerminalBoard={isClosedTerminalBoard}
           legendItems={boardState.board.legendItems}
           layerVisibility={shouldHideSituationBoardMapData ? HIDDEN_MAP_LAYER_VISIBILITY : boardState.layerVisibility}

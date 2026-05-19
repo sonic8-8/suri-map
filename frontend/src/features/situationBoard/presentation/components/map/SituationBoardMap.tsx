@@ -21,6 +21,7 @@ type SituationBoardMapProps = {
   activeOperationalPeriodId: string | null;
   incidentId: string;
   isMapExpanded: boolean;
+  isHandoverWorkspaceOpen?: boolean;
   isTerminalBoard?: boolean;
   legendItems: LegendItem[];
   layerVisibility: LayerVisibility;
@@ -58,6 +59,7 @@ export function SituationBoardMap({
   activeOperationalPeriodId,
   incidentId,
   isMapExpanded,
+  isHandoverWorkspaceOpen = false,
   isTerminalBoard = false,
   legendItems,
   layerVisibility,
@@ -96,6 +98,7 @@ export function SituationBoardMap({
         activeOperationalPeriodId={activeOperationalPeriodId}
         incidentId={incidentId}
         isMapExpanded={isMapExpanded}
+        isHandoverWorkspaceOpen={isHandoverWorkspaceOpen}
         isTerminalBoard={isTerminalBoard}
         legendItems={legendItems}
         layerVisibility={layerVisibility}

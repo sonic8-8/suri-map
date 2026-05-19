@@ -1,7 +1,64 @@
 import { describe, expect, it } from 'vitest';
-import { createMarkerSymbolSvg, resolveMarkerVisualState } from './boardMarkerLayer';
+import {
+  createMarkerSymbolSvg,
+  getNearestMarkerIdAtPoint,
+  getRenderedMarkerIdAtPoint,
+  resolveMarkerVisualState,
+} from './boardMarkerLayer';
 
 describe('boardMarkerLayer marker visuals', () => {
+  it('reads the rendered marker id from a padded map click hit area', () => {
+    const queryCalls: unknown[] = [];
+    const map = {
+      getLayer: () => true,
+      queryRenderedFeatures: (query: unknown) => {
+        queryCalls.push(query);
+        return [{ properties: { id: 'marker-1' } }];
+      },
+    } as never;
+
+    expect(getRenderedMarkerIdAtPoint(map, [100, 120])).toBe('marker-1');
+    expect(queryCalls[0]).toEqual([
+      [72, 92],
+      [128, 148],
+    ]);
+  });
+
+  it('falls back to the nearest visible marker coordinate when symbol hit testing misses', () => {
+    const map = {
+      project: ([longitude, latitude]: [number, number]) => ({
+        x: longitude * 10,
+        y: latitude * 10,
+      }),
+    } as never;
+
+    expect(
+      getNearestMarkerIdAtPoint(
+        map,
+        [102, 118],
+        [
+          {
+            id: 'marker-near',
+            title: 'near',
+            summary: 'near',
+            occurredAt: '2026-05-19T00:00:00Z',
+            timeLabel: '09:00',
+            coordinates: [10, 12],
+          },
+          {
+            id: 'marker-hidden',
+            title: 'hidden',
+            summary: 'hidden',
+            occurredAt: '2026-05-19T00:00:00Z',
+            timeLabel: '09:00',
+            coordinates: [10.1, 12],
+          },
+        ],
+        ['marker-near'],
+      ),
+    ).toBe('marker-near');
+  });
+
   it('maps selected marker state above hover and base', () => {
     expect(resolveMarkerVisualState('marker-1', 'marker-1', null)).toBe('hover');
     expect(resolveMarkerVisualState('marker-1', 'marker-1', 'marker-1')).toBe('selected');
@@ -16,7 +73,7 @@ describe('boardMarkerLayer marker visuals', () => {
     expect(createMarkerSymbolSvg('SUPPORT_REQUEST', 'base', 'dog')).toContain('#f472b6');
     expect(createMarkerSymbolSvg('SUPPORT_REQUEST', 'base')).toContain('#8b5cf6');
     expect(createMarkerSymbolSvg('NOTE', 'base')).toContain('#3b82f6');
-    expect(createMarkerSymbolSvg('UNKNOWN', 'base')).toContain('#94a3b8');
+    expect(createMarkerSymbolSvg('UNKNOWN', 'base')).toContain('#64748b');
   });
 
   it('adds the cyan selected ring and glow without changing the shell path', () => {
