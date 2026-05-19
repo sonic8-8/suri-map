@@ -5,11 +5,9 @@ import static com.surimap.marker.domain.fixture.MarkerGeometryFixtures.OP1_ID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.surimap.maparea.testdouble.SearchAreaQueryMock;
 import com.surimap.marker.domain.MarkerSource;
 import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.domain.MarkerType;
-import com.surimap.marker.domain.exception.InvalidGeometryException;
 import com.surimap.marker.domain.service.MarkerLocationValidatorImpl;
 import com.surimap.marker.domain.service.MarkerOpBindingValidator;
 import com.surimap.marker.dto.MarkerCreateRequest;
@@ -66,7 +64,7 @@ class MarkerCreateServiceTest {
   private final MarkerCreateService markerCreateService =
       new MarkerCreateService(
           markerRepository,
-          new MarkerLocationValidatorImpl(new SearchAreaQueryMock()),
+          new MarkerLocationValidatorImpl(),
           new MarkerOpBindingValidator(incidentId -> Optional.of(OP1_ID)),
           guard,
           eventPublisher,
@@ -235,7 +233,7 @@ class MarkerCreateServiceTest {
       MarkerCreateService service =
           new MarkerCreateService(
               markerRepository,
-              new MarkerLocationValidatorImpl(new SearchAreaQueryMock()),
+              new MarkerLocationValidatorImpl(),
               new MarkerOpBindingValidator(incidentId -> Optional.of(OTHER_OP_ID)),
               guard,
               eventPublisher,
@@ -252,8 +250,8 @@ class MarkerCreateServiceTest {
     }
 
     @Test
-    @DisplayName("overall_search_area 밖 Point는 invalid_geometry이고 row/event를 만들지 않는다")
-    void invalidGeometryRejectedBeforeWrite() {
+    @DisplayName("overall_search_area 밖 Point도 유효한 현장 마커로 저장한다")
+    void outsideOverallSearchAreaPointStillPersistsMarker() {
       MarkerCreateRequest request =
           new MarkerCreateRequest(
               INCIDENT_ID,
@@ -266,13 +264,16 @@ class MarkerCreateServiceTest {
               CLIENT_TS,
               0L);
 
-      assertThatThrownBy(() -> markerCreateService.create(request, context))
-          .isInstanceOf(InvalidGeometryException.class)
-          .extracting("errorCode")
-          .isEqualTo("invalid_geometry");
+      MarkerCreateResult result = markerCreateService.create(request, context);
 
-      assertThat(markerRepository.records()).isEmpty();
-      assertThat(eventPublisher.published()).isEmpty();
+      assertThat(result.response().id()).isEqualTo(MARKER_ID);
+      assertThat(result.response().status()).isEqualTo("ACTIVE");
+      assertThat(markerRepository.records()).hasSize(1);
+      assertThat(markerRepository.records().get(0).getLocation().getX()).isEqualTo(127.2);
+      assertThat(markerRepository.records().get(0).getLocation().getY()).isEqualTo(35.1631);
+      assertThat(eventPublisher.published()).hasSize(1);
+      assertThat(eventPublisher.published().get(0).payload().location().coordinates())
+          .containsExactly(new BigDecimal("127.200000"), new BigDecimal("35.163100"));
     }
   }
 

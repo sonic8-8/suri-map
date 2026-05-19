@@ -1,7 +1,5 @@
 package com.surimap.marker.config;
 
-import com.surimap.maparea.query.SearchAreaQuery;
-import com.surimap.marker.domain.exception.InvalidGeometryException;
 import com.surimap.marker.domain.port.MarkerLocationValidator;
 import com.surimap.marker.domain.port.OperationalPeriodQueryPort;
 import com.surimap.marker.domain.service.MarkerLocationValidatorImpl;
@@ -18,14 +16,8 @@ public class MarkerCreateConfig {
 
   @Bean
   @ConditionalOnMissingBean(MarkerLocationValidator.class)
-  MarkerLocationValidator markerLocationValidator(ObjectProvider<SearchAreaQuery> searchAreaQuery) {
-    SearchAreaQuery query = searchAreaQuery.getIfAvailable();
-    if (query == null) {
-      return (incidentId, location) -> {
-        throw new InvalidGeometryException("SearchAreaQuery unavailable");
-      };
-    }
-    return new MarkerLocationValidatorImpl(query);
+  MarkerLocationValidator markerLocationValidator() {
+    return new MarkerLocationValidatorImpl();
   }
 
   @Bean

@@ -5,7 +5,6 @@ import com.surimap.board.BoardAssemblyRequest;
 import com.surimap.board.BoardDTO;
 import com.surimap.board.BoardSlotRow;
 import com.surimap.board.BoardSourceRow;
-import com.surimap.maparea.testdouble.SearchAreaQueryMock;
 import com.surimap.marker.domain.exception.InvalidGeometryException;
 import com.surimap.marker.domain.fixture.MarkerGeometryFixtures;
 import com.surimap.marker.domain.service.MarkerLocationValidatorImpl;
@@ -235,7 +234,7 @@ public class Sc06MarkerPhotoHarnessRunner {
       harness.markerCreateService.create(
           markerCreateRequest(
               new MarkerGeoJsonPoint(
-                  "Point", List.of(new BigDecimal("127.200000"), new BigDecimal("35.163100")))),
+                  "Point", List.of(new BigDecimal("35.163100"), new BigDecimal("126.913400")))),
           harness.markerContext);
     } catch (InvalidGeometryException exception) {
       error = exception.errorCode();
@@ -253,7 +252,7 @@ public class Sc06MarkerPhotoHarnessRunner {
     int boardRowsAfter = harness.board.rows().size();
 
     return new InvalidGeometryEvidence(
-        new InvalidPointGeometryEvidence("coord-outside-envelope", "[127.200000,35.163100]"),
+        new InvalidPointGeometryEvidence("coord-latlon-swapped", "[35.163100,126.913400]"),
         new RejectionEvidence(
             httpStatus,
             error,
@@ -306,7 +305,7 @@ public class Sc06MarkerPhotoHarnessRunner {
     private final MarkerCreateService markerCreateService =
         new MarkerCreateService(
             markerRepository,
-            new MarkerLocationValidatorImpl(new SearchAreaQueryMock()),
+            new MarkerLocationValidatorImpl(),
             new MarkerOpBindingValidator(currentOp),
             markerGuard,
             markerEvents,
