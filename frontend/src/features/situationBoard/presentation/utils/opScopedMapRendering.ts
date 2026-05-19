@@ -7,8 +7,17 @@ export function filterSituationBoardSearchAreaRowsForMap(
   searchAreaRows: BoardSearchAreaRow[],
   activeOperationalPeriodId: string | null,
 ): BoardSearchAreaRow[] {
-  if (!activeOperationalPeriodId) return [];
-  return searchAreaRows.filter((row) => row.opId === activeOperationalPeriodId);
+  return searchAreaRows.filter((row) => {
+    if (row.areaLevel === 'OVERALL' && row.opId === null) {
+      return true;
+    }
+
+    if (!activeOperationalPeriodId) {
+      return false;
+    }
+
+    return row.opId === activeOperationalPeriodId;
+  });
 }
 
 export function filterSituationBoardMovementPathsForMap(
@@ -51,7 +60,7 @@ function collectOperationalPeriodSequenceRows(board: SituationBoardResponseDto) 
 
   rows.forEach((row) => {
     const opId = readString(row, 'opId') ?? readString(row, 'id');
-    const sequence = readNumber(row, 'sequenceNumber') ?? readNumber(row, 'sequence');
+    const sequence = readNumber(row, 'sequenceNo') ?? readNumber(row, 'sequenceNumber') ?? readNumber(row, 'sequence');
     if (!opId || sequence === null) return;
 
     const currentSequence = sequenceByOpId.get(opId);

@@ -10,17 +10,48 @@ import {
 } from './opScopedMapRendering';
 
 describe('opScopedMapRendering', () => {
-  test('상황판 searchAreas는 현재 활성 OP만 남긴다', () => {
+  test('상황판 searchAreas는 전체 수색구역과 현재 활성 OP 구역을 남긴다', () => {
     expect(
       filterSituationBoardSearchAreaRowsForMap(
         [
+          createSearchAreaRow({
+            id: 'overall-area',
+            opId: null,
+            areaLevel: 'OVERALL',
+          }),
+          createSearchAreaRow({
+            id: 'overall-op-1',
+            opId: OP_1_ID,
+            areaLevel: 'OVERALL',
+          }),
+          createSearchAreaRow({
+            id: 'overall-op-7',
+            opId: OP_7_ID,
+            areaLevel: 'OVERALL',
+          }),
           createSearchAreaRow({ id: 'area-op-1', opId: OP_1_ID }),
           createSearchAreaRow({ id: 'area-op-7', opId: OP_7_ID }),
           createSearchAreaRow({ id: 'area-no-op', opId: null }),
         ],
         OP_7_ID,
       ).map((row) => row.id),
-    ).toEqual(['area-op-7']);
+    ).toEqual(['overall-area', 'overall-op-7', 'area-op-7']);
+  });
+
+  test('활성 OP가 없어도 전체 수색구역은 남긴다', () => {
+    expect(
+      filterSituationBoardSearchAreaRowsForMap(
+        [
+          createSearchAreaRow({
+            id: 'overall-area',
+            opId: null,
+            areaLevel: 'OVERALL',
+          }),
+          createSearchAreaRow({ id: 'area-op-7', opId: OP_7_ID }),
+        ],
+        null,
+      ).map((row) => row.id),
+    ).toEqual(['overall-area']);
   });
 
   test('상황판 routes는 현재 활성 OP만 남긴다', () => {
@@ -46,6 +77,22 @@ describe('opScopedMapRendering', () => {
           createMarker({ id: 'marker-op-7', opId: OP_7_ID }),
           createMarker({ id: 'marker-op-8', opId: OP_8_ID }),
           createMarker({ id: 'marker-no-op', opId: null }),
+        ],
+        board,
+        OP_7_ID,
+      ).map((marker) => marker.id),
+    ).toEqual(['marker-op-1', 'marker-op-7']);
+  });
+
+  test('backend sequenceNo rows still accumulate previous OP markers through active OP', () => {
+    const board = createBoardWithOperationalPeriods(OP_7_ID, 'sequenceNo');
+
+    expect(
+      filterSituationBoardMarkersForMap(
+        [
+          createMarker({ id: 'marker-op-1', opId: OP_1_ID }),
+          createMarker({ id: 'marker-op-7', opId: OP_7_ID }),
+          createMarker({ id: 'marker-op-8', opId: OP_8_ID }),
         ],
         board,
         OP_7_ID,
@@ -110,7 +157,10 @@ function createMarker(overrides: Partial<RecentMarker>): RecentMarker {
   };
 }
 
-function createBoardWithOperationalPeriods(activeOpId: string): SituationBoardResponseDto {
+function createBoardWithOperationalPeriods(
+  activeOpId: string,
+  sequenceField: 'sequenceNumber' | 'sequenceNo' = 'sequenceNumber',
+): SituationBoardResponseDto {
   return {
     incidentId: 'incident-1',
     boardResponseVersion: 1,
@@ -120,9 +170,9 @@ function createBoardWithOperationalPeriods(activeOpId: string): SituationBoardRe
     geometryHash: 'hash',
     slots: {
       op_history: [
-        createOpRow(OP_1_ID, 1),
-        createOpRow(OP_7_ID, 7),
-        createOpRow(OP_8_ID, 8),
+        createOpRow(OP_1_ID, 1, sequenceField),
+        createOpRow(OP_7_ID, 7, sequenceField),
+        createOpRow(OP_8_ID, 8, sequenceField),
       ],
     },
     slotSources: {},
@@ -131,11 +181,11 @@ function createBoardWithOperationalPeriods(activeOpId: string): SituationBoardRe
   };
 }
 
-function createOpRow(opId: string, sequenceNumber: number) {
+function createOpRow(opId: string, sequenceNumber: number, sequenceField: 'sequenceNumber' | 'sequenceNo') {
   return {
     id: opId,
     opId,
-    sequenceNumber,
+    [sequenceField]: sequenceNumber,
   };
 }
 
