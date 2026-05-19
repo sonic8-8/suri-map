@@ -27,6 +27,22 @@ describe('IncidentListPage', () => {
     vi.clearAllMocks();
   });
 
+  test('shows a spinner while the incident list is loading', async () => {
+    const deferred = createDeferredPromise<IncidentListResponse>();
+    vi.mocked(incidentReadApi.list).mockReturnValueOnce(deferred.promise);
+
+    renderIncidentListPage();
+
+    expect(
+      screen.getByRole('status', { name: '사건 목록을 불러오는 중입니다.' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('사건 목록을 불러오는 중입니다.')).not.toBeInTheDocument();
+
+    deferred.resolve(incidentListResponse([]));
+
+    await screen.findByText('진행 중인 운영 사건이 없습니다.');
+  });
+
   test('uses incident detail fields to enrich list cards', async () => {
     vi.mocked(incidentReadApi.list).mockResolvedValueOnce(incidentListResponse([importedIncident()]));
     vi.mocked(incidentReadApi.detail).mockResolvedValueOnce(activeIncidentDetail());
@@ -91,6 +107,18 @@ function currentUserAccount(): LoginAccount {
 
 function incidentListResponse(items: IncidentListResponse['items']): IncidentListResponse {
   return { items };
+}
+
+function createDeferredPromise<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+
+  return { promise, resolve, reject };
 }
 
 function importedIncident(): IncidentListResponse['items'][number] {

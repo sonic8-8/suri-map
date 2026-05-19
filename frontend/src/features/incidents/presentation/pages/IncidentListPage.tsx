@@ -82,10 +82,6 @@ function getListErrorMessage(error: unknown) {
   return '사건 목록을 불러오지 못했습니다.';
 }
 
-function getListErrorHelp(errorMessage: string) {
-  return errorMessage ? '네트워크 상태와 API 응답을 확인한 뒤 다시 시도해 주세요.' : '';
-}
-
 function formatKstDateTime(date: Date) {
   if (Number.isNaN(date.getTime())) return '-';
 
@@ -381,18 +377,33 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
         <div className={styles.contentInner}>
           {visibleIncidents.length === 0 ? (
             <div className={styles.emptyState}>
-              <strong>
-                {isLoadingIncidents
-                  ? '사건 목록을 불러오는 중입니다.'
-                  : listErrorMessage || '진행 중인 운영 사건이 없습니다.'}
-              </strong>
-              <span>
-                {listErrorMessage
-                  ? getListErrorHelp(listErrorMessage)
-                  : incidents.length === 0
-                    ? 'mock 112에서 배정된 사건은 자동으로 반영됩니다.'
-                    : ''}
-              </span>
+              {listErrorMessage ? (
+                <div className={styles.emptyStateErrorBlock}>
+                  <strong className={styles.emptyStateErrorTitle}>사건 목록을 불러오지 못했습니다.</strong>
+                  <span className={styles.emptyStateErrorDescription}>네트워크 확인 후 재시도해주세요.</span>
+                  <div className={styles.emptyStateActions}>
+                    <ActionButton
+                      label="새로고침"
+                      onClick={() => void reloadAssignedIncidents()}
+                      disabled={isLoadingIncidents}
+                    />
+                  </div>
+                </div>
+              ) : isLoadingIncidents ? (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  aria-label="사건 목록을 불러오는 중입니다."
+                  className={styles.loadingState}
+                >
+                  <span className={styles.loadingSpinner} aria-hidden="true" />
+                </div>
+              ) : (
+                <>
+                  <strong>진행 중인 운영 사건이 없습니다.</strong>
+                  <span>{incidents.length === 0 ? 'mock 112에서 배정된 사건은 자동으로 반영됩니다.' : ''}</span>
+                </>
+              )}
             </div>
           ) : (
             <div className={styles.cardGrid}>
