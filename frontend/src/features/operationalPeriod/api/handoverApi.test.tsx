@@ -114,6 +114,8 @@ describe('handover API', () => {
     await expect(
       api.listSearchHistorySummaries(OP_ID, {
         incidentId: INCIDENT_ID,
+        scopeType: 'OP',
+        scopeId: OP_ID,
         status: 'READY',
       }),
     ).resolves.toBe(summaryResponse);
@@ -131,8 +133,8 @@ describe('handover API', () => {
       {
         query: {
           incidentId: INCIDENT_ID,
-          scopeType: undefined,
-          scopeId: undefined,
+          scopeType: 'OP',
+          scopeId: OP_ID,
           dutyShiftId: undefined,
           status: 'READY',
         },

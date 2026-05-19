@@ -42,16 +42,24 @@ class DutyHandoverStateLoader(
                         opId = valid.opId
                     )
                 )
-            val summaryResponse =
-                searchHistorySummaries(
-                    valid.opId,
-                    SearchHistorySummaryQuery(
-                        incidentId = valid.incidentId,
-                        dutyShiftId = context.dutyShiftId?.takeIf(String::isNotBlank)
-                    )
-                )
+            val dutyShiftId = context.dutyShiftId?.takeIf(String::isNotBlank)
             val memos = parseMemos(memoResponse)
-            val summary = parseSummary(summaryResponse)
+            val summary =
+                if (dutyShiftId == null) {
+                    SummaryReadModel.empty()
+                } else {
+                    parseSummary(
+                        searchHistorySummaries(
+                            valid.opId,
+                            SearchHistorySummaryQuery(
+                                incidentId = valid.incidentId,
+                                scopeType = "DUTY_SHIFT",
+                                scopeId = dutyShiftId,
+                                dutyShiftId = dutyShiftId
+                            )
+                        )
+                    )
+                }
             summary.toUiState(
                 context = context,
                 memoCount = memos.size,
