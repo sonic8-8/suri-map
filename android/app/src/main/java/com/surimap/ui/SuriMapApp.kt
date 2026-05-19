@@ -952,6 +952,7 @@ private fun SearchMapRoute(
         mutableStateOf(System.currentTimeMillis())
     }
     var bottomPanelExpanded by remember { mutableStateOf(false) }
+    var topHeaderExpanded by remember { mutableStateOf(false) }
     var mapOverlaysVisible by remember { mutableStateOf(true) }
     var latestLocationFix by remember { mutableStateOf<GpsLocationFix?>(null) }
     val boundaryMonitor = remember(
@@ -1103,6 +1104,7 @@ private fun SearchMapRoute(
         searchMapState.copy(
             lifecycleStatus = displayedLifecycle,
             elapsedLabel = recordingSession.elapsedLabel(elapsedTickerNowMs),
+            topHeaderExpanded = topHeaderExpanded,
             bottomPanelExpanded = bottomPanelExpanded,
             mapOverlaysVisible = mapOverlaysVisible
         ).withCurrentLocationViewport(latestLocationFix)
@@ -1312,6 +1314,7 @@ private fun SearchMapRoute(
             onFocusSearchArea = { kind, overlayId ->
                 searchMapState = searchMapState.centerOnSearchLayer(kind, overlayId)
             },
+            onToggleHeaderPanel = { topHeaderExpanded = !topHeaderExpanded },
             onToggleBottomPanel = { bottomPanelExpanded = !bottomPanelExpanded },
             onToggleMapOverlays = { mapOverlaysVisible = !mapOverlaysVisible }
         )
