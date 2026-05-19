@@ -20,7 +20,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
-import com.surimap.maparea.testdouble.SearchAreaQueryMock;
 import com.surimap.marker.domain.exception.InvalidGeometryException;
 import com.surimap.marker.domain.port.MarkerLocationValidator;
 import com.surimap.marker.domain.service.MarkerLocationValidatorImpl;
@@ -33,7 +32,7 @@ import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.PrecisionModel;
 
-/** L5-T03A marker.location과 SearchAreaQuery.overallOf 연결 test. */
+/** L5-T03A marker.location 좌표 자체 검증 test. */
 @DisplayName("L5-T03A marker.location 검증 test")
 class MarkerLocationValidatorRedTest {
 
@@ -41,7 +40,7 @@ class MarkerLocationValidatorRedTest {
       new GeometryFactory(new PrecisionModel(PrecisionModel.FLOATING), 4326);
 
   private final MarkerLocationValidator validator =
-      new MarkerLocationValidatorImpl(new SearchAreaQueryMock());
+      new MarkerLocationValidatorImpl();
 
   @Nested
   @DisplayName("fixture exactness")
@@ -99,21 +98,21 @@ class MarkerLocationValidatorRedTest {
     }
 
     @Test
-    @DisplayName("7자리 좌표는 6자리 canonical 정규화 후 내부이면 통과한다")
-    void precision_7자리_좌표는_정규화_후_통과한다() {
+    @DisplayName("7자리 좌표도 좌표 범위가 유효하면 통과한다")
+    void precision_7자리_좌표도_좌표_범위가_유효하면_통과한다() {
       assertDoesNotThrow(() -> validator.validate(INCIDENT_ID, PRECISION_OVER_6DP));
+    }
+
+    @Test
+    @DisplayName("overall_search_area 밖 좌표도 좌표 자체가 유효하면 통과한다")
+    void overall_search_area_밖_좌표도_좌표_자체가_유효하면_통과한다() {
+      assertDoesNotThrow(() -> validator.validate(INCIDENT_ID, OUTSIDE_ENVELOPE));
     }
   }
 
   @Nested
   @DisplayName("invalid marker.location")
   class InvalidCases {
-
-    @Test
-    @DisplayName("overall_search_area 밖 좌표는 invalid_geometry다")
-    void overall_search_area_밖_좌표는_invalid_geometry다() {
-      assertInvalidGeometry(() -> validator.validate(INCIDENT_ID, OUTSIDE_ENVELOPE));
-    }
 
     @Test
     @DisplayName("lat/lon 순서가 뒤집힌 좌표는 invalid_geometry다")

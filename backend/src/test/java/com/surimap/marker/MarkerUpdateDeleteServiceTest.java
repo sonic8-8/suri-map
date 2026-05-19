@@ -5,7 +5,6 @@ import static com.surimap.marker.domain.fixture.MarkerGeometryFixtures.OP1_ID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.surimap.maparea.testdouble.SearchAreaQueryMock;
 import com.surimap.marker.domain.MarkerSource;
 import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.domain.MarkerType;
@@ -56,7 +55,7 @@ class MarkerUpdateDeleteServiceTest {
   private final MarkerUpdateDeleteService service =
       new MarkerUpdateDeleteService(
           markerRepository,
-          new MarkerLocationValidatorImpl(new SearchAreaQueryMock()),
+          new MarkerLocationValidatorImpl(),
           guard,
           eventPublisher,
           Clock.fixed(SERVER_TS, ZoneOffset.UTC));

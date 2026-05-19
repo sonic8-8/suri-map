@@ -10,7 +10,6 @@ import com.surimap.board.BoardRefetchResult;
 import com.surimap.board.BoardRefetchSignal;
 import com.surimap.board.BoardSlotRow;
 import com.surimap.board.BoardSourceRow;
-import com.surimap.maparea.testdouble.SearchAreaQueryMock;
 import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.domain.fixture.MarkerGeometryFixtures;
 import com.surimap.marker.domain.service.MarkerLocationValidatorImpl;
@@ -309,7 +308,7 @@ public class Sc08NotificationHarnessRunner {
       markerCreateService =
           new MarkerCreateService(
               markerRepository,
-              new MarkerLocationValidatorImpl(new SearchAreaQueryMock()),
+              new MarkerLocationValidatorImpl(),
               new MarkerOpBindingValidator(
                   incidentId -> Optional.of(MarkerGeometryFixtures.OP1_ID)),
               markerGuard,

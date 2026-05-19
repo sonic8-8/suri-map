@@ -114,7 +114,7 @@
     {
       "id": "FR-14",
       "summary": "단서 또는 실종자 발견 위치를 GPS 기반으로 기록하고 공유한다.",
-      "handling": "marker.location Point를 현재 GPS 또는 앱 수동 조정 좌표로 저장하고 S2 SearchAreaQuery를 입력으로 검증한다."
+      "handling": "marker.location Point를 현재 GPS 또는 앱 수동 조정 좌표로 저장하고, Point type/SRID/lon-lat 범위 같은 좌표 자체의 유효성만 검증한다."
     },
     {
       "id": "FR-15",
@@ -1323,7 +1323,7 @@
       {
         "from_spec": "S2",
         "interface": "SearchAreaQuery.overallOf(incidentId)",
-        "usage": "marker.location이 현재 지도 기준 범위 안에 있는지 검증하는 입력으로만 사용"
+        "usage": "board/offline package context를 위한 지도 기준 범위 조회에 사용하며, valid marker Point를 구역 밖이라는 이유만으로 거부하지 않는다"
       },
       {
         "from_spec": "S4",
@@ -1800,7 +1800,7 @@
       {
         "spec": "S2",
         "contract": "SearchAreaQuery.overallOf(incidentId)",
-        "stub_strategy": "valid overall_search_area와 out-of-bound Point fixture를 제공한다.",
+        "stub_strategy": "valid overall_search_area와 area 밖 valid Point fixture를 제공한다.",
         "replaced_by_real_at": "S2 overall_search_area PASS"
       },
       {
@@ -1860,9 +1860,21 @@
         "FR-16",
         "FR-17"
       ],
-      "given": "marker.location이 빈 Point, SRID 불일치, overall_search_area 밖 좌표 중 하나다.",
+      "given": "marker.location이 빈 Point, SRID 불일치, NaN, lon/lat 범위 초과, 잘못된 geometry type 중 하나다.",
       "when": "앱이 marker 생성을 시도한다.",
       "then": "400 invalid_geometry를 반환하고 앱 draft는 유지되며 server row는 생성되지 않는다.",
+      "priority": "high"
+    },
+    {
+      "id": "AC-S5-03A",
+      "fr_refs": [
+        "FR-14",
+        "FR-16",
+        "FR-17"
+      ],
+      "given": "marker.location이 전체 수색구역 또는 담당 구역 밖이지만 유효한 EPSG:4326 Point다.",
+      "when": "앱이 marker 생성을 시도한다.",
+      "then": "201을 반환하고 marker row, MARKER_CREATED PublishRequest, board marker slot을 생성한다.",
       "priority": "high"
     },
     {
@@ -2007,7 +2019,7 @@
       {
         "name": "MarkerGeometryValidationTest",
         "framework": "JUnit 5 + Testcontainers(PostGIS)",
-        "scenario": "overall_search_area 밖 Point와 잘못된 geometry type은 invalid_geometry로 거부되고 row/outbox가 생성되지 않는다."
+        "scenario": "overall_search_area 또는 담당 구역 밖 valid Point는 marker row/outbox를 생성하고, 잘못된 geometry type/null/NaN/SRID/range 오류만 invalid_geometry로 거부한다."
       },
       {
         "name": "PhotoUploadUrlLimitAndAttachTest",

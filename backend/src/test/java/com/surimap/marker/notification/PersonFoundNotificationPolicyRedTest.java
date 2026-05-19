@@ -5,7 +5,6 @@ import static com.surimap.marker.domain.fixture.MarkerGeometryFixtures.OP1_ID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.surimap.maparea.testdouble.SearchAreaQueryMock;
 import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.domain.MarkerType;
 import com.surimap.marker.domain.service.MarkerLocationValidatorImpl;
@@ -85,7 +84,7 @@ class PersonFoundNotificationPolicyRedTest {
     markerCreateService =
         new MarkerCreateService(
             markerRepository,
-            new MarkerLocationValidatorImpl(new SearchAreaQueryMock()),
+            new MarkerLocationValidatorImpl(),
             new MarkerOpBindingValidator(incidentId -> Optional.of(OP1_ID)),
             new AllowingMarkerWriteGuard(),
             eventPublisher,

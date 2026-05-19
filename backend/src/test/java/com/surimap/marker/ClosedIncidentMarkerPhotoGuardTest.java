@@ -7,7 +7,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.fail;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.surimap.maparea.testdouble.SearchAreaQueryMock;
 import com.surimap.marker.domain.MarkerSource;
 import com.surimap.marker.domain.MarkerStatus;
 import com.surimap.marker.domain.MarkerType;
@@ -112,7 +111,7 @@ class ClosedIncidentMarkerPhotoGuardTest {
       MarkerCreateService service =
           new MarkerCreateService(
               markerRepository,
-              new MarkerLocationValidatorImpl(new SearchAreaQueryMock()),
+              new MarkerLocationValidatorImpl(),
               new MarkerOpBindingValidator(incidentId -> Optional.of(OP1_ID)),
               closedMarkerGuard,
               markerEventPublisher,
@@ -141,7 +140,7 @@ class ClosedIncidentMarkerPhotoGuardTest {
       MarkerCreateService service =
           new MarkerCreateService(
               markerRepository,
-              new MarkerLocationValidatorImpl(new SearchAreaQueryMock()),
+              new MarkerLocationValidatorImpl(),
               new MarkerOpBindingValidator(incidentId -> Optional.of(OP1_ID)),
               closedMarkerGuard,
               markerEventPublisher,
@@ -323,7 +322,7 @@ class ClosedIncidentMarkerPhotoGuardTest {
   private MarkerUpdateDeleteService updateDeleteService() {
     return new MarkerUpdateDeleteService(
         markerRepository,
-        new MarkerLocationValidatorImpl(new SearchAreaQueryMock()),
+        new MarkerLocationValidatorImpl(),
         closedMarkerGuard,
         markerEventPublisher,
         Clock.fixed(SERVER_TS, ZoneOffset.UTC));
