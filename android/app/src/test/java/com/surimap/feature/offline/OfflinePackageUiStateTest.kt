@@ -21,7 +21,7 @@ class OfflinePackageUiStateTest {
     }
 
     @Test
-    fun readyStateAutoOpensSearchMapOnlyWhenPackageIsFullyReady() {
+    fun readyStateDoesNotOpenSearchMapAutomaticallyWhenPackageIsFullyReady() {
         val ready = OfflinePackageUiState.ready(
             incidentTitle = "광주 북구 산악 실종",
             manifestRevision = 17
@@ -30,7 +30,7 @@ class OfflinePackageUiStateTest {
         assertEquals(OfflinePackageDownloadStatus.Ready, ready.status)
         assertEquals(1f, ready.overallProgress)
         assertTrue(ready.readyForOfflineUse)
-        assertTrue(ready.autoOpenSearchMap)
+        assertFalse(ready.autoOpenSearchMap)
         assertFalse(ready.requiresLimitedOpenConfirmation)
     }
 
@@ -64,7 +64,7 @@ class OfflinePackageUiStateTest {
         )
 
         assertFalse(current.shouldDownloadPackage)
-        assertTrue(current.autoOpenSearchMap)
+        assertFalse(current.autoOpenSearchMap)
         assertTrue(current.visibleText().any { it.contains("manifest rev 17") })
         assertTrue(changed.shouldDownloadPackage)
         assertFalse(changed.autoOpenSearchMap)
