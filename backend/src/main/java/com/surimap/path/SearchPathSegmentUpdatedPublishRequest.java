@@ -4,6 +4,7 @@ import java.util.UUID;
 
 public record SearchPathSegmentUpdatedPublishRequest(
     UUID id,
+    UUID incidentId,
     SearchPathStatus status,
     long version,
     UUID opId,

@@ -63,7 +63,12 @@ public class SearchPathService {
 
     eventPublisher.publishPathAppended(
         new PathAppendedPublishRequest(
-            aggregate.id(), aggregate.status(), aggregate.version(), aggregate.opId(), aggregate.policePhoneId()));
+            aggregate.id(),
+            aggregate.incidentId(),
+            aggregate.status(),
+            aggregate.version(),
+            aggregate.opId(),
+            aggregate.policePhoneId()));
 
     return new PathBatchAppendResponse(
         aggregate.id(),
@@ -121,6 +126,7 @@ public class SearchPathService {
     eventPublisher.publishSegmentUpdated(
         new SearchPathSegmentUpdatedPublishRequest(
             owner.id(),
+            owner.incidentId(),
             owner.status(),
             owner.version(),
             owner.opId(),

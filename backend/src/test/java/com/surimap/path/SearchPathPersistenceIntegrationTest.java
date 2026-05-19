@@ -60,7 +60,7 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
   void cleanAndSeedPathContext() {
     jdbcTemplate.execute("TRUNCATE TABLE idempotency_record");
     jdbcTemplate.execute(
-        "TRUNCATE TABLE search_area_boundary_alert, search_path_lifecycle_event, search_path_excluded_point, search_path_segment, search_path");
+        "TRUNCATE TABLE event_dispatch_job, search_area_boundary_alert, search_path_lifecycle_event, search_path_excluded_point, search_path_segment, search_path");
     jdbcTemplate.update("DELETE FROM duty_shift WHERE id = ?::uuid", DUTY_SHIFT_ID.toString());
     jdbcTemplate.update("DELETE FROM operational_period WHERE id = ?::uuid", OP_ID.toString());
     jdbcTemplate.update(
@@ -288,6 +288,155 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
         .extracting(lifecycle -> lifecycle.get("event_type"))
         .containsExactly("STARTED", "PAUSED", "RESUMED");
     assertThat(lifecycleRows).extracting(lifecycle -> lifecycle.get("version")).containsExactly(1L, 2L, 3L);
+  }
+
+  @Test
+  @DisplayName("path lifecycle and batch append stage EventHub jobs with converged versions")
+  void path_writes_stage_event_dispatch_jobs_and_use_latest_version() {
+    var started =
+        appCommandService.start(
+            new StartSearchPathServiceRequest(
+                PATH_ID, INCIDENT_ID, OP_ID, POLICE_PHONE_ID, STARTED_AT, "idem-path-event-start"));
+    PathBatchAppendResponse batch =
+        searchPathController
+            .appendBatch(POLICE_PHONE_ID.toString(), "idem-path-event-batch", batchRequest())
+            .getBody();
+
+    var paused =
+        appCommandService.patch(
+            PATH_ID,
+            POLICE_PHONE_ID,
+            new PatchSearchPathServiceRequest(
+                SearchPathLifecycleAction.PAUSE,
+                STARTED_AT.plusSeconds(60),
+                "idem-path-event-pause"));
+    var resumed =
+        appCommandService.patch(
+            PATH_ID,
+            POLICE_PHONE_ID,
+            new PatchSearchPathServiceRequest(
+                SearchPathLifecycleAction.RESUME,
+                STARTED_AT.plusSeconds(90),
+                "idem-path-event-resume"));
+    var ended =
+        appCommandService.end(
+            PATH_ID,
+            POLICE_PHONE_ID,
+            new EndSearchPathServiceRequest(STARTED_AT.plusSeconds(120), "idem-path-event-end"));
+
+    assertThat(started.version()).isEqualTo(1L);
+    assertThat(batch.version()).isEqualTo(2L);
+    assertThat(paused.version()).isEqualTo(3L);
+    assertThat(resumed.version()).isEqualTo(4L);
+    assertThat(ended.version()).isEqualTo(5L);
+
+    List<Map<String, Object>> eventRows =
+        jdbcTemplate.queryForList(
+            """
+            SELECT event_type,
+                   source_entity_type,
+                   source_entity_id,
+                   dispatch_status,
+                   payload ->> 'id' AS payload_id,
+                   payload ->> 'incidentId' AS payload_incident_id,
+                   payload ->> 'opId' AS payload_op_id,
+                   payload ->> 'policePhoneId' AS payload_police_phone_id,
+                   payload ->> 'status' AS payload_status,
+                   (payload ->> 'version')::bigint AS payload_version,
+                   jsonb_exists(payload, 'sequence') AS has_sequence
+            FROM event_dispatch_job
+            WHERE source_entity_id = ?::uuid
+              AND event_type IN (
+                'SEARCH_PATH_STARTED',
+                'PATH_APPENDED',
+                'SEARCH_PATH_PAUSED',
+                'SEARCH_PATH_RESUMED',
+                'SEARCH_PATH_ENDED'
+              )
+            ORDER BY (payload ->> 'version')::bigint
+            """,
+            PATH_ID.toString());
+
+    assertThat(eventRows)
+        .extracting(row -> row.get("event_type"))
+        .containsExactly(
+            "SEARCH_PATH_STARTED",
+            "PATH_APPENDED",
+            "SEARCH_PATH_PAUSED",
+            "SEARCH_PATH_RESUMED",
+            "SEARCH_PATH_ENDED");
+    assertThat(eventRows)
+        .extracting(row -> row.get("payload_version"))
+        .containsExactly(1L, 2L, 3L, 4L, 5L);
+    assertThat(eventRows)
+        .allSatisfy(
+            row -> {
+              assertThat(row.get("source_entity_type")).isEqualTo("search_path");
+              assertThat(row.get("source_entity_id")).isEqualTo(PATH_ID);
+              assertThat(row.get("dispatch_status")).isEqualTo("PENDING");
+              assertThat(row.get("payload_id")).isEqualTo(PATH_ID.toString());
+              assertThat(row.get("payload_incident_id")).isEqualTo(INCIDENT_ID.toString());
+              assertThat(row.get("payload_op_id")).isEqualTo(OP_ID.toString());
+              assertThat(row.get("payload_police_phone_id")).isEqualTo(POLICE_PHONE_ID.toString());
+              assertThat(row.get("has_sequence")).isEqualTo(true);
+            });
+    assertThat(eventRows)
+        .extracting(row -> row.get("payload_status"))
+        .containsExactly("RECORDING", "RECORDING", "PAUSED", "RECORDING", "ENDED");
+  }
+
+  @Test
+  @DisplayName("manual segment correction stages SEARCH_PATH_SEGMENT_UPDATED EventHub job")
+  void segment_correction_stages_event_dispatch_job() {
+    PathBatchAppendResponse batch =
+        searchPathController
+            .appendBatch(POLICE_PHONE_ID.toString(), "idem-path-event-segment-batch", batchRequest())
+            .getBody();
+    String segmentId = batch.segments().get(0).id();
+
+    searchPathSegmentController
+        .correctSegment(
+            segmentId,
+            CORRECTED_BY_ACCOUNT_ID.toString(),
+            "idem-path-event-segment-correction",
+            new PathSegmentCorrectionRequest(MovementType.FOOT, "manual correction"))
+        .getBody();
+
+    Map<String, Object> eventRow =
+        jdbcTemplate.queryForMap(
+            """
+            SELECT event_type,
+                   source_entity_type,
+                   source_entity_id,
+                   dispatch_status,
+                   payload ->> 'id' AS payload_id,
+                   payload ->> 'incidentId' AS payload_incident_id,
+                   payload ->> 'opId' AS payload_op_id,
+                   payload ->> 'policePhoneId' AS payload_police_phone_id,
+                   payload ->> 'segmentId' AS payload_segment_id,
+                   payload ->> 'movementType' AS payload_movement_type,
+                   payload ->> 'movementTypeSource' AS payload_movement_type_source,
+                   (payload ->> 'version')::bigint AS payload_version,
+                   jsonb_exists(payload, 'sequence') AS has_sequence
+            FROM event_dispatch_job
+            WHERE event_type = 'SEARCH_PATH_SEGMENT_UPDATED'
+              AND source_entity_id = ?::uuid
+            """,
+            segmentId);
+
+    assertThat(eventRow.get("event_type")).isEqualTo("SEARCH_PATH_SEGMENT_UPDATED");
+    assertThat(eventRow.get("source_entity_type")).isEqualTo("search_path_segment");
+    assertThat(eventRow.get("source_entity_id").toString()).isEqualTo(segmentId);
+    assertThat(eventRow.get("dispatch_status")).isEqualTo("PENDING");
+    assertThat(eventRow.get("payload_id")).isEqualTo(PATH_ID.toString());
+    assertThat(eventRow.get("payload_incident_id")).isEqualTo(INCIDENT_ID.toString());
+    assertThat(eventRow.get("payload_op_id")).isEqualTo(OP_ID.toString());
+    assertThat(eventRow.get("payload_police_phone_id")).isEqualTo(POLICE_PHONE_ID.toString());
+    assertThat(eventRow.get("payload_segment_id")).isEqualTo(segmentId);
+    assertThat(eventRow.get("payload_movement_type")).isEqualTo("FOOT");
+    assertThat(eventRow.get("payload_movement_type_source")).isEqualTo("MANUAL");
+    assertThat(eventRow.get("payload_version")).isEqualTo(3L);
+    assertThat(eventRow.get("has_sequence")).isEqualTo(true);
   }
 
   @Test
