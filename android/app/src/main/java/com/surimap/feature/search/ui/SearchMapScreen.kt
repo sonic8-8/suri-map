@@ -11,7 +11,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Icon
@@ -442,7 +444,10 @@ fun SearchMapScreen(
 
 @Composable
 private fun SearchMapHeader(state: SearchMapUiState, onBack: () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
+    Column(
+        modifier = Modifier.statusBarsPadding(),
+        verticalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
+    ) {
         PoliAppBar(
             title = state.missingPersonSummary,
             subtitle = state.incidentTitle,
@@ -984,6 +989,7 @@ private fun SearchBottomPanel(
             .fillMaxWidth()
             .heightIn(min = if (state.bottomPanelExpanded) 220.dp else 104.dp)
             .background(PoliBgSurface)
+            .navigationBarsPadding()
             .padding(PoliDimens.SectionPadding),
         verticalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
     ) {
