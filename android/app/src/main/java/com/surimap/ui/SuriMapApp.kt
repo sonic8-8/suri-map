@@ -668,6 +668,7 @@ private fun HandoverSummaryRoute(
         mutableStateOf(loader.fallback(sessionContext))
     }
     var selectedHandoverTab by remember(sessionContext) { mutableStateOf(DutyHandoverTab.Replay) }
+    var selectedOriginalRecordKey by remember(sessionContext) { mutableStateOf<String?>(null) }
     var replayControlState by remember(sessionContext) { mutableStateOf(HandoverReplayControlUiState()) }
     var endingDutyShift by remember(sessionContext) { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
@@ -678,6 +679,12 @@ private fun HandoverSummaryRoute(
     }
     val replayControlDurationMs = handoverState.replayControl.displayDurationMs
     val currentReplayControl = replayControlState.withDuration(replayControlDurationMs)
+    LaunchedEffect(handoverState.records, selectedOriginalRecordKey) {
+        val selectedKey = selectedOriginalRecordKey ?: return@LaunchedEffect
+        if (handoverState.records.none { record -> record.sourceKey == selectedKey }) {
+            selectedOriginalRecordKey = null
+        }
+    }
     LaunchedEffect(
         sessionContext.incidentId,
         sessionContext.policePhoneId,
@@ -691,6 +698,7 @@ private fun HandoverSummaryRoute(
         state =
         handoverState.copy(
             selectedTab = selectedHandoverTab,
+            selectedOriginalRecordKey = selectedOriginalRecordKey,
             replayControl = currentReplayControl,
             canEndDutyShift = !sessionContext.dutyShiftId.isNullOrBlank(),
             endingDutyShift = endingDutyShift
@@ -710,6 +718,10 @@ private fun HandoverSummaryRoute(
         },
         onReplayCameraModeSelect = { cameraMode ->
             replayControlState = currentReplayControl.selectCameraMode(cameraMode)
+        },
+        onSelectOriginalRecord = { record ->
+            selectedOriginalRecordKey = record.sourceKey
+            selectedHandoverTab = DutyHandoverTab.Report
         },
         onEndDutyShift = {
             coroutineScope.launch {

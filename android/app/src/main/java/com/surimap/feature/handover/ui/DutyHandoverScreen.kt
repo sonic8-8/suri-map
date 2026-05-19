@@ -2,6 +2,7 @@ package com.surimap.feature.handover.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -22,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -43,6 +45,7 @@ import com.surimap.ui.theme.PoliCurrent
 import com.surimap.ui.theme.PoliDimens
 import com.surimap.ui.theme.PoliFgMuted
 import com.surimap.ui.theme.PoliFgSecondary
+import com.surimap.ui.theme.PoliPrimaryFillSoft
 import com.surimap.ui.theme.PoliPrimaryMid
 import com.surimap.ui.theme.PoliWarning
 import com.surimap.ui.theme.SuriMapTheme
@@ -60,6 +63,7 @@ data class DutyHandoverUiState(
     val replayMarkers: List<HandoverReplayMarker> = emptyList(),
     val replayControl: HandoverReplayControlUiState = HandoverReplayControlUiState(),
     val selectedTab: DutyHandoverTab = DutyHandoverTab.Replay,
+    val selectedOriginalRecordKey: String? = null,
     val canEndDutyShift: Boolean = false,
     val endingDutyShift: Boolean = false,
     val canRequestSummaryGeneration: Boolean = false
@@ -82,6 +86,11 @@ data class DutyHandoverUiState(
     val summaryText: String =
         summary ?: summaryStatus.emptyCopy
 
+    val selectedOriginalRecord: HandoverRecord? =
+        selectedOriginalRecordKey?.let { selectedKey ->
+            records.firstOrNull { record -> record.sourceKey == selectedKey }
+        }
+
     val summaryActionLabel: String? =
         when (summaryStatus) {
             SearchHistorySummaryStatus.NeedsSummary,
@@ -102,6 +111,11 @@ data class DutyHandoverUiState(
             add(generatedAtLabel)
             add(summaryText)
             summaryActionLabel?.let(::add)
+            selectedOriginalRecord?.let { selectedRecord ->
+                add("선택된 원본 기록")
+                add(selectedRecord.title)
+                add(selectedRecord.subtitle)
+            }
             if (selectedTab == DutyHandoverTab.Replay) {
                 addAll(replaySectionTitles)
                 addAll(replayBadges)
@@ -157,6 +171,13 @@ data class DutyHandoverUiState(
 
     fun selectTab(tab: DutyHandoverTab): DutyHandoverUiState =
         copy(selectedTab = tab)
+
+    fun selectOriginalRecord(sourceKey: String): DutyHandoverUiState =
+        if (records.any { record -> record.sourceKey == sourceKey }) {
+            copy(selectedTab = DutyHandoverTab.Report, selectedOriginalRecordKey = sourceKey)
+        } else {
+            copy(selectedOriginalRecordKey = null)
+        }
 
     val dutyShiftActionLabel: String =
         if (endingDutyShift) "종료 등록 중" else "근무 종료"
@@ -276,7 +297,12 @@ enum class DutyHandoverTab(val label: String) {
 }
 
 data class HandoverMetric(val value: String, val label: String)
-data class HandoverRecord(val title: String, val subtitle: String, val actionLabel: String)
+data class HandoverRecord(
+    val title: String,
+    val subtitle: String,
+    val actionLabel: String,
+    val sourceKey: String = "$title|$subtitle"
+)
 data class HandoverReplayPathSegment(
     val label: String,
     val timeRangeLabel: String,
@@ -372,6 +398,7 @@ fun DutyHandoverScreen(
     onReplaySeek: (Long) -> Unit = {},
     onReplaySpeedSelect: (HandoverReplaySpeed) -> Unit = {},
     onReplayCameraModeSelect: (HandoverReplayCameraMode) -> Unit = {},
+    onSelectOriginalRecord: (HandoverRecord) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxSize().safeDrawingPadding()) {
@@ -394,7 +421,11 @@ fun DutyHandoverScreen(
                         onReplaySpeedSelect = onReplaySpeedSelect,
                         onReplayCameraModeSelect = onReplayCameraModeSelect
                     )
-                DutyHandoverTab.Report -> ReportTab(state)
+                DutyHandoverTab.Report ->
+                    ReportTab(
+                        state = state,
+                        onSelectOriginalRecord = onSelectOriginalRecord
+                    )
             }
         }
 
@@ -644,7 +675,10 @@ private fun ReplayMarkerCard(markers: List<HandoverReplayMarker>) {
 }
 
 @Composable
-private fun ReportTab(state: DutyHandoverUiState) {
+private fun ReportTab(
+    state: DutyHandoverUiState,
+    onSelectOriginalRecord: (HandoverRecord) -> Unit
+) {
     ReportSectionCard(title = "근무 개요") {
         PoliField(label = "대상", value = state.subtitle)
         PoliField(label = "기록 기준", value = state.generatedAtLabel)
@@ -657,16 +691,25 @@ private fun ReportTab(state: DutyHandoverUiState) {
             MetricRow(metrics = state.metrics)
         }
     }
-    RecordCard(title = "발견·기록 시간순", records = state.records)
+    RecordCard(
+        title = "발견·기록 시간순",
+        records = state.records,
+        selectedRecordKey = state.selectedOriginalRecordKey,
+        onSelectRecord = onSelectOriginalRecord
+    )
     RecordCard(
         title = "인수인계 메모",
         records = state.handoverMemoRecords,
-        emptyText = "인수인계 메모 없음"
+        emptyText = "인수인계 메모 없음",
+        selectedRecordKey = state.selectedOriginalRecordKey,
+        onSelectRecord = onSelectOriginalRecord
     )
     RecordCard(
         title = "마커 사진",
         records = state.markerPhotoRecords,
-        emptyText = "연결된 마커 사진 없음"
+        emptyText = "연결된 마커 사진 없음",
+        selectedRecordKey = state.selectedOriginalRecordKey,
+        onSelectRecord = onSelectOriginalRecord
     )
     ReportSectionCard(title = "동기화 상태") {
         PoliChip(text = state.sourceReadiness.reportLabel, variant = state.sourceReadiness.variant)
@@ -690,18 +733,45 @@ private fun ReportSectionCard(title: String, content: @Composable ColumnScope.()
 private fun RecordCard(
     title: String,
     records: List<HandoverRecord>,
-    emptyText: String = "이전 기록 없음"
+    emptyText: String = "이전 기록 없음",
+    selectedRecordKey: String? = null,
+    onSelectRecord: (HandoverRecord) -> Unit = {}
 ) {
     ReportSectionCard(title = title) {
         if (records.isEmpty()) {
             EmptyReportText(emptyText)
         } else {
             records.forEach { record ->
-                PoliRow(title = record.title, subtitle = record.subtitle) {
-                    PoliChip(text = record.actionLabel)
-                }
+                HandoverRecordRow(
+                    record = record,
+                    selected = selectedRecordKey == record.sourceKey,
+                    onSelectRecord = onSelectRecord
+                )
             }
         }
+    }
+}
+
+@Composable
+private fun HandoverRecordRow(
+    record: HandoverRecord,
+    selected: Boolean,
+    onSelectRecord: (HandoverRecord) -> Unit
+) {
+    PoliRow(
+        title = record.title,
+        subtitle = record.subtitle,
+        modifier =
+        Modifier
+            .clip(MaterialTheme.shapes.medium)
+            .background(if (selected) PoliPrimaryFillSoft else Color.Transparent)
+            .clickable { onSelectRecord(record) }
+            .padding(horizontal = PoliDimens.Space3, vertical = PoliDimens.Space2)
+    ) {
+        PoliChip(
+            text = if (selected) "선택됨" else record.actionLabel,
+            variant = if (selected) PoliChipVariant.Outbox else PoliChipVariant.Neutral
+        )
     }
 }
 

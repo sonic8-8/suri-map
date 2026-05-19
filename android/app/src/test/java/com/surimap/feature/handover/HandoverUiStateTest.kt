@@ -93,6 +93,23 @@ class HandoverUiStateTest {
     }
 
     @Test
+    fun reportTabSelectsAndHighlightsOriginalRecordRows() {
+        val report = DutyHandoverUiState.ready().selectTab(DutyHandoverTab.Report)
+        val originalRecord = report.records.first()
+
+        val selected = report.selectOriginalRecord(originalRecord.sourceKey)
+
+        assertEquals(DutyHandoverTab.Report, selected.selectedTab)
+        assertEquals(originalRecord.sourceKey, selected.selectedOriginalRecordKey)
+        assertEquals(originalRecord, selected.selectedOriginalRecord)
+        assertTrue(selected.visibleText().any { it.contains("선택된 원본 기록") })
+        assertTrue(selected.visibleText().any { it.contains(originalRecord.title) })
+        assertFalse(selected.visibleText().any { it.contains("AI") })
+        assertFalse(selected.visibleText().any { it.contains("추천") })
+        assertFalse(selected.visibleText().any { it.contains("위험") })
+    }
+
+    @Test
     fun replayTabExposesStaticSingleDutyShiftBaseWithoutDynamicControls() {
         val replay = DutyHandoverUiState.ready().selectTab(DutyHandoverTab.Replay)
 
@@ -257,6 +274,19 @@ class HandoverUiStateTest {
         assertTrue(seekIndex > replayStateIndex)
         assertTrue(speedIndex > replayStateIndex)
         assertTrue(cameraIndex > replayStateIndex)
+    }
+
+    @Test
+    fun appHandoverRouteOwnsOriginalRecordSelectionStateForReportEvidence() {
+        val source = File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+
+        val routeIndex = source.indexOf("private fun HandoverSummaryRoute")
+        val selectedRecordIndex = source.indexOf("selectedOriginalRecordKey", routeIndex)
+        val onSelectRecordIndex = source.indexOf("onSelectOriginalRecord =", routeIndex)
+
+        assertTrue(routeIndex >= 0)
+        assertTrue(selectedRecordIndex > routeIndex)
+        assertTrue(onSelectRecordIndex > selectedRecordIndex)
     }
 
     @Test

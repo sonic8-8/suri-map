@@ -88,6 +88,7 @@ class DutyHandoverStateLoaderTest {
         assertEquals("OP 3차 · 교대 인수인계", state.subtitle)
         assertTrue(state.records.any { it.title.contains("OPERATIONAL_PERIOD") })
         assertTrue(state.records.any { it.subtitle.contains("북측 진입로") })
+        assertEquals(MEMO_ID, state.records.single().sourceKey)
         assertTrue(state.metrics.any { it.label == "메모" && it.value == "1건" })
         assertFalse(state.canRequestSummaryGeneration)
         assertFalse(state.visibleText().any { it.contains("다시 생성") })
