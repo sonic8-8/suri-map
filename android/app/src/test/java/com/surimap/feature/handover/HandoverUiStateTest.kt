@@ -1,6 +1,7 @@
 package com.surimap.feature.handover
 
 import com.surimap.feature.handover.ui.DutyHandoverUiState
+import com.surimap.feature.handover.ui.DutyHandoverTab
 import com.surimap.feature.handover.ui.HandoverMemoTarget
 import com.surimap.feature.handover.ui.HandoverMemoUiState
 import com.surimap.feature.handover.ui.HandoverPromptUiState
@@ -34,6 +35,25 @@ class HandoverUiStateTest {
             assertFalse(state.visibleText().any { it.contains("sourceReadiness") })
             assertFalse(state.visibleText().any { it.contains("summary_unavailable") })
             assertFalse(state.visibleText().any { it.contains("DutyShift") })
+        }
+    }
+
+    @Test
+    fun dutyHandoverHasReplayAndReportTabsWithoutRecommendationCopy() {
+        val initial = DutyHandoverUiState.ready()
+        val report = initial.selectTab(DutyHandoverTab.Report)
+
+        assertEquals(listOf("리플레이", "보고서"), DutyHandoverTab.entries.map { it.label })
+        assertEquals(DutyHandoverTab.Replay, initial.selectedTab)
+        assertEquals(DutyHandoverTab.Report, report.selectedTab)
+        assertTrue(initial.visibleText().any { it.contains("리플레이") })
+        assertTrue(report.visibleText().any { it.contains("보고서") })
+        assertTrue(report.visibleText().any { it.contains("서버 인수인계 요약") })
+
+        listOf(initial, report).forEach { state ->
+            assertFalse(state.visibleText().any { it.contains("추천") })
+            assertFalse(state.visibleText().any { it.contains("위험") })
+            assertFalse(state.visibleText().any { it.contains("미수색") })
         }
     }
 
@@ -86,6 +106,19 @@ class HandoverUiStateTest {
         assertTrue(source.contains("HandoverMemoRepository"))
         assertTrue(source.contains("SearchHistorySummaryReadRepository"))
         assertTrue(source.contains("createMemo"))
+    }
+
+    @Test
+    fun appHandoverRouteOwnsTabStateForP6A() {
+        val source = File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+
+        val routeIndex = source.indexOf("private fun HandoverSummaryRoute")
+        val tabStateIndex = source.indexOf("selectedHandoverTab", routeIndex)
+        val onSelectTabIndex = source.indexOf("onSelectTab = { selectedHandoverTab = it }", routeIndex)
+
+        assertTrue(routeIndex >= 0)
+        assertTrue(tabStateIndex > routeIndex)
+        assertTrue(onSelectTabIndex > tabStateIndex)
     }
 
     @Test

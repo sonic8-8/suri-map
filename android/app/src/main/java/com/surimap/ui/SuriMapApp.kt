@@ -101,6 +101,7 @@ import com.surimap.feature.handover.data.HandoverSessionContext
 import com.surimap.feature.handover.data.HandoverWriteContext
 import com.surimap.feature.handover.data.HandoverWriteResult
 import com.surimap.feature.handover.ui.DutyHandoverScreen
+import com.surimap.feature.handover.ui.DutyHandoverTab
 import com.surimap.feature.handover.ui.HandoverMemoScreen
 import com.surimap.feature.handover.ui.HandoverMemoTarget
 import com.surimap.feature.handover.ui.HandoverMemoUiState
@@ -659,6 +660,7 @@ private fun HandoverSummaryRoute(
     var handoverState by remember(loader, sessionContext) {
         mutableStateOf(loader.fallback(sessionContext))
     }
+    var selectedHandoverTab by remember(sessionContext) { mutableStateOf(DutyHandoverTab.Replay) }
     var endingDutyShift by remember(sessionContext) { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
@@ -678,12 +680,14 @@ private fun HandoverSummaryRoute(
     DutyHandoverScreen(
         state =
         handoverState.copy(
+            selectedTab = selectedHandoverTab,
             canEndDutyShift = !sessionContext.dutyShiftId.isNullOrBlank(),
             endingDutyShift = endingDutyShift
         ),
         onBack = { navController.popBackStack() },
         onWriteMemo = { navController.navigateToSingleTop(PolicePhoneRoute.HandoverMemo) },
         onOpenSearch = { navController.navigateToSingleTop(PolicePhoneRoute.SearchMap) },
+        onSelectTab = { selectedHandoverTab = it },
         onEndDutyShift = {
             coroutineScope.launch {
                 if (endingDutyShift) {
