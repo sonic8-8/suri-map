@@ -589,13 +589,13 @@
   display: inline-flex;
   align-items: center;
   width: fit-content;
-  min-height: 24px;
-  padding: 0 10px;
+  min-height: 30px;
+  padding: 0 13px;
   border: 1px solid color-mix(in srgb, var(--marker-color) 18%, rgba(148, 163, 184, 0.22));
   border-radius: 999px;
   background: color-mix(in srgb, var(--marker-color) 11%, rgba(236, 242, 255, 0.98));
-  font-size: 11px;
-  font-weight: 800;
+  font-size: 13px;
+  font-weight: 850;
   line-height: 1;
 }
 
