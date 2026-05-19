@@ -2,6 +2,7 @@ import { SuriMapPageHeader, createSharedIncidentContext, type MarkerNotification
 import type { LoginAccount } from '../../../../login/presentation/types/login';
 import type { IncidentDetailDto } from '../../../data/getIncidentDetail';
 import type { SituationBoardResponseDto } from '../../../data/getSituationBoard';
+import { toPackageBadgeSummary } from '../../utils/packageBadgeBoardMapper';
 
 type SituationBoardHeaderProps = {
   activeTab?: SuriMapPageHeaderTabId;
@@ -46,6 +47,7 @@ export function SituationBoardHeader({
     ...(incidentDetail ?? {}),
     activeOperationalPeriodLabel,
   });
+  const packageBadgeSummary = toPackageBadgeSummary(apiBoard);
 
   return (
     <SuriMapPageHeader
@@ -54,6 +56,7 @@ export function SituationBoardHeader({
       incidentContext={incidentContext}
       markerNotificationIndex={markerNotificationIndex}
       markerNotifications={markerNotifications}
+      packageWarning={packageBadgeSummary}
       syncStatus={syncStatus}
       timestampLabel={timestampLabel}
       onCloseMarkerNotifications={onCloseMarkerNotifications}

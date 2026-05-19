@@ -42,12 +42,18 @@ export type SuriMapPageHeaderSyncStatus = {
   tone: 'syncing' | 'stale' | 'error';
 };
 
+export type SuriMapPageHeaderPackageWarning = {
+  label: string;
+  ariaLabel?: string;
+};
+
 export type SuriMapPageHeaderProps = {
   activeTab: SuriMapPageHeaderTabId;
   currentAccountLabel?: string;
   incidentContext?: SuriMapPageHeaderIncidentContext;
   markerNotificationIndex?: number;
   markerNotifications?: MarkerNotification[];
+  packageWarning?: SuriMapPageHeaderPackageWarning | null;
   syncStatus?: SuriMapPageHeaderSyncStatus | null;
   timestampLabel?: string;
   showIncidentContextBar?: boolean;
@@ -124,6 +130,7 @@ export function SuriMapPageHeader({
   incidentContext = DEFAULT_INCIDENT_CONTEXT,
   markerNotificationIndex = 0,
   markerNotifications = [],
+  packageWarning = null,
   syncStatus = null,
   showIncidentContextBar = true,
   onCloseMarkerNotifications,
@@ -216,6 +223,17 @@ export function SuriMapPageHeader({
           ))}
         </div>
         <div className={styles.incidentContextActions}>
+          {packageWarning ? (
+            <button
+              type="button"
+              className={styles.packageWarningBadge}
+              aria-label={packageWarning.ariaLabel ?? packageWarning.label}
+              disabled={!onOpenOfflinePackage}
+              onClick={onOpenOfflinePackage}
+            >
+              {packageWarning.label}
+            </button>
+          ) : null}
           {syncStatus ? (
             <div className={`${styles.syncStatus} ${syncStatusClassName(syncStatus.tone)}`}>{syncStatus.label}</div>
           ) : null}
