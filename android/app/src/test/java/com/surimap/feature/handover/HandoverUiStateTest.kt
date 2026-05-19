@@ -23,7 +23,7 @@ class HandoverUiStateTest {
         assertTrue(generating.visibleText().any { it.contains("자동 처리 중") })
         assertTrue(needsSummary.visibleText().any { it.contains("요약 생성 필요") })
         assertTrue(needsSummary.visibleText().any { it.contains("원본 확인") })
-        assertTrue(unavailable.visibleText().any { it.contains("summary_unavailable") })
+        assertTrue(unavailable.visibleText().any { it.contains("요약") })
         assertTrue(empty.visibleText().any { it.contains("이전 기록 없음") })
 
         listOf(generating, needsSummary, unavailable, empty).forEach { state ->
@@ -31,6 +31,9 @@ class HandoverUiStateTest {
             assertFalse(state.canRequestSummaryGeneration)
             assertFalse(state.visibleText().any { it.contains("다시 생성") })
             assertFalse(state.visibleText().any { it.contains("AI") })
+            assertFalse(state.visibleText().any { it.contains("sourceReadiness") })
+            assertFalse(state.visibleText().any { it.contains("summary_unavailable") })
+            assertFalse(state.visibleText().any { it.contains("DutyShift") })
         }
     }
 
@@ -45,6 +48,7 @@ class HandoverUiStateTest {
         assertTrue(state.visibleText().any { it.contains("미전송") })
         assertTrue(state.visibleText().any { it.contains("저장") })
         assertFalse(state.visibleText().any { it.contains("AI") || it.contains("요약 생성") })
+        assertFalse(state.visibleText().any { it.contains("DutyShift") || it.contains("사건 #") })
     }
 
     @Test

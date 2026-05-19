@@ -62,12 +62,43 @@ class IncidentListStateLoaderTest {
         assertEquals(IncidentListStatus.Ready, state.status)
         assertEquals(INCIDENT_ID, incident.incidentId)
         assertEquals("광주 북구 산악 실종", incident.title)
-        assertEquals("상태 OPEN · v7", incident.summary)
+        assertEquals("현장 수색 진행 중", incident.summary)
         assertEquals("현장 기록 열기", state.primaryOpenLabel)
         assertTrue(state.visibleText().contains("현장 기록 열기"))
         assertEquals(INCIDENT_ID, context.incidentId)
         assertNull(context.currentOpId)
         assertNull(context.currentDutyShiftId)
+    }
+
+    @Test
+    fun incidentCardsHideTechnicalIdsAndPreferMissingPersonSummary() = runBlocking {
+        val loader =
+            loaderFor(
+                response(
+                    200,
+                    """
+                    {
+                      "items": [
+                        {
+                          "id":"$INCIDENT_ID",
+                          "title":"무등산 증심사 계곡 실종자 수색 00000000-0000-0000-0000-000000000101",
+                          "status":"OPEN",
+                          "version":7,
+                          "missingPerson":{"displayName":"실종자 T2-무등-01","appearanceText":"남색 등산복 · 회색 모자"}
+                        }
+                      ]
+                    }
+                    """.trimIndent()
+                )
+            )
+
+        val incident = loader.load().incidents.single()
+
+        assertEquals("무등산 증심사 계곡 실종자 수색", incident.title)
+        assertEquals("실종자 · 남색 등산복 · 회색 모자", incident.summary)
+        assertFalse(incident.title.contains("00000000"))
+        assertFalse(incident.summary.contains("OPEN"))
+        assertFalse(incident.summary.contains("v7"))
     }
 
     @Test

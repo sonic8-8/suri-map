@@ -97,6 +97,44 @@ class SearchMapStateLoaderTest {
     }
 
     @Test
+    fun incidentDetailHidesMissingPersonFixtureCodeFromSummary() = runBlocking {
+        val loader =
+            SearchMapStateLoader(
+                incidentDetail = {
+                    SuriMapApiResponse(
+                        statusCode = 200,
+                        body =
+                        """
+                        {
+                          "id": "$INCIDENT_ID",
+                          "title": "무등산 증심사 계곡 실종자 수색",
+                          "missingPerson": {
+                            "displayName": "실종자 T2-무등-01",
+                            "appearanceText": "남색 등산복"
+                          }
+                        }
+                        """.trimIndent(),
+                        errorCode = null
+                    )
+                },
+                overallSearchArea = { notFoundResponse() },
+                opSearchAreas = { _, _ -> notFoundResponse() }
+            )
+
+        val state =
+            loader.load(
+                SearchMapSessionContext(
+                    incidentId = INCIDENT_ID,
+                    currentOpId = OP_ID,
+                    currentDutyShiftId = DUTY_SHIFT_ID
+                )
+            )
+
+        assertEquals("실종자 · 남색 등산복", state.missingPersonSummary)
+        assertFalse(state.missingPersonSummary.contains("T2-무등-01"))
+    }
+
+    @Test
     fun incidentDetailFailureKeepsSessionBasedFallbackAndWriteGate() = runBlocking {
         val loader =
             SearchMapStateLoader(

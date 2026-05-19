@@ -311,6 +311,7 @@ class SearchMapStateLoader(
         val displayName =
             missingPerson.optString("displayName")
                 .ifBlank { missingPerson.optString("name") }
+                .withoutMissingPersonCode()
                 .ifBlank { "실종자" }
         val appearanceText = missingPerson.optString("appearanceText")
         return listOf(displayName, appearanceText)
@@ -539,6 +540,11 @@ class SearchMapStateLoader(
             else -> "마커"
         }
 
+    private fun String.withoutMissingPersonCode(): String =
+        replace(MISSING_PERSON_CODE_TEXT, "")
+            .replace(Regex("""\s{2,}"""), " ")
+            .trim(' ', '·', '-', '_')
+
     private fun viewportBounds(area: JSONObject, geometry: JSONObject): SearchMapViewportBounds? {
         area.optJSONArray("bbox")?.let { bbox ->
             if (bbox.length() >= 4) {
@@ -616,6 +622,7 @@ class SearchMapStateLoader(
     private companion object {
         const val MILLIS_PER_MINUTE = 60_000L
         const val POINT_VIEWPORT_DELTA = 0.003
+        val MISSING_PERSON_CODE_TEXT = Regex("""\b[A-Z]\d+-[가-힣A-Za-z0-9]+-\d+\b""")
     }
 }
 

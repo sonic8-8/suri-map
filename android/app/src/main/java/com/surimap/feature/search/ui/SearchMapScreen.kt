@@ -2,6 +2,7 @@ package com.surimap.feature.search.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -447,40 +448,63 @@ fun SearchMapScreen(
 @Composable
 private fun SearchMapHeader(state: SearchMapUiState, onBack: () -> Unit, onToggleExpanded: () -> Unit) {
     Column(
-        modifier = Modifier.statusBarsPadding(),
+        modifier =
+            Modifier
+                .statusBarsPadding()
+                .padding(bottom = PoliDimens.Space4),
         verticalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
     ) {
         PoliAppBar(
-            title = state.missingPersonSummary,
-            subtitle = state.incidentTitle,
+            title = state.incidentTitle,
+            subtitle = state.missingPersonSummary,
             showBack = true,
             onBack = onBack
         )
-        PoliCard(
+        Surface(
             modifier =
                 Modifier
                     .padding(horizontal = PoliDimens.SectionPadding)
+                    .fillMaxWidth()
                     .clickable(onClick = onToggleExpanded),
-            strong = true
+            shape = MaterialTheme.shapes.medium,
+            color = PoliBgSurface,
+            contentColor = PoliFgPrimary,
+            border = BorderStroke(1.dp, PoliBorderStrong)
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
-                PoliRow(
-                    title = state.opLabel,
-                    subtitle = state.lifecycleTitle
+            Column(
+                modifier = Modifier.padding(horizontal = PoliDimens.Space4, vertical = PoliDimens.Space2),
+                verticalArrangement = Arrangement.spacedBy(PoliDimens.Space1)
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space2),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Text(
+                        text = state.opLabel,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = PoliFgPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
                     PoliChip(text = state.syncLabel, variant = state.syncVariant)
                 }
                 Text(
                     text = "담당 · ${state.assignmentDisplayLabel}",
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = PoliFgPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 if (state.topHeaderExpanded) {
                     Text(
+                        text = state.lifecycleTitle,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = PoliFgMuted
+                    )
+                    Text(
                         text = state.lifecycleMessage,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodySmall,
                         color = PoliFgMuted
                     )
                 }
@@ -883,16 +907,24 @@ private fun AreaFocusGroup(
 
 @Composable
 private fun CurrentLocationButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier.size(56.dp).clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
+    Surface(
+        modifier =
+            modifier
+                .size(52.dp)
+                .clickable(onClick = onClick),
+        shape = MaterialTheme.shapes.medium,
+        color = Color.White,
+        contentColor = PoliFgPrimary,
+        border = BorderStroke(1.dp, PoliBorderStrong)
     ) {
-        Icon(
-            painter = painterResource(id = R.drawable.ic_my_location),
-            contentDescription = "내 위치",
-            tint = Color.Unspecified,
-            modifier = Modifier.size(38.dp)
-        )
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                painter = painterResource(id = R.drawable.ic_my_location),
+                contentDescription = "내 위치",
+                tint = Color.Unspecified,
+                modifier = Modifier.size(34.dp)
+            )
+        }
     }
 }
 
@@ -1035,13 +1067,18 @@ private fun SearchStatusCard(state: SearchMapUiState, onToggleBottomPanel: () ->
                 )
                 Text(text = state.movementSummary, style = MaterialTheme.typography.bodyMedium, color = PoliFgMuted)
             }
-            Text(text = state.elapsedLabel, style = MaterialTheme.typography.titleMedium)
-            PoliButton(
-                text = if (state.bottomPanelExpanded) "접기" else "펼치기",
-                onClick = onToggleBottomPanel,
-                size = PoliButtonSize.Small,
-                variant = PoliButtonVariant.Secondary
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space4),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = state.elapsedLabel, style = MaterialTheme.typography.titleMedium)
+                PoliButton(
+                    text = if (state.bottomPanelExpanded) "접기" else "펼치기",
+                    onClick = onToggleBottomPanel,
+                    size = PoliButtonSize.Small,
+                    variant = PoliButtonVariant.Secondary
+                )
+            }
         }
     }
 }
