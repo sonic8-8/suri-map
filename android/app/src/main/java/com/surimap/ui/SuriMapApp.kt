@@ -996,7 +996,8 @@ private fun SearchMapRoute(
     }
     var bottomPanelExpanded by remember { mutableStateOf(false) }
     var topHeaderExpanded by remember { mutableStateOf(false) }
-    var latestLocationFix by remember { mutableStateOf<GpsLocationFix?>(null) }
+    val debugCurrentLocationFix = remember { debugCurrentLocationFix() }
+    var latestLocationFix by remember { mutableStateOf(debugCurrentLocationFix) }
     val boundaryMonitor = remember(
         sessionContext.incidentId,
         sessionContext.currentOpId,
@@ -1016,7 +1017,7 @@ private fun SearchMapRoute(
     }
 
     fun requestCurrentLocationCenter() {
-        val lastKnownFix = latestLocationFix ?: locationUpdates.lastKnownFix()
+        val lastKnownFix = latestLocationFix ?: debugCurrentLocationFix ?: locationUpdates.lastKnownFix()
         if (lastKnownFix != null) {
             centerMapOnCurrentLocation(lastKnownFix)
         } else {
@@ -1126,7 +1127,7 @@ private fun SearchMapRoute(
         policePhoneContext?.accessToken
     ) {
         clockSyncState.syncClockForIncident(sessionContext.incidentId, policePhoneContext)
-        latestLocationFix = locationUpdates.lastKnownFix()
+        latestLocationFix = debugCurrentLocationFix ?: locationUpdates.lastKnownFix()
     }
 
     LaunchedEffect(
@@ -1203,9 +1204,10 @@ private fun SearchMapRoute(
         } else {
             val handle =
                 locationUpdates.start { fix ->
-                    latestLocationFix = fix
+                    val displayedFix = debugCurrentLocationFix ?: fix
+                    latestLocationFix = displayedFix
                     if (currentPendingCurrentLocationCenter) {
-                        centerMapOnCurrentLocation(fix)
+                        centerMapOnCurrentLocation(displayedFix)
                     }
                     when (
                         val signal = boundaryMonitor.evaluate(
@@ -2396,10 +2398,7 @@ private fun SearchMapUiState.withCurrentLocationViewport(fix: GpsLocationFix?): 
     val normalizedFix = fix ?: return this
     val currentLocationLayer =
         SearchMapLayerUiState(
-            label =
-            normalizedFix.bearingDegrees?.normalizeBearingDegrees()
-                ?.let { bearing -> "현재 위치 · ${bearing.toInt()}°" }
-                ?: "현재 위치",
+            label = "",
             kind = SearchLayerKind.CurrentLocation,
             highlighted = true,
             overlayId = "current-location",
@@ -2549,6 +2548,20 @@ private fun debugMapOnlyPolicePhoneContext(): PolicePhoneContext? {
         tileBaseUrl = apiBaseUrl,
         objectStorageBaseUrl = apiBaseUrl,
         accessToken = BuildConfig.SURI_MAP_DEBUG_MAP_ONLY_ACCESS_TOKEN.takeIf(String::isNotBlank)
+    )
+}
+
+private fun debugCurrentLocationFix(): GpsLocationFix? {
+    if (!BuildConfig.DEBUG) return null
+    val lon = BuildConfig.SURI_MAP_DEBUG_CURRENT_LOCATION_LON.toDoubleOrNull() ?: return null
+    val lat = BuildConfig.SURI_MAP_DEBUG_CURRENT_LOCATION_LAT.toDoubleOrNull() ?: return null
+    return GpsLocationFix(
+        lon = lon,
+        lat = lat,
+        bearingDegrees = BuildConfig.SURI_MAP_DEBUG_CURRENT_LOCATION_BEARING_DEGREES.toDoubleOrNull()?.normalizeBearingDegrees(),
+        speedMps = null,
+        horizontalAccuracyM = null,
+        capturedAt = Instant.now()
     )
 }
 

@@ -99,18 +99,26 @@ class MapLibreRuntimeMapContractTest {
                 id = "current-location",
                 kind = MapLibreGeometryOverlayKind.CurrentLocation,
                 highlighted = true,
-                label = "현재 위치 · 92°",
+                label = "",
                 bearingDegrees = 92.0,
                 geoJson = """{"type":"Point","coordinates":[126.91,37.51]}"""
             )
         val source = File("src/main/java/com/surimap/core/map/MapLibreRuntimeMap.kt").readText()
 
-        assertTrue(overlay.signature().contains("CurrentLocation:current-location:true:현재 위치 · 92°:92.0"))
+        assertTrue(overlay.signature().contains("CurrentLocation:current-location:true::92.0"))
         assertTrue(source.contains("headingLayerId"))
         assertTrue(source.contains("supportsHeadingLayer"))
-        assertTrue(source.contains("textField(Expression.get(\"headingGlyph\"))"))
-        assertTrue(source.contains("textRotate(Expression.get(\"bearingDegrees\"))"))
-        assertTrue(source.contains("put(\"headingGlyph\", \"\\u25B2\")"))
+        assertTrue(source.contains("CURRENT_LOCATION_IMAGE_ID"))
+        assertTrue(source.contains("CURRENT_LOCATION_HEADING_IMAGE_ID"))
+        assertTrue(source.contains("currentLocationBitmap("))
+        assertTrue(source.contains("withHeading = false"))
+        assertTrue(source.contains("withHeading = true"))
+        assertTrue(source.contains("iconImage(Expression.get(\"currentLocationIcon\"))"))
+        assertTrue(source.contains("iconRotate(Expression.get(\"bearingDegrees\"))"))
+        assertTrue(source.contains("iconSize(CURRENT_LOCATION_ICON_SIZE)"))
+        assertTrue(source.contains("CURRENT_LOCATION_ICON_SIZE = 1.35f"))
+        assertTrue(source.contains("MapLibreGeometryOverlayKind.CurrentLocation -> false"))
+        assertTrue(source.contains("CURRENT_LOCATION_HEADING_IMAGE_SDF = false"))
         assertTrue(source.contains("removeLayer(\"\$styleId-heading\")"))
     }
 
