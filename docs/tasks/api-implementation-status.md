@@ -1,7 +1,7 @@
 # API 구현 현황표
 
 작성일: 2026-05-11
-최종 갱신: 2026-05-18 
+최종 갱신: 2026-05-19
 
 ## 목적
 
@@ -72,6 +72,7 @@
 | `POST /api/incidents/{incidentId}/offline-package/installations` | S7 | 구현 | `OfflinePackageController` | Android outbox replay 연결 필요 |
 | `POST /api/operational-periods` | S8 | 부분 | `OperationalPeriodController`, MyBatis `operational_period` write, Web command client, previous OP summary generation enqueue 추가 | idempotency durable record, handoverMemo 저장, provider 실행/STALE 재생성 보강 |
 | `GET /api/incidents/{incidentId}/operational-periods` | S8 | 부분 | `OperationalPeriodController`, `OperationalPeriodQuery`, Web client, Android read repository 추가 | board/offline source provider 연결 |
+| `POST /api/operational-periods/comparisons` | S8 | 부분 | `OpComparisonController`, `OpComparisonApiService`, MyBatis `op_comparison_analysis` write, idempotency replay, `OP_COMPARISON_ANALYSIS_CHANGED` publish 추가 | S3-2 board slot/Web client 연결, 실제 provider runtime smoke |
 | `POST /api/duty-shifts` | S8 | 부분 | `AppDutyShiftController`, MyBatis `duty_shift` write, Android outbox repository 추가 | durable idempotency, assignment 정책 보강 |
 | `PATCH /api/duty-shifts/{dutyShiftId}` | S8 | 부분 | `AppDutyShiftController`, Android duty shift END outbox repository, 서버 summary generation enqueue, Android lower-sequence barrier 추가 | provider 실행/STALE 재생성 보강 |
 | `GET /api/duty-shifts` | S8 | 부분 | `DutyShiftQueryController`, Web API client, Android read repository 추가 | board slot source provider 연결 |

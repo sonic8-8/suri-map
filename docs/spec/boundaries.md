@@ -890,6 +890,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 - `op_comparison_analysis`
 - `POST /api/operational-periods`
 - `GET /api/incidents/{incidentId}/operational-periods`
+- `POST /api/operational-periods/comparisons`
 - `POST /api/duty-shifts`
 - `PATCH /api/duty-shifts/{dutyShiftId}`
 - `GET /api/duty-shifts`
@@ -908,12 +909,15 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 - `SearchHistorySummaryQuery.byOp(opId)`
 - `OP_TRANSITIONED`
 - `HANDOVER_MEMO_CREATED`
+- `OP_COMPARISON_ANALYSIS_CHANGED`
 - `SEARCH_HISTORY_SUMMARY_CHANGED`
 - `events/operational_period.payload.schema.json` for `OP_TRANSITIONED`
 - `events/handover_memo.payload.schema.json` for `HANDOVER_MEMO_CREATED`
+- `events/op_comparison_analysis.payload.schema.json` for `OP_COMPARISON_ANALYSIS_CHANGED`
 - `events/search_history_summary.payload.schema.json` for `SEARCH_HISTORY_SUMMARY_CHANGED`
 - `PublishRequest.OP_TRANSITIONED`
 - `PublishRequest.HANDOVER_MEMO_CREATED`
+- `PublishRequest.OP_COMPARISON_ANALYSIS_CHANGED`
 - `PublishRequest.SEARCH_HISTORY_SUMMARY_CHANGED`
 - `operational_period.schema.json`
 - `duty_shift.schema.json`
@@ -1053,6 +1057,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 | `OFFLINE_PACKAGE_INSTALLATION_CHANGED` | S7 | S3-2 |
 | `OP_TRANSITIONED` | S8 | S3-1, S3-2, S7 |
 | `HANDOVER_MEMO_CREATED` | S8 | S3-2 |
+| `OP_COMPARISON_ANALYSIS_CHANGED` | S8 | S3-2 |
 | `SEARCH_HISTORY_SUMMARY_CHANGED` | S8 | S3-2 |
 
 Event payload는 REST response DTO, S6 `write_operation.schema.json`, S4 outbox/SSE, S3-2 `board.schema.json`, S5 FCM payload가 같은 필드명을 공유한다. Payload root의 공통 비교 필드는 `id`, `status`, `version`이며, 적용 가능한 이벤트는 `opId`, `policePhoneId`, `sequence`도 같은 이름으로 포함한다. SSE envelope는 §9.1 기준 적용. FCM은 동일 payload subset에 §9.1 envelope 중 알림 전달에 필요한 메타만 얹는다.
@@ -1080,6 +1085,7 @@ Event payload는 REST response DTO, S6 `write_operation.schema.json`, S4 outbox/
 | `OFFLINE_PACKAGE_INSTALLATION_CHANGED` | `events/offline_package_installation.payload.schema.json` | 1 | `id`, `status`, `version`, `policePhoneId`, `sequence` |
 | `OP_TRANSITIONED` | `events/operational_period.payload.schema.json` | 1 | `id`, `status`, `version`, `opId` |
 | `HANDOVER_MEMO_CREATED` | `events/handover_memo.payload.schema.json` | 1 | `id`, `status`, `version`, `opId` |
+| `OP_COMPARISON_ANALYSIS_CHANGED` | `events/op_comparison_analysis.payload.schema.json` | 1 | `id`, `status`, `version`, `comparisonId` |
 | `SEARCH_HISTORY_SUMMARY_CHANGED` | `events/search_history_summary.payload.schema.json` | 1 | `id`, `status`, `version`, `opId` |
 
 ### 4.5 Purge Order
@@ -1246,6 +1252,7 @@ Guard shorthand:
 | `POST /api/incidents/{incidentId}/offline-package/installations` | S7 | 앱 | HTTPS | `app-police-phone`, `incident-read`, `write-common` | `internal-caller`: outbox replay |
 | `POST /api/operational-periods` | S8 | 웹 | HTTPS | `web-command`, `incident-read`, `write-common` | `internal-caller`: OP bootstrap |
 | `GET /api/incidents/{incidentId}/operational-periods` | S8 | 앱, 웹, S3-2, S7 | HTTPS | `public-session`, `incident-read` | - |
+| `POST /api/operational-periods/comparisons` | S8 | 웹 | HTTPS | `web-command`, `incident-read`, `write-common` | OP별 metric/diff/common-region fact를 저장하고 `OP_COMPARISON_ANALYSIS_CHANGED`를 발행한다. 추천·누락 확정·위험 판단은 금지 |
 | `POST /api/duty-shifts` | S8 | 앱 | HTTPS | `app-police-phone`, `incident-read`, `write-common`, `@RequireCurrentOp` | - |
 | `PATCH /api/duty-shifts/{dutyShiftId}` | S8 | 앱 | HTTPS | `app-police-phone`, `incident-read`, `write-common`, `@RequireCurrentOp` | `internal-caller`: search history summary generation job trigger after `action=END` commit |
 | `GET /api/duty-shifts` | S8 | 앱, 웹, S3-2 | HTTPS | `public-session`, `incident-read` | - |
@@ -1348,5 +1355,5 @@ S3-2는 shell routing, page layout, slot mounting, shared state wiring의 owner�
 | SC-08 지원 요청·실종자 발견 알림 | S5, S1-1, S1-2, S4, S6, S8 | `POST /api/markers`, `SUPPORT_REQUEST_CREATED`, `PERSON_FOUND`, fixture `FcmDispatcher` | `marker`, `toast` | S5 marker/notification payload through S6 Outbox -> S4 `EventFanout` -> S3-2 marker/toast; S1-2 `FcmTokenQuery.activeByPolicePhone(policePhoneId)` -> S5 resolver/`FcmDispatcher` adapter -> app banner |
 | SC-09 통신 복구·동기화 | S6, S3-1, S5, S1-2, S3-2, S4, S7 | `POST /api/sync/outbox/requeue`, `POST /api/search-paths/batch`, `POST /api/markers`, `POST /api/incidents/{incidentId}/offline-package/installations`, `GET /api/incidents/{incidentId}/events`, `PATH_APPENDED`, `MARKER_CREATED`, `OFFLINE_PACKAGE_INSTALLATION_CHANGED` | `marker`, `path`, `police_phone_freshness`, `package_badge` | S6 Outbox flush -> S3-1/S5/S7 server rows -> S4 replay/dedupe -> S3-2 recovered board state including `package_badge` |
 | SC-10 구역 완료·새 OP 열기 | S2, S8, S1-2, S4, S1-1 | `PATCH /api/search-areas/{searchAreaId}`, `POST /api/operational-periods`, `POST /api/handover-memos`, `SEARCH_AREA_CHANGED`, `OP_TRANSITIONED`, `HANDOVER_MEMO_CREATED` | `area`, `op_toggle`, `op_history`, `handover_memo`, `handover_status` | S2 area state + S8 OP/handover writes -> S4 `EventFanout` -> S3-2 area/op_history/handover_status/handover_memo display, S1-1 open-incident guard |
-| SC-11 인수인계·OP 비교·수색 이력 요약 | S3-2, S1-2, S8, S3-1, S2, S5, S4, S1-1 | `GET /api/incidents/{incidentId}/board`, `GET /api/search-paths`, `GET /api/handover-memos`, `PATCH /api/duty-shifts/{dutyShiftId}`, `POST /api/operational-periods`, `GET /api/operational-periods/{operationalPeriodId}/search-history-summaries`, `HANDOVER_MEMO_CREATED`, `SEARCH_HISTORY_SUMMARY_CHANGED` | `op_toggle`, `handover_memo`, `search_history_summary` | DutyShift 종료 또는 OP 전환 commit 이후 S8 서버 job이 이전 근무/OP source snapshot으로 summary를 생성하고 S4 `EventFanout` refetch signal을 발행한다. APP duty shift end는 S6 Outbox sequence barrier 뒤에 서버로 전송되어야 하며, 서버는 `sourceHash`/`sourceReadiness`로 늦게 반영된 경로·마커·사진 attach·메모 누락을 stale/regeneration으로 처리한다. Web/App은 생성된 summary를 read-only로 확인한다; S1-1/S1-2 access guard |
+| SC-11 인수인계·OP 비교·수색 이력 요약 | S3-2, S1-2, S8, S3-1, S2, S5, S4, S1-1 | `GET /api/incidents/{incidentId}/board`, `GET /api/search-paths`, `GET /api/handover-memos`, `PATCH /api/duty-shifts/{dutyShiftId}`, `POST /api/operational-periods`, `POST /api/operational-periods/comparisons`, `GET /api/operational-periods/{operationalPeriodId}/search-history-summaries`, `HANDOVER_MEMO_CREATED`, `OP_COMPARISON_ANALYSIS_CHANGED`, `SEARCH_HISTORY_SUMMARY_CHANGED` | `op_toggle`, `handover_memo`, `search_history_summary` | DutyShift 종료 또는 OP 전환 commit 이후 S8 서버 job이 이전 근무/OP source snapshot으로 summary를 생성하고 S4 `EventFanout` refetch signal을 발행한다. OP 비교 분석 생성은 S8이 결정적 metric/diff/common-region fact를 저장하고 S4 refetch signal을 발행하되 원본 geometry/status/version row를 변경하지 않는다. APP duty shift end는 S6 Outbox sequence barrier 뒤에 서버로 전송되어야 하며, 서버는 `sourceHash`/`sourceReadiness`로 늦게 반영된 경로·마커·사진 attach·메모 누락을 stale/regeneration으로 처리한다. Web/App은 생성된 summary를 read-only로 확인한다; S1-1/S1-2 access guard |
 | SC-12 사건 종료·도메인 데이터 파기 | S1-1, S1-2, S1-3, S6, S7, S4, S3-1, S3-2, S5 | §7 `POST /api/incidents/{incidentId}/close`, `GET /api/incidents/{incidentId}/events` web unsubscribe/replay stop, §4.4 `INCIDENT_CLOSED`, `INCIDENT_PURGED`, local package purge, app local close cleanup | §9.2 `incident_terminal`, `package_badge` | S1-1 close -> S1-3 purge orchestration -> S6/S7 purge hooks -> sanitized terminal/tombstone status -> S3-2 `incident_terminal`; S4 carries `INCIDENT_CLOSED`/`INCIDENT_PURGED` fanout, while S6/S7 handle local/package removal and app local close cleanup |
