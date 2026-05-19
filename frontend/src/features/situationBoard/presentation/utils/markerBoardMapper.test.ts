@@ -20,6 +20,7 @@ describe('markerBoardMapper', () => {
         marker: [
           {
             id: 'marker-support-001',
+            version: 1,
             markerType: 'SUPPORT_REQUEST',
             supportRequestType: 'DRONE',
             source: 'APP',
@@ -39,6 +40,8 @@ describe('markerBoardMapper', () => {
     expect(markers[0]?.summary).toBe('드론 지원 요청');
     expect(markers[0]?.title).toBe('드론 지원 요청');
     expect(markers[0]?.opLabel).toBe('OP 2차');
+    expect(markers[0]?.source).toBe('APP');
+    expect(markers[0]?.version).toBe(1);
     expect(markers[0]?.reporterLabel).toBeUndefined();
     expect(markers[0]?.memo).toBe('헬기 촬영 확인 요청');
   });

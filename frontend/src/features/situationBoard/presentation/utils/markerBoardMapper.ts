@@ -15,6 +15,8 @@ export function toBoardRecentMarkers(board: SituationBoardResponseDto): RecentMa
       id: marker.id,
       markerType,
       supportRequestType: marker.supportRequestType,
+      source: marker.source,
+      version: marker.version,
       markerTypeLabel: markerLabel,
       title: resolveMarkerTitle(
         marker.title,
