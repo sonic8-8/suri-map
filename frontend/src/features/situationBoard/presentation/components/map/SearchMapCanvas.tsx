@@ -210,8 +210,30 @@ function getMarkerPopupAuthorLabel(marker: RecentMarker) {
   return marker.reporterLabel?.trim() || '작성자 확인 전';
 }
 
-function getMarkerPopupTimeLabel(marker: RecentMarker) {
-  return marker.timeLabel || marker.occurredAt;
+function getMarkerPopupDateTimeLabel(marker: RecentMarker) {
+  const occurredAt = marker.occurredAt?.trim();
+  if (!occurredAt) {
+    return marker.timeLabel || '시간 확인 전';
+  }
+
+  const date = new Date(occurredAt);
+  if (Number.isNaN(date.getTime())) {
+    return occurredAt;
+  }
+
+  return new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date);
+}
+
+function getMarkerPopupTypeLabel(marker: RecentMarker) {
+  return marker.markerTypeLabel?.trim() || marker.summary?.trim() || '마커';
 }
 
 export type LayerVisibility = {
@@ -1379,12 +1401,12 @@ export function SearchMapCanvas({
                         </div>
                         <div className={styles.markerPopupTitleGroup}>
                           <div className={styles.markerPopupTypeRow}>
-                            <span className={styles.markerPopupEyebrow}>마커 정보</span>
-                            {selectedMarker.markerTypeLabel ? (
-                              <span className={styles.markerPopupType}>{selectedMarker.markerTypeLabel}</span>
+                            <span className={styles.markerPopupType}>{getMarkerPopupTypeLabel(selectedMarker)}</span>
+                            <span className={styles.markerPopupTypeMuted}>{getMarkerPopupOpLabel(selectedMarker)}</span>
+                            {selectedMarker.sourceLabel ? (
+                              <span className={styles.markerPopupTypeMuted}>{selectedMarker.sourceLabel}</span>
                             ) : null}
                           </div>
-                          <div className={styles.markerPopupMeta}>{getMarkerPopupTimeLabel(selectedMarker)}</div>
                         </div>
                       </div>
                       <button
@@ -1406,25 +1428,15 @@ export function SearchMapCanvas({
                     ) : null}
                     <div className={styles.markerPopupDetail}>
                       <div className={styles.markerPopupRow}>
-                        <span className={styles.markerPopupRowLabel}>OP</span>
-                        <span className={styles.markerPopupRowValue}>{getMarkerPopupOpLabel(selectedMarker)}</span>
-                      </div>
-                      <div className={styles.markerPopupRow}>
                         <span className={styles.markerPopupRowLabel}>작성자</span>
                         <span className={styles.markerPopupRowValue}>{getMarkerPopupAuthorLabel(selectedMarker)}</span>
                       </div>
-                      {selectedMarker.sourceLabel ? (
-                        <div className={styles.markerPopupRow}>
-                          <span className={styles.markerPopupRowLabel}>출처</span>
-                          <span className={styles.markerPopupRowValue}>{selectedMarker.sourceLabel}</span>
-                        </div>
-                      ) : null}
-                      {selectedMarker.coordinateLabel ? (
-                        <div className={styles.markerPopupRow}>
-                          <span className={styles.markerPopupRowLabel}>좌표</span>
-                          <span className={styles.markerPopupRowValue}>{selectedMarker.coordinateLabel}</span>
-                        </div>
-                      ) : null}
+                      <div className={styles.markerPopupRow}>
+                        <span className={styles.markerPopupRowLabel}>마커 생성 시각</span>
+                        <time className={styles.markerPopupRowValue} dateTime={selectedMarker.occurredAt}>
+                          {getMarkerPopupDateTimeLabel(selectedMarker)}
+                        </time>
+                      </div>
                       {typeof selectedMarker.photoCount === 'number' && selectedMarker.photoCount > 0 ? (
                         <div className={styles.markerPopupRow}>
                           <span className={styles.markerPopupRowLabel}>사진</span>
