@@ -22,8 +22,8 @@ describe('ComparisonAnalysisPanel', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: '기록 차이 요약 생성' })).toBeDisabled();
-    expect(screen.getByText('2개 이상 OP를 선택하면 기록 차이 요약을 생성할 수 있습니다.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'OP 비교 생성' })).toBeDisabled();
+    expect(screen.getByText('2개 이상 OP를 선택하면 OP 비교를 생성할 수 있습니다.')).toBeInTheDocument();
   });
 
   test('renders deterministic metrics and skipped narrative status', () => {
@@ -77,7 +77,7 @@ describe('ComparisonAnalysisPanel', () => {
       />,
     );
 
-    expect(screen.getAllByText(/요약 실패|기록 차이 요약 실패/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/요약 실패|OP 비교 요약 실패/).length).toBeGreaterThan(0);
     expect(screen.getByText('unsupported_fact_id')).toBeInTheDocument();
     expect(screen.getByText('마커 수')).toBeInTheDocument();
   });
@@ -96,7 +96,7 @@ describe('ComparisonAnalysisPanel', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: '기록 차이 요약 생성' }));
+    fireEvent.click(screen.getByRole('button', { name: 'OP 비교 생성' }));
 
     expect(onCreateAnalysis).toHaveBeenCalledTimes(1);
   });

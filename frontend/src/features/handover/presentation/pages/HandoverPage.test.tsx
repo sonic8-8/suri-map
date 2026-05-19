@@ -6,7 +6,11 @@ import type { LoginAccount } from '../../../login/presentation/types/login';
 import { getHandoverIncidentDetail } from '../../data/getHandoverIncidentDetail';
 import { HandoverPage } from './HandoverPage';
 import { useIncidentBoardQuery, type IncidentBoardResponse } from '../../../board/api/incidentBoardApi';
-import { handoverApi, useDutyShiftListQuery, useSearchHistorySummaryListQuery } from '../../../operationalPeriod/api/handoverApi';
+import {
+  handoverApi,
+  useDutyShiftListQuery,
+  useSearchHistorySummaryListQuery,
+} from '../../../operationalPeriod/api/handoverApi';
 import { operationalPeriodApi } from '../../../operationalPeriod/api/operationalPeriodApi';
 import {
   useCreateOpComparisonMutation,
@@ -244,7 +248,9 @@ describe('HandoverPage', () => {
     );
     const currentOpButton = await screen.findByRole('button', { name: /^OP 2/ });
     expect(currentOpButton).toHaveAttribute('aria-pressed', 'true');
-    await waitFor(() => expect(screen.getByTestId('handover-map')).toHaveAttribute('data-selected-op-ids', 'op-current'));
+    await waitFor(() =>
+      expect(screen.getByTestId('handover-map')).toHaveAttribute('data-selected-op-ids', 'op-current'),
+    );
     expect(screen.getByRole('button', { name: /^OP 2/ })).toHaveAttribute('aria-pressed', 'true');
   });
 
@@ -316,6 +322,7 @@ describe('HandoverPage', () => {
     render(
       <QueryClientProvider client={new QueryClient()}>
         <HandoverPage
+          viewMode="searchHistory"
           currentUserAccount={currentUserAccount()}
           incidentId={INCIDENT_ID}
           markerNotificationIndex={0}
@@ -342,10 +349,13 @@ describe('HandoverPage', () => {
     );
 
     expect(await screen.findByText('OP 2차 결과 브리핑입니다.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'OP 요약' })).toBeInTheDocument();
     expect(screen.queryByText('근무 인수인계 요약입니다.')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /^OP 1차/ }));
-    await waitFor(() => expect(screen.getByTestId('handover-map')).toHaveAttribute('data-selected-op-ids', 'op-current|op-past'));
+    await waitFor(() =>
+      expect(screen.getByTestId('handover-map')).toHaveAttribute('data-selected-op-ids', 'op-current|op-past'),
+    );
     expect(screen.getByText('경로 1건')).toBeInTheDocument();
     expect(screen.getByText('마커 1건')).toBeInTheDocument();
     expect(screen.getByText('구역 1건')).toBeInTheDocument();
@@ -392,13 +402,13 @@ describe('HandoverPage', () => {
 
     fireEvent.click(secondOpButton);
     fireEvent.click(thirdOpButton);
-    await waitFor(() => expect(screen.getByTestId('handover-map')).toHaveAttribute('data-selected-op-ids', 'op-second|op-third'));
+    await waitFor(() =>
+      expect(screen.getByTestId('handover-map')).toHaveAttribute('data-selected-op-ids', 'op-second|op-third'),
+    );
 
     fireEvent.click(fourthOpButton);
 
-    await waitFor(() =>
-      expect(screen.getByText('OP는 최대 2개까지 동시에 표시할 수 있습니다.')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText('OP는 최대 2개까지 동시에 표시할 수 있습니다.')).toBeInTheDocument());
     expect(screen.getByTestId('handover-map')).toHaveAttribute('data-selected-op-ids', 'op-second|op-third');
     expect(fourthOpButton).toHaveAttribute('aria-pressed', 'false');
   });
@@ -416,7 +426,12 @@ describe('HandoverPage', () => {
       currentOpId: 'op-api-current',
       items: [
         operationalPeriod({ id: 'op-api-current', status: 'ACTIVE', sequenceNumber: 3, endedAt: null }),
-        operationalPeriod({ id: 'op-board-active', status: 'ENDED', sequenceNumber: 2, endedAt: '2026-05-17T02:00:00Z' }),
+        operationalPeriod({
+          id: 'op-board-active',
+          status: 'ENDED',
+          sequenceNumber: 2,
+          endedAt: '2026-05-17T02:00:00Z',
+        }),
         operationalPeriod({ id: 'op-past', status: 'ENDED', sequenceNumber: 1, endedAt: '2026-05-17T01:00:00Z' }),
       ],
     });
@@ -463,6 +478,7 @@ describe('HandoverPage', () => {
       <QueryClientProvider client={new QueryClient()}>
         <HandoverPage
           embedded
+          viewMode="searchHistory"
           currentUserAccount={currentUserAccount()}
           incidentId={INCIDENT_ID}
           markerNotificationIndex={0}
@@ -476,10 +492,12 @@ describe('HandoverPage', () => {
         />
       </QueryClientProvider>,
     );
-    const mapArea = await screen.findByRole('region', { name: /overlay/ });
-    await waitFor(() => expect(within(mapArea).getByRole('heading')).toBeInTheDocument());
-    expect(within(mapArea).getByText(/OP 선택/)).toBeInTheDocument();
-    expect(within(mapArea).getByRole('button', { name: /생성/ })).toBeDisabled();
+    await screen.findByRole('region', { name: /수색 이력 지도/ });
+    fireEvent.click(await screen.findByRole('tab', { name: 'OP 비교' }));
+    const comparisonPanel = screen.getByRole('tabpanel', { name: 'OP 비교' });
+    expect(within(comparisonPanel).getByRole('heading', { name: 'OP 비교' })).toBeInTheDocument();
+    expect(within(comparisonPanel).getByText(/OP 선택/)).toBeInTheDocument();
+    expect(within(comparisonPanel).getByRole('button', { name: /비교 생성/ })).toBeDisabled();
   });
   test('fullscreen toggle collapses the handover shell panels', async () => {
     vi.mocked(operationalPeriodApi.list).mockResolvedValue({
@@ -537,6 +555,7 @@ describe('HandoverPage', () => {
       <QueryClientProvider client={new QueryClient()}>
         <HandoverPage
           embedded
+          viewMode="searchHistory"
           currentUserAccount={currentUserAccount()}
           incidentId={INCIDENT_ID}
           markerNotificationIndex={0}
@@ -551,15 +570,19 @@ describe('HandoverPage', () => {
       </QueryClientProvider>,
     );
 
-    const mapArea = await screen.findByRole('region', { name: /overlay/ });
+    await screen.findByRole('region', { name: /수색 이력 지도/ });
+    fireEvent.click(await screen.findByRole('tab', { name: 'OP 비교' }));
+    const comparisonPanel = screen.getByRole('tabpanel', { name: 'OP 비교' });
     const firstOpButton = await screen.findByRole('button', { name: /^OP 1/ });
 
     fireEvent.click(firstOpButton);
     await waitFor(() => expect(firstOpButton).toHaveAttribute('aria-pressed', 'true'));
-    await waitFor(() => expect(screen.getByTestId('handover-map')).toHaveAttribute('data-selected-op-ids', 'op-current|op-past'));
-    await waitFor(() => expect(within(mapArea).getByRole('button', { name: /생성/ })).toBeEnabled());
+    await waitFor(() =>
+      expect(screen.getByTestId('handover-map')).toHaveAttribute('data-selected-op-ids', 'op-current|op-past'),
+    );
+    await waitFor(() => expect(within(comparisonPanel).getByRole('button', { name: /비교 생성/ })).toBeEnabled());
 
-    fireEvent.click(within(mapArea).getByRole('button', { name: /생성/ }));
+    fireEvent.click(within(comparisonPanel).getByRole('button', { name: /비교 생성/ }));
 
     await waitFor(() =>
       expect(mutateAsync).toHaveBeenCalledWith(
@@ -572,16 +595,17 @@ describe('HandoverPage', () => {
       ),
     );
 
-    fireEvent.click(within(mapArea).getByRole('button', { name: /공통/ }));
+    fireEvent.click(within(comparisonPanel).getByRole('button', { name: /공통/ }));
     fireEvent.click(firstOpButton);
     await waitFor(() => expect(firstOpButton).toHaveAttribute('aria-pressed', 'false'));
-    await waitFor(() => expect(within(mapArea).getByRole('button', { name: /생성/ })).toBeDisabled());
+    await waitFor(() => expect(within(comparisonPanel).getByRole('button', { name: /비교 생성/ })).toBeDisabled());
     expect(screen.getByTestId('handover-map')).toHaveAttribute('data-highlight', '');
   });
 });
 
 const INCIDENT_ID = 'incident-handover-001';
-const HIGHLIGHT_GEOMETRY = '{"type":"Polygon","coordinates":[[[126.7,35.1],[126.71,35.1],[126.71,35.11],[126.7,35.1]]]}';
+const HIGHLIGHT_GEOMETRY =
+  '{"type":"Polygon","coordinates":[[[126.7,35.1],[126.71,35.1],[126.71,35.11],[126.7,35.1]]]}';
 
 function boardQueryResult(data = incidentBoardResponse(1)) {
   return {

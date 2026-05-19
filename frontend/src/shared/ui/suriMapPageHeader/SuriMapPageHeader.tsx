@@ -11,6 +11,7 @@ export type SuriMapPageHeaderTabId =
   | 'situationBoard'
   | 'areaEdit'
   | 'handover'
+  | 'searchHistory'
   | 'offlinePackage';
 
 export type MarkerNotification = {
@@ -61,6 +62,7 @@ export type SuriMapPageHeaderProps = {
   onOpenIncidentDetail?: () => void;
   onOpenSituationBoard?: () => void;
   onOpenHandover?: () => void;
+  onOpenSearchHistory?: () => void;
   onOpenOfflinePackage?: () => void;
   onOpenLogin?: () => void;
   onCloseMarkerNotifications?: () => void;
@@ -138,6 +140,7 @@ export function SuriMapPageHeader({
   onOpenIncidentList,
   onMoveMarkerNotification,
   onOpenHandover,
+  onOpenSearchHistory,
   onOpenOfflinePackage,
   onOpenLogin,
   onOpenSituationBoard,
@@ -146,6 +149,7 @@ export function SuriMapPageHeader({
   const navItems: NavItem[] = [
     { id: 'incidentDetail', label: '사건 상세', onClick: onOpenIncidentDetail },
     { id: 'situationBoard', label: '상황판', onClick: onOpenSituationBoard },
+    { id: 'searchHistory', label: '수색 이력', onClick: onOpenSearchHistory },
     { id: 'handover', label: '인수인계', onClick: onOpenHandover },
     { id: 'offlinePackage', label: '오프라인 패키지', onClick: onOpenOfflinePackage },
   ];
@@ -179,7 +183,11 @@ export function SuriMapPageHeader({
           })}
         </div>
         <div className={styles.meta}>
-          <TruncatedTooltipText anchorClassName={styles.metaAccount} textClassName={styles.metaAccountText} value={currentAccountLabel}>
+          <TruncatedTooltipText
+            anchorClassName={styles.metaAccount}
+            textClassName={styles.metaAccountText}
+            value={currentAccountLabel}
+          >
             <b>{currentAccountLabel}</b>
           </TruncatedTooltipText>
           <span className={styles.metaDivider} aria-hidden="true" />
@@ -196,55 +204,61 @@ export function SuriMapPageHeader({
       </nav>
       {showIncidentContextBar ? (
         <section
-        className={`${styles.incidentContextBar} ${
-          incidentContext.statusTone === 'terminal' ? styles.incidentContextBarTerminal : ''
-        }`}
-        aria-label="사건 컨텍스트"
-      >
-        <div className={styles.incidentContextMain}>
-          <div className={styles.incidentAvatar} aria-hidden="true">
-            {incidentContext.avatarLabel}
-          </div>
-          <div className={styles.incidentContextTitle}>
-            <span>{incidentContext.eyebrow}</span>
-            <TruncatedTooltipText anchorClassName={styles.incidentContextTitleValueAnchor} textClassName={styles.incidentContextTitleValue} value={incidentContext.title} />
-          </div>
-        </div>
-        <span className={styles.incidentContextDivider} aria-hidden="true" />
-        <div className={styles.incidentContextMetrics}>
-          {incidentContext.metrics.map(({ label, value }) => (
-            <div key={label}>
-              <span>{label}</span>
-              <TruncatedTooltipText anchorClassName={styles.incidentContextMetricValueAnchor} textClassName={styles.incidentContextMetricValue} value={value} />
+          className={`${styles.incidentContextBar} ${
+            incidentContext.statusTone === 'terminal' ? styles.incidentContextBarTerminal : ''
+          }`}
+          aria-label="사건 컨텍스트"
+        >
+          <div className={styles.incidentContextMain}>
+            <div className={styles.incidentAvatar} aria-hidden="true">
+              {incidentContext.avatarLabel}
             </div>
-          ))}
-        </div>
-        <div className={styles.incidentContextActions}>
-          {packageWarning ? (
-            <button
-              type="button"
-              className={styles.packageWarningBadge}
-              aria-label={packageWarning.ariaLabel ?? packageWarning.label}
-              disabled={!onOpenOfflinePackage}
-              onClick={onOpenOfflinePackage}
-            >
-              {packageWarning.label}
-            </button>
-          ) : null}
-          {syncStatus ? (
-            <div className={`${styles.syncStatus} ${syncStatusClassName(syncStatus.tone)}`}>{syncStatus.label}</div>
-          ) : null}
-          <div
-            className={`${styles.headerStatus} ${
-              incidentContext.statusTone === 'terminal'
-                ? styles.headerStatusTerminal
-                : styles.headerStatusInProgress
-            }`}
-            aria-label="사건 상태"
-          >
-            {incidentContext.statusLabel}
+            <div className={styles.incidentContextTitle}>
+              <span>{incidentContext.eyebrow}</span>
+              <TruncatedTooltipText
+                anchorClassName={styles.incidentContextTitleValueAnchor}
+                textClassName={styles.incidentContextTitleValue}
+                value={incidentContext.title}
+              />
+            </div>
           </div>
-        </div>
+          <span className={styles.incidentContextDivider} aria-hidden="true" />
+          <div className={styles.incidentContextMetrics}>
+            {incidentContext.metrics.map(({ label, value }) => (
+              <div key={label}>
+                <span>{label}</span>
+                <TruncatedTooltipText
+                  anchorClassName={styles.incidentContextMetricValueAnchor}
+                  textClassName={styles.incidentContextMetricValue}
+                  value={value}
+                />
+              </div>
+            ))}
+          </div>
+          <div className={styles.incidentContextActions}>
+            {packageWarning ? (
+              <button
+                type="button"
+                className={styles.packageWarningBadge}
+                aria-label={packageWarning.ariaLabel ?? packageWarning.label}
+                disabled={!onOpenOfflinePackage}
+                onClick={onOpenOfflinePackage}
+              >
+                {packageWarning.label}
+              </button>
+            ) : null}
+            {syncStatus ? (
+              <div className={`${styles.syncStatus} ${syncStatusClassName(syncStatus.tone)}`}>{syncStatus.label}</div>
+            ) : null}
+            <div
+              className={`${styles.headerStatus} ${
+                incidentContext.statusTone === 'terminal' ? styles.headerStatusTerminal : styles.headerStatusInProgress
+              }`}
+              aria-label="사건 상태"
+            >
+              {incidentContext.statusLabel}
+            </div>
+          </div>
         </section>
       ) : null}
       {activeMarkerNotification ? (
