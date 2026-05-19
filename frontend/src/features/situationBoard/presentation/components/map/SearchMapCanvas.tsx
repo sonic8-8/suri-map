@@ -187,6 +187,25 @@ function setOperationalGeoJsonSourceData(map: maplibregl.Map, sourceId: string, 
   (source as GeoJSONSource).setData(data);
 }
 
+export function syncOperationalGeoJsonSourceDataWhenAvailable(
+  map: maplibregl.Map,
+  sourceId: string,
+  data: OperationalFeatureCollection,
+) {
+  if (map.getSource(sourceId)) {
+    setOperationalGeoJsonSourceData(map, sourceId, data);
+    return undefined;
+  }
+
+  const syncWhenLoaded = () => {
+    setOperationalGeoJsonSourceData(map, sourceId, data);
+  };
+  map.once('load', syncWhenLoaded);
+  return () => {
+    map.off('load', syncWhenLoaded);
+  };
+}
+
 function syncSearchAreaSourceData(
   map: maplibregl.Map,
   searchAreas: OperationalFeatureCollection,
@@ -1067,11 +1086,11 @@ export function SearchMapCanvas({
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !map.loaded()) {
+    if (!map) {
       return;
     }
 
-    setOperationalGeoJsonSourceData(map, MOVEMENT_PATH_SOURCE_ID, visibleMovementPathFeatures);
+    return syncOperationalGeoJsonSourceDataWhenAvailable(map, MOVEMENT_PATH_SOURCE_ID, visibleMovementPathFeatures);
   }, [visibleMovementPathFeatures]);
 
   useEffect(() => {
