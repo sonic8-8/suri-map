@@ -2275,7 +2275,11 @@ internal fun SearchMapUiState.centerOnCurrentLocation(fix: GpsLocationFix): Sear
 
 private fun SearchMapUiState.assignedTeamSearchAreaBoundaries(): List<AssignedSearchAreaBoundary> =
     layers
-        .filter { layer -> layer.kind == SearchLayerKind.Team && !layer.geoJson.isNullOrBlank() }
+        .filter { layer ->
+            layer.kind == SearchLayerKind.Team &&
+                layer.assignedToCurrentPhone &&
+                !layer.geoJson.isNullOrBlank()
+        }
         .map { layer ->
             AssignedSearchAreaBoundary(
                 searchAreaId = layer.overlayId.orEmpty(),

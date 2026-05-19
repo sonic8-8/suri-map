@@ -231,11 +231,13 @@ class SearchMapStateLoader(
         if (!response.isSuccessful || response.body.isNullOrBlank()) {
             return state
         }
+        val assignedAreaIds = assignedAreaIds(response.body)
+        val areaState = state.withAssignedAreas(assignedAreaIds)
         val markerLayers = initialMarkerLayers(response.body)
         if (markerLayers.isEmpty()) {
-            return state
+            return areaState
         }
-        return state.copy(layers = state.layers + markerLayers).withViewportFromLayers(markerLayers)
+        return areaState.copy(layers = areaState.layers + markerLayers).withViewportFromLayers(markerLayers)
     }
 
     private suspend fun withLiveMarkers(
@@ -376,6 +378,44 @@ class SearchMapStateLoader(
                 )
             }
         }
+    }
+
+    private fun assignedAreaIds(body: String): Set<String> {
+        val root = runCatching { JSONObject(body) }.getOrNull() ?: return emptySet()
+        val areas = root.optJSONArray("assignedAreas") ?: return emptySet()
+        return buildSet {
+            repeat(areas.length()) { index ->
+                val area = areas.optJSONObject(index) ?: return@repeat
+                val areaId = area.optString("areaId").ifBlank { area.optString("id") }
+                if (areaId.isNotBlank()) {
+                    add(areaId)
+                }
+            }
+        }
+    }
+
+    private fun SearchMapUiState.withAssignedAreas(areaIds: Set<String>): SearchMapUiState {
+        if (areaIds.isEmpty()) {
+            return this
+        }
+        val nextLayers =
+            layers.map { layer ->
+                if (layer.kind != SearchLayerKind.Team) {
+                    layer
+                } else {
+                    val assigned = layer.overlayId != null && areaIds.contains(layer.overlayId)
+                    layer.copy(highlighted = assigned, assignedToCurrentPhone = assigned)
+                }
+            }
+        val assignedLabel =
+            nextLayers
+                .firstOrNull { layer -> layer.kind == SearchLayerKind.Team && layer.assignedToCurrentPhone }
+                ?.label
+                ?.takeIf(String::isNotBlank)
+        return copy(
+            assignmentLabel = assignedLabel ?: assignmentLabel,
+            layers = nextLayers
+        )
     }
 
     private fun liveMarkerLayers(body: String): List<SearchMapLayerUiState> {

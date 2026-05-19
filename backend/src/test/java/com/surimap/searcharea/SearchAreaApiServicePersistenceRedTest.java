@@ -414,6 +414,31 @@ class SearchAreaApiServicePersistenceRedTest extends PostGisIntegrationTestSuppo
             parent.id().toString(),
             COMMANDER_ID.toString());
     assertThat(splitHistoryCount).isEqualTo(2);
+
+    List<Map<String, Object>> eventRows =
+        jdbcTemplate.queryForList(
+            """
+            SELECT event_type, source_entity_type, source_entity_id, payload
+            FROM event_dispatch_job
+            WHERE incident_id = ?::uuid
+              AND event_type = 'SEARCH_AREA_CHANGED'
+              AND (
+                (source_entity_id = ?::uuid AND payload ->> 'version' = '2')
+                OR source_entity_id IN (?::uuid, ?::uuid)
+              )
+            ORDER BY source_entity_id
+            """,
+            SPLIT_INCIDENT_ID.toString(),
+            parent.id().toString(),
+            response.children().get(0).id().toString(),
+            response.children().get(1).id().toString());
+    assertThat(eventRows).hasSize(3);
+    assertThat(eventRows)
+        .allSatisfy(
+            row -> {
+              assertThat(row.get("source_entity_type")).isEqualTo("search_area");
+              assertThat(row.get("payload").toString()).contains("\"geometry\"");
+            });
   }
 
   @Test

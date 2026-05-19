@@ -256,6 +256,29 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
   }
 
   @Test
+  @DisplayName("area slot requests cancelled parent rows so split TEAM children stay attached")
+  void area_slot_requests_cancelled_parent_rows_for_split_tree_rendering() {
+    CapturingSearchAreaQuery searchAreaQuery = new CapturingSearchAreaQuery();
+    DefaultIncidentBoardSourceRowCollector collector =
+        new DefaultIncidentBoardSourceRowCollector(
+            provider(searchAreaQuery),
+            provider(searchPathService()),
+            provider(new FakePolicePhoneFreshnessQuery()),
+            new CapturingMarkerQuery(),
+            new FakePackageQuery(),
+            new FakeOperationalPeriodQuery(),
+            new FakeHandoverMemoQuery(),
+            new FakeSummaryMapper());
+
+    collector.collect(new BoardSourceRowContext(INCIDENT_ID, List.of(OP_ID), List.of("area"), null));
+
+    assertThat(searchAreaQuery.byOpFilters())
+        .singleElement()
+        .extracting(SearchAreaFilters::includeCancelled)
+        .isEqualTo(true);
+  }
+
+  @Test
   @DisplayName("collects sanitized incident_terminal row from closed incident and purge source")
   void collects_sanitized_incident_terminal_row_from_closed_incident_and_purge_source() {
     IncidentMapper incidentMapper = mock(IncidentMapper.class);
