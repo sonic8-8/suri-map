@@ -550,7 +550,7 @@
       "credentials": [
         {
           "type": "password",
-          "value": "fixture",
+          "value": "123456",
           "temporary": false
         }
       ],
@@ -597,7 +597,7 @@
       "credentials": [
         {
           "type": "password",
-          "value": "fixture",
+          "value": "123456",
           "temporary": false
         }
       ],
@@ -644,7 +644,7 @@
       "credentials": [
         {
           "type": "password",
-          "value": "fixture",
+          "value": "123456",
           "temporary": false
         }
       ],
@@ -691,7 +691,7 @@
       "credentials": [
         {
           "type": "password",
-          "value": "fixture",
+          "value": "123456",
           "temporary": false
         }
       ],
@@ -738,7 +738,7 @@
       "credentials": [
         {
           "type": "password",
-          "value": "fixture",
+          "value": "123456",
           "temporary": false
         }
       ],
@@ -785,7 +785,7 @@
       "credentials": [
         {
           "type": "password",
-          "value": "fixture",
+          "value": "123456",
           "temporary": false
         }
       ],
@@ -832,7 +832,7 @@
       "credentials": [
         {
           "type": "password",
-          "value": "fixture",
+          "value": "123456",
           "temporary": false
         }
       ],
@@ -879,7 +879,7 @@
       "credentials": [
         {
           "type": "password",
-          "value": "fixture",
+          "value": "123456",
           "temporary": false
         }
       ],
@@ -926,7 +926,7 @@
       "credentials": [
         {
           "type": "password",
-          "value": "fixture",
+          "value": "123456",
           "temporary": false
         }
       ],
@@ -960,6 +960,758 @@
         ],
         "displayName": [
           "광주광산경찰서 수완지구대 순경 한지민"
+        ]
+      }
+    },
+    {
+      "username": "station1",
+      "enabled": true,
+      "email": "station1@suri-map.local",
+      "emailVerified": true,
+      "firstName": "김도현",
+      "lastName": "",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "123456",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "accountId": [
+          "11111111-1111-1111-1111-111111110001"
+        ],
+        "accountType": [
+          "COMMAND"
+        ],
+        "organizationType": [
+          "POLICE_SUBSTATION"
+        ],
+        "accountCode": [
+          "station1"
+        ],
+        "organizationName": [
+          "광주광산경찰서 수완지구대"
+        ],
+        "organizationCode": [
+          "GWANGJU_GWANGSAN_SUWAN_PATROL_DIVISION"
+        ],
+        "rankCode": [
+          "INSPECTOR"
+        ],
+        "rankName": [
+          "경위"
+        ],
+        "personName": [
+          "김도현"
+        ],
+        "displayName": [
+          "광주광산경찰서 수완지구대 경위 김도현"
+        ]
+      }
+    },
+    {
+      "username": "station2",
+      "enabled": true,
+      "email": "station2@suri-map.local",
+      "emailVerified": true,
+      "firstName": "박민수",
+      "lastName": "",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "123456",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "accountId": [
+          "11111111-1111-1111-1111-111111110002"
+        ],
+        "accountType": [
+          "PATROL_CAR"
+        ],
+        "organizationType": [
+          "POLICE_SUBSTATION"
+        ],
+        "accountCode": [
+          "station2"
+        ],
+        "organizationName": [
+          "광주광산경찰서 수완지구대"
+        ],
+        "organizationCode": [
+          "GWANGJU_GWANGSAN_SUWAN_PATROL_DIVISION"
+        ],
+        "rankCode": [
+          "SERGEANT"
+        ],
+        "rankName": [
+          "경사"
+        ],
+        "personName": [
+          "박민수"
+        ],
+        "displayName": [
+          "광주광산경찰서 수완지구대 경사 박민수"
+        ]
+      }
+    },
+    {
+      "username": "station3",
+      "enabled": true,
+      "email": "station3@suri-map.local",
+      "emailVerified": true,
+      "firstName": "이준호",
+      "lastName": "",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "123456",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "accountId": [
+          "11111111-1111-1111-1111-111111110003"
+        ],
+        "accountType": [
+          "TEAM"
+        ],
+        "organizationType": [
+          "POLICE_SUBSTATION"
+        ],
+        "accountCode": [
+          "station3"
+        ],
+        "organizationName": [
+          "광주광산경찰서 수완지구대"
+        ],
+        "organizationCode": [
+          "GWANGJU_GWANGSAN_SUWAN_PATROL_DIVISION"
+        ],
+        "rankCode": [
+          "POLICE_OFFICER"
+        ],
+        "rankName": [
+          "순경"
+        ],
+        "personName": [
+          "이준호"
+        ],
+        "displayName": [
+          "광주광산경찰서 수완지구대 순경 이준호"
+        ]
+      }
+    },
+    {
+      "username": "missing1",
+      "enabled": true,
+      "email": "missing1@suri-map.local",
+      "emailVerified": true,
+      "firstName": "정서윤",
+      "lastName": "",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "123456",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "accountId": [
+          "11111111-1111-1111-1111-111111110004"
+        ],
+        "accountType": [
+          "COMMAND"
+        ],
+        "organizationType": [
+          "MISSING_TEAM"
+        ],
+        "accountCode": [
+          "missing1"
+        ],
+        "organizationName": [
+          "광주경찰청 여성청소년과 실종팀"
+        ],
+        "organizationCode": [
+          "GWANGJU_POLICE_WOMEN_JUVENILE_MISSING_TEAM"
+        ],
+        "rankCode": [
+          "SENIOR_INSPECTOR"
+        ],
+        "rankName": [
+          "경감"
+        ],
+        "personName": [
+          "정서윤"
+        ],
+        "displayName": [
+          "광주경찰청 여성청소년과 실종팀 경감 정서윤"
+        ]
+      }
+    },
+    {
+      "username": "missing2",
+      "enabled": true,
+      "email": "missing2@suri-map.local",
+      "emailVerified": true,
+      "firstName": "최지훈",
+      "lastName": "",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "123456",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "accountId": [
+          "11111111-1111-1111-1111-111111110005"
+        ],
+        "accountType": [
+          "TEAM"
+        ],
+        "organizationType": [
+          "MISSING_TEAM"
+        ],
+        "accountCode": [
+          "missing2"
+        ],
+        "organizationName": [
+          "광주경찰청 여성청소년과 실종팀"
+        ],
+        "organizationCode": [
+          "GWANGJU_POLICE_WOMEN_JUVENILE_MISSING_TEAM"
+        ],
+        "rankCode": [
+          "SERGEANT"
+        ],
+        "rankName": [
+          "경사"
+        ],
+        "personName": [
+          "최지훈"
+        ],
+        "displayName": [
+          "광주경찰청 여성청소년과 실종팀 경사 최지훈"
+        ]
+      }
+    },
+    {
+      "username": "support1",
+      "enabled": true,
+      "email": "support1@suri-map.local",
+      "emailVerified": true,
+      "firstName": "강현우",
+      "lastName": "",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "123456",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "accountId": [
+          "11111111-1111-1111-1111-111111110006"
+        ],
+        "accountType": [
+          "COMMAND"
+        ],
+        "organizationType": [
+          "SUPPORT_UNIT"
+        ],
+        "accountCode": [
+          "support1"
+        ],
+        "organizationName": [
+          "광주경찰청 기동대"
+        ],
+        "organizationCode": [
+          "GWANGJU_POLICE_MOBILE_UNIT"
+        ],
+        "rankCode": [
+          "INSPECTOR"
+        ],
+        "rankName": [
+          "경위"
+        ],
+        "personName": [
+          "강현우"
+        ],
+        "displayName": [
+          "광주경찰청 기동대 경위 강현우"
+        ]
+      }
+    },
+    {
+      "username": "support2",
+      "enabled": true,
+      "email": "support2@suri-map.local",
+      "emailVerified": true,
+      "firstName": "윤태영",
+      "lastName": "",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "123456",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "accountId": [
+          "11111111-1111-1111-1111-111111110007"
+        ],
+        "accountType": [
+          "PATROL_CAR"
+        ],
+        "organizationType": [
+          "SUPPORT_UNIT"
+        ],
+        "accountCode": [
+          "support2"
+        ],
+        "organizationName": [
+          "광주경찰청 기동대"
+        ],
+        "organizationCode": [
+          "GWANGJU_POLICE_MOBILE_UNIT"
+        ],
+        "rankCode": [
+          "SERGEANT"
+        ],
+        "rankName": [
+          "경사"
+        ],
+        "personName": [
+          "윤태영"
+        ],
+        "displayName": [
+          "광주경찰청 기동대 경사 윤태영"
+        ]
+      }
+    },
+    {
+      "username": "support3",
+      "enabled": true,
+      "email": "support3@suri-map.local",
+      "emailVerified": true,
+      "firstName": "오민재",
+      "lastName": "",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "123456",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "accountId": [
+          "11111111-1111-1111-1111-111111110008"
+        ],
+        "accountType": [
+          "TEAM"
+        ],
+        "organizationType": [
+          "SUPPORT_UNIT"
+        ],
+        "accountCode": [
+          "support3"
+        ],
+        "organizationName": [
+          "광주경찰청 기동대"
+        ],
+        "organizationCode": [
+          "GWANGJU_POLICE_MOBILE_UNIT"
+        ],
+        "rankCode": [
+          "POLICE_OFFICER"
+        ],
+        "rankName": [
+          "순경"
+        ],
+        "personName": [
+          "오민재"
+        ],
+        "displayName": [
+          "광주경찰청 기동대 순경 오민재"
+        ]
+      }
+    },
+    {
+      "username": "station4",
+      "enabled": true,
+      "email": "station4@suri-map.local",
+      "emailVerified": true,
+      "firstName": "문태호",
+      "lastName": "",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "123456",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "accountId": [
+          "d1000000-0000-4000-8000-000000000001"
+        ],
+        "accountType": [
+          "PATROL_CAR"
+        ],
+        "organizationType": [
+          "POLICE_SUBSTATION"
+        ],
+        "accountCode": [
+          "station4"
+        ],
+        "organizationName": [
+          "광주광산경찰서 수완지구대"
+        ],
+        "organizationCode": [
+          "GWANGJU_GWANGSAN_SUWAN_PATROL_DIVISION"
+        ],
+        "rankCode": [
+          "SENIOR_POLICE_OFFICER"
+        ],
+        "rankName": [
+          "경장"
+        ],
+        "personName": [
+          "문태호"
+        ],
+        "displayName": [
+          "광주광산경찰서 수완지구대 경장 문태호"
+        ]
+      }
+    },
+    {
+      "username": "station5",
+      "enabled": true,
+      "email": "station5@suri-map.local",
+      "emailVerified": true,
+      "firstName": "서민재",
+      "lastName": "",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "123456",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "accountId": [
+          "d1000000-0000-4000-8000-000000000002"
+        ],
+        "accountType": [
+          "PATROL_CAR"
+        ],
+        "organizationType": [
+          "POLICE_SUBSTATION"
+        ],
+        "accountCode": [
+          "station5"
+        ],
+        "organizationName": [
+          "광주광산경찰서 첨단지구대"
+        ],
+        "organizationCode": [
+          "GWANGJU_GWANGSAN_CHEOMDAN_PATROL_DIVISION"
+        ],
+        "rankCode": [
+          "SERGEANT"
+        ],
+        "rankName": [
+          "경사"
+        ],
+        "personName": [
+          "서민재"
+        ],
+        "displayName": [
+          "광주광산경찰서 첨단지구대 경사 서민재"
+        ]
+      }
+    },
+    {
+      "username": "missing3",
+      "enabled": true,
+      "email": "missing3@suri-map.local",
+      "emailVerified": true,
+      "firstName": "한유라",
+      "lastName": "",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "123456",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "accountId": [
+          "d1000000-0000-4000-8000-000000000003"
+        ],
+        "accountType": [
+          "TEAM"
+        ],
+        "organizationType": [
+          "MISSING_TEAM"
+        ],
+        "accountCode": [
+          "missing3"
+        ],
+        "organizationName": [
+          "광주경찰청 실종팀 드론운용반"
+        ],
+        "organizationCode": [
+          "GWANGJU_POLICE_MISSING_DRONE_TEAM"
+        ],
+        "rankCode": [
+          "INSPECTOR"
+        ],
+        "rankName": [
+          "경위"
+        ],
+        "personName": [
+          "한유라"
+        ],
+        "displayName": [
+          "광주경찰청 실종팀 드론운용반 경위 한유라"
+        ]
+      }
+    },
+    {
+      "username": "missing4",
+      "enabled": true,
+      "email": "missing4@suri-map.local",
+      "emailVerified": true,
+      "firstName": "임재훈",
+      "lastName": "",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "123456",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "accountId": [
+          "d1000000-0000-4000-8000-000000000004"
+        ],
+        "accountType": [
+          "TEAM"
+        ],
+        "organizationType": [
+          "MISSING_TEAM"
+        ],
+        "accountCode": [
+          "missing4"
+        ],
+        "organizationName": [
+          "광주경찰청 실종팀 탐문반"
+        ],
+        "organizationCode": [
+          "GWANGJU_POLICE_MISSING_INTERVIEW_TEAM"
+        ],
+        "rankCode": [
+          "SERGEANT"
+        ],
+        "rankName": [
+          "경사"
+        ],
+        "personName": [
+          "임재훈"
+        ],
+        "displayName": [
+          "광주경찰청 실종팀 탐문반 경사 임재훈"
+        ]
+      }
+    },
+    {
+      "username": "support4",
+      "enabled": true,
+      "email": "support4@suri-map.local",
+      "emailVerified": true,
+      "firstName": "백승우",
+      "lastName": "",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "123456",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "accountId": [
+          "d1000000-0000-4000-8000-000000000005"
+        ],
+        "accountType": [
+          "TEAM"
+        ],
+        "organizationType": [
+          "SUPPORT_UNIT"
+        ],
+        "accountCode": [
+          "support4"
+        ],
+        "organizationName": [
+          "광주경찰청 기동대 1제대"
+        ],
+        "organizationCode": [
+          "GWANGJU_POLICE_MOBILE_UNIT_1ST_PLATOON"
+        ],
+        "rankCode": [
+          "POLICE_OFFICER"
+        ],
+        "rankName": [
+          "순경"
+        ],
+        "personName": [
+          "백승우"
+        ],
+        "displayName": [
+          "광주경찰청 기동대 1제대 순경 백승우"
+        ]
+      }
+    },
+    {
+      "username": "support5",
+      "enabled": true,
+      "email": "support5@suri-map.local",
+      "emailVerified": true,
+      "firstName": "조아린",
+      "lastName": "",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "123456",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "accountId": [
+          "d1000000-0000-4000-8000-000000000006"
+        ],
+        "accountType": [
+          "TEAM"
+        ],
+        "organizationType": [
+          "SUPPORT_UNIT"
+        ],
+        "accountCode": [
+          "support5"
+        ],
+        "organizationName": [
+          "광주경찰청 기동대 2제대"
+        ],
+        "organizationCode": [
+          "GWANGJU_POLICE_MOBILE_UNIT_2ND_PLATOON"
+        ],
+        "rankCode": [
+          "SENIOR_POLICE_OFFICER"
+        ],
+        "rankName": [
+          "경장"
+        ],
+        "personName": [
+          "조아린"
+        ],
+        "displayName": [
+          "광주경찰청 기동대 2제대 경장 조아린"
+        ]
+      }
+    },
+    {
+      "username": "support6",
+      "enabled": true,
+      "email": "support6@suri-map.local",
+      "emailVerified": true,
+      "firstName": "조영민",
+      "lastName": "",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "123456",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "accountId": [
+          "d1000000-0000-4000-8000-000000000007"
+        ],
+        "accountType": [
+          "PATROL_CAR"
+        ],
+        "organizationType": [
+          "SUPPORT_UNIT"
+        ],
+        "accountCode": [
+          "support6"
+        ],
+        "organizationName": [
+          "광주경찰청 기동대 교통통제반"
+        ],
+        "organizationCode": [
+          "GWANGJU_POLICE_MOBILE_TRAFFIC_CONTROL"
+        ],
+        "rankCode": [
+          "SENIOR_POLICE_OFFICER"
+        ],
+        "rankName": [
+          "경장"
+        ],
+        "personName": [
+          "조영민"
+        ],
+        "displayName": [
+          "광주경찰청 기동대 교통통제반 경장 조영민"
+        ]
+      }
+    },
+    {
+      "username": "support7",
+      "enabled": true,
+      "email": "support7@suri-map.local",
+      "emailVerified": true,
+      "firstName": "김나영",
+      "lastName": "",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "123456",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "accountId": [
+          "d1000000-0000-4000-8000-000000000008"
+        ],
+        "accountType": [
+          "TEAM"
+        ],
+        "organizationType": [
+          "SUPPORT_UNIT"
+        ],
+        "accountCode": [
+          "support7"
+        ],
+        "organizationName": [
+          "광주경찰청 기동대 야간 예비팀"
+        ],
+        "organizationCode": [
+          "GWANGJU_POLICE_MOBILE_NIGHT_RESERVE"
+        ],
+        "rankCode": [
+          "SERGEANT"
+        ],
+        "rankName": [
+          "경사"
+        ],
+        "personName": [
+          "김나영"
+        ],
+        "displayName": [
+          "광주경찰청 기동대 야간 예비팀 경사 김나영"
         ]
       }
     }
