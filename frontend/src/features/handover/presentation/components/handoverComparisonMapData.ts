@@ -20,9 +20,10 @@ import type { RecentMarker } from '../../../situationBoard/presentation/constant
 export type Position = [number, number];
 
 type PolygonGeometry = { type: 'Polygon'; coordinates: Position[][] };
+type MultiPolygonGeometry = { type: 'MultiPolygon'; coordinates: Position[][][] };
 type LineStringGeometry = { type: 'LineString'; coordinates: Position[] };
 type PointGeometry = { type: 'Point'; coordinates: Position };
-type ComparisonGeometry = PolygonGeometry | LineStringGeometry | PointGeometry;
+type ComparisonGeometry = PolygonGeometry | MultiPolygonGeometry | LineStringGeometry | PointGeometry;
 type ComparisonFeature = {
   type: 'Feature';
   properties: Record<string, string | number>;

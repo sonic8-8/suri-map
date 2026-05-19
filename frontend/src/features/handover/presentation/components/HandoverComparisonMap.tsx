@@ -34,6 +34,7 @@ export type HandoverComparisonMapProps = {
   board: IncidentBoardResponse | null;
   focusedOpId: string | null;
   selectedOpIds: string[];
+  comparisonHighlightGeometryGeojson?: string | null;
 };
 
 export type HandoverComparisonMapSharedProps = Omit<HandoverComparisonMapProps, 'externalMap' | 'hideCanvas'>;
@@ -46,6 +47,7 @@ const OVERALL_AREA_SOURCE_ID = 'handover-comparison-overall-area';
 const AREA_SOURCE_ID = 'handover-comparison-area';
 const PATH_SOURCE_ID = 'handover-comparison-path';
 const MARKER_SOURCE_ID = 'handover-comparison-marker';
+const REGION_HIGHLIGHT_SOURCE_ID = 'handover-comparison-region-highlight';
 const OVERALL_AREA_FILL_LAYER_ID = 'handover-comparison-overall-area-fill';
 const OVERALL_AREA_COMPLETED_HATCH_LAYER_ID = 'handover-comparison-overall-area-completed-hatch';
 const OVERALL_AREA_LINE_LAYER_ID = 'handover-comparison-overall-area-line';
@@ -59,6 +61,8 @@ const AREA_LINE_LAYER_IDS = {
 } as const;
 const PATH_GLOW_LAYER_ID = 'handover-comparison-path-glow';
 const PATH_LINE_LAYER_ID = 'handover-comparison-path-line';
+const REGION_HIGHLIGHT_FILL_LAYER_ID = 'handover-comparison-region-highlight-fill';
+const REGION_HIGHLIGHT_LINE_LAYER_ID = 'handover-comparison-region-highlight-line';
 
 export function HandoverComparisonMap({
   baseMapMode = 'standalone',
@@ -68,6 +72,7 @@ export function HandoverComparisonMap({
   board,
   focusedOpId,
   selectedOpIds,
+  comparisonHighlightGeometryGeojson = null,
 }: HandoverComparisonMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -84,6 +89,10 @@ export function HandoverComparisonMap({
     () => createComparisonFeatureCollections(board, incidentId, selectedOpIds, focusedOpId),
     [board, focusedOpId, incidentId, selectedOpIds],
   );
+  const comparisonHighlightFeatures = useMemo(
+    () => createComparisonHighlightFeatureCollection(comparisonHighlightGeometryGeojson),
+    [comparisonHighlightGeometryGeojson],
+  );
   const boardMarkers = useMemo(() => createComparisonBoardMarkers(board, selectedOpIds), [board, selectedOpIds]);
   const visibleMarkerIds = useMemo(() => boardMarkers.map((marker) => marker.id), [boardMarkers]);
   const markerInteractionHandlers = useMemo<MarkerInteractionHandlers>(
@@ -96,6 +105,7 @@ export function HandoverComparisonMap({
     [],
   );
   const featureCollectionsRef = useRef(featureCollections);
+  const comparisonHighlightFeaturesRef = useRef(comparisonHighlightFeatures);
   const overallAreaFeaturesRef = useRef(visibleOverallAreaFeatures);
   const boardMarkersRef = useRef(boardMarkers);
   const visibleMarkerIdsRef = useRef(visibleMarkerIds);
@@ -103,11 +113,16 @@ export function HandoverComparisonMap({
     visibleOverallAreaFeatures.features.length > 0 ||
     featureCollections.areas.features.length > 0 ||
     featureCollections.paths.features.length > 0 ||
-    featureCollections.markers.features.length > 0;
+    featureCollections.markers.features.length > 0 ||
+    comparisonHighlightFeatures.features.length > 0;
 
   useEffect(() => {
     featureCollectionsRef.current = featureCollections;
   }, [featureCollections]);
+
+  useEffect(() => {
+    comparisonHighlightFeaturesRef.current = comparisonHighlightFeatures;
+  }, [comparisonHighlightFeatures]);
 
   useEffect(() => {
     overallAreaFeaturesRef.current = visibleOverallAreaFeatures;
@@ -169,6 +184,7 @@ export function HandoverComparisonMap({
         addComparisonLayers(map);
         syncOverallAreaSource(map, latestOverallAreaFeatures);
         syncComparisonSources(map, latestFeatureCollections);
+        syncComparisonHighlightSource(map, comparisonHighlightFeaturesRef.current);
         syncMarkerElements(
           map,
           boardMarkersRef.current,
@@ -180,7 +196,7 @@ export function HandoverComparisonMap({
         boundsRef.current = getCollectionsBounds({
           areas: combineFeatureCollections(latestOverallAreaFeatures, latestFeatureCollections.areas),
           paths: latestFeatureCollections.paths,
-          markers: latestFeatureCollections.markers,
+          markers: combineFeatureCollections(latestFeatureCollections.markers, comparisonHighlightFeaturesRef.current),
         });
         fitMapToBounds(map, boundsRef.current);
       }, 'Failed to initialize handover comparison layers');
@@ -207,6 +223,7 @@ export function HandoverComparisonMap({
         addComparisonLayers(externalMap);
         syncOverallAreaSource(externalMap, latestOverallAreaFeatures);
         syncComparisonSources(externalMap, latestFeatureCollections);
+        syncComparisonHighlightSource(externalMap, comparisonHighlightFeaturesRef.current);
         syncMarkerElements(
           externalMap,
           boardMarkersRef.current,
@@ -218,7 +235,7 @@ export function HandoverComparisonMap({
         boundsRef.current = getCollectionsBounds({
           areas: combineFeatureCollections(latestOverallAreaFeatures, latestFeatureCollections.areas),
           paths: latestFeatureCollections.paths,
-          markers: latestFeatureCollections.markers,
+          markers: combineFeatureCollections(latestFeatureCollections.markers, comparisonHighlightFeaturesRef.current),
         });
         scheduleFitToEvidence(externalMap, boundsRef.current);
       }, 'Failed to initialize external handover comparison layers');
@@ -241,6 +258,7 @@ export function HandoverComparisonMap({
           paths: emptyFeatureCollection(),
           markers: emptyFeatureCollection(),
         });
+        syncComparisonHighlightSource(externalMap, emptyFeatureCollection());
       }, 'Failed to clear external handover comparison layers');
       mapRef.current = null;
     };
@@ -254,11 +272,12 @@ export function HandoverComparisonMap({
       addComparisonLayers(map);
       syncOverallAreaSource(map, visibleOverallAreaFeatures);
       syncComparisonSources(map, featureCollections);
+      syncComparisonHighlightSource(map, comparisonHighlightFeatures);
       syncMarkerElements(map, boardMarkers, visibleMarkerIds, markerInstancesRef, true, markerInteractionHandlers);
       boundsRef.current = getCollectionsBounds({
         areas: combineFeatureCollections(visibleOverallAreaFeatures, featureCollections.areas),
         paths: featureCollections.paths,
-        markers: featureCollections.markers,
+        markers: combineFeatureCollections(featureCollections.markers, comparisonHighlightFeatures),
       });
       if (externalMap) {
         scheduleFitToEvidence(map, boundsRef.current);
@@ -268,6 +287,7 @@ export function HandoverComparisonMap({
     }, 'Failed to sync handover comparison map');
   }, [
     boardMarkers,
+    comparisonHighlightFeatures,
     externalMap,
     featureCollections,
     markerInteractionHandlers,
@@ -321,6 +341,7 @@ function addComparisonLayers(map: maplibregl.Map) {
   addGeoJsonSource(map, AREA_SOURCE_ID, emptyFeatureCollection());
   addGeoJsonSource(map, PATH_SOURCE_ID, emptyFeatureCollection());
   addGeoJsonSource(map, MARKER_SOURCE_ID, emptyFeatureCollection());
+  addGeoJsonSource(map, REGION_HIGHLIGHT_SOURCE_ID, emptyFeatureCollection());
   addCompletedAreaHatchPattern(map);
 
   addLayer(map, {
@@ -446,6 +467,27 @@ function addComparisonLayers(map: maplibregl.Map) {
       'line-opacity': ['to-number', ['get', 'lineOpacity']],
     },
   } as LayerSpecification);
+
+  addLayer(map, {
+    id: REGION_HIGHLIGHT_FILL_LAYER_ID,
+    type: 'fill',
+    source: REGION_HIGHLIGHT_SOURCE_ID,
+    paint: {
+      'fill-color': '#facc15',
+      'fill-opacity': 0.28,
+    },
+  });
+
+  addLayer(map, {
+    id: REGION_HIGHLIGHT_LINE_LAYER_ID,
+    type: 'line',
+    source: REGION_HIGHLIGHT_SOURCE_ID,
+    paint: {
+      'line-color': '#f59e0b',
+      'line-width': 3,
+      'line-opacity': 0.96,
+    },
+  });
 }
 
 function addCompletedAreaHatchPattern(map: maplibregl.Map) {
@@ -498,6 +540,41 @@ function syncComparisonSources(
   setGeoJsonSourceData(map, AREA_SOURCE_ID, collections.areas);
   setGeoJsonSourceData(map, PATH_SOURCE_ID, collections.paths);
   setGeoJsonSourceData(map, MARKER_SOURCE_ID, collections.markers);
+}
+
+function syncComparisonHighlightSource(map: maplibregl.Map, data: ComparisonFeatureCollection) {
+  setGeoJsonSourceData(map, REGION_HIGHLIGHT_SOURCE_ID, data);
+}
+
+function createComparisonHighlightFeatureCollection(geometryGeojson: string | null): ComparisonFeatureCollection {
+  const geometry = parseComparisonGeometry(geometryGeojson);
+  if (!geometry) return emptyFeatureCollection();
+
+  return {
+    type: 'FeatureCollection',
+    features: [
+      {
+        type: 'Feature',
+        properties: { kind: 'opComparisonRegionHighlight' },
+        geometry,
+      },
+    ],
+  };
+}
+
+function parseComparisonGeometry(
+  geometryGeojson: string | null,
+): ComparisonFeatureCollection['features'][number]['geometry'] | null {
+  if (!geometryGeojson) return null;
+
+  try {
+    const parsed = JSON.parse(geometryGeojson) as unknown;
+    if (!isRecord(parsed) || !Array.isArray(parsed.coordinates)) return null;
+    if (!['Polygon', 'MultiPolygon', 'LineString', 'Point'].includes(String(parsed.type))) return null;
+    return parsed as ComparisonFeatureCollection['features'][number]['geometry'];
+  } catch {
+    return null;
+  }
 }
 
 function setGeoJsonSourceData(map: maplibregl.Map, sourceId: string, data: ComparisonFeatureCollection) {
@@ -558,4 +635,8 @@ function extendBounds(bounds: maplibregl.LngLatBounds, coordinates: unknown): vo
     return;
   }
   coordinates.forEach((item) => extendBounds(bounds, item));
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

@@ -22,7 +22,9 @@ export interface ComparisonAnalysisPanelProps {
   analysis: OpComparisonResponse | null;
   isCreating: boolean;
   errorMessage: string;
+  selectedRegionFactId?: string | null;
   onCreateAnalysis: () => void;
+  onRegionFactSelect?: (fact: OpComparisonRegionFact) => void;
 }
 
 const metricLabelByKey: Record<string, string> = {
@@ -44,7 +46,9 @@ export function ComparisonAnalysisPanel({
   analysis,
   isCreating,
   errorMessage,
+  selectedRegionFactId = null,
   onCreateAnalysis,
+  onRegionFactSelect,
 }: ComparisonAnalysisPanelProps) {
   const selectedOptions = selectedOperationalPeriodIds.map((id) => findPeriodOption(operationalPeriods, id));
   const canCreate = selectedOperationalPeriodIds.length >= 2 && !isCreating;
@@ -107,7 +111,12 @@ export function ComparisonAnalysisPanel({
 
           <MetricsTable metrics={analysis.metrics} operationalPeriods={operationalPeriods} />
           <DiffFactList diffFacts={analysis.diffFacts} operationalPeriods={operationalPeriods} />
-          <RegionFactList regionFacts={analysis.regionFacts} operationalPeriods={operationalPeriods} />
+          <RegionFactList
+            regionFacts={analysis.regionFacts}
+            operationalPeriods={operationalPeriods}
+            selectedRegionFactId={selectedRegionFactId}
+            onRegionFactSelect={onRegionFactSelect}
+          />
           <ObservationList observations={observations} />
           <NarrativeState analysis={analysis} observations={observations} />
         </>
@@ -205,9 +214,13 @@ function DiffFactList({
 function RegionFactList({
   regionFacts,
   operationalPeriods,
+  selectedRegionFactId,
+  onRegionFactSelect,
 }: {
   regionFacts: OpComparisonRegionFact[];
   operationalPeriods: ComparisonOperationalPeriodOption[];
+  selectedRegionFactId: string | null;
+  onRegionFactSelect?: (fact: OpComparisonRegionFact) => void;
 }) {
   if (regionFacts.length === 0) {
     return <div className={styles.emptyState}>표시할 영역 fact가 없습니다.</div>;
@@ -220,16 +233,38 @@ function RegionFactList({
         <h3>영역 fact</h3>
       </div>
       <ol className={styles.factList}>
-        {regionFacts.map((fact) => (
-          <li key={fact.factId}>
-            <strong>{formatRegionType(fact.type)}</strong>
-            <span>{fact.operationalPeriodIds.map((id) => findPeriodOption(operationalPeriods, id).label).join(' · ')}</span>
-            <small>
-              면적 {formatArea(fact.areaSquareMeters)}
-              {fact.occupancies.length > 0 ? ` · 점유 ${formatDuration(fact.occupancies[0]?.durationSeconds ?? 0)}` : ''}
-            </small>
-          </li>
-        ))}
+        {regionFacts.map((fact) => {
+          const content = (
+            <>
+              <strong>{formatRegionType(fact.type)}</strong>
+              <span>{fact.operationalPeriodIds.map((id) => findPeriodOption(operationalPeriods, id).label).join(' · ')}</span>
+              <small>
+                면적 {formatArea(fact.areaSquareMeters)}
+                {fact.occupancies.length > 0 ? ` · 점유 ${formatDuration(fact.occupancies[0]?.durationSeconds ?? 0)}` : ''}
+              </small>
+            </>
+          );
+          const isSelected = selectedRegionFactId === fact.factId;
+
+          return (
+            <li key={fact.factId} className={isSelected ? styles.factItemSelected : undefined}>
+              {onRegionFactSelect ? (
+                <button
+                  type="button"
+                  className={`${styles.factButton}${isSelected ? ` ${styles.factButtonSelected}` : ''}`}
+                  disabled={!fact.geometryGeojson}
+                  aria-label={`${formatRegionType(fact.type)} 선택`}
+                  aria-pressed={isSelected}
+                  onClick={() => onRegionFactSelect(fact)}
+                >
+                  {content}
+                </button>
+              ) : (
+                content
+              )}
+            </li>
+          );
+        })}
       </ol>
     </section>
   );
