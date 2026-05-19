@@ -40,6 +40,26 @@ class IncidentListStateLoaderTest {
     }
 
     @Test
+    fun incidentSelectionVisibleTextDoesNotExposePolicePhoneId() = runBlocking {
+        val loader =
+            IncidentListStateLoader(
+                repository =
+                IncidentReadRepository(
+                    apiClient =
+                    SuriMapApiClient(
+                        baseUrl = "https://suri-map.internal",
+                        callFactory = CapturingCallFactory(response(200, """{"items":[]}"""))
+                    )
+                ),
+                policePhoneLabel = "00000000-0000-0000-0000-000000000101"
+            )
+
+        val state = loader.load()
+
+        assertFalse(state.visibleText().any { it.contains("00000000-0000-0000-0000-000000000101") })
+    }
+
+    @Test
     fun openIncidentsMapToCardsAndIncidentOnlyContext() = runBlocking {
         val loader =
             loaderFor(

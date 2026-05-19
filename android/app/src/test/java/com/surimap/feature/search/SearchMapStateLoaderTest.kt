@@ -353,6 +353,107 @@ class SearchMapStateLoaderTest {
     }
 
     @Test
+    fun manifestAssignedAreasMarkOnlyCurrentPolicePhoneTeamBoundary() = runBlocking {
+        val areaGeometry =
+            """
+            {
+              "type": "Polygon",
+              "coordinates": [[
+                [126.910000, 37.510000],
+                [126.930000, 37.510000],
+                [126.930000, 37.530000],
+                [126.910000, 37.530000],
+                [126.910000, 37.510000]
+              ]]
+            }
+            """.trimIndent()
+        val loader =
+            SearchMapStateLoader(
+                incidentDetail = { notFoundResponse() },
+                overallSearchArea = { notFoundResponse() },
+                opSearchAreas = { _, _ ->
+                    SuriMapApiResponse(
+                        statusCode = 200,
+                        body =
+                        """
+                        {
+                          "areas": [
+                            {
+                              "id": "$UNIT_AREA_ID",
+                              "opId": "$OP_ID",
+                              "areaLevel": "UNIT",
+                              "name": "기동대 1부대",
+                              "status": "ACTIVE",
+                              "geometry": $areaGeometry
+                            },
+                            {
+                              "id": "$TEAM_AREA_ID",
+                              "opId": "$OP_ID",
+                              "parentAreaId": "$UNIT_AREA_ID",
+                              "areaLevel": "TEAM",
+                              "name": "A팀 담당 구역",
+                              "status": "ACTIVE",
+                              "geometry": $areaGeometry
+                            },
+                            {
+                              "id": "$TEAM_AREA_ID_2",
+                              "opId": "$OP_ID",
+                              "parentAreaId": "$UNIT_AREA_ID",
+                              "areaLevel": "TEAM",
+                              "name": "B팀 담당 구역",
+                              "status": "ACTIVE",
+                              "geometry": $areaGeometry
+                            }
+                          ]
+                        }
+                        """.trimIndent(),
+                        errorCode = null
+                    )
+                },
+                initialMarkers = { _, policePhoneId ->
+                    assertEquals(POLICE_PHONE_ID, policePhoneId)
+                    SuriMapApiResponse(
+                        statusCode = 200,
+                        body =
+                        """
+                        {
+                          "assignedAreas": [
+                            {
+                              "areaId": "$TEAM_AREA_ID",
+                              "incidentId": "$INCIDENT_ID",
+                              "opId": "$OP_ID",
+                              "status": "ACTIVE",
+                              "version": 2
+                            }
+                          ],
+                          "initialMarkers": []
+                        }
+                        """.trimIndent(),
+                        errorCode = null
+                    )
+                }
+            )
+
+        val state =
+            loader.load(
+                SearchMapSessionContext(
+                    incidentId = INCIDENT_ID,
+                    currentOpId = OP_ID,
+                    currentDutyShiftId = DUTY_SHIFT_ID,
+                    policePhoneId = POLICE_PHONE_ID
+                )
+            )
+
+        val teamLayers = state.layers.filter { it.kind == SearchLayerKind.Team }
+        assertEquals(2, teamLayers.size)
+        assertEquals("A팀 담당 구역", state.assignmentLabel)
+        assertTrue(teamLayers.single { it.overlayId == TEAM_AREA_ID }.assignedToCurrentPhone)
+        assertTrue(teamLayers.single { it.overlayId == TEAM_AREA_ID }.highlighted)
+        assertFalse(teamLayers.single { it.overlayId == TEAM_AREA_ID_2 }.assignedToCurrentPhone)
+        assertFalse(teamLayers.single { it.overlayId == TEAM_AREA_ID_2 }.highlighted)
+    }
+
+    @Test
     fun unitAreaLabelFallsBackAsAssignmentWhenTeamAreaIsMissing() = runBlocking {
         val areaGeometry =
             """
@@ -1031,6 +1132,7 @@ class SearchMapStateLoaderTest {
         val OVERALL_AREA_ID = areaIdFixture("overall-001")
         val UNIT_AREA_ID = areaIdFixture("unit-001")
         val TEAM_AREA_ID = areaIdFixture("team-001")
+        val TEAM_AREA_ID_2 = areaIdFixture("team-002")
         val PATH_ID = pathIdFixture("001")
         val MARKER_ID = markerIdFixture("clue-001")
     }

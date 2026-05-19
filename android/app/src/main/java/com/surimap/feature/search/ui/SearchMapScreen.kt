@@ -77,6 +77,9 @@ import com.surimap.ui.theme.PoliSuccess
 import com.surimap.ui.theme.PoliWarning
 import com.surimap.ui.theme.SuriMapTheme
 
+private val ExpandedBottomPanelMapInset = 286.dp
+private val FloatingHandleFg = Color(0xFF0F172A)
+
 enum class SearchMapSyncStatus {
     Idle,
     Offline,
@@ -113,7 +116,8 @@ data class SearchMapLayerUiState(
     val kind: SearchLayerKind,
     val highlighted: Boolean = false,
     val overlayId: String? = null,
-    val geoJson: String? = null
+    val geoJson: String? = null,
+    val assignedToCurrentPhone: Boolean = false
 )
 
 data class SearchMapAreaFocusTarget(
@@ -141,7 +145,7 @@ data class SearchMapUiState(
     val incidentAlert: IncidentAlertUiState? = null,
     val focusedMarkerId: String? = null,
     val topHeaderExpanded: Boolean = false,
-    val bottomPanelExpanded: Boolean = true,
+    val bottomPanelExpanded: Boolean = false,
     val mapOverlaysVisible: Boolean = true,
     val activeSearchPathId: String? = null,
     val activeSearchPathStartedAtEpochMs: Long? = null
@@ -198,7 +202,7 @@ data class SearchMapUiState(
 
     val lifecycleTitle: String =
         when (lifecycleStatus) {
-            SearchLifecycleStatus.Active -> "수색 기록 중"
+            SearchLifecycleStatus.Active -> ""
             SearchLifecycleStatus.Paused -> "수색 일시정지"
             SearchLifecycleStatus.Stopped -> "수색 경로 종료"
             SearchLifecycleStatus.OpRequired -> "OP 확인 필요"
@@ -207,9 +211,9 @@ data class SearchMapUiState(
 
     val lifecycleMessage: String =
         when (lifecycleStatus) {
-            SearchLifecycleStatus.Active -> "GPS 5초 수집 · 서버 전송 10초 batch 기준"
+            SearchLifecycleStatus.Active -> ""
             SearchLifecycleStatus.Paused -> "경로 batch 전송과 마커 생성이 일시 차단됩니다."
-            SearchLifecycleStatus.Stopped -> "현재 경로는 종료되었습니다. 다시 시작하면 새 SearchPath가 생성됩니다."
+            SearchLifecycleStatus.Stopped -> ""
             SearchLifecycleStatus.OpRequired -> "current OP 누락 또는 조회 실패입니다. 경로·마커 기록 차단 상태입니다."
             SearchLifecycleStatus.OpTransition -> "OP 전환 중입니다. 이전 OP 기록은 readonly로 유지됩니다."
         }
@@ -231,17 +235,16 @@ data class SearchMapUiState(
             add(assignmentDisplayLabel)
             add(syncLabel)
             add(if (topHeaderExpanded) "상단 정보 펼침" else "상단 정보 접힘")
-            add(lifecycleTitle)
-            add(lifecycleMessage)
+            lifecycleTitle.takeIf(String::isNotBlank)?.let(::add)
+            lifecycleMessage.takeIf(String::isNotBlank)?.let(::add)
             add(if (canWritePath) "경로 기록 가능" else "경로 기록 차단")
             add(if (canCreateMarker) "마커 생성 가능" else "마커 생성 차단")
             add(if (bottomPanelExpanded) "지도 정보 펼침" else "지도 정보 접힘")
-            add(if (mapOverlaysVisible) "지도 오버레이 표시" else "지도 오버레이 숨김")
-            if (mapOverlaysVisible) {
+            if (topHeaderExpanded) {
                 add("전체 수색구역")
                 add("부대 수색구역")
                 add("팀 담당구역")
-                add("마커 상세")
+                add("마커")
                 unitSearchAreaTargets.forEach { add(it.label) }
                 teamSearchAreaTargets.forEach { add(it.label) }
             }
@@ -355,7 +358,7 @@ data class SearchMapUiState(
                 oldestPendingMinutes = oldestPendingMinutes,
                 blockedOutboxCount = blockedOutboxCount,
                 elapsedLabel = "04:21",
-                movementSummary = "도보 1.2km · GPS 5초 / 전송 10초",
+                movementSummary = "도보 1.2km",
                 layers =
                 listOf(
                     SearchMapLayerUiState("전체 수색 구역", SearchLayerKind.Overall),
@@ -367,6 +370,29 @@ data class SearchMapUiState(
                 handoverPrompt = handoverPrompt,
                 incidentAlert = incidentAlert
             )
+    }
+}
+
+@Composable
+private fun EdgeToggleHandle(
+    iconResId: Int,
+    contentDescription: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier =
+            modifier
+                .size(34.dp)
+                .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            painter = painterResource(id = iconResId),
+            contentDescription = contentDescription,
+            tint = FloatingHandleFg,
+            modifier = Modifier.size(22.dp)
+        )
     }
 }
 
@@ -388,16 +414,41 @@ fun SearchMapScreen(
     onFocusSearchArea: (SearchLayerKind, String?) -> Unit,
     onToggleHeaderPanel: () -> Unit,
     onToggleBottomPanel: () -> Unit,
-    onToggleMapOverlays: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier.fillMaxSize().background(PoliBgBase)) {
-        SearchMapHeader(state = state, onBack = onBack, onToggleExpanded = onToggleHeaderPanel)
+    val mapModifier =
+        if (state.bottomPanelExpanded) {
+            Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .padding(bottom = ExpandedBottomPanelMapInset)
+        } else {
+            Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+        }
+
+    Box(modifier = modifier.fillMaxSize().background(PoliBgBase)) {
+        SearchMapShell(
+            state = state,
+            mapState = mapState,
+            showMapPreview = showMapPreview,
+            onOpenBlockedOutbox = onOpenBlockedOutbox,
+            onCenterCurrentLocation = onCenterCurrentLocation,
+            modifier = mapModifier
+        )
 
         Column(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.align(Alignment.TopCenter),
             verticalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
         ) {
+            SearchMapHeader(
+                state = state,
+                onBack = onBack,
+                onToggleExpanded = onToggleHeaderPanel,
+                onOpenFocusedMarkerDetail = onOpenFocusedMarkerDetail,
+                onFocusSearchArea = onFocusSearchArea
+            )
             state.incidentAlert?.let { alert ->
                 IncidentAlertBanner(
                     state = alert,
@@ -421,17 +472,6 @@ fun SearchMapScreen(
                     modifier = Modifier.padding(horizontal = PoliDimens.SectionPadding)
                 )
             }
-            SearchMapShell(
-                state = state,
-                mapState = mapState,
-                showMapPreview = showMapPreview,
-                onOpenFocusedMarkerDetail = onOpenFocusedMarkerDetail,
-                onOpenBlockedOutbox = onOpenBlockedOutbox,
-                onCenterCurrentLocation = onCenterCurrentLocation,
-                onFocusSearchArea = onFocusSearchArea,
-                onToggleMapOverlays = onToggleMapOverlays,
-                modifier = Modifier.weight(1f)
-            )
         }
 
         SearchBottomPanel(
@@ -440,76 +480,145 @@ fun SearchMapScreen(
             onStopSearch = onStopSearch,
             onOpenHandover = onOpenHandover,
             onCreateMarker = onCreateMarker,
-            onToggleBottomPanel = onToggleBottomPanel
+            onToggleBottomPanel = onToggleBottomPanel,
+            modifier = Modifier.align(Alignment.BottomCenter)
         )
     }
 }
 
 @Composable
-private fun SearchMapHeader(state: SearchMapUiState, onBack: () -> Unit, onToggleExpanded: () -> Unit) {
+private fun SearchMapHeader(
+    state: SearchMapUiState,
+    onBack: () -> Unit,
+    onToggleExpanded: () -> Unit,
+    onOpenFocusedMarkerDetail: (String) -> Unit,
+    onFocusSearchArea: (SearchLayerKind, String?) -> Unit
+) {
+    var expandedAreaKind by remember { mutableStateOf<SearchLayerKind?>(null) }
+
+    if (!state.topHeaderExpanded) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(top = PoliDimens.Space2),
+            contentAlignment = Alignment.TopCenter
+        ) {
+            EdgeToggleHandle(
+                iconResId = R.drawable.ic_panel_down,
+                contentDescription = "상단 메뉴 열기",
+                onClick = onToggleExpanded
+            )
+        }
+        return
+    }
+
     Column(
         modifier =
             Modifier
+                .fillMaxWidth()
                 .statusBarsPadding()
                 .padding(bottom = PoliDimens.Space4),
         verticalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
     ) {
-        PoliAppBar(
-            title = state.incidentTitle,
-            subtitle = state.missingPersonSummary,
-            showBack = true,
-            onBack = onBack
-        )
-        Surface(
+        Column(
             modifier =
                 Modifier
-                    .padding(horizontal = PoliDimens.SectionPadding)
                     .fillMaxWidth()
-                    .clickable(onClick = onToggleExpanded),
-            shape = MaterialTheme.shapes.medium,
-            color = PoliBgSurface,
-            contentColor = PoliFgPrimary,
-            border = BorderStroke(1.dp, PoliBorderStrong)
+                    .background(PoliBgSurface)
+                    .padding(bottom = PoliDimens.Space3)
         ) {
+            PoliAppBar(
+                title = state.incidentTitle,
+                subtitle = state.missingPersonSummary,
+                showBack = true,
+                onBack = onBack
+            )
             Column(
-                modifier = Modifier.padding(horizontal = PoliDimens.Space4, vertical = PoliDimens.Space2),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = PoliDimens.SectionPadding),
                 verticalArrangement = Arrangement.spacedBy(PoliDimens.Space1)
             ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space2),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = state.opLabel,
-                        style = MaterialTheme.typography.titleSmall,
-                        color = PoliFgPrimary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
+                PoliRow(title = state.opLabel, subtitle = "담당구역 · ${state.assignmentDisplayLabel}") {
                     PoliChip(text = state.syncLabel, variant = state.syncVariant)
                 }
-                Text(
-                    text = "담당 · ${state.assignmentDisplayLabel}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = PoliFgPrimary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                if (state.topHeaderExpanded) {
+                if (state.lifecycleTitle.isNotBlank()) {
                     Text(
                         text = state.lifecycleTitle,
                         style = MaterialTheme.typography.labelMedium,
                         color = PoliFgMuted
                     )
+                }
+                if (state.lifecycleMessage.isNotBlank()) {
                     Text(
                         text = state.lifecycleMessage,
                         style = MaterialTheme.typography.bodySmall,
                         color = PoliFgMuted
                     )
                 }
+                Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
+                    AreaFocusGroup(
+                        title = "전체",
+                        targets = state.overallSearchAreaTargets,
+                        expanded = expandedAreaKind == SearchLayerKind.Overall,
+                        onToggleExpanded = {
+                            expandedAreaKind =
+                                if (expandedAreaKind == SearchLayerKind.Overall) null else SearchLayerKind.Overall
+                        },
+                        onFocus = { target ->
+                            expandedAreaKind = null
+                            onFocusSearchArea(target.kind, target.overlayId)
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                    AreaFocusGroup(
+                        title = "부대",
+                        targets = state.unitSearchAreaTargets,
+                        expanded = expandedAreaKind == SearchLayerKind.Unit,
+                        onToggleExpanded = {
+                            expandedAreaKind =
+                                if (expandedAreaKind == SearchLayerKind.Unit) null else SearchLayerKind.Unit
+                        },
+                        onFocus = { target ->
+                            expandedAreaKind = null
+                            onFocusSearchArea(target.kind, target.overlayId)
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                    AreaFocusGroup(
+                        title = "팀",
+                        targets = state.teamSearchAreaTargets,
+                        expanded = expandedAreaKind == SearchLayerKind.Team,
+                        onToggleExpanded = {
+                            expandedAreaKind =
+                                if (expandedAreaKind == SearchLayerKind.Team) null else SearchLayerKind.Team
+                        },
+                        onFocus = { target ->
+                            expandedAreaKind = null
+                            onFocusSearchArea(target.kind, target.overlayId)
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                    MarkerDetailButton(
+                        onClick =
+                        state.markerDetailTargetId
+                            ?.takeIf { state.canOpenMarkerDetail }
+                            ?.let { markerId -> { onOpenFocusedMarkerDetail(markerId) } },
+                        enabled = state.canOpenMarkerDetail,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
         }
+        EdgeToggleHandle(
+            iconResId = R.drawable.ic_panel_up,
+            contentDescription = "상단 메뉴 닫기",
+            onClick = onToggleExpanded,
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+        )
     }
 }
 
@@ -518,17 +627,13 @@ private fun SearchMapShell(
     state: SearchMapUiState,
     mapState: MapLibreRuntimeMapState,
     showMapPreview: Boolean,
-    onOpenFocusedMarkerDetail: (String) -> Unit,
     onOpenBlockedOutbox: () -> Unit,
     onCenterCurrentLocation: () -> Unit,
-    onFocusSearchArea: (SearchLayerKind, String?) -> Unit,
-    onToggleMapOverlays: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val runtimeMapState = state.toRuntimeMapState(mapState)
-    var expandedAreaKind by remember { mutableStateOf<SearchLayerKind?>(null) }
 
-    Box(modifier = modifier.fillMaxWidth().background(PoliBgInput)) {
+    Box(modifier = modifier.fillMaxSize().background(PoliBgInput)) {
         if (showMapPreview) {
             SearchMapPreviewScene(
                 state = state,
@@ -542,67 +647,6 @@ private fun SearchMapShell(
             )
         }
 
-        Column(
-            modifier = Modifier.align(Alignment.TopStart).padding(PoliDimens.Space3),
-            verticalArrangement = Arrangement.spacedBy(PoliDimens.Space2)
-        ) {
-            MapOverlayToggle(
-                visible = state.mapOverlaysVisible,
-                onClick = onToggleMapOverlays
-            )
-            if (state.mapOverlaysVisible) {
-                state.markerFocusLabel?.let { focusLabel ->
-                    PoliChip(text = focusLabel, variant = PoliChipVariant.Bad)
-                }
-                AreaFocusGroup(
-                    title = "전체 수색구역",
-                    targets = state.overallSearchAreaTargets,
-                    expanded = expandedAreaKind == SearchLayerKind.Overall,
-                    onToggleExpanded = {
-                        expandedAreaKind =
-                            if (expandedAreaKind == SearchLayerKind.Overall) null else SearchLayerKind.Overall
-                    },
-                    onFocus = { target ->
-                        expandedAreaKind = null
-                        onFocusSearchArea(target.kind, target.overlayId)
-                    }
-                )
-                AreaFocusGroup(
-                    title = "부대 수색구역",
-                    targets = state.unitSearchAreaTargets,
-                    expanded = expandedAreaKind == SearchLayerKind.Unit,
-                    onToggleExpanded = {
-                        expandedAreaKind =
-                            if (expandedAreaKind == SearchLayerKind.Unit) null else SearchLayerKind.Unit
-                    },
-                    onFocus = { target ->
-                        expandedAreaKind = null
-                        onFocusSearchArea(target.kind, target.overlayId)
-                    }
-                )
-                AreaFocusGroup(
-                    title = "팀 담당구역",
-                    targets = state.teamSearchAreaTargets,
-                    expanded = expandedAreaKind == SearchLayerKind.Team,
-                    onToggleExpanded = {
-                        expandedAreaKind =
-                            if (expandedAreaKind == SearchLayerKind.Team) null else SearchLayerKind.Team
-                    },
-                    onFocus = { target ->
-                        expandedAreaKind = null
-                        onFocusSearchArea(target.kind, target.overlayId)
-                    }
-                )
-                MarkerDetailButton(
-                    onClick =
-                    state.markerDetailTargetId
-                        ?.takeIf { state.canOpenMarkerDetail }
-                        ?.let { markerId -> { onOpenFocusedMarkerDetail(markerId) } },
-                    enabled = state.canOpenMarkerDetail
-                )
-            }
-        }
-
         if (state.shouldOpenBlockedOutbox) {
             PoliChip(
                 text = "처리불가 ${state.blockedOutboxCount}건",
@@ -610,7 +654,7 @@ private fun SearchMapShell(
                 modifier =
                     Modifier
                         .align(Alignment.TopEnd)
-                        .padding(PoliDimens.Space3)
+                        .padding(top = PoliDimens.Space2, end = PoliDimens.Space3)
                         .clickable(onClick = onOpenBlockedOutbox)
             )
         }
@@ -853,20 +897,13 @@ private fun SearchMapPreviewScene(
     }
 }
 @Composable
-private fun MapOverlayToggle(visible: Boolean, onClick: () -> Unit) {
+private fun MarkerDetailButton(onClick: (() -> Unit)?, enabled: Boolean, modifier: Modifier = Modifier) {
     MapActionButton(
-        text = if (visible) "정보 숨김" else "정보 표시",
-        onClick = onClick
-    )
-}
-
-@Composable
-private fun MarkerDetailButton(onClick: (() -> Unit)?, enabled: Boolean) {
-    MapActionButton(
-        text = "마커 상세",
+        text = "마커",
         onClick = onClick,
         accent = enabled,
-        enabled = enabled
+        enabled = enabled,
+        modifier = modifier
     )
 }
 
@@ -876,31 +913,36 @@ private fun AreaFocusGroup(
     targets: List<SearchMapAreaFocusTarget>,
     expanded: Boolean,
     onToggleExpanded: () -> Unit,
-    onFocus: (SearchMapAreaFocusTarget) -> Unit
+    onFocus: (SearchMapAreaFocusTarget) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val enabled = targets.isNotEmpty()
     val singleTarget = targets.singleOrNull()
-    MapActionButton(
-        text =
-        when {
-            targets.size > 1 -> "$title ${targets.size}"
-            else -> title
-        },
-        onClick =
-        when {
-            !enabled -> null
-            singleTarget != null -> { { onFocus(singleTarget) } }
-            else -> onToggleExpanded
-        },
-        enabled = enabled
-    )
-    if (expanded && targets.size > 1) {
-        targets.forEachIndexed { index, target ->
-            MapActionButton(
-                text = "${index + 1}. ${target.label}",
-                onClick = { onFocus(target) },
-                accent = true
-            )
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
+        MapActionButton(
+            text =
+            when {
+                targets.size > 1 -> "$title ${targets.size}"
+                else -> title
+            },
+            onClick =
+            when {
+                !enabled -> null
+                singleTarget != null -> { { onFocus(singleTarget) } }
+                else -> onToggleExpanded
+            },
+            enabled = enabled,
+            modifier = Modifier.fillMaxWidth()
+        )
+        if (expanded && targets.size > 1) {
+            targets.forEachIndexed { index, target ->
+                MapActionButton(
+                    text = "${index + 1}. ${target.label}",
+                    onClick = { onFocus(target) },
+                    accent = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
     }
 }
@@ -987,42 +1029,69 @@ private fun SearchBottomPanel(
     onStopSearch: () -> Unit,
     onOpenHandover: () -> Unit,
     onCreateMarker: () -> Unit,
-    onToggleBottomPanel: () -> Unit
+    onToggleBottomPanel: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
+    if (!state.bottomPanelExpanded) {
+        Box(
+            modifier =
+                modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(bottom = PoliDimens.Space2),
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            EdgeToggleHandle(
+                iconResId = R.drawable.ic_panel_up,
+                contentDescription = "하단 메뉴 열기",
+                onClick = onToggleBottomPanel
+            )
+        }
+        return
+    }
+
     Column(
         modifier =
-        Modifier
+        modifier
             .fillMaxWidth()
-            .heightIn(min = if (state.bottomPanelExpanded) 220.dp else 104.dp)
-            .background(PoliBgSurface)
-            .navigationBarsPadding()
-            .padding(PoliDimens.SectionPadding),
-        verticalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
+            .navigationBarsPadding(),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        SearchStatusCard(state = state, onToggleBottomPanel = onToggleBottomPanel)
-        if (state.bottomPanelExpanded) {
+        EdgeToggleHandle(
+            iconResId = R.drawable.ic_panel_down,
+            contentDescription = "하단 메뉴 닫기",
+            onClick = onToggleBottomPanel
+        )
+        Column(
+            modifier =
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 220.dp)
+                .background(PoliBgSurface)
+                .padding(PoliDimens.SectionPadding),
+            verticalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
+        ) {
+            SearchStatusCard(state = state)
             WriteAvailabilityRow(state = state)
-        }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
-            PoliButton(
-                text = state.primaryActionLabel,
-                onClick = onPrimaryLifecycleAction,
-                modifier = Modifier.weight(1f),
-                variant = if (state.lifecycleStatus == SearchLifecycleStatus.OpRequired) {
-                    PoliButtonVariant.Secondary
-                } else {
-                    PoliButtonVariant.Primary
-                }
-            )
-            PoliButton(
-                text = "종료",
-                onClick = onStopSearch,
-                enabled = state.canStopSearch,
-                variant = PoliButtonVariant.Danger
-            )
-        }
-        if (state.bottomPanelExpanded) {
+            Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
+                PoliButton(
+                    text = state.primaryActionLabel,
+                    onClick = onPrimaryLifecycleAction,
+                    modifier = Modifier.weight(1f),
+                    variant = if (state.lifecycleStatus == SearchLifecycleStatus.OpRequired) {
+                        PoliButtonVariant.Secondary
+                    } else {
+                        PoliButtonVariant.Primary
+                    }
+                )
+                PoliButton(
+                    text = "종료",
+                    onClick = onStopSearch,
+                    enabled = state.canStopSearch,
+                    variant = PoliButtonVariant.Danger
+                )
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
                 PoliButton(
                     text = "인수인계",
@@ -1044,7 +1113,7 @@ private fun SearchBottomPanel(
 }
 
 @Composable
-private fun SearchStatusCard(state: SearchMapUiState, onToggleBottomPanel: () -> Unit) {
+private fun SearchStatusCard(state: SearchMapUiState) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
@@ -1059,26 +1128,9 @@ private fun SearchStatusCard(state: SearchMapUiState, onToggleBottomPanel: () ->
         ) {
             SearchStatusDot(state.lifecycleStatus)
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(PoliDimens.Space1)) {
-                Text(
-                    text = state.lifecycleTitle,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
                 Text(text = state.movementSummary, style = MaterialTheme.typography.bodyMedium, color = PoliFgMuted)
             }
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space4),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(text = state.elapsedLabel, style = MaterialTheme.typography.titleMedium)
-                PoliButton(
-                    text = if (state.bottomPanelExpanded) "접기" else "펼치기",
-                    onClick = onToggleBottomPanel,
-                    size = PoliButtonSize.Small,
-                    variant = PoliButtonVariant.Secondary
-                )
-            }
+            Text(text = state.elapsedLabel, style = MaterialTheme.typography.titleMedium)
         }
     }
 }
@@ -1249,8 +1301,7 @@ private fun SearchMapScreenPreview() {
             onCenterCurrentLocation = {},
             onFocusSearchArea = { _, _ -> },
             onToggleHeaderPanel = {},
-            onToggleBottomPanel = {},
-            onToggleMapOverlays = {}
+            onToggleBottomPanel = {}
         )
     }
 }

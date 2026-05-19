@@ -2,6 +2,7 @@ package com.surimap.searcharea;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.surimap.api.controller.searcharea.request.AssignSearchAreaRequest;
 import com.surimap.api.controller.searcharea.request.CreateSearchAreaRequest;
 import com.surimap.api.controller.searcharea.request.PatchSearchAreaRequest;
 import com.surimap.api.controller.searcharea.request.SplitSearchAreaRequest;
@@ -27,6 +28,7 @@ class SearchAreaApiServiceQueryTest {
   private static final UUID INCIDENT_ID = UUID.fromString("10000000-0000-0000-0000-000000000001");
   private static final UUID OP_ID = UUID.fromString("70000000-0000-0000-0000-000000000001");
   private static final UUID OTHER_OP_ID = UUID.fromString("70000000-0000-0000-0000-000000000002");
+  private static final UUID ASSIGNEE_ID = UUID.fromString("11111111-1111-1111-1111-111111111001");
   private static final OffsetDateTime CLIENT_TS = OffsetDateTime.parse("2026-04-28T09:00:00+09:00");
 
   private final SearchAreaApiService service =
@@ -117,6 +119,82 @@ class SearchAreaApiServiceQueryTest {
               assertThat(event.payload()).containsEntry("incidentId", INCIDENT_ID.toString());
               assertThat(event.payload()).containsKey("overallAreaHash");
               assertThat(event.payload()).doesNotContainKey("opId");
+            });
+  }
+
+  @Test
+  @DisplayName("UNIT split publishes changed events for cancelled parent and TEAM children")
+  void unit_split_publishes_search_area_changed_for_parent_and_children() {
+    MockEventHub eventHub = new MockEventHub();
+    SearchAreaApiService publishingService =
+        new SearchAreaApiService(
+            new GeometryValidator(GeometryPolicy.s2HarnessDefault()), eventHub);
+    publishingService.create(overallCreateRequest(), "idem-overall-publish-query-005");
+    SearchAreaResponse unit =
+        publishingService.create(unitCreateRequest(), "idem-unit-publish-query-005");
+    eventHub.reset();
+
+    SearchAreaSplitResponse split =
+        publishingService.split(
+            unit.id(),
+            new SplitSearchAreaRequest(
+                OP_ID,
+                List.of(
+                    polygon("126.911100", "35.161100"),
+                    polygon("126.911500", "35.161100")),
+                "unit split",
+                1L,
+                CLIENT_TS.plusMinutes(3)),
+            "idem-unit-split-publish-query-005");
+
+    assertThat(eventHub.findByType("SEARCH_AREA_CHANGED"))
+        .hasSize(3)
+        .extracting(event -> event.payload().get("id"))
+        .containsExactlyInAnyOrderElementsOf(
+            List.of(
+                split.parent().id().toString(),
+                split.children().get(0).id().toString(),
+                split.children().get(1).id().toString()));
+    assertThat(eventHub.findByType("SEARCH_AREA_CHANGED"))
+        .allSatisfy(
+            event -> {
+              assertThat(event.payload()).containsEntry("incidentId", INCIDENT_ID.toString());
+              assertThat(event.payload()).containsEntry("opId", OP_ID.toString());
+              assertThat(event.payload()).containsKey("geometry");
+              assertThat(event.payload()).doesNotContainKey("overallAreaHash");
+            });
+  }
+
+  @Test
+  @DisplayName("assign publishes SEARCH_AREA_ASSIGNMENT_CHANGED with assignee ids")
+  void assign_publishes_search_area_assignment_changed() {
+    MockEventHub eventHub = new MockEventHub();
+    SearchAreaApiService publishingService =
+        new SearchAreaApiService(
+            new GeometryValidator(GeometryPolicy.s2HarnessDefault()), eventHub);
+    publishingService.create(overallCreateRequest(), "idem-overall-publish-query-006");
+    SearchAreaResponse unit =
+        publishingService.create(unitCreateRequest(), "idem-unit-publish-query-006");
+    eventHub.reset();
+
+    publishingService.assign(
+        unit.id(),
+        new AssignSearchAreaRequest(
+            INCIDENT_ID, OP_ID, List.of(ASSIGNEE_ID), "unit assignment", CLIENT_TS.plusMinutes(4)),
+        "idem-unit-assign-publish-query-006");
+
+    assertThat(eventHub.findByType("SEARCH_AREA_ASSIGNMENT_CHANGED"))
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.sourceEntityType()).isEqualTo("search_area_assignment");
+              assertThat(event.payload()).containsEntry("incidentId", INCIDENT_ID.toString());
+              assertThat(event.payload()).containsEntry("opId", OP_ID.toString());
+              assertThat(event.payload()).containsEntry("searchAreaId", unit.id().toString());
+              assertThat(event.payload()).containsEntry("status", "ACTIVE");
+              assertThat(event.payload()).containsEntry("version", 2L);
+              assertThat(event.payload().get("assignedAccountIds"))
+                  .isEqualTo(List.of(ASSIGNEE_ID.toString()));
             });
   }
 
