@@ -38,6 +38,8 @@ export type RecentMarker = {
   eventType?: string;
   markerType?: MarkerTypeId | 'UNKNOWN';
   supportRequestType?: SupportRequestTypeId | null;
+  source?: 'APP' | 'WEB' | 'MOCK_SEED' | 'SYSTEM' | 'UNKNOWN';
+  version?: number | null;
   markerTypeLabel?: string;
   title: string;
   summary: string;

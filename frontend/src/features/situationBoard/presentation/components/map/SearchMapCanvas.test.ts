@@ -1,7 +1,11 @@
 import { describe, expect, test, vi } from 'vitest';
 import type maplibregl from 'maplibre-gl';
 import type { BoardMapFeatureCollection } from '../../../../../shared/model/boardMapFeatures';
-import { syncOperationalGeoJsonSourceDataWhenAvailable } from './SearchMapCanvas';
+import {
+  canCorrectReferenceMarker,
+  createReferenceMarkerCorrectionRequest,
+  syncOperationalGeoJsonSourceDataWhenAvailable,
+} from './SearchMapCanvas';
 
 describe('syncOperationalGeoJsonSourceDataWhenAvailable', () => {
   test('updates an existing GeoJSON source without waiting for map.loaded()', () => {
@@ -37,6 +41,25 @@ describe('syncOperationalGeoJsonSourceDataWhenAvailable', () => {
 
     cleanup?.();
     expect(map.off).toHaveBeenCalledWith('load', expect.any(Function));
+  });
+});
+
+describe('reference marker correction', () => {
+  test('allows only versioned reference marker sources', () => {
+    expect(canCorrectReferenceMarker({ source: 'MOCK_SEED', version: 1 })).toBe(true);
+    expect(canCorrectReferenceMarker({ source: 'SYSTEM', version: 2 })).toBe(true);
+    expect(canCorrectReferenceMarker({ source: 'APP', version: 1 })).toBe(false);
+    expect(canCorrectReferenceMarker({ source: 'MOCK_SEED', version: null })).toBe(false);
+  });
+
+  test('creates canonical marker update request for center point correction', () => {
+    expect(createReferenceMarkerCorrectionRequest({ version: 3 }, [126.9134, 35.1631])).toEqual({
+      version: 3,
+      location: {
+        type: 'Point',
+        coordinates: [126.9134, 35.1631],
+      },
+    });
   });
 });
 
