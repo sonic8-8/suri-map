@@ -59,6 +59,9 @@ pipeline {
         BACKEND_TEST_ARTIFACT_DIR = 'ci-artifacts/backend-test'
         COMPOSE_FILE = 'infra/docker/docker-compose.runtime.yml'
         ENV_FILE = '.env.runtime'
+        HOST_NGINX_APPLY = 'true'
+        HOST_NGINX_CONFIG_DIR = '/home/ubuntu/infra/nginx'
+        HOST_NGINX_SITE = '/etc/nginx/sites-available/suri-map'
         FRONTEND_HOST_PORT = '3000'
         BACKEND_HOST_PORT = '8081'
         MOCK_112_HOST_PORT = '18112'
@@ -394,14 +397,19 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=${env.SPRING_JPA_HIBERNATE_DDL_AUTO}
                       "${TILESERVER_DATA_DIR}/fonts" \
                       "${TILESERVER_DATA_DIR}/styles/osm-local" \
                       "${KEYCLOAK_IMPORT_DIR}" \
-                      "${KEYCLOAK_THEME_DIR}"
+                      "${KEYCLOAK_THEME_DIR}" \
+                      "${HOST_NGINX_CONFIG_DIR}"
                     cp infra/docker/tileserver/config.json "${TILESERVER_DATA_DIR}/config.json"
                     cp infra/docker/tileserver/styles/osm-local/style.json "${TILESERVER_DATA_DIR}/styles/osm-local/style.json"
                     cp infra/docker/keycloak/import/*.json "${KEYCLOAK_IMPORT_DIR}/"
                     rm -rf "${KEYCLOAK_THEME_DIR}/suri-map"
                     cp -R infra/docker/keycloak/themes/suri-map "${KEYCLOAK_THEME_DIR}/suri-map"
+                    cp infra/nginx/suri-map-sse.locations.conf "${HOST_NGINX_CONFIG_DIR}/suri-map-sse.locations.conf"
+                    cp infra/nginx/apply-suri-map-host-nginx.sh "${HOST_NGINX_CONFIG_DIR}/apply-suri-map-host-nginx.sh"
+                    chmod 755 "${HOST_NGINX_CONFIG_DIR}/apply-suri-map-host-nginx.sh"
                     test -f "${KEYCLOAK_IMPORT_DIR}/suri-map-realm.json"
                     test -f "${KEYCLOAK_THEME_DIR}/suri-map/login/theme.properties"
+                    test -f "${HOST_NGINX_CONFIG_DIR}/suri-map-sse.locations.conf"
 
                     if [ -f "${TILESERVER_DATA_DIR}/data/osm-local.mbtiles" ] \
                       && [ -f "${TILESERVER_DATA_DIR}/data/gwangju-building-labels.mbtiles" ]; then
@@ -425,6 +433,20 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=${env.SPRING_JPA_HIBERNATE_DDL_AUTO}
                         --env-file ${ENV_FILE} \
                         -f ${COMPOSE_FILE} \
                         up -d --force-recreate tileserver-gl
+                    fi
+
+                    if [ "${HOST_NGINX_APPLY}" = "true" ]; then
+                      docker run --rm \
+                        --privileged \
+                        --pid=host \
+                        -v /:/host \
+                        -e HOST_ROOT=/host \
+                        -e HOST_NGINX_SITE="${HOST_NGINX_SITE}" \
+                        -e HOST_NGINX_SSE_SNIPPET="${HOST_NGINX_CONFIG_DIR}/suri-map-sse.locations.conf" \
+                        alpine:3.20 \
+                        sh "/host${HOST_NGINX_CONFIG_DIR}/apply-suri-map-host-nginx.sh"
+                    else
+                      echo "host_nginx_sse_proxy=skipped"
                     fi
                 '''
             }
