@@ -200,7 +200,7 @@ data class OfflinePackageUiState(
                 shouldDownloadPackage = false,
                 canManualRetry = false,
                 retryLabel = null,
-                message = "전체 수색구역 지정 전입니다. 사건 확인과 현장 기록은 가능하며, 오프라인 패키지는 수색구역 지정 후 받을 수 있습니다.",
+                message = "전체 수색구역 지정 전입니다.\n사건 확인과 현장 기록은 가능하며, 오프라인 패키지는 수색구역 지정 후 받을 수 있습니다.",
                 canOpenSearchMap = true
             )
 
