@@ -116,6 +116,10 @@ const packageStatusBadgeToneClassNames: Record<StatusBadgeTone, string> = {
   neutral: styles.packageStatusBadgeNeutral,
 };
 
+// TODO: package_badge 목록은 현재 board 슬롯 전체를 받아 프론트에서 페이징한다.
+// 단말별 적재 상태를 서버에서 페이지 단위로 내려주는 API가 필요하면 새 계약을 추가해야 한다.
+const DEVICE_STATUS_PAGE_SIZE = 5;
+
 function getPackageStatusBadgeClassName(tone: StatusBadgeTone) {
   return `${styles.packageStatusBadge} ${packageStatusBadgeToneClassNames[tone]}`;
 }
@@ -137,6 +141,7 @@ export function OfflinePackageStatusPage({
 }: OfflinePackageStatusPageProps) {
   const [incidentDetail, setIncidentDetail] = useState<IncidentDetailDto | null>(null);
   const [isOffline, setIsOffline] = useState(() => (typeof navigator === 'undefined' ? false : !navigator.onLine));
+  const [deviceStatusPage, setDeviceStatusPage] = useState(1);
   const stableBoardRef = useRef<SituationBoardResponseDto | null>(null);
 
   useBrowserBackToIncidentList(onBrowserBackToIncidentList);
@@ -196,6 +201,11 @@ export function OfflinePackageStatusPage({
 
   const summary = useMemo(() => createSummary(rows), [rows]);
   const packageLoadGauge = useMemo(() => createPackageLoadGauge(rows), [rows]);
+  const deviceStatusTotalPages = Math.max(1, Math.ceil(rows.length / DEVICE_STATUS_PAGE_SIZE));
+  const currentDeviceStatusPage = Math.min(deviceStatusPage, deviceStatusTotalPages);
+  const deviceStatusPageStart = (currentDeviceStatusPage - 1) * DEVICE_STATUS_PAGE_SIZE;
+  const visibleRows = rows.slice(deviceStatusPageStart, deviceStatusPageStart + DEVICE_STATUS_PAGE_SIZE);
+  const hasDeviceStatusPagination = rows.length > DEVICE_STATUS_PAGE_SIZE;
   const currentAccountLabel = currentUserAccount.name;
   const activeOperationalPeriod = manifestQuery.data?.operationalPeriods.find((period) => period.status === 'ACTIVE') ?? null;
   const incidentContext = createSharedIncidentContext({
@@ -209,6 +219,10 @@ export function OfflinePackageStatusPage({
   const readyCountLabel = isPackageSummaryPlaceholder ? '-대' : `${summary.readyCount}대`;
   const warningCountLabel = isPackageSummaryPlaceholder ? '-대' : `${summary.warningCount}대`;
   const purgedCountLabel = isPackageSummaryPlaceholder ? '-대' : `${summary.purgedCount}대`;
+
+  useEffect(() => {
+    setDeviceStatusPage(1);
+  }, [incidentId, rows.length]);
 
   return (
     <main className={styles.page}>
@@ -232,36 +246,6 @@ export function OfflinePackageStatusPage({
       </div>
 
       <div className={styles.scrollBody}>
-      <section className={styles.summaryBar} aria-label="오프라인 패키지 요약">
-        <div>
-          <span className={`${styles.summaryIcon} ${styles.summaryIconReady}`} aria-hidden="true">
-            <CheckCircle2 className={styles.summaryIconGlyph} size={46} strokeWidth={2.1} />
-          </span>
-          <div className={styles.summaryMetric}>
-            <span>사용 가능 단말</span>
-            <strong>{readyCountLabel}</strong>
-          </div>
-        </div>
-        <div>
-          <span className={`${styles.summaryIcon} ${styles.summaryIconWarning}`} aria-hidden="true">
-            <RefreshCcw className={styles.summaryIconGlyph} size={46} strokeWidth={2.1} />
-          </span>
-          <div className={styles.summaryMetric}>
-            <span>재확인 필요 단말</span>
-            <strong>{warningCountLabel}</strong>
-          </div>
-        </div>
-        <div>
-          <span className={`${styles.summaryIcon} ${styles.summaryIconPurged}`} aria-hidden="true">
-            <Trash2 className={styles.summaryIconGlyph} size={46} strokeWidth={2.1} />
-          </span>
-          <div className={styles.summaryMetric}>
-            <span>삭제된 패키지</span>
-            <strong>{purgedCountLabel}</strong>
-          </div>
-        </div>
-      </section>
-
       {isOffline ? (
         <div className={styles.offlineBanner} role="status">
           현재 브라우저가 오프라인입니다. 표시 중인 단말별 상태는 마지막 조회 결과일 수 있습니다.
@@ -289,7 +273,38 @@ export function OfflinePackageStatusPage({
             </div>
           ) : (
             <>
-            <OfflinePackageLoadGauge gauge={packageLoadGauge} />
+              <div className={styles.packageLoadOverview}>
+                <OfflinePackageLoadGauge gauge={packageLoadGauge} />
+                <div className={styles.summaryBar} aria-label="오프라인 패키지 요약">
+                  <div>
+                    <span className={`${styles.summaryIcon} ${styles.summaryIconReady}`} aria-hidden="true">
+                      <CheckCircle2 className={styles.summaryIconGlyph} size={46} strokeWidth={2.1} />
+                    </span>
+                    <div className={styles.summaryMetric}>
+                      <span>사용 가능 단말</span>
+                      <strong>{readyCountLabel}</strong>
+                    </div>
+                  </div>
+                  <div>
+                    <span className={`${styles.summaryIcon} ${styles.summaryIconWarning}`} aria-hidden="true">
+                      <RefreshCcw className={styles.summaryIconGlyph} size={46} strokeWidth={2.1} />
+                    </span>
+                    <div className={styles.summaryMetric}>
+                      <span>재확인 필요 단말</span>
+                      <strong>{warningCountLabel}</strong>
+                    </div>
+                  </div>
+                  <div>
+                    <span className={`${styles.summaryIcon} ${styles.summaryIconPurged}`} aria-hidden="true">
+                      <Trash2 className={styles.summaryIconGlyph} size={46} strokeWidth={2.1} />
+                    </span>
+                    <div className={styles.summaryMetric}>
+                      <span>삭제된 패키지</span>
+                      <strong>{purgedCountLabel}</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
               <div className={styles.tableShell}>
                 <table className={styles.statusTable}>
                   <thead>
@@ -303,7 +318,7 @@ export function OfflinePackageStatusPage({
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map((row) => {
+                    {visibleRows.map((row) => {
                       const statusView = getStatusView(row);
 
                       return (
@@ -337,6 +352,68 @@ export function OfflinePackageStatusPage({
                   </tbody>
                 </table>
               </div>
+              {hasDeviceStatusPagination ? (
+                <div className={styles.deviceStatusPagination}>
+                  <div className={styles.deviceStatusPaginationControls}>
+                    <button
+                      type="button"
+                      className={styles.deviceStatusPaginationButton}
+                      onClick={() => setDeviceStatusPage(1)}
+                      disabled={currentDeviceStatusPage <= 1}
+                      aria-label="첫 페이지"
+                    >
+                      {'<<'}
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.deviceStatusPaginationButton}
+                      onClick={() => setDeviceStatusPage((current) => Math.max(1, current - 1))}
+                      disabled={currentDeviceStatusPage <= 1}
+                      aria-label="이전 페이지"
+                    >
+                      {'<'}
+                    </button>
+                    {Array.from({ length: deviceStatusTotalPages }, (_, index) => {
+                      const pageNumber = index + 1;
+
+                      return (
+                        <button
+                          key={pageNumber}
+                          type="button"
+                          className={`${styles.deviceStatusPaginationButton} ${
+                            pageNumber === currentDeviceStatusPage ? styles.deviceStatusPaginationButtonActive : ''
+                          }`}
+                          onClick={() => setDeviceStatusPage(pageNumber)}
+                          aria-current={pageNumber === currentDeviceStatusPage ? 'page' : undefined}
+                        >
+                          {pageNumber}
+                        </button>
+                      );
+                    })}
+                    <button
+                      type="button"
+                      className={styles.deviceStatusPaginationButton}
+                      onClick={() => setDeviceStatusPage((current) => Math.min(deviceStatusTotalPages, current + 1))}
+                      disabled={currentDeviceStatusPage >= deviceStatusTotalPages}
+                      aria-label="다음 페이지"
+                    >
+                      {'>'}
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.deviceStatusPaginationButton}
+                      onClick={() => setDeviceStatusPage(deviceStatusTotalPages)}
+                      disabled={currentDeviceStatusPage >= deviceStatusTotalPages}
+                      aria-label="마지막 페이지"
+                    >
+                      {'>>'}
+                    </button>
+                  </div>
+                  <span className={styles.deviceStatusPaginationInfo}>
+                    {deviceStatusPageStart + 1}-{Math.min(deviceStatusPageStart + DEVICE_STATUS_PAGE_SIZE, rows.length)} / {rows.length}
+                  </span>
+                </div>
+              ) : null}
             </>
           )}
         </section>
