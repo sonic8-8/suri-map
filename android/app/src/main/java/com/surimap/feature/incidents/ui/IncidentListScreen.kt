@@ -53,7 +53,6 @@ data class IncidentListUiState(
 ) {
     fun visibleText(): List<String> =
         buildList {
-            add(policePhoneLabel)
             add(syncLabel)
             add(status.name)
             message?.let(::add)
@@ -161,7 +160,6 @@ fun IncidentListScreen(
         Column(modifier = Modifier.fillMaxSize()) {
             PoliAppBar(
                 title = "사건 선택",
-                subtitle = state.policePhoneLabel,
                 trailing = {
                     PoliChip(text = state.syncLabel, variant = PoliChipVariant.Good)
                 }

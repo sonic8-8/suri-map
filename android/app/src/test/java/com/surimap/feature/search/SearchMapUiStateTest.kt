@@ -16,7 +16,7 @@ class SearchMapUiStateTest {
 
     @Test
     fun activeSearchAllowsPathAndMarkerWrites() {
-        val active = SearchMapUiState.active()
+        val active = SearchMapUiState.active().copy(bottomPanelExpanded = true)
 
         assertEquals(SearchLifecycleStatus.Active, active.lifecycleStatus)
         assertTrue(active.canWritePath)
@@ -28,7 +28,7 @@ class SearchMapUiStateTest {
 
     @Test
     fun opRequiredBlocksAllMapWritesAndShowsRetryCopy() {
-        val opRequired = SearchMapUiState.opRequired()
+        val opRequired = SearchMapUiState.opRequired().copy(bottomPanelExpanded = true)
         val opTransition = SearchMapUiState.opTransition()
 
         assertEquals(SearchLifecycleStatus.OpRequired, opRequired.lifecycleStatus)
@@ -103,7 +103,7 @@ class SearchMapUiStateTest {
 
     @Test
     fun activeSearchMapCanOpenHandoverEvenWithoutUnreadPrompt() {
-        val state = SearchMapUiState.active(hasUnreadHandover = false)
+        val state = SearchMapUiState.active(hasUnreadHandover = false).copy(bottomPanelExpanded = true)
 
         assertFalse(state.showHandoverPrompt)
         assertTrue(state.visibleText().contains("인수인계"))
@@ -113,6 +113,7 @@ class SearchMapUiStateTest {
     fun markerFocusDeeplinkHighlightsTargetMarkerWithoutChangingWriteAvailability() {
         val state =
             SearchMapUiState.active().copy(
+                topHeaderExpanded = true,
                 layers =
                 listOf(
                     SearchMapLayerUiState(
@@ -140,6 +141,7 @@ class SearchMapUiStateTest {
     fun liveMarkerLayerWithoutFcmFocusCanOpenMarkerDetail() {
         val state =
             SearchMapUiState.active().copy(
+                topHeaderExpanded = true,
                 layers =
                     listOf(
                         SearchMapLayerUiState(
@@ -152,13 +154,14 @@ class SearchMapUiStateTest {
             )
 
         assertEquals(MARKER_ID, state.markerDetailTargetId)
-        assertTrue(state.visibleText().contains("마커 상세"))
+        assertTrue(state.visibleText().contains("마커"))
     }
 
     @Test
-    fun mapChromeCanCollapsePanelAndHideOverlayChips() {
+    fun mapChromeCanCollapsePanelWithoutExtraInfoToggle() {
         val state =
             SearchMapUiState.active().copy(
+                topHeaderExpanded = true,
                 bottomPanelExpanded = false,
                 mapOverlaysVisible = false
             )
@@ -166,7 +169,11 @@ class SearchMapUiStateTest {
         assertFalse(state.bottomPanelExpanded)
         assertFalse(state.mapOverlaysVisible)
         assertTrue(state.visibleText().contains("지도 정보 접힘"))
-        assertTrue(state.visibleText().contains("지도 오버레이 숨김"))
+        assertFalse(state.visibleText().contains("지도 오버레이 숨김"))
+        assertTrue(state.visibleText().contains("전체 수색구역"))
+        assertTrue(state.visibleText().contains("부대 수색구역"))
+        assertTrue(state.visibleText().contains("팀 담당구역"))
+        assertTrue(state.visibleText().contains("마커"))
         assertFalse(state.visibleText().contains("일시정지"))
         assertFalse(state.visibleText().contains("종료"))
         assertFalse(state.visibleText().contains("인수인계"))
@@ -177,6 +184,7 @@ class SearchMapUiStateTest {
     fun mapOverlayActionsStayVisibleEvenWhenIncidentHasNoAreaOrMarkerGeometry() {
         val state =
             SearchMapUiState.active().copy(
+                topHeaderExpanded = true,
                 layers = emptyList(),
                 mapOverlaysVisible = true
             )
@@ -188,13 +196,14 @@ class SearchMapUiStateTest {
         assertTrue(state.visibleText().contains("전체 수색구역"))
         assertTrue(state.visibleText().contains("부대 수색구역"))
         assertTrue(state.visibleText().contains("팀 담당구역"))
-        assertTrue(state.visibleText().contains("마커 상세"))
+        assertTrue(state.visibleText().contains("마커"))
     }
 
     @Test
     fun searchAreaButtonsRecenterViewportAndClearMarkerFocus() {
         val state =
             SearchMapUiState.active().copy(
+                topHeaderExpanded = true,
                 focusedMarkerId = MARKER_ID,
                 layers =
                     listOf(
@@ -237,13 +246,14 @@ class SearchMapUiStateTest {
         assertTrue(state.canOpenMarkerDetail)
         assertTrue(state.visibleText().contains("전체 수색구역"))
         assertTrue(state.visibleText().contains("부대 수색구역"))
-        assertTrue(state.visibleText().contains("마커 상세"))
+        assertTrue(state.visibleText().contains("마커"))
     }
 
     @Test
     fun multipleUnitAndTeamAreasExposeSelectableTargets() {
         val state =
             SearchMapUiState.active().copy(
+                topHeaderExpanded = true,
                 layers =
                     listOf(
                         SearchMapLayerUiState(
