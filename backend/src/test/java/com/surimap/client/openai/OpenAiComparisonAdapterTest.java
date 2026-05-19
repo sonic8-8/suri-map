@@ -49,7 +49,7 @@ class OpenAiComparisonAdapterTest {
 
     String observationsJson =
         """
-        {"observations":[{"observation":"1차와 2차의 이동 거리 차이는 420m입니다.","evidence":[{"source":"diffFact","factId":"metric-pathDistanceMeters","operationalPeriodId":"33333333-3333-3333-3333-333333333333","key":"delta","value":"420"}]}]}
+        {"observations":[{"sentence":"1차와 2차의 이동 거리 차이는 420m입니다.","factIds":["metric-pathDistanceMeters"]}]}
         """
             .trim();
     String responseBody =
@@ -71,6 +71,7 @@ class OpenAiComparisonAdapterTest {
         .andExpect(jsonPath("$.store").value(false))
         .andExpect(jsonPath("$.input[0].role").value("system"))
         .andExpect(jsonPath("$.input[0].content", containsString("추론하지 않는다")))
+        .andExpect(jsonPath("$.input[0].content", containsString("sentence와 factIds만 출력")))
         .andExpect(jsonPath("$.input[1].role").value("user"))
         .andExpect(jsonPath("$.input[1].content", containsString(COMPARISON_ID.toString())))
         .andExpect(jsonPath("$.input[1].content", containsString("metric-pathDistanceMeters")))
@@ -80,7 +81,10 @@ class OpenAiComparisonAdapterTest {
         .andExpect(jsonPath("$.text.format.schema.required[0]").value("observations"))
         .andExpect(
             jsonPath("$.text.format.schema.properties.observations.items.required[0]")
-                .value("observation"))
+                .value("sentence"))
+        .andExpect(
+            jsonPath("$.text.format.schema.properties.observations.items.required[1]")
+                .value("factIds"))
         .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
 
     OpComparisonNarrativeResult result =
@@ -105,6 +109,7 @@ class OpenAiComparisonAdapterTest {
 
     assertThat(result.status()).isEqualTo(OpComparisonNarrativeStatus.FAILED);
     assertThat(result.observationsJson()).isNull();
+    assertThat(result.failureReason()).isEqualTo(OpComparisonNarrativeResult.PROVIDER_FAILURE);
     server.verify();
   }
 
@@ -137,6 +142,7 @@ class OpenAiComparisonAdapterTest {
 
     assertThat(result.status()).isEqualTo(OpComparisonNarrativeStatus.FAILED);
     assertThat(result.observationsJson()).isNull();
+    assertThat(result.failureReason()).isEqualTo(OpComparisonNarrativeResult.SCHEMA_INVALID);
     server.verify();
   }
 
@@ -151,7 +157,7 @@ class OpenAiComparisonAdapterTest {
         new OpenAiComparisonAdapter(properties, restTemplate, objectMapper, newValidator());
     String invalidNarrative =
         """
-        {"observations":[{"observation":"1차와 2차의 이동 거리 차이는 430m입니다.","evidence":[{"source":"diffFact","factId":"metric-pathDistanceMeters","operationalPeriodId":"33333333-3333-3333-3333-333333333333","key":"delta","value":"420"}]}]}
+        {"observations":[{"sentence":"1차와 2차의 이동 거리 차이는 430m입니다.","factIds":["metric-pathDistanceMeters"]}]}
         """
             .trim();
     String responseBody =
@@ -174,6 +180,7 @@ class OpenAiComparisonAdapterTest {
 
     assertThat(result.status()).isEqualTo(OpComparisonNarrativeStatus.FAILED);
     assertThat(result.observationsJson()).isNull();
+    assertThat(result.failureReason()).isEqualTo(OpComparisonNarrativeResult.VALIDATION_REJECTED);
     server.verify();
   }
 

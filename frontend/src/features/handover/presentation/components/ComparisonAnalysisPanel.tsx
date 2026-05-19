@@ -55,21 +55,21 @@ export function ComparisonAnalysisPanel({
   const observations = analysis?.observations?.observations ?? [];
 
   return (
-    <section className={styles.panel} aria-label="OP 비교 분석">
+    <section className={styles.panel} aria-label="OP 기록 차이 요약">
       <div className={styles.header}>
         <div>
           <span className={styles.eyebrow}>{selectedOperationalPeriodIds.length}개 OP 선택</span>
-          <h2>OP 비교 분석</h2>
+          <h2>OP 기록 차이 요약</h2>
         </div>
         <button
           type="button"
           className={styles.actionButton}
           disabled={!canCreate}
-          aria-label="OP 비교 분석 생성"
+          aria-label="기록 차이 요약 생성"
           onClick={onCreateAnalysis}
         >
           {isCreating ? <Loader2 size={15} aria-hidden="true" /> : <RefreshCw size={15} aria-hidden="true" />}
-          {isCreating ? '생성 중' : '분석 생성'}
+          {isCreating ? '생성 중' : '요약 생성'}
         </button>
       </div>
 
@@ -83,7 +83,7 @@ export function ComparisonAnalysisPanel({
       </div>
 
       {selectedOperationalPeriodIds.length < 2 ? (
-        <div className={styles.emptyState}>2개 이상 OP를 선택하면 비교 분석을 생성할 수 있습니다.</div>
+        <div className={styles.emptyState}>2개 이상 OP를 선택하면 기록 차이 요약을 생성할 수 있습니다.</div>
       ) : null}
 
       {errorMessage ? <div className={styles.errorText}>{errorMessage}</div> : null}
@@ -96,7 +96,7 @@ export function ComparisonAnalysisPanel({
               <dd>{formatAnalysisStatus(analysis.status)}</dd>
             </div>
             <div>
-              <dt>문장 상태</dt>
+              <dt>요약 상태</dt>
               <dd>{formatNarrativeStatus(analysis.narrativeStatus)}</dd>
             </div>
             <div>
@@ -122,7 +122,7 @@ export function ComparisonAnalysisPanel({
         </>
       ) : selectedOperationalPeriodIds.length >= 2 ? (
         <div className={styles.emptyState} data-incident-id={incidentId}>
-          비교 분석 결과가 없습니다.
+          기록 차이 요약 결과가 없습니다.
         </div>
       ) : null}
     </section>
@@ -276,16 +276,16 @@ function ObservationList({ observations }: { observations: OpComparisonObservati
   }
 
   return (
-    <section className={styles.factSection} aria-label="관찰 문장">
+    <section className={styles.factSection} aria-label="비교 관찰">
       <div className={styles.sectionTitle}>
         <FileText size={15} aria-hidden="true" />
-        <h3>관찰 문장</h3>
+        <h3>비교 관찰</h3>
       </div>
       <ol className={styles.observationList}>
         {observations.map((item, index) => (
-          <li key={`${item.observation}-${index}`}>
-            <p>{item.observation}</p>
-            <small>근거 {item.evidence.length}개</small>
+          <li key={`${item.sentence}-${index}`}>
+            <p>{item.sentence}</p>
+            <small>근거 {item.factIds.length}개</small>
           </li>
         ))}
       </ol>
@@ -301,20 +301,20 @@ function NarrativeState({
   observations: OpComparisonObservation[];
 }) {
   if (analysis.narrativeStatus === 'SKIPPED') {
-    return <div className={styles.notice}>임계값을 넘은 차이가 없어 결정 근거만 저장됐습니다.</div>;
+    return <div className={styles.notice}>임계값을 넘은 기록 차이가 없어 비교 사실만 저장됐습니다.</div>;
   }
 
   if (analysis.narrativeStatus === 'FAILED') {
     return (
       <div className={styles.noticeError}>
-        <strong>문장 생성 실패</strong>
+        <strong>기록 차이 요약 실패</strong>
         <span>{analysis.failureReason ?? 'narrative_failed'}</span>
       </div>
     );
   }
 
   if (analysis.narrativeStatus === 'READY' && observations.length === 0) {
-    return <div className={styles.notice}>검증된 관찰 문장이 없습니다.</div>;
+    return <div className={styles.notice}>검증된 비교 관찰 문장이 없습니다.</div>;
   }
 
   return null;
@@ -341,13 +341,13 @@ function formatAnalysisStatus(status: OpComparisonResponse['status']) {
 function formatNarrativeStatus(status: OpComparisonResponse['narrativeStatus']) {
   switch (status) {
     case 'READY':
-      return '문장 생성 완료';
+      return '요약 완료';
     case 'FAILED':
-      return '문장 생성 실패';
+      return '요약 실패';
     case 'GENERATING':
-      return '문장 생성 중';
+      return '요약 생성 중';
     case 'SKIPPED':
-      return '문장 생성 생략';
+      return '요약 생략';
   }
 }
 

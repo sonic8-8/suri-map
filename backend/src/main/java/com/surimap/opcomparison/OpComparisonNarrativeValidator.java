@@ -4,12 +4,12 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -30,26 +30,34 @@ public class OpComparisonNarrativeValidator {
   }
 
   public boolean isValid(OpComparisonEvidencePackage evidencePackage, String observationsJson) {
+    return validate(evidencePackage, observationsJson).valid();
+  }
+
+  public ValidationResult validate(OpComparisonEvidencePackage evidencePackage, String observationsJson) {
     if (evidencePackage == null || observationsJson == null || observationsJson.isBlank()) {
-      return false;
+      return ValidationResult.failed(OpComparisonNarrativeResult.EMPTY_OUTPUT);
     }
 
     try {
       JsonNode root = objectMapper.readTree(observationsJson);
       JsonNode observations = root.path("observations");
-      if (!root.isObject() || !observations.isArray() || observations.isEmpty()) {
-        return false;
+      if (!root.isObject() || root.size() != 1 || !observations.isArray()) {
+        return ValidationResult.failed(OpComparisonNarrativeResult.SCHEMA_INVALID);
+      }
+      if (observations.isEmpty()) {
+        return ValidationResult.failed(OpComparisonNarrativeResult.EMPTY_OUTPUT);
       }
 
       EvidenceIndex evidenceIndex = EvidenceIndex.from(evidencePackage);
       for (JsonNode observationNode : observations) {
-        if (!isValidObservation(observationNode, evidenceIndex)) {
-          return false;
+        ValidationResult result = validateObservation(observationNode, evidenceIndex);
+        if (!result.valid()) {
+          return result;
         }
       }
-      return true;
+      return ValidationResult.ok();
     } catch (JsonProcessingException | IllegalArgumentException exception) {
-      return false;
+      return ValidationResult.failed(OpComparisonNarrativeResult.SCHEMA_INVALID);
     }
   }
 
@@ -60,35 +68,47 @@ public class OpComparisonNarrativeValidator {
     return FORBIDDEN_PHRASES.stream().anyMatch(text::contains);
   }
 
-  private boolean isValidObservation(JsonNode observationNode, EvidenceIndex evidenceIndex) {
-    if (!observationNode.isObject()) {
-      return false;
+  private ValidationResult validateObservation(JsonNode observationNode, EvidenceIndex evidenceIndex) {
+    if (!observationNode.isObject() || observationNode.size() != 2) {
+      return ValidationResult.failed(OpComparisonNarrativeResult.SCHEMA_INVALID);
     }
 
-    JsonNode observation = observationNode.path("observation");
-    if (!observation.isTextual()
-        || observation.asText().isBlank()
-        || containsForbiddenPhrase(observation.asText())
-        || containsUnsupportedNumber(observation.asText(), evidenceIndex.allowedNumbers())) {
-      return false;
+    JsonNode sentence = observationNode.path("sentence");
+    if (!sentence.isTextual()) {
+      return ValidationResult.failed(OpComparisonNarrativeResult.SCHEMA_INVALID);
+    }
+    if (sentence.asText().isBlank()) {
+      return ValidationResult.failed(OpComparisonNarrativeResult.EMPTY_OUTPUT);
+    }
+    if (containsForbiddenPhrase(sentence.asText())) {
+      return ValidationResult.failed(OpComparisonNarrativeResult.FORBIDDEN_PHRASE);
     }
 
-    JsonNode evidenceItems = observationNode.path("evidence");
-    if (!evidenceItems.isArray() || evidenceItems.isEmpty()) {
-      return false;
+    JsonNode factIds = observationNode.path("factIds");
+    if (!factIds.isArray() || factIds.isEmpty()) {
+      return ValidationResult.failed(OpComparisonNarrativeResult.SCHEMA_INVALID);
     }
-    for (JsonNode evidenceItem : evidenceItems) {
-      if (!matchesEvidence(evidenceItem, evidenceIndex)) {
-        return false;
+    List<String> citedFactIds = new ArrayList<>();
+    for (JsonNode factId : factIds) {
+      if (!factId.isTextual() || factId.asText().isBlank()) {
+        return ValidationResult.failed(OpComparisonNarrativeResult.SCHEMA_INVALID);
       }
+      if (!evidenceIndex.supportsFactId(factId.asText())) {
+        return ValidationResult.failed(OpComparisonNarrativeResult.UNSUPPORTED_FACT_ID);
+      }
+      citedFactIds.add(factId.asText());
     }
-    return true;
+    if (containsUnsupportedNumber(sentence.asText(), evidenceIndex.allowedNumbersFor(citedFactIds))) {
+      return ValidationResult.failed(OpComparisonNarrativeResult.VALIDATION_REJECTED);
+    }
+    return ValidationResult.ok();
   }
 
   private boolean containsUnsupportedNumber(String observation, Set<String> allowedNumbers) {
     Matcher matcher = NUMBER_PATTERN.matcher(observation);
     while (matcher.find()) {
-      if (isOrdinalSequenceNumber(observation, matcher.end())) {
+      if (isOrdinalSequenceNumber(observation, matcher.end())
+          || isOperationalPeriodLabelNumber(observation, matcher.start())) {
         continue;
       }
       String normalized = normalizeNumber(matcher.group());
@@ -103,139 +123,12 @@ public class OpComparisonNarrativeValidator {
     return numberEnd < text.length() && text.charAt(numberEnd) == '차';
   }
 
-  private boolean matchesEvidence(JsonNode evidenceItem, EvidenceIndex evidenceIndex) {
-    if (!evidenceItem.isObject()) {
-      return false;
+  private boolean isOperationalPeriodLabelNumber(String text, int numberStart) {
+    int index = numberStart - 1;
+    while (index >= 0 && Character.isWhitespace(text.charAt(index))) {
+      index--;
     }
-
-    String source = textField(evidenceItem, "source");
-    String factId = textField(evidenceItem, "factId");
-    String operationalPeriodId = textField(evidenceItem, "operationalPeriodId");
-    String key = textField(evidenceItem, "key");
-    String value = textField(evidenceItem, "value");
-    if (source == null
-        || factId == null
-        || operationalPeriodId == null
-        || key == null
-        || value == null) {
-      return false;
-    }
-
-    UUID opId = parseUuid(operationalPeriodId);
-    if (opId == null) {
-      return false;
-    }
-
-    return switch (source) {
-      case "diffFact" -> matchesDiffFact(evidenceIndex, factId, opId, key, value);
-      case "regionFact" -> matchesRegionFact(evidenceIndex, factId, opId, key, value);
-      case "metric" -> matchesMetric(evidenceIndex, opId, key, value);
-      default -> false;
-    };
-  }
-
-  private boolean matchesDiffFact(
-      EvidenceIndex evidenceIndex, String factId, UUID opId, String key, String value) {
-    OpComparisonDiffFact fact = evidenceIndex.diffFacts().get(factId);
-    if (fact == null
-        || (!fact.leftOperationalPeriodId().equals(opId)
-            && !fact.rightOperationalPeriodId().equals(opId))) {
-      return false;
-    }
-    Object actual =
-        switch (key) {
-          case "type" -> fact.type();
-          case "metricKey" -> fact.metricKey();
-          case "leftOperationalPeriodId" -> fact.leftOperationalPeriodId();
-          case "rightOperationalPeriodId" -> fact.rightOperationalPeriodId();
-          case "leftValue" -> fact.leftValue();
-          case "rightValue" -> fact.rightValue();
-          case "delta" -> fact.delta();
-          case "threshold" -> fact.threshold();
-          default -> null;
-        };
-    return valueMatches(actual, value);
-  }
-
-  private boolean matchesRegionFact(
-      EvidenceIndex evidenceIndex, String factId, UUID opId, String key, String value) {
-    OpComparisonRegionEvidence fact = evidenceIndex.regionFacts().get(factId);
-    if (fact == null || !fact.operationalPeriodIds().contains(opId)) {
-      return false;
-    }
-    Object actual =
-        switch (key) {
-          case "type" -> fact.type();
-          case "areaSquareMeters" -> fact.areaSquareMeters();
-          case "firstPassTime" -> fact.firstPassTimes().get(opId);
-          case "durationSeconds" -> fact.durationSeconds().get(opId);
-          default -> null;
-        };
-    return valueMatches(actual, value);
-  }
-
-  private boolean matchesMetric(EvidenceIndex evidenceIndex, UUID opId, String key, String value) {
-    OpComparisonOperationalPeriodEvidence op = evidenceIndex.operationalPeriods().get(opId);
-    if (op == null) {
-      return false;
-    }
-    Object actual =
-        switch (key) {
-          case "sequenceNumber" -> op.sequenceNumber();
-          case "startedAt" -> op.startedAt();
-          case "endedAt" -> op.endedAt();
-          case "pathDistanceMeters" ->
-              metricValue(op, OpComparisonMetricsEvidence::pathDistanceMeters);
-          case "walkingDistanceMeters" ->
-              metricValue(op, OpComparisonMetricsEvidence::walkingDistanceMeters);
-          case "drivingDistanceMeters" ->
-              metricValue(op, OpComparisonMetricsEvidence::drivingDistanceMeters);
-          case "walkingRatioPercent" ->
-              metricValue(op, OpComparisonMetricsEvidence::walkingRatioPercent);
-          case "averageSpeedKmh" -> metricValue(op, OpComparisonMetricsEvidence::averageSpeedKmh);
-          case "stoppedSegmentCount" ->
-              metricValue(op, OpComparisonMetricsEvidence::stoppedSegmentCount);
-          case "stoppedDurationSeconds" ->
-              metricValue(op, OpComparisonMetricsEvidence::stoppedDurationSeconds);
-          case "markerCount" -> metricValue(op, OpComparisonMetricsEvidence::markerCount);
-          case "handoverMemoCount" ->
-              metricValue(op, OpComparisonMetricsEvidence::handoverMemoCount);
-          default -> null;
-        };
-    return valueMatches(actual, value);
-  }
-
-  private Object metricValue(
-      OpComparisonOperationalPeriodEvidence op, MetricValueExtractor extractor) {
-    if (op.metrics() == null) {
-      return null;
-    }
-    return extractor.extract(op.metrics());
-  }
-
-  private boolean valueMatches(Object actual, String value) {
-    if (actual == null || value == null) {
-      return false;
-    }
-    if (actual instanceof Number || actual instanceof BigDecimal) {
-      String actualNumber = normalizeNumber(actual.toString());
-      String providedNumber = normalizeNumber(value);
-      return actualNumber != null && actualNumber.equals(providedNumber);
-    }
-    return actual.toString().equals(value);
-  }
-
-  private static String textField(JsonNode node, String fieldName) {
-    JsonNode field = node.path(fieldName);
-    return field.isTextual() ? field.asText() : null;
-  }
-
-  private static UUID parseUuid(String value) {
-    try {
-      return UUID.fromString(value);
-    } catch (IllegalArgumentException exception) {
-      return null;
-    }
+    return index >= 1 && text.charAt(index) == 'P' && text.charAt(index - 1) == 'O';
   }
 
   private static String normalizeNumber(String value) {
@@ -252,70 +145,56 @@ public class OpComparisonNarrativeValidator {
   private record EvidenceIndex(
       Map<String, OpComparisonDiffFact> diffFacts,
       Map<String, OpComparisonRegionEvidence> regionFacts,
-      Map<UUID, OpComparisonOperationalPeriodEvidence> operationalPeriods,
-      Set<String> allowedNumbers) {
+      Map<String, Set<String>> allowedNumbersByFactId) {
+
+    boolean supportsFactId(String factId) {
+      return diffFacts.containsKey(factId) || regionFacts.containsKey(factId);
+    }
+
+    Set<String> allowedNumbersFor(List<String> factIds) {
+      Set<String> numbers = new HashSet<>();
+      factIds.forEach(factId -> numbers.addAll(allowedNumbersByFactId.getOrDefault(factId, Set.of())));
+      return numbers;
+    }
 
     static EvidenceIndex from(OpComparisonEvidencePackage evidencePackage) {
       Map<String, OpComparisonDiffFact> diffFacts = new HashMap<>();
       Map<String, OpComparisonRegionEvidence> regionFacts = new HashMap<>();
-      Map<UUID, OpComparisonOperationalPeriodEvidence> operationalPeriods = new HashMap<>();
-      Set<String> allowedNumbers = new HashSet<>();
+      Map<String, Set<String>> allowedNumbersByFactId = new HashMap<>();
 
-      evidencePackage.diffFacts().forEach(fact -> indexDiffFact(fact, diffFacts, allowedNumbers));
+      evidencePackage.diffFacts().forEach(fact -> indexDiffFact(fact, diffFacts, allowedNumbersByFactId));
       evidencePackage
           .regionFacts()
-          .forEach(fact -> indexRegionFact(fact, regionFacts, allowedNumbers));
-      evidencePackage
-          .operationalPeriods()
-          .forEach(op -> indexOperationalPeriod(op, operationalPeriods, allowedNumbers));
+          .forEach(fact -> indexRegionFact(fact, regionFacts, allowedNumbersByFactId));
 
-      return new EvidenceIndex(diffFacts, regionFacts, operationalPeriods, allowedNumbers);
+      return new EvidenceIndex(diffFacts, regionFacts, allowedNumbersByFactId);
     }
 
     private static void indexDiffFact(
         OpComparisonDiffFact fact,
         Map<String, OpComparisonDiffFact> diffFacts,
-        Set<String> allowedNumbers) {
+        Map<String, Set<String>> allowedNumbersByFactId) {
       diffFacts.put(fact.factId(), fact);
+      Set<String> allowedNumbers = new HashSet<>();
       addNumber(allowedNumbers, fact.leftValue());
       addNumber(allowedNumbers, fact.rightValue());
       addNumber(allowedNumbers, fact.delta());
       addNumbersFromText(allowedNumbers, fact.threshold());
+      allowedNumbersByFactId.put(fact.factId(), Set.copyOf(allowedNumbers));
     }
 
     private static void indexRegionFact(
         OpComparisonRegionEvidence fact,
         Map<String, OpComparisonRegionEvidence> regionFacts,
-        Set<String> allowedNumbers) {
+        Map<String, Set<String>> allowedNumbersByFactId) {
       regionFacts.put(fact.factId(), fact);
+      Set<String> allowedNumbers = new HashSet<>();
       addNumber(allowedNumbers, fact.areaSquareMeters());
       fact.durationSeconds().values().forEach(duration -> addNumber(allowedNumbers, duration));
       fact.firstPassTimes()
           .values()
           .forEach(instant -> addNumbersFromText(allowedNumbers, instant));
-    }
-
-    private static void indexOperationalPeriod(
-        OpComparisonOperationalPeriodEvidence op,
-        Map<UUID, OpComparisonOperationalPeriodEvidence> operationalPeriods,
-        Set<String> allowedNumbers) {
-      operationalPeriods.put(op.operationalPeriodId(), op);
-      addNumber(allowedNumbers, op.sequenceNumber());
-      addNumbersFromText(allowedNumbers, op.startedAt());
-      addNumbersFromText(allowedNumbers, op.endedAt());
-      if (op.metrics() == null) {
-        return;
-      }
-      OpComparisonMetricsEvidence metrics = op.metrics();
-      addNumber(allowedNumbers, metrics.pathDistanceMeters());
-      addNumber(allowedNumbers, metrics.walkingDistanceMeters());
-      addNumber(allowedNumbers, metrics.drivingDistanceMeters());
-      addNumber(allowedNumbers, metrics.walkingRatioPercent());
-      addNumber(allowedNumbers, metrics.averageSpeedKmh());
-      addNumber(allowedNumbers, metrics.stoppedSegmentCount());
-      addNumber(allowedNumbers, metrics.stoppedDurationSeconds());
-      addNumber(allowedNumbers, metrics.markerCount());
-      addNumber(allowedNumbers, metrics.handoverMemoCount());
+      allowedNumbersByFactId.put(fact.factId(), Set.copyOf(allowedNumbers));
     }
 
     private static void addNumber(Set<String> allowedNumbers, Object value) {
@@ -341,8 +220,14 @@ public class OpComparisonNarrativeValidator {
     }
   }
 
-  @FunctionalInterface
-  private interface MetricValueExtractor {
-    Object extract(OpComparisonMetricsEvidence metrics);
+  public record ValidationResult(boolean valid, String failureReason) {
+
+    static ValidationResult ok() {
+      return new ValidationResult(true, null);
+    }
+
+    static ValidationResult failed(String failureReason) {
+      return new ValidationResult(false, failureReason);
+    }
   }
 }

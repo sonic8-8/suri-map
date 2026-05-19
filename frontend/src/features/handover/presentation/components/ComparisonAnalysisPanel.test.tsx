@@ -22,8 +22,8 @@ describe('ComparisonAnalysisPanel', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: 'OP 비교 분석 생성' })).toBeDisabled();
-    expect(screen.getByText('2개 이상 OP를 선택하면 비교 분석을 생성할 수 있습니다.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '기록 차이 요약 생성' })).toBeDisabled();
+    expect(screen.getByText('2개 이상 OP를 선택하면 기록 차이 요약을 생성할 수 있습니다.')).toBeInTheDocument();
   });
 
   test('renders deterministic metrics and skipped narrative status', () => {
@@ -41,8 +41,8 @@ describe('ComparisonAnalysisPanel', () => {
 
     expect(screen.getAllByText('OP 1차').length).toBeGreaterThan(0);
     expect(screen.getByText('1,240m')).toBeInTheDocument();
-    expect(screen.getByText('문장 생성 생략')).toBeInTheDocument();
-    expect(screen.getByText('임계값을 넘은 차이가 없어 결정 근거만 저장됐습니다.')).toBeInTheDocument();
+    expect(screen.getByText('요약 생략')).toBeInTheDocument();
+    expect(screen.getByText('임계값을 넘은 기록 차이가 없어 비교 사실만 저장됐습니다.')).toBeInTheDocument();
   });
 
   test('renders observations and region facts without recommendation language', () => {
@@ -70,15 +70,15 @@ describe('ComparisonAnalysisPanel', () => {
         incidentId={INCIDENT_ID}
         selectedOperationalPeriodIds={[OP1_ID, OP2_ID]}
         operationalPeriods={periodOptions()}
-        analysis={comparisonResponse({ narrativeStatus: 'FAILED', failureReason: 'narrative_generation_failed' })}
+        analysis={comparisonResponse({ narrativeStatus: 'FAILED', failureReason: 'unsupported_fact_id' })}
         isCreating={false}
         errorMessage=""
         onCreateAnalysis={vi.fn()}
       />,
     );
 
-    expect(screen.getAllByText('문장 생성 실패').length).toBeGreaterThan(0);
-    expect(screen.getByText('narrative_generation_failed')).toBeInTheDocument();
+    expect(screen.getAllByText(/요약 실패|기록 차이 요약 실패/).length).toBeGreaterThan(0);
+    expect(screen.getByText('unsupported_fact_id')).toBeInTheDocument();
     expect(screen.getByText('마커 수')).toBeInTheDocument();
   });
 
@@ -96,7 +96,7 @@ describe('ComparisonAnalysisPanel', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'OP 비교 분석 생성' }));
+    fireEvent.click(screen.getByRole('button', { name: '기록 차이 요약 생성' }));
 
     expect(onCreateAnalysis).toHaveBeenCalledTimes(1);
   });
@@ -191,16 +191,8 @@ function comparisonResponse({
       ? {
           observations: [
             {
-              observation: 'OP2의 마커 수는 3건입니다.',
-              evidence: [
-                {
-                  source: 'metric',
-                  factId: '',
-                  operationalPeriodId: OP2_ID,
-                  key: 'markerCount',
-                  value: '3',
-                },
-              ],
+              sentence: 'OP2의 마커 수는 3건입니다.',
+              factIds: ['marker-count-op1-op2'],
             },
           ],
         }

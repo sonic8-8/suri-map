@@ -654,7 +654,7 @@ export function HandoverPage({
       setComparisonAnalysis(response);
       setSelectedComparisonRegionFactId(null);
     } catch (error) {
-      setComparisonErrorMessage(getApiErrorMessage(error, 'OP 비교 분석을 생성하지 못했습니다.'));
+      setComparisonErrorMessage(getApiErrorMessage(error, '기록 차이 요약을 생성하지 못했습니다.'));
     }
   };
 
