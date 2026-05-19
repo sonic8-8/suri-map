@@ -62,6 +62,6 @@ class SearchMapCurrentLocationViewportTest {
 
         val currentLocationLayer = centered.layers.single { it.kind == SearchLayerKind.CurrentLocation }
         assertEquals(1.7, currentLocationLayer.bearingDegrees!!, 0.000001)
-        assertEquals("현재 위치 · 1°", currentLocationLayer.label)
+        assertEquals("", currentLocationLayer.label)
     }
 }

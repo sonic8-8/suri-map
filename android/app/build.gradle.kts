@@ -67,6 +67,18 @@ val debugMapOnlyDutyShiftId = providers
     .gradleProperty("suriMapDebugMapOnlyDutyShiftId")
     .orElse("")
     .get()
+val debugCurrentLocationLon = providers
+    .gradleProperty("suriMapDebugCurrentLocationLon")
+    .orElse("")
+    .get()
+val debugCurrentLocationLat = providers
+    .gradleProperty("suriMapDebugCurrentLocationLat")
+    .orElse("")
+    .get()
+val debugCurrentLocationBearingDegrees = providers
+    .gradleProperty("suriMapDebugCurrentLocationBearingDegrees")
+    .orElse("")
+    .get()
 val hasGoogleServicesJson = layout.projectDirectory.file("google-services.json").asFile.exists()
 
 if (hasGoogleServicesJson) {
@@ -110,6 +122,9 @@ android {
         buildConfigField("String", "SURI_MAP_DEBUG_MAP_ONLY_INCIDENT_ID", "\"\"")
         buildConfigField("String", "SURI_MAP_DEBUG_MAP_ONLY_OP_ID", "\"\"")
         buildConfigField("String", "SURI_MAP_DEBUG_MAP_ONLY_DUTY_SHIFT_ID", "\"\"")
+        buildConfigField("String", "SURI_MAP_DEBUG_CURRENT_LOCATION_LON", "\"\"")
+        buildConfigField("String", "SURI_MAP_DEBUG_CURRENT_LOCATION_LAT", "\"\"")
+        buildConfigField("String", "SURI_MAP_DEBUG_CURRENT_LOCATION_BEARING_DEGREES", "\"\"")
     }
 
     buildTypes {
@@ -126,6 +141,9 @@ android {
             buildConfigField("String", "SURI_MAP_DEBUG_MAP_ONLY_INCIDENT_ID", debugMapOnlyIncidentId.quotedBuildConfig())
             buildConfigField("String", "SURI_MAP_DEBUG_MAP_ONLY_OP_ID", debugMapOnlyOpId.quotedBuildConfig())
             buildConfigField("String", "SURI_MAP_DEBUG_MAP_ONLY_DUTY_SHIFT_ID", debugMapOnlyDutyShiftId.quotedBuildConfig())
+            buildConfigField("String", "SURI_MAP_DEBUG_CURRENT_LOCATION_LON", debugCurrentLocationLon.quotedBuildConfig())
+            buildConfigField("String", "SURI_MAP_DEBUG_CURRENT_LOCATION_LAT", debugCurrentLocationLat.quotedBuildConfig())
+            buildConfigField("String", "SURI_MAP_DEBUG_CURRENT_LOCATION_BEARING_DEGREES", debugCurrentLocationBearingDegrees.quotedBuildConfig())
         }
         release {
             isMinifyEnabled = false
