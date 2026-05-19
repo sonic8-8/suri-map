@@ -34,6 +34,7 @@ class SearchPathMetricsCalculatorTest {
     assertThat(metrics.walkingDistanceMeters()).isEqualTo(111L);
     assertThat(metrics.averageSpeedKmh()).isEqualByComparingTo(new BigDecimal("13.3"));
     assertThat(metrics.stoppedSegmentCount()).isZero();
+    assertThat(metrics.stoppedDurationSeconds()).isZero();
   }
 
   @Test
@@ -54,6 +55,7 @@ class SearchPathMetricsCalculatorTest {
     assertThat(metrics.distanceMeters()).isZero();
     assertThat(metrics.averageSpeedKmh()).isEqualByComparingTo(new BigDecimal("0.0"));
     assertThat(metrics.stoppedSegmentCount()).isEqualTo(1);
+    assertThat(metrics.stoppedDurationSeconds()).isEqualTo(30L);
   }
 
   @Test
