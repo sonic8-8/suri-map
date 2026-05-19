@@ -15,9 +15,14 @@ import org.json.JSONObject
 data class HandoverSessionContext(
     val incidentId: String?,
     val opId: String?,
+    val opLabel: String? = null,
     val dutyShiftId: String?,
     val policePhoneId: String?
-)
+) {
+    val displayOpLabel: String =
+        opLabel?.takeIf(String::isNotBlank)
+            ?: if (opId.isNullOrBlank()) "OP 확인 필요" else "현재 OP"
+}
 
 class DutyHandoverStateLoader(
     private val handoverMemos: suspend (HandoverMemoQuery) -> SuriMapApiResponse = {
@@ -162,10 +167,7 @@ class DutyHandoverStateLoader(
         )
 
     private fun HandoverSessionContext.subtitle(): String {
-        val incident = incidentId?.takeIf(String::isNotBlank) ?: "사건 미선택"
-        val op = opId?.takeIf(String::isNotBlank) ?: "OP 미선택"
-        val dutyShift = dutyShiftId?.takeIf(String::isNotBlank) ?: "DutyShift 미선택"
-        return "$incident · $op · $dutyShift"
+        return "$displayOpLabel · 교대 인수인계"
     }
 
     private fun parseItems(body: String): JSONArray {
@@ -223,7 +225,7 @@ class DutyHandoverStateLoader(
             fun unavailable(): SummaryReadModel =
                 SummaryReadModel(
                     status = SearchHistorySummaryStatus.Unavailable,
-                    generatedAtLabel = "summary_unavailable · 원본 기록 유지",
+                    generatedAtLabel = "요약을 불러오지 못했습니다 · 원본 기록 유지",
                     content = null,
                     sourceReadiness = SummarySourceReadiness.Ready
                 )

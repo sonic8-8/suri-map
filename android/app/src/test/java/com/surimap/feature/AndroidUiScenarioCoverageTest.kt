@@ -72,7 +72,8 @@ class AndroidUiScenarioCoverageTest {
 
         val handoverSummary = DutyHandoverUiState.unavailable()
         assertFalse(handoverSummary.canRequestSummaryGeneration)
-        assertTrue(handoverSummary.visibleText().contains("summary_unavailable"))
+        assertFalse(handoverSummary.visibleText().contains("summary_unavailable"))
+        assertFalse(handoverSummary.visibleText().any { it.contains("sourceReadiness") })
         assertTrue(handoverSummary.visibleText().contains("원본 확인"))
 
         val terminalOverlay = AppOverlayState(incidentClosed = IncidentClosedOverlayState(hasDraft = true))

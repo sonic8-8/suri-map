@@ -61,7 +61,6 @@ data class DutyHandoverUiState(
             add(summaryStatus.label)
             add(generatedAtLabel)
             add(summaryText)
-            add(sourceReadiness.label)
             summaryActionLabel?.let(::add)
             add("원본 기록")
             metrics.forEach {
@@ -109,7 +108,7 @@ data class DutyHandoverUiState(
         fun unavailable(): DutyHandoverUiState =
             base(
                 summaryStatus = SearchHistorySummaryStatus.Unavailable,
-                generatedAtLabel = "summary_unavailable · 원본 기록 유지",
+                generatedAtLabel = "요약을 불러오지 못했습니다 · 원본 기록 유지",
                 summary = null,
                 sourceReadiness = SummarySourceReadiness.Ready
             )
@@ -144,7 +143,7 @@ data class DutyHandoverUiState(
         ): DutyHandoverUiState =
             DutyHandoverUiState(
                 title = "이전 근무 확인",
-                subtitle = "사건 #1234 · OP 3차 · 교대 14:00",
+                subtitle = "OP 3차 · 교대 인수인계",
                 summaryStatus = summaryStatus,
                 generatedAtLabel = generatedAtLabel,
                 summary = summary,
@@ -226,14 +225,6 @@ fun DutyHandoverScreen(
                     }
                 }
             }
-            PoliCard {
-                Text(text = "상태 기준", style = MaterialTheme.typography.titleMedium)
-                Text(
-                    text = "요약은 서버 내부 job 결과만 읽습니다. Android는 원본 경로·마커·메모를 계속 보여주며 생성·재시도 요청을 만들지 않습니다.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = PoliFgMuted
-                )
-            }
         }
 
         Row(
@@ -278,7 +269,6 @@ private fun SummaryCard(state: DutyHandoverUiState) {
             PoliChip(text = state.summaryStatus.label, variant = state.summaryStatus.variant)
         }
         Text(text = state.summaryText, style = MaterialTheme.typography.bodyLarge, color = PoliFgSecondary)
-        PoliChip(text = state.sourceReadiness.label)
         state.summaryActionLabel?.let { actionLabel ->
             PoliChip(text = actionLabel, variant = PoliChipVariant.Outbox)
         }
@@ -298,7 +288,7 @@ private val SearchHistorySummaryStatus.label: String
             SearchHistorySummaryStatus.Ready -> "준비됨"
             SearchHistorySummaryStatus.Generating -> "자동 처리 중"
             SearchHistorySummaryStatus.NeedsSummary -> "요약 생성 필요"
-            SearchHistorySummaryStatus.Unavailable -> "summary_unavailable"
+            SearchHistorySummaryStatus.Unavailable -> "요약 확인 필요"
             SearchHistorySummaryStatus.Empty -> "이전 기록 없음"
         }
 
@@ -318,16 +308,8 @@ private val SearchHistorySummaryStatus.emptyCopy: String
             SearchHistorySummaryStatus.Ready -> ""
             SearchHistorySummaryStatus.Generating -> "이전 근무 기록을 자동 처리 중입니다. 원본 기록은 즉시 확인할 수 있습니다."
             SearchHistorySummaryStatus.NeedsSummary -> "요약 생성 필요 상태입니다. 공개 생성 API가 없으므로 원본 기록을 먼저 확인합니다."
-            SearchHistorySummaryStatus.Unavailable -> "summary_unavailable 상태입니다. 서버 요약이 실패해도 원본 경로·마커·메모는 계속 확인할 수 있습니다."
+            SearchHistorySummaryStatus.Unavailable -> "요약을 불러오지 못했습니다. 원본 경로·마커·메모는 계속 확인할 수 있습니다."
             SearchHistorySummaryStatus.Empty -> "이전 기록 없음"
-        }
-
-private val SummarySourceReadiness.label: String
-    get() =
-        when (this) {
-            SummarySourceReadiness.PendingSync -> "sourceReadiness=PENDING_SYNC"
-            SummarySourceReadiness.Ready -> "sourceReadiness=READY"
-            SummarySourceReadiness.Stale -> "sourceReadiness=STALE"
         }
 
 fun sampleDutyHandoverState(): DutyHandoverUiState = DutyHandoverUiState.ready()

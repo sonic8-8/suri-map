@@ -952,6 +952,7 @@ private fun SearchMapRoute(
         mutableStateOf(System.currentTimeMillis())
     }
     var bottomPanelExpanded by remember { mutableStateOf(false) }
+    var topHeaderExpanded by remember { mutableStateOf(false) }
     var mapOverlaysVisible by remember { mutableStateOf(true) }
     var latestLocationFix by remember { mutableStateOf<GpsLocationFix?>(null) }
     val boundaryMonitor = remember(
@@ -1103,6 +1104,7 @@ private fun SearchMapRoute(
         searchMapState.copy(
             lifecycleStatus = displayedLifecycle,
             elapsedLabel = recordingSession.elapsedLabel(elapsedTickerNowMs),
+            topHeaderExpanded = topHeaderExpanded,
             bottomPanelExpanded = bottomPanelExpanded,
             mapOverlaysVisible = mapOverlaysVisible
         ).withCurrentLocationViewport(latestLocationFix)
@@ -1312,6 +1314,7 @@ private fun SearchMapRoute(
             onFocusSearchArea = { kind, overlayId ->
                 searchMapState = searchMapState.centerOnSearchLayer(kind, overlayId)
             },
+            onToggleHeaderPanel = { topHeaderExpanded = !topHeaderExpanded },
             onToggleBottomPanel = { bottomPanelExpanded = !bottomPanelExpanded },
             onToggleMapOverlays = { mapOverlaysVisible = !mapOverlaysVisible }
         )
@@ -2036,6 +2039,7 @@ private fun IncidentContext?.toHandoverSessionContext(policePhoneContext: Police
     HandoverSessionContext(
         incidentId = this?.incidentId,
         opId = this?.currentOpId,
+        opLabel = this?.currentOpLabel,
         dutyShiftId = this?.currentDutyShiftId,
         policePhoneId = policePhoneContext?.policePhoneId
     )
@@ -2179,10 +2183,7 @@ private fun HandoverMemoUiState.toHandoverMemoInput(context: HandoverSessionCont
 }
 
 private fun HandoverSessionContext.handoverMemoSubtitle(): String {
-    val incident = incidentId?.takeIf(String::isNotBlank) ?: "사건 미선택"
-    val op = opId?.takeIf(String::isNotBlank) ?: "OP 미선택"
-    val dutyShift = dutyShiftId?.takeIf(String::isNotBlank) ?: "DutyShift 미선택"
-    return "$incident · $op · $dutyShift"
+    return "$displayOpLabel · 교대 인수인계"
 }
 
 private fun HandoverMemoTarget.toHandoverTargetContext(context: HandoverSessionContext): HandoverTargetContext =
@@ -2191,7 +2192,7 @@ private fun HandoverMemoTarget.toHandoverTargetContext(context: HandoverSessionC
             HandoverTargetContext(
                 apiType = "OPERATIONAL_PERIOD",
                 targetId = context.opId?.takeIf(String::isNotBlank),
-                title = context.opId?.let { "현재 OP $it" } ?: "OP 미선택",
+                title = context.displayOpLabel,
                 subtitle = "활성 운영 기간"
             )
 
@@ -2199,23 +2200,23 @@ private fun HandoverMemoTarget.toHandoverTargetContext(context: HandoverSessionC
             HandoverTargetContext(
                 apiType = "SEARCH_PATH",
                 targetId = null,
-                title = "현재 OP 경로",
-                subtitle = context.opId?.let { "OP $it 기준 경로" } ?: "OP 기준 경로"
+                title = "${context.displayOpLabel} 경로",
+                subtitle = "${context.displayOpLabel} 기준 경로"
             )
 
         HandoverMemoTarget.Area ->
             HandoverTargetContext(
                 apiType = "SEARCH_AREA",
                 targetId = null,
-                title = "현재 OP 구역",
-                subtitle = context.opId?.let { "OP $it 기준 구역" } ?: "OP 기준 구역"
+                title = "${context.displayOpLabel} 구역",
+                subtitle = "${context.displayOpLabel} 기준 구역"
             )
 
         HandoverMemoTarget.DutyShift ->
             HandoverTargetContext(
                 apiType = "DUTY_SHIFT",
                 targetId = context.dutyShiftId?.takeIf(String::isNotBlank),
-                title = context.dutyShiftId?.let { "현재 근무 $it" } ?: "근무 미선택",
+                title = if (context.dutyShiftId.isNullOrBlank()) "근무 미선택" else "현재 근무",
                 subtitle = "교대 인수인계"
             )
 
@@ -2223,8 +2224,8 @@ private fun HandoverMemoTarget.toHandoverTargetContext(context: HandoverSessionC
             HandoverTargetContext(
                 apiType = "MARKER",
                 targetId = null,
-                title = "현재 OP 마커",
-                subtitle = context.opId?.let { "OP $it 기준 마커" } ?: "OP 기준 마커"
+                title = "${context.displayOpLabel} 마커",
+                subtitle = "${context.displayOpLabel} 기준 마커"
             )
     }
 

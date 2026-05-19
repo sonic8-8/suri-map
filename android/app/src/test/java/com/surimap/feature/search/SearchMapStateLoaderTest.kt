@@ -97,6 +97,44 @@ class SearchMapStateLoaderTest {
     }
 
     @Test
+    fun incidentDetailHidesMissingPersonFixtureCodeFromSummary() = runBlocking {
+        val loader =
+            SearchMapStateLoader(
+                incidentDetail = {
+                    SuriMapApiResponse(
+                        statusCode = 200,
+                        body =
+                        """
+                        {
+                          "id": "$INCIDENT_ID",
+                          "title": "무등산 증심사 계곡 실종자 수색",
+                          "missingPerson": {
+                            "displayName": "실종자 T2-무등-01",
+                            "appearanceText": "남색 등산복"
+                          }
+                        }
+                        """.trimIndent(),
+                        errorCode = null
+                    )
+                },
+                overallSearchArea = { notFoundResponse() },
+                opSearchAreas = { _, _ -> notFoundResponse() }
+            )
+
+        val state =
+            loader.load(
+                SearchMapSessionContext(
+                    incidentId = INCIDENT_ID,
+                    currentOpId = OP_ID,
+                    currentDutyShiftId = DUTY_SHIFT_ID
+                )
+            )
+
+        assertEquals("실종자 · 남색 등산복", state.missingPersonSummary)
+        assertFalse(state.missingPersonSummary.contains("T2-무등-01"))
+    }
+
+    @Test
     fun incidentDetailFailureKeepsSessionBasedFallbackAndWriteGate() = runBlocking {
         val loader =
             SearchMapStateLoader(
@@ -312,6 +350,55 @@ class SearchMapStateLoaderTest {
         assertEquals(TEAM_AREA_ID, state.layers[2].overlayId)
         assertTrue(state.layers[2].highlighted)
         assertEquals("A팀 담당 구역", state.assignmentLabel)
+    }
+
+    @Test
+    fun unitAreaLabelFallsBackAsAssignmentWhenTeamAreaIsMissing() = runBlocking {
+        val areaGeometry =
+            """
+            {
+              "type": "Polygon",
+              "coordinates": [[[126.91,35.16],[126.93,35.16],[126.93,35.18],[126.91,35.18],[126.91,35.16]]]
+            }
+            """.trimIndent()
+        val loader =
+            SearchMapStateLoader(
+                incidentDetail = { notFoundResponse() },
+                overallSearchArea = { notFoundResponse() },
+                opSearchAreas = { _, _ ->
+                    SuriMapApiResponse(
+                        statusCode = 200,
+                        body =
+                        """
+                        {
+                          "areas": [
+                            {
+                              "id": "$UNIT_AREA_ID",
+                              "opId": "$OP_ID",
+                              "areaLevel": "UNIT",
+                              "name": "기동대 1부대",
+                              "status": "ACTIVE",
+                              "geometry": $areaGeometry
+                            }
+                          ]
+                        }
+                        """.trimIndent(),
+                        errorCode = null
+                    )
+                }
+            )
+
+        val state =
+            loader.load(
+                SearchMapSessionContext(
+                    incidentId = INCIDENT_ID,
+                    currentOpId = OP_ID,
+                    currentDutyShiftId = DUTY_SHIFT_ID
+                )
+            )
+
+        assertEquals("기동대 1부대", state.assignmentLabel)
+        assertEquals("기동대 1부대", state.assignmentDisplayLabel)
     }
 
     @Test
@@ -788,6 +875,8 @@ class SearchMapStateLoaderTest {
         assertTrue(state.layers.all { layer -> layer.geoJson == null })
         assertFalse(state.visibleText().any { it == "담당 구역 확인 중" })
         assertTrue(state.assignmentLabel.isBlank())
+        assertEquals("담당구역 미배정", state.assignmentDisplayLabel)
+        assertTrue(state.visibleText().contains("담당구역 미배정"))
     }
 
     @Test
