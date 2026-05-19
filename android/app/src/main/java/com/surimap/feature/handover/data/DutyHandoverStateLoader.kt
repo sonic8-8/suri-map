@@ -42,16 +42,24 @@ class DutyHandoverStateLoader(
                         opId = valid.opId
                     )
                 )
-            val summaryResponse =
-                searchHistorySummaries(
-                    valid.opId,
-                    SearchHistorySummaryQuery(
-                        incidentId = valid.incidentId,
-                        dutyShiftId = context.dutyShiftId?.takeIf(String::isNotBlank)
-                    )
-                )
+            val dutyShiftId = context.dutyShiftId?.takeIf(String::isNotBlank)
             val memos = parseMemos(memoResponse)
-            val summary = parseSummary(summaryResponse)
+            val summary =
+                if (dutyShiftId == null) {
+                    SummaryReadModel.empty()
+                } else {
+                    parseSummary(
+                        searchHistorySummaries(
+                            valid.opId,
+                            SearchHistorySummaryQuery(
+                                incidentId = valid.incidentId,
+                                scopeType = "DUTY_SHIFT",
+                                scopeId = dutyShiftId,
+                                dutyShiftId = dutyShiftId
+                            )
+                        )
+                    )
+                }
             summary.toUiState(
                 context = context,
                 memoCount = memos.size,
@@ -100,10 +108,15 @@ class DutyHandoverStateLoader(
             repeat(items.length()) { index ->
                 val item = items.optJSONObject(index) ?: return@repeat
                 val content = item.optString("content").takeIf(String::isNotBlank) ?: return@repeat
+                val sourceKey =
+                    item.optString("id")
+                        .ifBlank { item.optString("handoverMemoId") }
+                        .ifBlank { "handover-memo-$index" }
                 add(
                     HandoverMemoReadModel(
                         targetType = item.optString("memoTargetType").ifBlank { "MEMO" },
-                        content = content
+                        content = content,
+                        sourceKey = sourceKey
                     )
                 )
             }
@@ -140,7 +153,8 @@ class DutyHandoverStateLoader(
         HandoverRecord(
             title = "운영 메모 · $targetType",
             subtitle = content,
-            actionLabel = "열기"
+            actionLabel = "열기",
+            sourceKey = sourceKey
         )
 
     private fun HandoverSessionContext.valid(): RequiredHandoverSessionContext? {
@@ -204,7 +218,8 @@ class DutyHandoverStateLoader(
 
     private data class HandoverMemoReadModel(
         val targetType: String,
-        val content: String
+        val content: String,
+        val sourceKey: String
     )
 
     private data class SummaryReadModel(

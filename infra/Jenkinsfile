@@ -59,6 +59,9 @@ pipeline {
         BACKEND_TEST_ARTIFACT_DIR = 'ci-artifacts/backend-test'
         COMPOSE_FILE = 'infra/docker/docker-compose.runtime.yml'
         ENV_FILE = '.env.runtime'
+        HOST_NGINX_APPLY = 'true'
+        HOST_NGINX_CONFIG_DIR = '/home/ubuntu/infra/nginx'
+        HOST_NGINX_SITE = '/etc/nginx/sites-available/suri-map'
         FRONTEND_HOST_PORT = '3000'
         BACKEND_HOST_PORT = '8081'
         MOCK_112_HOST_PORT = '18112'
@@ -92,9 +95,9 @@ pipeline {
         TILESERVER_MODE = 'tileserver-gl'
         TILESERVER_BASE_URL = 'http://tileserver-gl:8080'
         V_WORLD_API_KEY = credentials('suri-map-vworld-api-key')
-        SURI_MAP_OPENAI_ENABLED = 'false'
+        SURI_MAP_OPENAI_ENABLED = 'true'
         SURI_MAP_OPENAI_BASE_URL = 'https://api.openai.com/v1'
-        SURI_MAP_OPENAI_API_KEY = ''
+        SURI_MAP_OPENAI_API_KEY = credentials('suri-map-openai-api-key')
         SURI_MAP_OPENAI_MODEL = 'gpt-5-mini'
         SURI_MAP_OPENAI_TIMEOUT_MS = '15000'
         FCM_PROVIDER = 'firebase'
@@ -394,14 +397,19 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=${env.SPRING_JPA_HIBERNATE_DDL_AUTO}
                       "${TILESERVER_DATA_DIR}/fonts" \
                       "${TILESERVER_DATA_DIR}/styles/osm-local" \
                       "${KEYCLOAK_IMPORT_DIR}" \
-                      "${KEYCLOAK_THEME_DIR}"
+                      "${KEYCLOAK_THEME_DIR}" \
+                      "${HOST_NGINX_CONFIG_DIR}"
                     cp infra/docker/tileserver/config.json "${TILESERVER_DATA_DIR}/config.json"
                     cp infra/docker/tileserver/styles/osm-local/style.json "${TILESERVER_DATA_DIR}/styles/osm-local/style.json"
                     cp infra/docker/keycloak/import/*.json "${KEYCLOAK_IMPORT_DIR}/"
                     rm -rf "${KEYCLOAK_THEME_DIR}/suri-map"
                     cp -R infra/docker/keycloak/themes/suri-map "${KEYCLOAK_THEME_DIR}/suri-map"
+                    cp infra/nginx/suri-map-sse.locations.conf "${HOST_NGINX_CONFIG_DIR}/suri-map-sse.locations.conf"
+                    cp infra/nginx/apply-suri-map-host-nginx.sh "${HOST_NGINX_CONFIG_DIR}/apply-suri-map-host-nginx.sh"
+                    chmod 755 "${HOST_NGINX_CONFIG_DIR}/apply-suri-map-host-nginx.sh"
                     test -f "${KEYCLOAK_IMPORT_DIR}/suri-map-realm.json"
                     test -f "${KEYCLOAK_THEME_DIR}/suri-map/login/theme.properties"
+                    test -f "${HOST_NGINX_CONFIG_DIR}/suri-map-sse.locations.conf"
 
                     if [ -f "${TILESERVER_DATA_DIR}/data/osm-local.mbtiles" ] \
                       && [ -f "${TILESERVER_DATA_DIR}/data/gwangju-building-labels.mbtiles" ]; then
@@ -425,6 +433,20 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=${env.SPRING_JPA_HIBERNATE_DDL_AUTO}
                         --env-file ${ENV_FILE} \
                         -f ${COMPOSE_FILE} \
                         up -d --force-recreate tileserver-gl
+                    fi
+
+                    if [ "${HOST_NGINX_APPLY}" = "true" ]; then
+                      docker run --rm \
+                        --privileged \
+                        --pid=host \
+                        -v /:/host \
+                        -e HOST_ROOT=/host \
+                        -e HOST_NGINX_SITE="${HOST_NGINX_SITE}" \
+                        -e HOST_NGINX_SSE_SNIPPET="${HOST_NGINX_CONFIG_DIR}/suri-map-sse.locations.conf" \
+                        alpine:3.20 \
+                        sh "/host${HOST_NGINX_CONFIG_DIR}/apply-suri-map-host-nginx.sh"
+                    else
+                      echo "host_nginx_sse_proxy=skipped"
                     fi
                 '''
             }
@@ -904,6 +926,166 @@ EOF
                               rank_code="POLICE_OFFICER"
                               rank_name="순경"
                               ;;
+                            station1)
+                              account_id="d1000000-0000-4000-8000-000000000001"
+                              account_type="COMMAND"
+                              organization_type="POLICE_SUBSTATION"
+                              person_name="김도현"
+                              organization_code="GWANGJU_GWANGSAN_SUWAN_PATROL_DIVISION"
+                              organization_name="광주광산경찰서 수완지구대"
+                              rank_code="INSPECTOR"
+                              rank_name="경위"
+                              ;;
+                            station2)
+                              account_id="d1000000-0000-4000-8000-000000000002"
+                              account_type="PATROL_CAR"
+                              organization_type="POLICE_SUBSTATION"
+                              person_name="박민수"
+                              organization_code="GWANGJU_GWANGSAN_SUWAN_PATROL_DIVISION"
+                              organization_name="광주광산경찰서 수완지구대"
+                              rank_code="SERGEANT"
+                              rank_name="경사"
+                              ;;
+                            station3)
+                              account_id="d1000000-0000-4000-8000-000000000003"
+                              account_type="TEAM"
+                              organization_type="POLICE_SUBSTATION"
+                              person_name="이준호"
+                              organization_code="GWANGJU_GWANGSAN_SUWAN_PATROL_DIVISION"
+                              organization_name="광주광산경찰서 수완지구대"
+                              rank_code="POLICE_OFFICER"
+                              rank_name="순경"
+                              ;;
+                            missing1)
+                              account_id="d1000000-0000-4000-8000-000000000004"
+                              account_type="COMMAND"
+                              organization_type="MISSING_TEAM"
+                              person_name="정서윤"
+                              organization_code="GWANGJU_POLICE_WOMEN_JUVENILE_MISSING_TEAM"
+                              organization_name="광주경찰청 여성청소년과 실종팀"
+                              rank_code="SENIOR_INSPECTOR"
+                              rank_name="경감"
+                              ;;
+                            missing2)
+                              account_id="d1000000-0000-4000-8000-000000000005"
+                              account_type="TEAM"
+                              organization_type="MISSING_TEAM"
+                              person_name="최지훈"
+                              organization_code="GWANGJU_POLICE_WOMEN_JUVENILE_MISSING_TEAM"
+                              organization_name="광주경찰청 여성청소년과 실종팀"
+                              rank_code="SERGEANT"
+                              rank_name="경사"
+                              ;;
+                            support1)
+                              account_id="d1000000-0000-4000-8000-000000000006"
+                              account_type="COMMAND"
+                              organization_type="SUPPORT_UNIT"
+                              person_name="강현우"
+                              organization_code="GWANGJU_POLICE_MOBILE_UNIT"
+                              organization_name="광주경찰청 기동대"
+                              rank_code="INSPECTOR"
+                              rank_name="경위"
+                              ;;
+                            support2)
+                              account_id="d1000000-0000-4000-8000-000000000007"
+                              account_type="PATROL_CAR"
+                              organization_type="SUPPORT_UNIT"
+                              person_name="윤태영"
+                              organization_code="GWANGJU_POLICE_MOBILE_UNIT"
+                              organization_name="광주경찰청 기동대"
+                              rank_code="SERGEANT"
+                              rank_name="경사"
+                              ;;
+                            support3)
+                              account_id="d1000000-0000-4000-8000-000000000008"
+                              account_type="TEAM"
+                              organization_type="SUPPORT_UNIT"
+                              person_name="오민재"
+                              organization_code="GWANGJU_POLICE_MOBILE_UNIT"
+                              organization_name="광주경찰청 기동대"
+                              rank_code="POLICE_OFFICER"
+                              rank_name="순경"
+                              ;;
+                            station4)
+                              account_id="d1000000-0000-4000-8000-000000000009"
+                              account_type="PATROL_CAR"
+                              organization_type="POLICE_SUBSTATION"
+                              person_name="문태호"
+                              organization_code="GWANGJU_GWANGSAN_SUWAN_PATROL_DIVISION"
+                              organization_name="광주광산경찰서 수완지구대"
+                              rank_code="SENIOR_POLICE_OFFICER"
+                              rank_name="경장"
+                              ;;
+                            station5)
+                              account_id="d1000000-0000-4000-8000-000000000010"
+                              account_type="PATROL_CAR"
+                              organization_type="POLICE_SUBSTATION"
+                              person_name="서민재"
+                              organization_code="GWANGJU_GWANGSAN_CHEOMDAN_PATROL_DIVISION"
+                              organization_name="광주광산경찰서 첨단지구대"
+                              rank_code="SERGEANT"
+                              rank_name="경사"
+                              ;;
+                            missing3)
+                              account_id="d1000000-0000-4000-8000-000000000011"
+                              account_type="TEAM"
+                              organization_type="MISSING_TEAM"
+                              person_name="한유라"
+                              organization_code="GWANGJU_POLICE_MISSING_DRONE_TEAM"
+                              organization_name="광주경찰청 실종팀 드론운용반"
+                              rank_code="INSPECTOR"
+                              rank_name="경위"
+                              ;;
+                            missing4)
+                              account_id="d1000000-0000-4000-8000-000000000012"
+                              account_type="TEAM"
+                              organization_type="MISSING_TEAM"
+                              person_name="임재훈"
+                              organization_code="GWANGJU_POLICE_MISSING_INTERVIEW_TEAM"
+                              organization_name="광주경찰청 실종팀 탐문반"
+                              rank_code="SERGEANT"
+                              rank_name="경사"
+                              ;;
+                            support4)
+                              account_id="d1000000-0000-4000-8000-000000000013"
+                              account_type="TEAM"
+                              organization_type="SUPPORT_UNIT"
+                              person_name="백승우"
+                              organization_code="GWANGJU_POLICE_MOBILE_UNIT_1ST_PLATOON"
+                              organization_name="광주경찰청 기동대 1제대"
+                              rank_code="POLICE_OFFICER"
+                              rank_name="순경"
+                              ;;
+                            support5)
+                              account_id="d1000000-0000-4000-8000-000000000014"
+                              account_type="TEAM"
+                              organization_type="SUPPORT_UNIT"
+                              person_name="조아린"
+                              organization_code="GWANGJU_POLICE_MOBILE_UNIT_2ND_PLATOON"
+                              organization_name="광주경찰청 기동대 2제대"
+                              rank_code="SENIOR_POLICE_OFFICER"
+                              rank_name="경장"
+                              ;;
+                            support6)
+                              account_id="d1000000-0000-4000-8000-000000000015"
+                              account_type="PATROL_CAR"
+                              organization_type="SUPPORT_UNIT"
+                              person_name="조영민"
+                              organization_code="GWANGJU_POLICE_MOBILE_TRAFFIC_CONTROL"
+                              organization_name="광주경찰청 기동대 교통통제반"
+                              rank_code="SENIOR_POLICE_OFFICER"
+                              rank_name="경장"
+                              ;;
+                            support7)
+                              account_id="d1000000-0000-4000-8000-000000000016"
+                              account_type="TEAM"
+                              organization_type="SUPPORT_UNIT"
+                              person_name="김나영"
+                              organization_code="GWANGJU_POLICE_MOBILE_NIGHT_RESERVE"
+                              organization_name="광주경찰청 기동대 야간 예비팀"
+                              rank_code="SERGEANT"
+                              rank_name="경사"
+                              ;;
                             acct-unassigned-phone)
                               account_id="11111111-1111-1111-1111-111111110009"
                               account_type="TEAM"
@@ -934,7 +1116,7 @@ EOF
   "credentials": [
     {
       "type": "password",
-      "value": "fixture",
+      "value": "123456",
       "temporary": false
     }
   ],
@@ -996,18 +1178,72 @@ PROFILE_JSON
                           /opt/keycloak/bin/kcadm.sh set-password \
                             -r suri-map \
                             --userid "${user_id}" \
-                            --new-password fixture >/dev/null
+                            --new-password 123456 >/dev/null
+                        }
+
+                        delete_keycloak_user_if_exists() {
+                          username="$1"
+                          user_id=$(/opt/keycloak/bin/kcadm.sh get users \
+                            -r suri-map \
+                            -q username="${username}" \
+                            --fields id \
+                            --format csv \
+                            --noquotes | tail -n 1)
+                          if [ -n "${user_id}" ]; then
+                            /opt/keycloak/bin/kcadm.sh delete "users/${user_id}" -r suri-map >/dev/null
+                          fi
                         }
 
                         for username in \
-                          acct-precinct-cmd \
-                          acct-precinct-car \
-                          acct-precinct-team \
-                          acct-cmd-alpha \
-                          acct-team-alpha \
-                          acct-support-cmd \
-                          acct-support-car \
-                          acct-support-team \
+                          dohyun.kim \
+                          minsu.park \
+                          junho.lee \
+                          seoyun.jeong \
+                          jihun.choi \
+                          hyunwoo.kang \
+                          taeyoung.yoon \
+                          minjae.oh \
+                          taeho.mun \
+                          minjae.seo \
+                          yura.han \
+                          jaehun.im \
+                          seungwoo.baek \
+                          arin.jo \
+                          youngmin.cho \
+                          nayoung.kim \
+                          demo-suwang-patrol-02 \
+                          demo-cheomdan-patrol-01 \
+                          demo-missing-drone-team \
+                          demo-missing-interview-team \
+                          demo-support-field-01 \
+                          demo-support-field-02 \
+                          demo-support-traffic-car \
+                          demo-support-reserve-team \
+                          precinct1 \
+                          precinct2 \
+                          precinct3 \
+                          precinct4 \
+                          precinct5; do
+                          delete_keycloak_user_if_exists "${username}"
+                        done
+
+                        for username in \
+                          station1 \
+                          station2 \
+                          station3 \
+                          missing1 \
+                          missing2 \
+                          support1 \
+                          support2 \
+                          support3 \
+                          station4 \
+                          station5 \
+                          missing3 \
+                          missing4 \
+                          support4 \
+                          support5 \
+                          support6 \
+                          support7 \
                           acct-unassigned-phone; do
                           ensure_demo_user_profile "${username}"
                         done

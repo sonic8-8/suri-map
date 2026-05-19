@@ -189,6 +189,9 @@ class HandoverRepositoriesTest {
             operationalPeriodId = OP_ID,
             query = SearchHistorySummaryQuery(
                 incidentId = INCIDENT_ID,
+                scopeType = "DUTY_SHIFT",
+                scopeId = DUTY_SHIFT_ID,
+                dutyShiftId = DUTY_SHIFT_ID,
                 status = "READY"
             )
         )
@@ -196,7 +199,7 @@ class HandoverRepositoriesTest {
         val request = callFactory.lastRequest!!
         assertEquals("GET", request.method)
         assertEquals(
-            "https://suri-map.example.com/api/operational-periods/$OP_ID/search-history-summaries?incidentId=$INCIDENT_ID&status=READY",
+            "https://suri-map.example.com/api/operational-periods/$OP_ID/search-history-summaries?incidentId=$INCIDENT_ID&scopeType=DUTY_SHIFT&scopeId=$DUTY_SHIFT_ID&dutyShiftId=$DUTY_SHIFT_ID&status=READY",
             request.url.toString()
         )
         assertEquals("APP", request.header("X-Client-Channel"))

@@ -18,6 +18,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -29,6 +30,7 @@ public class MarkerNotificationService {
   private final NotificationRecipientResolver recipientResolver;
   private final NotificationPayloadFactory payloadFactory;
   private final MarkerEventPublisher markerEventPublisher;
+  private final MarkerNotificationFcmDispatchService fcmDispatchService;
   private final Clock clock;
   private final Function<MarkerNotificationContext, UUID> notificationIdFactory;
 
@@ -37,14 +39,16 @@ public class MarkerNotificationService {
       MarkerNotificationRepository markerNotificationRepository,
       NotificationRecipientResolver recipientResolver,
       NotificationPayloadFactory payloadFactory,
-      MarkerEventPublisher markerEventPublisher) {
+      MarkerEventPublisher markerEventPublisher,
+      ObjectProvider<MarkerNotificationFcmDispatchService> fcmDispatchServiceProvider) {
     this(
         markerNotificationRepository,
         recipientResolver,
         payloadFactory,
         markerEventPublisher,
         Clock.systemUTC(),
-        context -> UUID.randomUUID());
+        context -> UUID.randomUUID(),
+        fcmDispatchServiceProvider.getIfAvailable());
   }
 
   public MarkerNotificationService(
@@ -54,10 +58,29 @@ public class MarkerNotificationService {
       MarkerEventPublisher markerEventPublisher,
       Clock clock,
       Function<MarkerNotificationContext, UUID> notificationIdFactory) {
+    this(
+        markerNotificationRepository,
+        recipientResolver,
+        payloadFactory,
+        markerEventPublisher,
+        clock,
+        notificationIdFactory,
+        null);
+  }
+
+  public MarkerNotificationService(
+      MarkerNotificationRepository markerNotificationRepository,
+      NotificationRecipientResolver recipientResolver,
+      NotificationPayloadFactory payloadFactory,
+      MarkerEventPublisher markerEventPublisher,
+      Clock clock,
+      Function<MarkerNotificationContext, UUID> notificationIdFactory,
+      MarkerNotificationFcmDispatchService fcmDispatchService) {
     this.markerNotificationRepository = Objects.requireNonNull(markerNotificationRepository);
     this.recipientResolver = Objects.requireNonNull(recipientResolver);
     this.payloadFactory = Objects.requireNonNull(payloadFactory);
     this.markerEventPublisher = Objects.requireNonNull(markerEventPublisher);
+    this.fcmDispatchService = fcmDispatchService;
     this.clock = Objects.requireNonNull(clock);
     this.notificationIdFactory = Objects.requireNonNull(notificationIdFactory);
   }
@@ -101,6 +124,9 @@ public class MarkerNotificationService {
     MarkerPublishRequest publishRequest =
         new MarkerPublishRequest(notificationType.name(), payload);
     markerEventPublisher.publish(publishRequest);
+    if (fcmDispatchService != null) {
+      fcmDispatchService.dispatchAfterCommit(notificationType.name(), payload);
+    }
     return Optional.of(publishRequest);
   }
 

@@ -173,6 +173,48 @@ Before starting the final run, execute
 confirm it reports at least one ready physical Android device. If it reports
 `BLOCKED`, the run cannot start.
 
+### Deployed Evidence Runner
+
+`docs/tasks/run_l4_d01_deployed_stability.py` collects the repeatable evidence
+needed for the downscoped deployed-server run. It captures:
+
+- Android device package/runtime/connectivity/job scheduler snapshots.
+- Current UI XML and screenshots.
+- `suri-map.db` copied through `run-as` and summarized with Python `sqlite3`.
+- Deployed route reachability for backend health, Keycloak OIDC, tile style,
+  vector tile, and Pretendard GOV glyph routes.
+- Optional EC2 PostgreSQL counts and duplicate-row checks scoped to the runner
+  start timestamp, so old demo events do not fail the new run.
+
+Preflight:
+
+```bash
+python3 docs/tasks/run_l4_d01_deployed_stability.py \
+  --preflight-only \
+  --device R3CT50BD92Y \
+  --ec2-env /home/seaung13/secrets/surimap-ec2-ssh.env \
+  --artifact-dir .agents/scratch/l4d01-preflight-runner
+```
+
+Full deployed run:
+
+```bash
+python3 docs/tasks/run_l4_d01_deployed_stability.py \
+  --device R3CT50BD92Y \
+  --ec2-env /home/seaung13/secrets/surimap-ec2-ssh.env
+```
+
+The full run defaults to cycle 1 offline for 30 minutes, cycles 2-10 offline
+for 60 seconds, 120 seconds recovery wait per cycle, and a 1-hour stability
+sampling window. The runner records evidence only; `L4-D01` remains incomplete
+until the generated artifact directory is reviewed and the checklist evidence is
+accepted.
+
+Latest local preflight: `2026-05-20T04:00:13+09:00` generated
+`.agents/scratch/l4d01-preflight-runner`. Device `R3CT50BD92Y` and deployed
+routes were reachable. EC2 duplicate checks scoped to the runner start timestamp
+returned 0 rows. This is readiness evidence, not the final 1-hour/10-cycle run.
+
 ## Completion Verdict
 
 Verdict: PARTIAL / NOT FINAL.

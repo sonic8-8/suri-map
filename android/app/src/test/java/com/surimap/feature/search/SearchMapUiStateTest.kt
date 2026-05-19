@@ -1,5 +1,8 @@
 package com.surimap.feature.search
 
+import com.surimap.core.sync.LocalWarningCode
+import com.surimap.core.sync.LocalWarningSnapshot
+import com.surimap.core.sync.LocalWarningUiState
 import com.surimap.feature.search.ui.SearchLifecycleStatus
 import com.surimap.feature.search.ui.SearchLayerKind
 import com.surimap.feature.search.ui.SearchMapLayerUiState
@@ -67,6 +70,30 @@ class SearchMapUiStateTest {
         assertEquals(SearchMapSyncStatus.Sending, sending.syncStatus)
         assertEquals("전송 중 · 3", sending.syncLabel)
         assertFalse(sending.shouldOpenBlockedOutbox)
+    }
+
+    @Test
+    fun localWarningsAreVisibleOnSearchMapWithoutOpeningBlockedQueueRoute() {
+        val warnings =
+            LocalWarningUiState.from(
+                LocalWarningSnapshot(
+                    setOf(
+                        LocalWarningCode.GPS_STOPPED,
+                        LocalWarningCode.BATTERY_LOW,
+                        LocalWarningCode.PACKAGE_MISSING,
+                        LocalWarningCode.OFFLINE_RECORDING,
+                        LocalWarningCode.OUTBOX_BACKLOG
+                    )
+                )
+            )
+        val state = SearchMapUiState.active().copy(localWarnings = warnings)
+
+        assertTrue(state.visibleText().contains("GPS 신호 중단"))
+        assertTrue(state.visibleText().contains("배터리 부족"))
+        assertTrue(state.visibleText().contains("지도 패키지 확인 필요"))
+        assertTrue(state.visibleText().contains("오프라인 기록 중"))
+        assertTrue(state.visibleText().contains("미전송 기록 적체"))
+        assertFalse(state.shouldOpenBlockedOutbox)
     }
 
     @Test
@@ -138,6 +165,26 @@ class SearchMapUiStateTest {
         assertFalse(source.contains("다음 투입"))
         assertFalse(source.contains("미수색"))
         assertFalse(source.contains("위험도"))
+    }
+
+    @Test
+    fun appSearchMapRouteConnectsLocalWarningMonitorToActualUiState() {
+        val source = File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+        val routeIndex = source.indexOf("private fun SearchMapRoute")
+        val monitorIndex = source.indexOf("LocalWarningMonitor()", routeIndex)
+        val evaluateIndex = source.indexOf("localWarningMonitor.evaluate(", routeIndex)
+        val uiStateIndex = source.indexOf("localWarnings = LocalWarningUiState.from(localWarningSnapshot)", routeIndex)
+        val batteryIndex = source.indexOf("ACTION_BATTERY_CHANGED", routeIndex)
+        val locationIndex = source.indexOf("context.isLocationUsable()", routeIndex)
+        val packageIndex = source.indexOf("offlinePackageInstallationDao.observe", routeIndex)
+
+        assertTrue(routeIndex >= 0)
+        assertTrue(monitorIndex > routeIndex)
+        assertTrue(evaluateIndex > monitorIndex)
+        assertTrue(uiStateIndex > routeIndex)
+        assertTrue(batteryIndex > routeIndex)
+        assertTrue(locationIndex > routeIndex)
+        assertTrue(packageIndex > routeIndex)
     }
 
     @Test

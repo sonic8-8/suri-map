@@ -306,7 +306,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Response: `201 {id, incidentId, opId, searchAreaId, policePhoneId, alertType, version, status}`
 - Errors: `invalid_geometry`, `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`, `op_required`, `op_mismatch`
 - FCM: successful `OUTSIDE_ASSIGNED_AREA` write emits advisory data payload `type=SEARCH_AREA_BOUNDARY_EXITED`, `incidentId`, `opId`, `searchAreaId`, `policePhoneId`, `status`, `version`, `eventId`. Payload must not include missing-person PII.
-- Note: 이 API는 Android 로컬 경계 확인 안내를 서버 운영 참고/FCM 흐름에 반영하는 경로다. 앱의 즉시 진동/안내는 서버 응답을 기다리지 않는다. 전체 수색구역 밖 좌표를 `invalid_geometry`로 거부하는 정책과 assigned TEAM search_area 경계 확인 안내는 별도 정책이며, 이를 자동 위반 판단이나 다음 수색 구역 추천으로 사용하지 않는다.
+- Note: 이 API는 Android 로컬 경계 확인 안내를 서버 운영 참고/FCM 흐름에 반영하는 경로다. 앱의 즉시 진동/안내는 서버 응답을 기다리지 않는다. 좌표 자체의 유효성 검증과 assigned TEAM search_area 경계 확인 안내는 별도 정책이며, 이를 자동 위반 판단이나 다음 수색 구역 추천으로 사용하지 않는다.
 
 #### GET `/api/search-paths`
 
@@ -401,7 +401,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Request: optional `id`, `incidentId`, `opId`, `type`, `location`, `clientTs`, optional `supportRequestType`, `memo`, `clockOffsetMs`, `photos:[{photoId, sizeBytes, contentType, optional width, height, checksumSha256}]`
 - Response: `201 {id, incidentId, opId, policePhoneId, status, version, photos:[{photoId, status, version, markerId, markerVersion}]}`
 - Errors: `invalid_geometry`, `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`, `op_required`, `op_mismatch`
-- Note: `photos`가 있으면 `id`는 클라이언트가 미리 생성한 markerId여야 한다. 앱은 먼저 `POST /api/markers/photos/upload-url`로 object storage 업로드를 끝낸 뒤 같은 markerId와 photoId를 `POST /api/markers`에 포함해 marker create와 photo attach를 한 write로 확정한다. 전체 수색구역은 현장 마커 생성의 선행조건이 아니며, 전체 수색구역이 있으면 좌표 포함 여부를 추가 검증한다.
+- Note: `photos`가 있으면 `id`는 클라이언트가 미리 생성한 markerId여야 한다. 앱은 먼저 `POST /api/markers/photos/upload-url`로 object storage 업로드를 끝낸 뒤 같은 markerId와 photoId를 `POST /api/markers`에 포함해 marker create와 photo attach를 한 write로 확정한다. 전체 수색구역과 담당 구역은 현장 마커 생성의 선행조건이 아니며, 구역 밖 좌표도 유효한 EPSG:4326 Point이면 저장한다. `invalid_geometry`는 Point type, 좌표 개수, SRID, NaN, lon/lat 범위 오류처럼 좌표 자체가 잘못된 경우에 한정한다.
 
 #### PATCH `/api/markers/{markerId}`
 
@@ -553,8 +553,10 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Request: `incidentId`, `operationalPeriodIds[]` (minimum 2 OP IDs in the same incident)
 - Response: `202 {comparisonId, incidentId, operationalPeriodIds, sourceHash, status, narrativeStatus, metrics, diffFacts, regionFacts, observations, failureReason, requestedAt, generatedAt, version}`.
   - `metrics`, `diffFacts`, `regionFacts` are deterministic server facts from already committed OP/path/marker/memo rows.
-  - `observations` is present only when the configured narrative provider returns validated evidence-grounded observations.
+  - `observations` is present only when the configured narrative provider returns validated evidence-grounded observations in `{observations:[{sentence, factIds[]}]}` shape.
+  - `observations[].factIds[]` must reference `diffFacts[].factId` or `regionFacts[].factId`; provider output must not reconstruct `source`, `key`, `value`, or `operationalPeriodId`.
   - `narrativeStatus=SKIPPED` means deterministic thresholds found no material fact requiring narrative generation.
+  - `failureReason` values include `provider_failure`, `empty_output`, `schema_invalid`, `forbidden_phrase`, `unsupported_fact_id`, `validation_rejected`.
 - Event: `OP_COMPARISON_ANALYSIS_CHANGED {id, comparisonId, incidentId, operationalPeriodIds, status, narrativeStatus, sourceHash, version}`
 - Errors: `channel_not_allowed`, `role_denied`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`, `invalid_operational_period_comparison`
 - Channel rule: WEB command only. This endpoint writes only `op_comparison_analysis` and the analysis event. It must not mutate `overall_search_area`, `search_area`, `search_path`, `marker`, `handover_memo`, or `operational_period` source rows, and it must not generate recommendations, missing-area conclusions, or risk judgments.
@@ -626,6 +628,9 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 - Owner: S8
 - Public client endpoint: none
+- Product scope labels:
+  - `scopeType=DUTY_SHIFT`: 인수인계 요약. 다음 근무자가 이전 근무 기록을 빠르게 읽도록 정리한다.
+  - `scopeType=OP`: OP 정보 요약. 지휘 화면의 수색 이력에서 해당 OP의 경로·마커·메모 기록을 읽기 쉽게 정리한다.
 - Trigger: server-side after successful handover boundary writes:
   - `PATCH /api/duty-shifts/{dutyShiftId}` with `action=END`
   - `POST /api/operational-periods` when the previous OP is ended and the next OP is opened

@@ -14,6 +14,7 @@ import java.util.UUID;
  * PublishRequest를 DB row로 변환하는 역할을 담당한다.
  */
 public record EventDispatchJobRow(
+    UUID id,
     UUID eventId,
     UUID incidentId,
     String eventType,
@@ -41,6 +42,7 @@ public record EventDispatchJobRow(
     }
 
     return new EventDispatchJobRow(
+        UUID.randomUUID(),
         request.eventId(),
         request.incidentId(),
         request.type(),

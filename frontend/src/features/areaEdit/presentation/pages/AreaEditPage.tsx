@@ -65,6 +65,7 @@ type AreaEditPageProps = {
   onOpenHandover: () => void;
   onOpenIncidentDetail?: () => void;
   onOpenIncidentList: () => void;
+  onOpenSearchHistory?: () => void;
   onHeaderIncidentListNavigationChange?: (handler: (() => void) | null) => void;
   onSaveAssignedAreas: (drafts: CompletedAreaDraft[]) => void;
   onSharedMapPropsChange?: (props: AreaEditMapCanvasProps | null) => void;
@@ -85,6 +86,7 @@ export function AreaEditPage({
   onOpenHandover,
   onOpenIncidentDetail,
   onOpenIncidentList,
+  onOpenSearchHistory,
   onHeaderIncidentListNavigationChange,
   onSaveAssignedAreas,
   onSharedMapPropsChange,
@@ -1092,6 +1094,7 @@ export function AreaEditPage({
           onOpenHandover={onOpenHandover}
           onOpenIncidentDetail={handleNavToIncidentDetail}
           onOpenIncidentList={handleNavToIncidentList}
+          onOpenSearchHistory={onOpenSearchHistory}
           onOpenSituationBoard={handleNavToSituationBoard}
         />
       )}

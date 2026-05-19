@@ -26,6 +26,13 @@ surimap:
     keycloak:
       issuer-uri: ${SURI_MAP_KEYCLOAK_ISSUER_URI:http://localhost:5174/keycloak/realms/suri-map}
       jwk-set-uri: ${SURI_MAP_KEYCLOAK_JWK_SET_URI:http://localhost:5174/keycloak/realms/suri-map/protocol/openid-connect/certs}
+  eventhub:
+    dispatch:
+      enabled: ${SURI_MAP_EVENTHUB_DISPATCH_ENABLED:true}
+      polling-enabled: ${SURI_MAP_EVENTHUB_DISPATCH_POLLING_ENABLED:true}
+      initial-delay-ms: ${SURI_MAP_EVENTHUB_DISPATCH_INITIAL_DELAY_MS:1000}
+      fixed-delay-ms: ${SURI_MAP_EVENTHUB_DISPATCH_FIXED_DELAY_MS:1000}
+      batch-size: ${SURI_MAP_EVENTHUB_DISPATCH_BATCH_SIZE:100}
   object-storage:
     provider: ${SURI_MAP_OBJECT_STORAGE_PROVIDER:mock}
     endpoint: ${SURI_MAP_OBJECT_STORAGE_ENDPOINT:http://localhost:9000}

@@ -260,7 +260,7 @@ fun AuthBootstrapScreen(
                 text = state.primaryActionLabel,
                 onClick = onRetry,
                 modifier = Modifier.fillMaxWidth(),
-                variant = if (state.failureMessage == null) PoliButtonVariant.Secondary else PoliButtonVariant.Danger,
+                variant = state.primaryActionButtonVariant,
                 enabled = state.retryEnabled
             )
         } else if (state.exitEnabled) {
@@ -279,6 +279,14 @@ fun AuthBootstrapScreen(
         }
     }
 }
+
+private val AuthBootstrapUiState.primaryActionButtonVariant: PoliButtonVariant
+    get() =
+        when {
+            requiresAuthentication -> PoliButtonVariant.Primary
+            failureMessage == null -> PoliButtonVariant.Secondary
+            else -> PoliButtonVariant.Danger
+        }
 
 private val AuthStepState.label: String
     get() =

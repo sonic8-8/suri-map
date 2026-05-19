@@ -1,22 +1,31 @@
 package com.surimap.feature.search.ui
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -28,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -37,6 +47,8 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -47,6 +59,9 @@ import com.surimap.core.map.MapLibreGeometryOverlay
 import com.surimap.core.map.MapLibreGeometryOverlayKind
 import com.surimap.core.map.MapLibreViewportBounds
 import com.surimap.core.map.SuriMapLibreMap
+import com.surimap.core.sync.LocalWarningBanner
+import com.surimap.core.sync.LocalWarningCode
+import com.surimap.core.sync.LocalWarningUiState
 import com.surimap.feature.alert.ui.IncidentAlertBanner
 import com.surimap.feature.alert.ui.IncidentAlertUiState
 import com.surimap.feature.handover.ui.HandoverPromptUiState
@@ -79,6 +94,12 @@ import com.surimap.ui.theme.SuriMapTheme
 
 private val ExpandedBottomPanelMapInset = 286.dp
 private val FloatingHandleFg = Color(0xFF0F172A)
+private val TopHeaderCollapsedHeight = 42.dp
+private val TopHeaderMaxFallbackHeight = 248.dp
+private val BottomSheetCollapsedHeight = 42.dp
+private val BottomSheetMidHeight = 178.dp
+private val BottomSheetMaxFallbackHeight = 320.dp
+private const val PanelFlingThresholdPx = 650f
 
 enum class SearchMapSyncStatus {
     Idle,
@@ -117,7 +138,8 @@ data class SearchMapLayerUiState(
     val highlighted: Boolean = false,
     val overlayId: String? = null,
     val geoJson: String? = null,
-    val assignedToCurrentPhone: Boolean = false
+    val assignedToCurrentPhone: Boolean = false,
+    val bearingDegrees: Double? = null
 )
 
 data class SearchMapAreaFocusTarget(
@@ -148,7 +170,8 @@ data class SearchMapUiState(
     val bottomPanelExpanded: Boolean = false,
     val mapOverlaysVisible: Boolean = true,
     val activeSearchPathId: String? = null,
-    val activeSearchPathStartedAtEpochMs: Long? = null
+    val activeSearchPathStartedAtEpochMs: Long? = null,
+    val localWarnings: LocalWarningUiState = LocalWarningUiState.Empty
 ) {
     val canWritePath: Boolean = lifecycleStatus == SearchLifecycleStatus.Active
     val canCreateMarker: Boolean = lifecycleStatus == SearchLifecycleStatus.Active
@@ -267,6 +290,10 @@ data class SearchMapUiState(
             }
             markerFocusLabel?.let(::add)
             incidentAlert?.visibleText()?.forEach(::add)
+            localWarnings.banners.forEach { banner ->
+                add(banner.title)
+                add(banner.message)
+            }
             if (blockedOutboxCount > 0) {
                 add("미전송 ${blockedOutboxCount}건 처리 불가")
             }
@@ -383,14 +410,20 @@ data class SearchMapUiState(
 private fun EdgeToggleHandle(
     iconResId: Int,
     contentDescription: String,
-    onClick: () -> Unit,
+    onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    val clickModifier =
+        if (onClick != null) {
+            Modifier.clickable(onClick = onClick)
+        } else {
+            Modifier
+        }
     Box(
         modifier =
             modifier
                 .size(34.dp)
-                .clickable(onClick = onClick),
+                .then(clickModifier),
         contentAlignment = Alignment.Center
     ) {
         Icon(
@@ -399,6 +432,26 @@ private fun EdgeToggleHandle(
             tint = FloatingHandleFg,
             modifier = Modifier.size(22.dp)
         )
+    }
+}
+
+private fun nearestSheetHeight(value: Float, vararg anchors: Float): Float =
+    anchors.minBy { kotlin.math.abs(it - value) }
+
+private fun snapPanelHeight(
+    value: Float,
+    velocity: Float,
+    positiveVelocityExpands: Boolean,
+    vararg anchors: Float
+): Float {
+    val sortedAnchors = anchors.sorted()
+    val expandVelocity = if (positiveVelocityExpands) velocity else -velocity
+    return when {
+        expandVelocity > PanelFlingThresholdPx ->
+            sortedAnchors.firstOrNull { it > value + 1f } ?: sortedAnchors.last()
+        expandVelocity < -PanelFlingThresholdPx ->
+            sortedAnchors.lastOrNull { it < value - 1f } ?: sortedAnchors.first()
+        else -> nearestSheetHeight(value, *sortedAnchors.toFloatArray())
     }
 }
 
@@ -463,6 +516,12 @@ fun SearchMapScreen(
                     modifier = Modifier.padding(horizontal = PoliDimens.SectionPadding)
                 )
             }
+            state.localWarnings.banners.forEach { warning ->
+                LocalWarningBannerView(
+                    warning = warning,
+                    modifier = Modifier.padding(horizontal = PoliDimens.SectionPadding)
+                )
+            }
             if (state.showHandoverPrompt) {
                 HandoverPromptBanner(
                     onOpenHandover = onOpenHandover,
@@ -493,6 +552,25 @@ fun SearchMapScreen(
 }
 
 @Composable
+private fun LocalWarningBannerView(
+    warning: LocalWarningBanner,
+    modifier: Modifier = Modifier
+) {
+    PoliBanner(
+        text = "${warning.title}\n${warning.message}",
+        variant =
+        when (warning.code) {
+            LocalWarningCode.GPS_STOPPED,
+            LocalWarningCode.BATTERY_LOW,
+            LocalWarningCode.OFFLINE_RECORDING,
+            LocalWarningCode.PACKAGE_MISSING,
+            LocalWarningCode.OUTBOX_BACKLOG -> PoliBannerVariant.Warn
+        },
+        modifier = modifier
+    )
+}
+
+@Composable
 private fun SearchMapHeader(
     state: SearchMapUiState,
     onBack: () -> Unit,
@@ -501,130 +579,190 @@ private fun SearchMapHeader(
     onFocusSearchArea: (SearchLayerKind, String?) -> Unit
 ) {
     var expandedAreaKind by remember { mutableStateOf<SearchLayerKind?>(null) }
+    val density = LocalDensity.current
+    val collapsedHeightPx = with(density) { TopHeaderCollapsedHeight.toPx() }
+    val statusBarHeightPx = WindowInsets.statusBars.getTop(density).toFloat()
+    val fallbackExpandedHeightPx = with(density) { TopHeaderMaxFallbackHeight.toPx() }
+    var measuredExpandedHeightPx by remember { mutableStateOf(fallbackExpandedHeightPx) }
+    val expandedHeightPx = measuredExpandedHeightPx.coerceAtLeast(collapsedHeightPx)
+    var targetHeightPx by remember {
+        mutableStateOf(if (state.topHeaderExpanded) fallbackExpandedHeightPx else collapsedHeightPx)
+    }
+    var dragHeightPx by remember { mutableStateOf(targetHeightPx) }
+    var isDragging by remember { mutableStateOf(false) }
+    val animatedHeightPx by animateFloatAsState(
+        targetValue = targetHeightPx.coerceIn(collapsedHeightPx, expandedHeightPx),
+        animationSpec =
+        spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "searchTopHeaderHeight"
+    )
+    val panelHeightPx =
+        (if (isDragging) dragHeightPx else animatedHeightPx)
+            .coerceIn(collapsedHeightPx, expandedHeightPx)
+    val showExpandedIcon = panelHeightPx > (collapsedHeightPx + expandedHeightPx) / 2f
+    val contentVisible = panelHeightPx > collapsedHeightPx + 1f
+    val dragState =
+        rememberDraggableState { delta ->
+            dragHeightPx = (dragHeightPx + delta).coerceIn(collapsedHeightPx, expandedHeightPx)
+        }
 
-    if (!state.topHeaderExpanded) {
+    Box(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(with(density) { (statusBarHeightPx + panelHeightPx).toDp() })
+                .clipToBounds()
+                .draggable(
+                    state = dragState,
+                    orientation = Orientation.Vertical,
+                    onDragStarted = {
+                        isDragging = true
+                        dragHeightPx = panelHeightPx
+                    },
+                    onDragStopped = { velocity ->
+                        val snappedHeight =
+                            snapPanelHeight(
+                                value = dragHeightPx,
+                                velocity = velocity,
+                                positiveVelocityExpands = true,
+                                collapsedHeightPx,
+                                expandedHeightPx
+                            )
+                        targetHeightPx = snappedHeight
+                        dragHeightPx = snappedHeight
+                        isDragging = false
+                        val expanded = snappedHeight > collapsedHeightPx + 1f
+                        if (state.topHeaderExpanded != expanded) {
+                            onToggleExpanded()
+                        }
+                    }
+                )
+    ) {
         Box(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(top = PoliDimens.Space2),
-            contentAlignment = Alignment.TopCenter
+                    .height(with(density) { panelHeightPx.toDp() })
+                    .clipToBounds()
+                    .align(Alignment.BottomCenter)
         ) {
-            EdgeToggleHandle(
-                iconResId = R.drawable.ic_panel_down,
-                contentDescription = "상단 메뉴 열기",
-                onClick = onToggleExpanded
-            )
-        }
-        return
-    }
-
-    Column(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(bottom = PoliDimens.Space4),
-        verticalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
-    ) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .background(PoliBgSurface)
-                    .padding(bottom = PoliDimens.Space3)
-        ) {
-            PoliAppBar(
-                title = state.incidentTitle,
-                subtitle = state.missingPersonSummary,
-                showBack = true,
-                onBack = onBack
-            )
-            Column(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = PoliDimens.SectionPadding),
-                verticalArrangement = Arrangement.spacedBy(PoliDimens.Space1)
-            ) {
-                PoliRow(title = state.opLabel, subtitle = "담당구역 · ${state.assignmentDisplayLabel}") {
-                    PoliChip(text = state.syncLabel, variant = state.syncVariant)
-                }
-                if (state.lifecycleTitle.isNotBlank()) {
-                    Text(
-                        text = state.lifecycleTitle,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = PoliFgMuted
+            if (contentVisible) {
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .wrapContentHeight(unbounded = true)
+                            .background(PoliBgSurface)
+                            .padding(bottom = 6.dp)
+                            .onSizeChanged {
+                                measuredExpandedHeightPx =
+                                    (it.height.toFloat() + collapsedHeightPx)
+                                        .coerceAtLeast(collapsedHeightPx)
+                            }
+                            .align(Alignment.TopCenter)
+                ) {
+                    PoliAppBar(
+                        title = state.incidentTitle,
+                        subtitle = state.missingPersonSummary,
+                        showBack = true,
+                        onBack = onBack
                     )
-                }
-                if (state.lifecycleMessage.isNotBlank()) {
-                    Text(
-                        text = state.lifecycleMessage,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = PoliFgMuted
-                    )
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
-                    AreaFocusGroup(
-                        title = "전체",
-                        targets = state.overallSearchAreaTargets,
-                        expanded = expandedAreaKind == SearchLayerKind.Overall,
-                        onToggleExpanded = {
-                            expandedAreaKind =
-                                if (expandedAreaKind == SearchLayerKind.Overall) null else SearchLayerKind.Overall
-                        },
-                        onFocus = { target ->
-                            expandedAreaKind = null
-                            onFocusSearchArea(target.kind, target.overlayId)
-                        },
-                        modifier = Modifier.weight(1f)
-                    )
-                    AreaFocusGroup(
-                        title = "부대",
-                        targets = state.unitSearchAreaTargets,
-                        expanded = expandedAreaKind == SearchLayerKind.Unit,
-                        onToggleExpanded = {
-                            expandedAreaKind =
-                                if (expandedAreaKind == SearchLayerKind.Unit) null else SearchLayerKind.Unit
-                        },
-                        onFocus = { target ->
-                            expandedAreaKind = null
-                            onFocusSearchArea(target.kind, target.overlayId)
-                        },
-                        modifier = Modifier.weight(1f)
-                    )
-                    AreaFocusGroup(
-                        title = "팀",
-                        targets = state.teamSearchAreaTargets,
-                        expanded = expandedAreaKind == SearchLayerKind.Team,
-                        onToggleExpanded = {
-                            expandedAreaKind =
-                                if (expandedAreaKind == SearchLayerKind.Team) null else SearchLayerKind.Team
-                        },
-                        onFocus = { target ->
-                            expandedAreaKind = null
-                            onFocusSearchArea(target.kind, target.overlayId)
-                        },
-                        modifier = Modifier.weight(1f)
-                    )
-                    MarkerDetailButton(
-                        onClick =
-                        state.markerDetailTargetId
-                            ?.takeIf { state.canOpenMarkerDetail }
-                            ?.let { markerId -> { onOpenFocusedMarkerDetail(markerId) } },
-                        enabled = state.canOpenMarkerDetail,
-                        modifier = Modifier.weight(1f)
-                    )
+                    Column(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = PoliDimens.SectionPadding),
+                        verticalArrangement = Arrangement.spacedBy(PoliDimens.Space1)
+                    ) {
+                        PoliRow(title = state.opLabel, subtitle = "담당구역 · ${state.assignmentDisplayLabel}") {
+                            PoliChip(text = state.syncLabel, variant = state.syncVariant)
+                        }
+                        if (state.lifecycleTitle.isNotBlank()) {
+                            Text(
+                                text = state.lifecycleTitle,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = PoliFgMuted
+                            )
+                        }
+                        if (state.lifecycleMessage.isNotBlank()) {
+                            Text(
+                                text = state.lifecycleMessage,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = PoliFgMuted
+                            )
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
+                            AreaFocusGroup(
+                                title = "전체",
+                                targets = state.overallSearchAreaTargets,
+                                expanded = expandedAreaKind == SearchLayerKind.Overall,
+                                onToggleExpanded = {
+                                    expandedAreaKind =
+                                        if (expandedAreaKind == SearchLayerKind.Overall) {
+                                            null
+                                        } else {
+                                            SearchLayerKind.Overall
+                                        }
+                                },
+                                onFocus = { target ->
+                                    expandedAreaKind = null
+                                    onFocusSearchArea(target.kind, target.overlayId)
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                            AreaFocusGroup(
+                                title = "부대",
+                                targets = state.unitSearchAreaTargets,
+                                expanded = expandedAreaKind == SearchLayerKind.Unit,
+                                onToggleExpanded = {
+                                    expandedAreaKind =
+                                        if (expandedAreaKind == SearchLayerKind.Unit) null else SearchLayerKind.Unit
+                                },
+                                onFocus = { target ->
+                                    expandedAreaKind = null
+                                    onFocusSearchArea(target.kind, target.overlayId)
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                            AreaFocusGroup(
+                                title = "팀",
+                                targets = state.teamSearchAreaTargets,
+                                expanded = expandedAreaKind == SearchLayerKind.Team,
+                                onToggleExpanded = {
+                                    expandedAreaKind =
+                                        if (expandedAreaKind == SearchLayerKind.Team) null else SearchLayerKind.Team
+                                },
+                                onFocus = { target ->
+                                    expandedAreaKind = null
+                                    onFocusSearchArea(target.kind, target.overlayId)
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                            MarkerDetailButton(
+                                onClick =
+                                state.markerDetailTargetId
+                                    ?.takeIf { state.canOpenMarkerDetail }
+                                    ?.let { markerId -> { onOpenFocusedMarkerDetail(markerId) } },
+                                enabled = state.canOpenMarkerDetail,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
                 }
             }
+            Box(
+                modifier = Modifier.fillMaxWidth().height(TopHeaderCollapsedHeight).align(Alignment.BottomCenter),
+                contentAlignment = Alignment.Center
+            ) {
+                EdgeToggleHandle(
+                    iconResId = if (showExpandedIcon) R.drawable.ic_panel_up else R.drawable.ic_panel_down,
+                    contentDescription = "상단 메뉴 드래그"
+                )
+            }
         }
-        EdgeToggleHandle(
-            iconResId = R.drawable.ic_panel_up,
-            contentDescription = "상단 메뉴 닫기",
-            onClick = onToggleExpanded,
-            modifier = Modifier.align(Alignment.CenterHorizontally)
-        )
     }
 }
 
@@ -1038,80 +1176,150 @@ private fun SearchBottomPanel(
     onToggleBottomPanel: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    if (!state.bottomPanelExpanded) {
-        Box(
-            modifier =
-                modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .padding(bottom = PoliDimens.Space2),
-            contentAlignment = Alignment.BottomCenter
-        ) {
-            EdgeToggleHandle(
-                iconResId = R.drawable.ic_panel_up,
-                contentDescription = "하단 메뉴 열기",
-                onClick = onToggleBottomPanel
-            )
-        }
-        return
+    val density = LocalDensity.current
+    val collapsedHeightPx = with(density) { BottomSheetCollapsedHeight.toPx() }
+    val navigationBarHeightPx = WindowInsets.navigationBars.getBottom(density).toFloat()
+    val midHeightPx = with(density) { BottomSheetMidHeight.toPx() }
+    val fallbackExpandedHeightPx = with(density) { BottomSheetMaxFallbackHeight.toPx() }
+    var measuredExpandedHeightPx by remember { mutableStateOf(fallbackExpandedHeightPx) }
+    val expandedHeightPx =
+        measuredExpandedHeightPx
+            .coerceAtLeast(fallbackExpandedHeightPx)
+            .coerceAtLeast(midHeightPx)
+    var targetHeightPx by remember {
+        mutableStateOf(if (state.bottomPanelExpanded) fallbackExpandedHeightPx else collapsedHeightPx)
     }
+    var dragHeightPx by remember { mutableStateOf(targetHeightPx) }
+    var isDragging by remember { mutableStateOf(false) }
+    val animatedHeightPx by animateFloatAsState(
+        targetValue = targetHeightPx.coerceIn(collapsedHeightPx, expandedHeightPx),
+        animationSpec =
+        spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "searchBottomSheetHeight"
+    )
+    val panelHeightPx =
+        (if (isDragging) dragHeightPx else animatedHeightPx)
+            .coerceIn(collapsedHeightPx, expandedHeightPx)
+    val showExpandedIcon = panelHeightPx > (collapsedHeightPx + midHeightPx) / 2f
+    val contentVisible = panelHeightPx > collapsedHeightPx + 1f
+    val dragState =
+        rememberDraggableState { delta ->
+            dragHeightPx = (dragHeightPx - delta).coerceIn(collapsedHeightPx, expandedHeightPx)
+        }
 
-    Column(
+    Box(
         modifier =
         modifier
             .fillMaxWidth()
-            .navigationBarsPadding(),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .height(with(density) { (panelHeightPx + navigationBarHeightPx).toDp() })
+            .clipToBounds()
+            .draggable(
+                state = dragState,
+                orientation = Orientation.Vertical,
+                onDragStarted = {
+                    isDragging = true
+                    dragHeightPx = panelHeightPx
+                },
+                onDragStopped = { velocity ->
+                    val snappedHeight =
+                        snapPanelHeight(
+                            value = dragHeightPx,
+                            velocity = velocity,
+                            positiveVelocityExpands = false,
+                            collapsedHeightPx,
+                            midHeightPx,
+                            expandedHeightPx
+                        )
+                    targetHeightPx = snappedHeight
+                    dragHeightPx = snappedHeight
+                    isDragging = false
+                    val expanded = snappedHeight > collapsedHeightPx + 1f
+                    if (state.bottomPanelExpanded != expanded) {
+                        onToggleBottomPanel()
+                    }
+                }
+            )
     ) {
-        EdgeToggleHandle(
-            iconResId = R.drawable.ic_panel_down,
-            contentDescription = "하단 메뉴 닫기",
-            onClick = onToggleBottomPanel
-        )
-        Column(
+        Box(
             modifier =
             Modifier
                 .fillMaxWidth()
-                .heightIn(min = 220.dp)
-                .background(PoliBgSurface)
-                .padding(PoliDimens.SectionPadding),
-            verticalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
+                .height(with(density) { panelHeightPx.toDp() })
+                .clipToBounds()
+                .align(Alignment.TopCenter)
         ) {
-            SearchStatusCard(state = state)
-            WriteAvailabilityRow(state = state)
+            if (contentVisible) {
+                Column(
+                    modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .wrapContentHeight(unbounded = true)
+                        .padding(top = BottomSheetCollapsedHeight)
+                        .onSizeChanged {
+                            measuredExpandedHeightPx = it.height.toFloat().coerceAtLeast(fallbackExpandedHeightPx)
+                        }
+                        .align(Alignment.TopCenter),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Column(
+                        modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 220.dp)
+                            .background(PoliBgSurface)
+                            .padding(PoliDimens.SectionPadding),
+                        verticalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
+                    ) {
+                        SearchStatusCard(state = state)
+                        WriteAvailabilityRow(state = state)
 
-            Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
-                PoliButton(
-                    text = state.primaryActionLabel,
-                    onClick = onPrimaryLifecycleAction,
-                    modifier = Modifier.weight(1f),
-                    variant = if (state.lifecycleStatus == SearchLifecycleStatus.OpRequired) {
-                        PoliButtonVariant.Secondary
-                    } else {
-                        PoliButtonVariant.Primary
+                        Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
+                            PoliButton(
+                                text = state.primaryActionLabel,
+                                onClick = onPrimaryLifecycleAction,
+                                modifier = Modifier.weight(1f),
+                                variant = if (state.lifecycleStatus == SearchLifecycleStatus.OpRequired) {
+                                    PoliButtonVariant.Secondary
+                                } else {
+                                    PoliButtonVariant.Primary
+                                }
+                            )
+                            PoliButton(
+                                text = "종료",
+                                onClick = onStopSearch,
+                                enabled = state.canStopSearch,
+                                variant = PoliButtonVariant.Danger
+                            )
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
+                            PoliButton(
+                                text = "인수인계",
+                                onClick = onOpenHandover,
+                                modifier = Modifier.weight(1f),
+                                variant = PoliButtonVariant.Secondary,
+                                size = PoliButtonSize.Large
+                            )
+                            PoliButton(
+                                text = "마커 생성",
+                                onClick = onCreateMarker,
+                                modifier = Modifier.weight(1.25f),
+                                enabled = state.canCreateMarker,
+                                size = PoliButtonSize.Large
+                            )
+                        }
                     }
-                )
-                PoliButton(
-                    text = "종료",
-                    onClick = onStopSearch,
-                    enabled = state.canStopSearch,
-                    variant = PoliButtonVariant.Danger
-                )
+                }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
-                PoliButton(
-                    text = "인수인계",
-                    onClick = onOpenHandover,
-                    modifier = Modifier.weight(1f),
-                    variant = PoliButtonVariant.Secondary,
-                    size = PoliButtonSize.Large
-                )
-                PoliButton(
-                    text = "마커 생성",
-                    onClick = onCreateMarker,
-                    modifier = Modifier.weight(1.25f),
-                    enabled = state.canCreateMarker,
-                    size = PoliButtonSize.Large
+            Box(
+                modifier = Modifier.fillMaxWidth().height(BottomSheetCollapsedHeight).align(Alignment.TopCenter),
+                contentAlignment = Alignment.Center
+            ) {
+                EdgeToggleHandle(
+                    iconResId = if (showExpandedIcon) R.drawable.ic_panel_down else R.drawable.ic_panel_up,
+                    contentDescription = "하단 메뉴 드래그"
                 )
             }
         }
@@ -1197,7 +1405,8 @@ private fun SearchMapUiState.toRuntimeMapState(base: MapLibreRuntimeMapState): M
                 kind = layer.kind.toMapLibreGeometryOverlayKind(),
                 geoJson = geoJson,
                 highlighted = layer.highlighted || focused,
-                label = layer.label
+                label = layer.label,
+                bearingDegrees = layer.bearingDegrees
             )
         }
     )

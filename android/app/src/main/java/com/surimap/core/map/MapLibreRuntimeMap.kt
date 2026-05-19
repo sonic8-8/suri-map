@@ -1,6 +1,11 @@
 package com.surimap.core.map
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Path
 import android.os.Bundle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -25,6 +30,8 @@ import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 import org.maplibre.android.net.ConnectivityReceiver
 import org.maplibre.android.style.expressions.Expression
+import org.maplibre.android.style.layers.Property.ICON_ANCHOR_CENTER
+import org.maplibre.android.style.layers.Property.ICON_ROTATION_ALIGNMENT_MAP
 import org.maplibre.android.style.layers.Property.LINE_CAP_ROUND
 import org.maplibre.android.style.layers.Property.LINE_JOIN_ROUND
 import org.maplibre.android.style.layers.Property.SYMBOL_PLACEMENT_LINE
@@ -41,6 +48,14 @@ import org.maplibre.android.style.layers.PropertyFactory.circleStrokeWidth
 import org.maplibre.android.style.layers.PropertyFactory.fillColor
 import org.maplibre.android.style.layers.PropertyFactory.fillOpacity
 import org.maplibre.android.style.layers.PropertyFactory.fillOutlineColor
+import org.maplibre.android.style.layers.PropertyFactory.iconAllowOverlap
+import org.maplibre.android.style.layers.PropertyFactory.iconAnchor
+import org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement
+import org.maplibre.android.style.layers.PropertyFactory.iconImage
+import org.maplibre.android.style.layers.PropertyFactory.iconOptional
+import org.maplibre.android.style.layers.PropertyFactory.iconRotate
+import org.maplibre.android.style.layers.PropertyFactory.iconRotationAlignment
+import org.maplibre.android.style.layers.PropertyFactory.iconSize
 import org.maplibre.android.style.layers.PropertyFactory.lineCap
 import org.maplibre.android.style.layers.PropertyFactory.lineColor
 import org.maplibre.android.style.layers.PropertyFactory.lineJoin
@@ -61,6 +76,13 @@ import org.maplibre.android.style.layers.PropertyFactory.textSize
 import org.maplibre.android.style.sources.GeoJsonSource
 
 private val SURI_MAP_LABEL_FONT_STACK = arrayOf("Pretendard GOV")
+private const val CURRENT_LOCATION_IMAGE_ID = "suri-current-location"
+private const val CURRENT_LOCATION_HEADING_IMAGE_ID = "suri-current-location-heading"
+private const val CURRENT_LOCATION_IMAGE_SIZE_PX = 76
+private const val CURRENT_LOCATION_MARKER_RADIUS_PX = 17f
+private const val CURRENT_LOCATION_MARKER_STROKE_WIDTH_PX = 5f
+private const val CURRENT_LOCATION_ICON_SIZE = 1.35f
+private const val CURRENT_LOCATION_HEADING_IMAGE_SDF = false
 
 data class MapLibreViewportBounds(
     val south: Double,
@@ -87,9 +109,10 @@ data class MapLibreGeometryOverlay(
     val kind: MapLibreGeometryOverlayKind,
     val geoJson: String,
     val highlighted: Boolean = false,
-    val label: String? = null
+    val label: String? = null,
+    val bearingDegrees: Double? = null
 ) {
-    fun signature(): String = "${kind.name}:$id:$highlighted:${label.orEmpty()}:$geoJson"
+    fun signature(): String = "${kind.name}:$id:$highlighted:${label.orEmpty()}:${bearingDegrees ?: ""}:$geoJson"
 }
 
 internal data class MapLibreOverlayPaint(
@@ -395,6 +418,9 @@ private val MapLibreGeometryOverlay.circleLayerId: String
 private val MapLibreGeometryOverlay.labelLayerId: String
     get() = "$styleId-label"
 
+private val MapLibreGeometryOverlay.headingLayerId: String
+    get() = "$styleId-heading"
+
 private fun MapLibreRuntimeMapState.geometryOverlaySignature(): String =
     geometryOverlays.joinToString("|") { it.signature() }
 
@@ -423,6 +449,11 @@ private fun Style.upsertGeometryOverlay(overlay: MapLibreGeometryOverlay) {
         upsertCircleLayer(overlay, paint)
     } else {
         removeLayer(overlay.circleLayerId)
+    }
+    if (overlay.supportsHeadingLayer) {
+        upsertHeadingLayer(overlay, paint)
+    } else {
+        removeLayer(overlay.headingLayerId)
     }
     if (overlay.supportsLabelLayer) {
         upsertLabelLayer(overlay, paint)
@@ -496,6 +527,63 @@ private fun Style.upsertCircleLayer(overlay: MapLibreGeometryOverlay, paint: Map
     )
 }
 
+private fun Style.upsertHeadingLayer(overlay: MapLibreGeometryOverlay, paint: MapLibreOverlayPaint) {
+    upsertCurrentLocationImages(paint)
+    val layer = getLayer(overlay.headingLayerId)
+    if (layer == null) {
+        addLayer(
+            SymbolLayer(overlay.headingLayerId, overlay.sourceId).withProperties(
+                symbolPlacement(SYMBOL_PLACEMENT_POINT),
+                iconImage(Expression.get("currentLocationIcon")),
+                iconSize(CURRENT_LOCATION_ICON_SIZE),
+                iconAnchor(ICON_ANCHOR_CENTER),
+                iconRotate(Expression.get("bearingDegrees")),
+                iconRotationAlignment(ICON_ROTATION_ALIGNMENT_MAP),
+                iconAllowOverlap(true),
+                iconIgnorePlacement(true),
+                iconOptional(false)
+            )
+        )
+        return
+    }
+    layer.setProperties(
+        symbolPlacement(SYMBOL_PLACEMENT_POINT),
+        iconImage(Expression.get("currentLocationIcon")),
+        iconSize(CURRENT_LOCATION_ICON_SIZE),
+        iconAnchor(ICON_ANCHOR_CENTER),
+        iconRotate(Expression.get("bearingDegrees")),
+        iconRotationAlignment(ICON_ROTATION_ALIGNMENT_MAP),
+        iconAllowOverlap(true),
+        iconIgnorePlacement(true),
+        iconOptional(false)
+    )
+}
+
+private fun Style.upsertCurrentLocationImages(paint: MapLibreOverlayPaint) {
+    if (getImage(CURRENT_LOCATION_IMAGE_ID) == null) {
+        addImage(
+            CURRENT_LOCATION_IMAGE_ID,
+            currentLocationBitmap(
+                fillColor = paint.circleColor,
+                strokeColor = paint.circleStrokeColor,
+                withHeading = false
+            ),
+            CURRENT_LOCATION_HEADING_IMAGE_SDF
+        )
+    }
+    if (getImage(CURRENT_LOCATION_HEADING_IMAGE_ID) == null) {
+        addImage(
+            CURRENT_LOCATION_HEADING_IMAGE_ID,
+            currentLocationBitmap(
+                fillColor = paint.circleColor,
+                strokeColor = paint.circleStrokeColor,
+                withHeading = true
+            ),
+            CURRENT_LOCATION_HEADING_IMAGE_SDF
+        )
+    }
+}
+
 private fun Style.upsertLabelLayer(overlay: MapLibreGeometryOverlay, paint: MapLibreOverlayPaint) {
     val layer = getLayer(overlay.labelLayerId)
     if (layer == null) {
@@ -536,6 +624,7 @@ private fun Style.upsertLabelLayer(overlay: MapLibreGeometryOverlay, paint: MapL
 private fun Style.removeGeometryOverlays(styleIds: Set<String>) {
     styleIds.forEach { styleId ->
         removeLayer("$styleId-label")
+        removeLayer("$styleId-heading")
         removeLayer("$styleId-circle")
         removeLayer("$styleId-line")
         removeLayer("$styleId-fill")
@@ -560,6 +649,12 @@ private fun MapLibreGeometryOverlay.featureCollectionJson(): String? {
                             .put("kind", kind.name)
                             .put("highlighted", highlighted)
                             .put("label", label.orEmpty())
+                            .apply {
+                                if (kind == MapLibreGeometryOverlayKind.CurrentLocation) {
+                                    put("currentLocationIcon", if (bearingDegrees == null) CURRENT_LOCATION_IMAGE_ID else CURRENT_LOCATION_HEADING_IMAGE_ID)
+                                    put("bearingDegrees", bearingDegrees ?: 0.0)
+                                }
+                            }
                     )
                     .put("geometry", geometry)
             )
@@ -578,6 +673,49 @@ private fun JSONObject.isRenderableGeometry(): Boolean {
         "GeometryCollection" -> hasRenderableGeometryCollection()
         else -> false
     }
+}
+
+private fun currentLocationBitmap(
+    fillColor: String,
+    strokeColor: String,
+    withHeading: Boolean
+): Bitmap {
+    val bitmap =
+        Bitmap.createBitmap(
+            CURRENT_LOCATION_IMAGE_SIZE_PX,
+            CURRENT_LOCATION_IMAGE_SIZE_PX,
+            Bitmap.Config.ARGB_8888
+        )
+    val canvas = Canvas(bitmap)
+    val fillPaint =
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.FILL
+            color = Color.parseColor(fillColor)
+        }
+    val strokePaint =
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeJoin = Paint.Join.ROUND
+            strokeCap = Paint.Cap.ROUND
+            strokeWidth = CURRENT_LOCATION_MARKER_STROKE_WIDTH_PX
+            color = Color.parseColor(strokeColor)
+        }
+    val center = CURRENT_LOCATION_IMAGE_SIZE_PX / 2f
+    if (withHeading) {
+        val headingPath =
+            Path().apply {
+                moveTo(center, center - 34.3f)
+                cubicTo(center - 8.12f, center - 27.98f, center - 12.64f, center - 19.86f, center - 16.25f, center + 3.61f)
+                quadTo(center, center - 2.71f, center + 16.25f, center + 3.61f)
+                cubicTo(center + 12.64f, center - 19.86f, center + 8.12f, center - 27.98f, center, center - 34.3f)
+                close()
+            }
+        canvas.drawPath(headingPath, fillPaint)
+        canvas.drawPath(headingPath, strokePaint)
+    }
+    canvas.drawCircle(center, center, CURRENT_LOCATION_MARKER_RADIUS_PX, fillPaint)
+    canvas.drawCircle(center, center, CURRENT_LOCATION_MARKER_RADIUS_PX, strokePaint)
+    return bitmap
 }
 
 private fun JSONObject.hasRenderablePolygonCoordinates(): Boolean {
@@ -652,12 +790,16 @@ private val MapLibreGeometryOverlay.supportsCircleLayer: Boolean
             MapLibreGeometryOverlayKind.Team -> false
             MapLibreGeometryOverlayKind.Path -> false
             MapLibreGeometryOverlayKind.Marker -> true
-            MapLibreGeometryOverlayKind.CurrentLocation -> true
+            MapLibreGeometryOverlayKind.CurrentLocation -> false
         }
 
 private val MapLibreGeometryOverlay.supportsLabelLayer: Boolean
     get() =
         !label.isNullOrBlank()
+
+private val MapLibreGeometryOverlay.supportsHeadingLayer: Boolean
+    get() =
+        kind == MapLibreGeometryOverlayKind.CurrentLocation
 
 private val MapLibreGeometryOverlay.labelPlacement: String
     get() =

@@ -54,6 +54,8 @@ class DutyHandoverStateLoaderTest {
                 searchHistorySummaries = { operationalPeriodId, query: SearchHistorySummaryQuery ->
                     assertEquals(OP_ID, operationalPeriodId)
                     assertEquals(INCIDENT_ID, query.incidentId)
+                    assertEquals("DUTY_SHIFT", query.scopeType)
+                    assertEquals(DUTY_SHIFT_ID, query.scopeId)
                     assertEquals(DUTY_SHIFT_ID, query.dutyShiftId)
                     SuriMapApiResponse(
                         statusCode = 200,
@@ -86,6 +88,7 @@ class DutyHandoverStateLoaderTest {
         assertEquals("OP 3차 · 교대 인수인계", state.subtitle)
         assertTrue(state.records.any { it.title.contains("OPERATIONAL_PERIOD") })
         assertTrue(state.records.any { it.subtitle.contains("북측 진입로") })
+        assertEquals(MEMO_ID, state.records.single().sourceKey)
         assertTrue(state.metrics.any { it.label == "메모" && it.value == "1건" })
         assertFalse(state.canRequestSummaryGeneration)
         assertFalse(state.visibleText().any { it.contains("다시 생성") })
@@ -119,6 +122,25 @@ class DutyHandoverStateLoaderTest {
         assertEquals(SummarySourceReadiness.PendingSync, state.sourceReadiness)
         assertFalse(state.canRequestSummaryGeneration)
         assertFalse(state.visibleText().any { it.contains("AI 요약 생성") || it.contains("다시 생성") })
+    }
+
+    @Test
+    fun missingDutyShiftDoesNotReadOpScopedSummaryIntoHandoverUi() = runBlocking {
+        var summaryCalled = false
+        val loader =
+            DutyHandoverStateLoader(
+                handoverMemos = { ok("""{"items":[]}""") },
+                searchHistorySummaries = { _, _ ->
+                    summaryCalled = true
+                    ok("""{"items":[{"scopeType":"OP","content":"OP 결과 브리핑"}]}""")
+                }
+            )
+
+        val state = loader.load(CONTEXT.copy(dutyShiftId = null))
+
+        assertFalse(summaryCalled)
+        assertEquals(SearchHistorySummaryStatus.Empty, state.summaryStatus)
+        assertFalse(state.visibleText().any { it.contains("OP 결과 브리핑") })
     }
 
     @Test

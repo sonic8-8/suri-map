@@ -82,6 +82,20 @@ class ClockSyncStateTest {
         assertEquals(CLIENT_TS, state.clockSyncedAt())
     }
 
+    @Test
+    fun staleSyncedAtFallsBackToCurrentClientClockForNewOutboxWrites() {
+        val state = ClockSyncState(now = { CLIENT_TS.plusSeconds(301) })
+
+        assertTrue(
+            state.updateFromResponse(
+                """{"clockOffsetMs":150,"clockSyncedAt":"2026-05-11T06:00:00.150Z"}"""
+            )
+        )
+
+        assertEquals(150L, state.clockOffsetMs())
+        assertEquals(CLIENT_TS.plusSeconds(301), state.clockSyncedAt())
+    }
+
     private class CapturingCallFactory(
         private val response: Response
     ) : Call.Factory {

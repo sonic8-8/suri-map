@@ -1,4 +1,10 @@
-import { SuriMapPageHeader, createSharedIncidentContext, type MarkerNotification, type SuriMapPageHeaderSyncStatus, type SuriMapPageHeaderTabId } from '../../../../../shared/ui';
+import {
+  SuriMapPageHeader,
+  createSharedIncidentContext,
+  type MarkerNotification,
+  type SuriMapPageHeaderSyncStatus,
+  type SuriMapPageHeaderTabId,
+} from '../../../../../shared/ui';
 import type { LoginAccount } from '../../../../login/presentation/types/login';
 import type { IncidentDetailDto } from '../../../data/getIncidentDetail';
 import type { SituationBoardResponseDto } from '../../../data/getSituationBoard';
@@ -19,6 +25,7 @@ type SituationBoardHeaderProps = {
   onOpenIncidentDetail?: () => void;
   onOpenSituationBoard?: () => void;
   onOpenHandover?: () => void;
+  onOpenSearchHistory?: () => void;
   onOpenOfflinePackage?: () => void;
   onOpenLogin?: () => void;
 };
@@ -38,6 +45,7 @@ export function SituationBoardHeader({
   onOpenIncidentDetail,
   onOpenSituationBoard,
   onOpenHandover,
+  onOpenSearchHistory,
   onOpenOfflinePackage,
   onOpenLogin,
 }: SituationBoardHeaderProps) {
@@ -62,6 +70,7 @@ export function SituationBoardHeader({
       onCloseMarkerNotifications={onCloseMarkerNotifications}
       onMoveMarkerNotification={onMoveMarkerNotification}
       onOpenHandover={onOpenHandover}
+      onOpenSearchHistory={onOpenSearchHistory}
       onOpenIncidentDetail={onOpenIncidentDetail}
       onOpenIncidentList={onOpenIncidentList}
       onOpenOfflinePackage={onOpenOfflinePackage}

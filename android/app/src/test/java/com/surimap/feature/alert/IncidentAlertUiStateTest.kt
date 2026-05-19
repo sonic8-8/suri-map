@@ -72,6 +72,25 @@ class IncidentAlertUiStateTest {
         assertEquals(IncidentFcmRoute.Ignore, route)
     }
 
+    @Test
+    fun markerNotificationRouteUsesPayloadLocationForInAppBanner() {
+        val route = IncidentFcmRouteMapper.route(
+            IncidentFcmPayload(
+                eventId = "evt-person-found-001",
+                type = "PERSON_FOUND",
+                incidentId = INCIDENT_ID,
+                markerId = PERSON_FOUND_MARKER_ID,
+                locationLabel = "126.913400,35.163100"
+            )
+        )
+
+        assertTrue(route is IncidentFcmRoute.MarkerFocus)
+        val alert = (route as IncidentFcmRoute.MarkerFocus).alert
+        assertEquals("evt-person-found-001", alert.eventId)
+        assertTrue(alert.visibleText().contains("위치 126.913400,35.163100"))
+        assertTrue(alert.visibleText().contains("지도 열기"))
+    }
+
     private companion object {
         val INCIDENT_ID = incidentIdFixture("precinct-first-001")
         val PERSON_FOUND_MARKER_ID = markerIdFixture("person-found-001")

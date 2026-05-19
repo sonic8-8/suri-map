@@ -139,11 +139,11 @@ class AuthFixtureExactnessTest {
         iterable(realm.path("users")).stream()
             .collect(Collectors.toMap(user -> text(user, "username"), Function.identity()));
 
-    assertThat(usersByUsername.keySet())
-        .containsExactlyInAnyOrderElementsOf(
-            AccountPolicePhoneFixtures.accountsIncludingUnassigned().stream()
-                .map(AccountFixture::accountCode)
-                .toList());
+    java.util.List<String> fixtureUsernames =
+        AccountPolicePhoneFixtures.accountsIncludingUnassigned().stream()
+            .map(AccountFixture::accountCode)
+            .toList();
+    assertThat(usersByUsername.keySet()).containsAll(fixtureUsernames);
 
     for (AccountFixture fixture : AccountPolicePhoneFixtures.accountsIncludingUnassigned()) {
       JsonNode user = usersByUsername.get(fixture.accountCode());

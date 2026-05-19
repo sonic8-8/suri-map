@@ -143,7 +143,7 @@ data class MarkerCreateSheetUiState(
     val opensBlockedOutbox: Boolean = false
     val locationSourceLabel: String =
         when (locationSource) {
-            MarkerLocationSource.Current -> "지도 중심 기준"
+            MarkerLocationSource.Current -> "현재 GPS 기준"
             MarkerLocationSource.Manual -> "사용자 지정 위치"
         }
     val locationActionLabel: String = "지도 중심으로 지정"

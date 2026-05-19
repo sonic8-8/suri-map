@@ -83,6 +83,7 @@ type OfflinePackageStatusPageProps = {
   onOpenHandover: () => void;
   onOpenIncidentDetail?: () => void;
   onOpenIncidentList: () => void;
+  onOpenSearchHistory?: () => void;
   onOpenOfflinePackage: () => void;
   onOpenLogin?: () => void;
 };
@@ -115,6 +116,7 @@ export function OfflinePackageStatusPage({
   onOpenHandover,
   onOpenIncidentDetail,
   onOpenIncidentList,
+  onOpenSearchHistory,
   onOpenOfflinePackage,
   onOpenLogin,
 }: OfflinePackageStatusPageProps) {
@@ -233,6 +235,7 @@ export function OfflinePackageStatusPage({
           onOpenHandover={isClosedTerminalBoard ? undefined : onOpenHandover}
           onOpenIncidentDetail={onOpenIncidentDetail}
           onOpenIncidentList={onOpenIncidentList}
+          onOpenSearchHistory={isClosedTerminalBoard ? undefined : onOpenSearchHistory}
           onOpenOfflinePackage={onOpenOfflinePackage}
           onOpenLogin={onOpenLogin}
           onOpenSituationBoard={onBackToSituationBoard}
@@ -575,4 +578,3 @@ function ManifestContent({
     </div>
   );
 }
-

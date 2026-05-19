@@ -3,6 +3,16 @@
         PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.surimap.marker.adapter.MarkerRuntimeGuardMapper">
+    <resultMap id="markerGuardRowMap" type="com.surimap.marker.adapter.MarkerRuntimeGuardMapper$MarkerGuardRow">
+        <constructor>
+            <arg column="id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="incident_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="operational_period_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="created_by_account_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="police_phone_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="marker_source" javaType="com.surimap.marker.domain.MarkerSource"/>
+        </constructor>
+    </resultMap>
 
     <select id="findIncidentStatus" resultType="string">
         SELECT status
@@ -16,6 +26,20 @@
         FROM operational_period
         WHERE incident_id = #{incidentId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
           AND status = 'ACTIVE'
+        LIMIT 1
+    </select>
+
+    <select id="findMarkerGuardRow" resultMap="markerGuardRowMap">
+        SELECT
+            id,
+            incident_id,
+            operational_period_id,
+            created_by_account_id,
+            police_phone_id,
+            marker_source
+        FROM marker
+        WHERE id = #{markerId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND status &lt;&gt; 'DELETED'
         LIMIT 1
     </select>
 

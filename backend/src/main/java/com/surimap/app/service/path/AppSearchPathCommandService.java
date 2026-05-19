@@ -148,9 +148,9 @@ public class AppSearchPathCommandService {
 
   private SearchPath patchLoadedPath(
       UUID searchPathId, UUID policePhoneId, PatchSearchPathServiceRequest request) {
-    SearchPath current = activePaths.get(searchPathId);
+    SearchPath current = loadPersistedPath(searchPathId);
     if (current == null) {
-      current = loadPersistedPath(searchPathId);
+      current = activePaths.get(searchPathId);
     }
     if (current == null) {
       throw new SearchPathGuardException("write_conflict");
@@ -313,6 +313,7 @@ public class AppSearchPathCommandService {
         new SearchPathPublishRequest(
             eventType,
             path.id(),
+            path.incidentId(),
             path.opId(),
             path.policePhoneId(),
             path.status(),

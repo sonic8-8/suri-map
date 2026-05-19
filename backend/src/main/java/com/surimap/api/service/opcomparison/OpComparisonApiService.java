@@ -160,7 +160,7 @@ public class OpComparisonApiService {
     OpComparisonNarrativeStatus narrativeStatus = result.status();
     String observationsJson = result.observationsJson();
     String failureReason =
-        narrativeStatus == OpComparisonNarrativeStatus.READY ? null : "narrative_generation_failed";
+        narrativeStatus == OpComparisonNarrativeStatus.READY ? null : result.failureReason();
     analysisMapper.updateNarrativeResult(
         initial.id(),
         OpComparisonAnalysisStatus.READY,
@@ -176,9 +176,11 @@ public class OpComparisonApiService {
     try {
       OpComparisonNarrativeResult result =
           narrativePort.generate(new OpComparisonNarrativeRequest(evidence));
-      return result == null ? OpComparisonNarrativeResult.failed() : result;
+      return result == null
+          ? OpComparisonNarrativeResult.failed(OpComparisonNarrativeResult.PROVIDER_FAILURE)
+          : result;
     } catch (RuntimeException exception) {
-      return OpComparisonNarrativeResult.failed();
+      return OpComparisonNarrativeResult.failed(OpComparisonNarrativeResult.PROVIDER_FAILURE);
     }
   }
 

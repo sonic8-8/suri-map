@@ -15,6 +15,51 @@
   inset: 0;
 }
 
+.referenceCorrectionTarget {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 3;
+  width: 34px;
+  height: 34px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.referenceCorrectionTarget::before,
+.referenceCorrectionTarget::after {
+  content: '';
+  position: absolute;
+  background: #ffffff;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.3);
+}
+
+.referenceCorrectionTarget::before {
+  left: 50%;
+  top: 0;
+  width: 2px;
+  height: 34px;
+  transform: translateX(-50%);
+}
+
+.referenceCorrectionTarget::after {
+  left: 0;
+  top: 50%;
+  width: 34px;
+  height: 2px;
+  transform: translateY(-50%);
+}
+
+.referenceCorrectionTarget span {
+  position: absolute;
+  inset: 8px;
+  border: 2px solid #ffffff;
+  border-radius: 999px;
+  box-shadow:
+    0 0 0 1px rgba(15, 23, 42, 0.36),
+    0 8px 18px rgba(15, 23, 42, 0.22);
+}
+
 .initialMapNotice {
   position: absolute;
   top: 16px;
@@ -599,6 +644,62 @@
   font-size: 14px;
   font-weight: 800;
   overflow-wrap: anywhere;
+}
+
+.markerPopupActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.markerPopupActionHint {
+  flex: 1 1 100%;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.markerPopupActionButton,
+.markerPopupSecondaryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid color-mix(in srgb, var(--marker-color) 32%, rgba(148, 163, 184, 0.24));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--marker-color) 84%, #1f2937);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.markerPopupSecondaryButton {
+  background: rgba(248, 250, 252, 0.94);
+  color: #334155;
+}
+
+.markerPopupActionButton:disabled,
+.markerPopupSecondaryButton:disabled {
+  cursor: progress;
+  opacity: 0.72;
+}
+
+.markerPopupActionStatus,
+.markerPopupActionError {
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.markerPopupActionStatus {
+  color: #1f7a4f;
+}
+
+.markerPopupActionError {
+  color: #bd2f2f;
 }
 
 @media (max-width: 560px) {

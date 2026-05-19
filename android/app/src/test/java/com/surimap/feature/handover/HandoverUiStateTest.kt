@@ -51,7 +51,7 @@ class HandoverUiStateTest {
         assertEquals(DutyHandoverTab.Report, report.selectedTab)
         assertTrue(initial.visibleText().any { it.contains("리플레이") })
         assertTrue(report.visibleText().any { it.contains("보고서") })
-        assertTrue(report.visibleText().any { it.contains("서버 인수인계 요약") })
+        assertTrue(report.visibleText().any { it.contains("이전 근무 요약") })
 
         listOf(initial, report).forEach { state ->
             assertFalse(state.visibleText().any { it.contains("추천") })
@@ -67,7 +67,7 @@ class HandoverUiStateTest {
         assertEquals(
             listOf(
                 "근무 개요",
-                "서버 인수인계 요약",
+                "이전 근무 요약",
                 "이동 통계",
                 "발견·기록 시간순",
                 "인수인계 메모",
@@ -90,6 +90,23 @@ class HandoverUiStateTest {
             assertFalse(state.visibleText().any { it.contains("위험") })
             assertFalse(state.visibleText().any { it.contains("미수색") })
         }
+    }
+
+    @Test
+    fun reportTabSelectsAndHighlightsOriginalRecordRows() {
+        val report = DutyHandoverUiState.ready().selectTab(DutyHandoverTab.Report)
+        val originalRecord = report.records.first()
+
+        val selected = report.selectOriginalRecord(originalRecord.sourceKey)
+
+        assertEquals(DutyHandoverTab.Report, selected.selectedTab)
+        assertEquals(originalRecord.sourceKey, selected.selectedOriginalRecordKey)
+        assertEquals(originalRecord, selected.selectedOriginalRecord)
+        assertTrue(selected.visibleText().any { it.contains("선택된 원본 기록") })
+        assertTrue(selected.visibleText().any { it.contains(originalRecord.title) })
+        assertFalse(selected.visibleText().any { it.contains("AI") })
+        assertFalse(selected.visibleText().any { it.contains("추천") })
+        assertFalse(selected.visibleText().any { it.contains("위험") })
     }
 
     @Test
@@ -257,6 +274,19 @@ class HandoverUiStateTest {
         assertTrue(seekIndex > replayStateIndex)
         assertTrue(speedIndex > replayStateIndex)
         assertTrue(cameraIndex > replayStateIndex)
+    }
+
+    @Test
+    fun appHandoverRouteOwnsOriginalRecordSelectionStateForReportEvidence() {
+        val source = File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+
+        val routeIndex = source.indexOf("private fun HandoverSummaryRoute")
+        val selectedRecordIndex = source.indexOf("selectedOriginalRecordKey", routeIndex)
+        val onSelectRecordIndex = source.indexOf("onSelectOriginalRecord =", routeIndex)
+
+        assertTrue(routeIndex >= 0)
+        assertTrue(selectedRecordIndex > routeIndex)
+        assertTrue(onSelectRecordIndex > selectedRecordIndex)
     }
 
     @Test

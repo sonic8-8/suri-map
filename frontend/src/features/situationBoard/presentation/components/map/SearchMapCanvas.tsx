@@ -1,8 +1,11 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react';
+﻿import { useQueryClient } from '@tanstack/react-query';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import maplibregl, { type GeoJSONSource, type LayerSpecification, type LngLatBoundsLike } from 'maplibre-gl';
 import { getVWorldApiKey } from '../../../../../shared/config';
+import { incidentBoardQueryKeys } from '../../../../board/api/incidentBoardApi';
+import { useUpdateMarkerMutation, type UpdateMarkerRequest } from '../../../../marker/api/markerCommandApi';
 import {
   AreaEditMapCanvas,
   type AreaEditMapCanvasProps,
@@ -47,6 +50,7 @@ import {
   removeMarkerPopup,
   raiseMarkerLayer,
   syncMarkerElements,
+  syncMarkerElementsWhenAvailable,
   syncMarkerPopups,
   type MarkerInstance,
   type MarkerInteractionHandlers,
@@ -134,6 +138,36 @@ type InitialMapResolution =
 
 export type InitialMapState = InitialMapResolution['state'];
 
+export function canCorrectReferenceMarker(marker: Pick<RecentMarker, 'source' | 'version'> | null | undefined) {
+  return (
+    Boolean(marker) &&
+    (marker?.source === 'MOCK_SEED' || marker?.source === 'SYSTEM') &&
+    typeof marker?.version === 'number' &&
+    Number.isFinite(marker.version)
+  );
+}
+
+export function createReferenceMarkerCorrectionRequest(
+  marker: Pick<RecentMarker, 'version'>,
+  coordinates: [number, number],
+): UpdateMarkerRequest {
+  return {
+    version: marker.version ?? 0,
+    location: {
+      type: 'Point',
+      coordinates,
+    },
+  };
+}
+
+function createReferenceMarkerCorrectionIdempotencyKey(markerId: string) {
+  const suffix =
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return `web-reference-marker-correction:${markerId}:${suffix}`;
+}
+
 export type LayerVisibility = {
   vehiclePath: boolean;
   footPath: boolean;
@@ -160,7 +194,30 @@ function setOperationalGeoJsonSourceData(map: maplibregl.Map, sourceId: string, 
   (source as GeoJSONSource).setData(data);
 }
 
-function syncSearchAreaSourceData(map: maplibregl.Map, searchAreas: OperationalFeatureCollection, isVisible: boolean) {
+export function syncOperationalGeoJsonSourceDataWhenAvailable(
+  map: maplibregl.Map,
+  sourceId: string,
+  data: OperationalFeatureCollection,
+) {
+  if (map.getSource(sourceId)) {
+    setOperationalGeoJsonSourceData(map, sourceId, data);
+    return undefined;
+  }
+
+  const syncWhenLoaded = () => {
+    setOperationalGeoJsonSourceData(map, sourceId, data);
+  };
+  map.once('load', syncWhenLoaded);
+  return () => {
+    map.off('load', syncWhenLoaded);
+  };
+}
+
+function syncSearchAreaSourceData(
+  map: maplibregl.Map,
+  searchAreas: OperationalFeatureCollection,
+  isVisible: boolean,
+) {
   setOperationalGeoJsonSourceData(
     map,
     OVERALL_SEARCH_AREA_SOURCE_ID,
@@ -544,6 +601,8 @@ export function SearchMapCanvas({
   onOpenSearchAreaSplit,
   onOpenSearchAreaAssign,
 }: SearchMapCanvasProps) {
+  const queryClient = useQueryClient();
+  const updateMarkerMutation = useUpdateMarkerMutation();
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const isRouteEditorEnabledRef = useRef(getIsRouteEditorEnabled());
@@ -563,6 +622,10 @@ export function SearchMapCanvas({
   const [mapViewportVersion, setMapViewportVersion] = useState(0);
   const [hoveredMarkerId, setHoveredMarkerId] = useState<string | null>(null);
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
+  const [referenceMarkerCorrectionState, setReferenceMarkerCorrectionState] = useState<{
+    markerId: string | null;
+    status: 'idle' | 'editing' | 'saving' | 'saved' | 'error';
+  }>({ markerId: null, status: 'idle' });
   const [searchAreaPopupLngLat, setSearchAreaPopupLngLat] = useState<maplibregl.LngLatLike | null>(null);
   const searchAreaPopupOverlayRef = useRef<HTMLDivElement | null>(null);
   const searchAreaPopupSearchAreaIdRef = useRef<string | null>(null);
@@ -586,6 +649,9 @@ export function SearchMapCanvas({
         : null,
     [recentMarkers, selectedMarkerId],
   );
+  const canCorrectSelectedReferenceMarker = canCorrectReferenceMarker(selectedMarker);
+  const selectedMarkerCorrectionStatus =
+    referenceMarkerCorrectionState.markerId === selectedMarker?.id ? referenceMarkerCorrectionState.status : 'idle';
   const getViewportPoint = useCallback(
     (coordinates: maplibregl.LngLatLike) => {
       const map = mapInstance;
@@ -727,6 +793,41 @@ export function SearchMapCanvas({
     setSelectedMarkerId(null);
   }, []);
 
+  const handleStartSelectedReferenceMarkerCorrection = useCallback(() => {
+    const marker = selectedMarker;
+    if (!marker || !canCorrectReferenceMarker(marker)) {
+      return;
+    }
+    setReferenceMarkerCorrectionState({ markerId: marker.id, status: 'editing' });
+  }, [selectedMarker]);
+
+  const handleCancelSelectedReferenceMarkerCorrection = useCallback(() => {
+    setReferenceMarkerCorrectionState({ markerId: selectedMarker?.id ?? null, status: 'idle' });
+  }, [selectedMarker?.id]);
+
+  const handleCorrectSelectedReferenceMarker = useCallback(async () => {
+    const marker = selectedMarker;
+    const map = mapRef.current;
+    if (!marker || !canCorrectReferenceMarker(marker) || !map) {
+      return;
+    }
+
+    const center = map.getCenter();
+    const coordinates: [number, number] = [center.lng, center.lat];
+    setReferenceMarkerCorrectionState({ markerId: marker.id, status: 'saving' });
+    try {
+      await updateMarkerMutation.mutateAsync({
+        markerId: marker.id,
+        request: createReferenceMarkerCorrectionRequest(marker, coordinates),
+        idempotencyKey: createReferenceMarkerCorrectionIdempotencyKey(marker.id),
+      });
+      await queryClient.invalidateQueries({ queryKey: incidentBoardQueryKeys.detail({ incidentId }) });
+      setReferenceMarkerCorrectionState({ markerId: marker.id, status: 'saved' });
+    } catch {
+      setReferenceMarkerCorrectionState({ markerId: marker.id, status: 'error' });
+    }
+  }, [incidentId, queryClient, selectedMarker, updateMarkerMutation]);
+
   const handleCloseSearchAreaPopup = useCallback(() => {
     closeSearchAreaPopup();
   }, [closeSearchAreaPopup]);
@@ -798,11 +899,11 @@ export function SearchMapCanvas({
   useEffect(() => {
     layerVisibilityRef.current = layerVisibility;
     const map = mapRef.current;
-    if (!map || !map.loaded()) {
+    if (!map) {
       return;
     }
 
-    syncMarkerElements(
+    return syncMarkerElementsWhenAvailable(
       map,
       recentMarkersRef.current,
       visibleMarkerIds,
@@ -817,11 +918,11 @@ export function SearchMapCanvas({
   useEffect(() => {
     recentMarkersRef.current = recentMarkers;
     const map = mapRef.current;
-    if (!map || !map.loaded()) {
+    if (!map) {
       return;
     }
 
-    syncMarkerElements(
+    return syncMarkerElementsWhenAvailable(
       map,
       recentMarkers,
       visibleMarkerIds,
@@ -921,11 +1022,11 @@ export function SearchMapCanvas({
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !map.loaded()) {
+    if (!map) {
       return;
     }
 
-    setOperationalGeoJsonSourceData(map, MOVEMENT_PATH_SOURCE_ID, visibleMovementPathFeatures);
+    return syncOperationalGeoJsonSourceDataWhenAvailable(map, MOVEMENT_PATH_SOURCE_ID, visibleMovementPathFeatures);
   }, [visibleMovementPathFeatures]);
 
   useEffect(() => {
@@ -1292,6 +1393,46 @@ export function SearchMapCanvas({
                         </div>
                       ) : null}
                     </div>
+                    {canCorrectSelectedReferenceMarker ? (
+                      <div className={styles.markerPopupActions}>
+                        {selectedMarkerCorrectionStatus === 'editing' ||
+                        selectedMarkerCorrectionStatus === 'saving' ? (
+                          <>
+                            <span className={styles.markerPopupActionHint}>지도를 이동해 기준점을 맞추세요.</span>
+                            <button
+                              type="button"
+                              className={styles.markerPopupActionButton}
+                              disabled={selectedMarkerCorrectionStatus === 'saving'}
+                              onClick={handleCorrectSelectedReferenceMarker}
+                            >
+                              {selectedMarkerCorrectionStatus === 'saving' ? '저장 중' : '저장'}
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.markerPopupSecondaryButton}
+                              disabled={selectedMarkerCorrectionStatus === 'saving'}
+                              onClick={handleCancelSelectedReferenceMarkerCorrection}
+                            >
+                              취소
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            className={styles.markerPopupActionButton}
+                            onClick={handleStartSelectedReferenceMarkerCorrection}
+                          >
+                            위치 보정
+                          </button>
+                        )}
+                        {selectedMarkerCorrectionStatus === 'saved' ? (
+                          <span className={styles.markerPopupActionStatus}>저장 완료</span>
+                        ) : null}
+                        {selectedMarkerCorrectionStatus === 'error' ? (
+                          <span className={styles.markerPopupActionError}>저장 실패</span>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </section>
                 </div>
               ) : null}
@@ -1301,6 +1442,11 @@ export function SearchMapCanvas({
         : null}
       <div className={styles.surface} aria-label="Search map">
         <div ref={mapContainerRef} className={styles.canvas} />
+        {selectedMarkerCorrectionStatus === 'editing' || selectedMarkerCorrectionStatus === 'saving' ? (
+          <div className={styles.referenceCorrectionTarget} aria-hidden="true">
+            <span />
+          </div>
+        ) : null}
         {areaEditMapProps && mapInstance ? (
           <AreaEditMapCanvas {...areaEditMapProps} externalMap={mapInstance} hideCanvas />
         ) : null}

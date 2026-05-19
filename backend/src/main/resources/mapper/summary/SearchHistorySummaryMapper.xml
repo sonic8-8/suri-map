@@ -140,66 +140,221 @@
     </select>
 
     <select id="sourceEvidenceForScope" resultType="java.lang.String">
-        SELECT CONCAT_WS(
-            E'\n',
-            'op=' || op.id::text || ',status=' || op.status || ',sequence=' || op.sequence_number::text,
-            COALESCE((
-                SELECT 'dutyShiftCount=' || COUNT(*)::text
-                FROM duty_shift ds
-                WHERE ds.operational_period_id = op.id
-                <if test="dutyShiftId != null">
-                    AND ds.id = #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
-                </if>
-            ), 'dutyShiftCount=0'),
-            COALESCE((
-                SELECT 'areaCount=' || COUNT(*)::text || ',completedAreaCount=' || (COUNT(*) FILTER (WHERE sa.status = 'COMPLETED'))::text
-                FROM search_area sa
-                WHERE sa.operational_period_id = op.id
-            ), 'areaCount=0,completedAreaCount=0'),
-            COALESCE((
-                SELECT 'pathCount=' || COUNT(*)::text
-                FROM search_path sp
-                JOIN duty_shift sp_ds ON sp_ds.id = sp.duty_shift_id
-                WHERE sp_ds.operational_period_id = op.id
-                <if test="dutyShiftId != null">
-                    AND sp.duty_shift_id = #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
-                </if>
-            ), 'pathCount=0'),
-            COALESCE((
-                SELECT 'segmentCount=' || COUNT(*)::text
-                FROM search_path_segment sps
-                JOIN search_path sp ON sp.id = sps.search_path_id
-                JOIN duty_shift sp_ds ON sp_ds.id = sp.duty_shift_id
-                WHERE sp_ds.operational_period_id = op.id
-                <if test="dutyShiftId != null">
-                    AND sp.duty_shift_id = #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
-                </if>
-            ), 'segmentCount=0'),
-            COALESCE((
-                SELECT 'markerCount=' || COUNT(*)::text
-                FROM marker m
-                WHERE m.operational_period_id = op.id
-                <if test="dutyShiftId != null">
-                    AND m.duty_shift_id = #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
-                </if>
-            ), 'markerCount=0'),
-            COALESCE((
-                SELECT 'memo=' || string_agg(LEFT(hm.content, 500), ' | ' ORDER BY hm.created_at, hm.id::text)
-                FROM handover_memo hm
-                WHERE hm.operational_period_id = op.id
-                <if test="dutyShiftId != null">
-                    AND (
-                        hm.duty_shift_id = #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
-                        OR (
-                            hm.memo_target_type = 'DUTY_SHIFT'
-                            AND hm.memo_target_id = #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
-                        )
+        WITH scoped_op AS (
+            SELECT *
+            FROM operational_period
+            WHERE id = #{opId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+        ),
+        scoped_paths AS (
+            SELECT sp.*
+            FROM search_path sp
+            JOIN duty_shift ds
+              ON ds.id = sp.duty_shift_id
+            WHERE ds.operational_period_id = #{opId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+            <if test="dutyShiftId != null">
+                AND sp.duty_shift_id = #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+            </if>
+        ),
+        scoped_segments AS (
+            SELECT sps.*
+            FROM search_path_segment sps
+            JOIN scoped_paths sp
+              ON sp.id = sps.search_path_id
+        ),
+        scoped_markers AS (
+            SELECT m.*
+            FROM marker m
+            WHERE m.operational_period_id = #{opId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+              AND m.status &lt;&gt; 'DELETED'
+            <if test="dutyShiftId != null">
+                AND m.duty_shift_id = #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+            </if>
+        ),
+        scoped_memos AS (
+            SELECT hm.*
+            FROM handover_memo hm
+            WHERE hm.operational_period_id = #{opId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+              AND hm.status = 'ACTIVE'
+            <if test="dutyShiftId != null">
+                AND (
+                    hm.duty_shift_id = #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+                    OR (
+                        hm.memo_target_type = 'DUTY_SHIFT'
+                        AND hm.memo_target_id = #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
                     )
-                </if>
-            ), 'memo=')
+                )
+            </if>
+        ),
+        scoped_areas AS (
+            SELECT sa.*
+            FROM search_area sa
+            WHERE sa.operational_period_id = #{opId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
         )
-        FROM operational_period op
-        WHERE op.id = #{opId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+        SELECT jsonb_build_object(
+            'schemaVersion', 1,
+            'briefingKind',
+                <choose>
+                    <when test="dutyShiftId == null">
+                        'OP_SUMMARY'
+                    </when>
+                    <otherwise>
+                        'DUTY_SHIFT_HANDOVER'
+                    </otherwise>
+                </choose>,
+            'operationalPeriod', jsonb_build_object(
+                'opId', op.id::text,
+                'sequenceNumber', op.sequence_number,
+                'status', op.status,
+                'startedAt', op.started_at,
+                'endedAt', op.ended_at,
+                'reason', op.reason
+            ),
+            'dutyShift',
+                <choose>
+                    <when test="dutyShiftId == null">
+                        NULL
+                    </when>
+                    <otherwise>
+                        (
+                            SELECT jsonb_build_object(
+                                'dutyShiftId', ds.id::text,
+                                'status', ds.status,
+                                'startedAt', ds.started_at,
+                                'endedAt', ds.ended_at
+                            )
+                            FROM duty_shift ds
+                            WHERE ds.id = #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+                              AND ds.operational_period_id = op.id
+                            LIMIT 1
+                        )
+                    </otherwise>
+                </choose>,
+            'metrics', jsonb_build_object(
+                'dutyShiftCount', (
+                    SELECT COUNT(*)
+                    FROM duty_shift ds
+                    WHERE ds.operational_period_id = op.id
+                    <if test="dutyShiftId != null">
+                        AND ds.id = #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+                    </if>
+                ),
+                'pathCount', (SELECT COUNT(*) FROM scoped_paths),
+                'totalDistanceMeters', (
+                    SELECT ROUND(COALESCE(SUM(ST_Length(geometry::geography)), 0)::numeric)::int
+                    FROM scoped_paths
+                    WHERE geometry IS NOT NULL
+                ),
+                'walkingDistanceMeters', (
+                    SELECT ROUND(COALESCE(SUM(ST_Length(geometry::geography)) FILTER (WHERE movement_type = 'FOOT'), 0)::numeric)::int
+                    FROM scoped_segments
+                ),
+                'drivingDistanceMeters', (
+                    SELECT ROUND(COALESCE(SUM(ST_Length(geometry::geography)) FILTER (WHERE movement_type = 'VEHICLE'), 0)::numeric)::int
+                    FROM scoped_segments
+                ),
+                'markerCount', (SELECT COUNT(*) FROM scoped_markers),
+                'handoverMemoCount', (SELECT COUNT(*) FROM scoped_memos),
+                'areaCount', (SELECT COUNT(*) FROM scoped_areas),
+                'completedAreaCount', (
+                    SELECT COUNT(*)
+                    FROM scoped_areas
+                    WHERE status = 'COMPLETED'
+                )
+            ),
+            'paths', COALESCE((
+                SELECT jsonb_agg(path_row.item ORDER BY path_row.started_at NULLS LAST, path_row.path_id)
+                FROM (
+                    SELECT
+                        sp.id AS path_id,
+                        sp.started_at,
+                        jsonb_build_object(
+                            'pathId', sp.id::text,
+                            'status', sp.status,
+                            'startedAt', sp.started_at,
+                            'endedAt', sp.ended_at,
+                            'distanceMeters', ROUND(COALESCE(ST_Length(sp.geometry::geography), 0)::numeric)::int,
+                            'movementTypes', COALESCE((
+                                SELECT jsonb_agg(DISTINCT sps.movement_type)
+                                FROM search_path_segment sps
+                                WHERE sps.search_path_id = sp.id
+                            ), '[]'::jsonb)
+                        ) AS item
+                    FROM scoped_paths sp
+                    ORDER BY sp.started_at NULLS LAST, sp.id
+                    LIMIT 8
+                ) path_row
+            ), '[]'::jsonb),
+            'markers', COALESCE((
+                SELECT jsonb_agg(marker_row.item ORDER BY marker_row.occurred_at NULLS LAST, marker_row.marker_id)
+                FROM (
+                    SELECT
+                        m.id AS marker_id,
+                        m.occurred_at,
+                        jsonb_build_object(
+                            'markerId', m.id::text,
+                            'type', m.marker_type,
+                            'supportRequestType', m.support_request_type,
+                            'occurredAt', m.occurred_at,
+                            'memoExcerpt', NULLIF(LEFT(COALESCE(m.memo, ''), 240), '')
+                        ) AS item
+                    FROM scoped_markers m
+                    ORDER BY m.occurred_at NULLS LAST, m.id
+                    LIMIT 12
+                ) marker_row
+            ), '[]'::jsonb),
+            'handoverMemos', COALESCE((
+                SELECT jsonb_agg(memo_row.item ORDER BY memo_row.created_at NULLS LAST, memo_row.memo_id)
+                FROM (
+                    SELECT
+                        hm.id AS memo_id,
+                        hm.created_at,
+                        jsonb_build_object(
+                            'memoId', hm.id::text,
+                            'targetType', hm.memo_target_type,
+                            'targetId', hm.memo_target_id::text,
+                            'createdAt', hm.created_at,
+                            'contentExcerpt', LEFT(hm.content, 500)
+                        ) AS item
+                    FROM scoped_memos hm
+                    ORDER BY hm.created_at NULLS LAST, hm.id
+                    LIMIT 12
+                ) memo_row
+            ), '[]'::jsonb),
+            'completedAreas', COALESCE((
+                SELECT jsonb_agg(area_row.item ORDER BY area_row.name, area_row.area_id)
+                FROM (
+                    SELECT
+                        sa.id AS area_id,
+                        sa.name,
+                        jsonb_build_object(
+                            'areaId', sa.id::text,
+                            'name', sa.name,
+                            'level', sa.area_level,
+                            'status', sa.status
+                        ) AS item
+                    FROM scoped_areas sa
+                    WHERE sa.status = 'COMPLETED'
+                    ORDER BY sa.name, sa.id
+                    LIMIT 10
+                ) area_row
+            ), '[]'::jsonb),
+            'sourceRefs', jsonb_build_object(
+                'opId', op.id::text,
+                'dutyShiftId',
+                    <choose>
+                        <when test="dutyShiftId == null">
+                            NULL
+                        </when>
+                        <otherwise>
+                            #{dutyShiftId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}::text
+                        </otherwise>
+                    </choose>,
+                'pathIds', COALESCE((SELECT jsonb_agg(id::text ORDER BY id::text) FROM scoped_paths), '[]'::jsonb),
+                'markerIds', COALESCE((SELECT jsonb_agg(id::text ORDER BY id::text) FROM scoped_markers), '[]'::jsonb),
+                'memoIds', COALESCE((SELECT jsonb_agg(id::text ORDER BY id::text) FROM scoped_memos), '[]'::jsonb)
+            )
+        )::text
+        FROM scoped_op op
     </select>
 
     <select id="findReadyOrFailedByScopeWithDifferentHash" resultMap="summaryRowMap">

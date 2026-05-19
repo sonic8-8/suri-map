@@ -19,7 +19,15 @@ class ClockSyncState(
 
     fun clockOffsetMs(): Long? = snapshot?.clockOffsetMs ?: 0L
 
-    fun clockSyncedAt(): Instant? = snapshot?.clockSyncedAt ?: now()
+    fun clockSyncedAt(): Instant? {
+        val current = now()
+        val syncedAt = snapshot?.clockSyncedAt ?: return current
+        return if (syncedAt.plusMillis(STALE_CLOCK_SYNC_AFTER_MS).isBefore(current)) {
+            current
+        } else {
+            syncedAt
+        }
+    }
 
     fun snapshot(): ClockSyncSnapshot =
         ClockSyncSnapshot(
@@ -68,6 +76,8 @@ class ClockSyncState(
         return true
     }
 }
+
+private const val STALE_CLOCK_SYNC_AFTER_MS = 300_000L
 
 fun String.toClockInstantOrNull(): Instant? = toInstantOrNull()
 

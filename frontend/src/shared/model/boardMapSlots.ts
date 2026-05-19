@@ -26,6 +26,8 @@ export type BoardMapMarker = {
   id: string;
   markerType: 'CLUE' | 'PERSON_FOUND' | 'FIELD_CONDITION' | 'SUPPORT_REQUEST' | 'NOTE' | 'UNKNOWN';
   supportRequestType: 'DRONE' | 'POLICE_DOG' | 'OTHER' | null;
+  source: 'APP' | 'WEB' | 'MOCK_SEED' | 'SYSTEM' | 'UNKNOWN';
+  version: number | null;
   coordinates: BoardPosition;
   title: string | null;
   memo: string | null;
@@ -164,6 +166,8 @@ export function createBoardMapMarkers(board: BoardResponseLike | null): BoardMap
         id: readString(row, 'id') ?? readString(row, 'markerId') ?? `${board.incidentId}:marker-${index + 1}`,
         markerType,
         supportRequestType,
+        source: readMarkerSource(row),
+        version: readNumber(row, 'version'),
         coordinates,
         title: readString(row, 'title'),
         memo: readString(row, 'memo') ?? readString(row, 'content') ?? readString(row, 'description'),
@@ -250,6 +254,15 @@ function readSupportRequestType(row: Record<string, unknown>): BoardMapMarker['s
   }
 
   return null;
+}
+
+function readMarkerSource(row: Record<string, unknown>): BoardMapMarker['source'] {
+  const source = readString(row, 'source') ?? readString(row, 'markerSource') ?? readString(row, 'marker_source');
+  if (source === 'APP' || source === 'WEB' || source === 'MOCK_SEED' || source === 'SYSTEM') {
+    return source;
+  }
+
+  return 'UNKNOWN';
 }
 
 function readRowOpId(row: Record<string, unknown>) {

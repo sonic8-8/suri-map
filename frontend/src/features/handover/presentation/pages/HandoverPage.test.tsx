@@ -5,8 +5,13 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 import type { LoginAccount } from '../../../login/presentation/types/login';
 import { getHandoverIncidentDetail } from '../../data/getHandoverIncidentDetail';
 import { HandoverPage } from './HandoverPage';
+import { SearchHistoryPage } from '../../../searchHistory/presentation/pages/SearchHistoryPage';
 import { useIncidentBoardQuery, type IncidentBoardResponse } from '../../../board/api/incidentBoardApi';
-import { handoverApi, useDutyShiftListQuery, useSearchHistorySummaryListQuery } from '../../../operationalPeriod/api/handoverApi';
+import {
+  handoverApi,
+  useDutyShiftListQuery,
+  useSearchHistorySummaryListQuery,
+} from '../../../operationalPeriod/api/handoverApi';
 import { operationalPeriodApi } from '../../../operationalPeriod/api/operationalPeriodApi';
 import {
   useCreateOpComparisonMutation,
@@ -77,12 +82,14 @@ vi.mock('../components/HandoverOperationalPeriodSelector', () => ({
 vi.mock('../components/HandoverComparisonMap', () => ({
   HandoverComparisonMap: ({
     comparisonHighlightGeometryGeojson,
+    highlightedSourceRecordKey = null,
     isMapExpanded = false,
     onToggleMapExpanded = () => {},
     rightPanelWidthPx = null,
     selectedOpIds = [],
   }: {
     comparisonHighlightGeometryGeojson?: string | null;
+    highlightedSourceRecordKey?: string | null;
     isMapExpanded?: boolean;
     onToggleMapExpanded?: () => void;
     rightPanelWidthPx?: number | null;
@@ -91,6 +98,7 @@ vi.mock('../components/HandoverComparisonMap', () => ({
     <div
       data-testid="handover-map"
       data-highlight={comparisonHighlightGeometryGeojson ?? ''}
+      data-source-highlight={highlightedSourceRecordKey ?? ''}
       data-selected-op-ids={selectedOpIds.join('|')}
       data-is-map-expanded={String(isMapExpanded)}
       data-right-panel-width={rightPanelWidthPx ?? ''}
@@ -216,6 +224,34 @@ describe('HandoverPage', () => {
     );
   });
 
+  test('handover page does not expose search history summary tabs', async () => {
+    vi.mocked(operationalPeriodApi.list).mockResolvedValue({
+      currentOpId: 'op-current',
+      items: [operationalPeriod({ id: 'op-current', status: 'ACTIVE', sequenceNumber: 2, endedAt: null })],
+    });
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <HandoverPage
+          currentUserAccount={currentUserAccount()}
+          incidentId={INCIDENT_ID}
+          markerNotificationIndex={0}
+          markerNotifications={[]}
+          onCloseMarkerNotifications={vi.fn()}
+          onMoveMarkerNotification={vi.fn()}
+          onOpenIncidentList={vi.fn()}
+          onOpenIncidentDetail={vi.fn()}
+          onOpenOfflinePackage={vi.fn()}
+          onOpenSituationBoard={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByRole('heading', { name: 'OP 2차 인수인계' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'OP 요약' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'OP 비교' })).not.toBeInTheDocument();
+  });
+
   test('standalone handover starts with only the current OP selected', async () => {
     vi.mocked(operationalPeriodApi.list).mockResolvedValue({
       currentOpId: 'op-current',
@@ -244,8 +280,179 @@ describe('HandoverPage', () => {
     );
     const currentOpButton = await screen.findByRole('button', { name: /^OP 2/ });
     expect(currentOpButton).toHaveAttribute('aria-pressed', 'true');
-    await waitFor(() => expect(screen.getByTestId('handover-map')).toHaveAttribute('data-selected-op-ids', 'op-current'));
+    await waitFor(() =>
+      expect(screen.getByTestId('handover-map')).toHaveAttribute('data-selected-op-ids', 'op-current'),
+    );
     expect(screen.getByRole('button', { name: /^OP 2/ })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('OP briefing renders only OP scoped summary and keeps rail counts focused on the opened OP', async () => {
+    vi.mocked(useIncidentBoardQuery).mockReturnValue(
+      boardQueryResult(
+        incidentBoardResponse(1, {
+          slots: {
+            path: [
+              boardSlotRow({ id: 'path-current', opId: 'op-current' }),
+              boardSlotRow({ id: 'path-past', opId: 'op-past' }),
+            ],
+            marker: [
+              boardSlotRow({ id: 'marker-current', opId: 'op-current' }),
+              boardSlotRow({ id: 'marker-past', opId: 'op-past' }),
+            ],
+            area: [
+              boardSlotRow({ id: 'area-current', opId: 'op-current' }),
+              boardSlotRow({ id: 'area-past', opId: 'op-past' }),
+            ],
+          },
+        }),
+      ),
+    );
+    vi.mocked(operationalPeriodApi.list).mockResolvedValue({
+      currentOpId: 'op-current',
+      items: [
+        operationalPeriod({ id: 'op-current', status: 'ACTIVE', sequenceNumber: 2, endedAt: null }),
+        operationalPeriod({ id: 'op-past', status: 'ENDED', sequenceNumber: 1, endedAt: '2026-05-17T01:00:00Z' }),
+      ],
+    });
+    vi.mocked(useSearchHistorySummaryListQuery).mockReturnValue({
+      data: {
+        items: [
+          {
+            summaryId: 'summary-op-current',
+            opId: 'op-current',
+            scopeType: 'OP',
+            scopeId: 'op-current',
+            status: 'READY',
+            displayStatus: 'READY',
+            content: 'OP 2차 결과 브리핑입니다.',
+            sourceReadiness: 'READY',
+            sourceHash: 'a'.repeat(64),
+            generatedAt: '2026-05-17T02:30:00Z',
+            version: 1,
+          },
+          {
+            summaryId: 'summary-duty-current',
+            opId: 'op-current',
+            scopeType: 'DUTY_SHIFT',
+            scopeId: 'duty-current',
+            dutyShiftId: 'duty-current',
+            status: 'READY',
+            displayStatus: 'READY',
+            content: '근무 인수인계 요약입니다.',
+            sourceReadiness: 'READY',
+            sourceHash: 'b'.repeat(64),
+            generatedAt: '2026-05-17T02:20:00Z',
+            version: 1,
+          },
+        ],
+      },
+      isError: false,
+      isFetching: false,
+      isLoading: false,
+    } as any);
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <SearchHistoryPage
+          currentUserAccount={currentUserAccount()}
+          incidentId={INCIDENT_ID}
+          markerNotificationIndex={0}
+          markerNotifications={[]}
+          onCloseMarkerNotifications={vi.fn()}
+          onMoveMarkerNotification={vi.fn()}
+          onOpenIncidentList={vi.fn()}
+          onOpenIncidentDetail={vi.fn()}
+          onOpenOfflinePackage={vi.fn()}
+          onOpenSituationBoard={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() =>
+      expect(vi.mocked(useSearchHistorySummaryListQuery)).toHaveBeenCalledWith(
+        'op-current',
+        expect.objectContaining({
+          incidentId: INCIDENT_ID,
+          scopeType: 'OP',
+          scopeId: 'op-current',
+        }),
+      ),
+    );
+
+    expect(await screen.findByText('OP 2차 결과 브리핑입니다.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'OP 요약' })).toBeInTheDocument();
+    expect(screen.queryByText('근무 인수인계 요약입니다.')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /^OP 1차/ }));
+    await waitFor(() =>
+      expect(screen.getByTestId('handover-map')).toHaveAttribute('data-selected-op-ids', 'op-current|op-past'),
+    );
+    expect(screen.getByText('경로 1건')).toBeInTheDocument();
+    expect(screen.getByText('마커 1건')).toBeInTheDocument();
+    expect(screen.getByText('구역 1건')).toBeInTheDocument();
+  });
+
+  test('summary evidence button highlights the original source record and map evidence', async () => {
+    vi.mocked(useIncidentBoardQuery).mockReturnValue(
+      boardQueryResult(
+        incidentBoardResponse(1, {
+          slots: {
+            path: [boardSlotRow({ id: 'path-current', opId: 'op-current' })],
+            marker: [boardSlotRow({ id: 'marker-current', opId: 'op-current' })],
+          },
+        }),
+      ),
+    );
+    vi.mocked(operationalPeriodApi.list).mockResolvedValue({
+      currentOpId: 'op-current',
+      items: [operationalPeriod({ id: 'op-current', status: 'ACTIVE', sequenceNumber: 2, endedAt: null })],
+    });
+    vi.mocked(useSearchHistorySummaryListQuery).mockReturnValue({
+      data: {
+        items: [
+          {
+            summaryId: 'summary-op-current',
+            opId: 'op-current',
+            scopeType: 'OP',
+            scopeId: 'op-current',
+            status: 'READY',
+            displayStatus: 'READY',
+            content: 'OP 2차는 남측 순찰 경로와 현장 마커를 기준으로 정리되었습니다.',
+            sourceReadiness: 'READY',
+            sourceHash: 'a'.repeat(64),
+            generatedAt: '2026-05-17T02:30:00Z',
+            version: 1,
+          },
+        ],
+      },
+      isError: false,
+      isFetching: false,
+      isLoading: false,
+    } as any);
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <SearchHistoryPage
+          currentUserAccount={currentUserAccount()}
+          incidentId={INCIDENT_ID}
+          markerNotificationIndex={0}
+          markerNotifications={[]}
+          onCloseMarkerNotifications={vi.fn()}
+          onMoveMarkerNotification={vi.fn()}
+          onOpenIncidentList={vi.fn()}
+          onOpenIncidentDetail={vi.fn()}
+          onOpenOfflinePackage={vi.fn()}
+          onOpenSituationBoard={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    const pathEvidenceButton = await screen.findByRole('button', { name: '수색 경로 원본 강조' });
+    fireEvent.click(pathEvidenceButton);
+
+    expect(pathEvidenceButton).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: '수색 경로 원본 기록 열기' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('handover-map')).toHaveAttribute('data-source-highlight', 'path:path-current');
   });
 
   test('op visibility toggle can be cleared and refuses a third visible OP', async () => {
@@ -289,13 +496,13 @@ describe('HandoverPage', () => {
 
     fireEvent.click(secondOpButton);
     fireEvent.click(thirdOpButton);
-    await waitFor(() => expect(screen.getByTestId('handover-map')).toHaveAttribute('data-selected-op-ids', 'op-second|op-third'));
+    await waitFor(() =>
+      expect(screen.getByTestId('handover-map')).toHaveAttribute('data-selected-op-ids', 'op-second|op-third'),
+    );
 
     fireEvent.click(fourthOpButton);
 
-    await waitFor(() =>
-      expect(screen.getByText('OP는 최대 2개까지 동시에 표시할 수 있습니다.')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText('OP는 최대 2개까지 동시에 표시할 수 있습니다.')).toBeInTheDocument());
     expect(screen.getByTestId('handover-map')).toHaveAttribute('data-selected-op-ids', 'op-second|op-third');
     expect(fourthOpButton).toHaveAttribute('aria-pressed', 'false');
   });
@@ -313,7 +520,12 @@ describe('HandoverPage', () => {
       currentOpId: 'op-api-current',
       items: [
         operationalPeriod({ id: 'op-api-current', status: 'ACTIVE', sequenceNumber: 3, endedAt: null }),
-        operationalPeriod({ id: 'op-board-active', status: 'ENDED', sequenceNumber: 2, endedAt: '2026-05-17T02:00:00Z' }),
+        operationalPeriod({
+          id: 'op-board-active',
+          status: 'ENDED',
+          sequenceNumber: 2,
+          endedAt: '2026-05-17T02:00:00Z',
+        }),
         operationalPeriod({ id: 'op-past', status: 'ENDED', sequenceNumber: 1, endedAt: '2026-05-17T01:00:00Z' }),
       ],
     });
@@ -358,7 +570,7 @@ describe('HandoverPage', () => {
 
     render(
       <QueryClientProvider client={new QueryClient()}>
-        <HandoverPage
+        <SearchHistoryPage
           embedded
           currentUserAccount={currentUserAccount()}
           incidentId={INCIDENT_ID}
@@ -373,10 +585,12 @@ describe('HandoverPage', () => {
         />
       </QueryClientProvider>,
     );
-    const mapArea = await screen.findByRole('region', { name: /overlay/ });
-    await waitFor(() => expect(within(mapArea).getByRole('heading')).toBeInTheDocument());
-    expect(within(mapArea).getByText(/OP 선택/)).toBeInTheDocument();
-    expect(within(mapArea).getByRole('button', { name: /생성/ })).toBeDisabled();
+    await screen.findByRole('region', { name: /수색 이력 지도/ });
+    fireEvent.click(await screen.findByRole('tab', { name: 'OP 비교' }));
+    const comparisonPanel = screen.getByRole('tabpanel', { name: 'OP 비교' });
+    expect(within(comparisonPanel).getByRole('heading', { name: 'OP 비교' })).toBeInTheDocument();
+    expect(within(comparisonPanel).getByText(/OP 선택/)).toBeInTheDocument();
+    expect(within(comparisonPanel).getByRole('button', { name: /비교 생성/ })).toBeDisabled();
   });
   test('fullscreen toggle collapses the handover shell panels', async () => {
     vi.mocked(operationalPeriodApi.list).mockResolvedValue({
@@ -432,7 +646,7 @@ describe('HandoverPage', () => {
 
     render(
       <QueryClientProvider client={new QueryClient()}>
-        <HandoverPage
+        <SearchHistoryPage
           embedded
           currentUserAccount={currentUserAccount()}
           incidentId={INCIDENT_ID}
@@ -448,15 +662,19 @@ describe('HandoverPage', () => {
       </QueryClientProvider>,
     );
 
-    const mapArea = await screen.findByRole('region', { name: /overlay/ });
+    await screen.findByRole('region', { name: /수색 이력 지도/ });
+    fireEvent.click(await screen.findByRole('tab', { name: 'OP 비교' }));
+    const comparisonPanel = screen.getByRole('tabpanel', { name: 'OP 비교' });
     const firstOpButton = await screen.findByRole('button', { name: /^OP 1/ });
 
     fireEvent.click(firstOpButton);
     await waitFor(() => expect(firstOpButton).toHaveAttribute('aria-pressed', 'true'));
-    await waitFor(() => expect(screen.getByTestId('handover-map')).toHaveAttribute('data-selected-op-ids', 'op-current|op-past'));
-    await waitFor(() => expect(within(mapArea).getByRole('button', { name: /생성/ })).toBeEnabled());
+    await waitFor(() =>
+      expect(screen.getByTestId('handover-map')).toHaveAttribute('data-selected-op-ids', 'op-current|op-past'),
+    );
+    await waitFor(() => expect(within(comparisonPanel).getByRole('button', { name: /비교 생성/ })).toBeEnabled());
 
-    fireEvent.click(within(mapArea).getByRole('button', { name: /생성/ }));
+    fireEvent.click(within(comparisonPanel).getByRole('button', { name: /비교 생성/ }));
 
     await waitFor(() =>
       expect(mutateAsync).toHaveBeenCalledWith(
@@ -469,16 +687,17 @@ describe('HandoverPage', () => {
       ),
     );
 
-    fireEvent.click(within(mapArea).getByRole('button', { name: /공통/ }));
+    fireEvent.click(within(comparisonPanel).getByRole('button', { name: /공통/ }));
     fireEvent.click(firstOpButton);
     await waitFor(() => expect(firstOpButton).toHaveAttribute('aria-pressed', 'false'));
-    await waitFor(() => expect(within(mapArea).getByRole('button', { name: /생성/ })).toBeDisabled());
+    await waitFor(() => expect(within(comparisonPanel).getByRole('button', { name: /비교 생성/ })).toBeDisabled());
     expect(screen.getByTestId('handover-map')).toHaveAttribute('data-highlight', '');
   });
 });
 
 const INCIDENT_ID = 'incident-handover-001';
-const HIGHLIGHT_GEOMETRY = '{"type":"Polygon","coordinates":[[[126.7,35.1],[126.71,35.1],[126.71,35.11],[126.7,35.1]]]}';
+const HIGHLIGHT_GEOMETRY =
+  '{"type":"Polygon","coordinates":[[[126.7,35.1],[126.71,35.1],[126.71,35.11],[126.7,35.1]]]}';
 
 function boardQueryResult(data = incidentBoardResponse(1)) {
   return {
@@ -512,6 +731,19 @@ function incidentBoardResponseBase(boardResponseVersion: number): IncidentBoardR
     slotSources: {},
     sourceVersions: {},
     sourceHashes: {},
+  };
+}
+
+function boardSlotRow({ id, opId }: { id: string; opId: string }) {
+  return {
+    id,
+    opId,
+    status: 'READY',
+    version: 1,
+    sequence: 1,
+    sourceSpec: 'S8',
+    sourceHash: `${id}-hash`,
+    latestEventId: `${id}-event`,
   };
 }
 

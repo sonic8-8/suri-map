@@ -27,22 +27,35 @@ public class DbEventHub implements EventHub {
 
   private final EventDispatchJobMapper mapper;
   private final Supplier<List<DomainEventConsumer>> domainEventConsumers;
+  private final EventDispatchJobDispatcher dispatcher;
 
   @Autowired
   public DbEventHub(
       EventDispatchJobMapper mapper,
-      ObjectProvider<DomainEventConsumer> domainEventConsumerProvider) {
-    this(mapper, () -> domainEventConsumerProvider.orderedStream().toList());
+      ObjectProvider<DomainEventConsumer> domainEventConsumerProvider,
+      ObjectProvider<EventDispatchJobDispatcher> dispatcherProvider) {
+    this(
+        mapper,
+        () -> domainEventConsumerProvider.orderedStream().toList(),
+        dispatcherProvider.getIfAvailable());
   }
 
   public DbEventHub(EventDispatchJobMapper mapper) {
-    this(mapper, List::of);
+    this(mapper, List::of, null);
   }
 
   DbEventHub(
       EventDispatchJobMapper mapper, Supplier<List<DomainEventConsumer>> domainEventConsumers) {
+    this(mapper, domainEventConsumers, null);
+  }
+
+  DbEventHub(
+      EventDispatchJobMapper mapper,
+      Supplier<List<DomainEventConsumer>> domainEventConsumers,
+      EventDispatchJobDispatcher dispatcher) {
     this.mapper = mapper;
     this.domainEventConsumers = domainEventConsumers == null ? List::of : domainEventConsumers;
+    this.dispatcher = dispatcher;
   }
 
   /**
@@ -61,13 +74,21 @@ public class DbEventHub implements EventHub {
     Objects.requireNonNull(request.type(), "type must not be null");
     Objects.requireNonNull(request.payload(), "payload must not be null");
 
-    mapper.insert(EventDispatchJobRow.from(request));
+    EventDispatchJobRow row = EventDispatchJobRow.from(request);
+    mapper.insert(row);
     dispatchLocalConsumers(request);
+    dispatchSseAfterCommit(row);
   }
 
   private void dispatchLocalConsumers(PublishRequest request) {
     domainEventConsumers.get().stream()
         .filter(consumer -> consumer.supports(request))
         .forEach(consumer -> consumer.consume(request));
+  }
+
+  private void dispatchSseAfterCommit(EventDispatchJobRow row) {
+    if (dispatcher != null) {
+      dispatcher.dispatchAfterCommit(row.id());
+    }
   }
 }

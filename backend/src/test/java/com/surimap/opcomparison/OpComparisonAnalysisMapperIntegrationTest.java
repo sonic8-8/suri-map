@@ -170,9 +170,8 @@ class OpComparisonAnalysisMapperIntegrationTest extends PostGisIntegrationTestSu
 
   private static String observationsJson() {
     return """
-        [{"observation":"OP1의 전체 이동 거리는 11342m입니다.","evidence":[{"type":"metric","opId":"%s","key":"pathDistanceMeters","value":11342}]}]
+        {"observations":[{"sentence":"OP1의 전체 이동 거리는 11342m입니다.","factIds":["distance-op1-op2"]}]}
         """
-        .formatted(OP1_ID)
         .trim();
   }
 

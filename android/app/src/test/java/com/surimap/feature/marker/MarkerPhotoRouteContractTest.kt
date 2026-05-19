@@ -40,6 +40,7 @@ class MarkerPhotoRouteContractTest {
 
         assertFalse(appSource.contains("sampleMarkerCreateSheetState"))
         assertTrue(appSource.contains("MarkerCreateSheetUiState.default()"))
-        assertTrue(appSource.contains(".withCurrentLocation(displayedSearchMapState.markerCreationLocation())"))
+        assertTrue(appSource.contains("latestGpsLocationFix ?: locationUpdates.lastKnownFix()"))
+        assertTrue(appSource.contains(".withCurrentLocation(currentGpsLocation.toMarkerLocation())"))
     }
 }

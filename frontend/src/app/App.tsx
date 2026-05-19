@@ -4,6 +4,8 @@ import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 're
 import { completeKeycloakLogin, logoutCurrentSession, readStoredLoginAccount } from '../features/login/data/login';
 import { LoginPage } from '../features/login/presentation/pages/LoginPage';
 import type { LoginAccount } from '../features/login/presentation/types/login';
+import { HandoverPage } from '../features/handover/presentation/pages/HandoverPage';
+import { SearchHistoryPage } from '../features/searchHistory/presentation/pages/SearchHistoryPage';
 import { useIncidentMarkerNotifications } from '../features/markerNotifications/presentation/hooks/useIncidentMarkerNotifications';
 import { OfflinePackageStatusPage } from '../features/offlinePackage/presentation/pages/OfflinePackageStatusPage';
 import { SituationBoardPage } from '../features/situationBoard/presentation/pages/SituationBoardPage';
@@ -15,6 +17,7 @@ import {
   getAreaEditPath,
   getIncidentDetailPath,
   getIncidentHandoverPath,
+  getIncidentSearchHistoryPath,
   getIncidentBoardPath,
   getIncidentClosePath,
   getIncidentOfflinePackagePath,
@@ -188,10 +191,7 @@ function SituationBoardRoute({
 }: SituationBoardRouteProps) {
   const incidentId = useRouteIncidentId();
   const navigate = useNavigate();
-  const openIncidentListFromHistory = useCallback(
-    () => navigate(ROUTES.incidentList, { replace: true }),
-    [navigate],
-  );
+  const openIncidentListFromHistory = useCallback(() => navigate(ROUTES.incidentList, { replace: true }), [navigate]);
   const savedAreaDrafts = savedAreaDraftsByIncidentId[incidentId] ?? [];
   const refreshVersion = opRefreshVersionByIncidentId[incidentId] ?? 0;
 
@@ -215,6 +215,7 @@ function SituationBoardRoute({
       onCloseHandoverWorkspaceRoute={() => navigate(getIncidentBoardPath(incidentId))}
       onOpenAreaWorkspaceRoute={() => navigate(getAreaEditPath(incidentId))}
       onOpenIncidentDetail={() => navigate(getIncidentDetailPath(incidentId))}
+      onOpenSearchHistory={() => navigate(getIncidentSearchHistoryPath(incidentId))}
       onOpenOfflinePackage={() => navigate(getIncidentOfflinePackagePath(incidentId))}
       onOpenLogin={onOpenLogin}
       onSaveAssignedAreas={(drafts) => onSaveAssignedAreas(incidentId, drafts)}
@@ -222,6 +223,102 @@ function SituationBoardRoute({
       refreshVersion={refreshVersion}
       onOpenIncidentList={() => navigate(ROUTES.incidentList)}
       onBrowserBackToIncidentList={openIncidentListFromHistory}
+    />
+  );
+}
+
+type HandoverRouteProps = {
+  currentUserAccount: LoginAccount;
+  markerNotificationIndex: number;
+  markerNotifications: MarkerNotification[];
+  onCloseMarkerNotifications: () => void;
+  onMarkerNotification: (notification: MarkerNotification) => void;
+  onMoveMarkerNotification: (nextIndex: number) => void;
+  onOperationalPeriodCreated: (incidentId: string) => void;
+  onOpenOfflinePackage: (incidentId: string) => void;
+  onOpenLogin: () => void;
+};
+
+function HandoverRoute({
+  currentUserAccount,
+  markerNotificationIndex,
+  markerNotifications,
+  onCloseMarkerNotifications,
+  onMarkerNotification,
+  onMoveMarkerNotification,
+  onOperationalPeriodCreated,
+  onOpenOfflinePackage,
+  onOpenLogin,
+}: HandoverRouteProps) {
+  const incidentId = useRouteIncidentId();
+  const navigate = useNavigate();
+  const openIncidentListFromHistory = useCallback(() => navigate(ROUTES.incidentList, { replace: true }), [navigate]);
+
+  useIncidentMarkerNotifications({
+    incidentId,
+    enabled: true,
+    onNotification: onMarkerNotification,
+  });
+
+  return (
+    <HandoverPage
+      incidentId={incidentId}
+      currentUserAccount={currentUserAccount}
+      markerNotificationIndex={markerNotificationIndex}
+      markerNotifications={markerNotifications}
+      onCloseMarkerNotifications={onCloseMarkerNotifications}
+      onMoveMarkerNotification={onMoveMarkerNotification}
+      onOpenIncidentList={() => navigate(ROUTES.incidentList)}
+      onBrowserBackToIncidentList={openIncidentListFromHistory}
+      onOpenIncidentDetail={() => navigate(getIncidentDetailPath(incidentId))}
+      onOpenSituationBoard={() => navigate(getIncidentBoardPath(incidentId))}
+      onOpenHandover={() => navigate(getIncidentHandoverPath(incidentId))}
+      onOpenSearchHistory={() => navigate(getIncidentSearchHistoryPath(incidentId))}
+      onOpenOfflinePackage={() => onOpenOfflinePackage(incidentId)}
+      onOpenLogin={onOpenLogin}
+      onOperationalPeriodCreated={() => onOperationalPeriodCreated(incidentId)}
+    />
+  );
+}
+
+function SearchHistoryRoute({
+  currentUserAccount,
+  markerNotificationIndex,
+  markerNotifications,
+  onCloseMarkerNotifications,
+  onMarkerNotification,
+  onMoveMarkerNotification,
+  onOperationalPeriodCreated,
+  onOpenOfflinePackage,
+  onOpenLogin,
+}: HandoverRouteProps) {
+  const incidentId = useRouteIncidentId();
+  const navigate = useNavigate();
+  const openIncidentListFromHistory = useCallback(() => navigate(ROUTES.incidentList, { replace: true }), [navigate]);
+
+  useIncidentMarkerNotifications({
+    incidentId,
+    enabled: true,
+    onNotification: onMarkerNotification,
+  });
+
+  return (
+    <SearchHistoryPage
+      incidentId={incidentId}
+      currentUserAccount={currentUserAccount}
+      markerNotificationIndex={markerNotificationIndex}
+      markerNotifications={markerNotifications}
+      onCloseMarkerNotifications={onCloseMarkerNotifications}
+      onMoveMarkerNotification={onMoveMarkerNotification}
+      onOpenIncidentList={() => navigate(ROUTES.incidentList)}
+      onBrowserBackToIncidentList={openIncidentListFromHistory}
+      onOpenIncidentDetail={() => navigate(getIncidentDetailPath(incidentId))}
+      onOpenSituationBoard={() => navigate(getIncidentBoardPath(incidentId))}
+      onOpenHandover={() => navigate(getIncidentHandoverPath(incidentId))}
+      onOpenSearchHistory={() => navigate(getIncidentSearchHistoryPath(incidentId))}
+      onOpenOfflinePackage={() => onOpenOfflinePackage(incidentId)}
+      onOpenLogin={onOpenLogin}
+      onOperationalPeriodCreated={() => onOperationalPeriodCreated(incidentId)}
     />
   );
 }
@@ -249,10 +346,7 @@ function OfflinePackageRoute({
 }: OfflinePackageRouteProps) {
   const incidentId = useRouteIncidentId();
   const navigate = useNavigate();
-  const openIncidentListFromHistory = useCallback(
-    () => navigate(ROUTES.incidentList, { replace: true }),
-    [navigate],
-  );
+  const openIncidentListFromHistory = useCallback(() => navigate(ROUTES.incidentList, { replace: true }), [navigate]);
   useIncidentMarkerNotifications({
     incidentId,
     enabled: true,
@@ -269,6 +363,7 @@ function OfflinePackageRoute({
       onCloseMarkerNotifications={onCloseMarkerNotifications}
       onMoveMarkerNotification={onMoveMarkerNotification}
       onOpenHandover={() => navigate(getIncidentHandoverPath(incidentId))}
+      onOpenSearchHistory={() => navigate(getIncidentSearchHistoryPath(incidentId))}
       onOpenIncidentDetail={() => navigate(getIncidentDetailPath(incidentId))}
       onOpenIncidentList={() => navigate(ROUTES.incidentList)}
       onBrowserBackToIncidentList={openIncidentListFromHistory}
@@ -301,10 +396,7 @@ function IncidentDetailRoute({
 }: IncidentDetailRouteProps) {
   const incidentId = useRouteIncidentId();
   const navigate = useNavigate();
-  const openIncidentListFromHistory = useCallback(
-    () => navigate(ROUTES.incidentList, { replace: true }),
-    [navigate],
-  );
+  const openIncidentListFromHistory = useCallback(() => navigate(ROUTES.incidentList, { replace: true }), [navigate]);
   useIncidentMarkerNotifications({
     incidentId,
     enabled: true,
@@ -320,6 +412,7 @@ function IncidentDetailRoute({
       onCloseMarkerNotifications={onCloseMarkerNotifications}
       onMoveMarkerNotification={onMoveMarkerNotification}
       onOpenHandover={() => navigate(getIncidentHandoverPath(incidentId))}
+      onOpenSearchHistory={() => navigate(getIncidentSearchHistoryPath(incidentId))}
       onOpenIncidentList={() => navigate(ROUTES.incidentList)}
       onBrowserBackToIncidentList={openIncidentListFromHistory}
       onOpenOfflinePackage={() => onOpenOfflinePackage(incidentId)}
@@ -384,7 +477,7 @@ export function App() {
   const [savedAreaDraftsByIncidentId, setSavedAreaDraftsByIncidentId] = useState<Record<string, CompletedAreaDraft[]>>(
     {},
   );
-  const opRefreshVersionByIncidentId: Record<string, number> = {};
+  const [opRefreshVersionByIncidentId, setOpRefreshVersionByIncidentId] = useState<Record<string, number>>({});
   const [markerNotifications, setMarkerNotifications] = useState<MarkerNotification[]>([]);
   const [markerNotificationIndex, setMarkerNotificationIndex] = useState(0);
   const loginRedirectPath = readLoginRedirectPath(location.state);
@@ -441,7 +534,7 @@ export function App() {
 
   const handleOidcCallbackFailure = useCallback(
     (error: Error) => {
-    setCurrentUserAccount(null);
+      setCurrentUserAccount(null);
       navigate(ROUTES.login, { replace: true, state: { authError: error.message } });
     },
     [navigate],
@@ -453,6 +546,12 @@ export function App() {
       [incidentId]: drafts,
     }));
   };
+  const refreshOperationalPeriodViews = useCallback((incidentId: string) => {
+    setOpRefreshVersionByIncidentId((currentVersions) => ({
+      ...currentVersions,
+      [incidentId]: (currentVersions[incidentId] ?? 0) + 1,
+    }));
+  }, []);
 
   return (
     <RouteErrorBoundary
@@ -460,44 +559,107 @@ export function App() {
       onOpenIncidentList={() => navigate(ROUTES.incidentList, { replace: true })}
     >
       <Routes>
-      <Route path={ROUTES.home} element={<Navigate to={ROUTES.incidentList} replace />} />
-      <Route
-        path={ROUTES.incidentList}
-        element={
-          currentUserAccount ? (
-            <LazyRoute>
-              <IncidentListPage
-                onOpenSituationBoard={(incidentId) => navigate(getIncidentBoardPath(incidentId))}
-                onOpenLogin={openLogin}
+        <Route path={ROUTES.home} element={<Navigate to={ROUTES.incidentList} replace />} />
+        <Route
+          path={ROUTES.incidentList}
+          element={
+            currentUserAccount ? (
+              <LazyRoute>
+                <IncidentListPage
+                  onOpenSituationBoard={(incidentId) => navigate(getIncidentBoardPath(incidentId))}
+                  onOpenLogin={openLogin}
+                  currentUserAccount={currentUserAccount}
+                />
+              </LazyRoute>
+            ) : (
+              loginRedirectElement
+            )
+          }
+        />
+        <Route
+          path={ROUTES.login}
+          element={
+            <LoginPage
+              redirectPath={loginRedirectPath ?? ROUTES.incidentList}
+              initialErrorMessage={loginErrorMessage}
+            />
+          }
+        />
+        <Route
+          path={ROUTES.authCallback}
+          element={
+            <AuthCallbackRoute onLoginSuccess={handleOidcCallbackSuccess} onLoginFailure={handleOidcCallbackFailure} />
+          }
+        />
+        <Route
+          path={ROUTES.incidentDetail}
+          element={
+            currentUserAccount ? (
+              <LazyRoute>
+                <IncidentDetailRoute
+                  currentUserAccount={currentUserAccount}
+                  markerNotificationIndex={markerNotificationIndex}
+                  markerNotifications={markerNotifications}
+                  onCloseMarkerNotifications={closeMarkerNotifications}
+                  onMarkerNotification={addMarkerNotification}
+                  onMoveMarkerNotification={moveMarkerNotification}
+                  onOpenOfflinePackage={(nextIncidentId) => navigate(getIncidentOfflinePackagePath(nextIncidentId))}
+                  onOpenLogin={openLogin}
+                />
+              </LazyRoute>
+            ) : (
+              loginRedirectElement
+            )
+          }
+        />
+        <Route
+          path={ROUTES.incidentBoard}
+          element={
+            currentUserAccount ? (
+              <SituationBoardRoute
                 currentUserAccount={currentUserAccount}
+                markerNotificationIndex={markerNotificationIndex}
+                markerNotifications={markerNotifications}
+                onCloseMarkerNotifications={closeMarkerNotifications}
+                onMarkerNotification={addMarkerNotification}
+                onMoveMarkerNotification={moveMarkerNotification}
+                onSaveAssignedAreas={saveAssignedAreas}
+                savedAreaDraftsByIncidentId={savedAreaDraftsByIncidentId}
+                opRefreshVersionByIncidentId={opRefreshVersionByIncidentId}
+                onOpenLogin={openLogin}
               />
-            </LazyRoute>
-          ) : (
-            loginRedirectElement
-          )
-        }
-      />
-      <Route
-        path={ROUTES.login}
-        element={
-          <LoginPage
-            redirectPath={loginRedirectPath ?? ROUTES.incidentList}
-            initialErrorMessage={loginErrorMessage}
-          />
-        }
-      />
-      <Route
-        path={ROUTES.authCallback}
-        element={
-          <AuthCallbackRoute onLoginSuccess={handleOidcCallbackSuccess} onLoginFailure={handleOidcCallbackFailure} />
-        }
-      />
-      <Route
-        path={ROUTES.incidentDetail}
-        element={
-          currentUserAccount ? (
-            <LazyRoute>
-              <IncidentDetailRoute
+            ) : (
+              loginRedirectElement
+            )
+          }
+        />
+        <Route
+          path={ROUTES.areaEdit}
+          element={
+            currentUserAccount ? (
+              <SituationBoardRoute
+                currentUserAccount={currentUserAccount}
+                workspace="area"
+                markerNotificationIndex={markerNotificationIndex}
+                markerNotifications={markerNotifications}
+                onCloseMarkerNotifications={closeMarkerNotifications}
+                onMarkerNotification={addMarkerNotification}
+                onMoveMarkerNotification={moveMarkerNotification}
+                onSaveAssignedAreas={saveAssignedAreas}
+                savedAreaDraftsByIncidentId={savedAreaDraftsByIncidentId}
+                opRefreshVersionByIncidentId={opRefreshVersionByIncidentId}
+                onOpenLogin={openLogin}
+              />
+            ) : (
+              loginRedirectElement
+            )
+          }
+        />
+        <Route
+          path={ROUTES.incidentHandover}
+          element={
+            currentUserAccount ? (
+              <HandoverRoute
                 currentUserAccount={currentUserAccount}
                 markerNotificationIndex={markerNotificationIndex}
                 markerNotifications={markerNotifications}
@@ -505,116 +667,74 @@ export function App() {
                 onMarkerNotification={addMarkerNotification}
                 onMoveMarkerNotification={moveMarkerNotification}
                 onOpenOfflinePackage={(nextIncidentId) => navigate(getIncidentOfflinePackagePath(nextIncidentId))}
+                onOperationalPeriodCreated={refreshOperationalPeriodViews}
                 onOpenLogin={openLogin}
               />
-            </LazyRoute>
-          ) : (
-            loginRedirectElement
-          )
-        }
-      />
-      <Route
-        path={ROUTES.incidentBoard}
-        element={
-          currentUserAccount ? (
-            <SituationBoardRoute
-              currentUserAccount={currentUserAccount}
-              markerNotificationIndex={markerNotificationIndex}
-              markerNotifications={markerNotifications}
-              onCloseMarkerNotifications={closeMarkerNotifications}
-              onMarkerNotification={addMarkerNotification}
-              onMoveMarkerNotification={moveMarkerNotification}
-              onSaveAssignedAreas={saveAssignedAreas}
-              savedAreaDraftsByIncidentId={savedAreaDraftsByIncidentId}
-              opRefreshVersionByIncidentId={opRefreshVersionByIncidentId}
-              onOpenLogin={openLogin}
-            />
-          ) : (
-            loginRedirectElement
-          )
-        }
-      />
-      <Route
-        path={ROUTES.areaEdit}
-        element={
-          currentUserAccount ? (
-            <SituationBoardRoute
-              currentUserAccount={currentUserAccount}
-              workspace="area"
-              markerNotificationIndex={markerNotificationIndex}
-              markerNotifications={markerNotifications}
-              onCloseMarkerNotifications={closeMarkerNotifications}
-              onMarkerNotification={addMarkerNotification}
-              onMoveMarkerNotification={moveMarkerNotification}
-              onSaveAssignedAreas={saveAssignedAreas}
-              savedAreaDraftsByIncidentId={savedAreaDraftsByIncidentId}
-              opRefreshVersionByIncidentId={opRefreshVersionByIncidentId}
-              onOpenLogin={openLogin}
-            />
-          ) : (
-            loginRedirectElement
-          )
-        }
-      />
-      <Route
-        path={ROUTES.incidentHandover}
-        element={
-          currentUserAccount ? (
-            <SituationBoardRoute
-              currentUserAccount={currentUserAccount}
-              workspace="handover"
-              markerNotificationIndex={markerNotificationIndex}
-              markerNotifications={markerNotifications}
-              onCloseMarkerNotifications={closeMarkerNotifications}
-              onMarkerNotification={addMarkerNotification}
-              onMoveMarkerNotification={moveMarkerNotification}
-              onSaveAssignedAreas={saveAssignedAreas}
-              savedAreaDraftsByIncidentId={savedAreaDraftsByIncidentId}
-              opRefreshVersionByIncidentId={opRefreshVersionByIncidentId}
-              onOpenLogin={openLogin}
-            />
-          ) : (
-            loginRedirectElement
-          )
-        }
-      />
-      <Route
-        path={ROUTES.incidentOfflinePackage}
-        element={
-          currentUserAccount ? (
-            <OfflinePackageRoute
-              currentUserAccount={currentUserAccount}
-              markerNotificationIndex={markerNotificationIndex}
-              markerNotifications={markerNotifications}
-              onCloseMarkerNotifications={closeMarkerNotifications}
-              onMoveMarkerNotification={moveMarkerNotification}
-              onMarkerNotification={addMarkerNotification}
-              onOpenOfflinePackage={(nextIncidentId) => navigate(getIncidentOfflinePackagePath(nextIncidentId))}
-              onOpenLogin={openLogin}
-            />
-          ) : (
-            loginRedirectElement
-          )
-        }
-      />
-      <Route
-        path={ROUTES.incidentClose}
-        element={
-          currentUserAccount ? (
-            <LazyRoute>
-              <IncidentCloseRoute />
-            </LazyRoute>
-          ) : (
-            loginRedirectElement
-          )
-        }
-      />
-      <Route path={ROUTES.legacyAreaEdit} element={<Navigate to={getAreaEditPath(BOOTSTRAP_INCIDENT_ID)} replace />} />
-      <Route
-        path={ROUTES.legacyIncidentClose}
-        element={<Navigate to={getIncidentClosePath(BOOTSTRAP_INCIDENT_ID)} replace />}
-      />
-      <Route path="*" element={<Navigate to={ROUTES.incidentList} replace />} />
+            ) : (
+              loginRedirectElement
+            )
+          }
+        />
+        <Route
+          path={ROUTES.incidentSearchHistory}
+          element={
+            currentUserAccount ? (
+              <SearchHistoryRoute
+                currentUserAccount={currentUserAccount}
+                markerNotificationIndex={markerNotificationIndex}
+                markerNotifications={markerNotifications}
+                onCloseMarkerNotifications={closeMarkerNotifications}
+                onMarkerNotification={addMarkerNotification}
+                onMoveMarkerNotification={moveMarkerNotification}
+                onOpenOfflinePackage={(nextIncidentId) => navigate(getIncidentOfflinePackagePath(nextIncidentId))}
+                onOperationalPeriodCreated={refreshOperationalPeriodViews}
+                onOpenLogin={openLogin}
+              />
+            ) : (
+              loginRedirectElement
+            )
+          }
+        />
+        <Route
+          path={ROUTES.incidentOfflinePackage}
+          element={
+            currentUserAccount ? (
+              <OfflinePackageRoute
+                currentUserAccount={currentUserAccount}
+                markerNotificationIndex={markerNotificationIndex}
+                markerNotifications={markerNotifications}
+                onCloseMarkerNotifications={closeMarkerNotifications}
+                onMoveMarkerNotification={moveMarkerNotification}
+                onMarkerNotification={addMarkerNotification}
+                onOpenOfflinePackage={(nextIncidentId) => navigate(getIncidentOfflinePackagePath(nextIncidentId))}
+                onOpenLogin={openLogin}
+              />
+            ) : (
+              loginRedirectElement
+            )
+          }
+        />
+        <Route
+          path={ROUTES.incidentClose}
+          element={
+            currentUserAccount ? (
+              <LazyRoute>
+                <IncidentCloseRoute />
+              </LazyRoute>
+            ) : (
+              loginRedirectElement
+            )
+          }
+        />
+        <Route
+          path={ROUTES.legacyAreaEdit}
+          element={<Navigate to={getAreaEditPath(BOOTSTRAP_INCIDENT_ID)} replace />}
+        />
+        <Route
+          path={ROUTES.legacyIncidentClose}
+          element={<Navigate to={getIncidentClosePath(BOOTSTRAP_INCIDENT_ID)} replace />}
+        />
+        <Route path="*" element={<Navigate to={ROUTES.incidentList} replace />} />
       </Routes>
     </RouteErrorBoundary>
   );
