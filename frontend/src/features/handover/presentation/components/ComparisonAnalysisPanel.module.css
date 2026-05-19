@@ -217,6 +217,48 @@
   font-weight: 850;
 }
 
+.factButton {
+  display: grid;
+  gap: 5px;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.factButton:hover strong {
+  color: var(--suri-board-primary-hi);
+}
+
+.factButton:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--suri-board-primary-hi) 72%, transparent);
+  outline-offset: 3px;
+}
+
+.factButton:disabled {
+  cursor: default;
+}
+
+.factButton:disabled strong,
+.factButton:disabled span,
+.factButton:disabled small {
+  opacity: 0.68;
+}
+
+.factButtonSelected strong {
+  color: var(--suri-board-primary-hi);
+}
+
+.factItemSelected {
+  border-color: color-mix(in srgb, var(--suri-board-primary-hi) 62%, var(--handover-border-soft));
+  background: color-mix(in srgb, var(--suri-board-primary-soft) 52%, var(--handover-panel-bg));
+}
+
 .factList span,
 .observationList p {
   margin: 0;

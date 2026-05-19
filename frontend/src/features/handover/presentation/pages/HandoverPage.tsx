@@ -42,6 +42,7 @@ import {
 } from '../../../operationalPeriod/api/operationalPeriodApi';
 import {
   useCreateOpComparisonMutation,
+  type OpComparisonRegionFact,
   type OpComparisonResponse,
 } from '../../../operationalPeriod/api/opComparisonApi';
 import type { OperationalPeriod } from '../../../situationBoard/presentation/constants/mockSituationBoard';
@@ -156,6 +157,7 @@ export function HandoverPage({
   const [newOpHandoverMemo, setNewOpHandoverMemo] = useState('');
   const [selectedMemoTargetKey, setSelectedMemoTargetKey] = useState('');
   const [comparisonAnalysis, setComparisonAnalysis] = useState<OpComparisonResponse | null>(null);
+  const [selectedComparisonRegionFactId, setSelectedComparisonRegionFactId] = useState<string | null>(null);
   const [isLoadingOps, setIsLoadingOps] = useState(false);
   const [isLoadingMemos, setIsLoadingMemos] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -325,6 +327,13 @@ export function HandoverPage({
     !isCreatingOp &&
     (newOpReason !== 'OTHER' || newOpReasonMemo.trim().length > 0);
   const comparisonSelectionKey = effectiveSelectedOpIds.join('|');
+  const comparisonHighlightGeometryGeojson = useMemo(() => {
+    if (!comparisonAnalysis || !selectedComparisonRegionFactId) return null;
+    return (
+      comparisonAnalysis.regionFacts.find((fact) => fact.factId === selectedComparisonRegionFactId)?.geometryGeojson ??
+      null
+    );
+  }, [comparisonAnalysis, selectedComparisonRegionFactId]);
 
   useEffect(() => {
     incidentStateRef.current = incidentId;
@@ -343,6 +352,7 @@ export function HandoverPage({
     setNewOpHandoverMemo('');
     setSelectedMemoTargetKey('');
     setComparisonAnalysis(null);
+    setSelectedComparisonRegionFactId(null);
     setOpErrorMessage('');
     setMemoErrorMessage('');
     setCreateOpErrorMessage('');
@@ -353,6 +363,7 @@ export function HandoverPage({
 
   useEffect(() => {
     setComparisonAnalysis(null);
+    setSelectedComparisonRegionFactId(null);
     setComparisonErrorMessage('');
   }, [comparisonSelectionKey, incidentId]);
 
@@ -585,9 +596,14 @@ export function HandoverPage({
         idempotencyKey: createIdempotencyKey('op-comparison'),
       });
       setComparisonAnalysis(response);
+      setSelectedComparisonRegionFactId(null);
     } catch (error) {
       setComparisonErrorMessage(getApiErrorMessage(error, 'OP 비교 분석을 생성하지 못했습니다.'));
     }
+  };
+
+  const handleComparisonRegionFactSelect = (fact: OpComparisonRegionFact) => {
+    setSelectedComparisonRegionFactId((currentFactId) => (currentFactId === fact.factId ? null : fact.factId));
   };
 
   return (
@@ -663,7 +679,21 @@ export function HandoverPage({
                 board={board}
                 focusedOpId={activeFocusedOpId}
                 selectedOpIds={effectiveSelectedOpIds}
+                comparisonHighlightGeometryGeojson={comparisonHighlightGeometryGeojson}
               />
+              <div className={styles.mapAnalysisDock}>
+                <ComparisonAnalysisPanel
+                  incidentId={incidentId}
+                  selectedOperationalPeriodIds={effectiveSelectedOpIds}
+                  operationalPeriods={comparisonOperationalPeriods}
+                  analysis={comparisonAnalysis}
+                  isCreating={createComparisonMutation.isPending}
+                  errorMessage={comparisonErrorMessage}
+                  selectedRegionFactId={selectedComparisonRegionFactId}
+                  onCreateAnalysis={handleCreateComparisonAnalysis}
+                  onRegionFactSelect={handleComparisonRegionFactSelect}
+                />
+              </div>
             </div>
             <section className={styles.currentOpSummaryBar} aria-label="현재 OP 요약">
               <div>
@@ -875,16 +905,6 @@ export function HandoverPage({
                     <HandoverSummaryCard label="수색 이력 요약" value={`${evidenceSummary.summaryCount}건`} helper="요약 생성 결과" />
                   </div>
                 </section>
-
-                <ComparisonAnalysisPanel
-                  incidentId={incidentId}
-                  selectedOperationalPeriodIds={effectiveSelectedOpIds}
-                  operationalPeriods={comparisonOperationalPeriods}
-                  analysis={comparisonAnalysis}
-                  isCreating={createComparisonMutation.isPending}
-                  errorMessage={comparisonErrorMessage}
-                  onCreateAnalysis={handleCreateComparisonAnalysis}
-                />
 
                 <section className={styles.contextBlock} aria-label="수색 이력 자동 요약">
                   <div className={styles.blockHeading}>
