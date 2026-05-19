@@ -628,6 +628,9 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 
 - Owner: S8
 - Public client endpoint: none
+- Product scope labels:
+  - `scopeType=DUTY_SHIFT`: 인수인계 요약. 다음 근무자가 이전 근무 기록을 빠르게 읽도록 정리한다.
+  - `scopeType=OP`: OP 정보 요약. 지휘 화면의 수색 이력에서 해당 OP의 경로·마커·메모 기록을 읽기 쉽게 정리한다.
 - Trigger: server-side after successful handover boundary writes:
   - `PATCH /api/duty-shifts/{dutyShiftId}` with `action=END`
   - `POST /api/operational-periods` when the previous OP is ended and the next OP is opened
