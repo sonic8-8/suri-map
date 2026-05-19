@@ -4,9 +4,9 @@
 -- Usage:
 --   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/demo/seed-demo-scenario.sql
 --
--- This script intentionally uses synthetic people and places. It reuses the
--- stable account and police_phone rows used for login demos, then adds
--- demo-only deployed resources so the board can show a busier incident.
+-- This script intentionally uses synthetic people and places. It keeps the
+-- incident graph stable and connects every deployed account to human-readable
+-- Keycloak-backed login IDs.
 -- The incident graph itself is recreated by DEMO_INCIDENT_ID on every run.
 
 BEGIN;
@@ -144,22 +144,22 @@ INSERT INTO account (
     updated_at
 )
 VALUES
-    ('11111111-1111-1111-1111-111111110001', 'acct-precinct-cmd', '{noop}fixture', '광주광산경찰서 수완지구대 경위 김도현', 'COMMAND', 'POLICE_SUBSTATION', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('11111111-1111-1111-1111-111111110002', 'acct-precinct-car', '{noop}fixture', '광주광산경찰서 수완지구대 경사 박민수', 'PATROL_CAR', 'POLICE_SUBSTATION', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('11111111-1111-1111-1111-111111110003', 'acct-precinct-team', '{noop}fixture', '광주광산경찰서 수완지구대 순경 이준호', 'TEAM', 'POLICE_SUBSTATION', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('11111111-1111-1111-1111-111111110004', 'acct-cmd-alpha', '{noop}fixture', '광주경찰청 여성청소년과 실종팀 경감 정서윤', 'COMMAND', 'MISSING_TEAM', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('11111111-1111-1111-1111-111111110005', 'acct-team-alpha', '{noop}fixture', '광주경찰청 여성청소년과 실종팀 경사 최지훈', 'TEAM', 'MISSING_TEAM', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('11111111-1111-1111-1111-111111110006', 'acct-support-cmd', '{noop}fixture', '광주경찰청 기동대 경위 강현우', 'COMMAND', 'SUPPORT_UNIT', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('11111111-1111-1111-1111-111111110007', 'acct-support-car', '{noop}fixture', '광주경찰청 기동대 경사 윤태영', 'PATROL_CAR', 'SUPPORT_UNIT', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('11111111-1111-1111-1111-111111110008', 'acct-support-team', '{noop}fixture', '광주경찰청 기동대 순경 오민재', 'TEAM', 'SUPPORT_UNIT', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('d1000000-0000-4000-8000-000000000001', 'demo-suwang-patrol-02', '{noop}fixture', '광주광산경찰서 수완지구대 경장 문태호', 'PATROL_CAR', 'POLICE_SUBSTATION', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('d1000000-0000-4000-8000-000000000002', 'demo-cheomdan-patrol-01', '{noop}fixture', '광주광산경찰서 첨단지구대 경사 서민재', 'PATROL_CAR', 'POLICE_SUBSTATION', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('d1000000-0000-4000-8000-000000000003', 'demo-missing-drone-team', '{noop}fixture', '광주경찰청 실종팀 드론운용반 경위 한유라', 'TEAM', 'MISSING_TEAM', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('d1000000-0000-4000-8000-000000000004', 'demo-missing-interview-team', '{noop}fixture', '광주경찰청 실종팀 탐문반 경사 임재훈', 'TEAM', 'MISSING_TEAM', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('d1000000-0000-4000-8000-000000000005', 'demo-support-field-01', '{noop}fixture', '광주경찰청 기동대 1제대 순경 백승우', 'TEAM', 'SUPPORT_UNIT', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('d1000000-0000-4000-8000-000000000006', 'demo-support-field-02', '{noop}fixture', '광주경찰청 기동대 2제대 경장 조아린', 'TEAM', 'SUPPORT_UNIT', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('d1000000-0000-4000-8000-000000000007', 'demo-support-traffic-car', '{noop}fixture', '광주경찰청 기동대 교통통제 차량', 'PATROL_CAR', 'SUPPORT_UNIT', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('d1000000-0000-4000-8000-000000000008', 'demo-support-reserve-team', '{noop}fixture', '광주경찰청 기동대 야간 예비팀', 'TEAM', 'SUPPORT_UNIT', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    ('11111111-1111-1111-1111-111111110001', 'station1', '{noop}123456', '광주광산경찰서 수완지구대 경위 김도현', 'COMMAND', 'POLICE_SUBSTATION', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('11111111-1111-1111-1111-111111110002', 'station2', '{noop}123456', '광주광산경찰서 수완지구대 경사 박민수', 'PATROL_CAR', 'POLICE_SUBSTATION', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('11111111-1111-1111-1111-111111110003', 'station3', '{noop}123456', '광주광산경찰서 수완지구대 순경 이준호', 'TEAM', 'POLICE_SUBSTATION', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('11111111-1111-1111-1111-111111110004', 'missing1', '{noop}123456', '광주경찰청 여성청소년과 실종팀 경감 정서윤', 'COMMAND', 'MISSING_TEAM', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('11111111-1111-1111-1111-111111110005', 'missing2', '{noop}123456', '광주경찰청 여성청소년과 실종팀 경사 최지훈', 'TEAM', 'MISSING_TEAM', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('11111111-1111-1111-1111-111111110006', 'support1', '{noop}123456', '광주경찰청 기동대 경위 강현우', 'COMMAND', 'SUPPORT_UNIT', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('11111111-1111-1111-1111-111111110007', 'support2', '{noop}123456', '광주경찰청 기동대 경사 윤태영', 'PATROL_CAR', 'SUPPORT_UNIT', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('11111111-1111-1111-1111-111111110008', 'support3', '{noop}123456', '광주경찰청 기동대 순경 오민재', 'TEAM', 'SUPPORT_UNIT', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('d1000000-0000-4000-8000-000000000001', 'station4', '{noop}123456', '광주광산경찰서 수완지구대 경장 문태호', 'PATROL_CAR', 'POLICE_SUBSTATION', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('d1000000-0000-4000-8000-000000000002', 'station5', '{noop}123456', '광주광산경찰서 첨단지구대 경사 서민재', 'PATROL_CAR', 'POLICE_SUBSTATION', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('d1000000-0000-4000-8000-000000000003', 'missing3', '{noop}123456', '광주경찰청 실종팀 드론운용반 경위 한유라', 'TEAM', 'MISSING_TEAM', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('d1000000-0000-4000-8000-000000000004', 'missing4', '{noop}123456', '광주경찰청 실종팀 탐문반 경사 임재훈', 'TEAM', 'MISSING_TEAM', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('d1000000-0000-4000-8000-000000000005', 'support4', '{noop}123456', '광주경찰청 기동대 1제대 순경 백승우', 'TEAM', 'SUPPORT_UNIT', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('d1000000-0000-4000-8000-000000000006', 'support5', '{noop}123456', '광주경찰청 기동대 2제대 경장 조아린', 'TEAM', 'SUPPORT_UNIT', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('d1000000-0000-4000-8000-000000000007', 'support6', '{noop}123456', '광주경찰청 기동대 교통통제반 경장 조영민', 'PATROL_CAR', 'SUPPORT_UNIT', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('d1000000-0000-4000-8000-000000000008', 'support7', '{noop}123456', '광주경찰청 기동대 야간 예비팀 경사 김나영', 'TEAM', 'SUPPORT_UNIT', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 ON CONFLICT (id) DO UPDATE SET
     login_id = EXCLUDED.login_id,
     password_hash = EXCLUDED.password_hash,
