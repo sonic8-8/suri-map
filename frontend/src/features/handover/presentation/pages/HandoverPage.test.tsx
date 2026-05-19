@@ -81,12 +81,14 @@ vi.mock('../components/HandoverOperationalPeriodSelector', () => ({
 vi.mock('../components/HandoverComparisonMap', () => ({
   HandoverComparisonMap: ({
     comparisonHighlightGeometryGeojson,
+    highlightedSourceRecordKey = null,
     isMapExpanded = false,
     onToggleMapExpanded = () => {},
     rightPanelWidthPx = null,
     selectedOpIds = [],
   }: {
     comparisonHighlightGeometryGeojson?: string | null;
+    highlightedSourceRecordKey?: string | null;
     isMapExpanded?: boolean;
     onToggleMapExpanded?: () => void;
     rightPanelWidthPx?: number | null;
@@ -95,6 +97,7 @@ vi.mock('../components/HandoverComparisonMap', () => ({
     <div
       data-testid="handover-map"
       data-highlight={comparisonHighlightGeometryGeojson ?? ''}
+      data-source-highlight={highlightedSourceRecordKey ?? ''}
       data-selected-op-ids={selectedOpIds.join('|')}
       data-is-map-expanded={String(isMapExpanded)}
       data-right-panel-width={rightPanelWidthPx ?? ''}
@@ -359,6 +362,70 @@ describe('HandoverPage', () => {
     expect(screen.getByText('경로 1건')).toBeInTheDocument();
     expect(screen.getByText('마커 1건')).toBeInTheDocument();
     expect(screen.getByText('구역 1건')).toBeInTheDocument();
+  });
+
+  test('summary evidence button highlights the original source record and map evidence', async () => {
+    vi.mocked(useIncidentBoardQuery).mockReturnValue(
+      boardQueryResult(
+        incidentBoardResponse(1, {
+          slots: {
+            path: [boardSlotRow({ id: 'path-current', opId: 'op-current' })],
+            marker: [boardSlotRow({ id: 'marker-current', opId: 'op-current' })],
+          },
+        }),
+      ),
+    );
+    vi.mocked(operationalPeriodApi.list).mockResolvedValue({
+      currentOpId: 'op-current',
+      items: [operationalPeriod({ id: 'op-current', status: 'ACTIVE', sequenceNumber: 2, endedAt: null })],
+    });
+    vi.mocked(useSearchHistorySummaryListQuery).mockReturnValue({
+      data: {
+        items: [
+          {
+            summaryId: 'summary-op-current',
+            opId: 'op-current',
+            scopeType: 'OP',
+            scopeId: 'op-current',
+            status: 'READY',
+            displayStatus: 'READY',
+            content: 'OP 2차는 남측 순찰 경로와 현장 마커를 기준으로 정리되었습니다.',
+            sourceReadiness: 'READY',
+            sourceHash: 'a'.repeat(64),
+            generatedAt: '2026-05-17T02:30:00Z',
+            version: 1,
+          },
+        ],
+      },
+      isError: false,
+      isFetching: false,
+      isLoading: false,
+    } as any);
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <HandoverPage
+          viewMode="searchHistory"
+          currentUserAccount={currentUserAccount()}
+          incidentId={INCIDENT_ID}
+          markerNotificationIndex={0}
+          markerNotifications={[]}
+          onCloseMarkerNotifications={vi.fn()}
+          onMoveMarkerNotification={vi.fn()}
+          onOpenIncidentList={vi.fn()}
+          onOpenIncidentDetail={vi.fn()}
+          onOpenOfflinePackage={vi.fn()}
+          onOpenSituationBoard={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    const pathEvidenceButton = await screen.findByRole('button', { name: '수색 경로 원본 강조' });
+    fireEvent.click(pathEvidenceButton);
+
+    expect(pathEvidenceButton).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: '수색 경로 원본 기록 열기' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('handover-map')).toHaveAttribute('data-source-highlight', 'path:path-current');
   });
 
   test('op visibility toggle can be cleared and refuses a third visible OP', async () => {
