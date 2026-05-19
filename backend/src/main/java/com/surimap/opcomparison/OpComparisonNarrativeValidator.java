@@ -108,7 +108,8 @@ public class OpComparisonNarrativeValidator {
     Matcher matcher = NUMBER_PATTERN.matcher(observation);
     while (matcher.find()) {
       if (isOrdinalSequenceNumber(observation, matcher.end())
-          || isOperationalPeriodLabelNumber(observation, matcher.start())) {
+          || isOperationalPeriodLabelNumber(observation, matcher.start())
+          || isKoreanOperationalPeriodSequenceNumber(observation, matcher.start())) {
         continue;
       }
       String normalized = normalizeNumber(matcher.group());
@@ -129,6 +130,14 @@ public class OpComparisonNarrativeValidator {
       index--;
     }
     return index >= 1 && text.charAt(index) == 'P' && text.charAt(index - 1) == 'O';
+  }
+
+  private boolean isKoreanOperationalPeriodSequenceNumber(String text, int numberStart) {
+    int index = numberStart - 1;
+    while (index >= 0 && Character.isWhitespace(text.charAt(index))) {
+      index--;
+    }
+    return index >= 1 && text.charAt(index) == '수' && text.charAt(index - 1) == '차';
   }
 
   private static String normalizeNumber(String value) {

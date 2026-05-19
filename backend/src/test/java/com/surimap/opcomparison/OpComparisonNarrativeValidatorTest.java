@@ -134,6 +134,17 @@ class OpComparisonNarrativeValidatorTest {
   }
 
   @Test
+  void acceptsKoreanOperationalPeriodSequenceLabelNumbers() {
+    String observationsJson =
+        """
+        {"observations":[{"sentence":"차수 1의 이동 거리는 1,200m이고 차수 2의 이동 거리는 1,620m입니다.","factIds":["metric-pathDistanceMeters"]}]}
+        """
+            .trim();
+
+    assertThat(validator.isValid(evidencePackage(), observationsJson)).isTrue();
+  }
+
+  @Test
   void acceptsRegionEvidenceValueMatch() {
     String observationsJson =
         """
@@ -142,6 +153,30 @@ class OpComparisonNarrativeValidatorTest {
             .trim();
 
     assertThat(validator.isValid(evidencePackage(), observationsJson)).isTrue();
+  }
+
+  @Test
+  void acceptsExactTimestampWhenItComesFromCitedRegionEvidence() {
+    String observationsJson =
+        """
+        {"observations":[{"sentence":"1차의 공통 영역 첫 통과 시각은 2026-05-19T00:05:00Z입니다.","factIds":["region-common-1"]}]}
+        """
+            .trim();
+
+    assertThat(validator.isValid(evidencePackage(), observationsJson)).isTrue();
+  }
+
+  @Test
+  void rejectsTimestampThatDoesNotExistInCitedEvidence() {
+    String observationsJson =
+        """
+        {"observations":[{"sentence":"1차의 공통 영역 첫 통과 시각은 2026-05-19T00:06:00Z입니다.","factIds":["region-common-1"]}]}
+        """
+            .trim();
+
+    assertThat(validator.isValid(evidencePackage(), observationsJson)).isFalse();
+    assertThat(validator.validate(evidencePackage(), observationsJson).failureReason())
+        .isEqualTo(OpComparisonNarrativeResult.VALIDATION_REJECTED);
   }
 
   private OpComparisonEvidencePackage evidencePackage() {
