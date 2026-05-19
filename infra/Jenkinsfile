@@ -983,6 +983,10 @@ PROFILE_JSON
                           /opt/keycloak/bin/kcadm.sh update "users/${user_id}" \
                             -r suri-map \
                             -f "/tmp/${username}-profile.json" >/dev/null
+                          /opt/keycloak/bin/kcadm.sh set-password \
+                            -r suri-map \
+                            --userid "${user_id}" \
+                            --new-password fixture >/dev/null
                         }
 
                         for username in \
