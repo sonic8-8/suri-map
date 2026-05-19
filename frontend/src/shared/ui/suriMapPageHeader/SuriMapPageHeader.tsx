@@ -153,9 +153,6 @@ export function SuriMapPageHeader({
           <SuriMapLogo className={styles.brandMark} size={26} />
           <div>Suri-Map</div>
         </button>
-        <button type="button" className={styles.backButton} onClick={onOpenIncidentList}>
-          사건 목록
-        </button>
         <div className={styles.navTabs} role="list" aria-label="상황판 내비게이션">
           {navItems.map(({ id, label, onClick }) => {
             const isActive = id === activeTab;
