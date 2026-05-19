@@ -49,9 +49,14 @@ import com.surimap.core.fcm.FcmRegistrationCoordinator
 import com.surimap.core.fcm.FcmTokenProvider
 import com.surimap.core.fcm.FirebaseMessagingTokenProvider
 import com.surimap.core.fcm.IncidentAssignmentRefreshSignal
+import com.surimap.core.fcm.MarkerAlertSignal
 import com.surimap.core.fcm.NoFcmTokenProvider
 import com.surimap.core.fcm.SearchAreaBoundaryAlertNotification
 import com.surimap.core.fcm.SharedPreferencesFcmRegistrationStateStore
+import com.surimap.feature.alert.ui.IncidentAlertUiState
+import com.surimap.feature.alert.ui.IncidentFcmPayload
+import com.surimap.feature.alert.ui.IncidentFcmRoute
+import com.surimap.feature.alert.ui.IncidentFcmRouteMapper
 import com.surimap.core.incident.IncidentReadRepository
 import com.surimap.core.location.AndroidLocationUpdates
 import com.surimap.core.location.GpsLocationFix
@@ -231,6 +236,7 @@ fun SuriMapApp() {
     var blockedQueue by remember { mutableStateOf<BlockedQueueToastState?>(null) }
     var handoverMemoSaved by remember { mutableStateOf<HandoverMemoSavedToastState?>(null) }
     var searchPathEnded by remember { mutableStateOf<SearchPathEndedToastState?>(null) }
+    var markerAlert by remember { mutableStateOf<IncidentAlertUiState?>(null) }
 
     LaunchedEffect(incidentSessionState.incidentContext, incidentSessionState.policePhoneContext) {
         sessionSnapshotStore.save(
@@ -257,6 +263,7 @@ fun SuriMapApp() {
         }
     )
     IncidentAssignmentRefreshEffect(onRefresh = { assignmentRefreshNonce += 1 })
+    MarkerAlertEffect(onAlert = { markerAlert = it })
     NotificationPermissionEffect()
 
     Surface(modifier = Modifier.fillMaxSize(), color = PoliBgBase) {
@@ -266,7 +273,8 @@ fun SuriMapApp() {
                 incidentClosed = incidentClosed,
                 blockedQueue = blockedQueue,
                 handoverMemoSaved = handoverMemoSaved,
-                searchPathEnded = searchPathEnded
+                searchPathEnded = searchPathEnded,
+                markerAlert = markerAlert
             ),
             onDismissIncidentClosed = {
                 incidentClosed = null
@@ -278,7 +286,12 @@ fun SuriMapApp() {
                 navController.navigateToSingleTop(PolicePhoneRoute.BlockedOutbox)
             },
             onDismissHandoverMemoSaved = { handoverMemoSaved = null },
-            onDismissSearchPathEnded = { searchPathEnded = null }
+            onDismissSearchPathEnded = { searchPathEnded = null },
+            onDismissMarkerAlert = { markerAlert = null },
+            onOpenMarkerAlert = { markerId ->
+                markerAlert = null
+                navController.navigateToSingleTop(SearchMapDeepLink.markerFocusRoute(markerId))
+            }
         ) {
             FcmRegistrationEffect(policePhoneContext = incidentSessionState.policePhoneContext)
             NavHost(
@@ -445,6 +458,36 @@ private fun accessTokenRefreshDelayMs(accessTokenExpiresAtEpochMs: Long?): Long 
 }
 
 @Composable
+private fun MarkerAlertEffect(onAlert: (IncidentAlertUiState) -> Unit) {
+    val context = LocalContext.current.applicationContext
+    val currentOnAlert by rememberUpdatedState(onAlert)
+
+    DisposableEffect(context) {
+        val receiver =
+            object : BroadcastReceiver() {
+                override fun onReceive(context: Context, intent: Intent) {
+                    if (intent.action != MarkerAlertSignal.Action) {
+                        return
+                    }
+                    val route = IncidentFcmRouteMapper.route(intent.toIncidentFcmPayload())
+                    if (route is IncidentFcmRoute.MarkerFocus) {
+                        currentOnAlert(route.alert)
+                    }
+                }
+            }
+        ContextCompat.registerReceiver(
+            context,
+            receiver,
+            IntentFilter(MarkerAlertSignal.Action),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+        onDispose {
+            runCatching { context.unregisterReceiver(receiver) }
+        }
+    }
+}
+
+@Composable
 private fun IncidentAssignmentRefreshEffect(onRefresh: () -> Unit) {
     val context = LocalContext.current.applicationContext
     val currentOnRefresh by rememberUpdatedState(onRefresh)
@@ -469,6 +512,15 @@ private fun IncidentAssignmentRefreshEffect(onRefresh: () -> Unit) {
         }
     }
 }
+
+private fun Intent.toIncidentFcmPayload(): IncidentFcmPayload =
+    IncidentFcmPayload(
+        eventId = getStringExtra(MarkerAlertSignal.ExtraEventId).orEmpty(),
+        type = getStringExtra(MarkerAlertSignal.ExtraEventType).orEmpty(),
+        incidentId = getStringExtra(MarkerAlertSignal.ExtraIncidentId).orEmpty(),
+        markerId = getStringExtra(MarkerAlertSignal.ExtraMarkerId),
+        locationLabel = getStringExtra(MarkerAlertSignal.ExtraLocationLabel)
+    )
 
 @Composable
 private fun NotificationPermissionEffect() {

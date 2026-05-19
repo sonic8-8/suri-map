@@ -77,6 +77,36 @@ data class IncidentAlertUiState(
                 body = "북측 능선 진입 불가로 드론 지원 요청이 생성되었습니다."
             )
 
+        fun fromMarkerNotification(
+            type: IncidentAlertType,
+            eventId: String,
+            incidentId: String,
+            markerId: String,
+            locationLabel: String?
+        ): IncidentAlertUiState {
+            val title = if (type == IncidentAlertType.PERSON_FOUND) "실종자 발견" else "지원 요청"
+            val locationText =
+                locationLabel
+                    ?.takeIf(String::isNotBlank)
+                    ?.let { "위치 $it" }
+                    ?: "마커 위치 확인 필요"
+            val body =
+                if (type == IncidentAlertType.PERSON_FOUND) {
+                    "실종자 발견 마커가 생성되었습니다. 지도에서 위치를 확인하세요."
+                } else {
+                    "지원 요청 마커가 생성되었습니다. 지도에서 위치를 확인하세요."
+                }
+            return IncidentAlertUiState(
+                type = type,
+                eventId = eventId,
+                incidentId = incidentId,
+                focusMarkerId = markerId,
+                title = title,
+                subtitle = locationText,
+                body = body
+            )
+        }
+
         fun personFoundSample(): IncidentAlertUiState = personFound(markerId = "mk-precinct-person-found-001")
     }
 }
@@ -85,7 +115,8 @@ data class IncidentFcmPayload(
     val eventId: String,
     val type: String,
     val incidentId: String,
-    val markerId: String?
+    val markerId: String?,
+    val locationLabel: String? = null
 )
 
 sealed interface IncidentFcmRoute {
@@ -124,10 +155,13 @@ object IncidentFcmRouteMapper {
     private fun IncidentFcmPayload.toMarkerFocus(type: IncidentAlertType): IncidentFcmRoute {
         val markerId = markerId ?: return IncidentFcmRoute.Ignore
         val alert =
-            when (type) {
-                IncidentAlertType.PERSON_FOUND -> IncidentAlertUiState.personFound(markerId)
-                IncidentAlertType.SUPPORT_REQUEST -> IncidentAlertUiState.supportRequest(markerId)
-            }.copy(eventId = eventId, incidentId = incidentId)
+            IncidentAlertUiState.fromMarkerNotification(
+                type = type,
+                eventId = eventId,
+                incidentId = incidentId,
+                markerId = markerId,
+                locationLabel = locationLabel
+            )
         return IncidentFcmRoute.MarkerFocus(
             eventId = eventId,
             incidentId = incidentId,

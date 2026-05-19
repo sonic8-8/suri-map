@@ -5,9 +5,9 @@ import com.surimap.eventhub.port.EventHub;
 import com.surimap.marker.dto.MarkerGeoJsonPoint;
 import com.surimap.marker.dto.MarkerPublishPayload;
 import com.surimap.marker.dto.MarkerPublishRequest;
+import com.surimap.marker.event.MarkerEventIds;
 import com.surimap.marker.exception.MarkerApiException;
 import com.surimap.marker.port.MarkerEventPublisher;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -53,9 +53,7 @@ public class EventHubMarkerEventPublisher implements MarkerEventPublisher {
 
   private static UUID eventIdFor(MarkerPublishRequest request) {
     MarkerPublishPayload payload = request.payload();
-    return UUID.nameUUIDFromBytes(
-        ("event:" + request.type() + ":" + payload.id() + ":v" + payload.version())
-            .getBytes(StandardCharsets.UTF_8));
+    return MarkerEventIds.eventId(request.type(), payload.id(), payload.version());
   }
 
   private static String sourceEntityType(MarkerPublishRequest request) {

@@ -14,6 +14,12 @@ class SuriMapFirebaseMessagingService : FirebaseMessagingService() {
             SearchAreaBoundaryAlertNotification.showRemoteExit(applicationContext, payload)
             return
         }
+        MarkerAlertFcmRouter.payload(message.data)?.let { payload ->
+            if (MarkerAlertNotification.show(applicationContext, payload)) {
+                sendBroadcast(MarkerAlertSignal.intent(packageName, payload))
+            }
+            return
+        }
         val refresh = IncidentAssignmentFcmRouter.refreshPayload(message.data) ?: return
         IncidentAssignmentNotification.show(applicationContext, refresh)
         sendBroadcast(

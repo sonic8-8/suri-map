@@ -13,6 +13,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.surimap.feature.alert.ui.IncidentAlertBanner
+import com.surimap.feature.alert.ui.IncidentAlertUiState
 import com.surimap.ui.components.PoliBannerVariant
 import com.surimap.ui.components.PoliCard
 import com.surimap.ui.components.PoliChip
@@ -26,7 +28,8 @@ data class AppOverlayState(
     val incidentClosed: IncidentClosedOverlayState? = null,
     val blockedQueue: BlockedQueueToastState? = null,
     val handoverMemoSaved: HandoverMemoSavedToastState? = null,
-    val searchPathEnded: SearchPathEndedToastState? = null
+    val searchPathEnded: SearchPathEndedToastState? = null,
+    val markerAlert: IncidentAlertUiState? = null
 )
 
 data class IncidentClosedOverlayState(
@@ -52,6 +55,8 @@ fun AppOverlayHost(
     onOpenBlockedQueue: () -> Unit,
     onDismissHandoverMemoSaved: () -> Unit,
     onDismissSearchPathEnded: () -> Unit,
+    onDismissMarkerAlert: () -> Unit,
+    onOpenMarkerAlert: (String) -> Unit,
     content: @Composable BoxScope.() -> Unit
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
@@ -84,6 +89,15 @@ fun AppOverlayHost(
                 onAction = onDismissSearchPathEnded,
                 modifier = Modifier.align(Alignment.TopCenter).padding(PoliDimens.SectionPadding),
                 variant = PoliBannerVariant.Info
+            )
+        }
+
+        state.markerAlert?.let { alert ->
+            IncidentAlertBanner(
+                state = alert,
+                onConfirm = onDismissMarkerAlert,
+                onOpenMap = onOpenMarkerAlert,
+                modifier = Modifier.align(Alignment.TopCenter).padding(PoliDimens.SectionPadding)
             )
         }
 
