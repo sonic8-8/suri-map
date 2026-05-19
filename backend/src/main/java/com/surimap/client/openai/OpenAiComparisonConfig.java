@@ -1,6 +1,8 @@
 package com.surimap.client.openai;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.surimap.domain.summary.ForbiddenSummaryGuard;
+import com.surimap.domain.summary.SearchHistorySummaryPort;
 import com.surimap.opcomparison.OpComparisonNarrativePort;
 import com.surimap.opcomparison.OpComparisonNarrativeValidator;
 import java.time.Duration;
@@ -35,5 +37,16 @@ class OpenAiComparisonConfig {
       ObjectMapper objectMapper,
       OpComparisonNarrativeValidator narrativeValidator) {
     return new OpenAiComparisonAdapter(properties, restTemplate, objectMapper, narrativeValidator);
+  }
+
+  @Bean
+  @ConditionalOnProperty(prefix = "surimap.ai.openai", name = "enabled", havingValue = "true")
+  SearchHistorySummaryPort openAiSearchHistorySummaryAdapter(
+      OpenAiComparisonProperties properties,
+      @Qualifier("openAiRestTemplate") RestTemplate restTemplate,
+      ObjectMapper objectMapper,
+      ForbiddenSummaryGuard forbiddenSummaryGuard) {
+    return new OpenAiSearchHistorySummaryAdapter(
+        properties, restTemplate, objectMapper, forbiddenSummaryGuard);
   }
 }
