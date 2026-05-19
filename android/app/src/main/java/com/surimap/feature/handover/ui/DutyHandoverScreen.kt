@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SecondaryTabRow
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -37,6 +39,7 @@ data class DutyHandoverUiState(
     val sourceReadiness: SummarySourceReadiness,
     val metrics: List<HandoverMetric>,
     val records: List<HandoverRecord>,
+    val selectedTab: DutyHandoverTab = DutyHandoverTab.Replay,
     val canEndDutyShift: Boolean = false,
     val endingDutyShift: Boolean = false,
     val canRequestSummaryGeneration: Boolean = false
@@ -57,11 +60,14 @@ data class DutyHandoverUiState(
         buildList {
             add(title)
             add(subtitle)
+            DutyHandoverTab.entries.forEach { add(it.label) }
+            add(selectedTab.label)
             add("서버 인수인계 요약")
             add(summaryStatus.label)
             add(generatedAtLabel)
             add(summaryText)
             summaryActionLabel?.let(::add)
+            add("타임라인")
             add("원본 기록")
             metrics.forEach {
                 add(it.value)
@@ -76,6 +82,9 @@ data class DutyHandoverUiState(
                 add(dutyShiftActionLabel)
             }
         }
+
+    fun selectTab(tab: DutyHandoverTab): DutyHandoverUiState =
+        copy(selectedTab = tab)
 
     val dutyShiftActionLabel: String =
         if (endingDutyShift) "종료 등록 중" else "근무 종료"
@@ -169,6 +178,11 @@ enum class SummarySourceReadiness {
     Stale
 }
 
+enum class DutyHandoverTab(val label: String) {
+    Replay("리플레이"),
+    Report("보고서")
+}
+
 data class HandoverMetric(val value: String, val label: String)
 data class HandoverRecord(val title: String, val subtitle: String, val actionLabel: String)
 
@@ -195,11 +209,13 @@ fun DutyHandoverScreen(
     onBack: () -> Unit,
     onWriteMemo: () -> Unit,
     onOpenSearch: () -> Unit,
+    onSelectTab: (DutyHandoverTab) -> Unit = {},
     onEndDutyShift: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxSize().safeDrawingPadding()) {
         PoliAppBar(title = state.title, subtitle = state.subtitle, showBack = true, onBack = onBack)
+        DutyHandoverTabRow(selectedTab = state.selectedTab, onSelectTab = onSelectTab)
         Column(
             modifier =
             Modifier
@@ -208,22 +224,9 @@ fun DutyHandoverScreen(
                 .padding(horizontal = PoliDimens.SectionPadding),
             verticalArrangement = Arrangement.spacedBy(PoliDimens.Space4)
         ) {
-            SummaryCard(state)
-            PoliCard {
-                Text(text = "원본 기록", style = MaterialTheme.typography.titleMedium)
-                if (state.records.isEmpty()) {
-                    Text(
-                        text = "이전 기록 없음",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = PoliFgMuted
-                    )
-                } else {
-                    state.records.forEach { record ->
-                        PoliRow(title = record.title, subtitle = record.subtitle) {
-                            PoliChip(text = record.actionLabel)
-                        }
-                    }
-                }
+            when (state.selectedTab) {
+                DutyHandoverTab.Replay -> ReplayTab(state)
+                DutyHandoverTab.Report -> ReportTab(state)
             }
         }
 
@@ -254,6 +257,68 @@ fun DutyHandoverScreen(
                 enabled = !state.endingDutyShift,
                 variant = PoliButtonVariant.Danger
             )
+        }
+    }
+}
+
+@Composable
+private fun DutyHandoverTabRow(
+    selectedTab: DutyHandoverTab,
+    onSelectTab: (DutyHandoverTab) -> Unit
+) {
+    SecondaryTabRow(selectedTabIndex = selectedTab.ordinal) {
+        DutyHandoverTab.entries.forEach { tab ->
+            Tab(
+                selected = selectedTab == tab,
+                onClick = { onSelectTab(tab) },
+                text = { Text(text = tab.label) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ReplayTab(state: DutyHandoverUiState) {
+    PoliCard(strong = true) {
+        Text(text = "리플레이", style = MaterialTheme.typography.titleMedium)
+        Text(
+            text = state.generatedAtLabel,
+            style = MaterialTheme.typography.bodyMedium,
+            color = PoliFgMuted
+        )
+        if (state.metrics.isNotEmpty()) {
+            Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
+                state.metrics.forEach { metric ->
+                    PoliField(label = metric.label, value = metric.value, modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+    RecordCard(title = "타임라인", state = state)
+}
+
+@Composable
+private fun ReportTab(state: DutyHandoverUiState) {
+    SummaryCard(state)
+    RecordCard(title = "원본 기록", state = state)
+}
+
+@Composable
+private fun RecordCard(title: String, state: DutyHandoverUiState) {
+    PoliCard {
+        Text(text = title, style = MaterialTheme.typography.titleMedium)
+        if (state.records.isEmpty()) {
+            Text(
+                text = "이전 기록 없음",
+                style = MaterialTheme.typography.bodyMedium,
+                color = PoliFgMuted
+            )
+        } else {
+            state.records.forEach { record ->
+                PoliRow(title = record.title, subtitle = record.subtitle) {
+                    PoliChip(text = record.actionLabel)
+                }
+            }
         }
     }
 }
