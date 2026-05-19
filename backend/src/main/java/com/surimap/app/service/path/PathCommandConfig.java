@@ -4,6 +4,7 @@ import com.surimap.domain.path.SearchPathPublishRequest;
 import com.surimap.domain.path.exception.SearchPathGuardException;
 import com.surimap.domain.path.port.PolicePhoneGuard;
 import com.surimap.domain.path.port.SearchPathEventPublisher;
+import com.surimap.eventhub.port.EventHub;
 import com.surimap.operationalperiod.query.CurrentOpResult;
 import com.surimap.operationalperiod.query.OperationalPeriodQuery;
 import com.surimap.operationalperiod.query.OperationalPeriodQueryService;
@@ -117,21 +118,27 @@ public class PathCommandConfig {
 
   @Bean
   @Primary
-  SearchPathEventPublisher searchPathEventPublisher() {
-    return new SearchPathEventPublisher() {
-      @Override
-      public void publish(SearchPathPublishRequest request) {
-        if (request == null) {
-          throw new SearchPathGuardException("write_conflict");
+  SearchPathEventPublisher searchPathEventPublisher(EventHub eventHub, Environment environment) {
+    if (!postgresqlDataSource(environment)) {
+      return new SearchPathEventPublisher() {
+        @Override
+        public void publish(SearchPathPublishRequest request) {
+          if (request == null) {
+            throw new SearchPathGuardException("write_conflict");
+          }
+          if (request.eventType() == null
+              || request.id() == null
+              || request.incidentId() == null
+              || request.opId() == null) {
+            throw new SearchPathGuardException("write_conflict");
+          }
+          if (EVENT_SCHEMA_VERSION.isBlank()) {
+            throw new SearchPathGuardException("write_conflict");
+          }
         }
-        if (request.eventType() == null || request.id() == null || request.opId() == null) {
-          throw new SearchPathGuardException("write_conflict");
-        }
-        if (EVENT_SCHEMA_VERSION.isBlank()) {
-          throw new SearchPathGuardException("write_conflict");
-        }
-      }
-    };
+      };
+    }
+    return new EventHubSearchPathEventPublisher(eventHub);
   }
 
   private static UUID stableUuid(UUID key, String namespace) {
