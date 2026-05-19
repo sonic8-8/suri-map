@@ -84,6 +84,10 @@ function getAssignedCount(area: SearchAreaTreeNode) {
   return area.assignedAccounts?.length ?? 0;
 }
 
+function hasSavedAreaGeometry(area: SearchAreaTreeNode, savedAreaIds: Set<string>) {
+  return area.geometryState === 'saved' || savedAreaIds.has(area.id);
+}
+
 function hasPolicePhoneAssignment(area: SearchAreaTreeNode) {
   return getAssignedCount(area) > 0 && !hasPatrolCarAssignment(area);
 }
@@ -177,7 +181,7 @@ function AreaNode({
   const hasChildren = children.length > 0;
   const displayState = getDisplayState(area, assignedAreaIds);
   const assignedAccountNames = area.kind !== 'overall' ? getAssignedAccountNames(area) : '';
-  const canSelectArea = hasActiveOverallSearchArea && assignedAreaIds.has(area.id);
+  const canSelectArea = hasActiveOverallSearchArea && hasSavedAreaGeometry(area, assignedAreaIds);
   const structureLabel = getStructureLabel(area);
   const assignmentLabel = getAssignmentLabel(area);
   const nextActionLabel = getNextActionLabel(area, displayState);

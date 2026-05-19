@@ -1,13 +1,15 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { AreaEditPage } from '../../../areaEdit/presentation/pages/AreaEditPage';
 import { HandoverPage } from '../../../handover/presentation/pages/HandoverPage';
 import type { CompletedAreaDraft } from '../../../../shared/model/areaDraft';
 import type { MarkerNotification } from '../../../../shared/ui';
 import type { LoginAccount } from '../../../login/presentation/types/login';
 import { OverallSearchAreaRequiredModal } from '../components/OverallSearchAreaRequiredModal';
+import { SearchAreaAssignmentDialog } from '../components/assignment/SearchAreaAssignmentDialog';
 import { SituationBoardHeader } from '../components/header/SituationBoardHeader';
 import { SituationBoardLeftPanel } from '../components/leftPanel/SituationBoardLeftPanel';
 import { SituationBoardMap } from '../components/map/SituationBoardMap';
+import type { SearchAreaTreeNode } from '../constants/mockSituationBoard';
 import type { LeftPanelPage } from '../hooks/useLeftPanelPages';
 import { useSituationBoardPageState } from '../hooks/useSituationBoardPageState';
 import pageStyles from './SituationBoardPage.module.css';
@@ -20,6 +22,28 @@ const HIDDEN_MAP_LAYER_VISIBILITY = {
   searchArea: false,
   marker: false,
 };
+
+function flattenSearchAreaTree(root: SearchAreaTreeNode): SearchAreaTreeNode[] {
+  return [root, ...(root.children ?? []).flatMap(flattenSearchAreaTree)];
+}
+
+function findSearchAreaById(root: SearchAreaTreeNode, searchAreaId: string | null) {
+  if (!searchAreaId) return null;
+  return flattenSearchAreaTree(root).find((area) => area.id === searchAreaId) ?? null;
+}
+
+function isAssignmentPendingSearchArea(area: SearchAreaTreeNode | null, savedAreaDrafts: CompletedAreaDraft[]) {
+  if (!area) return false;
+
+  const hasSavedGeometry = area.geometryState === 'saved' || savedAreaDrafts.some((draft) => draft.areaId === area.id);
+  return (
+    area.kind !== 'overall' &&
+    area.status === 'ACTIVE' &&
+    (area.children ?? []).length === 0 &&
+    hasSavedGeometry &&
+    (area.assignedAccounts ?? []).length === 0
+  );
+}
 
 type SituationBoardPageProps = {
   incidentId: string;
@@ -70,6 +94,7 @@ export function SituationBoardPage({
   const areaIncidentListNavigationHandlerRef = useRef<(() => void) | null>(null);
   const [leftPanelPage, setLeftPanelPage] = useState<LeftPanelPage>('area');
   const [areaPanelMode, setAreaPanelMode] = useState<'tree' | 'assignment'>('tree');
+  const [assignmentDialogSearchAreaId, setAssignmentDialogSearchAreaId] = useState<string | null>(null);
   const [focusedMarkerRequest, setFocusedMarkerRequest] = useState({ markerId: null as string | null, sequence: 0 });
   const [focusedSearchAreaRequest, setFocusedSearchAreaRequest] = useState({
     searchAreaId: null as string | null,
@@ -92,9 +117,21 @@ export function SituationBoardPage({
     refreshVersion,
     savedAreaDrafts,
   });
+  const assignmentCandidates = useMemo(
+    () =>
+      boardState.incidentDetail && 'assignments' in boardState.incidentDetail ? boardState.incidentDetail.assignments : [],
+    [boardState.incidentDetail],
+  );
+  const assignmentDialogSearchArea = findSearchAreaById(boardState.board.searchAreaTree, assignmentDialogSearchAreaId);
   const handleSelectSearchAreaFromPanel = useCallback(
     (searchAreaId: string) => {
-      boardState.toggleSelectedSearchArea(searchAreaId);
+      const searchArea = findSearchAreaById(boardState.board.searchAreaTree, searchAreaId);
+      if (isAssignmentPendingSearchArea(searchArea, boardState.board.searchAreaDrafts)) {
+        boardState.selectSearchArea(searchAreaId);
+        setAssignmentDialogSearchAreaId(searchAreaId);
+      } else {
+        boardState.toggleSelectedSearchArea(searchAreaId);
+      }
       setFocusedSearchAreaRequest((current) => ({ searchAreaId, sequence: current.sequence + 1 }));
     },
     [boardState],
@@ -120,11 +157,12 @@ export function SituationBoardPage({
     onOpenIncidentList();
   }, [boardState.isAreaWorkspaceOpen, onOpenIncidentList]);
   const handleOpenSearchAreaAssignment = useCallback(() => {
-    setLeftPanelPage('area');
-    setAreaPanelMode('assignment');
-    if (boardState.isLeftPanelCollapsed) {
-      boardState.toggleLeftPanelCollapsed();
+    const searchArea = findSearchAreaById(boardState.board.searchAreaTree, boardState.selectedSearchAreaId);
+    if (!searchArea || !isAssignmentPendingSearchArea(searchArea, boardState.board.searchAreaDrafts)) {
+      return;
     }
+
+    setAssignmentDialogSearchAreaId(searchArea.id);
   }, [boardState]);
 
   if (boardState.isInitialLoading) {
@@ -235,11 +273,7 @@ export function SituationBoardPage({
             savedAreaDrafts={boardState.board.searchAreaDrafts}
             incidentId={incidentId}
             activeOperationalPeriodId={boardState.activeOperationalPeriodId}
-            assignmentCandidates={
-              boardState.incidentDetail && 'assignments' in boardState.incidentDetail
-                ? boardState.incidentDetail.assignments
-                : []
-            }
+            assignmentCandidates={assignmentCandidates}
             activePage={leftPanelPage}
             areaMode={areaPanelMode}
             selectedSearchAreaId={boardState.selectedSearchAreaId}
@@ -298,6 +332,16 @@ export function SituationBoardPage({
           selectedSearchAreaId={isClosedTerminalBoard ? null : boardState.selectedSearchAreaId}
         />
       </div>
+      {assignmentDialogSearchArea ? (
+        <SearchAreaAssignmentDialog
+          activeOperationalPeriodId={boardState.activeOperationalPeriodId}
+          assignmentCandidates={assignmentCandidates}
+          incidentId={incidentId}
+          searchArea={assignmentDialogSearchArea}
+          onClose={() => setAssignmentDialogSearchAreaId(null)}
+          onSaved={boardState.refreshAreaData}
+        />
+      ) : null}
       {/*
         전체 수색구역 미지정 사건도 상황판 진입은 허용한다.
         수색 범위 결정 모달은 수색구역 분할/배정 흐름에서 다시 연결할 수 있도록 컴포넌트만 보존한다.
