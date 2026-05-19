@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { ApiError, ApiHttpError, createIdempotencyKey } from '../../../../shared/api/client';
-import { getAreaColorToken, rememberAreaColorToken } from '../../../../shared/model/areaColorRegistry';
+import { ApiError, createIdempotencyKey } from '../../../../shared/api/client';
+import { rememberAreaColorToken } from '../../../../shared/model/areaColorRegistry';
 import {
   SuriMapPageHeader,
   type MarkerNotification,
@@ -27,7 +27,11 @@ import { useAreaEditOpState } from '../hooks/useAreaEditOpState';
 import { useAreaEditPanels } from '../hooks/useAreaEditPanels';
 import { useAreaEditTools } from '../hooks/useAreaEditTools';
 import { findParentArea, flattenAreaTree, getAncestorAreaIds, getAreaAndDescendantIds } from '../utils/areaTreeUtils';
-import { createAssignedAccountCountsByAreaId, createAreaEditMapMarkers, createAreaEditMovementPaths } from '../utils/boardReadUtils';
+import {
+  createAssignedAccountCountsByAreaId,
+  createAreaEditMapMarkers,
+  createAreaEditMovementPaths,
+} from '../utils/boardReadUtils';
 import {
   createAreaEditTreeState,
   createAreaDraft,
@@ -36,6 +40,14 @@ import {
   toGeoJsonPolygon,
 } from '../utils/draftUtils';
 import { isSearchAreaLeafNode } from '../utils/areaAssignmentUtils';
+import {
+  autoDismissValidationMessages,
+  createPendingAreaNode,
+  drawDisabledPageStates,
+  getActiveOverallSearchArea,
+  splitChildMinimumMessage,
+  splitChildRangeMissingMessage,
+} from '../utils/areaEditPageHelpers';
 import { isPointInRing, isPointOnSegment, isRingInsideParent, segmentsIntersect } from '../utils/geometryUtils';
 import { createIncidentContext, formatBoardTimestamp } from '../utils/incidentContextUtils';
 import styles from './AreaEditPage.module.css';
@@ -59,45 +71,6 @@ type AreaEditPageProps = {
 };
 
 type PendingNavigationTarget = 'situationBoard' | 'incidentList' | 'incidentDetail';
-
-const drawDisabledPageStates: AreaEditPageState[] = [
-  'permission_denied',
-  'permission_partial',
-  'op_transition',
-  'incident_closed',
-  'error',
-];
-const autoDismissValidationMessages = new Set(['구역 배정을 완료했습니다.', '필요한 모든 구역 배정을 저장했습니다.']);
-
-const splitChildMinimumMessage = '구역을 분할하려면 2개 이상의 하위 구역을 추가해 주세요.';
-const splitChildRangeMissingMessage = '추가한 모든 하위 구역의 범위를 지정해 주세요.';
-
-async function getActiveOverallSearchArea(incidentId: string) {
-  try {
-    return await searchAreaApi.fetchActiveOverall(incidentId);
-  } catch (error) {
-    if (error instanceof ApiHttpError && (error.code === 'overall_search_area_required' || error.status === 404)) {
-      return null;
-    }
-    throw error;
-  }
-}
-
-function createPendingAreaNode(kind: 'unit' | 'team', index: number): AreaTreeNode {
-  const id = globalThis.crypto?.randomUUID?.() ?? `${kind}-${Date.now()}-${index}`;
-  const label = kind === 'unit' ? 'UNIT' : 'TEAM';
-
-  return {
-    id,
-    kind,
-    colorToken: getAreaColorToken(id),
-    name: `${label} ${index}`,
-    meta: kind === 'unit' ? '저장 전 임시 구역' : '저장 전 TEAM 구역',
-    status: 'ACTIVE',
-    geometryState: 'pending',
-    children: [],
-  };
-}
 
 export function AreaEditPage({
   embedded = false,
@@ -163,10 +136,13 @@ export function AreaEditPage({
           : currentOverallArea
             ? MOCK_PAGE_STATE
             : overallSearchAreaState.status === 'missing'
-            ? 'empty'
-            : MOCK_PAGE_STATE;
+              ? 'empty'
+              : MOCK_PAGE_STATE;
   const allAreaNodes = useMemo(() => flattenAreaTree(currentAreaTree), [currentAreaTree]);
-  const requiredAreaNodes = useMemo(() => allAreaNodes.filter((area) => area.geometryState === 'pending'), [allAreaNodes]);
+  const requiredAreaNodes = useMemo(
+    () => allAreaNodes.filter((area) => area.geometryState === 'pending'),
+    [allAreaNodes],
+  );
   const assignedAreaIds = useMemo(() => new Set(completedDrafts.map((draft) => draft.areaId)), [completedDrafts]);
   const unassignedAreaCount = requiredAreaNodes.filter((area) => !assignedAreaIds.has(area.id)).length;
   const pendingChildAreaNodes = useMemo(
@@ -259,7 +235,8 @@ export function AreaEditPage({
 
     let isActive = true;
 
-    void searchAreaApi.list({ incidentId, opId: currentOpId, status: 'ACTIVE' })
+    void searchAreaApi
+      .list({ incidentId, opId: currentOpId, status: 'ACTIVE' })
       .then((response) => {
         if (!isActive) return;
 
@@ -370,7 +347,9 @@ export function AreaEditPage({
     setNormalSelectedAreaId(null);
     setNormalSelectedAreaPosition(null);
     setSelectedAreaId((currentSelectedAreaId) => (currentSelectedAreaId === areaId ? null : currentSelectedAreaId));
-    setActiveChildAddAreaId((currentActiveChildAddAreaId) => (currentActiveChildAddAreaId === areaId ? null : currentActiveChildAddAreaId));
+    setActiveChildAddAreaId((currentActiveChildAddAreaId) =>
+      currentActiveChildAddAreaId === areaId ? null : currentActiveChildAddAreaId,
+    );
     setValidationMessage('저장 전 UNIT 구역을 삭제했습니다.');
     setHasDraftChanges(true);
   };
@@ -396,7 +375,10 @@ export function AreaEditPage({
     const allowedContainerIds = getAncestorAreaIds(currentAreaTree, area.id);
 
     const unrelatedDraft = completedDrafts.find(
-      (draft) => draft.areaId !== area.id && !allowedContainerIds.has(draft.areaId) && isPointInRing(position, draft.coordinates),
+      (draft) =>
+        draft.areaId !== area.id &&
+        !allowedContainerIds.has(draft.areaId) &&
+        isPointInRing(position, draft.coordinates),
     );
 
     if (unrelatedDraft) {
@@ -426,8 +408,7 @@ export function AreaEditPage({
     for (let index = 0; index < ring.length - 1; index += 1) {
       const ringStart = ring[index];
       const ringEnd = ring[index + 1];
-      const touchesBoundary =
-        isPointOnSegment(ringStart, ringEnd, start) || isPointOnSegment(ringStart, ringEnd, end);
+      const touchesBoundary = isPointOnSegment(ringStart, ringEnd, start) || isPointOnSegment(ringStart, ringEnd, end);
 
       if ((!allowBoundaryTouch || !touchesBoundary) && segmentsIntersect(start, end, ringStart, ringEnd)) {
         return true;
@@ -741,9 +722,7 @@ export function AreaEditPage({
     }
 
     const pendingAreaIds = new Set(requiredAreaNodes.map((area) => area.id));
-    const childDrafts = completedDrafts.filter(
-      (draft) => draft.kind !== 'overall' && pendingAreaIds.has(draft.areaId),
-    );
+    const childDrafts = completedDrafts.filter((draft) => draft.kind !== 'overall' && pendingAreaIds.has(draft.areaId));
     const isSplitSave = childDrafts.length > 0;
 
     try {
@@ -754,7 +733,9 @@ export function AreaEditPage({
             ? overallSearchAreaState.area
             : await getActiveOverallSearchArea(incidentId);
         if (!activeOverallArea) {
-          setValidationMessage('이미 저장된 전체 수색 구역을 확인한 뒤 하위 구역을 저장할 수 있습니다. 화면을 새로고침한 뒤 다시 시도해 주세요.');
+          setValidationMessage(
+            '이미 저장된 전체 수색 구역을 확인한 뒤 하위 구역을 저장할 수 있습니다. 화면을 새로고침한 뒤 다시 시도해 주세요.',
+          );
           return;
         }
 
@@ -780,10 +761,13 @@ export function AreaEditPage({
 
         for (const [parentAreaId, parentDrafts] of Object.entries(draftsByParentId)) {
           const parentArea = allAreaNodes.find((area) => area.id === parentAreaId);
-          const expectedVersion = parentArea?.kind === 'overall' ? activeOverallArea.version : parentArea?.sourceVersion;
+          const expectedVersion =
+            parentArea?.kind === 'overall' ? activeOverallArea.version : parentArea?.sourceVersion;
 
           if (!parentArea || !expectedVersion) {
-            setValidationMessage('상위 구역 버전을 확인하지 못해 하위 구역을 저장할 수 없습니다. 화면을 새로고침한 뒤 다시 시도해 주세요.');
+            setValidationMessage(
+              '상위 구역 버전을 확인하지 못해 하위 구역을 저장할 수 없습니다. 화면을 새로고침한 뒤 다시 시도해 주세요.',
+            );
             return;
           }
 
@@ -792,17 +776,23 @@ export function AreaEditPage({
             return;
           }
 
-          const splitResponse = await searchAreaApi.split(parentAreaId, {
-            opId: currentOpId,
-            children: parentDrafts.map((draft) => toGeoJsonPolygon(draft.coordinates)),
-            expectedVersion,
-            clientTs: new Date().toISOString(),
-          }, createIdempotencyKey('search-area-split')).catch((error: unknown) => {
-            if (error instanceof ApiError && error.code === 'area_state_conflict') {
-              throw new Error('search_area_split_conflict');
-            }
-            throw error;
-          });
+          const splitResponse = await searchAreaApi
+            .split(
+              parentAreaId,
+              {
+                opId: currentOpId,
+                children: parentDrafts.map((draft) => toGeoJsonPolygon(draft.coordinates)),
+                expectedVersion,
+                clientTs: new Date().toISOString(),
+              },
+              createIdempotencyKey('search-area-split'),
+            )
+            .catch((error: unknown) => {
+              if (error instanceof ApiError && error.code === 'area_state_conflict') {
+                throw new Error('search_area_split_conflict');
+              }
+              throw error;
+            });
 
           savedChildDrafts.push(
             ...splitResponse.children.flatMap((child, index) => {
@@ -843,12 +833,15 @@ export function AreaEditPage({
         return;
       }
 
-      const savedOverallAreaResult = await searchAreaApi.create({
-        incidentId,
-        areaLevel: 'OVERALL',
-        geometry: toGeoJsonPolygon(overallDraft.coordinates),
-        clientTs: new Date().toISOString(),
-      }, createIdempotencyKey('search-area-overall'));
+      const savedOverallAreaResult = await searchAreaApi.create(
+        {
+          incidentId,
+          areaLevel: 'OVERALL',
+          geometry: toGeoJsonPolygon(overallDraft.coordinates),
+          clientTs: new Date().toISOString(),
+        },
+        createIdempotencyKey('search-area-overall'),
+      );
       const savedOverallDraftBase = createOverallDraft(savedOverallAreaResult) ?? {
         ...overallDraft,
         areaId: savedOverallAreaResult.id,
@@ -868,7 +861,9 @@ export function AreaEditPage({
       await reloadBoard();
     } catch (error) {
       if (error instanceof Error && error.message === 'search_area_split_conflict') {
-        setValidationMessage('수색 구역 상태가 변경되어 UNIT 구역을 저장하지 못했습니다. 화면을 새로고침한 뒤 다시 시도해 주세요.');
+        setValidationMessage(
+          '수색 구역 상태가 변경되어 UNIT 구역을 저장하지 못했습니다. 화면을 새로고침한 뒤 다시 시도해 주세요.',
+        );
         return;
       }
 
@@ -935,12 +930,16 @@ export function AreaEditPage({
 
     try {
       setIsAssigningArea(true);
-      await searchAreaApi.assign(selectedArea.id, {
-        incidentId,
-        opId: currentOpId,
-        assigneeAccountIds,
-        clientTs: new Date().toISOString(),
-      }, createIdempotencyKey('search-area-assignment'));
+      await searchAreaApi.assign(
+        selectedArea.id,
+        {
+          incidentId,
+          opId: currentOpId,
+          assigneeAccountIds,
+          clientTs: new Date().toISOString(),
+        },
+        createIdempotencyKey('search-area-assignment'),
+      );
       setValidationMessage('수색 구역 담당 계정을 배정했습니다.');
       setSelectedAssigneeAccountIds(new Set());
       await reloadBoard();
@@ -951,7 +950,9 @@ export function AreaEditPage({
       }
 
       if (error instanceof ApiError && error.code === 'write_conflict') {
-        setValidationMessage('수색 구역 상태가 변경되어 담당 계정을 배정하지 못했습니다. 화면을 새로고침한 뒤 다시 시도해 주세요.');
+        setValidationMessage(
+          '수색 구역 상태가 변경되어 담당 계정을 배정하지 못했습니다. 화면을 새로고침한 뒤 다시 시도해 주세요.',
+        );
         return;
       }
 
@@ -961,24 +962,27 @@ export function AreaEditPage({
     }
   };
 
-  const requestNavigation = useCallback((target: PendingNavigationTarget) => {
-    if (hasDraftChanges) {
-      setPendingNavigationTarget(target);
-      return;
-    }
+  const requestNavigation = useCallback(
+    (target: PendingNavigationTarget) => {
+      if (hasDraftChanges) {
+        setPendingNavigationTarget(target);
+        return;
+      }
 
-    if (target === 'incidentList') {
-      onOpenIncidentList();
-      return;
-    }
+      if (target === 'incidentList') {
+        onOpenIncidentList();
+        return;
+      }
 
-    if (target === 'incidentDetail') {
-      onOpenIncidentDetail?.();
-      return;
-    }
+      if (target === 'incidentDetail') {
+        onOpenIncidentDetail?.();
+        return;
+      }
 
-    onBackToSituationBoard();
-  }, [hasDraftChanges, onBackToSituationBoard, onOpenIncidentDetail, onOpenIncidentList]);
+      onBackToSituationBoard();
+    },
+    [hasDraftChanges, onBackToSituationBoard, onOpenIncidentDetail, onOpenIncidentList],
+  );
 
   const handleNavToSituationBoard = useCallback(() => {
     requestNavigation('situationBoard');
@@ -1109,10 +1113,20 @@ export function AreaEditPage({
                 >
                   그리기
                 </button>
-                <button type="button" className={styles.sharedMapToolButton} disabled={isDrawToolDisabled} onClick={handleUndoDraft}>
+                <button
+                  type="button"
+                  className={styles.sharedMapToolButton}
+                  disabled={isDrawToolDisabled}
+                  onClick={handleUndoDraft}
+                >
                   되돌리기
                 </button>
-                <button type="button" className={styles.sharedMapToolButton} disabled={isDrawToolDisabled} onClick={handleCancelDraft}>
+                <button
+                  type="button"
+                  className={styles.sharedMapToolButton}
+                  disabled={isDrawToolDisabled}
+                  onClick={handleCancelDraft}
+                >
                   취소
                 </button>
                 {validationMessage ? <span role="alert">{validationMessage}</span> : null}
