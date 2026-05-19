@@ -176,6 +176,49 @@ class MarkerLocalRecorderRoomTest {
     }
 
     @Test
+    fun allSc06MarkerTypesPersistAsPendingLocalMarkerMirrors() = runBlocking {
+        val recorder =
+            MarkerLocalRecorder(
+                syncClient = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()),
+                localMarkerDao = database.localMarkerDao(),
+                now = { CLIENT_TS },
+                sequenceSource = sequenceSource(100),
+                idFactory = idFactory()
+            )
+        val markerTypes =
+            listOf(
+                "CLUE" to null,
+                "PERSON_FOUND" to null,
+                "FIELD_CONDITION" to null,
+                "SUPPORT_REQUEST" to "POLICE_DOG",
+                "NOTE" to null
+            )
+
+        markerTypes.forEach { (type, supportRequestType) ->
+            recorder.createMarker(
+                context = CONTEXT,
+                input =
+                MarkerUpsertInput(
+                    type = type,
+                    location = LOCATION,
+                    supportRequestType = supportRequestType,
+                    memo = "SC-06 $type"
+                )
+            )
+        }
+
+        val rows = database.outboxDao().findByIncidentId(INCIDENT_ID)
+        val pendingMarkers = database.localMarkerDao().findPendingByIncidentAndPolicePhone(INCIDENT_ID, POLICE_PHONE_ID)
+        val pendingByType = pendingMarkers.associateBy { it.type }
+
+        assertEquals(5, rows.size)
+        assertEquals(markerTypes.map { it.first }.toSet(), pendingByType.keys)
+        assertEquals("POLICE_DOG", pendingByType["SUPPORT_REQUEST"]?.supportRequestType)
+        assertTrue(pendingMarkers.all { it.syncStatus == "PENDING_SEND" })
+        assertTrue(pendingMarkers.all { it.lon == 126.9134 && it.lat == 35.1631 })
+    }
+
+    @Test
     fun markerCreateReplayMarksLocalMarkerSynced() = runBlocking {
         val replayableClientTs = Instant.ofEpochMilli(System.currentTimeMillis())
         val recorder =

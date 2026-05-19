@@ -120,6 +120,45 @@ class MarkerLocalRecorderTest {
     }
 
     @Test
+    fun allSc06MarkerTypesEnqueueCanonicalCreatePayloads() = runBlocking {
+        val syncClient = CapturingSyncClient()
+        val recorder =
+            MarkerLocalRecorder(
+                syncClient = syncClient,
+                now = { CLIENT_TS },
+                sequenceSource = sequenceSource(40),
+                idFactory = idFactory()
+            )
+        val markerTypes =
+            listOf(
+                "CLUE" to null,
+                "PERSON_FOUND" to null,
+                "FIELD_CONDITION" to null,
+                "SUPPORT_REQUEST" to "POLICE_DOG",
+                "NOTE" to null
+            )
+
+        markerTypes.forEach { (type, supportRequestType) ->
+            recorder.createMarker(
+                context = CONTEXT,
+                input =
+                MarkerUpsertInput(
+                    type = type,
+                    location = LOCATION,
+                    supportRequestType = supportRequestType,
+                    memo = "SC-06 $type"
+                )
+            )
+        }
+
+        assertEquals(markerTypes.map { it.first }, syncClient.operations.map { it.payloadField("type") })
+        assertEquals(listOf(40L, 41L, 42L, 43L, 44L), syncClient.operations.map { it.sequence })
+        assertTrue(syncClient.operations.all { it.endpoint == "/api/markers" })
+        assertTrue(syncClient.operations.all { it.payload.contains("\"location\":{\"type\":\"Point\"") })
+        assertEquals("POLICE_DOG", syncClient.operations[3].payloadField("supportRequestType"))
+    }
+
+    @Test
     fun missingCurrentContextDoesNotCreateOutboxOperation() = runBlocking {
         val syncClient = CapturingSyncClient()
         val recorder = MarkerLocalRecorder(syncClient = syncClient)
@@ -194,6 +233,11 @@ class MarkerLocalRecorderTest {
 
         assertEquals(MarkerWriteResult.Blocked, result)
         assertTrue(syncClient.operations.isEmpty())
+    }
+
+    private fun LocalWriteOperation.payloadField(fieldName: String): String? {
+        val pattern = Regex(""""$fieldName":"([^"]+)"""")
+        return pattern.find(payload)?.groupValues?.get(1)
     }
 
     private class CapturingSyncClient : SyncClient {
