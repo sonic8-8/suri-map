@@ -5,6 +5,7 @@ import { completeKeycloakLogin, logoutCurrentSession, readStoredLoginAccount } f
 import { LoginPage } from '../features/login/presentation/pages/LoginPage';
 import type { LoginAccount } from '../features/login/presentation/types/login';
 import { HandoverPage } from '../features/handover/presentation/pages/HandoverPage';
+import { SearchHistoryPage } from '../features/searchHistory/presentation/pages/SearchHistoryPage';
 import { useIncidentMarkerNotifications } from '../features/markerNotifications/presentation/hooks/useIncidentMarkerNotifications';
 import { OfflinePackageStatusPage } from '../features/offlinePackage/presentation/pages/OfflinePackageStatusPage';
 import { SituationBoardPage } from '../features/situationBoard/presentation/pages/SituationBoardPage';
@@ -226,7 +227,6 @@ function SituationBoardRoute({
 
 type HandoverRouteProps = {
   currentUserAccount: LoginAccount;
-  viewMode?: 'handover' | 'searchHistory';
   markerNotificationIndex: number;
   markerNotifications: MarkerNotification[];
   onCloseMarkerNotifications: () => void;
@@ -239,7 +239,6 @@ type HandoverRouteProps = {
 
 function HandoverRoute({
   currentUserAccount,
-  viewMode = 'handover',
   markerNotificationIndex,
   markerNotifications,
   onCloseMarkerNotifications,
@@ -261,7 +260,48 @@ function HandoverRoute({
 
   return (
     <HandoverPage
-      viewMode={viewMode}
+      incidentId={incidentId}
+      currentUserAccount={currentUserAccount}
+      markerNotificationIndex={markerNotificationIndex}
+      markerNotifications={markerNotifications}
+      onCloseMarkerNotifications={onCloseMarkerNotifications}
+      onMoveMarkerNotification={onMoveMarkerNotification}
+      onOpenIncidentList={() => navigate(ROUTES.incidentList)}
+      onBrowserBackToIncidentList={openIncidentListFromHistory}
+      onOpenIncidentDetail={() => navigate(getIncidentDetailPath(incidentId))}
+      onOpenSituationBoard={() => navigate(getIncidentBoardPath(incidentId))}
+      onOpenHandover={() => navigate(getIncidentHandoverPath(incidentId))}
+      onOpenSearchHistory={() => navigate(getIncidentSearchHistoryPath(incidentId))}
+      onOpenOfflinePackage={() => onOpenOfflinePackage(incidentId)}
+      onOpenLogin={onOpenLogin}
+      onOperationalPeriodCreated={() => onOperationalPeriodCreated(incidentId)}
+    />
+  );
+}
+
+function SearchHistoryRoute({
+  currentUserAccount,
+  markerNotificationIndex,
+  markerNotifications,
+  onCloseMarkerNotifications,
+  onMarkerNotification,
+  onMoveMarkerNotification,
+  onOperationalPeriodCreated,
+  onOpenOfflinePackage,
+  onOpenLogin,
+}: HandoverRouteProps) {
+  const incidentId = useRouteIncidentId();
+  const navigate = useNavigate();
+  const openIncidentListFromHistory = useCallback(() => navigate(ROUTES.incidentList, { replace: true }), [navigate]);
+
+  useIncidentMarkerNotifications({
+    incidentId,
+    enabled: true,
+    onNotification: onMarkerNotification,
+  });
+
+  return (
+    <SearchHistoryPage
       incidentId={incidentId}
       currentUserAccount={currentUserAccount}
       markerNotificationIndex={markerNotificationIndex}
@@ -638,8 +678,7 @@ export function App() {
           path={ROUTES.incidentSearchHistory}
           element={
             currentUserAccount ? (
-              <HandoverRoute
-                viewMode="searchHistory"
+              <SearchHistoryRoute
                 currentUserAccount={currentUserAccount}
                 markerNotificationIndex={markerNotificationIndex}
                 markerNotifications={markerNotifications}

@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 import type { LoginAccount } from '../../../login/presentation/types/login';
 import { getHandoverIncidentDetail } from '../../data/getHandoverIncidentDetail';
 import { HandoverPage } from './HandoverPage';
+import { SearchHistoryPage } from '../../../searchHistory/presentation/pages/SearchHistoryPage';
 import { useIncidentBoardQuery, type IncidentBoardResponse } from '../../../board/api/incidentBoardApi';
 import {
   handoverApi,
@@ -223,6 +224,34 @@ describe('HandoverPage', () => {
     );
   });
 
+  test('handover page does not expose search history summary tabs', async () => {
+    vi.mocked(operationalPeriodApi.list).mockResolvedValue({
+      currentOpId: 'op-current',
+      items: [operationalPeriod({ id: 'op-current', status: 'ACTIVE', sequenceNumber: 2, endedAt: null })],
+    });
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <HandoverPage
+          currentUserAccount={currentUserAccount()}
+          incidentId={INCIDENT_ID}
+          markerNotificationIndex={0}
+          markerNotifications={[]}
+          onCloseMarkerNotifications={vi.fn()}
+          onMoveMarkerNotification={vi.fn()}
+          onOpenIncidentList={vi.fn()}
+          onOpenIncidentDetail={vi.fn()}
+          onOpenOfflinePackage={vi.fn()}
+          onOpenSituationBoard={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByRole('heading', { name: 'OP 2차 인수인계' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'OP 요약' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'OP 비교' })).not.toBeInTheDocument();
+  });
+
   test('standalone handover starts with only the current OP selected', async () => {
     vi.mocked(operationalPeriodApi.list).mockResolvedValue({
       currentOpId: 'op-current',
@@ -324,8 +353,7 @@ describe('HandoverPage', () => {
 
     render(
       <QueryClientProvider client={new QueryClient()}>
-        <HandoverPage
-          viewMode="searchHistory"
+        <SearchHistoryPage
           currentUserAccount={currentUserAccount()}
           incidentId={INCIDENT_ID}
           markerNotificationIndex={0}
@@ -404,8 +432,7 @@ describe('HandoverPage', () => {
 
     render(
       <QueryClientProvider client={new QueryClient()}>
-        <HandoverPage
-          viewMode="searchHistory"
+        <SearchHistoryPage
           currentUserAccount={currentUserAccount()}
           incidentId={INCIDENT_ID}
           markerNotificationIndex={0}
@@ -543,9 +570,8 @@ describe('HandoverPage', () => {
 
     render(
       <QueryClientProvider client={new QueryClient()}>
-        <HandoverPage
+        <SearchHistoryPage
           embedded
-          viewMode="searchHistory"
           currentUserAccount={currentUserAccount()}
           incidentId={INCIDENT_ID}
           markerNotificationIndex={0}
@@ -620,9 +646,8 @@ describe('HandoverPage', () => {
 
     render(
       <QueryClientProvider client={new QueryClient()}>
-        <HandoverPage
+        <SearchHistoryPage
           embedded
-          viewMode="searchHistory"
           currentUserAccount={currentUserAccount()}
           incidentId={INCIDENT_ID}
           markerNotificationIndex={0}
