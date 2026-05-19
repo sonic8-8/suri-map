@@ -83,6 +83,21 @@
   padding-top: 2px;
 }
 
+.overallMapPopup .titleBlock {
+  grid-template-columns: auto max-content;
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 0;
+}
+
+.overallMapPopup .title {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  -webkit-line-clamp: unset;
+  white-space: nowrap;
+}
+
 .title {
   display: -webkit-box;
   overflow: hidden;
@@ -101,6 +116,16 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.overallMapPopup .pillRow {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0;
+}
+
+.overallMapPopup .pillRow > :not(:first-child) {
+  display: none;
 }
 
 .chip {
@@ -181,6 +206,10 @@
 .summaryRow {
   display: grid;
   gap: 12px;
+}
+
+.overallMapPopup .summaryRow {
+  display: none;
 }
 
 .timeSection,
