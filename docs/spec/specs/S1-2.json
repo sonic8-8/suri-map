@@ -398,7 +398,7 @@
           {
             "from": "ACTIVE",
             "to": "REVOKED",
-            "trigger": "POST /auth/logout or token rotation",
+            "trigger": "Keycloak logout, 앱 FCM token 재등록, 또는 MDM/단말 정책에 따른 token revoke",
             "guard": "matching account_id and police_phone_id"
           }
         ]

@@ -336,10 +336,10 @@ fun sampleIncidentListState(showClosedDialog: Boolean = false) =
                 incidentId = "inc-precinct-first-001",
                 currentOpId = "op-003",
                 currentDutyShiftId = "duty-shift-014",
-                title = "사건 #1234",
+                title = "무등산 증심사 계곡 실종자 수색",
                 summary = "광주 북구 ○○산 · 60대 여성 · OP 3차",
                 packageStatus = "오늘 13:40 적재 완료",
-                assignmentStatus = "이 폴리폰에 active 배정된 사건"
+                assignmentStatus = "이 폴리폰에서 선택 가능"
             )
         )
     ).copy(showClosedDialog = showClosedDialog)

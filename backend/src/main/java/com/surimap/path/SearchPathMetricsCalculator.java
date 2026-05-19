@@ -14,6 +14,7 @@ public class SearchPathMetricsCalculator {
     long walkingDistance = 0L;
     long drivingDistance = 0L;
     int stoppedSegments = 0;
+    long stoppedDurationSeconds = 0L;
     Instant first = null;
     Instant last = null;
 
@@ -30,6 +31,7 @@ public class SearchPathMetricsCalculator {
           drivingDistance += segmentDistance;
         } else if (segmentDistance == 0L) {
           stoppedSegments += 1;
+          stoppedDurationSeconds += segmentDurationSeconds(points, segment);
         }
       }
     }
@@ -41,7 +43,8 @@ public class SearchPathMetricsCalculator {
         walkingDistance,
         drivingDistance,
         averageSpeedKmh(totalDistance, effectiveStart, effectiveEnd),
-        stoppedSegments);
+        stoppedSegments,
+        stoppedDurationSeconds);
   }
 
   private static long segmentDistanceMeters(
@@ -52,6 +55,21 @@ public class SearchPathMetricsCalculator {
       return 0L;
     }
     return distanceMeters(points.subList(segment.startIndex(), segment.endIndex() + 1));
+  }
+
+  private static long segmentDurationSeconds(
+      List<SearchPathPoint> points, SearchPathSegment segment) {
+    if (segment.startIndex() < 0
+        || segment.endIndex() >= points.size()
+        || segment.endIndex() < segment.startIndex()) {
+      return 0L;
+    }
+    Instant startedAt = points.get(segment.startIndex()).clientTs().toInstant();
+    Instant endedAt = points.get(segment.endIndex()).clientTs().toInstant();
+    if (!endedAt.isAfter(startedAt)) {
+      return 0L;
+    }
+    return Duration.between(startedAt, endedAt).getSeconds();
   }
 
   private static long distanceMeters(List<SearchPathPoint> points) {

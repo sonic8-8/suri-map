@@ -78,7 +78,7 @@ data class HandoverMemoUiState(
         ): HandoverMemoUiState =
             HandoverMemoUiState(
                 title = "인수인계 메모",
-                subtitle = "사건 #1234 · OP 3차 · DutyShift 14:00",
+                subtitle = "OP 3차 · 교대 인수인계",
                 selectedTarget = selectedTarget,
                 selectedTargetTitle = "현재 OP 3차",
                 selectedTargetSubtitle = "재수색 · 활성 운영 기간",

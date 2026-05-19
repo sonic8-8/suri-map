@@ -72,6 +72,30 @@ describe('login account display names', () => {
       name: '광주경찰청 여성청소년과 실종팀 경감 정서윤',
     });
   });
+
+  test('does not restore removed legacy position claim as rank', () => {
+    sessionStorage.setItem('suriMapAccessToken', 'access-token');
+    sessionStorage.setItem(
+      'suriMapCurrentAccount',
+      JSON.stringify({
+        id: '11111111-1111-1111-1111-111111110004',
+        name: '',
+        organization: '광주경찰청 여성청소년과 실종팀',
+        position: '레거시 직책',
+        accountType: 'COMMAND',
+        organizationType: 'MISSING_TEAM',
+        role: 'MISSING_TEAM_COMMANDER',
+        roles: ['MISSING_TEAM_COMMANDER'],
+        description: 'legacy stored account',
+      }),
+    );
+
+    expect(readStoredLoginAccount()).toMatchObject({
+      rank: '',
+      name: '광주경찰청 여성청소년과 실종팀 11111111-1111-1111-1111-111111110004',
+    });
+  });
+
   test('preserves pending OIDC state while checking for an existing account', () => {
     const oidcState = JSON.stringify({
       state: 'state-001',

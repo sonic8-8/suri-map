@@ -7,4 +7,5 @@ public record SearchPathMetrics(
     long walkingDistanceMeters,
     long drivingDistanceMeters,
     BigDecimal averageSpeedKmh,
-    int stoppedSegmentCount) {}
+    int stoppedSegmentCount,
+    long stoppedDurationSeconds) {}
