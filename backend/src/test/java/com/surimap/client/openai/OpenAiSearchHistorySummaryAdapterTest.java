@@ -230,6 +230,34 @@ class OpenAiSearchHistorySummaryAdapterTest {
     server.verify();
   }
 
+  @Test
+  void generateAcceptsSentenceCountWhenSummaryContainsTimestampFractionDots() throws Exception {
+    RestTemplate restTemplate = new RestTemplate();
+    MockRestServiceServer server = MockRestServiceServer.createServer(restTemplate);
+    OpenAiSearchHistorySummaryAdapter adapter =
+        newAdapter(restTemplate, newProperties(true, "test-openai-key"));
+    String summaryText =
+        "운영기간은 2026-05-14T22:04:49.791462+09:00부터 2026-05-20T03:02:07.045216+09:00까지였습니다. "
+            + "총 1개 수색구역, 6개의 경로 기록, 1개의 마커가 등록되었습니다. "
+            + "경로 기록 중 한 경로는 2026-05-19T11:24:46.279427+09:00에 기록을 시작해 현재 RECORDING 상태입니다. "
+            + "모든 경로에서 기록된 이동거리는 0미터이고 완료된 수색구역은 없습니다. "
+            + "마커는 CLUE 유형으로 2026-04-28T09:05:00+09:00에 신고자 진술 위치 메모가 남아 있습니다.";
+    String responseBody =
+        objectMapper.writeValueAsString(
+            Map.of("output_text", objectMapper.writeValueAsString(Map.of("summary", summaryText))));
+
+    server
+        .expect(requestTo("https://api.openai.com/v1/responses"))
+        .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
+
+    SummaryResult result =
+        adapter.generate(new SummaryRequest(SUMMARY_ID, OP_ID, INCIDENT_ID, evidence()));
+
+    assertThat(result.status()).isEqualTo(GenerationStatus.READY);
+    assertThat(result.summaryText()).isEqualTo(summaryText);
+    server.verify();
+  }
+
   private OpenAiSearchHistorySummaryAdapter newAdapter(
       RestTemplate restTemplate, OpenAiComparisonProperties properties) {
     return new OpenAiSearchHistorySummaryAdapter(
