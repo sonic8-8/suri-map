@@ -530,6 +530,7 @@ public class OfflinePackageRepository {
     int nextManifestVersion = current.manifestVersion() + 1;
     String nextManifestId = nextManifestId(incidentDbId, nextManifestVersion);
     OffsetDateTime serverTs = serverNow();
+    OffsetDateTime expiresAt = generatedManifestExpiresAt(serverTs);
     mapper.insertNextManifestFrom(
         current.id().toString(),
         manifestDbId(nextManifestId),
@@ -537,6 +538,7 @@ public class OfflinePackageRepository {
         overallSearchAreaDbId,
         overallSearchAreaVersion,
         manifestHash(incidentId, overallSearchAreaId, overallSearchAreaVersion, sourceHash),
+        expiresAt,
         serverTs);
     if (changedStatusIds.isEmpty()) {
       return List.of();

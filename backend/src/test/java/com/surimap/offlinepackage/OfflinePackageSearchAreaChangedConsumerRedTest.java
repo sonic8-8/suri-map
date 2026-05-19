@@ -23,6 +23,8 @@ import com.surimap.offlinepackage.query.OfflinePackageInstallationQuery;
 import com.surimap.offlinepackage.query.OfflinePackageInstallationStatus;
 import com.surimap.offlinepackage.service.OfflinePackageService;
 import com.surimap.policephone.PolicePhoneDbFixtureSupport;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -110,6 +112,7 @@ class OfflinePackageSearchAreaChangedConsumerRedTest {
         .isEqualTo("PARTIAL");
     assertThat(row(OfflinePackageInstallationFixtures.SEEDED_DOWNLOADING_INSTALLATION_ID).status())
         .isEqualTo("DOWNLOADING");
+    OffsetDateTime beforeRevision = OffsetDateTime.now(ZoneOffset.UTC).minusSeconds(1);
 
     invokeSearchAreaChangedConsumer(searchAreaChangedEvent());
 
@@ -123,6 +126,7 @@ class OfflinePackageSearchAreaChangedConsumerRedTest {
     assertStaleForCurrentManifest(partialPhone);
     assertStaleForCurrentManifest(downloadingPhone);
     assertCurrentManifestRevisionRequiresDownload();
+    assertCurrentManifestRevisionExpiresAfter(beforeRevision);
 
     assertThat(eventHub.findByType(OfflinePackageInstallationFixtures.EVENT_TYPE))
         .extracting(event -> event.payload().get("id"), event -> event.payload().get("status"))
@@ -227,6 +231,20 @@ class OfflinePackageSearchAreaChangedConsumerRedTest {
     assertThat(manifest.packageItems())
         .extracting(OfflinePackageManifestResponse.PackageItem::status)
         .containsOnly("PENDING");
+  }
+
+  private void assertCurrentManifestRevisionExpiresAfter(OffsetDateTime beforeRevision) {
+    OffsetDateTime expiresAt =
+        jdbcTemplate.queryForObject(
+            """
+            SELECT expires_at
+            FROM offline_package_manifest
+            WHERE id = ?::uuid
+            """,
+            OffsetDateTime.class,
+            OfflinePackageInstallationFixtures.STALE_MANIFEST_ID);
+
+    assertThat(expiresAt).isAfter(beforeRevision);
   }
 
   private BoardDTO boardFromPackageBadgeRows() {
