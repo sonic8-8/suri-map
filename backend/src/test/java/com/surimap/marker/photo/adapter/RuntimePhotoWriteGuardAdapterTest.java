@@ -144,6 +144,11 @@ class RuntimePhotoWriteGuardAdapterTest {
     }
 
     @Override
+    public Optional<MarkerRuntimeGuardMapper.MarkerGuardRow> findMarkerGuardRow(UUID markerId) {
+      return Optional.empty();
+    }
+
+    @Override
     public int countActiveAssignmentsByAccountId(UUID accountId) {
       return activeAssignmentsByAccountCount;
     }

@@ -1,5 +1,6 @@
 package com.surimap.marker.adapter;
 
+import com.surimap.marker.domain.MarkerSource;
 import com.surimap.marker.exception.MarkerApiException;
 import com.surimap.marker.port.MarkerWriteGuardPort;
 import com.surimap.marker.service.MarkerMutationContext;
@@ -10,8 +11,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Runtime S5 marker write guard. Create is opened for APP marker writes; update/delete stay
- * fail-closed until the S5 marker policy for those mutations is connected.
+ * Runtime S5 marker write guard. APP creates field markers, APP can update/delete its own field
+ * markers, and WEB can correct seed/reference markers.
  */
 @Component
 public class RuntimeMarkerWriteGuardAdapter implements MarkerWriteGuardPort {
@@ -35,13 +36,33 @@ public class RuntimeMarkerWriteGuardAdapter implements MarkerWriteGuardPort {
   }
 
   @Override
+  @Transactional(readOnly = true)
   public MarkerMutationContext requireUpdateAccess(UUID markerId, MarkerRequestContext context) {
-    throw new MarkerApiException("incident_access_denied", HttpStatus.FORBIDDEN);
+    return requireMutationAccess(markerId, context);
   }
 
   @Override
+  @Transactional(readOnly = true)
   public MarkerMutationContext requireDeleteAccess(UUID markerId, MarkerRequestContext context) {
-    throw new MarkerApiException("incident_access_denied", HttpStatus.FORBIDDEN);
+    return requireMutationAccess(markerId, context);
+  }
+
+  private MarkerMutationContext requireMutationAccess(UUID markerId, MarkerRequestContext context) {
+    requireFieldOrWebContext(context);
+    MarkerRuntimeGuardMapper.MarkerGuardRow marker =
+        markerRuntimeGuardMapper
+            .findMarkerGuardRow(markerId)
+            .orElseThrow(
+                () -> new MarkerApiException("incident_access_denied", HttpStatus.FORBIDDEN));
+    requireOpenIncident(marker.incidentId());
+    requireAccountAssignment(marker.incidentId(), context.authentication().accountId());
+    if ("WEB".equals(context.authentication().channel())) {
+      requireWebReferenceMarker(marker);
+    } else {
+      requireAppOwnFieldMarker(marker, context);
+    }
+    return new MarkerMutationContext(
+        marker.incidentId(), marker.id(), marker.operationalPeriodId(), marker.policePhoneId());
   }
 
   private void requireAppContext(MarkerRequestContext context) {
@@ -50,6 +71,43 @@ public class RuntimeMarkerWriteGuardAdapter implements MarkerWriteGuardPort {
     }
     if (!"APP".equals(context.authentication().channel())) {
       throw new MarkerApiException("channel_not_allowed", HttpStatus.FORBIDDEN);
+    }
+  }
+
+  private void requireFieldOrWebContext(MarkerRequestContext context) {
+    if (context == null || context.authentication() == null) {
+      throw new MarkerApiException("incident_access_denied", HttpStatus.FORBIDDEN);
+    }
+    String channel = context.authentication().channel();
+    if ("APP".equals(channel)) {
+      if (context.authentication().policePhoneId() == null) {
+        throw new MarkerApiException("police_phone_required", HttpStatus.BAD_REQUEST);
+      }
+      return;
+    }
+    if ("WEB".equals(channel)) {
+      return;
+    }
+    throw new MarkerApiException("channel_not_allowed", HttpStatus.FORBIDDEN);
+  }
+
+  private void requireWebReferenceMarker(MarkerRuntimeGuardMapper.MarkerGuardRow marker) {
+    if (marker.markerSource() == MarkerSource.MOCK_SEED
+        || marker.markerSource() == MarkerSource.SYSTEM) {
+      return;
+    }
+    throw new MarkerApiException("incident_access_denied", HttpStatus.FORBIDDEN);
+  }
+
+  private void requireAppOwnFieldMarker(
+      MarkerRuntimeGuardMapper.MarkerGuardRow marker, MarkerRequestContext context) {
+    if (marker.markerSource() != MarkerSource.APP) {
+      throw new MarkerApiException("incident_access_denied", HttpStatus.FORBIDDEN);
+    }
+    requireRegisteredPolicePhone(context.authentication().policePhoneId());
+    if (!context.authentication().accountId().equals(marker.createdByAccountId())
+        || !context.authentication().policePhoneId().equals(marker.policePhoneId())) {
+      throw new MarkerApiException("incident_access_denied", HttpStatus.FORBIDDEN);
     }
   }
 
