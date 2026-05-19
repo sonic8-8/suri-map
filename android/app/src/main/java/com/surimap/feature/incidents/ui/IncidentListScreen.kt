@@ -277,10 +277,10 @@ private fun IncidentCard(
     ) {
         Text(text = incident.title, style = MaterialTheme.typography.titleMedium)
         Text(text = incident.summary, style = MaterialTheme.typography.bodyMedium, color = PoliFgMuted)
-        PoliRow(title = "패키지 상태", subtitle = incident.packageStatus) {
+        PoliRow(title = "오프라인 패키지 상태") {
             PoliChip(text = "확인", variant = PoliChipVariant.Neutral)
         }
-        PoliRow(title = "현재 폴리폰 배정", subtitle = incident.assignmentStatus) {
+        PoliRow(title = "현재 폴리폰 배정") {
             PoliChip(text = "활성", variant = PoliChipVariant.Good)
         }
         PoliButton(
