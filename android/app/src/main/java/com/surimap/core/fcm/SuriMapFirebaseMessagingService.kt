@@ -10,6 +10,10 @@ class SuriMapFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
+        SearchAreaBoundaryFcmRouter.payload(message.data)?.let { payload ->
+            SearchAreaBoundaryAlertNotification.showRemoteExit(applicationContext, payload)
+            return
+        }
         val refresh = IncidentAssignmentFcmRouter.refreshPayload(message.data) ?: return
         IncidentAssignmentNotification.show(applicationContext, refresh)
         sendBroadcast(

@@ -380,8 +380,7 @@ function organizationLabel(organizationType: LoginOrganizationType) {
 
 function normalizeLoginAccount(account: LoginAccount): LoginAccount {
   const organization = account.organization || organizationLabel(account.organizationType);
-  const legacyAccount = account as LoginAccount & { position?: string };
-  const rank = account.rank ?? legacyAccount.position ?? '';
+  const rank = account.rank ?? '';
   return {
     ...account,
     organization,

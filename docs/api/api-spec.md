@@ -294,6 +294,20 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Errors: `invalid_geometry`, `clock_skew_exceeded`, `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`, `op_required`, `op_mismatch`
 - Note: S6 Outbox `request_path`와 harness가 이 path를 기준으로 replay한다. 전체 수색구역이 없으면 하네스/운영 허용 범위 내 좌표를 초동 경로로 수신한다.
 
+#### POST `/api/search-area-boundary-alerts`
+
+- Owner: S3-1 with S2 search_area assignment read and S4 FCM fanout
+- Source spec: `POST /search-area-boundary-alerts`
+- Consumer: APP
+- Headers: `Authorization`, `Idempotency-Key`, `X-PolicePhone-Id`
+- Guard: `app-police-phone`, `incident-read`, `write-common`, `@RequireCurrentOp`
+- Idempotency-Key: yes
+- Request: `incidentId`, `opId`, `searchAreaId`, `alertType` (`OUTSIDE_ASSIGNED_AREA`, `REENTERED_ASSIGNED_AREA`), `location {type:"Point", coordinates:[lon,lat]}`, `clientTs`, optional `pathId`, `clockOffsetMs`
+- Response: `201 {id, incidentId, opId, searchAreaId, policePhoneId, alertType, version, status}`
+- Errors: `invalid_geometry`, `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`, `op_required`, `op_mismatch`
+- FCM: successful `OUTSIDE_ASSIGNED_AREA` write emits advisory data payload `type=SEARCH_AREA_BOUNDARY_EXITED`, `incidentId`, `opId`, `searchAreaId`, `policePhoneId`, `status`, `version`, `eventId`. Payload must not include missing-person PII.
+- Note: 이 API는 Android 로컬 경계 확인 안내를 서버 운영 참고/FCM 흐름에 반영하는 경로다. 앱의 즉시 진동/안내는 서버 응답을 기다리지 않는다. 전체 수색구역 밖 좌표를 `invalid_geometry`로 거부하는 정책과 assigned TEAM search_area 경계 확인 안내는 별도 정책이며, 이를 자동 위반 판단이나 다음 수색 구역 추천으로 사용하지 않는다.
+
 #### GET `/api/search-paths`
 
 - Owner: S3-1

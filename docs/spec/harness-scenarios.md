@@ -254,6 +254,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   5. 앱 흐름에서 지구대/파출소 초동 대응 순찰차 업무폰 경로는 차량 구간 중심으로, 팀 업무폰 경로는 도보 구간 중심으로 OP1에 남는다.
   6. 앱 흐름에서 앱은 수색 경로의 시작·일시정지·재개·종료 상태와 현재 기록 중인 PolicePhone을 명확히 표시한다.
   7. 웹 흐름에서 현장 지휘관은 상황판에서 차량·도보 구간을 수동 보정할 수 있고, `SEARCH_PATH_SEGMENT_UPDATED` 발행 후 앱·웹의 구간 스타일이 갱신된다.
+  8. 현재 OP에서 TEAM 수색구역을 배정받은 PolicePhone이 담당 구역 경계 밖 GPS fix를 수집하면, 앱은 서버 응답 전 짧은 로컬 진동과 경계 확인 안내를 표시하고 서버 반영 가능 시 `SEARCH_AREA_BOUNDARY_EXITED` 운영 참고 eventId와 FCM payload를 남긴다.
 - **involved_specs**: S3-1, S1-2, S6, S8, S4, S2
 - **involved_apis**:
   - `POST /search-paths`
@@ -277,6 +278,9 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   - "일시정지 중에는 경로 선이 이어붙지 않고 앱·상황판 모두 일시정지 상태를 표시한다"
   - "네트워크 단절로 경로 배치 전송이 pending으로 전환되면 앱 화면에 미전송 상태와 큐 수량이 표시된다"
   - "GPS 권한 거부 또는 위치 품질 저하 시 앱은 기록 불가/품질 저하 경고를 표시한다"
+  - "현재 OP에서 담당 TEAM search_area가 배정된 앱이 구역 경계 밖 GPS fix를 받으면 서버 연결 없이도 짧은 진동과 중립적인 인앱 경계 확인 안내를 표시한다"
+  - "구역 밖 GPS fix가 서버에 반영되면 `SEARCH_AREA_BOUNDARY_EXITED` eventId, incidentId, opId, searchAreaId, policePhoneId, status, version이 DB event, FCM payload, board refetch 신호에서 일치한다"
+  - "담당 구역 경계 확인 안내는 같은 경계 밖 표시 상태에서 반복 발송되지 않고, 구역 재진입 후 다시 경계 밖으로 표시됐을 때 새 eventId로 기록된다"
   - "지구대/파출소 순찰차 계정이 폴리폰으로 시작한 OP1 경로는 `account_type=PATROL_CAR`와 `movement_type=VEHICLE` 기준으로 차량 구간 스타일로 표시된다"
   - "지구대/파출소 팀 업무폰으로 이어서 시작한 OP1 경로는 같은 사건·OP 아래 별도 PolicePhone 경로로 저장된다"
   - "앱에서 `PATCH /search-path-segments/{searchPathSegmentId}`를 호출하면 `403 channel_not_allowed`"
