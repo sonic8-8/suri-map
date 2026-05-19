@@ -65,6 +65,7 @@ import styles from './HandoverPage.module.css';
 
 type HandoverPageProps = {
   embedded?: boolean;
+  isMapExpanded?: boolean;
   sharedMapMode?: boolean;
   boardSnapshot?: SituationBoardResponseDto | null;
   incidentId: string;
@@ -125,6 +126,7 @@ const opReasonOptions: Array<{ value: CreateOperationalPeriodReason; label: stri
 
 export function HandoverPage({
   embedded = false,
+  isMapExpanded: isMapExpandedProp,
   sharedMapMode = false,
   boardSnapshot = null,
   incidentId,
@@ -144,10 +146,13 @@ export function HandoverPage({
 }: HandoverPageProps) {
   const historyPanelWrapperRef = useRef<HTMLDivElement | null>(null);
   const [historyPanelWidthPx, setHistoryPanelWidthPx] = useState(440);
+  const [isLocalMapExpanded, setIsLocalMapExpanded] = useState(false);
   const [operationalPeriods, setOperationalPeriods] = useState<OperationalPeriodListItem[]>([]);
   const [currentOpId, setCurrentOpId] = useState<string | null>(null);
   const [focusedOpId, setFocusedOpId] = useState<string | null>(null);
   const [selectedOpIds, setSelectedOpIds] = useState<string[]>([]);
+  const [isOpSelectionHydrated, setIsOpSelectionHydrated] = useState(false);
+  const [opVisibilityMessage, setOpVisibilityMessage] = useState('');
   const [memos, setMemos] = useState<HandoverMemoListItem[]>([]);
   const [incidentDetail, setIncidentDetail] = useState<HandoverIncidentDetailDto | null>(null);
   const [now, setNow] = useState(() => new Date());
@@ -167,6 +172,7 @@ export function HandoverPage({
   const [memoErrorMessage, setMemoErrorMessage] = useState('');
   const [createOpErrorMessage, setCreateOpErrorMessage] = useState('');
   const [comparisonErrorMessage, setComparisonErrorMessage] = useState('');
+  const isMapExpanded = isMapExpandedProp ?? isLocalMapExpanded;
 
   useBrowserBackToIncidentList(onBrowserBackToIncidentList, !embedded);
   const queryClient = useQueryClient();
@@ -209,10 +215,19 @@ export function HandoverPage({
 
     return mergedBoard as unknown as IncidentBoardResponse | null;
   }, [currentBoard, currentBoardSnapshot]);
-  const effectiveSelectedOpIds = useMemo(
-    () => resolveSelectedOpIds(board, activeSelectedOpIds),
-    [activeSelectedOpIds, board],
-  );
+  const effectiveSelectedOpIds = useMemo(() => {
+    const explicitSelectedOpIds = uniqueNonEmptyStrings(activeSelectedOpIds);
+    if (explicitSelectedOpIds.length > 0) {
+      return explicitSelectedOpIds;
+    }
+
+    if (isOpSelectionHydrated) {
+      return [];
+    }
+
+    const initialSelectedOpId = currentOpId ?? board?.activeOpId ?? null;
+    return initialSelectedOpId ? [initialSelectedOpId] : [];
+  }, [activeSelectedOpIds, board?.activeOpId, currentOpId, isOpSelectionHydrated]);
   const isLoadingBoard = boardQuery.isLoading;
   const boardErrorMessage = boardQuery.isError ? '수색 이력 정보를 불러오지 못했습니다.' : '';
   const summaryQuery = useSearchHistorySummaryListQuery(activeFocusedOpId, { incidentId });
@@ -292,16 +307,17 @@ export function HandoverPage({
     () => createSourceRecords(board, effectiveSelectedOpIds, selectedOpMemos, memoTargetOptions),
     [board, effectiveSelectedOpIds, memoTargetOptions, selectedOpMemos],
   );
+  const floatingRightPanelWidthPx = isMapExpanded ? 0 : historyPanelWidthPx;
   const sharedMapProps = useMemo<HandoverComparisonMapSharedProps>(
     () => ({
       baseMapMode: 'shared-base-map',
       incidentId,
       board,
       focusedOpId: activeFocusedOpId,
-      rightPanelWidthPx: historyPanelWidthPx,
+      rightPanelWidthPx: floatingRightPanelWidthPx,
       selectedOpIds: effectiveSelectedOpIds,
     }),
-    [activeFocusedOpId, board, effectiveSelectedOpIds, historyPanelWidthPx, incidentId],
+    [activeFocusedOpId, board, effectiveSelectedOpIds, floatingRightPanelWidthPx, incidentId],
   );
   const currentAccountLabel = currentUserAccount.name;
   const timestampLabel = board?.serverTs ? formatKstDateTime(new Date(board.serverTs)) : '동기화 전';
@@ -345,6 +361,8 @@ export function HandoverPage({
     setCurrentOpId(null);
     setFocusedOpId(null);
     setSelectedOpIds([]);
+    setIsOpSelectionHydrated(false);
+    setOpVisibilityMessage('');
     setMemos([]);
     setContent('');
     setIsCreateOpModalOpen(false);
@@ -354,6 +372,7 @@ export function HandoverPage({
     setSelectedMemoTargetKey('');
     setComparisonAnalysis(null);
     setSelectedComparisonRegionFactId(null);
+    setIsLocalMapExpanded(false);
     setOpErrorMessage('');
     setMemoErrorMessage('');
     setCreateOpErrorMessage('');
@@ -402,17 +421,12 @@ export function HandoverPage({
 
         const responseItems = readOperationalPeriodItems(response.items);
         setOperationalPeriods(responseItems);
-        setCurrentOpId(response.currentOpId);
-        const initialOpId = response.currentOpId ?? responseItems[0]?.id ?? null;
+        const initialOpId = response.currentOpId ?? responseItems.find((period) => period.status === 'ACTIVE')?.id ?? null;
+        setCurrentOpId(initialOpId);
         setFocusedOpId(initialOpId);
-        const initialSelectedOpIds = sharedMapMode
-          ? uniqueNonEmptyStrings([response.currentOpId ?? responseItems[0]?.id ?? null])
-          : uniqueNonEmptyStrings(
-              [...responseItems]
-                .sort((left, right) => right.sequenceNumber - left.sequenceNumber)
-                .map((period) => period.id),
-            );
-        setSelectedOpIds(initialSelectedOpIds.length > 0 ? initialSelectedOpIds : initialOpId ? [initialOpId] : []);
+        setSelectedOpIds(initialOpId ? [initialOpId] : []);
+        setIsOpSelectionHydrated(true);
+        setOpVisibilityMessage('');
       } catch (error) {
         if (!ignore) {
           setOpErrorMessage(getApiErrorMessage(error, 'OP 목록을 불러오지 못했습니다.'));
@@ -469,7 +483,7 @@ export function HandoverPage({
     observer.observe(element);
 
     return () => observer.disconnect();
-  }, []);
+  }, [isMapExpanded]);
 
   async function loadMemos(opId: string, shouldIgnore = () => false) {
     setIsLoadingMemos(true);
@@ -584,7 +598,7 @@ export function HandoverPage({
       });
       setCurrentOpId(createdOp.id);
       setFocusedOpId(createdOp.id);
-      setSelectedOpIds((currentSelectedOpIds) => uniqueNonEmptyStrings([createdOp.id, ...currentSelectedOpIds]));
+      setSelectedOpIds((currentSelectedOpIds) => uniqueNonEmptyStrings([createdOp.id, ...currentSelectedOpIds]).slice(0, 2));
       setIsCreateOpModalOpen(false);
       onOperationalPeriodCreated?.();
       void queryClient.invalidateQueries({ queryKey: incidentBoardQueryKeys.all });
@@ -596,9 +610,16 @@ export function HandoverPage({
   };
 
   const handleOperationalPeriodSelectionChange = (nextOpIds: string[]) => {
-    setSelectedOpIds(nextOpIds);
+    const normalizedNextOpIds = uniqueNonEmptyStrings(nextOpIds);
+    if (normalizedNextOpIds.length > 2) {
+      setOpVisibilityMessage('OP는 최대 2개까지 동시에 표시할 수 있습니다.');
+      return;
+    }
+
+    setOpVisibilityMessage('');
+    setSelectedOpIds(normalizedNextOpIds);
     setFocusedOpId((currentFocusedOpId) =>
-      currentFocusedOpId && nextOpIds.includes(currentFocusedOpId) ? currentFocusedOpId : nextOpIds[0] ?? null,
+      currentFocusedOpId && normalizedNextOpIds.includes(currentFocusedOpId) ? currentFocusedOpId : normalizedNextOpIds[0] ?? null,
     );
   };
 
@@ -624,9 +645,18 @@ export function HandoverPage({
   const handleComparisonRegionFactSelect = (fact: OpComparisonRegionFact) => {
     setSelectedComparisonRegionFactId((currentFactId) => (currentFactId === fact.factId ? null : fact.factId));
   };
+  const handleToggleMapExpanded = () => {
+    setIsLocalMapExpanded((currentState) => !currentState);
+  };
   return (
-    <main className={embedded ? styles.embeddedPage : `situation-board-page ${pageStyles.page}`}>
-      {embedded ? null : (
+    <main
+      className={
+        embedded
+          ? styles.embeddedPage
+          : `situation-board-page ${pageStyles.page}${isMapExpanded ? ` ${styles.mapExpandedPage}` : ''}`
+      }
+    >
+      {embedded || isMapExpanded ? null : (
       <SuriMapPageHeader
         activeTab="handover"
         currentAccountLabel={currentAccountLabel}
@@ -645,11 +675,11 @@ export function HandoverPage({
       />
       )}
 
-      <div className={styles.shell}>
+      <div className={`${styles.shell}${isMapExpanded ? ` ${styles.shellExpanded}` : ''}`}>
         <BoardPanel
           as="aside"
           ariaLabel="인수인계 좌측 패널"
-          className={styles.opPanel}
+          className={`${styles.opPanel}${isMapExpanded ? ` ${styles.opPanelCollapsed}` : ''}`}
           bodyClassName={styles.opPanelBody}
           placement="left"
         >
@@ -671,6 +701,12 @@ export function HandoverPage({
                 selectedOperationalPeriodIds={effectiveSelectedOpIds}
               />
             )}
+
+            {opVisibilityMessage ? (
+              <div className={styles.selectionNotice} role="status" aria-live="polite">
+                {opVisibilityMessage}
+              </div>
+            ) : null}
 
             <div className={styles.opPanelFooter}>
               <button
@@ -695,9 +731,12 @@ export function HandoverPage({
               <HandoverComparisonMap
                 incidentId={incidentId}
                 board={board}
+                isMapExpanded={isMapExpanded}
+                rightPanelWidthPx={floatingRightPanelWidthPx}
                 focusedOpId={activeFocusedOpId}
                 selectedOpIds={effectiveSelectedOpIds}
                 comparisonHighlightGeometryGeojson={comparisonHighlightGeometryGeojson}
+                onToggleMapExpanded={handleToggleMapExpanded}
               />
               <div className={styles.mapAnalysisDock}>
                 <ComparisonAnalysisPanel
@@ -717,11 +756,14 @@ export function HandoverPage({
           </section>
         )}
 
-        <div ref={historyPanelWrapperRef} className={styles.historyPanelWrapper}>
+        <div
+          ref={historyPanelWrapperRef}
+          className={styles.historyPanelWrapper}
+        >
           <BoardPanel
             as="aside"
             ariaLabel="인수인계 상시 확인 패널"
-            className={styles.historyPanel}
+            className={`${styles.historyPanel}${isMapExpanded ? ` ${styles.historyPanelCollapsed}` : ''}`}
             bodyClassName={styles.historyPanelBody}
             placement="right"
           >
@@ -1255,56 +1297,6 @@ function filterRowsBySelectedOps(rows: Record<string, unknown>[], selectedOpIds:
     const rowOpId = readString(row, 'opId') ?? readString(row, 'operationalPeriodId');
     return rowOpId === null || selectedOpIdSet.has(rowOpId);
   });
-}
-
-function resolveSelectedOpIds(board: IncidentBoardResponse | null, selectedOpIds: string[]) {
-  const explicitSelectedOpIds = uniqueNonEmptyStrings(selectedOpIds);
-  if (explicitSelectedOpIds.length > 0) {
-    return explicitSelectedOpIds;
-  }
-
-  if (!board) {
-    return [];
-  }
-
-  const collectedOpIds = collectBoardOpIds(board);
-  if (collectedOpIds.length > 0) {
-    return collectedOpIds;
-  }
-
-  if (board.selectedOpIds && board.selectedOpIds.length > 0) {
-    return uniqueNonEmptyStrings([...board.selectedOpIds]);
-  }
-
-  return [];
-}
-
-function collectBoardOpIds(board: IncidentBoardResponse) {
-  const opIds = new Set<string>();
-
-  if (board.activeOpId) {
-    opIds.add(board.activeOpId);
-  }
-
-  ([
-    'op_history',
-    'area',
-    'path',
-    'marker',
-    'op_toggle',
-    'handover_memo',
-    'handover_status',
-    'search_history_summary',
-  ] as BoardSlotName[]).forEach((slot) => {
-    readSlotRows(board, slot).forEach((row) => {
-      const opId = readString(row, 'opId') ?? readString(row, 'operationalPeriodId');
-      if (opId) {
-        opIds.add(opId);
-      }
-    });
-  });
-
-  return [...opIds];
 }
 
 function uniqueNonEmptyStrings(values: string[]) {

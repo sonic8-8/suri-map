@@ -199,6 +199,7 @@ export function SituationBoardPage({
         ) : !isClosedTerminalBoard && boardState.isHandoverWorkspaceOpen ? (
           <HandoverPage
             embedded
+            isMapExpanded={boardState.isMapExpanded}
             sharedMapMode
             incidentId={incidentId}
             currentUserAccount={currentUserAccount}

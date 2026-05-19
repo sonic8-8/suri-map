@@ -314,17 +314,52 @@
   border-top-color: #ffffff;
 }
 
-.searchAreaMapPopup {
-  z-index: 25;
+.markerMapPopup {
+  z-index: 42;
 }
 
-.markerMapPopup {
-  z-index: 26;
+.overlayPortalLayer {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.searchAreaMapPopup {
+  position: absolute;
+  z-index: 41;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.searchAreaMapPopup::after,
+.markerSelectedOverlay::after {
+  position: absolute;
+  left: 50%;
+  content: '';
+  transform: translateX(-50%);
+  filter: drop-shadow(0 6px 10px rgba(15, 23, 42, 0.08));
+}
+
+.searchAreaMapPopup::after {
+  bottom: -12px;
+  width: 18px;
+  height: 12px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 252, 255, 0.95));
+  clip-path: polygon(50% 100%, 0 0, 100% 0);
+}
+
+.markerSelectedOverlay::after {
+  bottom: -14px;
+  width: 20px;
+  height: 14px;
+  background: rgba(255, 255, 255, 0.96);
+  clip-path: polygon(50% 100%, 0 0, 100% 0);
 }
 
 .markerSelectedOverlay {
   position: absolute;
-  z-index: 27;
+  z-index: 43;
   pointer-events: none;
   will-change: transform;
 }
