@@ -884,6 +884,32 @@ class SearchMapStateLoaderTest {
         assertTrue(source.contains("initialMarkers"))
     }
 
+    @Test
+    fun appSearchMapRouteResetsPathStateWhenSessionContextChanges() {
+        val source = java.io.File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+        val routeIndex = source.indexOf("private fun SearchMapRoute")
+        val stateRememberIndex = source.indexOf("var searchMapState by remember(", routeIndex)
+        val stateRememberEnd = source.indexOf(") {", stateRememberIndex)
+        val boundaryMonitorIndex = source.indexOf("val boundaryMonitor = remember(", routeIndex)
+        val boundaryMonitorEnd = source.indexOf(") { SearchAreaBoundaryMonitor() }", boundaryMonitorIndex)
+
+        assertTrue(routeIndex >= 0)
+        assertTrue(stateRememberIndex >= 0)
+        assertTrue(stateRememberEnd > stateRememberIndex)
+        assertTrue(boundaryMonitorIndex >= 0)
+        assertTrue(boundaryMonitorEnd > boundaryMonitorIndex)
+
+        val stateRememberKeys = source.substring(stateRememberIndex, stateRememberEnd)
+        assertTrue(stateRememberKeys.contains("sessionContext.incidentId"))
+        assertTrue(stateRememberKeys.contains("sessionContext.currentOpId"))
+        assertTrue(stateRememberKeys.contains("sessionContext.policePhoneId"))
+
+        val boundaryMonitorKeys = source.substring(boundaryMonitorIndex, boundaryMonitorEnd)
+        assertTrue(boundaryMonitorKeys.contains("sessionContext.incidentId"))
+        assertTrue(boundaryMonitorKeys.contains("sessionContext.currentOpId"))
+        assertTrue(boundaryMonitorKeys.contains("sessionContext.policePhoneId"))
+    }
+
     private fun fallbackOnlyLoader(): SearchMapStateLoader =
         SearchMapStateLoader(
             incidentDetail = { notFoundResponse() },

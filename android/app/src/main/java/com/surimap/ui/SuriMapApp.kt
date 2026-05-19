@@ -930,7 +930,11 @@ private fun SearchMapRoute(
                 }
             )
         }
-    var searchMapState by remember {
+    var searchMapState by remember(
+        sessionContext.incidentId,
+        sessionContext.currentOpId,
+        sessionContext.policePhoneId
+    ) {
         mutableStateOf(SearchMapStateLoader().fallbackForRemember(sessionContext))
     }
     var recordingSession by remember(
@@ -950,7 +954,11 @@ private fun SearchMapRoute(
     var bottomPanelExpanded by remember { mutableStateOf(false) }
     var mapOverlaysVisible by remember { mutableStateOf(true) }
     var latestLocationFix by remember { mutableStateOf<GpsLocationFix?>(null) }
-    val boundaryMonitor = remember { SearchAreaBoundaryMonitor() }
+    val boundaryMonitor = remember(
+        sessionContext.incidentId,
+        sessionContext.currentOpId,
+        sessionContext.policePhoneId
+    ) { SearchAreaBoundaryMonitor() }
     var markerSheetOpen by remember { mutableStateOf(false) }
     var markerSheetState by remember { mutableStateOf(MarkerCreateSheetUiState.default()) }
     var createPhotoUriById by remember { mutableStateOf<Map<String, Uri>>(emptyMap()) }
