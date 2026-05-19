@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -156,7 +157,7 @@ fun IncidentListScreen(
     onDismissClosedDialog: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(modifier = modifier.fillMaxSize()) {
+    Box(modifier = modifier.fillMaxSize().safeDrawingPadding()) {
         Column(modifier = Modifier.fillMaxSize()) {
             PoliAppBar(
                 title = "사건 선택",
@@ -178,7 +179,7 @@ fun IncidentListScreen(
 
                 state.status == IncidentListStatus.Error ->
                     MessageIncidentList(
-                        title = state.message ?: "사건 목록을 불러오지 못했습니다",
+                        title = state.message ?: "사건 목록을 불러오지 못했습니다.",
                         body = "내부망 연결 상태를 확인한 뒤 다시 시도하세요.",
                         actionText = "다시 시도",
                         onAction = onRefresh,
@@ -210,7 +211,7 @@ fun IncidentListScreen(
 
         if (state.showClosedDialog) {
             PoliDialog(
-                title = "사건이 종료되었습니다",
+                title = "사건이 종료되었습니다.",
                 body = "종료된 사건에는 더 이상 입력할 수 없습니다. 작성 중인 내용은 저장되지 않으며 로컬 정리는 백그라운드에서 진행됩니다.",
                 primaryText = "확인",
                 onPrimary = onDismissClosedDialog,
@@ -237,7 +238,7 @@ private fun AssignedIncidentList(
         verticalArrangement = Arrangement.spacedBy(PoliDimens.Space4)
     ) {
         if (state.status == IncidentListStatus.Stale) {
-            PoliBanner(text = state.message ?: "마지막 갱신 정보입니다", variant = PoliBannerVariant.Warn)
+            PoliBanner(text = state.message ?: "마지막 갱신 정보입니다.", variant = PoliBannerVariant.Warn)
         }
         state.incidents.forEach { incident ->
             IncidentCard(
@@ -246,22 +247,13 @@ private fun AssignedIncidentList(
                 onOpenOfflinePackage = { onOpenOfflinePackage(incident) }
             )
         }
-        Text(
-            text = "활성 배정은 보통 1건입니다. 동시에 2건이 보이면 배정 변경 중인 짧은 전환 상태입니다.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = PoliFgMuted
-        )
+
         PoliButton(
             text = "새로고침",
             onClick = onRefresh,
             modifier = Modifier.fillMaxWidth(),
             variant = PoliButtonVariant.Secondary,
             enabled = state.canRefresh
-        )
-        PoliButton(
-            text = state.primaryOpenLabel,
-            onClick = { state.incidents.firstOrNull()?.let(onOpenIncident) },
-            modifier = Modifier.fillMaxWidth()
         )
     }
 }
@@ -344,10 +336,10 @@ fun sampleIncidentListState(showClosedDialog: Boolean = false) =
                 incidentId = "inc-precinct-first-001",
                 currentOpId = "op-003",
                 currentDutyShiftId = "duty-shift-014",
-                title = "사건 #1234",
+                title = "무등산 증심사 계곡 실종자 수색",
                 summary = "광주 북구 ○○산 · 60대 여성 · OP 3차",
                 packageStatus = "오늘 13:40 적재 완료",
-                assignmentStatus = "이 폴리폰에 active 배정된 사건"
+                assignmentStatus = "이 폴리폰에서 선택 가능"
             )
         )
     ).copy(showClosedDialog = showClosedDialog)

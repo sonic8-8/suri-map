@@ -34,6 +34,13 @@ surimap:
     access-key: ${SURI_MAP_OBJECT_STORAGE_ACCESS_KEY:minioadmin}
     secret-key: ${SURI_MAP_OBJECT_STORAGE_SECRET_KEY:minioadmin}
     region: ${SURI_MAP_OBJECT_STORAGE_REGION:us-east-1}
+  ai:
+    openai:
+      enabled: ${SURI_MAP_OPENAI_ENABLED:false}
+      base-url: ${SURI_MAP_OPENAI_BASE_URL:https://api.openai.com/v1}
+      api-key: ${SURI_MAP_OPENAI_API_KEY:${OPENAI_API_KEY:}}
+      model: ${SURI_MAP_OPENAI_MODEL:gpt-5-mini}
+      timeout-ms: ${SURI_MAP_OPENAI_TIMEOUT_MS:15000}
 
 management:
   endpoints:

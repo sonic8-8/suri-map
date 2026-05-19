@@ -1,8 +1,13 @@
 package com.surimap.eventhub.adapter;
 
+import com.surimap.eventhub.consumer.DomainEventConsumer;
 import com.surimap.eventhub.dto.PublishRequest;
 import com.surimap.eventhub.port.EventHub;
+import java.util.List;
 import java.util.Objects;
+import java.util.function.Supplier;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
@@ -21,9 +26,23 @@ import org.springframework.stereotype.Component;
 public class DbEventHub implements EventHub {
 
   private final EventDispatchJobMapper mapper;
+  private final Supplier<List<DomainEventConsumer>> domainEventConsumers;
+
+  @Autowired
+  public DbEventHub(
+      EventDispatchJobMapper mapper,
+      ObjectProvider<DomainEventConsumer> domainEventConsumerProvider) {
+    this(mapper, () -> domainEventConsumerProvider.orderedStream().toList());
+  }
 
   public DbEventHub(EventDispatchJobMapper mapper) {
+    this(mapper, List::of);
+  }
+
+  DbEventHub(
+      EventDispatchJobMapper mapper, Supplier<List<DomainEventConsumer>> domainEventConsumers) {
     this.mapper = mapper;
+    this.domainEventConsumers = domainEventConsumers == null ? List::of : domainEventConsumers;
   }
 
   /**
@@ -43,5 +62,12 @@ public class DbEventHub implements EventHub {
     Objects.requireNonNull(request.payload(), "payload must not be null");
 
     mapper.insert(EventDispatchJobRow.from(request));
+    dispatchLocalConsumers(request);
+  }
+
+  private void dispatchLocalConsumers(PublishRequest request) {
+    domainEventConsumers.get().stream()
+        .filter(consumer -> consumer.supports(request))
+        .forEach(consumer -> consumer.consume(request));
   }
 }

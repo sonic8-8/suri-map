@@ -20,9 +20,10 @@ import type { RecentMarker } from '../../../situationBoard/presentation/constant
 export type Position = [number, number];
 
 type PolygonGeometry = { type: 'Polygon'; coordinates: Position[][] };
+type MultiPolygonGeometry = { type: 'MultiPolygon'; coordinates: Position[][][] };
 type LineStringGeometry = { type: 'LineString'; coordinates: Position[] };
 type PointGeometry = { type: 'Point'; coordinates: Position };
-type ComparisonGeometry = PolygonGeometry | LineStringGeometry | PointGeometry;
+type ComparisonGeometry = PolygonGeometry | MultiPolygonGeometry | LineStringGeometry | PointGeometry;
 type ComparisonFeature = {
   type: 'Feature';
   properties: Record<string, string | number>;
@@ -250,9 +251,18 @@ function readGeometry(row: Record<string, unknown>): ComparisonGeometry | null {
 }
 
 function isComparisonGeometry(value: Record<string, unknown>): value is ComparisonGeometry {
-  if (value.type === 'Polygon' && Array.isArray(value.coordinates)) return true;
-  if (value.type === 'LineString' && Array.isArray(value.coordinates)) return true;
-  return value.type === 'Point' && Array.isArray(value.coordinates);
+  if (value.type === 'Polygon' && Array.isArray(value.coordinates)) {
+    const outerRing = value.coordinates[0];
+    return Array.isArray(outerRing) && outerRing.filter(isPosition).length >= 4;
+  }
+  if (value.type === 'LineString' && Array.isArray(value.coordinates)) {
+    return value.coordinates.filter(isPosition).length >= 2;
+  }
+  return value.type === 'Point' && isPosition(value.coordinates);
+}
+
+function isPosition(value: unknown): value is Position {
+  return Array.isArray(value) && value.length >= 2 && typeof value[0] === 'number' && typeof value[1] === 'number';
 }
 
 function rowBelongsToSelectedOp(row: Record<string, unknown>, selectedOpIdSet: Set<string>) {
@@ -363,7 +373,7 @@ function readSlotRows(board: IncidentBoardResponse, slot: BoardSlotName): Record
   const raw = board.slots[slot] as unknown;
   if (!raw) return [];
   if (Array.isArray(raw)) return (raw as unknown[]).filter(isRecord);
-  return isRecord(raw) ? [raw] : [];
+  return isRecord(raw) && Object.keys(raw).length > 0 ? [raw] : [];
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

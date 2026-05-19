@@ -6,6 +6,7 @@ export function useIncidentDetail(incidentId: string) {
 
   useEffect(() => {
     let isActive = true;
+    setIncidentDetail(null);
 
     void getIncidentDetail(incidentId)
       .then((detail) => {

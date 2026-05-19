@@ -228,7 +228,7 @@
             #{manifestHash},
             manifest_format_version,
             manifest_payload,
-            expires_at,
+            #{expiresAt},
             #{createdAt},
             #{createdAt}
         FROM offline_package_manifest

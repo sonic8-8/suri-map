@@ -91,8 +91,16 @@ describe('incident board API', () => {
       {
         includeSlots: ['marker', 'path'],
         opIds: [],
+        sinceVersion: 33,
       },
     ]);
+
+    expect(incidentBoardQueryKeys.detail({ incidentId: 'inc-precinct-first-001' })).not.toEqual(
+      incidentBoardQueryKeys.detail({
+        incidentId: 'inc-precinct-first-001',
+        includeSlots: ['path', 'marker'],
+      }),
+    );
   });
 
   test('maps board response rows without copying server state into UI display store', () => {

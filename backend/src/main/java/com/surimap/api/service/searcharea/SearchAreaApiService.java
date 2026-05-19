@@ -10,6 +10,8 @@ import com.surimap.api.controller.searcharea.response.SearchAreaReadResponse;
 import com.surimap.api.controller.searcharea.response.SearchAreaResponse;
 import com.surimap.api.controller.searcharea.response.SearchAreaSplitResponse;
 import com.surimap.common.auth.SuriMapAuthentication;
+import com.surimap.eventhub.dto.PublishRequest;
+import com.surimap.eventhub.port.EventHub;
 import com.surimap.maparea.SearchAreaAssignmentMapper;
 import com.surimap.maparea.SearchAreaAssignmentPersistenceRecord;
 import com.surimap.maparea.SearchAreaHistoryPersistenceRecord;
@@ -71,16 +73,22 @@ public class SearchAreaApiService implements SearchAreaQuery {
   private final SearchAreaAssignmentMapper searchAreaAssignmentMapper;
   private final OperationalPeriodMapper operationalPeriodMapper;
   private final IdempotentResponseCache idempotentResponseCache;
+  private final EventHub eventHub;
   private final Map<UUID, SearchAreaRecord> searchAreas = new LinkedHashMap<>();
   private final Map<String, IdempotencyEntry> idempotencyEntries = new LinkedHashMap<>();
 
   public SearchAreaApiService(GeometryValidator geometryValidator) {
+    this(geometryValidator, request -> {});
+  }
+
+  public SearchAreaApiService(GeometryValidator geometryValidator, EventHub eventHub) {
     this(
         geometryValidator,
         (SearchAreaMapper) null,
         (SearchAreaAssignmentMapper) null,
         (OperationalPeriodMapper) null,
-        null);
+        null,
+        eventHub);
   }
 
   @Autowired
@@ -89,13 +97,15 @@ public class SearchAreaApiService implements SearchAreaQuery {
       ObjectProvider<SearchAreaMapper> searchAreaMapperProvider,
       ObjectProvider<SearchAreaAssignmentMapper> searchAreaAssignmentMapperProvider,
       ObjectProvider<OperationalPeriodMapper> operationalPeriodMapperProvider,
-      ObjectProvider<IdempotentResponseCache> idempotentResponseCacheProvider) {
+      ObjectProvider<IdempotentResponseCache> idempotentResponseCacheProvider,
+      ObjectProvider<EventHub> eventHubProvider) {
     this(
         geometryValidator,
         searchAreaMapperProvider.getIfAvailable(),
         searchAreaAssignmentMapperProvider.getIfAvailable(),
         operationalPeriodMapperProvider.getIfAvailable(),
-        idempotentResponseCacheProvider.getIfAvailable());
+        idempotentResponseCacheProvider.getIfAvailable(),
+        eventHubProvider.getIfAvailable(() -> request -> {}));
   }
 
   private SearchAreaApiService(
@@ -103,12 +113,14 @@ public class SearchAreaApiService implements SearchAreaQuery {
       SearchAreaMapper searchAreaMapper,
       SearchAreaAssignmentMapper searchAreaAssignmentMapper,
       OperationalPeriodMapper operationalPeriodMapper,
-      IdempotentResponseCache idempotentResponseCache) {
+      IdempotentResponseCache idempotentResponseCache,
+      EventHub eventHub) {
     this.geometryValidator = geometryValidator;
     this.searchAreaMapper = searchAreaMapper;
     this.searchAreaAssignmentMapper = searchAreaAssignmentMapper;
     this.operationalPeriodMapper = operationalPeriodMapper;
     this.idempotentResponseCache = idempotentResponseCache;
+    this.eventHub = eventHub == null ? request -> {} : eventHub;
   }
 
   @Transactional
@@ -153,7 +165,9 @@ public class SearchAreaApiService implements SearchAreaQuery {
                   request.geometry(),
                   Instant.now());
           searchAreas.put(created.id(), created);
-          return toResponse(created);
+          SearchAreaResponse response = toResponse(created);
+          publishSearchAreaChangedIfOverall(response, created.updatedAt());
+          return response;
         });
   }
 
@@ -220,7 +234,9 @@ public class SearchAreaApiService implements SearchAreaQuery {
             request.geometry(),
             now);
     searchAreas.put(created.id(), created);
-    return toResponse(created);
+    SearchAreaResponse response = toResponse(created);
+    publishSearchAreaChangedIfOverall(response, now);
+    return response;
   }
 
   public synchronized SearchAreaReadResponse list(
@@ -372,7 +388,9 @@ public class SearchAreaApiService implements SearchAreaQuery {
               existing.withMutation(
                   nextStatus, existing.historyCount() + 1, existing.version() + 1, geometry);
           searchAreas.put(updated.id(), updated);
-          return toResponse(updated);
+          SearchAreaResponse response = toResponse(updated);
+          publishSearchAreaChangedIfOverall(response, updated.updatedAt());
+          return response;
         });
   }
 
@@ -690,7 +708,9 @@ public class SearchAreaApiService implements SearchAreaQuery {
             nextGeoJsonGeometry,
             updatedRecord.updatedAt());
     searchAreas.put(memoryRecord.id(), memoryRecord);
-    return Optional.of(toResponse(updatedRecord));
+    SearchAreaResponse response = toResponse(updatedRecord);
+    publishSearchAreaChangedIfOverall(response, now);
+    return Optional.of(response);
   }
 
   private Optional<SearchAreaSplitResponse> splitPersistent(
@@ -908,6 +928,34 @@ public class SearchAreaApiService implements SearchAreaQuery {
         geometry,
         computeBbox(geometry),
         record.updatedAt());
+  }
+
+  private void publishSearchAreaChangedIfOverall(SearchAreaResponse response, Instant occurredAt) {
+    if (!OVERALL.equals(response.areaLevel())) {
+      return;
+    }
+    Map<String, Object> payload = new LinkedHashMap<>();
+    payload.put("id", response.id().toString());
+    payload.put("incidentId", response.incidentId().toString());
+    payload.put("status", response.status());
+    payload.put("version", response.version());
+    payload.put("sequence", response.version());
+    payload.put(
+        "overallAreaHash",
+        fingerprint(
+            "overall-search-area:" + response.id() + ":" + response.version(),
+            response.geometry()));
+    payload.put("serverTs", occurredAt.toString());
+    eventHub.publish(
+        new PublishRequest(
+            stableUuid("event:SEARCH_AREA_CHANGED:" + response.id() + ":" + response.version()),
+            response.incidentId(),
+            "SEARCH_AREA_CHANGED",
+            1,
+            "search_area",
+            response.id(),
+            occurredAt,
+            payload));
   }
 
   private List<SearchAreaRecord> queryRecords(
@@ -1168,6 +1216,10 @@ public class SearchAreaApiService implements SearchAreaQuery {
     } catch (NoSuchAlgorithmException e) {
       throw new IllegalStateException("SHA-256 is not available", e);
     }
+  }
+
+  private static UUID stableUuid(String source) {
+    return UUID.nameUUIDFromBytes(source.getBytes(StandardCharsets.UTF_8));
   }
 
   private record SearchAreaRecord(

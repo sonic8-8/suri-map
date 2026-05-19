@@ -92,6 +92,11 @@ pipeline {
         TILESERVER_MODE = 'tileserver-gl'
         TILESERVER_BASE_URL = 'http://tileserver-gl:8080'
         V_WORLD_API_KEY = credentials('suri-map-vworld-api-key')
+        SURI_MAP_OPENAI_ENABLED = 'false'
+        SURI_MAP_OPENAI_BASE_URL = 'https://api.openai.com/v1'
+        SURI_MAP_OPENAI_API_KEY = ''
+        SURI_MAP_OPENAI_MODEL = 'gpt-5-mini'
+        SURI_MAP_OPENAI_TIMEOUT_MS = '15000'
         FCM_PROVIDER = 'firebase'
         FIREBASE_CREDENTIALS_LOCATION = ''
         FIREBASE_CREDENTIALS_JSON_BASE64 = credentials('suri-map-firebase-service-account-base64')
@@ -366,6 +371,11 @@ TILESERVER_HOST_PORT=${env.TILESERVER_HOST_PORT}
 TILESERVER_DATA_DIR=${env.TILESERVER_DATA_DIR}
 TILESERVER_MODE=${env.TILESERVER_MODE}
 TILESERVER_BASE_URL=${env.TILESERVER_BASE_URL}
+SURI_MAP_OPENAI_ENABLED=${env.SURI_MAP_OPENAI_ENABLED}
+SURI_MAP_OPENAI_BASE_URL=${env.SURI_MAP_OPENAI_BASE_URL}
+SURI_MAP_OPENAI_API_KEY=${env.SURI_MAP_OPENAI_API_KEY}
+SURI_MAP_OPENAI_MODEL=${env.SURI_MAP_OPENAI_MODEL}
+SURI_MAP_OPENAI_TIMEOUT_MS=${env.SURI_MAP_OPENAI_TIMEOUT_MS}
 FCM_PROVIDER=${env.FCM_PROVIDER}
 FIREBASE_CREDENTIALS_LOCATION=${env.FIREBASE_CREDENTIALS_LOCATION}
 FIREBASE_CREDENTIALS_JSON_BASE64=${env.FIREBASE_CREDENTIALS_JSON_BASE64}
@@ -983,6 +993,10 @@ PROFILE_JSON
                           /opt/keycloak/bin/kcadm.sh update "users/${user_id}" \
                             -r suri-map \
                             -f "/tmp/${username}-profile.json" >/dev/null
+                          /opt/keycloak/bin/kcadm.sh set-password \
+                            -r suri-map \
+                            --userid "${user_id}" \
+                            --new-password fixture >/dev/null
                         }
 
                         for username in \

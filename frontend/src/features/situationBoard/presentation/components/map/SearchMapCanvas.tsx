@@ -1174,14 +1174,20 @@ export function SearchMapCanvas({
 
     const vWorldApiKey = getVWorldApiKey();
 
-    const map = new maplibregl.Map({
-      container: mapContainerRef.current,
-      style: createVWorldBaseStyle(vWorldApiKey),
-      center: DEFAULT_GWANGJU_CENTER,
-      zoom: INITIAL_MAP_FALLBACK_ZOOM,
-      maxZoom: V_WORLD_MAX_ZOOM,
-      attributionControl: false,
-    });
+    let map: maplibregl.Map;
+    try {
+      map = new maplibregl.Map({
+        container: mapContainerRef.current,
+        style: createVWorldBaseStyle(vWorldApiKey),
+        center: DEFAULT_GWANGJU_CENTER,
+        zoom: INITIAL_MAP_FALLBACK_ZOOM,
+        maxZoom: V_WORLD_MAX_ZOOM,
+        attributionControl: false,
+      });
+    } catch (error) {
+      console.error('Failed to initialize search map', error);
+      return;
+    }
 
     mapRef.current = map;
     setMapInstance(map);
@@ -1241,26 +1247,33 @@ export function SearchMapCanvas({
     map.on('click', handleMapClick);
 
     map.once('load', () => {
-      syncBaseMapOpacity(map);
-      const currentAssignedSearchAreas = assignedSearchAreasRef.current;
-      const currentMovementPathFeatures = movementPathFeaturesRef.current;
-      addSearchAreaLayers(map, currentAssignedSearchAreas);
-      addMovementPathLayers(map, currentMovementPathFeatures);
-      syncSelectedSearchArea(map, selectedSearchAreaIdRef.current);
-      syncLayerVisibility(map, layerVisibilityRef.current);
-      syncMarkerElements(
-        map,
-        recentMarkersRef.current,
-        visibleMarkerIdsRef.current,
-        markerInstancesRef,
-        layerVisibilityRef.current.marker,
-        markerInteractionHandlers,
-        hoveredMarkerIdRef.current,
-        selectedMarkerIdRef.current,
-      );
+      if (mapRef.current !== map) return;
+      try {
+        syncBaseMapOpacity(map);
+        const currentAssignedSearchAreas = assignedSearchAreasRef.current;
+        const currentMovementPathFeatures = movementPathFeaturesRef.current;
+        addSearchAreaLayers(map, currentAssignedSearchAreas);
+        addMovementPathLayers(map, currentMovementPathFeatures);
+        syncSelectedSearchArea(map, selectedSearchAreaIdRef.current);
+        syncLayerVisibility(map, layerVisibilityRef.current);
+        syncMarkerElements(
+          map,
+          recentMarkersRef.current,
+          visibleMarkerIdsRef.current,
+          markerInstancesRef,
+          layerVisibilityRef.current.marker,
+          markerInteractionHandlers,
+          hoveredMarkerIdRef.current,
+          selectedMarkerIdRef.current,
+        );
+      } catch (error) {
+        console.error('Failed to initialize search map layers', error);
+        return;
+      }
 
       void Promise.resolve()
         .then(() => {
+          if (mapRef.current !== map) return;
           raiseMovementPathLayers(map);
           raiseMarkerLayer(map);
           if (isRouteEditorEnabledRef.current) {
@@ -1295,7 +1308,11 @@ export function SearchMapCanvas({
       onInitialBoundsReady?.(null);
       onInitialMapStateReady?.(null);
       onMapReady?.(null);
-      map.remove();
+      try {
+        map.remove();
+      } catch (error) {
+        console.warn('Failed to remove search map', error);
+      }
     };
   }, [onInitialBoundsReady, onInitialMapStateReady, onMapReady]);
 
@@ -1384,6 +1401,19 @@ export function SearchMapCanvas({
           </section>
         </div>
       ) : null}
+      {areaEditMapProps || handoverMapProps ? null : (
+        <SearchAreaInspectorCard
+          searchAreaTree={searchAreaTree}
+          selectedSearchAreaId={selectedSearchAreaId}
+          savedAreaDrafts={savedAreaDrafts}
+          movementPaths={movementPaths}
+          recentMarkers={recentMarkers}
+          operationalPeriods={operationalPeriods}
+          onClose={onClearSelectedSearchArea}
+          onOpenAssign={onOpenSearchAreaAssign}
+          onOpenSplit={onOpenSearchAreaSplit}
+        />
+      )}
       {areaEditMapProps && mapInstance ? (
         <AreaEditMapCanvas {...areaEditMapProps} externalMap={mapInstance} hideCanvas />
       ) : null}

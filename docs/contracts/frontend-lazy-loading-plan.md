@@ -23,7 +23,7 @@ DevTools `Network > JS`에서 보이는 JS 파일을 줄이는 문제는 1번이
 ### `/login`
 
 - `LoginPage` mount 시 incident API를 직접 호출하는 코드는 없다.
-- 로그인 버튼 클릭 시 `POST /api/auth/login`만 호출된다.
+- 로그인 버튼 클릭 시 Keycloak/OIDC Authorization Code + PKCE redirect를 시작한다. legacy `POST /api/auth/login`은 현재 canonical public API가 아니다.
 
 ### 로그인 성공 후 `/incidents`
 
@@ -235,7 +235,7 @@ Chrome DevTools:
 
 | 페이지 | 현재 기대 API |
 |---|---|
-| `/login` | 새로고침 직후 없음. 로그인 버튼 클릭 시 `POST /auth/login` |
+| `/login` | 새로고침 직후 없음. 로그인 버튼 클릭 시 Keycloak/OIDC authorization endpoint |
 | `/incidents` | `GET /incidents`, 이후 각 사건 detail |
 | `/incidents/:id/board` | board/detail/events |
 | `/incidents/:id/handover` | board/detail/OP/memo/duty shift/summary |

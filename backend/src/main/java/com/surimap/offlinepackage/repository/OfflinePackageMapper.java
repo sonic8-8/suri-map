@@ -51,6 +51,7 @@ public interface OfflinePackageMapper {
       @Param("overallSearchAreaId") String overallSearchAreaId,
       @Param("overallSearchAreaVersion") long overallSearchAreaVersion,
       @Param("manifestHash") String manifestHash,
+      @Param("expiresAt") OffsetDateTime expiresAt,
       @Param("createdAt") OffsetDateTime createdAt);
 
   int markReadyAndPartialInstallationsStale(

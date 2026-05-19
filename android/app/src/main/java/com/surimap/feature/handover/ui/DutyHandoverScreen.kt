@@ -6,9 +6,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SecondaryTabRow
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -36,6 +39,7 @@ data class DutyHandoverUiState(
     val sourceReadiness: SummarySourceReadiness,
     val metrics: List<HandoverMetric>,
     val records: List<HandoverRecord>,
+    val selectedTab: DutyHandoverTab = DutyHandoverTab.Replay,
     val canEndDutyShift: Boolean = false,
     val endingDutyShift: Boolean = false,
     val canRequestSummaryGeneration: Boolean = false
@@ -56,12 +60,14 @@ data class DutyHandoverUiState(
         buildList {
             add(title)
             add(subtitle)
+            DutyHandoverTab.entries.forEach { add(it.label) }
+            add(selectedTab.label)
             add("서버 인수인계 요약")
             add(summaryStatus.label)
             add(generatedAtLabel)
             add(summaryText)
-            add(sourceReadiness.label)
             summaryActionLabel?.let(::add)
+            add("타임라인")
             add("원본 기록")
             metrics.forEach {
                 add(it.value)
@@ -76,6 +82,9 @@ data class DutyHandoverUiState(
                 add(dutyShiftActionLabel)
             }
         }
+
+    fun selectTab(tab: DutyHandoverTab): DutyHandoverUiState =
+        copy(selectedTab = tab)
 
     val dutyShiftActionLabel: String =
         if (endingDutyShift) "종료 등록 중" else "근무 종료"
@@ -108,7 +117,7 @@ data class DutyHandoverUiState(
         fun unavailable(): DutyHandoverUiState =
             base(
                 summaryStatus = SearchHistorySummaryStatus.Unavailable,
-                generatedAtLabel = "summary_unavailable · 원본 기록 유지",
+                generatedAtLabel = "요약을 불러오지 못했습니다 · 원본 기록 유지",
                 summary = null,
                 sourceReadiness = SummarySourceReadiness.Ready
             )
@@ -143,7 +152,7 @@ data class DutyHandoverUiState(
         ): DutyHandoverUiState =
             DutyHandoverUiState(
                 title = "이전 근무 확인",
-                subtitle = "사건 #1234 · OP 3차 · 교대 14:00",
+                subtitle = "OP 3차 · 교대 인수인계",
                 summaryStatus = summaryStatus,
                 generatedAtLabel = generatedAtLabel,
                 summary = summary,
@@ -167,6 +176,11 @@ enum class SummarySourceReadiness {
     PendingSync,
     Ready,
     Stale
+}
+
+enum class DutyHandoverTab(val label: String) {
+    Replay("리플레이"),
+    Report("보고서")
 }
 
 data class HandoverMetric(val value: String, val label: String)
@@ -195,11 +209,13 @@ fun DutyHandoverScreen(
     onBack: () -> Unit,
     onWriteMemo: () -> Unit,
     onOpenSearch: () -> Unit,
+    onSelectTab: (DutyHandoverTab) -> Unit = {},
     onEndDutyShift: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier.fillMaxSize()) {
+    Column(modifier = modifier.fillMaxSize().safeDrawingPadding()) {
         PoliAppBar(title = state.title, subtitle = state.subtitle, showBack = true, onBack = onBack)
+        DutyHandoverTabRow(selectedTab = state.selectedTab, onSelectTab = onSelectTab)
         Column(
             modifier =
             Modifier
@@ -208,30 +224,9 @@ fun DutyHandoverScreen(
                 .padding(horizontal = PoliDimens.SectionPadding),
             verticalArrangement = Arrangement.spacedBy(PoliDimens.Space4)
         ) {
-            SummaryCard(state)
-            PoliCard {
-                Text(text = "원본 기록", style = MaterialTheme.typography.titleMedium)
-                if (state.records.isEmpty()) {
-                    Text(
-                        text = "이전 기록 없음",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = PoliFgMuted
-                    )
-                } else {
-                    state.records.forEach { record ->
-                        PoliRow(title = record.title, subtitle = record.subtitle) {
-                            PoliChip(text = record.actionLabel)
-                        }
-                    }
-                }
-            }
-            PoliCard {
-                Text(text = "상태 기준", style = MaterialTheme.typography.titleMedium)
-                Text(
-                    text = "요약은 서버 내부 job 결과만 읽습니다. Android는 원본 경로·마커·메모를 계속 보여주며 생성·재시도 요청을 만들지 않습니다.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = PoliFgMuted
-                )
+            when (state.selectedTab) {
+                DutyHandoverTab.Replay -> ReplayTab(state)
+                DutyHandoverTab.Report -> ReportTab(state)
             }
         }
 
@@ -267,6 +262,68 @@ fun DutyHandoverScreen(
 }
 
 @Composable
+private fun DutyHandoverTabRow(
+    selectedTab: DutyHandoverTab,
+    onSelectTab: (DutyHandoverTab) -> Unit
+) {
+    SecondaryTabRow(selectedTabIndex = selectedTab.ordinal) {
+        DutyHandoverTab.entries.forEach { tab ->
+            Tab(
+                selected = selectedTab == tab,
+                onClick = { onSelectTab(tab) },
+                text = { Text(text = tab.label) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ReplayTab(state: DutyHandoverUiState) {
+    PoliCard(strong = true) {
+        Text(text = "리플레이", style = MaterialTheme.typography.titleMedium)
+        Text(
+            text = state.generatedAtLabel,
+            style = MaterialTheme.typography.bodyMedium,
+            color = PoliFgMuted
+        )
+        if (state.metrics.isNotEmpty()) {
+            Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
+                state.metrics.forEach { metric ->
+                    PoliField(label = metric.label, value = metric.value, modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+    RecordCard(title = "타임라인", state = state)
+}
+
+@Composable
+private fun ReportTab(state: DutyHandoverUiState) {
+    SummaryCard(state)
+    RecordCard(title = "원본 기록", state = state)
+}
+
+@Composable
+private fun RecordCard(title: String, state: DutyHandoverUiState) {
+    PoliCard {
+        Text(text = title, style = MaterialTheme.typography.titleMedium)
+        if (state.records.isEmpty()) {
+            Text(
+                text = "이전 기록 없음",
+                style = MaterialTheme.typography.bodyMedium,
+                color = PoliFgMuted
+            )
+        } else {
+            state.records.forEach { record ->
+                PoliRow(title = record.title, subtitle = record.subtitle) {
+                    PoliChip(text = record.actionLabel)
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun SummaryCard(state: DutyHandoverUiState) {
     PoliCard(strong = true) {
         Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
@@ -277,7 +334,6 @@ private fun SummaryCard(state: DutyHandoverUiState) {
             PoliChip(text = state.summaryStatus.label, variant = state.summaryStatus.variant)
         }
         Text(text = state.summaryText, style = MaterialTheme.typography.bodyLarge, color = PoliFgSecondary)
-        PoliChip(text = state.sourceReadiness.label)
         state.summaryActionLabel?.let { actionLabel ->
             PoliChip(text = actionLabel, variant = PoliChipVariant.Outbox)
         }
@@ -297,7 +353,7 @@ private val SearchHistorySummaryStatus.label: String
             SearchHistorySummaryStatus.Ready -> "준비됨"
             SearchHistorySummaryStatus.Generating -> "자동 처리 중"
             SearchHistorySummaryStatus.NeedsSummary -> "요약 생성 필요"
-            SearchHistorySummaryStatus.Unavailable -> "summary_unavailable"
+            SearchHistorySummaryStatus.Unavailable -> "요약 확인 필요"
             SearchHistorySummaryStatus.Empty -> "이전 기록 없음"
         }
 
@@ -317,16 +373,8 @@ private val SearchHistorySummaryStatus.emptyCopy: String
             SearchHistorySummaryStatus.Ready -> ""
             SearchHistorySummaryStatus.Generating -> "이전 근무 기록을 자동 처리 중입니다. 원본 기록은 즉시 확인할 수 있습니다."
             SearchHistorySummaryStatus.NeedsSummary -> "요약 생성 필요 상태입니다. 공개 생성 API가 없으므로 원본 기록을 먼저 확인합니다."
-            SearchHistorySummaryStatus.Unavailable -> "summary_unavailable 상태입니다. 서버 요약이 실패해도 원본 경로·마커·메모는 계속 확인할 수 있습니다."
+            SearchHistorySummaryStatus.Unavailable -> "요약을 불러오지 못했습니다. 원본 경로·마커·메모는 계속 확인할 수 있습니다."
             SearchHistorySummaryStatus.Empty -> "이전 기록 없음"
-        }
-
-private val SummarySourceReadiness.label: String
-    get() =
-        when (this) {
-            SummarySourceReadiness.PendingSync -> "sourceReadiness=PENDING_SYNC"
-            SummarySourceReadiness.Ready -> "sourceReadiness=READY"
-            SummarySourceReadiness.Stale -> "sourceReadiness=STALE"
         }
 
 fun sampleDutyHandoverState(): DutyHandoverUiState = DutyHandoverUiState.ready()

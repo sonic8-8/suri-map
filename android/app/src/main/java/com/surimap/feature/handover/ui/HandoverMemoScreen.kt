@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -77,7 +78,7 @@ data class HandoverMemoUiState(
         ): HandoverMemoUiState =
             HandoverMemoUiState(
                 title = "인수인계 메모",
-                subtitle = "사건 #1234 · OP 3차 · DutyShift 14:00",
+                subtitle = "OP 3차 · 교대 인수인계",
                 selectedTarget = selectedTarget,
                 selectedTargetTitle = "현재 OP 3차",
                 selectedTargetSubtitle = "재수색 · 활성 운영 기간",
@@ -96,7 +97,7 @@ fun HandoverMemoScreen(
     onSave: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier.fillMaxSize()) {
+    Column(modifier = modifier.fillMaxSize().safeDrawingPadding()) {
         PoliAppBar(title = state.title, subtitle = state.subtitle, showBack = true, onBack = onBack)
         Column(
             modifier =

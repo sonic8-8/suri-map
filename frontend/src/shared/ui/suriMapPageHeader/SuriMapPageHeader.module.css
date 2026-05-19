@@ -380,6 +380,37 @@
   flex-shrink: 0;
 }
 
+.packageWarningBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 11px;
+  border: 1px solid rgba(245, 158, 11, 0.58);
+  border-radius: 999px;
+  color: #ffd58a;
+  background: rgba(120, 76, 16, 0.22);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.packageWarningBadge:hover:not(:disabled) {
+  border-color: rgba(251, 191, 36, 0.72);
+  color: #ffe5b0;
+  background: rgba(146, 94, 24, 0.3);
+}
+
+.packageWarningBadge:focus-visible {
+  outline: 2px solid rgba(251, 191, 36, 0.72);
+  outline-offset: 2px;
+}
+
+.packageWarningBadge:disabled {
+  cursor: default;
+}
+
 /* 현재 운영 상태를 표시하는 pill 배지입니다. */
 .headerStatus {
   display: inline-flex;

@@ -59,24 +59,49 @@ class IncidentListStateLoader(
         return List(items.length()) { index ->
             val item = items.getJSONObject(index)
             val incidentId = item.optString("incidentId").ifBlank { item.optString("id") }
-            val status = item.optString("status").ifBlank { "UNKNOWN" }
-            val version = item.optInt("version", -1)
             AssignedIncidentUiModel(
                 incidentId = incidentId,
                 currentOpId = item.optString("currentOpId").takeIf(String::isNotBlank),
                 currentDutyShiftId = item.optString("currentDutyShiftId").takeIf(String::isNotBlank),
-                title = item.optString("title").ifBlank { incidentId },
-                summary =
-                if (version >= 0) {
-                    "상태 $status · v$version"
-                } else {
-                    "상태 $status"
-                },
+                title = item.optString("title").userFacingIncidentTitle(incidentId),
+                summary = item.incidentSummary(),
                 packageStatus = "오프라인 패키지 확인 전",
                 assignmentStatus = "이 폴리폰에서 선택 가능"
             )
         }
     }
+
+    private fun JSONObject.incidentSummary(): String {
+        val missingPerson = optJSONObject("missingPerson")
+        val displayName =
+            missingPerson
+                ?.optString("displayName")
+                ?.ifBlank { missingPerson.optString("name") }
+                ?.withoutMissingPersonCode()
+                .orEmpty()
+        val appearance = missingPerson?.optString("appearanceText").orEmpty()
+        return listOf(displayName, appearance)
+            .filter(String::isNotBlank)
+            .joinToString(" · ")
+            .ifBlank { "현장 수색 진행 중" }
+    }
+
+    private fun String.userFacingIncidentTitle(incidentId: String): String {
+        val cleaned =
+            replace(UUID_LIKE_TEXT, "")
+                .replace(ZERO_ID_TEXT, "")
+                .replace(Regex("""\s*[#·|/-]\s*$"""), "")
+                .trim()
+        if (cleaned.isBlank() || cleaned == incidentId || UUID_LIKE_TEXT.matches(cleaned)) {
+            return "배정 사건"
+        }
+        return cleaned
+    }
+
+    private fun String.withoutMissingPersonCode(): String =
+        replace(MISSING_PERSON_CODE_TEXT, "")
+            .replace(Regex("""\s{2,}"""), " ")
+            .trim(' ', '·', '-', '_')
 
     private fun parseItems(body: String): JSONArray {
         val trimmed = body.trim()
@@ -84,5 +109,11 @@ class IncidentListStateLoader(
             return JSONArray(trimmed)
         }
         return JSONObject(trimmed).optJSONArray("items") ?: JSONArray()
+    }
+
+    private companion object {
+        val UUID_LIKE_TEXT = Regex("""[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}""")
+        val ZERO_ID_TEXT = Regex("""0{4,}""")
+        val MISSING_PERSON_CODE_TEXT = Regex("""\b[A-Z]\d+-[가-힣A-Za-z0-9]+-\d+\b""")
     }
 }

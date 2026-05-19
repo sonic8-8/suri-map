@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.surimap.opcomparison.OpComparisonRegionFactMapper">
+
+    <resultMap id="opComparisonRegionFactRowMap" type="com.surimap.opcomparison.OpComparisonRegionFactRow">
+        <constructor>
+            <arg column="fact_id" javaType="string"/>
+            <arg column="type" javaType="string"/>
+            <arg column="operational_period_ids" javaType="string"/>
+            <arg column="geometry_geojson" javaType="string"/>
+            <arg column="area_square_meters" javaType="java.math.BigDecimal"/>
+            <arg column="occupancies_json" javaType="string"/>
+        </constructor>
+    </resultMap>
+
+    <select id="findRegionFactRows" resultMap="opComparisonRegionFactRowMap">
+        WITH selected_ops AS (
+            SELECT value.op_id
+            FROM (
+                VALUES
+                <foreach collection="opIds" item="opId" separator=",">
+                    (#{opId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}::uuid)
+                </foreach>
+            ) AS value(op_id)
+        ),
+        op_segments AS (
+            SELECT
+                ds.operational_period_id AS op_id,
+                sps.started_at,
+                sps.ended_at,
+                ST_Buffer(sps.geometry::geography, #{bufferMeters})::geometry AS geom
+            FROM search_path_segment sps
+            JOIN search_path sp
+              ON sp.id = sps.search_path_id
+            JOIN duty_shift ds
+              ON ds.id = sp.duty_shift_id
+            JOIN selected_ops so
+              ON so.op_id = ds.operational_period_id
+            WHERE sps.geometry IS NOT NULL
+        ),
+        op_regions AS (
+            SELECT
+                op_id,
+                ST_CollectionExtract(ST_MakeValid(ST_UnaryUnion(ST_Collect(geom))), 3) AS geom
+            FROM op_segments
+            GROUP BY op_id
+        ),
+        common_regions AS (
+            SELECT
+                'common-region-' || LPAD(
+                    ROW_NUMBER() OVER (ORDER BY left_region.op_id, right_region.op_id)::text,
+                    3,
+                    '0'
+                ) AS fact_id,
+                'COMMON_REGION' AS type,
+                ARRAY[left_region.op_id, right_region.op_id]::uuid[] AS op_ids,
+                ST_CollectionExtract(
+                    ST_MakeValid(ST_Intersection(left_region.geom, right_region.geom)),
+                    3
+                ) AS geom
+            FROM op_regions left_region
+            JOIN op_regions right_region
+              ON left_region.op_id &lt; right_region.op_id
+        ),
+        different_regions AS (
+            SELECT
+                'different-region-' || LPAD(
+                    ROW_NUMBER() OVER (ORDER BY target_region.op_id)::text,
+                    3,
+                    '0'
+                ) AS fact_id,
+                'DIFFERENT_REGION' AS type,
+                ARRAY[target_region.op_id]::uuid[] AS op_ids,
+                ST_CollectionExtract(
+                    ST_MakeValid(
+                        ST_Difference(
+                            target_region.geom,
+                            COALESCE(
+                                other_regions.geom,
+                                ST_GeomFromText('POLYGON EMPTY', 4326)
+                            )
+                        )
+                    ),
+                    3
+                ) AS geom
+            FROM op_regions target_region
+            LEFT JOIN LATERAL (
+                SELECT ST_CollectionExtract(
+                    ST_MakeValid(ST_UnaryUnion(ST_Collect(other_region.geom))),
+                    3
+                ) AS geom
+                FROM op_regions other_region
+                WHERE other_region.op_id != target_region.op_id
+            ) other_regions ON true
+        ),
+        candidate_regions AS (
+            SELECT fact_id, type, op_ids, geom
+            FROM common_regions
+            UNION ALL
+            SELECT fact_id, type, op_ids, geom
+            FROM different_regions
+        ),
+        filtered_regions AS (
+            SELECT
+                fact_id,
+                type,
+                op_ids,
+                geom,
+                ST_Area(geom::geography)::numeric AS area_square_meters
+            FROM candidate_regions
+            WHERE geom IS NOT NULL
+              AND NOT ST_IsEmpty(geom)
+              AND ST_Area(geom::geography)::numeric &gt;= #{minimumAreaSquareMeters}
+        ),
+        region_occupancies AS (
+            SELECT
+                region.fact_id,
+                segment.op_id,
+                MIN(segment.started_at) AS first_observed_at,
+                MAX(segment.ended_at) AS last_observed_at,
+                SUM(
+                    GREATEST(
+                        EXTRACT(EPOCH FROM segment.ended_at - segment.started_at),
+                        0
+                    )
+                )::bigint AS duration_seconds
+            FROM filtered_regions region
+            JOIN op_segments segment
+              ON segment.op_id = ANY(region.op_ids)
+             AND ST_Intersects(segment.geom, region.geom)
+            GROUP BY region.fact_id, segment.op_id
+        )
+        SELECT
+            region.fact_id,
+            region.type,
+            array_to_string(region.op_ids, ',') AS operational_period_ids,
+            ST_AsGeoJSON(region.geom)::text AS geometry_geojson,
+            ROUND(region.area_square_meters, 2) AS area_square_meters,
+            COALESCE(
+                jsonb_agg(
+                    jsonb_build_object(
+                        'operationalPeriodId', occupancy.op_id::text,
+                        'firstObservedAt', to_char(
+                            occupancy.first_observed_at AT TIME ZONE 'UTC',
+                            'YYYY-MM-DD"T"HH24:MI:SS"Z"'
+                        ),
+                        'lastObservedAt', to_char(
+                            occupancy.last_observed_at AT TIME ZONE 'UTC',
+                            'YYYY-MM-DD"T"HH24:MI:SS"Z"'
+                        ),
+                        'durationSeconds', occupancy.duration_seconds
+                    )
+                    ORDER BY occupancy.op_id
+                ) FILTER (WHERE occupancy.op_id IS NOT NULL),
+                '[]'::jsonb
+            )::text AS occupancies_json
+        FROM filtered_regions region
+        LEFT JOIN region_occupancies occupancy
+          ON occupancy.fact_id = region.fact_id
+        GROUP BY
+            region.fact_id,
+            region.type,
+            region.op_ids,
+            region.geom,
+            region.area_square_meters
+        ORDER BY
+            CASE region.type
+                WHEN 'COMMON_REGION' THEN 0
+                ELSE 1
+            END,
+            region.fact_id
+    </select>
+</mapper>

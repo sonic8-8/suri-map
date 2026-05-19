@@ -25,7 +25,8 @@
 │     ├─ duty_shift                   [OP 하위 근무 구간, incident_assignment/police_phone 참조]
 │     ├─ search_area                  [OP 하위 수색 구역, 하위 구역 자기참조 가능]
 │     │  ├─ search_area_assignment    [search_area-account 중간 테이블]
-│     │  └─ search_area_history       [search_area 변경 이력]
+│     │  ├─ search_area_history       [search_area 변경 이력]
+│     │  └─ search_area_boundary_alert [담당 TEAM 구역 경계 확인 이벤트]
 │     ├─ search_path                  [duty_shift 하위 수색 경로]
 │     │  ├─ search_path_segment       [search_path 하위 경로 구간]
 │     │  ├─ search_path_excluded_point [품질 저하로 경로 도형에서 제외된 GPS point]
@@ -33,7 +34,8 @@
 │     ├─ marker                       [OP 하위 현장 마커]
 │     │  └─ photo                     [marker 하위 첨부 사진]
 │     ├─ handover_memo                [OP/근무/경로/구역/마커에 붙는 메모]
-│     └─ search_history_summary       [OP 또는 근무 구간 요약]
+│     ├─ search_history_summary       [OP 또는 근무 구간 요약]
+│     └─ op_comparison_analysis       [OP 간 비교 분석 요청/결과]
 
 운영 엔티티
 ├─ fcm_token                          [police_phone 참조]
@@ -164,7 +166,7 @@ Android Room 로컬 엔티티
 
 - 하나의 `account`는 여러 개의 `incident_assignment`를 가진다. (1:N)
 - 하나의 `account`는 여러 개의 `search_area_assignment`를 받을 수 있다. (1:N)
-- 하나의 `account`는 여러 개의 `marker`, `handover_memo`, `search_history_summary`를 작성하거나 요청할 수 있다. (1:N)
+- 하나의 `account`는 여러 개의 `marker`, `handover_memo`, `search_history_summary`, `op_comparison_analysis`를 작성하거나 요청할 수 있다. (1:N)
 
 **주요 컬럼**
 
@@ -229,7 +231,7 @@ Android Room 로컬 엔티티
 
 - 하나의 `incident`는 여러 개의 `operational_period`를 가진다. (1:N)
 - 하나의 `operational_period`는 여러 개의 `duty_shift`를 가진다. (1:N)
-- 하나의 `operational_period`는 여러 개의 `search_area`, `marker`, `handover_memo`, `search_history_summary`를 가진다. (1:N)
+- 하나의 `operational_period`는 여러 개의 `search_area`, `marker`, `handover_memo`, `search_history_summary`, `op_comparison_analysis`의 입력이 될 수 있다. (1:N)
 
 **주요 컬럼**
 
@@ -638,6 +640,45 @@ Android Room 로컬 엔티티
 
 `search_history_summary`는 OP 또는 근무 구간의 수색 기록을 AI로 요약한 결과다. 판단이나 추천이 아니라 기록을 읽기 쉽게 줄여주는 기능이다. 생성 실패 시 `generation_status = FAILED`로 남기며, 템플릿·규칙 기반 대체 요약 문장은 저장하지 않는다.
 
+#### op_comparison_analysis
+
+**PRD 근거**
+
+- PRD §7.2 FR-11 `수색 차수(OP) 비교`
+- PRD §7.7 FR-32 `OP 단위 수색 히스토리 레이어`
+- PRD §5.1 시나리오 11 `인수인계 / OP 비교 / 수색 이력 요약`
+
+**연관 관계**
+
+- 하나의 `incident`는 여러 개의 `op_comparison_analysis`를 가진다. (1:N)
+- 하나의 `op_comparison_analysis`는 같은 사건의 여러 `operational_period`를 비교 입력으로 가진다. (N:1 배열 참조)
+- 하나의 `account`는 여러 개의 `op_comparison_analysis` 생성을 요청할 수 있다. (1:N)
+
+**주요 컬럼**
+
+- `id`: OP 비교 분석 식별자
+- `incident_id`: 비교 대상 OP들이 속한 사건
+- `operational_period_ids`: 비교 대상 OP ID 배열. request hash 계산 전에 정렬된 순서로 저장한다.
+- `request_hash`: 같은 incident, OP 목록, source data hash 조합의 중복 요청 방지 키
+- `source_data_hash`: 경로·마커·메모 등 비교 원본 데이터 묶음 hash
+- `status`: 결정적 비교 분석 상태. `GENERATING`, `READY`, `FAILED` 중 하나다.
+- `metrics_json`: OP별 결정적 metric 결과
+- `diff_facts_json`: 임계값을 통과한 결정적 차이 fact
+- `common_regions_geojson`: UI highlight용 공통/차이 영역 GeoJSON
+- `narrative_status`: AI 관찰 문장 생성 상태. `SKIPPED`, `GENERATING`, `READY`, `FAILED` 중 하나다.
+- `observations_json`: 검증을 통과한 AI 관찰 문장과 evidence 배열
+- `failure_reason`: provider, schema, guard 실패 사유
+- `requested_by_account_id`: 분석 생성을 요청한 계정
+- `requested_at`: 요청 시각
+- `generated_at`: 결정적 분석 또는 narrative 생성 완료 시각
+- `version`: 분석 상태 변경 버전
+- `created_at`: 생성 시각
+- `updated_at`: 수정 시각
+
+**설명**
+
+`op_comparison_analysis`는 여러 OP의 metric, 차이 fact, 공통 영역, 검증된 관찰 문장을 저장하는 분석 결과다. 차이 계산과 영역 계산은 결정적 코드가 수행하며, AI는 임계값을 통과한 사실을 근거가 달린 관찰 문장으로 옮기는 데만 사용한다. 임계값 미달 또는 provider 실패 시에도 metric과 fact는 유지하고 `narrative_status`만 별도로 표시한다.
+
 ## 2. 운영 엔티티
 
 ### 인증과 푸시 채널
@@ -679,6 +720,41 @@ Android Room 로컬 엔티티
 `fcm_token`은 Android 폴리폰에 푸시를 보내기 위한 토큰이다. 웹 상황판은 FCM이 아니라 SSE를 사용한다.
 
 ### 알림
+
+#### search_area_boundary_alert
+
+**PRD 근거**
+
+- PRD §7.2 FR-36 `담당 구역 경계 확인`
+- PRD §5.1 시나리오 5 `수색 경로·PolicePhone GPS 경로`
+
+**연관 관계**
+
+- 하나의 `incident`는 여러 개의 `search_area_boundary_alert`를 가진다. (1:N)
+- 하나의 `operational_period`는 여러 개의 `search_area_boundary_alert`를 가진다. (1:N)
+- 하나의 `search_area`는 여러 개의 `search_area_boundary_alert`를 가진다. (1:N)
+- 하나의 `police_phone`은 여러 개의 `search_area_boundary_alert`를 남길 수 있다. (1:N)
+- 하나의 `search_path`는 0개 이상의 `search_area_boundary_alert`와 연결될 수 있다. (1:N)
+
+**주요 컬럼**
+
+- `id`: 담당 구역 경계 확인 이벤트 식별자
+- `incident_id`: 이벤트가 속한 사건
+- `operational_period_id`: 이벤트가 발생한 OP
+- `search_area_id`: 기준이 된 TEAM 수색구역
+- `police_phone_id`: 위치를 수집한 폴리폰
+- `search_path_id`: 수색 중인 경로. 경로 기록 전/후 이벤트는 비어 있을 수 있다
+- `alert_type`: `OUTSIDE_ASSIGNED_AREA`, `REENTERED_ASSIGNED_AREA`
+- `status`: 이벤트 저장 상태
+- `location`: GPS 기준 현재 위치
+- `client_ts`: 단말 수집 시각
+- `server_received_at`: 서버 수신 시각
+- `version`: 이벤트 버전
+- `created_at`: 생성 시각
+
+**설명**
+
+`search_area_boundary_alert`는 현장 단말이 담당 TEAM 구역 경계 밖 위치로 표시됐다는 사실을 운영 참고용으로 남기는 이벤트다. 이 데이터는 징계성 위반 판단이나 다음 수색 구역 추천이 아니라, 현장 앱의 중립적인 경계 확인 안내와 FCM data message 재전파를 위한 기준이다.
 
 #### marker_notification
 

@@ -221,7 +221,7 @@ class OfflinePackageStateLoaderTest {
         )
         assertEquals(OfflinePackageDownloadStatus.Ready, state.status)
         assertTrue(state.readyForOfflineUse)
-        assertTrue(state.autoOpenSearchMap)
+        assertFalse(state.autoOpenSearchMap)
         assertFalse(state.shouldDownloadPackage)
     }
 
@@ -307,7 +307,7 @@ class OfflinePackageStateLoaderTest {
 
         assertEquals(OfflinePackageDownloadStatus.Ready, state.status)
         assertTrue(state.readyForOfflineUse)
-        assertTrue(state.autoOpenSearchMap)
+        assertFalse(state.autoOpenSearchMap)
         assertFalse(state.shouldDownloadPackage)
     }
 

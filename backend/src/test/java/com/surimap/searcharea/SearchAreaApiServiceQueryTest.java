@@ -8,6 +8,7 @@ import com.surimap.api.controller.searcharea.request.SplitSearchAreaRequest;
 import com.surimap.api.controller.searcharea.response.SearchAreaResponse;
 import com.surimap.api.controller.searcharea.response.SearchAreaSplitResponse;
 import com.surimap.api.service.searcharea.SearchAreaApiService;
+import com.surimap.eventhub.adapter.MockEventHub;
 import com.surimap.maparea.geometry.geojson.GeoJsonPolygon;
 import com.surimap.maparea.geometry.policy.GeometryPolicy;
 import com.surimap.maparea.geometry.validation.GeometryValidator;
@@ -85,6 +86,37 @@ class SearchAreaApiServiceQueryTest {
               assertThat(row.id()).isEqualTo(unitArea.id());
               assertThat(row.status()).isEqualTo("CANCELLED");
               assertThat(row.version()).isEqualTo(2L);
+            });
+  }
+
+  @Test
+  @DisplayName("overall create and patch publish SEARCH_AREA_CHANGED without opId")
+  void overall_create_and_patch_publish_search_area_changed_without_op_id() {
+    MockEventHub eventHub = new MockEventHub();
+    SearchAreaApiService publishingService =
+        new SearchAreaApiService(
+            new GeometryValidator(GeometryPolicy.s2HarnessDefault()), eventHub);
+
+    SearchAreaResponse overall =
+        publishingService.create(overallCreateRequest(), "idem-overall-publish-query-004");
+    publishingService.patch(
+        overall.id(),
+        new PatchSearchAreaRequest(
+            null,
+            polygon("126.912000", "35.163000"),
+            "overall geometry update",
+            1L,
+            null,
+            CLIENT_TS.plusMinutes(2)),
+        "idem-overall-patch-publish-query-004");
+
+    assertThat(eventHub.findByType("SEARCH_AREA_CHANGED"))
+        .hasSize(2)
+        .allSatisfy(
+            event -> {
+              assertThat(event.payload()).containsEntry("incidentId", INCIDENT_ID.toString());
+              assertThat(event.payload()).containsKey("overallAreaHash");
+              assertThat(event.payload()).doesNotContainKey("opId");
             });
   }
 
