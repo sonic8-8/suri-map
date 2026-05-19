@@ -178,7 +178,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     collectSearchAreaRows(context, selectedOpIds, rows);
     collectPathRows(context, selectedOpIds, rows);
     collectPolicePhoneFreshnessRows(context, rows, terminalRow.isPresent());
-    collectMarkerRows(context, selectedOpIds, rows);
+    collectMarkerRows(context, markerOpIds(context, activeOpId, selectedOpIds), rows);
     collectToastRows(context, rows);
     collectPackageRows(context, rows);
     collectIncidentTerminalRow(context, rows, terminalRow);
@@ -879,6 +879,30 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
       return List.copyOf(new LinkedHashSet<>(requestedOpIds));
     }
     return activeOpId == null ? List.of() : List.of(activeOpId);
+  }
+
+  private List<UUID> markerOpIds(
+      BoardSourceRowContext context, UUID activeOpId, List<UUID> selectedOpIds) {
+    if (!context.requestedOpIds().isEmpty()) {
+      return selectedOpIds;
+    }
+    if (activeOpId == null) {
+      return List.of();
+    }
+
+    List<OperationalPeriodRow> opRows = operationalPeriodQuery.list(context.incidentId());
+    Optional<OperationalPeriodRow> activeOp =
+        opRows.stream().filter(row -> row.opId().equals(activeOpId)).findFirst();
+    if (activeOp.isEmpty()) {
+      return List.of(activeOpId);
+    }
+
+    int activeSequenceNo = activeOp.get().sequenceNo();
+    return opRows.stream()
+        .filter(row -> row.sequenceNo() <= activeSequenceNo)
+        .map(OperationalPeriodRow::opId)
+        .distinct()
+        .toList();
   }
 
   private static SearchAreaFilters searchAreaFilters(UUID opId, Long minVersion) {
