@@ -69,6 +69,8 @@ class OfflinePackageManifestSourceIntegrationTest {
   private static final UUID ASSIGNED_AREA_ID =
       UUID.fromString("cccccccc-0000-4000-8000-000000002901");
   private static final UUID MARKER_ID = UUID.fromString("55555555-0000-4000-8000-000000002901");
+  private static final UUID APP_MARKER_ID =
+      UUID.fromString("55555555-0000-4000-8000-000000002902");
   private static final UUID SOURCE_INCIDENT_ID =
       UUID.fromString("00000000-0000-4000-8000-000000002901");
   private static final UUID FIXTURE_SOURCE_INCIDENT_ID =
@@ -141,6 +143,9 @@ class OfflinePackageManifestSourceIntegrationTest {
                   .extracting(Object::toString)
                   .containsExactly("126.917", "35.162");
             });
+    assertThat(manifest.initialMarkers())
+        .extracting(OfflinePackageManifestResponse.InitialMarker::markerId)
+        .doesNotContain(APP_MARKER_ID.toString());
     assertThat(manifest.overallSearchArea().areaId()).isEqualTo(OVERALL_AREA_ID.toString());
     assertThat(manifest.expiresAt()).isAfter(beforeRequest);
     assertThat(manifest.packageItems())
@@ -349,12 +354,28 @@ class OfflinePackageManifestSourceIntegrationTest {
                         POLICE_PHONE_ID,
                         MarkerType.CLUE,
                         null,
-                        MarkerSource.APP,
+                        MarkerSource.MOCK_SEED,
                         MarkerStatus.ACTIVE,
                         7L,
                         jtsPoint("126.917", "35.162"),
                         "동적 단서",
                         NOW,
+                        List.of()),
+                    new MarkerView(
+                        APP_MARKER_ID,
+                        INCIDENT_ID,
+                        OP_ID,
+                        null,
+                        ACCOUNT_ID,
+                        POLICE_PHONE_ID,
+                        MarkerType.NOTE,
+                        null,
+                        MarkerSource.APP,
+                        MarkerStatus.ACTIVE,
+                        8L,
+                        jtsPoint("126.918", "35.163"),
+                        "현장 메모",
+                        NOW.plusSeconds(30),
                         List.of()))));
   }
 
@@ -451,7 +472,7 @@ class OfflinePackageManifestSourceIntegrationTest {
                         POLICE_PHONE_ID,
                         MarkerType.CLUE,
                         null,
-                        MarkerSource.APP,
+                        MarkerSource.MOCK_SEED,
                         MarkerStatus.ACTIVE,
                         7L,
                         jtsPoint("126.917", "35.162"),

@@ -11,6 +11,7 @@ import com.surimap.maparea.query.SearchAreaCollection;
 import com.surimap.maparea.query.SearchAreaFilters;
 import com.surimap.maparea.query.SearchAreaQuery;
 import com.surimap.maparea.query.SearchAreaRow;
+import com.surimap.marker.domain.MarkerSource;
 import com.surimap.marker.query.MarkerQuery;
 import com.surimap.marker.query.MarkerQueryFilters;
 import com.surimap.marker.query.MarkerQueryResult;
@@ -407,12 +408,17 @@ public class OfflinePackageRepository {
             overallSearchArea.get(),
             assignedAreas,
             markers.stream()
+                .filter(OfflinePackageRepository::isInitialReferenceMarker)
                 .filter(marker -> marker.location() != null)
                 .sorted(
                     Comparator.comparing(
                             MarkerView::occurredAt, Comparator.nullsLast(Comparator.naturalOrder()))
                         .thenComparing(MarkerView::id))
                 .toList()));
+  }
+
+  private static boolean isInitialReferenceMarker(MarkerView marker) {
+    return marker.source() == MarkerSource.MOCK_SEED || marker.source() == MarkerSource.SYSTEM;
   }
 
   private OfflinePackageManifestResponse manifestFromSource(
