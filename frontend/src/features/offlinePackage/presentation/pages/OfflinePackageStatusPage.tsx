@@ -1,12 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  CheckCircle2,
-  Grid3X3,
-  HardDrive,
-  Map,
-  RefreshCcw,
-  Trash2,
-} from 'lucide-react';
+import { CheckCircle2, Grid3X3, HardDrive, Map, RefreshCcw, Trash2 } from 'lucide-react';
 
 import { useIncidentBoardQuery } from '../../../board/api/incidentBoardApi';
 import { useOfflinePackageManifestQuery } from '../../api/offlinePackageApi';
@@ -75,6 +68,7 @@ type OfflinePackageStatusPageProps = {
   onOpenHandover: () => void;
   onOpenIncidentDetail?: () => void;
   onOpenIncidentList: () => void;
+  onOpenSearchHistory?: () => void;
   onOpenOfflinePackage: () => void;
   onOpenLogin?: () => void;
 };
@@ -137,6 +131,7 @@ export function OfflinePackageStatusPage({
   onOpenHandover,
   onOpenIncidentDetail,
   onOpenIncidentList,
+  onOpenSearchHistory,
   onOpenOfflinePackage,
   onOpenLogin,
 }: OfflinePackageStatusPageProps) {
@@ -154,10 +149,7 @@ export function OfflinePackageStatusPage({
     return data && data.incidentId === incidentId ? data : null;
   }, [boardQuery.data, incidentId]);
   const board = useMemo<SituationBoardResponseDto | null>(() => {
-    const mergedBoard = mergeWithPreviousCriticalSlots(
-      currentBoard,
-      stableBoardRef.current,
-    );
+    const mergedBoard = mergeWithPreviousCriticalSlots(currentBoard, stableBoardRef.current);
 
     if (mergedBoard) {
       stableBoardRef.current = mergedBoard;
@@ -223,7 +215,8 @@ export function OfflinePackageStatusPage({
   const visibleRows = rows.slice(deviceStatusPageStart, deviceStatusPageStart + DEVICE_STATUS_PAGE_SIZE);
   const hasDeviceStatusPagination = rows.length > DEVICE_STATUS_PAGE_SIZE;
   const currentAccountLabel = currentUserAccount.name;
-  const activeOperationalPeriod = manifestQuery.data?.operationalPeriods.find((period) => period.status === 'ACTIVE') ?? null;
+  const activeOperationalPeriod =
+    manifestQuery.data?.operationalPeriods.find((period) => period.status === 'ACTIVE') ?? null;
   const incidentContext = createSharedIncidentContext({
     ...(incidentDetail ?? {}),
     activeOperationalPeriodLabel: activeOperationalPeriod ? `OP ${activeOperationalPeriod.sequenceNumber}차` : null,
@@ -253,6 +246,7 @@ export function OfflinePackageStatusPage({
           onCloseMarkerNotifications={onCloseMarkerNotifications}
           onMoveMarkerNotification={onMoveMarkerNotification}
           onOpenHandover={isClosedTerminalBoard ? undefined : onOpenHandover}
+          onOpenSearchHistory={isClosedTerminalBoard ? undefined : onOpenSearchHistory}
           onOpenIncidentDetail={onOpenIncidentDetail}
           onOpenIncidentList={onOpenIncidentList}
           onOpenOfflinePackage={onOpenOfflinePackage}
@@ -262,195 +256,196 @@ export function OfflinePackageStatusPage({
       </div>
 
       <div className={styles.scrollBody}>
-      {isOffline ? (
-        <div className={styles.offlineBanner} role="status">
-          현재 브라우저가 오프라인입니다. 표시 중인 단말별 상태는 마지막 조회 결과일 수 있습니다.
+        {isOffline ? (
+          <div className={styles.offlineBanner} role="status">
+            현재 브라우저가 오프라인입니다. 표시 중인 단말별 상태는 마지막 조회 결과일 수 있습니다.
+          </div>
+        ) : null}
+
+        <div className={styles.contentStack}>
+          <section className={styles.content} aria-label="단말별 적재 상태">
+            <SectionTitle
+              title="단말별 적재 상태"
+              description="현장 단말이 오프라인에서도 수색 자료를 사용할 수 있는지 확인합니다."
+            />
+            {isLoading ? (
+              <OfflinePackageStatusSkeleton />
+            ) : boardErrorMessage ? (
+              <div className={styles.emptyState} role="alert">
+                <strong>{boardErrorMessage}</strong>
+                <span>단말별 상태 조회가 실패했습니다. 패키지 구성 목록은 별도로 확인할 수 있습니다.</span>
+                <ActionButton label="다시 조회" onClick={() => void boardQuery.refetch()} />
+              </div>
+            ) : isEmpty ? (
+              <div className={styles.emptyState}>
+                <strong>표시할 단말별 적재 상태가 없습니다.</strong>
+                <span>앱 단말이 패키지 적재 상태를 보고하면 이 영역에 표시됩니다.</span>
+              </div>
+            ) : (
+              <>
+                <div className={styles.packageLoadOverview}>
+                  <OfflinePackageLoadGauge gauge={packageLoadGauge} />
+                  <div className={styles.summaryBar} aria-label="오프라인 패키지 요약">
+                    <div>
+                      <span className={`${styles.summaryIcon} ${styles.summaryIconReady}`} aria-hidden="true">
+                        <CheckCircle2 className={styles.summaryIconGlyph} size={46} strokeWidth={2.1} />
+                      </span>
+                      <div className={styles.summaryMetric}>
+                        <span>사용 가능 단말</span>
+                        <strong>{readyCountLabel}</strong>
+                      </div>
+                    </div>
+                    <div>
+                      <span className={`${styles.summaryIcon} ${styles.summaryIconWarning}`} aria-hidden="true">
+                        <RefreshCcw className={styles.summaryIconGlyph} size={46} strokeWidth={2.1} />
+                      </span>
+                      <div className={styles.summaryMetric}>
+                        <span>재확인 필요 단말</span>
+                        <strong>{warningCountLabel}</strong>
+                      </div>
+                    </div>
+                    <div>
+                      <span className={`${styles.summaryIcon} ${styles.summaryIconPurged}`} aria-hidden="true">
+                        <Trash2 className={styles.summaryIconGlyph} size={46} strokeWidth={2.1} />
+                      </span>
+                      <div className={styles.summaryMetric}>
+                        <span>삭제된 패키지</span>
+                        <strong>{purgedCountLabel}</strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className={styles.tableShell}>
+                  <table className={styles.statusTable}>
+                    <thead>
+                      <tr>
+                        <th scope="col">단말</th>
+                        <th scope="col">담당</th>
+                        <th scope="col">상태</th>
+                        <th scope="col">설치 정보</th>
+                        <th scope="col">확인 내용</th>
+                        <th scope="col">조치</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visibleRows.map((row) => {
+                        const statusView = getStatusView(row);
+
+                        return (
+                          <tr key={row.id}>
+                            <td>
+                              <div className={styles.deviceRowTitle}>
+                                <span className={createDeviceIconClassName(row.accountType)} aria-hidden="true">
+                                  <DeviceTypeIcon accountType={row.accountType} />
+                                </span>
+                                <strong>{createDeviceTitle(row)}</strong>
+                              </div>
+                              <span>{createDeviceMeta(row)}</span>
+                            </td>
+                            <td>
+                              <strong>{createAssigneeTitle(row)}</strong>
+                              <span>{createAssigneeMeta(row)}</span>
+                            </td>
+                            <td>
+                              <StatusBadge
+                                className={getPackageStatusBadgeClassName(statusView.tone)}
+                                status={statusView.label}
+                                tone={statusView.tone}
+                              />
+                            </td>
+                            <td>{formatManifestVersion(row)}</td>
+                            <td>{formatPackageCheckMessage(row)}</td>
+                            <td>{formatPackageAction(row)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                {hasDeviceStatusPagination ? (
+                  <div className={styles.deviceStatusPagination}>
+                    <div className={styles.deviceStatusPaginationControls}>
+                      <button
+                        type="button"
+                        className={styles.deviceStatusPaginationButton}
+                        onClick={() => setDeviceStatusPage(1)}
+                        disabled={currentDeviceStatusPage <= 1}
+                        aria-label="첫 페이지"
+                      >
+                        {'<<'}
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.deviceStatusPaginationButton}
+                        onClick={() => setDeviceStatusPage((current) => Math.max(1, current - 1))}
+                        disabled={currentDeviceStatusPage <= 1}
+                        aria-label="이전 페이지"
+                      >
+                        {'<'}
+                      </button>
+                      {Array.from({ length: deviceStatusTotalPages }, (_, index) => {
+                        const pageNumber = index + 1;
+
+                        return (
+                          <button
+                            key={pageNumber}
+                            type="button"
+                            className={`${styles.deviceStatusPaginationButton} ${
+                              pageNumber === currentDeviceStatusPage ? styles.deviceStatusPaginationButtonActive : ''
+                            }`}
+                            onClick={() => setDeviceStatusPage(pageNumber)}
+                            aria-current={pageNumber === currentDeviceStatusPage ? 'page' : undefined}
+                          >
+                            {pageNumber}
+                          </button>
+                        );
+                      })}
+                      <button
+                        type="button"
+                        className={styles.deviceStatusPaginationButton}
+                        onClick={() => setDeviceStatusPage((current) => Math.min(deviceStatusTotalPages, current + 1))}
+                        disabled={currentDeviceStatusPage >= deviceStatusTotalPages}
+                        aria-label="다음 페이지"
+                      >
+                        {'>'}
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.deviceStatusPaginationButton}
+                        onClick={() => setDeviceStatusPage(deviceStatusTotalPages)}
+                        disabled={currentDeviceStatusPage >= deviceStatusTotalPages}
+                        aria-label="마지막 페이지"
+                      >
+                        {'>>'}
+                      </button>
+                    </div>
+                    <span className={styles.deviceStatusPaginationInfo}>
+                      {deviceStatusPageStart + 1}-
+                      {Math.min(deviceStatusPageStart + DEVICE_STATUS_PAGE_SIZE, rows.length)} / {rows.length}
+                    </span>
+                  </div>
+                ) : null}
+              </>
+            )}
+          </section>
+
+          <section className={styles.content} aria-label="패키지 구성 목록">
+            <SectionTitle
+              title="패키지 구성 목록"
+              description="현장 앱이 오프라인으로 보관하는 사건 자료와 지도 자료를 확인합니다."
+            />
+            <ManifestContent
+              groups={manifestGroups}
+              error={manifestQuery.error}
+              isError={manifestQuery.isError}
+              isLoading={manifestQuery.isLoading}
+              manifest={currentManifest ?? undefined}
+              referenceNow={referenceNow}
+              tileSummary={tileSummary}
+              onRetry={() => void manifestQuery.refetch()}
+            />
+          </section>
         </div>
-      ) : null}
-
-      <div className={styles.contentStack}>
-        <section className={styles.content} aria-label="단말별 적재 상태">
-          <SectionTitle
-            title="단말별 적재 상태"
-            description="현장 단말이 오프라인에서도 수색 자료를 사용할 수 있는지 확인합니다."
-          />
-          {isLoading ? (
-            <OfflinePackageStatusSkeleton />
-          ) : boardErrorMessage ? (
-            <div className={styles.emptyState} role="alert">
-              <strong>{boardErrorMessage}</strong>
-              <span>단말별 상태 조회가 실패했습니다. 패키지 구성 목록은 별도로 확인할 수 있습니다.</span>
-              <ActionButton label="다시 조회" onClick={() => void boardQuery.refetch()} />
-            </div>
-          ) : isEmpty ? (
-            <div className={styles.emptyState}>
-              <strong>표시할 단말별 적재 상태가 없습니다.</strong>
-              <span>앱 단말이 패키지 적재 상태를 보고하면 이 영역에 표시됩니다.</span>
-            </div>
-          ) : (
-            <>
-              <div className={styles.packageLoadOverview}>
-                <OfflinePackageLoadGauge gauge={packageLoadGauge} />
-                <div className={styles.summaryBar} aria-label="오프라인 패키지 요약">
-                  <div>
-                    <span className={`${styles.summaryIcon} ${styles.summaryIconReady}`} aria-hidden="true">
-                      <CheckCircle2 className={styles.summaryIconGlyph} size={46} strokeWidth={2.1} />
-                    </span>
-                    <div className={styles.summaryMetric}>
-                      <span>사용 가능 단말</span>
-                      <strong>{readyCountLabel}</strong>
-                    </div>
-                  </div>
-                  <div>
-                    <span className={`${styles.summaryIcon} ${styles.summaryIconWarning}`} aria-hidden="true">
-                      <RefreshCcw className={styles.summaryIconGlyph} size={46} strokeWidth={2.1} />
-                    </span>
-                    <div className={styles.summaryMetric}>
-                      <span>재확인 필요 단말</span>
-                      <strong>{warningCountLabel}</strong>
-                    </div>
-                  </div>
-                  <div>
-                    <span className={`${styles.summaryIcon} ${styles.summaryIconPurged}`} aria-hidden="true">
-                      <Trash2 className={styles.summaryIconGlyph} size={46} strokeWidth={2.1} />
-                    </span>
-                    <div className={styles.summaryMetric}>
-                      <span>삭제된 패키지</span>
-                      <strong>{purgedCountLabel}</strong>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className={styles.tableShell}>
-                <table className={styles.statusTable}>
-                  <thead>
-                    <tr>
-                      <th scope="col">단말</th>
-                      <th scope="col">담당</th>
-                      <th scope="col">상태</th>
-                      <th scope="col">설치 정보</th>
-                      <th scope="col">확인 내용</th>
-                      <th scope="col">조치</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visibleRows.map((row) => {
-                      const statusView = getStatusView(row);
-
-                      return (
-                        <tr key={row.id}>
-                          <td>
-                            <div className={styles.deviceRowTitle}>
-                              <span className={createDeviceIconClassName(row.accountType)} aria-hidden="true">
-                                <DeviceTypeIcon accountType={row.accountType} />
-                              </span>
-                              <strong>{createDeviceTitle(row)}</strong>
-                            </div>
-                            <span>{createDeviceMeta(row)}</span>
-                          </td>
-                          <td>
-                            <strong>{createAssigneeTitle(row)}</strong>
-                            <span>{createAssigneeMeta(row)}</span>
-                          </td>
-                          <td>
-                            <StatusBadge
-                              className={getPackageStatusBadgeClassName(statusView.tone)}
-                              status={statusView.label}
-                              tone={statusView.tone}
-                            />
-                          </td>
-                          <td>{formatManifestVersion(row)}</td>
-                          <td>{formatPackageCheckMessage(row)}</td>
-                          <td>{formatPackageAction(row)}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              {hasDeviceStatusPagination ? (
-                <div className={styles.deviceStatusPagination}>
-                  <div className={styles.deviceStatusPaginationControls}>
-                    <button
-                      type="button"
-                      className={styles.deviceStatusPaginationButton}
-                      onClick={() => setDeviceStatusPage(1)}
-                      disabled={currentDeviceStatusPage <= 1}
-                      aria-label="첫 페이지"
-                    >
-                      {'<<'}
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.deviceStatusPaginationButton}
-                      onClick={() => setDeviceStatusPage((current) => Math.max(1, current - 1))}
-                      disabled={currentDeviceStatusPage <= 1}
-                      aria-label="이전 페이지"
-                    >
-                      {'<'}
-                    </button>
-                    {Array.from({ length: deviceStatusTotalPages }, (_, index) => {
-                      const pageNumber = index + 1;
-
-                      return (
-                        <button
-                          key={pageNumber}
-                          type="button"
-                          className={`${styles.deviceStatusPaginationButton} ${
-                            pageNumber === currentDeviceStatusPage ? styles.deviceStatusPaginationButtonActive : ''
-                          }`}
-                          onClick={() => setDeviceStatusPage(pageNumber)}
-                          aria-current={pageNumber === currentDeviceStatusPage ? 'page' : undefined}
-                        >
-                          {pageNumber}
-                        </button>
-                      );
-                    })}
-                    <button
-                      type="button"
-                      className={styles.deviceStatusPaginationButton}
-                      onClick={() => setDeviceStatusPage((current) => Math.min(deviceStatusTotalPages, current + 1))}
-                      disabled={currentDeviceStatusPage >= deviceStatusTotalPages}
-                      aria-label="다음 페이지"
-                    >
-                      {'>'}
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.deviceStatusPaginationButton}
-                      onClick={() => setDeviceStatusPage(deviceStatusTotalPages)}
-                      disabled={currentDeviceStatusPage >= deviceStatusTotalPages}
-                      aria-label="마지막 페이지"
-                    >
-                      {'>>'}
-                    </button>
-                  </div>
-                  <span className={styles.deviceStatusPaginationInfo}>
-                    {deviceStatusPageStart + 1}-{Math.min(deviceStatusPageStart + DEVICE_STATUS_PAGE_SIZE, rows.length)} / {rows.length}
-                  </span>
-                </div>
-              ) : null}
-            </>
-          )}
-        </section>
-
-        <section className={styles.content} aria-label="패키지 구성 목록">
-          <SectionTitle
-            title="패키지 구성 목록"
-            description="현장 앱이 오프라인으로 보관하는 사건 자료와 지도 자료를 확인합니다."
-          />
-          <ManifestContent
-            groups={manifestGroups}
-            error={manifestQuery.error}
-            isError={manifestQuery.isError}
-            isLoading={manifestQuery.isLoading}
-            manifest={currentManifest ?? undefined}
-            referenceNow={referenceNow}
-            tileSummary={tileSummary}
-            onRetry={() => void manifestQuery.refetch()}
-          />
-        </section>
-      </div>
       </div>
     </main>
   );
@@ -539,7 +534,7 @@ function ManifestContent({
               <th scope="col">상태</th>
             </tr>
           </thead>
-              <tbody>
+          <tbody>
             {groups.map((group) => (
               <tr key={group.type}>
                 <td>
@@ -603,7 +598,8 @@ function getOfflinePackageManifestErrorMessage(error: unknown) {
     if (error.code === 'package_manifest_not_ready') {
       return {
         title: '오프라인 패키지를 아직 만들 수 없습니다.',
-        description: '현재 사건에 OP 또는 전체 수색 구역이 준비되지 않았습니다. 전체 수색 구역을 저장한 뒤 다시 조회하세요.',
+        description:
+          '현재 사건에 OP 또는 전체 수색 구역이 준비되지 않았습니다. 전체 수색 구역을 저장한 뒤 다시 조회하세요.',
       };
     }
     if (error.code === 'package_purged') {
@@ -810,10 +806,7 @@ function countManifestSourceItems(type: OfflinePackageItemType, manifest: Offlin
   return manifest.incident ? 1 : 0;
 }
 
-function createManifestGroupDetail(
-  type: OfflinePackageItemType,
-  manifest: OfflinePackageManifestResponse | undefined,
-) {
+function createManifestGroupDetail(type: OfflinePackageItemType, manifest: OfflinePackageManifestResponse | undefined) {
   if (!manifest) return '자료 확인 전';
 
   if (type === 'INCIDENT_META') {
@@ -879,8 +872,10 @@ function createAssigneeTitle(row: PackageBadgeRow) {
 function createAssigneeMeta(row: PackageBadgeRow) {
   const role = formatIncidentRole(row.incidentRole);
   const accountType = formatAccountType(row.accountType);
-  return [accountType, role].filter((item) => item !== '담당 유형 확인 전' && item !== '역할 확인 전').join(' / ')
-    || '담당 배정 확인 전';
+  return (
+    [accountType, role].filter((item) => item !== '담당 유형 확인 전' && item !== '역할 확인 전').join(' / ') ||
+    '담당 배정 확인 전'
+  );
 }
 
 function formatAccountType(accountType: string) {

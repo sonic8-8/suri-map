@@ -55,21 +55,21 @@ export function ComparisonAnalysisPanel({
   const observations = analysis?.observations?.observations ?? [];
 
   return (
-    <section className={styles.panel} aria-label="OP 기록 차이 요약">
+    <section className={styles.panel} aria-label="OP 비교">
       <div className={styles.header}>
         <div>
           <span className={styles.eyebrow}>{selectedOperationalPeriodIds.length}개 OP 선택</span>
-          <h2>OP 기록 차이 요약</h2>
+          <h2>OP 비교</h2>
         </div>
         <button
           type="button"
           className={styles.actionButton}
           disabled={!canCreate}
-          aria-label="기록 차이 요약 생성"
+          aria-label="OP 비교 생성"
           onClick={onCreateAnalysis}
         >
           {isCreating ? <Loader2 size={15} aria-hidden="true" /> : <RefreshCw size={15} aria-hidden="true" />}
-          {isCreating ? '생성 중' : '요약 생성'}
+          {isCreating ? '생성 중' : '비교 생성'}
         </button>
       </div>
 
@@ -83,7 +83,7 @@ export function ComparisonAnalysisPanel({
       </div>
 
       {selectedOperationalPeriodIds.length < 2 ? (
-        <div className={styles.emptyState}>2개 이상 OP를 선택하면 기록 차이 요약을 생성할 수 있습니다.</div>
+        <div className={styles.emptyState}>2개 이상 OP를 선택하면 OP 비교를 생성할 수 있습니다.</div>
       ) : null}
 
       {errorMessage ? <div className={styles.errorText}>{errorMessage}</div> : null}
@@ -122,7 +122,7 @@ export function ComparisonAnalysisPanel({
         </>
       ) : selectedOperationalPeriodIds.length >= 2 ? (
         <div className={styles.emptyState} data-incident-id={incidentId}>
-          기록 차이 요약 결과가 없습니다.
+          OP 비교 결과가 없습니다.
         </div>
       ) : null}
     </section>
@@ -197,9 +197,11 @@ function DiffFactList({
           <li key={fact.factId}>
             <strong>{formatMetricKey(fact.metricKey)}</strong>
             <span>
-              {findPeriodOption(operationalPeriods, fact.leftOperationalPeriodId).label} {formatFactValue(fact.metricKey, fact.leftValue)}
+              {findPeriodOption(operationalPeriods, fact.leftOperationalPeriodId).label}{' '}
+              {formatFactValue(fact.metricKey, fact.leftValue)}
               {' / '}
-              {findPeriodOption(operationalPeriods, fact.rightOperationalPeriodId).label} {formatFactValue(fact.metricKey, fact.rightValue)}
+              {findPeriodOption(operationalPeriods, fact.rightOperationalPeriodId).label}{' '}
+              {formatFactValue(fact.metricKey, fact.rightValue)}
             </span>
             <small>
               차이 {formatFactValue(fact.metricKey, fact.delta)} · 기준 {fact.threshold}
@@ -237,10 +239,14 @@ function RegionFactList({
           const content = (
             <>
               <strong>{formatRegionType(fact.type)}</strong>
-              <span>{fact.operationalPeriodIds.map((id) => findPeriodOption(operationalPeriods, id).label).join(' · ')}</span>
+              <span>
+                {fact.operationalPeriodIds.map((id) => findPeriodOption(operationalPeriods, id).label).join(' · ')}
+              </span>
               <small>
                 면적 {formatArea(fact.areaSquareMeters)}
-                {fact.occupancies.length > 0 ? ` · 점유 ${formatDuration(fact.occupancies[0]?.durationSeconds ?? 0)}` : ''}
+                {fact.occupancies.length > 0
+                  ? ` · 점유 ${formatDuration(fact.occupancies[0]?.durationSeconds ?? 0)}`
+                  : ''}
               </small>
             </>
           );
@@ -307,7 +313,7 @@ function NarrativeState({
   if (analysis.narrativeStatus === 'FAILED') {
     return (
       <div className={styles.noticeError}>
-        <strong>기록 차이 요약 실패</strong>
+        <strong>OP 비교 요약 실패</strong>
         <span>{analysis.failureReason ?? 'narrative_failed'}</span>
       </div>
     );

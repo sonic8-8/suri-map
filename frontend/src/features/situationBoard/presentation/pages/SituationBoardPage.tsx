@@ -33,6 +33,7 @@ type SituationBoardPageProps = {
   onOpenAreaWorkspaceRoute?: () => void;
   onSaveAssignedAreas: (drafts: CompletedAreaDraft[]) => void;
   onOpenIncidentDetail: () => void;
+  onOpenSearchHistory: () => void;
   onOpenOfflinePackage: () => void;
   onOpenLogin?: () => void;
   savedAreaDrafts: CompletedAreaDraft[];
@@ -53,6 +54,7 @@ export function SituationBoardPage({
   onOpenAreaWorkspaceRoute,
   onSaveAssignedAreas,
   onOpenIncidentDetail,
+  onOpenSearchHistory,
   onOpenOfflinePackage,
   onOpenLogin,
   savedAreaDrafts,
@@ -99,7 +101,8 @@ export function SituationBoardPage({
       ? 'handover'
       : 'situationBoard';
   const activeOperationalPeriodLabel =
-    boardState.board.operationalPeriods.find((operationalPeriod) => operationalPeriod.state === 'current')?.label ?? null;
+    boardState.board.operationalPeriods.find((operationalPeriod) => operationalPeriod.state === 'current')?.label ??
+    null;
   const isHandoverMapMode = !isClosedTerminalBoard && boardState.isHandoverWorkspaceOpen;
   const shouldHideSituationBoardMapData = isClosedTerminalBoard || isHandoverMapMode;
   const handleOpenIncidentList = useCallback(() => {
@@ -165,6 +168,7 @@ export function SituationBoardPage({
           onMoveMarkerNotification={onMoveMarkerNotification}
           onOpenIncidentDetail={onOpenIncidentDetail}
           onOpenIncidentList={handleOpenIncidentList}
+          onOpenSearchHistory={isClosedTerminalBoard ? undefined : onOpenSearchHistory}
           onOpenOfflinePackage={onOpenOfflinePackage}
           onOpenLogin={onOpenLogin}
           onOpenSituationBoard={
@@ -193,6 +197,7 @@ export function SituationBoardPage({
             onOpenHandover={boardState.openHandoverWorkspace}
             onOpenIncidentDetail={onOpenIncidentDetail}
             onOpenIncidentList={onOpenIncidentList}
+            onOpenSearchHistory={onOpenSearchHistory}
             onSaveAssignedAreas={boardState.saveAssignedAreas}
             onSharedMapPropsChange={boardState.setAreaEditMapProps}
           />
@@ -210,6 +215,7 @@ export function SituationBoardPage({
             onOpenIncidentList={onOpenIncidentList}
             onOpenIncidentDetail={onOpenIncidentDetail}
             onOpenSituationBoard={boardState.closeHandoverWorkspace}
+            onOpenSearchHistory={onOpenSearchHistory}
             onOpenOfflinePackage={onOpenOfflinePackage}
             onSharedMapPropsChange={boardState.setHandoverMapProps}
           />
@@ -268,7 +274,9 @@ export function SituationBoardPage({
           areaEditMapProps={
             !isClosedTerminalBoard && boardState.isAreaWorkspaceOpen ? boardState.areaEditMapProps : null
           }
-          handoverMapProps={!isClosedTerminalBoard && boardState.isHandoverWorkspaceOpen ? boardState.handoverMapProps : null}
+          handoverMapProps={
+            !isClosedTerminalBoard && boardState.isHandoverWorkspaceOpen ? boardState.handoverMapProps : null
+          }
           searchAreaTree={boardState.board.searchAreaTree}
           onInitialMapStateChange={boardState.setInitialMapState}
           onToggleLayer={boardState.toggleLayer}

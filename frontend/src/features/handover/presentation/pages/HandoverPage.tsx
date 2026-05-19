@@ -22,10 +22,7 @@ import {
 } from '../../../board/api/incidentBoardApi';
 import { mergeWithPreviousCriticalSlots } from '../../../situationBoard/presentation/hooks/useSituationBoardData';
 import type { SituationBoardResponseDto } from '../../../situationBoard/data/getSituationBoard';
-import {
-  getHandoverIncidentDetail,
-  type HandoverIncidentDetailDto,
-} from '../../data/getHandoverIncidentDetail';
+import { getHandoverIncidentDetail, type HandoverIncidentDetailDto } from '../../data/getHandoverIncidentDetail';
 import {
   type HandoverMemoTargetType,
   handoverApi,
@@ -49,10 +46,7 @@ import type { OperationalPeriod } from '../../../situationBoard/presentation/con
 import { HandoverOperationalPeriodSelector } from '../components/HandoverOperationalPeriodSelector';
 import { HandoverComparisonMap, type HandoverComparisonMapSharedProps } from '../components/HandoverComparisonMap';
 import { HandoverSummaryCard } from '../components/HandoverSummaryCard';
-import {
-  ComparisonAnalysisPanel,
-  type ComparisonOperationalPeriodOption,
-} from '../components/ComparisonAnalysisPanel';
+import { ComparisonAnalysisPanel, type ComparisonOperationalPeriodOption } from '../components/ComparisonAnalysisPanel';
 import {
   HandoverMemoSection,
   type HandoverMemoItemView,
@@ -66,6 +60,7 @@ import styles from './HandoverPage.module.css';
 type HandoverPageProps = {
   embedded?: boolean;
   isMapExpanded?: boolean;
+  viewMode?: 'handover' | 'searchHistory';
   sharedMapMode?: boolean;
   boardSnapshot?: SituationBoardResponseDto | null;
   incidentId: string;
@@ -78,6 +73,8 @@ type HandoverPageProps = {
   onBrowserBackToIncidentList?: () => void;
   onOpenIncidentDetail?: () => void;
   onOpenSituationBoard: () => void;
+  onOpenHandover?: () => void;
+  onOpenSearchHistory?: () => void;
   onOpenOfflinePackage: () => void;
   onOpenLogin?: () => void;
   onOperationalPeriodCreated?: () => void;
@@ -119,6 +116,8 @@ type SourceRecordView = {
   detail: string;
 };
 
+type SearchHistoryDetailTab = 'summary' | 'comparison';
+
 const DEFAULT_MEMO_TARGET_TYPE = 'OPERATIONAL_PERIOD' as const;
 const opReasonOptions: Array<{ value: CreateOperationalPeriodReason; label: string; description: string }> = [
   { value: 'RE_SEARCH', label: '재수색', description: '기존 수색 기록을 유지하고 새 수색 차수를 엽니다.' },
@@ -129,6 +128,7 @@ const opReasonOptions: Array<{ value: CreateOperationalPeriodReason; label: stri
 export function HandoverPage({
   embedded = false,
   isMapExpanded: isMapExpandedProp,
+  viewMode = 'handover',
   sharedMapMode = false,
   boardSnapshot = null,
   incidentId,
@@ -141,6 +141,8 @@ export function HandoverPage({
   onBrowserBackToIncidentList,
   onOpenIncidentDetail,
   onOpenSituationBoard,
+  onOpenHandover,
+  onOpenSearchHistory,
   onOpenOfflinePackage,
   onOpenLogin,
   onOperationalPeriodCreated,
@@ -166,6 +168,7 @@ export function HandoverPage({
   const [selectedMemoTargetKey, setSelectedMemoTargetKey] = useState('');
   const [comparisonAnalysis, setComparisonAnalysis] = useState<OpComparisonResponse | null>(null);
   const [selectedComparisonRegionFactId, setSelectedComparisonRegionFactId] = useState<string | null>(null);
+  const [searchHistoryDetailTab, setSearchHistoryDetailTab] = useState<SearchHistoryDetailTab>('summary');
   const [isLoadingOps, setIsLoadingOps] = useState(false);
   const [isLoadingMemos, setIsLoadingMemos] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -175,6 +178,7 @@ export function HandoverPage({
   const [createOpErrorMessage, setCreateOpErrorMessage] = useState('');
   const [comparisonErrorMessage, setComparisonErrorMessage] = useState('');
   const isMapExpanded = isMapExpandedProp ?? isLocalMapExpanded;
+  const isSearchHistoryView = viewMode === 'searchHistory';
 
   useBrowserBackToIncidentList(onBrowserBackToIncidentList, !embedded);
   const queryClient = useQueryClient();
@@ -244,9 +248,12 @@ export function HandoverPage({
     }),
     [activeFocusedOpId, incidentId],
   );
-  const summaryQuery = useSearchHistorySummaryListQuery(activeFocusedOpId, summaryQueryParams);
+  const summaryQuery = useSearchHistorySummaryListQuery(
+    isSearchHistoryView ? activeFocusedOpId : null,
+    summaryQueryParams,
+  );
   const isLoadingSummary = summaryQuery.isLoading || summaryQuery.isFetching;
-  const summaryErrorMessage = summaryQuery.isError ? 'OP 결과 브리핑을 불러오지 못했습니다.' : '';
+  const summaryErrorMessage = summaryQuery.isError ? 'OP 요약을 불러오지 못했습니다.' : '';
   const dutyShiftQuery = useDutyShiftListQuery({ incidentId, opId: activeFocusedOpId ?? undefined });
   const dutyShifts = useMemo(() => readDutyShiftItems(dutyShiftQuery.data?.items), [dutyShiftQuery.data]);
   const summaryItems = useMemo(() => readSearchHistorySummaryItems(summaryQuery.data?.items), [summaryQuery.data]);
@@ -306,7 +313,7 @@ export function HandoverPage({
     if (!item) return null;
     return {
       scopeType: 'OP',
-      heading: 'OP 결과 브리핑',
+      heading: 'OP 요약',
       statusLabel: formatSummaryDisplayStatusLabel(item.displayStatus),
       readinessLabel: formatSummaryReadinessLabel(item.sourceReadiness),
       isFinal: item.sourceReadiness === 'READY',
@@ -323,6 +330,24 @@ export function HandoverPage({
     () => createSourceRecords(board, focusedOpEvidenceIds, selectedOpMemos, memoTargetOptions),
     [board, focusedOpEvidenceIds, memoTargetOptions, selectedOpMemos],
   );
+  const rightPanelTitle = isSearchHistoryView
+    ? `${handoverStatus.currentOpLabel} 수색 이력`
+    : `${handoverStatus.currentOpLabel} 인수인계`;
+  const rightPanelAriaLabel = isSearchHistoryView ? 'OP 수색 이력 상태' : 'OP 인수인계 상태';
+  const rightPanelBadgeLabel = isSearchHistoryView
+    ? searchHistoryDetailTab === 'comparison'
+      ? effectiveSelectedOpIds.length >= 2
+        ? comparisonAnalysis
+          ? '비교 완료'
+          : '비교 가능'
+        : '2개 OP 필요'
+      : isLoadingSummary
+        ? '요약 확인 중'
+        : (searchHistorySummary?.statusLabel ?? '요약 없음')
+    : handoverStatus.statusLabel;
+  const rightPanelHelperText = isSearchHistoryView
+    ? '선택한 OP의 수색 경로, 마커, 구역, 메모를 기록 기준으로 확인합니다.'
+    : handoverStatus.helperText;
   const floatingRightPanelWidthPx = isMapExpanded ? 0 : historyPanelWidthPx;
   const sharedMapProps = useMemo<HandoverComparisonMapSharedProps>(
     () => ({
@@ -338,11 +363,13 @@ export function HandoverPage({
   const currentAccountLabel = currentUserAccount.name;
   const timestampLabel = board?.serverTs ? formatKstDateTime(new Date(board.serverTs)) : '동기화 전';
   const currentOperationalPeriod = currentOpId
-    ? operationalPeriods.find((period) => period.id === currentOpId) ?? null
+    ? (operationalPeriods.find((period) => period.id === currentOpId) ?? null)
     : null;
   const incidentContext = createSharedIncidentContext({
     ...(incidentDetail ?? {}),
-    activeOperationalPeriodLabel: currentOperationalPeriod ? formatOperationalPeriodLabel(currentOperationalPeriod) : null,
+    activeOperationalPeriodLabel: currentOperationalPeriod
+      ? formatOperationalPeriodLabel(currentOperationalPeriod)
+      : null,
   });
   const syncStatus = createHandoverSyncStatus({
     boardHasData: board !== null,
@@ -350,16 +377,14 @@ export function HandoverPage({
     boardIsFetching: boardQuery.isFetching,
     hasMemoError: Boolean(memoErrorMessage),
     hasOpError: Boolean(opErrorMessage),
-    hasSummaryError: summaryQuery.isError,
+    hasSummaryError: isSearchHistoryView && summaryQuery.isError,
     isLoadingMemos,
     isLoadingOps,
-    isLoadingSummary,
+    isLoadingSummary: isSearchHistoryView && isLoadingSummary,
   });
   const canCreateOperationalPeriod = hasOperationalPeriodCommandPermission(currentUserAccount);
   const canSubmitNewOp =
-    canCreateOperationalPeriod &&
-    !isCreatingOp &&
-    (newOpReason !== 'OTHER' || newOpReasonMemo.trim().length > 0);
+    canCreateOperationalPeriod && !isCreatingOp && (newOpReason !== 'OTHER' || newOpReasonMemo.trim().length > 0);
   const comparisonSelectionKey = effectiveSelectedOpIds.join('|');
   const comparisonHighlightGeometryGeojson = useMemo(() => {
     if (!comparisonAnalysis || !selectedComparisonRegionFactId) return null;
@@ -386,6 +411,7 @@ export function HandoverPage({
     setNewOpReasonMemo('');
     setNewOpHandoverMemo('');
     setSelectedMemoTargetKey('');
+    setSearchHistoryDetailTab('summary');
     setComparisonAnalysis(null);
     setSelectedComparisonRegionFactId(null);
     setIsLocalMapExpanded(false);
@@ -437,7 +463,8 @@ export function HandoverPage({
 
         const responseItems = readOperationalPeriodItems(response.items);
         setOperationalPeriods(responseItems);
-        const initialOpId = response.currentOpId ?? responseItems.find((period) => period.status === 'ACTIVE')?.id ?? null;
+        const initialOpId =
+          response.currentOpId ?? responseItems.find((period) => period.status === 'ACTIVE')?.id ?? null;
         setCurrentOpId(initialOpId);
         setFocusedOpId(initialOpId);
         setSelectedOpIds(initialOpId ? [initialOpId] : []);
@@ -528,14 +555,17 @@ export function HandoverPage({
     setMemoErrorMessage('');
 
     try {
-      await handoverApi.createHandoverMemo({
-        incidentId,
-        opId: activeFocusedOpId,
-        memoTargetType: selectedMemoTarget.targetType,
-        memoTargetId: selectedMemoTarget.targetId,
-        content: trimmedContent,
-        clientTs: new Date().toISOString(),
-      }, createIdempotencyKey('handover-memo'));
+      await handoverApi.createHandoverMemo(
+        {
+          incidentId,
+          opId: activeFocusedOpId,
+          memoTargetType: selectedMemoTarget.targetType,
+          memoTargetId: selectedMemoTarget.targetId,
+          content: trimmedContent,
+          clientTs: new Date().toISOString(),
+        },
+        createIdempotencyKey('handover-memo'),
+      );
       setContent('');
       await loadMemos(activeFocusedOpId);
     } catch (error) {
@@ -586,13 +616,16 @@ export function HandoverPage({
     setCreateOpErrorMessage('');
 
     try {
-      const createdOperationalPeriod = await operationalPeriodApi.create({
-        incidentId,
-        reason: newOpReason,
-        clientTs: new Date().toISOString(),
-        ...(reasonMemo ? { reasonMemo } : {}),
-        ...(handoverMemo ? { handoverMemo } : {}),
-      }, createIdempotencyKey('operational-period'));
+      const createdOperationalPeriod = await operationalPeriodApi.create(
+        {
+          incidentId,
+          reason: newOpReason,
+          clientTs: new Date().toISOString(),
+          ...(reasonMemo ? { reasonMemo } : {}),
+          ...(handoverMemo ? { handoverMemo } : {}),
+        },
+        createIdempotencyKey('operational-period'),
+      );
       const createdOp: OperationalPeriodListItem = {
         id: createdOperationalPeriod.id,
         status: createdOperationalPeriod.status,
@@ -614,7 +647,9 @@ export function HandoverPage({
       });
       setCurrentOpId(createdOp.id);
       setFocusedOpId(createdOp.id);
-      setSelectedOpIds((currentSelectedOpIds) => uniqueNonEmptyStrings([createdOp.id, ...currentSelectedOpIds]).slice(0, 2));
+      setSelectedOpIds((currentSelectedOpIds) =>
+        uniqueNonEmptyStrings([createdOp.id, ...currentSelectedOpIds]).slice(0, 2),
+      );
       setIsCreateOpModalOpen(false);
       onOperationalPeriodCreated?.();
       void queryClient.invalidateQueries({ queryKey: incidentBoardQueryKeys.all });
@@ -635,7 +670,9 @@ export function HandoverPage({
     setOpVisibilityMessage('');
     setSelectedOpIds(normalizedNextOpIds);
     setFocusedOpId((currentFocusedOpId) =>
-      currentFocusedOpId && normalizedNextOpIds.includes(currentFocusedOpId) ? currentFocusedOpId : normalizedNextOpIds[0] ?? null,
+      currentFocusedOpId && normalizedNextOpIds.includes(currentFocusedOpId)
+        ? currentFocusedOpId
+        : (normalizedNextOpIds[0] ?? null),
     );
   };
 
@@ -654,7 +691,7 @@ export function HandoverPage({
       setComparisonAnalysis(response);
       setSelectedComparisonRegionFactId(null);
     } catch (error) {
-      setComparisonErrorMessage(getApiErrorMessage(error, '기록 차이 요약을 생성하지 못했습니다.'));
+      setComparisonErrorMessage(getApiErrorMessage(error, 'OP 비교를 생성하지 못했습니다.'));
     }
   };
 
@@ -673,33 +710,34 @@ export function HandoverPage({
       }
     >
       {embedded || isMapExpanded ? null : (
-      <SuriMapPageHeader
-        activeTab="handover"
-        currentAccountLabel={currentAccountLabel}
-        incidentContext={incidentContext}
-        syncStatus={syncStatus}
-        timestampLabel={timestampLabel}
-        onOpenIncidentList={onOpenIncidentList}
-        onOpenIncidentDetail={onOpenIncidentDetail}
-        markerNotificationIndex={markerNotificationIndex}
-        markerNotifications={markerNotifications}
-        onCloseMarkerNotifications={onCloseMarkerNotifications}
-        onMoveMarkerNotification={onMoveMarkerNotification}
-        onOpenSituationBoard={onOpenSituationBoard}
-        onOpenOfflinePackage={onOpenOfflinePackage}
-        onOpenLogin={onOpenLogin}
-      />
+        <SuriMapPageHeader
+          activeTab={isSearchHistoryView ? 'searchHistory' : 'handover'}
+          currentAccountLabel={currentAccountLabel}
+          incidentContext={incidentContext}
+          syncStatus={syncStatus}
+          timestampLabel={timestampLabel}
+          onOpenIncidentList={onOpenIncidentList}
+          onOpenIncidentDetail={onOpenIncidentDetail}
+          markerNotificationIndex={markerNotificationIndex}
+          markerNotifications={markerNotifications}
+          onCloseMarkerNotifications={onCloseMarkerNotifications}
+          onMoveMarkerNotification={onMoveMarkerNotification}
+          onOpenSituationBoard={onOpenSituationBoard}
+          onOpenHandover={onOpenHandover}
+          onOpenSearchHistory={onOpenSearchHistory}
+          onOpenOfflinePackage={onOpenOfflinePackage}
+          onOpenLogin={onOpenLogin}
+        />
       )}
 
       <div className={`${styles.shell}${isMapExpanded ? ` ${styles.shellExpanded}` : ''}`}>
         <BoardPanel
           as="aside"
-          ariaLabel="인수인계 좌측 패널"
+          ariaLabel="OP 선택 패널"
           className={`${styles.opPanel}${isMapExpanded ? ` ${styles.opPanelCollapsed}` : ''}`}
           bodyClassName={styles.opPanelBody}
           placement="left"
         >
-
           <div className={styles.leftPanelPage}>
             {opErrorMessage ? <div className={styles.errorText}>{opErrorMessage}</div> : null}
 
@@ -732,17 +770,15 @@ export function HandoverPage({
                 title={canCreateOperationalPeriod ? '새 OP 열기' : '현재 계정에는 권한이 없습니다.'}
                 onClick={openCreateOpModal}
               >
-                <Plus size={16} aria-hidden="true" />
-                새 OP 열기
+                <Plus size={16} aria-hidden="true" />새 OP 열기
               </button>
               {!canCreateOperationalPeriod ? <span>현재 계정에는 권한이 없습니다.</span> : null}
             </div>
           </div>
-
         </BoardPanel>
 
         {sharedMapMode ? null : (
-          <section className={styles.mapArea} aria-label="선택 OP overlay 지도">
+          <section className={styles.mapArea} aria-label="선택 OP 수색 이력 지도">
             <div className={styles.mapViewport}>
               <HandoverComparisonMap
                 incidentId={incidentId}
@@ -754,228 +790,282 @@ export function HandoverPage({
                 comparisonHighlightGeometryGeojson={comparisonHighlightGeometryGeojson}
                 onToggleMapExpanded={handleToggleMapExpanded}
               />
-              <div className={styles.mapAnalysisDock}>
-                <ComparisonAnalysisPanel
-                  incidentId={incidentId}
-                  selectedOperationalPeriodIds={effectiveSelectedOpIds}
-                  operationalPeriods={comparisonOperationalPeriods}
-                  analysis={comparisonAnalysis}
-                  isCreating={createComparisonMutation.isPending}
-                  errorMessage={comparisonErrorMessage}
-                  selectedRegionFactId={selectedComparisonRegionFactId}
-                  onCreateAnalysis={handleCreateComparisonAnalysis}
-                  onRegionFactSelect={handleComparisonRegionFactSelect}
-                />
-              </div>
             </div>
             {/* currentOpSummaryBar temporarily disabled */}
           </section>
         )}
 
-        <div
-          ref={historyPanelWrapperRef}
-          className={styles.historyPanelWrapper}
-        >
+        <div ref={historyPanelWrapperRef} className={styles.historyPanelWrapper}>
           <BoardPanel
             as="aside"
-            ariaLabel="OP 브리핑 상시 확인 패널"
+            ariaLabel={isSearchHistoryView ? '수색 이력 확인 패널' : '인수인계 확인 패널'}
             className={`${styles.historyPanel}${isMapExpanded ? ` ${styles.historyPanelCollapsed}` : ''}`}
             bodyClassName={styles.historyPanelBody}
             placement="right"
           >
             <div className={styles.historyContent}>
-            <section className={styles.briefingHero} aria-label="OP 결과 브리핑">
-              <div className={styles.briefingHeader}>
-                <div>
-                  <span className={styles.briefingEyebrow}>{handoverStatus.currentOpLabel}</span>
-                  <h2>{handoverStatus.currentOpLabel} OP 결과 브리핑</h2>
+              <section className={styles.briefingHero} aria-label={rightPanelAriaLabel}>
+                <div className={styles.briefingHeader}>
+                  <div>
+                    <span className={styles.briefingEyebrow}>{handoverStatus.currentOpLabel}</span>
+                    <h2>{rightPanelTitle}</h2>
+                  </div>
+                  <span className={styles.briefingNeedBadge}>{rightPanelBadgeLabel}</span>
                 </div>
-                <span className={styles.briefingNeedBadge}>{handoverStatus.statusLabel}</span>
-              </div>
 
-              <div className={styles.briefingChips}>
-                <span className={styles.briefingChipSuccess}>
-                  <CheckCircle2 size={14} aria-hidden="true" />
-                  {selectedOp?.status ? formatStatusLabel(selectedOp.status) : '상태 없음'}
-                </span>
-                <span>
-                  <StickyNote size={14} aria-hidden="true" />
-                  메모 {handoverStatus.openMemoCount}건
-                </span>
-                <span>
-                  <Route size={14} aria-hidden="true" />
-                  경로 {evidenceSummary.pathCount}건
-                </span>
-                <span>
-                  <MapPin size={14} aria-hidden="true" />
-                  마커 {evidenceSummary.markerCount}건
-                </span>
-                <span>
-                  <ClipboardList size={14} aria-hidden="true" />
-                  구역 {evidenceSummary.areaCount}건
-                </span>
-              </div>
+                <div className={styles.briefingChips}>
+                  <span className={styles.briefingChipSuccess}>
+                    <CheckCircle2 size={14} aria-hidden="true" />
+                    {selectedOp?.status ? formatStatusLabel(selectedOp.status) : '상태 없음'}
+                  </span>
+                  <span>
+                    <StickyNote size={14} aria-hidden="true" />
+                    메모 {handoverStatus.openMemoCount}건
+                  </span>
+                  {isSearchHistoryView ? (
+                    <>
+                      <span>
+                        <Route size={14} aria-hidden="true" />
+                        경로 {evidenceSummary.pathCount}건
+                      </span>
+                      <span>
+                        <MapPin size={14} aria-hidden="true" />
+                        마커 {evidenceSummary.markerCount}건
+                      </span>
+                      <span>
+                        <ClipboardList size={14} aria-hidden="true" />
+                        구역 {evidenceSummary.areaCount}건
+                      </span>
+                    </>
+                  ) : null}
+                </div>
 
-              <p className={styles.briefingHelper}>{handoverStatus.helperText}</p>
-            </section>
+                <p className={styles.briefingHelper}>{rightPanelHelperText}</p>
+              </section>
 
-            <HandoverMemoSection
-              focusedOpId={activeFocusedOpId}
-              memoTargetOptions={memoTargetOptions}
-              selectedMemoTarget={selectedMemoTarget}
-              memoItems={selectedOpMemoItems}
-              content={content}
-              isLoadingMemos={isLoadingMemos}
-              isSubmitting={isSubmitting}
-              memoErrorMessage={memoErrorMessage}
-              onContentChange={setContent}
-              onSelectedMemoTargetKeyChange={setSelectedMemoTargetKey}
-              onSubmit={handleSubmit}
-            />
-
-            <section className={styles.contextBlock} aria-label="OP 결과 브리핑">
-              <div className={styles.blockHeading}>
-                <h2>{searchHistorySummary?.heading ?? 'OP 결과 브리핑'}</h2>
-                <span>{isLoadingSummary ? '불러오는 중' : searchHistorySummary?.statusLabel ?? '요약 없음'}</span>
-              </div>
-              {summaryErrorMessage ? (
-                <div className={styles.errorText}>{summaryErrorMessage}</div>
-              ) : isLoadingSummary ? (
-                <div className={styles.emptyState}>OP 결과 브리핑을 불러오는 중입니다.</div>
-              ) : searchHistorySummary?.summaryText && searchHistorySummary.isFinal ? (
-                <p className={styles.summaryText}>{searchHistorySummary.summaryText}</p>
-              ) : searchHistorySummary?.summaryText ? (
+              {isSearchHistoryView ? (
                 <>
-                  <p className={styles.summaryText}>{searchHistorySummary.summaryText}</p>
-                  <div className={styles.emptyState}>최종 요약으로 확정되지 않았습니다.</div>
-                </>
-              ) : searchHistorySummary ? (
-                <div className={styles.emptyState}>요약을 생성하지 못했습니다. 원본 기록을 확인하세요.</div>
-              ) : (
-                <div className={styles.emptyState}>생성된 OP 결과 브리핑이 없습니다.</div>
-              )}
-              <dl className={styles.summaryMetaGrid}>
-                <div>
-                  <dt>근거 상태</dt>
-                  <dd>{searchHistorySummary?.readinessLabel ?? '-'}</dd>
-                </div>
-                <div>
-                  <dt>생성 시각</dt>
-                  <dd>{searchHistorySummary?.generatedAt ?? '-'}</dd>
-                </div>
-                <div>
-                  <dt>근거 해시</dt>
-                  <dd>{searchHistorySummary?.sourceHash ? shortId(searchHistorySummary.sourceHash) : '-'}</dd>
-                </div>
-              </dl>
-            </section>
+                  <div className={styles.searchHistoryTabs} role="tablist" aria-label="수색 이력 기능">
+                    <button
+                      type="button"
+                      role="tab"
+                      id="search-history-summary-tab"
+                      aria-controls="search-history-summary-panel"
+                      aria-selected={searchHistoryDetailTab === 'summary'}
+                      className={searchHistoryDetailTab === 'summary' ? styles.searchHistoryTabActive : undefined}
+                      onClick={() => setSearchHistoryDetailTab('summary')}
+                    >
+                      OP 요약
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      id="search-history-comparison-tab"
+                      aria-controls="search-history-comparison-panel"
+                      aria-selected={searchHistoryDetailTab === 'comparison'}
+                      className={searchHistoryDetailTab === 'comparison' ? styles.searchHistoryTabActive : undefined}
+                      onClick={() => setSearchHistoryDetailTab('comparison')}
+                    >
+                      OP 비교
+                    </button>
+                  </div>
 
-            <section className={styles.contextBlock} aria-label="관련 지도 항목">
-              <div className={styles.blockHeading}>
-                <h2>관련 지도 항목</h2>
-                <span>{sourceRecords.length}건</span>
-              </div>
-              {boardErrorMessage ? <div className={styles.errorText}>{boardErrorMessage}</div> : null}
-              {sourceRecords.length === 0 ? (
-                <div className={styles.emptyState}>선택한 OP에 표시할 관련 지도 항목이 없습니다.</div>
+                  {searchHistoryDetailTab === 'summary' ? (
+                    <div
+                      id="search-history-summary-panel"
+                      role="tabpanel"
+                      aria-labelledby="search-history-summary-tab"
+                      className={styles.searchHistoryTabPanel}
+                    >
+                      <section className={styles.contextBlock} aria-label="OP 요약">
+                        <div className={styles.blockHeading}>
+                          <h2>{searchHistorySummary?.heading ?? 'OP 요약'}</h2>
+                          <span>
+                            {isLoadingSummary ? '불러오는 중' : (searchHistorySummary?.statusLabel ?? '요약 없음')}
+                          </span>
+                        </div>
+                        {summaryErrorMessage ? (
+                          <div className={styles.errorText}>{summaryErrorMessage}</div>
+                        ) : isLoadingSummary ? (
+                          <div className={styles.emptyState}>OP 요약을 불러오는 중입니다.</div>
+                        ) : searchHistorySummary?.summaryText && searchHistorySummary.isFinal ? (
+                          <p className={styles.summaryText}>{searchHistorySummary.summaryText}</p>
+                        ) : searchHistorySummary?.summaryText ? (
+                          <>
+                            <p className={styles.summaryText}>{searchHistorySummary.summaryText}</p>
+                            <div className={styles.emptyState}>최종 요약으로 확정되지 않았습니다.</div>
+                          </>
+                        ) : searchHistorySummary ? (
+                          <div className={styles.emptyState}>요약을 생성하지 못했습니다. 원본 기록을 확인하세요.</div>
+                        ) : (
+                          <div className={styles.emptyState}>생성된 OP 요약이 없습니다.</div>
+                        )}
+                        <dl className={styles.summaryMetaGrid}>
+                          <div>
+                            <dt>근거 상태</dt>
+                            <dd>{searchHistorySummary?.readinessLabel ?? '-'}</dd>
+                          </div>
+                          <div>
+                            <dt>생성 시각</dt>
+                            <dd>{searchHistorySummary?.generatedAt ?? '-'}</dd>
+                          </div>
+                          <div>
+                            <dt>근거 해시</dt>
+                            <dd>{searchHistorySummary?.sourceHash ? shortId(searchHistorySummary.sourceHash) : '-'}</dd>
+                          </div>
+                        </dl>
+                      </section>
+
+                      <section className={styles.contextBlock} aria-label="OP 요약 근거 기록">
+                        <div className={styles.blockHeading}>
+                          <h2>근거 기록</h2>
+                          <span>{sourceRecords.length}건</span>
+                        </div>
+                        {boardErrorMessage ? <div className={styles.errorText}>{boardErrorMessage}</div> : null}
+                        {sourceRecords.length === 0 ? (
+                          <div className={styles.emptyState}>선택한 OP에 표시할 관련 지도 항목이 없습니다.</div>
+                        ) : (
+                          <ol className={styles.sourceList}>
+                            {sourceRecords.slice(0, 8).map((record) => (
+                              <li key={record.key}>
+                                <strong>{record.label}</strong>
+                                <span>{record.meta}</span>
+                                <p>{record.detail}</p>
+                              </li>
+                            ))}
+                          </ol>
+                        )}
+                      </section>
+                    </div>
+                  ) : (
+                    <div
+                      id="search-history-comparison-panel"
+                      role="tabpanel"
+                      aria-labelledby="search-history-comparison-tab"
+                      className={styles.searchHistoryTabPanel}
+                    >
+                      <ComparisonAnalysisPanel
+                        incidentId={incidentId}
+                        selectedOperationalPeriodIds={effectiveSelectedOpIds}
+                        operationalPeriods={comparisonOperationalPeriods}
+                        analysis={comparisonAnalysis}
+                        isCreating={createComparisonMutation.isPending}
+                        errorMessage={comparisonErrorMessage}
+                        selectedRegionFactId={selectedComparisonRegionFactId}
+                        onCreateAnalysis={handleCreateComparisonAnalysis}
+                        onRegionFactSelect={handleComparisonRegionFactSelect}
+                      />
+                    </div>
+                  )}
+                </>
               ) : (
-                <ol className={styles.sourceList}>
-                  {sourceRecords.slice(0, 8).map((record) => (
-                    <li key={record.key}>
-                      <strong>{record.label}</strong>
-                      <span>{record.meta}</span>
-                      <p>{record.detail}</p>
-                    </li>
-                  ))}
-                </ol>
+                <HandoverMemoSection
+                  focusedOpId={activeFocusedOpId}
+                  memoTargetOptions={memoTargetOptions}
+                  selectedMemoTarget={selectedMemoTarget}
+                  memoItems={selectedOpMemoItems}
+                  content={content}
+                  isLoadingMemos={isLoadingMemos}
+                  isSubmitting={isSubmitting}
+                  memoErrorMessage={memoErrorMessage}
+                  onContentChange={setContent}
+                  onSelectedMemoTargetKeyChange={setSelectedMemoTargetKey}
+                  onSubmit={handleSubmit}
+                />
               )}
-            </section>
             </div>
           </BoardPanel>
         </div>
       </div>
 
-
-      {isCreateOpModalOpen ? createPortal(
-        <div
-          className={styles.modalOverlay}
-          role="presentation"
-          onMouseDown={(event) => event.stopPropagation()}
-        >
-          <section
-            className={styles.modal}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="create-op-modal-title"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <div className={styles.modalHeader}>
-              <h2 id="create-op-modal-title">새 OP 열기</h2>
-              <button type="button" aria-label="닫기" onClick={closeCreateOpModal} disabled={isCreatingOp}>
-                ×
-              </button>
-            </div>
-
-            <div className={styles.modalBody}>
-              <fieldset className={styles.reasonFieldset}>
-                <legend>OP 사유</legend>
-                <div className={styles.reasonOptions}>
-                  {opReasonOptions.map((option) => (
-                    <label key={option.value} className={styles.reasonOption}>
-                      <input
-                        type="radio"
-                        name="opReason"
-                        value={option.value}
-                        checked={newOpReason === option.value}
-                        onChange={() => setNewOpReason(option.value)}
-                        disabled={isCreatingOp}
-                      />
-                      <span>
-                        <strong>{option.label}</strong>
-                        <small>{option.description}</small>
-                      </span>
-                    </label>
-                  ))}
+      {isCreateOpModalOpen
+        ? createPortal(
+            <div className={styles.modalOverlay} role="presentation" onMouseDown={(event) => event.stopPropagation()}>
+              <section
+                className={styles.modal}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="create-op-modal-title"
+                onMouseDown={(event) => event.stopPropagation()}
+              >
+                <div className={styles.modalHeader}>
+                  <h2 id="create-op-modal-title">새 OP 열기</h2>
+                  <button type="button" aria-label="닫기" onClick={closeCreateOpModal} disabled={isCreatingOp}>
+                    ×
+                  </button>
                 </div>
-              </fieldset>
 
-              <label className={styles.formField}>
-                사유 메모{newOpReason === 'OTHER' ? ' *' : ''}
-                <textarea
-                  value={newOpReasonMemo}
-                  onChange={(event) => setNewOpReasonMemo(event.target.value)}
-                  placeholder="OP 전환 사유를 입력하세요."
-                  maxLength={500}
-                  disabled={isCreatingOp}
-                />
-              </label>
+                <div className={styles.modalBody}>
+                  <fieldset className={styles.reasonFieldset}>
+                    <legend>OP 사유</legend>
+                    <div className={styles.reasonOptions}>
+                      {opReasonOptions.map((option) => (
+                        <label key={option.value} className={styles.reasonOption}>
+                          <input
+                            type="radio"
+                            name="opReason"
+                            value={option.value}
+                            checked={newOpReason === option.value}
+                            onChange={() => setNewOpReason(option.value)}
+                            disabled={isCreatingOp}
+                          />
+                          <span>
+                            <strong>{option.label}</strong>
+                            <small>{option.description}</small>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
 
-              <label className={styles.formField}>
-                인수인계 메모
-                <textarea
-                  value={newOpHandoverMemo}
-                  onChange={(event) => setNewOpHandoverMemo(event.target.value)}
-                  placeholder="새 OP에 함께 남길 인수인계 메모를 입력하세요."
-                  maxLength={1000}
-                  disabled={isCreatingOp}
-                />
-              </label>
+                  <label className={styles.formField}>
+                    사유 메모{newOpReason === 'OTHER' ? ' *' : ''}
+                    <textarea
+                      value={newOpReasonMemo}
+                      onChange={(event) => setNewOpReasonMemo(event.target.value)}
+                      placeholder="OP 전환 사유를 입력하세요."
+                      maxLength={500}
+                      disabled={isCreatingOp}
+                    />
+                  </label>
 
-              {createOpErrorMessage ? <div className={styles.errorText}>{createOpErrorMessage}</div> : null}
-            </div>
+                  <label className={styles.formField}>
+                    인수인계 메모
+                    <textarea
+                      value={newOpHandoverMemo}
+                      onChange={(event) => setNewOpHandoverMemo(event.target.value)}
+                      placeholder="새 OP에 함께 남길 인수인계 메모를 입력하세요."
+                      maxLength={1000}
+                      disabled={isCreatingOp}
+                    />
+                  </label>
 
-            <div className={styles.modalActions}>
-              <button type="button" className={styles.secondaryButton} onClick={closeCreateOpModal} disabled={isCreatingOp}>
-                취소
-              </button>
-              <button type="button" className={styles.primaryButton} onClick={handleCreateOperationalPeriod} disabled={!canSubmitNewOp}>
-                {isCreatingOp ? '여는 중' : '새 OP 열기'}
-              </button>
-            </div>
-          </section>
-        </div>,
-        document.body,
-      ) : null}
+                  {createOpErrorMessage ? <div className={styles.errorText}>{createOpErrorMessage}</div> : null}
+                </div>
+
+                <div className={styles.modalActions}>
+                  <button
+                    type="button"
+                    className={styles.secondaryButton}
+                    onClick={closeCreateOpModal}
+                    disabled={isCreatingOp}
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.primaryButton}
+                    onClick={handleCreateOperationalPeriod}
+                    disabled={!canSubmitNewOp}
+                  >
+                    {isCreatingOp ? '여는 중' : '새 OP 열기'}
+                  </button>
+                </div>
+              </section>
+            </div>,
+            document.body,
+          )
+        : null}
     </main>
   );
 }
@@ -988,9 +1078,11 @@ function createHandoverStatusView(
   const selectedOpId = selectedOp?.id ?? null;
   const statusRows = board ? readSlotRows(board, 'handover_status') : [];
   const statusRow =
-    statusRows.find((row) => readString(row, 'currentOpId') === selectedOpId) ?? statusRows[statusRows.length - 1] ?? null;
-  const readyForHandover = statusRow ? readBoolean(statusRow, 'readyForHandover') ?? false : memoCountFallback > 0;
-  const openMemoCount = statusRow ? readNumber(statusRow, 'openMemoCount') ?? memoCountFallback : memoCountFallback;
+    statusRows.find((row) => readString(row, 'currentOpId') === selectedOpId) ??
+    statusRows[statusRows.length - 1] ??
+    null;
+  const readyForHandover = statusRow ? (readBoolean(statusRow, 'readyForHandover') ?? false) : memoCountFallback > 0;
+  const openMemoCount = statusRow ? (readNumber(statusRow, 'openMemoCount') ?? memoCountFallback) : memoCountFallback;
   const latestMemoAt = statusRow ? readString(statusRow, 'latestMemoAt') : null;
   const status = statusRow ? readString(statusRow, 'status') : null;
 
@@ -1059,7 +1151,9 @@ function createSourceRecords(
       records.push({
         key: `marker:${markerId}`,
         label: formatMarkerTypeLabel(markerType),
-        meta: readString(row, 'occurredAt') ? formatKstDateTime(new Date(readString(row, 'occurredAt') ?? '')) : shortId(markerId),
+        meta: readString(row, 'occurredAt')
+          ? formatKstDateTime(new Date(readString(row, 'occurredAt') ?? ''))
+          : shortId(markerId),
         detail: memo,
       });
     });
