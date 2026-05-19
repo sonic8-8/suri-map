@@ -490,20 +490,24 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
 ### SC-11 · 인수인계·OP 비교·수색 이력 요약
 
 - **given**: SC-10으로 OP1 구역 완료, OP2 전환 또는 인수인계 메모 저장이 끝난 사건. 초동 대응 케이스에서는 SC-02로 실종팀 인계가 끝났고, OP1에 지구대/파출소 순찰차·팀 업무폰 경로와 메모가 존재한다. Fixture alias 기준으로 OP1 seed 메모는 `memo-precinct-handover-001`이고, SC-11의 OP2 인수인계 메모 write/convergence fixture는 `memo-precinct-op2-001`로 분리한다.
-- **when**: 현장 지휘관이 상황판에서 이미 저장된 OP별 레이어와 인수인계 메모를 비교하고 수색 이력 요약을 생성·확인
+- **when**: 현장 지휘관이 상황판에서 이미 저장된 OP별 레이어와 인수인계 메모를 비교하고, DutyShift 종료 또는 OP 전환 이후 서버 job으로 생성된 수색 이력 요약을 확인
 - **then**:
   1. OP별 업무폰·순찰차 경로, 차량·도보 구간, 완료 구역, NOTE 마커가 겹쳐 보인다.
   2. 인수인계 메모가 OP·구역·경로 맥락과 함께 표시된다.
-  3. 수색 이력 요약은 이미 저장된 OP1 경로·마커·인수인계 메모를 바탕으로 "어디 일대를 수색했는지"를 사후 요약하고, 누락 확정·다음 구역 지시는 하지 않는다.
+  3. 수색 이력 요약은 서버 job이 이미 저장된 OP1 경로·마커·인수인계 메모를 바탕으로 "어디 일대를 수색했는지"를 사후 요약하고, 누락 확정·다음 구역 지시는 하지 않는다.
   4. 수색 이력 요약 실패 시에도 수동 인수인계 메모와 OP 비교 화면은 동작한다.
   5. 실종팀 지휘 계정은 지구대/파출소가 남긴 OP1 경로·마커·메모와 수색 이력 요약을 SC-10에서 완료된 OP2 전환 판단의 사후 검토 자료로 확인할 수 있다.
   6. 수색 이력 요약과 인수인계 메모에서 원본 OP·경로·마커로 되돌아갈 수 있어야 하며, 선택 중인 OP가 화면에서 항상 식별 가능해야 한다.
 - **involved_specs**: S3-2, S1-2, S8, S3-1, S2, S5, S4, S1-1
 - **involved_apis**:
   - `GET /incidents/{incidentId}/board`
+  - `GET /search-paths`
+  - `GET /handover-memos`
+  - `PATCH /duty-shifts/{dutyShiftId}`
   - `POST /handover-memos`
+  - `POST /operational-periods`
   - `POST /operational-periods/comparisons`
-  - `POST /operational-periods/{operationalPeriodId}/search-history-summaries`
+  - `GET /operational-periods/{operationalPeriodId}/search-history-summaries`
   - `OP_COMPARISON_ANALYSIS_CHANGED`
   - `SEARCH_HISTORY_SUMMARY_CHANGED`
 - **e2e_red_test**:
@@ -513,19 +517,19 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   - "OP 비교 분석 생성 전후 `overall_search_area`, `search_area`, `search_path`, `marker`, `handover_memo`, `operational_period` 원본 row와 board response 원본 geometry/status/version hash가 동일하며, 새로 발생하는 write/event는 `op_comparison_analysis` row와 `OP_COMPARISON_ANALYSIS_CHANGED`에 한정된다"
   - "OP 비교 화면에서 적용한 스타일·필터·하이라이트는 board 표시 계층에만 반영되고 REST 조회 결과와 board response의 원본 geometry, status, version은 변경되지 않으며 event_dispatch_job row와 SSE event가 새로 발생하지 않는다"
   - "수색 이력 요약은 OP1 초동 대응의 순찰차 경로, 도보 경로, 주요 마커, 인수인계 메모를 요약한다"
-  - "수색 이력 요약 생성 중 상황판은 로딩 상태와 생성 CTA 비활성을 표시한다"
-  - "수색 이력 요약 생성 성공 시 상황판은 성공 피드백과 최신 요약 시각을 표시한다"
+  - "서버가 수색 이력 요약을 처리 중이면 상황판은 `GENERATING` 또는 `sourceReadiness=PENDING_SYNC`를 읽기 전용 처리 중 상태로 표시하고 생성 CTA를 노출하지 않는다"
+  - "수색 이력 요약 READY 조회 성공 시 상황판은 최신 요약 시각과 원본 근거를 표시한다"
   - "수색 이력 요약의 주요 문장은 원본 경로·마커·메모를 열 수 있는 근거 링크 또는 하이라이트를 제공한다"
   - "수색 이력 요약은 다음 구역 추천 문장을 생성하지 않는다"
-  - "OP1 구역 완료, OP2 전환, 인수인계 메모 저장 전에는 수색 이력 요약 생성 CTA/API가 열리지 않는다"
+  - "OP1 구역 완료, OP2 전환, 인수인계 메모 저장 전에는 수색 이력 요약 read 응답이 `GENERATING`/`PENDING_SYNC` 또는 빈 상태로 남고 공개 생성 CTA/API는 열리지 않는다"
   - "수색 이력 요약 생성 후에도 OP 전환 판단 기록은 변경되지 않는다"
   - "앱에서 저장한 인수인계 메모도 OP 비교 화면과 수색 이력 요약 입력 근거에 포함된다"
-  - "앱에서 수색 이력 요약 생성 API를 호출하면 `403 channel_not_allowed`"
+  - "앱은 수색 이력 요약을 `GET /operational-periods/{operationalPeriodId}/search-history-summaries`로만 읽고 생성 또는 재시도 CTA를 노출하지 않는다"
   - "타 팀 지휘 계정 또는 사건 미배정 지휘 계정이 `GET /incidents/{incidentId}/board`을 호출하면 `403 team_not_assigned`를 응답하고 상황판 shell은 OP 상세·경로·마커·메모를 렌더링하지 않는다"
-  - "사건에 배정됐지만 현장 지휘관 역할이 없는 팀 계정 또는 순찰차 계정이 OP 상세의 수색 이력 요약 생성 API를 호출하면 `403 role_denied`를 응답하고 생성 CTA가 노출되지 않는다"
+  - "사건에 배정됐지만 현장 지휘관 역할이 없는 팀 계정 또는 순찰차 계정에도 수색 이력 요약 생성 CTA는 노출되지 않으며, 허용된 화면은 read-only summary 상태만 소비한다"
   - "SC-10 완료 산출물 없이 SC-11 수색 이력 요약 시나리오를 실행하면 선행 조건 실패로 처리된다"
-  - "수색 이력 요약 실패 시 실패 사유와 재시도 버튼을 표시하고 기존 OP 비교와 인수인계 메모가 계속 표시된다"
-  - "인수인계 메모 저장과 수색 이력 요약 생성 write는 §0.3 공통 red test에 따라 REST 응답 id/status/version, `event_dispatch_job`, SSE payload, board response handover/search_history_summary row가 같은 메모·요약 상태를 말하고 board response version이 수렴해야 한다"
+  - "수색 이력 요약 실패 시 실패 상태와 원본 기록 확인 안내를 표시하되 클라이언트 재시도 버튼은 노출하지 않고 기존 OP 비교와 인수인계 메모가 계속 표시된다"
+  - "인수인계 메모 저장, DutyShift 종료, OP 전환 write와 서버 job의 `SEARCH_HISTORY_SUMMARY_CHANGED` 이벤트는 §0.3 공통 red test에 따라 REST 응답 id/status/version, `event_dispatch_job`, SSE payload, board response handover/search_history_summary row가 같은 메모·요약 상태를 말하고 board response version이 수렴해야 한다"
 - **board_merge**: `op_toggle` slot + `handover_memo` slot + `search_history_summary` slot
 - **notes**: 이 시나리오는 상황판 shell 통합 검증의 중심이다. 특히 초동 대응 OP1을 실종팀이 이어받는 인수인계 흐름을 대표 red test로 둔다. 자동 판단 기능으로 확장하지 않는다.
 
