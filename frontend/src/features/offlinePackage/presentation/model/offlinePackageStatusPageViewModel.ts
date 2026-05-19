@@ -59,6 +59,7 @@ const manifestGroupOrder: readonly OfflinePackageItemType[] = [
 ];
 
 const packageStatusLabels: Record<string, string> = {
+  NOT_STARTED: '시작 전',
   READY: '오프라인 사용 가능',
   DOWNLOADING: '자동 설치 중',
   STALE: '갱신 필요',
@@ -196,6 +197,7 @@ export function createAssigneeMeta(row: PackageBadgeRow) {
 
 export function getStatusView(row: PackageBadgeRow): { label: string; tone: StatusBadgeTone } {
   if (row.packageStatus === 'PURGED') return { label: packageStatusLabels.PURGED, tone: 'closed' };
+  if (row.packageStatus === 'NOT_STARTED') return { label: packageStatusLabels.NOT_STARTED, tone: 'waiting' };
   if (row.packageStatus === 'READY' && row.readyForOfflineUse && !row.warningRaised) {
     return { label: packageStatusLabels.READY, tone: 'active' };
   }

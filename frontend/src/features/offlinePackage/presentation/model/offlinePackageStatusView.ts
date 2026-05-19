@@ -29,6 +29,8 @@ export type PackageSummary = {
   purgedCount: number;
 };
 
+export type PackageStatusFilterId = 'all' | 'ready' | 'warning' | 'purged';
+
 export type ManifestGroup = {
   type: OfflinePackageItemType;
   label: string;
@@ -100,9 +102,11 @@ export function formatKstDateTime(date: Date) {
 export function createSummary(rows: PackageBadgeRow[]): PackageSummary {
   return rows.reduce<PackageSummary>(
     (summary, row) => {
-      if (row.packageStatus === 'PURGED') {
+      const packageStatusFilterId = getPackageStatusFilterId(row);
+
+      if (packageStatusFilterId === 'purged') {
         summary.purgedCount += 1;
-      } else if (row.packageStatus === 'READY' && row.readyForOfflineUse && !row.warningRaised) {
+      } else if (packageStatusFilterId === 'ready') {
         summary.readyCount += 1;
       } else {
         summary.warningCount += 1;
@@ -112,6 +116,20 @@ export function createSummary(rows: PackageBadgeRow[]): PackageSummary {
     },
     { readyCount: 0, warningCount: 0, purgedCount: 0 },
   );
+}
+
+export function getPackageStatusFilterId(row: PackageBadgeRow): Exclude<PackageStatusFilterId, 'all'> {
+  if (row.packageStatus === 'PURGED') return 'purged';
+  if (row.packageStatus === 'READY' && row.readyForOfflineUse && !row.warningRaised) return 'ready';
+  return 'warning';
+}
+
+export function filterPackageBadgeRows(
+  rows: readonly PackageBadgeRow[],
+  filterId: PackageStatusFilterId,
+): readonly PackageBadgeRow[] {
+  if (filterId === 'all') return rows;
+  return rows.filter((row) => getPackageStatusFilterId(row) === filterId);
 }
 
 export function createPackageLoadGauge(rows: PackageBadgeRow[]): PackageLoadGaugeSummary {

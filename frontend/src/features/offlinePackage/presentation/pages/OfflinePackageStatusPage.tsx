@@ -5,7 +5,6 @@ import {
   HardDrive,
   Map,
   RefreshCcw,
-  Trash2,
 } from 'lucide-react';
 
 import { useIncidentBoardQuery } from '../../../board/api/incidentBoardApi';
@@ -27,9 +26,11 @@ import type {
 import {
   createPackageLoadGauge,
   createSummary,
+  filterPackageBadgeRows,
   createTileSummary,
   formatBytes,
   formatKstDateTime,
+  type PackageStatusFilterId,
   type ManifestGroup,
   type TileSummary,
 } from '../model/offlinePackageStatusView';
@@ -104,6 +105,30 @@ function getPackageStatusBadgeClassName(tone: StatusBadgeTone) {
   return `${styles.packageStatusBadge} ${packageStatusBadgeToneClassNames[tone]}`;
 }
 
+type DeviceStatusFilterIconId = 'all' | 'ready' | 'warning' | 'purged';
+
+function getSummaryButtonIconClassName(iconId: DeviceStatusFilterIconId) {
+  if (iconId === 'all') return `${styles.summaryIcon} ${styles.summaryIconAll}`;
+  if (iconId === 'ready') return `${styles.summaryIcon} ${styles.summaryIconReady}`;
+  if (iconId === 'warning') return `${styles.summaryIcon} ${styles.summaryIconWarning}`;
+  return `${styles.summaryIcon} ${styles.summaryIconPurged}`;
+}
+
+function renderSummaryButtonIcon(iconId: DeviceStatusFilterIconId) {
+  if (iconId === 'all') return <Grid3X3 className={styles.summaryIconGlyph} size={46} strokeWidth={2.1} />;
+  if (iconId === 'ready') return <CheckCircle2 className={styles.summaryIconGlyph} size={46} strokeWidth={2.1} />;
+  if (iconId === 'warning') return <RefreshCcw className={styles.summaryIconGlyph} size={46} strokeWidth={2.1} />;
+  return (
+    <span className={styles.summaryIconStack}>
+      <HardDrive className={styles.summaryIconGlyph} size={46} strokeWidth={2.1} />
+      <span className={styles.summaryIconCross} aria-hidden="true">
+        <span className={styles.summaryIconCrossLine} />
+        <span className={styles.summaryIconCrossLineAlt} />
+      </span>
+    </span>
+  );
+}
+
 export function OfflinePackageStatusPage({
   currentUserAccount,
   incidentId,
@@ -123,6 +148,7 @@ export function OfflinePackageStatusPage({
   const [incidentDetail, setIncidentDetail] = useState<IncidentDetailDto | null>(null);
   const [isOffline, setIsOffline] = useState(() => (typeof navigator === 'undefined' ? false : !navigator.onLine));
   const [deviceStatusPage, setDeviceStatusPage] = useState(1);
+  const [deviceStatusFilter, setDeviceStatusFilter] = useState<PackageStatusFilterId>('all');
   const stableBoardRef = useRef<SituationBoardResponseDto | null>(null);
 
   useBrowserBackToIncidentList(onBrowserBackToIncidentList);
@@ -149,6 +175,8 @@ export function OfflinePackageStatusPage({
   useEffect(() => {
     stableBoardRef.current = null;
     setIncidentDetail(null);
+    setDeviceStatusFilter('all');
+    setDeviceStatusPage(1);
   }, [incidentId]);
 
   const rows = useMemo(() => readPackageBadgeRows(board?.slots.package_badge), [board]);
@@ -197,13 +225,15 @@ export function OfflinePackageStatusPage({
 
   const summary = useMemo(() => createSummary(rows), [rows]);
   const packageLoadGauge = useMemo(() => createPackageLoadGauge(rows), [rows]);
-  const deviceStatusTotalPages = Math.max(1, Math.ceil(rows.length / DEVICE_STATUS_PAGE_SIZE));
+  const filteredRows = useMemo(() => filterPackageBadgeRows(rows, deviceStatusFilter), [rows, deviceStatusFilter]);
+  const deviceStatusTotalPages = Math.max(1, Math.ceil(filteredRows.length / DEVICE_STATUS_PAGE_SIZE));
   const currentDeviceStatusPage = Math.min(deviceStatusPage, deviceStatusTotalPages);
   const deviceStatusPageStart = (currentDeviceStatusPage - 1) * DEVICE_STATUS_PAGE_SIZE;
-  const visibleRows = rows.slice(deviceStatusPageStart, deviceStatusPageStart + DEVICE_STATUS_PAGE_SIZE);
-  const hasDeviceStatusPagination = rows.length > DEVICE_STATUS_PAGE_SIZE;
+  const visibleRows = filteredRows.slice(deviceStatusPageStart, deviceStatusPageStart + DEVICE_STATUS_PAGE_SIZE);
+  const hasDeviceStatusPagination = filteredRows.length > DEVICE_STATUS_PAGE_SIZE;
   const currentAccountLabel = currentUserAccount.name;
-  const activeOperationalPeriod = manifestQuery.data?.operationalPeriods.find((period) => period.status === 'ACTIVE') ?? null;
+  const activeOperationalPeriod =
+    manifestQuery.data?.operationalPeriods?.find((period) => period.status === 'ACTIVE') ?? null;
   const incidentContext = createSharedIncidentContext({
     ...(incidentDetail ?? {}),
     activeOperationalPeriodLabel: activeOperationalPeriod ? `OP ${activeOperationalPeriod.sequenceNumber}차` : null,
@@ -211,14 +241,52 @@ export function OfflinePackageStatusPage({
   const isClosedTerminalBoard = isIncidentTerminalClosed(incidentTerminal);
   const timestampLabel = serverTs ? formatKstDateTime(new Date(serverTs)) : '동기화 전';
   const isEmpty = !isLoading && !boardErrorMessage && rows.length === 0;
-  const isPackageSummaryPlaceholder = isLoading || (Boolean(boardErrorMessage) && rows.length === 0);
-  const readyCountLabel = isPackageSummaryPlaceholder ? '-대' : `${summary.readyCount}대`;
-  const warningCountLabel = isPackageSummaryPlaceholder ? '-대' : `${summary.warningCount}대`;
-  const purgedCountLabel = isPackageSummaryPlaceholder ? '-대' : `${summary.purgedCount}대`;
+  const isFilteredEmpty = !isLoading && !boardErrorMessage && rows.length > 0 && filteredRows.length === 0;
+  const deviceStatusFilterOptions = [
+    {
+      id: 'all' as const,
+      label: '전체 단말',
+      labelLines: ['', '전체 단말'],
+      countLabel: `${rows.length}대`,
+      icon: 'all' as const,
+    },
+    {
+      id: 'ready' as const,
+      label: '오프라인 사용 가능 단말',
+      labelLines: ['오프라인', '사용 가능 단말'],
+      countLabel: `${summary.readyCount}대`,
+      icon: 'ready' as const,
+    },
+    {
+      id: 'warning' as const,
+      label: '재확인 필요 단말',
+      labelLines: ['재확인', '필요 단말'],
+      countLabel: `${summary.warningCount}대`,
+      icon: 'warning' as const,
+    },
+    {
+      id: 'purged' as const,
+      label: '미설치 단말',
+      labelLines: ['', '미설치 단말'],
+      countLabel: `${summary.purgedCount}대`,
+      icon: 'purged' as const,
+    },
+  ] satisfies Array<{
+    id: PackageStatusFilterId;
+    label: string;
+    labelLines: readonly [string, string];
+    countLabel: string;
+    icon: 'all' | 'ready' | 'warning' | 'purged';
+  }>;
 
   useEffect(() => {
     setDeviceStatusPage(1);
   }, [incidentId, rows.length]);
+
+  const handleDeviceStatusFilterChange = (nextFilter: PackageStatusFilterId) => {
+    setDeviceStatusFilter(nextFilter);
+    setDeviceStatusPage(1);
+  };
 
   return (
     <main className={styles.page}>
@@ -272,37 +340,54 @@ export function OfflinePackageStatusPage({
             <>
               <div className={styles.packageLoadOverview}>
                 <OfflinePackageLoadGauge gauge={packageLoadGauge} />
-                <div className={styles.summaryBar} aria-label="오프라인 패키지 요약">
-                  <div>
-                    <span className={`${styles.summaryIcon} ${styles.summaryIconReady}`} aria-hidden="true">
-                      <CheckCircle2 className={styles.summaryIconGlyph} size={46} strokeWidth={2.1} />
-                    </span>
-                    <div className={styles.summaryMetric}>
-                      <span>사용 가능 단말</span>
-                      <strong>{readyCountLabel}</strong>
-                    </div>
-                  </div>
-                  <div>
-                    <span className={`${styles.summaryIcon} ${styles.summaryIconWarning}`} aria-hidden="true">
-                      <RefreshCcw className={styles.summaryIconGlyph} size={46} strokeWidth={2.1} />
-                    </span>
-                    <div className={styles.summaryMetric}>
-                      <span>재확인 필요 단말</span>
-                      <strong>{warningCountLabel}</strong>
-                    </div>
-                  </div>
-                  <div>
-                    <span className={`${styles.summaryIcon} ${styles.summaryIconPurged}`} aria-hidden="true">
-                      <Trash2 className={styles.summaryIconGlyph} size={46} strokeWidth={2.1} />
-                    </span>
-                    <div className={styles.summaryMetric}>
-                      <span>삭제된 패키지</span>
-                      <strong>{purgedCountLabel}</strong>
-                    </div>
-                  </div>
+                <div className={styles.summaryBar} role="toolbar" aria-label="단말 상태 필터">
+                  {deviceStatusFilterOptions.map((option) => {
+                    const isSelected = deviceStatusFilter === option.id;
+                    const buttonClassName = [
+                      styles.summaryButton,
+                      isSelected ? styles.summaryButtonSelected : undefined,
+                    ]
+                      .filter(Boolean)
+                      .join(' ');
+
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        className={buttonClassName}
+                        aria-label={option.label}
+                        aria-pressed={isSelected}
+                        onClick={() => handleDeviceStatusFilterChange(option.id)}
+                      >
+                        <span className={getSummaryButtonIconClassName(option.icon)} aria-hidden="true">
+                          {renderSummaryButtonIcon(option.icon)}
+                        </span>
+                        <div className={styles.summaryMetric}>
+                          <div className={styles.summaryMetricLabels}>
+                            <span className={styles.summaryMetricLine} aria-hidden="true">
+                              {option.labelLines[0]}
+                            </span>
+                            <span className={styles.summaryMetricLine} aria-hidden="true">
+                              {option.labelLines[1]}
+                            </span>
+                          </div>
+                          <div className={styles.summaryMetricCountRow}>
+                            <strong className={styles.summaryMetricCount}>{option.countLabel}</strong>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-              <div className={styles.tableShell}>
+              {isFilteredEmpty ? (
+                <div className={styles.emptyState}>
+                  <strong>선택한 단말 상태가 없습니다.</strong>
+                  <span>다른 상태 필터를 선택하면 단말별 적재 상태를 다시 볼 수 있습니다.</span>
+                </div>
+              ) : (
+                <>
+                  <div className={styles.tableShell}>
                 <table className={styles.statusTable}>
                   <thead>
                     <tr>
@@ -411,6 +496,8 @@ export function OfflinePackageStatusPage({
                   </span>
                 </div>
               ) : null}
+                </>
+              )}
             </>
           )}
         </section>

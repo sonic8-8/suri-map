@@ -70,7 +70,7 @@
 .summaryBar {
   display: grid;
   box-sizing: border-box;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.75rem;
   width: 100%;
   min-width: 0;
@@ -79,8 +79,118 @@
   background: transparent;
 }
 
-.summaryBar > div {
+.summaryButton {
   display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 1.05rem;
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid rgba(156, 181, 195, 0.42);
+  border-radius: 1rem;
+  background:
+    linear-gradient(145deg, rgba(228, 235, 239, 0.96), rgba(205, 216, 223, 0.96)),
+    #d6e0e6;
+  box-shadow:
+    0 1rem 2.4rem rgba(37, 59, 74, 0.16),
+    0 0 0 1px rgba(255, 255, 255, 0.72) inset;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  text-align: left;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    transform 140ms ease,
+    background 140ms ease;
+}
+
+.summaryButton:hover {
+  border-color: rgba(96, 132, 153, 0.58);
+  background:
+    linear-gradient(145deg, rgba(236, 243, 247, 0.98), rgba(216, 228, 235, 0.98)),
+    #dbe7ec;
+  transform: translateY(-1px);
+}
+
+.summaryButton:focus-visible {
+  outline: 2px solid #2f8ee8;
+  outline-offset: 3px;
+}
+
+.summaryButtonSelected {
+  border-color: rgba(47, 142, 232, 0.6);
+  background:
+    linear-gradient(145deg, rgba(226, 240, 253, 0.98), rgba(196, 226, 250, 0.98)),
+    #d3ebfd;
+  box-shadow:
+    0 1rem 2.4rem rgba(37, 59, 74, 0.18),
+    0 0 0 1px rgba(255, 255, 255, 0.78) inset,
+    0 0 0 1px rgba(47, 142, 232, 0.2);
+}
+
+.summaryButtonSelected:hover {
+  border-color: rgba(47, 142, 232, 0.72);
+  background:
+    linear-gradient(145deg, rgba(217, 235, 251, 0.99), rgba(190, 221, 248, 0.99)),
+    #cde7fb;
+}
+
+.summaryButton:active {
+  transform: translateY(0);
+}
+
+.summaryButton > * {
+  min-width: 0;
+}
+
+.summaryButton .summaryMetric {
+  display: grid;
+  grid-template-rows: auto auto;
+  min-width: 0;
+  gap: 0;
+}
+
+.summaryButton .summaryMetric span {
+  color: #5c6f7b;
+  font-size: 0.98rem;
+  font-weight: 700;
+  line-height: 1.12;
+}
+
+.summaryButton .summaryMetricLine {
+  line-height: 1.08;
+}
+
+.summaryMetricLabels {
+  display: grid;
+  gap: 0;
+}
+
+.summaryMetricLine {
+  display: block;
+  min-height: 1.12em;
+  white-space: pre-line;
+}
+
+.summaryMetricCountRow {
+  display: flex;
+  align-items: center;
+  min-height: 3.1rem;
+}
+
+.summaryMetricCount {
+  display: block;
+  margin-top: 0;
+  color: #122838;
+  font-size: 2rem;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.summaryBar > div {
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 1.05rem;
@@ -96,17 +206,31 @@
     0 0 0 1px rgba(255, 255, 255, 0.72) inset;
 }
 
+.summaryIconAll {
+  color: #1b6686;
+}
+
 .summaryMetric {
   display: grid;
+  grid-template-rows: auto auto;
   min-width: 0;
-  gap: 4px;
+  gap: 0;
 }
 
 .summaryIcon {
   display: inline-grid;
+  position: relative;
   place-items: center;
   width: 3.1rem;
   height: 3.1rem;
+}
+
+.summaryIconStack {
+  display: inline-grid;
+  position: relative;
+  place-items: center;
+  width: 100%;
+  height: 100%;
 }
 
 .summaryIconGlyph {
@@ -131,6 +255,36 @@
 
 .summaryIconPurged {
   color: #48525b;
+}
+
+.summaryIconCross {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 2.35rem;
+  height: 2.35rem;
+  color: #48525b;
+  pointer-events: none;
+}
+
+.summaryIconCrossLine,
+.summaryIconCrossLineAlt {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 2.95rem;
+  height: 0.18rem;
+  border-radius: 999px;
+  background: currentColor;
+  transform-origin: center;
+}
+
+.summaryIconCrossLine {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.summaryIconCrossLineAlt {
+  transform: translate(-50%, -50%) rotate(-45deg);
 }
 
 .summaryMetric span {
@@ -437,6 +591,10 @@
 }
 
 @media (max-width: 960px) {
+  .summaryBar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .contentStack {
     gap: 4.5rem;
     padding: 3.2rem 1rem 5rem;
