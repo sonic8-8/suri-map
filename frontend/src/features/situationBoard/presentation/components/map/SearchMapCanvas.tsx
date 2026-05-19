@@ -1,9 +1,10 @@
 ﻿import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import maplibregl, { type GeoJSONSource, type LayerSpecification, type LngLatBoundsLike } from 'maplibre-gl';
 import { getVWorldApiKey } from '../../../../../shared/config';
+import { getMarkerLegendColor } from '../../../../../shared/constants/markerLegendColors';
 import { incidentBoardQueryKeys } from '../../../../board/api/incidentBoardApi';
 import { useUpdateMarkerMutation, type UpdateMarkerRequest } from '../../../../marker/api/markerCommandApi';
 import {
@@ -55,6 +56,7 @@ import {
   type MarkerInstance,
   type MarkerInteractionHandlers,
 } from './boardMarkerLayer';
+import { MarkerGlyph, markerTypeGlyphName, type MarkerGlyphName } from '../marker/MarkerGlyph';
 import { SearchAreaInspectorCard } from './SearchAreaInspectorCard';
 import type { SearchAreaTreeNode } from '../../constants/mockSituationBoard';
 import { RouteEditorPanel } from './RouteEditorPanel';
@@ -129,6 +131,7 @@ const MOVEMENT_PATH_FOOT_LAYER_ID = 'operational-movement-path-foot';
 const MOVEMENT_PATH_UNKNOWN_GLOW_LAYER_ID = 'operational-movement-path-unknown-glow';
 const MOVEMENT_PATH_UNKNOWN_LAYER_ID = 'operational-movement-path-unknown';
 const INITIAL_MAP_FALLBACK_ZOOM = 12;
+const DEFAULT_MARKER_POPUP_COLOR = '#64748b';
 
 type OperationalFeatureCollection = BoardMapFeatureCollection;
 type SearchAreaLevel = 'OVERALL' | 'UNIT' | 'TEAM';
@@ -166,6 +169,49 @@ function createReferenceMarkerCorrectionIdempotencyKey(markerId: string) {
       ? crypto.randomUUID()
       : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   return `web-reference-marker-correction:${markerId}:${suffix}`;
+}
+
+function createMarkerPopupStyle(
+  marker: RecentMarker,
+  point: { x: number; y: number },
+): CSSProperties & { '--marker-color': string } {
+  return {
+    '--marker-color': getMarkerLegendColor(marker.markerType, marker.supportRequestType) || DEFAULT_MARKER_POPUP_COLOR,
+    left: `${point.x}px`,
+    top: `${point.y}px`,
+    transform: `translate(-50%, calc(-100% - ${MARKER_SELECTED_POPUP_OFFSET_PX}px))`,
+  };
+}
+
+function getMarkerPopupGlyphName(marker: RecentMarker): MarkerGlyphName {
+  if (marker.markerType === 'SUPPORT_REQUEST') {
+    if (marker.supportRequestType === 'DRONE') return 'drone';
+    if (marker.supportRequestType === 'POLICE_DOG') return 'dog';
+    if (marker.supportRequestType === 'OTHER') return 'handHelping';
+  }
+
+  return markerTypeGlyphName(marker.markerType);
+}
+
+function getMarkerPopupAriaLabel(marker: RecentMarker) {
+  return `${marker.markerTypeLabel ?? marker.summary ?? '마커'} 정보`;
+}
+
+function getMarkerPopupContent(marker: RecentMarker) {
+  const content = marker.memo?.trim();
+  return content || null;
+}
+
+function getMarkerPopupOpLabel(marker: RecentMarker) {
+  return marker.opLabel?.trim() || 'OP 확인 전';
+}
+
+function getMarkerPopupAuthorLabel(marker: RecentMarker) {
+  return marker.reporterLabel?.trim() || '작성자 확인 전';
+}
+
+function getMarkerPopupTimeLabel(marker: RecentMarker) {
+  return marker.timeLabel || marker.occurredAt;
 }
 
 export type LayerVisibility = {
@@ -1315,24 +1361,20 @@ export function SearchMapCanvas({
               {selectedMarker && selectedMarkerPoint ? (
                 <div
                   className={styles.markerSelectedOverlay}
-                  style={{
-                    left: `${selectedMarkerPoint.x}px`,
-                    top: `${selectedMarkerPoint.y}px`,
-                    transform: `translate(-50%, calc(-100% - ${MARKER_SELECTED_POPUP_OFFSET_PX}px))`,
-                  }}
+                  style={createMarkerPopupStyle(selectedMarker, selectedMarkerPoint)}
                 >
                   <section
                     className={styles.markerPopup}
                     role="dialog"
-                    aria-label={selectedMarker.title}
+                    aria-label={getMarkerPopupAriaLabel(selectedMarker)}
                     onClick={(event) => event.stopPropagation()}
                     onPointerDown={(event) => event.stopPropagation()}
                   >
                     <header className={styles.markerPopupHeader}>
                       <div className={styles.markerPopupHeaderMain}>
                         <div className={styles.markerPopupBadge} aria-hidden="true">
-                          <span className={styles.markerPopupType}>
-                            {selectedMarker.markerTypeLabel ?? selectedMarker.markerType}
+                          <span className={styles.markerPopupBadgeIcon}>
+                            <MarkerGlyph name={getMarkerPopupGlyphName(selectedMarker)} size={23} />
                           </span>
                         </div>
                         <div className={styles.markerPopupTitleGroup}>
@@ -1342,12 +1384,7 @@ export function SearchMapCanvas({
                               <span className={styles.markerPopupType}>{selectedMarker.markerTypeLabel}</span>
                             ) : null}
                           </div>
-                          <div className={styles.markerPopupTitle}>{selectedMarker.title}</div>
-                          {selectedMarker.timeLabel || selectedMarker.occurredAt ? (
-                            <div className={styles.markerPopupMeta}>
-                              {selectedMarker.timeLabel ?? selectedMarker.occurredAt}
-                            </div>
-                          ) : null}
+                          <div className={styles.markerPopupMeta}>{getMarkerPopupTimeLabel(selectedMarker)}</div>
                         </div>
                       </div>
                       <button
@@ -1364,16 +1401,18 @@ export function SearchMapCanvas({
                         <img src={selectedMarker.photoThumbnailUrl} alt="" loading="lazy" decoding="async" />
                       </figure>
                     ) : null}
-                    {(selectedMarker.memo ?? selectedMarker.summary) ? (
-                      <p className={styles.markerPopupBody}>{selectedMarker.memo ?? selectedMarker.summary}</p>
+                    {getMarkerPopupContent(selectedMarker) ? (
+                      <p className={styles.markerPopupBody}>{getMarkerPopupContent(selectedMarker)}</p>
                     ) : null}
                     <div className={styles.markerPopupDetail}>
-                      {selectedMarker.reporterLabel ? (
-                        <div className={styles.markerPopupRow}>
-                          <span className={styles.markerPopupRowLabel}>보고자</span>
-                          <span className={styles.markerPopupRowValue}>{selectedMarker.reporterLabel}</span>
-                        </div>
-                      ) : null}
+                      <div className={styles.markerPopupRow}>
+                        <span className={styles.markerPopupRowLabel}>OP</span>
+                        <span className={styles.markerPopupRowValue}>{getMarkerPopupOpLabel(selectedMarker)}</span>
+                      </div>
+                      <div className={styles.markerPopupRow}>
+                        <span className={styles.markerPopupRowLabel}>작성자</span>
+                        <span className={styles.markerPopupRowValue}>{getMarkerPopupAuthorLabel(selectedMarker)}</span>
+                      </div>
                       {selectedMarker.sourceLabel ? (
                         <div className={styles.markerPopupRow}>
                           <span className={styles.markerPopupRowLabel}>출처</span>
