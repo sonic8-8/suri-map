@@ -502,14 +502,16 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
 - **involved_apis**:
   - `GET /incidents/{incidentId}/board`
   - `POST /handover-memos`
+  - `POST /operational-periods/comparisons`
   - `POST /operational-periods/{operationalPeriodId}/search-history-summaries`
+  - `OP_COMPARISON_ANALYSIS_CHANGED`
   - `SEARCH_HISTORY_SUMMARY_CHANGED`
 - **e2e_red_test**:
   - "OP1과 OP2 경로를 동시에 표시하고 토글할 수 있다"
   - "지구대/파출소 OP1 초동 수색 경로와 메모가 실종팀 지휘 계정의 상황판 인수인계 뷰에 표시된다"
   - "OP 비교 화면은 선택된 OP, 현재 OP, 완료 OP를 배지·범례·레이어 토글에서 구분한다"
-  - "OP 비교 전후 `overall_search_area`, `search_area`, `search_path`, `marker` 원본 geometry row와 board response geometry hash가 동일하며 geometry write API, event_dispatch_job row, SSE event가 새로 발생하지 않는다"
-  - "OP 비교에서 적용한 스타일·필터·하이라이트는 board 표시 계층에만 반영되고 REST 조회 결과와 board response의 원본 geometry, status, version은 변경되지 않는다"
+  - "OP 비교 분석 생성 전후 `overall_search_area`, `search_area`, `search_path`, `marker`, `handover_memo`, `operational_period` 원본 row와 board response 원본 geometry/status/version hash가 동일하며, 새로 발생하는 write/event는 `op_comparison_analysis` row와 `OP_COMPARISON_ANALYSIS_CHANGED`에 한정된다"
+  - "OP 비교 화면에서 적용한 스타일·필터·하이라이트는 board 표시 계층에만 반영되고 REST 조회 결과와 board response의 원본 geometry, status, version은 변경되지 않으며 event_dispatch_job row와 SSE event가 새로 발생하지 않는다"
   - "수색 이력 요약은 OP1 초동 대응의 순찰차 경로, 도보 경로, 주요 마커, 인수인계 메모를 요약한다"
   - "수색 이력 요약 생성 중 상황판은 로딩 상태와 생성 CTA 비활성을 표시한다"
   - "수색 이력 요약 생성 성공 시 상황판은 성공 피드백과 최신 요약 시각을 표시한다"

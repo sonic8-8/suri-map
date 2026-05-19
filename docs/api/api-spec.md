@@ -542,6 +542,23 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Response: `200 {currentOpId, items[{id, status, reason, sequenceNumber, openedAt, endedAt, version}]}`
 - Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`
 
+#### POST `/api/operational-periods/comparisons`
+
+- Owner: S8
+- Source spec: `POST /operational-periods/comparisons`
+- Consumer: WEB, S3-2
+- Headers: `Authorization`, `Idempotency-Key`, `X-Client-Channel: WEB`
+- Guard: `web-command`, `incident-read`, `write-common`
+- Idempotency-Key: yes
+- Request: `incidentId`, `operationalPeriodIds[]` (minimum 2 OP IDs in the same incident)
+- Response: `202 {comparisonId, incidentId, operationalPeriodIds, sourceHash, status, narrativeStatus, metrics, diffFacts, regionFacts, observations, failureReason, requestedAt, generatedAt, version}`.
+  - `metrics`, `diffFacts`, `regionFacts` are deterministic server facts from already committed OP/path/marker/memo rows.
+  - `observations` is present only when the configured narrative provider returns validated evidence-grounded observations.
+  - `narrativeStatus=SKIPPED` means deterministic thresholds found no material fact requiring narrative generation.
+- Event: `OP_COMPARISON_ANALYSIS_CHANGED {id, comparisonId, incidentId, operationalPeriodIds, status, narrativeStatus, sourceHash, version}`
+- Errors: `channel_not_allowed`, `role_denied`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`, `invalid_operational_period_comparison`
+- Channel rule: WEB command only. This endpoint writes only `op_comparison_analysis` and the analysis event. It must not mutate `overall_search_area`, `search_area`, `search_path`, `marker`, `handover_memo`, or `operational_period` source rows, and it must not generate recommendations, missing-area conclusions, or risk judgments.
+
 #### POST `/api/duty-shifts`
 
 - Owner: S8
