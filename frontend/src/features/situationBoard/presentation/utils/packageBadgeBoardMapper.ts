@@ -1,5 +1,5 @@
 import type { SituationBoardResponseDto } from '../../data/getSituationBoard';
-import { isRecord, readNumber, readSlotRows, readString } from './boardApiMappers';
+import { isRecord, readNumber, readPolicePhoneId, readSlotRows, readString } from './boardApiMappers';
 
 export type PackageBadgeSummary = {
   warningCount: number;
@@ -14,7 +14,7 @@ export function toPackageBadgeSummary(board: SituationBoardResponseDto | null): 
   const rows = readSlotRows(board, 'package_badge');
   if (rows.length === 0) return null;
 
-  const warningCount = rows.filter(isPackageWarningRow).length;
+  const warningCount = countWarningPhones(rows);
   if (warningCount === 0) return null;
 
   return {
@@ -25,13 +25,33 @@ export function toPackageBadgeSummary(board: SituationBoardResponseDto | null): 
   };
 }
 
-function isPackageWarningRow(row: Record<string, unknown>) {
+function countWarningPhones(rows: Record<string, unknown>[]) {
+  const phoneStates = new Map<string, { hasCurrentReady: boolean; hasWarningCandidate: boolean }>();
+
+  rows.forEach((row) => {
+    const phoneId = readPolicePhoneId(row) ?? readString(row, 'policePhoneCode') ?? readString(row, 'id');
+    if (!phoneId) return;
+
+    const state = phoneStates.get(phoneId) ?? { hasCurrentReady: false, hasWarningCandidate: false };
+    state.hasCurrentReady ||= isCurrentPackageReady(row);
+    state.hasWarningCandidate ||= isPackageWarningCandidate(row);
+    phoneStates.set(phoneId, state);
+  });
+
+  return [...phoneStates.values()].filter((state) => state.hasWarningCandidate && !state.hasCurrentReady).length;
+}
+
+function isPackageWarningCandidate(row: Record<string, unknown>) {
   const packageStatus = readString(row, 'packageStatus') ?? readString(row, 'package_status') ?? '';
-  if (packageStatus === 'PURGED') return false;
+  return packageStatus !== 'PURGED' && !isCurrentPackageReady(row);
+}
+
+function isCurrentPackageReady(row: Record<string, unknown>) {
+  const packageStatus = readString(row, 'packageStatus') ?? readString(row, 'package_status') ?? '';
 
   const warningInputSource = row.localWarningInput ?? row.local_warning_input;
   const warningInput = isRecord(warningInputSource) ? warningInputSource : {};
-  if (readBoolean(warningInput, 'raised')) return true;
+  if (readBoolean(warningInput, 'raised')) return false;
 
   const readyForOfflineUse = readBoolean(row, 'readyForOfflineUse') ?? readBoolean(row, 'ready_for_offline_use');
   const manifestVersion = readNumber(row, 'manifestVersion') ?? readNumber(row, 'manifest_version');
@@ -41,7 +61,7 @@ function isPackageWarningRow(row: Record<string, unknown>) {
     readNumber(row, 'activeManifestVersion') ??
     readNumber(row, 'active_manifest_version');
 
-  return !(
+  return (
     packageStatus === 'READY' &&
     readyForOfflineUse === true &&
     (activeManifestVersion === null || manifestVersion === activeManifestVersion)
