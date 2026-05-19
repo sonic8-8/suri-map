@@ -2,6 +2,7 @@ package com.surimap.client.openai;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.surimap.opcomparison.OpComparisonNarrativePort;
+import com.surimap.opcomparison.OpComparisonNarrativeValidator;
 import java.time.Duration;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -31,7 +32,8 @@ class OpenAiComparisonConfig {
   OpComparisonNarrativePort openAiComparisonAdapter(
       OpenAiComparisonProperties properties,
       @Qualifier("openAiRestTemplate") RestTemplate restTemplate,
-      ObjectMapper objectMapper) {
-    return new OpenAiComparisonAdapter(properties, restTemplate, objectMapper);
+      ObjectMapper objectMapper,
+      OpComparisonNarrativeValidator narrativeValidator) {
+    return new OpenAiComparisonAdapter(properties, restTemplate, objectMapper, narrativeValidator);
   }
 }

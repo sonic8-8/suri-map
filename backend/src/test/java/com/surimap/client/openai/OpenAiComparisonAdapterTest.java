@@ -15,6 +15,7 @@ import com.surimap.opcomparison.OpComparisonEvidencePackage;
 import com.surimap.opcomparison.OpComparisonNarrativeRequest;
 import com.surimap.opcomparison.OpComparisonNarrativeResult;
 import com.surimap.opcomparison.OpComparisonNarrativeStatus;
+import com.surimap.opcomparison.OpComparisonNarrativeValidator;
 import com.surimap.opcomparison.OpComparisonOperationalPeriodEvidence;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -44,7 +45,7 @@ class OpenAiComparisonAdapterTest {
         new OpenAiComparisonProperties(
             true, "https://api.openai.com/v1", "test-openai-key", "gpt-5-mini", 1000);
     OpenAiComparisonAdapter adapter =
-        new OpenAiComparisonAdapter(properties, restTemplate, objectMapper);
+        new OpenAiComparisonAdapter(properties, restTemplate, objectMapper, newValidator());
 
     String observationsJson =
         """
@@ -97,7 +98,7 @@ class OpenAiComparisonAdapterTest {
     OpenAiComparisonProperties properties =
         new OpenAiComparisonProperties(false, "https://api.openai.com/v1", "", "gpt-5-mini", 1000);
     OpenAiComparisonAdapter adapter =
-        new OpenAiComparisonAdapter(properties, restTemplate, objectMapper);
+        new OpenAiComparisonAdapter(properties, restTemplate, objectMapper, newValidator());
 
     OpComparisonNarrativeResult result =
         adapter.generate(new OpComparisonNarrativeRequest(evidencePackage()));
@@ -115,7 +116,7 @@ class OpenAiComparisonAdapterTest {
         new OpenAiComparisonProperties(
             true, "https://api.openai.com/v1", "test-openai-key", "gpt-5-mini", 1000);
     OpenAiComparisonAdapter adapter =
-        new OpenAiComparisonAdapter(properties, restTemplate, objectMapper);
+        new OpenAiComparisonAdapter(properties, restTemplate, objectMapper, newValidator());
     String responseBody =
         objectMapper.writeValueAsString(
             Map.of(
@@ -126,6 +127,43 @@ class OpenAiComparisonAdapterTest {
                         "message",
                         "content",
                         List.of(Map.of("type", "output_text", "text", "{\"items\":[]}"))))));
+
+    server
+        .expect(requestTo("https://api.openai.com/v1/responses"))
+        .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
+
+    OpComparisonNarrativeResult result =
+        adapter.generate(new OpComparisonNarrativeRequest(evidencePackage()));
+
+    assertThat(result.status()).isEqualTo(OpComparisonNarrativeStatus.FAILED);
+    assertThat(result.observationsJson()).isNull();
+    server.verify();
+  }
+
+  @Test
+  void generateReturnsFailedWhenValidationRejectsOutput() throws Exception {
+    RestTemplate restTemplate = new RestTemplate();
+    MockRestServiceServer server = MockRestServiceServer.createServer(restTemplate);
+    OpenAiComparisonProperties properties =
+        new OpenAiComparisonProperties(
+            true, "https://api.openai.com/v1", "test-openai-key", "gpt-5-mini", 1000);
+    OpenAiComparisonAdapter adapter =
+        new OpenAiComparisonAdapter(properties, restTemplate, objectMapper, newValidator());
+    String invalidNarrative =
+        """
+        {"observations":[{"observation":"1차와 2차의 이동 거리 차이는 430m입니다.","evidence":[{"source":"diffFact","factId":"metric-pathDistanceMeters","operationalPeriodId":"33333333-3333-3333-3333-333333333333","key":"delta","value":"420"}]}]}
+        """
+            .trim();
+    String responseBody =
+        objectMapper.writeValueAsString(
+            Map.of(
+                "output",
+                List.of(
+                    Map.of(
+                        "type",
+                        "message",
+                        "content",
+                        List.of(Map.of("type", "output_text", "text", invalidNarrative))))));
 
     server
         .expect(requestTo("https://api.openai.com/v1/responses"))
@@ -160,5 +198,9 @@ class OpenAiComparisonAdapterTest {
                 BigDecimal.valueOf(420),
                 ">=100")),
         List.of());
+  }
+
+  private OpComparisonNarrativeValidator newValidator() {
+    return new OpComparisonNarrativeValidator(objectMapper);
   }
 }

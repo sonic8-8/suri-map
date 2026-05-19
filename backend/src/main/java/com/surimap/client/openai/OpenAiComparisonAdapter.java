@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.surimap.opcomparison.OpComparisonNarrativePort;
 import com.surimap.opcomparison.OpComparisonNarrativeRequest;
 import com.surimap.opcomparison.OpComparisonNarrativeResult;
+import com.surimap.opcomparison.OpComparisonNarrativeValidator;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -33,12 +34,17 @@ public class OpenAiComparisonAdapter implements OpComparisonNarrativePort {
   private final OpenAiComparisonProperties properties;
   private final RestTemplate restTemplate;
   private final ObjectMapper objectMapper;
+  private final OpComparisonNarrativeValidator narrativeValidator;
 
   OpenAiComparisonAdapter(
-      OpenAiComparisonProperties properties, RestTemplate restTemplate, ObjectMapper objectMapper) {
+      OpenAiComparisonProperties properties,
+      RestTemplate restTemplate,
+      ObjectMapper objectMapper,
+      OpComparisonNarrativeValidator narrativeValidator) {
     this.properties = properties;
     this.restTemplate = restTemplate;
     this.objectMapper = objectMapper;
+    this.narrativeValidator = narrativeValidator;
   }
 
   @Override
@@ -58,7 +64,8 @@ public class OpenAiComparisonAdapter implements OpComparisonNarrativePort {
               new HttpEntity<>(requestBody(request), headers),
               String.class);
       String outputText = extractOutputText(response.getBody());
-      if (!isObservationJson(outputText)) {
+      if (!isObservationJson(outputText)
+          || !narrativeValidator.isValid(request.evidencePackage(), outputText)) {
         return OpComparisonNarrativeResult.failed();
       }
       return OpComparisonNarrativeResult.ready(outputText);
