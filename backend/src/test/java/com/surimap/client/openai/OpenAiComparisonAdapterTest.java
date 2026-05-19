@@ -2,6 +2,8 @@ package com.surimap.client.openai;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
@@ -72,9 +74,18 @@ class OpenAiComparisonAdapterTest {
         .andExpect(jsonPath("$.input[0].role").value("system"))
         .andExpect(jsonPath("$.input[0].content", containsString("추론하지 않는다")))
         .andExpect(jsonPath("$.input[0].content", containsString("sentence와 factIds만 출력")))
+        .andExpect(jsonPath("$.input[0].content", containsString("cited factIds")))
+        .andExpect(jsonPath("$.input[0].content", containsString("metricLabel")))
         .andExpect(jsonPath("$.input[1].role").value("user"))
-        .andExpect(jsonPath("$.input[1].content", containsString(COMPARISON_ID.toString())))
+        .andExpect(jsonPath("$.input[1].content", containsString("leftSequenceNumber")))
         .andExpect(jsonPath("$.input[1].content", containsString("metric-pathDistanceMeters")))
+        .andExpect(jsonPath("$.input[1].content", containsString("metricLabel")))
+        .andExpect(jsonPath("$.input[1].content", containsString("이동 거리")))
+        .andExpect(content().string(not(containsString(COMPARISON_ID.toString()))))
+        .andExpect(content().string(not(containsString(INCIDENT_ID.toString()))))
+        .andExpect(content().string(not(containsString(OP_1.toString()))))
+        .andExpect(content().string(not(containsString("startedAt"))))
+        .andExpect(content().string(not(containsString("metricKey"))))
         .andExpect(jsonPath("$.text.format.type").value("json_schema"))
         .andExpect(jsonPath("$.text.format.name").value("op_comparison_observations"))
         .andExpect(jsonPath("$.text.format.strict").value(true))
