@@ -62,9 +62,10 @@ public class SeedDataLoader {
             List<MockAssignment> assignments = new ArrayList<>();
             if (handoverNode != null && handoverNode.isArray()) {
                 for (JsonNode node : handoverNode) {
-                    MockAssignment a = mapper.treeToValue(node, MockAssignment.class);
-                    store.addAssignment(sourceIncidentId, a);
-                    assignments.add(a);
+                    MockAssignment a = assignmentFor(sourceIncidentId, mapper.treeToValue(node, MockAssignment.class));
+                    if (store.addAssignment(sourceIncidentId, a)) {
+                        assignments.add(a);
+                    }
                 }
             }
             log.info("Handover assignments loaded for {}: {} entries", sourceIncidentId, assignments.size());
@@ -86,9 +87,10 @@ public class SeedDataLoader {
             List<MockAssignment> assignments = new ArrayList<>();
             if (supportNode != null && supportNode.isArray()) {
                 for (JsonNode node : supportNode) {
-                    MockAssignment a = mapper.treeToValue(node, MockAssignment.class);
-                    store.addAssignment(sourceIncidentId, a);
-                    assignments.add(a);
+                    MockAssignment a = assignmentFor(sourceIncidentId, mapper.treeToValue(node, MockAssignment.class));
+                    if (store.addAssignment(sourceIncidentId, a)) {
+                        assignments.add(a);
+                    }
                 }
             }
             log.info("Support assignments loaded for {}: {} entries", sourceIncidentId, assignments.size());
@@ -105,5 +107,23 @@ public class SeedDataLoader {
         try (InputStream is = resource.getInputStream()) {
             return mapper.readTree(is);
         }
+    }
+
+    private MockAssignment assignmentFor(String sourceIncidentId, MockAssignment template) {
+        return new MockAssignment(
+                assignmentKeyFor(sourceIncidentId, template),
+                template.getAccountCode(),
+                template.getIncidentRole(),
+                template.getAssignedAt());
+    }
+
+    private String assignmentKeyFor(String sourceIncidentId, MockAssignment template) {
+        String key = template.getExternalAssignmentKey();
+        if (key == null || key.isBlank()) {
+            return sourceIncidentId + ":" + template.getAccountCode();
+        }
+        int delimiter = key.indexOf(':');
+        String suffix = delimiter >= 0 ? key.substring(delimiter + 1) : key;
+        return sourceIncidentId + ":" + suffix;
     }
 }
