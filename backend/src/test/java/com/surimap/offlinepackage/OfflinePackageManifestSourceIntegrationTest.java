@@ -38,6 +38,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
@@ -106,6 +107,7 @@ class OfflinePackageManifestSourceIntegrationTest {
   @DisplayName("manifest is generated from committed S1/S2/S5/S8 source rows")
   void manifestIsGeneratedFromCommittedSourceRows() {
     givenSourceRows();
+    OffsetDateTime beforeRequest = OffsetDateTime.now(ZoneOffset.UTC).minusSeconds(1);
 
     OfflinePackageManifestResponse manifest =
         service.manifest(INCIDENT_ID.toString(), POLICE_PHONE_ID.toString());
@@ -140,6 +142,7 @@ class OfflinePackageManifestSourceIntegrationTest {
                   .containsExactly("126.917", "35.162");
             });
     assertThat(manifest.overallSearchArea().areaId()).isEqualTo(OVERALL_AREA_ID.toString());
+    assertThat(manifest.expiresAt()).isAfter(beforeRequest);
     assertThat(manifest.packageItems())
         .extracting(OfflinePackageManifestResponse.PackageItem::itemKey)
         .contains(
@@ -208,6 +211,7 @@ class OfflinePackageManifestSourceIntegrationTest {
 
     OfflinePackageManifestResponse manifest =
         service.manifest(OfflinePackageRepository.INCIDENT_ID, OfflinePackageRepository.POLICE_PHONE_ID);
+    OffsetDateTime beforeReport = OffsetDateTime.now(ZoneOffset.UTC).minusSeconds(1);
 
     OfflinePackageInstallationResponse response =
         service.reportInstallation(
@@ -231,6 +235,7 @@ class OfflinePackageManifestSourceIntegrationTest {
 
     assertThat(response.status()).isEqualTo("READY");
     assertThat(response.manifestVersion()).isEqualTo(manifest.manifestVersion());
+    assertThat(response.serverTs()).isAfter(beforeReport);
     assertThat(
             jdbcTemplate.queryForObject(
                 """
@@ -243,6 +248,18 @@ class OfflinePackageManifestSourceIntegrationTest {
                 manifest.manifestId(),
                 OfflinePackageRepository.POLICE_PHONE_ID))
         .isOne();
+    assertThat(
+            jdbcTemplate.queryForObject(
+                """
+                SELECT updated_at
+                FROM offline_package_installation
+                WHERE offline_package_manifest_id = ?::uuid
+                  AND police_phone_id = ?::uuid
+                """,
+                OffsetDateTime.class,
+                manifest.manifestId(),
+                OfflinePackageRepository.POLICE_PHONE_ID))
+        .isAfter(beforeReport);
   }
 
   private void givenSourceRows() {

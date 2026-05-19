@@ -79,6 +79,7 @@ public class OfflinePackageRepository {
   public static final int INSTALLATION_VERSION = 3;
   public static final int SEQUENCE = 901;
   public static final OffsetDateTime SERVER_TS = OffsetDateTime.parse("2026-04-28T09:00:41+09:00");
+  private static final long GENERATED_MANIFEST_TTL_HOURS = 6L;
   private static final String TILE_STYLE_ID = "osm-local";
   private static final int TILE_MIN_Z = 15;
   private static final int TILE_MAX_Z = 16;
@@ -228,6 +229,8 @@ public class OfflinePackageRepository {
     int manifestVersion = 1;
     String manifestId = manifestDbId("generated:" + incidentDbId + ":" + manifestVersion);
     String manifestHash = sourceHash(snapshot.manifestHashSource());
+    OffsetDateTime serverTs = serverNow();
+    OffsetDateTime expiresAt = generatedManifestExpiresAt(serverTs);
     mapper.insertManifest(
         manifestId,
         incidentDbId,
@@ -236,8 +239,8 @@ public class OfflinePackageRepository {
         snapshot.overallSearchArea().id().toString(),
         snapshot.overallSearchArea().version(),
         manifestHash,
-        EXPIRES_AT,
-        SERVER_TS);
+        expiresAt,
+        serverTs);
     OfflinePackageManifestRecord record =
         new OfflinePackageManifestRecord(
             UUID.fromString(manifestId),
@@ -246,7 +249,7 @@ public class OfflinePackageRepository {
             snapshot.overallSearchArea().id(),
             snapshot.overallSearchArea().version(),
             manifestHash,
-            EXPIRES_AT);
+            expiresAt);
     return Optional.of(manifestFromSource(record, policePhoneDbId, snapshot));
   }
 
@@ -456,7 +459,7 @@ public class OfflinePackageRepository {
   }
 
   public synchronized OfflinePackageInstallationStatus saveStatus(
-      String incidentId, OfflinePackageInstallationReportRequest request) {
+      String incidentId, OfflinePackageInstallationReportRequest request, OffsetDateTime serverTs) {
     ensureFixtureManifest();
     String incidentDbId = incidentDbId(incidentId);
     String requestManifestDbId = manifestDbId(request.manifestId());
@@ -477,7 +480,7 @@ public class OfflinePackageRepository {
             requestManifestDbId,
             requestPolicePhoneDbId,
             request,
-            SERVER_TS);
+            serverTs);
     mapper.deleteInstallationForPhone(requestManifestDbId, requestPolicePhoneDbId);
     mapper.insertInstallation(record);
     return publicStatus(
@@ -525,7 +528,8 @@ public class OfflinePackageRepository {
     List<String> changedStatusIds =
         mapper.findStaleCandidateInstallationIds(current.id().toString());
     int nextManifestVersion = current.manifestVersion() + 1;
-    String nextManifestId = nextManifestId(nextManifestVersion);
+    String nextManifestId = nextManifestId(incidentDbId, nextManifestVersion);
+    OffsetDateTime serverTs = serverNow();
     mapper.insertNextManifestFrom(
         current.id().toString(),
         manifestDbId(nextManifestId),
@@ -533,11 +537,11 @@ public class OfflinePackageRepository {
         overallSearchAreaDbId,
         overallSearchAreaVersion,
         manifestHash(incidentId, overallSearchAreaId, overallSearchAreaVersion, sourceHash),
-        SERVER_TS);
+        serverTs);
     if (changedStatusIds.isEmpty()) {
       return List.of();
     }
-    mapper.markReadyAndPartialInstallationsStale(current.id().toString(), SERVER_TS);
+    mapper.markReadyAndPartialInstallationsStale(current.id().toString(), serverTs);
     return mapper.findStatusesByIds(changedStatusIds, nextManifestVersion).stream()
         .map(OfflinePackageRepository::publicStatus)
         .toList();
@@ -861,8 +865,19 @@ public class OfflinePackageRepository {
     }
   }
 
-  private static String nextManifestId(int nextManifestVersion) {
+  private static String nextManifestId(String incidentDbId, int nextManifestVersion) {
+    if (!INCIDENT_DB_ID.equals(incidentDbId)) {
+      return manifestDbId("generated:" + incidentDbId + ":" + nextManifestVersion);
+    }
     return manifestDbId(MANIFEST_ALIAS + "-rev-" + nextManifestVersion);
+  }
+
+  static OffsetDateTime serverNow() {
+    return OffsetDateTime.now(ZoneOffset.UTC);
+  }
+
+  private static OffsetDateTime generatedManifestExpiresAt(OffsetDateTime serverTs) {
+    return serverTs.plusHours(GENERATED_MANIFEST_TTL_HOURS);
   }
 
   private static OfflinePackageInstallationStatus publicStatus(
