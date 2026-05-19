@@ -24,7 +24,7 @@ class OpComparisonNarrativeValidatorTest {
   void acceptsNarrativeWhenAllNumbersAndEvidenceMatchInputFacts() {
     String observationsJson =
         """
-        {"observations":[{"observation":"1차와 2차의 이동 거리 차이는 420m입니다.","evidence":[{"source":"diffFact","factId":"metric-pathDistanceMeters","operationalPeriodId":"33333333-3333-3333-3333-333333333333","key":"delta","value":"420"}]}]}
+        {"observations":[{"sentence":"1차와 2차의 이동 거리 차이는 420m입니다.","factIds":["metric-pathDistanceMeters"]}]}
         """
             .trim();
 
@@ -35,73 +35,98 @@ class OpComparisonNarrativeValidatorTest {
   void rejectsForbiddenPhrases() {
     String observationsJson =
         """
-        {"observations":[{"observation":"2차가 더 나음으로 보이며 다음 차수 추천이 필요합니다.","evidence":[{"source":"diffFact","factId":"metric-pathDistanceMeters","operationalPeriodId":"33333333-3333-3333-3333-333333333333","key":"delta","value":"420"}]}]}
+        {"observations":[{"sentence":"2차가 더 나음으로 보이며 다음 차수 추천이 필요합니다.","factIds":["metric-pathDistanceMeters"]}]}
         """
             .trim();
 
     assertThat(validator.isValid(evidencePackage(), observationsJson)).isFalse();
+    assertThat(validator.validate(evidencePackage(), observationsJson).failureReason())
+        .isEqualTo(OpComparisonNarrativeResult.FORBIDDEN_PHRASE);
   }
 
   @Test
   void rejectsNumbersThatDoNotExistInEvidencePackage() {
     String observationsJson =
         """
-        {"observations":[{"observation":"1차와 2차의 이동 거리 차이는 430m입니다.","evidence":[{"source":"diffFact","factId":"metric-pathDistanceMeters","operationalPeriodId":"33333333-3333-3333-3333-333333333333","key":"delta","value":"420"}]}]}
+        {"observations":[{"sentence":"1차와 2차의 이동 거리 차이는 430m입니다.","factIds":["metric-pathDistanceMeters"]}]}
         """
             .trim();
 
     assertThat(validator.isValid(evidencePackage(), observationsJson)).isFalse();
+    assertThat(validator.validate(evidencePackage(), observationsJson).failureReason())
+        .isEqualTo(OpComparisonNarrativeResult.VALIDATION_REJECTED);
   }
 
   @Test
   void rejectsEvidenceWithUnknownFactId() {
     String observationsJson =
         """
-        {"observations":[{"observation":"이동 거리 차이는 420m입니다.","evidence":[{"source":"diffFact","factId":"unknown-fact","operationalPeriodId":"33333333-3333-3333-3333-333333333333","key":"delta","value":"420"}]}]}
+        {"observations":[{"sentence":"이동 거리 차이는 420m입니다.","factIds":["unknown-fact"]}]}
         """
             .trim();
 
     assertThat(validator.isValid(evidencePackage(), observationsJson)).isFalse();
+    assertThat(validator.validate(evidencePackage(), observationsJson).failureReason())
+        .isEqualTo(OpComparisonNarrativeResult.UNSUPPORTED_FACT_ID);
   }
 
   @Test
-  void rejectsEvidenceValueMismatch() {
+  void rejectsNumbersOutsideCitedFactIds() {
     String observationsJson =
         """
-        {"observations":[{"observation":"이동 거리 차이는 420m입니다.","evidence":[{"source":"diffFact","factId":"metric-pathDistanceMeters","operationalPeriodId":"33333333-3333-3333-3333-333333333333","key":"delta","value":"430"}]}]}
+        {"observations":[{"sentence":"2차의 공통 영역 체류 시간은 240초입니다.","factIds":["metric-pathDistanceMeters"]}]}
         """
             .trim();
 
     assertThat(validator.isValid(evidencePackage(), observationsJson)).isFalse();
+    assertThat(validator.validate(evidencePackage(), observationsJson).failureReason())
+        .isEqualTo(OpComparisonNarrativeResult.VALIDATION_REJECTED);
+  }
+
+  @Test
+  void rejectsOutputThatReconstructsEvidenceFields() {
+    String observationsJson =
+        """
+        {"observations":[{"sentence":"이동 거리 차이는 420m입니다.","factIds":["metric-pathDistanceMeters"],"evidence":[{"source":"diffFact","key":"delta","value":"420"}]}]}
+        """
+            .trim();
+
+    assertThat(validator.isValid(evidencePackage(), observationsJson)).isFalse();
+    assertThat(validator.validate(evidencePackage(), observationsJson).failureReason())
+        .isEqualTo(OpComparisonNarrativeResult.SCHEMA_INVALID);
   }
 
   @Test
   void rejectsObservationWithoutEvidence() {
     String observationsJson =
         """
-        {"observations":[{"observation":"이동 거리 차이는 420m입니다.","evidence":[]}]}
+        {"observations":[{"sentence":"이동 거리 차이는 420m입니다.","factIds":[]}]}
         """
             .trim();
 
     assertThat(validator.isValid(evidencePackage(), observationsJson)).isFalse();
+    assertThat(validator.validate(evidencePackage(), observationsJson).failureReason())
+        .isEqualTo(OpComparisonNarrativeResult.SCHEMA_INVALID);
   }
 
   @Test
-  void acceptsMetricEvidenceValueMatch() {
+  void rejectsEmptyObservationOutput() {
     String observationsJson =
         """
-        {"observations":[{"observation":"2차의 마커 수는 3건입니다.","evidence":[{"source":"metric","factId":"","operationalPeriodId":"44444444-4444-4444-4444-444444444444","key":"markerCount","value":"3"}]}]}
+        {"observations":[]}
         """
             .trim();
 
-    assertThat(validator.isValid(evidencePackage(), observationsJson)).isTrue();
+    assertThat(validator.isValid(evidencePackage(), observationsJson)).isFalse();
+    assertThat(validator.validate(evidencePackage(), observationsJson).failureReason())
+        .isEqualTo(OpComparisonNarrativeResult.EMPTY_OUTPUT);
   }
 
   @Test
   void acceptsFourDigitNumbersAndCommaSeparatedNumbers() {
     String observationsJson =
         """
-        {"observations":[{"observation":"1차 이동 거리는 1,200m입니다.","evidence":[{"source":"metric","factId":"","operationalPeriodId":"33333333-3333-3333-3333-333333333333","key":"pathDistanceMeters","value":"1200"}]}]}
+        {"observations":[{"sentence":"1차 이동 거리는 1,200m입니다.","factIds":["metric-pathDistanceMeters"]}]}
         """
             .trim();
 
@@ -112,7 +137,7 @@ class OpComparisonNarrativeValidatorTest {
   void acceptsRegionEvidenceValueMatch() {
     String observationsJson =
         """
-        {"observations":[{"observation":"2차의 공통 영역 체류 시간은 240초입니다.","evidence":[{"source":"regionFact","factId":"region-common-1","operationalPeriodId":"44444444-4444-4444-4444-444444444444","key":"durationSeconds","value":"240"}]}]}
+        {"observations":[{"sentence":"2차의 공통 영역 체류 시간은 240초입니다.","factIds":["region-common-1"]}]}
         """
             .trim();
 

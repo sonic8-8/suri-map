@@ -553,8 +553,10 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Request: `incidentId`, `operationalPeriodIds[]` (minimum 2 OP IDs in the same incident)
 - Response: `202 {comparisonId, incidentId, operationalPeriodIds, sourceHash, status, narrativeStatus, metrics, diffFacts, regionFacts, observations, failureReason, requestedAt, generatedAt, version}`.
   - `metrics`, `diffFacts`, `regionFacts` are deterministic server facts from already committed OP/path/marker/memo rows.
-  - `observations` is present only when the configured narrative provider returns validated evidence-grounded observations.
+  - `observations` is present only when the configured narrative provider returns validated evidence-grounded observations in `{observations:[{sentence, factIds[]}]}` shape.
+  - `observations[].factIds[]` must reference `diffFacts[].factId` or `regionFacts[].factId`; provider output must not reconstruct `source`, `key`, `value`, or `operationalPeriodId`.
   - `narrativeStatus=SKIPPED` means deterministic thresholds found no material fact requiring narrative generation.
+  - `failureReason` values include `provider_failure`, `empty_output`, `schema_invalid`, `forbidden_phrase`, `unsupported_fact_id`, `validation_rejected`.
 - Event: `OP_COMPARISON_ANALYSIS_CHANGED {id, comparisonId, incidentId, operationalPeriodIds, status, narrativeStatus, sourceHash, version}`
 - Errors: `channel_not_allowed`, `role_denied`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`, `invalid_operational_period_comparison`
 - Channel rule: WEB command only. This endpoint writes only `op_comparison_analysis` and the analysis event. It must not mutate `overall_search_area`, `search_area`, `search_path`, `marker`, `handover_memo`, or `operational_period` source rows, and it must not generate recommendations, missing-area conclusions, or risk judgments.

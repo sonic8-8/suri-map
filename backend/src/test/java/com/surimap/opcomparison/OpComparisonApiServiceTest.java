@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -174,7 +175,7 @@ class OpComparisonApiServiceTest {
         .thenReturn(new MarkerQueryResult(INCIDENT_ID, List.of(marker(1), marker(2), marker(3))));
     when(narrativePort.generate(any()))
         .thenReturn(OpComparisonNarrativeResult.ready("""
-            {"observations":[{"observation":"OP2의 마커 수는 3입니다.","evidence":[{"source":"metric","factId":"","operationalPeriodId":"88888888-8888-8888-8888-888888880002","key":"markerCount","value":"3"}]}]}
+            {"observations":[{"sentence":"OP2의 마커 수는 3입니다.","factIds":["marker-count-op1-op2"]}]}
             """.trim()));
 
     OpComparisonResponse response = service.create(request(OP1_ID, OP2_ID), "idem-narrative", ACCOUNT_ID);
@@ -190,6 +191,31 @@ class OpComparisonApiServiceTest {
         eq(OpComparisonNarrativeStatus.READY),
         anyString(),
         eq(null),
+        any(),
+        any());
+  }
+
+  @Test
+  @DisplayName("narrative failure keeps deterministic comparison ready and persists granular reason")
+  void keepsDeterministicReadyWhenNarrativeFails() {
+    when(markerQuery.byIncident(eq(INCIDENT_ID), eq(new MarkerQueryFilters(OP2_ID, null, null))))
+        .thenReturn(new MarkerQueryResult(INCIDENT_ID, List.of(marker(1), marker(2), marker(3))));
+    when(narrativePort.generate(any()))
+        .thenReturn(OpComparisonNarrativeResult.failed(OpComparisonNarrativeResult.UNSUPPORTED_FACT_ID));
+
+    OpComparisonResponse response = service.create(request(OP1_ID, OP2_ID), "idem-narrative-failed", ACCOUNT_ID);
+
+    assertThat(response.status()).isEqualTo("READY");
+    assertThat(response.narrativeStatus()).isEqualTo("FAILED");
+    assertThat(response.diffFacts()).hasSize(1);
+    assertThat(response.observations()).isNull();
+    assertThat(response.failureReason()).isEqualTo(OpComparisonNarrativeResult.UNSUPPORTED_FACT_ID);
+    verify(analysisMapper).updateNarrativeResult(
+        any(),
+        eq(OpComparisonAnalysisStatus.READY),
+        eq(OpComparisonNarrativeStatus.FAILED),
+        isNull(),
+        eq(OpComparisonNarrativeResult.UNSUPPORTED_FACT_ID),
         any(),
         any());
   }

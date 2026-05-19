@@ -5,7 +5,6 @@ export type OpComparisonAnalysisStatus = 'GENERATING' | 'READY' | 'FAILED';
 export type OpComparisonNarrativeStatus = 'SKIPPED' | 'GENERATING' | 'READY' | 'FAILED';
 export type OpComparisonDiffFactType = 'METRIC_DIFF' | 'REGION_TIME_DIFF';
 export type OpComparisonRegionFactType = 'COMMON_REGION' | 'DIFFERENT_REGION';
-export type OpComparisonEvidenceSource = 'diffFact' | 'regionFact' | 'metric';
 
 export interface CreateOpComparisonRequest {
   incidentId: string;
@@ -56,17 +55,9 @@ export interface OpComparisonRegionFact {
   occupancies: OpComparisonRegionOccupancy[];
 }
 
-export interface OpComparisonObservationEvidence {
-  source: OpComparisonEvidenceSource;
-  factId: string;
-  operationalPeriodId: string;
-  key: string;
-  value: string;
-}
-
 export interface OpComparisonObservation {
-  observation: string;
-  evidence: OpComparisonObservationEvidence[];
+  sentence: string;
+  factIds: string[];
 }
 
 export interface OpComparisonObservationEnvelope {

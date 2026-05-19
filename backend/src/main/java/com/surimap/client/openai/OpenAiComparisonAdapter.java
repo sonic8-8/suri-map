@@ -23,10 +23,11 @@ public class OpenAiComparisonAdapter implements OpComparisonNarrativePort {
 
   private static final String SYSTEM_PROMPT =
       """
-      너는 Suri-Map 수색 작전 차수 비교 근거를 한국어 관찰 문장 JSON으로 옮긴다.
+      너는 Suri-Map 수색 작전 차수 비교 근거를 지휘관이 읽기 쉬운 한국어 기록 차이 요약 JSON으로 옮긴다.
       입력 evidence에 있는 사실만 사용하고 원인, 의도, 전략, 위험도, 추천, 다음 차수 제안을 추론하지 않는다.
       금지 표현: 전략, 암묵지, 시사, 의미한다, ~로 보인다, 효율, 잘못, 더 나음, 추천, 다음 차수, 미수색, 위험, 가능성 높음.
-      각 observation은 실제 evidence의 factId 또는 operationalPeriodId, key, value를 evidence 배열에 함께 둔다.
+      각 observation은 sentence와 factIds만 출력한다. factIds에는 입력 diffFacts 또는 regionFacts의 factId만 둔다.
+      source, key, value, operationalPeriodId를 출력하지 않는다.
       """;
 
   private static final String RESPONSE_FORMAT_NAME = "op_comparison_observations";
@@ -50,27 +51,47 @@ public class OpenAiComparisonAdapter implements OpComparisonNarrativePort {
   @Override
   public OpComparisonNarrativeResult generate(OpComparisonNarrativeRequest request) {
     if (!properties.configured()) {
-      return OpComparisonNarrativeResult.failed();
+      return OpComparisonNarrativeResult.failed(OpComparisonNarrativeResult.PROVIDER_FAILURE);
     }
 
+    Map<String, Object> body;
+    try {
+      body = requestBody(request);
+    } catch (JsonProcessingException exception) {
+      return OpComparisonNarrativeResult.failed(OpComparisonNarrativeResult.PROVIDER_FAILURE);
+    }
+
+    ResponseEntity<String> response;
     try {
       HttpHeaders headers = new HttpHeaders();
       headers.setContentType(MediaType.APPLICATION_JSON);
       headers.setBearerAuth(properties.apiKey());
-      ResponseEntity<String> response =
+      response =
           restTemplate.exchange(
               properties.responsesUri(),
               HttpMethod.POST,
-              new HttpEntity<>(requestBody(request), headers),
+              new HttpEntity<>(body, headers),
               String.class);
+    } catch (RestClientException | IllegalArgumentException exception) {
+      return OpComparisonNarrativeResult.failed(OpComparisonNarrativeResult.PROVIDER_FAILURE);
+    }
+
+    try {
       String outputText = extractOutputText(response.getBody());
-      if (!isObservationJson(outputText)
-          || !narrativeValidator.isValid(request.evidencePackage(), outputText)) {
-        return OpComparisonNarrativeResult.failed();
+      if (outputText == null || outputText.isBlank()) {
+        return OpComparisonNarrativeResult.failed(OpComparisonNarrativeResult.EMPTY_OUTPUT);
+      }
+      if (!isObservationJson(outputText)) {
+        return OpComparisonNarrativeResult.failed(OpComparisonNarrativeResult.SCHEMA_INVALID);
+      }
+      OpComparisonNarrativeValidator.ValidationResult validation =
+          narrativeValidator.validate(request.evidencePackage(), outputText);
+      if (!validation.valid()) {
+        return OpComparisonNarrativeResult.failed(validation.failureReason());
       }
       return OpComparisonNarrativeResult.ready(outputText);
-    } catch (JsonProcessingException | RestClientException | IllegalArgumentException exception) {
-      return OpComparisonNarrativeResult.failed();
+    } catch (JsonProcessingException exception) {
+      return OpComparisonNarrativeResult.failed(OpComparisonNarrativeResult.SCHEMA_INVALID);
     }
   }
 
@@ -123,27 +144,10 @@ public class OpenAiComparisonAdapter implements OpComparisonNarrativePort {
         "object",
         "properties",
         Map.of(
-            "observation", Map.of("type", "string"),
-            "evidence", Map.of("type", "array", "items", evidenceItemSchema())),
+            "sentence", Map.of("type", "string"),
+            "factIds", Map.of("type", "array", "items", Map.of("type", "string"))),
         "required",
-        List.of("observation", "evidence"),
-        "additionalProperties",
-        false);
-  }
-
-  private Map<String, Object> evidenceItemSchema() {
-    return Map.of(
-        "type",
-        "object",
-        "properties",
-        Map.of(
-            "source", Map.of("type", "string", "enum", List.of("diffFact", "regionFact", "metric")),
-            "factId", Map.of("type", "string"),
-            "operationalPeriodId", Map.of("type", "string"),
-            "key", Map.of("type", "string"),
-            "value", Map.of("type", "string")),
-        "required",
-        List.of("source", "factId", "operationalPeriodId", "key", "value"),
+        List.of("sentence", "factIds"),
         "additionalProperties",
         false);
   }
