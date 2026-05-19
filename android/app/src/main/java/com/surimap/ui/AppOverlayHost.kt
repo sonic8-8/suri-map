@@ -79,7 +79,7 @@ fun AppOverlayHost(
 
         state.searchPathEnded?.let { toast ->
             PoliToast(
-                text = if (toast.pendingSync) "수색 경로 종료 요청 저장됨 · 미전송" else "수색 경로가 종료되었습니다",
+                text = if (toast.pendingSync) "수색 경로 종료 요청 저장됨" else "수색 경로가 종료되었습니다",
                 actionText = "확인",
                 onAction = onDismissSearchPathEnded,
                 modifier = Modifier.align(Alignment.TopCenter).padding(PoliDimens.SectionPadding),
