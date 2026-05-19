@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import {
@@ -7,6 +7,7 @@ import {
   type IncidentDetailResponse,
   type TerminalIncidentDetailResponse,
 } from '../../api/incidentReadApi';
+import { useOperationalPeriodListQuery } from '../../../operationalPeriod/api/operationalPeriodApi';
 import type { LoginAccount } from '../../../login/presentation/types/login';
 import { IncidentDetailPage } from './IncidentDetailPage';
 
@@ -15,9 +16,15 @@ vi.mock('../../api/incidentReadApi', async (importOriginal) => ({
   useIncidentDetailQuery: vi.fn(),
 }));
 
+vi.mock('../../../operationalPeriod/api/operationalPeriodApi', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../operationalPeriod/api/operationalPeriodApi')>()),
+  useOperationalPeriodListQuery: vi.fn(),
+}));
+
 describe('IncidentDetailPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(useOperationalPeriodListQuery).mockReturnValue(operationalPeriodListQueryResult(2));
   });
 
   test('renders active incident detail without exposing ids or storage keys', () => {
@@ -64,6 +71,29 @@ describe('IncidentDetailPage', () => {
     expect(pageText).not.toContain('terminalSnapshot');
     expect(pageText).not.toContain('쓰기 제한 사유');
   });
+
+  test('paginates assignment rows five at a time', () => {
+    const detail = activeIncidentDetailWithAssignments(12);
+    vi.mocked(useIncidentDetailQuery).mockReturnValue(incidentDetailQueryResult(detail));
+
+    renderIncidentDetailPage(detail.incidentId);
+
+    expect(screen.getByText('계정 01')).toBeInTheDocument();
+    expect(screen.getByText('계정 05')).toBeInTheDocument();
+    expect(screen.queryByText('계정 06')).not.toBeInTheDocument();
+
+    expect(screen.getByRole('button', { name: '1' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('button', { name: '첫 페이지' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '이전 페이지' })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', { name: '2' }));
+
+    expect(screen.getByText('계정 06')).toBeInTheDocument();
+    expect(screen.getByText('계정 10')).toBeInTheDocument();
+    expect(screen.queryByText('계정 01')).not.toBeInTheDocument();
+    expect(screen.getByText('6-10 / 12')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '2' })).toHaveAttribute('aria-current', 'page');
+  });
 });
 
 function renderIncidentDetailPage(incidentId: string, onBrowserBackToIncidentList = vi.fn()) {
@@ -107,6 +137,28 @@ function incidentDetailQueryResult(data: IncidentDetailResponse) {
   } as unknown as ReturnType<typeof useIncidentDetailQuery>;
 }
 
+function operationalPeriodListQueryResult(sequenceNumber: number) {
+  const currentOpId = '88888888-8888-8888-8888-888888880002';
+  return {
+    data: {
+      currentOpId,
+      items: [
+        {
+          id: currentOpId,
+          status: 'ACTIVE',
+          reason: 'RE_SEARCH',
+          sequenceNumber,
+          openedAt: '2026-05-14T02:00:00Z',
+          endedAt: null,
+          version: 1,
+        },
+      ],
+    },
+    isLoading: false,
+    isError: false,
+  } as unknown as ReturnType<typeof useOperationalPeriodListQuery>;
+}
+
 function activeIncidentDetail(): ActiveIncidentDetailResponse {
   return {
     id: '6a28ddad-6a5b-4b2b-a676-fac5c2a3656f',
@@ -134,6 +186,21 @@ function activeIncidentDetail(): ActiveIncidentDetailResponse {
         assignedAt: '2026-05-14T00:35:00Z',
       },
     ],
+  };
+}
+
+function activeIncidentDetailWithAssignments(count: number): ActiveIncidentDetailResponse {
+  const base = activeIncidentDetail();
+  return {
+    ...base,
+    assignments: Array.from({ length: count }, (_, index) => ({
+      accountId: `acct-team-hidden-${String(index + 1).padStart(3, '0')}`,
+      accountDisplayName: `계정 ${String(index + 1).padStart(2, '0')}`,
+      accountType: index % 2 === 0 ? 'TEAM' : 'PATROL_CAR',
+      organizationType: index % 3 === 0 ? 'MISSING_TEAM' : 'SUPPORT_UNIT',
+      incidentRole: index % 4 === 0 ? 'FIELD_COMMANDER' : index % 4 === 1 ? 'INCIDENT_COMMANDER' : 'MEMBER',
+      assignedAt: `2026-05-14T0${Math.min(9, index % 10)}:35:00Z`,
+    })),
   };
 }
 

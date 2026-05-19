@@ -142,6 +142,8 @@ export function HandoverPage({
   onOperationalPeriodCreated,
   onSharedMapPropsChange,
 }: HandoverPageProps) {
+  const historyPanelWrapperRef = useRef<HTMLDivElement | null>(null);
+  const [historyPanelWidthPx, setHistoryPanelWidthPx] = useState(440);
   const [operationalPeriods, setOperationalPeriods] = useState<OperationalPeriodListItem[]>([]);
   const [currentOpId, setCurrentOpId] = useState<string | null>(null);
   const [focusedOpId, setFocusedOpId] = useState<string | null>(null);
@@ -150,7 +152,6 @@ export function HandoverPage({
   const [incidentDetail, setIncidentDetail] = useState<HandoverIncidentDetailDto | null>(null);
   const [now, setNow] = useState(() => new Date());
   const [content, setContent] = useState('');
-  const [isComparisonPopupOpen, setIsComparisonPopupOpen] = useState(false);
   const [isCreateOpModalOpen, setIsCreateOpModalOpen] = useState(false);
   const [newOpReason, setNewOpReason] = useState<CreateOperationalPeriodReason>('RE_SEARCH');
   const [newOpReasonMemo, setNewOpReasonMemo] = useState('');
@@ -297,9 +298,10 @@ export function HandoverPage({
       incidentId,
       board,
       focusedOpId: activeFocusedOpId,
+      rightPanelWidthPx: historyPanelWidthPx,
       selectedOpIds: effectiveSelectedOpIds,
     }),
-    [activeFocusedOpId, board, effectiveSelectedOpIds, incidentId],
+    [activeFocusedOpId, board, effectiveSelectedOpIds, historyPanelWidthPx, incidentId],
   );
   const currentAccountLabel = currentUserAccount.name;
   const timestampLabel = board?.serverTs ? formatKstDateTime(new Date(board.serverTs)) : '동기화 전';
@@ -345,7 +347,6 @@ export function HandoverPage({
     setSelectedOpIds([]);
     setMemos([]);
     setContent('');
-    setIsComparisonPopupOpen(false);
     setIsCreateOpModalOpen(false);
     setNewOpReason('RE_SEARCH');
     setNewOpReasonMemo('');
@@ -446,6 +447,29 @@ export function HandoverPage({
     onSharedMapPropsChange?.(sharedMapProps);
     return () => onSharedMapPropsChange?.(null);
   }, [onSharedMapPropsChange, sharedMapMode, sharedMapProps]);
+
+  useEffect(() => {
+    const element = historyPanelWrapperRef.current;
+    if (!element || typeof ResizeObserver === 'undefined') {
+      return;
+    }
+
+    const updateWidth = (width: number) => {
+      if (Number.isFinite(width) && width > 0) {
+        setHistoryPanelWidthPx(Math.round(width));
+      }
+    };
+
+    updateWidth(element.getBoundingClientRect().width);
+
+    const observer = new ResizeObserver((entries) => {
+      const nextWidth = entries[0]?.contentRect.width ?? 0;
+      updateWidth(nextWidth);
+    });
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, []);
 
   async function loadMemos(opId: string, shouldIgnore = () => false) {
     setIsLoadingMemos(true);
@@ -578,11 +602,6 @@ export function HandoverPage({
     );
   };
 
-  const openComparisonPopup = (periodId: string) => {
-    setFocusedOpId(periodId);
-    setIsComparisonPopupOpen(true);
-  };
-
   const handleCreateComparisonAnalysis = async () => {
     if (effectiveSelectedOpIds.length < 2) return;
 
@@ -605,7 +624,6 @@ export function HandoverPage({
   const handleComparisonRegionFactSelect = (fact: OpComparisonRegionFact) => {
     setSelectedComparisonRegionFactId((currentFactId) => (currentFactId === fact.factId ? null : fact.factId));
   };
-
   return (
     <main className={embedded ? styles.embeddedPage : `situation-board-page ${pageStyles.page}`}>
       {embedded ? null : (
@@ -647,7 +665,7 @@ export function HandoverPage({
               <HandoverOperationalPeriodSelector
                 emptyMessage="등록된 OP가 없습니다."
                 onFocusedOperationalPeriodChange={setFocusedOpId}
-                onOperationalPeriodOpen={openComparisonPopup}
+                onOperationalPeriodOpen={setFocusedOpId}
                 onSelectedOperationalPeriodIdsChange={handleOperationalPeriodSelectionChange}
                 operationalPeriods={handoverOperationalPeriods}
                 selectedOperationalPeriodIds={effectiveSelectedOpIds}
@@ -695,43 +713,19 @@ export function HandoverPage({
                 />
               </div>
             </div>
-            <section className={styles.currentOpSummaryBar} aria-label="현재 OP 요약">
-              <div>
-                <span>현재 OP 요약</span>
-                <strong>{selectedOp ? formatOperationalPeriodLabel(selectedOp) : '-'}</strong>
-              </div>
-              <div>
-                <span>수색 시작</span>
-                <strong>{selectedOp?.openedAt ? formatKstDateParts(new Date(selectedOp.openedAt)).dateTime : '-'}</strong>
-              </div>
-              <div>
-                <span>경과 시간</span>
-                <strong>{selectedOp ? formatElapsedLabel(selectedOp, now) : '-'}</strong>
-              </div>
-              <div>
-                <span>배정 구역</span>
-                <strong>{evidenceSummary.areaCount}건</strong>
-              </div>
-              <div>
-                <span>수색 경로</span>
-                <strong>{evidenceSummary.pathCount}건</strong>
-              </div>
-              <div>
-                <span>마커</span>
-                <strong>{evidenceSummary.markerCount}건</strong>
-              </div>
-            </section>
+            {/* currentOpSummaryBar temporarily disabled */}
           </section>
         )}
 
-        <BoardPanel
-          as="aside"
-          ariaLabel="인수인계 상시 확인 패널"
-          className={styles.historyPanel}
-          bodyClassName={styles.historyPanelBody}
-          placement="right"
-        >
-          <div className={styles.historyContent}>
+        <div ref={historyPanelWrapperRef} className={styles.historyPanelWrapper}>
+          <BoardPanel
+            as="aside"
+            ariaLabel="인수인계 상시 확인 패널"
+            className={styles.historyPanel}
+            bodyClassName={styles.historyPanelBody}
+            placement="right"
+          >
+            <div className={styles.historyContent}>
             <section className={styles.briefingHero} aria-label="인수인계 브리핑">
               <div className={styles.briefingHeader}>
                 <div>
@@ -838,112 +832,11 @@ export function HandoverPage({
                 </ol>
               )}
             </section>
-          </div>
-        </BoardPanel>
+            </div>
+          </BoardPanel>
+        </div>
       </div>
 
-      {isComparisonPopupOpen ? createPortal(
-        <div className={styles.modalOverlay} role="presentation" onMouseDown={(event) => event.stopPropagation()}>
-          <section
-            className={`${styles.modal} ${styles.comparisonModal}`}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="op-comparison-popup-title"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <div className={styles.modalHeader}>
-              <h2 id="op-comparison-popup-title">OP 정보</h2>
-              <button type="button" aria-label="OP 비교 닫기" onClick={() => setIsComparisonPopupOpen(false)}>
-                닫기
-              </button>
-            </div>
-            <div className={styles.comparisonModalBody}>
-              <div className={styles.historyContent}>
-                <section className={styles.contextBlock} aria-label="OP 기준 정보">
-                  <div className={styles.blockHeading}>
-                    <h2>OP 기준 정보</h2>
-                    <span>{selectedOp?.status ? formatStatusLabel(selectedOp.status) : '-'}</span>
-                  </div>
-                  <dl className={styles.detailGrid}>
-                    <div>
-                      <dt>수색 차수</dt>
-                      <dd>{selectedOp ? formatOperationalPeriodLabel(selectedOp) : '-'}</dd>
-                    </div>
-                    <div>
-                      <dt>OP 사유</dt>
-                      <dd>{selectedOp ? formatReasonLabel(selectedOp.reason) : '-'}</dd>
-                    </div>
-                    <div>
-                      <dt>시작 시각</dt>
-                      <dd>{selectedOp?.openedAt ? formatKstDateTime(new Date(selectedOp.openedAt)) : '-'}</dd>
-                    </div>
-                    <div>
-                      <dt>종료 시각</dt>
-                      <dd>
-                        {selectedOp?.endedAt
-                          ? formatKstDateTime(new Date(selectedOp.endedAt))
-                          : selectedOp?.status === 'ENDED'
-                            ? '-'
-                            : '진행 중'}
-                      </dd>
-                    </div>
-                  </dl>
-                </section>
-
-                <section className={styles.contextBlock} aria-label="수색 근거 요약">
-                  <div className={styles.blockHeading}>
-                    <h2>수색 근거 요약</h2>
-                    <span>{isLoadingBoard ? '불러오는 중' : evidenceSummary.boardUpdatedAt ?? '-'}</span>
-                  </div>
-
-                  {boardErrorMessage ? <div className={styles.errorText}>{boardErrorMessage}</div> : null}
-
-                  <div className={styles.summaryGrid}>
-                    <HandoverSummaryCard label="수색 경로" value={`${evidenceSummary.pathCount}건`} helper="차량·도보 구간 기준" />
-                    <HandoverSummaryCard label="배정 구역" value={`${evidenceSummary.areaCount}건`} helper={evidenceSummary.overallAreaStatus} />
-                    <HandoverSummaryCard label="마커" value={`${evidenceSummary.markerCount}건`} helper="단서·발견·운영 메모" />
-                    <HandoverSummaryCard label="수색 이력 요약" value={`${evidenceSummary.summaryCount}건`} helper="요약 생성 결과" />
-                  </div>
-                </section>
-
-                <section className={styles.contextBlock} aria-label="수색 이력 자동 요약">
-                  <div className={styles.blockHeading}>
-                    <h2>수색 이력 자동 요약</h2>
-                    <span>{isLoadingSummary ? '불러오는 중' : searchHistorySummary?.statusLabel ?? '요약 없음'}</span>
-                  </div>
-                  {summaryErrorMessage ? (
-                    <div className={styles.errorText}>{summaryErrorMessage}</div>
-                  ) : isLoadingSummary ? (
-                    <div className={styles.emptyState}>수색 이력 요약을 불러오는 중입니다.</div>
-                  ) : searchHistorySummary?.summaryText ? (
-                    <p className={styles.summaryText}>{searchHistorySummary.summaryText}</p>
-                  ) : searchHistorySummary ? (
-                    <div className={styles.emptyState}>요약을 생성하지 못했습니다. 지도와 메모에서 원본 기록을 확인하세요.</div>
-                  ) : (
-                    <div className={styles.emptyState}>생성된 수색 이력 요약이 없습니다.</div>
-                  )}
-                  {searchHistorySummary?.generatedAt ? (
-                    <span className={styles.summaryMeta}>{searchHistorySummary.generatedAt}</span>
-                  ) : null}
-                </section>
-
-                <section className={styles.contextBlock} aria-label="인계 확인 항목">
-                  <div className={styles.blockHeading}>
-                    <h2>인계 확인 항목</h2>
-                    <span>사람이 판단할 근거</span>
-                  </div>
-                  <ul className={styles.checkList}>
-                    <li>선택한 OP의 차량 구간과 도보 구간을 지도에서 확인합니다.</li>
-                    <li>배정 구역과 마커를 함께 보며 상황판에서 판단할 지점을 확인합니다.</li>
-                    <li>인수인계 메모는 판단 결과와 현장 맥락을 보조 기록으로 남깁니다.</li>
-                  </ul>
-                </section>
-              </div>
-            </div>
-          </section>
-        </div>,
-        document.body,
-      ) : null}
 
       {isCreateOpModalOpen ? createPortal(
         <div

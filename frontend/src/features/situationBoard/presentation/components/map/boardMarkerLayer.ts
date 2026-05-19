@@ -37,6 +37,7 @@ export type MarkerInstance = {
   imageKey: string;
   markerType: MarkerTypeKey;
   photoBadge: maplibregl.Marker | null;
+  interactionTarget: maplibregl.Marker | null;
 };
 
 type MarkerPopupRefs = {
@@ -79,6 +80,7 @@ const markerLayerBoundMaps = new WeakMap<maplibregl.Map, Set<string>>();
 export function clearMarkerElements(markerInstances: MutableRefObject<Map<string, MarkerInstance>>) {
   markerInstances.current.forEach((instance) => {
     instance.photoBadge?.remove();
+    instance.interactionTarget?.remove();
   });
   markerInstances.current.clear();
 }
@@ -280,6 +282,25 @@ function createMarkerPhotoBadge(marker: RecentMarker) {
   return badge;
 }
 
+function createMarkerInteractionTarget(marker: RecentMarker, handlers: MarkerInteractionHandlers) {
+  const target = document.createElement('button');
+  target.type = 'button';
+  target.className = styles.markerInteractionTarget;
+  target.setAttribute('aria-label', marker.title);
+  target.title = marker.title;
+  target.addEventListener('click', (event) => {
+    event.stopPropagation();
+    handlers.onSelectMarker(marker.id);
+  });
+  target.addEventListener('mouseenter', () => {
+    handlers.onHoverMarker(marker.id);
+  });
+  target.addEventListener('mouseleave', () => {
+    handlers.onLeaveMarker();
+  });
+  return target;
+}
+
 function addMarkerSource(map: maplibregl.Map, data: MarkerFeatureCollection) {
   if (map.getSource(MARKER_SOURCE_ID)) {
     return;
@@ -376,13 +397,50 @@ function renderedMarkerLayerIds(map: maplibregl.Map) {
   return [MARKER_LAYER_ID].filter((layerId) => map.getLayer(layerId));
 }
 
-export function hasRenderedMarkerAtPoint(map: maplibregl.Map, point: maplibregl.PointLike) {
+export function getRenderedMarkerIdAtPoint(map: maplibregl.Map, point: maplibregl.PointLike) {
   const layers = renderedMarkerLayerIds(map);
   if (layers.length === 0) {
-    return false;
+    return null;
   }
 
-  return map.queryRenderedFeatures(point, { layers }).length > 0;
+  const queryPoint = Array.isArray(point) ? { x: point[0], y: point[1] } : point;
+  const hitPadding = 28;
+  const features = map.queryRenderedFeatures(
+    [
+      [queryPoint.x - hitPadding, queryPoint.y - hitPadding],
+      [queryPoint.x + hitPadding, queryPoint.y + hitPadding],
+    ],
+    { layers },
+  );
+  const markerId = features.find((feature) => typeof feature.properties?.id === 'string')?.properties?.id;
+  return typeof markerId === 'string' ? markerId : null;
+}
+
+export function getNearestMarkerIdAtPoint(
+  map: maplibregl.Map,
+  point: maplibregl.PointLike,
+  recentMarkers: RecentMarker[],
+  visibleMarkerIds: string[],
+) {
+  const clickPoint = Array.isArray(point) ? { x: point[0], y: point[1] } : point;
+  const visibleMarkerIdSet = new Set(visibleMarkerIds);
+  const hitRadius = 34;
+
+  return recentMarkers
+    .flatMap((marker) => {
+      if (!marker.coordinates || !visibleMarkerIdSet.has(marker.id)) {
+        return [];
+      }
+
+      const markerPoint = map.project(marker.coordinates);
+      const distance = Math.hypot(markerPoint.x - clickPoint.x, markerPoint.y - clickPoint.y);
+      return distance <= hitRadius ? [{ markerId: marker.id, distance }] : [];
+    })
+    .sort((left, right) => left.distance - right.distance)[0]?.markerId ?? null;
+}
+
+export function hasRenderedMarkerAtPoint(map: maplibregl.Map, point: maplibregl.PointLike) {
+  return getRenderedMarkerIdAtPoint(map, point) !== null;
 }
 
 export function syncMarkerElements(
@@ -414,6 +472,16 @@ export function syncMarkerElements(
   clearMarkerElements(markerInstances);
   markerData.features.forEach((feature) => {
     const marker = recentMarkers.find((currentMarker) => currentMarker.id === feature.properties.id);
+    const interactionTarget =
+      marker?.coordinates && visibleMarkerIdSet.has(marker.id)
+        ? new maplibregl.Marker({
+            element: createMarkerInteractionTarget(marker, handlers),
+            anchor: 'bottom',
+            offset: [0, -2],
+          })
+            .setLngLat(marker.coordinates)
+            .addTo(map)
+        : null;
     const photoBadge =
       marker?.coordinates && visibleMarkerIdSet.has(marker.id) && hasMarkerPhoto(marker)
         ? new maplibregl.Marker({
@@ -429,6 +497,7 @@ export function syncMarkerElements(
       imageKey: feature.properties.iconKey,
       markerType: feature.properties.markerType,
       photoBadge,
+      interactionTarget,
     });
   });
 
@@ -528,12 +597,25 @@ function createMarkerClickPopup(marker: RecentMarker, handlers: MarkerInteractio
   const header = document.createElement('div');
   header.className = styles.markerPopupHeader;
 
+  const headerMain = document.createElement('div');
+  headerMain.className = styles.markerPopupHeaderMain;
+
+  const badge = document.createElement('div');
+  badge.className = styles.markerPopupBadge;
+  badge.setAttribute('aria-hidden', 'true');
+  badge.innerHTML = createMarkerSymbolSvg(markerType, 'selected', glyphName);
+
   const titleGroup = document.createElement('div');
   titleGroup.className = styles.markerPopupTitleGroup;
+
+  const typeRow = document.createElement('div');
+  typeRow.className = styles.markerPopupTypeRow;
+  appendTextElement(typeRow, styles.markerPopupEyebrow, '마커 정보');
   const typeName = markerTypeDisplayName(marker);
   if (typeName) {
-    appendTextElement(titleGroup, styles.markerPopupType, typeName);
+    appendTextElement(typeRow, styles.markerPopupType, typeName);
   }
+  titleGroup.append(typeRow);
   appendTextElement(titleGroup, styles.markerPopupTitle, marker.title);
   const timeLine = markerTimeLine(marker);
   if (timeLine) {
@@ -550,8 +632,21 @@ function createMarkerClickPopup(marker: RecentMarker, handlers: MarkerInteractio
     handlers.onCloseSelectedMarker();
   });
 
-  header.append(titleGroup, closeButton);
+  headerMain.append(badge, titleGroup);
+  header.append(headerMain, closeButton);
   popup.append(header);
+
+  if (marker.photoThumbnailUrl) {
+    const photoPreview = document.createElement('figure');
+    photoPreview.className = styles.markerPopupPhotoPreview;
+    const image = document.createElement('img');
+    image.src = marker.photoThumbnailUrl;
+    image.alt = '';
+    image.loading = 'lazy';
+    image.decoding = 'async';
+    photoPreview.append(image);
+    popup.append(photoPreview);
+  }
 
   const bodyText = marker.memo ?? marker.summary;
   if (bodyText) {
@@ -612,19 +707,12 @@ export function syncMarkerPopups(
   popupRefs: MarkerPopupRefs,
   handlers: MarkerInteractionHandlers,
 ) {
-  const selectedMarker = selectedMarkerId
-    ? recentMarkers.find((marker) => marker.id === selectedMarkerId && marker.coordinates)
-    : undefined;
   const hoveredMarker =
     hoveredMarkerId && hoveredMarkerId !== selectedMarkerId
       ? recentMarkers.find((marker) => marker.id === hoveredMarkerId && marker.coordinates)
       : undefined;
 
-  if (selectedMarker) {
-    replaceMarkerPopup(map, popupRefs.selected, selectedMarker, createMarkerClickPopup(selectedMarker, handlers), styles.markerMapPopup);
-  } else {
-    removeMarkerPopup(popupRefs.selected);
-  }
+  removeMarkerPopup(popupRefs.selected);
 
   if (hoveredMarker) {
     replaceMarkerPopup(map, popupRefs.hover, hoveredMarker, createMarkerHoverTooltip(hoveredMarker), styles.markerMapTooltip);

@@ -87,8 +87,8 @@ export function HandoverOperationalPeriodSelector({
   };
 
   return (
-    <CollapsiblePanelSection title="OP (수색 차수)">
-      <div className={opStyles.list}>
+    <CollapsiblePanelSection title="OP (수색 차수)" className={styles.section}>
+      <div className={`${opStyles.list} ${styles.list}`}>
         <div className={`${opStyles.scroll} ${styles.opListScroll}`}>
           {operationalPeriods.length === 0 ? <div className={opStyles.empty}>{emptyMessage}</div> : null}
           {operationalPeriods.map((period) => {

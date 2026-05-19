@@ -611,7 +611,7 @@
 .emptyState {
   display: grid;
   place-items: center;
-  gap: 8px;
+  gap: 0;
   min-height: 0;
   border: 1px solid var(--color-border-default);
   border-radius: 8px;
@@ -620,10 +620,61 @@
   text-align: center;
 }
 
+/* 사건 목록을 불러오는 동안 보여주는 상태 영역이다. */
+.loadingState {
+  display: grid;
+  place-items: center;
+  min-height: 168px;
+}
+
+/* 목록 로딩 중 보여주는 회전 스피너다. */
+.loadingSpinner {
+  width: 64px;
+  height: 64px;
+  border: 6px solid color-mix(in srgb, var(--color-border-strong) 72%, transparent);
+  border-top-color: var(--color-primary);
+  border-right-color: color-mix(in srgb, var(--color-primary) 64%, transparent);
+  border-radius: 999px;
+  box-shadow: 0 0 0 8px color-mix(in srgb, var(--color-primary) 10%, transparent);
+  animation: incident-list-loading-spin 0.72s linear infinite;
+}
+
+@keyframes incident-list-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 실패 상태의 제목/설명/버튼을 한 덩어리로 묶는다. */
+.emptyStateErrorBlock {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  transform: translateY(-10px);
+}
+
 /* 빈 상태 패널의 강조 문구다. */
 .emptyState strong {
   color: var(--color-fg-primary);
   font-size: 15px;
+}
+
+.emptyStateErrorTitle {
+  font-size: 24px !important;
+  line-height: 1.25;
+}
+
+.emptyStateErrorDescription {
+  color: var(--color-fg-secondary);
+  font-size: 15px !important;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
+.emptyStateActions {
+  display: flex;
+  justify-content: center;
+  margin-top: 6px;
 }
 
 .emptyState .emptyStateFilterText {
@@ -792,5 +843,11 @@
   .metaRow span,
   .metaRow strong {
     font-size: 13px;
+  }
+
+  .loadingSpinner {
+    width: 52px;
+    height: 52px;
+    border-width: 5px;
   }
 }

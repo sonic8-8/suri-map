@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, type CSSProperties } from 'react';
 import type maplibregl from 'maplibre-gl';
 import type { LngLatBoundsLike } from 'maplibre-gl';
 import { MapControls } from '../../../../../shared/ui';
@@ -30,6 +30,7 @@ type DashboardMapShellProps = {
   activeOperationalPeriodId: string | null;
   incidentId: string;
   isMapExpanded: boolean;
+  isHandoverWorkspaceOpen?: boolean;
   isTerminalBoard?: boolean;
   legendItems: LegendItem[];
   layerVisibility: LayerVisibility;
@@ -98,10 +99,10 @@ export function DashboardMapShell({
   onClearSelectedSearchArea,
   onToggleMapExpanded,
   selectedSearchAreaId,
+  isHandoverWorkspaceOpen = false,
 }: DashboardMapShellProps) {
   const mapRef = useRef<maplibregl.Map | null>(null);
   const initialBoundsRef = useRef<LngLatBoundsLike | null>(null);
-  const hasHandoverWorkspace = Boolean(handoverMapProps);
   const legendAvailabilityByClassName = useMemo(
     () =>
       createLegendAvailabilityByClassName({
@@ -160,14 +161,22 @@ export function DashboardMapShell({
     };
   }, [isMapExpanded]);
 
-  const canvasShellClassName = `${styles.canvasShell}${handoverMapProps ? ` ${styles.handoverCanvasShell}` : ''}`;
+  const canvasShellClassName = `${styles.canvasShell}${isHandoverWorkspaceOpen ? ` ${styles.handoverCanvasShell}` : ''}`;
+  const canvasShellStyle = useMemo<CSSProperties | undefined>(() => {
+    if (!isHandoverWorkspaceOpen || handoverMapProps?.rightPanelWidthPx == null) {
+      return undefined;
+    }
+
+    return {
+      '--handover-right-panel-width': `${handoverMapProps.rightPanelWidthPx}px`,
+    } as CSSProperties;
+  }, [handoverMapProps?.rightPanelWidthPx, isHandoverWorkspaceOpen]);
 
   return (
     <div className={styles.layout}>
-      <div className={canvasShellClassName}>
+      <div className={canvasShellClassName} style={canvasShellStyle}>
         <MapControls
           canFitIncidentSearchArea={!isTerminalBoard}
-          className={hasHandoverWorkspace ? styles.rightPanelAwareControl : undefined}
           isMapExpanded={isMapExpanded}
           onFitIncidentSearchArea={handleFitIncidentSearchArea}
           onToggleMapExpanded={onToggleMapExpanded}
@@ -203,7 +212,6 @@ export function DashboardMapShell({
         />
         {isTerminalBoard ? null : (
           <MapLegend
-            className={hasHandoverWorkspace ? styles.rightPanelAwareLegend : undefined}
             legendItems={legendItems}
             legendAvailabilityByClassName={legendAvailabilityByClassName}
             selectedLayerIds={selectedLayerIds}

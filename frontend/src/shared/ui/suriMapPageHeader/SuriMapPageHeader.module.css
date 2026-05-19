@@ -12,11 +12,11 @@
   background: var(--suri-board-page-bg);
 }
 
-/* 최상단 제품 내비게이션 바입니다. 뒤로가기, 탭, 계정/브랜드 정보를 한 줄에 배치합니다. */
+/* 최상단 제품 내비게이션 바입니다. 브랜드, 탭, 계정 정보를 한 줄에 배치합니다. */
 .productNav {
   position: relative;
   display: grid;
-  grid-template-columns: max-content max-content minmax(0, 1fr) max-content;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
   align-items: center;
   height: var(--suri-board-header-top-height);
   flex-shrink: 0;
@@ -27,37 +27,7 @@
   backdrop-filter: blur(8px);
 }
 
-/* 좌측 사건 목록 이동 버튼입니다. 우측 구분선을 포함해 내비게이션의 시작점을 만듭니다. */
-.backButton {
-  position: relative;
-  z-index: 1;
-  min-height: 40px;
-  padding: 0 20px 0 0;
-  border: 0;
-  border-right: 1px solid var(--suri-board-border);
-  border-radius: 0;
-  color: var(--suri-board-fg-primary);
-  background: transparent;
-  font-size: var(--suri-board-header-back-font-size);
-  font-weight: 700;
-  line-height: 1.2;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-/* 뒤로가기 버튼 hover 상태입니다. 배경 변화 없이 텍스트 색만 유지합니다. */
-.backButton:hover {
-  color: var(--suri-board-fg-primary);
-  background: transparent;
-}
-
-/* 키보드 탐색 시 뒤로가기 버튼의 포커스 링입니다. */
-.backButton:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--suri-board-primary-hi) 72%, transparent);
-  outline-offset: 3px;
-}
-
-/* 사건 목록 버튼 다음에 이어지는 주요 페이지 탭 그룹입니다. */
+/* 브랜드 다음에 이어지는 주요 페이지 탭 그룹입니다. */
 .navTabs {
   z-index: 2;
   display: flex;

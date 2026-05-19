@@ -48,7 +48,8 @@ import type {
 } from '../../constants/mockSituationBoard';
 import {
   clearMarkerElements,
-  hasRenderedMarkerAtPoint,
+  getNearestMarkerIdAtPoint,
+  getRenderedMarkerIdAtPoint,
   removeMarkerPopup,
   raiseMarkerLayer,
   syncMarkerElements,
@@ -728,6 +729,20 @@ export function SearchMapCanvas({
     () => filterSearchAreasByLegendFilters(assignedSearchAreas, selectedSearchAreaLegendFilters),
     [assignedSearchAreas, selectedSearchAreaLegendFilters],
   );
+  const selectedMarker = useMemo(
+    () =>
+      selectedMarkerId
+        ? recentMarkers.find((marker) => marker.id === selectedMarkerId && marker.coordinates) ?? null
+        : null,
+    [recentMarkers, selectedMarkerId],
+  );
+  const selectedMarkerPoint = useMemo(() => {
+    if (!mapInstance || !selectedMarker?.coordinates) {
+      return null;
+    }
+
+    return mapInstance.project(selectedMarker.coordinates);
+  }, [mapInstance, selectedMarker]);
   const movementPathFeatures = useMemo(
     () =>
       createMovementPathFeatureCollection(movementPaths, activeOperationalPeriodId, {
@@ -786,23 +801,6 @@ export function SearchMapCanvas({
     areaEditMapPropsRef.current = areaEditMapProps;
   }, [areaEditMapProps]);
 
-  const handleHoverMarker = useCallback((markerId: string) => {
-    setHoveredMarkerId(markerId);
-  }, []);
-
-  const handleLeaveMarker = useCallback(() => {
-    setHoveredMarkerId(null);
-  }, []);
-
-  const handleSelectMarker = useCallback((markerId: string) => {
-    setSelectedMarkerId(markerId);
-    setHoveredMarkerId(null);
-  }, []);
-
-  const handleCloseSelectedMarker = useCallback(() => {
-    setSelectedMarkerId(null);
-  }, []);
-
   const removeSearchAreaPopup = useCallback(() => {
     searchAreaPopupContentRootRef.current?.unmount();
     searchAreaPopupContentRootRef.current = null;
@@ -818,6 +816,24 @@ export function SearchMapCanvas({
     removeSearchAreaPopup();
     onClearSelectedSearchArea();
   }, [onClearSelectedSearchArea, removeSearchAreaPopup]);
+
+  const handleHoverMarker = useCallback((markerId: string) => {
+    setHoveredMarkerId(markerId);
+  }, []);
+
+  const handleLeaveMarker = useCallback(() => {
+    setHoveredMarkerId(null);
+  }, []);
+
+  const handleSelectMarker = useCallback((markerId: string) => {
+    closeSearchAreaPopup();
+    setSelectedMarkerId(markerId);
+    setHoveredMarkerId(null);
+  }, [closeSearchAreaPopup]);
+
+  const handleCloseSelectedMarker = useCallback(() => {
+    setSelectedMarkerId(null);
+  }, []);
 
   const handleCloseSearchAreaPopup = useCallback(() => {
     closeSearchAreaPopup();
@@ -1043,29 +1059,6 @@ export function SearchMapCanvas({
   }, [visibleAssignedSearchAreas, focusedSearchAreaId, focusedSearchAreaSequence]);
 
   useEffect(() => {
-    const handlePointerDown = (event: PointerEvent) => {
-      if (!selectedMarkerId) {
-        return;
-      }
-
-      const target = event.target;
-      if (!(target instanceof Node)) {
-        return;
-      }
-
-      const isInsidePopup = selectedMarkerPopupRef.current?.getElement().contains(target) ?? false;
-      if (!isInsidePopup) {
-        setSelectedMarkerId(null);
-      }
-    };
-
-    document.addEventListener('pointerdown', handlePointerDown);
-    return () => {
-      document.removeEventListener('pointerdown', handlePointerDown);
-    };
-  }, [selectedMarkerId]);
-
-  useEffect(() => {
     onSelectSearchAreaRef.current = onSelectSearchArea;
   }, [onSelectSearchArea]);
 
@@ -1202,10 +1195,23 @@ export function SearchMapCanvas({
 
     const handleMapClick = (event: maplibregl.MapMouseEvent) => {
       if (!isRouteEditorEnabledRef.current) {
-        if (areaEditMapPropsRef.current || hasRenderedMarkerAtPoint(map, event.point)) {
+        if (areaEditMapPropsRef.current) {
           closeSearchAreaPopup();
           return;
         }
+
+        const clickedMarkerId = layerVisibilityRef.current.marker
+          ? getRenderedMarkerIdAtPoint(map, event.point) ??
+            getNearestMarkerIdAtPoint(map, event.point, recentMarkersRef.current, visibleMarkerIdsRef.current)
+          : null;
+        if (clickedMarkerId) {
+          closeSearchAreaPopup();
+          setSelectedMarkerId(clickedMarkerId);
+          setHoveredMarkerId(null);
+          return;
+        }
+
+        setSelectedMarkerId(null);
 
         if (!hasSearchAreaLayers(map)) {
           onClearSelectedSearchArea();
@@ -1313,18 +1319,100 @@ export function SearchMapCanvas({
   return (
     <div className={styles.surface} aria-label="Search map">
       <div ref={mapContainerRef} className={styles.canvas} />
+      {selectedMarker && selectedMarkerPoint ? (
+        <div
+          className={styles.markerSelectedOverlay}
+          style={{
+            left: `${selectedMarkerPoint.x}px`,
+            top: `${selectedMarkerPoint.y}px`,
+            transform: 'translate(-50%, calc(-100% - 14px))',
+          }}
+        >
+          <section
+            className={styles.markerPopup}
+            role="dialog"
+            aria-label={selectedMarker.title}
+            onClick={(event) => event.stopPropagation()}
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            <header className={styles.markerPopupHeader}>
+              <div className={styles.markerPopupHeaderMain}>
+                <div className={styles.markerPopupBadge} aria-hidden="true">
+                  <span className={styles.markerPopupType}>
+                    {selectedMarker.markerTypeLabel ?? selectedMarker.markerType}
+                  </span>
+                </div>
+                <div className={styles.markerPopupTitleGroup}>
+                  <div className={styles.markerPopupTypeRow}>
+                    <span className={styles.markerPopupEyebrow}>마커 정보</span>
+                    {selectedMarker.markerTypeLabel ? (
+                      <span className={styles.markerPopupType}>{selectedMarker.markerTypeLabel}</span>
+                    ) : null}
+                  </div>
+                  <div className={styles.markerPopupTitle}>{selectedMarker.title}</div>
+                  {selectedMarker.timeLabel || selectedMarker.occurredAt ? (
+                    <div className={styles.markerPopupMeta}>{selectedMarker.timeLabel ?? selectedMarker.occurredAt}</div>
+                  ) : null}
+                </div>
+              </div>
+              <button
+                type="button"
+                className={styles.markerPopupClose}
+                aria-label="마커 정보 닫기"
+                onClick={handleCloseSelectedMarker}
+              >
+                ×
+              </button>
+            </header>
+            {selectedMarker.photoThumbnailUrl ? (
+              <figure className={styles.markerPopupPhotoPreview}>
+                <img src={selectedMarker.photoThumbnailUrl} alt="" loading="lazy" decoding="async" />
+              </figure>
+            ) : null}
+            {selectedMarker.memo ?? selectedMarker.summary ? (
+              <p className={styles.markerPopupBody}>{selectedMarker.memo ?? selectedMarker.summary}</p>
+            ) : null}
+            <div className={styles.markerPopupDetail}>
+              {selectedMarker.reporterLabel ? (
+                <div className={styles.markerPopupRow}>
+                  <span className={styles.markerPopupRowLabel}>보고자</span>
+                  <span className={styles.markerPopupRowValue}>{selectedMarker.reporterLabel}</span>
+                </div>
+              ) : null}
+              {selectedMarker.sourceLabel ? (
+                <div className={styles.markerPopupRow}>
+                  <span className={styles.markerPopupRowLabel}>출처</span>
+                  <span className={styles.markerPopupRowValue}>{selectedMarker.sourceLabel}</span>
+                </div>
+              ) : null}
+              {selectedMarker.coordinateLabel ? (
+                <div className={styles.markerPopupRow}>
+                  <span className={styles.markerPopupRowLabel}>좌표</span>
+                  <span className={styles.markerPopupRowValue}>{selectedMarker.coordinateLabel}</span>
+                </div>
+              ) : null}
+              {typeof selectedMarker.photoCount === 'number' && selectedMarker.photoCount > 0 ? (
+                <div className={styles.markerPopupRow}>
+                  <span className={styles.markerPopupRowLabel}>사진</span>
+                  <span className={styles.markerPopupRowValue}>{`사진 ${selectedMarker.photoCount}장`}</span>
+                </div>
+              ) : null}
+            </div>
+          </section>
+        </div>
+      ) : null}
       {areaEditMapProps || handoverMapProps ? null : (
-      <SearchAreaInspectorCard
-        searchAreaTree={searchAreaTree}
-        selectedSearchAreaId={selectedSearchAreaId}
-        savedAreaDrafts={savedAreaDrafts}
-        movementPaths={movementPaths}
-        recentMarkers={recentMarkers}
-        operationalPeriods={operationalPeriods}
-        onClose={onClearSelectedSearchArea}
-        onOpenAssign={onOpenSearchAreaAssign}
-        onOpenSplit={onOpenSearchAreaSplit}
-      />
+        <SearchAreaInspectorCard
+          searchAreaTree={searchAreaTree}
+          selectedSearchAreaId={selectedSearchAreaId}
+          savedAreaDrafts={savedAreaDrafts}
+          movementPaths={movementPaths}
+          recentMarkers={recentMarkers}
+          operationalPeriods={operationalPeriods}
+          onClose={onClearSelectedSearchArea}
+          onOpenAssign={onOpenSearchAreaAssign}
+          onOpenSplit={onOpenSearchAreaSplit}
+        />
       )}
       {areaEditMapProps && mapInstance ? (
         <AreaEditMapCanvas {...areaEditMapProps} externalMap={mapInstance} hideCanvas />
