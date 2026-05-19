@@ -1,11 +1,14 @@
 package com.surimap.feature.handover.ui
 
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
@@ -16,7 +19,11 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import java.time.Instant
 import com.surimap.ui.components.PoliAppBar
 import com.surimap.ui.components.PoliButton
@@ -26,9 +33,13 @@ import com.surimap.ui.components.PoliChip
 import com.surimap.ui.components.PoliChipVariant
 import com.surimap.ui.components.PoliField
 import com.surimap.ui.components.PoliRow
+import com.surimap.ui.theme.PoliBgInput
+import com.surimap.ui.theme.PoliCurrent
 import com.surimap.ui.theme.PoliDimens
 import com.surimap.ui.theme.PoliFgMuted
 import com.surimap.ui.theme.PoliFgSecondary
+import com.surimap.ui.theme.PoliPrimaryMid
+import com.surimap.ui.theme.PoliWarning
 import com.surimap.ui.theme.SuriMapTheme
 
 data class DutyHandoverUiState(
@@ -40,11 +51,16 @@ data class DutyHandoverUiState(
     val sourceReadiness: SummarySourceReadiness,
     val metrics: List<HandoverMetric>,
     val records: List<HandoverRecord>,
+    val replayPathSegments: List<HandoverReplayPathSegment> = emptyList(),
+    val replayMarkers: List<HandoverReplayMarker> = emptyList(),
     val selectedTab: DutyHandoverTab = DutyHandoverTab.Replay,
     val canEndDutyShift: Boolean = false,
     val endingDutyShift: Boolean = false,
     val canRequestSummaryGeneration: Boolean = false
 ) {
+    val replaySectionTitles: List<String> = HandoverReplaySections
+    val replayBadges: List<String> = listOf("근무 기준", "단일 근무자", "정적 보기")
+
     val reportSectionTitles: List<String> = HandoverReportSections
 
     val handoverMemoRecords: List<HandoverRecord> =
@@ -80,6 +96,22 @@ data class DutyHandoverUiState(
             add(generatedAtLabel)
             add(summaryText)
             summaryActionLabel?.let(::add)
+            if (selectedTab == DutyHandoverTab.Replay) {
+                addAll(replaySectionTitles)
+                addAll(replayBadges)
+                replayPathSegments.forEach {
+                    add(it.label)
+                    add(it.timeRangeLabel)
+                    add(it.distanceLabel)
+                    add(it.modeLabel)
+                }
+                replayMarkers.forEach {
+                    add(it.title)
+                    add(it.timeLabel)
+                    add(it.typeLabel)
+                    add(it.photoCountLabel)
+                }
+            }
             if (selectedTab == DutyHandoverTab.Report) {
                 addAll(reportSectionTitles)
                 add(sourceReadiness.reportLabel)
@@ -175,6 +207,24 @@ data class DutyHandoverUiState(
                     HandoverRecord("도보 경로 · 동쪽 능선", "12:07-13:18 · GPS 일부 약함", "보기"),
                     HandoverRecord("단서 마커 · 배수로 입구", "사진 2장 · 작성 13:36", "열기"),
                     HandoverRecord("운영 메모 · 북측 진입로", "주민 진술 대기, 배수로 아래 확인 필요", "열기")
+                ),
+            replayPathSegments: List<HandoverReplayPathSegment> =
+                listOf(
+                    HandoverReplayPathSegment(
+                        label = "도보 경로 · 동쪽 능선",
+                        timeRangeLabel = "12:07-13:18",
+                        distanceLabel = "1.8km",
+                        modeLabel = "도보"
+                    )
+                ),
+            replayMarkers: List<HandoverReplayMarker> =
+                listOf(
+                    HandoverReplayMarker(
+                        title = "단서 마커 · 배수로 입구",
+                        timeLabel = "13:36",
+                        typeLabel = "단서",
+                        photoCountLabel = "사진 2장"
+                    )
                 )
         ): DutyHandoverUiState =
             DutyHandoverUiState(
@@ -186,6 +236,8 @@ data class DutyHandoverUiState(
                 sourceReadiness = sourceReadiness,
                 metrics = metrics,
                 records = records,
+                replayPathSegments = replayPathSegments,
+                replayMarkers = replayMarkers,
                 canRequestSummaryGeneration = false
             )
     }
@@ -212,6 +264,21 @@ enum class DutyHandoverTab(val label: String) {
 
 data class HandoverMetric(val value: String, val label: String)
 data class HandoverRecord(val title: String, val subtitle: String, val actionLabel: String)
+data class HandoverReplayPathSegment(
+    val label: String,
+    val timeRangeLabel: String,
+    val distanceLabel: String,
+    val modeLabel: String
+)
+data class HandoverReplayMarker(
+    val title: String,
+    val timeLabel: String,
+    val typeLabel: String,
+    val photoCountLabel: String
+)
+
+private val HandoverReplaySections =
+    listOf("경로 미리보기", "마커", "타임라인")
 
 private val HandoverReportSections =
     listOf(
@@ -317,18 +384,100 @@ private fun DutyHandoverTabRow(
 
 @Composable
 private fun ReplayTab(state: DutyHandoverUiState) {
+    ReplayPathPreviewCard(state)
+    ReplayMarkerCard(markers = state.replayMarkers)
+    RecordCard(title = "타임라인", records = state.records)
+}
+
+@Composable
+private fun ReplayPathPreviewCard(state: DutyHandoverUiState) {
     PoliCard(strong = true) {
-        Text(text = "리플레이", style = MaterialTheme.typography.titleMedium)
+        Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
+            state.replayBadges.forEach { badge ->
+                PoliChip(text = badge)
+            }
+        }
+        Text(text = "경로 미리보기", style = MaterialTheme.typography.titleMedium)
         Text(
             text = state.generatedAtLabel,
             style = MaterialTheme.typography.bodyMedium,
             color = PoliFgMuted
         )
+        StaticRoutePreview(hasPath = state.replayPathSegments.isNotEmpty(), markerCount = state.replayMarkers.size)
         if (state.metrics.isNotEmpty()) {
             MetricRow(metrics = state.metrics)
         }
+        if (state.replayPathSegments.isEmpty()) {
+            EmptyReportText("경로 데이터 없음")
+        } else {
+            state.replayPathSegments.forEach { segment ->
+                PoliRow(
+                    title = segment.label,
+                    subtitle = "${segment.timeRangeLabel} · ${segment.distanceLabel}"
+                ) {
+                    PoliChip(text = segment.modeLabel)
+                }
+            }
+        }
     }
-    RecordCard(title = "타임라인", records = state.records)
+}
+
+@Composable
+private fun StaticRoutePreview(hasPath: Boolean, markerCount: Int) {
+    val shape = MaterialTheme.shapes.medium
+    Canvas(
+        modifier =
+        Modifier
+            .fillMaxWidth()
+            .height(156.dp)
+            .clip(shape)
+            .background(PoliBgInput)
+            .padding(PoliDimens.Space4)
+    ) {
+        if (!hasPath) {
+            drawCircle(
+                color = PoliFgMuted,
+                radius = 8.dp.toPx(),
+                center = Offset(size.width * 0.5f, size.height * 0.5f)
+            )
+            return@Canvas
+        }
+
+        val start = Offset(size.width * 0.12f, size.height * 0.70f)
+        val midA = Offset(size.width * 0.38f, size.height * 0.42f)
+        val midB = Offset(size.width * 0.62f, size.height * 0.55f)
+        val end = Offset(size.width * 0.86f, size.height * 0.24f)
+        val stroke = 7.dp.toPx()
+        drawLine(PoliPrimaryMid, start, midA, strokeWidth = stroke, cap = StrokeCap.Round)
+        drawLine(PoliPrimaryMid, midA, midB, strokeWidth = stroke, cap = StrokeCap.Round)
+        drawLine(PoliPrimaryMid, midB, end, strokeWidth = stroke, cap = StrokeCap.Round)
+        drawCircle(PoliCurrent, radius = 7.dp.toPx(), center = start)
+        drawCircle(PoliCurrent, radius = 7.dp.toPx(), center = end)
+
+        val markerPositions = listOf(midA, midB, end).take(markerCount.coerceAtMost(3))
+        markerPositions.forEach { position ->
+            drawCircle(PoliWarning, radius = 9.dp.toPx(), center = position)
+            drawCircle(PoliBgInput, radius = 4.dp.toPx(), center = position)
+        }
+    }
+}
+
+@Composable
+private fun ReplayMarkerCard(markers: List<HandoverReplayMarker>) {
+    ReportSectionCard(title = "마커") {
+        if (markers.isEmpty()) {
+            EmptyReportText("표시할 마커 없음")
+        } else {
+            markers.forEach { marker ->
+                PoliRow(
+                    title = marker.title,
+                    subtitle = "${marker.timeLabel} · ${marker.photoCountLabel}"
+                ) {
+                    PoliChip(text = marker.typeLabel)
+                }
+            }
+        }
+    }
 }
 
 @Composable

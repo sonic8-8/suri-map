@@ -90,6 +90,36 @@ class HandoverUiStateTest {
     }
 
     @Test
+    fun replayTabExposesStaticSingleDutyShiftBaseWithoutDynamicControls() {
+        val replay = DutyHandoverUiState.ready().selectTab(DutyHandoverTab.Replay)
+
+        assertEquals(
+            listOf("경로 미리보기", "마커", "타임라인"),
+            replay.replaySectionTitles
+        )
+        assertEquals(listOf("근무 기준", "단일 근무자", "정적 보기"), replay.replayBadges)
+        assertTrue(replay.replayPathSegments.any { it.label.contains("동쪽 능선") })
+        assertTrue(replay.replayMarkers.any { it.title.contains("배수로 입구") && it.photoCountLabel == "사진 2장" })
+        replay.replaySectionTitles.forEach { sectionTitle ->
+            assertTrue(replay.visibleText().any { it.contains(sectionTitle) })
+        }
+        replay.replayBadges.forEach { badge ->
+            assertTrue(replay.visibleText().any { it.contains(badge) })
+        }
+
+        listOf(replay).forEach { state ->
+            assertFalse(state.visibleText().any { it.contains("다른 근무자") })
+            assertFalse(state.visibleText().any { it.contains("임의") })
+            assertFalse(state.visibleText().any { it.contains("일시정지") })
+            assertFalse(state.visibleText().any { it.contains("속도") })
+            assertFalse(state.visibleText().any { it.contains("카메라") })
+            assertFalse(state.visibleText().any { it.contains("추천") })
+            assertFalse(state.visibleText().any { it.contains("위험") })
+            assertFalse(state.visibleText().any { it.contains("미수색") })
+        }
+    }
+
+    @Test
     fun handoverMemoTargetsIncludeAllS8ContextsAndNoAiAction() {
         val state = HandoverMemoUiState.default(offline = true)
 
