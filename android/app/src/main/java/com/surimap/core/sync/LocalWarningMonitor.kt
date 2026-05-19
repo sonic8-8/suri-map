@@ -177,6 +177,8 @@ class LocalWarningMonitor(@Suppress("unused") private val serverRoundTrip: Local
 
 data class LocalWarningUiState(val banners: List<LocalWarningBanner>) {
     companion object {
+        val Empty = LocalWarningUiState(emptyList())
+
         fun from(snapshot: LocalWarningSnapshot): LocalWarningUiState = LocalWarningUiState(
             banners = LocalWarningCode.entries
                 .filter { it in snapshot.activeWarnings }

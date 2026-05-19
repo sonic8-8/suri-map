@@ -8,7 +8,9 @@ import android.content.ContextWrapper
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.location.LocationManager
 import android.net.Uri
+import android.os.BatteryManager
 import android.os.Build
 import android.util.Log
 import android.widget.Toast
@@ -75,8 +77,13 @@ import com.surimap.core.operationalperiod.SearchHistorySummaryReadRepository
 import com.surimap.core.path.SearchPathRepository
 import com.surimap.core.searcharea.SearchAreaReadRepository
 import com.surimap.core.sync.ClockSyncState
+import com.surimap.core.sync.LocalWarningMonitor
+import com.surimap.core.sync.LocalWarningSignals
+import com.surimap.core.sync.LocalWarningSnapshot
+import com.surimap.core.sync.LocalWarningUiState
 import com.surimap.core.sync.OutboxReplayScheduler
 import com.surimap.core.sync.OutboxReplayWorkRequest
+import com.surimap.core.sync.PackageAvailabilityInputAdapter
 import com.surimap.core.sync.RoomOutboxRequeue
 import com.surimap.core.sync.RoomSyncClient
 import com.surimap.core.sync.SchedulingSyncClient
@@ -161,6 +168,7 @@ import com.surimap.feature.search.ui.SearchLayerKind
 import com.surimap.feature.search.ui.SearchLifecycleStatus
 import com.surimap.feature.search.ui.SearchMapLayerUiState
 import com.surimap.feature.search.ui.SearchMapScreen
+import com.surimap.feature.search.ui.SearchMapSyncStatus
 import com.surimap.feature.search.ui.SearchMapUiState
 import com.surimap.feature.search.ui.SearchMapViewportBounds
 import com.surimap.feature.showcase.ui.ShowcaseScreen
@@ -843,6 +851,7 @@ private fun SearchMapRoute(
     val context = LocalContext.current.applicationContext
     val database = remember(context) { SuriMapDatabaseProvider.database(context) }
     val outboxDao = remember(database) { database.outboxDao() }
+    val offlinePackageInstallationDao = remember(database) { database.offlinePackageInstallationDao() }
     val sessionContext = incidentContext.toSearchMapSessionContext(policePhoneContext)
     val accessTokenProvider = policePhoneContext.accessTokenProvider()
     val dutyShiftReadRepository =
@@ -1000,6 +1009,12 @@ private fun SearchMapRoute(
     ) {
         mutableStateOf(System.currentTimeMillis())
     }
+    var localWarningTickerNowMs by remember(
+        sessionContext.incidentId,
+        sessionContext.policePhoneId
+    ) {
+        mutableStateOf(System.currentTimeMillis())
+    }
     var currentDutyShiftStartedAt by remember(sessionContext) {
         mutableStateOf<Instant?>(null)
     }
@@ -1022,6 +1037,43 @@ private fun SearchMapRoute(
     var pendingCreateCameraPhotoUri by remember { mutableStateOf<Uri?>(null) }
     var pendingCurrentLocationCenter by remember { mutableStateOf(false) }
     val currentPendingCurrentLocationCenter by rememberUpdatedState(pendingCurrentLocationCenter)
+    val localWarningMonitor = remember(
+        sessionContext.incidentId,
+        sessionContext.policePhoneId
+    ) { LocalWarningMonitor() }
+    var localWarningSnapshot by remember(
+        sessionContext.incidentId,
+        sessionContext.policePhoneId
+    ) {
+        mutableStateOf(LocalWarningSnapshot(emptySet()))
+    }
+    var batterySnapshot by remember { mutableStateOf(context.currentBatterySnapshot()) }
+    val offlinePackageInstallation by remember(
+        sessionContext.incidentId,
+        sessionContext.policePhoneId,
+        offlinePackageInstallationDao
+    ) {
+        val incidentId = sessionContext.incidentId?.takeIf(String::isNotBlank)
+        val policePhoneId = sessionContext.policePhoneId?.takeIf(String::isNotBlank)
+        if (incidentId == null || policePhoneId == null) {
+            flowOf<OfflinePackageInstallationEntity?>(null)
+        } else {
+            offlinePackageInstallationDao.observe(incidentId = incidentId, policePhoneId = policePhoneId)
+        }
+    }.collectAsState(initial = null)
+    val outboxSummaryForWarnings by remember(
+        sessionContext.incidentId,
+        sessionContext.policePhoneId,
+        outboxDao
+    ) {
+        val incidentId = sessionContext.incidentId?.takeIf(String::isNotBlank)
+        val policePhoneId = sessionContext.policePhoneId?.takeIf(String::isNotBlank)
+        if (incidentId == null || policePhoneId == null) {
+            flowOf(null)
+        } else {
+            outboxDao.observeStatusSummary(incidentId = incidentId, policePhoneId = policePhoneId)
+        }
+    }.collectAsState(initial = null)
 
     fun centerMapOnCurrentLocation(fix: GpsLocationFix) {
         latestLocationFix = fix
@@ -1168,6 +1220,28 @@ private fun SearchMapRoute(
         }
     }
 
+    DisposableEffect(context) {
+        val receiver =
+            object : BroadcastReceiver() {
+                override fun onReceive(receiverContext: Context?, intent: Intent?) {
+                    batterySnapshot = intent?.toBatterySnapshot() ?: context.currentBatterySnapshot()
+                }
+            }
+        val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+        val sticky = context.registerReceiver(receiver, filter)
+        batterySnapshot = sticky?.toBatterySnapshot() ?: context.currentBatterySnapshot()
+        onDispose {
+            runCatching { context.unregisterReceiver(receiver) }
+        }
+    }
+
+    LaunchedEffect(sessionContext.incidentId, sessionContext.policePhoneId) {
+        while (true) {
+            localWarningTickerNowMs = System.currentTimeMillis()
+            delay(5_000L)
+        }
+    }
+
     val serverActiveSearchPathId = searchMapState.activeSearchPathId()
     val serverActiveSearchPathStartedAtMs = searchMapState.activeSearchPathStartedAtEpochMs
     val displayedLifecycle = recordingSession.displayedLifecycle(
@@ -1186,9 +1260,58 @@ private fun SearchMapRoute(
             elapsedLabel = recordingSession.elapsedLabel(elapsedTickerNowMs),
             topHeaderExpanded = topHeaderExpanded,
             bottomPanelExpanded = bottomPanelExpanded,
-            handoverPrompt = handoverPromptState
+            handoverPrompt = handoverPromptState,
+            localWarnings = LocalWarningUiState.from(localWarningSnapshot)
         ).withCurrentLocationViewport(latestLocationFix)
     val currentAssignedBoundaries by rememberUpdatedState(displayedSearchMapState.assignedTeamSearchAreaBoundaries())
+
+    LaunchedEffect(
+        displayedLifecycle,
+        activeSearchPathId,
+        localWarningTickerNowMs,
+        latestGpsLocationFix,
+        batterySnapshot,
+        offlinePackageInstallation,
+        outboxSummaryForWarnings
+    ) {
+        val nowMs = localWarningTickerNowMs
+        val activeRecording = displayedLifecycle == SearchLifecycleStatus.Active && activeSearchPathId != null
+        val packageStatus = offlinePackageInstallation?.status ?: "MISSING"
+        val manifestVersion = offlinePackageInstallation?.manifestVersion?.toString()
+        val packageAvailability =
+            PackageAvailabilityInputAdapter.fromS7Status(
+                status = packageStatus,
+                manifestVersion = manifestVersion,
+                activeManifestVersion = manifestVersion,
+                failedRequiredItemKeys =
+                if ((offlinePackageInstallation?.failedItems ?: 0) > 0) {
+                    setOf("offline-package-required-item")
+                } else {
+                    emptySet()
+                }
+            )
+        localWarningSnapshot =
+            localWarningMonitor.evaluate(
+                LocalWarningSignals(
+                    nowMs = nowMs,
+                    gpsProviderEnabled = context.isLocationUsable(),
+                    gpsStoppedSinceMs = if (activeRecording) recordingSession.activeStartedAtMs ?: nowMs else null,
+                    lastGpsFixAgeMs =
+                    if (activeRecording) {
+                        latestGpsLocationFix?.let { fix -> nowMs - fix.capturedAt.toEpochMilli() }
+                    } else {
+                        0L
+                    },
+                    batteryPercent = batterySnapshot.percent,
+                    batteryCharging = batterySnapshot.charging,
+                    packageAvailability = packageAvailability,
+                    offlineRecordingStartedAtMs = outboxSummaryForWarnings?.oldestPendingClientRequestedAt,
+                    lastSuccessfulSyncAtMs = null,
+                    networkConnected = searchMapState.syncStatus != SearchMapSyncStatus.Offline,
+                    pendingOutboxCount = outboxSummaryForWarnings?.normalUnsentCount ?: 0
+                )
+            )
+    }
 
     LaunchedEffect(displayedLifecycle, activeSearchPathId, serverActiveSearchPathStartedAtMs) {
         if (displayedLifecycle == SearchLifecycleStatus.Active && activeSearchPathId != null) {
@@ -2467,9 +2590,41 @@ private fun Double.normalizeBearingDegrees(): Double {
     return if (normalized < 0.0) normalized + 360.0 else normalized
 }
 
+private data class BatterySnapshot(val percent: Int, val charging: Boolean)
+
+private fun Context.currentBatterySnapshot(): BatterySnapshot =
+    registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        ?.toBatterySnapshot()
+        ?: BatterySnapshot(percent = 100, charging = true)
+
+private fun Intent.toBatterySnapshot(): BatterySnapshot {
+    val level = getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+    val scale = getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+    val status = getIntExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_UNKNOWN)
+    val percent =
+        if (level >= 0 && scale > 0) {
+            ((level * 100f) / scale).toInt().coerceIn(0, 100)
+        } else {
+            100
+        }
+    val charging =
+        status == BatteryManager.BATTERY_STATUS_CHARGING ||
+            status == BatteryManager.BATTERY_STATUS_FULL
+    return BatterySnapshot(percent = percent, charging = charging)
+}
+
 private fun Context.hasLocationPermission(): Boolean =
     ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
         ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+private fun Context.isLocationUsable(): Boolean {
+    if (!hasLocationPermission()) {
+        return false
+    }
+    val manager = getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return false
+    return listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
+        .any { provider -> runCatching { manager.isProviderEnabled(provider) }.getOrDefault(false) }
+}
 
 private fun SearchMapUiState.markerCreationLocation(): MarkerLocation? =
     viewportBounds?.let { bounds ->

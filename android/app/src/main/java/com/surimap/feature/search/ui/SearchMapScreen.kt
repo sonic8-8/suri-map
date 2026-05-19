@@ -59,6 +59,9 @@ import com.surimap.core.map.MapLibreGeometryOverlay
 import com.surimap.core.map.MapLibreGeometryOverlayKind
 import com.surimap.core.map.MapLibreViewportBounds
 import com.surimap.core.map.SuriMapLibreMap
+import com.surimap.core.sync.LocalWarningBanner
+import com.surimap.core.sync.LocalWarningCode
+import com.surimap.core.sync.LocalWarningUiState
 import com.surimap.feature.alert.ui.IncidentAlertBanner
 import com.surimap.feature.alert.ui.IncidentAlertUiState
 import com.surimap.feature.handover.ui.HandoverPromptUiState
@@ -167,7 +170,8 @@ data class SearchMapUiState(
     val bottomPanelExpanded: Boolean = false,
     val mapOverlaysVisible: Boolean = true,
     val activeSearchPathId: String? = null,
-    val activeSearchPathStartedAtEpochMs: Long? = null
+    val activeSearchPathStartedAtEpochMs: Long? = null,
+    val localWarnings: LocalWarningUiState = LocalWarningUiState.Empty
 ) {
     val canWritePath: Boolean = lifecycleStatus == SearchLifecycleStatus.Active
     val canCreateMarker: Boolean = lifecycleStatus == SearchLifecycleStatus.Active
@@ -286,6 +290,10 @@ data class SearchMapUiState(
             }
             markerFocusLabel?.let(::add)
             incidentAlert?.visibleText()?.forEach(::add)
+            localWarnings.banners.forEach { banner ->
+                add(banner.title)
+                add(banner.message)
+            }
             if (blockedOutboxCount > 0) {
                 add("미전송 ${blockedOutboxCount}건 처리 불가")
             }
@@ -508,6 +516,12 @@ fun SearchMapScreen(
                     modifier = Modifier.padding(horizontal = PoliDimens.SectionPadding)
                 )
             }
+            state.localWarnings.banners.forEach { warning ->
+                LocalWarningBannerView(
+                    warning = warning,
+                    modifier = Modifier.padding(horizontal = PoliDimens.SectionPadding)
+                )
+            }
             if (state.showHandoverPrompt) {
                 HandoverPromptBanner(
                     onOpenHandover = onOpenHandover,
@@ -535,6 +549,25 @@ fun SearchMapScreen(
             modifier = Modifier.align(Alignment.BottomCenter)
         )
     }
+}
+
+@Composable
+private fun LocalWarningBannerView(
+    warning: LocalWarningBanner,
+    modifier: Modifier = Modifier
+) {
+    PoliBanner(
+        text = "${warning.title}\n${warning.message}",
+        variant =
+        when (warning.code) {
+            LocalWarningCode.GPS_STOPPED,
+            LocalWarningCode.BATTERY_LOW,
+            LocalWarningCode.OFFLINE_RECORDING,
+            LocalWarningCode.PACKAGE_MISSING,
+            LocalWarningCode.OUTBOX_BACKLOG -> PoliBannerVariant.Warn
+        },
+        modifier = modifier
+    )
 }
 
 @Composable
