@@ -887,6 +887,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 - `duty_shift`
 - `handover_memo`
 - `search_history_summary`
+- `op_comparison_analysis`
 - `POST /api/operational-periods`
 - `GET /api/incidents/{incidentId}/operational-periods`
 - `POST /api/duty-shifts`
@@ -946,6 +947,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 - Handover memo writes support app and Web channels, preserve context, and emit `HANDOVER_MEMO_CREATED`.
 - Handover timeline is APP/WEB read-only and merges path/marker/memo/summary source rows for replay/report rendering without exposing `accountId` or `policePhoneId`.
 - Search history summary generation uses only OP/path/marker/memo history and leaves manual memo and OP comparison usable on failure.
+- OP comparison analysis persistence stores deterministic metric/diff/common-region facts separately from AI narrative status; comparison output must not create recommendations, missing-area conclusions, or risk judgments.
 
 **excluded**
 
@@ -962,6 +964,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 - `OTHER` 사유는 사유 메모 또는 인수인계 메모를 함께 남긴다.
 - 수색 이력 요약은 OP/경로/마커/메모 기반 이력 요약만 한다.
 - 수색 이력 요약 실패 시 수동 메모와 OP 비교 화면은 계속 동작해야 한다.
+- OP 비교 분석은 결정적 코드가 계산한 fact를 저장하고, AI narrative 실패 또는 skip 상태를 metric/fact 준비 상태와 분리한다.
 
 ---
 
@@ -1143,6 +1146,7 @@ Event payload는 REST response DTO, S6 `write_operation.schema.json`, S4 outbox/
 | `op_assignment` | S8 |
 | `handover_memo` | S8 |
 | `search_history_summary` | S8 |
+| `op_comparison_analysis` | S8 |
 
 ---
 

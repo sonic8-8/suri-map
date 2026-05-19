@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.surimap.opcomparison.OpComparisonAnalysisMapper">
+
+    <resultMap id="opComparisonAnalysisRecordMap" type="com.surimap.opcomparison.OpComparisonAnalysisRecord">
+        <constructor>
+            <arg column="id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="incident_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="operational_period_ids_json" javaType="java.lang.String"/>
+            <arg column="request_hash" javaType="java.lang.String"/>
+            <arg column="source_data_hash" javaType="java.lang.String"/>
+            <arg column="status" javaType="com.surimap.opcomparison.OpComparisonAnalysisStatus"/>
+            <arg column="metrics_json" javaType="java.lang.String"/>
+            <arg column="diff_facts_json" javaType="java.lang.String"/>
+            <arg column="common_regions_geojson" javaType="java.lang.String"/>
+            <arg column="narrative_status" javaType="com.surimap.opcomparison.OpComparisonNarrativeStatus"/>
+            <arg column="observations_json" javaType="java.lang.String"/>
+            <arg column="failure_reason" javaType="java.lang.String"/>
+            <arg column="requested_by_account_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="requested_at" javaType="java.time.Instant"/>
+            <arg column="generated_at" javaType="java.time.Instant"/>
+            <arg column="version" javaType="_long"/>
+            <arg column="created_at" javaType="java.time.Instant"/>
+            <arg column="updated_at" javaType="java.time.Instant"/>
+        </constructor>
+    </resultMap>
+
+    <sql id="opComparisonAnalysisColumns">
+        id,
+        incident_id,
+        operational_period_ids::text AS operational_period_ids_json,
+        request_hash,
+        source_data_hash,
+        status,
+        metrics_json::text AS metrics_json,
+        diff_facts_json::text AS diff_facts_json,
+        common_regions_geojson::text AS common_regions_geojson,
+        narrative_status,
+        observations_json::text AS observations_json,
+        failure_reason,
+        requested_by_account_id,
+        requested_at,
+        generated_at,
+        version,
+        created_at,
+        updated_at
+    </sql>
+
+    <insert id="insert">
+        INSERT INTO op_comparison_analysis (
+            id,
+            incident_id,
+            operational_period_ids,
+            request_hash,
+            source_data_hash,
+            status,
+            metrics_json,
+            diff_facts_json,
+            common_regions_geojson,
+            narrative_status,
+            observations_json,
+            failure_reason,
+            requested_by_account_id,
+            requested_at,
+            generated_at,
+            version,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            #{record.id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{record.incidentId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{record.operationalPeriodIdsJson}::jsonb,
+            #{record.requestHash},
+            #{record.sourceDataHash},
+            #{record.status},
+            #{record.metricsJson}::jsonb,
+            #{record.diffFactsJson}::jsonb,
+            #{record.commonRegionsGeojson}::jsonb,
+            #{record.narrativeStatus},
+            #{record.observationsJson}::jsonb,
+            #{record.failureReason},
+            #{record.requestedByAccountId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler},
+            #{record.requestedAt},
+            #{record.generatedAt},
+            #{record.version},
+            #{record.createdAt},
+            #{record.updatedAt}
+        )
+    </insert>
+
+    <select id="findById" resultMap="opComparisonAnalysisRecordMap">
+        SELECT
+        <include refid="opComparisonAnalysisColumns"/>
+        FROM op_comparison_analysis
+        WHERE id = #{id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+    </select>
+
+    <select id="findByRequestHash" resultMap="opComparisonAnalysisRecordMap">
+        SELECT
+        <include refid="opComparisonAnalysisColumns"/>
+        FROM op_comparison_analysis
+        WHERE request_hash = #{requestHash}
+    </select>
+
+    <update id="markDeterministicReady">
+        UPDATE op_comparison_analysis
+        SET status = 'READY',
+            metrics_json = #{metricsJson}::jsonb,
+            diff_facts_json = #{diffFactsJson}::jsonb,
+            common_regions_geojson = #{commonRegionsGeojson}::jsonb,
+            narrative_status = #{narrativeStatus},
+            failure_reason = #{failureReason},
+            generated_at = #{generatedAt},
+            version = version + 1,
+            updated_at = #{updatedAt}
+        WHERE id = #{id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+    </update>
+
+    <update id="updateNarrativeResult">
+        UPDATE op_comparison_analysis
+        SET status = #{status},
+            narrative_status = #{narrativeStatus},
+            observations_json = #{observationsJson}::jsonb,
+            failure_reason = #{failureReason},
+            generated_at = #{generatedAt},
+            version = version + 1,
+            updated_at = #{updatedAt}
+        WHERE id = #{id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+    </update>
+</mapper>

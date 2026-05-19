@@ -6,7 +6,7 @@
     "owner": "3",
     "character": "domain",
     "created": "2026-04-28",
-    "updated": "2026-04-28"
+    "updated": "2026-05-19"
   },
   "context_refs": {
     "prd": [
@@ -59,6 +59,7 @@
       "OP/경로/구역 단위 handover_memo 생성·조회",
       "DutyShift/OP/range 단위 handover timeline read model 제공",
       "OP·경로·마커·구역 상태·메모 기반 수색 이력 요약 생성과 실패 상태 관리",
+      "OP 비교 분석 요청/결과 persistence와 metric/fact/narrative 상태 분리",
       "OperationalPeriodQuery, HandoverMemoQuery, HandoverStatusSnapshot, SearchHistorySummaryQuery 제공",
       "OP_TRANSITIONED, HANDOVER_MEMO_CREATED, SEARCH_HISTORY_SUMMARY_CHANGED 이벤트 payload 생성 요청",
       "S3-2 op_toggle, op_history, handover_memo, handover_status, search_history_summary slot source contract 납품"
@@ -105,7 +106,7 @@
     {
       "id": "FR-11",
       "summary": "수색 차수(OP)마다 트랙·어사인먼트·마커·인수인계 메모를 묶고 OP 간 비교가 가능하다.",
-      "handling": "OperationalPeriodQuery.list와 op_toggle/op_history slot source를 제공하고 OP별 assignment/memo/summary 조회 기준을 고정한다."
+      "handling": "OperationalPeriodQuery.list와 op_toggle/op_history slot source를 제공하고 OP별 assignment/memo/summary 조회 기준과 op_comparison_analysis 저장 기준을 고정한다."
     },
     {
       "id": "FR-12",
@@ -470,6 +471,139 @@
           "type": "POINT",
           "srid": 4326
         }
+      },
+      {
+        "name": "op_comparison_analysis",
+        "owner_spec": "S8",
+        "description": "여러 OP의 결정적 metric, diff fact, common region, 검증된 AI observation을 저장하는 비교 분석 결과. 추천·누락 확정·위험 판단을 포함하지 않는다.",
+        "fields": [
+          {
+            "name": "id",
+            "type": "UUID",
+            "nullable": false,
+            "pk": true
+          },
+          {
+            "name": "incident_id",
+            "type": "UUID",
+            "nullable": false
+          },
+          {
+            "name": "operational_period_ids",
+            "type": "JSONB",
+            "nullable": false,
+            "note": "정렬된 비교 대상 OP UUID 배열"
+          },
+          {
+            "name": "request_hash",
+            "type": "TEXT",
+            "nullable": false,
+            "note": "incidentId, sorted operationalPeriodIds, sourceDataHash 기반 idempotency key"
+          },
+          {
+            "name": "source_data_hash",
+            "type": "TEXT",
+            "nullable": false
+          },
+          {
+            "name": "status",
+            "type": "VARCHAR(24)",
+            "nullable": false,
+            "note": "GENERATING|READY|FAILED"
+          },
+          {
+            "name": "metrics_json",
+            "type": "JSONB",
+            "nullable": false
+          },
+          {
+            "name": "diff_facts_json",
+            "type": "JSONB",
+            "nullable": false
+          },
+          {
+            "name": "common_regions_geojson",
+            "type": "JSONB",
+            "nullable": false
+          },
+          {
+            "name": "narrative_status",
+            "type": "VARCHAR(24)",
+            "nullable": false,
+            "note": "SKIPPED|GENERATING|READY|FAILED"
+          },
+          {
+            "name": "observations_json",
+            "type": "JSONB",
+            "nullable": true,
+            "note": "검증된 AI observation + evidence 배열"
+          },
+          {
+            "name": "failure_reason",
+            "type": "TEXT",
+            "nullable": true
+          },
+          {
+            "name": "requested_by_account_id",
+            "type": "UUID",
+            "nullable": false
+          },
+          {
+            "name": "requested_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": false
+          },
+          {
+            "name": "generated_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": true
+          },
+          {
+            "name": "version",
+            "type": "BIGINT",
+            "nullable": false
+          },
+          {
+            "name": "created_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": false
+          },
+          {
+            "name": "updated_at",
+            "type": "TIMESTAMPTZ",
+            "nullable": false
+          }
+        ],
+        "indexes": [
+          {
+            "name": "ux_op_comparison_analysis_request_hash",
+            "columns": [
+              "request_hash"
+            ],
+            "unique": true
+          },
+          {
+            "name": "idx_op_comparison_analysis_incident_requested",
+            "columns": [
+              "incident_id",
+              "requested_at",
+              "id"
+            ]
+          },
+          {
+            "name": "idx_op_comparison_analysis_status",
+            "columns": [
+              "status",
+              "narrative_status",
+              "updated_at"
+            ]
+          }
+        ],
+        "spatial": {
+          "enabled": false,
+          "type": "POINT",
+          "srid": 4326
+        }
       }
     ],
     "state_machines": [
@@ -493,7 +627,8 @@
     "flyway_migrations": [
       "V20260428_801__create_operational_period.sql",
       "V20260428_803__create_handover_memo.sql",
-      "V20260428_804__create_search_history_summary.sql"
+      "V20260428_804__create_search_history_summary.sql",
+      "V20260519_001__create_op_comparison_analysis.sql"
     ]
   },
   "api_contracts": {

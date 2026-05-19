@@ -33,7 +33,8 @@
 │     ├─ marker                       [OP 하위 현장 마커]
 │     │  └─ photo                     [marker 하위 첨부 사진]
 │     ├─ handover_memo                [OP/근무/경로/구역/마커에 붙는 메모]
-│     └─ search_history_summary       [OP 또는 근무 구간 요약]
+│     ├─ search_history_summary       [OP 또는 근무 구간 요약]
+│     └─ op_comparison_analysis       [OP 간 비교 분석 요청/결과]
 
 운영 엔티티
 ├─ fcm_token                          [police_phone 참조]
@@ -164,7 +165,7 @@ Android Room 로컬 엔티티
 
 - 하나의 `account`는 여러 개의 `incident_assignment`를 가진다. (1:N)
 - 하나의 `account`는 여러 개의 `search_area_assignment`를 받을 수 있다. (1:N)
-- 하나의 `account`는 여러 개의 `marker`, `handover_memo`, `search_history_summary`를 작성하거나 요청할 수 있다. (1:N)
+- 하나의 `account`는 여러 개의 `marker`, `handover_memo`, `search_history_summary`, `op_comparison_analysis`를 작성하거나 요청할 수 있다. (1:N)
 
 **주요 컬럼**
 
@@ -229,7 +230,7 @@ Android Room 로컬 엔티티
 
 - 하나의 `incident`는 여러 개의 `operational_period`를 가진다. (1:N)
 - 하나의 `operational_period`는 여러 개의 `duty_shift`를 가진다. (1:N)
-- 하나의 `operational_period`는 여러 개의 `search_area`, `marker`, `handover_memo`, `search_history_summary`를 가진다. (1:N)
+- 하나의 `operational_period`는 여러 개의 `search_area`, `marker`, `handover_memo`, `search_history_summary`, `op_comparison_analysis`의 입력이 될 수 있다. (1:N)
 
 **주요 컬럼**
 
@@ -637,6 +638,45 @@ Android Room 로컬 엔티티
 **설명**
 
 `search_history_summary`는 OP 또는 근무 구간의 수색 기록을 AI로 요약한 결과다. 판단이나 추천이 아니라 기록을 읽기 쉽게 줄여주는 기능이다. 생성 실패 시 `generation_status = FAILED`로 남기며, 템플릿·규칙 기반 대체 요약 문장은 저장하지 않는다.
+
+#### op_comparison_analysis
+
+**PRD 근거**
+
+- PRD §7.2 FR-11 `수색 차수(OP) 비교`
+- PRD §7.7 FR-32 `OP 단위 수색 히스토리 레이어`
+- PRD §5.1 시나리오 11 `인수인계 / OP 비교 / 수색 이력 요약`
+
+**연관 관계**
+
+- 하나의 `incident`는 여러 개의 `op_comparison_analysis`를 가진다. (1:N)
+- 하나의 `op_comparison_analysis`는 같은 사건의 여러 `operational_period`를 비교 입력으로 가진다. (N:1 배열 참조)
+- 하나의 `account`는 여러 개의 `op_comparison_analysis` 생성을 요청할 수 있다. (1:N)
+
+**주요 컬럼**
+
+- `id`: OP 비교 분석 식별자
+- `incident_id`: 비교 대상 OP들이 속한 사건
+- `operational_period_ids`: 비교 대상 OP ID 배열. request hash 계산 전에 정렬된 순서로 저장한다.
+- `request_hash`: 같은 incident, OP 목록, source data hash 조합의 중복 요청 방지 키
+- `source_data_hash`: 경로·마커·메모 등 비교 원본 데이터 묶음 hash
+- `status`: 결정적 비교 분석 상태. `GENERATING`, `READY`, `FAILED` 중 하나다.
+- `metrics_json`: OP별 결정적 metric 결과
+- `diff_facts_json`: 임계값을 통과한 결정적 차이 fact
+- `common_regions_geojson`: UI highlight용 공통/차이 영역 GeoJSON
+- `narrative_status`: AI 관찰 문장 생성 상태. `SKIPPED`, `GENERATING`, `READY`, `FAILED` 중 하나다.
+- `observations_json`: 검증을 통과한 AI 관찰 문장과 evidence 배열
+- `failure_reason`: provider, schema, guard 실패 사유
+- `requested_by_account_id`: 분석 생성을 요청한 계정
+- `requested_at`: 요청 시각
+- `generated_at`: 결정적 분석 또는 narrative 생성 완료 시각
+- `version`: 분석 상태 변경 버전
+- `created_at`: 생성 시각
+- `updated_at`: 수정 시각
+
+**설명**
+
+`op_comparison_analysis`는 여러 OP의 metric, 차이 fact, 공통 영역, 검증된 관찰 문장을 저장하는 분석 결과다. 차이 계산과 영역 계산은 결정적 코드가 수행하며, AI는 임계값을 통과한 사실을 근거가 달린 관찰 문장으로 옮기는 데만 사용한다. 임계값 미달 또는 provider 실패 시에도 metric과 fact는 유지하고 `narrative_status`만 별도로 표시한다.
 
 ## 2. 운영 엔티티
 
