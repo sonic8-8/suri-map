@@ -998,6 +998,7 @@ private fun SearchMapRoute(
     var topHeaderExpanded by remember { mutableStateOf(false) }
     val debugCurrentLocationFix = remember { debugCurrentLocationFix() }
     var latestLocationFix by remember { mutableStateOf(debugCurrentLocationFix) }
+    var latestGpsLocationFix by remember { mutableStateOf<GpsLocationFix?>(null) }
     val boundaryMonitor = remember(
         sessionContext.incidentId,
         sessionContext.currentOpId,
@@ -1127,7 +1128,8 @@ private fun SearchMapRoute(
         policePhoneContext?.accessToken
     ) {
         clockSyncState.syncClockForIncident(sessionContext.incidentId, policePhoneContext)
-        latestLocationFix = debugCurrentLocationFix ?: locationUpdates.lastKnownFix()
+        latestGpsLocationFix = locationUpdates.lastKnownFix()
+        latestLocationFix = debugCurrentLocationFix ?: latestGpsLocationFix
     }
 
     LaunchedEffect(
@@ -1205,6 +1207,7 @@ private fun SearchMapRoute(
             val handle =
                 locationUpdates.start { fix ->
                     val displayedFix = debugCurrentLocationFix ?: fix
+                    latestGpsLocationFix = fix
                     latestLocationFix = displayedFix
                     if (currentPendingCurrentLocationCenter) {
                         centerMapOnCurrentLocation(displayedFix)
@@ -1351,9 +1354,10 @@ private fun SearchMapRoute(
                 }
             },
             onCreateMarker = {
+                val currentGpsLocation = latestGpsLocationFix ?: locationUpdates.lastKnownFix()
                 markerSheetState =
                     MarkerCreateSheetUiState.default()
-                        .withCurrentLocation(displayedSearchMapState.markerCreationLocation())
+                        .withCurrentLocation(currentGpsLocation.toMarkerLocation())
                 createPhotoUriById = emptyMap()
                 pendingCreateCameraPhotoUri = null
                 markerSheetOpen = true
@@ -2462,6 +2466,9 @@ private fun SearchMapUiState.markerCreationLocation(): MarkerLocation? =
             lat = (bounds.south + bounds.north) / 2.0
         )
     }
+
+private fun GpsLocationFix?.toMarkerLocation(): MarkerLocation? =
+    this?.let { fix -> MarkerLocation(lon = fix.lon, lat = fix.lat) }
 
 private fun MarkerCreateSheetUiState.toMarkerUpsertInput(): MarkerUpsertInput =
     MarkerUpsertInput(

@@ -123,7 +123,7 @@ class MarkerLocalRecorder(
                 localMarkerDao?.findOutboxLocalMirrorStatus(result.outboxId)
                     ?.takeIf(String::isNotBlank)
                     ?: result.harnessStatus.name
-                localMarkerDao?.upsert(
+            localMarkerDao?.upsert(
                 LocalMarkerEntity(
                     localMarkerId = markerId,
                     outboxId = result.outboxId,

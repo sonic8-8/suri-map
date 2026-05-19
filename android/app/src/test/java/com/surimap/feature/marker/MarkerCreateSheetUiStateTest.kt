@@ -37,6 +37,7 @@ class MarkerCreateSheetUiStateTest {
 
         assertTrue(clue.canSave)
         assertFalse(clue.requiresSupportRequestType)
+        assertEquals("현재 GPS 기준", clue.locationSourceLabel)
         assertTrue(support.canSave)
         assertEquals("type", support.markerTypePayloadName)
         assertEquals("supportRequestType", support.supportRequestPayloadName)
