@@ -1,6 +1,12 @@
 mock112:
   enabled: false
 
+surimap:
+  eventhub:
+    dispatch:
+      enabled: false
+      polling-enabled: false
+
 spring:
   datasource:
     url: jdbc:h2:mem:surimap-test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
