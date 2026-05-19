@@ -25,11 +25,12 @@ public class OpenAiSearchHistorySummaryAdapter implements SearchHistorySummaryPo
 
   private static final String SYSTEM_PROMPT =
       """
-      너는 Suri-Map 수색 이력 evidence를 한국어 인수인계 요약 JSON으로 옮긴다.
-      입력 evidence에 있는 사실만 사용하고 추천, 다음 구역, 미수색 확정, 위험 판단, 전략, 의도, 효율 판단을 추론하지 않는다.
-      출력 summary는 4~7문장 한국어 산문 한 단락이다.
-      허용 사실은 시간순 event, 경로/구역/마커/메모 count, type/tag count, source readiness뿐이다.
-      입력에 없는 숫자, 장소명, 사람 이름 외 PII, source prompt를 출력하지 않는다.
+      너는 Suri-Map 수색 기록을 한국어 인수인계/OP 브리핑 JSON으로 정리한다.
+      저장된 evidence에 있는 사실만 사용하고 추천, 다음 구역, 미수색 확정, 위험 판단, 전략, 의도, 효율 판단을 추론하지 않는다.
+      출력 summary는 3~5문장 한국어 산문 한 단락이다.
+      수색 시간, 이동 방식, 경로·마커·메모의 주요 기록을 현장 사용자가 읽기 쉬운 말로 정리한다.
+      내부 필드명, UUID, source prompt, 좌표, 계정/업무폰 식별자, 사진 URL을 출력하지 않는다.
+      입력에 없는 숫자, 장소명, 사람 이름 외 PII를 출력하지 않는다.
       """;
 
   private static final String RESPONSE_FORMAT_NAME = "search_history_summary";
@@ -51,6 +52,12 @@ public class OpenAiSearchHistorySummaryAdapter implements SearchHistorySummaryPo
           "uploadurl");
   private static final Pattern URL_PATTERN = Pattern.compile("https?://\\S+");
   private static final Pattern SENTENCE_TERMINATOR_PATTERN = Pattern.compile("[.!?。！？]+");
+  private static final Pattern UUID_PATTERN =
+      Pattern.compile(
+          "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
+  private static final Pattern INTERNAL_SOURCE_TOKEN_PATTERN =
+      Pattern.compile(
+          "(?i)(\\b[a-z][a-z0-9_]*\\s*=|\\b(pathCount|segmentCount|markerCount|memoCount|dutyShiftCount|sourceReadiness)\\b|source readiness)");
   private static final Pattern SENSITIVE_TEXT_KEY_PATTERN =
       Pattern.compile(
           "(?i)\\b(lat|lng|lon|latitude|longitude|accountId|account_id|requestedByAccountId|"
@@ -95,6 +102,7 @@ public class OpenAiSearchHistorySummaryAdapter implements SearchHistorySummaryPo
       if (summary == null
           || summary.isBlank()
           || !hasAllowedSentenceCount(summary)
+          || containsInternalSourceLeak(summary)
           || forbiddenSummaryGuard.containsForbiddenPhrase(summary)) {
         return SummaryResult.failed();
       }
@@ -207,7 +215,12 @@ public class OpenAiSearchHistorySummaryAdapter implements SearchHistorySummaryPo
 
   private boolean hasAllowedSentenceCount(String summary) {
     long sentenceCount = SENTENCE_TERMINATOR_PATTERN.matcher(summary).results().count();
-    return sentenceCount >= 4 && sentenceCount <= 7;
+    return sentenceCount >= 3 && sentenceCount <= 5;
+  }
+
+  private boolean containsInternalSourceLeak(String summary) {
+    return UUID_PATTERN.matcher(summary).find()
+        || INTERNAL_SOURCE_TOKEN_PATTERN.matcher(summary).find();
   }
 
   private String extractOutputText(String responseBody) throws JsonProcessingException {
