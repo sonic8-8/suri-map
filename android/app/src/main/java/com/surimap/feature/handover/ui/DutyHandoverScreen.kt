@@ -15,6 +15,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SecondaryTabRow
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,8 +26,12 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import java.time.Instant
+import kotlin.math.roundToLong
+import com.surimap.feature.handover.domain.HandoverReplayCameraMode
+import com.surimap.feature.handover.domain.HandoverReplaySpeed
 import com.surimap.ui.components.PoliAppBar
 import com.surimap.ui.components.PoliButton
+import com.surimap.ui.components.PoliButtonSize
 import com.surimap.ui.components.PoliButtonVariant
 import com.surimap.ui.components.PoliCard
 import com.surimap.ui.components.PoliChip
@@ -53,6 +58,7 @@ data class DutyHandoverUiState(
     val records: List<HandoverRecord>,
     val replayPathSegments: List<HandoverReplayPathSegment> = emptyList(),
     val replayMarkers: List<HandoverReplayMarker> = emptyList(),
+    val replayControl: HandoverReplayControlUiState = HandoverReplayControlUiState(),
     val selectedTab: DutyHandoverTab = DutyHandoverTab.Replay,
     val canEndDutyShift: Boolean = false,
     val endingDutyShift: Boolean = false,
@@ -99,6 +105,13 @@ data class DutyHandoverUiState(
             if (selectedTab == DutyHandoverTab.Replay) {
                 addAll(replaySectionTitles)
                 addAll(replayBadges)
+                add("리플레이 컨트롤")
+                add(replayControl.playPauseLabel)
+                add(replayControl.timeRangeLabel)
+                add("속도")
+                HandoverReplaySpeed.entries.forEach { add(it.label) }
+                add("카메라")
+                HandoverReplayCameraMode.entries.forEach { add(it.label) }
                 replayPathSegments.forEach {
                     add(it.label)
                     add(it.timeRangeLabel)
@@ -277,6 +290,45 @@ data class HandoverReplayMarker(
     val photoCountLabel: String
 )
 
+data class HandoverReplayControlUiState(
+    val playing: Boolean = false,
+    val displayPlayheadMs: Long = 0L,
+    val displayDurationMs: Long = 0L,
+    val speed: HandoverReplaySpeed = HandoverReplaySpeed.X1,
+    val cameraMode: HandoverReplayCameraMode = HandoverReplayCameraMode.Overview
+) {
+    val playPauseLabel: String = if (playing) "일시정지" else "재생"
+    val currentTimeLabel: String = formatReplayElapsed(displayPlayheadMs)
+    val durationLabel: String = formatReplayElapsed(displayDurationMs)
+    val timeRangeLabel: String = "$currentTimeLabel / $durationLabel"
+    val sliderPosition: Float =
+        if (displayDurationMs <= 0L) {
+            0f
+        } else {
+            (displayPlayheadMs.toFloat() / displayDurationMs.toFloat()).coerceIn(0f, 1f)
+        }
+
+    fun togglePlaying(): HandoverReplayControlUiState =
+        copy(playing = !playing)
+
+    fun seekTo(displayPlayheadMs: Long): HandoverReplayControlUiState =
+        copy(displayPlayheadMs = displayPlayheadMs.coerceIn(0L, displayDurationMs.coerceAtLeast(0L)))
+
+    fun selectSpeed(speed: HandoverReplaySpeed): HandoverReplayControlUiState =
+        copy(speed = speed)
+
+    fun selectCameraMode(cameraMode: HandoverReplayCameraMode): HandoverReplayControlUiState =
+        copy(cameraMode = cameraMode)
+
+    fun withDuration(displayDurationMs: Long): HandoverReplayControlUiState {
+        val duration = displayDurationMs.coerceAtLeast(0L)
+        return copy(
+            displayDurationMs = duration,
+            displayPlayheadMs = this.displayPlayheadMs.coerceIn(0L, duration)
+        )
+    }
+}
+
 private val HandoverReplaySections =
     listOf("경로 미리보기", "마커", "타임라인")
 
@@ -316,6 +368,10 @@ fun DutyHandoverScreen(
     onOpenSearch: () -> Unit,
     onSelectTab: (DutyHandoverTab) -> Unit = {},
     onEndDutyShift: () -> Unit = {},
+    onReplayPlayPause: () -> Unit = {},
+    onReplaySeek: (Long) -> Unit = {},
+    onReplaySpeedSelect: (HandoverReplaySpeed) -> Unit = {},
+    onReplayCameraModeSelect: (HandoverReplayCameraMode) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxSize().safeDrawingPadding()) {
@@ -330,7 +386,14 @@ fun DutyHandoverScreen(
             verticalArrangement = Arrangement.spacedBy(PoliDimens.Space4)
         ) {
             when (state.selectedTab) {
-                DutyHandoverTab.Replay -> ReplayTab(state)
+                DutyHandoverTab.Replay ->
+                    ReplayTab(
+                        state = state,
+                        onReplayPlayPause = onReplayPlayPause,
+                        onReplaySeek = onReplaySeek,
+                        onReplaySpeedSelect = onReplaySpeedSelect,
+                        onReplayCameraModeSelect = onReplayCameraModeSelect
+                    )
                 DutyHandoverTab.Report -> ReportTab(state)
             }
         }
@@ -383,8 +446,21 @@ private fun DutyHandoverTabRow(
 }
 
 @Composable
-private fun ReplayTab(state: DutyHandoverUiState) {
+private fun ReplayTab(
+    state: DutyHandoverUiState,
+    onReplayPlayPause: () -> Unit,
+    onReplaySeek: (Long) -> Unit,
+    onReplaySpeedSelect: (HandoverReplaySpeed) -> Unit,
+    onReplayCameraModeSelect: (HandoverReplayCameraMode) -> Unit
+) {
     ReplayPathPreviewCard(state)
+    ReplayControlCard(
+        control = state.replayControl,
+        onPlayPause = onReplayPlayPause,
+        onSeek = onReplaySeek,
+        onSpeedSelect = onReplaySpeedSelect,
+        onCameraModeSelect = onReplayCameraModeSelect
+    )
     ReplayMarkerCard(markers = state.replayMarkers)
     RecordCard(title = "타임라인", records = state.records)
 }
@@ -460,6 +536,93 @@ private fun StaticRoutePreview(hasPath: Boolean, markerCount: Int) {
             drawCircle(PoliBgInput, radius = 4.dp.toPx(), center = position)
         }
     }
+}
+
+@Composable
+private fun ReplayControlCard(
+    control: HandoverReplayControlUiState,
+    onPlayPause: () -> Unit,
+    onSeek: (Long) -> Unit,
+    onSpeedSelect: (HandoverReplaySpeed) -> Unit,
+    onCameraModeSelect: (HandoverReplayCameraMode) -> Unit
+) {
+    ReportSectionCard(title = "리플레이 컨트롤") {
+        Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
+            PoliButton(
+                text = control.playPauseLabel,
+                onClick = onPlayPause,
+                enabled = control.displayDurationMs > 0L,
+                size = PoliButtonSize.Small,
+                modifier = Modifier.weight(0.8f)
+            )
+            PoliField(
+                label = "시간",
+                value = control.timeRangeLabel,
+                modifier = Modifier.weight(1.2f)
+            )
+        }
+        Slider(
+            value = control.sliderPosition,
+            onValueChange = { position ->
+                onSeek((position * control.displayDurationMs).roundToLong())
+            },
+            enabled = control.displayDurationMs > 0L
+        )
+        ReplaySpeedControls(selectedSpeed = control.speed, onSpeedSelect = onSpeedSelect)
+        ReplayCameraControls(selectedMode = control.cameraMode, onCameraModeSelect = onCameraModeSelect)
+    }
+}
+
+@Composable
+private fun ReplaySpeedControls(
+    selectedSpeed: HandoverReplaySpeed,
+    onSpeedSelect: (HandoverReplaySpeed) -> Unit
+) {
+    Text(text = "속도", style = MaterialTheme.typography.labelLarge, color = PoliFgMuted)
+    Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
+        HandoverReplaySpeed.entries.forEach { speed ->
+            ReplayOptionButton(
+                text = speed.label,
+                selected = speed == selectedSpeed,
+                onClick = { onSpeedSelect(speed) },
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun ReplayCameraControls(
+    selectedMode: HandoverReplayCameraMode,
+    onCameraModeSelect: (HandoverReplayCameraMode) -> Unit
+) {
+    Text(text = "카메라", style = MaterialTheme.typography.labelLarge, color = PoliFgMuted)
+    Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
+        HandoverReplayCameraMode.entries.forEach { mode ->
+            ReplayOptionButton(
+                text = mode.label,
+                selected = mode == selectedMode,
+                onClick = { onCameraModeSelect(mode) },
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun ReplayOptionButton(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    PoliButton(
+        text = text,
+        onClick = onClick,
+        modifier = modifier,
+        size = PoliButtonSize.Small,
+        variant = if (selected) PoliButtonVariant.Primary else PoliButtonVariant.Secondary
+    )
 }
 
 @Composable
@@ -630,6 +793,36 @@ private val SearchHistorySummaryStatus.emptyCopy: String
             SearchHistorySummaryStatus.Unavailable -> "요약을 불러오지 못했습니다. 원본 경로·마커·메모는 계속 확인할 수 있습니다."
             SearchHistorySummaryStatus.Empty -> "이전 기록 없음"
         }
+
+private val HandoverReplaySpeed.label: String
+    get() =
+        when (this) {
+            HandoverReplaySpeed.X1 -> "1x"
+            HandoverReplaySpeed.X4 -> "4x"
+            HandoverReplaySpeed.X16 -> "16x"
+            HandoverReplaySpeed.X60 -> "60x"
+        }
+
+private val HandoverReplayCameraMode.label: String
+    get() =
+        when (this) {
+            HandoverReplayCameraMode.Overview -> "전체"
+            HandoverReplayCameraMode.FollowPlayhead -> "추적"
+            HandoverReplayCameraMode.Free -> "자유"
+        }
+
+private fun formatReplayElapsed(milliseconds: Long): String {
+    val seconds = milliseconds.coerceAtLeast(0L) / 1_000L
+    val minutes = seconds / 60L
+    val remainingSeconds = seconds % 60L
+    val hours = minutes / 60L
+    val remainingMinutes = minutes % 60L
+    return if (hours > 0L) {
+        "%d:%02d:%02d".format(hours, remainingMinutes, remainingSeconds)
+    } else {
+        "%02d:%02d".format(remainingMinutes, remainingSeconds)
+    }
+}
 
 fun sampleDutyHandoverState(): DutyHandoverUiState = DutyHandoverUiState.ready()
 
