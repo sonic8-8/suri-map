@@ -168,6 +168,7 @@ export function HandoverPage({
   const [selectedMemoTargetKey, setSelectedMemoTargetKey] = useState('');
   const [comparisonAnalysis, setComparisonAnalysis] = useState<OpComparisonResponse | null>(null);
   const [selectedComparisonRegionFactId, setSelectedComparisonRegionFactId] = useState<string | null>(null);
+  const [selectedSourceRecordKey, setSelectedSourceRecordKey] = useState<string | null>(null);
   const [searchHistoryDetailTab, setSearchHistoryDetailTab] = useState<SearchHistoryDetailTab>('summary');
   const [isLoadingOps, setIsLoadingOps] = useState(false);
   const [isLoadingMemos, setIsLoadingMemos] = useState(false);
@@ -327,9 +328,10 @@ export function HandoverPage({
     [board, selectedOp, selectedOpMemos.length],
   );
   const sourceRecords = useMemo(
-    () => createSourceRecords(board, focusedOpEvidenceIds, selectedOpMemos, memoTargetOptions),
-    [board, focusedOpEvidenceIds, memoTargetOptions, selectedOpMemos],
+    () => createSourceRecords(board, selectedOp, focusedOpEvidenceIds, dutyShifts, selectedOpMemos, memoTargetOptions),
+    [board, dutyShifts, focusedOpEvidenceIds, memoTargetOptions, selectedOp, selectedOpMemos],
   );
+  const sourceRecordButtons = useMemo(() => sourceRecords.slice(0, 6), [sourceRecords]);
   const rightPanelTitle = isSearchHistoryView
     ? `${handoverStatus.currentOpLabel} 수색 이력`
     : `${handoverStatus.currentOpLabel} 인수인계`;
@@ -357,8 +359,9 @@ export function HandoverPage({
       focusedOpId: activeFocusedOpId,
       rightPanelWidthPx: floatingRightPanelWidthPx,
       selectedOpIds: effectiveSelectedOpIds,
+      highlightedSourceRecordKey: selectedSourceRecordKey,
     }),
-    [activeFocusedOpId, board, effectiveSelectedOpIds, floatingRightPanelWidthPx, incidentId],
+    [activeFocusedOpId, board, effectiveSelectedOpIds, floatingRightPanelWidthPx, incidentId, selectedSourceRecordKey],
   );
   const currentAccountLabel = currentUserAccount.name;
   const timestampLabel = board?.serverTs ? formatKstDateTime(new Date(board.serverTs)) : '동기화 전';
@@ -414,6 +417,7 @@ export function HandoverPage({
     setSearchHistoryDetailTab('summary');
     setComparisonAnalysis(null);
     setSelectedComparisonRegionFactId(null);
+    setSelectedSourceRecordKey(null);
     setIsLocalMapExpanded(false);
     setOpErrorMessage('');
     setMemoErrorMessage('');
@@ -428,6 +432,16 @@ export function HandoverPage({
     setSelectedComparisonRegionFactId(null);
     setComparisonErrorMessage('');
   }, [comparisonSelectionKey, incidentId]);
+
+  useEffect(() => {
+    setSelectedSourceRecordKey(null);
+  }, [activeFocusedOpId, incidentId]);
+
+  useEffect(() => {
+    if (!selectedSourceRecordKey) return;
+    if (sourceRecords.some((record) => record.key === selectedSourceRecordKey)) return;
+    setSelectedSourceRecordKey(null);
+  }, [selectedSourceRecordKey, sourceRecords]);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => setNow(new Date()), 30_000);
@@ -788,6 +802,7 @@ export function HandoverPage({
                 focusedOpId={activeFocusedOpId}
                 selectedOpIds={effectiveSelectedOpIds}
                 comparisonHighlightGeometryGeojson={comparisonHighlightGeometryGeojson}
+                highlightedSourceRecordKey={selectedSourceRecordKey}
                 onToggleMapExpanded={handleToggleMapExpanded}
               />
             </div>
@@ -889,7 +904,30 @@ export function HandoverPage({
                         ) : isLoadingSummary ? (
                           <div className={styles.emptyState}>OP 요약을 불러오는 중입니다.</div>
                         ) : searchHistorySummary?.summaryText && searchHistorySummary.isFinal ? (
-                          <p className={styles.summaryText}>{searchHistorySummary.summaryText}</p>
+                          <>
+                            <p className={styles.summaryText}>{searchHistorySummary.summaryText}</p>
+                            {sourceRecordButtons.length > 0 ? (
+                              <div className={styles.originalEvidenceButtons} aria-label="OP 요약 원본 근거">
+                                {sourceRecordButtons.map((record) => (
+                                  <button
+                                    key={record.key}
+                                    type="button"
+                                    className={
+                                      selectedSourceRecordKey === record.key
+                                        ? styles.originalEvidenceButtonActive
+                                        : undefined
+                                    }
+                                    aria-label={`${record.label} 원본 강조`}
+                                    aria-pressed={selectedSourceRecordKey === record.key}
+                                    onClick={() => setSelectedSourceRecordKey(record.key)}
+                                  >
+                                    <span>{record.label}</span>
+                                    <small>{record.meta}</small>
+                                  </button>
+                                ))}
+                              </div>
+                            ) : null}
+                          </>
                         ) : searchHistorySummary?.summaryText ? (
                           <>
                             <p className={styles.summaryText}>{searchHistorySummary.summaryText}</p>
@@ -927,10 +965,22 @@ export function HandoverPage({
                         ) : (
                           <ol className={styles.sourceList}>
                             {sourceRecords.slice(0, 8).map((record) => (
-                              <li key={record.key}>
-                                <strong>{record.label}</strong>
-                                <span>{record.meta}</span>
-                                <p>{record.detail}</p>
+                              <li
+                                key={record.key}
+                                className={
+                                  selectedSourceRecordKey === record.key ? styles.sourceListItemActive : undefined
+                                }
+                              >
+                                <button
+                                  type="button"
+                                  aria-label={`${record.label} 원본 기록 열기`}
+                                  aria-pressed={selectedSourceRecordKey === record.key}
+                                  onClick={() => setSelectedSourceRecordKey(record.key)}
+                                >
+                                  <strong>{record.label}</strong>
+                                  <span>{record.meta}</span>
+                                  <p>{record.detail}</p>
+                                </button>
                               </li>
                             ))}
                           </ol>
@@ -1101,11 +1151,33 @@ function createHandoverStatusView(
 
 function createSourceRecords(
   board: IncidentBoardResponse | null,
+  selectedOp: OperationalPeriodListItem | null,
   selectedOpIds: string[],
+  dutyShifts: DutyShiftResponse[],
   memos: HandoverMemoListItem[],
   memoTargetOptions: HandoverMemoTargetOption[],
 ): SourceRecordView[] {
   const records: SourceRecordView[] = [];
+
+  if (selectedOp) {
+    const openedAt = formatKstDateTime(new Date(selectedOp.openedAt));
+    const endedAt = selectedOp.endedAt ? formatKstDateTime(new Date(selectedOp.endedAt)) : '진행 중';
+    records.push({
+      key: `op:${selectedOp.id}`,
+      label: formatOperationalPeriodLabel(selectedOp),
+      meta: formatStatusLabel(selectedOp.status),
+      detail: `${formatReasonLabel(selectedOp.reason)} / ${openedAt} - ${endedAt}`,
+    });
+  }
+
+  dutyShifts.forEach((shift) => {
+    records.push({
+      key: `duty-shift:${shift.id}`,
+      label: '근무 구간',
+      meta: formatStatusLabel(shift.status),
+      detail: `폴리폰 ${shortId(shift.policePhoneId)} / ${shortId(shift.id)}`,
+    });
+  });
 
   if (board) {
     filterRowsBySelectedOps(readSlotRows(board, 'op_history'), selectedOpIds).forEach((row) => {

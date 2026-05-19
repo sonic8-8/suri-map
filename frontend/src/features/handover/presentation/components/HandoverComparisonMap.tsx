@@ -1,9 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, type CSSProperties, type MutableRefObject } from 'react';
-import maplibregl, {
-  type GeoJSONSource,
-  type LayerSpecification,
-  type LngLatBoundsLike,
-} from 'maplibre-gl';
+import maplibregl, { type GeoJSONSource, type LayerSpecification, type LngLatBoundsLike } from 'maplibre-gl';
 
 import { getVWorldApiKey } from '../../../../shared/config';
 import { MapControls } from '../../../../shared/ui';
@@ -37,6 +33,7 @@ export type HandoverComparisonMapProps = {
   focusedOpId: string | null;
   selectedOpIds: string[];
   comparisonHighlightGeometryGeojson?: string | null;
+  highlightedSourceRecordKey?: string | null;
   onToggleMapExpanded?: () => void;
 };
 
@@ -69,6 +66,7 @@ const PATH_GLOW_LAYER_ID = 'handover-comparison-path-glow';
 const PATH_LINE_LAYER_ID = 'handover-comparison-path-line';
 const REGION_HIGHLIGHT_FILL_LAYER_ID = 'handover-comparison-region-highlight-fill';
 const REGION_HIGHLIGHT_LINE_LAYER_ID = 'handover-comparison-region-highlight-line';
+const SOURCE_HIGHLIGHT_POINT_LAYER_ID = 'handover-comparison-source-highlight-point';
 
 export function HandoverComparisonMap({
   baseMapMode = 'standalone',
@@ -81,6 +79,7 @@ export function HandoverComparisonMap({
   focusedOpId,
   selectedOpIds,
   comparisonHighlightGeometryGeojson = null,
+  highlightedSourceRecordKey = null,
   onToggleMapExpanded = () => {},
 }: HandoverComparisonMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -105,8 +104,16 @@ export function HandoverComparisonMap({
     [board, focusedOpId, incidentId, selectedOpIds],
   );
   const comparisonHighlightFeatures = useMemo(
-    () => createComparisonHighlightFeatureCollection(comparisonHighlightGeometryGeojson),
-    [comparisonHighlightGeometryGeojson],
+    () =>
+      combineFeatureCollections(
+        createComparisonHighlightFeatureCollection(comparisonHighlightGeometryGeojson),
+        createSourceRecordHighlightFeatureCollection(
+          highlightedSourceRecordKey,
+          visibleOverallAreaFeatures,
+          featureCollections,
+        ),
+      ),
+    [comparisonHighlightGeometryGeojson, featureCollections, highlightedSourceRecordKey, visibleOverallAreaFeatures],
   );
   const boardMarkers = useMemo(() => createComparisonBoardMarkers(board, selectedOpIds), [board, selectedOpIds]);
   const visibleMarkerIds = useMemo(() => boardMarkers.map((marker) => marker.id), [boardMarkers]);
@@ -519,6 +526,21 @@ function addComparisonLayers(map: maplibregl.Map) {
       'line-opacity': 0.96,
     },
   });
+
+  addLayer(map, {
+    id: SOURCE_HIGHLIGHT_POINT_LAYER_ID,
+    type: 'circle',
+    source: REGION_HIGHLIGHT_SOURCE_ID,
+    filter: ['==', ['geometry-type'], 'Point'],
+    paint: {
+      'circle-color': '#facc15',
+      'circle-opacity': 0.32,
+      'circle-radius': 14,
+      'circle-stroke-color': '#f59e0b',
+      'circle-stroke-width': 3,
+      'circle-stroke-opacity': 0.98,
+    },
+  } as LayerSpecification);
 }
 
 function addCompletedAreaHatchPattern(map: maplibregl.Map) {
@@ -564,10 +586,7 @@ function addLayer(map: maplibregl.Map, layer: LayerSpecification) {
   map.addLayer(layer);
 }
 
-function syncComparisonSources(
-  map: maplibregl.Map,
-  collections: ComparisonFeatureCollections,
-) {
+function syncComparisonSources(map: maplibregl.Map, collections: ComparisonFeatureCollections) {
   setGeoJsonSourceData(map, AREA_SOURCE_ID, collections.areas);
   setGeoJsonSourceData(map, PATH_SOURCE_ID, collections.paths);
   setGeoJsonSourceData(map, MARKER_SOURCE_ID, collections.markers);
@@ -590,6 +609,44 @@ function createComparisonHighlightFeatureCollection(geometryGeojson: string | nu
         geometry,
       },
     ],
+  };
+}
+
+function createSourceRecordHighlightFeatureCollection(
+  sourceRecordKey: string | null,
+  overallAreaFeatures: ComparisonFeatureCollection,
+  collections: ComparisonFeatureCollections,
+): ComparisonFeatureCollection {
+  if (!sourceRecordKey) return emptyFeatureCollection();
+
+  const [sourceKind, ...sourceIdParts] = sourceRecordKey.split(':');
+  const sourceId = sourceIdParts.join(':');
+  if (!sourceKind || !sourceId) return emptyFeatureCollection();
+
+  const sourceCollections =
+    sourceKind === 'area'
+      ? [overallAreaFeatures, collections.areas]
+      : sourceKind === 'path'
+        ? [collections.paths]
+        : sourceKind === 'marker'
+          ? [collections.markers]
+          : [];
+  if (sourceCollections.length === 0) return emptyFeatureCollection();
+
+  return {
+    type: 'FeatureCollection',
+    features: sourceCollections.flatMap((collection) =>
+      collection.features
+        .filter((feature) => String(feature.properties.entityId ?? '') === sourceId)
+        .map((feature) => ({
+          ...feature,
+          properties: {
+            ...feature.properties,
+            kind: 'sourceRecordHighlight',
+            highlightedSourceRecordKey: sourceRecordKey,
+          },
+        })),
+    ),
   };
 }
 
