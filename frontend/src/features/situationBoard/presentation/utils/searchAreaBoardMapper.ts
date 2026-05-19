@@ -272,6 +272,7 @@ function readAssignedAccounts(row: Record<string, unknown>): SearchAreaAssignedA
 function toSearchAreaDraft(row: BoardSearchAreaRow): CompletedAreaDraft {
   return {
     areaId: row.id,
+    opId: row.opId,
     kind: row.areaLevel === 'OVERALL' ? 'overall' : row.areaLevel === 'TEAM' ? 'team' : 'unit',
     colorToken: getAreaColorToken(row.id),
     label: row.name,

@@ -14,13 +14,17 @@ import {
   type SearchAreaAssignedAccount,
   type SituationBoardFallbackData,
 } from '../constants/mockSituationBoard';
-import { mergeSearchAreaDrafts } from '../utils/boardApiMappers';
 import { toBoardRecentMarkers } from '../utils/markerBoardMapper';
 import {
   assignRouteColorsToMovementPaths,
   createLegendItems,
   toMovementPaths,
 } from '../utils/movementPathBoardMapper';
+import {
+  filterSituationBoardMarkersForMap,
+  filterSituationBoardMovementPathsForMap,
+  filterSituationBoardSearchAreaRowsForMap,
+} from '../utils/opScopedMapRendering';
 import { toOperationalPeriods } from '../utils/operationalPeriodBoardMapper';
 import {
   buildFallbackSearchAreaTree,
@@ -138,29 +142,43 @@ export function useSituationBoardData(
 
   const board = useMemo<SituationBoardFallbackData>(() => {
     const apiSearchAreaRows = apiBoard ? toSearchAreaRows(apiBoard) : [];
-    const apiSearchAreaDrafts = toSearchAreaDrafts(apiSearchAreaRows);
+    const apiOperationalPeriods = apiBoard ? toOperationalPeriods(apiBoard, fallbackBoard.operationalPeriods) : [];
+    const activeOperationalPeriodId =
+      apiOperationalPeriods.find((operationalPeriod) => operationalPeriod.state === 'current')?.id ??
+      fallbackBoard.operationalPeriods.find((operationalPeriod) => operationalPeriod.state === 'current')?.id ??
+      null;
+    const mapSearchAreaRows =
+      apiBoard !== null
+        ? filterSituationBoardSearchAreaRowsForMap(apiSearchAreaRows, activeOperationalPeriodId)
+        : apiSearchAreaRows;
+    const apiSearchAreaDrafts = toSearchAreaDrafts(mapSearchAreaRows);
     const apiAssignmentsByAreaId = apiBoard
       ? toAssignmentsByAreaId(apiBoard)
       : new Map<string, SearchAreaAssignedAccount[]>();
-    const apiOperationalPeriods = apiBoard ? toOperationalPeriods(apiBoard, fallbackBoard.operationalPeriods) : [];
     const apiRecentMarkers = apiBoard ? toBoardRecentMarkers(apiBoard) : [];
     const apiMovementPaths = apiBoard ? toMovementPaths(apiBoard) : [];
     const searchAreaDrafts =
       apiBoard !== null
-        ? mergeSearchAreaDrafts(apiSearchAreaDrafts, savedAreaDrafts)
+        ? apiSearchAreaDrafts
         : savedAreaDrafts.length > 0
           ? savedAreaDrafts
           : fallbackBoard.searchAreaDrafts;
 
     const searchAreaTree =
-      apiSearchAreaRows.length > 0
-        ? buildSearchAreaTree(fallbackBoard.searchAreaTree, apiSearchAreaRows, searchAreaDrafts)
+      mapSearchAreaRows.length > 0
+        ? buildSearchAreaTree(fallbackBoard.searchAreaTree, mapSearchAreaRows, searchAreaDrafts)
         : buildFallbackSearchAreaTree(fallbackBoard.searchAreaTree, searchAreaDrafts, apiAssignmentsByAreaId);
     const movementPaths = assignRouteColorsToMovementPaths(
-      apiMovementPaths.length > 0 ? apiMovementPaths : fallbackBoard.movementPaths,
+      apiMovementPaths.length > 0
+        ? filterSituationBoardMovementPathsForMap(apiMovementPaths, activeOperationalPeriodId)
+        : fallbackBoard.movementPaths,
       searchAreaTree,
       searchAreaDrafts,
     );
+    const recentMarkers =
+      apiBoard !== null
+        ? filterSituationBoardMarkersForMap(apiRecentMarkers, apiBoard, activeOperationalPeriodId)
+        : apiRecentMarkers;
 
     return {
       ...fallbackBoard,
@@ -168,7 +186,7 @@ export function useSituationBoardData(
       searchAreaTree,
       searchAreaDrafts,
       movementPaths,
-      recentMarkers: apiRecentMarkers,
+      recentMarkers,
       legendItems: createLegendItems(fallbackBoard.legendItems),
     };
   }, [apiBoard, fallbackBoard, savedAreaDrafts]);

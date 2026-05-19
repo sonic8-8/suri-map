@@ -5,25 +5,30 @@ import type { InitialMapState } from '../components/map/SearchMapCanvas';
 
 type UseBoardWorkspaceModeParams = {
   isAreaWorkspaceRoute?: boolean;
+  isHandoverWorkspaceRoute?: boolean;
   onCloseAreaWorkspaceRoute?: () => void;
+  onCloseHandoverWorkspaceRoute?: () => void;
   onOpenAreaWorkspaceRoute?: () => void;
 };
 
 export function useBoardWorkspaceMode({
   isAreaWorkspaceRoute = false,
+  isHandoverWorkspaceRoute = false,
   onCloseAreaWorkspaceRoute,
+  onCloseHandoverWorkspaceRoute,
   onOpenAreaWorkspaceRoute,
 }: UseBoardWorkspaceModeParams = {}) {
   const [isMapExpanded, setIsMapExpanded] = useState(false);
   const [initialMapState, setInitialMapState] = useState<InitialMapState | null>(null);
   const [selectedSearchAreaId, setSelectedSearchAreaId] = useState<string | null>(null);
   const [isAreaWorkspaceOpenState, setIsAreaWorkspaceOpen] = useState(false);
-  const [isHandoverWorkspaceOpen, setIsHandoverWorkspaceOpen] = useState(false);
+  const [isHandoverWorkspaceOpenState, setIsHandoverWorkspaceOpen] = useState(false);
   const [areaEditMapProps, setAreaEditMapProps] = useState<AreaEditMapCanvasProps | null>(null);
   const [handoverMapProps, setHandoverMapProps] = useState<HandoverComparisonMapSharedProps | null>(null);
 
   const hasActiveOverallSearchArea = initialMapState === null || initialMapState === 'overall-ready';
   const isAreaWorkspaceOpen = isAreaWorkspaceRoute || isAreaWorkspaceOpenState;
+  const isHandoverWorkspaceOpen = isHandoverWorkspaceRoute || isHandoverWorkspaceOpenState;
 
   const selectSearchArea = (searchAreaId: string) => {
     if (!hasActiveOverallSearchArea) {
@@ -78,8 +83,13 @@ export function useBoardWorkspaceMode({
   };
 
   const closeHandoverWorkspace = () => {
-    setIsHandoverWorkspaceOpen(false);
     setHandoverMapProps(null);
+    if (onCloseHandoverWorkspaceRoute) {
+      onCloseHandoverWorkspaceRoute();
+      return;
+    }
+
+    setIsHandoverWorkspaceOpen(false);
   };
 
   return {

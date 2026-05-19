@@ -4,7 +4,6 @@ import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 're
 import { completeKeycloakLogin, logoutCurrentSession, readStoredLoginAccount } from '../features/login/data/login';
 import { LoginPage } from '../features/login/presentation/pages/LoginPage';
 import type { LoginAccount } from '../features/login/presentation/types/login';
-import { HandoverPage } from '../features/handover/presentation/pages/HandoverPage';
 import { useIncidentMarkerNotifications } from '../features/markerNotifications/presentation/hooks/useIncidentMarkerNotifications';
 import { OfflinePackageStatusPage } from '../features/offlinePackage/presentation/pages/OfflinePackageStatusPage';
 import { SituationBoardPage } from '../features/situationBoard/presentation/pages/SituationBoardPage';
@@ -162,7 +161,7 @@ function readLoginErrorMessage(state: unknown) {
 
 type SituationBoardRouteProps = {
   currentUserAccount: LoginAccount;
-  workspace?: 'board' | 'area';
+  workspace?: 'board' | 'area' | 'handover';
   markerNotificationIndex: number;
   markerNotifications: MarkerNotification[];
   onCloseMarkerNotifications: () => void;
@@ -207,11 +206,13 @@ function SituationBoardRoute({
       incidentId={incidentId}
       currentUserAccount={currentUserAccount}
       isAreaWorkspaceRoute={workspace === 'area'}
+      isHandoverWorkspaceRoute={workspace === 'handover'}
       markerNotificationIndex={markerNotificationIndex}
       markerNotifications={markerNotifications}
       onCloseMarkerNotifications={onCloseMarkerNotifications}
       onMoveMarkerNotification={onMoveMarkerNotification}
       onCloseAreaWorkspaceRoute={() => navigate(getIncidentBoardPath(incidentId))}
+      onCloseHandoverWorkspaceRoute={() => navigate(getIncidentBoardPath(incidentId))}
       onOpenAreaWorkspaceRoute={() => navigate(getAreaEditPath(incidentId))}
       onOpenIncidentDetail={() => navigate(getIncidentDetailPath(incidentId))}
       onOpenOfflinePackage={() => navigate(getIncidentOfflinePackagePath(incidentId))}
@@ -221,61 +222,6 @@ function SituationBoardRoute({
       refreshVersion={refreshVersion}
       onOpenIncidentList={() => navigate(ROUTES.incidentList)}
       onBrowserBackToIncidentList={openIncidentListFromHistory}
-    />
-  );
-}
-
-type HandoverRouteProps = {
-  currentUserAccount: LoginAccount;
-  markerNotificationIndex: number;
-  markerNotifications: MarkerNotification[];
-  onCloseMarkerNotifications: () => void;
-  onMarkerNotification: (notification: MarkerNotification) => void;
-  onMoveMarkerNotification: (nextIndex: number) => void;
-  onOperationalPeriodCreated: (incidentId: string) => void;
-  onOpenOfflinePackage: (incidentId: string) => void;
-  onOpenLogin: () => void;
-};
-
-function HandoverRoute({
-  currentUserAccount,
-  markerNotificationIndex,
-  markerNotifications,
-  onCloseMarkerNotifications,
-  onMarkerNotification,
-  onMoveMarkerNotification,
-  onOperationalPeriodCreated,
-  onOpenOfflinePackage,
-  onOpenLogin,
-}: HandoverRouteProps) {
-  const incidentId = useRouteIncidentId();
-  const navigate = useNavigate();
-  const openIncidentListFromHistory = useCallback(
-    () => navigate(ROUTES.incidentList, { replace: true }),
-    [navigate],
-  );
-
-  useIncidentMarkerNotifications({
-    incidentId,
-    enabled: true,
-    onNotification: onMarkerNotification,
-  });
-
-  return (
-    <HandoverPage
-      incidentId={incidentId}
-      currentUserAccount={currentUserAccount}
-      markerNotificationIndex={markerNotificationIndex}
-      markerNotifications={markerNotifications}
-      onCloseMarkerNotifications={onCloseMarkerNotifications}
-      onMoveMarkerNotification={onMoveMarkerNotification}
-      onOpenIncidentList={() => navigate(ROUTES.incidentList)}
-      onBrowserBackToIncidentList={openIncidentListFromHistory}
-      onOpenIncidentDetail={() => navigate(getIncidentDetailPath(incidentId))}
-      onOpenSituationBoard={() => navigate(getIncidentBoardPath(incidentId))}
-      onOpenOfflinePackage={() => onOpenOfflinePackage(incidentId)}
-      onOpenLogin={onOpenLogin}
-      onOperationalPeriodCreated={() => onOperationalPeriodCreated(incidentId)}
     />
   );
 }
@@ -438,7 +384,7 @@ export function App() {
   const [savedAreaDraftsByIncidentId, setSavedAreaDraftsByIncidentId] = useState<Record<string, CompletedAreaDraft[]>>(
     {},
   );
-  const [opRefreshVersionByIncidentId, setOpRefreshVersionByIncidentId] = useState<Record<string, number>>({});
+  const opRefreshVersionByIncidentId: Record<string, number> = {};
   const [markerNotifications, setMarkerNotifications] = useState<MarkerNotification[]>([]);
   const [markerNotificationIndex, setMarkerNotificationIndex] = useState(0);
   const loginRedirectPath = readLoginRedirectPath(location.state);
@@ -505,13 +451,6 @@ export function App() {
     setSavedAreaDraftsByIncidentId((currentDraftsByIncidentId) => ({
       ...currentDraftsByIncidentId,
       [incidentId]: drafts,
-    }));
-  };
-
-  const refreshOperationalPeriodViews = (incidentId: string) => {
-    setOpRefreshVersionByIncidentId((currentVersionsByIncidentId) => ({
-      ...currentVersionsByIncidentId,
-      [incidentId]: (currentVersionsByIncidentId[incidentId] ?? 0) + 1,
     }));
   };
 
@@ -621,15 +560,17 @@ export function App() {
         path={ROUTES.incidentHandover}
         element={
           currentUserAccount ? (
-            <HandoverRoute
+            <SituationBoardRoute
               currentUserAccount={currentUserAccount}
+              workspace="handover"
               markerNotificationIndex={markerNotificationIndex}
               markerNotifications={markerNotifications}
               onCloseMarkerNotifications={closeMarkerNotifications}
               onMarkerNotification={addMarkerNotification}
               onMoveMarkerNotification={moveMarkerNotification}
-              onOpenOfflinePackage={(nextIncidentId) => navigate(getIncidentOfflinePackagePath(nextIncidentId))}
-              onOperationalPeriodCreated={refreshOperationalPeriodViews}
+              onSaveAssignedAreas={saveAssignedAreas}
+              savedAreaDraftsByIncidentId={savedAreaDraftsByIncidentId}
+              opRefreshVersionByIncidentId={opRefreshVersionByIncidentId}
               onOpenLogin={openLogin}
             />
           ) : (

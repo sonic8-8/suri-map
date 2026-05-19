@@ -6,6 +6,7 @@ export type AreaBbox = [minLon: number, minLat: number, maxLon: number, maxLat: 
 
 export type CompletedAreaDraft = {
   areaId: string;
+  opId?: string | null;
   kind: AreaNodeKind;
   colorToken: AreaColorToken;
   label: string;

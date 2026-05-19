@@ -706,7 +706,7 @@ export function HandoverPage({
                 incidentId={incidentId}
                 board={board}
                 isMapExpanded={isMapExpanded}
-                rightPanelWidthPx={floatingRightPanelWidthPx}
+                rightPanelWidthPx={isMapExpanded ? floatingRightPanelWidthPx : undefined}
                 focusedOpId={activeFocusedOpId}
                 selectedOpIds={effectiveSelectedOpIds}
                 comparisonHighlightGeometryGeojson={comparisonHighlightGeometryGeojson}
@@ -868,4 +868,3 @@ export function HandoverPage({
     </main>
   );
 }
-

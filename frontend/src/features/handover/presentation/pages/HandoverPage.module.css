@@ -1075,6 +1075,8 @@
 }
 
 .mapViewport {
+  --suri-map-floating-right: 24px;
+
   position: relative;
   min-width: 0;
   min-height: 0;

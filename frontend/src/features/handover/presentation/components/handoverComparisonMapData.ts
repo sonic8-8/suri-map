@@ -266,12 +266,14 @@ function isPosition(value: unknown): value is Position {
 }
 
 function rowBelongsToSelectedOp(row: Record<string, unknown>, selectedOpIdSet: Set<string>) {
+  if (selectedOpIdSet.size === 0) return false;
   const opId = readRowOpId(row);
-  return opId === null || selectedOpIdSet.has(opId);
+  return opId !== null && selectedOpIdSet.has(opId);
 }
 
 function rowBelongsToSelectedOpId(opId: string, selectedOpIdSet: Set<string>) {
-  return opId === '' || selectedOpIdSet.has(opId);
+  if (selectedOpIdSet.size === 0) return false;
+  return opId !== '' && selectedOpIdSet.has(opId);
 }
 
 function readRowOpId(row: Record<string, unknown>) {

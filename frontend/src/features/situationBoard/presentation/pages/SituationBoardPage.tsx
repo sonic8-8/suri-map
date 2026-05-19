@@ -25,11 +25,13 @@ type SituationBoardPageProps = {
   incidentId: string;
   currentUserAccount: LoginAccount;
   isAreaWorkspaceRoute?: boolean;
+  isHandoverWorkspaceRoute?: boolean;
   markerNotificationIndex: number;
   markerNotifications: MarkerNotification[];
   onCloseMarkerNotifications: () => void;
   onMoveMarkerNotification: (nextIndex: number) => void;
   onCloseAreaWorkspaceRoute?: () => void;
+  onCloseHandoverWorkspaceRoute?: () => void;
   onOpenAreaWorkspaceRoute?: () => void;
   onSaveAssignedAreas: (drafts: CompletedAreaDraft[]) => void;
   onOpenIncidentDetail: () => void;
@@ -45,11 +47,13 @@ export function SituationBoardPage({
   incidentId,
   currentUserAccount,
   isAreaWorkspaceRoute = false,
+  isHandoverWorkspaceRoute = false,
   markerNotificationIndex,
   markerNotifications,
   onCloseMarkerNotifications,
   onMoveMarkerNotification,
   onCloseAreaWorkspaceRoute,
+  onCloseHandoverWorkspaceRoute,
   onOpenAreaWorkspaceRoute,
   onSaveAssignedAreas,
   onOpenIncidentDetail,
@@ -78,7 +82,9 @@ export function SituationBoardPage({
   const boardState = useSituationBoardPageState({
     incidentId,
     isAreaWorkspaceRoute,
+    isHandoverWorkspaceRoute,
     onCloseAreaWorkspaceRoute,
+    onCloseHandoverWorkspaceRoute,
     onOpenAreaWorkspaceRoute,
     onSaveAssignedAreas,
     refreshVersion,
@@ -211,6 +217,7 @@ export function SituationBoardPage({
             onOpenIncidentDetail={onOpenIncidentDetail}
             onOpenSituationBoard={boardState.closeHandoverWorkspace}
             onOpenOfflinePackage={onOpenOfflinePackage}
+            onOperationalPeriodCreated={boardState.refreshAreaData}
             onSharedMapPropsChange={boardState.setHandoverMapProps}
           />
         ) : boardState.isMapExpanded || isClosedTerminalBoard ? null : (
