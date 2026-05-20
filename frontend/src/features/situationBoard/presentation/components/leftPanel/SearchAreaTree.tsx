@@ -59,6 +59,17 @@ function getAssignedAccountNames(area: SearchAreaTreeNode) {
   return (area.assignedAccounts ?? []).map((account, index) => formatAccountDisplayName(account, index)).join(', ');
 }
 
+function isGenericAreaName(name: string) {
+  const normalizedName = name.trim();
+  return normalizedName === '' || normalizedName === 'UNIT' || normalizedName === 'TEAM' || normalizedName === '부대' || normalizedName === '팀';
+}
+
+function getAreaTitle(area: SearchAreaTreeNode, assignedAccountNames: string) {
+  if (area.kind === 'overall') return formatSearchAreaKindLabel(area.kind);
+  if (area.kind === 'team' && !isGenericAreaName(area.name)) return area.name;
+  return assignedAccountNames || area.name;
+}
+
 function getAreaKindLabel(kind: SearchAreaTreeNode['kind']) {
   switch (kind) {
     case 'overall':
@@ -185,10 +196,7 @@ function AreaNode({
   const structureLabel = getStructureLabel(area);
   const assignmentLabel = getAssignmentLabel(area);
   const nextActionLabel = getNextActionLabel(area, displayState);
-  const areaTitle =
-    area.kind === 'overall'
-      ? formatSearchAreaKindLabel(area.kind)
-      : assignedAccountNames || area.name;
+  const areaTitle = getAreaTitle(area, assignedAccountNames);
   const areaKindLabel = null;
   const rowClassName = [
     getNodeClassName(area, assignedAreaIds),
