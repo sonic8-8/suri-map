@@ -19,6 +19,7 @@ export type HandoverMemoItemView = {
   targetLabel: string;
   createdAtLabel: string;
   createdByAccountId: string;
+  createdByLabel: string;
   version: number;
 };
 
@@ -130,8 +131,7 @@ export function HandoverMemoSection({
               <div>
                 <span className={styles.memoTargetBadge}>{memo.targetLabel}</span>
                 <span>{memo.createdAtLabel}</span>
-                <span>작성 계정 {memo.createdByAccountId}</span>
-                <span>v{memo.version}</span>
+                <span>작성자 {memo.createdByLabel}</span>
               </div>
             </article>
           ))
