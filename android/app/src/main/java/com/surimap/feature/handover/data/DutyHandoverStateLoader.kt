@@ -62,31 +62,32 @@ class DutyHandoverStateLoader(
                     currentDutyShiftId = context.dutyShiftId,
                     selectedDutyShiftId = selectedDutyShiftId
                 )
-            val dutyShiftId = selectedDutyShift?.dutyShiftId ?: context.dutyShiftId?.takeIf(String::isNotBlank)
+            val initialDutyShiftId = selectedDutyShift?.dutyShiftId ?: context.dutyShiftId?.takeIf(String::isNotBlank)
+            val requestedDutyShiftId = selectedDutyShiftId?.takeIf(String::isNotBlank)
+            val initialTimelineSelection =
+                DutyTimelineSelection(
+                    dutyShift = selectedDutyShift,
+                    dutyShiftId = initialDutyShiftId,
+                    timeline = loadDutyTimeline(valid, initialDutyShiftId)
+                )
+            val timelineSelection =
+                initialTimelineSelection.withReplayFallback(
+                    valid = valid,
+                    dutyShiftOptions = dutyShiftOptions,
+                    currentDutyShiftId = context.dutyShiftId,
+                    requestedDutyShiftId = requestedDutyShiftId
+                )
+            val selectedTimelineDutyShift = timelineSelection.dutyShift
+            val dutyShiftId = timelineSelection.dutyShiftId
+            val dutyTimeline = timelineSelection.timeline
             val markedDutyShiftOptions = dutyShiftOptions.markSelected(dutyShiftId)
-            val dutyTimeline =
-                if (dutyShiftId == null) {
-                    TimelineReadModel.unavailable()
-                } else {
-                    parseTimeline(
-                        handoverTimeline(
-                            valid.opId,
-                            HandoverTimelineQuery(
-                                incidentId = valid.incidentId,
-                                scopeType = "DUTY_SHIFT",
-                                dutyShiftId = dutyShiftId,
-                                includeOtherActors = false
-                            )
-                        )
-                    )
-                }
             if (dutyTimeline.hasDisplayableEvidence) {
                 val summary = dutyTimeline.summary ?: loadDutyShiftSummary(valid, requireNotNull(dutyShiftId))
                 return summary.toUiState(
                     context = context,
                     recordScope = HandoverRecordScope.DutyShift,
                     dutyShiftOptions = markedDutyShiftOptions,
-                    selectedDutyShift = selectedDutyShift,
+                    selectedDutyShift = selectedTimelineDutyShift,
                     metrics = dutyTimeline.metrics,
                     records = dutyTimeline.records,
                     replayPathSegments = dutyTimeline.replayPathSegments,
@@ -95,13 +96,13 @@ class DutyHandoverStateLoader(
                     replayDurationMs = dutyTimeline.replayDurationMs
                 )
             }
-            if (dutyShiftId != null && (selectedDutyShift?.previous == true || selectedDutyShiftId != null)) {
+            if (dutyShiftId != null && (selectedTimelineDutyShift?.previous == true || requestedDutyShiftId != null)) {
                 val summary = loadDutyShiftSummary(valid, dutyShiftId)
                 return summary.toUiState(
                     context = context,
                     recordScope = HandoverRecordScope.DutyShift,
                     dutyShiftOptions = markedDutyShiftOptions,
-                    selectedDutyShift = selectedDutyShift,
+                    selectedDutyShift = selectedTimelineDutyShift,
                     metrics = dutyTimeline.metrics,
                     records = dutyTimeline.records,
                     replayPathSegments = dutyTimeline.replayPathSegments,
@@ -128,7 +129,7 @@ class DutyHandoverStateLoader(
                 context = context,
                 recordScope = HandoverRecordScope.DutyShift,
                 dutyShiftOptions = markedDutyShiftOptions,
-                selectedDutyShift = selectedDutyShift,
+                selectedDutyShift = selectedTimelineDutyShift,
                 metrics = listOf(HandoverMetric("${memos.size}건", "메모")),
                 records = memos.map { memo -> memo.toRecord() }
             )
@@ -162,7 +163,7 @@ class DutyHandoverStateLoader(
         replayDurationMs: Long = 0L
     ): DutyHandoverUiState =
         DutyHandoverUiState(
-            title = recordScope.title,
+            title = recordScope.title(selectedDutyShift),
             subtitle = context.subtitle(recordScope, selectedDutyShift),
             recordScope = recordScope,
             summaryStatus = status,
@@ -194,6 +195,53 @@ class DutyHandoverStateLoader(
                 )
             )
         )
+
+    private suspend fun loadDutyTimeline(
+        valid: RequiredHandoverSessionContext,
+        dutyShiftId: String?
+    ): TimelineReadModel =
+        if (dutyShiftId == null) {
+            TimelineReadModel.unavailable()
+        } else {
+            parseTimeline(
+                handoverTimeline(
+                    valid.opId,
+                    HandoverTimelineQuery(
+                        incidentId = valid.incidentId,
+                        scopeType = "DUTY_SHIFT",
+                        dutyShiftId = dutyShiftId,
+                        includeOtherActors = false
+                    )
+                )
+            )
+        }
+
+    private suspend fun DutyTimelineSelection.withReplayFallback(
+        valid: RequiredHandoverSessionContext,
+        dutyShiftOptions: List<DutyShiftOptionReadModel>,
+        currentDutyShiftId: String?,
+        requestedDutyShiftId: String?
+    ): DutyTimelineSelection {
+        if (requestedDutyShiftId != null || timeline.hasReplayEvidence) {
+            return this
+        }
+        dutyShiftOptions
+            .replayFallbackCandidates(
+                initialDutyShiftId = dutyShiftId,
+                currentDutyShiftId = currentDutyShiftId
+            )
+            .forEach { candidate ->
+                val candidateTimeline = loadDutyTimeline(valid, candidate.dutyShiftId)
+                if (candidateTimeline.hasReplayEvidence) {
+                    return DutyTimelineSelection(
+                        dutyShift = candidate,
+                        dutyShiftId = candidate.dutyShiftId,
+                        timeline = candidateTimeline
+                    )
+                }
+            }
+        return this
+    }
 
     private suspend fun loadDutyShiftOptions(
         valid: RequiredHandoverSessionContext,
@@ -536,7 +584,7 @@ class DutyHandoverStateLoader(
         recordScope: HandoverRecordScope = HandoverRecordScope.DutyShift
     ): DutyHandoverUiState =
         DutyHandoverUiState.empty().copy(
-            title = recordScope.title,
+            title = recordScope.title(),
             subtitle = context.subtitle(recordScope),
             recordScope = recordScope
         )
@@ -546,7 +594,7 @@ class DutyHandoverStateLoader(
         recordScope: HandoverRecordScope = HandoverRecordScope.DutyShift
     ): DutyHandoverUiState =
         DutyHandoverUiState.unavailable().copy(
-            title = recordScope.title,
+            title = recordScope.title(),
             subtitle = context.subtitle(recordScope),
             recordScope = recordScope,
             records = emptyList(),
@@ -559,9 +607,20 @@ class DutyHandoverStateLoader(
     ): String =
         "$displayOpLabel · ${selectedDutyShift?.label ?: "교대 인수인계"}"
 
-    private val HandoverRecordScope.title: String
-        get() =
+    private fun HandoverRecordScope.title(selectedDutyShift: DutyShiftOptionReadModel? = null): String =
+        if (this == HandoverRecordScope.DutyShift && selectedDutyShift != null) {
+            selectedDutyShift.title
+        } else {
             TITLE
+        }
+
+    private val DutyShiftOptionReadModel.title: String
+        get() =
+            when {
+                current -> "현재 근무 확인"
+                previous -> TITLE
+                else -> "근무 구간 확인"
+            }
 
     private fun parseItems(body: String): JSONArray {
         val trimmed = body.trim()
@@ -585,6 +644,23 @@ class DutyHandoverStateLoader(
         firstOrNull { option -> option.previous }?.let { return it }
         val current = currentDutyShiftId?.takeIf(String::isNotBlank)
         return firstOrNull { option -> option.dutyShiftId == current }
+    }
+
+    private fun List<DutyShiftOptionReadModel>.replayFallbackCandidates(
+        initialDutyShiftId: String?,
+        currentDutyShiftId: String?
+    ): List<DutyShiftOptionReadModel> {
+        val current = currentDutyShiftId?.takeIf(String::isNotBlank)
+        return buildList<DutyShiftOptionReadModel> {
+            if (current != null) {
+                this@replayFallbackCandidates
+                    .firstOrNull { option -> option.dutyShiftId == current }
+                    ?.let(::add)
+            }
+            addAll(this@replayFallbackCandidates.filter { option -> option.previous })
+            addAll(this@replayFallbackCandidates.filter { option -> !option.previous && option.dutyShiftId != current })
+        }.distinctBy(DutyShiftOptionReadModel::dutyShiftId)
+            .filter { option -> option.dutyShiftId != initialDutyShiftId }
     }
 
     private fun List<DutyShiftOptionReadModel>.markSelected(selectedDutyShiftId: String?): List<HandoverDutyShiftOption> =
@@ -735,6 +811,12 @@ class DutyHandoverStateLoader(
         }
     }
 
+    private data class DutyTimelineSelection(
+        val dutyShift: DutyShiftOptionReadModel?,
+        val dutyShiftId: String?,
+        val timeline: TimelineReadModel
+    )
+
     private val TimelineReadModel.hasDisplayableEvidence: Boolean
         get() =
             available &&
@@ -750,6 +832,14 @@ class DutyHandoverStateLoader(
                         replayPathSegments.isNotEmpty() ||
                         replayMarkers.isNotEmpty() ||
                         replayPoints.size >= 2
+                    )
+
+    private val TimelineReadModel.hasReplayEvidence: Boolean
+        get() =
+            available &&
+                (
+                    replayPoints.size >= 2 ||
+                        replayPathSegments.any { segment -> segment.points.size >= 2 }
                     )
 
     private data class HandoverMemoReadModel(

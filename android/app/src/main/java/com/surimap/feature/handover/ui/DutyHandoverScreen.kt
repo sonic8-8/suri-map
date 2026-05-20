@@ -596,7 +596,7 @@ private fun ReplayPathSummaryCard(state: DutyHandoverUiState) {
             MetricRow(metrics = state.metrics)
         }
         if (state.replayPathSegments.isEmpty()) {
-            EmptyReportText("경로 데이터 없음")
+            EmptyReportText("선택한 근무 구간에 경로 데이터 없음")
         } else {
             state.replayPathSegments.forEach { segment ->
                 PoliRow(
@@ -640,7 +640,7 @@ private fun ReplayMapCard(
 ) {
     ReportSectionCard(title = "지도 리플레이") {
         if (state.replayPathSegments.none { it.points.size >= 2 }) {
-            EmptyReportText("지도에 표시할 경로 데이터 없음")
+            EmptyReportText("선택한 근무 구간에 지도에 표시할 경로 데이터 없음")
             return@ReportSectionCard
         }
         Box(
