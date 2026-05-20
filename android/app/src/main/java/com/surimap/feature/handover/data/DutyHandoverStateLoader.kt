@@ -6,6 +6,7 @@ import com.surimap.core.operationalperiod.HandoverMemoQuery
 import com.surimap.core.operationalperiod.HandoverTimelineQuery
 import com.surimap.core.operationalperiod.SearchHistorySummaryQuery
 import com.surimap.feature.handover.ui.DutyHandoverUiState
+import com.surimap.feature.handover.ui.HandoverRecordScope
 import com.surimap.feature.handover.ui.HandoverReplayControlUiState
 import com.surimap.feature.handover.ui.HandoverReplayMarker
 import com.surimap.feature.handover.ui.HandoverReplayPathSegment
@@ -48,7 +49,7 @@ class DutyHandoverStateLoader(
         val valid = context.valid() ?: return emptyState(context)
         return try {
             val dutyShiftId = context.dutyShiftId?.takeIf(String::isNotBlank)
-            val timeline =
+            val dutyTimeline =
                 if (dutyShiftId == null) {
                     TimelineReadModel.unavailable()
                 } else {
@@ -64,16 +65,41 @@ class DutyHandoverStateLoader(
                         )
                     )
                 }
-            if (timeline.available) {
-                val summary = timeline.summary ?: loadSummary(valid, requireNotNull(dutyShiftId))
+            if (dutyTimeline.hasDisplayableEvidence) {
+                val summary = dutyTimeline.summary ?: loadDutyShiftSummary(valid, requireNotNull(dutyShiftId))
                 return summary.toUiState(
                     context = context,
-                    metrics = timeline.metrics,
-                    records = timeline.records,
-                    replayPathSegments = timeline.replayPathSegments,
-                    replayMarkers = timeline.replayMarkers,
-                    replayPoints = timeline.replayPoints,
-                    replayDurationMs = timeline.replayDurationMs
+                    recordScope = HandoverRecordScope.DutyShift,
+                    metrics = dutyTimeline.metrics,
+                    records = dutyTimeline.records,
+                    replayPathSegments = dutyTimeline.replayPathSegments,
+                    replayMarkers = dutyTimeline.replayMarkers,
+                    replayPoints = dutyTimeline.replayPoints,
+                    replayDurationMs = dutyTimeline.replayDurationMs
+                )
+            }
+            val opTimeline =
+                parseTimeline(
+                    handoverTimeline(
+                        valid.opId,
+                        HandoverTimelineQuery(
+                            incidentId = valid.incidentId,
+                            scopeType = "OP",
+                            includeOtherActors = false
+                        )
+                    )
+                )
+            if (opTimeline.hasDisplayableEvidence) {
+                val summary = opTimeline.summary ?: loadOpSummary(valid)
+                return summary.toUiState(
+                    context = context,
+                    recordScope = HandoverRecordScope.OperationalPeriod,
+                    metrics = opTimeline.metrics,
+                    records = opTimeline.records,
+                    replayPathSegments = opTimeline.replayPathSegments,
+                    replayMarkers = opTimeline.replayMarkers,
+                    replayPoints = opTimeline.replayPoints,
+                    replayDurationMs = opTimeline.replayDurationMs
                 )
             }
             val memoResponse =
@@ -88,10 +114,11 @@ class DutyHandoverStateLoader(
                 if (dutyShiftId == null) {
                     SummaryReadModel.empty()
                 } else {
-                    loadSummary(valid, dutyShiftId)
+                    loadDutyShiftSummary(valid, dutyShiftId)
                 }
             summary.toUiState(
                 context = context,
+                recordScope = HandoverRecordScope.DutyShift,
                 metrics = listOf(HandoverMetric("${memos.size}건", "메모")),
                 records = memos.map { memo -> memo.toRecord() }
             )
@@ -114,6 +141,7 @@ class DutyHandoverStateLoader(
 
     private fun SummaryReadModel.toUiState(
         context: HandoverSessionContext,
+        recordScope: HandoverRecordScope,
         metrics: List<HandoverMetric>,
         records: List<HandoverRecord>,
         replayPathSegments: List<HandoverReplayPathSegment> = emptyList(),
@@ -122,8 +150,9 @@ class DutyHandoverStateLoader(
         replayDurationMs: Long = 0L
     ): DutyHandoverUiState =
         DutyHandoverUiState(
-            title = TITLE,
-            subtitle = context.subtitle(),
+            title = recordScope.title,
+            subtitle = context.subtitle(recordScope),
+            recordScope = recordScope,
             summaryStatus = status,
             generatedAtLabel = generatedAtLabel,
             summary = content,
@@ -137,7 +166,7 @@ class DutyHandoverStateLoader(
             canRequestSummaryGeneration = false
         )
 
-    private suspend fun loadSummary(
+    private suspend fun loadDutyShiftSummary(
         valid: RequiredHandoverSessionContext,
         dutyShiftId: String
     ): SummaryReadModel =
@@ -149,6 +178,18 @@ class DutyHandoverStateLoader(
                     scopeType = "DUTY_SHIFT",
                     scopeId = dutyShiftId,
                     dutyShiftId = dutyShiftId
+                )
+            )
+        )
+
+    private suspend fun loadOpSummary(valid: RequiredHandoverSessionContext): SummaryReadModel =
+        parseSummary(
+            searchHistorySummaries(
+                valid.opId,
+                SearchHistorySummaryQuery(
+                    incidentId = valid.incidentId,
+                    scopeType = "OP",
+                    scopeId = valid.opId
                 )
             )
         )
@@ -407,9 +448,18 @@ class DutyHandoverStateLoader(
             metrics = emptyList()
         )
 
-    private fun HandoverSessionContext.subtitle(): String {
-        return "$displayOpLabel · 교대 인수인계"
-    }
+    private fun HandoverSessionContext.subtitle(recordScope: HandoverRecordScope = HandoverRecordScope.DutyShift): String =
+        when (recordScope) {
+            HandoverRecordScope.DutyShift -> "$displayOpLabel · 교대 인수인계"
+            HandoverRecordScope.OperationalPeriod -> "$displayOpLabel · 수색 이력"
+        }
+
+    private val HandoverRecordScope.title: String
+        get() =
+            when (this) {
+                HandoverRecordScope.DutyShift -> TITLE
+                HandoverRecordScope.OperationalPeriod -> "수색 이력 확인"
+            }
 
     private fun parseItems(body: String): JSONArray {
         val trimmed = body.trim()
@@ -528,6 +578,23 @@ class DutyHandoverStateLoader(
                 )
         }
     }
+
+    private val TimelineReadModel.hasDisplayableEvidence: Boolean
+        get() =
+            available &&
+                (
+                    summary?.status in setOf(
+                        SearchHistorySummaryStatus.Ready,
+                        SearchHistorySummaryStatus.Generating,
+                        SearchHistorySummaryStatus.NeedsSummary,
+                        SearchHistorySummaryStatus.Unavailable
+                    ) ||
+                        !summary?.content.isNullOrBlank() ||
+                        records.isNotEmpty() ||
+                        replayPathSegments.isNotEmpty() ||
+                        replayMarkers.isNotEmpty() ||
+                        replayPoints.size >= 2
+                    )
 
     private data class HandoverMemoReadModel(
         val targetType: String,

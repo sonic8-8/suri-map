@@ -54,6 +54,7 @@ import com.surimap.ui.theme.SuriMapTheme
 data class DutyHandoverUiState(
     val title: String,
     val subtitle: String,
+    val recordScope: HandoverRecordScope = HandoverRecordScope.DutyShift,
     val summaryStatus: SearchHistorySummaryStatus,
     val generatedAtLabel: String,
     val summary: String?,
@@ -73,12 +74,28 @@ data class DutyHandoverUiState(
     val replaySectionTitles: List<String> = HandoverReplaySections
     val replayBadges: List<String> =
         if (replayControl.displayDurationMs > 0L && replayPoints.size >= 2) {
-            listOf("근무 기준", "단일 근무자", "타임라인 재생")
+            listOf(recordScope.primaryBadge, recordScope.actorBadge, "타임라인 재생")
         } else {
-            listOf("근무 기준", "단일 근무자", "기록 없음")
+            listOf(recordScope.primaryBadge, recordScope.actorBadge, "기록 없음")
         }
 
-    val reportSectionTitles: List<String> = HandoverReportSections
+    val summaryTitle: String = recordScope.summaryTitle
+    val overviewTitle: String = recordScope.overviewTitle
+    val emptyRecordLabel: String = recordScope.emptyRecordLabel
+    val summaryStatusLabel: String =
+        if (recordScope == HandoverRecordScope.OperationalPeriod && summaryStatus == SearchHistorySummaryStatus.Empty) {
+            "OP 기록 없음"
+        } else {
+            summaryStatus.label
+        }
+
+    val reportSectionTitles: List<String> = HandoverReportSections.map { title ->
+        when (title) {
+            DUTY_SHIFT_OVERVIEW_TITLE -> overviewTitle
+            DUTY_SHIFT_SUMMARY_TITLE -> summaryTitle
+            else -> title
+        }
+    }
 
     val handoverMemoRecords: List<HandoverRecord> =
         records.filter { record ->
@@ -91,7 +108,7 @@ data class DutyHandoverUiState(
         }
 
     val summaryText: String =
-        summary ?: summaryStatus.emptyCopy
+        summary ?: summaryStatus.emptyCopy(recordScope)
 
     val selectedOriginalRecord: HandoverRecord? =
         selectedOriginalRecordKey?.let { selectedKey ->
@@ -113,8 +130,8 @@ data class DutyHandoverUiState(
             add(subtitle)
             DutyHandoverTab.entries.forEach { add(it.label) }
             add(selectedTab.label)
-            add(DUTY_SHIFT_SUMMARY_TITLE)
-            add(summaryStatus.label)
+            add(summaryTitle)
+            add(summaryStatusLabel)
             add(generatedAtLabel)
             add(summaryText)
             summaryActionLabel?.let(::add)
@@ -305,6 +322,11 @@ enum class SummarySourceReadiness {
     Stale
 }
 
+enum class HandoverRecordScope {
+    DutyShift,
+    OperationalPeriod
+}
+
 enum class DutyHandoverTab(val label: String) {
     Replay("리플레이"),
     Report("보고서")
@@ -402,7 +424,7 @@ private val HandoverReplaySections =
 
 private val HandoverReportSections =
     listOf(
-        "근무 개요",
+        DUTY_SHIFT_OVERVIEW_TITLE,
         DUTY_SHIFT_SUMMARY_TITLE,
         "이동 통계",
         "발견·기록 시간순",
@@ -812,7 +834,7 @@ private fun ReportTab(
     state: DutyHandoverUiState,
     onSelectOriginalRecord: (HandoverRecord) -> Unit
 ) {
-    ReportSectionCard(title = "근무 개요") {
+    ReportSectionCard(title = state.overviewTitle) {
         PoliField(label = "대상", value = state.subtitle)
         PoliField(label = "기록 기준", value = state.generatedAtLabel)
     }
@@ -827,6 +849,7 @@ private fun ReportTab(
     RecordCard(
         title = "발견·기록 시간순",
         records = state.records,
+        emptyText = state.emptyRecordLabel,
         selectedRecordKey = state.selectedOriginalRecordKey,
         onSelectRecord = onSelectOriginalRecord
     )
@@ -913,10 +936,10 @@ private fun SummaryCard(state: DutyHandoverUiState) {
     PoliCard(strong = true) {
         Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
-                Text(text = DUTY_SHIFT_SUMMARY_TITLE, style = MaterialTheme.typography.titleMedium)
+                Text(text = state.summaryTitle, style = MaterialTheme.typography.titleMedium)
                 Text(text = state.generatedAtLabel, style = MaterialTheme.typography.bodyMedium, color = PoliFgMuted)
             }
-            PoliChip(text = state.summaryStatus.label, variant = state.summaryStatus.variant)
+            PoliChip(text = state.summaryStatusLabel, variant = state.summaryStatus.variant)
         }
         Text(text = state.summaryText, style = MaterialTheme.typography.bodyLarge, color = PoliFgSecondary)
         state.summaryActionLabel?.let { actionLabel ->
@@ -951,7 +974,43 @@ private val SummarySourceReadiness.reportLabel: String
             SummarySourceReadiness.Stale -> "기록 갱신 필요"
         }
 
+private const val DUTY_SHIFT_OVERVIEW_TITLE = "근무 개요"
 private const val DUTY_SHIFT_SUMMARY_TITLE = "이전 근무 요약"
+
+private val HandoverRecordScope.overviewTitle: String
+    get() =
+        when (this) {
+            HandoverRecordScope.DutyShift -> DUTY_SHIFT_OVERVIEW_TITLE
+            HandoverRecordScope.OperationalPeriod -> "OP 개요"
+        }
+
+private val HandoverRecordScope.summaryTitle: String
+    get() =
+        when (this) {
+            HandoverRecordScope.DutyShift -> DUTY_SHIFT_SUMMARY_TITLE
+            HandoverRecordScope.OperationalPeriod -> "OP 수색 이력 요약"
+        }
+
+private val HandoverRecordScope.primaryBadge: String
+    get() =
+        when (this) {
+            HandoverRecordScope.DutyShift -> "근무 기준"
+            HandoverRecordScope.OperationalPeriod -> "OP 기준"
+        }
+
+private val HandoverRecordScope.actorBadge: String
+    get() =
+        when (this) {
+            HandoverRecordScope.DutyShift -> "단일 근무자"
+            HandoverRecordScope.OperationalPeriod -> "복수 기록자"
+        }
+
+private val HandoverRecordScope.emptyRecordLabel: String
+    get() =
+        when (this) {
+            HandoverRecordScope.DutyShift -> "이전 기록 없음"
+            HandoverRecordScope.OperationalPeriod -> "OP 기록 없음"
+        }
 
 private val SummarySourceReadiness.reportCopy: String
     get() =
@@ -989,15 +1048,20 @@ private val SearchHistorySummaryStatus.variant: PoliChipVariant
             SearchHistorySummaryStatus.Empty -> PoliChipVariant.Neutral
         }
 
-private val SearchHistorySummaryStatus.emptyCopy: String
-    get() =
-        when (this) {
-            SearchHistorySummaryStatus.Ready -> ""
-            SearchHistorySummaryStatus.Generating -> "이전 근무 기록을 자동 처리 중입니다. 원본 기록은 즉시 확인할 수 있습니다."
-            SearchHistorySummaryStatus.NeedsSummary -> "요약 생성 필요 상태입니다. 공개 생성 API가 없으므로 원본 기록을 먼저 확인합니다."
-            SearchHistorySummaryStatus.Unavailable -> "요약을 불러오지 못했습니다. 원본 경로·마커·메모는 계속 확인할 수 있습니다."
-            SearchHistorySummaryStatus.Empty -> "이전 기록 없음"
-        }
+private fun SearchHistorySummaryStatus.emptyCopy(recordScope: HandoverRecordScope): String =
+    when (this) {
+        SearchHistorySummaryStatus.Ready -> ""
+        SearchHistorySummaryStatus.Generating ->
+            if (recordScope == HandoverRecordScope.OperationalPeriod) {
+                "OP 수색 이력을 자동 처리 중입니다. 원본 기록은 즉시 확인할 수 있습니다."
+            } else {
+                "이전 근무 기록을 자동 처리 중입니다. 원본 기록은 즉시 확인할 수 있습니다."
+            }
+        SearchHistorySummaryStatus.NeedsSummary -> "요약 생성 필요 상태입니다. 공개 생성 API가 없으므로 원본 기록을 먼저 확인합니다."
+        SearchHistorySummaryStatus.Unavailable -> "요약을 불러오지 못했습니다. 원본 경로·마커·메모는 계속 확인할 수 있습니다."
+        SearchHistorySummaryStatus.Empty ->
+            if (recordScope == HandoverRecordScope.OperationalPeriod) "OP 기록 없음" else "이전 기록 없음"
+    }
 
 private val HandoverReplaySpeed.label: String
     get() =
