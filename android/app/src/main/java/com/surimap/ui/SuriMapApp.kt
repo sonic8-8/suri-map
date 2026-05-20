@@ -1467,6 +1467,25 @@ private fun SearchMapRoute(
         }
     }.collectAsState(initial = null)
 
+    LaunchedEffect(
+        sessionContext.incidentId,
+        sessionContext.policePhoneId,
+        apiBaseUrl,
+        outboxSummaryForWarnings?.normalUnsentCount
+    ) {
+        val incidentId = sessionContext.incidentId?.takeIf(String::isNotBlank) ?: return@LaunchedEffect
+        val policePhoneId = sessionContext.policePhoneId?.takeIf(String::isNotBlank) ?: return@LaunchedEffect
+        if ((outboxSummaryForWarnings?.normalUnsentCount ?: 0) > 0) {
+            outboxReplayScheduler.schedule(
+                OutboxReplayWorkRequest(
+                    incidentId = incidentId,
+                    policePhoneId = policePhoneId,
+                    apiBaseUrl = apiBaseUrl
+                )
+            )
+        }
+    }
+
     fun centerMapOnCurrentLocation(fix: GpsLocationFix) {
         latestLocationFix = fix
         pendingCurrentLocationCenter = false

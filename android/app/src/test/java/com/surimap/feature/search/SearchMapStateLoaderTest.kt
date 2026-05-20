@@ -1056,6 +1056,8 @@ class SearchMapStateLoaderTest {
         assertTrue(source.contains("clockOffsetMs = clockSyncState::clockOffsetMs"))
         assertTrue(source.contains("clockSyncedAt = clockSyncState::clockSyncedAt"))
         assertTrue(source.contains("RoomSyncClient(database.outboxDao(), database.localWriteDraftDao())"))
+        assertTrue(source.contains("outboxSummaryForWarnings?.normalUnsentCount"))
+        assertTrue(source.contains("outboxReplayScheduler.schedule"))
         assertTrue(source.contains("SearchLifecycleStatus.Stopped"))
         assertFalse(source.contains("onPrimaryLifecycleAction = {}"))
         assertFalse(source.contains("onStopSearch = {}"))

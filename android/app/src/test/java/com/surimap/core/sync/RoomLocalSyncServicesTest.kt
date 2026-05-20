@@ -244,6 +244,107 @@ class RoomLocalSyncServicesTest {
     }
 
     @Test
+    fun staleSendingRowIsRecoveredAndReplayed() = runBlocking {
+        val operation = sampleOperation(
+            operationId = operationIdFixture("stale-sending-001"),
+            idempotencyKey = "idem-stale-sending-001",
+            bodyHash = "sha256:stale-sending"
+        )
+        val enqueue = syncClient.enqueue(operation)
+        val staleStartedAt = System.currentTimeMillis() - 120_000L
+        database.outboxDao().upsert(
+            database.outboxDao().findById(enqueue.outboxId)!!.copy(
+                idempotencyStatus = OutboxStatus.SENDING.name,
+                localMirrorStatus = HarnessSyncStatus.SENDING.name,
+                firstAttemptAt = staleStartedAt,
+                nextAttemptAt = null,
+                attemptCount = 1
+            )
+        )
+
+        replay.flushPending(policePhoneId = operation.policePhoneId, incidentId = operation.incidentId)
+
+        val row = database.outboxDao().findById(enqueue.outboxId)!!
+        assertEquals(OutboxStatus.ACKED.name, row.idempotencyStatus)
+        assertEquals(HarnessSyncStatus.SYNCED.name, row.localMirrorStatus)
+        assertEquals(2, row.attemptCount)
+        assertEquals(1, sender.sendCountByKey(operation.idempotencyKey))
+    }
+
+    @Test
+    fun offlineRowCreatedWithFreshClockIsReplayedAfterLongOfflinePeriod() = runBlocking {
+        val operation = sampleOperation(
+            operationId = operationIdFixture("offline-clock-fresh-001"),
+            idempotencyKey = "idem-offline-clock-fresh-001",
+            bodyHash = "sha256:offline-clock-fresh"
+        )
+        val enqueue = syncClient.enqueue(operation)
+        val clientRequestedAt = System.currentTimeMillis() - 1_800_000L
+        database.outboxDao().upsert(
+            database.outboxDao().findById(enqueue.outboxId)!!.copy(
+                clientRequestedAt = clientRequestedAt,
+                clockSyncedAt = clientRequestedAt - 5_000L
+            )
+        )
+
+        replay.flushPending(policePhoneId = operation.policePhoneId, incidentId = operation.incidentId)
+
+        val row = database.outboxDao().findById(enqueue.outboxId)!!
+        assertEquals(OutboxStatus.ACKED.name, row.idempotencyStatus)
+        assertEquals(1, sender.sendCountByKey(operation.idempotencyKey))
+    }
+
+    @Test
+    fun rowCreatedWithStaleClockIsNotReplayedUntilResync() = runBlocking {
+        val operation = sampleOperation(
+            operationId = operationIdFixture("offline-clock-stale-001"),
+            idempotencyKey = "idem-offline-clock-stale-001",
+            bodyHash = "sha256:offline-clock-stale"
+        )
+        val enqueue = syncClient.enqueue(operation)
+        val clientRequestedAt = System.currentTimeMillis()
+        database.outboxDao().upsert(
+            database.outboxDao().findById(enqueue.outboxId)!!.copy(
+                clientRequestedAt = clientRequestedAt,
+                clockSyncedAt = clientRequestedAt - 600_000L
+            )
+        )
+
+        replay.flushPending(policePhoneId = operation.policePhoneId, incidentId = operation.incidentId)
+
+        val row = database.outboxDao().findById(enqueue.outboxId)!!
+        assertEquals(OutboxStatus.PENDING.name, row.idempotencyStatus)
+        assertEquals(HarnessSyncStatus.PENDING_SEND.name, row.localMirrorStatus)
+        assertEquals(0, sender.sendCountByKey(operation.idempotencyKey))
+    }
+
+    @Test
+    fun freshSendingRowIsNotReplayedToAvoidDuplicateInFlightSend() = runBlocking {
+        val operation = sampleOperation(
+            operationId = operationIdFixture("fresh-sending-001"),
+            idempotencyKey = "idem-fresh-sending-001",
+            bodyHash = "sha256:fresh-sending"
+        )
+        val enqueue = syncClient.enqueue(operation)
+        database.outboxDao().upsert(
+            database.outboxDao().findById(enqueue.outboxId)!!.copy(
+                idempotencyStatus = OutboxStatus.SENDING.name,
+                localMirrorStatus = HarnessSyncStatus.SENDING.name,
+                firstAttemptAt = System.currentTimeMillis(),
+                nextAttemptAt = null,
+                attemptCount = 1
+            )
+        )
+
+        replay.flushPending(policePhoneId = operation.policePhoneId, incidentId = operation.incidentId)
+
+        val row = database.outboxDao().findById(enqueue.outboxId)!!
+        assertEquals(OutboxStatus.SENDING.name, row.idempotencyStatus)
+        assertEquals(HarnessSyncStatus.SENDING.name, row.localMirrorStatus)
+        assertEquals(0, sender.sendCountByKey(operation.idempotencyKey))
+    }
+
+    @Test
     fun dutyShiftEndWaitsForLowerSequenceSourceRowsBeforeReplay() = runBlocking {
         val dutyOpId = opIdFixture("precinct-001")
         val dutyShiftId = dutyShiftIdFixture("001")
