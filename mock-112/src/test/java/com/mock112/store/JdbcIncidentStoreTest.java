@@ -168,6 +168,29 @@ class JdbcIncidentStoreTest {
         assertThat(store.size()).isZero();
     }
 
+    @Test
+    @DisplayName("CLOSED 사건은 terminal 상태로 배정 추가와 import 상태 전이를 막는다")
+    void closedIncidentRejectsFollowUpMutations() {
+        MockIncident incident = newIncident("00000000-0000-0000-0000-000000009907");
+        store.save(incident);
+
+        MockIncident closed = store.closeIncident(incident.getSourceIncidentId());
+
+        assertThat(closed.getStatus()).isEqualTo("CLOSED");
+        assertThatThrownBy(() -> store.addAssignment(
+                        incident.getSourceIncidentId(),
+                        new MockAssignment(
+                                "assign-9907-closed",
+                                "acct-missing-team",
+                                "MISSING_TEAM",
+                                OffsetDateTime.parse("2026-05-16T09:20:00+09:00"))))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("CLOSED");
+        store.markImported(incident.getSourceIncidentId());
+        assertThat(store.findById(incident.getSourceIncidentId()).orElseThrow().getStatus())
+                .isEqualTo("CLOSED");
+    }
+
     private static MockIncident newIncident(String sourceIncidentId) {
         OffsetDateTime openedAt = OffsetDateTime.of(2026, 5, 16, 9, 0, 0, 0, ZoneOffset.ofHours(9));
         MockIncident incident = new MockIncident();

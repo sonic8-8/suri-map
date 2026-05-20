@@ -51,7 +51,8 @@ public class Mock112WebhookController {
                 request.eventId(),
                 request.eventType(),
                 request.sourceIncidentId(),
-                sha256(rawBody)));
+                sha256(rawBody),
+                request.closeReason()));
     return ResponseEntity.accepted().body(Mock112WebhookEventResponse.from(result));
   }
 
@@ -66,8 +67,7 @@ public class Mock112WebhookController {
   private String sha256(String value) {
     try {
       MessageDigest digest = MessageDigest.getInstance("SHA-256");
-      return HexFormat.of()
-          .formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
+      return HexFormat.of().formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
     } catch (NoSuchAlgorithmException exception) {
       throw new IllegalStateException("SHA-256 digest is unavailable", exception);
     }

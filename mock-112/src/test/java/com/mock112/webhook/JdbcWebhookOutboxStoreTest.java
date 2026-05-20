@@ -39,7 +39,8 @@ class JdbcWebhookOutboxStoreTest {
                 "mock112:INCIDENT_READY:00000000-0000-0000-0000-000000000001",
                 "INCIDENT_READY",
                 "00000000-0000-0000-0000-000000000001",
-                OffsetDateTime.parse("2026-05-20T09:00:00+09:00"));
+                OffsetDateTime.parse("2026-05-20T09:00:00+09:00"),
+                null);
         OffsetDateTime now = OffsetDateTime.parse("2026-05-20T09:01:00+09:00");
 
         WebhookOutboxRecord record = store.enqueue(event, objectMapper.writeValueAsString(event), now);
@@ -58,7 +59,8 @@ class JdbcWebhookOutboxStoreTest {
                 "mock112:INCIDENT_READY:00000000-0000-0000-0000-000000000002",
                 "INCIDENT_READY",
                 "00000000-0000-0000-0000-000000000002",
-                OffsetDateTime.parse("2026-05-20T09:00:00+09:00"));
+                OffsetDateTime.parse("2026-05-20T09:00:00+09:00"),
+                null);
         OffsetDateTime now = OffsetDateTime.parse("2026-05-20T09:01:00+09:00");
         store.enqueue(event, objectMapper.writeValueAsString(event), now);
 
@@ -84,12 +86,14 @@ class JdbcWebhookOutboxStoreTest {
                 "mock112:INCIDENT_READY:" + sourceIncidentId,
                 "INCIDENT_READY",
                 sourceIncidentId,
-                OffsetDateTime.parse("2026-05-20T09:00:00+09:00"));
+                OffsetDateTime.parse("2026-05-20T09:00:00+09:00"),
+                null);
         SuriMapWebhookEvent assignment = new SuriMapWebhookEvent(
                 "mock112:ASSIGNMENT_CHANGED:00000000000000000000000000000003",
                 "INCIDENT_ASSIGNMENT_CHANGED",
                 sourceIncidentId,
-                OffsetDateTime.parse("2026-05-20T09:01:00+09:00"));
+                OffsetDateTime.parse("2026-05-20T09:01:00+09:00"),
+                null);
         OffsetDateTime now = OffsetDateTime.parse("2026-05-20T09:02:00+09:00");
 
         store.enqueue(ready, objectMapper.writeValueAsString(ready), now);

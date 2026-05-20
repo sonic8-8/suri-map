@@ -139,6 +139,12 @@ h4 {
     color: var(--green);
 }
 
+.status-pill.closed,
+.status-chip.closed {
+    background: var(--red-soft);
+    color: var(--red);
+}
+
 .status-pill.server,
 .delivery-badge.unknown,
 .delivery-badge.no_events {
@@ -492,9 +498,9 @@ select:focus {
 }
 
 .row-actions {
-    min-width: 250px;
+    min-width: 320px;
     display: grid;
-    grid-template-columns: minmax(130px, 1fr) auto auto;
+    grid-template-columns: minmax(120px, 1fr) auto auto auto;
     gap: 6px;
 }
 
@@ -624,8 +630,13 @@ code {
     margin-top: 14px;
     padding-top: 14px;
     display: grid;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: minmax(0, 1fr) auto auto;
     gap: 8px;
+}
+
+.detail-actions .muted {
+    grid-column: 1 / -1;
+    margin: 0;
 }
 
 .health-info {

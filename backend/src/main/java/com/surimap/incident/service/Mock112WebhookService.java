@@ -24,6 +24,7 @@ public class Mock112WebhookService {
   private final Mock112WebhookEventMapper webhookEventMapper;
   private final IncidentImportService incidentImportService;
   private final IncidentAssignmentImportService assignmentImportService;
+  private final IncidentCloseService incidentCloseService;
   private final ExternalIncidentAdapter externalIncidentAdapter;
   private final IncidentMapper incidentMapper;
   private final Clock clock;
@@ -32,12 +33,14 @@ public class Mock112WebhookService {
       Mock112WebhookEventMapper webhookEventMapper,
       IncidentImportService incidentImportService,
       IncidentAssignmentImportService assignmentImportService,
+      IncidentCloseService incidentCloseService,
       ExternalIncidentAdapter externalIncidentAdapter,
       IncidentMapper incidentMapper,
       Clock clock) {
     this.webhookEventMapper = webhookEventMapper;
     this.incidentImportService = incidentImportService;
     this.assignmentImportService = assignmentImportService;
+    this.incidentCloseService = incidentCloseService;
     this.externalIncidentAdapter = externalIncidentAdapter;
     this.incidentMapper = incidentMapper;
     this.clock = clock;
@@ -64,6 +67,7 @@ public class Mock112WebhookService {
         switch (eventType) {
           case INCIDENT_READY -> importReadyIncident(command);
           case INCIDENT_ASSIGNMENT_CHANGED -> importAssignmentChanges(command);
+          case INCIDENT_CLOSED -> closeIncident(command);
         };
     webhookEventMapper.complete(
         command.eventId(),
@@ -124,8 +128,20 @@ public class Mock112WebhookService {
         existing.getVersion());
   }
 
-  private Mock112WebhookResult replay(
-      Mock112WebhookEventRecord existing, String requestBodyHash) {
+  private Mock112WebhookResult closeIncident(Mock112WebhookCommand command) {
+    IncidentCloseResult result =
+        incidentCloseService.closeIncidentFromMock112(
+            command.sourceIncidentId(), command.closeReason());
+    return new Mock112WebhookResult(
+        command.eventId(),
+        command.eventType(),
+        command.sourceIncidentId(),
+        result.incidentId(),
+        result.status(),
+        result.version());
+  }
+
+  private Mock112WebhookResult replay(Mock112WebhookEventRecord existing, String requestBodyHash) {
     if (!Objects.equals(existing.getRequestBodyHash(), requestBodyHash)) {
       throw new IncidentApiException("idempotency_mismatch", HttpStatus.CONFLICT);
     }
@@ -143,7 +159,8 @@ public class Mock112WebhookService {
 
   private ExternalIncident fetchExternalIncident(UUID sourceIncidentId) {
     try {
-      return Objects.requireNonNull(externalIncidentAdapter.fetchIncident(sourceIncidentId.toString()));
+      return Objects.requireNonNull(
+          externalIncidentAdapter.fetchIncident(sourceIncidentId.toString()));
     } catch (RuntimeException exception) {
       throw new IncidentImportDependencyException(exception);
     }

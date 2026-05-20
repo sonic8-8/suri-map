@@ -5,7 +5,8 @@ import org.springframework.http.HttpStatus;
 
 public enum Mock112WebhookEventType {
   INCIDENT_READY,
-  INCIDENT_ASSIGNMENT_CHANGED;
+  INCIDENT_ASSIGNMENT_CHANGED,
+  INCIDENT_CLOSED;
 
   static Mock112WebhookEventType parse(String value) {
     if (value == null || value.isBlank()) {

@@ -8,9 +8,10 @@ import java.util.Objects;
 /**
  * mock 112 배정 사건 전체 모델.
  *
- * status 흐름: READY → IMPORTED
+ * status 흐름: READY → IMPORTED → CLOSED
  * - READY: 등록 직후, Suri-Map polling 대상
  * - IMPORTED: Suri-Map이 POST /api/incidents/import 완료 후 mark
+ * - CLOSED: mock-112에서 종료된 terminal 사건
  */
 public class MockIncident {
 
@@ -19,7 +20,7 @@ public class MockIncident {
     private String title;
     private OffsetDateTime openedAt;
 
-    private String status; // READY | IMPORTED
+    private String status; // READY | IMPORTED | CLOSED
 
     private MockMissingPerson missingPerson;
     private List<MockAssignment> assignments = new ArrayList<>();
@@ -73,6 +74,13 @@ public class MockIncident {
     }
 
     public void markImported() {
+        if ("CLOSED".equalsIgnoreCase(this.status)) {
+            return;
+        }
         this.status = "IMPORTED";
+    }
+
+    public void close() {
+        this.status = "CLOSED";
     }
 }

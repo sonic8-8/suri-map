@@ -72,6 +72,13 @@ public class MockIncidentRegistrationService {
                 normalizeMissingPerson(request.getMissingPerson()));
     }
 
+    public MockIncident closeIncident(String sourceIncidentId) {
+        if (sourceIncidentId == null || sourceIncidentId.isBlank()) {
+            throw new IllegalArgumentException("sourceIncidentId is required");
+        }
+        return store.closeIncident(sourceIncidentId);
+    }
+
     private String requiredTitle(String title) {
         if (title == null || title.isBlank()) {
             throw new IllegalArgumentException("title is required");
