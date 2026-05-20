@@ -91,7 +91,7 @@ data class OfflinePackageUiState(
                 add(item.statusLabel)
             }
             if (requiresLimitedOpenConfirmation) {
-                add("제한 안내 후 열기")
+                add("오프라인 지도 안내 후 열기")
             }
             if (canOpenSearchMap) {
                 add("현장 기록 열기")
@@ -122,7 +122,7 @@ data class OfflinePackageUiState(
                 packageItems = defaultPackageItems(),
                 readyForOfflineUse = false,
                 autoOpenSearchMap = false,
-                requiresLimitedOpenConfirmation = false,
+                requiresLimitedOpenConfirmation = true,
                 shouldDownloadPackage = false,
                 canManualRetry = false,
                 retryLabel = null,
@@ -158,7 +158,7 @@ data class OfflinePackageUiState(
                 packageItems = items,
                 readyForOfflineUse = false,
                 autoOpenSearchMap = false,
-                requiresLimitedOpenConfirmation = hasFailedItem,
+                requiresLimitedOpenConfirmation = true,
                 shouldDownloadPackage = !allItemsComplete || knownManifestRevision != manifestRevision,
                 canManualRetry = hasFailedItem,
                 retryLabel = null,
@@ -180,11 +180,11 @@ data class OfflinePackageUiState(
                 packageItems = defaultPackageItems(),
                 readyForOfflineUse = false,
                 autoOpenSearchMap = false,
-                requiresLimitedOpenConfirmation = false,
+                requiresLimitedOpenConfirmation = true,
                 shouldDownloadPackage = false,
                 canManualRetry = false,
                 retryLabel = null,
-                message = "내부망 연결이 없어 오프라인 패키지 manifest를 확인하지 못했습니다."
+                message = "내부망 연결이 없어 오프라인 패키지 manifest를 확인하지 못했습니다. 현장 기록은 열 수 있지만 오프라인 지도는 준비되지 않았습니다."
             )
 
         fun searchAreaPending(incidentTitle: String = "선택한 사건"): OfflinePackageUiState =
@@ -196,7 +196,7 @@ data class OfflinePackageUiState(
                 packageItems = defaultPackageItems(),
                 readyForOfflineUse = false,
                 autoOpenSearchMap = false,
-                requiresLimitedOpenConfirmation = false,
+                requiresLimitedOpenConfirmation = true,
                 shouldDownloadPackage = false,
                 canManualRetry = false,
                 retryLabel = null,
@@ -232,11 +232,11 @@ data class OfflinePackageUiState(
                 packageItems = defaultPackageItems(),
                 readyForOfflineUse = false,
                 autoOpenSearchMap = false,
-                requiresLimitedOpenConfirmation = false,
+                requiresLimitedOpenConfirmation = true,
                 shouldDownloadPackage = false,
                 canManualRetry = true,
                 retryLabel = null,
-                message = "오프라인 패키지 manifest를 불러오지 못했습니다. 내부망 확인 후 다시 시도하세요."
+                message = "오프라인 패키지 manifest를 불러오지 못했습니다. 현장 기록은 열 수 있지만 오프라인 지도는 준비되지 않았습니다."
             )
 
         fun manifestCurrent(
@@ -257,7 +257,8 @@ data class OfflinePackageUiState(
                 canManualRetry = false,
                 retryLabel = null,
                 // message = "manifest 변경이 없어 수색 지도로 이동합니다."
-                message = "오프라인 데이터가 최신 상태입니다."
+                message = "오프라인 데이터가 최신 상태입니다.",
+                canOpenSearchMap = true
             )
 
         fun manifestChanged(
@@ -273,7 +274,7 @@ data class OfflinePackageUiState(
                 packageItems = defaultPackageItems(),
                 readyForOfflineUse = false,
                 autoOpenSearchMap = false,
-                requiresLimitedOpenConfirmation = false,
+                requiresLimitedOpenConfirmation = true,
                 shouldDownloadPackage = true,
                 canManualRetry = false,
                 retryLabel = null,
@@ -300,7 +301,7 @@ data class OfflinePackageUiState(
                 packageItems = items,
                 readyForOfflineUse = false,
                 autoOpenSearchMap = false,
-                requiresLimitedOpenConfirmation = false,
+                requiresLimitedOpenConfirmation = true,
                 shouldDownloadPackage = true,
                 canManualRetry = false,
                 retryLabel = null,
@@ -321,7 +322,8 @@ data class OfflinePackageUiState(
                 shouldDownloadPackage = false,
                 canManualRetry = false,
                 retryLabel = null,
-                message = "오프라인 사용 준비가 완료되었습니다."
+                message = "오프라인 사용 준비가 완료되었습니다.",
+                canOpenSearchMap = true
             )
 
         fun partial(
@@ -341,7 +343,7 @@ data class OfflinePackageUiState(
                 shouldDownloadPackage = false,
                 canManualRetry = false,
                 retryLabel = "자동 재시도 3/3",
-                message = "지도 사용 제한이 있습니다. 실패 항목이 남아 오프라인 사용 준비 완료로 표시하지 않습니다."
+                message = "오프라인 지도 준비가 완료되지 않았습니다. 실패 항목이 남아 오프라인 사용 준비 완료로 표시하지 않습니다."
             )
 
         fun autoRetry(
@@ -357,7 +359,7 @@ data class OfflinePackageUiState(
                 packageItems = itemsWithFailure("타일"),
                 readyForOfflineUse = false,
                 autoOpenSearchMap = false,
-                requiresLimitedOpenConfirmation = false,
+                requiresLimitedOpenConfirmation = true,
                 shouldDownloadPackage = true,
                 canManualRetry = false,
                 retryLabel = "자동 재시도 ${retryAttempt.coerceIn(1, MAX_AUTO_RETRY)}/$MAX_AUTO_RETRY",
@@ -373,11 +375,11 @@ data class OfflinePackageUiState(
                 packageItems = itemsWithFailure("타일"),
                 readyForOfflineUse = false,
                 autoOpenSearchMap = false,
-                requiresLimitedOpenConfirmation = false,
+                requiresLimitedOpenConfirmation = true,
                 shouldDownloadPackage = true,
                 canManualRetry = true,
                 retryLabel = null,
-                message = "자동 재시도 3회가 모두 실패했습니다. 네트워크 확인 또는 IT 부서 문의가 필요합니다."
+                message = "자동 재시도 3회가 모두 실패했습니다. 현장 기록은 열 수 있지만 오프라인 지도는 준비되지 않았습니다."
             )
 
         fun stale(incidentTitle: String, manifestRevision: Int): OfflinePackageUiState =
@@ -389,11 +391,11 @@ data class OfflinePackageUiState(
                 packageItems = defaultPackageItems(),
                 readyForOfflineUse = false,
                 autoOpenSearchMap = false,
-                requiresLimitedOpenConfirmation = false,
+                requiresLimitedOpenConfirmation = true,
                 shouldDownloadPackage = true,
                 canManualRetry = true,
                 retryLabel = null,
-                message = "전체 수색 구역이 변경되었습니다. 다시 다운로드하세요."
+                message = "전체 수색 구역이 변경되었습니다. 현장 기록은 열 수 있지만 오프라인 지도는 다시 다운로드해야 합니다."
             )
 
         private fun completeItems(): List<OfflinePackageItemUiState> =
@@ -526,7 +528,7 @@ private fun ActionBar(
         if (state.canOpenSearchMap) {
             PoliButton(text = "현장 기록 열기", onClick = onOpenSearchMap, modifier = Modifier.fillMaxWidth())
         } else if (state.requiresLimitedOpenConfirmation) {
-            PoliButton(text = "제한 안내 후 열기", onClick = onOpenSearchMap, modifier = Modifier.fillMaxWidth())
+            PoliButton(text = "오프라인 지도 안내 후 열기", onClick = onOpenSearchMap, modifier = Modifier.fillMaxWidth())
         }
         if (state.canManualRetry) {
             PoliButton(text = "수동 재시도", onClick = onRetryFailedItems, modifier = Modifier.fillMaxWidth())

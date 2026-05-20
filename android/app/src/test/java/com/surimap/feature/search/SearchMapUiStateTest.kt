@@ -97,6 +97,25 @@ class SearchMapUiStateTest {
     }
 
     @Test
+    fun packageMissingWarningUsesTransientToastInsteadOfPersistentBanner() {
+        val source = File("src/main/java/com/surimap/feature/search/ui/SearchMapScreen.kt").readText()
+
+        assertTrue(source.contains("state.localWarnings.banners.filterNot { warning ->"))
+        assertTrue(source.contains("warning.code == LocalWarningCode.PACKAGE_MISSING"))
+        assertTrue(source.contains("persistentLocalWarnings.forEach { warning ->"))
+        assertTrue(source.contains("visiblePackageWarning?.let {"))
+        assertTrue(source.contains("PoliToast("))
+        assertTrue(source.contains("PackageWarningToastTitle = \"오프라인 지도가 준비되지 않았어요\""))
+        assertTrue(source.contains("PackageWarningToastText = \"오프라인 사용 전 다운로드가 필요합니다\""))
+        assertTrue(source.contains("title = PackageWarningToastTitle"))
+        assertTrue(source.contains("text = PackageWarningToastText"))
+        assertTrue(source.contains("variant = PoliBannerVariant.Warn"))
+        assertTrue(source.contains("delay(PackageWarningToastDurationMs)"))
+        assertFalse(source.contains("actionText = \"확인\""))
+        assertFalse(source.contains("state.localWarnings.banners.forEach { warning ->"))
+    }
+
+    @Test
     fun blockedOutboxIsSeparateFromNormalQueueAndHandoverPromptCanEnterP6A() {
         val state = SearchMapUiState.active(
             blockedOutboxCount = 2,

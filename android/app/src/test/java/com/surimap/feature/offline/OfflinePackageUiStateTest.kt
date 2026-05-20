@@ -32,6 +32,8 @@ class OfflinePackageUiStateTest {
         assertTrue(ready.readyForOfflineUse)
         assertFalse(ready.autoOpenSearchMap)
         assertFalse(ready.requiresLimitedOpenConfirmation)
+        assertTrue(ready.canOpenSearchMap)
+        assertTrue(ready.visibleText().any { it.contains("현장 기록 열기") })
     }
 
     @Test
@@ -46,8 +48,8 @@ class OfflinePackageUiStateTest {
         assertFalse(partial.readyForOfflineUse)
         assertFalse(partial.autoOpenSearchMap)
         assertTrue(partial.requiresLimitedOpenConfirmation)
-        assertTrue(partial.visibleText().any { it.contains("지도 사용 제한") })
-        assertTrue(partial.visibleText().any { it.contains("제한 안내 후 열기") })
+        assertTrue(partial.visibleText().any { it.contains("오프라인 지도 준비") })
+        assertTrue(partial.visibleText().any { it.contains("오프라인 지도 안내 후 열기") })
     }
 
     @Test
@@ -88,12 +90,14 @@ class OfflinePackageUiStateTest {
         assertEquals(OfflinePackageDownloadStatus.ManifestChanged, state.status)
         assertFalse(state.readyForOfflineUse)
         assertFalse(state.autoOpenSearchMap)
+        assertTrue(state.requiresLimitedOpenConfirmation)
         assertTrue(state.shouldDownloadPackage)
         assertTrue(state.visibleText().any { it.contains("패키지 설치 상태와 구분") })
+        assertTrue(state.visibleText().any { it.contains("오프라인 지도 안내 후 열기") })
     }
 
     @Test
-    fun offlineAndPermissionStatesDoNotStartDownloadOrOpenMapAutomatically() {
+    fun packageUnavailableStatesDoNotAutoOpenButAllowLimitedSearchMapEntry() {
         val offline = OfflinePackageUiState.offline(incidentTitle = "inc-001")
         val permissionDenied = OfflinePackageUiState.permissionDenied(incidentTitle = "inc-001")
         val unavailable = OfflinePackageUiState.unavailable(incidentTitle = "inc-001")
@@ -109,10 +113,16 @@ class OfflinePackageUiStateTest {
         assertFalse(offline.autoOpenSearchMap)
         assertFalse(permissionDenied.autoOpenSearchMap)
         assertFalse(searchAreaPending.autoOpenSearchMap)
+        assertTrue(offline.requiresLimitedOpenConfirmation)
+        assertTrue(unavailable.requiresLimitedOpenConfirmation)
+        assertTrue(offline.visibleText().any { it.contains("오프라인 지도 안내 후 열기") })
+        assertTrue(unavailable.visibleText().any { it.contains("오프라인 지도 안내 후 열기") })
         assertTrue(searchAreaPending.visibleText().any { it.contains("수색구역 지정 전") })
         assertTrue(searchAreaPending.canOpenSearchMap)
         assertTrue(searchAreaPending.visibleText().any { it.contains("현장 기록 열기") })
         assertTrue(unavailable.canManualRetry)
+        assertFalse(permissionDenied.canOpenSearchMap)
+        assertFalse(permissionDenied.requiresLimitedOpenConfirmation)
     }
 
     @Test
@@ -129,6 +139,8 @@ class OfflinePackageUiStateTest {
 
         assertEquals("자동 재시도 2/3", retrying.retryLabel)
         assertFalse(retrying.canManualRetry)
+        assertTrue(retrying.requiresLimitedOpenConfirmation)
         assertTrue(exhausted.canManualRetry)
+        assertTrue(exhausted.requiresLimitedOpenConfirmation)
     }
 }
