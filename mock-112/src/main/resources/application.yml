@@ -7,6 +7,10 @@ spring:
     password: ${SPRING_DATASOURCE_PASSWORD:}
   flyway:
     enabled: true
+  servlet:
+    multipart:
+      max-file-size: ${MOCK112_PHOTO_MAX_SIZE:10MB}
+      max-request-size: ${MOCK112_PHOTO_MAX_SIZE:10MB}
   jackson:
     default-property-inclusion: non_null
     serialization:
@@ -51,3 +55,11 @@ suri-map:
 mock112:
   internal-api:
     token: ${MOCK112_INTERNAL_API_TOKEN:}
+  object-storage:
+    provider: ${MOCK112_OBJECT_STORAGE_PROVIDER:${SURI_MAP_OBJECT_STORAGE_PROVIDER:mock}}
+    endpoint: ${MOCK112_OBJECT_STORAGE_ENDPOINT:${SURI_MAP_OBJECT_STORAGE_ENDPOINT:http://localhost:9000}}
+    public-endpoint: ${MOCK112_OBJECT_STORAGE_PUBLIC_ENDPOINT:${SURI_MAP_OBJECT_STORAGE_PUBLIC_ENDPOINT:}}
+    bucket: ${MOCK112_OBJECT_STORAGE_BUCKET:${SURI_MAP_OBJECT_STORAGE_BUCKET:suri-map-photo}}
+    access-key: ${MOCK112_OBJECT_STORAGE_ACCESS_KEY:${SURI_MAP_OBJECT_STORAGE_ACCESS_KEY:minioadmin}}
+    secret-key: ${MOCK112_OBJECT_STORAGE_SECRET_KEY:${SURI_MAP_OBJECT_STORAGE_SECRET_KEY:minioadmin}}
+    region: ${MOCK112_OBJECT_STORAGE_REGION:${SURI_MAP_OBJECT_STORAGE_REGION:us-east-1}}
