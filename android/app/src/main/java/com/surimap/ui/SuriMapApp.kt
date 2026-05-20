@@ -218,6 +218,7 @@ import com.surimap.ui.navigation.PolicePhoneRoute
 import com.surimap.ui.navigation.PolicePhoneRoutes
 import com.surimap.ui.navigation.SearchMapDeepLink
 import com.surimap.ui.navigation.accessTokenProvider
+import com.surimap.ui.navigation.accountIdClaim
 import com.surimap.ui.session.SuriMapSessionSnapshotStore
 import com.surimap.ui.theme.PoliBgBase
 import com.surimap.ui.theme.PoliBgSurface
@@ -1385,21 +1386,24 @@ private fun SearchMapRoute(
     var searchMapState by remember(
         sessionContext.incidentId,
         sessionContext.currentOpId,
-        sessionContext.policePhoneId
+        sessionContext.policePhoneId,
+        sessionContext.accountId
     ) {
         mutableStateOf(SearchMapStateLoader().fallbackForRemember(sessionContext))
     }
     var recordingSession by remember(
         sessionContext.incidentId,
         sessionContext.currentOpId,
-        sessionContext.policePhoneId
+        sessionContext.policePhoneId,
+        sessionContext.accountId
     ) {
         mutableStateOf(SearchRecordingSessionState())
     }
     var elapsedTickerNowMs by remember(
         sessionContext.incidentId,
         sessionContext.currentOpId,
-        sessionContext.policePhoneId
+        sessionContext.policePhoneId,
+        sessionContext.accountId
     ) {
         mutableStateOf(System.currentTimeMillis())
     }
@@ -2611,14 +2615,16 @@ private fun ManagedPolicePhoneConfig.toPolicePhoneContext(
         objectStorageBaseUrl = objectStorageBaseUrl,
         allowedHosts = allowedHosts,
         accessToken = outcome.accessToken,
-        accessTokenExpiresAtEpochMs = oidcSession?.accessTokenExpiresAtEpochMs
+        accessTokenExpiresAtEpochMs = oidcSession?.accessTokenExpiresAtEpochMs,
+        accountId = outcome.accessToken.accountIdClaim()
     )
 }
 
 private fun PolicePhoneContext.withOidcSession(oidcSession: OidcLoginSession): PolicePhoneContext =
     copy(
         accessToken = oidcSession.accessToken,
-        accessTokenExpiresAtEpochMs = oidcSession.accessTokenExpiresAtEpochMs
+        accessTokenExpiresAtEpochMs = oidcSession.accessTokenExpiresAtEpochMs,
+        accountId = oidcSession.accessToken.accountIdClaim()
     )
 
 private suspend fun ClockSyncState.syncClockForIncident(
@@ -2697,7 +2703,8 @@ private fun IncidentContext?.toSearchMapSessionContext(policePhoneContext: Polic
         currentOpId = this?.currentOpId,
         currentDutyShiftId = this?.currentDutyShiftId,
         currentOpLabel = this?.currentOpLabel,
-        policePhoneId = policePhoneContext?.policePhoneId
+        policePhoneId = policePhoneContext?.policePhoneId,
+        accountId = policePhoneContext?.accountId
     )
 
 private suspend fun DutyShiftRepository.currentDutyShiftStartedAt(context: SearchMapSessionContext): Instant? {
@@ -3191,7 +3198,8 @@ private fun debugMapOnlyPolicePhoneContext(): PolicePhoneContext? {
         apiBaseUrl = apiBaseUrl,
         tileBaseUrl = apiBaseUrl,
         objectStorageBaseUrl = apiBaseUrl,
-        accessToken = BuildConfig.SURI_MAP_DEBUG_MAP_ONLY_ACCESS_TOKEN.takeIf(String::isNotBlank)
+        accessToken = BuildConfig.SURI_MAP_DEBUG_MAP_ONLY_ACCESS_TOKEN.takeIf(String::isNotBlank),
+        accountId = BuildConfig.SURI_MAP_DEBUG_MAP_ONLY_ACCESS_TOKEN.accountIdClaim()
     )
 }
 

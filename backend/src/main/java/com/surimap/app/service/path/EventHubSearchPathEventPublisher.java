@@ -45,6 +45,7 @@ final class EventHubSearchPathEventPublisher implements SearchPathEventPublisher
         || request.incidentId() == null
         || request.opId() == null
         || request.policePhoneId() == null
+        || request.accountId() == null
         || request.status() == null
         || request.version() <= 0) {
       throw new SearchPathGuardException("write_conflict");
@@ -63,6 +64,7 @@ final class EventHubSearchPathEventPublisher implements SearchPathEventPublisher
     payload.put("incidentId", request.incidentId().toString());
     payload.put("opId", request.opId().toString());
     payload.put("policePhoneId", request.policePhoneId().toString());
+    payload.put("accountId", request.accountId().toString());
     payload.put("status", request.status().name());
     payload.put("version", request.version());
     payload.put("sequence", request.version());

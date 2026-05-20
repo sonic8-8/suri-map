@@ -9,6 +9,7 @@ public record SearchPathSegmentUpdatedPublishRequest(
     long version,
     UUID opId,
     UUID policePhoneId,
+    UUID accountId,
     String segmentId,
     MovementType movementType,
     MovementTypeSource movementTypeSource) {}

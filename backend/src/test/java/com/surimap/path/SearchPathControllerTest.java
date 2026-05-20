@@ -3,6 +3,7 @@ package com.surimap.path;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -37,13 +38,15 @@ class SearchPathControllerTest {
     UUID dutyShiftId = UUID.fromString("60000000-0000-0000-0000-000000000001");
     UUID opId = UUID.fromString("70000000-0000-0000-0000-000000000001");
     UUID policePhoneId = UUID.fromString("50000000-0000-0000-0000-000000000001");
-    when(searchPathService.appendBatch(any(), eq(policePhoneId)))
+    UUID accountId = UUID.fromString("30000000-0000-0000-0000-000000000001");
+    when(searchPathService.appendBatch(any(), eq(policePhoneId), isNull()))
         .thenReturn(
             new PathBatchAppendResponse(
                 pathId,
                 dutyShiftId,
                 opId,
                 policePhoneId,
+                accountId,
                 2,
                 0,
                 List.of(),
@@ -86,6 +89,7 @@ class SearchPathControllerTest {
         .andExpect(jsonPath("$.dutyShiftId", is(dutyShiftId.toString())))
         .andExpect(jsonPath("$.opId", is(opId.toString())))
         .andExpect(jsonPath("$.policePhoneId", is(policePhoneId.toString())))
+        .andExpect(jsonPath("$.accountId", is(accountId.toString())))
         .andExpect(jsonPath("$.acceptedPointCount", is(2)))
         .andExpect(jsonPath("$.geometry.type", is("LineString")))
         .andExpect(jsonPath("$.geometry.coordinates[0][0]", is(126.913)))
@@ -125,9 +129,10 @@ class SearchPathControllerTest {
     UUID incidentId = UUID.fromString("10000000-0000-0000-0000-000000000001");
     UUID opId = UUID.fromString("70000000-0000-0000-0000-000000000001");
     UUID policePhoneId = UUID.fromString("50000000-0000-0000-0000-000000000001");
+    UUID accountId = UUID.fromString("30000000-0000-0000-0000-000000000001");
     UUID pathId = UUID.fromString("81000000-0000-0000-0000-000000000001");
     Instant startedAt = Instant.parse("2026-05-18T04:53:12.331Z");
-    when(searchPathService.query(eq(incidentId), eq(opId), eq(policePhoneId)))
+    when(searchPathService.query(eq(incidentId), eq(opId), eq(policePhoneId), isNull()))
         .thenReturn(
             new PathQueryResponse(
                 List.of(
@@ -137,6 +142,7 @@ class SearchPathControllerTest {
                         opId,
                         null,
                         policePhoneId,
+                        accountId,
                         SearchPathStatus.RECORDING,
                         startedAt,
                         null,
@@ -156,6 +162,7 @@ class SearchPathControllerTest {
         .andExpect(jsonPath("$.paths[0].incidentId", is(incidentId.toString())))
         .andExpect(jsonPath("$.paths[0].opId", is(opId.toString())))
         .andExpect(jsonPath("$.paths[0].policePhoneId", is(policePhoneId.toString())))
+        .andExpect(jsonPath("$.paths[0].accountId", is(accountId.toString())))
         .andExpect(jsonPath("$.paths[0].startedAt", is("2026-05-18T04:53:12.331Z")))
         .andExpect(jsonPath("$.paths[0].geometry.type", is("LineString")))
         .andExpect(jsonPath("$.paths[0].geometry.coordinates[0][0]", is(126.913)))

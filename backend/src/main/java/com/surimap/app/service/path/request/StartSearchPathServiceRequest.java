@@ -8,11 +8,22 @@ public record StartSearchPathServiceRequest(
     UUID incidentId,
     UUID opId,
     UUID policePhoneId,
+    UUID accountId,
     Instant startedAt,
     String idempotencyKey) {
 
   public StartSearchPathServiceRequest(
       UUID incidentId, UUID opId, UUID policePhoneId, Instant startedAt, String idempotencyKey) {
-    this(null, incidentId, opId, policePhoneId, startedAt, idempotencyKey);
+    this(null, incidentId, opId, policePhoneId, null, startedAt, idempotencyKey);
+  }
+
+  public StartSearchPathServiceRequest(
+      UUID searchPathId,
+      UUID incidentId,
+      UUID opId,
+      UUID policePhoneId,
+      Instant startedAt,
+      String idempotencyKey) {
+    this(searchPathId, incidentId, opId, policePhoneId, null, startedAt, idempotencyKey);
   }
 }

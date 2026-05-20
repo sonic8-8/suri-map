@@ -589,6 +589,7 @@ class SearchMapStateLoaderTest {
                               "incidentId": "$INCIDENT_ID",
                               "opId": "$OP_ID",
                               "policePhoneId": "$POLICE_PHONE_ID",
+                              "accountId": "$ACCOUNT_ID",
                               "startedAt": "2026-05-18T04:53:12.331Z",
                               "geometryMode": "RENDER_SIMPLIFIED",
                               "geometry": $pathGeometry
@@ -600,6 +601,7 @@ class SearchMapStateLoaderTest {
                               "incidentId": "$INCIDENT_ID",
                               "opId": "$OP_ID",
                               "policePhoneId": "$OTHER_POLICE_PHONE_ID",
+                              "accountId": "$OTHER_ACCOUNT_ID",
                               "startedAt": "2026-05-18T04:55:12.331Z",
                               "geometryMode": "RENDER_SIMPLIFIED",
                               "geometry": $pathGeometry
@@ -618,23 +620,32 @@ class SearchMapStateLoaderTest {
                     incidentId = INCIDENT_ID,
                     currentOpId = OP_ID,
                     currentDutyShiftId = DUTY_SHIFT_ID,
-                    policePhoneId = POLICE_PHONE_ID
+                    policePhoneId = POLICE_PHONE_ID,
+                    accountId = ACCOUNT_ID
                 )
             )
 
+        val pathLayers = state.layers.filter { it.kind == SearchLayerKind.Path }
+        val positionLayers = state.layers.filter { it.kind == SearchLayerKind.CurrentLocation }
         assertEquals(SearchLayerKind.Overall, state.layers[0].kind)
         assertEquals(SearchLayerKind.Team, state.layers[1].kind)
-        assertEquals(SearchLayerKind.Path, state.layers[2].kind)
-        assertEquals(SearchLayerKind.Path, state.layers[3].kind)
-        assertEquals("현재 경로", state.layers[2].label)
-        assertEquals("다른 단말 경로", state.layers[3].label)
-        assertEquals(PATH_ID, state.layers[2].overlayId)
-        assertEquals(OTHER_PATH_ID, state.layers[3].overlayId)
+        assertEquals(2, pathLayers.size)
+        assertEquals(2, positionLayers.size)
+        assertEquals("현재 경로", pathLayers[0].label)
+        assertEquals("다른 대원 경로", pathLayers[1].label)
+        assertEquals(PATH_ID, pathLayers[0].overlayId)
+        assertEquals(OTHER_PATH_ID, pathLayers[1].overlayId)
         assertEquals(PATH_ID, state.activeSearchPathId)
-        assertTrue(state.layers[2].highlighted)
-        assertFalse(state.layers[3].highlighted)
-        assertTrue(state.layers[2].geoJson!!.contains("\"LineString\""))
-        assertTrue(state.layers[3].geoJson!!.contains("\"LineString\""))
+        assertTrue(pathLayers[0].highlighted)
+        assertFalse(pathLayers[1].highlighted)
+        assertEquals("현재 위치", positionLayers[0].label)
+        assertEquals("다른 대원 위치", positionLayers[1].label)
+        assertTrue(positionLayers[0].highlighted)
+        assertFalse(positionLayers[1].highlighted)
+        assertTrue(pathLayers[0].geoJson!!.contains("\"LineString\""))
+        assertTrue(pathLayers[1].geoJson!!.contains("\"LineString\""))
+        assertTrue(positionLayers[0].geoJson!!.contains("\"Point\""))
+        assertTrue(positionLayers[0].geoJson!!.contains("126.924"))
         assertEquals("경로 2개 표시", state.movementSummary)
         assertEquals(1779079992331L, state.activeSearchPathStartedAtEpochMs)
     }
@@ -799,12 +810,15 @@ class SearchMapStateLoaderTest {
                 )
             )
 
-        assertEquals(SearchLayerKind.Path, state.layers[2].kind)
-        assertEquals(SearchLayerKind.Marker, state.layers[3].kind)
-        assertEquals("단서", state.layers[3].label)
-        assertEquals(MARKER_ID, state.layers[3].overlayId)
-        assertTrue(state.layers[3].highlighted)
-        assertTrue(state.layers[3].geoJson!!.contains("\"Point\""))
+        val pathLayer = state.layers.first { it.kind == SearchLayerKind.Path }
+        val latestLocationLayer = state.layers.first { it.kind == SearchLayerKind.CurrentLocation }
+        val markerLayer = state.layers.first { it.kind == SearchLayerKind.Marker }
+        assertEquals(PATH_ID, pathLayer.overlayId)
+        assertEquals("$PATH_ID-latest-location", latestLocationLayer.overlayId)
+        assertEquals("단서", markerLayer.label)
+        assertEquals(MARKER_ID, markerLayer.overlayId)
+        assertTrue(markerLayer.highlighted)
+        assertTrue(markerLayer.geoJson!!.contains("\"Point\""))
     }
 
     @Test
@@ -1115,6 +1129,7 @@ class SearchMapStateLoaderTest {
         assertTrue(stateRememberKeys.contains("sessionContext.incidentId"))
         assertTrue(stateRememberKeys.contains("sessionContext.currentOpId"))
         assertTrue(stateRememberKeys.contains("sessionContext.policePhoneId"))
+        assertTrue(stateRememberKeys.contains("sessionContext.accountId"))
 
         val boundaryMonitorKeys = source.substring(boundaryMonitorIndex, boundaryMonitorEnd)
         assertTrue(boundaryMonitorKeys.contains("sessionContext.incidentId"))
@@ -1174,6 +1189,8 @@ class SearchMapStateLoaderTest {
         val DUTY_SHIFT_ID = dutyShiftIdFixture("precinct-day-001")
         val POLICE_PHONE_ID = policePhoneIdFixture("precinct-001")
         val OTHER_POLICE_PHONE_ID = policePhoneIdFixture("precinct-002")
+        const val ACCOUNT_ID = "11111111-1111-1111-1111-111111110003"
+        const val OTHER_ACCOUNT_ID = "11111111-1111-1111-1111-111111110004"
         val OVERALL_AREA_ID = areaIdFixture("overall-001")
         val UNIT_AREA_ID = areaIdFixture("unit-001")
         val TEAM_AREA_ID = areaIdFixture("team-001")

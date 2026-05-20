@@ -12,6 +12,7 @@ public record PathQueryRow(
     UUID opId,
     UUID dutyShiftId,
     UUID policePhoneId,
+    UUID accountId,
     SearchPathStatus status,
     Instant startedAt,
     Instant endedAt,

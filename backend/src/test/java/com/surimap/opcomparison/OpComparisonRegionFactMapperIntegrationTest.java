@@ -24,6 +24,8 @@ class OpComparisonRegionFactMapperIntegrationTest extends PostGisIntegrationTest
       UUID.fromString("66000000-0000-0000-0000-000000000001");
   private static final UUID DUTY_SHIFT2_ID =
       UUID.fromString("66000000-0000-0000-0000-000000000002");
+  private static final UUID ACCOUNT1_ID = UUID.fromString("11111111-1111-1111-1111-111111110002");
+  private static final UUID ACCOUNT2_ID = UUID.fromString("11111111-1111-1111-1111-111111110005");
   private static final UUID PATH1_ID = UUID.fromString("77000000-0000-0000-0000-000000000001");
   private static final UUID PATH2_ID = UUID.fromString("77000000-0000-0000-0000-000000000002");
   private static final Instant BASE_TIME = Instant.parse("2026-05-18T00:00:00Z");
@@ -120,8 +122,16 @@ class OpComparisonRegionFactMapperIntegrationTest extends PostGisIntegrationTest
   }
 
   private void seedPaths() {
-    insertPath(PATH1_ID, DUTY_SHIFT1_ID, "LINESTRING(126.9000 35.1600,126.9040 35.1600)");
-    insertPath(PATH2_ID, DUTY_SHIFT2_ID, "LINESTRING(126.9000 35.1600,126.9040 35.1620)");
+    insertPath(
+        PATH1_ID,
+        DUTY_SHIFT1_ID,
+        ACCOUNT1_ID,
+        "LINESTRING(126.9000 35.1600,126.9040 35.1600)");
+    insertPath(
+        PATH2_ID,
+        DUTY_SHIFT2_ID,
+        ACCOUNT2_ID,
+        "LINESTRING(126.9000 35.1600,126.9040 35.1620)");
     insertSegment(
         "77000000-0000-0000-0000-000000000011",
         PATH1_ID,
@@ -185,16 +195,17 @@ class OpComparisonRegionFactMapperIntegrationTest extends PostGisIntegrationTest
         timestamp(BASE_TIME));
   }
 
-  private void insertPath(UUID pathId, UUID dutyShiftId, String wkt) {
+  private void insertPath(UUID pathId, UUID dutyShiftId, UUID accountId, String wkt) {
     jdbcTemplate.update(
         """
         INSERT INTO search_path (
-          id, duty_shift_id, status, started_at, ended_at, geometry, version, created_at, updated_at
+          id, duty_shift_id, account_id, status, started_at, ended_at, geometry, version, created_at, updated_at
         )
-        VALUES (?, ?, 'ENDED', ?, ?, ST_GeomFromText(?, 4326), 1, ?, ?)
+        VALUES (?, ?, ?, 'ENDED', ?, ?, ST_GeomFromText(?, 4326), 1, ?, ?)
         """,
         pathId,
         dutyShiftId,
+        accountId,
         timestamp(BASE_TIME),
         timestamp(BASE_TIME.plusSeconds(1800)),
         wkt,

@@ -12,8 +12,8 @@
 ## 0.1 현재 기준
 
 - 사건은 사용자가 직접 만들지 않는다. MVP/시연은 112/실종프로파일링 mock·seed 배정 사건을 가져온다.
-- 계정은 팀 계정, 순찰차 계정, 지휘 계정 기준이다.
-- GPS 경로의 기록 주체는 팀 업무폰 또는 순찰차 업무폰 `PolicePhone`이다.
+- 계정은 개인 계정 기준이다. 팀·순찰차·지휘 맥락은 사건 배정 역할, 조직, PolicePhone 단말 컨텍스트로만 파생한다.
+- GPS 경로의 기록 주체는 개인 `accountId`이며, `PolicePhone`은 단말 인증·배정·전송 컨텍스트다.
 - 지도 기준 범위는 `search_area.area_level=OVERALL`로 관리한다. 별도 `map_boundary` resource를 만들지 않는다.
 - 시스템은 수색 누락을 자동 확정하지 않고, 다음 투입 구역을 자동 지시하지 않는다.
 - OP(Operation Period)는 사건 내 수색 차수와 인수인계의 기준이다.
@@ -47,10 +47,10 @@
 | Spec | 이름 | 핵심 책임 | Lane |
 |---|---|---|---:|
 | S1-1 | Incident Import & Assignment | mock·seed 사건 가져오기, 사건 lifecycle, 실종자, 사건 배정 계정 | L1 |
-| S1-2 | Account, PolicePhone & RBAC | 팀/순찰차/지휘 계정, PolicePhone, 세션, 채널·역할 권한 | L2 |
+| S1-2 | Account, PolicePhone & RBAC | 개인 계정, PolicePhone, 세션, 채널·역할 권한 | L2 |
 | S1-3 | Retention & Operational Records | 파기 오케스트레이션, 위치정보 접근기록, 비사용자 화면 운영 기록 | L2 |
 | S2 | Search Area | 지도 기준 범위, 수색 구역, 구역 상태 이력 | L3 |
-| S3-1 | PolicePhone Path Collection | PolicePhone 경로, 차량·도보 구간 | L4 |
+| S3-1 | Account Path Collection | 개인 계정 경로, PolicePhone 단말 컨텍스트, 차량·도보 구간 | L4 |
 | S3-2 | Situation Board Shell & Board API | 상황판 shell, board API assembly/read model, slot merge/rendering, OP 비교 화면 | L6 |
 | S4 | Realtime Event Hub | SSE, event envelope, `EventHub.publish`, `EventFanout`, `event_outbox`, `sse_event_log` | L2 |
 | S5 | Markers / Photo / Notification Delivery | 현장 마커, 사진, notification payload/recipient 계산, `FcmDispatcher` adapter | L5 |
@@ -63,9 +63,9 @@
 | Lane | 담당 |
 |---|---|
 | L1 | 사건 가져오기, 사건 종료, 실종자, 사건 배정 계정 |
-| L2 | 계정·PolicePhone·권한, 운영 기록, S4 이벤트 허브 실구현 |
+| L2 | 개인 계정·PolicePhone·권한, 운영 기록, S4 이벤트 허브 실구현 |
 | L3 | 지도 기준 범위, 수색 구역, OP, 인수인계 |
-| L4 | PolicePhone 경로, Outbox, 로컬 경고, 복구 동기화 |
+| L4 | 개인 계정 경로, PolicePhone 단말 컨텍스트, Outbox, 로컬 경고, 복구 동기화 |
 | L5 | 마커, 사진, notification payload/recipient, FCM adapter |
 | L6 | 상황판 shell, offline package, tileserver, board API |
 
@@ -216,7 +216,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 - Keycloak/OIDC realm/client/claim contract
 - `police_phone`
 - `fcm_token`
-- account type: `TEAM`, `PATROL_CAR`, `COMMAND`
+- account identity/profile/display claim contract
 - affiliation: `MISSING_TEAM`, `SUPPORT_UNIT`, `LOCAL_POLICE`
 - backend-derived Suri-Map role: `MISSING_TEAM_COMMANDER`, `FIELD_COMMANDER`, `MEMBER`
 - `POST /api/fcm/tokens`
@@ -225,14 +225,14 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 **provides**
 
 - `SecurityContext.accountId`
-- `SecurityContext.accountType`
+- `SecurityContext.accountType`: legacy/derived operational classification. 계정 식별 주체가 아니라 권한 projection 보조값이다.
 - `SecurityContext.affiliation`
 - `SecurityContext.roles`
 - `SecurityContext.channel`
 - `SecurityContext.policePhoneId`: APP request의 `X-PolicePhone-Id`로 바인딩한 현재 폴리폰. Keycloak/기관 SSO 계정 claim이 아니다.
 - Keycloak display claims: `accountCode`, `personName`, `displayName`, `organizationCode`, `organizationName`, `rankCode`, `rankName`
 - `personName`은 사람 이름 원문이고, `organizationName`은 `광주경찰청 여성청소년과 실종팀`처럼 운용 leaf 조직 경로이며, `displayName`은 화면 식별용 `소속 + 계급 + 이름` label이다. `displayName`은 권한·배정 source of truth가 아니다.
-- Keycloak/기관 SSO claim이 계급·직책·소속의 source of truth다. Suri-Map `account` row와 `incident_assignment.incident_role`은 사건 접근과 사건 내 운용 역할을 위한 local projection이며, 기관 계급·직책·전역 권한을 결정하지 않는다. `MISSING_TEAM_COMMANDER`, `FIELD_COMMANDER`, `MEMBER` 같은 Suri-Map role은 Keycloak/기관 SSO role이 아니라 Suri-Map backend가 계정 유형·소속·사건 배정으로 파생하는 API 접근 제어용 authority다. `police_phone`은 MDM/단말 관리 원천의 로컬 투영이다.
+- Keycloak/기관 SSO claim이 계급·직책·소속의 source of truth다. Suri-Map `account` row와 `incident_assignment.incident_role`은 개인 계정의 사건 접근과 사건 내 운용 역할을 위한 local projection이며, 기관 계급·직책·전역 권한을 결정하지 않는다. `MISSING_TEAM_COMMANDER`, `FIELD_COMMANDER`, `MEMBER` 같은 Suri-Map role은 Keycloak/기관 SSO role이 아니라 Suri-Map backend가 개인 계정·소속·사건 배정으로 파생하는 API 접근 제어용 authority다. `police_phone`은 MDM/단말 관리 원천의 로컬 투영이다.
 - `@RequireIncidentAccess`
 - `@RequireRole`
 - `@RequireChannel`
@@ -278,7 +278,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 
 **nfr**
 
-- 폴리폰 앱은 팀 계정 또는 순찰차 계정 장기 로그인 유지가 가능하다.
+- 폴리폰 앱은 개인 계정 장기 로그인 유지가 가능하다.
 - Web 상황판은 지휘·상황 공유 목적의 표준 세션을 사용한다.
 - 동일 채널 중복 로그인 정책은 운영 전 확정 전까지 `same account multi-session allowed, device heartbeat wins`로 둔다.
 - PolicePhone heartbeat는 상황판 단말 최신성 인코딩의 단일 기준이다.
@@ -427,7 +427,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 
 ---
 
-### S3-1 · PolicePhone Path Collection
+### S3-1 · Account Path Collection
 
 **owns**
 
@@ -445,6 +445,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 - `PathQuery.byIncident(incidentId, filters)`
 - `PathQuery.byOp(opId, filters)`
 - `PathQuery.byPolicePhone(policePhoneId, filters)`
+- `PathQuery.byAccount(accountId, filters)`
 - `PATH_APPENDED`
 - `PATH_SEGMENT_UPDATED`
 - `SEARCH_PATH_STARTED`
@@ -486,7 +487,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 **acceptance_hints**
 
 - Search path start/end APIs require app channel, assigned PolicePhone, open incident, idempotency key, and current OP.
-- `POST /api/search-paths/batch` records PolicePhone-based path points with `accountId`, `policePhoneId`, `opId`, sequence, and timestamps.
+- `POST /api/search-paths/batch` records account-based path points with `accountId`, `policePhoneId`, `opId`, sequence, and timestamps.
 - Path writes publish the matching `PublishRequest.*` contract and can be replayed from S6 Outbox without duplication.
 - `PATCH /api/search-path-segments/{searchPathSegmentId}` applies only the allowed channel policy and emits `PATH_SEGMENT_UPDATED`.
 
@@ -500,7 +501,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 **nfr**
 
 - GPS 수집 및 경로 서버 전송 주기는 `spec/boundaries.md §4.2 Time, Limits, Retention` 기준 적용.
-- 경로는 PolicePhone 기준으로 기록하고, 조작 계정은 write payload에 함께 남긴다.
+- 경로 기록 주체는 `accountId`이며, `policePhoneId`는 앱 단말 인증·배정·전송 컨텍스트로 함께 남긴다.
 - 차량·도보 구간은 GPS 속도 기반으로 자동 분리한다.
 - 구간 유형 수동 보정 채널은 S1-2 `@RequireChannel` 기준 적용.
 - `opId`는 수집 시점 current OP 기준이다. 서버 current OP와 불일치하면 `409 op_mismatch`를 반환한다.
@@ -727,9 +728,9 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 - 마커는 `incidentId`, `opId`, `accountId`, `policePhoneId`, `clientTs`, `serverTs`, `location`, `type`, `memo`, `photos`를 가진다.
 - 사진 제한은 `spec/boundaries.md §4.2 Time, Limits, Retention` 기준 적용.
 - `notification_delivery`는 알림 저장 엔티티이며 pending/status/version을 기록한다.
-- 지원 요청 알림은 실종팀 지휘 계정과 현장 지휘관 역할 계정 우선이다.
+- 지원 요청 알림은 실종팀 지휘관 역할 개인 계정과 현장 지휘관 역할 개인 계정 우선이다.
 - 실종자 발견 알림은 사건 배정 계정·단말 전체 대상이다.
-- 지원 부대 배정 알림은 `INCIDENT_ASSIGNMENT_CHANGED` fanout 시 신규 배정된 `TEAM`, `PATROL_CAR` 계정의 활성 PolicePhone에만 FCM data message로 전달한다. 이 알림은 `notification_delivery` row를 만들지 않으며, 지휘 계정 policePhoneId는 Android FCM recipient로 고정하지 않는다. Android는 FCM 수신 후 최종 상태를 `/api/incidents` REST refetch로 수렴한다.
+- 지원 부대 배정 알림은 `INCIDENT_ASSIGNMENT_CHANGED` fanout 시 신규 배정된 개인 계정의 활성 PolicePhone에만 FCM data message로 전달한다. 이 알림은 `notification_delivery` row를 만들지 않으며, 지휘 역할 계정의 policePhoneId는 Android FCM recipient로 고정하지 않는다. Android는 FCM 수신 후 최종 상태를 `/api/incidents` REST refetch로 수렴한다.
 - Web toast와 FCM push는 별도 저장 엔티티가 아니라 S4 `EventFanout`과 S5 notification payload/recipient 및 `FcmDispatcher` adapter의 전달 계약이다.
 - FCM fanout orchestration은 S5가 소유하지 않는다. S5는 S4가 호출할 수 있는 `FcmDispatcher` port와 fixture/mock adapter를 제공하며, 실제 외부 FCM 없이 대체 가능해야 한다.
 
@@ -981,7 +982,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 | `incident_bootstrapping` | 사건 초기화 완료 전 쓰기 요청 | 409 |
 | `incident_closed` | 종료된 사건에 쓰기 요청 | 409 |
 | `incident_access_denied` | 사건 배정 계정이 아님 | 403 |
-| `team_not_assigned` | 팀 계정이 사건·OP·구역 배정 대상이 아님 | 403 |
+| `team_not_assigned` | 개인 계정이 사건·OP·구역 배정 대상이 아님 | 403 |
 | `role_denied` | 필요한 역할 없음 | 403 |
 | `channel_not_allowed` | 허용되지 않은 채널의 API 호출 또는 쓰기 | 403 |
 | `police_phone_required` | PolicePhone이 필요한 앱 요청에 PolicePhone 없음 | 400 |
@@ -1161,7 +1162,7 @@ Event payload는 REST response DTO, S6 `write_operation.schema.json`, S4 outbox/
 | FR | Primary Spec | Notes |
 |---|---|---|
 | FR-01 사건 관리 | S1-1 | mock·seed import, OP1 bootstrap |
-| FR-02 PolicePhone 위치·경로 | S3-1 | S1-2 PolicePhone 기준 |
+| FR-02 PolicePhone 위치·경로 | S3-1 | accountId 기준 경로, PolicePhone 단말 컨텍스트 |
 | FR-03 오프라인 기록 | S6 | local store + Outbox |
 | FR-04 실시간 위치 반영 | S3-1/S4/S3-2 | path event + board |
 | FR-05 경로·완료 구역 표시 | S3-2 | S2/S3-1 데이터 소비 |
@@ -1218,7 +1219,7 @@ Guard shorthand:
 |---|---|---|---|---|---|
 | `POST /api/fcm/tokens` | S1-2 | 앱 | HTTPS | `app-police-phone` | - |
 | `POST /api/police-phones/{policePhoneId}/heartbeat` | S1-2 | 앱 | HTTPS | `app-police-phone` | - |
-| `POST /api/incidents/import` | S1-1 | 웹 지휘 계정 | HTTPS | `web-command` | `internal-caller`: seed/mock bootstrap |
+| `POST /api/incidents/import` | S1-1 | 웹 지휘관 역할 개인 계정 | HTTPS | `web-command` | `internal-caller`: seed/mock bootstrap |
 | `GET /api/incidents` | S1-1 | 앱, 웹, S3-2 | HTTPS | `public-session` | - |
 | `GET /api/incidents/{incidentId}` | S1-1 | 앱, 웹, S3-2 | HTTPS | `public-session`, `incident-read` | - |
 | `POST /api/incidents/{incidentId}/close` | S1-1 | 웹 | HTTPS | `web-command`, `incident-read`, `write-common` | `internal-caller`: purge orchestration trigger |
@@ -1267,7 +1268,7 @@ Guard shorthand:
 
 | annotation | owner | 실패 코드 | 의미 |
 |---|---|---|---|
-| `@RequireIncidentAccess` | S1-2 | `incident_access_denied`, `team_not_assigned` | 사건 배정 팀 계정 확인 |
+| `@RequireIncidentAccess` | S1-2 | `incident_access_denied`, `team_not_assigned` | 사건 배정 개인 계정 확인 |
 | `@RequireRole` | S1-2 | `role_denied` | 역할 확인 |
 | `@RequireChannel` | S1-2 | `channel_not_allowed` | APP/WEB/INTERNAL 허용 채널 확인 |
 | `@RequirePolicePhone` | S1-2 | `police_phone_required` | 앱 요청의 PolicePhone 식별자 확인 |

@@ -76,11 +76,11 @@ SC-05, SC-06, SC-08, SC-10, SC-11, SC-12의 write 성공 red test는 아래 대�
 PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초동 대응과 실종팀 인계 흐름**이다. 하네스는 아래 흐름을 12단계 안에서 검증한다.
 
 1. 지구대/파출소 팀장 또는 당직자가 mock 112 배정 사건을 먼저 가져와 OP1을 연다. (SC-01)
-2. 지구대/파출소 팀 계정·순찰차 계정이 초동 수색 패키지를 받고, 순찰차/도보 경로와 마커를 기록한다. (SC-03, SC-05, SC-06)
-3. 지구대/파출소 초동 사건이 실종팀으로 인계되면 실종팀 지휘 계정·팀 계정이 사건 접근 권한을 얻고, 기존 지구대/파출소 OP1 기록은 보존된다. (SC-02)
+2. 지구대/파출소 개인 계정이 초동 수색 패키지를 받고, 순찰차 폴리폰·도보 수색 경로와 마커를 기록한다. (SC-03, SC-05, SC-06)
+3. 지구대/파출소 초동 사건이 실종팀으로 인계되면 실종팀 개인 계정이 사건 접근 권한을 얻고, 기존 지구대/파출소 OP1 기록은 보존된다. (SC-02)
 4. 112/mock 배정 갱신이 같은 사건에 지원 부대를 추가하면 지원 부대 계정·단말이 합류하고, OP1 초동 기록과 현재 OP 상태를 이어받는다. (SC-02)
 5. 지구대/파출소 팀장 또는 당직자가 무전 보고를 수신하고, 현장 지휘관이 완료 또는 OP 전환 필요성을 판단한 뒤 구역 완료·OP 전환·인수인계 메모 저장을 수행한다. (SC-10)
-6. SC-10에서 OP2 개시 판단과 인수인계 저장이 끝난 뒤, 실종팀 지휘 계정이 OP1의 경로·마커·인수인계 메모와 수색 이력 요약을 사후 확인·검토한다. (SC-11)
+6. SC-10에서 OP2 개시 판단과 인수인계 저장이 끝난 뒤, 실종팀 지휘관 역할 개인 계정이 OP1의 경로·마커·인수인계 메모와 수색 이력 요약을 사후 확인·검토한다. (SC-11)
 
 ---
 
@@ -95,7 +95,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   2. missing_person 도메인 데이터가 채워진다.
   3. 사건 참여 계정, 현장 지휘관 역할 후보, 초기 기준 마커가 시드 기준으로 구성된다.
   4. 같은 import 트랜잭션에서 S8이 OP1을 자동 생성하고 `OP_TRANSITIONED(from=null, to=OP1)` publish request를 stage한다.
-  5. 배정된 지구대/파출소 팀 계정·순찰차 계정이 즉시 사건을 조회할 수 있다.
+  5. 배정된 지구대/파출소 개인 계정이 즉시 사건을 조회할 수 있다.
   6. Web 사건 목록은 계정/조직 단위 SSE refetch signal 또는 fallback refetch로 신규 사건을 표시한다.
   7. webhook 재전송 중복이 발생해도 같은 `eventId` 또는 같은 `sourceIncidentId` 기준으로 사건, OP, assignment, seed marker가 중복 생성되지 않는다.
 - **involved_specs**: S1-1, S1-2, S4, S5, S8
@@ -107,7 +107,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   - `OP_TRANSITIONED(from=null)`
 - **e2e_red_test**:
   - "mock 112 INCIDENT_READY webhook 수신 시 사건이 `OPEN` 상태로 전이되고 OP1이 생성된다"
-  - "mock 112 webhook으로 생성된 사건은 지구대/파출소 팀 계정·순찰차 계정에 배정되고 OP1이 생성된다"
+  - "mock 112 webhook으로 생성된 사건은 지구대/파출소 개인 계정에 배정되고 OP1이 생성된다"
   - "같은 webhook을 재전송해도 사건과 OP가 중복 생성되지 않는다"
   - "Web 사건 목록은 수동 가져오기 없이 신규 배정 사건을 표시한다"
   - "webhook 처리 실패 시 incident/OP/assignment/event staging이 rollback되고 실패 사유가 backend log와 webhook response에 남는다"
@@ -118,17 +118,17 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
 
 ### SC-02 · 실종팀 인계·지원 부대 배정
 
-- **given**: 사건 `OPEN`. 지구대/파출소 초동 사건은 지구대/파출소 지휘·팀·순찰차 계정이 먼저 배정되어 있고, 실종팀 인계가 필요한 상태. 지구대/파출소 OP1에는 순찰차 경로, 도보 경로, 마커, 인수인계 메모가 seed 또는 선행 SC 결과로 존재
+- **given**: 사건 `OPEN`. 지구대/파출소 초동 사건은 지구대/파출소 개인 계정이 역할과 단말 컨텍스트를 가지고 먼저 배정되어 있고, 실종팀 인계가 필요한 상태. 지구대/파출소 OP1에는 순찰차 경로, 도보 경로, 마커, 인수인계 메모가 seed 또는 선행 SC 결과로 존재
 - **when**:
   1. mock 112가 실종팀 인계 배정을 `INCIDENT_ASSIGNMENT_CHANGED` webhook으로 전송한다.
   2. mock 112가 지원 부대 배정을 같은 사건의 `INCIDENT_ASSIGNMENT_CHANGED` webhook으로 전송한다.
 - **then**:
-  1. 지구대/파출소 초동 사건에서는 실종팀 지휘 계정·팀 계정이 사건 접근 권한을 얻는다.
+  1. 지구대/파출소 초동 사건에서는 실종팀 개인 계정이 사건 접근 권한을 얻는다.
   2. 기존 지구대/파출소 계정과 OP1 기록은 유지된다.
-  3. 배정 부대의 팀 계정·순찰차 계정·지휘 계정이 사건 접근 권한을 얻는다.
+  3. 배정 부대의 개인 계정이 사건 접근 권한을 얻는다.
   4. 시드 직책 기준으로 현장 지휘관 역할 후보가 자동 부여된다.
   5. `INCIDENT_ASSIGNMENT_CHANGED` 발행 후 앱·웹 권한 상태가 갱신된다.
-  6. 신규 배정 계정이 운용 중인 활성 폴리폰의 FCM token에 PII 없는 사건 배정 FCM data message가 도달한다. 지휘 계정 policePhoneId는 Android FCM recipient로 고정하지 않는다.
+  6. 신규 배정 계정이 운용 중인 활성 폴리폰의 FCM token에 PII 없는 사건 배정 FCM data message가 도달한다. 지휘관 역할 개인 계정의 policePhoneId는 Android FCM recipient로 고정하지 않는다.
   7. 상황판은 실종팀 인계 완료 상태와 기존 지구대/파출소 OP1 기록 보존 상태를 같은 사건 안에서 구분해 표시한다.
 - **involved_specs**: S1-1, S1-2, S3-1, S3-2, S4, S5, S8
 - **involved_apis**:
@@ -139,19 +139,19 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   - `INCIDENT_ASSIGNMENT_CHANGED`
   - `FcmDispatcher.send`
 - **e2e_red_test**:
-  - "지구대/파출소 초동 사건 인계 시 실종팀 지휘 계정이 OP1 경로·마커·메모를 조회할 수 있다"
+  - "지구대/파출소 초동 사건 인계 시 실종팀 지휘관 역할 개인 계정이 OP1 경로·마커·메모를 조회할 수 있다"
   - "인계 전 지구대/파출소 OP1에 생성된 경로·마커·메모의 ID가 인계 후 실종팀 상황판에서도 같은 사건·같은 OP1 소속으로 조회된다"
-  - "실종팀 인계 후에도 지구대/파출소 팀 계정·순찰차 계정의 기존 사건 접근 권한은 유지된다"
-  - "실종팀 지휘 계정 상황판에는 `초동 OP1`과 `실종팀 인계 완료` 상태가 표시되고 같은 사건이 중복 카드로 보이지 않는다"
+  - "실종팀 인계 후에도 지구대/파출소 개인 계정의 기존 사건 접근 권한은 유지된다"
+  - "실종팀 지휘관 역할 개인 계정 상황판에는 `초동 OP1`과 `실종팀 인계 완료` 상태가 표시되고 같은 사건이 중복 카드로 보이지 않는다"
   - "지원 부대 배정 시 해당 부대 계정이 사건 목록에서 사건을 볼 수 있다"
   - "지원 부대 배정 시 `INCIDENT_ASSIGNMENT_CHANGED` fanout이 신규 배정된 지원 부대 업무폰 FCM recipient와 PII 없는 payload를 mock dispatcher에 기록한다"
   - "지원 부대 배정 webhook 처리 후 배정 대상과 반영 상태를 웹 화면에서 확인할 수 있다"
   - "실종팀 인계와 지원 부대 배정 webhook이 중복 전송되어도 같은 112 assignment key 기준으로 incident_assignment가 중복 생성되지 않는다"
   - "실종팀 인계 또는 지원 부대 배정 webhook 처리 실패 시 backend는 실패 사유를 기록하고 Web은 마지막 수신/반영 상태와 재조회 실패를 구분한다"
   - "시드 직책이 지휘관 후보인 계정은 구역·OP 관리 권한을 얻는다"
-  - "미배정 팀 계정 또는 타 팀 계정이 사건 상세를 조회하면 `403 team_not_assigned`를 응답하고 화면은 사건 내용을 렌더링하지 않는다"
-  - "미배정 팀 계정 또는 타 팀 계정이 인계 상세를 조회하면 `403 team_not_assigned`를 응답하고 화면은 인수인계 메모·OP 기록을 표시하지 않는다"
-  - "미배정 팀 계정 또는 타 팀 계정이 지원 배정 반영 상태를 조회하면 `403 team_not_assigned`를 응답하고 배정 후보 목록을 노출하지 않는다"
+  - "미배정 개인 계정 또는 타 조직 개인 계정이 사건 상세를 조회하면 `403 team_not_assigned`를 응답하고 화면은 사건 내용을 렌더링하지 않는다"
+  - "미배정 개인 계정 또는 타 조직 개인 계정이 인계 상세를 조회하면 `403 team_not_assigned`를 응답하고 화면은 인수인계 메모·OP 기록을 표시하지 않는다"
+  - "미배정 개인 계정 또는 타 조직 개인 계정이 지원 배정 반영 상태를 조회하면 `403 team_not_assigned`를 응답하고 배정 후보 목록을 노출하지 않는다"
   - "웹·앱에는 지원 부대 배정 write API나 후보 선택 CTA가 노출되지 않는다"
   - "웹 또는 앱 채널이 mock 112 webhook API를 직접 호출하면 `403 channel_not_allowed` 또는 `invalid_signature`"
   - "mock 112 인계 fixture 반영 없이 웹 조회만 반복해도 실종팀 인계 완료 상태로 표시되지 않는다"
@@ -162,7 +162,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
 
 ### SC-03 · 사건 오프라인 패키지 사전 적재
 
-- **given**: 사건 `OPEN`, 사건 배정 계정이 앱에서 사건 진입. 초동 대응 케이스에서는 지구대/파출소 팀 계정 또는 순찰차 계정이 사건에 진입
+- **given**: 사건 `OPEN`, 사건 배정 개인 계정이 앱에서 사건 진입. 초동 대응 케이스에서는 지구대/파출소 개인 계정이 사건에 진입
 - **when**: 앱에서 사건 오프라인 패키지 다운로드 시작
 - **then**:
   1. 사건 메타, 실종자 정보, OP, 담당 구역, 초기 마커, 전체 수색 구역, 지도 타일이 단일 흐름으로 다운로드된다.
@@ -178,7 +178,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   - `OFFLINE_PACKAGE_INSTALLATION_CHANGED`
 - **e2e_red_test**:
   - "manifest에 사건 메타·실종자·OP·담당 구역·초기 마커·전체 수색 구역·타일 목록이 포함된다"
-  - "지구대/파출소 순찰차 계정 manifest는 담당 구역이 없어도 OP1, 전체 수색 구역, 초기 기준 마커, 단말 식별 정보를 포함한다"
+  - "순찰차 폴리폰을 사용하는 지구대/파출소 개인 계정 manifest는 담당 구역이 없어도 OP1, 전체 수색 구역, 초기 기준 마커, 단말 식별 정보를 포함한다"
   - "다운로드 중 앱 화면은 사건 메타·실종자·OP·담당 구역·마커·전체 수색 구역·타일의 항목별 진행률을 표시한다"
   - "다운로드 중 네트워크 실패 후 재시도 시 이미 받은 항목은 건너뛴다"
   - "일부 항목 다운로드 실패 시 앱은 실패 항목명과 `실패 항목 재시도` CTA를 표시하고 성공 항목을 다시 받지 않는다"
@@ -198,8 +198,8 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
 
 ### SC-04 · 전체 수색 구역·구역 분할·할당
 
-- **given**: 사건 `OPEN`, 현장 지휘관 역할을 가진 지휘 계정으로 웹 상황판 접속
-- **when**: 지휘 계정이 전체 수색 구역를 확인·조정하고 팀별 담당 구역을 분할·할당
+- **given**: 사건 `OPEN`, 현장 지휘관 역할을 가진 개인 계정으로 웹 상황판 접속
+- **when**: 지휘관 역할 개인 계정이 전체 수색 구역를 확인·조정하고 팀별 담당 구역을 분할·할당
 - **then**:
   1. 사건의 `overall_search_area`가 생성 또는 갱신되고 `SEARCH_AREA_CHANGED`가 발행된다.
   2. `search_area` 폴리곤이 생성되고 `SEARCH_AREA_CHANGED`가 발행된다.
@@ -240,19 +240,19 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
 
 ---
 
-### SC-05 · 수색 경로·PolicePhone GPS 경로
+### SC-05 · 수색 경로·계정별 GPS 경로
 
 - **given**: 사건 `OPEN`, 사건 배정 계정이 앱에서 현재 OP에 진입
 - **when**:
   1. 앱 흐름: 앱에서 `수색 시작`을 누르고 5초 주기 GPS 수집, 10초 배치 전송을 수행한다.
   2. 웹 흐름: 상황판에서 이미 저장된 경로의 차량·도보 구간을 확인하고 필요 시 수동 보정한다.
 - **then**:
-  1. 앱 흐름에서 `search_path`이 현재 OP와 현재 PolicePhone 기준으로 생성된다.
+  1. 앱 흐름에서 `search_path`이 현재 OP와 로그인 계정 `accountId` 기준으로 생성되고, `policePhoneId`는 단말 인증·배정 컨텍스트로 함께 기록된다.
   2. 앱 흐름에서 경로 포인트가 `search_path`와 `search_path_segment`에 누적되고 GPS 속도 기반으로 차량·도보 구간이 자동 분리된다.
   3. 앱 흐름에서 `PATH_APPENDED` 발행 후 상황판이 경로와 단말 최신성을 갱신한다.
-  4. 앱 흐름에서 운용 중인 업무폰 궤도는 앱·웹 모두에서 별도 스타일로 표시된다.
-  5. 앱 흐름에서 지구대/파출소 초동 대응 순찰차 업무폰 경로는 차량 구간 중심으로, 팀 업무폰 경로는 도보 구간 중심으로 OP1에 남는다.
-  6. 앱 흐름에서 앱은 수색 경로의 시작·일시정지·재개·종료 상태와 현재 기록 중인 PolicePhone을 명확히 표시한다.
+  4. 앱 흐름에서 현재 로그인 계정의 궤도는 앱·웹 모두에서 별도 스타일로 표시되고, 같은 사건/OP의 다른 계정 경로와 최신 위치도 함께 표시된다.
+  5. 앱 흐름에서 순찰차 폴리폰을 사용한 개인 계정 경로는 차량 구간 중심으로, 도보 수색 개인 계정 경로는 도보 구간 중심으로 OP1에 남는다.
+  6. 앱 흐름에서 앱은 수색 경로의 시작·일시정지·재개·종료 상태와 현재 기록 중인 계정을 명확히 표시한다.
   7. 웹 흐름에서 현장 지휘관은 상황판에서 차량·도보 구간을 수동 보정할 수 있고, `SEARCH_PATH_SEGMENT_UPDATED` 발행 후 앱·웹의 구간 스타일이 갱신된다.
   8. 현재 OP에서 TEAM 수색구역을 배정받은 PolicePhone이 담당 구역 경계 밖 GPS fix를 수집하면, 앱은 서버 응답 전 짧은 로컬 진동과 경계 확인 안내를 표시하고 서버 반영 가능 시 `SEARCH_AREA_BOUNDARY_EXITED` 운영 참고 eventId와 FCM payload를 남긴다.
 - **involved_specs**: S3-1, S1-2, S6, S8, S4, S2
@@ -265,7 +265,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
 - **e2e_red_test**:
   - "1시간 수집 중 REST 경로 전송 호출이 10초 배치 기준을 넘지 않는다"
   - "동일 batch 재전송 시 중복 포인트가 생성되지 않는다"
-  - "상황판에서 현재 PolicePhone 경로가 다른 PolicePhone 경로와 구분된다"
+  - "상황판과 앱 지도에서 현재 로그인 계정 경로가 다른 계정 경로와 구분된다"
   - "경로는 LineString 레이어로만 표시되고 완료 구역 Polygon 상태와 섞여 해석되지 않는다"
   - "`search_path` batch payload의 geometry type이 LineString이 아니면 `400 invalid_geometry`를 응답하고 search_path, search_path_segment, event_dispatch_job, board response를 변경하지 않는다"
   - "`search_path` 저장 성공 시 좌표는 EPSG:4326 `[lon, lat]`, 연속 중복점 제거, 소수 6자리 precision으로 정규화되어 REST 응답·DB row·board response가 같은 canonical LineString을 가진다"
@@ -273,7 +273,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   - "`search_path` 포인트가 경도/위도 표현 범위를 이탈하거나 좌표 자체가 유효하지 않으면 `400 invalid_geometry`로 해당 batch 전체를 거부하고 partial path write를 남기지 않는다"
   - "`search_path` LineString이 2개 미만 포인트, 0 길이, 하네스 최대 포인트 수 초과 중 하나이거나 포인트 `client_ts`가 수집 순서대로 증가하지 않으면 `400 invalid_geometry`를 응답한다"
   - "`search_path` geometry의 CRS가 EPSG:4326이 아니거나 허용 precision을 초과하는 좌표가 정규화 후에도 기준을 만족하지 못하면 `400 invalid_geometry`를 응답한다"
-  - "수색 시작 후 앱의 기본 CTA는 `일시정지`·`종료`로 전환되고 기록 중 배지가 현재 PolicePhone 이름과 함께 표시된다"
+  - "수색 시작 후 앱의 기본 CTA는 `일시정지`·`종료`로 전환되고 기록 중 배지가 현재 계정 표시명과 함께 표시된다"
   - "수색 시작 요청 중 앱은 시작 CTA를 로딩·비활성 상태로 표시하고 중복 탭해도 search_path이 중복 생성되지 않는다"
   - "수색 시작 실패 시 앱은 실패 사유와 재시도 CTA를 표시하고 시작 전 상태를 유지한다"
   - "일시정지 중에는 경로 선이 이어붙지 않고 앱·상황판 모두 일시정지 상태를 표시한다"
@@ -282,13 +282,13 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   - "현재 OP에서 담당 TEAM search_area가 배정된 앱이 구역 경계 밖 GPS fix를 받으면 서버 연결 없이도 짧은 진동과 중립적인 인앱 경계 확인 안내를 표시한다"
   - "구역 밖 GPS fix가 서버에 반영되면 `SEARCH_AREA_BOUNDARY_EXITED` eventId, incidentId, opId, searchAreaId, policePhoneId, status, version이 DB event, FCM payload, board refetch 신호에서 일치한다"
   - "담당 구역 경계 확인 안내는 같은 경계 밖 표시 상태에서 반복 발송되지 않고, 구역 재진입 후 다시 경계 밖으로 표시됐을 때 새 eventId로 기록된다"
-  - "지구대/파출소 순찰차 계정이 폴리폰으로 시작한 OP1 경로는 `account_type=PATROL_CAR`와 `movement_type=VEHICLE` 기준으로 차량 구간 스타일로 표시된다"
-  - "지구대/파출소 팀 업무폰으로 이어서 시작한 OP1 경로는 같은 사건·OP 아래 별도 PolicePhone 경로로 저장된다"
+  - "순찰차 폴리폰을 사용한 개인 계정이 시작한 OP1 경로는 `movement_type=VEHICLE`과 PolicePhone 단말 컨텍스트 기준으로 차량 구간 스타일로 표시된다"
+  - "도보 수색 개인 계정이 이어서 시작한 OP1 경로는 같은 사건·OP 아래 별도 accountId 경로로 저장된다"
   - "앱에서 `PATCH /search-path-segments/{searchPathSegmentId}`를 호출하면 `403 channel_not_allowed`"
   - "웹에서 `POST /search-paths` 또는 `POST /search-paths/batch`를 호출하면 `403 channel_not_allowed`"
   - "미등록 PolicePhone이 `POST /search-paths` 또는 `POST /search-paths/batch`를 호출하면 `403 police_phone_not_registered`를 응답하고 경로가 생성되지 않는다"
   - "등록됐지만 해당 사건/OP에 배정되지 않은 PolicePhone이 `POST /search-paths` 또는 `POST /search-paths/batch`를 호출하면 `403 police_phone_not_assigned`를 응답하고 앱은 기록 중 상태로 전환하지 않는다"
-  - "사건에 배정된 팀 계정 또는 순찰차 계정이라도 현재 PolicePhone이 해당 사건/OP에 배정되지 않았으면 경로 write는 `403 police_phone_not_assigned`를 응답한다"
+  - "사건에 배정된 개인 계정이라도 현재 PolicePhone이 해당 사건/OP에 배정되지 않았으면 경로 write는 `403 police_phone_not_assigned`를 응답한다"
   - "상황판에서 차량·도보 구간 수동 보정 중에는 저장 CTA가 로딩·비활성 상태가 되고 실패 시 기존 구간 스타일을 유지한다"
   - "수색 경로 생성, 경로 배치 추가, 구간 수동 보정 write는 §0.3 공통 red test에 따라 REST 응답 id/status/version, `event_dispatch_job`, SSE payload, board response path row가 같은 경로·구간 상태를 말하고 board response version이 수렴해야 한다"
 - **board_merge**: `path` slot + `police_phone_freshness` slot
@@ -322,7 +322,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   - "`marker` Point가 경도/위도 표현 범위를 이탈하거나 좌표 자체가 유효하지 않으면 온라인 서버는 `400 invalid_geometry`로 거부하고, 오프라인 앱은 pending 마커를 서버 반영 완료로 바꾸지 않으며 좌표 오류 상태를 표시한다"
   - "`marker` Point가 단일 `[lon, lat]` 좌표쌍이 아니거나 null, NaN, 빈 좌표, 추가 point 배열을 포함하면 `400 invalid_geometry`를 응답한다"
   - "`marker` geometry의 CRS가 EPSG:4326이 아니거나 허용 precision을 초과하는 좌표가 정규화 후에도 기준을 만족하지 못하면 `400 invalid_geometry`를 응답한다"
-  - "지구대/파출소 팀 계정 또는 순찰차 계정이 OP1 초동 대응 중 단서·NOTE 마커를 생성할 수 있다"
+  - "지구대/파출소 개인 계정이 OP1 초동 대응 중 단서·NOTE 마커를 생성할 수 있다"
   - "바텀시트에서 유형만 선택해 저장하면 메모·사진 없이 현재 위치·시간·작성 계정이 자동 입력된 마커가 생성된다"
   - "온라인 마커 저장 중 앱은 저장 중 상태를 표시하고 저장 CTA를 비활성화한다"
   - "온라인 마커 저장 성공 후 생성한 앱은 저장 완료 피드백을 표시하고 바텀시트를 닫거나 생성된 마커 상세로 전환한다"
@@ -334,7 +334,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   - "웹에서 `POST /markers/{markerId}/photos/upload-url` 또는 `POST /markers/{markerId}/photos/{photoId}/attach`를 직접 호출하면 `403 channel_not_allowed`"
   - "미등록 PolicePhone이 `POST /markers`, 사진 업로드용 presigned URL 발급, 사진 attach를 호출하면 `403 police_phone_not_registered`를 응답하고 마커·사진이 생성되지 않는다"
   - "등록됐지만 해당 사건/OP에 배정되지 않은 PolicePhone이 `POST /markers`, 사진 업로드용 presigned URL 발급, 사진 attach를 호출하면 `403 police_phone_not_assigned`를 응답하고 앱은 pending 마커를 서버 반영 완료로 바꾸지 않는다"
-  - "사건에 배정된 팀 계정 또는 순찰차 계정이라도 현재 PolicePhone이 해당 사건/OP에 배정되지 않았으면 마커·사진 write는 `403 police_phone_not_assigned`를 응답한다"
+  - "사건에 배정된 개인 계정이라도 현재 PolicePhone이 해당 사건/OP에 배정되지 않았으면 마커·사진 write는 `403 police_phone_not_assigned`를 응답한다"
   - "사진 10장 또는 10MB 초과 업로드는 거부된다"
   - "마커 생성과 사진 attach write는 §0.3 공통 red test에 따라 REST 응답 id/status/version, `event_dispatch_job`, SSE payload, board response marker/photo row가 같은 마커·사진 상태를 말하고 board response version이 수렴해야 한다"
 - **board_merge**: `marker` slot
@@ -379,7 +379,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
 - **when**: `드론 필요`, `경찰견 필요`, `진입 불가`, `추가 인력`, `실종자 발견` 유형을 선택
 - **then**:
   1. 지원 요청은 `SUPPORT_REQUEST_CREATED`, 실종자 발견은 `PERSON_FOUND`를 발행한다.
-  2. 지원 요청은 실종팀 지휘 계정과 현장 지휘관 역할 계정에 우선 알림을 보낸다.
+  2. 지원 요청은 실종팀 지휘관 역할 개인 계정과 현장 지휘관 역할 개인 계정에 우선 알림을 보낸다.
   3. 실종자 발견은 사건 배정 계정·단말 전체에 강조 알림을 보낸다.
   4. 웹 토스트, 앱 인앱 배너, 앱 백그라운드 OS notification은 같은 FCM data message를 기반으로 동작한다.
   5. 지원 요청과 실종자 발견은 색·문구·우선순위가 구분되고, 같은 이벤트의 반복 알림은 중복 노출되지 않는다.
@@ -390,7 +390,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   - `PERSON_FOUND`
   - `FcmDispatcher.send`
 - **e2e_red_test**:
-  - "지원 요청 마커 생성 시 실종팀 지휘 계정과 현장 지휘관 역할 계정에 알림이 도달한다"
+  - "지원 요청 마커 생성 시 실종팀 지휘관 역할 개인 계정과 현장 지휘관 역할 개인 계정에 알림이 도달한다"
   - "실종자 발견 마커 생성 시 사건 배정 단말 전체에 강조 알림이 도달한다"
   - "지원 요청·실종자 발견 마커는 marker 엔티티와 toast/FCM payload가 같은 id/status/version을 참조하되, marker 표시와 알림 표시는 서로 다른 UI 책임으로 분리해 검증한다"
   - "지원 요청 또는 실종자 발견 마커 생성 중 앱은 로딩·CTA 비활성 상태를 표시한다"
@@ -475,7 +475,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   - "구역 완료 저장 실패 시 웹 화면은 실패 사유와 재시도 CTA를 표시하고 기존 구역 상태를 유지한다"
   - "새 OP 생성 시 사유가 필수이며 OP별 레이어 토글에 나타난다"
   - "OP2 생성 저장 중에는 CTA가 로딩·비활성 상태가 되고 실패 시 실패 사유와 재시도 CTA를 표시하며 기존 OP 상태를 유지한다"
-  - "지구대/파출소 지휘 계정이 OP1 구역 완료와 인수인계용 OP2 생성을 수행할 수 있다"
+  - "지구대/파출소 지휘관 역할 개인 계정이 OP1 구역 완료와 인수인계용 OP2 생성을 수행할 수 있다"
   - "`OTHER` 사유로 OP2를 열 때 인수인계 메모가 함께 저장된다"
   - "지구대/파출소 OP1 초동 기록이 존재하고 실종팀 인계·지원 부대 배정이 끝난 같은 사건에서 OP2를 열면, OP1 기록·실종팀·지원 부대 참여 상태가 끊기지 않고 현재 OP만 OP2로 전환된다"
   - "지원 부대 배정 완료 후 OP2가 생성되면 지원 부대 계정/단말은 같은 사건의 OP2를 현재 OP로 보고, OP1 인수인계 기록과 OP2 시작 상태를 함께 확인할 수 있다"
@@ -498,7 +498,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   2. 인수인계 메모가 OP·구역·경로 맥락과 함께 표시된다.
   3. 수색 이력 요약은 서버 job이 이미 저장된 OP1 경로·마커·인수인계 메모를 바탕으로 "어디 일대를 수색했는지"를 사후 요약하고, 누락 확정·다음 구역 지시는 하지 않는다.
   4. 수색 이력 요약 실패 시에도 수동 인수인계 메모와 OP 비교 화면은 동작한다.
-  5. 실종팀 지휘 계정은 지구대/파출소가 남긴 OP1 경로·마커·메모와 수색 이력 요약을 SC-10에서 완료된 OP2 전환 판단의 사후 검토 자료로 확인할 수 있다.
+  5. 실종팀 지휘관 역할 개인 계정은 지구대/파출소가 남긴 OP1 경로·마커·메모와 수색 이력 요약을 SC-10에서 완료된 OP2 전환 판단의 사후 검토 자료로 확인할 수 있다.
   6. 수색 이력 요약과 인수인계 메모에서 원본 OP·경로·마커로 되돌아갈 수 있어야 하며, 선택 중인 OP가 화면에서 항상 식별 가능해야 한다.
   7. Android 하단 네비게이션은 사건·지도·인수인계·미전송 같은 현장 흐름으로 유지하고, OP 요약/OP 비교 전용 top-level destination을 노출하지 않는다.
 - **involved_specs**: S3-2, S1-2, S8, S3-1, S2, S5, S4, S1-1
@@ -515,7 +515,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   - `SEARCH_HISTORY_SUMMARY_CHANGED`
 - **e2e_red_test**:
   - "OP1과 OP2 경로를 동시에 표시하고 토글할 수 있다"
-  - "지구대/파출소 OP1 초동 수색 경로와 메모가 실종팀 지휘 계정의 상황판 인수인계 뷰에 표시된다"
+  - "지구대/파출소 OP1 초동 수색 경로와 메모가 실종팀 지휘관 역할 개인 계정의 상황판 인수인계 뷰에 표시된다"
   - "OP 비교 화면은 선택된 OP, 현재 OP, 완료 OP를 배지·범례·레이어 토글에서 구분한다"
   - "OP 비교 분석 생성 전후 `overall_search_area`, `search_area`, `search_path`, `marker`, `handover_memo`, `operational_period` 원본 row와 board response 원본 geometry/status/version hash가 동일하며, 새로 발생하는 write/event는 `op_comparison_analysis` row와 `OP_COMPARISON_ANALYSIS_CHANGED`에 한정된다"
   - "OP 비교 화면에서 적용한 스타일·필터·하이라이트는 board 표시 계층에만 반영되고 REST 조회 결과와 board response의 원본 geometry, status, version은 변경되지 않으며 event_dispatch_job row와 SSE event가 새로 발생하지 않는다"
@@ -530,8 +530,8 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   - "앱은 `DUTY_SHIFT` 범위 수색 이력 요약을 `GET /operational-periods/{operationalPeriodId}/search-history-summaries` 또는 handover timeline read flow로만 읽고 생성 또는 재시도 CTA를 노출하지 않는다"
   - "Android 하단 네비게이션은 `사건 / 지도 / 인수인계 / 미전송`을 유지하고 `수색 이력`, `OP 요약`, `OP 비교` top-level destination을 노출하지 않는다"
   - "Android 인수인계 화면은 OP scope 요약을 `이전 근무 요약`으로 fallback 표시하지 않고, OP 정보 요약과 OP 비교는 Web 상황판 지휘 검토 흐름에서 확인한다"
-  - "타 팀 지휘 계정 또는 사건 미배정 지휘 계정이 `GET /incidents/{incidentId}/board`을 호출하면 `403 team_not_assigned`를 응답하고 상황판 shell은 OP 상세·경로·마커·메모를 렌더링하지 않는다"
-  - "사건에 배정됐지만 현장 지휘관 역할이 없는 팀 계정 또는 순찰차 계정에도 수색 이력 요약 생성 CTA는 노출되지 않으며, 허용된 화면은 read-only summary 상태만 소비한다"
+  - "타 조직 지휘관 역할 개인 계정 또는 사건 미배정 개인 계정이 `GET /incidents/{incidentId}/board`을 호출하면 `403 team_not_assigned`를 응답하고 상황판 shell은 OP 상세·경로·마커·메모를 렌더링하지 않는다"
+  - "사건에 배정됐지만 현장 지휘관 역할이 없는 개인 계정에도 수색 이력 요약 생성 CTA는 노출되지 않으며, 허용된 화면은 read-only summary 상태만 소비한다"
   - "SC-10 완료 산출물 없이 SC-11 수색 이력 요약 시나리오를 실행하면 선행 조건 실패로 처리된다"
   - "수색 이력 요약 실패 시 실패 상태와 원본 기록 확인 안내를 표시하되 클라이언트 재시도 버튼은 노출하지 않고 기존 OP 비교와 인수인계 메모가 계속 표시된다"
   - "인수인계 메모 저장, DutyShift 종료, OP 전환 write와 서버 job의 `SEARCH_HISTORY_SUMMARY_CHANGED` 이벤트는 §0.3 공통 red test에 따라 REST 응답 id/status/version, `event_dispatch_job`, SSE payload, board response handover/search_history_summary row가 같은 메모·요약 상태를 말하고 board response version이 수렴해야 한다"
@@ -542,7 +542,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
 
 ### SC-12 · 사건 종료·데이터 파기
 
-- **given**: 사건 `OPEN`, 실종팀 지휘 계정으로 웹 로그인
+- **given**: 사건 `OPEN`, 실종팀 지휘관 역할 개인 계정으로 웹 로그인
 - **when**: 사건 종료 확인 다이얼로그를 승인
 - **then**:
   1. 사건이 terminal 상태로 전이되고 재오픈되지 않는다.
@@ -657,7 +657,7 @@ SC-11은 SC-10의 산출물인 OP 전환 판단, 인수인계 메모 저장, 지
 4. S6: Outbox row shape, idempotency key, replay/requeue 상태
 5. S2: geometry fixture, `SearchAreaQuery.overallOf(incidentId)`, overall/search area 최소 계약
 6. SC-01: 사건 import + OP1 자동 생성
-7. SC-05: PolicePhone 기준 search_path schema
+7. SC-05: account 기준 search_path schema와 PolicePhone 단말 컨텍스트
 8. SC-06: marker schema + 앱 전용 생성 정책
 
 동결 대상에서 제외하는 과거 개념:
@@ -690,8 +690,8 @@ red test는 아래 fixture를 조합해 작성할 수 있어야 한다.
 
 | fixture | 사용 시나리오 | 기준 |
 |---|---|---|
-| mock 112 배정 사건 | SC-01, SC-02, SC-10, SC-12 | 지구대/파출소 초동 사건 하나를 대표 seed로 고정한다. 대표 사건은 `incidentAlias=inc-precinct-first-001`, `incidentId=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001`, `opAlias=op-precinct-001-op1`, `opId=88888888-8888-8888-8888-888888880001`, `teamId=team-precinct-jongno`, `accountCode=acct-precinct-cmd/acct-precinct-car/acct-precinct-team`, `policePhoneAlias=dev-precinct-cmd-phone-01/dev-precinct-car-01/dev-precinct-phone-01`, seed `markerId=mk-precinct-clue-001`, `pathId=path-precinct-car-001/path-precinct-foot-001`, OP1 seed `memoId=memo-precinct-handover-001`를 쓴다. 이 OP1 seed 메모는 SC-11 OP2 메모 fixture `memo-precinct-op2-001`와 다른 row다. 실종팀 인계 fixture는 같은 사건에 추가되는 `teamId=team-missing-alpha`, `accountCode=acct-cmd-alpha/acct-team-alpha`, `policePhoneAlias=dev-alpha-cmd-phone-01/dev-alpha-phone-01`를 쓴다. 지원 부대 fixture는 `teamId=team-support-bravo`, `accountCode=acct-support-cmd/acct-support-car/acct-support-team`, `policePhoneAlias=dev-support-cmd-phone-01/dev-support-car-01/dev-support-phone-01`이고, `COMMANDER`, `PATROL`, `TEAM`은 테스트 fixture alias일 뿐 실제 role enum이 아니다. 이 표의 `accountCode=acct-*`는 mock 112와 fixture가 참조하는 외부/fixture 계정 코드이며 내부 `account.id` UUID나 DB FK가 아니다. 이 표의 `policePhoneAlias`는 하네스 식별용 문자열 별칭이며 public contract field `policePhoneId`는 UUID를 사용한다. mock FCM recipient는 `fcm:dev-alpha-phone-01`, `fcm:dev-support-car-01`, `fcm:dev-support-phone-01`로 고정한다. 지휘 계정 policePhoneAlias는 웹 지휘·incident_assignment fixture 식별자로만 쓰며 Android 앱 FCM recipient로 고정하지 않는다. 인계 전 기대 incident_assignment row는 `ia-precinct-cmd-001=ACTIVE`, `ia-precinct-car-001=ACTIVE`, `ia-precinct-team-001=ACTIVE`뿐이고, 인계 후 기존 row와 OP1 seed ID가 보존된 채 `ia-precinct-alpha-cmd-001=ACTIVE`, `ia-precinct-alpha-team-001=ACTIVE`가 추가되어야 한다. 지원 배정 후에는 `ia-precinct-support-cmd-001=ACTIVE`, `ia-precinct-support-car-001=ACTIVE`, `ia-precinct-support-team-001=ACTIVE`가 추가되고 모든 기대 row의 `revokedAt`은 null이어야 한다. SC-10 OP 전환 후에도 OP1 marker/path/memo seed ID는 같은 사건·OP 소속으로 조회되어야 한다 |
-| 팀 계정·순찰차 계정·지휘 계정 | 전 시나리오 | `COMMANDER`, `TEAM`, `PATROL`은 fixture alias이며 실제 enum으로 추가하지 않는다. 실제 account type은 `COMMAND`, `TEAM`, `PATROL_CAR`, 실제 role은 `MISSING_TEAM_COMMANDER`, `FIELD_COMMANDER`, `MEMBER`, `police_phone`에는 phone_type을 두지 않는다. `acct-precinct-cmd`와 `acct-support-cmd`는 alias/account type 기준 `COMMANDER/COMMAND`, `acct-precinct-team`과 `acct-support-team`은 `TEAM/TEAM`, `acct-precinct-car`와 `acct-support-car`는 `PATROL/PATROL_CAR`로 고정한다 |
+| mock 112 배정 사건 | SC-01, SC-02, SC-10, SC-12 | 지구대/파출소 초동 사건 하나를 대표 seed로 고정한다. 대표 사건은 `incidentAlias=inc-precinct-first-001`, `incidentId=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001`, `opAlias=op-precinct-001-op1`, `opId=88888888-8888-8888-8888-888888880001`, `teamId=team-precinct-jongno`, `accountCode=acct-precinct-cmd/acct-precinct-car/acct-precinct-team`, `policePhoneAlias=dev-precinct-cmd-phone-01/dev-precinct-car-01/dev-precinct-phone-01`, seed `markerId=mk-precinct-clue-001`, `pathId=path-precinct-car-001/path-precinct-foot-001`, OP1 seed `memoId=memo-precinct-handover-001`를 쓴다. 이 OP1 seed 메모는 SC-11 OP2 메모 fixture `memo-precinct-op2-001`와 다른 row다. 실종팀 인계 fixture는 같은 사건에 추가되는 `teamId=team-missing-alpha`, `accountCode=acct-cmd-alpha/acct-team-alpha`, `policePhoneAlias=dev-alpha-cmd-phone-01/dev-alpha-phone-01`를 쓴다. 지원 부대 fixture는 `teamId=team-support-bravo`, `accountCode=acct-support-cmd/acct-support-car/acct-support-team`, `policePhoneAlias=dev-support-cmd-phone-01/dev-support-car-01/dev-support-phone-01`이다. 이 표의 `accountCode=acct-*`는 fixture가 참조하는 개인 계정 별칭이며, 이름에 남아 있는 `cmd/car/team`은 사건 내 역할·단말 컨텍스트를 설명하는 과거 fixture label일 뿐 공유 팀/순찰차 계정을 의미하지 않는다. 이 표의 `policePhoneAlias`는 하네스 식별용 문자열 별칭이며 public contract field `policePhoneId`는 UUID를 사용한다. mock FCM recipient는 `fcm:dev-alpha-phone-01`, `fcm:dev-support-car-01`, `fcm:dev-support-phone-01`로 고정한다. 지휘 역할 개인 계정의 policePhoneAlias는 웹 지휘·incident_assignment fixture 식별자로만 쓰며 Android 앱 FCM recipient로 고정하지 않는다. 인계 전 기대 incident_assignment row는 `ia-precinct-cmd-001=ACTIVE`, `ia-precinct-car-001=ACTIVE`, `ia-precinct-team-001=ACTIVE`뿐이고, 인계 후 기존 row와 OP1 seed ID가 보존된 채 `ia-precinct-alpha-cmd-001=ACTIVE`, `ia-precinct-alpha-team-001=ACTIVE`가 추가되어야 한다. 지원 배정 후에는 `ia-precinct-support-cmd-001=ACTIVE`, `ia-precinct-support-car-001=ACTIVE`, `ia-precinct-support-team-001=ACTIVE`가 추가되고 모든 기대 row의 `revokedAt`은 null이어야 한다. SC-10 OP 전환 후에도 OP1 marker/path/memo seed ID는 같은 사건·OP 소속으로 조회되어야 한다 |
+| 개인 계정·역할·단말 컨텍스트 | 전 시나리오 | `COMMANDER`, `TEAM`, `PATROL`은 fixture alias이며 실제 enum으로 추가하지 않는다. 실제 role은 `MISSING_TEAM_COMMANDER`, `FIELD_COMMANDER`, `MEMBER`이고, 팀/순찰차/지휘는 개인 계정의 사건 내 역할·조직·PolicePhone 컨텍스트로만 표현한다. `police_phone`에는 phone_type을 두지 않는다 |
 | mock GPS 경로 | SC-05, SC-07, SC-09, SC-11 | 차량 속도 구간과 도보 속도 구간을 모두 포함한다. 하네스 path batch 최대치는 `120` points/request이며 초과 시 `400 invalid_geometry`를 기대한다. 자동 분리 정상 fixture `gps-path-normal-001`은 `pathId=path-precinct-mixed-001`, `policePhoneAlias=dev-precinct-car-01`, point 목록 `gps-precinct-001..gps-precinct-008`을 쓴다. point payload는 `(pointId, client_ts, lon, lat, speedMps)` 기준으로 `gps-precinct-001/2026-04-28T09:00:00+09:00/126.913000/35.162000/13.5`, `gps-precinct-002/2026-04-28T09:00:05+09:00/126.913650/35.162180/12.8`, `gps-precinct-003/2026-04-28T09:00:10+09:00/126.914300/35.162360/11.9`, `gps-precinct-004/2026-04-28T09:00:15+09:00/126.914850/35.162540/9.8`, `gps-precinct-005/2026-04-28T09:00:20+09:00/126.915000/35.162700/1.6`, `gps-precinct-006/2026-04-28T09:00:25+09:00/126.915080/35.162880/1.3`, `gps-precinct-007/2026-04-28T09:00:30+09:00/126.915160/35.163050/1.1`, `gps-precinct-008/2026-04-28T09:00:35+09:00/126.915250/35.163120/1.4`이다. 기대 `search_path_segment`는 `seg-precinct-vehicle-001` type `VEHICLE`, `startIndex=0`, `endIndex=3`, `startPointId=gps-precinct-001`, `endPointId=gps-precinct-004`와 `seg-precinct-foot-001` type `FOOT`, `startIndex=4`, `endIndex=7`, `startPointId=gps-precinct-005`, `endPointId=gps-precinct-008`이다. SC-05/07/09 red test는 이 pointId와 segment index를 기준으로 차량/도보 자동 분리, 오프라인 저장, 복구 후 서버 반영이 같은 segment 타입으로 유지되는지 검증한다. 구역 밖 허용 fixture는 `gps-outside-001/2026-04-28T09:05:00+09:00/127.200000/35.163100/3.0`, `gps-outside-002/2026-04-28T09:05:05+09:00/127.200100/35.163150/3.0`이며, 현재 `overall_search_area` 또는 담당 TEAM `search_area` 밖이어도 유효한 EPSG:4326 좌표로 저장되어야 한다. GPS 품질 저하 fixture는 `horizontalAccuracyM > 50`, `timestampSkewSec > 30`, `speedMps < 0 또는 > 45`, `5초 간 거리 > 200m`, 좌표 누락/null/NaN 중 하나를 포함한다. SC-05 red test는 품질 저하 point가 저장 완료 경로로 승격되지 않고 앱·상황판에 저품질 또는 제외 상태로 표시되는지 검증한다. 구역 밖 fixture는 품질 저하 fixture가 아니며, 구역 밖이라는 이유만으로 제외되면 red test 실패다 |
 | 하네스 geometry/GPS 기준 좌표 | SC-04, SC-05, SC-06 | 기준 지도 envelope는 EPSG:4326 bbox `minLon=126.647507`, `minLat=35.052595`, `maxLon=127.017482`, `maxLat=35.256837`이며 Polygon fixture와 tile fixture 범위 검증에 사용한다. 최소 Polygon 면적은 `400m2`이고 좌표 precision은 소수 6자리 canonical 값을 기준으로 한다. 정상 `overall_search_area` fixture는 `[[126.904000,35.158000],[126.923000,35.158000],[126.923000,35.173000],[126.904000,35.173000],[126.904000,35.158000]]`, 정상 `search_area` fixture는 `[[126.910000,35.160000],[126.918000,35.160000],[126.918000,35.166000],[126.910000,35.166000],[126.910000,35.160000]]`, 정상 marker fixture는 `[126.913400,35.163100]`를 쓴다. 구역 밖 marker/path 허용 fixture는 `coord-outside-envelope=[127.200000,35.163100]`이고, 실패 좌표 fixture는 `coord-latlon-swapped=[35.163100,126.913400]`, `polygon-unclosed`, `polygon-self-intersecting`, `polygon-too-small-under-400m2`, `point-null-nan`, `precision-over-6dp=[126.9134007,35.1631007]`로 고정한다. SC-04 Polygon 생성·수정은 overall/search area 포함 검증을 유지한다. SC-05 path와 SC-06 marker geometry test는 좌표 자체의 유효성만 `invalid_geometry`로 본다 |
 | mock tile catalog/server 또는 local tile fixture | SC-03, SC-04 | 외부 지도 타일 네트워크를 사용하지 않는다. 하네스는 `tileManifestAlias=tile-manifest-inc-precinct-001`, `tileManifestId=77777777-0000-4000-8000-000000000701`, tile key 범위 `z=15..16`, `x=27935..55873`, `y=12960..25923`, blob URI `local://tiles/inc-precinct-first-001/{z}/{x}/{y}.pbf`를 제공한다. manifest는 사건 메타, overall area hash `overall-area-hash-precinct-current`, tile key 목록, blob sha256, byte size를 포함하고 blob fixture는 local file 또는 in-memory blob만 허용한다. 실패 주입 키는 `manifest-expired`, `manifest-overall-area-stale`, `tile-404`, `tile-timeout`, `tile-checksum-mismatch`, `tile-corrupt-blob`이며 SC-03 항목별 재시도·미완료 red test와 SC-04 전체 수색 구역 변경 후 stale manifest red test가 이 fixture를 참조한다. `*.tile.openstreetmap.org`, `*.mapbox.com`, `*.googleapis.com` 등 외부 tile host 호출이 관찰되면 red test 실패다 |

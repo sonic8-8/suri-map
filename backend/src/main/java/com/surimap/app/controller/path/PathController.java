@@ -5,8 +5,10 @@ import com.surimap.app.controller.path.request.StartSearchPathRequest;
 import com.surimap.app.controller.path.response.PatchSearchPathResponse;
 import com.surimap.app.controller.path.response.StartSearchPathResponse;
 import com.surimap.app.service.path.AppSearchPathCommandService;
+import com.surimap.common.auth.SuriMapAuthentication;
 import com.surimap.domain.path.exception.SearchPathGuardException;
 import java.util.UUID;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -34,7 +36,8 @@ public class PathController {
       @RequestBody StartSearchPathRequest request) {
     requireIdempotencyKey(idempotencyKey);
     UUID policePhoneId = HeaderParsers.parsePolicePhoneId(policePhoneIdHeader);
-    var created = service.start(request.toServiceRequest(policePhoneId, idempotencyKey));
+    UUID accountId = currentAccountId();
+    var created = service.start(request.toServiceRequest(policePhoneId, accountId, idempotencyKey));
     return ResponseEntity.status(HttpStatus.CREATED).body(StartSearchPathResponse.from(created));
   }
 
@@ -46,7 +49,9 @@ public class PathController {
       @RequestBody PatchSearchPathRequest request) {
     requireIdempotencyKey(idempotencyKey);
     UUID policePhoneId = HeaderParsers.parsePolicePhoneId(policePhoneIdHeader);
-    var patched = service.patch(searchPathId, policePhoneId, request.toServiceRequest(idempotencyKey));
+    UUID accountId = currentAccountId();
+    var patched =
+        service.patch(searchPathId, policePhoneId, accountId, request.toServiceRequest(idempotencyKey));
     return ResponseEntity.ok(PatchSearchPathResponse.from(patched));
   }
 
@@ -54,5 +59,13 @@ public class PathController {
     if (idempotencyKey == null || idempotencyKey.isBlank()) {
       throw new SearchPathGuardException("write_conflict");
     }
+  }
+
+  private UUID currentAccountId() {
+    var current = SecurityContextHolder.getContext().getAuthentication();
+    if (current instanceof SuriMapAuthentication authentication) {
+      return UUID.fromString(authentication.getAccountId());
+    }
+    throw new SearchPathGuardException("channel_not_allowed");
   }
 }

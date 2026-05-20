@@ -10,6 +10,7 @@ public record SearchPathReadRecord(
     UUID opId,
     UUID dutyShiftId,
     UUID policePhoneId,
+    UUID accountId,
     String status,
     Instant startedAt,
     Instant endedAt,

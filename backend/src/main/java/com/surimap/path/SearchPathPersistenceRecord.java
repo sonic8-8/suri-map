@@ -7,6 +7,7 @@ import org.locationtech.jts.geom.Geometry;
 public record SearchPathPersistenceRecord(
     UUID id,
     UUID dutyShiftId,
+    UUID accountId,
     String status,
     Instant startedAt,
     Instant endedAt,

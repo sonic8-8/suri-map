@@ -12,8 +12,9 @@ public record StartSearchPathRequest(
     this(null, incidentId, opId, clientTs, clockOffsetMs);
   }
 
-  public StartSearchPathServiceRequest toServiceRequest(UUID policePhoneId, String idempotencyKey) {
+  public StartSearchPathServiceRequest toServiceRequest(
+      UUID policePhoneId, UUID accountId, String idempotencyKey) {
     return new StartSearchPathServiceRequest(
-        searchPathId, incidentId, opId, policePhoneId, clientTs, idempotencyKey);
+        searchPathId, incidentId, opId, policePhoneId, accountId, clientTs, idempotencyKey);
   }
 }

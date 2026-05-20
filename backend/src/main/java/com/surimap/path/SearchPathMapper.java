@@ -13,6 +13,12 @@ public interface SearchPathMapper {
   Optional<UUID> findActiveDutyShiftId(
       @Param("opId") UUID opId, @Param("policePhoneId") UUID policePhoneId);
 
+  Optional<UUID> findActiveDutyShiftIdByAccount(
+      @Param("opId") UUID opId, @Param("accountId") UUID accountId);
+
+  Optional<UUID> findActiveDutyShiftAccountId(
+      @Param("opId") UUID opId, @Param("policePhoneId") UUID policePhoneId);
+
   void insertPath(SearchPathPersistenceRecord record);
 
   int updatePath(SearchPathPersistenceRecord record);

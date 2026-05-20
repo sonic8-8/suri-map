@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+import com.surimap.support.auth.WithMockAccount;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +22,9 @@ import org.springframework.test.web.servlet.MockMvc;
 @AutoConfigureMockMvc(addFilters = false)
 @ActiveProfiles("test")
 @DisplayName("L4-T01 path lifecycle integration")
+@WithMockAccount(
+    accountId = "11111111-1111-1111-1111-111111110002",
+    policePhoneId = "50000000-0000-0000-0000-000000000001")
 class PathLifecycleIntegrationTest {
 
   private static final String INCIDENT_ID = "10000000-0000-0000-0000-000000000001";

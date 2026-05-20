@@ -577,6 +577,7 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     Map<String, Object> payload = new LinkedHashMap<>();
     putUuid(payload, "opId", row.opId());
     putUuid(payload, "dutyShiftId", row.dutyShiftId());
+    putUuid(payload, "accountId", row.accountId());
     putUuid(payload, "policePhoneId", row.policePhoneId());
     payload.put("geometryHash", sourceHash("path", row.id().toString(), row.version(), status));
     payload.put("geometry", Map.of("type", "LineString", "coordinates", row.geometry()));

@@ -186,11 +186,11 @@ data class MarkerDetailUiState(
                 markerType = MarkerType.PERSON_FOUND,
                 title = "발견 보고",
                 memo = "북측 능선 50m 지점 발견. 보호자 확인 중.",
-                createdByAccountId = "acct-other-team",
-                securityContextAccountId = "acct-team-alpha",
+                createdByAccountId = "acct-person-beta",
+                securityContextAccountId = "acct-person-alpha",
                 canManageAllMarkers = false,
                 policePhoneLabel = "실종팀 폴리폰",
-                accountLabel = "실종팀 지휘 계정"
+                accountLabel = "실종팀 경감 이지휘"
             )
 
         fun loading(markerId: String): MarkerDetailUiState =
@@ -257,7 +257,7 @@ data class MarkerDetailUiState(
             canManageAllMarkers: Boolean,
             canEditByContext: Boolean? = null,
             policePhoneLabel: String = "기동대 1부대 A팀 폴리폰",
-            accountLabel: String = "기동대 1부대 A팀 계정",
+            accountLabel: String = "기동대 1부대 경위 김수색",
             locationLabel: String = "35.163100, 126.913400",
             occurredAtLabel: String = "14:18 · clock +120ms",
             versionLabel: String = "v3 · 마지막 수정 14:24",
