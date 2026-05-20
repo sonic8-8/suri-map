@@ -3,6 +3,10 @@ package com.surimap.api.service.operationalperiod;
 import com.surimap.api.controller.operationalperiod.request.CreateOperationalPeriodRequest;
 import com.surimap.api.controller.operationalperiod.response.OperationalPeriodListResponse;
 import com.surimap.api.controller.operationalperiod.response.OperationalPeriodResponse;
+import com.surimap.eventhub.dto.PublishRequest;
+import com.surimap.eventhub.port.EventHub;
+import com.surimap.handover.HandoverMemo;
+import com.surimap.handover.HandoverMemoMapper;
 import com.surimap.incident.lifecycle.IncidentLifecycleGuard;
 import com.surimap.operationalperiod.OperationalPeriod;
 import com.surimap.operationalperiod.OperationalPeriodMapper;
@@ -31,9 +35,13 @@ public class OperationalPeriodApiService {
   private static final String RE_SEARCH = "RE_SEARCH";
   private static final String AREA_CHANGED = "AREA_CHANGED";
   private static final String OTHER = "OTHER";
+  private static final String OPERATIONAL_PERIOD = "OPERATIONAL_PERIOD";
+  private static final int PAYLOAD_FORMAT_VERSION = 1;
 
   private final OperationalPeriodMapper mapper;
+  private final HandoverMemoMapper handoverMemoMapper;
   private final EventPublisherPort eventPublisher;
+  private final EventHub eventHub;
   private final IncidentLifecycleGuard incidentLifecycleGuard;
   private final SearchHistorySummaryGenerationJob searchHistorySummaryGenerationJob;
   private final IdempotentResponseCache idempotentResponseCache;
@@ -41,12 +49,16 @@ public class OperationalPeriodApiService {
 
   public OperationalPeriodApiService(
       OperationalPeriodMapper mapper,
+      HandoverMemoMapper handoverMemoMapper,
       EventPublisherPort eventPublisher,
+      EventHub eventHub,
       IncidentLifecycleGuard incidentLifecycleGuard,
       SearchHistorySummaryGenerationJob searchHistorySummaryGenerationJob,
       ObjectProvider<IdempotentResponseCache> idempotentResponseCacheProvider) {
     this.mapper = mapper;
+    this.handoverMemoMapper = handoverMemoMapper;
     this.eventPublisher = eventPublisher;
+    this.eventHub = eventHub;
     this.incidentLifecycleGuard = incidentLifecycleGuard;
     this.searchHistorySummaryGenerationJob = searchHistorySummaryGenerationJob;
     this.idempotentResponseCache = idempotentResponseCacheProvider.getIfAvailable();
@@ -107,6 +119,7 @@ public class OperationalPeriodApiService {
                   created.getSequenceNumber(),
                   previous.getId(),
                   created.getId()));
+          createTransitionHandoverMemoIfPresent(request, previous, actorAccountId, now);
           searchHistorySummaryGenerationJob.enqueueForOperationalPeriodTransition(
               previous, created, actorAccountId);
 
@@ -186,6 +199,57 @@ public class OperationalPeriodApiService {
     } catch (NoSuchAlgorithmException e) {
       throw new IllegalStateException("SHA-256 is not available", e);
     }
+  }
+
+  private void createTransitionHandoverMemoIfPresent(
+      CreateOperationalPeriodRequest request,
+      OperationalPeriod previous,
+      UUID actorAccountId,
+      Instant occurredAt) {
+    if (request.handoverMemo() == null || request.handoverMemo().isBlank()) {
+      return;
+    }
+    HandoverMemo memo =
+        new HandoverMemo(
+            UUID.randomUUID(),
+            previous.getId(),
+            OPERATIONAL_PERIOD,
+            previous.getId(),
+            request.handoverMemo(),
+            actorAccountId,
+            null,
+            ACTIVE,
+            1L,
+            occurredAt,
+            occurredAt);
+    handoverMemoMapper.insert(memo);
+    eventHub.publish(handoverMemoPublishRequest(previous.getIncidentId(), memo, occurredAt));
+  }
+
+  private PublishRequest handoverMemoPublishRequest(
+      UUID incidentId, HandoverMemo memo, Instant occurredAt) {
+    Map<String, Object> payload = new LinkedHashMap<>();
+    payload.put("id", memo.getId().toString());
+    payload.put("incidentId", incidentId.toString());
+    payload.put("opId", memo.getOpId().toString());
+    payload.put("status", memo.getStatus());
+    payload.put("version", memo.getVersion());
+    payload.put("targetType", memo.getMemoTargetType());
+    payload.put("targetId", memo.getMemoTargetId().toString());
+    return new PublishRequest(
+        handoverMemoEventIdFor(memo),
+        incidentId,
+        "HANDOVER_MEMO_CREATED",
+        PAYLOAD_FORMAT_VERSION,
+        "handover_memo",
+        memo.getId(),
+        occurredAt,
+        payload);
+  }
+
+  private UUID handoverMemoEventIdFor(HandoverMemo memo) {
+    String seed = "event:HANDOVER_MEMO_CREATED:" + memo.getId() + ":v" + memo.getVersion();
+    return UUID.nameUUIDFromBytes(seed.getBytes(StandardCharsets.UTF_8));
   }
 
   private record IdempotencyEntry(String fingerprint, OperationalPeriodResponse response) {}

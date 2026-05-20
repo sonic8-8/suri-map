@@ -645,23 +645,25 @@ public class Sc05PathSegmentHarnessRunner {
 
   private static String ensureGeometryFailures() {
     GpsPathValidator validator = new GpsPathValidator();
+    validator.validateBatch(
+        List.of(
+            point(
+                "gps-outside-001",
+                "127.200000",
+                "35.163100",
+                3.0,
+                5,
+                "2026-04-28T09:05:00+09:00"),
+            point(
+                "gps-outside-002",
+                "127.200100",
+                "35.163150",
+                3.0,
+                5,
+                "2026-04-28T09:05:05+09:00")),
+        OffsetDateTime.parse("2026-04-28T09:05:05+09:00"));
     List<List<GpsPathPoint>> fixtures =
         List.of(
-            List.of(
-                point(
-                    "gps-outside-001",
-                    "127.200000",
-                    "35.163100",
-                    3.0,
-                    5,
-                    "2026-04-28T09:05:00+09:00"),
-                point(
-                    "gps-outside-002",
-                    "127.200100",
-                    "35.163150",
-                    3.0,
-                    5,
-                    "2026-04-28T09:05:05+09:00")),
             List.of(
                 point(
                     "gps-swapped-001",

@@ -23,7 +23,7 @@ public class GpsPathValidator {
       List<GpsPathPoint> points,
       OffsetDateTime serverReceivedAt,
       GpsPathValidationCriteria.GeoEnvelope activeOverallAreaEnvelope) {
-    validateStructural(points, activeOverallAreaEnvelope);
+    validateStructural(points);
 
     List<GpsPathPoint> accepted = new ArrayList<>();
     List<GpsPathValidationResult.ExcludedPoint> excluded = new ArrayList<>();
@@ -41,8 +41,7 @@ public class GpsPathValidator {
     return new GpsPathValidationResult(List.copyOf(accepted), List.copyOf(excluded));
   }
 
-  private void validateStructural(
-      List<GpsPathPoint> points, GpsPathValidationCriteria.GeoEnvelope activeOverallAreaEnvelope) {
+  private void validateStructural(List<GpsPathPoint> points) {
     if (points == null || points.size() < GpsPathValidationCriteria.MIN_POINTS_PER_BATCH) {
       throw new InvalidGpsPathBatchException("points minItems=2");
     }
@@ -67,14 +66,11 @@ public class GpsPathValidator {
       if (!uniquePointIds.add(point.pointId())) {
         throw new InvalidGpsPathBatchException("pointId must be unique");
       }
-      validateCoordinate(point.lon(), point.lat(), activeOverallAreaEnvelope);
+      validateCoordinate(point.lon(), point.lat());
     }
   }
 
-  private void validateCoordinate(
-      BigDecimal lon,
-      BigDecimal lat,
-      GpsPathValidationCriteria.GeoEnvelope activeOverallAreaEnvelope) {
+  private void validateCoordinate(BigDecimal lon, BigDecimal lat) {
     if (lon == null || lat == null) {
       throw new InvalidGpsPathBatchException("null or NaN coordinate is a structural failure");
     }
@@ -96,29 +92,6 @@ public class GpsPathValidator {
             && canonicalLat.compareTo(BigDecimal.valueOf(90)) <= 0;
     if (!inLonRange || !inLatRange) {
       throw new InvalidGpsPathBatchException("lon/lat order must be EPSG:4326");
-    }
-
-    var envelope = GpsPathValidationCriteria.HARNESS_ENVELOPE;
-    boolean inEnvelope =
-        canonicalLon.compareTo(BigDecimal.valueOf(envelope.minLon())) >= 0
-            && canonicalLon.compareTo(BigDecimal.valueOf(envelope.maxLon())) <= 0
-            && canonicalLat.compareTo(BigDecimal.valueOf(envelope.minLat())) >= 0
-            && canonicalLat.compareTo(BigDecimal.valueOf(envelope.maxLat())) <= 0;
-    if (!inEnvelope) {
-      throw new InvalidGpsPathBatchException("point outside harness envelope");
-    }
-
-    if (activeOverallAreaEnvelope == null) {
-      return;
-    }
-
-    boolean inActiveOverallArea =
-        canonicalLon.compareTo(BigDecimal.valueOf(activeOverallAreaEnvelope.minLon())) >= 0
-            && canonicalLon.compareTo(BigDecimal.valueOf(activeOverallAreaEnvelope.maxLon())) <= 0
-            && canonicalLat.compareTo(BigDecimal.valueOf(activeOverallAreaEnvelope.minLat())) >= 0
-            && canonicalLat.compareTo(BigDecimal.valueOf(activeOverallAreaEnvelope.maxLat())) <= 0;
-    if (!inActiveOverallArea) {
-      throw new InvalidGpsPathBatchException("point outside active overall_search_area");
     }
   }
 
