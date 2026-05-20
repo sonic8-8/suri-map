@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import {
   applyRouteColorsByAssignee,
+  createMovementCurrentPositionFeatureCollection,
   createMovementPathFeatureCollection,
   createRouteColorAssigneeKey,
 } from './boardMapFeatures';
@@ -84,6 +85,69 @@ describe('boardMapFeatures', () => {
     );
 
     expect(collection.features[0].properties.freshnessStatus).toBe('LOST');
+  });
+
+  test('emits one current position point per police phone using the latest path endpoint', () => {
+    const collection = createMovementCurrentPositionFeatureCollection(
+      [
+        createMovementPath({
+          id: 'old-path',
+          policePhoneId: POLICE_PHONE_ID,
+          endedAt: '2026-05-16T09:05:00+09:00',
+          coordinates: [
+            [126.91, 35.16],
+            [126.92, 35.17],
+          ],
+        }),
+        createMovementPath({
+          id: 'latest-path',
+          policePhoneId: POLICE_PHONE_ID,
+          endedAt: '2026-05-16T09:08:00+09:00',
+          routeColor: '#12abef',
+          coordinates: [
+            [126.93, 35.18],
+            [126.94, 35.19],
+          ],
+        }),
+      ],
+      OP_ID,
+    );
+
+    expect(collection.features).toHaveLength(1);
+    expect(collection.features[0].geometry).toEqual({ type: 'Point', coordinates: [126.94, 35.19] });
+    expect(collection.features[0].properties.pathId).toBe('latest-path');
+    expect(collection.features[0].properties.routeCoreColor).toBe('#12abef');
+  });
+
+  test('keeps current positions separate for account-only paths', () => {
+    const collection = createMovementCurrentPositionFeatureCollection(
+      [
+        createMovementPath({
+          id: 'phone-path',
+          policePhoneId: POLICE_PHONE_ID,
+          accountId: ACCOUNT_ID,
+          coordinates: [
+            [126.91, 35.16],
+            [126.92, 35.17],
+          ],
+        }),
+        createMovementPath({
+          id: 'account-path',
+          policePhoneId: null,
+          accountId: ACCOUNT_ID,
+          coordinates: [
+            [126.93, 35.18],
+            [126.94, 35.19],
+          ],
+        }),
+      ],
+      OP_ID,
+    );
+
+    expect(collection.features.map((feature) => feature.properties.pathId).sort()).toEqual([
+      'account-path',
+      'phone-path',
+    ]);
   });
 });
 

@@ -2,11 +2,22 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import maplibregl, { type GeoJSONSource, type LayerSpecification, type LngLatBoundsLike } from 'maplibre-gl';
+import maplibregl, {
+  type FilterSpecification,
+  type GeoJSONSource,
+  type LayerSpecification,
+  type LngLatBoundsLike,
+} from 'maplibre-gl';
+import { createIdempotencyKey } from '../../../../../shared/api/client';
 import { getVWorldApiKey } from '../../../../../shared/config';
 import { getMarkerLegendColor } from '../../../../../shared/constants/markerLegendColors';
 import { incidentBoardQueryKeys } from '../../../../board/api/incidentBoardApi';
 import { useUpdateMarkerMutation, type UpdateMarkerRequest } from '../../../../marker/api/markerCommandApi';
+import {
+  handoverApi,
+  handoverQueryKeys,
+  type HandoverMemoTargetType,
+} from '../../../../operationalPeriod/api/handoverApi';
 import {
   AreaEditMapCanvas,
   type AreaEditMapCanvasProps,
@@ -33,6 +44,7 @@ import {
 } from '../../../../../shared/map/vworldBaseMap';
 import type { CompletedAreaDraft } from '../../../../../shared/model/areaDraft';
 import {
+  createMovementCurrentPositionFeatureCollection,
   createMovementPathFeatureCollection,
   createSearchAreaDraftFeatureCollection,
   type BoardMapFeatureCollection,
@@ -130,11 +142,27 @@ const MOVEMENT_PATH_FOOT_GLOW_LAYER_ID = 'operational-movement-path-foot-glow';
 const MOVEMENT_PATH_FOOT_LAYER_ID = 'operational-movement-path-foot';
 const MOVEMENT_PATH_UNKNOWN_GLOW_LAYER_ID = 'operational-movement-path-unknown-glow';
 const MOVEMENT_PATH_UNKNOWN_LAYER_ID = 'operational-movement-path-unknown';
+const MOVEMENT_CURRENT_POSITION_SOURCE_ID = 'operational-movement-current-position';
+const MOVEMENT_CURRENT_POSITION_VEHICLE_GLOW_LAYER_ID = 'operational-movement-current-position-vehicle-glow';
+const MOVEMENT_CURRENT_POSITION_VEHICLE_LAYER_ID = 'operational-movement-current-position-vehicle';
+const MOVEMENT_CURRENT_POSITION_VEHICLE_STATUS_LAYER_ID = 'operational-movement-current-position-vehicle-status';
+const MOVEMENT_CURRENT_POSITION_FOOT_GLOW_LAYER_ID = 'operational-movement-current-position-foot-glow';
+const MOVEMENT_CURRENT_POSITION_FOOT_LAYER_ID = 'operational-movement-current-position-foot';
+const MOVEMENT_CURRENT_POSITION_FOOT_STATUS_LAYER_ID = 'operational-movement-current-position-foot-status';
+const MOVEMENT_CURRENT_POSITION_UNKNOWN_GLOW_LAYER_ID = 'operational-movement-current-position-unknown-glow';
+const MOVEMENT_CURRENT_POSITION_UNKNOWN_LAYER_ID = 'operational-movement-current-position-unknown';
+const MOVEMENT_CURRENT_POSITION_UNKNOWN_STATUS_LAYER_ID = 'operational-movement-current-position-unknown-status';
 const INITIAL_MAP_FALLBACK_ZOOM = 12;
 const DEFAULT_MARKER_POPUP_COLOR = '#64748b';
 
 type OperationalFeatureCollection = BoardMapFeatureCollection;
 type SearchAreaLevel = 'OVERALL' | 'UNIT' | 'TEAM';
+type MapMemoSubmitStatus = 'idle' | 'editing' | 'saving' | 'saved' | 'error';
+type MapMemoTarget = {
+  targetType: HandoverMemoTargetType;
+  targetId: string;
+  opId: string;
+};
 type InitialMapResolution =
   | { state: 'overall-ready'; bounds: LngLatBoundsLike; overallSearchArea: OperationalFeatureCollection }
   | { state: 'fallback'; bounds: LngLatBoundsLike | null };
@@ -234,6 +262,42 @@ function getMarkerPopupDateTimeLabel(marker: RecentMarker) {
 
 function getMarkerPopupTypeLabel(marker: RecentMarker) {
   return marker.markerTypeLabel?.trim() || marker.summary?.trim() || '마커';
+}
+
+function createMapMemoTargetKey(targetType: HandoverMemoTargetType, targetId: string) {
+  return `${targetType}:${targetId}`;
+}
+
+function findSearchAreaNode(area: SearchAreaTreeNode, targetId: string): SearchAreaTreeNode | null {
+  if (area.id === targetId) {
+    return area;
+  }
+
+  for (const childArea of area.children ?? []) {
+    const foundArea = findSearchAreaNode(childArea, targetId);
+    if (foundArea) {
+      return foundArea;
+    }
+  }
+
+  return null;
+}
+
+function resolveSearchAreaMemoOpId(
+  searchAreaTree: SearchAreaTreeNode,
+  searchAreaId: string | null,
+  activeOperationalPeriodId: string | null,
+) {
+  if (!searchAreaId) {
+    return null;
+  }
+
+  const searchArea = findSearchAreaNode(searchAreaTree, searchAreaId);
+  return searchArea?.opId?.trim() || activeOperationalPeriodId;
+}
+
+function resolveMarkerMemoOpId(marker: RecentMarker | null, activeOperationalPeriodId: string | null) {
+  return marker?.opId?.trim() || activeOperationalPeriodId;
 }
 
 export type LayerVisibility = {
@@ -559,6 +623,99 @@ function addMovementPathLayers(map: maplibregl.Map, movementPaths: OperationalFe
   });
 }
 
+function addMovementCurrentPositionLayers(map: maplibregl.Map, currentPositions: OperationalFeatureCollection) {
+  addGeoJsonSource(map, MOVEMENT_CURRENT_POSITION_SOURCE_ID, currentPositions);
+
+  addMovementCurrentPositionLayerGroup(map, {
+    movementType: 'VEHICLE',
+    glowLayerId: MOVEMENT_CURRENT_POSITION_VEHICLE_GLOW_LAYER_ID,
+    coreLayerId: MOVEMENT_CURRENT_POSITION_VEHICLE_LAYER_ID,
+    statusLayerId: MOVEMENT_CURRENT_POSITION_VEHICLE_STATUS_LAYER_ID,
+  });
+  addMovementCurrentPositionLayerGroup(map, {
+    movementType: 'FOOT',
+    glowLayerId: MOVEMENT_CURRENT_POSITION_FOOT_GLOW_LAYER_ID,
+    coreLayerId: MOVEMENT_CURRENT_POSITION_FOOT_LAYER_ID,
+    statusLayerId: MOVEMENT_CURRENT_POSITION_FOOT_STATUS_LAYER_ID,
+  });
+  addMovementCurrentPositionLayerGroup(map, {
+    movementType: 'UNKNOWN',
+    glowLayerId: MOVEMENT_CURRENT_POSITION_UNKNOWN_GLOW_LAYER_ID,
+    coreLayerId: MOVEMENT_CURRENT_POSITION_UNKNOWN_LAYER_ID,
+    statusLayerId: MOVEMENT_CURRENT_POSITION_UNKNOWN_STATUS_LAYER_ID,
+  });
+}
+
+function addMovementCurrentPositionLayerGroup(
+  map: maplibregl.Map,
+  {
+    movementType,
+    glowLayerId,
+    coreLayerId,
+    statusLayerId,
+  }: { movementType: MovementPath['movementType']; glowLayerId: string; coreLayerId: string; statusLayerId: string },
+) {
+  const currentPositionFilter = [
+    'all',
+    ['has', 'deviceColor'],
+    ['!=', ['get', 'deviceColor'], ''],
+    ['==', ['get', 'movementType'], movementType],
+  ] as FilterSpecification;
+  addLayer(map, {
+    id: glowLayerId,
+    type: 'circle',
+    source: MOVEMENT_CURRENT_POSITION_SOURCE_ID,
+    filter: currentPositionFilter,
+    paint: {
+      'circle-color': ['get', 'deviceColor'],
+      'circle-radius': 9,
+      'circle-opacity': 0.24,
+      'circle-stroke-color': ['get', 'deviceColor'],
+      'circle-stroke-width': 3,
+      'circle-stroke-opacity': 0.28,
+    },
+  });
+
+  addLayer(map, {
+    id: coreLayerId,
+    type: 'circle',
+    source: MOVEMENT_CURRENT_POSITION_SOURCE_ID,
+    filter: currentPositionFilter,
+    paint: {
+      'circle-color': ['get', 'routeCoreColor'],
+      'circle-radius': 5.6,
+      'circle-opacity': 0.98,
+      'circle-stroke-color': 'rgba(15, 23, 42, 0.28)',
+      'circle-stroke-width': 1,
+      'circle-stroke-opacity': 0.72,
+    },
+  });
+
+  addLayer(map, {
+    id: statusLayerId,
+    type: 'circle',
+    source: MOVEMENT_CURRENT_POSITION_SOURCE_ID,
+    filter: currentPositionFilter,
+    paint: {
+      'circle-color': [
+        'match',
+        ['get', 'freshnessStatus'],
+        'ONLINE',
+        '#22c55e',
+        'STALE',
+        '#facc15',
+        'LOST',
+        '#ef4444',
+        '#94a3b8',
+      ],
+      'circle-radius': 2.5,
+      'circle-opacity': 0.98,
+      'circle-stroke-color': 'rgba(15, 23, 42, 0.48)',
+      'circle-stroke-width': 0.7,
+    },
+  });
+}
+
 function raiseMovementPathLayers(map: maplibregl.Map) {
   [
     MOVEMENT_PATH_COMPARE_HIGHLIGHT_LAYER_ID,
@@ -569,6 +726,15 @@ function raiseMovementPathLayers(map: maplibregl.Map) {
     MOVEMENT_PATH_VEHICLE_LAYER_ID,
     MOVEMENT_PATH_FOOT_LAYER_ID,
     MOVEMENT_PATH_UNKNOWN_LAYER_ID,
+    MOVEMENT_CURRENT_POSITION_VEHICLE_GLOW_LAYER_ID,
+    MOVEMENT_CURRENT_POSITION_FOOT_GLOW_LAYER_ID,
+    MOVEMENT_CURRENT_POSITION_UNKNOWN_GLOW_LAYER_ID,
+    MOVEMENT_CURRENT_POSITION_VEHICLE_LAYER_ID,
+    MOVEMENT_CURRENT_POSITION_FOOT_LAYER_ID,
+    MOVEMENT_CURRENT_POSITION_UNKNOWN_LAYER_ID,
+    MOVEMENT_CURRENT_POSITION_VEHICLE_STATUS_LAYER_ID,
+    MOVEMENT_CURRENT_POSITION_FOOT_STATUS_LAYER_ID,
+    MOVEMENT_CURRENT_POSITION_UNKNOWN_STATUS_LAYER_ID,
   ].forEach((layerId) => {
     if (map.getLayer(layerId)) {
       map.moveLayer(layerId);
@@ -612,6 +778,27 @@ function syncLayerVisibility(map: maplibregl.Map, layerVisibility: LayerVisibili
   setLayerVisibility(map, MOVEMENT_PATH_UNKNOWN_GLOW_LAYER_ID, layerVisibility.vehiclePath || layerVisibility.footPath);
   setLayerVisibility(map, MOVEMENT_PATH_UNKNOWN_LAYER_ID, layerVisibility.vehiclePath || layerVisibility.footPath);
   setLayerVisibility(map, MOVEMENT_PATH_COMPARE_LAYER_ID, layerVisibility.vehiclePath || layerVisibility.footPath);
+  setLayerVisibility(map, MOVEMENT_CURRENT_POSITION_VEHICLE_GLOW_LAYER_ID, layerVisibility.vehiclePath);
+  setLayerVisibility(map, MOVEMENT_CURRENT_POSITION_VEHICLE_LAYER_ID, layerVisibility.vehiclePath);
+  setLayerVisibility(map, MOVEMENT_CURRENT_POSITION_VEHICLE_STATUS_LAYER_ID, layerVisibility.vehiclePath);
+  setLayerVisibility(map, MOVEMENT_CURRENT_POSITION_FOOT_GLOW_LAYER_ID, layerVisibility.footPath);
+  setLayerVisibility(map, MOVEMENT_CURRENT_POSITION_FOOT_LAYER_ID, layerVisibility.footPath);
+  setLayerVisibility(map, MOVEMENT_CURRENT_POSITION_FOOT_STATUS_LAYER_ID, layerVisibility.footPath);
+  setLayerVisibility(
+    map,
+    MOVEMENT_CURRENT_POSITION_UNKNOWN_GLOW_LAYER_ID,
+    layerVisibility.vehiclePath || layerVisibility.footPath,
+  );
+  setLayerVisibility(
+    map,
+    MOVEMENT_CURRENT_POSITION_UNKNOWN_LAYER_ID,
+    layerVisibility.vehiclePath || layerVisibility.footPath,
+  );
+  setLayerVisibility(
+    map,
+    MOVEMENT_CURRENT_POSITION_UNKNOWN_STATUS_LAYER_ID,
+    layerVisibility.vehiclePath || layerVisibility.footPath,
+  );
 }
 
 type SearchMapCanvasProps = {
@@ -694,6 +881,10 @@ export function SearchMapCanvas({
     markerId: string | null;
     status: 'idle' | 'editing' | 'saving' | 'saved' | 'error';
   }>({ markerId: null, status: 'idle' });
+  const [mapMemoTarget, setMapMemoTarget] = useState<MapMemoTarget | null>(null);
+  const [mapMemoContent, setMapMemoContent] = useState('');
+  const [mapMemoSubmitStatus, setMapMemoSubmitStatus] = useState<MapMemoSubmitStatus>('idle');
+  const [mapMemoErrorMessage, setMapMemoErrorMessage] = useState('');
   const [searchAreaPopupLngLat, setSearchAreaPopupLngLat] = useState<maplibregl.LngLatLike | null>(null);
   const searchAreaPopupOverlayRef = useRef<HTMLDivElement | null>(null);
   const searchAreaPopupSearchAreaIdRef = useRef<string | null>(null);
@@ -752,9 +943,24 @@ export function SearchMapCanvas({
       }),
     [activeOperationalPeriodId, movementPaths],
   );
+  const movementCurrentPositionFeatures = useMemo(
+    () =>
+      createMovementCurrentPositionFeatureCollection(movementPaths, activeOperationalPeriodId, {
+        includeLabel: true,
+      }),
+    [activeOperationalPeriodId, movementPaths],
+  );
   const visibleMovementPathFeatures = useMemo(
     () => filterMovementPathsByPolicePhoneLegendFilters(movementPathFeatures, selectedPolicePhoneLegendFilters),
     [movementPathFeatures, selectedPolicePhoneLegendFilters],
+  );
+  const visibleMovementCurrentPositionFeatures = useMemo(
+    () =>
+      filterMovementPathsByPolicePhoneLegendFilters(
+        movementCurrentPositionFeatures,
+        selectedPolicePhoneLegendFilters,
+      ),
+    [movementCurrentPositionFeatures, selectedPolicePhoneLegendFilters],
   );
   const assignedSearchAreasSignature = useMemo(
     () => createOperationalFeatureCollectionSignature(assignedSearchAreas),
@@ -762,6 +968,7 @@ export function SearchMapCanvas({
   );
   const assignedSearchAreasRef = useRef(visibleAssignedSearchAreas);
   const movementPathFeaturesRef = useRef(visibleMovementPathFeatures);
+  const movementCurrentPositionFeaturesRef = useRef(visibleMovementCurrentPositionFeatures);
   const fittedSearchAreasSignatureRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -771,6 +978,10 @@ export function SearchMapCanvas({
   useEffect(() => {
     movementPathFeaturesRef.current = visibleMovementPathFeatures;
   }, [visibleMovementPathFeatures]);
+
+  useEffect(() => {
+    movementCurrentPositionFeaturesRef.current = visibleMovementCurrentPositionFeatures;
+  }, [visibleMovementCurrentPositionFeatures]);
 
   useEffect(() => {
     selectedSearchAreaIdRef.current = selectedSearchAreaId;
@@ -909,6 +1120,86 @@ export function SearchMapCanvas({
     closeSearchAreaPopup();
     onOpenSearchAreaAssign();
   }, [closeSearchAreaPopup, onOpenSearchAreaAssign]);
+
+  const openMapMemoComposer = useCallback((target: MapMemoTarget) => {
+    setMapMemoTarget(target);
+    setMapMemoContent('');
+    setMapMemoErrorMessage('');
+    setMapMemoSubmitStatus('editing');
+  }, []);
+
+  const handleOpenSearchAreaMemoComposer = useCallback(() => {
+    if (!selectedSearchAreaId) {
+      return;
+    }
+
+    const opId = resolveSearchAreaMemoOpId(searchAreaTree, selectedSearchAreaId, activeOperationalPeriodId);
+    if (!opId) {
+      return;
+    }
+
+    openMapMemoComposer({
+      targetType: 'SEARCH_AREA',
+      targetId: selectedSearchAreaId,
+      opId,
+    });
+  }, [activeOperationalPeriodId, openMapMemoComposer, searchAreaTree, selectedSearchAreaId]);
+
+  const handleOpenMarkerMemoComposer = useCallback(() => {
+    if (!selectedMarker) {
+      return;
+    }
+
+    const opId = resolveMarkerMemoOpId(selectedMarker, activeOperationalPeriodId);
+    if (!opId) {
+      return;
+    }
+
+    openMapMemoComposer({
+      targetType: 'MARKER',
+      targetId: selectedMarker.id,
+      opId,
+    });
+  }, [activeOperationalPeriodId, openMapMemoComposer, selectedMarker]);
+
+  const handleCloseMapMemoComposer = useCallback(() => {
+    setMapMemoTarget(null);
+    setMapMemoContent('');
+    setMapMemoErrorMessage('');
+    setMapMemoSubmitStatus('idle');
+  }, []);
+
+  const handleSubmitMapMemo = useCallback(async () => {
+    const trimmedContent = mapMemoContent.trim();
+    if (!mapMemoTarget || !trimmedContent || mapMemoSubmitStatus === 'saving') {
+      return;
+    }
+
+    setMapMemoSubmitStatus('saving');
+    setMapMemoErrorMessage('');
+    try {
+      await handoverApi.createHandoverMemo(
+        {
+          incidentId,
+          opId: mapMemoTarget.opId,
+          memoTargetType: mapMemoTarget.targetType,
+          memoTargetId: mapMemoTarget.targetId,
+          content: trimmedContent,
+          clientTs: new Date().toISOString(),
+        },
+        createIdempotencyKey('handover-memo'),
+      );
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: incidentBoardQueryKeys.detail({ incidentId }) }),
+        queryClient.invalidateQueries({ queryKey: handoverQueryKeys.all }),
+      ]);
+      setMapMemoContent('');
+      setMapMemoSubmitStatus('saved');
+    } catch {
+      setMapMemoSubmitStatus('error');
+      setMapMemoErrorMessage('메모 저장에 실패했습니다.');
+    }
+  }, [incidentId, mapMemoContent, mapMemoSubmitStatus, mapMemoTarget, queryClient]);
 
   const markerInteractionHandlers = useMemo<MarkerInteractionHandlers>(
     () => ({
@@ -1103,6 +1394,19 @@ export function SearchMapCanvas({
       return;
     }
 
+    return syncOperationalGeoJsonSourceDataWhenAvailable(
+      map,
+      MOVEMENT_CURRENT_POSITION_SOURCE_ID,
+      visibleMovementCurrentPositionFeatures,
+    );
+  }, [visibleMovementCurrentPositionFeatures]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) {
+      return;
+    }
+
     syncSearchAreaSourceDataWhenAvailable(map, visibleAssignedSearchAreas, layerVisibilityRef.current.searchArea);
     if (hasSearchAreaLayers(map)) {
       syncSelectedSearchArea(map, selectedSearchAreaIdRef.current);
@@ -1283,8 +1587,10 @@ export function SearchMapCanvas({
         syncBaseMapOpacity(map);
         const currentAssignedSearchAreas = assignedSearchAreasRef.current;
         const currentMovementPathFeatures = movementPathFeaturesRef.current;
+        const currentMovementCurrentPositionFeatures = movementCurrentPositionFeaturesRef.current;
         addSearchAreaLayers(map, currentAssignedSearchAreas);
         addMovementPathLayers(map, currentMovementPathFeatures);
+        addMovementCurrentPositionLayers(map, currentMovementCurrentPositionFeatures);
         syncSelectedSearchArea(map, selectedSearchAreaIdRef.current);
         syncLayerVisibility(map, layerVisibilityRef.current);
         syncMarkerElements(
@@ -1349,6 +1655,69 @@ export function SearchMapCanvas({
     };
   }, [onInitialBoundsReady, onInitialMapStateReady, onMapReady]);
 
+  const selectedSearchAreaMemoOpId = resolveSearchAreaMemoOpId(
+    searchAreaTree,
+    selectedSearchAreaId,
+    activeOperationalPeriodId,
+  );
+  const selectedMarkerMemoOpId = resolveMarkerMemoOpId(selectedMarker, activeOperationalPeriodId);
+  const selectedSearchAreaMemoKey = selectedSearchAreaId
+    ? createMapMemoTargetKey('SEARCH_AREA', selectedSearchAreaId)
+    : null;
+  const selectedMarkerMemoKey = selectedMarker ? createMapMemoTargetKey('MARKER', selectedMarker.id) : null;
+  const activeMapMemoKey = mapMemoTarget
+    ? createMapMemoTargetKey(mapMemoTarget.targetType, mapMemoTarget.targetId)
+    : null;
+  const isSearchAreaMemoComposerOpen = Boolean(
+    selectedSearchAreaMemoKey && selectedSearchAreaMemoKey === activeMapMemoKey,
+  );
+  const isMarkerMemoComposerOpen = Boolean(selectedMarkerMemoKey && selectedMarkerMemoKey === activeMapMemoKey);
+  const isMapMemoSaving = mapMemoSubmitStatus === 'saving';
+
+  const renderMapMemoComposer = (targetLabel: string) => (
+    <div className={styles.mapMemoComposer}>
+      <label className={styles.mapMemoField}>
+        <span>{targetLabel} 메모</span>
+        <textarea
+          value={mapMemoContent}
+          maxLength={1000}
+          placeholder={`${targetLabel}에 남길 인수인계 메모를 입력하세요.`}
+          disabled={isMapMemoSaving}
+          onChange={(event) => {
+            setMapMemoContent(event.target.value);
+            if (mapMemoSubmitStatus === 'saved' || mapMemoSubmitStatus === 'error') {
+              setMapMemoSubmitStatus('editing');
+              setMapMemoErrorMessage('');
+            }
+          }}
+        />
+      </label>
+      <div className={styles.mapMemoFooter}>
+        <span className={styles.mapMemoCount}>{mapMemoContent.trim().length}/1000</span>
+        <button
+          type="button"
+          className={styles.mapMemoSaveButton}
+          disabled={!mapMemoContent.trim() || isMapMemoSaving}
+          onClick={() => {
+            void handleSubmitMapMemo();
+          }}
+        >
+          {isMapMemoSaving ? '저장 중' : '저장'}
+        </button>
+        <button
+          type="button"
+          className={styles.mapMemoCancelButton}
+          disabled={isMapMemoSaving}
+          onClick={handleCloseMapMemoComposer}
+        >
+          취소
+        </button>
+      </div>
+      {mapMemoSubmitStatus === 'saved' ? <span className={styles.mapMemoStatus}>메모 저장 완료</span> : null}
+      {mapMemoErrorMessage ? <span className={styles.mapMemoError}>{mapMemoErrorMessage}</span> : null}
+    </div>
+  );
+
   return (
     <>
       {overlayPortalTarget && (selectedMarkerPoint || searchAreaPopupPoint)
@@ -1374,7 +1743,11 @@ export function SearchMapCanvas({
                     movementPaths={movementPaths}
                     recentMarkers={recentMarkers}
                     operationalPeriods={operationalPeriods}
+                    isMemoDisabled={!selectedSearchAreaMemoOpId || isMapMemoSaving}
+                    memoComposer={isSearchAreaMemoComposerOpen ? renderMapMemoComposer('수색구역') : undefined}
+                    memoDisabledReason="OP 확인 후 메모를 추가할 수 있습니다."
                     onClose={handleCloseSearchAreaPopup}
+                    onOpenMemo={handleOpenSearchAreaMemoComposer}
                     onOpenAssign={handleOpenSearchAreaAssign}
                     onOpenSplit={handleOpenSearchAreaSplit}
                   />
@@ -1444,6 +1817,18 @@ export function SearchMapCanvas({
                         </div>
                       ) : null}
                     </div>
+                    <div className={styles.markerPopupActions}>
+                      <button
+                        type="button"
+                        className={styles.markerPopupSecondaryButton}
+                        disabled={!selectedMarkerMemoOpId || isMapMemoSaving}
+                        title={!selectedMarkerMemoOpId ? 'OP 확인 후 메모를 추가할 수 있습니다.' : undefined}
+                        onClick={handleOpenMarkerMemoComposer}
+                      >
+                        메모 추가
+                      </button>
+                    </div>
+                    {isMarkerMemoComposerOpen ? renderMapMemoComposer('마커') : null}
                     {canCorrectSelectedReferenceMarker ? (
                       <div className={styles.markerPopupActions}>
                         {selectedMarkerCorrectionStatus === 'editing' ||
