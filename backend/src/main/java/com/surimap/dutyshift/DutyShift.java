@@ -11,6 +11,8 @@ public class DutyShift {
   private UUID opId;
   private UUID incidentAssignmentId;
   private UUID policePhoneId;
+  private String policePhoneCode;
+  private String policePhoneDisplayName;
   private String status;
   private UUID startedByAccountId;
   private UUID endedByAccountId;
@@ -36,11 +38,47 @@ public class DutyShift {
       long version,
       Instant createdAt,
       Instant updatedAt) {
+    this(
+        id,
+        incidentId,
+        opId,
+        incidentAssignmentId,
+        policePhoneId,
+        null,
+        null,
+        status,
+        startedByAccountId,
+        endedByAccountId,
+        startedAt,
+        endedAt,
+        version,
+        createdAt,
+        updatedAt);
+  }
+
+  public DutyShift(
+      UUID id,
+      UUID incidentId,
+      UUID opId,
+      UUID incidentAssignmentId,
+      UUID policePhoneId,
+      String policePhoneCode,
+      String policePhoneDisplayName,
+      String status,
+      UUID startedByAccountId,
+      UUID endedByAccountId,
+      Instant startedAt,
+      Instant endedAt,
+      long version,
+      Instant createdAt,
+      Instant updatedAt) {
     this.id = id;
     this.incidentId = incidentId;
     this.opId = opId;
     this.incidentAssignmentId = incidentAssignmentId;
     this.policePhoneId = policePhoneId;
+    this.policePhoneCode = policePhoneCode;
+    this.policePhoneDisplayName = policePhoneDisplayName;
     this.status = status;
     this.startedByAccountId = startedByAccountId;
     this.endedByAccountId = endedByAccountId;
@@ -89,6 +127,22 @@ public class DutyShift {
 
   public void setPolicePhoneId(UUID policePhoneId) {
     this.policePhoneId = policePhoneId;
+  }
+
+  public String getPolicePhoneCode() {
+    return policePhoneCode;
+  }
+
+  public void setPolicePhoneCode(String policePhoneCode) {
+    this.policePhoneCode = policePhoneCode;
+  }
+
+  public String getPolicePhoneDisplayName() {
+    return policePhoneDisplayName;
+  }
+
+  public void setPolicePhoneDisplayName(String policePhoneDisplayName) {
+    this.policePhoneDisplayName = policePhoneDisplayName;
   }
 
   public String getStatus() {

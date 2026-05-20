@@ -596,7 +596,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Guard: `public-session`, `incident-read`
 - Idempotency-Key: no
 - Query: `incidentId`, optional `opId`, `policePhoneId`, `accountId(UUID)`, `status`
-- Response: `200 {items}`
+- Response: `200 {items[{id, incidentId, opId, policePhoneId, policePhoneLabel, status, startedAt, endedAt, version}]}`
 - Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`
 - Gap: `docs/spec/specs/S8.json`에는 상세 `api_contracts`가 아직 없다.
 
