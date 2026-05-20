@@ -349,7 +349,7 @@ fun PoliBrandMark(modifier: Modifier = Modifier) {
     ) {
         Box(contentAlignment = Alignment.Center) {
             Image(
-                painter = painterResource(id = R.drawable.surimap_logo_compact),
+                painter = painterResource(id = R.drawable.surimap_logo),
                 contentDescription = null,
                 modifier = Modifier.size(40.dp)
             )
