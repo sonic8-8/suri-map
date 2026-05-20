@@ -1,4 +1,4 @@
-import { type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
+import { type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import { Car, CircleMinus, ClipboardList, Phone } from 'lucide-react';
 
 import { areaColorTokens, type AreaColorToken } from '../../../../../shared/constants/areaColorTokens';
@@ -22,6 +22,7 @@ type SearchAreaTreeProps = {
   savedAreaDrafts: CompletedAreaDraft[];
   selectedSearchAreaId: string | null;
   searchAreaTree: SearchAreaTreeNode;
+  onOpenAreaWorkspace: () => void;
   onSelectSearchArea: (searchAreaId: string) => void;
 };
 
@@ -185,12 +186,14 @@ function AreaNode({
   assignedAreaIds,
   hasActiveOverallSearchArea,
   selectedSearchAreaId,
+  onOpenAreaWorkspace,
   onSelectSearchArea,
 }: {
   area: SearchAreaTreeNode;
   assignedAreaIds: Set<string>;
   hasActiveOverallSearchArea: boolean;
   selectedSearchAreaId: string | null;
+  onOpenAreaWorkspace: () => void;
   onSelectSearchArea: (searchAreaId: string) => void;
 }) {
   const children = area.children ?? [];
@@ -210,10 +213,20 @@ function AreaNode({
   ].filter(Boolean).join(' ');
   const textNameClassName = area.kind === 'team' ? styles.teamName : styles.nodeName;
   const textMetaClassName = area.kind === 'team' ? styles.teamMeta : styles.nodeMeta;
+  const isGeometryPending = displayState === 'geometryPending';
 
   const handleSelectArea = () => {
     if (!canSelectArea) return;
     onSelectSearchArea(area.id);
+  };
+
+  const handleOpenAreaWorkspace = (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    onOpenAreaWorkspace();
+  };
+
+  const handleOpenAreaWorkspaceKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
   };
 
   const row = (
@@ -236,7 +249,19 @@ function AreaNode({
         </span>
       </span>
       <span className={styles.badgeColumn}>
-        <span className={getStateClassName(displayState)}>{getStateLabel(displayState)}</span>
+        {isGeometryPending ? (
+          <button
+            type="button"
+            className={`${getStateClassName(displayState)} ${styles.stateActionButton}`}
+            aria-label={`${areaTitle} 범위 지정 모드 열기`}
+            onClick={handleOpenAreaWorkspace}
+            onKeyDown={handleOpenAreaWorkspaceKeyDown}
+          >
+            {getStateLabel(displayState)}
+          </button>
+        ) : (
+          <span className={getStateClassName(displayState)}>{getStateLabel(displayState)}</span>
+        )}
       </span>
     </div>
   );
@@ -254,6 +279,7 @@ function AreaNode({
                 assignedAreaIds={assignedAreaIds}
                 hasActiveOverallSearchArea={hasActiveOverallSearchArea}
                 selectedSearchAreaId={selectedSearchAreaId}
+                onOpenAreaWorkspace={onOpenAreaWorkspace}
                 onSelectSearchArea={onSelectSearchArea}
               />
             ))}
@@ -276,6 +302,7 @@ function AreaNode({
                 assignedAreaIds={assignedAreaIds}
                 hasActiveOverallSearchArea={hasActiveOverallSearchArea}
                 selectedSearchAreaId={selectedSearchAreaId}
+                onOpenAreaWorkspace={onOpenAreaWorkspace}
                 onSelectSearchArea={onSelectSearchArea}
               />
             ))}
@@ -297,6 +324,7 @@ export function SearchAreaTree({
   savedAreaDrafts,
   selectedSearchAreaId,
   searchAreaTree,
+  onOpenAreaWorkspace,
   onSelectSearchArea,
 }: SearchAreaTreeProps) {
   const assignedAreaIds = new Set(savedAreaDrafts.map((draft) => draft.areaId));
@@ -345,6 +373,7 @@ export function SearchAreaTree({
           assignedAreaIds={assignedAreaIds}
           hasActiveOverallSearchArea={hasActiveOverallSearchArea}
           selectedSearchAreaId={selectedSearchAreaId}
+          onOpenAreaWorkspace={onOpenAreaWorkspace}
           onSelectSearchArea={onSelectSearchArea}
         />
       </div>

@@ -77,6 +77,7 @@ type SituationBoardLeftPanelProps = {
   onToggleCollapsed: () => void;
   onToggleLayer: (layerId: LayerFilterId) => void;
   onToggleMarkerType: (markerType: MarkerTypeId, supportRequestType?: SupportRequestTypeId) => void;
+  onOpenAreaWorkspace: () => void;
   onSelectSearchArea: (searchAreaId: string) => void;
   onSelectMarker: (markerId: string) => void;
 };
@@ -128,6 +129,7 @@ export function SituationBoardLeftPanel({
   onToggleCollapsed,
   onToggleLayer,
   onToggleMarkerType,
+  onOpenAreaWorkspace,
   onSelectSearchArea,
   onSelectMarker,
 }: SituationBoardLeftPanelProps) {
@@ -280,6 +282,7 @@ export function SituationBoardLeftPanel({
                 savedAreaDrafts={savedAreaDrafts}
                 selectedSearchAreaId={selectedSearchAreaId}
                 searchAreaTree={board.searchAreaTree}
+                onOpenAreaWorkspace={onOpenAreaWorkspace}
                 onSelectSearchArea={onSelectSearchArea}
               />
             ) : (

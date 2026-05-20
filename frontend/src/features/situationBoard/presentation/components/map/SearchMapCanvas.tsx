@@ -1,4 +1,5 @@
 ﻿import { useQueryClient } from '@tanstack/react-query';
+import { Image as ImageIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useCallback } from 'react';
 import { createPortal } from 'react-dom';
@@ -262,6 +263,14 @@ function getMarkerPopupDateTimeLabel(marker: RecentMarker) {
 
 function getMarkerPopupTypeLabel(marker: RecentMarker) {
   return marker.markerTypeLabel?.trim() || marker.summary?.trim() || '마커';
+}
+
+function hasMarkerPopupPhoto(marker: RecentMarker) {
+  return Boolean(marker.photoThumbnailUrl) || (typeof marker.photoCount === 'number' && marker.photoCount > 0);
+}
+
+function getMarkerPopupPhotoCountLabel(marker: RecentMarker) {
+  return typeof marker.photoCount === 'number' && marker.photoCount > 0 ? `사진 ${marker.photoCount}장` : '사진 포함';
 }
 
 function createMapMemoTargetKey(targetType: HandoverMemoTargetType, targetId: string) {
@@ -1781,9 +1790,45 @@ export function SearchMapCanvas({
                         ×
                       </button>
                     </header>
-                    {selectedMarker.photoThumbnailUrl ? (
-                      <figure className={styles.markerPopupPhotoPreview}>
-                        <img src={selectedMarker.photoThumbnailUrl} alt="" loading="lazy" decoding="async" />
+                    {hasMarkerPopupPhoto(selectedMarker) ? (
+                      <figure
+                        className={`${styles.markerPopupPhotoPreview} ${
+                          selectedMarker.photoThumbnailUrl ? '' : styles.markerPopupPhotoPreviewEmpty
+                        }`}
+                      >
+                        {selectedMarker.photoThumbnailUrl ? (
+                          <img src={selectedMarker.photoThumbnailUrl} alt="" loading="lazy" decoding="async" />
+                        ) : (
+                          <figcaption className={styles.markerPopupPhotoFallback}>
+                            <span className={styles.markerPopupPhotoFallbackIcon} aria-hidden="true">
+                              <ImageIcon size={28} strokeWidth={2.2} />
+                            </span>
+                            <span>{getMarkerPopupPhotoCountLabel(selectedMarker)}</span>
+                            <small>보기용 URL이 아직 제공되지 않았습니다.</small>
+                          </figcaption>
+                        )}
+                        {selectedMarker.photoThumbnailUrl ? (
+                          <a
+                            className={styles.markerPopupPhotoViewButton}
+                            href={selectedMarker.photoThumbnailUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            aria-label="마커 사진 보기"
+                          >
+                            <ImageIcon size={18} strokeWidth={2.4} aria-hidden="true" />
+                            <span>사진 보기</span>
+                          </a>
+                        ) : (
+                          <button
+                            type="button"
+                            className={styles.markerPopupPhotoViewButton}
+                            disabled
+                            title="사진 보기 URL이 아직 제공되지 않았습니다."
+                          >
+                            <ImageIcon size={18} strokeWidth={2.4} aria-hidden="true" />
+                            <span>사진 보기</span>
+                          </button>
+                        )}
                       </figure>
                     ) : null}
                     {getMarkerPopupContent(selectedMarker) ? (
