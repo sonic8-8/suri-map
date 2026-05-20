@@ -23,6 +23,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
     implementation 'org.springframework.boot:spring-boot-starter-jdbc'
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+    implementation 'io.minio:minio:8.5.17'
     implementation 'org.flywaydb:flyway-core'
 
     runtimeOnly 'org.flywaydb:flyway-database-postgresql'

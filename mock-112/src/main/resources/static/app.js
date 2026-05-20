@@ -32,6 +32,91 @@ async function api(method, path, body) {
     return data;
 }
 
+async function uploadPhotoFile(fileInputId, keyInputId, previewId) {
+    const fileInput = document.getElementById(fileInputId);
+    const file = fileInput?.files?.[0];
+    if (!file) {
+        showToast('업로드할 실종자 사진을 선택하세요.', 'error');
+        return null;
+    }
+    const formData = new FormData();
+    formData.append('file', file);
+    renderPhotoUploadPreview(previewId, { message: 'MinIO에 저장 중입니다.', fileName: file.name });
+    const res = await fetch(BASE + '/mock-112/missing-person-photos', {
+        method: 'POST',
+        body: formData
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        throw { status: res.status, data };
+    }
+    const keyInput = document.getElementById(keyInputId);
+    if (keyInput) {
+        keyInput.value = data.objectKey || '';
+    }
+    renderPhotoUploadPreview(previewId, data);
+    showToast('실종자 사진을 MinIO에 저장했습니다.', 'success');
+    return data;
+}
+
+function uploadCreatePhoto() {
+    uploadPhotoFile('inputMissingPersonPhoto', 'inputPhotoObjectKey', 'inputPhotoPreview')
+        .catch(e => {
+            renderPhotoUploadPreview('inputPhotoPreview', null);
+            showToast(`사진 저장 실패: ${e.data?.message || '알 수 없는 오류'}`, 'error');
+        });
+}
+
+function uploadEditPhoto() {
+    uploadPhotoFile('editMissingPersonPhoto', 'editPhotoObjectKey', 'editPhotoPreview')
+        .catch(e => {
+            showToast(`사진 저장 실패: ${e.data?.message || '알 수 없는 오류'}`, 'error');
+        });
+}
+
+function renderPhotoUploadPreview(previewId, upload) {
+    const preview = document.getElementById(previewId);
+    if (!preview) {
+        return;
+    }
+    if (!upload?.objectKey) {
+        preview.className = 'photo-upload-preview empty';
+        preview.textContent = upload?.message || '사진을 선택하면 MinIO에 저장한 object key가 사건에 포함됩니다.';
+        return;
+    }
+    const photoUrl = upload.photoUrl || objectKeyToPhotoUrl(upload.objectKey);
+    preview.className = 'photo-upload-preview';
+    preview.innerHTML = `
+        <img src="${escapeHtml(photoUrl)}" alt="실종자 사진 미리보기">
+        <div>
+            <strong>MinIO 저장 완료</strong>
+            <code>${escapeHtml(upload.objectKey)}</code>
+            <span>${escapeHtml(upload.contentType || '')} · ${escapeHtml(upload.sizeBytes || 0)} bytes</span>
+        </div>`;
+}
+
+function objectKeyToPhotoUrl(objectKey) {
+    if (!objectKey) {
+        return '';
+    }
+    return '/suri-map-photo/' + String(objectKey)
+        .split('/')
+        .map(segment => encodeURIComponent(segment))
+        .join('/');
+}
+
+function resetPhotoUploadState(fileInputId, keyInputId, previewId) {
+    const fileInput = document.getElementById(fileInputId);
+    const keyInput = document.getElementById(keyInputId);
+    if (fileInput) {
+        fileInput.value = '';
+    }
+    if (keyInput) {
+        keyInput.value = '';
+    }
+    renderPhotoUploadPreview(previewId, null);
+}
+
 function escapeHtml(value) {
     return String(value ?? '')
         .replaceAll('&', '&amp;')
@@ -408,6 +493,7 @@ function renderIncidentDetail() {
             <div><dt>마지막 목격 시각</dt><dd>${escapeHtml(formatDateTime(person.lastSeenAt))}</dd></div>
             <div class="full"><dt>마지막 목격 위치</dt><dd>${escapeHtml(person.lastSeenLocationText || '-')}</dd></div>
             <div class="full"><dt>사진 object key</dt><dd><code>${escapeHtml(person.photoObjectKey || '-')}</code></dd></div>
+            <div class="full"><dt>사진</dt><dd>${renderMissingPersonPhoto(person.photoObjectKey)}</dd></div>
         </dl>
 
         ${renderSourceCorrectionSection(incident)}
@@ -435,6 +521,16 @@ function renderIncidentDetail() {
                 ${organizationOptionsHtml()}
             </select>
             <button class="btn btn-primary" onclick="assignGroup(${jsArg(incident.sourceIncidentId)}, 'detailAssignGroup')">조직 배정</button>
+        </div>`;
+}
+
+function renderMissingPersonPhoto(objectKey) {
+    if (!objectKey) {
+        return '<span class="muted">저장된 사진 없음</span>';
+    }
+    return `
+        <div class="missing-photo-preview">
+            <img src="${escapeHtml(objectKeyToPhotoUrl(objectKey))}" alt="실종자 사진">
         </div>`;
 }
 
@@ -481,9 +577,20 @@ function renderSourceCorrectionSection(incident) {
             </div>
             <div class="form-row compact">
                 <div class="form-group full">
-                    <label for="editPhotoObjectKey">실종자 사진 object key</label>
-                    <input type="text" id="editPhotoObjectKey" value="${escapeHtml(person.photoObjectKey || '')}">
-                    <p class="select-preview">MinIO/S3 object key만 입력합니다. URL은 입력하지 않습니다.</p>
+                    <label for="editMissingPersonPhoto">실종자 사진</label>
+                    <div class="photo-upload-control">
+                        <input type="file" id="editMissingPersonPhoto" accept="image/jpeg,image/png,image/webp">
+                        <button type="button" class="btn btn-muted" onclick="uploadEditPhoto()">MinIO 저장</button>
+                    </div>
+                    <input type="hidden" id="editPhotoObjectKey" value="${escapeHtml(person.photoObjectKey || '')}">
+                    <div id="editPhotoPreview" class="photo-upload-preview ${person.photoObjectKey ? '' : 'empty'}">
+                        ${person.photoObjectKey ? `
+                            <img src="${escapeHtml(objectKeyToPhotoUrl(person.photoObjectKey))}" alt="실종자 사진 미리보기">
+                            <div>
+                                <strong>현재 MinIO object key</strong>
+                                <code>${escapeHtml(person.photoObjectKey)}</code>
+                            </div>` : '사진을 새로 선택하면 MinIO에 저장한 object key로 교체됩니다.'}
+                    </div>
                 </div>
             </div>
             <div class="form-actions">
@@ -639,6 +746,7 @@ async function createIncident(e) {
         renderMutationResult(lastMutationResult);
         showToast(`사건 등록 완료: ${created.caseNumber}`, 'success');
         document.getElementById('incidentForm').reset();
+        resetPhotoUploadState('inputMissingPersonPhoto', 'inputPhotoObjectKey', 'inputPhotoPreview');
         populateAssignmentGroupOptions();
         selectedIncidentId = created.sourceIncidentId;
         await loadIncidents();

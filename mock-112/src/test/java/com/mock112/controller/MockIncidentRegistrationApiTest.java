@@ -3,6 +3,7 @@ package com.mock112.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.matchesPattern;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oauth2Login;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -22,6 +23,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -46,6 +48,44 @@ class MockIncidentRegistrationApiTest {
     @AfterEach
     void tearDown() {
         store.reset();
+    }
+
+    @Test
+    @DisplayName("실종자 사진 업로드 API는 MinIO object key를 생성해 반환한다")
+    void missingPersonPhotoUploadReturnsObjectKey() throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "person.jpg",
+                MediaType.IMAGE_JPEG_VALUE,
+                "photo-bytes".getBytes());
+
+        mockMvc.perform(multipart("/mock-112/missing-person-photos")
+                        .file(file)
+                        .with(oauth2Login()))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.objectKey")
+                        .value(matchesPattern("mock-112/missing-person/[0-9]{8}/[0-9a-f\\-]{36}\\.jpg")))
+                .andExpect(jsonPath("$.photoUrl")
+                        .value(matchesPattern("/mock-upload/mock-112/missing-person/[0-9]{8}/[0-9a-f\\-]{36}\\.jpg")))
+                .andExpect(jsonPath("$.storageUri").value("mock://object-storage/suri-map-harness"))
+                .andExpect(jsonPath("$.contentType").value(MediaType.IMAGE_JPEG_VALUE))
+                .andExpect(jsonPath("$.sizeBytes").value("photo-bytes".getBytes().length));
+    }
+
+    @Test
+    @DisplayName("실종자 사진 업로드 API는 이미지가 아닌 파일을 거부한다")
+    void missingPersonPhotoUploadRejectsNonImage() throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "note.txt",
+                MediaType.TEXT_PLAIN_VALUE,
+                "not image".getBytes());
+
+        mockMvc.perform(multipart("/mock-112/missing-person-photos")
+                        .file(file)
+                        .with(oauth2Login()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("invalid_photo"));
     }
 
     @Test

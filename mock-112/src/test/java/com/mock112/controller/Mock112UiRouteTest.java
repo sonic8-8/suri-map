@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.mockito.Mockito.when;
 
 import com.mock112.domain.MockIncident;
+import com.mock112.photo.MissingPersonPhotoUploadService;
 import com.mock112.seed.SeedDataLoader;
 import com.mock112.service.MockIncidentRegistrationService;
 import com.mock112.store.MockIncidentStore;
@@ -47,6 +48,7 @@ import org.springframework.test.web.servlet.MockMvc;
             Mock112UiController.class,
             MockScenarioController.class,
             MockIncidentController.class,
+            MissingPersonPhotoController.class,
             AssignableOrganizationController.class,
             WebhookOutboxController.class
         })
@@ -71,6 +73,9 @@ class Mock112UiRouteTest {
     private SuriMapWebhookDispatcher webhookDispatcher;
 
     @MockitoBean
+    private MissingPersonPhotoUploadService missingPersonPhotoUploadService;
+
+    @MockitoBean
     private WebhookOutboxStore webhookOutboxStore;
 
     @Autowired
@@ -93,6 +98,7 @@ class Mock112UiRouteTest {
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("mock 112 관제 시스템")))
                 .andExpect(content().string(containsString("inputInitialAssignmentGroup")))
+                .andExpect(content().string(containsString("inputMissingPersonPhoto")))
                 .andExpect(content().string(containsString("inputPhotoObjectKey")))
                 .andExpect(content().string(containsString("inputLastSeenAt")))
                 .andExpect(content().string(containsString("incidentStatusFilter")))
@@ -122,6 +128,8 @@ class Mock112UiRouteTest {
                 .andExpect(content().string(containsString("selectIncident")))
                 .andExpect(content().string(containsString("assignGroup")))
                 .andExpect(content().string(containsString("updateIncident")))
+                .andExpect(content().string(containsString("uploadCreatePhoto")))
+                .andExpect(content().string(containsString("/mock-112/missing-person-photos")))
                 .andExpect(content().string(containsString("editPhotoObjectKey")))
                 .andExpect(content().string(not(containsString("inc.status === 'IMPORTED' ? 'disabled'"))));
 
