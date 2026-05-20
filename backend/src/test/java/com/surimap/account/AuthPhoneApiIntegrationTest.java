@@ -151,24 +151,24 @@ class AuthPhoneApiIntegrationTest {
   }
 
   @Test
-  @DisplayName("APP OIDC heartbeat rejects a police phone owned by another account")
-  void appHeartbeatRejectsPolicePhoneOwnedByAnotherAccount() throws Exception {
+  @DisplayName("APP OIDC heartbeat accepts registered phone independently from fixture account")
+  void appHeartbeatAcceptsRegisteredPhoneIndependentlyFromFixtureAccount() throws Exception {
     String accessToken =
         appAccessToken(
-            "commander-phone",
-            AccountIdentityCatalog.PRECINCT_COMMANDER_ID,
-            AccountType.COMMAND,
+            "borrowed-phone",
+            AccountIdentityCatalog.PRECINCT_TEAM_ID,
+            AccountType.TEAM,
             OrganizationType.POLICE_SUBSTATION,
-            PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID);
+            PolicePhoneFixtures.REGISTERED_UNASSIGNED_POLICE_PHONE_ID);
 
     mockMvc
         .perform(
             post(
                     "/api/police-phones/{policePhoneId}/heartbeat",
-                    PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID)
+                    PolicePhoneFixtures.REGISTERED_UNASSIGNED_POLICE_PHONE_ID)
                 .header("Authorization", "Bearer " + accessToken)
                 .header("X-Client-Channel", "APP")
-                .header("X-PolicePhone-Id", PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID)
+                .header("X-PolicePhone-Id", PolicePhoneFixtures.REGISTERED_UNASSIGNED_POLICE_PHONE_ID)
                 .contentType("application/json")
                 .content(
                     """
@@ -178,8 +178,19 @@ class AuthPhoneApiIntegrationTest {
                       "lastSyncAt": "2026-05-08T09:00:30+09:00"
                     }
                     """))
-        .andExpect(status().isForbidden())
-        .andExpect(jsonPath("$.error").value("police_phone_not_assigned"));
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("ONLINE"))
+        .andExpect(
+            jsonPath("$.policePhoneId")
+                .value(PolicePhoneFixtures.REGISTERED_UNASSIGNED_POLICE_PHONE_ID.toString()))
+        .andExpect(jsonPath("$.sequence").value(2));
+
+    verify(eventHub)
+        .publish(
+            argThat(
+                request ->
+                    PolicePhoneHeartbeatUpdatedPublishRequest.TYPE.equals(request.type())
+                        && PolicePhoneFixtures.INCIDENT_ID.equals(request.incidentId())));
   }
 
   @Test

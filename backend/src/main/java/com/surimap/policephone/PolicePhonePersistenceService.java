@@ -4,6 +4,7 @@ import com.surimap.app.service.policephone.request.PolicePhoneHeartbeatServiceRe
 import com.surimap.common.auth.guard.PolicePhoneNotAssignedException;
 import com.surimap.common.auth.guard.PolicePhoneNotRegisteredException;
 import com.surimap.common.auth.guard.PolicePhoneValidationPort;
+import com.surimap.common.auth.guard.TeamNotAssignedException;
 import com.surimap.policephone.query.FcmTokenQuery;
 import com.surimap.policephone.query.FcmTokenRow;
 import com.surimap.policephone.query.PolicePhoneFreshnessQuery;
@@ -55,13 +56,13 @@ public class PolicePhonePersistenceService
   public PolicePhoneHeartbeatResult recordHeartbeat(
       PolicePhoneHeartbeatServiceRequest request, Instant receivedAt) {
     PolicePhoneStateRow before = registeredPhone(request.policePhoneId());
-    if (!before.accountId().toString().equals(request.accountId())) {
-      throw new PolicePhoneNotAssignedException();
-    }
-    PolicePhoneAssignmentRow assignment = activeAssignment(request.policePhoneId());
+    UUID incidentId =
+        mapper
+            .findActiveIncidentIdByAccount(parseAccountId(request.accountId()))
+            .orElseThrow(TeamNotAssignedException::new);
 
     if (request.sequence() <= before.heartbeatSequence()) {
-      return toHeartbeatResult(before, assignment.incidentId(), false);
+      return toHeartbeatResult(before, incidentId, false);
     }
 
     mapper.updateHeartbeatIfNewer(
@@ -71,16 +72,14 @@ public class PolicePhonePersistenceService
         receivedAt,
         request.lastSyncAt());
     PolicePhoneStateRow after = registeredPhone(request.policePhoneId());
-    return toHeartbeatResult(after, assignment.incidentId(), true);
+    return toHeartbeatResult(after, incidentId, true);
   }
 
   @Transactional
   public FcmTokenRow registerFcmToken(
       UUID policePhoneId, String accountId, String appInstanceId, String token) {
-    PolicePhoneStateRow phone = registeredPhone(policePhoneId);
-    if (!phone.accountId().toString().equals(accountId)) {
-      throw new PolicePhoneNotAssignedException();
-    }
+    registeredPhone(policePhoneId);
+    UUID actorAccountId = parseAccountId(accountId);
 
     Instant now = clock.instant();
     long nextVersion =
@@ -89,7 +88,7 @@ public class PolicePhonePersistenceService
     UUID tokenId = UUID.randomUUID();
     mapper.insertFcmToken(
         tokenId,
-        phone.accountId(),
+        actorAccountId,
         policePhoneId,
         appInstanceId,
         hashToken(token),
@@ -149,6 +148,14 @@ public class PolicePhonePersistenceService
     return mapper
         .findActiveAssignmentByPolicePhone(policePhoneId)
         .orElseThrow(PolicePhoneNotAssignedException::new);
+  }
+
+  private UUID parseAccountId(String accountId) {
+    try {
+      return UUID.fromString(accountId);
+    } catch (RuntimeException ignored) {
+      throw new TeamNotAssignedException();
+    }
   }
 
   private static PolicePhoneHeartbeatResult toHeartbeatResult(

@@ -157,8 +157,8 @@ class SyncClockContractTest {
       accountType = AccountType.TEAM,
       organizationType = OrganizationType.MISSING_TEAM,
       policePhoneId = SyncClockContractFixtures.UNASSIGNED_POLICE_PHONE_ID)
-  @DisplayName("POST /api/sync/clock는 미배정 PolicePhone을 police_phone_not_assigned로 거부한다")
-  void post_sync_clock_rejects_unassigned_police_phone() throws Exception {
+  @DisplayName("POST /api/sync/clock는 등록된 PolicePhone이면 계정 소유와 무관하게 허용한다")
+  void post_sync_clock_accepts_registered_phone_without_account_ownership() throws Exception {
     mockMvc
         .perform(
             post("/api/sync/clock")
@@ -167,7 +167,7 @@ class SyncClockContractTest {
                     SyncClockContractFixtures.POLICE_PHONE_HEADER,
                     SyncClockContractFixtures.UNASSIGNED_POLICE_PHONE_ID)
                 .content(SyncClockContractFixtures.requestBody()))
-        .andExpect(status().isForbidden())
-        .andExpect(jsonPath("$.error").value("police_phone_not_assigned"));
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.clockOffsetMs").value(SyncClockContractFixtures.CLOCK_OFFSET_MS));
   }
 }

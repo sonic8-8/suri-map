@@ -6,7 +6,6 @@ import com.surimap.app.service.policephone.AppPolicePhoneHeartbeatService;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.RequireChannel;
 import com.surimap.common.auth.RequirePolicePhone;
-import com.surimap.common.auth.RequirePolicePhoneAssigned;
 import com.surimap.common.auth.RequirePolicePhoneRegistered;
 import com.surimap.common.auth.SuriMapAuthentication;
 import com.surimap.common.auth.guard.ChannelNotAllowedException;
@@ -34,7 +33,6 @@ public class PolicePhoneHeartbeatController {
   @RequireChannel(Channel.APP)
   @RequirePolicePhone
   @RequirePolicePhoneRegistered
-  @RequirePolicePhoneAssigned
   public ResponseEntity<PolicePhoneHeartbeatResponse> heartbeat(
       @PathVariable UUID policePhoneId,
       @RequestHeader(value = "X-PolicePhone-Id", required = false) String policePhoneIdHeader,

@@ -93,6 +93,15 @@
         LIMIT 1
     </select>
 
+    <select id="findActiveIncidentIdByAccount" resultType="java.util.UUID">
+        SELECT ia.incident_id
+        FROM incident_assignment ia
+        WHERE ia.account_id = #{accountId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND ia.revoked_at IS NULL
+        ORDER BY ia.assigned_at DESC, ia.id ASC
+        LIMIT 1
+    </select>
+
     <select id="findFreshnessByIncident" resultMap="PolicePhoneFreshnessStateRowMap">
         SELECT
             pp.id AS police_phone_id,

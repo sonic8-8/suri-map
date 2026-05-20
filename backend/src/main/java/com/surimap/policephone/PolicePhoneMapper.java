@@ -18,6 +18,8 @@ public interface PolicePhoneMapper {
   Optional<PolicePhoneAssignmentRow> findActiveAssignmentByPolicePhone(
       @Param("policePhoneId") UUID policePhoneId);
 
+  Optional<UUID> findActiveIncidentIdByAccount(@Param("accountId") UUID accountId);
+
   List<PolicePhoneFreshnessStateRow> findFreshnessByIncident(@Param("incidentId") UUID incidentId);
 
   int updateHeartbeatIfNewer(

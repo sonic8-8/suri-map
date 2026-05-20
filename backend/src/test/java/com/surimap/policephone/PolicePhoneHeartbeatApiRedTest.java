@@ -34,7 +34,7 @@ class PolicePhoneHeartbeatApiRedTest {
   }
 
   @Test
-  @DisplayName("heartbeat source declares app-police-phone guard chain for assigned vs unassigned behavior")
+  @DisplayName("heartbeat source declares app-police-phone guard chain for registered phone behavior")
   void heartbeat_source_declares_app_police_phone_guard_chain() throws Exception {
     List<Path> candidates = findHeartbeatSourceFiles();
 
@@ -45,8 +45,7 @@ class PolicePhoneHeartbeatApiRedTest {
     String source = Files.readString(candidates.get(0));
     assertThat(source)
         .contains("@RequirePolicePhone")
-        .contains("@RequirePolicePhoneRegistered")
-        .contains("@RequirePolicePhoneAssigned");
+        .contains("@RequirePolicePhoneRegistered");
   }
 
   @Test

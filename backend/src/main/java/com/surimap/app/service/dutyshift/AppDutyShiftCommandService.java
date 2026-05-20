@@ -68,7 +68,6 @@ public class AppDutyShiftCommandService {
         () -> {
           requireActor(actorAccountId);
           requirePhoneMatch(headerPolicePhoneId, request.policePhoneId());
-          requirePhoneOwnedByActor(request.policePhoneId(), actorAccountId);
           requireCurrentOp(request.incidentId(), request.opId());
           incidentLifecycleGuard.requireOpen(request.incidentId());
           UUID assignmentId =
@@ -165,14 +164,6 @@ public class AppDutyShiftCommandService {
   private void requirePhoneMatch(UUID headerPolicePhoneId, UUID requestPolicePhoneId) {
     if (headerPolicePhoneId == null || !headerPolicePhoneId.equals(requestPolicePhoneId)) {
       throw HandoverApiException.writeConflict();
-    }
-  }
-
-  private void requirePhoneOwnedByActor(UUID policePhoneId, UUID actorAccountId) {
-    if (policePhoneId == null
-        || actorAccountId == null
-        || dutyShiftMapper.countActivePolicePhoneForAccount(policePhoneId, actorAccountId) == 0) {
-      throw HandoverApiException.policePhoneNotAssigned();
     }
   }
 

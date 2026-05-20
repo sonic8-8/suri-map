@@ -120,17 +120,18 @@ class PolicePhoneHeartbeatIntegrationTest {
 
   @Test
   @WithMockAccount(
-      accountId = "11111111-1111-1111-1111-111111110004",
       organizationType = OrganizationType.POLICE_SUBSTATION,
-      policePhoneId = "00000000-0000-0000-0000-000000000101")
-  @DisplayName("heartbeat rejects police phone owned by a different account")
-  void heartbeatRejectsPolicePhoneOwnedByDifferentAccount() throws Exception {
+      policePhoneId = "00000000-0000-0000-0000-000000000301")
+  @DisplayName("assigned account heartbeat accepts any registered police phone context")
+  void assignedAccountHeartbeatAcceptsAnyRegisteredPolicePhoneContext() throws Exception {
     mockMvc
         .perform(
             post(
                     "/api/police-phones/{policePhoneId}/heartbeat",
-                    PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID)
-                .header("X-PolicePhone-Id", PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID)
+                    PolicePhoneFixtures.REGISTERED_UNASSIGNED_POLICE_PHONE_ID)
+                .header(
+                    "X-PolicePhone-Id",
+                    PolicePhoneFixtures.REGISTERED_UNASSIGNED_POLICE_PHONE_ID)
                 .contentType("application/json")
                 .content(
                     """
@@ -139,14 +140,20 @@ class PolicePhoneHeartbeatIntegrationTest {
                       "sequence": 1
                     }
                     """))
-        .andExpect(status().isForbidden())
-        .andExpect(jsonPath("$.error").value("police_phone_not_assigned"));
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("ONLINE"))
+        .andExpect(
+            jsonPath("$.policePhoneId")
+                .value(PolicePhoneFixtures.REGISTERED_UNASSIGNED_POLICE_PHONE_ID.toString()))
+        .andExpect(jsonPath("$.sequence").value(1));
   }
 
   @Test
-  @WithMockAccount(policePhoneId = "00000000-0000-0000-0000-000000000301")
-  @DisplayName("registered but unassigned police phone is rejected by assignment guard")
-  void unassignedPolicePhoneRejected() throws Exception {
+  @WithMockAccount(
+      accountId = "11111111-1111-1111-1111-111111110009",
+      policePhoneId = "00000000-0000-0000-0000-000000000301")
+  @DisplayName("registered phone heartbeat is rejected when the login account has no incident assignment")
+  void registeredPhoneWithUnassignedAccountRejected() throws Exception {
     mockMvc
         .perform(
             post(
@@ -164,6 +171,6 @@ class PolicePhoneHeartbeatIntegrationTest {
                     }
                     """))
         .andExpect(status().isForbidden())
-        .andExpect(jsonPath("$.error").value("police_phone_not_assigned"));
+        .andExpect(jsonPath("$.error").value("team_not_assigned"));
   }
 }

@@ -188,7 +188,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   - "전체 오프라인 패키지 다운로드 성공 후 앱은 오프라인 사용 준비 완료 상태와 마지막 적재 시각/완료 항목을 표시하고, 상황판 미완료 경고 배지는 해제된다"
   - "웹에서 오프라인 패키지 적재 상태 보고 API를 호출하면 `403 channel_not_allowed`"
   - "미등록 PolicePhone이 manifest 조회 또는 패키지 적재 상태 보고를 호출하면 `403 police_phone_not_registered`를 응답하고 앱은 사건 패키지를 저장하지 않는다"
-  - "등록됐지만 해당 사건/OP에 배정되지 않은 PolicePhone이 manifest 조회 또는 패키지 적재 상태 보고를 호출하면 `403 police_phone_not_assigned`를 응답하고 앱은 오프라인 사용 준비 완료로 표시하지 않는다"
+  - "사건에 배정되지 않은 개인 계정이 manifest 조회 또는 패키지 적재 상태 보고를 호출하면 `403 team_not_assigned`를 응답하고 앱은 오프라인 사용 준비 완료로 표시하지 않는다"
   - "지도 타일 미완료 상태에서 사건 진입 시 앱은 오프라인 지도 준비 안내를 토스트처럼 일시 표시하고 상황판 경고 배지도 유지하되 현장 기록 화면 진입과 온라인 지도 사용을 차단하지 않는다"
   - "상황판 경고 배지가 미완료 단말을 표시한다"
 - **board_merge**: `package_badge` slot
@@ -287,8 +287,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   - "앱에서 `PATCH /search-path-segments/{searchPathSegmentId}`를 호출하면 `403 channel_not_allowed`"
   - "웹에서 `POST /search-paths` 또는 `POST /search-paths/batch`를 호출하면 `403 channel_not_allowed`"
   - "미등록 PolicePhone이 `POST /search-paths` 또는 `POST /search-paths/batch`를 호출하면 `403 police_phone_not_registered`를 응답하고 경로가 생성되지 않는다"
-  - "등록됐지만 해당 사건/OP에 배정되지 않은 PolicePhone이 `POST /search-paths` 또는 `POST /search-paths/batch`를 호출하면 `403 police_phone_not_assigned`를 응답하고 앱은 기록 중 상태로 전환하지 않는다"
-  - "사건에 배정된 개인 계정이라도 현재 PolicePhone이 해당 사건/OP에 배정되지 않았으면 경로 write는 `403 police_phone_not_assigned`를 응답한다"
+  - "등록된 PolicePhone이더라도 로그인 계정·현재 PolicePhone·OP를 묶는 활성 `duty_shift`가 없으면 경로 write는 `403 police_phone_not_assigned`를 응답하고 앱은 기록 중 상태로 전환하지 않는다"
   - "상황판에서 차량·도보 구간 수동 보정 중에는 저장 CTA가 로딩·비활성 상태가 되고 실패 시 기존 구간 스타일을 유지한다"
   - "수색 경로 생성, 경로 배치 추가, 구간 수동 보정 write는 §0.3 공통 red test에 따라 REST 응답 id/status/version, `event_dispatch_job`, SSE payload, board response path row가 같은 경로·구간 상태를 말하고 board response version이 수렴해야 한다"
 - **board_merge**: `path` slot + `police_phone_freshness` slot
@@ -333,8 +332,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   - "웹에서 현장 마커 생성 API를 호출하면 `403 channel_not_allowed`"
   - "웹에서 `POST /markers/{markerId}/photos/upload-url` 또는 `POST /markers/{markerId}/photos/{photoId}/attach`를 직접 호출하면 `403 channel_not_allowed`"
   - "미등록 PolicePhone이 `POST /markers`, 사진 업로드용 presigned URL 발급, 사진 attach를 호출하면 `403 police_phone_not_registered`를 응답하고 마커·사진이 생성되지 않는다"
-  - "등록됐지만 해당 사건/OP에 배정되지 않은 PolicePhone이 `POST /markers`, 사진 업로드용 presigned URL 발급, 사진 attach를 호출하면 `403 police_phone_not_assigned`를 응답하고 앱은 pending 마커를 서버 반영 완료로 바꾸지 않는다"
-  - "사건에 배정된 개인 계정이라도 현재 PolicePhone이 해당 사건/OP에 배정되지 않았으면 마커·사진 write는 `403 police_phone_not_assigned`를 응답한다"
+  - "사건에 배정되지 않은 개인 계정이 `POST /markers`, 사진 업로드용 presigned URL 발급, 사진 attach를 호출하면 `403 team_not_assigned` 또는 `incident_access_denied`를 응답하고 앱은 pending 마커를 서버 반영 완료로 바꾸지 않는다"
   - "사진 10장 또는 10MB 초과 업로드는 거부된다"
   - "마커 생성과 사진 attach write는 §0.3 공통 red test에 따라 REST 응답 id/status/version, `event_dispatch_job`, SSE payload, board response marker/photo row가 같은 마커·사진 상태를 말하고 board response version이 수렴해야 한다"
 - **board_merge**: `marker` slot
@@ -442,7 +440,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   - "`sequence` 또는 entity `version`이 더 낮은 stale event는 최신 board response와 화면 상태를 덮지 못하고, 이벤트 순서 역전이 발생해도 최신 상태가 과거 상태로 회귀하지 않는다"
   - "웹에서 `POST /sync/clock`, `POST /police-phones/{policePhoneId}/heartbeat`, Outbox flush/requeue write를 직접 호출하면 `403 channel_not_allowed`"
   - "미등록 PolicePhone이 `POST /police-phones/{policePhoneId}/heartbeat` 또는 Outbox의 package installation·path·marker/photo write를 전송하면 `403 police_phone_not_registered`를 응답하고 큐 항목은 완료 처리되지 않는다"
-  - "등록됐지만 해당 사건/OP에 배정되지 않은 PolicePhone이 heartbeat 또는 Outbox의 package installation·path·marker/photo write를 전송하면 `403 police_phone_not_assigned`를 응답하고 앱은 권한 실패 항목을 재시도 대기와 구분해 표시한다"
+  - "사건에 배정되지 않은 개인 계정의 heartbeat 또는 Outbox domain write는 `403 team_not_assigned` 또는 `incident_access_denied`를 응답하고, 활성 `duty_shift`가 없는 path write만 `403 police_phone_not_assigned`로 구분한다"
 - **board_merge**: `marker` slot + `path` slot + `police_phone_freshness` slot + `package_badge` slot 이벤트 재수신
 - **notes**: `client_ts`, `server_ts`, `clock_offset_ms`를 함께 저장한다. 충돌 판정은 서버 수신 시각 기준이다.
 

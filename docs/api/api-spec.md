@@ -97,7 +97,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Idempotency-Key: no
 - Request: `appInstanceId`, `token`
 - Response: `200 {id, status, version}`
-- Errors: `police_phone_required`, `channel_not_allowed`, `police_phone_not_registered`, `police_phone_not_assigned`
+- Errors: `police_phone_required`, `channel_not_allowed`, `police_phone_not_registered`
 
 #### POST `/api/police-phones/{policePhoneId}/heartbeat`
 
@@ -109,7 +109,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Idempotency-Key: no
 - Request: `clientTs`, `sequence`, optional `lastSyncAt`, `batteryPercent`
 - Response: `200 {id, status, version, policePhoneId, sequence, lastHeartbeatAt, lastSyncAt}`
-- Errors: `police_phone_required`, `channel_not_allowed`, `police_phone_not_registered`, `police_phone_not_assigned`
+- Errors: `police_phone_required`, `channel_not_allowed`, `police_phone_not_registered`, `team_not_assigned`
 
 ### 4.2 Incident
 
@@ -475,11 +475,11 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Source spec: `POST /sync/clock`
 - Consumer: APP
 - Headers: `Authorization`, `X-PolicePhone-Id`
-- Guard: `@RequireChannel(APP)`, PolicePhone registered/assigned for `incidentId`
+- Guard: `@RequireChannel(APP)`, PolicePhone registered
 - Idempotency-Key: no
 - Request: `incidentId`, `clientTs`
 - Response: `200 {clientTs, serverTs, clockOffsetMs, clockSyncedAt, maxAllowedSkewMs}`
-- Errors: `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `clock_skew_exceeded`
+- Errors: `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `clock_skew_exceeded`
 
 #### POST `/api/sync/outbox/requeue`
 
@@ -487,11 +487,11 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Source spec: `POST /sync/outbox/requeue`
 - Consumer: APP
 - Headers: `Authorization`, `X-PolicePhone-Id`
-- Guard: `@RequireChannel(APP)`, PolicePhone registered/assigned for `incidentId`
+- Guard: `@RequireChannel(APP)`, PolicePhone registered
 - Idempotency-Key: no. S6 local operation uses `operationId` instead.
 - Request: `operationId`, `incidentId`, `reason`, `clientTs`, `clockOffsetMs`, `clockSyncedAt`, optional `attemptCount`
 - Response: `202 {operationId, accepted, serverTs}`
-- Errors: `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_closed`
+- Errors: `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `incident_closed`
 
 #### GET `/api/incidents/{incidentId}/offline-package/manifest`
 
@@ -611,7 +611,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Idempotency-Key: yes
 - Request: `incidentId`, `opId`, `memoTargetType`, `content`, `clientTs`, optional `memoTargetId`
 - Response: `201 {id, opId, version, memoTargetType, memoTargetId}`
-- Errors: `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`
+- Errors: `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`
 
 #### GET `/api/handover-memos`
 
