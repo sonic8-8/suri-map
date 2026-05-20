@@ -219,8 +219,7 @@ function getMarkerIconName(
     case 'SUPPORT_REQUEST':
       if (supportRequestType === 'DRONE') return 'drone';
       if (supportRequestType === 'POLICE_DOG') return 'dog';
-      if (supportRequestType === 'OTHER') return 'handHelping';
-      return 'hand';
+      return 'handHelping';
     case 'NOTE':
     default:
       return 'note';

@@ -90,7 +90,7 @@ export const markerShellGlyphPlacement: Record<MarkerGlyphName, MarkerGlyphPlace
   field: { translateX: 0, translateY: -0.5 },
   found: { translateX: 0, translateY: -0.5 },
   hand: { translateX: 0, translateY: -2, scale: 0.94 },
-  handHelping: { translateX: 0, translateY: -1.5, scale: 0.86 },
+  handHelping: { translateX: 0, translateY: 0, scale: 0.9 },
   note: { translateX: 0, translateY: -0.5 },
 };
 

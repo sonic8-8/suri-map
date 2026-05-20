@@ -187,7 +187,7 @@ function getMarkerPopupGlyphName(marker: RecentMarker): MarkerGlyphName {
   if (marker.markerType === 'SUPPORT_REQUEST') {
     if (marker.supportRequestType === 'DRONE') return 'drone';
     if (marker.supportRequestType === 'POLICE_DOG') return 'dog';
-    if (marker.supportRequestType === 'OTHER') return 'handHelping';
+    return 'handHelping';
   }
 
   return markerTypeGlyphName(marker.markerType);
