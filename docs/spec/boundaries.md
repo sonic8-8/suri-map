@@ -987,7 +987,7 @@ Spec ID는 SC ID에서 파생하지 않는다. Spec ID는 구현 소유권, 저�
 | `channel_not_allowed` | 허용되지 않은 채널의 API 호출 또는 쓰기 | 403 |
 | `police_phone_required` | PolicePhone이 필요한 앱 요청에 PolicePhone 없음 | 400 |
 | `police_phone_not_registered` | 등록되지 않았거나 세션과 연결되지 않은 PolicePhone | 403 |
-| `police_phone_not_assigned` | PolicePhone이 사건·팀·OP 배정에 연결되지 않음 | 403 |
+| `police_phone_not_assigned` | 활성 근무 구간 또는 OP 쓰기 맥락에서 PolicePhone 컨텍스트를 확인할 수 없음 | 403 |
 | `op_required` | current OP가 없음 | 409 |
 | `op_mismatch` | payload OP와 서버 current OP 불일치 | 409 |
 | `area_state_conflict` | 구역 상태 전이 불가 | 409 |
@@ -1210,8 +1210,8 @@ Guard shorthand:
 - `public-session`: Keycloak/OIDC bearer token + `@RequireChannel(APP,WEB)` -> `channel_not_allowed`
 - `incident-read`: `@RequireIncidentAccess` -> `incident_access_denied`, `team_not_assigned`
 - `web-command`: `@RequireChannel(WEB)`, `@RequireRole` -> `channel_not_allowed`, `role_denied`
-- `app-police-phone`: `@RequireChannel(APP)`, `@RequirePolicePhone`, `@RequirePolicePhoneRegistered`, `@RequirePolicePhoneAssigned` -> `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`
-- `field-or-web-write`: `@RequireChannel(APP,WEB)`, APP 요청의 `@RequirePolicePhone`, `@RequirePolicePhoneRegistered`, `@RequirePolicePhoneAssigned` -> `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`
+- `app-police-phone`: `@RequireChannel(APP)`, `@RequirePolicePhone`, `@RequirePolicePhoneRegistered` -> `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`
+- `field-or-web-write`: `@RequireChannel(APP,WEB)`, APP 요청의 `@RequirePolicePhone`, `@RequirePolicePhoneRegistered` -> `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`
 - `write-common`: `@RequireOpenIncident`, `@IdempotentWrite` -> `incident_bootstrapping`, `incident_closed`, `idempotency_mismatch`, `write_conflict`
 - `internal-caller`: `@RequireChannel(INTERNAL)` -> `channel_not_allowed`
 
@@ -1273,7 +1273,7 @@ Guard shorthand:
 | `@RequireChannel` | S1-2 | `channel_not_allowed` | APP/WEB/INTERNAL 허용 채널 확인 |
 | `@RequirePolicePhone` | S1-2 | `police_phone_required` | 앱 요청의 PolicePhone 식별자 확인 |
 | `@RequirePolicePhoneRegistered` | S1-2 | `police_phone_not_registered` | 등록된 업무폰·순찰차 PolicePhone 확인 |
-| `@RequirePolicePhoneAssigned` | S1-2 | `police_phone_not_assigned` | 사건·팀·OP 배정과 PolicePhone 연결 확인 |
+| `@RequirePolicePhoneAssigned` | S1-2 | `police_phone_not_assigned` | 활성 근무 구간처럼 명시적으로 PolicePhone-OP 컨텍스트가 필요한 API에서만 사용. 개인 계정 사건 접근 권한을 대체하지 않음 |
 | `@RequireOpenIncident` | S1-1 | `incident_bootstrapping`, `incident_closed` | 사건 OPEN 상태 확인 |
 | `@RequireCurrentOp` | S8 | `op_required`, `op_mismatch` | current OP 확인 |
 | `@IdempotentWrite` | S6 | `idempotency_mismatch`, `write_conflict` | idempotency key 처리 |

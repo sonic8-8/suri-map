@@ -3,7 +3,6 @@ package com.surimap.sync.outbox;
 import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.RequireChannel;
 import com.surimap.common.auth.RequirePolicePhone;
-import com.surimap.common.auth.RequirePolicePhoneAssigned;
 import com.surimap.common.auth.RequirePolicePhoneRegistered;
 import java.time.Clock;
 import java.time.Duration;
@@ -35,7 +34,6 @@ public class OutboxRequeueController {
   @RequireChannel(Channel.APP)
   @RequirePolicePhone
   @RequirePolicePhoneRegistered
-  @RequirePolicePhoneAssigned
   public ResponseEntity<OutboxRequeueResponse> requeue(
       @RequestHeader(value = "X-PolicePhone-Id", required = false) String policePhoneId,
       @RequestBody OutboxRequeueRequest request) {

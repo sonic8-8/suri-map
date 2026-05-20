@@ -29,10 +29,6 @@ public class HandoverApiException extends RuntimeException {
     return new HandoverApiException("op_mismatch", HttpStatus.CONFLICT);
   }
 
-  public static HandoverApiException policePhoneNotAssigned() {
-    return new HandoverApiException("police_phone_not_assigned", HttpStatus.FORBIDDEN);
-  }
-
   public String errorCode() {
     return errorCode;
   }
