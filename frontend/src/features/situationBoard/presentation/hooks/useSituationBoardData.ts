@@ -47,6 +47,8 @@ type SituationBoardDataState = {
   retryInitialLoad: () => void;
 };
 
+const SITUATION_BOARD_REFETCH_INTERVAL_MS = 10_000;
+
 export function useSituationBoardData(
   incidentId: string,
   savedAreaDrafts: CompletedAreaDraft[],
@@ -58,7 +60,9 @@ export function useSituationBoardData(
 
   const fallbackBoard = useMemo(() => createIncidentScopedFallbackBoard(incidentId), [incidentId]);
 
-  const boardQuery = useIncidentBoardQuery({ incidentId });
+  const boardQuery = useIncidentBoardQuery({ incidentId }, undefined, {
+    refetchInterval: SITUATION_BOARD_REFETCH_INTERVAL_MS,
+  });
   const rawApiBoard = (boardQuery.data as unknown as SituationBoardResponseDto) ?? null;
   const currentApiBoard = useMemo<SituationBoardResponseDto | null>(() => {
     return rawApiBoard && rawApiBoard.incidentId === incidentId ? rawApiBoard : null;

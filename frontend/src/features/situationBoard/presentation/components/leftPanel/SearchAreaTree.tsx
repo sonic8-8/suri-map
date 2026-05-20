@@ -52,8 +52,12 @@ function getAreaIdentityColorStyle(colorToken: AreaColorToken): AreaIdentityColo
 function getStateClassName(state: SearchAreaDisplayState) {
   if (state === 'completed' || state === 'cancelled') return `${styles.stateBadge} ${styles.stateCompleted}`;
   if (state === 'assignmentDone' || state === 'geometrySaved') return `${styles.stateBadge} ${styles.stateActive}`;
-  if (state === 'assignmentPending' || state === 'geometryPending') return `${styles.stateBadge} ${styles.stateRequired}`;
+  if (state === 'geometryPending') return `${styles.stateBadge} ${styles.stateRequired}`;
   return styles.stateBadge;
+}
+
+function getStateLabel(state: SearchAreaDisplayState) {
+  return state === 'assignmentPending' ? '담당 미배정' : searchAreaDisplayStateLabel[state];
 }
 
 function getAssignedAccountNames(area: SearchAreaTreeNode) {
@@ -149,7 +153,7 @@ function getNextActionLabel(area: SearchAreaTreeNode, displayState: SearchAreaDi
   if (hasChildren) return '하위 구역 확인';
   if (assignedCount > 0) return '담당 배정 완료';
   if (area.kind === 'overall') return '구역 분할 필요';
-  return '담당 배정 필요';
+  return '필요시 담당 배정';
 }
 
 function SummaryMetric({ label, value, icon, tone }: SummaryMetricProps) {
@@ -232,7 +236,7 @@ function AreaNode({
         </span>
       </span>
       <span className={styles.badgeColumn}>
-        <span className={getStateClassName(displayState)}>{searchAreaDisplayStateLabel[displayState]}</span>
+        <span className={getStateClassName(displayState)}>{getStateLabel(displayState)}</span>
       </span>
     </div>
   );
@@ -325,7 +329,7 @@ export function SearchAreaTree({
             icon={<Car size={18} strokeWidth={2.2} />}
           />
           <SummaryMetric
-            label="미배정"
+            label="미배정 구역"
             value={unassignedLeafLabel}
             tone="muted"
             icon={<CircleMinus size={18} strokeWidth={2.2} />}

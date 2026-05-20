@@ -119,6 +119,15 @@ export interface CreateHandoverMemoMutationVariables {
   idempotencyKey: string;
 }
 
+type QueryRefetchInterval<TData> =
+  | number
+  | false
+  | ((query: { state: { data: TData | undefined } }) => number | false | undefined);
+
+type QueryOptions<TData> = {
+  refetchInterval?: QueryRefetchInterval<TData>;
+};
+
 export const handoverQueryKeys = {
   all: ['handover'] as const,
   dutyShifts: (query: DutyShiftQuery) => [...handoverQueryKeys.all, 'dutyShifts', query] as const,
@@ -184,11 +193,13 @@ export function useSearchHistorySummaryListQuery(
   operationalPeriodId: string | null | undefined,
   query: SearchHistorySummaryQuery,
   api: HandoverApi = handoverApi,
+  options: QueryOptions<SearchHistorySummaryListResponse> = {},
 ) {
   return useQuery({
     queryKey: handoverQueryKeys.summaries(operationalPeriodId ?? '', query),
     queryFn: () => api.listSearchHistorySummaries(operationalPeriodId ?? '', query),
     enabled: Boolean(operationalPeriodId && query.incidentId),
+    refetchInterval: options.refetchInterval,
   });
 }
 

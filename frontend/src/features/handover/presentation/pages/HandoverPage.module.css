@@ -521,7 +521,7 @@
   background: transparent;
   color: var(--suri-board-fg-muted);
   font: inherit;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 850;
   letter-spacing: 0;
   white-space: nowrap;
@@ -558,7 +558,7 @@
 
 .comparisonModeBar span {
   color: var(--suri-board-fg-muted);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 800;
   line-height: 1.35;
 }
@@ -566,13 +566,13 @@
 .comparisonModeBar .secondaryButton {
   min-height: 34px;
   padding: 0 12px;
-  font-size: 12px;
+  font-size: 13px;
   white-space: nowrap;
 }
 
 .summaryMeta {
   color: var(--suri-board-fg-muted);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
 }
 
@@ -853,6 +853,50 @@
   font-size: 12px;
 }
 
+.memoPagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 2px;
+  color: var(--suri-board-fg-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.memoPagination > div {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.memoPagination button {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--handover-border-soft);
+  border-radius: 8px;
+  color: var(--suri-board-fg-primary);
+  background: var(--handover-panel-surface);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.memoPagination button:disabled {
+  color: var(--suri-board-fg-muted);
+  background: color-mix(in srgb, var(--handover-panel-surface) 56%, transparent);
+  cursor: default;
+  opacity: 0.64;
+}
+
+.memoPagination strong {
+  color: var(--suri-board-fg-secondary);
+  font-size: 12px;
+  font-weight: 900;
+}
+
 .memoTargetBadge {
   display: inline-flex;
   align-items: center;
@@ -915,14 +959,17 @@
 
 .modal {
   display: grid;
-  width: min(560px, 100%);
-  max-height: min(760px, calc(100vh - 48px));
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: min(620px, 100%);
+  height: min(820px, calc(100vh - 48px));
+  max-height: calc(100vh - 48px);
   overflow: hidden;
   border: 1px solid var(--handover-border);
   border-radius: 8px;
   color: var(--suri-board-fg-primary);
   background: var(--handover-panel-bg);
   box-shadow: 0 24px 70px rgb(0 0 0 / 34%);
+  font-size: 15px;
 }
 
 .modalHeader {
@@ -930,13 +977,13 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 18px 20px;
+  padding: 20px 24px;
   border-bottom: 1px solid var(--handover-border);
 }
 
 .modalHeader h2 {
   margin: 0;
-  font-size: 18px;
+  font-size: 22px;
   font-weight: 850;
   letter-spacing: 0;
 }
@@ -963,39 +1010,62 @@
 
 .modalBody {
   display: grid;
-  gap: 16px;
+  align-content: start;
+  gap: 20px;
   min-height: 0;
-  padding: 18px 20px;
+  padding: 22px 24px;
   overflow: auto;
 }
 
 .reasonFieldset {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   min-width: 0;
   margin: 0;
   padding: 0;
   border: 0;
 }
 
-.reasonFieldset legend,
-.formField {
-  color: var(--suri-board-fg-secondary);
-  font-size: 13px;
-  font-weight: 800;
+.reasonFieldset legend {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.reasonFieldset .modalSectionTitle,
+.formField > .modalSectionTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--suri-board-fg-primary);
+  font-size: 18px;
+  font-weight: 950;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+
+.reasonFieldset .modalSectionTitle::before,
+.formField > .modalSectionTitle::before {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 3px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--suri-board-primary-hi);
+  content: '';
 }
 
 .reasonOptions {
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
 
 .reasonOption {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  gap: 10px;
+  gap: 12px;
   align-items: start;
-  padding: 12px;
+  padding: 14px;
   border: 1px solid var(--handover-border-soft);
   border-radius: 8px;
   background: var(--handover-panel-surface);
@@ -1007,35 +1077,41 @@
 
 .reasonOption span {
   display: grid;
-  gap: 3px;
+  gap: 5px;
   min-width: 0;
 }
 
 .reasonOption strong {
   color: var(--suri-board-fg-primary);
-  font-size: 14px;
+  font-size: 16px;
+  line-height: 1.25;
 }
 
 .reasonOption small {
   color: var(--suri-board-fg-muted);
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.45;
 }
 
 .formField {
   display: grid;
-  gap: 8px;
+  gap: 10px;
+  color: var(--suri-board-fg-secondary);
+  font-size: 15px;
+  font-weight: 800;
 }
 
 .formField textarea {
-  min-height: 86px;
+  min-height: 104px;
   resize: vertical;
   border: 1px solid var(--suri-board-border);
   border-radius: 8px;
-  padding: 12px;
+  padding: 14px;
   color: var(--suri-board-fg-primary);
   background: var(--handover-panel-surface);
   font: inherit;
+  font-size: 15px;
+  font-weight: 650;
   line-height: 1.55;
 }
 
@@ -1048,7 +1124,7 @@
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  padding: 16px 20px;
+  padding: 18px 24px;
   border-top: 1px solid var(--handover-border);
 }
 
@@ -1296,7 +1372,7 @@
 .briefingHeader h2 {
   margin: 3px 0 0;
   color: #102033;
-  font-size: 25px;
+  font-size: 28px;
   font-weight: 950;
   letter-spacing: -0.03em;
   line-height: 1.18;
@@ -1304,7 +1380,7 @@
 
 .briefingEyebrow {
   color: #41617f;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 900;
 }
 
@@ -1316,7 +1392,7 @@
   border-radius: 999px;
   color: #c66a00;
   background: #fff1da;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 900;
   white-space: nowrap;
 }
@@ -1337,7 +1413,7 @@
   border-radius: 8px;
   color: #24405e;
   background: #f6f9fc;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 900;
   line-height: 1;
 }
@@ -1360,7 +1436,7 @@
 .briefingHelper {
   margin: 0;
   color: #38546e;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 800;
   line-height: 1.55;
 }
@@ -1377,7 +1453,7 @@
 
 .historyContent .blockHeading h2 {
   color: #102033;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 950;
   letter-spacing: -0.02em;
 }
@@ -1390,7 +1466,7 @@
   border-radius: 999px;
   color: #42607b;
   background: #eef4f9;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 900;
 }
 
@@ -1401,7 +1477,7 @@
 
 .historyContent .memoTargetField {
   color: #38546e;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 900;
 }
 
@@ -1416,11 +1492,13 @@
   min-height: 40px;
   border-radius: 10px;
   padding: 0 12px;
+  font-size: 14px;
   font-weight: 800;
 }
 
 .historyContent .memoTargetField small {
   color: #6d8498;
+  font-size: 13px;
 }
 
 .historyContent .memoComposer textarea {
@@ -1428,6 +1506,7 @@
   border-radius: 12px;
   padding: 14px;
   color: #102033;
+  font-size: 15px;
   line-height: 1.6;
 }
 
@@ -1437,6 +1516,7 @@
 
 .historyContent .composerFooter {
   color: #6d8498;
+  font-size: 13px;
   font-weight: 800;
 }
 
@@ -1447,6 +1527,7 @@
   color: #ffffff;
   background: linear-gradient(180deg, #1c347a 0%, #142666 100%);
   box-shadow: 0 8px 16px rgba(20, 38, 102, 0.16);
+  font-size: 14px;
 }
 
 .historyContent .composerFooter button:not(:disabled):hover {
@@ -1476,12 +1557,13 @@
 
 .historyContent .memoItem p {
   color: #102033;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 800;
 }
 
 .historyContent .memoItem div {
   color: #6d8498;
+  font-size: 13px;
 }
 
 .historyContent .memoTargetBadge {
@@ -1492,7 +1574,7 @@
 
 .historyContent .summaryText {
   color: #102033;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.72;
 }
 
@@ -1510,11 +1592,13 @@
 .historyContent .summaryMetaGrid dt,
 .historyContent .compactMetaGrid dt {
   color: #6d8498;
+  font-size: 13px;
 }
 
 .historyContent .summaryMetaGrid dd,
 .historyContent .compactMetaGrid dd {
   color: #102033;
+  font-size: 15px;
 }
 
 .historyContent .sourceList {
@@ -1546,32 +1630,34 @@
 
 .historyContent .sourceList strong {
   color: #102033;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .historyContent .sourceList span {
   justify-self: end;
   color: #24405e;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 900;
 }
 
 .historyContent .sourceList p {
   grid-column: 1 / -1;
   color: #5a7085;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .historyContent .emptyState {
   border: 1px solid #d7e2ec;
   color: #5a7085;
   background: #f8fbff;
+  font-size: 15px;
 }
 
 .historyContent .errorText {
   border-color: #ffc9c3;
   color: #b42318;
   background: #fff1ef;
+  font-size: 15px;
 }
 
 @media (max-width: 1280px) {

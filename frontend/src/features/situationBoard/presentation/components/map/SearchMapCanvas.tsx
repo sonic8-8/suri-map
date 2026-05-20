@@ -657,8 +657,8 @@ function addMovementCurrentPositionLayerGroup(
 ) {
   const currentPositionFilter = [
     'all',
-    ['has', 'deviceColor'],
-    ['!=', ['get', 'deviceColor'], ''],
+    ['has', 'currentPositionColor'],
+    ['!=', ['get', 'currentPositionColor'], ''],
     ['==', ['get', 'movementType'], movementType],
   ] as FilterSpecification;
   addLayer(map, {
@@ -667,10 +667,10 @@ function addMovementCurrentPositionLayerGroup(
     source: MOVEMENT_CURRENT_POSITION_SOURCE_ID,
     filter: currentPositionFilter,
     paint: {
-      'circle-color': ['get', 'deviceColor'],
+      'circle-color': ['get', 'currentPositionColor'],
       'circle-radius': 9,
       'circle-opacity': 0.24,
-      'circle-stroke-color': ['get', 'deviceColor'],
+      'circle-stroke-color': ['get', 'currentPositionColor'],
       'circle-stroke-width': 3,
       'circle-stroke-opacity': 0.28,
     },
@@ -682,7 +682,7 @@ function addMovementCurrentPositionLayerGroup(
     source: MOVEMENT_CURRENT_POSITION_SOURCE_ID,
     filter: currentPositionFilter,
     paint: {
-      'circle-color': ['get', 'routeCoreColor'],
+      'circle-color': ['get', 'currentPositionColor'],
       'circle-radius': 5.6,
       'circle-opacity': 0.98,
       'circle-stroke-color': 'rgba(15, 23, 42, 0.28)',
@@ -697,17 +697,7 @@ function addMovementCurrentPositionLayerGroup(
     source: MOVEMENT_CURRENT_POSITION_SOURCE_ID,
     filter: currentPositionFilter,
     paint: {
-      'circle-color': [
-        'match',
-        ['get', 'freshnessStatus'],
-        'ONLINE',
-        '#22c55e',
-        'STALE',
-        '#facc15',
-        'LOST',
-        '#ef4444',
-        '#94a3b8',
-      ],
+      'circle-color': ['get', 'currentPositionColor'],
       'circle-radius': 2.5,
       'circle-opacity': 0.98,
       'circle-stroke-color': 'rgba(15, 23, 42, 0.48)',
