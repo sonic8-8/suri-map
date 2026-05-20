@@ -3,10 +3,12 @@ package com.mock112.webhook;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.StringJoiner;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
@@ -138,6 +140,46 @@ public class JdbcWebhookOutboxStore implements WebhookOutboxStore {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public Map<String, WebhookOutboxSourceStatus> summarizeBySourceIncidentIds(Collection<String> sourceIncidentIds) {
+        List<String> ids = sourceIncidentIds == null
+                ? List.of()
+                : sourceIncidentIds.stream()
+                        .filter(id -> id != null && !id.isBlank())
+                        .distinct()
+                        .toList();
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+
+        StringJoiner placeholders = new StringJoiner(", ");
+        for (int i = 0; i < ids.size(); i++) {
+            placeholders.add("?");
+        }
+        List<WebhookOutboxSourceStatus> rows = jdbcTemplate.query(
+                """
+                SELECT source_incident_id,
+                       COUNT(*) AS events,
+                       SUM(CASE WHEN status = 'SENT' THEN 1 ELSE 0 END) AS sent,
+                       SUM(CASE WHEN status = 'PENDING' THEN 1 ELSE 0 END) AS pending,
+                       SUM(CASE WHEN status = 'FAILED' THEN 1 ELSE 0 END) AS failed,
+                       MAX(attempt_count) AS attempt_count,
+                       MAX(updated_at) AS updated_at,
+                       MAX(last_error) AS last_error
+                FROM mock_webhook_outbox
+                WHERE source_incident_id IN (%s)
+                GROUP BY source_incident_id
+                """.formatted(placeholders),
+                (rs, rowNum) -> mapSourceStatus(rs),
+                ids.toArray());
+        Map<String, WebhookOutboxSourceStatus> bySource = new LinkedHashMap<>();
+        for (WebhookOutboxSourceStatus row : rows) {
+            bySource.put(row.sourceIncidentId(), row);
+        }
+        return bySource;
+    }
+
+    @Override
     @Transactional
     public void reset() {
         jdbcTemplate.update("DELETE FROM mock_webhook_outbox");
@@ -156,6 +198,31 @@ public class JdbcWebhookOutboxStore implements WebhookOutboxStore {
                 offsetDateTime(rs, "created_at"),
                 offsetDateTime(rs, "updated_at"),
                 offsetDateTime(rs, "sent_at"));
+    }
+
+    private WebhookOutboxSourceStatus mapSourceStatus(ResultSet rs) throws SQLException {
+        int events = rs.getInt("events");
+        int sent = rs.getInt("sent");
+        int pending = rs.getInt("pending");
+        int failed = rs.getInt("failed");
+        String status = "UNKNOWN";
+        if (failed > 0) {
+            status = "FAILED";
+        } else if (pending > 0) {
+            status = "PENDING";
+        } else if (events > 0 && sent == events) {
+            status = "SENT";
+        }
+        return new WebhookOutboxSourceStatus(
+                rs.getString("source_incident_id"),
+                status,
+                events,
+                sent,
+                pending,
+                failed,
+                rs.getInt("attempt_count"),
+                offsetDateTime(rs, "updated_at"),
+                rs.getString("last_error"));
     }
 
     private OffsetDateTime offsetDateTime(ResultSet rs, String column) throws SQLException {

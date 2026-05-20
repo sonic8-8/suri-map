@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -73,5 +74,37 @@ class JdbcWebhookOutboxStoreTest {
         assertThat(sent.attemptCount()).isEqualTo(2);
         assertThat(sent.sentAt()).isNotNull();
         assertThat(store.countByStatus()).containsEntry("SENT", 1);
+    }
+
+    @Test
+    @DisplayName("sourceIncidentId별 최신 outbox 요약은 UI가 사건별 전송 상태를 볼 수 있게 한다")
+    void summarizeBySourceIncidentIds() throws Exception {
+        String sourceIncidentId = "00000000-0000-0000-0000-000000000003";
+        SuriMapWebhookEvent ready = new SuriMapWebhookEvent(
+                "mock112:INCIDENT_READY:" + sourceIncidentId,
+                "INCIDENT_READY",
+                sourceIncidentId,
+                OffsetDateTime.parse("2026-05-20T09:00:00+09:00"));
+        SuriMapWebhookEvent assignment = new SuriMapWebhookEvent(
+                "mock112:ASSIGNMENT_CHANGED:00000000000000000000000000000003",
+                "INCIDENT_ASSIGNMENT_CHANGED",
+                sourceIncidentId,
+                OffsetDateTime.parse("2026-05-20T09:01:00+09:00"));
+        OffsetDateTime now = OffsetDateTime.parse("2026-05-20T09:02:00+09:00");
+
+        store.enqueue(ready, objectMapper.writeValueAsString(ready), now);
+        store.enqueue(assignment, objectMapper.writeValueAsString(assignment), now.plusSeconds(1));
+        store.markSent(ready.eventId(), now.plusSeconds(2));
+        store.markFailed(assignment.eventId(), "connect refused", now.plusSeconds(5), now.plusSeconds(3), false);
+
+        Map<String, WebhookOutboxSourceStatus> summary =
+                store.summarizeBySourceIncidentIds(List.of(sourceIncidentId, "missing-source"));
+
+        assertThat(summary).containsOnlyKeys(sourceIncidentId);
+        assertThat(summary.get(sourceIncidentId).status()).isEqualTo("PENDING");
+        assertThat(summary.get(sourceIncidentId).events()).isEqualTo(2);
+        assertThat(summary.get(sourceIncidentId).sent()).isEqualTo(1);
+        assertThat(summary.get(sourceIncidentId).pending()).isEqualTo(1);
+        assertThat(summary.get(sourceIncidentId).attemptCount()).isEqualTo(1);
     }
 }
