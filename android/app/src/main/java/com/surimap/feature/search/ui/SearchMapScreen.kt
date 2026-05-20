@@ -235,11 +235,20 @@ data class SearchMapUiState(
     val assignmentDisplayLabel: String =
         assignmentLabel.takeIf(String::isNotBlank) ?: "담당구역 미배정"
 
+    val lifecycleStatusLabel: String =
+        when (lifecycleStatus) {
+            SearchLifecycleStatus.Active -> "수색 진행 중"
+            SearchLifecycleStatus.Paused -> "수색 일시정지"
+            SearchLifecycleStatus.Stopped -> "수색 대기"
+            SearchLifecycleStatus.OpRequired -> "OP 확인 필요"
+            SearchLifecycleStatus.OpTransition -> "OP 전환 확인 필요"
+        }
+
     val lifecycleTitle: String =
         when (lifecycleStatus) {
             SearchLifecycleStatus.Active -> ""
             SearchLifecycleStatus.Paused -> "수색 일시정지"
-            SearchLifecycleStatus.Stopped -> "수색 경로 종료"
+            SearchLifecycleStatus.Stopped -> ""
             SearchLifecycleStatus.OpRequired -> "OP 확인 필요"
             SearchLifecycleStatus.OpTransition -> "OP 전환 확인 필요"
         }
@@ -247,7 +256,7 @@ data class SearchMapUiState(
     val lifecycleMessage: String =
         when (lifecycleStatus) {
             SearchLifecycleStatus.Active -> ""
-            SearchLifecycleStatus.Paused -> "경로 batch 전송과 마커 생성이 일시 차단됩니다."
+            SearchLifecycleStatus.Paused -> "일시정지 중에는 경로 기록과 마커 생성이 잠시 차단됩니다."
             SearchLifecycleStatus.Stopped -> ""
             SearchLifecycleStatus.OpRequired -> "current OP 누락 또는 조회 실패입니다. 경로·마커 기록 차단 상태입니다."
             SearchLifecycleStatus.OpTransition -> "OP 전환 중입니다. 이전 OP 기록은 readonly로 유지됩니다."
@@ -264,12 +273,14 @@ data class SearchMapUiState(
 
     fun visibleText(): List<String> =
         buildList {
+            add(lifecycleStatusLabel)
             lifecycleTitle.takeIf(String::isNotBlank)?.let(::add)
             lifecycleMessage.takeIf(String::isNotBlank)?.let(::add)
             add(if (canWritePath) "경로 기록 가능" else "경로 기록 차단")
             add(if (canCreateMarker) "마커 생성 가능" else "마커 생성 차단")
             add(if (bottomPanelExpanded) "지도 정보 펼침" else "지도 정보 접힘")
             add(primaryActionLabel)
+            add(if (bottomPanelExpanded) "접기" else "상세")
             add("전체 수색구역")
             add("부대 수색구역")
             add("팀 담당구역")
@@ -278,7 +289,7 @@ data class SearchMapUiState(
             teamSearchAreaTargets.forEach { add(it.label) }
             if (bottomPanelExpanded) {
                 if (canStopSearch) {
-                    add("종료")
+                    add("수색 종료")
                 }
                 add("인수인계")
                 add("마커 생성")
@@ -1163,7 +1174,7 @@ private fun SearchBottomPanel(
                 SearchLifecyclePeekRow(
                     state = state,
                     onPrimaryLifecycleAction = onPrimaryLifecycleAction,
-                    onStopSearch = onStopSearch,
+                    detailsExpanded = expandedContentVisible,
                     onToggleDetails = { toggleBottomPanelFromHandle() }
                 )
                 if (expandedContentVisible) {
@@ -1244,6 +1255,15 @@ private fun SearchBottomPanel(
                             size = PoliButtonSize.Large
                         )
                     }
+                    if (state.canStopSearch) {
+                        PoliButton(
+                            text = "수색 종료",
+                            onClick = onStopSearch,
+                            modifier = Modifier.fillMaxWidth(),
+                            variant = PoliButtonVariant.Danger,
+                            size = PoliButtonSize.Large
+                        )
+                    }
                 }
             }
         }
@@ -1262,7 +1282,7 @@ private fun SearchBottomPanel(
 private fun SearchLifecyclePeekRow(
     state: SearchMapUiState,
     onPrimaryLifecycleAction: () -> Unit,
-    onStopSearch: () -> Unit,
+    detailsExpanded: Boolean,
     onToggleDetails: () -> Unit
 ) {
     Row(
@@ -1276,7 +1296,7 @@ private fun SearchLifecyclePeekRow(
             verticalArrangement = Arrangement.spacedBy(PoliDimens.Space1)
         ) {
             Text(
-                text = state.primaryActionLabel,
+                text = state.lifecycleStatusLabel,
                 style = MaterialTheme.typography.labelLarge,
                 color = PoliFgPrimary,
                 maxLines = 1,
@@ -1300,21 +1320,12 @@ private fun SearchLifecyclePeekRow(
                 PoliButtonVariant.Primary
             }
         )
-        if (state.canStopSearch) {
-            PoliButton(
-                text = "종료",
-                onClick = onStopSearch,
-                modifier = Modifier.weight(0.72f),
-                variant = PoliButtonVariant.Danger
-            )
-        } else {
-            PoliButton(
-                text = "상세",
-                onClick = onToggleDetails,
-                modifier = Modifier.weight(0.72f),
-                variant = PoliButtonVariant.Secondary
-            )
-        }
+        PoliButton(
+            text = if (detailsExpanded) "접기" else "상세",
+            onClick = onToggleDetails,
+            modifier = Modifier.weight(0.72f),
+            variant = PoliButtonVariant.Secondary
+        )
     }
 }
 

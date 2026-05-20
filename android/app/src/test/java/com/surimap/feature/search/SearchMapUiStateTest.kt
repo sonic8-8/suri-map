@@ -25,6 +25,7 @@ class SearchMapUiStateTest {
         assertEquals(SearchLifecycleStatus.Active, active.lifecycleStatus)
         assertTrue(active.canWritePath)
         assertTrue(active.canCreateMarker)
+        assertEquals("수색 진행 중", active.lifecycleStatusLabel)
         assertEquals("일시정지", active.primaryActionLabel)
         assertFalse(active.visibleText().contains(active.incidentTitle))
         assertFalse(active.visibleText().contains(active.opLabel))
@@ -54,9 +55,11 @@ class SearchMapUiStateTest {
         val stopped = SearchMapUiState.stopped()
 
         assertEquals("재개", paused.primaryActionLabel)
+        assertEquals("수색 일시정지", paused.lifecycleStatusLabel)
         assertFalse(paused.canWritePath)
         assertFalse(paused.canCreateMarker)
         assertEquals("수색 시작", stopped.primaryActionLabel)
+        assertEquals("수색 대기", stopped.lifecycleStatusLabel)
         assertFalse(stopped.canWritePath)
         assertFalse(stopped.canCreateMarker)
     }
@@ -321,10 +324,23 @@ class SearchMapUiStateTest {
         assertTrue(state.visibleText().contains("부대 수색구역"))
         assertTrue(state.visibleText().contains("팀 담당구역"))
         assertTrue(state.visibleText().contains("마커"))
+        assertTrue(state.visibleText().contains("수색 진행 중"))
         assertTrue(state.visibleText().contains("일시정지"))
+        assertTrue(state.visibleText().contains("상세"))
         assertFalse(state.visibleText().contains("종료"))
+        assertFalse(state.visibleText().contains("수색 종료"))
         assertFalse(state.visibleText().contains("인수인계"))
         assertFalse(state.visibleText().contains("마커 생성"))
+    }
+
+    @Test
+    fun expandedBottomPanelExposesDangerStopActionSeparately() {
+        val state = SearchMapUiState.active().copy(bottomPanelExpanded = true)
+
+        assertTrue(state.visibleText().contains("수색 진행 중"))
+        assertTrue(state.visibleText().contains("일시정지"))
+        assertTrue(state.visibleText().contains("접기"))
+        assertTrue(state.visibleText().contains("수색 종료"))
     }
 
     @Test
