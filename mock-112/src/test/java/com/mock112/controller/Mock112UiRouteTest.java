@@ -16,7 +16,9 @@ import com.mock112.seed.SeedDataLoader;
 import com.mock112.service.MockIncidentRegistrationService;
 import com.mock112.store.MockIncidentStore;
 import com.mock112.webhook.SuriMapWebhookDispatcher;
+import com.mock112.webhook.WebhookOutboxSourceStatus;
 import com.mock112.webhook.WebhookOutboxStore;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
@@ -45,7 +47,8 @@ import org.springframework.test.web.servlet.MockMvc;
             Mock112UiController.class,
             MockScenarioController.class,
             MockIncidentController.class,
-            AssignableOrganizationController.class
+            AssignableOrganizationController.class,
+            WebhookOutboxController.class
         })
 @Import({
         com.mock112.config.SecurityConfig.class,
@@ -90,6 +93,9 @@ class Mock112UiRouteTest {
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("mock 112 관제 시스템")))
                 .andExpect(content().string(containsString("inputInitialAssignmentGroup")))
+                .andExpect(content().string(containsString("incidentStatusFilter")))
+                .andExpect(content().string(containsString("incidentSearchInput")))
+                .andExpect(content().string(containsString("incidentDetail")))
                 .andExpect(content().string(not(containsString("inputSourceId"))))
                 .andExpect(content().string(containsString("app.js")));
     }
@@ -109,6 +115,8 @@ class Mock112UiRouteTest {
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("loadIncidents")))
                 .andExpect(content().string(containsString("loadAssignableOrganizations")))
+                .andExpect(content().string(containsString("renderIncidentTable")))
+                .andExpect(content().string(containsString("selectIncident")))
                 .andExpect(content().string(containsString("assignGroup")))
                 .andExpect(content().string(not(containsString("inc.status === 'IMPORTED' ? 'disabled'"))));
 
@@ -125,6 +133,30 @@ class Mock112UiRouteTest {
                 .andExpect(jsonPath("$[0].organizationCode")
                         .value("GWANGJU_GWANGSAN_SUWAN_PATROL_DIVISION"))
                 .andExpect(jsonPath("$[0].accounts[0].accountCode").value("acct-precinct-cmd"));
+    }
+
+    @Test
+    @DisplayName("인증된 사용자는 사건별 webhook outbox 상태를 조회할 수 있다")
+    void authenticatedUserCanReadWebhookOutboxSourceStatuses() throws Exception {
+        String sourceIncidentId = "00000000-0000-0000-0000-000000000001";
+        when(webhookOutboxStore.summarizeBySourceIncidentIds(List.of(sourceIncidentId)))
+                .thenReturn(Map.of(sourceIncidentId, new WebhookOutboxSourceStatus(
+                        sourceIncidentId,
+                        "PENDING",
+                        2,
+                        1,
+                        1,
+                        0,
+                        1,
+                        OffsetDateTime.parse("2026-05-20T09:00:00+09:00"),
+                        "connect refused")));
+
+        mockMvc.perform(get("/mock-112/webhook-outbox/sources")
+                        .queryParam("sourceIncidentId", sourceIncidentId)
+                        .with(oauth2Login()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$['%s'].status".formatted(sourceIncidentId)).value("PENDING"))
+                .andExpect(jsonPath("$['%s'].pending".formatted(sourceIncidentId)).value(1));
     }
 
     @Test

@@ -9,94 +9,128 @@
 <body>
     <header>
         <div class="header-content">
-            <h1>🚔 mock 112 관제 시스템 <span class="badge">시뮬레이터</span></h1>
+            <div>
+                <p class="eyebrow">External incident simulator</p>
+                <h1>mock 112 관제 시스템 <span class="badge">운영 도구</span></h1>
+            </div>
             <div class="header-status">
-                <span id="statusReady" class="status-pill ready">READY: 0</span>
-                <span id="statusImported" class="status-pill imported">IMPORTED: 0</span>
-                <span id="serverStatus" class="status-pill server">● 연결 중</span>
+                <span id="statusReady" class="status-pill ready">READY 0</span>
+                <span id="statusImported" class="status-pill imported">IMPORTED 0</span>
+                <span id="serverStatus" class="status-pill server">연결 중</span>
             </div>
         </div>
     </header>
 
     <main>
-        <!-- 좌측: 빠른 액션 -->
         <aside class="sidebar">
-            <section class="card">
-                <h2>⚡ 빠른 실행</h2>
+            <section class="panel">
+                <h2>시나리오</h2>
                 <button id="btnSeedPrecinct" class="btn btn-primary btn-full" onclick="seedPrecinctFirst()">
-                    🏢 지구대 초동 시나리오 Seed
-                </button>
-                <button id="btnReset" class="btn btn-danger btn-full" onclick="resetAll()">
-                    🔄 전체 초기화
+                    지구대 초동 시나리오 Seed
                 </button>
             </section>
 
-            <section class="card">
-                <h2>📊 상태 요약</h2>
+            <section class="panel">
+                <h2>상태 요약</h2>
                 <div id="healthInfo" class="health-info">
-                    <p>서버 확인 중...</p>
+                    <div class="state-panel">서버 확인 중</div>
                 </div>
             </section>
 
-            <section class="card">
-                <h2>ℹ️ 안내</h2>
-                <p class="hint">이 화면은 <strong>외부 112 시스템 시뮬레이터</strong>입니다.</p>
-                <p class="hint">Suri-Map에서 사건을 직접 만드는 기능이 아닙니다.</p>
-                <p class="hint">시나리오 Seed → Suri-Map polling 감지 → 웹에서 가져오기</p>
+            <section class="panel danger-zone">
+                <h2>초기화</h2>
+                <p>mock-112 사건, 배정, webhook outbox를 모두 비웁니다.</p>
+                <button id="btnReset" class="btn btn-danger btn-full" onclick="resetAll()">
+                    전체 초기화
+                </button>
             </section>
         </aside>
 
-        <!-- 우측: 메인 영역 -->
         <div class="main-content">
-            <!-- 사건 등록 폼 -->
-            <section class="card">
-                <h2>📝 사건 등록</h2>
+            <section class="panel">
+                <div class="section-title-row">
+                    <div>
+                        <h2>사건 등록</h2>
+                        <p class="muted">초기 배정 조직을 선택하면 해당 조직 계정 전체가 사건에 배정됩니다.</p>
+                    </div>
+                </div>
                 <form id="incidentForm" onsubmit="createIncident(event)">
                     <div class="form-row">
                         <div class="form-group full">
-                            <label>사건 제목</label>
+                            <label for="inputTitle">사건 제목</label>
                             <input type="text" id="inputTitle" required
                                    placeholder="OO구 OO산 실종 신고">
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label>실종자 이름</label>
+                            <label for="inputPersonName">실종자 이름</label>
                             <input type="text" id="inputPersonName" placeholder="이름">
                         </div>
                         <div class="form-group">
-                            <label>인상착의</label>
+                            <label for="inputAppearance">인상착의</label>
                             <input type="text" id="inputAppearance" placeholder="남색 점퍼, 등산화">
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group full">
-                            <label>마지막 목격 위치</label>
+                            <label for="inputLastSeen">마지막 목격 위치</label>
                             <input type="text" id="inputLastSeen" placeholder="OO산 북측 산책로 입구">
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group full">
-                            <label>초기 배정 조직</label>
+                            <label for="inputInitialAssignmentGroup">초기 배정 조직</label>
                             <select id="inputInitialAssignmentGroup" required></select>
                             <p id="initialAssignmentPreview" class="select-preview"></p>
                         </div>
                     </div>
-                    <button type="submit" class="btn btn-primary">등록</button>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">등록</button>
+                    </div>
                 </form>
+                <div id="createResult" class="result-panel hidden"></div>
             </section>
 
-            <!-- 사건 목록 -->
-            <section class="card">
-                <h2>📋 등록 사건 목록</h2>
-                <div id="incidentList" class="incident-list">
-                    <p class="empty-state">등록된 사건이 없습니다. 시나리오 Seed를 실행하세요.</p>
+            <section class="panel incident-workspace">
+                <div class="section-title-row incident-toolbar">
+                    <div>
+                        <h2>등록 사건</h2>
+                        <p id="incidentListState" class="muted">대기</p>
+                    </div>
+                    <div class="filter-bar">
+                        <select id="incidentStatusFilter" aria-label="사건 상태 필터">
+                            <option value="ALL">전체 상태</option>
+                            <option value="READY">READY</option>
+                            <option value="IMPORTED">IMPORTED</option>
+                        </select>
+                        <select id="incidentDeliveryFilter" aria-label="Webhook 상태 필터">
+                            <option value="ALL">전체 Webhook</option>
+                            <option value="SENT">SENT</option>
+                            <option value="PENDING">PENDING</option>
+                            <option value="FAILED">FAILED</option>
+                            <option value="DISABLED">DISABLED</option>
+                            <option value="NO_EVENTS">NO_EVENTS</option>
+                            <option value="UNKNOWN">기록 없음</option>
+                        </select>
+                        <input id="incidentSearchInput" type="search" placeholder="사건번호, 이름, 계정 검색">
+                    </div>
+                </div>
+                <div class="workspace-grid">
+                    <div id="incidentList" class="incident-list">
+                        <div class="state-panel">등록된 사건이 없습니다.</div>
+                    </div>
+                    <aside id="incidentDetail" class="incident-detail">
+                        <div class="detail-empty">
+                            <h3>사건 상세</h3>
+                            <p>테이블에서 사건을 선택하세요.</p>
+                        </div>
+                    </aside>
                 </div>
             </section>
         </div>
     </main>
 
-    <!-- 토스트 알림 -->
     <div id="toastContainer" class="toast-container"></div>
 
     <script src="app.js"></script>
