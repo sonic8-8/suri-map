@@ -18,7 +18,6 @@ class PolicePhoneNavigationContractTest {
                 "incident_list",
                 "offline_package",
                 "search_map",
-                "search_history",
                 "handover_summary",
                 "handover_memo",
                 "marker_detail",
@@ -36,23 +35,21 @@ class PolicePhoneNavigationContractTest {
         )
         assertEquals(PolicePhoneRoute.MarkerDetail, PolicePhoneRoutes.fromNavigationRoute("marker_detail/{markerId}"))
         assertEquals(PolicePhoneRoute.HandoverMemo, PolicePhoneRoutes.fromNavigationRoute("handover_memo"))
-        assertEquals(PolicePhoneRoute.SearchHistory, PolicePhoneRoutes.fromNavigationRoute("search_history"))
         assertNull(PolicePhoneRoutes.fromNavigationRoute("unknown"))
     }
 
     @Test
     fun bottomNavigationExposesIncidentContextDestinationsOnly() {
         assertEquals(
-            listOf("offline_package", "search_map", "search_history", "handover_summary", "blocked_outbox"),
+            listOf("offline_package", "search_map", "handover_summary", "blocked_outbox"),
             PolicePhoneBottomNavigation.items.map { it.route.route }
         )
-        assertEquals(listOf("사건", "지도", "수색 이력", "인수인계", "미전송"), PolicePhoneBottomNavigation.items.map { it.label })
+        assertEquals(listOf("사건", "지도", "인수인계", "미전송"), PolicePhoneBottomNavigation.items.map { it.label })
 
         assertFalse(PolicePhoneBottomNavigation.shouldShow(PolicePhoneRoute.AuthBootstrap, hasIncidentContext = true))
         assertFalse(PolicePhoneBottomNavigation.shouldShow(PolicePhoneRoute.IncidentList, hasIncidentContext = true))
         assertFalse(PolicePhoneBottomNavigation.shouldShow(PolicePhoneRoute.SearchMap, hasIncidentContext = false))
         assertTrue(PolicePhoneBottomNavigation.shouldShow(PolicePhoneRoute.SearchMap, hasIncidentContext = true))
-        assertTrue(PolicePhoneBottomNavigation.shouldShow(PolicePhoneRoute.SearchHistory, hasIncidentContext = true))
         assertTrue(PolicePhoneBottomNavigation.shouldShow(PolicePhoneRoute.HandoverMemo, hasIncidentContext = true))
         assertTrue(PolicePhoneBottomNavigation.shouldShow(PolicePhoneRoute.MarkerDetail, hasIncidentContext = true))
     }
@@ -66,10 +63,6 @@ class PolicePhoneNavigationContractTest {
         assertEquals(
             PolicePhoneRoute.HandoverSummary,
             PolicePhoneBottomNavigation.selectedRouteFor(PolicePhoneRoute.HandoverMemo)
-        )
-        assertEquals(
-            PolicePhoneRoute.SearchHistory,
-            PolicePhoneBottomNavigation.selectedRouteFor(PolicePhoneRoute.SearchHistory)
         )
         assertEquals(
             PolicePhoneRoute.BlockedOutbox,

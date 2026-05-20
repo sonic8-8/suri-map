@@ -11,7 +11,6 @@ enum class PolicePhoneRoute(val route: String) {
     IncidentList("incident_list"),
     OfflinePackage("offline_package"),
     SearchMap("search_map"),
-    SearchHistory("search_history"),
     HandoverSummary("handover_summary"),
     HandoverMemo("handover_memo"),
     MarkerDetail("marker_detail"),
@@ -25,7 +24,6 @@ object PolicePhoneRoutes {
             PolicePhoneRoute.IncidentList,
             PolicePhoneRoute.OfflinePackage,
             PolicePhoneRoute.SearchMap,
-            PolicePhoneRoute.SearchHistory,
             PolicePhoneRoute.HandoverSummary,
             PolicePhoneRoute.HandoverMemo,
             PolicePhoneRoute.MarkerDetail,
@@ -60,11 +58,6 @@ object PolicePhoneBottomNavigation {
                 route = PolicePhoneRoute.SearchMap,
                 label = "지도",
                 contentDescription = "수색 지도"
-            ),
-            PolicePhoneBottomNavItem(
-                route = PolicePhoneRoute.SearchHistory,
-                label = "수색 이력",
-                contentDescription = "수색 이력"
             ),
             PolicePhoneBottomNavItem(
                 route = PolicePhoneRoute.HandoverSummary,

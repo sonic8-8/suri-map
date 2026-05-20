@@ -90,12 +90,7 @@ data class DutyHandoverUiState(
     val summaryTitle: String = recordScope.summaryTitle
     val overviewTitle: String = recordScope.overviewTitle
     val emptyRecordLabel: String = recordScope.emptyRecordLabel
-    val summaryStatusLabel: String =
-        if (recordScope == HandoverRecordScope.OperationalPeriod && summaryStatus == SearchHistorySummaryStatus.Empty) {
-            "OP 기록 없음"
-        } else {
-            summaryStatus.label
-        }
+    val summaryStatusLabel: String = summaryStatus.label
 
     val reportSectionTitles: List<String> = HandoverReportSections.map { title ->
         when (title) {
@@ -116,7 +111,7 @@ data class DutyHandoverUiState(
         }
 
     val summaryText: String =
-        summary ?: summaryStatus.emptyCopy(recordScope)
+        summary ?: summaryStatus.emptyCopy()
 
     val selectedOriginalRecord: HandoverRecord? =
         selectedOriginalRecordKey?.let { selectedKey ->
@@ -335,21 +330,13 @@ enum class SummarySourceReadiness {
 }
 
 enum class HandoverRecordScope {
-    DutyShift,
-    OperationalPeriod
+    DutyShift
 }
 
 enum class DutyHandoverTab(val label: String) {
     Replay("리플레이"),
     Report("보고서")
 }
-
-fun DutyHandoverTab.labelFor(recordScope: HandoverRecordScope): String =
-    when (this) {
-        DutyHandoverTab.Replay -> label
-        DutyHandoverTab.Report ->
-            if (recordScope == HandoverRecordScope.OperationalPeriod) "OP 요약" else label
-    }
 
 data class HandoverMetric(val value: String, val label: String)
 data class HandoverRecord(
@@ -485,9 +472,6 @@ fun DutyHandoverScreen(
     onBack: () -> Unit,
     onWriteMemo: () -> Unit,
     onOpenSearch: () -> Unit,
-    showBack: Boolean = true,
-    showMemoAction: Boolean = true,
-    showSearchAction: Boolean = true,
     onSelectTab: (DutyHandoverTab) -> Unit = {},
     onSelectDutyShift: (String) -> Unit = {},
     onEndDutyShift: () -> Unit = {},
@@ -499,10 +483,9 @@ fun DutyHandoverScreen(
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxSize().safeDrawingPadding()) {
-        PoliAppBar(title = state.title, subtitle = state.subtitle, showBack = showBack, onBack = onBack)
+        PoliAppBar(title = state.title, subtitle = state.subtitle, showBack = true, onBack = onBack)
         DutyHandoverTabRow(
             selectedTab = state.selectedTab,
-            recordScope = state.recordScope,
             onSelectTab = onSelectTab
         )
         Column(
@@ -532,23 +515,17 @@ fun DutyHandoverScreen(
             }
         }
 
-        if (showMemoAction || showSearchAction) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(PoliDimens.SectionPadding),
-                horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
-            ) {
-                if (showMemoAction) {
-                    PoliButton(
-                        text = "메모 작성",
-                        onClick = onWriteMemo,
-                        modifier = Modifier.weight(1f),
-                        variant = PoliButtonVariant.Secondary
-                    )
-                }
-                if (showSearchAction) {
-                    PoliButton(text = "수색 화면", onClick = onOpenSearch, modifier = Modifier.weight(1.25f))
-                }
-            }
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(PoliDimens.SectionPadding),
+            horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
+        ) {
+            PoliButton(
+                text = "메모 작성",
+                onClick = onWriteMemo,
+                modifier = Modifier.weight(1f),
+                variant = PoliButtonVariant.Secondary
+            )
+            PoliButton(text = "수색 화면", onClick = onOpenSearch, modifier = Modifier.weight(1.25f))
         }
         if (state.canEndDutyShift) {
             PoliButton(
@@ -572,7 +549,6 @@ fun DutyHandoverScreen(
 @Composable
 private fun DutyHandoverTabRow(
     selectedTab: DutyHandoverTab,
-    recordScope: HandoverRecordScope,
     onSelectTab: (DutyHandoverTab) -> Unit
 ) {
     SecondaryTabRow(selectedTabIndex = selectedTab.ordinal) {
@@ -580,7 +556,7 @@ private fun DutyHandoverTabRow(
             Tab(
                 selected = selectedTab == tab,
                 onClick = { onSelectTab(tab) },
-                text = { Text(text = tab.labelFor(recordScope)) }
+                text = { Text(text = tab.label) }
             )
         }
     }
@@ -1170,35 +1146,30 @@ private val HandoverRecordScope.overviewTitle: String
     get() =
         when (this) {
             HandoverRecordScope.DutyShift -> DUTY_SHIFT_OVERVIEW_TITLE
-            HandoverRecordScope.OperationalPeriod -> "OP 개요"
         }
 
 private val HandoverRecordScope.summaryTitle: String
     get() =
         when (this) {
             HandoverRecordScope.DutyShift -> DUTY_SHIFT_SUMMARY_TITLE
-            HandoverRecordScope.OperationalPeriod -> "OP 수색 이력 요약"
         }
 
 private val HandoverRecordScope.primaryBadge: String
     get() =
         when (this) {
             HandoverRecordScope.DutyShift -> "근무 기준"
-            HandoverRecordScope.OperationalPeriod -> "OP 기준"
         }
 
 private val HandoverRecordScope.actorBadge: String
     get() =
         when (this) {
             HandoverRecordScope.DutyShift -> "단일 근무자"
-            HandoverRecordScope.OperationalPeriod -> "복수 기록자"
         }
 
 private val HandoverRecordScope.emptyRecordLabel: String
     get() =
         when (this) {
             HandoverRecordScope.DutyShift -> "이전 기록 없음"
-            HandoverRecordScope.OperationalPeriod -> "OP 기록 없음"
         }
 
 private val SummarySourceReadiness.reportCopy: String
@@ -1237,19 +1208,14 @@ private val SearchHistorySummaryStatus.variant: PoliChipVariant
             SearchHistorySummaryStatus.Empty -> PoliChipVariant.Neutral
         }
 
-private fun SearchHistorySummaryStatus.emptyCopy(recordScope: HandoverRecordScope): String =
+private fun SearchHistorySummaryStatus.emptyCopy(): String =
     when (this) {
         SearchHistorySummaryStatus.Ready -> ""
         SearchHistorySummaryStatus.Generating ->
-            if (recordScope == HandoverRecordScope.OperationalPeriod) {
-                "OP 수색 이력을 자동 처리 중입니다. 원본 기록은 즉시 확인할 수 있습니다."
-            } else {
-                "이전 근무 기록을 자동 처리 중입니다. 원본 기록은 즉시 확인할 수 있습니다."
-            }
+            "이전 근무 기록을 자동 처리 중입니다. 원본 기록은 즉시 확인할 수 있습니다."
         SearchHistorySummaryStatus.NeedsSummary -> "요약 생성 필요 상태입니다. 공개 생성 API가 없으므로 원본 기록을 먼저 확인합니다."
         SearchHistorySummaryStatus.Unavailable -> "요약을 불러오지 못했습니다. 원본 경로·마커·메모는 계속 확인할 수 있습니다."
-        SearchHistorySummaryStatus.Empty ->
-            if (recordScope == HandoverRecordScope.OperationalPeriod) "OP 기록 없음" else "이전 기록 없음"
+        SearchHistorySummaryStatus.Empty -> "이전 기록 없음"
     }
 
 private val HandoverReplaySpeed.label: String
