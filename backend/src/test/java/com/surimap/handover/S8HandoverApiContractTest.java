@@ -104,6 +104,7 @@ class S8HandoverApiContractTest {
         .thenReturn(new IncidentLifecycleSnapshot(INCIDENT_ID, "OPEN", 1L));
     when(dutyShiftMapper.findActiveAssignmentId(INCIDENT_ID, ACCOUNT_ID))
         .thenReturn(Optional.of(INCIDENT_ASSIGNMENT_ID));
+    when(dutyShiftMapper.countActivePolicePhoneForAccount(POLICE_PHONE_ID, ACCOUNT_ID)).thenReturn(1);
     when(dutyShiftMapper.findById(DUTY_SHIFT_ID)).thenReturn(Optional.of(activeDutyShift()));
     when(dutyShiftMapper.findByFilters(INCIDENT_ID, OP_ID, POLICE_PHONE_ID, null, "ACTIVE"))
         .thenReturn(List.of(activeDutyShift()));
@@ -147,6 +148,30 @@ class S8HandoverApiContractTest {
         .andExpect(jsonPath("$.version", is(1)));
 
     verify(dutyShiftMapper).insert(any(DutyShift.class));
+  }
+
+  @Test
+  @WithMockAccount(
+      accountType = AccountType.TEAM,
+      organizationType = OrganizationType.MISSING_TEAM,
+      channel = Channel.APP,
+      accountId = "11111111-1111-1111-1111-111111110001",
+      policePhoneId = "00000000-0000-0000-0000-000000000101")
+  @DisplayName("APP cannot start a duty shift with another account's police phone")
+  void appCannotStartDutyShiftWithOtherAccountsPolicePhone() throws Exception {
+    when(dutyShiftMapper.countActivePolicePhoneForAccount(POLICE_PHONE_ID, ACCOUNT_ID)).thenReturn(0);
+
+    mockMvc
+        .perform(
+            post("/api/duty-shifts")
+                .header("Authorization", "Bearer field")
+                .header("X-Client-Channel", "APP")
+                .header("X-PolicePhone-Id", POLICE_PHONE_ID)
+                .header("Idempotency-Key", "idem-duty-start-phone-owner-mismatch")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(dutyShiftStartBody()))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error", is("police_phone_not_assigned")));
   }
 
   @Test

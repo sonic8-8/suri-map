@@ -149,7 +149,8 @@ public class MyBatisSearchPathRepository implements SearchPathRepository {
     if (accountId != null) {
       UUID dutyShiftId =
           mapper
-              .findActiveDutyShiftIdByAccount(aggregate.opId(), accountId)
+              .findActiveDutyShiftIdByAccountAndPhone(
+                  aggregate.opId(), accountId, aggregate.policePhoneId())
               .orElseThrow(() -> new SearchPathApiException("police_phone_not_assigned"));
       return new ResolvedDutyShift(dutyShiftId, accountId);
     }

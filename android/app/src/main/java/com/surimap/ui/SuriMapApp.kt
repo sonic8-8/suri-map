@@ -2595,7 +2595,11 @@ private suspend fun openIncidentRoute(
     route: PolicePhoneRoute
 ) {
     val resolvedContext =
-        contextResolver.resolve(incident, policePhoneId = policePhoneContext?.policePhoneId)
+        contextResolver.resolve(
+            incident = incident,
+            policePhoneId = policePhoneContext?.policePhoneId,
+            accountId = policePhoneContext?.accountId
+        )
     clockSyncState.syncClockForIncident(resolvedContext.incidentId, policePhoneContext)
     if (resolvedContext.currentDutyShiftId.isNullOrBlank()) {
         dutyShiftRecorder.start(resolvedContext.toDutyShiftWriteContext(policePhoneContext))

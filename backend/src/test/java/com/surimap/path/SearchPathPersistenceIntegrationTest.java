@@ -44,6 +44,12 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
   private static final UUID PATH_ID = SearchPathFixtures.PATH_ID;
   private static final UUID CORRECTED_BY_ACCOUNT_ID =
       UUID.fromString("63000000-0000-0000-0000-000000002621");
+  private static final UUID OTHER_INCIDENT_ASSIGNMENT_ID =
+      UUID.fromString("61000000-0000-0000-0000-000000002622");
+  private static final UUID OTHER_POLICE_PHONE_ID =
+      UUID.fromString("50000000-0000-0000-0000-000000002622");
+  private static final UUID OTHER_DUTY_SHIFT_ID =
+      UUID.fromString("71000000-0000-0000-0000-000000002622");
   private static final Instant STARTED_AT = Instant.parse("2026-04-28T00:00:00Z");
 
   @Autowired private AppSearchPathCommandService appCommandService;
@@ -61,10 +67,14 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
     jdbcTemplate.execute("TRUNCATE TABLE idempotency_record");
     jdbcTemplate.execute(
         "TRUNCATE TABLE event_dispatch_job, search_area_boundary_alert, search_path_lifecycle_event, search_path_excluded_point, search_path_segment, search_path");
+    jdbcTemplate.update("DELETE FROM duty_shift WHERE id = ?::uuid", OTHER_DUTY_SHIFT_ID.toString());
     jdbcTemplate.update("DELETE FROM duty_shift WHERE id = ?::uuid", DUTY_SHIFT_ID.toString());
     jdbcTemplate.update("DELETE FROM operational_period WHERE id = ?::uuid", OP_ID.toString());
     jdbcTemplate.update(
+        "DELETE FROM incident_assignment WHERE id = ?::uuid", OTHER_INCIDENT_ASSIGNMENT_ID.toString());
+    jdbcTemplate.update(
         "DELETE FROM incident_assignment WHERE id = ?::uuid", INCIDENT_ASSIGNMENT_ID.toString());
+    jdbcTemplate.update("DELETE FROM police_phone WHERE id = ?::uuid", OTHER_POLICE_PHONE_ID.toString());
     jdbcTemplate.update(
         "DELETE FROM police_phone WHERE phone_code = ?", SearchPathFixtures.POLICE_PHONE_ALIAS);
     jdbcTemplate.update("DELETE FROM police_phone WHERE id = ?::uuid", POLICE_PHONE_ID.toString());
@@ -162,6 +172,52 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
         Timestamp.from(STARTED_AT));
   }
 
+  private void seedOtherAccountDutyShift() {
+    jdbcTemplate.update(
+        """
+        INSERT INTO police_phone (
+            id, phone_code, display_name, account_id, status, registered,
+            last_heartbeat_at, last_sync_at, version, created_at, updated_at
+        )
+        VALUES (?::uuid, 'dev-path-other-phone', 'Other path phone', ?::uuid, 'ACTIVE', TRUE, ?, ?, 1, ?, ?)
+        """,
+        OTHER_POLICE_PHONE_ID.toString(),
+        CORRECTED_BY_ACCOUNT_ID.toString(),
+        Timestamp.from(STARTED_AT),
+        Timestamp.from(STARTED_AT),
+        Timestamp.from(STARTED_AT),
+        Timestamp.from(STARTED_AT));
+    jdbcTemplate.update(
+        """
+        INSERT INTO incident_assignment (
+            id, incident_id, account_id, incident_role, assigned_at, created_at, updated_at
+        )
+        VALUES (?::uuid, ?::uuid, ?::uuid, 'MEMBER', ?, ?, ?)
+        """,
+        OTHER_INCIDENT_ASSIGNMENT_ID.toString(),
+        INCIDENT_ID.toString(),
+        CORRECTED_BY_ACCOUNT_ID.toString(),
+        Timestamp.from(STARTED_AT),
+        Timestamp.from(STARTED_AT),
+        Timestamp.from(STARTED_AT));
+    jdbcTemplate.update(
+        """
+        INSERT INTO duty_shift (
+            id, operational_period_id, incident_assignment_id, police_phone_id, status,
+            started_by_account_id, started_at, version, created_at, updated_at
+        )
+        VALUES (?::uuid, ?::uuid, ?::uuid, ?::uuid, 'ACTIVE', ?::uuid, ?, 1, ?, ?)
+        """,
+        OTHER_DUTY_SHIFT_ID.toString(),
+        OP_ID.toString(),
+        OTHER_INCIDENT_ASSIGNMENT_ID.toString(),
+        OTHER_POLICE_PHONE_ID.toString(),
+        CORRECTED_BY_ACCOUNT_ID.toString(),
+        Timestamp.from(STARTED_AT),
+        Timestamp.from(STARTED_AT),
+        Timestamp.from(STARTED_AT));
+  }
+
   @Test
   @DisplayName("start creates UUID search_path row tied to active duty_shift")
   void start_persists_search_path_row() {
@@ -194,6 +250,31 @@ class SearchPathPersistenceIntegrationTest extends PostGisIntegrationTestSupport
     assertThat(row.get("status")).isEqualTo("RECORDING");
     assertThat(row.get("version")).isEqualTo(1L);
     assertThat(row.get("geometry")).isNull();
+  }
+
+  @Test
+  @DisplayName("start rejects a police phone whose active duty shift belongs to another account")
+  void start_rejects_police_phone_owned_by_other_account() {
+    seedOtherAccountDutyShift();
+
+    assertThatThrownBy(
+            () ->
+                appCommandService.start(
+                    new StartSearchPathServiceRequest(
+                        null,
+                        INCIDENT_ID,
+                        OP_ID,
+                        OTHER_POLICE_PHONE_ID,
+                        ACCOUNT_ID,
+                        STARTED_AT,
+                        "idem-path-start-phone-owner-mismatch")))
+        .isInstanceOf(com.surimap.domain.path.exception.SearchPathGuardException.class)
+        .satisfies(
+            exception ->
+                assertThat(
+                        ((com.surimap.domain.path.exception.SearchPathGuardException) exception)
+                            .errorCode())
+                    .isEqualTo("police_phone_not_assigned"));
   }
 
   @Test

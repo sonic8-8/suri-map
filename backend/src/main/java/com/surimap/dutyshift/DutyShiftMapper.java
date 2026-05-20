@@ -24,6 +24,9 @@ public interface DutyShiftMapper {
   Optional<UUID> findActiveAssignmentId(
       @Param("incidentId") UUID incidentId, @Param("accountId") UUID accountId);
 
+  int countActivePolicePhoneForAccount(
+      @Param("policePhoneId") UUID policePhoneId, @Param("accountId") UUID accountId);
+
   void end(
       @Param("id") UUID id,
       @Param("endedByAccountId") UUID endedByAccountId,

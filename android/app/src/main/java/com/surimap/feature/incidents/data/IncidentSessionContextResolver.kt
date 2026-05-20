@@ -17,7 +17,11 @@ class IncidentSessionContextResolver(
         DutyShiftRepository().listDutyShifts(query)
     }
 ) {
-    suspend fun resolve(incident: AssignedIncidentUiModel, policePhoneId: String? = null): IncidentContext {
+    suspend fun resolve(
+        incident: AssignedIncidentUiModel,
+        policePhoneId: String? = null,
+        accountId: String? = null
+    ): IncidentContext {
         val currentContext = incident.toIncidentContext()
         val resolvedCurrentOp = loadCurrentOp(incident.incidentId)
         val currentOpId = currentContext.currentOpId?.takeIf(String::isNotBlank) ?: resolvedCurrentOp?.id
@@ -38,7 +42,8 @@ class IncidentSessionContextResolver(
         val dutyShiftId = loadActiveDutyShiftId(
             incidentId = incident.incidentId,
             opId = currentOpId,
-            policePhoneId = policePhoneId
+            policePhoneId = policePhoneId,
+            accountId = accountId
         ) ?: return opContext
         return opContext.copy(currentDutyShiftId = dutyShiftId)
     }
@@ -61,10 +66,12 @@ class IncidentSessionContextResolver(
     private suspend fun loadActiveDutyShiftId(
         incidentId: String,
         opId: String?,
-        policePhoneId: String?
+        policePhoneId: String?,
+        accountId: String?
     ): String? {
         val normalizedOpId = opId?.takeIf(String::isNotBlank) ?: return null
         val normalizedPolicePhoneId = policePhoneId?.takeIf(String::isNotBlank) ?: return null
+        val normalizedAccountId = accountId?.takeIf(String::isNotBlank) ?: return null
         val response =
             runCatching {
                 dutyShifts(
@@ -72,6 +79,7 @@ class IncidentSessionContextResolver(
                         incidentId = incidentId,
                         opId = normalizedOpId,
                         policePhoneId = normalizedPolicePhoneId,
+                        accountId = normalizedAccountId,
                         status = "ACTIVE"
                     )
                 )

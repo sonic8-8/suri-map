@@ -151,8 +151,8 @@ class AuthPhoneApiIntegrationTest {
   }
 
   @Test
-  @DisplayName("APP OIDC heartbeat accepts a trusted police phone independently from operator account")
-  void appHeartbeatAcceptsTrustedPolicePhoneIndependentlyFromOperatorAccount() throws Exception {
+  @DisplayName("APP OIDC heartbeat rejects a police phone owned by another account")
+  void appHeartbeatRejectsPolicePhoneOwnedByAnotherAccount() throws Exception {
     String accessToken =
         appAccessToken(
             "commander-phone",
@@ -178,11 +178,8 @@ class AuthPhoneApiIntegrationTest {
                       "lastSyncAt": "2026-05-08T09:00:30+09:00"
                     }
                     """))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.status").value("ONLINE"))
-        .andExpect(
-            jsonPath("$.policePhoneId").value(PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID.toString()))
-        .andExpect(jsonPath("$.sequence").value(2));
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error").value("police_phone_not_assigned"));
   }
 
   @Test

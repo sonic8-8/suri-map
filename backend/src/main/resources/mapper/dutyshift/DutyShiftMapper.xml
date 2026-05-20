@@ -89,6 +89,15 @@
         LIMIT 1
     </select>
 
+    <select id="countActivePolicePhoneForAccount" resultType="int">
+        SELECT COUNT(*)
+        FROM police_phone pp
+        WHERE pp.id = #{policePhoneId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND pp.account_id = #{accountId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND pp.status = 'ACTIVE'
+          AND pp.registered = TRUE
+    </select>
+
     <update id="end">
         UPDATE duty_shift
         SET status = 'ENDED',

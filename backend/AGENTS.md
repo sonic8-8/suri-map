@@ -147,7 +147,7 @@ ResponseEntity<SearchPathResponse> start(
 - `@RequireIncidentAccess`, `@RequireRole`, `@RequireChannel`, `@RequirePolicePhone`, `@RequirePolicePhoneRegistered`, `@RequirePolicePhoneAssigned`, `@RequireOpenIncident`, `@RequireCurrentOp`, `@IdempotentWrite`의 책임을 섞지 않는다.
 - 앱 전용 write를 웹에서 허용하지 않는다. 웹 전용 command를 앱에서 허용하지 않는다.
 - 위치 데이터 조회 API는 `@RecordLocationAccess` 적용 여부를 확인한다.
-- 경로 주체는 개인 계정이 아니라 `PolicePhone`이다. 조작 주체와 경로 주체를 구분한다.
+- 경로 기록 주체는 개인 `accountId`다. `PolicePhone`은 앱 단말 인증, 배정 guard, 전송 컨텍스트로만 함께 남긴다.
 
 ## Test
 

@@ -220,7 +220,7 @@ public class AppSearchPathCommandService {
     if (accountId != null) {
       dutyShiftId =
           searchPathMapper
-              .findActiveDutyShiftIdByAccount(path.opId(), accountId)
+              .findActiveDutyShiftIdByAccountAndPhone(path.opId(), accountId, path.policePhoneId())
               .orElseThrow(() -> new SearchPathGuardException("police_phone_not_assigned"));
     } else {
       dutyShiftId =
