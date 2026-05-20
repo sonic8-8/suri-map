@@ -314,22 +314,35 @@ class HandoverUiStateTest {
     }
 
     @Test
-    fun handoverPromptShowsOnlyWhenServerShiftStartedAfterLastSeen() {
+    fun handoverPromptShowsOnlyWhenVisiblePreviousRecordExistsAndServerShiftStartedAfterLastSeen() {
         val lastSeen = Instant.parse("2026-04-28T03:30:00Z")
         val newerServerShift =
             HandoverPromptUiState(
                 currentDutyShiftStartedAt = Instant.parse("2026-04-28T04:00:00Z"),
-                lastSeenHandoverAt = lastSeen
+                lastSeenHandoverAt = lastSeen,
+                hasVisiblePreviousRecord = true
             )
         val alreadySeen =
             HandoverPromptUiState(
                 currentDutyShiftStartedAt = Instant.parse("2026-04-28T03:00:00Z"),
+                lastSeenHandoverAt = lastSeen,
+                hasVisiblePreviousRecord = true
+            )
+        val noVisiblePreviousRecord =
+            HandoverPromptUiState(
+                currentDutyShiftStartedAt = Instant.parse("2026-04-28T04:00:00Z"),
                 lastSeenHandoverAt = lastSeen
             )
 
         assertTrue(newerServerShift.shouldShow)
         assertFalse(alreadySeen.shouldShow)
-        assertTrue(HandoverPromptUiState(currentDutyShiftStartedAt = Instant.parse("2026-04-28T04:00:00Z")).shouldShow)
+        assertFalse(noVisiblePreviousRecord.shouldShow)
+        assertTrue(
+            HandoverPromptUiState(
+                currentDutyShiftStartedAt = Instant.parse("2026-04-28T04:00:00Z"),
+                hasVisiblePreviousRecord = true
+            ).shouldShow
+        )
     }
 
     @Test

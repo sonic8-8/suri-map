@@ -35,7 +35,8 @@ interface OutboxDao {
             (
               incident_closed_at IS NULL
               AND (next_attempt_at IS NULL OR next_attempt_at <= :now)
-              AND clock_synced_at >= :minClockSyncedAt
+              AND clock_synced_at > 0
+              AND ABS(client_requested_at - clock_synced_at) <= :maxClockSyncAgeMs
             )
             OR (
               incident_closed_at IS NOT NULL
@@ -51,7 +52,7 @@ interface OutboxDao {
         incidentId: String,
         policePhoneId: String,
         now: Long,
-        minClockSyncedAt: Long
+        maxClockSyncAgeMs: Long
     ): List<OutboxEntity>
 
     @Query(
@@ -66,14 +67,40 @@ interface OutboxDao {
           AND local_mirror_status = 'FAILED'
           AND last_error IN ('police_phone_required', 'http_401')
           AND incident_closed_at IS NULL
-          AND clock_synced_at >= :minClockSyncedAt
+          AND clock_synced_at > 0
+          AND ABS(client_requested_at - clock_synced_at) <= :maxClockSyncAgeMs
         """
     )
     suspend fun requeueAccessRepairRequiredRows(
         incidentId: String,
         policePhoneId: String,
         now: Long,
-        minClockSyncedAt: Long
+        maxClockSyncAgeMs: Long
+    ): Int
+
+    @Query(
+        """
+        UPDATE android_outbox_row
+        SET idempotency_status = 'FAILED_RETRYABLE',
+            local_mirror_status = 'FAILED',
+            next_attempt_at = :now,
+            last_error = COALESCE(last_error, 'worker_interrupted')
+        WHERE incident_id = :incidentId
+          AND police_phone_id = :policePhoneId
+          AND idempotency_status = 'SENDING'
+          AND local_mirror_status = 'SENDING'
+          AND COALESCE(first_attempt_at, client_requested_at) <= :staleBefore
+          AND (
+            incident_closed_at IS NULL
+            OR client_requested_at <= incident_closed_at
+          )
+        """
+    )
+    suspend fun requeueStaleSendingRows(
+        incidentId: String,
+        policePhoneId: String,
+        now: Long,
+        staleBefore: Long
     ): Int
 
     @Query(

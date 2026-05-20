@@ -14,6 +14,7 @@ private const val OUTBOX_RETRY_BASE_DELAY_MS = 10_000L
 private const val OUTBOX_RETRY_MAX_DELAY_MS = 300_000L
 private const val OUTBOX_RETRY_MAX_ATTEMPTS = 8
 private const val OUTBOX_RETRY_MAX_AGE_MS = 86_400_000L
+private const val OUTBOX_STALE_SENDING_AFTER_MS = 60_000L
 
 class RoomSyncClient(
     private val outboxDao: OutboxDao,
@@ -131,12 +132,17 @@ class RoomOutboxReplay(
 
     override suspend fun flushPending(policePhoneId: String, incidentId: String): OutboxReplayResult {
         val now = System.currentTimeMillis()
-        val minClockSyncedAt = now - staleClockSyncAfterMs
         outboxDao.rejectPostCloseRows(incidentId, policePhoneId)
+        outboxDao.requeueStaleSendingRows(
+            incidentId = incidentId,
+            policePhoneId = policePhoneId,
+            now = now,
+            staleBefore = now - OUTBOX_STALE_SENDING_AFTER_MS
+        )
         if (accessRepairAvailable()) {
-            outboxDao.requeueAccessRepairRequiredRows(incidentId, policePhoneId, now, minClockSyncedAt)
+            outboxDao.requeueAccessRepairRequiredRows(incidentId, policePhoneId, now, staleClockSyncAfterMs)
         }
-        val candidates = outboxDao.findReplayCandidates(incidentId, policePhoneId, now, minClockSyncedAt)
+        val candidates = outboxDao.findReplayCandidates(incidentId, policePhoneId, now, staleClockSyncAfterMs)
         var attemptedCount = 0
         var ackedCount = 0
         var retryableFailureCount = 0

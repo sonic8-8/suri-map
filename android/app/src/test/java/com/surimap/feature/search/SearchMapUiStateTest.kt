@@ -25,6 +25,7 @@ class SearchMapUiStateTest {
         assertEquals(SearchLifecycleStatus.Active, active.lifecycleStatus)
         assertTrue(active.canWritePath)
         assertTrue(active.canCreateMarker)
+        assertEquals("수색 진행 중", active.lifecycleStatusLabel)
         assertEquals("일시정지", active.primaryActionLabel)
         assertFalse(active.visibleText().contains(active.incidentTitle))
         assertFalse(active.visibleText().contains(active.opLabel))
@@ -54,9 +55,11 @@ class SearchMapUiStateTest {
         val stopped = SearchMapUiState.stopped()
 
         assertEquals("재개", paused.primaryActionLabel)
+        assertEquals("수색 일시정지", paused.lifecycleStatusLabel)
         assertFalse(paused.canWritePath)
         assertFalse(paused.canCreateMarker)
         assertEquals("수색 시작", stopped.primaryActionLabel)
+        assertEquals("수색 대기", stopped.lifecycleStatusLabel)
         assertFalse(stopped.canWritePath)
         assertFalse(stopped.canCreateMarker)
     }
@@ -80,7 +83,6 @@ class SearchMapUiStateTest {
             LocalWarningUiState.from(
                 LocalWarningSnapshot(
                     setOf(
-                        LocalWarningCode.GPS_STOPPED,
                         LocalWarningCode.BATTERY_LOW,
                         LocalWarningCode.PACKAGE_MISSING,
                         LocalWarningCode.OFFLINE_RECORDING,
@@ -90,7 +92,6 @@ class SearchMapUiStateTest {
             )
         val state = SearchMapUiState.active().copy(localWarnings = warnings)
 
-        assertTrue(state.visibleText().contains("GPS 신호 중단"))
         assertTrue(state.visibleText().contains("배터리 부족"))
         assertTrue(state.visibleText().contains("지도 패키지 확인 필요"))
         assertTrue(state.visibleText().contains("오프라인 기록 중"))
@@ -141,6 +142,10 @@ class SearchMapUiStateTest {
         assertTrue(handleIndex >= 0)
         assertTrue(peekIndex > handleIndex)
         assertTrue(source.contains("SearchLifecyclePeekRow("))
+        assertTrue(source.contains("var stopConfirmVisible by remember { mutableStateOf(false) }"))
+        assertTrue(source.contains("onStopSearch = { stopConfirmVisible = true }"))
+        assertTrue(source.contains("StopSearchConfirmDialog("))
+        assertTrue(source.contains("onConfirmStopSearch = {"))
         assertTrue(source.contains("SearchLifecycleMessage(state = state)"))
         assertTrue(source.contains("onToggleDetails = { toggleBottomPanelFromHandle() }"))
         assertTrue(source.contains(".height(PoliDimens.Space6)"))
@@ -250,7 +255,6 @@ class SearchMapUiStateTest {
         val evaluateIndex = source.indexOf("localWarningMonitor.evaluate(", routeIndex)
         val uiStateIndex = source.indexOf("localWarnings = LocalWarningUiState.from(localWarningSnapshot)", routeIndex)
         val batteryIndex = source.indexOf("ACTION_BATTERY_CHANGED", routeIndex)
-        val locationIndex = source.indexOf("context.isLocationUsable()", routeIndex)
         val packageIndex = source.indexOf("offlinePackageInstallationDao.observe", routeIndex)
 
         assertTrue(routeIndex >= 0)
@@ -258,8 +262,8 @@ class SearchMapUiStateTest {
         assertTrue(evaluateIndex > monitorIndex)
         assertTrue(uiStateIndex > routeIndex)
         assertTrue(batteryIndex > routeIndex)
-        assertTrue(locationIndex > routeIndex)
         assertTrue(packageIndex > routeIndex)
+        assertFalse(source.contains("context.isLocationUsable()"))
     }
 
     @Test
@@ -324,10 +328,23 @@ class SearchMapUiStateTest {
         assertTrue(state.visibleText().contains("부대 수색구역"))
         assertTrue(state.visibleText().contains("팀 담당구역"))
         assertTrue(state.visibleText().contains("마커"))
+        assertTrue(state.visibleText().contains("수색 진행 중"))
         assertTrue(state.visibleText().contains("일시정지"))
+        assertTrue(state.visibleText().contains("상세"))
         assertFalse(state.visibleText().contains("종료"))
+        assertFalse(state.visibleText().contains("수색 종료"))
         assertFalse(state.visibleText().contains("인수인계"))
         assertFalse(state.visibleText().contains("마커 생성"))
+    }
+
+    @Test
+    fun expandedBottomPanelExposesDangerStopActionSeparately() {
+        val state = SearchMapUiState.active().copy(bottomPanelExpanded = true)
+
+        assertTrue(state.visibleText().contains("수색 진행 중"))
+        assertTrue(state.visibleText().contains("일시정지"))
+        assertTrue(state.visibleText().contains("접기"))
+        assertTrue(state.visibleText().contains("수색 종료"))
     }
 
     @Test

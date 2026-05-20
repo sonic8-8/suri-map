@@ -82,6 +82,7 @@ import com.surimap.ui.components.PoliBannerVariant
 import com.surimap.ui.components.PoliButton
 import com.surimap.ui.components.PoliButtonSize
 import com.surimap.ui.components.PoliButtonVariant
+import com.surimap.ui.components.PoliCard
 import com.surimap.ui.components.PoliChip
 import com.surimap.ui.components.PoliChipVariant
 import com.surimap.ui.components.PoliToast
@@ -96,6 +97,7 @@ import com.surimap.ui.theme.PoliEmphasis
 import com.surimap.ui.theme.PoliFgMuted
 import com.surimap.ui.theme.PoliFgPrimary
 import com.surimap.ui.theme.PoliFgSecondary
+import com.surimap.ui.theme.PoliOverlayDim
 import com.surimap.ui.theme.PoliPrimaryBorder
 import com.surimap.ui.theme.PoliSuccess
 import com.surimap.ui.theme.PoliWarning
@@ -235,11 +237,20 @@ data class SearchMapUiState(
     val assignmentDisplayLabel: String =
         assignmentLabel.takeIf(String::isNotBlank) ?: "담당구역 미배정"
 
+    val lifecycleStatusLabel: String =
+        when (lifecycleStatus) {
+            SearchLifecycleStatus.Active -> "수색 진행 중"
+            SearchLifecycleStatus.Paused -> "수색 일시정지"
+            SearchLifecycleStatus.Stopped -> "수색 대기"
+            SearchLifecycleStatus.OpRequired -> "OP 확인 필요"
+            SearchLifecycleStatus.OpTransition -> "OP 전환 확인 필요"
+        }
+
     val lifecycleTitle: String =
         when (lifecycleStatus) {
             SearchLifecycleStatus.Active -> ""
             SearchLifecycleStatus.Paused -> "수색 일시정지"
-            SearchLifecycleStatus.Stopped -> "수색 경로 종료"
+            SearchLifecycleStatus.Stopped -> ""
             SearchLifecycleStatus.OpRequired -> "OP 확인 필요"
             SearchLifecycleStatus.OpTransition -> "OP 전환 확인 필요"
         }
@@ -247,7 +258,7 @@ data class SearchMapUiState(
     val lifecycleMessage: String =
         when (lifecycleStatus) {
             SearchLifecycleStatus.Active -> ""
-            SearchLifecycleStatus.Paused -> "경로 batch 전송과 마커 생성이 일시 차단됩니다."
+            SearchLifecycleStatus.Paused -> "일시정지 중에는 경로 기록과 마커 생성이 잠시 차단됩니다."
             SearchLifecycleStatus.Stopped -> ""
             SearchLifecycleStatus.OpRequired -> "current OP 누락 또는 조회 실패입니다. 경로·마커 기록 차단 상태입니다."
             SearchLifecycleStatus.OpTransition -> "OP 전환 중입니다. 이전 OP 기록은 readonly로 유지됩니다."
@@ -264,12 +275,14 @@ data class SearchMapUiState(
 
     fun visibleText(): List<String> =
         buildList {
+            add(lifecycleStatusLabel)
             lifecycleTitle.takeIf(String::isNotBlank)?.let(::add)
             lifecycleMessage.takeIf(String::isNotBlank)?.let(::add)
             add(if (canWritePath) "경로 기록 가능" else "경로 기록 차단")
             add(if (canCreateMarker) "마커 생성 가능" else "마커 생성 차단")
             add(if (bottomPanelExpanded) "지도 정보 펼침" else "지도 정보 접힘")
             add(primaryActionLabel)
+            add(if (bottomPanelExpanded) "접기" else "상세")
             add("전체 수색구역")
             add("부대 수색구역")
             add("팀 담당구역")
@@ -278,7 +291,7 @@ data class SearchMapUiState(
             teamSearchAreaTargets.forEach { add(it.label) }
             if (bottomPanelExpanded) {
                 if (canStopSearch) {
-                    add("종료")
+                    add("수색 종료")
                 }
                 add("인수인계")
                 add("마커 생성")
@@ -490,6 +503,7 @@ fun SearchMapScreen(
             warning.code == LocalWarningCode.PACKAGE_MISSING
         }
     var visiblePackageWarning by remember { mutableStateOf<LocalWarningBanner?>(null) }
+    var stopConfirmVisible by remember { mutableStateOf(false) }
     LaunchedEffect(packageWarning?.title, packageWarning?.message) {
         if (packageWarning == null) {
             visiblePackageWarning = null
@@ -563,7 +577,7 @@ fun SearchMapScreen(
         SearchBottomPanel(
             state = state,
             onPrimaryLifecycleAction = onPrimaryLifecycleAction,
-            onStopSearch = onStopSearch,
+            onStopSearch = { stopConfirmVisible = true },
             onOpenHandover = onOpenHandover,
             onCreateMarker = onCreateMarker,
             onOpenFocusedMarkerDetail = onOpenFocusedMarkerDetail,
@@ -583,6 +597,15 @@ fun SearchMapScreen(
                     .padding(horizontal = PoliDimens.SectionPadding)
                     .padding(top = MapToastTopPadding),
                 variant = PoliBannerVariant.Warn
+            )
+        }
+        if (stopConfirmVisible) {
+            StopSearchConfirmDialog(
+                onDismiss = { stopConfirmVisible = false },
+                onConfirmStopSearch = {
+                    stopConfirmVisible = false
+                    onStopSearch()
+                }
             )
         }
     }
@@ -622,7 +645,6 @@ private fun LocalWarningBannerView(
         text = "${warning.title}\n${warning.message}",
         variant =
         when (warning.code) {
-            LocalWarningCode.GPS_STOPPED,
             LocalWarningCode.BATTERY_LOW,
             LocalWarningCode.OFFLINE_RECORDING,
             LocalWarningCode.PACKAGE_MISSING,
@@ -630,6 +652,37 @@ private fun LocalWarningBannerView(
         },
         modifier = modifier
     )
+}
+
+@Composable
+private fun StopSearchConfirmDialog(
+    onDismiss: () -> Unit,
+    onConfirmStopSearch: () -> Unit
+) {
+    Box(modifier = Modifier.fillMaxSize().background(PoliOverlayDim).padding(PoliDimens.SectionPadding)) {
+        PoliCard(modifier = Modifier.align(Alignment.Center), strong = true) {
+            Text(text = "수색 종료 확인", style = MaterialTheme.typography.titleMedium, color = PoliEmphasis)
+            Text(
+                text = "현재 수색 경로 기록을 종료합니다. 종료 후에는 새 수색을 시작해야 다시 기록할 수 있습니다.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = PoliFgSecondary
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
+                PoliButton(
+                    text = "취소",
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f),
+                    variant = PoliButtonVariant.Secondary
+                )
+                PoliButton(
+                    text = "수색 종료",
+                    onClick = onConfirmStopSearch,
+                    modifier = Modifier.weight(1f),
+                    variant = PoliButtonVariant.Danger
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -1164,7 +1217,7 @@ private fun SearchBottomPanel(
                 SearchLifecyclePeekRow(
                     state = state,
                     onPrimaryLifecycleAction = onPrimaryLifecycleAction,
-                    onStopSearch = onStopSearch,
+                    detailsExpanded = expandedContentVisible,
                     onToggleDetails = { toggleBottomPanelFromHandle() }
                 )
                 if (expandedContentVisible) {
@@ -1245,6 +1298,15 @@ private fun SearchBottomPanel(
                             size = PoliButtonSize.Large
                         )
                     }
+                    if (state.canStopSearch) {
+                        PoliButton(
+                            text = "수색 종료",
+                            onClick = onStopSearch,
+                            modifier = Modifier.fillMaxWidth(),
+                            variant = PoliButtonVariant.Danger,
+                            size = PoliButtonSize.Large
+                        )
+                    }
                 }
             }
         }
@@ -1263,7 +1325,7 @@ private fun SearchBottomPanel(
 private fun SearchLifecyclePeekRow(
     state: SearchMapUiState,
     onPrimaryLifecycleAction: () -> Unit,
-    onStopSearch: () -> Unit,
+    detailsExpanded: Boolean,
     onToggleDetails: () -> Unit
 ) {
     Row(
@@ -1277,7 +1339,7 @@ private fun SearchLifecyclePeekRow(
             verticalArrangement = Arrangement.spacedBy(PoliDimens.Space1)
         ) {
             Text(
-                text = state.primaryActionLabel,
+                text = state.lifecycleStatusLabel,
                 style = MaterialTheme.typography.labelLarge,
                 color = PoliFgPrimary,
                 maxLines = 1,
@@ -1301,21 +1363,12 @@ private fun SearchLifecyclePeekRow(
                 PoliButtonVariant.Primary
             }
         )
-        if (state.canStopSearch) {
-            PoliButton(
-                text = "종료",
-                onClick = onStopSearch,
-                modifier = Modifier.weight(0.72f),
-                variant = PoliButtonVariant.Danger
-            )
-        } else {
-            PoliButton(
-                text = "상세",
-                onClick = onToggleDetails,
-                modifier = Modifier.weight(0.72f),
-                variant = PoliButtonVariant.Secondary
-            )
-        }
+        PoliButton(
+            text = if (detailsExpanded) "접기" else "상세",
+            onClick = onToggleDetails,
+            modifier = Modifier.weight(0.72f),
+            variant = PoliButtonVariant.Secondary
+        )
     }
 }
 

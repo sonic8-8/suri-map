@@ -457,17 +457,20 @@ private val HandoverReportSections =
 
 data class HandoverPromptUiState(
     val currentDutyShiftStartedAt: Instant?,
-    val lastSeenHandoverAt: Instant? = null
+    val lastSeenHandoverAt: Instant? = null,
+    val hasVisiblePreviousRecord: Boolean = false
 ) {
     val shouldShow: Boolean =
-        currentDutyShiftStartedAt != null &&
+        hasVisiblePreviousRecord &&
+            currentDutyShiftStartedAt != null &&
             (lastSeenHandoverAt == null || currentDutyShiftStartedAt.isAfter(lastSeenHandoverAt))
 
     companion object {
         fun unreadSample(): HandoverPromptUiState =
             HandoverPromptUiState(
                 currentDutyShiftStartedAt = Instant.parse("2026-04-28T05:00:00Z"),
-                lastSeenHandoverAt = Instant.parse("2026-04-28T04:00:00Z")
+                lastSeenHandoverAt = Instant.parse("2026-04-28T04:00:00Z"),
+                hasVisiblePreviousRecord = true
             )
     }
 }

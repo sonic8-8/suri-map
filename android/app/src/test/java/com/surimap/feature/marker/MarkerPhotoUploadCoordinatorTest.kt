@@ -8,6 +8,7 @@ import com.surimap.core.sync.SyncClient
 import com.surimap.core.network.AccessTokenProvider
 import com.surimap.core.network.SuriMapApiClient
 import com.surimap.feature.marker.data.HttpObjectStorageUploader
+import com.surimap.feature.marker.data.MarkerCreatePhotoUploadResult
 import com.surimap.feature.marker.data.MarkerPhotoUploadCoordinator
 import com.surimap.feature.marker.data.MarkerPhotoUploadPayload
 import com.surimap.feature.marker.data.MarkerPhotoUploadResult
@@ -206,6 +207,71 @@ class MarkerPhotoUploadCoordinatorTest {
         assertEquals("idem-$PHOTO_UPLOAD_OPERATION_ID", request.header("Idempotency-Key"))
         assertEquals(1, uploader.requests.size)
         assertEquals(URI.create(UPLOAD_URL), uploader.requests.single().uploadUrl)
+    }
+
+    @Test
+    fun uiCreateUploadCoordinatorUploadsObjectAndReturnsPhotoForMarkerCreatePayload() = runBlocking {
+        val syncClient = CapturingSyncClient()
+        val uploader = CapturingObjectStorageUploader()
+        val callFactory =
+            StaticCallFactory(
+                response =
+                response(
+                    statusCode = 201,
+                    body =
+                    """
+                    {
+                      "photoId": "$PHOTO_ID",
+                      "uploadUrl": "$UPLOAD_URL",
+                      "maxSizeBytes": 10485760,
+                      "version": 1
+                    }
+                    """.trimIndent()
+                )
+            )
+        val coordinator =
+            uiCoordinator(
+                syncClient = syncClient,
+                uploader = uploader,
+                callFactory = callFactory
+            )
+
+        val result =
+            coordinator.uploadForCreate(
+                context = CONTEXT,
+                payload = PHOTO_PAYLOAD
+            )
+
+        assertEquals(
+            MarkerCreatePhotoUploadResult.Uploaded(
+                markerId = MARKER_ID,
+                photoId = PHOTO_ID,
+                contentType = "image/jpeg",
+                sizeBytes = PHOTO_BYTES.size.toLong(),
+                width = 1280,
+                height = 960,
+                checksumSha256 = CHECKSUM
+            ),
+            result
+        )
+        assertTrue(syncClient.operations.isEmpty())
+        val request = callFactory.lastRequest!!
+        assertEquals("POST", request.method)
+        assertEquals(
+            "https://suri-map.example.com/api/markers/photos/upload-url",
+            request.url.toString()
+        )
+        assertEquals("Bearer token-1", request.header("Authorization"))
+        assertEquals(POLICE_PHONE_ID, request.header("X-PolicePhone-Id"))
+        assertEquals("idem-${operationIdFixture("marker-create-photo-upload-url-1")}", request.header("Idempotency-Key"))
+        assertEquals(
+            """{"markerId":"$MARKER_ID","incidentId":"$INCIDENT_ID","opId":"$OP_ID","contentType":"image/jpeg","sizeBytes":4,"checksumSha256":"sha256-local-photo"}""",
+            readRequestBody(request).toString(Charsets.UTF_8)
+        )
+        val put = uploader.requests.single()
+        assertEquals(URI.create(UPLOAD_URL), put.uploadUrl)
+        assertEquals("image/jpeg", put.contentType)
+        assertArrayEquals(PHOTO_BYTES, put.bytes)
     }
 
     @Test

@@ -8,7 +8,6 @@ import android.content.ContextWrapper
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
-import android.location.LocationManager
 import android.net.Uri
 import android.os.BatteryManager
 import android.os.Build
@@ -66,6 +65,7 @@ import com.surimap.BuildConfig
 import com.surimap.core.auth.OidcSessionStateStore
 import com.surimap.core.database.OfflinePackageInstallationEntity
 import com.surimap.core.database.OfflinePackageItemStatusEntity
+import com.surimap.core.database.SuriMapDatabase
 import com.surimap.core.database.SuriMapDatabaseProvider
 import com.surimap.core.fcm.FcmRegistrationCoordinator
 import com.surimap.core.fcm.FcmTokenProvider
@@ -87,6 +87,7 @@ import com.surimap.core.location.GpsLocationFix
 import com.surimap.core.map.MapLibreRuntimeMapState
 import com.surimap.core.map.MapLibreViewportBounds
 import com.surimap.core.marker.MarkerRepository
+import com.surimap.core.network.AccessTokenProvider
 import com.surimap.core.network.AndroidNetworkFactory
 import com.surimap.core.network.AuthPhoneApiClient
 import com.surimap.core.network.OutboxRequeueNetworkRequest
@@ -113,6 +114,7 @@ import com.surimap.core.sync.LocalWarningSignals
 import com.surimap.core.sync.LocalWarningSnapshot
 import com.surimap.core.sync.LocalWarningUiState
 import com.surimap.core.sync.LocalSyncPurgeHookAdapter
+import com.surimap.core.sync.OutboxReplayResult
 import com.surimap.core.sync.OutboxReplayScheduler
 import com.surimap.core.sync.OutboxReplayWorkRequest
 import com.surimap.core.sync.PackageAvailabilityInputAdapter
@@ -1235,12 +1237,13 @@ private fun SearchMapRoute(
     val offlinePackageInstallationDao = remember(database) { database.offlinePackageInstallationDao() }
     val sessionContext = incidentContext.toSearchMapSessionContext(policePhoneContext)
     val accessTokenProvider = policePhoneContext.accessTokenProvider()
+    val apiBaseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
     val dutyShiftReadRepository =
-        remember(policePhoneContext?.apiBaseUrl, policePhoneContext?.accessToken) {
+        remember(apiBaseUrl, policePhoneContext?.accessToken) {
             DutyShiftRepository(
                 apiClient =
                 SuriMapApiClient(
-                    baseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
+                    baseUrl = apiBaseUrl
                 ),
                 accessTokenProvider = accessTokenProvider
             )
@@ -1249,11 +1252,20 @@ private fun SearchMapRoute(
         OutboxReplayScheduler(WorkManager.getInstance(context))
     }
     val syncClient =
-        remember(database, outboxReplayScheduler, policePhoneContext?.apiBaseUrl) {
+        remember(database, outboxReplayScheduler, apiBaseUrl) {
             SchedulingSyncClient(
                 delegate = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()),
                 scheduleReplay = outboxReplayScheduler::schedule,
-                apiBaseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
+                apiBaseUrl = apiBaseUrl
+            )
+        }
+    val immediateOutboxReplay =
+        remember(database, apiBaseUrl, policePhoneContext?.accessToken) {
+            createImmediateOutboxReplay(
+                database = database,
+                apiBaseUrl = apiBaseUrl,
+                accessTokenProvider = accessTokenProvider,
+                accessTokenPresent = !policePhoneContext?.accessToken.isNullOrBlank()
             )
         }
     val searchPathRecorder = remember(syncClient, clockSyncState) {
@@ -1285,12 +1297,12 @@ private fun SearchMapRoute(
         )
     }
     val markerPhotoUploadCoordinator =
-        remember(syncClient, policePhoneContext?.apiBaseUrl, policePhoneContext?.accessToken, clockSyncState) {
+        remember(syncClient, apiBaseUrl, policePhoneContext?.accessToken, clockSyncState) {
             MarkerPhotoUiUploadCoordinator(
                 syncClient = syncClient,
                 apiClient =
                 SuriMapApiClient(
-                    baseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
+                    baseUrl = apiBaseUrl
                 ),
                 accessTokenProvider = accessTokenProvider,
                 uploader = HttpObjectStorageUploader(),
@@ -1300,13 +1312,13 @@ private fun SearchMapRoute(
         }
     val coroutineScope = rememberCoroutineScope()
     val loader =
-        remember(policePhoneContext?.apiBaseUrl, policePhoneContext?.accessToken, database, outboxDao) {
+        remember(apiBaseUrl, policePhoneContext?.accessToken, database, outboxDao) {
             SearchMapStateLoader(
                 incidentDetail = { incidentId ->
                     IncidentReadRepository(
                         apiClient =
                         SuriMapApiClient(
-                            baseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
+                            baseUrl = apiBaseUrl
                         ),
                         accessTokenProvider = accessTokenProvider
                     ).detail(incidentId)
@@ -1315,7 +1327,7 @@ private fun SearchMapRoute(
                     SearchAreaReadRepository(
                         apiClient =
                         SuriMapApiClient(
-                            baseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
+                            baseUrl = apiBaseUrl
                         ),
                         accessTokenProvider = accessTokenProvider
                     ).activeOverall(incidentId)
@@ -1324,7 +1336,7 @@ private fun SearchMapRoute(
                     SearchAreaReadRepository(
                         apiClient =
                         SuriMapApiClient(
-                            baseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
+                            baseUrl = apiBaseUrl
                         ),
                         accessTokenProvider = accessTokenProvider
                     ).list(incidentId = incidentId, opId = opId, status = "ACTIVE")
@@ -1333,7 +1345,7 @@ private fun SearchMapRoute(
                     SearchPathRepository(
                         apiClient =
                         SuriMapApiClient(
-                            baseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
+                            baseUrl = apiBaseUrl
                         ),
                         accessTokenProvider = accessTokenProvider
                     ).listSearchPaths(query)
@@ -1342,7 +1354,7 @@ private fun SearchMapRoute(
                     MarkerRepository(
                         apiClient =
                         SuriMapApiClient(
-                            baseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
+                            baseUrl = apiBaseUrl
                         ),
                         accessTokenProvider = accessTokenProvider
                     ).listMarkers(query)
@@ -1351,7 +1363,7 @@ private fun SearchMapRoute(
                     OfflinePackageRepository(
                         apiClient =
                         SuriMapApiClient(
-                            baseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
+                            baseUrl = apiBaseUrl
                         ),
                         accessTokenProvider = accessTokenProvider
                     ).manifest(
@@ -1454,6 +1466,25 @@ private fun SearchMapRoute(
             outboxDao.observeStatusSummary(incidentId = incidentId, policePhoneId = policePhoneId)
         }
     }.collectAsState(initial = null)
+
+    LaunchedEffect(
+        sessionContext.incidentId,
+        sessionContext.policePhoneId,
+        apiBaseUrl,
+        outboxSummaryForWarnings?.normalUnsentCount
+    ) {
+        val incidentId = sessionContext.incidentId?.takeIf(String::isNotBlank) ?: return@LaunchedEffect
+        val policePhoneId = sessionContext.policePhoneId?.takeIf(String::isNotBlank) ?: return@LaunchedEffect
+        if ((outboxSummaryForWarnings?.normalUnsentCount ?: 0) > 0) {
+            outboxReplayScheduler.schedule(
+                OutboxReplayWorkRequest(
+                    incidentId = incidentId,
+                    policePhoneId = policePhoneId,
+                    apiBaseUrl = apiBaseUrl
+                )
+            )
+        }
+    }
 
     fun centerMapOnCurrentLocation(fix: GpsLocationFix) {
         latestLocationFix = fix
@@ -1645,16 +1676,12 @@ private fun SearchMapRoute(
     val currentAssignedBoundaries by rememberUpdatedState(displayedSearchMapState.assignedTeamSearchAreaBoundaries())
 
     LaunchedEffect(
-        displayedLifecycle,
-        activeSearchPathId,
         localWarningTickerNowMs,
-        latestGpsLocationFix,
         batterySnapshot,
         offlinePackageInstallation,
         outboxSummaryForWarnings
     ) {
         val nowMs = localWarningTickerNowMs
-        val activeRecording = displayedLifecycle == SearchLifecycleStatus.Active && activeSearchPathId != null
         val packageStatus = offlinePackageInstallation?.status ?: "MISSING"
         val manifestVersion = offlinePackageInstallation?.manifestVersion?.toString()
         val packageAvailability =
@@ -1673,14 +1700,6 @@ private fun SearchMapRoute(
             localWarningMonitor.evaluate(
                 LocalWarningSignals(
                     nowMs = nowMs,
-                    gpsProviderEnabled = context.isLocationUsable(),
-                    gpsStoppedSinceMs = if (activeRecording) recordingSession.activeStartedAtMs ?: nowMs else null,
-                    lastGpsFixAgeMs =
-                    if (activeRecording) {
-                        latestGpsLocationFix?.let { fix -> nowMs - fix.capturedAt.toEpochMilli() }
-                    } else {
-                        0L
-                    },
                     batteryPercent = batterySnapshot.percent,
                     batteryCharging = batterySnapshot.charging,
                     packageAvailability = packageAvailability,
@@ -1943,6 +1962,10 @@ private fun SearchMapRoute(
                                 markerSheetState = markerSheetState.copy(saveStatus = MarkerSaveStatus.Failed)
                             }
                             is MarkerWriteResult.Enqueued -> {
+                                immediateOutboxReplay.flushPendingIfReady(
+                                    incidentId = sessionContext.incidentId,
+                                    policePhoneId = sessionContext.policePhoneId
+                                )
                                 markerSheetState = markerSheetState.copy(saveStatus = MarkerSaveStatus.PendingOutbox)
                                 markerSheetOpen = false
                                 searchMapState = loader.load(sessionContext).withFocusedMarker(focusMarkerId)
@@ -1995,6 +2018,15 @@ private fun MarkerDetailRoute(
                 delegate = RoomSyncClient(database.outboxDao(), database.localWriteDraftDao()),
                 scheduleReplay = outboxReplayScheduler::schedule,
                 apiBaseUrl = apiBaseUrl
+            )
+        }
+    val immediateOutboxReplay =
+        remember(database, apiBaseUrl, policePhoneContext?.accessToken) {
+            createImmediateOutboxReplay(
+                database = database,
+                apiBaseUrl = apiBaseUrl,
+                accessTokenProvider = accessTokenProvider,
+                accessTokenPresent = !policePhoneContext?.accessToken.isNullOrBlank()
             )
         }
     val markerRecorder = remember(syncClient, clockSyncState) {
@@ -2062,16 +2094,29 @@ private fun MarkerDetailRoute(
             markerDetailState = markerDetailState.markPhotoAttaching(localPhotoId, progress = 0.55f)
             markerDetailState =
                 when (
-                    photoUploadCoordinator.upload(
-                        context = sessionContext.toMarkerWriteContext(),
-                        payload = payload
-                    )
+                    val result =
+                        photoUploadCoordinator.upload(
+                            context = sessionContext.toMarkerWriteContext(),
+                            payload = payload
+                        )
                 ) {
                     MarkerPhotoUploadResult.Blocked,
                     is MarkerPhotoUploadResult.UploadFailed -> markerDetailState.markPhotoFailed(localPhotoId)
 
-                    is MarkerPhotoUploadResult.UploadUrlEnqueued,
-                    is MarkerPhotoUploadResult.AttachedEnqueued -> markerDetailState.markPhotoAttaching(localPhotoId, progress = 0.9f)
+                    is MarkerPhotoUploadResult.UploadUrlEnqueued -> markerDetailState.markPhotoAttaching(localPhotoId, progress = 0.9f)
+                    is MarkerPhotoUploadResult.AttachedEnqueued -> {
+                        val pendingState = markerDetailState.markPhotoAttaching(localPhotoId, progress = 0.9f)
+                        val replayResult =
+                            immediateOutboxReplay.flushPendingIfReady(
+                                incidentId = sessionContext.incidentId,
+                                policePhoneId = sessionContext.policePhoneId
+                            )
+                        when {
+                            replayResult?.ackedCount?.let { it > 0 } == true -> loader.load(sessionContext)
+                            replayResult?.finalFailureCount?.let { it > 0 } == true -> pendingState.markPhotoFailed(localPhotoId)
+                            else -> pendingState
+                        }
+                    }
                 }
         }
     }
@@ -2578,6 +2623,32 @@ private suspend fun ClockSyncState.syncClockForIncident(
     )
 }
 
+private fun createImmediateOutboxReplay(
+    database: SuriMapDatabase,
+    apiBaseUrl: String,
+    accessTokenProvider: AccessTokenProvider,
+    accessTokenPresent: Boolean
+): RoomOutboxReplay =
+    RoomOutboxReplay(
+        outboxDao = database.outboxDao(),
+        sender =
+        AndroidNetworkFactory.createOutboxSender(
+            baseUrl = apiBaseUrl,
+            accessTokenProvider = accessTokenProvider
+        ),
+        accessRepairAvailable = { accessTokenPresent },
+        enableRetryJitter = !BuildConfig.DEBUG
+    )
+
+private suspend fun RoomOutboxReplay.flushPendingIfReady(
+    incidentId: String?,
+    policePhoneId: String?
+): OutboxReplayResult? {
+    val readyIncidentId = incidentId?.takeIf(String::isNotBlank) ?: return null
+    val readyPolicePhoneId = policePhoneId?.takeIf(String::isNotBlank) ?: return null
+    return flushPending(policePhoneId = readyPolicePhoneId, incidentId = readyIncidentId)
+}
+
 private fun OfflinePackageInstallationEntity.toOfflinePackageInstallationStatus(): OfflinePackageInstallationStatus =
     OfflinePackageInstallationStatus(
         incidentId = incidentId,
@@ -2992,15 +3063,6 @@ private fun Intent.toBatterySnapshot(): BatterySnapshot {
 private fun Context.hasLocationPermission(): Boolean =
     ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
         ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-
-private fun Context.isLocationUsable(): Boolean {
-    if (!hasLocationPermission()) {
-        return false
-    }
-    val manager = getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return false
-    return listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
-        .any { provider -> runCatching { manager.isProviderEnabled(provider) }.getOrDefault(false) }
-}
 
 private fun SearchMapUiState.markerCreationLocation(): MarkerLocation? =
     viewportBounds?.let { bounds ->
