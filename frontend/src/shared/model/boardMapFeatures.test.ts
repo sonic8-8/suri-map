@@ -87,6 +87,15 @@ describe('boardMapFeatures', () => {
     expect(collection.features[0].properties.freshnessStatus).toBe('LOST');
   });
 
+  test('colors current position points from police phone freshness status', () => {
+    const collection = createMovementCurrentPositionFeatureCollection(
+      [createMovementPath({ policePhoneId: POLICE_PHONE_ID, freshnessStatus: 'STALE' })],
+      OP_ID,
+    );
+
+    expect(collection.features[0].properties.currentPositionColor).toBe('#f59e0b');
+  });
+
   test('emits one current position point per police phone using the latest path endpoint', () => {
     const collection = createMovementCurrentPositionFeatureCollection(
       [

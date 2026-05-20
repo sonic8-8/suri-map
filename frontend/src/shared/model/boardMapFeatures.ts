@@ -1,6 +1,11 @@
 import { areaColorTokens, type AreaColorToken } from '../constants/areaColorTokens';
 import type { AreaBbox, CompletedAreaDraft } from './areaDraft';
-import type { BoardMapMarker, BoardMovementPath, BoardPosition } from './boardMapSlots';
+import type {
+  BoardMapMarker,
+  BoardMovementPath,
+  BoardPolicePhoneFreshnessStatus,
+  BoardPosition,
+} from './boardMapSlots';
 
 export type BoardMapMarkerType = BoardMapMarker['markerType'];
 export type BoardMapPolygonGeometry = { type: 'Polygon'; coordinates: BoardPosition[][] };
@@ -49,6 +54,13 @@ const defaultDraftLineWidthByKind: Record<CompletedAreaDraft['kind'], number> = 
   overall: 3,
   unit: 2.6,
   team: 2.2,
+};
+
+const policePhoneFreshnessColors: Record<BoardPolicePhoneFreshnessStatus, string> = {
+  ONLINE: '#22c55e',
+  STALE: '#f59e0b',
+  LOST: '#ef4444',
+  UNKNOWN: '#94a3b8',
 };
 
 export function createEmptyBoardMapFeatureCollection(): BoardMapFeatureCollection {
@@ -178,6 +190,10 @@ export function getRouteCoreColor(routeColor: string | null | undefined): string
 
   const normalizedColor = normalizeHexColor(routeColor);
   return normalizedColor ?? routeColor;
+}
+
+export function getPolicePhoneFreshnessColor(freshnessStatus: BoardPolicePhoneFreshnessStatus): string {
+  return policePhoneFreshnessColors[freshnessStatus];
 }
 
 function resolveRouteColor(
@@ -311,6 +327,7 @@ function createMovementCurrentPositionFeature(
     policePhoneId: path.policePhoneId ?? '',
     accountId: path.accountId ?? '',
     freshnessStatus: path.freshnessStatus,
+    currentPositionColor: getPolicePhoneFreshnessColor(path.freshnessStatus),
     deviceColor: path.routeColor ?? options.fallbackColor ?? '',
     routeCoreColor: getRouteCoreColor(path.routeColor ?? options.fallbackColor),
     movementType: path.movementType,

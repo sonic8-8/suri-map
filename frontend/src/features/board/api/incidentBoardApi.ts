@@ -84,6 +84,10 @@ export interface IncidentBoardApi {
   fetchIncidentBoard(query: IncidentBoardQuery): Promise<IncidentBoardResponse>;
 }
 
+type IncidentBoardQueryOptions = {
+  refetchInterval?: number | false;
+};
+
 export type IncidentBoardSlotRow = IncidentBoardSlotPayload & {
   readonly slot: BoardSlotName;
   readonly sourceId: string;
@@ -125,7 +129,11 @@ export function createIncidentBoardApi(client: ApiClient = apiClient): IncidentB
 
 export const incidentBoardApi = createIncidentBoardApi();
 
-export function useIncidentBoardQuery(query: IncidentBoardQuery, api: IncidentBoardApi = incidentBoardApi) {
+export function useIncidentBoardQuery(
+  query: IncidentBoardQuery,
+  api: IncidentBoardApi = incidentBoardApi,
+  options: IncidentBoardQueryOptions = {},
+) {
   return useQuery({
     queryKey: incidentBoardQueryKeys.detail(query),
     queryFn: () => api.fetchIncidentBoard({ ...query, incidentId: query.incidentId ?? '' }),
@@ -133,6 +141,7 @@ export function useIncidentBoardQuery(query: IncidentBoardQuery, api: IncidentBo
     placeholderData: (previousData) =>
       query.incidentId && previousData?.incidentId === query.incidentId ? previousData : undefined,
     retry: false,
+    refetchInterval: options.refetchInterval,
   });
 }
 
