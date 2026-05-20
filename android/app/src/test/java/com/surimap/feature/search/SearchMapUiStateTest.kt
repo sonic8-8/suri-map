@@ -116,6 +116,32 @@ class SearchMapUiStateTest {
     }
 
     @Test
+    fun mapOverlayControlsUseDesignTokensAndAccessibleToggleCopy() {
+        val source = File("src/main/java/com/surimap/feature/search/ui/SearchMapScreen.kt").readText()
+
+        assertTrue(source.contains("TopHeaderCollapsedHeight = PoliDimens.BottomSheetHandleHit"))
+        assertTrue(source.contains("BottomSheetCollapsedHeight = PoliDimens.BottomSheetHandleHit"))
+        assertTrue(source.contains("PoliBgSurface.copy(alpha = MapOverlaySurfaceAlpha)"))
+        assertTrue(source.contains("PoliBgSurface.copy(alpha = MapOverlayButtonAlpha)"))
+        assertTrue(source.contains("size(PoliDimens.BottomSheetHandleHit)"))
+        assertTrue(source.contains("Modifier.size(PoliDimens.TouchMin / 2)"))
+        assertTrue(source.contains("role = Role.Button"))
+        assertTrue(source.contains("\"상단 메뉴 열기\""))
+        assertTrue(source.contains("\"상단 메뉴 접기\""))
+        assertTrue(source.contains("\"수색 기록 패널 열기\""))
+        assertTrue(source.contains("\"수색 기록 패널 접기\""))
+        assertTrue(source.contains("contentDescription = topPanelContentDescription"))
+        assertTrue(source.contains("contentDescription = bottomPanelContentDescription"))
+        assertTrue(source.contains("onClick = { toggleTopPanelFromHandle() }"))
+        assertTrue(source.contains("onClick = { toggleBottomPanelFromHandle() }"))
+        assertFalse(source.contains("private val FloatingHandleFg"))
+        assertFalse(source.contains("color = Color.White,\n        contentColor = PoliFgPrimary"))
+        assertFalse(source.contains("tint = Color.Unspecified"))
+        assertFalse(source.contains("contentDescription = \"상단 메뉴 드래그\""))
+        assertFalse(source.contains("contentDescription = \"하단 메뉴 드래그\""))
+    }
+
+    @Test
     fun blockedOutboxIsSeparateFromNormalQueueAndHandoverPromptCanEnterP6A() {
         val state = SearchMapUiState.active(
             blockedOutboxCount = 2,
