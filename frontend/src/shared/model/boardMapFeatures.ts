@@ -86,6 +86,19 @@ export function createMovementPathFeatureCollection(
   };
 }
 
+export function createMovementCurrentPositionFeatureCollection(
+  movementPaths: BoardMovementPath[],
+  activeOperationalPeriodId: string | null,
+  options: MovementPathFeatureOptions = {},
+): BoardMapFeatureCollection {
+  return {
+    type: 'FeatureCollection',
+    features: Array.from(selectLatestMovementPathsByAssignee(movementPaths).values()).map((path) =>
+      createMovementCurrentPositionFeature(path, activeOperationalPeriodId, options),
+    ),
+  };
+}
+
 export function createMarkerFeatureCollection(markers: BoardMapMarker[]): BoardMapFeatureCollection {
   return {
     type: 'FeatureCollection',
@@ -281,6 +294,74 @@ function createMovementPathFeature(
       coordinates: path.coordinates,
     },
   };
+}
+
+function createMovementCurrentPositionFeature(
+  path: BoardMovementPath,
+  activeOperationalPeriodId: string | null,
+  options: MovementPathFeatureOptions,
+): BoardMapFeature {
+  const currentPosition = path.coordinates[path.coordinates.length - 1];
+  const properties: Record<string, string> = {
+    slot: 'path',
+    geometryType: 'currentPosition',
+    entityId: `${path.id}:current-position`,
+    pathId: path.id,
+    opId: path.opId,
+    policePhoneId: path.policePhoneId ?? '',
+    accountId: path.accountId ?? '',
+    freshnessStatus: path.freshnessStatus,
+    deviceColor: path.routeColor ?? options.fallbackColor ?? '',
+    routeCoreColor: getRouteCoreColor(path.routeColor ?? options.fallbackColor),
+    movementType: path.movementType,
+    isActiveOp: String(path.opId === activeOperationalPeriodId),
+    startedAt: path.startedAt,
+    endedAt: path.endedAt ?? '',
+  };
+
+  if (options.includeLabel) {
+    properties.label = path.label;
+  }
+
+  return {
+    type: 'Feature',
+    properties,
+    geometry: {
+      type: 'Point',
+      coordinates: currentPosition,
+    },
+  };
+}
+
+function selectLatestMovementPathsByAssignee(movementPaths: BoardMovementPath[]) {
+  const pathsByAssignee = new Map<string, BoardMovementPath>();
+
+  movementPaths
+    .filter((path) => path.coordinates.length > 0)
+    .forEach((path) => {
+      const assigneeKey = path.policePhoneId ?? path.accountId ?? path.id;
+      const previousPath = pathsByAssignee.get(assigneeKey);
+      if (!previousPath || compareMovementPathRecency(path, previousPath) > 0) {
+        pathsByAssignee.set(assigneeKey, path);
+      }
+    });
+
+  return pathsByAssignee;
+}
+
+function compareMovementPathRecency(leftPath: BoardMovementPath, rightPath: BoardMovementPath) {
+  const leftOpenPriority = leftPath.endedAt ? 0 : 1;
+  const rightOpenPriority = rightPath.endedAt ? 0 : 1;
+  if (leftOpenPriority !== rightOpenPriority) {
+    return leftOpenPriority - rightOpenPriority;
+  }
+
+  return readMovementPathTimestamp(leftPath) - readMovementPathTimestamp(rightPath);
+}
+
+function readMovementPathTimestamp(path: BoardMovementPath) {
+  const timestamp = Date.parse(path.endedAt ?? path.startedAt);
+  return Number.isFinite(timestamp) ? timestamp : 0;
 }
 
 function normalizeHexColor(color: string): string | null {

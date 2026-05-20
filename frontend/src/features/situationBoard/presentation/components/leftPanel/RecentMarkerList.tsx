@@ -10,6 +10,7 @@ import { getMarkerLegendColor } from '../../../../../shared/constants/markerLege
 import { MarkerGlyph, type MarkerGlyphName } from '../marker/MarkerGlyph';
 import { CollapsiblePanelSection } from './CollapsiblePanelSection';
 import { MarkerTypeFilter } from './MarkerTypeFilter';
+import { OverflowTooltipText } from './OverflowTooltipText';
 import styles from './RecentMarkerList.module.css';
 
 type RecentMarkerListProps = {
@@ -128,20 +129,18 @@ export function RecentMarkerList({
                       <span className={styles.markerIconBadge} aria-hidden="true">
                         <MarkerGlyph name={markerIconName} size={16} />
                       </span>
-                      <span className={styles.typeBadge}>{markerLabel}</span>
+                      <OverflowTooltipText className={styles.typeBadge} value={markerLabel} />
                     </span>
                     <time className={styles.eventTime} dateTime={marker.occurredAt}>
                       {marker.timeLabel}
                     </time>
                   </div>
-                  <strong className={styles.itemTitle}>{marker.title}</strong>
-                  {summary ? <span className={styles.itemMeta}>{summary}</span> : null}
+                  <OverflowTooltipText as="strong" className={styles.itemTitle} value={marker.title} />
+                  {summary ? <OverflowTooltipText className={styles.itemMeta} value={summary} /> : null}
                   {detailChips.length > 0 ? (
                     <div className={styles.detailChips} aria-label="마커 세부 정보">
                       {detailChips.map((chip) => (
-                        <span key={chip} className={styles.detailChip}>
-                          {chip}
-                        </span>
+                        <OverflowTooltipText key={chip} className={styles.detailChip} value={chip} />
                       ))}
                     </div>
                   ) : null}
@@ -219,8 +218,7 @@ function getMarkerIconName(
     case 'SUPPORT_REQUEST':
       if (supportRequestType === 'DRONE') return 'drone';
       if (supportRequestType === 'POLICE_DOG') return 'dog';
-      if (supportRequestType === 'OTHER') return 'handHelping';
-      return 'hand';
+      return 'handHelping';
     case 'NOTE':
     default:
       return 'note';

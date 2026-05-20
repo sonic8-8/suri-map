@@ -12,6 +12,7 @@ import { formatSearchAreaKindLabel } from '../../../../../shared/model/searchAre
 import type { SearchAreaTreeNode } from '../../constants/mockSituationBoard';
 import { formatAccountDisplayName } from '../../utils/accountDisplayUtils';
 import { CollapsiblePanelSection } from './CollapsiblePanelSection';
+import { OverflowTooltipText } from './OverflowTooltipText';
 import styles from './SearchAreaTree.module.css';
 
 type AreaIdentityColorStyle = CSSProperties & { '--area-identity-color': string };
@@ -57,6 +58,17 @@ function getStateClassName(state: SearchAreaDisplayState) {
 
 function getAssignedAccountNames(area: SearchAreaTreeNode) {
   return (area.assignedAccounts ?? []).map((account, index) => formatAccountDisplayName(account, index)).join(', ');
+}
+
+function isGenericAreaName(name: string) {
+  const normalizedName = name.trim();
+  return normalizedName === '' || normalizedName === 'UNIT' || normalizedName === 'TEAM' || normalizedName === '부대' || normalizedName === '팀';
+}
+
+function getAreaTitle(area: SearchAreaTreeNode, assignedAccountNames: string) {
+  if (area.kind === 'overall') return formatSearchAreaKindLabel(area.kind);
+  if (area.kind === 'team' && !isGenericAreaName(area.name)) return area.name;
+  return assignedAccountNames || area.name;
 }
 
 function getAreaKindLabel(kind: SearchAreaTreeNode['kind']) {
@@ -185,10 +197,7 @@ function AreaNode({
   const structureLabel = getStructureLabel(area);
   const assignmentLabel = getAssignmentLabel(area);
   const nextActionLabel = getNextActionLabel(area, displayState);
-  const areaTitle =
-    area.kind === 'overall'
-      ? formatSearchAreaKindLabel(area.kind)
-      : assignedAccountNames || area.name;
+  const areaTitle = getAreaTitle(area, assignedAccountNames);
   const areaKindLabel = null;
   const rowClassName = [
     getNodeClassName(area, assignedAreaIds),
@@ -214,12 +223,12 @@ function AreaNode({
       onKeyDown={(event) => handleAreaRowKeyDown(event, area.id, canSelectArea, onSelectSearchArea)}
     >
       <span className={styles.nodeText}>
-        <strong className={textNameClassName}>{areaTitle}</strong>
-        {areaKindLabel ? <span className={textMetaClassName}>{areaKindLabel}</span> : null}
+        <OverflowTooltipText as="strong" className={textNameClassName} value={areaTitle} />
+        {areaKindLabel ? <OverflowTooltipText className={textMetaClassName} value={areaKindLabel} /> : null}
         <span className={styles.nodeDetails}>
-          <span>{structureLabel}</span>
-          <span>{assignmentLabel}</span>
-          <span>{nextActionLabel}</span>
+          <OverflowTooltipText value={structureLabel} />
+          <OverflowTooltipText value={assignmentLabel} />
+          <OverflowTooltipText value={nextActionLabel} />
         </span>
       </span>
       <span className={styles.badgeColumn}>

@@ -21,7 +21,7 @@ describe('MarkerGlyph', () => {
 
   it('uses centered placement for glyphs inside the map marker shell', () => {
     expect(createMarkerShellGlyphMarkup('hand')).toContain('translate(0 -2) scale(0.94)');
-    expect(createMarkerShellGlyphMarkup('handHelping')).toContain('translate(0 -1.5) scale(0.86)');
+    expect(createMarkerShellGlyphMarkup('handHelping')).toContain('translate(0 0) scale(0.9)');
     expect(createMarkerShellGlyphMarkup('dog')).toContain('translate(0 0)');
     expect(createMarkerShellGlyphMarkup('note')).toContain('translate(0 -0.5)');
   });

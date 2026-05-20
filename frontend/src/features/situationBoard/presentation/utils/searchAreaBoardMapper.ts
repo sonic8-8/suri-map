@@ -92,10 +92,12 @@ export function buildSearchAreaTree(
   const hierarchyRoot = buildSearchAreaHierarchy(searchAreaRows);
   const colorTokensByAreaId = new Map(searchAreaDrafts.map((draft) => [draft.areaId, draft.colorToken]));
   if (!hierarchyRoot) {
-    return buildRootlessSearchAreaTree(fallbackSearchAreaTree, searchAreaRows, colorTokensByAreaId);
+    return enrichAreaOrganizationLabels(
+      buildRootlessSearchAreaTree(fallbackSearchAreaTree, searchAreaRows, colorTokensByAreaId),
+    );
   }
 
-  return toSearchAreaTreeNode(hierarchyRoot, colorTokensByAreaId);
+  return enrichAreaOrganizationLabels(toSearchAreaTreeNode(hierarchyRoot, colorTokensByAreaId));
 }
 
 export function buildFallbackSearchAreaTree(
@@ -195,6 +197,118 @@ function toSearchAreaTreeNode(
     assignedAccounts: row.assignedAccounts,
     children: row.children.map((child) => toSearchAreaTreeNode(child, colorTokensByAreaId)),
   };
+}
+
+function enrichAreaOrganizationLabels(area: SearchAreaTreeNode): SearchAreaTreeNode {
+  const children = (area.children ?? []).map(enrichAreaOrganizationLabels);
+  if (area.kind !== 'unit') {
+    return { ...area, children };
+  }
+
+  const derivedUnitLabel = deriveUnitAreaLabel(children);
+  const unitLabel = isGenericAreaName(area.name) ? derivedUnitLabel : normalizeDisplayLabel(area.name);
+  return {
+    ...area,
+    name: isGenericAreaName(area.name) ? unitLabel ?? area.name : area.name,
+    children: unitLabel ? children.map((child) => stripUnitLabelFromArea(child, unitLabel)) : children,
+  };
+}
+
+function deriveUnitAreaLabel(children: SearchAreaTreeNode[]) {
+  // TODO(S14P31C106-481): replace this text heuristic when board area assignments expose organization/team names separately.
+  const labels = children.flatMap(collectAreaDisplayLabels).map(normalizeDisplayLabel).filter(Boolean);
+  if (labels.length === 0) return null;
+
+  const commonLabel = findCommonTokenPrefix(labels);
+  if (commonLabel) return commonLabel;
+
+  return stripTeamSuffix(labels[0]);
+}
+
+function collectAreaDisplayLabels(area: SearchAreaTreeNode): string[] {
+  const assignedLabels = (area.assignedAccounts ?? []).map((account) => account.displayName);
+  const ownLabel = isGenericAreaName(area.name) ? [] : [area.name];
+  return [...assignedLabels, ...ownLabel, ...(area.children ?? []).flatMap(collectAreaDisplayLabels)];
+}
+
+function stripUnitLabelFromArea(area: SearchAreaTreeNode, unitLabel: string): SearchAreaTreeNode {
+  const children = (area.children ?? []).map((child) => stripUnitLabelFromArea(child, unitLabel));
+  if (area.kind !== 'team') {
+    return { ...area, children };
+  }
+
+  const teamLabel = deriveTeamAreaLabel(area, unitLabel);
+  return {
+    ...area,
+    name: teamLabel ?? area.name,
+    children,
+  };
+}
+
+function deriveTeamAreaLabel(area: SearchAreaTreeNode, unitLabel: string) {
+  const labels = [
+    area.name,
+    ...(area.assignedAccounts ?? []).map((account) => account.displayName),
+  ]
+    .map(normalizeDisplayLabel)
+    .filter(Boolean);
+
+  for (const label of labels) {
+    const strippedLabel = stripUnitPrefix(label, unitLabel);
+    if (strippedLabel) return strippedLabel;
+  }
+
+  return null;
+}
+
+function stripUnitPrefix(label: string, unitLabel: string) {
+  const normalizedLabel = normalizeDisplayLabel(label);
+  const normalizedUnitLabel = normalizeDisplayLabel(unitLabel);
+  if (!normalizedLabel.startsWith(normalizedUnitLabel)) return null;
+
+  const strippedLabel = normalizedLabel.slice(normalizedUnitLabel.length).replace(/^[\s·/-]+/, '').trim();
+  return strippedLabel && strippedLabel !== normalizedLabel ? strippedLabel : null;
+}
+
+function normalizeDisplayLabel(label: string) {
+  return label.replace(/\s+/g, ' ').trim();
+}
+
+function findCommonTokenPrefix(labels: string[]) {
+  const tokenLists = labels.map((label) => label.split(' ').filter(Boolean));
+  const shortestLength = Math.min(...tokenLists.map((tokens) => tokens.length));
+  const commonTokens: string[] = [];
+
+  for (let index = 0; index < shortestLength; index += 1) {
+    const token = tokenLists[0][index];
+    if (tokenLists.every((tokens) => tokens[index] === token)) {
+      commonTokens.push(token);
+      continue;
+    }
+    break;
+  }
+
+  const trimmedTokens = commonTokens.filter((token) => !isTeamSuffixToken(token));
+  return trimmedTokens.length > 0 ? trimmedTokens.join(' ') : null;
+}
+
+function stripTeamSuffix(label: string) {
+  return label.replace(/\s*(?:(?:현장|수색|지원)?\d+팀|\d+제대)$/, '').trim() || null;
+}
+
+function isTeamSuffixToken(token: string) {
+  return /^(?:(?:현장|수색|지원)?\d+팀|\d+제대)$/.test(token);
+}
+
+function isGenericAreaName(name: string) {
+  const normalizedName = name.trim();
+  return (
+    normalizedName === '' ||
+    normalizedName === 'UNIT' ||
+    normalizedName === 'TEAM' ||
+    normalizedName === '부대' ||
+    normalizedName === '팀'
+  );
 }
 
 function createAreaMeta(row: BoardSearchAreaRow) {

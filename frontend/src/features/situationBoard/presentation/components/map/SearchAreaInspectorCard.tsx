@@ -4,6 +4,7 @@ import {
   Car,
   CircleCheckBig,
   Clock3,
+  MessageSquarePlus,
   MapPin,
   MapPinned,
   Route,
@@ -30,7 +31,11 @@ type SearchAreaInspectorCardProps = {
   recentMarkers: RecentMarker[];
   operationalPeriods: OperationalPeriod[];
   variant?: 'layer' | 'mapPopup';
+  isMemoDisabled?: boolean;
+  memoComposer?: ReactNode;
+  memoDisabledReason?: string;
   onClose: () => void;
+  onOpenMemo?: () => void;
   onOpenSplit: () => void;
   onOpenAssign: () => void;
 };
@@ -549,7 +554,11 @@ export function SearchAreaInspectorCard({
   recentMarkers,
   operationalPeriods,
   variant = 'layer',
+  isMemoDisabled = false,
+  memoComposer,
+  memoDisabledReason,
   onClose,
+  onOpenMemo,
   onOpenSplit,
   onOpenAssign,
 }: SearchAreaInspectorCardProps) {
@@ -663,6 +672,8 @@ export function SearchAreaInspectorCard({
           </section>
         </div>
 
+        {memoComposer ? <div className={styles.memoComposerSlot}>{memoComposer}</div> : null}
+
         <div className={styles.actions}>
           <button type="button" className={styles.actionButtonPrimary} disabled={isSplitDisabled} onClick={onOpenSplit}>
             <Scissors size={14} aria-hidden="true" />
@@ -677,10 +688,18 @@ export function SearchAreaInspectorCard({
             <UsersRound size={14} aria-hidden="true" />
             <span>수색구역 배정</span>
           </button>
-          <button type="button" className={styles.actionButtonTertiary} onClick={onClose}>
-            <X size={14} aria-hidden="true" />
-            <span>닫기</span>
-          </button>
+          {onOpenMemo ? (
+            <button
+              type="button"
+              className={styles.actionButtonSecondary}
+              disabled={isMemoDisabled}
+              title={isMemoDisabled ? memoDisabledReason : undefined}
+              onClick={onOpenMemo}
+            >
+              <MessageSquarePlus size={14} aria-hidden="true" />
+              <span>메모 추가</span>
+            </button>
+          ) : null}
         </div>
       </section>
     </aside>

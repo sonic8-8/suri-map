@@ -755,6 +755,102 @@
   color: #bd2f2f;
 }
 
+.mapMemoComposer {
+  display: grid;
+  gap: 9px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--marker-color, #2f86e3) 24%, rgba(148, 163, 184, 0.22));
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(248, 251, 255, 0.96), rgba(241, 247, 252, 0.92));
+}
+
+.mapMemoField {
+  display: grid;
+  gap: 7px;
+}
+
+.mapMemoField span {
+  color: #475569;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.mapMemoField textarea {
+  min-height: 82px;
+  resize: vertical;
+  padding: 10px 11px;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #172033;
+  font: 800 13px/1.5 Pretendard, system-ui, sans-serif;
+  outline: none;
+}
+
+.mapMemoField textarea:focus {
+  border-color: color-mix(in srgb, var(--marker-color, #2f86e3) 46%, rgba(148, 163, 184, 0.32));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--marker-color, #2f86e3) 16%, transparent);
+}
+
+.mapMemoFooter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.mapMemoCount {
+  margin-right: auto;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.mapMemoSaveButton,
+.mapMemoCancelButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--marker-color, #2f86e3) 30%, rgba(148, 163, 184, 0.22));
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.mapMemoSaveButton {
+  background: color-mix(in srgb, var(--marker-color, #2f86e3) 84%, #1f2937);
+  color: #ffffff;
+}
+
+.mapMemoCancelButton {
+  background: rgba(248, 250, 252, 0.94);
+  color: #334155;
+}
+
+.mapMemoSaveButton:disabled,
+.mapMemoCancelButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.66;
+}
+
+.mapMemoStatus,
+.mapMemoError {
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.mapMemoStatus {
+  color: #1f7a4f;
+}
+
+.mapMemoError {
+  color: #bd2f2f;
+}
+
 @media (max-width: 560px) {
   .markerPopup {
     width: min(336px, calc(100vw - 24px));

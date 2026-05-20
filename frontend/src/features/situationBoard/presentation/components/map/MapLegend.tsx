@@ -46,6 +46,12 @@ const legendSwatchClassNames: Record<string, string> = {
   'legend-swatch marker-note': `${styles.swatch} ${styles.markerNote}`,
 };
 
+const communicationStatusLegendClassNames = new Set([
+  'legend-swatch device-normal',
+  'legend-swatch device-stale',
+  'legend-swatch device-lost',
+]);
+
 type LegendSwatchStyle = CSSProperties & {
   '--legend-device-route-color'?: string;
 };
@@ -77,9 +83,6 @@ const legendFilterTargets: Record<string, LegendFilterTarget> = {
   'legend-swatch route-vehicle': { type: 'layer', layerId: 'vehicle_path' },
   'legend-swatch route-walk': { type: 'layer', layerId: 'foot_path' },
   'legend-swatch device-active': { type: 'policePhone', filterId: 'active_phone' },
-  'legend-swatch device-normal': { type: 'policePhone', filterId: 'phone_online' },
-  'legend-swatch device-stale': { type: 'policePhone', filterId: 'phone_stale' },
-  'legend-swatch device-lost': { type: 'policePhone', filterId: 'phone_lost' },
   'legend-swatch marker-clue': { type: 'marker', markerType: 'CLUE' },
   'legend-swatch marker-found': { type: 'marker', markerType: 'PERSON_FOUND' },
   'legend-swatch marker-field': { type: 'marker', markerType: 'FIELD_CONDITION' },
@@ -97,6 +100,12 @@ function getLegendSwatchClassName(item: LegendItem) {
 
 function getLegendSwatchStyle(item: LegendItem): LegendSwatchStyle | undefined {
   return item.color ? { '--legend-device-route-color': item.color } : undefined;
+}
+
+function sortLegendItems(legendItems: LegendItem[]) {
+  const communicationStatusItems = legendItems.filter((item) => communicationStatusLegendClassNames.has(item.className));
+  const regularItems = legendItems.filter((item) => !communicationStatusLegendClassNames.has(item.className));
+  return [...regularItems, ...communicationStatusItems];
 }
 
 function isLegendTargetActive(
@@ -143,6 +152,7 @@ export function MapLegend({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const rootClassName = `${styles.legend}${isCollapsed ? ` ${styles.collapsed}` : ''}${className ? ` ${className}` : ''}`;
   const toggleClassName = isCollapsed ? styles.toggle : `${styles.toggle} ${styles.toggleExpanded}`;
+  const sortedLegendItems = sortLegendItems(legendItems);
 
   const handleToggleCollapsed = () => {
     setIsCollapsed((currentState) => !currentState);
@@ -182,7 +192,7 @@ export function MapLegend({
       </button>
       {!isCollapsed ? (
         <div id="map-legend-list" className={styles.list}>
-          {legendItems.map((item) => {
+          {sortedLegendItems.map((item) => {
             const target = legendFilterTargets[item.className];
             const isAvailable = legendAvailabilityByClassName?.[item.className] ?? true;
             const canToggle = Boolean(
@@ -210,6 +220,7 @@ export function MapLegend({
             const rowClassName = [
               styles.row,
               canToggle ? styles.rowButton : styles.rowStatic,
+              communicationStatusLegendClassNames.has(item.className) ? styles.rowEmphasis : undefined,
               isSelected ? styles.rowSelected : undefined,
               !isAvailable ? styles.rowDisabled : undefined,
             ]

@@ -397,7 +397,6 @@ export function OperationalPeriodReviewWorkspace({
   const canSubmitNewOp =
     canCreateOperationalPeriod && !isCreatingOp && (newOpReason !== 'OTHER' || newOpReasonMemo.trim().length > 0);
   const comparisonSelectionKey = effectiveSelectedOpIds.join('|');
-  const canOpenComparisonMode = isSearchHistoryView && effectiveSelectedOpIds.length >= 2;
   const comparisonHighlightGeometryGeojson = useMemo(() => {
     if (!comparisonAnalysis || !selectedComparisonRegionFactId) return null;
     return (
@@ -727,10 +726,6 @@ export function OperationalPeriodReviewWorkspace({
   const handleToggleMapExpanded = () => {
     setIsLocalMapExpanded((currentState) => !currentState);
   };
-  const handleOpenComparisonMode = () => {
-    if (!canOpenComparisonMode) return;
-    setSearchHistoryDetailTab('comparison');
-  };
   return (
     <main
       className={
@@ -820,16 +815,6 @@ export function OperationalPeriodReviewWorkspace({
                 highlightedSourceRecordKey={selectedSourceRecordKey}
                 onToggleMapExpanded={handleToggleMapExpanded}
               />
-              {canOpenComparisonMode && searchHistoryDetailTab === 'summary' ? (
-                <button
-                  type="button"
-                  className={styles.mapComparisonButton}
-                  aria-label="OP 비교 열기"
-                  onClick={handleOpenComparisonMode}
-                >
-                  OP 비교
-                </button>
-              ) : null}
               <MapLegend className={styles.mapLegend} legendItems={handoverLegendItems} />
             </div>
             {/* currentOpSummaryBar temporarily disabled */}

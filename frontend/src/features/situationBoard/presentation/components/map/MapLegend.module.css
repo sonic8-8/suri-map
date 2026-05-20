@@ -159,6 +159,12 @@
   cursor: default;
 }
 
+.rowEmphasis {
+  color: var(--suri-board-fg-secondary);
+  opacity: 1;
+  font-weight: 700;
+}
+
 /* 긴 범례 텍스트가 행 레이아웃을 밀지 않도록 한다. */
 .row span:last-child {
   min-width: 0;
@@ -278,24 +284,21 @@
 .deviceNormal,
 .deviceStale,
 .deviceLost {
-  width: 16px;
-  height: 16px;
-  border: 2px solid var(--suri-board-legend-device-normal);
+  width: 14px;
+  height: 14px;
+  border: 0;
   border-radius: 999px;
-  background: rgba(11, 22, 40, 0.96);
+  background: var(--suri-board-legend-device-normal);
 }
 
 /* 1분 이상 통신 지연 폴리폰 표시. */
 .deviceStale {
-  border-color: var(--suri-board-legend-device-stale);
-  border-style: dashed;
+  background: var(--suri-board-legend-device-stale);
 }
 
 /* 5분 이상 통신 끊김 폴리폰 표시. */
 .deviceLost {
-  border-color: var(--suri-board-legend-device-lost);
-  border-style: dotted;
-  opacity: 0.72;
+  background: var(--suri-board-legend-device-lost);
 }
 
 /* 지도 마커 swatch 공통 모양. */

@@ -392,9 +392,13 @@
   gap: 10px;
 }
 
+.memoComposerSlot {
+  display: grid;
+  gap: 8px;
+}
+
 .actionButtonPrimary,
-.actionButtonSecondary,
-.actionButtonTertiary {
+.actionButtonSecondary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -410,8 +414,7 @@
 }
 
 .actionButtonPrimary:disabled,
-.actionButtonSecondary:disabled,
-.actionButtonTertiary:disabled {
+.actionButtonSecondary:disabled {
   cursor: not-allowed;
   opacity: 0.58;
 }
@@ -433,16 +436,6 @@
 
 .actionButtonSecondary:not(:disabled):hover {
   background: #edf5f8;
-}
-
-.actionButtonTertiary {
-  margin-left: auto;
-  background: transparent;
-  color: #475569;
-}
-
-.actionButtonTertiary:not(:disabled):hover {
-  background: #f1f5f9;
 }
 
 @keyframes inspectorCardEnter {
@@ -531,9 +524,4 @@
     width: 100%;
   }
 
-  .actionButtonTertiary {
-    grid-column: 1 / -1;
-    width: 100%;
-    margin-left: 0;
-  }
 }

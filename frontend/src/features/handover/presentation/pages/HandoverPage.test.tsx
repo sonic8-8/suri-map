@@ -671,6 +671,7 @@ describe('HandoverPage', () => {
     await waitFor(() =>
       expect(screen.getByTestId('handover-map')).toHaveAttribute('data-selected-op-ids', 'op-current|op-past'),
     );
+    expect(screen.queryByRole('button', { name: 'OP 비교 열기' })).not.toBeInTheDocument();
     const createComparisonButton = await screen.findByRole('button', { name: /비교 생성/ });
     const comparisonPanel = screen.getByRole('tabpanel', { name: 'OP 비교' });
     await waitFor(() => expect(createComparisonButton).toBeEnabled());
