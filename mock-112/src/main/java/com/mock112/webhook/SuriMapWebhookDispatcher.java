@@ -15,6 +15,7 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -30,38 +31,65 @@ public class SuriMapWebhookDispatcher {
     private final SuriMapWebhookProperties properties;
     private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate;
+    private final WebhookOutboxStore outboxStore;
 
+    @Autowired
     public SuriMapWebhookDispatcher(
             SuriMapWebhookProperties properties,
-            ObjectMapper objectMapper) {
-        this.properties = properties;
-        this.objectMapper = objectMapper;
-        this.restTemplate = new RestTemplate();
+            ObjectMapper objectMapper,
+            WebhookOutboxStore outboxStore) {
+        this(properties, objectMapper, outboxStore, new RestTemplate());
     }
 
-    public void sendIncidentReady(MockIncident incident) {
-        send(new SuriMapWebhookEvent(
+    SuriMapWebhookDispatcher(
+            SuriMapWebhookProperties properties,
+            ObjectMapper objectMapper,
+            WebhookOutboxStore outboxStore,
+            RestTemplate restTemplate) {
+        this.properties = properties;
+        this.objectMapper = objectMapper;
+        this.outboxStore = outboxStore;
+        this.restTemplate = restTemplate;
+    }
+
+    public WebhookDeliveryResult sendIncidentReady(MockIncident incident) {
+        return send(new SuriMapWebhookEvent(
                 "mock112:INCIDENT_READY:" + incident.getSourceIncidentId(),
                 "INCIDENT_READY",
                 incident.getSourceIncidentId(),
                 OffsetDateTime.now()));
     }
 
-    public void sendAssignmentChanged(String sourceIncidentId, List<MockAssignment> assignments) {
+    public WebhookDeliveryResult sendAssignmentChanged(String sourceIncidentId, List<MockAssignment> assignments) {
         if (assignments == null || assignments.isEmpty()) {
-            return;
+            return WebhookDeliveryResult.none();
         }
+        WebhookDeliveryResult result = WebhookDeliveryResult.none();
         for (MockAssignment assignment : assignments) {
             String assignmentKey = assignment.getExternalAssignmentKey();
             String eventKey = assignmentKey == null || assignmentKey.isBlank()
                     ? assignment.getAccountCode()
                     : assignmentKey;
-            send(new SuriMapWebhookEvent(
+            result = result.plus(send(new SuriMapWebhookEvent(
                     assignmentChangedEventId(sourceIncidentId, eventKey),
                     "INCIDENT_ASSIGNMENT_CHANGED",
                     sourceIncidentId,
-                    OffsetDateTime.now()));
+                    OffsetDateTime.now())));
         }
+        return result;
+    }
+
+    public WebhookDeliveryResult retryPending() {
+        if (!isDeliveryEnabled()) {
+            return WebhookDeliveryResult.none();
+        }
+        List<WebhookOutboxRecord> dueRecords =
+                outboxStore.findDue(OffsetDateTime.now(), Math.max(1, properties.getRetryBatchSize()));
+        WebhookDeliveryResult result = WebhookDeliveryResult.none();
+        for (WebhookOutboxRecord record : dueRecords) {
+            result = result.plus(attempt(record));
+        }
+        return result;
     }
 
     static String assignmentChangedEventId(String sourceIncidentId, String eventKey) {
@@ -75,25 +103,63 @@ public class SuriMapWebhookDispatcher {
         }
     }
 
-    private void send(SuriMapWebhookEvent event) {
-        if (!properties.isEnabled() || properties.getUrl() == null || properties.getUrl().isBlank()) {
-            return;
-        }
+    private WebhookDeliveryResult send(SuriMapWebhookEvent event) {
         try {
             String body = objectMapper.writeValueAsString(event);
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("X-Client-Channel", "INTERNAL");
-            headers.set("Idempotency-Key", event.eventId());
-            if (properties.getSecret() != null && !properties.getSecret().isBlank()) {
-                headers.set("X-Mock112-Signature", "sha256=" + hmacSha256(body));
+            if (!isDeliveryEnabled()) {
+                return WebhookDeliveryResult.skipped(1);
             }
-            restTemplate.postForEntity(properties.getUrl(), new HttpEntity<>(body, headers), String.class);
+            WebhookOutboxRecord record = outboxStore.enqueue(event, body, OffsetDateTime.now());
+            if ("SENT".equals(record.status())) {
+                return WebhookDeliveryResult.sent();
+            }
+            return attempt(record);
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException("failed to serialize Suri-Map webhook event", exception);
-        } catch (RestClientException exception) {
-            log.warn("failed to send Suri-Map webhook eventId={}", event.eventId(), exception);
         }
+    }
+
+    private WebhookDeliveryResult attempt(WebhookOutboxRecord record) {
+        try {
+            restTemplate.postForEntity(
+                    properties.getUrl(),
+                    new HttpEntity<>(record.payloadJson(), headers(record)),
+                    String.class);
+            outboxStore.markSent(record.eventId(), OffsetDateTime.now());
+            return WebhookDeliveryResult.sent();
+        } catch (RestClientException exception) {
+            OffsetDateTime now = OffsetDateTime.now();
+            int nextAttemptCount = record.attemptCount() + 1;
+            boolean exhausted = nextAttemptCount >= Math.max(1, properties.getMaxAttempts());
+            outboxStore.markFailed(
+                    record.eventId(),
+                    exception.getMessage(),
+                    now.plusNanos(Math.max(0, properties.getRetryDelayMs()) * 1_000_000),
+                    now,
+                    exhausted);
+            log.warn(
+                    "failed to send Suri-Map webhook eventId={} attempt={} exhausted={}",
+                    record.eventId(),
+                    nextAttemptCount,
+                    exhausted,
+                    exception);
+            return exhausted ? WebhookDeliveryResult.failed() : WebhookDeliveryResult.pending();
+        }
+    }
+
+    private HttpHeaders headers(WebhookOutboxRecord record) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("X-Client-Channel", "INTERNAL");
+        headers.set("Idempotency-Key", record.eventId());
+        if (properties.getSecret() != null && !properties.getSecret().isBlank()) {
+            headers.set("X-Mock112-Signature", "sha256=" + hmacSha256(record.payloadJson()));
+        }
+        return headers;
+    }
+
+    private boolean isDeliveryEnabled() {
+        return properties.isEnabled() && properties.getUrl() != null && !properties.getUrl().isBlank();
     }
 
     private String hmacSha256(String body) {

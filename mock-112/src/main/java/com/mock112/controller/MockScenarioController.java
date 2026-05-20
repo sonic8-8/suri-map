@@ -5,6 +5,8 @@ import com.mock112.domain.MockIncident;
 import com.mock112.seed.SeedDataLoader;
 import com.mock112.store.MockIncidentStore;
 import com.mock112.webhook.SuriMapWebhookDispatcher;
+import com.mock112.webhook.WebhookDeliveryResult;
+import com.mock112.webhook.WebhookOutboxStore;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,14 +28,17 @@ public class MockScenarioController {
     private final MockIncidentStore store;
     private final SeedDataLoader seedDataLoader;
     private final SuriMapWebhookDispatcher webhookDispatcher;
+    private final WebhookOutboxStore webhookOutboxStore;
 
     public MockScenarioController(
             MockIncidentStore store,
             SeedDataLoader seedDataLoader,
-            SuriMapWebhookDispatcher webhookDispatcher) {
+            SuriMapWebhookDispatcher webhookDispatcher,
+            WebhookOutboxStore webhookOutboxStore) {
         this.store = store;
         this.seedDataLoader = seedDataLoader;
         this.webhookDispatcher = webhookDispatcher;
+        this.webhookOutboxStore = webhookOutboxStore;
     }
 
     /**
@@ -44,13 +49,14 @@ public class MockScenarioController {
     public ResponseEntity<Map<String, Object>> loadPrecinctFirst() {
         try {
             MockIncident incident = seedDataLoader.loadPrecinctFirstScenario(store);
-            webhookDispatcher.sendIncidentReady(incident);
+            WebhookDeliveryResult delivery = webhookDispatcher.sendIncidentReady(incident);
             Map<String, Object> body = new LinkedHashMap<>();
             body.put("message", "precinct-first 시나리오가 적재되었습니다.");
             body.put("sourceIncidentId", incident.getSourceIncidentId());
             body.put("caseNumber", incident.getCaseNumber());
             body.put("assignmentCount", incident.getAssignments().size());
             body.put("seedMarkerCount", incident.getSeedMarkers().size());
+            body.put("webhookDelivery", delivery);
             return ResponseEntity.ok(body);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest()
@@ -67,12 +73,13 @@ public class MockScenarioController {
             @PathVariable String sourceIncidentId) {
         try {
             List<MockAssignment> added = seedDataLoader.loadHandoverAssignments(store, sourceIncidentId);
-            webhookDispatcher.sendAssignmentChanged(sourceIncidentId, added);
+            WebhookDeliveryResult delivery = webhookDispatcher.sendAssignmentChanged(sourceIncidentId, added);
             Map<String, Object> body = new LinkedHashMap<>();
             body.put("message", "실종팀 인계 배정이 추가되었습니다.");
             body.put("sourceIncidentId", sourceIncidentId);
             body.put("addedCount", added.size());
             body.put("assignments", added);
+            body.put("webhookDelivery", delivery);
             return ResponseEntity.ok(body);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest()
@@ -89,12 +96,13 @@ public class MockScenarioController {
             @PathVariable String sourceIncidentId) {
         try {
             List<MockAssignment> added = seedDataLoader.loadSupportAssignments(store, sourceIncidentId);
-            webhookDispatcher.sendAssignmentChanged(sourceIncidentId, added);
+            WebhookDeliveryResult delivery = webhookDispatcher.sendAssignmentChanged(sourceIncidentId, added);
             Map<String, Object> body = new LinkedHashMap<>();
             body.put("message", "지원 부대 배정이 추가되었습니다.");
             body.put("sourceIncidentId", sourceIncidentId);
             body.put("addedCount", added.size());
             body.put("assignments", added);
+            body.put("webhookDelivery", delivery);
             return ResponseEntity.ok(body);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest()
@@ -109,6 +117,7 @@ public class MockScenarioController {
     @PostMapping("/reset")
     public ResponseEntity<Map<String, String>> reset() {
         store.reset();
+        webhookOutboxStore.reset();
         return ResponseEntity.ok(Map.of("message", "mock 112 상태가 초기화되었습니다."));
     }
 
@@ -123,6 +132,7 @@ public class MockScenarioController {
         body.put("incidentCount", store.size());
         body.put("readyCount", store.findByStatus("READY").size());
         body.put("importedCount", store.findByStatus("IMPORTED").size());
+        body.put("webhookOutbox", webhookOutboxStore.countByStatus());
         return ResponseEntity.ok(body);
     }
 }

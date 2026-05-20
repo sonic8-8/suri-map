@@ -44,6 +44,9 @@ suri-map:
     enabled: ${SURI_MAP_WEBHOOK_ENABLED:false}
     url: ${SURI_MAP_WEBHOOK_URL:http://backend:8080/api/internal/mock-112/events}
     secret: ${SURI_MAP_WEBHOOK_SECRET:${MOCK112_WEBHOOK_SECRET:}}
+    retry-delay-ms: ${SURI_MAP_WEBHOOK_RETRY_DELAY_MS:5000}
+    retry-batch-size: ${SURI_MAP_WEBHOOK_RETRY_BATCH_SIZE:20}
+    max-attempts: ${SURI_MAP_WEBHOOK_MAX_ATTEMPTS:5}
 
 mock112:
   internal-api:

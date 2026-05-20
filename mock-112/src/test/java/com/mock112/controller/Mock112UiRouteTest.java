@@ -16,7 +16,9 @@ import com.mock112.seed.SeedDataLoader;
 import com.mock112.service.MockIncidentRegistrationService;
 import com.mock112.store.MockIncidentStore;
 import com.mock112.webhook.SuriMapWebhookDispatcher;
+import com.mock112.webhook.WebhookOutboxStore;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -64,6 +66,9 @@ class Mock112UiRouteTest {
 
     @MockitoBean
     private SuriMapWebhookDispatcher webhookDispatcher;
+
+    @MockitoBean
+    private WebhookOutboxStore webhookOutboxStore;
 
     @Autowired
     Mock112UiRouteTest(MockMvc mockMvc) {
@@ -125,9 +130,12 @@ class Mock112UiRouteTest {
     @Test
     @DisplayName("mock-112 health는 로그인 없이 확인할 수 있다")
     void mock112ApiRoutesStayMappedToControllers() throws Exception {
+        when(webhookOutboxStore.countByStatus()).thenReturn(Map.of("PENDING", 0, "SENT", 0, "FAILED", 0));
+
         mockMvc.perform(get("/mock-112/health"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("UP"));
+                .andExpect(jsonPath("$.status").value("UP"))
+                .andExpect(jsonPath("$.webhookOutbox.PENDING").value(0));
     }
 
     @Test
