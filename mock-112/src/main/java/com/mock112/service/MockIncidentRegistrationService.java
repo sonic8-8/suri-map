@@ -2,6 +2,7 @@ package com.mock112.service;
 
 import com.mock112.assignment.AssignableOrganizationCatalog;
 import com.mock112.controller.request.CreateMockIncidentRequest;
+import com.mock112.controller.request.UpdateMockIncidentRequest;
 import com.mock112.domain.MockAssignment;
 import com.mock112.domain.MockIncident;
 import com.mock112.domain.MockMissingPerson;
@@ -61,6 +62,16 @@ public class MockIncidentRegistrationService {
                 .toList();
     }
 
+    public MockIncident correctReadyIncident(String sourceIncidentId, UpdateMockIncidentRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("request body is required");
+        }
+        return store.updateReadySourceFacts(
+                sourceIncidentId,
+                requiredTitle(request.getTitle()),
+                normalizeMissingPerson(request.getMissingPerson()));
+    }
+
     private String requiredTitle(String title) {
         if (title == null || title.isBlank()) {
             throw new IllegalArgumentException("title is required");
@@ -77,7 +88,14 @@ public class MockIncidentRegistrationService {
         } else {
             missingPerson.setDisplayName(missingPerson.getDisplayName().trim());
         }
+        missingPerson.setPhotoObjectKey(optionalText(missingPerson.getPhotoObjectKey()));
+        missingPerson.setAppearanceText(optionalText(missingPerson.getAppearanceText()));
+        missingPerson.setLastSeenLocationText(optionalText(missingPerson.getLastSeenLocationText()));
         return missingPerson;
+    }
+
+    private String optionalText(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     private String caseNumberFor(String sourceIncidentId, OffsetDateTime openedAt) {

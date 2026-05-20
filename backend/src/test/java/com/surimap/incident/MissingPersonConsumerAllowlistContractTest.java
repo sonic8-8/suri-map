@@ -32,12 +32,21 @@ class MissingPersonConsumerAllowlistContractTest {
   private static final String MISSING_PERSON_CONSUMER_VIEW =
       "com.surimap.incident.domain.MissingPersonConsumerView";
 
-  // S1-1이 incident detail과 S7 package 입력에 넘길 수 있는 active missing_person 필드만 둔다.
-  private static final List<String> S1_1_ALLOWED_MISSING_PERSON_FIELDS =
+  // S1-1이 active missing_person projection에 담을 수 있는 원천 필드만 둔다.
+  private static final List<String> S1_1_ALLOWED_MISSING_PERSON_VIEW_FIELDS =
       List.of(
           "incidentId",
           "displayName",
           "photoObjectKey",
+          "appearanceText",
+          "lastSeenLocationText",
+          "lastSeenAt");
+  private static final List<String> S1_1_ALLOWED_MISSING_PERSON_RESPONSE_FIELDS =
+      List.of(
+          "incidentId",
+          "displayName",
+          "photoObjectKey",
+          "photoUrl",
           "appearanceText",
           "lastSeenLocationText",
           "lastSeenAt");
@@ -66,13 +75,13 @@ class MissingPersonConsumerAllowlistContractTest {
   @Test
   @DisplayName("사건 상세 missingPerson DTO는 S1-1 허용 필드만 노출한다")
   void incident_detail_missing_person_dto_exposes_only_s1_1_consumer_allowlist() {
-    assertAllowlist(DETAIL_MISSING_PERSON_RESPONSE);
+    assertAllowlist(DETAIL_MISSING_PERSON_RESPONSE, S1_1_ALLOWED_MISSING_PERSON_RESPONSE_FIELDS);
   }
 
   @Test
   @DisplayName("S1-1 실종자 소비 projection은 importedAt을 내부 값으로만 둔다")
   void missing_person_consumer_view_keeps_imported_at_internal() {
-    assertAllowlist(MISSING_PERSON_CONSUMER_VIEW);
+    assertAllowlist(MISSING_PERSON_CONSUMER_VIEW, S1_1_ALLOWED_MISSING_PERSON_VIEW_FIELDS);
   }
 
   @Test
@@ -85,6 +94,7 @@ class MissingPersonConsumerAllowlistContractTest {
         .isEqualTo(UUID.fromString("22222222-2222-2222-2222-222222220001"));
     assertThat(response.displayName()).isEqualTo("가상 실종자 001");
     assertThat(response.photoObjectKey()).isNull();
+    assertThat(response.photoUrl()).isNull();
     assertThat(response.appearanceText()).isEqualTo("회색 점퍼와 검정 모자");
     assertThat(response.lastSeenLocationText()).isEqualTo("서울 종로구 사직로 161");
     assertThat(response.lastSeenAt()).isEqualTo(Instant.parse("2026-04-27T23:20:00Z"));
@@ -139,9 +149,9 @@ class MissingPersonConsumerAllowlistContractTest {
             "latestEventId");
   }
 
-  private static void assertAllowlist(String className) {
+  private static void assertAllowlist(String className, List<String> expectedFields) {
     assertThat(recordFields(className))
-        .containsExactlyElementsOf(S1_1_ALLOWED_MISSING_PERSON_FIELDS)
+        .containsExactlyElementsOf(expectedFields)
         .doesNotContainAnyElementsOf(FORBIDDEN_MISSING_PERSON_FIELDS);
   }
 

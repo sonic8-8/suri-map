@@ -2,6 +2,7 @@ package com.mock112.store;
 
 import com.mock112.domain.MockAssignment;
 import com.mock112.domain.MockIncident;
+import com.mock112.domain.MockMissingPerson;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -69,6 +70,25 @@ public class InMemoryIncidentStore implements MockIncidentStore {
             log.info("Assignment added to {}: {}", sourceIncidentId, assignment.getAccountCode());
         }
         return added;
+    }
+
+    @Override
+    public MockIncident updateReadySourceFacts(
+            String sourceIncidentId,
+            String title,
+            MockMissingPerson missingPerson) {
+        MockIncident incident = store.get(sourceIncidentId);
+        if (incident == null) {
+            throw new IllegalArgumentException("Incident not found: " + sourceIncidentId);
+        }
+        if (!"READY".equalsIgnoreCase(incident.getStatus())) {
+            throw new IllegalStateException("Incident is " + incident.getStatus()
+                    + " and source facts are read-only: " + sourceIncidentId);
+        }
+        incident.setTitle(title);
+        incident.setMissingPerson(missingPerson);
+        log.info("READY incident source facts updated: {}", sourceIncidentId);
+        return incident;
     }
 
     /**

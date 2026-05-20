@@ -130,6 +130,38 @@ public class JdbcIncidentStore implements MockIncidentStore {
 
     @Override
     @Transactional
+    public MockIncident updateReadySourceFacts(
+            String sourceIncidentId,
+            String title,
+            MockMissingPerson missingPerson) {
+        String status = statusOf(sourceIncidentId);
+        if (!"READY".equalsIgnoreCase(status)) {
+            throw new IllegalStateException("Incident is " + status + " and source facts are read-only: "
+                    + sourceIncidentId);
+        }
+        jdbcTemplate.update(
+                """
+                UPDATE mock_incident
+                SET title = ?
+                WHERE source_incident_id = ?
+                """,
+                title,
+                sourceIncidentId);
+        jdbcTemplate.update(
+                "DELETE FROM mock_missing_person WHERE source_incident_id = ?",
+                sourceIncidentId);
+        if (missingPerson != null) {
+            MockIncident incident = new MockIncident();
+            incident.setSourceIncidentId(sourceIncidentId);
+            incident.setMissingPerson(missingPerson);
+            insertMissingPerson(incident);
+        }
+        log.info("READY incident source facts updated in DB: {}", sourceIncidentId);
+        return findById(sourceIncidentId).orElseThrow();
+    }
+
+    @Override
+    @Transactional
     public void markImported(String sourceIncidentId) {
         int updated = jdbcTemplate.update(
                 """
@@ -211,6 +243,21 @@ public class JdbcIncidentStore implements MockIncidentStore {
         if (count == null || count == 0) {
             throw new IllegalArgumentException("Incident not found: " + sourceIncidentId);
         }
+    }
+
+    private String statusOf(String sourceIncidentId) {
+        List<String> statuses = jdbcTemplate.query(
+                """
+                SELECT status
+                FROM mock_incident
+                WHERE source_incident_id = ?
+                """,
+                (rs, rowNum) -> rs.getString("status"),
+                sourceIncidentId);
+        if (statuses.isEmpty()) {
+            throw new IllegalArgumentException("Incident not found: " + sourceIncidentId);
+        }
+        return statuses.get(0);
     }
 
     private List<MockIncident> hydrateAll(List<MockIncident> incidents) {
