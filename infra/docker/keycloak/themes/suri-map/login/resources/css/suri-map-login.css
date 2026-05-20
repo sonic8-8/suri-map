@@ -1,5 +1,5 @@
 :root {
-  --suri-login-bg: var(--color-bg-page);
+  --suri-login-bg: #0f2742;
   --suri-login-surface: var(--color-bg-surface);
   --suri-login-border: var(--color-border-default);
   --suri-login-fg: var(--color-fg-primary);
@@ -24,6 +24,7 @@ body {
 
 .pf-v5-c-login,
 .login-pf-page {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -36,13 +37,16 @@ body {
 
 .pf-v5-c-login__container {
   display: block;
-  width: 400px;
+  width: 440px;
   max-width: 100%;
   padding: 48px 40px;
   border: 1px solid var(--suri-login-border);
-  border-radius: 8px;
+  border-radius: 24px;
   background: var(--suri-login-surface);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+  box-shadow:
+    0 22px 54px rgb(2 12 27 / 26%),
+    0 6px 18px rgb(2 12 27 / 14%);
+  transform: translateY(-32px);
 }
 
 #kc-header {
@@ -53,31 +57,22 @@ body {
 #kc-header-wrapper {
   display: grid;
   justify-items: center;
-  gap: 4px;
   margin: 0;
   padding: 0;
-  color: var(--suri-login-fg);
-  font-size: 19px;
-  font-weight: 800;
-  line-height: 1.2;
-  letter-spacing: 0;
+  color: transparent;
+  font-size: 0;
+  line-height: 0;
   text-align: center;
   text-transform: none;
 }
 
 #kc-header-wrapper::before {
   display: block;
-  box-sizing: border-box;
-  width: 56px;
-  height: 56px;
-  margin-bottom: 8px;
-  border: 2px solid var(--suri-login-primary-hi);
-  border-radius: 50%;
-  background:
-    url("data:image/svg+xml,%3Csvg width='30' height='30' viewBox='0 0 22 22' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 1.5 L19.5 5 V11 C19.5 15.5 16 19.3 11 20.5 C6 19.3 2.5 15.5 2.5 11 V5 Z' fill='%234f7198'/%3E%3Cpath d='M11 6.5 a4.5 4.5 0 1 0 0 9 a4.5 4.5 0 1 0 0 -9 z M11 9 v3.5 M11 14 v.1' stroke='%23315474' stroke-width='1.6' stroke-linecap='round' fill='none'/%3E%3C/svg%3E") center / 30px 30px no-repeat,
-    color-mix(in srgb, #dfe8f2 62%, var(--suri-login-surface));
-  clip-path: none;
+  width: clamp(147px, 41vw, 187px);
+  height: clamp(147px, 41vw, 187px);
+  background: url("../img/surimap-logo-login.svg") center / contain no-repeat;
   content: "";
+  filter: blur(0.35px);
 }
 
 #kc-header-wrapper > svg,
@@ -95,7 +90,7 @@ body {
 
 .pf-v5-c-login__main-header {
   display: block !important;
-  margin: 0 0 24px;
+  margin: 0 0 32px;
   padding: 0 !important;
   text-align: center;
 }
@@ -108,6 +103,9 @@ body {
 
 #kc-page-title {
   position: static !important;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
   width: auto;
   height: auto;
   padding: 0;
@@ -115,11 +113,35 @@ body {
   overflow: visible;
   clip: auto;
   border: 0;
-  color: var(--suri-login-secondary);
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 1.35;
   white-space: normal;
+}
+
+.suri-login-brand-subtitle,
+.suri-login-brand-title,
+.suri-login-account-title {
+  display: block;
+}
+
+.suri-login-brand-subtitle {
+  color: var(--suri-login-secondary);
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.suri-login-brand-title {
+  color: var(--suri-login-fg);
+  font-size: 36px;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.suri-login-account-title {
+  margin-top: 8px;
+  color: var(--suri-login-secondary);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 #kc-form {
@@ -146,7 +168,7 @@ body {
   display: block;
   margin-bottom: 6px;
   color: var(--suri-login-secondary);
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 650;
   line-height: 1.25;
 }
@@ -196,7 +218,7 @@ body {
   border: 0;
   color: var(--suri-login-fg);
   background: transparent;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 550;
   outline: none;
   box-shadow: none;
@@ -213,11 +235,11 @@ body {
 .pf-c-form__actions,
 .pf-v5-c-form__actions,
 #kc-form-buttons {
+  display: block;
   margin-top: 8px;
   margin-right: 0 !important;
   margin-left: 0 !important;
   padding-top: 0 !important;
-  display: block;
 }
 
 #kc-login,
@@ -225,7 +247,7 @@ body {
 .pf-v5-c-button.pf-m-primary {
   box-sizing: border-box;
   width: 100%;
-  min-height: 46px;
+  min-height: 52px;
   margin: 0;
   border: 1px solid var(--suri-login-primary-hi);
   border-radius: 8px;
@@ -234,7 +256,7 @@ body {
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 18%),
     0 2px 7px rgb(21 47 76 / 22%);
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 800;
   line-height: 1.2;
 }
@@ -250,7 +272,7 @@ body {
 #kc-login:focus-visible,
 .pf-c-button.pf-m-primary:focus-visible,
 .pf-v5-c-button.pf-m-primary:focus-visible {
-  outline: 2px solid rgb(79 113 152 / 64%);
+  outline: 2px solid color-mix(in srgb, var(--suri-login-primary-hi) 64%, transparent);
   outline-offset: 3px;
 }
 
@@ -273,7 +295,7 @@ body {
 .pf-v5-c-alert.pf-m-info,
 .kc-feedback-text {
   color: var(--suri-login-danger);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -307,7 +329,8 @@ body {
 .suri-login-help {
   margin: 0;
   color: var(--suri-login-muted);
-  font-size: 12px;
+  font-size: 14px;
+  font-weight: 700;
   line-height: 1.35;
   text-align: center;
 }
@@ -325,5 +348,19 @@ body {
 
   .pf-v5-c-login__container {
     padding: 36px 24px;
+    transform: translateY(-16px);
+  }
+
+  #kc-header-wrapper::before {
+    width: min(155px, 51vw);
+    height: min(155px, 51vw);
+  }
+
+  .suri-login-brand-title {
+    font-size: 32px;
+  }
+
+  .suri-login-brand-subtitle {
+    font-size: 16px;
   }
 }

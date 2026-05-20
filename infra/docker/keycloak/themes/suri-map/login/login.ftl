@@ -17,7 +17,9 @@
 <!-- template: login.ftl -->
 
     <#if section = "header">
-        ${msg(loginAccountTitleKey)}
+        <span class="suri-login-brand-subtitle">Suri Map</span>
+        <span class="suri-login-brand-title">수리맵</span>
+        <span class="suri-login-account-title">${msg(loginAccountTitleKey)}</span>
     <#elseif section = "form">
         <div id="kc-form">
           <div id="kc-form-wrapper">
