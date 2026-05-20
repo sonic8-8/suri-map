@@ -110,16 +110,18 @@ class HandoverUiStateTest {
     }
 
     @Test
-    fun replayTabExposesStaticSingleDutyShiftBaseWithoutDynamicControls() {
+    fun replayTabExposesSingleDutyShiftTimelineWithoutRecommendationCopy() {
         val replay = DutyHandoverUiState.ready().selectTab(DutyHandoverTab.Replay)
 
         assertEquals(
             listOf("경로 미리보기", "마커", "타임라인"),
             replay.replaySectionTitles
         )
-        assertEquals(listOf("근무 기준", "단일 근무자", "정적 보기"), replay.replayBadges)
+        assertEquals(listOf("근무 기준", "단일 근무자", "타임라인 재생"), replay.replayBadges)
         assertTrue(replay.replayPathSegments.any { it.label.contains("동쪽 능선") })
         assertTrue(replay.replayMarkers.any { it.title.contains("배수로 입구") && it.photoCountLabel == "사진 2장" })
+        assertTrue(replay.replayPoints.size >= 2)
+        assertTrue(replay.replayControl.displayDurationMs > 0L)
         replay.replaySectionTitles.forEach { sectionTitle ->
             assertTrue(replay.visibleText().any { it.contains(sectionTitle) })
         }
@@ -194,6 +196,25 @@ class HandoverUiStateTest {
     }
 
     @Test
+    fun replayControlAdvancesBySelectedSpeedAndStopsAtEnd() {
+        val started =
+            HandoverReplayControlUiState(
+                playing = true,
+                displayPlayheadMs = 1_000L,
+                displayDurationMs = 10_000L,
+                speed = HandoverReplaySpeed.X4
+            )
+
+        val advanced = started.advanceBy(2_000L)
+        val finished = advanced.advanceBy(10_000L)
+
+        assertEquals(9_000L, advanced.displayPlayheadMs)
+        assertTrue(advanced.playing)
+        assertEquals(10_000L, finished.displayPlayheadMs)
+        assertFalse(finished.playing)
+    }
+
+    @Test
     fun handoverMemoTargetsIncludeAllS8ContextsAndNoAiAction() {
         val state = HandoverMemoUiState.default(offline = true)
 
@@ -240,6 +261,7 @@ class HandoverUiStateTest {
         assertTrue(source.contains("clockSyncedAt = clockSyncState::clockSyncedAt"))
         assertTrue(source.contains("clockSyncState.syncClockForIncident"))
         assertTrue(source.contains("HandoverMemoRepository"))
+        assertTrue(source.contains("HandoverTimelineReadRepository"))
         assertTrue(source.contains("SearchHistorySummaryReadRepository"))
         assertTrue(source.contains("createMemo"))
     }
@@ -267,6 +289,7 @@ class HandoverUiStateTest {
         val seekIndex = source.indexOf("onReplaySeek =", routeIndex)
         val speedIndex = source.indexOf("onReplaySpeedSelect =", routeIndex)
         val cameraIndex = source.indexOf("onReplayCameraModeSelect =", routeIndex)
+        val advanceIndex = source.indexOf("advanceBy(250L)", routeIndex)
 
         assertTrue(routeIndex >= 0)
         assertTrue(replayStateIndex > routeIndex)
@@ -274,6 +297,7 @@ class HandoverUiStateTest {
         assertTrue(seekIndex > replayStateIndex)
         assertTrue(speedIndex > replayStateIndex)
         assertTrue(cameraIndex > replayStateIndex)
+        assertTrue(advanceIndex > replayStateIndex)
     }
 
     @Test

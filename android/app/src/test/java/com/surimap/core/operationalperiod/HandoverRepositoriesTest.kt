@@ -208,6 +208,39 @@ class HandoverRepositoriesTest {
         assertNull(request.header("X-PolicePhone-Id"))
     }
 
+    @Test
+    fun handoverTimelineReadIsReadOnly() = runBlocking {
+        val callFactory = CapturingCallFactory(response = response(200, """{"paths":[]}"""))
+        val repository = HandoverTimelineReadRepository(
+            apiClient = SuriMapApiClient(
+                baseUrl = "https://suri-map.example.com",
+                callFactory = callFactory
+            ),
+            accessTokenProvider = AccessTokenProvider { "token-1" }
+        )
+
+        repository.get(
+            operationalPeriodId = OP_ID,
+            query = HandoverTimelineQuery(
+                incidentId = INCIDENT_ID,
+                scopeType = "DUTY_SHIFT",
+                dutyShiftId = DUTY_SHIFT_ID,
+                includeOtherActors = false
+            )
+        )
+
+        val request = callFactory.lastRequest!!
+        assertEquals("GET", request.method)
+        assertEquals(
+            "https://suri-map.example.com/api/operational-periods/$OP_ID/handover-timeline?incidentId=$INCIDENT_ID&scopeType=DUTY_SHIFT&dutyShiftId=$DUTY_SHIFT_ID&includeOtherActors=false",
+            request.url.toString()
+        )
+        assertEquals("APP", request.header("X-Client-Channel"))
+        assertEquals("Bearer token-1", request.header("Authorization"))
+        assertNull(request.header("Idempotency-Key"))
+        assertNull(request.header("X-PolicePhone-Id"))
+    }
+
     private class CapturingSyncClient : SyncClient {
         var lastOperation: LocalWriteOperation? = null
 
