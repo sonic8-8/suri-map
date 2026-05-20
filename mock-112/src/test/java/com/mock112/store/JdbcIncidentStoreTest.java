@@ -1,6 +1,7 @@
 package com.mock112.store;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.mock112.domain.MockAssignment;
 import com.mock112.domain.MockIncident;
@@ -73,6 +74,53 @@ class JdbcIncidentStoreTest {
         assertThat(found.getAssignments())
                 .extracting(MockAssignment::getExternalAssignmentKey)
                 .containsExactly("assign-9902-01", "assign-9902-02");
+    }
+
+    @Test
+    @DisplayName("READY 사건의 원천 제목과 실종자 정보는 정정할 수 있다")
+    void updateReadySourceFacts() {
+        MockIncident incident = newIncident("00000000-0000-0000-0000-000000009905");
+        store.save(incident);
+        MockMissingPerson corrected = new MockMissingPerson(
+                "정정 실종자",
+                "mock-112/missing-person/corrected.jpg",
+                "초록색 점퍼",
+                "수완호수공원 북문",
+                OffsetDateTime.parse("2026-05-16T08:40:00+09:00"));
+
+        MockIncident updated = store.updateReadySourceFacts(
+                incident.getSourceIncidentId(),
+                "정정된 실종 신고",
+                corrected);
+
+        assertThat(updated.getTitle()).isEqualTo("정정된 실종 신고");
+        assertThat(updated.getMissingPerson().getDisplayName()).isEqualTo("정정 실종자");
+        assertThat(updated.getMissingPerson().getPhotoObjectKey())
+                .isEqualTo("mock-112/missing-person/corrected.jpg");
+        assertThat(updated.getAssignments())
+                .extracting(MockAssignment::getExternalAssignmentKey)
+                .containsExactly("assign-9905-01");
+        assertThat(updated.getSeedMarkers())
+                .extracting(MockSeedMarker::getMemo)
+                .containsExactly("신고자 진술 위치");
+    }
+
+    @Test
+    @DisplayName("IMPORTED 사건의 원천 정보 정정은 거부한다")
+    void updateImportedSourceFactsIsRejected() {
+        MockIncident incident = newIncident("00000000-0000-0000-0000-000000009906");
+        store.save(incident);
+        store.markImported(incident.getSourceIncidentId());
+
+        assertThatThrownBy(() -> store.updateReadySourceFacts(
+                        incident.getSourceIncidentId(),
+                        "정정 불가",
+                        new MockMissingPerson("정정", null, null, null, null)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("IMPORTED");
+
+        assertThat(store.findById(incident.getSourceIncidentId()).orElseThrow().getTitle())
+                .isEqualTo("광주 무등산 실종 신고");
     }
 
     @Test

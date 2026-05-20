@@ -9,11 +9,17 @@ public record IncidentDetailMissingPersonSummaryResponse(
     UUID incidentId,
     String displayName,
     String photoObjectKey,
+    String photoUrl,
     String appearanceText,
     String lastSeenLocationText,
     Instant lastSeenAt) {
 
   public static IncidentDetailMissingPersonSummaryResponse from(MissingPerson missingPerson) {
+    return from(missingPerson, MissingPersonPhotoUrl.mockStorage());
+  }
+
+  public static IncidentDetailMissingPersonSummaryResponse from(
+      MissingPerson missingPerson, MissingPersonPhotoUrl photoUrl) {
     if (missingPerson == null) {
       return null;
     }
@@ -21,6 +27,7 @@ public record IncidentDetailMissingPersonSummaryResponse(
         missingPerson.incidentId(),
         missingPerson.displayName(),
         missingPerson.photoObjectKey(),
+        photoUrl.fromObjectKey(missingPerson.photoObjectKey()),
         missingPerson.appearanceText(),
         missingPerson.lastSeenLocationText(),
         missingPerson.lastSeenAt());

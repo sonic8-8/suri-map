@@ -51,6 +51,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -96,12 +97,13 @@ import com.surimap.ui.theme.SuriMapTheme
 import kotlinx.coroutines.delay
 
 private val ExpandedBottomPanelMapInset = 286.dp
-private val FloatingHandleFg = Color(0xFF0F172A)
-private val TopHeaderCollapsedHeight = 42.dp
+private val TopHeaderCollapsedHeight = PoliDimens.BottomSheetHandleHit
 private val TopHeaderMaxFallbackHeight = 248.dp
-private val BottomSheetCollapsedHeight = 42.dp
+private val BottomSheetCollapsedHeight = PoliDimens.BottomSheetHandleHit
 private val BottomSheetMidHeight = 178.dp
 private val BottomSheetMaxFallbackHeight = 320.dp
+private const val MapOverlaySurfaceAlpha = 0.90f
+private const val MapOverlayButtonAlpha = 0.94f
 private const val PanelFlingThresholdPx = 650f
 private const val PackageWarningToastDurationMs = 4_000L
 private const val PackageWarningToastTitle = "오프라인 지도가 준비되지 않았어요"
@@ -421,23 +423,32 @@ private fun EdgeToggleHandle(
 ) {
     val clickModifier =
         if (onClick != null) {
-            Modifier.clickable(onClick = onClick)
+            Modifier.clickable(
+                role = Role.Button,
+                onClickLabel = contentDescription,
+                onClick = onClick
+            )
         } else {
             Modifier
         }
-    Box(
+    Surface(
         modifier =
             modifier
-                .size(34.dp)
+                .size(PoliDimens.BottomSheetHandleHit)
                 .then(clickModifier),
-        contentAlignment = Alignment.Center
+        shape = MaterialTheme.shapes.extraLarge,
+        color = PoliBgSurface.copy(alpha = MapOverlayButtonAlpha),
+        contentColor = PoliFgMuted,
+        border = BorderStroke(1.dp, PoliBorder)
     ) {
-        Icon(
-            painter = painterResource(id = iconResId),
-            contentDescription = contentDescription,
-            tint = FloatingHandleFg,
-            modifier = Modifier.size(22.dp)
-        )
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Icon(
+                painter = painterResource(id = iconResId),
+                contentDescription = contentDescription,
+                tint = PoliFgMuted,
+                modifier = Modifier.size(PoliDimens.TouchMin / 2)
+            )
+        }
     }
 }
 
@@ -649,6 +660,23 @@ private fun SearchMapHeader(
         rememberDraggableState { delta ->
             dragHeightPx = (dragHeightPx + delta).coerceIn(collapsedHeightPx, expandedHeightPx)
         }
+    val topPanelContentDescription =
+        if (showExpandedIcon) {
+            "상단 메뉴 접기"
+        } else {
+            "상단 메뉴 열기"
+        }
+
+    fun toggleTopPanelFromHandle() {
+        val shouldExpand = !showExpandedIcon
+        val snappedHeight = if (shouldExpand) expandedHeightPx else collapsedHeightPx
+        targetHeightPx = snappedHeight
+        dragHeightPx = snappedHeight
+        isDragging = false
+        if (state.topHeaderExpanded != shouldExpand) {
+            onToggleExpanded()
+        }
+    }
 
     Box(
         modifier =
@@ -691,105 +719,114 @@ private fun SearchMapHeader(
                     .align(Alignment.BottomCenter)
         ) {
             if (contentVisible) {
-                Column(
+                Surface(
                     modifier =
                         Modifier
                             .fillMaxWidth()
                             .wrapContentHeight(unbounded = true)
-                            .background(PoliBgSurface)
-                            .padding(bottom = 6.dp)
                             .onSizeChanged {
                                 measuredExpandedHeightPx =
                                     (it.height.toFloat() + collapsedHeightPx)
                                         .coerceAtLeast(collapsedHeightPx)
                             }
-                            .align(Alignment.TopCenter)
+                            .align(Alignment.TopCenter),
+                    color = PoliBgSurface.copy(alpha = MapOverlaySurfaceAlpha),
+                    contentColor = PoliFgPrimary,
+                    border = BorderStroke(1.dp, PoliBorder)
                 ) {
-                    PoliAppBar(
-                        title = state.incidentTitle,
-                        subtitle = state.missingPersonSummary,
-                        showBack = true,
-                        onBack = onBack
-                    )
                     Column(
                         modifier =
                             Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = PoliDimens.SectionPadding),
+                                .padding(bottom = PoliDimens.Space3),
                         verticalArrangement = Arrangement.spacedBy(PoliDimens.Space1)
                     ) {
-                        PoliRow(title = state.opLabel, subtitle = "담당구역 · ${state.assignmentDisplayLabel}") {
-                            PoliChip(text = state.syncLabel, variant = state.syncVariant)
-                        }
-                        if (state.lifecycleTitle.isNotBlank()) {
-                            Text(
-                                text = state.lifecycleTitle,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = PoliFgMuted
-                            )
-                        }
-                        if (state.lifecycleMessage.isNotBlank()) {
-                            Text(
-                                text = state.lifecycleMessage,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = PoliFgMuted
-                            )
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
-                            AreaFocusGroup(
-                                title = "전체",
-                                targets = state.overallSearchAreaTargets,
-                                expanded = expandedAreaKind == SearchLayerKind.Overall,
-                                onToggleExpanded = {
-                                    expandedAreaKind =
-                                        if (expandedAreaKind == SearchLayerKind.Overall) {
-                                            null
-                                        } else {
-                                            SearchLayerKind.Overall
-                                        }
-                                },
-                                onFocus = { target ->
-                                    expandedAreaKind = null
-                                    onFocusSearchArea(target.kind, target.overlayId)
-                                },
-                                modifier = Modifier.weight(1f)
-                            )
-                            AreaFocusGroup(
-                                title = "부대",
-                                targets = state.unitSearchAreaTargets,
-                                expanded = expandedAreaKind == SearchLayerKind.Unit,
-                                onToggleExpanded = {
-                                    expandedAreaKind =
-                                        if (expandedAreaKind == SearchLayerKind.Unit) null else SearchLayerKind.Unit
-                                },
-                                onFocus = { target ->
-                                    expandedAreaKind = null
-                                    onFocusSearchArea(target.kind, target.overlayId)
-                                },
-                                modifier = Modifier.weight(1f)
-                            )
-                            AreaFocusGroup(
-                                title = "팀",
-                                targets = state.teamSearchAreaTargets,
-                                expanded = expandedAreaKind == SearchLayerKind.Team,
-                                onToggleExpanded = {
-                                    expandedAreaKind =
-                                        if (expandedAreaKind == SearchLayerKind.Team) null else SearchLayerKind.Team
-                                },
-                                onFocus = { target ->
-                                    expandedAreaKind = null
-                                    onFocusSearchArea(target.kind, target.overlayId)
-                                },
-                                modifier = Modifier.weight(1f)
-                            )
-                            MarkerDetailButton(
-                                onClick =
-                                state.markerDetailTargetId
-                                    ?.takeIf { state.canOpenMarkerDetail }
-                                    ?.let { markerId -> { onOpenFocusedMarkerDetail(markerId) } },
-                                enabled = state.canOpenMarkerDetail,
-                                modifier = Modifier.weight(1f)
-                            )
+                        PoliAppBar(
+                            title = state.incidentTitle,
+                            subtitle = state.missingPersonSummary,
+                            showBack = true,
+                            onBack = onBack
+                        )
+                        Column(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = PoliDimens.SectionPadding),
+                            verticalArrangement = Arrangement.spacedBy(PoliDimens.Space1)
+                        ) {
+                            PoliRow(title = state.opLabel, subtitle = "담당구역 · ${state.assignmentDisplayLabel}") {
+                                PoliChip(text = state.syncLabel, variant = state.syncVariant)
+                            }
+                            if (state.lifecycleTitle.isNotBlank()) {
+                                Text(
+                                    text = state.lifecycleTitle,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = PoliFgMuted
+                                )
+                            }
+                            if (state.lifecycleMessage.isNotBlank()) {
+                                Text(
+                                    text = state.lifecycleMessage,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = PoliFgMuted
+                                )
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
+                                AreaFocusGroup(
+                                    title = "전체",
+                                    targets = state.overallSearchAreaTargets,
+                                    expanded = expandedAreaKind == SearchLayerKind.Overall,
+                                    onToggleExpanded = {
+                                        expandedAreaKind =
+                                            if (expandedAreaKind == SearchLayerKind.Overall) {
+                                                null
+                                            } else {
+                                                SearchLayerKind.Overall
+                                            }
+                                    },
+                                    onFocus = { target ->
+                                        expandedAreaKind = null
+                                        onFocusSearchArea(target.kind, target.overlayId)
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                )
+                                AreaFocusGroup(
+                                    title = "부대",
+                                    targets = state.unitSearchAreaTargets,
+                                    expanded = expandedAreaKind == SearchLayerKind.Unit,
+                                    onToggleExpanded = {
+                                        expandedAreaKind =
+                                            if (expandedAreaKind == SearchLayerKind.Unit) null else SearchLayerKind.Unit
+                                    },
+                                    onFocus = { target ->
+                                        expandedAreaKind = null
+                                        onFocusSearchArea(target.kind, target.overlayId)
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                )
+                                AreaFocusGroup(
+                                    title = "팀",
+                                    targets = state.teamSearchAreaTargets,
+                                    expanded = expandedAreaKind == SearchLayerKind.Team,
+                                    onToggleExpanded = {
+                                        expandedAreaKind =
+                                            if (expandedAreaKind == SearchLayerKind.Team) null else SearchLayerKind.Team
+                                    },
+                                    onFocus = { target ->
+                                        expandedAreaKind = null
+                                        onFocusSearchArea(target.kind, target.overlayId)
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                )
+                                MarkerDetailButton(
+                                    onClick =
+                                    state.markerDetailTargetId
+                                        ?.takeIf { state.canOpenMarkerDetail }
+                                        ?.let { markerId -> { onOpenFocusedMarkerDetail(markerId) } },
+                                    enabled = state.canOpenMarkerDetail,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
                         }
                     }
                 }
@@ -800,7 +837,8 @@ private fun SearchMapHeader(
             ) {
                 EdgeToggleHandle(
                     iconResId = if (showExpandedIcon) R.drawable.ic_panel_up else R.drawable.ic_panel_down,
-                    contentDescription = "상단 메뉴 드래그"
+                    contentDescription = topPanelContentDescription,
+                    onClick = { toggleTopPanelFromHandle() }
                 )
             }
         }
@@ -1137,19 +1175,23 @@ private fun CurrentLocationButton(onClick: () -> Unit, modifier: Modifier = Modi
     Surface(
         modifier =
             modifier
-                .size(52.dp)
-                .clickable(onClick = onClick),
+                .size(PoliDimens.TouchGlove)
+                .clickable(
+                    role = Role.Button,
+                    onClickLabel = "현재 위치로 이동",
+                    onClick = onClick
+                ),
         shape = MaterialTheme.shapes.medium,
-        color = Color.White,
-        contentColor = PoliFgPrimary,
+        color = PoliBgSurface.copy(alpha = MapOverlayButtonAlpha),
+        contentColor = PoliCurrent,
         border = BorderStroke(1.dp, PoliBorderStrong)
     ) {
-        Box(contentAlignment = Alignment.Center) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Icon(
                 painter = painterResource(id = R.drawable.ic_my_location),
-                contentDescription = "내 위치",
-                tint = Color.Unspecified,
-                modifier = Modifier.size(34.dp)
+                contentDescription = "현재 위치로 이동",
+                tint = PoliCurrent,
+                modifier = Modifier.size(PoliDimens.TouchMin / 2)
             )
         }
     }
@@ -1250,6 +1292,23 @@ private fun SearchBottomPanel(
         rememberDraggableState { delta ->
             dragHeightPx = (dragHeightPx - delta).coerceIn(collapsedHeightPx, expandedHeightPx)
         }
+    val bottomPanelContentDescription =
+        if (showExpandedIcon) {
+            "수색 기록 패널 접기"
+        } else {
+            "수색 기록 패널 열기"
+        }
+
+    fun toggleBottomPanelFromHandle() {
+        val shouldExpand = !showExpandedIcon
+        val snappedHeight = if (shouldExpand) expandedHeightPx else collapsedHeightPx
+        targetHeightPx = snappedHeight
+        dragHeightPx = snappedHeight
+        isDragging = false
+        if (state.bottomPanelExpanded != shouldExpand) {
+            onToggleBottomPanel()
+        }
+    }
 
     Box(
         modifier =
@@ -1360,7 +1419,8 @@ private fun SearchBottomPanel(
             ) {
                 EdgeToggleHandle(
                     iconResId = if (showExpandedIcon) R.drawable.ic_panel_down else R.drawable.ic_panel_up,
-                    contentDescription = "하단 메뉴 드래그"
+                    contentDescription = bottomPanelContentDescription,
+                    onClick = { toggleBottomPanelFromHandle() }
                 )
             }
         }

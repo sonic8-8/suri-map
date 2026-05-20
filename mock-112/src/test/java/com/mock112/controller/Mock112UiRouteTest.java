@@ -93,9 +93,12 @@ class Mock112UiRouteTest {
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("mock 112 관제 시스템")))
                 .andExpect(content().string(containsString("inputInitialAssignmentGroup")))
+                .andExpect(content().string(containsString("inputPhotoObjectKey")))
+                .andExpect(content().string(containsString("inputLastSeenAt")))
                 .andExpect(content().string(containsString("incidentStatusFilter")))
                 .andExpect(content().string(containsString("incidentSearchInput")))
                 .andExpect(content().string(containsString("incidentDetail")))
+                .andExpect(content().string(containsString("fixtureTools")))
                 .andExpect(content().string(not(containsString("inputSourceId"))))
                 .andExpect(content().string(containsString("app.js")));
     }
@@ -118,6 +121,8 @@ class Mock112UiRouteTest {
                 .andExpect(content().string(containsString("renderIncidentTable")))
                 .andExpect(content().string(containsString("selectIncident")))
                 .andExpect(content().string(containsString("assignGroup")))
+                .andExpect(content().string(containsString("updateIncident")))
+                .andExpect(content().string(containsString("editPhotoObjectKey")))
                 .andExpect(content().string(not(containsString("inc.status === 'IMPORTED' ? 'disabled'"))));
 
         mockMvc.perform(get("/mock-112/style.css").with(oauth2Login()))

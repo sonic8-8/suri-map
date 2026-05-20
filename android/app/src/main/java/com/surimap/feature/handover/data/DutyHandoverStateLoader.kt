@@ -110,32 +110,6 @@ class DutyHandoverStateLoader(
                     replayDurationMs = dutyTimeline.replayDurationMs
                 )
             }
-            val opTimeline =
-                parseTimeline(
-                    handoverTimeline(
-                        valid.opId,
-                        HandoverTimelineQuery(
-                            incidentId = valid.incidentId,
-                            scopeType = "OP",
-                            includeOtherActors = false
-                        )
-                    )
-                )
-            if (opTimeline.hasDisplayableEvidence) {
-                val summary = opTimeline.summary ?: loadOpSummary(valid)
-                return summary.toUiState(
-                    context = context,
-                    recordScope = HandoverRecordScope.OperationalPeriod,
-                    dutyShiftOptions = emptyList(),
-                    selectedDutyShift = null,
-                    metrics = opTimeline.metrics,
-                    records = opTimeline.records,
-                    replayPathSegments = opTimeline.replayPathSegments,
-                    replayMarkers = opTimeline.replayMarkers,
-                    replayPoints = opTimeline.replayPoints,
-                    replayDurationMs = opTimeline.replayDurationMs
-                )
-            }
             val memoResponse =
                 handoverMemos(
                     HandoverMemoQuery(
@@ -217,18 +191,6 @@ class DutyHandoverStateLoader(
                     scopeType = "DUTY_SHIFT",
                     scopeId = dutyShiftId,
                     dutyShiftId = dutyShiftId
-                )
-            )
-        )
-
-    private suspend fun loadOpSummary(valid: RequiredHandoverSessionContext): SummaryReadModel =
-        parseSummary(
-            searchHistorySummaries(
-                valid.opId,
-                SearchHistorySummaryQuery(
-                    incidentId = valid.incidentId,
-                    scopeType = "OP",
-                    scopeId = valid.opId
                 )
             )
         )
@@ -562,16 +524,24 @@ class DutyHandoverStateLoader(
         )
     }
 
-    private fun emptyState(context: HandoverSessionContext): DutyHandoverUiState =
+    private fun emptyState(
+        context: HandoverSessionContext,
+        recordScope: HandoverRecordScope = HandoverRecordScope.DutyShift
+    ): DutyHandoverUiState =
         DutyHandoverUiState.empty().copy(
-            title = TITLE,
-            subtitle = context.subtitle()
+            title = recordScope.title,
+            subtitle = context.subtitle(recordScope),
+            recordScope = recordScope
         )
 
-    private fun unavailableState(context: HandoverSessionContext): DutyHandoverUiState =
+    private fun unavailableState(
+        context: HandoverSessionContext,
+        recordScope: HandoverRecordScope = HandoverRecordScope.DutyShift
+    ): DutyHandoverUiState =
         DutyHandoverUiState.unavailable().copy(
-            title = TITLE,
-            subtitle = context.subtitle(),
+            title = recordScope.title,
+            subtitle = context.subtitle(recordScope),
+            recordScope = recordScope,
             records = emptyList(),
             metrics = emptyList()
         )
@@ -580,17 +550,11 @@ class DutyHandoverStateLoader(
         recordScope: HandoverRecordScope = HandoverRecordScope.DutyShift,
         selectedDutyShift: DutyShiftOptionReadModel? = null
     ): String =
-        when (recordScope) {
-            HandoverRecordScope.DutyShift -> "$displayOpLabel · ${selectedDutyShift?.label ?: "교대 인수인계"}"
-            HandoverRecordScope.OperationalPeriod -> "$displayOpLabel · 수색 이력"
-        }
+        "$displayOpLabel · ${selectedDutyShift?.label ?: "교대 인수인계"}"
 
     private val HandoverRecordScope.title: String
         get() =
-            when (this) {
-                HandoverRecordScope.DutyShift -> TITLE
-                HandoverRecordScope.OperationalPeriod -> "수색 이력 확인"
-            }
+            TITLE
 
     private fun parseItems(body: String): JSONArray {
         val trimmed = body.trim()

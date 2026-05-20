@@ -122,15 +122,15 @@ data class AuthBootstrapUiState(
             reason: AuthBootstrapFailureReason,
             apiBaseUrl: String
         ): AuthBootstrapUiState {
+            val authenticationRequired = reason == AuthBootstrapFailureReason.AuthenticationRequired
             val message =
                 when (reason) {
                     AuthBootstrapFailureReason.NotManagedPhone -> "관리 단말이 아닙니다.\nIT 부서로 문의 바랍니다."
                     AuthBootstrapFailureReason.InternalNetworkUnavailable -> "내부망 연결을 확인하세요."
                     AuthBootstrapFailureReason.ServerRejectedPhone -> "해당 폴리폰으로 접속할 수 없습니다.\n단말 등록 또는 사건 배정 상태를 확인하세요.\n계속되면 IT 부서로 문의 바랍니다."
                     AuthBootstrapFailureReason.ManagedConfigMissing -> "관리 설정이 없습니다.\nIT 부서로 문의 바랍니다."
-                    AuthBootstrapFailureReason.AuthenticationRequired -> "수리맵 계정 인증이 필요합니다."
+                    AuthBootstrapFailureReason.AuthenticationRequired -> "보안 인증 후 배정 사건을 불러옵니다."
                 }
-            val retryable = reason == AuthBootstrapFailureReason.AuthenticationRequired
             return AuthBootstrapUiState(
                 progress =
                 when (reason) {
@@ -142,34 +142,35 @@ data class AuthBootstrapUiState(
                 },
                 title =
                 when (reason) {
-                    AuthBootstrapFailureReason.AuthenticationRequired -> "계정 로그인 필요"
+                    AuthBootstrapFailureReason.AuthenticationRequired -> "폴리폰 인증"
                     AuthBootstrapFailureReason.ServerRejectedPhone -> "단말 확인 필요"
                     else -> "접속 확인 실패"
                 },
                 description =
-                if (reason == AuthBootstrapFailureReason.AuthenticationRequired) {
-                    "관리 단말과 내부망 확인이 완료되었습니다.\n수리맵 계정으로 로그인하면 사건 목록으로 이동합니다."
+                if (authenticationRequired) {
+                    "관리 단말과 내부망 확인이 완료되었습니다.\nSSO 인증을 완료하면 배정 사건을 불러옵니다."
                 } else {
                     "사건 정보는 접속 확인 후 표시됩니다."
                 },
                 steps = failureSteps(reason),
-                failureMessage = message,
+                failureMessage = message.takeUnless { authenticationRequired },
                 apiBaseUrl = apiBaseUrl,
                 primaryActionLabel =
                 when (reason) {
-                    AuthBootstrapFailureReason.AuthenticationRequired -> "로그인"
+                    AuthBootstrapFailureReason.AuthenticationRequired -> "SSO로 계속"
                     AuthBootstrapFailureReason.ServerRejectedPhone -> "앱 종료"
                     else -> "확인 필요"
                 },
                 actionGuideText =
                 when (reason) {
-                    AuthBootstrapFailureReason.AuthenticationRequired -> null
+                    AuthBootstrapFailureReason.AuthenticationRequired ->
+                        "보안 인증 화면에서 조직 계정을 확인합니다.\n인증이 끝나면 자동으로 앱으로 돌아옵니다."
                     AuthBootstrapFailureReason.InternalNetworkUnavailable -> "네트워크 상태를 확인해 주세요."
                     else -> null
                 },
-                retryEnabled = retryable,
+                retryEnabled = authenticationRequired,
                 exitEnabled = reason == AuthBootstrapFailureReason.ServerRejectedPhone,
-                requiresAuthentication = reason == AuthBootstrapFailureReason.AuthenticationRequired
+                requiresAuthentication = authenticationRequired
             )
         }
 
@@ -201,7 +202,7 @@ data class AuthBootstrapUiState(
                     listOf(
                         AuthCheckStep("관리 폴리폰 확인", "", AuthStepState.Done),
                         AuthCheckStep("내부망 연결", "", AuthStepState.Done),
-                        AuthCheckStep("접속 권한 확인", "", AuthStepState.Checking)
+                        AuthCheckStep("계정 인증", "SSO 대기", AuthStepState.Checking)
                     )
             }
     }
@@ -241,7 +242,9 @@ fun AuthBootstrapScreen(
                 }
             }
 
-            if (state.failureMessage != null) {
+            if (state.requiresAuthentication) {
+                AuthSignInGuideCard(state = state)
+            } else if (state.failureMessage != null) {
                 PoliBanner(
                     text = state.failureMessage,
                     variant = PoliBannerVariant.Bad,
@@ -277,6 +280,31 @@ fun AuthBootstrapScreen(
                 textAlign = TextAlign.Center
             )
         }
+    }
+}
+
+@Composable
+private fun AuthSignInGuideCard(state: AuthBootstrapUiState) {
+    PoliCard(strong = true) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
+        ) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
+                Text(text = "보안 인증 연결", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    text = state.actionGuideText.orEmpty(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = PoliFgMuted
+                )
+            }
+            PoliChip(text = "SSO", variant = PoliChipVariant.Outbox)
+        }
+        Text(
+            text = "앱은 계정 비밀번호를 입력받거나 저장하지 않습니다.",
+            style = MaterialTheme.typography.bodySmall,
+            color = PoliFgMuted
+        )
     }
 }
 

@@ -4,6 +4,7 @@ import com.mock112.domain.MockAssignment;
 import com.mock112.domain.MockIncident;
 import com.mock112.controller.request.CreateMockIncidentRequest;
 import com.mock112.controller.request.OrganizationAssignmentRequest;
+import com.mock112.controller.request.UpdateMockIncidentRequest;
 import com.mock112.service.MockIncidentRegistrationService;
 import com.mock112.store.MockIncidentStore;
 import com.mock112.webhook.WebhookDeliveryResult;
@@ -65,6 +66,40 @@ public class MockIncidentController {
             body.put("error", status == HttpStatus.CONFLICT ? "duplicate_incident" : "invalid_request");
             body.put("message", e.getMessage());
             return ResponseEntity.status(status).body(body);
+        }
+    }
+
+    /**
+     * READY 사건 원천 정보 정정.
+     * PUT /mock-112/incidents/{sourceIncidentId}
+     */
+    @PutMapping("/{sourceIncidentId}")
+    public ResponseEntity<Map<String, Object>> updateReadyIncident(
+            @PathVariable String sourceIncidentId,
+            @RequestBody UpdateMockIncidentRequest request) {
+        try {
+            MockIncident incident = registrationService.correctReadyIncident(sourceIncidentId, request);
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("sourceIncidentId", incident.getSourceIncidentId());
+            body.put("caseNumber", incident.getCaseNumber());
+            body.put("status", incident.getStatus());
+            body.put("incident", incident);
+            body.put("webhookDelivery", WebhookDeliveryResult.none());
+            body.put("message", "READY 사건 원천 정보가 정정되었습니다.");
+            return ResponseEntity.ok(body);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of(
+                            "error", "incident_imported_read_only",
+                            "message", e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            HttpStatus status = e.getMessage() != null && e.getMessage().startsWith("Incident not found")
+                    ? HttpStatus.NOT_FOUND
+                    : HttpStatus.BAD_REQUEST;
+            return ResponseEntity.status(status)
+                    .body(Map.of(
+                            "error", status == HttpStatus.NOT_FOUND ? "not_found" : "invalid_request",
+                            "message", e.getMessage()));
         }
     }
 

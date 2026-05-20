@@ -62,6 +62,30 @@ function formatDateTime(value) {
     }).format(date);
 }
 
+function dateTimeInputValue(value) {
+    if (!value) {
+        return '';
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return '';
+    }
+    const pad = number => String(number).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function dateTimeInputToIso(value) {
+    if (!value) {
+        return null;
+    }
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? value : date.toISOString();
+}
+
+function inputValue(id) {
+    return document.getElementById(id)?.value.trim() || '';
+}
+
 function caseLabel(incident) {
     return incident?.caseNumber || incident?.sourceIncidentId || '-';
 }
@@ -223,8 +247,10 @@ function incidentSearchText(incident) {
         incident.title,
         incident.status,
         incident.missingPerson?.displayName,
+        incident.missingPerson?.photoObjectKey,
         incident.missingPerson?.appearanceText,
         incident.missingPerson?.lastSeenLocationText,
+        incident.missingPerson?.lastSeenAt,
         assignments
     ].join(' ').toLowerCase();
 }
@@ -379,8 +405,12 @@ function renderIncidentDetail() {
             <div><dt>접수 시각</dt><dd>${escapeHtml(formatDateTime(incident.openedAt))}</dd></div>
             <div><dt>실종자</dt><dd>${escapeHtml(person.displayName || '-')}</dd></div>
             <div><dt>인상착의</dt><dd>${escapeHtml(person.appearanceText || '-')}</dd></div>
+            <div><dt>마지막 목격 시각</dt><dd>${escapeHtml(formatDateTime(person.lastSeenAt))}</dd></div>
             <div class="full"><dt>마지막 목격 위치</dt><dd>${escapeHtml(person.lastSeenLocationText || '-')}</dd></div>
+            <div class="full"><dt>사진 object key</dt><dd><code>${escapeHtml(person.photoObjectKey || '-')}</code></dd></div>
         </dl>
+
+        ${renderSourceCorrectionSection(incident)}
 
         <div class="detail-section">
             <div class="detail-section-header">
@@ -405,9 +435,61 @@ function renderIncidentDetail() {
                 ${organizationOptionsHtml()}
             </select>
             <button class="btn btn-primary" onclick="assignGroup(${jsArg(incident.sourceIncidentId)}, 'detailAssignGroup')">조직 배정</button>
-            <button class="btn btn-warning" onclick="handover(${jsArg(incident.sourceIncidentId)})">실종팀 인계</button>
-            <button class="btn btn-success" onclick="addSupport(${jsArg(incident.sourceIncidentId)})">지원 부대</button>
         </div>`;
+}
+
+function renderSourceCorrectionSection(incident) {
+    const person = incident.missingPerson || {};
+    if (incident.status !== 'READY') {
+        return `
+            <div class="detail-section source-policy imported">
+                <h4>원천 정보</h4>
+                <p class="muted">Suri-Map 반영 이후에는 제목과 실종자 정보 정정을 막고, 추가 배정만 보냅니다.</p>
+            </div>`;
+    }
+    return `
+        <form class="detail-section source-correction" onsubmit="updateIncident(event, ${jsArg(incident.sourceIncidentId)})">
+            <div class="detail-section-header">
+                <h4>READY 원천 정보 정정</h4>
+                <span class="status-chip ready">READY 전용</span>
+            </div>
+            <div class="form-row compact">
+                <div class="form-group full">
+                    <label for="editTitle">사건 제목</label>
+                    <input type="text" id="editTitle" required value="${escapeHtml(incident.title || '')}">
+                </div>
+            </div>
+            <div class="form-row compact">
+                <div class="form-group">
+                    <label for="editPersonName">실종자 이름</label>
+                    <input type="text" id="editPersonName" value="${escapeHtml(person.displayName || '')}">
+                </div>
+                <div class="form-group">
+                    <label for="editLastSeenAt">마지막 목격 시각</label>
+                    <input type="datetime-local" id="editLastSeenAt" value="${escapeHtml(dateTimeInputValue(person.lastSeenAt))}">
+                </div>
+            </div>
+            <div class="form-row compact">
+                <div class="form-group">
+                    <label for="editAppearance">인상착의</label>
+                    <input type="text" id="editAppearance" value="${escapeHtml(person.appearanceText || '')}">
+                </div>
+                <div class="form-group">
+                    <label for="editLastSeen">마지막 목격 위치</label>
+                    <input type="text" id="editLastSeen" value="${escapeHtml(person.lastSeenLocationText || '')}">
+                </div>
+            </div>
+            <div class="form-row compact">
+                <div class="form-group full">
+                    <label for="editPhotoObjectKey">실종자 사진 object key</label>
+                    <input type="text" id="editPhotoObjectKey" value="${escapeHtml(person.photoObjectKey || '')}">
+                    <p class="select-preview">MinIO/S3 object key만 입력합니다. URL은 입력하지 않습니다.</p>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">정정 저장</button>
+            </div>
+        </form>`;
 }
 
 function renderAssignmentList(assignments) {
@@ -459,17 +541,30 @@ function renderDeliverySummary(delivery) {
     if (!delivery) {
         return '<p class="muted">현재 브라우저 세션에서 실행한 전송 기록이 없습니다.</p>';
     }
+    const events = deliveryNumber(delivery, 'eventCount', 'events');
+    const sent = deliveryNumber(delivery, 'sentCount', 'sent');
+    const pending = deliveryNumber(delivery, 'pendingCount', 'pending');
+    const failed = deliveryNumber(delivery, 'failedCount', 'failed');
     return `
         <div class="delivery-summary">
             ${renderDeliveryBadge(delivery)}
             <span>${escapeHtml(delivery.actionLabel || '작업')}</span>
-            <span>events ${escapeHtml(delivery.events ?? 0)}</span>
-            <span>sent ${escapeHtml(delivery.sent ?? 0)}</span>
-            <span>pending ${escapeHtml(delivery.pending ?? 0)}</span>
-            <span>failed ${escapeHtml(delivery.failed ?? 0)}</span>
+            <span>events ${escapeHtml(events)}</span>
+            <span>sent ${escapeHtml(sent)}</span>
+            <span>pending ${escapeHtml(pending)}</span>
+            <span>failed ${escapeHtml(failed)}</span>
             ${delivery.attemptCount != null ? `<span>attempts ${escapeHtml(delivery.attemptCount)}</span>` : ''}
             <span>${escapeHtml(formatDateTime(delivery.recordedAt))}</span>
         </div>`;
+}
+
+function deliveryNumber(delivery, ...keys) {
+    for (const key of keys) {
+        if (delivery[key] != null) {
+            return delivery[key];
+        }
+    }
+    return 0;
 }
 
 function rememberDelivery(sourceIncidentId, delivery, actionLabel) {
@@ -511,10 +606,12 @@ function renderMutationResult(result) {
 
 async function createIncident(e) {
     e.preventDefault();
-    const title = document.getElementById('inputTitle').value.trim();
-    const personName = document.getElementById('inputPersonName').value.trim();
-    const appearance = document.getElementById('inputAppearance').value.trim();
-    const lastSeen = document.getElementById('inputLastSeen').value.trim();
+    const title = inputValue('inputTitle');
+    const personName = inputValue('inputPersonName');
+    const appearance = inputValue('inputAppearance');
+    const lastSeen = inputValue('inputLastSeen');
+    const photoObjectKey = inputValue('inputPhotoObjectKey');
+    const lastSeenAt = dateTimeInputToIso(document.getElementById('inputLastSeenAt')?.value);
     const initialOrganizationCode = document.getElementById('inputInitialAssignmentGroup').value;
     if (!initialOrganizationCode) {
         showToast('초기 배정 조직을 선택하세요.', 'error');
@@ -527,8 +624,10 @@ async function createIncident(e) {
         initialOrganizationCode,
         missingPerson: {
             displayName: personName || '미입력',
+            photoObjectKey: photoObjectKey || null,
             appearanceText: appearance || '',
-            lastSeenLocationText: lastSeen || ''
+            lastSeenLocationText: lastSeen || '',
+            lastSeenAt
         },
         seedMarkers: []
     };
@@ -546,6 +645,30 @@ async function createIncident(e) {
         await loadHealth();
     } catch (e) {
         showToast(`등록 실패: ${e.data?.message || '알 수 없는 오류'}`, 'error');
+    }
+}
+
+async function updateIncident(e, sourceIncidentId) {
+    e.preventDefault();
+    const body = {
+        title: inputValue('editTitle'),
+        missingPerson: {
+            displayName: inputValue('editPersonName') || '미입력',
+            photoObjectKey: inputValue('editPhotoObjectKey') || null,
+            appearanceText: inputValue('editAppearance') || '',
+            lastSeenLocationText: inputValue('editLastSeen') || '',
+            lastSeenAt: dateTimeInputToIso(document.getElementById('editLastSeenAt')?.value)
+        }
+    };
+    try {
+        const updated = await api('PUT', `/mock-112/incidents/${sourceIncidentId}`, body);
+        rememberDelivery(sourceIncidentId, updated.webhookDelivery, '원천 정보 정정');
+        showToast(`원천 정보 정정 완료: ${updated.caseNumber}`, 'success');
+        selectedIncidentId = sourceIncidentId;
+        await loadIncidents();
+        await loadHealth();
+    } catch (e) {
+        showToast(`정정 실패: ${e.data?.message || '알 수 없는 오류'}`, 'error');
     }
 }
 
@@ -577,6 +700,14 @@ async function handover(sourceIncidentId) {
     }
 }
 
+function handoverSelected() {
+    if (!selectedIncidentId) {
+        showToast('먼저 사건을 선택하세요.', 'error');
+        return;
+    }
+    handover(selectedIncidentId);
+}
+
 async function addSupport(sourceIncidentId) {
     try {
         const result = await api('POST', `/mock-112/incidents/${sourceIncidentId}/add-support-unit`);
@@ -588,6 +719,14 @@ async function addSupport(sourceIncidentId) {
     } catch (e) {
         showToast(`배정 실패: ${e.data?.message || ''}`, 'error');
     }
+}
+
+function addSupportSelected() {
+    if (!selectedIncidentId) {
+        showToast('먼저 사건을 선택하세요.', 'error');
+        return;
+    }
+    addSupport(selectedIncidentId);
 }
 
 async function assignGroup(sourceIncidentId, selectId) {

@@ -267,6 +267,18 @@ class HandoverUiStateTest {
     }
 
     @Test
+    fun appDoesNotExposeSearchHistoryAsTopLevelRoute() {
+        val source = File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+
+        val handoverRouteIndex = source.indexOf("private fun HandoverSummaryRoute")
+
+        assertFalse(source.contains("composable(PolicePhoneRoute.SearchHistory.route)"))
+        assertFalse(source.contains("private fun SearchHistoryRoute"))
+        assertFalse(source.contains("loader.loadOperationalPeriod(sessionContext)"))
+        assertTrue(handoverRouteIndex >= 0)
+    }
+
+    @Test
     fun appHandoverRouteOwnsTabStateForP6A() {
         val source = File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
 

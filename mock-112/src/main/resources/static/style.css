@@ -192,10 +192,20 @@ main {
 }
 
 .danger-zone p,
+.fixture-tools p,
 .muted {
     color: var(--text-subtle);
     font-size: 12px;
     line-height: 1.45;
+}
+
+.fixture-tools summary {
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.fixture-tools p {
+    margin: 10px 0;
 }
 
 .btn {
@@ -267,6 +277,11 @@ main {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
     margin-bottom: 12px;
+}
+
+.form-row.compact {
+    gap: 8px;
+    margin-bottom: 9px;
 }
 
 .form-group.full {
@@ -537,12 +552,23 @@ code {
     font-size: 12px;
 }
 
+.source-correction {
+    display: block;
+}
+
+.source-policy.imported {
+    background: #fbfcfe;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 12px;
+}
+
 .detail-actions {
     border-top: 1px solid var(--line);
     margin-top: 14px;
     padding-top: 14px;
     display: grid;
-    grid-template-columns: 1fr auto auto auto;
+    grid-template-columns: 1fr auto;
     gap: 8px;
 }
 
