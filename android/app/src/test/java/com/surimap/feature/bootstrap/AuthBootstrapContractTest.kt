@@ -230,6 +230,26 @@ class AuthBootstrapContractTest {
     }
 
     @Test
+    fun androidAuthBootstrapUsesSharedFrontendSuriMapLogo() {
+        val frontendLogo = File("../../frontend/public/surimap-logo-compact.svg").readText()
+        val androidLogo = File("src/main/res/drawable/surimap_logo_compact.xml").readText()
+        val components = File("src/main/java/com/surimap/ui/components/PoliComponents.kt").readText()
+        val authScreen = File("src/main/java/com/surimap/feature/bootstrap/ui/AuthBootstrapScreen.kt").readText()
+
+        assertTrue(frontendLogo.contains("""viewBox="0 0 128 128""""))
+        assertTrue(androidLogo.contains("""android:viewportWidth="128""""))
+        assertTrue(androidLogo.contains("""android:viewportHeight="128""""))
+        assertTrue(androidLogo.contains("M64,12C42,12 24,30 24,52"))
+        assertTrue(androidLogo.contains("#D81F3C"))
+        assertTrue(androidLogo.contains("#1D63B5"))
+        assertTrue(components.contains("R.drawable.surimap_logo_compact"))
+        assertTrue(components.contains("painterResource"))
+        assertFalse(components.contains("""Text(text = "수""""))
+        assertTrue(authScreen.contains("PoliBrandMark()"))
+        assertTrue(authScreen.contains("AuthSignInGuideCard"))
+    }
+
+    @Test
     fun keycloakLoginThemeUsesAndroidSpecificFieldAppCopy() {
         val loginTemplate = File("../../infra/docker/keycloak/themes/suri-map/login/login.ftl").readText()
         val koreanMessages = File("../../infra/docker/keycloak/themes/suri-map/login/messages/messages_ko.properties").readText()
