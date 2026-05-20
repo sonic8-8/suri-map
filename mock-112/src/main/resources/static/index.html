@@ -24,18 +24,25 @@
     <main>
         <aside class="sidebar">
             <section class="panel">
-                <h2>시나리오</h2>
-                <button id="btnSeedPrecinct" class="btn btn-primary btn-full" onclick="seedPrecinctFirst()">
-                    지구대 초동 시나리오 Seed
-                </button>
-            </section>
-
-            <section class="panel">
                 <h2>상태 요약</h2>
                 <div id="healthInfo" class="health-info">
                     <div class="state-panel">서버 확인 중</div>
                 </div>
             </section>
+
+            <details id="fixtureTools" class="panel fixture-tools">
+                <summary>리허설 도구</summary>
+                <p>하네스와 데모 리허설에만 사용하는 고정 시나리오입니다.</p>
+                <button id="btnSeedPrecinct" class="btn btn-muted btn-full" onclick="seedPrecinctFirst()">
+                    지구대 초동 시나리오 Seed
+                </button>
+                <button class="btn btn-muted btn-full" onclick="handoverSelected()">
+                    선택 사건 실종팀 인계
+                </button>
+                <button class="btn btn-muted btn-full" onclick="addSupportSelected()">
+                    선택 사건 지원 부대
+                </button>
+            </details>
 
             <section class="panel danger-zone">
                 <h2>초기화</h2>
@@ -68,14 +75,25 @@
                             <input type="text" id="inputPersonName" placeholder="이름">
                         </div>
                         <div class="form-group">
+                            <label for="inputLastSeenAt">마지막 목격 시각</label>
+                            <input type="datetime-local" id="inputLastSeenAt">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
                             <label for="inputAppearance">인상착의</label>
                             <input type="text" id="inputAppearance" placeholder="남색 점퍼, 등산화">
+                        </div>
+                        <div class="form-group">
+                            <label for="inputLastSeen">마지막 목격 위치</label>
+                            <input type="text" id="inputLastSeen" placeholder="OO산 북측 산책로 입구">
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group full">
-                            <label for="inputLastSeen">마지막 목격 위치</label>
-                            <input type="text" id="inputLastSeen" placeholder="OO산 북측 산책로 입구">
+                            <label for="inputPhotoObjectKey">실종자 사진 object key</label>
+                            <input type="text" id="inputPhotoObjectKey"
+                                   placeholder="mock-112/missing-person/001.jpg">
                         </div>
                     </div>
                     <div class="form-row">

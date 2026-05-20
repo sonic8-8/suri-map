@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.matchesPattern;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oauth2Login;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -12,6 +13,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mock112.domain.MockAssignment;
 import com.mock112.domain.MockIncident;
 import com.mock112.store.MockIncidentStore;
+import java.time.OffsetDateTime;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -60,8 +62,10 @@ class MockIncidentRegistrationApiTest {
                                   "initialOrganizationCode": "GWANGJU_GWANGSAN_SUWAN_PATROL_DIVISION",
                                   "missingPerson": {
                                     "displayName": "김수리",
+                                    "photoObjectKey": "mock-112/missing-person/manual-001.jpg",
                                     "appearanceText": "남색 점퍼",
-                                    "lastSeenLocationText": "수완호수공원 산책로"
+                                    "lastSeenLocationText": "수완호수공원 산책로",
+                                    "lastSeenAt": "2026-05-20T08:40:00.000+09:00"
                                   },
                                   "assignments": [
                                     {
@@ -86,6 +90,10 @@ class MockIncidentRegistrationApiTest {
         MockIncident incident = store.findById(sourceIncidentId).orElseThrow();
         assertThat(incident.getCaseNumber()).startsWith("112-20260520-");
         assertThat(incident.getOpenedAt().getNano()).isEqualTo(123_000_000);
+        assertThat(incident.getMissingPerson().getPhotoObjectKey())
+                .isEqualTo("mock-112/missing-person/manual-001.jpg");
+        assertThat(incident.getMissingPerson().getLastSeenAt())
+                .isEqualTo(OffsetDateTime.parse("2026-05-20T08:40:00+09:00"));
         assertThat(incident.getAssignments())
                 .extracting(MockAssignment::getAccountCode)
                 .containsExactlyInAnyOrder(
@@ -135,6 +143,63 @@ class MockIncidentRegistrationApiTest {
                         "acct-precinct-team",
                         "acct-cmd-alpha",
                         "acct-team-alpha");
+    }
+
+    @Test
+    @DisplayName("READY 사건은 원천 제목과 실종자 정보를 정정할 수 있고 webhook 이벤트를 만들지 않는다")
+    void updateReadyIncidentSourceFacts() throws Exception {
+        String sourceIncidentId = createIncident();
+
+        mockMvc.perform(put("/mock-112/incidents/{sourceIncidentId}", sourceIncidentId)
+                        .with(oauth2Login())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "수완동 호수공원 실종 정정",
+                                  "missingPerson": {
+                                    "displayName": "김수리",
+                                    "photoObjectKey": "mock-112/missing-person/corrected-001.jpg",
+                                    "appearanceText": "초록색 점퍼, 검은 배낭",
+                                    "lastSeenLocationText": "수완호수공원 북문",
+                                    "lastSeenAt": "2026-05-20T08:30:00.000+09:00"
+                                  }
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sourceIncidentId").value(sourceIncidentId))
+                .andExpect(jsonPath("$.status").value("READY"))
+                .andExpect(jsonPath("$.webhookDelivery.status").value("NO_EVENTS"));
+
+        MockIncident incident = store.findById(sourceIncidentId).orElseThrow();
+        assertThat(incident.getTitle()).isEqualTo("수완동 호수공원 실종 정정");
+        assertThat(incident.getMissingPerson().getPhotoObjectKey())
+                .isEqualTo("mock-112/missing-person/corrected-001.jpg");
+        assertThat(incident.getMissingPerson().getLastSeenAt())
+                .isEqualTo(OffsetDateTime.parse("2026-05-20T08:30:00+09:00"));
+    }
+
+    @Test
+    @DisplayName("IMPORTED 사건은 Suri-Map 반영 이후 원천 정보 정정을 거부한다")
+    void importedIncidentSourceFactsAreReadOnly() throws Exception {
+        String sourceIncidentId = createIncident();
+        store.markImported(sourceIncidentId);
+
+        mockMvc.perform(put("/mock-112/incidents/{sourceIncidentId}", sourceIncidentId)
+                        .with(oauth2Login())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "이미 반영된 사건 정정",
+                                  "missingPerson": {
+                                    "displayName": "김수리"
+                                  }
+                                }
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("incident_imported_read_only"));
+
+        assertThat(store.findById(sourceIncidentId).orElseThrow().getTitle())
+                .isEqualTo("수완동 산책로 실종 신고");
     }
 
     private String createIncident() throws Exception {
