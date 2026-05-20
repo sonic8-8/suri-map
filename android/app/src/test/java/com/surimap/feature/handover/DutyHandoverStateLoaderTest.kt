@@ -6,6 +6,7 @@ import com.surimap.core.operationalperiod.HandoverTimelineQuery
 import com.surimap.core.operationalperiod.SearchHistorySummaryQuery
 import com.surimap.feature.handover.data.DutyHandoverStateLoader
 import com.surimap.feature.handover.data.HandoverSessionContext
+import com.surimap.feature.handover.ui.HandoverRecordScope
 import com.surimap.feature.handover.ui.SearchHistorySummaryStatus
 import com.surimap.feature.handover.ui.SummarySourceReadiness
 import com.surimap.testing.dutyShiftIdFixture
@@ -122,6 +123,7 @@ class DutyHandoverStateLoaderTest {
 
         assertFalse(memoCalled)
         assertFalse(summaryCalled)
+        assertEquals(HandoverRecordScope.DutyShift, state.recordScope)
         assertEquals(SearchHistorySummaryStatus.Ready, state.summaryStatus)
         assertEquals("북측 진입로와 배수로 입구를 확인했습니다.", state.summary)
         assertEquals(600_000L, state.replayControl.displayDurationMs)
@@ -130,6 +132,125 @@ class DutyHandoverStateLoaderTest {
         assertTrue(state.replayMarkers.any { it.title.contains("배수로 입구") && it.photoCountLabel == "사진 2장" })
         assertTrue(state.records.any { it.subtitle.contains("북측 진입로") })
         assertTrue(state.metrics.any { it.label == "총 이동" && it.value == "1.8km" })
+    }
+
+    @Test
+    fun emptyDutyShiftTimelineFallsBackToOpTimelineWithOpLabels() = runBlocking {
+        val timelineQueries = mutableListOf<HandoverTimelineQuery>()
+        var memoCalled = false
+        var summaryCalled = false
+        val loader =
+            DutyHandoverStateLoader(
+                handoverTimeline = { operationalPeriodId, query: HandoverTimelineQuery ->
+                    assertEquals(OP_ID, operationalPeriodId)
+                    timelineQueries += query
+                    if (query.scopeType == "DUTY_SHIFT") {
+                        ok(
+                            """
+                            {
+                              "incidentId": "$INCIDENT_ID",
+                              "operationalPeriodId": "$OP_ID",
+                              "scope": {
+                                "scopeType": "DUTY_SHIFT",
+                                "dutyShiftId": "$DUTY_SHIFT_ID"
+                              },
+                              "actors": [],
+                              "paths": [],
+                              "events": [],
+                              "metrics": {
+                                "distanceMeters": 0,
+                                "markerCount": 0,
+                                "handoverMemoCount": 0,
+                                "syncStatus": "READY"
+                              }
+                            }
+                            """.trimIndent()
+                        )
+                    } else {
+                        assertEquals("OP", query.scopeType)
+                        ok(
+                            """
+                            {
+                              "incidentId": "$INCIDENT_ID",
+                              "operationalPeriodId": "$OP_ID",
+                              "scope": {"scopeType": "OP"},
+                              "actors": [
+                                {"actorId": "actor-1", "displayName": "실종팀 1팀", "colorKey": "blue"}
+                              ],
+                              "paths": [
+                                {
+                                  "pathId": "path-op-1",
+                                  "actorId": "actor-1",
+                                  "mode": "VEHICLE",
+                                  "startedAt": "2026-05-11T02:00:00Z",
+                                  "endedAt": "2026-05-11T02:05:00Z",
+                                  "points": [
+                                    {"at": "2026-05-11T02:00:00Z", "lat": 37.1000, "lng": 127.1000},
+                                    {"at": "2026-05-11T02:05:00Z", "lat": 37.1010, "lng": 127.1010}
+                                  ]
+                                }
+                              ],
+                              "events": [
+                                {
+                                  "eventId": "op-marker-1",
+                                  "occurredAt": "2026-05-11T02:03:00Z",
+                                  "type": "MARKER",
+                                  "actorId": "actor-1",
+                                  "label": "단서 마커",
+                                  "detail": {
+                                    "markerType": "CLUE",
+                                    "memo": "산책로 입구 천 조각",
+                                    "photoCount": 1
+                                  }
+                                }
+                              ],
+                              "metrics": {
+                                "distanceMeters": 2100,
+                                "markerCount": 1,
+                                "handoverMemoCount": 0,
+                                "syncStatus": "READY"
+                              },
+                              "summary": {
+                                "status": "READY",
+                                "displayStatus": "READY",
+                                "content": "OP 2차에서 산책로 입구와 주변 경로를 확인했습니다.",
+                                "sourceReadiness": "READY",
+                                "updatedAt": "2026-05-11T02:10:00Z"
+                              }
+                            }
+                            """.trimIndent()
+                        )
+                    }
+                },
+                handoverMemos = {
+                    memoCalled = true
+                    ok("""{"items":[]}""")
+                },
+                searchHistorySummaries = { _, _ ->
+                    summaryCalled = true
+                    ok("""{"items":[]}""")
+                }
+            )
+
+        val state = loader.load(CONTEXT)
+
+        assertEquals(listOf("DUTY_SHIFT", "OP"), timelineQueries.map { it.scopeType })
+        assertFalse(memoCalled)
+        assertFalse(summaryCalled)
+        assertEquals(HandoverRecordScope.OperationalPeriod, state.recordScope)
+        assertEquals("수색 이력 확인", state.title)
+        assertEquals("OP 3차 · 수색 이력", state.subtitle)
+        assertEquals(SearchHistorySummaryStatus.Ready, state.summaryStatus)
+        assertEquals("OP 2차에서 산책로 입구와 주변 경로를 확인했습니다.", state.summary)
+        val reportState = state.selectTab(com.surimap.feature.handover.ui.DutyHandoverTab.Report)
+        assertTrue(reportState.visibleText().contains("OP 수색 이력 요약"))
+        assertTrue(reportState.visibleText().contains("OP 개요"))
+        assertFalse(reportState.visibleText().contains("이전 근무 요약"))
+        assertFalse(reportState.visibleText().contains("근무 개요"))
+        assertTrue(state.replayBadges.contains("OP 기준"))
+        assertTrue(state.replayBadges.contains("복수 기록자"))
+        assertEquals(2, state.replayPoints.size)
+        assertTrue(state.records.any { it.subtitle.contains("산책로 입구") })
     }
 
     @Test
