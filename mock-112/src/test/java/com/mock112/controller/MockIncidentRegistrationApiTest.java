@@ -202,6 +202,27 @@ class MockIncidentRegistrationApiTest {
                 .isEqualTo("수완동 산책로 실종 신고");
     }
 
+    @Test
+    @DisplayName("실종자 사진은 URL이 아니라 object storage key 형식만 받는다")
+    void photoObjectKeyRejectsUrlValue() throws Exception {
+        mockMvc.perform(post("/mock-112/incidents")
+                        .with(oauth2Login())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "수완동 산책로 실종 신고",
+                                  "openedAt": "2026-05-20T09:10:11.123+09:00",
+                                  "initialOrganizationCode": "GWANGJU_GWANGSAN_SUWAN_PATROL_DIVISION",
+                                  "missingPerson": {
+                                    "displayName": "김수리",
+                                    "photoObjectKey": "https://k14c106.p.ssafy.io/suri-map-photo/mock-112/missing-person/manual-001.jpg"
+                                  }
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("invalid_request"));
+    }
+
     private String createIncident() throws Exception {
         MvcResult result = mockMvc.perform(post("/mock-112/incidents")
                         .with(oauth2Login())

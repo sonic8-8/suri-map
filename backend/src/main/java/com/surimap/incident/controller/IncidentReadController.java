@@ -6,6 +6,7 @@ import com.surimap.common.auth.RequireIncidentAccess;
 import com.surimap.common.auth.SuriMapAuthentication;
 import com.surimap.incident.controller.response.IncidentDetailResponse;
 import com.surimap.incident.controller.response.IncidentListResponse;
+import com.surimap.incident.controller.response.MissingPersonPhotoUrl;
 import com.surimap.incident.service.IncidentReadQueryService;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -24,9 +25,12 @@ import org.springframework.web.server.ResponseStatusException;
 public class IncidentReadController {
 
   private final IncidentReadQueryService incidentReadQueryService;
+  private final MissingPersonPhotoUrl missingPersonPhotoUrl;
 
-  public IncidentReadController(IncidentReadQueryService incidentReadQueryService) {
+  public IncidentReadController(
+      IncidentReadQueryService incidentReadQueryService, MissingPersonPhotoUrl missingPersonPhotoUrl) {
     this.incidentReadQueryService = incidentReadQueryService;
+    this.missingPersonPhotoUrl = missingPersonPhotoUrl;
   }
 
   @GetMapping
@@ -47,7 +51,7 @@ public class IncidentReadController {
     // 접근 범위는 service SQL의 incident_assignment 필터로 좁히고, CLOSED는 sanitized DTO만 반환한다.
     return incidentReadQueryService
         .findIncidentDetail(incidentId, auth)
-        .map(IncidentDetailResponse::from)
+        .map(detail -> IncidentDetailResponse.from(detail, missingPersonPhotoUrl))
         .map(ResponseEntity::ok)
         .orElseGet(() -> ResponseEntity.notFound().build());
   }
