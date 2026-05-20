@@ -1,6 +1,5 @@
 package com.surimap.feature.handover.ui
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -24,20 +23,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import java.time.Instant
-import kotlin.math.abs
 import kotlin.math.roundToLong
 import com.surimap.core.map.MapLibreGeometryOverlay
 import com.surimap.core.map.MapLibreGeometryOverlayKind
 import com.surimap.core.map.MapLibreRuntimeMapState
 import com.surimap.core.map.MapLibreViewportBounds
 import com.surimap.core.map.SuriMapLibreMap
-import com.surimap.feature.handover.domain.HandoverReplayCameraMode
 import com.surimap.feature.handover.domain.HandoverReplaySpeed
 import com.surimap.ui.components.PoliAppBar
 import com.surimap.ui.components.PoliButton
@@ -49,13 +44,10 @@ import com.surimap.ui.components.PoliChipVariant
 import com.surimap.ui.components.PoliField
 import com.surimap.ui.components.PoliRow
 import com.surimap.ui.theme.PoliBgInput
-import com.surimap.ui.theme.PoliCurrent
 import com.surimap.ui.theme.PoliDimens
 import com.surimap.ui.theme.PoliFgMuted
 import com.surimap.ui.theme.PoliFgSecondary
 import com.surimap.ui.theme.PoliPrimaryFillSoft
-import com.surimap.ui.theme.PoliPrimaryMid
-import com.surimap.ui.theme.PoliWarning
 import com.surimap.ui.theme.SuriMapTheme
 
 data class DutyHandoverUiState(
@@ -155,8 +147,6 @@ data class DutyHandoverUiState(
                 add(replayControl.timeRangeLabel)
                 add("속도")
                 HandoverReplaySpeed.entries.forEach { add(it.label) }
-                add("카메라")
-                HandoverReplayCameraMode.entries.forEach { add(it.label) }
                 replayPathSegments.forEach {
                     add(it.label)
                     add(it.timeRangeLabel)
@@ -273,26 +263,39 @@ data class DutyHandoverUiState(
                     HandoverRecord("단서 마커 · 배수로 입구", "사진 2장 · 작성 13:36", "열기"),
                     HandoverRecord("운영 메모 · 북측 진입로", "주민 진술 대기, 배수로 아래 확인 필요", "열기")
                 ),
-            replayPathSegments: List<HandoverReplayPathSegment> =
+            replayPathSegments: List<HandoverReplayPathSegment>? = null,
+            replayMarkers: List<HandoverReplayMarker>? = null
+        ): DutyHandoverUiState {
+            val sampleReplayPoints =
                 listOf(
+                    HandoverReplayPointUi(0L, 37.5761, 126.9769),
+                    HandoverReplayPointUi(45_000L, 37.5771, 126.9781),
+                    HandoverReplayPointUi(90_000L, 37.5768, 126.9802),
+                    HandoverReplayPointUi(120_000L, 37.5784, 126.9818)
+                )
+            val displayPathSegments =
+                replayPathSegments ?: listOf(
                     HandoverReplayPathSegment(
                         label = "도보 경로 · 동쪽 능선",
                         timeRangeLabel = "12:07-13:18",
                         distanceLabel = "1.8km",
-                        modeLabel = "도보"
+                        modeLabel = "도보",
+                        points = sampleReplayPoints
                     )
-                ),
-            replayMarkers: List<HandoverReplayMarker> =
-                listOf(
+                )
+            val displayMarkers =
+                replayMarkers ?: listOf(
                     HandoverReplayMarker(
                         title = "단서 마커 · 배수로 입구",
                         timeLabel = "13:36",
                         typeLabel = "단서",
-                        photoCountLabel = "사진 2장"
+                        photoCountLabel = "사진 2장",
+                        elapsedMs = 89_000L,
+                        lat = 37.5768,
+                        lng = 126.9802
                     )
                 )
-        ): DutyHandoverUiState =
-            DutyHandoverUiState(
+            return DutyHandoverUiState(
                 title = "이전 근무 확인",
                 subtitle = "OP 3차 · 교대 인수인계",
                 summaryStatus = summaryStatus,
@@ -301,17 +304,13 @@ data class DutyHandoverUiState(
                 sourceReadiness = sourceReadiness,
                 metrics = metrics,
                 records = records,
-                replayPoints = listOf(
-                    HandoverReplayPointUi(0L, 37.5761, 126.9769),
-                    HandoverReplayPointUi(45_000L, 37.5771, 126.9781),
-                    HandoverReplayPointUi(90_000L, 37.5768, 126.9802),
-                    HandoverReplayPointUi(120_000L, 37.5784, 126.9818)
-                ),
-                replayPathSegments = replayPathSegments,
-                replayMarkers = replayMarkers,
+                replayPoints = sampleReplayPoints,
+                replayPathSegments = displayPathSegments,
+                replayMarkers = displayMarkers,
                 replayControl = HandoverReplayControlUiState(displayDurationMs = 120_000L),
                 canRequestSummaryGeneration = false
             )
+        }
     }
 }
 
@@ -370,6 +369,7 @@ data class HandoverReplayMarker(
     val timeLabel: String,
     val typeLabel: String,
     val photoCountLabel: String,
+    val elapsedMs: Long? = null,
     val lat: Double? = null,
     val lng: Double? = null
 )
@@ -378,8 +378,7 @@ data class HandoverReplayControlUiState(
     val playing: Boolean = false,
     val displayPlayheadMs: Long = 0L,
     val displayDurationMs: Long = 0L,
-    val speed: HandoverReplaySpeed = HandoverReplaySpeed.X1,
-    val cameraMode: HandoverReplayCameraMode = HandoverReplayCameraMode.Overview
+    val speed: HandoverReplaySpeed = HandoverReplaySpeed.X1
 ) {
     val playPauseLabel: String = if (playing) "일시정지" else "재생"
     val currentTimeLabel: String = formatReplayElapsed(displayPlayheadMs)
@@ -408,9 +407,6 @@ data class HandoverReplayControlUiState(
     fun selectSpeed(speed: HandoverReplaySpeed): HandoverReplayControlUiState =
         copy(speed = speed)
 
-    fun selectCameraMode(cameraMode: HandoverReplayCameraMode): HandoverReplayControlUiState =
-        copy(cameraMode = cameraMode)
-
     fun advanceBy(realElapsedMs: Long): HandoverReplayControlUiState {
         if (!playing || displayDurationMs <= 0L) {
             return copy(playing = false)
@@ -435,7 +431,7 @@ data class HandoverReplayControlUiState(
 }
 
 private val HandoverReplaySections =
-    listOf("경로 미리보기", "마커", "타임라인")
+    listOf("지도 리플레이", "경로 개요", "마커", "타임라인")
 
 private val HandoverReportSections =
     listOf(
@@ -478,7 +474,6 @@ fun DutyHandoverScreen(
     onReplayPlayPause: () -> Unit = {},
     onReplaySeek: (Long) -> Unit = {},
     onReplaySpeedSelect: (HandoverReplaySpeed) -> Unit = {},
-    onReplayCameraModeSelect: (HandoverReplayCameraMode) -> Unit = {},
     onSelectOriginalRecord: (HandoverRecord) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -504,8 +499,7 @@ fun DutyHandoverScreen(
                         onSelectDutyShift = onSelectDutyShift,
                         onReplayPlayPause = onReplayPlayPause,
                         onReplaySeek = onReplaySeek,
-                        onReplaySpeedSelect = onReplaySpeedSelect,
-                        onReplayCameraModeSelect = onReplayCameraModeSelect
+                        onReplaySpeedSelect = onReplaySpeedSelect
                     )
                 DutyHandoverTab.Report ->
                     ReportTab(
@@ -569,25 +563,23 @@ private fun ReplayTab(
     onSelectDutyShift: (String) -> Unit,
     onReplayPlayPause: () -> Unit,
     onReplaySeek: (Long) -> Unit,
-    onReplaySpeedSelect: (HandoverReplaySpeed) -> Unit,
-    onReplayCameraModeSelect: (HandoverReplayCameraMode) -> Unit
+    onReplaySpeedSelect: (HandoverReplaySpeed) -> Unit
 ) {
     DutyShiftSelectorCard(options = state.dutyShiftOptions, onSelectDutyShift = onSelectDutyShift)
-    ReplayPathPreviewCard(state)
     ReplayMapCard(state = state, mapState = mapState)
     ReplayControlCard(
         control = state.replayControl,
         onPlayPause = onReplayPlayPause,
         onSeek = onReplaySeek,
-        onSpeedSelect = onReplaySpeedSelect,
-        onCameraModeSelect = onReplayCameraModeSelect
+        onSpeedSelect = onReplaySpeedSelect
     )
+    ReplayPathSummaryCard(state)
     ReplayMarkerCard(markers = state.replayMarkers)
     RecordCard(title = "타임라인", records = state.records)
 }
 
 @Composable
-private fun ReplayPathPreviewCard(state: DutyHandoverUiState) {
+private fun ReplayPathSummaryCard(state: DutyHandoverUiState) {
     PoliCard(strong = true) {
         Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
             state.replayBadges.forEach { badge ->
@@ -599,11 +591,6 @@ private fun ReplayPathPreviewCard(state: DutyHandoverUiState) {
             text = state.generatedAtLabel,
             style = MaterialTheme.typography.bodyMedium,
             color = PoliFgMuted
-        )
-        ReplayRoutePreview(
-            points = state.replayPoints,
-            markers = state.replayMarkers,
-            control = state.replayControl
         )
         if (state.metrics.isNotEmpty()) {
             MetricRow(metrics = state.metrics)
@@ -683,108 +670,6 @@ private fun ReplayMapCard(
     }
 }
 
-@Composable
-private fun ReplayRoutePreview(
-    points: List<HandoverReplayPointUi>,
-    markers: List<HandoverReplayMarker>,
-    control: HandoverReplayControlUiState
-) {
-    val shape = MaterialTheme.shapes.medium
-    Canvas(
-        modifier =
-        Modifier
-            .fillMaxWidth()
-            .height(156.dp)
-            .clip(shape)
-            .background(PoliBgInput)
-            .padding(PoliDimens.Space4)
-    ) {
-        val drawablePoints = points.sortedBy(HandoverReplayPointUi::elapsedMs)
-        if (drawablePoints.size < 2) {
-            drawCircle(
-                color = PoliFgMuted,
-                radius = 8.dp.toPx(),
-                center = Offset(size.width * 0.5f, size.height * 0.5f)
-            )
-            return@Canvas
-        }
-
-        val projected = drawablePoints.map { point -> point to point.project(drawablePoints, size.width, size.height) }
-        val stroke = 7.dp.toPx()
-        projected.zipWithNext { previous, current ->
-            drawLine(
-                color = PoliFgMuted.copy(alpha = 0.35f),
-                start = previous.second,
-                end = current.second,
-                strokeWidth = stroke,
-                cap = StrokeCap.Round
-            )
-        }
-
-        val playhead = control.displayPlayheadMs
-        val playheadProjected = drawablePoints.positionAt(playhead)?.project(drawablePoints, size.width, size.height)
-        val progressedPoints =
-            projected
-                .takeWhile { (point, _) -> point.elapsedMs <= playhead }
-                .map { it.second }
-                .let { completed ->
-                    if (playheadProjected != null && (completed.lastOrNull() != playheadProjected)) {
-                        completed + playheadProjected
-                    } else {
-                        completed
-                    }
-                }
-        progressedPoints.zipWithNext { previous, current ->
-            drawLine(PoliPrimaryMid, previous, current, strokeWidth = stroke, cap = StrokeCap.Round)
-        }
-
-        drawCircle(PoliCurrent, radius = 7.dp.toPx(), center = projected.first().second)
-        drawCircle(PoliCurrent, radius = 7.dp.toPx(), center = projected.last().second)
-        playheadProjected?.let { current ->
-            drawCircle(PoliPrimaryMid, radius = 10.dp.toPx(), center = current)
-            drawCircle(PoliBgInput, radius = 4.dp.toPx(), center = current)
-        }
-
-        markers.mapNotNull { marker ->
-            val lat = marker.lat ?: return@mapNotNull null
-            val lng = marker.lng ?: return@mapNotNull null
-            HandoverReplayPointUi(elapsedMs = 0L, lat = lat, lng = lng).project(drawablePoints, size.width, size.height)
-        }.take(8).forEach { position ->
-            drawCircle(PoliWarning, radius = 9.dp.toPx(), center = position)
-            drawCircle(PoliBgInput, radius = 4.dp.toPx(), center = position)
-        }
-    }
-}
-
-private fun HandoverReplayPointUi.project(
-    bounds: List<HandoverReplayPointUi>,
-    width: Float,
-    height: Float
-): Offset {
-    val paddingX = width * 0.08f
-    val paddingY = height * 0.12f
-    val minLat = bounds.minOf(HandoverReplayPointUi::lat)
-    val maxLat = bounds.maxOf(HandoverReplayPointUi::lat)
-    val minLng = bounds.minOf(HandoverReplayPointUi::lng)
-    val maxLng = bounds.maxOf(HandoverReplayPointUi::lng)
-    val xRatio =
-        if (abs(maxLng - minLng) < 0.000001) {
-            0.5
-        } else {
-            (lng - minLng) / (maxLng - minLng)
-        }
-    val yRatio =
-        if (abs(maxLat - minLat) < 0.000001) {
-            0.5
-        } else {
-            1.0 - ((lat - minLat) / (maxLat - minLat))
-        }
-    return Offset(
-        x = (paddingX + (xRatio * (width - (paddingX * 2f)))).toFloat(),
-        y = (paddingY + (yRatio * (height - (paddingY * 2f)))).toFloat()
-    )
-}
-
 private fun List<HandoverReplayPointUi>.positionAt(elapsedMs: Long): HandoverReplayPointUi? {
     val points = sortedBy(HandoverReplayPointUi::elapsedMs)
     val first = points.firstOrNull() ?: return null
@@ -810,21 +695,39 @@ private fun List<HandoverReplayPointUi>.positionAt(elapsedMs: Long): HandoverRep
     )
 }
 
-private fun DutyHandoverUiState.toReplayRuntimeMapState(base: MapLibreRuntimeMapState): MapLibreRuntimeMapState {
+internal fun DutyHandoverUiState.toReplayRuntimeMapState(base: MapLibreRuntimeMapState): MapLibreRuntimeMapState {
     val playheadPoint = replayPoints.positionAt(replayControl.displayPlayheadMs)
     val pathOverlays =
-        replayPathSegments.mapNotNull { segment ->
-            val geoJson = segment.points.lineStringGeoJson() ?: return@mapNotNull null
-            MapLibreGeometryOverlay(
-                id = "handover-path-${segment.sourceKey}",
-                kind = MapLibreGeometryOverlayKind.Path,
-                geoJson = geoJson,
-                highlighted = true,
-                label = segment.label
-            )
+        replayPathSegments.flatMap { segment ->
+            val fullPath =
+                segment.points.lineStringGeoJson()?.let { geoJson ->
+                    MapLibreGeometryOverlay(
+                        id = "handover-path-full-${segment.sourceKey}",
+                        kind = MapLibreGeometryOverlayKind.Path,
+                        geoJson = geoJson,
+                        highlighted = false,
+                        label = segment.label
+                    )
+                }
+            val progressedPath =
+                segment.points
+                    .pointsUntil(replayControl.displayPlayheadMs)
+                    .lineStringGeoJson()
+                    ?.let { geoJson ->
+                        MapLibreGeometryOverlay(
+                            id = "handover-path-progress-${segment.sourceKey}",
+                            kind = MapLibreGeometryOverlayKind.Path,
+                            geoJson = geoJson,
+                            highlighted = true
+                        )
+                    }
+            listOfNotNull(fullPath, progressedPath)
         }
     val markerOverlays =
         replayMarkers.mapIndexedNotNull { index, marker ->
+            if (!marker.isVisibleAt(replayControl.displayPlayheadMs)) {
+                return@mapIndexedNotNull null
+            }
             val lat = marker.lat ?: return@mapIndexedNotNull null
             val lng = marker.lng ?: return@mapIndexedNotNull null
             MapLibreGeometryOverlay(
@@ -850,6 +753,20 @@ private fun DutyHandoverUiState.toReplayRuntimeMapState(base: MapLibreRuntimeMap
         geometryOverlays = pathOverlays + markerOverlays + listOfNotNull(playheadOverlay)
     )
 }
+
+private fun List<HandoverReplayPointUi>.pointsUntil(elapsedMs: Long): List<HandoverReplayPointUi> {
+    val points = sortedBy(HandoverReplayPointUi::elapsedMs)
+    val first = points.firstOrNull() ?: return emptyList()
+    val clampedElapsedMs = elapsedMs.coerceAtLeast(first.elapsedMs)
+    val progressed = points.takeWhile { point -> point.elapsedMs <= clampedElapsedMs }
+    val playheadPoint = positionAt(clampedElapsedMs)
+    return (progressed + listOfNotNull(playheadPoint))
+        .distinctBy { point -> point.elapsedMs }
+        .sortedBy(HandoverReplayPointUi::elapsedMs)
+}
+
+private fun HandoverReplayMarker.isVisibleAt(displayPlayheadMs: Long): Boolean =
+    elapsedMs == null || elapsedMs <= displayPlayheadMs
 
 private fun DutyHandoverUiState.replayMapBounds(playheadPoint: HandoverReplayPointUi?): MapLibreViewportBounds? {
     val points =
@@ -894,8 +811,7 @@ private fun ReplayControlCard(
     control: HandoverReplayControlUiState,
     onPlayPause: () -> Unit,
     onSeek: (Long) -> Unit,
-    onSpeedSelect: (HandoverReplaySpeed) -> Unit,
-    onCameraModeSelect: (HandoverReplayCameraMode) -> Unit
+    onSpeedSelect: (HandoverReplaySpeed) -> Unit
 ) {
     ReportSectionCard(title = "리플레이 컨트롤") {
         Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
@@ -920,7 +836,6 @@ private fun ReplayControlCard(
             enabled = control.displayDurationMs > 0L
         )
         ReplaySpeedControls(selectedSpeed = control.speed, onSpeedSelect = onSpeedSelect)
-        ReplayCameraControls(selectedMode = control.cameraMode, onCameraModeSelect = onCameraModeSelect)
     }
 }
 
@@ -936,24 +851,6 @@ private fun ReplaySpeedControls(
                 text = speed.label,
                 selected = speed == selectedSpeed,
                 onClick = { onSpeedSelect(speed) },
-                modifier = Modifier.weight(1f)
-            )
-        }
-    }
-}
-
-@Composable
-private fun ReplayCameraControls(
-    selectedMode: HandoverReplayCameraMode,
-    onCameraModeSelect: (HandoverReplayCameraMode) -> Unit
-) {
-    Text(text = "카메라", style = MaterialTheme.typography.labelLarge, color = PoliFgMuted)
-    Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
-        HandoverReplayCameraMode.entries.forEach { mode ->
-            ReplayOptionButton(
-                text = mode.label,
-                selected = mode == selectedMode,
-                onClick = { onCameraModeSelect(mode) },
                 modifier = Modifier.weight(1f)
             )
         }
@@ -1225,14 +1122,6 @@ private val HandoverReplaySpeed.label: String
             HandoverReplaySpeed.X4 -> "4x"
             HandoverReplaySpeed.X16 -> "16x"
             HandoverReplaySpeed.X60 -> "60x"
-        }
-
-private val HandoverReplayCameraMode.label: String
-    get() =
-        when (this) {
-            HandoverReplayCameraMode.Overview -> "전체"
-            HandoverReplayCameraMode.FollowPlayhead -> "추적"
-            HandoverReplayCameraMode.Free -> "자유"
         }
 
 private fun formatReplayElapsed(milliseconds: Long): String {
