@@ -3,6 +3,8 @@ package com.surimap.feature.bootstrap.data
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.browser.customtabs.CustomTabColorSchemeParams
+import androidx.browser.customtabs.CustomTabsIntent
 import com.surimap.BuildConfig
 import kotlin.coroutines.resume
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -26,9 +28,25 @@ class AndroidOidcLoginClient(
 ) {
     private val authorizationService = AuthorizationService(context)
 
-    fun createAuthorizationIntent(apiBaseUrl: String): Intent {
+    fun createAuthorizationIntent(
+        apiBaseUrl: String,
+        toolbarColor: Int,
+        navigationBarColor: Int
+    ): Intent {
         val request = authorizationRequest(apiBaseUrl)
-        return authorizationService.getAuthorizationRequestIntent(request)
+        val customTabsIntent =
+            authorizationService
+                .createCustomTabsIntentBuilder()
+                .setColorScheme(CustomTabsIntent.COLOR_SCHEME_DARK)
+                .setDefaultColorSchemeParams(
+                    CustomTabColorSchemeParams.Builder()
+                        .setToolbarColor(toolbarColor)
+                        .setNavigationBarColor(navigationBarColor)
+                        .build()
+                )
+                .setShowTitle(true)
+                .build()
+        return authorizationService.getAuthorizationRequestIntent(request, customTabsIntent)
     }
 
     suspend fun completeLogin(callbackIntent: Intent): OidcLoginSession? {

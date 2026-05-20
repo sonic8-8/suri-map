@@ -119,6 +119,7 @@ class AuthBootstrapContractTest {
         val appBuild = File("build.gradle.kts").readText()
         val versionCatalog = File("../gradle/libs.versions.toml").readText()
         val manifest = File("src/main/AndroidManifest.xml").readText()
+        val oidcClient = File("src/main/java/com/surimap/feature/bootstrap/data/AndroidOidcLoginClient.kt").readText()
 
         assertTrue(versionCatalog.contains("appauth"))
         assertTrue(appBuild.contains("implementation(libs.appauth)"))
@@ -128,8 +129,13 @@ class AuthBootstrapContractTest {
         assertTrue(manifest.contains("""android:scheme="com.surimap""""))
         assertTrue(manifest.contains("""android:host="auth""""))
         assertTrue(manifest.contains("""android:path="/callback""""))
+        assertTrue(oidcClient.contains("createCustomTabsIntentBuilder"))
+        assertTrue(oidcClient.contains("setDefaultColorSchemeParams"))
+        assertTrue(oidcClient.contains("setToolbarColor"))
+        assertTrue(oidcClient.contains("getAuthorizationRequestIntent(request, customTabsIntent)"))
         assertFalse(appBuild.contains("SURI_MAP_DEBUG_BOOTSTRAP_PASSWORD"))
         assertFalse(appBuild.contains("SURI_MAP_DEBUG_BOOTSTRAP_ACCOUNT_CODE"))
+        assertFalse(oidcClient.contains("WebView"))
     }
 
     @Test
@@ -205,7 +211,7 @@ class AuthBootstrapContractTest {
     }
 
     @Test
-    fun authenticationRequiredStatePromptsKeycloakLoginAfterManagedChecks() {
+    fun authenticationRequiredStatePromptsFieldFacingSsoAfterManagedChecks() {
         val state = AuthBootstrapUiState.fromOutcome(
             outcome = AuthBootstrapOutcome.Blocked(AuthBootstrapFailureReason.AuthenticationRequired),
             apiBaseUrl = "https://suri-map.internal"
@@ -213,11 +219,13 @@ class AuthBootstrapContractTest {
 
         assertFalse(state.shouldEnterIncidentList)
         assertTrue(state.requiresAuthentication)
-        assertEquals("수리맵 계정 인증이 필요합니다.", state.failureMessage)
-        assertEquals("계정 로그인 필요", state.title)
-        assertEquals("로그인", state.primaryActionLabel)
-        assertTrue(state.visibleText().any { it.contains("수리맵 계정") })
-        assertTrue(state.visibleText().any { it.contains("로그인") })
+        assertNull(state.failureMessage)
+        assertEquals("폴리폰 인증", state.title)
+        assertEquals("SSO로 계속", state.primaryActionLabel)
+        assertTrue(state.visibleText().any { it.contains("SSO 인증") })
+        assertTrue(state.visibleText().any { it.contains("자동으로 앱으로 돌아옵니다") })
+        assertFalse(state.visibleText().any { it.contains("Keycloak") })
+        assertFalse(state.visibleText().any { it.contains("인증 서버") })
         assertFalse(state.visibleText().any { it.contains("비밀번호") })
     }
 
