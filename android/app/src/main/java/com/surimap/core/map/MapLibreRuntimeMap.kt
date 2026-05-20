@@ -6,6 +6,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.PointF
 import android.os.Bundle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -26,6 +27,7 @@ import org.json.JSONObject
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLngBounds
+import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 import org.maplibre.android.net.ConnectivityReceiver
@@ -284,15 +286,19 @@ data class MapLibreRuntimeMapState(
 fun SuriMapLibreMap(
     state: MapLibreRuntimeMapState,
     modifier: Modifier = Modifier,
-    onLoadFailed: (String) -> Unit = {}
+    onLoadFailed: (String) -> Unit = {},
+    onMarkerClick: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val latestLoadFailed by rememberUpdatedState(onLoadFailed)
+    val latestMarkerClick by rememberUpdatedState(onMarkerClick)
+    val latestMapState by rememberUpdatedState(state)
     var appliedStyleUrl by remember { mutableStateOf<String?>(null) }
     var appliedOverlaySignature by remember { mutableStateOf<String?>(null) }
     var appliedOverlayStyleIds by remember { mutableStateOf(emptySet<String>()) }
     var appliedCameraSignature by remember { mutableStateOf<String?>(null) }
+    var markerClickListener by remember { mutableStateOf<MapLibreMap.OnMapClickListener?>(null) }
     val mapView = remember {
         MapLibre.getInstance(context.applicationContext)
         MapView(context).apply { onCreate(Bundle()) }
@@ -318,6 +324,11 @@ fun SuriMapLibreMap(
         mapView.addOnDidFailLoadingMapListener(failListener)
         lifecycleBridge.sync(lifecycle.currentState)
         onDispose {
+            markerClickListener?.let { listener ->
+                mapView.getMapAsync { mapLibreMap ->
+                    mapLibreMap.removeOnMapClickListener(listener)
+                }
+            }
             lifecycle.removeObserver(observer)
             mapView.removeOnDidFailLoadingMapListener(failListener)
             lifecycleBridge.onDestroy()
@@ -334,6 +345,35 @@ fun SuriMapLibreMap(
             view.getMapAsync { mapLibreMap ->
                 mapLibreMap.uiSettings.setAttributionEnabled(true)
                 mapLibreMap.uiSettings.setLogoEnabled(true)
+                if (markerClickListener == null) {
+                    val listener =
+                        MapLibreMap.OnMapClickListener { latLng ->
+                            val markerLayerIds =
+                                latestMapState.geometryOverlays
+                                    .filter { it.kind == MapLibreGeometryOverlayKind.Marker }
+                                    .map { it.circleLayerId }
+                                    .toTypedArray()
+                            if (markerLayerIds.isEmpty()) {
+                                return@OnMapClickListener false
+                            }
+                            val point: PointF = mapLibreMap.projection.toScreenLocation(latLng)
+                            val markerId =
+                                runCatching {
+                                    mapLibreMap.queryRenderedFeatures(point, *markerLayerIds)
+                                        .firstNotNullOfOrNull { feature ->
+                                            feature.getStringProperty("id")?.takeIf(String::isNotBlank)
+                                        }
+                                }.getOrNull()
+                            if (markerId != null) {
+                                latestMarkerClick(markerId)
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    mapLibreMap.addOnMapClickListener(listener)
+                    markerClickListener = listener
+                }
                 fun applyRuntimeState(style: Style) {
                     if (appliedOverlaySignature != overlaySignature) {
                         val currentStyleIds = state.geometryOverlays.map { it.styleId }.toSet()

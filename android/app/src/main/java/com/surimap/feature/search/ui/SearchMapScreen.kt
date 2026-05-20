@@ -532,6 +532,7 @@ fun SearchMapScreen(
             mapBottomInset = mapBottomInset,
             onOpenBlockedOutbox = onOpenBlockedOutbox,
             onCenterCurrentLocation = onCenterCurrentLocation,
+            onOpenMarkerDetail = onOpenFocusedMarkerDetail,
             modifier = mapModifier
         )
 
@@ -693,6 +694,7 @@ private fun SearchMapShell(
     mapBottomInset: Dp,
     onOpenBlockedOutbox: () -> Unit,
     onCenterCurrentLocation: () -> Unit,
+    onOpenMarkerDetail: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val runtimeMapState = state.toRuntimeMapState(mapState)
@@ -709,7 +711,8 @@ private fun SearchMapShell(
             SuriMapLibreMap(
                 state = runtimeMapState,
                 modifier = mapContentModifier,
-                onLoadFailed = {}
+                onLoadFailed = {},
+                onMarkerClick = onOpenMarkerDetail
             )
         }
 

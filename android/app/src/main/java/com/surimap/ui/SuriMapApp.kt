@@ -2220,6 +2220,9 @@ private fun MarkerDetailRoute(
                 retryPhotoId = photo.photoId
                 photoPicker.launch("image/*")
             }
+        },
+        onOpenPhoto = { photo ->
+            context.openMarkerPhoto(photo.viewUrl)
         }
     )
 }
@@ -2844,6 +2847,18 @@ private fun Context.hasReadableMarkerPhoto(uri: Uri): Boolean =
             input.read() >= 0
         } ?: false
     }.getOrDefault(false)
+
+private fun Context.openMarkerPhoto(url: String?) {
+    val target = url?.takeIf(String::isNotBlank) ?: return
+    val intent =
+        Intent(Intent.ACTION_VIEW, Uri.parse(target))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    runCatching {
+        startActivity(intent)
+    }.onFailure {
+        Toast.makeText(this, "사진을 열 수 없습니다.", Toast.LENGTH_SHORT).show()
+    }
+}
 
 private fun MarkerDetailUiState.upsertPhoto(photo: MarkerDetailPhotoUiState): MarkerDetailUiState =
     copy(photos = photos.filterNot { it.photoId == photo.photoId } + photo)
