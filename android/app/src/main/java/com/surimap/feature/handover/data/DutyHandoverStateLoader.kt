@@ -313,7 +313,7 @@ class DutyHandoverStateLoader(
         val replayPoints = parseReplayPoints(paths, firstReplayAt)
         val replayDurationMs = replayPoints.maxOfOrNull(HandoverReplayPointUi::elapsedMs) ?: 0L
         val replayPathSegments = parseReplayPathSegments(paths, actors, firstReplayAt)
-        val replayMarkers = parseReplayMarkers(events)
+        val replayMarkers = parseReplayMarkers(events, firstReplayAt)
         val records = parseTimelineRecords(events, actors)
         val summary =
             body.optJSONObject("summary")
@@ -427,7 +427,7 @@ class DutyHandoverStateLoader(
             }
         }.sortedBy(HandoverReplayPointUi::elapsedMs)
 
-    private fun parseReplayMarkers(events: JSONArray): List<HandoverReplayMarker> =
+    private fun parseReplayMarkers(events: JSONArray, firstAt: Instant?): List<HandoverReplayMarker> =
         buildList {
             repeat(events.length()) { index ->
                 val event = events.optJSONObject(index) ?: return@repeat
@@ -439,12 +439,19 @@ class DutyHandoverStateLoader(
                 val markerType = detail.optString("markerType").ifBlank { "NOTE" }
                 val memo = detail.optString("memo").takeIf(String::isNotBlank)
                 val photoCount = detail.optInt("photoCount", 0).coerceAtLeast(0)
+                val elapsedMs =
+                    firstAt?.let { origin ->
+                        event.optString("occurredAt")
+                            .toInstantOrNull()
+                            ?.let { occurredAt -> Duration.between(origin, occurredAt).toMillis().coerceAtLeast(0L) }
+                    }
                 add(
                     HandoverReplayMarker(
                         title = "${markerType.toMarkerTypeLabel()} 마커",
                         timeLabel = event.optString("occurredAt").toTimeLabel(),
                         typeLabel = markerType.toMarkerTypeLabel(),
                         photoCountLabel = "사진 ${photoCount}장",
+                        elapsedMs = elapsedMs,
                         lat = location?.optDouble("lat", Double.NaN)?.takeIf(Double::isFinite),
                         lng = location?.optDouble("lng", Double.NaN)?.takeIf(Double::isFinite)
                     ).let { marker ->

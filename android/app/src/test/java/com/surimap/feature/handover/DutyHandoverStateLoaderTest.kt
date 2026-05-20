@@ -131,6 +131,7 @@ class DutyHandoverStateLoaderTest {
         assertEquals(2, state.replayPoints.size)
         assertTrue(state.replayPathSegments.any { it.label.contains("순찰차 1") && it.modeLabel == "도보" })
         assertTrue(state.replayMarkers.any { it.title.contains("배수로 입구") && it.photoCountLabel == "사진 2장" })
+        assertEquals(300_000L, state.replayMarkers.single().elapsedMs)
         assertTrue(state.records.any { it.subtitle.contains("북측 진입로") })
         assertTrue(state.metrics.any { it.label == "총 이동" && it.value == "1.8km" })
     }

@@ -997,9 +997,6 @@ private fun HandoverSummaryRoute(
         onReplaySpeedSelect = { speed ->
             replayControlState = currentReplayControl.selectSpeed(speed)
         },
-        onReplayCameraModeSelect = { cameraMode ->
-            replayControlState = currentReplayControl.selectCameraMode(cameraMode)
-        },
         onSelectOriginalRecord = { record ->
             selectedOriginalRecordKey = record.sourceKey
             selectedHandoverTab = DutyHandoverTab.Report

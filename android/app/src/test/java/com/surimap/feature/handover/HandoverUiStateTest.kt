@@ -3,11 +3,15 @@ package com.surimap.feature.handover
 import com.surimap.feature.handover.ui.DutyHandoverUiState
 import com.surimap.feature.handover.ui.DutyHandoverTab
 import com.surimap.feature.handover.ui.HandoverReplayControlUiState
+import com.surimap.feature.handover.ui.HandoverReplayMarker
+import com.surimap.feature.handover.ui.HandoverReplayPathSegment
+import com.surimap.feature.handover.ui.HandoverReplayPointUi
 import com.surimap.feature.handover.ui.HandoverMemoTarget
 import com.surimap.feature.handover.ui.HandoverMemoUiState
 import com.surimap.feature.handover.ui.HandoverPromptUiState
-import com.surimap.feature.handover.domain.HandoverReplayCameraMode
 import com.surimap.feature.handover.domain.HandoverReplaySpeed
+import com.surimap.feature.handover.ui.toReplayRuntimeMapState
+import com.surimap.core.map.MapLibreRuntimeMapState
 import java.io.File
 import java.time.Instant
 import org.junit.Assert.assertEquals
@@ -114,7 +118,7 @@ class HandoverUiStateTest {
         val replay = DutyHandoverUiState.ready().selectTab(DutyHandoverTab.Replay)
 
         assertEquals(
-            listOf("경로 미리보기", "마커", "타임라인"),
+            listOf("지도 리플레이", "경로 개요", "마커", "타임라인"),
             replay.replaySectionTitles
         )
         assertEquals(listOf("근무 기준", "단일 근무자", "타임라인 재생"), replay.replayBadges)
@@ -149,18 +153,20 @@ class HandoverUiStateTest {
                         playing = true,
                         displayPlayheadMs = 16_000L,
                         displayDurationMs = 120_000L,
-                        speed = HandoverReplaySpeed.X16,
-                        cameraMode = HandoverReplayCameraMode.FollowPlayhead
+                        speed = HandoverReplaySpeed.X16
                     )
                 )
 
         assertEquals("일시정지", replay.replayControl.playPauseLabel)
         assertEquals("00:16", replay.replayControl.currentTimeLabel)
         assertEquals("02:00", replay.replayControl.durationLabel)
-        listOf("리플레이 컨트롤", "00:16 / 02:00", "속도", "1x", "4x", "16x", "60x", "카메라", "전체", "추적", "자유")
+        listOf("리플레이 컨트롤", "00:16 / 02:00", "속도", "1x", "4x", "16x", "60x")
             .forEach { text ->
                 assertTrue(replay.visibleText().any { it.contains(text) })
             }
+        listOf("카메라", "추적", "자유").forEach { text ->
+            assertFalse(replay.visibleText().any { it.contains(text) })
+        }
 
         listOf(replay).forEach { state ->
             assertFalse(state.visibleText().any { it.contains("다른 근무자") })
@@ -172,13 +178,12 @@ class HandoverUiStateTest {
     }
 
     @Test
-    fun replayControlClampsSeekAndPreservesSelectedMode() {
+    fun replayControlClampsSeekAndPreservesSelectedSpeed() {
         val control =
             HandoverReplayControlUiState(displayDurationMs = 120_000L)
                 .togglePlaying()
                 .seekTo(160_000L)
                 .selectSpeed(HandoverReplaySpeed.X60)
-                .selectCameraMode(HandoverReplayCameraMode.Free)
 
         assertTrue(control.playing)
         assertEquals(120_000L, control.displayPlayheadMs)
@@ -186,7 +191,6 @@ class HandoverUiStateTest {
         assertEquals("02:00", control.durationLabel)
         assertEquals(1f, control.sliderPosition)
         assertEquals(HandoverReplaySpeed.X60, control.speed)
-        assertEquals(HandoverReplayCameraMode.Free, control.cameraMode)
 
         val shortened = control.withDuration(30_000L)
 
@@ -212,6 +216,69 @@ class HandoverUiStateTest {
         assertTrue(advanced.playing)
         assertEquals(10_000L, finished.displayPlayheadMs)
         assertFalse(finished.playing)
+    }
+
+    @Test
+    fun replayMapStateHighlightsProgressAndShowsOnlyElapsedMarkers() {
+        val points =
+            listOf(
+                HandoverReplayPointUi(0L, 35.0, 126.0),
+                HandoverReplayPointUi(60_000L, 35.1, 126.1),
+                HandoverReplayPointUi(120_000L, 35.2, 126.2)
+            )
+        val state =
+            DutyHandoverUiState.ready()
+                .copy(
+                    replayPoints = points,
+                    replayPathSegments =
+                    listOf(
+                        HandoverReplayPathSegment(
+                            label = "이전 근무 경로",
+                            timeRangeLabel = "12:00-12:02",
+                            distanceLabel = "GPS 3점",
+                            modeLabel = "도보",
+                            sourceKey = "path-1",
+                            points = points
+                        )
+                    ),
+                    replayMarkers =
+                    listOf(
+                        HandoverReplayMarker(
+                            title = "확인된 마커",
+                            timeLabel = "12:00",
+                            typeLabel = "단서",
+                            photoCountLabel = "사진 0장",
+                            elapsedMs = 30_000L,
+                            lat = 35.05,
+                            lng = 126.05
+                        ),
+                        HandoverReplayMarker(
+                            title = "아직 도달 전 마커",
+                            timeLabel = "12:01",
+                            typeLabel = "단서",
+                            photoCountLabel = "사진 0장",
+                            elapsedMs = 90_000L,
+                            lat = 35.15,
+                            lng = 126.15
+                        )
+                    ),
+                    replayControl =
+                    HandoverReplayControlUiState(
+                        displayPlayheadMs = 60_000L,
+                        displayDurationMs = 120_000L
+                    )
+                )
+
+        val overlays = state.toReplayRuntimeMapState(MapLibreRuntimeMapState()).geometryOverlays.associateBy { it.id }
+        val progressOverlay = overlays.getValue("handover-path-progress-path-1")
+
+        assertTrue(overlays.containsKey("handover-path-full-path-1"))
+        assertTrue(overlays.containsKey("handover-marker-0"))
+        assertFalse(overlays.containsKey("handover-marker-1"))
+        assertTrue(overlays.containsKey("handover-playhead"))
+        assertTrue(progressOverlay.highlighted)
+        assertTrue(progressOverlay.geoJson.contains("[126.1,35.1]"))
+        assertFalse(progressOverlay.geoJson.contains("[126.2,35.2]"))
     }
 
     @Test
@@ -300,7 +367,6 @@ class HandoverUiStateTest {
         val playPauseIndex = source.indexOf("onReplayPlayPause =", routeIndex)
         val seekIndex = source.indexOf("onReplaySeek =", routeIndex)
         val speedIndex = source.indexOf("onReplaySpeedSelect =", routeIndex)
-        val cameraIndex = source.indexOf("onReplayCameraModeSelect =", routeIndex)
         val advanceIndex = source.indexOf("advanceBy(250L)", routeIndex)
 
         assertTrue(routeIndex >= 0)
@@ -308,8 +374,8 @@ class HandoverUiStateTest {
         assertTrue(playPauseIndex > replayStateIndex)
         assertTrue(seekIndex > replayStateIndex)
         assertTrue(speedIndex > replayStateIndex)
-        assertTrue(cameraIndex > replayStateIndex)
         assertTrue(advanceIndex > replayStateIndex)
+        assertFalse(source.contains("onReplayCameraModeSelect"))
     }
 
     @Test

@@ -1,6 +1,5 @@
 package com.surimap.feature.handover
 
-import com.surimap.feature.handover.domain.HandoverReplayCameraMode
 import com.surimap.feature.handover.domain.HandoverReplayEngine
 import com.surimap.feature.handover.domain.HandoverReplayPlaybackState
 import com.surimap.feature.handover.domain.HandoverReplayPoint
@@ -53,7 +52,7 @@ class HandoverReplayEngineTest {
     }
 
     @Test
-    fun advancesPlayheadBySpeedAndKeepsCameraModeState() {
+    fun advancesPlayheadBySpeedAndSnapshotsPosition() {
         val engine =
             HandoverReplayEngine(
                 points =
@@ -66,12 +65,10 @@ class HandoverReplayEngineTest {
         val state =
             HandoverReplayPlaybackState()
                 .withSpeed(HandoverReplaySpeed.X16)
-                .withCameraMode(HandoverReplayCameraMode.FollowPlayhead)
                 .advanceBy(realElapsedMs = 1_000L, engine = engine)
 
         assertEquals(16_000L, state.displayPlayheadMs)
         assertEquals(HandoverReplaySpeed.X16, state.speed)
-        assertEquals(HandoverReplayCameraMode.FollowPlayhead, state.cameraMode)
         assertEquals(16_000L, state.snapshot(engine).sourceElapsedMs)
         assertEquals(35.016, state.snapshot(engine).position!!.lat, 0.000001)
     }

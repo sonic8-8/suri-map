@@ -26,22 +26,12 @@ enum class HandoverReplaySpeed(val multiplier: Int) {
     X60(60)
 }
 
-enum class HandoverReplayCameraMode {
-    Overview,
-    FollowPlayhead,
-    Free
-}
-
 data class HandoverReplayPlaybackState(
     val displayPlayheadMs: Long = 0L,
-    val speed: HandoverReplaySpeed = HandoverReplaySpeed.X1,
-    val cameraMode: HandoverReplayCameraMode = HandoverReplayCameraMode.Overview
+    val speed: HandoverReplaySpeed = HandoverReplaySpeed.X1
 ) {
     fun withSpeed(speed: HandoverReplaySpeed): HandoverReplayPlaybackState =
         copy(speed = speed)
-
-    fun withCameraMode(cameraMode: HandoverReplayCameraMode): HandoverReplayPlaybackState =
-        copy(cameraMode = cameraMode)
 
     fun advanceBy(realElapsedMs: Long, engine: HandoverReplayEngine): HandoverReplayPlaybackState {
         val scaledDeltaMs = realElapsedMs.coerceAtLeast(0L) * speed.multiplier
