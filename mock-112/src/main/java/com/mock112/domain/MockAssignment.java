@@ -1,7 +1,5 @@
 package com.mock112.domain;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
-
 import java.time.OffsetDateTime;
 
 /**
@@ -16,8 +14,6 @@ public class MockAssignment {
     private String externalAssignmentKey;
     private String accountCode;
     private String incidentRole;
-
-    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ssXXX")
     private OffsetDateTime assignedAt;
 
     public MockAssignment() {}

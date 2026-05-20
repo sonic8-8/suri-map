@@ -37,10 +37,11 @@ public class JdbcIncidentStore implements MockIncidentStore {
             jdbcTemplate.update(
                     """
                     INSERT INTO mock_incident
-                        (source_incident_id, title, opened_at, status, created_at)
-                    VALUES (?, ?, ?, ?, ?)
+                        (source_incident_id, case_number, title, opened_at, status, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
                     """,
                     incident.getSourceIncidentId(),
+                    incident.getCaseNumber(),
                     incident.getTitle(),
                     incident.getOpenedAt(),
                     status,
@@ -63,7 +64,7 @@ public class JdbcIncidentStore implements MockIncidentStore {
     public Optional<MockIncident> findById(String sourceIncidentId) {
         List<MockIncident> incidents = jdbcTemplate.query(
                 """
-                SELECT source_incident_id, title, opened_at, status, created_at
+                SELECT source_incident_id, case_number, title, opened_at, status, created_at
                 FROM mock_incident
                 WHERE source_incident_id = ?
                 """,
@@ -82,7 +83,7 @@ public class JdbcIncidentStore implements MockIncidentStore {
     public List<MockIncident> findByStatus(String status) {
         return hydrateAll(jdbcTemplate.query(
                 """
-                SELECT source_incident_id, title, opened_at, status, created_at
+                SELECT source_incident_id, case_number, title, opened_at, status, created_at
                 FROM mock_incident
                 WHERE UPPER(status) = UPPER(?)
                 ORDER BY created_at DESC, source_incident_id
@@ -96,7 +97,7 @@ public class JdbcIncidentStore implements MockIncidentStore {
     public List<MockIncident> findAll() {
         return hydrateAll(jdbcTemplate.query(
                 """
-                SELECT source_incident_id, title, opened_at, status, created_at
+                SELECT source_incident_id, case_number, title, opened_at, status, created_at
                 FROM mock_incident
                 ORDER BY created_at DESC, source_incident_id
                 """,
@@ -107,6 +108,7 @@ public class JdbcIncidentStore implements MockIncidentStore {
     @Transactional
     public boolean addAssignment(String sourceIncidentId, MockAssignment assignment) {
         assertIncidentExists(sourceIncidentId);
+        normalizeAssignment(sourceIncidentId, assignment);
         try {
             jdbcTemplate.update(
                     """
@@ -287,6 +289,7 @@ public class JdbcIncidentStore implements MockIncidentStore {
     private static MockIncident mapIncident(ResultSet rs) throws SQLException {
         MockIncident incident = new MockIncident();
         incident.setSourceIncidentId(rs.getString("source_incident_id"));
+        incident.setCaseNumber(rs.getString("case_number"));
         incident.setTitle(rs.getString("title"));
         incident.setOpenedAt(offsetDateTime(rs, "opened_at"));
         incident.setStatus(rs.getString("status"));
@@ -300,6 +303,17 @@ public class JdbcIncidentStore implements MockIncidentStore {
 
     private static OffsetDateTime valueOrNow(OffsetDateTime value) {
         return value == null ? OffsetDateTime.now() : value;
+    }
+
+    private static void normalizeAssignment(String sourceIncidentId, MockAssignment assignment) {
+        if (assignment.getAssignedAt() == null) {
+            assignment.setAssignedAt(OffsetDateTime.now());
+        }
+        if ((assignment.getExternalAssignmentKey() == null || assignment.getExternalAssignmentKey().isBlank())
+                && assignment.getAccountCode() != null
+                && !assignment.getAccountCode().isBlank()) {
+            assignment.setExternalAssignmentKey(sourceIncidentId + ":" + assignment.getAccountCode().trim());
+        }
     }
 
     private static String valueOrDefault(String value, String fallback) {

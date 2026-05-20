@@ -1,7 +1,5 @@
 package com.mock112.domain;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
-
 import java.time.OffsetDateTime;
 
 /**
@@ -14,8 +12,6 @@ public class MockMissingPerson {
     private String photoObjectKey;
     private String appearanceText;
     private String lastSeenLocationText;
-
-    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ssXXX")
     private OffsetDateTime lastSeenAt;
 
     public MockMissingPerson() {}

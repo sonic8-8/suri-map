@@ -5,6 +5,7 @@ import com.mock112.domain.MockIncident;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -62,6 +63,7 @@ public class InMemoryIncidentStore implements MockIncidentStore {
         if (incident == null) {
             throw new IllegalArgumentException("Incident not found: " + sourceIncidentId);
         }
+        normalizeAssignment(sourceIncidentId, assignment);
         boolean added = incident.addAssignment(assignment);
         if (added) {
             log.info("Assignment added to {}: {}", sourceIncidentId, assignment.getAccountCode());
@@ -94,5 +96,16 @@ public class InMemoryIncidentStore implements MockIncidentStore {
     @Override
     public int size() {
         return store.size();
+    }
+
+    private void normalizeAssignment(String sourceIncidentId, MockAssignment assignment) {
+        if (assignment.getAssignedAt() == null) {
+            assignment.setAssignedAt(OffsetDateTime.now());
+        }
+        if ((assignment.getExternalAssignmentKey() == null || assignment.getExternalAssignmentKey().isBlank())
+                && assignment.getAccountCode() != null
+                && !assignment.getAccountCode().isBlank()) {
+            assignment.setExternalAssignmentKey(sourceIncidentId + ":" + assignment.getAccountCode().trim());
+        }
     }
 }

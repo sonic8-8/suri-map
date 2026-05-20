@@ -12,7 +12,7 @@
     --text-secondary: #8899aa;
     --text-muted: #5a6b7d;
     --border: #2a3a4e;
-    --radius: 10px;
+    --radius: 8px;
     --shadow: 0 4px 24px rgba(0,0,0,0.3);
 }
 
@@ -135,6 +135,13 @@ main {
     border-color: var(--accent-blue);
     box-shadow: 0 0 0 3px rgba(58,134,255,0.15);
 }
+.select-preview {
+    min-height: 34px;
+    margin-top: 6px;
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.45;
+}
 .form-group select,
 .assignment-control select {
     width: 100%;
@@ -172,10 +179,15 @@ main {
     margin-bottom: 8px;
 }
 .incident-id {
+    display: inline;
+    padding: 0;
+    border: none;
+    background: transparent;
     font-family: monospace;
     font-size: 13px;
     color: var(--accent-cyan);
     cursor: pointer;
+    text-align: left;
 }
 .incident-id:hover { text-decoration: underline; }
 .incident-status {

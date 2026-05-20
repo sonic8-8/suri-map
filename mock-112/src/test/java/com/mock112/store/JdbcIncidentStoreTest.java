@@ -41,6 +41,7 @@ class JdbcIncidentStoreTest {
         store.save(incident);
 
         MockIncident found = store.findById(incident.getSourceIncidentId()).orElseThrow();
+        assertThat(found.getCaseNumber()).isEqualTo("112-20260516-9901");
         assertThat(found.getTitle()).isEqualTo("광주 무등산 실종 신고");
         assertThat(found.getStatus()).isEqualTo("READY");
         assertThat(found.getMissingPerson().getDisplayName()).isEqualTo("홍길동");
@@ -123,6 +124,7 @@ class JdbcIncidentStoreTest {
         OffsetDateTime openedAt = OffsetDateTime.of(2026, 5, 16, 9, 0, 0, 0, ZoneOffset.ofHours(9));
         MockIncident incident = new MockIncident();
         incident.setSourceIncidentId(sourceIncidentId);
+        incident.setCaseNumber("112-20260516-" + sourceIncidentId.substring(sourceIncidentId.length() - 4));
         incident.setTitle("광주 무등산 실종 신고");
         incident.setOpenedAt(openedAt);
         incident.setMissingPerson(new MockMissingPerson(

@@ -48,6 +48,7 @@ public class MockScenarioController {
             Map<String, Object> body = new LinkedHashMap<>();
             body.put("message", "precinct-first 시나리오가 적재되었습니다.");
             body.put("sourceIncidentId", incident.getSourceIncidentId());
+            body.put("caseNumber", incident.getCaseNumber());
             body.put("assignmentCount", incident.getAssignments().size());
             body.put("seedMarkerCount", incident.getSeedMarkers().size());
             return ResponseEntity.ok(body);

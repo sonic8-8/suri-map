@@ -53,12 +53,7 @@
                 <h2>📝 사건 등록</h2>
                 <form id="incidentForm" onsubmit="createIncident(event)">
                     <div class="form-row">
-                        <div class="form-group">
-                            <label>sourceIncidentId</label>
-                            <input type="text" id="inputSourceId" required
-                                   placeholder="mock-112-incident-002">
-                        </div>
-                        <div class="form-group">
+                        <div class="form-group full">
                             <label>사건 제목</label>
                             <input type="text" id="inputTitle" required
                                    placeholder="OO구 OO산 실종 신고">
@@ -84,6 +79,7 @@
                         <div class="form-group full">
                             <label>초기 배정 조직</label>
                             <select id="inputInitialAssignmentGroup" required></select>
+                            <p id="initialAssignmentPreview" class="select-preview"></p>
                         </div>
                     </div>
                     <button type="submit" class="btn btn-primary">등록</button>
