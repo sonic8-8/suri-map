@@ -1,6 +1,7 @@
 package com.surimap.incident.service;
 
 import com.surimap.common.auth.SuriMapAuthentication;
+import com.surimap.common.auth.Role;
 import com.surimap.incident.domain.IncidentImportIdempotencyRecord;
 import com.surimap.incident.domain.IncidentRecord;
 import com.surimap.incident.domain.IncidentStatus;
@@ -46,6 +47,7 @@ public class IncidentCloseService {
 
   @Transactional
   public IncidentCloseResult closeIncident(IncidentCloseCommand command) {
+    requireMissingTeamCommander(command.authentication());
     requireIdempotencyKey(command.idempotencyKey());
     // confirm=false 요청은 close 의사결정이 아직 끝나지 않은 상태이므로 DB 예약도 만들지 않는다.
     requireConfirmed(command.confirmPersonalDataRemoval());
@@ -150,6 +152,19 @@ public class IncidentCloseService {
       return;
     }
     throw new IncidentApiException("idempotency_mismatch", HttpStatus.CONFLICT);
+  }
+
+  private void requireMissingTeamCommander(Authentication authentication) {
+    if (!(authentication instanceof SuriMapAuthentication auth)) {
+      throw new IncidentApiException("channel_not_allowed", HttpStatus.FORBIDDEN);
+    }
+    boolean allowed =
+        auth.getAuthorities().stream()
+            .anyMatch(
+                authority -> Role.MISSING_TEAM_COMMANDER.name().equals(authority.getAuthority()));
+    if (!allowed) {
+      throw new IncidentApiException("role_denied", HttpStatus.FORBIDDEN);
+    }
   }
 
   private IncidentCloseResult toResult(IncidentRecord incident) {

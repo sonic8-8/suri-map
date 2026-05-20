@@ -150,6 +150,42 @@ class IncidentCloseCommandContractTest {
 
   @Test
   @WithMockAccount(
+      accountType = AccountType.COMMAND,
+      organizationType = OrganizationType.POLICE_SUBSTATION,
+      channel = Channel.WEB,
+      accountId = COMMANDER_ACCOUNT_ID,
+      roles = {Role.FIELD_COMMANDER})
+  @DisplayName("실종팀 지휘 권한이 없는 FIELD_COMMANDER는 사건 종료 command를 호출할 수 없다")
+  void fieldCommanderCannotCloseIncident() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/incidents/{incidentId}/close", INCIDENT_ID)
+                .header("Authorization", "Bearer close-command")
+                .header("X-Client-Channel", "WEB")
+                .header("Idempotency-Key", "idem-l1-t06-close-field-denied")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "closeReason": "SC12_COMPLETE",
+                      "confirmPersonalDataRemoval": true
+                    }
+                    """))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error", is("role_denied")));
+
+    assertThat(singleString("SELECT status FROM \"incident\" WHERE id = ?")).isEqualTo("OPEN");
+    assertThat(missingPersonCount()).isEqualTo(1);
+    assertThat(
+            singleLong(
+                "SELECT COUNT(*) FROM idempotency_record WHERE request_path = ?",
+                "/api/incidents/" + INCIDENT_ID + "/close"))
+        .isZero();
+    verify(incidentEventPublisher, never()).publishIncidentClosed(any());
+  }
+
+  @Test
+  @WithMockAccount(
       accountType = AccountType.TEAM,
       organizationType = OrganizationType.MISSING_TEAM,
       channel = Channel.WEB,
@@ -225,6 +261,11 @@ class IncidentCloseCommandContractTest {
   private long singleLong(String sql) {
     Long value = jdbc.queryForObject(sql, Long.class, INCIDENT_ID.toString());
     return value == null ? 0L : value;
+  }
+
+  private long singleLong(String sql, String value) {
+    Long result = jdbc.queryForObject(sql, Long.class, value);
+    return result == null ? 0L : result;
   }
 
   private int missingPersonCount() {
