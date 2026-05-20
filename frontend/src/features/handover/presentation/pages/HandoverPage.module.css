@@ -853,6 +853,50 @@
   font-size: 12px;
 }
 
+.memoPagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 2px;
+  color: var(--suri-board-fg-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.memoPagination > div {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.memoPagination button {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--handover-border-soft);
+  border-radius: 8px;
+  color: var(--suri-board-fg-primary);
+  background: var(--handover-panel-surface);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.memoPagination button:disabled {
+  color: var(--suri-board-fg-muted);
+  background: color-mix(in srgb, var(--handover-panel-surface) 56%, transparent);
+  cursor: default;
+  opacity: 0.64;
+}
+
+.memoPagination strong {
+  color: var(--suri-board-fg-secondary);
+  font-size: 12px;
+  font-weight: 900;
+}
+
 .memoTargetBadge {
   display: inline-flex;
   align-items: center;

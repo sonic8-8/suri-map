@@ -123,6 +123,7 @@ type SourceRecordView = {
 type SearchHistoryDetailTab = 'summary' | 'comparison';
 
 const DEFAULT_MEMO_TARGET_TYPE = 'OPERATIONAL_PERIOD' as const;
+const SEARCH_HISTORY_SUMMARY_REFETCH_INTERVAL_MS = 10_000;
 const opReasonOptions: Array<{ value: CreateOperationalPeriodReason; label: string; description: string }> = [
   { value: 'RE_SEARCH', label: '재수색', description: '기존 수색 기록을 유지하고 새 수색 차수를 엽니다.' },
   { value: 'AREA_CHANGED', label: '수색 범위 변경', description: '수색 범위가 바뀐 상황을 새 OP로 기록합니다.' },
@@ -256,6 +257,13 @@ export function OperationalPeriodReviewWorkspace({
   const summaryQuery = useSearchHistorySummaryListQuery(
     isSearchHistoryView ? activeFocusedOpId : null,
     summaryQueryParams,
+    undefined,
+    {
+      refetchInterval: (query) =>
+        shouldPollSearchHistorySummary(query.state.data?.items)
+          ? SEARCH_HISTORY_SUMMARY_REFETCH_INTERVAL_MS
+          : false,
+    },
   );
   const isLoadingSummary = summaryQuery.isLoading || summaryQuery.isFetching;
   const summaryErrorMessage = summaryQuery.isError ? 'OP 요약을 불러오지 못했습니다.' : '';
@@ -1005,6 +1013,7 @@ export function OperationalPeriodReviewWorkspace({
                         memoItems={selectedOpMemoItems}
                         content={content}
                         isLoadingMemos={isLoadingMemos}
+                        isReadOnly
                         isSubmitting={isSubmitting}
                         memoErrorMessage={memoErrorMessage}
                         onContentChange={setContent}
@@ -1607,6 +1616,12 @@ function isDutyShiftResponse(value: unknown): value is DutyShiftResponse {
 
 function readSearchHistorySummaryItems(value: unknown): SearchHistorySummaryItem[] {
   return readReadonlyArray<unknown>(value).filter(isSearchHistorySummaryItem);
+}
+
+function shouldPollSearchHistorySummary(items: readonly SearchHistorySummaryItem[] | undefined) {
+  if (!items || items.length === 0) return true;
+
+  return items.some((item) => item.status === 'GENERATING' || item.sourceReadiness === 'PENDING_SYNC');
 }
 
 function isSearchHistorySummaryItem(value: unknown): value is SearchHistorySummaryItem {

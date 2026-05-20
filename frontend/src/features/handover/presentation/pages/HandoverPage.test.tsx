@@ -376,6 +376,10 @@ describe('HandoverPage', () => {
           scopeType: 'OP',
           scopeId: 'op-current',
         }),
+        undefined,
+        expect.objectContaining({
+          refetchInterval: expect.any(Function),
+        }),
       ),
     );
 
