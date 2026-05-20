@@ -21,6 +21,7 @@ import com.surimap.testing.policePhoneIdFixture
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -503,7 +504,7 @@ class SearchMapStateLoaderTest {
     }
 
     @Test
-    fun currentPolicePhoneSearchPathsMapToLineOverlaysAfterAreaLayers() = runBlocking {
+    fun incidentSearchPathsRenderAllPhonesButOnlyCurrentPhoneControlsRecordingState() = runBlocking {
         val areaGeometry =
             """
             {
@@ -570,7 +571,7 @@ class SearchMapStateLoaderTest {
                 searchPaths = { query ->
                     assertEquals(INCIDENT_ID, query.incidentId)
                     assertEquals(OP_ID, query.opId)
-                    assertEquals(POLICE_PHONE_ID, query.policePhoneId)
+                    assertNull(query.policePhoneId)
                     assertEquals(true, query.includeGeometry)
                     assertEquals("RENDER_SIMPLIFIED", query.geometryMode)
                     assertEquals("startedAtAsc", query.sort)
@@ -589,6 +590,17 @@ class SearchMapStateLoaderTest {
                               "opId": "$OP_ID",
                               "policePhoneId": "$POLICE_PHONE_ID",
                               "startedAt": "2026-05-18T04:53:12.331Z",
+                              "geometryMode": "RENDER_SIMPLIFIED",
+                              "geometry": $pathGeometry
+                            },
+                            {
+                              "id": "$OTHER_PATH_ID",
+                              "status": "RECORDING",
+                              "version": 9,
+                              "incidentId": "$INCIDENT_ID",
+                              "opId": "$OP_ID",
+                              "policePhoneId": "$OTHER_POLICE_PHONE_ID",
+                              "startedAt": "2026-05-18T04:55:12.331Z",
                               "geometryMode": "RENDER_SIMPLIFIED",
                               "geometry": $pathGeometry
                             }
@@ -613,12 +625,17 @@ class SearchMapStateLoaderTest {
         assertEquals(SearchLayerKind.Overall, state.layers[0].kind)
         assertEquals(SearchLayerKind.Team, state.layers[1].kind)
         assertEquals(SearchLayerKind.Path, state.layers[2].kind)
+        assertEquals(SearchLayerKind.Path, state.layers[3].kind)
         assertEquals("현재 경로", state.layers[2].label)
+        assertEquals("다른 단말 경로", state.layers[3].label)
         assertEquals(PATH_ID, state.layers[2].overlayId)
+        assertEquals(OTHER_PATH_ID, state.layers[3].overlayId)
         assertEquals(PATH_ID, state.activeSearchPathId)
         assertTrue(state.layers[2].highlighted)
+        assertFalse(state.layers[3].highlighted)
         assertTrue(state.layers[2].geoJson!!.contains("\"LineString\""))
-        assertEquals("경로 1개 표시", state.movementSummary)
+        assertTrue(state.layers[3].geoJson!!.contains("\"LineString\""))
+        assertEquals("경로 2개 표시", state.movementSummary)
         assertEquals(1779079992331L, state.activeSearchPathStartedAtEpochMs)
     }
 
@@ -1134,11 +1151,13 @@ class SearchMapStateLoaderTest {
         val OP_ID = opIdFixture("precinct-first-001")
         val DUTY_SHIFT_ID = dutyShiftIdFixture("precinct-day-001")
         val POLICE_PHONE_ID = policePhoneIdFixture("precinct-001")
+        val OTHER_POLICE_PHONE_ID = policePhoneIdFixture("precinct-002")
         val OVERALL_AREA_ID = areaIdFixture("overall-001")
         val UNIT_AREA_ID = areaIdFixture("unit-001")
         val TEAM_AREA_ID = areaIdFixture("team-001")
         val TEAM_AREA_ID_2 = areaIdFixture("team-002")
         val PATH_ID = pathIdFixture("001")
+        val OTHER_PATH_ID = pathIdFixture("002")
         val MARKER_ID = markerIdFixture("clue-001")
     }
 }

@@ -189,7 +189,6 @@ class SearchMapStateLoader(
                     SearchPathQuery(
                         incidentId = incidentId,
                         opId = opId,
-                        policePhoneId = policePhoneId,
                         includeGeometry = true,
                         geometryMode = "RENDER_SIMPLIFIED",
                         limit = 500,
@@ -201,7 +200,7 @@ class SearchMapStateLoader(
         if (!response.isSuccessful || response.body.isNullOrBlank()) {
             return state
         }
-        val pathLayerResult = searchPathLayers(response.body)
+        val pathLayerResult = searchPathLayers(response.body, policePhoneId)
         if (pathLayerResult.layers.isEmpty() && pathLayerResult.activePathId.isNullOrBlank()) {
             return state
         }
@@ -462,7 +461,7 @@ class SearchMapStateLoader(
             ?.label
             ?.takeIf(String::isNotBlank)
 
-    private fun searchPathLayers(body: String): SearchPathLayerResult {
+    private fun searchPathLayers(body: String, currentPolicePhoneId: String): SearchPathLayerResult {
         val root = runCatching { JSONObject(body) }.getOrNull() ?: return SearchPathLayerResult()
         val paths = root.optJSONArray("paths") ?: root.optJSONArray("items") ?: return SearchPathLayerResult()
         var activePathId: String? = null
@@ -473,7 +472,10 @@ class SearchMapStateLoader(
                 val path = paths.optJSONObject(index) ?: return@repeat
                 val status = path.optString("status").uppercase()
                 val active = status in setOf("ACTIVE", "RECORDING", "PAUSED")
-                if (active) {
+                val belongsToCurrentPhone =
+                    path.optString("policePhoneId").equals(currentPolicePhoneId, ignoreCase = true)
+                val activeForCurrentPhone = active && belongsToCurrentPhone
+                if (activeForCurrentPhone) {
                     activePathId = path.optString("id").takeIf(String::isNotBlank) ?: activePathId
                     activeStartedAtEpochMs = path.instantMillis("startedAt") ?: activeStartedAtEpochMs
                     activeLifecycleStatus =
@@ -489,9 +491,14 @@ class SearchMapStateLoader(
                 }
                 add(
                     SearchMapLayerUiState(
-                        label = if (active) "현재 경로" else "기존 경로",
+                        label =
+                        when {
+                            activeForCurrentPhone -> "현재 경로"
+                            active -> "다른 단말 경로"
+                            else -> "기존 경로"
+                        },
                         kind = SearchLayerKind.Path,
-                        highlighted = active,
+                        highlighted = activeForCurrentPhone,
                         overlayId = path.optString("id").ifBlank { "search-path-$index" },
                         geoJson = geometry.toString()
                     )
