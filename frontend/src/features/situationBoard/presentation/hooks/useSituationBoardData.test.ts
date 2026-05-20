@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest';
 
 import type { SituationBoardResponseDto } from '../../data/getSituationBoard';
 import { createIncidentScopedFallbackBoard } from '../constants/mockSituationBoard';
-import { mergeWithPreviousCriticalSlots } from './useSituationBoardData';
+import { mergeWithPreviousCriticalSlots, shouldSubscribeIncidentBoardEvents } from './useSituationBoardData';
 
 describe('useSituationBoardData', () => {
   test('fallback board does not include placeholder markers', () => {
@@ -70,6 +70,39 @@ describe('useSituationBoardData', () => {
 
     expect(merged).toBe(current);
     expect(merged?.slots.marker).toBeUndefined();
+  });
+
+  test('subscribes board events while incident terminal is open', () => {
+    const board = boardResponse({
+      incident_terminal: [
+        {
+          incidentId: 'incident-001',
+          terminalStatus: 'OPEN',
+          closedStatus: 'not_closed',
+          writeDisabledReason: 'none',
+          localPurgeState: 'not_started',
+        },
+      ],
+    });
+
+    expect(shouldSubscribeIncidentBoardEvents(board)).toBe(true);
+  });
+
+  test('stops board event subscription after incident terminal is closed', () => {
+    const board = boardResponse({
+      incident_terminal: [
+        {
+          incidentId: 'incident-001',
+          terminalStatus: 'CLOSED',
+          closedStatus: 'closed',
+          closedAt: '2026-05-20T06:16:39.613400Z',
+          writeDisabledReason: 'incident_closed',
+          localPurgeState: 'not_started',
+        },
+      ],
+    });
+
+    expect(shouldSubscribeIncidentBoardEvents(board)).toBe(false);
   });
 });
 
