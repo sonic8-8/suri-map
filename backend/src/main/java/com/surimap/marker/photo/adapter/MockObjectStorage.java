@@ -105,6 +105,14 @@ public class MockObjectStorage implements ObjectStoragePort {
   }
 
   @Override
+  public Optional<String> generatePresignedViewUrl(String objectKey, Duration ttl) {
+    if (objectKey == null || objectKey.isBlank()) {
+      return Optional.empty();
+    }
+    return Optional.of(MOCK_UPLOAD_BASE_URL + "/" + objectKey);
+  }
+
+  @Override
   public void deleteObject(String objectKey) {
     store.remove(objectKey);
   }

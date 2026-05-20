@@ -74,6 +74,13 @@
           AND a.status = 'ACTIVE'
     </select>
 
+    <select id="findDisplayNameById" resultType="java.lang.String">
+        SELECT display_name
+        FROM police_phone
+        WHERE id = #{policePhoneId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND status = 'ACTIVE'
+    </select>
+
     <select id="findActiveAssignmentByPolicePhone" resultMap="PolicePhoneAssignmentRowMap">
         SELECT ia.incident_id
         FROM police_phone pp

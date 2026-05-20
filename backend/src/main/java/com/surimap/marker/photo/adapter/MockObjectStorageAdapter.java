@@ -3,6 +3,7 @@ package com.surimap.marker.photo.adapter;
 import com.surimap.marker.photo.port.ObjectStoragePort;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -26,6 +27,7 @@ public class MockObjectStorageAdapter implements ObjectStoragePort {
 
   private final Map<String, ObjectMetadata> issued = new ConcurrentHashMap<>();
   private final Map<String, ObjectMetadata> uploaded = new ConcurrentHashMap<>();
+  private final Map<String, byte[]> uploadedBytes = new ConcurrentHashMap<>();
 
   @Override
   public PresignedUploadResult generatePresignedUrl(
@@ -47,6 +49,14 @@ public class MockObjectStorageAdapter implements ObjectStoragePort {
   }
 
   @Override
+  public Optional<String> generatePresignedViewUrl(String objectKey, Duration ttl) {
+    if (objectKey == null || objectKey.isBlank()) {
+      return Optional.empty();
+    }
+    return Optional.of(MOCK_BASE_URL + objectKey);
+  }
+
+  @Override
   public boolean exists(String objectKey) {
     return uploaded.containsKey(objectKey);
   }
@@ -59,6 +69,7 @@ public class MockObjectStorageAdapter implements ObjectStoragePort {
   @Override
   public void delete(String objectKey) {
     uploaded.remove(objectKey);
+    uploadedBytes.remove(objectKey);
   }
 
   @Override
@@ -84,8 +95,20 @@ public class MockObjectStorageAdapter implements ObjectStoragePort {
             objectKey, resolvedContentType, sizeBytes, issuedMetadata.checksumSha256()));
   }
 
+  public void simulateUpload(String objectKey, String contentType, byte[] body) {
+    byte[] uploadBytes = body == null ? new byte[0] : Arrays.copyOf(body, body.length);
+    simulateUpload(objectKey, contentType, uploadBytes.length);
+    uploadedBytes.put(objectKey, uploadBytes);
+  }
+
+  public Optional<byte[]> readObject(String objectKey) {
+    byte[] body = uploadedBytes.get(objectKey);
+    return body == null ? Optional.empty() : Optional.of(Arrays.copyOf(body, body.length));
+  }
+
   public void clear() {
     issued.clear();
     uploaded.clear();
+    uploadedBytes.clear();
   }
 }

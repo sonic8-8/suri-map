@@ -91,6 +91,7 @@ public class EventHubMarkerEventPublisher implements MarkerEventPublisher {
     }
     putIfPresent(values, "markerType", payload.markerType());
     putIfPresent(values, "locationLabel", payload.locationLabel());
+    putIfPresent(values, "policePhoneName", payload.policePhoneName());
     return values;
   }
 
