@@ -547,6 +547,17 @@ export function App() {
             />
           }
         />
+        {import.meta.env.DEV ? (
+          <Route
+            path={ROUTES.devLoginPreview}
+            element={
+              <LoginPage
+                redirectPath={loginRedirectPath ?? ROUTES.incidentList}
+                initialErrorMessage={loginErrorMessage}
+              />
+            }
+          />
+        ) : null}
         <Route
           path={ROUTES.authCallback}
           element={
