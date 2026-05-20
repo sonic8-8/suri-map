@@ -31,6 +31,11 @@ public class SearchPathService {
   }
 
   public PathBatchAppendResponse appendBatch(PathBatchAppendRequest request, UUID policePhoneId) {
+    return appendBatch(request, policePhoneId, null);
+  }
+
+  public PathBatchAppendResponse appendBatch(
+      PathBatchAppendRequest request, UUID policePhoneId, UUID accountId) {
     var validationResult =
         gpsPathValidator.validateBatch(
             toValidatorPoints(request.points()), request.points().get(0).clientTs().plusSeconds(20));
@@ -45,7 +50,14 @@ public class SearchPathService {
                 () ->
                     repository.save(
                         new SearchPathAggregate(
-                            request.pathId(), request.incidentId(), request.opId(), policePhoneId)));
+                            request.pathId(),
+                            request.incidentId(),
+                            request.opId(),
+                            policePhoneId,
+                            accountId)));
+    if (accountId != null && aggregate.accountId() != null && !accountId.equals(aggregate.accountId())) {
+      throw new SearchPathApiException("write_conflict");
+    }
     if (aggregate.status() != SearchPathStatus.RECORDING) {
       throw new SearchPathApiException("write_conflict");
     }
@@ -68,13 +80,15 @@ public class SearchPathService {
             aggregate.status(),
             aggregate.version(),
             aggregate.opId(),
-            aggregate.policePhoneId()));
+            aggregate.policePhoneId(),
+            aggregate.accountId()));
 
     return new PathBatchAppendResponse(
         aggregate.id(),
         aggregate.dutyShiftId(),
         aggregate.opId(),
         aggregate.policePhoneId(),
+        aggregate.accountId(),
         validationResult.acceptedPoints().size(),
         validationResult.excludedPoints().size(),
         aggregate.excludedPoints(),
@@ -85,11 +99,16 @@ public class SearchPathService {
   }
 
   public PathQueryResponse query(UUID incidentId, UUID opId, UUID policePhoneId) {
+    return query(incidentId, opId, policePhoneId, null);
+  }
+
+  public PathQueryResponse query(UUID incidentId, UUID opId, UUID policePhoneId, UUID accountId) {
     List<PathQueryRow> rows =
         repository.findAll().stream()
             .filter(path -> incidentId == null || incidentId.equals(path.incidentId()))
             .filter(path -> opId == null || opId.equals(path.opId()))
             .filter(path -> policePhoneId == null || policePhoneId.equals(path.policePhoneId()))
+            .filter(path -> accountId == null || accountId.equals(path.accountId()))
             .sorted(Comparator.comparing(SearchPathAggregate::version).reversed())
             .map(
                 path ->
@@ -99,6 +118,7 @@ public class SearchPathService {
                         path.opId(),
                         path.dutyShiftId(),
                         path.policePhoneId(),
+                        path.accountId(),
                         path.status(),
                         path.startedAt(),
                         path.endedAt(),
@@ -131,6 +151,7 @@ public class SearchPathService {
             owner.version(),
             owner.opId(),
             owner.policePhoneId(),
+            owner.accountId(),
             corrected.id(),
             corrected.movementType(),
             corrected.movementTypeSource()));

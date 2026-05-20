@@ -58,15 +58,18 @@ class SearchPathEndedContractTest {
     assertThat(payload.id()).isEqualTo(ended.id());
     assertThat(payload.opId()).isEqualTo(ended.opId());
     assertThat(payload.policePhoneId()).isEqualTo(ended.policePhoneId());
+    assertThat(payload.accountId()).isEqualTo(ended.accountId());
     assertThat(payload.version()).isEqualTo(ended.version());
     assertThat(payload.status()).isEqualTo(SearchPathStatus.ENDED);
   }
 
   private StartSearchPathServiceRequest validStartRequest() {
     return new StartSearchPathServiceRequest(
+        null,
         SearchPathFixtures.INCIDENT_ID,
         SearchPathFixtures.OP1_ID,
         SearchPathFixtures.POLICE_PHONE_ID,
+        SearchPathFixtures.ACCOUNT_ID,
         Instant.now(),
         "idem-path-start-end-contract");
   }

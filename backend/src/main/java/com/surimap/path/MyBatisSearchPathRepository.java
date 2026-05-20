@@ -41,16 +41,14 @@ public class MyBatisSearchPathRepository implements SearchPathRepository {
   @Override
   public SearchPathAggregate save(SearchPathAggregate aggregate) {
     Instant now = Instant.now();
-    UUID dutyShiftId =
-        mapper
-            .findActiveDutyShiftId(aggregate.opId(), aggregate.policePhoneId())
-            .orElseThrow(() -> new SearchPathApiException("police_phone_not_assigned"));
+    ResolvedDutyShift dutyShift = resolveDutyShift(aggregate);
     Geometry geometry = lineStringOrNull(aggregate.points());
     Instant startedAt = startedAt(aggregate, now);
     SearchPathPersistenceRecord record =
         new SearchPathPersistenceRecord(
             aggregate.id(),
-            dutyShiftId,
+            dutyShift.id(),
+            dutyShift.accountId(),
             aggregate.status().name(),
             startedAt,
             aggregate.endedAt(),
@@ -69,10 +67,11 @@ public class MyBatisSearchPathRepository implements SearchPathRepository {
     persistExcludedPoints(aggregate, now);
     return new SearchPathAggregate(
         aggregate.id(),
-        dutyShiftId,
+        dutyShift.id(),
         aggregate.incidentId(),
         aggregate.opId(),
         aggregate.policePhoneId(),
+        dutyShift.accountId(),
         aggregate.status(),
         aggregate.version(),
         aggregate.points(),
@@ -135,6 +134,7 @@ public class MyBatisSearchPathRepository implements SearchPathRepository {
         record.incidentId(),
         record.opId(),
         record.policePhoneId(),
+        record.accountId(),
         record.startedAt(),
         record.endedAt(),
         SearchPathStatus.valueOf(record.status()),
@@ -142,6 +142,26 @@ public class MyBatisSearchPathRepository implements SearchPathRepository {
         points,
         excludedPoints,
         segments);
+  }
+
+  private ResolvedDutyShift resolveDutyShift(SearchPathAggregate aggregate) {
+    UUID accountId = aggregate.accountId();
+    if (accountId != null) {
+      UUID dutyShiftId =
+          mapper
+              .findActiveDutyShiftIdByAccount(aggregate.opId(), accountId)
+              .orElseThrow(() -> new SearchPathApiException("police_phone_not_assigned"));
+      return new ResolvedDutyShift(dutyShiftId, accountId);
+    }
+    UUID dutyShiftId =
+        mapper
+            .findActiveDutyShiftId(aggregate.opId(), aggregate.policePhoneId())
+            .orElseThrow(() -> new SearchPathApiException("police_phone_not_assigned"));
+    UUID inferredAccountId =
+        mapper
+            .findActiveDutyShiftAccountId(aggregate.opId(), aggregate.policePhoneId())
+            .orElseThrow(() -> new SearchPathApiException("police_phone_not_assigned"));
+    return new ResolvedDutyShift(dutyShiftId, inferredAccountId);
   }
 
   private void persistExcludedPoints(SearchPathAggregate aggregate, Instant now) {
@@ -326,4 +346,6 @@ public class MyBatisSearchPathRepository implements SearchPathRepository {
   }
 
   private record SegmentIndexes(int start, int end) {}
+
+  private record ResolvedDutyShift(UUID id, UUID accountId) {}
 }

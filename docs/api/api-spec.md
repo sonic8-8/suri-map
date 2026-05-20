@@ -19,8 +19,8 @@
 - `X-Client-Channel`은 `APP` 또는 `WEB`이다. spec에서 header가 빠진 endpoint도 channel guard가 있으면 같은 기준으로 검증한다.
 - 공개 API 인증은 Keycloak `suri-map` realm의 OIDC access token을 `Authorization: Bearer {jwt}`로 전달하는 것을 기준으로 한다.
 - WEB은 Keycloak Authorization Code + PKCE redirect 흐름으로 로그인하고, APP은 MDM/managed config와 내부망 확인 후 Custom Tabs/AppAuth Authorization Code + PKCE 흐름으로 로그인한다.
-- access token에는 `accountId`, `accountType`, `organizationType`이 있어야 한다. APP channel의 폴리폰 식별자는 token claim이 아니라 MDM/managed config에서 읽은 `X-PolicePhone-Id` header로 전달한다.
-- 표시용 claim은 `accountCode`, `personName`, `displayName`, `organizationCode`, `organizationName`, `rankCode`, `rankName`을 사용한다. `organizationName`은 `광주경찰청 여성청소년과 실종팀`처럼 시연 계정이 실제로 속한 운용 leaf 조직 경로를 담고, `displayName`은 `소속 + 계급 + 이름` 조합의 UI label이다. `displayName`은 권한 판정에는 쓰지 않는다. 권한 판정은 `accountId`, `accountType`, `organizationType`, `X-PolicePhone-Id`, 사건 배정, backend-derived Suri-Map role 기준으로 수행한다. `MISSING_TEAM_COMMANDER`, `FIELD_COMMANDER`, `MEMBER` 같은 role은 Keycloak/기관 SSO role claim이 아니라 Suri-Map backend가 계정 유형·소속·사건 배정으로 파생하는 API 접근 제어용 authority다.
+- access token에는 개인 계정 식별자인 `accountId`와 권한 projection 보조값인 `accountType`, `organizationType`이 있어야 한다. APP channel의 폴리폰 식별자는 token claim이 아니라 MDM/managed config에서 읽은 `X-PolicePhone-Id` header로 전달한다.
+- 표시용 claim은 `accountCode`, `personName`, `displayName`, `organizationCode`, `organizationName`, `rankCode`, `rankName`을 사용한다. `organizationName`은 `광주경찰청 여성청소년과 실종팀`처럼 시연 계정이 실제로 속한 운용 leaf 조직 경로를 담고, `displayName`은 `소속 + 계급 + 이름` 조합의 UI label이다. `displayName`은 권한 판정에는 쓰지 않는다. 권한 판정은 `accountId`, `accountType`, `organizationType`, `X-PolicePhone-Id`, 사건 배정, backend-derived Suri-Map role 기준으로 수행한다. `accountType`은 개인 계정의 파생 분류일 뿐 팀/순찰차 공유 계정 식별자가 아니다. `MISSING_TEAM_COMMANDER`, `FIELD_COMMANDER`, `MEMBER` 같은 role은 Keycloak/기관 SSO role claim이 아니라 Suri-Map backend가 개인 계정·소속·사건 배정으로 파생하는 API 접근 제어용 authority다.
 - 계급, 직책, 소속의 source of truth는 Keycloak/기관 SSO claim이다. Suri-Map 운영 DB의 `account` 값은 사건 배정 FK와 조회 성능을 위한 local projection이며, 기관 계급/직책/전역 권한을 결정하지 않는다. `police_phone`은 MDM/단말 관리 원천의 로컬 투영이며 인증 서버 계정 claim이 아니다.
 - APP 전용 write는 `@RequireChannel(APP)`, PolicePhone guard, 사건 배정 guard를 통과해야 한다.
 - WEB 지휘 write는 `@RequireChannel(WEB)`, role guard, 사건 접근 guard를 통과해야 한다.
@@ -262,7 +262,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Guard: `app-police-phone`, `incident-read`, `write-common`, `@RequireCurrentOp`
 - Idempotency-Key: yes
 - Request: `incidentId`, `opId`, `clientTs`, optional `searchPathId`, `clockOffsetMs`
-- Response: `201 {id, incidentId, opId, policePhoneId, version, status}`
+- Response: `201 {id, incidentId, opId, policePhoneId, accountId, version, status}`
 - Errors: `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`, `op_required`, `op_mismatch`
 - Note: 전체 수색구역과 담당 구역은 초동 경로 시작의 선행조건이 아니다. 수색 중 GPS 좌표가 전체 수색구역 또는 담당 TEAM 구역 밖으로 표시되어도 좌표 자체가 유효한 EPSG:4326 Point이면 경로 기록을 막지 않는다. GPS 경로 품질 검증은 좌표 누락, 시간 역전, 정확도 저하, 비정상 속도/점프처럼 샘플 자체의 신뢰도만 다루며, 구역 안팎 여부를 품질 실패로 보지 않는다. 담당 구역 밖 표시는 별도 `search-area-boundary-alerts` 운영 참고 이벤트로 다룬다.
 
@@ -289,7 +289,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Idempotency-Key: yes
 - Request: `incidentId`, `opId`, `pathId`, `points[]`, optional `clockOffsetMs`
 - Request limit: `points` min 2, max 120
-- Response: `200 {id, dutyShiftId, opId, policePhoneId, acceptedPointCount, excludedPointCount, excludedPoints[{pointId, reason, clientTs}], geometry, segments, version, status}`
+- Response: `200 {id, dutyShiftId, opId, policePhoneId, accountId, acceptedPointCount, excludedPointCount, excludedPoints[{pointId, reason, clientTs}], geometry, segments, version, status}`
 - `excludedPoints.reason`: `low_accuracy`, `clock_skew`, `invalid_speed`, `distance_jump`
 - Errors: `invalid_geometry`, `clock_skew_exceeded`, `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`, `op_required`, `op_mismatch`
 - Note: S6 Outbox `request_path`와 harness가 이 path를 기준으로 replay한다. 전체 수색구역과 담당 구역은 GPS batch 저장의 선행조건이 아니며, 구역 밖 좌표도 유효한 EPSG:4326 좌표이면 저장한다. `invalid_geometry`는 좌표 누락/null, lon/lat 범위 오류, precision 초과, point 수/순서 오류처럼 좌표·batch 구조 자체가 잘못된 경우에 한정한다. `excludedPoints.reason`은 GPS 샘플의 신뢰도 문제만 표현하며, 구역 밖 좌표라는 이유로 `excludedPoints`에 넣지 않는다.
@@ -316,8 +316,9 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Headers: `Authorization`
 - Guard: `public-session`, `incident-read`, `@RecordLocationAccess`
 - Idempotency-Key: no
-- Query: `incidentId`, `opId`, `policePhoneId`, `includeGeometry`, `geometryMode`, `sinceVersion`, `limit`, `sort`, `movementType`
-- Response: `200 {paths[{id, incidentId, opId, dutyShiftId, policePhoneId, status, startedAt, endedAt, version, geometry, segments, excludedPoints}]}`
+- Query: `incidentId`, `opId`, `policePhoneId`, `accountId`, `includeGeometry`, `geometryMode`, `sinceVersion`, `limit`, `sort`, `movementType`
+- Response: `200 {paths[{id, incidentId, opId, dutyShiftId, policePhoneId, accountId, status, startedAt, endedAt, version, geometry, segments, excludedPoints}]}`
+- Note: `search_path.accountId`가 경로 기록 주체이며, `policePhoneId`는 앱 단말 인증·배정·전송 컨텍스트다. 앱은 같은 사건/OP의 전체 경로를 조회하고 현재 로그인 계정의 active path만 현재 경로로 강조한다.
 - Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`
 
 #### PATCH `/api/search-path-segments/{searchPathSegmentId}`

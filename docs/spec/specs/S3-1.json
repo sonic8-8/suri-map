@@ -2,7 +2,7 @@
   "$schema": "../_template.schema.json",
   "spec_info": {
     "id": "S3-1",
-    "name": "PolicePhone Path Collection",
+    "name": "Account Path Collection",
     "owner": "4",
     "character": "domain_plus_foundation",
     "created": "2026-04-28",
@@ -37,7 +37,7 @@
     "boundaries": "spec/boundaries.md §3 S3-1, §4.1.1, §4.2, §4.4, §4.6, §7",
     "harness": [
       "SC-02 실종팀 인계·지원 부대 배정 (OP1 path evidence read-only)",
-      "SC-05 수색 경로·PolicePhone GPS 경로",
+      "SC-05 수색 경로·계정별 GPS 경로",
       "SC-07 통신 단절 중 로컬 기록",
       "SC-09 통신 복구·동기화",
       "SC-11 인수인계·OP 비교·수색 이력 요약",
@@ -46,19 +46,19 @@
   },
   "scope": {
     "included": [
-      "현재 OP와 현재 PolicePhone 기준 search_path 시작·종료",
+      "현재 OP와 현재 로그인 계정 기준 search_path 시작·종료",
       "앱이 보낸 GPS batch를 search_path LineString과 search_path_segment로 누적",
       "GPS 속도 기반 VEHICLE|FOOT|UNKNOWN segment 자동 분리",
       "웹 상황판에서 이미 저장된 search_path_segment.type만 수동 보정",
       "PATH_APPENDED, SEARCH_PATH_STARTED, SEARCH_PATH_PAUSED, SEARCH_PATH_RESUMED, SEARCH_PATH_ENDED, SEARCH_PATH_SEGMENT_UPDATED 이벤트 payload 발행 요청",
-      "GET /search-paths 및 PathQuery.byIncident/byOp/byPolicePhone read model 제공",
-      "PolicePhone 기준 현재 운용 궤도 강조에 필요한 policePhoneId, pathId, opId 제공"
+      "GET /search-paths 및 PathQuery.byIncident/byOp/byPolicePhone/byAccount read model 제공",
+      "로그인 계정 기준 현재 운용 궤도 강조에 필요한 accountId, policePhoneId, pathId, opId 제공"
     ],
     "excluded": [
       {
-        "item": "개인 사용자 위치 추적",
+        "item": "PolicePhone 자체를 경로 기록 주체로 사용하는 모델",
         "owner": "S3-1",
-        "reason": "경로 주체는 사람 또는 개인 계정이 아니라 S1-2 PolicePhone다."
+        "reason": "경로 기록 주체는 로그인 accountId이며 PolicePhone은 앱 단말 인증·배정·전송 컨텍스트로만 사용한다."
       },
       {
         "item": "Android local store, Outbox, WorkManager, idempotency 구현",
@@ -91,7 +91,7 @@
     {
       "id": "FR-02",
       "summary": "사건에 배정된 팀 업무폰/순찰차 업무폰의 위치·이동 경로를 자동 기록한다.",
-      "handling": "POST /search-paths와 POST /search-paths/batch가 S1-2 policePhoneId를 경로 주체로 저장하고 accountId는 조작 주체로만 기록한다."
+      "handling": "POST /search-paths와 POST /search-paths/batch가 accountId를 경로 기록 주체로 저장하고 S1-2 policePhoneId는 단말 인증·배정·전송 컨텍스트로 함께 기록한다."
     },
     {
       "id": "FR-04",
@@ -100,12 +100,12 @@
     },
     {
       "id": "FR-25",
-      "summary": "운용 중 팀 업무폰/순찰차 업무폰 궤도를 즉시 구분한다.",
-      "handling": "현재 PolicePhone의 active path과 path summary를 policePhoneId 기준으로 반환해 앱과 S3-2가 강조 렌더링할 수 있게 한다."
+      "summary": "운용 중 개인 계정 궤도를 즉시 구분한다.",
+      "handling": "현재 로그인 계정의 active path와 path summary를 accountId 기준으로 반환해 앱과 S3-2가 강조 렌더링할 수 있게 한다."
     },
     {
       "id": "FR-33",
-      "summary": "PolicePhone 기준 수색 경로와 차량·도보 자동 분리",
+      "summary": "계정 기준 수색 경로와 차량·도보 자동 분리",
       "handling": "하네스 speed/accuracy/skew/distance 기준을 만족하는 accepted point가 3개 이상 지속된 경우에만 segment split을 만들고 불확실하거나 GPS 튐이 의심되면 UNKNOWN으로 보존한다."
     },
     {
@@ -115,8 +115,8 @@
     },
     {
       "id": "FR-35",
-      "summary": "초동 대응 또는 차량 수색 중인 순찰차 이동 경로를 수색 히스토리로 표시한다.",
-      "handling": "S1-2 duty_shift의 accountType/organizationType과 VEHICLE movement_type segment를 PathQuery에서 구분 가능하게 제공한다."
+      "summary": "초동 대응 또는 차량 수색 중인 개인 계정의 이동 경로를 수색 히스토리로 표시한다.",
+      "handling": "S1-2 duty_shift의 PolicePhone 단말 컨텍스트와 VEHICLE movement_type segment를 PathQuery에서 구분 가능하게 제공한다."
     }
   ],
   "domain_model": {
@@ -354,7 +354,7 @@
       {
         "method": "POST",
         "path": "/search-paths",
-        "summary": "현재 incident/current OP/current PolicePhone 기준 수색 경로을 시작한다.",
+        "summary": "현재 incident/current OP/current account 기준 수색 경로를 시작한다.",
         "auth": "guard aliases app-police-phone + incident-read + write-common + @RequireCurrentOp",
         "idempotent": true,
         "required_headers": [
@@ -954,12 +954,6 @@
                       "type": "string",
                       "format": "uuid"
                     },
-                    "accountType": {
-                      "type": "string"
-                    },
-                    "organizationType": {
-                      "type": "string"
-                    },
                     "geometryMode": {
                       "type": "string"
                     },
@@ -1180,8 +1174,8 @@
     "consumed": [
       {
         "from_spec": "S1-2",
-        "interface": "SecurityContext.policePhoneId, @RequirePolicePhoneRegistered, @RequirePolicePhoneAssigned",
-        "usage": "모든 app path write에서 path subject PolicePhone를 확정한다."
+        "interface": "SecurityContext.accountId, SecurityContext.policePhoneId, @RequirePolicePhoneRegistered, @RequirePolicePhoneAssigned",
+        "usage": "모든 app path write에서 accountId를 path subject로 확정하고 PolicePhone 배정 guard를 적용한다."
       },
       {
         "from_spec": "S6",
@@ -1426,6 +1420,7 @@
         "filters": {
           "opId": "optional UUID",
           "policePhoneId": "optional UUID",
+          "accountId": "optional UUID",
           "sinceVersion": "optional BIGINT for incremental board refresh",
           "includeGeometry": "boolean default true",
           "geometryMode": "ORIGINAL|RENDER_SIMPLIFIED default RENDER_SIMPLIFIED",
@@ -1434,7 +1429,7 @@
         },
         "visibility": "caller must pass incident-read/team assignment guard; @RecordLocationAccess applies to read-only evidence access",
         "sort": "startedAt ASC, then path.id ASC, segment.startedAt ASC",
-        "response_shape": "PathQueryResult{paths:[{id,status,version,incidentId,opId,dutyShiftId,policePhoneId,accountId,accountType,organizationType,geometryMode,geometry,segments:[{id,version,movementType,movementTypeSource,geometry,startedAt,endedAt,correctedByAccountId,correctedAt}],excludedPoints:[{pointId,reason,clientTs}]}]}",
+        "response_shape": "PathQueryResult{paths:[{id,status,version,incidentId,opId,dutyShiftId,policePhoneId,accountId,geometryMode,geometry,segments:[{id,version,movementType,movementTypeSource,geometry,startedAt,endedAt,correctedByAccountId,correctedAt}],excludedPoints:[{pointId,reason,clientTs}]}]}",
         "mock_consumers": [
           "S3-2 path slot",
           "S8 OP history/handover context",
@@ -1447,6 +1442,7 @@
         "filters": {
           "incidentId": "required guard context",
           "policePhoneId": "optional UUID",
+          "accountId": "optional UUID",
           "geometryMode": "ORIGINAL|RENDER_SIMPLIFIED",
           "movementType": "optional VEHICLE|FOOT|UNKNOWN"
         },
@@ -1462,7 +1458,19 @@
           "activeOnly": "boolean default false",
           "geometryMode": "ORIGINAL|RENDER_SIMPLIFIED"
         },
-        "visibility": "App may read current PolicePhone active path; Web board may read assigned incident PolicePhones through incident-read guard",
+        "visibility": "App may read current account active path and same incident/OP peer paths; Web board may read assigned incident paths through incident-read guard",
+        "sort": "startedAt ASC, then path.id ASC"
+      },
+      {
+        "name": "PathQuery.byAccount(accountId, filters)",
+        "source": "same response_shape as byIncident, narrowed to one account",
+        "filters": {
+          "incidentId": "required UUID",
+          "opId": "optional UUID",
+          "activeOnly": "boolean default false",
+          "geometryMode": "ORIGINAL|RENDER_SIMPLIFIED"
+        },
+        "visibility": "App uses current account for active path emphasis; Web board may use account filter for record review through incident-read guard",
         "sort": "startedAt ASC, then path.id ASC"
       }
     ],
@@ -1598,8 +1606,8 @@
           "responsibility": "수색 시작/종료 상태 표시와 조작; server id/status/version ack 반영"
         },
         {
-          "name": "ActivePolicePhonePathOverlay",
-          "responsibility": "현재 PolicePhone 궤도 강조, 별도 search_path no-bridge 렌더링, low-quality/excluded point 표시 props 제공"
+          "name": "ActiveAccountPathOverlay",
+          "responsibility": "현재 계정 궤도 강조, 별도 search_path no-bridge 렌더링, low-quality/excluded point 표시 props 제공"
         }
       ],
       "write_operation_shapes": [
@@ -1631,7 +1639,7 @@
       {
         "spec": "S1-2",
         "contract": "SecurityContext, PolicePhone guard, phone_type 제거된 PolicePhone/account/policePhone fixture",
-        "stub_strategy": "L4 harness uses fixed PolicePhone fixture with TEAM account and PATROL_CAR account cases.",
+        "stub_strategy": "L4 harness uses fixed PolicePhone fixtures with personal account cases and incident role/device context.",
         "replaced_by_real_at": "S1-2 auth/PolicePhone guard PASS"
       },
       {
@@ -1674,9 +1682,9 @@
         "FR-02",
         "FR-34"
       ],
-      "given": "사건 OPEN, current OP 존재, 앱 세션에 등록·배정된 PolicePhone가 연결됨",
+      "given": "사건 OPEN, current OP 존재, 앱 세션에 등록·배정된 PolicePhone과 로그인 계정이 연결됨",
       "when": "앱이 수색 시작을 호출한다",
-      "then": "search_path은 current OP와 PolicePhone 기준 RECORDING으로 생성되고 SEARCH_PATH_STARTED가 같은 id/opId/policePhoneId/version을 포함해 발행된다.",
+      "then": "search_path은 current OP와 accountId 기준 RECORDING으로 생성되고 SEARCH_PATH_STARTED가 같은 id/opId/accountId/policePhoneId/version을 포함해 발행된다.",
       "priority": "critical"
     },
     {
@@ -1697,7 +1705,7 @@
       ],
       "given": "RECORDING search_path과 10초 GPS batch가 있다",
       "when": "앱이 POST /search-paths/batch를 전송한다",
-      "then": "search_path LineString이 EPSG:4326 lon/lat 순서로 append되고 path subject는 account가 아니라 PolicePhone로 저장된다.",
+      "then": "search_path LineString이 EPSG:4326 lon/lat 순서로 append되고 path subject는 accountId로 저장되며 policePhoneId는 단말 컨텍스트로 남는다.",
       "priority": "critical"
     },
     {
@@ -1739,9 +1747,9 @@
         "FR-25",
         "FR-35"
       ],
-      "given": "팀 업무폰과 순찰차 업무폰 경로가 같은 OP에 있다",
+      "given": "도보 수색 개인 계정과 순찰차 폴리폰을 사용한 개인 계정 경로가 같은 OP에 있다",
       "when": "GET /search-paths를 조회한다",
-      "then": "응답은 policePhoneId, dutyShiftId, accountType, pathId, opId, status, version, movementType을 포함해 앱과 S3-2가 운용 중 PolicePhone와 차량 구간을 구분할 수 있다.",
+      "then": "응답은 accountId, policePhoneId, dutyShiftId, pathId, opId, status, version, movementType을 포함해 앱과 S3-2가 운용 중 개인 계정 경로와 차량 구간을 구분할 수 있다.",
       "priority": "high"
     },
     {
@@ -1922,9 +1930,9 @@
   "tdd_red_tests": {
     "backend": [
       {
-        "name": "SearchPathStartsForCurrentPolicePhoneAndOpTest",
+        "name": "SearchPathStartsForCurrentAccountAndOpTest",
         "framework": "JUnit 5 + Testcontainers(PostGIS)",
-        "scenario": "앱 PolicePhone가 path 시작 시 search_path row와 SEARCH_PATH_STARTED payload가 같은 opId/policePhoneId를 가진다."
+        "scenario": "앱 계정이 path 시작 시 search_path row와 SEARCH_PATH_STARTED payload가 같은 opId/accountId/policePhoneId를 가진다."
       },
       {
         "name": "PathBatchAppendsLineStringAndSegmentsTest",
@@ -2014,9 +2022,9 @@
         "scenario": "상황판 path slot에서 movement type을 VEHICLE에서 FOOT으로 보정하면 mutation payload는 movementType만 포함하고 REST/event/read model은 id/status/version으로 수렴한다."
       },
       {
-        "name": "PathLayerPolicePhoneSubjectRenderingTest",
+        "name": "PathLayerAccountSubjectRenderingTest",
         "framework": "Playwright",
-        "scenario": "팀/순찰차 계정이 운용한 path가 policePhoneId/accountType/movementType별 스타일로 구분되고 기록 중지/재시작 no-bridge와 low-quality/excluded badge가 표시된다."
+        "scenario": "개인 계정이 운용한 path가 accountId/movementType/PolicePhone 단말 컨텍스트별 스타일로 구분되고 기록 중지/재시작 no-bridge와 low-quality/excluded badge가 표시된다."
       },
       {
         "name": "S3PathWritePendingRefetchWhenBoardResponseLags",
@@ -2038,7 +2046,7 @@
       {
         "name": "GpsBatchEnqueueUsesCurrentPolicePhoneTest",
         "framework": "JUnit5 + Robolectric",
-        "scenario": "GPS batch writeOperation은 accountId가 아니라 current policePhoneId를 path subject로 포함하고 pointId/clientTs/lon/lat/speedMps/horizontalAccuracyM shape를 S6 SyncClient에 전달한다."
+        "scenario": "GPS batch writeOperation은 current accountId를 path subject로 하고 current policePhoneId를 단말 컨텍스트로 포함하며 pointId/clientTs/lon/lat/speedMps/horizontalAccuracyM shape를 S6 SyncClient에 전달한다."
       },
       {
         "name": "ForegroundLocationQualityPropsTest",
@@ -2055,7 +2063,7 @@
       "GPS 수집 5초 / 서버 전송 10초 batch 기준",
       "모든 path write 요청은 Idempotency-Key 헤더 필수",
       "모든 이벤트는 client_ts/server_ts/clock_offset_ms 3필드 병기 (ADR-0012)",
-      "path subject는 S1-2 PolicePhone이며 SearchSession은 current OP에 귀속",
+      "path subject는 accountId이며 S1-2 PolicePhone은 단말 컨텍스트로 함께 기록되고 SearchSession은 current OP에 귀속",
       "SC-05 S3-1 fixture IDs are fixed: incidentId=inc-precinct-first-001, opId=op-precinct-001-op1, policePhoneId=dev-precinct-car-01, pathId=sess-precinct-car-001, pathId=path-precinct-mixed-001, vehicleSegmentId=seg-precinct-vehicle-001, footSegmentId=seg-precinct-foot-001",
       "SC-05 S3-1 event/board response fixture IDs are fixed: searchPathStartedEventId=evt-s3-path-started-001 version=1, pathAppendedEventId=evt-s3-path-appended-001 version=2, pathSegmentUpdatedEventId=evt-s3-segment-updated-001 version=3, boardResponseRowId=board-path-precinct-mixed-001 and expected board response version is REST response version or higher"
     ],

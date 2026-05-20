@@ -4,6 +4,7 @@ import android.content.Context
 import com.surimap.feature.search.data.SearchMapSessionContext
 import com.surimap.ui.navigation.IncidentContext
 import com.surimap.ui.navigation.PolicePhoneContext
+import com.surimap.ui.navigation.accountIdClaim
 import org.json.JSONObject
 
 private const val PREFS_NAME = "suri_map_session_snapshot"
@@ -43,7 +44,8 @@ data class SuriMapSessionSnapshot(
             tileBaseUrl = normalizedTileBaseUrl,
             objectStorageBaseUrl = normalizedObjectStorageBaseUrl,
             accessToken = accessToken?.takeIf(String::isNotBlank),
-            accessTokenExpiresAtEpochMs = accessTokenExpiresAtEpochMs
+            accessTokenExpiresAtEpochMs = accessTokenExpiresAtEpochMs,
+            accountId = accessToken.accountIdClaim()
         )
     }
 

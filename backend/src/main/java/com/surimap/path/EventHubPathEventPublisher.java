@@ -73,7 +73,8 @@ public class EventHubPathEventPublisher implements PathEventPublisher {
         || request.status() == null
         || request.version() <= 0
         || request.opId() == null
-        || request.policePhoneId() == null) {
+        || request.policePhoneId() == null
+        || request.accountId() == null) {
       throw new SearchPathApiException("write_conflict");
     }
   }
@@ -86,6 +87,7 @@ public class EventHubPathEventPublisher implements PathEventPublisher {
         || request.version() <= 0
         || request.opId() == null
         || request.policePhoneId() == null
+        || request.accountId() == null
         || request.segmentId() == null
         || request.movementType() == null
         || request.movementTypeSource() == null) {
@@ -113,6 +115,7 @@ public class EventHubPathEventPublisher implements PathEventPublisher {
         request.incidentId(),
         request.opId(),
         request.policePhoneId(),
+        request.accountId(),
         request.status(),
         request.version(),
         occurredAt);
@@ -126,6 +129,7 @@ public class EventHubPathEventPublisher implements PathEventPublisher {
         request.incidentId(),
         request.opId(),
         request.policePhoneId(),
+        request.accountId(),
         request.status(),
         request.version(),
         occurredAt);
@@ -140,6 +144,7 @@ public class EventHubPathEventPublisher implements PathEventPublisher {
       UUID incidentId,
       UUID opId,
       UUID policePhoneId,
+      UUID accountId,
       SearchPathStatus status,
       long version,
       Instant occurredAt) {
@@ -148,6 +153,7 @@ public class EventHubPathEventPublisher implements PathEventPublisher {
     payload.put("incidentId", incidentId.toString());
     payload.put("opId", opId.toString());
     payload.put("policePhoneId", policePhoneId.toString());
+    payload.put("accountId", accountId.toString());
     payload.put("status", status.name());
     payload.put("version", version);
     payload.put("sequence", version);

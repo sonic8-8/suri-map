@@ -71,9 +71,11 @@ class SearchPathIdempotencyIntegrationTest {
             () ->
                 service.start(
                     new StartSearchPathServiceRequest(
+                        null,
                         SearchPathFixtures.INCIDENT_ID,
                         SearchPathFixtures.OP1_ID,
                         SearchPathFixtures.POLICE_PHONE_ID,
+                        SearchPathFixtures.ACCOUNT_ID,
                         STARTED_AT.plusSeconds(1),
                         "idem-s3-path-start-mismatch")))
         .isInstanceOf(IdempotencyMismatchException.class);
@@ -169,9 +171,11 @@ class SearchPathIdempotencyIntegrationTest {
 
   private StartSearchPathServiceRequest startRequest(String idempotencyKey) {
     return new StartSearchPathServiceRequest(
+        null,
         SearchPathFixtures.INCIDENT_ID,
         SearchPathFixtures.OP1_ID,
         SearchPathFixtures.POLICE_PHONE_ID,
+        SearchPathFixtures.ACCOUNT_ID,
         STARTED_AT,
         idempotencyKey);
   }

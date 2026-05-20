@@ -1,5 +1,6 @@
 package com.surimap.path;
 
+import com.surimap.common.auth.SuriMapAuthentication;
 import com.surimap.sync.idempotency.IdempotentResponseCache;
 import com.surimap.sync.idempotency.IdempotentResponseCache.ResponseMetadata;
 import java.nio.charset.StandardCharsets;
@@ -13,6 +14,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -51,7 +53,7 @@ public class SearchPathController {
             fingerprint,
             "POST /api/search-paths/batch",
             PathBatchAppendResponse.class,
-            () -> searchPathService.appendBatch(request, policePhoneId),
+            () -> searchPathService.appendBatch(request, policePhoneId, currentAccountIdOrNull()),
             this::metadataForBatch);
     return ResponseEntity.ok(response);
   }
@@ -60,8 +62,9 @@ public class SearchPathController {
   public ResponseEntity<PathQueryResponse> query(
       @RequestParam UUID incidentId,
       @RequestParam(required = false) UUID opId,
-      @RequestParam(required = false) UUID policePhoneId) {
-    return ResponseEntity.ok(searchPathService.query(incidentId, opId, policePhoneId));
+      @RequestParam(required = false) UUID policePhoneId,
+      @RequestParam(required = false) UUID accountId) {
+    return ResponseEntity.ok(searchPathService.query(incidentId, opId, policePhoneId, accountId));
   }
 
   private UUID parsePolicePhoneId(String header) {
@@ -127,6 +130,14 @@ public class SearchPathController {
     } catch (NoSuchAlgorithmException exception) {
       throw new IllegalStateException("SHA-256 is not available", exception);
     }
+  }
+
+  private UUID currentAccountIdOrNull() {
+    var current = SecurityContextHolder.getContext().getAuthentication();
+    if (current instanceof SuriMapAuthentication authentication) {
+      return UUID.fromString(authentication.getAccountId());
+    }
+    return null;
   }
 
   private record IdempotencyEntry<T>(String fingerprint, T response) {}

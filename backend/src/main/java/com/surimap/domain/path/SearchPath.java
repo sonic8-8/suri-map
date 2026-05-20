@@ -8,6 +8,7 @@ public record SearchPath(
     UUID incidentId,
     UUID opId,
     UUID policePhoneId,
+    UUID accountId,
     SearchPathStatus status,
     long version,
     Instant startedAt,

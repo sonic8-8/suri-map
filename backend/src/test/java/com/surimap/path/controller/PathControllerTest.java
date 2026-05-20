@@ -16,6 +16,7 @@ import com.surimap.domain.path.SearchPath;
 import com.surimap.domain.path.SearchPathStatus;
 import com.surimap.domain.path.exception.SearchPathGuardException;
 import com.surimap.support.auth.GuardPortTestStubs;
+import com.surimap.support.auth.WithMockAccount;
 import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -30,11 +31,13 @@ import org.springframework.test.web.servlet.MockMvc;
 @WebMvcTest(PathController.class)
 @AutoConfigureMockMvc(addFilters = false)
 @Import({PathExceptionHandler.class, GuardPortTestStubs.class})
+@WithMockAccount(accountId = "30000000-0000-0000-0000-000000000001")
 @DisplayName("L4-T01 search_path lifecycle API contract")
 class PathControllerTest {
 
   private static final UUID INCIDENT_ID = UUID.fromString("10000000-0000-0000-0000-000000000001");
   private static final UUID OP_ID = UUID.fromString("70000000-0000-0000-0000-000000000001");
+  private static final UUID ACCOUNT_ID = UUID.fromString("30000000-0000-0000-0000-000000000001");
   private static final UUID POLICE_PHONE_ID =
       UUID.fromString("50000000-0000-0000-0000-000000000001");
   private static final UUID SEARCH_PATH_ID =
@@ -54,6 +57,7 @@ class PathControllerTest {
                 INCIDENT_ID,
                 OP_ID,
                 POLICE_PHONE_ID,
+                ACCOUNT_ID,
                 SearchPathStatus.RECORDING,
                 1L,
                 Instant.parse("2026-04-28T00:00:00Z"),
@@ -80,10 +84,16 @@ class PathControllerTest {
         .andExpect(jsonPath("$.incidentId", is(INCIDENT_ID.toString())))
         .andExpect(jsonPath("$.opId", is(OP_ID.toString())))
         .andExpect(jsonPath("$.policePhoneId", is(POLICE_PHONE_ID.toString())))
+        .andExpect(jsonPath("$.accountId", is(ACCOUNT_ID.toString())))
         .andExpect(jsonPath("$.version", is(1)))
         .andExpect(jsonPath("$.status", is("RECORDING")));
 
-    verify(service).start(argThat(request -> SEARCH_PATH_ID.equals(request.searchPathId())));
+    verify(service)
+        .start(
+            argThat(
+                request ->
+                    SEARCH_PATH_ID.equals(request.searchPathId())
+                        && ACCOUNT_ID.equals(request.accountId())));
   }
 
   @Test
@@ -93,6 +103,7 @@ class PathControllerTest {
             service.patch(
                 org.mockito.ArgumentMatchers.eq(SEARCH_PATH_ID),
                 org.mockito.ArgumentMatchers.eq(POLICE_PHONE_ID),
+                org.mockito.ArgumentMatchers.eq(ACCOUNT_ID),
                 org.mockito.ArgumentMatchers.any()))
         .thenReturn(
             new SearchPath(
@@ -100,6 +111,7 @@ class PathControllerTest {
                 INCIDENT_ID,
                 OP_ID,
                 POLICE_PHONE_ID,
+                ACCOUNT_ID,
                 SearchPathStatus.ENDED,
                 2L,
                 Instant.parse("2026-04-28T00:00:00Z"),
@@ -132,6 +144,7 @@ class PathControllerTest {
             service.patch(
                 org.mockito.ArgumentMatchers.eq(SEARCH_PATH_ID),
                 org.mockito.ArgumentMatchers.eq(POLICE_PHONE_ID),
+                org.mockito.ArgumentMatchers.eq(ACCOUNT_ID),
                 org.mockito.ArgumentMatchers.any()))
         .thenReturn(
             new SearchPath(
@@ -139,6 +152,7 @@ class PathControllerTest {
                 INCIDENT_ID,
                 OP_ID,
                 POLICE_PHONE_ID,
+                ACCOUNT_ID,
                 SearchPathStatus.PAUSED,
                 2L,
                 Instant.parse("2026-04-28T00:00:00Z"),
@@ -171,6 +185,7 @@ class PathControllerTest {
             service.patch(
                 org.mockito.ArgumentMatchers.eq(SEARCH_PATH_ID),
                 org.mockito.ArgumentMatchers.eq(POLICE_PHONE_ID),
+                org.mockito.ArgumentMatchers.eq(ACCOUNT_ID),
                 org.mockito.ArgumentMatchers.any()))
         .thenReturn(
             new SearchPath(
@@ -178,6 +193,7 @@ class PathControllerTest {
                 INCIDENT_ID,
                 OP_ID,
                 POLICE_PHONE_ID,
+                ACCOUNT_ID,
                 SearchPathStatus.RECORDING,
                 3L,
                 Instant.parse("2026-04-28T00:00:00Z"),

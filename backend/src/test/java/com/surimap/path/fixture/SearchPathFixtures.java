@@ -19,6 +19,8 @@ public final class SearchPathFixtures {
   public static final String POLICE_PHONE_ALIAS = "dev-precinct-car-01";
   public static final UUID POLICE_PHONE_ID =
       UUID.fromString("50000000-0000-0000-0000-000000000001");
+  public static final String ACCOUNT_ALIAS = "acct-precinct-member-001";
+  public static final UUID ACCOUNT_ID = UUID.fromString("11111111-1111-1111-1111-111111110002");
 
   public static final String PATH_ALIAS = "path-precinct-mixed-001";
   public static final UUID PATH_ID = UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff");

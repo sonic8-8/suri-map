@@ -13,6 +13,7 @@ public class SearchPathAggregate {
   private final UUID incidentId;
   private final UUID opId;
   private final UUID policePhoneId;
+  private final UUID accountId;
   private Instant startedAt;
   private Instant endedAt;
   private SearchPathStatus status;
@@ -22,12 +23,18 @@ public class SearchPathAggregate {
   private final List<SearchPathSegment> segments;
 
   public SearchPathAggregate(UUID id, UUID incidentId, UUID opId, UUID policePhoneId) {
+    this(id, incidentId, opId, policePhoneId, null);
+  }
+
+  public SearchPathAggregate(
+      UUID id, UUID incidentId, UUID opId, UUID policePhoneId, UUID accountId) {
     this(
         id,
         null,
         incidentId,
         opId,
         policePhoneId,
+        accountId,
         null,
         null,
         SearchPathStatus.RECORDING,
@@ -43,12 +50,27 @@ public class SearchPathAggregate {
       UUID incidentId,
       UUID opId,
       UUID policePhoneId,
+      Instant startedAt,
+      Instant endedAt,
       SearchPathStatus status,
       long version,
       List<SearchPathPoint> points,
       List<PathExcludedPoint> excludedPoints,
       List<SearchPathSegment> segments) {
-    this(id, dutyShiftId, incidentId, opId, policePhoneId, null, null, status, version, points, excludedPoints, segments);
+    this(
+        id,
+        dutyShiftId,
+        incidentId,
+        opId,
+        policePhoneId,
+        null,
+        startedAt,
+        endedAt,
+        status,
+        version,
+        points,
+        excludedPoints,
+        segments);
   }
 
   SearchPathAggregate(
@@ -57,6 +79,35 @@ public class SearchPathAggregate {
       UUID incidentId,
       UUID opId,
       UUID policePhoneId,
+      UUID accountId,
+      SearchPathStatus status,
+      long version,
+      List<SearchPathPoint> points,
+      List<PathExcludedPoint> excludedPoints,
+      List<SearchPathSegment> segments) {
+    this(
+        id,
+        dutyShiftId,
+        incidentId,
+        opId,
+        policePhoneId,
+        accountId,
+        null,
+        null,
+        status,
+        version,
+        points,
+        excludedPoints,
+        segments);
+  }
+
+  SearchPathAggregate(
+      UUID id,
+      UUID dutyShiftId,
+      UUID incidentId,
+      UUID opId,
+      UUID policePhoneId,
+      UUID accountId,
       Instant startedAt,
       Instant endedAt,
       SearchPathStatus status,
@@ -69,6 +120,7 @@ public class SearchPathAggregate {
     this.incidentId = incidentId;
     this.opId = opId;
     this.policePhoneId = policePhoneId;
+    this.accountId = accountId;
     this.startedAt = startedAt;
     this.endedAt = endedAt;
     this.status = status;
@@ -96,6 +148,10 @@ public class SearchPathAggregate {
 
   public UUID policePhoneId() {
     return policePhoneId;
+  }
+
+  public UUID accountId() {
+    return accountId;
   }
 
   public SearchPathStatus status() {

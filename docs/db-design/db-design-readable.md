@@ -174,7 +174,7 @@ Android Room 로컬 엔티티
 - `login_id`: 사람이 입력하는 로그인 ID. `acct-*` fixture 코드는 여기에 해당하며 FK로 사용하지 않는다.
 - `password_hash`: 비밀번호 해시
 - `display_name`: 화면에 표시할 계정 이름
-- `account_type`: 팀, 순찰차, 지휘 계정 구분
+- `account_type`: 개인 계정의 권한 projection 보조 분류. 팀/순찰차 공유 계정을 의미하지 않는다.
 - `organization_type`: 실종팀, 지원부대, 지구대/파출소 구분
 - `status`: 계정 활성 상태
 - `created_at`: 생성 시각
@@ -189,7 +189,7 @@ Android Room 로컬 엔티티
 **PRD 근거**
 
 - PRD §2 용어 `폴리폰`, `팀 업무폰`, `순찰차 업무폰`
-- PRD §7.7 FR-33 `팀 업무폰 또는 순찰차 업무폰 기준 수색 경로 기록`
+- PRD §7.7 FR-33 `개인 계정 기준 수색 경로 기록`
 - PRD §8.4 `폴리폰 장기 로그인`
 
 **연관 관계**
@@ -388,13 +388,14 @@ Android Room 로컬 엔티티
 **PRD 근거**
 
 - PRD §5.1 시나리오 5 `수색 시작 및 GPS 기록`
-- PRD §7.7 FR-33 `팀 업무폰 또는 순찰차 업무폰 기준 수색 경로 기록`
+- PRD §7.7 FR-33 `개인 계정 기준 수색 경로 기록`
 - PRD §7.7 FR-34 `수색 시작/종료 단위 관리`
 
 **연관 관계**
 
 - 하나의 `duty_shift`는 여러 개의 `search_path`를 가진다. (1:N)
 - 하나의 `search_path`는 하나의 `duty_shift`에 속한다. (N:1)
+- 하나의 `account`는 여러 개의 `search_path`를 기록할 수 있다. (1:N)
 - 하나의 `search_path`는 여러 개의 `search_path_segment`를 가진다. (1:N)
 - 하나의 `search_path`는 여러 개의 `search_path_excluded_point`를 가진다. (1:N)
 - 하나의 `search_path`는 여러 개의 `search_path_lifecycle_event`를 가진다. (1:N)
@@ -403,6 +404,7 @@ Android Room 로컬 엔티티
 
 - `id`: 수색 경로 식별자
 - `duty_shift_id`: 경로가 기록된 근무 구간
+- `account_id`: 경로를 기록한 로그인 계정. `police_phone_id`는 `duty_shift`를 통해 단말 컨텍스트로 확인한다.
 - `status`: 경로 기록 상태 (`RECORDING`, `PAUSED`, `ENDED`)
 - `started_at`: 경로 기록 시작 시각
 - `ended_at`: 경로 기록 종료 시각
@@ -413,7 +415,7 @@ Android Room 로컬 엔티티
 
 **설명**
 
-`search_path`는 수색 시작/일시정지/재개/종료 버튼으로 관리되는 하나의 수색 경로다. 근무 구간 전체는 `duty_shift`, 실제 GPS 기록 단위는 `search_path`가 맡는다. 일시정지는 경로 공백이 의도된 운영 상태였음을 남기는 상태이며, 상세 전이 이력은 `search_path_lifecycle_event`가 가진다.
+`search_path`는 수색 시작/일시정지/재개/종료 버튼으로 관리되는 하나의 수색 경로다. 근무 구간 전체는 `duty_shift`, 실제 GPS 기록 주체는 `account_id`, 단말 인증·배정 컨텍스트는 `duty_shift.police_phone_id`가 맡는다. 일시정지는 경로 공백이 의도된 운영 상태였음을 남기는 상태이며, 상세 전이 이력은 `search_path_lifecycle_event`가 가진다.
 
 #### search_path_lifecycle_event
 

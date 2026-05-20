@@ -138,7 +138,7 @@ public class HandoverTimelineApiService {
   private List<PathResponse> pathResponses(List<SearchPathAggregate> paths, ActorRegistry actors) {
     List<PathResponse> responses = new ArrayList<>();
     for (SearchPathAggregate path : paths) {
-      String actorId = actors.actorFor(path.policePhoneId(), "현장 기록자");
+      String actorId = actors.actorFor(path.accountId(), "현장 기록자");
       responses.add(
           new PathResponse(
               path.id(),
@@ -166,7 +166,7 @@ public class HandoverTimelineApiService {
       ActorRegistry actors) {
     List<EventResponse> events = new ArrayList<>();
     for (SearchPathAggregate path : paths) {
-      String actorId = actors.actorFor(path.policePhoneId(), "현장 기록자");
+      String actorId = actors.actorFor(path.accountId(), "현장 기록자");
       Instant startedAt = path.startedAt();
       if (startedAt != null) {
         events.add(

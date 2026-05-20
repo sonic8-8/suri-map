@@ -1,10 +1,13 @@
 package com.surimap.ui.navigation
 
+import android.util.Base64
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.surimap.core.network.AccessTokenProvider
+import java.nio.charset.StandardCharsets
+import org.json.JSONObject
 
 enum class PolicePhoneRoute(val route: String) {
     AuthBootstrap("auth_bootstrap"),
@@ -100,11 +103,23 @@ data class PolicePhoneContext(
     val objectStorageBaseUrl: String,
     val allowedHosts: Set<String> = emptySet(),
     val accessToken: String? = null,
-    val accessTokenExpiresAtEpochMs: Long? = null
+    val accessTokenExpiresAtEpochMs: Long? = null,
+    val accountId: String? = accessToken.accountIdClaim()
 )
 
 fun PolicePhoneContext?.accessTokenProvider(): AccessTokenProvider =
     AccessTokenProvider { this?.accessToken?.takeIf(String::isNotBlank) }
+
+fun String?.accountIdClaim(): String? {
+    val token = this?.takeIf(String::isNotBlank) ?: return null
+    val payloadPart = token.split('.').getOrNull(1)?.takeIf(String::isNotBlank) ?: return null
+    return runCatching {
+        val decoded = Base64.decode(payloadPart, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)
+        JSONObject(String(decoded, StandardCharsets.UTF_8))
+            .optString("accountId")
+            .takeIf(String::isNotBlank)
+    }.getOrNull()
+}
 
 @Stable
 class IncidentSessionState(

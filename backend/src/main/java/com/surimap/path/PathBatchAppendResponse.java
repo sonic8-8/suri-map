@@ -10,6 +10,7 @@ public record PathBatchAppendResponse(
     UUID dutyShiftId,
     UUID opId,
     UUID policePhoneId,
+    UUID accountId,
     int acceptedPointCount,
     int excludedPointCount,
     List<PathExcludedPoint> excludedPoints,

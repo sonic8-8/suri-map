@@ -25,7 +25,8 @@ data class SearchMapSessionContext(
     val currentOpId: String?,
     val currentDutyShiftId: String?,
     val currentOpLabel: String? = null,
-    val policePhoneId: String? = null
+    val policePhoneId: String? = null,
+    val accountId: String? = null
 )
 
 class SearchMapStateLoader(
@@ -183,6 +184,7 @@ class SearchMapStateLoader(
         val incidentId = context.incidentId?.takeIf(String::isNotBlank) ?: return state
         val opId = context.currentOpId?.takeIf(String::isNotBlank) ?: return state
         val policePhoneId = context.policePhoneId?.takeIf(String::isNotBlank) ?: return state
+        val accountId = context.accountId?.takeIf(String::isNotBlank)
         val response =
             runCatching {
                 searchPaths(
@@ -200,7 +202,7 @@ class SearchMapStateLoader(
         if (!response.isSuccessful || response.body.isNullOrBlank()) {
             return state
         }
-        val pathLayerResult = searchPathLayers(response.body, policePhoneId)
+        val pathLayerResult = searchPathLayers(response.body, accountId, policePhoneId)
         if (pathLayerResult.layers.isEmpty() && pathLayerResult.activePathId.isNullOrBlank()) {
             return state
         }
@@ -210,7 +212,7 @@ class SearchMapStateLoader(
                 if (pathLayerResult.layers.isEmpty()) {
                     state.movementSummary
                 } else {
-                    "경로 ${pathLayerResult.layers.size}개 표시"
+                    "경로 ${pathLayerResult.pathCount}개 표시"
                 },
                 layers = state.layers + pathLayerResult.layers,
                 lifecycleStatus = pathLayerResult.activeLifecycleStatus ?: state.lifecycleStatus,
@@ -461,21 +463,31 @@ class SearchMapStateLoader(
             ?.label
             ?.takeIf(String::isNotBlank)
 
-    private fun searchPathLayers(body: String, currentPolicePhoneId: String): SearchPathLayerResult {
+    private fun searchPathLayers(
+        body: String,
+        currentAccountId: String?,
+        currentPolicePhoneId: String
+    ): SearchPathLayerResult {
         val root = runCatching { JSONObject(body) }.getOrNull() ?: return SearchPathLayerResult()
         val paths = root.optJSONArray("paths") ?: root.optJSONArray("items") ?: return SearchPathLayerResult()
         var activePathId: String? = null
         var activeStartedAtEpochMs: Long? = null
         var activeLifecycleStatus: SearchLifecycleStatus? = null
+        var pathCount = 0
         val layers = buildList {
             repeat(paths.length()) { index ->
                 val path = paths.optJSONObject(index) ?: return@repeat
                 val status = path.optString("status").uppercase()
                 val active = status in setOf("ACTIVE", "RECORDING", "PAUSED")
-                val belongsToCurrentPhone =
-                    path.optString("policePhoneId").equals(currentPolicePhoneId, ignoreCase = true)
-                val activeForCurrentPhone = active && belongsToCurrentPhone
-                if (activeForCurrentPhone) {
+                val pathAccountId = path.optString("accountId").takeIf(String::isNotBlank)
+                val belongsToCurrentActor =
+                    if (!currentAccountId.isNullOrBlank() && !pathAccountId.isNullOrBlank()) {
+                        pathAccountId.equals(currentAccountId, ignoreCase = true)
+                    } else {
+                        path.optString("policePhoneId").equals(currentPolicePhoneId, ignoreCase = true)
+                    }
+                val activeForCurrentActor = active && belongsToCurrentActor
+                if (activeForCurrentActor) {
                     activePathId = path.optString("id").takeIf(String::isNotBlank) ?: activePathId
                     activeStartedAtEpochMs = path.instantMillis("startedAt") ?: activeStartedAtEpochMs
                     activeLifecycleStatus =
@@ -489,24 +501,43 @@ class SearchMapStateLoader(
                 if (!geometry.optString("type").equals("LineString", ignoreCase = true)) {
                     return@repeat
                 }
+                val pathId = path.optString("id").ifBlank { "search-path-$index" }
+                pathCount += 1
                 add(
                     SearchMapLayerUiState(
                         label =
                         when {
-                            activeForCurrentPhone -> "현재 경로"
-                            active -> "다른 단말 경로"
+                            activeForCurrentActor -> "현재 경로"
+                            active -> "다른 대원 경로"
                             else -> "기존 경로"
                         },
                         kind = SearchLayerKind.Path,
-                        highlighted = activeForCurrentPhone,
-                        overlayId = path.optString("id").ifBlank { "search-path-$index" },
+                        highlighted = activeForCurrentActor,
+                        overlayId = pathId,
                         geoJson = geometry.toString()
                     )
                 )
+                geometry.latestLineStringPoint()?.let { latestPoint ->
+                    add(
+                        SearchMapLayerUiState(
+                            label =
+                            when {
+                                activeForCurrentActor -> "현재 위치"
+                                active -> "다른 대원 위치"
+                                else -> "기존 위치"
+                            },
+                            kind = SearchLayerKind.CurrentLocation,
+                            highlighted = activeForCurrentActor,
+                            overlayId = "$pathId-latest-location",
+                            geoJson = latestPoint.toString()
+                        )
+                    )
+                }
             }
         }
         return SearchPathLayerResult(
             layers = layers,
+            pathCount = pathCount,
             activePathId = activePathId,
             activeStartedAtEpochMs = activeStartedAtEpochMs,
             activeLifecycleStatus = activeLifecycleStatus
@@ -515,6 +546,7 @@ class SearchMapStateLoader(
 
     private data class SearchPathLayerResult(
         val layers: List<SearchMapLayerUiState> = emptyList(),
+        val pathCount: Int = 0,
         val activePathId: String? = null,
         val activeStartedAtEpochMs: Long? = null,
         val activeLifecycleStatus: SearchLifecycleStatus? = null
@@ -575,6 +607,28 @@ class SearchMapStateLoader(
                 }
             }
         return runCatching { Instant.parse(value).toEpochMilli() }.getOrNull()
+    }
+
+    private fun JSONObject.latestLineStringPoint(): JSONObject? {
+        if (!optString("type").equals("LineString", ignoreCase = true)) {
+            return null
+        }
+        val coordinates = optJSONArray("coordinates") ?: return null
+        for (index in coordinates.length() - 1 downTo 0) {
+            val point = coordinates.optJSONArray(index) ?: continue
+            if (point.length() < 2 || point.opt(0) !is Number || point.opt(1) !is Number) {
+                continue
+            }
+            val longitude = point.optDouble(0)
+            val latitude = point.optDouble(1)
+            if (!longitude.isFinite() || !latitude.isFinite()) {
+                continue
+            }
+            return JSONObject()
+                .put("type", "Point")
+                .put("coordinates", JSONArray().put(longitude).put(latitude))
+        }
+        return null
     }
 
     private fun String.markerTypeLabel(): String =

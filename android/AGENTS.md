@@ -76,9 +76,9 @@ Outbox 상태는 S6 기준을 따른다: `PENDING`, `SENDING`, `ACKED`, `FAILED_
 
 ## PolicePhone / Path
 
-- 경로 주체는 개인이 아니라 `PolicePhone`이다.
-- 조작 주체는 로그인한 팀/순찰차/지휘 계정이다.
-- 모든 현장 write는 현재 `incidentId`, `opId`, `policePhoneId`, 필요 시 `dutyShiftId`에 귀속된다.
+- 경로 기록 주체는 로그인한 `accountId`다.
+- `PolicePhone`은 앱 단말 인증, 배정 guard, outbox 전송 컨텍스트로 유지한다.
+- 모든 현장 write는 현재 `incidentId`, `opId`, `accountId`, `policePhoneId`, 필요 시 `dutyShiftId`에 귀속된다.
 - SearchPath는 수색 시작부터 종료까지의 경로 단위다. 기록 종료 후 다시 시작하면 새 SearchPath다.
 - GPS 수집은 5초, 서버 전송은 10초 batch 기준이다.
 - 차량/도보 자동 분류 결과는 표시할 수 있지만, 수동 보정 command는 웹 전용이다.
