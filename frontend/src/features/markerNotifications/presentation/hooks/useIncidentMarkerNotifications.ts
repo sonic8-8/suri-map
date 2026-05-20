@@ -85,71 +85,40 @@ function toMarkerNotification(message: EventStreamMessage): MarkerNotification |
   const occurredAt = readString(message.data, 'occurredAt') ?? readString(message.data, 'serverTs');
   const markerType = readString(payload, 'markerType') ?? eventType;
   const policePhoneId = readString(payload, 'policePhoneId');
+  const policePhoneName =
+    readString(payload, 'policePhoneName') ??
+    readString(payload, 'police_phone_name') ??
+    readString(payload, 'phoneName') ??
+    readString(payload, 'displayName');
   const opId = readString(payload, 'opId') ?? readString(payload, 'operationalPeriodId');
-  const locationLabel = readLocationLabel(payload);
 
   return {
     id: eventId ?? `${eventType}:${markerId ?? Date.now()}`,
-    title: eventType === 'PERSON_FOUND' ? 'Person found marker' : 'Support request marker',
+    title: eventType === 'PERSON_FOUND' ? '발견 마커 수신' : '지원 요청 마커 수신',
     markerType: markerTypeLabel(markerType, eventType),
-    reporter: policePhoneId ? `Police phone ${policePhoneId}` : 'Unknown reporter',
-    areaLabel: opId ? `OP ${opId}` : 'Unknown OP',
-    receivedAtLabel: occurredAt ? formatTimeLabel(new Date(occurredAt)) : 'Unknown time',
-    coordinateLabel: formatCoordinateLabel(locationLabel),
+    reporter: policePhoneName?.trim() || knownPolicePhoneName(policePhoneId) || '작성 단말 확인 불가',
+    areaLabel: opId ? `OP ${opId}` : 'OP 확인 불가',
+    receivedAtLabel: occurredAt ? formatTimeLabel(new Date(occurredAt)) : '시각 확인 불가',
+    coordinateLabel: '',
   };
 }
 
 function markerTypeLabel(markerType: string, eventType: string) {
-  if (eventType === 'PERSON_FOUND' || markerType === 'PERSON_FOUND') return 'Person found';
-  if (eventType === 'SUPPORT_REQUEST_CREATED' || markerType === 'SUPPORT_REQUEST') return 'Support request';
-  if (markerType === 'CLUE') return 'Clue';
-  if (markerType === 'FIELD_CONDITION') return 'Field condition';
-  if (markerType === 'NOTE') return 'Note';
+  if (eventType === 'PERSON_FOUND' || markerType === 'PERSON_FOUND') return '발견';
+  if (eventType === 'SUPPORT_REQUEST_CREATED' || markerType === 'SUPPORT_REQUEST') return '지원 요청';
+  if (markerType === 'CLUE') return '단서';
+  if (markerType === 'FIELD_CONDITION') return '현장 상태';
+  if (markerType === 'NOTE') return '메모';
   return markerType;
 }
 
-function formatCoordinateLabel(locationLabel: string | null) {
-  if (!locationLabel) return 'Unknown location';
-
-  const [lon, lat] = locationLabel.split(',').map((value) => Number(value.trim()));
-  if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
-    return locationLabel;
-  }
-
-  return `${lat.toFixed(5)}N / ${lon.toFixed(5)}E`;
-}
-
-function readLocationLabel(payload: Record<string, unknown>) {
-  const label = readString(payload, 'locationLabel');
-  if (label) return label;
-
-  const location = payload.location;
-  if (isRecord(location) && location.type === 'Point' && Array.isArray(location.coordinates)) {
-    const [lon, lat] = location.coordinates;
-    if (typeof lon === 'number' && typeof lat === 'number') {
-      return `${lon},${lat}`;
-    }
-  }
-
-  const coordinates = payload.coordinates;
-  if (Array.isArray(coordinates)) {
-    const [lon, lat] = coordinates;
-    if (typeof lon === 'number' && typeof lat === 'number') {
-      return `${lon},${lat}`;
-    }
-  }
-
-  const lon = readNumber(payload, 'longitude') ?? readNumber(payload, 'lon');
-  const lat = readNumber(payload, 'latitude') ?? readNumber(payload, 'lat');
-  if (typeof lon === 'number' && typeof lat === 'number') {
-    return `${lon},${lat}`;
-  }
-
-  return null;
+function knownPolicePhoneName(policePhoneId: string | null) {
+  if (!policePhoneId) return null;
+  return KNOWN_POLICE_PHONE_NAMES_BY_ID[policePhoneId] ?? null;
 }
 
 function formatTimeLabel(date: Date) {
-  if (Number.isNaN(date.getTime())) return 'Unknown time';
+  if (Number.isNaN(date.getTime())) return '시각 확인 불가';
 
   return new Intl.DateTimeFormat('ko-KR', {
     timeZone: 'Asia/Seoul',
@@ -164,11 +133,14 @@ function readString(row: Record<string, unknown>, key: string) {
   return typeof value === 'string' ? value : null;
 }
 
-function readNumber(row: Record<string, unknown>, key: string) {
-  const value = row[key];
-  return typeof value === 'number' ? value : null;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
+const KNOWN_POLICE_PHONE_NAMES_BY_ID: Record<string, string> = {
+  '00000000-0000-0000-0000-000000000101': '수완지구대 현장 단말',
+  '00000000-0000-0000-0000-000000000201': '수완지구대 지휘 단말',
+  '50000000-0000-0000-0000-000000000001': '수완지구대 순찰차 단말',
+  '00000000-0000-0000-0000-000000000204': '여성청소년과 실종팀 지휘 단말',
+  '00000000-0000-0000-0000-000000000205': '여성청소년과 실종팀 현장 단말',
+  '00000000-0000-0000-0000-000000000206': '기동대 지휘 단말',
+  '00000000-0000-0000-0000-000000000207': '기동대 차량 단말',
+  '00000000-0000-0000-0000-000000000208': '기동대 현장 단말',
+  '00000000-0000-0000-0000-000000000301': '미배정 폴리폰 단말',
+};

@@ -1,5 +1,5 @@
 import { getApiBaseUrl } from '../config';
-import { API_UNAUTHORIZED_EVENT, getStoredAccessToken } from './client';
+import { clearExpiredApiSession, getStoredAccessToken } from './client';
 
 export type SuriMapEventEnvelope = {
   eventId?: string;
@@ -147,12 +147,4 @@ function dispatchSseFrame(frame: string, onMessage: (message: EventStreamMessage
   } catch {
     // Ignore malformed SSE payloads; the next valid frame can still be processed.
   }
-}
-
-function clearExpiredApiSession() {
-  sessionStorage.removeItem('suriMapAccessToken');
-  sessionStorage.removeItem('suriMapIdToken');
-  sessionStorage.removeItem('suriMapCurrentAccount');
-  sessionStorage.removeItem('suriMapTokenExpiresAt');
-  window.dispatchEvent(new CustomEvent(API_UNAUTHORIZED_EVENT));
 }

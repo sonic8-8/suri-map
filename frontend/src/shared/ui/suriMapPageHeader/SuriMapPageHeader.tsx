@@ -311,8 +311,12 @@ export function SuriMapPageHeader({
             {activeMarkerNotification.reporter}
             <br />
             {activeMarkerNotification.areaLabel} / {activeMarkerNotification.receivedAtLabel}
-            <br />
-            {activeMarkerNotification.coordinateLabel}
+            {activeMarkerNotification.coordinateLabel ? (
+              <>
+                <br />
+                {activeMarkerNotification.coordinateLabel}
+              </>
+            ) : null}
           </div>
           <div className={styles.markerPopupPager} aria-label="마커 알림 페이지">
             {markerNotificationIndex + 1} / {markerNotifications.length}
