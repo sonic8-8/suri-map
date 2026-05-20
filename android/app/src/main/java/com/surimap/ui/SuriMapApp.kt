@@ -240,6 +240,7 @@ import org.json.JSONObject
 private const val AUTH_BOOTSTRAP_LOG_TAG = "AuthBootstrap"
 private const val ACCESS_TOKEN_REFRESH_SKEW_MS = 60_000L
 private const val ACCESS_TOKEN_REFRESH_FALLBACK_MS = 4 * 60 * 1_000L
+private const val SEARCH_MAP_SERVER_REFRESH_MS = 10_000L
 private const val HANDOVER_PROMPT_PREFS_NAME = "suri_map_handover_prompt_seen"
 
 @Composable
@@ -1620,14 +1621,23 @@ private fun SearchMapRoute(
 
     LaunchedEffect(loader, sessionContext, focusMarkerId) {
         searchMapState = loader.fallback(sessionContext).withFocusedMarker(focusMarkerId)
+        suspend fun refreshServerState() {
+            searchMapState = loader.load(sessionContext).withFocusedMarker(focusMarkerId)
+        }
         val incidentId = sessionContext.incidentId?.takeIf(String::isNotBlank)
         val policePhoneId = sessionContext.policePhoneId?.takeIf(String::isNotBlank)
         if (incidentId == null || policePhoneId == null) {
-            searchMapState = loader.load(sessionContext).withFocusedMarker(focusMarkerId)
+            refreshServerState()
             return@LaunchedEffect
         }
-        outboxDao.observeStatusSummary(incidentId = incidentId, policePhoneId = policePhoneId).collect {
-            searchMapState = loader.load(sessionContext).withFocusedMarker(focusMarkerId)
+        launch {
+            outboxDao.observeStatusSummary(incidentId = incidentId, policePhoneId = policePhoneId).collect {
+                refreshServerState()
+            }
+        }
+        while (true) {
+            delay(SEARCH_MAP_SERVER_REFRESH_MS)
+            refreshServerState()
         }
     }
 
