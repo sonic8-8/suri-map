@@ -286,6 +286,7 @@ export function SituationBoardPage({
             onToggleCollapsed={boardState.toggleLeftPanelCollapsed}
             onToggleLayer={boardState.toggleLayer}
             onToggleMarkerType={boardState.toggleMarkerType}
+            onOpenAreaWorkspace={boardState.openAreaWorkspace}
             onSelectSearchArea={handleSelectSearchAreaFromPanel}
             onSelectMarker={handleSelectMarker}
           />
