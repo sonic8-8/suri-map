@@ -1,6 +1,7 @@
 package com.surimap.feature.handover
 
 import com.surimap.core.network.SuriMapApiResponse
+import com.surimap.core.operationalperiod.DutyShiftQuery
 import com.surimap.core.operationalperiod.HandoverMemoQuery
 import com.surimap.core.operationalperiod.HandoverTimelineQuery
 import com.surimap.core.operationalperiod.SearchHistorySummaryQuery
@@ -135,12 +136,120 @@ class DutyHandoverStateLoaderTest {
     }
 
     @Test
+    fun previousEndedDutyShiftIsDefaultReplayScopeWhenOptionsExist() = runBlocking {
+        val timelineQueries = mutableListOf<HandoverTimelineQuery>()
+        val loader =
+            DutyHandoverStateLoader(
+                dutyShifts = { query: DutyShiftQuery ->
+                    assertEquals(INCIDENT_ID, query.incidentId)
+                    assertEquals(OP_ID, query.opId)
+                    assertEquals(POLICE_PHONE_ID, query.policePhoneId)
+                    ok(
+                        """
+                        {
+                          "items": [
+                            {
+                              "id": "$DUTY_SHIFT_ID",
+                              "status": "ACTIVE",
+                              "startedAt": "2026-05-11T04:00:00Z"
+                            },
+                            {
+                              "id": "$PREVIOUS_DUTY_SHIFT_ID",
+                              "status": "ENDED",
+                              "startedAt": "2026-05-11T02:00:00Z"
+                            }
+                          ]
+                        }
+                        """.trimIndent()
+                    )
+                },
+                handoverTimeline = { operationalPeriodId, query: HandoverTimelineQuery ->
+                    assertEquals(OP_ID, operationalPeriodId)
+                    timelineQueries += query
+                    assertEquals("DUTY_SHIFT", query.scopeType)
+                    assertEquals(PREVIOUS_DUTY_SHIFT_ID, query.dutyShiftId)
+                    ok(
+                        """
+                        {
+                          "incidentId": "$INCIDENT_ID",
+                          "operationalPeriodId": "$OP_ID",
+                          "scope": {
+                            "scopeType": "DUTY_SHIFT",
+                            "dutyShiftId": "$PREVIOUS_DUTY_SHIFT_ID",
+                            "startedAt": "2026-05-11T02:00:00Z",
+                            "endedAt": "2026-05-11T03:30:00Z"
+                          },
+                          "actors": [
+                            {"actorId": "actor-1", "displayName": "이전 근무 폴리폰", "colorKey": "blue"}
+                          ],
+                          "paths": [
+                            {
+                              "pathId": "path-prev-1",
+                              "actorId": "actor-1",
+                              "mode": "FOOT",
+                              "startedAt": "2026-05-11T02:05:00Z",
+                              "endedAt": "2026-05-11T02:15:00Z",
+                              "points": [
+                                {"at": "2026-05-11T02:05:00Z", "lat": 37.1000, "lng": 127.1000},
+                                {"at": "2026-05-11T02:15:00Z", "lat": 37.1020, "lng": 127.1030}
+                              ]
+                            }
+                          ],
+                          "events": [],
+                          "metrics": {
+                            "distanceMeters": 600,
+                            "markerCount": 0,
+                            "handoverMemoCount": 0,
+                            "syncStatus": "READY"
+                          },
+                          "summary": {
+                            "status": "READY",
+                            "displayStatus": "READY",
+                            "content": "이전 근무자가 산책로 동측을 확인했습니다.",
+                            "sourceReadiness": "READY",
+                            "updatedAt": "2026-05-11T03:32:00Z"
+                          }
+                        }
+                        """.trimIndent()
+                    )
+                },
+                handoverMemos = { ok("""{"items":[]}""") },
+                searchHistorySummaries = { _, _ -> ok("""{"items":[]}""") }
+            )
+
+        val state = loader.load(CONTEXT)
+
+        assertEquals(listOf(PREVIOUS_DUTY_SHIFT_ID), timelineQueries.map { it.dutyShiftId })
+        assertEquals(HandoverRecordScope.DutyShift, state.recordScope)
+        assertEquals("OP 3차 · 이전 근무", state.subtitle)
+        assertTrue(state.dutyShiftOptions.any { it.dutyShiftId == PREVIOUS_DUTY_SHIFT_ID && it.selected })
+        assertTrue(state.dutyShiftOptions.any { it.dutyShiftId == DUTY_SHIFT_ID && !it.selected })
+        assertEquals("path-prev-1", state.replayPathSegments.single().sourceKey)
+        assertEquals(2, state.replayPathSegments.single().points.size)
+    }
+
+    @Test
     fun emptyDutyShiftTimelineFallsBackToOpTimelineWithOpLabels() = runBlocking {
         val timelineQueries = mutableListOf<HandoverTimelineQuery>()
         var memoCalled = false
         var summaryCalled = false
         val loader =
             DutyHandoverStateLoader(
+                dutyShifts = {
+                    ok(
+                        """
+                        {
+                          "items": [
+                            {
+                              "id": "$DUTY_SHIFT_ID",
+                              "status": "ACTIVE",
+                              "startedAt": "2026-05-11T04:00:00Z"
+                            }
+                          ]
+                        }
+                        """.trimIndent()
+                    )
+                },
                 handoverTimeline = { operationalPeriodId, query: HandoverTimelineQuery ->
                     assertEquals(OP_ID, operationalPeriodId)
                     timelineQueries += query
@@ -242,6 +351,7 @@ class DutyHandoverStateLoaderTest {
         assertEquals("OP 3차 · 수색 이력", state.subtitle)
         assertEquals(SearchHistorySummaryStatus.Ready, state.summaryStatus)
         assertEquals("OP 2차에서 산책로 입구와 주변 경로를 확인했습니다.", state.summary)
+        assertTrue(state.dutyShiftOptions.isEmpty())
         val reportState = state.selectTab(com.surimap.feature.handover.ui.DutyHandoverTab.Report)
         assertTrue(reportState.visibleText().contains("OP 수색 이력 요약"))
         assertTrue(reportState.visibleText().contains("OP 개요"))
@@ -403,6 +513,7 @@ class DutyHandoverStateLoaderTest {
         val INCIDENT_ID = incidentIdFixture("precinct-first-001")
         val OP_ID = opIdFixture("precinct-first-001")
         val DUTY_SHIFT_ID = dutyShiftIdFixture("precinct-first-001")
+        val PREVIOUS_DUTY_SHIFT_ID = dutyShiftIdFixture("precinct-first-000")
         val POLICE_PHONE_ID = policePhoneIdFixture("precinct-001")
         val MEMO_ID = handoverMemoIdFixture("memo-001")
         val SUMMARY_ID = searchHistorySummaryIdFixture("summary-001")

@@ -908,6 +908,12 @@ private fun HandoverSummaryRoute(
                         accessTokenProvider = accessTokenProvider
                     ).listHandoverMemos(query)
                 },
+                dutyShifts = { query ->
+                    DutyShiftRepository(
+                        apiClient = SuriMapApiClient(baseUrl = apiBaseUrl),
+                        accessTokenProvider = accessTokenProvider
+                    ).listDutyShifts(query)
+                },
                 searchHistorySummaries = { operationalPeriodId, query ->
                     SearchHistorySummaryReadRepository(
                         apiClient = SuriMapApiClient(baseUrl = apiBaseUrl),
@@ -919,15 +925,16 @@ private fun HandoverSummaryRoute(
     var handoverState by remember(loader, sessionContext) {
         mutableStateOf(loader.fallback(sessionContext))
     }
+    var selectedDutyShiftId by remember(sessionContext) { mutableStateOf<String?>(null) }
     var selectedHandoverTab by remember(sessionContext) { mutableStateOf(DutyHandoverTab.Replay) }
     var selectedOriginalRecordKey by remember(sessionContext) { mutableStateOf<String?>(null) }
     var replayControlState by remember(sessionContext) { mutableStateOf(HandoverReplayControlUiState()) }
     var endingDutyShift by remember(sessionContext) { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
-    LaunchedEffect(loader, sessionContext) {
+    LaunchedEffect(loader, sessionContext, selectedDutyShiftId) {
         handoverState = loader.fallback(sessionContext)
-        handoverState = loader.load(sessionContext)
+        handoverState = loader.load(sessionContext, selectedDutyShiftId = selectedDutyShiftId)
     }
     val replayControlDurationMs = handoverState.replayControl.displayDurationMs
     val currentReplayControl = replayControlState.withDuration(replayControlDurationMs)
@@ -966,10 +973,15 @@ private fun HandoverSummaryRoute(
             canEndDutyShift = !sessionContext.dutyShiftId.isNullOrBlank(),
             endingDutyShift = endingDutyShift
         ),
+        mapState = policePhoneContext.toMapLibreRuntimeMapState(),
         onBack = { navController.popBackStack() },
         onWriteMemo = { navController.navigateToSingleTop(PolicePhoneRoute.HandoverMemo) },
         onOpenSearch = { navController.navigateToSingleTop(PolicePhoneRoute.SearchMap) },
         onSelectTab = { selectedHandoverTab = it },
+        onSelectDutyShift = { dutyShiftId ->
+            selectedDutyShiftId = dutyShiftId
+            replayControlState = HandoverReplayControlUiState()
+        },
         onReplayPlayPause = {
             replayControlState = currentReplayControl.togglePlaying()
         },
