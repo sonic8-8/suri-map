@@ -855,6 +855,26 @@
   font-size: 12px;
 }
 
+.memoItemInteractive {
+  cursor: pointer;
+}
+
+.memoItemInteractive:hover {
+  border-color: color-mix(in srgb, var(--suri-board-primary-hi) 36%, var(--handover-border-soft));
+  background: color-mix(in srgb, var(--suri-board-primary-soft) 42%, var(--handover-panel-surface));
+}
+
+.memoItemInteractive:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--suri-board-primary-hi) 52%, #102033);
+  outline-offset: 2px;
+}
+
+.memoItemActive {
+  border-color: color-mix(in srgb, var(--suri-board-primary-hi) 56%, var(--handover-border-soft));
+  background: color-mix(in srgb, var(--suri-board-primary-soft) 56%, var(--handover-panel-surface));
+  box-shadow: inset 3px 0 0 var(--suri-board-primary-hi);
+}
+
 .memoPagination {
   display: flex;
   flex-wrap: wrap;
@@ -960,6 +980,7 @@
 }
 
 .modal {
+  position: relative;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   width: min(620px, 100%);
@@ -1132,6 +1153,10 @@
 
 .secondaryButton,
 .primaryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   min-height: 40px;
   padding: 0 16px;
   border-radius: 8px;
@@ -1158,6 +1183,36 @@
   color: var(--suri-board-fg-muted);
   background: color-mix(in srgb, var(--suri-board-panel-surface) 56%, transparent);
   cursor: default;
+}
+
+.modalLoadingOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 14px;
+  color: #eff6ff;
+  background: radial-gradient(circle at center, rgb(15 23 42 / 82%), rgb(5 12 23 / 72%)), rgb(5 12 23 / 64%);
+  backdrop-filter: blur(3px);
+}
+
+.modalLoadingOverlay strong {
+  font-size: 17px;
+  font-weight: 850;
+}
+
+.modalLoadingIcon {
+  color: var(--suri-board-primary-hi);
+  filter: drop-shadow(0 0 16px color-mix(in srgb, var(--suri-board-primary-hi) 48%, transparent));
+  animation: handover-loading-spin 0.72s linear infinite;
+}
+
+@keyframes handover-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (max-width: 1280px) {
@@ -1628,6 +1683,14 @@
 .historyMarkerItem:hover {
   border-color: color-mix(in srgb, var(--history-marker-color) 38%, #b9c8d6);
   background: color-mix(in srgb, var(--history-marker-color) 10%, #ffffff);
+}
+
+.historyMarkerItemActive {
+  border-color: color-mix(in srgb, var(--history-marker-color) 58%, #8fa8bd);
+  background: color-mix(in srgb, var(--history-marker-color) 14%, #ffffff);
+  box-shadow:
+    inset 3px 0 0 color-mix(in srgb, var(--history-marker-color) 84%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--history-marker-color) 24%, transparent);
 }
 
 .historyMarkerItem:focus-visible {

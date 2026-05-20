@@ -16,6 +16,7 @@ export type HandoverMemoTargetOption = {
 export type HandoverMemoItemView = {
   id: string;
   content: string;
+  sourceRecordKey?: string | null;
   targetLabel: string;
   createdAtLabel: string;
   createdByAccountId: string;
@@ -33,7 +34,9 @@ type HandoverMemoSectionProps = {
   isReadOnly?: boolean;
   isSubmitting: boolean;
   memoErrorMessage: string;
+  selectedSourceRecordKey?: string | null;
   onContentChange: (nextValue: string) => void;
+  onSelectMemoSourceRecord?: (sourceRecordKey: string) => void;
   onSelectedMemoTargetKeyChange: (nextKey: string) => void;
   onSubmit: () => void | Promise<void>;
 };
@@ -48,7 +51,9 @@ export function HandoverMemoSection({
   isReadOnly = false,
   isSubmitting,
   memoErrorMessage,
+  selectedSourceRecordKey = null,
   onContentChange,
+  onSelectMemoSourceRecord,
   onSelectedMemoTargetKeyChange,
   onSubmit,
 }: HandoverMemoSectionProps) {
@@ -126,14 +131,12 @@ export function HandoverMemoSection({
           <div className={styles.emptyState}>선택한 OP에 작성된 인수인계 메모가 없습니다.</div>
         ) : (
           pagedMemoItems.map((memo) => (
-            <article key={memo.id} className={styles.memoItem}>
-              <p>{memo.content}</p>
-              <div>
-                <span className={styles.memoTargetBadge}>{memo.targetLabel}</span>
-                <span>{memo.createdAtLabel}</span>
-                <span>작성자 {memo.createdByLabel}</span>
-              </div>
-            </article>
+            <MemoListItem
+              key={memo.id}
+              memo={memo}
+              isSelected={Boolean(memo.sourceRecordKey && memo.sourceRecordKey === selectedSourceRecordKey)}
+              onSelectSourceRecord={onSelectMemoSourceRecord}
+            />
           ))
         )}
       </div>
@@ -163,5 +166,45 @@ export function HandoverMemoSection({
         </nav>
       ) : null}
     </section>
+  );
+}
+
+function MemoListItem({
+  memo,
+  isSelected,
+  onSelectSourceRecord,
+}: {
+  memo: HandoverMemoItemView;
+  isSelected: boolean;
+  onSelectSourceRecord?: (sourceRecordKey: string) => void;
+}) {
+  const canSelectSourceRecord = Boolean(memo.sourceRecordKey && onSelectSourceRecord);
+  const handleSelectSourceRecord = () => {
+    if (!memo.sourceRecordKey || !onSelectSourceRecord) return;
+    onSelectSourceRecord(memo.sourceRecordKey);
+  };
+
+  return (
+    <article
+      className={`${styles.memoItem}${canSelectSourceRecord ? ` ${styles.memoItemInteractive}` : ''}${
+        isSelected ? ` ${styles.memoItemActive}` : ''
+      }`}
+      role={canSelectSourceRecord ? 'button' : undefined}
+      tabIndex={canSelectSourceRecord ? 0 : undefined}
+      aria-pressed={canSelectSourceRecord ? isSelected : undefined}
+      onClick={handleSelectSourceRecord}
+      onKeyDown={(event) => {
+        if (!canSelectSourceRecord || (event.key !== 'Enter' && event.key !== ' ')) return;
+        event.preventDefault();
+        handleSelectSourceRecord();
+      }}
+    >
+      <p>{memo.content}</p>
+      <div>
+        <span className={styles.memoTargetBadge}>{memo.targetLabel}</span>
+        <span>{memo.createdAtLabel}</span>
+        <span>작성자 {memo.createdByLabel}</span>
+      </div>
+    </article>
   );
 }

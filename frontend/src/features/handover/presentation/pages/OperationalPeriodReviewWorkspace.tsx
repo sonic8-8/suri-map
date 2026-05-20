@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, ClipboardList, MapPin, Plus, Route, StickyNote } from 'lucide-react';
+import { CheckCircle2, ClipboardList, Loader2, MapPin, Plus, Route, StickyNote } from 'lucide-react';
 
 import { ApiError, createIdempotencyKey } from '../../../../shared/api/client';
 import {
@@ -53,7 +53,11 @@ import { MapLegend } from '../../../situationBoard/presentation/components/map/M
 import { MarkerGlyph, type MarkerGlyphName } from '../../../situationBoard/presentation/components/marker/MarkerGlyph';
 import { toBoardRecentMarkers } from '../../../situationBoard/presentation/utils/markerBoardMapper';
 import { HandoverOperationalPeriodSelector } from '../components/HandoverOperationalPeriodSelector';
-import { HandoverComparisonMap, type HandoverComparisonMapSharedProps } from '../components/HandoverComparisonMap';
+import {
+  HandoverComparisonMap,
+  type HandoverComparisonMapSelectedRecord,
+  type HandoverComparisonMapSharedProps,
+} from '../components/HandoverComparisonMap';
 import { HandoverSummaryCard } from '../components/HandoverSummaryCard';
 import { ComparisonAnalysisPanel, type ComparisonOperationalPeriodOption } from '../components/ComparisonAnalysisPanel';
 import {
@@ -265,9 +269,7 @@ export function OperationalPeriodReviewWorkspace({
     undefined,
     {
       refetchInterval: (query) =>
-        shouldPollSearchHistorySummary(query.state.data?.items)
-          ? SEARCH_HISTORY_SUMMARY_REFETCH_INTERVAL_MS
-          : false,
+        shouldPollSearchHistorySummary(query.state.data?.items) ? SEARCH_HISTORY_SUMMARY_REFETCH_INTERVAL_MS : false,
     },
   );
   const isLoadingSummary = summaryQuery.isLoading || summaryQuery.isFetching;
@@ -314,6 +316,7 @@ export function OperationalPeriodReviewWorkspace({
       selectedOpMemos.map((memo) => ({
         id: memo.id,
         content: memo.content,
+        sourceRecordKey: createSourceRecordKeyFromMemoTarget(memo.memoTargetType, memo.memoTargetId),
         targetLabel: formatMemoTargetLabel(memo, memoTargetOptions),
         createdAtLabel: formatKstDateTime(new Date(memo.createdAt)),
         createdByAccountId: memo.createdByAccountId,
@@ -364,6 +367,11 @@ export function OperationalPeriodReviewWorkspace({
     () => createSourceRecords(board, selectedOp, focusedOpEvidenceIds, dutyShifts, selectedOpMemos, memoTargetOptions),
     [board, dutyShifts, focusedOpEvidenceIds, memoTargetOptions, selectedOp, selectedOpMemos],
   );
+  const selectedSourceRecord = useMemo<HandoverComparisonMapSelectedRecord | null>(() => {
+    if (!selectedSourceRecordKey) return null;
+    const record = sourceRecords.find((sourceRecord) => sourceRecord.key === selectedSourceRecordKey);
+    return record ? { key: record.key, label: record.label, meta: record.meta, detail: record.detail } : null;
+  }, [selectedSourceRecordKey, sourceRecords]);
   const rightPanelTitle = isSearchHistoryView
     ? `${handoverStatus.currentOpLabel} 수색 이력`
     : `${handoverStatus.currentOpLabel} 인수인계`;
@@ -379,9 +387,7 @@ export function OperationalPeriodReviewWorkspace({
         ? '요약 확인 중'
         : (searchHistorySummary?.statusLabel ?? '요약 없음')
     : handoverStatus.statusLabel;
-  const rightPanelHelperText = isSearchHistoryView
-    ? ''
-    : handoverStatus.helperText;
+  const rightPanelHelperText = isSearchHistoryView ? '' : handoverStatus.helperText;
   const isSearchHistorySummaryView = isSearchHistoryView && searchHistoryDetailTab === 'summary';
   const floatingRightPanelWidthPx = isMapExpanded ? 0 : historyPanelWidthPx;
   const sharedMapProps = useMemo<HandoverComparisonMapSharedProps>(
@@ -393,14 +399,20 @@ export function OperationalPeriodReviewWorkspace({
       rightPanelWidthPx: floatingRightPanelWidthPx,
       selectedOpIds: effectiveSelectedOpIds,
       highlightedSourceRecordKey: selectedSourceRecordKey,
+      selectedSourceRecord,
     }),
-    [activeFocusedOpId, board, effectiveSelectedOpIds, floatingRightPanelWidthPx, incidentId, selectedSourceRecordKey],
+    [
+      activeFocusedOpId,
+      board,
+      effectiveSelectedOpIds,
+      floatingRightPanelWidthPx,
+      incidentId,
+      selectedSourceRecord,
+      selectedSourceRecordKey,
+    ],
   );
   const currentAccountLabel = currentUserAccount.name;
-  const handoverLegendItems = useMemo(
-    () => createIncidentScopedFallbackBoard(incidentId).legendItems,
-    [incidentId],
-  );
+  const handoverLegendItems = useMemo(() => createIncidentScopedFallbackBoard(incidentId).legendItems, [incidentId]);
   const timestampLabel = board?.serverTs ? formatKstDateTime(new Date(board.serverTs)) : '동기화 전';
   const currentOperationalPeriod = currentOpId
     ? (operationalPeriods.find((period) => period.id === currentOpId) ?? null)
@@ -755,6 +767,7 @@ export function OperationalPeriodReviewWorkspace({
   const handleToggleMapExpanded = () => {
     setIsLocalMapExpanded((currentState) => !currentState);
   };
+
   return (
     <main
       className={
@@ -842,6 +855,7 @@ export function OperationalPeriodReviewWorkspace({
                 selectedOpIds={effectiveSelectedOpIds}
                 comparisonHighlightGeometryGeojson={comparisonHighlightGeometryGeojson}
                 highlightedSourceRecordKey={selectedSourceRecordKey}
+                selectedSourceRecord={selectedSourceRecord}
                 onToggleMapExpanded={handleToggleMapExpanded}
               />
               <MapLegend className={styles.mapLegend} legendItems={handoverLegendItems} />
@@ -874,30 +888,30 @@ export function OperationalPeriodReviewWorkspace({
 
                 {isSearchHistorySummaryView ? null : (
                   <div className={styles.briefingChips}>
-                  <span className={styles.briefingChipSuccess}>
-                    <CheckCircle2 size={14} aria-hidden="true" />
-                    {selectedOp?.status ? formatStatusLabel(selectedOp.status) : '상태 없음'}
-                  </span>
-                  <span>
-                    <StickyNote size={14} aria-hidden="true" />
-                    메모 {handoverStatus.openMemoCount}건
-                  </span>
-                  {isSearchHistoryView ? (
-                    <>
-                      <span>
-                        <Route size={14} aria-hidden="true" />
-                        경로 {evidenceSummary.pathCount}건
-                      </span>
-                      <span>
-                        <MapPin size={14} aria-hidden="true" />
-                        마커 {evidenceSummary.markerCount}건
-                      </span>
-                      <span>
-                        <ClipboardList size={14} aria-hidden="true" />
-                        구역 {evidenceSummary.areaCount}건
-                      </span>
-                    </>
-                  ) : null}
+                    <span className={styles.briefingChipSuccess}>
+                      <CheckCircle2 size={14} aria-hidden="true" />
+                      {selectedOp?.status ? formatStatusLabel(selectedOp.status) : '상태 없음'}
+                    </span>
+                    <span>
+                      <StickyNote size={14} aria-hidden="true" />
+                      메모 {handoverStatus.openMemoCount}건
+                    </span>
+                    {isSearchHistoryView ? (
+                      <>
+                        <span>
+                          <Route size={14} aria-hidden="true" />
+                          경로 {evidenceSummary.pathCount}건
+                        </span>
+                        <span>
+                          <MapPin size={14} aria-hidden="true" />
+                          마커 {evidenceSummary.markerCount}건
+                        </span>
+                        <span>
+                          <ClipboardList size={14} aria-hidden="true" />
+                          구역 {evidenceSummary.areaCount}건
+                        </span>
+                      </>
+                    ) : null}
                   </div>
                 )}
 
@@ -929,9 +943,7 @@ export function OperationalPeriodReviewWorkspace({
                     ) : (
                       <div className={styles.emptyState}>생성된 OP 요약이 없습니다.</div>
                     )}
-                    <p className={styles.summaryGeneratedAt}>
-                      생성 시각 {searchHistorySummary?.generatedAt ?? '-'}
-                    </p>
+                    <p className={styles.summaryGeneratedAt}>생성 시각 {searchHistorySummary?.generatedAt ?? '-'}</p>
                   </div>
                 ) : null}
               </section>
@@ -1013,13 +1025,16 @@ export function OperationalPeriodReviewWorkspace({
                         isReadOnly
                         isSubmitting={isSubmitting}
                         memoErrorMessage={memoErrorMessage}
+                        selectedSourceRecordKey={selectedSourceRecordKey}
                         onContentChange={setContent}
+                        onSelectMemoSourceRecord={setSelectedSourceRecordKey}
                         onSelectedMemoTargetKeyChange={setSelectedMemoTargetKey}
                         onSubmit={handleSubmit}
                       />
 
                       <SearchHistoryMarkerSection
                         markers={selectedOpMarkers}
+                        selectedMarkerSourceRecordKey={selectedSourceRecordKey}
                         onSelectMarker={(markerId) => setSelectedSourceRecordKey(`marker:${markerId}`)}
                       />
                     </div>
@@ -1159,6 +1174,12 @@ export function OperationalPeriodReviewWorkspace({
                     {isCreatingOp ? '여는 중' : '새 OP 열기'}
                   </button>
                 </div>
+                {isCreatingOp ? (
+                  <div className={styles.modalLoadingOverlay} role="status" aria-live="polite">
+                    <Loader2 className={styles.modalLoadingIcon} size={44} aria-hidden="true" />
+                    <strong>새 OP를 여는 중입니다.</strong>
+                  </div>
+                ) : null}
               </section>
             </div>,
             document.body,
@@ -1199,9 +1220,11 @@ function createHandoverStatusView(
 
 function SearchHistoryMarkerSection({
   markers,
+  selectedMarkerSourceRecordKey,
   onSelectMarker,
 }: {
   markers: RecentMarker[];
+  selectedMarkerSourceRecordKey: string | null;
   onSelectMarker: (markerId: string) => void;
 }) {
   return (
@@ -1216,24 +1239,33 @@ function SearchHistoryMarkerSection({
       ) : (
         <ol className={styles.historyMarkerList} aria-label="선택 OP 등록 마커 목록">
           {markers.map((marker) => {
+            const sourceRecordKey = `marker:${marker.id}`;
             const markerType = marker.markerType ?? 'UNKNOWN';
             const markerIconName = getSearchHistoryMarkerIconName(markerType, marker.supportRequestType);
             const markerIdentityColor = getMarkerLegendColor(markerType, marker.supportRequestType, markerIconName);
             const markerStyle = { '--history-marker-color': markerIdentityColor } as CSSProperties;
             const markerTypeLabel = marker.markerTypeLabel ?? formatMarkerTypeLabel(markerType);
             const summary = getSearchHistoryMarkerSummary(marker, markerTypeLabel);
-            const detailChips = [marker.opLabel, marker.reporterLabel, marker.sourceLabel, marker.coordinateLabel].filter(
-              (value): value is string => Boolean(value),
+            const detailChips = [
+              marker.opLabel,
+              marker.reporterLabel,
+              marker.sourceLabel,
+              marker.coordinateLabel,
+            ].filter((value): value is string => Boolean(value));
+            const shouldShowMemo = Boolean(
+              marker.memo && marker.memo !== marker.summary && marker.memo !== marker.title,
             );
-            const shouldShowMemo = Boolean(marker.memo && marker.memo !== marker.summary && marker.memo !== marker.title);
 
             return (
               <li key={marker.id}>
                 <button
                   type="button"
-                  className={styles.historyMarkerItem}
+                  className={`${styles.historyMarkerItem}${
+                    selectedMarkerSourceRecordKey === sourceRecordKey ? ` ${styles.historyMarkerItemActive}` : ''
+                  }`}
                   style={markerStyle}
                   aria-label={`${marker.title} 마커 원본 강조`}
+                  aria-pressed={selectedMarkerSourceRecordKey === sourceRecordKey}
                   onClick={() => onSelectMarker(marker.id)}
                 >
                   <span className={styles.historyMarkerHeader}>
@@ -1512,18 +1544,27 @@ function createMemoTargetKey(targetType: string, targetId: string | null | undef
   return `${targetType}:${targetId ?? ''}`;
 }
 
+function createSourceRecordKeyFromMemoTarget(targetType: string, targetId: string | null | undefined) {
+  if (!targetId) return null;
+
+  const sourceKindsByTargetType: Record<string, string> = {
+    OPERATIONAL_PERIOD: 'op',
+    DUTY_SHIFT: 'duty-shift',
+    SEARCH_AREA: 'area',
+    SEARCH_PATH: 'path',
+    MARKER: 'marker',
+  };
+  const sourceKind = sourceKindsByTargetType[targetType];
+  return sourceKind ? `${sourceKind}:${targetId}` : null;
+}
+
 function formatMemoTargetLabel(memo: HandoverMemoListItem, options: HandoverMemoTargetOption[]) {
   const key = createMemoTargetKey(memo.memoTargetType, memo.memoTargetId);
   return options.find((option) => option.key === key)?.label ?? formatMemoTargetTypeLabel(memo.memoTargetType);
 }
 
-function createAccountLabelsById(
-  incidentDetail: HandoverIncidentDetailDto | null,
-  currentUserAccount: LoginAccount,
-) {
-  const labelsById = new Map<string, string>([
-    [currentUserAccount.id, formatLoginAccountLabel(currentUserAccount)],
-  ]);
+function createAccountLabelsById(incidentDetail: HandoverIncidentDetailDto | null, currentUserAccount: LoginAccount) {
+  const labelsById = new Map<string, string>([[currentUserAccount.id, formatLoginAccountLabel(currentUserAccount)]]);
 
   if (incidentDetail && 'assignments' in incidentDetail) {
     incidentDetail.assignments.forEach((assignment) => {
@@ -1535,7 +1576,10 @@ function createAccountLabelsById(
 }
 
 function formatLoginAccountLabel(account: LoginAccount) {
-  return [account.name, account.organization].map((value) => value.trim()).filter(Boolean).join(' · ');
+  return [account.name, account.organization]
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .join(' · ');
 }
 
 function formatIncidentAssignmentLabel(assignment: IncidentAssignmentSummary) {
