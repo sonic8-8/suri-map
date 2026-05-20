@@ -253,7 +253,7 @@ class IncidentActiveReadDtoContractTest {
     assertThat(missingPerson.path("photoObjectKey").asText())
         .isEqualTo("mock-112/missing-person/001");
     assertThat(missingPerson.path("photoUrl").asText())
-        .isEqualTo("/suri-map-photo/mock-112/missing-person/001");
+        .isEqualTo("/mock-upload/mock-112/missing-person/001");
     assertThat(missingPerson.path("appearanceText").asText()).isEqualTo("남색 점퍼, 회색 등산화");
     assertThat(missingPerson.path("lastSeenLocationText").asText()).isEqualTo("무등산 서측 탐방로 입구");
     assertThat(missingPerson.path("lastSeenAt").asText()).isEqualTo("2026-04-27T23:30:00Z");

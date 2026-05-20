@@ -15,6 +15,11 @@ public record IncidentDetailMissingPersonSummaryResponse(
     Instant lastSeenAt) {
 
   public static IncidentDetailMissingPersonSummaryResponse from(MissingPerson missingPerson) {
+    return from(missingPerson, MissingPersonPhotoUrl.mockStorage());
+  }
+
+  public static IncidentDetailMissingPersonSummaryResponse from(
+      MissingPerson missingPerson, MissingPersonPhotoUrl photoUrl) {
     if (missingPerson == null) {
       return null;
     }
@@ -22,7 +27,7 @@ public record IncidentDetailMissingPersonSummaryResponse(
         missingPerson.incidentId(),
         missingPerson.displayName(),
         missingPerson.photoObjectKey(),
-        MissingPersonPhotoUrl.fromObjectKey(missingPerson.photoObjectKey()),
+        photoUrl.fromObjectKey(missingPerson.photoObjectKey()),
         missingPerson.appearanceText(),
         missingPerson.lastSeenLocationText(),
         missingPerson.lastSeenAt());

@@ -88,10 +88,21 @@ public class MockIncidentRegistrationService {
         } else {
             missingPerson.setDisplayName(missingPerson.getDisplayName().trim());
         }
-        missingPerson.setPhotoObjectKey(optionalText(missingPerson.getPhotoObjectKey()));
+        missingPerson.setPhotoObjectKey(normalizePhotoObjectKey(missingPerson.getPhotoObjectKey()));
         missingPerson.setAppearanceText(optionalText(missingPerson.getAppearanceText()));
         missingPerson.setLastSeenLocationText(optionalText(missingPerson.getLastSeenLocationText()));
         return missingPerson;
+    }
+
+    private String normalizePhotoObjectKey(String value) {
+        String objectKey = optionalText(value);
+        if (objectKey == null) {
+            return null;
+        }
+        if (objectKey.contains("://") || objectKey.startsWith("/") || objectKey.contains("..")) {
+            throw new IllegalArgumentException("photoObjectKey must be an object storage key");
+        }
+        return objectKey;
     }
 
     private String optionalText(String value) {

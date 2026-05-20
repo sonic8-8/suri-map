@@ -483,6 +483,7 @@ function renderSourceCorrectionSection(incident) {
                 <div class="form-group full">
                     <label for="editPhotoObjectKey">실종자 사진 object key</label>
                     <input type="text" id="editPhotoObjectKey" value="${escapeHtml(person.photoObjectKey || '')}">
+                    <p class="select-preview">MinIO/S3 object key만 입력합니다. URL은 입력하지 않습니다.</p>
                 </div>
             </div>
             <div class="form-actions">

@@ -10,8 +10,12 @@ public sealed interface IncidentDetailResponse
     permits IncidentDetailResponse.Active, IncidentDetailResponse.Terminal {
 
   static IncidentDetailResponse from(Detail detail) {
+    return from(detail, MissingPersonPhotoUrl.mockStorage());
+  }
+
+  static IncidentDetailResponse from(Detail detail, MissingPersonPhotoUrl photoUrl) {
     if (detail instanceof Detail.Active active) {
-      return Active.from(active);
+      return Active.from(active, photoUrl);
     }
     if (detail instanceof Detail.Terminal terminal) {
       return Terminal.from(terminal);
@@ -34,7 +38,7 @@ public sealed interface IncidentDetailResponse
       assignments = List.copyOf(assignments);
     }
 
-    static Active from(Detail.Active detail) {
+    static Active from(Detail.Active detail, MissingPersonPhotoUrl photoUrl) {
       return new Active(
           detail.id(),
           detail.incidentId(),
@@ -42,7 +46,7 @@ public sealed interface IncidentDetailResponse
           detail.status(),
           detail.openedAt(),
           detail.version(),
-          IncidentDetailMissingPersonSummaryResponse.from(detail.missingPerson()),
+          IncidentDetailMissingPersonSummaryResponse.from(detail.missingPerson(), photoUrl),
           detail.assignments().stream().map(IncidentAssignmentResponse::from).toList());
     }
   }
