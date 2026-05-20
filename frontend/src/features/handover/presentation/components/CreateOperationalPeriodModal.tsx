@@ -54,7 +54,9 @@ export function CreateOperationalPeriodModal({
 
         <div className={styles.modalBody}>
           <fieldset className={styles.reasonFieldset}>
-            <legend>OP 사유</legend>
+            <legend>
+              <span className={styles.modalSectionTitle}>OP 사유</span>
+            </legend>
             <div className={styles.reasonOptions}>
               {opReasonOptions.map((option) => (
                 <label key={option.value} className={styles.reasonOption}>
@@ -76,7 +78,7 @@ export function CreateOperationalPeriodModal({
           </fieldset>
 
           <label className={styles.formField}>
-            사유 메모{reason === 'OTHER' ? ' *' : ''}
+            <span className={styles.modalSectionTitle}>사유 메모{reason === 'OTHER' ? ' *' : ''}</span>
             <textarea
               value={reasonMemo}
               onChange={(event) => onReasonMemoChange(event.target.value)}
@@ -87,7 +89,7 @@ export function CreateOperationalPeriodModal({
           </label>
 
           <label className={styles.formField}>
-            인수인계 메모
+            <span className={styles.modalSectionTitle}>인수인계 메모</span>
             <textarea
               value={handoverMemo}
               onChange={(event) => onHandoverMemoChange(event.target.value)}

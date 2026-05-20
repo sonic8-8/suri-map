@@ -1082,7 +1082,9 @@ export function OperationalPeriodReviewWorkspace({
 
                 <div className={styles.modalBody}>
                   <fieldset className={styles.reasonFieldset}>
-                    <legend>OP 사유</legend>
+                    <legend>
+                      <span className={styles.modalSectionTitle}>OP 사유</span>
+                    </legend>
                     <div className={styles.reasonOptions}>
                       {opReasonOptions.map((option) => (
                         <label key={option.value} className={styles.reasonOption}>
@@ -1104,7 +1106,7 @@ export function OperationalPeriodReviewWorkspace({
                   </fieldset>
 
                   <label className={styles.formField}>
-                    사유 메모{newOpReason === 'OTHER' ? ' *' : ''}
+                    <span className={styles.modalSectionTitle}>사유 메모{newOpReason === 'OTHER' ? ' *' : ''}</span>
                     <textarea
                       value={newOpReasonMemo}
                       onChange={(event) => setNewOpReasonMemo(event.target.value)}
@@ -1115,7 +1117,7 @@ export function OperationalPeriodReviewWorkspace({
                   </label>
 
                   <label className={styles.formField}>
-                    인수인계 메모
+                    <span className={styles.modalSectionTitle}>인수인계 메모</span>
                     <textarea
                       value={newOpHandoverMemo}
                       onChange={(event) => setNewOpHandoverMemo(event.target.value)}
