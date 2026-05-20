@@ -267,21 +267,15 @@ class HandoverUiStateTest {
     }
 
     @Test
-    fun appSearchHistoryRouteLoadsOperationalPeriodSummaryAsTopLevelRoute() {
+    fun appDoesNotExposeSearchHistoryAsTopLevelRoute() {
         val source = File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
 
-        val graphIndex = source.indexOf("composable(PolicePhoneRoute.SearchHistory.route)")
-        val routeIndex = source.indexOf("private fun SearchHistoryRoute")
-        val loadIndex = source.indexOf("loader.loadOperationalPeriod(sessionContext)", routeIndex)
-        val noMemoActionIndex = source.indexOf("showMemoAction = false", routeIndex)
         val handoverRouteIndex = source.indexOf("private fun HandoverSummaryRoute")
-        val disableFallbackIndex = source.indexOf("allowOperationalPeriodFallback = false", handoverRouteIndex)
 
-        assertTrue(graphIndex >= 0)
-        assertTrue(routeIndex >= 0)
-        assertTrue(loadIndex > routeIndex)
-        assertTrue(noMemoActionIndex > routeIndex)
-        assertTrue(disableFallbackIndex > handoverRouteIndex)
+        assertFalse(source.contains("composable(PolicePhoneRoute.SearchHistory.route)"))
+        assertFalse(source.contains("private fun SearchHistoryRoute"))
+        assertFalse(source.contains("loader.loadOperationalPeriod(sessionContext)"))
+        assertTrue(handoverRouteIndex >= 0)
     }
 
     @Test
