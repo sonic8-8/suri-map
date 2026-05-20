@@ -46,6 +46,24 @@ class HandoverUiStateTest {
     }
 
     @Test
+    fun nonReadySummaryStatesDoNotExposePreviewReplayEvidence() {
+        listOf(
+            DutyHandoverUiState.generating(),
+            DutyHandoverUiState.needsSummary(),
+            DutyHandoverUiState.unavailable(),
+            DutyHandoverUiState.empty()
+        ).forEach { state ->
+            assertTrue(state.replayPoints.isEmpty())
+            assertTrue(state.replayPathSegments.isEmpty())
+            assertTrue(state.replayMarkers.isEmpty())
+            assertEquals(0L, state.replayControl.displayDurationMs)
+            assertEquals(listOf("근무 기준", "단일 근무자", "기록 없음"), state.replayBadges)
+            assertFalse(state.visibleText().any { it.contains("동쪽 능선") })
+            assertFalse(state.visibleText().any { it.contains("배수로 입구") })
+        }
+    }
+
+    @Test
     fun dutyHandoverHasReplayAndReportTabsWithoutRecommendationCopy() {
         val initial = DutyHandoverUiState.ready()
         val report = initial.selectTab(DutyHandoverTab.Report)

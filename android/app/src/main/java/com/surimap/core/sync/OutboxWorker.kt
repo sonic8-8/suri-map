@@ -69,7 +69,7 @@ class OutboxReplayScheduler(
         ) {
             return
         }
-        enqueueUniqueWork(request.uniqueWorkName, ExistingWorkPolicy.REPLACE, request.toWorkRequest())
+        enqueueUniqueWork(request.uniqueWorkName, ExistingWorkPolicy.APPEND_OR_REPLACE, request.toWorkRequest())
     }
 }
 

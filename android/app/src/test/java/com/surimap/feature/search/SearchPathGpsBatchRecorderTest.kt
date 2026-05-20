@@ -119,6 +119,34 @@ class SearchPathGpsBatchRecorderTest {
         assertFalse(payload.contains(""""speedMps":null"""))
     }
 
+    @Test
+    fun flushAllDrainsRemainingGpsBatchBeforeSearchStopClear() = runBlocking {
+        val syncClient = CapturingSyncClient()
+        val batchRecorder =
+            SearchPathGpsBatchRecorder(
+                localRecorder =
+                    SearchPathLocalRecorder(
+                        syncClient = syncClient,
+                        sequenceSource = sequenceSource(40),
+                        idFactory = operationIdFactory()
+                    ),
+                pointIdFactory = pointIdFactory()
+            )
+
+        val autoFlushResults = mutableListOf<SearchPathWriteResult>()
+        repeat(239) {
+            batchRecorder.recordFix(CONTEXT, PATH_ID, fix(0))?.let(autoFlushResults::add)
+        }
+
+        val results = batchRecorder.flushAll(CONTEXT, PATH_ID)
+
+        assertEquals(1, autoFlushResults.size)
+        assertEquals(1, results.size)
+        assertEquals(2, syncClient.operations.size)
+        assertEquals(listOf(120, 119), syncClient.operations.map { operation -> pointCount(operation.payload) })
+        assertEquals(0, batchRecorder.pendingPointCount())
+    }
+
 
     private class CapturingSyncClient : SyncClient {
         val operations = mutableListOf<LocalWriteOperation>()
@@ -161,6 +189,9 @@ class SearchPathGpsBatchRecorderTest {
         var next = 1
         return { "pt-gps-${(next++).toString().padStart(3, '0')}" }
     }
+
+    private fun pointCount(payload: String): Int =
+        Regex(""""pointId":""").findAll(payload).count()
 
     private companion object {
         const val INCIDENT_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001"
