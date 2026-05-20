@@ -23,12 +23,17 @@ class GpsPathValidatorTest {
   }
 
   @Test
-  void bbox이탈이면_invalid_geometry다() {
-    var fixture = GpsPathValidationFixtures.COORDINATE_OUTSIDE_ENVELOPE;
+  void 하네스지도bbox밖이어도_EPSG좌표면_경로기록을_허용한다() {
+    var fixture = GpsPathValidationFixtures.OUTSIDE_SEARCH_AREA_POINTS;
 
-    assertThatThrownBy(() -> validator.validateBatch(toPoints(fixture.points()), now()))
-        .isInstanceOf(InvalidGpsPathBatchException.class)
-        .hasMessageContaining("point outside harness envelope");
+    var result =
+        validator.validateBatch(
+            toPoints(fixture), OffsetDateTime.parse("2026-04-28T09:05:05+09:00"));
+
+    assertThat(result.acceptedPoints())
+        .extracting(GpsPathPoint::pointId)
+        .containsExactly("gps-outside-001", "gps-outside-002");
+    assertThat(result.excludedPoints()).isEmpty();
   }
 
   @Test
@@ -141,18 +146,18 @@ class GpsPathValidatorTest {
   }
 
   @Test
-  void activeOverallSearchArea밖이면_invalid_geometry다() {
+  void activeOverallSearchArea밖이어도_EPSG좌표면_경로기록을_허용한다() {
     var activeArea =
         new GpsPathValidationCriteria.GeoEnvelope(126.900000, 35.150000, 126.905000, 35.155000);
 
-    assertThatThrownBy(
-            () ->
-                validator.validateBatch(
-                    toPoints(GpsPathValidationFixtures.NORMAL_POINTS),
-                    OffsetDateTime.parse("2026-04-28T09:00:20+09:00"),
-                    activeArea))
-        .isInstanceOf(InvalidGpsPathBatchException.class)
-        .hasMessageContaining("point outside active overall_search_area");
+    var result =
+        validator.validateBatch(
+            toPoints(GpsPathValidationFixtures.NORMAL_POINTS),
+            OffsetDateTime.parse("2026-04-28T09:00:20+09:00"),
+            activeArea);
+
+    assertThat(result.acceptedPoints()).hasSize(8);
+    assertThat(result.excludedPoints()).isEmpty();
   }
 
   @Test

@@ -41,7 +41,6 @@ class GpsPathValidationFixturesTest {
         .extracting(GpsPathValidationFixtures.StructuralFailureFixture::name)
         .containsExactly(
             "gps-batch-over-limit-121",
-            "coord-outside-envelope",
             "coord-latlon-swapped",
             "gps-client-ts-non-monotonic",
             "point-null-nan",
@@ -79,7 +78,7 @@ class GpsPathValidationFixturesTest {
               assertThat(point.horizontalAccuracyM())
                   .isLessThanOrEqualTo(GpsPathValidationCriteria.MAX_HORIZONTAL_ACCURACY_METERS);
             });
-    assertThat(GpsPathValidationFixtures.COORDINATE_OUTSIDE_ENVELOPE.points().get(0).lon())
+    assertThat(GpsPathValidationFixtures.OUTSIDE_SEARCH_AREA_POINTS.get(0).lon())
         .isGreaterThan(BigDecimal.valueOf(GpsPathValidationCriteria.HARNESS_ENVELOPE.maxLon()));
     assertThat(GpsPathValidationFixtures.COORDINATE_LAT_LON_SWAPPED.points().get(0).lat())
         .isGreaterThan(BigDecimal.valueOf(90));

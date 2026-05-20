@@ -52,26 +52,22 @@ final class GpsPathValidationFixtures {
           "invalid_geometry",
           "points maxItems=120");
 
-  static final StructuralFailureFixture COORDINATE_OUTSIDE_ENVELOPE =
-      new StructuralFailureFixture(
-          "coord-outside-envelope",
-          List.of(
-              point(
-                  "gps-outside-001",
-                  "2026-04-28T09:05:00+09:00",
-                  "127.200000",
-                  "35.163100",
-                  3.0,
-                  5),
-              point(
-                  "gps-outside-002",
-                  "2026-04-28T09:05:05+09:00",
-                  "127.200100",
-                  "35.163150",
-                  3.0,
-                  5)),
-          "invalid_geometry",
-          "point outside harness envelope");
+  static final List<GpsPointFixture> OUTSIDE_SEARCH_AREA_POINTS =
+      List.of(
+          point(
+              "gps-outside-001",
+              "2026-04-28T09:05:00+09:00",
+              "127.200000",
+              "35.163100",
+              3.0,
+              5),
+          point(
+              "gps-outside-002",
+              "2026-04-28T09:05:05+09:00",
+              "127.200100",
+              "35.163150",
+              3.0,
+              5));
 
   static final StructuralFailureFixture COORDINATE_LAT_LON_SWAPPED =
       new StructuralFailureFixture(
@@ -239,7 +235,6 @@ final class GpsPathValidationFixtures {
   static final List<StructuralFailureFixture> STRUCTURAL_FAILURE_FIXTURES =
       List.of(
           BATCH_LIMIT_EXCEEDED,
-          COORDINATE_OUTSIDE_ENVELOPE,
           COORDINATE_LAT_LON_SWAPPED,
           NON_MONOTONIC_CLIENT_TS,
           NULL_COORDINATE,

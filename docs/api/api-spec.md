@@ -264,7 +264,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Request: `incidentId`, `opId`, `clientTs`, optional `searchPathId`, `clockOffsetMs`
 - Response: `201 {id, incidentId, opId, policePhoneId, version, status}`
 - Errors: `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`, `op_required`, `op_mismatch`
-- Note: 전체 수색구역은 초동 경로 시작의 선행조건이 아니다. 전체 수색구역이 있으면 구역 밖 좌표는 정책에 따라 검토/제외 대상으로 다룰 수 있지만, 수색구역 미지정 상태의 APP 초동 기록을 막지 않는다.
+- Note: 전체 수색구역과 담당 구역은 초동 경로 시작의 선행조건이 아니다. 수색 중 GPS 좌표가 전체 수색구역 또는 담당 TEAM 구역 밖으로 표시되어도 좌표 자체가 유효한 EPSG:4326 Point이면 경로 기록을 막지 않는다. GPS 경로 품질 검증은 좌표 누락, 시간 역전, 정확도 저하, 비정상 속도/점프처럼 샘플 자체의 신뢰도만 다루며, 구역 안팎 여부를 품질 실패로 보지 않는다. 담당 구역 밖 표시는 별도 `search-area-boundary-alerts` 운영 참고 이벤트로 다룬다.
 
 #### PATCH `/api/search-paths/{searchPathId}`
 
@@ -292,7 +292,7 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Response: `200 {id, dutyShiftId, opId, policePhoneId, acceptedPointCount, excludedPointCount, excludedPoints[{pointId, reason, clientTs}], geometry, segments, version, status}`
 - `excludedPoints.reason`: `low_accuracy`, `clock_skew`, `invalid_speed`, `distance_jump`
 - Errors: `invalid_geometry`, `clock_skew_exceeded`, `channel_not_allowed`, `police_phone_required`, `police_phone_not_registered`, `police_phone_not_assigned`, `incident_access_denied`, `team_not_assigned`, `incident_closed`, `idempotency_mismatch`, `write_conflict`, `op_required`, `op_mismatch`
-- Note: S6 Outbox `request_path`와 harness가 이 path를 기준으로 replay한다. 전체 수색구역이 없으면 하네스/운영 허용 범위 내 좌표를 초동 경로로 수신한다.
+- Note: S6 Outbox `request_path`와 harness가 이 path를 기준으로 replay한다. 전체 수색구역과 담당 구역은 GPS batch 저장의 선행조건이 아니며, 구역 밖 좌표도 유효한 EPSG:4326 좌표이면 저장한다. `invalid_geometry`는 좌표 누락/null, lon/lat 범위 오류, precision 초과, point 수/순서 오류처럼 좌표·batch 구조 자체가 잘못된 경우에 한정한다. `excludedPoints.reason`은 GPS 샘플의 신뢰도 문제만 표현하며, 구역 밖 좌표라는 이유로 `excludedPoints`에 넣지 않는다.
 
 #### POST `/api/search-area-boundary-alerts`
 
