@@ -396,7 +396,52 @@ describe('HandoverPage', () => {
     expect(screen.getByText('구역 1건')).toBeInTheDocument();
   });
 
-  test('summary evidence button highlights the original source record and map evidence', async () => {
+  test('search history page shows selected OP markers below handover memos', async () => {
+    vi.mocked(useIncidentBoardQuery).mockReturnValue(
+      boardQueryResult(
+        incidentBoardResponse(1, {
+          slots: {
+            marker: [
+              markerSlotRow({ id: 'marker-current', opId: 'op-current', title: '남문 단서' }),
+              markerSlotRow({ id: 'marker-past', opId: 'op-past', title: '북문 메모' }),
+            ],
+          },
+        }),
+      ),
+    );
+    vi.mocked(operationalPeriodApi.list).mockResolvedValue({
+      currentOpId: 'op-current',
+      items: [
+        operationalPeriod({ id: 'op-current', status: 'ACTIVE', sequenceNumber: 2, endedAt: null }),
+        operationalPeriod({ id: 'op-past', status: 'ENDED', sequenceNumber: 1, endedAt: '2026-05-17T01:00:00Z' }),
+      ],
+    });
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <SearchHistoryPage
+          currentUserAccount={currentUserAccount()}
+          incidentId={INCIDENT_ID}
+          markerNotificationIndex={0}
+          markerNotifications={[]}
+          onCloseMarkerNotifications={vi.fn()}
+          onMoveMarkerNotification={vi.fn()}
+          onOpenIncidentList={vi.fn()}
+          onOpenIncidentDetail={vi.fn()}
+          onOpenOfflinePackage={vi.fn()}
+          onOpenSituationBoard={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    const markerSection = await screen.findByRole('region', { name: '선택 OP 등록 마커' });
+
+    expect(within(markerSection).getByRole('heading', { name: '등록 마커' })).toBeInTheDocument();
+    expect(within(markerSection).getByText('남문 단서')).toBeInTheDocument();
+    expect(within(markerSection).queryByText('북문 메모')).not.toBeInTheDocument();
+  });
+
+  test('source record list highlights map evidence while summary omits evidence badges', async () => {
     vi.mocked(useIncidentBoardQuery).mockReturnValue(
       boardQueryResult(
         incidentBoardResponse(1, {
@@ -451,11 +496,14 @@ describe('HandoverPage', () => {
       </QueryClientProvider>,
     );
 
-    const pathEvidenceButton = await screen.findByRole('button', { name: '수색 경로 원본 강조' });
+    await screen.findByText('OP 2차는 남측 순찰 경로와 현장 마커를 기준으로 정리되었습니다.');
+
+    expect(screen.queryByRole('button', { name: '수색 경로 원본 강조' })).not.toBeInTheDocument();
+
+    const pathEvidenceButton = await screen.findByRole('button', { name: '수색 경로 원본 기록 열기' });
     fireEvent.click(pathEvidenceButton);
 
     expect(pathEvidenceButton).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: '수색 경로 원본 기록 열기' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByTestId('handover-map')).toHaveAttribute('data-source-highlight', 'path:path-current');
   });
 
@@ -751,6 +799,21 @@ function boardSlotRow({ id, opId }: { id: string; opId: string }) {
     sourceSpec: 'S8',
     sourceHash: `${id}-hash`,
     latestEventId: `${id}-event`,
+  };
+}
+
+function markerSlotRow({ id, opId, title }: { id: string; opId: string; title: string }) {
+  return {
+    ...boardSlotRow({ id, opId }),
+    markerType: 'CLUE',
+    title,
+    memo: `${title} 메모`,
+    occurredAt: '2026-05-17T02:10:00+09:00',
+    source: 'APP',
+    geometry: {
+      type: 'Point',
+      coordinates: [126.9416, 37.5274],
+    },
   };
 }
 

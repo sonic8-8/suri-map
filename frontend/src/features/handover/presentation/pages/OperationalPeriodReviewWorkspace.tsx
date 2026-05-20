@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, ClipboardList, MapPin, Plus, Route, StickyNote } from 'lucide-react';
@@ -14,6 +14,7 @@ import {
   type SuriMapPageHeaderSyncStatus,
 } from '../../../../shared/ui';
 import type { LoginAccount } from '../../../login/presentation/types/login';
+import type { IncidentAssignmentSummary } from '../../../incident/api/incidentReadApi';
 import {
   useIncidentBoardQuery,
   type IncidentBoardResponse,
@@ -45,8 +46,12 @@ import {
 import {
   createIncidentScopedFallbackBoard,
   type OperationalPeriod,
+  type RecentMarker,
 } from '../../../situationBoard/presentation/constants/mockSituationBoard';
+import { getMarkerLegendColor } from '../../../../shared/constants/markerLegendColors';
 import { MapLegend } from '../../../situationBoard/presentation/components/map/MapLegend';
+import { MarkerGlyph, type MarkerGlyphName } from '../../../situationBoard/presentation/components/marker/MarkerGlyph';
+import { toBoardRecentMarkers } from '../../../situationBoard/presentation/utils/markerBoardMapper';
 import { HandoverOperationalPeriodSelector } from '../components/HandoverOperationalPeriodSelector';
 import { HandoverComparisonMap, type HandoverComparisonMapSharedProps } from '../components/HandoverComparisonMap';
 import { HandoverSummaryCard } from '../components/HandoverSummaryCard';
@@ -296,6 +301,10 @@ export function OperationalPeriodReviewWorkspace({
     () => memos.filter((memo) => memo.opId === activeFocusedOpId),
     [activeFocusedOpId, memos],
   );
+  const accountLabelsById = useMemo(
+    () => createAccountLabelsById(incidentDetail, currentUserAccount),
+    [currentUserAccount, incidentDetail],
+  );
   const memoTargetOptions = useMemo(
     () => createHandoverMemoTargetOptions(board, selectedOp, dutyShifts),
     [board, selectedOp, dutyShifts],
@@ -308,10 +317,22 @@ export function OperationalPeriodReviewWorkspace({
         targetLabel: formatMemoTargetLabel(memo, memoTargetOptions),
         createdAtLabel: formatKstDateTime(new Date(memo.createdAt)),
         createdByAccountId: memo.createdByAccountId,
+        createdByLabel: accountLabelsById.get(memo.createdByAccountId) ?? '작성자 확인 전',
         version: memo.version,
       })),
-    [memoTargetOptions, selectedOpMemos],
+    [accountLabelsById, memoTargetOptions, selectedOpMemos],
   );
+  const selectedOpMarkers = useMemo<RecentMarker[]>(() => {
+    if (!board || !activeFocusedOpId) return [];
+
+    return toBoardRecentMarkers(board as unknown as SituationBoardResponseDto)
+      .filter((marker) => marker.opId === activeFocusedOpId)
+      .sort((current, next) => Date.parse(next.occurredAt) - Date.parse(current.occurredAt))
+      .map((marker) => ({
+        ...marker,
+        opLabel: marker.opLabel ?? (selectedOp ? formatOperationalPeriodLabel(selectedOp) : undefined),
+      }));
+  }, [activeFocusedOpId, board, selectedOp]);
   const selectedMemoTarget = useMemo(
     () => memoTargetOptions.find((option) => option.key === selectedMemoTargetKey) ?? memoTargetOptions[0] ?? null,
     [memoTargetOptions, selectedMemoTargetKey],
@@ -343,7 +364,6 @@ export function OperationalPeriodReviewWorkspace({
     () => createSourceRecords(board, selectedOp, focusedOpEvidenceIds, dutyShifts, selectedOpMemos, memoTargetOptions),
     [board, dutyShifts, focusedOpEvidenceIds, memoTargetOptions, selectedOp, selectedOpMemos],
   );
-  const sourceRecordButtons = useMemo(() => sourceRecords.slice(0, 6), [sourceRecords]);
   const rightPanelTitle = isSearchHistoryView
     ? `${handoverStatus.currentOpLabel} 수색 이력`
     : `${handoverStatus.currentOpLabel} 인수인계`;
@@ -360,8 +380,9 @@ export function OperationalPeriodReviewWorkspace({
         : (searchHistorySummary?.statusLabel ?? '요약 없음')
     : handoverStatus.statusLabel;
   const rightPanelHelperText = isSearchHistoryView
-    ? '선택한 OP의 수색 경로, 마커, 구역, 메모를 기록 기준으로 확인합니다.'
+    ? ''
     : handoverStatus.helperText;
+  const isSearchHistorySummaryView = isSearchHistoryView && searchHistoryDetailTab === 'summary';
   const floatingRightPanelWidthPx = isMapExpanded ? 0 : historyPanelWidthPx;
   const sharedMapProps = useMemo<HandoverComparisonMapSharedProps>(
     () => ({
@@ -841,13 +862,18 @@ export function OperationalPeriodReviewWorkspace({
               <section className={styles.briefingHero} aria-label={rightPanelAriaLabel}>
                 <div className={styles.briefingHeader}>
                   <div>
-                    <span className={styles.briefingEyebrow}>{handoverStatus.currentOpLabel}</span>
+                    {isSearchHistorySummaryView ? null : (
+                      <span className={styles.briefingEyebrow}>{handoverStatus.currentOpLabel}</span>
+                    )}
                     <h2>{rightPanelTitle}</h2>
                   </div>
-                  <span className={styles.briefingNeedBadge}>{rightPanelBadgeLabel}</span>
+                  {isSearchHistorySummaryView ? null : (
+                    <span className={styles.briefingNeedBadge}>{rightPanelBadgeLabel}</span>
+                  )}
                 </div>
 
-                <div className={styles.briefingChips}>
+                {isSearchHistorySummaryView ? null : (
+                  <div className={styles.briefingChips}>
                   <span className={styles.briefingChipSuccess}>
                     <CheckCircle2 size={14} aria-hidden="true" />
                     {selectedOp?.status ? formatStatusLabel(selectedOp.status) : '상태 없음'}
@@ -872,9 +898,42 @@ export function OperationalPeriodReviewWorkspace({
                       </span>
                     </>
                   ) : null}
-                </div>
+                  </div>
+                )}
 
-                <p className={styles.briefingHelper}>{rightPanelHelperText}</p>
+                {rightPanelHelperText ? <p className={styles.briefingHelper}>{rightPanelHelperText}</p> : null}
+
+                {isSearchHistorySummaryView ? (
+                  <div className={styles.mergedSummaryBlock} aria-label="OP 요약">
+                    <div className={styles.blockHeading}>
+                      <h2>{searchHistorySummary?.heading ?? 'OP 요약'}</h2>
+                      <span>
+                        {isLoadingSummary ? '불러오는 중' : (searchHistorySummary?.statusLabel ?? '요약 없음')}
+                      </span>
+                    </div>
+                    {summaryErrorMessage ? (
+                      <div className={styles.errorText}>{summaryErrorMessage}</div>
+                    ) : isLoadingSummary ? (
+                      <div className={styles.emptyState}>OP 요약을 불러오는 중입니다.</div>
+                    ) : searchHistorySummary?.summaryText && searchHistorySummary.isFinal ? (
+                      <>
+                        <p className={styles.summaryText}>{searchHistorySummary.summaryText}</p>
+                      </>
+                    ) : searchHistorySummary?.summaryText ? (
+                      <>
+                        <p className={styles.summaryText}>{searchHistorySummary.summaryText}</p>
+                        <div className={styles.emptyState}>최종 요약으로 확정되지 않았습니다.</div>
+                      </>
+                    ) : searchHistorySummary ? (
+                      <div className={styles.emptyState}>요약을 생성하지 못했습니다. 원본 기록을 확인하세요.</div>
+                    ) : (
+                      <div className={styles.emptyState}>생성된 OP 요약이 없습니다.</div>
+                    )}
+                    <p className={styles.summaryGeneratedAt}>
+                      생성 시각 {searchHistorySummary?.generatedAt ?? '-'}
+                    </p>
+                  </div>
+                ) : null}
               </section>
 
               {isSearchHistoryView ? (
@@ -911,68 +970,6 @@ export function OperationalPeriodReviewWorkspace({
                       aria-labelledby="search-history-summary-tab"
                       className={styles.searchHistoryTabPanel}
                     >
-                      <section className={styles.contextBlock} aria-label="OP 요약">
-                        <div className={styles.blockHeading}>
-                          <h2>{searchHistorySummary?.heading ?? 'OP 요약'}</h2>
-                          <span>
-                            {isLoadingSummary ? '불러오는 중' : (searchHistorySummary?.statusLabel ?? '요약 없음')}
-                          </span>
-                        </div>
-                        {summaryErrorMessage ? (
-                          <div className={styles.errorText}>{summaryErrorMessage}</div>
-                        ) : isLoadingSummary ? (
-                          <div className={styles.emptyState}>OP 요약을 불러오는 중입니다.</div>
-                        ) : searchHistorySummary?.summaryText && searchHistorySummary.isFinal ? (
-                          <>
-                            <p className={styles.summaryText}>{searchHistorySummary.summaryText}</p>
-                            {sourceRecordButtons.length > 0 ? (
-                              <div className={styles.originalEvidenceButtons} aria-label="OP 요약 원본 근거">
-                                {sourceRecordButtons.map((record) => (
-                                  <button
-                                    key={record.key}
-                                    type="button"
-                                    className={
-                                      selectedSourceRecordKey === record.key
-                                        ? styles.originalEvidenceButtonActive
-                                        : undefined
-                                    }
-                                    aria-label={`${record.label} 원본 강조`}
-                                    aria-pressed={selectedSourceRecordKey === record.key}
-                                    onClick={() => setSelectedSourceRecordKey(record.key)}
-                                  >
-                                    <span>{record.label}</span>
-                                    <small>{record.meta}</small>
-                                  </button>
-                                ))}
-                              </div>
-                            ) : null}
-                          </>
-                        ) : searchHistorySummary?.summaryText ? (
-                          <>
-                            <p className={styles.summaryText}>{searchHistorySummary.summaryText}</p>
-                            <div className={styles.emptyState}>최종 요약으로 확정되지 않았습니다.</div>
-                          </>
-                        ) : searchHistorySummary ? (
-                          <div className={styles.emptyState}>요약을 생성하지 못했습니다. 원본 기록을 확인하세요.</div>
-                        ) : (
-                          <div className={styles.emptyState}>생성된 OP 요약이 없습니다.</div>
-                        )}
-                        <dl className={styles.summaryMetaGrid}>
-                          <div>
-                            <dt>근거 상태</dt>
-                            <dd>{searchHistorySummary?.readinessLabel ?? '-'}</dd>
-                          </div>
-                          <div>
-                            <dt>생성 시각</dt>
-                            <dd>{searchHistorySummary?.generatedAt ?? '-'}</dd>
-                          </div>
-                          <div>
-                            <dt>근거 해시</dt>
-                            <dd>{searchHistorySummary?.sourceHash ? shortId(searchHistorySummary.sourceHash) : '-'}</dd>
-                          </div>
-                        </dl>
-                      </section>
-
                       <section className={styles.contextBlock} aria-label="OP 요약 근거 기록">
                         <div className={styles.blockHeading}>
                           <h2>근거 기록</h2>
@@ -1019,6 +1016,11 @@ export function OperationalPeriodReviewWorkspace({
                         onContentChange={setContent}
                         onSelectedMemoTargetKeyChange={setSelectedMemoTargetKey}
                         onSubmit={handleSubmit}
+                      />
+
+                      <SearchHistoryMarkerSection
+                        markers={selectedOpMarkers}
+                        onSelectMarker={(markerId) => setSelectedSourceRecordKey(`marker:${markerId}`)}
                       />
                     </div>
                   ) : (
@@ -1193,6 +1195,76 @@ function createHandoverStatusView(
     openMemoCount,
     currentOpLabel: selectedOp ? formatOperationalPeriodLabel(selectedOp) : '-',
   };
+}
+
+function SearchHistoryMarkerSection({
+  markers,
+  onSelectMarker,
+}: {
+  markers: RecentMarker[];
+  onSelectMarker: (markerId: string) => void;
+}) {
+  return (
+    <section className={styles.contextBlock} aria-label="선택 OP 등록 마커">
+      <div className={styles.blockHeading}>
+        <h2>등록 마커</h2>
+        <span>{markers.length}건</span>
+      </div>
+
+      {markers.length === 0 ? (
+        <div className={styles.emptyState}>선택한 OP에 등록된 마커가 없습니다.</div>
+      ) : (
+        <ol className={styles.historyMarkerList} aria-label="선택 OP 등록 마커 목록">
+          {markers.map((marker) => {
+            const markerType = marker.markerType ?? 'UNKNOWN';
+            const markerIconName = getSearchHistoryMarkerIconName(markerType, marker.supportRequestType);
+            const markerIdentityColor = getMarkerLegendColor(markerType, marker.supportRequestType, markerIconName);
+            const markerStyle = { '--history-marker-color': markerIdentityColor } as CSSProperties;
+            const markerTypeLabel = marker.markerTypeLabel ?? formatMarkerTypeLabel(markerType);
+            const summary = getSearchHistoryMarkerSummary(marker, markerTypeLabel);
+            const detailChips = [marker.opLabel, marker.reporterLabel, marker.sourceLabel, marker.coordinateLabel].filter(
+              (value): value is string => Boolean(value),
+            );
+            const shouldShowMemo = Boolean(marker.memo && marker.memo !== marker.summary && marker.memo !== marker.title);
+
+            return (
+              <li key={marker.id}>
+                <button
+                  type="button"
+                  className={styles.historyMarkerItem}
+                  style={markerStyle}
+                  aria-label={`${marker.title} 마커 원본 강조`}
+                  onClick={() => onSelectMarker(marker.id)}
+                >
+                  <span className={styles.historyMarkerHeader}>
+                    <span className={styles.historyMarkerIdentity}>
+                      <span className={styles.historyMarkerIcon} aria-hidden="true">
+                        <MarkerGlyph name={markerIconName} size={16} />
+                      </span>
+                      <span className={styles.historyMarkerType}>{markerTypeLabel}</span>
+                    </span>
+                    <time className={styles.historyMarkerTime} dateTime={marker.occurredAt}>
+                      {marker.timeLabel}
+                    </time>
+                  </span>
+                  <strong>{marker.title}</strong>
+                  {summary ? <span className={styles.historyMarkerSummary}>{summary}</span> : null}
+                  {detailChips.length > 0 ? (
+                    <span className={styles.historyMarkerChips}>
+                      {detailChips.map((chip) => (
+                        <span key={chip}>{chip}</span>
+                      ))}
+                    </span>
+                  ) : null}
+                  {shouldShowMemo ? <span className={styles.historyMarkerMemo}>{marker.memo}</span> : null}
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </section>
+  );
 }
 
 function createSourceRecords(
@@ -1445,6 +1517,69 @@ function formatMemoTargetLabel(memo: HandoverMemoListItem, options: HandoverMemo
   return options.find((option) => option.key === key)?.label ?? formatMemoTargetTypeLabel(memo.memoTargetType);
 }
 
+function createAccountLabelsById(
+  incidentDetail: HandoverIncidentDetailDto | null,
+  currentUserAccount: LoginAccount,
+) {
+  const labelsById = new Map<string, string>([
+    [currentUserAccount.id, formatLoginAccountLabel(currentUserAccount)],
+  ]);
+
+  if (incidentDetail && 'assignments' in incidentDetail) {
+    incidentDetail.assignments.forEach((assignment) => {
+      labelsById.set(assignment.accountId, formatIncidentAssignmentLabel(assignment));
+    });
+  }
+
+  return labelsById;
+}
+
+function formatLoginAccountLabel(account: LoginAccount) {
+  return [account.name, account.organization].map((value) => value.trim()).filter(Boolean).join(' · ');
+}
+
+function formatIncidentAssignmentLabel(assignment: IncidentAssignmentSummary) {
+  const displayName = assignment.accountDisplayName?.trim();
+  const roleLabel = formatIncidentRoleLabel(assignment.incidentRole);
+  if (displayName) {
+    return roleLabel ? `${displayName} · ${roleLabel}` : displayName;
+  }
+
+  const fallbackParts = [
+    formatOrganizationTypeLabel(assignment.organizationType),
+    formatAccountTypeLabel(assignment.accountType),
+    roleLabel,
+  ].filter(Boolean);
+  return fallbackParts.join(' · ') || '작성자 확인 전';
+}
+
+function formatIncidentRoleLabel(value: string | null) {
+  const labels: Record<string, string> = {
+    INCIDENT_COMMANDER: '상황 지휘',
+    FIELD_COMMANDER: '현장 지휘',
+    MEMBER: '수색 대원',
+  };
+  return value ? (labels[value] ?? value) : '';
+}
+
+function formatAccountTypeLabel(value: string | null) {
+  const labels: Record<string, string> = {
+    COMMAND: '지휘 계정',
+    TEAM: '팀 계정',
+    PATROL_CAR: '순찰차 계정',
+  };
+  return value ? (labels[value] ?? value) : '';
+}
+
+function formatOrganizationTypeLabel(value: string | null) {
+  const labels: Record<string, string> = {
+    MISSING_TEAM: '실종팀',
+    SUPPORT_UNIT: '지원 부대',
+    POLICE_SUBSTATION: '지구대/파출소',
+  };
+  return value ? (labels[value] ?? value) : '';
+}
+
 function formatMemoTargetTypeLabel(targetType: string) {
   const labels: Record<string, string> = {
     OPERATIONAL_PERIOD: 'OP 전체',
@@ -1468,12 +1603,49 @@ function formatAreaLevelLabel(areaLevel: string) {
 function formatMarkerTypeLabel(markerType: string) {
   const labels: Record<string, string> = {
     CLUE: '단서',
+    PERSON_FOUND: '발견',
     DISCOVERY: '발견',
+    FIELD_CONDITION: '지형',
     TERRAIN: '지형',
     SUPPORT_REQUEST: '지원 요청',
+    NOTE: '메모',
     MEMO: '메모',
   };
   return labels[markerType] ?? '마커';
+}
+
+function getSearchHistoryMarkerIconName(
+  markerType: RecentMarker['markerType'],
+  supportRequestType?: RecentMarker['supportRequestType'],
+): MarkerGlyphName {
+  switch (markerType) {
+    case 'CLUE':
+      return 'clue';
+    case 'PERSON_FOUND':
+      return 'found';
+    case 'FIELD_CONDITION':
+      return 'field';
+    case 'SUPPORT_REQUEST':
+      if (supportRequestType === 'DRONE') return 'drone';
+      if (supportRequestType === 'POLICE_DOG') return 'dog';
+      return 'handHelping';
+    case 'NOTE':
+    default:
+      return 'note';
+  }
+}
+
+function getSearchHistoryMarkerSummary(marker: RecentMarker, markerTypeLabel: string) {
+  if (
+    marker.summary &&
+    marker.summary !== marker.title &&
+    marker.summary !== marker.memo &&
+    marker.summary !== markerTypeLabel
+  ) {
+    return marker.summary;
+  }
+
+  return null;
 }
 
 function shortId(id: string) {
