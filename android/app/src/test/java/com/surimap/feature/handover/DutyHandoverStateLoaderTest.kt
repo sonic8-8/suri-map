@@ -364,6 +364,122 @@ class DutyHandoverStateLoaderTest {
     }
 
     @Test
+    fun handoverLoadCanDisableOpFallbackWhenDutyShiftTimelineIsEmpty() = runBlocking {
+        val timelineQueries = mutableListOf<HandoverTimelineQuery>()
+        val loader =
+            DutyHandoverStateLoader(
+                handoverTimeline = { _, query: HandoverTimelineQuery ->
+                    timelineQueries += query
+                    if (query.scopeType == "OP") {
+                        throw AssertionError("인수인계 route에서는 OP fallback을 직접 표시하지 않는다.")
+                    }
+                    ok(
+                        """
+                        {
+                          "incidentId": "$INCIDENT_ID",
+                          "operationalPeriodId": "$OP_ID",
+                          "scope": {"scopeType": "DUTY_SHIFT", "dutyShiftId": "$DUTY_SHIFT_ID"},
+                          "actors": [],
+                          "paths": [],
+                          "events": [],
+                          "metrics": {
+                            "distanceMeters": 0,
+                            "markerCount": 0,
+                            "handoverMemoCount": 0,
+                            "syncStatus": "READY"
+                          }
+                        }
+                        """.trimIndent()
+                    )
+                },
+                handoverMemos = { ok("""{"items":[]}""") },
+                searchHistorySummaries = { _, _ -> ok("""{"items":[]}""") }
+            )
+
+        val state = loader.load(CONTEXT, allowOperationalPeriodFallback = false)
+
+        assertEquals(listOf("DUTY_SHIFT"), timelineQueries.map { it.scopeType })
+        assertEquals(HandoverRecordScope.DutyShift, state.recordScope)
+        assertEquals("이전 근무 확인", state.title)
+        assertEquals("OP 3차 · 교대 인수인계", state.subtitle)
+        assertTrue(state.replayBadges.contains("근무 기준"))
+        assertFalse(state.replayBadges.contains("OP 기준"))
+    }
+
+    @Test
+    fun operationalPeriodSearchHistoryLoadsOpScopeDirectly() = runBlocking {
+        val timelineQueries = mutableListOf<HandoverTimelineQuery>()
+        var dutyShiftsCalled = false
+        var memosCalled = false
+        val loader =
+            DutyHandoverStateLoader(
+                dutyShifts = {
+                    dutyShiftsCalled = true
+                    ok("""{"items":[]}""")
+                },
+                handoverTimeline = { operationalPeriodId, query: HandoverTimelineQuery ->
+                    assertEquals(OP_ID, operationalPeriodId)
+                    timelineQueries += query
+                    assertEquals("OP", query.scopeType)
+                    ok(
+                        """
+                        {
+                          "incidentId": "$INCIDENT_ID",
+                          "operationalPeriodId": "$OP_ID",
+                          "scope": {"scopeType": "OP"},
+                          "actors": [
+                            {"actorId": "actor-1", "displayName": "현장 기록자 1"}
+                          ],
+                          "paths": [
+                            {
+                              "pathId": "path-op-direct",
+                              "actorId": "actor-1",
+                              "mode": "FOOT",
+                              "startedAt": "2026-05-11T02:00:00Z",
+                              "endedAt": "2026-05-11T02:10:00Z",
+                              "points": [
+                                {"at": "2026-05-11T02:00:00Z", "lat": 37.1000, "lng": 127.1000},
+                                {"at": "2026-05-11T02:10:00Z", "lat": 37.1020, "lng": 127.1030}
+                              ]
+                            }
+                          ],
+                          "events": [],
+                          "metrics": {
+                            "distanceMeters": 1200,
+                            "markerCount": 0,
+                            "handoverMemoCount": 0,
+                            "syncStatus": "READY"
+                          },
+                          "summary": {
+                            "status": "READY",
+                            "content": "OP 3차 수색 이력을 확인했습니다.",
+                            "sourceReadiness": "READY",
+                            "updatedAt": "2026-05-11T02:12:00Z"
+                          }
+                        }
+                        """.trimIndent()
+                    )
+                },
+                handoverMemos = {
+                    memosCalled = true
+                    ok("""{"items":[]}""")
+                }
+            )
+
+        val state = loader.loadOperationalPeriod(CONTEXT)
+
+        assertEquals(listOf("OP"), timelineQueries.map { it.scopeType })
+        assertFalse(dutyShiftsCalled)
+        assertFalse(memosCalled)
+        assertEquals(HandoverRecordScope.OperationalPeriod, state.recordScope)
+        assertEquals("수색 이력 확인", state.title)
+        assertEquals("OP 3차 · 수색 이력", state.subtitle)
+        assertTrue(state.dutyShiftOptions.isEmpty())
+        assertEquals("OP 3차 수색 이력을 확인했습니다.", state.summary)
+        assertEquals("path-op-direct", state.replayPathSegments.single().sourceKey)
+    }
+
+    @Test
     fun readySummaryAndMemoReadResponsesMapToHandoverUiState() = runBlocking {
         val loader =
             DutyHandoverStateLoader(

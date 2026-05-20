@@ -414,6 +414,13 @@ fun SuriMapApp() {
                             }
                         )
                     }
+                    composable(PolicePhoneRoute.SearchHistory.route) {
+                        SearchHistoryRoute(
+                            incidentSessionState = incidentSessionState,
+                            navController = navController,
+                            clockSyncState = clockSyncState
+                        )
+                    }
                     composable(PolicePhoneRoute.HandoverSummary.route) {
                         HandoverSummaryRoute(
                             incidentSessionState = incidentSessionState,
@@ -565,6 +572,14 @@ private fun IncidentBottomNavigationIcon(
                 drawCircle(color = color, radius = side * 0.055f, center = offset(0.50f, 0.36f))
                 line(0.50f, 0.54f, 0.50f, 0.82f)
                 line(0.32f, 0.82f, 0.68f, 0.82f)
+            }
+            PolicePhoneRoute.SearchHistory -> {
+                line(0.22f, 0.27f, 0.78f, 0.27f)
+                line(0.22f, 0.50f, 0.62f, 0.50f)
+                line(0.22f, 0.73f, 0.50f, 0.73f)
+                drawCircle(color = color, radius = side * 0.06f, center = offset(0.78f, 0.50f), style = stroke)
+                line(0.78f, 0.56f, 0.78f, 0.72f)
+                line(0.78f, 0.72f, 0.90f, 0.72f)
             }
             PolicePhoneRoute.HandoverSummary -> {
                 line(0.23f, 0.36f, 0.72f, 0.36f)
@@ -863,6 +878,107 @@ private fun BlockedOutboxRoute(
 }
 
 @Composable
+private fun SearchHistoryRoute(
+    incidentSessionState: IncidentSessionState,
+    navController: NavHostController,
+    clockSyncState: ClockSyncState
+) {
+    val incidentContext = incidentSessionState.incidentContext
+    val policePhoneContext = incidentSessionState.policePhoneContext
+    val sessionContext = incidentContext.toHandoverSessionContext(policePhoneContext)
+    val apiBaseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
+    val accessTokenProvider = policePhoneContext.accessTokenProvider()
+    val loader =
+        remember(apiBaseUrl, policePhoneContext?.accessToken) {
+            DutyHandoverStateLoader(
+                handoverTimeline = { operationalPeriodId, query ->
+                    HandoverTimelineReadRepository(
+                        apiClient = SuriMapApiClient(baseUrl = apiBaseUrl),
+                        accessTokenProvider = accessTokenProvider
+                    ).get(operationalPeriodId, query)
+                },
+                searchHistorySummaries = { operationalPeriodId, query ->
+                    SearchHistorySummaryReadRepository(
+                        apiClient = SuriMapApiClient(baseUrl = apiBaseUrl),
+                        accessTokenProvider = accessTokenProvider
+                    ).list(operationalPeriodId, query)
+                }
+            )
+        }
+    var searchHistoryState by remember(loader, sessionContext) {
+        mutableStateOf(loader.operationalPeriodFallback(sessionContext))
+    }
+    var selectedSearchHistoryTab by remember(sessionContext) { mutableStateOf(DutyHandoverTab.Replay) }
+    var selectedOriginalRecordKey by remember(sessionContext) { mutableStateOf<String?>(null) }
+    var replayControlState by remember(sessionContext) { mutableStateOf(HandoverReplayControlUiState()) }
+
+    LaunchedEffect(loader, sessionContext) {
+        searchHistoryState = loader.operationalPeriodFallback(sessionContext)
+        searchHistoryState = loader.loadOperationalPeriod(sessionContext)
+    }
+    val replayControlDurationMs = searchHistoryState.replayControl.displayDurationMs
+    val currentReplayControl = replayControlState.withDuration(replayControlDurationMs)
+    LaunchedEffect(
+        currentReplayControl.playing,
+        currentReplayControl.displayPlayheadMs,
+        currentReplayControl.displayDurationMs,
+        currentReplayControl.speed
+    ) {
+        if (currentReplayControl.playing) {
+            delay(250L)
+            replayControlState = currentReplayControl.advanceBy(250L)
+        }
+    }
+    LaunchedEffect(searchHistoryState.records, selectedOriginalRecordKey) {
+        val selectedKey = selectedOriginalRecordKey ?: return@LaunchedEffect
+        if (searchHistoryState.records.none { record -> record.sourceKey == selectedKey }) {
+            selectedOriginalRecordKey = null
+        }
+    }
+    LaunchedEffect(
+        sessionContext.incidentId,
+        sessionContext.policePhoneId,
+        policePhoneContext?.apiBaseUrl,
+        policePhoneContext?.accessToken
+    ) {
+        clockSyncState.syncClockForIncident(sessionContext.incidentId, policePhoneContext)
+    }
+
+    DutyHandoverScreen(
+        state =
+        searchHistoryState.copy(
+            selectedTab = selectedSearchHistoryTab,
+            selectedOriginalRecordKey = selectedOriginalRecordKey,
+            replayControl = currentReplayControl,
+            canEndDutyShift = false
+        ),
+        mapState = policePhoneContext.toMapLibreRuntimeMapState(),
+        onBack = { navController.popBackStack() },
+        onWriteMemo = { navController.navigateToSingleTop(PolicePhoneRoute.HandoverMemo) },
+        onOpenSearch = { navController.navigateToSingleTop(PolicePhoneRoute.SearchMap) },
+        showBack = false,
+        showMemoAction = false,
+        onSelectTab = { selectedSearchHistoryTab = it },
+        onReplayPlayPause = {
+            replayControlState = currentReplayControl.togglePlaying()
+        },
+        onReplaySeek = { playheadMs ->
+            replayControlState = currentReplayControl.seekTo(playheadMs)
+        },
+        onReplaySpeedSelect = { speed ->
+            replayControlState = currentReplayControl.selectSpeed(speed)
+        },
+        onReplayCameraModeSelect = { cameraMode ->
+            replayControlState = currentReplayControl.selectCameraMode(cameraMode)
+        },
+        onSelectOriginalRecord = { record ->
+            selectedOriginalRecordKey = record.sourceKey
+            selectedSearchHistoryTab = DutyHandoverTab.Report
+        }
+    )
+}
+
+@Composable
 private fun HandoverSummaryRoute(
     incidentSessionState: IncidentSessionState,
     navController: NavHostController,
@@ -934,7 +1050,12 @@ private fun HandoverSummaryRoute(
 
     LaunchedEffect(loader, sessionContext, selectedDutyShiftId) {
         handoverState = loader.fallback(sessionContext)
-        handoverState = loader.load(sessionContext, selectedDutyShiftId = selectedDutyShiftId)
+        handoverState =
+            loader.load(
+                context = sessionContext,
+                selectedDutyShiftId = selectedDutyShiftId,
+                allowOperationalPeriodFallback = false
+            )
     }
     val replayControlDurationMs = handoverState.replayControl.displayDurationMs
     val currentReplayControl = replayControlState.withDuration(replayControlDurationMs)

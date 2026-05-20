@@ -344,6 +344,13 @@ enum class DutyHandoverTab(val label: String) {
     Report("보고서")
 }
 
+fun DutyHandoverTab.labelFor(recordScope: HandoverRecordScope): String =
+    when (this) {
+        DutyHandoverTab.Replay -> label
+        DutyHandoverTab.Report ->
+            if (recordScope == HandoverRecordScope.OperationalPeriod) "OP 요약" else label
+    }
+
 data class HandoverMetric(val value: String, val label: String)
 data class HandoverRecord(
     val title: String,
@@ -478,6 +485,9 @@ fun DutyHandoverScreen(
     onBack: () -> Unit,
     onWriteMemo: () -> Unit,
     onOpenSearch: () -> Unit,
+    showBack: Boolean = true,
+    showMemoAction: Boolean = true,
+    showSearchAction: Boolean = true,
     onSelectTab: (DutyHandoverTab) -> Unit = {},
     onSelectDutyShift: (String) -> Unit = {},
     onEndDutyShift: () -> Unit = {},
@@ -489,8 +499,12 @@ fun DutyHandoverScreen(
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxSize().safeDrawingPadding()) {
-        PoliAppBar(title = state.title, subtitle = state.subtitle, showBack = true, onBack = onBack)
-        DutyHandoverTabRow(selectedTab = state.selectedTab, onSelectTab = onSelectTab)
+        PoliAppBar(title = state.title, subtitle = state.subtitle, showBack = showBack, onBack = onBack)
+        DutyHandoverTabRow(
+            selectedTab = state.selectedTab,
+            recordScope = state.recordScope,
+            onSelectTab = onSelectTab
+        )
         Column(
             modifier =
             Modifier
@@ -518,17 +532,23 @@ fun DutyHandoverScreen(
             }
         }
 
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(PoliDimens.SectionPadding),
-            horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
-        ) {
-            PoliButton(
-                text = "메모 작성",
-                onClick = onWriteMemo,
-                modifier = Modifier.weight(1f),
-                variant = PoliButtonVariant.Secondary
-            )
-            PoliButton(text = "수색 화면", onClick = onOpenSearch, modifier = Modifier.weight(1.25f))
+        if (showMemoAction || showSearchAction) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(PoliDimens.SectionPadding),
+                horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
+            ) {
+                if (showMemoAction) {
+                    PoliButton(
+                        text = "메모 작성",
+                        onClick = onWriteMemo,
+                        modifier = Modifier.weight(1f),
+                        variant = PoliButtonVariant.Secondary
+                    )
+                }
+                if (showSearchAction) {
+                    PoliButton(text = "수색 화면", onClick = onOpenSearch, modifier = Modifier.weight(1.25f))
+                }
+            }
         }
         if (state.canEndDutyShift) {
             PoliButton(
@@ -552,6 +572,7 @@ fun DutyHandoverScreen(
 @Composable
 private fun DutyHandoverTabRow(
     selectedTab: DutyHandoverTab,
+    recordScope: HandoverRecordScope,
     onSelectTab: (DutyHandoverTab) -> Unit
 ) {
     SecondaryTabRow(selectedTabIndex = selectedTab.ordinal) {
@@ -559,7 +580,7 @@ private fun DutyHandoverTabRow(
             Tab(
                 selected = selectedTab == tab,
                 onClick = { onSelectTab(tab) },
-                text = { Text(text = tab.label) }
+                text = { Text(text = tab.labelFor(recordScope)) }
             )
         }
     }

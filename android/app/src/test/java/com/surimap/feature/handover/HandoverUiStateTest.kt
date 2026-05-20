@@ -267,6 +267,24 @@ class HandoverUiStateTest {
     }
 
     @Test
+    fun appSearchHistoryRouteLoadsOperationalPeriodSummaryAsTopLevelRoute() {
+        val source = File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+
+        val graphIndex = source.indexOf("composable(PolicePhoneRoute.SearchHistory.route)")
+        val routeIndex = source.indexOf("private fun SearchHistoryRoute")
+        val loadIndex = source.indexOf("loader.loadOperationalPeriod(sessionContext)", routeIndex)
+        val noMemoActionIndex = source.indexOf("showMemoAction = false", routeIndex)
+        val handoverRouteIndex = source.indexOf("private fun HandoverSummaryRoute")
+        val disableFallbackIndex = source.indexOf("allowOperationalPeriodFallback = false", handoverRouteIndex)
+
+        assertTrue(graphIndex >= 0)
+        assertTrue(routeIndex >= 0)
+        assertTrue(loadIndex > routeIndex)
+        assertTrue(noMemoActionIndex > routeIndex)
+        assertTrue(disableFallbackIndex > handoverRouteIndex)
+    }
+
+    @Test
     fun appHandoverRouteOwnsTabStateForP6A() {
         val source = File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
 
