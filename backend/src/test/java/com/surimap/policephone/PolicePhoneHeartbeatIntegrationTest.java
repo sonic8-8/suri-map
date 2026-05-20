@@ -119,6 +119,31 @@ class PolicePhoneHeartbeatIntegrationTest {
   }
 
   @Test
+  @WithMockAccount(
+      accountId = "11111111-1111-1111-1111-111111110004",
+      organizationType = OrganizationType.POLICE_SUBSTATION,
+      policePhoneId = "00000000-0000-0000-0000-000000000101")
+  @DisplayName("heartbeat rejects police phone owned by a different account")
+  void heartbeatRejectsPolicePhoneOwnedByDifferentAccount() throws Exception {
+    mockMvc
+        .perform(
+            post(
+                    "/api/police-phones/{policePhoneId}/heartbeat",
+                    PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID)
+                .header("X-PolicePhone-Id", PolicePhoneFixtures.ASSIGNED_POLICE_PHONE_ID)
+                .contentType("application/json")
+                .content(
+                    """
+                    {
+                      "clientTs": "2026-05-08T09:00:00+09:00",
+                      "sequence": 1
+                    }
+                    """))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error").value("police_phone_not_assigned"));
+  }
+
+  @Test
   @WithMockAccount(policePhoneId = "00000000-0000-0000-0000-000000000301")
   @DisplayName("registered but unassigned police phone is rejected by assignment guard")
   void unassignedPolicePhoneRejected() throws Exception {

@@ -54,6 +54,7 @@ class IncidentSessionContextResolverTest {
                     assertEquals(INCIDENT_ID, query.incidentId)
                     assertEquals(OP_ID, query.opId)
                     assertEquals(POLICE_PHONE_ID, query.policePhoneId)
+                    assertEquals(ACCOUNT_ID, query.accountId)
                     assertEquals("ACTIVE", query.status)
                     SuriMapApiResponse(
                         statusCode = 200,
@@ -63,11 +64,44 @@ class IncidentSessionContextResolverTest {
                 }
             )
 
-        val context = resolver.resolve(incident(currentOpId = null), policePhoneId = POLICE_PHONE_ID)
+        val context = resolver.resolve(
+            incident(currentOpId = null),
+            policePhoneId = POLICE_PHONE_ID,
+            accountId = ACCOUNT_ID
+        )
 
         assertEquals(OP_ID, context.currentOpId)
         assertEquals("OP 1차", context.currentOpLabel)
         assertEquals(DUTY_SHIFT_ID, context.currentDutyShiftId)
+    }
+
+    @Test
+    fun missingAccountDoesNotResolveDutyShiftFromPhoneOnly() = runBlocking {
+        var dutyShiftQueried = false
+        val resolver =
+            IncidentSessionContextResolver(
+                operationalPeriods = {
+                    SuriMapApiResponse(
+                        statusCode = 200,
+                        body = """{"currentOpId":"$OP_ID","items":[{"id":"$OP_ID","sequenceNumber":1}]}""",
+                        errorCode = null
+                    )
+                },
+                dutyShifts = {
+                    dutyShiftQueried = true
+                    SuriMapApiResponse(
+                        statusCode = 200,
+                        body = """{"items":[{"id":"other-shift","status":"ACTIVE"}]}""",
+                        errorCode = null
+                    )
+                }
+            )
+
+        val context = resolver.resolve(incident(currentOpId = null), policePhoneId = POLICE_PHONE_ID)
+
+        assertEquals(OP_ID, context.currentOpId)
+        assertNull(context.currentDutyShiftId)
+        assertEquals(false, dutyShiftQueried)
     }
 
     private fun incident(currentOpId: String?): AssignedIncidentUiModel =
@@ -85,6 +119,7 @@ class IncidentSessionContextResolverTest {
         val INCIDENT_ID = incidentIdFixture("precinct-first-001")
         val OP_ID = opIdFixture("precinct-001-op1")
         val POLICE_PHONE_ID = policePhoneIdFixture("precinct-car-01")
+        const val ACCOUNT_ID = "11111111-1111-1111-1111-111111110005"
         val DUTY_SHIFT_ID = dutyShiftIdFixture("precinct-op1-001")
     }
 }

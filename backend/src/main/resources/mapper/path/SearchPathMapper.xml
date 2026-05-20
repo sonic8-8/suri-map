@@ -68,13 +68,14 @@
         LIMIT 1
     </select>
 
-    <select id="findActiveDutyShiftIdByAccount" resultType="java.util.UUID">
+    <select id="findActiveDutyShiftIdByAccountAndPhone" resultType="java.util.UUID">
         SELECT ds.id
         FROM duty_shift ds
         JOIN incident_assignment ia
           ON ia.id = ds.incident_assignment_id
         WHERE ds.operational_period_id = #{opId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
           AND ia.account_id = #{accountId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
+          AND ds.police_phone_id = #{policePhoneId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
           AND ds.status = 'ACTIVE'
         ORDER BY ds.started_at DESC, ds.id ASC
         LIMIT 1

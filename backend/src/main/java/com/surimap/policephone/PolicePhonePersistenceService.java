@@ -55,6 +55,9 @@ public class PolicePhonePersistenceService
   public PolicePhoneHeartbeatResult recordHeartbeat(
       PolicePhoneHeartbeatServiceRequest request, Instant receivedAt) {
     PolicePhoneStateRow before = registeredPhone(request.policePhoneId());
+    if (!before.accountId().toString().equals(request.accountId())) {
+      throw new PolicePhoneNotAssignedException();
+    }
     PolicePhoneAssignmentRow assignment = activeAssignment(request.policePhoneId());
 
     if (request.sequence() <= before.heartbeatSequence()) {
