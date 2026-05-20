@@ -139,7 +139,6 @@ export function SuriMapPageHeader({
   onOpenIncidentDetail,
   onOpenIncidentList,
   onMoveMarkerNotification,
-  onOpenHandover,
   onOpenSearchHistory,
   onOpenOfflinePackage,
   onOpenLogin,
@@ -150,7 +149,6 @@ export function SuriMapPageHeader({
     { id: 'incidentDetail', label: '사건 상세', onClick: onOpenIncidentDetail },
     { id: 'situationBoard', label: '상황판', onClick: onOpenSituationBoard },
     { id: 'searchHistory', label: '수색 이력', onClick: onOpenSearchHistory },
-    { id: 'handover', label: '인수인계', onClick: onOpenHandover },
     { id: 'offlinePackage', label: '오프라인 패키지', onClick: onOpenOfflinePackage },
   ];
   const activeMarkerNotification = markerNotifications[markerNotificationIndex] ?? null;

@@ -96,8 +96,8 @@ export function HandoverComparisonMap({
   }, [rightPanelWidthPx]);
   const overallAreaFeatures = useMemo(() => createOverallAreaFeatureCollection(board, incidentId), [board, incidentId]);
   const visibleOverallAreaFeatures = useMemo(
-    () => (isSharedSituationBoardMap || selectedOpIds.length === 0 ? emptyFeatureCollection() : overallAreaFeatures),
-    [isSharedSituationBoardMap, overallAreaFeatures, selectedOpIds.length],
+    () => (isSharedSituationBoardMap ? emptyFeatureCollection() : overallAreaFeatures),
+    [isSharedSituationBoardMap, overallAreaFeatures],
   );
   const featureCollections = useMemo(
     () => createComparisonFeatureCollections(board, incidentId, selectedOpIds, focusedOpId),
@@ -357,20 +357,6 @@ export function HandoverComparisonMap({
         </aside>
       ) : null}
 
-      <div className={styles.legend} aria-label="OP comparison legend">
-        <span className={styles.legendItem}>
-          <span className={styles.legendSwatch} />
-          현재 OP
-        </span>
-        <span className={styles.legendItem}>
-          <span className={styles.legendSwatchCompare} />
-          비교 OP
-        </span>
-        <span className={styles.legendItem}>
-          <span className={styles.legendMarker} />
-          마커
-        </span>
-      </div>
     </div>
   );
 }

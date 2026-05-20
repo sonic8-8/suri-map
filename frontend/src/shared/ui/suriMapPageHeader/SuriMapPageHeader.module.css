@@ -614,3 +614,27 @@
   color: #ffb0b0;
   background: rgba(146, 48, 48, 0.2);
 }
+
+.logoutButton {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--suri-board-fg-muted) 34%, transparent);
+  border-radius: 6px;
+  color: var(--suri-board-fg-secondary);
+  background: color-mix(in srgb, var(--suri-board-panel-surface) 42%, transparent);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.logoutButton:hover {
+  border-color: color-mix(in srgb, var(--suri-board-primary-hi) 42%, var(--suri-board-fg-muted));
+  color: var(--suri-board-fg-primary);
+  background: var(--suri-board-panel-surface);
+}
+
+.logoutButton:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--suri-board-primary-hi) 64%, transparent);
+  outline-offset: 2px;
+}

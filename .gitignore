@@ -104,3 +104,5 @@ graphify-out/
 
 .tmp/*
 .playwright-mcp/*
+
+.frontend/release

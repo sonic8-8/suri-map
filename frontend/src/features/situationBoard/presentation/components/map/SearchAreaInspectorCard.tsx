@@ -521,6 +521,10 @@ function getOperationalPeriodLabel(searchArea: SearchAreaTreeNode, operationalPe
 }
 
 function getSearchAreaTitle(searchArea: SearchAreaTreeNode) {
+  if (searchArea.kind === 'overall') {
+    return '전체 수색구역';
+  }
+
   const assignedNames = (searchArea.assignedAccounts ?? [])
     .map((account) => account.displayName.trim())
     .filter((name) => name.length > 0);
@@ -573,7 +577,14 @@ export function SearchAreaInspectorCard({
   const isAssignableLeafArea = selectedSearchArea.kind !== 'overall' && selectedSearchArea.status === 'ACTIVE' && !hasChildAreas;
   const isSplitDisabled = isAssigned || hasChildAreas;
   const isAssignmentDisabled = isAssigned || !isAssignableLeafArea;
-  const rootClassName = variant === 'mapPopup' ? styles.mapPopup : styles.layer;
+  const isMapPopup = variant === 'mapPopup';
+  const isOverallMapPopup = isMapPopup && selectedSearchArea.kind === 'overall';
+  const rootClassName = [
+    isMapPopup ? styles.mapPopup : styles.layer,
+    isOverallMapPopup ? styles.overallMapPopup : null,
+  ]
+    .filter(Boolean)
+    .join(' ');
   const rootStyle: CSSProperties & { '--area-identity-color': string } = {
     '--area-identity-color': `var(${areaColorTokens[selectedSearchArea.colorToken].cssVariable})`,
   };

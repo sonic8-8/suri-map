@@ -214,6 +214,7 @@ function createSearchAreaDraftFeature(
   const lineWidthByKind = { ...defaultDraftLineWidthByKind, ...options.lineWidthByKind };
   const properties: Record<string, string> = {
     entityId: draft.areaId,
+    opId: draft.opId ?? '',
     areaLevel: draft.kind.toUpperCase(),
     status: options.status ?? 'ACTIVE',
     version: '1',

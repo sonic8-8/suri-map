@@ -500,7 +500,7 @@
 }
 
 .searchHistoryTabs {
-  display: flex;
+  display: none;
   gap: 6px;
   padding: 4px;
   border: 1px solid var(--handover-border-soft);
@@ -543,6 +543,31 @@
   display: grid;
   gap: 12px;
   min-width: 0;
+}
+
+.comparisonModeBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--handover-border-soft);
+  border-radius: 8px;
+  background: var(--handover-panel-bg);
+}
+
+.comparisonModeBar span {
+  color: var(--suri-board-fg-muted);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.comparisonModeBar .secondaryButton {
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .summaryMeta {
@@ -1190,6 +1215,8 @@
 }
 
 .mapViewport {
+  --suri-map-floating-right: 24px;
+
   position: relative;
   min-width: 0;
   min-height: 0;
@@ -1199,6 +1226,45 @@
 .mapViewport > * {
   width: 100%;
   height: 100%;
+}
+
+.mapViewport > .mapLegend {
+  width: auto;
+  height: auto;
+}
+
+.mapViewport > .mapComparisonButton {
+  width: auto;
+  height: auto;
+}
+
+.mapComparisonButton {
+  position: absolute;
+  z-index: 7;
+  top: 16px;
+  left: 16px;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid rgba(15, 23, 42, 0.18);
+  border-radius: 10px;
+  color: #102033;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 0;
+  cursor: pointer;
+  transition:
+    transform 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.mapComparisonButton:hover {
+  border-color: rgba(37, 99, 235, 0.5);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.2);
+  transform: translateY(-1px);
 }
 
 .currentOpSummaryBar {
@@ -1491,6 +1557,10 @@
   border-radius: 12px;
   overflow: hidden;
   background: #ffffff;
+}
+
+.historyContent .contextBlock:has(.sourceList) {
+  display: none;
 }
 
 .historyContent .sourceList li {

@@ -97,6 +97,7 @@ describe('OfflinePackageStatusPage', () => {
     expect(within(tileSummary).getByText('2개')).toBeInTheDocument();
     expect(within(tileSummary).getByText('3.0 KiB')).toBeInTheDocument();
     expect(within(tileSummary).getByText('osm-local')).toBeInTheDocument();
+    expect(screen.getByText('미설치 단말')).toBeInTheDocument();
 
     const pageText = document.body.textContent ?? '';
     expect(pageText).not.toContain('INCIDENT_META');
@@ -121,6 +122,19 @@ describe('OfflinePackageStatusPage', () => {
     expect(screen.getByText('단말 네트워크 확인 또는 수동 재시도 필요')).toBeInTheDocument();
     expect(screen.getByText('실패')).toBeInTheDocument();
     expect(screen.getByText('삭제됨')).toBeInTheDocument();
+  });
+
+  test('renders NOT_STARTED package badges as 시작 전', async () => {
+    vi.mocked(useIncidentBoardQuery).mockReturnValue(
+      boardQueryResultWithRows([
+        packageBadgeRow('pkg-not-started', 'phone-not-started', 'not-started-device', 'NOT_STARTED', false, false),
+      ]),
+    );
+
+    renderOfflinePackageStatusPage();
+    await screen.findByText('광산구 실종 신고');
+
+    expect(screen.getByText('시작 전')).toBeInTheDocument();
   });
 
   test('keeps package_badge device statuses visible when the slot is a single object', async () => {
@@ -183,9 +197,9 @@ describe('OfflinePackageStatusPage', () => {
     } as unknown as Awaited<ReturnType<typeof getIncidentDetail>>);
 
     renderOfflinePackageStatusPage();
-    await screen.findByText('배정 없음');
+    await screen.findByText('배정 인원');
 
-    expect(screen.getByText('배정 없음')).toBeInTheDocument();
+    expect(screen.getByText('배정 인원')).toBeInTheDocument();
   });
 
   test('renders when manifest list fields are missing', async () => {
@@ -458,5 +472,3 @@ function packageItem(
     sourceHash: `sha256:${itemType.toLowerCase()}`,
   };
 }
-
-

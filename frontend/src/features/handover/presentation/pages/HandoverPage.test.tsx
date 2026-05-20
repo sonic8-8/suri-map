@@ -622,11 +622,12 @@ describe('HandoverPage', () => {
     expect(currentOpButton).toBeVisible();
     expect(screen.getByRole('button', { name: 'Suri-Map' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^OP 2/ })).toBeVisible();
+    expect(screen.getByRole('region', { name: '범례' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'map fullscreen expand' }));
 
     await waitFor(() => expect(screen.getByTestId('handover-map')).toHaveAttribute('data-is-map-expanded', 'true'));
-    await waitFor(() => expect(screen.getByTestId('handover-map')).toHaveAttribute('data-right-panel-width', '0'));
+    await waitFor(() => expect(screen.getByTestId('handover-map')).toHaveAttribute('data-right-panel-width', ''));
     expect(screen.queryByRole('button', { name: 'Suri-Map' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'map fullscreen collapse' })).toBeInTheDocument();
   });
@@ -663,8 +664,6 @@ describe('HandoverPage', () => {
     );
 
     await screen.findByRole('region', { name: /수색 이력 지도/ });
-    fireEvent.click(await screen.findByRole('tab', { name: 'OP 비교' }));
-    const comparisonPanel = screen.getByRole('tabpanel', { name: 'OP 비교' });
     const firstOpButton = await screen.findByRole('button', { name: /^OP 1/ });
 
     fireEvent.click(firstOpButton);
@@ -672,9 +671,11 @@ describe('HandoverPage', () => {
     await waitFor(() =>
       expect(screen.getByTestId('handover-map')).toHaveAttribute('data-selected-op-ids', 'op-current|op-past'),
     );
-    await waitFor(() => expect(within(comparisonPanel).getByRole('button', { name: /비교 생성/ })).toBeEnabled());
+    const createComparisonButton = await screen.findByRole('button', { name: /비교 생성/ });
+    const comparisonPanel = screen.getByRole('tabpanel', { name: 'OP 비교' });
+    await waitFor(() => expect(createComparisonButton).toBeEnabled());
 
-    fireEvent.click(within(comparisonPanel).getByRole('button', { name: /비교 생성/ }));
+    fireEvent.click(createComparisonButton);
 
     await waitFor(() =>
       expect(mutateAsync).toHaveBeenCalledWith(
@@ -690,7 +691,8 @@ describe('HandoverPage', () => {
     fireEvent.click(within(comparisonPanel).getByRole('button', { name: /공통/ }));
     fireEvent.click(firstOpButton);
     await waitFor(() => expect(firstOpButton).toHaveAttribute('aria-pressed', 'false'));
-    await waitFor(() => expect(within(comparisonPanel).getByRole('button', { name: /비교 생성/ })).toBeDisabled());
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'OP 비교 열기' })).not.toBeInTheDocument());
+    expect(screen.getByRole('heading', { name: 'OP 요약' })).toBeInTheDocument();
     expect(screen.getByTestId('handover-map')).toHaveAttribute('data-highlight', '');
   });
 });

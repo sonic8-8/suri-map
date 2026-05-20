@@ -67,6 +67,10 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
 
   private static final UUID INCIDENT_ID = UUID.fromString("10000000-0000-4000-8000-000000000001");
   private static final UUID OP_ID = UUID.fromString("20000000-0000-4000-8000-000000000001");
+  private static final UUID PREVIOUS_OP_ID =
+      UUID.fromString("20000000-0000-4000-8000-000000000000");
+  private static final UUID FUTURE_OP_ID =
+      UUID.fromString("20000000-0000-4000-8000-000000000002");
   private static final UUID AREA_ID = UUID.fromString("30000000-0000-4000-8000-000000000001");
   private static final UUID OVERALL_AREA_ID =
       UUID.fromString("30000000-0000-4000-8000-000000000099");
@@ -276,6 +280,31 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
         .singleElement()
         .extracting(SearchAreaFilters::includeCancelled)
         .isEqualTo(true);
+  }
+
+  @Test
+  @DisplayName("default board scope keeps routes and areas on current OP while accumulating markers through current OP")
+  void default_board_scope_accumulates_markers_only_through_current_op() {
+    CapturingSearchAreaQuery searchAreaQuery = new CapturingSearchAreaQuery();
+    CapturingMarkerQuery markerQuery = new CapturingMarkerQuery();
+    DefaultIncidentBoardSourceRowCollector collector =
+        new DefaultIncidentBoardSourceRowCollector(
+            provider(searchAreaQuery),
+            provider(searchPathService()),
+            provider(new FakePolicePhoneFreshnessQuery()),
+            markerQuery,
+            new FakePackageQuery(),
+            new MultiOpOperationalPeriodQuery(),
+            new FakeHandoverMemoQuery(),
+            new FakeSummaryMapper());
+
+    collector.collect(
+        new BoardSourceRowContext(INCIDENT_ID, List.of(), List.of("area", "path", "marker"), null));
+
+    assertThat(searchAreaQuery.byOpIds()).containsExactly(OP_ID);
+    assertThat(markerQuery.filters())
+        .extracting(MarkerQueryFilters::opId)
+        .containsExactly(PREVIOUS_OP_ID, OP_ID);
   }
 
   @Test
@@ -573,6 +602,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
   private static final class CapturingSearchAreaQuery extends FakeSearchAreaQuery {
     private int overallCalls;
     private int byIncidentCalls;
+    private final List<UUID> byOpIds = new ArrayList<>();
     private final List<SearchAreaFilters> byIncidentFilters = new ArrayList<>();
     private final List<SearchAreaFilters> byOpFilters = new ArrayList<>();
 
@@ -591,6 +621,7 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
 
     @Override
     public SearchAreaCollection byOp(UUID opId, SearchAreaFilters filters) {
+      byOpIds.add(opId);
       byOpFilters.add(filters);
       return super.byOp(opId, filters);
     }
@@ -609,6 +640,10 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
 
     private List<SearchAreaFilters> byOpFilters() {
       return List.copyOf(byOpFilters);
+    }
+
+    private List<UUID> byOpIds() {
+      return List.copyOf(byOpIds);
     }
   }
 
@@ -712,6 +747,37 @@ class IncidentBoardSourceRowCollectorIntegrationTest {
     @Override
     public List<OperationalPeriodRow> list(UUID incidentId) {
       return List.of(new OperationalPeriodRow(OP_ID, incidentId, "ACTIVE", 1, STARTED_AT, null, null, 8L));
+    }
+  }
+
+  private static final class MultiOpOperationalPeriodQuery implements OperationalPeriodQuery {
+    @Override
+    public Optional<CurrentOpResult> current(UUID incidentId) {
+      return Optional.of(new CurrentOpResult(OP_ID, incidentId, "ACTIVE", 2, STARTED_AT, null, null, 8L));
+    }
+
+    @Override
+    public List<OperationalPeriodRow> list(UUID incidentId) {
+      return List.of(
+          new OperationalPeriodRow(
+              PREVIOUS_OP_ID,
+              incidentId,
+              "ENDED",
+              1,
+              STARTED_AT.minusSeconds(3600),
+              STARTED_AT.minusSeconds(60),
+              null,
+              7L),
+          new OperationalPeriodRow(OP_ID, incidentId, "ACTIVE", 2, STARTED_AT, null, null, 8L),
+          new OperationalPeriodRow(
+              FUTURE_OP_ID,
+              incidentId,
+              "ACTIVE",
+              3,
+              STARTED_AT.plusSeconds(3600),
+              null,
+              null,
+              9L));
     }
   }
 

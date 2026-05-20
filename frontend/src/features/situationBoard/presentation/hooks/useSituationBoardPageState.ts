@@ -9,7 +9,9 @@ import { useSituationBoardShell } from './useSituationBoardShell';
 type UseSituationBoardPageStateParams = {
   incidentId: string;
   isAreaWorkspaceRoute?: boolean;
+  isHandoverWorkspaceRoute?: boolean;
   onCloseAreaWorkspaceRoute?: () => void;
+  onCloseHandoverWorkspaceRoute?: () => void;
   onOpenAreaWorkspaceRoute?: () => void;
   onSaveAssignedAreas: (drafts: CompletedAreaDraft[]) => void;
   refreshVersion: number;
@@ -19,7 +21,9 @@ type UseSituationBoardPageStateParams = {
 export function useSituationBoardPageState({
   incidentId,
   isAreaWorkspaceRoute,
+  isHandoverWorkspaceRoute,
   onCloseAreaWorkspaceRoute,
+  onCloseHandoverWorkspaceRoute,
   onOpenAreaWorkspaceRoute,
   onSaveAssignedAreas,
   refreshVersion,
@@ -40,7 +44,9 @@ export function useSituationBoardPageState({
   const incidentDetail = useIncidentDetail(incidentId);
   const workspaceMode = useBoardWorkspaceMode({
     isAreaWorkspaceRoute,
+    isHandoverWorkspaceRoute,
     onCloseAreaWorkspaceRoute,
+    onCloseHandoverWorkspaceRoute,
     onOpenAreaWorkspaceRoute,
   });
   const layerFilters = useBoardLayerFilters({
