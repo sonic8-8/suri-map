@@ -638,6 +638,7 @@
 }
 
 .markerPopupPhotoPreview {
+  position: relative;
   overflow: hidden;
   width: 100%;
   max-height: 180px;
@@ -652,6 +653,80 @@
   width: 100%;
   height: 180px;
   object-fit: cover;
+}
+
+.markerPopupPhotoPreviewEmpty {
+  display: grid;
+  min-height: 150px;
+  place-items: center;
+  background:
+    radial-gradient(circle at 18% 18%, color-mix(in srgb, var(--marker-color) 18%, transparent), transparent 34%),
+    linear-gradient(135deg, rgba(241, 245, 249, 0.96), rgba(226, 232, 240, 0.92));
+}
+
+.markerPopupPhotoFallback {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  padding: 24px 82px 24px 24px;
+  color: #172033;
+  font-size: 15px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.markerPopupPhotoFallback small {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.markerPopupPhotoFallbackIcon {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.74);
+  color: color-mix(in srgb, var(--marker-color) 72%, #0f172a);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.markerPopupPhotoViewButton {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.68);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.76);
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.26);
+  color: #f8fafc;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1;
+  text-decoration: none;
+  backdrop-filter: blur(10px);
+}
+
+.markerPopupPhotoViewButton:hover {
+  background: rgba(15, 23, 42, 0.9);
+}
+
+.markerPopupPhotoViewButton:disabled {
+  border-color: rgba(148, 163, 184, 0.34);
+  background: rgba(51, 65, 85, 0.38);
+  box-shadow: none;
+  color: rgba(248, 250, 252, 0.8);
+  cursor: not-allowed;
+}
+
+.markerPopupPhotoViewButton svg {
+  flex: 0 0 auto;
 }
 
 .markerPopupBody {
