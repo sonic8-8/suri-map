@@ -308,6 +308,10 @@ select {
     font-size: 13px;
 }
 
+input[type="file"] {
+    padding: 7px 10px;
+}
+
 input:focus,
 select:focus {
     outline: none;
@@ -321,6 +325,58 @@ select:focus {
     color: var(--text-subtle);
     font-size: 12px;
     line-height: 1.45;
+}
+
+.photo-upload-control {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+}
+
+.photo-upload-preview {
+    min-height: 72px;
+    margin-top: 8px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: #fbfcfe;
+    padding: 8px;
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+    color: var(--text-subtle);
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.photo-upload-preview.empty {
+    display: block;
+    min-height: 40px;
+    border-style: dashed;
+}
+
+.photo-upload-preview img,
+.missing-photo-preview img {
+    width: 56px;
+    height: 56px;
+    border-radius: 6px;
+    object-fit: cover;
+    background: var(--surface-muted);
+}
+
+.photo-upload-preview strong,
+.photo-upload-preview code,
+.photo-upload-preview span {
+    display: block;
+}
+
+.missing-photo-preview {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 5px;
+    background: #fbfcfe;
 }
 
 .form-actions {
@@ -694,6 +750,11 @@ code {
     }
 
     .row-actions {
+        grid-template-columns: 1fr;
+    }
+
+    .photo-upload-control,
+    .photo-upload-preview {
         grid-template-columns: 1fr;
     }
 }
