@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.mock112.domain.MockIncident;
 import java.time.OffsetDateTime;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -207,6 +208,42 @@ class SuriMapWebhookDispatcherTest {
                 counts.computeIfPresent(record.status(), (ignored, count) -> count + 1);
             }
             return counts;
+        }
+
+        @Override
+        public Map<String, WebhookOutboxSourceStatus> summarizeBySourceIncidentIds(Collection<String> sourceIncidentIds) {
+            Map<String, WebhookOutboxSourceStatus> summary = new LinkedHashMap<>();
+            for (String sourceIncidentId : sourceIncidentIds) {
+                List<WebhookOutboxRecord> sourceRecords = records.values().stream()
+                        .filter(record -> record.sourceIncidentId().equals(sourceIncidentId))
+                        .toList();
+                if (sourceRecords.isEmpty()) {
+                    continue;
+                }
+                int sent = (int) sourceRecords.stream().filter(record -> "SENT".equals(record.status())).count();
+                int pending = (int) sourceRecords.stream().filter(record -> "PENDING".equals(record.status())).count();
+                int failed = (int) sourceRecords.stream().filter(record -> "FAILED".equals(record.status())).count();
+                String status = failed > 0 ? "FAILED" : (pending > 0 ? "PENDING" : "SENT");
+                int attemptCount = sourceRecords.stream()
+                        .mapToInt(WebhookOutboxRecord::attemptCount)
+                        .max()
+                        .orElse(0);
+                OffsetDateTime updatedAt = sourceRecords.stream()
+                        .map(WebhookOutboxRecord::updatedAt)
+                        .max(OffsetDateTime::compareTo)
+                        .orElse(null);
+                summary.put(sourceIncidentId, new WebhookOutboxSourceStatus(
+                        sourceIncidentId,
+                        status,
+                        sourceRecords.size(),
+                        sent,
+                        pending,
+                        failed,
+                        attemptCount,
+                        updatedAt,
+                        null));
+            }
+            return summary;
         }
 
         @Override

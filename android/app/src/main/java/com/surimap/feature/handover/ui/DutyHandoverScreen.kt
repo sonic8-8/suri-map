@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -20,6 +21,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
@@ -30,6 +32,11 @@ import androidx.compose.ui.unit.dp
 import java.time.Instant
 import kotlin.math.abs
 import kotlin.math.roundToLong
+import com.surimap.core.map.MapLibreGeometryOverlay
+import com.surimap.core.map.MapLibreGeometryOverlayKind
+import com.surimap.core.map.MapLibreRuntimeMapState
+import com.surimap.core.map.MapLibreViewportBounds
+import com.surimap.core.map.SuriMapLibreMap
 import com.surimap.feature.handover.domain.HandoverReplayCameraMode
 import com.surimap.feature.handover.domain.HandoverReplaySpeed
 import com.surimap.ui.components.PoliAppBar
@@ -54,12 +61,14 @@ import com.surimap.ui.theme.SuriMapTheme
 data class DutyHandoverUiState(
     val title: String,
     val subtitle: String,
+    val recordScope: HandoverRecordScope = HandoverRecordScope.DutyShift,
     val summaryStatus: SearchHistorySummaryStatus,
     val generatedAtLabel: String,
     val summary: String?,
     val sourceReadiness: SummarySourceReadiness,
     val metrics: List<HandoverMetric>,
     val records: List<HandoverRecord>,
+    val dutyShiftOptions: List<HandoverDutyShiftOption> = emptyList(),
     val replayPoints: List<HandoverReplayPointUi> = emptyList(),
     val replayPathSegments: List<HandoverReplayPathSegment> = emptyList(),
     val replayMarkers: List<HandoverReplayMarker> = emptyList(),
@@ -73,12 +82,28 @@ data class DutyHandoverUiState(
     val replaySectionTitles: List<String> = HandoverReplaySections
     val replayBadges: List<String> =
         if (replayControl.displayDurationMs > 0L && replayPoints.size >= 2) {
-            listOf("근무 기준", "단일 근무자", "타임라인 재생")
+            listOf(recordScope.primaryBadge, recordScope.actorBadge, "타임라인 재생")
         } else {
-            listOf("근무 기준", "단일 근무자", "기록 없음")
+            listOf(recordScope.primaryBadge, recordScope.actorBadge, "기록 없음")
         }
 
-    val reportSectionTitles: List<String> = HandoverReportSections
+    val summaryTitle: String = recordScope.summaryTitle
+    val overviewTitle: String = recordScope.overviewTitle
+    val emptyRecordLabel: String = recordScope.emptyRecordLabel
+    val summaryStatusLabel: String =
+        if (recordScope == HandoverRecordScope.OperationalPeriod && summaryStatus == SearchHistorySummaryStatus.Empty) {
+            "OP 기록 없음"
+        } else {
+            summaryStatus.label
+        }
+
+    val reportSectionTitles: List<String> = HandoverReportSections.map { title ->
+        when (title) {
+            DUTY_SHIFT_OVERVIEW_TITLE -> overviewTitle
+            DUTY_SHIFT_SUMMARY_TITLE -> summaryTitle
+            else -> title
+        }
+    }
 
     val handoverMemoRecords: List<HandoverRecord> =
         records.filter { record ->
@@ -91,7 +116,7 @@ data class DutyHandoverUiState(
         }
 
     val summaryText: String =
-        summary ?: summaryStatus.emptyCopy
+        summary ?: summaryStatus.emptyCopy(recordScope)
 
     val selectedOriginalRecord: HandoverRecord? =
         selectedOriginalRecordKey?.let { selectedKey ->
@@ -113,10 +138,14 @@ data class DutyHandoverUiState(
             add(subtitle)
             DutyHandoverTab.entries.forEach { add(it.label) }
             add(selectedTab.label)
-            add(DUTY_SHIFT_SUMMARY_TITLE)
-            add(summaryStatus.label)
+            add(summaryTitle)
+            add(summaryStatusLabel)
             add(generatedAtLabel)
             add(summaryText)
+            dutyShiftOptions.forEach { option ->
+                add(option.label)
+                add(option.subtitle)
+            }
             summaryActionLabel?.let(::add)
             selectedOriginalRecord?.let { selectedRecord ->
                 add("선택된 원본 기록")
@@ -305,6 +334,11 @@ enum class SummarySourceReadiness {
     Stale
 }
 
+enum class HandoverRecordScope {
+    DutyShift,
+    OperationalPeriod
+}
+
 enum class DutyHandoverTab(val label: String) {
     Replay("리플레이"),
     Report("보고서")
@@ -326,7 +360,16 @@ data class HandoverReplayPathSegment(
     val label: String,
     val timeRangeLabel: String,
     val distanceLabel: String,
-    val modeLabel: String
+    val modeLabel: String,
+    val sourceKey: String = "$label|$timeRangeLabel",
+    val points: List<HandoverReplayPointUi> = emptyList()
+)
+
+data class HandoverDutyShiftOption(
+    val dutyShiftId: String,
+    val label: String,
+    val subtitle: String,
+    val selected: Boolean = false
 )
 data class HandoverReplayMarker(
     val title: String,
@@ -402,7 +445,7 @@ private val HandoverReplaySections =
 
 private val HandoverReportSections =
     listOf(
-        "근무 개요",
+        DUTY_SHIFT_OVERVIEW_TITLE,
         DUTY_SHIFT_SUMMARY_TITLE,
         "이동 통계",
         "발견·기록 시간순",
@@ -431,10 +474,12 @@ data class HandoverPromptUiState(
 @Composable
 fun DutyHandoverScreen(
     state: DutyHandoverUiState,
+    mapState: MapLibreRuntimeMapState = MapLibreRuntimeMapState(),
     onBack: () -> Unit,
     onWriteMemo: () -> Unit,
     onOpenSearch: () -> Unit,
     onSelectTab: (DutyHandoverTab) -> Unit = {},
+    onSelectDutyShift: (String) -> Unit = {},
     onEndDutyShift: () -> Unit = {},
     onReplayPlayPause: () -> Unit = {},
     onReplaySeek: (Long) -> Unit = {},
@@ -458,6 +503,8 @@ fun DutyHandoverScreen(
                 DutyHandoverTab.Replay ->
                     ReplayTab(
                         state = state,
+                        mapState = mapState,
+                        onSelectDutyShift = onSelectDutyShift,
                         onReplayPlayPause = onReplayPlayPause,
                         onReplaySeek = onReplaySeek,
                         onReplaySpeedSelect = onReplaySpeedSelect,
@@ -521,12 +568,16 @@ private fun DutyHandoverTabRow(
 @Composable
 private fun ReplayTab(
     state: DutyHandoverUiState,
+    mapState: MapLibreRuntimeMapState,
+    onSelectDutyShift: (String) -> Unit,
     onReplayPlayPause: () -> Unit,
     onReplaySeek: (Long) -> Unit,
     onReplaySpeedSelect: (HandoverReplaySpeed) -> Unit,
     onReplayCameraModeSelect: (HandoverReplayCameraMode) -> Unit
 ) {
+    DutyShiftSelectorCard(options = state.dutyShiftOptions, onSelectDutyShift = onSelectDutyShift)
     ReplayPathPreviewCard(state)
+    ReplayMapCard(state = state, mapState = mapState)
     ReplayControlCard(
         control = state.replayControl,
         onPlayPause = onReplayPlayPause,
@@ -546,7 +597,7 @@ private fun ReplayPathPreviewCard(state: DutyHandoverUiState) {
                 PoliChip(text = badge)
             }
         }
-        Text(text = "경로 미리보기", style = MaterialTheme.typography.titleMedium)
+        Text(text = "경로 개요", style = MaterialTheme.typography.titleMedium)
         Text(
             text = state.generatedAtLabel,
             style = MaterialTheme.typography.bodyMedium,
@@ -571,6 +622,66 @@ private fun ReplayPathPreviewCard(state: DutyHandoverUiState) {
                     PoliChip(text = segment.modeLabel)
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun DutyShiftSelectorCard(
+    options: List<HandoverDutyShiftOption>,
+    onSelectDutyShift: (String) -> Unit
+) {
+    if (options.isEmpty()) {
+        return
+    }
+    ReportSectionCard(title = "근무 구간") {
+        options.forEach { option ->
+            PoliRow(
+                title = option.label,
+                subtitle = option.subtitle,
+                modifier = Modifier.clickable { onSelectDutyShift(option.dutyShiftId) }
+            ) {
+                if (option.selected) {
+                    PoliChip(text = "선택됨", variant = PoliChipVariant.Good)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReplayMapCard(
+    state: DutyHandoverUiState,
+    mapState: MapLibreRuntimeMapState
+) {
+    ReportSectionCard(title = "지도 리플레이") {
+        if (state.replayPathSegments.none { it.points.size >= 2 }) {
+            EmptyReportText("지도에 표시할 경로 데이터 없음")
+            return@ReportSectionCard
+        }
+        Box(
+            modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(260.dp)
+                .clip(MaterialTheme.shapes.medium)
+                .background(PoliBgInput)
+        ) {
+            SuriMapLibreMap(
+                state = state.toReplayRuntimeMapState(mapState),
+                modifier = Modifier.fillMaxSize()
+            )
+            Text(
+                text = state.replayControl.timeRangeLabel,
+                style = MaterialTheme.typography.labelLarge,
+                color = PoliFgSecondary,
+                modifier =
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(PoliDimens.Space3)
+                    .background(PoliBgInput, MaterialTheme.shapes.small)
+                    .padding(horizontal = PoliDimens.Space2, vertical = PoliDimens.Space1)
+            )
         }
     }
 }
@@ -702,6 +813,85 @@ private fun List<HandoverReplayPointUi>.positionAt(elapsedMs: Long): HandoverRep
     )
 }
 
+private fun DutyHandoverUiState.toReplayRuntimeMapState(base: MapLibreRuntimeMapState): MapLibreRuntimeMapState {
+    val playheadPoint = replayPoints.positionAt(replayControl.displayPlayheadMs)
+    val pathOverlays =
+        replayPathSegments.mapNotNull { segment ->
+            val geoJson = segment.points.lineStringGeoJson() ?: return@mapNotNull null
+            MapLibreGeometryOverlay(
+                id = "handover-path-${segment.sourceKey}",
+                kind = MapLibreGeometryOverlayKind.Path,
+                geoJson = geoJson,
+                highlighted = true,
+                label = segment.label
+            )
+        }
+    val markerOverlays =
+        replayMarkers.mapIndexedNotNull { index, marker ->
+            val lat = marker.lat ?: return@mapIndexedNotNull null
+            val lng = marker.lng ?: return@mapIndexedNotNull null
+            MapLibreGeometryOverlay(
+                id = "handover-marker-$index",
+                kind = MapLibreGeometryOverlayKind.Marker,
+                geoJson = pointGeoJson(lat = lat, lng = lng),
+                highlighted = true,
+                label = marker.typeLabel
+            )
+        }
+    val playheadOverlay =
+        playheadPoint?.let { point ->
+            MapLibreGeometryOverlay(
+                id = "handover-playhead",
+                kind = MapLibreGeometryOverlayKind.CurrentLocation,
+                geoJson = pointGeoJson(lat = point.lat, lng = point.lng),
+                highlighted = true,
+                label = "현재 재생 위치"
+            )
+        }
+    return base.copy(
+        initialBounds = replayMapBounds(playheadPoint) ?: base.initialBounds,
+        geometryOverlays = pathOverlays + markerOverlays + listOfNotNull(playheadOverlay)
+    )
+}
+
+private fun DutyHandoverUiState.replayMapBounds(playheadPoint: HandoverReplayPointUi?): MapLibreViewportBounds? {
+    val points =
+        replayPathSegments.flatMap { it.points } +
+            replayMarkers.mapNotNull { marker ->
+                val lat = marker.lat ?: return@mapNotNull null
+                val lng = marker.lng ?: return@mapNotNull null
+                HandoverReplayPointUi(elapsedMs = 0L, lat = lat, lng = lng)
+            } +
+            listOfNotNull(playheadPoint)
+    if (points.isEmpty()) {
+        return null
+    }
+    val minLat = points.minOf(HandoverReplayPointUi::lat)
+    val maxLat = points.maxOf(HandoverReplayPointUi::lat)
+    val minLng = points.minOf(HandoverReplayPointUi::lng)
+    val maxLng = points.maxOf(HandoverReplayPointUi::lng)
+    val latPadding = ((maxLat - minLat) * 0.16).coerceAtLeast(0.0005)
+    val lngPadding = ((maxLng - minLng) * 0.16).coerceAtLeast(0.0005)
+    return MapLibreViewportBounds(
+        south = minLat - latPadding,
+        west = minLng - lngPadding,
+        north = maxLat + latPadding,
+        east = maxLng + lngPadding
+    )
+}
+
+private fun List<HandoverReplayPointUi>.lineStringGeoJson(): String? {
+    val coordinates =
+        sortedBy(HandoverReplayPointUi::elapsedMs)
+            .filter { point -> point.lat.isFinite() && point.lng.isFinite() }
+            .takeIf { it.size >= 2 }
+            ?: return null
+    return """{"type":"LineString","coordinates":[${coordinates.joinToString(",") { point -> "[${point.lng},${point.lat}]" }}]}"""
+}
+
+private fun pointGeoJson(lat: Double, lng: Double): String =
+    """{"type":"Point","coordinates":[$lng,$lat]}"""
+
 @Composable
 private fun ReplayControlCard(
     control: HandoverReplayControlUiState,
@@ -812,7 +1002,7 @@ private fun ReportTab(
     state: DutyHandoverUiState,
     onSelectOriginalRecord: (HandoverRecord) -> Unit
 ) {
-    ReportSectionCard(title = "근무 개요") {
+    ReportSectionCard(title = state.overviewTitle) {
         PoliField(label = "대상", value = state.subtitle)
         PoliField(label = "기록 기준", value = state.generatedAtLabel)
     }
@@ -827,6 +1017,7 @@ private fun ReportTab(
     RecordCard(
         title = "발견·기록 시간순",
         records = state.records,
+        emptyText = state.emptyRecordLabel,
         selectedRecordKey = state.selectedOriginalRecordKey,
         onSelectRecord = onSelectOriginalRecord
     )
@@ -913,10 +1104,10 @@ private fun SummaryCard(state: DutyHandoverUiState) {
     PoliCard(strong = true) {
         Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
-                Text(text = DUTY_SHIFT_SUMMARY_TITLE, style = MaterialTheme.typography.titleMedium)
+                Text(text = state.summaryTitle, style = MaterialTheme.typography.titleMedium)
                 Text(text = state.generatedAtLabel, style = MaterialTheme.typography.bodyMedium, color = PoliFgMuted)
             }
-            PoliChip(text = state.summaryStatus.label, variant = state.summaryStatus.variant)
+            PoliChip(text = state.summaryStatusLabel, variant = state.summaryStatus.variant)
         }
         Text(text = state.summaryText, style = MaterialTheme.typography.bodyLarge, color = PoliFgSecondary)
         state.summaryActionLabel?.let { actionLabel ->
@@ -951,7 +1142,43 @@ private val SummarySourceReadiness.reportLabel: String
             SummarySourceReadiness.Stale -> "기록 갱신 필요"
         }
 
+private const val DUTY_SHIFT_OVERVIEW_TITLE = "근무 개요"
 private const val DUTY_SHIFT_SUMMARY_TITLE = "이전 근무 요약"
+
+private val HandoverRecordScope.overviewTitle: String
+    get() =
+        when (this) {
+            HandoverRecordScope.DutyShift -> DUTY_SHIFT_OVERVIEW_TITLE
+            HandoverRecordScope.OperationalPeriod -> "OP 개요"
+        }
+
+private val HandoverRecordScope.summaryTitle: String
+    get() =
+        when (this) {
+            HandoverRecordScope.DutyShift -> DUTY_SHIFT_SUMMARY_TITLE
+            HandoverRecordScope.OperationalPeriod -> "OP 수색 이력 요약"
+        }
+
+private val HandoverRecordScope.primaryBadge: String
+    get() =
+        when (this) {
+            HandoverRecordScope.DutyShift -> "근무 기준"
+            HandoverRecordScope.OperationalPeriod -> "OP 기준"
+        }
+
+private val HandoverRecordScope.actorBadge: String
+    get() =
+        when (this) {
+            HandoverRecordScope.DutyShift -> "단일 근무자"
+            HandoverRecordScope.OperationalPeriod -> "복수 기록자"
+        }
+
+private val HandoverRecordScope.emptyRecordLabel: String
+    get() =
+        when (this) {
+            HandoverRecordScope.DutyShift -> "이전 기록 없음"
+            HandoverRecordScope.OperationalPeriod -> "OP 기록 없음"
+        }
 
 private val SummarySourceReadiness.reportCopy: String
     get() =
@@ -989,15 +1216,20 @@ private val SearchHistorySummaryStatus.variant: PoliChipVariant
             SearchHistorySummaryStatus.Empty -> PoliChipVariant.Neutral
         }
 
-private val SearchHistorySummaryStatus.emptyCopy: String
-    get() =
-        when (this) {
-            SearchHistorySummaryStatus.Ready -> ""
-            SearchHistorySummaryStatus.Generating -> "이전 근무 기록을 자동 처리 중입니다. 원본 기록은 즉시 확인할 수 있습니다."
-            SearchHistorySummaryStatus.NeedsSummary -> "요약 생성 필요 상태입니다. 공개 생성 API가 없으므로 원본 기록을 먼저 확인합니다."
-            SearchHistorySummaryStatus.Unavailable -> "요약을 불러오지 못했습니다. 원본 경로·마커·메모는 계속 확인할 수 있습니다."
-            SearchHistorySummaryStatus.Empty -> "이전 기록 없음"
-        }
+private fun SearchHistorySummaryStatus.emptyCopy(recordScope: HandoverRecordScope): String =
+    when (this) {
+        SearchHistorySummaryStatus.Ready -> ""
+        SearchHistorySummaryStatus.Generating ->
+            if (recordScope == HandoverRecordScope.OperationalPeriod) {
+                "OP 수색 이력을 자동 처리 중입니다. 원본 기록은 즉시 확인할 수 있습니다."
+            } else {
+                "이전 근무 기록을 자동 처리 중입니다. 원본 기록은 즉시 확인할 수 있습니다."
+            }
+        SearchHistorySummaryStatus.NeedsSummary -> "요약 생성 필요 상태입니다. 공개 생성 API가 없으므로 원본 기록을 먼저 확인합니다."
+        SearchHistorySummaryStatus.Unavailable -> "요약을 불러오지 못했습니다. 원본 경로·마커·메모는 계속 확인할 수 있습니다."
+        SearchHistorySummaryStatus.Empty ->
+            if (recordScope == HandoverRecordScope.OperationalPeriod) "OP 기록 없음" else "이전 기록 없음"
+    }
 
 private val HandoverReplaySpeed.label: String
     get() =

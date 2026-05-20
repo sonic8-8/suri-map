@@ -2,10 +2,13 @@ package com.surimap.feature.handover.data
 
 import com.surimap.core.network.SuriMapApiResponse
 import com.surimap.core.network.SuriMapNetworkException
+import com.surimap.core.operationalperiod.DutyShiftQuery
 import com.surimap.core.operationalperiod.HandoverMemoQuery
 import com.surimap.core.operationalperiod.HandoverTimelineQuery
 import com.surimap.core.operationalperiod.SearchHistorySummaryQuery
 import com.surimap.feature.handover.ui.DutyHandoverUiState
+import com.surimap.feature.handover.ui.HandoverDutyShiftOption
+import com.surimap.feature.handover.ui.HandoverRecordScope
 import com.surimap.feature.handover.ui.HandoverReplayControlUiState
 import com.surimap.feature.handover.ui.HandoverReplayMarker
 import com.surimap.feature.handover.ui.HandoverReplayPathSegment
@@ -40,15 +43,28 @@ class DutyHandoverStateLoader(
     private val handoverMemos: suspend (HandoverMemoQuery) -> SuriMapApiResponse = {
         notFoundResponse()
     },
+    private val dutyShifts: suspend (DutyShiftQuery) -> SuriMapApiResponse = {
+        notFoundResponse()
+    },
     private val searchHistorySummaries: suspend (String, SearchHistorySummaryQuery) -> SuriMapApiResponse = { _, _ ->
         notFoundResponse()
     }
 ) {
-    suspend fun load(context: HandoverSessionContext): DutyHandoverUiState {
+    suspend fun load(
+        context: HandoverSessionContext,
+        selectedDutyShiftId: String? = null
+    ): DutyHandoverUiState {
         val valid = context.valid() ?: return emptyState(context)
         return try {
-            val dutyShiftId = context.dutyShiftId?.takeIf(String::isNotBlank)
-            val timeline =
+            val dutyShiftOptions = loadDutyShiftOptions(valid, context)
+            val selectedDutyShift =
+                dutyShiftOptions.selectDutyShift(
+                    currentDutyShiftId = context.dutyShiftId,
+                    selectedDutyShiftId = selectedDutyShiftId
+                )
+            val dutyShiftId = selectedDutyShift?.dutyShiftId ?: context.dutyShiftId?.takeIf(String::isNotBlank)
+            val markedDutyShiftOptions = dutyShiftOptions.markSelected(dutyShiftId)
+            val dutyTimeline =
                 if (dutyShiftId == null) {
                     TimelineReadModel.unavailable()
                 } else {
@@ -64,16 +80,60 @@ class DutyHandoverStateLoader(
                         )
                     )
                 }
-            if (timeline.available) {
-                val summary = timeline.summary ?: loadSummary(valid, requireNotNull(dutyShiftId))
+            if (dutyTimeline.hasDisplayableEvidence) {
+                val summary = dutyTimeline.summary ?: loadDutyShiftSummary(valid, requireNotNull(dutyShiftId))
                 return summary.toUiState(
                     context = context,
-                    metrics = timeline.metrics,
-                    records = timeline.records,
-                    replayPathSegments = timeline.replayPathSegments,
-                    replayMarkers = timeline.replayMarkers,
-                    replayPoints = timeline.replayPoints,
-                    replayDurationMs = timeline.replayDurationMs
+                    recordScope = HandoverRecordScope.DutyShift,
+                    dutyShiftOptions = markedDutyShiftOptions,
+                    selectedDutyShift = selectedDutyShift,
+                    metrics = dutyTimeline.metrics,
+                    records = dutyTimeline.records,
+                    replayPathSegments = dutyTimeline.replayPathSegments,
+                    replayMarkers = dutyTimeline.replayMarkers,
+                    replayPoints = dutyTimeline.replayPoints,
+                    replayDurationMs = dutyTimeline.replayDurationMs
+                )
+            }
+            if (dutyShiftId != null && (selectedDutyShift?.previous == true || selectedDutyShiftId != null)) {
+                val summary = loadDutyShiftSummary(valid, dutyShiftId)
+                return summary.toUiState(
+                    context = context,
+                    recordScope = HandoverRecordScope.DutyShift,
+                    dutyShiftOptions = markedDutyShiftOptions,
+                    selectedDutyShift = selectedDutyShift,
+                    metrics = dutyTimeline.metrics,
+                    records = dutyTimeline.records,
+                    replayPathSegments = dutyTimeline.replayPathSegments,
+                    replayMarkers = dutyTimeline.replayMarkers,
+                    replayPoints = dutyTimeline.replayPoints,
+                    replayDurationMs = dutyTimeline.replayDurationMs
+                )
+            }
+            val opTimeline =
+                parseTimeline(
+                    handoverTimeline(
+                        valid.opId,
+                        HandoverTimelineQuery(
+                            incidentId = valid.incidentId,
+                            scopeType = "OP",
+                            includeOtherActors = false
+                        )
+                    )
+                )
+            if (opTimeline.hasDisplayableEvidence) {
+                val summary = opTimeline.summary ?: loadOpSummary(valid)
+                return summary.toUiState(
+                    context = context,
+                    recordScope = HandoverRecordScope.OperationalPeriod,
+                    dutyShiftOptions = emptyList(),
+                    selectedDutyShift = null,
+                    metrics = opTimeline.metrics,
+                    records = opTimeline.records,
+                    replayPathSegments = opTimeline.replayPathSegments,
+                    replayMarkers = opTimeline.replayMarkers,
+                    replayPoints = opTimeline.replayPoints,
+                    replayDurationMs = opTimeline.replayDurationMs
                 )
             }
             val memoResponse =
@@ -88,10 +148,13 @@ class DutyHandoverStateLoader(
                 if (dutyShiftId == null) {
                     SummaryReadModel.empty()
                 } else {
-                    loadSummary(valid, dutyShiftId)
+                    loadDutyShiftSummary(valid, dutyShiftId)
                 }
             summary.toUiState(
                 context = context,
+                recordScope = HandoverRecordScope.DutyShift,
+                dutyShiftOptions = markedDutyShiftOptions,
+                selectedDutyShift = selectedDutyShift,
                 metrics = listOf(HandoverMetric("${memos.size}건", "메모")),
                 records = memos.map { memo -> memo.toRecord() }
             )
@@ -114,6 +177,9 @@ class DutyHandoverStateLoader(
 
     private fun SummaryReadModel.toUiState(
         context: HandoverSessionContext,
+        recordScope: HandoverRecordScope,
+        dutyShiftOptions: List<HandoverDutyShiftOption>,
+        selectedDutyShift: DutyShiftOptionReadModel?,
         metrics: List<HandoverMetric>,
         records: List<HandoverRecord>,
         replayPathSegments: List<HandoverReplayPathSegment> = emptyList(),
@@ -122,14 +188,16 @@ class DutyHandoverStateLoader(
         replayDurationMs: Long = 0L
     ): DutyHandoverUiState =
         DutyHandoverUiState(
-            title = TITLE,
-            subtitle = context.subtitle(),
+            title = recordScope.title,
+            subtitle = context.subtitle(recordScope, selectedDutyShift),
+            recordScope = recordScope,
             summaryStatus = status,
             generatedAtLabel = generatedAtLabel,
             summary = content,
             sourceReadiness = sourceReadiness,
             metrics = metrics,
             records = records,
+            dutyShiftOptions = dutyShiftOptions,
             replayPathSegments = replayPathSegments,
             replayMarkers = replayMarkers,
             replayPoints = replayPoints,
@@ -137,7 +205,7 @@ class DutyHandoverStateLoader(
             canRequestSummaryGeneration = false
         )
 
-    private suspend fun loadSummary(
+    private suspend fun loadDutyShiftSummary(
         valid: RequiredHandoverSessionContext,
         dutyShiftId: String
     ): SummaryReadModel =
@@ -152,6 +220,69 @@ class DutyHandoverStateLoader(
                 )
             )
         )
+
+    private suspend fun loadOpSummary(valid: RequiredHandoverSessionContext): SummaryReadModel =
+        parseSummary(
+            searchHistorySummaries(
+                valid.opId,
+                SearchHistorySummaryQuery(
+                    incidentId = valid.incidentId,
+                    scopeType = "OP",
+                    scopeId = valid.opId
+                )
+            )
+        )
+
+    private suspend fun loadDutyShiftOptions(
+        valid: RequiredHandoverSessionContext,
+        context: HandoverSessionContext
+    ): List<DutyShiftOptionReadModel> {
+        val policePhoneId = context.policePhoneId?.takeIf(String::isNotBlank) ?: return emptyList()
+        val response =
+            dutyShifts(
+                DutyShiftQuery(
+                    incidentId = valid.incidentId,
+                    opId = valid.opId,
+                    policePhoneId = policePhoneId
+                )
+            )
+        if (!response.isSuccessful || response.body.isNullOrBlank()) {
+            return emptyList()
+        }
+        return parseDutyShiftOptions(response.body, context.dutyShiftId)
+    }
+
+    private fun parseDutyShiftOptions(body: String, currentDutyShiftId: String?): List<DutyShiftOptionReadModel> {
+        val items = parseItems(body)
+        return buildList {
+            repeat(items.length()) { index ->
+                val item = items.optJSONObject(index) ?: return@repeat
+                val dutyShiftId =
+                    item.optString("id")
+                        .ifBlank { item.optString("dutyShiftId") }
+                        .takeIf(String::isNotBlank)
+                        ?: return@repeat
+                val startedAt = item.optString("startedAt").ifBlank { item.optString("startAt") }.toInstantOrNull()
+                val endedAt = item.optString("endedAt").ifBlank { item.optString("endAt") }.toInstantOrNull()
+                val status = item.optString("status").ifBlank { if (endedAt == null) "ACTIVE" else "ENDED" }
+                val current = dutyShiftId == currentDutyShiftId
+                add(
+                    DutyShiftOptionReadModel(
+                        dutyShiftId = dutyShiftId,
+                        startedAt = startedAt,
+                        endedAt = endedAt,
+                        status = status,
+                        current = current,
+                        label = dutyShiftLabel(current, endedAt, status),
+                        subtitle = dutyShiftSubtitle(dutyShiftId, startedAt, endedAt, status)
+                    )
+                )
+            }
+        }.sortedWith(
+            compareByDescending<DutyShiftOptionReadModel> { it.endedAt ?: it.startedAt ?: Instant.EPOCH }
+                .thenByDescending { it.startedAt ?: Instant.EPOCH }
+        )
+    }
 
     private fun parseMemos(response: SuriMapApiResponse): List<HandoverMemoReadModel> {
         if (!response.isSuccessful || response.body.isNullOrBlank()) {
@@ -216,9 +347,10 @@ class DutyHandoverStateLoader(
         val paths = body.optJSONArray("paths") ?: JSONArray()
         val events = body.optJSONArray("events") ?: JSONArray()
         val metrics = body.optJSONObject("metrics")
-        val replayPoints = parseReplayPoints(paths)
+        val firstReplayAt = firstReplayInstant(paths)
+        val replayPoints = parseReplayPoints(paths, firstReplayAt)
         val replayDurationMs = replayPoints.maxOfOrNull(HandoverReplayPointUi::elapsedMs) ?: 0L
-        val replayPathSegments = parseReplayPathSegments(paths, actors)
+        val replayPathSegments = parseReplayPathSegments(paths, actors, firstReplayAt)
         val replayMarkers = parseReplayMarkers(events)
         val records = parseTimelineRecords(events, actors)
         val summary =
@@ -247,7 +379,7 @@ class DutyHandoverStateLoader(
             }
         }
 
-    private fun parseReplayPoints(paths: JSONArray): List<HandoverReplayPointUi> {
+    private fun firstReplayInstant(paths: JSONArray): Instant? {
         val timedPoints = mutableListOf<TimedReplayPoint>()
         repeat(paths.length()) { pathIndex ->
             val path = paths.optJSONObject(pathIndex) ?: return@repeat
@@ -263,12 +395,23 @@ class DutyHandoverStateLoader(
                 timedPoints.add(TimedReplayPoint(at = at, lat = lat, lng = lng))
             }
         }
-        val firstAt = timedPoints.minOfOrNull(TimedReplayPoint::at) ?: return emptyList()
+        return timedPoints.minOfOrNull(TimedReplayPoint::at)
+    }
+
+    private fun parseReplayPoints(paths: JSONArray, firstAt: Instant?): List<HandoverReplayPointUi> {
+        val origin = firstAt ?: return emptyList()
+        val timedPoints = mutableListOf<TimedReplayPoint>()
+        repeat(paths.length()) { pathIndex ->
+            val path = paths.optJSONObject(pathIndex) ?: return@repeat
+            parsePathPoints(path, origin).forEach { point ->
+                timedPoints.add(TimedReplayPoint(at = origin.plusMillis(point.elapsedMs), lat = point.lat, lng = point.lng))
+            }
+        }
         return timedPoints
             .sortedBy(TimedReplayPoint::at)
             .map { point ->
                 HandoverReplayPointUi(
-                    elapsedMs = Duration.between(firstAt, point.at).toMillis().coerceAtLeast(0L),
+                    elapsedMs = Duration.between(origin, point.at).toMillis().coerceAtLeast(0L),
                     lat = point.lat,
                     lng = point.lng
                 )
@@ -277,24 +420,50 @@ class DutyHandoverStateLoader(
 
     private fun parseReplayPathSegments(
         paths: JSONArray,
-        actors: Map<String, String>
+        actors: Map<String, String>,
+        firstAt: Instant?
     ): List<HandoverReplayPathSegment> =
         buildList {
+            val origin = firstAt ?: return@buildList
             repeat(paths.length()) { index ->
                 val path = paths.optJSONObject(index) ?: return@repeat
                 val actor = actors[path.optString("actorId")] ?: "현장 기록자"
                 val mode = path.optString("mode").ifBlank { "UNKNOWN" }
                 val points = path.optJSONArray("points") ?: JSONArray()
+                val replayPoints = parsePathPoints(path, origin)
                 add(
                     HandoverReplayPathSegment(
                         label = "$actor · ${mode.toMovementLabel()} 경로",
                         timeRangeLabel = timeRangeLabel(path.optString("startedAt"), path.optString("endedAt")),
                         distanceLabel = "GPS ${points.length()}점",
-                        modeLabel = mode.toMovementLabel()
+                        modeLabel = mode.toMovementLabel(),
+                        sourceKey = path.optString("pathId").ifBlank { "handover-path-$index" },
+                        points = replayPoints
                     )
                 )
             }
         }
+
+    private fun parsePathPoints(path: JSONObject, firstAt: Instant): List<HandoverReplayPointUi> =
+        buildList {
+            val points = path.optJSONArray("points") ?: return@buildList
+            repeat(points.length()) { pointIndex ->
+                val point = points.optJSONObject(pointIndex) ?: return@repeat
+                val at = point.optString("at").toInstantOrNull() ?: return@repeat
+                val lat = point.optDouble("lat", Double.NaN)
+                val lng = point.optDouble("lng", Double.NaN)
+                if (!lat.isFinite() || !lng.isFinite()) {
+                    return@repeat
+                }
+                add(
+                    HandoverReplayPointUi(
+                        elapsedMs = Duration.between(firstAt, at).toMillis().coerceAtLeast(0L),
+                        lat = lat,
+                        lng = lng
+                    )
+                )
+            }
+        }.sortedBy(HandoverReplayPointUi::elapsedMs)
 
     private fun parseReplayMarkers(events: JSONArray): List<HandoverReplayMarker> =
         buildList {
@@ -407,9 +576,21 @@ class DutyHandoverStateLoader(
             metrics = emptyList()
         )
 
-    private fun HandoverSessionContext.subtitle(): String {
-        return "$displayOpLabel · 교대 인수인계"
-    }
+    private fun HandoverSessionContext.subtitle(
+        recordScope: HandoverRecordScope = HandoverRecordScope.DutyShift,
+        selectedDutyShift: DutyShiftOptionReadModel? = null
+    ): String =
+        when (recordScope) {
+            HandoverRecordScope.DutyShift -> "$displayOpLabel · ${selectedDutyShift?.label ?: "교대 인수인계"}"
+            HandoverRecordScope.OperationalPeriod -> "$displayOpLabel · 수색 이력"
+        }
+
+    private val HandoverRecordScope.title: String
+        get() =
+            when (this) {
+                HandoverRecordScope.DutyShift -> TITLE
+                HandoverRecordScope.OperationalPeriod -> "수색 이력 확인"
+            }
 
     private fun parseItems(body: String): JSONArray {
         val trimmed = body.trim()
@@ -421,6 +602,29 @@ class DutyHandoverStateLoader(
             }
         }.getOrElse { JSONArray() }
     }
+
+    private fun List<DutyShiftOptionReadModel>.selectDutyShift(
+        currentDutyShiftId: String?,
+        selectedDutyShiftId: String?
+    ): DutyShiftOptionReadModel? {
+        val requested = selectedDutyShiftId?.takeIf(String::isNotBlank)
+        if (requested != null) {
+            firstOrNull { option -> option.dutyShiftId == requested }?.let { return it }
+        }
+        firstOrNull { option -> option.previous }?.let { return it }
+        val current = currentDutyShiftId?.takeIf(String::isNotBlank)
+        return firstOrNull { option -> option.dutyShiftId == current }
+    }
+
+    private fun List<DutyShiftOptionReadModel>.markSelected(selectedDutyShiftId: String?): List<HandoverDutyShiftOption> =
+        map { option ->
+            HandoverDutyShiftOption(
+                dutyShiftId = option.dutyShiftId,
+                label = option.label,
+                subtitle = option.subtitle,
+                selected = selectedDutyShiftId != null && option.dutyShiftId == selectedDutyShiftId
+            )
+        }
 
     private fun String.toSummaryStatus(): SearchHistorySummaryStatus =
         when (uppercase()) {
@@ -447,6 +651,13 @@ class DutyHandoverStateLoader(
             "VEHICLE" -> "차량"
             "MIXED" -> "혼합"
             else -> "이동"
+        }
+
+    private fun String.toDutyShiftStatusLabel(): String =
+        when (uppercase()) {
+            "ACTIVE" -> "진행 중"
+            "ENDED", "END" -> "종료"
+            else -> ""
         }
 
     private fun String.toMarkerTypeLabel(): String =
@@ -479,12 +690,36 @@ class DutyHandoverStateLoader(
     private fun timeRangeLabel(startAt: String, endAt: String): String {
         val start = startAt.toTimeLabel()
         val end = endAt.toTimeLabel()
-        return if (start == "시간 없음" && end == "시간 없음") {
-            "시간 없음"
-        } else {
-            "$start-$end"
+        return when {
+            start == "시간 없음" && end == "시간 없음" -> "시간 없음"
+            start == "시간 없음" -> end
+            end == "시간 없음" -> start
+            else -> "$start-$end"
         }
     }
+
+    private fun dutyShiftLabel(current: Boolean, endedAt: Instant?, status: String): String =
+        when {
+            current -> "현재 근무"
+            endedAt != null || status.isEndedStatus() -> "이전 근무"
+            else -> "근무 구간"
+        }
+
+    private fun String.isEndedStatus(): Boolean =
+        uppercase() in setOf("ENDED", "END")
+
+    private fun dutyShiftSubtitle(
+        dutyShiftId: String,
+        startedAt: Instant?,
+        endedAt: Instant?,
+        status: String
+    ): String =
+        listOf(
+            timeRangeLabel(startedAt?.toString().orEmpty(), endedAt?.toString().orEmpty()),
+            status.toDutyShiftStatusLabel()
+        ).filter { it.isNotBlank() && it != "시간 없음" }
+            .joinToString(" · ")
+            .ifBlank { dutyShiftId }
 
     private fun String.toTimeLabel(): String =
         toInstantOrNull()?.let(TimeFormatter::format) ?: "시간 없음"
@@ -529,11 +764,40 @@ class DutyHandoverStateLoader(
         }
     }
 
+    private val TimelineReadModel.hasDisplayableEvidence: Boolean
+        get() =
+            available &&
+                (
+                    summary?.status in setOf(
+                        SearchHistorySummaryStatus.Ready,
+                        SearchHistorySummaryStatus.Generating,
+                        SearchHistorySummaryStatus.NeedsSummary,
+                        SearchHistorySummaryStatus.Unavailable
+                    ) ||
+                        !summary?.content.isNullOrBlank() ||
+                        records.isNotEmpty() ||
+                        replayPathSegments.isNotEmpty() ||
+                        replayMarkers.isNotEmpty() ||
+                        replayPoints.size >= 2
+                    )
+
     private data class HandoverMemoReadModel(
         val targetType: String,
         val content: String,
         val sourceKey: String
     )
+
+    private data class DutyShiftOptionReadModel(
+        val dutyShiftId: String,
+        val startedAt: Instant?,
+        val endedAt: Instant?,
+        val status: String,
+        val current: Boolean,
+        val label: String,
+        val subtitle: String
+    ) {
+        val previous: Boolean = !current && (endedAt != null || status.uppercase() in setOf("ENDED", "END"))
+    }
 
     private data class SummaryReadModel(
         val status: SearchHistorySummaryStatus,
