@@ -313,6 +313,28 @@
   background: #eef1f4;
 }
 
+/* 조회 중/오류 상태 패널 */
+.statePanel{
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 8px;
+  color: var(--color-fg-primary);
+  background: var(--color-bg-surface);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 6%);
+}
+
+.statePanel strong{
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.statePanel span{
+  color: var(--color-fg-secondary);
+  font-size: 14px;
+}
+
 /* 카드 상단 제목과 상태 배지 행 */
 /* .panelHeader 스타일 */
 .panelHeader{
@@ -425,6 +447,17 @@
   border: 1px solid color-mix(in srgb, #d63a3a 62%, var(--color-border-default));
   color: var(--color-fg-primary);
   background: #fce9e9;
+}
+
+.errorBanner{
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, #d63a3a 62%, var(--color-border-default));
+  border-radius: 7px;
+  color: #9f2828;
+  background: #fff0f0;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.45;
 }
 
 /* 경고 문장 강조 */
@@ -704,4 +737,3 @@
     flex-direction: column;
   }
 }
-
