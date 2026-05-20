@@ -45,6 +45,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
@@ -214,6 +215,7 @@ import com.surimap.ui.theme.PoliBgSurface
 import com.surimap.ui.theme.PoliBorder
 import com.surimap.ui.theme.PoliDimens
 import com.surimap.ui.theme.PoliFgMuted
+import com.surimap.ui.theme.PoliPrimary
 import com.surimap.ui.theme.PoliPrimaryFg
 import com.surimap.ui.theme.PoliPrimaryFillSoft
 import java.io.File
@@ -2269,7 +2271,13 @@ private fun AuthBootstrapRoute(
         state = state,
         onRetry = {
             if (state.requiresAuthentication) {
-                oidcLoginLauncher.launch(oidcLoginClient.createAuthorizationIntent(bootstrapCoordinator.readConfig().apiBaseUrl))
+                oidcLoginLauncher.launch(
+                    oidcLoginClient.createAuthorizationIntent(
+                        apiBaseUrl = bootstrapCoordinator.readConfig().apiBaseUrl,
+                        toolbarColor = PoliPrimary.toArgb(),
+                        navigationBarColor = PoliBgBase.toArgb()
+                    )
+                )
             } else {
                 retryNonce += 1
             }
