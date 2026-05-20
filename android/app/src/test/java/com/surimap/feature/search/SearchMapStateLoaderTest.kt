@@ -1122,6 +1122,28 @@ class SearchMapStateLoaderTest {
         assertTrue(boundaryMonitorKeys.contains("sessionContext.policePhoneId"))
     }
 
+    @Test
+    fun appSearchMapRoutePollsServerStateWhileMapIsOpen() {
+        val source = java.io.File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+        val routeIndex = source.indexOf("private fun SearchMapRoute")
+        val refreshConstantIndex = source.indexOf("private const val SEARCH_MAP_SERVER_REFRESH_MS = 10_000L")
+        val refreshEffectIndex = source.indexOf("LaunchedEffect(loader, sessionContext, focusMarkerId)", routeIndex)
+        val nextEffectIndex = source.indexOf("DisposableEffect(context)", refreshEffectIndex)
+
+        assertTrue(routeIndex >= 0)
+        assertTrue(refreshConstantIndex >= 0)
+        assertTrue(refreshEffectIndex > routeIndex)
+        assertTrue(nextEffectIndex > refreshEffectIndex)
+
+        val refreshEffect = source.substring(refreshEffectIndex, nextEffectIndex)
+        assertTrue(refreshEffect.contains("suspend fun refreshServerState()"))
+        assertTrue(refreshEffect.contains("loader.load(sessionContext).withFocusedMarker(focusMarkerId)"))
+        assertTrue(refreshEffect.contains("outboxDao.observeStatusSummary"))
+        assertTrue(refreshEffect.contains("while (true)"))
+        assertTrue(refreshEffect.contains("delay(SEARCH_MAP_SERVER_REFRESH_MS)"))
+        assertTrue(refreshEffect.contains("refreshServerState()"))
+    }
+
     private fun fallbackOnlyLoader(): SearchMapStateLoader =
         SearchMapStateLoader(
             incidentDetail = { notFoundResponse() },
