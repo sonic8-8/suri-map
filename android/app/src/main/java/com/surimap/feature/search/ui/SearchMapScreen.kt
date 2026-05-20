@@ -82,6 +82,7 @@ import com.surimap.ui.components.PoliBannerVariant
 import com.surimap.ui.components.PoliButton
 import com.surimap.ui.components.PoliButtonSize
 import com.surimap.ui.components.PoliButtonVariant
+import com.surimap.ui.components.PoliCard
 import com.surimap.ui.components.PoliChip
 import com.surimap.ui.components.PoliChipVariant
 import com.surimap.ui.components.PoliToast
@@ -96,6 +97,7 @@ import com.surimap.ui.theme.PoliEmphasis
 import com.surimap.ui.theme.PoliFgMuted
 import com.surimap.ui.theme.PoliFgPrimary
 import com.surimap.ui.theme.PoliFgSecondary
+import com.surimap.ui.theme.PoliOverlayDim
 import com.surimap.ui.theme.PoliPrimaryBorder
 import com.surimap.ui.theme.PoliSuccess
 import com.surimap.ui.theme.PoliWarning
@@ -501,6 +503,7 @@ fun SearchMapScreen(
             warning.code == LocalWarningCode.PACKAGE_MISSING
         }
     var visiblePackageWarning by remember { mutableStateOf<LocalWarningBanner?>(null) }
+    var stopConfirmVisible by remember { mutableStateOf(false) }
     LaunchedEffect(packageWarning?.title, packageWarning?.message) {
         if (packageWarning == null) {
             visiblePackageWarning = null
@@ -574,7 +577,7 @@ fun SearchMapScreen(
         SearchBottomPanel(
             state = state,
             onPrimaryLifecycleAction = onPrimaryLifecycleAction,
-            onStopSearch = onStopSearch,
+            onStopSearch = { stopConfirmVisible = true },
             onOpenHandover = onOpenHandover,
             onCreateMarker = onCreateMarker,
             onOpenFocusedMarkerDetail = onOpenFocusedMarkerDetail,
@@ -594,6 +597,15 @@ fun SearchMapScreen(
                     .padding(horizontal = PoliDimens.SectionPadding)
                     .padding(top = MapToastTopPadding),
                 variant = PoliBannerVariant.Warn
+            )
+        }
+        if (stopConfirmVisible) {
+            StopSearchConfirmDialog(
+                onDismiss = { stopConfirmVisible = false },
+                onConfirmStopSearch = {
+                    stopConfirmVisible = false
+                    onStopSearch()
+                }
             )
         }
     }
@@ -640,6 +652,37 @@ private fun LocalWarningBannerView(
         },
         modifier = modifier
     )
+}
+
+@Composable
+private fun StopSearchConfirmDialog(
+    onDismiss: () -> Unit,
+    onConfirmStopSearch: () -> Unit
+) {
+    Box(modifier = Modifier.fillMaxSize().background(PoliOverlayDim).padding(PoliDimens.SectionPadding)) {
+        PoliCard(modifier = Modifier.align(Alignment.Center), strong = true) {
+            Text(text = "수색 종료 확인", style = MaterialTheme.typography.titleMedium, color = PoliEmphasis)
+            Text(
+                text = "현재 수색 경로 기록을 종료합니다. 종료 후에는 새 수색을 시작해야 다시 기록할 수 있습니다.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = PoliFgSecondary
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)) {
+                PoliButton(
+                    text = "취소",
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f),
+                    variant = PoliButtonVariant.Secondary
+                )
+                PoliButton(
+                    text = "수색 종료",
+                    onClick = onConfirmStopSearch,
+                    modifier = Modifier.weight(1f),
+                    variant = PoliButtonVariant.Danger
+                )
+            }
+        }
+    }
 }
 
 @Composable
