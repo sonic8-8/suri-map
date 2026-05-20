@@ -41,6 +41,7 @@ mock 112를 별도 프로세스 또는 별도 container로 띄운다.
 - Suri-Map은 HTTP polling/import adapter로만 mock 112 데이터를 가져온다.
 - mock 112 조작 화면이 필요하면 mock 112 서버가 자체 admin 화면을 서빙한다.
 - 배포 public route로 노출되는 조작 화면과 상태 변경 API는 Keycloak 로그인 뒤에 둔다.
+- mock 112가 Suri-Map webhook을 사용한다면 전송 실패를 로그로만 삼키지 않고 outbox에 남겨 재시도와 상태 확인이 가능해야 한다.
 
 Spring Boot로 만들어도 되고, Node/Express 같은 가벼운 서버로 만들어도 된다. 팀이 Spring Boot에 익숙하고 백엔드 에이전트가 맡는다면 별도 Spring Boot mock 서버가 가장 설명하기 쉽다.
 
@@ -58,6 +59,7 @@ Spring Boot로 만들어도 되고, Node/Express 같은 가벼운 서버로 만�
 - 지원 부대 배정 추가 버튼
 - reset/seed scenario 실행 버튼
 - polling 대상 상태 확인
+- webhook outbox pending/failed 상태 확인
 
 이 방식이 가장 균형이 좋다.
 
@@ -76,6 +78,7 @@ Spring Boot로 만들어도 되고, Node/Express 같은 가벼운 서버로 만�
 - `POST /mock-112/incidents/{sourceIncidentId}/assignment-organizations`: 조직 단위 배정 추가
 - `POST /mock-112/scenarios/precinct-first`: 시연용 대표 사건 seed
 - `POST /mock-112/reset`: 시연 상태 초기화
+- `GET /mock-112/health`: 사건 상태와 webhook outbox pending/failed 카운트 확인
 
 ### 가능하지만 과함: 별도 mock 112 프론트 프로젝트
 
@@ -135,6 +138,8 @@ Suri-Map 웹 안에 mock 112 사건 등록 UI를 넣으면 시연자는 편하�
    - 일반 등록 화면은 `sourceIncidentId`를 입력받지 않는다. mock 112 서버가 UUID 원천 ID와 표시용 사건번호를 만든다.
    - 사용자는 초기 배정 조직을 선택한다. 예를 들어 수완지구대를 선택하면 해당 조직의 fixture 계정이 일괄 배정된다.
 2. Suri-Map backend가 mock 112를 짧은 주기로 polling한다.
+   - webhook이 활성화된 환경에서는 mock 112가 사건/배정 이벤트를 outbox에 저장하고 즉시 전송을 시도한다.
+   - 전송 실패 시 outbox `PENDING` 상태로 남기고 재시도한다. 시연자는 health의 pending/failed 카운트로 누락 가능성을 확인한다.
 3. Suri-Map 웹에서 새 배정 사건 도착 상태를 확인한다.
 4. 지휘 계정이 배정 사건 가져오기를 누른다.
 5. Suri-Map이 `POST /api/incidents/import`에 `sourceIncidentId`를 보내 내부 사건으로 가져온다.
@@ -161,6 +166,10 @@ Suri-Map 웹 안에 mock 112 사건 등록 UI를 넣으면 시연자는 편하�
 - 인계/지원 배정 갱신 API
   - 예: `POST /mock-112/incidents/{sourceIncidentId}/assignments`
   - 운영자 화면은 개별 assignment payload 대신 조직 단위 배정 API를 우선 사용한다.
+- webhook outbox
+  - eventId, eventType, sourceIncidentId, payload, status, attemptCount, nextAttemptAt, lastError를 저장한다.
+  - status는 `PENDING`, `SENT`, `FAILED` 중 하나로 수렴한다.
+  - 등록/배정 API 응답은 이번 요청의 webhook delivery 요약을 포함해 전송 누락을 숨기지 않는다.
 - 배정 가능 조직 조회 API
   - Keycloak realm fixture의 `accountCode`, `organizationCode`, `organizationName`, `displayName`, `accountType` projection을 사용한다.
 - 고정 seed 데이터

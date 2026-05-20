@@ -270,10 +270,13 @@ function copyId(id) {
 async function loadHealth() {
     try {
         const h = await api('GET', '/mock-112/health');
+        const outbox = h.webhookOutbox || {};
         document.getElementById('healthInfo').innerHTML = `
             <p>전체: <strong>${h.incidentCount}</strong>건</p>
             <p>READY: <strong>${h.readyCount}</strong>건</p>
             <p>IMPORTED: <strong>${h.importedCount}</strong>건</p>
+            <p>Webhook PENDING: <strong>${outbox.PENDING ?? 0}</strong>건</p>
+            <p>Webhook FAILED: <strong>${outbox.FAILED ?? 0}</strong>건</p>
         `;
         document.getElementById('serverStatus').textContent = '● 연결됨';
         document.getElementById('serverStatus').style.color = '#06d6a0';
