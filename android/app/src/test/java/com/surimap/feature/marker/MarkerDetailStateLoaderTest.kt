@@ -48,7 +48,16 @@ class MarkerDetailStateLoaderTest {
                           "memo": "검정 패딩 발견",
                           "occurredAt": "2026-05-14T02:30:00Z",
                           "photoSummary": [
-                            {"photoId": "$PHOTO_ID", "status": "ATTACHED", "version": 2}
+                            {
+                              "photoId": "$PHOTO_ID",
+                              "status": "ATTACHED",
+                              "version": 2,
+                              "contentType": "image/jpeg",
+                              "sizeBytes": 2789070,
+                              "attachedAt": "2026-05-14T02:32:00Z",
+                              "photoUrl": "https://photo.example/full.jpg",
+                              "thumbnailUrl": "https://photo.example/thumb.jpg"
+                            }
                           ]
                         }
                       ]
@@ -74,6 +83,14 @@ class MarkerDetailStateLoaderTest {
         assertEquals("37.580123, 126.970123", state.locationLabel)
         assertEquals(1, state.photos.size)
         assertEquals(MarkerDetailPhotoStatus.Attached, state.photos.single().status)
+        assertEquals("image/jpeg", state.photos.single().contentType)
+        assertEquals(2789070L, state.photos.single().sizeBytes)
+        assertEquals("2026-05-14T02:32:00Z", state.photos.single().attachedAtLabel)
+        assertEquals("https://photo.example/full.jpg", state.photos.single().photoUrl)
+        assertEquals("https://photo.example/thumb.jpg", state.photos.single().thumbnailUrl)
+        assertEquals("https://photo.example/thumb.jpg", state.photos.single().previewUrl)
+        assertEquals("https://photo.example/full.jpg", state.photos.single().viewUrl)
+        assertTrue(state.visibleText().contains("사진 열기"))
     }
 
     @Test

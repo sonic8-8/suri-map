@@ -115,7 +115,12 @@ class MarkerDetailStateLoader(
                         photoId = photo.optString("photoId").ifBlank { "photo-$index" },
                         label = "사진 ${index + 1}",
                         status = photo.optString("status").toPhotoStatus(),
-                        progress = 1f
+                        progress = 1f,
+                        contentType = photo.optString("contentType").ifBlank { null },
+                        sizeBytes = photo.optLongOrNull("sizeBytes"),
+                        attachedAtLabel = photo.optString("attachedAt").ifBlank { null },
+                        photoUrl = photo.optString("photoUrl").ifBlank { null },
+                        thumbnailUrl = photo.optString("thumbnailUrl").ifBlank { null }
                     )
                 )
             }
@@ -130,3 +135,10 @@ class MarkerDetailStateLoader(
             else -> MarkerDetailPhotoStatus.Attached
         }
 }
+
+private fun JSONObject.optLongOrNull(name: String): Long? =
+    if (has(name) && !isNull(name)) {
+        optLong(name)
+    } else {
+        null
+    }

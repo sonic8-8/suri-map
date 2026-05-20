@@ -257,7 +257,8 @@ private fun DeviceQaScreen(route: DeviceQaRoute) {
                     }
                 },
                 onPickPhoto = { photoPicker.launch("image/*") },
-                onRetryPhoto = {}
+                onRetryPhoto = {},
+                onOpenPhoto = {}
             )
         }
 

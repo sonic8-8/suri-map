@@ -1,6 +1,9 @@
 package com.surimap.feature.marker.ui
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,8 +22,12 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -46,6 +53,10 @@ import com.surimap.ui.theme.PoliFgSecondary
 import com.surimap.ui.theme.PoliOverlayDim
 import com.surimap.ui.theme.PoliWarning
 import com.surimap.ui.theme.SuriMapTheme
+import java.util.Locale
+import java.net.URL
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 enum class MarkerDetailPhotoStatus(val label: String) {
     Attached("첨부됨"),
@@ -58,8 +69,24 @@ data class MarkerDetailPhotoUiState(
     val photoId: String,
     val label: String,
     val status: MarkerDetailPhotoStatus,
-    val progress: Float = 1f
-)
+    val progress: Float = 1f,
+    val contentType: String? = null,
+    val sizeBytes: Long? = null,
+    val attachedAtLabel: String? = null,
+    val photoUrl: String? = null,
+    val thumbnailUrl: String? = null
+) {
+    val viewUrl: String? = photoUrl?.takeIf(String::isNotBlank) ?: thumbnailUrl?.takeIf(String::isNotBlank)
+    val previewUrl: String? = thumbnailUrl?.takeIf(String::isNotBlank) ?: photoUrl?.takeIf(String::isNotBlank)
+    val canOpen: Boolean = !viewUrl.isNullOrBlank()
+    val detailLabel: String =
+        listOfNotNull(
+            status.label,
+            contentType?.takeIf(String::isNotBlank),
+            sizeBytes?.takeIf { it >= 0L }?.toFileSizeLabel(),
+            attachedAtLabel?.takeIf(String::isNotBlank)
+        ).joinToString(" · ")
+}
 
 data class MarkerDetailUiState(
     val markerId: String,
@@ -126,7 +153,10 @@ data class MarkerDetailUiState(
             add(statusLabel)
             photos.forEach { photo ->
                 add(photo.label)
-                add(photo.status.label)
+                add(photo.detailLabel)
+                if (photo.canOpen) {
+                    add("사진 열기")
+                }
             }
             if (canEdit) {
                 add("저장")
@@ -278,6 +308,7 @@ fun MarkerDetailScreen(
     onCapturePhoto: () -> Unit,
     onPickPhoto: () -> Unit,
     onRetryPhoto: (MarkerDetailPhotoUiState) -> Unit,
+    onOpenPhoto: (MarkerDetailPhotoUiState) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Box(modifier = modifier.fillMaxSize().background(PoliBgBase)) {
@@ -312,7 +343,8 @@ fun MarkerDetailScreen(
                     state = state,
                     onCapturePhoto = onCapturePhoto,
                     onPickPhoto = onPickPhoto,
-                    onRetryPhoto = onRetryPhoto
+                    onRetryPhoto = onRetryPhoto,
+                    onOpenPhoto = onOpenPhoto
                 )
                 MarkerMetaCard(state = state)
             }
@@ -382,7 +414,8 @@ private fun MarkerPhotosCard(
     state: MarkerDetailUiState,
     onCapturePhoto: () -> Unit,
     onPickPhoto: () -> Unit,
-    onRetryPhoto: (MarkerDetailPhotoUiState) -> Unit
+    onRetryPhoto: (MarkerDetailPhotoUiState) -> Unit,
+    onOpenPhoto: (MarkerDetailPhotoUiState) -> Unit
 ) {
     PoliCard {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
@@ -396,7 +429,8 @@ private fun MarkerPhotosCard(
             PhotoDetailRow(
                 photo = photo,
                 canEdit = state.canEdit,
-                onRetryPhoto = onRetryPhoto
+                onRetryPhoto = onRetryPhoto,
+                onOpenPhoto = onOpenPhoto
             )
         }
     }
@@ -406,14 +440,24 @@ private fun MarkerPhotosCard(
 private fun PhotoDetailRow(
     photo: MarkerDetailPhotoUiState,
     canEdit: Boolean,
-    onRetryPhoto: (MarkerDetailPhotoUiState) -> Unit
+    onRetryPhoto: (MarkerDetailPhotoUiState) -> Unit,
+    onOpenPhoto: (MarkerDetailPhotoUiState) -> Unit
 ) {
     PoliCard {
-        PoliRow(title = photo.label, subtitle = photo.status.label) {
+        PoliRow(title = photo.label, subtitle = photo.detailLabel) {
             PoliChip(text = "${(photo.progress * 100).toInt()}%", variant = photo.statusVariant)
         }
         if (photo.status != MarkerDetailPhotoStatus.Attached) {
             PoliProgress(progress = photo.progress)
+        }
+        MarkerPhotoPreview(photo = photo)
+        if (photo.canOpen) {
+            PoliButton(
+                text = "사진 열기",
+                onClick = { onOpenPhoto(photo) },
+                size = PoliButtonSize.Small,
+                variant = PoliButtonVariant.Secondary
+            )
         }
         if (canEdit) {
             if (photo.status == MarkerDetailPhotoStatus.Failed) {
@@ -427,6 +471,55 @@ private fun PhotoDetailRow(
         }
     }
 }
+
+@Composable
+private fun MarkerPhotoPreview(photo: MarkerDetailPhotoUiState) {
+    val previewUrl = photo.previewUrl?.takeIf(String::isNotBlank) ?: return
+    val bitmapState =
+        produceState<Bitmap?>(initialValue = null, previewUrl) {
+            value = loadMarkerPhotoBitmap(previewUrl)
+        }
+    val bitmap = bitmapState.value
+    if (bitmap == null) {
+        Surface(
+            modifier = Modifier.fillMaxWidth().heightIn(min = 144.dp),
+            shape = MaterialTheme.shapes.medium,
+            color = PoliBgInput,
+            border = BorderStroke(1.dp, PoliBorder)
+        ) {
+            Box(modifier = Modifier.fillMaxWidth().padding(PoliDimens.Space4), contentAlignment = Alignment.Center) {
+                Text(text = "사진 불러오는 중", style = MaterialTheme.typography.bodyMedium, color = PoliFgMuted)
+            }
+        }
+        return
+    }
+    Image(
+        bitmap = bitmap.asImageBitmap(),
+        contentDescription = "${photo.label} 미리보기",
+        modifier =
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 160.dp, max = 260.dp)
+            .clip(MaterialTheme.shapes.medium),
+        contentScale = ContentScale.Crop
+    )
+}
+
+private fun Long.toFileSizeLabel(): String =
+    when {
+        this >= 1_048_576L -> String.format(Locale.US, "%.1fMB", this / 1_048_576.0)
+        this >= 1_024L -> String.format(Locale.US, "%.1fKB", this / 1_024.0)
+        else -> "${this}B"
+    }
+
+private suspend fun loadMarkerPhotoBitmap(url: String): Bitmap? =
+    withContext(Dispatchers.IO) {
+        runCatching {
+            URL(url).openStream().use { input ->
+                BitmapFactory.decodeStream(input)
+            }
+        }.getOrNull()
+    }
 
 @Composable
 private fun MarkerMetaCard(state: MarkerDetailUiState) {
@@ -538,7 +631,8 @@ private fun MarkerDetailScreenPreview() {
             onConfirmDelete = {},
             onCapturePhoto = {},
             onPickPhoto = {},
-            onRetryPhoto = {}
+            onRetryPhoto = {},
+            onOpenPhoto = {}
         )
     }
 }

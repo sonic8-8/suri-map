@@ -90,6 +90,8 @@ class MapLibreRuntimeMapContractTest {
         assertTrue(source.contains("CircleLayer("))
         assertTrue(source.contains("supportsCircleLayer"))
         assertTrue(source.contains("MapLibreGeometryOverlayKind.Marker -> true"))
+        assertTrue(source.contains("queryRenderedFeatures(point, *markerLayerIds)"))
+        assertTrue(source.contains("latestMarkerClick(markerId)"))
     }
 
     @Test
