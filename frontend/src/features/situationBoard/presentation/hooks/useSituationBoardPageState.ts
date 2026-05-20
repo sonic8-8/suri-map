@@ -12,7 +12,7 @@ type UseSituationBoardPageStateParams = {
   isHandoverWorkspaceRoute?: boolean;
   onCloseAreaWorkspaceRoute?: () => void;
   onCloseHandoverWorkspaceRoute?: () => void;
-  onOpenAreaWorkspaceRoute?: () => void;
+  onOpenAreaWorkspaceRoute?: (splitParentAreaId?: string | null) => void;
   onSaveAssignedAreas: (drafts: CompletedAreaDraft[]) => void;
   refreshVersion: number;
   savedAreaDrafts: CompletedAreaDraft[];

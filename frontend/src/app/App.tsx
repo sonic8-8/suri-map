@@ -175,6 +175,15 @@ type SituationBoardRouteProps = {
   onOpenLogin: () => void;
 };
 
+function readInitialSplitParentAreaId(state: unknown) {
+  if (typeof state !== 'object' || state === null || !('splitParentAreaId' in state)) {
+    return null;
+  }
+
+  const splitParentAreaId = (state as { splitParentAreaId?: unknown }).splitParentAreaId;
+  return typeof splitParentAreaId === 'string' && splitParentAreaId.trim() ? splitParentAreaId : null;
+}
+
 function SituationBoardRoute({
   currentUserAccount,
   workspace = 'board',
@@ -190,9 +199,11 @@ function SituationBoardRoute({
 }: SituationBoardRouteProps) {
   const incidentId = useRouteIncidentId();
   const navigate = useNavigate();
+  const location = useLocation();
   const openIncidentListFromHistory = useCallback(() => navigate(ROUTES.incidentList, { replace: true }), [navigate]);
   const savedAreaDrafts = savedAreaDraftsByIncidentId[incidentId] ?? [];
   const refreshVersion = opRefreshVersionByIncidentId[incidentId] ?? 0;
+  const initialSplitParentAreaId = readInitialSplitParentAreaId(location.state);
 
   useIncidentMarkerNotifications({
     incidentId,
@@ -206,13 +217,18 @@ function SituationBoardRoute({
       currentUserAccount={currentUserAccount}
       isAreaWorkspaceRoute={workspace === 'area'}
       isHandoverWorkspaceRoute={workspace === 'handover'}
+      initialSplitParentAreaId={initialSplitParentAreaId}
       markerNotificationIndex={markerNotificationIndex}
       markerNotifications={markerNotifications}
       onCloseMarkerNotifications={onCloseMarkerNotifications}
       onMoveMarkerNotification={onMoveMarkerNotification}
       onCloseAreaWorkspaceRoute={() => navigate(getIncidentBoardPath(incidentId))}
       onCloseHandoverWorkspaceRoute={() => navigate(getIncidentBoardPath(incidentId))}
-      onOpenAreaWorkspaceRoute={() => navigate(getAreaEditPath(incidentId))}
+      onOpenAreaWorkspaceRoute={(splitParentAreaId) =>
+        navigate(getAreaEditPath(incidentId), {
+          state: splitParentAreaId ? { splitParentAreaId } : null,
+        })
+      }
       onOpenIncidentDetail={() => navigate(getIncidentDetailPath(incidentId))}
       onOpenSearchHistory={() => navigate(getIncidentSearchHistoryPath(incidentId))}
       onOpenOfflinePackage={() => navigate(getIncidentOfflinePackagePath(incidentId))}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ApiError, createIdempotencyKey } from '../../../../shared/api/client';
 import { rememberAreaColorToken } from '../../../../shared/model/areaColorRegistry';
@@ -56,6 +56,7 @@ type AreaEditPageProps = {
   embedded?: boolean;
   sharedMapMode?: boolean;
   incidentId: string;
+  initialSplitParentAreaId?: string | null;
   currentUserAccount: LoginAccount;
   markerNotificationIndex: number;
   markerNotifications: MarkerNotification[];
@@ -77,6 +78,7 @@ export function AreaEditPage({
   embedded = false,
   sharedMapMode = false,
   incidentId,
+  initialSplitParentAreaId = null,
   currentUserAccount,
   markerNotificationIndex,
   markerNotifications,
@@ -101,6 +103,7 @@ export function AreaEditPage({
   const [isMapExpanded, setIsMapExpanded] = useState(false);
   const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
   const [activeChildAddAreaId, setActiveChildAddAreaId] = useState<string | null>(null);
+  const [splitParentAreaId, setSplitParentAreaId] = useState<string | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [draftPoints, setDraftPoints] = useState<AreaEditPosition[]>([]);
   const [completedDrafts, setCompletedDrafts] = useState<CompletedAreaDraft[]>([]);
@@ -114,6 +117,7 @@ export function AreaEditPage({
   const [hasDraftChanges, setHasDraftChanges] = useState(false);
   const [selectedAssigneeAccountIds, setSelectedAssigneeAccountIds] = useState<Set<string>>(new Set());
   const [pendingNavigationTarget, setPendingNavigationTarget] = useState<PendingNavigationTarget | null>(null);
+  const appliedInitialSplitParentAreaIdRef = useRef<string | null>(null);
 
   const currentOverallArea =
     overallSearchAreaState.status === 'loaded' ? overallSearchAreaState.area : savedOverallArea;
@@ -187,6 +191,27 @@ export function AreaEditPage({
   );
   const mapMarkers = useMemo<AreaEditMapMarker[]>(() => createAreaEditMapMarkers(board), [board]);
   const activeOperationalPeriodId = currentOpId ?? board?.activeOpId ?? null;
+
+  useEffect(() => {
+    if (!initialSplitParentAreaId || appliedInitialSplitParentAreaIdRef.current === initialSplitParentAreaId) {
+      return;
+    }
+
+    const splitParentArea = allAreaNodes.find((area) => area.id === initialSplitParentAreaId);
+    if (!splitParentArea) {
+      return;
+    }
+
+    appliedInitialSplitParentAreaIdRef.current = initialSplitParentAreaId;
+    setSelectedAreaId(splitParentArea.id);
+    setActiveChildAddAreaId(splitParentArea.id);
+    setSplitParentAreaId(splitParentArea.id);
+    setNormalSelectedAreaId(null);
+    setNormalSelectedAreaPosition(null);
+    setDraftPoints([]);
+    setIsDrawing(false);
+    setValidationMessage(null);
+  }, [allAreaNodes, initialSplitParentAreaId]);
 
   useEffect(() => {
     if (!validationMessage || !autoDismissValidationMessages.has(validationMessage)) return;
@@ -301,6 +326,13 @@ export function AreaEditPage({
     const unitNode = createPendingAreaNode('unit', unitAreaNodes.length + 1);
 
     setUnitAreaNodes((currentNodes) => [...currentNodes, unitNode]);
+    setSelectedAreaId(unitNode.id);
+    setActiveChildAddAreaId(currentAreaTree.id);
+    setSplitParentAreaId(currentAreaTree.id);
+    setNormalSelectedAreaId(null);
+    setNormalSelectedAreaPosition(null);
+    setDraftPoints([]);
+    setIsDrawing(false);
     setValidationMessage('UNIT 구역을 추가했습니다. 지도를 그려 범위를 지정하세요.');
     setHasDraftChanges(true);
   };
@@ -330,6 +362,13 @@ export function AreaEditPage({
         unit.id === parentUnitId ? { ...unit, children: [...(unit.children ?? []), teamNode] } : unit,
       ),
     );
+    setSelectedAreaId(teamNode.id);
+    setActiveChildAddAreaId(parentUnitId);
+    setSplitParentAreaId(parentUnitId);
+    setNormalSelectedAreaId(null);
+    setNormalSelectedAreaPosition(null);
+    setDraftPoints([]);
+    setIsDrawing(false);
     setValidationMessage('TEAM 구역을 추가했습니다. UNIT 안에 범위를 그려 지정하세요.');
     setHasDraftChanges(true);
   };
@@ -351,6 +390,9 @@ export function AreaEditPage({
     setSelectedAreaId((currentSelectedAreaId) => (currentSelectedAreaId === areaId ? null : currentSelectedAreaId));
     setActiveChildAddAreaId((currentActiveChildAddAreaId) =>
       currentActiveChildAddAreaId === areaId ? null : currentActiveChildAddAreaId,
+    );
+    setSplitParentAreaId((currentSplitParentAreaId) =>
+      currentSplitParentAreaId === areaId ? null : currentSplitParentAreaId,
     );
     setValidationMessage('저장 전 UNIT 구역을 삭제했습니다.');
     setHasDraftChanges(true);
@@ -559,13 +601,16 @@ export function AreaEditPage({
       setSelectedAreaId(currentAreaTree.id);
       beginDrawing();
       setActiveChildAddAreaId(null);
+      setSplitParentAreaId(null);
       return;
     }
 
     if (!selectedArea || selectedArea.kind === 'overall') {
       const unitNode = createPendingAreaNode('unit', unitAreaNodes.length + 1);
       setUnitAreaNodes((currentNodes) => [...currentNodes, unitNode]);
+      setSelectedAreaId(unitNode.id);
       setActiveChildAddAreaId(currentAreaTree.id);
+      setSplitParentAreaId(currentAreaTree.id);
       setHasDraftChanges(true);
       beginDrawing('새 UNIT 구역을 추가했습니다. 지도 위에 꼭짓점을 찍어 범위를 지정하세요.');
       return;
@@ -583,7 +628,9 @@ export function AreaEditPage({
           unit.id === selectedArea.id ? { ...unit, children: [...(unit.children ?? []), teamNode] } : unit,
         ),
       );
+      setSelectedAreaId(teamNode.id);
       setActiveChildAddAreaId(selectedArea.id);
+      setSplitParentAreaId(selectedArea.id);
       setHasDraftChanges(true);
       beginDrawing('새 TEAM 구역을 추가했습니다. UNIT 안에 꼭짓점을 찍어 범위를 지정하세요.');
       return;
@@ -675,6 +722,12 @@ export function AreaEditPage({
     setIsDrawing(false);
     setNormalSelectedAreaId(null);
     setNormalSelectedAreaPosition(null);
+    const parentArea = findParentArea(currentAreaTree, selectedArea.id);
+    const nextSplitParentAreaId = splitParentAreaId ?? parentArea?.id ?? null;
+    if (nextSplitParentAreaId) {
+      setActiveChildAddAreaId(nextSplitParentAreaId);
+      setSplitParentAreaId(nextSplitParentAreaId);
+    }
     setHasDraftChanges(true);
     setValidationMessage('구역 배정을 완료했습니다.');
   };
@@ -820,17 +873,10 @@ export function AreaEditPage({
           ...savedChildDrafts,
         ];
         onSaveAssignedAreas(nextCompletedDrafts);
-        const activeAreas = await searchAreaApi.list({ incidentId, opId: currentOpId, status: 'ACTIVE' });
-        const { unitNodes, completedDrafts: refreshedCompletedDrafts } = createAreaEditTreeState(
-          activeOverallArea,
-          activeAreas.areas,
-        );
-        setUnitAreaNodes(unitNodes);
-        setCompletedDrafts(refreshedCompletedDrafts);
         setSelectedAreaId(null);
         setSelectedAssigneeAccountIds(new Set());
         setValidationMessage('하위 수색 구역 분할을 저장했습니다.');
-        await reloadBoard();
+        void reloadBoard();
         onBackToSituationBoard();
         return;
       }

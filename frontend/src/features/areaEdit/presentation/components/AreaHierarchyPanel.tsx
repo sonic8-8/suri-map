@@ -90,7 +90,7 @@ function getDisplayState(
 ): SearchAreaDisplayState {
   return getSearchAreaDisplayState({
     kind: area.kind,
-    status: area.status,
+    status: area.status === 'CANCELLED' && (area.children ?? []).length > 0 ? 'ACTIVE' : area.status,
     geometryState: area.geometryState,
     hasSavedGeometry: area.geometryState === 'saved' || assignedAreaIds.has(area.id),
     assignedAccountCount: assignedAccountCountsByAreaId.get(area.id) ?? 0,
