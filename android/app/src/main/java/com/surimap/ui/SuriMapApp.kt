@@ -77,6 +77,7 @@ import com.surimap.core.offline.toOfflinePackageItemStatusEntity
 import com.surimap.core.operationalperiod.DutyShiftQuery
 import com.surimap.core.operationalperiod.DutyShiftRepository
 import com.surimap.core.operationalperiod.HandoverMemoRepository
+import com.surimap.core.operationalperiod.HandoverTimelineReadRepository
 import com.surimap.core.operationalperiod.OperationalPeriodReadRepository
 import com.surimap.core.operationalperiod.SearchHistorySummaryReadRepository
 import com.surimap.core.path.SearchPathRepository
@@ -710,6 +711,12 @@ private fun HandoverSummaryRoute(
     val loader =
         remember(apiBaseUrl, policePhoneContext?.accessToken) {
             DutyHandoverStateLoader(
+                handoverTimeline = { operationalPeriodId, query ->
+                    HandoverTimelineReadRepository(
+                        apiClient = SuriMapApiClient(baseUrl = apiBaseUrl),
+                        accessTokenProvider = accessTokenProvider
+                    ).get(operationalPeriodId, query)
+                },
                 handoverMemos = { query ->
                     HandoverMemoRepository(
                         apiClient = SuriMapApiClient(baseUrl = apiBaseUrl),
@@ -739,6 +746,17 @@ private fun HandoverSummaryRoute(
     }
     val replayControlDurationMs = handoverState.replayControl.displayDurationMs
     val currentReplayControl = replayControlState.withDuration(replayControlDurationMs)
+    LaunchedEffect(
+        currentReplayControl.playing,
+        currentReplayControl.displayPlayheadMs,
+        currentReplayControl.displayDurationMs,
+        currentReplayControl.speed
+    ) {
+        if (currentReplayControl.playing) {
+            delay(250L)
+            replayControlState = currentReplayControl.advanceBy(250L)
+        }
+    }
     LaunchedEffect(handoverState.records, selectedOriginalRecordKey) {
         val selectedKey = selectedOriginalRecordKey ?: return@LaunchedEffect
         if (handoverState.records.none { record -> record.sourceKey == selectedKey }) {

@@ -3,12 +3,21 @@ package com.surimap.feature.handover.data
 import com.surimap.core.network.SuriMapApiResponse
 import com.surimap.core.network.SuriMapNetworkException
 import com.surimap.core.operationalperiod.HandoverMemoQuery
+import com.surimap.core.operationalperiod.HandoverTimelineQuery
 import com.surimap.core.operationalperiod.SearchHistorySummaryQuery
 import com.surimap.feature.handover.ui.DutyHandoverUiState
+import com.surimap.feature.handover.ui.HandoverReplayControlUiState
+import com.surimap.feature.handover.ui.HandoverReplayMarker
+import com.surimap.feature.handover.ui.HandoverReplayPathSegment
+import com.surimap.feature.handover.ui.HandoverReplayPointUi
 import com.surimap.feature.handover.ui.HandoverMetric
 import com.surimap.feature.handover.ui.HandoverRecord
 import com.surimap.feature.handover.ui.SearchHistorySummaryStatus
 import com.surimap.feature.handover.ui.SummarySourceReadiness
+import java.time.Duration
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -25,6 +34,9 @@ data class HandoverSessionContext(
 }
 
 class DutyHandoverStateLoader(
+    private val handoverTimeline: suspend (String, HandoverTimelineQuery) -> SuriMapApiResponse = { _, _ ->
+        notFoundResponse()
+    },
     private val handoverMemos: suspend (HandoverMemoQuery) -> SuriMapApiResponse = {
         notFoundResponse()
     },
@@ -35,6 +47,35 @@ class DutyHandoverStateLoader(
     suspend fun load(context: HandoverSessionContext): DutyHandoverUiState {
         val valid = context.valid() ?: return emptyState(context)
         return try {
+            val dutyShiftId = context.dutyShiftId?.takeIf(String::isNotBlank)
+            val timeline =
+                if (dutyShiftId == null) {
+                    TimelineReadModel.unavailable()
+                } else {
+                    parseTimeline(
+                        handoverTimeline(
+                            valid.opId,
+                            HandoverTimelineQuery(
+                                incidentId = valid.incidentId,
+                                scopeType = "DUTY_SHIFT",
+                                dutyShiftId = dutyShiftId,
+                                includeOtherActors = false
+                            )
+                        )
+                    )
+                }
+            if (timeline.available) {
+                val summary = timeline.summary ?: loadSummary(valid, requireNotNull(dutyShiftId))
+                return summary.toUiState(
+                    context = context,
+                    metrics = timeline.metrics,
+                    records = timeline.records,
+                    replayPathSegments = timeline.replayPathSegments,
+                    replayMarkers = timeline.replayMarkers,
+                    replayPoints = timeline.replayPoints,
+                    replayDurationMs = timeline.replayDurationMs
+                )
+            }
             val memoResponse =
                 handoverMemos(
                     HandoverMemoQuery(
@@ -42,27 +83,16 @@ class DutyHandoverStateLoader(
                         opId = valid.opId
                     )
                 )
-            val dutyShiftId = context.dutyShiftId?.takeIf(String::isNotBlank)
             val memos = parseMemos(memoResponse)
             val summary =
                 if (dutyShiftId == null) {
                     SummaryReadModel.empty()
                 } else {
-                    parseSummary(
-                        searchHistorySummaries(
-                            valid.opId,
-                            SearchHistorySummaryQuery(
-                                incidentId = valid.incidentId,
-                                scopeType = "DUTY_SHIFT",
-                                scopeId = dutyShiftId,
-                                dutyShiftId = dutyShiftId
-                            )
-                        )
-                    )
+                    loadSummary(valid, dutyShiftId)
                 }
             summary.toUiState(
                 context = context,
-                memoCount = memos.size,
+                metrics = listOf(HandoverMetric("${memos.size}건", "메모")),
                 records = memos.map { memo -> memo.toRecord() }
             )
         } catch (_: SuriMapNetworkException) {
@@ -84,8 +114,12 @@ class DutyHandoverStateLoader(
 
     private fun SummaryReadModel.toUiState(
         context: HandoverSessionContext,
-        memoCount: Int,
-        records: List<HandoverRecord>
+        metrics: List<HandoverMetric>,
+        records: List<HandoverRecord>,
+        replayPathSegments: List<HandoverReplayPathSegment> = emptyList(),
+        replayMarkers: List<HandoverReplayMarker> = emptyList(),
+        replayPoints: List<HandoverReplayPointUi> = emptyList(),
+        replayDurationMs: Long = 0L
     ): DutyHandoverUiState =
         DutyHandoverUiState(
             title = TITLE,
@@ -94,9 +128,29 @@ class DutyHandoverStateLoader(
             generatedAtLabel = generatedAtLabel,
             summary = content,
             sourceReadiness = sourceReadiness,
-            metrics = listOf(HandoverMetric("${memoCount}건", "메모")),
+            metrics = metrics,
             records = records,
+            replayPathSegments = replayPathSegments,
+            replayMarkers = replayMarkers,
+            replayPoints = replayPoints,
+            replayControl = HandoverReplayControlUiState(displayDurationMs = replayDurationMs),
             canRequestSummaryGeneration = false
+        )
+
+    private suspend fun loadSummary(
+        valid: RequiredHandoverSessionContext,
+        dutyShiftId: String
+    ): SummaryReadModel =
+        parseSummary(
+            searchHistorySummaries(
+                valid.opId,
+                SearchHistorySummaryQuery(
+                    incidentId = valid.incidentId,
+                    scopeType = "DUTY_SHIFT",
+                    scopeId = dutyShiftId,
+                    dutyShiftId = dutyShiftId
+                )
+            )
         )
 
     private fun parseMemos(response: SuriMapApiResponse): List<HandoverMemoReadModel> {
@@ -132,6 +186,10 @@ class DutyHandoverStateLoader(
             return SummaryReadModel.empty()
         }
         val item = items.optJSONObject(0) ?: return SummaryReadModel.empty()
+        return parseSummaryItem(item)
+    }
+
+    private fun parseSummaryItem(item: JSONObject): SummaryReadModel {
         val statusText =
             item.optString("displayStatus")
                 .ifBlank { item.optString("status") }
@@ -146,6 +204,175 @@ class DutyHandoverStateLoader(
             generatedAtLabel = updatedAt,
             content = content,
             sourceReadiness = item.optString("sourceReadiness").toSourceReadiness()
+        )
+    }
+
+    private fun parseTimeline(response: SuriMapApiResponse): TimelineReadModel {
+        if (!response.isSuccessful || response.body.isNullOrBlank()) {
+            return TimelineReadModel.unavailable()
+        }
+        val body = runCatching { JSONObject(response.body) }.getOrNull() ?: return TimelineReadModel.unavailable()
+        val actors = parseActors(body.optJSONArray("actors") ?: JSONArray())
+        val paths = body.optJSONArray("paths") ?: JSONArray()
+        val events = body.optJSONArray("events") ?: JSONArray()
+        val metrics = body.optJSONObject("metrics")
+        val replayPoints = parseReplayPoints(paths)
+        val replayDurationMs = replayPoints.maxOfOrNull(HandoverReplayPointUi::elapsedMs) ?: 0L
+        val replayPathSegments = parseReplayPathSegments(paths, actors)
+        val replayMarkers = parseReplayMarkers(events)
+        val records = parseTimelineRecords(events, actors)
+        val summary =
+            body.optJSONObject("summary")
+                ?.let(::parseSummaryItem)
+        val sourceReadiness = summary?.sourceReadiness ?: metrics.optSyncStatus().toSourceReadiness()
+        return TimelineReadModel(
+            available = true,
+            summary = summary?.copy(sourceReadiness = sourceReadiness),
+            metrics = parseMetrics(metrics),
+            records = records,
+            replayPathSegments = replayPathSegments,
+            replayMarkers = replayMarkers,
+            replayPoints = replayPoints,
+            replayDurationMs = replayDurationMs
+        )
+    }
+
+    private fun parseActors(items: JSONArray): Map<String, String> =
+        buildMap {
+            repeat(items.length()) { index ->
+                val item = items.optJSONObject(index) ?: return@repeat
+                val actorId = item.optString("actorId").takeIf(String::isNotBlank) ?: return@repeat
+                val displayName = item.optString("displayName").ifBlank { "현장 기록자" }
+                put(actorId, displayName)
+            }
+        }
+
+    private fun parseReplayPoints(paths: JSONArray): List<HandoverReplayPointUi> {
+        val timedPoints = mutableListOf<TimedReplayPoint>()
+        repeat(paths.length()) { pathIndex ->
+            val path = paths.optJSONObject(pathIndex) ?: return@repeat
+            val points = path.optJSONArray("points") ?: return@repeat
+            repeat(points.length()) { pointIndex ->
+                val point = points.optJSONObject(pointIndex) ?: return@repeat
+                val at = point.optString("at").toInstantOrNull() ?: return@repeat
+                val lat = point.optDouble("lat", Double.NaN)
+                val lng = point.optDouble("lng", Double.NaN)
+                if (!lat.isFinite() || !lng.isFinite()) {
+                    return@repeat
+                }
+                timedPoints.add(TimedReplayPoint(at = at, lat = lat, lng = lng))
+            }
+        }
+        val firstAt = timedPoints.minOfOrNull(TimedReplayPoint::at) ?: return emptyList()
+        return timedPoints
+            .sortedBy(TimedReplayPoint::at)
+            .map { point ->
+                HandoverReplayPointUi(
+                    elapsedMs = Duration.between(firstAt, point.at).toMillis().coerceAtLeast(0L),
+                    lat = point.lat,
+                    lng = point.lng
+                )
+            }
+    }
+
+    private fun parseReplayPathSegments(
+        paths: JSONArray,
+        actors: Map<String, String>
+    ): List<HandoverReplayPathSegment> =
+        buildList {
+            repeat(paths.length()) { index ->
+                val path = paths.optJSONObject(index) ?: return@repeat
+                val actor = actors[path.optString("actorId")] ?: "현장 기록자"
+                val mode = path.optString("mode").ifBlank { "UNKNOWN" }
+                val points = path.optJSONArray("points") ?: JSONArray()
+                add(
+                    HandoverReplayPathSegment(
+                        label = "$actor · ${mode.toMovementLabel()} 경로",
+                        timeRangeLabel = timeRangeLabel(path.optString("startedAt"), path.optString("endedAt")),
+                        distanceLabel = "GPS ${points.length()}점",
+                        modeLabel = mode.toMovementLabel()
+                    )
+                )
+            }
+        }
+
+    private fun parseReplayMarkers(events: JSONArray): List<HandoverReplayMarker> =
+        buildList {
+            repeat(events.length()) { index ->
+                val event = events.optJSONObject(index) ?: return@repeat
+                if (event.optString("type") != "MARKER") {
+                    return@repeat
+                }
+                val detail = event.optJSONObject("detail") ?: JSONObject()
+                val location = detail.optJSONObject("location")
+                val markerType = detail.optString("markerType").ifBlank { "NOTE" }
+                val memo = detail.optString("memo").takeIf(String::isNotBlank)
+                val photoCount = detail.optInt("photoCount", 0).coerceAtLeast(0)
+                add(
+                    HandoverReplayMarker(
+                        title = "${markerType.toMarkerTypeLabel()} 마커",
+                        timeLabel = event.optString("occurredAt").toTimeLabel(),
+                        typeLabel = markerType.toMarkerTypeLabel(),
+                        photoCountLabel = "사진 ${photoCount}장",
+                        lat = location?.optDouble("lat", Double.NaN)?.takeIf(Double::isFinite),
+                        lng = location?.optDouble("lng", Double.NaN)?.takeIf(Double::isFinite)
+                    ).let { marker ->
+                        if (memo.isNullOrBlank()) marker else marker.copy(title = "${marker.title} · $memo")
+                    }
+                )
+            }
+        }
+
+    private fun parseTimelineRecords(
+        events: JSONArray,
+        actors: Map<String, String>
+    ): List<HandoverRecord> =
+        buildList {
+            repeat(events.length()) { index ->
+                val event = events.optJSONObject(index) ?: return@repeat
+                val eventId = event.optString("eventId").ifBlank { "timeline-event-$index" }
+                val type = event.optString("type")
+                val label = event.optString("label").ifBlank { type.toTimelineLabel() }
+                val actor = actors[event.optString("actorId")] ?: "현장 기록자"
+                val detail = event.optJSONObject("detail") ?: JSONObject()
+                val subtitle =
+                    when (type) {
+                        "HANDOVER_MEMO" -> detail.optString("content").ifBlank { "${event.optString("occurredAt").toTimeLabel()} · $actor" }
+                        "MARKER" -> markerSubtitle(event, detail, actor)
+                        else -> "${event.optString("occurredAt").toTimeLabel()} · $actor"
+                    }
+                add(
+                    HandoverRecord(
+                        title = label,
+                        subtitle = subtitle,
+                        actionLabel = "보기",
+                        sourceKey = eventId
+                    )
+                )
+            }
+        }
+
+    private fun markerSubtitle(event: JSONObject, detail: JSONObject, actor: String): String {
+        val markerType = detail.optString("markerType").toMarkerTypeLabel()
+        val memo = detail.optString("memo").takeIf(String::isNotBlank)
+        val photoCount = detail.optInt("photoCount", 0).coerceAtLeast(0)
+        return listOfNotNull(
+            event.optString("occurredAt").toTimeLabel(),
+            actor,
+            markerType,
+            "사진 ${photoCount}장",
+            memo
+        ).joinToString(" · ")
+    }
+
+    private fun parseMetrics(metrics: JSONObject?): List<HandoverMetric> {
+        if (metrics == null) {
+            return emptyList()
+        }
+        return listOf(
+            HandoverMetric(metrics.optLong("distanceMeters", 0L).toDistanceLabel(), "총 이동"),
+            HandoverMetric("${metrics.optInt("markerCount", 0).coerceAtLeast(0)}건", "마커"),
+            HandoverMetric("${metrics.optInt("handoverMemoCount", 0).coerceAtLeast(0)}건", "메모")
         )
     }
 
@@ -211,10 +438,96 @@ class DutyHandoverStateLoader(
             else -> SummarySourceReadiness.Ready
         }
 
+    private fun JSONObject?.optSyncStatus(): String =
+        this?.optString("syncStatus").orEmpty()
+
+    private fun String.toMovementLabel(): String =
+        when (uppercase()) {
+            "FOOT" -> "도보"
+            "VEHICLE" -> "차량"
+            "MIXED" -> "혼합"
+            else -> "이동"
+        }
+
+    private fun String.toMarkerTypeLabel(): String =
+        when (uppercase()) {
+            "CLUE" -> "단서"
+            "PERSON_FOUND" -> "발견"
+            "FIELD_CONDITION" -> "현장 상태"
+            "SUPPORT_REQUEST" -> "지원 요청"
+            "NOTE" -> "메모"
+            else -> "기록"
+        }
+
+    private fun String.toTimelineLabel(): String =
+        when (uppercase()) {
+            "PATH_START" -> "경로 시작"
+            "PATH_SEGMENT" -> "이동 구간"
+            "PATH_END" -> "경로 종료"
+            "MARKER" -> "마커 기록"
+            "HANDOVER_MEMO" -> "인수인계 메모"
+            else -> "타임라인 기록"
+        }
+
+    private fun Long.toDistanceLabel(): String =
+        if (this >= 1_000L) {
+            "%.1fkm".format(this / 1_000.0)
+        } else {
+            "${coerceAtLeast(0L)}m"
+        }
+
+    private fun timeRangeLabel(startAt: String, endAt: String): String {
+        val start = startAt.toTimeLabel()
+        val end = endAt.toTimeLabel()
+        return if (start == "시간 없음" && end == "시간 없음") {
+            "시간 없음"
+        } else {
+            "$start-$end"
+        }
+    }
+
+    private fun String.toTimeLabel(): String =
+        toInstantOrNull()?.let(TimeFormatter::format) ?: "시간 없음"
+
+    private fun String.toInstantOrNull(): Instant? =
+        takeIf(String::isNotBlank)
+            ?.let { value -> runCatching { Instant.parse(value) }.getOrNull() }
+
     private data class RequiredHandoverSessionContext(
         val incidentId: String,
         val opId: String
     )
+
+    private data class TimedReplayPoint(
+        val at: Instant,
+        val lat: Double,
+        val lng: Double
+    )
+
+    private data class TimelineReadModel(
+        val available: Boolean,
+        val summary: SummaryReadModel?,
+        val metrics: List<HandoverMetric>,
+        val records: List<HandoverRecord>,
+        val replayPathSegments: List<HandoverReplayPathSegment>,
+        val replayMarkers: List<HandoverReplayMarker>,
+        val replayPoints: List<HandoverReplayPointUi>,
+        val replayDurationMs: Long
+    ) {
+        companion object {
+            fun unavailable(): TimelineReadModel =
+                TimelineReadModel(
+                    available = false,
+                    summary = null,
+                    metrics = emptyList(),
+                    records = emptyList(),
+                    replayPathSegments = emptyList(),
+                    replayMarkers = emptyList(),
+                    replayPoints = emptyList(),
+                    replayDurationMs = 0L
+                )
+        }
+    }
 
     private data class HandoverMemoReadModel(
         val targetType: String,
@@ -249,6 +562,8 @@ class DutyHandoverStateLoader(
 
     private companion object {
         const val TITLE = "이전 근무 확인"
+        val TimeFormatter: DateTimeFormatter =
+            DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.of("Asia/Seoul"))
 
         fun notFoundResponse(): SuriMapApiResponse =
             SuriMapApiResponse(statusCode = 404, body = null, errorCode = null)
