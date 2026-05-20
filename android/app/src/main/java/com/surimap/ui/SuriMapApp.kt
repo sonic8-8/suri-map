@@ -16,9 +16,20 @@ import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -29,14 +40,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
-import androidx.core.content.FileProvider
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.work.WorkManager
@@ -181,12 +201,21 @@ import com.surimap.feature.showcase.ui.ShowcaseScreen
 import com.surimap.ui.navigation.IncidentContext
 import com.surimap.ui.navigation.IncidentSessionState
 import com.surimap.ui.navigation.MarkerDetailDeepLink
+import com.surimap.ui.navigation.PolicePhoneBottomNavItem
+import com.surimap.ui.navigation.PolicePhoneBottomNavigation
 import com.surimap.ui.navigation.PolicePhoneContext
 import com.surimap.ui.navigation.PolicePhoneRoute
+import com.surimap.ui.navigation.PolicePhoneRoutes
 import com.surimap.ui.navigation.SearchMapDeepLink
 import com.surimap.ui.navigation.accessTokenProvider
 import com.surimap.ui.session.SuriMapSessionSnapshotStore
 import com.surimap.ui.theme.PoliBgBase
+import com.surimap.ui.theme.PoliBgSurface
+import com.surimap.ui.theme.PoliBorder
+import com.surimap.ui.theme.PoliDimens
+import com.surimap.ui.theme.PoliFgMuted
+import com.surimap.ui.theme.PoliPrimaryFg
+import com.surimap.ui.theme.PoliPrimaryFillSoft
 import java.io.File
 import java.time.Instant
 import java.util.UUID
@@ -238,6 +267,14 @@ fun SuriMapApp() {
     var handoverMemoSaved by remember { mutableStateOf<HandoverMemoSavedToastState?>(null) }
     var searchPathEnded by remember { mutableStateOf<SearchPathEndedToastState?>(null) }
     var markerAlert by remember { mutableStateOf<IncidentAlertUiState?>(null) }
+    val currentBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = PolicePhoneRoutes.fromNavigationRoute(currentBackStackEntry?.destination?.route)
+    val showIncidentBottomNavigation =
+        PolicePhoneBottomNavigation.shouldShow(
+            currentRoute = currentRoute,
+            hasIncidentContext = incidentSessionState.incidentContext != null
+        )
+    val selectedBottomNavigationRoute = PolicePhoneBottomNavigation.selectedRouteFor(currentRoute)
 
     LaunchedEffect(incidentSessionState.incidentContext, incidentSessionState.policePhoneContext) {
         sessionSnapshotStore.save(
@@ -295,116 +332,264 @@ fun SuriMapApp() {
             }
         ) {
             FcmRegistrationEffect(policePhoneContext = incidentSessionState.policePhoneContext)
-            NavHost(
-                navController = navController,
-                startDestination = debugStartDestination(),
-                modifier = Modifier.fillMaxSize()
-            ) {
-                composable(PolicePhoneRoute.AuthBootstrap.route) {
-                    AuthBootstrapRoute(
-                        incidentSessionState = incidentSessionState,
-                        navController = navController,
-                        assignmentRefreshNonce = assignmentRefreshNonce,
-                        onOidcSessionChanged = { oidcSession ->
-                            if (oidcSession == null) {
-                                oidcSessionStateStore.clear()
-                                oidcAuthStateJson = null
-                            } else {
-                                oidcSessionStateStore.save(oidcSession.authStateJson)
-                                oidcAuthStateJson = oidcSession.authStateJson
+            Scaffold(
+                modifier = Modifier.fillMaxSize(),
+                containerColor = PoliBgBase,
+                bottomBar = {
+                    if (showIncidentBottomNavigation) {
+                        IncidentBottomNavigationBar(
+                            items = PolicePhoneBottomNavigation.items,
+                            selectedRoute = selectedBottomNavigationRoute,
+                            onSelect = { route ->
+                                if (currentRoute != route) {
+                                    navController.navigateToSingleTop(route)
+                                }
                             }
-                        }
-                    )
+                        )
+                    }
                 }
-                composable(PolicePhoneRoute.IncidentList.route) {
-                    IncidentListRoute(
-                        incidentSessionState = incidentSessionState,
-                        navController = navController,
-                        incidentClosed = incidentClosed,
-                        clockSyncState = clockSyncState,
-                        assignmentRefreshNonce = assignmentRefreshNonce,
-                        onClearClosedOverlay = { incidentClosed = null }
-                    )
+            ) { innerPadding ->
+                NavHost(
+                    navController = navController,
+                    startDestination = debugStartDestination(),
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding)
+                ) {
+                    composable(PolicePhoneRoute.AuthBootstrap.route) {
+                        AuthBootstrapRoute(
+                            incidentSessionState = incidentSessionState,
+                            navController = navController,
+                            assignmentRefreshNonce = assignmentRefreshNonce,
+                            onOidcSessionChanged = { oidcSession ->
+                                if (oidcSession == null) {
+                                    oidcSessionStateStore.clear()
+                                    oidcAuthStateJson = null
+                                } else {
+                                    oidcSessionStateStore.save(oidcSession.authStateJson)
+                                    oidcAuthStateJson = oidcSession.authStateJson
+                                }
+                            }
+                        )
+                    }
+                    composable(PolicePhoneRoute.IncidentList.route) {
+                        IncidentListRoute(
+                            incidentSessionState = incidentSessionState,
+                            navController = navController,
+                            incidentClosed = incidentClosed,
+                            clockSyncState = clockSyncState,
+                            assignmentRefreshNonce = assignmentRefreshNonce,
+                            onClearClosedOverlay = { incidentClosed = null }
+                        )
+                    }
+                    composable(PolicePhoneRoute.OfflinePackage.route) {
+                        OfflinePackageRoute(
+                            incidentSessionState = incidentSessionState,
+                            navController = navController,
+                            clockSyncState = clockSyncState
+                        )
+                    }
+                    composable(
+                        route = SearchMapDeepLink.RoutePattern,
+                        arguments =
+                            listOf(
+                                navArgument(SearchMapDeepLink.FocusMarkerIdArg) {
+                                    type = NavType.StringType
+                                    nullable = true
+                                    defaultValue = null
+                                }
+                            )
+                    ) { backStackEntry ->
+                        SearchMapRoute(
+                            incidentSessionState = incidentSessionState,
+                            navController = navController,
+                            focusMarkerId = backStackEntry.arguments?.getString(SearchMapDeepLink.FocusMarkerIdArg),
+                            clockSyncState = clockSyncState,
+                            onOpenBlockedOutbox = {
+                                blockedQueue = BlockedQueueToastState(blockedCount = 2)
+                            },
+                            onSearchPathEnded = { pendingSync ->
+                                searchPathEnded = SearchPathEndedToastState(pendingSync = pendingSync)
+                            }
+                        )
+                    }
+                    composable(PolicePhoneRoute.HandoverSummary.route) {
+                        HandoverSummaryRoute(
+                            incidentSessionState = incidentSessionState,
+                            navController = navController,
+                            clockSyncState = clockSyncState
+                        )
+                    }
+                    composable(PolicePhoneRoute.HandoverMemo.route) {
+                        HandoverMemoRoute(
+                            incidentSessionState = incidentSessionState,
+                            navController = navController,
+                            clockSyncState = clockSyncState,
+                            onMemoSaved = { pendingSync ->
+                                handoverMemoSaved = HandoverMemoSavedToastState(pendingSync = pendingSync)
+                            }
+                        )
+                    }
+                    composable(PolicePhoneRoute.MarkerDetail.route) {
+                        MarkerDetailRoute(
+                            incidentSessionState = incidentSessionState,
+                            navController = navController,
+                            markerId = null,
+                            clockSyncState = clockSyncState
+                        )
+                    }
+                    composable(
+                        route = MarkerDetailDeepLink.RoutePattern,
+                        arguments =
+                            listOf(
+                                navArgument(MarkerDetailDeepLink.MarkerIdArg) {
+                                    type = NavType.StringType
+                                }
+                            )
+                    ) { backStackEntry ->
+                        MarkerDetailRoute(
+                            incidentSessionState = incidentSessionState,
+                            navController = navController,
+                            markerId = backStackEntry.arguments?.getString(MarkerDetailDeepLink.MarkerIdArg),
+                            clockSyncState = clockSyncState
+                        )
+                    }
+                    composable(PolicePhoneRoute.BlockedOutbox.route) {
+                        BlockedOutboxRoute(
+                            incidentSessionState = incidentSessionState,
+                            navController = navController,
+                            clockSyncState = clockSyncState
+                        )
+                    }
                 }
-                composable(PolicePhoneRoute.OfflinePackage.route) {
-                    OfflinePackageRoute(
-                        incidentSessionState = incidentSessionState,
-                        navController = navController,
-                        clockSyncState = clockSyncState
-                    )
-                }
-                composable(
-                    route = SearchMapDeepLink.RoutePattern,
-                    arguments =
-                    listOf(
-                        navArgument(SearchMapDeepLink.FocusMarkerIdArg) {
-                            type = NavType.StringType
-                            nullable = true
-                            defaultValue = null
-                        }
-                    )
-                ) { backStackEntry ->
-                    SearchMapRoute(
-                        incidentSessionState = incidentSessionState,
-                        navController = navController,
-                        focusMarkerId = backStackEntry.arguments?.getString(SearchMapDeepLink.FocusMarkerIdArg),
-                        clockSyncState = clockSyncState,
-                        onOpenBlockedOutbox = {
-                            blockedQueue = BlockedQueueToastState(blockedCount = 2)
-                        },
-                        onSearchPathEnded = { pendingSync ->
-                            searchPathEnded = SearchPathEndedToastState(pendingSync = pendingSync)
-                        }
-                    )
-                }
-                composable(PolicePhoneRoute.HandoverSummary.route) {
-                    HandoverSummaryRoute(
-                        incidentSessionState = incidentSessionState,
-                        navController = navController,
-                        clockSyncState = clockSyncState
-                    )
-                }
-                composable(PolicePhoneRoute.HandoverMemo.route) {
-                    HandoverMemoRoute(
-                        incidentSessionState = incidentSessionState,
-                        navController = navController,
-                        clockSyncState = clockSyncState,
-                        onMemoSaved = { pendingSync ->
-                            handoverMemoSaved = HandoverMemoSavedToastState(pendingSync = pendingSync)
-                        }
-                    )
-                }
-                composable(PolicePhoneRoute.MarkerDetail.route) {
-                    MarkerDetailRoute(
-                        incidentSessionState = incidentSessionState,
-                        navController = navController,
-                        markerId = null,
-                        clockSyncState = clockSyncState
-                    )
-                }
-                composable(
-                    route = MarkerDetailDeepLink.RoutePattern,
-                    arguments =
-                    listOf(
-                        navArgument(MarkerDetailDeepLink.MarkerIdArg) {
-                            type = NavType.StringType
-                        }
-                    )
-                ) { backStackEntry ->
-                    MarkerDetailRoute(
-                        incidentSessionState = incidentSessionState,
-                        navController = navController,
-                        markerId = backStackEntry.arguments?.getString(MarkerDetailDeepLink.MarkerIdArg),
-                        clockSyncState = clockSyncState
-                    )
-                }
-                composable(PolicePhoneRoute.BlockedOutbox.route) {
-                    BlockedOutboxRoute(
-                        incidentSessionState = incidentSessionState,
-                        navController = navController,
-                        clockSyncState = clockSyncState
-                    )
-                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun IncidentBottomNavigationBar(
+    items: List<PolicePhoneBottomNavItem>,
+    selectedRoute: PolicePhoneRoute?,
+    onSelect: (PolicePhoneRoute) -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = PoliBgSurface,
+        contentColor = PoliPrimaryFg,
+        border = BorderStroke(1.dp, PoliBorder)
+    ) {
+        NavigationBar(
+            modifier = Modifier.fillMaxWidth(),
+            containerColor = PoliBgSurface,
+            contentColor = PoliPrimaryFg,
+            tonalElevation = 0.dp
+        ) {
+            items.forEach { item ->
+                val selected = item.route == selectedRoute
+                NavigationBarItem(
+                    modifier = Modifier.semantics { contentDescription = item.contentDescription },
+                    selected = selected,
+                    onClick = { onSelect(item.route) },
+                    icon = {
+                        IncidentBottomNavigationIcon(
+                            route = item.route,
+                            selected = selected,
+                            modifier = Modifier.size(PoliDimens.TouchMin / 2)
+                        )
+                    },
+                    label = {
+                        Text(
+                            text = item.label,
+                            style = MaterialTheme.typography.labelMedium,
+                            maxLines = 1
+                        )
+                    },
+                    colors =
+                        NavigationBarItemDefaults.colors(
+                            selectedIconColor = PoliPrimaryFg,
+                            selectedTextColor = PoliPrimaryFg,
+                            indicatorColor = PoliPrimaryFillSoft,
+                            unselectedIconColor = PoliFgMuted,
+                            unselectedTextColor = PoliFgMuted
+                        )
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun IncidentBottomNavigationIcon(
+    route: PolicePhoneRoute,
+    selected: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val color = if (selected) PoliPrimaryFg else PoliFgMuted
+    Canvas(modifier = modifier) {
+        val side = size.minDimension
+        val stroke = Stroke(width = side * 0.085f, cap = StrokeCap.Round)
+        fun offset(x: Float, y: Float): Offset = Offset(side * x, side * y)
+        fun line(startX: Float, startY: Float, endX: Float, endY: Float) {
+            drawLine(
+                color = color,
+                start = offset(startX, startY),
+                end = offset(endX, endY),
+                strokeWidth = stroke.width,
+                cap = StrokeCap.Round
+            )
+        }
+
+        when (route) {
+            PolicePhoneRoute.OfflinePackage -> {
+                val topLeft = Offset(side * 0.24f, side * 0.17f)
+                val iconSize = Size(side * 0.52f, side * 0.66f)
+                drawRoundRect(
+                    color = color,
+                    topLeft = topLeft,
+                    size = iconSize,
+                    cornerRadius = CornerRadius(side * 0.08f, side * 0.08f),
+                    style = stroke
+                )
+                line(0.36f, 0.39f, 0.64f, 0.39f)
+                line(0.36f, 0.55f, 0.58f, 0.55f)
+            }
+            PolicePhoneRoute.SearchMap -> {
+                drawCircle(
+                    color = color,
+                    radius = side * 0.18f,
+                    center = offset(0.50f, 0.36f),
+                    style = stroke
+                )
+                drawCircle(color = color, radius = side * 0.055f, center = offset(0.50f, 0.36f))
+                line(0.50f, 0.54f, 0.50f, 0.82f)
+                line(0.32f, 0.82f, 0.68f, 0.82f)
+            }
+            PolicePhoneRoute.HandoverSummary -> {
+                line(0.23f, 0.36f, 0.72f, 0.36f)
+                line(0.58f, 0.22f, 0.72f, 0.36f)
+                line(0.58f, 0.50f, 0.72f, 0.36f)
+                line(0.77f, 0.64f, 0.28f, 0.64f)
+                line(0.42f, 0.50f, 0.28f, 0.64f)
+                line(0.42f, 0.78f, 0.28f, 0.64f)
+            }
+            PolicePhoneRoute.BlockedOutbox -> {
+                val topLeft = Offset(side * 0.18f, side * 0.31f)
+                val iconSize = Size(side * 0.64f, side * 0.45f)
+                drawRoundRect(
+                    color = color,
+                    topLeft = topLeft,
+                    size = iconSize,
+                    cornerRadius = CornerRadius(side * 0.08f, side * 0.08f),
+                    style = stroke
+                )
+                line(0.29f, 0.31f, 0.39f, 0.16f)
+                line(0.61f, 0.16f, 0.71f, 0.31f)
+                line(0.36f, 0.58f, 0.64f, 0.58f)
+            }
+            else -> {
+                drawCircle(color = color, radius = side * 0.28f, center = offset(0.5f, 0.5f), style = stroke)
             }
         }
     }

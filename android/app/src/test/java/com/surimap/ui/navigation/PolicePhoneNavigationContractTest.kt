@@ -4,7 +4,9 @@ import com.surimap.testing.dutyShiftIdFixture
 import com.surimap.testing.incidentIdFixture
 import com.surimap.testing.opIdFixture
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PolicePhoneNavigationContractTest {
@@ -23,6 +25,50 @@ class PolicePhoneNavigationContractTest {
             ),
             PolicePhoneRoutes.all.map { it.route }
         )
+    }
+
+    @Test
+    fun routeRegistryMatchesDeepLinkNavigationPatterns() {
+        assertEquals(
+            PolicePhoneRoute.SearchMap,
+            PolicePhoneRoutes.fromNavigationRoute("search_map?focusMarkerId={focusMarkerId}")
+        )
+        assertEquals(PolicePhoneRoute.MarkerDetail, PolicePhoneRoutes.fromNavigationRoute("marker_detail/{markerId}"))
+        assertEquals(PolicePhoneRoute.HandoverMemo, PolicePhoneRoutes.fromNavigationRoute("handover_memo"))
+        assertNull(PolicePhoneRoutes.fromNavigationRoute("unknown"))
+    }
+
+    @Test
+    fun bottomNavigationExposesIncidentContextDestinationsOnly() {
+        assertEquals(
+            listOf("offline_package", "search_map", "handover_summary", "blocked_outbox"),
+            PolicePhoneBottomNavigation.items.map { it.route.route }
+        )
+        assertEquals(listOf("사건", "지도", "인수인계", "미전송"), PolicePhoneBottomNavigation.items.map { it.label })
+
+        assertFalse(PolicePhoneBottomNavigation.shouldShow(PolicePhoneRoute.AuthBootstrap, hasIncidentContext = true))
+        assertFalse(PolicePhoneBottomNavigation.shouldShow(PolicePhoneRoute.IncidentList, hasIncidentContext = true))
+        assertFalse(PolicePhoneBottomNavigation.shouldShow(PolicePhoneRoute.SearchMap, hasIncidentContext = false))
+        assertTrue(PolicePhoneBottomNavigation.shouldShow(PolicePhoneRoute.SearchMap, hasIncidentContext = true))
+        assertTrue(PolicePhoneBottomNavigation.shouldShow(PolicePhoneRoute.HandoverMemo, hasIncidentContext = true))
+        assertTrue(PolicePhoneBottomNavigation.shouldShow(PolicePhoneRoute.MarkerDetail, hasIncidentContext = true))
+    }
+
+    @Test
+    fun bottomNavigationMapsNestedScreensToParentTab() {
+        assertEquals(
+            PolicePhoneRoute.SearchMap,
+            PolicePhoneBottomNavigation.selectedRouteFor(PolicePhoneRoute.MarkerDetail)
+        )
+        assertEquals(
+            PolicePhoneRoute.HandoverSummary,
+            PolicePhoneBottomNavigation.selectedRouteFor(PolicePhoneRoute.HandoverMemo)
+        )
+        assertEquals(
+            PolicePhoneRoute.BlockedOutbox,
+            PolicePhoneBottomNavigation.selectedRouteFor(PolicePhoneRoute.BlockedOutbox)
+        )
+        assertNull(PolicePhoneBottomNavigation.selectedRouteFor(PolicePhoneRoute.IncidentList))
     }
 
     @Test
