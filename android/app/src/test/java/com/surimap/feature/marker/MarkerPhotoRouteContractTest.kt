@@ -14,6 +14,8 @@ class MarkerPhotoRouteContractTest {
 
         assertTrue(appSource.contains("ActivityResultContracts.TakePicture()"))
         assertTrue(appSource.contains("createMarkerPhotoCaptureUri"))
+        assertTrue(appSource.contains("captured || context.hasReadableMarkerPhoto(capturedUri)"))
+        assertTrue(appSource.contains("private fun Context.hasReadableMarkerPhoto"))
         assertTrue(appSource.contains("photoCapture.launch"))
         assertTrue(appSource.contains("photoPicker.launch(\"image/*\")"))
         assertTrue(appSource.contains("onCapturePhoto"))
@@ -28,6 +30,7 @@ class MarkerPhotoRouteContractTest {
         assertTrue(qaSource.contains("ActivityResultContracts.TakePicture()"))
         assertTrue(qaSource.contains("ActivityResultContracts.GetContent()"))
         assertTrue(qaSource.contains("createQaMarkerPhotoCaptureUri"))
+        assertTrue(qaSource.contains("captured || context.hasReadableQaMarkerPhoto(capturedUri)"))
         assertTrue(qaSource.contains("photoCapture.launch"))
         assertTrue(qaSource.contains("photoPicker.launch(\"image/*\")"))
         assertFalse(qaSource.contains("onCapturePhoto = {},"))
