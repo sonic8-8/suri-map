@@ -1,4 +1,5 @@
 import styles from './SuriMapLogo.module.css';
+import suriMapLogoUrl from '../../../assets/Icon/SuriMap_Logo.png';
 
 export type SuriMapLogoProps = {
   size?: number;
@@ -8,7 +9,7 @@ export type SuriMapLogoProps = {
 };
 
 const LOGO_SRC: Record<NonNullable<SuriMapLogoProps['variant']>, string> = {
-  compact: '/surimap-logo-compact.svg',
+  compact: suriMapLogoUrl,
   brand: '/surimap-favicon-white-outline-thin.svg',
 };
 

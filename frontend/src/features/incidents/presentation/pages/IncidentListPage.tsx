@@ -378,7 +378,7 @@ export function IncidentListPage({ onOpenSituationBoard, onOpenLogin, currentUse
       <header className={styles.header}>
         <nav className={styles.productNav} aria-label="사건 목록 메뉴">
           <button type="button" className={styles.brand} onClick={() => window.location.reload()}>
-            <SuriMapLogo className={styles.brandMark} size={26} />
+            <SuriMapLogo className={styles.brandMark} size={39} />
             <div>Suri-Map</div>
           </button>
           <button

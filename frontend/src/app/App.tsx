@@ -395,6 +395,7 @@ function IncidentDetailRoute({
       onBrowserBackToIncidentList={openIncidentListFromHistory}
       onOpenOfflinePackage={() => onOpenOfflinePackage(incidentId)}
       onOpenSituationBoard={() => navigate(getIncidentBoardPath(incidentId))}
+      onOpenIncidentClose={() => navigate(getIncidentClosePath(incidentId))}
       onOpenLogin={onOpenLogin}
     />
   );
