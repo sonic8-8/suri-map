@@ -7,9 +7,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -220,7 +222,10 @@ fun AuthBootstrapScreen(
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(PoliDimens.Space5)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space4)) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space4),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 PoliBrandMark()
                 Column(verticalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
                     Text(text = "수리맵", style = MaterialTheme.typography.displaySmall)
@@ -288,8 +293,10 @@ private fun AuthSignInGuideCard(state: AuthBootstrapUiState) {
     PoliCard(strong = true) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
+            horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3),
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            PoliBrandMark(modifier = Modifier.size(PoliDimens.TouchMin))
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
                 Text(text = "보안 인증 연결", style = MaterialTheme.typography.titleMedium)
                 Text(

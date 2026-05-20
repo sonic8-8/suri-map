@@ -1,5 +1,6 @@
 package com.surimap.ui.components
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -27,10 +28,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.surimap.R
 import com.surimap.ui.theme.PoliBgElevated
 import com.surimap.ui.theme.PoliBgInput
 import com.surimap.ui.theme.PoliBgSurface
@@ -341,12 +343,16 @@ fun PoliBrandMark(modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier.size(56.dp),
         shape = MaterialTheme.shapes.extraLarge,
-        color = PoliPrimary,
+        color = PoliBgInput,
         contentColor = PoliPrimaryFg,
         border = BorderStroke(1.dp, PoliPrimaryBorder)
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Text(text = "수", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+            Image(
+                painter = painterResource(id = R.drawable.surimap_logo_compact),
+                contentDescription = null,
+                modifier = Modifier.size(40.dp)
+            )
         }
     }
 }
