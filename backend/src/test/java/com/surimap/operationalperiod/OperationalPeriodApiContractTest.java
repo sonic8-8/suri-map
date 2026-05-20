@@ -19,6 +19,8 @@ import com.surimap.common.auth.Channel;
 import com.surimap.common.auth.OrganizationType;
 import com.surimap.common.auth.Role;
 import com.surimap.config.GuardConfig;
+import com.surimap.eventhub.port.EventHub;
+import com.surimap.handover.HandoverMemoMapper;
 import com.surimap.incident.lifecycle.IncidentLifecycleGuard;
 import com.surimap.incident.lifecycle.IncidentLifecycleSnapshot;
 import com.surimap.operationalperiod.event.EventPublisherPort;
@@ -52,7 +54,9 @@ class OperationalPeriodApiContractTest {
   @Autowired private MockMvc mockMvc;
 
   @MockitoBean private OperationalPeriodMapper mapper;
+  @MockitoBean private HandoverMemoMapper handoverMemoMapper;
   @MockitoBean private EventPublisherPort eventPublisher;
+  @MockitoBean private EventHub eventHub;
   @MockitoBean private SearchHistorySummaryGenerationJob searchHistorySummaryGenerationJob;
   @MockitoBean private IncidentLifecycleGuard incidentLifecycleGuard;
 
