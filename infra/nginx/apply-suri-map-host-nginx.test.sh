@@ -38,6 +38,7 @@ sh infra/nginx/apply-suri-map-host-nginx.sh >/dev/null
 grep -q "BEGIN Suri-Map SSE proxy" "${site}"
 grep -q "location = /api/incidents/events" "${site}"
 grep -q "proxy_buffering off;" "${site}"
+grep -q "client_max_body_size 11m;" "${site}"
 
 HOST_NGINX_SITE="${site}" \
 HOST_NGINX_SSE_SNIPPET="infra/nginx/suri-map-sse.locations.conf" \
@@ -50,5 +51,16 @@ exact_count="$(grep -c "location = /api/incidents/events" "${site}")"
 test "${exact_count}" = "1"
 regex_count="$(grep -Fc 'location ~ ^/api/incidents/[^/]+/events$' "${site}")"
 test "${regex_count}" = "1"
+body_size_count="$(grep -c "client_max_body_size 11m;" "${site}")"
+test "${body_size_count}" = "1"
+
+HOST_NGINX_SITE="${site}" \
+HOST_NGINX_SSE_SNIPPET="infra/nginx/suri-map-sse.locations.conf" \
+HOST_NGINX_CLIENT_MAX_BODY_SIZE=12m \
+HOST_NGINX_SKIP_TEST_RELOAD=true \
+sh infra/nginx/apply-suri-map-host-nginx.sh >/dev/null
+
+grep -q "client_max_body_size 12m;" "${site}"
+test "$(grep -c "client_max_body_size" "${site}")" = "1"
 
 echo "apply_suri_map_host_nginx_test=passed"

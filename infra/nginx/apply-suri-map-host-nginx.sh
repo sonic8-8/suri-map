@@ -5,6 +5,7 @@ host_root="${HOST_ROOT:-}"
 site_path="${HOST_NGINX_SITE:-/etc/nginx/sites-available/suri-map}"
 snippet_path="${HOST_NGINX_SSE_SNIPPET:-/home/ubuntu/infra/nginx/suri-map-sse.locations.conf}"
 skip_test_reload="${HOST_NGINX_SKIP_TEST_RELOAD:-false}"
+client_max_body_size="${HOST_NGINX_CLIENT_MAX_BODY_SIZE:-11m}"
 
 site="${host_root}${site_path}"
 snippet="${snippet_path}"
@@ -25,7 +26,7 @@ fi
 tmp="$(mktemp)"
 trap 'rm -f "${tmp}"' EXIT
 
-awk -v snippet="${snippet}" '
+awk -v snippet="${snippet}" -v client_max_body_size="${client_max_body_size}" '
   function brace_delta(value, copy, opened, closed) {
     copy = value
     opened = gsub(/\{/, "{", copy)
@@ -35,9 +36,27 @@ awk -v snippet="${snippet}" '
   }
   BEGIN {
     inserted = 0
+    body_size_inserted = 0
+    before_first_location = 1
     in_managed_block = 0
     in_legacy_sse_block = 0
     legacy_depth = 0
+  }
+  before_first_location && /^[[:space:]]*client_max_body_size[[:space:]]+/ {
+    if (!body_size_inserted) {
+      match($0, /^[[:space:]]*/)
+      print substr($0, RSTART, RLENGTH) "client_max_body_size " client_max_body_size ";"
+      body_size_inserted = 1
+    }
+    next
+  }
+  before_first_location && /^[[:space:]]*location[[:space:]]+/ {
+    if (!body_size_inserted) {
+      print "    client_max_body_size " client_max_body_size ";"
+      print ""
+      body_size_inserted = 1
+    }
+    before_first_location = 0
   }
   /^[[:space:]]*# BEGIN Suri-Map SSE proxy/ {
     in_managed_block = 1
