@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AreaEditPage } from '../../../areaEdit/presentation/pages/AreaEditPage';
 import { HandoverPage } from '../../../handover/presentation/pages/HandoverPage';
 import type { CompletedAreaDraft } from '../../../../shared/model/areaDraft';
@@ -48,6 +48,7 @@ function isAssignmentPendingSearchArea(area: SearchAreaTreeNode | null, savedAre
 type SituationBoardPageProps = {
   incidentId: string;
   currentUserAccount: LoginAccount;
+  initialSplitParentAreaId?: string | null;
   isAreaWorkspaceRoute?: boolean;
   isHandoverWorkspaceRoute?: boolean;
   markerNotificationIndex: number;
@@ -56,7 +57,7 @@ type SituationBoardPageProps = {
   onMoveMarkerNotification: (nextIndex: number) => void;
   onCloseAreaWorkspaceRoute?: () => void;
   onCloseHandoverWorkspaceRoute?: () => void;
-  onOpenAreaWorkspaceRoute?: () => void;
+  onOpenAreaWorkspaceRoute?: (splitParentAreaId?: string | null) => void;
   onSaveAssignedAreas: (drafts: CompletedAreaDraft[]) => void;
   onOpenIncidentDetail: () => void;
   onOpenSearchHistory: () => void;
@@ -71,6 +72,7 @@ type SituationBoardPageProps = {
 export function SituationBoardPage({
   incidentId,
   currentUserAccount,
+  initialSplitParentAreaId = null,
   isAreaWorkspaceRoute = false,
   isHandoverWorkspaceRoute = false,
   markerNotificationIndex,
@@ -94,6 +96,9 @@ export function SituationBoardPage({
   const areaIncidentListNavigationHandlerRef = useRef<(() => void) | null>(null);
   const [leftPanelPage, setLeftPanelPage] = useState<LeftPanelPage>('area');
   const [areaPanelMode, setAreaPanelMode] = useState<'tree' | 'assignment'>('tree');
+  const [areaWorkspaceInitialSplitParentId, setAreaWorkspaceInitialSplitParentId] = useState<string | null>(
+    initialSplitParentAreaId,
+  );
   const [assignmentDialogSearchAreaId, setAssignmentDialogSearchAreaId] = useState<string | null>(null);
   const [focusedMarkerRequest, setFocusedMarkerRequest] = useState({ markerId: null as string | null, sequence: 0 });
   const [focusedSearchAreaRequest, setFocusedSearchAreaRequest] = useState({
@@ -117,6 +122,11 @@ export function SituationBoardPage({
     refreshVersion,
     savedAreaDrafts,
   });
+  useEffect(() => {
+    if (isAreaWorkspaceRoute) {
+      setAreaWorkspaceInitialSplitParentId(initialSplitParentAreaId);
+    }
+  }, [initialSplitParentAreaId, isAreaWorkspaceRoute]);
   const assignmentCandidates = useMemo(
     () =>
       boardState.incidentDetail && 'assignments' in boardState.incidentDetail ? boardState.incidentDetail.assignments : [],
@@ -156,6 +166,22 @@ export function SituationBoardPage({
 
     onOpenIncidentList();
   }, [boardState.isAreaWorkspaceOpen, onOpenIncidentList]);
+  const handleOpenAreaWorkspace = useCallback(
+    (splitParentAreaId: string | null = null) => {
+      setAreaWorkspaceInitialSplitParentId(splitParentAreaId);
+      boardState.openAreaWorkspace(splitParentAreaId);
+    },
+    [boardState],
+  );
+  const handleCloseAreaWorkspace = useCallback(() => {
+    setAreaPanelMode('tree');
+    setAreaWorkspaceInitialSplitParentId(null);
+    setAssignmentDialogSearchAreaId(null);
+    boardState.closeAreaWorkspace();
+  }, [boardState]);
+  const handleOpenSelectedSearchAreaSplit = useCallback(() => {
+    handleOpenAreaWorkspace(boardState.selectedSearchAreaId);
+  }, [boardState.selectedSearchAreaId, handleOpenAreaWorkspace]);
   const handleOpenSearchAreaAssignment = useCallback(() => {
     const searchArea = findSearchAreaById(boardState.board.searchAreaTree, boardState.selectedSearchAreaId);
     if (!searchArea || !isAssignmentPendingSearchArea(searchArea, boardState.board.searchAreaDrafts)) {
@@ -217,7 +243,7 @@ export function SituationBoardPage({
           onOpenLogin={onOpenLogin}
           onOpenSituationBoard={
             boardState.isAreaWorkspaceOpen
-              ? boardState.closeAreaWorkspace
+              ? handleCloseAreaWorkspace
               : boardState.isHandoverWorkspaceOpen
                 ? boardState.closeHandoverWorkspace
                 : undefined
@@ -231,10 +257,11 @@ export function SituationBoardPage({
             embedded
             sharedMapMode
             incidentId={incidentId}
+            initialSplitParentAreaId={areaWorkspaceInitialSplitParentId}
             currentUserAccount={currentUserAccount}
             markerNotificationIndex={markerNotificationIndex}
             markerNotifications={markerNotifications}
-            onBackToSituationBoard={boardState.closeAreaWorkspace}
+            onBackToSituationBoard={handleCloseAreaWorkspace}
             onCloseMarkerNotifications={onCloseMarkerNotifications}
             onHeaderIncidentListNavigationChange={handleAreaIncidentListNavigationChange}
             onMoveMarkerNotification={onMoveMarkerNotification}
@@ -286,7 +313,7 @@ export function SituationBoardPage({
             onToggleCollapsed={boardState.toggleLeftPanelCollapsed}
             onToggleLayer={boardState.toggleLayer}
             onToggleMarkerType={boardState.toggleMarkerType}
-            onOpenAreaWorkspace={boardState.openAreaWorkspace}
+            onOpenAreaWorkspace={() => handleOpenAreaWorkspace(null)}
             onSelectSearchArea={handleSelectSearchAreaFromPanel}
             onSelectMarker={handleSelectMarker}
           />
@@ -326,7 +353,7 @@ export function SituationBoardPage({
           onTogglePolicePhoneLegendFilter={boardState.togglePolicePhoneLegendFilter}
           onToggleSearchAreaLegendFilter={boardState.toggleSearchAreaLegendFilter}
           onOpenSearchAreaAssign={handleOpenSearchAreaAssignment}
-          onOpenSearchAreaSplit={boardState.openAreaWorkspace}
+          onOpenSearchAreaSplit={handleOpenSelectedSearchAreaSplit}
           onClearSelectedSearchArea={boardState.clearSelectedSearchArea}
           onSelectSearchArea={isClosedTerminalBoard ? () => {} : boardState.selectSearchArea}
           onToggleMapExpanded={boardState.toggleMapExpanded}
@@ -348,7 +375,7 @@ export function SituationBoardPage({
         수색 범위 결정 모달은 수색구역 분할/배정 흐름에서 다시 연결할 수 있도록 컴포넌트만 보존한다.
         {!boardState.isAreaWorkspaceOpen && !isHandoverMapMode && !isClosedTerminalBoard && boardState.isOverallSearchAreaMissing ? (
           <OverallSearchAreaRequiredModal
-            onOpenAreaWorkspace={boardState.openAreaWorkspace}
+            onOpenAreaWorkspace={() => handleOpenAreaWorkspace(null)}
             onOpenIncidentList={onOpenIncidentList}
           />
         ) : null}

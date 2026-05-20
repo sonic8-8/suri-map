@@ -567,7 +567,10 @@ export function SearchAreaInspectorCard({
   }
 
   const trail = findSearchAreaTrail(searchAreaTree, selectedSearchAreaId);
-  const selectedSearchArea = trail?.[trail.length - 1] ?? null;
+  if (!trail) {
+    return null;
+  }
+  const selectedSearchArea = trail[trail.length - 1] ?? null;
   if (!selectedSearchArea) {
     return null;
   }
@@ -583,8 +586,10 @@ export function SearchAreaInspectorCard({
   const assignedAccounts = selectedSearchArea.assignedAccounts ?? [];
   const hasChildAreas = (selectedSearchArea.children ?? []).length > 0;
   const isAssigned = assignedAccounts.length > 0;
+  const isMaxSplitDepth = trail.length >= 3;
+  const shouldShowStatusChip = !(selectedSearchArea.status === 'CANCELLED' && hasChildAreas);
   const isAssignableLeafArea = selectedSearchArea.kind !== 'overall' && selectedSearchArea.status === 'ACTIVE' && !hasChildAreas;
-  const isSplitDisabled = isAssigned || hasChildAreas;
+  const isSplitDisabled = isAssigned || hasChildAreas || isMaxSplitDepth;
   const isAssignmentDisabled = isAssigned || !isAssignableLeafArea;
   const isMapPopup = variant === 'mapPopup';
   const isOverallMapPopup = isMapPopup && selectedSearchArea.kind === 'overall';
@@ -609,11 +614,13 @@ export function SearchAreaInspectorCard({
             <div className={styles.titleBlock}>
               <strong className={styles.title}>{getSearchAreaTitle(selectedSearchArea)}</strong>
               <div className={styles.pillRow}>
-                <SearchAreaChip
-                  className={getSearchAreaStatusToneClassName(selectedSearchArea.status)}
-                  icon={getSearchAreaStatusIcon(selectedSearchArea.status)}
-                  label={summary.statusLabel}
-                />
+                {shouldShowStatusChip ? (
+                  <SearchAreaChip
+                    className={getSearchAreaStatusToneClassName(selectedSearchArea.status)}
+                    icon={getSearchAreaStatusIcon(selectedSearchArea.status)}
+                    label={summary.statusLabel}
+                  />
+                ) : null}
                 <SearchAreaChip
                   className={styles.infoChip}
                   icon={<UsersRound size={14} strokeWidth={2.4} aria-hidden="true" />}

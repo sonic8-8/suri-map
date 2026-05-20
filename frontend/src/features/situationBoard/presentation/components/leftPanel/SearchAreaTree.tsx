@@ -105,6 +105,10 @@ function hasSavedAreaGeometry(area: SearchAreaTreeNode, savedAreaIds: Set<string
   return area.geometryState === 'saved' || savedAreaIds.has(area.id);
 }
 
+function isSplitParentArea(area: SearchAreaTreeNode) {
+  return area.status === 'CANCELLED' && (area.children ?? []).length > 0;
+}
+
 function hasPolicePhoneAssignment(area: SearchAreaTreeNode) {
   return getAssignedCount(area) > 0 && !hasPatrolCarAssignment(area);
 }
@@ -118,7 +122,7 @@ function getDisplayState(area: SearchAreaTreeNode, assignedAreaIds: Set<string>)
 
   return getSearchAreaDisplayState({
     kind: isAssignableLeafArea ? 'team' : area.kind,
-    status: area.status,
+    status: isSplitParentArea(area) ? 'ACTIVE' : area.status,
     geometryState: area.geometryState,
     hasSavedGeometry: area.geometryState === 'saved' || assignedAreaIds.has(area.id),
     assignedAccountCount: area.assignedAccounts?.length ?? 0,

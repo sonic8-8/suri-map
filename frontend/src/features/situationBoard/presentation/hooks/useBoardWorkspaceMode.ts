@@ -8,7 +8,7 @@ type UseBoardWorkspaceModeParams = {
   isHandoverWorkspaceRoute?: boolean;
   onCloseAreaWorkspaceRoute?: () => void;
   onCloseHandoverWorkspaceRoute?: () => void;
-  onOpenAreaWorkspaceRoute?: () => void;
+  onOpenAreaWorkspaceRoute?: (splitParentAreaId?: string | null) => void;
 };
 
 export function useBoardWorkspaceMode({
@@ -54,10 +54,10 @@ export function useBoardWorkspaceMode({
     setIsMapExpanded((currentState) => !currentState);
   };
 
-  const openAreaWorkspace = () => {
+  const openAreaWorkspace = (splitParentAreaId: string | null = null) => {
     setIsHandoverWorkspaceOpen(false);
     if (onOpenAreaWorkspaceRoute) {
-      onOpenAreaWorkspaceRoute();
+      onOpenAreaWorkspaceRoute(splitParentAreaId);
       return;
     }
 
