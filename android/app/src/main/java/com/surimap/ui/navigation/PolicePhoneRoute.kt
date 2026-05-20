@@ -29,6 +29,61 @@ object PolicePhoneRoutes {
             PolicePhoneRoute.MarkerDetail,
             PolicePhoneRoute.BlockedOutbox
         )
+
+    fun fromNavigationRoute(route: String?): PolicePhoneRoute? {
+        if (route.isNullOrBlank()) return null
+        return all.firstOrNull { candidate ->
+            route == candidate.route ||
+                route.startsWith("${candidate.route}?") ||
+                route.startsWith("${candidate.route}/")
+        }
+    }
+}
+
+data class PolicePhoneBottomNavItem(
+    val route: PolicePhoneRoute,
+    val label: String,
+    val contentDescription: String
+)
+
+object PolicePhoneBottomNavigation {
+    val items: List<PolicePhoneBottomNavItem> =
+        listOf(
+            PolicePhoneBottomNavItem(
+                route = PolicePhoneRoute.OfflinePackage,
+                label = "사건",
+                contentDescription = "사건 및 오프라인 패키지"
+            ),
+            PolicePhoneBottomNavItem(
+                route = PolicePhoneRoute.SearchMap,
+                label = "지도",
+                contentDescription = "수색 지도"
+            ),
+            PolicePhoneBottomNavItem(
+                route = PolicePhoneRoute.HandoverSummary,
+                label = "인수인계",
+                contentDescription = "인수인계"
+            ),
+            PolicePhoneBottomNavItem(
+                route = PolicePhoneRoute.BlockedOutbox,
+                label = "미전송",
+                contentDescription = "처리 불가 미전송 큐"
+            )
+        )
+
+    private val itemRoutes: Set<PolicePhoneRoute> = items.mapTo(mutableSetOf()) { it.route }
+    private val incidentContextRoutes: Set<PolicePhoneRoute> =
+        itemRoutes + PolicePhoneRoute.HandoverMemo + PolicePhoneRoute.MarkerDetail
+
+    fun shouldShow(currentRoute: PolicePhoneRoute?, hasIncidentContext: Boolean): Boolean =
+        hasIncidentContext && currentRoute != null && currentRoute in incidentContextRoutes
+
+    fun selectedRouteFor(currentRoute: PolicePhoneRoute?): PolicePhoneRoute? =
+        when (currentRoute) {
+            PolicePhoneRoute.HandoverMemo -> PolicePhoneRoute.HandoverSummary
+            PolicePhoneRoute.MarkerDetail -> PolicePhoneRoute.SearchMap
+            else -> currentRoute?.takeIf(itemRoutes::contains)
+        }
 }
 
 data class IncidentContext(
