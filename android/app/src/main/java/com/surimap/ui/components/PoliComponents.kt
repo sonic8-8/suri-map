@@ -410,35 +410,66 @@ fun PoliBottomSheet(
 @Composable
 fun PoliToast(
     text: String,
-    actionText: String,
-    onAction: () -> Unit,
+    actionText: String? = null,
+    onAction: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
-    variant: PoliBannerVariant = PoliBannerVariant.Bad
+    variant: PoliBannerVariant = PoliBannerVariant.Bad,
+    title: String? = null
 ) {
+    val border =
+        when (variant) {
+            PoliBannerVariant.Info -> PoliPrimaryBorder
+            PoliBannerVariant.Warn -> PoliWarning
+            PoliBannerVariant.Bad -> PoliEmphasis
+        }
+    val actionColor =
+        when (variant) {
+            PoliBannerVariant.Info -> PoliCurrent
+            PoliBannerVariant.Warn -> PoliWarning
+            PoliBannerVariant.Bad -> PoliEmphasis
+        }
+
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
         color = PoliBgElevated,
         contentColor = PoliFgPrimary,
-        border = BorderStroke(1.dp, if (variant == PoliBannerVariant.Bad) PoliEmphasis else PoliPrimaryBorder)
+        border = BorderStroke(1.dp, border)
     ) {
         Row(
             modifier = Modifier.padding(PoliDimens.Space4),
             horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = text,
+            Column(
                 modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.bodyMedium,
-                color = PoliFgSecondary
-            )
-            Text(
-                text = actionText,
-                modifier = Modifier.clickable(onClick = onAction),
-                style = MaterialTheme.typography.labelLarge,
-                color = if (variant == PoliBannerVariant.Bad) PoliEmphasis else PoliCurrent
-            )
+                verticalArrangement = Arrangement.spacedBy(PoliDimens.Space1)
+            ) {
+                title?.takeIf(String::isNotBlank)?.let { value ->
+                    Text(
+                        text = value,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = actionColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = PoliFgSecondary,
+                    maxLines = if (title.isNullOrBlank()) 1 else 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            if (!actionText.isNullOrBlank() && onAction != null) {
+                Text(
+                    text = actionText,
+                    modifier = Modifier.clickable(onClick = onAction),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = actionColor
+                )
+            }
         }
     }
 }

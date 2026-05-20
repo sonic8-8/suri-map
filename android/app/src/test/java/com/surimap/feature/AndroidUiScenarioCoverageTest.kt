@@ -31,7 +31,9 @@ class AndroidUiScenarioCoverageTest {
             completedItems = 4
         )
         assertFalse(packageState.readyForOfflineUse)
+        assertTrue(packageState.requiresLimitedOpenConfirmation)
         assertTrue(packageState.visibleText().containsAll(listOf("사건 메타", "실종자", "OP", "전체 수색 구역", "타일")))
+        assertTrue(packageState.visibleText().contains("오프라인 지도 안내 후 열기"))
 
         val activeMap = SearchMapUiState.active()
         assertTrue(activeMap.canWritePath)

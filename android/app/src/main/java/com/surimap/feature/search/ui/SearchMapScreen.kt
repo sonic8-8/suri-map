@@ -31,6 +31,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -76,6 +77,7 @@ import com.surimap.ui.components.PoliCard
 import com.surimap.ui.components.PoliChip
 import com.surimap.ui.components.PoliChipVariant
 import com.surimap.ui.components.PoliRow
+import com.surimap.ui.components.PoliToast
 import com.surimap.ui.theme.PoliBgBase
 import com.surimap.ui.theme.PoliBgInput
 import com.surimap.ui.theme.PoliBgSurface
@@ -91,6 +93,7 @@ import com.surimap.ui.theme.PoliPrimaryBorder
 import com.surimap.ui.theme.PoliSuccess
 import com.surimap.ui.theme.PoliWarning
 import com.surimap.ui.theme.SuriMapTheme
+import kotlinx.coroutines.delay
 
 private val ExpandedBottomPanelMapInset = 286.dp
 private val FloatingHandleFg = Color(0xFF0F172A)
@@ -100,6 +103,9 @@ private val BottomSheetCollapsedHeight = 42.dp
 private val BottomSheetMidHeight = 178.dp
 private val BottomSheetMaxFallbackHeight = 320.dp
 private const val PanelFlingThresholdPx = 650f
+private const val PackageWarningToastDurationMs = 4_000L
+private const val PackageWarningToastTitle = "오프라인 지도가 준비되지 않았어요"
+private const val PackageWarningToastText = "오프라인 사용 전 다운로드가 필요합니다"
 
 enum class SearchMapSyncStatus {
     Idle,
@@ -475,6 +481,27 @@ fun SearchMapScreen(
     onToggleBottomPanel: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val packageWarning =
+        state.localWarnings.banners.firstOrNull { warning ->
+            warning.code == LocalWarningCode.PACKAGE_MISSING
+        }
+    val persistentLocalWarnings =
+        state.localWarnings.banners.filterNot { warning ->
+            warning.code == LocalWarningCode.PACKAGE_MISSING
+        }
+    var visiblePackageWarning by remember { mutableStateOf<LocalWarningBanner?>(null) }
+    LaunchedEffect(packageWarning?.title, packageWarning?.message) {
+        if (packageWarning == null) {
+            visiblePackageWarning = null
+            return@LaunchedEffect
+        }
+        visiblePackageWarning = packageWarning
+        delay(PackageWarningToastDurationMs)
+        if (visiblePackageWarning == packageWarning) {
+            visiblePackageWarning = null
+        }
+    }
+
     val mapModifier =
         if (state.bottomPanelExpanded) {
             Modifier
@@ -516,7 +543,7 @@ fun SearchMapScreen(
                     modifier = Modifier.padding(horizontal = PoliDimens.SectionPadding)
                 )
             }
-            state.localWarnings.banners.forEach { warning ->
+            persistentLocalWarnings.forEach { warning ->
                 LocalWarningBannerView(
                     warning = warning,
                     modifier = Modifier.padding(horizontal = PoliDimens.SectionPadding)
@@ -548,6 +575,20 @@ fun SearchMapScreen(
             onToggleBottomPanel = onToggleBottomPanel,
             modifier = Modifier.align(Alignment.BottomCenter)
         )
+
+        visiblePackageWarning?.let {
+            PoliToast(
+                title = PackageWarningToastTitle,
+                text = PackageWarningToastText,
+                modifier =
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .statusBarsPadding()
+                    .padding(horizontal = PoliDimens.SectionPadding)
+                    .padding(top = TopHeaderCollapsedHeight + PoliDimens.Space3),
+                variant = PoliBannerVariant.Warn
+            )
+        }
     }
 }
 
