@@ -52,7 +52,8 @@ class DutyHandoverStateLoader(
 ) {
     suspend fun load(
         context: HandoverSessionContext,
-        selectedDutyShiftId: String? = null
+        selectedDutyShiftId: String? = null,
+        allowOperationalPeriodFallback: Boolean = true
     ): DutyHandoverUiState {
         val valid = context.valid() ?: return emptyState(context)
         return try {
@@ -110,31 +111,8 @@ class DutyHandoverStateLoader(
                     replayDurationMs = dutyTimeline.replayDurationMs
                 )
             }
-            val opTimeline =
-                parseTimeline(
-                    handoverTimeline(
-                        valid.opId,
-                        HandoverTimelineQuery(
-                            incidentId = valid.incidentId,
-                            scopeType = "OP",
-                            includeOtherActors = false
-                        )
-                    )
-                )
-            if (opTimeline.hasDisplayableEvidence) {
-                val summary = opTimeline.summary ?: loadOpSummary(valid)
-                return summary.toUiState(
-                    context = context,
-                    recordScope = HandoverRecordScope.OperationalPeriod,
-                    dutyShiftOptions = emptyList(),
-                    selectedDutyShift = null,
-                    metrics = opTimeline.metrics,
-                    records = opTimeline.records,
-                    replayPathSegments = opTimeline.replayPathSegments,
-                    replayMarkers = opTimeline.replayMarkers,
-                    replayPoints = opTimeline.replayPoints,
-                    replayDurationMs = opTimeline.replayDurationMs
-                )
+            if (allowOperationalPeriodFallback) {
+                loadOperationalPeriodState(valid, context)?.let { return it }
             }
             val memoResponse =
                 handoverMemos(
@@ -163,6 +141,23 @@ class DutyHandoverStateLoader(
         }
     }
 
+    suspend fun loadOperationalPeriod(context: HandoverSessionContext): DutyHandoverUiState {
+        val valid = context.valid() ?: return emptyState(context, HandoverRecordScope.OperationalPeriod)
+        return try {
+            loadOperationalPeriodState(valid, context)
+                ?: loadOpSummary(valid).toUiState(
+                    context = context,
+                    recordScope = HandoverRecordScope.OperationalPeriod,
+                    dutyShiftOptions = emptyList(),
+                    selectedDutyShift = null,
+                    metrics = emptyList(),
+                    records = emptyList()
+                )
+        } catch (_: SuriMapNetworkException) {
+            unavailableState(context, HandoverRecordScope.OperationalPeriod)
+        }
+    }
+
     fun fallback(context: HandoverSessionContext): DutyHandoverUiState =
         if (context.valid() == null) {
             emptyState(context)
@@ -170,6 +165,19 @@ class DutyHandoverStateLoader(
             DutyHandoverUiState.generating().copy(
                 title = TITLE,
                 subtitle = context.subtitle(),
+                records = emptyList(),
+                metrics = emptyList()
+            )
+        }
+
+    fun operationalPeriodFallback(context: HandoverSessionContext): DutyHandoverUiState =
+        if (context.valid() == null) {
+            emptyState(context, HandoverRecordScope.OperationalPeriod)
+        } else {
+            DutyHandoverUiState.generating().copy(
+                title = HandoverRecordScope.OperationalPeriod.title,
+                subtitle = context.subtitle(HandoverRecordScope.OperationalPeriod),
+                recordScope = HandoverRecordScope.OperationalPeriod,
                 records = emptyList(),
                 metrics = emptyList()
             )
@@ -232,6 +240,39 @@ class DutyHandoverStateLoader(
                 )
             )
         )
+
+    private suspend fun loadOperationalPeriodState(
+        valid: RequiredHandoverSessionContext,
+        context: HandoverSessionContext
+    ): DutyHandoverUiState? {
+        val opTimeline =
+            parseTimeline(
+                handoverTimeline(
+                    valid.opId,
+                    HandoverTimelineQuery(
+                        incidentId = valid.incidentId,
+                        scopeType = "OP",
+                        includeOtherActors = false
+                    )
+                )
+            )
+        if (!opTimeline.hasDisplayableEvidence) {
+            return null
+        }
+        val summary = opTimeline.summary ?: loadOpSummary(valid)
+        return summary.toUiState(
+            context = context,
+            recordScope = HandoverRecordScope.OperationalPeriod,
+            dutyShiftOptions = emptyList(),
+            selectedDutyShift = null,
+            metrics = opTimeline.metrics,
+            records = opTimeline.records,
+            replayPathSegments = opTimeline.replayPathSegments,
+            replayMarkers = opTimeline.replayMarkers,
+            replayPoints = opTimeline.replayPoints,
+            replayDurationMs = opTimeline.replayDurationMs
+        )
+    }
 
     private suspend fun loadDutyShiftOptions(
         valid: RequiredHandoverSessionContext,
@@ -562,16 +603,24 @@ class DutyHandoverStateLoader(
         )
     }
 
-    private fun emptyState(context: HandoverSessionContext): DutyHandoverUiState =
+    private fun emptyState(
+        context: HandoverSessionContext,
+        recordScope: HandoverRecordScope = HandoverRecordScope.DutyShift
+    ): DutyHandoverUiState =
         DutyHandoverUiState.empty().copy(
-            title = TITLE,
-            subtitle = context.subtitle()
+            title = recordScope.title,
+            subtitle = context.subtitle(recordScope),
+            recordScope = recordScope
         )
 
-    private fun unavailableState(context: HandoverSessionContext): DutyHandoverUiState =
+    private fun unavailableState(
+        context: HandoverSessionContext,
+        recordScope: HandoverRecordScope = HandoverRecordScope.DutyShift
+    ): DutyHandoverUiState =
         DutyHandoverUiState.unavailable().copy(
-            title = TITLE,
-            subtitle = context.subtitle(),
+            title = recordScope.title,
+            subtitle = context.subtitle(recordScope),
+            recordScope = recordScope,
             records = emptyList(),
             metrics = emptyList()
         )
