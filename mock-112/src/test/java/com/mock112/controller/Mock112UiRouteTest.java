@@ -104,6 +104,7 @@ class Mock112UiRouteTest {
                 .andExpect(content().string(containsString("incidentStatusFilter")))
                 .andExpect(content().string(containsString("incidentSearchInput")))
                 .andExpect(content().string(containsString("incidentDetail")))
+                .andExpect(content().string(containsString("statusClosed")))
                 .andExpect(content().string(containsString("fixtureTools")))
                 .andExpect(content().string(not(containsString("inputSourceId"))))
                 .andExpect(content().string(containsString("app.js")));
@@ -128,6 +129,8 @@ class Mock112UiRouteTest {
                 .andExpect(content().string(containsString("selectIncident")))
                 .andExpect(content().string(containsString("assignGroup")))
                 .andExpect(content().string(containsString("updateIncident")))
+                .andExpect(content().string(containsString("closeIncident")))
+                .andExpect(content().string(containsString("/close")))
                 .andExpect(content().string(containsString("uploadCreatePhoto")))
                 .andExpect(content().string(containsString("/mock-112/missing-person-photos")))
                 .andExpect(content().string(containsString("editPhotoObjectKey")))

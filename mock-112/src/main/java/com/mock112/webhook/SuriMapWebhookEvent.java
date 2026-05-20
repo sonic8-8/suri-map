@@ -6,5 +6,6 @@ public record SuriMapWebhookEvent(
         String eventId,
         String eventType,
         String sourceIncidentId,
-        OffsetDateTime occurredAt) {
+        OffsetDateTime occurredAt,
+        String closeReason) {
 }

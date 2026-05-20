@@ -243,6 +243,54 @@ class MockIncidentRegistrationApiTest {
     }
 
     @Test
+    @DisplayName("사건 종료 API는 CLOSED로 전이하고 이후 배정을 거부한다")
+    void closeIncidentMarksClosedAndRejectsAssignments() throws Exception {
+        String sourceIncidentId = createIncident();
+
+        mockMvc.perform(post("/mock-112/incidents/{sourceIncidentId}/close", sourceIncidentId)
+                        .with(oauth2Login())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "closeReason": "FOUND_SAFE"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sourceIncidentId").value(sourceIncidentId))
+                .andExpect(jsonPath("$.status").value("CLOSED"))
+                .andExpect(jsonPath("$.webhookDelivery.status").value("DISABLED"));
+
+        assertThat(store.findById(sourceIncidentId).orElseThrow().getStatus())
+                .isEqualTo("CLOSED");
+
+        mockMvc.perform(post("/mock-112/incidents/{sourceIncidentId}/assignment-organizations", sourceIncidentId)
+                        .with(oauth2Login())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "organizationCode": "GWANGJU_POLICE_WOMEN_JUVENILE_MISSING_TEAM",
+                                  "assignedAt": "2026-05-20T10:00:00.500+09:00"
+                                }
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("incident_closed"));
+    }
+
+    @Test
+    @DisplayName("이미 CLOSED인 사건 종료 재시도는 terminal 충돌을 반환한다")
+    void duplicateCloseReturnsIncidentClosed() throws Exception {
+        String sourceIncidentId = createIncident();
+        store.closeIncident(sourceIncidentId);
+
+        mockMvc.perform(post("/mock-112/incidents/{sourceIncidentId}/close", sourceIncidentId)
+                        .with(oauth2Login())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("incident_closed"));
+    }
+
+    @Test
     @DisplayName("실종자 사진은 URL이 아니라 object storage key 형식만 받는다")
     void photoObjectKeyRejectsUrlValue() throws Exception {
         mockMvc.perform(post("/mock-112/incidents")

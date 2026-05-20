@@ -317,9 +317,15 @@ function updateIncidentListState() {
 function updateStatusCounts(source) {
     const ready = source.filter(i => i.status === 'READY').length;
     const imported = source.filter(i => i.status === 'IMPORTED').length;
+    const closed = source.filter(i => i.status === 'CLOSED').length;
     document.getElementById('statusReady').textContent = `READY ${ready}`;
     document.getElementById('statusImported').textContent = `IMPORTED ${imported}`;
+    document.getElementById('statusClosed').textContent = `CLOSED ${closed}`;
     updateIncidentListState();
+}
+
+function isClosedIncident(incident) {
+    return incident?.status === 'CLOSED';
 }
 
 function incidentSearchText(incident) {
@@ -418,6 +424,22 @@ function renderIncidentRow(incident) {
     const delivery = deliveryByIncidentId[incident.sourceIncidentId];
     const rowSelected = incident.sourceIncidentId === selectedIncidentId ? 'selected' : '';
     const selectId = `assignGroup-${incident.sourceIncidentId}`;
+    const actions = isClosedIncident(incident) ? `
+        <button class="btn btn-sm btn-muted" onclick="selectIncident(${jsArg(incident.sourceIncidentId)})">
+            상세
+        </button>` : `
+        <select id="${escapeHtml(selectId)}" data-assignment-select="true" aria-label="조직 배정">
+            ${organizationOptionsHtml()}
+        </select>
+        <button class="btn btn-sm btn-primary" onclick="assignGroup(${jsArg(incident.sourceIncidentId)}, ${jsArg(selectId)})">
+            배정
+        </button>
+        <button class="btn btn-sm btn-danger" onclick="closeIncident(${jsArg(incident.sourceIncidentId)})">
+            종료
+        </button>
+        <button class="btn btn-sm btn-muted" onclick="selectIncident(${jsArg(incident.sourceIncidentId)})">
+            상세
+        </button>`;
     return `
         <tr class="${rowSelected}">
             <td>
@@ -436,15 +458,7 @@ function renderIncidentRow(incident) {
             <td>${renderDeliveryBadge(delivery)}</td>
             <td>
                 <div class="row-actions">
-                    <select id="${escapeHtml(selectId)}" data-assignment-select="true" aria-label="조직 배정">
-                        ${organizationOptionsHtml()}
-                    </select>
-                    <button class="btn btn-sm btn-primary" onclick="assignGroup(${jsArg(incident.sourceIncidentId)}, ${jsArg(selectId)})">
-                        배정
-                    </button>
-                    <button class="btn btn-sm btn-muted" onclick="selectIncident(${jsArg(incident.sourceIncidentId)})">
-                        상세
-                    </button>
+                    ${actions}
                 </div>
             </td>
         </tr>`;
@@ -516,11 +530,23 @@ function renderIncidentDetail() {
             ${renderDeliverySummary(delivery)}
         </div>
 
+        ${renderDetailActions(incident)}`;
+}
+
+function renderDetailActions(incident) {
+    if (isClosedIncident(incident)) {
+        return `
+            <div class="detail-actions">
+                <p class="muted">종료된 사건은 추가 배정과 원천 정보 정정을 할 수 없습니다.</p>
+            </div>`;
+    }
+    return `
         <div class="detail-actions">
             <select id="detailAssignGroup" data-assignment-select="true" aria-label="상세 조직 배정">
                 ${organizationOptionsHtml()}
             </select>
             <button class="btn btn-primary" onclick="assignGroup(${jsArg(incident.sourceIncidentId)}, 'detailAssignGroup')">조직 배정</button>
+            <button class="btn btn-danger" onclick="closeIncident(${jsArg(incident.sourceIncidentId)})">사건 종료</button>
         </div>`;
 }
 
@@ -865,6 +891,38 @@ async function assignGroup(sourceIncidentId, selectId) {
     }
 }
 
+async function closeIncident(sourceIncidentId) {
+    const incident = incidents.find(item => item.sourceIncidentId === sourceIncidentId);
+    if (isClosedIncident(incident)) {
+        showToast('이미 종료된 사건입니다.', 'info');
+        return;
+    }
+    const reason = prompt('사건을 종료합니다. 종료 사유를 입력하세요.', 'MOCK112_INCIDENT_CLOSED');
+    if (reason === null) {
+        showToast('사건 종료를 취소했습니다.', 'info');
+        return;
+    }
+    const confirmed = confirm('사건 종료는 되돌릴 수 없습니다. Suri-Map에 종료 이벤트를 전송할까요?');
+    if (!confirmed) {
+        showToast('사건 종료를 취소했습니다.', 'info');
+        return;
+    }
+    try {
+        const result = await api(
+            'POST',
+            `/mock-112/incidents/${sourceIncidentId}/close`,
+            { closeReason: reason.trim() || 'MOCK112_INCIDENT_CLOSED' }
+        );
+        rememberDelivery(sourceIncidentId, result.webhookDelivery, '사건 종료');
+        showToast(`사건 종료 완료: ${result.caseNumber || sourceIncidentId}`, 'success');
+        selectedIncidentId = sourceIncidentId;
+        await loadIncidents();
+        await loadHealth();
+    } catch (e) {
+        showToast(`사건 종료 실패: ${e.data?.message || '알 수 없는 오류'}`, 'error');
+    }
+}
+
 async function resetAll() {
     const answer = prompt('mock-112 사건, 배정, webhook outbox를 모두 삭제합니다. RESET을 입력하면 진행합니다.');
     if (answer !== 'RESET') {
@@ -900,6 +958,7 @@ async function loadHealth() {
             <div class="health-row"><span>전체 사건</span><strong>${escapeHtml(h.incidentCount)}</strong></div>
             <div class="health-row"><span>READY</span><strong>${escapeHtml(h.readyCount)}</strong></div>
             <div class="health-row"><span>IMPORTED</span><strong>${escapeHtml(h.importedCount)}</strong></div>
+            <div class="health-row"><span>CLOSED</span><strong>${escapeHtml(h.closedCount)}</strong></div>
             <div class="health-row"><span>Webhook PENDING</span><strong>${escapeHtml(outbox.PENDING ?? 0)}</strong></div>
             <div class="health-row"><span>Webhook FAILED</span><strong>${escapeHtml(outbox.FAILED ?? 0)}</strong></div>
         `;

@@ -7,4 +7,5 @@ public record Mock112WebhookEventRequest(
     String eventId,
     String eventType,
     UUID sourceIncidentId,
-    OffsetDateTime occurredAt) {}
+    OffsetDateTime occurredAt,
+    String closeReason) {}

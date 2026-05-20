@@ -26,6 +26,8 @@ public interface MockIncidentStore {
 
     void markImported(String sourceIncidentId);
 
+    MockIncident closeIncident(String sourceIncidentId);
+
     void reset();
 
     int size();

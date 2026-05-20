@@ -8,6 +8,7 @@ import com.mock112.webhook.SuriMapWebhookDispatcher;
 import com.mock112.webhook.WebhookDeliveryResult;
 import com.mock112.webhook.WebhookOutboxStore;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.LinkedHashMap;
@@ -84,6 +85,9 @@ public class MockScenarioController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "failed", "message", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("error", "incident_closed", "message", e.getMessage()));
         }
     }
 
@@ -107,6 +111,9 @@ public class MockScenarioController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "failed", "message", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("error", "incident_closed", "message", e.getMessage()));
         }
     }
 
@@ -132,6 +139,7 @@ public class MockScenarioController {
         body.put("incidentCount", store.size());
         body.put("readyCount", store.findByStatus("READY").size());
         body.put("importedCount", store.findByStatus("IMPORTED").size());
+        body.put("closedCount", store.findByStatus("CLOSED").size());
         body.put("webhookOutbox", webhookOutboxStore.countByStatus());
         return ResponseEntity.ok(body);
     }

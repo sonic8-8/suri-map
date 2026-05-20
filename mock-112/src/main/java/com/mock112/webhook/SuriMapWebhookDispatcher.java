@@ -57,7 +57,17 @@ public class SuriMapWebhookDispatcher {
                 "mock112:INCIDENT_READY:" + incident.getSourceIncidentId(),
                 "INCIDENT_READY",
                 incident.getSourceIncidentId(),
-                OffsetDateTime.now()));
+                OffsetDateTime.now(),
+                null));
+    }
+
+    public WebhookDeliveryResult sendIncidentClosed(MockIncident incident, String closeReason) {
+        return send(new SuriMapWebhookEvent(
+                "mock112:INCIDENT_CLOSED:" + incident.getSourceIncidentId(),
+                "INCIDENT_CLOSED",
+                incident.getSourceIncidentId(),
+                OffsetDateTime.now(),
+                normalizeCloseReason(closeReason)));
     }
 
     public WebhookDeliveryResult sendAssignmentChanged(String sourceIncidentId, List<MockAssignment> assignments) {
@@ -74,9 +84,16 @@ public class SuriMapWebhookDispatcher {
                     assignmentChangedEventId(sourceIncidentId, eventKey),
                     "INCIDENT_ASSIGNMENT_CHANGED",
                     sourceIncidentId,
-                    OffsetDateTime.now())));
+                    OffsetDateTime.now(),
+                    null)));
         }
         return result;
+    }
+
+    private String normalizeCloseReason(String closeReason) {
+        return closeReason == null || closeReason.isBlank()
+                ? "MOCK112_INCIDENT_CLOSED"
+                : closeReason.trim();
     }
 
     public WebhookDeliveryResult retryPending() {

@@ -1,7 +1,7 @@
 package com.surimap.incident.service;
 
-import com.surimap.common.auth.SuriMapAuthentication;
 import com.surimap.common.auth.Role;
+import com.surimap.common.auth.SuriMapAuthentication;
 import com.surimap.incident.domain.IncidentImportIdempotencyRecord;
 import com.surimap.incident.domain.IncidentRecord;
 import com.surimap.incident.domain.IncidentStatus;
@@ -73,31 +73,8 @@ public class IncidentCloseService {
         "RESERVED",
         now);
 
-    incidentLifecycleGuard.requireOpen(command.incidentId());
-    int updated =
-        incidentMapper.closeIncident(
-            command.incidentId(), closedByAccountId(command.authentication()), now);
-    if (updated == 0) {
-      incidentLifecycleGuard.requireOpen(command.incidentId());
-      throw new IncidentApiException("write_conflict", HttpStatus.CONFLICT);
-    }
-    // SC-12 purge order: S1-1은 active DB의 실종자 PII와 photo pointer를 close 트랜잭션에서 즉시 제거한다.
-    incidentMapper.deleteMissingPersonByIncidentId(command.incidentId());
-
     IncidentCloseResult result =
-        incidentMapper
-            .findByIncidentId(command.incidentId())
-            .map(this::toResult)
-            .orElseThrow(() -> new IncidentApiException("write_conflict", HttpStatus.CONFLICT));
-
-    // S1-1은 S1-3 purge coordinator를 직접 호출하지 않는다. INCIDENT_CLOSED publish 요청이 handoff 경계다.
-    incidentEventPublisher.publishIncidentClosed(
-        new IncidentClosedEvent(
-            result.id(),
-            result.status(),
-            result.version(),
-            result.closedAt(),
-            result.writeDisabledReason()));
+        closeOpenIncident(command.incidentId(), closedByAccountId(command.authentication()), now);
 
     incidentMapper.completeImportIdempotencyRecord(
         command.idempotencyKey(),
@@ -109,6 +86,47 @@ public class IncidentCloseService {
         result.status(),
         result.version(),
         now);
+    return result;
+  }
+
+  @Transactional
+  public IncidentCloseResult closeIncidentFromMock112(UUID sourceIncidentId, String closeReason) {
+    if (sourceIncidentId == null) {
+      throw new IncidentApiException("mock112_event_invalid", HttpStatus.CONFLICT);
+    }
+    IncidentRecord incident =
+        incidentMapper
+            .findBySourceIncidentId(sourceIncidentId)
+            .orElseThrow(
+                () -> new IncidentApiException("mock112_event_invalid", HttpStatus.CONFLICT));
+    return closeOpenIncident(incident.getId(), null, clock.instant());
+  }
+
+  private IncidentCloseResult closeOpenIncident(
+      UUID incidentId, UUID closedByAccountId, Instant closedAt) {
+    incidentLifecycleGuard.requireOpen(incidentId);
+    int updated = incidentMapper.closeIncident(incidentId, closedByAccountId, closedAt);
+    if (updated == 0) {
+      incidentLifecycleGuard.requireOpen(incidentId);
+      throw new IncidentApiException("write_conflict", HttpStatus.CONFLICT);
+    }
+    // SC-12 purge order: S1-1은 active DB의 실종자 PII와 photo pointer를 close 트랜잭션에서 즉시 제거한다.
+    incidentMapper.deleteMissingPersonByIncidentId(incidentId);
+
+    IncidentCloseResult result =
+        incidentMapper
+            .findByIncidentId(incidentId)
+            .map(this::toResult)
+            .orElseThrow(() -> new IncidentApiException("write_conflict", HttpStatus.CONFLICT));
+
+    // S1-1은 S1-3 purge coordinator를 직접 호출하지 않는다. INCIDENT_CLOSED publish 요청이 handoff 경계다.
+    incidentEventPublisher.publishIncidentClosed(
+        new IncidentClosedEvent(
+            result.id(),
+            result.status(),
+            result.version(),
+            result.closedAt(),
+            result.writeDisabledReason()));
     return result;
   }
 

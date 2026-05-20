@@ -1,10 +1,11 @@
 package com.mock112.controller;
 
-import com.mock112.domain.MockAssignment;
-import com.mock112.domain.MockIncident;
+import com.mock112.controller.request.CloseMockIncidentRequest;
 import com.mock112.controller.request.CreateMockIncidentRequest;
 import com.mock112.controller.request.OrganizationAssignmentRequest;
 import com.mock112.controller.request.UpdateMockIncidentRequest;
+import com.mock112.domain.MockAssignment;
+import com.mock112.domain.MockIncident;
 import com.mock112.service.MockIncidentRegistrationService;
 import com.mock112.store.MockIncidentStore;
 import com.mock112.webhook.WebhookDeliveryResult;
@@ -88,6 +89,12 @@ public class MockIncidentController {
             body.put("message", "READY 사건 원천 정보가 정정되었습니다.");
             return ResponseEntity.ok(body);
         } catch (IllegalStateException e) {
+            if (e.getMessage() != null && e.getMessage().contains("CLOSED")) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(Map.of(
+                                "error", "incident_closed",
+                                "message", e.getMessage()));
+            }
             return ResponseEntity.status(HttpStatus.CONFLICT)
                     .body(Map.of(
                             "error", "incident_imported_read_only",
@@ -100,6 +107,36 @@ public class MockIncidentController {
                     .body(Map.of(
                             "error", status == HttpStatus.NOT_FOUND ? "not_found" : "invalid_request",
                             "message", e.getMessage()));
+        }
+    }
+
+    /**
+     * 사건 종료.
+     * POST /mock-112/incidents/{sourceIncidentId}/close
+     */
+    @PostMapping("/{sourceIncidentId}/close")
+    public ResponseEntity<Map<String, Object>> closeIncident(
+            @PathVariable String sourceIncidentId,
+            @RequestBody(required = false) CloseMockIncidentRequest request) {
+        try {
+            String closeReason = request == null ? null : request.getCloseReason();
+            MockIncident incident = registrationService.closeIncident(sourceIncidentId);
+            WebhookDeliveryResult delivery = webhookDispatcher.sendIncidentClosed(incident, closeReason);
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("sourceIncidentId", incident.getSourceIncidentId());
+            body.put("caseNumber", incident.getCaseNumber());
+            body.put("status", incident.getStatus());
+            body.put("webhookDelivery", delivery);
+            body.put("message", "사건이 종료되었습니다.");
+            return ResponseEntity.ok(body);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of(
+                            "error", "incident_closed",
+                            "message", e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "not_found", "message", e.getMessage()));
         }
     }
 
@@ -177,6 +214,9 @@ public class MockIncidentController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(Map.of("error", "not_found", "message", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("error", "incident_closed", "message", e.getMessage()));
         }
     }
 
@@ -218,6 +258,9 @@ public class MockIncidentController {
                     .body(Map.of(
                             "error", status == HttpStatus.NOT_FOUND ? "not_found" : "invalid_request",
                             "message", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("error", "incident_closed", "message", e.getMessage()));
         }
     }
 

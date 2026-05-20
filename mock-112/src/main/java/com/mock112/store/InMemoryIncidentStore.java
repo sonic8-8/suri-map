@@ -64,6 +64,9 @@ public class InMemoryIncidentStore implements MockIncidentStore {
         if (incident == null) {
             throw new IllegalArgumentException("Incident not found: " + sourceIncidentId);
         }
+        if ("CLOSED".equalsIgnoreCase(incident.getStatus())) {
+            throw new IllegalStateException("Incident is CLOSED and terminal: " + sourceIncidentId);
+        }
         normalizeAssignment(sourceIncidentId, assignment);
         boolean added = incident.addAssignment(assignment);
         if (added) {
@@ -102,6 +105,20 @@ public class InMemoryIncidentStore implements MockIncidentStore {
         }
         incident.markImported();
         log.info("Incident marked as IMPORTED: {}", sourceIncidentId);
+    }
+
+    @Override
+    public MockIncident closeIncident(String sourceIncidentId) {
+        MockIncident incident = store.get(sourceIncidentId);
+        if (incident == null) {
+            throw new IllegalArgumentException("Incident not found: " + sourceIncidentId);
+        }
+        if ("CLOSED".equalsIgnoreCase(incident.getStatus())) {
+            throw new IllegalStateException("Incident is already CLOSED: " + sourceIncidentId);
+        }
+        incident.close();
+        log.info("Incident closed: {}", sourceIncidentId);
+        return incident;
     }
 
     /**

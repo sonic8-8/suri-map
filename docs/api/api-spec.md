@@ -134,10 +134,10 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Headers: `X-Client-Channel: INTERNAL`, `X-Mock112-Signature`, `Idempotency-Key`
 - Guard: internal secret or HMAC signature, webhook idempotency
 - Idempotency-Key: yes
-- Request: `{eventId, eventType, sourceIncidentId, occurredAt, incident?}` where `eventType` is `INCIDENT_READY` or `INCIDENT_ASSIGNMENT_CHANGED`
+- Request: `{eventId, eventType, sourceIncidentId, occurredAt, incident?, closeReason?}` where `eventType` is `INCIDENT_READY`, `INCIDENT_ASSIGNMENT_CHANGED`, or `INCIDENT_CLOSED`
 - Response: `202 {eventId, eventType, sourceIncidentId, incidentId, status, version}`
 - Errors: `channel_not_allowed`, `invalid_signature`, `idempotency_mismatch`, `write_conflict`, `mock112_event_invalid`
-- Note: mock-112는 Suri-Map DB에 직접 쓰지 않고 이 internal webhook만 호출한다. `INCIDENT_READY`는 자동 import를 수행하고, `INCIDENT_ASSIGNMENT_CHANGED`는 기존 사건의 `incident_assignment`를 반영한다. 같은 `eventId` 또는 같은 112 assignment key 재전송은 중복 row 없이 같은 결과로 수렴해야 한다.
+- Note: mock-112는 Suri-Map DB에 직접 쓰지 않고 이 internal webhook만 호출한다. `INCIDENT_READY`는 자동 import를 수행하고, `INCIDENT_ASSIGNMENT_CHANGED`는 기존 사건의 `incident_assignment`를 반영하며, `INCIDENT_CLOSED`는 기존 OPEN 사건을 terminal `CLOSED`로 전이한다. 같은 `eventId` 또는 같은 112 assignment key 재전송은 중복 row 없이 같은 결과로 수렴해야 한다.
 
 #### GET `/api/incidents`
 

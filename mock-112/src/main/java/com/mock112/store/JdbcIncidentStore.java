@@ -107,7 +107,7 @@ public class JdbcIncidentStore implements MockIncidentStore {
     @Override
     @Transactional
     public boolean addAssignment(String sourceIncidentId, MockAssignment assignment) {
-        assertIncidentExists(sourceIncidentId);
+        assertIncidentOpenForChange(sourceIncidentId);
         normalizeAssignment(sourceIncidentId, assignment);
         try {
             jdbcTemplate.update(
@@ -168,12 +168,35 @@ public class JdbcIncidentStore implements MockIncidentStore {
                 UPDATE mock_incident
                 SET status = 'IMPORTED'
                 WHERE source_incident_id = ?
+                  AND status <> 'CLOSED'
                 """,
                 sourceIncidentId);
         if (updated == 0) {
-            throw new IllegalArgumentException("Incident not found: " + sourceIncidentId);
+            assertIncidentExists(sourceIncidentId);
         }
         log.info("Incident marked as IMPORTED in DB: {}", sourceIncidentId);
+    }
+
+    @Override
+    @Transactional
+    public MockIncident closeIncident(String sourceIncidentId) {
+        int updated = jdbcTemplate.update(
+                """
+                UPDATE mock_incident
+                SET status = 'CLOSED'
+                WHERE source_incident_id = ?
+                  AND status <> 'CLOSED'
+                """,
+                sourceIncidentId);
+        if (updated == 0) {
+            String status = statusOf(sourceIncidentId);
+            if ("CLOSED".equalsIgnoreCase(status)) {
+                throw new IllegalStateException("Incident is already CLOSED: " + sourceIncidentId);
+            }
+            throw new IllegalArgumentException("Incident not found: " + sourceIncidentId);
+        }
+        log.info("Incident closed in DB: {}", sourceIncidentId);
+        return findById(sourceIncidentId).orElseThrow();
     }
 
     @Override
@@ -242,6 +265,13 @@ public class JdbcIncidentStore implements MockIncidentStore {
                 sourceIncidentId);
         if (count == null || count == 0) {
             throw new IllegalArgumentException("Incident not found: " + sourceIncidentId);
+        }
+    }
+
+    private void assertIncidentOpenForChange(String sourceIncidentId) {
+        String status = statusOf(sourceIncidentId);
+        if ("CLOSED".equalsIgnoreCase(status)) {
+            throw new IllegalStateException("Incident is CLOSED and terminal: " + sourceIncidentId);
         }
     }
 
