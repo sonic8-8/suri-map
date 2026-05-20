@@ -976,6 +976,14 @@ export function AreaEditPage({
       return;
     }
 
+    const isFirstAssignmentForArea = (assignedAccountCountsByAreaId.get(selectedArea.id) ?? 0) === 0;
+    if (
+      isFirstAssignmentForArea &&
+      !window.confirm('구역에 담당계정을 배정할 시, 해당 구역은 더이상 분할될 수 없습니다. 담당계정을 배정하시겠습니까?')
+    ) {
+      return;
+    }
+
     try {
       setIsAssigningArea(true);
       await searchAreaApi.assign(
