@@ -12,6 +12,7 @@ import { formatSearchAreaKindLabel } from '../../../../../shared/model/searchAre
 import type { SearchAreaTreeNode } from '../../constants/mockSituationBoard';
 import { formatAccountDisplayName } from '../../utils/accountDisplayUtils';
 import { CollapsiblePanelSection } from './CollapsiblePanelSection';
+import { OverflowTooltipText } from './OverflowTooltipText';
 import styles from './SearchAreaTree.module.css';
 
 type AreaIdentityColorStyle = CSSProperties & { '--area-identity-color': string };
@@ -222,12 +223,12 @@ function AreaNode({
       onKeyDown={(event) => handleAreaRowKeyDown(event, area.id, canSelectArea, onSelectSearchArea)}
     >
       <span className={styles.nodeText}>
-        <strong className={textNameClassName}>{areaTitle}</strong>
-        {areaKindLabel ? <span className={textMetaClassName}>{areaKindLabel}</span> : null}
+        <OverflowTooltipText as="strong" className={textNameClassName} value={areaTitle} />
+        {areaKindLabel ? <OverflowTooltipText className={textMetaClassName} value={areaKindLabel} /> : null}
         <span className={styles.nodeDetails}>
-          <span>{structureLabel}</span>
-          <span>{assignmentLabel}</span>
-          <span>{nextActionLabel}</span>
+          <OverflowTooltipText value={structureLabel} />
+          <OverflowTooltipText value={assignmentLabel} />
+          <OverflowTooltipText value={nextActionLabel} />
         </span>
       </span>
       <span className={styles.badgeColumn}>
