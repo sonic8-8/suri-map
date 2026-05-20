@@ -113,38 +113,65 @@
   line-height: 1.55;
 }
 
-.heroStatusGrid {
+.heroActions {
   display: grid;
-  grid-template-columns: repeat(2, minmax(9.5rem, 1fr));
-  gap: 0.9rem;
-  align-content: center;
-  min-width: min(27rem, 42%);
+  grid-template-columns: repeat(3, minmax(9.5rem, 1fr));
+  align-items: center;
+  justify-items: center;
+  gap: 0.62rem;
+  min-width: min(39rem, 52%);
+}
+
+.heroStatusGrid {
+  display: contents;
+}
+
+.heroMetric,
+.closeIncidentButton {
+  width: 88%;
+  min-width: 7.25rem;
+  height: 5.6rem;
+  border-radius: 0.72rem;
 }
 
 .heroMetric {
-  padding: 1.1rem 1.25rem;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  padding: 0.95rem 1rem;
   border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 1rem;
   background:
     linear-gradient(145deg, rgba(30, 41, 59, 0.86), rgba(51, 65, 85, 0.58)),
     rgba(15, 23, 42, 0.7);
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
 }
 
-.heroMetric span {
-  display: block;
+.heroMetricLabel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: #cbd5e1;
-  font-size: 0.96rem;
+  font-size: 1rem;
   font-weight: 800;
+  text-align: center;
+}
+
+.heroMetricMark {
+  display: inline-block;
+  margin-right: 0.28rem;
+  color: #4ade80;
+  font-size: 1.5em;
+  line-height: 0.7;
 }
 
 .heroMetric strong {
   display: block;
-  margin-top: 0.44rem;
+  margin-top: 0.42rem;
   color: #f8fafc;
   font-size: 1.65rem;
   line-height: 1.1;
   font-weight: 900;
+  text-align: center;
 }
 
 .valueActive {
@@ -153,6 +180,56 @@
 
 .valueClosed {
   color: #fca5a5 !important;
+}
+
+.closeIncidentButton {
+  display: grid;
+  place-items: center;
+  padding: 0.95rem 1rem;
+  border: 1px solid rgba(252, 165, 165, 0.48);
+  color: #fff7f7;
+  background:
+    linear-gradient(145deg, rgba(185, 28, 28, 0.98), rgba(127, 29, 29, 0.92)),
+    #991b1b;
+  box-shadow:
+    0 0.85rem 1.8rem rgba(127, 29, 29, 0.34),
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+  font-size: 1.08rem;
+  font-weight: 950;
+  letter-spacing: -0.01em;
+  text-align: center;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.closeIncidentButton:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background:
+    linear-gradient(145deg, rgba(220, 38, 38, 0.98), rgba(153, 27, 27, 0.94)),
+    #b91c1c;
+}
+
+.closeIncidentButton:disabled {
+  border-color: rgba(148, 163, 184, 0.22);
+  color: rgba(226, 232, 240, 0.64);
+  background:
+    linear-gradient(145deg, rgba(51, 65, 85, 0.72), rgba(30, 41, 59, 0.68)),
+    #334155;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  cursor: not-allowed;
+}
+
+.closeErrorBanner {
+  max-width: 1880px;
+  width: calc(100% - clamp(2rem, 4vw, 4rem));
+  margin: 0.4rem auto 0;
+  padding: 0.9rem 1.1rem;
+  border: 1px solid rgba(252, 165, 165, 0.62);
+  border-radius: 0.9rem;
+  color: #fee2e2;
+  background: rgba(127, 29, 29, 0.62);
+  font-size: 1rem;
+  font-weight: 850;
 }
 
 .contentGrid {
@@ -660,6 +737,7 @@
 
 @media (max-width: 820px) {
   .hero,
+  .heroActions,
   .heroStatusGrid,
   .contentGrid,
   .missingPersonLayout,
@@ -674,8 +752,18 @@
     flex-direction: column;
   }
 
+  .heroActions {
+    align-items: stretch;
+    min-width: 0;
+  }
+
   .heroStatusGrid {
     min-width: 0;
+  }
+
+  .heroMetric,
+  .closeIncidentButton {
+    width: 100%;
   }
 
   .assignmentHeader {

@@ -159,7 +159,7 @@ export function SuriMapPageHeader({
     <header className={styles.header}>
       <nav className={styles.productNav} aria-label="Suri-Map 내비게이션">
         <button type="button" className={styles.brand} onClick={onOpenIncidentList}>
-          <SuriMapLogo className={styles.brandMark} size={26} />
+          <SuriMapLogo className={styles.brandMark} size={39} />
           <div>Suri-Map</div>
         </button>
         <div className={styles.navTabs} role="list" aria-label="상황판 내비게이션">

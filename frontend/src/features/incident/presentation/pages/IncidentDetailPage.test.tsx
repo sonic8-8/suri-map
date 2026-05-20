@@ -94,9 +94,25 @@ describe('IncidentDetailPage', () => {
     expect(screen.getByText('6-10 / 12')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '2' })).toHaveAttribute('aria-current', 'page');
   });
+
+  test('opens the dedicated close page from an active incident', () => {
+    const detail = activeIncidentDetail();
+    const onOpenIncidentClose = vi.fn();
+    vi.mocked(useIncidentDetailQuery).mockReturnValue(incidentDetailQueryResult(detail));
+
+    renderIncidentDetailPage(detail.incidentId, vi.fn(), onOpenIncidentClose);
+
+    fireEvent.click(screen.getByRole('button', { name: '사건 종료' }));
+
+    expect(onOpenIncidentClose).toHaveBeenCalledTimes(1);
+  });
 });
 
-function renderIncidentDetailPage(incidentId: string, onBrowserBackToIncidentList = vi.fn()) {
+function renderIncidentDetailPage(
+  incidentId: string,
+  onBrowserBackToIncidentList = vi.fn(),
+  onOpenIncidentClose = vi.fn(),
+) {
   return render(
     <IncidentDetailPage
       currentUserAccount={currentUserAccount()}
@@ -110,6 +126,7 @@ function renderIncidentDetailPage(incidentId: string, onBrowserBackToIncidentLis
       onBrowserBackToIncidentList={onBrowserBackToIncidentList}
       onOpenOfflinePackage={vi.fn()}
       onOpenSituationBoard={vi.fn()}
+      onOpenIncidentClose={onOpenIncidentClose}
     />,
   );
 }

@@ -48,6 +48,7 @@ type IncidentDetailPageProps = {
   onBrowserBackToIncidentList?: () => void;
   onOpenOfflinePackage: () => void;
   onOpenSituationBoard: () => void;
+  onOpenIncidentClose: () => void;
   onOpenLogin?: () => void;
 };
 
@@ -64,6 +65,7 @@ export function IncidentDetailPage({
   onBrowserBackToIncidentList,
   onOpenOfflinePackage,
   onOpenSituationBoard,
+  onOpenIncidentClose,
   onOpenLogin,
 }: IncidentDetailPageProps) {
   useBrowserBackToIncidentList(onBrowserBackToIncidentList);
@@ -79,6 +81,13 @@ export function IncidentDetailPage({
     operationalPeriodQuery.isLoading,
     operationalPeriodQuery.isError,
   );
+  const canOpenIncidentClose = detail?.status === 'OPEN';
+
+  const handleCloseIncident = () => {
+    if (!canOpenIncidentClose) return;
+
+    onOpenIncidentClose();
+  };
 
   return (
     <main className={styles.page}>
@@ -110,9 +119,23 @@ export function IncidentDetailPage({
             <h1>{createPageTitle(detail)}</h1>
             <p>지휘 판단에 필요한 사건 상태, 실종자 정보, 참여 계정을 확인합니다.</p>
           </div>
-          <div className={styles.heroStatusGrid}>
-            <HeroMetric label="진행 상태" value={isClosed ? '종료' : '진행 중'} tone={isClosed ? 'closed' : 'active'} />
-            <HeroMetric label="수색 차수" value={searchRoundLabel} />
+          <div className={styles.heroActions}>
+            <div className={styles.heroStatusGrid}>
+              <HeroMetric
+                label="진행 상태"
+                value={isClosed ? '종료' : '진행 중'}
+                tone={isClosed ? 'closed' : 'active'}
+              />
+              <HeroMetric label="수색 차수" value={searchRoundLabel} />
+            </div>
+            <button
+              type="button"
+              className={styles.closeIncidentButton}
+              disabled={!canOpenIncidentClose}
+              onClick={handleCloseIncident}
+            >
+              {isClosed ? '종료 완료' : '사건 종료'}
+            </button>
           </div>
         </section>
 
@@ -180,8 +203,12 @@ export function IncidentDetailPage({
 function HeroMetric({ label, value, tone }: { label: string; value: string; tone?: 'active' | 'closed' }) {
   return (
     <div className={styles.heroMetric}>
-      <span>
-        {tone === 'active' ? '● ' : ''}
+      <span className={styles.heroMetricLabel}>
+        {tone === 'active' ? (
+          <span className={styles.heroMetricMark} aria-hidden="true">
+            ●
+          </span>
+        ) : null}
         {label}
       </span>
       <strong className={tone === 'active' ? styles.valueActive : tone === 'closed' ? styles.valueClosed : undefined}>

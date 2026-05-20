@@ -73,7 +73,7 @@ export function IncidentClosePage({ incidentId, onBackToIncidents, onOpenLogin }
       <header className={styles.header}>
         <nav className={styles.productNav} aria-label="사건 종료 화면 상단">
           <div className={styles.brand}>
-            <SuriMapLogo className={styles.brandMark} size={26} />
+            <SuriMapLogo className={styles.brandMark} size={39} />
             <div>Suri-Map</div>
           </div>
           <div className={styles.headerCenterTitle} aria-current="page">
