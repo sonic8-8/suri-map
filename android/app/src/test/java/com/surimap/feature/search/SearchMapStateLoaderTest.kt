@@ -977,7 +977,7 @@ class SearchMapStateLoaderTest {
         assertFalse(state.visibleText().any { it == "담당 구역 확인 중" })
         assertTrue(state.assignmentLabel.isBlank())
         assertEquals("담당구역 미배정", state.assignmentDisplayLabel)
-        assertTrue(state.visibleText().contains("담당구역 미배정"))
+        assertFalse(state.visibleText().contains("담당구역 미배정"))
     }
 
     @Test
