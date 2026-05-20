@@ -492,7 +492,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
 ### SC-11 · 인수인계·OP 비교·수색 이력 요약
 
 - **given**: SC-10으로 OP1 구역 완료, OP2 전환 또는 인수인계 메모 저장이 끝난 사건. 초동 대응 케이스에서는 SC-02로 실종팀 인계가 끝났고, OP1에 지구대/파출소 순찰차·팀 업무폰 경로와 메모가 존재한다. Fixture alias 기준으로 OP1 seed 메모는 `memo-precinct-handover-001`이고, SC-11의 OP2 인수인계 메모 write/convergence fixture는 `memo-precinct-op2-001`로 분리한다.
-- **when**: 현장 지휘관이 상황판에서 이미 저장된 OP별 레이어와 인수인계 메모를 비교하고, DutyShift 종료 또는 OP 전환 이후 서버 job으로 생성된 수색 이력 요약을 확인
+- **when**: 현장 지휘관이 Web 상황판에서 이미 저장된 OP별 레이어와 인수인계 메모를 비교하고, DutyShift 종료 또는 OP 전환 이후 서버 job으로 생성된 수색 이력 요약을 확인한다. Android 현장 앱은 근무 교대 인수인계 흐름에서 `DUTY_SHIFT` 범위 요약과 원본 기록만 확인한다.
 - **then**:
   1. OP별 업무폰·순찰차 경로, 차량·도보 구간, 완료 구역, NOTE 마커가 겹쳐 보인다.
   2. 인수인계 메모가 OP·구역·경로 맥락과 함께 표시된다.
@@ -500,6 +500,7 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   4. 수색 이력 요약 실패 시에도 수동 인수인계 메모와 OP 비교 화면은 동작한다.
   5. 실종팀 지휘 계정은 지구대/파출소가 남긴 OP1 경로·마커·메모와 수색 이력 요약을 SC-10에서 완료된 OP2 전환 판단의 사후 검토 자료로 확인할 수 있다.
   6. 수색 이력 요약과 인수인계 메모에서 원본 OP·경로·마커로 되돌아갈 수 있어야 하며, 선택 중인 OP가 화면에서 항상 식별 가능해야 한다.
+  7. Android 하단 네비게이션은 사건·지도·인수인계·미전송 같은 현장 흐름으로 유지하고, OP 요약/OP 비교 전용 top-level destination을 노출하지 않는다.
 - **involved_specs**: S3-2, S1-2, S8, S3-1, S2, S5, S4, S1-1
 - **involved_apis**:
   - `GET /incidents/{incidentId}/board`
@@ -526,14 +527,16 @@ PRD v3의 지구대/파출소 반영은 단순 권한 추가가 아니라 **초�
   - "OP1 구역 완료, OP2 전환, 인수인계 메모 저장 전에는 수색 이력 요약 read 응답이 `GENERATING`/`PENDING_SYNC` 또는 빈 상태로 남고 공개 생성 CTA/API는 열리지 않는다"
   - "수색 이력 요약 생성 후에도 OP 전환 판단 기록은 변경되지 않는다"
   - "앱에서 저장한 인수인계 메모도 OP 비교 화면과 수색 이력 요약 입력 근거에 포함된다"
-  - "앱은 수색 이력 요약을 `GET /operational-periods/{operationalPeriodId}/search-history-summaries`로만 읽고 생성 또는 재시도 CTA를 노출하지 않는다"
+  - "앱은 `DUTY_SHIFT` 범위 수색 이력 요약을 `GET /operational-periods/{operationalPeriodId}/search-history-summaries` 또는 handover timeline read flow로만 읽고 생성 또는 재시도 CTA를 노출하지 않는다"
+  - "Android 하단 네비게이션은 `사건 / 지도 / 인수인계 / 미전송`을 유지하고 `수색 이력`, `OP 요약`, `OP 비교` top-level destination을 노출하지 않는다"
+  - "Android 인수인계 화면은 OP scope 요약을 `이전 근무 요약`으로 fallback 표시하지 않고, OP 정보 요약과 OP 비교는 Web 상황판 지휘 검토 흐름에서 확인한다"
   - "타 팀 지휘 계정 또는 사건 미배정 지휘 계정이 `GET /incidents/{incidentId}/board`을 호출하면 `403 team_not_assigned`를 응답하고 상황판 shell은 OP 상세·경로·마커·메모를 렌더링하지 않는다"
   - "사건에 배정됐지만 현장 지휘관 역할이 없는 팀 계정 또는 순찰차 계정에도 수색 이력 요약 생성 CTA는 노출되지 않으며, 허용된 화면은 read-only summary 상태만 소비한다"
   - "SC-10 완료 산출물 없이 SC-11 수색 이력 요약 시나리오를 실행하면 선행 조건 실패로 처리된다"
   - "수색 이력 요약 실패 시 실패 상태와 원본 기록 확인 안내를 표시하되 클라이언트 재시도 버튼은 노출하지 않고 기존 OP 비교와 인수인계 메모가 계속 표시된다"
   - "인수인계 메모 저장, DutyShift 종료, OP 전환 write와 서버 job의 `SEARCH_HISTORY_SUMMARY_CHANGED` 이벤트는 §0.3 공통 red test에 따라 REST 응답 id/status/version, `event_dispatch_job`, SSE payload, board response handover/search_history_summary row가 같은 메모·요약 상태를 말하고 board response version이 수렴해야 한다"
 - **board_merge**: `op_toggle` slot + `handover_memo` slot + `search_history_summary` slot
-- **notes**: 이 시나리오는 상황판 shell 통합 검증의 중심이다. 특히 초동 대응 OP1을 실종팀이 이어받는 인수인계 흐름을 대표 red test로 둔다. 자동 판단 기능으로 확장하지 않는다.
+- **notes**: 이 시나리오는 상황판 shell 통합 검증의 중심이다. 특히 초동 대응 OP1을 실종팀이 이어받는 인수인계 흐름을 대표 red test로 둔다. OP 정보 요약과 OP 비교는 Web 지휘 검토 기능이며, Android 현장 앱은 DutyShift 인수인계 확인에 집중한다. 자동 판단 기능으로 확장하지 않는다.
 
 ---
 

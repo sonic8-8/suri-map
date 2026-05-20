@@ -38,7 +38,7 @@
   - 인증/폴리폰/FCM token: L2 / S1-2 / S4
   - 오프라인 패키지/지도 tile: L6 / S7
 - ID/PW 로그인, 바인딩 코드 입력, 정상 미전송 큐의 P4 직접 진입, 사건 종료 후 단독 정리 화면은 구현하지 않는다.
-- AI 인수인계 요약 생성 요청은 P6-A 이전 근무 확인 화면의 책임으로만 둔다. P6-B 메모 작성 화면에는 AI 요약 생성 CTA를 두지 않는다.
+- AI 인수인계 요약은 P6-A 이전 근무 확인 화면에서 `DUTY_SHIFT` 범위 read flow로만 표시한다. Android에는 요약 생성/재시도 CTA를 두지 않고, OP 요약/OP 비교 전용 하단 탭이나 top-level route도 두지 않는다.
 - Knox/MDM 같은 운영 기술 용어는 화면 문구에 노출하지 않는다. 사용자 문구는 `관리 폴리폰`, `내부망`, `배정 사건`처럼 현장 언어로 유지한다.
 - INCIDENT_CLOSED는 terminal이다. 모든 사건 컨텍스트 화면에서 P2 자동 이동 + 다이얼로그 + draft 폐기로 수렴한다.
 
@@ -94,6 +94,7 @@
     - root overlay event 전달은 AUI-T02 범위에서 Compose root state holder로 처리한다. `SharedFlow`/EventBus는 실제 WorkManager·FCM 이벤트 연결 task에서 필요성이 확인되면 도입한다.
   - 완료 기준:
     - 8개 route가 mock state로 이동 가능하다.
+    - Android 하단 네비게이션은 현장 흐름인 `사건 / 지도 / 인수인계 / 미전송`을 유지하고, `수색 이력`, `OP 요약`, `OP 비교` route를 top-level destination으로 추가하지 않는다.
     - 사건 컨텍스트가 DataStore에 저장되지 않는다.
     - `cd android && ./gradlew :app:assembleDebug` 통과
   - 완료 증거: Jira `S14P31C106-217`, branch `feature/S14P31C106-217-police-phone-nav-scaffold-state-holder`, RED/GREEN `./gradlew :app:testDebugUnitTest --tests com.surimap.ui.navigation.PolicePhoneNavigationContractTest`, `cd android && ./gradlew :app:assembleDebug`, `cd android && ./gradlew test`
@@ -132,7 +133,8 @@
     | lucide-compose | 보류 | 현재 공통 컴포넌트는 텍스트/기본 Material affordance로 충분하다. 아이콘 밀도가 높아져 접근성 label과 일관 icon set이 필요해질 때 결정한다. | AUI-T07 이후 지도 tool UI에서 재검토 |
   - 현재 문서 충돌 메모:
     - `docs/api/api-spec.md`와 `docs/spec/specs/S8.json` 현재 기준은 search history summary 생성/재시도 CTA를 APP/WEB에 노출하지 않고, duty shift END 또는 OP transition commit 이후 서버 내부 job이 생성한다고 정한다.
-    - 따라서 AUI-T10에서 AI 요약 생성 요청 CTA를 구현하려면, 그 전에 S8/API 기준 문서가 Android client generation request를 허용하도록 먼저 바뀌어야 한다.
+    - Android UI는 `DUTY_SHIFT` 범위 인수인계 요약만 현장 확인 흐름에 표시한다. OP 정보 요약과 OP 비교는 Web 상황판의 지휘 검토 기능이므로 Android 하단 탭 또는 top-level route로 추가하지 않는다.
+    - 따라서 AUI-T10에서 현재 금지된 AI 요약 생성/재시도 CTA 또는 Android OP 요약/OP 비교 top-level route를 구현하려면, 그 전에 S8/API/PRD 기준 문서가 Android client generation request와 OP review 화면을 허용하도록 먼저 바뀌어야 한다.
   - 완료 기준:
     - 각 의존성의 `도입 / 보류 / 대체` 결론이 MR에 남는다.
     - 신규 의존성 추가가 있으면 즉시 `cd android && ./gradlew :app:assembleDebug`가 통과한다.
@@ -306,13 +308,14 @@
   - 시나리오: SC-10, SC-11
   - 필수 참조: `docs/api/api-spec.md`, `docs/spec/specs/S8.json`, `docs/screen-design/artifacts/lo/lo-polifon-duty-handover-v1.html`, `docs/screen-design/artifacts/lo/lo-polifon-handover-memo-v1.html`
   - 구현 산출물:
-    - P6-A 이전 근무 확인: AI 요약 생성/상태 카드, 원본 경로/마커/메모 목록, `자동 처리 중`, `요약 생성 필요`, `원본 확인`, `이전 기록 없음`, `summary_unavailable`
+    - P6-A 이전 근무 확인: `DUTY_SHIFT` 범위 AI 요약 상태 카드, 원본 경로/마커/메모 목록, `자동 처리 중`, `요약 생성 필요`, `원본 확인`, `이전 기록 없음`, `summary_unavailable`
     - P6-B 메모 작성: 대상 탭(OP/경로/구역/근무/마커), 메모 입력, 저장
     - offline 저장 시 outbox pending 상태
     - HandoverPromptBanner 표시 조건: 서버 `current_duty_shift.started_at` > client `last_seen_handover_at`
   - 구현 원칙:
-    - AI 요약 생성 요청 CTA는 P6-A에만 둔다. P6-B 메모 작성 화면에는 두지 않는다.
-    - Android는 on-device AI를 수행하지 않는다. S8/API 계약의 생성 요청 endpoint 또는 상태 조회 endpoint를 소비하고, 없는 endpoint를 임의로 만들지 않는다.
+    - AI 요약 생성/재시도 CTA는 P6-A와 P6-B 모두에 두지 않는다. P6-A는 서버 내부 job이 만든 `DUTY_SHIFT` 범위 요약 상태만 읽는다.
+    - Android는 on-device AI를 수행하지 않는다. S8/API 계약의 handover timeline 또는 search history summary read endpoint만 소비하고, 없는 생성 endpoint를 임의로 만들지 않는다.
+    - OP 정보 요약과 OP 비교는 Web 상황판 지휘 검토 기능이므로 P6-A 또는 하단 네비게이션에서 직접 노출하지 않는다.
   - 완료 기준:
     - 새 근무자가 이전 근무 정보를 확인하는 흐름과 새 메모를 남기는 흐름이 분리된다.
     - P6-B 저장 후 P5 또는 P6-A로 복귀하고 toast가 표시된다.

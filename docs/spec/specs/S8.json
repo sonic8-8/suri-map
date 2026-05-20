@@ -151,7 +151,7 @@
     {
       "id": "FR-39",
       "summary": "OP·경로·마커·구역 상태·인수인계 메모 기반으로 수색 이력을 짧게 요약한다.",
-      "handling": "search history summary는 근무 교대 종료 또는 OP 전환 write가 성공한 뒤 서버 내부 job이 생성한다. APP 근무 교대 종료는 같은 incident/policePhone/op의 앞선 현장 outbox write가 ACKED 또는 FAILED_FINAL/PURGED 상태가 된 뒤 서버로 전송되어야 한다. 서버는 sourceHash/sourceReadiness로 late source row를 감지해 stale 표시와 재생성을 처리한다. 내부 기록 기반 history summary만 생성하고 실패 시 generation_status=FAILED로 남기며 대체 요약 문장을 저장하지 않는다. APP/WEB은 생성된 요약을 read flow로 조회한다."
+      "handling": "search history summary는 근무 교대 종료 또는 OP 전환 write가 성공한 뒤 서버 내부 job이 생성한다. APP 근무 교대 종료는 같은 incident/policePhone/op의 앞선 현장 outbox write가 ACKED 또는 FAILED_FINAL/PURGED 상태가 된 뒤 서버로 전송되어야 한다. 서버는 sourceHash/sourceReadiness로 late source row를 감지해 stale 표시와 재생성을 처리한다. 내부 기록 기반 history summary만 생성하고 실패 시 generation_status=FAILED로 남기며 대체 요약 문장을 저장하지 않는다. APP/WEB은 생성된 요약을 read flow로 조회한다. 제품 표시는 DUTY_SHIFT 범위는 Android 인수인계, OP 범위는 Web 상황판 수색 이력으로 분리하고, Android는 OP 요약/OP 비교를 top-level destination으로 노출하지 않는다."
     }
   ],
   "domain_model": {
@@ -2099,7 +2099,7 @@
         },
         {
           "name": "SearchHistorySummaryReadPanel",
-          "responsibility": "근무 교대/OP 전환 화면에서 생성된 search_history_summary 상태와 안전한 요약을 read-only로 표시"
+          "responsibility": "Android 근무 교대 인수인계 화면에서 DUTY_SHIFT search_history_summary 상태와 안전한 요약을 read-only로 표시하고, OP 정보 요약/OP 비교는 Web 상황판 흐름에 둠"
         }
       ],
       "room_entities": [
@@ -2319,6 +2319,7 @@
       "primaryProvider": "OpenAI API",
       "structuredOutputRequired": true,
       "sourceSnapshotPolicy": "send minimized OP/path/marker/area/handover memo summary board response only; do not send unrelated PII, full raw location stream, or source prompt to clients",
+      "displayPlacementPolicy": "DUTY_SHIFT summary is shown in Android handover read flow. OP summary and OP comparison belong to the Web command/situation-board search history flow, not to Android bottom navigation or top-level destinations.",
       "disallowedPhrases": [
         "다음 구역 추천",
         "누락 확정",
@@ -2344,7 +2345,7 @@
   "edge_cases": [
     "OP1 자동 생성 호출이 중복되어도 incident당 sequenceNumber=1 OP는 하나만 생성된다.",
     "OP2+ 생성 요청 reason이 OTHER인데 reasonMemo와 handoverMemo가 모두 없으면 domain validation으로 거부하되 catalog 밖 public error code를 추가하지 않는다. 표준 field validation error가 필요하면 open issue로 처리한다.",
-    "앱 채널에서 OP 생성 또는 assignment API를 직접 호출하면 channel_not_allowed로 거부한다. search history summary 생성/재시도는 APP/WEB 공개 API가 아니며 생성된 search history summary 조회는 APP read flow로 허용한다.",
+    "앱 채널에서 OP 생성 또는 assignment API를 직접 호출하면 channel_not_allowed로 거부한다. search history summary 생성/재시도는 APP/WEB 공개 API가 아니며 생성된 search history summary 조회는 APP read flow로 허용한다. 다만 Android UI는 DUTY_SHIFT 인수인계 확인에 집중하고 OP 요약/OP 비교를 하단 탭 또는 top-level destination으로 노출하지 않는다.",
     "handover memo targetType=AREA인데 S2에 해당 area가 없거나 incident/op가 다르면 domain validation으로 거부하되 catalog 밖 public error code를 추가하지 않는다.",
     "초동 대응 순찰차는 담당 search_area가 없어도 OP1 assignment 또는 PolicePhone context를 가질 수 있다.",
     "search history summary source board response이 이전 요청과 같으면 idempotency replay 또는 기존 summary 재사용을 허용한다.",
@@ -2352,7 +2353,7 @@
   ],
   "error_handling": {
     "role_denied": "새 OP와 assignment CTA를 숨기고 직접 호출은 403으로 실패시킨다.",
-    "channel_not_allowed": "앱에서는 OP 생성·assignment UI를 노출하지 않고 서버도 해당 write 요청에 403을 반환한다. search history summary 생성/재시도 CTA는 APP/WEB 모두 노출하지 않으며 조회 UI는 APP/WEB read 계약으로 허용한다.",
+    "channel_not_allowed": "앱에서는 OP 생성·assignment UI를 노출하지 않고 서버도 해당 write 요청에 403을 반환한다. search history summary 생성/재시도 CTA는 APP/WEB 모두 노출하지 않으며 조회 UI는 APP/WEB read 계약으로 허용한다. Android 조회 UI는 DUTY_SHIFT 인수인계 확인을 기본 범위로 두고, OP 정보 요약과 OP 비교는 Web 상황판 지휘 검토 화면에 둔다.",
     "summary_unavailable": "앱/웹은 원본 경로·마커·메모와 수동 인수인계 메모를 계속 표시한다. 요약 재생성은 client CTA가 아니라 서버 관리 재시도/재큐잉 정책으로 처리한다.",
     "idempotency_mismatch": "같은 key의 다른 content 재전송을 충돌로 표시하고 새 요청 생성을 유도한다."
   },
@@ -2363,7 +2364,7 @@
       "search history summary 생성은 비동기 처리 가능하되 READY/FAILED 결과 상태가 UI에서 관찰 가능해야 한다."
     ],
     "security": [
-      "OP2+ 생성과 assignment는 Web 현장 지휘관 전용이다. duty shift는 APP 업무폰 흐름에서 수행하고, search history summary 생성은 duty shift END 또는 OP transition commit 이후 서버 내부 job만 수행한다. 생성된 search_history_summary 조회는 APP/WEB 사건 배정 계정에 허용한다.",
+      "OP2+ 생성과 assignment는 Web 현장 지휘관 전용이다. duty shift는 APP 업무폰 흐름에서 수행하고, search history summary 생성은 duty shift END 또는 OP transition commit 이후 서버 내부 job만 수행한다. 생성된 search_history_summary 조회는 APP/WEB 사건 배정 계정에 허용한다. Android에서는 DUTY_SHIFT 인수인계 요약을 현장 확인 흐름에 표시하고, OP 정보 요약과 OP 비교는 Web 상황판 지휘 검토 흐름으로 분리한다.",
       "handover memo는 사건 배정 계정의 APP/WEB 채널에서만 허용한다.",
       "search history summary input은 Suri-Map 내부 OP/path/marker/area/memo 기록으로 제한한다.",
       "OpenAI API 호출에는 최소화된 source board response만 전달하고 source prompt, API key, model secret, raw location stream 전체를 저장하거나 화면에 노출하지 않는다.",
@@ -2479,7 +2480,7 @@
       {
         "name": "SearchHistorySummaryReadOnlyPanelTest",
         "framework": "JUnit5 + Robolectric | Instrumentation",
-        "scenario": "앱 근무 교대/OP 전환 화면은 GET search-history-summaries 결과의 READY/FAILED/GENERATING 상태와 안전한 content만 표시하고 생성/재시도 CTA를 노출하지 않는다."
+        "scenario": "앱 근무 교대 인수인계 화면은 DUTY_SHIFT 범위 GET search-history-summaries 또는 handover timeline 결과의 READY/FAILED/GENERATING 상태와 안전한 content만 표시하고 생성/재시도 CTA 또는 OP 요약/OP 비교 top-level 진입을 노출하지 않는다."
       },
       {
         "name": "DutyShiftEndOutboxBarrierTest",
