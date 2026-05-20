@@ -282,7 +282,10 @@ class S8HandoverApiContractTest {
         .andExpect(jsonPath("$.items[0].incidentId", is(INCIDENT_ID.toString())))
         .andExpect(jsonPath("$.items[0].opId", is(OP_ID.toString())))
         .andExpect(jsonPath("$.items[0].policePhoneId", is(POLICE_PHONE_ID.toString())))
-        .andExpect(jsonPath("$.items[0].status", is("ACTIVE")));
+        .andExpect(jsonPath("$.items[0].policePhoneLabel", is("무등산 현장팀 폴리폰")))
+        .andExpect(jsonPath("$.items[0].status", is("ACTIVE")))
+        .andExpect(jsonPath("$.items[0].startedAt", is(NOW.toString())))
+        .andExpect(jsonPath("$.items[0].endedAt").doesNotExist());
   }
 
   @Test
@@ -445,6 +448,8 @@ class S8HandoverApiContractTest {
         OP_ID,
         INCIDENT_ASSIGNMENT_ID,
         POLICE_PHONE_ID,
+        "PHONE-001",
+        "무등산 현장팀 폴리폰",
         "ACTIVE",
         ACCOUNT_ID,
         null,

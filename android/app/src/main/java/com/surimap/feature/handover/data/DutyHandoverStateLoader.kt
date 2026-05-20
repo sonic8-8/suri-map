@@ -247,13 +247,11 @@ class DutyHandoverStateLoader(
         valid: RequiredHandoverSessionContext,
         context: HandoverSessionContext
     ): List<DutyShiftOptionReadModel> {
-        val policePhoneId = context.policePhoneId?.takeIf(String::isNotBlank) ?: return emptyList()
         val response =
             dutyShifts(
                 DutyShiftQuery(
                     incidentId = valid.incidentId,
-                    opId = valid.opId,
-                    policePhoneId = policePhoneId
+                    opId = valid.opId
                 )
             )
         if (!response.isSuccessful || response.body.isNullOrBlank()) {
@@ -276,6 +274,8 @@ class DutyHandoverStateLoader(
                 val endedAt = item.optString("endedAt").ifBlank { item.optString("endAt") }.toInstantOrNull()
                 val status = item.optString("status").ifBlank { if (endedAt == null) "ACTIVE" else "ENDED" }
                 val current = dutyShiftId == currentDutyShiftId
+                val dutyLabel = dutyShiftLabel(current, endedAt, status)
+                val actorLabel = item.dutyShiftActorLabel()
                 add(
                     DutyShiftOptionReadModel(
                         dutyShiftId = dutyShiftId,
@@ -283,8 +283,10 @@ class DutyHandoverStateLoader(
                         endedAt = endedAt,
                         status = status,
                         current = current,
-                        label = dutyShiftLabel(current, endedAt, status),
-                        subtitle = dutyShiftSubtitle(dutyShiftId, startedAt, endedAt, status)
+                        dutyLabel = dutyLabel,
+                        actorLabel = actorLabel,
+                        label = actorLabel ?: dutyLabel,
+                        subtitle = dutyShiftSubtitle(dutyShiftId, startedAt, endedAt, status, dutyLabel)
                     )
                 )
             }
@@ -605,7 +607,7 @@ class DutyHandoverStateLoader(
         recordScope: HandoverRecordScope = HandoverRecordScope.DutyShift,
         selectedDutyShift: DutyShiftOptionReadModel? = null
     ): String =
-        "$displayOpLabel · ${selectedDutyShift?.label ?: "교대 인수인계"}"
+        "$displayOpLabel · ${selectedDutyShift?.contextLabel ?: "교대 인수인계"}"
 
     private fun HandoverRecordScope.title(selectedDutyShift: DutyShiftOptionReadModel? = null): String =
         if (this == HandoverRecordScope.DutyShift && selectedDutyShift != null) {
@@ -643,7 +645,7 @@ class DutyHandoverStateLoader(
         }
         firstOrNull { option -> option.previous }?.let { return it }
         val current = currentDutyShiftId?.takeIf(String::isNotBlank)
-        return firstOrNull { option -> option.dutyShiftId == current }
+        return firstOrNull { option -> option.dutyShiftId == current } ?: firstOrNull()
     }
 
     private fun List<DutyShiftOptionReadModel>.replayFallbackCandidates(
@@ -759,14 +761,30 @@ class DutyHandoverStateLoader(
         dutyShiftId: String,
         startedAt: Instant?,
         endedAt: Instant?,
-        status: String
+        status: String,
+        dutyLabel: String
     ): String =
         listOf(
+            dutyLabel,
             timeRangeLabel(startedAt?.toString().orEmpty(), endedAt?.toString().orEmpty()),
             status.toDutyShiftStatusLabel()
         ).filter { it.isNotBlank() && it != "시간 없음" }
             .joinToString(" · ")
             .ifBlank { dutyShiftId }
+
+    private fun JSONObject.dutyShiftActorLabel(): String? =
+        optString("policePhoneLabel")
+            .ifBlank { optString("policePhoneDisplayName") }
+            .ifBlank { optString("displayName") }
+            .ifBlank { optString("policePhoneCode") }
+            .ifBlank { optString("phoneCode") }
+            .ifBlank {
+                optString("policePhoneId")
+                    .takeIf(String::isNotBlank)
+                    ?.let { "폴리폰 ${it.takeLast(4)}" }
+                    .orEmpty()
+            }
+            .takeIf(String::isNotBlank)
 
     private fun String.toTimeLabel(): String =
         toInstantOrNull()?.let(TimeFormatter::format) ?: "시간 없음"
@@ -854,10 +872,16 @@ class DutyHandoverStateLoader(
         val endedAt: Instant?,
         val status: String,
         val current: Boolean,
+        val dutyLabel: String,
+        val actorLabel: String?,
         val label: String,
         val subtitle: String
     ) {
         val previous: Boolean = !current && (endedAt != null || status.uppercase() in setOf("ENDED", "END"))
+        val contextLabel: String =
+            listOfNotNull(dutyLabel, actorLabel)
+                .filter(String::isNotBlank)
+                .joinToString(" · ")
     }
 
     private data class SummaryReadModel(

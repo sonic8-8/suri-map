@@ -11,6 +11,8 @@
         <result property="opId" column="operational_period_id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
         <result property="incidentAssignmentId" column="incident_assignment_id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
         <result property="policePhoneId" column="police_phone_id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+        <result property="policePhoneCode" column="police_phone_code"/>
+        <result property="policePhoneDisplayName" column="police_phone_display_name"/>
         <result property="status" column="status"/>
         <result property="startedByAccountId" column="started_by_account_id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
         <result property="endedByAccountId" column="ended_by_account_id" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
@@ -43,16 +45,24 @@
     </insert>
 
     <select id="findById" resultMap="dutyShiftResultMap">
-        SELECT ds.*, op.incident_id
+        SELECT ds.*,
+               op.incident_id,
+               pp.phone_code AS police_phone_code,
+               pp.display_name AS police_phone_display_name
         FROM duty_shift ds
         JOIN operational_period op ON op.id = ds.operational_period_id
+        LEFT JOIN police_phone pp ON pp.id = ds.police_phone_id
         WHERE ds.id = #{id,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
     </select>
 
     <select id="findByFilters" resultMap="dutyShiftResultMap">
-        SELECT ds.*, op.incident_id
+        SELECT ds.*,
+               op.incident_id,
+               pp.phone_code AS police_phone_code,
+               pp.display_name AS police_phone_display_name
         FROM duty_shift ds
         JOIN operational_period op ON op.id = ds.operational_period_id
+        LEFT JOIN police_phone pp ON pp.id = ds.police_phone_id
         LEFT JOIN incident_assignment ia ON ia.id = ds.incident_assignment_id
         WHERE op.incident_id = #{incidentId,typeHandler=com.surimap.config.mybatis.UuidTypeHandler}
         <if test="opId != null">

@@ -618,7 +618,7 @@ private fun DutyShiftSelectorCard(
     if (options.isEmpty()) {
         return
     }
-    ReportSectionCard(title = "근무 구간") {
+    ReportSectionCard(title = "리플레이 근무 선택") {
         options.forEach { option ->
             PoliRow(
                 title = option.label,
