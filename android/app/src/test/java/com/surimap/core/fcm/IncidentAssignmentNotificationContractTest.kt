@@ -36,6 +36,17 @@ class IncidentAssignmentNotificationContractTest {
     }
 
     @Test
+    fun firebaseMessagingServiceRoutesIncidentClosedBeforeAssignmentRefreshFallback() {
+        val source = File("src/main/java/com/surimap/core/fcm/SuriMapFirebaseMessagingService.kt").readText()
+
+        assertTrue(source.contains("IncidentClosedFcmRouter.payload(message.data)"))
+        assertTrue(source.contains("purgeIncidentLocalSync(payload)"))
+        assertTrue(source.contains("IncidentClosedNotification.show(applicationContext, payload)"))
+        assertTrue(source.contains("sendBroadcast(IncidentClosedSignal.intent(packageName, payload))"))
+        assertTrue(source.indexOf("IncidentClosedFcmRouter.payload") < source.indexOf("IncidentAssignmentFcmRouter.refreshPayload"))
+    }
+
+    @Test
     fun rootAppReceivesMarkerAlertBroadcastAsInAppBanner() {
         val source = File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
         val overlaySource = File("src/main/java/com/surimap/ui/AppOverlayHost.kt").readText()
@@ -44,5 +55,16 @@ class IncidentAssignmentNotificationContractTest {
         assertTrue(source.contains("IntentFilter(MarkerAlertSignal.Action)"))
         assertTrue(source.contains("markerAlert = markerAlert"))
         assertTrue(overlaySource.contains("IncidentAlertBanner("))
+    }
+
+    @Test
+    fun rootAppReceivesIncidentClosedBroadcastAndRunsLocalPurge() {
+        val source = File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+
+        assertTrue(source.contains("IncidentClosedEffect("))
+        assertTrue(source.contains("IntentFilter(IncidentClosedSignal.Action)"))
+        assertTrue(source.contains("createIncidentClosedPurgeHook(context, phoneContext)"))
+        assertTrue(source.contains(".handleIncidentClosed("))
+        assertTrue(source.contains("IncidentClosedOverlayState("))
     }
 }

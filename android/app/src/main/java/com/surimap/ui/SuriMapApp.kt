@@ -62,14 +62,16 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.work.WorkManager
 import com.surimap.BuildConfig
+import com.surimap.core.auth.OidcSessionStateStore
 import com.surimap.core.database.OfflinePackageInstallationEntity
 import com.surimap.core.database.OfflinePackageItemStatusEntity
-import com.surimap.core.auth.OidcSessionStateStore
 import com.surimap.core.database.SuriMapDatabaseProvider
 import com.surimap.core.fcm.FcmRegistrationCoordinator
 import com.surimap.core.fcm.FcmTokenProvider
 import com.surimap.core.fcm.FirebaseMessagingTokenProvider
 import com.surimap.core.fcm.IncidentAssignmentRefreshSignal
+import com.surimap.core.fcm.IncidentClosedFcmPayload
+import com.surimap.core.fcm.IncidentClosedSignal
 import com.surimap.core.fcm.MarkerAlertSignal
 import com.surimap.core.fcm.NoFcmTokenProvider
 import com.surimap.core.fcm.SearchAreaBoundaryAlertNotification
@@ -84,6 +86,7 @@ import com.surimap.core.location.GpsLocationFix
 import com.surimap.core.map.MapLibreRuntimeMapState
 import com.surimap.core.map.MapLibreViewportBounds
 import com.surimap.core.marker.MarkerRepository
+import com.surimap.core.network.AndroidNetworkFactory
 import com.surimap.core.network.AuthPhoneApiClient
 import com.surimap.core.network.OutboxRequeueNetworkRequest
 import com.surimap.core.network.SuriMapApiClient
@@ -108,9 +111,11 @@ import com.surimap.core.sync.LocalWarningMonitor
 import com.surimap.core.sync.LocalWarningSignals
 import com.surimap.core.sync.LocalWarningSnapshot
 import com.surimap.core.sync.LocalWarningUiState
+import com.surimap.core.sync.LocalSyncPurgeHookAdapter
 import com.surimap.core.sync.OutboxReplayScheduler
 import com.surimap.core.sync.OutboxReplayWorkRequest
 import com.surimap.core.sync.PackageAvailabilityInputAdapter
+import com.surimap.core.sync.RoomOutboxReplay
 import com.surimap.core.sync.RoomOutboxRequeue
 import com.surimap.core.sync.RoomSyncClient
 import com.surimap.core.sync.SchedulingSyncClient
@@ -304,6 +309,11 @@ fun SuriMapApp() {
     )
     IncidentAssignmentRefreshEffect(onRefresh = { assignmentRefreshNonce += 1 })
     MarkerAlertEffect(onAlert = { markerAlert = it })
+    IncidentClosedEffect(
+        policePhoneContext = incidentSessionState.policePhoneContext,
+        currentIncidentId = incidentSessionState.incidentContext?.incidentId,
+        onClosed = { incidentClosed = it }
+    )
     NotificationPermissionEffect()
 
     Surface(modifier = Modifier.fillMaxSize(), color = PoliBgBase) {
@@ -709,6 +719,104 @@ private fun Intent.toIncidentFcmPayload(): IncidentFcmPayload =
         markerId = getStringExtra(MarkerAlertSignal.ExtraMarkerId),
         locationLabel = getStringExtra(MarkerAlertSignal.ExtraLocationLabel)
     )
+
+@Composable
+private fun IncidentClosedEffect(
+    policePhoneContext: PolicePhoneContext?,
+    currentIncidentId: String?,
+    onClosed: (IncidentClosedOverlayState) -> Unit
+) {
+    val context = LocalContext.current.applicationContext
+    val coroutineScope = rememberCoroutineScope()
+    val currentPolicePhoneContext by rememberUpdatedState(policePhoneContext)
+    val currentIncidentIdState by rememberUpdatedState(currentIncidentId)
+    val currentOnClosed by rememberUpdatedState(onClosed)
+
+    DisposableEffect(context) {
+        val receiver =
+            object : BroadcastReceiver() {
+                override fun onReceive(context: Context, intent: Intent) {
+                    if (intent.action != IncidentClosedSignal.Action) {
+                        return
+                    }
+                    val payload = intent.toIncidentClosedFcmPayload() ?: return
+                    coroutineScope.launch {
+                        val phoneContext = currentPolicePhoneContext
+                        val purgeResult =
+                            if (phoneContext == null) {
+                                null
+                            } else {
+                                runCatching {
+                                    createIncidentClosedPurgeHook(context, phoneContext)
+                                        .handleIncidentClosed(
+                                            incidentId = payload.incidentId,
+                                            policePhoneId = phoneContext.policePhoneId,
+                                            closedAt = payload.closedAt,
+                                            purgeRunId = payload.purgeRunId
+                                        )
+                                }.getOrNull()
+                            }
+                        if (payload.incidentId == currentIncidentIdState) {
+                            currentOnClosed(
+                                IncidentClosedOverlayState(
+                                    hasDraft =
+                                    purgeResult?.retainedCount?.let { it > 0 } == true ||
+                                        purgeResult?.status == "FAILED_RETRYABLE"
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+        ContextCompat.registerReceiver(
+            context,
+            receiver,
+            IntentFilter(IncidentClosedSignal.Action),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+        onDispose {
+            runCatching { context.unregisterReceiver(receiver) }
+        }
+    }
+}
+
+private fun createIncidentClosedPurgeHook(
+    context: Context,
+    policePhoneContext: PolicePhoneContext
+): LocalSyncPurgeHookAdapter {
+    val database = SuriMapDatabaseProvider.database(context)
+    val outboxReplay =
+        RoomOutboxReplay(
+            outboxDao = database.outboxDao(),
+            sender =
+            AndroidNetworkFactory.createOutboxSender(
+                baseUrl = policePhoneContext.apiBaseUrl,
+                accessTokenProvider = policePhoneContext.accessTokenProvider()
+            ),
+            accessRepairAvailable = { !policePhoneContext.accessToken.isNullOrBlank() },
+            enableRetryJitter = !BuildConfig.DEBUG
+        )
+    return LocalSyncPurgeHookAdapter(
+        outboxDao = database.outboxDao(),
+        localWriteDraftDao = database.localWriteDraftDao(),
+        closeDrainReplay = outboxReplay
+    )
+}
+
+private fun Intent.toIncidentClosedFcmPayload(): IncidentClosedFcmPayload? {
+    val incidentId = getStringExtra(IncidentClosedSignal.ExtraIncidentId)?.takeIf(String::isNotBlank)
+        ?: return null
+    val closedAt = getStringExtra(IncidentClosedSignal.ExtraClosedAt)?.takeIf(String::isNotBlank)
+        ?: return null
+    val eventId = getStringExtra(IncidentClosedSignal.ExtraEventId).orEmpty()
+    return IncidentClosedFcmPayload(
+        eventId = eventId,
+        incidentId = incidentId,
+        closedAt = closedAt,
+        purgeRunId = getStringExtra(IncidentClosedSignal.ExtraPurgeRunId)?.takeIf(String::isNotBlank)
+            ?: eventId.ifBlank { "incident-closed:$incidentId:$closedAt" }
+    )
+}
 
 @Composable
 private fun NotificationPermissionEffect() {

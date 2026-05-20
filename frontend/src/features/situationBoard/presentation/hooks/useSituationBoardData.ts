@@ -33,6 +33,7 @@ import {
   toSearchAreaDrafts,
   toSearchAreaRows,
 } from '../utils/searchAreaBoardMapper';
+import { isIncidentTerminalClosed, toIncidentTerminal } from '../utils/incidentTerminalBoardMapper';
 
 type SituationBoardDataState = {
   board: SituationBoardFallbackData;
@@ -85,6 +86,7 @@ export function useSituationBoardData(
     isError: boardQuery.isError,
     isFetching: boardQuery.isFetching,
   });
+  const shouldSubscribeEvents = shouldSubscribeIncidentBoardEvents(apiBoard);
 
   // 외부 refreshVersion 변경 시 board 재조회 (구역 저장 등)
   useEffect(() => {
@@ -95,7 +97,7 @@ export function useSituationBoardData(
 
   // SSE: 도메인 이벤트 수신 시 board 재조회
   useEffect(() => {
-    if (!incidentId || !hasApiBoard) return;
+    if (!incidentId || !hasApiBoard || !shouldSubscribeEvents) return;
 
     let cancelled = false;
     let activeSubscription: { close(): void } | null = null;
@@ -137,7 +139,7 @@ export function useSituationBoardData(
       cancelled = true;
       activeSubscription?.close();
     };
-  }, [incidentId, queryClient, hasApiBoard]);
+  }, [incidentId, queryClient, hasApiBoard, shouldSubscribeEvents]);
 
   useEffect(() => {
     stableApiBoardRef.current = null;
@@ -301,6 +303,13 @@ export function mergeWithPreviousCriticalSlots(
         sourceHashes,
       }
     : current;
+}
+
+export function shouldSubscribeIncidentBoardEvents(board: SituationBoardResponseDto | null) {
+  if (!board) {
+    return false;
+  }
+  return !isIncidentTerminalClosed(toIncidentTerminal(board));
 }
 
 function isMissingSlot(value: unknown) {

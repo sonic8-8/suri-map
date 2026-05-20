@@ -3,6 +3,9 @@
     <string name="notification_incident_assignment_channel">사건 배정</string>
     <string name="notification_incident_assignment_title">사건을 배정받았습니다</string>
     <string name="notification_incident_assignment_text">새 배정 사건을 확인하세요</string>
+    <string name="notification_incident_closed_channel">사건 종료</string>
+    <string name="notification_incident_closed_title">사건이 종료되었습니다</string>
+    <string name="notification_incident_closed_text">종료된 사건에는 더 이상 입력할 수 없습니다.</string>
     <string name="notification_search_area_boundary_channel">담당 구역 경계 안내</string>
     <string name="notification_search_area_boundary_title">담당 구역 경계 확인</string>
     <string name="notification_search_area_boundary_text">GPS 기준 현재 위치가 %1$s 경계 밖으로 표시됩니다. 담당 구역을 확인하세요.</string>
