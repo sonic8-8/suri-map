@@ -230,8 +230,9 @@ private fun DeviceQaScreen(route: DeviceQaRoute) {
             }
             val photoCapture =
                 rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { captured ->
+                    val capturedUri = pendingCameraPhotoUri
                     pendingCameraPhotoUri = null
-                    if (captured) {
+                    if (capturedUri != null && (captured || context.hasReadableQaMarkerPhoto(capturedUri))) {
                         addAttachedQaPhoto("촬영 사진")
                     }
                 }
@@ -455,3 +456,10 @@ private fun android.content.Context.createQaMarkerPhotoCaptureUri(markerId: Stri
         val imageFile = File.createTempFile("qa-marker-$safeMarkerId-", ".jpg", imageDir)
         FileProvider.getUriForFile(this, "$packageName.fileprovider", imageFile)
     }.getOrNull()
+
+private fun android.content.Context.hasReadableQaMarkerPhoto(uri: Uri): Boolean =
+    runCatching {
+        contentResolver.openInputStream(uri)?.use { input ->
+            input.read() >= 0
+        } ?: false
+    }.getOrDefault(false)

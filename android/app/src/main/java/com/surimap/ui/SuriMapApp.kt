@@ -1591,7 +1591,7 @@ private fun SearchMapRoute(
         rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { captured ->
             val capturedUri = pendingCreateCameraPhotoUri
             pendingCreateCameraPhotoUri = null
-            if (captured && capturedUri != null) {
+            if (capturedUri != null && (captured || context.hasReadableMarkerPhoto(capturedUri))) {
                 beginCreatePhotoUpload(capturedUri)
             }
         }
@@ -2130,7 +2130,7 @@ private fun MarkerDetailRoute(
         rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { captured ->
             val capturedUri = pendingCameraPhotoUri
             pendingCameraPhotoUri = null
-            if (captured && capturedUri != null) {
+            if (capturedUri != null && (captured || context.hasReadableMarkerPhoto(capturedUri))) {
                 beginPhotoUpload(capturedUri)
             }
         }
@@ -2837,6 +2837,13 @@ private fun Context.createMarkerPhotoCaptureUri(markerId: String): Uri? =
 
 private fun Context.markerPhotoUploadPayload(markerId: String, uri: Uri): MarkerPhotoUploadPayload? =
     MarkerPhotoPayloadReader.read(this, markerId, uri)
+
+private fun Context.hasReadableMarkerPhoto(uri: Uri): Boolean =
+    runCatching {
+        contentResolver.openInputStream(uri)?.use { input ->
+            input.read() >= 0
+        } ?: false
+    }.getOrDefault(false)
 
 private fun MarkerDetailUiState.upsertPhoto(photo: MarkerDetailPhotoUiState): MarkerDetailUiState =
     copy(photos = photos.filterNot { it.photoId == photo.photoId } + photo)
