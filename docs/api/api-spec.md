@@ -629,8 +629,9 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Owner: S8
 - Public client endpoint: none
 - Product scope labels:
-  - `scopeType=DUTY_SHIFT`: 인수인계 요약. 다음 근무자가 이전 근무 기록을 빠르게 읽도록 정리한다.
-  - `scopeType=OP`: OP 정보 요약. 지휘 화면의 수색 이력에서 해당 OP의 경로·마커·메모 기록을 읽기 쉽게 정리한다.
+  - `scopeType=DUTY_SHIFT`: 인수인계 요약. 다음 근무자가 이전 근무 기록을 빠르게 읽도록 정리하며, Android 현장 앱의 인수인계 화면은 이 범위를 기본 표시한다.
+  - `scopeType=OP`: OP 정보 요약. Web 지휘 화면의 수색 이력에서 해당 OP의 경로·마커·메모 기록을 읽기 쉽게 정리한다. Android 현장 앱의 하단 탭 또는 top-level destination으로 노출하지 않는다.
+- Client placement: APP read 계약은 근무 교대 인수인계와 원본 기록 확인을 위한 것이며, Android에 OP 요약/OP 비교 전용 화면을 추가한다는 의미가 아니다. OP 정보 요약과 OP 비교는 Web 상황판의 지휘 검토 흐름에 둔다.
 - Trigger: server-side after successful handover boundary writes:
   - `PATCH /api/duty-shifts/{dutyShiftId}` with `action=END`
   - `POST /api/operational-periods` when the previous OP is ended and the next OP is opened
