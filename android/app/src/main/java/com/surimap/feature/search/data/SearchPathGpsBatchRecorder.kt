@@ -66,6 +66,21 @@ class SearchPathGpsBatchRecorder(
         return result
     }
 
+    suspend fun flushAll(
+        context: SearchPathWriteContext,
+        searchPathId: String?
+    ): List<SearchPathWriteResult> {
+        val results = mutableListOf<SearchPathWriteResult>()
+        while (true) {
+            val result = flush(context, searchPathId) ?: break
+            results += result
+            if (result !is SearchPathWriteResult.Enqueued) {
+                break
+            }
+        }
+        return results
+    }
+
     fun clear() {
         pending.clear()
         pendingPathId = null

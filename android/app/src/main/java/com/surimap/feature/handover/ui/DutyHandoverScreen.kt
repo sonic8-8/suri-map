@@ -204,20 +204,54 @@ data class DutyHandoverUiState(
         if (endingDutyShift) "종료 등록 중" else "근무 종료"
 
     companion object {
-        fun ready(): DutyHandoverUiState =
-            base(
+        fun ready(): DutyHandoverUiState {
+            val sampleReplayPoints =
+                listOf(
+                    HandoverReplayPointUi(0L, 37.5761, 126.9769),
+                    HandoverReplayPointUi(45_000L, 37.5771, 126.9781),
+                    HandoverReplayPointUi(90_000L, 37.5768, 126.9802),
+                    HandoverReplayPointUi(120_000L, 37.5784, 126.9818)
+                )
+            return base(
                 summaryStatus = SearchHistorySummaryStatus.Ready,
                 generatedAtLabel = "박 순경 근무 기록 기준 · 12:00-14:00 · 서버 처리 완료",
                 summary = "동쪽 능선과 북측 진입로 주변을 도보로 수색했습니다. 배수로 인근 단서 마커 1건과 운영 메모 2건이 남아 있습니다.",
-                sourceReadiness = SummarySourceReadiness.Ready
+                sourceReadiness = SummarySourceReadiness.Ready,
+                replayPoints = sampleReplayPoints,
+                replayPathSegments =
+                listOf(
+                    HandoverReplayPathSegment(
+                        label = "도보 경로 · 동쪽 능선",
+                        timeRangeLabel = "12:07-13:18",
+                        distanceLabel = "1.8km",
+                        modeLabel = "도보",
+                        points = sampleReplayPoints
+                    )
+                ),
+                replayMarkers =
+                listOf(
+                    HandoverReplayMarker(
+                        title = "단서 마커 · 배수로 입구",
+                        timeLabel = "13:36",
+                        typeLabel = "단서",
+                        photoCountLabel = "사진 2장",
+                        elapsedMs = 89_000L,
+                        lat = 37.5768,
+                        lng = 126.9802
+                    )
+                ),
+                replayDurationMs = 120_000L
             )
+        }
 
         fun generating(): DutyHandoverUiState =
             base(
                 summaryStatus = SearchHistorySummaryStatus.Generating,
                 generatedAtLabel = "서버가 이전 근무 기록을 정리하는 중",
                 summary = null,
-                sourceReadiness = SummarySourceReadiness.PendingSync
+                sourceReadiness = SummarySourceReadiness.PendingSync,
+                metrics = emptyList(),
+                records = emptyList()
             )
 
         fun needsSummary(): DutyHandoverUiState =
@@ -225,7 +259,9 @@ data class DutyHandoverUiState(
                 summaryStatus = SearchHistorySummaryStatus.NeedsSummary,
                 generatedAtLabel = "요약 생성 필요 · 서버 handover boundary 대기",
                 summary = null,
-                sourceReadiness = SummarySourceReadiness.Stale
+                sourceReadiness = SummarySourceReadiness.Stale,
+                metrics = emptyList(),
+                records = emptyList()
             )
 
         fun unavailable(): DutyHandoverUiState =
@@ -233,7 +269,9 @@ data class DutyHandoverUiState(
                 summaryStatus = SearchHistorySummaryStatus.Unavailable,
                 generatedAtLabel = "요약을 불러오지 못했습니다 · 원본 기록 유지",
                 summary = null,
-                sourceReadiness = SummarySourceReadiness.Ready
+                sourceReadiness = SummarySourceReadiness.Ready,
+                metrics = emptyList(),
+                records = emptyList()
             )
 
         fun empty(): DutyHandoverUiState =
@@ -263,38 +301,11 @@ data class DutyHandoverUiState(
                     HandoverRecord("단서 마커 · 배수로 입구", "사진 2장 · 작성 13:36", "열기"),
                     HandoverRecord("운영 메모 · 북측 진입로", "주민 진술 대기, 배수로 아래 확인 필요", "열기")
                 ),
-            replayPathSegments: List<HandoverReplayPathSegment>? = null,
-            replayMarkers: List<HandoverReplayMarker>? = null
+            replayPoints: List<HandoverReplayPointUi> = emptyList(),
+            replayPathSegments: List<HandoverReplayPathSegment> = emptyList(),
+            replayMarkers: List<HandoverReplayMarker> = emptyList(),
+            replayDurationMs: Long = 0L
         ): DutyHandoverUiState {
-            val sampleReplayPoints =
-                listOf(
-                    HandoverReplayPointUi(0L, 37.5761, 126.9769),
-                    HandoverReplayPointUi(45_000L, 37.5771, 126.9781),
-                    HandoverReplayPointUi(90_000L, 37.5768, 126.9802),
-                    HandoverReplayPointUi(120_000L, 37.5784, 126.9818)
-                )
-            val displayPathSegments =
-                replayPathSegments ?: listOf(
-                    HandoverReplayPathSegment(
-                        label = "도보 경로 · 동쪽 능선",
-                        timeRangeLabel = "12:07-13:18",
-                        distanceLabel = "1.8km",
-                        modeLabel = "도보",
-                        points = sampleReplayPoints
-                    )
-                )
-            val displayMarkers =
-                replayMarkers ?: listOf(
-                    HandoverReplayMarker(
-                        title = "단서 마커 · 배수로 입구",
-                        timeLabel = "13:36",
-                        typeLabel = "단서",
-                        photoCountLabel = "사진 2장",
-                        elapsedMs = 89_000L,
-                        lat = 37.5768,
-                        lng = 126.9802
-                    )
-                )
             return DutyHandoverUiState(
                 title = "이전 근무 확인",
                 subtitle = "OP 3차 · 교대 인수인계",
@@ -304,10 +315,10 @@ data class DutyHandoverUiState(
                 sourceReadiness = sourceReadiness,
                 metrics = metrics,
                 records = records,
-                replayPoints = sampleReplayPoints,
-                replayPathSegments = displayPathSegments,
-                replayMarkers = displayMarkers,
-                replayControl = HandoverReplayControlUiState(displayDurationMs = 120_000L),
+                replayPoints = replayPoints,
+                replayPathSegments = replayPathSegments,
+                replayMarkers = replayMarkers,
+                replayControl = HandoverReplayControlUiState(displayDurationMs = replayDurationMs),
                 canRequestSummaryGeneration = false
             )
         }

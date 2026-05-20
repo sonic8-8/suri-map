@@ -160,6 +160,7 @@ import com.surimap.feature.marker.data.MarkerDetailSessionContext
 import com.surimap.feature.marker.data.MarkerDetailStateLoader
 import com.surimap.feature.marker.data.MarkerLocation
 import com.surimap.feature.marker.data.MarkerCreatePhotoUploadResult
+import com.surimap.feature.marker.data.MarkerPhotoPayloadReader
 import com.surimap.feature.marker.data.MarkerPhotoUiUploadCoordinator
 import com.surimap.feature.marker.data.MarkerPhotoUploadPayload
 import com.surimap.feature.marker.data.MarkerPhotoUploadResult
@@ -1847,7 +1848,7 @@ private fun SearchMapRoute(
                 coroutineScope.launch {
                     val now = System.currentTimeMillis()
                     val pathId = activeSearchPathId
-                    gpsBatchRecorder.flush(
+                    gpsBatchRecorder.flushAll(
                         context = sessionContext.toSearchPathWriteContext(),
                         searchPathId = pathId
                     )
@@ -2764,14 +2765,7 @@ private fun Context.createMarkerPhotoCaptureUri(markerId: String): Uri? =
     }.getOrNull()
 
 private fun Context.markerPhotoUploadPayload(markerId: String, uri: Uri): MarkerPhotoUploadPayload? =
-    runCatching {
-        val bytes = contentResolver.openInputStream(uri)?.use { input -> input.readBytes() } ?: return null
-        MarkerPhotoUploadPayload(
-            markerId = markerId,
-            contentType = contentResolver.getType(uri) ?: "image/jpeg",
-            bytes = bytes
-        )
-    }.getOrNull()
+    MarkerPhotoPayloadReader.read(this, markerId, uri)
 
 private fun MarkerDetailUiState.upsertPhoto(photo: MarkerDetailPhotoUiState): MarkerDetailUiState =
     copy(photos = photos.filterNot { it.photoId == photo.photoId } + photo)

@@ -80,7 +80,13 @@ class DutyHandoverStateLoader(
             val selectedTimelineDutyShift = timelineSelection.dutyShift
             val dutyShiftId = timelineSelection.dutyShiftId
             val dutyTimeline = timelineSelection.timeline
-            val markedDutyShiftOptions = dutyShiftOptions.markSelected(dutyShiftId)
+            val markedDutyShiftOptions =
+                dutyShiftOptions
+                    .visibleDutyShiftOptions(
+                        currentDutyShiftId = context.dutyShiftId,
+                        selectedDutyShiftId = requestedDutyShiftId
+                    )
+                    .markSelected(dutyShiftId)
             if (dutyTimeline.hasDisplayableEvidence) {
                 val summary = dutyTimeline.summary ?: loadDutyShiftSummary(valid, requireNotNull(dutyShiftId))
                 return summary.toUiState(
@@ -251,16 +257,25 @@ class DutyHandoverStateLoader(
             dutyShifts(
                 DutyShiftQuery(
                     incidentId = valid.incidentId,
-                    opId = valid.opId
+                    opId = valid.opId,
+                    policePhoneId = context.policePhoneId?.takeIf(String::isNotBlank)
                 )
             )
         if (!response.isSuccessful || response.body.isNullOrBlank()) {
             return emptyList()
         }
-        return parseDutyShiftOptions(response.body, context.dutyShiftId)
+        return parseDutyShiftOptions(
+            body = response.body,
+            currentDutyShiftId = context.dutyShiftId,
+            samePhoneScoped = !context.policePhoneId.isNullOrBlank()
+        )
     }
 
-    private fun parseDutyShiftOptions(body: String, currentDutyShiftId: String?): List<DutyShiftOptionReadModel> {
+    private fun parseDutyShiftOptions(
+        body: String,
+        currentDutyShiftId: String?,
+        samePhoneScoped: Boolean
+    ): List<DutyShiftOptionReadModel> {
         val items = parseItems(body)
         return buildList {
             repeat(items.length()) { index ->
@@ -286,7 +301,7 @@ class DutyHandoverStateLoader(
                         dutyLabel = dutyLabel,
                         actorLabel = actorLabel,
                         label = actorLabel ?: dutyLabel,
-                        subtitle = dutyShiftSubtitle(dutyShiftId, startedAt, endedAt, status, dutyLabel)
+                        subtitle = dutyShiftSubtitle(dutyShiftId, startedAt, endedAt, status, dutyLabel, samePhoneScoped)
                     )
                 )
             }
@@ -643,9 +658,9 @@ class DutyHandoverStateLoader(
         if (requested != null) {
             firstOrNull { option -> option.dutyShiftId == requested }?.let { return it }
         }
-        firstOrNull { option -> option.previous }?.let { return it }
         val current = currentDutyShiftId?.takeIf(String::isNotBlank)
-        return firstOrNull { option -> option.dutyShiftId == current } ?: firstOrNull()
+        return firstOrNull { option -> option.dutyShiftId == current }
+            ?: firstOrNull { option -> !option.previous }
     }
 
     private fun List<DutyShiftOptionReadModel>.replayFallbackCandidates(
@@ -659,10 +674,22 @@ class DutyHandoverStateLoader(
                     .firstOrNull { option -> option.dutyShiftId == current }
                     ?.let(::add)
             }
-            addAll(this@replayFallbackCandidates.filter { option -> option.previous })
             addAll(this@replayFallbackCandidates.filter { option -> !option.previous && option.dutyShiftId != current })
         }.distinctBy(DutyShiftOptionReadModel::dutyShiftId)
             .filter { option -> option.dutyShiftId != initialDutyShiftId }
+    }
+
+    private fun List<DutyShiftOptionReadModel>.visibleDutyShiftOptions(
+        currentDutyShiftId: String?,
+        selectedDutyShiftId: String?
+    ): List<DutyShiftOptionReadModel> {
+        val current = currentDutyShiftId?.takeIf(String::isNotBlank)
+        val selected = selectedDutyShiftId?.takeIf(String::isNotBlank)
+        return filter { option ->
+            !option.previous ||
+                option.dutyShiftId == current ||
+                option.dutyShiftId == selected
+        }
     }
 
     private fun List<DutyShiftOptionReadModel>.markSelected(selectedDutyShiftId: String?): List<HandoverDutyShiftOption> =
@@ -762,9 +789,11 @@ class DutyHandoverStateLoader(
         startedAt: Instant?,
         endedAt: Instant?,
         status: String,
-        dutyLabel: String
+        dutyLabel: String,
+        samePhoneScoped: Boolean
     ): String =
         listOf(
+            if (samePhoneScoped) "같은 폴리폰" else "",
             dutyLabel,
             timeRangeLabel(startedAt?.toString().orEmpty(), endedAt?.toString().orEmpty()),
             status.toDutyShiftStatusLabel()
