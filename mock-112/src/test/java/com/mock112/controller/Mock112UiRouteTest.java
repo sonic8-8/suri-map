@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 
 import com.mock112.domain.MockIncident;
 import com.mock112.seed.SeedDataLoader;
+import com.mock112.service.MockIncidentRegistrationService;
 import com.mock112.store.MockIncidentStore;
 import com.mock112.webhook.SuriMapWebhookDispatcher;
 import java.util.List;
@@ -41,9 +42,13 @@ import org.springframework.test.web.servlet.MockMvc;
         controllers = {
             Mock112UiController.class,
             MockScenarioController.class,
-            MockIncidentController.class
+            MockIncidentController.class,
+            AssignableOrganizationController.class
         })
-@Import(com.mock112.config.SecurityConfig.class)
+@Import({
+        com.mock112.config.SecurityConfig.class,
+        com.mock112.assignment.AssignableOrganizationCatalog.class
+})
 class Mock112UiRouteTest {
 
     private final MockMvc mockMvc;
@@ -53,6 +58,9 @@ class Mock112UiRouteTest {
 
     @MockitoBean
     private SeedDataLoader seedDataLoader;
+
+    @MockitoBean
+    private MockIncidentRegistrationService registrationService;
 
     @MockitoBean
     private SuriMapWebhookDispatcher webhookDispatcher;
@@ -77,6 +85,7 @@ class Mock112UiRouteTest {
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("mock 112 관제 시스템")))
                 .andExpect(content().string(containsString("inputInitialAssignmentGroup")))
+                .andExpect(content().string(not(containsString("inputSourceId"))))
                 .andExpect(content().string(containsString("app.js")));
     }
 
@@ -94,13 +103,23 @@ class Mock112UiRouteTest {
         mockMvc.perform(get("/mock-112/app.js").with(oauth2Login()))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("loadIncidents")))
-                .andExpect(content().string(containsString("UNIT_ASSIGNMENT_GROUPS")))
+                .andExpect(content().string(containsString("loadAssignableOrganizations")))
                 .andExpect(content().string(containsString("assignGroup")))
                 .andExpect(content().string(not(containsString("inc.status === 'IMPORTED' ? 'disabled'"))));
 
         mockMvc.perform(get("/mock-112/style.css").with(oauth2Login()))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("mock 112 Admin")));
+    }
+
+    @Test
+    @DisplayName("인증된 사용자는 인증 서버 fixture 기준 배정 가능 조직을 조회할 수 있다")
+    void authenticatedUserCanReadAssignableOrganizations() throws Exception {
+        mockMvc.perform(get("/mock-112/assignable-organizations").with(oauth2Login()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].organizationCode")
+                        .value("GWANGJU_GWANGSAN_SUWAN_PATROL_DIVISION"))
+                .andExpect(jsonPath("$[0].accounts[0].accountCode").value("acct-precinct-cmd"));
     }
 
     @Test

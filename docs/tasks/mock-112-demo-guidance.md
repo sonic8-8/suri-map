@@ -53,6 +53,7 @@ Spring Boot로 만들어도 되고, Node/Express 같은 가벼운 서버로 만�
 - 사건 등록
 - 등록 사건 목록
 - sourceIncidentId 복사
+- 인증 서버 fixture 기준 배정 가능 조직/계정 조회
 - 실종팀 인계 버튼
 - 지원 부대 배정 추가 버튼
 - reset/seed scenario 실행 버튼
@@ -71,6 +72,8 @@ Spring Boot로 만들어도 되고, Node/Express 같은 가벼운 서버로 만�
 - `POST /mock-112/incidents`: 사건 등록
 - `GET /mock-112/incidents?status=READY`: Suri-Map polling 대상 조회
 - `POST /mock-112/incidents/{sourceIncidentId}/assignments`: 인계/지원 배정 추가
+- `GET /mock-112/assignable-organizations`: 배정 가능 조직과 소속 계정 조회
+- `POST /mock-112/incidents/{sourceIncidentId}/assignment-organizations`: 조직 단위 배정 추가
 - `POST /mock-112/scenarios/precinct-first`: 시연용 대표 사건 seed
 - `POST /mock-112/reset`: 시연 상태 초기화
 
@@ -129,6 +132,8 @@ Suri-Map 웹 안에 mock 112 사건 등록 UI를 넣으면 시연자는 편하�
 ## 권장 시연 흐름
 
 1. mock 112 화면에서 배정 사건을 등록한다.
+   - 일반 등록 화면은 `sourceIncidentId`를 입력받지 않는다. mock 112 서버가 UUID 원천 ID와 표시용 사건번호를 만든다.
+   - 사용자는 초기 배정 조직을 선택한다. 예를 들어 수완지구대를 선택하면 해당 조직의 fixture 계정이 일괄 배정된다.
 2. Suri-Map backend가 mock 112를 짧은 주기로 polling한다.
 3. Suri-Map 웹에서 새 배정 사건 도착 상태를 확인한다.
 4. 지휘 계정이 배정 사건 가져오기를 누른다.
@@ -146,6 +151,8 @@ Suri-Map 웹 안에 mock 112 사건 등록 UI를 넣으면 시연자는 편하�
 - 사건 등록 API
 - mock 112 admin 화면
   - 별도 프론트 프로젝트가 아니라 mock 112 서버 내장 화면을 기본으로 한다.
+  - 사람 입력 필드는 제목, 실종자 기본 정보, 초기 배정 조직 중심으로 둔다.
+  - `sourceIncidentId`, `externalAssignmentKey`, 개별 계정 payload는 서버가 생성한다.
 - mock 112 사건 저장소
   - JSON seed, in-memory store, test DB 중 하나
 - source incident 조회 API
@@ -153,6 +160,9 @@ Suri-Map 웹 안에 mock 112 사건 등록 UI를 넣으면 시연자는 편하�
   - 예: `GET /mock-112/incidents/{sourceIncidentId}`
 - 인계/지원 배정 갱신 API
   - 예: `POST /mock-112/incidents/{sourceIncidentId}/assignments`
+  - 운영자 화면은 개별 assignment payload 대신 조직 단위 배정 API를 우선 사용한다.
+- 배정 가능 조직 조회 API
+  - Keycloak realm fixture의 `accountCode`, `organizationCode`, `organizationName`, `displayName`, `accountType` projection을 사용한다.
 - 고정 seed 데이터
   - `sourceIncidentId`
   - 실종자 정보

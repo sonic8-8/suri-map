@@ -1,10 +1,9 @@
 package com.mock112.domain;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
-
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * mock 112 배정 사건 전체 모델.
@@ -16,9 +15,8 @@ import java.util.List;
 public class MockIncident {
 
     private String sourceIncidentId;
+    private String caseNumber;
     private String title;
-
-    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ssXXX")
     private OffsetDateTime openedAt;
 
     private String status; // READY | IMPORTED
@@ -26,8 +24,6 @@ public class MockIncident {
     private MockMissingPerson missingPerson;
     private List<MockAssignment> assignments = new ArrayList<>();
     private List<MockSeedMarker> seedMarkers = new ArrayList<>();
-
-    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ssXXX")
     private OffsetDateTime createdAt;
 
     public MockIncident() {
@@ -39,6 +35,9 @@ public class MockIncident {
 
     public String getSourceIncidentId() { return sourceIncidentId; }
     public void setSourceIncidentId(String sourceIncidentId) { this.sourceIncidentId = sourceIncidentId; }
+
+    public String getCaseNumber() { return caseNumber; }
+    public void setCaseNumber(String caseNumber) { this.caseNumber = caseNumber; }
 
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
@@ -65,8 +64,9 @@ public class MockIncident {
      * 배정을 추가한다. 같은 externalAssignmentKey가 이미 있으면 건너뛴다.
      */
     public boolean addAssignment(MockAssignment assignment) {
+        String externalAssignmentKey = assignment.getExternalAssignmentKey();
         boolean exists = assignments.stream()
-                .anyMatch(a -> a.getExternalAssignmentKey().equals(assignment.getExternalAssignmentKey()));
+                .anyMatch(a -> Objects.equals(a.getExternalAssignmentKey(), externalAssignmentKey));
         if (exists) return false;
         assignments.add(assignment);
         return true;
