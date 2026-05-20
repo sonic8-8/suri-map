@@ -6,20 +6,35 @@ import com.surimap.marker.dto.MarkerNotificationPublishRequestPayload;
 import com.surimap.marker.notification.domain.MarkerNotificationStatus;
 import com.surimap.marker.notification.domain.NotificationRecipients;
 import com.surimap.marker.notification.domain.NotificationType;
+import com.surimap.policephone.PolicePhoneMapper;
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 @Component
 public class NotificationPayloadFactory {
 
   private final ObjectMapper objectMapper;
+  private final PolicePhoneMapper policePhoneMapper;
 
   public NotificationPayloadFactory(ObjectMapper objectMapper) {
+    this(objectMapper, (PolicePhoneMapper) null);
+  }
+
+  @Autowired
+  public NotificationPayloadFactory(
+      ObjectMapper objectMapper, ObjectProvider<PolicePhoneMapper> policePhoneMapperProvider) {
+    this(objectMapper, policePhoneMapperProvider == null ? null : policePhoneMapperProvider.getIfAvailable());
+  }
+
+  private NotificationPayloadFactory(ObjectMapper objectMapper, PolicePhoneMapper policePhoneMapper) {
     this.objectMapper = Objects.requireNonNull(objectMapper);
+    this.policePhoneMapper = policePhoneMapper;
   }
 
   public MarkerNotificationPublishRequestPayload supportRequestPayload(
@@ -62,7 +77,8 @@ public class NotificationPayloadFactory {
         recipients.accountIds(),
         recipients.policePhoneIds(),
         context.markerType().name(),
-        locationLabel(context));
+        locationLabel(context),
+        policePhoneName(context.policePhoneId()));
   }
 
   public String toJson(
@@ -83,6 +99,7 @@ public class NotificationPayloadFactory {
     fields.put("recipientPolicePhoneIds", payload.recipientPolicePhoneIds());
     fields.put("markerType", payload.markerType());
     fields.put("locationLabel", payload.locationLabel());
+    fields.put("policePhoneName", payload.policePhoneName());
     try {
       return objectMapper.writeValueAsString(fields);
     } catch (JsonProcessingException exception) {
@@ -94,5 +111,12 @@ public class NotificationPayloadFactory {
     BigDecimal lon = context.location().coordinates().get(0);
     BigDecimal lat = context.location().coordinates().get(1);
     return lon.toPlainString() + "," + lat.toPlainString();
+  }
+
+  private String policePhoneName(UUID policePhoneId) {
+    if (policePhoneMapper == null || policePhoneId == null) {
+      return null;
+    }
+    return policePhoneMapper.findDisplayNameById(policePhoneId).orElse(null);
   }
 }

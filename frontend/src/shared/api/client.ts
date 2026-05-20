@@ -1,4 +1,4 @@
-import { getApiBaseUrl, getKeycloakIssuerUrl, isLocalDevAccessToken } from '../config';
+import { getApiBaseUrl, getKeycloakIssuerUrl, isLocalDevAccessToken, isLocalDevLoginEnabled } from '../config';
 
 export type ApiErrorBody = {
   error?: string;
@@ -113,7 +113,8 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
       throw new ApiNetworkError(error);
     }
 
-    if (response.status === 401 && !isLocalDevAccessToken(readAuthorizationToken(headers))) {
+    const authorizationToken = readAuthorizationToken(headers);
+    if (response.status === 401 && (!isLocalDevAccessToken(authorizationToken) || !isLocalDevLoginEnabled())) {
       clearExpiredApiSession();
     }
     return parseResponse<TResponse>(response);
@@ -327,7 +328,10 @@ function decodeJwtIssuer(token: string) {
   }
 }
 
-function clearExpiredApiSession() {
+export function clearExpiredApiSession() {
+  for (const storageKey of BROWSER_ACCESS_TOKEN_STORAGE_KEYS) {
+    localStorage.removeItem(storageKey);
+  }
   sessionStorage.removeItem('suriMapAccessToken');
   sessionStorage.removeItem('suriMapIdToken');
   sessionStorage.removeItem('suriMapCurrentAccount');

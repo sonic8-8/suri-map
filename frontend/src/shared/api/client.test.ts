@@ -95,6 +95,27 @@ describe('createApiClient', () => {
 
     await expect(client.get('/incidents')).rejects.toBeInstanceOf(ApiNetworkError);
   });
+
+  it('clears stale browser tokens when the API rejects them with 401', async () => {
+    localStorage.setItem('accessToken', 'stale-access-token');
+    sessionStorage.setItem('suriMapAccessToken', 'stale-session-token');
+    sessionStorage.setItem('suriMapCurrentAccount', JSON.stringify({ id: 'account-1' }));
+
+    const client = createApiClient({
+      baseUrl: '/api',
+      getAccessToken: getStoredAccessToken,
+      fetch: async () => jsonResponse({ error: 'unauthorized' }, { status: 401 }),
+    });
+
+    await expect(client.get('/incidents')).rejects.toMatchObject({
+      status: 401,
+      code: 'unauthorized',
+    });
+
+    expect(localStorage.getItem('accessToken')).toBeNull();
+    expect(sessionStorage.getItem('suriMapAccessToken')).toBeNull();
+    expect(sessionStorage.getItem('suriMapCurrentAccount')).toBeNull();
+  });
 });
 
 describe('stored access tokens', () => {

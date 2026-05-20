@@ -4,6 +4,7 @@ import {
   createMarkerSymbolSvg,
   getNearestMarkerIdAtPoint,
   getRenderedMarkerIdAtPoint,
+  resolveMarkerPhotoBadgeOffset,
   resolveMarkerVisualState,
   syncMarkerElementsWhenAvailable,
 } from './boardMarkerLayer';
@@ -61,8 +62,8 @@ describe('boardMarkerLayer marker visuals', () => {
     ).toBe('marker-near');
   });
 
-  it('maps selected marker state above hover and base', () => {
-    expect(resolveMarkerVisualState('marker-1', 'marker-1', null)).toBe('hover');
+  it('keeps marker visual state click-selected only', () => {
+    expect(resolveMarkerVisualState('marker-1', 'marker-1', null)).toBe('base');
     expect(resolveMarkerVisualState('marker-1', 'marker-1', 'marker-1')).toBe('selected');
     expect(resolveMarkerVisualState('marker-1', 'marker-2', 'marker-3')).toBe('base');
   });
@@ -84,6 +85,25 @@ describe('boardMarkerLayer marker visuals', () => {
     expect(selectedMarkup).toContain('#38bdf8');
     expect(selectedMarkup).toContain('opacity="0.45"');
     expect(selectedMarkup).toContain('M20 44C16.7 39.8 4 29.9 4 18.7C4 10.4 11.1 4 20 4s16 6.4 16 14.7C36 29.9 23.3 39.8 20 44Z');
+  });
+
+  it('keeps the photo badge anchored to the scaled marker upper-right corner', () => {
+    const [zoom8X, zoom8Y] = resolveMarkerPhotoBadgeOffset(8);
+    const [zoom10X, zoom10Y] = resolveMarkerPhotoBadgeOffset(10);
+    const [zoom14X, zoom14Y] = resolveMarkerPhotoBadgeOffset(14);
+    const [zoom17X, zoom17Y] = resolveMarkerPhotoBadgeOffset(17);
+    const [zoom18X, zoom18Y] = resolveMarkerPhotoBadgeOffset(18);
+
+    expect(zoom8X).toBeCloseTo(zoom10X);
+    expect(zoom8Y).toBeCloseTo(zoom10Y);
+    expect(zoom10X).toBeCloseTo(14.2);
+    expect(zoom10Y).toBeCloseTo(-34.16);
+    expect(zoom14X).toBeCloseTo(17.4);
+    expect(zoom14Y).toBeCloseTo(-41.52);
+    expect(zoom17X).toBeCloseTo(20.2);
+    expect(zoom17Y).toBeCloseTo(-47.96);
+    expect(zoom18X).toBeCloseTo(zoom17X);
+    expect(zoom18Y).toBeCloseTo(zoom17Y);
   });
 
   it('updates an existing marker source even while map.loaded() is false', () => {

@@ -46,8 +46,6 @@ type MarkerPopupRefs = {
 };
 
 export type MarkerInteractionHandlers = {
-  onHoverMarker: (markerId: string) => void;
-  onLeaveMarker: () => void;
   onSelectMarker: (markerId: string) => void;
   onCloseSelectedMarker: () => void;
 };
@@ -58,6 +56,15 @@ const MARKER_ICON_PREFIX = 'board-marker';
 const MARKER_ICON_WIDTH = 40;
 const MARKER_ICON_HEIGHT = 46;
 const MARKER_ICON_PIXEL_RATIO = 2;
+const MARKER_ICON_SIZE_STOPS = [
+  { zoom: 10, size: 0.96 },
+  { zoom: 14, size: 1.12 },
+  { zoom: 17, size: 1.26 },
+] as const;
+const MARKER_PHOTO_BADGE_SIZE = 18;
+const MARKER_PHOTO_BADGE_RIGHT_OUTSET = 4;
+const MARKER_PHOTO_BADGE_TOP_INSET = 1;
+type MarkerIconSizeStop = (typeof MARKER_ICON_SIZE_STOPS)[number];
 
 const markerTypeSortOrder: Record<MarkerTypeKey, number> = {
   PERSON_FOUND: 5,
@@ -76,6 +83,7 @@ const markerStateSortOrder: Record<MarkerShellState, number> = {
 
 const markerImagePromises = new WeakMap<maplibregl.Map, Map<string, Promise<void>>>();
 const markerLayerBoundMaps = new WeakMap<maplibregl.Map, Set<string>>();
+const markerPhotoBadgeOffsetBoundMaps = new WeakSet<maplibregl.Map>();
 
 export function clearMarkerElements(markerInstances: MutableRefObject<Map<string, MarkerInstance>>) {
   markerInstances.current.forEach((instance) => {
@@ -132,6 +140,61 @@ function markerSortKey(markerType: MarkerTypeKey, markerState: MarkerShellState)
   return markerStateSortOrder[markerState] + markerTypeSortOrder[markerType];
 }
 
+function resolveMarkerIconScale(zoom: number) {
+  let previousStop: MarkerIconSizeStop = MARKER_ICON_SIZE_STOPS[0];
+
+  if (zoom <= previousStop.zoom) {
+    return previousStop.size;
+  }
+
+  for (const nextStop of MARKER_ICON_SIZE_STOPS.slice(1)) {
+    if (zoom <= nextStop.zoom) {
+      const ratio = (zoom - previousStop.zoom) / (nextStop.zoom - previousStop.zoom);
+      return previousStop.size + (nextStop.size - previousStop.size) * ratio;
+    }
+
+    previousStop = nextStop;
+  }
+
+  return previousStop.size;
+}
+
+export function resolveMarkerPhotoBadgeOffset(zoom: number): [number, number] {
+  const iconScale = resolveMarkerIconScale(zoom);
+
+  return [
+    (MARKER_ICON_WIDTH * iconScale) / 2 + MARKER_PHOTO_BADGE_RIGHT_OUTSET - MARKER_PHOTO_BADGE_SIZE / 2,
+    -(MARKER_ICON_HEIGHT * iconScale) + MARKER_PHOTO_BADGE_TOP_INSET + MARKER_PHOTO_BADGE_SIZE / 2,
+  ];
+}
+
+function syncMarkerPhotoBadgeOffsets(
+  map: maplibregl.Map,
+  markerInstances: MutableRefObject<Map<string, MarkerInstance>>,
+) {
+  const offset = resolveMarkerPhotoBadgeOffset(map.getZoom());
+  markerInstances.current.forEach((instance) => {
+    instance.photoBadge?.setOffset(offset);
+  });
+}
+
+function bindMarkerPhotoBadgeOffsetEvents(
+  map: maplibregl.Map,
+  markerInstances: MutableRefObject<Map<string, MarkerInstance>>,
+) {
+  if (markerPhotoBadgeOffsetBoundMaps.has(map)) {
+    return;
+  }
+
+  const syncOffsets = () => {
+    syncMarkerPhotoBadgeOffsets(map, markerInstances);
+  };
+
+  map.on('zoom', syncOffsets);
+  map.on('zoomend', syncOffsets);
+  markerPhotoBadgeOffsetBoundMaps.add(map);
+}
+
 export function resolveMarkerVisualState(
   markerId: string,
   hoveredMarkerId: string | null,
@@ -139,10 +202,6 @@ export function resolveMarkerVisualState(
 ): MarkerShellState {
   if (markerId === selectedMarkerId) {
     return 'selected';
-  }
-
-  if (markerId === hoveredMarkerId) {
-    return 'hover';
   }
 
   return 'base';
@@ -293,12 +352,6 @@ function createMarkerInteractionTarget(marker: RecentMarker, handlers: MarkerInt
     event.stopPropagation();
     handlers.onSelectMarker(marker.id);
   });
-  target.addEventListener('mouseenter', () => {
-    handlers.onHoverMarker(marker.id);
-  });
-  target.addEventListener('mouseleave', () => {
-    handlers.onLeaveMarker();
-  });
   return target;
 }
 
@@ -358,24 +411,12 @@ function bindMarkerLayerEvents(map: maplibregl.Map, handlers: MarkerInteractionH
       return;
     }
 
-    map.on('mouseenter', layerId, (event) => {
+    map.on('mouseenter', layerId, () => {
       map.getCanvas().style.cursor = 'pointer';
-      const markerId = event.features?.[0]?.properties?.id;
-      if (typeof markerId === 'string') {
-        handlers.onHoverMarker(markerId);
-      }
-    });
-
-    map.on('mousemove', layerId, (event) => {
-      const markerId = event.features?.[0]?.properties?.id;
-      if (typeof markerId === 'string') {
-        handlers.onHoverMarker(markerId);
-      }
     });
 
     map.on('mouseleave', layerId, () => {
       map.getCanvas().style.cursor = '';
-      handlers.onLeaveMarker();
     });
 
     map.on('click', layerId, (event) => {
@@ -469,6 +510,12 @@ export function syncMarkerElements(
     ),
   );
   const visibleMarkerIdSet = new Set(isVisible ? visibleMarkerIds : []);
+  let hasPhotoBadge = false;
+  let photoBadgeOffset: [number, number] | null = null;
+  const getPhotoBadgeOffset = () => {
+    photoBadgeOffset ??= resolveMarkerPhotoBadgeOffset(map.getZoom());
+    return photoBadgeOffset;
+  };
 
   clearMarkerElements(markerInstances);
   markerData.features.forEach((feature) => {
@@ -488,11 +535,12 @@ export function syncMarkerElements(
         ? new maplibregl.Marker({
             element: createMarkerPhotoBadge(marker),
             anchor: 'center',
-            offset: [15, -36],
+            offset: getPhotoBadgeOffset(),
           })
             .setLngLat(marker.coordinates)
             .addTo(map)
         : null;
+    hasPhotoBadge ||= Boolean(photoBadge);
 
     markerInstances.current.set(feature.properties.id, {
       imageKey: feature.properties.iconKey,
@@ -505,6 +553,9 @@ export function syncMarkerElements(
   addMarkerSource(map, markerData);
   setMarkerSourceData(map, markerData);
   bindMarkerLayerEvents(map, handlers);
+  if (hasPhotoBadge) {
+    bindMarkerPhotoBadgeOffsetEvents(map, markerInstances);
+  }
   raiseMarkerLayer(map);
 
   void Promise.all(
@@ -605,25 +656,6 @@ function markerTimeLine(marker: RecentMarker) {
 
 function markerPhotoCountText(marker: RecentMarker) {
   return typeof marker.photoCount === 'number' && marker.photoCount > 0 ? `사진 ${marker.photoCount}장` : null;
-}
-
-function createMarkerHoverTooltip(marker: RecentMarker) {
-  const tooltip = document.createElement('div');
-  tooltip.className = styles.markerTooltip;
-  tooltip.setAttribute('role', 'tooltip');
-
-  const typeName = markerTypeDisplayName(marker);
-  if (typeName) {
-    appendTextElement(tooltip, styles.markerTooltipType, typeName);
-  }
-  appendTextElement(tooltip, styles.markerTooltipTitle, marker.title);
-
-  const meta = [markerTimeLine(marker), markerPhotoCountText(marker)].filter(Boolean).join(' · ');
-  if (meta) {
-    appendTextElement(tooltip, styles.markerTooltipMeta, meta);
-  }
-
-  return tooltip;
 }
 
 function createMarkerClickPopup(marker: RecentMarker, handlers: MarkerInteractionHandlers) {
@@ -750,16 +782,6 @@ export function syncMarkerPopups(
   popupRefs: MarkerPopupRefs,
   handlers: MarkerInteractionHandlers,
 ) {
-  const hoveredMarker =
-    hoveredMarkerId && hoveredMarkerId !== selectedMarkerId
-      ? recentMarkers.find((marker) => marker.id === hoveredMarkerId && marker.coordinates)
-      : undefined;
-
   removeMarkerPopup(popupRefs.selected);
-
-  if (hoveredMarker) {
-    replaceMarkerPopup(map, popupRefs.hover, hoveredMarker, createMarkerHoverTooltip(hoveredMarker), styles.markerMapTooltip);
-  } else {
-    removeMarkerPopup(popupRefs.hover);
-  }
+  removeMarkerPopup(popupRefs.hover);
 }

@@ -13,6 +13,8 @@ public interface PolicePhoneMapper {
 
   Optional<PolicePhoneStateRow> findActiveById(@Param("policePhoneId") UUID policePhoneId);
 
+  Optional<String> findDisplayNameById(@Param("policePhoneId") UUID policePhoneId);
+
   Optional<PolicePhoneAssignmentRow> findActiveAssignmentByPolicePhone(
       @Param("policePhoneId") UUID policePhoneId);
 

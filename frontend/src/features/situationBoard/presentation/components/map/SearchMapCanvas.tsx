@@ -30,7 +30,7 @@ import {
 import {
   applySearchAreaStatuses,
   EMPTY_OPERATIONAL_FEATURE_COLLECTION,
-  createOperationalFeatureCollectionSignature,
+  createOperationalFeatureCollectionBoundsSignature,
   getAssignedSearchAreaBounds,
   getSearchAreaBoundsById,
   resolveInitialMapView,
@@ -163,6 +163,9 @@ type MapMemoTarget = {
   targetType: HandoverMemoTargetType;
   targetId: string;
   opId: string;
+};
+type MapMemoSubmitOptions = {
+  closeComposerOnSuccess?: boolean;
 };
 type InitialMapResolution =
   | { state: 'overall-ready'; bounds: LngLatBoundsLike; overallSearchArea: OperationalFeatureCollection }
@@ -884,6 +887,7 @@ export function SearchMapCanvas({
   const [mapMemoContent, setMapMemoContent] = useState('');
   const [mapMemoSubmitStatus, setMapMemoSubmitStatus] = useState<MapMemoSubmitStatus>('idle');
   const [mapMemoErrorMessage, setMapMemoErrorMessage] = useState('');
+  const [markerMemoOverrides, setMarkerMemoOverrides] = useState<Map<string, string>>(() => new Map());
   const [searchAreaPopupLngLat, setSearchAreaPopupLngLat] = useState<maplibregl.LngLatLike | null>(null);
   const searchAreaPopupOverlayRef = useRef<HTMLDivElement | null>(null);
   const searchAreaPopupSearchAreaIdRef = useRef<string | null>(null);
@@ -907,6 +911,9 @@ export function SearchMapCanvas({
         : null,
     [recentMarkers, selectedMarkerId],
   );
+  const selectedMarkerPopupContent = selectedMarker
+    ? (markerMemoOverrides.get(selectedMarker.id) ?? getMarkerPopupContent(selectedMarker))
+    : null;
   const canCorrectSelectedReferenceMarker = canCorrectReferenceMarker(selectedMarker);
   const selectedMarkerCorrectionStatus =
     referenceMarkerCorrectionState.markerId === selectedMarker?.id ? referenceMarkerCorrectionState.status : 'idle';
@@ -961,14 +968,14 @@ export function SearchMapCanvas({
       ),
     [movementCurrentPositionFeatures, selectedPolicePhoneLegendFilters],
   );
-  const assignedSearchAreasSignature = useMemo(
-    () => createOperationalFeatureCollectionSignature(assignedSearchAreas),
+  const assignedSearchAreasBoundsSignature = useMemo(
+    () => createOperationalFeatureCollectionBoundsSignature(assignedSearchAreas),
     [assignedSearchAreas],
   );
   const assignedSearchAreasRef = useRef(visibleAssignedSearchAreas);
   const movementPathFeaturesRef = useRef(visibleMovementPathFeatures);
   const movementCurrentPositionFeaturesRef = useRef(visibleMovementCurrentPositionFeatures);
-  const fittedSearchAreasSignatureRef = useRef<string | null>(null);
+  const fittedSearchAreasBoundsSignatureRef = useRef<string | null>(null);
 
   useEffect(() => {
     assignedSearchAreasRef.current = visibleAssignedSearchAreas;
@@ -1168,26 +1175,42 @@ export function SearchMapCanvas({
     setMapMemoSubmitStatus('idle');
   }, []);
 
-  const handleSubmitMapMemo = useCallback(async () => {
+  const handleSubmitMapMemo = useCallback(async (options: MapMemoSubmitOptions = {}) => {
     const trimmedContent = mapMemoContent.trim();
     if (!mapMemoTarget || !trimmedContent || mapMemoSubmitStatus === 'saving') {
       return;
     }
 
+    const submittedTarget = mapMemoTarget;
     setMapMemoSubmitStatus('saving');
     setMapMemoErrorMessage('');
     try {
       await handoverApi.createHandoverMemo(
         {
           incidentId,
-          opId: mapMemoTarget.opId,
-          memoTargetType: mapMemoTarget.targetType,
-          memoTargetId: mapMemoTarget.targetId,
+          opId: submittedTarget.opId,
+          memoTargetType: submittedTarget.targetType,
+          memoTargetId: submittedTarget.targetId,
           content: trimmedContent,
           clientTs: new Date().toISOString(),
         },
         createIdempotencyKey('handover-memo'),
       );
+      if (submittedTarget.targetType === 'MARKER') {
+        setMarkerMemoOverrides((currentOverrides) => {
+          const nextOverrides = new Map(currentOverrides);
+          nextOverrides.set(submittedTarget.targetId, trimmedContent);
+          return nextOverrides;
+        });
+      }
+      if (options.closeComposerOnSuccess) {
+        handleCloseMapMemoComposer();
+        void Promise.all([
+          queryClient.invalidateQueries({ queryKey: incidentBoardQueryKeys.detail({ incidentId }) }),
+          queryClient.invalidateQueries({ queryKey: handoverQueryKeys.all }),
+        ]);
+        return;
+      }
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: incidentBoardQueryKeys.detail({ incidentId }) }),
         queryClient.invalidateQueries({ queryKey: handoverQueryKeys.all }),
@@ -1198,16 +1221,14 @@ export function SearchMapCanvas({
       setMapMemoSubmitStatus('error');
       setMapMemoErrorMessage('메모 저장에 실패했습니다.');
     }
-  }, [incidentId, mapMemoContent, mapMemoSubmitStatus, mapMemoTarget, queryClient]);
+  }, [handleCloseMapMemoComposer, incidentId, mapMemoContent, mapMemoSubmitStatus, mapMemoTarget, queryClient]);
 
   const markerInteractionHandlers = useMemo<MarkerInteractionHandlers>(
     () => ({
-      onHoverMarker: handleHoverMarker,
-      onLeaveMarker: handleLeaveMarker,
       onSelectMarker: handleSelectMarker,
       onCloseSelectedMarker: handleCloseSelectedMarker,
     }),
-    [handleCloseSelectedMarker, handleHoverMarker, handleLeaveMarker, handleSelectMarker],
+    [handleCloseSelectedMarker, handleSelectMarker],
   );
 
   useEffect(() => {
@@ -1351,7 +1372,7 @@ export function SearchMapCanvas({
     }
 
     const focusSearchArea = () => {
-      const bounds = getSearchAreaBoundsById(visibleAssignedSearchAreas, focusedSearchAreaId);
+      const bounds = getSearchAreaBoundsById(assignedSearchAreasRef.current, focusedSearchAreaId);
       if (!bounds) {
         return;
       }
@@ -1372,7 +1393,7 @@ export function SearchMapCanvas({
     return () => {
       map.off('load', focusSearchArea);
     };
-  }, [visibleAssignedSearchAreas, focusedSearchAreaId, focusedSearchAreaSequence]);
+  }, [focusedSearchAreaId, focusedSearchAreaSequence]);
 
   useEffect(() => {
     onSelectSearchAreaRef.current = onSelectSearchArea;
@@ -1419,13 +1440,13 @@ export function SearchMapCanvas({
 
     onInitialBoundsReady?.(assignedSearchAreaBounds);
     onInitialMapStateReady?.('overall-ready');
-    if (fittedSearchAreasSignatureRef.current !== assignedSearchAreasSignature) {
-      fittedSearchAreasSignatureRef.current = assignedSearchAreasSignature;
+    if (fittedSearchAreasBoundsSignatureRef.current !== assignedSearchAreasBoundsSignature) {
+      fittedSearchAreasBoundsSignatureRef.current = assignedSearchAreasBoundsSignature;
       map.fitBounds(assignedSearchAreaBounds, { padding: DEFAULT_FIT_PADDING, duration: 420, maxZoom: 15 });
     }
   }, [
     assignedSearchAreas,
-    assignedSearchAreasSignature,
+    assignedSearchAreasBoundsSignature,
     onInitialBoundsReady,
     onInitialMapStateReady,
     visibleAssignedSearchAreas,
@@ -1622,7 +1643,7 @@ export function SearchMapCanvas({
           onInitialBoundsReady?.(initialMapResolution.bounds);
           onInitialMapStateReady?.(initialMapResolution.state);
           if (initialMapResolution.bounds) {
-            fittedSearchAreasSignatureRef.current = createOperationalFeatureCollectionSignature(
+            fittedSearchAreasBoundsSignatureRef.current = createOperationalFeatureCollectionBoundsSignature(
               assignedSearchAreasRef.current,
             );
             map.fitBounds(initialMapResolution.bounds, { padding: DEFAULT_FIT_PADDING, duration: 0, maxZoom: 15 });
@@ -1673,7 +1694,7 @@ export function SearchMapCanvas({
   const isMarkerMemoComposerOpen = Boolean(selectedMarkerMemoKey && selectedMarkerMemoKey === activeMapMemoKey);
   const isMapMemoSaving = mapMemoSubmitStatus === 'saving';
 
-  const renderMapMemoComposer = (targetLabel: string) => (
+  const renderMapMemoComposer = (targetLabel: string, options: MapMemoSubmitOptions = {}) => (
     <div className={styles.mapMemoComposer}>
       <label className={styles.mapMemoField}>
         <span>{targetLabel} 메모</span>
@@ -1698,7 +1719,7 @@ export function SearchMapCanvas({
           className={styles.mapMemoSaveButton}
           disabled={!mapMemoContent.trim() || isMapMemoSaving}
           onClick={() => {
-            void handleSubmitMapMemo();
+            void handleSubmitMapMemo(options);
           }}
         >
           {isMapMemoSaving ? '저장 중' : '저장'}
@@ -1831,8 +1852,8 @@ export function SearchMapCanvas({
                         )}
                       </figure>
                     ) : null}
-                    {getMarkerPopupContent(selectedMarker) ? (
-                      <p className={styles.markerPopupBody}>{getMarkerPopupContent(selectedMarker)}</p>
+                    {selectedMarkerPopupContent ? (
+                      <p className={styles.markerPopupBody}>{selectedMarkerPopupContent}</p>
                     ) : null}
                     <div className={styles.markerPopupDetail}>
                       <div className={styles.markerPopupRow}>
@@ -1857,7 +1878,7 @@ export function SearchMapCanvas({
                         메모 추가
                       </button>
                     </div>
-                    {isMarkerMemoComposerOpen ? renderMapMemoComposer('마커') : null}
+                    {isMarkerMemoComposerOpen ? renderMapMemoComposer('마커', { closeComposerOnSuccess: true }) : null}
                     {canCorrectSelectedReferenceMarker ? (
                       <div className={styles.markerPopupActions}>
                         {selectedMarkerCorrectionStatus === 'editing' ||

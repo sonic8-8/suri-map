@@ -847,6 +847,8 @@ public class DefaultIncidentBoardSourceRowCollector implements IncidentBoardSour
     payload.put("contentType", photo.contentType());
     payload.put("sizeBytes", photo.sizeBytes());
     payload.put("attachedAt", photo.attachedAt());
+    payload.put("photoUrl", photo.photoUrl());
+    payload.put("thumbnailUrl", photo.thumbnailUrl());
     return payload;
   }
 

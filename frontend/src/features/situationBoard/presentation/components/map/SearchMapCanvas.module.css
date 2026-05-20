@@ -409,44 +409,9 @@
   will-change: transform;
 }
 
-.markerTooltip,
 .markerPopup {
   color: #172033;
   pointer-events: auto;
-}
-
-.markerTooltip {
-  display: grid;
-  gap: 2px;
-  width: max-content;
-  max-width: 210px;
-  padding: 7px 9px;
-  border: 1px solid rgba(15, 23, 42, 0.14);
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.18);
-  font-size: 11px;
-  line-height: 1.35;
-  white-space: nowrap;
-}
-
-.markerTooltipType {
-  color: #526071;
-  font-weight: 800;
-}
-
-.markerTooltipTitle {
-  overflow: hidden;
-  max-width: 190px;
-  color: #172033;
-  font-weight: 800;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.markerTooltipMeta {
-  color: #64748b;
-  font-weight: 700;
 }
 
 .markerPopup {

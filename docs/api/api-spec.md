@@ -386,9 +386,9 @@ Field validation 상세 노출 여부는 아직 확정하지 않는다. 현재 s
 - Guard: `public-session`, `incident-read`, `@RecordLocationAccess`
 - Idempotency-Key: no
 - Request: query `incidentId`, optional `opId`, `type`, `status`
-- Response: `200 {incidentId, markers:[{id, incidentId, opId, accountId, policePhoneId, type, supportRequestType, source, status, version, location, memo, occurredAt, photoSummary:[{photoId, status, version, contentType, sizeBytes, attachedAt}]}]}`
+- Response: `200 {incidentId, markers:[{id, incidentId, opId, accountId, policePhoneId, type, supportRequestType, source, status, version, location, memo, occurredAt, photoSummary:[{photoId, status, version, contentType, sizeBytes, attachedAt, photoUrl, thumbnailUrl}]}]}`
 - Errors: `channel_not_allowed`, `incident_access_denied`, `team_not_assigned`
-- Note: 기본 조회는 `ACTIVE`, `UPDATED` marker만 반환한다. `photoSummary`는 `ATTACHED` 사진만 `attachedAt` 오름차순으로 포함한다.
+- Note: 기본 조회는 `ACTIVE`, `UPDATED` marker만 반환한다. `photoSummary`는 `ATTACHED` 사진만 `attachedAt` 오름차순으로 포함한다. `photoUrl`과 `thumbnailUrl`은 S3/MinIO-compatible object storage 조회용 presigned URL이며 만료될 수 있다.
 
 #### POST `/api/markers`
 

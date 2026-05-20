@@ -55,7 +55,9 @@ public record MarkerListResponse(UUID incidentId, List<MarkerResponse> markers) 
       long version,
       String contentType,
       long sizeBytes,
-      Instant attachedAt) {
+      Instant attachedAt,
+      String photoUrl,
+      String thumbnailUrl) {
 
     static MarkerPhotoSummaryResponse from(MarkerPhotoSummary photo) {
       return new MarkerPhotoSummaryResponse(
@@ -64,7 +66,9 @@ public record MarkerListResponse(UUID incidentId, List<MarkerResponse> markers) 
           photo.version(),
           photo.contentType(),
           photo.sizeBytes(),
-          photo.attachedAt());
+          photo.attachedAt(),
+          photo.photoUrl(),
+          photo.thumbnailUrl());
     }
   }
 }

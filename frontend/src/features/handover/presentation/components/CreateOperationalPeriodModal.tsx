@@ -1,4 +1,5 @@
 import { createPortal } from 'react-dom';
+import { Loader2 } from 'lucide-react';
 
 import type { CreateOperationalPeriodReason } from '../../../operationalPeriod/api/operationalPeriodApi';
 import styles from '../pages/HandoverPage.module.css';
@@ -117,6 +118,12 @@ export function CreateOperationalPeriodModal({
             {isCreating ? '여는 중' : '새 OP 열기'}
           </button>
         </div>
+        {isCreating ? (
+          <div className={styles.modalLoadingOverlay} role="status" aria-live="polite">
+            <Loader2 className={styles.modalLoadingIcon} size={44} aria-hidden="true" />
+            <strong>새 OP를 여는 중입니다.</strong>
+          </div>
+        ) : null}
       </section>
     </div>,
     document.body,

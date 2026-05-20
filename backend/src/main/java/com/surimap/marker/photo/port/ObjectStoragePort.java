@@ -12,6 +12,7 @@ import java.util.Optional;
 public interface ObjectStoragePort {
 
   Duration DEFAULT_UPLOAD_TTL = Duration.ofMinutes(15);
+  Duration DEFAULT_VIEW_TTL = Duration.ofMinutes(15);
 
   /**
    * upload-url API가 사용하는 호환 메서드.
@@ -49,6 +50,17 @@ public interface ObjectStoragePort {
    */
   PresignedUploadResult generatePresignedUrl(
       String objectKey, String contentType, long sizeBytes, String checksumSha256, Duration ttl);
+
+  /**
+   * 사진 조회용 presigned URL을 발급한다.
+   *
+   * @param objectKey MinIO-compatible key
+   * @param ttl view URL TTL
+   * @return browser에서 열 수 있는 URL, 구현체가 지원하지 않으면 empty
+   */
+  default Optional<String> generatePresignedViewUrl(String objectKey, Duration ttl) {
+    return Optional.empty();
+  }
 
   /**
    * object가 존재하는지 확인한다.

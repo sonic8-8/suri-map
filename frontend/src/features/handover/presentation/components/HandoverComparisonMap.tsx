@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, type CSSProperties, type MutableRefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject } from 'react';
 import maplibregl, { type GeoJSONSource, type LayerSpecification, type LngLatBoundsLike } from 'maplibre-gl';
 
 import { getVWorldApiKey } from '../../../../shared/config';
@@ -34,7 +34,15 @@ export type HandoverComparisonMapProps = {
   selectedOpIds: string[];
   comparisonHighlightGeometryGeojson?: string | null;
   highlightedSourceRecordKey?: string | null;
+  selectedSourceRecord?: HandoverComparisonMapSelectedRecord | null;
   onToggleMapExpanded?: () => void;
+};
+
+export type HandoverComparisonMapSelectedRecord = {
+  key: string;
+  label: string;
+  meta: string;
+  detail: string;
 };
 
 export type HandoverComparisonMapSharedProps = Omit<
@@ -80,6 +88,7 @@ export function HandoverComparisonMap({
   selectedOpIds,
   comparisonHighlightGeometryGeojson = null,
   highlightedSourceRecordKey = null,
+  selectedSourceRecord = null,
   onToggleMapExpanded = () => {},
 }: HandoverComparisonMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -87,6 +96,8 @@ export function HandoverComparisonMap({
   const boundsRef = useRef<LngLatBoundsLike | null>(null);
   const scheduledFitTimerRef = useRef<number | null>(null);
   const markerInstancesRef = useRef<Map<string, MarkerInstance>>(new Map());
+  const [mapInstance, setMapInstance] = useState<maplibregl.Map | null>(null);
+  const [mapViewportVersion, setMapViewportVersion] = useState(0);
   const isSharedSituationBoardMap = baseMapMode === 'shared-situation-board';
   const surfaceStyle = useMemo<CSSProperties>(() => {
     return {
@@ -115,6 +126,34 @@ export function HandoverComparisonMap({
       ),
     [comparisonHighlightGeometryGeojson, featureCollections, highlightedSourceRecordKey, visibleOverallAreaFeatures],
   );
+  const selectedSourceFeature = useMemo(
+    () =>
+      selectedSourceRecord
+        ? findSourceRecordFeature(selectedSourceRecord.key, visibleOverallAreaFeatures, featureCollections)
+        : null,
+    [featureCollections, selectedSourceRecord, visibleOverallAreaFeatures],
+  );
+  const selectedSourceFallbackBounds = useMemo(
+    () =>
+      selectedSourceRecord && !selectedSourceFeature
+        ? getCollectionsBounds({
+            areas: combineFeatureCollections(visibleOverallAreaFeatures, featureCollections.areas),
+            paths: featureCollections.paths,
+            markers: featureCollections.markers,
+          })
+        : null,
+    [featureCollections, selectedSourceFeature, selectedSourceRecord, visibleOverallAreaFeatures],
+  );
+  const selectedSourceOverlayPoint = useMemo(() => {
+    const map = mapInstance;
+    if (!map || !selectedSourceRecord) return null;
+    const anchor = selectedSourceFeature
+      ? getGeometryAnchor(selectedSourceFeature.geometry)
+      : getBoundsCenter(selectedSourceFallbackBounds);
+    if (!anchor) return null;
+    const point = map.project(anchor);
+    return { x: point.x, y: point.y };
+  }, [mapInstance, mapViewportVersion, selectedSourceFallbackBounds, selectedSourceFeature, selectedSourceRecord]);
   const boardMarkers = useMemo(() => createComparisonBoardMarkers(board, selectedOpIds), [board, selectedOpIds]);
   const visibleMarkerIds = useMemo(() => boardMarkers.map((marker) => marker.id), [boardMarkers]);
   const markerInteractionHandlers = useMemo<MarkerInteractionHandlers>(
@@ -170,12 +209,12 @@ export function HandoverComparisonMap({
   }, []);
 
   const fitToEvidence = useCallback(() => {
-    const map = mapRef.current;
+    const map = mapInstance;
     const bounds = boundsRef.current;
     if (!map || !bounds) return;
 
     fitMapToBounds(map, bounds);
-  }, []);
+  }, [mapInstance]);
 
   useEffect(() => {
     if (externalMap) return;
@@ -198,6 +237,7 @@ export function HandoverComparisonMap({
     }
 
     mapRef.current = map;
+    setMapInstance(map);
     map.once('load', () => {
       if (mapRef.current !== map) return;
       const latestFeatureCollections = featureCollectionsRef.current;
@@ -228,6 +268,7 @@ export function HandoverComparisonMap({
       clearScheduledFit(scheduledFitTimerRef);
       clearMarkerElements(markerInstancesRef);
       mapRef.current = null;
+      setMapInstance(null);
       runMapMutation(() => map.remove(), 'Failed to remove handover comparison map');
     };
   }, [externalMap, markerInteractionHandlers]);
@@ -236,6 +277,7 @@ export function HandoverComparisonMap({
     if (!externalMap) return;
 
     mapRef.current = externalMap;
+    setMapInstance(externalMap);
 
     const initializeExternalLayers = () => {
       if (mapRef.current !== externalMap) return;
@@ -283,11 +325,12 @@ export function HandoverComparisonMap({
         syncComparisonHighlightSource(externalMap, emptyFeatureCollection());
       }, 'Failed to clear external handover comparison layers');
       mapRef.current = null;
+      setMapInstance(null);
     };
   }, [externalMap, markerInteractionHandlers, scheduleFitToEvidence]);
 
   useEffect(() => {
-    const map = mapRef.current;
+    const map = mapInstance;
     if (!map || !map.loaded()) return;
 
     runMapMutation(() => {
@@ -317,6 +360,55 @@ export function HandoverComparisonMap({
     visibleMarkerIds,
     visibleOverallAreaFeatures,
   ]);
+
+  useEffect(() => {
+    const map = mapInstance;
+    if (!map) return;
+
+    const updateViewport = () => setMapViewportVersion((version) => version + 1);
+    map.on('move', updateViewport);
+    map.on('zoom', updateViewport);
+    map.on('resize', updateViewport);
+    updateViewport();
+
+    return () => {
+      map.off('move', updateViewport);
+      map.off('zoom', updateViewport);
+      map.off('resize', updateViewport);
+    };
+  }, [mapInstance]);
+
+  useEffect(() => {
+    const map = mapInstance;
+    if (!map || !selectedSourceFeature) return;
+
+    const bounds = getFeatureBounds(selectedSourceFeature);
+    if (!bounds) return;
+
+    if (selectedSourceFeature.geometry.type === 'Point') {
+      const anchor = getGeometryAnchor(selectedSourceFeature.geometry);
+      if (!anchor) return;
+      runMapMutation(
+        () =>
+          map.easeTo({
+            center: anchor,
+            zoom: Math.max(map.getZoom(), 14),
+            duration: 420,
+          }),
+        'Failed to move to selected source record',
+      );
+      return;
+    }
+
+    fitMapToBounds(map, bounds);
+  }, [mapInstance, selectedSourceFeature]);
+
+  useEffect(() => {
+    const map = mapInstance;
+    if (!map || selectedSourceFeature || !selectedSourceFallbackBounds) return;
+
+    fitMapToBounds(map, selectedSourceFallbackBounds);
+  }, [mapInstance, selectedSourceFallbackBounds, selectedSourceFeature]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -356,7 +448,20 @@ export function HandoverComparisonMap({
           <span>OP를 최대 2개까지 켜면 수색 경로, 구역, 마커가 표시됩니다.</span>
         </aside>
       ) : null}
-
+      {selectedSourceRecord && selectedSourceOverlayPoint ? (
+        <aside
+          className={styles.sourceRecordOverlay}
+          style={{
+            left: `${selectedSourceOverlayPoint.x}px`,
+            top: `${selectedSourceOverlayPoint.y}px`,
+          }}
+          aria-live="polite"
+        >
+          <strong>{selectedSourceRecord.label}</strong>
+          <span>{selectedSourceRecord.meta}</span>
+          <p>{selectedSourceRecord.detail}</p>
+        </aside>
+      ) : null}
     </div>
   );
 }
@@ -634,6 +739,58 @@ function createSourceRecordHighlightFeatureCollection(
         })),
     ),
   };
+}
+
+function findSourceRecordFeature(
+  sourceRecordKey: string,
+  overallAreaFeatures: ComparisonFeatureCollection,
+  collections: ComparisonFeatureCollections,
+) {
+  const [sourceKind, ...sourceIdParts] = sourceRecordKey.split(':');
+  const sourceId = sourceIdParts.join(':');
+  if (!sourceKind || !sourceId) return null;
+
+  const sourceCollections =
+    sourceKind === 'area'
+      ? [overallAreaFeatures, collections.areas]
+      : sourceKind === 'path'
+        ? [collections.paths]
+        : sourceKind === 'marker'
+          ? [collections.markers]
+          : [];
+
+  for (const collection of sourceCollections) {
+    const feature = collection.features.find((item) => String(item.properties.entityId ?? '') === sourceId);
+    if (feature) return feature;
+  }
+
+  return null;
+}
+
+function getFeatureBounds(feature: ComparisonFeatureCollection['features'][number]): LngLatBoundsLike | null {
+  const bounds = new maplibregl.LngLatBounds();
+  extendBounds(bounds, feature.geometry.coordinates);
+  return bounds.isEmpty() ? null : bounds;
+}
+
+function getBoundsCenter(boundsLike: LngLatBoundsLike | null): Position | null {
+  if (!boundsLike) return null;
+  const bounds = maplibregl.LngLatBounds.convert(boundsLike);
+  if (bounds.isEmpty()) return null;
+  const center = bounds.getCenter();
+  return [center.lng, center.lat];
+}
+
+function getGeometryAnchor(geometry: ComparisonFeatureCollection['features'][number]['geometry']): Position | null {
+  if (geometry.type === 'Point') {
+    return geometry.coordinates;
+  }
+
+  const bounds = new maplibregl.LngLatBounds();
+  extendBounds(bounds, geometry.coordinates);
+  if (bounds.isEmpty()) return null;
+  const center = bounds.getCenter();
+  return [center.lng, center.lat];
 }
 
 function parseComparisonGeometry(

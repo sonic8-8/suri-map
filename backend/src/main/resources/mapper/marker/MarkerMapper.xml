@@ -25,6 +25,7 @@
         <constructor>
             <arg column="marker_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
             <arg column="photo_id" javaType="java.util.UUID" typeHandler="com.surimap.config.mybatis.UuidTypeHandler"/>
+            <arg column="object_key" javaType="java.lang.String"/>
             <arg column="status" javaType="java.lang.String"/>
             <arg column="version" javaType="long"/>
             <arg column="content_type" javaType="java.lang.String"/>
@@ -194,6 +195,7 @@
         SELECT
             marker_id,
             id AS photo_id,
+            object_key,
             status,
             version,
             content_type,

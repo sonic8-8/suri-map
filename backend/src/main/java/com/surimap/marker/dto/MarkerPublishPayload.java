@@ -57,4 +57,8 @@ public interface MarkerPublishPayload {
   default String locationLabel() {
     return null;
   }
+
+  default String policePhoneName() {
+    return null;
+  }
 }

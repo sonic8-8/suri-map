@@ -88,6 +88,23 @@ public class S3CompatibleObjectStorageAdapter implements ObjectStoragePort {
   }
 
   @Override
+  public Optional<String> generatePresignedViewUrl(String objectKey, Duration ttl) {
+    int ttlSeconds = ttlSeconds(ttl);
+    try {
+      return Optional.of(
+          presignClient.getPresignedObjectUrl(
+              GetPresignedObjectUrlArgs.builder()
+                  .method(Method.GET)
+                  .bucket(bucket)
+                  .object(requireText(objectKey, "objectKey"))
+                  .expiry(ttlSeconds, TimeUnit.SECONDS)
+                  .build()));
+    } catch (Exception exception) {
+      throw new IllegalStateException("failed to generate object storage view URL", exception);
+    }
+  }
+
+  @Override
   public Optional<ObjectMetadata> headObject(String objectKey) {
     try {
       StatObjectResponse response =

@@ -1,9 +1,11 @@
 package com.surimap.marker.photo.adapter;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 
 import java.time.Duration;
 import org.junit.jupiter.api.DisplayName;
@@ -49,5 +51,15 @@ class MockObjectStorageUploadControllerTest {
               assertThat(metadata.contentType()).isEqualTo("image/jpeg");
               assertThat(metadata.sizeBytes()).isEqualTo(3L);
             });
+
+    mockMvc
+        .perform(
+            get("/mock-upload/{incidentId}/{markerId}/{fileName}",
+                "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaa0001",
+                "4ca60e44-9cfe-410b-8794-2983baac0eac",
+                "photo.jpg"))
+        .andExpect(status().isOk())
+        .andExpect(header().string("X-Mock-Object-Key", objectKey))
+        .andExpect(content().bytes(new byte[] {1, 2, 3}));
   }
 }

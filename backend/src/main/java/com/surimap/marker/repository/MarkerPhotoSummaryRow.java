@@ -8,6 +8,7 @@ import java.util.UUID;
 public record MarkerPhotoSummaryRow(
     UUID markerId,
     UUID photoId,
+    String objectKey,
     String status,
     Long version,
     String contentType,
@@ -16,5 +17,10 @@ public record MarkerPhotoSummaryRow(
 
   public MarkerPhotoSummary toSummary() {
     return new MarkerPhotoSummary(photoId, status, version, contentType, sizeBytes, attachedAt);
+  }
+
+  public MarkerPhotoSummary toSummary(String photoUrl) {
+    return new MarkerPhotoSummary(
+        photoId, status, version, contentType, sizeBytes, attachedAt, photoUrl, photoUrl);
   }
 }

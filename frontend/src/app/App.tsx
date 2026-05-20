@@ -1,4 +1,4 @@
-import { Component, lazy, Suspense, useCallback, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
+import { Component, lazy, Suspense, useCallback, useEffect, useRef, useState, type ErrorInfo, type ReactNode } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { completeKeycloakLogin, logoutCurrentSession, readStoredLoginAccount } from '../features/login/data/login';
@@ -458,6 +458,7 @@ export function App() {
   const [opRefreshVersionByIncidentId, setOpRefreshVersionByIncidentId] = useState<Record<string, number>>({});
   const [markerNotifications, setMarkerNotifications] = useState<MarkerNotification[]>([]);
   const [markerNotificationIndex, setMarkerNotificationIndex] = useState(0);
+  const shownMarkerNotificationIdsRef = useRef<Set<string>>(new Set());
   const loginRedirectPath = readLoginRedirectPath(location.state);
   const loginErrorMessage = readLoginErrorMessage(location.state);
   const loginRedirectState = { from: `${location.pathname}${location.search}${location.hash}` };
@@ -474,6 +475,11 @@ export function App() {
 
   const addMarkerNotification = useCallback((notification: MarkerNotification) => {
     setMarkerNotifications((currentNotifications) => {
+      if (shownMarkerNotificationIdsRef.current.has(notification.id)) {
+        return currentNotifications;
+      }
+
+      shownMarkerNotificationIdsRef.current.add(notification.id);
       const existingIndex = currentNotifications.findIndex((current) => current.id === notification.id);
       if (existingIndex >= 0) {
         setMarkerNotificationIndex(existingIndex);

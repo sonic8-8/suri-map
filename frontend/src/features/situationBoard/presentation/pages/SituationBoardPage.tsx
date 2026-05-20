@@ -129,7 +129,9 @@ export function SituationBoardPage({
   }, [initialSplitParentAreaId, isAreaWorkspaceRoute]);
   const assignmentCandidates = useMemo(
     () =>
-      boardState.incidentDetail && 'assignments' in boardState.incidentDetail ? boardState.incidentDetail.assignments : [],
+      boardState.incidentDetail && 'assignments' in boardState.incidentDetail
+        ? boardState.incidentDetail.assignments
+        : [],
     [boardState.incidentDetail],
   );
   const assignmentDialogSearchArea = findSearchAreaById(boardState.board.searchAreaTree, assignmentDialogSearchAreaId);
@@ -173,12 +175,23 @@ export function SituationBoardPage({
     },
     [boardState],
   );
-  const handleCloseAreaWorkspace = useCallback(() => {
+  const resetAreaLeftPanel = useCallback(() => {
+    setLeftPanelPage('area');
     setAreaPanelMode('tree');
-    setAreaWorkspaceInitialSplitParentId(null);
     setAssignmentDialogSearchAreaId(null);
+  }, []);
+  const handleSaveAreaDrafts = useCallback(
+    (drafts: CompletedAreaDraft[]) => {
+      resetAreaLeftPanel();
+      boardState.saveAssignedAreas(drafts);
+    },
+    [boardState, resetAreaLeftPanel],
+  );
+  const handleCloseAreaWorkspace = useCallback(() => {
+    resetAreaLeftPanel();
+    setAreaWorkspaceInitialSplitParentId(null);
     boardState.closeAreaWorkspace();
-  }, [boardState]);
+  }, [boardState, resetAreaLeftPanel]);
   const handleOpenSelectedSearchAreaSplit = useCallback(() => {
     handleOpenAreaWorkspace(boardState.selectedSearchAreaId);
   }, [boardState.selectedSearchAreaId, handleOpenAreaWorkspace]);
@@ -269,7 +282,7 @@ export function SituationBoardPage({
             onOpenIncidentDetail={onOpenIncidentDetail}
             onOpenIncidentList={onOpenIncidentList}
             onOpenSearchHistory={onOpenSearchHistory}
-            onSaveAssignedAreas={boardState.saveAssignedAreas}
+            onSaveAssignedAreas={handleSaveAreaDrafts}
             onSharedMapPropsChange={boardState.setAreaEditMapProps}
           />
         ) : !isClosedTerminalBoard && boardState.isHandoverWorkspaceOpen ? (

@@ -62,6 +62,9 @@ class MarkerReadServiceTest {
     assertThat(response.markers().get(0).photoSummary())
         .extracting(MarkerListResponse.MarkerPhotoSummaryResponse::photoId)
         .containsExactly(PHOTO_ID);
+    assertThat(response.markers().get(0).photoSummary())
+        .extracting(MarkerListResponse.MarkerPhotoSummaryResponse::photoUrl)
+        .containsExactly("https://photo.example/marker-photo.jpg");
   }
 
   @Test
@@ -103,7 +106,14 @@ class MarkerReadServiceTest {
                   OCCURRED_AT,
                   List.of(
                       new MarkerPhotoSummary(
-                          PHOTO_ID, "ATTACHED", 3L, "image/jpeg", 1024L, ATTACHED_AT)))));
+                          PHOTO_ID,
+                          "ATTACHED",
+                          3L,
+                          "image/jpeg",
+                          1024L,
+                          ATTACHED_AT,
+                          "https://photo.example/marker-photo.jpg",
+                          "https://photo.example/marker-photo.jpg")))));
     }
   }
 }
