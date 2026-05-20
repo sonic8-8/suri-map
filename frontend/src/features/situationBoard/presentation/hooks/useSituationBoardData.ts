@@ -144,6 +144,7 @@ export function useSituationBoardData(
     const apiSearchAreaRows = apiBoard ? toSearchAreaRows(apiBoard) : [];
     const apiOperationalPeriods = apiBoard ? toOperationalPeriods(apiBoard, fallbackBoard.operationalPeriods) : [];
     const activeOperationalPeriodId =
+      apiBoard?.activeOpId ??
       apiOperationalPeriods.find((operationalPeriod) => operationalPeriod.state === 'current')?.id ??
       fallbackBoard.operationalPeriods.find((operationalPeriod) => operationalPeriod.state === 'current')?.id ??
       null;

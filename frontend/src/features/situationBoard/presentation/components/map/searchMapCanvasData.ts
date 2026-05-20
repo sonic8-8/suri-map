@@ -33,6 +33,19 @@ export function createOperationalFeatureCollectionSignature(collection: Operatio
     .join(';');
 }
 
+export function createOperationalFeatureCollectionBoundsSignature(collection: OperationalFeatureCollection): string {
+  return collection.features
+    .map((feature) =>
+      [
+        feature.properties.entityId,
+        feature.properties.areaLevel ?? '',
+        feature.properties.bbox ?? '',
+        JSON.stringify(feature.geometry.coordinates),
+      ].join('|'),
+    )
+    .join(';');
+}
+
 export function toBounds(bbox: [number, number, number, number]): LngLatBoundsLike {
   return [
     [bbox[0], bbox[1]],
