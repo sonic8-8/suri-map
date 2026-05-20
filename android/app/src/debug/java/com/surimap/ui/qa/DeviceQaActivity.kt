@@ -136,7 +136,6 @@ private fun DeviceQaScreen(route: DeviceQaRoute) {
         DeviceQaRoute.SearchMapSynced ->
             SearchMapScreen(
                 state = SearchMapUiState.active(syncStatus = SearchMapSyncStatus.Synced),
-                onBack = {},
                 onPrimaryLifecycleAction = {},
                 onStopSearch = {},
                 onCreateMarker = {},
@@ -147,7 +146,6 @@ private fun DeviceQaScreen(route: DeviceQaRoute) {
                 onOpenFocusedMarkerDetail = {},
                 onCenterCurrentLocation = {},
                 onFocusSearchArea = { _, _ -> },
-                onToggleHeaderPanel = {},
                 onToggleBottomPanel = {},
                 showMapPreview = true
             )
@@ -161,7 +159,6 @@ private fun DeviceQaScreen(route: DeviceQaRoute) {
                     oldestPendingMinutes = 15,
                     blockedOutboxCount = 2
                 ),
-                onBack = {},
                 onPrimaryLifecycleAction = {},
                 onStopSearch = {},
                 onCreateMarker = {},
@@ -172,7 +169,6 @@ private fun DeviceQaScreen(route: DeviceQaRoute) {
                 onOpenFocusedMarkerDetail = {},
                 onCenterCurrentLocation = {},
                 onFocusSearchArea = { _, _ -> },
-                onToggleHeaderPanel = {},
                 onToggleBottomPanel = {},
                 showMapPreview = true
             )
@@ -202,7 +198,6 @@ private fun DeviceQaScreen(route: DeviceQaRoute) {
                 SearchMapUiState.active(
                     incidentAlert = IncidentAlertUiState.personFoundSample()
                 ),
-                onBack = {},
                 onPrimaryLifecycleAction = {},
                 onStopSearch = {},
                 onCreateMarker = {},
@@ -213,7 +208,6 @@ private fun DeviceQaScreen(route: DeviceQaRoute) {
                 onOpenFocusedMarkerDetail = {},
                 onCenterCurrentLocation = {},
                 onFocusSearchArea = { _, _ -> },
-                onToggleHeaderPanel = {},
                 onToggleBottomPanel = {},
                 showMapPreview = true
             )
@@ -333,7 +327,6 @@ private fun LiveSearchMapQaScreen() {
             SearchMapScreen(
                 state = state.searchMapState,
                 mapState = state.mapState,
-                onBack = {},
                 onPrimaryLifecycleAction = {},
                 onStopSearch = {},
                 onCreateMarker = {},
@@ -344,7 +337,6 @@ private fun LiveSearchMapQaScreen() {
                 onOpenFocusedMarkerDetail = {},
                 onCenterCurrentLocation = {},
                 onFocusSearchArea = { _, _ -> },
-                onToggleHeaderPanel = {},
                 onToggleBottomPanel = {},
                 showMapPreview = false
             )

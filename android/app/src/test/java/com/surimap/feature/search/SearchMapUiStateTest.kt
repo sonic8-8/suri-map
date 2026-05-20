@@ -26,7 +26,9 @@ class SearchMapUiStateTest {
         assertTrue(active.canWritePath)
         assertTrue(active.canCreateMarker)
         assertEquals("일시정지", active.primaryActionLabel)
-        assertTrue(active.visibleText().contains("OP 3차"))
+        assertFalse(active.visibleText().contains(active.incidentTitle))
+        assertFalse(active.visibleText().contains(active.opLabel))
+        assertFalse(active.visibleText().contains(active.syncLabel))
         assertTrue(active.visibleText().any { it.contains("마커 생성") })
     }
 
@@ -118,22 +120,50 @@ class SearchMapUiStateTest {
     @Test
     fun mapOverlayControlsUseDesignTokensAndAccessibleToggleCopy() {
         val source = File("src/main/java/com/surimap/feature/search/ui/SearchMapScreen.kt").readText()
+        val mainActivity = File("src/main/java/com/surimap/MainActivity.kt").readText()
+        val appSource = File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+        val handleIndex = source.indexOf("BottomSheetGrabHandle(\n                    expanded = sheetExpanded")
+        val peekIndex = source.indexOf("SearchLifecyclePeekRow(", handleIndex)
 
-        assertTrue(source.contains("TopHeaderCollapsedHeight = PoliDimens.BottomSheetHandleHit"))
-        assertTrue(source.contains("BottomSheetCollapsedHeight = PoliDimens.BottomSheetHandleHit"))
-        assertTrue(source.contains("PoliBgSurface.copy(alpha = MapOverlaySurfaceAlpha)"))
+        assertTrue(mainActivity.contains("SystemBarStyle.dark(Color.TRANSPARENT)"))
+        assertTrue(appSource.contains("contentWindowInsets = WindowInsets(0, 0, 0, 0)"))
+        assertTrue(source.contains("MapStatusBarAppearanceEffect()"))
+        assertTrue(source.contains("controller.isAppearanceLightStatusBars = true"))
+        assertTrue(source.contains("MapToastTopPadding = PoliDimens.Space3"))
+        assertTrue(source.contains("PoliDimens.CtaHeight + PoliDimens.Space6 + PoliDimens.Space5"))
+        assertTrue(source.contains("val mapModifier = Modifier.fillMaxSize()"))
+        assertTrue(source.contains("val mapBottomInset ="))
+        assertTrue(source.contains(".padding(bottom = mapBottomInset)"))
+        assertTrue(source.contains("val currentLocationBottomInset ="))
+        assertTrue(source.contains("mapBottomInset + PoliDimens.TouchGlove + PoliDimens.Space6"))
+        assertTrue(source.contains("bottom = currentLocationBottomInset"))
         assertTrue(source.contains("PoliBgSurface.copy(alpha = MapOverlayButtonAlpha)"))
-        assertTrue(source.contains("size(PoliDimens.BottomSheetHandleHit)"))
-        assertTrue(source.contains("Modifier.size(PoliDimens.TouchMin / 2)"))
+        assertTrue(handleIndex >= 0)
+        assertTrue(peekIndex > handleIndex)
+        assertTrue(source.contains("SearchLifecyclePeekRow("))
+        assertTrue(source.contains("SearchLifecycleMessage(state = state)"))
+        assertTrue(source.contains("onToggleDetails = { toggleBottomPanelFromHandle() }"))
+        assertTrue(source.contains(".height(PoliDimens.Space6)"))
+        assertTrue(source.contains(".width(PoliDimens.BottomSheetHandleWidth)"))
+        assertTrue(source.contains(".height(PoliDimens.BottomSheetHandleHeight)"))
         assertTrue(source.contains("role = Role.Button"))
-        assertTrue(source.contains("\"상단 메뉴 열기\""))
-        assertTrue(source.contains("\"상단 메뉴 접기\""))
-        assertTrue(source.contains("\"수색 기록 패널 열기\""))
-        assertTrue(source.contains("\"수색 기록 패널 접기\""))
-        assertTrue(source.contains("contentDescription = topPanelContentDescription"))
-        assertTrue(source.contains("contentDescription = bottomPanelContentDescription"))
-        assertTrue(source.contains("onClick = { toggleTopPanelFromHandle() }"))
+        assertTrue(source.contains("\"수색 정보 펼치기\""))
+        assertTrue(source.contains("\"수색 정보 접기\""))
         assertTrue(source.contains("onClick = { toggleBottomPanelFromHandle() }"))
+        assertFalse(source.contains("EdgeToggleHandle("))
+        assertFalse(source.contains("R.drawable.ic_panel_up"))
+        assertFalse(source.contains("R.drawable.ic_panel_down"))
+        assertFalse(source.contains("\"상단 메뉴 열기\""))
+        assertFalse(source.contains("\"상단 메뉴 접기\""))
+        assertFalse(source.contains("\"수색 기록 패널 열기\""))
+        assertFalse(source.contains("\"수색 기록 패널 접기\""))
+        assertFalse(source.contains("SearchMapHeader("))
+        assertFalse(source.contains("private fun SearchMapHeader"))
+        assertFalse(source.contains("MapOverlaySurfaceAlpha"))
+        assertFalse(source.contains("add(\"상단 정보 표시\")"))
+        assertFalse(source.contains("add(incidentTitle)"))
+        assertFalse(source.contains("add(opLabel)"))
+        assertFalse(source.contains(".fillMaxSize()\n            .statusBarsPadding()"))
         assertFalse(source.contains("private val FloatingHandleFg"))
         assertFalse(source.contains("color = Color.White,\n        contentColor = PoliFgPrimary"))
         assertFalse(source.contains("tint = Color.Unspecified"))
@@ -159,7 +189,7 @@ class SearchMapUiStateTest {
     }
 
     @Test
-    fun searchMapHeaderTextShowsAssignmentWithoutDutyShiftIdentifier() {
+    fun searchMapKeepsAssignmentLabelOutOfMapChrome() {
         val assigned =
             SearchMapUiState.active().copy(
                 dutyShiftLabel = "DutyShift 00000000-0000-0000-0000-000000000101",
@@ -172,10 +202,10 @@ class SearchMapUiStateTest {
             )
 
         assertEquals("A팀 담당 구역", assigned.assignmentDisplayLabel)
-        assertTrue(assigned.visibleText().contains("A팀 담당 구역"))
+        assertFalse(assigned.visibleText().contains("A팀 담당 구역"))
         assertFalse(assigned.visibleText().any { it.contains("DutyShift") })
         assertEquals("담당구역 미배정", unassigned.assignmentDisplayLabel)
-        assertTrue(unassigned.visibleText().contains("담당구역 미배정"))
+        assertFalse(unassigned.visibleText().contains("담당구역 미배정"))
     }
 
     @Test
@@ -236,7 +266,6 @@ class SearchMapUiStateTest {
     fun markerFocusDeeplinkHighlightsTargetMarkerWithoutChangingWriteAvailability() {
         val state =
             SearchMapUiState.active().copy(
-                topHeaderExpanded = true,
                 layers =
                 listOf(
                     SearchMapLayerUiState(
@@ -264,7 +293,6 @@ class SearchMapUiStateTest {
     fun liveMarkerLayerWithoutFcmFocusCanOpenMarkerDetail() {
         val state =
             SearchMapUiState.active().copy(
-                topHeaderExpanded = true,
                 layers =
                     listOf(
                         SearchMapLayerUiState(
@@ -284,7 +312,6 @@ class SearchMapUiStateTest {
     fun mapChromeCanCollapsePanelWithoutExtraInfoToggle() {
         val state =
             SearchMapUiState.active().copy(
-                topHeaderExpanded = true,
                 bottomPanelExpanded = false,
                 mapOverlaysVisible = false
             )
@@ -297,7 +324,7 @@ class SearchMapUiStateTest {
         assertTrue(state.visibleText().contains("부대 수색구역"))
         assertTrue(state.visibleText().contains("팀 담당구역"))
         assertTrue(state.visibleText().contains("마커"))
-        assertFalse(state.visibleText().contains("일시정지"))
+        assertTrue(state.visibleText().contains("일시정지"))
         assertFalse(state.visibleText().contains("종료"))
         assertFalse(state.visibleText().contains("인수인계"))
         assertFalse(state.visibleText().contains("마커 생성"))
@@ -307,7 +334,6 @@ class SearchMapUiStateTest {
     fun mapOverlayActionsStayVisibleEvenWhenIncidentHasNoAreaOrMarkerGeometry() {
         val state =
             SearchMapUiState.active().copy(
-                topHeaderExpanded = true,
                 layers = emptyList(),
                 mapOverlaysVisible = true
             )
@@ -326,7 +352,6 @@ class SearchMapUiStateTest {
     fun searchAreaButtonsRecenterViewportAndClearMarkerFocus() {
         val state =
             SearchMapUiState.active().copy(
-                topHeaderExpanded = true,
                 focusedMarkerId = MARKER_ID,
                 layers =
                     listOf(
@@ -376,7 +401,6 @@ class SearchMapUiStateTest {
     fun multipleUnitAndTeamAreasExposeSelectableTargets() {
         val state =
             SearchMapUiState.active().copy(
-                topHeaderExpanded = true,
                 layers =
                     listOf(
                         SearchMapLayerUiState(

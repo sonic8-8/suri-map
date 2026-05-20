@@ -19,6 +19,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -337,6 +338,7 @@ fun SuriMapApp() {
             Scaffold(
                 modifier = Modifier.fillMaxSize(),
                 containerColor = PoliBgBase,
+                contentWindowInsets = WindowInsets(0, 0, 0, 0),
                 bottomBar = {
                     if (showIncidentBottomNavigation) {
                         IncidentBottomNavigationBar(
@@ -1292,7 +1294,6 @@ private fun SearchMapRoute(
         mutableStateOf(context.readLastSeenHandoverAt(sessionContext))
     }
     var bottomPanelExpanded by remember { mutableStateOf(false) }
-    var topHeaderExpanded by remember { mutableStateOf(false) }
     val debugCurrentLocationFix = remember { debugCurrentLocationFix() }
     var latestLocationFix by remember { mutableStateOf(debugCurrentLocationFix) }
     var latestGpsLocationFix by remember { mutableStateOf<GpsLocationFix?>(null) }
@@ -1528,7 +1529,6 @@ private fun SearchMapRoute(
         searchMapState.copy(
             lifecycleStatus = displayedLifecycle,
             elapsedLabel = recordingSession.elapsedLabel(elapsedTickerNowMs),
-            topHeaderExpanded = topHeaderExpanded,
             bottomPanelExpanded = bottomPanelExpanded,
             handoverPrompt = handoverPromptState,
             localWarnings = LocalWarningUiState.from(localWarningSnapshot)
@@ -1687,7 +1687,6 @@ private fun SearchMapRoute(
         SearchMapScreen(
             state = displayedSearchMapState,
             mapState = policePhoneContext.toMapLibreRuntimeMapState(),
-            onBack = { navController.popBackStack() },
             onPrimaryLifecycleAction = {
                 coroutineScope.launch {
                     val now = System.currentTimeMillis()
@@ -1794,7 +1793,6 @@ private fun SearchMapRoute(
             onFocusSearchArea = { kind, overlayId ->
                 searchMapState = searchMapState.centerOnSearchLayer(kind, overlayId)
             },
-            onToggleHeaderPanel = { topHeaderExpanded = !topHeaderExpanded },
             onToggleBottomPanel = { bottomPanelExpanded = !bottomPanelExpanded }
         )
         if (markerSheetOpen) {
