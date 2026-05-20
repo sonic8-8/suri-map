@@ -14,6 +14,13 @@ export function OverflowTooltipText({ as = 'span', className, value }: OverflowT
   const [isOverflowing, setIsOverflowing] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState<{ left: number; top: number } | null>(null);
 
+  const measureOverflowState = () => {
+    const element = textRef.current;
+    if (!element) return false;
+
+    return element.scrollWidth > element.clientWidth + 1 || element.scrollHeight > element.clientHeight + 1;
+  };
+
   const updateTooltipPosition = () => {
     const element = textRef.current;
     if (!element) return;
@@ -28,11 +35,7 @@ export function OverflowTooltipText({ as = 'span', className, value }: OverflowT
 
   useEffect(() => {
     const updateOverflowState = () => {
-      const element = textRef.current;
-      if (!element) return;
-
-      const nextIsOverflowing =
-        element.scrollWidth > element.clientWidth + 1 || element.scrollHeight > element.clientHeight + 1;
+      const nextIsOverflowing = measureOverflowState();
       setIsOverflowing((current) => (current === nextIsOverflowing ? current : nextIsOverflowing));
     };
 
@@ -56,7 +59,9 @@ export function OverflowTooltipText({ as = 'span', className, value }: OverflowT
   }, [tooltipPosition]);
 
   const showTooltip = () => {
-    if (!isOverflowing) return;
+    const nextIsOverflowing = measureOverflowState();
+    setIsOverflowing((current) => (current === nextIsOverflowing ? current : nextIsOverflowing));
+    if (!nextIsOverflowing) return;
     updateTooltipPosition();
   };
 
