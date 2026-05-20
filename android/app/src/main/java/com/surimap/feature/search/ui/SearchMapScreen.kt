@@ -622,7 +622,6 @@ private fun LocalWarningBannerView(
         text = "${warning.title}\n${warning.message}",
         variant =
         when (warning.code) {
-            LocalWarningCode.GPS_STOPPED,
             LocalWarningCode.BATTERY_LOW,
             LocalWarningCode.OFFLINE_RECORDING,
             LocalWarningCode.PACKAGE_MISSING,

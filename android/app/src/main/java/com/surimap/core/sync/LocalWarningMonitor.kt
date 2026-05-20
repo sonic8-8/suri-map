@@ -1,7 +1,6 @@
 package com.surimap.core.sync
 
 enum class LocalWarningCode {
-    GPS_STOPPED,
     BATTERY_LOW,
     OFFLINE_RECORDING,
     PACKAGE_MISSING,
@@ -45,9 +44,6 @@ object PackageAvailabilityInputAdapter {
 
 data class LocalWarningSignals(
     val nowMs: Long,
-    val gpsProviderEnabled: Boolean,
-    val gpsStoppedSinceMs: Long?,
-    val lastGpsFixAgeMs: Long?,
     val batteryPercent: Int,
     val batteryCharging: Boolean,
     val packageAvailability: PackageAvailability,
@@ -64,16 +60,11 @@ fun interface LocalWarningServerRoundTrip {
 }
 
 class LocalWarningMonitor(@Suppress("unused") private val serverRoundTrip: LocalWarningServerRoundTrip? = null) {
-    private var gpsFreshFixCount = 0
-    private var gpsStoppedActive = false
     private var batteryLowActive = false
     private var outboxBacklogActive = false
 
     fun evaluate(signals: LocalWarningSignals): LocalWarningSnapshot {
         val activeWarnings = buildSet {
-            if (isGpsStopped(signals)) {
-                add(LocalWarningCode.GPS_STOPPED)
-            }
             if (isBatteryLow(signals)) {
                 add(LocalWarningCode.BATTERY_LOW)
             }
@@ -89,33 +80,6 @@ class LocalWarningMonitor(@Suppress("unused") private val serverRoundTrip: Local
         }
 
         return LocalWarningSnapshot(activeWarnings = activeWarnings)
-    }
-
-    private fun isGpsStopped(signals: LocalWarningSignals): Boolean {
-        val freshFix =
-            signals.gpsProviderEnabled &&
-                (signals.lastGpsFixAgeMs ?: Long.MAX_VALUE) <= GPS_CLEAR_MAX_FIX_AGE_MS
-        gpsFreshFixCount = if (freshFix) gpsFreshFixCount + 1 else 0
-        if (gpsFreshFixCount >= GPS_CLEAR_CONSECUTIVE_FIXES) {
-            gpsStoppedActive = false
-            return false
-        }
-
-        gpsStoppedActive = when {
-            !signals.gpsProviderEnabled -> {
-                val stoppedSince = signals.gpsStoppedSinceMs ?: signals.nowMs
-                signals.nowMs - stoppedSince >= GPS_STOPPED_RAISE_AFTER_MS
-            }
-
-            gpsStoppedActive -> true
-
-            else -> {
-                val lastFixAge = signals.lastGpsFixAgeMs ?: Long.MAX_VALUE
-                lastFixAge >= GPS_STOPPED_RAISE_AFTER_MS
-            }
-        }
-
-        return gpsStoppedActive
     }
 
     private fun isBatteryLow(signals: LocalWarningSignals): Boolean {
@@ -159,9 +123,6 @@ class LocalWarningMonitor(@Suppress("unused") private val serverRoundTrip: Local
     }
 
     private companion object {
-        const val GPS_STOPPED_RAISE_AFTER_MS = 15_000L
-        const val GPS_CLEAR_CONSECUTIVE_FIXES = 2
-        const val GPS_CLEAR_MAX_FIX_AGE_MS = 10_000L
         const val BATTERY_RAISE_BELOW_PERCENT = 20
         const val BATTERY_CLEAR_AT_PERCENT = 25
         const val OFFLINE_RECORDING_RAISE_AFTER_MS = 60_000L
@@ -190,12 +151,6 @@ data class LocalWarningUiState(val banners: List<LocalWarningBanner>) {
 data class LocalWarningBanner(val code: LocalWarningCode, val title: String, val message: String)
 
 private fun LocalWarningCode.toBanner(): LocalWarningBanner = when (this) {
-    LocalWarningCode.GPS_STOPPED -> LocalWarningBanner(
-        code = this,
-        title = "GPS 신호 중단",
-        message = "위치 신호가 일정 시간 들어오지 않았습니다. 단말 위치 설정을 확인하세요."
-    )
-
     LocalWarningCode.BATTERY_LOW -> LocalWarningBanner(
         code = this,
         title = "배터리 부족",

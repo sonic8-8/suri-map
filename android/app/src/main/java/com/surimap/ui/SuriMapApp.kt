@@ -8,7 +8,6 @@ import android.content.ContextWrapper
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
-import android.location.LocationManager
 import android.net.Uri
 import android.os.BatteryManager
 import android.os.Build
@@ -1645,16 +1644,12 @@ private fun SearchMapRoute(
     val currentAssignedBoundaries by rememberUpdatedState(displayedSearchMapState.assignedTeamSearchAreaBoundaries())
 
     LaunchedEffect(
-        displayedLifecycle,
-        activeSearchPathId,
         localWarningTickerNowMs,
-        latestGpsLocationFix,
         batterySnapshot,
         offlinePackageInstallation,
         outboxSummaryForWarnings
     ) {
         val nowMs = localWarningTickerNowMs
-        val activeRecording = displayedLifecycle == SearchLifecycleStatus.Active && activeSearchPathId != null
         val packageStatus = offlinePackageInstallation?.status ?: "MISSING"
         val manifestVersion = offlinePackageInstallation?.manifestVersion?.toString()
         val packageAvailability =
@@ -1673,14 +1668,6 @@ private fun SearchMapRoute(
             localWarningMonitor.evaluate(
                 LocalWarningSignals(
                     nowMs = nowMs,
-                    gpsProviderEnabled = context.isLocationUsable(),
-                    gpsStoppedSinceMs = if (activeRecording) recordingSession.activeStartedAtMs ?: nowMs else null,
-                    lastGpsFixAgeMs =
-                    if (activeRecording) {
-                        latestGpsLocationFix?.let { fix -> nowMs - fix.capturedAt.toEpochMilli() }
-                    } else {
-                        0L
-                    },
                     batteryPercent = batterySnapshot.percent,
                     batteryCharging = batterySnapshot.charging,
                     packageAvailability = packageAvailability,
@@ -2992,15 +2979,6 @@ private fun Intent.toBatterySnapshot(): BatterySnapshot {
 private fun Context.hasLocationPermission(): Boolean =
     ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
         ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-
-private fun Context.isLocationUsable(): Boolean {
-    if (!hasLocationPermission()) {
-        return false
-    }
-    val manager = getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return false
-    return listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
-        .any { provider -> runCatching { manager.isProviderEnabled(provider) }.getOrDefault(false) }
-}
 
 private fun SearchMapUiState.markerCreationLocation(): MarkerLocation? =
     viewportBounds?.let { bounds ->

@@ -8,38 +8,6 @@ import org.junit.Test
 class LocalWarningMonitorTest {
 
     @Test
-    fun gpsStoppedRaisesAfterFifteenSecondsAndClearsAfterTwoFreshFixes() {
-        val monitor = LocalWarningMonitor()
-
-        assertFalse(
-            monitor.evaluate(healthySignals(nowMs = 14_999L, gpsProviderEnabled = false, gpsStoppedSinceMs = 0L))
-                .has(LocalWarningCode.GPS_STOPPED)
-        )
-
-        assertTrue(
-            monitor.evaluate(healthySignals(nowMs = 15_000L, gpsProviderEnabled = false, gpsStoppedSinceMs = 0L))
-                .has(LocalWarningCode.GPS_STOPPED)
-        )
-
-        assertTrue(
-            monitor.evaluate(healthySignals(nowMs = 16_000L, lastGpsFixAgeMs = 9_000L))
-                .has(LocalWarningCode.GPS_STOPPED)
-        )
-        assertTrue(
-            monitor.evaluate(healthySignals(nowMs = 17_000L, lastGpsFixAgeMs = 11_000L))
-                .has(LocalWarningCode.GPS_STOPPED)
-        )
-        assertTrue(
-            monitor.evaluate(healthySignals(nowMs = 18_000L, lastGpsFixAgeMs = 9_000L))
-                .has(LocalWarningCode.GPS_STOPPED)
-        )
-        assertFalse(
-            monitor.evaluate(healthySignals(nowMs = 19_000L, lastGpsFixAgeMs = 8_000L))
-                .has(LocalWarningCode.GPS_STOPPED)
-        )
-    }
-
-    @Test
     fun batteryLowRaisesBelowTwentyPercentWhenNotChargingAndClearsAtTwentyFivePercent() {
         val monitor = LocalWarningMonitor()
 
@@ -189,8 +157,6 @@ class LocalWarningMonitorTest {
         val snapshot = monitor.evaluate(
             healthySignals(
                 nowMs = 61_000L,
-                gpsProviderEnabled = false,
-                gpsStoppedSinceMs = 0L,
                 batteryPercent = 10,
                 batteryCharging = false,
                 packageAvailability = packageAvailability(PackageAvailability.Status.MISSING),
@@ -202,7 +168,6 @@ class LocalWarningMonitorTest {
 
         assertEquals(
             setOf(
-                LocalWarningCode.GPS_STOPPED,
                 LocalWarningCode.BATTERY_LOW,
                 LocalWarningCode.PACKAGE_MISSING,
                 LocalWarningCode.OFFLINE_RECORDING,
@@ -217,9 +182,6 @@ class LocalWarningMonitorTest {
 
     private fun healthySignals(
         nowMs: Long = 0L,
-        gpsProviderEnabled: Boolean = true,
-        gpsStoppedSinceMs: Long? = null,
-        lastGpsFixAgeMs: Long? = 0L,
         batteryPercent: Int = 80,
         batteryCharging: Boolean = true,
         packageAvailability: PackageAvailability = packageAvailability(PackageAvailability.Status.COMPLETE),
@@ -229,9 +191,6 @@ class LocalWarningMonitorTest {
         pendingOutboxCount: Int = 0
     ): LocalWarningSignals = LocalWarningSignals(
         nowMs = nowMs,
-        gpsProviderEnabled = gpsProviderEnabled,
-        gpsStoppedSinceMs = gpsStoppedSinceMs,
-        lastGpsFixAgeMs = lastGpsFixAgeMs,
         batteryPercent = batteryPercent,
         batteryCharging = batteryCharging,
         packageAvailability = packageAvailability,

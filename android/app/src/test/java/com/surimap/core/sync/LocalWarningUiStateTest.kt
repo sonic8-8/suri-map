@@ -9,7 +9,6 @@ class LocalWarningUiStateTest {
     fun mapsWarningSnapshotToStableUserSafeBannerState() {
         val snapshot = LocalWarningSnapshot(
             activeWarnings = setOf(
-                LocalWarningCode.GPS_STOPPED,
                 LocalWarningCode.BATTERY_LOW,
                 LocalWarningCode.OFFLINE_RECORDING,
                 LocalWarningCode.PACKAGE_MISSING,
@@ -20,7 +19,7 @@ class LocalWarningUiStateTest {
         val uiState = LocalWarningUiState.from(snapshot)
 
         assertEquals(
-            listOf("GPS 신호 중단", "배터리 부족", "오프라인 기록 중", "지도 패키지 확인 필요", "미전송 기록 적체"),
+            listOf("배터리 부족", "오프라인 기록 중", "지도 패키지 확인 필요", "미전송 기록 적체"),
             uiState.banners.map { it.title }
         )
         assertFalse(

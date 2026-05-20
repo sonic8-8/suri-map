@@ -80,7 +80,6 @@ class SearchMapUiStateTest {
             LocalWarningUiState.from(
                 LocalWarningSnapshot(
                     setOf(
-                        LocalWarningCode.GPS_STOPPED,
                         LocalWarningCode.BATTERY_LOW,
                         LocalWarningCode.PACKAGE_MISSING,
                         LocalWarningCode.OFFLINE_RECORDING,
@@ -90,7 +89,6 @@ class SearchMapUiStateTest {
             )
         val state = SearchMapUiState.active().copy(localWarnings = warnings)
 
-        assertTrue(state.visibleText().contains("GPS 신호 중단"))
         assertTrue(state.visibleText().contains("배터리 부족"))
         assertTrue(state.visibleText().contains("지도 패키지 확인 필요"))
         assertTrue(state.visibleText().contains("오프라인 기록 중"))
@@ -250,7 +248,6 @@ class SearchMapUiStateTest {
         val evaluateIndex = source.indexOf("localWarningMonitor.evaluate(", routeIndex)
         val uiStateIndex = source.indexOf("localWarnings = LocalWarningUiState.from(localWarningSnapshot)", routeIndex)
         val batteryIndex = source.indexOf("ACTION_BATTERY_CHANGED", routeIndex)
-        val locationIndex = source.indexOf("context.isLocationUsable()", routeIndex)
         val packageIndex = source.indexOf("offlinePackageInstallationDao.observe", routeIndex)
 
         assertTrue(routeIndex >= 0)
@@ -258,8 +255,8 @@ class SearchMapUiStateTest {
         assertTrue(evaluateIndex > monitorIndex)
         assertTrue(uiStateIndex > routeIndex)
         assertTrue(batteryIndex > routeIndex)
-        assertTrue(locationIndex > routeIndex)
         assertTrue(packageIndex > routeIndex)
+        assertFalse(source.contains("context.isLocationUsable()"))
     }
 
     @Test
