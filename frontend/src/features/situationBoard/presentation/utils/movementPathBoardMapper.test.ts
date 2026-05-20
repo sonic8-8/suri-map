@@ -114,6 +114,27 @@ describe('assignRouteColorsToMovementPaths', () => {
 
     expect(paths[0].routeColor).toBe(areaColorTokens.areaColor006.lineColor);
   });
+
+  test('keeps paths renderable for incident accounts that are not assigned to any area', () => {
+    const paths = assignRouteColorsToMovementPaths(
+      [createMovementPath({ id: 'path-unassigned', accountId: UNASSIGNED_ACCOUNT_ID, policePhoneId: null })],
+      {
+        id: 'overall',
+        kind: 'overall',
+        colorToken: 'areaColor001',
+        name: 'overall',
+        meta: 'OVERALL',
+        status: 'ACTIVE',
+        geometryState: 'saved',
+        assignedAccounts: [],
+        children: [createAreaNode({ assignedAccounts: [] })],
+      },
+      [],
+    );
+
+    expect(paths).toHaveLength(1);
+    expect(paths[0].routeColor).toMatch(/^#[0-9a-f]{6}$/i);
+  });
 });
 
 function createAreaNode(overrides: Partial<SearchAreaTreeNode>): SearchAreaTreeNode {
@@ -175,3 +196,4 @@ const AREA_ID = 'cccccccc-cccc-cccc-cccc-cccccccc0001';
 const NEXT_AREA_ID = 'cccccccc-cccc-cccc-cccc-cccccccc0002';
 const POLICE_PHONE_ID = '50000000-0000-0000-0000-000000000001';
 const ACCOUNT_ID = '10000000-0000-0000-0000-000000000001';
+const UNASSIGNED_ACCOUNT_ID = '10000000-0000-0000-0000-000000000002';

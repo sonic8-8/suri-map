@@ -317,9 +317,6 @@ function createAreaMeta(row: BoardSearchAreaRow) {
   const assignedAccountNames = row.assignedAccounts.map((account) => account.displayName).join(', ');
   if (assignedAccountNames.length > 0) return `${assignedAccountNames} / ${versionLabel}`;
   return `${formatAreaLevelFallbackLabel(row.areaLevel)} / ${versionLabel}`;
-  if (row.areaLevel === 'OVERALL') return `전체 수색 구역 / ${versionLabel}`;
-  if (row.assignedAccounts.length === 0) return `${row.areaLevel} / 담당 계정 필요 / ${versionLabel}`;
-  return `${row.areaLevel} / 담당 ${row.assignedAccounts.map((account) => account.displayName).join(', ')} / ${versionLabel}`;
 }
 
 function createFallbackAreaMeta(kind: CompletedAreaDraft['kind'], assignedAccounts: SearchAreaAssignedAccount[]) {
@@ -327,9 +324,6 @@ function createFallbackAreaMeta(kind: CompletedAreaDraft['kind'], assignedAccoun
   const assignedAccountNames = assignedAccounts.map((account) => account.displayName).join(', ');
   if (assignedAccountNames.length > 0) return assignedAccountNames;
   return kind === 'unit' ? '부대' : '팀';
-  const levelLabel = '';
-  if (assignedAccounts.length === 0) return `${levelLabel} / 담당 계정 필요`;
-  return `${levelLabel} / 담당 ${assignedAccounts.map((account) => account.displayName).join(', ')}`;
 }
 
 function formatAreaLevelFallbackLabel(areaLevel: SearchAreaHierarchyLevel) {
