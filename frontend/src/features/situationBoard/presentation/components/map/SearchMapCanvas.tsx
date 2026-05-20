@@ -1845,12 +1845,6 @@ export function SearchMapCanvas({
                           {getMarkerPopupDateTimeLabel(selectedMarker)}
                         </time>
                       </div>
-                      {typeof selectedMarker.photoCount === 'number' && selectedMarker.photoCount > 0 ? (
-                        <div className={styles.markerPopupRow}>
-                          <span className={styles.markerPopupRowLabel}>사진</span>
-                          <span className={styles.markerPopupRowValue}>{`사진 ${selectedMarker.photoCount}장`}</span>
-                        </div>
-                      ) : null}
                     </div>
                     <div className={styles.markerPopupActions}>
                       <button
