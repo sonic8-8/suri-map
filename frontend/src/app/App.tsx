@@ -1,7 +1,7 @@
-import { Component, lazy, Suspense, useCallback, useEffect, useRef, useState, type ErrorInfo, type ReactNode } from 'react';
-import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { lazy, useCallback, useEffect, useState } from 'react';
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 
-import { completeKeycloakLogin, logoutCurrentSession, readStoredLoginAccount } from '../features/login/data/login';
+import { logoutCurrentSession, readStoredLoginAccount } from '../features/login/data/login';
 import { LoginPage } from '../features/login/presentation/pages/LoginPage';
 import type { LoginAccount } from '../features/login/presentation/types/login';
 import { SearchHistoryPage } from '../features/searchHistory/presentation/pages/SearchHistoryPage';
@@ -11,6 +11,13 @@ import { SituationBoardPage } from '../features/situationBoard/presentation/page
 import type { CompletedAreaDraft } from '../shared/model/areaDraft';
 import type { MarkerNotification } from '../shared/ui';
 import { API_UNAUTHORIZED_EVENT } from '../shared/api/client';
+import { AuthCallbackRoute } from './AuthCallbackRoute';
+import { LazyRoute, RouteErrorBoundary } from './AppRouteShell';
+import { IncidentCloseRoute } from './routeAdapters/IncidentCloseRoute';
+import { createCurrentRoutePath, readLoginErrorMessage, readLoginRedirectPath } from './loginRouteState';
+import { useIncidentWorkspaceState } from './useIncidentWorkspaceState';
+import { useMarkerNotificationQueue } from './useMarkerNotificationQueue';
+import { useRouteIncidentId } from './useRouteIncidentId';
 import {
   BOOTSTRAP_INCIDENT_ID,
   getAreaEditPath,
@@ -35,75 +42,6 @@ const IncidentDetailPage = lazy(() =>
   })),
 );
 
-const IncidentClosePage = lazy(() =>
-  import('../features/incidentClose/presentation/pages/IncidentClosePage').then((module) => ({
-    default: module.IncidentClosePage,
-  })),
-);
-
-function LazyRoute({ children }: { children: ReactNode }) {
-  return <Suspense fallback={<RouteLoadingScreen />}>{children}</Suspense>;
-}
-
-function RouteLoadingScreen() {
-  return (
-    <main className="situation-board-page situation-board-page-loading" aria-busy="true">
-      <section className="situation-board-loading-screen" role="status" aria-live="polite" aria-label="Loading page">
-        <span className="situation-board-loading-spinner" aria-hidden="true" />
-      </section>
-    </main>
-  );
-}
-
-type RouteErrorBoundaryProps = {
-  children: ReactNode;
-  resetKey: string;
-  onOpenIncidentList: () => void;
-};
-
-type RouteErrorBoundaryState = {
-  error: Error | null;
-};
-
-class RouteErrorBoundary extends Component<RouteErrorBoundaryProps, RouteErrorBoundaryState> {
-  state: RouteErrorBoundaryState = { error: null };
-
-  static getDerivedStateFromError(error: Error) {
-    return { error };
-  }
-
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Route render error', {
-      error,
-      componentStack: errorInfo.componentStack,
-      route: this.props.resetKey,
-    });
-  }
-
-  componentDidUpdate(previousProps: RouteErrorBoundaryProps) {
-    if (previousProps.resetKey !== this.props.resetKey && this.state.error) {
-      this.setState({ error: null });
-    }
-  }
-  render() {
-    if (!this.state.error) {
-      return this.props.children;
-    }
-
-    return (
-      <main className="situation-board-page situation-board-page-loading" role="alert">
-        <section className="situation-board-loading-screen" aria-label="Page error">
-          <strong>페이지를 표시하지 못했습니다.</strong>
-          <span>일시적인 화면 오류가 발생했습니다. 사건 목록으로 돌아간 뒤 다시 열어주세요.</span>
-          <button type="button" onClick={this.props.onOpenIncidentList}>
-            사건 목록으로 돌아가기
-          </button>
-        </section>
-      </main>
-    );
-  }
-}
-
 /*
   {
     id: 'marker-notification-clue-001',
@@ -124,42 +62,6 @@ class RouteErrorBoundary extends Component<RouteErrorBoundaryProps, RouteErrorBo
     coordinateLabel: '35.14N · 126.98E',
   },
 */
-
-function useRouteIncidentId() {
-  const { incidentId } = useParams();
-  return incidentId ?? BOOTSTRAP_INCIDENT_ID;
-}
-
-function createCurrentRoutePath() {
-  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
-}
-
-function readLoginRedirectPath(state: unknown) {
-  if (state === null || typeof state !== 'object' || !('from' in state)) {
-    return null;
-  }
-
-  const from = (state as { from?: unknown }).from;
-
-  if (typeof from !== 'string' || !from.startsWith('/') || from.startsWith('//') || from === ROUTES.login) {
-    return null;
-  }
-
-  return from;
-}
-
-function readLoginErrorMessage(state: unknown) {
-  if (state === null || typeof state !== 'object' || !('authError' in state)) {
-    return '';
-  }
-
-  const authError = (state as { authError?: unknown }).authError;
-  if (typeof authError !== 'string' || !authError) {
-    return '';
-  }
-
-  return `SSO 로그인 실패: ${authError}`;
-}
 
 type SituationBoardRouteProps = {
   currentUserAccount: LoginAccount;
@@ -401,96 +303,27 @@ function IncidentDetailRoute({
   );
 }
 
-function IncidentCloseRoute() {
-  const incidentId = useRouteIncidentId();
-  const navigate = useNavigate();
-
-  return (
-    <IncidentClosePage
-      incidentId={incidentId}
-      onBackToIncidents={() => navigate(ROUTES.incidentList)}
-      onOpenLogin={() => navigate(ROUTES.login)}
-    />
-  );
-}
-
-type AuthCallbackRouteProps = {
-  onLoginSuccess: (account: LoginAccount, returnPath: string) => void;
-  onLoginFailure: (error: Error) => void;
-};
-
-function AuthCallbackRoute({ onLoginSuccess, onLoginFailure }: AuthCallbackRouteProps) {
-  useEffect(() => {
-    let isActive = true;
-
-    completeKeycloakLogin()
-      .then(({ account, returnPath }) => {
-        if (isActive) {
-          onLoginSuccess(account, returnPath);
-        }
-      })
-      .catch((error) => {
-        if (isActive) {
-          const loginError = error instanceof Error ? error : new Error('oidc_login_failed');
-          console.warn('OIDC login failed', loginError);
-          onLoginFailure(loginError);
-        }
-      });
-
-    return () => {
-      isActive = false;
-    };
-  }, [onLoginFailure, onLoginSuccess]);
-
-  return (
-    <main>
-      <div>로그인 처리 중</div>
-    </main>
-  );
-}
-
 export function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const [currentUserAccount, setCurrentUserAccount] = useState<LoginAccount | null>(() => readStoredLoginAccount());
-  const [savedAreaDraftsByIncidentId, setSavedAreaDraftsByIncidentId] = useState<Record<string, CompletedAreaDraft[]>>(
-    {},
-  );
-  const [opRefreshVersionByIncidentId, setOpRefreshVersionByIncidentId] = useState<Record<string, number>>({});
-  const [markerNotifications, setMarkerNotifications] = useState<MarkerNotification[]>([]);
-  const [markerNotificationIndex, setMarkerNotificationIndex] = useState(0);
-  const shownMarkerNotificationIdsRef = useRef<Set<string>>(new Set());
+  const {
+    opRefreshVersionByIncidentId,
+    refreshOperationalPeriodViews,
+    savedAreaDraftsByIncidentId,
+    saveAssignedAreas,
+  } = useIncidentWorkspaceState();
+  const {
+    addMarkerNotification,
+    closeMarkerNotifications,
+    markerNotificationIndex,
+    markerNotifications,
+    moveMarkerNotification,
+  } = useMarkerNotificationQueue();
   const loginRedirectPath = readLoginRedirectPath(location.state);
   const loginErrorMessage = readLoginErrorMessage(location.state);
   const loginRedirectState = { from: `${location.pathname}${location.search}${location.hash}` };
   const loginRedirectElement = <Navigate to={ROUTES.login} replace state={loginRedirectState} />;
-
-  const closeMarkerNotifications = () => {
-    setMarkerNotifications([]);
-    setMarkerNotificationIndex(0);
-  };
-
-  const moveMarkerNotification = (nextIndex: number) => {
-    setMarkerNotificationIndex(Math.max(0, Math.min(nextIndex, markerNotifications.length - 1)));
-  };
-
-  const addMarkerNotification = useCallback((notification: MarkerNotification) => {
-    setMarkerNotifications((currentNotifications) => {
-      if (shownMarkerNotificationIdsRef.current.has(notification.id)) {
-        return currentNotifications;
-      }
-
-      shownMarkerNotificationIdsRef.current.add(notification.id);
-      const existingIndex = currentNotifications.findIndex((current) => current.id === notification.id);
-      if (existingIndex >= 0) {
-        setMarkerNotificationIndex(existingIndex);
-        return currentNotifications;
-      }
-
-      setMarkerNotificationIndex(currentNotifications.length);
-      return [...currentNotifications, notification];
-    });
-  }, []);
 
   const openLogin = () => {
     void logoutCurrentSession().finally(() => {
@@ -524,19 +357,6 @@ export function App() {
     },
     [navigate],
   );
-
-  const saveAssignedAreas = (incidentId: string, drafts: CompletedAreaDraft[]) => {
-    setSavedAreaDraftsByIncidentId((currentDraftsByIncidentId) => ({
-      ...currentDraftsByIncidentId,
-      [incidentId]: drafts,
-    }));
-  };
-  const refreshOperationalPeriodViews = useCallback((incidentId: string) => {
-    setOpRefreshVersionByIncidentId((currentVersions) => ({
-      ...currentVersions,
-      [incidentId]: (currentVersions[incidentId] ?? 0) + 1,
-    }));
-  }, []);
 
   return (
     <RouteErrorBoundary
