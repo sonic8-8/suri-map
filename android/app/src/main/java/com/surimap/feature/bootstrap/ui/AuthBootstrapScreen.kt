@@ -369,7 +369,7 @@ private fun AuthStatusBadge(text: String, variant: PoliChipVariant, showChecking
                 style = MaterialTheme.typography.labelMedium,
                 fontSize = 14.sp,
                 lineHeight = 16.sp,
-                fontWeight = FontWeight.Black
+                fontWeight = FontWeight.Bold
             )
         }
     }
