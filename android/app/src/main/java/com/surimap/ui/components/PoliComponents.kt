@@ -30,9 +30,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.surimap.R
 import com.surimap.ui.theme.PoliBgElevated
 import com.surimap.ui.theme.PoliBgInput
@@ -95,6 +97,11 @@ fun PoliButton(
             PoliButtonSize.Regular -> PoliDimens.CtaHeight
             PoliButtonSize.Large -> PoliDimens.CtaHeightLarge
         }
+    val textStyle =
+        when (size) {
+            PoliButtonSize.Large -> MaterialTheme.typography.labelLarge.copy(fontSize = 17.sp, fontWeight = FontWeight.Bold)
+            else -> MaterialTheme.typography.labelLarge
+        }
 
     val colors =
         when (variant) {
@@ -129,7 +136,7 @@ fun PoliButton(
             border = BorderStroke(1.dp, if (enabled) PoliPrimaryBorder else PoliBorder),
             colors = colors
         ) {
-            Text(text = text, style = MaterialTheme.typography.labelLarge)
+            Text(text = text, style = textStyle)
         }
     } else {
         Button(
@@ -139,7 +146,7 @@ fun PoliButton(
             shape = shape,
             colors = colors
         ) {
-            Text(text = text, style = MaterialTheme.typography.labelLarge)
+            Text(text = text, style = textStyle)
         }
     }
 }
@@ -340,7 +347,7 @@ fun PoliAppBar(
 }
 
 @Composable
-fun PoliBrandMark(modifier: Modifier = Modifier.size(width = 128.dp, height = 94.dp)) {
+fun PoliBrandMark(modifier: Modifier = Modifier.size(width = 176.dp, height = 129.dp)) {
     Image(
         painter = painterResource(id = R.drawable.surimap_logo),
         contentDescription = "수리맵 로고",

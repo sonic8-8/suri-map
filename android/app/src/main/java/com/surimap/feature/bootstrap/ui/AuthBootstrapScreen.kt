@@ -1,31 +1,42 @@
 package com.surimap.feature.bootstrap.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Surface
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.surimap.ui.components.PoliBanner
 import com.surimap.ui.components.PoliBannerVariant
 import com.surimap.ui.components.PoliBrandMark
 import com.surimap.ui.components.PoliButton
+import com.surimap.ui.components.PoliButtonSize
 import com.surimap.ui.components.PoliButtonVariant
-import com.surimap.ui.components.PoliCard
-import com.surimap.ui.components.PoliChip
 import com.surimap.ui.components.PoliChipVariant
-import com.surimap.ui.components.PoliRow
 import com.surimap.ui.theme.PoliDimens
 import com.surimap.ui.theme.PoliFgMuted
+import com.surimap.ui.theme.PoliFgSecondary
 import com.surimap.ui.theme.SuriMapTheme
 
 data class AuthCheckStep(
@@ -159,7 +170,7 @@ data class AuthBootstrapUiState(
                 apiBaseUrl = apiBaseUrl,
                 primaryActionLabel =
                 when (reason) {
-                    AuthBootstrapFailureReason.AuthenticationRequired -> "SSO로 계속"
+                    AuthBootstrapFailureReason.AuthenticationRequired -> "SSO 계정 인증"
                     AuthBootstrapFailureReason.ServerRejectedPhone -> "앱 종료"
                     else -> "확인 필요"
                 },
@@ -222,95 +233,145 @@ fun AuthBootstrapScreen(
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(top = 62.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
         ) {
             PoliBrandMark()
-            Text(text = "수리맵", style = MaterialTheme.typography.displaySmall)
+            Text(
+                text = "Suri Map",
+                style = MaterialTheme.typography.titleMedium,
+                fontSize = 18.sp,
+                lineHeight = 24.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = PoliFgMuted
+            )
+            Text(
+                text = "수리맵",
+                style = MaterialTheme.typography.displaySmall,
+                fontSize = 36.sp,
+                lineHeight = 40.sp,
+                fontWeight = FontWeight.Black
+            )
             // Text(text = "현장 입력 앱", style = MaterialTheme.typography.bodyMedium, color = PoliFgMuted)
         }
 
         Column(verticalArrangement = Arrangement.spacedBy(PoliDimens.Space5)) {
-            PoliCard {
-                Text(text = state.title, style = MaterialTheme.typography.titleMedium)
-                Text(text = state.description, style = MaterialTheme.typography.bodyMedium, color = PoliFgMuted)
-                // Text(text = "내부망 API: ${state.apiBaseUrl}", style = MaterialTheme.typography.labelMedium, color = PoliFgMuted)
-            }
-
-            PoliCard {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = PoliDimens.Space2),
+                verticalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
+            ) {
                 state.steps.forEach { step ->
-                    PoliRow(title = step.title) {
-                        PoliChip(text = step.state.label, variant = step.state.chipVariant)
-                    }
+                    AuthStepRow(step = step)
                 }
             }
 
-            if (state.requiresAuthentication) {
-                AuthSignInGuideCard(state = state)
-            } else if (state.failureMessage != null) {
+            if (state.failureMessage != null) {
                 PoliBanner(
                     text = state.failureMessage,
                     variant = PoliBannerVariant.Bad,
                     textAlign = TextAlign.Center
                 )
-            } else {
-                PoliBanner(
-                    text = "확인 완료 시 사건 선택 화면으로 자동 이동합니다.\n사건 상세는 접속 확인 전 표시하지 않습니다.",
-                    variant = PoliBannerVariant.Warn
-                )
             }
         }
 
-        if (state.retryEnabled || state.requiresAuthentication) {
-            PoliButton(
-                text = state.primaryActionLabel,
-                onClick = onRetry,
-                modifier = Modifier.fillMaxWidth(),
-                variant = state.primaryActionButtonVariant,
-                enabled = state.retryEnabled
-            )
-        } else if (state.exitEnabled) {
-            PoliButton(
-                text = state.primaryActionLabel,
-                onClick = onExit,
-                modifier = Modifier.fillMaxWidth(),
-                variant = PoliButtonVariant.Danger
-            )
-        } else if (state.failureMessage != null && state.actionGuideText != null) {
-            PoliBanner(
-                text = state.actionGuideText,
-                variant = PoliBannerVariant.Bad,
-                textAlign = TextAlign.Center
-            )
+        Column(modifier = Modifier.fillMaxWidth()) {
+            if (state.retryEnabled || state.requiresAuthentication) {
+                PoliButton(
+                    text = state.primaryActionLabel,
+                    onClick = onRetry,
+                    modifier = Modifier.fillMaxWidth(),
+                    variant = state.primaryActionButtonVariant,
+                    size = PoliButtonSize.Large,
+                    enabled = state.retryEnabled
+                )
+            } else if (state.exitEnabled) {
+                PoliButton(
+                    text = state.primaryActionLabel,
+                    onClick = onExit,
+                    modifier = Modifier.fillMaxWidth(),
+                    variant = PoliButtonVariant.Danger,
+                    size = PoliButtonSize.Large
+                )
+            } else if (state.failureMessage != null && state.actionGuideText != null) {
+                PoliBanner(
+                    text = state.actionGuideText,
+                    variant = PoliBannerVariant.Bad,
+                    textAlign = TextAlign.Center
+                )
+            } else {
+                Spacer(modifier = Modifier.fillMaxWidth().height(PoliDimens.CtaHeightLarge))
+            }
         }
     }
 }
 
 @Composable
-private fun AuthSignInGuideCard(state: AuthBootstrapUiState) {
-    PoliCard(strong = true) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            PoliBrandMark(modifier = Modifier.size(PoliDimens.TouchMin))
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
-                Text(text = "보안 인증 연결", style = MaterialTheme.typography.titleMedium)
-                Text(
-                    text = state.actionGuideText.orEmpty(),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = PoliFgMuted
-                )
-            }
-            PoliChip(text = "SSO", variant = PoliChipVariant.Outbox)
-        }
+private fun AuthStepRow(step: AuthCheckStep) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp),
+        horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Text(
-            text = "앱은 계정 비밀번호를 입력받거나 저장하지 않습니다.",
-            style = MaterialTheme.typography.bodySmall,
-            color = PoliFgMuted
+            text = step.title,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.titleMedium,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = PoliFgSecondary
         )
+        AuthStatusBadge(
+            text = step.state.label,
+            variant = step.state.chipVariant,
+            showCheckingText = step.state == AuthStepState.Checking && step.title == "계정 인증"
+        )
+    }
+}
+
+@Composable
+private fun AuthStatusBadge(text: String, variant: PoliChipVariant, showCheckingText: Boolean = false) {
+    val (container, border, content) =
+        when (variant) {
+            PoliChipVariant.Good -> Triple(Color(0xFFE5F7EC), Color(0xFF8FD3AA), Color(0xFF1F6B45))
+            PoliChipVariant.Warn -> Triple(Color(0xFFFFF0D7), Color(0xFFF0C47C), Color(0xFFA75D00))
+            PoliChipVariant.Bad -> Triple(Color(0xFFFEE2E2), Color(0xFFE58A8A), Color(0xFFB91C1C))
+            else -> Triple(Color(0xFFE8EEF4), Color(0xFFB6C4D2), Color(0xFF50657A))
+        }
+
+    if (variant == PoliChipVariant.Warn && !showCheckingText) {
+        Box(
+            modifier = Modifier.widthIn(min = 72.dp).heightIn(min = 32.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(18.dp),
+                color = Color.White,
+                strokeWidth = 2.dp
+            )
+        }
+        return
+    }
+
+    Surface(
+        modifier = Modifier.widthIn(min = 72.dp).heightIn(min = 32.dp),
+        shape = MaterialTheme.shapes.extraLarge,
+        color = container,
+        contentColor = content,
+        border = BorderStroke(1.dp, border)
+    ) {
+        Box(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelMedium,
+                fontSize = 14.sp,
+                lineHeight = 16.sp,
+                fontWeight = FontWeight.Black
+            )
+        }
     }
 }
 

@@ -1,21 +1,32 @@
 package com.surimap.ui.theme
 
 import androidx.compose.material3.Typography
+import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.surimap.R
 
 private val PretendardGovFontFamily =
     FontFamily(
-        Font(R.font.pretendard_gov_variable, FontWeight.Normal),
-        Font(R.font.pretendard_gov_variable, FontWeight.Medium),
-        Font(R.font.pretendard_gov_variable, FontWeight.SemiBold),
-        Font(R.font.pretendard_gov_variable, FontWeight.Bold),
-        Font(R.font.pretendard_gov_variable, FontWeight.ExtraBold)
+        pretendardGov(FontWeight.Normal),
+        pretendardGov(FontWeight.Medium),
+        pretendardGov(FontWeight.SemiBold),
+        pretendardGov(FontWeight.Bold),
+        pretendardGov(FontWeight.ExtraBold),
+        pretendardGov(FontWeight.Black)
+    )
+
+@OptIn(ExperimentalTextApi::class)
+private fun pretendardGov(fontWeight: FontWeight): Font =
+    Font(
+        resId = R.font.pretendard_gov_variable,
+        weight = fontWeight,
+        variationSettings = FontVariation.Settings(FontVariation.weight(fontWeight.weight))
     )
 
 private val baseTextStyle =
