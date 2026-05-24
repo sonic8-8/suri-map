@@ -28,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -339,22 +340,13 @@ fun PoliAppBar(
 }
 
 @Composable
-fun PoliBrandMark(modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier.size(56.dp),
-        shape = MaterialTheme.shapes.extraLarge,
-        color = PoliBgInput,
-        contentColor = PoliPrimaryFg,
-        border = BorderStroke(1.dp, PoliPrimaryBorder)
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Image(
-                painter = painterResource(id = R.drawable.surimap_logo_compact),
-                contentDescription = null,
-                modifier = Modifier.size(40.dp)
-            )
-        }
-    }
+fun PoliBrandMark(modifier: Modifier = Modifier.size(width = 128.dp, height = 94.dp)) {
+    Image(
+        painter = painterResource(id = R.drawable.surimap_logo),
+        contentDescription = "수리맵 로고",
+        modifier = modifier,
+        contentScale = ContentScale.Fit
+    )
 }
 
 @Composable

@@ -221,18 +221,17 @@ fun AuthBootstrapScreen(
         modifier = modifier.fillMaxSize().safeDrawingPadding().padding(PoliDimens.SectionPadding),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(PoliDimens.Space5)) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space4),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                PoliBrandMark()
-                Column(verticalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
-                    Text(text = "수리맵", style = MaterialTheme.typography.displaySmall)
-                    // Text(text = "현장 입력 앱", style = MaterialTheme.typography.bodyMedium, color = PoliFgMuted)
-                }
-            }
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
+        ) {
+            PoliBrandMark()
+            Text(text = "수리맵", style = MaterialTheme.typography.displaySmall)
+            // Text(text = "현장 입력 앱", style = MaterialTheme.typography.bodyMedium, color = PoliFgMuted)
+        }
 
+        Column(verticalArrangement = Arrangement.spacedBy(PoliDimens.Space5)) {
             PoliCard {
                 Text(text = state.title, style = MaterialTheme.typography.titleMedium)
                 Text(text = state.description, style = MaterialTheme.typography.bodyMedium, color = PoliFgMuted)
