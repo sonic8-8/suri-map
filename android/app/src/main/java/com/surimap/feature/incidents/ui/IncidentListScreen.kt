@@ -1,35 +1,56 @@
 package com.surimap.feature.incidents.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathFillType
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.path
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.surimap.ui.components.PoliAppBar
 import com.surimap.ui.components.PoliBanner
 import com.surimap.ui.components.PoliBannerVariant
 import com.surimap.ui.components.PoliButton
+import com.surimap.ui.components.PoliButtonSize
 import com.surimap.ui.components.PoliButtonVariant
 import com.surimap.ui.components.PoliCard
 import com.surimap.ui.components.PoliChip
 import com.surimap.ui.components.PoliChipVariant
 import com.surimap.ui.components.PoliDialog
-import com.surimap.ui.components.PoliRow
 import com.surimap.ui.navigation.IncidentContext
 import com.surimap.ui.theme.PoliDimens
+import com.surimap.ui.theme.PoliEmphasis
 import com.surimap.ui.theme.PoliFgMuted
+import com.surimap.ui.theme.PoliFgSecondary
+import com.surimap.ui.theme.PoliPrimary
+import com.surimap.ui.theme.PoliSuccess
+import com.surimap.ui.theme.PoliWarning
 import com.surimap.ui.theme.SuriMapTheme
 
 enum class IncidentListStatus {
@@ -58,6 +79,7 @@ data class IncidentListUiState(
             message?.let(::add)
             incidents.forEach { incident ->
                 add(incident.title)
+                add(incident.progressLabel)
                 add(incident.summary)
                 add(incident.packageStatus)
                 add(incident.assignmentStatus)
@@ -87,7 +109,7 @@ data class IncidentListUiState(
         ): IncidentListUiState =
             IncidentListUiState(
                 policePhoneLabel = policePhoneLabel,
-                syncLabel = "동기화",
+                syncLabel = "최신 상태",
                 status = IncidentListStatus.Ready,
                 incidents = incidents
             )
@@ -99,7 +121,7 @@ data class IncidentListUiState(
         ): IncidentListUiState =
             IncidentListUiState(
                 policePhoneLabel = policePhoneLabel,
-                syncLabel = "대기",
+                syncLabel = "배정 없음",
                 status = IncidentListStatus.Empty,
                 incidents = emptyList(),
                 showClosedDialog = showClosedDialog,
@@ -138,6 +160,11 @@ data class AssignedIncidentUiModel(
     val packageStatus: String,
     val assignmentStatus: String
 ) {
+    val progressLabel: String
+        get() = listOf("진행 중", currentOpLabel?.takeIf(String::isNotBlank))
+            .filterNotNull()
+            .joinToString(" · ")
+
     fun toIncidentContext(): IncidentContext =
         IncidentContext(
             incidentId = incidentId,
@@ -161,7 +188,7 @@ fun IncidentListScreen(
             PoliAppBar(
                 title = "사건 선택",
                 trailing = {
-                    PoliChip(text = state.syncLabel, variant = PoliChipVariant.Good)
+                    IncidentListAppBarActions(state = state, onRefresh = onRefresh)
                 }
             )
 
@@ -201,7 +228,6 @@ fun IncidentListScreen(
                         state = state,
                         onOpenIncident = onOpenIncident,
                         onOpenOfflinePackage = onOpenOfflinePackage,
-                        onRefresh = onRefresh,
                         modifier = Modifier.weight(1f)
                     )
             }
@@ -221,11 +247,103 @@ fun IncidentListScreen(
 }
 
 @Composable
+private fun IncidentListAppBarActions(
+    state: IncidentListUiState,
+    onRefresh: () -> Unit
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IncidentSyncStatus(state = state)
+        IconButton(
+            onClick = onRefresh,
+            enabled = state.canRefresh,
+            modifier =
+                Modifier
+                    .size(40.dp)
+                    .semantics {
+                        contentDescription = "사건 목록 새로고침"
+                        role = Role.Button
+                    }
+        ) {
+            androidx.compose.material3.Icon(
+                imageVector = SuriRefreshIcon,
+                contentDescription = null,
+                tint = if (state.canRefresh) PoliFgSecondary else PoliFgMuted,
+                modifier = Modifier.size(22.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun IncidentSyncStatus(state: IncidentListUiState) {
+    val (label, color) =
+        when (state.status) {
+            IncidentListStatus.Loading -> "갱신 중" to PoliPrimary
+            IncidentListStatus.Ready -> "최신 상태" to PoliSuccess
+            IncidentListStatus.Empty -> "배정 없음" to PoliFgMuted
+            IncidentListStatus.Error -> "오류" to PoliEmphasis
+            IncidentListStatus.Offline -> "오프라인" to PoliWarning
+            IncidentListStatus.Stale -> "이전 정보" to PoliWarning
+        }
+
+    Row(
+        modifier = Modifier.requiredWidth(72.dp),
+        horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space2),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .size(8.dp)
+                    .background(color = color, shape = CircleShape)
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = PoliFgSecondary,
+            maxLines = 1
+        )
+    }
+}
+
+private val SuriRefreshIcon: ImageVector =
+    ImageVector.Builder(
+        name = "SuriRefresh",
+        defaultWidth = 24.dp,
+        defaultHeight = 24.dp,
+        viewportWidth = 24f,
+        viewportHeight = 24f
+    ).apply {
+        path(
+            fill = SolidColor(Color.Black),
+            pathFillType = PathFillType.NonZero
+        ) {
+            moveTo(17.65f, 6.35f)
+            curveTo(16.2f, 4.9f, 14.21f, 4f, 12f, 4f)
+            curveTo(7.58f, 4f, 4.01f, 7.58f, 4.01f, 12f)
+            reflectiveCurveTo(7.58f, 20f, 12f, 20f)
+            curveTo(15.73f, 20f, 18.84f, 17.45f, 19.73f, 14f)
+            horizontalLineTo(17.65f)
+            curveTo(16.82f, 16.33f, 14.6f, 18f, 12f, 18f)
+            curveTo(8.69f, 18f, 6f, 15.31f, 6f, 12f)
+            reflectiveCurveTo(8.69f, 6f, 12f, 6f)
+            curveTo(13.66f, 6f, 15.14f, 6.69f, 16.22f, 7.78f)
+            lineTo(13f, 11f)
+            horizontalLineTo(20f)
+            verticalLineTo(4f)
+            lineTo(17.65f, 6.35f)
+            close()
+        }
+    }.build()
+
+@Composable
 private fun AssignedIncidentList(
     state: IncidentListUiState,
     onOpenIncident: (AssignedIncidentUiModel) -> Unit,
     onOpenOfflinePackage: (AssignedIncidentUiModel) -> Unit,
-    onRefresh: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -245,14 +363,6 @@ private fun AssignedIncidentList(
                 onOpenOfflinePackage = { onOpenOfflinePackage(incident) }
             )
         }
-
-        PoliButton(
-            text = "새로고침",
-            onClick = onRefresh,
-            modifier = Modifier.fillMaxWidth(),
-            variant = PoliButtonVariant.Secondary,
-            enabled = state.canRefresh
-        )
     }
 }
 
@@ -262,6 +372,9 @@ private fun IncidentCard(
     onOpenIncident: () -> Unit,
     onOpenOfflinePackage: () -> Unit
 ) {
+    val cardTextColor = Color(0xFF0F172A)
+    val cardMutedTextColor = Color(0xFF475569)
+
     PoliCard(
         modifier =
             Modifier
@@ -271,14 +384,29 @@ private fun IncidentCard(
                     role = Role.Button,
                     onClick = onOpenIncident
                 ),
-        strong = true
+        strong = true,
+        containerColor = Color.White
     ) {
-        Text(text = incident.title, style = MaterialTheme.typography.titleMedium)
-        Text(text = incident.summary, style = MaterialTheme.typography.bodyMedium, color = PoliFgMuted)
-        PoliRow(title = "오프라인 패키지 상태") {
-            PoliChip(text = "확인", variant = PoliChipVariant.Neutral)
+        Text(text = incident.title, style = MaterialTheme.typography.titleMedium, color = cardTextColor)
+        Text(text = incident.progressLabel, style = MaterialTheme.typography.bodyMedium, color = cardMutedTextColor)
+        if (incident.summary.isNotBlank()) {
+            IncidentCardRow(text = incident.summary, textColor = cardMutedTextColor)
         }
-        PoliRow(title = "현재 폴리폰 배정") {
+        IncidentCardRow(
+            text = incident.packageStatus,
+            textColor = cardMutedTextColor
+        ) {
+            PoliButton(
+                text = "확인",
+                onClick = onOpenOfflinePackage,
+                variant = PoliButtonVariant.Secondary,
+                size = PoliButtonSize.Small
+            )
+        }
+        IncidentCardRow(
+            text = incident.assignmentStatus,
+            textColor = cardMutedTextColor
+        ) {
             PoliChip(text = "활성", variant = PoliChipVariant.Good)
         }
         PoliButton(
@@ -286,12 +414,27 @@ private fun IncidentCard(
             onClick = onOpenIncident,
             modifier = Modifier.fillMaxWidth()
         )
-        PoliButton(
-            text = "오프라인 패키지",
-            onClick = onOpenOfflinePackage,
-            modifier = Modifier.fillMaxWidth(),
-            variant = PoliButtonVariant.Secondary
+    }
+}
+
+@Composable
+private fun IncidentCardRow(
+    text: String,
+    textColor: Color,
+    content: @Composable RowScope.() -> Unit = {}
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelLarge,
+            color = textColor,
+            modifier = Modifier.weight(1f)
         )
+        content()
     }
 }
 
@@ -299,8 +442,8 @@ private fun IncidentCard(
 private fun EmptyIncidentList(onRefresh: () -> Unit, modifier: Modifier = Modifier) {
     MessageIncidentList(
         title = "현재 배정된 사건이 없습니다",
-        body = "상황실 배정을 기다리거나 새로고침을 시도하세요.",
-        actionText = "새로고침",
+        body = "상황실 배정을 기다리거나 상단의 새로고침을 시도하세요.",
+        actionText = null,
         onAction = onRefresh,
         modifier = modifier
     )
@@ -333,9 +476,10 @@ fun sampleIncidentListState(showClosedDialog: Boolean = false) =
             AssignedIncidentUiModel(
                 incidentId = "inc-precinct-first-001",
                 currentOpId = "op-003",
+                currentOpLabel = "OP 3차",
                 currentDutyShiftId = "duty-shift-014",
                 title = "무등산 증심사 계곡 실종자 수색",
-                summary = "광주 북구 ○○산 · 60대 여성 · OP 3차",
+                summary = "광주 북구 ○○산 · 60대 여성",
                 packageStatus = "오늘 13:40 적재 완료",
                 assignmentStatus = "이 폴리폰에서 선택 가능"
             )

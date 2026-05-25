@@ -2508,7 +2508,16 @@ private fun IncidentListRoute(
                 ),
                 accessTokenProvider = accessTokenProvider
             ),
-            policePhoneLabel = policePhoneLabel
+            policePhoneLabel = policePhoneLabel,
+            operationalPeriods = { incidentId ->
+                OperationalPeriodReadRepository(
+                    apiClient =
+                    SuriMapApiClient(
+                        baseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
+                    ),
+                    accessTokenProvider = accessTokenProvider
+                ).list(incidentId)
+            }
         )
     }
     val contextResolver = remember(policePhoneContext?.apiBaseUrl, policePhoneContext?.accessToken) {
