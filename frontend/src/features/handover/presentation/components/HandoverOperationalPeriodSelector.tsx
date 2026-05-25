@@ -1,8 +1,8 @@
 import { type KeyboardEvent, type MouseEvent, useState } from 'react';
 
-import { CollapsiblePanelSection } from '../../../situationBoard/presentation/components/leftPanel/CollapsiblePanelSection';
-import opStyles from '../../../situationBoard/presentation/components/leftPanel/OperationalPeriodSelector.module.css';
-import type { OperationalPeriod } from '../../../situationBoard/presentation/constants/mockSituationBoard';
+import { CollapsiblePanelSection } from '../../../../shared/ui';
+import opStyles from '../../../../shared/ui/operationalPeriodSelector/OperationalPeriodSelector.module.css';
+import type { OperationalPeriod } from '../../../../shared/model/situationBoardViewModel';
 import styles from './HandoverOperationalPeriodSelector.module.css';
 
 type HandoverOperationalPeriodSelectorProps = {

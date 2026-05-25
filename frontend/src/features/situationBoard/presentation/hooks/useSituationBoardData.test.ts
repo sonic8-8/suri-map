@@ -2,7 +2,8 @@ import { describe, expect, test } from 'vitest';
 
 import type { SituationBoardResponseDto } from '../../data/getSituationBoard';
 import { createIncidentScopedFallbackBoard } from '../constants/mockSituationBoard';
-import { mergeWithPreviousCriticalSlots, shouldSubscribeIncidentBoardEvents } from './useSituationBoardData';
+import { mergeWithPreviousCriticalSlots } from '../../../board/model/incidentBoardMerge';
+import { shouldSubscribeIncidentBoardEvents } from './useSituationBoardData';
 
 describe('useSituationBoardData', () => {
   test('fallback board does not include placeholder markers', () => {

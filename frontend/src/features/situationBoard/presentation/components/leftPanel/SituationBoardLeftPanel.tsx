@@ -16,7 +16,7 @@ import type {
   SituationBoardFallbackData,
   SupportRequestTypeId,
 } from '../../constants/mockSituationBoard';
-import { formatAccountDisplayName, formatAccountMeta } from '../../utils/accountDisplayUtils';
+import { formatAccountDisplayName, formatAccountMeta } from '../../../../../shared/model/accountDisplay';
 import styles from './SituationBoardLeftPanel.module.css';
 
 type LeftPanelTab = {

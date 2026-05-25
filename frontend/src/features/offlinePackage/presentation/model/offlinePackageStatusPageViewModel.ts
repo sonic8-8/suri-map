@@ -11,11 +11,11 @@ import type {
   OfflinePackagePackageItem,
   OfflinePackageTileItem,
 } from '../../api/offlinePackageApi';
-import type { IncidentDetailDto } from '../../../situationBoard/data/getIncidentDetail';
+import type { IncidentDetailDto } from '../../../incident/api/incidentReadApi';
 import {
   isIncidentTerminalClosed,
   type IncidentTerminalViewModel,
-} from '../../../situationBoard/presentation/utils/incidentTerminalBoardMapper';
+} from '../../../board/model/incidentTerminalSlot';
 import {
   createTileSummary,
   formatBytes,

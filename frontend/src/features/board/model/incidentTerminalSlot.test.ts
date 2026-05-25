@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'vitest';
 
-import { toIncidentTerminal } from './incidentTerminalBoardMapper';
+import { toIncidentTerminal } from './incidentTerminalSlot';
 
-describe('incidentTerminalBoardMapper', () => {
+describe('incidentTerminalSlot', () => {
   test('returns null for empty terminal payloads', () => {
     const board = { slots: { incident_terminal: {} } } as unknown as Parameters<typeof toIncidentTerminal>[0];
 

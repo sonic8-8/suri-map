@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
-import type { CompletedAreaDraft } from '../../../../shared/model/areaDraft';
-import type { SearchAreaTreeNode } from '../constants/mockSituationBoard';
+import type { CompletedAreaDraft } from '../../../../../shared/model/areaDraft';
+import type { SearchAreaTreeNode } from '../../constants/mockSituationBoard';
 import type { BoardSearchAreaRow } from './searchAreaBoardMapper';
 import { buildSearchAreaTree } from './searchAreaBoardMapper';
 

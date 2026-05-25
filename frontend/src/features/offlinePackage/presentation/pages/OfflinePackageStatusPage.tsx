@@ -7,7 +7,7 @@ import {
   RefreshCcw,
 } from 'lucide-react';
 
-import { useIncidentBoardQuery } from '../../../board/api/incidentBoardApi';
+import { useIncidentBoardQuery, type SituationBoardResponseDto } from '../../../board/api/incidentBoardApi';
 import { useOfflinePackageManifestQuery } from '../../api/offlinePackageApi';
 import {
   createDeviceIconClassName,
@@ -52,15 +52,14 @@ import {
   readOfflinePackageTileItems,
   readPackageBadgeRows,
 } from '../model/offlinePackageStatusPageViewModel';
-import { getIncidentDetail, type IncidentDetailDto } from '../../../situationBoard/data/getIncidentDetail';
-import type { SituationBoardResponseDto } from '../../../situationBoard/data/getSituationBoard';
+import { getIncidentDetail, type IncidentDetailDto } from '../../../incident/api/incidentReadApi';
 import {
   isIncidentTerminalClosed,
   toIncidentTerminal,
   type IncidentTerminalViewModel,
-} from '../../../situationBoard/presentation/utils/incidentTerminalBoardMapper';
+} from '../../../board/model/incidentTerminalSlot';
 import type { LoginAccount } from '../../../login/presentation/types/login';
-import { mergeWithPreviousCriticalSlots } from '../../../situationBoard/presentation/hooks/useSituationBoardData';
+import { mergeWithPreviousCriticalSlots } from '../../../board/model/incidentBoardMerge';
 import {
   ActionButton,
   createSharedIncidentContext,

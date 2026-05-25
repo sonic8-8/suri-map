@@ -1,9 +1,7 @@
-import { createBoardMapMarkers } from '../../../../shared/model/boardMapSlots';
-import type { SituationBoardResponseDto } from '../../data/getSituationBoard';
-import type { RecentMarker } from '../constants/mockSituationBoard';
-import { toMarkerOpLabel } from './operationalPeriodBoardMapper';
+import { createBoardMapMarkers, type BoardResponseLike } from '../../../shared/model/boardMapSlots';
+import type { RecentMarker } from '../../../shared/model/situationBoardViewModel';
 
-export function toBoardRecentMarkers(board: SituationBoardResponseDto): RecentMarker[] {
+export function toBoardRecentMarkers(board: BoardResponseLike): RecentMarker[] {
   return createBoardMapMarkers(board).map((marker) => {
     const markerType = marker.markerType;
     const markerLabel = markerTypeLabel(markerType);
@@ -169,4 +167,35 @@ function toMarkerTimeLabel(value: string) {
     minute: '2-digit',
     hour12: false,
   }).format(date);
+}
+
+function toMarkerOpLabel(opId: string | null, board: BoardResponseLike) {
+  if (!opId) return 'OP 미상';
+  const opRows = [...readSlotRows(board, 'op_toggle'), ...readSlotRows(board, 'op_history')];
+  const opRow = opRows.find((row) => (readString(row, 'opId') ?? readString(row, 'id')) === opId);
+  const sequence = opRow
+    ? readNumber(opRow, 'sequenceNo') ?? readNumber(opRow, 'sequenceNumber') ?? readNumber(opRow, 'sequence')
+    : null;
+  return sequence ? `OP ${sequence}차` : `OP ${opId}`;
+}
+
+function readSlotRows(board: BoardResponseLike, slot: string): Record<string, unknown>[] {
+  const value = board.slots[slot];
+  if (isRecord(value) && Object.keys(value).length > 0) return [value];
+  if (!Array.isArray(value)) return [];
+  return value.filter(isRecord);
+}
+
+function readString(row: Record<string, unknown>, key: string) {
+  const value = row[key];
+  return typeof value === 'string' ? value : null;
+}
+
+function readNumber(row: Record<string, unknown>, key: string) {
+  const value = row[key];
+  return typeof value === 'number' ? value : null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

@@ -18,7 +18,7 @@ import type {
   OperationalPeriodListItem,
 } from '../../../operationalPeriod/api/operationalPeriodApi';
 import type { HandoverIncidentDetailDto } from '../../data/getHandoverIncidentDetail';
-import type { OperationalPeriod } from '../../../situationBoard/presentation/constants/mockSituationBoard';
+import type { OperationalPeriod } from '../../../../shared/model/situationBoardViewModel';
 import type { HandoverMemoTargetOption } from '../components/HandoverMemoSection';
 
 export type EvidenceSummary = {

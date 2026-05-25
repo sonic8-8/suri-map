@@ -10,8 +10,8 @@ import {
 import type { CompletedAreaDraft } from '../../../../../shared/model/areaDraft';
 import { formatSearchAreaKindLabel } from '../../../../../shared/model/searchAreaLabels';
 import type { SearchAreaTreeNode } from '../../constants/mockSituationBoard';
-import { formatAccountDisplayName } from '../../utils/accountDisplayUtils';
-import { CollapsiblePanelSection } from './CollapsiblePanelSection';
+import { formatAccountDisplayName } from '../../../../../shared/model/accountDisplay';
+import { CollapsiblePanelSection } from '../../../../../shared/ui';
 import { OverflowTooltipText } from './OverflowTooltipText';
 import styles from './SearchAreaTree.module.css';
 

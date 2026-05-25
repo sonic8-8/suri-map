@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getIncidentDetail, type IncidentDetailDto } from '../../data/getIncidentDetail';
+import { getIncidentDetail, type IncidentDetailDto } from '../../../incident/api/incidentReadApi';
 
 export function useIncidentDetail(incidentId: string) {
   const [incidentDetail, setIncidentDetail] = useState<IncidentDetailDto | null>(null);

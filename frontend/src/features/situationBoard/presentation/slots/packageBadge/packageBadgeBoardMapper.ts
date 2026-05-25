@@ -1,5 +1,5 @@
-import type { SituationBoardResponseDto } from '../../data/getSituationBoard';
-import { isRecord, readNumber, readPolicePhoneId, readSlotRows, readString } from './boardApiMappers';
+import type { SituationBoardResponseDto } from '../../../data/getSituationBoard';
+import { isRecord, readNumber, readPolicePhoneId, readSlotRows, readString } from '../shared/boardApiMappers';
 
 export type PackageBadgeSummary = {
   warningCount: number;

@@ -15,7 +15,7 @@ import {
   type RouteAreaColorCandidate,
 } from '../../../../shared/model/routeAreaColorMatcher';
 import { type IncidentBoardResponse, type BoardSlotName } from '../../../board/api/incidentBoardApi';
-import type { RecentMarker } from '../../../situationBoard/presentation/constants/mockSituationBoard';
+import type { RecentMarker } from '../../../../shared/model/situationBoardViewModel';
 
 export type Position = [number, number];
 

@@ -1,5 +1,6 @@
-import type { SituationBoardResponseDto } from '../../data/getSituationBoard';
-import { readSlotRows, readString } from './boardApiMappers';
+type BoardWithSlots = {
+  slots: Record<string, unknown>;
+};
 
 export type IncidentTerminalStatus = 'OPEN' | 'CLOSED' | 'PURGE_PENDING' | 'PURGED';
 export type IncidentClosedStatus = 'not_closed' | 'closed' | 'purge_pending' | 'purged';
@@ -15,7 +16,7 @@ export type IncidentTerminalViewModel = {
   localPurgeState: IncidentLocalPurgeState;
 };
 
-export function toIncidentTerminal(board: SituationBoardResponseDto): IncidentTerminalViewModel | null {
+export function toIncidentTerminal(board: BoardWithSlots): IncidentTerminalViewModel | null {
   const row = readSlotRows(board, 'incident_terminal')[0];
   if (!row) return null;
 
@@ -65,4 +66,20 @@ function readLocalPurgeState(value: string | null): IncidentLocalPurgeState | nu
     value === 'failed_retryable'
     ? value
     : null;
+}
+
+function readSlotRows(board: BoardWithSlots, slot: string): Record<string, unknown>[] {
+  const value = board.slots[slot];
+  if (isRecord(value) && Object.keys(value).length > 0) return [value];
+  if (!Array.isArray(value)) return [];
+  return value.filter(isRecord);
+}
+
+function readString(row: Record<string, unknown>, key: string) {
+  const value = row[key];
+  return typeof value === 'string' ? value : null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

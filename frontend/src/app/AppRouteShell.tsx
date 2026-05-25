@@ -8,6 +8,22 @@ export function LazyRoute({ children }: LazyRouteProps) {
   return <Suspense fallback={<RouteLoadingScreen />}>{children}</Suspense>;
 }
 
+type ProtectedRouteProps<T> = {
+  value: T | null | undefined;
+  children: (value: T) => ReactNode;
+  fallback: ReactNode;
+  lazy?: boolean;
+};
+
+export function ProtectedRoute<T>({ value, children, fallback, lazy = false }: ProtectedRouteProps<T>) {
+  if (value == null) {
+    return fallback;
+  }
+
+  const routeElement = children(value);
+  return lazy ? <LazyRoute>{routeElement}</LazyRoute> : routeElement;
+}
+
 function RouteLoadingScreen() {
   return (
     <main className="situation-board-page situation-board-page-loading" aria-busy="true">
@@ -57,10 +73,11 @@ export class RouteErrorBoundary extends Component<RouteErrorBoundaryProps, Route
     return (
       <main className="situation-board-page situation-board-page-loading" role="alert">
         <section className="situation-board-loading-screen" aria-label="Page error">
-          <strong>?섏씠吏瑜??쒖떆?섏? 紐삵뻽?듬땲??</strong>
-          <span>?쇱떆?곸씤 ?붾㈃ ?ㅻ쪟媛 諛쒖깮?덉뒿?덈떎. ?ш굔 紐⑸줉?쇰줈 ?뚯븘媛????ㅼ떆 ?댁뼱二쇱꽭??</span>
+          <strong>페이지를 불러오지 못했습니다</strong>
+          <span>일시적인 오류가 발생했습니다. 사건 목록으로 이동한 뒤 다시 시도하십시오.</span>
           <button type="button" onClick={this.props.onOpenIncidentList}>
-            ?ш굔 紐⑸줉?쇰줈 ?뚯븘媛湲?          </button>
+            사건 목록으로 이동
+          </button>
         </section>
       </main>
     );

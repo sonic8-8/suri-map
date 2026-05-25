@@ -1,20 +1,20 @@
-import { areaColorTokens } from '../../../../shared/constants/areaColorTokens';
-import type { CompletedAreaDraft } from '../../../../shared/model/areaDraft';
+import { areaColorTokens } from '../../../../../shared/constants/areaColorTokens';
+import type { CompletedAreaDraft } from '../../../../../shared/model/areaDraft';
 import {
   applyRouteColorsByAssignee,
   createRouteColorAssigneeKey,
-} from '../../../../shared/model/boardMapFeatures';
-import { createBoardMovementPaths } from '../../../../shared/model/boardMapSlots';
+} from '../../../../../shared/model/boardMapFeatures';
+import { createBoardMovementPaths } from '../../../../../shared/model/boardMapSlots';
 import {
   resolveRouteColorByGeometry,
   type RouteAreaColorCandidate,
-} from '../../../../shared/model/routeAreaColorMatcher';
+} from '../../../../../shared/model/routeAreaColorMatcher';
 import type {
   MovementPath,
   SearchAreaTreeNode,
   SituationBoardFallbackData,
-} from '../constants/mockSituationBoard';
-import type { SituationBoardResponseDto } from '../../data/getSituationBoard';
+} from '../../constants/mockSituationBoard';
+import type { SituationBoardResponseDto } from '../../../data/getSituationBoard';
 
 export function toMovementPaths(board: SituationBoardResponseDto): MovementPath[] {
   return createBoardMovementPaths(board);

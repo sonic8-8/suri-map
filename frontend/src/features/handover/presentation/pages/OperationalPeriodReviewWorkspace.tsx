@@ -9,7 +9,10 @@ import {
   createSharedIncidentContext,
   formatIncidentContextEyebrow,
   formatMissingPersonIncidentTitle,
+  MapLegend,
+  MarkerGlyph,
   SuriMapPageHeader,
+  type MarkerGlyphName,
   type SuriMapPageHeaderIncidentContext,
   type SuriMapPageHeaderSyncStatus,
 } from '../../../../shared/ui';
@@ -18,11 +21,11 @@ import type { IncidentAssignmentSummary } from '../../../incident/api/incidentRe
 import {
   useIncidentBoardQuery,
   type IncidentBoardResponse,
+  type SituationBoardResponseDto,
   type BoardSlotName,
   incidentBoardQueryKeys,
 } from '../../../board/api/incidentBoardApi';
-import { mergeWithPreviousCriticalSlots } from '../../../situationBoard/presentation/hooks/useSituationBoardData';
-import type { SituationBoardResponseDto } from '../../../situationBoard/data/getSituationBoard';
+import { mergeWithPreviousCriticalSlots } from '../../../board/model/incidentBoardMerge';
 import { getHandoverIncidentDetail, type HandoverIncidentDetailDto } from '../../data/getHandoverIncidentDetail';
 import {
   type HandoverMemoTargetType,
@@ -47,11 +50,9 @@ import {
   createIncidentScopedFallbackBoard,
   type OperationalPeriod,
   type RecentMarker,
-} from '../../../situationBoard/presentation/constants/mockSituationBoard';
+} from '../../../../shared/model/situationBoardViewModel';
 import { getMarkerLegendColor } from '../../../../shared/constants/markerLegendColors';
-import { MapLegend } from '../../../situationBoard/presentation/components/map/MapLegend';
-import { MarkerGlyph, type MarkerGlyphName } from '../../../situationBoard/presentation/components/marker/MarkerGlyph';
-import { toBoardRecentMarkers } from '../../../situationBoard/presentation/utils/markerBoardMapper';
+import { toBoardRecentMarkers } from '../../../board/model/markerSlot';
 import { HandoverOperationalPeriodSelector } from '../components/HandoverOperationalPeriodSelector';
 import {
   HandoverComparisonMap,

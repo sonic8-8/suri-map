@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'vitest';
 
-import type { SituationBoardResponseDto } from '../../data/getSituationBoard';
+import type { SituationBoardResponseDto } from '../../../data/getSituationBoard';
 import { readSlotRows } from './boardApiMappers';
-import { toSearchAreaRows } from './searchAreaBoardMapper';
+import { toSearchAreaRows } from '../searchArea/searchAreaBoardMapper';
 
 describe('boardApiMappers', () => {
   test('ignores empty object payloads when reading slot rows', () => {

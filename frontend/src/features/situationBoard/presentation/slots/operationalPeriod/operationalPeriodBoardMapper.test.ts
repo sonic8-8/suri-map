@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import type { SituationBoardResponseDto } from '../../data/getSituationBoard';
+import type { SituationBoardResponseDto } from '../../../data/getSituationBoard';
 import { toOperationalPeriods, toMarkerOpLabel } from './operationalPeriodBoardMapper';
 
 describe('operationalPeriodBoardMapper', () => {

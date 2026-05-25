@@ -1,7 +1,7 @@
-import type { CompletedAreaDraft } from '../../../../shared/model/areaDraft';
-import type { AreaBbox } from '../../../../shared/model/areaDraft';
-import type { MovementPath } from '../constants/mockSituationBoard';
-import type { SituationBoardResponseDto } from '../../data/getSituationBoard';
+import type { CompletedAreaDraft } from '../../../../../shared/model/areaDraft';
+import type { AreaBbox } from '../../../../../shared/model/areaDraft';
+import type { MovementPath } from '../../constants/mockSituationBoard';
+import type { SituationBoardResponseDto } from '../../../data/getSituationBoard';
 
 export function readSlotRows(board: SituationBoardResponseDto, slot: string): Record<string, unknown>[] {
   const value = board.slots[slot];

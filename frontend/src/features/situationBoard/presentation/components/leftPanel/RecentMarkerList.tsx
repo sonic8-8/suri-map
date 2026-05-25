@@ -7,8 +7,8 @@ import type {
   SupportRequestTypeId,
 } from '../../constants/mockSituationBoard';
 import { getMarkerLegendColor } from '../../../../../shared/constants/markerLegendColors';
-import { MarkerGlyph, type MarkerGlyphName } from '../marker/MarkerGlyph';
-import { CollapsiblePanelSection } from './CollapsiblePanelSection';
+import { MarkerGlyph, type MarkerGlyphName } from '../../../../../shared/ui';
+import { CollapsiblePanelSection } from '../../../../../shared/ui';
 import { MarkerTypeFilter } from './MarkerTypeFilter';
 import { OverflowTooltipText } from './OverflowTooltipText';
 import styles from './RecentMarkerList.module.css';

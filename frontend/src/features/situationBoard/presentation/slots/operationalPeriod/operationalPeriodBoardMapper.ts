@@ -1,6 +1,6 @@
-import type { OperationalPeriod } from '../constants/mockSituationBoard';
-import type { SituationBoardResponseDto } from '../../data/getSituationBoard';
-import { readNumber, readSlotRows, readString } from './boardApiMappers';
+import type { OperationalPeriod } from '../../constants/mockSituationBoard';
+import type { SituationBoardResponseDto } from '../../../data/getSituationBoard';
+import { readNumber, readSlotRows, readString } from '../shared/boardApiMappers';
 
 type OperationalPeriodRow = {
   opId: string;

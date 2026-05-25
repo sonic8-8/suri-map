@@ -2,7 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { useIncidentBoardQuery } from '../../../board/api/incidentBoardApi';
-import { getIncidentDetail } from '../../../situationBoard/data/getIncidentDetail';
+import { getIncidentDetail } from '../../../incident/api/incidentReadApi';
 import { useOfflinePackageManifestQuery } from '../../api/offlinePackageApi';
 import type { OfflinePackageManifestResponse } from '../../api/offlinePackageApi';
 import type { LoginAccount } from '../../../login/presentation/types/login';
@@ -17,7 +17,7 @@ vi.mock('../../api/offlinePackageApi', async (importOriginal) => ({
   useOfflinePackageManifestQuery: vi.fn(),
 }));
 
-vi.mock('../../../situationBoard/data/getIncidentDetail', () => ({
+vi.mock('../../../incident/api/incidentReadApi', () => ({
   getIncidentDetail: vi.fn(),
 }));
 

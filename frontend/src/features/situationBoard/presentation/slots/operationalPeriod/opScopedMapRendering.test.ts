@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'vitest';
 
-import type { SituationBoardResponseDto } from '../../data/getSituationBoard';
-import type { MovementPath, RecentMarker } from '../constants/mockSituationBoard';
-import type { BoardSearchAreaRow } from './searchAreaBoardMapper';
+import type { SituationBoardResponseDto } from '../../../data/getSituationBoard';
+import type { MovementPath, RecentMarker } from '../../constants/mockSituationBoard';
+import type { BoardSearchAreaRow } from '../searchArea/searchAreaBoardMapper';
 import {
   filterSituationBoardMarkersForMap,
   filterSituationBoardMovementPathsForMap,

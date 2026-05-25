@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'vitest';
-import { areaColorTokens } from '../../../../shared/constants/areaColorTokens';
-import type { CompletedAreaDraft } from '../../../../shared/model/areaDraft';
-import { resolveRouteColorByGeometry } from '../../../../shared/model/routeAreaColorMatcher';
-import type { MovementPath, SearchAreaTreeNode } from '../constants/mockSituationBoard';
+import { areaColorTokens } from '../../../../../shared/constants/areaColorTokens';
+import type { CompletedAreaDraft } from '../../../../../shared/model/areaDraft';
+import { resolveRouteColorByGeometry } from '../../../../../shared/model/routeAreaColorMatcher';
+import type { MovementPath, SearchAreaTreeNode } from '../../constants/mockSituationBoard';
 import { assignRouteColorsToMovementPaths } from './movementPathBoardMapper';
 
 describe('assignRouteColorsToMovementPaths', () => {
