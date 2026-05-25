@@ -372,9 +372,10 @@ class SearchMapStateLoader(
                     SearchMapLayerUiState(
                         label = marker.markerLabel(),
                         kind = SearchLayerKind.Marker,
-                        highlighted = true,
                         overlayId = marker.optString("id").ifBlank { "initial-marker-$index" },
-                        geoJson = location.toString()
+                        geoJson = location.toString(),
+                        markerType = marker.optString("type").ifBlank { null },
+                        supportRequestType = marker.optString("supportRequestType").ifBlank { null }
                     )
                 )
             }
@@ -437,9 +438,10 @@ class SearchMapStateLoader(
                     SearchMapLayerUiState(
                         label = marker.markerLabel(),
                         kind = SearchLayerKind.Marker,
-                        highlighted = true,
                         overlayId = marker.optString("id").ifBlank { "live-marker-$index" },
-                        geoJson = location.toString()
+                        geoJson = location.toString(),
+                        markerType = marker.optString("type").ifBlank { null },
+                        supportRequestType = marker.optString("supportRequestType").ifBlank { null }
                     )
                 )
             }
@@ -451,9 +453,10 @@ class SearchMapStateLoader(
             SearchMapLayerUiState(
                 label = "${marker.type.markerTypeLabel()} · 전송 대기",
                 kind = SearchLayerKind.Marker,
-                highlighted = true,
                 overlayId = marker.localMarkerId,
-                geoJson = """{"type":"Point","coordinates":[${marker.lon},${marker.lat}]}"""
+                geoJson = """{"type":"Point","coordinates":[${marker.lon},${marker.lat}]}""",
+                markerType = marker.type,
+                supportRequestType = marker.supportRequestType
             )
         }
 

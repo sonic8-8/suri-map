@@ -85,6 +85,12 @@ private const val CURRENT_LOCATION_MARKER_RADIUS_PX = 17f
 private const val CURRENT_LOCATION_MARKER_STROKE_WIDTH_PX = 5f
 private const val CURRENT_LOCATION_ICON_SIZE = 1.35f
 private const val CURRENT_LOCATION_HEADING_IMAGE_SDF = false
+private const val MARKER_ICON_PREFIX = "suri-board-marker"
+private const val MARKER_ICON_WIDTH = 40
+private const val MARKER_ICON_HEIGHT = 46
+private const val MARKER_ICON_RASTER_SCALE = 2
+private const val MARKER_ICON_SIZE = 0.5f
+private const val MARKER_SELECTED_GLOW_COLOR = "#38BDF8"
 
 data class MapLibreViewportBounds(
     val south: Double,
@@ -112,9 +118,12 @@ data class MapLibreGeometryOverlay(
     val geoJson: String,
     val highlighted: Boolean = false,
     val label: String? = null,
-    val bearingDegrees: Double? = null
+    val bearingDegrees: Double? = null,
+    val markerType: String? = null,
+    val supportRequestType: String? = null
 ) {
-    fun signature(): String = "${kind.name}:$id:$highlighted:${label.orEmpty()}:${bearingDegrees ?: ""}:$geoJson"
+    fun signature(): String =
+        "${kind.name}:$id:$highlighted:${label.orEmpty()}:${bearingDegrees ?: ""}:${markerType.orEmpty()}:${supportRequestType.orEmpty()}:$geoJson"
 }
 
 internal data class MapLibreOverlayPaint(
@@ -351,7 +360,7 @@ fun SuriMapLibreMap(
                             val markerLayerIds =
                                 latestMapState.geometryOverlays
                                     .filter { it.kind == MapLibreGeometryOverlayKind.Marker }
-                                    .map { it.circleLayerId }
+                                    .map { it.markerIconLayerId }
                                     .toTypedArray()
                             if (markerLayerIds.isEmpty()) {
                                 return@OnMapClickListener false
@@ -455,6 +464,9 @@ private val MapLibreGeometryOverlay.lineLayerId: String
 private val MapLibreGeometryOverlay.circleLayerId: String
     get() = "$styleId-circle"
 
+private val MapLibreGeometryOverlay.markerIconLayerId: String
+    get() = "$styleId-marker-icon"
+
 private val MapLibreGeometryOverlay.labelLayerId: String
     get() = "$styleId-label"
 
@@ -489,6 +501,11 @@ private fun Style.upsertGeometryOverlay(overlay: MapLibreGeometryOverlay) {
         upsertCircleLayer(overlay, paint)
     } else {
         removeLayer(overlay.circleLayerId)
+    }
+    if (overlay.supportsMarkerIconLayer) {
+        upsertMarkerIconLayer(overlay)
+    } else {
+        removeLayer(overlay.markerIconLayerId)
     }
     if (overlay.supportsHeadingLayer) {
         upsertHeadingLayer(overlay, paint)
@@ -564,6 +581,50 @@ private fun Style.upsertCircleLayer(overlay: MapLibreGeometryOverlay, paint: Map
         circleOpacity(paint.circleOpacity),
         circleStrokeColor(paint.circleStrokeColor),
         circleStrokeWidth(paint.circleStrokeWidth)
+    )
+}
+
+private fun Style.upsertMarkerIconLayer(overlay: MapLibreGeometryOverlay) {
+    upsertMarkerImage(overlay)
+    val layer = getLayer(overlay.markerIconLayerId)
+    if (layer == null) {
+        addLayer(
+            SymbolLayer(overlay.markerIconLayerId, overlay.sourceId).withProperties(
+                symbolPlacement(SYMBOL_PLACEMENT_POINT),
+                iconImage(Expression.get("markerIcon")),
+                iconSize(MARKER_ICON_SIZE),
+                iconAnchor("bottom"),
+                iconAllowOverlap(true),
+                iconIgnorePlacement(true),
+                iconOptional(false)
+            )
+        )
+        return
+    }
+    layer.setProperties(
+        symbolPlacement(SYMBOL_PLACEMENT_POINT),
+        iconImage(Expression.get("markerIcon")),
+        iconSize(MARKER_ICON_SIZE),
+        iconAnchor("bottom"),
+        iconAllowOverlap(true),
+        iconIgnorePlacement(true),
+        iconOptional(false)
+    )
+}
+
+private fun Style.upsertMarkerImage(overlay: MapLibreGeometryOverlay) {
+    val imageId = overlay.markerIconImageId
+    if (getImage(imageId) != null) {
+        return
+    }
+    addImage(
+        imageId,
+        markerBitmap(
+            type = overlay.markerType,
+            supportRequestType = overlay.supportRequestType,
+            selected = overlay.highlighted
+        ),
+        false
     )
 }
 
@@ -665,6 +726,7 @@ private fun Style.removeGeometryOverlays(styleIds: Set<String>) {
     styleIds.forEach { styleId ->
         removeLayer("$styleId-label")
         removeLayer("$styleId-heading")
+        removeLayer("$styleId-marker-icon")
         removeLayer("$styleId-circle")
         removeLayer("$styleId-line")
         removeLayer("$styleId-fill")
@@ -690,6 +752,9 @@ private fun MapLibreGeometryOverlay.featureCollectionJson(): String? {
                             .put("highlighted", highlighted)
                             .put("label", label.orEmpty())
                             .apply {
+                                if (kind == MapLibreGeometryOverlayKind.Marker) {
+                                    put("markerIcon", markerIconImageId)
+                                }
                                 if (kind == MapLibreGeometryOverlayKind.CurrentLocation) {
                                     put("currentLocationIcon", if (bearingDegrees == null) CURRENT_LOCATION_IMAGE_ID else CURRENT_LOCATION_HEADING_IMAGE_ID)
                                     put("bearingDegrees", bearingDegrees ?: 0.0)
@@ -714,6 +779,274 @@ private fun JSONObject.isRenderableGeometry(): Boolean {
         else -> false
     }
 }
+
+private val MapLibreGeometryOverlay.markerIconImageId: String
+    get() {
+        val typeKey = markerType.markerTypeKey()
+        val glyph = markerGlyphName(typeKey, supportRequestType)
+        val state = if (highlighted) "selected" else "base"
+        return "$MARKER_ICON_PREFIX-${typeKey.lowercase()}-${glyph.lowercase()}-$state"
+    }
+
+private fun markerBitmap(
+    type: String?,
+    supportRequestType: String?,
+    selected: Boolean
+): Bitmap {
+    val bitmap =
+        Bitmap.createBitmap(
+            MARKER_ICON_WIDTH * MARKER_ICON_RASTER_SCALE,
+            MARKER_ICON_HEIGHT * MARKER_ICON_RASTER_SCALE,
+            Bitmap.Config.ARGB_8888
+        )
+    val canvas = Canvas(bitmap)
+    canvas.scale(MARKER_ICON_RASTER_SCALE.toFloat(), MARKER_ICON_RASTER_SCALE.toFloat())
+
+    val typeKey = type.markerTypeKey()
+    val glyph = markerGlyphName(typeKey, supportRequestType)
+    val shell = markerShellPath()
+    val shadowPaint =
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.FILL
+            color = Color.parseColor("#0F172A")
+            alpha = if (selected) (255 * 0.30f).toInt() else (255 * 0.20f).toInt()
+        }
+    val fillPaint =
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.FILL
+            color = Color.parseColor(markerLegendColor(typeKey, supportRequestType, glyph))
+        }
+    val strokePaint =
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeJoin = Paint.Join.ROUND
+            strokeCap = Paint.Cap.ROUND
+            strokeWidth = 2.2f
+            color = Color.WHITE
+        }
+
+    if (selected) {
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeJoin = Paint.Join.ROUND
+            strokeWidth = 4.0f
+            color = Color.parseColor(MARKER_SELECTED_GLOW_COLOR)
+            alpha = (255 * 0.45f).toInt()
+        }.also { canvas.drawPath(shell, it) }
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeJoin = Paint.Join.ROUND
+            strokeWidth = 2.4f
+            color = Color.parseColor(MARKER_SELECTED_GLOW_COLOR)
+        }.also { canvas.drawPath(shell, it) }
+    }
+
+    canvas.save()
+    canvas.translate(0f, 2f)
+    canvas.drawPath(shell, shadowPaint)
+    canvas.restore()
+    canvas.drawPath(shell, fillPaint)
+    canvas.drawPath(shell, strokePaint)
+
+    Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+        color = Color.WHITE
+        alpha = (255 * if (selected) 0.10f else 0.06f).toInt()
+    }.also { canvas.drawOval(8.8f, 6.4f, 31.2f, 23.0f, it) }
+
+    Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+        color = Color.parseColor("#0F172A")
+        alpha = (255 * 0.14f).toInt()
+    }.also { paint ->
+        val lowerShade =
+            Path().apply {
+                moveTo(8f, 27.5f)
+                cubicTo(11.2f, 33.8f, 17f, 40.1f, 20f, 44f)
+                cubicTo(22.9f, 40.3f, 28.3f, 34.4f, 31.7f, 28.3f)
+                cubicTo(28.5f, 30.4f, 24.3f, 31.6f, 20f, 31.6f)
+                cubicTo(15.6f, 31.6f, 11.4f, 30.2f, 8f, 27.5f)
+                close()
+            }
+        canvas.drawPath(lowerShade, paint)
+    }
+
+    val iconPaint =
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeJoin = Paint.Join.ROUND
+            strokeCap = Paint.Cap.ROUND
+            strokeWidth = 2.2f
+            color = Color.parseColor("#F8FAFC")
+        }
+    canvas.save()
+    canvas.translate(10f, 8.25f)
+    canvas.scale(20f / 24f, 20f / 24f)
+    applyMarkerGlyphPlacement(canvas, glyph)
+    drawMarkerGlyph(canvas, glyph, iconPaint)
+    canvas.restore()
+
+    return bitmap
+}
+
+private fun markerShellPath(): Path =
+    Path().apply {
+        moveTo(20f, 44f)
+        cubicTo(16.7f, 39.8f, 4f, 29.9f, 4f, 18.7f)
+        cubicTo(4f, 10.4f, 11.1f, 4f, 20f, 4f)
+        cubicTo(28.9f, 4f, 36f, 10.4f, 36f, 18.7f)
+        cubicTo(36f, 29.9f, 23.3f, 39.8f, 20f, 44f)
+        close()
+    }
+
+private fun applyMarkerGlyphPlacement(canvas: Canvas, glyph: String) {
+    when (glyph) {
+        "FIELD", "FOUND", "NOTE" -> canvas.translate(0f, -0.5f)
+        "HAND" -> {
+            canvas.translate(0f, -2f)
+            canvas.scale(0.94f, 0.94f, 12f, 12f)
+        }
+        "HAND_HELPING" -> canvas.scale(0.9f, 0.9f, 12f, 12f)
+    }
+}
+
+private fun drawMarkerGlyph(canvas: Canvas, glyph: String, paint: Paint) {
+    when (glyph) {
+        "CLUE" -> {
+            canvas.drawCircle(11f, 11f, 8f, paint)
+            canvas.drawLine(16.66f, 16.66f, 21f, 21f, paint)
+        }
+        "FOUND" -> {
+            canvas.drawCircle(9f, 7f, 4f, paint)
+            canvas.drawPath(
+                Path().apply {
+                    moveTo(2f, 21f)
+                    lineTo(2f, 19f)
+                    cubicTo(2f, 16.8f, 3.8f, 15f, 6f, 15f)
+                    lineTo(12f, 15f)
+                    cubicTo(14.2f, 15f, 16f, 16.8f, 16f, 19f)
+                    lineTo(16f, 21f)
+                },
+                paint
+            )
+            canvas.drawLine(16f, 11f, 18f, 13f, paint)
+            canvas.drawLine(18f, 13f, 22f, 9f, paint)
+        }
+        "FIELD" -> {
+            canvas.drawPath(
+                Path().apply {
+                    moveTo(8f, 3f)
+                    lineTo(12f, 11f)
+                    lineTo(17f, 6f)
+                    lineTo(22f, 21f)
+                    lineTo(2f, 21f)
+                    close()
+                },
+                paint
+            )
+        }
+        "DRONE" -> {
+            canvas.drawRoundRect(9f, 9f, 15f, 15f, 2f, 2f, paint)
+            canvas.drawLine(5f, 5f, 9f, 9f, paint)
+            canvas.drawLine(15f, 9f, 19f, 5f, paint)
+            canvas.drawLine(5f, 19f, 9f, 15f, paint)
+            canvas.drawLine(15f, 15f, 19f, 19f, paint)
+            canvas.drawCircle(4f, 4f, 2f, paint)
+            canvas.drawCircle(20f, 4f, 2f, paint)
+            canvas.drawCircle(4f, 20f, 2f, paint)
+            canvas.drawCircle(20f, 20f, 2f, paint)
+        }
+        "DOG" -> {
+            canvas.drawCircle(12f, 13f, 6f, paint)
+            canvas.drawPath(
+                Path().apply {
+                    moveTo(7f, 9f)
+                    lineTo(5f, 4f)
+                    lineTo(10f, 7f)
+                    moveTo(17f, 9f)
+                    lineTo(19f, 4f)
+                    lineTo(14f, 7f)
+                    moveTo(10.5f, 15.5f)
+                    lineTo(12f, 17f)
+                    lineTo(13.5f, 15.5f)
+                },
+                paint
+            )
+            canvas.drawPoint(10f, 12f, paint)
+            canvas.drawPoint(14f, 12f, paint)
+        }
+        "HAND", "HAND_HELPING" -> {
+            canvas.drawPath(
+                Path().apply {
+                    moveTo(11f, 12f)
+                    lineTo(13f, 12f)
+                    cubicTo(15.2f, 12f, 15.2f, 8f, 13f, 8f)
+                    lineTo(10f, 8f)
+                    cubicTo(9.4f, 8f, 8.9f, 8.2f, 8.6f, 8.6f)
+                    lineTo(3f, 14f)
+                    moveTo(7f, 18f)
+                    lineTo(8.6f, 16.6f)
+                    cubicTo(8.9f, 16.2f, 9.4f, 16f, 10f, 16f)
+                    lineTo(14f, 16f)
+                    cubicTo(15.1f, 16f, 16.1f, 15.6f, 16.8f, 14.8f)
+                    lineTo(21.4f, 10.4f)
+                    moveTo(2f, 13f)
+                    lineTo(8f, 19f)
+                },
+                paint
+            )
+        }
+        else -> {
+            canvas.drawLine(2f, 6f, 6f, 6f, paint)
+            canvas.drawLine(2f, 10f, 6f, 10f, paint)
+            canvas.drawLine(2f, 14f, 6f, 14f, paint)
+            canvas.drawLine(2f, 18f, 6f, 18f, paint)
+            canvas.drawRoundRect(4f, 2f, 20f, 22f, 2f, 2f, paint)
+            canvas.drawLine(9.5f, 8f, 14.5f, 8f, paint)
+            canvas.drawLine(9.5f, 12f, 16f, 12f, paint)
+            canvas.drawLine(9.5f, 16f, 14f, 16f, paint)
+        }
+    }
+}
+
+private fun String?.markerTypeKey(): String =
+    when (orEmpty().uppercase()) {
+        "CLUE" -> "CLUE"
+        "PERSON_FOUND" -> "PERSON_FOUND"
+        "FIELD_CONDITION" -> "FIELD_CONDITION"
+        "SUPPORT_REQUEST" -> "SUPPORT_REQUEST"
+        "NOTE" -> "NOTE"
+        else -> "UNKNOWN"
+    }
+
+private fun markerGlyphName(typeKey: String, supportRequestType: String?): String =
+    if (typeKey == "SUPPORT_REQUEST") {
+        when (supportRequestType.orEmpty().uppercase()) {
+            "DRONE" -> "DRONE"
+            "POLICE_DOG" -> "DOG"
+            else -> "HAND_HELPING"
+        }
+    } else {
+        when (typeKey) {
+            "CLUE" -> "CLUE"
+            "PERSON_FOUND" -> "FOUND"
+            "FIELD_CONDITION" -> "FIELD"
+            "NOTE" -> "NOTE"
+            else -> "NOTE"
+        }
+    }
+
+private fun markerLegendColor(typeKey: String, supportRequestType: String?, glyph: String): String =
+    when {
+        typeKey == "SUPPORT_REQUEST" && (supportRequestType.orEmpty().uppercase() == "DRONE" || glyph == "DRONE") -> "#06B6D4"
+        typeKey == "SUPPORT_REQUEST" && (supportRequestType.orEmpty().uppercase() == "POLICE_DOG" || glyph == "DOG") -> "#F472B6"
+        typeKey == "SUPPORT_REQUEST" -> "#8B5CF6"
+        typeKey == "CLUE" -> "#F59E0B"
+        typeKey == "PERSON_FOUND" -> "#EF4444"
+        typeKey == "FIELD_CONDITION" -> "#22C55E"
+        typeKey == "NOTE" -> "#3B82F6"
+        else -> "#64748B"
+    }
 
 private fun currentLocationBitmap(
     fillColor: String,
@@ -829,13 +1162,16 @@ private val MapLibreGeometryOverlay.supportsCircleLayer: Boolean
             MapLibreGeometryOverlayKind.Unit -> false
             MapLibreGeometryOverlayKind.Team -> false
             MapLibreGeometryOverlayKind.Path -> false
-            MapLibreGeometryOverlayKind.Marker -> true
+            MapLibreGeometryOverlayKind.Marker -> false
             MapLibreGeometryOverlayKind.CurrentLocation -> false
         }
 
+private val MapLibreGeometryOverlay.supportsMarkerIconLayer: Boolean
+    get() = kind == MapLibreGeometryOverlayKind.Marker
+
 private val MapLibreGeometryOverlay.supportsLabelLayer: Boolean
     get() =
-        !label.isNullOrBlank()
+        kind != MapLibreGeometryOverlayKind.Marker && !label.isNullOrBlank()
 
 private val MapLibreGeometryOverlay.supportsHeadingLayer: Boolean
     get() =

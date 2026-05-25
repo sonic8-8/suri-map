@@ -154,7 +154,9 @@ data class SearchMapLayerUiState(
     val overlayId: String? = null,
     val geoJson: String? = null,
     val assignedToCurrentPhone: Boolean = false,
-    val bearingDegrees: Double? = null
+    val bearingDegrees: Double? = null,
+    val markerType: String? = null,
+    val supportRequestType: String? = null
 )
 
 data class SearchMapAreaFocusTarget(
@@ -1477,7 +1479,9 @@ private fun SearchMapUiState.toRuntimeMapState(base: MapLibreRuntimeMapState): M
                 geoJson = geoJson,
                 highlighted = layer.highlighted || focused,
                 label = layer.label,
-                bearingDegrees = layer.bearingDegrees
+                bearingDegrees = layer.bearingDegrees,
+                markerType = layer.markerType,
+                supportRequestType = layer.supportRequestType
             )
         }
     )
