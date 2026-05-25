@@ -64,6 +64,7 @@ import androidx.work.WorkManager
 import com.surimap.BuildConfig
 import com.surimap.core.auth.OidcSessionStateStore
 import com.surimap.core.database.OfflinePackageInstallationEntity
+import com.surimap.core.database.OfflinePackageInstallationDao
 import com.surimap.core.database.OfflinePackageItemStatusEntity
 import com.surimap.core.database.SuriMapDatabase
 import com.surimap.core.database.SuriMapDatabaseProvider
@@ -153,6 +154,7 @@ import com.surimap.feature.handover.ui.HandoverMemoUiState
 import com.surimap.feature.incidents.data.IncidentListStateLoader
 import com.surimap.feature.incidents.data.IncidentSessionContextResolver
 import com.surimap.feature.incidents.ui.AssignedIncidentUiModel
+import com.surimap.feature.incidents.ui.IncidentPackageStatus
 import com.surimap.feature.incidents.ui.IncidentListScreen
 import com.surimap.feature.incidents.ui.IncidentListUiState
 import com.surimap.feature.marker.data.HttpObjectStorageUploader
@@ -2479,6 +2481,7 @@ private fun IncidentListRoute(
     val accessTokenProvider = policePhoneContext.accessTokenProvider()
     val context = LocalContext.current.applicationContext
     val database = remember(context) { SuriMapDatabaseProvider.database(context) }
+    val offlinePackageInstallationDao = remember(database) { database.offlinePackageInstallationDao() }
     val outboxReplayScheduler = remember(context) {
         OutboxReplayScheduler(WorkManager.getInstance(context))
     }
@@ -2497,29 +2500,55 @@ private fun IncidentListRoute(
             clockSyncedAt = clockSyncState::clockSyncedAt
         )
     }
-    val coroutineScope = rememberCoroutineScope()
-    val loader = remember(policePhoneContext?.apiBaseUrl, policePhoneContext?.accessToken, policePhoneLabel) {
-        IncidentListStateLoader(
-            repository =
-            IncidentReadRepository(
+    val offlinePackageRepository =
+        remember(policePhoneContext?.apiBaseUrl, policePhoneContext?.accessToken) {
+            OfflinePackageRepository(
                 apiClient =
                 SuriMapApiClient(
                     baseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
                 ),
                 accessTokenProvider = accessTokenProvider
-            ),
-            policePhoneLabel = policePhoneLabel,
-            operationalPeriods = { incidentId ->
-                OperationalPeriodReadRepository(
+            )
+        }
+    val coroutineScope = rememberCoroutineScope()
+    val loader =
+        remember(
+            policePhoneContext?.apiBaseUrl,
+            policePhoneContext?.accessToken,
+            policePhoneContext?.policePhoneId,
+            policePhoneLabel,
+            offlinePackageInstallationDao,
+            offlinePackageRepository
+        ) {
+            IncidentListStateLoader(
+                repository =
+                IncidentReadRepository(
                     apiClient =
                     SuriMapApiClient(
                         baseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
                     ),
                     accessTokenProvider = accessTokenProvider
-                ).list(incidentId)
-            }
-        )
-    }
+                ),
+                policePhoneLabel = policePhoneLabel,
+                operationalPeriods = { incidentId ->
+                    OperationalPeriodReadRepository(
+                        apiClient =
+                        SuriMapApiClient(
+                            baseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
+                        ),
+                        accessTokenProvider = accessTokenProvider
+                    ).list(incidentId)
+                },
+                packageStatus = { incidentId ->
+                    resolveIncidentPackageStatus(
+                        incidentId = incidentId,
+                        policePhoneId = policePhoneContext?.policePhoneId,
+                        installationDao = offlinePackageInstallationDao,
+                        repository = offlinePackageRepository
+                    )
+                }
+            )
+        }
     val contextResolver = remember(policePhoneContext?.apiBaseUrl, policePhoneContext?.accessToken) {
         IncidentSessionContextResolver(
             operationalPeriods = { incidentId ->
@@ -2679,6 +2708,54 @@ private suspend fun RoomOutboxReplay.flushPendingIfReady(
     val readyIncidentId = incidentId?.takeIf(String::isNotBlank) ?: return null
     val readyPolicePhoneId = policePhoneId?.takeIf(String::isNotBlank) ?: return null
     return flushPending(policePhoneId = readyPolicePhoneId, incidentId = readyIncidentId)
+}
+
+private suspend fun resolveIncidentPackageStatus(
+    incidentId: String,
+    policePhoneId: String?,
+    installationDao: OfflinePackageInstallationDao,
+    repository: OfflinePackageRepository
+): IncidentPackageStatus {
+    val readyPolicePhoneId = policePhoneId?.takeIf(String::isNotBlank) ?: return IncidentPackageStatus.NotInstalled
+    val local =
+        installationDao.find(
+            incidentId = incidentId,
+            policePhoneId = readyPolicePhoneId
+        ) ?: return IncidentPackageStatus.NotInstalled
+    if (local.failedItems > 0 || local.status == "FAILED") {
+        return IncidentPackageStatus.Failed
+    }
+
+    val manifestVersion =
+        runCatching {
+            val response =
+                repository.manifest(
+                    OfflinePackageManifestQuery(
+                        incidentId = incidentId,
+                        policePhoneId = readyPolicePhoneId,
+                        knownManifestRevision = local.manifestVersion.toLong()
+                    )
+                )
+            if (response.isSuccessful && !response.body.isNullOrBlank()) {
+                JSONObject(response.body).optInt("manifestVersion", local.manifestVersion)
+            } else {
+                local.manifestVersion
+            }
+        }.getOrDefault(local.manifestVersion)
+    if (manifestVersion > local.manifestVersion) {
+        return IncidentPackageStatus.UpdateRequired
+    }
+
+    return if (
+        local.status == "READY" &&
+        local.readyForOfflineUse &&
+        local.totalItems > 0 &&
+        local.completedItems == local.totalItems
+    ) {
+        IncidentPackageStatus.Ready
+    } else {
+        IncidentPackageStatus.NotInstalled
+    }
 }
 
 private fun OfflinePackageInstallationEntity.toOfflinePackageInstallationStatus(): OfflinePackageInstallationStatus =

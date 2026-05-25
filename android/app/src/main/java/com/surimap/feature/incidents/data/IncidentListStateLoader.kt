@@ -5,6 +5,7 @@ import com.surimap.core.network.SuriMapApiResponse
 import com.surimap.core.network.SuriMapNetworkException
 import com.surimap.core.operationalperiod.OperationalPeriodReadRepository
 import com.surimap.feature.incidents.ui.AssignedIncidentUiModel
+import com.surimap.feature.incidents.ui.IncidentPackageStatus
 import com.surimap.feature.incidents.ui.IncidentListStatus
 import com.surimap.feature.incidents.ui.IncidentListUiState
 import org.json.JSONArray
@@ -15,7 +16,8 @@ class IncidentListStateLoader(
     private val policePhoneLabel: String,
     private val operationalPeriods: suspend (String) -> SuriMapApiResponse = { incidentId ->
         OperationalPeriodReadRepository().list(incidentId)
-    }
+    },
+    private val packageStatus: suspend (String) -> IncidentPackageStatus = { IncidentPackageStatus.NotInstalled }
 ) {
     suspend fun load(): IncidentListUiState {
         return try {
@@ -79,8 +81,7 @@ class IncidentListStateLoader(
                 currentDutyShiftId = item.optString("currentDutyShiftId").takeIf(String::isNotBlank),
                 title = item.optString("title").userFacingIncidentTitle(incidentId),
                 summary = item.incidentSummary(),
-                packageStatus = "오프라인 패키지 확인 전",
-                assignmentStatus = "이 폴리폰에서 선택 가능"
+                packageStatus = packageStatus(incidentId)
             )
         }
     }

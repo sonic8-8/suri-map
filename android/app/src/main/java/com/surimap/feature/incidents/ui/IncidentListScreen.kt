@@ -2,6 +2,7 @@ package com.surimap.feature.incidents.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
@@ -19,6 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,17 +34,16 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.surimap.ui.components.PoliAppBar
 import com.surimap.ui.components.PoliBanner
 import com.surimap.ui.components.PoliBannerVariant
 import com.surimap.ui.components.PoliButton
-import com.surimap.ui.components.PoliButtonSize
 import com.surimap.ui.components.PoliButtonVariant
 import com.surimap.ui.components.PoliCard
-import com.surimap.ui.components.PoliChip
-import com.surimap.ui.components.PoliChipVariant
 import com.surimap.ui.components.PoliDialog
 import com.surimap.ui.navigation.IncidentContext
 import com.surimap.ui.theme.PoliDimens
@@ -60,6 +62,13 @@ enum class IncidentListStatus {
     Error,
     Offline,
     Stale
+}
+
+enum class IncidentPackageStatus(val label: String) {
+    NotInstalled("미설치"),
+    UpdateRequired("확인 필요"),
+    Ready("준비 완료"),
+    Failed("설치 실패")
 }
 
 data class IncidentListUiState(
@@ -81,8 +90,7 @@ data class IncidentListUiState(
                 add(incident.title)
                 add(incident.progressLabel)
                 add(incident.summary)
-                add(incident.packageStatus)
-                add(incident.assignmentStatus)
+                add(incident.packageStatus.label)
             }
             add(primaryOpenLabel)
         }
@@ -157,11 +165,10 @@ data class AssignedIncidentUiModel(
     val currentDutyShiftId: String? = null,
     val title: String,
     val summary: String,
-    val packageStatus: String,
-    val assignmentStatus: String
+    val packageStatus: IncidentPackageStatus = IncidentPackageStatus.NotInstalled
 ) {
     val progressLabel: String
-        get() = listOf("진행 중", currentOpLabel?.takeIf(String::isNotBlank))
+        get() = listOf("진행 중", currentOpLabel?.toSearchRoundLabel()?.takeIf(String::isNotBlank))
             .filterNotNull()
             .joinToString(" · ")
 
@@ -173,6 +180,9 @@ data class AssignedIncidentUiModel(
             currentDutyShiftId = currentDutyShiftId
         )
 }
+
+private fun String.toSearchRoundLabel(): String =
+    replace(Regex("""OP\s*(\d+)차"""), "$1차 수색")
 
 @Composable
 fun IncidentListScreen(
@@ -339,6 +349,131 @@ private val SuriRefreshIcon: ImageVector =
         }
     }.build()
 
+private val SuriPackageCheckIcon: ImageVector =
+    ImageVector.Builder(
+        name = "SuriPackageCheck",
+        defaultWidth = 24.dp,
+        defaultHeight = 24.dp,
+        viewportWidth = 24f,
+        viewportHeight = 24f
+    ).apply {
+        path(
+            fill = SolidColor(Color.Black),
+            pathFillType = PathFillType.NonZero
+        ) {
+            moveTo(4f, 3f)
+            horizontalLineTo(20f)
+            verticalLineTo(8f)
+            horizontalLineTo(4f)
+            verticalLineTo(3f)
+            close()
+            moveTo(5f, 9.5f)
+            horizontalLineTo(19f)
+            verticalLineTo(20f)
+            horizontalLineTo(5f)
+            verticalLineTo(9.5f)
+            close()
+            moveTo(9f, 11.5f)
+            horizontalLineTo(15f)
+            verticalLineTo(13.5f)
+            horizontalLineTo(9f)
+            verticalLineTo(11.5f)
+            close()
+            moveTo(10.4f, 17.4f)
+            lineTo(7.8f, 14.8f)
+            lineTo(6.4f, 16.2f)
+            lineTo(10.4f, 20.2f)
+            lineTo(17.8f, 12.8f)
+            lineTo(16.4f, 11.4f)
+            close()
+        }
+    }.build()
+
+private val SuriPackageMinusIcon: ImageVector =
+    ImageVector.Builder(
+        name = "SuriPackageMinus",
+        defaultWidth = 24.dp,
+        defaultHeight = 24.dp,
+        viewportWidth = 24f,
+        viewportHeight = 24f
+    ).apply {
+        path(
+            fill = SolidColor(Color.Black),
+            pathFillType = PathFillType.NonZero
+        ) {
+            moveTo(4f, 3f)
+            horizontalLineTo(20f)
+            verticalLineTo(8f)
+            horizontalLineTo(4f)
+            verticalLineTo(3f)
+            close()
+            moveTo(5f, 9.5f)
+            horizontalLineTo(19f)
+            verticalLineTo(20f)
+            horizontalLineTo(5f)
+            verticalLineTo(9.5f)
+            close()
+            moveTo(9f, 11.5f)
+            horizontalLineTo(15f)
+            verticalLineTo(13.5f)
+            horizontalLineTo(9f)
+            verticalLineTo(11.5f)
+            close()
+            moveTo(7f, 16f)
+            horizontalLineTo(17f)
+            verticalLineTo(18f)
+            horizontalLineTo(7f)
+            verticalLineTo(16f)
+            close()
+        }
+    }.build()
+
+private val SuriPackageXIcon: ImageVector =
+    ImageVector.Builder(
+        name = "SuriPackageX",
+        defaultWidth = 24.dp,
+        defaultHeight = 24.dp,
+        viewportWidth = 24f,
+        viewportHeight = 24f
+    ).apply {
+        path(
+            fill = SolidColor(Color.Black),
+            pathFillType = PathFillType.NonZero
+        ) {
+            moveTo(4f, 3f)
+            horizontalLineTo(20f)
+            verticalLineTo(8f)
+            horizontalLineTo(4f)
+            verticalLineTo(3f)
+            close()
+            moveTo(5f, 9.5f)
+            horizontalLineTo(19f)
+            verticalLineTo(20f)
+            horizontalLineTo(5f)
+            verticalLineTo(9.5f)
+            close()
+            moveTo(9f, 11.5f)
+            horizontalLineTo(15f)
+            verticalLineTo(13.5f)
+            horizontalLineTo(9f)
+            verticalLineTo(11.5f)
+            close()
+            moveTo(8.2f, 14.2f)
+            lineTo(9.6f, 12.8f)
+            lineTo(12f, 15.2f)
+            lineTo(14.4f, 12.8f)
+            lineTo(15.8f, 14.2f)
+            lineTo(13.4f, 16.6f)
+            lineTo(15.8f, 19f)
+            lineTo(14.4f, 20.4f)
+            lineTo(12f, 18f)
+            lineTo(9.6f, 20.4f)
+            lineTo(8.2f, 19f)
+            lineTo(10.6f, 16.6f)
+            close()
+        }
+    }.build()
+
 @Composable
 private fun AssignedIncidentList(
     state: IncidentListUiState,
@@ -392,30 +527,140 @@ private fun IncidentCard(
         if (incident.summary.isNotBlank()) {
             IncidentCardRow(text = incident.summary, textColor = cardMutedTextColor)
         }
-        IncidentCardRow(
-            text = incident.packageStatus,
-            textColor = cardMutedTextColor
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            PoliButton(
-                text = "확인",
+            OfflinePackageIconButton(
+                status = incident.packageStatus,
                 onClick = onOpenOfflinePackage,
-                variant = PoliButtonVariant.Secondary,
-                size = PoliButtonSize.Small
+                modifier = Modifier.weight(1f)
+            )
+            IncidentPrimaryActionButton(
+                text = "현장 기록 열기",
+                onClick = onOpenIncident,
+                modifier = Modifier.weight(3f)
             )
         }
-        IncidentCardRow(
-            text = incident.assignmentStatus,
-            textColor = cardMutedTextColor
-        ) {
-            PoliChip(text = "활성", variant = PoliChipVariant.Good)
-        }
-        PoliButton(
-            text = "현장 기록 열기",
-            onClick = onOpenIncident,
-            modifier = Modifier.fillMaxWidth()
-        )
     }
 }
+
+@Composable
+private fun IncidentPrimaryActionButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        shape = MaterialTheme.shapes.medium,
+        color = PoliPrimary,
+        contentColor = Color.White,
+        modifier =
+            modifier
+                .height(58.dp)
+                .semantics {
+                    contentDescription = text
+                    role = Role.Button
+                }
+    ) {
+        Box(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                color = Color.White,
+                maxLines = 1,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@Composable
+private fun OfflinePackageIconButton(
+    status: IncidentPackageStatus,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val colors = status.buttonColors
+    Surface(
+        onClick = onClick,
+        shape = MaterialTheme.shapes.medium,
+        color = colors.container,
+        contentColor = colors.content,
+        border = BorderStroke(1.dp, colors.border),
+        modifier =
+            modifier
+                .height(58.dp)
+                .semantics {
+                    contentDescription = "오프라인 패키지 ${status.label}"
+                    role = Role.Button
+                }
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.padding(horizontal = 2.dp, vertical = 3.dp)
+        ) {
+            androidx.compose.material3.Icon(
+                imageVector = status.icon,
+                contentDescription = null,
+                tint = colors.content,
+                modifier = Modifier.size(20.dp)
+            )
+            Text(
+                text = status.label,
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                color = colors.content,
+                maxLines = 1,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+private data class PackageButtonColors(
+    val container: Color,
+    val border: Color,
+    val content: Color
+)
+
+private val IncidentPackageStatus.buttonColors: PackageButtonColors
+    get() =
+        when (this) {
+            IncidentPackageStatus.Ready ->
+                PackageButtonColors(
+                    container = Color(0xFFE8F7EE),
+                    border = Color(0xFF9FD7B4),
+                    content = Color(0xFF176B3A)
+                )
+            IncidentPackageStatus.UpdateRequired ->
+                PackageButtonColors(
+                    container = Color(0xFFFFF3D6),
+                    border = Color(0xFFE8C06A),
+                    content = Color(0xFF8A5A00)
+                )
+            IncidentPackageStatus.NotInstalled,
+            IncidentPackageStatus.Failed ->
+                PackageButtonColors(
+                    container = Color(0xFFFFE7E7),
+                    border = Color(0xFFE9A3A3),
+                    content = Color(0xFF9A1F1F)
+                )
+        }
+
+private val IncidentPackageStatus.icon: ImageVector
+    get() =
+        when (this) {
+            IncidentPackageStatus.Ready -> SuriPackageCheckIcon
+            IncidentPackageStatus.UpdateRequired -> SuriPackageMinusIcon
+            IncidentPackageStatus.NotInstalled,
+            IncidentPackageStatus.Failed -> SuriPackageXIcon
+        }
 
 @Composable
 private fun IncidentCardRow(
@@ -480,8 +725,7 @@ fun sampleIncidentListState(showClosedDialog: Boolean = false) =
                 currentDutyShiftId = "duty-shift-014",
                 title = "무등산 증심사 계곡 실종자 수색",
                 summary = "광주 북구 ○○산 · 60대 여성",
-                packageStatus = "오늘 13:40 적재 완료",
-                assignmentStatus = "이 폴리폰에서 선택 가능"
+                packageStatus = IncidentPackageStatus.Ready
             )
         )
     ).copy(showClosedDialog = showClosedDialog)
