@@ -1,9 +1,9 @@
 import { describe, expect, test } from 'vitest';
 
-import type { SituationBoardResponseDto } from '../../data/getSituationBoard';
-import { toBoardRecentMarkers } from './markerBoardMapper';
+import type { BoardResponseLike } from '../../../shared/model/boardMapSlots';
+import { toBoardRecentMarkers } from './markerSlot';
 
-describe('markerBoardMapper', () => {
+describe('markerSlot', () => {
   test('마커 메모가 요약에 중복 노출되지 않도록 한다', () => {
     const markers = toBoardRecentMarkers({
       incidentId: 'incident-001',
@@ -34,7 +34,7 @@ describe('markerBoardMapper', () => {
           },
         ],
       },
-    } satisfies SituationBoardResponseDto);
+    } as BoardResponseLike);
 
     expect(markers).toHaveLength(1);
     expect(markers[0]?.summary).toBe('드론 지원 요청');
@@ -72,7 +72,7 @@ describe('markerBoardMapper', () => {
           },
         ],
       },
-    } satisfies SituationBoardResponseDto);
+    } as BoardResponseLike);
 
     expect(markers).toHaveLength(1);
     expect(markers[0]?.title).toBe('북쪽 출입문 조명 22시 이후 계속 켜짐');
@@ -111,7 +111,7 @@ describe('markerBoardMapper', () => {
           },
         ],
       },
-    } satisfies SituationBoardResponseDto);
+    } as BoardResponseLike);
 
     expect(markers[0]?.photoCount).toBe(1);
     expect(markers[0]?.photoThumbnailUrl).toBe('/mock-upload/markers/photo-001-thumb.jpg');

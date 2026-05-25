@@ -3,15 +3,15 @@ import {
   type SearchAreaHierarchyLevel,
   type SearchAreaHierarchyNode,
   type SearchAreaHierarchyStatus,
-} from '../../../../shared/model/searchAreaHierarchy';
-import type { CompletedAreaDraft } from '../../../../shared/model/areaDraft';
-import { type AreaColorToken } from '../../../../shared/constants/areaColorTokens';
-import { getAreaColorToken } from '../../../../shared/model/areaColorRegistry';
+} from '../../../../../shared/model/searchAreaHierarchy';
+import type { CompletedAreaDraft } from '../../../../../shared/model/areaDraft';
+import { type AreaColorToken } from '../../../../../shared/constants/areaColorTokens';
+import { getAreaColorToken } from '../../../../../shared/model/areaColorRegistry';
 import type {
   SearchAreaAssignedAccount,
   SearchAreaTreeNode,
-} from '../constants/mockSituationBoard';
-import type { SituationBoardResponseDto } from '../../data/getSituationBoard';
+} from '../../constants/mockSituationBoard';
+import type { SituationBoardResponseDto } from '../../../data/getSituationBoard';
 import {
   isRecord,
   readBbox,
@@ -20,8 +20,8 @@ import {
   readPolygonCoordinates,
   readSlotRows,
   readString,
-} from './boardApiMappers';
-import { formatAccountDisplayName } from './accountDisplayUtils';
+} from '../shared/boardApiMappers';
+import { formatAccountDisplayName } from '../../../../../shared/model/accountDisplay';
 
 export type BoardSearchAreaRow = {
   id: string;

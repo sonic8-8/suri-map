@@ -83,6 +83,12 @@ export function createIncidentReadApi(client: ApiClient = apiClient) {
 
 export const incidentReadApi = createIncidentReadApi();
 
+export type IncidentDetailDto = IncidentDetailResponse;
+
+export function getIncidentDetail(incidentId: string) {
+  return incidentReadApi.detail(incidentId);
+}
+
 export function useIncidentListQuery(status?: string) {
   return useQuery({
     queryKey: incidentQueryKeys.list(status),

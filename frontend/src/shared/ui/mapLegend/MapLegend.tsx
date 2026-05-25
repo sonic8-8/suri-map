@@ -7,7 +7,7 @@ import type {
   PolicePhoneLegendFilterId,
   SearchAreaLegendFilterId,
   SupportRequestTypeId,
-} from '../../constants/mockSituationBoard';
+} from '../../model/situationBoardViewModel';
 import styles from './MapLegend.module.css';
 
 type MapLegendProps = {

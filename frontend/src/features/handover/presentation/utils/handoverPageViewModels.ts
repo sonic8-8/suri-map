@@ -8,7 +8,7 @@ import type {
   SearchHistorySummaryItem,
 } from '../../../operationalPeriod/api/handoverApi';
 import type { OperationalPeriodListItem } from '../../../operationalPeriod/api/operationalPeriodApi';
-import type { OperationalPeriod } from '../../../situationBoard/presentation/constants/mockSituationBoard';
+import type { OperationalPeriod } from '../../../../shared/model/situationBoardViewModel';
 import type { HandoverMemoTargetOption } from '../components/HandoverMemoSection';
 
 export const DEFAULT_MEMO_TARGET_TYPE = 'OPERATIONAL_PERIOD' as const;

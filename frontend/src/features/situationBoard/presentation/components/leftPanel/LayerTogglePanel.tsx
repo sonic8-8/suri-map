@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Car, Footprints, Map, MapPin } from 'lucide-react';
 import type { LayerFilterId, LayerOption } from '../../constants/mockSituationBoard';
-import { CollapsiblePanelSection } from './CollapsiblePanelSection';
+import { CollapsiblePanelSection } from '../../../../../shared/ui';
 import { LeftPanelOptionButton } from './LeftPanelOptionButton';
 import styles from './LayerTogglePanel.module.css';
 

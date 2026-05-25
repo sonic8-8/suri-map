@@ -1,4 +1,4 @@
-import type { IncidentTerminalViewModel } from '../utils/incidentTerminalBoardMapper';
+import type { IncidentTerminalViewModel } from '../../../board/model/incidentTerminalSlot';
 import styles from './IncidentTerminalBanner.module.css';
 
 type IncidentTerminalBannerProps = {

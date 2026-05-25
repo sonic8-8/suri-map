@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { Ban, Layers } from 'lucide-react';
 
 import type { OperationalPeriod } from '../../constants/mockSituationBoard';
-import { CollapsiblePanelSection } from './CollapsiblePanelSection';
-import styles from './OperationalPeriodSelector.module.css';
+import { CollapsiblePanelSection } from '../../../../../shared/ui';
+import styles from '../../../../../shared/ui/operationalPeriodSelector/OperationalPeriodSelector.module.css';
 
 type OperationalPeriodSelectorProps = {
   allowEmptySelection?: boolean;

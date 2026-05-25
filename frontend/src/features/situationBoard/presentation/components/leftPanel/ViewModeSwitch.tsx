@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CollapsiblePanelSection } from './CollapsiblePanelSection';
+import { CollapsiblePanelSection } from '../../../../../shared/ui';
 import { LeftPanelOptionButton } from './LeftPanelOptionButton';
 import styles from './ViewModeSwitch.module.css';
 

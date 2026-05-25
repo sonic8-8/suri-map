@@ -6,9 +6,9 @@ import {
   type SuriMapPageHeaderTabId,
 } from '../../../../../shared/ui';
 import type { LoginAccount } from '../../../../login/presentation/types/login';
-import type { IncidentDetailDto } from '../../../data/getIncidentDetail';
+import type { IncidentDetailDto } from '../../../../incident/api/incidentReadApi';
 import type { SituationBoardResponseDto } from '../../../data/getSituationBoard';
-import { toPackageBadgeSummary } from '../../utils/packageBadgeBoardMapper';
+import { toPackageBadgeSummary } from '../../slots/packageBadge/packageBadgeBoardMapper';
 
 type SituationBoardHeaderProps = {
   activeTab?: SuriMapPageHeaderTabId;

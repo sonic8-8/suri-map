@@ -13,7 +13,7 @@ import type { SearchAreaTreeNode } from '../constants/mockSituationBoard';
 import type { LeftPanelPage } from '../hooks/useLeftPanelPages';
 import { useSituationBoardPageState } from '../hooks/useSituationBoardPageState';
 import pageStyles from './SituationBoardPage.module.css';
-import { isIncidentTerminalClosed, toIncidentTerminal } from '../utils/incidentTerminalBoardMapper';
+import { isIncidentTerminalClosed, toIncidentTerminal } from '../../../board/model/incidentTerminalSlot';
 import { useBrowserBackToIncidentList } from '../../../../shared/hooks/useBrowserBackToIncidentList';
 
 const HIDDEN_MAP_LAYER_VISIBILITY = {

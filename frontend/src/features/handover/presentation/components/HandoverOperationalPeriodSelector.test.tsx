@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, test, vi } from 'vitest';
 
-import type { OperationalPeriod } from '../../../situationBoard/presentation/constants/mockSituationBoard';
+import type { OperationalPeriod } from '../../../../shared/model/situationBoardViewModel';
 import { HandoverOperationalPeriodSelector } from './HandoverOperationalPeriodSelector';
 
 describe('HandoverOperationalPeriodSelector', () => {

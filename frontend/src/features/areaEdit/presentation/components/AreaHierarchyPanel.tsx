@@ -8,7 +8,7 @@ import {
 } from '../../../../shared/model/searchAreaDisplayState';
 import type { AreaTreeNode } from '../constants/mockAreaEdit';
 import { isAssignableSearchAreaLeaf, isSavedGeometryArea } from '../utils/areaAssignmentUtils';
-import { formatAccountDisplayName, formatAccountMeta } from '../../../situationBoard/presentation/utils/accountDisplayUtils';
+import { formatAccountDisplayName, formatAccountMeta } from '../../../../shared/model/accountDisplay';
 import styles from './AreaHierarchyPanel.module.css';
 
 type AreaHierarchyPanelProps = {

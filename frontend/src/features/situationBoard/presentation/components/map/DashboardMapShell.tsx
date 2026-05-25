@@ -15,7 +15,7 @@ import type {
   SearchAreaTreeNode,
   SupportRequestTypeId,
 } from '../../constants/mockSituationBoard';
-import { MapLegend } from './MapLegend';
+import { MapLegend } from '../../../../../shared/ui';
 import { SearchMapCanvas, type InitialMapState, type LayerVisibility } from './SearchMapCanvas';
 import type { AreaEditMapCanvasProps } from '../../../../areaEdit/presentation/components/AreaEditMapCanvas';
 import type { HandoverComparisonMapSharedProps } from '../../../../handover/presentation/components/HandoverComparisonMap';

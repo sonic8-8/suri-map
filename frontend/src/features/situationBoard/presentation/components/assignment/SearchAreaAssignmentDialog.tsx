@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { createIdempotencyKey } from '../../../../../shared/api/client';
 import { searchAreaApi } from '../../../../searchArea/api/searchAreaApi';
 import type { SearchAreaTreeNode } from '../../constants/mockSituationBoard';
-import { formatAccountDisplayName, formatAccountMeta } from '../../utils/accountDisplayUtils';
+import { formatAccountDisplayName, formatAccountMeta } from '../../../../../shared/model/accountDisplay';
 import styles from './SearchAreaAssignmentDialog.module.css';
 
 export type SearchAreaAssignmentCandidate = {

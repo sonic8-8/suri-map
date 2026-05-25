@@ -69,7 +69,7 @@ import {
   type MarkerInstance,
   type MarkerInteractionHandlers,
 } from './boardMarkerLayer';
-import { MarkerGlyph, markerTypeGlyphName, type MarkerGlyphName } from '../marker/MarkerGlyph';
+import { MarkerGlyph, markerTypeGlyphName, type MarkerGlyphName } from '../../../../../shared/ui/markerGlyph/MarkerGlyph';
 import { SearchAreaInspectorCard } from './SearchAreaInspectorCard';
 import type { SearchAreaTreeNode } from '../../constants/mockSituationBoard';
 import { RouteEditorPanel } from './RouteEditorPanel';

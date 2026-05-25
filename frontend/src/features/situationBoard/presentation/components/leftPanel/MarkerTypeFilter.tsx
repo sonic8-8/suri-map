@@ -1,8 +1,8 @@
 import type { CSSProperties } from 'react';
 import type { MarkerFilterOption, MarkerTypeId, SupportRequestTypeId } from '../../constants/mockSituationBoard';
 import { getMarkerLegendColor } from '../../../../../shared/constants/markerLegendColors';
-import { MarkerGlyph } from '../marker/MarkerGlyph';
-import { CollapsiblePanelSection } from './CollapsiblePanelSection';
+import { MarkerGlyph } from '../../../../../shared/ui';
+import { CollapsiblePanelSection } from '../../../../../shared/ui';
 import { LeftPanelOptionButton } from './LeftPanelOptionButton';
 import styles from './MarkerTypeFilter.module.css';
 

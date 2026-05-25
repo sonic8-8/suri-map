@@ -73,6 +73,19 @@ export interface IncidentBoardResponse {
   readonly sourceHashes: Partial<Record<BoardSlotName, readonly BoardSourceRowCursor[]>>;
 }
 
+export type SituationBoardResponseDto = {
+  incidentId: string;
+  boardResponseVersion: number;
+  serverTs: string;
+  activeOpId: string | null;
+  selectedOpIds: string[];
+  slots: Record<string, unknown>;
+  sourceVersions: Record<string, number>;
+  geometryHash: string | null;
+  sourceHashes: Record<string, string>;
+  slotSources: Record<string, unknown[]>;
+};
+
 export interface IncidentBoardQuery {
   readonly incidentId: string | null | undefined;
   readonly opIds?: readonly string[];

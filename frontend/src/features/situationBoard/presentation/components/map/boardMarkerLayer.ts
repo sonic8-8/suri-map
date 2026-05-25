@@ -7,7 +7,7 @@ import {
   markerTypeGlyphName,
   type MarkerGlyphName,
   type MarkerShellState,
-} from '../marker/MarkerGlyph';
+} from '../../../../../shared/ui/markerGlyph/MarkerGlyph';
 import styles from './SearchMapCanvas.module.css';
 
 type MarkerTypeKey = 'CLUE' | 'PERSON_FOUND' | 'FIELD_CONDITION' | 'SUPPORT_REQUEST' | 'NOTE' | 'UNKNOWN';

@@ -1,7 +1,7 @@
 import maplibregl from 'maplibre-gl';
 import { useEffect, useRef } from 'react';
 import { getLocalTileStyleUrl, transformLocalTileRequest } from '../../shared/map/localTileMap';
-import { useBoardDisplayStore } from '../situationBoard/model/boardDisplayStore';
+import { useBoardDisplayStore } from '../board/model/boardDisplayStore';
 
 const gwangjuDemoCenter: [number, number] = [126.8481, 35.1603];
 const gwangjuDemoZoom = 16;
