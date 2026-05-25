@@ -1,8 +1,11 @@
 package com.surimap.feature.incidents.data
 
 import com.surimap.core.incident.IncidentReadRepository
+import com.surimap.core.network.SuriMapApiResponse
 import com.surimap.core.network.SuriMapNetworkException
+import com.surimap.core.operationalperiod.OperationalPeriodReadRepository
 import com.surimap.feature.incidents.ui.AssignedIncidentUiModel
+import com.surimap.feature.incidents.ui.IncidentPackageStatus
 import com.surimap.feature.incidents.ui.IncidentListStatus
 import com.surimap.feature.incidents.ui.IncidentListUiState
 import org.json.JSONArray
@@ -10,7 +13,11 @@ import org.json.JSONObject
 
 class IncidentListStateLoader(
     private val repository: IncidentReadRepository = IncidentReadRepository(),
-    private val policePhoneLabel: String
+    private val policePhoneLabel: String,
+    private val operationalPeriods: suspend (String) -> SuriMapApiResponse = { incidentId ->
+        OperationalPeriodReadRepository().list(incidentId)
+    },
+    private val packageStatus: suspend (String) -> IncidentPackageStatus = { IncidentPackageStatus.NotInstalled }
 ) {
     suspend fun load(): IncidentListUiState {
         return try {
@@ -39,7 +46,7 @@ class IncidentListStateLoader(
         }
     }
 
-    private fun successState(body: String?): IncidentListUiState {
+    private suspend fun successState(body: String?): IncidentListUiState {
         val incidents = parseIncidents(body)
         return if (incidents.isEmpty()) {
             IncidentListUiState.empty(policePhoneLabel = policePhoneLabel)
@@ -51,7 +58,7 @@ class IncidentListStateLoader(
         }
     }
 
-    private fun parseIncidents(body: String?): List<AssignedIncidentUiModel> {
+    private suspend fun parseIncidents(body: String?): List<AssignedIncidentUiModel> {
         if (body.isNullOrBlank()) {
             return emptyList()
         }
@@ -59,14 +66,22 @@ class IncidentListStateLoader(
         return List(items.length()) { index ->
             val item = items.getJSONObject(index)
             val incidentId = item.optString("incidentId").ifBlank { item.optString("id") }
+            val currentOpId = item.optString("currentOpId").takeIf(String::isNotBlank)
+            val currentOpLabel = item.currentOpLabel()
+            val resolvedCurrentOp =
+                if (currentOpId == null || currentOpLabel == null) {
+                    loadCurrentOp(incidentId)
+                } else {
+                    null
+                }
             AssignedIncidentUiModel(
                 incidentId = incidentId,
-                currentOpId = item.optString("currentOpId").takeIf(String::isNotBlank),
+                currentOpId = currentOpId ?: resolvedCurrentOp?.id,
+                currentOpLabel = currentOpLabel ?: resolvedCurrentOp?.label,
                 currentDutyShiftId = item.optString("currentDutyShiftId").takeIf(String::isNotBlank),
                 title = item.optString("title").userFacingIncidentTitle(incidentId),
                 summary = item.incidentSummary(),
-                packageStatus = "오프라인 패키지 확인 전",
-                assignmentStatus = "이 폴리폰에서 선택 가능"
+                packageStatus = packageStatus(incidentId)
             )
         }
     }
@@ -83,7 +98,60 @@ class IncidentListStateLoader(
         return listOf(displayName, appearance)
             .filter(String::isNotBlank)
             .joinToString(" · ")
-            .ifBlank { "현장 수색 진행 중" }
+    }
+
+    private fun JSONObject.currentOpLabel(): String? {
+        optString("currentOpLabel").takeIf(String::isNotBlank)?.let { return it }
+        optString("opLabel").takeIf(String::isNotBlank)?.let { return it }
+
+        val currentOp =
+            optJSONObject("currentOp")
+                ?: optJSONObject("currentOperationalPeriod")
+        currentOp?.opSequenceLabel()?.let { return it }
+
+        val sequenceNumber =
+            optInt("currentOpSequenceNumber", -1).takeIf { it > 0 }
+                ?: optInt("currentOperationalPeriodSequenceNumber", -1).takeIf { it > 0 }
+        return sequenceNumber?.let { "OP ${it}차" }
+    }
+
+    private fun JSONObject.opSequenceLabel(): String? {
+        optString("label").takeIf(String::isNotBlank)?.let { return it }
+        optString("opLabel").takeIf(String::isNotBlank)?.let { return it }
+        val sequenceNumber = optInt("sequenceNumber", -1).takeIf { it > 0 } ?: return null
+        return "OP ${sequenceNumber}차"
+    }
+
+    private suspend fun loadCurrentOp(incidentId: String): ResolvedCurrentOp? {
+        if (incidentId.isBlank()) {
+            return null
+        }
+        val response = runCatching { operationalPeriods(incidentId) }.getOrNull() ?: return null
+        if (!response.isSuccessful || response.body.isNullOrBlank()) {
+            return null
+        }
+        return runCatching {
+            val json = JSONObject(response.body)
+            val currentOpId = json.optString("currentOpId").takeIf(String::isNotBlank) ?: return@runCatching null
+            ResolvedCurrentOp(
+                id = currentOpId,
+                label = resolveCurrentOpLabel(json.optJSONArray("items"), currentOpId)
+            )
+        }.getOrNull()
+    }
+
+    private fun resolveCurrentOpLabel(items: JSONArray?, currentOpId: String): String? {
+        if (items == null) {
+            return null
+        }
+        repeat(items.length()) { index ->
+            val item = items.optJSONObject(index) ?: return@repeat
+            if (item.optString("id") != currentOpId) {
+                return@repeat
+            }
+            return item.opSequenceLabel()
+        }
+        return null
     }
 
     private fun String.userFacingIncidentTitle(incidentId: String): String {
@@ -116,4 +184,9 @@ class IncidentListStateLoader(
         val ZERO_ID_TEXT = Regex("""0{4,}""")
         val MISSING_PERSON_CODE_TEXT = Regex("""\b[A-Z]\d+-[가-힣A-Za-z0-9]+-\d+\b""")
     }
+
+    private data class ResolvedCurrentOp(
+        val id: String,
+        val label: String?
+    )
 }
