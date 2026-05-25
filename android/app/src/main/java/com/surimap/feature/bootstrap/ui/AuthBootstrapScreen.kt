@@ -27,8 +27,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.surimap.ui.components.PoliBanner
-import com.surimap.ui.components.PoliBannerVariant
 import com.surimap.ui.components.PoliBrandMark
 import com.surimap.ui.components.PoliButton
 import com.surimap.ui.components.PoliButtonSize
@@ -267,11 +265,7 @@ fun AuthBootstrapScreen(
             }
 
             if (state.failureMessage != null) {
-                PoliBanner(
-                    text = state.failureMessage,
-                    variant = PoliBannerVariant.Bad,
-                    textAlign = TextAlign.Center
-                )
+                AuthGuideText(text = state.failureMessage)
             }
         }
 
@@ -294,16 +288,26 @@ fun AuthBootstrapScreen(
                     size = PoliButtonSize.Large
                 )
             } else if (state.failureMessage != null && state.actionGuideText != null) {
-                PoliBanner(
-                    text = state.actionGuideText,
-                    variant = PoliBannerVariant.Bad,
-                    textAlign = TextAlign.Center
-                )
+                AuthGuideText(text = state.actionGuideText)
             } else {
                 Spacer(modifier = Modifier.fillMaxWidth().height(PoliDimens.CtaHeightLarge))
             }
         }
     }
+}
+
+@Composable
+private fun AuthGuideText(text: String) {
+    Text(
+        text = text,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = PoliDimens.Space2),
+        style = MaterialTheme.typography.bodyMedium,
+        fontSize = 15.sp,
+        lineHeight = 21.sp,
+        fontWeight = FontWeight.SemiBold,
+        color = PoliFgMuted,
+        textAlign = TextAlign.Center
+    )
 }
 
 @Composable

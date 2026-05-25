@@ -222,12 +222,13 @@ fun PoliBanner(
 fun PoliCard(
     modifier: Modifier = Modifier,
     strong: Boolean = false,
+    containerColor: Color = PoliBgSurface,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
-        color = PoliBgSurface,
+        color = containerColor,
         contentColor = PoliFgPrimary,
         border = BorderStroke(1.dp, if (strong) PoliBorderStrong else PoliBorder)
     ) {

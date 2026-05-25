@@ -343,12 +343,12 @@ body {
   .pf-v5-c-login,
   .login-pf-page {
     align-items: flex-start;
-    padding: 16px;
+    padding: max(40px, calc(env(safe-area-inset-top) + 32px)) 16px 16px;
   }
 
   .pf-v5-c-login__container {
     padding: 36px 24px;
-    transform: translateY(-16px);
+    transform: none;
   }
 
   #kc-header-wrapper::before {
