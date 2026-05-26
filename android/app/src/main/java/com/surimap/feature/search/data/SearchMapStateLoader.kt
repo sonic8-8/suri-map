@@ -12,6 +12,7 @@ import com.surimap.core.path.SearchPathRepository
 import com.surimap.core.searcharea.SearchAreaReadRepository
 import com.surimap.feature.search.ui.SearchLayerKind
 import com.surimap.feature.search.ui.SearchLifecycleStatus
+import com.surimap.feature.search.ui.SearchMapLayerVisualStyle
 import com.surimap.feature.search.ui.SearchMapLayerUiState
 import com.surimap.feature.search.ui.SearchMapSyncStatus
 import com.surimap.feature.search.ui.SearchMapUiState
@@ -149,7 +150,14 @@ class SearchMapStateLoader(
                     label = "전체 수색 구역",
                     kind = SearchLayerKind.Overall,
                     overlayId = area.optString("id").ifBlank { "overall-search-area" },
-                    geoJson = geometry.toString()
+                    geoJson = geometry.toString(),
+                    visualStyle =
+                        searchAreaVisualStyle(
+                            areaId = area.optString("id").ifBlank { "overall-search-area" },
+                            tokenIndex = 0,
+                            kind = SearchLayerKind.Overall,
+                            highlighted = false
+                        )
                 )
             )
         )
@@ -165,7 +173,12 @@ class SearchMapStateLoader(
         if (!response.isSuccessful || response.body.isNullOrBlank()) {
             return state
         }
-        val opLayers = searchAreaLayers(response.body)
+        val usedAreaTokenCount =
+            state.layers.count { layer ->
+                layer.geoJson != null &&
+                    layer.kind in setOf(SearchLayerKind.Overall, SearchLayerKind.Unit, SearchLayerKind.Team)
+            }
+        val opLayers = searchAreaLayers(response.body, usedAreaTokenCount)
         if (opLayers.isEmpty()) {
             return state
         }
@@ -332,7 +345,10 @@ class SearchMapStateLoader(
         return ((nowMs() - clientRequestedAt).coerceAtLeast(0L) / MILLIS_PER_MINUTE).toInt()
     }
 
-    private fun searchAreaLayers(body: String): List<SearchMapLayerUiState> {
+    private fun searchAreaLayers(
+        body: String,
+        usedAreaTokenCount: Int
+    ): List<SearchMapLayerUiState> {
         val root = runCatching { JSONObject(body) }.getOrNull() ?: return emptyList()
         val areas = root.optJSONArray("areas") ?: root.optJSONArray("items") ?: return emptyList()
         return buildList {
@@ -341,13 +357,21 @@ class SearchMapStateLoader(
                 val geometry = area.optJSONObject("geometry") ?: return@repeat
                 val kind = area.searchLayerKind() ?: return@repeat
                 val id = area.optString("id").ifBlank { "op-${kind.name.lowercase()}-$index" }
+                val highlighted = kind == SearchLayerKind.Team
                 add(
                     SearchMapLayerUiState(
                         label = area.labelFor(kind),
                         kind = kind,
-                        highlighted = kind == SearchLayerKind.Team,
+                        highlighted = highlighted,
                         overlayId = id,
-                        geoJson = geometry.toString()
+                        geoJson = geometry.toString(),
+                        visualStyle =
+                            searchAreaVisualStyle(
+                                areaId = id,
+                                tokenIndex = usedAreaTokenCount + size,
+                                kind = kind,
+                                highlighted = highlighted
+                            )
                     )
                 )
             }
@@ -406,7 +430,11 @@ class SearchMapStateLoader(
                     layer
                 } else {
                     val assigned = layer.overlayId != null && areaIds.contains(layer.overlayId)
-                    layer.copy(highlighted = assigned, assignedToCurrentPhone = assigned)
+                    layer.copy(
+                        highlighted = assigned,
+                        assignedToCurrentPhone = assigned,
+                        visualStyle = layer.visualStyle?.withAreaHighlight(layer.kind, assigned)
+                    )
                 }
             }
         val assignedLabel =
@@ -505,6 +533,8 @@ class SearchMapStateLoader(
                     return@repeat
                 }
                 val pathId = path.optString("id").ifBlank { "search-path-$index" }
+                val routeColor = path.routeCoreColor(pathId)
+                val routeVisualStyle = searchPathVisualStyle(routeColor, activeForCurrentActor)
                 pathCount += 1
                 add(
                     SearchMapLayerUiState(
@@ -517,7 +547,8 @@ class SearchMapStateLoader(
                         kind = SearchLayerKind.Path,
                         highlighted = activeForCurrentActor,
                         overlayId = pathId,
-                        geoJson = geometry.toString()
+                        geoJson = geometry.toString(),
+                        visualStyle = routeVisualStyle
                     )
                 )
                 geometry.latestLineStringPoint()?.let { latestPoint ->
@@ -532,7 +563,8 @@ class SearchMapStateLoader(
                             kind = SearchLayerKind.CurrentLocation,
                             highlighted = activeForCurrentActor,
                             overlayId = "$pathId-latest-location",
-                            geoJson = latestPoint.toString()
+                            geoJson = latestPoint.toString(),
+                            visualStyle = currentLocationVisualStyle(routeColor, activeForCurrentActor)
                         )
                     )
                 }
@@ -554,6 +586,121 @@ class SearchMapStateLoader(
         val activeStartedAtEpochMs: Long? = null,
         val activeLifecycleStatus: SearchLifecycleStatus? = null
     )
+
+    private fun searchAreaVisualStyle(
+        areaId: String,
+        tokenIndex: Int,
+        kind: SearchLayerKind,
+        highlighted: Boolean
+    ): SearchMapLayerVisualStyle {
+        val token = webAreaColorToken(areaId, tokenIndex)
+        val baseLineWidth =
+            when (kind) {
+                SearchLayerKind.Overall -> 2.0f
+                SearchLayerKind.Unit -> 1.75f
+                SearchLayerKind.Team -> 2.0f
+                SearchLayerKind.Path,
+                SearchLayerKind.Marker,
+                SearchLayerKind.CurrentLocation -> 2.0f
+            }
+        return SearchMapLayerVisualStyle(
+            fillColor = token.lineColor,
+            fillOpacity = token.fillOpacity,
+            lineColor = token.lineColor,
+            lineWidth = baseLineWidth + if (highlighted) 0.75f else 0.0f,
+            lineOpacity = if (highlighted) 0.96f else 0.82f
+        )
+    }
+
+    private fun SearchMapLayerVisualStyle.withAreaHighlight(
+        kind: SearchLayerKind,
+        highlighted: Boolean
+    ): SearchMapLayerVisualStyle {
+        val baseLineWidth =
+            when (kind) {
+                SearchLayerKind.Overall -> 2.0f
+                SearchLayerKind.Unit -> 1.75f
+                SearchLayerKind.Team -> 2.0f
+                SearchLayerKind.Path,
+                SearchLayerKind.Marker,
+                SearchLayerKind.CurrentLocation -> lineWidth ?: 2.0f
+            }
+        return copy(
+            lineWidth = baseLineWidth + if (highlighted) 0.75f else 0.0f,
+            lineOpacity = if (highlighted) 0.96f else 0.82f
+        )
+    }
+
+    private fun searchPathVisualStyle(
+        routeColor: String,
+        highlighted: Boolean
+    ): SearchMapLayerVisualStyle =
+        SearchMapLayerVisualStyle(
+            lineColor = routeColor,
+            lineWidth = if (highlighted) 4.6f else 3.4f,
+            lineOpacity = if (highlighted) 0.98f else 0.86f
+        )
+
+    private fun currentLocationVisualStyle(
+        routeColor: String,
+        highlighted: Boolean
+    ): SearchMapLayerVisualStyle =
+        SearchMapLayerVisualStyle(
+            fillColor = routeColor,
+            lineColor = routeColor,
+            lineOpacity = if (highlighted) 0.98f else 0.86f
+        )
+
+    private fun JSONObject.routeCoreColor(pathId: String): String {
+        val explicitColor =
+            optString("routeColor")
+                .ifBlank { optString("route_color") }
+                .takeIf(String::isNotBlank)
+        if (explicitColor != null) {
+            return explicitColor.normalizedHexColor()
+        }
+        val routeKey =
+            optString("policePhoneId")
+                .ifBlank { optString("police_phone_id") }
+                .ifBlank { optString("accountId") }
+                .ifBlank { optString("account_id") }
+                .ifBlank { pathId }
+        return routeFallbackColor(routeKey)
+    }
+
+    private fun routeFallbackColor(routeKey: String): String {
+        val index = (webHashString(routeKey) % WEB_AREA_COLOR_TOKENS.size).toInt()
+        return WEB_AREA_COLOR_TOKENS[index].lineColor
+    }
+
+    private fun webAreaColorToken(areaId: String, tokenIndex: Int): WebAreaColorToken =
+        if (tokenIndex in WEB_AREA_COLOR_TOKENS.indices) {
+            WEB_AREA_COLOR_TOKENS[tokenIndex]
+        } else {
+            WEB_AREA_COLOR_TOKENS[(webHashString(areaId) % WEB_AREA_COLOR_TOKENS.size).toInt()]
+        }
+
+    private fun webHashString(value: String): Long =
+        value.fold(17L) { hash, char ->
+            (hash * 31L + char.code.toLong()) and 0xFFFF_FFFFL
+        }
+
+    private fun String.normalizedHexColor(): String {
+        val value = trim()
+        return if (value.length == 4 && value.startsWith("#")) {
+            buildString {
+                append('#')
+                append(value[1])
+                append(value[1])
+                append(value[2])
+                append(value[2])
+                append(value[3])
+                append(value[3])
+            }
+        } else {
+            value
+        }
+    }
 
     private fun JSONObject.searchLayerKind(): SearchLayerKind? {
         val areaLevel =
@@ -727,8 +874,89 @@ class SearchMapStateLoader(
         const val MILLIS_PER_MINUTE = 60_000L
         const val POINT_VIEWPORT_DELTA = 0.003
         val MISSING_PERSON_CODE_TEXT = Regex("""\b[A-Z]\d+-[가-힣A-Za-z0-9]+-\d+\b""")
+        val WEB_AREA_COLOR_TOKENS =
+            listOf(
+                WebAreaColorToken("#2563eb", "rgba(37, 99, 235, 0.16)", 0.16f),
+                WebAreaColorToken("#f97316", "rgba(249, 115, 22, 0.16)", 0.16f),
+                WebAreaColorToken("#22c55e", "rgba(34, 197, 94, 0.16)", 0.16f),
+                WebAreaColorToken("#a855f7", "rgba(168, 85, 247, 0.16)", 0.16f),
+                WebAreaColorToken("#06b6d4", "rgba(6, 182, 212, 0.18)", 0.18f),
+                WebAreaColorToken("#e11d48", "rgba(225, 29, 72, 0.18)", 0.18f),
+                WebAreaColorToken("#facc15", "rgba(250, 204, 21, 0.18)", 0.18f),
+                WebAreaColorToken("#ef4444", "rgba(239, 68, 68, 0.18)", 0.18f),
+                WebAreaColorToken("#14b8a6", "rgba(20, 184, 166, 0.18)", 0.18f),
+                WebAreaColorToken("#8b5cf6", "rgba(139, 92, 246, 0.18)", 0.18f),
+                WebAreaColorToken("#84cc16", "rgba(132, 204, 22, 0.18)", 0.18f),
+                WebAreaColorToken("#f59e0b", "rgba(245, 158, 11, 0.18)", 0.18f),
+                WebAreaColorToken("#ec4899", "rgba(236, 72, 153, 0.18)", 0.18f),
+                WebAreaColorToken("#0ea5e9", "rgba(14, 165, 233, 0.18)", 0.18f),
+                WebAreaColorToken("#10b981", "rgba(16, 185, 129, 0.18)", 0.18f),
+                WebAreaColorToken("#d946ef", "rgba(217, 70, 239, 0.18)", 0.18f),
+                WebAreaColorToken("#dc2626", "rgba(220, 38, 38, 0.18)", 0.18f),
+                WebAreaColorToken("#7c3aed", "rgba(124, 58, 237, 0.18)", 0.18f),
+                WebAreaColorToken("#0891b2", "rgba(8, 145, 178, 0.18)", 0.18f),
+                WebAreaColorToken("#ca8a04", "rgba(202, 138, 4, 0.18)", 0.18f),
+                WebAreaColorToken("#16a34a", "rgba(22, 163, 74, 0.18)", 0.18f),
+                WebAreaColorToken("#db2777", "rgba(219, 39, 119, 0.18)", 0.18f),
+                WebAreaColorToken("#4f46e5", "rgba(79, 70, 229, 0.18)", 0.18f),
+                WebAreaColorToken("#ea580c", "rgba(234, 88, 12, 0.18)", 0.18f),
+                WebAreaColorToken("#1d4ed8", "rgba(29, 78, 216, 0.18)", 0.18f),
+                WebAreaColorToken("#fb923c", "rgba(251, 146, 60, 0.18)", 0.18f),
+                WebAreaColorToken("#15803d", "rgba(21, 128, 61, 0.18)", 0.18f),
+                WebAreaColorToken("#9333ea", "rgba(147, 51, 234, 0.18)", 0.18f),
+                WebAreaColorToken("#0284c7", "rgba(2, 132, 199, 0.18)", 0.18f),
+                WebAreaColorToken("#be123c", "rgba(190, 18, 60, 0.18)", 0.18f),
+                WebAreaColorToken("#eab308", "rgba(234, 179, 8, 0.18)", 0.18f),
+                WebAreaColorToken("#b91c1c", "rgba(185, 28, 28, 0.18)", 0.18f),
+                WebAreaColorToken("#0d9488", "rgba(13, 148, 136, 0.18)", 0.18f),
+                WebAreaColorToken("#6d28d9", "rgba(109, 40, 217, 0.18)", 0.18f),
+                WebAreaColorToken("#65a30d", "rgba(101, 163, 13, 0.18)", 0.18f),
+                WebAreaColorToken("#d97706", "rgba(217, 119, 6, 0.18)", 0.18f),
+                WebAreaColorToken("#c026d3", "rgba(192, 38, 211, 0.18)", 0.18f),
+                WebAreaColorToken("#0369a1", "rgba(3, 105, 161, 0.18)", 0.18f),
+                WebAreaColorToken("#059669", "rgba(5, 150, 105, 0.18)", 0.18f),
+                WebAreaColorToken("#c026d3", "rgba(192, 38, 211, 0.18)", 0.18f),
+                WebAreaColorToken("#f43f5e", "rgba(244, 63, 94, 0.18)", 0.18f),
+                WebAreaColorToken("#6366f1", "rgba(99, 102, 241, 0.18)", 0.18f),
+                WebAreaColorToken("#0f766e", "rgba(15, 118, 110, 0.18)", 0.18f),
+                WebAreaColorToken("#f97316", "rgba(249, 115, 22, 0.18)", 0.18f),
+                WebAreaColorToken("#3b82f6", "rgba(59, 130, 246, 0.18)", 0.18f),
+                WebAreaColorToken("#fb7185", "rgba(251, 113, 133, 0.18)", 0.18f),
+                WebAreaColorToken("#7e22ce", "rgba(126, 34, 206, 0.18)", 0.18f),
+                WebAreaColorToken("#f59e0b", "rgba(245, 158, 11, 0.18)", 0.18f),
+                WebAreaColorToken("#0ea5e9", "rgba(14, 165, 233, 0.18)", 0.18f),
+                WebAreaColorToken("#f97316", "rgba(249, 115, 22, 0.18)", 0.18f),
+                WebAreaColorToken("#22c55e", "rgba(34, 197, 94, 0.18)", 0.18f),
+                WebAreaColorToken("#a21caf", "rgba(162, 28, 175, 0.18)", 0.18f),
+                WebAreaColorToken("#06b6d4", "rgba(6, 182, 212, 0.18)", 0.18f),
+                WebAreaColorToken("#e11d48", "rgba(225, 29, 72, 0.18)", 0.18f),
+                WebAreaColorToken("#facc15", "rgba(250, 204, 21, 0.18)", 0.18f),
+                WebAreaColorToken("#ef4444", "rgba(239, 68, 68, 0.18)", 0.18f),
+                WebAreaColorToken("#2dd4bf", "rgba(45, 212, 191, 0.18)", 0.18f),
+                WebAreaColorToken("#8b5cf6", "rgba(139, 92, 246, 0.18)", 0.18f),
+                WebAreaColorToken("#a3e635", "rgba(163, 230, 53, 0.18)", 0.18f),
+                WebAreaColorToken("#fbbf24", "rgba(251, 191, 36, 0.18)", 0.18f),
+                WebAreaColorToken("#f472b6", "rgba(244, 114, 182, 0.18)", 0.18f),
+                WebAreaColorToken("#38bdf8", "rgba(56, 189, 248, 0.18)", 0.18f),
+                WebAreaColorToken("#34d399", "rgba(52, 211, 153, 0.18)", 0.18f),
+                WebAreaColorToken("#e879f9", "rgba(232, 121, 249, 0.18)", 0.18f),
+                WebAreaColorToken("#f87171", "rgba(248, 113, 113, 0.18)", 0.18f),
+                WebAreaColorToken("#818cf8", "rgba(129, 140, 248, 0.18)", 0.18f),
+                WebAreaColorToken("#22d3ee", "rgba(34, 211, 238, 0.18)", 0.18f),
+                WebAreaColorToken("#fde047", "rgba(253, 224, 71, 0.18)", 0.18f),
+                WebAreaColorToken("#4ade80", "rgba(74, 222, 128, 0.18)", 0.18f),
+                WebAreaColorToken("#f0abfc", "rgba(240, 171, 252, 0.18)", 0.18f),
+                WebAreaColorToken("#60a5fa", "rgba(96, 165, 250, 0.18)", 0.18f),
+                WebAreaColorToken("#fdba74", "rgba(253, 186, 116, 0.18)", 0.18f)
+            )
     }
 }
+
+private data class WebAreaColorToken(
+    val lineColor: String,
+    val fillColor: String,
+    val fillOpacity: Float
+)
 
 private data class LiveMarkerLoadResult(
     val state: SearchMapUiState,

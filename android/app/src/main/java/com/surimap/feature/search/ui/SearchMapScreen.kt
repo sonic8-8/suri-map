@@ -68,6 +68,7 @@ import com.surimap.R
 import com.surimap.core.map.MapLibreRuntimeMapState
 import com.surimap.core.map.MapLibreGeometryOverlay
 import com.surimap.core.map.MapLibreGeometryOverlayKind
+import com.surimap.core.map.MapLibreGeometryVisualStyle
 import com.surimap.core.map.MapLibreViewportBounds
 import com.surimap.core.map.SuriMapLibreMap
 import com.surimap.core.sync.LocalWarningBanner
@@ -147,6 +148,14 @@ data class SearchMapViewportBounds(
     val east: Double
 )
 
+data class SearchMapLayerVisualStyle(
+    val fillColor: String? = null,
+    val fillOpacity: Float? = null,
+    val lineColor: String? = null,
+    val lineWidth: Float? = null,
+    val lineOpacity: Float? = null
+)
+
 data class SearchMapLayerUiState(
     val label: String,
     val kind: SearchLayerKind,
@@ -156,7 +165,8 @@ data class SearchMapLayerUiState(
     val assignedToCurrentPhone: Boolean = false,
     val bearingDegrees: Double? = null,
     val markerType: String? = null,
-    val supportRequestType: String? = null
+    val supportRequestType: String? = null,
+    val visualStyle: SearchMapLayerVisualStyle? = null
 )
 
 data class SearchMapAreaFocusTarget(
@@ -1481,7 +1491,17 @@ private fun SearchMapUiState.toRuntimeMapState(base: MapLibreRuntimeMapState): M
                 label = layer.label,
                 bearingDegrees = layer.bearingDegrees,
                 markerType = layer.markerType,
-                supportRequestType = layer.supportRequestType
+                supportRequestType = layer.supportRequestType,
+                visualStyle =
+                    layer.visualStyle?.let { style ->
+                        MapLibreGeometryVisualStyle(
+                            fillColor = style.fillColor,
+                            fillOpacity = style.fillOpacity,
+                            lineColor = style.lineColor,
+                            lineWidth = style.lineWidth,
+                            lineOpacity = style.lineOpacity
+                        )
+                    }
             )
         }
     )
