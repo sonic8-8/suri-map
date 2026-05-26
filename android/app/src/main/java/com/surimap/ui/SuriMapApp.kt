@@ -428,7 +428,7 @@ fun SuriMapApp() {
             },
             onOpenBlockedQueue = {
                 blockedQueue = null
-                navController.navigateToSingleTop(PolicePhoneRoute.BlockedOutbox)
+                navController.navigateToIncidentTopLevel(PolicePhoneRoute.BlockedOutbox)
             },
             onDismissHandoverMemoSaved = { handoverMemoSaved = null },
             onDismissSearchPathEnded = { searchPathEnded = null },
@@ -450,7 +450,7 @@ fun SuriMapApp() {
                             selectedRoute = selectedBottomNavigationRoute,
                             onSelect = { route ->
                                 if (currentRoute != route) {
-                                    navController.navigateToSingleTop(route)
+                                    navController.navigateToIncidentTopLevel(route)
                                 }
                             }
                         )
@@ -521,7 +521,7 @@ fun SuriMapApp() {
                             focusMarkerId = backStackEntry.arguments?.getString(SearchMapDeepLink.FocusMarkerIdArg),
                             clockSyncState = clockSyncState,
                             onOpenBlockedOutbox = {
-                                navController.navigateToSingleTop(PolicePhoneRoute.BlockedOutbox)
+                                navController.navigateToIncidentTopLevel(PolicePhoneRoute.BlockedOutbox)
                             },
                             onSearchPathEnded = { pendingSync ->
                                 searchPathEnded = SearchPathEndedToastState(pendingSync = pendingSync)
@@ -613,7 +613,7 @@ private fun PolicePhoneBackPolicyHandler(
         when {
             currentRoute == PolicePhoneRoute.IncidentHome -> onIncidentHomeBack()
             parentRoute == PolicePhoneRoute.IncidentList -> navController.navigateToIncidentListRoot()
-            parentRoute != null -> navController.navigateToSingleTop(parentRoute)
+            parentRoute != null -> navController.navigateBackToParentRoute(parentRoute)
             currentRoute == PolicePhoneRoute.IncidentList -> context.findActivity()?.finish()
             else -> Unit
         }
@@ -1119,7 +1119,7 @@ private fun BlockedOutboxRoute(
 
     BlockedOutboxScreen(
         state = state,
-        onBack = { navController.navigateToSingleTop(PolicePhoneRoute.IncidentHome) },
+        onBack = { navController.navigateToIncidentHomeRoot() },
         onOpenSupportGuide = {},
         onRefresh = { refreshNonce += 1 },
         refreshing = refreshing,
@@ -1285,9 +1285,9 @@ private fun HandoverSummaryRoute(
             endingDutyShift = endingDutyShift
         ),
         mapState = policePhoneContext.toMapLibreRuntimeMapState(),
-        onBack = { navController.navigateToSingleTop(PolicePhoneRoute.IncidentHome) },
+        onBack = { navController.navigateToIncidentHomeRoot() },
         onWriteMemo = { navController.navigateToSingleTop(PolicePhoneRoute.HandoverMemo) },
-        onOpenSearch = { navController.navigateToSingleTop(PolicePhoneRoute.SearchMap) },
+        onOpenSearch = { navController.navigateToIncidentTopLevel(PolicePhoneRoute.SearchMap) },
         onSelectTab = { selectedHandoverTab = it },
         onSelectDutyShift = { dutyShiftId ->
             selectedDutyShiftId = dutyShiftId
@@ -1329,7 +1329,7 @@ private fun HandoverSummaryRoute(
                             incidentSessionState.activateIncidentContext(it.copy(currentDutyShiftId = null))
                         }
                         endingDutyShift = false
-                        navController.navigateToSingleTop(PolicePhoneRoute.IncidentHome)
+                        navController.navigateToIncidentHomeRoot()
                     }
                 }
             }
@@ -1734,11 +1734,11 @@ private fun SearchMapRoute(
         val seenAt = currentDutyShiftStartedAt ?: Instant.now()
         context.writeLastSeenHandoverAt(sessionContext, seenAt)
         lastSeenHandoverAt = seenAt
-        navController.navigateToSingleTop(PolicePhoneRoute.HandoverSummary)
+        navController.navigateToIncidentTopLevel(PolicePhoneRoute.HandoverSummary)
     }
 
     fun leaveSearchMap() {
-        navController.navigateToSingleTop(PolicePhoneRoute.IncidentHome)
+        navController.navigateToIncidentHomeRoot()
     }
 
     fun requestMarkerSheetDismiss() {
@@ -2440,7 +2440,7 @@ private fun MarkerDetailRoute(
 
     MarkerDetailScreen(
         state = markerDetailState,
-        onBack = { navController.navigateToSingleTop(PolicePhoneRoute.SearchMap) },
+        onBack = { navController.navigateBackToParentRoute(PolicePhoneRoute.SearchMap) },
         onMemoChange = { memo ->
             if (markerDetailState.canEdit) {
                 markerDetailState = markerDetailState.copy(memo = memo, mutationStatus = MarkerSaveStatus.Editing)
@@ -2620,9 +2620,9 @@ private fun IncidentHomeRoute(
                 blockedOutboxCount = outboxSummary?.finalFailedCount ?: mapState.blockedOutboxCount,
                 refreshing = refreshing
             ),
-        onOpenSearchMap = { navController.navigateToSingleTop(PolicePhoneRoute.SearchMap) },
-        onOpenMapData = { navController.navigateToSingleTop(PolicePhoneRoute.OfflinePackage) },
-        onOpenBlockedOutbox = { navController.navigateToSingleTop(PolicePhoneRoute.BlockedOutbox) },
+        onOpenSearchMap = { navController.navigateToIncidentTopLevel(PolicePhoneRoute.SearchMap) },
+        onOpenMapData = { navController.navigateToIncidentContextRoute(PolicePhoneRoute.OfflinePackage) },
+        onOpenBlockedOutbox = { navController.navigateToIncidentTopLevel(PolicePhoneRoute.BlockedOutbox) },
         onRefresh = { refreshNonce += 1 }
     )
 }
@@ -2744,8 +2744,8 @@ private fun OfflinePackageRoute(
 
     OfflinePackageScreen(
         state = state,
-        onBack = { navController.navigateToSingleTop(PolicePhoneRoute.IncidentHome) },
-        onOpenSearchMap = { navController.navigateToSingleTop(PolicePhoneRoute.SearchMap) },
+        onBack = { navController.navigateToIncidentHomeRoot() },
+        onOpenSearchMap = { navController.navigateToIncidentTopLevel(PolicePhoneRoute.SearchMap) },
         onRetryFailedItems = { retryNonce += 1 },
         onRefresh = { retryNonce += 1 }
     )
@@ -3036,7 +3036,7 @@ private suspend fun openIncidentRoute(
         dutyShiftRecorder.start(resolvedContext.toDutyShiftWriteContext(policePhoneContext))
     }
     incidentSessionState.activateIncidentContext(resolvedContext)
-    navController.navigateToSingleTop(route)
+    navController.navigateToIncidentContextRoute(route)
 }
 
 private fun ManagedPolicePhoneConfig.toPolicePhoneContext(
@@ -3795,6 +3795,47 @@ private fun NavHostController.navigateToSingleTop(route: String) {
     navigate(route) {
         launchSingleTop = true
     }
+}
+
+private fun NavHostController.navigateBackToParentRoute(route: PolicePhoneRoute) {
+    if (popBackStack(route.route, inclusive = false)) {
+        return
+    }
+    navigateToIncidentContextRoute(route)
+}
+
+private fun NavHostController.navigateToIncidentContextRoute(route: PolicePhoneRoute) {
+    when (route) {
+        PolicePhoneRoute.IncidentHome -> navigateToIncidentHomeRoot()
+        PolicePhoneRoute.SearchMap,
+        PolicePhoneRoute.HandoverSummary,
+        PolicePhoneRoute.BlockedOutbox -> navigateToIncidentTopLevel(route)
+        PolicePhoneRoute.OfflinePackage,
+        PolicePhoneRoute.HandoverMemo,
+        PolicePhoneRoute.MarkerDetail -> {
+            navigateToIncidentHomeRoot()
+            navigateToSingleTop(route)
+        }
+        PolicePhoneRoute.AuthBootstrap,
+        PolicePhoneRoute.IncidentList -> navigateToSingleTop(route)
+    }
+}
+
+private fun NavHostController.navigateToIncidentTopLevel(route: PolicePhoneRoute) {
+    if (route == PolicePhoneRoute.IncidentHome) {
+        navigateToIncidentHomeRoot()
+        return
+    }
+    navigateToIncidentHomeRoot()
+    navigateToSingleTop(route)
+}
+
+private fun NavHostController.navigateToIncidentHomeRoot() {
+    if (popBackStack(PolicePhoneRoute.IncidentHome.route, inclusive = false)) {
+        return
+    }
+    popBackStack(PolicePhoneRoute.IncidentList.route, inclusive = false)
+    navigateToSingleTop(PolicePhoneRoute.IncidentHome)
 }
 
 private fun NavHostController.navigateToIncidentListRoot() {

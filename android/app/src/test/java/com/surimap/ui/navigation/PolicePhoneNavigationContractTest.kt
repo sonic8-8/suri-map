@@ -3,6 +3,7 @@ package com.surimap.ui.navigation
 import com.surimap.testing.dutyShiftIdFixture
 import com.surimap.testing.incidentIdFixture
 import com.surimap.testing.opIdFixture
+import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -105,6 +106,17 @@ class PolicePhoneNavigationContractTest {
         )
         assertNull(PolicePhoneBackNavigation.parentRouteFor(PolicePhoneRoute.AuthBootstrap))
         assertNull(PolicePhoneBackNavigation.parentRouteFor(PolicePhoneRoute.IncidentList))
+    }
+
+    @Test
+    fun incidentTopLevelNavigationCollapsesTabVisitHistory() {
+        val source = File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+
+        assertTrue(source.contains("navController.navigateToIncidentTopLevel(route)"))
+        assertTrue(source.contains("private fun NavHostController.navigateToIncidentHomeRoot()"))
+        assertTrue(source.contains("popBackStack(PolicePhoneRoute.IncidentHome.route, inclusive = false)"))
+        assertFalse(source.contains("onBack = { navController.navigateToSingleTop(PolicePhoneRoute.IncidentHome) }"))
+        assertFalse(source.contains("onOpenSearchMap = { navController.navigateToSingleTop(PolicePhoneRoute.SearchMap) }"))
     }
 
     @Test
