@@ -2640,6 +2640,20 @@ private fun AuthBootstrapRoute(
                 Log.w(AUTH_BOOTSTRAP_LOG_TAG, "login activity returned without a usable response")
             }
         }
+    val switchAccountLogin = {
+        oidcLoginLauncher.launch(
+            oidcLoginClient.createAuthorizationIntent(
+                apiBaseUrl = managedConfigurationReader.read().apiBaseUrl,
+                toolbarColor = PoliPrimary.toArgb(),
+                navigationBarColor = PoliBgBase.toArgb(),
+                forceLogin = true
+            )
+        )
+    }
+    val oidcEndSessionLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            switchAccountLogin()
+        }
     DisposableEffect(oidcLoginClient) {
         onDispose { oidcLoginClient.dispose() }
     }
@@ -2700,6 +2714,20 @@ private fun AuthBootstrapRoute(
             } else {
                 retryNonce += 1
             }
+        },
+        onSwitchAccount = {
+            val previousIdToken = oidcSession?.idToken
+            oidcSession = null
+            incidentSessionState.clearPolicePhoneContext()
+            onOidcSessionChanged(null)
+            oidcEndSessionLauncher.launch(
+                oidcLoginClient.createEndSessionIntent(
+                    apiBaseUrl = bootstrapCoordinator.readConfig().apiBaseUrl,
+                    idTokenHint = previousIdToken,
+                    toolbarColor = PoliPrimary.toArgb(),
+                    navigationBarColor = PoliBgBase.toArgb()
+                )
+            )
         },
         onRefresh = { retryNonce += 1 },
         refreshing = refreshing,

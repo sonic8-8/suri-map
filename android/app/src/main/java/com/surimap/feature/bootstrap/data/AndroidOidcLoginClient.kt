@@ -14,6 +14,7 @@ import net.openid.appauth.AuthorizationRequest
 import net.openid.appauth.AuthorizationResponse
 import net.openid.appauth.AuthorizationService
 import net.openid.appauth.AuthorizationServiceConfiguration
+import net.openid.appauth.EndSessionRequest
 import net.openid.appauth.ResponseTypeValues
 
 data class OidcLoginSession(
@@ -31,9 +32,10 @@ class AndroidOidcLoginClient(
     fun createAuthorizationIntent(
         apiBaseUrl: String,
         toolbarColor: Int,
-        navigationBarColor: Int
+        navigationBarColor: Int,
+        forceLogin: Boolean = false
     ): Intent {
-        val request = authorizationRequest(apiBaseUrl)
+        val request = authorizationRequest(apiBaseUrl, forceLogin)
         val customTabsIntent =
             authorizationService
                 .createCustomTabsIntentBuilder()
@@ -47,6 +49,33 @@ class AndroidOidcLoginClient(
                 .setShowTitle(true)
                 .build()
         return authorizationService.getAuthorizationRequestIntent(request, customTabsIntent)
+    }
+
+    fun createEndSessionIntent(
+        apiBaseUrl: String,
+        idTokenHint: String?,
+        toolbarColor: Int,
+        navigationBarColor: Int
+    ): Intent {
+        val request =
+            EndSessionRequest.Builder(serviceConfiguration(apiBaseUrl))
+                .setIdTokenHint(idTokenHint?.takeIf(String::isNotBlank))
+                .setPostLogoutRedirectUri(Uri.parse(BuildConfig.SURI_MAP_KEYCLOAK_REDIRECT_URI))
+                .setAdditionalParameters(mapOf("client_id" to BuildConfig.SURI_MAP_KEYCLOAK_CLIENT_ID))
+                .build()
+        val customTabsIntent =
+            authorizationService
+                .createCustomTabsIntentBuilder()
+                .setColorScheme(CustomTabsIntent.COLOR_SCHEME_DARK)
+                .setDefaultColorSchemeParams(
+                    CustomTabColorSchemeParams.Builder()
+                        .setToolbarColor(toolbarColor)
+                        .setNavigationBarColor(navigationBarColor)
+                        .build()
+                )
+                .setShowTitle(true)
+                .build()
+        return authorizationService.getEndSessionRequestIntent(request, customTabsIntent)
     }
 
     suspend fun completeLogin(callbackIntent: Intent): OidcLoginSession? {
@@ -109,15 +138,19 @@ class AndroidOidcLoginClient(
         authorizationService.dispose()
     }
 
-    private fun authorizationRequest(apiBaseUrl: String): AuthorizationRequest {
-        return AuthorizationRequest.Builder(
+    private fun authorizationRequest(apiBaseUrl: String, forceLogin: Boolean): AuthorizationRequest {
+        val builder = AuthorizationRequest.Builder(
             serviceConfiguration(apiBaseUrl),
             BuildConfig.SURI_MAP_KEYCLOAK_CLIENT_ID,
             ResponseTypeValues.CODE,
             Uri.parse(BuildConfig.SURI_MAP_KEYCLOAK_REDIRECT_URI)
         )
             .setScopes("openid", "profile")
-            .build()
+        if (forceLogin) {
+            builder.setPrompt("login")
+            builder.setAdditionalParameters(mapOf("max_age" to "0"))
+        }
+        return builder.build()
     }
 
     private fun serviceConfiguration(apiBaseUrl: String): AuthorizationServiceConfiguration {

@@ -21,6 +21,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -227,6 +228,7 @@ data class AuthBootstrapUiState(
 fun AuthBootstrapScreen(
     state: AuthBootstrapUiState,
     onRetry: () -> Unit = {},
+    onSwitchAccount: () -> Unit = {},
     onRefresh: () -> Unit = {},
     onExit: () -> Unit = {},
     refreshing: Boolean = state.steps.any { it.state == AuthStepState.Checking },
@@ -288,6 +290,23 @@ fun AuthBootstrapScreen(
 
                 Column(modifier = Modifier.fillMaxWidth()) {
                     if (state.retryEnabled || state.requiresAuthentication) {
+                        if (state.requiresAuthentication) {
+                            TextButton(
+                                onClick = onSwitchAccount,
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = state.retryEnabled
+                            ) {
+                                Text(
+                                    text = "다른 계정으로 로그인",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontSize = 16.sp,
+                                    lineHeight = 20.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = PoliFgSecondary,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
                         PoliButton(
                             text = state.primaryActionLabel,
                             onClick = onRetry,
