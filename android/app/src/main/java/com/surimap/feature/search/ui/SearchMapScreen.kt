@@ -3,8 +3,8 @@ package com.surimap.feature.search.ui
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
@@ -41,6 +41,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -108,6 +109,7 @@ import com.surimap.ui.theme.PoliSuccess
 import com.surimap.ui.theme.PoliWarning
 import com.surimap.ui.theme.SuriMapTheme
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private val ExpandedBottomPanelMapInset = 400.dp
 private val MapToastTopPadding = PoliDimens.Space3
@@ -1127,6 +1129,7 @@ private fun SearchBottomPanel(
 ) {
     var expandedAreaKind by remember { mutableStateOf<SearchLayerKind?>(null) }
     val density = LocalDensity.current
+    val coroutineScope = rememberCoroutineScope()
     val collapsedHeightPx = with(density) { BottomSheetCollapsedHeight.toPx() }
     val navigationBarHeightPx = WindowInsets.navigationBars.getBottom(density).toFloat()
     val midHeightPx = with(density) { BottomSheetMidHeight.toPx() }
@@ -1136,41 +1139,38 @@ private fun SearchBottomPanel(
         measuredExpandedHeightPx
             .coerceAtLeast(fallbackExpandedHeightPx)
             .coerceAtLeast(midHeightPx)
-    var targetHeightPx by remember {
-        mutableStateOf(if (state.bottomPanelExpanded) fallbackExpandedHeightPx else collapsedHeightPx)
+    val panelHeight = remember {
+        Animatable(if (state.bottomPanelExpanded) fallbackExpandedHeightPx else collapsedHeightPx)
     }
-    var dragHeightPx by remember { mutableStateOf(targetHeightPx) }
-    var isDragging by remember { mutableStateOf(false) }
-    val animatedHeightPx by animateFloatAsState(
-        targetValue = targetHeightPx.coerceIn(collapsedHeightPx, expandedHeightPx),
-        animationSpec =
-        spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessMediumLow
-        ),
-        label = "searchBottomSheetHeight"
-    )
-    val panelHeightPx =
-        (if (isDragging) dragHeightPx else animatedHeightPx)
-            .coerceIn(collapsedHeightPx, expandedHeightPx)
+    val panelHeightPx = panelHeight.value.coerceIn(collapsedHeightPx, expandedHeightPx)
     val sheetExpanded = panelHeightPx > (collapsedHeightPx + midHeightPx) / 2f
     val expandedContentVisible = panelHeightPx > collapsedHeightPx + 1f
     val effectiveNavigationBarHeightPx =
         navigationBarHeightPx.coerceAtMost(with(density) { PoliDimens.Space5.toPx() })
-    val contentTopPadding = if (expandedContentVisible) PoliDimens.Space4 else PoliDimens.Space2
+    val contentTopPadding = PoliDimens.Space2
     val contentBottomPadding = if (expandedContentVisible) PoliDimens.Space4 else 0.dp
-    val contentSpacing = if (expandedContentVisible) PoliDimens.Space3 else PoliDimens.Space2
+    val contentSpacing = PoliDimens.Space2
     val dragState =
         rememberDraggableState { delta ->
-            dragHeightPx = (dragHeightPx - delta).coerceIn(collapsedHeightPx, expandedHeightPx)
+            val nextHeight = (panelHeight.value - delta).coerceIn(collapsedHeightPx, expandedHeightPx)
+            coroutineScope.launch {
+                panelHeight.snapTo(nextHeight)
+            }
         }
 
     fun toggleBottomPanelFromHandle() {
         val shouldExpand = !sheetExpanded
         val snappedHeight = if (shouldExpand) expandedHeightPx else collapsedHeightPx
-        targetHeightPx = snappedHeight
-        dragHeightPx = snappedHeight
-        isDragging = false
+        coroutineScope.launch {
+            panelHeight.animateTo(
+                targetValue = snappedHeight,
+                animationSpec =
+                    spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = Spring.StiffnessMediumLow
+                    )
+            )
+        }
         if (state.bottomPanelExpanded != shouldExpand) {
             onToggleBottomPanel()
         }
@@ -1186,22 +1186,30 @@ private fun SearchBottomPanel(
                 state = dragState,
                 orientation = Orientation.Vertical,
                 onDragStarted = {
-                    isDragging = true
-                    dragHeightPx = panelHeightPx
+                    coroutineScope.launch {
+                        panelHeight.stop()
+                    }
                 },
                 onDragStopped = { velocity ->
                     val snappedHeight =
                         snapPanelHeight(
-                            value = dragHeightPx,
+                            value = panelHeight.value,
                             velocity = velocity,
                             positiveVelocityExpands = false,
                             collapsedHeightPx,
                             midHeightPx,
                             expandedHeightPx
                         )
-                    targetHeightPx = snappedHeight
-                    dragHeightPx = snappedHeight
-                    isDragging = false
+                    coroutineScope.launch {
+                        panelHeight.animateTo(
+                            targetValue = snappedHeight,
+                            animationSpec =
+                                spring(
+                                    dampingRatio = Spring.DampingRatioNoBouncy,
+                                    stiffness = Spring.StiffnessMediumLow
+                                )
+                        )
+                    }
                     val expanded = snappedHeight > collapsedHeightPx + 1f
                     if (state.bottomPanelExpanded != expanded) {
                         onToggleBottomPanel()
@@ -1242,13 +1250,11 @@ private fun SearchBottomPanel(
                     expanded = sheetExpanded,
                     onClick = { toggleBottomPanelFromHandle() }
                 )
+                SearchCollapsedPanelContent(
+                    state = state,
+                    onPrimaryLifecycleAction = onPrimaryLifecycleAction
+                )
                 if (expandedContentVisible) {
-                    SearchLifecyclePeekRow(
-                        state = state,
-                        onPrimaryLifecycleAction = onPrimaryLifecycleAction,
-                        detailsExpanded = true,
-                        onToggleDetails = { toggleBottomPanelFromHandle() }
-                    )
                     if (state.lifecycleTitle.isNotBlank() || state.lifecycleMessage.isNotBlank()) {
                         SearchLifecycleMessage(state = state)
                     }
@@ -1335,11 +1341,6 @@ private fun SearchBottomPanel(
                             size = PoliButtonSize.Large
                         )
                     }
-                } else {
-                    SearchCollapsedPanelContent(
-                        state = state,
-                        onPrimaryLifecycleAction = onPrimaryLifecycleAction
-                    )
                 }
             }
         }
