@@ -99,7 +99,9 @@ import com.surimap.ui.theme.PoliFgMuted
 import com.surimap.ui.theme.PoliFgPrimary
 import com.surimap.ui.theme.PoliFgSecondary
 import com.surimap.ui.theme.PoliOverlayDim
+import com.surimap.ui.theme.PoliPrimary
 import com.surimap.ui.theme.PoliPrimaryBorder
+import com.surimap.ui.theme.PoliPrimaryHi
 import com.surimap.ui.theme.PoliSuccess
 import com.surimap.ui.theme.PoliWarning
 import com.surimap.ui.theme.SuriMapTheme
@@ -108,8 +110,8 @@ import kotlinx.coroutines.delay
 private val ExpandedBottomPanelMapInset = 400.dp
 private val MapToastTopPadding = PoliDimens.Space3
 private val BottomSheetCollapsedHeight =
-    PoliDimens.CtaHeight + PoliDimens.Space6 + PoliDimens.Space5
-private val BottomSheetMidHeight = BottomSheetCollapsedHeight + PoliDimens.CtaHeightLarge + PoliDimens.Space6
+    PoliDimens.Space6 + PoliDimens.Space4 + PoliDimens.TouchGlove + PoliDimens.Space3 + PoliDimens.CtaHeight
+private val BottomSheetMidHeight = BottomSheetCollapsedHeight + PoliDimens.CtaHeightLarge + PoliDimens.Space5
 private val BottomSheetMaxFallbackHeight = 400.dp
 private const val MapOverlayButtonAlpha = 0.94f
 private const val PanelFlingThresholdPx = 650f
@@ -281,8 +283,8 @@ data class SearchMapUiState(
             SearchLifecycleStatus.Active -> "일시정지"
             SearchLifecycleStatus.Paused -> "재개"
             SearchLifecycleStatus.Stopped -> "수색 시작"
-            SearchLifecycleStatus.OpRequired -> "OP 다시 확인"
-            SearchLifecycleStatus.OpTransition -> "OP 변경 확인"
+            SearchLifecycleStatus.OpRequired,
+            SearchLifecycleStatus.OpTransition -> "수색 차수 새로고침"
         }
 
     fun visibleText(): List<String> =
@@ -1229,13 +1231,13 @@ private fun SearchBottomPanel(
                     expanded = sheetExpanded,
                     onClick = { toggleBottomPanelFromHandle() }
                 )
-                SearchLifecyclePeekRow(
-                    state = state,
-                    onPrimaryLifecycleAction = onPrimaryLifecycleAction,
-                    detailsExpanded = expandedContentVisible,
-                    onToggleDetails = { toggleBottomPanelFromHandle() }
-                )
                 if (expandedContentVisible) {
+                    SearchLifecyclePeekRow(
+                        state = state,
+                        onPrimaryLifecycleAction = onPrimaryLifecycleAction,
+                        detailsExpanded = true,
+                        onToggleDetails = { toggleBottomPanelFromHandle() }
+                    )
                     if (state.lifecycleTitle.isNotBlank() || state.lifecycleMessage.isNotBlank()) {
                         SearchLifecycleMessage(state = state)
                     }
@@ -1322,6 +1324,11 @@ private fun SearchBottomPanel(
                             size = PoliButtonSize.Large
                         )
                     }
+                } else {
+                    SearchCollapsedPanelContent(
+                        state = state,
+                        onPrimaryLifecycleAction = onPrimaryLifecycleAction
+                    )
                 }
             }
         }
@@ -1335,6 +1342,157 @@ private fun SearchBottomPanel(
         )
     }
 }
+
+@Composable
+private fun SearchCollapsedPanelContent(
+    state: SearchMapUiState,
+    onPrimaryLifecycleAction: () -> Unit
+) {
+    SearchCollapsedStatusCard(state = state)
+    SearchCollapsedPrimaryActionButton(
+        text = state.primaryActionLabel,
+        onClick = onPrimaryLifecycleAction,
+        lifecycleStatus = state.lifecycleStatus,
+        modifier = Modifier.fillMaxWidth()
+    )
+}
+
+@Composable
+private fun SearchCollapsedPrimaryActionButton(
+    text: String,
+    onClick: () -> Unit,
+    lifecycleStatus: SearchLifecycleStatus,
+    modifier: Modifier = Modifier
+) {
+    val buttonStyle =
+        when (lifecycleStatus) {
+            SearchLifecycleStatus.Active ->
+                SearchCollapsedActionButtonStyle(
+                    topColor = PoliPrimaryHi,
+                    bottomColor = PoliPrimary,
+                    borderColor = PoliPrimaryBorder,
+                    contentColor = Color.White
+                )
+            SearchLifecycleStatus.OpRequired,
+            SearchLifecycleStatus.OpTransition ->
+                SearchCollapsedActionButtonStyle(
+                    topColor = Color(0xFFD97706),
+                    bottomColor = Color(0xFFB45309),
+                    borderColor = Color(0xFF92400E),
+                    contentColor = Color.White
+                )
+            SearchLifecycleStatus.Paused,
+            SearchLifecycleStatus.Stopped ->
+                SearchCollapsedActionButtonStyle(
+                    topColor = PoliPrimaryHi,
+                    bottomColor = PoliPrimary,
+                    borderColor = PoliPrimaryBorder,
+                    contentColor = Color.White
+                )
+        }
+
+    Surface(
+        modifier =
+            modifier
+                .height(PoliDimens.CtaHeight)
+                .clickable(
+                    role = Role.Button,
+                    onClickLabel = text,
+                    onClick = onClick
+                ),
+        shape = MaterialTheme.shapes.medium,
+        color = Color.Transparent,
+        contentColor = buttonStyle.contentColor,
+        border = BorderStroke(1.dp, buttonStyle.borderColor),
+        shadowElevation = 3.dp
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(buttonStyle.topColor, buttonStyle.bottomColor)
+                        )
+                    ),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelLarge,
+                color = buttonStyle.contentColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+private data class SearchCollapsedActionButtonStyle(
+    val topColor: Color,
+    val bottomColor: Color,
+    val borderColor: Color,
+    val contentColor: Color
+)
+
+@Composable
+private fun SearchCollapsedStatusCard(state: SearchMapUiState) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().height(PoliDimens.TouchGlove),
+        shape = MaterialTheme.shapes.medium,
+        color = PoliBgBase,
+        contentColor = PoliFgPrimary,
+        border = BorderStroke(1.dp, PoliBorder)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = PoliDimens.Space4),
+            horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            SearchStatusDot(state.lifecycleStatus)
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(PoliDimens.Space1)
+            ) {
+                Text(
+                    text = state.lifecycleStatusLabel,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = PoliFgPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = state.collapsedRecordLabel,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = PoliFgMuted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Text(
+                text = state.elapsedLabel,
+                style = MaterialTheme.typography.titleMedium,
+                color = PoliFgPrimary,
+                maxLines = 1
+            )
+        }
+    }
+}
+
+private val SearchMapUiState.collapsedRecordLabel: String
+    get() =
+        when (lifecycleStatus) {
+            SearchLifecycleStatus.Active ->
+                if (syncStatus == SearchMapSyncStatus.Offline) {
+                    "기록 중 · 통신 복구 시 자동 전송"
+                } else {
+                    "기록 중"
+                }
+            SearchLifecycleStatus.Paused -> "기록 일시정지"
+            SearchLifecycleStatus.Stopped -> "기록 대기"
+            SearchLifecycleStatus.OpRequired,
+            SearchLifecycleStatus.OpTransition -> "기록 차단"
+        }
 
 @Composable
 private fun SearchLifecyclePeekRow(
@@ -1436,7 +1594,7 @@ private fun SearchStatusCard(state: SearchMapUiState) {
 private fun SearchStatusDot(status: SearchLifecycleStatus) {
     val color =
         when (status) {
-            SearchLifecycleStatus.Active -> PoliEmphasis
+            SearchLifecycleStatus.Active -> PoliSuccess
             SearchLifecycleStatus.Paused,
             SearchLifecycleStatus.Stopped -> PoliWarning
             SearchLifecycleStatus.OpRequired,
