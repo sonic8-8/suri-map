@@ -3,8 +3,8 @@ package com.surimap.feature.search.ui
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
@@ -29,6 +29,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.shape.CornerSize
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -39,6 +41,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -68,6 +71,7 @@ import com.surimap.R
 import com.surimap.core.map.MapLibreRuntimeMapState
 import com.surimap.core.map.MapLibreGeometryOverlay
 import com.surimap.core.map.MapLibreGeometryOverlayKind
+import com.surimap.core.map.MapLibreGeometryVisualStyle
 import com.surimap.core.map.MapLibreViewportBounds
 import com.surimap.core.map.SuriMapLibreMap
 import com.surimap.core.sync.LocalWarningBanner
@@ -98,17 +102,20 @@ import com.surimap.ui.theme.PoliFgMuted
 import com.surimap.ui.theme.PoliFgPrimary
 import com.surimap.ui.theme.PoliFgSecondary
 import com.surimap.ui.theme.PoliOverlayDim
+import com.surimap.ui.theme.PoliPrimary
 import com.surimap.ui.theme.PoliPrimaryBorder
+import com.surimap.ui.theme.PoliPrimaryHi
 import com.surimap.ui.theme.PoliSuccess
 import com.surimap.ui.theme.PoliWarning
 import com.surimap.ui.theme.SuriMapTheme
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private val ExpandedBottomPanelMapInset = 400.dp
 private val MapToastTopPadding = PoliDimens.Space3
 private val BottomSheetCollapsedHeight =
-    PoliDimens.CtaHeight + PoliDimens.Space6 + PoliDimens.Space5
-private val BottomSheetMidHeight = BottomSheetCollapsedHeight + PoliDimens.CtaHeightLarge + PoliDimens.Space6
+    PoliDimens.Space6 + PoliDimens.TouchGlove + PoliDimens.CtaHeight + (PoliDimens.Space2 * 3)
+private val BottomSheetMidHeight = BottomSheetCollapsedHeight + PoliDimens.CtaHeightLarge + PoliDimens.Space5
 private val BottomSheetMaxFallbackHeight = 400.dp
 private const val MapOverlayButtonAlpha = 0.94f
 private const val PanelFlingThresholdPx = 650f
@@ -147,6 +154,14 @@ data class SearchMapViewportBounds(
     val east: Double
 )
 
+data class SearchMapLayerVisualStyle(
+    val fillColor: String? = null,
+    val fillOpacity: Float? = null,
+    val lineColor: String? = null,
+    val lineWidth: Float? = null,
+    val lineOpacity: Float? = null
+)
+
 data class SearchMapLayerUiState(
     val label: String,
     val kind: SearchLayerKind,
@@ -154,7 +169,10 @@ data class SearchMapLayerUiState(
     val overlayId: String? = null,
     val geoJson: String? = null,
     val assignedToCurrentPhone: Boolean = false,
-    val bearingDegrees: Double? = null
+    val bearingDegrees: Double? = null,
+    val markerType: String? = null,
+    val supportRequestType: String? = null,
+    val visualStyle: SearchMapLayerVisualStyle? = null
 )
 
 data class SearchMapAreaFocusTarget(
@@ -269,8 +287,8 @@ data class SearchMapUiState(
             SearchLifecycleStatus.Active -> "일시정지"
             SearchLifecycleStatus.Paused -> "재개"
             SearchLifecycleStatus.Stopped -> "수색 시작"
-            SearchLifecycleStatus.OpRequired -> "OP 다시 확인"
-            SearchLifecycleStatus.OpTransition -> "OP 변경 확인"
+            SearchLifecycleStatus.OpRequired,
+            SearchLifecycleStatus.OpTransition -> "수색 차수 새로고침"
         }
 
     fun visibleText(): List<String> =
@@ -698,19 +716,18 @@ private fun SearchMapShell(
     modifier: Modifier = Modifier
 ) {
     val runtimeMapState = state.toRuntimeMapState(mapState)
-    val mapContentModifier = Modifier.fillMaxSize().padding(bottom = mapBottomInset)
     val currentLocationBottomInset = mapBottomInset + PoliDimens.TouchGlove + PoliDimens.Space6
 
     Box(modifier = modifier.fillMaxSize().background(PoliBgInput)) {
         if (showMapPreview) {
             SearchMapPreviewScene(
                 state = state,
-                modifier = mapContentModifier
+                modifier = Modifier.fillMaxSize()
             )
         } else {
             SuriMapLibreMap(
                 state = runtimeMapState,
-                modifier = mapContentModifier,
+                modifier = Modifier.fillMaxSize(),
                 onLoadFailed = {},
                 onMarkerClick = onOpenMarkerDetail
             )
@@ -1112,6 +1129,7 @@ private fun SearchBottomPanel(
 ) {
     var expandedAreaKind by remember { mutableStateOf<SearchLayerKind?>(null) }
     val density = LocalDensity.current
+    val coroutineScope = rememberCoroutineScope()
     val collapsedHeightPx = with(density) { BottomSheetCollapsedHeight.toPx() }
     val navigationBarHeightPx = WindowInsets.navigationBars.getBottom(density).toFloat()
     val midHeightPx = with(density) { BottomSheetMidHeight.toPx() }
@@ -1121,38 +1139,38 @@ private fun SearchBottomPanel(
         measuredExpandedHeightPx
             .coerceAtLeast(fallbackExpandedHeightPx)
             .coerceAtLeast(midHeightPx)
-    var targetHeightPx by remember {
-        mutableStateOf(if (state.bottomPanelExpanded) fallbackExpandedHeightPx else collapsedHeightPx)
+    val panelHeight = remember {
+        Animatable(if (state.bottomPanelExpanded) fallbackExpandedHeightPx else collapsedHeightPx)
     }
-    var dragHeightPx by remember { mutableStateOf(targetHeightPx) }
-    var isDragging by remember { mutableStateOf(false) }
-    val animatedHeightPx by animateFloatAsState(
-        targetValue = targetHeightPx.coerceIn(collapsedHeightPx, expandedHeightPx),
-        animationSpec =
-        spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessMediumLow
-        ),
-        label = "searchBottomSheetHeight"
-    )
-    val panelHeightPx =
-        (if (isDragging) dragHeightPx else animatedHeightPx)
-            .coerceIn(collapsedHeightPx, expandedHeightPx)
+    val panelHeightPx = panelHeight.value.coerceIn(collapsedHeightPx, expandedHeightPx)
     val sheetExpanded = panelHeightPx > (collapsedHeightPx + midHeightPx) / 2f
     val expandedContentVisible = panelHeightPx > collapsedHeightPx + 1f
-    val contentVerticalPadding = if (expandedContentVisible) PoliDimens.Space4 else PoliDimens.Space2
-    val contentSpacing = if (expandedContentVisible) PoliDimens.Space3 else PoliDimens.Space2
+    val effectiveNavigationBarHeightPx =
+        navigationBarHeightPx.coerceAtMost(with(density) { PoliDimens.Space5.toPx() })
+    val contentTopPadding = PoliDimens.Space2
+    val contentBottomPadding = if (expandedContentVisible) PoliDimens.Space4 else 0.dp
+    val contentSpacing = PoliDimens.Space2
     val dragState =
         rememberDraggableState { delta ->
-            dragHeightPx = (dragHeightPx - delta).coerceIn(collapsedHeightPx, expandedHeightPx)
+            val nextHeight = (panelHeight.value - delta).coerceIn(collapsedHeightPx, expandedHeightPx)
+            coroutineScope.launch {
+                panelHeight.snapTo(nextHeight)
+            }
         }
 
     fun toggleBottomPanelFromHandle() {
         val shouldExpand = !sheetExpanded
         val snappedHeight = if (shouldExpand) expandedHeightPx else collapsedHeightPx
-        targetHeightPx = snappedHeight
-        dragHeightPx = snappedHeight
-        isDragging = false
+        coroutineScope.launch {
+            panelHeight.animateTo(
+                targetValue = snappedHeight,
+                animationSpec =
+                    spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = Spring.StiffnessMediumLow
+                    )
+            )
+        }
         if (state.bottomPanelExpanded != shouldExpand) {
             onToggleBottomPanel()
         }
@@ -1162,28 +1180,36 @@ private fun SearchBottomPanel(
         modifier =
         modifier
             .fillMaxWidth()
-            .height(with(density) { (panelHeightPx + navigationBarHeightPx).toDp() })
+            .height(with(density) { (panelHeightPx + effectiveNavigationBarHeightPx).toDp() })
             .clipToBounds()
             .draggable(
                 state = dragState,
                 orientation = Orientation.Vertical,
                 onDragStarted = {
-                    isDragging = true
-                    dragHeightPx = panelHeightPx
+                    coroutineScope.launch {
+                        panelHeight.stop()
+                    }
                 },
                 onDragStopped = { velocity ->
                     val snappedHeight =
                         snapPanelHeight(
-                            value = dragHeightPx,
+                            value = panelHeight.value,
                             velocity = velocity,
                             positiveVelocityExpands = false,
                             collapsedHeightPx,
                             midHeightPx,
                             expandedHeightPx
                         )
-                    targetHeightPx = snappedHeight
-                    dragHeightPx = snappedHeight
-                    isDragging = false
+                    coroutineScope.launch {
+                        panelHeight.animateTo(
+                            targetValue = snappedHeight,
+                            animationSpec =
+                                spring(
+                                    dampingRatio = Spring.DampingRatioNoBouncy,
+                                    stiffness = Spring.StiffnessMediumLow
+                                )
+                        )
+                    }
                     val expanded = snappedHeight > collapsedHeightPx + 1f
                     if (state.bottomPanelExpanded != expanded) {
                         onToggleBottomPanel()
@@ -1197,31 +1223,36 @@ private fun SearchBottomPanel(
                 .fillMaxWidth()
                 .height(with(density) { panelHeightPx.toDp() })
                 .align(Alignment.TopCenter),
-            shape = MaterialTheme.shapes.extraLarge,
+            shape =
+                RoundedCornerShape(
+                    topStart = MaterialTheme.shapes.extraLarge.topStart,
+                    topEnd = MaterialTheme.shapes.extraLarge.topEnd,
+                    bottomEnd = CornerSize(0.dp),
+                    bottomStart = CornerSize(0.dp)
+                ),
             color = PoliBgSurface,
             contentColor = PoliFgPrimary,
-            border = BorderStroke(1.dp, PoliBorder)
+            border = null
         ) {
             Column(
                 modifier =
                 Modifier
                     .fillMaxWidth()
-                    .wrapContentHeight(unbounded = true)
+                    .wrapContentHeight(align = Alignment.Top, unbounded = true)
                     .onSizeChanged {
                         measuredExpandedHeightPx = it.height.toFloat().coerceAtLeast(fallbackExpandedHeightPx)
                     }
-                    .padding(horizontal = PoliDimens.Space5, vertical = contentVerticalPadding),
+                    .padding(horizontal = PoliDimens.Space5)
+                    .padding(top = contentTopPadding, bottom = contentBottomPadding),
                 verticalArrangement = Arrangement.spacedBy(contentSpacing)
             ) {
                 BottomSheetGrabHandle(
                     expanded = sheetExpanded,
                     onClick = { toggleBottomPanelFromHandle() }
                 )
-                SearchLifecyclePeekRow(
+                SearchCollapsedPanelContent(
                     state = state,
-                    onPrimaryLifecycleAction = onPrimaryLifecycleAction,
-                    detailsExpanded = expandedContentVisible,
-                    onToggleDetails = { toggleBottomPanelFromHandle() }
+                    onPrimaryLifecycleAction = onPrimaryLifecycleAction
                 )
                 if (expandedContentVisible) {
                     if (state.lifecycleTitle.isNotBlank() || state.lifecycleMessage.isNotBlank()) {
@@ -1317,12 +1348,203 @@ private fun SearchBottomPanel(
             modifier =
             Modifier
                 .fillMaxWidth()
-                .height(with(density) { navigationBarHeightPx.toDp() })
+                .height(with(density) { effectiveNavigationBarHeightPx.toDp() })
                 .background(PoliBgSurface)
                 .align(Alignment.BottomCenter)
         )
     }
 }
+
+@Composable
+private fun SearchCollapsedPanelContent(
+    state: SearchMapUiState,
+    onPrimaryLifecycleAction: () -> Unit
+) {
+    SearchCollapsedStatusCard(state = state)
+    SearchCollapsedPrimaryActionButton(
+        text = state.primaryActionLabel,
+        onClick = onPrimaryLifecycleAction,
+        lifecycleStatus = state.lifecycleStatus,
+        modifier = Modifier.fillMaxWidth()
+    )
+}
+
+@Composable
+private fun SearchCollapsedPrimaryActionButton(
+    text: String,
+    onClick: () -> Unit,
+    lifecycleStatus: SearchLifecycleStatus,
+    modifier: Modifier = Modifier
+) {
+    val buttonStyle =
+        when (lifecycleStatus) {
+            SearchLifecycleStatus.Active ->
+                SearchCollapsedActionButtonStyle(
+                    topColor = PoliPrimaryHi,
+                    bottomColor = PoliPrimary,
+                    borderColor = PoliPrimaryBorder,
+                    contentColor = Color.White
+                )
+            SearchLifecycleStatus.OpRequired,
+            SearchLifecycleStatus.OpTransition ->
+                SearchCollapsedActionButtonStyle(
+                    topColor = Color(0xFFD97706),
+                    bottomColor = Color(0xFFB45309),
+                    borderColor = Color(0xFF92400E),
+                    contentColor = Color.White
+                )
+            SearchLifecycleStatus.Paused,
+            SearchLifecycleStatus.Stopped ->
+                SearchCollapsedActionButtonStyle(
+                    topColor = PoliPrimaryHi,
+                    bottomColor = PoliPrimary,
+                    borderColor = PoliPrimaryBorder,
+                    contentColor = Color.White
+                )
+        }
+
+    Surface(
+        modifier =
+            modifier
+                .height(PoliDimens.CtaHeight)
+                .clickable(
+                    role = Role.Button,
+                    onClickLabel = text,
+                    onClick = onClick
+                ),
+        shape = MaterialTheme.shapes.medium,
+        color = Color.Transparent,
+        contentColor = buttonStyle.contentColor,
+        border = BorderStroke(1.dp, buttonStyle.borderColor),
+        shadowElevation = 3.dp
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(buttonStyle.topColor, buttonStyle.bottomColor)
+                        )
+                    ),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelLarge,
+                color = buttonStyle.contentColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+private data class SearchCollapsedActionButtonStyle(
+    val topColor: Color,
+    val bottomColor: Color,
+    val borderColor: Color,
+    val contentColor: Color
+)
+
+@Composable
+private fun SearchCollapsedStatusCard(state: SearchMapUiState) {
+    val cardStyle =
+        when (state.lifecycleStatus) {
+            SearchLifecycleStatus.Active ->
+                SearchCollapsedStatusCardStyle(
+                    containerColor = Color(0xFF0F2A1A),
+                    borderColor = PoliSuccess,
+                    titleColor = Color(0xFFF0FDF4),
+                    subtitleColor = Color(0xFFA7F3D0)
+                )
+            SearchLifecycleStatus.Paused ->
+                SearchCollapsedStatusCardStyle(
+                    containerColor = Color(0xFF2B2114),
+                    borderColor = Color(0xFFD97706),
+                    titleColor = Color(0xFFFFF7ED),
+                    subtitleColor = Color(0xFFFCD9A6)
+                )
+            SearchLifecycleStatus.Stopped ->
+                SearchCollapsedStatusCardStyle(
+                    containerColor = PoliBgInput,
+                    borderColor = PoliPrimaryBorder,
+                    titleColor = PoliFgPrimary,
+                    subtitleColor = PoliFgMuted
+                )
+            SearchLifecycleStatus.OpRequired,
+            SearchLifecycleStatus.OpTransition ->
+                SearchCollapsedStatusCardStyle(
+                    containerColor = Color(0xFF2B2114),
+                    borderColor = Color(0xFFD97706),
+                    titleColor = Color(0xFFFFF7ED),
+                    subtitleColor = Color(0xFFFCD9A6)
+                )
+        }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth().height(PoliDimens.TouchGlove),
+        shape = MaterialTheme.shapes.medium,
+        color = cardStyle.containerColor,
+        contentColor = cardStyle.titleColor,
+        border = BorderStroke(1.dp, cardStyle.borderColor)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = PoliDimens.Space4),
+            horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            SearchStatusDot(state.lifecycleStatus)
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(PoliDimens.Space1)
+            ) {
+                Text(
+                    text = state.lifecycleStatusLabel,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = cardStyle.titleColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = state.collapsedRecordLabel,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = cardStyle.subtitleColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Text(
+                text = state.elapsedLabel,
+                style = MaterialTheme.typography.titleMedium,
+                color = cardStyle.titleColor,
+                maxLines = 1
+            )
+        }
+    }
+}
+
+private data class SearchCollapsedStatusCardStyle(
+    val containerColor: Color,
+    val borderColor: Color,
+    val titleColor: Color,
+    val subtitleColor: Color
+)
+
+private val SearchMapUiState.collapsedRecordLabel: String
+    get() =
+        when (lifecycleStatus) {
+            SearchLifecycleStatus.Active ->
+                if (syncStatus == SearchMapSyncStatus.Offline) {
+                    "기록 중 · 통신 복구 시 자동 전송"
+                } else {
+                    "기록 중"
+                }
+            SearchLifecycleStatus.Paused -> "기록 일시정지"
+            SearchLifecycleStatus.Stopped -> "기록 대기"
+            SearchLifecycleStatus.OpRequired,
+            SearchLifecycleStatus.OpTransition -> "기록 차단"
+        }
 
 @Composable
 private fun SearchLifecyclePeekRow(
@@ -1424,11 +1646,11 @@ private fun SearchStatusCard(state: SearchMapUiState) {
 private fun SearchStatusDot(status: SearchLifecycleStatus) {
     val color =
         when (status) {
-            SearchLifecycleStatus.Active -> PoliEmphasis
-            SearchLifecycleStatus.Paused,
-            SearchLifecycleStatus.Stopped -> PoliWarning
+            SearchLifecycleStatus.Active -> PoliSuccess
+            SearchLifecycleStatus.Paused -> PoliWarning
+            SearchLifecycleStatus.Stopped -> PoliPrimaryBorder
             SearchLifecycleStatus.OpRequired,
-            SearchLifecycleStatus.OpTransition -> PoliPrimaryBorder
+            SearchLifecycleStatus.OpTransition -> PoliWarning
         }
     Surface(modifier = Modifier.size(12.dp), shape = MaterialTheme.shapes.extraLarge, color = color) {}
 }
@@ -1477,7 +1699,19 @@ private fun SearchMapUiState.toRuntimeMapState(base: MapLibreRuntimeMapState): M
                 geoJson = geoJson,
                 highlighted = layer.highlighted || focused,
                 label = layer.label,
-                bearingDegrees = layer.bearingDegrees
+                bearingDegrees = layer.bearingDegrees,
+                markerType = layer.markerType,
+                supportRequestType = layer.supportRequestType,
+                visualStyle =
+                    layer.visualStyle?.let { style ->
+                        MapLibreGeometryVisualStyle(
+                            fillColor = style.fillColor,
+                            fillOpacity = style.fillOpacity,
+                            lineColor = style.lineColor,
+                            lineWidth = style.lineWidth,
+                            lineOpacity = style.lineOpacity
+                        )
+                    }
             )
         }
     )

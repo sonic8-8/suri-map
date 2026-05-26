@@ -41,7 +41,7 @@ class SearchMapUiStateTest {
         assertEquals(SearchLifecycleStatus.OpRequired, opRequired.lifecycleStatus)
         assertFalse(opRequired.canWritePath)
         assertFalse(opRequired.canCreateMarker)
-        assertTrue(opRequired.visibleText().any { it.contains("OP 다시 확인") })
+        assertTrue(opRequired.visibleText().any { it.contains("수색 차수 새로고침") })
         assertTrue(opRequired.visibleText().any { it.contains("경로·마커 기록 차단") })
         assertEquals(SearchLifecycleStatus.OpTransition, opTransition.lifecycleStatus)
         assertFalse(opTransition.canWritePath)
