@@ -106,7 +106,7 @@ class PolicePhoneNavigationContractTest {
         assertTrue(source.contains("navController.navigateToIncidentTopLevel(route)"))
         assertTrue(source.contains("private fun NavHostController.navigateToIncidentHomeRoot()"))
         assertTrue(source.contains("popBackStack(PolicePhoneRoute.IncidentHome.route, inclusive = false)"))
-        assertTrue(source.contains("popBackStack(PolicePhoneRoute.IncidentList.route, inclusive = false)"))
+        assertTrue(source.contains("popUpTo(PolicePhoneRoute.IncidentList.route)"))
         assertTrue(source.contains("currentRoute == PolicePhoneRoute.HandoverSummary"))
         assertTrue(source.contains("currentRoute == PolicePhoneRoute.BlockedOutbox"))
         assertTrue(source.contains("onIncidentSupportTabBack = { navController.navigateToIncidentTopLevel(PolicePhoneRoute.SearchMap) }"))
