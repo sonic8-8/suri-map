@@ -145,11 +145,16 @@ private fun String.toSafePolicePhoneLabel(): String =
     }
 
 private fun String.toSafeAccountLabel(): String =
-    if (isBlank() || startsWith("acct-", ignoreCase = true)) {
-        "작성자 확인됨"
+    if (isBlank()) {
+        "기록자 미확인"
+    } else if (startsWith("acct-", ignoreCase = true) || isUuidLike()) {
+        "현장 요원"
     } else {
         this
     }
+
+private fun String.isUuidLike(): Boolean =
+    matches(Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"))
 
 private fun Long.toVersionLabel(): String =
     if (this > 0L) {

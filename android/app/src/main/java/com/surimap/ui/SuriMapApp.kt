@@ -2589,6 +2589,7 @@ private fun MarkerDetailRoute(
             context.openMarkerPhoto(photo.viewUrl)
         },
         closeLabel = if (onClose != null) "닫기" else "목록으로",
+        modalPresentation = onClose != null,
         modifier = modifier
     )
 }

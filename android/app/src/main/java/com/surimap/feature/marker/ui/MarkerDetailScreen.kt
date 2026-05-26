@@ -307,20 +307,25 @@ fun MarkerDetailScreen(
     onRetryPhoto: (MarkerDetailPhotoUiState) -> Unit,
     onOpenPhoto: (MarkerDetailPhotoUiState) -> Unit,
     closeLabel: String = "목록으로",
+    modalPresentation: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Box(modifier = modifier.fillMaxSize().background(PoliBgBase)) {
         Column(modifier = Modifier.fillMaxSize()) {
-            PoliAppBar(
-                title = "마커 상세",
-                modifier = Modifier.statusBarsPadding(),
-                subtitle = "${state.markerType.label} · ${state.permissionLabel}",
-                showBack = true,
-                onBack = onBack,
-                trailing = {
-                    PoliChip(text = state.statusLabel, variant = state.mutationStatusVariant)
-                }
-            )
+            if (modalPresentation) {
+                MarkerDetailModalHeader(state = state, onClose = onBack)
+            } else {
+                PoliAppBar(
+                    title = "마커 상세",
+                    modifier = Modifier.statusBarsPadding(),
+                    subtitle = "${state.markerType.label} · ${state.permissionLabel}",
+                    showBack = true,
+                    onBack = onBack,
+                    trailing = {
+                        PoliChip(text = state.statusLabel, variant = state.mutationStatusVariant)
+                    }
+                )
+            }
             Column(
                 modifier =
                 Modifier
@@ -329,14 +334,20 @@ fun MarkerDetailScreen(
                     .padding(horizontal = PoliDimens.SectionPadding),
                 verticalArrangement = Arrangement.spacedBy(PoliDimens.Space4)
             ) {
-                MarkerSummaryCard(state = state)
-                if (!state.canEdit) {
+                MarkerSummaryCard(state = state, showPermission = !modalPresentation)
+                state.statusNoticeLabel?.let { notice ->
+                    PoliBanner(
+                        text = notice,
+                        variant = if (state.mutationStatus == MarkerSaveStatus.Failed) PoliBannerVariant.Bad else PoliBannerVariant.Info
+                    )
+                }
+                if (!modalPresentation && !state.canEdit) {
                     PoliBanner(
                         text = "읽기 전용 — 본인이 생성한 마커만 수정·삭제 가능합니다.",
                         variant = PoliBannerVariant.Warn
                     )
                 }
-                MarkerMemoCard(state = state, onMemoChange = onMemoChange)
+                MarkerMemoCard(state = state, onMemoChange = onMemoChange, showEditHint = !modalPresentation)
                 MarkerPhotosCard(
                     state = state,
                     onCapturePhoto = onCapturePhoto,
@@ -346,13 +357,15 @@ fun MarkerDetailScreen(
                 )
                 MarkerMetaCard(state = state)
             }
-            MarkerDetailActions(
-                state = state,
-                closeLabel = closeLabel,
-                onBack = onBack,
-                onSave = onSave,
-                onRequestDelete = onRequestDelete
-            )
+            if (state.canEdit || !modalPresentation) {
+                MarkerDetailActions(
+                    state = state,
+                    closeLabel = closeLabel,
+                    onBack = onBack,
+                    onSave = onSave,
+                    onRequestDelete = onRequestDelete
+                )
+            }
         }
 
         if (state.showDeleteConfirm) {
@@ -365,7 +378,28 @@ fun MarkerDetailScreen(
 }
 
 @Composable
-private fun MarkerSummaryCard(state: MarkerDetailUiState) {
+private fun MarkerDetailModalHeader(state: MarkerDetailUiState, onClose: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(PoliDimens.SectionPadding),
+        horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(PoliDimens.Space1)) {
+            Text(text = "마커 상세", style = MaterialTheme.typography.titleLarge)
+            Text(
+                text = "${state.markerType.label} · ${state.title}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = PoliFgMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        PoliButton(text = "닫기", onClick = onClose, size = PoliButtonSize.Small, variant = PoliButtonVariant.Secondary)
+    }
+}
+
+@Composable
+private fun MarkerSummaryCard(state: MarkerDetailUiState, showPermission: Boolean) {
     PoliCard(strong = true) {
         Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space4), verticalAlignment = Alignment.CenterVertically) {
             Surface(
@@ -381,30 +415,50 @@ private fun MarkerSummaryCard(state: MarkerDetailUiState) {
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(PoliDimens.Space1)) {
                 Text(text = state.markerType.label, style = MaterialTheme.typography.labelMedium, color = PoliFgMuted)
                 Text(text = state.title, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(text = state.permissionLabel, style = MaterialTheme.typography.bodyMedium, color = PoliFgSecondary)
+                if (showPermission) {
+                    Text(text = state.permissionLabel, style = MaterialTheme.typography.bodyMedium, color = PoliFgSecondary)
+                }
             }
         }
     }
 }
 
 @Composable
-private fun MarkerMemoCard(state: MarkerDetailUiState, onMemoChange: (String) -> Unit) {
+private fun MarkerMemoCard(state: MarkerDetailUiState, onMemoChange: (String) -> Unit, showEditHint: Boolean) {
     PoliCard {
         Text(text = "메모", style = MaterialTheme.typography.titleMedium)
-        OutlinedTextField(
-            value = state.memo,
-            onValueChange = onMemoChange,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 104.dp),
-            readOnly = !state.canEdit,
-            textStyle = MaterialTheme.typography.bodyMedium,
-            minLines = 3,
-            shape = MaterialTheme.shapes.medium
-        )
-        Text(
-            text = if (state.canEdit) "${state.memo.length} / 500 · 내가 작성한 마커만 수정 가능" else "읽기 전용",
-            style = MaterialTheme.typography.bodySmall,
-            color = PoliFgMuted
-        )
+        if (state.canEdit) {
+            OutlinedTextField(
+                value = state.memo,
+                onValueChange = onMemoChange,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 104.dp),
+                textStyle = MaterialTheme.typography.bodyMedium,
+                minLines = 3,
+                shape = MaterialTheme.shapes.medium
+            )
+            if (showEditHint) {
+                Text(
+                    text = "${state.memo.length} / 500 · 내가 작성한 마커만 수정 가능",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = PoliFgMuted
+                )
+            }
+        } else {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium,
+                color = PoliBgInput,
+                contentColor = PoliFgPrimary,
+                border = BorderStroke(1.dp, PoliBorder)
+            ) {
+                Text(
+                    text = state.memo.ifBlank { "메모 없음" },
+                    modifier = Modifier.fillMaxWidth().padding(PoliDimens.Space4),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = PoliFgPrimary
+                )
+            }
+        }
     }
 }
 
@@ -443,8 +497,12 @@ private fun PhotoDetailRow(
     onOpenPhoto: (MarkerDetailPhotoUiState) -> Unit
 ) {
     PoliCard {
-        PoliRow(title = photo.label, subtitle = photo.detailLabel) {
-            PoliChip(text = "${(photo.progress * 100).toInt()}%", variant = photo.statusVariant)
+        if (photo.status == MarkerDetailPhotoStatus.Attached) {
+            PoliRow(title = photo.label, subtitle = photo.fieldDetailLabel)
+        } else {
+            PoliRow(title = photo.label, subtitle = photo.fieldDetailLabel) {
+                PoliChip(text = "${(photo.progress * 100).toInt()}%", variant = photo.statusVariant)
+            }
         }
         if (photo.status != MarkerDetailPhotoStatus.Attached) {
             PoliProgress(progress = photo.progress)
@@ -524,11 +582,29 @@ private suspend fun loadMarkerPhotoBitmap(url: String): Bitmap? =
 private fun MarkerMetaCard(state: MarkerDetailUiState) {
     PoliCard {
         Text(text = "기록 정보", style = MaterialTheme.typography.titleMedium)
-        PoliRow(title = "작성 단말", subtitle = state.policePhoneLabel)
-        PoliRow(title = "작성자", subtitle = state.accountLabel)
-        PoliRow(title = "위치", subtitle = state.locationLabel)
-        PoliRow(title = "시각", subtitle = state.occurredAtLabel)
-        PoliRow(title = "수정", subtitle = state.versionLabel)
+        MarkerDetailInfoRow(label = "기록자", value = state.accountLabel)
+        MarkerDetailInfoRow(label = "기록 시각", value = state.occurredAtLabel)
+        MarkerDetailInfoRow(label = "위치 좌표", value = state.locationLabel)
+        MarkerDetailInfoRow(label = "최근 수정", value = state.versionLabel)
+    }
+}
+
+@Composable
+private fun MarkerDetailInfoRow(label: String, value: String) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = PoliBgInput,
+        contentColor = PoliFgPrimary,
+        border = BorderStroke(1.dp, PoliBorder)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(PoliDimens.Space3),
+            verticalArrangement = Arrangement.spacedBy(PoliDimens.Space1)
+        ) {
+            Text(text = label, style = MaterialTheme.typography.labelMedium, color = PoliFgMuted)
+            Text(text = value, style = MaterialTheme.typography.bodyLarge, color = PoliFgPrimary)
+        }
     }
 }
 
@@ -601,6 +677,20 @@ private val MarkerDetailPhotoUiState.statusVariant: PoliChipVariant
             MarkerDetailPhotoStatus.Failed -> PoliChipVariant.Bad
         }
 
+private val MarkerDetailPhotoUiState.fieldDetailLabel: String
+    get() =
+        when (status) {
+            MarkerDetailPhotoStatus.Attached ->
+                attachedAtLabel
+                    ?.takeIf(String::isNotBlank)
+                    ?.toCompactPhotoTimeLabel()
+                    ?.let { "첨부 완료 · $it" }
+                    ?: "첨부 완료"
+            MarkerDetailPhotoStatus.Attaching -> "첨부 중"
+            MarkerDetailPhotoStatus.Deleting -> "삭제 중"
+            MarkerDetailPhotoStatus.Failed -> "첨부 실패"
+        }
+
 private val MarkerDetailUiState.mutationStatusVariant: PoliChipVariant
     get() =
         when (mutationStatus) {
@@ -610,6 +700,23 @@ private val MarkerDetailUiState.mutationStatusVariant: PoliChipVariant
             MarkerSaveStatus.Saved -> PoliChipVariant.Good
             MarkerSaveStatus.Failed -> PoliChipVariant.Bad
         }
+
+private val MarkerDetailUiState.statusNoticeLabel: String?
+    get() =
+        when (mutationStatus) {
+            MarkerSaveStatus.Editing -> null
+            MarkerSaveStatus.Saving -> "저장 중입니다."
+            MarkerSaveStatus.PendingOutbox -> "저장했습니다. 연결되면 자동 전송됩니다."
+            MarkerSaveStatus.Saved -> "저장했습니다."
+            MarkerSaveStatus.Failed -> "저장하지 못했습니다. 다시 시도하세요."
+        }
+
+private fun String.toCompactPhotoTimeLabel(): String {
+    if (length >= 16 && this[4] == '-' && this[7] == '-' && this[10] == 'T') {
+        return "${substring(5, 7)}/${substring(8, 10)} ${substring(11, 16)}"
+    }
+    return replace('T', ' ').removeSuffix("Z")
+}
 
 fun sampleMarkerDetailState(): MarkerDetailUiState = MarkerDetailUiState.ownMarker()
 

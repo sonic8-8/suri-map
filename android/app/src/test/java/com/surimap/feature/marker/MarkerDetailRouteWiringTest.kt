@@ -59,5 +59,6 @@ class MarkerDetailRouteWiringTest {
         val source = java.io.File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
 
         assertTrue(source.contains("closeLabel = if (onClose != null) \"닫기\" else \"목록으로\""))
+        assertTrue(source.contains("modalPresentation = onClose != null"))
     }
 }
