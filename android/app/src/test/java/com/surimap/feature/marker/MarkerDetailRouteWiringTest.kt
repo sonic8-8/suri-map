@@ -61,4 +61,18 @@ class MarkerDetailRouteWiringTest {
         assertTrue(source.contains("closeLabel = if (onClose != null) \"닫기\" else \"목록으로\""))
         assertTrue(source.contains("modalPresentation = onClose != null"))
     }
+
+    @Test
+    fun markerDetailModalShowsStablePreviewLoadingStateBeforeDetailHydrates() {
+        val routeSource = java.io.File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+        val screenSource = java.io.File("src/main/java/com/surimap/feature/marker/ui/MarkerDetailScreen.kt").readText()
+
+        assertTrue(routeSource.contains("searchMapState.markerDetailLoadingState(markerId)"))
+        assertTrue(routeSource.contains("initialLoadingState: MarkerDetailUiState? = null"))
+        assertTrue(routeSource.contains("val loadingState ="))
+        assertTrue(routeSource.contains("markerDetailState = loadingState"))
+        assertTrue(screenSource.contains("state.loading"))
+        assertTrue(screenSource.contains("MarkerDetailLoadingContent"))
+        assertTrue(screenSource.contains("MarkerDetailSkeletonCard"))
+    }
 }

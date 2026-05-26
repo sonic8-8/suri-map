@@ -108,16 +108,18 @@ data class MarkerDetailUiState(
     val syncLabel: String,
     val mutationStatus: MarkerSaveStatus = MarkerSaveStatus.Editing,
     val photos: List<MarkerDetailPhotoUiState>,
-    val showDeleteConfirm: Boolean
+    val showDeleteConfirm: Boolean,
+    val loading: Boolean = false
 ) {
     val isOwnMarker: Boolean = createdByAccountId == securityContextAccountId
-    val canEdit: Boolean = canEditByContext ?: (isOwnMarker || canManageAllMarkers)
+    val canEdit: Boolean = !loading && (canEditByContext ?: (isOwnMarker || canManageAllMarkers))
     val canSave: Boolean = canEdit && version > 0 && mutationStatus != MarkerSaveStatus.Saving
     val canDelete: Boolean = canEdit && version > 0 && mutationStatus != MarkerSaveStatus.Saving
     val longPressDeleteEnabled: Boolean = false
 
     val permissionLabel: String =
         when {
+            loading -> "확인 중"
             canEditByContext == true -> "편집 가능"
             canEditByContext == false -> "읽기 전용"
             isOwnMarker -> "내가 작성"
@@ -126,17 +128,24 @@ data class MarkerDetailUiState(
         }
 
     val statusLabel: String =
-        when (mutationStatus) {
-            MarkerSaveStatus.Editing -> syncLabel
-            MarkerSaveStatus.Saving -> "저장 중"
-            MarkerSaveStatus.PendingOutbox -> "오프라인 저장됨 · 전송 대기"
-            MarkerSaveStatus.Saved -> "저장 완료"
-            MarkerSaveStatus.Failed -> "저장 실패"
+        if (loading) {
+            "불러오는 중"
+        } else {
+            when (mutationStatus) {
+                MarkerSaveStatus.Editing -> syncLabel
+                MarkerSaveStatus.Saving -> "저장 중"
+                MarkerSaveStatus.PendingOutbox -> "오프라인 저장됨 · 전송 대기"
+                MarkerSaveStatus.Saved -> "저장 완료"
+                MarkerSaveStatus.Failed -> "저장 실패"
+            }
         }
 
     fun visibleText(): List<String> =
         buildList {
             add("마커 상세")
+            if (loading) {
+                add("마커 정보 불러오는 중")
+            }
             add(markerType.label)
             add(title)
             add(memo)
@@ -190,25 +199,30 @@ data class MarkerDetailUiState(
                 accountLabel = "실종팀 경감 이지휘"
             )
 
-        fun loading(markerId: String): MarkerDetailUiState =
+        fun loading(
+            markerId: String,
+            markerType: MarkerType = MarkerType.NOTE,
+            title: String = "마커 정보"
+        ): MarkerDetailUiState =
             base(
                 markerId = markerId,
-                markerType = MarkerType.NOTE,
-                title = "마커 확인 중",
+                markerType = markerType,
+                title = title,
                 memo = "",
                 createdByAccountId = "",
                 securityContextAccountId = "",
                 canManageAllMarkers = false,
                 canEditByContext = false,
-                policePhoneLabel = "작성 단말 확인 중",
-                accountLabel = "계정 확인 중",
-                locationLabel = "위치 확인 중",
-                occurredAtLabel = "시각 확인 중",
+                policePhoneLabel = "확인 중",
+                accountLabel = "확인 중",
+                locationLabel = "확인 중",
+                occurredAtLabel = "확인 중",
                 version = 0,
-                versionLabel = "수정 이력 확인 중",
-                syncLabel = "조회 중",
+                versionLabel = "확인 중",
+                syncLabel = "불러오는 중",
                 mutationStatus = MarkerSaveStatus.Saving,
-                photos = emptyList()
+                photos = emptyList(),
+                loading = true
             )
 
         fun unavailable(markerId: String): MarkerDetailUiState =
@@ -266,7 +280,8 @@ data class MarkerDetailUiState(
                     MarkerDetailPhotoUiState("photo-002", "사진 2", MarkerDetailPhotoStatus.Attached),
                     MarkerDetailPhotoUiState("photo-003", "사진 3", MarkerDetailPhotoStatus.Attached)
                 ),
-            showDeleteConfirm: Boolean = false
+            showDeleteConfirm: Boolean = false,
+            loading: Boolean = false
         ): MarkerDetailUiState =
             MarkerDetailUiState(
                 markerId = markerId,
@@ -288,7 +303,8 @@ data class MarkerDetailUiState(
                 syncLabel = syncLabel,
                 mutationStatus = mutationStatus,
                 photos = photos,
-                showDeleteConfirm = showDeleteConfirm
+                showDeleteConfirm = showDeleteConfirm,
+                loading = loading
             )
     }
 }
@@ -334,30 +350,34 @@ fun MarkerDetailScreen(
                     .padding(horizontal = PoliDimens.SectionPadding),
                 verticalArrangement = Arrangement.spacedBy(PoliDimens.Space4)
             ) {
-                MarkerSummaryCard(state = state, showPermission = !modalPresentation)
-                state.statusNoticeLabel?.let { notice ->
-                    PoliBanner(
-                        text = notice,
-                        variant = if (state.mutationStatus == MarkerSaveStatus.Failed) PoliBannerVariant.Bad else PoliBannerVariant.Info
+                if (state.loading) {
+                    MarkerDetailLoadingContent(state = state)
+                } else {
+                    MarkerSummaryCard(state = state, showPermission = !modalPresentation)
+                    state.statusNoticeLabel?.let { notice ->
+                        PoliBanner(
+                            text = notice,
+                            variant = if (state.mutationStatus == MarkerSaveStatus.Failed) PoliBannerVariant.Bad else PoliBannerVariant.Info
+                        )
+                    }
+                    if (!modalPresentation && !state.canEdit) {
+                        PoliBanner(
+                            text = "읽기 전용 — 본인이 생성한 마커만 수정·삭제 가능합니다.",
+                            variant = PoliBannerVariant.Warn
+                        )
+                    }
+                    MarkerMemoCard(state = state, onMemoChange = onMemoChange, showEditHint = !modalPresentation)
+                    MarkerPhotosCard(
+                        state = state,
+                        onCapturePhoto = onCapturePhoto,
+                        onPickPhoto = onPickPhoto,
+                        onRetryPhoto = onRetryPhoto,
+                        onOpenPhoto = onOpenPhoto
                     )
+                    MarkerMetaCard(state = state)
                 }
-                if (!modalPresentation && !state.canEdit) {
-                    PoliBanner(
-                        text = "읽기 전용 — 본인이 생성한 마커만 수정·삭제 가능합니다.",
-                        variant = PoliBannerVariant.Warn
-                    )
-                }
-                MarkerMemoCard(state = state, onMemoChange = onMemoChange, showEditHint = !modalPresentation)
-                MarkerPhotosCard(
-                    state = state,
-                    onCapturePhoto = onCapturePhoto,
-                    onPickPhoto = onPickPhoto,
-                    onRetryPhoto = onRetryPhoto,
-                    onOpenPhoto = onOpenPhoto
-                )
-                MarkerMetaCard(state = state)
             }
-            if (state.canEdit || !modalPresentation) {
+            if (!state.loading && (state.canEdit || !modalPresentation)) {
                 MarkerDetailActions(
                     state = state,
                     closeLabel = closeLabel,
@@ -368,7 +388,7 @@ fun MarkerDetailScreen(
             }
         }
 
-        if (state.showDeleteConfirm) {
+        if (!state.loading && state.showDeleteConfirm) {
             DeleteConfirmDialog(
                 onDismissDelete = onDismissDelete,
                 onConfirmDelete = onConfirmDelete
@@ -379,6 +399,13 @@ fun MarkerDetailScreen(
 
 @Composable
 private fun MarkerDetailModalHeader(state: MarkerDetailUiState, onClose: () -> Unit) {
+    val subtitle =
+        listOfNotNull(
+            state.markerType.label,
+            state.title
+                .takeIf(String::isNotBlank)
+                ?.takeIf { title -> title != state.markerType.label }
+        ).joinToString(" · ")
     Row(
         modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(PoliDimens.SectionPadding),
         horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3),
@@ -387,7 +414,7 @@ private fun MarkerDetailModalHeader(state: MarkerDetailUiState, onClose: () -> U
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(PoliDimens.Space1)) {
             Text(text = "마커 상세", style = MaterialTheme.typography.titleLarge)
             Text(
-                text = "${state.markerType.label} · ${state.title}",
+                text = subtitle,
                 style = MaterialTheme.typography.bodyMedium,
                 color = PoliFgMuted,
                 maxLines = 1,
@@ -395,6 +422,36 @@ private fun MarkerDetailModalHeader(state: MarkerDetailUiState, onClose: () -> U
             )
         }
         PoliButton(text = "닫기", onClick = onClose, size = PoliButtonSize.Small, variant = PoliButtonVariant.Secondary)
+    }
+}
+
+@Composable
+private fun MarkerDetailLoadingContent(state: MarkerDetailUiState) {
+    MarkerSummaryCard(state = state, showPermission = false)
+    PoliBanner(
+        text = "마커 정보 불러오는 중",
+        variant = PoliBannerVariant.Info
+    )
+    MarkerDetailSkeletonCard(title = "메모", lineCount = 2)
+    MarkerDetailSkeletonCard(title = "사진", lineCount = 1)
+    MarkerDetailSkeletonCard(title = "기록 정보", lineCount = 3)
+}
+
+@Composable
+private fun MarkerDetailSkeletonCard(title: String, lineCount: Int) {
+    PoliCard {
+        Text(text = title, style = MaterialTheme.typography.titleMedium)
+        repeat(lineCount) { index ->
+            Surface(
+                modifier =
+                Modifier
+                    .fillMaxWidth(if (index == lineCount - 1) 0.68f else 1f)
+                    .heightIn(min = if (index == 0) 44.dp else 28.dp),
+                shape = MaterialTheme.shapes.medium,
+                color = PoliBgInput,
+                border = BorderStroke(1.dp, PoliBorder)
+            ) {}
+        }
     }
 }
 

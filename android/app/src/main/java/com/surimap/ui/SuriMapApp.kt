@@ -2216,10 +2216,14 @@ private fun SearchMapRoute(
             onToggleBottomPanel = { bottomPanelExpanded = !bottomPanelExpanded }
         )
         markerDetailModalId?.let { markerId ->
+            val markerDetailInitialState = remember(searchMapState.layers, markerId) {
+                searchMapState.markerDetailLoadingState(markerId)
+            }
             MarkerDetailModal(
                 incidentSessionState = incidentSessionState,
                 navController = navController,
                 markerId = markerId,
+                initialLoadingState = markerDetailInitialState,
                 clockSyncState = clockSyncState,
                 onDismiss = { markerDetailModalId = null }
             )
@@ -2330,6 +2334,7 @@ private fun MarkerDetailModal(
     incidentSessionState: IncidentSessionState,
     navController: NavHostController,
     markerId: String,
+    initialLoadingState: MarkerDetailUiState? = null,
     clockSyncState: ClockSyncState,
     onDismiss: () -> Unit
 ) {
@@ -2349,6 +2354,7 @@ private fun MarkerDetailModal(
                 incidentSessionState = incidentSessionState,
                 navController = navController,
                 markerId = markerId,
+                initialLoadingState = initialLoadingState,
                 clockSyncState = clockSyncState,
                 onClose = onDismiss,
                 modifier = Modifier.fillMaxSize()
@@ -2362,6 +2368,7 @@ private fun MarkerDetailRoute(
     incidentSessionState: IncidentSessionState,
     navController: NavHostController,
     markerId: String?,
+    initialLoadingState: MarkerDetailUiState? = null,
     clockSyncState: ClockSyncState,
     onClose: (() -> Unit)? = null,
     modifier: Modifier = Modifier
@@ -2423,8 +2430,12 @@ private fun MarkerDetailRoute(
             )
     }
     val coroutineScope = rememberCoroutineScope()
+    val loadingState =
+        remember(markerId, initialLoadingState) {
+            initialLoadingState ?: MarkerDetailUiState.loading(markerId ?: "marker-id-missing")
+        }
     var markerDetailState by remember(markerId) {
-        mutableStateOf(MarkerDetailUiState.loading(markerId ?: "marker-id-missing"))
+        mutableStateOf(loadingState)
     }
     var retryPhotoId by remember(markerId) { mutableStateOf<String?>(null) }
     var photoUriById by remember(markerId) { mutableStateOf<Map<String, Uri>>(emptyMap()) }
@@ -2507,8 +2518,8 @@ private fun MarkerDetailRoute(
     ) {
         clockSyncState.syncClockForIncident(sessionContext.incidentId, policePhoneContext)
     }
-    LaunchedEffect(loader, sessionContext) {
-        markerDetailState = MarkerDetailUiState.loading(sessionContext.markerId ?: "marker-id-missing")
+    LaunchedEffect(loader, sessionContext, loadingState) {
+        markerDetailState = loadingState
         markerDetailState = loader.load(sessionContext)
     }
 
@@ -3658,6 +3669,28 @@ private data class HandoverTargetContext(
 private fun com.surimap.feature.search.ui.SearchMapUiState.activeSearchPathId(): String? =
     activeSearchPathId?.takeIf(String::isNotBlank)
         ?: layers.firstOrNull { layer -> layer.kind == SearchLayerKind.Path && layer.highlighted }?.overlayId
+
+private fun SearchMapUiState.markerDetailLoadingState(markerId: String): MarkerDetailUiState {
+    val markerLayer =
+        layers.firstOrNull { layer ->
+            layer.kind == SearchLayerKind.Marker && layer.overlayId == markerId
+        }
+    val markerType = markerLayer?.markerType.toMarkerTypeOrNote()
+    val title =
+        markerLayer
+            ?.label
+            ?.takeIf(String::isNotBlank)
+            ?.takeIf { label -> label != markerType.label }
+            ?: "마커 정보"
+    return MarkerDetailUiState.loading(
+        markerId = markerId,
+        markerType = markerType,
+        title = title
+    )
+}
+
+private fun String?.toMarkerTypeOrNote(): MarkerType =
+    MarkerType.entries.firstOrNull { markerType -> markerType.apiValue == this } ?: MarkerType.NOTE
 
 private fun SearchMapUiState.withCurrentLocationViewport(fix: GpsLocationFix?): SearchMapUiState {
     val normalizedFix = fix ?: return this

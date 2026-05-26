@@ -1,6 +1,7 @@
 package com.surimap.feature.marker
 
 import com.surimap.feature.marker.ui.MarkerDetailPhotoStatus
+import com.surimap.feature.marker.ui.MarkerType
 import com.surimap.feature.marker.ui.MarkerDetailUiState
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -47,6 +48,26 @@ class MarkerDetailUiStateTest {
         assertTrue(unavailable.visibleText().any { it.contains("읽기 전용") })
         assertTrue(unavailable.visibleText().any { it.contains("조회 실패") })
         assertTrue(unavailable.visibleText().any { it.contains("저장 실패") })
+    }
+
+    @Test
+    fun loadingMarkerUsesPreviewSummaryAndSuppressesActions() {
+        val loading =
+            MarkerDetailUiState.loading(
+                markerId = "marker-123",
+                markerType = MarkerType.CLUE,
+                title = "의류 발견"
+            )
+
+        assertTrue(loading.loading)
+        assertFalse(loading.canEdit)
+        assertFalse(loading.canSave)
+        assertFalse(loading.canDelete)
+        assertTrue(loading.visibleText().contains("마커 정보 불러오는 중"))
+        assertTrue(loading.visibleText().contains("의류 발견"))
+        assertFalse(loading.visibleText().contains("저장"))
+        assertFalse(loading.visibleText().contains("촬영"))
+        assertFalse(loading.visibleText().contains("앨범"))
     }
 
     @Test
