@@ -16,6 +16,7 @@ class PolicePhoneNavigationContractTest {
             listOf(
                 "auth_bootstrap",
                 "incident_list",
+                "incident_home",
                 "offline_package",
                 "search_map",
                 "handover_summary",
@@ -41,7 +42,7 @@ class PolicePhoneNavigationContractTest {
     @Test
     fun bottomNavigationExposesIncidentContextDestinationsOnly() {
         assertEquals(
-            listOf("offline_package", "search_map", "handover_summary", "blocked_outbox"),
+            listOf("incident_home", "search_map", "handover_summary", "blocked_outbox"),
             PolicePhoneBottomNavigation.items.map { it.route.route }
         )
         assertEquals(listOf("사건", "지도", "인수인계", "미전송"), PolicePhoneBottomNavigation.items.map { it.label })
@@ -56,6 +57,10 @@ class PolicePhoneNavigationContractTest {
 
     @Test
     fun bottomNavigationMapsNestedScreensToParentTab() {
+        assertEquals(
+            PolicePhoneRoute.IncidentHome,
+            PolicePhoneBottomNavigation.selectedRouteFor(PolicePhoneRoute.OfflinePackage)
+        )
         assertEquals(
             PolicePhoneRoute.SearchMap,
             PolicePhoneBottomNavigation.selectedRouteFor(PolicePhoneRoute.MarkerDetail)
@@ -75,18 +80,22 @@ class PolicePhoneNavigationContractTest {
     fun backNavigationUsesScreenHierarchyInsteadOfVisitHistory() {
         assertEquals(
             PolicePhoneRoute.IncidentList,
+            PolicePhoneBackNavigation.parentRouteFor(PolicePhoneRoute.IncidentHome)
+        )
+        assertEquals(
+            PolicePhoneRoute.IncidentHome,
             PolicePhoneBackNavigation.parentRouteFor(PolicePhoneRoute.OfflinePackage)
         )
         assertEquals(
-            PolicePhoneRoute.IncidentList,
+            PolicePhoneRoute.IncidentHome,
             PolicePhoneBackNavigation.parentRouteFor(PolicePhoneRoute.SearchMap)
         )
         assertEquals(
-            PolicePhoneRoute.IncidentList,
+            PolicePhoneRoute.IncidentHome,
             PolicePhoneBackNavigation.parentRouteFor(PolicePhoneRoute.HandoverSummary)
         )
         assertEquals(
-            PolicePhoneRoute.IncidentList,
+            PolicePhoneRoute.IncidentHome,
             PolicePhoneBackNavigation.parentRouteFor(PolicePhoneRoute.BlockedOutbox)
         )
         assertEquals(

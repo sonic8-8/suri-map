@@ -60,7 +60,7 @@ import kotlinx.coroutines.withContext
 
 enum class MarkerDetailPhotoStatus(val label: String) {
     Attached("첨부됨"),
-    Attaching("attach 진행 중"),
+    Attaching("첨부 중"),
     Deleting("삭제 진행 중"),
     Failed("실패")
 }
@@ -138,12 +138,9 @@ data class MarkerDetailUiState(
         buildList {
             add("마커 상세")
             add(markerType.label)
-            add(markerType.apiValue)
             add(title)
             add(memo)
             add(permissionLabel)
-            add("SecurityContext.accountId=$securityContextAccountId")
-            add("createdByAccountId=$createdByAccountId")
             add(policePhoneLabel)
             add(accountLabel)
             add(locationLabel)
@@ -189,7 +186,7 @@ data class MarkerDetailUiState(
                 createdByAccountId = "acct-person-beta",
                 securityContextAccountId = "acct-person-alpha",
                 canManageAllMarkers = false,
-                policePhoneLabel = "실종팀 폴리폰",
+                policePhoneLabel = "실종팀 작성 단말",
                 accountLabel = "실종팀 경감 이지휘"
             )
 
@@ -203,12 +200,12 @@ data class MarkerDetailUiState(
                 securityContextAccountId = "",
                 canManageAllMarkers = false,
                 canEditByContext = false,
-                policePhoneLabel = "폴리폰 확인 중",
+                policePhoneLabel = "작성 단말 확인 중",
                 accountLabel = "계정 확인 중",
                 locationLabel = "위치 확인 중",
                 occurredAtLabel = "시각 확인 중",
                 version = 0,
-                versionLabel = "version 확인 중",
+                versionLabel = "수정 이력 확인 중",
                 syncLabel = "조회 중",
                 mutationStatus = MarkerSaveStatus.Saving,
                 photos = emptyList()
@@ -224,12 +221,12 @@ data class MarkerDetailUiState(
                 securityContextAccountId = "",
                 canManageAllMarkers = false,
                 canEditByContext = false,
-                policePhoneLabel = "폴리폰 미확인",
+                policePhoneLabel = "작성 단말 미확인",
                 accountLabel = "계정 미확인",
                 locationLabel = "위치 미확인",
                 occurredAtLabel = "시각 미확인",
                 version = 0,
-                versionLabel = "version 미확인",
+                versionLabel = "수정 이력 미확인",
                 syncLabel = "조회 실패",
                 mutationStatus = MarkerSaveStatus.Failed,
                 photos = emptyList()
@@ -256,11 +253,11 @@ data class MarkerDetailUiState(
             securityContextAccountId: String,
             canManageAllMarkers: Boolean,
             canEditByContext: Boolean? = null,
-            policePhoneLabel: String = "기동대 1부대 A팀 폴리폰",
+            policePhoneLabel: String = "기동대 1부대 A팀 작성 단말",
             accountLabel: String = "기동대 1부대 경위 김수색",
             locationLabel: String = "35.163100, 126.913400",
-            occurredAtLabel: String = "14:18 · clock +120ms",
-            versionLabel: String = "v3 · 마지막 수정 14:24",
+            occurredAtLabel: String = "14:18",
+            versionLabel: String = "마지막 수정 14:24",
             syncLabel: String = "동기화",
             mutationStatus: MarkerSaveStatus = MarkerSaveStatus.Editing,
             photos: List<MarkerDetailPhotoUiState> =
@@ -316,7 +313,7 @@ fun MarkerDetailScreen(
             PoliAppBar(
                 title = "마커 상세",
                 modifier = Modifier.statusBarsPadding(),
-                subtitle = "${state.markerId} · ${state.permissionLabel}",
+                subtitle = "${state.markerType.label} · ${state.permissionLabel}",
                 showBack = true,
                 onBack = onBack,
                 trailing = {
@@ -380,7 +377,7 @@ private fun MarkerSummaryCard(state: MarkerDetailUiState) {
                 }
             }
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(PoliDimens.Space1)) {
-                Text(text = "${state.markerType.label} (${state.markerType.apiValue})", style = MaterialTheme.typography.labelMedium, color = PoliFgMuted)
+                Text(text = state.markerType.label, style = MaterialTheme.typography.labelMedium, color = PoliFgMuted)
                 Text(text = state.title, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(text = state.permissionLabel, style = MaterialTheme.typography.bodyMedium, color = PoliFgSecondary)
             }
@@ -402,7 +399,7 @@ private fun MarkerMemoCard(state: MarkerDetailUiState, onMemoChange: (String) ->
             shape = MaterialTheme.shapes.medium
         )
         Text(
-            text = if (state.canEdit) "${state.memo.length} / 500 · 자기 계정 생성분만 수정 가능" else "읽기 전용",
+            text = if (state.canEdit) "${state.memo.length} / 500 · 내가 작성한 마커만 수정 가능" else "읽기 전용",
             style = MaterialTheme.typography.bodySmall,
             color = PoliFgMuted
         )
@@ -524,16 +521,12 @@ private suspend fun loadMarkerPhotoBitmap(url: String): Bitmap? =
 @Composable
 private fun MarkerMetaCard(state: MarkerDetailUiState) {
     PoliCard {
-        Text(text = "메타", style = MaterialTheme.typography.titleMedium)
-        PoliRow(title = "작성", subtitle = state.policePhoneLabel)
-        PoliRow(title = "계정", subtitle = state.accountLabel)
+        Text(text = "기록 정보", style = MaterialTheme.typography.titleMedium)
+        PoliRow(title = "작성 단말", subtitle = state.policePhoneLabel)
+        PoliRow(title = "작성자", subtitle = state.accountLabel)
         PoliRow(title = "위치", subtitle = state.locationLabel)
         PoliRow(title = "시각", subtitle = state.occurredAtLabel)
-        PoliRow(title = "버전", subtitle = state.versionLabel)
-        PoliRow(
-            title = "권한 source",
-            subtitle = "SecurityContext.accountId=${state.securityContextAccountId} · createdBy=${state.createdByAccountId}"
-        )
+        PoliRow(title = "수정", subtitle = state.versionLabel)
     }
 }
 

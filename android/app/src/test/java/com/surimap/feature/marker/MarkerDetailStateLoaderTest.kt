@@ -78,8 +78,10 @@ class MarkerDetailStateLoaderTest {
         assertTrue(state.canEdit)
         assertTrue(state.canSave)
         assertTrue(state.canDelete)
-        assertEquals("v7", state.versionLabel)
-        assertEquals("ACTIVE", state.syncLabel)
+        assertEquals("수정 이력 7회", state.versionLabel)
+        assertEquals("동기화", state.syncLabel)
+        assertEquals("작성 단말 확인됨", state.policePhoneLabel)
+        assertEquals("작성자 확인됨", state.accountLabel)
         assertEquals("37.580123, 126.970123", state.locationLabel)
         assertEquals(1, state.photos.size)
         assertEquals(MarkerDetailPhotoStatus.Attached, state.photos.single().status)
@@ -91,6 +93,8 @@ class MarkerDetailStateLoaderTest {
         assertEquals("https://photo.example/thumb.jpg", state.photos.single().previewUrl)
         assertEquals("https://photo.example/full.jpg", state.photos.single().viewUrl)
         assertTrue(state.visibleText().contains("사진 열기"))
+        assertFalse(state.visibleText().contains("CLUE"))
+        assertFalse(state.visibleText().any { it.contains("acct-field-alpha") || it.contains(POLICE_PHONE_ID) })
     }
 
     @Test

@@ -74,16 +74,24 @@ data class OfflinePackageUiState(
         }
 
     val progressLabel: String = "${(overallProgress * 100).toInt()}%"
+    val mapDataRevisionLabel: String =
+        if (manifestRevision > 0) {
+            "지도 데이터 버전 $manifestRevision"
+        } else {
+            "지도 데이터 버전 확인 전"
+        }
+    val mapDataRevisionComparisonLabel: String =
+        when {
+            knownManifestRevision == null -> "단말에 준비된 지도 데이터 없음"
+            knownManifestRevision == manifestRevision -> "지도 데이터 버전 $manifestRevision 최신"
+            else -> "지도 데이터 버전 $knownManifestRevision -> $manifestRevision"
+        }
 
     fun visibleText(): List<String> =
         buildList {
             add(incidentTitle)
-            add("manifest rev $manifestRevision")
-            knownManifestRevision?.let { known ->
-                if (known != manifestRevision) {
-                    add("manifest rev $known -> $manifestRevision")
-                }
-            }
+            add(mapDataRevisionLabel)
+            add(mapDataRevisionComparisonLabel)
             add(message)
             add(progressLabel)
             retryLabel?.let(::add)
@@ -92,23 +100,23 @@ data class OfflinePackageUiState(
                 add(item.statusLabel)
             }
             if (requiresLimitedOpenConfirmation) {
-                add("오프라인 지도 안내 후 열기")
+                add("지도 준비 전 현장 기록 열기")
             }
             if (canOpenSearchMap) {
                 add("현장 기록 열기")
             }
             if (canManualRetry) {
-                add("수동 재시도")
+                add("실패 항목 다시 받기")
             }
         }
 
     companion object {
         fun defaultPackageItems(): List<OfflinePackageItemUiState> =
             listOf(
-                OfflinePackageItemUiState(label = "사건 메타", progress = 0f),
-                OfflinePackageItemUiState(label = "실종자", progress = 0f),
-                OfflinePackageItemUiState(label = "OP", progress = 0f),
-                OfflinePackageItemUiState(label = "구역", progress = 0f),
+                OfflinePackageItemUiState(label = "사건 정보", progress = 0f),
+                OfflinePackageItemUiState(label = "실종자 정보", progress = 0f),
+                OfflinePackageItemUiState(label = "수색 차수", progress = 0f),
+                OfflinePackageItemUiState(label = "담당 구역", progress = 0f),
                 OfflinePackageItemUiState(label = "마커", progress = 0f),
                 OfflinePackageItemUiState(label = "전체 수색 구역", progress = 0f),
                 OfflinePackageItemUiState(label = "타일", progress = 0f)
@@ -127,7 +135,7 @@ data class OfflinePackageUiState(
                 shouldDownloadPackage = false,
                 canManualRetry = false,
                 retryLabel = null,
-                message = "오프라인 패키지를 확인하고 있습니다."
+                message = "지도 데이터를 확인하고 있습니다."
             )
 
         fun manifestLoaded(
@@ -149,8 +157,8 @@ data class OfflinePackageUiState(
             val revisionMessage =
                 knownManifestRevision
                     ?.takeIf { known -> known != manifestRevision }
-                    ?.let { known -> "manifest rev $known -> $manifestRevision 변경을 확인했습니다." }
-                    ?: "manifest rev $manifestRevision 정보를 확인했습니다."
+                    ?.let { known -> "지도 데이터 버전 $known -> $manifestRevision 변경을 확인했습니다." }
+                    ?: "지도 데이터 버전 $manifestRevision 정보를 확인했습니다."
             return OfflinePackageUiState(
                 incidentTitle = incidentTitle,
                 manifestRevision = manifestRevision,
@@ -167,7 +175,7 @@ data class OfflinePackageUiState(
                 if (hasFailedItem) {
                     "$revisionMessage 실패 항목이 남아 오프라인 사용 준비 완료로 표시하지 않습니다."
                 } else {
-                    "$revisionMessage 패키지 설치 상태와 구분해 적재를 진행합니다."
+                    "$revisionMessage 단말 준비 상태와 구분해 필요한 항목을 준비합니다."
                 }
             )
         }
@@ -185,7 +193,7 @@ data class OfflinePackageUiState(
                 shouldDownloadPackage = false,
                 canManualRetry = false,
                 retryLabel = null,
-                message = "내부망 연결이 없어 오프라인 패키지 manifest를 확인하지 못했습니다. 현장 기록은 열 수 있지만 오프라인 지도는 준비되지 않았습니다."
+                message = "내부망 연결이 없어 지도 데이터 목록을 확인하지 못했습니다. 현장 기록은 열 수 있지만 오프라인 지도는 준비되지 않았습니다."
             )
 
         fun searchAreaPending(incidentTitle: String = "선택한 사건"): OfflinePackageUiState =
@@ -201,7 +209,7 @@ data class OfflinePackageUiState(
                 shouldDownloadPackage = false,
                 canManualRetry = false,
                 retryLabel = null,
-                message = "전체 수색구역 지정 전입니다.\n사건 확인과 현장 기록은 가능하며, 오프라인 패키지는 수색구역 지정 후 받을 수 있습니다.",
+                message = "전체 수색구역 지정 전입니다.\n사건 확인과 현장 기록은 가능하며, 지도 데이터는 수색구역 지정 후 받을 수 있습니다.",
                 canOpenSearchMap = true
             )
 
@@ -218,7 +226,7 @@ data class OfflinePackageUiState(
                 shouldDownloadPackage = false,
                 canManualRetry = false,
                 retryLabel = null,
-                message = "폴리폰 배정 정보를 확인할 수 없어 오프라인 패키지를 받을 수 없습니다."
+                message = "단말 배정 정보를 확인할 수 없어 지도 데이터를 받을 수 없습니다."
             )
 
         fun unavailable(
@@ -237,7 +245,7 @@ data class OfflinePackageUiState(
                 shouldDownloadPackage = false,
                 canManualRetry = true,
                 retryLabel = null,
-                message = "오프라인 패키지 manifest를 불러오지 못했습니다. 현장 기록은 열 수 있지만 오프라인 지도는 준비되지 않았습니다."
+                message = "지도 데이터 목록을 불러오지 못했습니다. 현장 기록은 열 수 있지만 오프라인 지도는 준비되지 않았습니다."
             )
 
         fun manifestCurrent(
@@ -257,7 +265,6 @@ data class OfflinePackageUiState(
                 shouldDownloadPackage = false,
                 canManualRetry = false,
                 retryLabel = null,
-                // message = "manifest 변경이 없어 수색 지도로 이동합니다."
                 message = "오프라인 데이터가 최신 상태입니다.",
                 canOpenSearchMap = true
             )
@@ -279,7 +286,7 @@ data class OfflinePackageUiState(
                 shouldDownloadPackage = true,
                 canManualRetry = false,
                 retryLabel = null,
-                message = "manifest rev $knownManifestRevision -> $manifestRevision 변경을 확인했습니다. 패키지를 다시 받습니다."
+                message = "지도 데이터 버전 $knownManifestRevision -> $manifestRevision 변경을 확인했습니다. 지도 데이터를 다시 받습니다."
             )
 
         fun downloading(
@@ -306,7 +313,7 @@ data class OfflinePackageUiState(
                 shouldDownloadPackage = true,
                 canManualRetry = false,
                 retryLabel = null,
-                message = "사건 메타, 실종자, OP, 구역, 마커, 전체 수색 구역, 타일을 순서대로 적재합니다."
+                message = "사건 정보, 실종자 정보, 수색 차수, 담당 구역, 마커, 전체 수색 구역, 타일을 순서대로 준비합니다."
             )
         }
 
@@ -434,8 +441,8 @@ fun OfflinePackageScreen(
     ) {
         Column(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
             PoliAppBar(
-                title = "오프라인 패키지",
-                subtitle = "${state.incidentTitle} · manifest rev ${state.manifestRevision}",
+                title = "지도 데이터 준비",
+                subtitle = state.incidentTitle,
                 showBack = true,
                 onBack = onBack,
                 trailing = {
@@ -497,26 +504,19 @@ private fun ProgressCard(state: OfflinePackageUiState) {
             }
         }
         PoliProgress(progress = state.overallProgress)
-        ManifestComparison(state)
+        MapDataRevisionNotice(state)
     }
 }
 
 @Composable
-private fun ManifestComparison(state: OfflinePackageUiState) {
-    val knownRevision = state.knownManifestRevision
-    val text =
-        when {
-            knownRevision == null -> "이전 manifest revision 없음"
-            knownRevision == state.manifestRevision -> "manifest rev ${state.manifestRevision} 최신"
-            else -> "manifest rev $knownRevision -> ${state.manifestRevision}"
-        }
-    Text(text = text, style = MaterialTheme.typography.bodyMedium, color = PoliFgSecondary)
+private fun MapDataRevisionNotice(state: OfflinePackageUiState) {
+    Text(text = state.mapDataRevisionComparisonLabel, style = MaterialTheme.typography.bodyMedium, color = PoliFgSecondary)
 }
 
 @Composable
 private fun PackageSequenceCard(state: OfflinePackageUiState) {
     PoliCard {
-        Text(text = "다운로드 순서", style = MaterialTheme.typography.titleMedium)
+        Text(text = "준비 항목", style = MaterialTheme.typography.titleMedium)
         state.packageItems.forEach { item ->
             PoliRow(title = item.label, subtitle = item.statusLabel) {
                 PoliChip(text = "${(item.progress * 100).toInt()}%", variant = item.variant)
@@ -539,10 +539,10 @@ private fun ActionBar(
         if (state.canOpenSearchMap) {
             PoliButton(text = "현장 기록 열기", onClick = onOpenSearchMap, modifier = Modifier.fillMaxWidth())
         } else if (state.requiresLimitedOpenConfirmation) {
-            PoliButton(text = "오프라인 지도 안내 후 열기", onClick = onOpenSearchMap, modifier = Modifier.fillMaxWidth())
+            PoliButton(text = "지도 준비 전 현장 기록 열기", onClick = onOpenSearchMap, modifier = Modifier.fillMaxWidth())
         }
         if (state.canManualRetry) {
-            PoliButton(text = "수동 재시도", onClick = onRetryFailedItems, modifier = Modifier.fillMaxWidth())
+            PoliButton(text = "실패 항목 다시 받기", onClick = onRetryFailedItems, modifier = Modifier.fillMaxWidth())
         }
         PoliButton(
             text = "사건 선택으로 돌아가기",

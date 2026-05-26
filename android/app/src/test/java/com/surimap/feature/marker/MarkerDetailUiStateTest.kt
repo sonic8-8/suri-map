@@ -19,6 +19,8 @@ class MarkerDetailUiStateTest {
         assertTrue(own.visibleText().any { it.contains("삭제") })
         assertTrue(own.visibleText().contains("촬영"))
         assertTrue(own.visibleText().contains("앨범"))
+        assertFalse(own.visibleText().any { it.contains("SecurityContext") || it.contains("createdByAccountId") })
+        assertFalse(own.visibleText().contains(own.markerType.apiValue))
         assertFalse(own.longPressDeleteEnabled)
     }
 
@@ -63,7 +65,7 @@ class MarkerDetailUiStateTest {
 
         assertTrue(state.photos.any { it.status == MarkerDetailPhotoStatus.Attaching })
         assertTrue(state.photos.any { it.status == MarkerDetailPhotoStatus.Deleting })
-        assertTrue(state.visibleText().any { it.contains("attach 진행 중") })
+        assertTrue(state.visibleText().any { it.contains("첨부 중") })
         assertTrue(state.visibleText().any { it.contains("삭제 진행 중") })
     }
 }

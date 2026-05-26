@@ -162,6 +162,9 @@ import com.surimap.feature.handover.ui.HandoverMemoUiState
 import com.surimap.feature.incidents.data.IncidentListStateLoader
 import com.surimap.feature.incidents.data.IncidentSessionContextResolver
 import com.surimap.feature.incidents.ui.AssignedIncidentUiModel
+import com.surimap.feature.incidents.ui.IncidentHomeMapDataStatus
+import com.surimap.feature.incidents.ui.IncidentHomeScreen
+import com.surimap.feature.incidents.ui.IncidentHomeUiState
 import com.surimap.feature.incidents.ui.IncidentPackageStatus
 import com.surimap.feature.incidents.ui.IncidentListScreen
 import com.surimap.feature.incidents.ui.IncidentListUiState
@@ -480,6 +483,12 @@ fun SuriMapApp() {
                             onClearClosedOverlay = { incidentClosed = null }
                         )
                     }
+                    composable(PolicePhoneRoute.IncidentHome.route) {
+                        IncidentHomeRoute(
+                            incidentSessionState = incidentSessionState,
+                            navController = navController
+                        )
+                    }
                     composable(PolicePhoneRoute.OfflinePackage.route) {
                         OfflinePackageRoute(
                             incidentSessionState = incidentSessionState,
@@ -504,7 +513,7 @@ fun SuriMapApp() {
                             focusMarkerId = backStackEntry.arguments?.getString(SearchMapDeepLink.FocusMarkerIdArg),
                             clockSyncState = clockSyncState,
                             onOpenBlockedOutbox = {
-                                blockedQueue = BlockedQueueToastState(blockedCount = 2)
+                                navController.navigateToSingleTop(PolicePhoneRoute.BlockedOutbox)
                             },
                             onSearchPathEnded = { pendingSync ->
                                 searchPathEnded = SearchPathEndedToastState(pendingSync = pendingSync)
@@ -698,6 +707,7 @@ private fun IncidentBottomNavigationIcon(
         }
 
         when (route) {
+            PolicePhoneRoute.IncidentHome,
             PolicePhoneRoute.OfflinePackage -> {
                 val topLeft = Offset(side * 0.24f, side * 0.17f)
                 val iconSize = Size(side * 0.52f, side * 0.66f)
@@ -1085,7 +1095,7 @@ private fun BlockedOutboxRoute(
 
     BlockedOutboxScreen(
         state = state,
-        onBack = { navController.navigateToIncidentListRoot() },
+        onBack = { navController.navigateToSingleTop(PolicePhoneRoute.IncidentHome) },
         onOpenSupportGuide = {},
         onRefresh = { refreshNonce += 1 },
         refreshing = refreshing,
@@ -1251,7 +1261,7 @@ private fun HandoverSummaryRoute(
             endingDutyShift = endingDutyShift
         ),
         mapState = policePhoneContext.toMapLibreRuntimeMapState(),
-        onBack = { navController.navigateToIncidentListRoot() },
+        onBack = { navController.navigateToSingleTop(PolicePhoneRoute.IncidentHome) },
         onWriteMemo = { navController.navigateToSingleTop(PolicePhoneRoute.HandoverMemo) },
         onOpenSearch = { navController.navigateToSingleTop(PolicePhoneRoute.SearchMap) },
         onSelectTab = { selectedHandoverTab = it },
@@ -1295,7 +1305,7 @@ private fun HandoverSummaryRoute(
                             incidentSessionState.activateIncidentContext(it.copy(currentDutyShiftId = null))
                         }
                         endingDutyShift = false
-                        navController.navigateToSingleTop(PolicePhoneRoute.IncidentList)
+                        navController.navigateToSingleTop(PolicePhoneRoute.IncidentHome)
                     }
                 }
             }
@@ -1704,7 +1714,7 @@ private fun SearchMapRoute(
     }
 
     fun leaveSearchMap() {
-        navController.navigateToIncidentListRoot()
+        navController.navigateToSingleTop(PolicePhoneRoute.IncidentHome)
     }
 
     fun requestMarkerSheetDismiss() {
@@ -2484,6 +2494,116 @@ private fun MarkerDetailRoute(
 }
 
 @Composable
+private fun IncidentHomeRoute(
+    incidentSessionState: IncidentSessionState,
+    navController: NavHostController
+) {
+    val incidentContext = incidentSessionState.incidentContext
+    val policePhoneContext = incidentSessionState.policePhoneContext
+    val sessionContext = incidentContext.toSearchMapSessionContext(policePhoneContext)
+    val context = LocalContext.current.applicationContext
+    val database = remember(context) { SuriMapDatabaseProvider.database(context) }
+    val offlinePackageInstallationDao = remember(database) { database.offlinePackageInstallationDao() }
+    val outboxDao = remember(database) { database.outboxDao() }
+    val accessTokenProvider = policePhoneContext.accessTokenProvider()
+    val apiBaseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
+    val loader =
+        remember(
+            sessionContext.incidentId,
+            sessionContext.currentOpId,
+            sessionContext.policePhoneId,
+            sessionContext.accountId,
+            apiBaseUrl,
+            policePhoneContext?.accessToken,
+            outboxDao
+        ) {
+            SearchMapStateLoader(
+                incidentDetail = { incidentId ->
+                    IncidentReadRepository(
+                        apiClient = SuriMapApiClient(baseUrl = apiBaseUrl),
+                        accessTokenProvider = accessTokenProvider
+                    ).detail(incidentId)
+                },
+                overallSearchArea = { incidentId ->
+                    SearchAreaReadRepository(
+                        apiClient = SuriMapApiClient(baseUrl = apiBaseUrl),
+                        accessTokenProvider = accessTokenProvider
+                    ).activeOverall(incidentId)
+                },
+                opSearchAreas = { incidentId, opId ->
+                    SearchAreaReadRepository(
+                        apiClient = SuriMapApiClient(baseUrl = apiBaseUrl),
+                        accessTokenProvider = accessTokenProvider
+                    ).list(incidentId = incidentId, opId = opId, status = "ACTIVE")
+                },
+                searchPaths = {
+                    com.surimap.core.network.SuriMapApiResponse(statusCode = 404, body = null, errorCode = null)
+                },
+                liveMarkers = {
+                    com.surimap.core.network.SuriMapApiResponse(statusCode = 404, body = null, errorCode = null)
+                },
+                initialMarkers = { _, _ ->
+                    com.surimap.core.network.SuriMapApiResponse(statusCode = 404, body = null, errorCode = null)
+                },
+                outboxSummary = { incidentId, policePhoneId ->
+                    outboxDao.statusSummary(incidentId = incidentId, policePhoneId = policePhoneId)
+                }
+            )
+        }
+    val offlinePackageInstallation by remember(
+        sessionContext.incidentId,
+        sessionContext.policePhoneId,
+        offlinePackageInstallationDao
+    ) {
+        val incidentId = sessionContext.incidentId?.takeIf(String::isNotBlank)
+        val policePhoneId = sessionContext.policePhoneId?.takeIf(String::isNotBlank)
+        if (incidentId == null || policePhoneId == null) {
+            flowOf<OfflinePackageInstallationEntity?>(null)
+        } else {
+            offlinePackageInstallationDao.observe(incidentId = incidentId, policePhoneId = policePhoneId)
+        }
+    }.collectAsState(initial = null)
+    val outboxSummary by remember(
+        sessionContext.incidentId,
+        sessionContext.policePhoneId,
+        outboxDao
+    ) {
+        val incidentId = sessionContext.incidentId?.takeIf(String::isNotBlank)
+        val policePhoneId = sessionContext.policePhoneId?.takeIf(String::isNotBlank)
+        if (incidentId == null || policePhoneId == null) {
+            flowOf(null)
+        } else {
+            outboxDao.observeStatusSummary(incidentId = incidentId, policePhoneId = policePhoneId)
+        }
+    }.collectAsState(initial = null)
+    var refreshNonce by remember { mutableStateOf(0) }
+    var refreshing by remember { mutableStateOf(false) }
+    var mapState by remember(sessionContext) {
+        mutableStateOf(loader.fallbackForRemember(sessionContext))
+    }
+
+    LaunchedEffect(loader, sessionContext, refreshNonce) {
+        refreshing = true
+        mapState = loader.load(sessionContext)
+        refreshing = false
+    }
+
+    IncidentHomeScreen(
+        state =
+            mapState.toIncidentHomeUiState(
+                installation = offlinePackageInstallation,
+                pendingOutboxCount = outboxSummary?.normalUnsentCount ?: mapState.unsentCount,
+                blockedOutboxCount = outboxSummary?.finalFailedCount ?: mapState.blockedOutboxCount,
+                refreshing = refreshing
+            ),
+        onOpenSearchMap = { navController.navigateToSingleTop(PolicePhoneRoute.SearchMap) },
+        onOpenMapData = { navController.navigateToSingleTop(PolicePhoneRoute.OfflinePackage) },
+        onOpenBlockedOutbox = { navController.navigateToSingleTop(PolicePhoneRoute.BlockedOutbox) },
+        onRefresh = { refreshNonce += 1 }
+    )
+}
+
+@Composable
 private fun OfflinePackageRoute(
     incidentSessionState: IncidentSessionState,
     navController: NavHostController,
@@ -2600,7 +2720,7 @@ private fun OfflinePackageRoute(
 
     OfflinePackageScreen(
         state = state,
-        onBack = { navController.navigateToIncidentListRoot() },
+        onBack = { navController.navigateToSingleTop(PolicePhoneRoute.IncidentHome) },
         onOpenSearchMap = { navController.navigateToSingleTop(PolicePhoneRoute.SearchMap) },
         onRetryFailedItems = { retryNonce += 1 },
         onRefresh = { retryNonce += 1 }
@@ -3006,6 +3126,86 @@ private suspend fun resolveIncidentPackageStatus(
         IncidentPackageStatus.NotInstalled
     }
 }
+
+private fun SearchMapUiState.toIncidentHomeUiState(
+    installation: OfflinePackageInstallationEntity?,
+    pendingOutboxCount: Int,
+    blockedOutboxCount: Int,
+    refreshing: Boolean
+): IncidentHomeUiState {
+    val mapData = installation.toIncidentHomeMapData()
+    return IncidentHomeUiState(
+        incidentTitle = incidentTitle,
+        missingPersonSummary = missingPersonSummary,
+        opLabel = opLabel.toSearchRoundLabelForHome(),
+        assignmentLabel = assignmentLabel.ifBlank { "담당 구역 확인 중" },
+        mapDataStatus = mapData.status,
+        mapDataDetail = mapData.detail,
+        syncLabel =
+            when {
+                blockedOutboxCount > 0 -> "확인 필요"
+                pendingOutboxCount > 0 -> "자동 전송 대기"
+                syncStatus == SearchMapSyncStatus.Offline -> "오프라인"
+                else -> "최신 상태"
+            },
+        lastUpdatedLabel = installation.relativeUpdatedAtLabel(),
+        pendingOutboxCount = pendingOutboxCount,
+        blockedOutboxCount = blockedOutboxCount,
+        refreshing = refreshing
+    )
+}
+
+private data class IncidentHomeMapData(
+    val status: IncidentHomeMapDataStatus,
+    val detail: String
+)
+
+private fun OfflinePackageInstallationEntity?.toIncidentHomeMapData(): IncidentHomeMapData =
+    when {
+        this == null ->
+            IncidentHomeMapData(
+                status = IncidentHomeMapDataStatus.Missing,
+                detail = "오프라인 지도와 사건 기본 정보가 아직 단말에 준비되지 않았습니다."
+            )
+
+        failedItems > 0 || status == "FAILED" ->
+            IncidentHomeMapData(
+                status = IncidentHomeMapDataStatus.NeedsAttention,
+                detail = "일부 지도 데이터 준비가 실패했습니다. 실패 항목만 다시 확인하세요."
+            )
+
+        status == "READY" && readyForOfflineUse ->
+            IncidentHomeMapData(
+                status = IncidentHomeMapDataStatus.Ready,
+                detail = "오프라인 지도와 사건 기본 정보가 준비되어 있습니다."
+            )
+
+        status == "DOWNLOADING" || completedItems in 1 until totalItems ->
+            IncidentHomeMapData(
+                status = IncidentHomeMapDataStatus.Preparing,
+                detail = "지도 데이터 준비가 진행 중입니다. 수색 기록은 계속 사용할 수 있습니다."
+            )
+
+        else ->
+            IncidentHomeMapData(
+                status = IncidentHomeMapDataStatus.Missing,
+                detail = "지도 데이터 준비 상태를 확인하세요. 준비 전에도 현장 기록은 열 수 있습니다."
+            )
+    }
+
+private fun OfflinePackageInstallationEntity?.relativeUpdatedAtLabel(): String {
+    val updatedAt = this?.updatedAt ?: return "갱신 이력 없음"
+    val elapsedMinutes = ((System.currentTimeMillis() - updatedAt).coerceAtLeast(0L) / 60_000L).toInt()
+    return when {
+        elapsedMinutes <= 0 -> "방금 갱신"
+        elapsedMinutes < 60 -> "${elapsedMinutes}분 전 갱신"
+        elapsedMinutes < 24 * 60 -> "${elapsedMinutes / 60}시간 전 갱신"
+        else -> "${elapsedMinutes / (24 * 60)}일 전 갱신"
+    }
+}
+
+private fun String.toSearchRoundLabelForHome(): String =
+    replace(Regex("""OP\s*(\d+)차"""), "$1차 수색")
 
 private fun OfflinePackageInstallationEntity.toOfflinePackageInstallationStatus(): OfflinePackageInstallationStatus =
     OfflinePackageInstallationStatus(

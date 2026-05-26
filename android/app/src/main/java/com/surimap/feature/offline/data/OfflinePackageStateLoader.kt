@@ -147,10 +147,10 @@ class OfflinePackageStateLoader(
 
     private fun labelForItemType(itemType: String): String? =
         when (itemType) {
-            "INCIDENT_META" -> "사건 메타"
-            "MISSING_PERSON_CACHE" -> "실종자"
-            "OP_LIST" -> "OP"
-            "ASSIGNED_AREA" -> "구역"
+            "INCIDENT_META" -> "사건 정보"
+            "MISSING_PERSON_CACHE" -> "실종자 정보"
+            "OP_LIST" -> "수색 차수"
+            "ASSIGNED_AREA" -> "담당 구역"
             "INITIAL_MARKER" -> "마커"
             "OVERALL_SEARCH_AREA" -> "전체 수색 구역"
             "TILE" -> "타일"

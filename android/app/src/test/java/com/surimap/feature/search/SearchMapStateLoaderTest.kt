@@ -1052,7 +1052,7 @@ class SearchMapStateLoaderTest {
         assertEquals(SearchLifecycleStatus.OpRequired, state.lifecycleStatus)
         assertFalse(state.canWritePath)
         assertFalse(state.canCreateMarker)
-        assertTrue(state.visibleText().any { it.contains("수색 차수 새로고침") })
+        assertTrue(state.visibleText().any { it.contains("수색 차수 확인") })
         assertTrue(state.visibleText().any { it.contains("경로·마커 기록 차단") })
     }
 

@@ -222,7 +222,7 @@ data class MarkerCreateSheetUiState(
                 locationSource = MarkerLocationSource.Current,
                 locationLabel = "위도 35.163100 · 경도 126.913400",
                 createdAtLabel = "기록 시각 · 14:24 자동 입력",
-                authorLabel = "작성 · 기동대 1부대 A팀 폴리폰"
+                authorLabel = "작성 · 기동대 1부대 A팀 단말"
             )
 
         fun offlinePending(): MarkerCreateSheetUiState =
