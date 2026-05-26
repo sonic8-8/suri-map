@@ -1437,12 +1437,45 @@ private data class SearchCollapsedActionButtonStyle(
 
 @Composable
 private fun SearchCollapsedStatusCard(state: SearchMapUiState) {
+    val cardStyle =
+        when (state.lifecycleStatus) {
+            SearchLifecycleStatus.Active ->
+                SearchCollapsedStatusCardStyle(
+                    containerColor = Color(0xFF0F2A1A),
+                    borderColor = PoliSuccess,
+                    titleColor = Color(0xFFF0FDF4),
+                    subtitleColor = Color(0xFFA7F3D0)
+                )
+            SearchLifecycleStatus.Paused ->
+                SearchCollapsedStatusCardStyle(
+                    containerColor = Color(0xFF2B2114),
+                    borderColor = Color(0xFFD97706),
+                    titleColor = Color(0xFFFFF7ED),
+                    subtitleColor = Color(0xFFFCD9A6)
+                )
+            SearchLifecycleStatus.Stopped ->
+                SearchCollapsedStatusCardStyle(
+                    containerColor = PoliBgInput,
+                    borderColor = PoliPrimaryBorder,
+                    titleColor = PoliFgPrimary,
+                    subtitleColor = PoliFgMuted
+                )
+            SearchLifecycleStatus.OpRequired,
+            SearchLifecycleStatus.OpTransition ->
+                SearchCollapsedStatusCardStyle(
+                    containerColor = Color(0xFF2B2114),
+                    borderColor = Color(0xFFD97706),
+                    titleColor = Color(0xFFFFF7ED),
+                    subtitleColor = Color(0xFFFCD9A6)
+                )
+        }
+
     Surface(
         modifier = Modifier.fillMaxWidth().height(PoliDimens.TouchGlove),
         shape = MaterialTheme.shapes.medium,
-        color = PoliBgBase,
-        contentColor = PoliFgPrimary,
-        border = BorderStroke(1.dp, PoliBorder)
+        color = cardStyle.containerColor,
+        contentColor = cardStyle.titleColor,
+        border = BorderStroke(1.dp, cardStyle.borderColor)
     ) {
         Row(
             modifier = Modifier.padding(horizontal = PoliDimens.Space4),
@@ -1457,14 +1490,14 @@ private fun SearchCollapsedStatusCard(state: SearchMapUiState) {
                 Text(
                     text = state.lifecycleStatusLabel,
                     style = MaterialTheme.typography.titleMedium,
-                    color = PoliFgPrimary,
+                    color = cardStyle.titleColor,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = state.collapsedRecordLabel,
                     style = MaterialTheme.typography.bodySmall,
-                    color = PoliFgMuted,
+                    color = cardStyle.subtitleColor,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -1472,12 +1505,19 @@ private fun SearchCollapsedStatusCard(state: SearchMapUiState) {
             Text(
                 text = state.elapsedLabel,
                 style = MaterialTheme.typography.titleMedium,
-                color = PoliFgPrimary,
+                color = cardStyle.titleColor,
                 maxLines = 1
             )
         }
     }
 }
+
+private data class SearchCollapsedStatusCardStyle(
+    val containerColor: Color,
+    val borderColor: Color,
+    val titleColor: Color,
+    val subtitleColor: Color
+)
 
 private val SearchMapUiState.collapsedRecordLabel: String
     get() =
@@ -1595,10 +1635,10 @@ private fun SearchStatusDot(status: SearchLifecycleStatus) {
     val color =
         when (status) {
             SearchLifecycleStatus.Active -> PoliSuccess
-            SearchLifecycleStatus.Paused,
-            SearchLifecycleStatus.Stopped -> PoliWarning
+            SearchLifecycleStatus.Paused -> PoliWarning
+            SearchLifecycleStatus.Stopped -> PoliPrimaryBorder
             SearchLifecycleStatus.OpRequired,
-            SearchLifecycleStatus.OpTransition -> PoliPrimaryBorder
+            SearchLifecycleStatus.OpTransition -> PoliWarning
         }
     Surface(modifier = Modifier.size(12.dp), shape = MaterialTheme.shapes.extraLarge, color = color) {}
 }
