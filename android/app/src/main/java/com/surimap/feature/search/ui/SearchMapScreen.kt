@@ -114,7 +114,7 @@ import kotlinx.coroutines.launch
 private val ExpandedBottomPanelMapInset = 400.dp
 private val MapToastTopPadding = PoliDimens.Space3
 private val BottomSheetCollapsedHeight =
-    PoliDimens.Space6 + PoliDimens.TouchGlove + PoliDimens.CtaHeight + (PoliDimens.Space2 * 3)
+    PoliDimens.Space6 + PoliDimens.TouchGlove + (PoliDimens.Space2 * 2)
 private val BottomSheetMaxFallbackHeight = 400.dp
 private val BottomSheetExpandedExtraSpace = PoliDimens.Space4
 private const val MapOverlayButtonAlpha = 0.94f
@@ -299,7 +299,9 @@ data class SearchMapUiState(
                 lifecycleMessage.takeIf(String::isNotBlank)?.let(::add)
             }
             add(if (bottomPanelExpanded) "지도 정보 펼침" else "지도 정보 접힘")
-            add(primaryActionLabel)
+            if (bottomPanelExpanded) {
+                add(primaryActionLabel)
+            }
             add(if (bottomPanelExpanded) "접기" else "상세")
             add("전체 수색구역")
             add("부대 수색구역")
@@ -1249,11 +1251,14 @@ private fun SearchBottomPanel(
                     expanded = sheetExpanded,
                     onClick = { toggleBottomPanelFromHandle() }
                 )
-                SearchCollapsedPanelContent(
-                    state = state,
-                    onPrimaryLifecycleAction = onPrimaryLifecycleAction
-                )
+                SearchCollapsedPanelContent(state = state)
                 if (expandedContentVisible) {
+                    SearchCollapsedPrimaryActionButton(
+                        text = state.primaryActionLabel,
+                        onClick = onPrimaryLifecycleAction,
+                        lifecycleStatus = state.lifecycleStatus,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                     if (
                         state.lifecycleStatus != SearchLifecycleStatus.Paused &&
                         (state.lifecycleTitle.isNotBlank() || state.lifecycleMessage.isNotBlank())
@@ -1356,17 +1361,8 @@ private fun SearchBottomPanel(
 }
 
 @Composable
-private fun SearchCollapsedPanelContent(
-    state: SearchMapUiState,
-    onPrimaryLifecycleAction: () -> Unit
-) {
+private fun SearchCollapsedPanelContent(state: SearchMapUiState) {
     SearchCollapsedStatusCard(state = state)
-    SearchCollapsedPrimaryActionButton(
-        text = state.primaryActionLabel,
-        onClick = onPrimaryLifecycleAction,
-        lifecycleStatus = state.lifecycleStatus,
-        modifier = Modifier.fillMaxWidth()
-    )
 }
 
 @Composable
@@ -1402,6 +1398,14 @@ private fun SearchCollapsedPrimaryActionButton(
                     contentColor = Color.White
                 )
         }
+    val textStyle =
+        when (lifecycleStatus) {
+            SearchLifecycleStatus.Active,
+            SearchLifecycleStatus.Paused -> MaterialTheme.typography.titleMedium
+            SearchLifecycleStatus.Stopped,
+            SearchLifecycleStatus.OpRequired,
+            SearchLifecycleStatus.OpTransition -> MaterialTheme.typography.labelLarge
+        }
 
     Surface(
         modifier =
@@ -1431,7 +1435,7 @@ private fun SearchCollapsedPrimaryActionButton(
         ) {
             Text(
                 text = text,
-                style = MaterialTheme.typography.labelLarge,
+                style = textStyle,
                 color = buttonStyle.contentColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
