@@ -108,6 +108,7 @@ class PolicePhoneNavigationContractTest {
         assertTrue(source.contains("popBackStack(PolicePhoneRoute.IncidentHome.route, inclusive = false)"))
         assertTrue(source.contains("currentRoute == PolicePhoneRoute.HandoverSummary"))
         assertTrue(source.contains("currentRoute == PolicePhoneRoute.BlockedOutbox"))
+        assertTrue(source.contains("onIncidentSupportTabBack = { navController.navigateToIncidentTopLevel(PolicePhoneRoute.SearchMap) }"))
         assertTrue(source.contains("else -> onRequestIncidentExit()"))
         assertFalse(source.contains("onBack = { navController.navigateToSingleTop(PolicePhoneRoute.IncidentHome) }"))
         assertFalse(source.contains("onOpenSearchMap = { navController.navigateToSingleTop(PolicePhoneRoute.SearchMap) }"))

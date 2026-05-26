@@ -408,7 +408,7 @@ fun SuriMapApp() {
     PolicePhoneBackPolicyHandler(
         currentRoute = currentRoute,
         navController = navController,
-        onIncidentTopLevelBack = { showIncidentExitConfirm = true }
+        onIncidentSupportTabBack = { navController.navigateToIncidentTopLevel(PolicePhoneRoute.SearchMap) }
     )
 
     Surface(modifier = Modifier.fillMaxSize(), color = PoliBgBase) {
@@ -603,7 +603,7 @@ fun SuriMapApp() {
 private fun PolicePhoneBackPolicyHandler(
     currentRoute: PolicePhoneRoute?,
     navController: NavHostController,
-    onIncidentTopLevelBack: () -> Unit
+    onIncidentSupportTabBack: () -> Unit
 ) {
     val context = LocalContext.current
     val handledByRoute = currentRoute == PolicePhoneRoute.SearchMap || currentRoute == PolicePhoneRoute.HandoverMemo
@@ -616,7 +616,7 @@ private fun PolicePhoneBackPolicyHandler(
         when {
             currentRoute == PolicePhoneRoute.IncidentHome ||
                 currentRoute == PolicePhoneRoute.HandoverSummary ||
-                currentRoute == PolicePhoneRoute.BlockedOutbox -> onIncidentTopLevelBack()
+                currentRoute == PolicePhoneRoute.BlockedOutbox -> onIncidentSupportTabBack()
             parentRoute == PolicePhoneRoute.IncidentList -> navController.navigateToIncidentListRoot()
             parentRoute != null -> navController.navigateBackToParentRoute(parentRoute)
             currentRoute == PolicePhoneRoute.IncidentList -> context.findActivity()?.finish()
