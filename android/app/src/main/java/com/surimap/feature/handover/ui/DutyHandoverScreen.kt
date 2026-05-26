@@ -500,7 +500,7 @@ fun DutyHandoverScreen(
         modifier = modifier.fillMaxSize()
     ) {
         Column(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
-            PoliAppBar(title = state.title, subtitle = state.subtitle, showBack = true, onBack = onBack)
+            PoliAppBar(title = state.title, subtitle = state.subtitle, showBack = false, onBack = onBack)
             DutyHandoverTabRow(
                 selectedTab = state.selectedTab,
                 onSelectTab = onSelectTab

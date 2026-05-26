@@ -375,7 +375,7 @@ fun SuriMapApp() {
     }
 
     LaunchedEffect(currentRoute) {
-        if (currentRoute != PolicePhoneRoute.IncidentHome) {
+        if (PolicePhoneBottomNavigation.selectedRouteFor(currentRoute) == null) {
             showIncidentExitConfirm = false
         }
     }
@@ -408,7 +408,7 @@ fun SuriMapApp() {
     PolicePhoneBackPolicyHandler(
         currentRoute = currentRoute,
         navController = navController,
-        onIncidentHomeBack = { showIncidentExitConfirm = true }
+        onIncidentTopLevelBack = { showIncidentExitConfirm = true }
     )
 
     Surface(modifier = Modifier.fillMaxSize(), color = PoliBgBase) {
@@ -523,6 +523,9 @@ fun SuriMapApp() {
                             onOpenBlockedOutbox = {
                                 navController.navigateToIncidentTopLevel(PolicePhoneRoute.BlockedOutbox)
                             },
+                            onRequestIncidentExit = {
+                                showIncidentExitConfirm = true
+                            },
                             onSearchPathEnded = { pendingSync ->
                                 searchPathEnded = SearchPathEndedToastState(pendingSync = pendingSync)
                             }
@@ -600,7 +603,7 @@ fun SuriMapApp() {
 private fun PolicePhoneBackPolicyHandler(
     currentRoute: PolicePhoneRoute?,
     navController: NavHostController,
-    onIncidentHomeBack: () -> Unit
+    onIncidentTopLevelBack: () -> Unit
 ) {
     val context = LocalContext.current
     val handledByRoute = currentRoute == PolicePhoneRoute.SearchMap || currentRoute == PolicePhoneRoute.HandoverMemo
@@ -611,7 +614,9 @@ private fun PolicePhoneBackPolicyHandler(
     ) {
         val parentRoute = PolicePhoneBackNavigation.parentRouteFor(currentRoute)
         when {
-            currentRoute == PolicePhoneRoute.IncidentHome -> onIncidentHomeBack()
+            currentRoute == PolicePhoneRoute.IncidentHome ||
+                currentRoute == PolicePhoneRoute.HandoverSummary ||
+                currentRoute == PolicePhoneRoute.BlockedOutbox -> onIncidentTopLevelBack()
             parentRoute == PolicePhoneRoute.IncidentList -> navController.navigateToIncidentListRoot()
             parentRoute != null -> navController.navigateBackToParentRoute(parentRoute)
             currentRoute == PolicePhoneRoute.IncidentList -> context.findActivity()?.finish()
@@ -1446,6 +1451,7 @@ private fun SearchMapRoute(
     focusMarkerId: String? = null,
     clockSyncState: ClockSyncState,
     onOpenBlockedOutbox: () -> Unit,
+    onRequestIncidentExit: () -> Unit,
     onSearchPathEnded: (pendingSync: Boolean) -> Unit
 ) {
     val incidentContext = incidentSessionState.incidentContext
@@ -1737,10 +1743,6 @@ private fun SearchMapRoute(
         navController.navigateToIncidentTopLevel(PolicePhoneRoute.HandoverSummary)
     }
 
-    fun leaveSearchMap() {
-        navController.navigateToIncidentHomeRoot()
-    }
-
     fun requestMarkerSheetDismiss() {
         if (markerSheetState.saveStatus == MarkerSaveStatus.Saving) {
             return
@@ -1932,7 +1934,7 @@ private fun SearchMapRoute(
             markerSheetOpen -> requestMarkerSheetDismiss()
             displayedLifecycle == SearchLifecycleStatus.Active ||
                 displayedLifecycle == SearchLifecycleStatus.Paused -> showSearchLeaveConfirm = true
-            else -> leaveSearchMap()
+            else -> onRequestIncidentExit()
         }
     }
 
@@ -2270,15 +2272,15 @@ private fun SearchMapRoute(
         }
         if (showSearchLeaveConfirm) {
             ConfirmLeaveDialog(
-                title = "수색 기록을 유지하고 나갈까요?",
-                body = "지도 화면을 벗어나도 현재 수색 기록 상태는 유지됩니다. 종료하려면 지도에서 수색 종료를 눌러야 합니다.",
+                title = "사건 선택으로 이동할까요?",
+                body = "현재 수색 기록 상태는 유지됩니다. 종료하려면 지도에서 수색 종료를 눌러야 합니다.",
                 dismissText = "지도에 머무르기",
-                confirmText = "사건 화면",
+                confirmText = "사건 선택",
                 confirmVariant = PoliButtonVariant.Primary,
                 onDismiss = { showSearchLeaveConfirm = false },
                 onConfirm = {
                     showSearchLeaveConfirm = false
-                    leaveSearchMap()
+                    navController.navigateToIncidentListRoot()
                 }
             )
         }

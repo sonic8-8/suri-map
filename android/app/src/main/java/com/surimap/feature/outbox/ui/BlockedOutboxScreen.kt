@@ -197,7 +197,7 @@ fun BlockedOutboxScreen(
             PoliAppBar(
                 title = state.title,
                 subtitle = state.subtitle,
-                showBack = true,
+                showBack = false,
                 onBack = onBack,
                 trailing = {
                     PoliChip(
