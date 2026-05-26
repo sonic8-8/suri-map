@@ -3824,12 +3824,11 @@ private fun NavHostController.navigateToIncidentContextRoute(route: PolicePhoneR
 }
 
 private fun NavHostController.navigateToIncidentTopLevel(route: PolicePhoneRoute) {
-    if (route == PolicePhoneRoute.IncidentHome) {
-        navigateToIncidentHomeRoot()
-        return
+    if (popBackStack(PolicePhoneRoute.IncidentList.route, inclusive = false)) {
+        navigateToSingleTop(route)
+    } else {
+        navigateToSingleTop(route)
     }
-    navigateToIncidentHomeRoot()
-    navigateToSingleTop(route)
 }
 
 private fun NavHostController.navigateToIncidentHomeRoot() {
