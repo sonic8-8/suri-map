@@ -3,6 +3,7 @@ package com.surimap.feature.bootstrap.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,6 +15,8 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.MaterialTheme
@@ -32,6 +35,7 @@ import com.surimap.ui.components.PoliButton
 import com.surimap.ui.components.PoliButtonSize
 import com.surimap.ui.components.PoliButtonVariant
 import com.surimap.ui.components.PoliChipVariant
+import com.surimap.ui.components.PoliPullToRefresh
 import com.surimap.ui.theme.PoliDimens
 import com.surimap.ui.theme.PoliFgMuted
 import com.surimap.ui.theme.PoliFgSecondary
@@ -223,74 +227,89 @@ data class AuthBootstrapUiState(
 fun AuthBootstrapScreen(
     state: AuthBootstrapUiState,
     onRetry: () -> Unit = {},
+    onRefresh: () -> Unit = {},
     onExit: () -> Unit = {},
+    refreshing: Boolean = state.steps.any { it.state == AuthStepState.Checking },
     modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = modifier.fillMaxSize().safeDrawingPadding().padding(PoliDimens.SectionPadding),
-        verticalArrangement = Arrangement.SpaceBetween
+    PoliPullToRefresh(
+        refreshing = refreshing,
+        onRefresh = onRefresh,
+        modifier = modifier.fillMaxSize()
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(top = 62.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
-        ) {
-            PoliBrandMark()
-            Text(
-                text = "Suri Map",
-                style = MaterialTheme.typography.titleMedium,
-                fontSize = 18.sp,
-                lineHeight = 24.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = PoliFgMuted
-            )
-            Text(
-                text = "수리맵",
-                style = MaterialTheme.typography.displaySmall,
-                fontSize = 36.sp,
-                lineHeight = 40.sp,
-                fontWeight = FontWeight.Black
-            )
-            // Text(text = "현장 입력 앱", style = MaterialTheme.typography.bodyMedium, color = PoliFgMuted)
-        }
-
-        Column(verticalArrangement = Arrangement.spacedBy(PoliDimens.Space5)) {
+        BoxWithConstraints(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
             Column(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = PoliDimens.Space2),
-                verticalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = maxHeight)
+                        .verticalScroll(rememberScrollState())
+                        .padding(PoliDimens.SectionPadding),
+                verticalArrangement = Arrangement.SpaceBetween
             ) {
-                state.steps.forEach { step ->
-                    AuthStepRow(step = step)
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(top = 62.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
+                ) {
+                    PoliBrandMark()
+                    Text(
+                        text = "Suri Map",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontSize = 18.sp,
+                        lineHeight = 24.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = PoliFgMuted
+                    )
+                    Text(
+                        text = "수리맵",
+                        style = MaterialTheme.typography.displaySmall,
+                        fontSize = 36.sp,
+                        lineHeight = 40.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                    // Text(text = "현장 입력 앱", style = MaterialTheme.typography.bodyMedium, color = PoliFgMuted)
                 }
-            }
 
-            if (state.failureMessage != null) {
-                AuthGuideText(text = state.failureMessage)
-            }
-        }
+                Column(verticalArrangement = Arrangement.spacedBy(PoliDimens.Space5)) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = PoliDimens.Space2),
+                        verticalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
+                    ) {
+                        state.steps.forEach { step ->
+                            AuthStepRow(step = step)
+                        }
+                    }
 
-        Column(modifier = Modifier.fillMaxWidth()) {
-            if (state.retryEnabled || state.requiresAuthentication) {
-                PoliButton(
-                    text = state.primaryActionLabel,
-                    onClick = onRetry,
-                    modifier = Modifier.fillMaxWidth(),
-                    variant = state.primaryActionButtonVariant,
-                    size = PoliButtonSize.Large,
-                    enabled = state.retryEnabled
-                )
-            } else if (state.exitEnabled) {
-                PoliButton(
-                    text = state.primaryActionLabel,
-                    onClick = onExit,
-                    modifier = Modifier.fillMaxWidth(),
-                    variant = PoliButtonVariant.Danger,
-                    size = PoliButtonSize.Large
-                )
-            } else if (state.failureMessage != null && state.actionGuideText != null) {
-                AuthGuideText(text = state.actionGuideText)
-            } else {
-                Spacer(modifier = Modifier.fillMaxWidth().height(PoliDimens.CtaHeightLarge))
+                    if (state.failureMessage != null) {
+                        AuthGuideText(text = state.failureMessage)
+                    }
+                }
+
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    if (state.retryEnabled || state.requiresAuthentication) {
+                        PoliButton(
+                            text = state.primaryActionLabel,
+                            onClick = onRetry,
+                            modifier = Modifier.fillMaxWidth(),
+                            variant = state.primaryActionButtonVariant,
+                            size = PoliButtonSize.Large,
+                            enabled = state.retryEnabled
+                        )
+                    } else if (state.exitEnabled) {
+                        PoliButton(
+                            text = state.primaryActionLabel,
+                            onClick = onExit,
+                            modifier = Modifier.fillMaxWidth(),
+                            variant = PoliButtonVariant.Danger,
+                            size = PoliButtonSize.Large
+                        )
+                    } else if (state.failureMessage != null && state.actionGuideText != null) {
+                        AuthGuideText(text = state.actionGuideText)
+                    } else {
+                        Spacer(modifier = Modifier.fillMaxWidth().height(PoliDimens.CtaHeightLarge))
+                    }
+                }
             }
         }
     }

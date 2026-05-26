@@ -22,6 +22,7 @@ import com.surimap.ui.components.PoliButtonVariant
 import com.surimap.ui.components.PoliCard
 import com.surimap.ui.components.PoliChip
 import com.surimap.ui.components.PoliChipVariant
+import com.surimap.ui.components.PoliPullToRefresh
 import com.surimap.ui.components.PoliProgress
 import com.surimap.ui.components.PoliRow
 import com.surimap.ui.theme.PoliDimens
@@ -420,37 +421,47 @@ fun OfflinePackageScreen(
     onBack: () -> Unit,
     onOpenSearchMap: () -> Unit,
     onRetryFailedItems: () -> Unit,
+    onRefresh: () -> Unit = onRetryFailedItems,
+    refreshing: Boolean =
+        state.status == OfflinePackageDownloadStatus.Downloading &&
+            !state.shouldDownloadPackage,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier.fillMaxSize().safeDrawingPadding()) {
-        PoliAppBar(
-            title = "오프라인 패키지",
-            subtitle = "${state.incidentTitle} · manifest rev ${state.manifestRevision}",
-            showBack = true,
-            onBack = onBack,
-            trailing = {
-                PoliChip(text = state.statusLabel, variant = state.statusVariant)
+    PoliPullToRefresh(
+        refreshing = refreshing,
+        onRefresh = onRefresh,
+        modifier = modifier.fillMaxSize()
+    ) {
+        Column(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
+            PoliAppBar(
+                title = "오프라인 패키지",
+                subtitle = "${state.incidentTitle} · manifest rev ${state.manifestRevision}",
+                showBack = true,
+                onBack = onBack,
+                trailing = {
+                    PoliChip(text = state.statusLabel, variant = state.statusVariant)
+                }
+            )
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = PoliDimens.SectionPadding),
+                verticalArrangement = Arrangement.spacedBy(PoliDimens.Space4)
+            ) {
+                StatusBanner(state)
+                ProgressCard(state)
+                PackageSequenceCard(state)
             }
-        )
 
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = PoliDimens.SectionPadding),
-            verticalArrangement = Arrangement.spacedBy(PoliDimens.Space4)
-        ) {
-            StatusBanner(state)
-            ProgressCard(state)
-            PackageSequenceCard(state)
+            ActionBar(
+                state = state,
+                onBack = onBack,
+                onOpenSearchMap = onOpenSearchMap,
+                onRetryFailedItems = onRetryFailedItems
+            )
         }
-
-        ActionBar(
-            state = state,
-            onBack = onBack,
-            onOpenSearchMap = onOpenSearchMap,
-            onRetryFailedItems = onRetryFailedItems
-        )
     }
 }
 

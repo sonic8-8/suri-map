@@ -72,6 +72,36 @@ class PolicePhoneNavigationContractTest {
     }
 
     @Test
+    fun backNavigationUsesScreenHierarchyInsteadOfVisitHistory() {
+        assertEquals(
+            PolicePhoneRoute.IncidentList,
+            PolicePhoneBackNavigation.parentRouteFor(PolicePhoneRoute.OfflinePackage)
+        )
+        assertEquals(
+            PolicePhoneRoute.IncidentList,
+            PolicePhoneBackNavigation.parentRouteFor(PolicePhoneRoute.SearchMap)
+        )
+        assertEquals(
+            PolicePhoneRoute.IncidentList,
+            PolicePhoneBackNavigation.parentRouteFor(PolicePhoneRoute.HandoverSummary)
+        )
+        assertEquals(
+            PolicePhoneRoute.IncidentList,
+            PolicePhoneBackNavigation.parentRouteFor(PolicePhoneRoute.BlockedOutbox)
+        )
+        assertEquals(
+            PolicePhoneRoute.HandoverSummary,
+            PolicePhoneBackNavigation.parentRouteFor(PolicePhoneRoute.HandoverMemo)
+        )
+        assertEquals(
+            PolicePhoneRoute.SearchMap,
+            PolicePhoneBackNavigation.parentRouteFor(PolicePhoneRoute.MarkerDetail)
+        )
+        assertNull(PolicePhoneBackNavigation.parentRouteFor(PolicePhoneRoute.AuthBootstrap))
+        assertNull(PolicePhoneBackNavigation.parentRouteFor(PolicePhoneRoute.IncidentList))
+    }
+
+    @Test
     fun incidentSessionHolderClearsIncidentContext() {
         val holder = IncidentSessionState()
 

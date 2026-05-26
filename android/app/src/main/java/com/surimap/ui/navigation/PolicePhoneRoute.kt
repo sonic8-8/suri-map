@@ -89,6 +89,21 @@ object PolicePhoneBottomNavigation {
         }
 }
 
+object PolicePhoneBackNavigation {
+    fun parentRouteFor(currentRoute: PolicePhoneRoute?): PolicePhoneRoute? =
+        when (currentRoute) {
+            PolicePhoneRoute.OfflinePackage -> PolicePhoneRoute.IncidentList
+            PolicePhoneRoute.SearchMap,
+            PolicePhoneRoute.HandoverSummary,
+            PolicePhoneRoute.BlockedOutbox -> PolicePhoneRoute.IncidentList
+            PolicePhoneRoute.HandoverMemo -> PolicePhoneRoute.HandoverSummary
+            PolicePhoneRoute.MarkerDetail -> PolicePhoneRoute.SearchMap
+            PolicePhoneRoute.AuthBootstrap,
+            PolicePhoneRoute.IncidentList,
+            null -> null
+        }
+}
+
 data class IncidentContext(
     val incidentId: String,
     val currentOpId: String? = null,

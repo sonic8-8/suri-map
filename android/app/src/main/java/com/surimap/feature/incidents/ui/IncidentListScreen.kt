@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.Surface
@@ -45,6 +44,7 @@ import com.surimap.ui.components.PoliButton
 import com.surimap.ui.components.PoliButtonVariant
 import com.surimap.ui.components.PoliCard
 import com.surimap.ui.components.PoliDialog
+import com.surimap.ui.components.PoliPullToRefresh
 import com.surimap.ui.navigation.IncidentContext
 import com.surimap.ui.theme.PoliDimens
 import com.surimap.ui.theme.PoliEmphasis
@@ -152,8 +152,7 @@ data class IncidentListUiState(
                 syncLabel = "오프라인",
                 status = IncidentListStatus.Offline,
                 incidents = emptyList(),
-                message = "오프라인입니다. 내부망 연결 후 다시 갱신됩니다.",
-                canRefresh = false
+                message = "오프라인입니다. 내부망 연결 후 아래로 당겨 다시 확인하세요."
             )
     }
 }
@@ -193,12 +192,17 @@ fun IncidentListScreen(
     onDismissClosedDialog: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(modifier = modifier.fillMaxSize().safeDrawingPadding()) {
-        Column(modifier = Modifier.fillMaxSize()) {
+    PoliPullToRefresh(
+        refreshing = state.status == IncidentListStatus.Loading,
+        onRefresh = onRefresh,
+        enabled = state.canRefresh,
+        modifier = modifier.fillMaxSize()
+    ) {
+        Column(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
             PoliAppBar(
                 title = "사건 선택",
                 trailing = {
-                    IncidentListAppBarActions(state = state, onRefresh = onRefresh)
+                    IncidentSyncStatus(state = state)
                 }
             )
 
@@ -231,7 +235,7 @@ fun IncidentListScreen(
                     )
 
                 state.incidents.isEmpty() ->
-                    EmptyIncidentList(onRefresh = onRefresh, modifier = Modifier.weight(1f))
+                    EmptyIncidentList(modifier = Modifier.weight(1f))
 
                 else ->
                     AssignedIncidentList(
@@ -251,37 +255,6 @@ fun IncidentListScreen(
                 onPrimary = onDismissClosedDialog,
                 modifier = Modifier.fillMaxSize(),
                 danger = true
-            )
-        }
-    }
-}
-
-@Composable
-private fun IncidentListAppBarActions(
-    state: IncidentListUiState,
-    onRefresh: () -> Unit
-) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        IncidentSyncStatus(state = state)
-        IconButton(
-            onClick = onRefresh,
-            enabled = state.canRefresh,
-            modifier =
-                Modifier
-                    .size(40.dp)
-                    .semantics {
-                        contentDescription = "사건 목록 새로고침"
-                        role = Role.Button
-                    }
-        ) {
-            androidx.compose.material3.Icon(
-                imageVector = SuriRefreshIcon,
-                contentDescription = null,
-                tint = if (state.canRefresh) PoliFgSecondary else PoliFgMuted,
-                modifier = Modifier.size(22.dp)
             )
         }
     }
@@ -318,36 +291,6 @@ private fun IncidentSyncStatus(state: IncidentListUiState) {
         )
     }
 }
-
-private val SuriRefreshIcon: ImageVector =
-    ImageVector.Builder(
-        name = "SuriRefresh",
-        defaultWidth = 24.dp,
-        defaultHeight = 24.dp,
-        viewportWidth = 24f,
-        viewportHeight = 24f
-    ).apply {
-        path(
-            fill = SolidColor(Color.Black),
-            pathFillType = PathFillType.NonZero
-        ) {
-            moveTo(17.65f, 6.35f)
-            curveTo(16.2f, 4.9f, 14.21f, 4f, 12f, 4f)
-            curveTo(7.58f, 4f, 4.01f, 7.58f, 4.01f, 12f)
-            reflectiveCurveTo(7.58f, 20f, 12f, 20f)
-            curveTo(15.73f, 20f, 18.84f, 17.45f, 19.73f, 14f)
-            horizontalLineTo(17.65f)
-            curveTo(16.82f, 16.33f, 14.6f, 18f, 12f, 18f)
-            curveTo(8.69f, 18f, 6f, 15.31f, 6f, 12f)
-            reflectiveCurveTo(8.69f, 6f, 12f, 6f)
-            curveTo(13.66f, 6f, 15.14f, 6.69f, 16.22f, 7.78f)
-            lineTo(13f, 11f)
-            horizontalLineTo(20f)
-            verticalLineTo(4f)
-            lineTo(17.65f, 6.35f)
-            close()
-        }
-    }.build()
 
 private val SuriPackageCheckIcon: ImageVector =
     ImageVector.Builder(
@@ -684,12 +627,12 @@ private fun IncidentCardRow(
 }
 
 @Composable
-private fun EmptyIncidentList(onRefresh: () -> Unit, modifier: Modifier = Modifier) {
+private fun EmptyIncidentList(modifier: Modifier = Modifier) {
     MessageIncidentList(
         title = "현재 배정된 사건이 없습니다",
-        body = "상황실 배정을 기다리거나 상단의 새로고침을 시도하세요.",
+        body = "상황실 배정을 기다리거나 아래로 당겨 다시 확인하세요.",
         actionText = null,
-        onAction = onRefresh,
+        onAction = {},
         modifier = modifier
     )
 }
@@ -702,7 +645,14 @@ private fun MessageIncidentList(
     onAction: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(modifier = modifier.fillMaxWidth().padding(PoliDimens.SectionPadding), contentAlignment = Alignment.Center) {
+    Box(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(PoliDimens.SectionPadding),
+        contentAlignment = Alignment.Center
+    ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(PoliDimens.Space4)) {
             Text(text = title, style = MaterialTheme.typography.titleMedium)
             Text(text = body, style = MaterialTheme.typography.bodyMedium, color = PoliFgMuted)
