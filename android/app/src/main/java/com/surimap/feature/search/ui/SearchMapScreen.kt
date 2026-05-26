@@ -110,7 +110,7 @@ import kotlinx.coroutines.delay
 private val ExpandedBottomPanelMapInset = 400.dp
 private val MapToastTopPadding = PoliDimens.Space3
 private val BottomSheetCollapsedHeight =
-    PoliDimens.Space6 + PoliDimens.Space4 + PoliDimens.TouchGlove + PoliDimens.Space3 + PoliDimens.CtaHeight
+    PoliDimens.Space6 + PoliDimens.TouchGlove + PoliDimens.CtaHeight + (PoliDimens.Space2 * 3)
 private val BottomSheetMidHeight = BottomSheetCollapsedHeight + PoliDimens.CtaHeightLarge + PoliDimens.Space5
 private val BottomSheetMaxFallbackHeight = 400.dp
 private const val MapOverlayButtonAlpha = 0.94f
@@ -1154,7 +1154,10 @@ private fun SearchBottomPanel(
             .coerceIn(collapsedHeightPx, expandedHeightPx)
     val sheetExpanded = panelHeightPx > (collapsedHeightPx + midHeightPx) / 2f
     val expandedContentVisible = panelHeightPx > collapsedHeightPx + 1f
-    val contentVerticalPadding = if (expandedContentVisible) PoliDimens.Space4 else PoliDimens.Space2
+    val effectiveNavigationBarHeightPx =
+        navigationBarHeightPx.coerceAtMost(with(density) { PoliDimens.Space5.toPx() })
+    val contentTopPadding = if (expandedContentVisible) PoliDimens.Space4 else PoliDimens.Space2
+    val contentBottomPadding = if (expandedContentVisible) PoliDimens.Space4 else 0.dp
     val contentSpacing = if (expandedContentVisible) PoliDimens.Space3 else PoliDimens.Space2
     val dragState =
         rememberDraggableState { delta ->
@@ -1176,7 +1179,7 @@ private fun SearchBottomPanel(
         modifier =
         modifier
             .fillMaxWidth()
-            .height(with(density) { (panelHeightPx + navigationBarHeightPx).toDp() })
+            .height(with(density) { (panelHeightPx + effectiveNavigationBarHeightPx).toDp() })
             .clipToBounds()
             .draggable(
                 state = dragState,
@@ -1214,7 +1217,7 @@ private fun SearchBottomPanel(
             shape = MaterialTheme.shapes.extraLarge,
             color = PoliBgSurface,
             contentColor = PoliFgPrimary,
-            border = BorderStroke(1.dp, PoliBorder)
+            border = null
         ) {
             Column(
                 modifier =
@@ -1224,7 +1227,8 @@ private fun SearchBottomPanel(
                     .onSizeChanged {
                         measuredExpandedHeightPx = it.height.toFloat().coerceAtLeast(fallbackExpandedHeightPx)
                     }
-                    .padding(horizontal = PoliDimens.Space5, vertical = contentVerticalPadding),
+                    .padding(horizontal = PoliDimens.Space5)
+                    .padding(top = contentTopPadding, bottom = contentBottomPadding),
                 verticalArrangement = Arrangement.spacedBy(contentSpacing)
             ) {
                 BottomSheetGrabHandle(
@@ -1336,7 +1340,7 @@ private fun SearchBottomPanel(
             modifier =
             Modifier
                 .fillMaxWidth()
-                .height(with(density) { navigationBarHeightPx.toDp() })
+                .height(with(density) { effectiveNavigationBarHeightPx.toDp() })
                 .background(PoliBgSurface)
                 .align(Alignment.BottomCenter)
         )
