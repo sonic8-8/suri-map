@@ -78,10 +78,7 @@ class PolicePhoneNavigationContractTest {
 
     @Test
     fun backNavigationUsesScreenHierarchyInsteadOfVisitHistory() {
-        assertEquals(
-            PolicePhoneRoute.IncidentList,
-            PolicePhoneBackNavigation.parentRouteFor(PolicePhoneRoute.IncidentHome)
-        )
+        assertNull(PolicePhoneBackNavigation.parentRouteFor(PolicePhoneRoute.IncidentHome))
         assertEquals(
             PolicePhoneRoute.IncidentHome,
             PolicePhoneBackNavigation.parentRouteFor(PolicePhoneRoute.OfflinePackage)

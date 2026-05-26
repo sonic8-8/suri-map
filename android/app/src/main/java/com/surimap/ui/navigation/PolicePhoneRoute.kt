@@ -95,13 +95,13 @@ object PolicePhoneBottomNavigation {
 object PolicePhoneBackNavigation {
     fun parentRouteFor(currentRoute: PolicePhoneRoute?): PolicePhoneRoute? =
         when (currentRoute) {
-            PolicePhoneRoute.IncidentHome -> PolicePhoneRoute.IncidentList
             PolicePhoneRoute.OfflinePackage -> PolicePhoneRoute.IncidentHome
             PolicePhoneRoute.SearchMap,
             PolicePhoneRoute.HandoverSummary,
             PolicePhoneRoute.BlockedOutbox -> PolicePhoneRoute.IncidentHome
             PolicePhoneRoute.HandoverMemo -> PolicePhoneRoute.HandoverSummary
             PolicePhoneRoute.MarkerDetail -> PolicePhoneRoute.SearchMap
+            PolicePhoneRoute.IncidentHome,
             PolicePhoneRoute.AuthBootstrap,
             PolicePhoneRoute.IncidentList,
             null -> null

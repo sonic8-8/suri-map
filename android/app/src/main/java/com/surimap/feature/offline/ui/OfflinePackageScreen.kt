@@ -545,7 +545,7 @@ private fun ActionBar(
             PoliButton(text = "실패 항목 다시 받기", onClick = onRetryFailedItems, modifier = Modifier.fillMaxWidth())
         }
         PoliButton(
-            text = "사건 선택으로 돌아가기",
+            text = "사건 정보로 돌아가기",
             onClick = onBack,
             modifier = Modifier.fillMaxWidth(),
             variant = PoliButtonVariant.Secondary

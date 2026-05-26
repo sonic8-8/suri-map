@@ -357,6 +357,7 @@ fun SuriMapApp() {
     var handoverMemoSaved by remember { mutableStateOf<HandoverMemoSavedToastState?>(null) }
     var searchPathEnded by remember { mutableStateOf<SearchPathEndedToastState?>(null) }
     var markerAlert by remember { mutableStateOf<IncidentAlertUiState?>(null) }
+    var showIncidentExitConfirm by remember { mutableStateOf(false) }
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = PolicePhoneRoutes.fromNavigationRoute(currentBackStackEntry?.destination?.route)
     val showIncidentBottomNavigation =
@@ -371,6 +372,12 @@ fun SuriMapApp() {
             incidentContext = incidentSessionState.incidentContext,
             policePhoneContext = incidentSessionState.policePhoneContext
         )
+    }
+
+    LaunchedEffect(currentRoute) {
+        if (currentRoute != PolicePhoneRoute.IncidentHome) {
+            showIncidentExitConfirm = false
+        }
     }
 
     OidcSessionRefreshEffect(
@@ -400,7 +407,8 @@ fun SuriMapApp() {
     NotificationPermissionEffect()
     PolicePhoneBackPolicyHandler(
         currentRoute = currentRoute,
-        navController = navController
+        navController = navController,
+        onIncidentHomeBack = { showIncidentExitConfirm = true }
     )
 
     Surface(modifier = Modifier.fillMaxSize(), color = PoliBgBase) {
@@ -570,6 +578,20 @@ fun SuriMapApp() {
                     }
                 }
             }
+            if (showIncidentExitConfirm) {
+                ConfirmLeaveDialog(
+                    title = "사건 선택으로 이동할까요?",
+                    body = "현재 사건의 수색 기록 상태는 유지됩니다. 다른 사건을 선택해야 할 때만 이동하세요.",
+                    dismissText = "계속 보기",
+                    confirmText = "사건 선택",
+                    confirmVariant = PoliButtonVariant.Primary,
+                    onDismiss = { showIncidentExitConfirm = false },
+                    onConfirm = {
+                        showIncidentExitConfirm = false
+                        navController.navigateToIncidentListRoot()
+                    }
+                )
+            }
         }
     }
 }
@@ -577,7 +599,8 @@ fun SuriMapApp() {
 @Composable
 private fun PolicePhoneBackPolicyHandler(
     currentRoute: PolicePhoneRoute?,
-    navController: NavHostController
+    navController: NavHostController,
+    onIncidentHomeBack: () -> Unit
 ) {
     val context = LocalContext.current
     val handledByRoute = currentRoute == PolicePhoneRoute.SearchMap || currentRoute == PolicePhoneRoute.HandoverMemo
@@ -588,6 +611,7 @@ private fun PolicePhoneBackPolicyHandler(
     ) {
         val parentRoute = PolicePhoneBackNavigation.parentRouteFor(currentRoute)
         when {
+            currentRoute == PolicePhoneRoute.IncidentHome -> onIncidentHomeBack()
             parentRoute == PolicePhoneRoute.IncidentList -> navController.navigateToIncidentListRoot()
             parentRoute != null -> navController.navigateToSingleTop(parentRoute)
             currentRoute == PolicePhoneRoute.IncidentList -> context.findActivity()?.finish()
