@@ -29,6 +29,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.shape.CornerSize
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -712,19 +714,18 @@ private fun SearchMapShell(
     modifier: Modifier = Modifier
 ) {
     val runtimeMapState = state.toRuntimeMapState(mapState)
-    val mapContentModifier = Modifier.fillMaxSize().padding(bottom = mapBottomInset)
     val currentLocationBottomInset = mapBottomInset + PoliDimens.TouchGlove + PoliDimens.Space6
 
     Box(modifier = modifier.fillMaxSize().background(PoliBgInput)) {
         if (showMapPreview) {
             SearchMapPreviewScene(
                 state = state,
-                modifier = mapContentModifier
+                modifier = Modifier.fillMaxSize()
             )
         } else {
             SuriMapLibreMap(
                 state = runtimeMapState,
-                modifier = mapContentModifier,
+                modifier = Modifier.fillMaxSize(),
                 onLoadFailed = {},
                 onMarkerClick = onOpenMarkerDetail
             )
@@ -1214,7 +1215,13 @@ private fun SearchBottomPanel(
                 .fillMaxWidth()
                 .height(with(density) { panelHeightPx.toDp() })
                 .align(Alignment.TopCenter),
-            shape = MaterialTheme.shapes.extraLarge,
+            shape =
+                RoundedCornerShape(
+                    topStart = MaterialTheme.shapes.extraLarge.topStart,
+                    topEnd = MaterialTheme.shapes.extraLarge.topEnd,
+                    bottomEnd = CornerSize(0.dp),
+                    bottomStart = CornerSize(0.dp)
+                ),
             color = PoliBgSurface,
             contentColor = PoliFgPrimary,
             border = null
@@ -1223,7 +1230,7 @@ private fun SearchBottomPanel(
                 modifier =
                 Modifier
                     .fillMaxWidth()
-                    .wrapContentHeight(unbounded = true)
+                    .wrapContentHeight(align = Alignment.Top, unbounded = true)
                     .onSizeChanged {
                         measuredExpandedHeightPx = it.height.toFloat().coerceAtLeast(fallbackExpandedHeightPx)
                     }
