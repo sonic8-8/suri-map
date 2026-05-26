@@ -405,12 +405,6 @@ fun SuriMapApp() {
         onClosed = { incidentClosed = it }
     )
     NotificationPermissionEffect()
-    PolicePhoneBackPolicyHandler(
-        currentRoute = currentRoute,
-        navController = navController,
-        onIncidentSupportTabBack = { navController.navigateToIncidentTopLevel(PolicePhoneRoute.SearchMap) }
-    )
-
     Surface(modifier = Modifier.fillMaxSize(), color = PoliBgBase) {
         AppOverlayHost(
             state =
@@ -581,6 +575,11 @@ fun SuriMapApp() {
                     }
                 }
             }
+            PolicePhoneBackPolicyHandler(
+                currentRoute = currentRoute,
+                navController = navController,
+                onIncidentSupportTabBack = { navController.navigateToIncidentTopLevel(PolicePhoneRoute.SearchMap) }
+            )
             if (showIncidentExitConfirm) {
                 ConfirmLeaveDialog(
                     title = "사건 선택으로 이동할까요?",
@@ -3824,11 +3823,14 @@ private fun NavHostController.navigateToIncidentContextRoute(route: PolicePhoneR
 }
 
 private fun NavHostController.navigateToIncidentTopLevel(route: PolicePhoneRoute) {
-    navigate(route.route) {
+    navigate(PolicePhoneRoute.SearchMap.route) {
         popUpTo(PolicePhoneRoute.IncidentList.route) {
             inclusive = false
         }
         launchSingleTop = true
+    }
+    if (route != PolicePhoneRoute.SearchMap) {
+        navigateToSingleTop(route)
     }
 }
 

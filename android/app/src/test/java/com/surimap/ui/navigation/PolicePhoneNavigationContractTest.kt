@@ -102,9 +102,14 @@ class PolicePhoneNavigationContractTest {
     @Test
     fun incidentTopLevelNavigationCollapsesTabVisitHistory() {
         val source = File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+        val navHostIndex = source.indexOf("NavHost(")
+        val backHandlerIndex = source.indexOf("PolicePhoneBackPolicyHandler(", navHostIndex)
 
         assertTrue(source.contains("navController.navigateToIncidentTopLevel(route)"))
+        assertTrue(backHandlerIndex > navHostIndex)
         assertTrue(source.contains("private fun NavHostController.navigateToIncidentHomeRoot()"))
+        assertTrue(source.contains("navigate(PolicePhoneRoute.SearchMap.route)"))
+        assertTrue(source.contains("if (route != PolicePhoneRoute.SearchMap)"))
         assertTrue(source.contains("popBackStack(PolicePhoneRoute.IncidentHome.route, inclusive = false)"))
         assertTrue(source.contains("popUpTo(PolicePhoneRoute.IncidentList.route)"))
         assertTrue(source.contains("currentRoute == PolicePhoneRoute.HandoverSummary"))
