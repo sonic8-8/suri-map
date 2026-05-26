@@ -1150,9 +1150,12 @@ class SearchMapStateLoaderTest {
         assertTrue(refreshEffectIndex > routeIndex)
         assertTrue(nextEffectIndex > refreshEffectIndex)
 
+        val routeBody = source.substring(routeIndex, nextEffectIndex)
         val refreshEffect = source.substring(refreshEffectIndex, nextEffectIndex)
+        assertTrue(routeBody.contains("suspend fun loadServerStatePreservingViewport()"))
+        assertTrue(routeBody.contains(".preserveViewportFrom(searchMapState)"))
         assertTrue(refreshEffect.contains("suspend fun refreshServerState()"))
-        assertTrue(refreshEffect.contains("loader.load(sessionContext).withFocusedMarker(focusMarkerId)"))
+        assertTrue(refreshEffect.contains("loadServerStatePreservingViewport()"))
         assertTrue(refreshEffect.contains("outboxDao.observeStatusSummary"))
         assertTrue(refreshEffect.contains("while (true)"))
         assertTrue(refreshEffect.contains("delay(SEARCH_MAP_SERVER_REFRESH_MS)"))

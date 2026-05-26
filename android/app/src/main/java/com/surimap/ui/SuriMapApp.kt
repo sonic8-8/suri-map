@@ -1863,10 +1863,15 @@ private fun SearchMapRoute(
         lastSeenHandoverAt = context.readLastSeenHandoverAt(sessionContext)
     }
 
+    suspend fun loadServerStatePreservingViewport(): SearchMapUiState =
+        loader.load(sessionContext)
+            .withFocusedMarker(focusMarkerId)
+            .preserveViewportFrom(searchMapState)
+
     LaunchedEffect(loader, sessionContext, focusMarkerId) {
         searchMapState = loader.fallback(sessionContext).withFocusedMarker(focusMarkerId)
         suspend fun refreshServerState() {
-            searchMapState = loader.load(sessionContext).withFocusedMarker(focusMarkerId)
+            searchMapState = loadServerStatePreservingViewport()
         }
         val incidentId = sessionContext.incidentId?.takeIf(String::isNotBlank)
         val policePhoneId = sessionContext.policePhoneId?.takeIf(String::isNotBlank)
@@ -2120,7 +2125,7 @@ private fun SearchMapRoute(
                         }
                         SearchLifecycleStatus.OpRequired,
                         SearchLifecycleStatus.OpTransition -> {
-                            searchMapState = loader.load(sessionContext).withFocusedMarker(focusMarkerId)
+                            searchMapState = loadServerStatePreservingViewport()
                         }
                     }
                 }
@@ -2230,7 +2235,7 @@ private fun SearchMapRoute(
                                 )
                                 markerSheetState = markerSheetState.copy(saveStatus = MarkerSaveStatus.PendingOutbox)
                                 markerSheetOpen = false
-                                searchMapState = loader.load(sessionContext).withFocusedMarker(focusMarkerId)
+                                searchMapState = loadServerStatePreservingViewport()
                             }
                         }
                     }
@@ -3609,6 +3614,9 @@ internal fun SearchMapUiState.centerOnCurrentLocation(fix: GpsLocationFix): Sear
         viewportBounds = fix.toSearchMapViewportBounds(),
         focusedMarkerId = null
     )
+
+internal fun SearchMapUiState.preserveViewportFrom(previous: SearchMapUiState): SearchMapUiState =
+    previous.viewportBounds?.let { bounds -> copy(viewportBounds = bounds) } ?: this
 
 private fun SearchMapUiState.assignedTeamSearchAreaBoundaries(): List<AssignedSearchAreaBoundary> =
     layers
