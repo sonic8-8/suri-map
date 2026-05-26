@@ -294,10 +294,10 @@ data class SearchMapUiState(
     fun visibleText(): List<String> =
         buildList {
             add(lifecycleStatusLabel)
-            lifecycleTitle.takeIf(String::isNotBlank)?.let(::add)
-            lifecycleMessage.takeIf(String::isNotBlank)?.let(::add)
-            add(if (canWritePath) "경로 기록 가능" else "경로 기록 차단")
-            add(if (canCreateMarker) "마커 생성 가능" else "마커 생성 차단")
+            if (lifecycleStatus != SearchLifecycleStatus.Paused) {
+                lifecycleTitle.takeIf(String::isNotBlank)?.let(::add)
+                lifecycleMessage.takeIf(String::isNotBlank)?.let(::add)
+            }
             add(if (bottomPanelExpanded) "지도 정보 펼침" else "지도 정보 접힘")
             add(primaryActionLabel)
             add(if (bottomPanelExpanded) "접기" else "상세")
@@ -1254,10 +1254,12 @@ private fun SearchBottomPanel(
                     onPrimaryLifecycleAction = onPrimaryLifecycleAction
                 )
                 if (expandedContentVisible) {
-                    if (state.lifecycleTitle.isNotBlank() || state.lifecycleMessage.isNotBlank()) {
+                    if (
+                        state.lifecycleStatus != SearchLifecycleStatus.Paused &&
+                        (state.lifecycleTitle.isNotBlank() || state.lifecycleMessage.isNotBlank())
+                    ) {
                         SearchLifecycleMessage(state = state)
                     }
-                    WriteAvailabilityRow(state = state)
                     Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
                         AreaFocusGroup(
                             title = "전체",
@@ -1536,9 +1538,9 @@ private val SearchMapUiState.collapsedRecordLabel: String
                 if (syncStatus == SearchMapSyncStatus.Offline) {
                     "기록 중 · 통신 복구 시 자동 전송"
                 } else {
-                    "기록 중"
+                    "경로 기록 중"
                 }
-            SearchLifecycleStatus.Paused -> "기록 일시정지"
+            SearchLifecycleStatus.Paused -> "경로·마커 기록 중단"
             SearchLifecycleStatus.Stopped -> "기록 대기"
             SearchLifecycleStatus.OpRequired,
             SearchLifecycleStatus.OpTransition -> "기록 차단"
@@ -1628,20 +1630,6 @@ private fun SearchStatusDot(status: SearchLifecycleStatus) {
             SearchLifecycleStatus.OpTransition -> PoliWarning
         }
     Surface(modifier = Modifier.size(12.dp), shape = MaterialTheme.shapes.extraLarge, color = color) {}
-}
-
-@Composable
-private fun WriteAvailabilityRow(state: SearchMapUiState) {
-    Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
-        PoliChip(
-            text = if (state.canWritePath) "경로 기록 가능" else "경로 기록 차단",
-            variant = if (state.canWritePath) PoliChipVariant.Good else PoliChipVariant.Warn
-        )
-        PoliChip(
-            text = if (state.canCreateMarker) "마커 생성 가능" else "마커 생성 차단",
-            variant = if (state.canCreateMarker) PoliChipVariant.Good else PoliChipVariant.Warn
-        )
-    }
 }
 
 private val SearchMapUiState.syncVariant: PoliChipVariant
