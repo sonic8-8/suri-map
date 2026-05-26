@@ -120,10 +120,22 @@ data class MapLibreGeometryOverlay(
     val label: String? = null,
     val bearingDegrees: Double? = null,
     val markerType: String? = null,
-    val supportRequestType: String? = null
+    val supportRequestType: String? = null,
+    val visualStyle: MapLibreGeometryVisualStyle? = null
 ) {
     fun signature(): String =
-        "${kind.name}:$id:$highlighted:${label.orEmpty()}:${bearingDegrees ?: ""}:${markerType.orEmpty()}:${supportRequestType.orEmpty()}:$geoJson"
+        "${kind.name}:$id:$highlighted:${label.orEmpty()}:${bearingDegrees ?: ""}:${markerType.orEmpty()}:${supportRequestType.orEmpty()}:${visualStyle?.signature().orEmpty()}:$geoJson"
+}
+
+data class MapLibreGeometryVisualStyle(
+    val fillColor: String? = null,
+    val fillOpacity: Float? = null,
+    val lineColor: String? = null,
+    val lineWidth: Float? = null,
+    val lineOpacity: Float? = null
+) {
+    fun signature(): String =
+        "${fillColor.orEmpty()}:${fillOpacity ?: ""}:${lineColor.orEmpty()}:${lineWidth ?: ""}:${lineOpacity ?: ""}"
 }
 
 internal data class MapLibreOverlayPaint(
@@ -147,11 +159,12 @@ internal data class MapLibreOverlayPaint(
 
 internal fun mapLibreOverlayPaint(
     kind: MapLibreGeometryOverlayKind,
-    highlighted: Boolean
+    highlighted: Boolean,
+    visualStyle: MapLibreGeometryVisualStyle? = null
 ): MapLibreOverlayPaint {
     val lineWidthBoost = if (highlighted) 1.25f else 0.0f
     val markerBoost = if (highlighted) 1.5f else 0.0f
-    return when (kind) {
+    val basePaint = when (kind) {
         MapLibreGeometryOverlayKind.Overall ->
             MapLibreOverlayPaint(
                 fillColor = "#2563EB",
@@ -272,6 +285,17 @@ internal fun mapLibreOverlayPaint(
                 textOffset = listOf(0.0f, 1.2f)
             )
     }
+    return visualStyle?.let { style ->
+        basePaint.copy(
+            fillColor = style.fillColor ?: basePaint.fillColor,
+            fillOpacity = style.fillOpacity ?: basePaint.fillOpacity,
+            lineColor = style.lineColor ?: basePaint.lineColor,
+            lineWidth = style.lineWidth ?: basePaint.lineWidth,
+            lineOpacity = style.lineOpacity ?: basePaint.lineOpacity,
+            circleColor = style.lineColor ?: basePaint.circleColor,
+            textColor = style.lineColor ?: basePaint.textColor
+        )
+    } ?: basePaint
 }
 
 data class MapLibreRuntimeMapState(
@@ -485,7 +509,7 @@ private fun Style.upsertGeometryOverlay(overlay: MapLibreGeometryOverlay) {
         source.setGeoJson(sourceJson)
     }
 
-    val paint = mapLibreOverlayPaint(overlay.kind, overlay.highlighted)
+    val paint = mapLibreOverlayPaint(overlay.kind, overlay.highlighted, overlay.visualStyle)
 
     if (overlay.supportsFillLayer) {
         upsertFillLayer(overlay, paint)
