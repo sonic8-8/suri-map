@@ -21,6 +21,7 @@ import com.surimap.ui.components.PoliButtonVariant
 import com.surimap.ui.components.PoliCard
 import com.surimap.ui.components.PoliChip
 import com.surimap.ui.components.PoliChipVariant
+import com.surimap.ui.components.PoliPullToRefresh
 import com.surimap.ui.components.PoliRow
 import com.surimap.ui.theme.PoliDimens
 import com.surimap.ui.theme.PoliFgMuted
@@ -183,63 +184,71 @@ fun BlockedOutboxScreen(
     onBack: () -> Unit,
     onOpenSupportGuide: () -> Unit,
     onRetry: (BlockedOutboxItemUiState) -> Unit = {},
+    onRefresh: () -> Unit = {},
+    refreshing: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier.fillMaxSize().safeDrawingPadding()) {
-        PoliAppBar(
-            title = state.title,
-            subtitle = state.subtitle,
-            showBack = true,
-            onBack = onBack,
-            trailing = {
-                PoliChip(
-                    text = state.headerLabel,
-                    variant = if (state.canEnterDiagnostic) PoliChipVariant.Bad else PoliChipVariant.Neutral
-                )
-            }
-        )
-
-        Column(
-            modifier =
-            Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = PoliDimens.SectionPadding),
-            verticalArrangement = Arrangement.spacedBy(PoliDimens.Space4)
-        ) {
-            if (state.canEnterDiagnostic) {
-                BlockedGroup(state = state, onRetry = onRetry)
-            } else {
-                PoliCard {
-                    Text(text = "처리 불가 항목이 없습니다", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        text = "정상 오프라인 대기 큐는 지도 sync chip에서만 확인합니다.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = PoliFgMuted
+    PoliPullToRefresh(
+        refreshing = refreshing,
+        onRefresh = onRefresh,
+        modifier = modifier.fillMaxSize()
+    ) {
+        Column(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
+            PoliAppBar(
+                title = state.title,
+                subtitle = state.subtitle,
+                showBack = true,
+                onBack = onBack,
+                trailing = {
+                    PoliChip(
+                        text = state.headerLabel,
+                        variant = if (state.canEnterDiagnostic) PoliChipVariant.Bad else PoliChipVariant.Neutral
                     )
                 }
-            }
+            )
 
-            state.pendingSummary?.let { summary ->
-                PoliCard {
-                    PoliRow(title = summary.title, subtitle = summary.message) {
-                        PoliChip(text = "자동", variant = PoliChipVariant.Warn)
+            Column(
+                modifier =
+                Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = PoliDimens.SectionPadding),
+                verticalArrangement = Arrangement.spacedBy(PoliDimens.Space4)
+            ) {
+                if (state.canEnterDiagnostic) {
+                    BlockedGroup(state = state, onRetry = onRetry)
+                } else {
+                    PoliCard {
+                        Text(text = "처리 불가 항목이 없습니다", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            text = "정상 오프라인 대기 큐는 지도 sync chip에서만 확인합니다.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = PoliFgMuted
+                        )
+                    }
+                }
+
+                state.pendingSummary?.let { summary ->
+                    PoliCard {
+                        PoliRow(title = summary.title, subtitle = summary.message) {
+                            PoliChip(text = "자동", variant = PoliChipVariant.Warn)
+                        }
                     }
                 }
             }
-        }
 
-        if (state.canEnterDiagnostic) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(PoliDimens.SectionPadding),
-                horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
-            ) {
-                PoliButton(
-                    text = state.supportActionLabel,
-                    onClick = onOpenSupportGuide,
-                    modifier = Modifier.weight(1f),
-                    variant = PoliButtonVariant.Primary
-                )
+            if (state.canEnterDiagnostic) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(PoliDimens.SectionPadding),
+                    horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
+                ) {
+                    PoliButton(
+                        text = state.supportActionLabel,
+                        onClick = onOpenSupportGuide,
+                        modifier = Modifier.weight(1f),
+                        variant = PoliButtonVariant.Primary
+                    )
+                }
             }
         }
     }

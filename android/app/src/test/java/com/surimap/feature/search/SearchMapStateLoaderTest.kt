@@ -817,7 +817,7 @@ class SearchMapStateLoaderTest {
         assertEquals("$PATH_ID-latest-location", latestLocationLayer.overlayId)
         assertEquals("단서", markerLayer.label)
         assertEquals(MARKER_ID, markerLayer.overlayId)
-        assertTrue(markerLayer.highlighted)
+        assertFalse(markerLayer.highlighted)
         assertTrue(markerLayer.geoJson!!.contains("\"Point\""))
     }
 
@@ -883,7 +883,7 @@ class SearchMapStateLoaderTest {
         assertFalse(initialMarkersCalled)
         assertEquals("단서", marker.label)
         assertEquals(MARKER_ID, marker.overlayId)
-        assertTrue(marker.highlighted)
+        assertFalse(marker.highlighted)
         assertTrue(marker.geoJson!!.contains("126.916"))
         assertTrue(marker.geoJson!!.contains("37.516"))
         assertViewportBounds(
@@ -941,7 +941,7 @@ class SearchMapStateLoaderTest {
         val marker = state.layers.single { it.kind == SearchLayerKind.Marker }
         assertEquals("단서 · 전송 대기", marker.label)
         assertEquals(MARKER_ID, marker.overlayId)
-        assertTrue(marker.highlighted)
+        assertFalse(marker.highlighted)
         assertTrue(marker.geoJson!!.contains("[126.970321,37.580321]"))
         assertViewportBounds(
             state.viewportBounds,

@@ -4,6 +4,7 @@ import com.surimap.core.network.SuriMapApiResponse
 import com.surimap.core.operationalperiod.DutyShiftQuery
 import com.surimap.feature.incidents.data.IncidentSessionContextResolver
 import com.surimap.feature.incidents.ui.AssignedIncidentUiModel
+import com.surimap.feature.incidents.ui.IncidentPackageStatus
 import com.surimap.testing.dutyShiftIdFixture
 import com.surimap.testing.incidentIdFixture
 import com.surimap.testing.opIdFixture
@@ -111,8 +112,7 @@ class IncidentSessionContextResolverTest {
             currentDutyShiftId = null,
             title = "광주 무등산 실종 신고",
             summary = "상태 OPEN",
-            packageStatus = "오프라인 패키지 확인 전",
-            assignmentStatus = "이 폴리폰에서 선택 가능"
+            packageStatus = IncidentPackageStatus.NotInstalled
         )
 
     private companion object {

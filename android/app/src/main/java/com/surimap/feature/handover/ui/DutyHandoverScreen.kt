@@ -42,6 +42,7 @@ import com.surimap.ui.components.PoliCard
 import com.surimap.ui.components.PoliChip
 import com.surimap.ui.components.PoliChipVariant
 import com.surimap.ui.components.PoliField
+import com.surimap.ui.components.PoliPullToRefresh
 import com.surimap.ui.components.PoliRow
 import com.surimap.ui.theme.PoliBgInput
 import com.surimap.ui.theme.PoliDimens
@@ -489,67 +490,75 @@ fun DutyHandoverScreen(
     onReplaySeek: (Long) -> Unit = {},
     onReplaySpeedSelect: (HandoverReplaySpeed) -> Unit = {},
     onSelectOriginalRecord: (HandoverRecord) -> Unit = {},
+    onRefresh: () -> Unit = {},
+    refreshing: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier.fillMaxSize().safeDrawingPadding()) {
-        PoliAppBar(title = state.title, subtitle = state.subtitle, showBack = true, onBack = onBack)
-        DutyHandoverTabRow(
-            selectedTab = state.selectedTab,
-            onSelectTab = onSelectTab
-        )
-        Column(
-            modifier =
-            Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = PoliDimens.SectionPadding),
-            verticalArrangement = Arrangement.spacedBy(PoliDimens.Space4)
-        ) {
-            when (state.selectedTab) {
-                DutyHandoverTab.Replay ->
-                    ReplayTab(
-                        state = state,
-                        mapState = mapState,
-                        onSelectDutyShift = onSelectDutyShift,
-                        onReplayPlayPause = onReplayPlayPause,
-                        onReplaySeek = onReplaySeek,
-                        onReplaySpeedSelect = onReplaySpeedSelect
-                    )
-                DutyHandoverTab.Report ->
-                    ReportTab(
-                        state = state,
-                        onSelectOriginalRecord = onSelectOriginalRecord
-                    )
-            }
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(PoliDimens.SectionPadding),
-            horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
-        ) {
-            PoliButton(
-                text = "메모 작성",
-                onClick = onWriteMemo,
-                modifier = Modifier.weight(1f),
-                variant = PoliButtonVariant.Secondary
+    PoliPullToRefresh(
+        refreshing = refreshing,
+        onRefresh = onRefresh,
+        modifier = modifier.fillMaxSize()
+    ) {
+        Column(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
+            PoliAppBar(title = state.title, subtitle = state.subtitle, showBack = true, onBack = onBack)
+            DutyHandoverTabRow(
+                selectedTab = state.selectedTab,
+                onSelectTab = onSelectTab
             )
-            PoliButton(text = "수색 화면", onClick = onOpenSearch, modifier = Modifier.weight(1.25f))
-        }
-        if (state.canEndDutyShift) {
-            PoliButton(
-                text = state.dutyShiftActionLabel,
-                onClick = onEndDutyShift,
+            Column(
                 modifier =
                 Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        start = PoliDimens.SectionPadding,
-                        end = PoliDimens.SectionPadding,
-                        bottom = PoliDimens.SectionPadding
-                    ),
-                enabled = !state.endingDutyShift,
-                variant = PoliButtonVariant.Danger
-            )
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = PoliDimens.SectionPadding),
+                verticalArrangement = Arrangement.spacedBy(PoliDimens.Space4)
+            ) {
+                when (state.selectedTab) {
+                    DutyHandoverTab.Replay ->
+                        ReplayTab(
+                            state = state,
+                            mapState = mapState,
+                            onSelectDutyShift = onSelectDutyShift,
+                            onReplayPlayPause = onReplayPlayPause,
+                            onReplaySeek = onReplaySeek,
+                            onReplaySpeedSelect = onReplaySpeedSelect
+                        )
+                    DutyHandoverTab.Report ->
+                        ReportTab(
+                            state = state,
+                            onSelectOriginalRecord = onSelectOriginalRecord
+                        )
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(PoliDimens.SectionPadding),
+                horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
+            ) {
+                PoliButton(
+                    text = "메모 작성",
+                    onClick = onWriteMemo,
+                    modifier = Modifier.weight(1f),
+                    variant = PoliButtonVariant.Secondary
+                )
+                PoliButton(text = "수색 화면", onClick = onOpenSearch, modifier = Modifier.weight(1.25f))
+            }
+            if (state.canEndDutyShift) {
+                PoliButton(
+                    text = state.dutyShiftActionLabel,
+                    onClick = onEndDutyShift,
+                    modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            start = PoliDimens.SectionPadding,
+                            end = PoliDimens.SectionPadding,
+                            bottom = PoliDimens.SectionPadding
+                        ),
+                    enabled = !state.endingDutyShift,
+                    variant = PoliButtonVariant.Danger
+                )
+            }
         }
     }
 }

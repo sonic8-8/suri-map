@@ -98,6 +98,7 @@ class IncidentListStateLoader(
         return listOf(displayName, appearance)
             .filter(String::isNotBlank)
             .joinToString(" · ")
+            .ifBlank { "현장 수색 진행 중" }
     }
 
     private fun JSONObject.currentOpLabel(): String? {

@@ -13,11 +13,15 @@ import android.os.BatteryManager
 import android.os.Build
 import android.util.Log
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,12 +37,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -51,6 +58,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.navigation.NavHostController
@@ -210,9 +218,13 @@ import com.surimap.feature.search.ui.SearchMapSyncStatus
 import com.surimap.feature.search.ui.SearchMapUiState
 import com.surimap.feature.search.ui.SearchMapViewportBounds
 import com.surimap.feature.showcase.ui.ShowcaseScreen
+import com.surimap.ui.components.PoliButton
+import com.surimap.ui.components.PoliButtonVariant
+import com.surimap.ui.components.PoliCard
 import com.surimap.ui.navigation.IncidentContext
 import com.surimap.ui.navigation.IncidentSessionState
 import com.surimap.ui.navigation.MarkerDetailDeepLink
+import com.surimap.ui.navigation.PolicePhoneBackNavigation
 import com.surimap.ui.navigation.PolicePhoneBottomNavItem
 import com.surimap.ui.navigation.PolicePhoneBottomNavigation
 import com.surimap.ui.navigation.PolicePhoneContext
@@ -245,6 +257,66 @@ private const val ACCESS_TOKEN_REFRESH_SKEW_MS = 60_000L
 private const val ACCESS_TOKEN_REFRESH_FALLBACK_MS = 4 * 60 * 1_000L
 private const val SEARCH_MAP_SERVER_REFRESH_MS = 10_000L
 private const val HANDOVER_PROMPT_PREFS_NAME = "suri_map_handover_prompt_seen"
+
+private val SearchRecordingSessionStateSaver =
+    listSaver<MutableState<SearchRecordingSessionState>, Any>(
+        save = { state ->
+            val value = state.value
+            listOf(
+                value.lifecycleOverride?.name.orEmpty(),
+                value.activeLocalSearchPathId.orEmpty(),
+                value.activeStartedAtMs ?: -1L,
+                value.accumulatedElapsedMs
+            )
+        },
+        restore = { values ->
+            mutableStateOf(
+                SearchRecordingSessionState(
+                    lifecycleOverride =
+                        (values[0] as String)
+                            .takeIf(String::isNotBlank)
+                            ?.let(SearchLifecycleStatus::valueOf),
+                    activeLocalSearchPathId = (values[1] as String).takeIf(String::isNotBlank),
+                    activeStartedAtMs = (values[2] as Long).takeIf { it >= 0L },
+                    accumulatedElapsedMs = values[3] as Long
+                )
+            )
+        }
+    )
+
+private val HandoverMemoUiStateSaver =
+    listSaver<MutableState<HandoverMemoUiState>, Any>(
+        save = { state ->
+            val value = state.value
+            listOf(
+                value.title,
+                value.subtitle,
+                value.selectedTarget.name,
+                value.selectedTargetTitle,
+                value.selectedTargetSubtitle,
+                value.memoText,
+                value.offline,
+                value.incidentClosed,
+                value.maxLength
+            )
+        },
+        restore = { values ->
+            mutableStateOf(
+                HandoverMemoUiState(
+                    title = values[0] as String,
+                    subtitle = values[1] as String,
+                    selectedTarget = HandoverMemoTarget.valueOf(values[2] as String),
+                    selectedTargetTitle = values[3] as String,
+                    selectedTargetSubtitle = values[4] as String,
+                    memoText = values[5] as String,
+                    offline = values[6] as Boolean,
+                    saving = false,
+                    incidentClosed = values[7] as Boolean,
+                    maxLength = values[8] as Int
+                )
+            )
+        }
+    )
 
 @Composable
 fun SuriMapApp() {
@@ -323,6 +395,10 @@ fun SuriMapApp() {
         onClosed = { incidentClosed = it }
     )
     NotificationPermissionEffect()
+    PolicePhoneBackPolicyHandler(
+        currentRoute = currentRoute,
+        navController = navController
+    )
 
     Surface(modifier = Modifier.fillMaxSize(), color = PoliBgBase) {
         AppOverlayHost(
@@ -483,6 +559,65 @@ fun SuriMapApp() {
                             clockSyncState = clockSyncState
                         )
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PolicePhoneBackPolicyHandler(
+    currentRoute: PolicePhoneRoute?,
+    navController: NavHostController
+) {
+    val context = LocalContext.current
+    val handledByRoute = currentRoute == PolicePhoneRoute.SearchMap || currentRoute == PolicePhoneRoute.HandoverMemo
+    BackHandler(
+        enabled = currentRoute != null &&
+            currentRoute != PolicePhoneRoute.AuthBootstrap &&
+            !handledByRoute
+    ) {
+        val parentRoute = PolicePhoneBackNavigation.parentRouteFor(currentRoute)
+        when {
+            parentRoute == PolicePhoneRoute.IncidentList -> navController.navigateToIncidentListRoot()
+            parentRoute != null -> navController.navigateToSingleTop(parentRoute)
+            currentRoute == PolicePhoneRoute.IncidentList -> context.findActivity()?.finish()
+            else -> Unit
+        }
+    }
+}
+
+@Composable
+private fun ConfirmLeaveDialog(
+    title: String,
+    body: String,
+    confirmText: String,
+    dismissText: String = "계속 작성",
+    confirmVariant: PoliButtonVariant = PoliButtonVariant.Danger,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        PoliCard(strong = true) {
+            Column(verticalArrangement = Arrangement.spacedBy(PoliDimens.Space4)) {
+                Text(text = title, style = MaterialTheme.typography.titleMedium)
+                Text(text = body, style = MaterialTheme.typography.bodyMedium, color = PoliFgMuted)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3)
+                ) {
+                    PoliButton(
+                        text = dismissText,
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        variant = PoliButtonVariant.Secondary
+                    )
+                    PoliButton(
+                        text = confirmText,
+                        onClick = onConfirm,
+                        modifier = Modifier.weight(1f),
+                        variant = confirmVariant
+                    )
                 }
             }
         }
@@ -919,6 +1054,7 @@ private fun BlockedOutboxRoute(
     }
     val coroutineScope = rememberCoroutineScope()
     var refreshNonce by remember { mutableStateOf(0) }
+    var refreshing by remember { mutableStateOf(false) }
     var state by remember {
         mutableStateOf(
             BlockedOutboxUiState(
@@ -931,19 +1067,28 @@ private fun BlockedOutboxRoute(
     }
 
     LaunchedEffect(incidentContext?.incidentId, policePhoneContext?.policePhoneId, refreshNonce, loader) {
-        state =
-            loader.load(
-                BlockedOutboxQuery(
-                    incidentId = incidentContext?.incidentId,
-                    policePhoneId = policePhoneContext?.policePhoneId
+        if (refreshNonce > 0) {
+            refreshing = true
+        }
+        try {
+            state =
+                loader.load(
+                    BlockedOutboxQuery(
+                        incidentId = incidentContext?.incidentId,
+                        policePhoneId = policePhoneContext?.policePhoneId
+                    )
                 )
-            )
+        } finally {
+            refreshing = false
+        }
     }
 
     BlockedOutboxScreen(
         state = state,
-        onBack = { navController.popBackStack() },
+        onBack = { navController.navigateToIncidentListRoot() },
         onOpenSupportGuide = {},
+        onRefresh = { refreshNonce += 1 },
+        refreshing = refreshing,
         onRetry = { item ->
             coroutineScope.launch {
                 val row = outboxDao.findByOperationId(item.operationId) ?: return@launch
@@ -1049,15 +1194,24 @@ private fun HandoverSummaryRoute(
     var selectedOriginalRecordKey by remember(sessionContext) { mutableStateOf<String?>(null) }
     var replayControlState by remember(sessionContext) { mutableStateOf(HandoverReplayControlUiState()) }
     var endingDutyShift by remember(sessionContext) { mutableStateOf(false) }
+    var refreshNonce by remember(sessionContext) { mutableStateOf(0) }
+    var refreshing by remember(sessionContext) { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
-    LaunchedEffect(loader, sessionContext, selectedDutyShiftId) {
-        handoverState = loader.fallback(sessionContext)
-        handoverState =
-            loader.load(
-                context = sessionContext,
-                selectedDutyShiftId = selectedDutyShiftId
-            )
+    LaunchedEffect(loader, sessionContext, selectedDutyShiftId, refreshNonce) {
+        if (refreshNonce > 0) {
+            refreshing = true
+        }
+        try {
+            handoverState = loader.fallback(sessionContext)
+            handoverState =
+                loader.load(
+                    context = sessionContext,
+                    selectedDutyShiftId = selectedDutyShiftId
+                )
+        } finally {
+            refreshing = false
+        }
     }
     val replayControlDurationMs = handoverState.replayControl.displayDurationMs
     val currentReplayControl = replayControlState.withDuration(replayControlDurationMs)
@@ -1097,7 +1251,7 @@ private fun HandoverSummaryRoute(
             endingDutyShift = endingDutyShift
         ),
         mapState = policePhoneContext.toMapLibreRuntimeMapState(),
-        onBack = { navController.popBackStack() },
+        onBack = { navController.navigateToIncidentListRoot() },
         onWriteMemo = { navController.navigateToSingleTop(PolicePhoneRoute.HandoverMemo) },
         onOpenSearch = { navController.navigateToSingleTop(PolicePhoneRoute.SearchMap) },
         onSelectTab = { selectedHandoverTab = it },
@@ -1118,6 +1272,8 @@ private fun HandoverSummaryRoute(
             selectedOriginalRecordKey = record.sourceKey
             selectedHandoverTab = DutyHandoverTab.Report
         },
+        onRefresh = { refreshNonce += 1 },
+        refreshing = refreshing,
         onEndDutyShift = {
             coroutineScope.launch {
                 if (endingDutyShift) {
@@ -1178,9 +1334,21 @@ private fun HandoverMemoRoute(
         )
     }
     val coroutineScope = rememberCoroutineScope()
-    var memoState by remember(sessionContext) {
+    var memoState by rememberSaveable(sessionContext, saver = HandoverMemoUiStateSaver) {
         mutableStateOf(HandoverMemoUiState.default().withContext(sessionContext))
     }
+    var showDiscardConfirm by remember(sessionContext) { mutableStateOf(false) }
+    fun leaveMemoScreen() {
+        navController.navigateToSingleTop(PolicePhoneRoute.HandoverSummary)
+    }
+    fun requestBack() {
+        if (memoState.memoText.isBlank()) {
+            leaveMemoScreen()
+        } else {
+            showDiscardConfirm = true
+        }
+    }
+    BackHandler { requestBack() }
 
     LaunchedEffect(
         sessionContext.incidentId,
@@ -1193,7 +1361,7 @@ private fun HandoverMemoRoute(
 
     HandoverMemoScreen(
         state = memoState,
-        onBack = { navController.popBackStack() },
+        onBack = ::requestBack,
         onSelectTarget = { target ->
             memoState = memoState.copy(selectedTarget = target).withTargetContext(sessionContext)
         },
@@ -1216,12 +1384,25 @@ private fun HandoverMemoRoute(
 
                     is HandoverWriteResult.Enqueued -> {
                         onMemoSaved(true)
-                        navController.popBackStack()
+                        leaveMemoScreen()
                     }
                 }
             }
         }
     )
+    if (showDiscardConfirm) {
+        ConfirmLeaveDialog(
+            title = "작성 중인 메모를 폐기할까요?",
+            body = "저장하지 않은 인수인계 메모는 사라집니다.",
+            dismissText = "계속 작성",
+            confirmText = "폐기",
+            onDismiss = { showDiscardConfirm = false },
+            onConfirm = {
+                showDiscardConfirm = false
+                leaveMemoScreen()
+            }
+        )
+    }
 }
 
 @Composable
@@ -1393,11 +1574,12 @@ private fun SearchMapRoute(
     ) {
         mutableStateOf(SearchMapStateLoader().fallbackForRemember(sessionContext))
     }
-    var recordingSession by remember(
+    var recordingSession by rememberSaveable(
         sessionContext.incidentId,
         sessionContext.currentOpId,
         sessionContext.policePhoneId,
-        sessionContext.accountId
+        sessionContext.accountId,
+        saver = SearchRecordingSessionStateSaver
     ) {
         mutableStateOf(SearchRecordingSessionState())
     }
@@ -1421,7 +1603,11 @@ private fun SearchMapRoute(
     var lastSeenHandoverAt by remember(sessionContext) {
         mutableStateOf(context.readLastSeenHandoverAt(sessionContext))
     }
-    var bottomPanelExpanded by remember { mutableStateOf(false) }
+    var bottomPanelExpanded by rememberSaveable(
+        sessionContext.incidentId,
+        sessionContext.policePhoneId,
+        sessionContext.accountId
+    ) { mutableStateOf(false) }
     val debugCurrentLocationFix = remember { debugCurrentLocationFix() }
     var latestLocationFix by remember { mutableStateOf(debugCurrentLocationFix) }
     var latestGpsLocationFix by remember { mutableStateOf<GpsLocationFix?>(null) }
@@ -1432,6 +1618,8 @@ private fun SearchMapRoute(
     ) { SearchAreaBoundaryMonitor() }
     var markerSheetOpen by remember { mutableStateOf(false) }
     var markerSheetState by remember { mutableStateOf(MarkerCreateSheetUiState.default()) }
+    var showMarkerDiscardConfirm by remember { mutableStateOf(false) }
+    var showSearchLeaveConfirm by remember { mutableStateOf(false) }
     var createPhotoUriById by remember { mutableStateOf<Map<String, Uri>>(emptyMap()) }
     var pendingCreateCameraPhotoUri by remember { mutableStateOf<Uri?>(null) }
     var pendingCurrentLocationCenter by remember { mutableStateOf(false) }
@@ -1513,6 +1701,21 @@ private fun SearchMapRoute(
         context.writeLastSeenHandoverAt(sessionContext, seenAt)
         lastSeenHandoverAt = seenAt
         navController.navigateToSingleTop(PolicePhoneRoute.HandoverSummary)
+    }
+
+    fun leaveSearchMap() {
+        navController.navigateToIncidentListRoot()
+    }
+
+    fun requestMarkerSheetDismiss() {
+        if (markerSheetState.saveStatus == MarkerSaveStatus.Saving) {
+            return
+        }
+        if (markerSheetState.hasUnsavedCreateDraft()) {
+            showMarkerDiscardConfirm = true
+        } else {
+            markerSheetOpen = false
+        }
     }
 
     val locationPermissionLauncher =
@@ -1690,6 +1893,14 @@ private fun SearchMapRoute(
             localWarnings = LocalWarningUiState.from(localWarningSnapshot)
         ).withCurrentLocationViewport(latestLocationFix)
     val currentAssignedBoundaries by rememberUpdatedState(displayedSearchMapState.assignedTeamSearchAreaBoundaries())
+    BackHandler {
+        when {
+            markerSheetOpen -> requestMarkerSheetDismiss()
+            displayedLifecycle == SearchLifecycleStatus.Active ||
+                displayedLifecycle == SearchLifecycleStatus.Paused -> showSearchLeaveConfirm = true
+            else -> leaveSearchMap()
+        }
+    }
 
     LaunchedEffect(
         localWarningTickerNowMs,
@@ -1942,7 +2153,7 @@ private fun SearchMapRoute(
         if (markerSheetOpen) {
             MarkerCreateBottomSheet(
                 state = markerSheetState,
-                onDismiss = { markerSheetOpen = false },
+                onDismiss = ::requestMarkerSheetDismiss,
                 onSelectMarkerType = { type ->
                     markerSheetState =
                         markerSheetState.copy(
@@ -2005,6 +2216,35 @@ private fun SearchMapRoute(
                     } else {
                         createPhotoPicker.launch("image/*")
                     }
+                }
+            )
+        }
+        if (showMarkerDiscardConfirm) {
+            ConfirmLeaveDialog(
+                title = "작성 중인 마커를 폐기할까요?",
+                body = "저장하지 않은 마커 내용과 첨부 대기 사진은 사라집니다.",
+                dismissText = "계속 작성",
+                confirmText = "폐기",
+                onDismiss = { showMarkerDiscardConfirm = false },
+                onConfirm = {
+                    showMarkerDiscardConfirm = false
+                    markerSheetOpen = false
+                    createPhotoUriById = emptyMap()
+                    pendingCreateCameraPhotoUri = null
+                }
+            )
+        }
+        if (showSearchLeaveConfirm) {
+            ConfirmLeaveDialog(
+                title = "수색 기록을 유지하고 나갈까요?",
+                body = "지도 화면을 벗어나도 현재 수색 기록 상태는 유지됩니다. 종료하려면 지도에서 수색 종료를 눌러야 합니다.",
+                dismissText = "지도에 머무르기",
+                confirmText = "사건 화면",
+                confirmVariant = PoliButtonVariant.Primary,
+                onDismiss = { showSearchLeaveConfirm = false },
+                onConfirm = {
+                    showSearchLeaveConfirm = false
+                    leaveSearchMap()
                 }
             )
         }
@@ -2166,7 +2406,7 @@ private fun MarkerDetailRoute(
 
     MarkerDetailScreen(
         state = markerDetailState,
-        onBack = { navController.popBackStack() },
+        onBack = { navController.navigateToSingleTop(PolicePhoneRoute.SearchMap) },
         onMemoChange = { memo ->
             if (markerDetailState.canEdit) {
                 markerDetailState = markerDetailState.copy(memo = memo, mutationStatus = MarkerSaveStatus.Editing)
@@ -2360,9 +2600,10 @@ private fun OfflinePackageRoute(
 
     OfflinePackageScreen(
         state = state,
-        onBack = { navController.popBackStack() },
+        onBack = { navController.navigateToIncidentListRoot() },
         onOpenSearchMap = { navController.navigateToSingleTop(PolicePhoneRoute.SearchMap) },
-        onRetryFailedItems = { retryNonce += 1 }
+        onRetryFailedItems = { retryNonce += 1 },
+        onRefresh = { retryNonce += 1 }
     )
 }
 
@@ -2422,20 +2663,26 @@ private fun AuthBootstrapRoute(
     var state by remember {
         mutableStateOf(AuthBootstrapUiState.checking(apiBaseUrl = BuildConfig.SURI_MAP_API_BASE_URL))
     }
+    var refreshing by remember { mutableStateOf(false) }
 
     LaunchedEffect(retryNonce, assignmentRefreshNonce) {
-        val config = bootstrapCoordinator.readConfig()
-        state = AuthBootstrapUiState.checking(apiBaseUrl = config.apiBaseUrl)
-        val outcome = bootstrapCoordinator.check(config)
-        state = AuthBootstrapUiState.fromOutcome(outcome = outcome, apiBaseUrl = config.apiBaseUrl)
-        if (outcome is AuthBootstrapOutcome.Ready && state.shouldEnterIncidentList) {
-            incidentSessionState.activatePolicePhoneContext(config.toPolicePhoneContext(outcome, oidcSession))
-            navController.navigate(PolicePhoneRoute.IncidentList.route) {
-                popUpTo(PolicePhoneRoute.AuthBootstrap.route) {
-                    inclusive = true
+        refreshing = true
+        try {
+            val config = bootstrapCoordinator.readConfig()
+            state = AuthBootstrapUiState.checking(apiBaseUrl = config.apiBaseUrl)
+            val outcome = bootstrapCoordinator.check(config)
+            state = AuthBootstrapUiState.fromOutcome(outcome = outcome, apiBaseUrl = config.apiBaseUrl)
+            if (outcome is AuthBootstrapOutcome.Ready && state.shouldEnterIncidentList) {
+                incidentSessionState.activatePolicePhoneContext(config.toPolicePhoneContext(outcome, oidcSession))
+                navController.navigate(PolicePhoneRoute.IncidentList.route) {
+                    popUpTo(PolicePhoneRoute.AuthBootstrap.route) {
+                        inclusive = true
+                    }
+                    launchSingleTop = true
                 }
-                launchSingleTop = true
             }
+        } finally {
+            refreshing = false
         }
     }
 
@@ -2454,6 +2701,8 @@ private fun AuthBootstrapRoute(
                 retryNonce += 1
             }
         },
+        onRefresh = { retryNonce += 1 },
+        refreshing = refreshing,
         onExit = {
             context.findActivity()?.finish()
         }
@@ -3226,6 +3475,13 @@ private fun MarkerCreateSheetUiState.toMarkerUpsertInput(): MarkerUpsertInput =
             )
         }
     )
+
+private fun MarkerCreateSheetUiState.hasUnsavedCreateDraft(): Boolean =
+    memo.isNotBlank() ||
+        selectedType != MarkerType.CLUE ||
+        supportRequestType != null ||
+        photos.isNotEmpty() ||
+        manualLocationAdjusted
 
 private fun MarkerCreateSheetUiState.withCurrentLocation(location: MarkerLocation?): MarkerCreateSheetUiState =
     if (location == null) {

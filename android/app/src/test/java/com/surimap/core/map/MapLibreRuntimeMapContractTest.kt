@@ -87,9 +87,9 @@ class MapLibreRuntimeMapContractTest {
         val source = File("src/main/java/com/surimap/core/map/MapLibreRuntimeMap.kt").readText()
 
         assertTrue(overlay.signature().contains("Marker:$MARKER_ID:true"))
-        assertTrue(source.contains("CircleLayer("))
-        assertTrue(source.contains("supportsCircleLayer"))
-        assertTrue(source.contains("MapLibreGeometryOverlayKind.Marker -> true"))
+        assertTrue(source.contains("SymbolLayer("))
+        assertTrue(source.contains("supportsMarkerIconLayer"))
+        assertTrue(source.contains("kind == MapLibreGeometryOverlayKind.Marker"))
         assertTrue(source.contains("queryRenderedFeatures(point, *markerLayerIds)"))
         assertTrue(source.contains("latestMarkerClick(markerId)"))
     }

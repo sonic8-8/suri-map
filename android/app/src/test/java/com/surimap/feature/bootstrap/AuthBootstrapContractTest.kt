@@ -221,7 +221,7 @@ class AuthBootstrapContractTest {
         assertTrue(state.requiresAuthentication)
         assertNull(state.failureMessage)
         assertEquals("폴리폰 인증", state.title)
-        assertEquals("SSO로 계속", state.primaryActionLabel)
+        assertEquals("SSO 계정 인증", state.primaryActionLabel)
         assertTrue(state.visibleText().any { it.contains("SSO 인증") })
         assertTrue(state.visibleText().any { it.contains("자동으로 앱으로 돌아옵니다") })
         assertFalse(state.visibleText().any { it.contains("Keycloak") })
@@ -242,11 +242,11 @@ class AuthBootstrapContractTest {
         assertTrue(androidLogo.contains("M64,12C42,12 24,30 24,52"))
         assertTrue(androidLogo.contains("#D81F3C"))
         assertTrue(androidLogo.contains("#1D63B5"))
-        assertTrue(components.contains("R.drawable.surimap_logo_compact"))
+        assertTrue(components.contains("R.drawable.surimap_logo"))
         assertTrue(components.contains("painterResource"))
         assertFalse(components.contains("""Text(text = "수""""))
         assertTrue(authScreen.contains("PoliBrandMark()"))
-        assertTrue(authScreen.contains("AuthSignInGuideCard"))
+        assertTrue(File("src/main/res/drawable-nodpi/surimap_logo.png").exists())
     }
 
     @Test

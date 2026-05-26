@@ -133,7 +133,7 @@ class IncidentListStateLoaderTest {
     }
 
     @Test
-    fun networkFailureUsesOfflineStateAndKeepsRefreshDisabled() = runBlocking {
+    fun networkFailureUsesOfflineStateAndKeepsRefreshAvailable() = runBlocking {
         val loader =
             IncidentListStateLoader(
                 repository =
@@ -150,7 +150,7 @@ class IncidentListStateLoaderTest {
         val state = loader.load()
 
         assertEquals(IncidentListStatus.Offline, state.status)
-        assertFalse(state.canRefresh)
+        assertTrue(state.canRefresh)
     }
 
     @Test
