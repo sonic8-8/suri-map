@@ -115,8 +115,8 @@ private val ExpandedBottomPanelMapInset = 400.dp
 private val MapToastTopPadding = PoliDimens.Space3
 private val BottomSheetCollapsedHeight =
     PoliDimens.Space6 + PoliDimens.TouchGlove + PoliDimens.CtaHeight + (PoliDimens.Space2 * 3)
-private val BottomSheetMidHeight = BottomSheetCollapsedHeight + PoliDimens.CtaHeightLarge + PoliDimens.Space5
 private val BottomSheetMaxFallbackHeight = 400.dp
+private val BottomSheetExpandedExtraSpace = PoliDimens.Space4
 private const val MapOverlayButtonAlpha = 0.94f
 private const val PanelFlingThresholdPx = 650f
 private const val PackageWarningToastDurationMs = 4_000L
@@ -1132,19 +1132,19 @@ private fun SearchBottomPanel(
     val coroutineScope = rememberCoroutineScope()
     val collapsedHeightPx = with(density) { BottomSheetCollapsedHeight.toPx() }
     val navigationBarHeightPx = WindowInsets.navigationBars.getBottom(density).toFloat()
-    val midHeightPx = with(density) { BottomSheetMidHeight.toPx() }
     val fallbackExpandedHeightPx = with(density) { BottomSheetMaxFallbackHeight.toPx() }
     var measuredExpandedHeightPx by remember { mutableStateOf(fallbackExpandedHeightPx) }
+    val expandedExtraSpacePx = with(density) { BottomSheetExpandedExtraSpace.toPx() }
     val expandedHeightPx =
-        measuredExpandedHeightPx
+        (measuredExpandedHeightPx + expandedExtraSpacePx)
             .coerceAtLeast(fallbackExpandedHeightPx)
-            .coerceAtLeast(midHeightPx)
     val panelHeight = remember {
         Animatable(if (state.bottomPanelExpanded) fallbackExpandedHeightPx else collapsedHeightPx)
     }
     val panelHeightPx = panelHeight.value.coerceIn(collapsedHeightPx, expandedHeightPx)
-    val sheetExpanded = panelHeightPx > (collapsedHeightPx + midHeightPx) / 2f
-    val expandedContentVisible = panelHeightPx > collapsedHeightPx + 1f
+    val expansionThresholdPx = (collapsedHeightPx + expandedHeightPx) / 2f
+    val sheetExpanded = panelHeightPx > expansionThresholdPx
+    val expandedContentVisible = sheetExpanded
     val effectiveNavigationBarHeightPx =
         navigationBarHeightPx.coerceAtMost(with(density) { PoliDimens.Space5.toPx() })
     val contentTopPadding = PoliDimens.Space2
@@ -1197,7 +1197,6 @@ private fun SearchBottomPanel(
                             velocity = velocity,
                             positiveVelocityExpands = false,
                             collapsedHeightPx,
-                            midHeightPx,
                             expandedHeightPx
                         )
                     coroutineScope.launch {
@@ -1210,7 +1209,7 @@ private fun SearchBottomPanel(
                                 )
                         )
                     }
-                    val expanded = snappedHeight > collapsedHeightPx + 1f
+                    val expanded = snappedHeight == expandedHeightPx
                     if (state.bottomPanelExpanded != expanded) {
                         onToggleBottomPanel()
                     }
@@ -1258,7 +1257,6 @@ private fun SearchBottomPanel(
                     if (state.lifecycleTitle.isNotBlank() || state.lifecycleMessage.isNotBlank()) {
                         SearchLifecycleMessage(state = state)
                     }
-                    SearchStatusCard(state = state)
                     WriteAvailabilityRow(state = state)
                     Row(horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space2)) {
                         AreaFocusGroup(
@@ -1615,29 +1613,6 @@ private fun SearchLifecycleMessage(state: SearchMapUiState) {
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
-        }
-    }
-}
-
-@Composable
-private fun SearchStatusCard(state: SearchMapUiState) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        color = PoliBgBase,
-        contentColor = PoliFgPrimary,
-        border = androidx.compose.foundation.BorderStroke(1.dp, PoliBorder)
-    ) {
-        Row(
-            modifier = Modifier.padding(PoliDimens.Space4),
-            horizontalArrangement = Arrangement.spacedBy(PoliDimens.Space3),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            SearchStatusDot(state.lifecycleStatus)
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(PoliDimens.Space1)) {
-                Text(text = state.movementSummary, style = MaterialTheme.typography.bodyMedium, color = PoliFgMuted)
-            }
-            Text(text = state.elapsedLabel, style = MaterialTheme.typography.titleMedium)
         }
     }
 }
