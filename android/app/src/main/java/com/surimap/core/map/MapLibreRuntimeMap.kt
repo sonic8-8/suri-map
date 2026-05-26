@@ -320,18 +320,21 @@ fun SuriMapLibreMap(
     state: MapLibreRuntimeMapState,
     modifier: Modifier = Modifier,
     onLoadFailed: (String) -> Unit = {},
-    onMarkerClick: (String) -> Unit = {}
+    onMarkerClick: (String) -> Unit = {},
+    onViewportBoundsChanged: (MapLibreViewportBounds) -> Unit = {}
 ) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val latestLoadFailed by rememberUpdatedState(onLoadFailed)
     val latestMarkerClick by rememberUpdatedState(onMarkerClick)
+    val latestViewportBoundsChanged by rememberUpdatedState(onViewportBoundsChanged)
     val latestMapState by rememberUpdatedState(state)
     var appliedStyleUrl by remember { mutableStateOf<String?>(null) }
     var appliedOverlaySignature by remember { mutableStateOf<String?>(null) }
     var appliedOverlayStyleIds by remember { mutableStateOf(emptySet<String>()) }
     var appliedCameraSignature by remember { mutableStateOf<String?>(null) }
     var markerClickListener by remember { mutableStateOf<MapLibreMap.OnMapClickListener?>(null) }
+    var cameraIdleListener by remember { mutableStateOf<MapLibreMap.OnCameraIdleListener?>(null) }
     val mapView = remember {
         MapLibre.getInstance(context.applicationContext)
         MapView(context).apply { onCreate(Bundle()) }
@@ -360,6 +363,11 @@ fun SuriMapLibreMap(
             markerClickListener?.let { listener ->
                 mapView.getMapAsync { mapLibreMap ->
                     mapLibreMap.removeOnMapClickListener(listener)
+                }
+            }
+            cameraIdleListener?.let { listener ->
+                mapView.getMapAsync { mapLibreMap ->
+                    mapLibreMap.removeOnCameraIdleListener(listener)
                 }
             }
             lifecycle.removeObserver(observer)
@@ -406,6 +414,16 @@ fun SuriMapLibreMap(
                         }
                     mapLibreMap.addOnMapClickListener(listener)
                     markerClickListener = listener
+                }
+                if (cameraIdleListener == null) {
+                    val listener =
+                        MapLibreMap.OnCameraIdleListener {
+                            mapLibreMap.projection.visibleRegion.latLngBounds
+                                .toMapLibreViewportBoundsOrNull()
+                                ?.let(latestViewportBoundsChanged)
+                        }
+                    mapLibreMap.addOnCameraIdleListener(listener)
+                    cameraIdleListener = listener
                 }
                 fun applyRuntimeState(style: Style) {
                     if (appliedOverlaySignature != overlaySignature) {
@@ -454,6 +472,19 @@ fun SuriMapLibreMap(
         }
     )
 }
+
+private fun LatLngBounds.toMapLibreViewportBoundsOrNull(): MapLibreViewportBounds? =
+    MapLibreViewportBounds(
+        south = latitudeSouth,
+        west = longitudeWest,
+        north = latitudeNorth,
+        east = longitudeEast
+    ).takeIf { bounds ->
+        bounds.south.isFinite() &&
+            bounds.west.isFinite() &&
+            bounds.north.isFinite() &&
+            bounds.east.isFinite()
+    }
 
 private fun installMapLibreTileHttp(context: Context, state: MapLibreRuntimeMapState) {
     if (BuildConfig.DEBUG && state.apiBaseUrl.isLoopbackHttpBaseUrl()) {

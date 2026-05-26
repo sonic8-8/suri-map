@@ -172,6 +172,17 @@ class MapLibreRuntimeMapContractTest {
         assertTrue(source.contains("CameraUpdateFactory.newLatLngBounds"))
     }
 
+    @Test
+    fun runtimeMapReportsCameraIdleViewportBounds() {
+        val source = File("src/main/java/com/surimap/core/map/MapLibreRuntimeMap.kt").readText()
+
+        assertTrue(source.contains("onViewportBoundsChanged: (MapLibreViewportBounds) -> Unit"))
+        assertTrue(source.contains("addOnCameraIdleListener"))
+        assertTrue(source.contains("removeOnCameraIdleListener"))
+        assertTrue(source.contains("visibleRegion.latLngBounds"))
+        assertTrue(source.contains("toMapLibreViewportBoundsOrNull()"))
+    }
+
     private companion object {
         val POLICE_PHONE_ID = policePhoneIdFixture("1")
         val OVERALL_AREA_ID = areaIdFixture("overall-001")

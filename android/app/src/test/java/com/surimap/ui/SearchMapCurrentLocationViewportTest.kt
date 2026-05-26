@@ -96,4 +96,29 @@ class SearchMapCurrentLocationViewportTest {
 
         assertEquals(centered.viewportBounds, preserved.viewportBounds)
     }
+
+    @Test
+    fun restoredViewportOverridesFreshServerAreaViewport() {
+        val restored =
+            SearchMapViewportBounds(
+                south = 35.173543,
+                west = 126.909345,
+                north = 35.179543,
+                east = 126.915345
+            )
+        val serverLoaded =
+            SearchMapUiState.active().copy(
+                viewportBounds =
+                SearchMapViewportBounds(
+                    south = 35.0,
+                    west = 126.7,
+                    north = 35.3,
+                    east = 127.0
+                )
+            )
+
+        val restoredState = serverLoaded.restoreViewport(restored)
+
+        assertEquals(restored, restoredState.viewportBounds)
+    }
 }

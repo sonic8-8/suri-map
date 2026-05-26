@@ -53,4 +53,11 @@ class MarkerDetailRouteWiringTest {
         assertTrue(clockSyncIndex >= 0)
         assertTrue(clockSyncIndex < payloadIndex)
     }
+
+    @Test
+    fun markerDetailRouteUsesCloseLabelWhenOpenedAsModal() {
+        val source = java.io.File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+
+        assertTrue(source.contains("closeLabel = if (onClose != null) \"닫기\" else \"목록으로\""))
+    }
 }

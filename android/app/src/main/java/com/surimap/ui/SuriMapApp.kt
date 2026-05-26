@@ -59,6 +59,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.navigation.NavHostController
@@ -358,6 +359,7 @@ fun SuriMapApp() {
     var searchPathEnded by remember { mutableStateOf<SearchPathEndedToastState?>(null) }
     var markerAlert by remember { mutableStateOf<IncidentAlertUiState?>(null) }
     var showIncidentExitConfirm by remember { mutableStateOf(false) }
+    var searchMapViewportByIncident by remember { mutableStateOf<Map<String, SearchMapViewportBounds>>(emptyMap()) }
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = PolicePhoneRoutes.fromNavigationRoute(currentBackStackEntry?.destination?.route)
     val showIncidentBottomNavigation =
@@ -514,6 +516,13 @@ fun SuriMapApp() {
                             navController = navController,
                             focusMarkerId = backStackEntry.arguments?.getString(SearchMapDeepLink.FocusMarkerIdArg),
                             clockSyncState = clockSyncState,
+                            restoredViewportBounds =
+                            incidentSessionState.incidentContext
+                                ?.incidentId
+                                ?.let(searchMapViewportByIncident::get),
+                            onViewportBoundsChanged = { incidentId, bounds ->
+                                searchMapViewportByIncident = searchMapViewportByIncident + (incidentId to bounds)
+                            },
                             onOpenBlockedOutbox = {
                                 navController.navigateToIncidentTopLevel(PolicePhoneRoute.BlockedOutbox)
                             },
@@ -1449,6 +1458,8 @@ private fun SearchMapRoute(
     navController: NavHostController,
     focusMarkerId: String? = null,
     clockSyncState: ClockSyncState,
+    restoredViewportBounds: SearchMapViewportBounds? = null,
+    onViewportBoundsChanged: (String, SearchMapViewportBounds) -> Unit = { _, _ -> },
     onOpenBlockedOutbox: () -> Unit,
     onRequestIncidentExit: () -> Unit,
     onSearchPathEnded: (pendingSync: Boolean) -> Unit
@@ -1460,6 +1471,7 @@ private fun SearchMapRoute(
     val outboxDao = remember(database) { database.outboxDao() }
     val offlinePackageInstallationDao = remember(database) { database.offlinePackageInstallationDao() }
     val sessionContext = incidentContext.toSearchMapSessionContext(policePhoneContext)
+    val initialRestoredViewportBounds = remember(sessionContext.incidentId) { restoredViewportBounds }
     val accessTokenProvider = policePhoneContext.accessTokenProvider()
     val apiBaseUrl = policePhoneContext?.apiBaseUrl ?: BuildConfig.SURI_MAP_API_BASE_URL
     val dutyShiftReadRepository =
@@ -1611,7 +1623,11 @@ private fun SearchMapRoute(
         sessionContext.policePhoneId,
         sessionContext.accountId
     ) {
-        mutableStateOf(SearchMapStateLoader().fallbackForRemember(sessionContext))
+        mutableStateOf(
+            SearchMapStateLoader()
+                .fallbackForRemember(sessionContext)
+                .restoreViewport(initialRestoredViewportBounds)
+        )
     }
     var recordingSession by rememberSaveable(
         sessionContext.incidentId,
@@ -1656,6 +1672,7 @@ private fun SearchMapRoute(
         sessionContext.policePhoneId
     ) { SearchAreaBoundaryMonitor() }
     var markerSheetOpen by remember { mutableStateOf(false) }
+    var markerDetailModalId by rememberSaveable(sessionContext.incidentId) { mutableStateOf<String?>(null) }
     var markerSheetState by remember { mutableStateOf(MarkerCreateSheetUiState.default()) }
     var showMarkerDiscardConfirm by remember { mutableStateOf(false) }
     var showSearchLeaveConfirm by remember { mutableStateOf(false) }
@@ -1869,7 +1886,10 @@ private fun SearchMapRoute(
             .preserveViewportFrom(searchMapState)
 
     LaunchedEffect(loader, sessionContext, focusMarkerId) {
-        searchMapState = loader.fallback(sessionContext).withFocusedMarker(focusMarkerId)
+        searchMapState =
+            loader.fallback(sessionContext)
+                .withFocusedMarker(focusMarkerId)
+                .restoreViewport(initialRestoredViewportBounds)
         suspend fun refreshServerState() {
             searchMapState = loadServerStatePreservingViewport()
         }
@@ -2171,7 +2191,7 @@ private fun SearchMapRoute(
                 navController.navigateToSingleTop(SearchMapDeepLink.markerFocusRoute(markerId))
             },
             onOpenFocusedMarkerDetail = { markerId ->
-                navController.navigateToSingleTop(MarkerDetailDeepLink.route(markerId))
+                markerDetailModalId = markerId
             },
             onCenterCurrentLocation = {
                 if (context.hasLocationPermission()) {
@@ -2185,11 +2205,25 @@ private fun SearchMapRoute(
                     )
                 }
             },
+            onViewportBoundsChanged = { bounds ->
+                sessionContext.incidentId?.takeIf(String::isNotBlank)?.let { incidentId ->
+                    onViewportBoundsChanged(incidentId, bounds)
+                }
+            },
             onFocusSearchArea = { kind, overlayId ->
                 searchMapState = searchMapState.centerOnSearchLayer(kind, overlayId)
             },
             onToggleBottomPanel = { bottomPanelExpanded = !bottomPanelExpanded }
         )
+        markerDetailModalId?.let { markerId ->
+            MarkerDetailModal(
+                incidentSessionState = incidentSessionState,
+                navController = navController,
+                markerId = markerId,
+                clockSyncState = clockSyncState,
+                onDismiss = { markerDetailModalId = null }
+            )
+        }
         if (markerSheetOpen) {
             MarkerCreateBottomSheet(
                 state = markerSheetState,
@@ -2292,11 +2326,45 @@ private fun SearchMapRoute(
 }
 
 @Composable
+private fun MarkerDetailModal(
+    incidentSessionState: IncidentSessionState,
+    navController: NavHostController,
+    markerId: String,
+    clockSyncState: ClockSyncState,
+    onDismiss: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(horizontal = PoliDimens.Space3, vertical = PoliDimens.Space5),
+            shape = MaterialTheme.shapes.large,
+            tonalElevation = 6.dp
+        ) {
+            MarkerDetailRoute(
+                incidentSessionState = incidentSessionState,
+                navController = navController,
+                markerId = markerId,
+                clockSyncState = clockSyncState,
+                onClose = onDismiss,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+    }
+}
+
+@Composable
 private fun MarkerDetailRoute(
     incidentSessionState: IncidentSessionState,
     navController: NavHostController,
     markerId: String?,
-    clockSyncState: ClockSyncState
+    clockSyncState: ClockSyncState,
+    onClose: (() -> Unit)? = null,
+    modifier: Modifier = Modifier
 ) {
     val incidentContext = incidentSessionState.incidentContext
     val policePhoneContext = incidentSessionState.policePhoneContext
@@ -2446,7 +2514,7 @@ private fun MarkerDetailRoute(
 
     MarkerDetailScreen(
         state = markerDetailState,
-        onBack = { navController.navigateBackToParentRoute(PolicePhoneRoute.SearchMap) },
+        onBack = onClose ?: { navController.navigateBackToParentRoute(PolicePhoneRoute.SearchMap) },
         onMemoChange = { memo ->
             if (markerDetailState.canEdit) {
                 markerDetailState = markerDetailState.copy(memo = memo, mutationStatus = MarkerSaveStatus.Editing)
@@ -2519,7 +2587,9 @@ private fun MarkerDetailRoute(
         },
         onOpenPhoto = { photo ->
             context.openMarkerPhoto(photo.viewUrl)
-        }
+        },
+        closeLabel = if (onClose != null) "닫기" else "목록으로",
+        modifier = modifier
     )
 }
 
@@ -3617,6 +3687,9 @@ internal fun SearchMapUiState.centerOnCurrentLocation(fix: GpsLocationFix): Sear
 
 internal fun SearchMapUiState.preserveViewportFrom(previous: SearchMapUiState): SearchMapUiState =
     previous.viewportBounds?.let { bounds -> copy(viewportBounds = bounds) } ?: this
+
+internal fun SearchMapUiState.restoreViewport(bounds: SearchMapViewportBounds?): SearchMapUiState =
+    bounds?.let { copy(viewportBounds = it) } ?: this
 
 private fun SearchMapUiState.assignedTeamSearchAreaBoundaries(): List<AssignedSearchAreaBoundary> =
     layers

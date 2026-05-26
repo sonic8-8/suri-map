@@ -306,6 +306,7 @@ fun MarkerDetailScreen(
     onPickPhoto: () -> Unit,
     onRetryPhoto: (MarkerDetailPhotoUiState) -> Unit,
     onOpenPhoto: (MarkerDetailPhotoUiState) -> Unit,
+    closeLabel: String = "목록으로",
     modifier: Modifier = Modifier
 ) {
     Box(modifier = modifier.fillMaxSize().background(PoliBgBase)) {
@@ -347,6 +348,7 @@ fun MarkerDetailScreen(
             }
             MarkerDetailActions(
                 state = state,
+                closeLabel = closeLabel,
                 onBack = onBack,
                 onSave = onSave,
                 onRequestDelete = onRequestDelete
@@ -533,6 +535,7 @@ private fun MarkerMetaCard(state: MarkerDetailUiState) {
 @Composable
 private fun MarkerDetailActions(
     state: MarkerDetailUiState,
+    closeLabel: String,
     onBack: () -> Unit,
     onSave: () -> Unit,
     onRequestDelete: () -> Unit
@@ -553,7 +556,7 @@ private fun MarkerDetailActions(
             }
         } else {
             PoliButton(
-                text = "목록으로",
+                text = closeLabel,
                 onClick = onBack,
                 modifier = Modifier.fillMaxWidth(),
                 variant = PoliButtonVariant.Secondary

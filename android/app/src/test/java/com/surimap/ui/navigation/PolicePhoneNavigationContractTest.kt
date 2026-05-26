@@ -131,6 +131,19 @@ class PolicePhoneNavigationContractTest {
     }
 
     @Test
+    fun searchMapMarkerDetailUsesModalInsteadOfRouteNavigation() {
+        val source = File("src/main/java/com/surimap/ui/SuriMapApp.kt").readText()
+        val routeIndex = source.indexOf("private fun SearchMapRoute(")
+        val routeEndIndex = source.indexOf("private fun MarkerDetailModal(", routeIndex)
+        val searchMapRoute = source.substring(routeIndex, routeEndIndex)
+
+        assertTrue(searchMapRoute.contains("var markerDetailModalId by rememberSaveable"))
+        assertTrue(searchMapRoute.contains("markerDetailModalId = markerId"))
+        assertTrue(searchMapRoute.contains("MarkerDetailModal("))
+        assertFalse(searchMapRoute.contains("MarkerDetailDeepLink.route(markerId)"))
+    }
+
+    @Test
     fun incidentSessionHolderClearsIncidentContext() {
         val holder = IncidentSessionState()
 
